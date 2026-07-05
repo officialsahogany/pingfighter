@@ -235,6 +235,20 @@ var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
 var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
 var _satiety_penalty_exempt := false
 var _hatch_stat_roll_state: Object = LingpetHatchStatRollState.new()
+# Shell-break cinematic sequencer: the final counted egg hit no longer opens the
+# acquire cut-in on the same frame. Instead the egg runs the 1.5s scripted
+# shell-break (roll / staged cracks / light leak, state-owned motion), the shell
+# bursts (hatch flash + shard burst), holds briefly so the burst reads, and only
+# THEN commits the deferred hatch (_finish_regular_hatch / _begin_overflow_hatch)
+# which opens the cut-in. Battle physics is paused for the whole window via the
+# modal gate (is_hatch_break_active), so the clock advances from the frame
+# controller's ungated idle pump via advance_hatch_break() -- mirrors the
+# acquire cut-in's own pump contract.
+const HATCH_BREAK_BURST_HOLD_SECONDS := 0.45
+const HATCH_PENDING_KIND_REGULAR := "regular"
+const HATCH_PENDING_KIND_OVERFLOW := "overflow"
+var _hatch_break_pending_kind := ""
+var _hatch_break_burst_hold := 0.0
 var _audio_dispatcher: Object = LingpetAudioDispatcher.new()
 var _current_pet_transition: Object = LingpetCurrentPetTransition.new()
 # Distance-roll state owns frame-to-frame drawn-position movement so override-held
@@ -320,6 +334,12 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		return none_changed
 
 	if _state == STATE_EGG:
+		# The shell-break sequencer owns the egg between the final hit and the
+		# acquire cut-in (the modal gate holds battle physics; advance_hatch_break
+		# is pumped from the ungated idle path). Guard here too so a stray gated
+		# tick cannot fight the scripted roll or re-resolve the already-hatched egg.
+		if is_hatch_break_active():
+			return false
 		sample_start = _perf_probe.begin(perf_logger)
 		var egg_phase_part_start: int = _perf_probe.begin(perf_logger)
 		_egg_state.update_player_contact(delta, owner, registry)
@@ -452,7 +472,9 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			owner,
 			registry,
 			_item_egg_state,
-			REQUIRED_HITS
+			REQUIRED_HITS,
+			# 코이그지스트 인큐베이터 알도 공에 맞으면 메인 알과 동일한 히트 사운드를 낸다.
+			func() -> void: _audio_dispatcher.play_lingpet_egg_hit(registry)
 		))
 		if hatched_item_egg_pet_id != "":
 			_acquire_cutin_state.start(hatched_item_egg_pet_id)
@@ -544,6 +566,7 @@ func deploy_egg_from_item(owner: Object, registry: Object = null) -> bool:
 	if _state != STATE_NONE:
 		return false
 	_state = STATE_EGG
+	_reset_hatch_break_sequence()
 	_set_current_pet_id(pet_id)
 	_apply_companion_position_surface(_companion_runtime_resetter.reset_to_egg_wait(
 		_build_companion_runtime_reset_context(owner, registry, true, true)
@@ -634,7 +657,21 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 	if canvas == null:
 		return
 	if _state == STATE_EGG:
-		var required_hits: int = _profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+		if _egg_state.is_hatch_break_active():
+			_egg_renderer.draw_hatch_break_egg(
+				canvas,
+				_egg_state.pos + shake_offset,
+				float(_egg_state.get_hatch_break_progress()),
+				_egg_state.wobble_angle,
+				_egg_state.egg_color_index,
+				_egg_state.roll_angle
+			)
+			return
+		if _hatch_break_burst_hold > 0.0:
+			# Shell just burst: the body is gone; the shard burst + flash render
+			# in the front pass until the deferred hatch commits.
+			return
+		var required_hits: int = _get_main_egg_required_hits()
 		_egg_renderer.draw_egg(
 			canvas,
 			_egg_state.pos + shake_offset,
@@ -655,7 +692,7 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 			canvas,
 			_item_egg_state.pos + shake_offset,
 			_item_egg_state.hatch_hits,
-			_item_egg_lifecycle_state.get_required_hits(REQUIRED_HITS),
+			_get_item_egg_required_hits(),
 			_item_egg_state.wobble_angle,
 			_item_egg_state.egg_color_index,
 			_item_egg_state.roll_angle
@@ -777,6 +814,67 @@ func set_headbutt_force_mega_roll_for_tests(value: float) -> void:
 
 func is_acquire_cutin_active() -> bool:
 	return _acquire_cutin_state.active
+
+
+# True through the whole shell-break window: the state-scripted break motion
+# PLUS the post-burst hold before the deferred hatch commit opens the cut-in.
+# The modal gate reads this to hold battle physics (mirrors the cut-in).
+func is_hatch_break_active() -> bool:
+	return _egg_state.is_hatch_break_active() or _hatch_break_burst_hold > 0.0
+
+
+# Pumped from the frame controller's ungated idle path while the modal gate
+# holds battle physics (mirrors advance_acquire_cutin): drives the scripted
+# shell-break motion, bursts the shell on completion, then runs a short hold so
+# the shard burst reads before the acquire cut-in covers it.
+func advance_hatch_break(delta: float, owner: Object = null, registry: Object = null) -> void:
+	if not is_hatch_break_active():
+		return
+	# Keep streaming the heavy cut-in sheets through the break window too, so the
+	# reveal opens on the Live2D animation instead of the static fallback.
+	_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
+		_acquire_cutin_state.get_display_pet_id(_pet_id),
+		registry,
+		_acquire_cutin_overlay_host_resolver
+	)
+	if _egg_state.is_hatch_break_active():
+		if _egg_state.advance_hatch_break(delta):
+			# Shell burst: destroy the shell visual now; the cut-in waits out the hold.
+			_egg_state.trigger_hatch_flash(LingpetEggFieldRenderer.HATCH_FLASH_SECONDS)
+			_hatch_break_burst_hold = HATCH_BREAK_BURST_HOLD_SECONDS
+			if _hatch_break_burst_hold <= 0.0:
+				# A zero-tuned hold must still commit -- otherwise the pump's own
+				# is_hatch_break_active() gate would never re-enter and the hatch
+				# would strand behind a permanently-held modal gate.
+				_commit_pending_hatch(owner, registry)
+		return
+	# Burst hold: tick the flash while physics is paused, then commit the hatch.
+	_egg_state.advance(delta)
+	_hatch_break_burst_hold = maxf(0.0, _hatch_break_burst_hold - maxf(0.0, delta))
+	if _hatch_break_burst_hold <= 0.0:
+		_commit_pending_hatch(owner, registry)
+
+
+func _commit_pending_hatch(owner: Object, registry: Object = null) -> void:
+	var pending_kind := _hatch_break_pending_kind
+	_hatch_break_pending_kind = ""
+	_hatch_break_burst_hold = 0.0
+	if pending_kind == HATCH_PENDING_KIND_OVERFLOW:
+		_begin_overflow_hatch(owner, registry)
+	elif pending_kind == HATCH_PENDING_KIND_REGULAR:
+		_finish_regular_hatch(owner, registry)
+	else:
+		return
+	# The commit runs from the ungated idle pump, and the gated update tick that
+	# used to sync the owner right after the hatch is held by the modal gate for
+	# the whole upcoming cut-in -- publish the companion state keys here instead.
+	if owner != null:
+		_sync_owner(owner, registry)
+
+
+func _reset_hatch_break_sequence() -> void:
+	_hatch_break_pending_kind = ""
+	_hatch_break_burst_hold = 0.0
 
 
 # Advanced from the ungated idle pump (process_idle), so the reveal AND the exit
@@ -945,14 +1043,23 @@ func debug_grant_and_activate_pet(
 	passive_skill_id: String = "",
 	registry: Object = null,
 	active_skill_level: int = 1,
-	passive_skill_level: int = 1
+	passive_skill_level: int = 1,
+	second_active_skill_id: String = "",
+	second_passive_skill_id: String = "",
+	second_active_skill_level: int = 1,
+	second_passive_skill_level: int = 1
 ) -> bool:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return false
 	_invalidate_runtime_snapshot_cache()
 	_companion_skill_persistence.save_current(_pet_id, _companion_skill_states)
-	var has_explicit_loadout := active_skill_id.strip_edges() != "" or passive_skill_id.strip_edges() != ""
+	var has_explicit_loadout := (
+		active_skill_id.strip_edges() != ""
+		or passive_skill_id.strip_edges() != ""
+		or second_active_skill_id.strip_edges() != ""
+		or second_passive_skill_id.strip_edges() != ""
+	)
 	if has_explicit_loadout:
 		_loadout_state.set_pet_loadout_and_invalidate(
 			owner,
@@ -961,7 +1068,11 @@ func debug_grant_and_activate_pet(
 			passive_skill_id,
 			active_skill_level,
 			passive_skill_level,
-			_snapshot_builder
+			_snapshot_builder,
+			second_active_skill_id,
+			second_passive_skill_id,
+			second_active_skill_level,
+			second_passive_skill_level
 		)
 	else:
 		_loadout_state.sync_from_owner(owner)
@@ -998,7 +1109,7 @@ func get_plaza_resonance_egg_offer(owner: Object) -> Dictionary:
 			and not _overflow_choice_state.has_pending_or_active()
 			and _collection_state.should_spawn_egg(owner),
 		_egg_state.hatch_hits,
-		_profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+		_get_main_egg_required_hits()
 	)
 
 
@@ -1016,7 +1127,7 @@ func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictio
 			LingpetPlazaResonanceEggSummaryBuilder.REASON_NO_HATCH_CANDIDATES,
 			_state,
 			_egg_state.hatch_hits,
-			_profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+			_get_main_egg_required_hits()
 		)
 
 	if _state == STATE_COMPANION:
@@ -1025,6 +1136,7 @@ func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictio
 	else:
 		_overflow_choice_state.begin_main_egg("")
 	_state = STATE_EGG
+	_reset_hatch_break_sequence()
 	_set_current_pet_id(hatch_pet_id)
 	_apply_companion_position_surface(_companion_runtime_resetter.reset_to_egg_wait(
 		_build_companion_runtime_reset_context(owner, registry, true, true)
@@ -1035,7 +1147,7 @@ func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictio
 		LingpetPlazaResonanceEggSummaryBuilder.REASON_OK,
 		_state,
 		_egg_state.hatch_hits,
-		_profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+		_get_main_egg_required_hits()
 	)
 
 
@@ -1489,7 +1601,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	var snapshot: Dictionary = _snapshot_builder.build_runtime_snapshot(
 		_pet_id,
 		_state,
-		int(profile_surface.get("required_hits", REQUIRED_HITS)),
+		_egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))),
 		_companion_pos,
 		float(profile_surface.get("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0)),
 		float(profile_surface.get("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)),
@@ -1605,7 +1717,7 @@ func get_save_snapshot() -> Dictionary:
 		_pet_id,
 		_state,
 		_egg_state.hatch_hits,
-		_profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS),
+		_get_main_egg_required_hits(),
 		_egg_state.pos,
 		_egg_state.egg_color_index,
 		_companion_pos,
@@ -1639,6 +1751,7 @@ func import_affinity_run_state(run_state: Dictionary) -> void:
 func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
 	_invalidate_runtime_snapshot_cache()
 	_overflow_choice_state.reset()
+	_reset_hatch_break_sequence()
 	return _save_restore_applier.apply(
 		snapshot,
 		owner,
@@ -1677,6 +1790,7 @@ func reset_for_tests() -> void:
 	_affinity_grant_controller.clear_last_result()
 	_satiety_penalty_exempt = false
 	_egg_state.reset_all()
+	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
 	_collection_state.reset()
@@ -1728,6 +1842,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 func _clear_lingpet_field_state() -> void:
 	_invalidate_runtime_snapshot_cache()
 	_state = STATE_NONE
+	_reset_hatch_break_sequence()
 	_satiety_penalty_exempt = false
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
@@ -1808,7 +1923,7 @@ func _build_companion_activation_context(
 	var context: Dictionary = _build_companion_runtime_reset_context(owner, registry, true, false)
 	context["reset_position"] = reset_position
 	context["set_egg_hatched"] = set_egg_hatched
-	context["required_hits"] = _profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+	context["required_hits"] = _get_main_egg_required_hits()
 	context["restore_current_skill_state"] = true
 	context["reset_switch_transition"] = reset_switch_transition
 	context["reset_acquire_cutin"] = reset_acquire_cutin
@@ -1850,12 +1965,13 @@ func _build_hatch_reveal_context(
 	start_acquire_cutin: bool,
 	play_acquire_cutin_audio: bool,
 	perf_logger: Object = null,
-	perf_label_prefix: String = ""
+	perf_label_prefix: String = "",
+	hatch_flash_seconds: float = LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
 ) -> Dictionary:
 	return {
 		"registry": registry,
 		"egg_state": _egg_state,
-		"hatch_flash_seconds": LingpetEggFieldRenderer.HATCH_FLASH_SECONDS,
+		"hatch_flash_seconds": hatch_flash_seconds,
 		"switch_transition_state": _switch_transition_state,
 		"acquire_cutin_state": _acquire_cutin_state,
 		"start_acquire_cutin": start_acquire_cutin,
@@ -1886,17 +2002,43 @@ func _apply_companion_position_surface(position_surface: Dictionary) -> void:
 func _spawn_egg(owner: Object, registry: Object = null) -> void:
 	_tutorial_bootstrap.grant_standard_ring_core_if_needed(owner, _collection_state, _affinity_state)
 	_state = STATE_EGG
+	_reset_hatch_break_sequence()
 	_set_current_pet_id(_collection_state.pick_hatch_pet_id(owner))
 	_apply_companion_position_surface(_companion_runtime_resetter.reset_to_egg_wait(
 		_build_companion_runtime_reset_context(owner, registry, true, true)
 	))
+	# Junior's auto-present starter egg always pops on the first hit (tutorial
+	# convenience); the rolled 2/3-hit tiers are reserved for eggs earned later.
+	if _collection_state.is_auto_present_league(owner):
+		_egg_state.set_required_hits(1)
 	_sync_owner(owner)
+
+
+# Per-egg hatch difficulty: the spawn-time roll on the egg state is the
+# authority; the profile/catalog value is only the legacy fallback for
+# unrolled states (e.g. restored pre-roll saves).
+func _get_main_egg_required_hits() -> int:
+	return _egg_state.get_required_hits(
+		_profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS)
+	)
+
+
+func _get_item_egg_required_hits() -> int:
+	return _item_egg_state.get_required_hits(
+		_item_egg_lifecycle_state.get_required_hits(REQUIRED_HITS)
+	)
 
 
 func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Object = null) -> bool:
 	var hatch_resolve_part_start: int = _perf_probe.begin(perf_logger)
-	var hit_result: Dictionary = _egg_state.resolve_ball_hit(owner, _profile_runtime_surface.get_required_hits(_current_profile, REQUIRED_HITS))
+	var hit_result: Dictionary = _egg_state.resolve_ball_hit(owner, _get_main_egg_required_hits())
 	_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.ball_hit", hatch_resolve_part_start)
+	if bool(hit_result.get("hit", false)):
+		# 링펫알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 랜덤 재생. 실제 물리 충돌
+		# (패들 바운스)이 일어난 모든 히트마다 재생하며, counted 여부는 보지 않는다.
+		# 단, 플레이어가 서브로 발사한 공은 알과 타격판정 자체를 하지 않아 hit=false로
+		# 통과하므로 여기 SFX 경로에도 진입하지 않는다(바운스도 없음).
+		_audio_dispatcher.play_lingpet_egg_hit(registry)
 	if not bool(hit_result.get("changed", false)):
 		return false
 
@@ -1904,14 +2046,18 @@ func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Obje
 		hatch_resolve_part_start = _perf_probe.begin(perf_logger)
 		_collection_state.sync_from_owner(owner)
 		_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.collection_sync", hatch_resolve_part_start)
-		if _collection_state.is_full(owner):
-			hatch_resolve_part_start = _perf_probe.begin(perf_logger)
-			_begin_overflow_hatch(owner, registry, perf_logger)
-			_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.begin_overflow_hatch", hatch_resolve_part_start)
-		else:
-			hatch_resolve_part_start = _perf_probe.begin(perf_logger)
-			_finish_regular_hatch(owner, registry, perf_logger)
-			_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.finish_regular_hatch", hatch_resolve_part_start)
+		# The hatch is DEFERRED behind the shell-break cinematic: decide the commit
+		# branch now (the owner cannot change while the modal gate holds physics),
+		# then advance_hatch_break() runs the break + burst hold and finally opens
+		# the acquire cut-in via _commit_pending_hatch().
+		hatch_resolve_part_start = _perf_probe.begin(perf_logger)
+		_hatch_break_pending_kind = (
+			HATCH_PENDING_KIND_OVERFLOW if _collection_state.is_full(owner)
+			else HATCH_PENDING_KIND_REGULAR
+		)
+		_hatch_break_burst_hold = 0.0
+		_egg_state.trigger_hatch_break()
+		_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.begin_hatch_break", hatch_resolve_part_start)
 	return true
 
 
@@ -1927,7 +2073,10 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 		true,
 		true,
 		perf_logger,
-		"physics.lingpet.egg_phase.hatch_resolve.cutin_open"
+		"physics.lingpet.egg_phase.hatch_resolve.cutin_open",
+		# The shell already burst at break end; re-arm the flash with its own
+		# remaining time so the shard burst is not visibly restarted here.
+		float(_egg_state.get_hatch_flash_timer())
 	))
 	_collection_state.add_pet_to_next_empty_slot(owner, _pet_id)
 	_overflow_choice_state.reset()
@@ -1941,7 +2090,9 @@ func _begin_overflow_hatch(_owner: Object, registry: Object = null, perf_logger:
 		true,
 		true,
 		perf_logger,
-		"physics.lingpet.egg_phase.hatch_resolve.cutin_open"
+		"physics.lingpet.egg_phase.hatch_resolve.cutin_open",
+		# Same continuity rule as the regular commit: keep the in-flight burst.
+		float(_egg_state.get_hatch_flash_timer())
 	))
 
 
@@ -2000,6 +2151,7 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 func _clear_pending_egg_without_collection_reset(owner: Object = null, registry: Object = null) -> void:
 	_invalidate_runtime_snapshot_cache()
 	_state = STATE_NONE
+	_reset_hatch_break_sequence()
 	_set_current_pet_id(PET_ID)
 	_apply_companion_position_surface(_companion_runtime_resetter.reset_to_none(
 		_build_clear_pending_context(owner, registry)
@@ -2047,7 +2199,7 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		_pet_id,
 		_state,
 		_egg_state.hatch_hits,
-		int(profile_surface.get("required_hits", REQUIRED_HITS)),
+		_egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))),
 		_egg_state.pos,
 		_companion_pos,
 		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_default", COMPANION_PATROL_SPEED),
@@ -2067,7 +2219,7 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		second_skill_surface.get("skill_state", null) as Object,
 		float(second_skill_surface.get("windup_seconds", 0.0)),
 		float(profile_surface.get("gauge_gain_bonus_pct", 0.0)),
-		LingpetEffectTextResolver.resolve(_state, int(profile_surface.get("required_hits", REQUIRED_HITS)), _current_profile),
+		LingpetEffectTextResolver.resolve(_state, _egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))), _current_profile),
 		loadouts_snapshot,
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		should_sync_loadouts
@@ -2633,6 +2785,15 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 	return true
 
 
+func try_begin_companion_interact_reaction(registry: Object = null) -> bool:
+	# Non-mouse bond entry (keyboard/gamepad): self-target the companion's own
+	# position so the click body (tap-zone check, texture-ready gate, exhaustion /
+	# body-presence affinity gate, SOURCE_CLICK caps, audio) is reused verbatim.
+	if _state != STATE_COMPANION:
+		return false
+	return try_begin_companion_click_reaction(_companion_pos, registry)
+
+
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
 
@@ -2936,6 +3097,15 @@ func _is_satiety_penalty_exempt(owner: Object = null) -> bool:
 
 
 func _get_satiety_drain_multiplier() -> float:
-	var passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill(_current_profile)
-	var reduction_pct := clampf(float(passive_skill.get("satiety_drain_reduction_pct", 0.0)), 0.0, 60.0)
+	var reduction_pct := 0.0
+	for passive_skill in _profile_runtime_surface.get_passive_skills(_current_profile):
+		var passive_reduction_pct := 0.0
+		if str(passive_skill.get("id", "")).strip_edges() == "lingpet_light_eater":
+			passive_reduction_pct = LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(
+				int(passive_skill.get("level", 1))
+			)
+		else:
+			passive_reduction_pct = float(passive_skill.get("satiety_drain_reduction_pct", 0.0))
+		reduction_pct += maxf(0.0, passive_reduction_pct)
+	reduction_pct = clampf(reduction_pct, 0.0, 60.0)
 	return clampf(1.0 - reduction_pct / 100.0, 0.4, 1.0)

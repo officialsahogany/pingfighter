@@ -764,6 +764,13 @@ func _register_hit(runtime: Object, owner: FakeOwner, registry: Object, egg_pos:
 	owner.values["ball_pos"] = egg_pos
 	owner.values["ball_vel"] = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner, registry)
+	# The final counted hit defers the hatch behind the shell-break cinematic
+	# (physics held by the modal gate; clock pumped from the ungated idle path).
+	# Mirror that pump so post-hatch assertions see the committed state.
+	var pump_guard := 0
+	while bool(runtime.is_hatch_break_active()) and pump_guard < 300:
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		pump_guard += 1
 
 
 func _resolved_choice(runtime: Object, pet_id: String, choice_key: String) -> Dictionary:

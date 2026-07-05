@@ -260,7 +260,6 @@ func use_first_matching_item(
 		return ""
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty() or input_locked:
-		_sync_slot_input_states()
 		return ""
 
 	var slots_copy: Array = active_item_slots.duplicate(true)
@@ -283,9 +282,7 @@ func use_first_matching_item(
 				perf_logger
 			):
 				owner.set("active_item_slots", slots_copy)
-				_sync_slot_input_states()
 				return target_name
-	_sync_slot_input_states()
 	return ""
 
 
@@ -305,6 +302,14 @@ func store_active_item(
 	var source_item_data: Dictionary = _get_dictionary(field_item, "item_data")
 	var item_name: String = str(source_item_data.get("name", ""))
 	if can_store_item_callback.is_valid() and not bool(can_store_item_callback.call(item_name)):
+		if compacted and owner != null:
+			owner.set("active_item_slots", active_item_slots)
+		return false
+
+	# lingpet_egg is a one-shot deploy item: never store a duplicate while one is
+	# already held or while the runtime cannot accept another egg acquisition. Reject
+	# the pickup; the egg left on the field simply expires. (item_runtime_checklist §1.7)
+	if item_name == "lingpet_egg" and _is_lingpet_egg_pickup_redundant(active_item_slots, registry, owner):
 		if compacted and owner != null:
 			owner.set("active_item_slots", active_item_slots)
 		return false
@@ -394,7 +399,13 @@ func _try_use_slot(
 	_apply_active_item_use_gauge_bonus(owner, registry)
 	_perf_end(perf_logger, "physics.callback.active_items.use_gauge_bonus", sample_start)
 	var consumable: bool = bool(item_data.get("consumable", true))
-	var recycle_triggered: bool = consumable and _should_recycle_used_item(registry)
+	# A one-shot deploy item flagged no_recycle (lingpet_egg) must never be kept by
+	# the Alchemy recycle perk: a second deploy is impossible while a lingpet is
+	# already present, so a recycled egg would strand a permanently-dead, unusable
+	# slot for the rest of the battle — the exact dead-duplicate failure class the
+	# pickup gate already prevents (item_runtime_checklist §1.7).
+	var recyclable: bool = consumable and not bool(item_data.get("no_recycle", false))
+	var recycle_triggered: bool = recyclable and _should_recycle_used_item(registry)
 	if consumable and not recycle_triggered and pending_use_backup_callback.is_valid():
 		pending_use_backup_callback.call(item_data.duplicate(true), slot_index, owner, registry)
 
@@ -408,7 +419,7 @@ func _try_use_slot(
 	# remaining (often lone) item is blocked for the full checked-item cooldown and
 	# reads as "the first item does nothing" (live godot.log: a gauge_charge auto-use
 	# left a lone dash_boost BLOCKED by global-cooldown for the next ~7s).
-	if not ignore_cooldown:
+	if not ignore_cooldown and _uses_global_cooldown(item_data):
 		last_item_use_msec = now_msec
 	if recycle_triggered:
 		_mark_alchemy_notice(item_data, now_msec)
@@ -419,7 +430,7 @@ func _try_use_slot(
 		_select_slot(registry, max(0, min(slot_index, active_item_slots.size() - 1)))
 	else:
 		active_item_slots[slot_index] = item_data
-	if not ignore_cooldown:
+	if not ignore_cooldown and _uses_global_cooldown(item_data):
 		for i in range(active_item_slots.size()):
 			var other_value: Variant = active_item_slots[i]
 			if other_value is Dictionary:
@@ -492,7 +503,7 @@ func _sync_slot_input_states() -> void:
 
 func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> bool:
 	var cooldown_msec: int = _get_effective_active_item_cooldown_msec(item_data, registry)
-	if now_msec - last_item_use_msec < cooldown_msec:
+	if _uses_global_cooldown(item_data) and now_msec - last_item_use_msec < cooldown_msec:
 		if _AIDBG:
 			print("[AIDBG] BLOCKED global-cooldown item=%s now=%d anchor=%d remain=%dms cd=%d" % [
 				_get_item_identity(item_data), now_msec, last_item_use_msec,
@@ -639,6 +650,25 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _is_lingpet_egg_pickup_redundant(active_item_slots: Array, registry: Object, owner: Object) -> bool:
+	for slot_value in active_item_slots:
+		if slot_value is Dictionary and str((slot_value as Dictionary).get("name", "")) == "lingpet_egg":
+			return true
+	# Authoritative offer / wrong-league check via the runtime. Cache-only peek so
+	# the pickup path never lazy-instantiates the lingpet runtime; if it is not cached
+	# yet no lingpet can be deployed, so only the in-slot check above applies.
+	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime != null and lingpet_runtime.has_method("can_offer_egg_item"):
+		return not bool(lingpet_runtime.can_offer_egg_item(owner))
+	return false
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	return registry.get_cached_instance(key)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

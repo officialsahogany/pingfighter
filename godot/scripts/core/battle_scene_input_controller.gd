@@ -10,9 +10,14 @@ const FORCE_STAGE_CLEAR_KEY := KEY_F9
 const FORCE_STAGE_CLEAR_PLAYER_SCORE := 5
 const FORCE_STAGE_CLEAR_BOSS_SCORE := 0
 const LINGPET_CYCLE_KEY := KEY_L
+const LINGPET_INTERACT_KEY := KEY_E
+const LINGPET_INTERACT_TRIGGER_AXIS := JOY_AXIS_TRIGGER_RIGHT
+const LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD := 0.60
+const LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD := 0.35
 const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := 450
 
 var _right_stick_mouse_wheel_suppress_until_msec := 0
+var _lingpet_interact_trigger_latched := false
 
 
 func handle_unhandled_input(
@@ -63,6 +68,8 @@ func handle_unhandled_input(
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
 	if _handle_lingpet_companion_click(event, owner, registry, module_getter):
+		return
+	if _handle_lingpet_companion_interact_key(event, owner, registry, module_getter):
 		return
 	if _handle_lingpet_slot_switch(event, owner, registry, module_getter):
 		return
@@ -170,12 +177,72 @@ func _handle_lingpet_companion_click(event: InputEvent, owner: Object, registry:
 	return true
 
 
+func _handle_lingpet_companion_interact_key(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	# Non-mouse bond entry: E / gamepad RT self-targets the current companion
+	# through the runtime wrapper. On refusal (no companion / not ready) the
+	# input is NOT consumed so E stays a live key for anything downstream.
+	GamepadInput.update_primary_action_trigger_suppression_from_event(event)
+	var trigger_edge := false
+	if not _is_lingpet_interact_key_event(event):
+		trigger_edge = _consume_lingpet_interact_trigger_edge(event)
+		if not trigger_edge:
+			return false
+	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	if runtime == null:
+		runtime = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("try_begin_companion_interact_reaction"):
+		return false
+	if not bool(runtime.try_begin_companion_interact_reaction(registry)):
+		return false
+	if trigger_edge:
+		GamepadInput.suppress_primary_action_trigger_until_release()
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _is_lingpet_interact_key_event(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return false
+	return key_event.keycode == LINGPET_INTERACT_KEY or key_event.physical_keycode == LINGPET_INTERACT_KEY
+
+
+func _consume_lingpet_interact_trigger_edge(event: InputEvent) -> bool:
+	# RT is an axis, not a button: emulate a press edge with a latch so one pull
+	# fires exactly one interact, re-armed only after the trigger returns below
+	# the release threshold (analog jitter between the two thresholds is inert).
+	if not (event is InputEventJoypadMotion):
+		return false
+	var motion_event: InputEventJoypadMotion = event
+	if motion_event.axis != LINGPET_INTERACT_TRIGGER_AXIS:
+		return false
+	if motion_event.axis_value <= LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD:
+		_lingpet_interact_trigger_latched = false
+		return false
+	if motion_event.axis_value < LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD:
+		return false
+	if _lingpet_interact_trigger_latched:
+		return false
+	_lingpet_interact_trigger_latched = true
+	return true
+
+
 func _handle_lingpet_acquire_cutin_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
 	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
 	if runtime == null:
 		runtime = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime == null or not runtime.has_method("is_acquire_cutin_active"):
 		return false
+	# The shell-break sequence is a short no-input cinematic beat: swallow input
+	# so pause/save cannot open mid-break (the modal gate already holds physics,
+	# and the break state is not persisted -- a mid-break save would strand a
+	# hatched-but-uncommitted egg).
+	if runtime.has_method("is_hatch_break_active") and bool(runtime.is_hatch_break_active()):
+		_mark_handled(owner)
+		return true
 	if not bool(runtime.is_acquire_cutin_active()):
 		return false
 	var overlay_input: Object = _get_overlay_input_controller(module_getter)

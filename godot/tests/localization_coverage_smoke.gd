@@ -281,14 +281,16 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 	# the translate-then-format / known-patterns paths the presenters use.
 	var surface_texts: Array[String] = [
 		"링펫", "링펫 알", "링펫 없음", "링펫 알 없음", "미해금", "미획득",
-		"동행 중", "하트 공명", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
+		"동행 중", "하트 공명", "포만도", "탈진", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
 		"최대 강화 완료", "링코어 강화 시 해금", "2번째 액티브 스킬 +1", "2번째 패시브 스킬 +1",
 		"방어", "방어율", "출현율", "액티브 쿨타임", "받아치기", "이동", "추적", "전이",
 		"링코어", "강화칩 %d / %d", "미장착",
 		"공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
-		"주니어리그에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
+		"테스트 난이도에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
 		"링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다.",
 		"링펫에게 배정된 패시브 스킬입니다.",
+		"이번 판 동안 링펫과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.",
+		"링펫의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다.",
 	]
 	for reward_label in LingpetAffinityState.LABEL_BY_REWARD_TYPE.values():
 		surface_texts.append(str(reward_label))
@@ -334,6 +336,9 @@ func _verify_perk_catalog(language: String) -> void:
 
 
 func _verify_character_select(language: String) -> void:
+	# League / difficulty button labels on the character-select action bar.
+	for league_label in ["테스트", "실전", "오버클럭"]:
+		_expect_no_hangul(LanguageSettings.translate_text(league_label), "LEAGUE_LABEL[%s] %s" % [language, league_label])
 	var characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
 	_expect(not characters.is_empty(), "character select data should be available for %s" % language)
 	_scan_values(characters, "character select[%s]" % language)

@@ -36,6 +36,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_smartphone_auto_use_does_not_poison_lone_item()
+	_verify_smartphone_scan_does_not_consume_manual_key_edge()
 	_verify_manual_use_still_imposes_global_cooldown()
 
 	if _failures.is_empty():
@@ -87,6 +88,33 @@ func _verify_smartphone_auto_use_does_not_poison_lone_item() -> void:
 		controller._is_item_ready(lone, Time.get_ticks_msec(), registry),
 		"lone item must stay usable immediately after a smartphone auto-use"
 	)
+
+
+func _verify_smartphone_scan_does_not_consume_manual_key_edge() -> void:
+	var controller: Object = ActiveItemSlotController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.active_item_slots = [
+		{"name": "dash_boost", "cooldown_msec": 0, "last_use_msec": -1},
+	]
+	controller.slot_key_pressed[0] = true
+
+	var scanned_item: String = str(controller.use_first_matching_item(
+		["life_elixir", "gauge_charge"],
+		owner,
+		registry,
+		false,
+		Callable(self, "_apply_item_effect"),
+		Callable(self, "_backup_pending_use"),
+		true
+	))
+
+	_expect(scanned_item == "", "smartphone recovery scan should not auto-use unrelated active items")
+	_expect(
+		bool(controller.slot_key_pressed.get(0, false)),
+		"smartphone no-match scan must not rewrite the player's active-item key edge state"
+	)
+	_expect(owner.active_item_slots.size() == 1, "smartphone no-match scan should leave unrelated active slots intact")
 
 
 # The intended manual behavior must be preserved: a player MANUAL use still puts

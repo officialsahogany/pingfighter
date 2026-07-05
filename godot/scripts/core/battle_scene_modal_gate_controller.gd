@@ -95,6 +95,14 @@ func is_lingpet_acquire_cutin_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "lingpet_egg_runtime", "is_acquire_cutin_active")
 
 
+func is_lingpet_hatch_break_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "lingpet_egg_runtime", "is_hatch_break_active")
+
+
+func is_lingpet_overflow_choice_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "lingpet_egg_runtime", "is_overflow_choice_active")
+
+
 func is_treasure_hunt_effect_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "treasure_hunt_runtime", "is_effect_active")
 
@@ -134,7 +142,11 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.elixir_cinematic", module_getter, "active_item_runtime", "is_elixir_cinematic_active"):
 		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_hatch_break", module_getter, "lingpet_egg_runtime", "is_hatch_break_active"):
+		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_acquire_cutin", module_getter, "lingpet_egg_runtime", "is_acquire_cutin_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_overflow_choice", module_getter, "lingpet_egg_runtime", "is_overflow_choice_active"):
 		return true
 	return false
 

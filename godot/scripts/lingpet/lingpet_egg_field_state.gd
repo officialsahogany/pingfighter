@@ -7,11 +7,11 @@ const FIELD_HEIGHT := 750.0
 const EGG_RADIUS := 28.0
 const EGG_TEXTURE_DRAW_SIZE := Vector2(88.0, 88.0)
 const EGG_FLOOR_MARGIN := 18.0
-const EGG_PLAYER_NUDGE_RADIUS := 40.0
-const EGG_PLAYER_NUDGE_STRENGTH := 0.32
-const EGG_PLAYER_NUDGE_MAX_VX := 0.75
-const EGG_PLAYER_NUDGE_MAX_STEP := 0.45
-const EGG_PLAYER_NUDGE_DAMPING := 0.62
+const EGG_PLAYER_NUDGE_RADIUS := 47.0
+const EGG_PLAYER_NUDGE_STRENGTH := 0.50
+const EGG_PLAYER_NUDGE_MAX_VX := 1.2
+const EGG_PLAYER_NUDGE_MAX_STEP := 0.74
+const EGG_PLAYER_NUDGE_DAMPING := 0.72
 const EGG_PLAYER_WOBBLE_DAMPING := 0.72
 const EGG_PLAYER_WOBBLE_SPRING := 0.35
 const EGG_PLAYER_WOBBLE_MAX_DEGREES := 8.0
@@ -26,9 +26,34 @@ const EGG_DASH_WALL_MIN_REBOUND_VX := 5.0
 const EGG_DASH_CONTACT_COOLDOWN_SECONDS := 0.12
 const EGG_DASH_WOBBLE_IMPULSE := 5.5
 const EGG_ROLL_CONTACT_RADIUS := 30.0
-const EGG_ROLL_SETTLE_RATE := 0.22
+# Roly-poly (오뚜기) settle: a damped restoring spring toward upright, NOT a
+# monotonic ease. Low stiffness + high damping-retention makes the egg tip
+# past upright and wobble back a few times before resting, instead of
+# snapping back instantly. Tuned for a slow, gentle weeble.
+const EGG_ROLL_SETTLE_STIFFNESS := 0.055
+const EGG_ROLL_SETTLE_DAMPING := 0.90
 const EGG_ROLL_SETTLE_EPSILON := 0.02
 const EGG_VARIANT_COUNT := 5
+# Per-egg hatch difficulty pool: 1-hit eggs pop instantly, 2/3-hit eggs crack
+# per counted hit before breaking. Rolled once at spawn, pet-independent
+# (same spoiler-blocking rule as the visual variant roll). 0 = unrolled, so
+# consumers fall back to the caller-supplied value (legacy behavior).
+const HATCH_REQUIRED_HITS_POOL: Array[int] = [1, 2, 3]
+# Shell-break cinematic between the final counted hit and the acquire cut-in:
+# the egg rolls restlessly under a build-then-settle envelope, shivers harder
+# as the break approaches, and comes to rest before the shell bursts. Battle
+# physics is paused for the whole window (modal gate), so this motion is
+# advanced from the ungated idle pump via advance_hatch_break(), never from
+# the gated update path.
+const HATCH_BREAK_SECONDS := 1.5
+const HATCH_BREAK_ROLL_AMPLITUDE := 30.0
+const HATCH_BREAK_ROLL_FREQ_PRIMARY_HZ := 1.6
+const HATCH_BREAK_ROLL_FREQ_SECONDARY_HZ := 3.7
+# Roll envelope dies out at this ratio of the break so the burst fires from a
+# stationary egg (the shard burst anchors cleanly instead of mid-swing).
+const HATCH_BREAK_MOTION_END_RATIO := 0.84
+const HATCH_BREAK_SHIVER_RATE := 43.0
+const HATCH_BREAK_SHIVER_MAX_DEGREES := 4.5
 const BALL_RADIUS_FALLBACK := 14.3
 const HIT_COOLDOWN_SECONDS := 0.20
 const PADDLE_BOUNCE_DEFAULT_MAX_ANGLE := 60.0
@@ -36,14 +61,19 @@ const PADDLE_BOUNCE_DEFAULT_MIN_SPEED := 3.0
 const PADDLE_BOUNCE_DEFAULT_MAX_SPEED := 20.0
 
 var hatch_hits := 0
+var hatch_required_hits := 0
 var egg_color_index := -1
 var pos := Vector2.ZERO
 var nudge_vx := 0.0
 var dash_vx := 0.0
 var roll_angle := 0.0
+var roll_settle_vel := 0.0
 var wobble_angle := 0.0
 var wobble_vel := 0.0
 var hatch_flash_timer := 0.0
+var hatch_break_active := false
+var hatch_break_elapsed := 0.0
+var _hatch_break_origin_x := 0.0
 var ball_was_inside := false
 var hit_cooldown := 0.0
 var dash_hit_cooldown := 0.0
@@ -61,9 +91,11 @@ func advance(delta: float) -> void:
 
 func reset_all() -> void:
 	hatch_hits = 0
+	hatch_required_hits = 0
 	egg_color_index = -1
 	pos = Vector2.ZERO
 	reset_hatch_flash()
+	reset_hatch_break()
 	reset_contact_motion()
 
 
@@ -71,6 +103,7 @@ func reset_contact_motion() -> void:
 	nudge_vx = 0.0
 	dash_vx = 0.0
 	roll_angle = 0.0
+	roll_settle_vel = 0.0
 	wobble_angle = 0.0
 	wobble_vel = 0.0
 	ball_was_inside = false
@@ -85,18 +118,90 @@ func spawn(owner: Object) -> void:
 	hatch_hits = 0
 	pos = resolve_spawn_pos(owner)
 	roll_color_index()
+	roll_required_hits()
 	reset_hatch_flash()
+	reset_hatch_break()
 	reset_contact_motion()
 
 
 func set_hatched(required_hits: int) -> void:
 	hatch_hits = maxi(0, required_hits)
 	reset_hatch_flash()
+	reset_hatch_break()
 	reset_contact_motion()
 
 
 func trigger_hatch_flash(duration_seconds: float) -> void:
 	hatch_flash_timer = maxf(0.0, duration_seconds)
+
+
+func trigger_hatch_break() -> void:
+	hatch_break_active = true
+	hatch_break_elapsed = 0.0
+	_hatch_break_origin_x = pos.x
+	# The scripted break roll owns the egg from here; drop residual contact
+	# motion so player nudges / dash momentum cannot fight the choreography.
+	nudge_vx = 0.0
+	dash_vx = 0.0
+	wobble_vel = 0.0
+	roll_settle_vel = 0.0
+
+
+func reset_hatch_break() -> void:
+	hatch_break_active = false
+	hatch_break_elapsed = 0.0
+	_hatch_break_origin_x = 0.0
+
+
+func is_hatch_break_active() -> bool:
+	return hatch_break_active
+
+
+func get_hatch_break_progress() -> float:
+	if HATCH_BREAK_SECONDS <= 0.0:
+		return 1.0
+	return clampf(hatch_break_elapsed / HATCH_BREAK_SECONDS, 0.0, 1.0)
+
+
+# Advances the scripted shell-break motion. Returns true exactly once, on the
+# frame the break completes (the caller then bursts the shell + starts the
+# burst hold). Restless roll: two mixed sine rates under a build-then-settle
+# envelope, with the net offset returning to the origin so the burst anchors
+# where the egg rested; shiver builds toward the burst independently.
+func advance_hatch_break(delta: float) -> bool:
+	if not hatch_break_active:
+		return false
+	var safe_delta: float = maxf(0.0, delta)
+	var frame_scale: float = minf(2.0, safe_delta * 60.0)
+	hatch_break_elapsed += safe_delta
+	var t: float = clampf(hatch_break_elapsed / HATCH_BREAK_SECONDS, 0.0, 1.0)
+	var motion_t: float = clampf(t / HATCH_BREAK_MOTION_END_RATIO, 0.0, 1.0)
+	var envelope: float = sin(PI * motion_t)
+	var swing: float = (
+		sin(TAU * HATCH_BREAK_ROLL_FREQ_PRIMARY_HZ * hatch_break_elapsed)
+		+ 0.38 * sin(TAU * HATCH_BREAK_ROLL_FREQ_SECONDARY_HZ * hatch_break_elapsed + 1.1)
+	)
+	var prev_x: float = pos.x
+	pos.x = clampf(
+		_hatch_break_origin_x + swing * envelope * HATCH_BREAK_ROLL_AMPLITUDE,
+		_get_egg_min_x(),
+		_get_egg_max_x()
+	)
+	_integrate_roll_from_delta(pos.x - prev_x)
+	if motion_t >= 1.0:
+		# Settle tail: ease any residual tilt back upright before the burst.
+		_settle_roll_angle(frame_scale)
+	wobble_angle = clampf(
+		sin(hatch_break_elapsed * HATCH_BREAK_SHIVER_RATE)
+			* HATCH_BREAK_SHIVER_MAX_DEGREES * pow(t, 1.5),
+		-EGG_PLAYER_WOBBLE_MAX_DEGREES,
+		EGG_PLAYER_WOBBLE_MAX_DEGREES
+	)
+	if hatch_break_elapsed >= HATCH_BREAK_SECONDS:
+		hatch_break_active = false
+		wobble_angle = 0.0
+		return true
+	return false
 
 
 func reset_hatch_flash() -> void:
@@ -121,6 +226,22 @@ func set_color_index(index: int) -> void:
 
 func get_color_index() -> int:
 	return egg_color_index
+
+
+# rng is injectable so tests can roll deterministically off a LOCAL RandomNumberGenerator
+# without draining the global randi() stream that RNG-coupled callers rely on. Production
+# spawn() passes nothing -> global randi (unchanged behavior).
+func roll_required_hits(rng: RandomNumberGenerator = null) -> void:
+	var raw: int = rng.randi() if rng != null else randi()
+	hatch_required_hits = int(HATCH_REQUIRED_HITS_POOL[raw % HATCH_REQUIRED_HITS_POOL.size()])
+
+
+func set_required_hits(value: int) -> void:
+	hatch_required_hits = maxi(0, value)
+
+
+func get_required_hits(fallback: int = 0) -> int:
+	return hatch_required_hits if hatch_required_hits >= 1 else maxi(0, fallback)
 
 
 func update_player_contact(delta: float, owner: Object, registry: Object = null) -> void:
@@ -163,6 +284,10 @@ func update_player_contact(delta: float, owner: Object, registry: Object = null)
 		_integrate_roll_from_delta(pos.x - x_before)
 		if dash_vx == 0.0 and absf(nudge_vx) <= 0.05:
 			_settle_roll_angle(frame_scale)
+		else:
+			# Still being driven by dash/walk; drop stale settle momentum so the
+			# weeble spring starts fresh the moment motion stops.
+			roll_settle_vel = 0.0
 		wobble_vel += -wobble_angle * EGG_PLAYER_WOBBLE_SPRING * frame_scale
 		wobble_vel *= pow(EGG_PLAYER_WOBBLE_DAMPING, frame_scale)
 		wobble_angle = clampf(wobble_angle + wobble_vel, -EGG_PLAYER_WOBBLE_MAX_DEGREES, EGG_PLAYER_WOBBLE_MAX_DEGREES)
@@ -184,10 +309,16 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 	if not hit_now:
 		return {"changed": false, "hit": false, "hatched": false}
 
+	# 플레이어가 서브로 발사한 공은 링펫알과 타격판정 자체를 하지 않는다: 바운스도,
+	# 부화 카운트도, 히트 SFX도 없이 공이 알을 그대로 통과한다(hit=false). 히트
+	# 쿨다운도 세팅하지 않으므로, ball_serve_origin이 "player"인 동안에는 같은 라운드의
+	# 공이 다시 겹쳐도 계속 통과한다. (예전에는 바운스+SFX는 시키고 카운트만 제외했지만,
+	# 사용자 요청으로 서브공은 알을 완전히 무시하도록 바꿨다.)
+	if _is_player_serve_ball(owner):
+		return {"changed": false, "hit": false, "hatched": false, "counted": false}
+
 	hit_cooldown = HIT_COOLDOWN_SECONDS
 	_apply_paddle_bounce(owner, ball_pos, hit_radius)
-	if _is_player_serve_ball(owner):
-		return {"changed": false, "hit": true, "hatched": false, "counted": false}
 
 	var safe_required_hits: int = maxi(1, required_hits)
 	hatch_hits = mini(safe_required_hits, hatch_hits + 1)
@@ -202,6 +333,7 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 func get_snapshot() -> Dictionary:
 	return {
 		"hatch_hits": hatch_hits,
+		"egg_required_hits": hatch_required_hits,
 		"egg_color_index": egg_color_index,
 		"egg_pos": pos,
 		"egg_nudge_vx": nudge_vx,
@@ -312,13 +444,18 @@ func _integrate_roll_from_delta(delta_x: float) -> void:
 
 
 func _settle_roll_angle(frame_scale: float) -> void:
-	var settle_delta: float = _get_upright_roll_delta()
-	if absf(settle_delta) <= EGG_ROLL_SETTLE_EPSILON:
+	var to_upright: float = _get_upright_roll_delta()
+	# Rest only when BOTH the tilt and the wobble velocity are near zero, so the
+	# egg is allowed to overshoot upright and swing back (오뚜기) rather than
+	# snapping the instant it first crosses upright.
+	if absf(to_upright) <= EGG_ROLL_SETTLE_EPSILON and absf(roll_settle_vel) <= EGG_ROLL_SETTLE_EPSILON:
 		roll_angle = 0.0
+		roll_settle_vel = 0.0
 		return
-	roll_angle = fposmod(roll_angle + settle_delta * minf(1.0, EGG_ROLL_SETTLE_RATE * frame_scale), TAU)
-	if absf(_get_upright_roll_delta()) <= EGG_ROLL_SETTLE_EPSILON:
-		roll_angle = 0.0
+	# Damped restoring spring toward upright: accelerate toward 0, bleed velocity.
+	roll_settle_vel += to_upright * EGG_ROLL_SETTLE_STIFFNESS * frame_scale
+	roll_settle_vel *= pow(EGG_ROLL_SETTLE_DAMPING, frame_scale)
+	roll_angle = fposmod(roll_angle + roll_settle_vel * frame_scale, TAU)
 
 
 func _get_upright_roll_delta() -> float:

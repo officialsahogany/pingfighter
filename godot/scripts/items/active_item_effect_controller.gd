@@ -213,6 +213,15 @@ func apply_lingpet_feed(item_data: Dictionary, owner: Object, registry: Object) 
 	)
 
 
+func activate_lingpet_egg(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_lingpet_egg(
+		self,
+		owner,
+		registry,
+		_effect_feedback
+	)
+
+
 func apply_ammo_box(item_data: Dictionary, owner: Object, registry: Object) -> bool:
 	return _effect_action_facade.apply_ammo_box(
 		self,

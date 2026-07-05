@@ -184,8 +184,11 @@ func _run() -> void:
 	_verify_failed_lingpet_ring_core_actions_do_not_mutate_wallet_or_tier()
 	_verify_ring_core_post_payment_refund_restores_wallet()
 
+	_cleanup_scene_nodes()
 	ProjectResourceLoader.clear_caches()
 	await _drain_frames(30)
+	ProjectResourceLoader.clear_caches()
+	await _drain_frames(5)
 	call_deferred("_finish")
 
 
@@ -203,6 +206,14 @@ func _drain_frames(frame_count: int) -> void:
 	for i in frame_count:
 		ProjectResourceLoader.try_resolve_finished_threaded_prewarm()
 		await process_frame
+
+
+func _cleanup_scene_nodes() -> void:
+	for child in root.get_children():
+		if child is SubViewport:
+			(child as SubViewport).render_target_update_mode = SubViewport.UPDATE_DISABLED
+		if is_instance_valid(child):
+			child.queue_free()
 
 
 func _verify_lingpet_store_runtime_only_sources() -> void:
@@ -573,6 +584,13 @@ func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: i
 	owner.ball_pos = egg_pos + Vector2(float(index), -8.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner, registry)
+	# The final counted hit defers the hatch behind the shell-break cinematic
+	# (physics held by the modal gate; clock pumped from the ungated idle path).
+	# Mirror that pump so post-hatch assertions see the committed state.
+	var pump_guard := 0
+	while bool(runtime.is_hatch_break_active()) and pump_guard < 300:
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		pump_guard += 1
 
 
 func _seed_full_roster(owner: FakeOwner, pet_ids: Array) -> void:

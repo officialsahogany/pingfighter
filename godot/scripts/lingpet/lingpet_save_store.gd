@@ -78,7 +78,9 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 			"pet_id": LingpetCatalog.get_default_pet_id(),
 			"state": "egg",
 			"hatch_hits": 0,
-			"required_hits": LingpetCatalog.get_required_hits(LingpetCatalog.get_default_pet_id()),
+			# 0 = unrolled sentinel (mirrors egg_color_index -1): the fresh-run
+			# egg keeps its own spawn-time required-hits roll (junior forces 1).
+			"required_hits": 0,
 			"egg_color_index": -1,
 			"owned_pet_ids": [],
 			"battle_slot_pet_ids": ["", "", ""],

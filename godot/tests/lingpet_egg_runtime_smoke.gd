@@ -522,6 +522,15 @@ class FakeRegistry:
 		return null
 
 
+class FakeEggHitAudio:
+	extends RefCounted
+
+	var egg_hit_calls := 0
+
+	func play_lingpet_egg_hit() -> void:
+		egg_hit_calls += 1
+
+
 class FakeCutinHost:
 	extends RefCounted
 
@@ -552,12 +561,15 @@ func _init() -> void:
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_egg_color_rolls_once_and_restores()
 	_verify_bare_egg_roll_physics_and_renderer()
+	_verify_egg_hatch_required_hits_roll()
+	_verify_egg_settle_oscillation()
 	_verify_egg_dash_collision_knocks_and_wall_rebounds()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
 	_verify_one_ball_hit_hatches_unidentified_egg()
 	_verify_affinity_hatch_bonus_hook()
 	_verify_acquire_cutin_triggers_on_hatch()
+	_verify_hatch_break_sequence_defers_cutin()
 	_verify_acquire_cutin_assets_prewarm_during_egg_phase()
 	_verify_acquire_cutin_reveal_holds_until_anim_sheet_ready()
 	_verify_owned_maribo_is_kept_as_companion()
@@ -617,6 +629,7 @@ func _init() -> void:
 	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
 	_verify_affinity_click_start_edge_and_visibility_gate()
+	_verify_companion_interact_key_reaction()
 	_verify_affinity_score_event_and_battle_reset()
 	_verify_ring_core_upgrade_grants_affinity_to_all_owned_pets()
 	_verify_affinity_reward_application()
@@ -1003,6 +1016,22 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(game_audio_source.find("LingpetRedDragonClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Red Dragon click-reaction voice")
 	_expect(game_audio_source.find("_ensure_lingpet_red_dragon_click_voice_sfx") >= 0, "GameAudio should lazily recover the Red Dragon click-reaction voice player if setup did not create it")
 	_expect(game_audio_source.find("normalized_pet_id == \"red_dragon\"") >= 0, "GameAudio click-reaction dispatch should route the red_dragon pet id to its dedicated voice")
+	# 링펫알 히트 SFX(뼈 부러지는 임팩트 2종 랜덤): 자산 + GameAudio 등록 + 디스패처 + 런타임/아이템알 배선.
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav"), "lingpet egg-hit should ship its first bone-break impact SFX in the lingpet sound asset folder")
+	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav"), "lingpet egg-hit should ship its second bone-break impact SFX in the lingpet sound asset folder")
+	var egg_hit_stream_1: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav")
+	var egg_hit_stream_2: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav")
+	_expect(egg_hit_stream_1 != null and egg_hit_stream_1.get_length() > 0.1, "first lingpet egg-hit bone-break SFX should load as a playable Godot AudioStream")
+	_expect(egg_hit_stream_2 != null and egg_hit_stream_2.get_length() > 0.1, "second lingpet egg-hit bone-break SFX should load as a playable Godot AudioStream")
+	_expect(game_audio_source.find("LINGPET_EGG_HIT_SOUND_PATHS") >= 0, "GameAudio should register the lingpet egg-hit bone-break sound path list")
+	_expect(game_audio_source.find("lingpet_egg_hit_streams = _load_audio_stream_candidates(LINGPET_EGG_HIT_SOUND_PATHS)") >= 0, "GameAudio should preload both egg-hit candidate streams for random selection")
+	_expect(game_audio_source.find("func play_lingpet_egg_hit") >= 0, "GameAudio should expose a lingpet egg-hit play method")
+	_expect(game_audio_source.find("_play_random_stream_with_pitch(lingpet_egg_hit_sfx, lingpet_egg_hit_streams") >= 0, "GameAudio egg-hit play should randomly pick one of the two bone-break streams")
+	var egg_hit_dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
+	_expect(egg_hit_dispatcher_source.find("func play_lingpet_egg_hit") >= 0, "audio dispatcher should own a lingpet egg-hit dispatch method")
+	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_egg_hit") >= 0, "lingpet runtime should dispatch the egg-hit SFX when the ball strikes the egg")
+	var egg_hit_item_egg_lifecycle_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd")
+	_expect(egg_hit_item_egg_lifecycle_source.find("on_ball_hit") >= 0, "coexisting item egg should forward a ball-hit callback so it plays the same hit SFX")
 
 
 func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
@@ -1077,7 +1106,16 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(maribo_active_ids.has("maribo_hydro_sphere") and maribo_active_ids.has("maribo_bubble_trap"), "Maribo should expose Hydro Sphere plus Bubble Trap in its active-skill pool")
 	var maribo_passive_pool: Array[Dictionary] = LingpetCatalog.get_passive_skill_pool("maribo")
 	var maribo_passive_ids: Array[String] = _skill_ids(maribo_passive_pool)
-	_expect(maribo_passive_pool.size() == 5 and maribo_passive_ids.has("lingpet_resonance_boost") and maribo_passive_ids.has("lingpet_afterglow_leak") and maribo_passive_ids.has("lingpet_tailwind_steps") and maribo_passive_ids.has("lingpet_starlight_tracking") and maribo_passive_ids.has("lingpet_ring_dash"), "Maribo should expose the five approved shared passives")
+	_expect(
+		maribo_passive_pool.size() == 6
+		and maribo_passive_ids.has("lingpet_resonance_boost")
+		and maribo_passive_ids.has("lingpet_afterglow_leak")
+		and maribo_passive_ids.has("lingpet_tailwind_steps")
+		and maribo_passive_ids.has("lingpet_starlight_tracking")
+		and maribo_passive_ids.has("lingpet_ring_dash")
+		and maribo_passive_ids.has("lingpet_light_eater"),
+		"Maribo should expose the six approved shared passives"
+	)
 	var maribo_loadout: Dictionary = LingpetCatalog.build_default_loadout("maribo")
 	_expect(str(maribo_loadout.get("active_skill_id", "")) == "maribo_hydro_sphere", "default Maribo loadout should keep Hydro Sphere for legacy owned Maribo")
 	_expect(str(maribo_loadout.get("passive_skill_id", "")) == "lingpet_resonance_boost", "default Maribo loadout should keep Resonance Boost for legacy owned Maribo")
@@ -1939,12 +1977,21 @@ func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> 
 	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({})), "higher-tier Junior Mika should still spawn the tutorial egg without an affinity store module")
 	_expect_eq(int(higher_runtime._affinity_state.get_run_ring_core_tier()), 2, "tutorial grant should not lower an existing run ring-core tier")
 
-	# R3 / v5: store no longer persists ring-core; non-Mika simply never grants.
-	var viper_owner := FakeOwner.new()
-	viper_owner.selected_character_type = "viper"
-	var viper_runtime: Object = LingpetEggRuntime.new()
-	_expect(not viper_runtime.update(0.0, viper_owner, FakeRegistry.new({})), "Junior non-Mika should not spawn the first tutorial egg")
-	_expect_eq(int(viper_runtime._affinity_state.get_run_ring_core_tier()), 0, "ineligible non-Mika owner should keep this-run ring-core at tier 0")
+	# R3 / v5: store no longer persists ring-core. Junior starter-egg characters
+	# (smasher/commando/viper) DO get the standard grant; other characters do not.
+	var optimus_owner := FakeOwner.new()
+	optimus_owner.selected_character_type = "optimus"
+	var optimus_runtime: Object = LingpetEggRuntime.new()
+	_expect(not optimus_runtime.update(0.0, optimus_owner, FakeRegistry.new({})), "Junior non-starter character should not spawn the first tutorial egg")
+	_expect_eq(int(optimus_runtime._affinity_state.get_run_ring_core_tier()), 0, "ineligible non-starter owner should keep this-run ring-core at tier 0")
+
+	# Commando/Viper now share the Smasher starter grant in the test (Junior) league.
+	for starter_character in ["viper", "soldier"]:
+		var starter_owner := FakeOwner.new()
+		starter_owner.selected_character_type = str(starter_character)
+		var starter_runtime: Object = LingpetEggRuntime.new()
+		_expect(starter_runtime.update(0.0, starter_owner, FakeRegistry.new({})), "Junior %s should spawn the first starter egg like Smasher" % starter_character)
+		_expect_eq(int(starter_runtime._affinity_state.get_run_ring_core_tier()), 1, "Junior %s starter egg should grant the standard run ring-core tier 1" % starter_character)
 
 
 func _verify_egg_player_contact_nudges_and_wobbles() -> void:
@@ -1959,13 +2006,18 @@ func _verify_egg_player_contact_nudges_and_wobbles() -> void:
 	runtime.update(0.016, owner)
 	var snapshot: Dictionary = runtime.get_snapshot()
 	var first_nudge: float = owner.lingpet_egg_pos.x - start_pos.x
-	_expect(first_nudge > 0.0 and first_nudge < 0.6, "player contact should gently nudge the Ringpet egg away from the player")
+	_expect(first_nudge > 0.0 and first_nudge < 0.7, "player contact should gently nudge the Ringpet egg away from the player on the first frame")
 	_expect(absf(float(snapshot.get("egg_wobble_angle", 0.0))) > 0.01, "player contact should wobble the Ringpet egg")
 	_expect(int(owner.lingpet_hatch_hits) == 0, "player contact should not count as a hatch hit")
 	for _idx in range(30):
 		runtime.update(0.016, owner)
 	var sustained_nudge: float = owner.lingpet_egg_pos.x - start_pos.x
-	_expect(sustained_nudge < 14.0, "sustained player contact should not shove the Ringpet egg too far")
+	# Walking now influences the egg noticeably more than before (old cap was 14),
+	# but still stays a gentle push, not a dash-strength shove.
+	_expect(sustained_nudge > 15.0, "walking into the egg should influence it noticeably more than the old faint nudge")
+	_expect(sustained_nudge < 30.0, "sustained player contact should still not shove the Ringpet egg a full body-width away")
+	var walk_egg_state: Object = runtime.get("_egg_state")
+	_expect(absf(float(walk_egg_state.roll_angle)) > 0.05, "walking should also roll the egg (Δx-driven), not just slide it flat")
 
 
 func _verify_egg_color_rolls_once_and_restores() -> void:
@@ -2107,6 +2159,123 @@ func _verify_bare_egg_roll_physics_and_renderer() -> void:
 	_expect(runtime_source.find("_item_egg_state.roll_angle") >= 0, "coexisting item egg draw should pass roll_angle into the renderer")
 
 
+func _verify_egg_hatch_required_hits_roll() -> void:
+	# (a) hatch difficulty roll — 1/2/3 pool. Roll off a LOCAL seeded RNG so this
+	# statistical seal never drains the global randi() stream that later RNG-coupled
+	# tests in this smoke depend on (reward-deck shuffle / V3-2c reconcile). Production
+	# spawn() still uses global randi (roll_required_hits() with no arg).
+	_expect(LingpetEggFieldState.HATCH_REQUIRED_HITS_POOL == [1, 2, 3], "hatch difficulty pool should be the 1/2/3 tiers")
+	var roll_rng := RandomNumberGenerator.new()
+	roll_rng.seed = 20260703
+	var roll_state := LingpetEggFieldState.new()
+	var seen_tiers: Dictionary = {}
+	for _roll_index in range(60):
+		roll_state.roll_required_hits(roll_rng)
+		var rolled: int = int(roll_state.hatch_required_hits)
+		_expect(rolled >= 1 and rolled <= 3, "hatch difficulty roll should stay in the 1..3 pool")
+		seen_tiers[rolled] = true
+	_expect(seen_tiers.size() == 3, "60 local-RNG rolls should hit every 1/2/3 tier (statistical seal, no global randi)")
+	# no reroll on frame advance; rolled value beats the fallback; snapshot exposes it
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(-800.0, -800.0)
+	var stable_state := LingpetEggFieldState.new()
+	stable_state.pos = Vector2(300.0, 704.0)
+	stable_state.roll_required_hits(roll_rng)
+	var first_roll: int = int(stable_state.hatch_required_hits)
+	for _frame in range(30):
+		stable_state.advance(0.016)
+		stable_state.update_player_contact(0.016, owner)
+	_expect(int(stable_state.hatch_required_hits) == first_roll, "required-hits roll must not reroll during normal frame advancement")
+	_expect(int(stable_state.get_required_hits(9)) == first_roll, "rolled state should win over the caller fallback")
+	_expect(int(stable_state.get_snapshot().get("egg_required_hits", -1)) == first_roll, "state snapshot should expose the required-hits roll")
+	var unrolled_state := LingpetEggFieldState.new()
+	_expect(int(unrolled_state.get_required_hits(7)) == 7, "unrolled state should fall back to the caller value")
+	stable_state.reset_all()
+	_expect(int(stable_state.hatch_required_hits) == 0, "reset_all should clear the required-hits roll back to the unrolled sentinel")
+
+	# (b) junior auto-present starter egg is ALWAYS forced to 1 hit. This is a
+	# deterministic override (not a probabilistic roll), so a few iterations suffice.
+	for _junior_index in range(3):
+		var junior_owner := FakeOwner.new()
+		var junior_runtime: Object = LingpetEggRuntime.new()
+		junior_runtime.update(0.0, junior_owner)
+		_expect(int(junior_owner.lingpet_hatch_required_hits) == 1, "junior auto-present starter egg must always hatch on the first hit")
+
+	# (c) multi-hit OUTCOME through the live runtime hit path: a 3-hit egg cracks on
+	# hits 1 and 2 (state stays egg, crack stages = hatch_hits) and hatches on hit 3
+	var outcome_owner := FakeOwner.new()
+	var outcome_runtime: Object = LingpetEggRuntime.new()
+	outcome_runtime.update(0.0, outcome_owner)
+	var outcome_egg_state: Object = outcome_runtime.get("_egg_state")
+	outcome_egg_state.set_required_hits(3)
+	outcome_runtime.update(0.016, outcome_owner)
+	_expect(int(outcome_owner.lingpet_hatch_required_hits) == 3, "owner sync should publish the egg's own required-hits roll")
+	var outcome_egg_pos: Vector2 = outcome_owner.lingpet_egg_pos
+	outcome_owner.ball_active = true
+	_register_hit(outcome_runtime, outcome_owner, outcome_egg_pos, 1)
+	_expect(int(outcome_owner.lingpet_hatch_hits) == 1 and str(outcome_owner.lingpet_state) == "egg", "first hit on a 3-hit egg should crack it, not hatch it")
+	_register_hit(outcome_runtime, outcome_owner, outcome_egg_pos, 2)
+	_expect(int(outcome_owner.lingpet_hatch_hits) == 2 and str(outcome_owner.lingpet_state) == "egg", "second hit on a 3-hit egg should deepen the crack, not hatch it")
+	_register_hit(outcome_runtime, outcome_owner, outcome_egg_pos, 3)
+	_expect(str(outcome_owner.lingpet_state) == "companion", "third hit on a 3-hit egg should hatch it")
+
+	# (d) save/load roundtrip keeps the per-egg roll (mirrors the color-index seal)
+	var save_owner := FakeOwner.new()
+	var save_runtime: Object = LingpetEggRuntime.new()
+	save_runtime.update(0.0, save_owner)
+	var save_egg_state: Object = save_runtime.get("_egg_state")
+	save_egg_state.set_required_hits(2)
+	var required_save_snapshot: Dictionary = save_runtime.get_save_snapshot()
+	_expect(int(required_save_snapshot.get("required_hits", 0)) == 2, "save snapshot should persist the per-egg required-hits roll")
+	var restore_owner := FakeOwner.new()
+	var restore_runtime: Object = LingpetEggRuntime.new()
+	restore_runtime.apply_save_snapshot(required_save_snapshot, restore_owner)
+	var restored_egg_state: Object = restore_runtime.get("_egg_state")
+	_expect(int(restored_egg_state.get_required_hits(0)) == 2, "restored egg should keep its saved required-hits roll")
+
+	# (e) coexist item egg prefers its own spawn roll over the incubating pet's profile
+	var lifecycle_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd")
+	_expect(lifecycle_source.find("egg_state.call(\"get_required_hits\"") >= 0, "item egg incubation should prefer the egg state's own required-hits roll")
+
+
+func _verify_egg_settle_oscillation() -> void:
+	# Roly-poly (오뚜기) settle: after motion stops, the egg should swing back and
+	# forth across upright and take a while to rest — NOT snap straight back.
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(-800.0, -800.0)  # far away: no nudge disturbs the settle
+	var settle_state := LingpetEggFieldState.new()
+	settle_state.pos = Vector2(300.0, 704.0)
+	settle_state.roll_angle = PI * 0.5
+	var started_signed: float = _signed_angle_delta(0.0, settle_state.roll_angle)
+	_expect(started_signed > 0.0, "settle fixture should start tilted to one side")
+	var crossings: int = 0
+	var min_signed: float = started_signed
+	var max_step: float = 0.0
+	var frames_to_rest: int = -1
+	var prev_signed: float = started_signed
+	var prev_angle: float = settle_state.roll_angle
+	for i in range(400):
+		settle_state.update_player_contact(0.016, owner)
+		var signed: float = _signed_angle_delta(0.0, settle_state.roll_angle)
+		if absf(signed) > 0.01 and absf(prev_signed) > 0.01 and (signed > 0.0) != (prev_signed > 0.0):
+			crossings += 1
+		min_signed = minf(min_signed, signed)
+		max_step = maxf(max_step, absf(_signed_angle_delta(prev_angle, settle_state.roll_angle)))
+		if frames_to_rest < 0 and settle_state.roll_angle == 0.0:
+			frames_to_rest = i
+		prev_signed = signed
+		prev_angle = settle_state.roll_angle
+	_expect(min_signed < -0.03, "roly-poly settle should OVERSHOOT past upright to the other side, not stop at upright")
+	_expect(crossings >= 2, "roly-poly settle should swing back and forth across upright at least twice (오뚜기)")
+	_expect(frames_to_rest >= 40, "gentle settle should take many frames to come to rest, not a fast snap-back")
+	_expect(frames_to_rest > 0, "settle should actually reach rest within the observation window")
+	_expect(max_step < 0.30, "settle wobble peak should stay below the old monotonic snap's opening rush")
+	var final_err: float = absf(_signed_angle_delta(0.0, settle_state.roll_angle))
+	_expect(final_err <= LingpetEggFieldState.EGG_ROLL_SETTLE_EPSILON * 1.5, "damped settle should still come to rest near upright")
+	settle_state.reset_contact_motion()
+	_expect_float(float(settle_state.roll_settle_vel), 0.0, "reset_contact_motion should clear the settle wobble velocity")
+
+
 func _verify_egg_dash_collision_knocks_and_wall_rebounds() -> void:
 	var dash_state := FakeDashState.new()
 	var registry := FakeRegistry.new({"smasher_dash_state": dash_state})
@@ -2199,21 +2368,30 @@ func _verify_egg_dash_collision_knocks_and_wall_rebounds() -> void:
 func _verify_player_serve_ball_does_not_hatch_egg() -> void:
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	runtime.update(0.0, owner)
+	var egg_hit_audio := FakeEggHitAudio.new()
+	var registry := FakeRegistry.new({"game_audio": egg_hit_audio})
+	runtime.update(0.0, owner, registry)
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
 	owner.ball_serve_origin = "player"
-	_register_hit(runtime, owner, egg_pos, 1)
-	_expect(int(owner.lingpet_hatch_hits) == 0, "player serve ball should bounce off the egg without cracking it")
+	_register_hit(runtime, owner, egg_pos, 1, registry)
+	_expect(int(owner.lingpet_hatch_hits) == 0, "player serve ball should not crack the egg (no hatch count)")
 	_expect(str(owner.lingpet_state) == "egg", "player serve ball should not hatch the Ringpet egg")
-	_expect(owner.ball_vel.y < 0.0, "ignored player serve hit should still reflect toward the opponent side")
+	# 서브공은 알과 타격판정 자체를 하지 않고 그대로 통과한다: 바운스가 없으므로 공
+	# 속도가 입력값(0, 12)에서 변하지 않고(아래로 계속 진행), 히트 SFX도 울리지 않는다.
+	# 이 두 단언은 서브공 통과 로직을 예전의 "바운스+SFX는 시키고 카운트만 제외"로
+	# 되돌리면 RED가 되는 반증 시일이다.
+	_expect(owner.ball_vel.y > 0.0 and is_equal_approx(owner.ball_vel.x, 0.0), "player serve ball should pass straight through the egg without any bounce")
+	_expect(egg_hit_audio.egg_hit_calls == 0, "a passed-through player-serve ball must NOT play the egg-hit SFX (no hit detection at all)")
 
+	var serve_only_calls := egg_hit_audio.egg_hit_calls
 	owner.ball_serve_origin = "boss"
 	owner.ball_pos = egg_pos + Vector2(0.0, -90.0)
-	runtime.update(0.21, owner)
-	_register_hit(runtime, owner, egg_pos, 2)
+	runtime.update(0.21, owner, registry)
+	_register_hit(runtime, owner, egg_pos, 2, registry)
 	_expect(int(owner.lingpet_hatch_hits) == 1, "non-player-serve ball hits should still count as a hatch hit")
 	_expect(str(owner.lingpet_state) == "companion", "non-player-serve ball hit should hatch the Ringpet egg")
+	_expect(egg_hit_audio.egg_hit_calls > serve_only_calls, "a counted (non-serve) hatch hit should also play the egg-hit bone-break SFX")
 
 
 func _verify_egg_hit_uses_player_paddle_reflection() -> void:
@@ -2226,6 +2404,10 @@ func _verify_egg_hit_uses_player_paddle_reflection() -> void:
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner)
 	_expect(int(owner.lingpet_hatch_hits) == 1, "egg paddle-reflection hit should count the hatch hit")
+	# The hatch itself now defers through the shell-break cinematic; the paddle
+	# reflection under test still resolves on the hit frame.
+	_expect(bool(runtime.is_hatch_break_active()), "the reflection hatch hit should start the shell-break sequence")
+	_pump_hatch_break(runtime, owner)
 	_expect(str(owner.lingpet_state) == "companion", "egg paddle-reflection hit should hatch the Ringpet egg")
 	_expect(owner.ball_vel.y < 0.0, "egg hit should reflect the ball toward the opponent side")
 	_expect(owner.ball_vel.x > 0.0, "right-side egg contact should angle the reflected ball to the right like a paddle hit")
@@ -2316,6 +2498,17 @@ func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: i
 	owner.ball_pos = egg_pos + Vector2(float(index), -8.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner, registry)
+	# The final counted hit defers the hatch behind the shell-break cinematic
+	# (physics held by the modal gate; clock pumped from the ungated idle path).
+	# Mirror that pump so post-hatch assertions see the committed state.
+	_pump_hatch_break(runtime, owner, registry)
+
+
+func _pump_hatch_break(runtime: Object, owner: Object, registry: Object = null) -> void:
+	var pump_guard := 0
+	while bool(runtime.is_hatch_break_active()) and pump_guard < 300:
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		pump_guard += 1
 
 
 func _finish_acquire_cutin(runtime: Object, registry: Object = null) -> void:
@@ -2353,6 +2546,81 @@ func _seed_lingpet_roster(owner: Object, pet_ids: Array[String], active_slot_ind
 	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
 	owner.lingpet_active_slot_index = active_slot_index
 	owner.ringpet_active_slot_index = active_slot_index
+
+
+# The final counted egg hit no longer opens the acquire cut-in on the same
+# frame: the 1.5s shell-break cinematic (state-scripted roll + staged cracks +
+# light leak) runs first, the shell bursts and holds briefly so the shard burst
+# reads, and only the deferred commit opens the cut-in. Battle physics is held
+# by the modal gate for the whole window; the clock is pumped from the frame
+# controller's ungated idle path (advance_hatch_break), mirroring the cut-in.
+func _verify_hatch_break_sequence_defers_cutin() -> void:
+	var owner := FakeOwner.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var egg_pos: Vector2 = owner.lingpet_egg_pos
+	owner.ball_active = true
+	var audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({"game_audio": audio})
+	# Drive the final hit WITHOUT the shared helper's auto-pump so the deferred
+	# window itself can be asserted.
+	owner.ball_pos = egg_pos + Vector2(0.0, -90.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.21, owner, registry)
+	owner.ball_pos = egg_pos + Vector2(1.0, -8.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.0, owner, registry)
+	_expect(bool(runtime.is_hatch_break_active()), "final counted hit should start the shell-break sequence")
+	_expect(not bool(runtime.is_acquire_cutin_active()), "acquire cut-in must not open on the hatch frame anymore")
+	_expect(str(owner.lingpet_state) == "egg", "the egg must stay in the egg state through the shell-break window")
+	_expect(audio.lingpet_acquire_count == 0, "acquisition cut-in audio must not play before the deferred commit")
+	# The gated update path must be inert during the break (modal-gate mirror).
+	var pos_before_gated: Vector2 = runtime._egg_state.pos
+	runtime.update(0.5, owner, registry)
+	_expect(runtime._egg_state.pos == pos_before_gated and bool(runtime.is_hatch_break_active()), "gated update() must not advance or cancel the shell-break sequence")
+	# The break motion must actually ROLL the egg (position + roll angle move).
+	var moved := false
+	var rolled := false
+	for _i in range(30):
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		if absf(runtime._egg_state.pos.x - egg_pos.x) > 2.0:
+			moved = true
+		var roll_angle := float(runtime._egg_state.roll_angle)
+		if absf(roll_angle) > 0.01 and absf(roll_angle - TAU) > 0.01:
+			rolled = true
+	_expect(moved, "shell-break should visibly roll the egg sideways")
+	_expect(rolled, "shell-break roll should rotate the egg (rolling, not sliding)")
+	_expect(not bool(runtime.is_acquire_cutin_active()), "cut-in must stay closed mid-break")
+	# Complete the break: the shell bursts (hatch flash + shard burst) and holds
+	# briefly; the cut-in opens only after the burst hold commits the hatch.
+	var burst_seen := false
+	var guard := 0
+	while bool(runtime.is_hatch_break_active()) and guard < 300:
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		if bool(runtime._egg_state.has_hatch_flash()) and not bool(runtime.is_acquire_cutin_active()):
+			burst_seen = true
+		guard += 1
+	_expect(burst_seen, "the shard burst must start BEFORE the cut-in opens (burst hold)")
+	_expect(bool(runtime.is_acquire_cutin_active()), "deferred commit should open the acquire cut-in")
+	_expect(audio.lingpet_acquire_count == 1, "acquisition cut-in audio should play once at the deferred commit")
+	_expect(str(owner.lingpet_state) == "companion", "deferred commit should activate the hatched companion")
+	_expect(str(owner.active_lingpet_id) != "", "deferred commit should publish the hatched pet id")
+
+	# Structural seals: the pause / pump / input wiring mirrors the acquire cut-in.
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var resolve_body: String = _function_body(runtime_source, "func _resolve_ball_hit")
+	_expect(resolve_body.find("_egg_state.trigger_hatch_break()") >= 0, "the hatched branch must defer through the shell-break trigger")
+	_expect(resolve_body.find("_finish_regular_hatch(") < 0 and resolve_body.find("_begin_overflow_hatch(") < 0, "the hatched branch must not commit the hatch on the hit frame")
+	var modal_gate_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_modal_gate_controller.gd")
+	_expect(modal_gate_source.find("physics.modal_gate.lingpet_hatch_break") >= 0 and modal_gate_source.find("is_hatch_break_active") >= 0, "the modal gate must hold battle physics through the shell-break window")
+	var frame_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
+	_expect(frame_controller_source.find("advance_hatch_break") >= 0, "the frame controller idle pump must advance the shell-break clock while physics is held")
+	var input_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	_expect(input_controller_source.find("is_hatch_break_active") >= 0, "the input controller must swallow input during the shell-break beat (mid-break pause/save would strand an uncommitted hatch)")
+	var egg_break_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
+	_expect(egg_break_renderer_source.find("func draw_hatch_break_egg") >= 0 and egg_break_renderer_source.find("HATCH_BREAK_CRACK_STAGE_RATIOS") >= 0, "the egg renderer must own the staged shell-break crack visuals")
+	var behind_pass_body: String = _function_body(runtime_source, "func draw_lingpet_body_behind_actors")
+	_expect(behind_pass_body.find("draw_hatch_break_egg") >= 0, "the behind-actors egg pass must render the shell-break sequence")
 
 
 func _verify_acquire_cutin_triggers_on_hatch() -> void:
@@ -5935,6 +6203,51 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 	_expect_float(dash_runtime.get_affinity_points("maribo"), before_hidden_click, "Ring Dash visual-hidden click should not grant affinity")
 
 
+func _verify_companion_interact_key_reaction() -> void:
+	# Non-mouse bond entry (E key / future pad button): the wrapper must
+	# self-target _companion_pos so the click body is reused verbatim --
+	# same reaction, same SOURCE_CLICK grant, same round cap, no new lever.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.lingpet_slots = ["maribo", "", ""]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	# Park the companion far from the origin: a broken self-target (passing
+	# Vector2.ZERO instead of _companion_pos) would miss the tap zone here.
+	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact key should start the reaction by self-targeting the companion position")
+	_expect(bool(runtime.is_companion_click_reaction_active()), "interact-started reaction should report active")
+	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "interact start edge should grant the same SOURCE_CLICK affinity (+20)")
+	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact during an active reaction should still be consumed (audio replay branch)")
+	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "interact replay branch should not double-grant affinity")
+
+	runtime.update(5.0, owner)
+	_expect(bool(runtime.try_begin_companion_interact_reaction()), "second interact start edge in the same round should be allowed")
+	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "second interact should consume the remaining round click budget (2x20)")
+	runtime.update(5.0, owner)
+	_expect(bool(runtime.try_begin_companion_interact_reaction()), "third same-round interact should still consume the reaction")
+	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "third same-round interact should be blocked by the shared SOURCE_CLICK round cap")
+	var capped_interact: Dictionary = runtime.get_last_affinity_result_for_tests()
+	_expect_str(str(capped_interact.get("blocked_reason", "")), "round_cap", "capped interact should report the same affinity round cap as clicks")
+
+	var eggless_runtime: Object = LingpetEggRuntime.new()
+	_expect(not bool(eggless_runtime.try_begin_companion_interact_reaction()), "interact without an accompanying companion should refuse (input falls through)")
+
+	var hidden_owner := FakeOwner.new()
+	var hidden_runtime: Object = LingpetEggRuntime.new()
+	_expect(hidden_runtime.debug_grant_and_activate_pet("lunabi", hidden_owner), "hidden interact fixture should activate Lunabi")
+	hidden_runtime.configure_companion_sortie_hidden_for_tests(Vector2(250.0, 245.0), 2, 8.0)
+	_expect(bool(hidden_runtime.try_begin_companion_interact_reaction()), "hidden sortie interact may still consume the reaction")
+	_expect_float(hidden_runtime.get_affinity_points("lunabi"), 0.0, "hidden sortie interact should inherit the body-presence affinity gate (no grant)")
+
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var interact_body := _function_body(runtime_source, "func try_begin_companion_interact_reaction")
+	_expect(interact_body.find("try_begin_companion_click_reaction(_companion_pos") >= 0, "interact wrapper should self-target _companion_pos through the click body instead of forking a second grant path")
+	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	_expect(input_source.find("LINGPET_INTERACT_KEY := KEY_E") >= 0, "battle input should bind the non-mouse bond interact key to E")
+	_expect(input_source.find("try_begin_companion_interact_reaction(registry)") >= 0, "battle input should hand the registry to the interact wrapper so the per-pet voice can play")
+
+
 func _verify_ring_core_upgrade_grants_affinity_to_all_owned_pets() -> void:
 	var registry := FakeRegistry.new({})
 	var owner := FakeOwner.new()
@@ -6268,6 +6581,7 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_set_run_ring_core_tier_for_smoke(runtime)
+	runtime.set_affinity_reward_seed_for_tests("red_dragon", 1)
 	_expect(
 		runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "", "", registry, 1, 1),
 		"second-active fixture should activate Red Dragon without a debug-forced loadout"
@@ -7084,9 +7398,17 @@ func _verify_ineligible_conditions_do_not_spawn() -> void:
 	champion_owner.ai_mode = "champion"
 	_expect(not LingpetEggRuntime.new().update(0.0, champion_owner), "Champion League should not spawn the first unidentified lingpet egg")
 
-	var viper_owner := FakeOwner.new()
-	viper_owner.selected_character_type = "viper"
-	_expect(not LingpetEggRuntime.new().update(0.0, viper_owner), "Junior non-Mika character should not spawn the first unidentified lingpet egg")
+	var optimus_owner := FakeOwner.new()
+	optimus_owner.selected_character_type = "optimus"
+	_expect(not LingpetEggRuntime.new().update(0.0, optimus_owner), "Junior non-starter character should not spawn the first unidentified lingpet egg")
+
+	# Commando/Viper are now starter-egg eligible in the test (Junior) league.
+	var starter_viper := FakeOwner.new()
+	starter_viper.selected_character_type = "viper"
+	_expect(LingpetEggRuntime.new().update(0.0, starter_viper), "Junior Viper should spawn the starter lingpet egg like Smasher")
+	var starter_commando := FakeOwner.new()
+	starter_commando.selected_character_type = "soldier"
+	_expect(LingpetEggRuntime.new().update(0.0, starter_commando), "Junior Commando should spawn the starter lingpet egg like Smasher")
 
 
 func _find_stat(stats: Array, label: String) -> Dictionary:

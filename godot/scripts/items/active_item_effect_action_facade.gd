@@ -58,7 +58,7 @@ func apply_life_elixir(
 
 func apply_lingpet_feed(
 	_target: Object,
-	_item_data: Dictionary,
+	item_data: Dictionary,
 	owner: Object,
 	registry: Object,
 	effect_feedback: Object
@@ -76,6 +76,25 @@ func apply_lingpet_feed(
 	if effect_feedback != null:
 		effect_feedback.play_first_audio(registry, ["play_active_item"])
 		effect_feedback.trigger_registry_feedback(registry, false, false, 0.015, 0.18)
+	return true
+
+
+func activate_lingpet_egg(
+	_target: Object,
+	owner: Object,
+	registry: Object,
+	effect_feedback: Object
+) -> bool:
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("deploy_egg_from_item"):
+		return false
+	# deploy_egg_from_item returns false while another egg / acquisition choice is
+	# unresolved, so the slot controller leaves the item in the slot.
+	if not bool(lingpet_runtime.deploy_egg_from_item(owner, registry)):
+		return false
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 0.02, 0.22)
 	return true
 
 

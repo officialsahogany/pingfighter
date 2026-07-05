@@ -60,6 +60,7 @@ func apply(
 		_call_void(callbacks.get("clear_field_state", null))
 	if target_state == state_companion or target_state == state_egg:
 		_restore_egg_color_index(host, snapshot)
+		_restore_egg_required_hits(host, snapshot)
 	if owner != null:
 		if str(host.get("_state")) == state_companion and collection_state != null and collection_state.has_method("ensure_pet_active_slot"):
 			collection_state.ensure_pet_active_slot(owner, str(host.get("_pet_id")))
@@ -90,6 +91,19 @@ func _apply_companion_restore(host: Object, snapshot: Dictionary, owner: Object,
 	_call_void(callbacks.get("restore_companion_patrol", null), [snapshot])
 	if owner != null and host.has_method("_initialize_companion_patrol"):
 		host.call("_initialize_companion_patrol", owner, companion_pos == Vector2.ZERO)
+
+
+func _restore_egg_required_hits(host: Object, snapshot: Dictionary) -> void:
+	if not snapshot.has("required_hits"):
+		return
+	var required_hits := int(snapshot.get("required_hits", 0))
+	# 0 / negative is the "unrolled" sentinel (fresh-run reset snapshots) — keep
+	# the fresh spawn's own roll instead of forcing a value.
+	if required_hits < 1:
+		return
+	var egg_state: Object = host.get("_egg_state")
+	if egg_state != null and egg_state.has_method("set_required_hits"):
+		egg_state.set_required_hits(required_hits)
 
 
 func _restore_egg_color_index(host: Object, snapshot: Dictionary) -> void:

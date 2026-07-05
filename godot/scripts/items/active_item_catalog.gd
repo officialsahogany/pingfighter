@@ -40,10 +40,16 @@ const CHEDDAR_CHEESE_ICON_PATH := "res://assets/sprites/items/cheddar_cheese_ico
 const CAMEMBERT_CHEESE_ICON_PATH := "res://assets/sprites/items/camembert_cheese_icon_imagegen_v1.png"
 const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_icon_imagegen_v1.png"
 const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.png"
+const LINGPET_APPLE_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_apple_feed_icon.png"
+const LINGPET_MELON_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_melon_feed_icon.png"
+const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/resonance_egg_item_icon.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
 	"lingpet_feed",
+	"lingpet_apple_feed",
+	"lingpet_melon_feed",
+	"lingpet_egg",
 	"life_elixir",
 	"vitamin_pill",
 	"strange_vial",
@@ -76,8 +82,14 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_gauge_charge()
 		"lingpet_feed":
 			item_data = _build_lingpet_feed()
+		"lingpet_apple_feed":
+			item_data = _build_lingpet_apple_feed()
+		"lingpet_melon_feed":
+			item_data = _build_lingpet_melon_feed()
 		"lingpet_special_feed":
 			item_data = _build_lingpet_special_feed()
+		"lingpet_egg":
+			item_data = _build_lingpet_egg()
 		"life_elixir":
 			item_data = _build_life_elixir()
 		"ammo_box":
@@ -221,6 +233,44 @@ func _build_lingpet_feed() -> Dictionary:
 	}
 
 
+func _build_lingpet_apple_feed() -> Dictionary:
+	return {
+		"name": "lingpet_apple_feed",
+		"display_name": "사과",
+		"type": "active",
+		"effect": "lingpet_feed",
+		"chance": 0.008,
+		"duration": 0,
+		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"feed_amount": 30.0,
+		"description": "활성 링펫에게 사과를 주어 포만도를 30 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"icon_path": LINGPET_APPLE_FEED_ICON_PATH,
+		"color": Color(0.88, 0.18, 0.20),
+		"no_global_cooldown": true,
+		"shop_guaranteed": true,
+		"consumable": true,
+	}
+
+
+func _build_lingpet_melon_feed() -> Dictionary:
+	return {
+		"name": "lingpet_melon_feed",
+		"display_name": "멜론",
+		"type": "active",
+		"effect": "lingpet_feed",
+		"chance": 0.006,
+		"duration": 0,
+		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"feed_amount": 50.0,
+		"description": "활성 링펫에게 멜론을 주어 포만도를 50 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"icon_path": LINGPET_MELON_FEED_ICON_PATH,
+		"color": Color(0.48, 0.84, 0.34),
+		"no_global_cooldown": true,
+		"shop_guaranteed": true,
+		"consumable": true,
+	}
+
+
 func _build_lingpet_special_feed() -> Dictionary:
 	return {
 		"name": "lingpet_special_feed",
@@ -242,18 +292,29 @@ func _build_lingpet_special_feed() -> Dictionary:
 	}
 
 
+func _build_lingpet_egg() -> Dictionary:
 	# Pro (champion) / Mythic only — gated in active_item_field_spawn_pool via
+	# can_offer_egg_item. On use it places an egg (deploy_egg_from_item): with NO companion
+	# the egg hatches into the companion; with a companion ALREADY on field a SEPARATE egg
+	# incubates alongside it (the companion keeps accompanying the player) and the new pet is
+	# absorbed into a free collection slot on hatch. Only one egg incubates at a time
+	# (can_offer_egg_item blocks while _state == STATE_EGG or an incubator is active). Junior
 	# never sees this item (its lingpet is auto-present).
 	return {
+		"name": "lingpet_egg",
 		"display_name": "링펫알",
 		"type": "active",
+		"effect": "lingpet_egg",
 		"chance": 0.030,
 		"duration": 0,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
 		"description": "필드에 링펫알을 설치합니다. 공으로 맞혀 부화시키면 링펫 한 마리를 무작위로 얻습니다.",
+		"icon_path": LINGPET_EGG_ICON_PATH,
 		"color": Color(0.30, 0.80, 1.0),
 		"consumable": true,
 		# One-shot deploy: the Alchemy recycle perk must NOT keep this in the slot. Only one
+		# egg can incubate at a time, so a recycled egg would strand a dead slot until the
+		# current incubation resolves (item_runtime_checklist §1.7).
 		"no_recycle": true,
 	}
 

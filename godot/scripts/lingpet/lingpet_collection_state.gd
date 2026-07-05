@@ -5,6 +5,14 @@ const STATE_COMPANION := "companion"
 const MAX_BATTLE_SLOTS := 3
 const MAX_OWNED := MAX_BATTLE_SLOTS
 
+# 테스트(주니어) 난이도에서 시작 링펫 알을 스매셔와 동일하게 지급받는 캐릭터들.
+# 부화 후보(hatch candidates)의 unlock이 character_type == "smasher"로 게이트돼 있어,
+# 이 캐릭터들은 주니어 한정으로 hatch context의 character_type를 smasher로 승격해
+# 같은 시작 알 풀을 공유한다(is_first_lingpet_egg_eligible의 표준 링코어 지급도 같은
+# 컨텍스트를 읽으므로 스매셔와 동일하게 링코어 tier 1도 함께 받는다).
+# 코만도는 내부적으로 "soldier"이며 "commando" 별칭도 안전하게 포함한다.
+const JUNIOR_STARTER_EGG_CHARACTERS := ["smasher", "soldier", "commando", "viper"]
+
 const OWNER_ARRAY_KEYS := [
 	"lingpet_owned_pet_ids",
 	"owned_lingpet_ids",
@@ -375,9 +383,16 @@ func pick_random_unowned_pet_id(owner: Object, rng: RandomNumberGenerator = null
 
 
 func get_hatch_context(owner: Object) -> Dictionary:
+	var league_mode: String = _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion")))
+	var character_type: String = _normalize_character_type(_get_owner_value(owner, "selected_character_type", "smasher"))
+	# 주니어(테스트) 난이도 시작 알은 스매셔 전용이 아니다. 코만도/바이퍼도 스매셔처럼
+	# 시작 알을 받도록, 주니어 한정으로 hatch context 캐릭터를 smasher로 승격한다.
+	# 다른 리그에서는 승격하지 않으므로 상위 리그 hatch/gacha 게이팅에는 영향이 없다.
+	if league_mode == "junior" and character_type in JUNIOR_STARTER_EGG_CHARACTERS:
+		character_type = "smasher"
 	return {
-		"league_mode": _normalize_league_mode(str(_get_owner_value(owner, "ai_mode", "champion"))),
-		"character_type": _normalize_character_type(_get_owner_value(owner, "selected_character_type", "smasher")),
+		"league_mode": league_mode,
+		"character_type": character_type,
 	}
 
 

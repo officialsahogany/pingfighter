@@ -1,6 +1,7 @@
 extends RefCounted
 
 const DriveCutinFxHost := preload("res://scripts/hud/drive_cutin_fx_host.gd")
+const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const DRIVE_CUTIN_FX_HOST_NAME := "SmasherDriveCutinFxHost"
 const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
 
@@ -47,6 +48,19 @@ func process_idle(
 	# its reveal clock must advance from this ungated idle pump (not the gated
 	# update driver) and keep the scene repainting while it holds for a click.
 	var lingpet_acquire_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	# The shell-break sequence between the final egg hit and the cut-in pauses
+	# battle physics the same way, so its clock is pumped here too. It runs
+	# BEFORE the cut-in branch: the break's commit is what opens the cut-in.
+	if (
+		lingpet_acquire_runtime != null
+		and lingpet_acquire_runtime.has_method("is_hatch_break_active")
+		and bool(lingpet_acquire_runtime.is_hatch_break_active())
+	):
+		if lingpet_acquire_runtime.has_method("advance_hatch_break"):
+			lingpet_acquire_runtime.advance_hatch_break(delta, owner, registry)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
 	if (
 		lingpet_acquire_runtime != null
 		and lingpet_acquire_runtime.has_method("is_acquire_cutin_active")
@@ -56,6 +70,14 @@ func process_idle(
 			# Pass registry so the reveal can gate on the heavy Live2D sheet being cached
 			# (and keep streaming it), instead of locking solid on the static 원화 first.
 			lingpet_acquire_runtime.advance_acquire_cutin(delta, registry)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+	if (
+		lingpet_acquire_runtime != null
+		and lingpet_acquire_runtime.has_method("is_overflow_choice_active")
+		and bool(lingpet_acquire_runtime.is_overflow_choice_active())
+	):
 		_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
@@ -137,12 +159,36 @@ func process_idle(
 		if bool(skill_tooltip_hint.update(delta, owner, registry, module_getter)):
 			_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.skill_orb_tooltip_tutorial", sample_start)
+	var commando_firearm_hint: Object = _get_module(module_getter, "commando_firearm_tutorial_hint")
+	if commando_firearm_hint != null and commando_firearm_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(commando_firearm_hint.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.commando_firearm_tutorial", sample_start)
+	var viper_jetpack_hint: Object = _get_module(module_getter, "viper_jetpack_tutorial_hint")
+	if viper_jetpack_hint != null and viper_jetpack_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(viper_jetpack_hint.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.viper_jetpack_tutorial", sample_start)
+	var viper_practice: Object = _get_module(module_getter, "viper_practice_mode")
+	if viper_practice != null and viper_practice.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(viper_practice.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.viper_practice_mode", sample_start)
 	var active_item_use_hint: Object = _get_module(module_getter, "active_item_use_tutorial_hint")
 	if active_item_use_hint != null and active_item_use_hint.has_method("update"):
 		sample_start = _perf_begin(perf_logger)
 		if bool(active_item_use_hint.update(delta, owner, registry, module_getter)):
 			_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.active_item_use_tutorial", sample_start)
+	var character_info_hint: Object = _get_module(module_getter, "character_info_tutorial_hint")
+	if character_info_hint != null and character_info_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(character_info_hint.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.character_info_tutorial", sample_start)
 	if _is_safe_result_prewarm_window(module_getter):
 		_update_result_texture_prewarm(module_getter, perf_logger)
 		if _is_stage_clear_result_prewarm_window(module_getter):
@@ -251,6 +297,7 @@ func process_physics(
 	sample_start = _perf_begin(perf_logger)
 	if _should_block_battle_physics(module_getter, perf_logger):
 		_pause_modal_active_item_cooldowns(owner, registry, module_getter)
+		_stop_modal_blocked_gameplay_loop_audio(module_getter)
 		_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
 		_perf_end(perf_logger, "physics.frame.total", total_start)
 		return
@@ -320,6 +367,7 @@ func draw(
 			result_screen.draw(canvas, owner, registry, view_size)
 			_perf_end(perf_logger, "draw.frame.result_screen", result_start)
 		_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
+		_draw_lingpet_overflow_choice_if_active(canvas, registry, view_size, perf_logger)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
 		return
 
@@ -383,15 +431,40 @@ func draw(
 		skill_tooltip_hint.draw(canvas, owner, registry, view_size)
 		_perf_end(perf_logger, "draw.frame.skill_orb_tooltip_tutorial", tooltip_hint_start)
 
+	var commando_firearm_hint: Object = _get_module(module_getter, "commando_firearm_tutorial_hint")
+	if commando_firearm_hint != null and commando_firearm_hint.has_method("draw"):
+		var commando_firearm_hint_start: int = _perf_begin(perf_logger)
+		commando_firearm_hint.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.commando_firearm_tutorial", commando_firearm_hint_start)
+
+	var viper_jetpack_hint: Object = _get_module(module_getter, "viper_jetpack_tutorial_hint")
+	if viper_jetpack_hint != null and viper_jetpack_hint.has_method("draw"):
+		var viper_jetpack_hint_start: int = _perf_begin(perf_logger)
+		viper_jetpack_hint.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.viper_jetpack_tutorial", viper_jetpack_hint_start)
+
+	var viper_practice: Object = _get_module(module_getter, "viper_practice_mode")
+	if viper_practice != null and viper_practice.has_method("draw"):
+		var viper_practice_start: int = _perf_begin(perf_logger)
+		viper_practice.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.viper_practice_mode", viper_practice_start)
+
 	var active_item_use_hint: Object = _get_module(module_getter, "active_item_use_tutorial_hint")
 	if active_item_use_hint != null and active_item_use_hint.has_method("draw"):
 		var active_item_hint_start: int = _perf_begin(perf_logger)
 		active_item_use_hint.draw(canvas, owner, registry, view_size)
 		_perf_end(perf_logger, "draw.frame.active_item_use_tutorial", active_item_hint_start)
 
+	var character_info_hint: Object = _get_module(module_getter, "character_info_tutorial_hint")
+	if character_info_hint != null and character_info_hint.has_method("draw"):
+		var character_info_hint_start: int = _perf_begin(perf_logger)
+		character_info_hint.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.character_info_tutorial", character_info_hint_start)
+
 	_draw_skill_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_drive_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
+	_draw_lingpet_overflow_choice_if_active(canvas, registry, view_size, perf_logger)
 
 	var defeat_continue_screen: Object = _get_defeat_chance_gems_continue_screen(module_getter)
 	if _is_defeat_chance_gems_continue_active(defeat_continue_screen):
@@ -643,6 +716,35 @@ func _draw_lingpet_acquire_cutin_if_active(
 	_perf_end(perf_logger, "draw.frame.lingpet_acquire_cutin", start)
 
 
+func _draw_lingpet_overflow_choice_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null:
+		return
+	var runtime: Variant = null
+	if registry.has_method("get_cached_instance"):
+		runtime = registry.get_cached_instance("lingpet_egg_runtime")
+	if (typeof(runtime) != TYPE_OBJECT or runtime == null) and registry.has_method("get_instance"):
+		runtime = registry.get_instance("lingpet_egg_runtime")
+	if typeof(runtime) != TYPE_OBJECT or runtime == null:
+		return
+	if not runtime.has_method("is_overflow_choice_active") or not bool(runtime.is_overflow_choice_active()):
+		return
+	var host: Variant = null
+	if registry.has_method("get_cached_instance"):
+		host = registry.get_cached_instance("lingpet_overflow_choice_overlay_host")
+	if (typeof(host) != TYPE_OBJECT or host == null) and registry.has_method("get_instance"):
+		host = registry.get_instance("lingpet_overflow_choice_overlay_host")
+	if typeof(host) != TYPE_OBJECT or host == null or not host.has_method("draw"):
+		return
+	var start: int = _perf_begin(perf_logger)
+	host.draw(canvas, runtime, view_size)
+	_perf_end(perf_logger, "draw.frame.lingpet_overflow_choice", start)
+
+
 func _get_readiness_controller(module_getter: Callable) -> Object:
 	return _get_module(module_getter, "battle_scene_readiness_controller")
 
@@ -807,6 +909,21 @@ func _pause_modal_active_item_cooldowns(owner: Object, registry: Object, module_
 	_modal_active_item_cooldown_pause_active = true
 
 
+func _stop_modal_blocked_gameplay_loop_audio(module_getter: Callable) -> void:
+	# Physics-blocking modals (character info via TAB, pause menu, debug pickers)
+	# return here BEFORE the update driver runs, so update_effects -- the only
+	# place that syncs / stops gameplay loop audio -- never fires while the modal
+	# is open. Any loop still playing when the modal opened would otherwise drone
+	# or repeat for the whole modal: the dash-delay 후딜 loop (force-looped in
+	# game_audio._enable_loop) is the common trigger (dash then TAB), but warp
+	# gate, magnum grip, plasma, and chaos blackhole share the trap. Stop them
+	# here; update_effects re-syncs any still-active loop on the frame physics
+	# resumes, so a recovery that is still in progress simply resumes its sound.
+	var audio: Object = _get_module(module_getter, "game_audio")
+	if audio != null:
+		GameplayLoopAudioCleanup.stop_all(audio)
+
+
 func _resume_modal_active_item_cooldowns(owner: Object, registry: Object, module_getter: Callable) -> void:
 	if not _modal_active_item_cooldown_pause_active:
 		return
@@ -856,7 +973,11 @@ func _draw_black(canvas: CanvasItem, view_size: Vector2) -> void:
 
 
 func _queue_redraw(owner: Object) -> void:
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 

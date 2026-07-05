@@ -11,6 +11,8 @@ const FEATURED_DISCOUNT_RATE := 0.20
 const FEATURED_COUNT := 2
 const GUARANTEED_ACTIVE_ITEM_NAMES := [
 	"lingpet_feed",
+	"lingpet_apple_feed",
+	"lingpet_melon_feed",
 	"lingpet_special_feed",
 ]
 

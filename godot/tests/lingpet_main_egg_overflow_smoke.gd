@@ -228,6 +228,19 @@ func _verify_main_egg_full_roster_hatch_routes_to_overflow() -> void:
 	var required_hits := maxi(1, int(owner.lingpet_hatch_required_hits))
 	for hit_index in range(required_hits):
 		_register_hit(runtime, owner, egg_pos, hit_index + 1, registry)
+	# The final counted hit no longer opens the cut-in on the same frame: the
+	# shell-break cinematic (roll / staged cracks / burst hold) runs first while
+	# the modal gate holds battle physics, and only its deferred commit opens
+	# the acquire cut-in.
+	_expect(bool(runtime.is_hatch_break_active()), "the final counted hit should start the shell-break sequence, not the cut-in")
+	_expect(not bool(runtime.is_acquire_cutin_active()), "the acquire cut-in must not open before the shell-break sequence commits")
+	_expect(not bool(runtime.is_overflow_choice_active()), "the overflow choice must stay closed until the deferred hatch commits")
+	var pump_guard := 0
+	while bool(runtime.is_hatch_break_active()) and pump_guard < 300:
+		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
+		pump_guard += 1
+	_expect(not bool(runtime.is_hatch_break_active()), "the shell-break sequence should complete within its time budget")
+	_expect(bool(runtime.is_acquire_cutin_active()), "the shell-break commit should open the acquire cut-in")
 	# The full-roster hatch starts the acquire cut-in with the overflow choice pending;
 	# resolving the cut-in activates the overflow choice.
 	runtime.dismiss_acquire_cutin()

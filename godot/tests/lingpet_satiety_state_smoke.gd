@@ -3,6 +3,7 @@ extends SceneTree
 const Smoke := preload("res://tests/lingpet_egg_runtime_smoke.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -41,6 +42,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_active_drain_and_rest_recovery()
+	_verify_second_slot_light_eater_reduces_active_drain()
 	await _verify_skipped_update_freezes_satiety()
 	_verify_save_restore_roundtrip()
 	_verify_schema_gated_owner_mirror()
@@ -75,6 +77,47 @@ func _verify_active_drain_and_rest_recovery() -> void:
 	_expect_float(runtime.get_satiety("lunabi"), expected_rest, "inactive battle-slot lingpet should recover at one-third drain")
 	var snapshot: Dictionary = runtime.get_snapshot()
 	_expect_eq(int(snapshot.get("satiety_pct", -1)), roundi(expected_active), "runtime snapshot should expose quantized active satiety")
+	_cleanup_runtime(runtime)
+
+
+func _verify_second_slot_light_eater_reduces_active_drain() -> void:
+	var owner := _make_owner()
+	var registry = Smoke.FakeRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		runtime.debug_grant_and_activate_pet(
+			"maribo",
+			owner,
+			false,
+			"maribo_hydro_sphere",
+			"lingpet_resonance_boost",
+			registry,
+			1,
+			1,
+			"",
+			"lingpet_light_eater",
+			1,
+			3
+		),
+		"second-slot light-eater fixture should activate Maribo"
+	)
+	runtime.set_satiety_for_tests("maribo", 100.0)
+	runtime.update(10.0, owner, registry)
+	var reduction_pct := LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(3)
+	var expected := 100.0 - 10.0 * LingpetAffinityState.SATIETY_DRAIN_PER_SECOND * (1.0 - reduction_pct / 100.0)
+	_expect_float(runtime.get_satiety("maribo"), expected, "second-slot light eater should reduce active drain")
+	var second_passive: Dictionary = runtime._current_profile.get_passive_skill(1)
+	_expect(str(second_passive.get("id", "")) == "lingpet_light_eater", "second-slot light eater fixture should keep light eater in slot 1")
+	# Drift guard: the light-eater table exists TWICE (catalog *_by_level array for
+	# tooltip/level resolution, affinity-state const consumed by the drain multiplier's
+	# id branch) because a catalog->affinity preload would be circular. If either copy
+	# is retuned alone, drain and displayed values silently diverge — pin them equal.
+	for level in range(1, 6):
+		_expect_float(
+			LingpetCatalog.get_skill_level_value(second_passive, "satiety_drain_reduction_pct", level, -1.0),
+			LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(level),
+			"light-eater catalog by_level[%d] must match the affinity-state reduction table (dual-table drift guard)" % level
+		)
 	_cleanup_runtime(runtime)
 
 

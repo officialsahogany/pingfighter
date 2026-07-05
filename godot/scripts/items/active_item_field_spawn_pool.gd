@@ -23,6 +23,8 @@ const VIPER_ONLY_PASSIVE_SPAWN_NAMES := {
 }
 const LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES := {
 	"lingpet_feed": true,
+	"lingpet_apple_feed": true,
+	"lingpet_melon_feed": true,
 }
 
 var item_catalog: Object = ActiveItemCatalog.new()
@@ -290,7 +292,7 @@ func build_spawn_candidates(
 	var candidates: Array[Dictionary] = []
 	var sample_start: int = _perf_begin(perf_logger)
 	for active_template in _get_active_spawn_candidate_templates():
-		if _should_skip_active_spawn_candidate(active_template, owner):
+		if _should_skip_active_spawn_candidate(active_template, registry, owner):
 			continue
 		# _apply_passive_spawn_weight returns the original template unchanged for
 		# every name except wall/boomerang/aipill; only those three allocate a
@@ -486,11 +488,52 @@ func _apply_passive_spawn_weight(item_data: Dictionary, registry: Object) -> Dic
 	return adjusted
 
 
-func _should_skip_active_spawn_candidate(item_data: Dictionary, owner: Object = null) -> bool:
+func _should_skip_active_spawn_candidate(item_data: Dictionary, registry: Object = null, owner: Object = null) -> bool:
 	var item_name: String = str(item_data.get("name", ""))
+	if item_name == "lingpet_egg":
+		return _should_skip_lingpet_egg_spawn(registry, owner)
 	if not LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES.has(item_name):
 		return false
 	return LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
+
+
+# The Pro/Mythic "lingpet_egg" active item drops in non-junior leagues whenever
+# the lingpet runtime can accept a new egg acquisition.
+# Junior never offers it — its lingpet is auto-present from battle start. Uses the
+# already-created runtime (cached peek, never a lazy instantiation in this spawn
+# path); when the runtime is not cached yet it falls back to a league-only gate.
+func _should_skip_lingpet_egg_spawn(registry: Object, owner: Object) -> bool:
+	# Don't spawn a second egg while the player already holds one — it could not be
+	# picked up anyway (active_item_slot_controller rejects a redundant egg), so an
+	# uncatchable egg on the field would just be clutter.
+	if _owner_has_lingpet_egg_in_slots(owner):
+		return true
+	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime != null and lingpet_runtime.has_method("can_offer_egg_item"):
+		return not bool(lingpet_runtime.can_offer_egg_item(owner))
+	return _is_junior_league(owner)
+
+
+func _owner_has_lingpet_egg_in_slots(owner: Object) -> bool:
+	if owner == null:
+		return false
+	for slot_value in BattleSceneOwnerReader.get_array(owner, "active_item_slots"):
+		if slot_value is Dictionary and str((slot_value as Dictionary).get("name", "")) == "lingpet_egg":
+			return true
+	return false
+
+
+func _is_junior_league(owner: Object) -> bool:
+	return str(LingpetCollectionState.new().get_hatch_context(owner).get("league_mode", "")) == "junior"
+
+
+# Cache-only peek: the spawn path must NEVER lazy-instantiate the lingpet runtime
+# (per the hot-path lazy-init contract). When it is not cached yet, callers fall
+# back to a league-only gate rather than creating the module here.
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	return registry.get_cached_instance(key)
 
 
 func _should_skip_passive_spawn_candidate(item_data: Dictionary, registry: Object, owner: Object = null) -> bool:

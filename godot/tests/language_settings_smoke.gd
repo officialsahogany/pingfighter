@@ -215,6 +215,23 @@ func _init() -> void:
 	_expect(str(commando_skill_config.get_skill_data("commando_pistol").get("korean", "")) == str(LanguageSettings.SKILL_DATA_RU["commando_pistol"]["korean"]), "Commando skill data should localize to Russian")
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == str(LanguageSettings.SKILL_DATA_RU["ignition_aura"]["korean"]), "Viper skill data should localize to Russian")
 
+	# Non-mouse bond interact hint (TAB bond tooltip, 2026-07-04): the sentence
+	# must localize in every EXACT_TEXT language, mirroring its sibling bond
+	# tooltip sentence (ko is the source key; pt-BR/ru have no EXACT_TEXT dict).
+	var bond_hint_key := "링펫을 클릭하거나 E 키(패드 RT)로 교감할 수 있습니다."
+	var bond_hint_expected := {
+		LanguageSettings.LANGUAGE_ENGLISH: "You can bond by clicking your lingpet or pressing E (RT on a gamepad).",
+		LanguageSettings.LANGUAGE_CHINESE: "点击灵宠，或按 E 键（手柄 RT）即可进行羁绊互动。",
+		LanguageSettings.LANGUAGE_JAPANESE: "リンペットをクリックするか、Eキー（パッドはRT）で絆を深められます。",
+		LanguageSettings.LANGUAGE_SPANISH: "Puedes crear vínculo haciendo clic en tu lingpet o pulsando E (RT en el mando).",
+	}
+	for bond_hint_language in bond_hint_expected:
+		LanguageSettings.set_language(bond_hint_language)
+		_expect(
+			LanguageSettings.translate_text(bond_hint_key) == str(bond_hint_expected[bond_hint_language]),
+			"bond interact hint should localize to %s" % str(bond_hint_language)
+		)
+
 	_restore_language_settings_snapshot()
 	print("language_settings_smoke: ok")
 	quit(0)

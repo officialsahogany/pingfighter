@@ -1,6 +1,11 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
+
+# Shared soft-falloff halo sprite size, same convention as the in-game companion
+# aura (lingpet_companion_renderer) and player state glow.
+const SOFT_GLOW_TEX_SIZE := 64
 
 const EGG_RADIUS := 28.0
 const EGG_TEXTURE_DRAW_SIZE := Vector2(88.0, 88.0)
@@ -9,6 +14,18 @@ const EGG_SEMI_MINOR := 27.0
 const HATCH_FLASH_SECONDS := 0.50
 const EGG_CRACK_LIGHT_MAIN_WIDTH := 2.1
 const EGG_CRACK_LIGHT_GLOW_WIDTH := 6.0
+# Shell-break sequence crack staging: progress ratios at which each successive
+# break crack becomes visible (stage N = ratios crossed). Timing/motion live in
+# lingpet_egg_field_state.advance_hatch_break; this renderer is draw-only.
+const HATCH_BREAK_CRACK_STAGE_RATIOS: Array[float] = [0.14, 0.40, 0.62, 0.82]
+# [path ratios (texture-rect space), width_scale, alpha_scale] per break stage.
+const HATCH_BREAK_CRACK_PATHS: Array = [
+	[[Vector2(0.50, 0.15), Vector2(0.46, 0.26), Vector2(0.51, 0.36), Vector2(0.45, 0.49), Vector2(0.49, 0.63)], 1.0, 1.0],
+	[[Vector2(0.69, 0.24), Vector2(0.66, 0.35), Vector2(0.70, 0.48), Vector2(0.66, 0.60)], 0.8, 0.8],
+	[[Vector2(0.33, 0.30), Vector2(0.37, 0.42), Vector2(0.33, 0.55), Vector2(0.38, 0.66)], 0.85, 0.85],
+	[[Vector2(0.50, 0.56), Vector2(0.47, 0.68), Vector2(0.52, 0.80), Vector2(0.48, 0.88)], 0.9, 0.9],
+]
+const HATCH_BREAK_LIGHT_SHAFT_COUNT := 6
 const HATCH_BREAK_SHARD_COUNT := 9
 const HATCH_BREAK_SHARD_DISTANCE := 44.0
 const HATCH_BREAK_SHARD_GRAVITY := 20.0
@@ -53,9 +70,12 @@ func draw_egg(
 		return
 	var hit_ratio: float = clampf(float(hatch_hits) / float(maxi(1, required_hits)), 0.0, 1.0)
 	var pulse: float = 0.5 + sin(float(Time.get_ticks_msec()) * 0.006) * 0.5
-	var glow_alpha: float = 0.16 + 0.10 * pulse + 0.12 * hit_ratio
 	var glow_color: Color = _get_glow_for_index(variant_index)
-	canvas.draw_circle(center + Vector2(0.0, 3.0), EGG_RADIUS + 16.0, Color(glow_color.r, glow_color.g, glow_color.b, glow_alpha))
+	# Overall halo intensity: a calm base that brightens as the egg accumulates
+	# hatch hits. The organic breathing pulse now lives inside the soft-glow blit
+	# (two-rate swell), so it is intentionally NOT folded into this value.
+	var glow_intensity: float = 0.70 + 0.50 * hit_ratio
+	_draw_soft_egg_glow(canvas, center + Vector2(0.0, 3.0), glow_color, glow_intensity)
 	var final_rotation: float = roll_angle + deg_to_rad(wobble_angle)
 	var visual_center: Vector2 = center + Vector2(0.0, _get_roll_bob_offset(roll_angle))
 	var texture_rect := Rect2(
@@ -80,6 +100,107 @@ func draw_profile_egg(
 	if canvas == null:
 		return
 	draw_egg(canvas, center, hatch_hits, required_hits, wobble_angle, variant_index, roll_angle)
+
+
+static func get_hatch_break_crack_stage(progress: float) -> int:
+	var stage := 0
+	for ratio: float in HATCH_BREAK_CRACK_STAGE_RATIOS:
+		if progress >= ratio:
+			stage += 1
+	return stage
+
+
+# Shell-break sequence body: the egg keeps rolling (motion scripted by the field
+# state), cracks spread in stages, and light leaks through the gaps -- surging
+# white-hot with radial shafts just before the shell bursts into the existing
+# hatch flash / shard burst.
+func draw_hatch_break_egg(
+	canvas: CanvasItem,
+	center: Vector2,
+	progress: float,
+	wobble_angle: float,
+	variant_index: int,
+	roll_angle: float
+) -> void:
+	if canvas == null:
+		return
+	var t: float = clampf(progress, 0.0, 1.0)
+	var glow_color: Color = _get_glow_for_index(variant_index)
+	# Halo surges toward the burst (ease-in) on top of the ambient premium glow.
+	_draw_soft_egg_glow(canvas, center + Vector2(0.0, 3.0), glow_color, 1.0 + 2.2 * t * t)
+	var final_rotation: float = roll_angle + deg_to_rad(wobble_angle)
+	var visual_center: Vector2 = center + Vector2(0.0, _get_roll_bob_offset(roll_angle))
+	var texture_rect := Rect2(
+		visual_center - EGG_TEXTURE_DRAW_SIZE * 0.5,
+		EGG_TEXTURE_DRAW_SIZE
+	)
+	var egg_texture: Texture2D = _get_cached_variant_texture(variant_index)
+	if egg_texture != null:
+		_draw_rotated_texture(canvas, egg_texture, texture_rect, final_rotation)
+	var stage: int = get_hatch_break_crack_stage(t)
+	if stage <= 0:
+		return
+	var pulse: float = 0.5 + sin(float(Time.get_ticks_msec()) * 0.012) * 0.5
+	# Light leaking through the shell gaps brightens as the break progresses.
+	var leak_alpha: float = clampf(0.42 + 0.50 * t + 0.16 * pulse, 0.0, 1.0)
+	for crack_index in range(mini(stage, HATCH_BREAK_CRACK_PATHS.size())):
+		var crack_spec: Array = HATCH_BREAK_CRACK_PATHS[crack_index]
+		var path_ratios: Array[Vector2] = []
+		for ratio_point: Vector2 in (crack_spec[0] as Array):
+			path_ratios.append(ratio_point)
+		_draw_egg_crack_light_path(
+			canvas,
+			texture_rect,
+			path_ratios,
+			leak_alpha * float(crack_spec[2]),
+			float(crack_spec[1]),
+			final_rotation
+		)
+	_draw_hatch_break_light_shafts(canvas, visual_center, t, pulse, final_rotation)
+
+
+# Final pre-burst beat: radial light shafts escaping between the shell pieces
+# plus a white core charging up. Anchored to the egg's rotation so the rays
+# read as light through fixed gaps, not a detached halo.
+func _draw_hatch_break_light_shafts(
+	canvas: CanvasItem,
+	visual_center: Vector2,
+	progress: float,
+	pulse: float,
+	rotation: float
+) -> void:
+	var shaft_start: float = HATCH_BREAK_CRACK_STAGE_RATIOS[HATCH_BREAK_CRACK_STAGE_RATIOS.size() - 1]
+	if progress < shaft_start:
+		return
+	var strength: float = clampf((progress - shaft_start) / maxf(0.001, 1.0 - shaft_start), 0.0, 1.0)
+	for i in range(HATCH_BREAK_LIGHT_SHAFT_COUNT):
+		var angle: float = rotation + TAU * float(i) / float(HATCH_BREAK_LIGHT_SHAFT_COUNT) + 0.35 * sin(float(i) * 2.7)
+		var dir := Vector2(cos(angle), sin(angle))
+		var inner: float = EGG_SEMI_MINOR * 0.55
+		var outer: float = EGG_SEMI_MAJOR + lerpf(10.0, 26.0, strength) * (0.75 + 0.25 * pulse)
+		var shaft_alpha: float = (0.14 + 0.30 * strength) * (0.70 + 0.30 * pulse)
+		canvas.draw_line(
+			visual_center + dir * inner,
+			visual_center + dir * outer,
+			Color(1.0, 0.98, 0.88, shaft_alpha),
+			2.4,
+			true
+		)
+		canvas.draw_line(
+			visual_center + dir * inner,
+			visual_center + dir * (inner + (outer - inner) * 0.6),
+			Color(1.0, 1.0, 1.0, shaft_alpha * 0.8),
+			1.0,
+			true
+		)
+	# White core charging up right before the burst.
+	var core_ramp: float = clampf((progress - 0.90) / 0.10, 0.0, 1.0)
+	if core_ramp > 0.0:
+		canvas.draw_circle(
+			visual_center,
+			lerpf(6.0, 20.0, core_ramp),
+			Color(1.0, 1.0, 0.97, 0.16 + 0.30 * core_ramp)
+		)
 
 
 func draw_hatch_flash(canvas: CanvasItem, center: Vector2, hatch_flash_timer: float, variant_index: int = -1) -> void:
@@ -131,6 +252,49 @@ func _normalize_variant_index(index: int) -> int:
 	if index >= 0 and index < variant_count:
 		return index
 	return 0
+
+
+# Premium installed-egg halo. Upgraded from a hard stacked-disc ring to the same
+# cos^2 feathered soft-glow recipe the in-game companion aura uses
+# (lingpet_companion_renderer._draw_soft_aura): three fully-overlapping blits of
+# the shared radial-falloff sprite (outer rim / mid body / whiter core) driven by
+# a two-rate organic breathing pulse, so the light falls off smoothly well past
+# the shell instead of reading as a flat saturated disc. `intensity` is the
+# hatch-progress brightness multiplier from draw_egg; the pulse is internal.
+func _draw_soft_egg_glow(canvas: CanvasItem, glow_center: Vector2, glow_color: Color, intensity: float) -> void:
+	if intensity <= 0.001:
+		return
+	var tex: Texture2D = SoftGlowTexture.get_texture(SOFT_GLOW_TEX_SIZE)
+	if tex == null:
+		return
+	var now_ms: float = float(Time.get_ticks_msec())
+	# Two-rate breathing: slow primary swell mixed with a gentler faster shimmer so
+	# the pulse never reads as one mechanical sine (matches the companion aura).
+	var breath_slow: float = 0.5 + 0.5 * sin(now_ms * 0.00082)
+	var breath_fast: float = 0.5 + 0.5 * sin(now_ms * 0.0021 + 1.3)
+	var breath: float = lerpf(breath_slow, breath_fast, 0.32)
+	# Layers sized off the visible shell extent, feathered outward. The rim/mid keep
+	# the variant pastel hue; the core lerps whiter so it reads as light with
+	# substance hugging the shell rather than a colored patch.
+	var pastel: Color = glow_color.lerp(Color.WHITE, 0.45)
+	var core_tint: Color = glow_color.lerp(Color.WHITE, 0.66)
+	var body_r: float = EGG_RADIUS + 12.0
+	var core_r: float = body_r + lerpf(11.0, 15.0, breath)
+	var core_a: float = clampf(lerpf(0.18, 0.24, breath) * intensity, 0.0, 1.0)
+	var mid_r: float = body_r + lerpf(22.0, 28.0, breath)
+	var mid_a: float = clampf(lerpf(0.115, 0.150, breath) * intensity, 0.0, 1.0)
+	var outer_r: float = body_r + lerpf(35.0, 44.0, breath)
+	var outer_a: float = clampf(lerpf(0.060, 0.088, breath) * intensity, 0.0, 1.0)
+	_blit_soft_egg_glow(canvas, tex, glow_center, outer_r, Color(pastel.r, pastel.g, pastel.b, outer_a))
+	_blit_soft_egg_glow(canvas, tex, glow_center, mid_r, Color(pastel.r, pastel.g, pastel.b, mid_a))
+	_blit_soft_egg_glow(canvas, tex, glow_center, core_r, Color(core_tint.r, core_tint.g, core_tint.b, core_a))
+
+
+func _blit_soft_egg_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:
+	if color.a <= 0.001:
+		return
+	var r: float = maxf(1.0, glow_radius)
+	canvas.draw_texture_rect(tex, Rect2(center - Vector2(r, r), Vector2(r * 2.0, r * 2.0)), false, color)
 
 
 func _get_roll_bob_offset(roll_angle: float) -> float:

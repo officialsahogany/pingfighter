@@ -26,6 +26,8 @@ func _run() -> void:
 func _verify_price_table_samples() -> void:
 	_expect(PlazaShopPricing.get_base_price("speedboots") == 750, "speedboots should keep the legacy shop base price")
 	_expect(PlazaShopPricing.get_base_price("lingpet_feed") == 240, "basic feed should have a plaza shop base price")
+	_expect(PlazaShopPricing.get_base_price("lingpet_apple_feed") == 180, "apple feed should have a plaza shop base price")
+	_expect(PlazaShopPricing.get_base_price("lingpet_melon_feed") == 320, "melon feed should have a plaza shop base price")
 	_expect(PlazaShopPricing.get_base_price("lingpet_special_feed") == 700, "special feed should have a plaza shop base price")
 	_expect(PlazaShopPricing.get_base_price("ragnarok_hammer") == 3600, "ragnarok_hammer should keep the legacy shop base price")
 	_expect(PlazaShopPricing.get_base_price("transcendent_crown") == 4560, "transcendent_crown should keep the legacy shop base price")
@@ -62,6 +64,8 @@ func _verify_stock_roll_shape() -> void:
 			_expect(not bool(legendary_seen.get(item_name, false)), "legendary shop stock item %s should not duplicate in one roll" % item_name)
 			legendary_seen[item_name] = true
 	_expect(bool(item_names_seen.get("lingpet_feed", false)), "shop stock should guarantee basic feed")
+	_expect(bool(item_names_seen.get("lingpet_apple_feed", false)), "shop stock should guarantee apple feed")
+	_expect(bool(item_names_seen.get("lingpet_melon_feed", false)), "shop stock should guarantee melon feed")
 	_expect(bool(item_names_seen.get("lingpet_special_feed", false)), "shop stock should guarantee special feed")
 	_expect(featured_count == 2, "shop stock should mark two featured sale items")
 

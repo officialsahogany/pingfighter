@@ -36,7 +36,8 @@ func advance_incubation_for_reveal(
 	owner: Object,
 	registry: Object,
 	egg_state: Object,
-	required_hits_fallback: int
+	required_hits_fallback: int,
+	on_ball_hit: Callable = Callable()
 ) -> String:
 	if not is_active() or egg_state == null:
 		return ""
@@ -44,13 +45,21 @@ func advance_incubation_for_reveal(
 		egg_state.call("update_player_contact", delta, owner, registry)
 	var hit_result: Dictionary = {}
 	if egg_state.has_method("resolve_ball_hit"):
+		# The egg state's own spawn-time required-hits roll wins; the incubating
+		# pet's profile value is only the fallback for unrolled states.
+		var required_hits: int = get_required_hits(required_hits_fallback)
+		if egg_state.has_method("get_required_hits"):
+			required_hits = int(egg_state.call("get_required_hits", required_hits))
 		var raw_hit_result: Variant = egg_state.call(
 			"resolve_ball_hit",
 			owner,
-			get_required_hits(required_hits_fallback)
+			required_hits
 		)
 		if raw_hit_result is Dictionary:
 			hit_result = raw_hit_result as Dictionary
+	# 공에 맞은 프레임마다 히트 콜백을 울린다(메인 알과 대칭 — 부화 여부와 무관).
+	if bool(hit_result.get("hit", false)) and on_ball_hit.is_valid():
+		on_ball_hit.call()
 	if not bool(hit_result.get("hatched", false)):
 		return ""
 	var origin := Vector2.ZERO

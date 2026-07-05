@@ -18,6 +18,7 @@ class FakeOwner:
 	var equipped_passive_items: Dictionary = {}
 	var mythic_item_state: Dictionary = {}
 	var lingpet_owned_pet_ids: Array = []
+	var ai_mode := "champion"
 	var megingjord_equipped := false
 	var dowsing_pendulum_equipped := false
 	var dowsing_pendulum_range := 0.0
@@ -66,14 +67,45 @@ class FakeCachedPassiveCatalog:
 class FakeLingpetFeedCatalog:
 	var build_call_count := 0
 
-	func build_item_by_name(_item_name: String) -> Dictionary:
+	func build_item_by_name(item_name: String) -> Dictionary:
 		build_call_count += 1
+		if not ["lingpet_feed", "lingpet_apple_feed", "lingpet_melon_feed"].has(item_name):
+			return {}
 		return {
-			"name": "lingpet_feed",
+			"name": item_name,
 			"display_name": "Lingpet Feed",
 			"type": "active",
 			"chance": 1.0,
 		}
+
+
+class FakeEggRuntime:
+	var offer := true
+
+	func can_offer_egg_item(_owner: Object) -> bool:
+		return offer
+
+
+class FakeEggRegistry:
+	var runtime: Object
+	var egg_gate_used_get_instance := false
+
+	func _init(r: Object) -> void:
+		runtime = r
+
+	func get_cached_instance(key: String) -> Object:
+		if key == "lingpet_egg_runtime":
+			return runtime
+		return null
+
+	# The lingpet_egg spawn gate must use the cache-only peek; reaching the lingpet
+	# runtime through get_instance would be a lazy-instantiation contract violation.
+	# Record it so the test fails. (Other keys like mythic_item_runtime may legitimately
+	# use get_instance and return null here.)
+	func get_instance(key: String) -> Object:
+		if key == "lingpet_egg_runtime":
+			egg_gate_used_get_instance = true
+		return null
 
 
 func _init() -> void:
@@ -93,6 +125,24 @@ func _init() -> void:
 		"active field items should route into active slots"
 	)
 	_expect(active_slots.size() == 1, "active pickup should add one active slot item")
+
+	# lingpet_egg is a one-shot deploy item: a second egg must NOT be stored (it would
+	# strand as a dead duplicate, since deploy_egg_from_item returns false once a
+	# lingpet exists). The first stores; the second is rejected and stays on the field.
+	var egg_slots: Array = []
+	var egg_owner := FakeOwner.new()
+	var egg_item_a: Dictionary = active_catalog.build_item_by_name("lingpet_egg")
+	_expect(not egg_item_a.is_empty(), "lingpet_egg should build in the active item catalog")
+	_expect(
+		active_runtime._store_active_item({"item_data": egg_item_a}, egg_slots, registry, egg_owner),
+		"first lingpet_egg pickup should store into an active slot"
+	)
+	var egg_item_b: Dictionary = active_catalog.build_item_by_name("lingpet_egg")
+	_expect(
+		not active_runtime._store_active_item({"item_data": egg_item_b}, egg_slots, registry, egg_owner),
+		"a second lingpet_egg pickup must be rejected while one is already held"
+	)
+	_expect(egg_slots.size() == 1, "rejected duplicate lingpet_egg must not occupy a second active slot")
 
 	var field_spawn_items: Array = mythic_catalog.get_field_spawn_items()
 	_expect(_array_has_item(field_spawn_items, "dowsing_pendulum"), "dowsing pendulum should be in the passive field-spawn list")
@@ -159,6 +209,7 @@ func _init() -> void:
 		"field spawn controller should delegate candidate names to the spawn pool"
 	)
 	_verify_lingpet_feed_active_gate()
+	_verify_lingpet_egg_active_gate()
 	var controller_prewarm := ActiveItemFieldSpawnController.new()
 	controller_prewarm.prewarm_spawn_candidate_templates()
 	var controller_cache_status: Dictionary = controller_prewarm.get_spawn_candidate_cache_status()
@@ -278,19 +329,101 @@ func _verify_lingpet_feed_active_gate() -> void:
 		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_feed"),
 		"lingpet feed active field-spawn candidates should be hidden before the player owns a lingpet"
 	)
+	_expect(
+		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_apple_feed"),
+		"lingpet apple feed active field-spawn candidates should be hidden before the player owns a lingpet"
+	)
+	_expect(
+		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_melon_feed"),
+		"lingpet melon feed active field-spawn candidates should be hidden before the player owns a lingpet"
+	)
 	feed_pool.clear_spawn_candidate_cache()
 	_expect(
 		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_feed"),
 		"lingpet feed active field-spawn candidates should appear once the player owns a lingpet"
 	)
+	_expect(
+		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_apple_feed"),
+		"lingpet apple feed active field-spawn candidates should appear once the player owns a lingpet"
+	)
+	_expect(
+		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_melon_feed"),
+		"lingpet melon feed active field-spawn candidates should appear once the player owns a lingpet"
+	)
 
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_field_spawn_pool.gd")
 	var active_loop_index := source.find("for active_template in _get_active_spawn_candidate_templates():")
-	var active_gate_index := source.find("_should_skip_active_spawn_candidate(active_template, owner)", active_loop_index)
+	var active_gate_index := source.find("_should_skip_active_spawn_candidate(active_template, registry, owner)", active_loop_index)
 	var append_index := source.find("candidates.append(_apply_passive_spawn_weight(active_template, registry))", active_loop_index)
 	_expect(active_gate_index > active_loop_index and active_gate_index < append_index, "lingpet feed active gate should run before active candidates are appended")
 	_expect(source.find("LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner)") >= 0, "lingpet feed active gate should reuse the canonical owned-lingpet predicate")
-	_expect(source.find("\"lingpet_feed\": true") >= 0, "lingpet feed should have a reserved active field-spawn gate id for V3-5")
+	_expect(source.find("\"lingpet_feed\": true") >= 0, "basic feed should keep a reserved active field-spawn gate id for Slice 4")
+	_expect(source.find("\"lingpet_apple_feed\": true") >= 0, "apple feed should keep a reserved active field-spawn gate id")
+	_expect(source.find("\"lingpet_melon_feed\": true") >= 0, "melon feed should keep a reserved active field-spawn gate id")
+
+
+func _verify_lingpet_egg_active_gate() -> void:
+	# Junior: the egg item is never offered (its lingpet is auto-present). With no
+	# runtime cached, the league-only fallback gate must still hide it.
+	var junior_owner := FakeOwner.new()
+	junior_owner.ai_mode = "junior"
+	var junior_pool := ActiveItemFieldSpawnPool.new()
+	junior_pool.passive_mythic_catalog = null
+	_expect(
+		not _array_has_item(junior_pool.build_spawn_candidates(null, junior_owner), "lingpet_egg"),
+		"lingpet_egg should never spawn in Junior league"
+	)
+
+	var champion_owner := FakeOwner.new()
+	champion_owner.ai_mode = "champion"
+
+	# Pro/Mythic + runtime can_offer (no lingpet deployed yet) → present.
+	var offering_pool := ActiveItemFieldSpawnPool.new()
+	offering_pool.passive_mythic_catalog = null
+	var offering_runtime := FakeEggRuntime.new()
+	offering_runtime.offer = true
+	var offering_registry := FakeEggRegistry.new(offering_runtime)
+	_expect(
+		_array_has_item(
+			offering_pool.build_spawn_candidates(offering_registry, champion_owner),
+			"lingpet_egg"
+		),
+		"lingpet_egg should spawn in non-junior leagues while no lingpet is deployed"
+	)
+	_expect(
+		not offering_registry.egg_gate_used_get_instance,
+		"lingpet_egg spawn gate must use the cache-only peek, never lazy-instantiate via get_instance"
+	)
+
+	# Pro/Mythic + runtime cannot offer (already deployed) → hidden.
+	var deployed_pool := ActiveItemFieldSpawnPool.new()
+	deployed_pool.passive_mythic_catalog = null
+	var deployed_runtime := FakeEggRuntime.new()
+	deployed_runtime.offer = false
+	_expect(
+		not _array_has_item(
+			deployed_pool.build_spawn_candidates(FakeEggRegistry.new(deployed_runtime), champion_owner),
+			"lingpet_egg"
+		),
+		"lingpet_egg should stop spawning once a lingpet is deployed this battle"
+	)
+
+	# Already holding an egg in an active slot → no second egg spawns (would be an
+	# uncatchable field duplicate; the slot controller also rejects the pickup).
+	var held_owner := FakeOwner.new()
+	held_owner.ai_mode = "champion"
+	held_owner.active_item_slots = [{"name": "lingpet_egg"}]
+	var held_pool := ActiveItemFieldSpawnPool.new()
+	held_pool.passive_mythic_catalog = null
+	var held_runtime := FakeEggRuntime.new()
+	held_runtime.offer = true
+	_expect(
+		not _array_has_item(
+			held_pool.build_spawn_candidates(FakeEggRegistry.new(held_runtime), held_owner),
+			"lingpet_egg"
+		),
+		"lingpet_egg should not spawn a second egg while one is already held in an active slot"
+	)
 
 
 func _find_item(items: Array, item_name: String) -> Dictionary:

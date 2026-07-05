@@ -124,7 +124,7 @@ func _run() -> void:
 	_verify_feed_catalog_tiers_and_icon()
 	_verify_feed_field_spawn_gate_uses_real_catalog()
 	_verify_basic_feed_active_item_restores_satiety()
-	_verify_special_feed_caps_satiety_and_wakes_ko()
+	_verify_melon_feed_wakes_ko_through_shared_effect()
 	_verify_full_satiety_and_battle_cap_preserve_item()
 	_verify_feed_no_global_cooldown_contract()
 	_verify_alchemy_recycle_cannot_bypass_battle_cap()
@@ -142,30 +142,58 @@ func _run() -> void:
 func _verify_feed_catalog_tiers_and_icon() -> void:
 	var catalog := ActiveItemCatalog.new()
 	var basic_data: Dictionary = catalog.build_item_by_name("lingpet_feed")
+	var apple_data: Dictionary = catalog.build_item_by_name("lingpet_apple_feed")
+	var melon_data: Dictionary = catalog.build_item_by_name("lingpet_melon_feed")
 	var special_data: Dictionary = catalog.build_item_by_name("lingpet_special_feed")
 	_expect(not basic_data.is_empty(), "lingpet_feed should build from the active item catalog")
+	_expect(not apple_data.is_empty(), "lingpet_apple_feed should build from the active item catalog")
+	_expect(not melon_data.is_empty(), "lingpet_melon_feed should build from the active item catalog")
 	_expect(not special_data.is_empty(), "lingpet_special_feed should build from the active item catalog")
 	_expect(ActiveItemCatalog.FIELD_SPAWN_ORDER.has("lingpet_feed"), "basic feed should remain in the active field-spawn order")
-	_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has("lingpet_special_feed"), "special feed should not field-spawn in Slice 4")
+	_expect(ActiveItemCatalog.FIELD_SPAWN_ORDER.has("lingpet_apple_feed"), "apple feed should join the active field-spawn order")
+	_expect(ActiveItemCatalog.FIELD_SPAWN_ORDER.has("lingpet_melon_feed"), "melon feed should join the active field-spawn order")
+	_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has("lingpet_special_feed"), "special feed should remain reward/shop-only and not field-spawn")
 	_expect_str(str(basic_data.get("display_name", "")), "귤", "basic feed should be renamed to 귤")
+	_expect_str(str(apple_data.get("display_name", "")), "사과", "apple feed should expose its locked Korean name")
+	_expect_str(str(melon_data.get("display_name", "")), "멜론", "melon feed should expose its locked Korean name")
 	_expect_str(str(special_data.get("display_name", "")), "특제 사료", "special feed should expose its locked Korean name")
 	_expect_str(str(basic_data.get("effect", "")), "lingpet_feed", "basic feed should dispatch through the shared feed effect id")
+	_expect_str(str(apple_data.get("effect", "")), "lingpet_feed", "apple feed should dispatch through the shared feed effect id")
+	_expect_str(str(melon_data.get("effect", "")), "lingpet_feed", "melon feed should dispatch through the shared feed effect id")
 	_expect_str(str(special_data.get("effect", "")), "lingpet_feed", "special feed should dispatch through the shared feed effect id")
+	_expect_float(float(apple_data.get("feed_amount", 0.0)), 30.0, "apple feed should restore 30 satiety")
 	_expect_float(float(basic_data.get("feed_amount", 0.0)), 40.0, "basic feed should restore 40 satiety")
+	_expect_float(float(melon_data.get("feed_amount", 0.0)), 50.0, "melon feed should restore 50 satiety")
 	_expect_float(float(special_data.get("feed_amount", 0.0)), 100.0, "special feed should restore 100 satiety")
 	_expect(bool(basic_data.get("consumable", false)), "basic feed should be consumable")
+	_expect(bool(apple_data.get("consumable", false)), "apple feed should be consumable")
+	_expect(bool(melon_data.get("consumable", false)), "melon feed should be consumable")
 	_expect(bool(special_data.get("consumable", false)), "special feed should be consumable")
 	_expect(bool(basic_data.get("no_global_cooldown", false)), "basic feed should not trigger the shared active-item cooldown")
+	_expect(bool(apple_data.get("no_global_cooldown", false)), "apple feed should not trigger the shared active-item cooldown")
+	_expect(bool(melon_data.get("no_global_cooldown", false)), "melon feed should not trigger the shared active-item cooldown")
 	_expect(bool(special_data.get("no_global_cooldown", false)), "special feed should not trigger the shared active-item cooldown")
 	_expect(bool(basic_data.get("shop_guaranteed", false)), "basic feed should be guaranteed shop stock")
+	_expect(bool(apple_data.get("shop_guaranteed", false)), "apple feed should be guaranteed shop stock")
+	_expect(bool(melon_data.get("shop_guaranteed", false)), "melon feed should be guaranteed shop stock")
 	_expect(bool(special_data.get("shop_guaranteed", false)), "special feed should be guaranteed shop stock")
+	_expect(not bool(apple_data.get("reward_only", false)), "apple feed should not be reward-only")
+	_expect(not bool(melon_data.get("reward_only", false)), "melon feed should not be reward-only")
 	_expect(bool(special_data.get("reward_only", false)), "special feed should be marked as reward/shop-only, not field-spawn")
 	_expect(not bool(basic_data.get("no_recycle", false)), "feed should stay recyclable; the battle cap owns infinite-use prevention")
+	_expect(not bool(apple_data.get("no_recycle", false)), "apple feed should stay recyclable; the battle cap owns infinite-use prevention")
+	_expect(not bool(melon_data.get("no_recycle", false)), "melon feed should stay recyclable; the battle cap owns infinite-use prevention")
 	_expect(not bool(special_data.get("no_recycle", false)), "special feed should stay recyclable; the battle cap owns infinite-use prevention")
 	var icon_path := str(basic_data.get("icon_path", ""))
 	_expect(icon_path.ends_with("lingpet_feed_icon.png"), "basic feed should use the dedicated item icon path")
+	var apple_icon_path := str(apple_data.get("icon_path", ""))
+	var melon_icon_path := str(melon_data.get("icon_path", ""))
+	_expect(apple_icon_path.ends_with("lingpet_apple_feed_icon.png"), "apple feed should use its dedicated item icon path")
+	_expect(melon_icon_path.ends_with("lingpet_melon_feed_icon.png"), "melon feed should use its dedicated item icon path")
 	_expect_str(str(special_data.get("icon_path", "")), icon_path, "special feed should reuse the accepted feed icon in Slice 4")
 	_expect(ProjectResourceLoader.load_texture(icon_path) != null, "lingpet feed icon should load through the project resource loader")
+	_expect(ProjectResourceLoader.load_texture(apple_icon_path) != null, "apple feed icon should load through the project resource loader")
+	_expect(ProjectResourceLoader.load_texture(melon_icon_path) != null, "melon feed icon should load through the project resource loader")
 
 
 func _verify_feed_field_spawn_gate_uses_real_catalog() -> void:
@@ -177,11 +205,27 @@ func _verify_feed_field_spawn_gate_uses_real_catalog() -> void:
 		not _array_has_item(pool.build_spawn_candidates(null, empty_owner), "lingpet_feed"),
 		"real field-spawn candidates should hide basic feed before the player owns a lingpet"
 	)
+	_expect(
+		not _array_has_item(pool.build_spawn_candidates(null, empty_owner), "lingpet_apple_feed"),
+		"real field-spawn candidates should hide apple feed before the player owns a lingpet"
+	)
+	_expect(
+		not _array_has_item(pool.build_spawn_candidates(null, empty_owner), "lingpet_melon_feed"),
+		"real field-spawn candidates should hide melon feed before the player owns a lingpet"
+	)
 	pool.clear_spawn_candidate_cache()
 	var owned_candidates: Array[Dictionary] = pool.build_spawn_candidates(null, owned_owner)
 	_expect(
 		_array_has_item(owned_candidates, "lingpet_feed"),
 		"real field-spawn candidates should expose basic feed after the player owns a lingpet"
+	)
+	_expect(
+		_array_has_item(owned_candidates, "lingpet_apple_feed"),
+		"real field-spawn candidates should expose apple feed after the player owns a lingpet"
+	)
+	_expect(
+		_array_has_item(owned_candidates, "lingpet_melon_feed"),
+		"real field-spawn candidates should expose melon feed after the player owns a lingpet"
 	)
 	_expect(
 		not _array_has_item(owned_candidates, "lingpet_special_feed"),
@@ -221,7 +265,7 @@ func _verify_basic_feed_active_item_restores_satiety() -> void:
 	_cleanup_runtime(lingpet_runtime, registry)
 
 
-func _verify_special_feed_caps_satiety_and_wakes_ko() -> void:
+func _verify_melon_feed_wakes_ko_through_shared_effect() -> void:
 	var runtime := ActiveItemRuntime.new()
 	var lingpet_runtime := LingpetEggRuntime.new()
 	var registry := FakeRegistry.new(lingpet_runtime)
@@ -229,17 +273,18 @@ func _verify_special_feed_caps_satiety_and_wakes_ko() -> void:
 	_expect(lingpet_runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry), "KO fixture should activate a skill-capable lingpet")
 	lingpet_runtime.set_satiety_for_tests("maribo", 0.0)
 	lingpet_runtime.update(2.0, owner, registry)
-	_expect(lingpet_runtime.is_companion_exhausted_for_tests(owner), "fixture should reach exhausted state before special feed")
+	_expect(lingpet_runtime.is_companion_exhausted_for_tests(owner), "fixture should reach exhausted state before melon feed")
 
-	_expect(runtime.grant_item_to_slot("lingpet_special_feed", owner, registry, false), "fixture should grant a special feed active item")
+	_expect(runtime.grant_item_to_slot("lingpet_melon_feed", owner, registry, false), "fixture should grant a melon feed active item")
 	_clear_active_item_cooldown(runtime, owner)
-	_expect(runtime.use_slot(0, owner, registry), "special feed should be usable on a KO companion")
+	_expect(runtime.use_slot(0, owner, registry), "melon feed should be usable on a KO companion")
 	_advance_feed_until_complete(lingpet_runtime, owner, registry)
-	_expect_float(lingpet_runtime.get_satiety("maribo"), LingpetAffinityState.SATIETY_MAX, "special feed should cap at full satiety")
-	_expect(not lingpet_runtime.is_companion_exhausted_for_tests(owner), "special feed should wake an exhausted companion through set_satiety")
+	var satiety_after_feed := lingpet_runtime.get_satiety("maribo")
+	_expect(satiety_after_feed > 0.0 and satiety_after_feed <= LingpetAffinityState.SATIETY_MAX, "melon feed should restore positive satiety after KO (got %.2f)" % satiety_after_feed)
+	_expect(not lingpet_runtime.is_companion_exhausted_for_tests(owner), "melon feed should wake an exhausted companion through set_satiety")
 	var last_result: Dictionary = lingpet_runtime.get_last_affinity_result_for_tests()
-	_expect_float(float(last_result.get("feed_amount", 0.0)), 100.0, "special feed should thread 100 satiety through the runtime")
-	_expect(float(last_result.get("granted_satiety", 0.0)) >= 99.0, "special feed from zero should grant almost the full satiety cap even after KO rest ticks")
+	_expect_float(float(last_result.get("feed_amount", 0.0)), 50.0, "melon feed should thread 50 satiety through the runtime")
+	_expect(float(last_result.get("granted_satiety", 0.0)) >= 49.0, "melon feed from zero should grant almost the full 50 satiety even after KO rest ticks")
 
 	runtime.reset()
 	_cleanup_runtime(lingpet_runtime, registry)
@@ -261,9 +306,9 @@ func _verify_full_satiety_and_battle_cap_preserve_item() -> void:
 	owner.active_item_slots.clear()
 
 	lingpet_runtime.set_satiety_for_tests("maribo", 0.0)
-	_complete_feed_item(runtime, lingpet_runtime, owner, registry, "lingpet_feed")
+	_complete_feed_item(runtime, lingpet_runtime, owner, registry, "lingpet_apple_feed")
 	lingpet_runtime.set_satiety_for_tests("maribo", 0.0)
-	_complete_feed_item(runtime, lingpet_runtime, owner, registry, "lingpet_special_feed")
+	_complete_feed_item(runtime, lingpet_runtime, owner, registry, "lingpet_melon_feed")
 	lingpet_runtime.set_satiety_for_tests("maribo", 20.0)
 	_expect(runtime.grant_item_to_slot("lingpet_feed", owner, registry, false), "fixture should grant a third battle feed")
 	_clear_active_item_cooldown(runtime, owner)
@@ -339,10 +384,16 @@ func _verify_alchemy_recycle_cannot_bypass_battle_cap() -> void:
 func _verify_lingpet_feed_source_contracts() -> void:
 	var catalog_source := FileAccess.get_file_as_string("res://scripts/items/active_item_catalog.gd")
 	_expect(catalog_source.find("\"lingpet_feed\"") >= 0, "active item catalog should mention basic feed")
+	_expect(catalog_source.find("\"lingpet_apple_feed\"") >= 0, "active item catalog should mention apple feed")
+	_expect(catalog_source.find("\"lingpet_melon_feed\"") >= 0, "active item catalog should mention melon feed")
 	_expect(catalog_source.find("\"lingpet_special_feed\"") >= 0, "active item catalog should mention special feed")
 	_expect(catalog_source.find("func _build_lingpet_feed") >= 0, "active item catalog should build basic feed")
+	_expect(catalog_source.find("func _build_lingpet_apple_feed") >= 0, "active item catalog should build apple feed")
+	_expect(catalog_source.find("func _build_lingpet_melon_feed") >= 0, "active item catalog should build melon feed")
 	_expect(catalog_source.find("func _build_lingpet_special_feed") >= 0, "active item catalog should build special feed")
+	_expect(catalog_source.find("\"feed_amount\": 30.0") >= 0, "apple feed catalog should own the 30 satiety amount")
 	_expect(catalog_source.find("\"feed_amount\": 40.0") >= 0, "basic feed catalog should own the 40 satiety amount")
+	_expect(catalog_source.find("\"feed_amount\": 50.0") >= 0, "melon feed catalog should own the 50 satiety amount")
 	_expect(catalog_source.find("\"feed_amount\": 100.0") >= 0, "special feed catalog should own the 100 satiety amount")
 
 	var router_source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_router.gd")
@@ -360,7 +411,7 @@ func _verify_lingpet_feed_source_contracts() -> void:
 	_expect(bowl_source.find("lingpet_feed_bowl.png") >= 0, "feed bowl state should draw the dedicated bowl icon")
 
 	var debug_source := FileAccess.get_file_as_string("res://scripts/items/active_item_debug_spawn_menu.gd")
-	_expect(debug_source.find("\"lingpet_feed\"") >= 0 and debug_source.find("\"lingpet_special_feed\"") >= 0, "debug active item menu should expose both feed tiers")
+	_expect(debug_source.find("\"lingpet_feed\"") >= 0 and debug_source.find("\"lingpet_apple_feed\"") >= 0 and debug_source.find("\"lingpet_melon_feed\"") >= 0 and debug_source.find("\"lingpet_special_feed\"") >= 0, "debug active item menu should expose every feed tier")
 
 	var reward_source := FileAccess.get_file_as_string("res://scripts/core/stage_clear_reward_resolver.gd")
 	_expect(reward_source.find("\"lingpet_special_feed\"") >= 0, "stage-clear active rewards should include special feed as an extra candidate")
@@ -369,8 +420,8 @@ func _verify_lingpet_feed_source_contracts() -> void:
 	var shop_stock_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_shop_stock.gd")
 	var shop_pricing_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_shop_pricing.gd")
 	var shop_scene_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_scene.gd")
-	_expect(shop_stock_source.find("\"lingpet_feed\"") >= 0 and shop_stock_source.find("\"lingpet_special_feed\"") >= 0, "plaza shop stock should guarantee both feed tiers")
-	_expect(shop_pricing_source.find("\"lingpet_feed\"") >= 0 and shop_pricing_source.find("\"lingpet_special_feed\"") >= 0, "plaza shop pricing should price both feed tiers")
+	_expect(shop_stock_source.find("\"lingpet_feed\"") >= 0 and shop_stock_source.find("\"lingpet_apple_feed\"") >= 0 and shop_stock_source.find("\"lingpet_melon_feed\"") >= 0 and shop_stock_source.find("\"lingpet_special_feed\"") >= 0, "plaza shop stock should guarantee every feed tier")
+	_expect(shop_pricing_source.find("\"lingpet_feed\"") >= 0 and shop_pricing_source.find("\"lingpet_apple_feed\"") >= 0 and shop_pricing_source.find("\"lingpet_melon_feed\"") >= 0 and shop_pricing_source.find("\"lingpet_special_feed\"") >= 0, "plaza shop pricing should price every feed tier")
 	_expect(shop_scene_source.find("_buy_active_shop_stock_item") >= 0, "plaza shop purchases should route active feed items into active slots")
 
 

@@ -67,6 +67,8 @@ const ROLL_BONUS_RANGES := {
 
 const ACTIVE_BASE_PRICES := {
 	"lingpet_feed": 240,
+	"lingpet_apple_feed": 180,
+	"lingpet_melon_feed": 320,
 	"lingpet_special_feed": 700,
 }
 
