@@ -34,7 +34,6 @@ const FRAME_INTERVAL := {
 	"idle": 0.16, "walk": 0.10, "attack": 0.05, "dash": 0.06,
 	"victory": 0.10, "defeat": 0.10, "stun": 0.085,
 }
-const SUPER_AURA := Color(1.0, 0.42, 0.16, 0.30)
 const PLACEHOLDER_FILL := Color(0.47, 0.67, 1.0, 0.92)
 
 var _textures: Dictionary = {}
@@ -96,8 +95,6 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 
 	var super_scale: float = maxf(1.0, float(context.get("stage6_tetriser_super_scale", 1.0)))
 	var draw_size: Vector2 = DRAW_SIZE * super_scale
-	if super_scale > 1.02:
-		canvas.draw_rect(Rect2(center - draw_size * 0.5 - Vector2(6.0, 6.0), draw_size + Vector2(12.0, 12.0)), SUPER_AURA)
 
 	var state: String = _select_state(context)
 	_draw_frame(canvas, state, _frame_for_state(state, context), center, draw_size)

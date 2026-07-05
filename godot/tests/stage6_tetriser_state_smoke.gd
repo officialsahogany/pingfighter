@@ -1214,18 +1214,45 @@ func _test_stage6_score_context_reaches_crystal_shield() -> void:
 
 func _test_boss_skill_hud() -> void:
 	var state: Object = Stage6TetriserState.new()
-	state.debug_set_gauge(40.0)   # tetro_drop(30) 가능, guard/wall(50) 불가
-	var hud: Dictionary = state.get_hud_context()
-	var skills: Array = hud.get("stage6_boss_skill_hud_skills", [])
-	_expect(skills.size() == 4, "HUD exposes 4 boss skills")
-	var by_id := {}
-	for s in skills:
-		by_id[str(s.get("id", ""))] = s
-	_expect(bool(by_id.get("stage6_tetro_drop", {}).get("ready", false)), "tetro drop card ready at gauge>=30")
-	_expect(not bool(by_id.get("stage6_guard", {}).get("ready", false)), "guard card not ready at gauge<50")
+	_expect(state.get_hud_context().get("stage6_boss_skill_hud_skills", []).size() == 4, "HUD exposes 4 boss skills")
+
+	# Cost-skill cards follow each skill's own auto-fire TIMER, not boss_gauge/cost.
+	# Regression: full gauge must NOT make a card read ready/full while its timer
+	# still runs (old code used ready = gauge>=cost, so the wipe sat at full and
+	# never animated — gauge gain outpaces skill drain, so gauge is almost always
+	# above cost). Reverse-verified to FAIL on the gauge-based card payload.
+	state.debug_set_gauge(500.0)        # plenty of gauge for every cost skill
+	state.debug_set_spawn_timer(4.0)    # tetro_drop mid-cooldown
+	var mid: Dictionary = _stage6_skill_card(state, "stage6_tetro_drop")
+	_expect(not bool(mid.get("ready", false)), "cost card is NOT ready while its timer runs, even at full gauge (timer-based, not gauge-based)")
+	_expect(float(mid.get("progress", 1.0)) < 1.0, "cost card progress is partial while charging, not stuck at full")
+	_expect(is_equal_approx(float(mid.get("cooldown_remaining", -1.0)), 4.0), "cost card exposes its remaining cooldown seconds")
+	_expect(float(mid.get("cooldown_total", 0.0)) >= 4.0, "cost card exposes the armed cooldown total")
+	_expect(is_equal_approx(float(mid.get("next_activation_remaining", -1.0)), 4.0), "next activation follows the timer while gauge is ready")
+	var mid_progress: float = float(mid.get("progress", -1.0))
+
+	# Advancing the timer toward 0 advances the wipe (progress rises).
+	state.debug_set_spawn_timer(1.0)
+	var later: Dictionary = _stage6_skill_card(state, "stage6_tetro_drop")
+	_expect(float(later.get("progress", -1.0)) > mid_progress, "cost card progress rises as the auto-fire timer counts down")
+
+	# Timer elapsed + gauge available -> ready/full.
+	state.debug_set_spawn_timer(0.0)
+	var ready_card: Dictionary = _stage6_skill_card(state, "stage6_tetro_drop")
+	_expect(bool(ready_card.get("ready", false)), "cost card is ready when its timer elapses and gauge is available")
+	_expect(is_equal_approx(float(ready_card.get("progress", 0.0)), 1.0), "ready cost card progress is full")
+
+	# Timer elapsed but gauge short -> paused (waiting on gauge), not ready.
+	state.debug_set_gauge(10.0)         # below tetro_drop cost (30)
+	state.debug_set_spawn_timer(0.0)
+	var gauge_gated: Dictionary = _stage6_skill_card(state, "stage6_tetro_drop")
+	_expect(not bool(gauge_gated.get("ready", false)), "cost card is not ready when gauge is short even if its timer elapsed")
+	_expect(str(gauge_gated.get("status", "")) == "paused", "gauge-gated cost card reads as paused")
+	_expect(is_equal_approx(float(gauge_gated.get("cooldown_remaining", -1.0)), 0.0), "timer-elapsed gauge-gated card has no cooldown remaining")
+	_expect(float(gauge_gated.get("next_activation_remaining", 0.0)) > 0.0, "timer-elapsed gauge-gated card exposes remaining time until gauge catches up")
 
 	var renderer: Object = Stage6TetriserBossSkillHudRenderer.new()
-	var ctx: Dictionary = hud.duplicate(true)
+	var ctx: Dictionary = state.get_hud_context().duplicate(true)
 	ctx["view_size"] = Vector2(920.0, 750.0)
 	ctx["game_offset"] = Vector2(80.0, 0.0)
 	ctx["game_size"] = Vector2(760.0, 750.0)
@@ -1234,13 +1261,39 @@ func _test_boss_skill_hud() -> void:
 	_expect((layout.get("entries", []) as Array).size() == 4, "HUD layout builds 4 cards")
 	_expect((layout.get("rects", []) as Array).size() == 4, "HUD layout builds 4 card rects")
 
-	state.debug_set_gauge(500.0)
-	state.update(0.05, _active_context())
+	# reset_round() PRESERVES the boss skill cooldown timers (persistent like
+	# boss_gauge); only a full reset() re-arms them. Otherwise every lost point
+	# visibly restarts the guard/drop/wall cards. Reverse-verified to FAIL when
+	# _clear_combat_state re-arms the timers unconditionally on a round boundary.
+	var rr_state: Object = Stage6TetriserState.new()
+	rr_state.debug_set_gauge(200.0)
+	rr_state.debug_set_spawn_timer(3.0)
+	var cd_before: float = float(_stage6_skill_card(rr_state, "stage6_tetro_drop").get("cooldown_remaining", -1.0))
+	rr_state.reset_round()
+	var cd_after: float = float(_stage6_skill_card(rr_state, "stage6_tetro_drop").get("cooldown_remaining", -2.0))
+	_expect(is_equal_approx(cd_after, cd_before), "reset_round preserves the boss skill cooldown timer (card does not restart each round)")
+	rr_state.debug_set_spawn_timer(2.0)
+	rr_state.reset()
+	var cd_full: float = float(_stage6_skill_card(rr_state, "stage6_tetro_drop").get("cooldown_remaining", -1.0))
+	_expect(cd_full > 4.0, "full reset() re-arms the boss skill cooldown timer fresh (>= min interval, not the preserved 2.0)")
+
+	# Super card stays gauge-based (gauge 500 -> active during 초인테트리서).
+	# Use a fresh state so the timers above don't drain the gauge on update().
+	var super_state: Object = Stage6TetriserState.new()
+	super_state.debug_set_gauge(500.0)
+	super_state.update(0.05, _active_context())
 	var found_super_active := false
-	for s2 in state.get_hud_context().get("stage6_boss_skill_hud_skills", []):
+	for s2 in super_state.get_hud_context().get("stage6_boss_skill_hud_skills", []):
 		if str(s2.get("id", "")) == "stage6_super" and bool(s2.get("active", false)):
 			found_super_active = true
 	_expect(found_super_active, "super skill card shows active during 초인테트리서")
+
+
+func _stage6_skill_card(state: Object, skill_id: String) -> Dictionary:
+	for s in state.get_hud_context().get("stage6_boss_skill_hud_skills", []):
+		if str(s.get("id", "")) == skill_id:
+			return s
+	return {}
 
 
 func _test_pillar_scene_drawer_routes_background() -> void:

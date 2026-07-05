@@ -167,6 +167,13 @@ var _starpoint_drops: Array[Dictionary] = []
 var _spawn_timer_sec: float = 0.0
 var _guard_timer_sec: float = 0.0
 var _wall_timer_sec: float = 0.0
+# Armed interval per cost skill, captured at arm time so the boss skill card HUD
+# can draw a real timer-based cooldown wipe (progress = elapsed / total). Without
+# this the card had only boss_gauge/cost to show, and since gauge gain outpaces
+# skill drain the card sat at full and never animated.
+var _spawn_timer_total_sec: float = TETRO_MAX_INTERVAL_SEC
+var _guard_timer_total_sec: float = GUARD_MAX_INTERVAL_SEC
+var _wall_timer_total_sec: float = WALL_INTERVAL_SEC
 var _super_active: bool = false
 var _super_intro_timer: float = 0.0
 var _super_scale: float = 1.0
@@ -242,9 +249,13 @@ func _clear_combat_state(clear_match_state: bool = false) -> void:
 	_sfx_shield_pending = false
 	_sfx_laser_pending = false
 	_crystal_shield.reset(clear_match_state)
-	_arm_spawn_timer()
-	_arm_guard_timer()
-	_arm_wall_timer()
+	# Boss skill cooldown timers are persistent like boss_gauge: only a full match
+	# reset (init / stage-leave / result) re-arms them. A round boundary preserves
+	# them, or every lost point would visibly restart the guard/drop/wall cards.
+	if clear_match_state:
+		_arm_spawn_timer()
+		_arm_guard_timer()
+		_arm_wall_timer()
 	_init_cube()
 
 
@@ -356,10 +367,12 @@ func _update_spawn_scheduler(delta: float, context: Dictionary) -> void:
 
 func _arm_spawn_timer() -> void:
 	_spawn_timer_sec = _rng.randf_range(TETRO_MIN_INTERVAL_SEC, TETRO_MAX_INTERVAL_SEC)
+	_spawn_timer_total_sec = _spawn_timer_sec
 
 
 func _arm_guard_timer() -> void:
 	_guard_timer_sec = _rng.randf_range(GUARD_MIN_INTERVAL_SEC, GUARD_MAX_INTERVAL_SEC)
+	_guard_timer_total_sec = _guard_timer_sec
 
 
 func _boss_center_x_from_context(context: Dictionary) -> float:
@@ -493,6 +506,7 @@ func _update_guard_sliding(block: Dictionary, delta: float) -> void:
 
 func _arm_wall_timer() -> void:
 	_wall_timer_sec = WALL_INTERVAL_SEC
+	_wall_timer_total_sec = WALL_INTERVAL_SEC
 
 
 # 테트로 벽 스케줄러: 30초마다 게이지 50으로 좌우 벽을 재생성(수명 6초).
@@ -1732,24 +1746,46 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 
 func _build_hud_skills() -> Array:
 	return [
-		_hud_cost_skill("stage6_tetro_drop", "낙하 테트로", Color(0.45, 0.70, 1.0), TETRO_GAUGE_COST),
-		_hud_cost_skill("stage6_guard", "가드 블록", GUARD_COLOR, GUARD_COST_SINGLE),
-		_hud_cost_skill("stage6_wall", "테트로 벽", Color(0.74, 0.62, 0.48), WALL_COST),
+		_hud_cost_skill("stage6_tetro_drop", "낙하 테트로", Color(0.45, 0.70, 1.0), TETRO_GAUGE_COST, _spawn_timer_sec, _spawn_timer_total_sec),
+		_hud_cost_skill("stage6_guard", "가드 블록", GUARD_COLOR, GUARD_COST_SINGLE, _guard_timer_sec, _guard_timer_total_sec),
+		_hud_cost_skill("stage6_wall", "테트로 벽", Color(0.74, 0.62, 0.48), WALL_COST, _wall_timer_sec, _wall_timer_total_sec),
 		_hud_super_skill(),
 	]
 
 
-func _hud_cost_skill(id: String, skill_name: String, color: Color, cost: float) -> Dictionary:
-	var ready: bool = boss_gauge >= cost and not _super_active
+func _hud_cost_skill(id: String, skill_name: String, color: Color, cost: float, timer_remaining: float, timer_total: float) -> Dictionary:
+	# Card progress follows each skill's own auto-fire timer (the left-to-right
+	# wipe), NOT boss_gauge/cost. Gauge is only a secondary gate: when the timer
+	# elapses but gauge is short, the card waits in "paused" instead of firing.
+	# (Gauge-only progress sat at full because gauge gain outpaces skill drain.)
+	var safe_total: float = maxf(0.001, timer_total)
+	var remaining: float = maxf(0.0, timer_remaining)
+	var progress: float = clampf(1.0 - remaining / safe_total, 0.0, 1.0)
+	var timer_ready: bool = timer_remaining <= 0.0
+	var gauge_ok: bool = boss_gauge >= cost
+	var gauge_remaining: float = maxf(0.0, cost - boss_gauge)
+	var gauge_remaining_seconds: float = gauge_remaining / maxf(0.001, GAUGE_CHARGE_PER_SEC)
+	var next_activation_remaining: float = maxf(remaining, gauge_remaining_seconds)
+	var ready: bool = timer_ready and gauge_ok and not _super_active
+	var status: String = "charging"
+	if _super_active:
+		status = "paused"
+	elif timer_ready and not gauge_ok:
+		status = "paused"
+	elif ready:
+		status = "ready"
 	return {
 		"id": id,
 		"name": skill_name,
 		"color": color,
 		"cost": cost,
-		"progress": clampf(boss_gauge / maxf(1.0, cost), 0.0, 1.0),
+		"progress": progress,
+		"cooldown_remaining": remaining,
+		"cooldown_total": safe_total,
+		"next_activation_remaining": next_activation_remaining,
 		"ready": ready,
 		"active": false,
-		"status": "ready" if ready else ("paused" if _super_active else "charging"),
+		"status": status,
 	}
 
 

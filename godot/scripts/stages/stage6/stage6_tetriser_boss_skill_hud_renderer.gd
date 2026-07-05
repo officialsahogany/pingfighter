@@ -9,7 +9,10 @@ extends RefCounted
 # 카드 데이터는 stage6_tetriser_state.get_hud_context()의
 # `stage6_boss_skill_hud_skills`.
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const Stage6TetriserBossSkillHudAssets := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_assets.gd")
 
 const SIDE_STRIP_BASE := 2.0
 const QUEUE_LERP_SPEED := 8.0
@@ -18,6 +21,7 @@ const ACTIVE_BORDER := Color(1.0, 0.55, 0.22, 0.95)
 const CHARGING_BORDER := Color(0.30, 0.36, 0.46, 0.66)
 const PAUSED_BORDER := Color(0.26, 0.28, 0.32, 0.60)
 const CARD_BG := Color(0.06, 0.08, 0.13, 0.95)
+const PREWARM_SKILL_IDS := ["stage6_tetro_drop", "stage6_guard", "stage6_wall", "stage6_super"]
 
 const TOOLTIP_INFO := {
 	"stage6_tetro_drop": {
@@ -38,15 +42,31 @@ const TOOLTIP_INFO := {
 	},
 }
 
+var _textures := {}
 var _queue_positions := {}
+var _prewarm_step_index := 0
+var _prewarmed := false
 
 
 func prewarm_assets() -> void:
-	pass
+	while not prewarm_assets_step():
+		pass
 
 
 func prewarm_assets_step() -> bool:
-	return true
+	if _prewarmed:
+		return true
+	if _prewarm_step_index >= PREWARM_SKILL_IDS.size():
+		_prewarmed = true
+		_prewarm_step_index = 0
+		return true
+	_get_skill_texture(str(PREWARM_SKILL_IDS[_prewarm_step_index]))
+	_prewarm_step_index += 1
+	if _prewarm_step_index >= PREWARM_SKILL_IDS.size():
+		_prewarmed = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func reset() -> void:
@@ -85,8 +105,13 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_size.y + card_gap) - card_gap
 	var card_x: float = maxf(1.0, pillar_w - card_size.x - margin_x)
+	# Stage 6 carries the most cards (4 boss skills + hatched lingpet = 5), so the
+	# centered stack overlapped the Commando firearm HUD. Shift the stack above the
+	# firearm panel exactly like Stages 1-5 (this renderer was the only stage rail
+	# that never read the panel rect / passed avoid_rect to the shared layout).
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()))
 	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
-		game_offset, game_size.y, total_h, margin_y, card_x, card_size.x, scale_factor
+		game_offset, game_size.y, total_h, margin_y, card_x, card_size.x, scale_factor, avoid_rect
 	)
 	var rects: Array = []
 	for idx in range(entries.size()):
@@ -126,30 +151,43 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 			hovered_rect = rect
 	_prune_queue_positions(entries)
 	if not hovered.is_empty():
+		var tooltip_info: Dictionary = (
+			LingpetRailCard.tooltip_info(hovered) if LingpetRailCard.is_lingpet_skill(hovered)
+			else _get_array_safe_dict(TOOLTIP_INFO.get(str(hovered.get("id", "")), {}))
+		)
 		BossSkillCardHudSpec.draw_skill_tooltip(
 			canvas, hovered, hovered_rect, view_size, pillar_w,
-			_get_array_safe_dict(TOOLTIP_INFO.get(str(hovered.get("id", "")), {})), scale_factor
+			tooltip_info, scale_factor
 		)
 
 
 func get_asset_status() -> Dictionary:
-	return {}
+	return {
+		"tetro_drop_card_texture": _get_skill_texture("stage6_tetro_drop") != null,
+		"guard_block_card_texture": _get_skill_texture("stage6_guard") != null,
+		"tetro_wall_card_texture": _get_skill_texture("stage6_wall") != null,
+		"super_tetriser_card_texture": _get_skill_texture("stage6_super") != null,
+	}
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
+	# The hatched lingpet rides this rail too. Delegate its card to the shared
+	# helper so it shows its own skill-card art, status, and left-to-right cooldown
+	# wipe exactly like Stages 1-5 (Stage 6's id->texture map only knows boss skills).
+	if LingpetRailCard.is_lingpet_skill(skill):
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
+		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
 	var active: bool = bool(skill.get("active", false)) or status == "casting"
 	var progress: float = clampf(float(skill.get("progress", 0.0)), 0.0, 1.0)
 	var color: Color = _as_color(skill.get("color", Color(0.6, 0.7, 1.0)))
 	var fill_ratio: float = 1.0 if active or ready else progress
+	var skill_id: String = str(skill.get("id", ""))
+	var skill_texture: Texture2D = _get_skill_texture(skill_id)
+	var has_texture: bool = skill_texture != null
 
-	canvas.draw_rect(rect, CARD_BG)
-	if fill_ratio > 0.0:
-		canvas.draw_rect(
-			Rect2(rect.position, Vector2(rect.size.x * fill_ratio, rect.size.y)),
-			Color(color.r * 0.6, color.g * 0.55, color.b * 0.5, 0.82)
-		)
+	_draw_skillcard_gauge(canvas, rect, skill_texture, fill_ratio, color)
 	if active:
 		var active_pulse: float = 0.55 + 0.45 * sin(time_seconds * 7.0)
 		canvas.draw_rect(rect, Color(1.0, 0.42, 0.14, 0.14 + active_pulse * 0.14))
@@ -173,12 +211,60 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	canvas.draw_rect(Rect2(rect.position, Vector2(side_w, rect.size.y)), Color(color.r, color.g, color.b, 0.85))
 
 	var font: Font = ThemeDB.fallback_font
-	if font != null:
+	if font != null and not has_texture:
 		var label: String = str(skill.get("name", ""))
 		var font_size: int = max(8, int(round(8.0 * scale_factor)))
 		var text_pos := Vector2(rect.position.x + side_w + 3.0, rect.get_center().y + float(font_size) * 0.35)
 		canvas.draw_string(font, text_pos + Vector2(1.0, 1.0), label, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - side_w - 6.0, font_size, Color(0.0, 0.0, 0.0, 0.7))
 		canvas.draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - side_w - 6.0, font_size, Color(0.96, 0.97, 1.0, 1.0))
+
+
+func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, texture: Texture2D, fill_ratio: float, fallback_color: Color) -> void:
+	var clamped_fill: float = clampf(fill_ratio, 0.0, 1.0)
+	canvas.draw_rect(rect, CARD_BG)
+	if texture == null:
+		if clamped_fill > 0.0:
+			canvas.draw_rect(
+				Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
+				Color(fallback_color.r * 0.6, fallback_color.g * 0.55, fallback_color.b * 0.5, 0.82)
+			)
+		return
+
+	canvas.draw_texture_rect(texture, rect, false, Color(0.18, 0.18, 0.22, 1.0))
+	if clamped_fill <= 0.0:
+		return
+	var texture_size: Vector2 = texture.get_size()
+	canvas.draw_texture_rect_region(
+		texture,
+		Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
+		Rect2(Vector2.ZERO, Vector2(texture_size.x * clamped_fill, texture_size.y)),
+		Color(1.0, 0.96, 0.90, 1.0),
+		false,
+		true
+	)
+
+
+func _get_skill_texture(skill_id: String) -> Texture2D:
+	var path: String = _get_skill_texture_path(skill_id)
+	if path == "":
+		return null
+	if not _textures.has(path):
+		_textures[path] = ProjectResourceLoader.load_texture(path)
+	if _textures[path] is Texture2D:
+		return _textures[path]
+	return null
+
+
+func _get_skill_texture_path(skill_id: String) -> String:
+	if skill_id == "stage6_tetro_drop":
+		return Stage6TetriserBossSkillHudAssets.TETRO_DROP_SKILLCARD_TEXTURE_PATH
+	if skill_id == "stage6_guard":
+		return Stage6TetriserBossSkillHudAssets.GUARD_BLOCK_SKILLCARD_TEXTURE_PATH
+	if skill_id == "stage6_wall":
+		return Stage6TetriserBossSkillHudAssets.TETRO_WALL_SKILLCARD_TEXTURE_PATH
+	if skill_id == "stage6_super":
+		return Stage6TetriserBossSkillHudAssets.SUPER_TETRISER_SKILLCARD_TEXTURE_PATH
+	return ""
 
 
 func _sort_entries(a: Dictionary, b: Dictionary) -> bool:

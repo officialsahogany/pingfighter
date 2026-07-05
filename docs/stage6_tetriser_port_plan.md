@@ -234,8 +234,8 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 | `stage6_tetriser_playfield_renderer.gd` | 블록/벽/파편/EMP/광선/중앙 큐브 전투 VFX. |
 | `stage6_tetriser_boss_actor_renderer.gd` | 테트리서 보스 스프라이트, 이동 기울기, 초인 스케일/포효 포즈. |
 | `stage6_tetriser_actor_renderer.gd` | 플레이어/공통 액터 렌더(스테이지 톤). |
-| `stage6_tetriser_pillar_background.gd` | 청색 금속/테트리스 배경, 중앙 큐브 배경 연출. |
-| `stage6_tetriser_pillar_scene_drawer.gd` | 필러 장식 + 보스 스킬 카드 HUD 호출. |
+| `stage6_tetriser_pillar_background.gd` | 정적 imagegen 분위기 배경, 중앙 플레이필드 음영/경계. |
+| `stage6_tetriser_pillar_scene_drawer.gd` | 정적 배경 + 공용 필러 HUD + 보스 스킬 카드 HUD 호출. |
 | `stage6_tetriser_boss_skill_hud_renderer.gd` | 보스 스킬 카드 HUD (게이지 + 낙하/가드/벽/초인 상태). |
 
 규칙:
@@ -322,7 +322,8 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 3. ✅ **구조물:** 가드 블록(3a) + 테트로 벽(3b) + 대시/연막/폭발 파괴 API(3c). (`e6db8206f` `3815acc31` `30f563952`)
 4. ✅ **궁극기/큐브:** 초인테트리서 드레인 모델(4a) + 중앙 큐브 3×3/10~14패스/재조립5(4b) + 광선·EMP(4c). (`c7caec816` `009876e3c` `0627dfb34`)
 5. **마감 (완료):**
-   - ✅ 보스 스킬 카드 HUD (5a, 게이지+4스킬, 공유 `BossSkillCardHudSpec`, 절차적 카드). (`9cad7db7a`)
+   - ✅ 보스 스킬 카드 HUD (5a, 게이지+4스킬, 공유 `BossSkillCardHudSpec`, 현재
+     `stage6_tetriser_*_skillcard_imagegen_v1.png` 텍스처 사용). (`9cad7db7a`)
    - ✅ 오디오 (5b): **BGM** `stage7bgm.wav → stage6_tetriser_bgm.ogg`(ffmpeg) + game_audio 배선(`ff05afa7f`);
      **효과음 3종** `stage6_tetriser_{break,wall,super_roar}.wav` + 이벤트 배선(파괴=break/벽=wall/초인=cry);
      **prewarm 키** `STAGE6_RUNTIME_PREWARM_KEYS` 등록. (`2c7910bbf`)
@@ -343,11 +344,17 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
      Python `TetrisGame`/`TetriserPillarBackground` 동작 포팅. 원본은 화면 내 80px 필러였지만
      Godot 풀-캔버스 규칙상 레터박스 여백에 배치(HUD 크롬 뒤 백드롭). 격리 scan/로직 기능검증/
      상태 smoke/headless load 통과.
+   - ✅ **필러 정적 배경 리디자인 (2026-06-26):** live Tetris well 데코는 스킬카드/대시구슬 HUD와
+     정보량이 충돌하므로 제거. `stage6_tetriser_pillar_background.gd`가
+     `stage6_tetriser_pillar_bg_imagegen_v1.png`를 cover-fit으로 그리는 Stage 3식 정적 분위기
+     배경으로 전환했고, `stage6_tetriser_pillar_tetris.gd` 런타임 모듈은 삭제. 기존 보스 스킬카드
+     HUD와 공용 필러 HUD는 foreground로 유지.
    - ✅ **크리스탈 실드 보스 스킬 (2026-06-05):** `stage6_tetriser_crystal_shield_state.gd`로
      `pillar_tetriser.py`의 `CrystalShieldSystem` 핵심 동작을 포팅. 플레이어 4점에서 예약, 다음
      serve-wait에 24개 궤도 실드 형성, 형성 중 freeze flag 노출(`skip_ball_motion_step`은 유지 false),
      플레이어 공 충돌 시 맞은 블록+양옆 블록 증발, 라운드/스테이지 리셋 정리 smoke 통과.
-   - ⏳ **후속:** 로딩/결과 화면 이미지, 테트리서 스킬카드 텍스처(현재 절차적)는 placeholder 유지.
+   - ⏳ **후속:** 로딩/결과 화면 이미지. 테트리서 보스 스킬카드 텍스처는
+     `godot/assets/sprites/hud/stage6_tetriser_*_skillcard_imagegen_v1.png`로 배치 완료.
 
 > ✅ **5c 최종 게이트 완료 (2026-06-04):** `run_headless_load_check.ps1`, `run_warning_scan.ps1 -ChunkSize 100`,
 > Stage 6 smoke 9종, perf smoke, 직접 Stage 6 런타임 캡처/serve 확인 통과.
@@ -412,9 +419,10 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
 - 메모리 `project_godot_stage_numbering.md` — 제목·표·적용 규칙을 6=테트리서로 갱신.
 - `docs/stage5_hongryun_godot_port_plan.md` line 10 / 53 / 106 — "Stage 6 비워 둠/선택 불가"
   → "Stage 6=테트리서, 별도 기획에서 다룸"으로 교정 (line 17 "홍련 중복 라우팅 금지"는 유효해 유지).
-- `docs/refactor_status_brief.md` — "Stage 6 stays absent" 행 → "Stage 6 테트리서 Planning started"로 교정.
+- `docs/refactor_status_brief.md` — 옛 Stage 6 부재 / 계획 전용 상태를 제거하고,
+  현재는 Stage 6 Tetriser runtime present + loading/result art pending으로 브리핑 갱신.
 - `CLAUDE.md` "Legacy Stage Order Reference + Current Godot Decision" 섹션 — 차단성 문구
-  "Stage 6 stays absent / unselectable" 제거, Godot 6=Python 7(테트리서) 매핑 행 추가.
+  "비활성 / 선택 불가" 제거, Godot 6=Python 7(테트리서) 매핑 행 추가.
 - (2026-06-04) `docs/godot_module_ownership_ledger.md` — stage6_tetriser_* 모듈 7종 + 접점
   owner 등록, 상태 "Stage 6 complete through 5c / follow-up assets pending".
 

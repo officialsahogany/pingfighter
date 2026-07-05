@@ -8,6 +8,7 @@ const BattleEffectsUpdateController := preload("res://scripts/effects/battle_eff
 const BattleUpdateEffectsDepsBuilder := preload("res://scripts/core/battle_update_effects_deps_builder.gd")
 const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 const MatchScoreEventController := preload("res://scripts/core/match_score_event_controller.gd")
+const StageClearResultRuntimeContextHandler := preload("res://scripts/core/stage_clear_result_runtime_context_handler.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
 
@@ -443,7 +444,7 @@ func _verify_stage6_full_and_result_resets_clear_match_state() -> void:
 	state.debug_start_crystal_shield(Vector2(380.0, 75.0), true)
 	var registry := FakeRegistry.new()
 	registry.instances["stage6_tetriser_state"] = state
-	StageClearResultScreen.new()._reset_stage6_for_result(registry, 6)
+	StageClearResultRuntimeContextHandler.new().reset_stage6_for_result(registry, 6)
 	_expect(state.debug_get_tetromino_count() == 0, "stage-clear result reset should clear Stage 6 tetrominoes")
 	_expect(state.debug_get_gauge() == 0.0, "stage-clear result reset should clear Stage 6 gauge")
 	_expect(not state.debug_is_crystal_shield_active(), "stage-clear result reset should clear Stage 6 crystal shield")
