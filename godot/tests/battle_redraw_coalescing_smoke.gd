@@ -10,6 +10,7 @@ extends SceneTree
 
 const BattleSceneUpdateCallbacks := preload("res://scripts/core/battle_scene_update_callbacks.gd")
 const BattleFrameFlowController := preload("res://scripts/core/battle_frame_flow_controller.gd")
+const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
 const BattleSceneMatchEventDriver := preload("res://scripts/core/battle_scene_match_event_driver.gd")
 const MatchScoreEventController := preload("res://scripts/core/match_score_event_controller.gd")
 const BattleSceneShell := preload("res://scripts/core/battle_scene_shell.gd")
@@ -44,9 +45,30 @@ class FakeRegistry:
 		return null
 
 
+class FakeGripOverlay:
+	extends RefCounted
+	var update_count := 0
+
+	func update(_delta: float, _owner: Object, _registry: Object, _module_getter: Callable) -> bool:
+		update_count += 1
+		return true
+
+	func is_active() -> bool:
+		return true
+
+
+class FakeModuleMap:
+	extends RefCounted
+	var modules: Dictionary = {}
+
+	func get_module(key: String) -> Object:
+		return modules.get(key, null)
+
+
 func _init() -> void:
 	_verify_callbacks_bind_request_flag_over_queue_redraw()
 	_verify_physics_flow_updates_never_queue_redraw_directly()
+	_verify_frame_controller_physics_gate_routes_redraw_request()
 	_verify_legacy_owner_falls_back_to_queue_redraw()
 	_verify_shell_flushes_single_redraw_per_frame()
 	_verify_match_event_driver_routes_redraw_requests()
@@ -80,6 +102,24 @@ func _verify_physics_flow_updates_never_queue_redraw_directly() -> void:
 		flow.update(1.0 / 72.0, {}, callbacks)
 	_expect(owner.queue_count == 0, "repeated physics flow updates must keep owner queue_redraw at 0 before flush (got %d)" % owner.queue_count)
 	_expect(owner.request_count == 5, "each physics flow update should leave exactly one redraw request (got %d)" % owner.request_count)
+
+
+func _verify_frame_controller_physics_gate_routes_redraw_request() -> void:
+	var owner := FakeRedrawOwner.new()
+	var module_map := FakeModuleMap.new()
+	var grip_overlay := FakeGripOverlay.new()
+	module_map.modules["grip_style_selection_overlay"] = grip_overlay
+	var controller: Object = BattleSceneFrameController.new()
+	var blocked: bool = bool(controller._process_grip_selection_physics_gate(
+		1.0 / 60.0,
+		owner,
+		FakeRegistry.new(),
+		Callable(module_map, "get_module")
+	))
+	_expect(blocked, "active grip selection physics gate should report that battle physics is blocked")
+	_expect(grip_overlay.update_count == 1, "grip selection physics gate should update the overlay once")
+	_expect(owner.queue_count == 0, "grip selection physics gate must not call queue_redraw directly")
+	_expect(owner.request_count == 1, "grip selection physics gate should route redraw through request_battle_redraw")
 
 
 func _verify_legacy_owner_falls_back_to_queue_redraw() -> void:
