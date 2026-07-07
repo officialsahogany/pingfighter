@@ -109,14 +109,14 @@ const COMMON_PERKS := {
 		"tree": "dash",
 	},
 	"dash_amplification": {
-		"name": "증폭",
+		"name": "대쉬토큰",
 		"max_level": 3,
 		"descriptions": {
-			1: "대쉬 토큰 +1",
-			2: "대쉬 토큰 +2",
-			3: "대쉬 토큰 +3",
+			1: "대쉬토큰 슬롯 +1",
+			2: "대쉬토큰 슬롯 +2",
+			3: "대쉬토큰 슬롯 +3",
 		},
-		"detail": "최대 대쉬 토큰 수가 증가합니다.",
+		"detail": "레벨마다 대쉬토큰 최대치를 1칸 늘리고, 같은 수만큼 퍽 슬롯을 사용합니다.",
 		"icon_color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
 		"tree": "dash",
 	},
@@ -1415,18 +1415,30 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	return int(perk_data.get("max_level", 0)) > 0
 
 
+static func get_slot_cost_for_level(perk_data: Dictionary, level: int) -> int:
+	if not is_slot_consuming_perk(perk_data):
+		return 0
+	var normalized_level: int = max(0, int(level))
+	if str(perk_data.get("id", "")) == "dash_amplification":
+		var max_level: int = int(perk_data.get("max_level", normalized_level))
+		if max_level > 0:
+			normalized_level = mini(normalized_level, max_level)
+		return normalized_level
+	return 1 if normalized_level > 0 else 0
+
+
 func count_owned_slot_perks(runtime_levels: Dictionary) -> int:
 	var count := 0
 	for skill_id_value in runtime_levels.keys():
 		var skill_id: String = str(skill_id_value)
-		if int(runtime_levels.get(skill_id_value, 0)) <= 0:
+		var level: int = int(runtime_levels.get(skill_id_value, 0))
+		if level <= 0:
 			continue
 		var data: Dictionary = get_perk_data(skill_id)
 		if data.is_empty():
 			continue
 		data["id"] = skill_id
-		if is_slot_consuming_perk(data):
-			count += 1
+		count += get_slot_cost_for_level(data, level)
 	return count
 
 
@@ -1643,8 +1655,7 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 
 
 func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Array:
-	if count_owned_slot_perks(runtime_levels) < PERK_SLOT_LIMIT:
-		return choices
+	var occupied_slots := count_owned_slot_perks(runtime_levels)
 	var filtered: Array = []
 	for value in choices:
 		if not (value is Dictionary):
@@ -1655,7 +1666,12 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Arr
 			filtered.append(choice)
 			continue
 		var choice_id: String = str(choice.get("id", ""))
-		if int(runtime_levels.get(choice_id, 0)) > 0:
+		var current_level: int = int(runtime_levels.get(choice_id, choice.get("current_level", 0)))
+		var next_level: int = int(choice.get("next_level", current_level + 1))
+		var current_cost: int = get_slot_cost_for_level(choice, current_level)
+		var next_cost: int = get_slot_cost_for_level(choice, next_level)
+		var extra_slots: int = max(0, next_cost - current_cost)
+		if occupied_slots + extra_slots <= PERK_SLOT_LIMIT:
 			filtered.append(choice)
 	return filtered
 
