@@ -29,6 +29,9 @@ const CONVERSION_SOURCE_TO_PERK := {
 	"spiked_helmet": "spiked_helmet",
 	"venom_mist_gauntlet": "venom_mist_gauntlet",
 	"speedgear": "speedgear",
+	"sage_ring": "sage_ring",
+	"sacred_laurel": "sacred_laurel",
+	"dowsing_goggles": "dowsing_goggles",
 	"megingjord": "megingjord",
 	"transcendent_crown": "transcendent_crown",
 	"ragnarok_hammer": "ragnarok_hammer",
@@ -53,8 +56,8 @@ const DELETED_ITEM_COMPENSATION := {
 	"slot_add": ["item_bag_expansion"],
 }
 
-# S0 D-결정 대기: gold_bar, sage_ring, sacred_laurel, dowsing_goggles are
-# intentionally absent from conversion and deleted-item compensation maps.
+# R1 redesign group: gold_bar is intentionally absent from conversion and
+# deleted-item compensation maps. The other redesign ids are wired as perks.
 const CONVERTED_PERK_VALUES := {
 	"star_detector": {
 		"star_bonus_pct": [5.0, 10.0, 15.0, 20.0, 25.0],
@@ -79,6 +82,9 @@ const CONVERTED_PERK_VALUES := {
 	},
 	"dowsing_pendulum": {
 		"attraction_range": [120.0, 160.0, 200.0, 240.0, 280.0],
+	},
+	"dowsing_goggles": {
+		"bonus_perk_chance": [40.0, 70.0, 100.0],
 	},
 	"chargebag": {
 		"chargebag_pct": [15.0, 25.0, 35.0, 45.0, 55.0],
@@ -151,6 +157,11 @@ const CONVERTED_PERK_VALUES := {
 	"speedgear": {
 		"speedgear_turn_decel_multiplier": [2.5],
 	},
+	"sage_ring": {
+		"perk_level_bonus": [1.0, 2.0, 3.0],
+		"sage_speed_penalty_pct": [8.0, 16.0, 24.0],
+		"sage_body_penalty_pct": [6.0, 12.0, 18.0],
+	},
 }
 
 const CONVERTED_MYTHIC_VALUES := {
@@ -159,6 +170,9 @@ const CONVERTED_MYTHIC_VALUES := {
 	},
 	"transcendent_crown": {
 		"skill_bonus": 2.0,
+	},
+	"sacred_laurel": {
+		"leaf_count": 8.0,
 	},
 	"ragnarok_hammer": {
 		"trigger_chance": 30.0,

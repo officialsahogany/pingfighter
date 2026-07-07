@@ -11,6 +11,7 @@ const CONVERTED_PERK_IDS := [
 	"sensor",
 	"gravitybelt",
 	"dowsing_pendulum",
+	"dowsing_goggles",
 	"chargebag",
 	"battery",
 	"revival",
@@ -31,6 +32,7 @@ const CONVERTED_PERK_IDS := [
 	"spiked_helmet",
 	"venom_mist_gauntlet",
 	"speedgear",
+	"sage_ring",
 ]
 const CONVERTED_MYTHIC_PERK_IDS := [
 	"megingjord",
@@ -38,6 +40,7 @@ const CONVERTED_MYTHIC_PERK_IDS := [
 	"ragnarok_hammer",
 	"hermes_shoes",
 	"poseidon_trident",
+	"sacred_laurel",
 	"heavenly_cape",
 	"horn_strawberry_mask",
 	"odins_eye",

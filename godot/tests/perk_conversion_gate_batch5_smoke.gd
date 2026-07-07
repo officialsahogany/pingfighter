@@ -223,12 +223,16 @@ func _verify_crown_bonus_source_and_exemptions() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	var stack_env := _make_env({
 		"transcendent_crown": 1,
+		"sage_ring": 3,
 		"star_detector": 2,
 	})
-	_expect(_equip_item(stack_env, "sage_ring", {"sage_speed_penalty_pct": 9.0, "sage_body_penalty_pct": 11.0}), "ON Sage Ring transition fixture should equip")
+	var stack_runtime: Object = stack_env["runtime"]
+	stack_runtime.refresh_runtime_perk_scaling(stack_env["owner"], stack_env["registry"])
 	var stack_state: Object = stack_env["state"]
-	_expect(int(stack_state.get_item_perk_level_bonus()) == 3, "ON Crown fixed source should stack with Sage Ring during the transition")
-	_expect(int(stack_state.get_converted_perk_effect_level("star_detector")) == 5, "ON Crown + Sage Ring should both feed regular converted perks")
+	_expect(int(stack_runtime.get_sage_ring_perk_level_bonus()) == 3, "ON Sage Contract should use its raw Lv.3 bonus source")
+	_expect(int(stack_state.get_item_perk_level_bonus()) == 5, "ON Crown fixed source should stack with Sage Contract")
+	_expect(int(stack_state.get_converted_perk_effect_level("star_detector")) == 7, "ON Crown + Sage Contract should both feed regular converted perks")
+	_expect(int(stack_state.get_converted_perk_effect_level("sage_ring")) == 3, "ON Sage Contract should not raise itself")
 
 
 func _verify_horn_used_state_and_stage_boundary() -> void:

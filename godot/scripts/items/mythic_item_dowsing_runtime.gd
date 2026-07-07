@@ -32,10 +32,14 @@ func is_goggles_equipped(runtime: Object) -> bool:
 
 
 func is_goggles_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_DOWSING_GOGGLES, "bonus_perk_chance") > 0.0
 	return is_goggles_equipped(runtime)
 
 
 func get_goggles_bonus_perk_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return clamp(_get_converted_perk_value(runtime, ITEM_DOWSING_GOGGLES, "bonus_perk_chance"), 0.0, 100.0)
 	if not is_goggles_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_DOWSING_GOGGLES, "bonus_perk_chance"), 0.0, 100.0)

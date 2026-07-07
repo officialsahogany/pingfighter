@@ -90,7 +90,7 @@ func _init() -> void:
 
 
 func _verify_regular_tables() -> void:
-	_expect(RuntimePerkCatalog.CONVERTED_PERKS.size() == 26, "S1a regular converted perk count should stay 26")
+	_expect(RuntimePerkCatalog.CONVERTED_PERKS.size() == 28, "converted regular perk count should include the R1 redesign perks")
 	for id_value in RuntimePerkCatalog.CONVERTED_PERKS.keys():
 		var id := str(id_value)
 		_expect(PerkConversionValues.has_perk(id), "value helper should know regular converted perk %s" % id)
@@ -132,9 +132,17 @@ func _verify_star_endpoints() -> void:
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 1), 30.0, "sensor cooldown Lv1")
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 5), 15.0, "sensor cooldown Lv5")
 
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 1), 40.0, "dowsing_goggles chance Lv1")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 3), 100.0, "dowsing_goggles chance Lv3")
+
+	_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", 1), 1.0, "sage_ring level bonus Lv1")
+	_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", 3), 3.0, "sage_ring level bonus Lv3")
+	_expect_close(PerkConversionValues.get_value("sage_ring", "sage_speed_penalty_pct", 3), 24.0, "sage_ring speed penalty Lv3")
+	_expect_close(PerkConversionValues.get_value("sage_ring", "sage_body_penalty_pct", 3), 18.0, "sage_ring body penalty Lv3")
+
 
 func _verify_mythic_values_and_exempt() -> void:
-	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 11, "S1a mythic converted perk count should stay 11")
+	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 12, "converted mythic perk count should include Great Laurel")
 	for id_value in RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.keys():
 		var id := str(id_value)
 		_expect(PerkConversionValues.has_perk(id), "value helper should know mythic converted perk %s" % id)
@@ -172,7 +180,7 @@ func _verify_flags() -> void:
 
 
 func _verify_conversion_maps() -> void:
-	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 37, "conversion source map should include 37 replacement ids")
+	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 40, "conversion source map should include S1 replacements plus R1 redesign perks")
 	for id_value in RuntimePerkCatalog.CONVERTED_PERKS.keys():
 		var id := str(id_value)
 		_expect(str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(id, "")) == id, "regular conversion source %s should map to itself" % id)
@@ -184,9 +192,11 @@ func _verify_conversion_maps() -> void:
 			_arrays_equal(PerkConversionValues.DELETED_ITEM_COMPENSATION.get(deleted_id, []), DELETED_ITEM_EXPECTED[deleted_id]),
 			"deleted item compensation for %s should match the migration plan" % str(deleted_id)
 		)
+	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("gold_bar"), "gold_bar should stay deleted without a replacement mapping")
 	for redesign_id in ["gold_bar", "sage_ring", "sacred_laurel", "dowsing_goggles"]:
-		_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has(redesign_id), "%s should stay out of replacement conversion map until S0 D-decision" % redesign_id)
-		_expect(not PerkConversionValues.DELETED_ITEM_COMPENSATION.has(redesign_id), "%s should stay out of deleted compensation map until S0 D-decision" % redesign_id)
+		_expect(not PerkConversionValues.DELETED_ITEM_COMPENSATION.has(redesign_id), "%s should not enter deleted compensation" % redesign_id)
+	for redesign_id in ["sage_ring", "sacred_laurel", "dowsing_goggles"]:
+		_expect(str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(redesign_id, "")) == redesign_id, "%s should map to its redesign perk id" % redesign_id)
 
 
 func _verify_flag_toggle_does_not_change_existing_runtime() -> void:
@@ -202,17 +212,15 @@ func _capture_existing_runtime_snapshot(flag_enabled: bool) -> Dictionary:
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new(runtime)
 	_expect(
-		runtime.equip_item(
-			"sage_ring",
+		int(runtime.acquire_item(
+			"gold_bar",
 			owner,
 			registry,
-			{
-				"sage_speed_penalty_pct": 37.0,
-				"sage_body_penalty_pct": 42.0,
-			},
+			{},
+			false,
 			false
-		),
-		"fixture Sage Ring should equip"
+		)) >= 0,
+		"fixture Gold Bar should acquire"
 	)
 	_expect(
 		runtime.equip_item(
@@ -229,8 +237,10 @@ func _capture_existing_runtime_snapshot(flag_enabled: bool) -> Dictionary:
 	)
 	return {
 		"flag_enabled": PerkConversionFlags.is_enabled(),
-		"sage_ring_speed_penalty_pct": runtime.get_sage_ring_speed_penalty_pct(),
-		"sage_ring_body_penalty_pct": runtime.get_sage_ring_body_penalty_pct(),
+		"gold_bar_count": runtime.get_gold_bar_count(),
+		"gold_bar_sell_price": runtime.get_gold_bar_total_sell_price(),
+		"gold_bar_speed_penalty_pct": runtime.get_gold_bar_speed_penalty_pct(),
+		"gold_bar_speed_multiplier": runtime.get_gold_bar_speed_multiplier(),
 		"dashgear_dash_distance_bonus_pct": runtime.get_dashgear_dash_distance_bonus_pct(),
 		"dashgear_boost_charge_chance_pct": runtime.get_dashgear_boost_charge_chance_pct(),
 	}

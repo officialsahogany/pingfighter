@@ -775,6 +775,19 @@ const CONVERTED_PERKS := {
 		"tree": "item",
 		"conversion_source": "dowsing_pendulum",
 	},
+	"dowsing_goggles": {
+		"name": "통찰",
+		"max_level": 3,
+		"descriptions": {
+			1: "퍽 선택지 보너스 발동 확률 40%",
+			2: "퍽 선택지 보너스 발동 확률 70%",
+			3: "퍽 선택지 보너스 발동 확률 100%",
+		},
+		"detail": "퍽 선택지가 열릴 때 확률적으로 선택지 하나를 더 보여줍니다.",
+		"icon_color": Color(70.0 / 255.0, 210.0 / 255.0, 1.0),
+		"tree": "item",
+		"conversion_source": "dowsing_goggles",
+	},
 	"chargebag": {
 		"name": "충전가방",
 		"max_level": 5,
@@ -1058,6 +1071,20 @@ const CONVERTED_PERKS := {
 		"tree": "dash",
 		"conversion_source": "speedgear",
 	},
+	"sage_ring": {
+		"name": "현자의 계약",
+		"max_level": 3,
+		"descriptions": {
+			1: "투자한 퍽 유효 레벨 +1, 이동속도 -8%, 몸집 -6%",
+			2: "투자한 퍽 유효 레벨 +2, 이동속도 -16%, 몸집 -12%",
+			3: "투자한 퍽 유효 레벨 +3, 이동속도 -24%, 몸집 -18%",
+		},
+		"detail": "현자의 대가로 투자한 퍽들의 유효 레벨을 올리지만, 자신과 신화 퍽은 보너스를 받지 않습니다.",
+		"icon_color": Color(160.0 / 255.0, 115.0 / 255.0, 1.0),
+		"tree": "common",
+		"effective_level_exempt": true,
+		"conversion_source": "sage_ring",
+	},
 }
 
 const CONVERTED_MYTHIC_PERKS := {
@@ -1115,6 +1142,17 @@ const CONVERTED_MYTHIC_PERKS := {
 		"rarity": "mythic",
 		"effective_level_exempt": true,
 		"conversion_source": "poseidon_trident",
+	},
+	"sacred_laurel": {
+		"name": "대월계수",
+		"max_level": 1,
+		"descriptions": {1: "보호 월계수 잎 8개"},
+		"detail": "보호 월계수 잎 여덟 장이 공을 막아 줍니다.",
+		"icon_color": Color(135.0 / 255.0, 235.0 / 255.0, 150.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "sacred_laurel",
 	},
 	"heavenly_cape": {
 		"name": "천상의 권능",

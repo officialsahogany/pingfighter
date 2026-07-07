@@ -11,6 +11,7 @@ const MYTHIC_PERK_IDS := [
 	"ragnarok_hammer",
 	"hermes_shoes",
 	"poseidon_trident",
+	"sacred_laurel",
 	"heavenly_cape",
 	"horn_strawberry_mask",
 	"odins_eye",

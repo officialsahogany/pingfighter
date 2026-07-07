@@ -83,6 +83,7 @@ const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"dark_blade": true,
 	"common_refresh": true,
 	"star_change": true,
+	"sage_ring": true,
 }
 
 var runtime_skill_levels: Dictionary = {}
