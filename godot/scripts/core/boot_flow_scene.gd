@@ -7,6 +7,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const LOADING_PERCENT_RATE := 72.0
 const LOADING_FINISH_PERCENT_RATE := 96.0
@@ -52,6 +53,7 @@ var main_menu_bgm_muted: bool = false
 
 
 func _ready() -> void:
+	PerkConversionFlags.set_enabled(true)  # 패시브->퍽 전환 시스템 런타임 활성화 (앱 부팅 진입점)
 	LanguageSettings.apply_saved_language()
 	_configure_app_window()
 	_restore_main_menu_bgm_muted()
