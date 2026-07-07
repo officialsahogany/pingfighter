@@ -47,6 +47,17 @@ const PERK_ICON_PATHS := {
 	"blade_amp": "res://assets/sprites/perks/viper_blade_amp_perk_icon.png",
 	"four_poisons": "res://assets/sprites/perks/viper_four_poisons_perk_icon.png",
 	"pistol_enhance": "res://assets/sprites/perks/soldier_pistol_enhance_perk_icon.png",
+	"pandora_legacy": "res://assets/sprites/perks/pandora_legacy_perk_icon.png",
+	"ragnarok_hammer": "res://assets/sprites/perks/ragnarok_hammer_perk_icon.png",
+	"transcendent_crown": "res://assets/sprites/perks/transcendent_crown_perk_icon.png",
+	"odins_eye": "res://assets/sprites/perks/odins_eye_perk_icon.png",
+	"heavenly_cape": "res://assets/sprites/perks/heavenly_cape_perk_icon.png",
+	"baal_boots": "res://assets/sprites/perks/baal_boots_perk_icon.png",
+	"megingjord": "res://assets/sprites/perks/megingjord_perk_icon.png",
+	"hermes_shoes": "res://assets/sprites/perks/hermes_shoes_perk_icon.png",
+	"horn_strawberry_mask": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon.png",
+	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon.png",
+	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon.png",
 }
 
 const PERK_SHEET_PATHS := {
@@ -55,6 +66,17 @@ const PERK_SHEET_PATHS := {
 	"instant_dimension_gate": "res://assets/sprites/perks/instant_dimension_gate_perk_icon_sheet.png",
 	"instant_treasure_hunt": "res://assets/sprites/perks/instant_treasure_hunt_perk_icon_sheet.png",
 	"instant_monkey_blessing": "res://assets/sprites/perks/instant_monkey_blessing_perk_icon_sheet.png",
+	"pandora_legacy": "res://assets/sprites/perks/pandora_legacy_perk_icon_sheet.png",
+	"ragnarok_hammer": "res://assets/sprites/perks/ragnarok_hammer_perk_icon_sheet.png",
+	"transcendent_crown": "res://assets/sprites/perks/transcendent_crown_perk_icon_sheet.png",
+	"odins_eye": "res://assets/sprites/perks/odins_eye_perk_icon_sheet.png",
+	"heavenly_cape": "res://assets/sprites/perks/heavenly_cape_perk_icon_sheet.png",
+	"baal_boots": "res://assets/sprites/perks/baal_boots_perk_icon_sheet.png",
+	"megingjord": "res://assets/sprites/perks/megingjord_perk_icon_sheet.png",
+	"hermes_shoes": "res://assets/sprites/perks/hermes_shoes_perk_icon_sheet.png",
+	"horn_strawberry_mask": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon_sheet.png",
+	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon_sheet.png",
+	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon_sheet.png",
 }
 
 const SKILL_ICON_PATHS := {
