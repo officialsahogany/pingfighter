@@ -633,6 +633,17 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	var levels: Dictionary = CharacterInfoOverlayValueUtils.get_dict(snapshot.get("runtime_skill_levels", {}))
 	if levels.is_empty() and not snapshot.has("runtime_skill_levels"):
 		levels = CharacterInfoOverlayValueUtils.get_dict(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "runtime_perk_levels", {}))
+	if catalog != null and catalog.has_method("get_perk_slot_status"):
+		var slot_status: Dictionary = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_slot_status(levels))
+		var slot_count: int = int(slot_status.get("count", 0))
+		var slot_limit: int = int(slot_status.get("limit", 0))
+		if slot_limit > 0:
+			var slot_text := "슬롯 %d/%d" % [slot_count, slot_limit]
+			var slot_width: float = _text_size(font, slot_text, 11).x
+			var slot_color := Color(170.0 / 255.0, 225.0 / 255.0, 1.0, 0.90)
+			if slot_count >= slot_limit:
+				slot_color = Color(1.0, 190.0 / 255.0, 90.0 / 255.0, 0.95)
+			_draw_text_xy(canvas, font, slot_text, rect.end.x - slot_width - 14.0, rect.position.y + 23.0, 11, slot_color)
 	var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot, equipped_skills_for_filter)
 
 	var grid_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)

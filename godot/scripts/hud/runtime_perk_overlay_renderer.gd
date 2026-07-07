@@ -855,6 +855,18 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	_draw_text(canvas, "선택 대기: %d" % pending, rect.position + Vector2(rect.size.x - 118.0, 23.0), 13, Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0))
 	_draw_text(canvas, "퍽 골드: %d" % gold, rect.position + Vector2(rect.size.x - 118.0, 45.0), 13, Color(1.0, 215.0 / 255.0, 100.0 / 255.0))
 
+	if catalog != null and catalog.has_method("get_perk_slot_status"):
+		var slot_status: Dictionary = _get_dict(catalog.get_perk_slot_status(levels))
+		var slot_count: int = int(slot_status.get("count", 0))
+		var slot_limit: int = int(slot_status.get("limit", 0))
+		if slot_limit > 0:
+			var slot_color := Color(170.0 / 255.0, 225.0 / 255.0, 1.0, 0.95)
+			if slot_count >= slot_limit:
+				slot_color = Color(1.0, 190.0 / 255.0, 90.0 / 255.0, 0.98)
+			_draw_text(canvas, "슬롯 %d/%d" % [slot_count, slot_limit], rect.position + Vector2(rect.size.x - 118.0, 67.0), 13, slot_color)
+			if slot_count >= slot_limit:
+				_draw_text(canvas, "보유 퍽 강화만", rect.position + Vector2(rect.size.x - 118.0, 89.0), 12, Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.90))
+
 	var acquired: Array = _build_acquired_perks(levels, catalog, runtime_state)
 	if acquired.is_empty():
 		_draw_text(canvas, LanguageSettings.translate_text("획득한 퍽 없음"), rect.position + Vector2(108.0, 27.0), 13, Color(115.0 / 255.0, 120.0 / 255.0, 140.0 / 255.0))

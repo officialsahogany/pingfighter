@@ -8,6 +8,7 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
+const PERK_SLOT_LIMIT := 6
 const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
 const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
@@ -1275,6 +1276,8 @@ func get_choices(
 		_append_converted_perk_choices(choices, runtime_levels, normalized)
 
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
+	if PerkConversionFlags.is_enabled():
+		choices = _filter_perk_slot_budget(choices, runtime_levels)
 	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
 	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
 	if not exclude_instant:
@@ -1355,6 +1358,55 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		ring_core_choice["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
 		return LanguageSettings.localize_perk_data(ring_core_choice)
 	return {}
+
+
+static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
+	if perk_data.is_empty():
+		return false
+	var perk_id: String = str(perk_data.get("id", "")).strip_edges()
+	if perk_id == "convert_to_gold" or bool(perk_data.get("is_gold_conversion", false)):
+		return false
+	if bool(perk_data.get("is_instant", false)) or str(perk_data.get("tree", "")) == "instant":
+		return false
+	if str(perk_data.get("unlocks_skill", "")).strip_edges() != "":
+		return false
+	if bool(perk_data.get("is_lingpet_affinity_chip", false)) or bool(perk_data.get("is_lingpet_ring_core_upgrade", false)):
+		return false
+	if bool(LINGPET_GATED_CHOICE_IDS.get(perk_id, false)):
+		return false
+	return int(perk_data.get("max_level", 0)) > 0
+
+
+func count_owned_slot_perks(runtime_levels: Dictionary) -> int:
+	var count := 0
+	for skill_id_value in runtime_levels.keys():
+		var skill_id: String = str(skill_id_value)
+		if int(runtime_levels.get(skill_id_value, 0)) <= 0:
+			continue
+		var data: Dictionary = get_perk_data(skill_id)
+		if data.is_empty():
+			continue
+		data["id"] = skill_id
+		if is_slot_consuming_perk(data):
+			count += 1
+	return count
+
+
+func has_open_perk_slot(runtime_levels: Dictionary) -> bool:
+	return count_owned_slot_perks(runtime_levels) < PERK_SLOT_LIMIT
+
+
+func get_perk_slot_limit() -> int:
+	return PERK_SLOT_LIMIT
+
+
+func get_perk_slot_status(runtime_levels: Dictionary) -> Dictionary:
+	var count := count_owned_slot_perks(runtime_levels)
+	return {
+		"count": count,
+		"limit": PERK_SLOT_LIMIT,
+		"is_full": count >= PERK_SLOT_LIMIT,
+	}
 
 
 func get_debug_perk_entries(_character_type: String = "") -> Array:
@@ -1548,6 +1600,24 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 	var filtered: Array = []
 	for choice in choices:
 		if str(choice.get("unlocks_skill", "")) == "":
+			filtered.append(choice)
+	return filtered
+
+
+func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Array:
+	if count_owned_slot_perks(runtime_levels) < PERK_SLOT_LIMIT:
+		return choices
+	var filtered: Array = []
+	for value in choices:
+		if not (value is Dictionary):
+			filtered.append(value)
+			continue
+		var choice: Dictionary = value
+		if not is_slot_consuming_perk(choice):
+			filtered.append(choice)
+			continue
+		var choice_id: String = str(choice.get("id", ""))
+		if int(runtime_levels.get(choice_id, 0)) > 0:
 			filtered.append(choice)
 	return filtered
 

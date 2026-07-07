@@ -21,6 +21,8 @@ const MYTHIC_PERK_IDS := [
 
 
 static func build_reward(owner: Object, registry: Object, fallback_starpoints: int = FALLBACK_STARPOINT_AMOUNT) -> Dictionary:
+	if not _has_open_perk_slot(registry):
+		return build_starpoint_fallback_reward(fallback_starpoints)
 	var perk_id: String = pick_random_unowned_mythic_perk_id(registry)
 	if perk_id == "":
 		return build_starpoint_fallback_reward(fallback_starpoints)
@@ -35,6 +37,8 @@ static func build_reward_for_perk(
 ) -> Dictionary:
 	perk_id = perk_id.strip_edges()
 	if perk_id == "":
+		return build_starpoint_fallback_reward(fallback_starpoints)
+	if not _has_open_perk_slot(registry):
 		return build_starpoint_fallback_reward(fallback_starpoints)
 	var perk_data: Dictionary = _get_perk_data(registry, perk_id)
 	var label: String = str(perk_data.get("name", perk_id))
@@ -67,6 +71,8 @@ static func grant_reward(reward: Dictionary, owner: Object, registry: Object) ->
 		return _grant_starpoints(reward, owner, registry, int(reward.get("amount", FALLBACK_STARPOINT_AMOUNT)))
 	if reward_type != REWARD_MYTHIC_PERK:
 		return {"granted": false, "reward_type": reward_type}
+	if not _has_open_perk_slot(registry):
+		return _grant_starpoints(reward, owner, registry, int(reward.get("fallback_starpoints", FALLBACK_STARPOINT_AMOUNT)))
 
 	var perk_id: String = str(reward.get("perk_id", reward.get("id", ""))).strip_edges()
 	if perk_id == "" or _get_runtime_perk_level(registry, perk_id) > 0:
@@ -165,6 +171,30 @@ static func _get_runtime_perk_catalog(registry: Object) -> Object:
 	if catalog != null:
 		return catalog
 	return RuntimePerkCatalog.new()
+
+
+static func _has_open_perk_slot(registry: Object) -> bool:
+	var runtime_perk_catalog: Object = _get_runtime_perk_catalog(registry)
+	if runtime_perk_catalog == null or not runtime_perk_catalog.has_method("has_open_perk_slot"):
+		return true
+	return bool(runtime_perk_catalog.has_open_perk_slot(_get_runtime_perk_levels(registry)))
+
+
+static func _get_runtime_perk_levels(registry: Object) -> Dictionary:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null:
+		return {}
+	var levels_value: Variant = runtime_perk_state.get("runtime_skill_levels")
+	if levels_value is Dictionary:
+		return (levels_value as Dictionary).duplicate(true)
+	if runtime_perk_state.has_method("get_snapshot"):
+		var snapshot_value: Variant = runtime_perk_state.get_snapshot()
+		if snapshot_value is Dictionary:
+			var snapshot: Dictionary = snapshot_value
+			var snapshot_levels_value: Variant = snapshot.get("runtime_skill_levels", {})
+			if snapshot_levels_value is Dictionary:
+				return (snapshot_levels_value as Dictionary).duplicate(true)
+	return {}
 
 
 static func _get_selected_character_type(owner: Object) -> String:
