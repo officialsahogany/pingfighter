@@ -2,8 +2,10 @@ extends RefCounted
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
 const LEGENDARY_CHANCE := 0.20
@@ -32,6 +34,7 @@ var _pending_registry: Object = null
 var _mining_last_swing_index := -1
 var _mining_sheet_texture: Texture2D = null
 var _item_icon_texture_cache: Dictionary = {}
+var _perk_icon_renderer: Object = null
 
 
 func reset() -> void:
@@ -209,10 +212,40 @@ func _empty_result() -> Dictionary:
 
 
 func _grant_mythic(owner: Object, registry: Object) -> Dictionary:
+	if PerkConversionFlags.is_enabled():
+		return _grant_mythic_perk(owner, registry)
 	var pool: Array[String] = _get_mythic_reward_pool(registry)
 	if pool.is_empty():
 		return {"ok": false}
 	return _grant_passive_or_mythic_reward(str(pool[randi() % pool.size()]), "legendary", owner, registry)
+
+
+func _grant_mythic_perk(owner: Object, registry: Object) -> Dictionary:
+	var reward: Dictionary = MythicPerkGrantHelper.build_reward(owner, registry)
+	var grant_result: Dictionary = MythicPerkGrantHelper.grant_reward(reward, owner, registry)
+	if not bool(grant_result.get("granted", false)):
+		return {"ok": false}
+	if bool(grant_result.get("fallback_starpoint", false)):
+		var amount: int = max(1, int(grant_result.get("starpoint_amount", reward.get("amount", 1))))
+		var label := "★%d" % amount
+		return {
+			"ok": true,
+			"result_type": "starpoint",
+			"item_name": "",
+			"amount": amount,
+			"display_text": _format_result_text(LanguageSettings.translate_text("스타포인트"), label),
+			"feedback_text": _format_feedback_text(label),
+		}
+	var perk_id: String = str(grant_result.get("perk_id", reward.get("perk_id", "")))
+	var display_name: String = str(reward.get("label", perk_id))
+	return {
+		"ok": true,
+		"result_type": "mythic_perk",
+		"item_name": "",
+		"perk_id": perk_id,
+		"display_text": _format_result_text(LanguageSettings.translate_text("신화 퍽"), display_name),
+		"feedback_text": _format_feedback_text(display_name),
+	}
 
 
 func _grant_passive_reward(owner: Object, registry: Object) -> Dictionary:
@@ -534,13 +567,18 @@ func _draw_found_result(canvas: CanvasItem, center: Vector2, result_type: String
 	for i in range(8):
 		var radius: float = (66.0 + float(i) * 8.0) * pulse
 		canvas.draw_circle(icon_center, radius, Color(accent.r, accent.g, accent.b, (0.11 - float(i) * 0.011) * alpha))
+	var icon_drawn := false
+	if result_type == "mythic_perk":
+		icon_drawn = _draw_mythic_perk_result_icon(canvas, icon_center, alpha)
 	var icon_texture: Texture2D = _get_result_icon_texture()
-	if icon_texture != null:
+	if not icon_drawn and icon_texture != null:
 		var icon_size := Vector2(112.0, 112.0)
 		canvas.draw_texture_rect(icon_texture, Rect2(icon_center - icon_size * 0.5, icon_size), false, Color(1.0, 1.0, 1.0, alpha))
-	else:
+	elif not icon_drawn:
 		_draw_result_symbol(canvas, icon_center, result_type, accent, alpha)
 	var title: String = "★ 신화 아이템 발견! ★" if result_type == "legendary" else "아이템을 발견했습니다!"
+	if result_type == "mythic_perk":
+		title = "신화 퍽을 발견했습니다!"
 	_draw_centered_text(canvas, LanguageSettings.translate_text(title), center + Vector2(0.0, 72.0), 30, Color(accent.r, accent.g, accent.b, alpha))
 	_draw_centered_text(
 		canvas,
@@ -567,7 +605,7 @@ func _draw_result_symbol(canvas: CanvasItem, center: Vector2, result_type: Strin
 	var radius := 30.0
 	canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.24 * alpha))
 	canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.82 * alpha), false, 2.0)
-	if result_type == "legendary":
+	if result_type == "legendary" or result_type == "mythic_perk":
 		var diamond := PackedVector2Array([
 			center + Vector2(0.0, -radius * 0.72),
 			center + Vector2(radius * 0.72, 0.0),
@@ -588,9 +626,22 @@ func _get_result_color(result_type: String) -> Color:
 	match result_type:
 		"legendary":
 			return Color(1.0, 215.0 / 255.0, 0.0)
+		"mythic_perk":
+			return Color(0.78, 0.38, 1.0)
 		"passive":
 			return Color(90.0 / 255.0, 190.0 / 255.0, 1.0)
 	return Color(130.0 / 255.0, 138.0 / 255.0, 154.0 / 255.0)
+
+
+func _draw_mythic_perk_result_icon(canvas: CanvasItem, icon_center: Vector2, alpha: float) -> bool:
+	var perk_id: String = str(last_result.get("perk_id", ""))
+	if perk_id == "":
+		return false
+	var renderer: Object = _get_perk_icon_renderer()
+	if renderer == null or not renderer.has_method("draw_icon"):
+		return false
+	var icon_size := Vector2(118.0, 118.0)
+	return bool(renderer.draw_icon(canvas, perk_id, Rect2(icon_center - icon_size * 0.5, icon_size), alpha, true))
 
 
 func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color) -> void:
@@ -633,6 +684,12 @@ func _get_result_icon_texture() -> Texture2D:
 	if texture != null:
 		_item_icon_texture_cache[icon_path] = texture
 	return texture
+
+
+func _get_perk_icon_renderer() -> Object:
+	if _perk_icon_renderer == null:
+		_perk_icon_renderer = RuntimePerkIconRenderer.new()
+	return _perk_icon_renderer
 
 
 func _get_instance(registry: Object, key: String) -> Object:

@@ -307,7 +307,7 @@ func build_spawn_candidates(
 	for passive_template in _get_passive_mythic_spawn_candidate_templates(perf_logger):
 		if passive_template.is_empty():
 			continue
-		if PerkConversionFlags.is_enabled() and _get_spawn_group(passive_template) == "passive":
+		if PerkConversionFlags.is_enabled() and _get_spawn_group(passive_template) in ["passive", "mythic"]:
 			continue
 		if _should_skip_passive_spawn_candidate(passive_template, registry, owner):
 			continue

@@ -116,6 +116,8 @@ func build_passive_pool(mythic_catalog: Object, owner: Object = null) -> Array:
 
 func build_mythic_pool(mythic_catalog: Object) -> Array:
 	var result: Array = []
+	if PerkConversionFlags.is_enabled():
+		return result
 	if mythic_catalog == null or not mythic_catalog.has_method("get_field_spawn_items"):
 		return result
 	for item_value in mythic_catalog.get_field_spawn_items():

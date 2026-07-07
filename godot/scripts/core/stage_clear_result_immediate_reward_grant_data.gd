@@ -14,6 +14,8 @@ static func grant_immediate_box_reward(
 	match reward_type:
 		StageClearRewardResolver.REWARD_MYTHIC:
 			return _grant_immediate_mythic_box_reward(reward, owner, registry, reward_resolver)
+		StageClearRewardResolver.REWARD_MYTHIC_PERK:
+			return _grant_immediate_mythic_perk_box_reward(reward, owner, registry, reward_resolver)
 		StageClearRewardResolver.REWARD_STARPOINT:
 			return _grant_immediate_starpoint_box_reward(
 				reward,
@@ -67,6 +69,24 @@ static func _grant_immediate_mythic_box_reward(
 		"reward_type": StageClearRewardResolver.REWARD_MYTHIC,
 		"summary": summary.duplicate(true),
 		"raise_mythic_acquisition_cinematic": true,
+	}
+
+
+static func _grant_immediate_mythic_perk_box_reward(
+	reward: Dictionary,
+	owner: Object,
+	registry: Object,
+	reward_resolver: Object
+) -> Dictionary:
+	if reward_resolver == null or not reward_resolver.has_method("grant_rewards"):
+		return {"granted": false, "reward_type": StageClearRewardResolver.REWARD_MYTHIC_PERK}
+	var summary: Dictionary = _grant_single_reward(reward.duplicate(true), owner, registry, reward_resolver)
+	if summary.is_empty() or int(summary.get("granted", 0)) <= 0:
+		return {"granted": false, "reward_type": StageClearRewardResolver.REWARD_MYTHIC_PERK}
+	return {
+		"granted": true,
+		"reward_type": StageClearRewardResolver.REWARD_MYTHIC_PERK,
+		"summary": summary.duplicate(true),
 	}
 
 

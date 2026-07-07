@@ -149,7 +149,7 @@ static func build_visible_reward_summary(
 					rewards.append(with_result_reward_source(resolved_perk as Dictionary, box_source, source_labels))
 			continue
 		var reward_type: String = str(reward_dict.get("type", ""))
-		if reward_type == "active" or reward_type == "passive" or reward_type == "mythic" or reward_type == "starpoint":
+		if reward_type == "mythic_perk" or reward_type == "active" or reward_type == "passive" or reward_type == "mythic" or reward_type == "starpoint":
 			rewards.append(with_result_reward_source(reward_dict, box_source, source_labels))
 	return rewards
 

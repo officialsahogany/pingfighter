@@ -9,6 +9,8 @@ static func get_reward_color(reward_type: String) -> Color:
 			return Color(0.50, 0.36, 0.10, 1.0)
 		"mythic":
 			return Color(0.32, 0.10, 0.50, 1.0)
+		"mythic_perk":
+			return Color(0.42, 0.14, 0.62, 1.0)
 		"starpoint":
 			return Color(0.86, 0.52, 0.10, 1.0)
 		"perk", "skill":
@@ -24,6 +26,8 @@ static func get_reward_badge(reward: Dictionary) -> String:
 		"passive":
 			return "PASSIVE"
 		"mythic":
+			return "MYTHIC"
+		"mythic_perk":
 			return "MYTHIC"
 		"starpoint":
 			return "PERK"
@@ -83,6 +87,11 @@ static func get_reward_item_icon_palette(reward_type: String) -> Dictionary:
 			return {
 				"disc_color": Color(0.20, 0.06, 0.34, 0.92),
 				"rim_color": Color(1.0, 0.78, 0.30, 1.0),
+			}
+		"mythic_perk":
+			return {
+				"disc_color": Color(0.22, 0.06, 0.36, 0.92),
+				"rim_color": Color(0.92, 0.58, 1.0, 1.0),
 			}
 	return {
 		"disc_color": Color(0.18, 0.18, 0.24, 0.88),

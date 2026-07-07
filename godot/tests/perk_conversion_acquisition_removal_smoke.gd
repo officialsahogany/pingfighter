@@ -80,8 +80,8 @@ func _verify_field_spawn_gate() -> void:
 	var on_counts := _count_spawn_groups(on_candidates)
 	_expect(int(on_counts.get("active", 0)) > 0, "flag-ON field spawn should keep active candidates")
 	_expect(int(on_counts.get("passive", 0)) == 0, "flag-ON field spawn should remove passive candidates")
-	_expect(int(on_counts.get("mythic", 0)) > 0, "flag-ON field spawn should keep mythic candidates")
-	_expect(_array_has_item(on_candidates, "megingjord"), "flag-ON field spawn should not remove mythic candidates")
+	_expect(int(on_counts.get("mythic", 0)) == 0, "flag-ON field spawn should remove mythic candidates")
+	_expect(not _array_has_item(on_candidates, "megingjord"), "flag-ON field spawn should not include dead mythic item candidates")
 
 
 func _verify_stage_clear_box_redirect() -> void:
@@ -100,6 +100,13 @@ func _verify_stage_clear_box_redirect() -> void:
 	var advanced_on: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.38)
 	_expect(str(advanced_on.get("type", "")) == StageClearRewardResolver.REWARD_STARPOINT, "flag-ON advanced passive roll should redirect to starpoint")
 	_expect(int(advanced_on.get("amount", 0)) == 2, "flag-ON advanced passive roll should grant two starpoints")
+	var normal_mythic_on: Dictionary = resolver._roll_normal_box_reward(null, null, 0.99)
+	_expect(str(normal_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON normal mythic roll should redirect to a mythic perk")
+	_expect(str(normal_mythic_on.get("perk_id", "")) != "", "flag-ON normal mythic perk reward should carry a perk id")
+	var advanced_mythic_on: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.0)
+	_expect(str(advanced_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON advanced mythic roll should redirect to a mythic perk")
+	var guaranteed_mythic_on: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC)
+	_expect(str(guaranteed_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON guaranteed mythic box should roll a mythic perk")
 
 
 func _verify_pandora_passive_pool_gate() -> void:
@@ -114,14 +121,17 @@ func _verify_pandora_passive_pool_gate() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	var on_passive_pool: Array = builder.build_passive_pool(catalog, owner)
 	_expect(on_passive_pool.is_empty(), "flag-ON Pandora passive pool should be empty")
+	var on_mythic_pool: Array = builder.build_mythic_pool(catalog)
+	_expect(on_mythic_pool.is_empty(), "flag-ON Pandora mythic pool should be empty")
 
 	var runtime := MythicItemRuntime.new()
 	var choices: Array = runtime.generate_pandora_legacy_selection_choices(owner, FakeRegistry.new({"mythic_item_runtime": runtime}))
-	_expect(choices.size() == 3, "flag-ON Pandora should still build three choices from active/mythic pools")
+	_expect(choices.size() == 3, "flag-ON Pandora should still build three choices from active pool only")
 	_expect(_choices_are_unique(choices), "flag-ON Pandora choices should remain unique when passive pool is empty")
 	for choice_value in choices:
 		var choice: Dictionary = _get_dict(choice_value)
 		_expect(str(choice.get("pandora_source", "")) != "passive", "flag-ON Pandora choices should not include passive-source items")
+		_expect(str(choice.get("pandora_source", "")) != "mythic", "flag-ON Pandora choices should not include mythic-source items")
 
 
 func _verify_treasure_hunt_redirect() -> void:
@@ -178,7 +188,9 @@ func _verify_treasure_hunt_redirect() -> void:
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	}), 0.0)
 	_expect(str(mythic_off.get("result_type", "")) == "legendary", "flag-OFF treasure mythic roll should stay legendary")
-	_expect(str(mythic_on.get("result_type", "")) == "legendary", "flag-ON treasure mythic roll should stay legendary")
+	_expect(str(mythic_on.get("result_type", "")) == "mythic_perk", "flag-ON treasure mythic roll should grant a mythic perk")
+	_expect(not str(mythic_on.get("perk_id", "")).is_empty(), "flag-ON treasure mythic perk result should expose the granted perk id")
+	_expect(mythic_on_equipment.get_snapshot().get("inventory_items", []).is_empty(), "flag-ON treasure mythic roll should not grant mythic item inventory")
 
 
 func _count_spawn_groups(candidates: Array) -> Dictionary:

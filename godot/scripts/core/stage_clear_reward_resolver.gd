@@ -3,11 +3,13 @@ extends RefCounted
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
 const REWARD_MYTHIC := "mythic"
+const REWARD_MYTHIC_PERK := "mythic_perk"
 const REWARD_STARPOINT := "starpoint"
 const BOX_ADVANCED := "advanced"
 const BOX_GUARANTEED_MYTHIC := "guaranteed_mythic"
@@ -39,6 +41,8 @@ var _active_catalog: Object = ActiveItemCatalog.new()
 
 func roll_reward(box_kind: String, owner: Object = null, registry: Object = null) -> Dictionary:
 	if _is_guaranteed_mythic_box_kind(box_kind):
+		if PerkConversionFlags.is_enabled():
+			return _roll_mythic_perk_reward(owner, registry)
 		return _roll_item_reward(REWARD_MYTHIC, owner, registry)
 	if _is_advanced_box_kind(box_kind):
 		return _roll_advanced_box_reward(owner, registry)
@@ -57,6 +61,8 @@ func _roll_normal_box_reward(owner: Object, registry: Object, roll_override: flo
 			return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
 		NORMAL_REWARD_STARPOINT_DOUBLE:
 			return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
+		REWARD_MYTHIC_PERK:
+			return _roll_mythic_perk_reward(owner, registry)
 	return _roll_item_reward(REWARD_MYTHIC, owner, registry)
 
 
@@ -82,6 +88,8 @@ func _resolve_normal_box_reward_type(roll: float) -> String:
 	weighted_roll -= NORMAL_STARPOINT_SINGLE_WEIGHT
 	if weighted_roll < NORMAL_STARPOINT_DOUBLE_WEIGHT:
 		return NORMAL_REWARD_STARPOINT_DOUBLE
+	if PerkConversionFlags.is_enabled():
+		return REWARD_MYTHIC_PERK
 	return REWARD_MYTHIC
 
 
@@ -92,6 +100,7 @@ func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionar
 		"active_granted": 0,
 		"passive_granted": 0,
 		"mythic_granted": 0,
+		"mythic_perk_granted": 0,
 		"starpoint_granted": 0,
 		"failed": [],
 	}
@@ -117,6 +126,14 @@ func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionar
 				granted = _grant_equipment_reward(reward, owner, registry)
 				if granted:
 					summary["mythic_granted"] = int(summary["mythic_granted"]) + 1
+			REWARD_MYTHIC_PERK:
+				var mythic_perk_result: Dictionary = _grant_mythic_perk_reward(reward, owner, registry)
+				granted = bool(mythic_perk_result.get("granted", false))
+				if granted:
+					if bool(mythic_perk_result.get("fallback_starpoint", false)):
+						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_perk_result.get("starpoint_amount", 0))
+					else:
+						summary["mythic_perk_granted"] = int(summary.get("mythic_perk_granted", 0)) + 1
 			REWARD_STARPOINT:
 				granted = _grant_starpoint_reward(reward, owner, registry)
 				if granted:
@@ -154,6 +171,8 @@ func _roll_advanced_box_reward(owner: Object, registry: Object, roll_override: f
 	match _resolve_advanced_box_reward_type(roll_value):
 		REWARD_MYTHIC:
 			return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+		REWARD_MYTHIC_PERK:
+			return _roll_mythic_perk_reward(owner, registry)
 		ADVANCED_REWARD_STARPOINT_DOUBLE:
 			return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
 		ADVANCED_REWARD_STARPOINT_TRIPLE:
@@ -170,6 +189,8 @@ func _resolve_advanced_box_reward_type(roll: float) -> String:
 	)
 	var weighted_roll: float = clamp(roll, 0.0, 0.999999) * max(0.001, total_weight)
 	if weighted_roll < ADVANCED_BOX_MYTHIC_WEIGHT:
+		if PerkConversionFlags.is_enabled():
+			return REWARD_MYTHIC_PERK
 		return REWARD_MYTHIC
 	weighted_roll -= ADVANCED_BOX_MYTHIC_WEIGHT
 	if weighted_roll < ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT:
@@ -189,6 +210,10 @@ func _roll_starpoint_reward(amount: int = STARPOINT_REWARD_SINGLE_AMOUNT) -> Dic
 		"label": "★ %d" % amount,
 		"amount": amount,
 	}
+
+
+func _roll_mythic_perk_reward(owner: Object, registry: Object) -> Dictionary:
+	return MythicPerkGrantHelper.build_reward(owner, registry)
 
 
 func _build_candidates_for_group(reward_group: String, owner: Object, registry: Object) -> Array:
@@ -345,6 +370,10 @@ func _grant_starpoint_reward(reward: Dictionary, owner: Object, registry: Object
 		defer_choice_open
 	)
 	return true
+
+
+func _grant_mythic_perk_reward(reward: Dictionary, owner: Object, registry: Object) -> Dictionary:
+	return MythicPerkGrantHelper.grant_reward(reward, owner, registry)
 
 
 func _get_item_group(item_data: Dictionary) -> String:

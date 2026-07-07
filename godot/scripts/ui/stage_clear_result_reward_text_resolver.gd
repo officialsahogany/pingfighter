@@ -89,6 +89,8 @@ static func get_reward_type_fallback_label(reward_type: String) -> String:
 			return LanguageSettings.translate_text("패시브")
 		"mythic":
 			return LanguageSettings.translate_text("신화")
+		"mythic_perk":
+			return LanguageSettings.translate_text("신화 퍽")
 		"starpoint":
 			return LanguageSettings.translate_text("스타포인트")
 		"perk", "skill":
