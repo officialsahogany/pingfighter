@@ -129,6 +129,7 @@ func _init() -> void:
 	_verify_on_flag_perk_replaces_item_without_max()
 	_verify_effective_level_bonus_uses_shared_bridge()
 	_verify_runtime_consumers_use_batch1_getters()
+	_verify_fuel_pouch_choice_syncs_owner_gauge_max_immediately()
 	PerkConversionFlags.debug_set_enabled(false)
 
 	if _failures.is_empty():
@@ -304,6 +305,33 @@ func _verify_runtime_consumers_use_batch1_getters() -> void:
 			{"dash_state": item_only_dash}
 		).is_empty(),
 		"ON item-only Kick Charger should stay inactive"
+	)
+
+
+func _verify_fuel_pouch_choice_syncs_owner_gauge_max_immediately() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+	var runtime: Object = MythicItemRuntime.new()
+	runtime.get_snapshot()
+	var state: Object = RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	owner.special_gauge = 250.0
+	owner.special_gauge_max = 500.0
+	var registry := FakeRegistry.new(runtime, state)
+	runtime.owner_syncer.sync_runtime_perk_state_ref(runtime, registry)
+
+	_expect(
+		state.apply_choice({"id": "fuel_pouch", "name": "연료탱크", "max_level": 5}, owner, registry),
+		"Fuel Pouch perk choice should apply"
+	)
+	_expect_close(
+		owner.special_gauge_max,
+		540.0,
+		"Fuel Pouch choice should sync owner max gauge immediately"
+	)
+	_expect_close(
+		owner.special_gauge,
+		270.0,
+		"Fuel Pouch immediate sync should preserve the current gauge ratio"
 	)
 
 

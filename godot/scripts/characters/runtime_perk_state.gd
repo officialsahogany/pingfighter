@@ -1923,10 +1923,9 @@ func _apply_level_side_effect(choice: Dictionary, owner: Object, registry: Objec
 	var sync_start: int = _perf_begin(perf_logger)
 	_sync_runtime_perk_owner_effects(owner, registry, perf_logger)
 	_perf_end(perf_logger, "process.runtime_perk.level.sync_owner_effects", sync_start)
-	if choice_id == ITEM_POLISH_ID:
-		var polish_start: int = _perf_begin(perf_logger)
-		_refresh_item_polish_consumers(owner, registry)
-		_perf_end(perf_logger, "process.runtime_perk.level.polish_refresh", polish_start)
+	var mythic_refresh_start: int = _perf_begin(perf_logger)
+	_refresh_mythic_runtime_perk_consumers(owner, registry)
+	_perf_end(perf_logger, "process.runtime_perk.level.mythic_refresh", mythic_refresh_start)
 
 	var unlocked_skill: String = str(choice.get("unlocks_skill", ""))
 	if unlocked_skill != "":
@@ -2350,6 +2349,10 @@ func _sync_runtime_perk_owner_effects(owner: Object, registry: Object, perf_logg
 
 
 func _refresh_item_polish_consumers(owner: Object, registry: Object) -> void:
+	_refresh_mythic_runtime_perk_consumers(owner, registry)
+
+
+func _refresh_mythic_runtime_perk_consumers(owner: Object, registry: Object) -> void:
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("refresh_runtime_perk_scaling"):
 		mythic_item_runtime.refresh_runtime_perk_scaling(owner, registry)
