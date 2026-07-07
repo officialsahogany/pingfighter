@@ -9,6 +9,7 @@ const GENERAL_IDS := [
 	"sensor",
 	"gravitybelt",
 	"dowsing_pendulum",
+	"dowsing_goggles",
 	"chargebag",
 	"battery",
 	"revival",
@@ -29,6 +30,7 @@ const GENERAL_IDS := [
 	"spiked_helmet",
 	"venom_mist_gauntlet",
 	"speedgear",
+	"sage_ring",
 ]
 
 const EXPECTED_STATIC_SIZE := Vector2i(128, 128)

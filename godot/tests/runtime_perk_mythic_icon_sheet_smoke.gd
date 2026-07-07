@@ -13,6 +13,7 @@ const MYTHIC_IDS := [
 	"hermes_shoes",
 	"horn_strawberry_mask",
 	"poseidon_trident",
+	"sacred_laurel",
 	"celestial_armor",
 ]
 

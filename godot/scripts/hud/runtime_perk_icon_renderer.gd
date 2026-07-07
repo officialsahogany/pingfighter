@@ -53,6 +53,7 @@ const PERK_ICON_PATHS := {
 	"sensor": "res://assets/sprites/perks/sensor_perk_icon.png",
 	"gravitybelt": "res://assets/sprites/perks/gravitybelt_perk_icon.png",
 	"dowsing_pendulum": "res://assets/sprites/perks/dowsing_pendulum_perk_icon.png",
+	"dowsing_goggles": "res://assets/sprites/perks/dowsing_goggles_perk_icon.png",
 	"chargebag": "res://assets/sprites/perks/chargebag_perk_icon.png",
 	"battery": "res://assets/sprites/perks/battery_perk_icon.png",
 	"revival": "res://assets/sprites/perks/revival_perk_icon.png",
@@ -73,6 +74,7 @@ const PERK_ICON_PATHS := {
 	"spiked_helmet": "res://assets/sprites/perks/spiked_helmet_perk_icon.png",
 	"venom_mist_gauntlet": "res://assets/sprites/perks/venom_mist_gauntlet_perk_icon.png",
 	"speedgear": "res://assets/sprites/perks/speedgear_perk_icon.png",
+	"sage_ring": "res://assets/sprites/perks/sage_ring_perk_icon.png",
 	"pandora_legacy": "res://assets/sprites/perks/pandora_legacy_perk_icon.png",
 	"ragnarok_hammer": "res://assets/sprites/perks/ragnarok_hammer_perk_icon.png",
 	"transcendent_crown": "res://assets/sprites/perks/transcendent_crown_perk_icon.png",
@@ -83,6 +85,7 @@ const PERK_ICON_PATHS := {
 	"hermes_shoes": "res://assets/sprites/perks/hermes_shoes_perk_icon.png",
 	"horn_strawberry_mask": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon.png",
 	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon.png",
+	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon.png",
 }
 
@@ -102,6 +105,7 @@ const PERK_SHEET_PATHS := {
 	"hermes_shoes": "res://assets/sprites/perks/hermes_shoes_perk_icon_sheet.png",
 	"horn_strawberry_mask": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon_sheet.png",
 	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon_sheet.png",
+	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon_sheet.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon_sheet.png",
 }
 
