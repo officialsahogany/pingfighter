@@ -98,10 +98,12 @@ func _verify_passive_trade_ui_buy_sell() -> void:
 	var initial_stock_count := int(status.get("shop_inventory_count", 0))
 	var initial_gold := int(status.get("plaza_gold", 0))
 	_expect(initial_stock_count >= 5, "passive shop should roll stock before trade")
+	var stock_index := _find_legacy_shop_stock_index(scene)
+	_expect(stock_index >= 0, "passive shop should expose at least one passive/legendary stock entry")
 
 	scene.click_interior_object_for_test("shop_strewn_coin_pile")
 	scene.advance_interior_view_for_test(0.75)
-	status = scene.trade_interior_item_for_test("shop", 0)
+	status = scene.trade_interior_item_for_test("shop", stock_index)
 	_expect(owner.passive_item_inventory.size() == 1, "passive shop purchase should add one passive inventory item")
 	_expect(int(status.get("shop_inventory_count", 0)) == initial_stock_count - 1, "passive shop purchase should remove the bought stock entry")
 	_expect(int(status.get("plaza_gold", 0)) < initial_gold, "passive shop purchase should debit plaza gold")
@@ -157,9 +159,14 @@ func _verify_passive_trade_reorder() -> void:
 	var status: Dictionary = scene.get_status()
 	var initial_stock_count := int(status.get("shop_inventory_count", 0))
 	_expect(initial_stock_count >= 5, "passive shop reorder should start with rolled stock")
+	var first_stock_index := _find_legacy_shop_stock_index(scene)
+	_expect(first_stock_index >= 0, "passive reorder should expose a first passive/legendary stock entry")
 
-	scene.trade_interior_item_for_test("shop", 0)
-	scene.trade_interior_item_for_test("shop", 0)
+	scene.trade_interior_item_for_test("shop", first_stock_index)
+	var second_stock_index := _find_legacy_shop_stock_index(scene)
+	_expect(second_stock_index >= 0, "passive reorder should expose a second passive/legendary stock entry")
+	if second_stock_index >= 0:
+		scene.trade_interior_item_for_test("shop", second_stock_index)
 	_expect(owner.passive_item_inventory.size() == 2, "passive reorder setup should buy two inventory items")
 	if owner.passive_item_inventory.size() >= 2:
 		var first_id := int((owner.passive_item_inventory[0] as Dictionary).get("_inventory_id", -1))
@@ -347,6 +354,16 @@ func _find_building(specs: Array[Dictionary], building_type: String) -> Dictiona
 	return {}
 
 
+func _find_legacy_shop_stock_index(scene: Control) -> int:
+	var stock: Array = _get_array(scene.get("_shop_inventory"))
+	for index in range(stock.size()):
+		var item_data := _get_dict(stock[index])
+		var item_name := str(item_data.get("name", ""))
+		if item_name != "" and not PlazaShopPricing.ACTIVE_BASE_PRICES.has(item_name):
+			return index
+	return -1
+
+
 func _cleanup(path: String) -> void:
 	var backup_path := path.trim_suffix(".cfg") + ".last_good.cfg"
 	if FileAccess.file_exists(path):
@@ -366,3 +383,15 @@ func _smoke_save_path(slug: String) -> String:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []

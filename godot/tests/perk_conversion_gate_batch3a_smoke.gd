@@ -418,7 +418,7 @@ func _verify_venom_runtime_consumer() -> void:
 
 
 func _verify_venom_guard_structure() -> void:
-	PerkConversionFlags.debug_set_enabled(true)
+	PerkConversionFlags.debug_set_enabled(false)
 	var spawn_pool := ActiveItemFieldSpawnPool.new()
 	var runtime: Object = _make_runtime({"venom_mist_gauntlet": 1})
 	var registry := FakeRegistry.new(runtime, runtime.runtime_perk_state_ref)
@@ -426,8 +426,9 @@ func _verify_venom_guard_structure() -> void:
 	smasher_owner.selected_character_type = "smasher"
 	var viper_owner := FakeOwner.new()
 	viper_owner.selected_character_type = "viper"
-	_expect(not spawn_pool.get_field_spawn_candidate_names(registry, smasher_owner).has("venom_mist_gauntlet"), "existing Venom guard should exclude non-Viper field offers")
-	_expect(spawn_pool.get_field_spawn_candidate_names(registry, viper_owner).has("venom_mist_gauntlet"), "existing Venom guard should allow Viper field offers")
+	_expect(not spawn_pool.get_field_spawn_candidate_names(registry, smasher_owner).has("venom_mist_gauntlet"), "flag-OFF existing Venom guard should exclude non-Viper field offers")
+	_expect(spawn_pool.get_field_spawn_candidate_names(registry, viper_owner).has("venom_mist_gauntlet"), "flag-OFF existing Venom guard should allow Viper field offers")
+	PerkConversionFlags.debug_set_enabled(true)
 	_expect(runtime.try_spawn_venom_mist_at_boss(Vector2(380.0, 95.0), {"owner": smasher_owner, "registry": registry}, true), "existing Venom runtime has no character guard beyond offer restrictions")
 
 

@@ -2,6 +2,7 @@ extends RefCounted
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -171,8 +172,8 @@ func _maybe_play_mining_hit_audio(now_msec: int) -> void:
 	_play_first_audio(_pending_registry, ["play_treasure_hunt_mining", "play_stage2_rockhit"])
 
 
-func _roll_result(owner: Object, registry: Object) -> Dictionary:
-	var roll: float = randf()
+func _roll_result(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
+	var roll: float = randf() if roll_override < 0.0 else roll_override
 	var legendary_chance: float = _get_legendary_chance(registry)
 	var passive_end: float = min(1.0, legendary_chance + PASSIVE_REWARD_CHANCE)
 	if roll < legendary_chance:
@@ -180,6 +181,11 @@ func _roll_result(owner: Object, registry: Object) -> Dictionary:
 		if bool(mythic_result.get("ok", false)):
 			return mythic_result
 	if roll < passive_end:
+		if PerkConversionFlags.is_enabled():
+			var starpoint_result: Dictionary = _grant_starpoint_reward(owner, registry, 1)
+			if bool(starpoint_result.get("ok", false)):
+				return starpoint_result
+			return starpoint_result
 		var passive_result: Dictionary = _grant_passive_reward(owner, registry)
 		if bool(passive_result.get("ok", false)):
 			return passive_result
@@ -214,6 +220,24 @@ func _grant_passive_reward(owner: Object, registry: Object) -> Dictionary:
 	if pool.is_empty():
 		return {"ok": false}
 	return _grant_passive_or_mythic_reward(str(pool[randi() % pool.size()]), "passive", owner, registry)
+
+
+func _grant_starpoint_reward(owner: Object, registry: Object, amount: int = 1) -> Dictionary:
+	amount = max(1, amount)
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null or not runtime_perk_state.has_method("collect_star_points"):
+		return {"ok": false}
+	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	runtime_perk_state.collect_star_points(amount, _get_selected_character_type(owner), runtime_perk_catalog, owner, registry)
+	var label := "★%d" % amount
+	return {
+		"ok": true,
+		"result_type": "starpoint",
+		"item_name": "",
+		"amount": amount,
+		"display_text": _format_result_text(LanguageSettings.translate_text("스타포인트"), label),
+		"feedback_text": _format_feedback_text(label),
+	}
 
 
 func _grant_passive_or_mythic_reward(
@@ -331,6 +355,15 @@ func _should_skip_reward_candidate(item_name: String, registry: Object) -> bool:
 	if mythic_runtime == null or not mythic_runtime.has_method("should_skip_one_time_passive_spawn"):
 		return false
 	return bool(mythic_runtime.should_skip_one_time_passive_spawn(item_name))
+
+
+func _get_selected_character_type(owner: Object) -> String:
+	if owner == null:
+		return "smasher"
+	var value: Variant = owner.get("selected_character_type")
+	if value == null or str(value) == "":
+		return "smasher"
+	return str(value)
 
 
 func _play_result_audio(registry: Object, result_type: String) -> void:

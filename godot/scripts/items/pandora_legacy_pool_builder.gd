@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const PANDORA_LEGACY := "pandora_legacy"
 
@@ -91,6 +92,8 @@ func build_active_pool(owner: Object = null) -> Array:
 
 func build_passive_pool(mythic_catalog: Object, owner: Object = null) -> Array:
 	var result: Array = []
+	if PerkConversionFlags.is_enabled():
+		return result
 	if mythic_catalog == null or not mythic_catalog.has_method("get_field_spawn_items"):
 		return result
 	var character_type: String = _get_selected_character_type(owner)

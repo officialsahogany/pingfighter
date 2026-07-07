@@ -2,6 +2,7 @@ extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PlazaShopPricing := preload("res://scripts/plaza/plaza_shop_pricing.gd")
 
 const MIN_STOCK_COUNT := 5
@@ -65,6 +66,8 @@ func _append_guaranteed_active_stock(stock: Array, active_catalog: Object) -> vo
 
 func _build_pool(catalog: Object, legendary: bool) -> Array:
 	var result: Array = []
+	if PerkConversionFlags.is_enabled():
+		return result
 	for item_name_value in MythicItemCatalog.FIELD_SPAWN_ORDER:
 		var item_name := str(item_name_value)
 		if not PlazaShopPricing.is_shop_priced_item(item_name):

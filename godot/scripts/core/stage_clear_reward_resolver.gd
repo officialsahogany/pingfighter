@@ -3,6 +3,7 @@ extends RefCounted
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
@@ -72,6 +73,8 @@ func _resolve_normal_box_reward_type(roll: float) -> String:
 		return REWARD_ACTIVE
 	weighted_roll -= NORMAL_ACTIVE_WEIGHT
 	if weighted_roll < NORMAL_PASSIVE_WEIGHT:
+		if PerkConversionFlags.is_enabled():
+			return NORMAL_REWARD_STARPOINT_SINGLE
 		return REWARD_PASSIVE
 	weighted_roll -= NORMAL_PASSIVE_WEIGHT
 	if weighted_roll < NORMAL_STARPOINT_SINGLE_WEIGHT:
@@ -174,6 +177,8 @@ func _resolve_advanced_box_reward_type(roll: float) -> String:
 	weighted_roll -= ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT
 	if weighted_roll < ADVANCED_BOX_STARPOINT_TRIPLE_WEIGHT:
 		return ADVANCED_REWARD_STARPOINT_TRIPLE
+	if PerkConversionFlags.is_enabled():
+		return ADVANCED_REWARD_STARPOINT_DOUBLE
 	return REWARD_PASSIVE
 
 

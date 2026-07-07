@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -305,6 +306,8 @@ func build_spawn_candidates(
 	sample_start = _perf_begin(perf_logger)
 	for passive_template in _get_passive_mythic_spawn_candidate_templates(perf_logger):
 		if passive_template.is_empty():
+			continue
+		if PerkConversionFlags.is_enabled() and _get_spawn_group(passive_template) == "passive":
 			continue
 		if _should_skip_passive_spawn_candidate(passive_template, registry, owner):
 			continue
