@@ -602,15 +602,23 @@ func _apply_item_runtime_visual_overrides(item_data: Dictionary, registry: Objec
 	if item_name != "boomerang" and effect_name != "boomerang":
 		return item_data
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
+	if mythic_item_runtime == null:
 		return item_data
-	if not bool(mythic_item_runtime.is_reinforced_boomerang_gauntlet_equipped()):
+	if not _is_reinforced_boomerang_gauntlet_effect_active(mythic_item_runtime):
 		return item_data
 	var result: Dictionary = item_data.duplicate(true)
 	result["icon_path"] = ActiveItemCatalog.BOOMERANG_METAL_ICON_PATH
 	result["color"] = Color(150.0 / 255.0, 220.0 / 255.0, 1.0)
 	result["visual_variant"] = "metal"
 	return result
+
+
+func _is_reinforced_boomerang_gauntlet_effect_active(mythic_item_runtime: Object) -> bool:
+	if mythic_item_runtime.has_method("is_reinforced_boomerang_gauntlet_effect_active"):
+		return bool(mythic_item_runtime.is_reinforced_boomerang_gauntlet_effect_active())
+	if mythic_item_runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
+		return bool(mythic_item_runtime.is_reinforced_boomerang_gauntlet_equipped())
+	return false
 
 
 func _select_slot(registry: Object, slot_index: int) -> void:

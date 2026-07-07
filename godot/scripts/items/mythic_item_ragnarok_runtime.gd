@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_RAGNAROK_HAMMER := "ragnarok_hammer"
 
 
@@ -54,7 +57,7 @@ func try_apply_player_hit(
 	deps: Dictionary,
 	constants: Dictionary
 ) -> Dictionary:
-	if not runtime.is_equipped(ITEM_RAGNAROK_HAMMER):
+	if not is_active(runtime):
 		return {}
 	if runtime.ragnarok_stun_ball_active or runtime.ragnarok_stun_attempted_this_rally:
 		return {}
@@ -96,7 +99,7 @@ func apply_boss_hit(
 	deps: Dictionary,
 	constants: Dictionary
 ) -> Dictionary:
-	if not runtime.is_equipped(ITEM_RAGNAROK_HAMMER):
+	if not is_active(runtime):
 		clear_rally_state(runtime)
 		return {}
 	if not runtime.ragnarok_stun_ball_active:
@@ -157,19 +160,37 @@ func apply_boss_hit(
 	}
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.is_equipped(ITEM_RAGNAROK_HAMMER)
+
+
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
+
+
 func get_trigger_chance(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "trigger_chance")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "trigger_chance"), 0.0, 100.0)
 
 
 func get_stun_duration(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "stun_duration")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "stun_duration"), 0.8, 1.2)
 
 
 func get_speed_boost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "speed_boost")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "speed_boost"), 0.0, 100.0)
 
 
 func get_gauge_cost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "gauge_cost")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "gauge_cost"), 0.0, 100.0)
 
 
@@ -356,3 +377,15 @@ func update_sparks(runtime: Object, delta: float) -> void:
 		write_index += 1
 	if write_index < runtime.ragnarok_sparks.size():
 		runtime.ragnarok_sparks.resize(write_index)
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_RAGNAROK_HAMMER, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_RAGNAROK_HAMMER)))
+	return 0

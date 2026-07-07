@@ -12,9 +12,11 @@ func get_gauntlet_context(registry: Object) -> Dictionary:
 			"homing_multiplier": 1.0,
 			"knockback_multiplier": 1.0,
 			"stun_multiplier": 1.0,
-		}
+	}
 	var equipped := false
-	if runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
+	if runtime.has_method("is_reinforced_boomerang_gauntlet_effect_active"):
+		equipped = bool(runtime.is_reinforced_boomerang_gauntlet_effect_active())
+	elif runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
 		equipped = bool(runtime.is_reinforced_boomerang_gauntlet_equipped())
 	return {
 		"equipped": equipped,

@@ -550,7 +550,7 @@ func sync_boomerang_active_slot_visuals(runtime: Object, owner: Object, constant
 	if not (slots_value is Array):
 		return
 	var slots: Array = slots_value
-	var use_metal: bool = runtime.is_reinforced_boomerang_gauntlet_equipped()
+	var use_metal: bool = _is_reinforced_boomerang_gauntlet_effect_active(runtime)
 	var normal_icon_path: String = str(constants.get("boomerang_icon_path", "res://assets/sprites/items/boomerang.png"))
 	var metal_icon_path: String = str(constants.get("boomerang_metal_icon_path", "res://assets/sprites/items/boomerang_metal.png"))
 	var changed := false
@@ -573,6 +573,14 @@ func sync_boomerang_active_slot_visuals(runtime: Object, owner: Object, constant
 		changed = true
 	if changed:
 		owner.set("active_item_slots", slots)
+
+
+func _is_reinforced_boomerang_gauntlet_effect_active(runtime: Object) -> bool:
+	if runtime != null and runtime.has_method("is_reinforced_boomerang_gauntlet_effect_active"):
+		return bool(runtime.is_reinforced_boomerang_gauntlet_effect_active())
+	if runtime != null and runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
+		return bool(runtime.is_reinforced_boomerang_gauntlet_equipped())
+	return false
 
 
 func sync_bulkup_paddle_scale(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> void:

@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SPIKEBOOTS := "spikeboots"
 const ITEM_BULLETPROOF_HAT := "bulletproof_hat"
 const ITEM_SPIKED_HELMET := "spiked_helmet"
@@ -36,6 +39,8 @@ func is_bulletproof_hat_equipped(runtime: Object) -> bool:
 
 
 func get_bulletproof_hat_stun_resist_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_BULLETPROOF_HAT, "stun_resist_pct")
 	if not runtime.equipped_items.has(ITEM_BULLETPROOF_HAT):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_BULLETPROOF_HAT, "stun_resist_pct"), 0.0, 100.0)
@@ -55,6 +60,8 @@ func is_spiked_helmet_equipped(runtime: Object) -> bool:
 
 
 func get_spiked_helmet_knockback_resist_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_SPIKED_HELMET, "knockback_resist_pct")
 	if not runtime.equipped_items.has(ITEM_SPIKED_HELMET):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SPIKED_HELMET, "knockback_resist_pct"), 0.0, 100.0)
@@ -66,3 +73,12 @@ func get_player_knockback_resist_pct(runtime: Object) -> float:
 
 func get_player_knockback_resist_scale(runtime: Object) -> float:
 	return max(0.0, 1.0 - get_player_knockback_resist_pct(runtime) / 100.0)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := 0
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)

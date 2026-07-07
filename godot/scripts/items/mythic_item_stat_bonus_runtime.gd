@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SPEEDBOOTS := "speedboots"
 const ITEM_SPEEDGEAR := "speedgear"
 const ITEM_GRAVITYBELT := "gravitybelt"
@@ -26,9 +29,17 @@ func is_speedgear_equipped(runtime: Object) -> bool:
 	return runtime.is_equipped(ITEM_SPEEDGEAR)
 
 
+func is_speedgear_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_SPEEDGEAR) > 0
+	return is_speedgear_equipped(runtime)
+
+
 func get_speedgear_turn_decel_multiplier(runtime: Object) -> float:
-	if not is_speedgear_equipped(runtime):
+	if not is_speedgear_effect_active(runtime):
 		return 1.0
+	if PerkConversionFlags.is_enabled():
+		return max(0.0, _get_converted_perk_value(runtime, ITEM_SPEEDGEAR, "speedgear_turn_decel_multiplier"))
 	return max(0.0, SPEEDGEAR_TURN_DECEL_MULTIPLIER)
 
 
@@ -44,8 +55,17 @@ func is_gravitybelt_active(runtime: Object) -> bool:
 	return is_gravitybelt_equipped(runtime)
 
 
+func is_gravitybelt_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return (
+			_get_converted_perk_level(runtime, ITEM_GRAVITYBELT) > 0
+			and _get_converted_perk_value(runtime, ITEM_GRAVITYBELT, "gravitybelt_instant_movement") > 0.0
+		)
+	return is_gravitybelt_equipped(runtime)
+
+
 func apply_player_movement_config(runtime: Object, config: Dictionary) -> void:
-	var active: bool = is_gravitybelt_active(runtime)
+	var active: bool = is_gravitybelt_effect_active(runtime)
 	config["gravitybelt_active"] = active
 	config["gravitybelt_instant_movement"] = active
 	if runtime.is_horn_strawberry_control_locked():
@@ -181,3 +201,16 @@ func get_dash_token_capacity(
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_bonus"):
 		capacity += int(runtime_perk_state.get_runtime_skill_bonus("dash_amplification"))
 	return max(1, capacity)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

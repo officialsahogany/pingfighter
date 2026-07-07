@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_BAAL_BOOTS := "baal_boots"
 
 
@@ -7,7 +10,15 @@ func is_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_BAAL_BOOTS)
 
 
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
+
+
 func get_gauge_recovery(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "gauge_recovery")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_BAAL_BOOTS, "gauge_recovery"), 0.0, 2000.0)
@@ -104,7 +115,7 @@ func update_runtime(
 	fps_scale: float,
 	constants: Dictionary
 ) -> void:
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		if runtime.baal_boots_weather_state.has_round_activity():
 			clear_round_state(runtime, registry, constants)
 		return
@@ -136,7 +147,7 @@ func try_arm_from_weather(
 	constants: Dictionary
 ) -> void:
 	if (
-		not is_equipped(runtime)
+		not is_active(runtime)
 		or runtime.baal_boots_weather_state.activated_this_round
 		or runtime.baal_boots_weather_state.cinematic_active
 	):
@@ -400,3 +411,15 @@ func get_weather_color(weather_type: String) -> Color:
 		"sand":
 			return Color(0.90, 0.68, 0.32, 1.0)
 	return Color(1.0, 0.40, 0.22, 1.0)
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_BAAL_BOOTS, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_BAAL_BOOTS)))
+	return 0

@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_ADVERSITY_ARMOR := "adversity_armor"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const DEFAULT_SERVE_SPEED_BONUS_PCT := 20.0
@@ -21,11 +24,19 @@ func is_active(runtime: Object) -> bool:
 	return is_equipped(runtime)
 
 
+func is_adversity_armor_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_ADVERSITY_ARMOR) > 0
+	return is_equipped(runtime)
+
+
 func is_invincible(runtime: Object) -> bool:
-	return is_equipped(runtime) and runtime.adversity_armor_invincible_timer_frames > 0.0
+	return is_adversity_armor_effect_active(runtime) and runtime.adversity_armor_invincible_timer_frames > 0.0
 
 
 func get_trigger_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_ADVERSITY_ARMOR, "trigger_chance_pct")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -36,13 +47,15 @@ func get_trigger_chance_pct(runtime: Object) -> float:
 
 
 func get_invincible_duration_sec(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_ADVERSITY_ARMOR, "invincible_duration_sec")
 	if not is_equipped(runtime):
 		return 0.0
 	return max(0.0, runtime.roll_query.get_equipped_roll_value(runtime, ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
 
 
 func get_serve_speed_bonus_pct(runtime: Object) -> float:
-	return DEFAULT_SERVE_SPEED_BONUS_PCT if is_equipped(runtime) else 0.0
+	return DEFAULT_SERVE_SPEED_BONUS_PCT if is_adversity_armor_effect_active(runtime) else 0.0
 
 
 func get_ball_collision_context(runtime: Object) -> Dictionary:
@@ -55,7 +68,7 @@ func get_ball_collision_context(runtime: Object) -> Dictionary:
 
 
 func try_queue_after_loss(runtime: Object, deps: Dictionary) -> bool:
-	if not is_equipped(runtime):
+	if not is_adversity_armor_effect_active(runtime):
 		clear_runtime(runtime)
 		return false
 	var chance_pct: float = get_trigger_chance_pct(runtime)
@@ -79,7 +92,7 @@ func try_queue_after_loss(runtime: Object, deps: Dictionary) -> bool:
 
 
 func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
-	if not is_equipped(runtime):
+	if not is_adversity_armor_effect_active(runtime):
 		# This runs on every round restart. The full owner sync costs ~1.5ms,
 		# so only push the cleared state when something owner-visible was
 		# actually cleared; clearing an already-clean runtime needs no sync.
@@ -114,7 +127,7 @@ func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
 
 
 func consume_serve_speed_bonus(runtime: Object) -> float:
-	if not is_equipped(runtime):
+	if not is_adversity_armor_effect_active(runtime):
 		runtime.adversity_armor_serve_speed_boost_pending = false
 		return 0.0
 	if not runtime.adversity_armor_serve_speed_boost_pending:
@@ -180,7 +193,7 @@ func get_timer_ratio(runtime: Object) -> float:
 
 
 func update_runtime(runtime: Object, owner: Object, fps_scale: float) -> void:
-	if not is_equipped(runtime):
+	if not is_adversity_armor_effect_active(runtime):
 		if (
 			is_effect_active(runtime)
 			or runtime.adversity_armor_pending_invincible
@@ -304,3 +317,16 @@ func is_effect_active(runtime: Object) -> bool:
 		or not runtime.adversity_armor_aura_particles.is_empty()
 		or not runtime.adversity_armor_barrier_particles.is_empty()
 	)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

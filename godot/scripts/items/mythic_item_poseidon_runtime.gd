@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
 
 
@@ -8,6 +11,8 @@ func is_equipped(runtime: Object) -> bool:
 
 
 func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
 	return is_equipped(runtime)
 
 
@@ -24,7 +29,7 @@ func apply_wave_to_ball(
 		return update_captured_ball(runtime, ball_pos, fps_scale, scene, deps, constants)
 	if runtime.poseidon_water_trail_active:
 		add_water_trail(runtime, ball_pos, constants)
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		return {}
 	if not runtime.poseidon_vortex_active:
 		return {}
@@ -64,21 +69,27 @@ func apply_boss_hit(runtime: Object, ball_vel: Vector2) -> Dictionary:
 
 
 func get_cooldown(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "cooldown")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "cooldown"), 0.1, 30.0)
 
 
 func get_gauge_cost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "gauge_cost")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "gauge_cost"), 0.0, 100.0)
 
 
 func get_vortex_size(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "vortex_size")
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "vortex_size"), 60.0, 500.0)
 
 
 func is_ball_motion_active(runtime: Object, constants: Dictionary) -> bool:
 	if runtime.poseidon_capture_active or runtime.poseidon_water_trail_active:
 		return true
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		return false
 	return (
 		runtime.poseidon_vortex_active
@@ -121,7 +132,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func poll_idle_dash_trigger(runtime: Object, owner: Object, registry: Object) -> void:
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		return
 	update_dash_trigger(runtime, owner, registry)
 	if runtime.update_gate.has_transient_runtime_update_work(runtime):
@@ -142,7 +153,7 @@ func update_runtime(
 	if (
 		was_cooling
 		and runtime.poseidon_effect_cooldown_frames <= 0.0
-		and is_equipped(runtime)
+		and is_active(runtime)
 	):
 		start_water_explosion(runtime, constants)
 		runtime.audio_router.play_poseidon_charge_audio(runtime, registry)
@@ -172,7 +183,7 @@ func update_dash_trigger(runtime: Object, owner: Object, registry: Object) -> vo
 		runtime.poseidon_last_dash_direction = direction
 
 	var just_started_recovery: bool = recovering and not runtime.poseidon_dash_was_recovering and runtime.poseidon_dash_was_active
-	if is_equipped(runtime) and just_started_recovery:
+	if is_active(runtime) and just_started_recovery:
 		var trigger_direction: float = direction
 		if abs(trigger_direction) <= 0.01:
 			trigger_direction = runtime.poseidon_last_dash_direction
@@ -189,7 +200,7 @@ func try_trigger_vortex(
 	direction: float,
 	constants: Dictionary
 ) -> bool:
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		return false
 	if runtime.poseidon_effect_cooldown_frames > 0.0:
 		return false
@@ -577,3 +588,15 @@ func get_vortex_hit(runtime: Object, ball_pos: Vector2, constants: Dictionary) -
 		if x_in_vortex and y_in_vortex:
 			return candidate
 	return {}
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_POSEIDON_TRIDENT, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_POSEIDON_TRIDENT)))
+	return 0

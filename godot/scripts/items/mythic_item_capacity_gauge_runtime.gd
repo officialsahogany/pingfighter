@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SLOT_ADD := "slot_add"
 const ITEM_CHARGEBAG := "chargebag"
 const ITEM_BATTERY := "battery"
@@ -33,6 +36,8 @@ func is_chargebag_equipped(runtime: Object) -> bool:
 
 
 func get_chargebag_wall_bounce_gauge_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_CHARGEBAG, "chargebag_pct")
 	if not is_chargebag_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_CHARGEBAG, "chargebag_pct"), 0.0, 500.0)
@@ -44,7 +49,7 @@ func apply_chargebag_wall_bounce_gauge(
 	context: Dictionary,
 	deps: Dictionary
 ) -> float:
-	if not is_chargebag_equipped(runtime) or _is_aipill_active_from_deps(runtime, deps):
+	if _is_aipill_active_from_deps(runtime, deps):
 		return special_gauge
 	var bonus_pct: float = get_chargebag_wall_bounce_gauge_pct(runtime)
 	if bonus_pct <= 0.0:
@@ -83,6 +88,8 @@ func is_battery_equipped(runtime: Object) -> bool:
 
 
 func get_battery_gauge_preserve_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_BATTERY, "gauge_preserve_pct")
 	if not is_battery_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_BATTERY, "gauge_preserve_pct"), 0.0, 100.0)
@@ -109,3 +116,12 @@ func _is_aipill_active_from_deps(runtime: Object, deps: Dictionary) -> bool:
 	if active_item_runtime != null and active_item_runtime.has_method("is_aipill_active"):
 		return bool(active_item_runtime.is_aipill_active())
 	return false
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := 0
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)

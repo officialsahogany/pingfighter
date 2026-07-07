@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_ODINS_EYE := "odins_eye"
 const ROLL_REVIVAL_CHANCE := "revival_chance"
 
@@ -8,17 +11,23 @@ func sync_equipment_state(runtime: Object) -> void:
 	var state: Object = runtime.odins_eye_state
 	if state == null:
 		return
-	state.set_equipped(is_equipped(runtime))
+	state.set_equipped(is_active(runtime))
 
 
 func is_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_ODINS_EYE)
 
 
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
+
+
 func is_available(runtime: Object) -> bool:
 	sync_equipment_state(runtime)
 	var state: Object = runtime.odins_eye_state
-	return state != null and state.can_revive(is_equipped(runtime))
+	return state != null and state.can_revive(is_active(runtime))
 
 
 func has_revival_used(runtime: Object) -> bool:
@@ -62,6 +71,8 @@ func is_effect_active(runtime: Object) -> bool:
 
 
 func get_revival_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, ROLL_REVIVAL_CHANCE)
 	var item_data: Dictionary = _get_equipped_item_data(runtime)
 	if item_data.is_empty():
 		return runtime.catalog.get_default_roll_value(ITEM_ODINS_EYE, ROLL_REVIVAL_CHANCE)
@@ -81,7 +92,7 @@ func get_revival_chance(runtime: Object) -> float:
 func try_trigger_revival(runtime: Object, loss_type: String = "round", roll_pct: float = -1.0) -> bool:
 	sync_equipment_state(runtime)
 	var state: Object = runtime.odins_eye_state
-	if state == null or not state.can_revive(is_equipped(runtime)):
+	if state == null or not state.can_revive(is_active(runtime)):
 		return false
 	var actual_roll: float = roll_pct if roll_pct >= 0.0 else randf() * 100.0
 	var chance_pct: float = get_revival_chance_pct(runtime)
@@ -200,7 +211,7 @@ func get_context(runtime: Object) -> Dictionary:
 func clear_on_equip(runtime: Object) -> void:
 	var state: Object = runtime.odins_eye_state
 	if state != null:
-		state.set_equipped(true)
+		state.set_equipped(is_active(runtime))
 		state.on_stage_advance()
 
 
@@ -258,3 +269,15 @@ func _get_equipped_item_data(runtime: Object) -> Dictionary:
 	if not runtime.equipped_items.has(ITEM_ODINS_EYE):
 		return {}
 	return runtime._get_dict(runtime.equipped_items[ITEM_ODINS_EYE])
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_ODINS_EYE, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_ODINS_EYE)))
+	return 0

@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SHRAPNEL_ARMOR := "shrapnel_armor"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const MAX_SHARD_COUNT := 24
@@ -25,7 +28,15 @@ func is_active(runtime: Object) -> bool:
 	return is_equipped(runtime)
 
 
+func is_shrapnel_armor_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_SHRAPNEL_ARMOR) > 0
+	return is_equipped(runtime)
+
+
 func get_trigger_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -36,6 +47,12 @@ func get_trigger_chance_pct(runtime: Object) -> float:
 
 
 func get_shard_count(runtime: Object) -> int:
+	if PerkConversionFlags.is_enabled():
+		return clampi(
+			int(round(_get_converted_perk_value(runtime, ITEM_SHRAPNEL_ARMOR, "shard_count"))),
+			0,
+			MAX_SHARD_COUNT
+		)
 	if not is_equipped(runtime):
 		return 0
 	return clampi(
@@ -46,6 +63,8 @@ func get_shard_count(runtime: Object) -> int:
 
 
 func get_knockback_level(runtime: Object) -> int:
+	if PerkConversionFlags.is_enabled():
+		return max(0, int(round(_get_converted_perk_value(runtime, ITEM_SHRAPNEL_ARMOR, "knockback_level"))))
 	if not is_equipped(runtime):
 		return 0
 	return max(
@@ -55,6 +74,12 @@ func get_knockback_level(runtime: Object) -> int:
 
 
 func get_gauge_cost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return clamp(
+			_get_converted_perk_value(runtime, ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
+			0.0,
+			MAX_GAUGE_COST
+		)
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -70,7 +95,7 @@ func try_proc_player_hit(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	if not is_equipped(runtime):
+	if not is_shrapnel_armor_effect_active(runtime):
 		clear_runtime(runtime)
 		return {"activated": false}
 	var chance_pct: float = get_trigger_chance_pct(runtime)
@@ -209,7 +234,7 @@ func start_burst(runtime: Object, center: Vector2, shard_count: int) -> void:
 
 
 func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float) -> void:
-	if not is_equipped(runtime):
+	if not is_shrapnel_armor_effect_active(runtime):
 		if is_effect_active(runtime):
 			clear_runtime(runtime)
 		return
@@ -388,3 +413,16 @@ func is_effect_active(runtime: Object) -> bool:
 		or not runtime.shrapnel_armor_shards.is_empty()
 		or not runtime.shrapnel_armor_dust_particles.is_empty()
 	)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

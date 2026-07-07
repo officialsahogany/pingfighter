@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SOUL_BURST := "soul_burst"
 const DEFAULT_GAUGE_COST := 160.0
 const MIN_GAUGE_COST := 110.0
@@ -19,7 +22,16 @@ func is_active(runtime: Object) -> bool:
 	return is_equipped(runtime)
 
 
+func is_soul_burst_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_SOUL_BURST) > 0
+	return is_equipped(runtime)
+
+
 func get_gauge_cost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		var converted_cost: float = _get_converted_perk_value(runtime, ITEM_SOUL_BURST, "soul_burst_gauge_cost")
+		return converted_cost if converted_cost > 0.0 else DEFAULT_GAUGE_COST
 	if not is_equipped(runtime):
 		return DEFAULT_GAUGE_COST
 	var cost: float = runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SOUL_BURST, "soul_burst_gauge_cost")
@@ -29,7 +41,7 @@ func get_gauge_cost(runtime: Object) -> float:
 
 
 func can_dash(runtime: Object, special_gauge: float) -> bool:
-	return is_equipped(runtime) and float(special_gauge) + 0.001 >= get_gauge_cost(runtime)
+	return is_soul_burst_effect_active(runtime) and float(special_gauge) + 0.001 >= get_gauge_cost(runtime)
 
 
 # The consumed gauge is returned in "special_gauge" and is the single source of
@@ -90,7 +102,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func update_runtime(runtime: Object, fps_scale: float) -> void:
-	if not is_equipped(runtime) and (
+	if not is_soul_burst_effect_active(runtime) and (
 		runtime.soul_burst_dash_active
 		or not runtime.soul_burst_particles.is_empty()
 	):
@@ -187,3 +199,16 @@ func build_effects(runtime: Object) -> void:
 			"life": life,
 			"max_life": life,
 		})
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

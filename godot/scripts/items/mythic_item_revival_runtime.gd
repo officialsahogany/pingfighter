@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+
 const ITEM_REVIVAL := "revival"
 const EFFECT_FRAMES := 120.0
 
@@ -8,8 +10,14 @@ func is_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_REVIVAL)
 
 
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_REVIVAL) > 0
+	return is_equipped(runtime)
+
+
 func is_available(runtime: Object) -> bool:
-	return runtime.revival_state.is_available(is_equipped(runtime))
+	return runtime.revival_state.is_available(is_active(runtime))
 
 
 func has_used(runtime: Object) -> bool:
@@ -66,3 +74,9 @@ func clear_runtime(runtime: Object, clear_used: bool = false) -> void:
 
 func update_runtime(runtime: Object, fps_scale: float) -> void:
 	runtime.revival_state.update(fps_scale)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

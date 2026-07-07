@@ -7,6 +7,7 @@ const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_re
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -1154,11 +1155,15 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 		return unlock_applied
 
 	var old_level: int = int(runtime_skill_levels.get(choice_id, 0))
-	runtime_skill_levels[choice_id] = old_level + 1
+	var next_level := old_level + 1
+	var max_level := int(choice.get("max_level", -1))
+	if max_level > 0:
+		next_level = mini(next_level, max_level)
+	runtime_skill_levels[choice_id] = next_level
 	var level_start: int = _perf_begin(perf_logger)
 	_apply_level_side_effect(choice, owner, registry, perf_logger)
 	_perf_end(perf_logger, "process.runtime_perk.apply.level_side_effect", level_start)
-	feedback_text = "%s Lv.%d" % [str(choice.get("name", choice_id)), old_level + 1]
+	feedback_text = "%s Lv.%d" % [str(choice.get("name", choice_id)), next_level]
 	feedback_timer = 1.1
 	return true
 
@@ -1253,6 +1258,17 @@ func get_runtime_skill_level(skill_id: String) -> int:
 	if _is_runtime_level_bonus_eligible(skill_id, base_level):
 		return base_level + item_perk_level_bonus + get_viper_ignition_aura_level_bonus()
 	return base_level
+
+
+func get_converted_perk_effect_level(perk_id: String) -> int:
+	var clean_id: String = perk_id.strip_edges()
+	if clean_id == "":
+		return 0
+	var base_level: int = int(runtime_skill_levels.get(clean_id, 0))
+	var bonus := 0
+	if _is_runtime_level_bonus_eligible(clean_id, base_level):
+		bonus = item_perk_level_bonus + get_viper_ignition_aura_level_bonus()
+	return PerkConversionValues.get_effective_converted_perk_level(clean_id, base_level, bonus)
 
 
 func get_effective_runtime_skill_levels() -> Dictionary:

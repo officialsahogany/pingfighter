@@ -4,6 +4,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
@@ -688,6 +689,500 @@ const SOLDIER_PERKS := {
 	},
 }
 
+const CONVERTED_PERKS := {
+	"star_detector": {
+		"name": "별탐지기",
+		"max_level": 5,
+		"descriptions": {
+			1: "스타포인트 보너스 드랍 확률 +5%",
+			2: "스타포인트 보너스 드랍 확률 +10%",
+			3: "스타포인트 보너스 드랍 확률 +15%",
+			4: "스타포인트 보너스 드랍 확률 +20%",
+			5: "스타포인트 보너스 드랍 확률 +25%",
+		},
+		"detail": "스타포인트 드랍이 생길 때 추가 스타포인트 드랍을 노립니다.",
+		"icon_color": Color(80.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0),
+		"tree": "item",
+		"conversion_source": "star_detector",
+	},
+	"adversity_armor": {
+		"name": "역경의힘",
+		"max_level": 5,
+		"descriptions": {
+			1: "실점 후 발동 20%, 보호 5초",
+			2: "실점 후 발동 25%, 보호 8초",
+			3: "실점 후 발동 30%, 보호 10초",
+			4: "실점 후 발동 35%, 보호 13초",
+			5: "실점 후 발동 40%, 보호 15초",
+		},
+		"detail": "실점 다음 라운드에 무적벽을 세워 사용자를 보호합니다.",
+		"icon_color": Color(0.96, 0.58, 0.18),
+		"tree": "common",
+		"conversion_source": "adversity_armor",
+	},
+	"reinforced_boomerang_gauntlet": {
+		"name": "부메랑장인",
+		"max_level": 5,
+		"descriptions": {
+			1: "부메랑 넉백 +20%, 스턴 +20%, 발사속도 +15%, 유도 +10%, 스폰 +50%",
+			2: "부메랑 넉백 +28%, 스턴 +35%, 발사속도 +24%, 유도 +20%, 스폰 +88%",
+			3: "부메랑 넉백 +35%, 스턴 +50%, 발사속도 +33%, 유도 +30%, 스폰 +125%",
+			4: "부메랑 넉백 +43%, 스턴 +65%, 발사속도 +41%, 유도 +40%, 스폰 +163%",
+			5: "부메랑 넉백 +50%, 스턴 +80%, 발사속도 +50%, 유도 +50%, 스폰 +200%",
+		},
+		"detail": "부메랑을 메탈 강화하고 전투 성능과 필드 등장률을 끌어올립니다.",
+		"icon_color": Color(150.0 / 255.0, 200.0 / 255.0, 1.0),
+		"tree": "item",
+		"conversion_source": "reinforced_boomerang_gauntlet",
+	},
+	"sensor": {
+		"name": "위험감지센서",
+		"max_level": 5,
+		"descriptions": {
+			1: "자동대쉬 토큰 1개, 쿨타임 30초",
+			2: "자동대쉬 토큰 1개, 쿨타임 26초",
+			3: "자동대쉬 토큰 2개, 쿨타임 23초",
+			4: "자동대쉬 토큰 2개, 쿨타임 19초",
+			5: "자동대쉬 토큰 2개, 쿨타임 15초",
+		},
+		"detail": "위험 상황에서 자동대쉬 전용 토큰을 사용해 몸을 피합니다.",
+		"icon_color": Color(150.0 / 255.0, 150.0 / 255.0, 1.0),
+		"tree": "dash",
+		"conversion_source": "sensor",
+	},
+	"gravitybelt": {
+		"name": "무중력화",
+		"max_level": 1,
+		"descriptions": {1: "이동 입력 즉시 최대속도, 입력 해제 시 즉시 정지"},
+		"detail": "이동 가속과 감속을 즉시 반응형 조작감으로 바꿉니다.",
+		"icon_color": Color(120.0 / 255.0, 90.0 / 255.0, 1.0),
+		"tree": "dash",
+		"conversion_source": "gravitybelt",
+	},
+	"dowsing_pendulum": {
+		"name": "다우징",
+		"max_level": 5,
+		"descriptions": {
+			1: "필드 아이템 흡인 범위 120px",
+			2: "필드 아이템 흡인 범위 160px",
+			3: "필드 아이템 흡인 범위 200px",
+			4: "필드 아이템 흡인 범위 240px",
+			5: "필드 아이템 흡인 범위 280px",
+		},
+		"detail": "주변의 필드 아이템을 플레이어 패들 쪽으로 끌어당깁니다.",
+		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
+		"tree": "item",
+		"conversion_source": "dowsing_pendulum",
+	},
+	"chargebag": {
+		"name": "충전가방",
+		"max_level": 5,
+		"descriptions": {
+			1: "벽 반사 게이지 +15%",
+			2: "벽 반사 게이지 +25%",
+			3: "벽 반사 게이지 +35%",
+			4: "벽 반사 게이지 +45%",
+			5: "벽 반사 게이지 +55%",
+		},
+		"detail": "공이 벽에 닿을 때마다 추가 게이지를 얻습니다.",
+		"icon_color": Color(100.0 / 255.0, 1.0, 100.0 / 255.0),
+		"tree": "item",
+		"conversion_source": "chargebag",
+	},
+	"battery": {
+		"name": "배터리팩",
+		"max_level": 5,
+		"descriptions": {
+			1: "스테이지 전환 게이지 보존 40%",
+			2: "스테이지 전환 게이지 보존 55%",
+			3: "스테이지 전환 게이지 보존 70%",
+			4: "스테이지 전환 게이지 보존 85%",
+			5: "스테이지 전환 게이지 보존 100%",
+		},
+		"detail": "다음 스테이지로 넘어갈 때 현재 게이지 일부를 보존합니다.",
+		"icon_color": Color(1.0, 1.0, 0.0),
+		"tree": "item",
+		"conversion_source": "battery",
+	},
+	"revival": {
+		"name": "윤회",
+		"max_level": 1,
+		"descriptions": {1: "패배 직전 런당 1회 스테이지 재시작"},
+		"detail": "패배 직전 한 번 발동해 게임 오버를 막고 스테이지를 다시 시작합니다.",
+		"icon_color": Color(1.0, 0.0, 1.0),
+		"tree": "common",
+		"conversion_source": "revival",
+	},
+	"master": {
+		"name": "벽돌장인",
+		"max_level": 5,
+		"descriptions": {
+			1: "벽돌 길이 +12%, 아이템 쿨타임 3% 감소, 벽돌 스폰 +100%",
+			2: "벽돌 길이 +20%, 아이템 쿨타임 5% 감소, 벽돌 스폰 +158%",
+			3: "벽돌 길이 +29%, 아이템 쿨타임 8% 감소, 벽돌 스폰 +215%",
+			4: "벽돌 길이 +37%, 아이템 쿨타임 10% 감소, 벽돌 스폰 +273%",
+			5: "벽돌 길이 +45%, 아이템 쿨타임 12% 감소, 벽돌 스폰 +330%",
+		},
+		"detail": "벽돌 액티브 아이템의 방어력과 등장 빈도를 강화합니다.",
+		"icon_color": Color(1.0, 215.0 / 255.0, 0.0),
+		"tree": "item",
+		"conversion_source": "master",
+	},
+	"gold_digger": {
+		"name": "골드디거",
+		"max_level": 5,
+		"descriptions": {
+			1: "골드 획득 +15%",
+			2: "골드 획득 +25%",
+			3: "골드 획득 +35%",
+			4: "골드 획득 +45%",
+			5: "골드 획득 +55%",
+		},
+		"detail": "전투 중 얻는 골드 보상을 늘립니다.",
+		"icon_color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
+		"tree": "item",
+		"conversion_source": "gold_digger",
+	},
+	"lucky_coin": {
+		"name": "럭키코인",
+		"max_level": 5,
+		"descriptions": {
+			1: "아이템 더블스폰 확률 3%",
+			2: "아이템 더블스폰 확률 7%",
+			3: "아이템 더블스폰 확률 10%",
+			4: "아이템 더블스폰 확률 14%",
+			5: "아이템 더블스폰 확률 17%",
+		},
+		"detail": "필드 아이템이 나타날 때 보너스 아이템을 한 번 더 노립니다.",
+		"icon_color": Color(1.0, 223.0 / 255.0, 0.0),
+		"tree": "item",
+		"conversion_source": "lucky_coin",
+	},
+	"shrapnel_armor": {
+		"name": "파편사출",
+		"max_level": 5,
+		"descriptions": {
+			1: "발동 6%, 파편 4개, 넉백 Lv.1, 게이지 50 소모",
+			2: "발동 9%, 파편 5개, 넉백 Lv.2, 게이지 44 소모",
+			3: "발동 12%, 파편 6개, 넉백 Lv.3, 게이지 38 소모",
+			4: "발동 14%, 파편 7개, 넉백 Lv.3, 게이지 31 소모",
+			5: "발동 17%, 파편 8개, 넉백 Lv.4, 게이지 25 소모",
+		},
+		"detail": "공을 칠 때 게이지를 소모해 보스를 향한 파편을 사출합니다.",
+		"icon_color": Color(1.0, 150.0 / 255.0, 80.0 / 255.0),
+		"tree": "common",
+		"conversion_source": "shrapnel_armor",
+	},
+	"fuel_pouch": {
+		"name": "연료탱크",
+		"max_level": 5,
+		"descriptions": {
+			1: "최대 게이지 +40",
+			2: "최대 게이지 +65",
+			3: "최대 게이지 +90",
+			4: "최대 게이지 +115",
+			5: "최대 게이지 +140",
+		},
+		"detail": "플레이어가 보유할 수 있는 최대 게이지를 늘립니다.",
+		"icon_color": Color(180.0 / 255.0, 100.0 / 255.0, 40.0 / 255.0),
+		"tree": "common",
+		"conversion_source": "fuel_pouch",
+	},
+	"bluetooth_ring": {
+		"name": "블루투스링",
+		"max_level": 5,
+		"descriptions": {
+			1: "히트 게이지 +6%",
+			2: "히트 게이지 +11%",
+			3: "히트 게이지 +15%",
+			4: "히트 게이지 +20%",
+			5: "히트 게이지 +24%",
+		},
+		"detail": "패들로 공을 칠 때 얻는 게이지를 늘립니다.",
+		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
+		"tree": "common",
+		"conversion_source": "bluetooth_ring",
+	},
+	"foul_whistle": {
+		"name": "반칙호루라기",
+		"max_level": 5,
+		"descriptions": {
+			1: "실점 무효 확률 3%",
+			2: "실점 무효 확률 5%",
+			3: "실점 무효 확률 7%",
+			4: "실점 무효 확률 9%",
+			5: "실점 무효 확률 11%",
+		},
+		"detail": "라운드 패배 시 실점을 취소하고 라운드 재시작을 노립니다.",
+		"icon_color": Color(1.0, 235.0 / 255.0, 120.0 / 255.0),
+		"tree": "common",
+		"conversion_source": "foul_whistle",
+	},
+	"smartphone": {
+		"name": "오토파일럿",
+		"max_level": 1,
+		"descriptions": {1: "회복/스톱워치/홀리베리어 자동 사용"},
+		"detail": "위급 상황에서 특정 액티브 아이템을 자동으로 사용합니다.",
+		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 200.0 / 255.0),
+		"tree": "item",
+		"conversion_source": "smartphone",
+	},
+	"neural_helmet": {
+		"name": "뉴럴링크",
+		"max_level": 5,
+		"descriptions": {
+			1: "AI알약 게이지 비용 30 감소, 스폰 +100%",
+			2: "AI알약 게이지 비용 40 감소, 스폰 +158%",
+			3: "AI알약 게이지 비용 50 감소, 스폰 +215%",
+			4: "AI알약 게이지 비용 60 감소, 스폰 +273%",
+			5: "AI알약 게이지 비용 70 감소, 스폰 +330%",
+		},
+		"detail": "AI알약 액티브의 부담을 낮추고 필드 등장률을 높입니다.",
+		"icon_color": Color(140.0 / 255.0, 180.0 / 255.0, 1.0),
+		"tree": "item",
+		"conversion_source": "neural_helmet",
+	},
+	"commando_arm": {
+		"name": "투척병기",
+		"max_level": 5,
+		"descriptions": {
+			1: "투척 속도 +6%, 폭발 +3%, 연막 +12%, 준비 12% 감소",
+			2: "투척 속도 +11%, 폭발 +7%, 연막 +21%, 준비 21% 감소",
+			3: "투척 속도 +15%, 폭발 +11%, 연막 +30%, 준비 30% 감소",
+			4: "투척 속도 +20%, 폭발 +14%, 연막 +39%, 준비 39% 감소",
+			5: "투척 속도 +24%, 폭발 +18%, 연막 +48%, 준비 48% 감소",
+		},
+		"detail": "투척형 액티브 아이템들의 속도, 폭발, 지속, 준비 시간을 강화합니다.",
+		"icon_color": Color(60.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0),
+		"tree": "item",
+		"conversion_source": "commando_arm",
+	},
+	"rainbow_fur_glove": {
+		"name": "무지개장갑",
+		"max_level": 5,
+		"descriptions": {
+			1: "공 히트 시 발동 3%, 진행 중 스킬 쿨타임 20% 감소",
+			2: "공 히트 시 발동 5%, 진행 중 스킬 쿨타임 29% 감소",
+			3: "공 히트 시 발동 8%, 진행 중 스킬 쿨타임 38% 감소",
+			4: "공 히트 시 발동 10%, 진행 중 스킬 쿨타임 46% 감소",
+			5: "공 히트 시 발동 12%, 진행 중 스킬 쿨타임 55% 감소",
+		},
+		"detail": "공을 받아칠 때 장착한 캐릭터 스킬의 남은 쿨타임을 줄일 수 있습니다.",
+		"icon_color": Color(1.0, 170.0 / 255.0, 220.0 / 255.0),
+		"tree": "common",
+		"conversion_source": "rainbow_fur_glove",
+	},
+	"knee_pads": {
+		"name": "킥차져",
+		"max_level": 5,
+		"descriptions": {
+			1: "하프대쉬 히트 게이지 +20%",
+			2: "하프대쉬 히트 게이지 +33%",
+			3: "하프대쉬 히트 게이지 +45%",
+			4: "하프대쉬 히트 게이지 +58%",
+			5: "하프대쉬 히트 게이지 +70%",
+		},
+		"detail": "하프대쉬로 공을 맞출 때 추가 게이지를 얻습니다.",
+		"icon_color": Color(80.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0),
+		"tree": "dash",
+		"conversion_source": "knee_pads",
+	},
+	"soul_burst": {
+		"name": "소울버스트",
+		"max_level": 5,
+		"descriptions": {
+			1: "대쉬 토큰이 없을 때 풀대쉬 소모 170",
+			2: "대쉬 토큰이 없을 때 풀대쉬 소모 153",
+			3: "대쉬 토큰이 없을 때 풀대쉬 소모 135",
+			4: "대쉬 토큰이 없을 때 풀대쉬 소모 118",
+			5: "대쉬 토큰이 없을 때 풀대쉬 소모 100",
+		},
+		"detail": "대쉬 토큰이 없을 때 특수 게이지를 소모해 풀대쉬를 발동합니다.",
+		"icon_color": Color(150.0 / 255.0, 80.0 / 255.0, 1.0),
+		"tree": "dash",
+		"conversion_source": "soul_burst",
+	},
+	"bulletproof_hat": {
+		"name": "스턴저항",
+		"max_level": 5,
+		"descriptions": {
+			1: "스턴 저항 +6%",
+			2: "스턴 저항 +11%",
+			3: "스턴 저항 +15%",
+			4: "스턴 저항 +20%",
+			5: "스턴 저항 +24%",
+		},
+		"detail": "플레이어에게 걸리는 스턴 시간을 줄입니다.",
+		"icon_color": Color(0.38, 0.72, 1.0),
+		"tree": "common",
+		"conversion_source": "bulletproof_hat",
+	},
+	"spiked_helmet": {
+		"name": "넉백저항",
+		"max_level": 5,
+		"descriptions": {
+			1: "넉백 저항 +6%",
+			2: "넉백 저항 +11%",
+			3: "넉백 저항 +15%",
+			4: "넉백 저항 +20%",
+			5: "넉백 저항 +24%",
+		},
+		"detail": "플레이어가 받는 넉백 속도를 줄입니다.",
+		"icon_color": Color(1.0, 0.62, 0.32),
+		"tree": "common",
+		"conversion_source": "spiked_helmet",
+	},
+	"venom_mist_gauntlet": {
+		"name": "독안개",
+		"max_level": 5,
+		"descriptions": {
+			1: "독안개 발동 20%, 지속 1.5초",
+			2: "독안개 발동 29%, 지속 2.5초",
+			3: "독안개 발동 38%, 지속 3.5초",
+			4: "독안개 발동 46%, 지속 4.5초",
+			5: "독안개 발동 55%, 지속 5.5초",
+		},
+		"detail": "화랑 킥으로 감염된 공을 보스가 막으면 독안개를 생성합니다.",
+		"icon_color": Color(80.0 / 255.0, 200.0 / 255.0, 80.0 / 255.0),
+		"tree": "viper",
+		"character_restriction": "viper",
+		"conversion_source": "venom_mist_gauntlet",
+	},
+	"speedgear": {
+		"name": "보정제어",
+		"max_level": 1,
+		"descriptions": {1: "좌우 방향 전환 감속 2.5배"},
+		"detail": "방향 전환 시 급격한 조작을 보정하는 이동 특성을 적용합니다.",
+		"icon_color": Color(1.0, 150.0 / 255.0, 0.0),
+		"tree": "dash",
+		"conversion_source": "speedgear",
+	},
+}
+
+const CONVERTED_MYTHIC_PERKS := {
+	"megingjord": {
+		"name": "메긴교르드",
+		"max_level": 1,
+		"descriptions": {1: "퍽 추가선택 발동 40%"},
+		"detail": "퍽 선택 시 추가 선택 기회를 얻습니다.",
+		"icon_color": Color(1.0, 215.0 / 255.0, 75.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "megingjord",
+	},
+	"transcendent_crown": {
+		"name": "초월자의 관",
+		"max_level": 1,
+		"descriptions": {1: "전 퍽 유효레벨 +2"},
+		"detail": "투자한 퍽들의 유효레벨을 올립니다.",
+		"icon_color": Color(1.0, 215.0 / 255.0, 100.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "transcendent_crown",
+	},
+	"ragnarok_hammer": {
+		"name": "라그나로크",
+		"max_level": 1,
+		"descriptions": {1: "발동 30%, 스턴 1.0초, 공속 +25%, 게이지 30 소모"},
+		"detail": "받아친 공에 라그나로크의 전기 스턴 힘을 실을 수 있습니다.",
+		"icon_color": Color(120.0 / 255.0, 190.0 / 255.0, 1.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "ragnarok_hammer",
+	},
+	"hermes_shoes": {
+		"name": "헤르메스의 축복",
+		"max_level": 1,
+		"descriptions": {1: "이동속도 +50%"},
+		"detail": "신들의 전령처럼 플레이어 이동속도가 크게 증가합니다.",
+		"icon_color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "hermes_shoes",
+	},
+	"poseidon_trident": {
+		"name": "포세이돈",
+		"max_level": 1,
+		"descriptions": {1: "쿨타임 6초, 게이지 30, 소용돌이 200px"},
+		"detail": "대쉬 회복 순간 좌우에 거대한 물회오리를 생성합니다.",
+		"icon_color": Color(70.0 / 255.0, 185.0 / 255.0, 1.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "poseidon_trident",
+	},
+	"heavenly_cape": {
+		"name": "천상의 권능",
+		"max_level": 1,
+		"descriptions": {1: "스킬 슬롯 +1, 플레이어 스킬 쿨타임 15% 감소"},
+		"detail": "스킬 구슬 슬롯을 늘리고 플레이어 스킬을 더 빠르게 돌립니다.",
+		"icon_color": Color(190.0 / 255.0, 225.0 / 255.0, 1.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "heavenly_cape",
+	},
+	"horn_strawberry_mask": {
+		"name": "뿔딸기의 계약",
+		"max_level": 1,
+		"descriptions": {1: "뿔딸기 변신 60초"},
+		"detail": "커맨드 입력으로 일정 시간 뿔딸기로 변신합니다.",
+		"icon_color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "horn_strawberry_mask",
+	},
+	"odins_eye": {
+		"name": "오딘의 눈",
+		"max_level": 1,
+		"descriptions": {1: "실점 무효 부활 35%"},
+		"detail": "실점 시 확률로 그 점수를 무효화하고 부활합니다.",
+		"icon_color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "odins_eye",
+	},
+	"celestial_armor": {
+		"name": "부동갑주",
+		"max_level": 1,
+		"descriptions": {1: "스턴 무시 65%, 게이지 30 소모"},
+		"detail": "스턴이 들어올 때 확률로 게이지를 소모해 무시합니다.",
+		"icon_color": Color(180.0 / 255.0, 200.0 / 255.0, 1.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "celestial_armor",
+	},
+	"baal_boots": {
+		"name": "바알의 계약",
+		"max_level": 1,
+		"descriptions": {1: "날씨 흡수 시 게이지 400 회복"},
+		"detail": "날씨 이벤트를 바알의 힘으로 흡수하고 게이지를 회복합니다.",
+		"icon_color": Color(1.0, 90.0 / 255.0, 55.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "baal_boots",
+	},
+	"pandora_legacy": {
+		"name": "판도라의 유산",
+		"max_level": 1,
+		"descriptions": {1: "라운드 승리 시 발동 55%"},
+		"detail": "라운드 승리 보상에서 판도라의 선택 기회를 노립니다.",
+		"icon_color": Color(150.0 / 255.0, 50.0 / 255.0, 200.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "pandora_legacy",
+	},
+}
+
 const INSTANT_PERKS := {
 	"instant_gauge_full": {
 		"name": "풀게이징",
@@ -776,6 +1271,9 @@ func get_choices(
 	elif normalized == "soldier":
 		_append_pool_choices(choices, SOLDIER_PERKS, runtime_levels, "soldier")
 
+	if PerkConversionFlags.is_enabled():
+		_append_converted_perk_choices(choices, runtime_levels, normalized)
+
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
 	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
 	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
@@ -820,6 +1318,8 @@ func get_all_perk_data() -> Dictionary:
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
 	data.merge(SOLDIER_PERKS, true)
+	data.merge(CONVERTED_PERKS, true)
+	data.merge(CONVERTED_MYTHIC_PERKS, true)
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
 		return data
 	var localized: Dictionary = {}
@@ -863,6 +1363,8 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	_append_debug_pool_entries(entries, SMASHER_PERKS, "smasher")
 	_append_debug_pool_entries(entries, VIPER_PERKS, "viper")
 	_append_debug_pool_entries(entries, SOLDIER_PERKS, "soldier")
+	_append_debug_pool_entries(entries, CONVERTED_PERKS, "converted")
+	_append_debug_pool_entries(entries, CONVERTED_MYTHIC_PERKS, "converted_mythic")
 	_append_debug_pool_entries(entries, INSTANT_PERKS, "instant")
 	var gold_choice: Dictionary = GOLD_CHOICE.duplicate(true)
 	gold_choice["id"] = "convert_to_gold"
@@ -885,6 +1387,28 @@ func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dicti
 		var next_level: int = current_level + 1
 		var choice: Dictionary = _build_level_choice(skill_id, skill_data, current_level, next_level, character_restriction)
 		output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _append_converted_perk_choices(output: Array, runtime_levels: Dictionary, character_type: String) -> void:
+	for skill_id in CONVERTED_PERKS.keys():
+		var skill_data: Dictionary = CONVERTED_PERKS[skill_id]
+		if not _is_perk_allowed_for_character(skill_data, character_type):
+			continue
+		var max_level: int = int(skill_data.get("max_level", 1))
+		var current_level: int = int(runtime_levels.get(skill_id, 0))
+		if max_level >= 0 and current_level >= max_level:
+			continue
+		var next_level: int = current_level + 1
+		var restriction := str(skill_data.get("character_restriction", ""))
+		var choice: Dictionary = _build_level_choice(skill_id, skill_data, current_level, next_level, restriction)
+		output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _is_perk_allowed_for_character(skill_data: Dictionary, character_type: String) -> bool:
+	var restriction := str(skill_data.get("character_restriction", "")).strip_edges().to_lower()
+	if restriction == "":
+		return true
+	return restriction == character_type
 
 
 func _append_instant_choices(output: Array) -> void:
@@ -980,7 +1504,9 @@ func _debug_sort_key(entry: Dictionary) -> String:
 		"smasher": "1",
 		"viper": "2",
 		"soldier": "3",
-		"instant": "4",
+		"converted": "4",
+		"converted_mythic": "5",
+		"instant": "6",
 	}
 	return "%s:%s" % [str(group_order.get(group, "9")), str(entry.get("id", ""))]
 

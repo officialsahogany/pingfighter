@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SAGE_RING := "sage_ring"
 const ITEM_SACRED_LAUREL := "sacred_laurel"
 const ITEM_TRANSCENDENT_CROWN := "transcendent_crown"
@@ -68,7 +71,17 @@ func is_transcendent_crown_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_TRANSCENDENT_CROWN)
 
 
+func is_transcendent_crown_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_crown_level(runtime) > 0
+	return is_transcendent_crown_equipped(runtime)
+
+
 func get_transcendent_crown_skill_bonus(runtime: Object) -> int:
+	if PerkConversionFlags.is_enabled():
+		if _get_converted_crown_level(runtime) <= 0:
+			return 0
+		return max(0, int(round(PerkConversionValues.get_mythic_value(ITEM_TRANSCENDENT_CROWN, "skill_bonus"))))
 	if not is_transcendent_crown_equipped(runtime):
 		return 0
 	return max(0, int(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_TRANSCENDENT_CROWN, "skill_bonus")))
@@ -80,3 +93,9 @@ func get_total_item_perk_level_bonus(runtime: Object) -> int:
 
 func get_transcendent_crown_context(runtime: Object) -> Dictionary:
 	return runtime.context_builder.get_transcendent_crown_context(runtime)
+
+
+func _get_converted_crown_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_TRANSCENDENT_CROWN)))
+	return 0

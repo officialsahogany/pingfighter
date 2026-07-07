@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SMARTPHONE := "smartphone"
 const ITEM_NEURAL_HELMET := "neural_helmet"
 const NEURAL_HELMET_GAUGE_REDUCTION_CAP := 90.0
@@ -11,7 +14,13 @@ func is_smartphone_equipped(runtime: Object) -> bool:
 
 
 func is_smartphone_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_SMARTPHONE) > 0
 	return is_smartphone_equipped(runtime)
+
+
+func is_smartphone_effect_active(runtime: Object) -> bool:
+	return is_smartphone_active(runtime)
 
 
 func get_smartphone_count(runtime: Object) -> int:
@@ -31,11 +40,19 @@ func is_neural_helmet_active(runtime: Object) -> bool:
 	return is_neural_helmet_equipped(runtime)
 
 
+func is_neural_helmet_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_NEURAL_HELMET) > 0
+	return is_neural_helmet_equipped(runtime)
+
+
 func get_neural_helmet_count(runtime: Object) -> int:
 	return runtime.roll_query.count_equipped_item_name(runtime, ITEM_NEURAL_HELMET)
 
 
 func get_neural_helmet_aipill_gauge_reduction(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_NEURAL_HELMET, "aipill_gauge_reduction")
 	if not is_neural_helmet_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -46,6 +63,8 @@ func get_neural_helmet_aipill_gauge_reduction(runtime: Object) -> float:
 
 
 func get_neural_helmet_aipill_spawn_bonus_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_NEURAL_HELMET, "aipill_spawn_bonus_pct")
 	if not is_neural_helmet_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -68,4 +87,17 @@ func get_aipill_item_spawn_chance(runtime: Object, base_chance: float) -> float:
 
 
 func should_cancel_aipill_on_direction_key(runtime: Object) -> bool:
-	return is_neural_helmet_equipped(runtime)
+	return is_neural_helmet_effect_active(runtime)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

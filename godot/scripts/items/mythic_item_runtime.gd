@@ -135,6 +135,9 @@ var revival_state: Object = null
 var odins_eye_state: Object = null
 var sensor_enabled := true
 var sensor_cooldown_timer_frames := 0.0
+var sensor_auto_dash_tokens := 0
+var sensor_auto_dash_token_max := 0
+var sensor_auto_dash_recharge_timer_frames := 0.0
 var sensor_last_dash_direction := 0.0
 var sensor_auto_dash_effect_timer_frames := 0.0
 var sensor_auto_dash_center := Vector2.ZERO
@@ -286,6 +289,14 @@ func refresh_runtime_perk_scaling(owner: Object = null, registry: Object = null)
 	owner_syncer.sync_runtime_perk_state_ref(self, registry)
 	if owner != null:
 		_sync_owner(owner, registry)
+
+
+func get_converted_perk_effect_level(perk_id: String) -> int:
+	if runtime_perk_state_ref == null or not is_instance_valid(runtime_perk_state_ref):
+		return 0
+	if not runtime_perk_state_ref.has_method("get_converted_perk_effect_level"):
+		return 0
+	return max(0, int(runtime_perk_state_ref.get_converted_perk_effect_level(perk_id)))
 
 
 func acquire_item(
@@ -483,6 +494,11 @@ func try_after_perk_choice(choice_id: String, owner: Object, registry: Object) -
 	return perk_choice_runtime.try_after_perk_choice(self, choice_id, owner, registry)
 
 
+func is_megingjord_active() -> bool:
+	_ensure_helpers_ready()
+	return perk_choice_runtime.is_active(self)
+
+
 func get_megingjord_extra_pick_chance() -> float:
 	_ensure_helpers_ready()
 	return perk_choice_runtime.get_megingjord_extra_pick_chance(self)
@@ -548,6 +564,11 @@ func is_speedgear_equipped() -> bool:
 	return stat_bonus_runtime.is_speedgear_equipped(self)
 
 
+func is_speedgear_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return stat_bonus_runtime.is_speedgear_effect_active(self)
+
+
 func is_gravitybelt_equipped() -> bool:
 	_ensure_helpers_ready()
 	return stat_bonus_runtime.is_gravitybelt_equipped(self)
@@ -556,6 +577,11 @@ func is_gravitybelt_equipped() -> bool:
 func is_gravitybelt_active() -> bool:
 	_ensure_helpers_ready()
 	return stat_bonus_runtime.is_gravitybelt_active(self)
+
+
+func is_gravitybelt_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return stat_bonus_runtime.is_gravitybelt_effect_active(self)
 
 
 func apply_player_movement_config(config: Dictionary) -> void:
@@ -576,6 +602,11 @@ func get_player_turn_decel_multiplier() -> float:
 func is_sensor_equipped() -> bool:
 	_ensure_helpers_ready()
 	return auto_defense_runtime.is_sensor_equipped(self)
+
+
+func is_sensor_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return auto_defense_runtime.is_sensor_effect_active(self)
 
 
 func is_sensor_enabled() -> bool:
@@ -613,6 +644,16 @@ func is_sensor_auto_dash_ready() -> bool:
 	return auto_defense_runtime.is_sensor_auto_dash_ready(self)
 
 
+func get_sensor_auto_dash_token_capacity() -> int:
+	_ensure_helpers_ready()
+	return auto_defense_runtime.get_sensor_auto_dash_token_capacity(self)
+
+
+func get_sensor_auto_dash_tokens() -> int:
+	_ensure_helpers_ready()
+	return auto_defense_runtime.get_sensor_auto_dash_tokens(self)
+
+
 func get_sensor_context() -> Dictionary:
 	_ensure_helpers_ready()
 	return auto_defense_runtime.get_sensor_context(self)
@@ -635,7 +676,7 @@ func is_hermes_shoes_equipped() -> bool:
 
 func is_hermes_shoes_active() -> bool:
 	_ensure_helpers_ready()
-	return is_hermes_shoes_equipped()
+	return hermes_shoes_runtime.is_active(self)
 
 
 func get_hermes_shoes_speed_bonus_pct() -> float:
@@ -745,7 +786,7 @@ func is_celestial_armor_equipped() -> bool:
 
 func is_celestial_armor_active() -> bool:
 	_ensure_helpers_ready()
-	return is_celestial_armor_equipped()
+	return celestial_armor_runtime.is_active(self)
 
 
 func get_celestial_armor_trigger_chance_pct() -> float:
@@ -770,7 +811,7 @@ func is_baal_boots_equipped() -> bool:
 
 func is_baal_boots_active() -> bool:
 	_ensure_helpers_ready()
-	return is_baal_boots_equipped()
+	return baal_boots_runtime.is_active(self)
 
 
 func get_baal_boots_gauge_recovery() -> float:
@@ -1124,6 +1165,11 @@ func is_smartphone_active() -> bool:
 	return ai_assist_runtime.is_smartphone_active(self)
 
 
+func is_smartphone_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return ai_assist_runtime.is_smartphone_effect_active(self)
+
+
 func get_smartphone_count() -> int:
 	_ensure_helpers_ready()
 	return ai_assist_runtime.get_smartphone_count(self)
@@ -1137,6 +1183,11 @@ func is_neural_helmet_equipped() -> bool:
 func is_neural_helmet_active() -> bool:
 	_ensure_helpers_ready()
 	return ai_assist_runtime.is_neural_helmet_active(self)
+
+
+func is_neural_helmet_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return ai_assist_runtime.is_neural_helmet_effect_active(self)
 
 
 func get_neural_helmet_count() -> int:
@@ -1182,6 +1233,11 @@ func is_venom_mist_gauntlet_equipped() -> bool:
 func is_venom_mist_gauntlet_active() -> bool:
 	_ensure_helpers_ready()
 	return venom_mist_runtime.is_active(self)
+
+
+func is_venom_mist_gauntlet_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return venom_mist_runtime.is_venom_mist_gauntlet_effect_active(self)
 
 
 func get_venom_mist_gauntlet_count() -> int:
@@ -1263,6 +1319,11 @@ func is_reinforced_boomerang_gauntlet_active() -> bool:
 	return throw_bonus_runtime.is_reinforced_boomerang_gauntlet_active(self)
 
 
+func is_reinforced_boomerang_gauntlet_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return throw_bonus_runtime.is_reinforced_boomerang_gauntlet_effect_active(self)
+
+
 func get_reinforced_boomerang_gauntlet_count() -> int:
 	_ensure_helpers_ready()
 	return throw_bonus_runtime.get_reinforced_boomerang_gauntlet_count(self)
@@ -1321,6 +1382,11 @@ func is_commando_arm_equipped() -> bool:
 func is_commando_arm_active() -> bool:
 	_ensure_helpers_ready()
 	return throw_bonus_runtime.is_commando_arm_active(self)
+
+
+func is_commando_arm_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return throw_bonus_runtime.is_commando_arm_effect_active(self)
 
 
 func get_commando_arm_count() -> int:
@@ -1398,6 +1464,11 @@ func is_rainbow_fur_glove_active() -> bool:
 	return rainbow_fur_glove_runtime.is_active(self)
 
 
+func is_rainbow_fur_glove_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return rainbow_fur_glove_runtime.is_rainbow_fur_glove_effect_active(self)
+
+
 func get_rainbow_fur_glove_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
 	return rainbow_fur_glove_runtime.get_trigger_chance_pct(self)
@@ -1435,6 +1506,11 @@ func is_adversity_armor_equipped() -> bool:
 func is_adversity_armor_active() -> bool:
 	_ensure_helpers_ready()
 	return adversity_armor_runtime.is_active(self)
+
+
+func is_adversity_armor_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return adversity_armor_runtime.is_adversity_armor_effect_active(self)
 
 
 func is_adversity_armor_invincible() -> bool:
@@ -1516,6 +1592,11 @@ func is_shrapnel_armor_active() -> bool:
 	return shrapnel_armor_runtime.is_active(self)
 
 
+func is_shrapnel_armor_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return shrapnel_armor_runtime.is_shrapnel_armor_effect_active(self)
+
+
 func get_shrapnel_armor_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
 	return shrapnel_armor_runtime.get_trigger_chance_pct(self)
@@ -1590,6 +1671,11 @@ func is_revival_equipped() -> bool:
 	return revival_runtime.is_equipped(self)
 
 
+func is_revival_active() -> bool:
+	_ensure_helpers_ready()
+	return revival_runtime.is_active(self)
+
+
 func is_revival_available() -> bool:
 	_ensure_helpers_ready()
 	return revival_runtime.is_available(self)
@@ -1613,6 +1699,11 @@ func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) 
 func is_odins_eye_equipped() -> bool:
 	_ensure_helpers_ready()
 	return odins_eye_runtime.is_equipped(self)
+
+
+func is_odins_eye_active() -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.is_active(self)
 
 
 func is_odins_eye_available() -> bool:
@@ -1940,6 +2031,11 @@ func is_transcendent_crown_equipped() -> bool:
 	return progression_bonus_runtime.is_transcendent_crown_equipped(self)
 
 
+func is_transcendent_crown_active() -> bool:
+	_ensure_helpers_ready()
+	return progression_bonus_runtime.is_transcendent_crown_active(self)
+
+
 func get_transcendent_crown_skill_bonus() -> int:
 	_ensure_helpers_ready()
 	return progression_bonus_runtime.get_transcendent_crown_skill_bonus(self)
@@ -1958,6 +2054,11 @@ func get_transcendent_crown_context() -> Dictionary:
 func is_heavenly_cape_equipped() -> bool:
 	_ensure_helpers_ready()
 	return heavenly_cape_runtime.is_equipped(self)
+
+
+func is_heavenly_cape_active() -> bool:
+	_ensure_helpers_ready()
+	return heavenly_cape_runtime.is_active(self)
 
 
 func get_heavenly_cape_skill_cooldown_reduction_pct() -> float:
@@ -1988,6 +2089,11 @@ func get_player_skill_cooldown_seconds(base_cooldown_seconds: float) -> float:
 func is_horn_strawberry_mask_equipped() -> bool:
 	_ensure_helpers_ready()
 	return horn_strawberry_mask_runtime.is_equipped(self)
+
+
+func is_horn_strawberry_mask_active() -> bool:
+	_ensure_helpers_ready()
+	return horn_strawberry_mask_runtime.is_active(self)
 
 
 func is_horn_strawberry_transformed() -> bool:
@@ -2023,6 +2129,11 @@ func get_horn_strawberry_paddle_size_bonus_pct() -> float:
 func get_horn_strawberry_gauge_on_hit() -> float:
 	_ensure_helpers_ready()
 	return horn_strawberry_mask_runtime.get_gauge_on_hit(self)
+
+
+func get_horn_strawberry_transform_duration_sec() -> float:
+	_ensure_helpers_ready()
+	return horn_strawberry_mask_runtime.get_transform_duration_sec(self)
 
 
 func get_horn_strawberry_context() -> Dictionary:
@@ -2126,6 +2237,11 @@ func is_soul_burst_equipped() -> bool:
 func is_soul_burst_active() -> bool:
 	_ensure_helpers_ready()
 	return soul_burst_runtime.is_active(self)
+
+
+func is_soul_burst_effect_active() -> bool:
+	_ensure_helpers_ready()
+	return soul_burst_runtime.is_soul_burst_effect_active(self)
 
 
 func get_soul_burst_gauge_cost() -> float:
@@ -2235,6 +2351,11 @@ func get_ragnarok_trigger_chance() -> float:
 	return ragnarok_runtime.get_trigger_chance(self)
 
 
+func is_ragnarok_hammer_active() -> bool:
+	_ensure_helpers_ready()
+	return ragnarok_runtime.is_active(self)
+
+
 func get_ragnarok_stun_duration() -> float:
 	_ensure_helpers_ready()
 	return ragnarok_runtime.get_stun_duration(self)
@@ -2253,6 +2374,11 @@ func get_ragnarok_gauge_cost() -> float:
 func get_poseidon_cooldown() -> float:
 	_ensure_helpers_ready()
 	return poseidon_runtime.get_cooldown(self)
+
+
+func is_poseidon_trident_active() -> bool:
+	_ensure_helpers_ready()
+	return poseidon_runtime.is_active(self)
 
 
 func get_poseidon_gauge_cost() -> float:

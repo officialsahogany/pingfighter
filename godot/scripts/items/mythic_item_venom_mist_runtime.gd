@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_VENOM_MIST_GAUNTLET := "venom_mist_gauntlet"
 const RADIUS := 120.0
 const DEFAULT_DURATION_SEC := 3.0
@@ -21,11 +24,19 @@ func is_active(runtime: Object) -> bool:
 	return is_equipped(runtime)
 
 
+func is_venom_mist_gauntlet_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_VENOM_MIST_GAUNTLET) > 0
+	return is_equipped(runtime)
+
+
 func get_count(runtime: Object) -> int:
 	return runtime.roll_query.count_equipped_item_name(runtime, ITEM_VENOM_MIST_GAUNTLET)
 
 
 func get_trigger_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_VENOM_MIST_GAUNTLET, "mist_trigger_chance_pct")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -40,6 +51,8 @@ func get_trigger_chance(runtime: Object) -> float:
 
 
 func get_duration_sec(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
 	if not is_equipped(runtime):
 		return 0.0
 	var duration_sec: float = runtime.roll_query.get_equipped_roll_max(runtime, ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
@@ -65,7 +78,7 @@ func is_boss_in_field(runtime: Object) -> bool:
 
 
 func try_poison_ball(runtime: Object, deps: Dictionary) -> bool:
-	if not is_equipped(runtime):
+	if not is_venom_mist_gauntlet_effect_active(runtime):
 		runtime.venom_mist_ball_poisoned = false
 		return false
 	if runtime.venom_mist_ball_poisoned:
@@ -91,7 +104,7 @@ func try_spawn_at_boss(
 	deps: Dictionary,
 	force: bool
 ) -> bool:
-	if not is_equipped(runtime):
+	if not is_venom_mist_gauntlet_effect_active(runtime):
 		return false
 	if not force:
 		var chance: float = get_trigger_chance(runtime)
@@ -113,7 +126,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float) -> void:
-	if not is_equipped(runtime):
+	if not is_venom_mist_gauntlet_effect_active(runtime):
 		clear_runtime(runtime)
 		return
 	if runtime.venom_mist_field_active:
@@ -258,3 +271,16 @@ func get_alpha(runtime: Object) -> float:
 	var fade_in: float = clamp(elapsed / FADE_IN_FRAMES, 0.0, 1.0)
 	var fade_out: float = clamp(runtime.venom_mist_timer_frames / FADE_OUT_FRAMES, 0.0, 1.0)
 	return min(fade_in, fade_out)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := _get_converted_perk_level(runtime, perk_id)
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

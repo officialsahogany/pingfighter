@@ -577,6 +577,8 @@ func get_commando_arm_duration_frames(base_frames: float, registry: Object) -> f
 
 func is_commando_arm_equipped(registry: Object) -> bool:
 	var runtime: Object = _get_mythic_item_runtime(registry)
+	if runtime != null and runtime.has_method("is_commando_arm_effect_active"):
+		return bool(runtime.is_commando_arm_effect_active())
 	if runtime != null and runtime.has_method("is_commando_arm_equipped"):
 		return bool(runtime.is_commando_arm_equipped())
 	return false

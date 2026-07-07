@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_FUEL_POUCH := "fuel_pouch"
 const ITEM_BLUETOOTH_RING := "bluetooth_ring"
 const ITEM_STAR_DETECTOR := "star_detector"
@@ -12,6 +15,8 @@ func is_fuel_pouch_equipped(runtime: Object) -> bool:
 
 
 func get_fuel_pouch_gauge_bonus(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_FUEL_POUCH, "fuel_bonus_flat")
 	if not is_fuel_pouch_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_FUEL_POUCH, "fuel_bonus_flat"), 0.0, 1000.0)
@@ -33,6 +38,8 @@ func is_bluetooth_ring_active(runtime: Object) -> bool:
 
 
 func get_bluetooth_ring_gauge_gain_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_BLUETOOTH_RING, "gauge_gain_pct")
 	if not is_bluetooth_ring_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_BLUETOOTH_RING, "gauge_gain_pct"), 0.0, 500.0)
@@ -43,9 +50,10 @@ func get_bluetooth_ring_gauge_multiplier(runtime: Object) -> float:
 
 
 func calculate_bluetooth_ring_gauge_charge(runtime: Object, base_charge: float) -> float:
-	if not is_bluetooth_ring_equipped(runtime):
+	var gain_pct: float = get_bluetooth_ring_gauge_gain_pct(runtime)
+	if gain_pct <= 0.0:
 		return float(base_charge)
-	return floor(max(0.0, float(base_charge)) * get_bluetooth_ring_gauge_multiplier(runtime))
+	return floor(max(0.0, float(base_charge)) * max(0.0, 1.0 + gain_pct / 100.0))
 
 
 func is_star_detector_equipped(runtime: Object) -> bool:
@@ -57,6 +65,8 @@ func is_star_detector_active(runtime: Object) -> bool:
 
 
 func get_star_detector_star_bonus_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_STAR_DETECTOR, "star_bonus_pct")
 	if not is_star_detector_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_STAR_DETECTOR, "star_bonus_pct"), 0.0, 100.0)
@@ -82,6 +92,8 @@ func get_gold_digger_count(runtime: Object) -> int:
 
 
 func get_gold_digger_gold_bonus_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_GOLD_DIGGER, "gold_bonus_pct")
 	if not is_gold_digger_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_GOLD_DIGGER, "gold_bonus_pct"), 0.0, 2000.0)
@@ -92,15 +104,17 @@ func get_gold_digger_multiplier(runtime: Object) -> float:
 
 
 func apply_gold_digger_gauge_bonus(runtime: Object, gauge_gain: float) -> float:
-	if not is_gold_digger_equipped(runtime):
+	var bonus_pct: float = get_gold_digger_gold_bonus_pct(runtime)
+	if bonus_pct <= 0.0:
 		return float(gauge_gain)
-	return floor(max(0.0, float(gauge_gain)) * get_gold_digger_multiplier(runtime))
+	return floor(max(0.0, float(gauge_gain)) * max(0.0, 1.0 + bonus_pct / 100.0))
 
 
 func apply_gold_digger_gold_bonus(runtime: Object, amount: int) -> int:
-	if not is_gold_digger_equipped(runtime):
+	var bonus_pct: float = get_gold_digger_gold_bonus_pct(runtime)
+	if bonus_pct <= 0.0:
 		return max(0, amount)
-	return int(floor(float(max(0, amount)) * get_gold_digger_multiplier(runtime)))
+	return int(floor(float(max(0, amount)) * max(0.0, 1.0 + bonus_pct / 100.0)))
 
 
 func is_lucky_coin_equipped(runtime: Object) -> bool:
@@ -112,6 +126,8 @@ func is_lucky_coin_active(runtime: Object) -> bool:
 
 
 func get_lucky_coin_double_spawn_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_LUCKY_COIN, "double_spawn_pct")
 	if not is_lucky_coin_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_LUCKY_COIN, "double_spawn_pct"), 0.0, 100.0)
@@ -124,3 +140,12 @@ func get_lucky_coin_double_spawn_chance(runtime: Object) -> float:
 func should_lucky_coin_double_spawn(runtime: Object) -> bool:
 	var chance: float = get_lucky_coin_double_spawn_chance(runtime)
 	return chance > 0.0 and randf() < chance
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := 0
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)

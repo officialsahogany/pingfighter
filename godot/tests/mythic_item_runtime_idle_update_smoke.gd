@@ -89,7 +89,7 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(runtime_source.find("return equipment_index.is_item_equipped(self, item_name)") >= 0, "mythic runtime should delegate generic equipped checks")
 	_expect(runtime_source.find("return equipped_items.has(item_name)") < 0, "mythic runtime should not keep generic equipped checks inline")
 	var update_gate_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_update_gate.gd")
-	_expect(update_gate_source.find("horn_strawberry_mask_runtime.is_equipped(runtime)") >= 0, "mythic update gate should delegate Horn Strawberry equipped checks")
+	_expect(update_gate_source.find("runtime.is_horn_strawberry_mask_active()") >= 0, "mythic update gate should delegate Horn Strawberry active checks")
 	_expect(update_gate_source.find("roll_query.has_equipped_item_name(runtime, \"horn_strawberry_mask\")") < 0, "mythic update gate should not keep Horn Strawberry roll query inline")
 
 

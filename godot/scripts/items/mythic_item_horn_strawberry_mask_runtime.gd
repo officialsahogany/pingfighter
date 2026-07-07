@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
 const ROLL_TRANSFORM_DURATION := "transform_duration"
 const TRANSFORM_GAUGE_COST := 500.0
@@ -9,7 +12,7 @@ func sync_equipment_state(runtime: Object) -> void:
 	var state: Object = runtime.horn_strawberry_mask_state
 	if state == null:
 		return
-	if runtime.roll_query.has_equipped_item_name(runtime, ITEM_HORN_STRAWBERRY_MASK):
+	if is_active(runtime):
 		state.set_equipped(true, get_transform_duration_sec(runtime))
 	else:
 		state.deactivate_equipment(true)
@@ -94,6 +97,8 @@ func feed_command_input(
 
 
 func get_transform_duration_sec(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, ROLL_TRANSFORM_DURATION)
 	var item_data: Dictionary = _get_equipped_item_data(runtime)
 	if item_data.is_empty():
 		return 60.0
@@ -121,6 +126,12 @@ func get_context(runtime: Object) -> Dictionary:
 
 func is_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_HORN_STRAWBERRY_MASK)
+
+
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
 
 
 func is_transformed(runtime: Object) -> bool:
@@ -182,7 +193,7 @@ func clear_on_equip(runtime: Object) -> void:
 	var state: Object = runtime.horn_strawberry_mask_state
 	if state == null:
 		return
-	state.set_equipped(true, get_transform_duration_sec(runtime))
+	state.set_equipped(is_active(runtime), get_transform_duration_sec(runtime))
 	state.reset_round()
 	_reset_all_skill_state(runtime)
 
@@ -363,6 +374,18 @@ func _get_equipped_item_data(runtime: Object) -> Dictionary:
 		return {}
 	var value: Variant = runtime.equipped_items[ITEM_HORN_STRAWBERRY_MASK]
 	return runtime._get_dict(value)
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_HORN_STRAWBERRY_MASK, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_HORN_STRAWBERRY_MASK)))
+	return 0
 
 
 func _get_input_snapshot(runtime: Object, owner: Object, registry: Object) -> Dictionary:

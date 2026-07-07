@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_SENSOR := "sensor"
 const SENSOR_DEFAULT_COOLDOWN_SEC := 15.0
 const SENSOR_MIN_COOLDOWN_SEC := 1.0
@@ -22,6 +25,12 @@ func is_sensor_equipped(runtime: Object) -> bool:
 	return runtime.equipped_items.has(ITEM_SENSOR)
 
 
+func is_sensor_effect_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime, ITEM_SENSOR) > 0
+	return is_sensor_equipped(runtime)
+
+
 func is_sensor_enabled(runtime: Object) -> bool:
 	return runtime.sensor_enabled
 
@@ -32,6 +41,11 @@ func set_sensor_enabled(runtime: Object, enabled: bool, owner: Object = null, re
 
 
 func get_sensor_cooldown_seconds(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		var level := _get_converted_perk_level(runtime, ITEM_SENSOR)
+		if level <= 0:
+			return SENSOR_DEFAULT_COOLDOWN_SEC
+		return max(SENSOR_MIN_COOLDOWN_SEC, PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_cooldown_sec", level))
 	if not is_sensor_equipped(runtime):
 		return SENSOR_DEFAULT_COOLDOWN_SEC
 	var seconds: float = runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SENSOR, "sensor_cooldown_sec")
@@ -45,10 +59,20 @@ func get_sensor_cooldown_frames(runtime: Object) -> float:
 
 
 func get_sensor_cooldown_remaining_seconds(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return max(0.0, runtime.sensor_auto_dash_recharge_timer_frames / 60.0)
 	return max(0.0, runtime.sensor_cooldown_timer_frames / 60.0)
 
 
 func get_sensor_cooldown_progress(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		if not is_sensor_effect_active(runtime):
+			return 0.0
+		_sync_sensor_perk_token_capacity(runtime)
+		if runtime.sensor_auto_dash_tokens >= runtime.sensor_auto_dash_token_max:
+			return 1.0
+		var cooldown_frames: float = max(1.0, get_sensor_cooldown_frames(runtime))
+		return clamp(1.0 - runtime.sensor_auto_dash_recharge_timer_frames / cooldown_frames, 0.0, 1.0)
 	if not is_sensor_equipped(runtime):
 		return 0.0
 	var cooldown_frames: float = max(1.0, get_sensor_cooldown_frames(runtime))
@@ -56,7 +80,25 @@ func get_sensor_cooldown_progress(runtime: Object) -> float:
 
 
 func is_sensor_auto_dash_ready(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		_sync_sensor_perk_token_capacity(runtime)
+		return is_sensor_effect_active(runtime) and runtime.sensor_enabled and runtime.sensor_auto_dash_tokens > 0
 	return is_sensor_equipped(runtime) and runtime.sensor_enabled and runtime.sensor_cooldown_timer_frames <= 0.0
+
+
+func get_sensor_auto_dash_token_capacity(runtime: Object) -> int:
+	if not PerkConversionFlags.is_enabled():
+		return 0
+	var level := _get_converted_perk_level(runtime, ITEM_SENSOR)
+	if level <= 0:
+		return 0
+	return max(0, int(round(PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_token_count", level))))
+
+
+func get_sensor_auto_dash_tokens(runtime: Object) -> int:
+	if PerkConversionFlags.is_enabled():
+		_sync_sensor_perk_token_capacity(runtime)
+	return max(0, int(runtime.sensor_auto_dash_tokens))
 
 
 func get_sensor_context(runtime: Object) -> Dictionary:
@@ -67,6 +109,7 @@ func clear_sensor_runtime(runtime: Object, clear_cooldown: bool = true) -> void:
 	runtime.sensor_enabled = true
 	if clear_cooldown:
 		runtime.sensor_cooldown_timer_frames = 0.0
+		_refill_sensor_perk_tokens(runtime)
 	clear_sensor_round_state(runtime)
 
 
@@ -131,12 +174,15 @@ func notify_sensor_auto_dash_started(
 	deps: Dictionary,
 	poseidon_constants: Dictionary
 ) -> void:
-	if not runtime.is_sensor_equipped():
+	if not is_sensor_effect_active(runtime):
 		return
 	var deps_dict: Dictionary = runtime._get_dict(deps)
 	var registry: Object = deps_dict.get("registry", null)
 	var owner: Object = deps_dict.get("owner", null)
-	runtime.sensor_cooldown_timer_frames = runtime.get_sensor_cooldown_frames()
+	if PerkConversionFlags.is_enabled():
+		_consume_sensor_perk_token(runtime)
+	else:
+		runtime.sensor_cooldown_timer_frames = runtime.get_sensor_cooldown_frames()
 	runtime.sensor_last_dash_direction = sign(direction)
 	if abs(runtime.sensor_last_dash_direction) <= 0.01:
 		runtime.sensor_last_dash_direction = 1.0
@@ -320,9 +366,11 @@ func call_smartphone_auto_use(
 
 func update_sensor_runtime(runtime: Object, fps_scale: float) -> void:
 	var step: float = max(0.0, fps_scale)
-	if runtime.sensor_cooldown_timer_frames > 0.0:
+	if PerkConversionFlags.is_enabled():
+		_update_sensor_perk_token_recharge(runtime, step)
+	elif runtime.sensor_cooldown_timer_frames > 0.0:
 		runtime.sensor_cooldown_timer_frames = max(0.0, runtime.sensor_cooldown_timer_frames - step)
-	if not runtime.is_sensor_equipped():
+	if not is_sensor_effect_active(runtime):
 		runtime.sensor_auto_dash_effect_timer_frames = 0.0
 		runtime.sensor_auto_dash_center = Vector2.ZERO
 		runtime.sensor_last_dash_direction = 0.0
@@ -331,3 +379,67 @@ func update_sensor_runtime(runtime: Object, fps_scale: float) -> void:
 		runtime.sensor_auto_dash_effect_timer_frames = max(0.0, runtime.sensor_auto_dash_effect_timer_frames - step)
 		if runtime.sensor_auto_dash_effect_timer_frames <= 0.0:
 			runtime.sensor_auto_dash_center = Vector2.ZERO
+
+
+func _update_sensor_perk_token_recharge(runtime: Object, fps_scale: float) -> void:
+	_sync_sensor_perk_token_capacity(runtime)
+	if runtime.sensor_auto_dash_token_max <= 0:
+		return
+	if runtime.sensor_auto_dash_tokens >= runtime.sensor_auto_dash_token_max:
+		runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+		return
+	if runtime.sensor_auto_dash_recharge_timer_frames <= 0.0:
+		runtime.sensor_auto_dash_recharge_timer_frames = max(1.0, get_sensor_cooldown_frames(runtime))
+	runtime.sensor_auto_dash_recharge_timer_frames = max(
+		0.0,
+		runtime.sensor_auto_dash_recharge_timer_frames - max(0.0, fps_scale)
+	)
+	if runtime.sensor_auto_dash_recharge_timer_frames > 0.0:
+		return
+	runtime.sensor_auto_dash_tokens = min(runtime.sensor_auto_dash_token_max, runtime.sensor_auto_dash_tokens + 1)
+	if runtime.sensor_auto_dash_tokens < runtime.sensor_auto_dash_token_max:
+		runtime.sensor_auto_dash_recharge_timer_frames = max(1.0, get_sensor_cooldown_frames(runtime))
+	else:
+		runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+
+
+func _consume_sensor_perk_token(runtime: Object) -> void:
+	_sync_sensor_perk_token_capacity(runtime)
+	runtime.sensor_auto_dash_tokens = max(0, runtime.sensor_auto_dash_tokens - 1)
+	if runtime.sensor_auto_dash_tokens < runtime.sensor_auto_dash_token_max and runtime.sensor_auto_dash_recharge_timer_frames <= 0.0:
+		runtime.sensor_auto_dash_recharge_timer_frames = max(1.0, get_sensor_cooldown_frames(runtime))
+
+
+func _refill_sensor_perk_tokens(runtime: Object) -> void:
+	var max_tokens := get_sensor_auto_dash_token_capacity(runtime)
+	runtime.sensor_auto_dash_token_max = max_tokens
+	runtime.sensor_auto_dash_tokens = max_tokens
+	runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+
+
+func _sync_sensor_perk_token_capacity(runtime: Object) -> void:
+	var max_tokens := get_sensor_auto_dash_token_capacity(runtime)
+	if max_tokens <= 0:
+		runtime.sensor_auto_dash_token_max = 0
+		runtime.sensor_auto_dash_tokens = 0
+		runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+		return
+	if runtime.sensor_auto_dash_token_max <= 0:
+		runtime.sensor_auto_dash_token_max = max_tokens
+		runtime.sensor_auto_dash_tokens = max_tokens
+		runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+		return
+	var previous_max: int = runtime.sensor_auto_dash_token_max
+	runtime.sensor_auto_dash_token_max = max_tokens
+	if max_tokens < previous_max:
+		runtime.sensor_auto_dash_tokens = min(runtime.sensor_auto_dash_tokens, max_tokens)
+	if runtime.sensor_auto_dash_tokens >= max_tokens:
+		runtime.sensor_auto_dash_recharge_timer_frames = 0.0
+	elif runtime.sensor_auto_dash_recharge_timer_frames <= 0.0:
+		runtime.sensor_auto_dash_recharge_timer_frames = max(1.0, get_sensor_cooldown_frames(runtime))
+
+
+func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	return 0

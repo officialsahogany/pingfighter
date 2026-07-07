@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_HERMES_SHOES := "hermes_shoes"
 const MAX_SPEED_BONUS_PCT := 300.0
 const TRAIL_LIFE_FRAMES := 24.0
@@ -14,7 +17,15 @@ func is_equipped(runtime: Object) -> bool:
 	return runtime.is_equipped(ITEM_HERMES_SHOES)
 
 
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
+
+
 func get_speed_bonus_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "speed_bonus")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -54,7 +65,7 @@ func update_runtime(runtime: Object, owner: Object, fps_scale: float) -> void:
 		))
 	)
 	runtime.hermes_shoes_state.update(
-		is_equipped(runtime),
+		is_active(runtime),
 		player_pos,
 		player_size,
 		step,
@@ -75,3 +86,15 @@ func _tear_down_field_fx(runtime: Object) -> void:
 	var renderer: Object = runtime.get("field_effect_renderer")
 	if renderer != null and renderer.has_method("tear_down_hermes_shoes_fx"):
 		renderer.tear_down_hermes_shoes_fx(false)
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_HERMES_SHOES, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_HERMES_SHOES)))
+	return 0

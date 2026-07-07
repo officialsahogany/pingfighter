@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const ITEM_PANDORA_LEGACY := "pandora_legacy"
@@ -34,16 +36,22 @@ func is_equipped(runtime: Object) -> bool:
 
 
 func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
 	return is_equipped(runtime)
 
 
 func get_selection_quality(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "selection_quality")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_PANDORA_LEGACY, "selection_quality"), 0.0, 100.0)
 
 
 func get_trigger_chance(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "trigger_chance")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_PANDORA_LEGACY, "trigger_chance"), 0.0, 100.0)
@@ -246,3 +254,15 @@ func clear_runtime(runtime: Object) -> void:
 func _queue_owner_redraw(owner: Object) -> void:
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_PANDORA_LEGACY, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_PANDORA_LEGACY)))
+	return 0

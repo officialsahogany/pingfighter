@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_CELESTIAL_ARMOR := "celestial_armor"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const MAX_GAUGE_COST := 100.0
@@ -20,7 +23,15 @@ func is_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_CELESTIAL_ARMOR)
 
 
+func is_active(runtime: Object) -> bool:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_level(runtime) > 0
+	return is_equipped(runtime)
+
+
 func get_trigger_chance_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "trigger_chance_pct")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -31,6 +42,8 @@ func get_trigger_chance_pct(runtime: Object) -> float:
 
 
 func get_gauge_cost(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_mythic_value(runtime, "gauge_cost")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -52,7 +65,7 @@ func try_consume_immunity(
 	if runtime.celestial_armor_state.consume_paired_proc_bypass(source, normalized_effect_type):
 		return true
 
-	if not is_equipped(runtime):
+	if not is_active(runtime):
 		return false
 	var chance_pct: float = get_trigger_chance_pct(runtime)
 	if chance_pct <= 0.0 or randf() * 100.0 > chance_pct:
@@ -90,7 +103,7 @@ func clear_round_state(runtime: Object) -> void:
 
 
 func update_runtime(runtime: Object, fps_scale: float) -> void:
-	runtime.celestial_armor_state.update(fps_scale, is_equipped(runtime))
+	runtime.celestial_armor_state.update(fps_scale, is_active(runtime))
 
 
 func consume_gauge(
@@ -163,3 +176,15 @@ func resolve_player_center(runtime: Object, deps: Dictionary) -> Vector2:
 		FIELD_WIDTH * 0.5,
 		FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5
 	)
+
+
+func _get_converted_mythic_value(runtime: Object, key: String) -> float:
+	if _get_converted_perk_level(runtime) <= 0:
+		return 0.0
+	return PerkConversionValues.get_mythic_value(ITEM_CELESTIAL_ARMOR, key)
+
+
+func _get_converted_perk_level(runtime: Object) -> int:
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		return max(0, int(runtime.get_converted_perk_effect_level(ITEM_CELESTIAL_ARMOR)))
+	return 0

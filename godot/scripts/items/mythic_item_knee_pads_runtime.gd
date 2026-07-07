@@ -1,5 +1,8 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
 const ITEM_KNEE_PADS := "knee_pads"
 const FLASH_DURATION_FRAMES := 30.0
 const PARTICLE_COUNT := 20
@@ -12,6 +15,8 @@ func is_equipped(runtime: Object) -> bool:
 
 
 func get_charge_pct(runtime: Object) -> float:
+	if PerkConversionFlags.is_enabled():
+		return _get_converted_perk_value(runtime, ITEM_KNEE_PADS, "knee_charge_pct")
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
@@ -24,7 +29,7 @@ func try_apply_player_hit(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	if not is_equipped(runtime):
+	if get_charge_pct(runtime) <= 0.0:
 		runtime.knee_pads_half_dash_consumed = false
 		return {}
 	if not is_half_dash_window_active(runtime, deps):
@@ -138,3 +143,12 @@ func start_effect(runtime: Object, ball_pos: Vector2, deps: Dictionary) -> void:
 			feedback.max_screen_shake(SHAKE_AMOUNT, SHAKE_INTENSITY)
 		elif feedback.has_method("set_screen_shake"):
 			feedback.set_screen_shake(SHAKE_AMOUNT, SHAKE_INTENSITY)
+
+
+func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var level := 0
+	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
+		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
+	if level <= 0:
+		return 0.0
+	return PerkConversionValues.get_value(perk_id, key, level)

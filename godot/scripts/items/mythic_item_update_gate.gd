@@ -63,7 +63,11 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 		return true
 	if runtime.odins_eye_runtime.has_runtime_update_work(runtime):
 		return true
-	if runtime.sensor_cooldown_timer_frames > 0.0 or runtime.sensor_auto_dash_effect_timer_frames > 0.0:
+	if (
+		runtime.sensor_cooldown_timer_frames > 0.0
+		or runtime.sensor_auto_dash_recharge_timer_frames > 0.0
+		or runtime.sensor_auto_dash_effect_timer_frames > 0.0
+	):
 		return true
 	if runtime.smartphone_cooldown_frames > 0.0:
 		return true
@@ -84,7 +88,7 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 		return true
 	if runtime.celestial_armor_state.is_wave_active():
 		return true
-	if runtime.is_hermes_shoes_equipped() or runtime.hermes_shoes_state.is_visible(false):
+	if runtime.is_hermes_shoes_active() or runtime.hermes_shoes_state.is_visible(false):
 		return true
 	if (
 		runtime.baal_boots_weather_state.has_round_activity()
@@ -95,7 +99,7 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 	):
 		return true
 	if (
-		runtime.horn_strawberry_mask_runtime.is_equipped(runtime)
+		runtime.is_horn_strawberry_mask_active()
 		or runtime.horn_strawberry_mask_runtime.has_runtime_update_work(runtime)
 	):
 		return true
