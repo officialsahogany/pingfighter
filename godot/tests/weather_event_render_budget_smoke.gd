@@ -105,6 +105,10 @@ func _verify_state_render_lod_budgets() -> void:
 		and weather._get_particle_render_stride_for_type("breeze", 0.58) == 1,
 		"state fallback should never stride-decimate wind (index-based stride flickers the sparse wind flow)"
 	)
+	_expect(
+		weather._get_particle_render_stride_for_type("hail", 0.58) == 1,
+		"state fallback should never stride-decimate hail (max 3 stones -> stride flips which one draws each frame, so a hailstone blinks in/out mid-fall)"
+	)
 
 
 func _verify_renderer_render_lod_budgets() -> void:
@@ -124,6 +128,10 @@ func _verify_renderer_render_lod_budgets() -> void:
 		renderer._get_particle_render_stride_for_context({"type": "breeze"}, 0.58) == 1
 		and renderer._get_particle_render_stride_for_context({"type": "gust"}, 0.58) == 1,
 		"texture weather renderer should never stride-decimate wind (index-based stride flickers the sparse wind flow)"
+	)
+	_expect(
+		renderer._get_particle_render_stride_for_context({"type": "hail"}, 0.58) == 1,
+		"texture weather renderer should never stride-decimate hail (max 3 stones -> stride flips which one draws each frame, so a hailstone blinks in/out mid-fall)"
 	)
 	_expect(
 		renderer._get_particle_render_stride_for_context({"type": "rain"}, 0.58) >= 3,

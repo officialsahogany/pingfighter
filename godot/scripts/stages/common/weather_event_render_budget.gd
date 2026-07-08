@@ -20,6 +20,18 @@ static func is_wind_weather_type(weather_type: String) -> bool:
 	return weather_type == "breeze" or weather_type == "gust"
 
 
+# Sparse weather effects run only a handful of live particles, so index-stride
+# decimation over the shifting mixed particle array flips which particles survive
+# every frame -> the effect stutters / blinks instead of moving smoothly. These
+# types must render every particle regardless of LOD. Hail peaks at HAIL_MAX_PARTICLES
+# (3) core stones and, with stride 3 (the shipped 72fps severe-LOD default), only one
+# of three was drawn AND its array index shifted as impact/burst/shard particles were
+# appended and removed, so each hailstone appeared mid-field and vanished instead of
+# falling top->bottom. See CLAUDE.md "Godot Stride LOD Sparse Particle Flicker Trap".
+static func is_stride_exempt_weather_type(weather_type: String) -> bool:
+	return is_wind_weather_type(weather_type) or weather_type == "hail"
+
+
 static func get_weather_particle_limit(weather_type: String, effect_lod_scale: float = 1.0) -> int:
 	if is_wind_weather_type(weather_type):
 		return get_lod_count(
@@ -45,7 +57,7 @@ static func get_particle_render_stride(effect_lod_scale: float) -> int:
 
 
 static func get_particle_render_stride_for_type(weather_type: String, effect_lod_scale: float) -> int:
-	if is_wind_weather_type(weather_type):
+	if is_stride_exempt_weather_type(weather_type):
 		return 1
 	return get_particle_render_stride(effect_lod_scale)
 
