@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleSceneSkillTooltipDriver := preload("res://scripts/core/battle_scene_skill_tooltip_driver.gd")
+const RuntimePerkSkillCooldownPause := preload("res://scripts/characters/runtime_perk_skill_cooldown_pause.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const SmasherSkillState := preload("res://scripts/characters/smasher_skill_state.gd")
 
@@ -65,9 +66,24 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_runtime_state_facade_routes_pause_helper()
 	_verify_perk_choice_pauses_wall_clock_skill_cooldowns()
+	_verify_source_contract()
 	print("runtime_perk_skill_cooldown_pause_smoke: ok")
 	quit(0)
+
+
+func _verify_runtime_state_facade_routes_pause_helper() -> void:
+	var helper := RuntimePerkSkillCooldownPause.new()
+	var runtime_state := FakeRuntimeState.new()
+	runtime_state._skill_cooldown_pause = helper
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+
+	helper.pause_from_runtime_state(runtime_state, owner, registry)
+	_expect(helper.is_active(), "runtime-state pause facade should route to the stored helper")
+	helper.resume_from_runtime_state(runtime_state)
+	_expect(not helper.is_active(), "runtime-state resume facade should route to the stored helper")
 
 
 func _verify_perk_choice_pauses_wall_clock_skill_cooldowns() -> void:
@@ -109,6 +125,20 @@ func _verify_perk_choice_pauses_wall_clock_skill_cooldowns() -> void:
 	)
 
 
+func _verify_source_contract() -> void:
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_skill_cooldown_pause.gd")
+	var pause_body: String = _function_body(state_source, "func _pause_skill_cooldowns_for_choice(")
+	var resume_body: String = _function_body(state_source, "func _resume_skill_cooldowns_for_choice(")
+	_expect(helper_source.find("func pause_from_runtime_state") >= 0, "cooldown pause helper should expose runtime-state pause facade")
+	_expect(helper_source.find("func resume_from_runtime_state") >= 0, "cooldown pause helper should expose runtime-state resume facade")
+	_expect(helper_source.find("_get_state_object(runtime_state, \"_skill_cooldown_pause\")") >= 0, "cooldown pause helper should look itself up from runtime state")
+	_expect(pause_body.find("pause_from_runtime_state") >= 0, "state pause wrapper should use runtime-state facade")
+	_expect(pause_body.find(".pause(owner, registry)") < 0, "state pause wrapper should not call pause directly")
+	_expect(resume_body.find("resume_from_runtime_state") >= 0, "state resume wrapper should use runtime-state facade")
+	_expect(resume_body.find(".resume()") < 0, "state resume wrapper should not call resume directly")
+
+
 func _build_basic_choice(choice_id: String) -> Dictionary:
 	return {
 		"id": choice_id,
@@ -127,3 +157,19 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\n\nfunc ", start + signature.length())
+	if next < 0:
+		next = source.length()
+	return source.substr(start, next - start)
+
+
+class FakeRuntimeState:
+	extends RefCounted
+
+	var _skill_cooldown_pause: Object = null

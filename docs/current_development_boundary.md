@@ -6,7 +6,7 @@ The original Python/Pygame **PingFighter** runtime is frozen. Use it only as
 a reference for behavior, timing, balance, text, assets, and parity research
 while porting into Godot.
 
-## Current Refactor Snapshot (2026-06-30)
+## Current Refactor Snapshot (2026-07-09)
 
 This is a briefing snapshot, not a permanent completion claim. If it drifts
 from the code, update this section and `docs/godot_module_ownership_ledger.md`
@@ -15,7 +15,7 @@ together.
 - `godot/scenes/main.gd` is still the intended one-line shell extending
   `res://scripts/core/battle_scene_shell.gd`; current gameplay work lives in
   focused `godot/scripts/` owners instead of rebuilding a scene monolith.
-- The current worktree has 1298 GDScript modules under `godot/scripts/`.
+- The current worktree has 1349 GDScript modules under `godot/scripts/`.
   The largest active split surfaces are stages, items, characters, core flow,
   HUD, audio, resources, effects, plaza, and Ringpet / Lingpet runtime.
 - Ringpet / Lingpet is no longer a single feature blob. Its current modules

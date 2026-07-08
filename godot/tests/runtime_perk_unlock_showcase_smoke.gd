@@ -4,6 +4,7 @@ const BattleSceneModalGateController := preload("res://scripts/core/battle_scene
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const RuntimePerkUnlockShowcase := preload("res://scripts/characters/runtime_perk_unlock_showcase.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 
 var _failures: Array[String] = []
@@ -104,7 +105,14 @@ class FakeModuleProvider:
 		return modules.get(key, null)
 
 
+class FakeShowcaseState:
+	extends RefCounted
+
+	var unlock_showcase: Dictionary = {}
+
+
 func _init() -> void:
+	_verify_showcase_state_application_helper()
 	_verify_junior_unlock_showcase_delays_finish_and_blocks_physics()
 	_verify_unlock_flight_opens_showcase_after_arrival()
 	_verify_non_junior_and_passive_choices_finish_immediately()
@@ -119,6 +127,38 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_showcase_state_application_helper() -> void:
+	var helper := RuntimePerkUnlockShowcase.new()
+	var state := FakeShowcaseState.new()
+	var showcase := {
+		"active": true,
+		"choice_id": "unlock_plasma",
+		"skill_id": "plasma",
+		"age": 0.0,
+	}
+	var apply_result: Dictionary = helper.apply_showcase_state_update(state, showcase)
+	_expect(bool(apply_result.get("accepted", false)), "unlock showcase helper should apply showcase state")
+	_expect(helper.is_active(state.unlock_showcase), "unlock showcase helper should store an active showcase")
+	_expect(helper.is_active_from_runtime_state(state), "unlock showcase helper should read active state from runtime-state facade")
+	_expect(str(state.unlock_showcase.get("skill_id", "")) == "plasma", "unlock showcase helper should keep skill id")
+	showcase["skill_id"] = "mutated_after_apply"
+	_expect(str(state.unlock_showcase.get("skill_id", "")) == "plasma", "unlock showcase helper should deep-copy payloads")
+	_expect(not helper.is_active_from_runtime_state(null), "unlock showcase runtime-state facade should reject missing state")
+	_expect(not bool(helper.apply_showcase_state_update(null, showcase).get("accepted", true)), "unlock showcase helper should reject null state")
+
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_unlock_showcase.gd")
+	var showcase_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_unlock_showcase_flow.gd")
+	var active_body: String = _function_body(state_source, "func is_unlock_showcase_active(")
+	_expect(state_source.find("_unlock_showcase_flow.finish_or_open_unlock_showcase") >= 0, "runtime perk state should delegate unlock showcase flow")
+	_expect(helper_source.find("func is_active_from_runtime_state(") >= 0, "unlock showcase helper should expose runtime-state active query")
+	_expect(active_body.find("_unlock_showcase_controller.is_active_from_runtime_state") >= 0, "runtime perk state should route showcase active query through runtime-state facade")
+	_expect(active_body.find("_unlock_showcase_controller.is_active(unlock_showcase)") < 0, "runtime perk state should not pass showcase state directly for active query")
+	_expect(state_source.find("_unlock_showcase_controller.apply_showcase_state_update") < 0, "runtime perk state should not apply showcase state directly")
+	_expect(state_source.find("unlock_showcase = _unlock_showcase_controller.build") < 0, "runtime perk state should not assign showcase build inline")
+	_expect(showcase_flow_source.find("apply_showcase_state_update") >= 0, "unlock showcase flow should apply showcase state through helper")
 
 
 func _verify_junior_unlock_showcase_delays_finish_and_blocks_physics() -> void:
@@ -347,3 +387,13 @@ func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
 	_failures.append(message)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\n\nfunc ", start + signature.length())
+	if next < 0:
+		next = source.length()
+	return source.substr(start, next - start)

@@ -1216,6 +1216,14 @@ Godot-first note:
       the perk modal has input priority while it is visible. The older
       reveal may be paused by the modal gate, so letting it consume click /
       confirm first can deadlock both flows.
+- [ ] If a runtime perk choice can synchronously open the next choice modal
+      in the same update tick (for example active-unlock flight landing,
+      unlock showcase dismissal, or extra-pick chains), compute the new
+      modal's active tick from the live post-flow `choice_active` /
+      `animation_time` state. Do not reuse tick-start snapshots that can
+      clobber the fresh `animation_time = 0.0` input guard. Seal it with a
+      chained pending-choice smoke that proves the new modal is not
+      selectable on its first landing frame.
 - [ ] For panel / modal grid hover tooltips, position from the hovered
       cell / rect and audit panel-aware clamping. Top-row entries must
       be able to open below, and edge entries must stay fully visible.

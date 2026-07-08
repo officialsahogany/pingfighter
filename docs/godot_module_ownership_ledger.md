@@ -4432,7 +4432,52 @@ This section is intentionally long; use search to find the nearest owner.
   `jetpack_enhance` airborne gauge bonus, 3-gold skill reward, Chaos
   Spear airborne activation gating, and round/game reset cleanup.
 - `scripts/characters/runtime_perk_catalog.gd`,
-  `scripts/characters/runtime_perk_state.gd`, and
+  `scripts/characters/runtime_perk_state.gd`,
+  `scripts/characters/runtime_perk_character_context.gd`,
+  `scripts/characters/runtime_perk_registry_lookup.gd`,
+  `scripts/characters/runtime_perk_gamepad_navigation.gd`,
+  `scripts/characters/runtime_perk_modal_input.gd`,
+  `scripts/characters/runtime_perk_choice_selection.gd`,
+  `scripts/characters/runtime_perk_snapshot_builder.gd`,
+  `scripts/characters/runtime_perk_choice_audio.gd`,
+  `scripts/characters/runtime_perk_choice_feedback.gd`,
+  `scripts/characters/runtime_perk_choice_offer_modifiers.gd`,
+  `scripts/characters/runtime_perk_choice_opening.gd`,
+  `scripts/characters/runtime_perk_choice_completion.gd`,
+  `scripts/characters/runtime_perk_choice_dispatch.gd`,
+  `scripts/characters/runtime_perk_choice_action_runner.gd`,
+  `scripts/characters/runtime_perk_choice_standard_path.gd`,
+  `scripts/characters/runtime_perk_choice_open_flow.gd`,
+  `scripts/characters/runtime_perk_choice_apply_flow.gd`,
+  `scripts/characters/runtime_perk_choice_confirm_flow.gd`,
+  `scripts/characters/runtime_perk_choice_finish_flow.gd`,
+  `scripts/characters/runtime_perk_update_flow.gd`,
+  `scripts/characters/runtime_perk_debug_grants.gd`,
+  `scripts/characters/runtime_perk_unlock_choice_apply.gd`,
+  `scripts/characters/runtime_perk_owner_projection.gd`,
+  `scripts/characters/runtime_perk_owner_sync_flow.gd`,
+  `scripts/characters/runtime_perk_choice_layout.gd`,
+  `scripts/characters/runtime_perk_active_unlock_flight.gd`,
+  `scripts/characters/runtime_perk_unlock_showcase.gd`,
+  `scripts/characters/runtime_perk_unlock_showcase_flow.gd`,
+  `scripts/characters/runtime_perk_unlock_swap_layout.gd`,
+  `scripts/characters/runtime_perk_unlock_swap_flow.gd`,
+  `scripts/characters/runtime_perk_skill_cooldown_pause.gd`,
+  `scripts/characters/runtime_perk_deferred_instants.gd`,
+  `scripts/characters/runtime_perk_effective_levels.gd`,
+  `scripts/characters/runtime_perk_effective_stat_query_surface.gd`,
+  `scripts/characters/runtime_perk_dynamic_effects.gd`,
+  `scripts/characters/runtime_perk_instant_rewards.gd`,
+  `scripts/characters/runtime_perk_instant_choice_flow.gd`,
+  `scripts/characters/runtime_perk_level_side_effects.gd`,
+  `scripts/characters/runtime_perk_lingpet_rewards.gd`,
+  `scripts/characters/runtime_perk_owner_effect_sync.gd`,
+  `scripts/characters/runtime_perk_resume_safety.gd`,
+  `scripts/characters/runtime_perk_starpoint_absorption.gd`,
+  `scripts/characters/runtime_perk_starpoint_collection_flow.gd`,
+  `scripts/characters/runtime_perk_gold_awards.gd`,
+  `scripts/characters/runtime_perk_gold_award_flow.gd`,
+  `scripts/characters/runtime_perk_reset_state.gd`, and
   `scripts/hud/runtime_perk_overlay_renderer.gd`
   Own the first Godot runtime perk / starpoint choice port: starpoint-to-
   pending-choice state, current-run perk levels, character-filtered offer
@@ -4454,6 +4499,402 @@ This section is intentionally long; use search to find the nearest owner.
   runtime perk choice cards, and Stage 1 through Stage 4 starpoint collectors
   stop same-frame drop iteration when a collection opens a perk choice or
   clears the in-flight drop arrays.
+  `runtime_perk_character_context.gd` owns runtime perk character-context
+  lookup policy: character id alias normalization, skill config / state
+  registry-key routing, owner-selected character fallback behavior, current
+  stage reads, and starting dash-token fallback through `battle_scene_config`.
+  `runtime_perk_state.gd` keeps narrow private wrapper names for existing
+  call sites while delegating the policy to this helper.
+  `runtime_perk_registry_lookup.gd` owns runtime perk registry instance lookup
+  policy: null / empty-key / missing-API rejection, generic `get_instance`
+  routing, and the runtime-perk catalog shortcut. `runtime_perk_state.gd` keeps
+  the `_get_instance()` / `_get_catalog()` callback wrapper names for existing
+  helper facades while delegating lookup policy to this helper.
+  `runtime_perk_gamepad_navigation.gd` owns runtime perk modal gamepad
+  horizontal-latch policy for choice cards and unlock-swap cards: left-stick
+  neutral reset, held-direction suppression, sub-threshold latch retention, and
+  non-left-axis passthrough, plus runtime-state navigation facades for both
+  choice and unlock-swap latch fields. `runtime_perk_modal_input.gd` owns runtime perk
+  modal input event routing for choice cards and pending unlock-swap dialogs:
+  keyboard / gamepad / mouse classification, active-flight and unlock-showcase
+  input gating, mouse hit-index callback routing, confirm / cancel dispatch, and
+  runtime-state callback-map assembly. `runtime_perk_state.gd` keeps the choice and
+  unlock-swap latch fields plus narrow private wrappers for selection,
+  confirmation, cancellation, hit testing, and showcase dismissal.
+  `runtime_perk_choice_selection.gd` owns choice-card selected-index updates:
+  keyboard / gamepad wrap movement, direct mouse hover / click index validation,
+  runtime-state choice-count extraction for move / direct selection facades,
+  runtime-state selectable gating across choice flight / unlock showcase /
+  pending swap / animation age / choice count, empty-choice rejection,
+  state-field application, and
+  selected-choice payload validation for choice confirmation.
+  `runtime_perk_state.gd` keeps card hit testing wrappers and choice
+  confirmation side-effect execution.
+  `runtime_perk_snapshot_builder.gd` owns runtime perk modal snapshot
+  assembly for HUD / overlay consumers: deep-copied level, choice, unlock-swap,
+  context, slot-status, flight / showcase, deferred-instant, and absorption
+  payload fields plus runtime-state helper lookup for the public snapshot
+  facade. Its last-selected choice snapshot API is kept as a compatibility
+  wrapper around `runtime_perk_choice_completion.gd`.
+  `runtime_perk_state.gd` keeps the live fields and exposes the public
+  `get_snapshot()` wrapper.
+  `runtime_perk_choice_audio.gd` owns runtime perk choice-modal one-shot audio
+  routing: active-unlock flight cue priority (`play_item_get` before the
+  runtime choice-open fallback), ordinary perk-select confirmation audio, and
+  runtime-state-facing get-instance callback assembly for those one-shot cue
+  wrappers. It does not own looped audio or round-boundary cleanup.
+  `runtime_perk_choice_feedback.gd` owns runtime perk choice-feedback payload
+  policy: apply-failure feedback including pending unlock-swap suppression and
+  application, Dowsing Goggles feedback text / timer policy and application,
+  Megingjord bonus-pick feedback text / timer policy, helper-result fallback
+  feedback normalization / application,
+  per-frame feedback timer tick / expiry payloads and application,
+  visible-feedback query policy, live feedback-field application, and
+  runtime-state-facing assembly for visible-feedback, failure-feedback, and
+  result-feedback state wrapper calls.
+  `runtime_perk_state.gd` keeps the live feedback fields and delegates feedback
+  payload application.
+  `runtime_perk_choice_offer_modifiers.gd` owns choice-offer modifier bridge
+  policy around item/catalog contributors: mythic item bonus choice counts,
+  target choice-count calculation, Dowsing Goggles bonus-card tagging,
+  perk-slot status snapshot copies, and Megingjord new-batch /
+  new-pending-choice batch reset / after-choice extra-pick calls.
+  `runtime_perk_state.gd` keeps the live choice arrays, feedback application,
+  and modal sequencing.
+  `runtime_perk_choice_opening.gd` owns runtime perk choice-open state
+  transition payloads for no-pending, missing-catalog, empty-choice catalog
+  results, generated choice/context/slot-status state application, and
+  successful ready-open setup: modal close flags, current choice / context /
+  slot-status clearing, pending-choice consumption, chained open-next requests,
+  selected-card / gamepad-latch / animation reset, active-modal state, active
+  modal query including runtime-state pending-swap lookup, active animation
+  tick payloads, and cooldown / Lingpet / particle-work requests.
+  `runtime_perk_choice_open_flow.gd` owns `open_next_choice()` orchestration:
+  active-unlock flight clearing, no-pending / missing-catalog unavailable
+  routing, item bonus choice-count calculation, catalog choice generation,
+  perk-slot status capture, generated-choice state application, empty-choice
+  recursive reopen, Dowsing bonus-card marking plus feedback, ready-state
+  application, Lingpet cooldown tick callback, skill-cooldown pause callback,
+  particle rebuild callback, open-next perf labels, runtime-state helper
+  lookup, callback-map assembly, and the default base choice-count value used
+  by the public state wrapper. `runtime_perk_state.gd` keeps the public
+  `open_next_choice()` wrapper, live fields, and side-effect callback
+  implementations.
+  `runtime_perk_choice_completion.gd` owns successful-choice completion
+  payload policy: last-selected id / snapshot handoff, selected-choice sequence
+  increments, selected-choice snapshot construction, pending-choice consumption
+  plus Megingjord extra-pick restoration, live success-state application,
+  current-choice clearing, feedback handoff, animation reset, post-state
+  open-next / context-clear plans, next-choice context snapshot handoff, and
+  final post-state context-clear application plus modal-close side-effect
+  gating / ordered close-step payloads for cooldown resume, resume safety,
+  starpoint absorption, and owner sync.
+  `runtime_perk_state.gd` keeps the actual modal progression calls and final
+  close side-effect execution.
+  `runtime_perk_choice_dispatch.gd` owns runtime perk `apply_choice()` dispatch
+  policy for special choice ids: gold conversion, immediate vs deferred
+  full-gauge / Dimension Gate instants, Monkey Blessing, Treasure Hunt,
+  Lingpet affinity-chip, and Lingpet ring-core upgrade actions. Generic instant
+  bookkeeping, unlock choices, and ordinary level-ups intentionally fall through
+  to the standard state path.
+  `runtime_perk_choice_action_runner.gd` owns explicit dispatch-action
+  extraction and callback routing, state-callback map assembly, fallback
+  feedback timers, and handled action-result feedback / accepted normalization.
+  It calls the state-provided side-effect callbacks for gold conversion,
+  full-gauge / Dimension Gate immediate and deferred actions, Monkey Blessing,
+  Treasure Hunt, Lingpet affinity-chip, and Lingpet ring-core upgrade, then
+  returns a normalized handled / accepted / feedback-result payload.
+  `runtime_perk_state.gd` keeps the live field writes and callback
+  implementations.
+  `runtime_perk_choice_standard_path.gd` owns the standard `apply_choice()`
+  fallback path policy after explicit dispatch actions miss: bookkeeping-instant
+  callback sequencing, bookkeeping state-update payload selection,
+  unlock-vs-level path selection, bookkeeping fallback feedback timer,
+  bookkeeping live-state plus feedback completion,
+  level-update callback sequencing, current-level lookup, level next-value /
+  feedback payload extraction, level feedback callback completion, and standard
+  bookkeeping / level state-application payloads including runtime-level patch
+  application plus bookkeeping / level live pending-starpoint result application.
+  `runtime_perk_state.gd` keeps side-effect callbacks and feedback application.
+  `runtime_perk_choice_apply_flow.gd` owns runtime perk `apply_choice()`
+  orchestration: dispatch payload consumption, action-runner handled-action
+  sequencing, standard bookkeeping / unlock / level path selection, bookkeeping
+  live-state completion, unlock callback dispatch and perf labeling, level
+  live-state completion, level side-effect callback dispatch and perf labeling,
+  level feedback callback sequencing, runtime-state helper lookup,
+  live level / pending-starpoint extraction, apply-choice default constants,
+  and callback-map assembly for the public state wrapper.
+  `runtime_perk_state.gd` keeps the public `apply_choice()` wrapper, live
+  fields, public compatibility constants, and side-effect callback
+  implementations.
+  `runtime_perk_choice_confirm_flow.gd` owns selected-choice confirmation
+  orchestration: selected payload consumption, active-skill unlock flight start
+  sequencing, flight state application, direct choice application callback
+  routing, select / flight audio callback routing, apply-failure feedback
+  callback routing, flight advancement / landing payload consumption, landed
+  choice application callback routing, finish-or-showcase callback handoff,
+  runtime-state helper lookup, current-selection extraction, flight-effect
+  lookup, and callback-map assembly for confirm / flight-update wrappers.
+  `runtime_perk_state.gd` keeps the public `choose_selected()` wrapper, flight
+  effect field, and callback implementations.
+  `runtime_perk_update_flow.gd` owns per-frame runtime perk update
+  orchestration: feedback timer ticks, active-unlock flight advancement,
+  unlock-showcase advancement, starpoint absorption advancement, active-choice
+  animation gate updates, particle tick routing, and the focused perf sample
+  labels for each branch. Its runtime-state facade also owns helper lookup,
+  update-context construction, callback-map assembly, and the default particle
+  lifetime used by the public state update wrapper. `runtime_perk_state.gd` keeps the public
+  `update()` / `update_with_perf()` wrappers, live fields, and side-effect
+  callbacks used by the flow helper.
+  `runtime_perk_choice_finish_flow.gd` owns successful-choice finish
+  orchestration after a choice has applied: Megingjord extra-pick callback
+  sequencing, extra-pick feedback handoff, selected-choice success payload
+  application via `runtime_perk_choice_completion.gd`, post-state open-next /
+  context-clear plan execution, next-choice open callback routing, modal-close
+  side-effect callback sequencing, close-step perf labels, runtime-state
+  helper lookup, runtime-level lookup, and callback-map assembly. `runtime_perk_state.gd`
+  keeps the public/private finish wrapper, live fields, and side-effect
+  callback implementations.
+  `runtime_perk_unlock_choice_apply.gd` owns normal unlock-choice application
+  orchestration: unlock-choice validation, character skill-config resolution,
+  slot-full pending-swap start payload application, skill-config
+  `unlock_and_equip_skill` calls, unlock-level commit sequencing,
+  owner-effect sync callback sequencing, Commando weapon-controller/audio sync,
+  unlock feedback callback sequencing, runtime-state helper lookup, live
+  runtime-level dictionary extraction, and callback-map assembly.
+  `runtime_perk_state.gd` keeps the private wrapper consumed by
+  standard-path/debug-grant flows plus live runtime-level dictionary ownership.
+  `runtime_perk_debug_grants.gd` owns developer/debug perk grant path policy:
+  ring-core / instant / unlock / ordinary-level path selection, debug choice-data
+  patch payloads plus combined patch composition/application for `next_tier`,
+  current/next level fields, catalog lookup, path-specific apply-call
+  orchestration, ordinary debug runtime-level patch application, level
+  side-effect / feedback callback sequencing, post-apply last-selected /
+  owner-sync application, runtime-state helper lookup, live runtime-level
+  dictionary extraction, debug default constants, feedback-timer lookup, and
+  grant callback-map assembly. `runtime_perk_state.gd` keeps the public debug
+  setter wrapper, live runtime-level dictionary, and callback implementations.
+  `runtime_perk_owner_projection.gd` owns owner-facing runtime perk field
+  projection: projection-state payload assembly, runtime/effective level
+  copies, pending-choice/starpoint/gold counters, choice-active flag, item
+  perk level bonus, and Viper Ignition Aura flag.
+  `runtime_perk_owner_sync_flow.gd` owns state-facing owner-sync orchestration:
+  runtime-state projection into owner-facing payloads, owner-effect sync
+  context assembly, item/mythic runtime-perk consumer refresh routing, and
+  skill-config training refresh routing. Its runtime-state facade also owns
+  owner projection / owner-effect-sync helper lookup and get-instance callback
+  assembly for owner-effect, item-polish, mythic-consumer, and training
+  refreshes. `runtime_perk_state.gd` keeps the narrow callback names consumed
+  by choice, unlock, debug, dynamic-effect, and instant/deferred flows.
+  `runtime_perk_reset_state.gd` owns plain runtime perk reset field
+  payload/application: run-level dictionaries, pending/starpoint/gold counters,
+  choice modal fields, feedback fields, selected-choice snapshot fields,
+  item/perk bonus flags, unlock-swap indices/latches, and choice context/status
+  clears. Its runtime-state reset facade also owns reset ordering and
+  side-effectful helper-object resets such as cooldown resume, absorption,
+  flight, showcase, deferred-instant, and resume-safety reset.
+  `runtime_perk_state.gd` keeps the public `reset()` wrapper.
+  `runtime_perk_choice_layout.gd` owns runtime perk choice modal geometry:
+  responsive card / description / status-panel / hint positions, animated
+  card entry offsets, runtime-state choice-count / animation-time extraction
+  for layout facades, card hit rects, mouse hit-index resolution, ambient
+  choice-modal particles, runtime-state particle rebuild, and live
+  particle-field application.
+  `runtime_perk_state.gd` keeps the public `build_layout()` /
+  `get_card_rects()` wrappers for overlay and input callers.
+  `runtime_perk_resume_safety.gd` owns the post-choice ball resume freeze /
+  recovery lifecycle, pre-choice velocity capture, Stopwatch velocity handoff,
+  serve-wait / Stopwatch arming guards, and upward-hit release so attack skills
+  can preserve their launch velocity after the modal closes. Its runtime-state
+  facade owns resume-safety helper lookup for state wrappers and the pre-update
+  Viper Ignition Aura dirty owner-sync handoff before each resume-safety tick.
+  `runtime_perk_starpoint_absorption.gd` owns starpoint collection update
+  payloads and the post-modal starpoint absorption effect payload: collected
+  amount normalization, starpoint-to-choice conversion, live collection result
+  application to starpoint / pending-choice state, collection feedback,
+  post-collection choice-open / failed-open resume-cleanup gating, activation,
+  duration, deterministic sparkle seeds, moving-paddle target/source screen
+  projection, runtime-state active / start / update facades including flight-
+  layout lookup for projection, and snapshot data consumed by the overlay
+  renderer.
+  `runtime_perk_starpoint_collection_flow.gd` owns starpoint collection
+  orchestration around those payloads: collection-update construction and
+  application, Megingjord new-pending-choice reset callbacks, collection
+  feedback application, post-collection choice-open planning, pre-choice
+  resume velocity capture, `open_next_choice()` callback routing, failed-open
+  pre-choice cleanup, owner sync callback routing, and public choice-active
+  result normalization. Its runtime-state facade also owns the helper lookup,
+  callback-map assembly, and default starpoint-to-choice conversion value used
+  by the public `runtime_perk_state.gd` `collect_star_points()` wrapper.
+  `runtime_perk_state.gd` keeps the public wrapper, live fields, and
+  side-effect callbacks.
+  `runtime_perk_active_unlock_flight.gd` owns active-skill unlock flight
+  payload construction: selected-card index bounds / source-rect handoff,
+  target skill-orb slot resolution, pillar/orb layout lookup, deterministic
+  trail particles, flight state application, flight effect consumption /
+  clearing, landing payload validation, active-state gating including the
+  runtime-state active query, flight age advancement, and runtime-state flight
+  layout facade routing.
+  `runtime_perk_state.gd` still owns the choice modal, delayed unlock
+  application callback, failure feedback, and live state fields.
+  `runtime_perk_unlock_showcase.gd` owns the junior-mode active-skill unlock
+  showcase payload: open eligibility, skill metadata fallback, display age,
+  input-dismiss gate, auto-dismiss age, runtime-state active query, showcase
+  state application, and payload consumption. `runtime_perk_unlock_showcase_flow.gd` owns junior unlock
+  showcase orchestration: finish-vs-open branching, showcase state application
+  plus owner sync, auto/input dismissal, consumed-showcase choice extraction,
+  delayed successful-choice callback handoff, runtime-state showcase/controller
+  lookup, and callback-map assembly. It does not commit the unlock, resume
+  cooldowns, or run post-choice starpoint absorption directly; those delayed-
+  success side effects remain in `runtime_perk_state.gd` callbacks.
+  `runtime_perk_unlock_swap_layout.gd` owns pending unlock-swap modal geometry
+  and hit testing: panel / card sizing, narrow-view scaling, option rect
+  construction, runtime-state pending-swap extraction for layout facades, and
+  mouse index resolution. `runtime_perk_state.gd` keeps the pending swap state,
+  gamepad latch fields, and narrow cancel / confirm wrappers.
+  `runtime_perk_unlock_swap_flow.gd` owns pending unlock-swap flow policy:
+  slot-full start gating, pending payload construction from skill-config
+  display data, pending-swap existence / snapshot / selected-index queries,
+  runtime-state-facing query extraction, candidate-count / has-candidates
+  queries, pending-swap-based selected-index move / direct / clamp state
+  updates, runtime-state move / direct selection facades,
+  runtime-state-facing confirm assembly
+  for pending payload / selected index / live levels / catalog / character type
+  lookup, level-side-effect helper lookup, confirm callback-map assembly,
+  confirm-request validation / payload extraction, confirm selection-update
+  callback sequencing, confirm skill-config request construction / registry
+  resolution, confirm level-commit callback sequencing, confirm owner-effect
+  sync callback sequencing, full pending-swap confirm orchestration,
+  confirm-completion state/showcase payload planning plus post-confirm
+  completion/showcase callback sequencing, live pending-swap state application,
+  feedback-helper routing
+  for cancel / confirm state updates, runtime-state-facing feedback-helper /
+  fallback-timer / owner-sync callback assembly for swap state application,
+  runtime-state cancel orchestration including pending-swap guard and cancel
+  state-update application,
+  owner-sync callback sequencing after helper application, selected shared-slot swap execution plus confirm-request
+  selected-index routing and replaced unlock-perk cleanup sequencing including
+  the Commando pistol fallback id,
+  Commando weapon controller / weapon-change-audio sync including confirm-request
+  wrapper routing, and swap cancel / confirm feedback payloads.
+  `runtime_perk_state.gd` keeps the public pending state, modal input wrapper,
+  owner-sync callback handoff, owner-effect sync implementation, and
+  unlock-showcase finish implementation.
+  `runtime_perk_skill_cooldown_pause.gd` owns the runtime perk choice modal's
+  player-skill cooldown pause lifecycle: resolving
+  `battle_scene_skill_tooltip_driver`, calling pause once per modal, retaining
+  the pause owner / registry, and resuming exactly once on choice close or
+  reset. Its runtime-state facade owns pause/resume helper lookup for state
+  wrappers and reset lifecycle callers. `runtime_perk_state.gd` keeps the
+  narrow pause/resume wrapper names.
+  `runtime_perk_deferred_instants.gd` owns result-box deferred instant perk
+  state for `instant_dimension_gate` and `instant_gauge_full`: context-key
+  deferral checks, pending flags, origin-stage guards, pending feedback text,
+  queued-choice success feedback payloads, next-spawn-intro action collection,
+  ready-action resolution, success/failure result flags, feedback text
+  resolution, owner-sync request policy, state-update extraction, and
+  helper-owned feedback application sequencing / public-result cleanup.
+  `runtime_perk_state.gd` still applies the actual dimension gate / full-gauge
+  side effects through callbacks and keeps the public
+  pending-query and `on_ball_spawn_intro_finished()` surfaces.
+  `runtime_perk_effective_levels.gd` owns runtime perk effective-level and
+  numeric bonus policy: Lv.6+ bonus eligibility, Ignition Aura exclusions,
+  Ignition Aura active-state dirty-sync payloads, item perk-level bonus clamp
+  payloads, dynamic owner/training/consumer refresh plans, dirty owner-sync
+  refresh plans, converted-perk bridge levels, Polish amplify eligibility,
+  shared dash / item / treasure-map / common-stat bonus math, derived
+  dash / active-item / player stat query formulas, Laurel leaf totals, and
+  combo-amplifier output.
+  `runtime_perk_effective_stat_query_surface.gd` owns runtime-state
+  projection for public effective-stat reads: runtime-state-facing effective-
+  level helper lookup, extracting current `runtime_skill_levels`, item
+  perk-level bonus, Ignition Aura active state, applying those inputs to the
+  effective-level helper, neutral fallbacks for missing helpers, Viper Ignition
+  Aura level-bonus / level-bonus eligibility reads, Sacred Laurel registry
+  bonus lookup for Laurel leaf count, and runtime-state-facing get-instance
+  callback assembly for the Laurel wrapper. `runtime_perk_state.gd` keeps the
+  public query wrapper names consumed by HUD, item, dash, owner-effect, and
+  skill-config callers.
+  `runtime_perk_dynamic_effects.gd` owns runtime perk dynamic-effect
+  orchestration for Viper Ignition Aura and item perk-level bonus sources:
+  active-state update / query application, item-level bonus update / query
+  application,
+  dynamic refresh plan execution, dirty owner-sync refresh execution, owner
+  effect sync callback sequencing, no-owner skill-config training fallback,
+  consumer refresh callback sequencing, runtime-state effective-level helper
+  lookup, and callback-map assembly for those operations.
+  `runtime_perk_state.gd` keeps the public setter / refresh wrapper names
+  consumed by HUD, item, dash, and owner-effect callers.
+  `runtime_perk_instant_rewards.gd` owns instant perk runtime side effects
+  and bookkeeping: owner-character-aware full-gauge refill / dash-token
+  refill / skill-cooldown reset, Dimension Gate activation through active-item runtime, Monkey
+  Blessing delivery or banana-fill fallback, Treasure Hunt runtime start,
+  `common_refresh` pending-choice bookkeeping, `star_change`
+  starpoint-to-choice conversion, immediate full-gauge / Dimension Gate /
+  Monkey Blessing / Treasure Hunt success feedback payloads, bookkeeping
+  feedback payloads, bookkeeping state-update extraction, generic
+  `is_instant` feedback payloads, and debug instant current / next level
+  payloads.
+  `runtime_perk_instant_choice_flow.gd` owns instant-choice orchestration
+  around those payload helpers: runtime-state-facing dependency assembly for
+  full-gauge / Dimension Gate apply wrappers, deferred full-gauge /
+  Dimension Gate queue wrappers and pending/defer queries, spawn-intro deferred
+  action collection / resolution / feedback application, owner-sync callback
+  routing after deferred actions, and runtime-state-facing Monkey Blessing /
+  Treasure Hunt choice wrapper dispatch. `runtime_perk_state.gd` keeps choice
+  dispatch, shared helper-feedback result application, owner-state writes, and the
+  public/private callback names consumed by choice-action runners and
+  spawn-intro completion callers.
+  `runtime_perk_level_side_effects.gd` owns post-level-up side effects:
+  ordinary level-choice update payloads, max-level capping, level feedback
+  payloads, unlock-choice success update payloads and runtime-level commits,
+  debug level-grant clamp / current-next / feedback payloads,
+  debug unlock-grant current / next payloads,
+  `dash_amplification` dash-token reset policy including mythic capacity
+  override, owner-effect sync callback dispatch, mythic runtime-perk consumer
+  refresh, and the defensive unlock-side-effect fallback for skill config /
+  Commando weapon sync. Its runtime-state facade owns character-context /
+  unlock-swap helper lookup and callback assembly for get-instance,
+  owner-effect sync, and mythic-consumer refresh.
+  `runtime_perk_state.gd` keeps the public level write and narrow
+  `_apply_level_side_effect()` / debug-grant entry wrappers.
+  `runtime_perk_lingpet_rewards.gd` owns runtime perk Lingpet one-shot reward
+  application: affinity-chip enhancement, this-run ring-core tier upgrades
+  through `lingpet_egg_runtime`, max-tier / stale-tier guards, localized
+  ring-core tier-name resolution, Lingpet reward feedback payloads, runtime-
+  state-facing get-instance callback assembly for affinity-chip / ring-core
+  choice actions and ring-core offer-cooldown ticks, debug ring-core tier-clamp
+  payloads, and ring-core offer-cooldown ticks. `runtime_perk_state.gd` keeps
+  the choice branch and applies helper feedback fields to the live modal state.
+  `runtime_perk_owner_effect_sync.gd` owns runtime perk owner-effect sync:
+  sync-context payload assembly, effective-level / accessory / Laurel leaf
+  owner fields, combined perk + active-item + mythic paddle scaling,
+  grounded-bottom preservation during resize, warp-gate-aware x clamps,
+  player-skill cooldown multiplier sync, and mythic runtime-perk scaling
+  refreshes. `runtime_perk_owner_sync_flow.gd` owns the runtime-state-facing
+  context assembly and refresh dispatch into this helper.
+  `runtime_perk_gold_awards.gd` owns runtime perk gold calculation policy:
+  rally speed tiers, enraged / Ignition Aura / Gold Digger order, Smasher combo
+  scaling, Blacksmith structure bonuses, owner-context extraction, rally /
+  skill-gold award payload construction, arena-mode rally suppression, dash
+  rally multiplier consumption, `convert_to_gold` award payload construction,
+  Ignition Aura gold-bonus lookup, item-gold multiplier clamp payloads,
+  item-gold multiplier live-state application,
+  stored-gold / conversion feedback text metadata, default gold-feedback
+  fallback resolution, gold award state-update extraction, state-field
+  application payloads, and live stored-gold state application.
+  `runtime_perk_gold_award_flow.gd` owns runtime perk gold award
+  orchestration: public rally-gold / skill-gold / already-boosted store
+  calls, `convert_to_gold` choice award dispatch, current gold / item
+  multiplier / Ignition Aura state reads, runtime-state item-gold multiplier
+  setter / getter wrappers, runtime-state rally-gold calculator wrapping,
+  Ignition Aura gold-bonus query wrapping,
+  award-result application fallback, feedback callback wiring, runtime-state-facing dependency assembly for
+  rally / skill / stored / conversion / award-result wrapper calls,
+  Smasher combo-state lookup for conversion choices, owner sync after
+  conversion, and the public returned-total normalization.
+  `runtime_perk_state.gd` keeps the public/private wrapper names consumed by
+  player-hit, skill-hit, choice-action, and legacy helper call sites.
   The battle scene shell only routes the public starpoint trigger, debug F8
   trigger, modal input,
   modal pause, and draw ordering.

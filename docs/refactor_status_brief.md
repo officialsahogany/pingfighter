@@ -1,6 +1,6 @@
 # Refactoring Status Brief
 
-> Last updated: 2026-07-01
+> Last updated: 2026-07-09
 
 현재 Godot 포트 리팩터링 상태를 한 장으로 요약한다. 운영 규칙은
 `AGENTS.md`, 현재 경계는 `docs/current_development_boundary.md`, 모듈별
@@ -8,11 +8,11 @@
 
 ## Snapshot Delta
 
-| Metric | 2026-05-11 snapshot | Current (2026-07-01) | Delta |
+| Metric | 2026-05-11 snapshot | Current (2026-07-09) | Delta |
 |---|---:|---:|---:|
-| `godot/scripts/` `.gd` files | 582 | 1298 | +716 (+123%) |
-| `godot/tests/` `.gd` files | 299 | 848 | +549 (+184%) |
-| `godot/tests/*_smoke.gd` files | n/a | 846 | n/a |
+| `godot/scripts/` `.gd` files | 582 | 1349 | +767 (+132%) |
+| `godot/tests/` `.gd` files | 299 | 922 | +623 (+208%) |
+| `godot/tests/*_smoke.gd` files | n/a | 920 | n/a |
 
 Key movement since the old brief:
 
@@ -37,9 +37,9 @@ Key movement since the old brief:
 
 | Folder | Files | Notes |
 |---|---:|---|
-| `scripts/items/` | 209 | Active/passive/legendary/mythic item runtimes and field effects |
-| `scripts/stages/` | 198 | Stage routing, boss states, backgrounds, playfields, skill HUDs |
-| `scripts/characters/` | 194 | Smasher, Commando, Viper, Optimus, Blacksmith, shared player state |
+| `scripts/items/` | 210 | Active/passive/legendary/mythic item runtimes and field effects |
+| `scripts/stages/` | 199 | Stage routing, boss states, backgrounds, playfields, skill HUDs |
+| `scripts/characters/` | 243 | Smasher, Commando, Viper, Optimus, Blacksmith, shared player state |
 | `scripts/core/` | 201 | Match flow, scene shell, context builders, debug pickers |
 | `scripts/lingpet/` | 127 | Affinity, hatch/loadout, language, active/passive skills, feed/item-egg flows |
 | `scripts/hud/` | 130 | Pillar HUD, gauge orbs, scoreboards, tooltips, overlays |
@@ -62,20 +62,20 @@ Key movement since the old brief:
 | Stage 4 | Ponk | Route, idle-sheet actor, skill-card HUD, magnetic/meditation FX, and result background/fallback actor click pulse present; full dedicated action/result sheet set incomplete | 27 |
 | Stage 5 | Hongryun | Active Godot Stage 5 route with routed state, actor, playfield, pillar/background, fire-machine, boss skill-card HUD, and result background/fallback actor click pulse | 15 |
 | Stage 6 | Tetriser | Runtime route present with boss sprite, playfield, static pillar background, Crystal Shield, and boss skill-card HUD; loading/result backgrounds and result boss-defeat slot/click pulse routed from existing Tetriser art, dedicated result Live2D polish pending | 9 |
-| `common` | Shared stage helpers | Boss skill-card sizing, rail helpers, shared stage utilities | 17 |
+| `common` | Shared stage helpers | Boss skill-card sizing, rail helpers, shared stage utilities | 18 |
 | `root` | Stage router | `stage_runtime_router.gd` role-to-module routing | 1 |
 
 ## Character Status
 
 | Character surface | Files | Current read |
 |---|---:|---|
-| Smasher-prefixed | 69 | Mature core skill/runtime surface |
+| Smasher-prefixed | 70 | Mature core skill/runtime surface |
 | Commando-prefixed | 59 | Mature firearm/supply/support runtime surface |
 | Viper-prefixed | 47 | Mature skill runtime surface with several split helpers |
 | Optimus-prefixed | 2 | Early runtime presence |
 | Blacksmith-prefixed | 5 | Early runtime/config/shield surface |
 | Baltor-prefixed | 0 | No Godot character surface yet |
-| Shared/generic player/runtime-perk surface | 12 | Movement, lock proxy, customization overlay, runtime perk state/catalog |
+| Shared/generic player/runtime-perk surface | 60 | Movement, lock proxy, customization overlay, runtime perk state/catalog |
 
 ## Ringpet / Lingpet Status
 

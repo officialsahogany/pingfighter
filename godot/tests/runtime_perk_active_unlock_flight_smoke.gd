@@ -2,6 +2,8 @@ extends SceneTree
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const RuntimePerkActiveUnlockFlight := preload("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
+const RuntimePerkStarpointAbsorption := preload("res://scripts/characters/runtime_perk_starpoint_absorption.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 
@@ -133,6 +135,12 @@ class FakeStarpointStage:
 	var starpoint_particles: Array = [{"pos": Vector2(3.0, 4.0)}]
 
 
+class FakeFlightState:
+	extends RefCounted
+
+	var choice_flight_effect: Dictionary = {}
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -189,14 +197,133 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_active_unlock_flight_state_application_helper()
+	_verify_active_unlock_flight_selected_card_builder()
+	_verify_active_unlock_flight_advance_helper()
 	_verify_active_unlock_waits_for_orb_flight()
+	_verify_active_unlock_chain_reopens_with_input_guard()
 	_verify_soldier_unlock_syncs_commando_controller()
 	_verify_result_box_dimension_gate_waits_for_next_spawn_intro_finish()
 	_verify_result_box_full_gauge_waits_for_next_spawn_intro_finish()
+	_verify_starpoint_collection_update_helper()
 	_verify_collect_starpoints_preserves_in_flight_drops()
 	_verify_starpoint_absorption_tracks_player_after_choice()
 	print("runtime_perk_active_unlock_flight_smoke: ok")
 	quit(0)
+
+
+func _verify_active_unlock_flight_state_application_helper() -> void:
+	var helper := RuntimePerkActiveUnlockFlight.new()
+	var state := FakeFlightState.new()
+	var effect := {
+		"active": true,
+		"choice": {"id": "unlock_plasma", "unlocks_skill": "plasma"},
+		"choice_id": "unlock_plasma",
+		"skill_id": "plasma",
+		"age": 0.0,
+	}
+	var apply_result: Dictionary = helper.apply_effect_state_update(state, effect)
+	_expect(bool(apply_result.get("accepted", false)), "active unlock flight helper should apply flight state")
+	_expect(helper.is_active(state.choice_flight_effect), "active unlock flight helper should store an active flight")
+	_expect(helper.is_active_from_runtime_state(state), "active unlock flight helper should read active flight state from runtime-state facade")
+	_expect(str(state.choice_flight_effect.get("skill_id", "")) == "plasma", "active unlock flight helper should keep skill id")
+	effect["skill_id"] = "mutated_after_apply"
+	_expect(str(state.choice_flight_effect.get("skill_id", "")) == "plasma", "active unlock flight helper should deep-copy payloads")
+	_expect(not helper.is_active_from_runtime_state(null), "active unlock flight runtime-state facade should reject missing state")
+	_expect(not bool(helper.apply_effect_state_update(null, effect).get("accepted", true)), "active unlock flight helper should reject null state")
+	var consumed: Dictionary = helper.consume_effect(state.choice_flight_effect)
+	_expect(str(consumed.get("skill_id", "")) == "plasma", "active unlock flight helper should consume a flight snapshot")
+	consumed["skill_id"] = "mutated_after_consume"
+	_expect(state.choice_flight_effect.is_empty(), "active unlock flight helper should clear consumed flight state")
+	_expect(not helper.is_active_from_runtime_state(state), "active unlock flight runtime-state facade should report consumed state as inactive")
+	_expect(helper.consume_effect(state.choice_flight_effect).is_empty(), "active unlock flight helper should tolerate empty consume calls")
+	var landing_payload: Dictionary = helper.build_landing_payload(consumed)
+	_expect(bool(landing_payload.get("accepted", false)), "active unlock flight helper should build landing payloads from consumed effects")
+	_expect(str(landing_payload.get("choice_id", "")) == "unlock_plasma", "active unlock flight helper should preserve landing choice id")
+	var landing_choice: Dictionary = _get_dict(landing_payload.get("choice", {}))
+	_expect(str(landing_choice.get("id", "")) == "unlock_plasma", "active unlock flight helper should preserve landing choice data")
+	landing_choice["id"] = "mutated_after_landing_payload"
+	_expect(str(_get_dict(consumed.get("choice", {})).get("id", "")) == "unlock_plasma", "active unlock flight landing payload should deep-copy choice data")
+	_expect(not bool(helper.build_landing_payload({}).get("accepted", true)), "active unlock flight helper should reject empty landing effects")
+	_expect(not bool(helper.build_landing_payload({"choice_id": "missing_choice"}).get("accepted", true)), "active unlock flight helper should reject landing effects without choice data")
+
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
+	var confirm_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_confirm_flow.gd")
+	var active_body: String = _function_body(state_source, "func is_choice_flight_active(")
+	var finish_body: String = _function_body(confirm_flow_source, "func finish_choice_flight_effect(")
+	var update_body: String = _function_body(state_source, "func _update_choice_flight_effect(")
+	_expect(state_source.find("_choice_confirm_flow.choose_selected") >= 0, "runtime perk state should route selection confirm through confirm-flow")
+	_expect(helper_source.find("func is_active_from_runtime_state(") >= 0, "active unlock flight helper should expose runtime-state active query")
+	_expect(active_body.find("_active_unlock_flight.is_active_from_runtime_state") >= 0, "runtime perk state should route active flight query through runtime-state facade")
+	_expect(active_body.find("choice_flight_effect") < 0, "runtime perk state should not pass flight effect directly for active query")
+	_expect(confirm_flow_source.find("apply_effect_state_update") >= 0, "confirm-flow helper should delegate flight state writes")
+	_expect(confirm_flow_source.find("consume_effect") >= 0, "confirm-flow helper should delegate flight effect consumption")
+	_expect(finish_body.find("build_landing_payload") >= 0, "confirm-flow helper should delegate flight landing payload validation")
+	_expect(state_source.find("choice_flight_effect = effect") < 0, "runtime perk state should not assign flight effect inline")
+	_expect(update_body.find("choice_flight_effect.duplicate(true)") < 0, "runtime perk state should not duplicate flight effects inline")
+	_expect(update_body.find("_active_unlock_flight.reset(choice_flight_effect)") < 0, "runtime perk state should not reset consumed flight effects inline")
+	_expect(update_body.find("effect.get(\"choice\"") < 0, "runtime perk state should not parse landing choice from flight effect inline")
+	_expect(update_body.find("effect.get(\"choice_id\"") < 0, "runtime perk state should not parse landing choice id inline")
+
+
+func _verify_active_unlock_flight_selected_card_builder() -> void:
+	var helper := RuntimePerkActiveUnlockFlight.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var view_size := Vector2(1488.0, 918.0)
+	var choice := {
+		"id": "unlock_plasma",
+		"name": "plasma",
+		"unlocks_skill": "plasma",
+		"character_restriction": "smasher",
+		"icon_color": Color(0.0, 0.78, 1.0),
+	}
+	var rects := [
+		Rect2(Vector2(110.0, 140.0), Vector2(180.0, 120.0)),
+		Rect2(Vector2(340.0, 140.0), Vector2(180.0, 120.0)),
+	]
+	var effect: Dictionary = helper.build_effect_for_selected_card(choice, 1, rects, owner, registry, view_size)
+	_expect(bool(effect.get("active", false)), "selected-card builder should create an active flight")
+	_expect(str(effect.get("skill_id", "")) == "plasma", "selected-card builder should preserve the unlocked skill id")
+	_expect(_get_vector2(effect.get("source_pos", Vector2.ZERO)) == rects[1].get_center(), "selected-card builder should use the selected card center")
+	_expect(helper.build_effect_for_selected_card(choice, -1, rects, owner, registry, view_size).is_empty(), "selected-card builder should reject negative selected indices")
+	_expect(helper.build_effect_for_selected_card(choice, rects.size(), rects, owner, registry, view_size).is_empty(), "selected-card builder should reject out-of-range selected indices")
+	_expect(helper.build_effect_for_selected_card({}, 0, rects, owner, registry, view_size).is_empty(), "selected-card builder should reject choices without an unlocked skill")
+	var layout_state: Dictionary = helper.build_layout_state_from_runtime_state(FakeFlightState.new(), registry, view_size)
+	_expect(not layout_state.is_empty(), "runtime-state layout facade should build a visible game layout")
+	_expect(float(layout_state.get("width", 0.0)) > 0.0, "runtime-state layout facade should preserve game width")
+	_expect(float(layout_state.get("height", 0.0)) > 0.0, "runtime-state layout facade should preserve game height")
+	_expect(helper.build_layout_state_from_runtime_state(null, registry, view_size).is_empty(), "runtime-state layout facade should reject missing state")
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var confirm_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_confirm_flow.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
+	var layout_body: String = _function_body(state_source, "func _build_flight_layout_state(")
+	_expect(state_source.find("_choice_confirm_flow.choose_selected") >= 0, "runtime perk state should route selected-card flight construction through confirm-flow")
+	_expect(confirm_flow_source.find("build_effect_for_selected_card") >= 0, "confirm-flow helper should delegate selected-card flight construction")
+	_expect(helper_source.find("func build_layout_state_from_runtime_state(") >= 0, "active unlock flight helper should expose runtime-state layout facade")
+	_expect(layout_body.find("_active_unlock_flight.build_layout_state_from_runtime_state") >= 0, "runtime perk state should route flight layout through runtime-state facade")
+	_expect(layout_body.find("_active_unlock_flight.build_layout_state(") < 0, "runtime perk state should not consume raw flight layout builder")
+	_expect(state_source.find("selected_index < 0 or selected_index >= rects.size()") < 0, "runtime perk state should not own selected-card bounds checks")
+	_expect(state_source.find("var source_rect: Rect2 = rects[selected_index]") < 0, "runtime perk state should not extract the selected-card source rect inline")
+
+
+func _verify_active_unlock_flight_advance_helper() -> void:
+	var helper := RuntimePerkActiveUnlockFlight.new()
+	_expect(not helper.advance({}, 1.0), "flight advance helper should ignore empty effects")
+	var inactive_effect := {"active": false, "age": 0.0, "duration": 0.1}
+	_expect(not helper.advance(inactive_effect, 1.0), "flight advance helper should ignore inactive effects")
+	_expect(is_equal_approx(float(inactive_effect.get("age", 0.0)), 0.0), "flight advance helper should not mutate inactive effect age")
+	var active_effect := {"active": true, "age": 0.0, "duration": 0.5}
+	_expect(not helper.advance(active_effect, 0.2), "flight advance helper should keep unfinished flights active")
+	_expect(is_equal_approx(float(active_effect.get("age", 0.0)), 0.2), "flight advance helper should advance active effect age")
+	_expect(helper.advance(active_effect, 0.3), "flight advance helper should finish at duration")
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var confirm_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_confirm_flow.gd")
+	var update_body: String = _function_body(state_source, "func _update_choice_flight_effect(")
+	_expect(update_body.find("choice_flight_effect.is_empty()") < 0, "runtime perk state should not inspect flight effect emptiness before advance")
+	_expect(update_body.find("_choice_confirm_flow.update_choice_flight_effect") >= 0, "runtime perk state should route flight advancement through confirm-flow")
+	_expect(confirm_flow_source.find("advance(choice_flight_effect") >= 0, "confirm-flow helper should delegate flight advancement")
 
 
 func _verify_active_unlock_waits_for_orb_flight() -> void:
@@ -260,6 +387,53 @@ func _verify_active_unlock_waits_for_orb_flight() -> void:
 	_expect(state.pending_skill_choices == 0, "successful unlock should consume one pending perk choice")
 	_expect(int(state.runtime_skill_levels.get("unlock_plasma", 0)) == 1, "unlock perk level should be committed after landing")
 	_expect(not registry.has_requested_key("commando_weapon_controller"), "smasher unlock should not instantiate or sync the commando weapon controller")
+
+
+func _verify_active_unlock_chain_reopens_with_input_guard() -> void:
+	var state := RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var view_size := Vector2(1488.0, 918.0)
+	var unlock_choice := {
+		"id": "unlock_plasma",
+		"name": "plasma",
+		"unlocks_skill": "plasma",
+		"character_restriction": "smasher",
+		"icon_color": Color(0.0, 0.78, 1.0),
+		"tree": "unlock",
+		"max_level": 1,
+		"current_level": 0,
+		"next_level": 1,
+	}
+	registry.runtime_perk_catalog.choices = [
+		_build_basic_choice("dash_training"),
+		_build_basic_choice("guard_training"),
+		_build_basic_choice("speed_training"),
+	]
+	state.pending_skill_choices = 2
+	state.choice_active = true
+	state.current_choices = [unlock_choice]
+	state.selected_index = 0
+	state.animation_time = 0.5
+
+	state.choose_selected(owner, registry, view_size)
+	_expect(state.is_choice_flight_active(), "chained active unlock should start the orb-flight before reopening choices")
+
+	state.update(1.85, view_size, owner, registry)
+	_expect(state.is_choice_flight_active(), "chained active unlock should still be flying just before landing")
+	_expect(state.animation_time > 0.24, "orb-flight wait should accumulate old modal animation time before landing")
+
+	state.update(0.02, view_size, owner, registry)
+	_expect(registry.skill_config.equipped_skills.has("plasma"), "chained active unlock should equip the skill on landing")
+	_expect(not state.is_choice_flight_active(), "chained active unlock should clear the flight on landing")
+	_expect(state.is_choice_active(), "chained active unlock should open the next perk-choice modal")
+	_expect(state.pending_skill_choices == 1, "chained active unlock should leave one pending choice after opening the next modal")
+	_expect(state.current_choices.size() == 3, "chained active unlock should populate the next modal from the catalog")
+	_expect(
+		state.animation_time < 0.24,
+		"new chained modal should keep its input guard instead of inheriting the old modal animation time"
+	)
+	_expect(not state.is_selectable(), "new chained modal should not be selectable on its first landing frame")
 
 
 func _verify_soldier_unlock_syncs_commando_controller() -> void:
@@ -378,6 +552,23 @@ func _verify_result_box_full_gauge_waits_for_next_spawn_intro_finish() -> void:
 	_expect(not state.has_pending_full_gauge_after_spawn_intro(), "activated full gauge should clear the queued effect")
 
 
+func _verify_starpoint_collection_update_helper() -> void:
+	var helper := RuntimePerkStarpointAbsorption.new()
+	var update: Dictionary = helper.build_collection_update(3, 0, 1, RuntimePerkState.STARPOINT_PER_SKILL_CHOICE)
+	_expect(int(update.get("next_pending_skill_choices", 0)) == 4, "starpoint collection helper should convert collected points into pending choices")
+	_expect(int(update.get("next_starpoint_for_skills", -1)) == 0, "starpoint collection helper should expose the starpoint remainder")
+	_expect(int(update.get("granted_choices", 0)) == 3, "starpoint collection helper should expose granted choice count")
+	_expect(str(update.get("feedback_text", "")) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +3", "starpoint collection helper should own collection feedback text")
+	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "starpoint collection helper should own collection feedback timer")
+
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var collection_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_starpoint_collection_flow.gd")
+	_expect(state_source.find("RuntimePerkStarpointCollectionFlow") >= 0, "runtime perk state should use the starpoint collection-flow helper")
+	_expect(collection_flow_source.find("build_collection_update") >= 0, "starpoint collection flow should use the starpoint collection helper")
+	_expect(state_source.find("while starpoint_for_skills >=") < 0, "runtime perk state should not own starpoint-to-choice conversion loop")
+	_expect(state_source.find("\"스타포인트 +%d\"") < 0, "runtime perk state should not own starpoint collection feedback text")
+
+
 func _verify_collect_starpoints_preserves_in_flight_drops() -> void:
 	var state := RuntimePerkState.new()
 	var owner := FakeOwner.new()
@@ -389,6 +580,8 @@ func _verify_collect_starpoints_preserves_in_flight_drops() -> void:
 	_expect(opened, "collecting a full starpoint should open the perk choice modal")
 	_expect(state.is_choice_active(), "starpoint collection should activate the perk choice modal")
 	_expect(state.pending_skill_choices == 1, "starpoint collection should queue one pending choice")
+	_expect(str(state.feedback_text) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +1", "starpoint collection should apply helper-owned feedback text")
+	_expect(is_equal_approx(float(state.feedback_timer), RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "starpoint collection should apply helper-owned feedback timer")
 	_expect(not registry.stage1_balloon_event.starpoint_drops.is_empty(), "Stage 1 in-flight starpoint drops should survive the modal open")
 	_expect(not registry.stage1_balloon_event.starpoint_particles.is_empty(), "Stage 1 starpoint particles should survive the modal open")
 	_expect(not registry.stage2_pillar_background.starpoint_drops.is_empty(), "Stage 2 in-flight starpoint drops should survive the modal open")
@@ -462,6 +655,16 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\n\nfunc ", start + signature.length())
+	if next < 0:
+		next = source.length()
+	return source.substr(start, next - start)
 
 
 func _expect(condition: bool, message: String) -> void:
