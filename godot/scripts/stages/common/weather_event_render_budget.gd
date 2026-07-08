@@ -66,6 +66,40 @@ static func get_particle_render_stride_for_context(context: Dictionary, effect_l
 	return get_particle_render_stride_for_type(str(context.get("type", "")), effect_lod_scale)
 
 
+# Core sparse particles that must ALWAYS be a render candidate, immune to both the
+# newest-N render window (particle_start) and index stride. The window/stride budget
+# exists to cap TRANSIENT burst debris, not to evict a long-lived core particle.
+# Hail: a single impact appends 17~98 short-lived impact/burst/shard/dust particles
+# (weather_event_payload_factory.build_hail_impact_particles). Those are appended to
+# the BACK of weather_particles, so they shove the <=3 falling core "hail" stones
+# (at the FRONT / oldest) below the newest-N cutoff. The core then stops rendering
+# mid-air while physics keeps falling, and "reappears" at its fallen position once the
+# debris dies and the array shrinks -> the "중간에서 나타났다 사라짐" symptom.
+static func is_core_always_render_particle(weather_type: String, kind: String) -> bool:
+	return weather_type == "hail" and kind == "hail"
+
+
+# Single source of truth for "should this particle index be skipped this frame",
+# shared by both draw paths (weather_event_renderer._draw_particles and
+# weather_event_state.draw) so the core-always-render + windowed-debris policy can
+# never drift between them. Loops iterate from index 0 (not particle_start) and defer
+# the cutoff decision here.
+static func should_skip_windowed_particle(
+	weather_type: String,
+	kind: String,
+	index: int,
+	particle_start: int,
+	stride: int
+) -> bool:
+	if is_core_always_render_particle(weather_type, kind):
+		return false
+	if index < particle_start:
+		return true
+	if stride > 1 and (index - particle_start) % stride != 0:
+		return true
+	return false
+
+
 static func get_sand_render_stride(effect_lod_scale: float) -> int:
 	if is_severe_lod_active(effect_lod_scale):
 		return SAND_RENDER_STRIDE_SEVERE_LOD

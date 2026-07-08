@@ -342,12 +342,17 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_s
 	_draw_sand(canvas, shake_offset, effect_lod_scale)
 	var particle_start: int = max(0, weather_particles.size() - _get_render_particle_limit(effect_lod_scale))
 	var particle_stride: int = _get_particle_render_stride_for_type(weather_event_type, effect_lod_scale)
-	for particle_index in range(particle_start, weather_particles.size()):
-		if particle_stride > 1 and (particle_index - particle_start) % particle_stride != 0:
-			continue
+	# Iterate from 0 (not particle_start): the window/stride cutoff is deferred to the
+	# shared helper so core sparse particles (falling hail stones) are never evicted by
+	# a transient debris burst. See WeatherEventRenderBudget.should_skip_windowed_particle.
+	for particle_index in range(0, weather_particles.size()):
 		var value: Variant = weather_particles[particle_index]
 		var particle: Dictionary = _get_dict(value)
 		var kind := str(particle.get("kind", "dust"))
+		if WeatherEventRenderBudget.should_skip_windowed_particle(
+			weather_event_type, kind, particle_index, particle_start, particle_stride
+		):
+			continue
 		var pos := Vector2(float(particle.get("x", 0.0)), float(particle.get("y", 0.0))) + shake_offset
 		var alpha: float = clamp(float(particle.get("life", 1.0)) / max(0.001, float(particle.get("max_life", 1.0))), 0.0, 1.0)
 		var color: Color = _get_color(particle.get("color", Color.WHITE))

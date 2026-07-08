@@ -61,6 +61,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_state_render_lod_budgets()
 	_verify_renderer_render_lod_budgets()
+	_verify_hail_core_survives_debris_burst_window()
 	_verify_renderer_prewarm_is_staged()
 	_verify_inactive_weather_draw_is_skipped()
 	_verify_owner_blank_weather_draw_is_skipped()
@@ -157,6 +158,61 @@ func _verify_renderer_render_lod_budgets() -> void:
 	_expect(
 		renderer._get_particle_render_stride(0.58) >= 3,
 		"texture weather renderer should stride particles under severe render LOD"
+	)
+
+
+func _verify_hail_core_survives_debris_burst_window() -> void:
+	# A single hail impact appends 17~98 short-lived impact/burst/shard/dust particles
+	# to the BACK of the array, so the newest-N render window would evict the <=3 falling
+	# core "hail" stones sitting at the FRONT -> the stone vanishes mid-air and later
+	# "reappears" once the debris dies. Build that exact array: 3 core hail followed by a
+	# 40-particle debris burst, then prove all 3 core stay render candidates while the
+	# debris beyond the window is still budget-culled.
+	var WeatherEventRenderBudget := preload("res://scripts/stages/common/weather_event_render_budget.gd")
+	var particles: Array = []
+	for _c in range(3):
+		particles.append({"kind": "hail", "weather_type": "hail"})
+	var debris_kinds := ["hail_impact", "hail_shard", "hail_burst"]
+	for d in range(40):
+		var debris_kind: String = debris_kinds[d % 3]
+		particles.append({"kind": debris_kind, "weather_type": "hail"})
+
+	var render_limit: int = WeatherEventRenderBudget.get_weather_particle_limit("hail", 0.58)
+	var particle_start: int = max(0, particles.size() - render_limit)
+	var stride: int = WeatherEventRenderBudget.get_particle_render_stride_for_type("hail", 0.58)
+	_expect(
+		particle_start > 3,
+		"scenario must push the newest-N window past the 3 front core hail (else the test proves nothing)"
+	)
+
+	var core_rendered := 0
+	var debris_rendered := 0
+	var debris_culled := 0
+	for index in range(particles.size()):
+		var kind := str(particles[index].get("kind", ""))
+		var skipped: bool = WeatherEventRenderBudget.should_skip_windowed_particle(
+			"hail", kind, index, particle_start, stride
+		)
+		if kind == "hail":
+			if not skipped:
+				core_rendered += 1
+		elif skipped:
+			debris_culled += 1
+		else:
+			debris_rendered += 1
+
+	_expect(
+		core_rendered == 3,
+		"all 3 falling core hail stones must stay render candidates even when a 40-particle debris burst overflows the newest-N window (core must never be evicted by transient debris)"
+	)
+	_expect(
+		debris_culled > 0,
+		"transient hail debris beyond the newest-N window must still be budget-culled (core-always-render must not disable the window for debris / perf)"
+	)
+	# Non-hail weather has no core exemption, so the window still cuts the front.
+	_expect(
+		WeatherEventRenderBudget.should_skip_windowed_particle("rain", "rain", 0, 10, 1),
+		"non-core weather particles below the newest-N window must still be skipped"
 	)
 
 
@@ -318,6 +374,14 @@ func _verify_draw_context_route() -> void:
 	_expect(
 		state_source.find("func has_visible_effects()") >= 0,
 		"weather state should expose a fast visible-effect guard for inactive draw skips"
+	)
+	_expect(
+		_function_body(renderer_source, "func _draw_particles").find("WeatherEventRenderBudget.should_skip_windowed_particle(") >= 0,
+		"texture weather renderer particle loop must defer the window/stride cutoff to the shared helper so core hail is never evicted by a debris burst"
+	)
+	_expect(
+		_function_body(state_source, "func draw(").find("WeatherEventRenderBudget.should_skip_windowed_particle(") >= 0,
+		"weather state fallback draw loop must defer the window/stride cutoff to the shared helper so core hail is never evicted by a debris burst"
 	)
 
 
