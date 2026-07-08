@@ -58,6 +58,7 @@ const Stage2PlayfieldBounds := preload("res://scripts/stages/stage2/stage2_playf
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
 const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
+const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
 const Stage2BossExpressionState := preload("res://scripts/stages/stage2/stage2_boss_expression_state.gd")
 const Stage2SkillWarningState := preload("res://scripts/stages/stage2/stage2_skill_warning_state.gd")
 const Stage2BorderFlashState := preload("res://scripts/stages/stage2/stage2_border_flash_state.gd")
@@ -1749,10 +1750,13 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 	var play_left: float = playfield_bounds.get_left(context)
 	var play_right: float = playfield_bounds.get_right(context)
 	var play_height: float = playfield_bounds.get_height(context)
+	var dowsing_context: Dictionary = StarpointDowsingAttraction.resolve_context(context, deps)
+	var dowsing_player_center: Vector2 = StarpointDowsingAttraction.resolve_player_center(context)
 	var write_index := 0
 	var drop_count := starpoint_drops.size()
 	for index in range(drop_count):
 		var d: Dictionary = starpoint_drops[index]
+		StarpointDowsingAttraction.apply_to_drop(d, dowsing_context, dowsing_player_center, fps_scale)
 		if not StarpointDropMotionState.update_drop(
 			d,
 			fps_scale,

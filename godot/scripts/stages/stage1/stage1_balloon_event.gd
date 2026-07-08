@@ -6,6 +6,7 @@ const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lin
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
 const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
+const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
 const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
 const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
@@ -671,10 +672,13 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		_get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
 	)
 	var player_rects: Array[Rect2] = StagePlayerInteractionRects.get_player_interaction_rects(player_rect, deps)
+	var dowsing_context: Dictionary = StarpointDowsingAttraction.resolve_context(context, deps)
+	var dowsing_player_center: Vector2 = StarpointDowsingAttraction.resolve_player_center(context)
 	var write_index := 0
 	var drop_count := starpoint_drops.size()
 	for index in range(drop_count):
 		var d: Dictionary = starpoint_drops[index]
+		StarpointDowsingAttraction.apply_to_drop(d, dowsing_context, dowsing_player_center, fps_scale)
 		if not StarpointDropMotionState.update_drop(
 			d,
 			fps_scale,

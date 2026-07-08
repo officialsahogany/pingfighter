@@ -6,6 +6,7 @@ const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint
 const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
 const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
+const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
 
 # Stage 6 Tetriser boss state.
 #
@@ -1324,10 +1325,13 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		return
 
 	var player_rects: Array[Rect2] = _get_player_interaction_rects(context)
+	var dowsing_context: Dictionary = StarpointDowsingAttraction.resolve_context(context, deps)
+	var dowsing_player_center: Vector2 = StarpointDowsingAttraction.resolve_player_center(context)
 	var write_index := 0
 	var drop_count := _starpoint_drops.size()
 	for index in range(drop_count):
 		var drop: Dictionary = _starpoint_drops[index]
+		StarpointDowsingAttraction.apply_to_drop(drop, dowsing_context, dowsing_player_center, fps_scale)
 		if not StarpointDropMotionState.update_drop(
 			drop,
 			fps_scale,

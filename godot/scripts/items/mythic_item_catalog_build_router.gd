@@ -140,7 +140,7 @@ func _build_dowsing_pendulum(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "다우징팬들럼",
 		"korean_name": "다우징팬들럼",
-		"description": "롤옵션 범위 안의 필드 아이템을 플레이어 패들 쪽으로 끌어당깁니다.",
+		"description": "롤옵션 범위 안의 필드 아이템과 스타포인트를 플레이어 패들 쪽으로 끌어당깁니다.",
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 	}, catalog, "dowsing_pendulum", "passive", "belt2", catalog.get_field_chance("dowsing_pendulum"))
 
