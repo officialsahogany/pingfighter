@@ -30,6 +30,59 @@ class CountingIconRenderer:
 		prewarm_count += 1
 
 
+class FakeRuntimeState:
+	extends RefCounted
+
+	var grant_starts_cinematic := false
+	var debug_grant_calls := 0
+	var last_perk_id := ""
+
+	func debug_set_perk_level(perk_id: String, _target_level: int, _owner: Object, registry: Object, _catalog: Object) -> bool:
+		debug_grant_calls += 1
+		last_perk_id = perk_id
+		if grant_starts_cinematic and registry != null and registry.has_method("get_instance"):
+			var mythic_runtime: Object = registry.get_instance("mythic_item_runtime")
+			if mythic_runtime != null:
+				mythic_runtime.set("active", true)
+		return true
+
+
+class FakeMythicRuntime:
+	extends RefCounted
+
+	var active := false
+
+	func is_acquisition_cinematic_active() -> bool:
+		return active
+
+
+class FakeCatalog:
+	extends RefCounted
+
+	var entries: Array = []
+
+	func _init(initial_entries: Array) -> void:
+		entries = initial_entries
+
+	func get_debug_perk_entries(_character_type: String = "") -> Array:
+		return entries
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var instances: Dictionary = {}
+
+	func _init(initial_instances: Dictionary) -> void:
+		instances = initial_instances
+
+	func get_instance(key: String) -> Object:
+		var value: Variant = instances.get(key, null)
+		if value is Object:
+			return value
+		return null
+
+
 var _failures: Array[String] = []
 
 
@@ -37,6 +90,7 @@ func _init() -> void:
 	_verify_icon_renderer_prewarm()
 	_verify_debug_picker_prewarm()
 	_verify_debug_picker_uses_paged_draw_budget()
+	_verify_debug_picker_closes_for_mythic_cinematic_grant()
 
 	if _failures.is_empty():
 		print("runtime_perk_debug_picker_prewarm_smoke: ok")
@@ -107,6 +161,65 @@ func _verify_debug_picker_uses_paged_draw_budget() -> void:
 	var page_two: Array = picker._get_visible_entries(entries)
 	_expect(not page_two.is_empty(), "debug picker should expose later pages")
 	_expect(str(page_two[0].get("id", "")) != str(visible[0].get("id", "")), "debug picker page changes should shift the visible entry window")
+
+
+func _verify_debug_picker_closes_for_mythic_cinematic_grant() -> void:
+	var view_size := Vector2(1280.0, 720.0)
+	var owner := FakeOwner.new()
+	var mythic_runtime := FakeMythicRuntime.new()
+	var runtime_state := FakeRuntimeState.new()
+	var catalog := FakeCatalog.new([{
+		"id": "odins_eye",
+		"name": "Odin's Eye",
+		"max_level": 1,
+		"rarity": "mythic",
+		"debug_group": "converted_mythic",
+	}])
+	var registry := FakeRegistry.new({
+		"runtime_perk_catalog": catalog,
+		"runtime_perk_state": runtime_state,
+		"mythic_item_runtime": mythic_runtime,
+	})
+	var picker := RuntimePerkDebugPicker.new()
+	picker.toggle()
+	runtime_state.grant_starts_cinematic = true
+	var click := _click_first_debug_card(picker, view_size, catalog.entries)
+	_expect(picker.handle_input(click, owner, registry, view_size), "debug picker should handle mythic card clicks")
+	_expect(runtime_state.debug_grant_calls == 1, "debug picker should apply the clicked mythic debug grant")
+	_expect(mythic_runtime.active, "mythic debug grant fixture should start the acquisition cinematic")
+	_expect(not picker.is_open(), "debug picker should close after a grant starts the mythic acquisition cinematic")
+
+	var normal_state := FakeRuntimeState.new()
+	var normal_runtime := FakeMythicRuntime.new()
+	var normal_catalog := FakeCatalog.new([{
+		"id": "common_bulk_up",
+		"name": "Bulk Up",
+		"max_level": 5,
+		"debug_group": "common",
+	}])
+	var normal_registry := FakeRegistry.new({
+		"runtime_perk_catalog": normal_catalog,
+		"runtime_perk_state": normal_state,
+		"mythic_item_runtime": normal_runtime,
+	})
+	var normal_picker := RuntimePerkDebugPicker.new()
+	normal_picker.toggle()
+	var normal_click := _click_first_debug_card(normal_picker, view_size, normal_catalog.entries)
+	_expect(normal_picker.handle_input(normal_click, owner, normal_registry, view_size), "debug picker should handle ordinary card clicks")
+	_expect(normal_state.debug_grant_calls == 1, "debug picker should apply ordinary debug grants")
+	_expect(normal_picker.is_open(), "debug picker should stay open for ordinary non-cinematic debug grants")
+
+
+func _click_first_debug_card(picker: Object, view_size: Vector2, entries: Array) -> InputEventMouseButton:
+	var visible_entries: Array = picker._get_visible_entries(entries)
+	var panel_rect: Rect2 = picker._get_panel_rect(view_size, visible_entries.size())
+	var layout: Dictionary = picker._build_grid_layout(panel_rect, visible_entries.size())
+	var card_rect: Rect2 = picker._get_card_rect(0, panel_rect, layout)
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	event.position = card_rect.get_center()
+	return event
 
 
 func _expect(condition: bool, message: String) -> void:

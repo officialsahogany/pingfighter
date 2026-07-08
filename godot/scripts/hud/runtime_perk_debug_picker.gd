@@ -200,6 +200,8 @@ func _apply_entry(entry: Dictionary, owner: Object, registry: Object, catalog: O
 	if applied:
 		last_applied_id = perk_id
 		last_applied_timer = 0.65
+		if _is_mythic_acquisition_cinematic_active(registry):
+			close()
 
 
 func _adjust_target_level(mouse_event: InputEventMouseButton, entries: Array, view_size: Vector2) -> void:
@@ -433,6 +435,13 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_mythic_acquisition_cinematic_active(registry: Object) -> bool:
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("is_acquisition_cinematic_active"):
+		return false
+	return bool(mythic_item_runtime.is_acquisition_cinematic_active())
 
 
 func _get_color(value: Variant, fallback: Color) -> Color:
