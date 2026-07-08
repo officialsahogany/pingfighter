@@ -42,6 +42,7 @@ const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_i
 const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.png"
 const LINGPET_APPLE_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_apple_feed_icon.png"
 const LINGPET_MELON_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_melon_feed_icon.png"
+const LINGPET_SPECIAL_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
 const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/resonance_egg_item_icon.png"
 
 const FIELD_SPAWN_ORDER := [
@@ -286,7 +287,7 @@ func _build_lingpet_special_feed() -> Dictionary:
 		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
 		"feed_amount": 100.0,
 		"description": "활성 링펫에게 특제 사료를 줘 포만도를 100 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
-		"icon_path": LINGPET_FEED_ICON_PATH,
+		"icon_path": LINGPET_SPECIAL_FEED_ICON_PATH,
 		"color": Color(0.96, 0.76, 0.28),
 		"no_global_cooldown": true,
 		"shop_guaranteed": true,
