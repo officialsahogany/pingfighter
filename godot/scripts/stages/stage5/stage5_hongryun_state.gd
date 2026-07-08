@@ -1,6 +1,17 @@
 extends RefCounted
 
 const Stage5HongryunPayloadFactory := preload("res://scripts/stages/stage5/stage5_hongryun_payload_factory.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
+const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
+const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
+const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
+const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
+const StarpointDropMotionState := preload("res://scripts/stages/common/starpoint_drop_motion_state.gd")
+const StarpointDropOverlapQuery := preload("res://scripts/stages/common/starpoint_drop_overlap_query.gd")
+const StarpointParticleState := preload("res://scripts/stages/common/starpoint_particle_state.gd")
+const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
+const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
+const StagePlayfieldBounds := preload("res://scripts/stages/common/stage_playfield_bounds.gd")
 
 # Stage 5 홍련 boss state.
 #
@@ -36,6 +47,25 @@ const FIELD_HEIGHT := 750.0
 # === 용 구슬 게이지 (홍련폭염 충전 카운터) ===
 # 원본 game_state.HONGRYUN_MAX_HITS == 5.
 const DRAGON_ORB_MAX := 5
+
+# === 보스 피격 스타포인트 드랍 ===
+# 홍련이 공에 맞을 때(보스 패들 접촉) 단일 굴림 1회:
+# [0, 0.02) → 2개, [0.02, 0.07) → 1개, 나머지 → 없음.
+# per-frame 재굴림이 아니라 접촉 이벤트당 1회라 확률 복리 트랩 없음.
+const BOSS_HIT_STARPOINT_DOUBLE_CHANCE := 0.02
+const BOSS_HIT_STARPOINT_SINGLE_CHANCE := 0.05
+const BOSS_HIT_STARPOINT_SCATTER_PX := 30
+# Drop 물리/수명 상수는 stage1~4 공용 값과 동일 유지.
+const STARPOINT_DROP_SIZE := 12.0
+const STARPOINT_DROP_LIFETIME := 600.0
+const STARPOINT_DROP_ACCELERATION := 0.25
+const STARPOINT_DROP_MAX_FALL_SPEED := 12.0
+const STARPOINT_DROP_BOUNCE_DAMPING := 0.7
+const STARPOINT_PARTICLE_COUNT := 20
+const STARPOINT_PARTICLE_LIFE := 60.0
+const STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES := [-36.0, -24.0, 24.0, 36.0]
+const MAX_STAGE5_STARPOINT_DROPS := 12
+const MAX_STAGE5_STARPOINT_PARTICLES := 96
 
 # === 홍련폭염 (inferno burst) ===
 # charge 1.4초 (원본 1.0초 + cinematic VFX 강도와 맞춤, 2026-05-18 결정)
@@ -119,6 +149,10 @@ var inferno_trail_elapsed_sec := 0.0
 var ball_hold_active := false
 var ball_hijack_reason := ""
 
+# ----- 보스 피격 스타포인트 드랍 -----
+var starpoint_drops: Array = []
+var starpoint_particles: Array = []
+
 # ----- 일반 상태 -----
 var status := "charging"
 var rng := RandomNumberGenerator.new()
@@ -186,6 +220,11 @@ func _clear_combat_state() -> void:
 	inferno_trail_elapsed_sec = 0.0
 	ball_hold_active = false
 	ball_hijack_reason = ""
+	var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
+	starpoint_drops.clear()
+	starpoint_particles.clear()
+	if had_starpoints:
+		CommonStarpointVisualHost.hide_all_existing_hosts()
 
 
 # ============================================================================
@@ -194,7 +233,13 @@ func _clear_combat_state() -> void:
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
-		if inferno_active or dragon_orb_count > 0 or fireball_projectiles.size() > 0:
+		if (
+			inferno_active
+			or dragon_orb_count > 0
+			or fireball_projectiles.size() > 0
+			or not starpoint_drops.is_empty()
+			or not starpoint_particles.is_empty()
+		):
 			reset()
 		return {"skip_ball_motion_step": false}
 
@@ -215,6 +260,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 			sample_start = _perf_begin(perf_logger)
 			_update_fireball_projectiles(fps_scale, context, deps, result)
 			_perf_end(perf_logger, "physics.stage5.hongryun.projectiles_paused", sample_start)
+			_update_starpoint_drops(fps_scale, context, deps)
+			_update_starpoint_particles(fps_scale)
 		result.merge(_build_public_update_result(), false)
 		return result
 	was_waiting_for_serve = false
@@ -239,6 +286,10 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	sample_start = _perf_begin(perf_logger)
 	_update_fireball_projectiles(fps_scale, context, deps, result)
 	_perf_end(perf_logger, "physics.stage5.hongryun.projectiles", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_update_starpoint_drops(fps_scale, context, deps)
+	_update_starpoint_particles(fps_scale)
+	_perf_end(perf_logger, "physics.stage5.hongryun.starpoints", sample_start)
 	result.merge(_build_public_update_result(), false)
 	return result
 
@@ -289,6 +340,8 @@ func get_actor_draw_context() -> Dictionary:
 		"stage5_hongryun_dragon_orb_count": dragon_orb_count,
 		"stage5_hongryun_boss_throwing": boss_throwing_windup_active,
 		"stage5_hongryun_boss_throw_progress": _get_boss_throw_progress(),
+		"stage5_hongryun_starpoint_drops": starpoint_drops.duplicate(true),
+		"stage5_hongryun_starpoint_particles": starpoint_particles.duplicate(true),
 	}
 
 
@@ -322,8 +375,10 @@ func register_fireball_hit_player(deps: Dictionary = {}) -> Dictionary:
 	}
 
 
-# 공이 보스 패들에 충돌했을 때 — inferno_ready면 홍련폭염 시작.
+# 공이 보스 패들에 충돌했을 때 — 스타포인트 드랍 굴림 후,
+# inferno_ready면 홍련폭염 시작.
 func register_boss_paddle_contact(ball_vel: Vector2, deps: Dictionary = {}, context: Dictionary = {}) -> Dictionary:
+	_roll_boss_hit_starpoint_drops(deps, context)
 	if inferno_ready and not inferno_active:
 		_start_inferno(ball_vel, deps, context)
 		return {"stage5_hongryun_inferno_started": true}
@@ -858,6 +913,184 @@ func _trigger_boss_skill_parry(pos: Vector2, deps: Dictionary) -> void:
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("trigger_magic_anti_potion_parry"):
 		active_item_runtime.trigger_magic_anti_potion_parry("화염탄", pos, "hongryeon_fireball")
+
+
+# ============================================================================
+# 보스 피격 스타포인트 드랍 (stage1~4 공용 starpoint 모듈 패턴)
+# ============================================================================
+
+# 단일 굴림 → 드랍 개수 매핑. 스모크에서 경계값 봉인용으로 public static.
+# [0, 0.02) → 2개 / [0.02, 0.07) → 1개 / [0.07, 1.0] → 0개.
+static func resolve_boss_hit_starpoint_drop_count(roll: float) -> int:
+	if roll < BOSS_HIT_STARPOINT_DOUBLE_CHANCE:
+		return 2
+	if roll < BOSS_HIT_STARPOINT_DOUBLE_CHANCE + BOSS_HIT_STARPOINT_SINGLE_CHANCE:
+		return 1
+	return 0
+
+
+func _roll_boss_hit_starpoint_drops(deps: Dictionary, context: Dictionary) -> void:
+	var drop_count: int = resolve_boss_hit_starpoint_drop_count(rng.randf())
+	if drop_count <= 0:
+		return
+	var ball_pos: Vector2 = _get_vector2(context, "ball_pos", Vector2(FIELD_WIDTH * 0.5, 120.0))
+	for _idx in range(drop_count):
+		var drop_pos := Vector2(
+			clamp(
+				ball_pos.x + float(rng.randi_range(-BOSS_HIT_STARPOINT_SCATTER_PX, BOSS_HIT_STARPOINT_SCATTER_PX)),
+				StagePlayfieldBounds.get_left(context) + STARPOINT_DROP_SIZE,
+				StagePlayfieldBounds.get_right(context, FIELD_WIDTH) - STARPOINT_DROP_SIZE
+			),
+			clamp(
+				ball_pos.y + float(rng.randi_range(-BOSS_HIT_STARPOINT_SCATTER_PX, BOSS_HIT_STARPOINT_SCATTER_PX)),
+				STARPOINT_DROP_SIZE,
+				StagePlayfieldBounds.get_height(context, FIELD_HEIGHT) - STARPOINT_DROP_SIZE
+			)
+		)
+		_spawn_starpoint_drop_at(drop_pos, deps, context, true, false, "hongryun_boss_hit")
+
+
+func _spawn_starpoint_drop_at(
+	pos: Vector2,
+	deps: Dictionary = {},
+	context: Dictionary = {},
+	allow_star_detector_bonus: bool = true,
+	star_detector_bonus: bool = false,
+	source_type: String = "hongryun_boss_hit"
+) -> void:
+	starpoint_drops.append(StarpointPayloadFactory.build_drop(
+		pos,
+		rng,
+		star_detector_bonus,
+		STARPOINT_DROP_SIZE,
+		STARPOINT_DROP_LIFETIME,
+		0.05,
+		0.1,
+		source_type
+	))
+	if starpoint_drops.size() > MAX_STAGE5_STARPOINT_DROPS:
+		_trim_array_from_front(starpoint_drops, MAX_STAGE5_STARPOINT_DROPS)
+	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + (6 if star_detector_bonus else 0), 1.2 if star_detector_bonus else 1.0)
+	if allow_star_detector_bonus:
+		_spawn_star_detector_bonus_drops(pos, deps, context)
+
+
+func _spawn_star_detector_bonus_drops(pos: Vector2, deps: Dictionary, context: Dictionary) -> void:
+	var bonus_count: int = StarpointBonusDropPolicy.roll_star_detector_bonus_drop_count(deps, context)
+	for _idx in range(bonus_count):
+		var bonus_pos := Vector2(
+			clamp(
+				pos.x + float(STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES[rng.randi_range(0, STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES.size() - 1)]),
+				StagePlayfieldBounds.get_left(context) + STARPOINT_DROP_SIZE,
+				StagePlayfieldBounds.get_right(context, FIELD_WIDTH) - STARPOINT_DROP_SIZE
+			),
+			clamp(
+				pos.y + float(STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES[rng.randi_range(0, STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES.size() - 1)]),
+				STARPOINT_DROP_SIZE,
+				StagePlayfieldBounds.get_height(context, FIELD_HEIGHT) - STARPOINT_DROP_SIZE
+			)
+		)
+		_spawn_starpoint_drop_at(bonus_pos, deps, context, false, true, "hongryun_boss_hit")
+
+
+func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	if starpoint_drops.is_empty():
+		return
+	var player_rect := Rect2(
+		_get_vector2(context, "player_pos", Vector2.ZERO),
+		_get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
+	)
+	var player_rects: Array[Rect2] = StagePlayerInteractionRects.get_player_interaction_rects(player_rect, deps)
+	var play_left: float = StagePlayfieldBounds.get_left(context)
+	var play_right: float = StagePlayfieldBounds.get_right(context, FIELD_WIDTH)
+	var play_height: float = StagePlayfieldBounds.get_height(context, FIELD_HEIGHT)
+	var write_index := 0
+	var drop_count := starpoint_drops.size()
+	for index in range(drop_count):
+		var drop_value: Variant = starpoint_drops[index]
+		var drop: Dictionary = drop_value if drop_value is Dictionary else {}
+		if not StarpointDropMotionState.update_drop(
+			drop,
+			fps_scale,
+			play_left,
+			play_right,
+			play_height,
+			STARPOINT_DROP_SIZE,
+			STARPOINT_DROP_MAX_FALL_SPEED,
+			STARPOINT_DROP_ACCELERATION,
+			STARPOINT_DROP_BOUNCE_DAMPING
+		):
+			continue
+
+		var starlight_tracking_result := LingpetStarlightTrackingBridge.update_drop(drop, fps_scale, context, deps)
+		if bool(starlight_tracking_result.get("delivered", false)):
+			if _collect_starpoint_drop(drop, context, deps):
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
+				return
+			if starpoint_drops.size() < drop_count:
+				return
+			continue
+		if bool(starlight_tracking_result.get("claimed", false)):
+			starpoint_drops[write_index] = drop
+			write_index += 1
+			continue
+
+		if StarpointDropOverlapQuery.overlaps_any_circle_player(drop, player_rects, STARPOINT_DROP_SIZE):
+			if _collect_starpoint_drop(drop, context, deps):
+				StarpointCollectionCompaction.finish_in_place(starpoint_drops, index, write_index, drop_count)
+				return
+			if starpoint_drops.size() < drop_count:
+				return
+			continue
+		starpoint_drops[write_index] = drop
+		write_index += 1
+	if write_index < drop_count:
+		starpoint_drops.resize(write_index)
+
+
+func _update_starpoint_particles(fps_scale: float) -> void:
+	StarpointParticleState.update_particles(starpoint_particles, fps_scale)
+
+
+func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
+	var opened_choice: bool = StarpointCollectionRewardPolicy.collect_starpoint_reward(context, deps)
+	var pos: Vector2 = _get_vector2(drop, "pos", Vector2.ZERO)
+	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + 10, 1.4)
+	_play_starpoint_collect_sound(deps)
+	StarpointCollectionRewardPolicy.request_owner_redraw(context)
+	return opened_choice
+
+
+func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> void:
+	starpoint_particles.append_array(StarpointPayloadFactory.build_particles(
+		pos,
+		count,
+		intensity,
+		rng,
+		STARPOINT_PARTICLE_LIFE
+	))
+	if starpoint_particles.size() > MAX_STAGE5_STARPOINT_PARTICLES:
+		_trim_array_from_front(starpoint_particles, MAX_STAGE5_STARPOINT_PARTICLES)
+
+
+func _play_starpoint_collect_sound(deps: Dictionary) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_starpoint_collect"):
+		audio.play_starpoint_collect()
+
+
+func _trim_array_from_front(source: Array, max_size: int) -> void:
+	if max_size <= 0:
+		source.clear()
+		return
+	var overflow := source.size() - max_size
+	if overflow <= 0:
+		return
+	var write_index := 0
+	for read_index in range(overflow, source.size()):
+		source[write_index] = source[read_index]
+		write_index += 1
+	source.resize(write_index)
 
 
 func _build_public_update_result() -> Dictionary:

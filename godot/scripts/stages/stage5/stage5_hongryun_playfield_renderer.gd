@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const InfernoChargeFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_charge_fx_host.gd")
 const InfernoTrailFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_trail_fx_host.gd")
 const InfernoBurstFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_burst_fx_host.gd")
@@ -39,6 +40,9 @@ const FIRE_MACHINE_STREAM_RENDER_LIMIT := 4
 const FIRE_MACHINE_ZONE_RENDER_LIMIT := 3
 const FIRE_MACHINE_SMOKE_RENDER_LIMIT := 90
 const SPRAY_PARTICLE_RENDER_LIMIT := 36
+const STARPOINT_DROP_SIZE := 12.0
+const STARPOINT_PARTICLE_RENDER_LIMIT := 48
+const STARPOINT_PARTICLE_RENDER_LIMIT_LOD := 24
 
 var fireball_atlas: Texture2D = null
 var trail_head_texture: Texture2D = null
@@ -141,6 +145,11 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_l
 	_draw_fireballs(canvas, context, shake_offset)
 	_draw_impact_events(canvas, context, shake_offset)
 	_perf_end(perf_logger, "stage5.playfield.projectiles", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	_draw_starpoint_particles(canvas, context, shake_offset, quality_scale)
+	_draw_starpoint_drops(canvas, context, shake_offset)
+	_perf_end(perf_logger, "stage5.playfield.starpoints", sample_start)
 
 
 func get_imagegen_asset_status() -> Dictionary:
@@ -571,6 +580,97 @@ func _draw_trail_node(canvas: CanvasItem, center: Vector2, t: float, is_head: bo
 	canvas.draw_circle(center, size.x * (0.33 if is_head else 0.20), Color(1.0, 0.52, 0.14, 0.42 + t * 0.24))
 	if is_head:
 		canvas.draw_arc(center, size.x * 0.52, time_sec * 4.0, time_sec * 4.0 + PI * 1.4, 32, Color(1.0, 0.90, 0.22, 0.74), 2.0, true)
+
+
+func _draw_starpoint_particles(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
+	var particles: Array = _as_array(context.get("stage5_hongryun_starpoint_particles", []))
+	if particles.is_empty():
+		return
+	var render_limit := STARPOINT_PARTICLE_RENDER_LIMIT
+	if quality_scale < 0.85:
+		render_limit = STARPOINT_PARTICLE_RENDER_LIMIT_LOD
+	for particle_index in range(max(0, particles.size() - render_limit), particles.size()):
+		var particle_value: Variant = particles[particle_index]
+		var particle: Dictionary = particle_value if particle_value is Dictionary else {}
+		var alpha: float = clampf(float(particle.get("alpha", 0.0)), 0.0, 1.0)
+		if alpha <= 0.0:
+			continue
+		var pos: Vector2 = _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var color: Color = _get_starpoint_particle_color(float(particle.get("color_shift", 0.5)), alpha)
+		canvas.draw_circle(pos, maxf(1.0, float(particle.get("size", 2.0))), color)
+
+
+func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var drops: Array = _as_array(context.get("stage5_hongryun_starpoint_drops", []))
+	if drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
+	# Stage 5 화염 테마 — Stage 4의 골드/오렌지 팔레트 공유. 디텍터 보너스
+	# 드랍은 전 스테이지 공통 시안/화이트. host는 outer canvas의 child라
+	# playfield-local 좌표를 game_offset + render_scale로 스크린 좌표 변환.
+	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var render_scale: float = maxf(0.001, float(context.get("render_scale", 1.0)))
+	var host: Node = CommonStarpointVisualHost.get_or_create_on_canvas(canvas)
+	if host != null and host.has_method("sync_drop"):
+		host.begin_frame()
+		var elapsed: float = float(Time.get_ticks_msec()) / 1000.0
+		for drop_value in drops:
+			var drop: Dictionary = drop_value if drop_value is Dictionary else {}
+			var star_detector_bonus: bool = bool(drop.get("star_detector_bonus", false))
+			var playfield_pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+			host.sync_drop({
+				"pos": game_offset + playfield_pos * render_scale,
+				"size": float(drop.get("size", STARPOINT_DROP_SIZE)) * render_scale,
+				"life": float(drop.get("life", 0.0)),
+				"rotation": float(drop.get("rotation", 0.0)),
+				"glow_intensity": float(drop.get("glow_intensity", 1.0)),
+				"star_detector_bonus": star_detector_bonus,
+				"elapsed": elapsed,
+				"glow_color": Color(0.30, 0.92, 1.0, 1.0) if star_detector_bonus else Color(1.0, 0.64, 0.16, 1.0),
+				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if star_detector_bonus else Color(1.0, 0.68, 0.05, 1.0),
+				"outline_color": Color(1.0, 1.0, 1.0, 1.0) if star_detector_bonus else Color(1.0, 0.98, 0.52, 1.0),
+			})
+		host.end_frame()
+		return
+	for drop_value in drops:
+		var drop: Dictionary = drop_value if drop_value is Dictionary else {}
+		var pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var size: float = maxf(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))
+		var alpha: float = clampf(float(drop.get("life", 0.0)) * 2.0 / 255.0, 0.0, 1.0)
+		var glow_intensity: float = clampf(float(drop.get("glow_intensity", 1.0)), 0.0, 1.0)
+		var glow_alpha: float = alpha * 0.5 * glow_intensity
+		var star_detector_bonus: bool = bool(drop.get("star_detector_bonus", false))
+		var glow_color := Color(0.30, 0.92, 1.0, 1.0) if star_detector_bonus else Color(1.0, 0.64, 0.16, 1.0)
+		var fill_color := Color(0.16, 0.82, 1.0, alpha) if star_detector_bonus else Color(1.0, 0.68, 0.05, alpha)
+		var outline_color := Color(1.0, 1.0, 1.0, alpha) if star_detector_bonus else Color(1.0, 0.98, 0.52, alpha)
+		for layer in range(4):
+			var glow_radius: float = size * (4.0 - float(layer) * 0.7)
+			var layer_alpha: float = glow_alpha / float(4 - layer)
+			canvas.draw_circle(pos, glow_radius, Color(glow_color.r, glow_color.g, glow_color.b, layer_alpha))
+
+		var points := PackedVector2Array()
+		var star_rotation: float = float(drop.get("rotation", 0.0))
+		for point_index in range(10):
+			var point_radius: float = size if point_index % 2 == 0 else size * 0.5
+			var angle: float = star_rotation + float(point_index) * PI / 5.0
+			points.append(pos + Vector2(cos(angle), sin(angle)) * point_radius)
+		if points.size() >= 3:
+			canvas.draw_colored_polygon(points, fill_color)
+			for point_index in range(points.size()):
+				canvas.draw_line(points[point_index], points[(point_index + 1) % points.size()], outline_color, 3.0, true)
+		canvas.draw_circle(pos, 3.0, Color(1.0, 1.0, 1.0, alpha * glow_intensity))
+
+
+func _get_starpoint_particle_color(color_shift: float, alpha: float) -> Color:
+	var clamped_shift: float = clampf(color_shift, 0.0, 1.0)
+	if clamped_shift < 0.33:
+		var warm_t: float = clamped_shift * 3.0
+		return Color(1.0, 1.0, (100.0 + 155.0 * warm_t) / 255.0, alpha)
+	if clamped_shift < 0.66:
+		var blue_t: float = (clamped_shift - 0.33) * 3.0
+		return Color((255.0 - 55.0 * blue_t) / 255.0, (255.0 - 30.0 * blue_t) / 255.0, 1.0, alpha)
+	var cyan_t: float = (clamped_shift - 0.66) * 3.0
+	return Color((200.0 - 100.0 * cyan_t) / 255.0, (225.0 + 30.0 * cyan_t) / 255.0, 1.0, alpha)
 
 
 func _draw_impact_events(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
