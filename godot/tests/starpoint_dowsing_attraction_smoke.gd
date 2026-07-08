@@ -1,7 +1,16 @@
 extends SceneTree
 
 const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
+const Stage1BalloonEvent := preload("res://scripts/stages/stage1/stage1_balloon_event.gd")
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
+const Stage3BossSkillState := preload("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+const Stage4BirdEvent := preload("res://scripts/stages/stage4/stage4_bird_event.gd")
+const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
+const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
+const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
 const ACTIVE_DOWSING_CONTEXT := {
 	"active": true,
@@ -45,6 +54,8 @@ func _init() -> void:
 	_verify_resolve_context_gates_on_active()
 	_verify_stage_states_delegate_attraction()
 	_verify_stage2_behavioral_pull()
+	_verify_stage_loop_behavioral_pull_all_stages()
+	_verify_perk_conversion_end_to_end_pull()
 
 	if _failures.is_empty():
 		print("starpoint_dowsing_attraction_smoke: ok")
@@ -227,6 +238,140 @@ func _verify_stage2_behavioral_pull() -> void:
 	_expect(
 		is_zero_approx(baseline_vel.x),
 		"Stage 2 drop update should keep x velocity untouched without dowsing"
+	)
+
+
+func _build_stage_context(stage_id: int, registry: Object) -> Dictionary:
+	var context := {
+		"current_stage": stage_id,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"play_height": 750.0,
+		"player_pos": Vector2(302.5, 690.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+	}
+	if registry != null:
+		context["registry"] = registry
+	return context
+
+
+func _build_dowsing_registry(range_value: float = 600.0) -> Object:
+	var runtime := StubMythicRuntime.new()
+	runtime.pendulum_context = {
+		"active": true,
+		"range": range_value,
+		"force": 3.5,
+		"min_distance": 30.0,
+		"max_speed": 8.0,
+	}
+	var registry := StubRegistry.new()
+	registry.instances["mythic_item_runtime"] = runtime
+	return registry
+
+
+# 각 스테이지 루프 구조 변형(S1 멤버 바운드, S3 next_drops, S4 in-place,
+# S6 자체 rect 해석)이 실제로 흡인을 적용하는지 행동으로 검증한다.
+# S2는 위 레그, S5는 아래 E2E 레그가 커버.
+func _verify_stage_loop_behavioral_pull_all_stages() -> void:
+	var registry: Object = _build_dowsing_registry()
+
+	var stage1 := Stage1BalloonEvent.new()
+	stage1.starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
+	stage1._update_starpoint_drops(1.0, _build_stage_context(1, registry), {})
+	_expect(stage1.starpoint_drops.size() == 1, "Stage 1 pulled drop should stay alive")
+	_expect(
+		Vector2(stage1.starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		"Stage 1 drop loop should apply dowsing attraction"
+	)
+
+	var stage3 := Stage3BossSkillState.new()
+	stage3.starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
+	stage3._update_starpoint_drops(1.0, _build_stage_context(3, registry), {})
+	_expect(stage3.starpoint_drops.size() == 1, "Stage 3 pulled drop should stay alive")
+	_expect(
+		Vector2(stage3.starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		"Stage 3 drop loop should apply dowsing attraction"
+	)
+
+	var stage4 := Stage4BirdEvent.new()
+	stage4.starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
+	stage4._update_starpoint_drops(1.0, _build_stage_context(4, registry), {})
+	_expect(stage4.starpoint_drops.size() == 1, "Stage 4 pulled drop should stay alive")
+	_expect(
+		Vector2(stage4.starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		"Stage 4 drop loop should apply dowsing attraction"
+	)
+
+	var stage6 := Stage6TetriserState.new()
+	stage6._starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
+	stage6._update_starpoint_drops(1.0, _build_stage_context(6, registry), {})
+	_expect(stage6._starpoint_drops.size() == 1, "Stage 6 pulled drop should stay alive")
+	_expect(
+		Vector2(stage6._starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		"Stage 6 drop loop should apply dowsing attraction"
+	)
+
+
+# 다우징 "퍽" 실경로 관통 E2E: 변환 플래그 ON + RuntimePerkState 레벨 →
+# MythicItemRuntime 컨텍스트 → 스테이지5 실업데이트 흡인까지.
+func _verify_perk_conversion_end_to_end_pull() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+
+	var mythic_runtime: Object = MythicItemRuntime.new()
+	var perk_state: Object = RuntimePerkState.new()
+	perk_state.runtime_skill_levels["dowsing_pendulum"] = 5
+	mythic_runtime.get_snapshot()
+	var registry := StubRegistry.new()
+	registry.instances["mythic_item_runtime"] = mythic_runtime
+	registry.instances["runtime_perk_state"] = perk_state
+	mythic_runtime.owner_syncer.sync_runtime_perk_state_ref(mythic_runtime, registry)
+
+	var expected_range: float = PerkConversionValues.get_value("dowsing_pendulum", "attraction_range", 5)
+	_expect(
+		is_equal_approx(mythic_runtime.get_dowsing_pendulum_range(), expected_range),
+		"converted dowsing perk Lv5 should surface the Lv5 attraction range"
+	)
+	var resolved: Dictionary = StarpointDowsingAttraction.resolve_context({"registry": registry}, {})
+	_expect(
+		bool(resolved.get("active", false)) and is_equal_approx(float(resolved.get("range", 0.0)), expected_range),
+		"resolve_context should surface the converted perk range end to end"
+	)
+
+	var state := Stage5HongryunState.new()
+	var context: Dictionary = _build_stage_context(5, registry)
+	context["ball_active"] = true
+	context["waiting_for_serve"] = false
+	context["ball_pos"] = Vector2(380.0, 60.0)
+	context["ball_vel"] = Vector2(2.0, -6.0)
+	context["boss_pos"] = Vector2(330.0, 25.0)
+	state._spawn_starpoint_drop_at(Vector2(200.0, 600.0), {}, context)
+	_expect(state.starpoint_drops.size() == 1, "E2E: stage 5 spawn helper should append one drop")
+	state.starpoint_drops[0]["vel"] = Vector2.ZERO
+	state.update(1.0 / 60.0, context, {})
+	_expect(state.starpoint_drops.size() == 1, "E2E: pulled drop should stay alive")
+	_expect(
+		Vector2(state.starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		"E2E: converted dowsing perk should pull stage 5 starpoint drops through the live update"
+	)
+
+	PerkConversionFlags.debug_set_enabled(false)
+
+	var off_state := Stage5HongryunState.new()
+	var off_context: Dictionary = _build_stage_context(5, registry)
+	off_context["ball_active"] = true
+	off_context["waiting_for_serve"] = false
+	off_context["ball_pos"] = Vector2(380.0, 60.0)
+	off_context["ball_vel"] = Vector2(2.0, -6.0)
+	off_context["boss_pos"] = Vector2(330.0, 25.0)
+	off_state._spawn_starpoint_drop_at(Vector2(200.0, 600.0), {}, off_context)
+	off_state.starpoint_drops[0]["vel"] = Vector2.ZERO
+	off_state.update(1.0 / 60.0, off_context, {})
+	_expect(off_state.starpoint_drops.size() == 1, "E2E control: drop should stay alive without the perk")
+	_expect(
+		is_zero_approx(Vector2(off_state.starpoint_drops[0].get("vel", Vector2.ZERO)).x),
+		"E2E control: flag OFF without equip should leave the drop x velocity untouched"
 	)
 
 
