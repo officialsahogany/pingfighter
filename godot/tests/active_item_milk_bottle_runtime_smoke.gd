@@ -130,6 +130,7 @@ func _init() -> void:
 	_verify_milk_bottle_use_and_stage_reset()
 	_verify_milk_bottle_stacking_and_collectable()
 	_verify_cheese_gauge_restore()
+	_verify_cheese_applies_size_buff()
 	_verify_lingpet_skill_host_spawns_milk_bottle()
 
 	if _failures.is_empty():
@@ -162,6 +163,13 @@ func _verify_cheese_catalog_and_assets() -> void:
 		"camembert_cheese": 400.0,
 		"emmental_cheese": 500.0,
 	}
+	# Cheese now also carries the milk-bottle size buff at its bound level's scale
+	# (cheddar=Lv.3=1.16, camembert=Lv.4=1.18, emmental=Lv.5=1.20).
+	var expected_scale := {
+		"cheddar_cheese": 1.16,
+		"camembert_cheese": 1.18,
+		"emmental_cheese": 1.20,
+	}
 	for item_name in expected_gain.keys():
 		var item_data: Dictionary = catalog.build_item_by_name(str(item_name))
 		_expect(not item_data.is_empty(), "%s should build from the active item catalog" % item_name)
@@ -170,7 +178,7 @@ func _verify_cheese_catalog_and_assets() -> void:
 		_expect(bool(item_data.get("stationary_field_item", false)), "%s should stand still on the field" % item_name)
 		_expect(bool(item_data.get("dash_destroy_on_player_contact", false)), "%s should break on dash contact" % item_name)
 		_expect(bool(item_data.get("lingpet_generated_only", false)), "%s should remain lingpet-generated only" % item_name)
-		_expect(not item_data.has("paddle_scale_multiplier"), "%s should not carry the milk-bottle size effect" % item_name)
+		_expect(is_equal_approx(float(item_data.get("paddle_scale_multiplier", 0.0)), float(expected_scale[item_name])), "%s should carry its milk-bottle size multiplier" % item_name)
 		_expect(is_equal_approx(float(item_data.get("gauge_gain", 0.0)), float(expected_gain[item_name])), "%s should carry its configured gauge restore amount" % item_name)
 		_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has(item_name), "%s should not enter the random field-spawn pool" % item_name)
 		_expect(ProjectResourceLoader.load_texture(str(item_data.get("icon_path", ""))) != null, "%s active-slot icon should load" % item_name)
@@ -365,7 +373,44 @@ func _verify_cheese_gauge_restore() -> void:
 		var item_data: Dictionary = catalog.build_item_by_name(str(spec.get("name", "")))
 		_expect(effect_controller.activate_cheese(item_data, owner, registry), "%s should activate through the cheese effect controller path" % str(spec.get("name", "")))
 		_expect(is_equal_approx(owner.special_gauge, float(spec.get("expected", 0.0))), "%s should restore gauge to the expected clamped value" % str(spec.get("name", "")))
-		_expect(not effect_controller.is_milk_bottle_active(), "%s should not activate milk-bottle size state" % str(spec.get("name", "")))
+		_expect(effect_controller.is_milk_bottle_active(), "%s should also activate the milk-bottle size state" % str(spec.get("name", "")))
+
+
+func _verify_cheese_applies_size_buff() -> void:
+	# Cheese must grant BOTH the gauge restore AND the milk-bottle size buff in a single
+	# activation, stacking into the same shared scale pool (and +60% cap) as milk bottles.
+	# Reverse check: on the pre-change code cheese carried no size, so every scale
+	# assertion below would report 1.0 and fail.
+	var catalog := ActiveItemCatalog.new()
+	var effect_controller: Object = ActiveItemEffectController.new()
+	var registry := FakeRegistry.new()
+
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(200.0, 700.0)
+	owner.player_paddle_width = 155.0
+	owner.player_paddle_height = 50.0
+	owner.special_gauge = 20.0
+
+	# Cheddar (Lv.3): +16% size and +300 gauge from one pickup.
+	_expect(effect_controller.activate_cheese(catalog.build_item_by_name("cheddar_cheese"), owner, registry), "cheddar cheese should activate")
+	_expect(effect_controller.is_milk_bottle_active(), "cheddar cheese should turn on the milk-bottle size state")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.16), "cheddar cheese should apply the Lv.3 +16% size step")
+	_expect(is_equal_approx(owner.special_gauge, 320.0), "cheddar cheese should restore gauge in the same activation as the size buff")
+	_expect(is_equal_approx(owner.player_paddle_width, 179.8), "cheddar cheese should resize the owner paddle width by 16 percent")
+
+	# Camembert (Lv.4): stacks +18% onto the shared pool -> 1.16 + 0.18 = 1.34.
+	_expect(effect_controller.activate_cheese(catalog.build_item_by_name("camembert_cheese"), owner, registry), "camembert cheese should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.34), "cheese size should stack into the shared milk pool (1.16 + 0.18)")
+
+	# Emmental (Lv.5) twice: 1.34 + 0.20 = 1.54, then +0.20 clamps to the +60% cap 1.60.
+	_expect(effect_controller.activate_cheese(catalog.build_item_by_name("emmental_cheese"), owner, registry), "first emmental cheese should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.54), "cheese size should keep stacking (1.34 + 0.20)")
+	_expect(effect_controller.activate_cheese(catalog.build_item_by_name("emmental_cheese"), owner, registry), "second emmental cheese should activate")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.60), "stacked cheese size must clamp to the +60% cap shared with milk bottles")
+
+	# A milk bottle picked up afterward shares the same capped pool (no double buff system).
+	_expect(effect_controller.activate_milk_bottle(catalog.build_item_by_name("milk_bottle"), owner, FakeRegistry.new()), "milk bottle should still activate after cheese")
+	_expect(is_equal_approx(effect_controller.get_player_paddle_scale(), 1.60), "milk bottle after cheese must stay on the shared +60% cap")
 
 
 func _verify_lingpet_skill_host_spawns_milk_bottle() -> void:

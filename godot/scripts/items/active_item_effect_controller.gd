@@ -293,7 +293,7 @@ func activate_milk_bottle(item_data: Dictionary, owner: Object, registry: Object
 
 
 func activate_cheese(item_data: Dictionary, owner: Object, registry: Object) -> bool:
-	return _effect_action_facade.activate_cheese(self, item_data, owner, registry, _gauge_runtime, _effect_feedback)
+	return _effect_action_facade.activate_cheese(self, item_data, owner, registry, _gauge_runtime, _paddle_sync, _effect_feedback)
 
 
 func activate_aipill(_owner: Object, registry: Object) -> bool:

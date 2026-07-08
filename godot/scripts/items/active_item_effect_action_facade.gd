@@ -207,14 +207,7 @@ func activate_milk_bottle(
 	paddle_sync: Object,
 	effect_feedback: Object
 ) -> bool:
-	target.set("milk_bottle_active", true)
-	# Each use stacks the paddle growth by this bottle's increment (multiplier - 1.0),
-	# accumulating on top of any active milk buff up to MILK_BOTTLE_SCALE_MAX (+60%).
-	var increment: float = maxf(0.0, float(item_data.get("paddle_scale_multiplier", 1.20)) - 1.0)
-	var current_scale: float = maxf(1.0, float(target.get("milk_bottle_scale")))
-	target.set("milk_bottle_scale", clampf(current_scale + increment, 1.0, MILK_BOTTLE_SCALE_MAX))
-	if paddle_sync != null and target.has_method("get_player_paddle_scale"):
-		paddle_sync.sync_owner_state(owner, float(target.get_player_paddle_scale()))
+	_apply_milk_bottle_scale(target, item_data, owner, paddle_sync)
 	if effect_feedback != null:
 		effect_feedback.play_first_audio(registry, ["play_active_item"])
 		effect_feedback.trigger_registry_feedback(registry, false, false, 2.0, 0.10)
@@ -227,9 +220,26 @@ func activate_cheese(
 	owner: Object,
 	registry: Object,
 	gauge_runtime: Object,
+	paddle_sync: Object,
 	effect_feedback: Object
 ) -> bool:
+	# Cheese grants the milk-bottle paddle/character size buff AND restores the gauge.
+	# apply_gauge_charge owns the pickup feedback (drink SFX + shake), so the shared
+	# scale helper stays feedback-free to avoid a double cue.
+	_apply_milk_bottle_scale(target, item_data, owner, paddle_sync)
 	return apply_gauge_charge(target, item_data, owner, registry, gauge_runtime, effect_feedback)
+
+
+func _apply_milk_bottle_scale(target: Object, item_data: Dictionary, owner: Object, paddle_sync: Object) -> void:
+	target.set("milk_bottle_active", true)
+	# Each use stacks the paddle growth by this bottle's increment (multiplier - 1.0),
+	# accumulating on top of any active milk buff up to MILK_BOTTLE_SCALE_MAX (+60%).
+	# Milk bottles and cheese share this single scale pool and cap.
+	var increment: float = maxf(0.0, float(item_data.get("paddle_scale_multiplier", 1.20)) - 1.0)
+	var current_scale: float = maxf(1.0, float(target.get("milk_bottle_scale")))
+	target.set("milk_bottle_scale", clampf(current_scale + increment, 1.0, MILK_BOTTLE_SCALE_MAX))
+	if paddle_sync != null and target.has_method("get_player_paddle_scale"):
+		paddle_sync.sync_owner_state(owner, float(target.get_player_paddle_scale()))
 
 
 func activate_aipill(target: Object, registry: Object, state_applier: Object, effect_feedback: Object) -> bool:

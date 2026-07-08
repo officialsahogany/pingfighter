@@ -1,15 +1,28 @@
 # Lingpet 우유생산(milk_production) 레벨 스케일링 + 치즈 슬라이스 설계서
 
-Status: IMPLEMENTED (2026-06-20). 단일 소스. 배선/리뷰는 이 문서를 체크리스트로 사용.
+Status: IMPLEMENTED (2026-06-20), AMENDED (2026-07-08). 단일 소스. 배선/리뷰는 이 문서를 체크리스트로 사용.
 관련 메모리: 링펫 debug/정식 구분 폐지, [feedback_godot_localization_copy_sync],
 [feedback_skill_cooldown_scope], Godot Per-Frame Probability Roll Trap(CLAUDE.md).
+
+> **개정 (2026-07-08, 사용자 지시) — 이 개정이 아래 원본 계약을 override 함:**
+> 치즈(체다/까망베르/에멘탈)는 이제 게이지 회복 **AND 밀크병 크기 버프**를 함께 준다(전엔 게이지 전용).
+> 치즈 3종↔레벨 1:1이라 크기는 고정: 체다 +16%·까망베르 +18%·에멘탈 +20%(그 레벨 밀크병 배율).
+> 밀크병과 **동일 `milk_bottle_scale` 풀 + `MILK_BOTTLE_SCALE_MAX`(+60%) 캡 공유**. 구현:
+> `_build_cheese(name, display, gauge_gain, paddle_scale_multiplier, icon, color)`가
+> `paddle_scale_multiplier`/`paddle_scale_percent`/`stage_persistent`/결합설명을 실음 →
+> facade 공용헬퍼 `_apply_milk_bottle_scale`를 `activate_milk_bottle`·`activate_cheese`가 공유
+> (activate_cheese = 크기 헬퍼 + `apply_gauge_charge` 둘 다, controller가 `_paddle_sync` 전달).
+> 다국어: 아이템설명 정적맵 7블록 + 스킬설명/effect_text(한국어 그대로) 동기화.
+> 씰: active_item_milk_bottle_runtime_smoke `_verify_cheese_applies_size_buff`(반증검증 완료).
+> **아래 "치즈는 사이즈 효과 없음 / paddle_scale_multiplier 없음 / apply_gauge_charge만" 문구는 폐기.**
 
 ## 0. 확정 설계 결정 (재론 금지)
 
 - **게이지 = `special_gauge`(왼쪽 파란 "게이지구슬", max 500)**. 5개 "스킬구슬"과 별개.
   링펫이 공 받아칠 때 +40 채우는 그 미터. 치즈는 이 게이지를 즉시 회복.
 - **치즈는 밀크병 "대신"** 나옴 — Lv.3+ 생산당 1개, 30% 치즈 / 70% 밀크병 (런치당 1회 롤).
-- 치즈는 **사이즈 효과 없음**(게이지 회복 전용). 사이즈는 밀크병만.
+- ~~치즈는 사이즈 효과 없음(게이지 회복 전용). 사이즈는 밀크병만.~~ **[2026-07-08 개정]** 치즈는
+  게이지 회복 **AND** 그 레벨 밀크병 크기 버프를 함께 준다(밀크병과 동일 scale 풀+캡 공유). 상단 개정 참조.
 - 쿨다운은 사용자 지정 정확값을 **권위화**(전역 레벨세금 미적용).
 - **밀크병 패들 버프는 사용당 캡 스택**(2026-06-21 결정). 비스택 set이 아니라 사용 시
   증분(배율−1.0)을 `milk_bottle_scale`에 누적, 상한 +60%(`MILK_BOTTLE_SCALE_MAX = 1.60`)까지.
@@ -24,9 +37,9 @@ Status: IMPLEMENTED (2026-06-20). 단일 소스. 배선/리뷰는 이 문서를 
 |----|------------------|-----------|-----------------|
 | 1  | 1.12 (+12%)      | 50        | — |
 | 2  | 1.14 (+14%)      | 47        | — |
-| 3  | 1.16 (+16%)      | 44        | 체다치즈 → 게이지 +300 |
-| 4  | 1.18 (+18%)      | 41        | 까망베르치즈 → 게이지 +400 |
-| 5  | 1.20 (+20%)      | 37        | 에멘탈치즈 → 게이지 +500 (풀충전) |
+| 3  | 1.16 (+16%)      | 44        | 체다치즈 → 게이지 +300 **+ 크기 +16%** |
+| 4  | 1.18 (+18%)      | 41        | 까망베르치즈 → 게이지 +400 **+ 크기 +18%** |
+| 5  | 1.20 (+20%)      | 37        | 에멘탈치즈 → 게이지 +500 (풀충전) **+ 크기 +20%** |
 
 - `paddle_scale_multiplier_by_level = [1.12, 1.14, 1.16, 1.18, 1.20]`
 - `cooldown_by_level = [50, 47, 44, 41, 37]`  (authoritative)
@@ -41,7 +54,7 @@ Status: IMPLEMENTED (2026-06-20). 단일 소스. 배선/리뷰는 이 문서를 
 "cooldown_by_level": [50.0, 47.0, 44.0, 41.0, 37.0],
 "cheese_chance_by_level": [0.0, 0.0, 0.30, 0.30, 0.30],
 ```
-description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 게이지회복) — §6 다국어 동기화 동반.
+description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 = 게이지회복+크기증가 [2026-07-08 개정]) — §6 다국어 동기화 동반. 스킬설명/effect_text도 동기(한국어 그대로, 정적맵 없음).
 
 ### 2.1 쿨다운 권위화 규칙 (핵심)
 - `_apply_skill_level_values`(catalog ~1711)는 `cooldown_by_level[level-1]` → `result["cooldown"]`로 덮음.
@@ -69,16 +82,16 @@ description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 게이지
 ## 4. 신규 액티브 아이템 3종 (docs/item_runtime_checklist.md 기준 전 경로)
 
 아이템: `cheddar_cheese`(체다치즈, +300), `camembert_cheese`(까망베르치즈, +400), `emmental_cheese`(에멘탈치즈, +500).
-각 게이지 회복 전용(사이즈 없음).
+각 게이지 회복 **+ 밀크병 크기 버프**(체다 1.16 / 까망베르 1.18 / 에멘탈 1.20). [2026-07-08 개정]
 
 | # | 위치 | 작업 |
 |---|------|------|
 | 1 | active_item_catalog.gd:36 | 3× ICON_PATH(+FIELD_ICON_PATH) const |
 | 2 | active_item_catalog.gd:~125 build_item_by_name | 3× case |
-| 3 | active_item_catalog.gd:~617 (_build_milk_bottle 참조) | `_build_cheese(name, gauge_gain, icon)` ×3. 플래그: type active, effect "cheese", consumable, stationary_field_item, dash_destroy_on_player_contact, lingpet_generated_only, `gauge_gain: N`, `gauge_max: 500`, color, icon_path, field_icon_path, description. **paddle_scale_multiplier 없음** |
+| 3 | active_item_catalog.gd:~617 (_build_milk_bottle 참조) | `_build_cheese(name, display, gauge_gain, paddle_scale_multiplier, icon, color)` ×3. 플래그: type active, effect "cheese", consumable, stationary_field_item, dash_destroy_on_player_contact, lingpet_generated_only, `gauge_gain: N`, `gauge_max: 500`, color, icon_path, field_icon_path, description. **[2026-07-08 개정] `paddle_scale_multiplier`(체다 1.16/까망베르 1.18/에멘탈 1.20)+`paddle_scale_percent`+`stage_persistent` 실음** |
 | 4 | active_item_effect_router.gd:~53 | `cheese` effect → activate_cheese |
-| 5 | active_item_effect_action_facade.gd:~179 | `activate_cheese`: `gauge_runtime.apply_gauge_charge(...)`로 gauge_gain 적용(500캡/gold_digger 상속), 사이즈 set 없음, feedback |
-| 6 | active_item_effect_controller.gd:~275 | `activate_cheese` 위임 |
+| 5 | active_item_effect_action_facade.gd:~179 | `activate_cheese`: **[2026-07-08 개정] 공용 `_apply_milk_bottle_scale`(크기 풀 누적+캡)** AND `apply_gauge_charge(...)`로 gauge_gain 적용(500캡/gold_digger 상속). `paddle_sync` 인자 필요, feedback는 gauge 경로가 소유 |
+| 6 | active_item_effect_controller.gd:~275 | `activate_cheese` 위임 — **[2026-07-08] `_paddle_sync` 전달** |
 | 7 | active_item_effect_status.gd:~11 | 즉발 소비형이라 active_flag 불필요할 수 있음 — milk_bottle은 지속버프라 flag 있음. 치즈는 즉발이므로 store-gate 불필요(확인) |
 | 8 | active_item_effect_reset.gd | 즉발이라 reset 상태 없음(사이즈 scale 없음) — 추가 불필요(확인) |
 | 9 | active_item_field_item_motion / pickup_flow | stationary/dash_destroy 플래그 소비 — 기존 milk_bottle 경로 재사용(코드 변경 없을 가능성) |
@@ -86,7 +99,7 @@ description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 게이지
 | 11 | 경제(sell_price/shop) | lingpet_generated_only → 상점/필드드랍 제외. sell_price는 합리값 1개 |
 | 12 | Pandora 제외 리스트 | 신규 액티브면 제외셋 동기화(레거시 경로 확인) |
 
-함정: 치즈는 **즉발 게이지회복**이므로 milk_bottle의 long_boost/지속-scale 패턴 복제 금지. life_elixir의 apply_life_elixir(전용 파티클) 재사용 금지 — `apply_gauge_charge`만.
+함정: 치즈 게이지 회복은 life_elixir의 apply_life_elixir(전용 파티클) 재사용 금지 — `apply_gauge_charge`만. **[2026-07-08 개정]** 크기 버프는 milk_bottle의 long_boost/timed-paddle 지속-scale 패턴 복제 금지 — 공용 `_apply_milk_bottle_scale`(즉발 누적, 스테이지 종료까지 지속)를 공유한다.
 
 ## 5. 다국어 (language_settings_data.gd) — 3종 × 이름+설명, 누락 0
 
@@ -114,7 +127,7 @@ description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 게이지
 ## 8. 스모크 의무
 
 - active_item_milk_bottle_runtime_smoke 확장: (a) Lv.3 launch_context로 치즈 30% 스폰(force_roll), (b) 밀크병 레벨별 paddle_scale override 검증.
-- 신규 cheese item 스모크: 3종 catalog 빌드 + activate_cheese가 special_gauge를 정확히 +300/400/500(500캡) 회복하는 OUTCOME 단언.
+- 신규 cheese item 스모크: 3종 catalog 빌드 + activate_cheese가 special_gauge를 정확히 +300/400/500(500캡) 회복하는 OUTCOME 단언. **[2026-07-08 개정]** `_verify_cheese_applies_size_buff`: 치즈가 크기(1.16/1.18/1.20)를 밀크병 공유 풀에 누적+캡(+60%)하는 OUTCOME + is_milk_bottle_active 단언(반증검증: size off → 치즈 크기레그만 FAIL).
 - cooldown 권위화 스모크: get_active_skill(milkring, lvl) cooldown == [50,47,44,41,37] 정확(전역세금 미적용 반증검증).
 - 치즈 롤 per-opportunity: 런치당 1회, 실패 롤이 같은 생산 내 재트리거 안 됨(force_roll false).
 - localization_coverage_smoke 통과(3종×7언어).
@@ -133,7 +146,7 @@ description도 레벨 거동 반영(사이즈 12~20%, Lv.3+ 30% 치즈 게이지
 
 - 쿨다운 2중 감소(전역 + 패시브). cooldown_by_level만 넣으면 전역세금 중복 → 권위화 skip 필수. HUD는 최종값 읽으니 catalog만 맞추면 됨.
 - spawn_field_item(name,pos)은 override 미지원 → 밀크병 레벨 scale은 spawn_field_item_data 필요.
-- 치즈는 즉발 회복 — 지속-scale/timed-paddle/long_boost 패턴·life_elixir 전용경로 복제 금지, apply_gauge_charge만.
+- 치즈 게이지는 life_elixir 전용경로 복제 금지, apply_gauge_charge만. **[2026-07-08 개정]** 크기는 timed-paddle/long_boost 복제 금지 — 공용 `_apply_milk_bottle_scale` 공유(밀크병과 동일 풀+캡).
 - special_gauge는 player·lingpet 공유 단일 필드(max 500 하드코딩 ball_update_static_config 등) — 전역 max 건드리지 말 것.
 - 다국어: EN에 키 추가하고 한 언어라도 빠지면 localization_coverage_smoke 실패. 한국어는 별도 ITEM_DISPLAY_KO를 만들지 말고 카탈로그 원문을 사용.
 - 치즈 롤은 launch()(one-shot)에서만. update()에 넣으면 per-frame 컴파운딩.

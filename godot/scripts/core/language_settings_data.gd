@@ -572,9 +572,9 @@ const ACTIVE_ITEM_DESCRIPTION_EN := {
 	"spider_mine": "Deploys a wall-crawling mine that slows the boss.",
 	"elixir_of_mastery": "On use, randomly selects one owned perk and raises it to Lv.5. This mythic active item is consumed after use.",
 	"milk_bottle": "On use, increases the player's paddle and character image size by 20% until the stage ends.",
-	"cheddar_cheese": "On use, instantly restores 300 gauge.",
-	"camembert_cheese": "On use, instantly restores 400 gauge.",
-	"emmental_cheese": "On use, instantly restores 500 gauge.",
+	"cheddar_cheese": "On use, instantly restores 300 gauge and increases the player's paddle and character image size by 16% until the stage ends.",
+	"camembert_cheese": "On use, instantly restores 400 gauge and increases the player's paddle and character image size by 18% until the stage ends.",
+	"emmental_cheese": "On use, instantly restores 500 gauge and increases the player's paddle and character image size by 20% until the stage ends.",
 }
 
 const MYTHIC_DESCRIPTION_EN := {
@@ -629,9 +629,9 @@ const MYTHIC_DESCRIPTION_EN := {
 	"baal_boots": "When weather starts, absorbs the current weather with Baal's power and restores gauge. The absorbed weather grants an extra effect for the round.",
 	"elixir_of_mastery": "On use, randomly selects one owned perk and raises it to Lv.5. This mythic active item is consumed after use.",
 	"milk_bottle": "On use, increases the player's paddle and character image size by 20% until the stage ends.",
-	"cheddar_cheese": "On use, instantly restores 300 gauge.",
-	"camembert_cheese": "On use, instantly restores 400 gauge.",
-	"emmental_cheese": "On use, instantly restores 500 gauge.",
+	"cheddar_cheese": "On use, instantly restores 300 gauge and increases the player's paddle and character image size by 16% until the stage ends.",
+	"camembert_cheese": "On use, instantly restores 400 gauge and increases the player's paddle and character image size by 18% until the stage ends.",
+	"emmental_cheese": "On use, instantly restores 500 gauge and increases the player's paddle and character image size by 20% until the stage ends.",
 }
 
 const MYTHIC_DESCRIPTION_ZH := {
@@ -686,9 +686,9 @@ const MYTHIC_DESCRIPTION_ZH := {
 	"baal_boots": "天气开始时，以巴尔之力吸收当前天气并恢复能量。被吸收的天气会在本回合提供额外效果。",
 	"elixir_of_mastery": "使用时随机选择一个已拥有升级并提升到Lv.5。该神话主动道具使用后消耗。",
 	"milk_bottle": "使用后，玩家挡板和角色图像大小增加20%，持续到本关结束。",
-	"cheddar_cheese": "使用后立即恢复300点能量。",
-	"camembert_cheese": "使用后立即恢复400点能量。",
-	"emmental_cheese": "使用后立即恢复500点能量。",
+	"cheddar_cheese": "使用后立即恢复300点能量，并使玩家挡板和角色图像大小增加16%，持续到本关结束。",
+	"camembert_cheese": "使用后立即恢复400点能量，并使玩家挡板和角色图像大小增加18%，持续到本关结束。",
+	"emmental_cheese": "使用后立即恢复500点能量，并使玩家挡板和角色图像大小增加20%，持续到本关结束。",
 }
 
 const MYTHIC_DESCRIPTION_JA := {
@@ -743,9 +743,9 @@ const MYTHIC_DESCRIPTION_JA := {
 	"baal_boots": "天候開始時、バアルの力で現在の天候を吸収しゲージを回復します。吸収した天候はそのラウンド中に追加効果を与えます。",
 	"elixir_of_mastery": "使用時、所持中のパークをランダムに1つ選びLv.5へ上げます。この神話アクティブアイテムは使用後に消費されます。",
 	"milk_bottle": "使用すると、ステージ終了までプレイヤーのパドルとキャラクター画像サイズが20%増加します。",
-	"cheddar_cheese": "使用するとゲージを即座に300回復します。",
-	"camembert_cheese": "使用するとゲージを即座に400回復します。",
-	"emmental_cheese": "使用するとゲージを即座に500回復します。",
+	"cheddar_cheese": "使用するとゲージを即座に300回復し、ステージ終了までプレイヤーのパドルとキャラクター画像サイズが16%増加します。",
+	"camembert_cheese": "使用するとゲージを即座に400回復し、ステージ終了までプレイヤーのパドルとキャラクター画像サイズが18%増加します。",
+	"emmental_cheese": "使用するとゲージを即座に500回復し、ステージ終了までプレイヤーのパドルとキャラクター画像サイズが20%増加します。",
 }
 
 const MYTHIC_DESCRIPTION_ES := {
@@ -800,9 +800,9 @@ const MYTHIC_DESCRIPTION_ES := {
 	"baal_boots": "Cuando empieza el clima, absorbe el clima actual con el poder de Baal y restaura energía. El clima absorbido otorga un efecto extra durante la ronda.",
 	"elixir_of_mastery": "Al usarlo, elige al azar un perk poseído y lo sube a Lv.5. Este objeto activo mítico se consume tras su uso.",
 	"milk_bottle": "Al usarla, aumenta un 20% el tamaño del paddle y de la imagen del jugador hasta el final de la etapa.",
-	"cheddar_cheese": "Al usarlo, restaura al instante 300 de energía.",
-	"camembert_cheese": "Al usarlo, restaura al instante 400 de energía.",
-	"emmental_cheese": "Al usarlo, restaura al instante 500 de energía.",
+	"cheddar_cheese": "Al usarlo, restaura al instante 300 de energía y aumenta un 16% el tamaño del paddle y de la imagen del jugador hasta el final de la etapa.",
+	"camembert_cheese": "Al usarlo, restaura al instante 400 de energía y aumenta un 18% el tamaño del paddle y de la imagen del jugador hasta el final de la etapa.",
+	"emmental_cheese": "Al usarlo, restaura al instante 500 de energía y aumenta un 20% el tamaño del paddle y de la imagen del jugador hasta el final de la etapa.",
 }
 
 const MYTHIC_DESCRIPTION_PT_BR := {
@@ -857,9 +857,9 @@ const MYTHIC_DESCRIPTION_PT_BR := {
 	"baal_boots": "Quando o clima começa, absorve o clima atual com o poder de Baal e restaura energia. O clima absorvido concede um efeito extra pela rodada.",
 	"elixir_of_mastery": "Ao usar, escolhe aleatoriamente um perk possuído e o eleva para Lv.5. Este item ativo mítico é consumido após o uso.",
 	"milk_bottle": "Ao usar, aumenta em 20% o tamanho do paddle e da imagem do jogador até o fim da fase.",
-	"cheddar_cheese": "Ao usar, restaura instantaneamente 300 de energia.",
-	"camembert_cheese": "Ao usar, restaura instantaneamente 400 de energia.",
-	"emmental_cheese": "Ao usar, restaura instantaneamente 500 de energia.",
+	"cheddar_cheese": "Ao usar, restaura instantaneamente 300 de energia e aumenta em 16% o tamanho do paddle e da imagem do jogador até o fim da fase.",
+	"camembert_cheese": "Ao usar, restaura instantaneamente 400 de energia e aumenta em 18% o tamanho do paddle e da imagem do jogador até o fim da fase.",
+	"emmental_cheese": "Ao usar, restaura instantaneamente 500 de energia e aumenta em 20% o tamanho do paddle e da imagem do jogador até o fim da fase.",
 }
 
 const MYTHIC_DESCRIPTION_RU := {
@@ -914,9 +914,9 @@ const MYTHIC_DESCRIPTION_RU := {
 	"baal_boots": "Когда начинается погода, поглощает текущую погоду силой Баала и восстанавливает энергию. Поглощенная погода дает дополнительный эффект на раунд.",
 	"elixir_of_mastery": "При использовании случайно выбирает один имеющийся перк и повышает его до Lv.5. Этот мифический активный предмет расходуется после использования.",
 	"milk_bottle": "При использовании увеличивает размер ракетки и изображения игрока на 20% до конца этапа.",
-	"cheddar_cheese": "При использовании мгновенно восстанавливает 300 энергии.",
-	"camembert_cheese": "При использовании мгновенно восстанавливает 400 энергии.",
-	"emmental_cheese": "При использовании мгновенно восстанавливает 500 энергии.",
+	"cheddar_cheese": "При использовании мгновенно восстанавливает 300 энергии и увеличивает размер ракетки и изображения игрока на 16% до конца этапа.",
+	"camembert_cheese": "При использовании мгновенно восстанавливает 400 энергии и увеличивает размер ракетки и изображения игрока на 18% до конца этапа.",
+	"emmental_cheese": "При использовании мгновенно восстанавливает 500 энергии и увеличивает размер ракетки и изображения игрока на 20% до конца этапа.",
 }
 
 const PERK_NAME_EN := {

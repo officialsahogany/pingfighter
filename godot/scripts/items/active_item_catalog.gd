@@ -147,6 +147,7 @@ func build_item_by_name(item_name: String) -> Dictionary:
 				"cheddar_cheese",
 				"체다치즈",
 				300.0,
+				1.16,
 				CHEDDAR_CHEESE_ICON_PATH,
 				Color(1.0, 0.64, 0.18)
 			)
@@ -155,6 +156,7 @@ func build_item_by_name(item_name: String) -> Dictionary:
 				"camembert_cheese",
 				"까망베르치즈",
 				400.0,
+				1.18,
 				CAMEMBERT_CHEESE_ICON_PATH,
 				Color(0.96, 0.92, 0.80)
 			)
@@ -163,6 +165,7 @@ func build_item_by_name(item_name: String) -> Dictionary:
 				"emmental_cheese",
 				"에멘탈치즈",
 				500.0,
+				1.20,
 				EMMENTAL_CHEESE_ICON_PATH,
 				Color(1.0, 0.82, 0.24)
 			)
@@ -766,7 +769,11 @@ func _build_milk_bottle() -> Dictionary:
 	}
 
 
-func _build_cheese(item_name: String, display_name: String, gauge_gain: float, icon_path: String, item_color: Color) -> Dictionary:
+func _build_cheese(item_name: String, display_name: String, gauge_gain: float, paddle_scale_multiplier: float, icon_path: String, item_color: Color) -> Dictionary:
+	# Cheese restores the gauge AND carries the milk-bottle paddle/character size buff.
+	# Each cheese maps 1:1 to a milk-production level (cheddar=Lv.3, camembert=Lv.4,
+	# emmental=Lv.5), so its size step matches that level's milk-bottle scale.
+	var scale_percent := int(round(maxf(0.0, paddle_scale_multiplier - 1.0) * 100.0))
 	return {
 		"name": item_name,
 		"display_name": display_name,
@@ -781,8 +788,11 @@ func _build_cheese(item_name: String, display_name: String, gauge_gain: float, i
 		"consumable": true,
 		"stationary_field_item": true,
 		"dash_destroy_on_player_contact": true,
+		"paddle_scale_multiplier": paddle_scale_multiplier,
+		"paddle_scale_percent": scale_percent,
+		"stage_persistent": true,
 		"lingpet_generated_only": true,
 		"gauge_gain": gauge_gain,
 		"gauge_max": GAUGE_MAX,
-		"description": "사용 시 왼쪽 파란 게이지구슬을 즉시 %d 회복합니다." % int(round(gauge_gain)),
+		"description": "사용 시 왼쪽 파란 게이지구슬을 즉시 %d 회복하고, 스테이지 종료까지 플레이어 패들과 이미지 크기가 %d%% 증가합니다." % [int(round(gauge_gain)), scale_percent],
 	}
