@@ -72,7 +72,12 @@ func update(
 
 	var input_reader: Object = deps.get("input_reader", null)
 	var input_snapshot: Dictionary = input_reader.get_snapshot() if input_reader != null else {}
-	var down_pressed: bool = bool(input_snapshot.get("down_pressed", false))
+	# Dash is core movement, not a character skill: read its down trigger from the pre-skill-lock
+	# (status-proxied) reader so it survives a 뿔딸기 / 오딘의 눈 transform, whose skill-lock proxy
+	# zeroes down_pressed to block down-based skills (warp gate / EMP dive). The transform cinematic
+	# still blocks dash because horizontal_input_locked forces direction == 0 (dash requires a
+	# direction). Off-transform frames share one reader, so behavior is unchanged there.
+	var down_pressed: bool = _read_dash_down_pressed(deps, input_reader, input_snapshot)
 	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
@@ -277,6 +282,16 @@ func update(
 		"player_speed": next_speed,
 		"special_gauge": next_special_gauge,
 	}
+
+
+func _read_dash_down_pressed(deps: Dictionary, input_reader: Object, input_snapshot: Dictionary) -> bool:
+	var dash_input_reader: Object = deps.get("dash_input_reader", null)
+	if dash_input_reader == null or dash_input_reader == input_reader or not dash_input_reader.has_method("get_snapshot"):
+		return bool(input_snapshot.get("down_pressed", false))
+	var dash_value: Variant = dash_input_reader.get_snapshot()
+	if dash_value is Dictionary:
+		return bool(dash_value.get("down_pressed", false))
+	return bool(input_snapshot.get("down_pressed", false))
 
 
 func _build_warp_motion_config(config: Dictionary, warp_gate_state: Object) -> Dictionary:

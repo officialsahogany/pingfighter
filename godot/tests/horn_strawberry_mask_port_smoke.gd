@@ -9,6 +9,7 @@ const PaddleBounceBossPostHitHandler := preload("res://scripts/ball/paddle_bounc
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 const ViperJetpackState := preload("res://scripts/characters/viper_jetpack_state.gd")
+const SmasherPlayerController := preload("res://scripts/characters/smasher_player_controller.gd")
 
 
 class FakeOwner:
@@ -290,6 +291,30 @@ func _verify_runtime_stat_hooks_and_skill_lock() -> void:
 	_expect(not bool(locked_snapshot.get("jetpack_pressed", true)), "skill lock input proxy should clear Viper jetpack input")
 	_expect(not bool(locked_snapshot.get("supply_drop_hold_pressed", true)), "skill lock input proxy should clear Commando supply input")
 	_expect(int(locked_snapshot.get("power_smash_direction", 1)) == 0, "skill lock input proxy should clear power-smash direction")
+
+	# --- Dash-during-transform regression seal (reported bug: 뿔딸기 변신 후 대쉬 불가) ---
+	# Dash is core movement (Python keeps down_pressed live during transform; only the original
+	# character skills are gated). The routed input_reader is a skill-lock proxy that zeroes
+	# down_pressed to block down-based skills (warp gate / EMP dive), which also killed dash. The
+	# controllers now read the dash trigger from deps["dash_input_reader"] (pre-skill-lock,
+	# status-proxied), which must keep down_pressed live.
+	var dash_reader: Object = deps.get("dash_input_reader", null)
+	_expect(dash_reader != null, "transform deps should expose a pre-skill-lock dash_input_reader")
+	_expect(dash_reader != locked_reader, "dash_input_reader should bypass the skill-lock proxy during transform")
+	var dash_snapshot: Dictionary = dash_reader.get_snapshot() if dash_reader != null and dash_reader.has_method("get_snapshot") else {}
+	_expect(bool(dash_snapshot.get("down_pressed", false)), "dash_input_reader should keep down_pressed live so dash survives the transform")
+	var smasher_controller: Object = SmasherPlayerController.new()
+	_expect(
+		smasher_controller._read_dash_down_pressed(deps, locked_reader, locked_snapshot),
+		"smasher controller should read the live down trigger for dash during transform"
+	)
+	# Reverse-verification: with no separate dash reader (dash_input_reader == locked_reader) the
+	# controller falls back to the locked snapshot and dash stays dead — proving the plumbing is
+	# load-bearing and this smoke would FAIL on the pre-fix code path.
+	_expect(
+		not smasher_controller._read_dash_down_pressed({"dash_input_reader": locked_reader}, locked_reader, locked_snapshot),
+		"without a separate dash reader the controller reads the locked snapshot (dash blocked)"
+	)
 
 	var event_router: Object = PaddleBounceEventRouter.new()
 	var gauge_after_hit: float = event_router.register_player_hit(

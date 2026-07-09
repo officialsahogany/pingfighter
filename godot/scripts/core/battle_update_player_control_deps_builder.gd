@@ -43,13 +43,17 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 	var status_effect_state: Object = _get_instance(registry, "status_effect_state")
 	var input_reader: Object = _get_instance(registry, character_runtime.get_input_reader_key(character_type))
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	var routed_input_reader: Object = _build_skill_lock_input_reader(
-		_build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state),
-		mythic_item_runtime
-	)
+	# Status-proxied but NOT skill-lock-proxied reader. Dash is core movement, so the controllers
+	# read its down trigger from here to survive a 뿔딸기 / 오딘의 눈 transform, whose skill-lock
+	# proxy zeroes down_pressed to block down-based character skills (warp gate / EMP dive). When no
+	# transform lock is active this equals routed_input_reader (same object), so off-transform frames
+	# are unaffected. Still status/curse-gated, so stun/freeze correctly suppress dash.
+	var dash_input_reader: Object = _build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state)
+	var routed_input_reader: Object = _build_skill_lock_input_reader(dash_input_reader, mythic_item_runtime)
 	return {
 		"registry": registry,
 		"input_reader": routed_input_reader,
+		"dash_input_reader": dash_input_reader,
 		"dash_state": _get_instance(registry, character_runtime.get_dash_state_key(character_type)),
 		"drive_input_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_drive_input_state"),
 		"skill_state": _get_instance(registry, skill_state_key) if skill_state_key != "" else null,
