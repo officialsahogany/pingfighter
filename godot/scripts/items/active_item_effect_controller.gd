@@ -615,6 +615,10 @@ func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: D
 	)
 
 
+func apply_aipill_ball_hit_speed_boost(ball_vel: Vector2, was_active_on_contact: bool = false) -> Dictionary:
+	return _effect_interaction_facade.apply_aipill_ball_hit_speed_boost(self, ball_vel, was_active_on_contact)
+
+
 func cancel_aipill_if_neural_helmet_direction_pressed(
 	mythic_item_runtime: Object,
 	direction_pressed: bool = true

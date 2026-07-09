@@ -425,7 +425,7 @@ func _build_aipill() -> Dictionary:
 		"chance": 0.006,
 		"duration": 300,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "자동 가드가 활성화되며, 가드할 때마다 게이지가 줄어듭니다.",
+		"description": "자동 가드가 활성화되며, 가드할 때마다 게이지가 줄어듭니다. 가드로 공을 쳐낼 때마다 공 속도가 25%씩 증가합니다(상한 없음).",
 		"icon_path": AIPILL_ICON_PATH,
 		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
 		"consumable": true,

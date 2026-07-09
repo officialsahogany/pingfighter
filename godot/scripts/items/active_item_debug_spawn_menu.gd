@@ -477,7 +477,7 @@ func _get_debug_item_subtitle(item_name: String) -> String:
 		"strange_vial":
 			return "무작위 크기 / 속도 변화"
 		"aipill":
-			return "자동 가드"
+			return "자동 가드 / 히트당 공속 +25%"
 		"pandora_box":
 			return "차원문 아이템 소환"
 		"grenade":

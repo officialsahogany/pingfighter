@@ -164,6 +164,19 @@ func apply_aipill_guard_drain(runtime: Object, special_gauge: float, context: Di
 	return float(runtime.effect_controller.apply_aipill_guard_drain(special_gauge, context, deps))
 
 
+func apply_aipill_ball_hit_speed_boost(
+	runtime: Object,
+	ball_vel: Vector2,
+	was_active_on_contact: bool
+) -> Dictionary:
+	if (
+		runtime.effect_controller == null
+		or not runtime.effect_controller.has_method("apply_aipill_ball_hit_speed_boost")
+	):
+		return {"boosted": false, "ball_vel": ball_vel}
+	return runtime.effect_controller.apply_aipill_ball_hit_speed_boost(ball_vel, was_active_on_contact)
+
+
 func get_boss_ai_context(runtime: Object) -> Dictionary:
 	var context: Dictionary = {}
 	if runtime.throw_controller != null and runtime.throw_controller.has_method("get_boss_ai_context"):
@@ -184,6 +197,11 @@ func get_ball_collision_context(runtime: Object) -> Dictionary:
 		context.merge(runtime.effect_controller.get_trampoline_collision_context(), true)
 	if runtime.effect_controller.has_method("get_stopwatch_ball_context"):
 		context.merge(runtime.effect_controller.get_stopwatch_ball_context(), true)
+	# AI 알약 발동 중에는 접촉 부스트(+25%/히트)가 공속 상한을 넘도록 상한 해제
+	# 플래그를 공 경로 컨텍스트에 싣는다. 활성일 때만 키를 실어(merge 클로버 방지)
+	# 알약 종료 시 자연히 사라지는 자기치유형 채널로 유지한다.
+	if is_aipill_active(runtime):
+		context["active_item_aipill_ball_boost_active"] = true
 	return context
 
 

@@ -583,6 +583,11 @@ func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: D
 	return context_facade.apply_aipill_guard_drain(self, special_gauge, context, deps)
 
 
+func apply_aipill_ball_hit_speed_boost(ball_vel: Vector2, was_active_on_contact: bool = false) -> Dictionary:
+	_ensure_helpers_ready()
+	return context_facade.apply_aipill_ball_hit_speed_boost(self, ball_vel, was_active_on_contact)
+
+
 func get_boss_ai_context() -> Dictionary:
 	_ensure_helpers_ready()
 	return context_facade.get_boss_ai_context(self)

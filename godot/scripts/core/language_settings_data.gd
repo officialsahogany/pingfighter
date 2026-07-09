@@ -551,7 +551,7 @@ const ACTIVE_ITEM_DESCRIPTION_EN := {
 	"doping_potion": "Temporarily boosts Commando firearm fire rate and power.",
 	"vitamin_pill": "Temporarily increases movement speed.",
 	"strange_vial": "Randomly changes paddle size and movement speed by a large amount.",
-	"aipill": "Activates auto guard; gauge is consumed whenever it guards.",
+	"aipill": "Activates auto guard; gauge is consumed whenever it guards. Each guarded hit speeds the ball up by 25% with no speed cap.",
 	"pandora_box": "Opens a portal that summons an active item onto the field.",
 	"grenade": "Throws a grenade that stuns the boss inside the explosion radius.",
 	"flare": "Throws a flare that confuses the boss inside the blast radius.",

@@ -643,6 +643,7 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 		"commando_suicide_drone_ball_boosted_speed": float(context.get("commando_suicide_drone_ball_boosted_speed", 0.0)),
 		"lingpet_wild_roar_ball_boost_active": bool(context.get("lingpet_wild_roar_ball_boost_active", false)),
 		"lingpet_wild_roar_ball_restore_speed": float(context.get("lingpet_wild_roar_ball_restore_speed", 0.0)),
+		"active_item_aipill_ball_boost_active": bool(context.get("active_item_aipill_ball_boost_active", false)),
 		"viper_knockback_overlay_active": bool(context.get("viper_knockback_overlay_active", false)),
 		"ai_mode": str(context.get("ai_mode", "champion")),
 		"speed_limit_disabled": bool(context.get("speed_limit_disabled", false)),
@@ -735,6 +736,7 @@ func _is_speed_limit_disabled(context: Dictionary) -> bool:
 		bool(context.get("speed_limit_disabled", false))
 		or bool(context.get("commando_suicide_drone_ball_boost_active", false))
 		or bool(context.get("lingpet_wild_roar_ball_boost_active", false))
+		or bool(context.get("active_item_aipill_ball_boost_active", false))
 	)
 
 

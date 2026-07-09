@@ -67,6 +67,15 @@ func apply(
 	var speed_limit_disabled_override: Variant = null
 	if is_player:
 		var gauge_before_player_hit: float = special_gauge
+		# AI 알약 접촉 부스트: 아래 player_post_hit_handler 내부의 가드 드레인이 이번
+		# 히트로 게이지를 소진해 알약을 끌 수 있으므로, "접촉 시점" 활성 상태를
+		# 드레인 전에 캡처해 둔다(소진 히트도 발동 중 접촉으로 취급).
+		var aipill_runtime: Object = deps.get("active_item_runtime", null)
+		var aipill_active_on_contact: bool = (
+			aipill_runtime != null
+			and aipill_runtime.has_method("is_aipill_active")
+			and bool(aipill_runtime.is_aipill_active())
+		)
 		var player_start: int = _perf_begin(perf_logger)
 		var player_result: Dictionary = player_post_hit_handler.apply(
 			ball_pos,
@@ -241,6 +250,17 @@ func apply(
 				context,
 				deps
 			)
+		if (
+			aipill_active_on_contact
+			and aipill_runtime != null
+			and aipill_runtime.has_method("apply_aipill_ball_hit_speed_boost")
+		):
+			var aipill_boost_result: Dictionary = aipill_runtime.apply_aipill_ball_hit_speed_boost(
+				ball_vel,
+				aipill_active_on_contact
+			)
+			if bool(aipill_boost_result.get("boosted", false)):
+				ball_vel = _get_vector2(aipill_boost_result, "ball_vel", ball_vel)
 		if runtime_perk_gold < 0:
 			runtime_perk_gold = _award_rally_gold(ball_vel, context, deps, pre_player_hit_combo_count)
 	else:

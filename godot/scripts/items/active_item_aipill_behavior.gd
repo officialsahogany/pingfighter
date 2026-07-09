@@ -5,6 +5,7 @@ const FIELD_HEIGHT := 750.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const AIPILL_GUARD_GAUGE_DRAIN := 90.0
 const AIPILL_SPEED_BOOST := 4.0
+const AIPILL_BALL_HIT_SPEED_BOOST := 1.25
 
 
 func apply_player_control(active: bool, player_pos: Vector2, config: Dictionary, delta: float) -> Dictionary:
@@ -60,6 +61,12 @@ func build_guard_drain_result(
 		"flash": true,
 		"feedback": true,
 	}
+
+
+func build_ball_hit_speed_boost_result(active: bool, ball_vel: Vector2) -> Dictionary:
+	if not active or ball_vel.length_squared() <= 0.0:
+		return {"boosted": false, "ball_vel": ball_vel}
+	return {"boosted": true, "ball_vel": ball_vel * AIPILL_BALL_HIT_SPEED_BOOST}
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

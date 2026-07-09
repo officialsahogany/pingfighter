@@ -43,6 +43,10 @@ func apply_guard_drain(
 	return float(result.get("special_gauge", special_gauge))
 
 
+func apply_ball_hit_speed_boost(active: bool, ball_vel: Vector2) -> Dictionary:
+	return _behavior.build_ball_hit_speed_boost_result(active, ball_vel)
+
+
 func _get_neural_helmet_gauge_reduction(deps: Dictionary, context: Dictionary) -> float:
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_neural_helmet_aipill_gauge_reduction"):

@@ -86,6 +86,19 @@ func apply_aipill_guard_drain(
 	)
 
 
+# was_active_on_contact: 게이지 소진으로 알약이 이번 히트에서 꺼졌어도, 접촉
+# "시점"에 발동 중이었다면 부스트는 유효해야 하므로 호출측 캡처 값을 함께 받는다.
+func apply_aipill_ball_hit_speed_boost(
+	target: Object,
+	ball_vel: Vector2,
+	was_active_on_contact: bool
+) -> Dictionary:
+	return _aipill_actions.apply_ball_hit_speed_boost(
+		was_active_on_contact or bool(target.get("aipill_active")),
+		ball_vel
+	)
+
+
 func cancel_aipill_if_neural_helmet_direction_pressed(
 	target: Object,
 	mythic_item_runtime: Object,
