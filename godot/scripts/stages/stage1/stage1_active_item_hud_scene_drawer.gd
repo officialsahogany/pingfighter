@@ -27,6 +27,12 @@ func draw(
 	if renderer == null:
 		return
 	var round_state: Object = _get_module(registry, "round_flow_state")
+	# Playfield -> screen scale for the acquisition flight source (field items live in
+	# 0..width / 0..height playfield space; the HUD canvas is screen space with
+	# game_offset baked into the slot rects).
+	var field_width: float = max(1.0, float(context.get("width", 760.0)))
+	var field_height: float = max(1.0, float(context.get("height", 750.0)))
+	var render_scale := Vector2(game_size.x / field_width, game_size.y / field_height)
 	renderer.draw_slots(
 		canvas,
 		layout,
@@ -34,7 +40,9 @@ func draw(
 		round_state.get_round_start_time_msec() if round_state != null else 0,
 		_get_module(registry, "active_item_hud_state"),
 		_get_module(registry, "active_item_hud_visuals"),
-		registry
+		registry,
+		game_offset,
+		render_scale
 	)
 
 

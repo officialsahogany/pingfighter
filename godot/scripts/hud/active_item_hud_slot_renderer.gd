@@ -22,11 +22,16 @@ func draw_slot(
 	is_overflow_slot: bool,
 	slot_number: String
 ) -> float:
-	var ready: bool = is_slot_ready(item_data, slot_status)
-	if ready and float(slot_status.get("alchemy_notice_ratio", 0.0)) <= 0.0:
-		_draw_ready_glow(canvas, slot_rect, scale_factor, is_overflow_slot)
 	_draw_slot_background(canvas, slot_rect, is_overflow_slot)
 	if item_data.is_empty():
+		canvas.draw_rect(slot_rect, Color(40.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0), false, 1.0)
+		return 0.0
+
+	# While an acquisition flight is still carrying this item into the slot, render the
+	# destination as an empty box so the airborne icon reads as filling an EMPTY slot
+	# (not duplicating an already-shown one). The renderer's flight pass draws the icon
+	# on top; on landing this flag clears and the normal icon + pickup pop take over.
+	if bool(slot_status.get("flight_incoming", false)):
 		canvas.draw_rect(slot_rect, Color(40.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0), false, 1.0)
 		return 0.0
 
@@ -56,18 +61,6 @@ static func is_slot_ready(item_data: Dictionary, slot_status: Dictionary) -> boo
 
 func draw_group_cooldown_frame(canvas: Node2D, frame_rect: Rect2, remaining_ratio: float, scale_factor: float) -> void:
 	status_renderer.draw_group_cooldown_frame(canvas, frame_rect, remaining_ratio, scale_factor)
-
-
-func _draw_ready_glow(canvas: Node2D, slot_rect: Rect2, scale_factor: float, is_overflow_slot: bool) -> void:
-	var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * READY_GLOW_TICK_SCALE)
-	var glow_alpha: float = 0.10 + 0.12 * pulse
-	var outer_rect: Rect2 = slot_rect.grow((3.0 + pulse * 3.0) * scale_factor)
-	var inner_rect: Rect2 = slot_rect.grow((1.0 + pulse * 1.5) * scale_factor)
-	if is_overflow_slot:
-		glow_alpha *= 0.45
-	canvas.draw_rect(outer_rect, Color(0.30, 0.85, 1.0, glow_alpha))
-	canvas.draw_rect(outer_rect, Color(0.45, 0.95, 1.0, 0.38 if not is_overflow_slot else 0.18), false, max(1.0, 2.0 * scale_factor))
-	canvas.draw_rect(inner_rect, Color(0.60, 1.0, 1.0, 0.12 if not is_overflow_slot else 0.06), false, max(1.0, scale_factor))
 
 
 func _draw_pickup_pop(canvas: Node2D, slot_rect: Rect2, scale_factor: float, pulse: float) -> void:

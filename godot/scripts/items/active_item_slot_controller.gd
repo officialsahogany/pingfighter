@@ -324,6 +324,7 @@ func store_active_item(
 	var stored_slot_index: int = active_item_slots.size() - 1
 	field_item["stored_active_slot_index"] = stored_slot_index
 	_select_slot(registry, stored_slot_index)
+	_register_slot_acquire_flight(registry, item_data, stored_slot_index, field_item)
 	return true
 
 
@@ -625,6 +626,20 @@ func _select_slot(registry: Object, slot_index: int) -> void:
 	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
 	if hud_state != null and hud_state.has_method("set_selected_index"):
 		hud_state.set_selected_index(slot_index)
+
+
+# Register the "fly into the empty slot" acquisition animation for a field pickup.
+# hud_state was already instantiated by _select_slot above, so this reuses the cached
+# module. A missing field position simply skips the flight (the pickup pop still fires).
+func _register_slot_acquire_flight(registry: Object, item_data: Dictionary, slot_index: int, field_item: Dictionary) -> void:
+	if slot_index < 0 or item_data.is_empty():
+		return
+	var source_pos_value: Variant = field_item.get("position", null)
+	if not (source_pos_value is Vector2):
+		return
+	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
+	if hud_state != null and hud_state.has_method("register_slot_flight"):
+		hud_state.register_slot_flight(item_data, slot_index, source_pos_value, Time.get_ticks_msec())
 
 
 func _cycle_selected_slot(registry: Object, active_item_slots: Array, direction: int) -> int:

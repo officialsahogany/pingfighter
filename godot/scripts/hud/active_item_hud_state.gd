@@ -5,16 +5,26 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const COOLDOWN_FLASH_DURATION_MS := 400
 const PICKUP_POP_DURATION_MS := 350
+# "Fly into the empty slot" acquisition animation: the icon travels from the field
+# pickup point into its destination slot box over this window; the slot renders as an
+# empty box until the icon lands, and the pickup pop is deferred to the landing frame
+# so the beloved slot pop reads as the item snapping home. Kept short (cosmetic only,
+# wall-clock driven) so a modal opening mid-flight simply lands it.
+const SLOT_FLIGHT_DURATION_MS := 460
+const SLOT_FLIGHT_MAX_ACTIVE := 5
+const DEFAULT_FLIGHT_COLOR := Color(0.42, 0.82, 1.0)
 
 var selected_active_item_index := 0
 var cooldown_complete_flash: Dictionary = {}
 var pickup_pop: Dictionary = {}
+var slot_flights: Array = []
 
 
 func reset() -> void:
 	selected_active_item_index = 0
 	cooldown_complete_flash.clear()
 	pickup_pop.clear()
+	slot_flights.clear()
 
 
 func set_selected_index(index: int) -> void:
@@ -47,7 +57,9 @@ func get_slot_status(
 		"throw_lock_remaining_seconds": 0,
 		"alchemy_notice_ratio": 0.0,
 		"pickup_pop_pulse": 0.0,
+		"flight_incoming": false,
 	}
+	status["flight_incoming"] = not item_data.is_empty() and is_slot_flight_incoming(slot_index, current_time_msec)
 	_update_pickup_pop_status(status, slot_index, item_data, current_time_msec)
 
 	var last_use_msec: int = get_active_item_last_use_msec(item_data)
@@ -125,6 +137,13 @@ func _update_pickup_pop_status(status: Dictionary, slot_index: int, item_data: D
 		var start_msec: int = current_time_msec
 		if previous_item_key != "":
 			start_msec = current_time_msec - PICKUP_POP_DURATION_MS
+		else:
+			# Fresh empty -> item transition. If an acquisition flight is carrying this
+			# item into the slot, defer the pop start to the landing frame so the pop
+			# fires as the icon snaps home instead of on an empty (mid-flight) box.
+			var land_delay: int = _flight_land_delay_ms(item_key, current_time_msec)
+			if land_delay > 0:
+				start_msec = current_time_msec + land_delay
 		entry = {
 			"item_key": item_key,
 			"start_msec": start_msec,
@@ -136,9 +155,9 @@ func _update_pickup_pop_status(status: Dictionary, slot_index: int, item_data: D
 
 	var elapsed_msec: int = current_time_msec - int(entry.get("start_msec", current_time_msec))
 	if elapsed_msec < 0:
-		entry["start_msec"] = current_time_msec
-		pickup_pop[slot_index] = entry
-		elapsed_msec = 0
+		# Start is deliberately in the future (flight-deferred landing pop); wait quietly.
+		status["pickup_pop_pulse"] = 0.0
+		return
 	if elapsed_msec >= PICKUP_POP_DURATION_MS:
 		status["pickup_pop_pulse"] = 0.0
 		return
@@ -156,6 +175,95 @@ func _build_pickup_item_key(item_data: Dictionary) -> String:
 	if identity == "":
 		return ""
 	return identity
+
+
+func register_slot_flight(item_data: Dictionary, slot_index: int, source_field_pos: Vector2, now_msec: int) -> void:
+	if slot_index < 0 or item_data.is_empty():
+		return
+	var item_key: String = _build_pickup_item_key(item_data)
+	if item_key == "":
+		return
+	# One live flight per item identity: a re-registration (e.g. a same-frame retry)
+	# replaces the prior in-flight entry instead of stacking a duplicate.
+	var filtered: Array = []
+	for existing in slot_flights:
+		if existing is Dictionary and str((existing as Dictionary).get("item_key", "")) == item_key:
+			continue
+		filtered.append(existing)
+	slot_flights = filtered
+	slot_flights.append({
+		"item_key": item_key,
+		"slot_index": slot_index,
+		"source_field_pos": source_field_pos,
+		"start_msec": now_msec,
+		"item_data": item_data.duplicate(true),
+		"color": _resolve_flight_color(item_data),
+	})
+	while slot_flights.size() > SLOT_FLIGHT_MAX_ACTIVE:
+		slot_flights.remove_at(0)
+
+
+func is_slot_flight_incoming(slot_index: int, now_msec: int) -> bool:
+	for entry_value in slot_flights:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		if int(entry.get("slot_index", -1)) != slot_index:
+			continue
+		var elapsed: int = now_msec - int(entry.get("start_msec", now_msec))
+		if elapsed >= 0 and elapsed < SLOT_FLIGHT_DURATION_MS:
+			return true
+	return false
+
+
+# Returns lightweight per-flight view dicts (slot_index, source_field_pos, item_data,
+# color, progress) for still-travelling flights, and prunes any that have landed. The
+# renderer is the single caller so pruning happens exactly once per drawn frame.
+func get_active_slot_flights(now_msec: int) -> Array:
+	var active: Array = []
+	var kept: Array = []
+	for entry_value in slot_flights:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var elapsed: int = max(0, now_msec - int(entry.get("start_msec", now_msec)))
+		if elapsed >= SLOT_FLIGHT_DURATION_MS:
+			continue
+		kept.append(entry)
+		active.append({
+			"slot_index": int(entry.get("slot_index", -1)),
+			"source_field_pos": entry.get("source_field_pos", Vector2.ZERO),
+			"item_data": entry.get("item_data", {}),
+			"color": entry.get("color", DEFAULT_FLIGHT_COLOR),
+			"progress": clamp(float(elapsed) / float(SLOT_FLIGHT_DURATION_MS), 0.0, 1.0),
+		})
+	slot_flights = kept
+	return active
+
+
+func get_slot_flights() -> Array:
+	return slot_flights
+
+
+func _flight_land_delay_ms(item_key: String, now_msec: int) -> int:
+	for entry_value in slot_flights:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		if str(entry.get("item_key", "")) != item_key:
+			continue
+		var elapsed: int = now_msec - int(entry.get("start_msec", now_msec))
+		if elapsed < 0 or elapsed >= SLOT_FLIGHT_DURATION_MS:
+			return 0
+		return max(0, SLOT_FLIGHT_DURATION_MS - elapsed)
+	return 0
+
+
+func _resolve_flight_color(item_data: Dictionary) -> Color:
+	var color_value: Variant = item_data.get("color", null)
+	if color_value is Color:
+		return color_value
+	return DEFAULT_FLIGHT_COLOR
 
 
 func _get_instance(registry: Object, key: String) -> Object:
