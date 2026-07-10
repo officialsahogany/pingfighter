@@ -24,6 +24,10 @@ func schedule_deferred_choice(scene: Control, box_index: int, delay: float) -> v
 	_choice_state.schedule_deferred_choice(scene, box_index, delay)
 
 
+func record_active_choice(scene: Control, box_index: int, runtime_perk_state: Object) -> void:
+	_choice_state.record_active_choice(scene, box_index, runtime_perk_state)
+
+
 func update_pending_choice(
 	delta: float,
 	scene: Control,

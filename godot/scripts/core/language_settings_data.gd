@@ -1018,6 +1018,7 @@ const PERK_NAME_EN := {
 	"baal_boots": "Baal's Pact",
 	"pandora_legacy": "Pandora's Legacy",
 	"convert_to_gold": "Convert to Gold",
+	"angel_blessing": "Angel's Dice",
 }
 
 const PERK_NAME_ZH := {
@@ -1119,6 +1120,7 @@ const PERK_NAME_ZH := {
 	"baal_boots": "巴尔契约",
 	"pandora_legacy": "潘多拉遗产",
 	"convert_to_gold": "兑换金币",
+	"angel_blessing": "天使骰子",
 }
 
 const PERK_NAME_JA := {
@@ -1220,6 +1222,7 @@ const PERK_NAME_JA := {
 	"baal_boots": "バアルの契約",
 	"pandora_legacy": "パンドラの遺産",
 	"convert_to_gold": "ゴールド変換",
+	"angel_blessing": "天使のダイス",
 }
 
 const PERK_NAME_ES := {
@@ -1321,6 +1324,7 @@ const PERK_NAME_ES := {
 	"baal_boots": "Pacto de Baal",
 	"pandora_legacy": "Legado de Pandora",
 	"convert_to_gold": "Convertir en oro",
+	"angel_blessing": "Dado angelical",
 }
 
 const PERK_NAME_PT_BR := {
@@ -1422,6 +1426,7 @@ const PERK_NAME_PT_BR := {
 	"baal_boots": "Pacto de Baal",
 	"pandora_legacy": "Legado de Pandora",
 	"convert_to_gold": "Converter em Ouro",
+	"angel_blessing": "Dado angelical",
 }
 
 const PERK_NAME_RU := {
@@ -1523,6 +1528,7 @@ const PERK_NAME_RU := {
 	"baal_boots": "Договор Баала",
 	"pandora_legacy": "Наследие Пандоры",
 	"convert_to_gold": "Обменять на золото",
+	"angel_blessing": "Ангельская кость",
 }
 
 const PERK_SUMMARY_EN := {
@@ -2171,6 +2177,7 @@ const PERK_LOCALIZATION_ALIASES := {
 	"instant_gauge_full": "instant_full_gauge",
 	"instant_monkey_blessing": "instant_monkey_grace",
 	"common_refresh": "instant_refresh",
+	"angel_blessing": "angel_blessing",
 }
 
 const CHARACTER_EN := {

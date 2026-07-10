@@ -47,6 +47,7 @@ const CONVERTED_MYTHIC_PERK_IDS := [
 	"celestial_armor",
 	"baal_boots",
 	"pandora_legacy",
+	"angel_blessing",
 ]
 
 var _failures: Array[String] = []

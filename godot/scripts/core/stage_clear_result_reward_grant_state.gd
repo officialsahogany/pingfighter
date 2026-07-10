@@ -62,6 +62,8 @@ func empty_grant_summary(attempted: int) -> Dictionary:
 		"active_granted": 0,
 		"passive_granted": 0,
 		"mythic_granted": 0,
+		"mythic_perk_granted": 0,
+		"mythic_perk_choice_opened": 0,
 		"starpoint_granted": 0,
 		"failed": [],
 	}
@@ -70,7 +72,7 @@ func empty_grant_summary(attempted: int) -> Dictionary:
 func merge_grant_summary(summary: Dictionary) -> void:
 	if _last_grant_summary.is_empty():
 		_last_grant_summary = empty_grant_summary(0)
-	for key in ["attempted", "granted", "active_granted", "passive_granted", "mythic_granted", "starpoint_granted"]:
+	for key in ["attempted", "granted", "active_granted", "passive_granted", "mythic_granted", "mythic_perk_granted", "mythic_perk_choice_opened", "starpoint_granted"]:
 		_last_grant_summary[key] = int(_last_grant_summary.get(key, 0)) + int(summary.get(key, 0))
 	var failed: Array = _get_array(_last_grant_summary.get("failed", []))
 	for failed_value in _get_array(summary.get("failed", [])):

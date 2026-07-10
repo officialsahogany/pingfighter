@@ -2,14 +2,19 @@ extends RefCounted
 
 const CharacterInfoOverlayHost := preload("res://scripts/hud/character_info_overlay_host.gd")
 const BattleSceneOverlayFrameUtils := preload("res://scripts/core/battle_scene_overlay_frame_utils.gd")
+const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 const CLEAN_CAPTURE_ENV := "PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE"
 const CLEAN_CAPTURE_FLAG_PATH := "res://battle_perf_clean_capture.flag"
 const CHARACTER_INFO_HOST_NODE_NAME := "BattleCharacterInfoOverlayHost"
+const ANGEL_BLESSING_HOST_NODE_NAME := "AngelBlessingRollOverlayHost"
 
 var _clean_capture_checked := false
 var _clean_capture_enabled := false
 var _character_info_overlay_host: Control = null
+var _angel_blessing_overlay_host: Object = null
+var _battle_view_layout: Object = BattleViewLayout.new()
 
 
 func process_idle(
@@ -31,12 +36,15 @@ func process_idle(
 	var modal_gate: Object = BattleSceneOverlayFrameUtils.get_modal_gate(passive_module_getter)
 	var perk_choice_active: bool = _is_runtime_perk_choice_active(passive_module_getter, modal_gate)
 	var perk_feedback_active: bool = _is_runtime_perk_feedback_active(passive_module_getter, modal_gate)
+	var angel_modal_work: bool = _has_angel_blessing_modal_work(passive_module_getter, modal_gate)
 	var process_overlay_activity: String = _get_blocking_process_overlay_activity(passive_module_getter, modal_gate)
 	BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.modal_scan", sample_start)
-	if not perk_choice_active and not perk_feedback_active and process_overlay_activity == "":
+	if not angel_modal_work:
+		_hide_angel_blessing_overlay_host()
+	if not perk_choice_active and not perk_feedback_active and not angel_modal_work and process_overlay_activity == "":
 		return false
 
-	if perk_choice_active or perk_feedback_active:
+	if perk_choice_active or perk_feedback_active or angel_modal_work:
 		var runtime_perk_state: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "runtime_perk_state")
 		if runtime_perk_state != null and runtime_perk_state.has_method("update"):
 			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
@@ -45,10 +53,23 @@ func process_idle(
 			else:
 				runtime_perk_state.update(delta, BattleSceneOverlayFrameUtils.get_view_size(owner), owner, _registry)
 			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.runtime_perk_update", sample_start)
-			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
-			BattleSceneOverlayFrameUtils.queue_redraw(owner)
-			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.runtime_perk_queue_redraw", sample_start)
-	if perk_choice_active:
+			var next_angel_modal_work := _has_angel_blessing_modal_work(passive_module_getter, modal_gate)
+			if next_angel_modal_work:
+				_sync_angel_blessing_overlay_host(owner, module_getter, true)
+			else:
+				_hide_angel_blessing_overlay_host()
+			var next_perk_choice_active := _is_runtime_perk_choice_active(passive_module_getter, modal_gate)
+			var next_perk_feedback_active := _is_runtime_perk_feedback_active(passive_module_getter, modal_gate)
+			# Angel owns a detached clipped draw bridge and redraws it directly. Do
+			# not redraw the 5-10 ms immediate-mode battle shell for an unbounded
+			# wait-confirm phase when no standard perk overlay needs that canvas.
+			if perk_choice_active or perk_feedback_active or next_perk_choice_active or next_perk_feedback_active:
+				sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
+				BattleSceneOverlayFrameUtils.queue_redraw(owner)
+				BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.runtime_perk_queue_redraw", sample_start)
+	perk_choice_active = _is_runtime_perk_choice_active(passive_module_getter, modal_gate)
+	var angel_modal_active: bool = _is_angel_blessing_modal_active(passive_module_getter, modal_gate)
+	if perk_choice_active or angel_modal_active:
 		return true
 
 	match process_overlay_activity:
@@ -263,6 +284,25 @@ func queue_character_info_overlay_redraw(owner: Object, registry: Object, module
 	return _queue_character_info_overlay_redraw(owner, registry, module_getter, force_redraw)
 
 
+func prewarm_angel_blessing_runtime_nodes(owner: Object) -> bool:
+	AngelBlessingRollOverlayHost.prewarm_assets()
+	var host := _get_or_create_angel_blessing_overlay_host(owner)
+	if host == null:
+		return false
+	host.prepare()
+	host.set_active(false)
+	return true
+
+
+func reset_angel_blessing_presentation() -> void:
+	_hide_angel_blessing_overlay_host()
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
+
+
+func get_angel_blessing_host_for_test() -> Object:
+	return _angel_blessing_overlay_host
+
+
 func _queue_character_info_overlay_redraw(owner: Object, registry: Object, module_getter: Callable, force_redraw: bool = true) -> bool:
 	var character_info: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "character_info_overlay")
 	var view_size := BattleSceneOverlayFrameUtils.get_view_size(owner)
@@ -317,12 +357,83 @@ func _get_or_create_character_info_overlay_host(canvas_or_owner: Object) -> Cont
 	return _character_info_overlay_host
 
 
+func _sync_angel_blessing_overlay_host(owner: Object, module_getter: Callable, force_create: bool) -> void:
+	var runtime_state: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "runtime_perk_state")
+	if runtime_state == null or not runtime_state.has_method("get_angel_blessing_presentation_snapshot"):
+		if _angel_blessing_overlay_host != null and is_instance_valid(_angel_blessing_overlay_host):
+			_angel_blessing_overlay_host.set_active(false)
+		return
+	var snapshot_value: Variant = runtime_state.get_angel_blessing_presentation_snapshot()
+	var snapshot: Dictionary = snapshot_value if snapshot_value is Dictionary else {}
+	var absorption_value: Variant = snapshot.get("absorption", {})
+	var absorption: Dictionary = absorption_value if absorption_value is Dictionary else {}
+	var visible_work := bool(snapshot.get("modal_active", false)) or bool(absorption.get("active", false))
+	if not visible_work and not force_create:
+		if _angel_blessing_overlay_host != null and is_instance_valid(_angel_blessing_overlay_host):
+			_angel_blessing_overlay_host.set_active(false)
+		return
+	var host := _get_or_create_angel_blessing_overlay_host(owner)
+	if host == null:
+		return
+	if not visible_work:
+		host.set_active(false)
+		return
+	var view_size := BattleSceneOverlayFrameUtils.get_view_size(owner)
+	var layout: Dictionary = _battle_view_layout.build_game_layout(view_size, 760.0, 750.0)
+	host.sync_state(snapshot, _get_owner_player_pos(owner), layout)
+
+
+func _hide_angel_blessing_overlay_host() -> void:
+	if _angel_blessing_overlay_host != null and is_instance_valid(_angel_blessing_overlay_host):
+		_angel_blessing_overlay_host.set_active(false)
+
+
+func _get_or_create_angel_blessing_overlay_host(owner: Object) -> Object:
+	if _angel_blessing_overlay_host != null and is_instance_valid(_angel_blessing_overlay_host):
+		return _angel_blessing_overlay_host
+	if not (owner is Node):
+		return null
+	var parent := owner as Node
+	var existing := parent.get_node_or_null(ANGEL_BLESSING_HOST_NODE_NAME)
+	if existing is Node2D:
+		_angel_blessing_overlay_host = existing as Node2D
+		_angel_blessing_overlay_host.prepare()
+		return _angel_blessing_overlay_host
+	var host := AngelBlessingRollOverlayHost.new()
+	host.name = ANGEL_BLESSING_HOST_NODE_NAME
+	parent.add_child(host)
+	host.prepare()
+	_angel_blessing_overlay_host = host
+	return _angel_blessing_overlay_host
+
+
+func _get_owner_player_pos(owner: Object) -> Vector2:
+	if owner == null:
+		return Vector2(380.0, 690.0)
+	var value: Variant = owner.get("player_pos")
+	if not (value is Vector2):
+		return Vector2(380.0, 690.0)
+	var width_value: Variant = owner.get("player_paddle_width")
+	var height_value: Variant = owner.get("player_paddle_height")
+	var paddle_width := maxf(0.0, float(width_value)) if width_value != null else 155.0
+	var paddle_height := maxf(0.0, float(height_value)) if height_value != null else 50.0
+	return (value as Vector2) + Vector2(paddle_width, paddle_height) * 0.5
+
+
 func _is_runtime_perk_choice_active(module_getter: Callable, modal_gate: Object = null) -> bool:
 	return BattleSceneOverlayFrameUtils.call_modal_gate_bool(module_getter, "is_runtime_perk_choice_active", false, modal_gate)
 
 
 func _is_runtime_perk_feedback_active(module_getter: Callable, modal_gate: Object = null) -> bool:
 	return BattleSceneOverlayFrameUtils.call_modal_gate_bool(module_getter, "is_runtime_perk_feedback_active", false, modal_gate)
+
+
+func _is_angel_blessing_modal_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return BattleSceneOverlayFrameUtils.call_modal_gate_bool(module_getter, "is_angel_blessing_modal_active", false, modal_gate)
+
+
+func _has_angel_blessing_modal_work(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return BattleSceneOverlayFrameUtils.call_modal_gate_bool(module_getter, "has_angel_blessing_modal_work", false, modal_gate)
 
 
 func _is_character_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
@@ -393,6 +504,7 @@ func _has_process_overlay_activity(module_getter: Callable) -> bool:
 	var modal_gate: Object = BattleSceneOverlayFrameUtils.get_modal_gate(module_getter)
 	return (
 		_is_runtime_perk_choice_active(module_getter, modal_gate)
+		or _is_angel_blessing_modal_active(module_getter, modal_gate)
 		or _get_blocking_process_overlay_activity(module_getter, modal_gate) != ""
 	)
 

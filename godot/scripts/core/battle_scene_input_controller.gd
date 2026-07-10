@@ -62,6 +62,8 @@ func handle_unhandled_input(
 		return
 	if _handle_pandora_legacy_selection_input(event, owner, registry, module_getter):
 		return
+	if _handle_angel_blessing_input(event, owner, registry, module_getter):
+		return
 
 	var overlay_input: Object = _get_overlay_input_controller(module_getter)
 	if overlay_input != null and overlay_input.has_method("handle_input"):
@@ -408,6 +410,32 @@ func _handle_pandora_legacy_selection_input(event: InputEvent, owner: Object, re
 		return false
 	if mythic_item_runtime.has_method("handle_pandora_legacy_selection_input"):
 		mythic_item_runtime.handle_pandora_legacy_selection_input(
+			event,
+			owner,
+			registry,
+			_get_view_size(owner)
+		)
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_angel_blessing_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var runtime_perk_state: Object = _get_module(module_getter, "runtime_perk_state")
+	if runtime_perk_state == null:
+		return false
+	if (
+		not runtime_perk_state.has_method("is_angel_blessing_modal_active")
+		or not bool(runtime_perk_state.is_angel_blessing_modal_active())
+	):
+		return false
+	if runtime_perk_state.has_method("handle_angel_blessing_input"):
+		runtime_perk_state.handle_angel_blessing_input(
 			event,
 			owner,
 			registry,

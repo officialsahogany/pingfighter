@@ -31,6 +31,7 @@ const STOP_METHODS := [
 	"stop_stage5_hongryun_fireball",
 	"stop_stage5_hongryun_charge",
 	"stop_stage5_hongryun_shoot",
+	"stop_angel_blessing_audio",
 ]
 
 

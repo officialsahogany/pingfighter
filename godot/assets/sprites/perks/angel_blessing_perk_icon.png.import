@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqvha1pcjghl7"
-path="res://.godot/imported/revival_perk_icon.png-431b22b32f3b0d4b0b843fb2d1b3b860.ctex"
+uid="uid://ch87oky2ix33p"
+path="res://.godot/imported/angel_blessing_perk_icon.png-97ffc1c3e01c41dd32ea3942ccc8fedd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/perks/revival_perk_icon.png"
-dest_files=["res://.godot/imported/revival_perk_icon.png-431b22b32f3b0d4b0b843fb2d1b3b860.ctex"]
+source_file="res://assets/sprites/perks/angel_blessing_perk_icon.png"
+dest_files=["res://.godot/imported/angel_blessing_perk_icon.png-97ffc1c3e01c41dd32ea3942ccc8fedd.ctex"]
 
 [params]
 

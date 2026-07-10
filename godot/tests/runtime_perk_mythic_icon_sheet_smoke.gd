@@ -15,6 +15,7 @@ const MYTHIC_IDS := [
 	"poseidon_trident",
 	"sacred_laurel",
 	"celestial_armor",
+	"angel_blessing",
 ]
 
 const EXPECTED_SHEET_SIZE := Vector2i(1024, 128)
@@ -33,7 +34,7 @@ class MythicIconRenderProbe:
 	func _draw() -> void:
 		draw_count += 1
 		draw_results.clear()
-		draw_rect(Rect2(Vector2.ZERO, Vector2(640.0, 210.0)), Color(6.0 / 255.0, 20.0 / 255.0, 35.0 / 255.0))
+		draw_rect(Rect2(Vector2.ZERO, Vector2(640.0, 302.0)), Color(6.0 / 255.0, 20.0 / 255.0, 35.0 / 255.0))
 		for i in range(ids.size()):
 			var perk_id := str(ids[i])
 			var col := i % 6
@@ -54,7 +55,7 @@ var _frame_count := 0
 
 func _init() -> void:
 	_verify_sheet_and_fallback_wiring()
-	get_root().size = Vector2i(640, 210)
+	get_root().size = Vector2i(640, 302)
 	_probe = MythicIconRenderProbe.new()
 	_probe.ids = MYTHIC_IDS.duplicate()
 	_probe.name = "MythicIconRenderProbe"

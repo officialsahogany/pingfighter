@@ -709,6 +709,91 @@ boundary, use `docs/current_development_boundary.md`.
 
 ## Module Ownership Ledger
 
+### Angel Dice runtime boundary
+
+The live Angel Dice mythic perk keeps its logical foundation in
+`runtime_perk_angel_blessing_state.gd`; it owns the canonical six-buff roll,
+stage dedupe, active result, and HUD-facing multiplier snapshot.
+`runtime_perk_angel_blessing_cooldown_capability.gd` owns the character-neutral
+`active_cooldown` candidate gate. It fails closed unless the skill config
+explicitly declares a non-empty live skill-id list, exposes cooldown plus
+runtime/item multiplier APIs, and the state exposes configured trigger,
+remaining-ratio, and stored-total APIs. Structural eligibility does not depend
+on the current effective multiplier, so a legal zero multiplier cannot erase a
+still-live skill family. This
+currently leaves Optimus and the Hammer-Shock-less Blacksmith on five candidates;
+do not map Angel to Thor Shield debounce or expose Blacksmith merely because its
+compatibility state inherits the generic timer shell. The Blacksmith compatibility
+config may receive runtime/item multiplier inputs, but remains explicitly
+ineligible until its actual release/timer/projectile/HUD contract is ported.
+`runtime_perk_angel_blessing_projection.gd` owns pure six-lane numeric
+composition, while `runtime_perk_effective_stat_query_surface.gd` is the only
+runtime-perk stat query integration seam. Maximum gauge uses the bespoke
+`get_angel_blessing_special_gauge_max` final-value facade: do not add a generic
+`get_special_gauge_max` runtime-perk method, because TAB starts from the
+already-synced owner maximum and would multiply the blessing twice.
+`runtime_perk_angel_blessing_gauge_compositor.gd` owns cause-aware owner gauge
+math: raw Fuel changes preserve the rounded fill ratio, Angel changes preserve
+the absolute current value, and the final result clamps after both causes.
+`mythic_item_owner_syncer.gd` is the single maximum-gauge writer and keeps raw
+maximum plus Angel multiplier caches separate. Optimus consumes the effective
+owner/config maximum throughout its energy path. Its per-physics energy and
+manual-charge snapshots publish only the gauge-derived runtime paddle base;
+`active_item_paddle_sync.gd` remains the final size compositor for runtime
+perk, active-item, and mythic scales, and the active-item update gate refreshes
+that composition whenever any mirrored input changes. Junior League's 1.5x
+geometry scale stays in the Optimus base lane from bootstrap through config and
+controller updates, while direct runtime character switches perform one
+immediate shared-compositor sync after base preparation. Horn Strawberry's
+speed 8 is a replacement base applied before the shared multiplier chain in
+`battle_scene_player_control_config_builder.gd`; the character controllers
+suppress their incompatible post-config speed modifiers, while zero-speed hard
+locks remain authoritative. Transform skill locks cancel stale Blacksmith shield
+and Smasher wheel state without replenishing their resources. TAB consumes the
+same weather/status speed sources as player control. Blacksmith cooldown
+capability is now evidence-gated while Hammer Shock gameplay remains unported.
+`runtime_perk_angel_blessing_stage_lifecycle.gd` owns campaign-context gating,
+normalized character capability selection, and successful-roll-only consumer
+resynchronization. The authoritative trigger is the existing residual-overlay
+completion in `stage_ball_spawn_intro_finish_lifecycle.gd`: deferred Dimension
+Gate/full-gauge actions resolve first, then Angel rolls once per positive
+non-tutorial campaign stage. Rally restarts retain the active result, the next
+stage replaces it atomically, and full reset clears both result and stage history.
+`runtime_perk_angel_blessing_acquisition_lifecycle.gd` now owns accepted raw
+`0 -> 1` route classification: battle grants reserve the actual current stage,
+while stage-result direct/choice grants reserve the next valid campaign intro
+without guessing `stage + 1`. `runtime_perk_angel_blessing_modal_flow.gd` owns
+the deduplicated current-stage/next-intro queues, acquisition-cinematic wait,
+pending reveals, the three-second logical modal, input arming, and boundary
+reset policy. `runtime_perk_state.gd` orchestrates only the Angel-specific roll,
+shared cooldown pause/resume, and owner sync; it must never reuse the whole intro
+callback for a mid-stage acquisition because that would flush unrelated deferred
+Dimension Gate/full-gauge work. The shared mythic acquisition runtime reports
+only a natural active-to-inactive update edge, and the battle frame rechecks the
+live runtime-perk modal after mythic update so no gameplay tick leaks through.
+Round/stage cleanup does not forge that natural notification; its Angel queue
+boundary explicitly releases only the preserved reservation whose predecessor
+cinematic was canceled, while scoreboard/result/shared modal blockers keep it
+from opening underneath a higher-priority surface.
+`runtime_perk_catalog.gd`, `perk_conversion_values.gd`, and
+`mythic_perk_grant_helper.gd` own the public thirteenth converted-mythic
+identity, fixed 30% value, jackpot/debug exposure, guaranteed-mythic choice,
+and shared acquisition-cinematic payload. `runtime_perk_debug_grants.gd`
+short-circuits an unchanged mythic target so an already-owned Angel grant
+cannot replay the acquisition cinematic or create new lifecycle work.
+`language_settings_data.gd` owns the static Korean-plus-six-locale catalog
+name/summary, while `runtime_perk_angel_blessing_localization.gd` owns the
+seven-locale dynamic modal, buff, and current-status copy.
+
+Presentation is detached from logical visibility. `runtime_perk_icon_renderer.gd`
+owns the static and animated perk art; `angel_blessing_roll_overlay_host.gd`
+and `angel_blessing_halo.gdshader` own the clipped 760x750 modular modal and
+non-blocking absorption tail. `game_audio.gd` owns the roll one-shot and
+three-voice absorption pool. The overlay controller only syncs snapshots,
+`battle_pso_prewarmer.gd` and the staged boot prewarm own first-use GPU/resource
+preparation, and round/stage/full-reset owners directly hide the detached host
+and stop Angel audio even when the normal draw fanout is no longer active.
+
 The cumulative module ownership log was moved to
 `docs/godot_module_ownership_ledger.md` to keep this architecture guide
 focused on current rules and module boundaries.

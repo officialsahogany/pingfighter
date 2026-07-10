@@ -23,6 +23,10 @@ var _regeneration_potion_effect: Object
 var _pickup_effect_state: Object
 var _commando_supply_actions: Object
 var _last_paddle_sync_active_item_scale := -1.0
+var _last_paddle_sync_base_width := -1.0
+var _last_paddle_sync_base_height := -1.0
+var _last_paddle_sync_runtime_scale := -1.0
+var _last_paddle_sync_mythic_scale := -1.0
 var _last_paddle_sync_frame := -1
 var _last_paddle_sync_owner_id := 0
 
@@ -49,6 +53,10 @@ func configure(deps: Dictionary) -> void:
 	_pickup_effect_state = deps.get("pickup_effect_state")
 	_commando_supply_actions = deps.get("commando_supply_actions")
 	_last_paddle_sync_active_item_scale = -1.0
+	_last_paddle_sync_base_width = -1.0
+	_last_paddle_sync_base_height = -1.0
+	_last_paddle_sync_runtime_scale = -1.0
+	_last_paddle_sync_mythic_scale = -1.0
 	_last_paddle_sync_frame = -1
 	_last_paddle_sync_owner_id = 0
 
@@ -258,15 +266,45 @@ func _sync_paddle_owner_state(
 		_get_float_property(target, "long_boost_scale", 1.0) * _get_float_property(target, "milk_bottle_scale", 1.0),
 		_get_float_property(target, "strange_vial_scale", 1.0)
 	)
-	if not _should_sync_paddle_owner_state(target, owner, active_item_scale):
+	var base_width := 155.0
+	var base_height := 50.0
+	var runtime_scale := 1.0
+	var mythic_scale := 1.0
+	if owner != null:
+		base_width = maxf(1.0, _get_float_property(owner, "runtime_paddle_base_width", 155.0))
+		base_height = maxf(1.0, _get_float_property(owner, "runtime_paddle_base_height", 50.0))
+		runtime_scale = maxf(0.1, _get_float_property(owner, "runtime_paddle_scale", 1.0))
+		# Mythic owner sync maintains this mirror; avoid an inventory/roll query on every idle physics tick.
+		mythic_scale = maxf(0.1, _get_float_property(owner, "bulkup_paddle_scale", 1.0))
+	if not _should_sync_paddle_owner_state(
+		target,
+		owner,
+		active_item_scale,
+		base_width,
+		base_height,
+		runtime_scale,
+		mythic_scale
+	):
 		return
 	_paddle_sync.sync_owner_state(owner, active_item_scale, warp_gate_state, mythic_item_runtime)
 	_last_paddle_sync_active_item_scale = active_item_scale
+	_last_paddle_sync_base_width = base_width
+	_last_paddle_sync_base_height = base_height
+	_last_paddle_sync_runtime_scale = runtime_scale
+	_last_paddle_sync_mythic_scale = mythic_scale
 	_last_paddle_sync_frame = int(Engine.get_physics_frames())
 	_last_paddle_sync_owner_id = owner.get_instance_id() if owner != null else 0
 
 
-func _should_sync_paddle_owner_state(target: Object, owner: Object, active_item_scale: float) -> bool:
+func _should_sync_paddle_owner_state(
+	target: Object,
+	owner: Object,
+	active_item_scale: float,
+	base_width: float,
+	base_height: float,
+	runtime_scale: float,
+	mythic_scale: float
+) -> bool:
 	if _has_paddle_scale_runtime_work(target):
 		return true
 	var owner_id := owner.get_instance_id() if owner != null else 0
@@ -275,6 +313,14 @@ func _should_sync_paddle_owner_state(target: Object, owner: Object, active_item_
 	if _last_paddle_sync_frame < 0:
 		return true
 	if not is_equal_approx(active_item_scale, _last_paddle_sync_active_item_scale):
+		return true
+	if not is_equal_approx(base_width, _last_paddle_sync_base_width):
+		return true
+	if not is_equal_approx(base_height, _last_paddle_sync_base_height):
+		return true
+	if not is_equal_approx(runtime_scale, _last_paddle_sync_runtime_scale):
+		return true
+	if not is_equal_approx(mythic_scale, _last_paddle_sync_mythic_scale):
 		return true
 	var frame_key := int(Engine.get_physics_frames())
 	return frame_key - _last_paddle_sync_frame >= IDLE_PADDLE_SYNC_REFRESH_FRAMES

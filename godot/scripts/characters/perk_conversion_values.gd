@@ -43,6 +43,7 @@ const CONVERSION_SOURCE_TO_PERK := {
 	"celestial_armor": "celestial_armor",
 	"baal_boots": "baal_boots",
 	"pandora_legacy": "pandora_legacy",
+	"angel_blessing": "angel_blessing",
 }
 
 const DELETED_ITEM_COMPENSATION := {
@@ -209,10 +210,16 @@ const CONVERTED_MYTHIC_VALUES := {
 		"selection_quality": 20.0,
 		"trigger_chance": 55.0,
 	},
+	"angel_blessing": {
+		"buff_pct": 30.0,
+	},
 }
 
 
 static func get_value(perk_id: String, key: String, level: int) -> float:
+	},
+	},
+	},
 	var clean_id := perk_id.strip_edges()
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return 0.0

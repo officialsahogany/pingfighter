@@ -3,8 +3,27 @@ extends RefCounted
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const LEVEL_BADGE_FILL := Color(0.05, 0.09, 0.15, 0.92)
+
+
+static func _apply_runtime_status_lines(data: Dictionary, skill_id: String, runtime_state: Object) -> void:
+	if runtime_state == null or not runtime_state.has_method("get_runtime_status_lines"):
+		return
+	var lines_value: Variant = runtime_state.get_runtime_status_lines(skill_id)
+	if not (lines_value is Array) or (lines_value as Array).is_empty():
+		return
+	var lines: Array[String] = []
+	for line_value: Variant in lines_value:
+		var line := str(line_value).strip_edges()
+		if line != "":
+			lines.append(line)
+	if lines.is_empty():
+		return
+	data["description"] = "\n".join(lines)
+	if str(data.get("detail", "")).strip_edges() == "":
+		data["detail"] = lines[0]
 
 
 static func build_equipped_skill_lookup(equipped_skills: Array) -> Dictionary:
@@ -19,10 +38,27 @@ static func build_equipped_skill_lookup(equipped_skills: Array) -> Dictionary:
 static func acquired_perk_cache_hash(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null, effective_levels: Dictionary = {}, equipped_skills_for_filter: Array = []) -> int:
 	var catalog_id: int = catalog.get_instance_id() if catalog != null else 0
 	var equipped_skills_hash: int = hash(equipped_skills_for_filter)
+	var language := LanguageSettings.get_language()
+	var angel_signature := 0
+	if runtime_snapshot_override is Dictionary:
+		angel_signature = _angel_blessing_cache_signature(runtime_snapshot_override as Dictionary)
 	var has_snapshot_effective_levels := runtime_snapshot_override is Dictionary and (runtime_snapshot_override as Dictionary).has("effective_runtime_skill_levels")
 	if runtime_state != null and not has_snapshot_effective_levels:
-		return acquired_perk_runtime_cache_hash(levels, catalog_id, runtime_state, effective_levels, equipped_skills_hash)
-	return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])
+		return hash([acquired_perk_runtime_cache_hash(levels, catalog_id, runtime_state, effective_levels, equipped_skills_hash), angel_signature, language])
+	return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash, angel_signature, language])
+
+
+static func _angel_blessing_cache_signature(runtime_snapshot: Dictionary) -> int:
+	var roll_value: Variant = runtime_snapshot.get("angel_blessing", {})
+	var acquisition_value: Variant = runtime_snapshot.get("angel_blessing_acquisition", {})
+	var roll_snapshot: Dictionary = roll_value if roll_value is Dictionary else {}
+	var acquisition_snapshot: Dictionary = acquisition_value if acquisition_value is Dictionary else {}
+	return hash([
+		int(roll_snapshot.get("revision", 0)),
+		int(roll_snapshot.get("active_stage", 0)),
+		hash(roll_snapshot.get("active_buff_ids", [])),
+		hash(acquisition_snapshot.get("pending_rolls", [])),
+	])
 
 
 static func acquired_perk_runtime_cache_hash(levels: Dictionary, catalog_id: int, runtime_state: Object, effective_levels: Dictionary, equipped_skills_hash: int) -> int:
@@ -93,6 +129,7 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 		data["_draw_hover_border_color"] = Color(draw_color.r, draw_color.g, draw_color.b, 0.92)
 		data["_level_text"] = CharacterInfoOverlayFormatter.perk_level_text(data)
 		data["_level_color"] = CharacterInfoOverlayFormatter.perk_level_color(data, accent_gold)
+		_apply_runtime_status_lines(data, skill_id, runtime_state)
 		result.append(data)
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return sort_perks(a, b)

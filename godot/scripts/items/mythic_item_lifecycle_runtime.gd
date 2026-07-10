@@ -11,6 +11,8 @@ func reset(runtime: Object, base_special_gauge_max: float, baal_boots_constants:
 	runtime.megingjord_extra_pick_count = 0
 	runtime.dowsing_runtime.reset_bonus_trigger(runtime)
 	runtime.synced_special_gauge_max = base_special_gauge_max
+	runtime.synced_special_gauge_unblessed_max = base_special_gauge_max
+	runtime.synced_angel_gauge_multiplier = 1.0
 	runtime.activation_effect_runtime.reset(runtime)
 	runtime.ragnarok_runtime.clear_runtime(runtime, null)
 	runtime.poseidon_runtime.clear_runtime(runtime)

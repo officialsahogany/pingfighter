@@ -1,5 +1,8 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
+
 
 func reset_from_runtime_state(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
@@ -11,6 +14,15 @@ func reset_from_runtime_state(runtime_state: Object) -> Dictionary:
 	_reset_unlock_showcase(runtime_state)
 	_reset_deferred_instants(runtime_state)
 	_reset_resume_safety(runtime_state)
+	_reset_mystic_dice(runtime_state)
+	_reset_mystic_dice_paddle_effect(runtime_state)
+	_reset_mystic_dice_modal(runtime_state)
+	_reset_perk_fusion(runtime_state)
+	_reset_perk_fusion_modal(runtime_state)
+	_reset_perk_fusion_byproduct_runtime(runtime_state)
+	_reset_angel_blessing(runtime_state)
+	_reset_angel_blessing_modal(runtime_state)
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 	return result
 
 
@@ -111,26 +123,22 @@ func apply_state_update(runtime_state: Object, update: Dictionary) -> Dictionary
 
 	return {
 		"accepted": true,
-		"pending_skill_choices": int(runtime_state.get("pending_skill_choices")),
-		"choice_active": bool(runtime_state.get("choice_active")),
-		"feedback_timer": float(runtime_state.get("feedback_timer")),
+		"pending_skill_choices": RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"),
+		"choice_active": RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "choice_active"),
+		"feedback_timer": RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer"),
 	}
 
 
 func _clear_array_field(runtime_state: Object, field_name: String) -> void:
-	var field_value: Variant = runtime_state.get(field_name)
-	if field_value is Array:
-		(field_value as Array).clear()
+	RuntimePerkRuntimeStateAccess.get_array(runtime_state, field_name).clear()
 
 
 func _clear_dictionary_field(runtime_state: Object, field_name: String) -> void:
-	var field_value: Variant = runtime_state.get(field_name)
-	if field_value is Dictionary:
-		(field_value as Dictionary).clear()
+	RuntimePerkRuntimeStateAccess.get_dict(runtime_state, field_name).clear()
 
 
 func _resume_skill_cooldowns_for_choice(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_skill_cooldown_pause")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_skill_cooldown_pause")
 	if helper != null and helper.has_method("resume_from_runtime_state"):
 		helper.resume_from_runtime_state(runtime_state)
 	elif helper != null and helper.has_method("resume"):
@@ -138,48 +146,93 @@ func _resume_skill_cooldowns_for_choice(runtime_state: Object) -> void:
 
 
 func _reset_starpoint_absorption(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_starpoint_absorption")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_starpoint_absorption")
 	if helper != null and helper.has_method("reset"):
 		helper.reset()
 
 
 func _reset_active_unlock_flight(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_active_unlock_flight")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_active_unlock_flight")
 	if helper != null and helper.has_method("reset"):
-		helper.reset(_get_state_dict(runtime_state, "choice_flight_effect"))
+		helper.reset(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "choice_flight_effect"))
 
 
 func _reset_unlock_showcase(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_unlock_showcase_controller")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_showcase_controller")
 	if helper != null and helper.has_method("reset"):
-		helper.reset(_get_state_dict(runtime_state, "unlock_showcase"))
+		helper.reset(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"))
 
 
 func _reset_deferred_instants(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_deferred_instants")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants")
 	if helper != null and helper.has_method("reset"):
 		helper.reset()
 
 
 func _reset_resume_safety(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_resume_safety")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_resume_safety")
 	if helper != null and helper.has_method("reset"):
 		helper.reset()
 
 
-func _get_state_object(runtime_state: Object, field_name: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(field_name)
-	if value is Object:
-		return value
-	return null
+func _reset_mystic_dice(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "mystic_dice_state")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
 
 
-func _get_state_dict(runtime_state: Object, field_name: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(field_name)
-	if value is Dictionary:
-		return value
-	return {}
+func _reset_mystic_dice_paddle_effect(runtime_state: Object) -> void:
+	if runtime_state != null and runtime_state.has_method("reset_mystic_dice_round_visuals"):
+		runtime_state.call("reset_mystic_dice_round_visuals")
+		return
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_paddle_effect")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+
+
+func _reset_mystic_dice_modal(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_modal_flow")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+	var input_helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_modal_input")
+	if input_helper != null and input_helper.has_method("reset"):
+		input_helper.reset()
+	RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "_mystic_dice_finished_choice_ids").clear()
+
+
+func _reset_perk_fusion(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "perk_fusion_state")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+
+
+func _reset_perk_fusion_modal(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_modal_flow")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+	var input_helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_modal_input")
+	if input_helper != null and input_helper.has_method("reset"):
+		input_helper.reset()
+	runtime_state.set("_perk_fusion_active_catalog", null)
+	runtime_state.set("_perk_fusion_display_catalog", null)
+	if runtime_state.has_method("reset_perk_fusion_display_caches"):
+		runtime_state.reset_perk_fusion_display_caches()
+	RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "_perk_fusion_finished_choice_ids").clear()
+
+
+func _reset_perk_fusion_byproduct_runtime(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_byproduct_runtime")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+
+
+func _reset_angel_blessing(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_angel_blessing_state")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()
+
+
+func _reset_angel_blessing_modal(runtime_state: Object) -> void:
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_angel_blessing_modal_flow")
+	if helper != null and helper.has_method("reset"):
+		helper.reset()

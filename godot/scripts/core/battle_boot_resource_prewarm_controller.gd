@@ -368,7 +368,7 @@ func _run_stage_runtime_prewarm_step(
 		2:
 			return prewarm_mythic_acquisition_cinematic_resources_step(owner, module_getter)
 		3:
-			return prewarm_runtime_perk_overlay_resources_step(module_getter)
+			return prewarm_runtime_perk_overlay_resources_step(owner, module_getter)
 		4:
 			mark_runtime_perk_debug_assets_deferred()
 		5:
@@ -1130,7 +1130,7 @@ func _prewarm_selected_character_runtime_resources_legacy(owner: Object, module_
 			module.prewarm_assets()
 
 
-func prewarm_runtime_perk_overlay_resources_step(module_getter: Callable) -> bool:
+func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: Callable) -> bool:
 	if battle_runtime_perk_overlay_prewarmed:
 		return true
 	var icon_renderer: Object = _get_module(module_getter, "runtime_perk_icon_renderer")
@@ -1145,6 +1145,13 @@ func prewarm_runtime_perk_overlay_resources_step(module_getter: Callable) -> boo
 	var treasure_hunt_runtime: Object = _get_module(module_getter, "treasure_hunt_runtime")
 	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("prewarm_assets"):
 		treasure_hunt_runtime.prewarm_assets()
+	var overlay_frame_controller: Object = _get_module(module_getter, "battle_scene_overlay_frame_controller")
+	if (
+		overlay_frame_controller != null
+		and overlay_frame_controller.has_method("prewarm_angel_blessing_runtime_nodes")
+		and not bool(overlay_frame_controller.prewarm_angel_blessing_runtime_nodes(owner))
+	):
+		return false
 	battle_runtime_perk_overlay_prewarmed = true
 	return true
 

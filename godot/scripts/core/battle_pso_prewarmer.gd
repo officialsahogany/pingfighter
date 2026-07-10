@@ -23,6 +23,7 @@ extends Node2D
 #   - Defeat continue color-restore screen-read shader and BackBufferCopy path
 #   - Stage 4 Ponk illusion-ripple screen-read shader and BackBufferCopy path
 #   - Stage 4 Ponk awaken-aura additive sprite shader and mote particles
+#   - Angel Dice modal halo/ambient particles and post-confirm absorb particles
 #
 # Deliberately out of scope:
 #   - character_info / perk_debug overlay UI
@@ -53,7 +54,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 21
+const WARMUP_DRAW_STEPS := 23
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -65,6 +66,7 @@ const DefeatGemShatterFxHost := preload("res://scripts/effects/defeat_gem_shatte
 const DefeatContinueColorRestoreFxHost := preload("res://scripts/effects/defeat_continue_color_restore_fx_host.gd")
 const Stage4PonkIllusionRippleFxHost := preload("res://scripts/stages/stage4/stage4_ponk_illusion_ripple_fx_host.gd")
 const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 var _frames_remaining: int = LIFETIME_FRAMES
 var _warmup_step_index: int = 0
@@ -82,6 +84,7 @@ var _defeat_gem_shatter_fx_host: Node = null
 var _defeat_color_restore_fx_host: Node = null
 var _stage4_illusion_ripple_fx_host: Node = null
 var _stage4_awaken_aura_fx_host: Node = null
+var _angel_blessing_fx_host: Node = null
 
 
 class PsoWeatherWarmupState:
@@ -151,6 +154,7 @@ func _ready() -> void:
 	DefeatContinueColorRestoreFxHost.prewarm_assets()
 	Stage4PonkIllusionRippleFxHost.prewarm_assets()
 	Stage4PonkAwakenAuraFxHost.prewarm_assets()
+	AngelBlessingRollOverlayHost.prewarm_assets()
 	_boost_fx_host = DashTokenBoostFxHost.new()
 	_boost_fx_host.name = "BoostFxHost_pso"
 	add_child(_boost_fx_host)
@@ -175,6 +179,10 @@ func _ready() -> void:
 	_stage4_awaken_aura_fx_host = Stage4PonkAwakenAuraFxHost.new()
 	_stage4_awaken_aura_fx_host.name = "PonkAwakenAuraFxHost_pso"
 	add_child(_stage4_awaken_aura_fx_host)
+	_angel_blessing_fx_host = AngelBlessingRollOverlayHost.new()
+	_angel_blessing_fx_host.name = "AngelBlessingRollOverlayHost_pso"
+	add_child(_angel_blessing_fx_host)
+	_angel_blessing_fx_host.prepare()
 	queue_redraw()
 
 
@@ -239,6 +247,10 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_stage4_illusion_ripple_shader_state()
 		20:
 			_prewarm_stage4_awaken_aura_shader_state()
+		21:
+			_prewarm_angel_blessing_modal_shader_state()
+		22:
+			_prewarm_angel_blessing_absorb_shader_state()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -619,6 +631,63 @@ func _prewarm_stage4_awaken_aura_shader_state() -> void:
 		"game_offset": Vector2.ZERO,
 		"render_scale": 0.5,
 	}, true)
+
+
+func _prewarm_angel_blessing_modal_shader_state() -> void:
+	if _angel_blessing_fx_host == null or not is_instance_valid(_angel_blessing_fx_host):
+		return
+	if not _angel_blessing_fx_host.has_method("sync_state"):
+		return
+	_angel_blessing_fx_host.sync_state({
+		"modal_active": true,
+		"modal_elapsed": 1.25,
+		"active_modal": {
+			"roll_result": {
+				"rolled": true,
+				"active_stage": 1,
+				"roll_face": 3,
+				"active_buff_ids": ["paddle_size", "gauge_max", "move_speed"],
+			},
+		},
+		"absorption": {"active": false},
+	}, Vector2(380.0, 690.0), {
+		"game_offset": Vector2.ZERO,
+		"render_scale": 1.0,
+	})
+
+
+func _prewarm_angel_blessing_absorb_shader_state() -> void:
+	if _angel_blessing_fx_host == null or not is_instance_valid(_angel_blessing_fx_host):
+		return
+	if not _angel_blessing_fx_host.has_method("sync_state"):
+		return
+	_angel_blessing_fx_host.sync_state({
+		"modal_active": false,
+		"absorption": {
+			"active": true,
+			"elapsed": 0.85,
+			"glow_duration": 0.35,
+			"trajectories": [
+				{
+					"index": 0,
+					"buff_id": "paddle_size",
+					"delay": 0.0,
+					"travel_duration": 1.8,
+					"arrival_time": 1.8,
+				},
+				{
+					"index": 1,
+					"buff_id": "gauge_max",
+					"delay": 0.25,
+					"travel_duration": 1.8,
+					"arrival_time": 2.05,
+				},
+			],
+		},
+	}, Vector2(380.0, 690.0), {
+		"game_offset": Vector2.ZERO,
+		"render_scale": 1.0,
+	})
 
 
 func _prewarm_pillar_hud_primitives() -> void:

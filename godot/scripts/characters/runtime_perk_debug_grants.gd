@@ -225,6 +225,22 @@ func apply_debug_grant(
 	if not bool(path_payload.get("accepted", false)):
 		return path_payload
 	var debug_path: String = str(path_payload.get("path", PATH_INVALID))
+	if debug_path == PATH_LEVEL and str(data.get("rarity", "")).to_lower() == "mythic":
+		var max_level: int = maxi(1, int(data.get("max_level", 1)))
+		var clamped_target: int = clampi(target_level, 1, max_level)
+		var current_level: int = int(runtime_skill_levels.get(clean_id, 0))
+		# Mythic debug grants travel through the normal choice path so first
+		# acquisition keeps its cinematic and item-specific lifecycle. Reapplying
+		# the exact same level must stay a true no-op; otherwise it replays the
+		# acquisition cinematic even though ownership did not change.
+		if current_level == clamped_target:
+			return {
+				"accepted": true,
+				"choice_id": clean_id,
+				"path": debug_path,
+				"level": current_level,
+				"unchanged": true,
+			}
 	match debug_path:
 		PATH_RING_CORE:
 			return _apply_choice_debug_grant(

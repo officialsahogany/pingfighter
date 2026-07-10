@@ -52,7 +52,10 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 
 	_call_delta(callbacks, "update_weather", delta)
 	_call_delta(callbacks, "update_mythic_items", delta)
-	if _is_mythic_pause_active(deps):
+	# Mythic acquisition may close and synchronously open the deferred next
+	# perk choice or Angel modal inside update_mythic_items(). Recheck the live
+	# runtime state before allowing even one gameplay tick through that edge.
+	if _is_mythic_pause_active(deps) or _is_runtime_perk_pause_active(deps):
 		_call_delta(callbacks, "update_effects", delta)
 		_call(callbacks, "queue_redraw")
 		return
@@ -111,6 +114,18 @@ func _is_mythic_pause_active(deps: Dictionary) -> bool:
 	if mythic_runtime.has_method("is_baal_boots_cinematic_active") and bool(mythic_runtime.is_baal_boots_cinematic_active()):
 		return true
 	return false
+
+
+func _is_runtime_perk_pause_active(deps: Dictionary) -> bool:
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	if runtime_perk_state == null:
+		return false
+	if runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		return true
+	return (
+		runtime_perk_state.has_method("is_angel_blessing_modal_active")
+		and bool(runtime_perk_state.is_angel_blessing_modal_active())
+	)
 
 
 func _is_stage3_kuromi_ball_hidden(deps: Dictionary) -> bool:

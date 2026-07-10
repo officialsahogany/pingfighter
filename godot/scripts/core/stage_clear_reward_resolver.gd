@@ -10,6 +10,7 @@ const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
 const REWARD_MYTHIC := "mythic"
 const REWARD_MYTHIC_PERK := "mythic_perk"
+const REWARD_MYTHIC_PERK_CHOICE := "mythic_perk_choice"
 const REWARD_STARPOINT := "starpoint"
 const BOX_ADVANCED := "advanced"
 const BOX_GUARANTEED_MYTHIC := "guaranteed_mythic"
@@ -101,6 +102,7 @@ func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionar
 		"passive_granted": 0,
 		"mythic_granted": 0,
 		"mythic_perk_granted": 0,
+		"mythic_perk_choice_opened": 0,
 		"starpoint_granted": 0,
 		"failed": [],
 	}
@@ -134,6 +136,14 @@ func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionar
 						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_perk_result.get("starpoint_amount", 0))
 					else:
 						summary["mythic_perk_granted"] = int(summary.get("mythic_perk_granted", 0)) + 1
+			REWARD_MYTHIC_PERK_CHOICE:
+				var mythic_choice_result: Dictionary = _grant_mythic_perk_choice_reward(reward, owner, registry)
+				granted = bool(mythic_choice_result.get("granted", false))
+				if granted:
+					if bool(mythic_choice_result.get("fallback_starpoint", false)):
+						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_choice_result.get("starpoint_amount", 0))
+					else:
+						summary["mythic_perk_choice_opened"] = int(summary.get("mythic_perk_choice_opened", 0)) + 1
 			REWARD_STARPOINT:
 				granted = _grant_starpoint_reward(reward, owner, registry)
 				if granted:
@@ -213,7 +223,7 @@ func _roll_starpoint_reward(amount: int = STARPOINT_REWARD_SINGLE_AMOUNT) -> Dic
 
 
 func _roll_mythic_perk_reward(owner: Object, registry: Object) -> Dictionary:
-	return MythicPerkGrantHelper.build_reward(owner, registry)
+	return MythicPerkGrantHelper.build_choice_reward(owner, registry)
 
 
 func _build_candidates_for_group(reward_group: String, owner: Object, registry: Object) -> Array:
@@ -373,7 +383,69 @@ func _grant_starpoint_reward(reward: Dictionary, owner: Object, registry: Object
 
 
 func _grant_mythic_perk_reward(reward: Dictionary, owner: Object, registry: Object) -> Dictionary:
-	return MythicPerkGrantHelper.grant_reward(reward, owner, registry)
+	var result_reward: Dictionary = reward.duplicate(true)
+	result_reward["source"] = str(result_reward.get("source", "result_box_mythic_direct"))
+	result_reward["grant_scope"] = "stage_clear_result"
+	return MythicPerkGrantHelper.grant_reward(result_reward, owner, registry)
+
+
+func _grant_mythic_perk_choice_reward(reward: Dictionary, owner: Object, registry: Object) -> Dictionary:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	if (
+		runtime_perk_state != null
+		and runtime_perk_catalog != null
+		and runtime_perk_state.has_method("open_mythic_perk_choice")
+	):
+		var choice_count: int = max(1, int(reward.get("choice_count", MythicPerkGrantHelper.MYTHIC_PERK_CHOICE_COUNT)))
+		var opened: bool = bool(runtime_perk_state.open_mythic_perk_choice(
+			choice_count,
+			owner,
+			registry,
+			runtime_perk_catalog,
+			null,
+			_build_mythic_choice_cinematic_context(reward)
+		))
+		if opened:
+			_play_runtime_perk_choice_open_audio(registry)
+			return {
+				"granted": true,
+				"reward_type": REWARD_MYTHIC_PERK_CHOICE,
+				"choice_opened": true,
+				"fallback_starpoint": false,
+				"starpoint_amount": 0,
+			}
+	var fallback_reward: Dictionary = MythicPerkGrantHelper.build_starpoint_fallback_reward(
+		int(reward.get("fallback_starpoints", MythicPerkGrantHelper.FALLBACK_STARPOINT_AMOUNT))
+	)
+	if reward.has("defer_choice_open"):
+		# 결과화면 상자에서 온 보상이 그랜트 시점에 스타포인트로 폴백되면, 원래 스타포인트
+		# 보상과 동일하게 지연 오픈 플래그를 물려받아 결과화면의 지연 선택 게이트 / 박스별
+		# 보상 추적 플로우를 그대로 타야 한다.
+		fallback_reward["defer_choice_open"] = bool(reward.get("defer_choice_open", false))
+	var granted_fallback: bool = _grant_starpoint_reward(fallback_reward, owner, registry)
+	return {
+		"granted": granted_fallback,
+		"reward_type": REWARD_STARPOINT if granted_fallback else REWARD_MYTHIC_PERK_CHOICE,
+		"choice_opened": false,
+		"fallback_starpoint": granted_fallback,
+		"starpoint_amount": int(fallback_reward.get("amount", 0)) if granted_fallback else 0,
+	}
+
+
+func _build_mythic_choice_cinematic_context(reward: Dictionary) -> Dictionary:
+	# 결과화면 상자 보상은 payload 에 상자 위치 기반 시네마틱 좌표를 싣고 온다. 선택형
+	# 신화퍽은 카드를 고른 뒤에야 획득 시네마틱이 시작되므로, 좌표를 choice context 로
+	# 넘겨 오픈 플로우가 각 카드에 스탬프하게 한다 (직접 지급 경로의
+	# MythicPerkGrantHelper.grant_reward 좌표 복사와 같은 계약).
+	var context: Dictionary = {
+		"source": "result_box_mythic_choice",
+		"grant_scope": "stage_clear_result",
+	}
+	for cinematic_key in ["pickup_position", "target_player_center"]:
+		if reward.has(cinematic_key):
+			context[cinematic_key] = reward.get(cinematic_key)
+	return context
 
 
 func _get_item_group(item_data: Dictionary) -> String:
@@ -420,6 +492,16 @@ func _try_start_acquisition_cinematic(
 		registry,
 		target_player_center
 	)
+
+
+func _play_runtime_perk_choice_open_audio(registry: Object) -> void:
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio == null:
+		return
+	if game_audio.has_method("play_runtime_perk_choice_open"):
+		game_audio.play_runtime_perk_choice_open()
+	elif game_audio.has_method("play_starpoint_collect"):
+		game_audio.play_starpoint_collect()
 
 
 func _get_selected_character_type(owner: Object) -> String:

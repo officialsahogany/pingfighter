@@ -2,6 +2,7 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -45,6 +46,7 @@ var _back_glow_stylebox: StyleBoxFlat = null
 
 
 func prewarm_assets() -> void:
+	AngelBlessingRollOverlayHost.prewarm_assets()
 	var font: Font = _get_font()
 	if font == null:
 		return

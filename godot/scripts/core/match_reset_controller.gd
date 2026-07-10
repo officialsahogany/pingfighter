@@ -3,6 +3,7 @@ extends RefCounted
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 
 # Runs on the physics tick that closes a match (scoreboard UPDATE_RESET_GAME),
@@ -10,6 +11,7 @@ const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_
 # opaque physics.scoreboard_result.reset_game_callback sample.
 func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	var perf_logger: Object = deps.get("perf_logger", null)
+	_reset_runtime_perk_round_visuals(deps, false)
 	var sample_start: int = _perf_begin(perf_logger)
 	_reset_match_state(deps)
 	_perf_end(perf_logger, "physics.match_reset.match_state", sample_start)
@@ -44,6 +46,7 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 
 
 func reset_for_stage_transition(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
+	_reset_runtime_perk_round_visuals(deps, true)
 	_reset_match_state(deps)
 	var orb_hud_state: Object = _reset_hud_state(deps)
 	_reset_drive_input_cooldowns(deps)
@@ -59,6 +62,18 @@ func _reset_drive_input_cooldowns(deps: Dictionary) -> void:
 	var drive_input_state: Object = deps.get("drive_input_state", null)
 	if drive_input_state != null and drive_input_state.has_method("reset_cooldowns"):
 		drive_input_state.reset_cooldowns()
+
+
+func _reset_runtime_perk_round_visuals(deps: Dictionary, stage_transition: bool = false) -> void:
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	if runtime_perk_state != null and runtime_perk_state.has_method("reset_mystic_dice_round_visuals"):
+		runtime_perk_state.reset_mystic_dice_round_visuals()
+	if runtime_perk_state == null:
+		return
+	if stage_transition and runtime_perk_state.has_method("on_angel_blessing_stage_transition"):
+		runtime_perk_state.on_angel_blessing_stage_transition(int(deps.get("next_stage", 0)))
+	elif runtime_perk_state.has_method("on_angel_blessing_round_boundary"):
+		runtime_perk_state.on_angel_blessing_round_boundary()
 
 
 func _build_stage_transition_reset_result() -> Dictionary:
@@ -216,6 +231,7 @@ func reset_stage_state(deps: Dictionary) -> void:
 	# orphaned hosts here so stage-clear / stage-transition paths cannot carry
 	# the mandala ring into the result or loading screen.
 	Stage4PonkAwakenAuraFxHost.hide_all_existing_hosts()
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 
 
 func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dictionary:

@@ -24,6 +24,8 @@ static func grant_immediate_box_reward(
 		return false
 	if bool(result.get("defer_starpoint_choice", false)):
 		schedule_deferred_starpoint_choice(starpoint_choice_handler, scene, box_index, starpoint_choice_reward_delay)
+	if bool(result.get("mythic_perk_choice_opened", false)):
+		record_active_mythic_perk_choice(starpoint_choice_handler, scene, box_index, registry)
 	if bool(result.get("raise_mythic_acquisition_cinematic", false)):
 		raise_mythic_acquisition_cinematic(mythic_acquisition_handler, registry)
 	sync_scene_visibility(scene)
@@ -73,6 +75,16 @@ static func schedule_deferred_starpoint_choice(
 ) -> void:
 	if starpoint_choice_handler != null and starpoint_choice_handler.has_method("schedule_deferred_choice"):
 		starpoint_choice_handler.schedule_deferred_choice(scene, box_index, delay)
+
+
+static func record_active_mythic_perk_choice(
+	starpoint_choice_handler: Object,
+	scene: Control,
+	box_index: int,
+	registry: Object
+) -> void:
+	if starpoint_choice_handler != null and starpoint_choice_handler.has_method("record_active_choice"):
+		starpoint_choice_handler.record_active_choice(scene, box_index, get_instance(registry, "runtime_perk_state"))
 
 
 static func raise_mythic_acquisition_cinematic(mythic_acquisition_handler: Object, registry: Object) -> void:

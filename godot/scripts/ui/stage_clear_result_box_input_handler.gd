@@ -12,6 +12,18 @@ static func open_next_idle_box(boxes: Array, reward_roll_callback: Callable) -> 
 
 
 static func open_box_at_index(boxes: Array, index: int, reward_roll_callback: Callable) -> Dictionary:
+	if index < 0 or index >= boxes.size():
+		# 유휴 상자가 없으면 보상 롤 콜백을 호출하지 않는다. start_opening_box_with_roll 는
+		# 인자 평가 단계에서 roll_reward 를 항상 부르므로, 여기서 막지 않으면 순차 오픈이 남은
+		# 상자를 다 열고 난 뒤의 진행 입력이나 빗맞은 클릭이 유령 롤을 유발한다.
+		return {"started": false, "boxes": boxes, "opened_index": index, "consumed": false}
+	if StageClearResultBoxData.has_opening_box(boxes):
+		# 스타포인트/신화퍽 게이트는 상자가 완전히 열리는 순간에야 동기 무장된다. 열리는 중인
+		# 상자가 있을 때 새 오픈을 허용하면 두 그랜트가 연달아 발사되어 두 번째
+		# open_mythic_perk_choice 가 첫 선택지(current_choices)를 덮어쓰거나, 지연 스타포인트
+		# 슬롯의 박스 귀속이 어긋난다. 순차 오픈 경로가 이미 지키는 완료 대기를 수동
+		# 클릭/키 입력에도 강제한다 (roll_reward 호출 전에 막아 유령 롤도 방지).
+		return {"started": false, "boxes": boxes, "opened_index": index, "consumed": true}
 	var result: Dictionary = StageClearResultBoxData.start_opening_box_with_roll(
 		boxes,
 		index,

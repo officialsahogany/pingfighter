@@ -2,6 +2,7 @@ extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
@@ -40,6 +41,9 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	sample_start = _perf_begin(perf_logger)
 	var score_result: Dictionary = score_state.score_for(scoring_side)
 	_perf_end(perf_logger, "physics.score_event.score_state.score_for", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_queue_perk_fusion_round_boundary(scoring_side, deps)
+	_perf_end(perf_logger, "physics.score_event.perk_fusion_round_boundary", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_apply_lingpet_affinity_score_event(scoring_side, score_result, deps)
 	_perf_end(perf_logger, "physics.score_event.lingpet_affinity", sample_start)
@@ -108,6 +112,26 @@ func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary)
 		_get_current_stage(deps),
 		result_context
 	)
+
+
+func _queue_perk_fusion_round_boundary(scoring_side: String, deps: Dictionary) -> void:
+	# This is the accepted-score boundary, so it also covers stage/manual score
+	# routes that never pass through BallMotionEventProcessor's geometry event.
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	if runtime_perk_state == null:
+		return
+	if runtime_perk_state.has_method("reset_mystic_dice_round_visuals"):
+		runtime_perk_state.reset_mystic_dice_round_visuals()
+	if runtime_perk_state.has_method("on_angel_blessing_round_boundary"):
+		runtime_perk_state.on_angel_blessing_round_boundary()
+	# The accepted boss score is the one and only probability opportunity. The
+	# external slow/token effects stay queued until reset_ball has cleared the
+	# old round, otherwise status_effect_state.reset_round() would erase them.
+	if scoring_side == "boss" and runtime_perk_state.has_method("queue_perk_fusion_player_point_lost"):
+		runtime_perk_state.queue_perk_fusion_player_point_lost()
+	if runtime_perk_state.has_method("reset_perk_fusion_round_byproducts"):
+		runtime_perk_state.reset_perk_fusion_round_byproducts()
 
 
 func _build_score_result_texture_context(scoring_side: String) -> Dictionary:

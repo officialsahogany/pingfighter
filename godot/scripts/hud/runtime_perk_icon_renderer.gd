@@ -87,6 +87,7 @@ const PERK_ICON_PATHS := {
 	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon.png",
 	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon.png",
+	"angel_blessing": "res://assets/sprites/perks/angel_blessing_perk_icon.png",
 }
 
 const PERK_SHEET_PATHS := {
@@ -107,6 +108,7 @@ const PERK_SHEET_PATHS := {
 	"poseidon_trident": "res://assets/sprites/perks/poseidon_trident_perk_icon_sheet.png",
 	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon_sheet.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon_sheet.png",
+	"angel_blessing": "res://assets/sprites/perks/angel_blessing_perk_icon_sheet.png",
 }
 
 const SKILL_ICON_PATHS := {
@@ -188,6 +190,7 @@ const DRAW_SCALE := {
 	"blade_amp": 1.06,
 	"four_poisons": 1.06,
 	"pistol_enhance": 1.06,
+	"angel_blessing": 0.96,
 }
 
 const PREWARM_ASSET_BATCH_SIZE := 1

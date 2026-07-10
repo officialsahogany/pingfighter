@@ -29,7 +29,7 @@ func update(
 	_perf_end(perf_logger, "physics.items.mythic.scope", sample_start)
 	var fps_scale: float = max(0.0, delta * 60.0)
 	sample_start = _perf_begin(perf_logger)
-	runtime.acquisition_cinematic_runtime.update(runtime, delta, registry)
+	runtime.acquisition_cinematic_runtime.update(runtime, delta, registry, owner)
 	_perf_end(perf_logger, "physics.items.mythic.acquisition", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	runtime.pandora_legacy_runtime.update_selection_frames(runtime, fps_scale)

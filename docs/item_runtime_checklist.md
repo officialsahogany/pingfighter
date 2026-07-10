@@ -1697,6 +1697,14 @@ Godot-first note:
   cinematic must not consume click / confirm events before the visible
   perk-choice modal receives them, or both systems can remain active while
   neither can progress. Lock the overlap with a focused Godot smoke.
+- If a successful mythic-perk grant schedules follow-up gameplay or another
+  modal, release it only from the acquisition cinematic's natural update-time
+  active-to-inactive edge. External `reset()` / scene cleanup is cancellation,
+  not successful completion. Do not put that cinematic itself behind the
+  battle modal gate when its clock advances in physics, or it will deadlock.
+- Recheck newly opened follow-up perk/Angel modals immediately after the mythic
+  update callback. The outer physics gate was sampled before that callback and
+  otherwise permits one gameplay tick between the cinematic and its successor.
 
 ---
 

@@ -115,6 +115,15 @@ func _verify_prewarmer_offscreen_position() -> void:
 			prewarmer._stage4_awaken_aura_fx_host.get_parent() == prewarmer,
 			"prewarmer's Stage 4 awaken aura FX host must be a direct child so its sprites and particles inherit the offscreen transform"
 		)
+	_expect(
+		prewarmer._angel_blessing_fx_host != null and is_instance_valid(prewarmer._angel_blessing_fx_host),
+		"prewarmer should own an Angel Dice host so its halo, textures, and both particle PSOs compile off-screen"
+	)
+	if prewarmer._angel_blessing_fx_host != null and is_instance_valid(prewarmer._angel_blessing_fx_host):
+		_expect(
+			prewarmer._angel_blessing_fx_host.get_parent() == prewarmer,
+			"prewarmer's Angel Dice host must inherit the offscreen transform"
+		)
 	prewarmer.queue_free()
 
 
@@ -139,6 +148,8 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_defeat_color_restore_shader_state"), "prewarmer should cover defeat continue color-restore screen-read shader states")
 	_expect(prewarmer.has_method("_prewarm_stage4_illusion_ripple_shader_state"), "prewarmer should cover Stage 4 illusion-ripple screen-read shader states")
 	_expect(prewarmer.has_method("_prewarm_stage4_awaken_aura_shader_state"), "prewarmer should cover Stage 4 awaken-aura shader states")
+	_expect(prewarmer.has_method("_prewarm_angel_blessing_modal_shader_state"), "prewarmer should cover the Angel Dice modal shader/particle state")
+	_expect(prewarmer.has_method("_prewarm_angel_blessing_absorb_shader_state"), "prewarmer should cover the Angel Dice absorb particle state")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
 	_expect(prewarmer._weather_renderer != null, "prewarmer should own a weather renderer for weather PSO warmup")
 	_expect(prewarmer._status_orb_renderer != null, "prewarmer should own the pillar status orb renderer for real HUD warmup")
@@ -173,6 +184,14 @@ func _verify_second_pass_warmup_scope() -> void:
 			and draw_step_body.find("20:") >= 0
 			and draw_step_body.find("_prewarm_stage4_awaken_aura_shader_state") >= 0,
 		"PSO prewarmer should dispatch the Stage 4 awaken-aura warmup before its staged draw loop finishes"
+	)
+	_expect(
+		BattlePsoPrewarmer.WARMUP_DRAW_STEPS >= 23
+			and draw_step_body.find("21:") >= 0
+			and draw_step_body.find("_prewarm_angel_blessing_modal_shader_state") >= 0
+			and draw_step_body.find("22:") >= 0
+			and draw_step_body.find("_prewarm_angel_blessing_absorb_shader_state") >= 0,
+		"PSO prewarmer should render Angel Dice modal and absorb states before its staged draw loop finishes"
 	)
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
@@ -274,6 +293,16 @@ func _verify_second_pass_warmup_scope() -> void:
 			and awaken_aura_body.find("\"intensity\": 1.0") >= 0
 			and awaken_aura_body.find("\"render_scale\": 0.5") >= 0,
 		"PSO prewarmer should draw the Stage 4 awaken-aura textured shader state off-screen before the first awakening"
+	)
+	var angel_modal_body: String = _function_body(source, "func _prewarm_angel_blessing_modal_shader_state")
+	var angel_absorb_body: String = _function_body(source, "func _prewarm_angel_blessing_absorb_shader_state")
+	_expect(
+		source.find("AngelBlessingRollOverlayHost.prewarm_assets()") >= 0
+			and angel_modal_body.find("sync_state") >= 0
+			and angel_modal_body.find("\"modal_active\": true") >= 0
+			and angel_absorb_body.find("sync_state") >= 0
+			and angel_absorb_body.find("\"active\": true") >= 0,
+		"PSO prewarmer should issue both live Angel host render families off-screen"
 	)
 	prewarmer.free()
 

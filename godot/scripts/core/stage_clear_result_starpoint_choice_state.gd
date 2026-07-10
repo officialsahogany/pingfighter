@@ -54,6 +54,14 @@ func record_open_result(scene: Control, box_index: int, result: Dictionary) -> v
 		scene.queue_redraw()
 
 
+func record_active_choice(scene: Control, box_index: int, runtime_perk_state: Object) -> void:
+	record_open_result(scene, box_index, {
+		"opened": runtime_perk_state != null,
+		"choice_active": StageClearResultStarpointChoiceOpenData.is_runtime_perk_choice_active(runtime_perk_state),
+		"last_recorded_perk_choice_sequence": StageClearResultStarpointPerkRewardData.get_runtime_perk_choice_sequence(runtime_perk_state),
+	})
+
+
 func sync_box_perk_choice_rewards(scene: Control, runtime_perk_state: Object, perk_catalog: Object) -> void:
 	if _active_starpoint_choice_box_index < 0:
 		return

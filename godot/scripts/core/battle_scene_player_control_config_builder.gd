@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const ViperHoverSheetOverride := preload("res://scripts/core/viper_hover_sheet_override.gd")
 
@@ -20,6 +21,7 @@ const MOVEMENT_SPEED_KEYS := [
 ]
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
+var fallback_scene_config: Object = BattleSceneConfig.new()
 
 
 func build_config(owner: Object, registry: Object, character_type: String, context_builder: Object) -> Dictionary:
@@ -30,13 +32,22 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	var config: Dictionary = context_builder.build_player_control_config(normalized_character_type)
 	config["selected_character_type"] = normalized_character_type
 	if normalized_character_type == PlayerCharacterRuntime.OPTIMUS:
+		var optimus_paddle_base_scale: float = _get_league_player_paddle_scale(owner, registry)
+		config["optimus_paddle_base_scale"] = optimus_paddle_base_scale
 		var previous_paddle_size := Vector2(
 			max(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0))),
 			max(1.0, float(_get_owner_value(owner, "player_paddle_height", 50.0)))
 		)
 		var optimus_energy_state: Object = _get_instance(registry, "optimus_energy_state")
-		if optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_for_optimus"):
-			var optimus_snapshot: Dictionary = optimus_energy_state.prepare_owner_for_optimus(owner)
+		var optimus_snapshot: Dictionary = {}
+		if optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_runtime_base_for_optimus"):
+			optimus_snapshot = optimus_energy_state.prepare_owner_runtime_base_for_optimus(
+				owner,
+				optimus_paddle_base_scale
+			)
+		elif optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_for_optimus"):
+			optimus_snapshot = optimus_energy_state.prepare_owner_for_optimus(owner)
+		if not optimus_snapshot.is_empty():
 			for key in optimus_snapshot.keys():
 				owner.set(str(key), optimus_snapshot[key])
 		_align_optimus_paddle(owner, previous_paddle_size)
@@ -67,8 +78,17 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 		)
 		config["viper_jetpack_hover_sheet_fx"] = hover_sheet_loaded and not ViperHoverSheetOverride.is_hover_sheet_force_disabled()
 
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_player_movement_config"):
+		# Horn's transformed speed is a replacement BASE (8), not a final fixed
+		# value. Apply it before the shared multiplier chain so Angel/Swiftness,
+		# weather, statuses, active items, Lingpet, and mythic modifiers survive.
+		mythic_item_runtime.apply_player_movement_config(config)
+	var horn_strawberry_transformed: bool = _is_horn_strawberry_transformed(mythic_item_runtime)
+	config["horn_strawberry_transformed"] = horn_strawberry_transformed
+	config["horn_strawberry_skill_input_locked"] = _is_horn_strawberry_skill_input_locked(mythic_item_runtime)
 	_apply_speed_multiplier(config, _get_instance(registry, "runtime_perk_state"))
-	if normalized_character_type == PlayerCharacterRuntime.SMASHER:
+	if normalized_character_type == PlayerCharacterRuntime.SMASHER and not horn_strawberry_transformed:
 		_apply_speed_multiplier(config, _get_instance(registry, "smasher_recovery_state"))
 	var weather: Object = _get_instance(registry, "weather_event_state")
 	if weather != null and weather.has_method("apply_player_movement_config"):
@@ -77,11 +97,8 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	_apply_speed_multiplier(config, _get_instance(registry, "status_effect_state"))
 	_apply_speed_multiplier(config, _get_instance(registry, "active_item_runtime"))
 	_apply_speed_multiplier(config, _get_instance(registry, "lingpet_egg_runtime"))
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	_apply_speed_multiplier(config, mythic_item_runtime)
 	_apply_turn_decel_multiplier(config, mythic_item_runtime)
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_player_movement_config"):
-		mythic_item_runtime.apply_player_movement_config(config)
 	if mythic_item_runtime != null:
 		config["player_skill_input_locked"] = _is_player_skill_locked(mythic_item_runtime)
 		if (
@@ -138,6 +155,15 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
+func _get_league_player_paddle_scale(owner: Object, registry: Object) -> float:
+	var scene_config: Object = _get_instance(registry, "battle_scene_config")
+	if scene_config == null:
+		scene_config = fallback_scene_config
+	if scene_config != null and scene_config.has_method("get_league_player_paddle_scale"):
+		return maxf(0.1, float(scene_config.get_league_player_paddle_scale(owner)))
+	return 1.0
+
+
 func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 	if mythic_item_runtime == null:
 		return false
@@ -162,6 +188,22 @@ func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 	):
 		return true
 	return false
+
+
+func _is_horn_strawberry_transformed(mythic_item_runtime: Object) -> bool:
+	return (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_transformed")
+		and bool(mythic_item_runtime.is_horn_strawberry_transformed())
+	)
+
+
+func _is_horn_strawberry_skill_input_locked(mythic_item_runtime: Object) -> bool:
+	return (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	)
 
 
 func _align_optimus_paddle(owner: Object, previous_paddle_size: Vector2) -> void:

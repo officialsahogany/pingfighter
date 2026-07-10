@@ -107,6 +107,11 @@ const LUCKY_COIN_SPAWN_SOUND_PATH := "res://assets/sounds/lucky_coin_spawn.wav"
 const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
 const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
 const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
+const ANGEL_BLESSING_ROLL_SOUND_PATH := "res://assets/sounds/angeldice.wav"
+const ANGEL_BLESSING_ABSORB_SOUND_PATH := "res://assets/sounds/angeldicewhisp.wav"
+const ANGEL_BLESSING_ABSORB_POOL_SIZE := 3
+const ANGEL_BLESSING_ROLL_GAIN_DB := 0.0
+const ANGEL_BLESSING_ABSORB_GAIN_DB := 0.0
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const DEFEAT_JEWEL_SOUND_PATH := "res://assets/sounds/defeatjewel1.wav"
 const DEFEAT_GEM_SHATTER_SOUND_PATH := "res://assets/sounds/defeat_gem_shatter.wav"
@@ -490,6 +495,10 @@ var lucky_coin_spawn_sfx: AudioStreamPlayer
 var foul_whistle_sfx: AudioStreamPlayer
 var megingjord_sfx: AudioStreamPlayer
 var legendary_open_sfx: AudioStreamPlayer
+var angel_blessing_roll_sfx: AudioStreamPlayer
+var angel_blessing_absorb_sfx: AudioStreamPlayer
+var angel_blessing_absorb_sfx_layers: Array = []
+var angel_blessing_absorb_sfx_cursor := 0
 var result_box_open_sfx: AudioStreamPlayer
 var defeat_jewel_sfx: AudioStreamPlayer
 var defeat_gem_shatter_sfx: AudioStreamPlayer
@@ -824,6 +833,15 @@ func _setup_item_command_sfx() -> void:
 	foul_whistle_sfx = player_factory.create(owner_node, "FoulWhistleSfx", FOUL_WHISTLE_SOUND_PATH, -4.0)
 	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
 	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
+	angel_blessing_roll_sfx = player_factory.create(owner_node, "AngelBlessingRollSfx", ANGEL_BLESSING_ROLL_SOUND_PATH, ANGEL_BLESSING_ROLL_GAIN_DB)
+	angel_blessing_absorb_sfx = player_factory.create(owner_node, "AngelBlessingAbsorbSfx", ANGEL_BLESSING_ABSORB_SOUND_PATH, ANGEL_BLESSING_ABSORB_GAIN_DB)
+	angel_blessing_absorb_sfx_layers = _create_optional_sfx_layers(
+		"AngelBlessingAbsorbSfxLayer",
+		ANGEL_BLESSING_ABSORB_SOUND_PATH,
+		ANGEL_BLESSING_ABSORB_GAIN_DB,
+		ANGEL_BLESSING_ABSORB_POOL_SIZE - 1
+	)
+	angel_blessing_absorb_sfx_cursor = 0
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
 	defeat_jewel_sfx = player_factory.create(owner_node, "DefeatJewelSfx", DEFEAT_JEWEL_SOUND_PATH, -4.0)
 	defeat_gem_shatter_sfx = player_factory.create(owner_node, "DefeatGemShatterSfx", DEFEAT_GEM_SHATTER_SOUND_PATH, -3.0)
@@ -1170,6 +1188,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				FOUL_WHISTLE_SOUND_PATH,
 				MEGINGJORD_SOUND_PATH,
 				LEGENDARY_OPEN_SOUND_PATH,
+				ANGEL_BLESSING_ROLL_SOUND_PATH,
+				ANGEL_BLESSING_ABSORB_SOUND_PATH,
 				RESULT_BOX_OPEN_SOUND_PATH,
 				DEFEAT_JEWEL_SOUND_PATH,
 				DEFEAT_GEM_SHATTER_SOUND_PATH,
@@ -2027,6 +2047,24 @@ func play_megingjord() -> void:
 func play_legendary_open() -> void:
 	if not _play_with_pitch(legendary_open_sfx, randf_range(0.98, 1.02)):
 		play_pandora()
+
+
+func play_angel_blessing_roll() -> void:
+	_play_with_pitch(angel_blessing_roll_sfx, 1.0)
+
+
+func play_angel_blessing_absorb() -> void:
+	_play_angel_blessing_absorb_layer()
+
+
+func stop_angel_blessing_audio() -> void:
+	if angel_blessing_roll_sfx != null and angel_blessing_roll_sfx.playing:
+		angel_blessing_roll_sfx.stop()
+	var players := [angel_blessing_absorb_sfx]
+	players.append_array(angel_blessing_absorb_sfx_layers)
+	for value: Variant in players:
+		if value is AudioStreamPlayer and (value as AudioStreamPlayer).playing:
+			(value as AudioStreamPlayer).stop()
 
 
 func play_result_box_open() -> void:
@@ -3290,6 +3328,33 @@ func _play_commando_ak47_fire_layer(pitch: float) -> bool:
 	return true
 
 
+func _play_angel_blessing_absorb_layer() -> bool:
+	var players := [angel_blessing_absorb_sfx]
+	players.append_array(angel_blessing_absorb_sfx_layers)
+	var valid_players: Array[AudioStreamPlayer] = []
+	for value: Variant in players:
+		if value is AudioStreamPlayer and (value as AudioStreamPlayer).stream != null:
+			valid_players.append(value as AudioStreamPlayer)
+	if valid_players.is_empty():
+		return false
+	for offset: int in range(valid_players.size()):
+		var index: int = (angel_blessing_absorb_sfx_cursor + offset) % valid_players.size()
+		var player: AudioStreamPlayer = valid_players[index]
+		if player.playing:
+			continue
+		angel_blessing_absorb_sfx_cursor = (index + 1) % valid_players.size()
+		player.pitch_scale = 1.0
+		player.play()
+		return true
+	var fallback_index: int = angel_blessing_absorb_sfx_cursor % valid_players.size()
+	var fallback_player: AudioStreamPlayer = valid_players[fallback_index]
+	angel_blessing_absorb_sfx_cursor = (fallback_index + 1) % valid_players.size()
+	fallback_player.pitch_scale = 1.0
+	fallback_player.stop()
+	fallback_player.play()
+	return true
+
+
 func _create_optional_sfx(name: String, path: String, volume_db: float) -> AudioStreamPlayer:
 	if FileAccess.file_exists(path) or ProjectResourceLoader.audio_resource_exists(path):
 		return _configure_sfx_player(player_factory.create(owner_node, name, path, volume_db))
@@ -3732,6 +3797,8 @@ func _get_sfx_players() -> Array:
 		foul_whistle_sfx,
 		megingjord_sfx,
 		legendary_open_sfx,
+		angel_blessing_roll_sfx,
+		angel_blessing_absorb_sfx,
 		result_box_open_sfx,
 		defeat_jewel_sfx,
 		defeat_gem_shatter_sfx,
@@ -3865,7 +3932,7 @@ func _get_sfx_players() -> Array:
 		stage6_tetriser_laser_sfx,
 		leaf_shield_sfx,
 		trampoline_bounce_sfx,
-	] + gaksital_fan_sfx_layers + commando_ak47_fire_sfx_layers + stage5_hongryun_hurt_sfx
+	] + gaksital_fan_sfx_layers + commando_ak47_fire_sfx_layers + angel_blessing_absorb_sfx_layers + stage5_hongryun_hurt_sfx
 
 
 func _select_stage1_bgm_name() -> String:

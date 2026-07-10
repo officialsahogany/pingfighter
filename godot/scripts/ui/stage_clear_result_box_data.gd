@@ -109,6 +109,10 @@ static func get_next_idle_box_index(boxes: Array) -> int:
 	return StageClearResultBoxOpeningData.get_next_idle_box_index(boxes)
 
 
+static func has_opening_box(boxes: Array) -> bool:
+	return StageClearResultBoxOpeningData.has_opening_box(boxes)
+
+
 static func update_box_opening_state(
 	boxes: Array,
 	delta: float,

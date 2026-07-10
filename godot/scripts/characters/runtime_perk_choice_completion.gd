@@ -1,5 +1,8 @@
 extends RefCounted
 
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const CLOSE_ACTION_RESUME_SKILL_COOLDOWNS := "resume_skill_cooldowns"
 const CLOSE_ACTION_ARM_RESUME_SAFETY := "arm_resume_safety"
 const CLOSE_ACTION_START_STARPOINT_ABSORPTION := "start_starpoint_absorption"
@@ -78,41 +81,61 @@ func apply_success_state_update(runtime_state: Object, state_update: Dictionary,
 	if resolved_id == "":
 		return {"accepted": false}
 	runtime_state.set("last_selected_id", resolved_id)
-	runtime_state.set("last_selected_choice", _get_dict(state_update.get("last_selected_choice", {})).duplicate(true))
+	runtime_state.set("last_selected_choice", RuntimePerkPayloadAccess.as_dict(state_update.get("last_selected_choice", {})).duplicate(true))
 	runtime_state.set(
 		"selected_choice_sequence",
-		int(state_update.get("selected_choice_sequence", runtime_state.get("selected_choice_sequence")))
+		int(state_update.get(
+			"selected_choice_sequence",
+			RuntimePerkRuntimeStateAccess.get_int(runtime_state, "selected_choice_sequence")
+		))
 	)
 	runtime_state.set(
 		"pending_skill_choices",
-		int(state_update.get("pending_skill_choices", runtime_state.get("pending_skill_choices")))
+		int(state_update.get(
+			"pending_skill_choices",
+			RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices")
+		))
 	)
 	runtime_state.set("choice_active", bool(state_update.get("choice_active", false)))
 	if bool(state_update.get("clear_current_choices", false)):
-		var current_choices_value: Variant = runtime_state.get("current_choices")
-		if current_choices_value is Array:
-			(current_choices_value as Array).clear()
-	runtime_state.set("animation_time", float(state_update.get("animation_time", runtime_state.get("animation_time"))))
-	var feedback_result: Dictionary = _get_dict(state_update.get("feedback_result", {}))
+		var current_choices: Array = RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")
+		current_choices.clear()
+	runtime_state.set(
+		"animation_time",
+		float(state_update.get(
+			"animation_time",
+			RuntimePerkRuntimeStateAccess.get_float(runtime_state, "animation_time")
+		))
+	)
+	var feedback_result: Dictionary = RuntimePerkPayloadAccess.as_dict(state_update.get("feedback_result", {}))
 	if not feedback_result.is_empty():
 		runtime_state.set("feedback_text", str(feedback_result.get("feedback_text", "")))
-		runtime_state.set("feedback_timer", float(feedback_result.get("feedback_timer", runtime_state.get("feedback_timer"))))
+		runtime_state.set(
+			"feedback_timer",
+			float(feedback_result.get(
+				"feedback_timer",
+				RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer")
+			))
+		)
 	return {
 		"accepted": true,
-		"pending_skill_choices": int(runtime_state.get("pending_skill_choices")),
-		"choice_active": bool(runtime_state.get("choice_active")),
+		"pending_skill_choices": RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"),
+		"choice_active": RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "choice_active"),
 	}
 
 
 func build_post_state_plan(
 	pending_skill_choices: int,
 	has_catalog: bool,
-	has_pending_unlock_swap: bool
+	has_pending_unlock_swap: bool,
+	defer_next_choice: bool = false
 ) -> Dictionary:
-	var should_open_next := pending_skill_choices > 0 and has_catalog
+	var should_defer_next := defer_next_choice and pending_skill_choices > 0
+	var should_open_next := pending_skill_choices > 0 and has_catalog and not should_defer_next
 	return {
 		"open_next_choice": should_open_next,
-		"clear_choice_context": not should_open_next and not has_pending_unlock_swap,
+		"clear_choice_context": not should_open_next and not has_pending_unlock_swap and not should_defer_next,
+		"deferred_next_choice": should_defer_next,
 	}
 
 
@@ -121,18 +144,22 @@ func apply_post_state_plan(runtime_state: Object, post_state_plan: Dictionary) -
 		return {"accepted": false}
 	var should_clear_context := bool(post_state_plan.get("clear_choice_context", false))
 	if should_clear_context:
-		var current_context_value: Variant = runtime_state.get("current_choice_context")
-		if current_context_value is Dictionary:
-			(current_context_value as Dictionary).clear()
+		var current_context: Dictionary = RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "current_choice_context")
+		current_context.clear()
 	return {
 		"accepted": true,
 		"open_next_choice": bool(post_state_plan.get("open_next_choice", false)),
 		"clear_choice_context": should_clear_context,
+		"deferred_next_choice": bool(post_state_plan.get("deferred_next_choice", false)),
 	}
 
 
-func build_modal_close_plan(choice_active: bool, has_pending_unlock_swap: bool) -> Dictionary:
-	var fully_closed := not choice_active and not has_pending_unlock_swap
+func build_modal_close_plan(
+	choice_active: bool,
+	has_pending_unlock_swap: bool,
+	has_post_choice_blocker: bool = false
+) -> Dictionary:
+	var fully_closed := not choice_active and not has_pending_unlock_swap and not has_post_choice_blocker
 	return {
 		CLOSE_ACTION_RESUME_SKILL_COOLDOWNS: fully_closed,
 		CLOSE_ACTION_ARM_RESUME_SAFETY: fully_closed,
@@ -159,9 +186,3 @@ func _close_step(action: String, perf_label: String) -> Dictionary:
 		"action": action,
 		"perf_label": perf_label,
 	}
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

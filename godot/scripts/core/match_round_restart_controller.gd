@@ -1,9 +1,11 @@
 extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
 
 func handle_round_restart(reason: String, deps: Dictionary, callbacks: Dictionary) -> void:
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 	var round_state: Object = deps.get("round_state", null)
 	if not _call_callback(callbacks, "reset_ball") and round_state != null and round_state.has_method("reset_round_wait"):
 		round_state.reset_round_wait()

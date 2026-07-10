@@ -11,7 +11,8 @@ static func append_resolved_perk_reward(boxes: Array, index: int, perk_reward: D
 	if not (reward_value is Dictionary):
 		return {"updated": false, "boxes": boxes}
 	var reward: Dictionary = reward_value
-	if reward.is_empty() or str(reward.get("type", "")) != "starpoint":
+	var reward_type: String = str(reward.get("type", ""))
+	if reward.is_empty() or not _can_append_resolved_perk_reward(reward_type):
 		return {"updated": false, "boxes": boxes}
 	var updated_boxes: Array = boxes.duplicate(false)
 	var updated_box: Dictionary = box.duplicate(true)
@@ -19,7 +20,7 @@ static func append_resolved_perk_reward(boxes: Array, index: int, perk_reward: D
 	var resolved_value: Variant = updated_reward.get("resolved_perk_rewards", [])
 	var resolved: Array = resolved_value.duplicate(false) if resolved_value is Array else []
 	var reward_copy: Dictionary = perk_reward.duplicate(true)
-	reward_copy["source"] = "box_starpoint_choice"
+	reward_copy["source"] = "box_mythic_perk_choice" if reward_type == "mythic_perk_choice" else "box_starpoint_choice"
 	resolved.append(reward_copy)
 	updated_reward["resolved_perk_rewards"] = resolved
 	updated_reward["resolved_perk_count"] = resolved.size()
@@ -71,3 +72,7 @@ static func get_resolved_rewards(boxes: Array) -> Array:
 		reward_copy["box_state"] = str(box.get("state", "idle"))
 		rewards.append(reward_copy)
 	return rewards
+
+
+static func _can_append_resolved_perk_reward(reward_type: String) -> bool:
+	return reward_type == "starpoint" or reward_type == "mythic_perk_choice"

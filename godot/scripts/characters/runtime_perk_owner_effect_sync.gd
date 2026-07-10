@@ -85,7 +85,7 @@ func refresh_mythic_runtime_perk_consumers(owner: Object, registry: Object, get_
 
 
 func apply_training_to_skill_configs(registry: Object, multiplier: float, get_instance: Callable) -> void:
-	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config"]:
+	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config", "blacksmith_skill_config"]:
 		var skill_config: Object = get_instance.call(registry, key)
 		if skill_config != null and skill_config.has_method("set_runtime_cooldown_multiplier"):
 			skill_config.set_runtime_cooldown_multiplier(multiplier)

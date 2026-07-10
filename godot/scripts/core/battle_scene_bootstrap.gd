@@ -124,6 +124,15 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		runtime_paddle_base_width *= league_player_paddle_scale
 		runtime_paddle_base_height *= league_player_paddle_scale
 		player_y = height - player_paddle_height
+	if not optimus_snapshot.is_empty():
+		# The compatibility snapshot is merged after the main snapshot below, so
+		# keep its geometry in league-scaled base space instead of restoring raw
+		# Optimus dimensions during that late merge.
+		optimus_snapshot["player_paddle_width"] = player_paddle_width
+		optimus_snapshot["player_paddle_height"] = player_paddle_height
+		optimus_snapshot["player_paddle_scale"] = maxf(0.1, player_paddle_width / 155.0)
+		optimus_snapshot["runtime_paddle_base_width"] = runtime_paddle_base_width
+		optimus_snapshot["runtime_paddle_base_height"] = runtime_paddle_base_height
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.character_state", sample_start)
 
 	sample_start = _perf_begin(perf_logger)

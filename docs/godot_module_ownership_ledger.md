@@ -8234,3 +8234,71 @@ This section is intentionally long; use search to find the nearest owner.
   firing phase timing, aiming, hit detection, audio, loop cleanup, and
   rendering, but should not reintroduce inline Gatling projectile / particle
   dictionary scaffolding.
+- `scripts/characters/runtime_perk_angel_blessing_state.gd`,
+  `scripts/characters/runtime_perk_angel_blessing_cooldown_capability.gd`,
+  `scripts/characters/runtime_perk_angel_blessing_projection.gd`, and
+  `scripts/characters/runtime_perk_angel_blessing_gauge_compositor.gd`, plus
+  `scripts/characters/runtime_perk_angel_blessing_stage_lifecycle.gd`
+  Own the live Angel Dice runtime foundation: canonical six-buff
+  vocabulary, character-capability filtering, deterministic 1-3 sampling
+  without replacement, per-stage dedupe/history, HUD-facing multiplier
+  snapshot, and pure six-lane numeric composition. The runtime perk query
+  surface consumes the five shared live getters and exposes a bespoke final
+  maximum-gauge facade. The gauge compositor separates Fuel ratio preservation
+  from Angel absolute-value preservation; `mythic_item_owner_syncer.gd` is its
+  single owner writer, and Optimus now consumes the effective gauge maximum.
+  Optimus per-tick paddle snapshots are base-only so the shared item/perk/mythic
+  composition is not overwritten. `battle_scene_player_control_config_builder.gd`
+  owns Horn's replacement-base-before-shared-multipliers ordering and publishes
+  explicit transform/skill-lock flags. Optimus, Commando, Blacksmith, Viper, and
+  Smasher movement owners suppress or cancel incompatible character-specific
+  post-overrides; Commando's suicide-drone hard freeze and non-Horn behavior stay
+  intact. `character_info_overlay_stats_presenter.gd` mirrors the same Horn base,
+  Smasher exception, weather, and status speed sources for TAB. Blacksmith cooldown
+  capability is now evidence-gated: the current empty config produces a
+  five-candidate pool, while a future explicitly live skill-id/config API contract
+  plus configured timer owner opens the sixth candidate without a character
+  hardcode. Shared
+  runtime/item multiplier inputs already reach the compatibility config, but
+  Hammer Shock itself remains unported. The stage lifecycle helper now filters
+  campaign context, uses normalized character capability, rolls only from the
+  existing 4.4-second intro completion callback, and resynchronizes owner/config/
+  gauge consumers only after a successful new stage roll. Existing deferred
+  Dimension Gate/full-gauge effects resolve first; rally restarts preserve the
+  result, later stages replace it, and full reset clears state/history.
+  `runtime_perk_angel_blessing_acquisition_lifecycle.gd` owns accepted raw
+  `0 -> 1` battle-vs-result route classification, and
+  `runtime_perk_angel_blessing_modal_flow.gd` owns deduplicated current-stage /
+  next-valid-intro reservations, acquisition-cinematic release, pending reveal,
+  three-second confirm state, input arm, and round/stage/full-reset queue policy.
+  `runtime_perk_state.gd` orchestrates the Angel-only roll and shared pause/sync
+  seams; the mythic cinematic runtime owns the natural completion edge, while
+  core modal/input/overlay/frame owners provide active-only blocking and the
+  post-mythic-update no-gap recheck. Round/stage cancellation releases the
+  preserved queue entry explicitly without masquerading as natural completion;
+  scoreboard/result/shared modal blockers retain ordering until it is safe to
+  resume remaining choices or Angel.
+- `scripts/characters/runtime_perk_catalog.gd`,
+  `perk_conversion_values.gd`, `mythic_perk_grant_helper.gd`, and
+  `runtime_perk_debug_grants.gd`
+  Own Angel's public thirteenth converted-mythic registration, fixed 30%
+  value, regular jackpot/debug and guaranteed-choice exposure, shared mythic
+  cinematic payload, plus unchanged-target debug no-op semantics. Angel is a
+  runtime perk only and must not enter mythic item, field, Pandora, shop,
+  crane, gacha, treasure-hunt, polish, or equipment routes.
+- `scripts/characters/runtime_perk_angel_blessing_localization.gd` and
+  `scripts/core/language_settings_data.gd`
+  Own seven-locale dynamic modal/status text and the static catalog
+  Korean-plus-six-locale name/summary respectively.
+- `scripts/hud/angel_blessing_roll_overlay_host.gd`,
+  `shaders/angel_blessing_halo.gdshader`, and the Angel branches in
+  `runtime_perk_icon_renderer.gd` / `runtime_perk_overlay_renderer.gd`
+  Own the full-canvas-clipped modular modal, non-blocking absorption tail,
+  static/sheet art, and snapshot-only presentation sync. The detached host
+  does not own logical time or cleanup.
+- Angel branches in `scripts/audio/game_audio.gd`,
+  `scripts/audio/gameplay_loop_audio_cleanup.gd`,
+  `scripts/core/battle_pso_prewarmer.gd`, staged battle resource prewarm, and
+  round/stage/full-reset cleanup owners
+  Own the roll cue, three-voice absorption pool, first-use GPU/resource warmup,
+  and direct host/audio teardown when draw fanout is inactive.

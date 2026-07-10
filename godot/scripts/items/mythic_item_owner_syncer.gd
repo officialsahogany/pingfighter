@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+const RuntimePerkAngelBlessingGaugeCompositor := preload("res://scripts/characters/runtime_perk_angel_blessing_gauge_compositor.gd")
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
 
@@ -531,16 +532,46 @@ func sync_fuel_pouch_gauge_max(runtime: Object, owner: Object, constants: Dictio
 	if owner == null:
 		return
 	var base_special_gauge_max: float = float(constants.get("base_special_gauge_max", 500.0))
-	var next_max: float = runtime.get_effective_special_gauge_max(base_special_gauge_max)
-	var previous_max: float = max(1.0, float(runtime._safe_owner_get(owner, "special_gauge_max", runtime.synced_special_gauge_max)))
+	var next_unblessed_max: float = maxf(
+		1.0,
+		float(runtime.get_effective_special_gauge_max(base_special_gauge_max))
+	)
+	var next_angel_multiplier: float = maxf(0.0, float(runtime.synced_angel_gauge_multiplier))
+	var runtime_perk_state: Object = runtime.runtime_perk_state_ref
+	if (
+		runtime_perk_state != null
+		and is_instance_valid(runtime_perk_state)
+		and runtime_perk_state.has_method("get_mystic_dice_multiplier")
+	):
+		next_unblessed_max = maxf(
+			1.0,
+			next_unblessed_max
+			* maxf(0.0, float(runtime_perk_state.get_mystic_dice_multiplier("skill_gauge")))
+		)
+	if (
+		runtime_perk_state != null
+		and is_instance_valid(runtime_perk_state)
+		and runtime_perk_state.has_method("get_angel_blessing_special_gauge_max")
+	):
+		var angel_max: float = maxf(
+			1.0,
+			float(runtime_perk_state.get_angel_blessing_special_gauge_max(next_unblessed_max))
+		)
+		next_angel_multiplier = angel_max / next_unblessed_max
 	var current_gauge: float = max(0.0, float(runtime._safe_owner_get(owner, "special_gauge", 0.0)))
-	if abs(previous_max - next_max) > 0.001:
-		var ratio: float = clamp(current_gauge / previous_max, 0.0, 1.0)
-		owner.set("special_gauge", clamp(round(next_max * ratio), 0.0, next_max))
-	else:
-		owner.set("special_gauge", min(current_gauge, next_max))
+	var resolved: Dictionary = RuntimePerkAngelBlessingGaugeCompositor.resolve_owner_values(
+		float(runtime.synced_special_gauge_unblessed_max),
+		next_unblessed_max,
+		float(runtime.synced_angel_gauge_multiplier),
+		next_angel_multiplier,
+		current_gauge
+	)
+	var next_max: float = float(resolved.get("next_max", next_unblessed_max))
+	owner.set("special_gauge", float(resolved.get("next_gauge", minf(current_gauge, next_max))))
 	owner.set("special_gauge_max", next_max)
 	runtime.synced_special_gauge_max = next_max
+	runtime.synced_special_gauge_unblessed_max = next_unblessed_max
+	runtime.synced_angel_gauge_multiplier = next_angel_multiplier
 
 
 func sync_boomerang_active_slot_visuals(runtime: Object, owner: Object, constants: Dictionary) -> void:
@@ -654,7 +685,7 @@ func sync_skill_cooldown_to_configs(runtime: Object, registry: Object) -> void:
 		return
 	var multiplier: float = runtime.get_player_skill_cooldown_multiplier()
 	var skill_slot_bonus: int = runtime.get_heavenly_cape_skill_slot_bonus()
-	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config"]:
+	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config", "blacksmith_skill_config"]:
 		var skill_config: Object = runtime._get_instance(registry, key)
 		if skill_config != null and skill_config.has_method("set_item_cooldown_multiplier"):
 			skill_config.set_item_cooldown_multiplier(multiplier)

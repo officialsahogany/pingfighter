@@ -3,6 +3,12 @@ extends RefCounted
 const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_perk_character_context.gd")
 const RuntimePerkRegistryLookup := preload("res://scripts/characters/runtime_perk_registry_lookup.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
+const RuntimePerkAngelBlessingState := preload("res://scripts/characters/runtime_perk_angel_blessing_state.gd")
+const RuntimePerkAngelBlessingCooldownCapability := preload("res://scripts/characters/runtime_perk_angel_blessing_cooldown_capability.gd")
+const RuntimePerkAngelBlessingStageLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_stage_lifecycle.gd")
+const RuntimePerkAngelBlessingModalFlow := preload("res://scripts/characters/runtime_perk_angel_blessing_modal_flow.gd")
+const RuntimePerkAngelBlessingAcquisitionLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_acquisition_lifecycle.gd")
+const RuntimePerkAngelBlessingLocalization := preload("res://scripts/characters/runtime_perk_angel_blessing_localization.gd")
 const RuntimePerkChoiceLayout := preload("res://scripts/characters/runtime_perk_choice_layout.gd")
 const RuntimePerkActiveUnlockFlight := preload("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
 const RuntimePerkUnlockShowcase := preload("res://scripts/characters/runtime_perk_unlock_showcase.gd")
@@ -127,6 +133,11 @@ var _unlock_swap_flow: Object = RuntimePerkUnlockSwapFlow.new()
 var _gamepad_navigation: Object = RuntimePerkGamepadNavigation.new()
 var _snapshot_builder: Object = RuntimePerkSnapshotBuilder.new()
 var _effective_stat_queries: Object = RuntimePerkEffectiveStatQuerySurface.new()
+var _angel_blessing_state: Object = RuntimePerkAngelBlessingState.new()
+var _angel_blessing_cooldown_capability: Object = RuntimePerkAngelBlessingCooldownCapability.new()
+var _angel_blessing_stage_lifecycle: Object = RuntimePerkAngelBlessingStageLifecycle.new()
+var _angel_blessing_modal_flow: Object = RuntimePerkAngelBlessingModalFlow.new()
+var _angel_blessing_acquisition_lifecycle: Object = RuntimePerkAngelBlessingAcquisitionLifecycle.new()
 var _choice_audio: Object = RuntimePerkChoiceAudio.new()
 var _choice_feedback: Object = RuntimePerkChoiceFeedback.new()
 var _choice_offer_modifiers: Object = RuntimePerkChoiceOfferModifiers.new()
@@ -272,6 +283,10 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 		self,
 		perf_logger
 	)
+	# Use live post-flow state: the ordinary choice/flight update above can close
+	# or open a higher-priority modal during this same frame.
+	if has_angel_blessing_modal_work():
+		update_angel_blessing_acquisition(delta, owner, registry)
 
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
@@ -456,7 +471,23 @@ func consume_resume_velocity_for_stopwatch() -> Dictionary:
 
 
 func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logger: Object = null) -> bool:
+	var choice_id: String = str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var previous_raw_level: int = int(runtime_skill_levels.get(choice_id, 0))
+	var acquisition_context: Dictionary = current_choice_context.duplicate(true)
 	var result: Dictionary = _choice_apply_flow.apply_choice_from_runtime_state(self, choice, owner, registry, perf_logger)
+	if bool(result.get("accepted", false)):
+		var applied_choice_id: String = str(result.get("choice_id", choice_id)).strip_edges()
+		if applied_choice_id == "angel_blessing":
+			_angel_blessing_acquisition_lifecycle.on_accepted_choice(
+				self,
+				choice,
+				previous_raw_level,
+				int(runtime_skill_levels.get(applied_choice_id, 0)),
+				acquisition_context,
+				bool(result.get("mythic_acquisition_cinematic_started", false)),
+				owner,
+				registry
+			)
 	return bool(result.get("accepted", false))
 
 
@@ -507,6 +538,427 @@ func _get_perk_amplify_multiplier(skill_id: String) -> float:
 # (1.0 + amp)로 콤보 항에만 곱한다(base 상수는 비증폭).
 func get_combo_amplifier_chip_bonus() -> Dictionary:
 	return _effective_stat_queries.get_combo_amplifier_chip_bonus_from_runtime_state(self)
+
+
+func get_angel_blessing_state() -> Object:
+	return _angel_blessing_state
+
+
+func roll_angel_blessing_for_stage(
+	stage: int,
+	eligible_buff_ids: Array = [],
+	forced_face: int = 0,
+	forced_candidate_order: Array = []
+) -> Dictionary:
+	return _angel_blessing_state.roll_for_stage(
+		stage,
+		eligible_buff_ids,
+		forced_face,
+		forced_candidate_order
+	)
+
+
+func get_angel_blessing_eligible_buff_ids(character_type: String, registry: Object) -> Array[String]:
+	return _angel_blessing_cooldown_capability.get_eligible_buff_ids(
+		_angel_blessing_state,
+		character_type,
+		registry
+	)
+
+
+func get_angel_blessing_skill_cooldown_capability(character_type: String, registry: Object) -> Dictionary:
+	return _angel_blessing_cooldown_capability.get_capability(character_type, registry)
+
+
+func roll_angel_blessing_for_character_stage(
+	stage: int,
+	character_type: String,
+	registry: Object,
+	forced_face: int = 0,
+	forced_candidate_order: Array = []
+) -> Dictionary:
+	return roll_angel_blessing_for_stage(
+		stage,
+		get_angel_blessing_eligible_buff_ids(character_type, registry),
+		forced_face,
+		forced_candidate_order
+	)
+
+
+func get_angel_blessing_snapshot() -> Dictionary:
+	return _angel_blessing_state.get_snapshot()
+
+
+func get_angel_blessing_acquisition_snapshot() -> Dictionary:
+	var snapshot: Dictionary = _angel_blessing_modal_flow.get_snapshot()
+	snapshot["roll_state"] = get_angel_blessing_snapshot()
+	return snapshot
+
+
+func get_angel_blessing_presentation_snapshot() -> Dictionary:
+	return get_angel_blessing_acquisition_snapshot()
+
+
+func has_angel_blessing_visual_work() -> bool:
+	return _angel_blessing_modal_flow.has_visual_work()
+
+
+func get_runtime_status_lines(perk_id: String) -> Array[String]:
+	if perk_id.strip_edges() != RuntimePerkAngelBlessingState.PERK_ID:
+		return []
+	return RuntimePerkAngelBlessingLocalization.build_status_lines(
+		get_angel_blessing_snapshot(),
+		get_angel_blessing_acquisition_snapshot(),
+		int(runtime_skill_levels.get(RuntimePerkAngelBlessingState.PERK_ID, 0)) > 0
+	)
+
+
+func has_pending_angel_blessing_acquisition() -> bool:
+	return _angel_blessing_modal_flow.has_work()
+
+
+func is_angel_blessing_modal_active() -> bool:
+	return _angel_blessing_modal_flow.is_modal_active()
+
+
+func has_angel_blessing_modal_work() -> bool:
+	if _angel_blessing_modal_flow.has_visual_work() or _angel_blessing_modal_flow.has_pending_reveals():
+		return true
+	return _angel_blessing_modal_flow.has_ready_current_stage_roll()
+
+
+func update_angel_blessing_acquisition(
+	delta: float,
+	owner: Object,
+	registry: Object,
+	blockers: Dictionary = {},
+	roll_options: Dictionary = {}
+) -> Dictionary:
+	var update_result: Dictionary = _angel_blessing_modal_flow.update(delta)
+	_play_angel_blessing_absorb_cues(registry, update_result)
+	if is_angel_blessing_modal_active():
+		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
+		return update_result
+	if _is_angel_blessing_open_blocked(owner, registry, blockers):
+		update_result["blocked"] = true
+		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
+		return update_result
+	if choice_active or has_pending_unlock_swap():
+		update_result["blocked"] = true
+		update_result["blocked_reason"] = "runtime_perk_choice"
+		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
+		return update_result
+	if pending_skill_choices > 0:
+		update_result["choice_resume"] = _try_resume_deferred_runtime_choices(owner, registry)
+		if choice_active or has_pending_unlock_swap():
+			update_result["blocked"] = true
+			update_result["blocked_reason"] = "runtime_perk_choice"
+			update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
+			return update_result
+
+	var stage: int = _get_angel_blessing_owner_stage(owner)
+	var pending_roll: Dictionary = _angel_blessing_modal_flow.take_ready_roll_for_stage(stage, false)
+	if not pending_roll.is_empty():
+		var roll_result: Dictionary = _roll_angel_blessing_current_stage_only(
+			owner,
+			registry,
+			roll_options
+		)
+		update_result["pending_roll"] = pending_roll
+		update_result["roll_result"] = roll_result
+		if bool(roll_result.get("rolled", false)):
+			_angel_blessing_modal_flow.queue_reveal_from_roll_result(
+				roll_result,
+				str(pending_roll.get("reason", "first_acquisition"))
+			)
+
+	if _angel_blessing_modal_flow.has_pending_reveals():
+		var begin_result: Dictionary = _angel_blessing_modal_flow.begin_next_pending_reveal(stage)
+		update_result["begin_result"] = begin_result
+		if bool(begin_result.get("started", false)):
+			_pause_skill_cooldowns_for_choice(owner, registry)
+			var game_audio: Object = _get_instance(registry, "game_audio")
+			if game_audio != null and game_audio.has_method("play_angel_blessing_roll"):
+				game_audio.play_angel_blessing_roll()
+	update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
+	return update_result
+
+
+func _play_angel_blessing_absorb_cues(registry: Object, update_result: Dictionary) -> void:
+	var absorption_value: Variant = update_result.get("absorption", {})
+	if not (absorption_value is Dictionary):
+		return
+	var cues_value: Variant = (absorption_value as Dictionary).get("arrival_cues", [])
+	if not (cues_value is Array) or (cues_value as Array).is_empty():
+		return
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio == null or not game_audio.has_method("play_angel_blessing_absorb"):
+		return
+	for _cue: Variant in cues_value:
+		game_audio.play_angel_blessing_absorb()
+
+
+func handle_angel_blessing_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	_view_size: Vector2 = Vector2.ZERO
+) -> bool:
+	if not is_angel_blessing_modal_active():
+		return false
+	var input_result: Dictionary = _angel_blessing_modal_flow.handle_input(event)
+	if bool(input_result.get("dismissed", false)):
+		_finalize_angel_blessing_deferred_choice_chain(owner, registry, true)
+	return bool(input_result.get("consumed", false))
+
+
+func on_angel_blessing_acquisition_cinematic_finished(
+	perk_id: String,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var result: Dictionary = _angel_blessing_acquisition_lifecycle.on_acquisition_cinematic_finished(
+		self,
+		perk_id
+	)
+	if bool(result.get("ignored", false)) or perk_id.strip_edges() != "angel_blessing":
+		return result
+	if int(result.get("released", result.get("released_count", 0))) <= 0:
+		result["ready_work"] = has_angel_blessing_modal_work()
+		return result
+	if owner == null or registry == null:
+		return result
+	if pending_skill_choices > 0 and not choice_active and not has_pending_unlock_swap():
+		result["choice_resume"] = _try_resume_deferred_runtime_choices(owner, registry)
+		result["opened_next_choice"] = choice_active
+		if choice_active or has_pending_unlock_swap():
+			return result
+	result["angel_update"] = update_angel_blessing_acquisition(0.0, owner, registry)
+	if (
+		not choice_active
+		and not has_pending_unlock_swap()
+		and not has_angel_blessing_modal_work()
+	):
+		_finalize_angel_blessing_deferred_choice_chain(owner, registry)
+	return result
+
+
+func on_angel_blessing_round_boundary() -> void:
+	var cancel_result: Dictionary = _angel_blessing_modal_flow.cancel_active_presentation()
+	_angel_blessing_modal_flow.reset_for_round_boundary()
+	if bool(cancel_result.get("canceled", false)):
+		current_choice_context.clear()
+		_resume_skill_cooldowns_for_choice()
+
+
+func on_angel_blessing_stage_transition(_next_stage: int = 0) -> void:
+	var had_discarded_work: bool = _has_current_stage_angel_blessing_work()
+	_angel_blessing_modal_flow.reset_for_stage_boundary()
+	if (
+		not choice_active
+		and not has_pending_unlock_swap()
+		and (
+			had_discarded_work
+			or (
+				_skill_cooldown_pause != null
+				and _skill_cooldown_pause.has_method("is_active")
+				and bool(_skill_cooldown_pause.is_active())
+			)
+		)
+	):
+		current_choice_context.clear()
+		_resume_skill_cooldowns_for_choice()
+
+
+func _should_defer_next_choice_for_angel_acquisition() -> bool:
+	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
+		if not (pending_value is Dictionary):
+			continue
+		var pending: Dictionary = pending_value
+		if bool(pending.get("waiting_for_cinematic", false)):
+			return true
+	return false
+
+
+func _has_angel_blessing_post_choice_blocker() -> bool:
+	if is_angel_blessing_modal_active() or _angel_blessing_modal_flow.has_pending_reveals():
+		return true
+	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
+		if not (pending_value is Dictionary):
+			continue
+		var pending: Dictionary = pending_value
+		if (
+			str(pending.get("policy", "")) == RuntimePerkAngelBlessingModalFlow.POLICY_CURRENT_STAGE
+			or bool(pending.get("waiting_for_cinematic", false))
+		):
+			return true
+	return false
+
+
+func _has_current_stage_angel_blessing_work() -> bool:
+	if is_angel_blessing_modal_active() or _angel_blessing_modal_flow.has_pending_reveals():
+		return true
+	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
+		if (
+			pending_value is Dictionary
+			and str((pending_value as Dictionary).get("policy", "")) == RuntimePerkAngelBlessingModalFlow.POLICY_CURRENT_STAGE
+		):
+			return true
+	return false
+
+
+func _continue_angel_blessing_after_choice(owner: Object, registry: Object) -> void:
+	if choice_active or pending_skill_choices > 0 or _should_defer_next_choice_for_angel_acquisition():
+		return
+	update_angel_blessing_acquisition(0.0, owner, registry)
+
+
+func _try_resume_deferred_runtime_choices(owner: Object, registry: Object) -> Dictionary:
+	if pending_skill_choices <= 0 or choice_active or has_pending_unlock_swap():
+		return {"opened": false, "pending_skill_choices": pending_skill_choices}
+	var catalog: Object = _get_catalog(registry)
+	if catalog != null:
+		open_next_choice(
+			_get_character_type(owner),
+			catalog,
+			false,
+			owner,
+			registry,
+			null,
+			current_choice_context.duplicate(true)
+		)
+	if not choice_active and not has_pending_unlock_swap() and pending_skill_choices > 0:
+		# Match the established empty-catalog recursion: an earned choice with no
+		# legal cards is consumed instead of leaving a non-renderable permanent
+		# blocker between the acquisition cinematic and Angel.
+		while pending_skill_choices > 0:
+			_apply_choice_opening_update(
+				_choice_opening.build_empty_choices_state_update(pending_skill_choices)
+			)
+	return {
+		"opened": choice_active,
+		"pending_skill_choices": pending_skill_choices,
+		"catalog_available": catalog != null,
+	}
+
+
+func _finalize_angel_blessing_deferred_choice_chain(
+	owner: Object,
+	registry: Object,
+	force_resume_effects: bool = false
+) -> void:
+	current_choice_context.clear()
+	var had_cooldown_pause: bool = (
+		_skill_cooldown_pause != null
+		and _skill_cooldown_pause.has_method("is_active")
+		and bool(_skill_cooldown_pause.is_active())
+	)
+	if had_cooldown_pause or force_resume_effects:
+		_resume_skill_cooldowns_for_choice()
+		_try_arm_resume_safety(owner, registry)
+		_start_starpoint_absorption_effect(owner)
+	_sync_owner(owner)
+
+
+func _roll_angel_blessing_current_stage_only(
+	owner: Object,
+	registry: Object,
+	roll_options: Dictionary = {}
+) -> Dictionary:
+	var forced_order_value: Variant = roll_options.get("forced_candidate_order", [])
+	var forced_order: Array = forced_order_value if forced_order_value is Array else []
+	return _angel_blessing_stage_lifecycle.on_ball_spawn_intro_finished(
+		self,
+		owner,
+		registry,
+		int(roll_options.get("forced_face", 0)),
+		forced_order
+	)
+
+
+func _get_angel_blessing_owner_stage(owner: Object) -> int:
+	if owner == null:
+		return 0
+	if _character_context != null and _character_context.has_method("get_current_stage"):
+		return max(0, int(_character_context.get_current_stage(owner)))
+	var stage_value: Variant = owner.get("current_stage")
+	return max(0, int(stage_value)) if stage_value != null else 0
+
+
+func _is_angel_blessing_open_blocked(
+	owner: Object,
+	registry: Object,
+	blockers: Dictionary
+) -> bool:
+	for blocker_key in [
+		"blocked",
+		"higher_priority_modal_active",
+		"stage_clear_result_active",
+		"stage_clear_result_screen_active",
+		"mythic_acquisition_active",
+		"mythic_acquisition_cinematic_active",
+		"scoreboard_active",
+		"runtime_perk_choice_active",
+	]:
+		if bool(blockers.get(blocker_key, false)):
+			return true
+	var cached_module_getter := Callable()
+	if registry != null and registry.has_method("get_cached_instance"):
+		cached_module_getter = Callable(registry, "get_cached_instance")
+	elif registry != null and registry.has_method("_get_cached_module"):
+		cached_module_getter = Callable(registry, "_get_cached_module")
+	elif registry != null and registry.has_method("get_instance"):
+		cached_module_getter = Callable(registry, "get_instance")
+	var shared_modal_gate: Object = _get_cached_angel_blocker_module(
+		registry,
+		"battle_scene_modal_gate_controller"
+	)
+	if (
+		shared_modal_gate != null
+		and shared_modal_gate.has_method("should_block_battle_physics")
+		and cached_module_getter.is_valid()
+		and bool(shared_modal_gate.should_block_battle_physics(cached_module_getter))
+	):
+		return true
+	var result_screen: Object = _get_cached_angel_blocker_module(registry, "stage_clear_result_screen")
+	if result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active()):
+		return true
+	var scoreboard_state: Object = _get_cached_angel_blocker_module(registry, "scoreboard_state")
+	if scoreboard_state != null and scoreboard_state.has_method("is_active") and bool(scoreboard_state.is_active()):
+		return true
+	var mythic_runtime: Object = _get_cached_angel_blocker_module(registry, "mythic_item_runtime")
+	if mythic_runtime == null:
+		return false
+	for method_name in [
+		"is_acquisition_cinematic_active",
+		"is_pandora_legacy_selection_active",
+		"is_debug_management_menu_open",
+	]:
+		if mythic_runtime.has_method(method_name) and bool(mythic_runtime.call(method_name)):
+			return true
+	return false
+
+
+func _get_cached_angel_blocker_module(registry: Object, key: String) -> Object:
+	if registry == null or key == "":
+		return null
+	var value: Variant = null
+	if registry.has_method("get_cached_instance"):
+		value = registry.call("get_cached_instance", key)
+	elif registry.has_method("_get_cached_module"):
+		value = registry.call("_get_cached_module", key)
+	elif registry.has_method("get_instance"):
+		value = registry.call("get_instance", key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
+func get_angel_blessing_special_gauge_max(current_max: float) -> float:
+	return _effective_stat_queries.get_angel_blessing_special_gauge_max_from_runtime_state(
+		self,
+		current_max
+	)
 
 
 func get_dash_recharge_frames(base_frames: float) -> float:
@@ -775,8 +1227,51 @@ func has_pending_full_gauge_after_spawn_intro() -> bool:
 	return _instant_choice_flow.has_pending_full_gauge_from_runtime_state(self)
 
 
-func on_ball_spawn_intro_finished(owner: Object, registry: Object) -> Dictionary:
-	return _instant_choice_flow.on_ball_spawn_intro_finished_from_runtime_state(self, owner, registry)
+func on_ball_spawn_intro_finished(
+	owner: Object,
+	registry: Object,
+	angel_roll_options: Dictionary = {}
+) -> Dictionary:
+	# Existing deferred dimension/full-gauge actions resolve first by contract.
+	# Angel then atomically replaces the prior stage result and refreshes the
+	# final owner/config consumers from that post-deferred value.
+	var result: Dictionary = _instant_choice_flow.on_ball_spawn_intro_finished_from_runtime_state(
+		self,
+		owner,
+		registry
+	)
+	var forced_order_value: Variant = angel_roll_options.get("forced_candidate_order", [])
+	var forced_order: Array = forced_order_value if forced_order_value is Array else []
+	var current_stage: int = _get_angel_blessing_owner_stage(owner)
+	var acquisition_reservation: Dictionary = _angel_blessing_modal_flow.take_ready_roll_for_stage(
+		current_stage,
+		true
+	)
+	var angel_result: Dictionary = _angel_blessing_stage_lifecycle.on_ball_spawn_intro_finished(
+		self,
+		owner,
+		registry,
+		int(angel_roll_options.get("forced_face", 0)),
+		forced_order
+	)
+	if not angel_result.is_empty():
+		result["angel_blessing"] = angel_result
+	if bool(angel_result.get("rolled", false)):
+		var reveal_reason: String = str(acquisition_reservation.get("reason", "stage_intro"))
+		result["angel_blessing_reveal"] = _angel_blessing_modal_flow.queue_reveal_from_roll_result(
+			angel_result,
+			reveal_reason
+		)
+		result["angel_blessing_modal"] = update_angel_blessing_acquisition(
+			0.0,
+			owner,
+			registry,
+			{},
+			angel_roll_options
+		)
+	if not acquisition_reservation.is_empty():
+		result["angel_blessing_acquisition_reservation"] = acquisition_reservation
+	return result
 
 
 func _apply_monkey_blessing_choice(owner: Object, registry: Object, choice_name: String = "") -> Dictionary:

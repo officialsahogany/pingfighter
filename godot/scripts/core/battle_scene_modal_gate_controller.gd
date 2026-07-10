@@ -20,6 +20,14 @@ func is_runtime_perk_choice_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "runtime_perk_state", "is_choice_active")
 
 
+func is_angel_blessing_modal_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "runtime_perk_state", "is_angel_blessing_modal_active")
+
+
+func has_angel_blessing_modal_work(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "runtime_perk_state", "has_angel_blessing_modal_work")
+
+
 func is_runtime_perk_feedback_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "runtime_perk_state", "has_feedback")
 
@@ -111,6 +119,8 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.runtime_perk_choice", module_getter, "runtime_perk_state", "is_choice_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.treasure_hunt", module_getter, "treasure_hunt_runtime", "is_effect_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.angel_blessing", module_getter, "runtime_perk_state", "is_angel_blessing_modal_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.character_debug", module_getter, "character_debug_picker", "is_open"):
 		return true

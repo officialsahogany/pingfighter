@@ -1,5 +1,9 @@
 extends RefCounted
 
+const ActiveItemPaddleSync := preload("res://scripts/items/active_item_paddle_sync.gd")
+
+var _paddle_sync: Object = ActiveItemPaddleSync.new()
+
 
 func configure_ball_physics_context(
 	owner: Object,
@@ -93,6 +97,28 @@ func debug_toggle_mythic_item(owner: Object, registry: Object, item_name: String
 
 func debug_equip_megingjord(owner: Object, registry: Object) -> bool:
 	return debug_toggle_mythic_item(owner, registry, "megingjord")
+
+
+func _get_league_player_paddle_scale(owner: Object, registry: Object) -> float:
+	var scene_config: Object = _get_instance(registry, "battle_scene_config")
+	if scene_config != null and scene_config.has_method("get_league_player_paddle_scale"):
+		return maxf(0.1, float(scene_config.get_league_player_paddle_scale(owner)))
+	return 1.0
+
+
+func _sync_final_player_paddle_size(owner: Object, registry: Object) -> void:
+	if owner == null or _paddle_sync == null:
+		return
+	var active_item_scale := 1.0
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("get_player_paddle_scale"):
+		active_item_scale = maxf(0.1, float(active_item_runtime.get_player_paddle_scale()))
+	_paddle_sync.sync_owner_state(
+		owner,
+		active_item_scale,
+		_get_instance(registry, "smasher_warp_gate_state"),
+		_get_instance(registry, "mythic_item_runtime")
+	)
 
 
 func configure_player_character(owner: Object, registry: Object, character_type: String = "smasher") -> void:
@@ -212,11 +238,20 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 	if normalized == "optimus":
 		if optimus_energy_state != null and optimus_energy_state.has_method("reset"):
 			optimus_energy_state.reset()
-		if optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_for_optimus"):
-			var optimus_snapshot: Dictionary = optimus_energy_state.prepare_owner_for_optimus(owner)
+		var optimus_snapshot: Dictionary = {}
+		var paddle_base_scale: float = _get_league_player_paddle_scale(owner, registry)
+		if optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_runtime_base_for_optimus"):
+			optimus_snapshot = optimus_energy_state.prepare_owner_runtime_base_for_optimus(
+				owner,
+				paddle_base_scale
+			)
+		elif optimus_energy_state != null and optimus_energy_state.has_method("prepare_owner_for_optimus"):
+			optimus_snapshot = optimus_energy_state.prepare_owner_for_optimus(owner, paddle_base_scale)
+		if not optimus_snapshot.is_empty():
 			for key in optimus_snapshot.keys():
 				owner.set(str(key), optimus_snapshot[key])
 		_align_player_to_current_paddle(owner, previous_paddle_size)
+		_sync_final_player_paddle_size(owner, registry)
 	elif bool(owner.get("optimus_energy_initialized") if owner.get("optimus_energy_initialized") != null else false):
 		if optimus_energy_state != null and optimus_energy_state.has_method("reset"):
 			optimus_energy_state.reset()

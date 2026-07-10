@@ -34,6 +34,8 @@ static func build_player_stat_rows(
 	var active_item_runtime: Object = active_item_runtime_override if active_item_runtime_override != null else CharacterInfoOverlayOwnerState.get_instance(registry, "active_item_runtime")
 	var mythic_item_runtime: Object = mythic_item_runtime_override if mythic_item_runtime_override != null else CharacterInfoOverlayOwnerState.get_instance(registry, "mythic_item_runtime")
 	var lingpet_runtime: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "lingpet_egg_runtime")
+	var weather_event_state: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "weather_event_state")
+	var status_effect_state: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "status_effect_state")
 	var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]
 	var smasher_recovery_state: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "smasher_recovery_state") if character_type == "smasher" else null
 	var combo_key: String = character_runtime.get_combo_state_key(character_type) if character_runtime != null else ""
@@ -47,12 +49,26 @@ static func build_player_stat_rows(
 	var base_dash_cooldown_seconds_value: float = frames_to_seconds(SmasherDashState.DASH_BASE_RECHARGE_FRAMES)
 	var base_item_cooldown_seconds_value: float = float(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC) / 1000.0
 	var max_gauge: float = effective_max_gauge(max(1.0, float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "special_gauge_max", special_gauge_max))), stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
-	var move_speed: float = effective_move_speed(character_type, character_runtime, runtime_state, smasher_recovery_state, active_item_runtime, mythic_item_runtime, lingpet_runtime, Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"))
+	var move_speed: float = effective_move_speed(
+		character_type,
+		character_runtime,
+		runtime_state,
+		smasher_recovery_state,
+		active_item_runtime,
+		mythic_item_runtime,
+		lingpet_runtime,
+		Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"),
+		[weather_event_state, status_effect_state]
+	)
 	var owner_width: float = float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "player_paddle_width", 0.0))
 	var runtime_scale_fallback: float = float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "runtime_paddle_scale", 1.0))
 	var paddle_width: float = effective_player_paddle_width(owner_width, runtime_scale_fallback, runtime_state, active_item_runtime, mythic_item_runtime, Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier"), player_base_paddle_width)
 	var gauge_gain: float = effective_gauge_gain_per_hit(combo_state, stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
-	var dash_distance: float = effective_dash_distance(stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
+	var dash_distance: float = effective_dash_distance(
+		stat_sources,
+		Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"),
+		runtime_state
+	)
 	var dash_recovery_seconds: float = frames_to_seconds(effective_dash_recovery_frames(stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain")))
 	var dash_cooldown_seconds: float = frames_to_seconds(effective_dash_recharge_frames(stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain")))
 	var item_cooldown_seconds: float = float(CharacterInfoOverlayOwnerState.active_item_cooldown_from_base(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC, stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))) / 1000.0
@@ -144,10 +160,34 @@ static func draw_cached_player_stat_rows(
 		var value_text: String = str(value_cache[i])
 		var value_color: Color = color_cache[i] if color_cache[i] is Color else Color.WHITE
 		var value_width: float = _get_cached_value_width(font, i, value_text, row_size, value_width_cache, value_width_text_cache, value_width_size_cache, value_width_font_id_cache, ui_text_scale)
+		# Segmented gauge bar between the label column and the value column
+		# (2026-07-09 stats redesign; fill/color precomputed at cache refresh).
+		var bar_fill: float = _player_stat_bar_fill_cache[i] if i < _player_stat_bar_fill_cache.size() else -1.0
+		if bar_fill >= 0.0:
+			var bar_left: float = rect.position.x + 186.0 * ui_text_scale
+			var bar_right: float = value_right_x - value_width - 14.0
+			if bar_right - bar_left >= 70.0:
+				_draw_stat_gauge_bar(canvas, Rect2(bar_left, baseline_y - float(row_size) - 2.0, bar_right - bar_left, float(row_size) + 4.0), bar_fill, _player_stat_bar_color_cache[i])
 		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color, ui_text_scale)
 		if i < _player_stat_tooltip_cache.size() and _player_stat_tooltip_cache[i] != "" and row_rect.has_point(mouse_pos):
 			_fill_hover_data(hover_data, str(label_cache[i]), value_text, _player_stat_tooltip_cache[i], value_color, row_rect)
 	return hover_data
+
+
+# Smooth (tickless) gauge bar: one trough + one continuous fill tinted by the
+# stat's buff/debuff/neutral color, with a thin top gloss. (Pixel-QA verdict
+# 2026-07-09: the segmented 10-cell variant read too busy at this row height.)
+static func _draw_stat_gauge_bar(canvas: CanvasItem, bar_rect: Rect2, fill_ratio: float, fill_color: Color) -> void:
+	if bar_rect.size.x < 24.0:
+		return
+	canvas.draw_rect(bar_rect, Color(0.05, 0.09, 0.18, 0.66))
+	canvas.draw_rect(bar_rect, Color(0.35, 0.50, 0.75, 0.35), false, 1.0)
+	var inner: Rect2 = bar_rect.grow(-1.5)
+	inner.size.x *= clampf(fill_ratio, 0.0, 1.0)
+	if inner.size.x < 1.0:
+		return
+	canvas.draw_rect(inner, fill_color)
+	canvas.draw_rect(Rect2(inner.position, Vector2(inner.size.x, max(1.0, inner.size.y * 0.32))), Color(1.0, 1.0, 1.0, 0.16))
 
 
 static func draw_lingpet_stat_rows(
@@ -316,6 +356,42 @@ static func build_overlay_player_stat_rows(
 # through four call signatures).
 static var _player_stat_icon_cache: Array[String] = []
 static var _player_stat_tooltip_cache: Array[String] = []
+# Gauge bar per row (2026-07-09 stats redesign): fill ratio (-1 = no bar) and fill
+# color, computed at cache-refresh time so the draw loop stays allocation-free.
+static var _player_stat_bar_fill_cache: Array[float] = []
+static var _player_stat_bar_color_cache: Array[Color] = []
+
+const STAT_BAR_NEUTRAL_COLOR := Color(0.36, 0.72, 1.0, 0.92)
+
+
+# Base-anchored enhancement meter: the base value sits at 50% (5/10 cells), buffs
+# fill right, debuffs drain left; lower-is-better stats invert so improvement always
+# reads as MORE fill. Self-normalizing -- no per-stat range table needed.
+static func stat_bar_fill_ratio(base_value: float, current_value: float, higher_is_better: bool) -> float:
+	var safe_base: float = max(0.0001, base_value)
+	var rel: float = current_value / safe_base
+	var ratio: float = rel * 0.5 if higher_is_better else (2.0 - rel) * 0.5
+	return clampf(ratio, 0.04, 1.0)
+
+
+# Tooltip breakdown line: current value vs base, signed delta, and whether the
+# change is an improvement (covers lower-is-better stats honestly).
+static func stat_bar_breakdown_text(base_value: float, current_value: float, higher_is_better: bool) -> String:
+	var delta: float = current_value - base_value
+	if absf(delta) <= 0.001:
+		return "기본값 %s 그대로입니다." % _format_stat_number(base_value)
+	var pct: int = int(round((current_value / max(0.0001, base_value) - 1.0) * 100.0))
+	var pct_text: String = ("+%d" % pct) if pct >= 0 else str(pct)
+	var improved: bool = delta > 0.0 if higher_is_better else delta < 0.0
+	return "기본 %s → 현재 %s (%s%% · %s)" % [_format_stat_number(base_value), _format_stat_number(current_value), pct_text, "개선" if improved else "저하"]
+
+
+# Compact number text for the breakdown line (no %g support in GDScript's format
+# strings): integers stay bare, fractions keep up to two trimmed decimals.
+static func _format_stat_number(value: float) -> String:
+	if absf(value - roundf(value)) < 0.005:
+		return str(int(roundf(value)))
+	return ("%.2f" % value).rstrip("0").rstrip(".")
 
 
 static func refresh_player_stat_cache(
@@ -339,10 +415,28 @@ static func refresh_player_stat_cache(
 		_player_stat_icon_cache.resize(row_count)
 	if _player_stat_tooltip_cache.size() != row_count:
 		_player_stat_tooltip_cache.resize(row_count)
+	if _player_stat_bar_fill_cache.size() != row_count:
+		_player_stat_bar_fill_cache.resize(row_count)
+	if _player_stat_bar_color_cache.size() != row_count:
+		_player_stat_bar_color_cache.resize(row_count)
 	for i in range(min(row_count, rows.size())):
 		var row_data: Dictionary = CharacterInfoOverlayValueUtils.get_dict(rows[i])
 		_player_stat_icon_cache[i] = str(row_data.get("icon", ""))
-		_player_stat_tooltip_cache[i] = LanguageSettings.translate_text(str(row_data.get("tooltip_body", "")))
+		var tooltip_text: String = LanguageSettings.translate_text(str(row_data.get("tooltip_body", "")))
+		if row_data.has("base") and row_data.has("current"):
+			var base_value: float = float(row_data.get("base", 0.0))
+			var current_value: float = float(row_data.get("current", 0.0))
+			var higher_is_better: bool = bool(row_data.get("higher_is_better", true))
+			_player_stat_bar_fill_cache[i] = stat_bar_fill_ratio(base_value, current_value, higher_is_better)
+			var row_color: Color = CharacterInfoOverlayValueUtils.get_color(row_data.get("color", Color.WHITE))
+			_player_stat_bar_color_cache[i] = STAT_BAR_NEUTRAL_COLOR if row_color.is_equal_approx(Color.WHITE) else Color(row_color.r, row_color.g, row_color.b, 0.95)
+			if tooltip_text != "":
+				tooltip_text += "\n"
+			tooltip_text += stat_bar_breakdown_text(base_value, current_value, higher_is_better)
+		else:
+			_player_stat_bar_fill_cache[i] = -1.0
+			_player_stat_bar_color_cache[i] = STAT_BAR_NEUTRAL_COLOR
+		_player_stat_tooltip_cache[i] = tooltip_text
 		var label: String = str(row_data.get("label", ""))
 		var value_text: String = str(row_data.get("value", ""))
 		var color: Color = CharacterInfoOverlayValueUtils.get_color(row_data.get("color", Color.WHITE))
@@ -418,8 +512,8 @@ static func _ui_font_size(size: int, ui_text_scale: float) -> int:
 	return max(1, int(round(float(size) * ui_text_scale)))
 
 
-static func effective_max_gauge(base_gauge: float, stat_sources: Array, apply_stat_chain: Callable) -> float:
-	return max(1.0, float(apply_stat_chain.call(base_gauge, stat_sources, "get_special_gauge_max")))
+static func effective_max_gauge(owner_gauge_max: float, _stat_sources: Array, _apply_stat_chain: Callable) -> float:
+	return maxf(1.0, owner_gauge_max)
 
 
 static func effective_move_speed(
@@ -430,16 +524,23 @@ static func effective_move_speed(
 	active_item_runtime: Object,
 	mythic_item_runtime: Object,
 	lingpet_runtime: Object,
-	call_numeric_multiplier: Callable
+	call_numeric_multiplier: Callable,
+	additional_speed_sources: Array = []
 ) -> float:
-	return base_move_speed(character_type, character_runtime) * effective_move_speed_multiplier(
+	var movement_base: float = base_move_speed(character_type, character_runtime)
+	if _is_horn_strawberry_transformed(mythic_item_runtime):
+		var horn_move_speed: Variant = mythic_item_runtime.get_horn_strawberry_move_speed()
+		if horn_move_speed != null:
+			movement_base = maxf(0.0, float(horn_move_speed))
+	return movement_base * effective_move_speed_multiplier(
 		character_type,
 		runtime_state,
 		smasher_recovery_state,
 		active_item_runtime,
 		mythic_item_runtime,
 		lingpet_runtime,
-		call_numeric_multiplier
+		call_numeric_multiplier,
+		additional_speed_sources
 	)
 
 
@@ -458,16 +559,28 @@ static func effective_move_speed_multiplier(
 	active_item_runtime: Object,
 	mythic_item_runtime: Object,
 	lingpet_runtime: Object,
-	call_numeric_multiplier: Callable
+	call_numeric_multiplier: Callable,
+	additional_speed_sources: Array = []
 ) -> float:
 	var multiplier: float = 1.0
 	multiplier *= float(call_numeric_multiplier.call(runtime_state, "get_player_speed_multiplier"))
-	if character_type == "smasher":
+	if character_type == "smasher" and not _is_horn_strawberry_transformed(mythic_item_runtime):
 		multiplier *= float(call_numeric_multiplier.call(smasher_recovery_state, "get_player_speed_multiplier"))
+	for source: Object in additional_speed_sources:
+		multiplier *= float(call_numeric_multiplier.call(source, "get_player_speed_multiplier"))
 	multiplier *= float(call_numeric_multiplier.call(active_item_runtime, "get_player_speed_multiplier"))
 	multiplier *= float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_speed_multiplier"))
 	multiplier *= float(call_numeric_multiplier.call(lingpet_runtime, "get_player_speed_multiplier"))
 	return max(0.0, multiplier)
+
+
+static func _is_horn_strawberry_transformed(mythic_item_runtime: Object) -> bool:
+	return (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_transformed")
+		and mythic_item_runtime.has_method("get_horn_strawberry_move_speed")
+		and bool(mythic_item_runtime.is_horn_strawberry_transformed())
+	)
 
 
 static func effective_player_paddle_width(
@@ -504,9 +617,25 @@ static func effective_gauge_gain_per_hit(combo_state: Object, stat_sources: Arra
 	return max(0.0, float(apply_stat_chain.call(gauge_gain, stat_sources, "get_gauge_gain_per_hit")))
 
 
-static func effective_dash_distance(stat_sources: Array, apply_stat_chain: Callable) -> float:
+static func effective_dash_distance(
+	stat_sources: Array,
+	apply_stat_chain: Callable,
+	runtime_perk_state: Object = null
+) -> float:
 	var duration_frames: float = effective_dash_duration_frames(stat_sources, apply_stat_chain)
-	return max(1.0, duration_frames * SmasherDashSpiritState.DASH_FRAME_SPEED * SmasherDashSpiritState.DASH_DISTANCE_SCALE)
+	var distance_multiplier := 1.0
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_mystic_dice_multiplier"):
+		distance_multiplier = maxf(
+			0.0,
+			float(runtime_perk_state.get_mystic_dice_multiplier("dash_distance"))
+		)
+	return max(
+		1.0,
+		duration_frames
+		* SmasherDashSpiritState.DASH_FRAME_SPEED
+		* SmasherDashSpiritState.DASH_DISTANCE_SCALE
+		* distance_multiplier
+	)
 
 
 static func effective_dash_duration_frames(stat_sources: Array, apply_stat_chain: Callable) -> float:

@@ -1220,6 +1220,17 @@ const CONVERTED_MYTHIC_PERKS := {
 		"effective_level_exempt": true,
 		"conversion_source": "pandora_legacy",
 	},
+	"angel_blessing": {
+		"name": "천사의 주사위",
+		"max_level": 1,
+		"descriptions": {1: "스테이지마다 서로 다른 축복 1~3개 획득 (효과 30%)"},
+		"detail": "패들 크기·최대 게이지·이동 속도 증가 또는 액티브 아이템·플레이어 스킬·대시 재충전 시간 감소 축복을 얻습니다.",
+		"icon_color": Color(1.0, 235.0 / 255.0, 150.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "angel_blessing",
+	},
 }
 
 const INSTANT_PERKS := {

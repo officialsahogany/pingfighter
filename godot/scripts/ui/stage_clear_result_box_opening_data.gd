@@ -91,6 +91,14 @@ static func get_next_idle_box_index(boxes: Array) -> int:
 	return -1
 
 
+static func has_opening_box(boxes: Array) -> bool:
+	for box_value in boxes:
+		var box: Dictionary = box_value if box_value is Dictionary else {}
+		if str(box.get("state", "idle")) == "opening":
+			return true
+	return false
+
+
 static func update_box_opening_state(
 	boxes: Array,
 	delta: float,

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
+
 
 func reset_round_wait(deps: Dictionary) -> void:
 	var round_state = deps.get("round_state", null)
@@ -8,6 +10,7 @@ func reset_round_wait(deps: Dictionary) -> void:
 
 
 func reset_actor_round_state(deps: Dictionary) -> void:
+	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 	var ai_state = deps.get("ai_state", null)
 	if ai_state != null:
 		ai_state.reset()
@@ -23,6 +26,14 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	var dash_state = deps.get("dash_state", null)
 	if dash_state != null:
 		dash_state.reset_round()
+
+	var runtime_perk_state = deps.get("runtime_perk_state", null)
+	if runtime_perk_state != null and runtime_perk_state.has_method("reset_mystic_dice_round_visuals"):
+		runtime_perk_state.reset_mystic_dice_round_visuals()
+	if runtime_perk_state != null and runtime_perk_state.has_method("on_angel_blessing_round_boundary"):
+		runtime_perk_state.on_angel_blessing_round_boundary()
+	if runtime_perk_state != null and runtime_perk_state.has_method("reset_perk_fusion_round_byproducts"):
+		runtime_perk_state.reset_perk_fusion_round_byproducts()
 
 	var active_item_runtime = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("reset_round"):
@@ -134,6 +145,8 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 		audio.stop_commando_supply_radio_loop()
 	if audio != null and audio.has_method("stop_commando_supply_aircraft_loop"):
 		audio.stop_commando_supply_aircraft_loop()
+	if audio != null and audio.has_method("stop_angel_blessing_audio"):
+		audio.stop_angel_blessing_audio()
 
 
 func _get_dash_token_max(dash_state) -> int:

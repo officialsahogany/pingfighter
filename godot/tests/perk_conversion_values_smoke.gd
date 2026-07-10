@@ -142,7 +142,7 @@ func _verify_star_endpoints() -> void:
 
 
 func _verify_mythic_values_and_exempt() -> void:
-	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 12, "converted mythic perk count should include Great Laurel")
+	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 13, "converted mythic perk count should include Angel Blessing")
 	for id_value in RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.keys():
 		var id := str(id_value)
 		_expect(PerkConversionValues.has_perk(id), "value helper should know mythic converted perk %s" % id)
@@ -180,7 +180,7 @@ func _verify_flags() -> void:
 
 
 func _verify_conversion_maps() -> void:
-	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 40, "conversion source map should include S1 replacements plus R1 redesign perks")
+	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 41, "conversion source map should include Angel Blessing plus S1 replacements and R1 redesign perks")
 	for id_value in RuntimePerkCatalog.CONVERTED_PERKS.keys():
 		var id := str(id_value)
 		_expect(str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(id, "")) == id, "regular conversion source %s should map to itself" % id)
