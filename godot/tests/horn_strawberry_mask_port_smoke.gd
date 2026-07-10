@@ -56,9 +56,13 @@ class FakeFeedback:
 	extends RefCounted
 
 	var gauge_flash_count := 0
+	var screen_shakes: Array[Dictionary] = []
 
 	func trigger_gauge_flash() -> void:
 		gauge_flash_count += 1
+
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		screen_shakes.append({"amount": amount, "intensity": intensity})
 
 
 class FakeStatusEffectState:
@@ -361,11 +365,13 @@ func _verify_eat_and_field_runtime() -> void:
 	var input_reader := FakeInputReader.new()
 	var status_state := FakeStatusEffectState.new()
 	var dash_state := FakeDashState.new()
+	var feedback := FakeFeedback.new()
 	var registry := FakeRegistry.new({
 		"mythic_item_runtime": runtime,
 		"smasher_input_reader": input_reader,
 		"status_effect_state": status_state,
 		"smasher_dash_state": dash_state,
+		"battle_feedback_state": feedback,
 	})
 	_equip_and_finish_transform(runtime, owner, registry)
 
@@ -391,6 +397,12 @@ func _verify_eat_and_field_runtime() -> void:
 	_expect(str(applied.get("target", "")) == "boss", "stem projectile status should target the boss")
 	_expect(str(applied.get("status_id", "")) == "stun", "stem projectile status should be stun")
 	_expect(is_equal_approx(float(applied.get("duration_frames", 0.0)), 18.0), "stem projectile stun should last 0.3 seconds")
+	var stem_shake: Dictionary = feedback.screen_shakes.back() if not feedback.screen_shakes.is_empty() else {}
+	_expect(
+		is_equal_approx(float(stem_shake.get("amount", 0.0)), 12.0 / 30.0)
+		and is_equal_approx(float(stem_shake.get("intensity", 0.0)), 15.0 * 9.0 / 35.0),
+		"stem boss hit should trigger the Python-parity screen shake (12f/15)"
+	)
 
 	owner.values["special_gauge"] = 200.0
 	owner.values["player_pos"] = Vector2(300.0, 700.0)
@@ -401,24 +413,43 @@ func _verify_eat_and_field_runtime() -> void:
 	_expect(is_equal_approx(float(owner.values.get("special_gauge", 0.0)), 100.0), "strawberry field should spend 100 gauge over the 1 second hold")
 	var field_context: Dictionary = runtime.get_horn_strawberry_field_context()
 	_expect(int(field_context.get("barrier_count", 0)) == 1, "strawberry field should spawn one barrier after the hold")
-	_expect(is_equal_approx(float(field_context.get("field_width", 0.0)), 180.0), "strawberry field width should match the reference")
+	_expect(is_equal_approx(float(field_context.get("field_width", 0.0)), 120.0), "strawberry field width should match the Python live BoneBarrier core (120), not the dead 180 constant")
 	var raw_field_barriers: Array = field_context.get("barriers", [])
 	if not raw_field_barriers.is_empty() and raw_field_barriers[0] is Dictionary:
 		var raw_barrier: Dictionary = raw_field_barriers[0]
-		var expected_field_y: float = float(owner.values["player_pos"].y) + float(owner.values["player_paddle_height"]) * 0.5 - 40.0 - 6.0
-		_expect(is_equal_approx(float(raw_barrier.get("rect_y", -999.0)), expected_field_y), "strawberry field should anchor from the paddle center, not the floor/top-left")
+		var expected_field_y: float = minf(
+			float(owner.values["player_pos"].y) + float(owner.values["player_paddle_height"]),
+			750.0 - 12.0
+		)
+		_expect(is_equal_approx(float(raw_barrier.get("rect_y", -999.0)), expected_field_y), "strawberry field should anchor to the paddle BOTTOM line (Python floor-guard placement)")
 		_expect(_as_array(raw_barrier.get("seeds", [])).size() >= 8, "strawberry field should carry seeded berry-surface visual points")
 	else:
 		_expect(false, "strawberry field should expose raw barrier data for visual placement")
 
 	input_reader.snapshot = {}
 	runtime.update(owner, registry, 0.5)
+	var building_context: Dictionary = runtime.get_ball_collision_context()
+	var building_barriers: Array = building_context.get("horn_strawberry_field_barriers", [])
+	_expect(
+		not building_barriers.is_empty()
+		and building_barriers[0] is Dictionary
+		and not bool(building_barriers[0].get("built", true)),
+		"strawberry field should still be BUILDING 0.5s after cast (Python 3.0s build time)"
+	)
+	runtime.update(owner, registry, 2.5)
 	var collision_context: Dictionary = runtime.get_ball_collision_context()
 	_expect(bool(collision_context.get("horn_strawberry_field_active", false)), "built strawberry field should expose ball collision context")
 	var barriers: Array = collision_context.get("horn_strawberry_field_barriers", [])
+	_expect(
+		not barriers.is_empty() and barriers[0] is Dictionary and bool(barriers[0].get("built", false)),
+		"strawberry field should finish building after 3.0 seconds"
+	)
 	var barrier_rect: Rect2 = barriers[0].get("rect", Rect2()) if not barriers.is_empty() and barriers[0] is Dictionary else Rect2()
+	# Move the paddle away from the cast lane so the floor-guard barrier (not the
+	# paddle) resolves the descending ball, mirroring the live save scenario.
+	owner.values["player_pos"] = Vector2(600.0, 700.0)
 	var scene := {
-		"ball_pos": Vector2(barrier_rect.position.x + barrier_rect.size.x * 0.5, barrier_rect.position.y - 8.0),
+		"ball_pos": Vector2(barrier_rect.position.x + barrier_rect.size.x * 0.5 + 20.0, barrier_rect.position.y - 8.0),
 		"ball_vel": Vector2(0.0, 10.0),
 		"ball_impact_boost": 1.0,
 		"player_collision_cooldown": 0.0,
@@ -441,7 +472,42 @@ func _verify_eat_and_field_runtime() -> void:
 	}, {})
 	_expect(score_event == "", "strawberry field reflection should not score")
 	_expect(_get_vector2(scene, "ball_vel").y < 0.0, "strawberry field should reflect a downward ball upward")
+	_expect(_get_vector2(scene, "ball_vel").x > 0.5, "strawberry field reflect should nudge ball_vel.x by hit offset (Python vx += offset * 0.03)")
 	_expect(int(runtime.get_horn_strawberry_field_context().get("last_reflect_count", 0)) == 1, "strawberry field should consume the barrier on reflect")
+
+	# Python parity: a barrier hit while still BUILDING is destroyed WITHOUT reflecting.
+	runtime.update(owner, registry, 0.7)
+	runtime.update(owner, registry, 10.0)
+	owner.values["special_gauge"] = 200.0
+	owner.values["player_pos"] = Vector2(300.0, 700.0)
+	input_reader.snapshot = {"down_pressed": true}
+	runtime.update(owner, registry, 1.0)
+	input_reader.snapshot = {}
+	var building_hit_context: Dictionary = runtime.get_ball_collision_context()
+	var building_hit_barriers: Array = building_hit_context.get("horn_strawberry_field_barriers", [])
+	_expect(
+		not building_hit_barriers.is_empty()
+		and building_hit_barriers[0] is Dictionary
+		and not bool(building_hit_barriers[0].get("built", true)),
+		"second strawberry field cast should expose a BUILDING barrier to ball collision"
+	)
+	var building_rect: Rect2 = building_hit_barriers[0].get("rect", Rect2()) if not building_hit_barriers.is_empty() and building_hit_barriers[0] is Dictionary else Rect2()
+	owner.values["player_pos"] = Vector2(600.0, 700.0)
+	var building_scene := {
+		"ball_pos": Vector2(building_rect.position.x + building_rect.size.x * 0.5, building_rect.position.y - 8.0),
+		"ball_vel": Vector2(0.0, 10.0),
+		"ball_impact_boost": 1.0,
+		"player_collision_cooldown": 0.0,
+		"boss_collision_cooldown": 0.0,
+	}
+	context["player_pos"] = owner.values["player_pos"]
+	processor.step_motion(building_scene, 1.0, context, {
+		"motion_stepper": BallMotionStepper.new(),
+		"mythic_item_runtime": runtime,
+	}, {})
+	_expect(_get_vector2(building_scene, "ball_vel").y > 0.0, "building strawberry field hit should NOT reflect the ball (destroyed instead, Python parity)")
+	_expect(int(runtime.get_horn_strawberry_field_context().get("last_reflect_count", 0)) == 1, "building strawberry field destruction should not count as a reflect")
+	_expect(int(runtime.get_horn_strawberry_field_context().get("barrier_count", 0)) == 0, "building strawberry field should be destroyed by the ball contact")
 
 
 func _verify_horn_charge_and_bomb_runtime() -> void:
@@ -450,11 +516,13 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	var input_reader := FakeInputReader.new()
 	var status_state := FakeStatusEffectState.new()
 	var boss_ai_state := FakeBossAiState.new()
+	var feedback := FakeFeedback.new()
 	var registry := FakeRegistry.new({
 		"mythic_item_runtime": runtime,
 		"smasher_input_reader": input_reader,
 		"status_effect_state": status_state,
 		"boss_ai_state": boss_ai_state,
+		"battle_feedback_state": feedback,
 	})
 	_equip_and_finish_transform(runtime, owner, registry)
 
@@ -481,6 +549,12 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	_expect(is_equal_approx(abs(float(horn_status_data.get("knockback_vel", 0.0))), 73.0), "horn charge boss knockback should use the reference strong velocity")
 	_expect(bool(horn_status_data.get("suppress_paddle_hit_knockback", false)), "horn charge status should mark paddle-hit knockback suppression")
 	_expect(int(boss_ai_state.clear_count) >= 1, "horn charge should clear older boss paddle-hit knockback before applying strong knockback")
+	var impact_shake: Dictionary = feedback.screen_shakes.back() if not feedback.screen_shakes.is_empty() else {}
+	_expect(
+		is_equal_approx(float(impact_shake.get("amount", 0.0)), 24.0 / 30.0)
+		and is_equal_approx(float(impact_shake.get("intensity", 0.0)), 9.0),
+		"horn charge impact should trigger the Python-parity screen shake (24f/35 -> 0.8/9.0)"
+	)
 
 	var boss_post_hit_handler: Object = PaddleBounceBossPostHitHandler.new()
 	var boss_result: Dictionary = boss_post_hit_handler.apply(
@@ -544,6 +618,12 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 		_expect(is_equal_approx(float(bomb_status.get("duration_frames", 0.0)), 60.0), "strawberry bomb stun should last 1 second")
 		var bomb_status_data: Dictionary = bomb_status.get("data", {})
 		_expect(is_equal_approx(abs(float(bomb_status_data.get("knockback_vel", 0.0))), 50.0), "strawberry bomb knockback should match the reference")
+		var bomb_shake: Dictionary = feedback.screen_shakes.back() if not feedback.screen_shakes.is_empty() else {}
+		_expect(
+			is_equal_approx(float(bomb_shake.get("amount", 0.0)), 8.0 / 30.0)
+			and is_equal_approx(float(bomb_shake.get("intensity", 0.0)), 12.0 * 9.0 / 35.0),
+			"strawberry bomb boss hit should trigger the Python-parity screen shake (8f/12)"
+		)
 	else:
 		_expect(false, "strawberry bomb should expose at least one bomb for collision smoke")
 

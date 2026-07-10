@@ -22,6 +22,10 @@ const PAINT_SLOW_MULTIPLIER := 1.0 - PAINT_SLOW_AMOUNT
 const PAINT_RADIUS := 28.0
 const EXPLOSION_DURATION_SEC := 0.5
 const SUPPRESS_WINDOW_FRAMES := 4.0
+# Python bomb-hit shake: screen_shake_timer=max(,8) frames, intensity=max(,12) px. Converted
+# with the grenade/dynamite precedent (Python 40f/35 -> Godot amount 40/30, intensity 9.0).
+const BOSS_HIT_SHAKE_AMOUNT := 8.0 / 30.0
+const BOSS_HIT_SHAKE_INTENSITY := 12.0 * 9.0 / 35.0
 const SOURCE := "horn_strawberry_bomb"
 const PAINT_SOURCE := "horn_strawberry_bomb_paint"
 
@@ -353,6 +357,9 @@ func _apply_boss_hit(position: Vector2, boss_rect: Rect2, registry: Object) -> v
 		ai_state.start_paddle_hit_knockback(knockback_vel, KNOCKBACK_FRAMES, KNOCKBACK_DECAY, true)
 	suppress_paddle_hit_knockback_frames = SUPPRESS_WINDOW_FRAMES
 	suppress_boss_vel = knockback_vel
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback != null and feedback.has_method("max_screen_shake"):
+		feedback.max_screen_shake(BOSS_HIT_SHAKE_AMOUNT, BOSS_HIT_SHAKE_INTENSITY)
 
 
 func _apply_boss_paint_slow(registry: Object) -> void:

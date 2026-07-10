@@ -321,7 +321,7 @@ func check_holy_barrier(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, 
 
 
 func check_horn_strawberry_field(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, context: Dictionary) -> Dictionary:
-	if not bool(context.get("horn_strawberry_field_active", false)) or ball_vel.y <= 0.0:
+	if not bool(context.get("horn_strawberry_field_active", false)):
 		return {}
 	var barriers: Array = context.get("horn_strawberry_field_barriers", [])
 	if barriers.is_empty():
@@ -339,14 +339,31 @@ func check_horn_strawberry_field(ball_pos: Vector2, ball_vel: Vector2, ball_size
 		var barrier_rect: Rect2 = _as_rect2(barrier.get("rect", Rect2()), Rect2())
 		if barrier_rect.size.x <= 0.0 or barrier_rect.size.y <= 0.0:
 			continue
+		var built := bool(barrier.get("built", true))
+		# Built barriers reflect only balls moving toward the goal they protect
+		# (player-side shield rule: ball_vel.y > 0). A BUILDING barrier is destroyed
+		# by any contact without reflecting (Python parity).
+		if built and ball_vel.y <= 0.0:
+			continue
 		if not barrier_rect.intersects(ball_rect):
 			continue
-		ball_pos.y = barrier_rect.position.y - ball_size * 0.5
+		var next_vel := ball_vel
+		if built:
+			var reflect_speed_mult := maxf(1.0, float(barrier.get("reflect_speed_mult", 1.05)))
+			var hit_offset_vel_scale := float(barrier.get("hit_offset_vel_scale", 0.03))
+			var hit_offset := ball_pos.x - barrier_rect.get_center().x
+			next_vel = Vector2(
+				ball_vel.x + hit_offset * hit_offset_vel_scale,
+				-absf(ball_vel.y) * reflect_speed_mult
+			)
+			ball_pos.y = barrier_rect.position.y - ball_size * 0.5
 		return {
 			"event": EVENT_HORN_STRAWBERRY_FIELD,
 			"ball_pos": ball_pos,
+			"ball_vel": next_vel,
 			"impact_pos": Vector2(ball_pos.x, barrier_rect.position.y),
 			"barrier_id": int(barrier.get("id", 0)),
+			"built": built,
 			"reflect_speed_mult": max(1.0, float(barrier.get("reflect_speed_mult", 1.05))),
 		}
 	return {}

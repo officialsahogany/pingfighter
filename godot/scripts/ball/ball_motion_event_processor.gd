@@ -184,9 +184,9 @@ func _process_holy_barrier(step_result: Dictionary, scene: Dictionary, context: 
 
 
 func _process_horn_strawberry_field(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
-	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
-	var reflect_speed_mult: float = max(1.0, float(step_result.get("reflect_speed_mult", 1.05)))
-	scene["ball_vel"] = Vector2(ball_vel.x, -abs(ball_vel.y) * reflect_speed_mult)
+	var original_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var built := bool(step_result.get("built", true))
+	scene["ball_vel"] = _get_vector2(step_result, "ball_vel", original_vel)
 	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
 
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
@@ -196,7 +196,7 @@ func _process_horn_strawberry_field(step_result: Dictionary, scene: Dictionary, 
 			_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
 			deps
 		)
-	_register_ball_hit_pulse(step_result, scene, deps, "horn_strawberry_field", 0.72)
+	_register_ball_hit_pulse(step_result, scene, deps, "horn_strawberry_field", 0.72 if built else 0.38)
 
 
 func _process_lingpet_bone_barrier(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
@@ -228,7 +228,8 @@ func _process_adversity_armor(step_result: Dictionary, scene: Dictionary, deps: 
 		mythic_item_runtime.notify_adversity_armor_barrier_hit(
 			_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
 			ball_vel,
-			deps
+			deps,
+			built
 		)
 	_register_ball_hit_pulse(step_result, scene, deps, "adversity_armor", 0.78)
 

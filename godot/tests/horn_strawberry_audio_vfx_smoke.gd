@@ -195,6 +195,10 @@ func _verify_audio_assets() -> void:
 	_expect(GameAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH == "res://assets/sounds/shurikenhit.wav", "field build break should use the legacy shurikenhit wav")
 	_expect(GameAudio.HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH == "res://assets/sounds/bullethit.wav", "bomb trigger should use the legacy bullethit wav")
 	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH, "strawberrychange")
+	# Python live volumes: stem hit = bullethit 0.3 (pingfighter play_cached_sound; the
+	# module's 0.4 loader is unused), bomb throw = bullethit 0.4.
+	_expect(abs(db_to_linear(GameAudio.HORN_STRAWBERRY_STEM_HIT_GAIN_DB) - 0.3) < 0.001, "stem hit gain should match the Python live 0.3 volume")
+	_expect(abs(db_to_linear(GameAudio.HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB) - 0.4) < 0.001, "bomb trigger gain should match the Python 0.4 volume")
 	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH, "strawberryeat")
 	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH, "arrow")
 	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_STEM_HIT_SOUND_PATH, "bullethit")
@@ -320,6 +324,27 @@ func _verify_skill_audio_edges() -> void:
 		_expect(false, "field build should expose a barrier for break audio smoke")
 
 	audio.calls.clear()
+	# Python parity: a barrier destroyed while still BUILDING plays shurikenhit, not bonebreak.
+	audio.calls.clear()
+	runtime.horn_strawberry_field_state.reset()
+	owner.values["special_gauge"] = 200.0
+	input_reader.snapshot = {"down_pressed": true}
+	runtime.update(owner, registry, 1.0)
+	input_reader.snapshot = {}
+	var building_context: Dictionary = runtime.get_horn_strawberry_field_context()
+	var building_barriers: Array = building_context.get("barriers", [])
+	if not building_barriers.is_empty() and building_barriers[0] is Dictionary:
+		var building_barrier: Dictionary = building_barriers[0]
+		_expect(not bool(building_barrier.get("built", true)), "field should still be building right after cast (Python 3.0s build)")
+		_expect(
+			runtime.notify_horn_strawberry_field_hit(int(building_barrier.get("id", 0)), Vector2.ZERO, {"registry": registry, "audio": audio}, false),
+			"build-phase field hit should notify the building barrier"
+		)
+		_expect(audio.calls.has("play_horn_strawberry_field_build_break"), "build-phase destruction should play shurikenhit")
+		_expect(not audio.calls.has("play_horn_strawberry_field_break"), "build-phase destruction should not play bonebreak")
+	else:
+		_expect(false, "field should expose a building barrier for build-break audio smoke")
+
 	runtime.horn_strawberry_field_state.reset()
 	owner.values["special_gauge"] = 500.0
 	input_reader.snapshot = {

@@ -58,11 +58,12 @@ func draw_horn_strawberry_effects(
 func _draw_barrier(canvas: CanvasItem, shake_offset: Vector2, barrier: Dictionary) -> void:
 	var rect := Rect2(
 		Vector2(float(barrier.get("rect_x", 0.0)), float(barrier.get("rect_y", 0.0))) + shake_offset,
-		Vector2(max(1.0, float(barrier.get("width", 180.0))), max(1.0, float(barrier.get("height", 12.0))))
+		Vector2(max(1.0, float(barrier.get("width", 120.0))), max(1.0, float(barrier.get("height", 12.0))))
 	)
 	var built: bool = bool(barrier.get("built", false))
 	var dying: bool = bool(barrier.get("dying", false))
-	var build_progress: float = clamp(float(barrier.get("build_timer_sec", 0.0)) / 0.5, 0.0, 1.0)
+	# Build progress divisor must match HornStrawberryFieldState.BUILD_TIME_SEC (3.0s, Python parity).
+	var build_progress: float = clamp(float(barrier.get("build_timer_sec", 0.0)) / 3.0, 0.0, 1.0)
 	var death_ratio: float = clamp(float(barrier.get("death_timer_sec", 0.0)) / 0.6, 0.0, 1.0) if dying else 0.0
 	var alpha: float = (0.35 + 0.55 * build_progress) if not built else 0.9
 	alpha *= 1.0 - death_ratio

@@ -15,6 +15,10 @@ const STEM_STUN_SEC := 0.3
 const STEM_KNOCKBACK := 32.2
 const STEM_KNOCKBACK_FRAMES := 18.0
 const STEM_KNOCKBACK_DECAY := 0.86
+# Python stem-hit shake: screen_shake_timer=12 frames, intensity=15 px. Converted with
+# the grenade/dynamite precedent (Python 40f/35 -> Godot amount 40/30, intensity 9.0).
+const STEM_HIT_SHAKE_AMOUNT := 12.0 / 30.0
+const STEM_HIT_SHAKE_INTENSITY := 15.0 * 9.0 / 35.0
 const STEM_SOURCE := "horn_strawberry_stem"
 
 var eating := false
@@ -243,6 +247,12 @@ func _apply_boss_hit(projectile: Dictionary, boss_rect: Rect2, registry: Object,
 	var ai_state: Object = _get_instance(registry, "boss_ai_state")
 	if not applied_status and ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
 		ai_state.start_paddle_hit_knockback(knockback_vel, STEM_KNOCKBACK_FRAMES, STEM_KNOCKBACK_DECAY, true)
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback != null:
+		if feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(STEM_HIT_SHAKE_AMOUNT, STEM_HIT_SHAKE_INTENSITY)
+		elif feedback.has_method("set_screen_shake"):
+			feedback.set_screen_shake(STEM_HIT_SHAKE_AMOUNT, STEM_HIT_SHAKE_INTENSITY)
 
 
 func _recover_dash_token(registry: Object) -> void:

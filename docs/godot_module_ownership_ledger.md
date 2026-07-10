@@ -8107,7 +8107,9 @@ This section is intentionally long; use search to find the nearest owner.
   and lightweight draw context.
 - `scripts/items/horn_strawberry_field_state.gd`
   Owns Horn Strawberry Mask's 딸기장판 skill state: S-hold gauge drain,
-  1-second hold completion, paddle-center anchored 180x12 barrier placement,
+  1-second hold completion, paddle-bottom anchored 120x12 barrier placement
+  (Python live BoneBarrier core parity; the module-level 180x12 constant was
+  dead code), 3.0s build with build-phase hit destruction (no reflect),
   seeded berry-surface visual points, build / death timers, lingering
   post-transform collision context, and barrier consumption after a ball
   reflection.

@@ -229,20 +229,24 @@ func on_stage_advance(runtime: Object) -> void:
 	_reset_all_skill_state(runtime)
 
 
-func notify_field_hit(runtime: Object, barrier_id: int, impact_pos: Vector2 = Vector2.ZERO, deps: Dictionary = {}) -> bool:
+func notify_field_hit(runtime: Object, barrier_id: int, impact_pos: Vector2 = Vector2.ZERO, deps: Dictionary = {}, built: bool = true) -> bool:
 	var field_state: Object = runtime.horn_strawberry_field_state
-	if field_state == null or not field_state.notify_barrier_hit(barrier_id):
+	if field_state == null or not field_state.notify_barrier_hit(barrier_id, built):
 		return false
+	# Python parity: built barrier break = bonebreak; a barrier destroyed while
+	# still BUILDING breaks with the quieter shurikenhit cue and no reflection.
+	var break_router_method: String = "_play_horn_strawberry_field_break_audio" if built else "_play_horn_strawberry_field_build_break_audio"
+	var break_audio_method: String = "play_horn_strawberry_field_break" if built else "play_horn_strawberry_field_build_break"
 	var registry: Object = deps.get("registry", null)
 	if registry != null:
-		_play_horn_strawberry_audio(runtime, registry, "_play_horn_strawberry_field_break_audio")
+		_play_horn_strawberry_audio(runtime, registry, break_router_method)
 	else:
 		var audio: Object = deps.get("audio", null)
-		if audio != null and audio.has_method("play_horn_strawberry_field_break"):
-			audio.play_horn_strawberry_field_break()
+		if audio != null and audio.has_method(break_audio_method):
+			audio.call(break_audio_method)
 	var ball_effects: Object = deps.get("ball_effects", null)
 	if ball_effects != null and ball_effects.has_method("register_hit_pulse"):
-		ball_effects.register_hit_pulse(impact_pos, Vector2(0.0, -1.0), 0.72, "horn_strawberry_field")
+		ball_effects.register_hit_pulse(impact_pos, Vector2(0.0, -1.0), 0.72 if built else 0.38, "horn_strawberry_field")
 	return true
 
 

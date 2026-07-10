@@ -2183,9 +2183,9 @@ func get_horn_strawberry_bomb_context() -> Dictionary:
 	return horn_strawberry_bomb_state.get_context()
 
 
-func notify_horn_strawberry_field_hit(barrier_id: int, impact_pos: Vector2 = Vector2.ZERO, deps: Dictionary = {}) -> bool:
+func notify_horn_strawberry_field_hit(barrier_id: int, impact_pos: Vector2 = Vector2.ZERO, deps: Dictionary = {}, built: bool = true) -> bool:
 	_ensure_helpers_ready()
-	return horn_strawberry_mask_runtime.notify_field_hit(self, barrier_id, impact_pos, deps)
+	return horn_strawberry_mask_runtime.notify_field_hit(self, barrier_id, impact_pos, deps, built)
 
 
 func consume_horn_strawberry_strong_boss_hit(

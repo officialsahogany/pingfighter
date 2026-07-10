@@ -28,11 +28,14 @@ const SKILL_COOLDOWNS := {
 	SKILL_BOMB: 30.0,
 }
 
+# Python-original HUD orb colors (pingfighter HORN_STRAWBERRY skill orbit data):
+# 뿔박치기 (220,40,50) red / 딸기장판 (50,150,40) green / 딸기먹기 (240,220,100) yellow /
+# 딸기폭탄 (255,80,40) orange.
 const SKILL_COLORS := {
-	SKILL_HORN_CHARGE: Color(1.0, 0.28, 0.18),
-	SKILL_FIELD: Color(0.95, 0.18, 0.30),
-	SKILL_EAT: Color(0.28, 0.92, 0.34),
-	SKILL_BOMB: Color(1.0, 0.58, 0.20),
+	SKILL_HORN_CHARGE: Color(220.0 / 255.0, 40.0 / 255.0, 50.0 / 255.0),
+	SKILL_FIELD: Color(50.0 / 255.0, 150.0 / 255.0, 40.0 / 255.0),
+	SKILL_EAT: Color(240.0 / 255.0, 220.0 / 255.0, 100.0 / 255.0),
+	SKILL_BOMB: Color(255.0 / 255.0, 80.0 / 255.0, 40.0 / 255.0),
 }
 
 const SKILL_DATA := {

@@ -3,12 +3,15 @@ extends RefCounted
 const GAUGE_COST := 100.0
 const COOLDOWN_SEC := 10.0
 const HOLD_MIN_SEC := 1.0
-const FIELD_WIDTH := 180.0
+# Python-original live runtime (_StrawberryFieldSkillCore -> BoneBarrier): 120x12,
+# 3.0s build, snapped to the paddle BOTTOM line. The module-level 180x12 / instant
+# constants in item_effects/horn_strawberry_mask.py were dead code — do not port them.
+const FIELD_WIDTH := 120.0
 const FIELD_HEIGHT := 12.0
-const FIELD_OFFSET_Y := -40.0
-const BUILD_TIME_SEC := 0.5
+const BUILD_TIME_SEC := 3.0
 const DEATH_TIME_SEC := 0.6
 const REFLECT_SPEED_MULT := 1.05
+const REFLECT_HIT_OFFSET_VEL_SCALE := 0.03
 const FIELD_SOURCE := "horn_strawberry_field"
 
 var holding := false
@@ -64,17 +67,17 @@ func update(delta: float, transformed: bool) -> void:
 
 
 func get_ball_collision_context() -> Dictionary:
+	# Python parity: a BUILDING barrier is also hittable — the ball destroys it
+	# without reflecting (shurikenhit). Only BUILT barriers reflect.
 	var entries: Array[Dictionary] = []
 	for barrier in barriers:
-		if (
-			bool(barrier.get("alive", false))
-			and bool(barrier.get("built", false))
-			and not bool(barrier.get("dying", false))
-		):
+		if bool(barrier.get("alive", false)) and not bool(barrier.get("dying", false)):
 			entries.append({
 				"id": int(barrier.get("id", 0)),
 				"rect": _get_barrier_rect(barrier),
+				"built": bool(barrier.get("built", false)),
 				"reflect_speed_mult": REFLECT_SPEED_MULT,
+				"hit_offset_vel_scale": REFLECT_HIT_OFFSET_VEL_SCALE,
 			})
 	return {
 		"horn_strawberry_field_active": not entries.is_empty(),
@@ -82,7 +85,7 @@ func get_ball_collision_context() -> Dictionary:
 	}
 
 
-func notify_barrier_hit(barrier_id: int) -> bool:
+func notify_barrier_hit(barrier_id: int, was_built: bool = true) -> bool:
 	for i in range(barriers.size()):
 		var barrier: Dictionary = barriers[i]
 		if int(barrier.get("id", 0)) != barrier_id:
@@ -93,7 +96,8 @@ func notify_barrier_hit(barrier_id: int) -> bool:
 		barrier["dying"] = true
 		barrier["death_timer_sec"] = 0.0
 		barriers[i] = barrier
-		last_reflect_count += 1
+		if was_built:
+			last_reflect_count += 1
 		return true
 	return false
 
@@ -166,15 +170,13 @@ func _cancel_hold() -> void:
 
 
 func _spawn_barrier(owner: Object) -> void:
+	# Python parity (_snap_latest_barrier_to_paddle): barrier top = paddle BOTTOM —
+	# it is a last-line floor guard behind the paddle, not a shield above it.
 	var player_pos: Vector2 = _get_player_pos(owner)
 	var paddle_width: float = max(1.0, _get_owner_float(owner, "player_paddle_width", 155.0))
 	var paddle_height: float = max(1.0, _get_owner_float(owner, "player_paddle_height", 50.0))
-	var player_center_y: float = player_pos.y + paddle_height * 0.5
 	var x: float = clamp(player_pos.x + paddle_width * 0.5 - FIELD_WIDTH * 0.5, 0.0, 760.0 - FIELD_WIDTH)
-	var y: float = clamp(player_center_y + FIELD_OFFSET_Y - FIELD_HEIGHT * 0.5, 0.0, 750.0 - FIELD_HEIGHT)
-	for barrier in barriers:
-		if bool(barrier.get("alive", false)) and abs(float(barrier.get("rect_y", y)) - y) < 110.0:
-			y = clamp(float(barrier.get("rect_y", y)) - 110.0, 0.0, 750.0 - FIELD_HEIGHT)
+	var y: float = clamp(player_pos.y + paddle_height, 0.0, 750.0 - FIELD_HEIGHT)
 	barriers.append({
 		"id": _next_barrier_id,
 		"alive": true,

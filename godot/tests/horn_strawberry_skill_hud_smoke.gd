@@ -62,6 +62,14 @@ func _verify_context_and_ready_state() -> void:
 	_expect(is_equal_approx(float(costs.get("horn_strawberry_eat", 0.0)), 50.0), "eat HUD cost should be 50")
 	_expect(is_equal_approx(float(costs.get("horn_strawberry_bomb", 0.0)), 400.0), "bomb HUD cost should be 400")
 
+	# Python-original orb colors: charge (220,40,50), field (50,150,40) green,
+	# eat (240,220,100) yellow, bomb (255,80,40) orange.
+	var colors: Dictionary = skill_context.get("skill_colors", {})
+	_expect(_color_matches(colors.get("horn_strawberry_horn_charge"), Color8(220, 40, 50)), "horn charge orb color should match the Python original red")
+	_expect(_color_matches(colors.get("horn_strawberry_field"), Color8(50, 150, 40)), "field orb color should match the Python original green")
+	_expect(_color_matches(colors.get("horn_strawberry_eat"), Color8(240, 220, 100)), "eat orb color should match the Python original yellow")
+	_expect(_color_matches(colors.get("horn_strawberry_bomb"), Color8(255, 80, 40)), "bomb orb color should match the Python original orange")
+
 	var cooldown_ratios: Dictionary = skill_context.get("skill_cooldown_remaining_ratios", {})
 	_expect(is_equal_approx(float(cooldown_ratios.get("horn_strawberry_horn_charge", 0.0)), 0.5), "horn charge HUD cooldown wedge should use remaining/max")
 	var ready: Dictionary = skill_context.get("skill_ready_overrides", {})
@@ -184,6 +192,17 @@ func _build_horn_context() -> Dictionary:
 			"cooldown_max_sec": 30.0,
 		},
 	}
+
+
+func _color_matches(value: Variant, expected: Color) -> bool:
+	if not (value is Color):
+		return false
+	var color: Color = value
+	return (
+		abs(color.r - expected.r) < 0.005
+		and abs(color.g - expected.g) < 0.005
+		and abs(color.b - expected.b) < 0.005
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

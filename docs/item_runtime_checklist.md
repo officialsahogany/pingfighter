@@ -1804,12 +1804,22 @@ kit on activation. Current cases in the repo:
   into Yachaman form.
 - **Odin's Eye** — legendary, revival on score loss, transforms into
   Odin-empowered form.
-- **Horn Strawberry Mask** — passive, gauge-triggered transform into
-  Strawberry form. Auto-fires the moment `special_gauge` reaches the
-  500 cost (no command input). Stage-once gating still flows through
-  `_used_this_stage`, and the `TRANSFORM_EVENT -> TRANSFORMED` finalize
-  edge is unchanged. `try_transform()` now also gates on
-  `state == IDLE`, so the per-frame call is safe even mid-transform.
+- **Horn Strawberry Mask** — transform into Strawberry form.
+  PYTHON original: passive, gauge-triggered — auto-fires the moment
+  `special_gauge` reaches the 500 cost (no command input; the module's
+  A+W+D command code is dead, zero callers). GODOT port: deliberately
+  redesigned to an A→D→A→D→A→D command trigger (2s window,
+  `horn_strawberry_command_listener.gd`) that spends the same 500
+  gauge. Stage-once gating still flows through `_used_this_stage`, and
+  the `TRANSFORM_EVENT -> TRANSFORMED` finalize edge is unchanged.
+  Porting caution (repeatable trap): the Python module's top-level
+  constants are NOT all live — e.g. `STRAWBERRY_FIELD_WIDTH=180` /
+  instant-build belong to a dead legacy class; the real runtime is the
+  `_StrawberryFieldSkillCore` → `BoneBarrier` core (120×12, 3.0s build,
+  build-phase hit destroys without reflect). Harvest port numbers from
+  the code path that actually EXECUTES, not from module constants
+  (2026-07-11 field-spec restoration; same class as the
+  `spawn_shockwave` dead-call trap in the porting reference notes).
 
 Shared failure mode: the transform gates the original character's
 skill-update block off, so any in-air Viper state that depended on

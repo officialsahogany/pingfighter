@@ -17,6 +17,10 @@ const BOSS_KNOCKBACK_FRAMES := 36.0
 const BOSS_KNOCKBACK_DECAY := 0.86
 const SUPPRESS_WINDOW_FRAMES := 4.0
 const TRAIL_LIFE_SEC := 0.28
+# Python impact shake: screen_shake_timer=24 frames, intensity=35 px. Converted with
+# the grenade/dynamite precedent (Python 40f/35 -> Godot amount 40/30, intensity 9.0).
+const IMPACT_SHAKE_AMOUNT := 24.0 / 30.0
+const IMPACT_SHAKE_INTENSITY := 9.0
 const SOURCE := "horn_strawberry_horn_charge"
 
 const PHASE_NONE := ""
@@ -245,6 +249,7 @@ func _apply_boss_impact(owner: Object, registry: Object, _runtime: Object) -> vo
 	impact_flash_timer_sec = IMPACT_SEC
 	last_hit_count += 1
 	_trigger_feedback(registry)
+	_trigger_impact_shake(registry)
 
 
 func _update_trails(delta: float) -> void:
@@ -315,6 +320,16 @@ func _trigger_feedback(registry: Object) -> void:
 	var feedback: Object = _get_instance(registry, "battle_feedback_state")
 	if feedback != null and feedback.has_method("trigger_gauge_flash"):
 		feedback.trigger_gauge_flash()
+
+
+func _trigger_impact_shake(registry: Object) -> void:
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback == null:
+		return
+	if feedback.has_method("max_screen_shake"):
+		feedback.max_screen_shake(IMPACT_SHAKE_AMOUNT, IMPACT_SHAKE_INTENSITY)
+	elif feedback.has_method("set_screen_shake"):
+		feedback.set_screen_shake(IMPACT_SHAKE_AMOUNT, IMPACT_SHAKE_INTENSITY)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

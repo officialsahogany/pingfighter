@@ -241,7 +241,9 @@ const HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH := "res://assets/sounds/bullethit.
 const HORN_STRAWBERRY_CHANGE_GAIN_DB := -3.0980
 const HORN_STRAWBERRY_EAT_GAIN_DB := 0.0
 const HORN_STRAWBERRY_STEM_FIRE_GAIN_DB := -6.0206
-const HORN_STRAWBERRY_STEM_HIT_GAIN_DB := -7.9588
+# Python parity: stem hit plays bullethit at 0.3 (pingfighter play_cached_sound), not the
+# module's unused 0.4 loader. 20*log10(0.3) = -10.4576.
+const HORN_STRAWBERRY_STEM_HIT_GAIN_DB := -10.4576
 const HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB := -3.7417
 const HORN_STRAWBERRY_FIELD_GAIN_DB := -3.0980
 const HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB := -10.4576
