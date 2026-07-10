@@ -219,8 +219,12 @@ func get_actor_draw_context(runtime: Object, constants: Dictionary) -> Dictionar
 		context["soul_burst_effect_active"] = runtime.soul_burst_effect_timer_frames > 0.0
 		context["player_color"] = Color(110.0 / 255.0, 45.0 / 255.0, 185.0 / 255.0)
 		context["player_color_light"] = Color(210.0 / 255.0, 160.0 / 255.0, 1.0)
-	if runtime.is_horn_strawberry_transformed():
-		context["horn_strawberry_transformed"] = true
+	if runtime.is_horn_strawberry_transformed() or runtime.is_horn_strawberry_event_playing():
+		# Python parity: the transform/detransform EVENTS also hide the normal
+		# paddle and drive the snapshot-rise, so the actor renderer needs the
+		# horn context during the events too, not only once transformed.
+		context["horn_strawberry_transformed"] = runtime.is_horn_strawberry_transformed()
+		context["horn_strawberry_event_playing"] = runtime.is_horn_strawberry_event_playing()
 		context["horn_strawberry_context"] = runtime.get_horn_strawberry_context()
 	return context
 
@@ -234,6 +238,7 @@ func has_actor_draw_context(runtime: Object) -> bool:
 		or runtime.ragnarok_boss_knockback_timer_frames > 0.0
 		or runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0
 		or runtime.is_horn_strawberry_transformed()
+		or runtime.is_horn_strawberry_event_playing()
 	)
 
 

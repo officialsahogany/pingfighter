@@ -90,7 +90,10 @@ func _draw_phase_rise_spin(canvas: CanvasItem, player_center: Vector2, paddle_si
 		var top := Vector2(stream_x, center.y - 70.0 - p * 42.0)
 		var bottom := Vector2(stream_x + sin(p * TAU + float(i)) * 6.0, player_center.y + 38.0)
 		canvas.draw_line(bottom, top, Color(1.0, 0.48, 0.62, 0.12 + p * 0.16), 3.0)
-	_draw_spinning_paddle_silhouette(canvas, center, paddle_size, x_scale, 0.78 - p * 0.15, draw_context)
+	# The REAL character sprite now rises with this phase (actor renderer,
+	# Python captured-snapshot parity), so the spinning silhouette drops to a
+	# translucent overlay that reads as the original's ballerina-spin ghosting.
+	_draw_spinning_paddle_silhouette(canvas, center, paddle_size, x_scale, 0.34 - p * 0.08, draw_context)
 	_draw_magic_rings(canvas, center, p, 0.26 + p * 0.24)
 
 

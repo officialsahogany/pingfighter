@@ -340,6 +340,7 @@ func draw(
 	var paddle_hologram_progress: float = float(context.get("paddle_hologram_progress", 1.0))
 	var paddle_hologram_plan: Dictionary = {}
 	var horn_strawberry_transformed: bool = bool(context.get("horn_strawberry_transformed", false))
+	var horn_strawberry_event_playing: bool = bool(context.get("horn_strawberry_event_playing", false))
 	if paddle_hologram_active:
 		paddle_hologram_plan = PaddleHologramGlitchRenderer.compute_pass_plan(
 			paddle_hologram_progress, Time.get_ticks_msec()
@@ -407,7 +408,7 @@ func draw(
 			paddle_size,
 			shake_offset
 		)
-	if not horn_strawberry_transformed:
+	if not horn_strawberry_transformed and not horn_strawberry_event_playing:
 		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
 		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
 	if curse_reverse_active:
@@ -417,6 +418,25 @@ func draw(
 	if bool(context.get("active_item_aipill_active", false)):
 		_draw_aipill_system_label(canvas, drawn_player_visual_rect)
 	if status_overlay_renderer != null and status_overlay_renderer.has_method("draw_player_status_overlays"):
+	elif horn_strawberry_event_playing:
+		# Python parity: transform/detransform events HIDE the normal paddle
+		# (_horn_strawberry_hide_paddle = is_transformed OR is_event_playing).
+		# During the first 35% of the transform event the REAL character sprite
+		# slowly floats up (-80px, ease-out) like the original's captured paddle
+		# snapshot; after that the cinematic's strawberry energy owns the screen.
+		var horn_event_context: Dictionary = _as_dictionary(context.get("horn_strawberry_context", {}))
+		var rise_offset: Vector2 = horn_strawberry_event_sprite_rise_offset(horn_event_context)
+		if rise_offset.is_finite():
+			var risen_rect := Rect2(player_visual_rect.position + rise_offset, player_visual_rect.size)
+			sprite_renderer.draw(
+				canvas,
+				sprite_context,
+				risen_rect,
+				player_move_active,
+				player_pos + rise_offset,
+				paddle_size,
+				shake_offset
+			)
 		status_overlay_renderer.draw_player_status_overlays(
 			canvas,
 			context,
@@ -435,7 +455,7 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	dash_side_gauge_renderer.draw(canvas, context, player_pos, paddle_size, shake_offset)
 	_perf_end(perf_logger, "actors.stage1.player.dash_side_gauge", sample_start)
-	if paddle_hologram_active and not horn_strawberry_transformed:
+	if paddle_hologram_active and not horn_strawberry_transformed and not horn_strawberry_event_playing:
 		# Scanlines / noise / edge-glow ride on top of the multi-pass sprite
 		# so they read across the whole materializing silhouette, including
 		# the cyan / magenta ghost halos.
@@ -1252,6 +1272,24 @@ func _draw_curse_reverse_head_effect(canvas: CanvasItem, player_visual_rect: Rec
 	var font_size := 14
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var pos := center + Vector2(-text_size.x * 0.5, -12.0)
+# Python parity: during the horn strawberry TRANSFORM event the real character
+# sprite floats up (-80px, ease-out 1-(1-t)^2) over the first 35% of the 4.5s
+# cinematic, mirroring the original's captured-paddle-snapshot rise. Returns
+# Vector2.INF ("do not draw the sprite") outside that window — the swirl/burst/
+# landing phases and the detransform event are owned by the cinematic renderer.
+func horn_strawberry_event_sprite_rise_offset(horn_context: Dictionary) -> Vector2:
+	if str(horn_context.get("state", "")) != "transform_event":
+		return Vector2.INF
+	var duration_sec := 4.5
+	var remaining: float = clamp(float(horn_context.get("event_timer_sec", 0.0)), 0.0, duration_sec)
+	var progress: float = clamp((duration_sec - remaining) / duration_sec, 0.0, 1.0)
+	if progress >= 0.35:
+		return Vector2.INF
+	var p: float = clamp(progress / 0.35, 0.0, 1.0)
+	var rise_ease: float = 1.0 - (1.0 - p) * (1.0 - p)
+	return Vector2(0.0, -80.0 * rise_ease)
+
+
 	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.72 * alpha))
 	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.68, 0.86, 0.95 * alpha))
 

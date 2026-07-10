@@ -10,6 +10,8 @@ const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 const ViperJetpackState := preload("res://scripts/characters/viper_jetpack_state.gd")
 const SmasherPlayerController := preload("res://scripts/characters/smasher_player_controller.gd")
+const MythicItemContextBuilder := preload("res://scripts/items/mythic_item_context_builder.gd")
+const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 
 
 class FakeOwner:
@@ -219,6 +221,27 @@ func _verify_runtime_command_transform_and_stage_policy() -> void:
 	_expect(runtime.should_pause_game(), "transform event should freeze gameplay through the mythic pause gate")
 	_expect(bool(runtime.get_horn_strawberry_context().get("used_this_stage", false)), "transform should mark the stage use")
 	_expect(bool(owner.values.get("horn_strawberry_event_playing", false)), "transient owner sync should expose transform event")
+
+	# Python parity: the transform EVENT hides the normal paddle and floats the
+	# real character sprite up (-80px ease-out over the first 35% of the 4.5s
+	# cinematic — the original's captured-paddle-snapshot rise).
+	var context_builder: Object = MythicItemContextBuilder.new()
+	var actor_context: Dictionary = context_builder.get_actor_draw_context(runtime, {})
+	_expect(bool(actor_context.get("horn_strawberry_event_playing", false)), "actor draw context should expose the transform event so the normal paddle hides")
+	_expect(not bool(actor_context.get("horn_strawberry_transformed", true)), "actor draw context should not mark transformed during the event")
+	var actor_renderer: Object = Stage1PlayerActorRenderer.new()
+	var rise_start: Vector2 = actor_renderer.horn_strawberry_event_sprite_rise_offset({"state": "transform_event", "event_timer_sec": 4.5})
+	_expect(rise_start.is_finite() and abs(rise_start.y) < 0.001, "sprite rise should start at ground level")
+	var rise_mid: Vector2 = actor_renderer.horn_strawberry_event_sprite_rise_offset({"state": "transform_event", "event_timer_sec": 4.5 * 0.825})
+	_expect(rise_mid.is_finite() and abs(rise_mid.y + 60.0) < 0.5, "sprite rise should ease out (-60px at half of the rise window, Python 1-(1-t)^2)")
+	_expect(
+		not actor_renderer.horn_strawberry_event_sprite_rise_offset({"state": "transform_event", "event_timer_sec": 4.5 * 0.5}).is_finite(),
+		"sprite should hide after the 35 percent rise window (cinematic owns the swirl)"
+	)
+	_expect(
+		not actor_renderer.horn_strawberry_event_sprite_rise_offset({"state": "detransform_event", "event_timer_sec": 1.0}).is_finite(),
+		"sprite should stay hidden during the detransform event"
+	)
 
 	runtime.update(owner, registry, 4.5)
 	_expect(runtime.is_horn_strawberry_transformed(), "transform event should finalize into transformed state")
