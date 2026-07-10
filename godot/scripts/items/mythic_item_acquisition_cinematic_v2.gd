@@ -34,6 +34,12 @@ const BACKPLATE_BASE_SIZE := 620.0
 const ARC_LENGTH := 720.0
 const ARC_THICKNESS := 96.0
 const PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP := 48
+const REVEAL_TEXT_BAND_SIZE := Vector2(560.0, 112.0)
+const REVEAL_TEXT_BAND_TOP := 456.0
+const REVEAL_TEXT_NAME_HEIGHT := 36.0
+const REVEAL_TEXT_PADDING := 16.0
+const REVEAL_TEXT_DESCRIPTION_TOP := 40.0
+const REVEAL_TEXT_DESCRIPTION_HEIGHT := 56.0
 
 # --- Impact "punch" (타격감) tuning -------------------------------------------
 # These drive the original-style hit feel: accelerating buildup pre-shocks, a
@@ -55,6 +61,7 @@ var phase_timer := 0.0
 var elapsed := 0.0
 var item_data: Dictionary = {}
 var display_name := ""
+var reveal_description := ""
 var item_texture: Texture2D = null
 var icon_frame_count := 1
 var icon_frame_msec := 33
@@ -90,6 +97,10 @@ var _icon_sprite: Sprite2D = null
 var _icon_alpha := 0.0
 var _icon_scale := 0.0
 var _icon_float_offset := 0.0
+var _text_reveal_enabled := false
+var _text_band: ColorRect = null
+var _name_label: Label = null
+var _description_label: Label = null
 
 var _white_flash_alpha := 0.0
 var _white_flash_texture: Texture2D = null
@@ -345,6 +356,42 @@ func _build_node_tree() -> void:
 	_icon_sprite.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_icon_sprite.z_index = 5
 	add_child(_icon_sprite)
+
+	_text_band = ColorRect.new()
+	_text_band.color = Color(0.018, 0.014, 0.035, 0.68)
+	_text_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_text_band.z_index = 6
+	_text_band.visible = false
+	add_child(_text_band)
+
+	_name_label = Label.new()
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_name_label.clip_text = true
+	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_name_label.add_theme_font_size_override("font_size", 26)
+	_name_label.add_theme_color_override("font_color", Color(1.0, 0.90, 0.46, 1.0))
+	_name_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.78))
+	_name_label.add_theme_constant_override("shadow_offset_x", 2)
+	_name_label.add_theme_constant_override("shadow_offset_y", 2)
+	_name_label.z_index = 7
+	_name_label.visible = false
+	add_child(_name_label)
+
+	_description_label = Label.new()
+	_description_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_description_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_description_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+	_description_label.clip_text = true
+	_description_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_description_label.add_theme_font_size_override("font_size", 16)
+	_description_label.add_theme_color_override("font_color", Color(0.94, 0.95, 1.0, 1.0))
+	_description_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.72))
+	_description_label.add_theme_constant_override("shadow_offset_x", 1)
+	_description_label.add_theme_constant_override("shadow_offset_y", 1)
+	_description_label.z_index = 7
+	_description_label.visible = false
+	add_child(_description_label)
 
 
 func _build_ambient_particles() -> GPUParticles2D:
@@ -717,6 +764,8 @@ func trigger(acquired_item_data: Dictionary, pickup_position: Vector2, target_pl
 	elapsed = 0.0
 	item_data = acquired_item_data.duplicate(true)
 	display_name = _resolve_display_name(item_data)
+	reveal_description = _resolve_reveal_description(item_data)
+	_text_reveal_enabled = reveal_description != ""
 	item_origin = pickup_position
 	player_center = target_player_center
 	legend_after_played = false
@@ -745,6 +794,8 @@ func trigger(acquired_item_data: Dictionary, pickup_position: Vector2, target_pl
 	position = Vector2.ZERO
 	if _backplate != null:
 		_backplate.rotation = 0.0
+	_sync_reveal_text_content()
+	_set_reveal_text_alpha(0.0)
 	_load_item_texture()
 	_apply_icon_texture()
 	if _ambient_particles != null:
@@ -769,6 +820,8 @@ func reset(registry: Object = null) -> void:
 	elapsed = 0.0
 	item_data.clear()
 	display_name = ""
+	reveal_description = ""
+	_text_reveal_enabled = false
 	item_texture = null
 	legend_after_played = false
 	legend_after_stop_timer = 0.0
@@ -798,6 +851,8 @@ func reset(registry: Object = null) -> void:
 		_burst_particles.emitting = false
 	if _absorb_particles != null:
 		_absorb_particles.emitting = false
+	_sync_reveal_text_content()
+	_set_reveal_text_alpha(0.0)
 	queue_redraw()
 
 
@@ -825,6 +880,14 @@ func _release_runtime_resources() -> void:
 		_icon_sprite.texture = null
 		_icon_sprite.material = null
 		_icon_sprite.region_enabled = false
+	if _text_band != null:
+		_text_band.visible = false
+	if _name_label != null:
+		_name_label.text = ""
+		_name_label.visible = false
+	if _description_label != null:
+		_description_label.text = ""
+		_description_label.visible = false
 	item_data.clear()
 	_light_beams.clear()
 	item_texture = null
@@ -838,6 +901,9 @@ func _release_runtime_resources() -> void:
 	_absorb_particles = null
 	_icon_backdrop = null
 	_icon_sprite = null
+	_text_band = null
+	_name_label = null
+	_description_label = null
 	_white_flash_texture = null
 	_vignette_texture = null
 
@@ -1068,11 +1134,15 @@ func get_snapshot() -> Dictionary:
 		"item_name": str(item_data.get("name", "")),
 		"display_name": display_name,
 		"player_center": player_center,
+		"item_data": item_data.duplicate(true),
 		"waiting_for_click": is_waiting_for_click(),
 		"absorb_started": absorb_started,
 		"icon_alpha": _icon_alpha,
 		"backplate_intensity": _backplate_intensity,
 		"shake_trauma": _shake_trauma,
+		"text_reveal_enabled": _text_reveal_enabled,
+		"reveal_description": reveal_description,
+		"text_alpha": _get_reveal_text_alpha(),
 	}
 
 
@@ -1341,6 +1411,60 @@ func _apply_visual_state() -> void:
 			var center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 			var dir: Vector2 = (player_center - center).normalized()
 			pm.gravity = Vector3(dir.x * 480.0, dir.y * 480.0, 0.0)
+	_apply_reveal_text_state()
+
+
+func _apply_reveal_text_state() -> void:
+	if not _text_reveal_enabled:
+		_set_reveal_text_alpha(0.0)
+		return
+	var alpha: float = _get_reveal_text_alpha()
+	var float_offset: float = _icon_float_offset if phase == PHASE_REVEAL else 0.0
+	var band_pos := Vector2(
+		(FIELD_WIDTH - REVEAL_TEXT_BAND_SIZE.x) * 0.5,
+		REVEAL_TEXT_BAND_TOP + float_offset
+	)
+	if _text_band != null:
+		_text_band.position = band_pos
+		_text_band.size = REVEAL_TEXT_BAND_SIZE
+	if _name_label != null:
+		_name_label.position = band_pos + Vector2(REVEAL_TEXT_PADDING, 6.0)
+		_name_label.size = Vector2(REVEAL_TEXT_BAND_SIZE.x - REVEAL_TEXT_PADDING * 2.0, REVEAL_TEXT_NAME_HEIGHT)
+	if _description_label != null:
+		_description_label.position = band_pos + Vector2(REVEAL_TEXT_PADDING, REVEAL_TEXT_DESCRIPTION_TOP)
+		_description_label.size = Vector2(REVEAL_TEXT_BAND_SIZE.x - REVEAL_TEXT_PADDING * 2.0, REVEAL_TEXT_DESCRIPTION_HEIGHT)
+	_set_reveal_text_alpha(alpha)
+
+
+func _get_reveal_text_alpha() -> float:
+	match phase:
+		PHASE_REVEAL:
+			return clamp(phase_timer / 0.45, 0.0, 1.0)
+		PHASE_ABSORB:
+			return clamp(1.0 - phase_timer / 0.35, 0.0, 1.0)
+		_:
+			return 0.0
+
+
+func _set_reveal_text_alpha(alpha: float) -> void:
+	var clamped_alpha: float = clamp(alpha, 0.0, 1.0)
+	var is_visible: bool = _text_reveal_enabled and clamped_alpha > 0.001
+	if _text_band != null:
+		_text_band.visible = is_visible
+		_text_band.modulate = Color(1.0, 1.0, 1.0, clamped_alpha)
+	if _name_label != null:
+		_name_label.visible = is_visible
+		_name_label.modulate = Color(1.0, 1.0, 1.0, clamped_alpha)
+	if _description_label != null:
+		_description_label.visible = is_visible
+		_description_label.modulate = Color(1.0, 1.0, 1.0, clamped_alpha)
+
+
+func _sync_reveal_text_content() -> void:
+	if _name_label != null:
+		_name_label.text = display_name if _text_reveal_enabled else ""
+	if _description_label != null:
+		_description_label.text = reveal_description if _text_reveal_enabled else ""
 
 
 func _get_backplate_core_dim_strength() -> float:
@@ -1411,6 +1535,15 @@ func _resolve_display_name(source: Dictionary) -> String:
 		if value != "":
 			return LanguageSettings.translate_text(value)
 	return LanguageSettings.translate_text("신화 아이템")
+
+
+func _resolve_reveal_description(source: Dictionary) -> String:
+	if not source.has("reveal_description"):
+		return ""
+	var value: String = str(source.get("reveal_description", "")).strip_edges()
+	if value == "":
+		return ""
+	return LanguageSettings.translate_text(value)
 
 
 func _play_first_audio(registry: Object, method_names: Array[String]) -> void:

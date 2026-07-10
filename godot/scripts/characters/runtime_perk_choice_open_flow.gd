@@ -1,6 +1,8 @@
 extends RefCounted
 
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
 
 const CALLBACK_GET_INSTANCE := "get_instance"
 const CALLBACK_APPLY_CHOICE_OPENING_UPDATE := "apply_choice_opening_update"
@@ -14,11 +16,26 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
 		return {}
 	return {
-		CALLBACK_GET_INSTANCE: Callable(runtime_state, "_get_instance"),
-		CALLBACK_APPLY_CHOICE_OPENING_UPDATE: Callable(runtime_state, "_apply_choice_opening_update"),
-		CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN: Callable(runtime_state, "_tick_lingpet_ring_core_offer_cooldown"),
-		CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE: Callable(runtime_state, "_pause_skill_cooldowns_for_choice"),
-		CALLBACK_BUILD_PARTICLES: Callable(runtime_state, "_build_particles"),
+		CALLBACK_GET_INSTANCE: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_get_instance"
+		),
+		CALLBACK_APPLY_CHOICE_OPENING_UPDATE: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_apply_choice_opening_update"
+		),
+		CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_tick_lingpet_ring_core_offer_cooldown"
+		),
+		CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_pause_skill_cooldowns_for_choice"
+		),
+		CALLBACK_BUILD_PARTICLES: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_build_particles"
+		),
 	}
 
 
@@ -41,10 +58,10 @@ func open_next_choice_from_runtime_state(
 		perf_logger,
 		choice_context,
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_active_unlock_flight"),
-		_get_runtime_state_object(runtime_state, "_choice_opening"),
-		_get_runtime_state_object(runtime_state, "_choice_offer_modifiers"),
-		_get_runtime_state_object(runtime_state, "_choice_feedback"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_active_unlock_flight"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_opening"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_offer_modifiers"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_feedback"),
 		build_state_callbacks(runtime_state),
 		DEFAULT_BASE_PERK_CHOICE_COUNT
 	)
@@ -67,9 +84,9 @@ func open_mythic_perk_choice_from_runtime_state(
 		perf_logger,
 		choice_context,
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_active_unlock_flight"),
-		_get_runtime_state_object(runtime_state, "_choice_opening"),
-		_get_runtime_state_object(runtime_state, "_choice_offer_modifiers"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_active_unlock_flight"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_opening"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_offer_modifiers"),
 		build_state_callbacks(runtime_state)
 	)
 
@@ -90,7 +107,7 @@ func open_mythic_perk_choice(
 	if runtime_state == null or choice_opening == null:
 		return {"accepted": false, "blocked_reason": "missing_mythic_open_flow_deps"}
 	if active_unlock_flight != null and active_unlock_flight.has_method("reset"):
-		active_unlock_flight.reset(_get_dict(runtime_state.get("choice_flight_effect")))
+		active_unlock_flight.reset(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "choice_flight_effect"))
 	var sample_start: int = _perf_begin(perf_logger)
 	var generated_choices: Array = MythicPerkGrantHelper.build_mythic_choice_cards(
 		max(1, count),
@@ -105,23 +122,31 @@ func open_mythic_perk_choice(
 	if choice_offer_modifiers != null and choice_offer_modifiers.has_method("build_perk_slot_status"):
 		generated_slot_status = choice_offer_modifiers.build_perk_slot_status(
 			catalog,
-			_get_dict(runtime_state.get("runtime_skill_levels")),
+			RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
 			registry
 		)
-	var context: Dictionary = choice_context.duplicate(true)
-	if context.is_empty():
-		context = build_mythic_choice_context()
-	_call_dict(
+	# 호출자가 부분 컨텍스트(시네마틱 좌표 등)만 넘겨도 기본 신화 초이스 키가 유지되도록
+	# 기본 컨텍스트 위에 병합한다.
+	var context: Dictionary = build_mythic_choice_context()
+	context.merge(choice_context.duplicate(true), true)
+	# 선택 후 획득 시네마틱(runtime_perk_choice_apply_flow)은 좌표를 선택된 카드에서
+	# 읽으므로, 컨텍스트로 전달된 상자 좌표를 각 카드에 스탬프한다.
+	for card_value in generated_choices:
+		if card_value is Dictionary:
+			for cinematic_key in ["pickup_position", "target_player_center"]:
+				if context.has(cinematic_key):
+					(card_value as Dictionary)[cinematic_key] = context[cinematic_key]
+	RuntimePerkCallbackMap.call_dict(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 		[
 			{
 				"accepted": true,
-				"pending_skill_choices": int(runtime_state.get("pending_skill_choices")) + 1,
+				"pending_skill_choices": RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices") + 1,
 			}
 		]
 	)
-	_call_dict(
+	RuntimePerkCallbackMap.call_dict(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 		[
@@ -132,18 +157,18 @@ func open_mythic_perk_choice(
 			)
 		]
 	)
-	var ready_result: Dictionary = _call_dict(
+	var ready_result: Dictionary = RuntimePerkCallbackMap.call_dict(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
-		[choice_opening.build_ready_state_update(_get_array(runtime_state.get("current_choices")).size())]
+		[choice_opening.build_ready_state_update(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices").size())]
 	)
 	if bool(ready_result.get("tick_lingpet_ring_core_offer_cooldown", false)):
-		_call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
 	if bool(ready_result.get("pause_skill_cooldowns", false)):
-		_call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
 	if bool(ready_result.get("build_particles", false)):
 		sample_start = _perf_begin(perf_logger)
-		_call_optional(callbacks, CALLBACK_BUILD_PARTICLES, [])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_BUILD_PARTICLES, [])
 		_perf_end(perf_logger, "process.runtime_perk.open_mythic_choice.particles", sample_start)
 	ready_result["choice_count"] = generated_choices.size()
 	return ready_result
@@ -175,15 +200,15 @@ func open_next_choice(
 	if runtime_state == null or choice_opening == null or choice_offer_modifiers == null:
 		return {"accepted": false, "blocked_reason": "missing_open_flow_deps"}
 	if active_unlock_flight != null and active_unlock_flight.has_method("reset"):
-		active_unlock_flight.reset(_get_dict(runtime_state.get("choice_flight_effect")))
-	if int(runtime_state.get("pending_skill_choices")) <= 0:
-		return _call_dict(
+		active_unlock_flight.reset(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "choice_flight_effect"))
+	if RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices") <= 0:
+		return RuntimePerkCallbackMap.call_dict(
 			callbacks,
 			CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 			[choice_opening.build_unavailable_state_update(true)]
 		)
 	if catalog == null or not catalog.has_method("get_choices"):
-		return _call_dict(
+		return RuntimePerkCallbackMap.call_dict(
 			callbacks,
 			CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 			[choice_opening.build_unavailable_state_update(false)]
@@ -193,7 +218,7 @@ func open_next_choice(
 	var item_bonus_choice_count: int = choice_offer_modifiers.get_item_perk_choice_count_bonus(
 		owner,
 		registry,
-		_get_callback(callbacks, CALLBACK_GET_INSTANCE)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_GET_INSTANCE)
 	)
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.item_bonus", sample_start)
 	var target_choice_count: int = choice_offer_modifiers.build_target_choice_count(
@@ -203,7 +228,7 @@ func open_next_choice(
 	sample_start = _perf_begin(perf_logger)
 	var generated_choices: Array = catalog.get_choices(
 		character_type,
-		_get_dict(runtime_state.get("runtime_skill_levels")),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
 		exclude_instant,
 		target_choice_count,
 		owner,
@@ -211,10 +236,10 @@ func open_next_choice(
 	)
 	var generated_slot_status: Dictionary = choice_offer_modifiers.build_perk_slot_status(
 		catalog,
-		_get_dict(runtime_state.get("runtime_skill_levels")),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
 		registry
 	)
-	_call_dict(
+	RuntimePerkCallbackMap.call_dict(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 		[
@@ -226,12 +251,12 @@ func open_next_choice(
 		]
 	)
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.catalog", sample_start)
-	var current_choices: Array = _get_array(runtime_state.get("current_choices"))
+	var current_choices: Array = RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")
 	if current_choices.is_empty():
-		var empty_choices_result: Dictionary = _call_dict(
+		var empty_choices_result: Dictionary = RuntimePerkCallbackMap.call_dict(
 			callbacks,
 			CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
-			[choice_opening.build_empty_choices_state_update(int(runtime_state.get("pending_skill_choices")))]
+			[choice_opening.build_empty_choices_state_update(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"))]
 		)
 		if bool(empty_choices_result.get("open_next_choice", false)):
 			return open_next_choice(
@@ -241,7 +266,7 @@ func open_next_choice(
 				owner,
 				registry,
 				perf_logger,
-				_get_dict(runtime_state.get("current_choice_context")),
+				RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "current_choice_context"),
 				runtime_state,
 				active_unlock_flight,
 				choice_opening,
@@ -257,57 +282,27 @@ func open_next_choice(
 		target_choice_count
 	)
 	if bool(bonus_choice_update.get("accepted", false)):
-		_call_dict(callbacks, CALLBACK_APPLY_CHOICE_OPENING_UPDATE, [bonus_choice_update])
+		RuntimePerkCallbackMap.call_dict(callbacks, CALLBACK_APPLY_CHOICE_OPENING_UPDATE, [bonus_choice_update])
 		if choice_feedback != null:
 			choice_feedback.apply_dowsing_goggles_bonus_feedback_state_update(
 				runtime_state,
-				float(runtime_state.get("feedback_timer"))
+				RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer")
 			)
 
-	var ready_result: Dictionary = _call_dict(
+	var ready_result: Dictionary = RuntimePerkCallbackMap.call_dict(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
-		[choice_opening.build_ready_state_update(_get_array(runtime_state.get("current_choices")).size())]
+		[choice_opening.build_ready_state_update(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices").size())]
 	)
 	if bool(ready_result.get("tick_lingpet_ring_core_offer_cooldown", false)):
-		_call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
 	if bool(ready_result.get("pause_skill_cooldowns", false)):
-		_call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
 	if bool(ready_result.get("build_particles", false)):
 		sample_start = _perf_begin(perf_logger)
-		_call_optional(callbacks, CALLBACK_BUILD_PARTICLES, [])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_BUILD_PARTICLES, [])
 		_perf_end(perf_logger, "process.runtime_perk.open_next_choice.particles", sample_start)
 	return ready_result
-
-
-func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": true}
-
-
-func _call_dict(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		return result
-	return {"accepted": false, "blocked_reason": "invalid_%s" % key}
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
 
 
 func _perf_begin(perf_logger: Object) -> int:
@@ -319,24 +314,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
