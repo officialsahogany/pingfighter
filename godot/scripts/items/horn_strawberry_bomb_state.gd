@@ -263,7 +263,10 @@ func _update_bombs(delta: float, owner: Object, registry: Object, runtime: Objec
 		next_bomb["hop_phase_sec"] = hop_phase_sec
 		next_bomb["rotation"] = float(next_bomb.get("rotation", 0.0)) + float(next_bomb.get("rot_speed", 0.0)) * step
 		var hit_boss: bool = _bomb_hits_boss(base_position, boss_rect)
-		var top_expired: bool = boss_rect.size.x > 0.0 and base_position.y <= boss_rect.position.y + boss_rect.size.y + 40.0
+		# Python parity: bombs explode at the boss hitbox BOTTOM edge (`base_y <= boss_y + 40`
+		# with boss_y = boss TOP and hitbox height 40). Adding +40 below the bottom made every
+		# bomb detonate 40px short of the boss, so hit_boss/paint never reached it.
+		var top_expired: bool = boss_rect.size.x > 0.0 and base_position.y <= boss_rect.end.y
 		var expired: bool = hit_boss or top_expired or float(next_bomb.get("life_sec", 0.0)) <= 0.0
 		if expired:
 			_create_explosion(base_position, hit_boss, boss_rect, registry, runtime)

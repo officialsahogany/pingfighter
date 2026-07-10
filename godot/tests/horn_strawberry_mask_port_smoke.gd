@@ -608,10 +608,24 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 			var moved_bomb: Dictionary = moved_bombs[0]
 			_expect(_get_vector2(moved_bomb, "base_position").y <= bomb_base_pos.y, "strawberry bombs should hop upward without gravity drift")
 			_expect(_get_vector2(moved_bomb, "position").y <= bomb_pos.y, "strawberry bomb visual hop should not fall below its launch path")
-			bomb_pos = _get_vector2(moved_bomb, "base_position")
-		owner.values["boss_pos"] = bomb_pos - Vector2(50.0, 20.0)
-		input_reader.snapshot = {}
-		runtime.update(owner, registry, 0.0)
+		# LIVE trigger leg (Force-Injected-State trap guard): the boss stays parked at
+		# its real top-lane position. Bombs must FLY there and detonate at the boss
+		# hitbox bottom edge — the old bottom+40px threshold detonated every bomb
+		# 40px short, so hit/stun/paint never reached the boss in real play.
+		var boss_bottom_y: float = (owner.values["boss_pos"] as Vector2).y + float(owner.values.get("boss_hitbox_height", 40.0))
+		var saw_hit_boss_explosion := false
+		var min_explosion_y := 100000.0
+		for _frame in range(360):
+			runtime.update(owner, registry, 1.0 / 60.0)
+			for explosion_value in runtime.get_horn_strawberry_bomb_context().get("explosions", []):
+				if not (explosion_value is Dictionary):
+					continue
+				saw_hit_boss_explosion = saw_hit_boss_explosion or bool(explosion_value.get("hit_boss", false))
+				min_explosion_y = minf(min_explosion_y, _get_vector2(explosion_value, "position").y)
+			if saw_hit_boss_explosion and _has_status(status_state, "horn_strawberry_bomb_paint", "slow"):
+				break
+		_expect(saw_hit_boss_explosion, "LIVE bomb flight should produce at least one hit_boss explosion without moving the boss onto the bomb")
+		_expect(min_explosion_y <= boss_bottom_y + 6.0, "bombs should detonate at the boss hitbox bottom edge, not 40px short of it")
 		_expect(_has_status(status_state, "horn_strawberry_bomb", "stun"), "strawberry bomb should stun the boss on explosion contact")
 		_expect(_has_status(status_state, "horn_strawberry_bomb_paint", "slow"), "strawberry bomb paint should apply boss slow while the boss overlaps paint")
 		var bomb_status: Dictionary = _find_status(status_state, "horn_strawberry_bomb", "stun")
