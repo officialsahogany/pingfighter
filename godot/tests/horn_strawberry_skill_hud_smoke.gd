@@ -78,6 +78,12 @@ func _verify_context_and_ready_state() -> void:
 	_expect(bool(ready.get("horn_strawberry_eat", false)), "eat should be ready when gauge and cooldown allow it")
 	_expect(bool(ready.get("horn_strawberry_bomb", false)), "bomb should be ready when gauge and cooldown allow it")
 
+	# Python parity: while thrown bombs are still resolving (cooldown pending, timer
+	# not armed yet) the bomb orb must read not-ready even though cooldown_sec is 0.
+	var pending_context: Dictionary = _build_skill_context(renderer, 450.0, {"bomb": {"cooldown_pending": true}})
+	var pending_ready: Dictionary = pending_context.get("skill_ready_overrides", {})
+	_expect(not bool(pending_ready.get("horn_strawberry_bomb", true)), "bomb should not be ready while its cooldown is pending bomb exhaustion")
+
 	var progress: Dictionary = skill_context.get("skill_progress_overrides", {})
 	_expect(is_equal_approx(float(progress.get("horn_strawberry_field", 0.0)), 0.5), "field hold progress should be exposed to the HUD ring")
 
@@ -144,7 +150,7 @@ func _verify_commando_panel_hidden_while_transformed() -> void:
 	_expect(selector.build_count == 0, "hidden commando panel should not build selector state")
 
 
-func _build_skill_context(renderer: Object, special_gauge: float) -> Dictionary:
+func _build_skill_context(renderer: Object, special_gauge: float, horn_overrides: Dictionary = {}) -> Dictionary:
 	var layout := Stage1PillarUiLayout.new()
 	var base_context: Dictionary = layout.build_skill_orb_context({
 		"selected_character_type": "smasher",
@@ -153,7 +159,16 @@ func _build_skill_context(renderer: Object, special_gauge: float) -> Dictionary:
 			"equipped_skills": [],
 		},
 	}, null)
-	return renderer.build_skill_orb_context(_build_horn_context(), special_gauge, null, base_context)
+	var horn_context: Dictionary = _build_horn_context()
+	for key in horn_overrides.keys():
+		var override_value: Variant = horn_overrides[key]
+		if horn_context.get(key) is Dictionary and override_value is Dictionary:
+			var merged: Dictionary = horn_context[key]
+			merged.merge(override_value, true)
+			horn_context[key] = merged
+		else:
+			horn_context[key] = override_value
+	return renderer.build_skill_orb_context(horn_context, special_gauge, null, base_context)
 
 
 func _build_horn_context() -> Dictionary:

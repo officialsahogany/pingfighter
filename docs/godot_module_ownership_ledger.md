@@ -8110,20 +8110,28 @@ This section is intentionally long; use search to find the nearest owner.
   1-second hold completion, paddle-bottom anchored 120x12 barrier placement
   (Python live BoneBarrier core parity; the module-level 180x12 constant was
   dead code), 3.0s build with build-phase hit destruction (no reflect),
-  seeded berry-surface visual points, build / death timers, lingering
-  post-transform collision context, and barrier consumption after a ball
-  reflection.
+  seeded berry-surface visual points, build / death timers, dual-lane
+  cooldown tick (2x while transformed — Python live-runtime parity, felt
+  cooldown ~5s), lingering post-transform collision context, and barrier
+  consumption after a ball reflection (vy reflect ×1.05 + vx hit-offset
+  nudge ×0.03).
 - `scripts/items/horn_strawberry_horn_charge_state.gd`
   Owns Horn Strawberry Mask's W horn-charge skill state: 300-gauge activation,
-  20-second cooldown, boss-width aligned charge / impact / return / stun
-  phases, active control locking during charge / impact, direct boss stun /
-  strong knockback, same-frame paddle-hit knockback suppression, and
-  lightweight charge trail draw context.
+  20-second cooldown, live-tracking charge (t^2 ease) / impact / quadratic
+  return phases ending immediately after the return (Python kills the STUN
+  window; ~1.13s active), active control locking during charge / impact,
+  direct boss stun / strong knockback with 50:50 random push direction
+  (Python main-game parity), same-frame paddle-hit knockback suppression,
+  Python-parity impact screen shake, and lightweight charge trail draw
+  context.
 - `scripts/items/horn_strawberry_bomb_state.gd`
   Owns Horn Strawberry Mask's A+D hold bomb skill state: 0.5-second dual-input
-  hold, 400-gauge spend, 30 deterministic hopping bombs over 1 second, boss
-  stun / knockback on explosion, 5-second paint splatter slow, and lingering
-  bomb / paint cleanup.
+  hold, 400-gauge spend, 30 deterministic hopping bombs over 1 second
+  (+/-25px sweep spawn spread), boss-bottom-edge detonation line, boss
+  stun / knockback on explosion, 5-second paint splatter slow, 30-second
+  cooldown armed only at bomb exhaustion (Python: 투척 완료 + 모든 폭탄
+  소진; `cooldown_pending` gates recast and the HUD ready read), and
+  lingering bomb / paint cleanup.
 - `scripts/items/mythic_item_audio_router.gd`
   Owns mythic / passive item cue routing and fallback order, including
   Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues

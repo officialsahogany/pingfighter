@@ -98,6 +98,10 @@ func update(delta: float, owner: Object, registry: Object, runtime: Object = nul
 	if not active:
 		current_offset = Vector2.ZERO
 		return
+	if phase == PHASE_CHARGING:
+		# Python parity: the charge re-aims at the boss's LIVE position every frame
+		# ("타겟의 실시간 위치 추적") and snaps to it at impact.
+		target_center = _get_charge_target_center(owner)
 	phase_timer_sec = max(0.0, phase_timer_sec - safe_delta)
 	_update_phase_offset()
 	if phase_timer_sec > 0.0:
@@ -109,13 +113,13 @@ func update(delta: float, owner: Object, registry: Object, runtime: Object = nul
 		PHASE_IMPACT:
 			_enter_phase(PHASE_RETURNING, RETURNING_SEC)
 		PHASE_RETURNING:
-			_enter_phase(PHASE_STUN, STUN_SEC)
+			# Python parity: the wrapper force-terminates the STUN phase the frame it
+			# begins ("복귀가 끝나는 즉시 이동권을 돌려줘야 한다"), so the skill ends
+			# right after RETURNING (~1.13s active) — no post-charge self-lock window
+			# holding eat/bomb hostage for another 1.5s.
+			_finish_charge()
 		PHASE_STUN:
-			active = false
-			phase = PHASE_NONE
-			phase_timer_sec = 0.0
-			phase_duration_sec = 0.0
-			current_offset = Vector2.ZERO
+			_finish_charge()
 
 
 func consume_boss_hit_suppression(_ball_pos: Vector2, _ball_vel: Vector2, _context: Dictionary, _deps: Dictionary = {}) -> Dictionary:
@@ -172,6 +176,14 @@ func get_context() -> Dictionary:
 	}
 
 
+func _finish_charge() -> void:
+	active = false
+	phase = PHASE_NONE
+	phase_timer_sec = 0.0
+	phase_duration_sec = 0.0
+	current_offset = Vector2.ZERO
+
+
 func _start_charge(owner: Object) -> void:
 	active = true
 	cooldown_sec = COOLDOWN_SEC
@@ -200,11 +212,11 @@ func _update_phase_offset() -> void:
 	)
 	match phase:
 		PHASE_CHARGING:
-			current_offset = target_offset * _ease_in_cubic(progress)
+			current_offset = target_offset * _ease_in_quad(progress)
 		PHASE_IMPACT:
 			current_offset = target_offset
 		PHASE_RETURNING:
-			current_offset = target_offset * (1.0 - _ease_out_cubic(progress))
+			current_offset = target_offset * (1.0 - _ease_out_quad(progress))
 		PHASE_STUN:
 			current_offset = Vector2.ZERO
 		_:
@@ -217,9 +229,10 @@ func _apply_boss_impact(owner: Object, registry: Object, _runtime: Object) -> vo
 	if boss_rect.size.x <= 0.0 or boss_rect.size.y <= 0.0:
 		return
 	target_center = _get_charge_target_center(owner)
-	var direction: float = 1.0 if player_origin.x <= target_center.x else -1.0
-	if abs(player_origin.x - target_center.x) <= 0.01:
-		direction = 1.0 if target_center.x < 380.0 else -1.0
+	# Python main-game parity: the hero-core "push opposite to target velocity" rule
+	# always read velocity 0 through the main-game paddle proxy (no velocity attr),
+	# so the shipped original resolves to a 50:50 random push direction.
+	var direction: float = 1.0 if randf() > 0.5 else -1.0
 	var knockback_vel: float = direction * BOSS_KNOCKBACK
 	_clear_ai_paddle_hit_knockback(registry)
 	var status_state: Object = _get_instance(registry, "status_effect_state")
@@ -361,11 +374,13 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return fallback
 
 
-func _ease_in_cubic(t: float) -> float:
+# Python parity easings (hero_skills HornCharge): charge accelerates with t*t and
+# the return decelerates with 1-(1-t)^2 — quadratic, not cubic.
+func _ease_in_quad(t: float) -> float:
 	var clamped: float = clamp(t, 0.0, 1.0)
-	return clamped * clamped * clamped
+	return clamped * clamped
 
 
-func _ease_out_cubic(t: float) -> float:
+func _ease_out_quad(t: float) -> float:
 	var clamped: float = clamp(t, 0.0, 1.0)
-	return 1.0 - pow(1.0 - clamped, 3.0)
+	return 1.0 - (1.0 - clamped) * (1.0 - clamped)

@@ -265,6 +265,7 @@ func _is_skill_ready(
 			return (
 				not bool(state_context.get("holding", false))
 				and not bool(state_context.get("throwing", false))
+				and not bool(state_context.get("cooldown_pending", false))
 				and not _is_any_blocking_skill_active(horn_context, skill_name)
 			)
 	return false

@@ -46,8 +46,15 @@ func update_input(input_snapshot: Dictionary, delta: float, owner: Object, runti
 
 func update(delta: float, transformed: bool) -> void:
 	var safe_delta: float = max(0.0, delta)
-	if transformed and not holding and _active_barrier_count() <= 0:
+	# Python live-runtime parity: the original ticks this cooldown on TWO lanes —
+	# the transform state update (transformed only) AND the per-frame draw path
+	# (always, which also keeps recharging after detransform). Net effect: 2x tick
+	# while transformed (felt cooldown ~5s), 1x outside. The gate also matches the
+	# original: no live barriers AND no dying barriers ("dying_barriers" list).
+	if not holding and barriers.is_empty():
 		cooldown_sec = max(0.0, cooldown_sec - safe_delta)
+		if transformed:
+			cooldown_sec = max(0.0, cooldown_sec - safe_delta)
 	if barriers.is_empty():
 		return
 	var alive: Array[Dictionary] = []

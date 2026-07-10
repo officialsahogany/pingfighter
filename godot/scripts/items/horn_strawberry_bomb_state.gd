@@ -36,6 +36,9 @@ var throw_timer_sec := 0.0
 var throw_accumulator_sec := 0.0
 var thrown_count := 0
 var cooldown_sec := 0.0
+# Python parity: the 30s cooldown is armed only when the throw is done AND every
+# bomb has resolved ("투척 완료 + 모든 폭탄 소진 → 쿨타임 시작"), not at cast.
+var cooldown_pending := false
 var anchor_center_x := 380.0
 var bombs: Array[Dictionary] = []
 var explosions: Array[Dictionary] = []
@@ -55,6 +58,7 @@ func reset() -> void:
 	throw_accumulator_sec = 0.0
 	thrown_count = 0
 	cooldown_sec = 0.0
+	cooldown_pending = false
 	anchor_center_x = 380.0
 	bombs.clear()
 	explosions.clear()
@@ -72,10 +76,16 @@ func cancel_throwing_preserve_lingering() -> void:
 	throw_timer_sec = 0.0
 	throw_accumulator_sec = 0.0
 	thrown_count = 0
+	cooldown_pending = false
 
 
 func can_use(current_gauge: float) -> bool:
-	return not throwing and cooldown_sec <= 0.0 and current_gauge + 0.001 >= GAUGE_COST
+	return (
+		not throwing
+		and not cooldown_pending
+		and cooldown_sec <= 0.0
+		and current_gauge + 0.001 >= GAUGE_COST
+	)
 
 
 func update_input(input_snapshot: Dictionary, delta: float, owner: Object, runtime: Object, blocked: bool = false, registry: Object = null) -> bool:
@@ -111,6 +121,9 @@ func update(delta: float, owner: Object, registry: Object, transformed: bool, ru
 	_update_bombs(safe_delta, owner, registry, runtime)
 	_update_explosions(safe_delta)
 	_update_paint_splatters(safe_delta, owner, registry)
+	if cooldown_pending and not throwing and bombs.is_empty():
+		cooldown_pending = false
+		cooldown_sec = COOLDOWN_SEC
 
 
 func consume_boss_hit_suppression(_ball_pos: Vector2, _ball_vel: Vector2, _context: Dictionary, _deps: Dictionary = {}) -> Dictionary:
@@ -130,6 +143,7 @@ func has_runtime_update_work() -> bool:
 		holding
 		or throwing
 		or cooldown_sec > 0.0
+		or cooldown_pending
 		or suppress_paddle_hit_knockback_frames > 0.0
 		or not bombs.is_empty()
 		or not explosions.is_empty()
@@ -153,6 +167,7 @@ func get_context() -> Dictionary:
 		"bomb_count": BOMB_COUNT,
 		"cooldown_sec": cooldown_sec,
 		"cooldown_max_sec": COOLDOWN_SEC,
+		"cooldown_pending": cooldown_pending,
 		"gauge_cost": GAUGE_COST,
 		"bombs": bombs.duplicate(true),
 		"bomb_count_active": bombs.size(),
@@ -176,7 +191,7 @@ func _start_throw(owner: Object) -> void:
 	throw_timer_sec = THROW_DURATION_SEC
 	throw_accumulator_sec = THROW_INTERVAL_SEC
 	thrown_count = 0
-	cooldown_sec = COOLDOWN_SEC
+	cooldown_pending = true
 	anchor_center_x = _get_player_center(owner).x
 
 
@@ -198,12 +213,14 @@ func _spawn_bomb(owner: Object) -> void:
 	var progress: float = float(thrown_count) / denominator
 	var sweep: float = progress * 2.0 - 1.0
 	var wobble: float = sin(float(_next_bomb_id) * 1.73)
+	# Python parity: spawn_offset_x = sweep * 25 (+/-5 jitter), sweep_vx = sweep * 4.0
+	# (+/-0.8 jitter) — the wider 58/3.9 spread was a port drift.
 	var spawn_pos := Vector2(
-		clamp(anchor_center_x + sweep * 58.0 + wobble * 7.0, BOMB_SIZE, 760.0 - BOMB_SIZE),
+		clamp(anchor_center_x + sweep * 25.0 + wobble * 5.0, BOMB_SIZE, 760.0 - BOMB_SIZE),
 		player_center.y - 32.0
 	)
 	var velocity := Vector2(
-		sweep * 3.9 + wobble * 0.9,
+		sweep * 4.0 + wobble * 0.8,
 		-(BASE_SPEED + abs(sweep) * 0.75 + float(thrown_count % 5) * 0.08)
 	)
 	var first_hop_delay: float = 0.05 + _pseudo_unit(_next_bomb_id, 5.1) * (HOP_INTERVAL_SEC * 0.5 - 0.05)

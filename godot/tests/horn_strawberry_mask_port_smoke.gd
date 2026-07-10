@@ -475,8 +475,17 @@ func _verify_eat_and_field_runtime() -> void:
 	_expect(_get_vector2(scene, "ball_vel").x > 0.5, "strawberry field reflect should nudge ball_vel.x by hit offset (Python vx += offset * 0.03)")
 	_expect(int(runtime.get_horn_strawberry_field_context().get("last_reflect_count", 0)) == 1, "strawberry field should consume the barrier on reflect")
 
-	# Python parity: a barrier hit while still BUILDING is destroyed WITHOUT reflecting.
+	# Python live-runtime parity: the cooldown ticks on TWO lanes while transformed
+	# (transform state update + per-frame draw path) -> 2x speed, felt cooldown ~5s.
+	# The dying barrier must still gate the tick until its death anim finishes.
 	runtime.update(owner, registry, 0.7)
+	runtime.update(owner, registry, 1.0)
+	_expect(
+		is_equal_approx(float(runtime.get_horn_strawberry_field_context().get("cooldown_sec", -1.0)), 8.0),
+		"field cooldown should tick at 2x while transformed (dual-lane Python parity)"
+	)
+
+	# Python parity: a barrier hit while still BUILDING is destroyed WITHOUT reflecting.
 	runtime.update(owner, registry, 10.0)
 	owner.values["special_gauge"] = 200.0
 	owner.values["player_pos"] = Vector2(300.0, 700.0)
@@ -582,8 +591,37 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	_expect(bool(boss_result.get("suppress_paddle_hit_knockback", false)), "boss post-hit should return the horn charge suppress flag")
 	_expect(bool(boss_result.get("horn_strawberry_horn_charge_hit", false)), "boss post-hit should consume the horn charge hit marker")
 
+	# Python parity legs: live target re-aim every charging frame, quadratic (t^2)
+	# charge easing, and NO post-charge self-lock — the skill ends right after the
+	# 0.5s return, so eat/bomb are not held hostage for an extra 1.5s STUN window.
+	runtime.horn_strawberry_horn_charge_state.reset()
+	owner.values["special_gauge"] = 500.0
+	owner.values["boss_pos"] = Vector2(330.0, 35.0)
+	input_reader.snapshot = {
+		"up_pressed": true,
+		"up_just_pressed": true,
+	}
+	runtime.update(owner, registry, 0.0)
+	input_reader.snapshot = {}
+	owner.values["boss_pos"] = Vector2(500.0, 35.0)
+	runtime.update(owner, registry, 0.215)
+	var tracked_context: Dictionary = runtime.get_horn_strawberry_horn_charge_context()
+	_expect(str(tracked_context.get("phase", "")) == "charging", "re-aim leg should still be mid-charge at half duration")
+	var tracked_target: Vector2 = _get_vector2(tracked_context, "target_center")
+	_expect(is_equal_approx(tracked_target.x, 550.0), "charging should re-aim at the boss's LIVE position every frame")
+	var mid_offset: Vector2 = _get_vector2(tracked_context, "current_offset")
+	var charge_origin: Vector2 = _get_vector2(tracked_context, "player_center") - mid_offset
+	var expected_offset_y: float = clamp(tracked_target.y - charge_origin.y, -640.0, -80.0) * 0.25
+	_expect(abs(mid_offset.y - expected_offset_y) < 1.0, "charge easing should be quadratic (t^2): half-time offset = 25 percent of travel")
+	runtime.update(owner, registry, 0.215)
+	runtime.update(owner, registry, 0.2)
+	_expect(str(runtime.get_horn_strawberry_horn_charge_context().get("phase", "")) == "returning", "horn charge should be returning after the impact window")
+	runtime.update(owner, registry, 0.5)
+	_expect(not bool(runtime.get_horn_strawberry_horn_charge_context().get("active", false)), "horn charge should END right after the return (Python kills the STUN phase immediately)")
+
 	runtime.horn_strawberry_horn_charge_state.reset()
 	status_state.applied_statuses.clear()
+	owner.values["boss_pos"] = Vector2(330.0, 35.0)
 	owner.values["special_gauge"] = 500.0
 	input_reader.snapshot = {
 		"left_pressed": true,
@@ -595,12 +633,26 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	_expect(int(bomb_context.get("thrown_count", 0)) > 0, "strawberry bomb should start throwing bombs over one second")
 	_expect(int(bomb_context.get("bomb_count", 0)) == 30, "strawberry bomb should preserve the 30-bomb count")
 	_expect(is_equal_approx(float(bomb_context.get("paint_slow_multiplier", 0.0)), 0.70), "strawberry bomb paint slow should be 30 percent")
+	# Python parity: the 30s cooldown must NOT start at cast — it arms only after
+	# the throw finishes AND every bomb has resolved.
+	_expect(is_equal_approx(float(bomb_context.get("cooldown_sec", -1.0)), 0.0), "bomb cooldown should not start at cast time")
+	_expect(bool(bomb_context.get("cooldown_pending", false)), "bomb cooldown should be pending until all bombs resolve")
 
 	var bombs: Array = bomb_context.get("bombs", [])
 	if not bombs.is_empty() and bombs[0] is Dictionary:
 		var first_bomb: Dictionary = bombs[0]
 		var bomb_pos: Vector2 = _get_vector2(first_bomb, "position")
 		var bomb_base_pos: Vector2 = _get_vector2(first_bomb, "base_position")
+		# Python parity spawn spread: first bomb (sweep = -1) spawns at anchor - 25 (+/-5),
+		# not the drifted anchor - 58. Use a fresh state instance so the spawn position
+		# is checked BEFORE any physics step moves the bomb.
+		var spread_state: Object = runtime.horn_strawberry_bomb_state.get_script().new()
+		spread_state._start_throw(owner)
+		spread_state._spawn_bomb(owner)
+		var bomb_anchor_x: float = (owner.values["player_pos"] as Vector2).x + float(owner.values.get("player_paddle_width", 155.0)) * 0.5
+		var spread_bombs: Array = spread_state.bombs
+		var spawn_x: float = _get_vector2(spread_bombs[0], "base_position").x if not spread_bombs.is_empty() else -9999.0
+		_expect(abs(spawn_x - (bomb_anchor_x - 25.0)) <= 5.5, "first bomb should spawn within the Python +/-25px sweep spread")
 		input_reader.snapshot = {}
 		runtime.update(owner, registry, 0.1)
 		var moved_bombs: Array = runtime.get_horn_strawberry_bomb_context().get("bombs", [])
@@ -608,10 +660,23 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 			var moved_bomb: Dictionary = moved_bombs[0]
 			_expect(_get_vector2(moved_bomb, "base_position").y <= bomb_base_pos.y, "strawberry bombs should hop upward without gravity drift")
 			_expect(_get_vector2(moved_bomb, "position").y <= bomb_pos.y, "strawberry bomb visual hop should not fall below its launch path")
+		runtime.update(owner, registry, 0.9)
+		var post_throw_context: Dictionary = runtime.get_horn_strawberry_bomb_context()
+		_expect(not bool(post_throw_context.get("throwing", false)), "bomb throw should finish after one second")
+		_expect(int(post_throw_context.get("bomb_count_active", 0)) > 0, "bombs should still be in flight after the throw finishes")
+		_expect(is_equal_approx(float(post_throw_context.get("cooldown_sec", -1.0)), 0.0), "bomb cooldown should stay unarmed while bombs are in flight")
+		owner.values["special_gauge"] = 500.0
+		input_reader.snapshot = {
+			"left_pressed": true,
+			"right_pressed": true,
+		}
+		runtime.update(owner, registry, 0.5)
+		_expect(is_equal_approx(float(owner.values.get("special_gauge", 0.0)), 500.0), "recast must be blocked (no gauge spend) while bombs are unresolved")
 		# LIVE trigger leg (Force-Injected-State trap guard): the boss stays parked at
 		# its real top-lane position. Bombs must FLY there and detonate at the boss
 		# hitbox bottom edge — the old bottom+40px threshold detonated every bomb
 		# 40px short, so hit/stun/paint never reached the boss in real play.
+		input_reader.snapshot = {}
 		var boss_bottom_y: float = (owner.values["boss_pos"] as Vector2).y + float(owner.values.get("boss_hitbox_height", 40.0))
 		var saw_hit_boss_explosion := false
 		var min_explosion_y := 100000.0
@@ -638,6 +703,11 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 			and is_equal_approx(float(bomb_shake.get("intensity", 0.0)), 12.0 * 9.0 / 35.0),
 			"strawberry bomb boss hit should trigger the Python-parity screen shake (8f/12)"
 		)
+		runtime.update(owner, registry, 4.0)
+		var exhausted_context: Dictionary = runtime.get_horn_strawberry_bomb_context()
+		_expect(int(exhausted_context.get("bomb_count_active", -1)) == 0, "all bombs should resolve within their 4-second life")
+		_expect(not bool(exhausted_context.get("cooldown_pending", true)), "bomb cooldown pending should clear once every bomb resolves")
+		_expect(float(exhausted_context.get("cooldown_sec", 0.0)) > 20.0, "bomb cooldown should arm at bomb exhaustion (Python: 투척 완료 + 모든 폭탄 소진)")
 	else:
 		_expect(false, "strawberry bomb should expose at least one bomb for collision smoke")
 
