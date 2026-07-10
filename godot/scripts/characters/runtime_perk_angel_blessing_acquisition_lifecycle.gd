@@ -58,7 +58,7 @@ func on_accepted_choice(
 
 	if owner == null or registry == null:
 		return _blocked("missing_battle_context")
-	if bool(owner.get("arena_mode_enabled")):
+	if owner.get("arena_mode_enabled") == true:
 		return _ignored("arena_context")
 	var stage: int = _get_current_stage(runtime_state, owner)
 	if stage <= 0:

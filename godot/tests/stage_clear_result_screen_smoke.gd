@@ -990,6 +990,10 @@ func _verify_advance_through_boxes_to_next_stage() -> void:
 	_expect(box_count > 0, "5:0 plan must expose at least one box for advance smoke")
 	for _i in range(box_count):
 		screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
+		# 오픈 직렬화 가드(단일 슬롯 보상 게이트): 열리는 중에는 다음 오픈이
+		# 소비-무시되므로, 각 오픈이 완료된 뒤에 다음 입력을 보낸다.
+		for _j in range(30):
+			screen.update(0.05)
 	for _i in range(80):
 		screen.update(0.05)
 	_expect(screen.is_active(), "result screen should still be active until next-stage Enter")
@@ -1028,6 +1032,10 @@ func _verify_exit_to_menu_from_visible_scroll() -> void:
 	var box_count: int = int(screen.get_reward_plan().get("reward_count", 0))
 	for _i in range(box_count):
 		screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
+		# 오픈 직렬화 가드(단일 슬롯 보상 게이트): 열리는 중에는 다음 오픈이
+		# 소비-무시되므로, 각 오픈이 완료된 뒤에 다음 입력을 보낸다.
+		for _j in range(30):
+			screen.update(0.05)
 	for _i in range(80):
 		screen.update(0.05)
 

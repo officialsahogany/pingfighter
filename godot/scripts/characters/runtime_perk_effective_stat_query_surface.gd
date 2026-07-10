@@ -580,21 +580,13 @@ func _get_runtime_skill_levels_with_all_fusion_bonuses(runtime_state: Object) ->
 	return adjusted_levels
 
 
-func _apply_fusion_skill_bonus(runtime_state: Object, perk_id: String, base_value: float) -> float:
-	if runtime_state != null and runtime_state.has_method("apply_perk_fusion_skill_bonus"):
-		return float(runtime_state.call("apply_perk_fusion_skill_bonus", perk_id, base_value))
-	var fusion_state: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "perk_fusion_state")
-	if fusion_state != null and fusion_state.has_method("apply_skill_bonus"):
-		return float(fusion_state.call("apply_skill_bonus", perk_id, base_value))
+func _apply_fusion_skill_bonus(_runtime_state: Object, _perk_id: String, base_value: float) -> float:
+	# 퍽 융합 미탑재 트리: 융합 보정 없이 원값을 그대로 반환한다.
 	return base_value
 
 
-func _get_fusion_effective_level_bonus(runtime_state: Object, perk_id: String) -> int:
-	if runtime_state != null and runtime_state.has_method("get_perk_fusion_effective_level_bonus"):
-		return maxi(0, int(runtime_state.call("get_perk_fusion_effective_level_bonus", perk_id)))
-	var fusion_state: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "perk_fusion_state")
-	if fusion_state != null and fusion_state.has_method("get_effective_level_bonus"):
-		return maxi(0, int(fusion_state.call("get_effective_level_bonus", perk_id)))
+func _get_fusion_effective_level_bonus(_runtime_state: Object, _perk_id: String) -> int:
+	# 퍽 융합 미탑재 트리: 유효 레벨 보너스 0.
 	return 0
 
 

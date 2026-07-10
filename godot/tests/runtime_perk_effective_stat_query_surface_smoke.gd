@@ -1,5 +1,6 @@
 extends SceneTree
 
+const SourceContractFunctionBody := preload("res://tests/source_contract_function_body.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
 const RuntimePerkEffectiveStatQuerySurface := preload("res://scripts/characters/runtime_perk_effective_stat_query_surface.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
@@ -178,6 +179,10 @@ func _verify_state_wrappers_delegate_to_surface() -> void:
 func _verify_source_contract() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	var surface_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_effective_stat_query_surface.gd")
+	var effective_levels_body: String = SourceContractFunctionBody.extract(surface_source, "func _get_effective_levels(")
+	var runtime_levels_body: String = SourceContractFunctionBody.extract(surface_source, "func _get_runtime_skill_levels(")
+	var item_bonus_body: String = SourceContractFunctionBody.extract(surface_source, "func _get_item_perk_level_bonus(")
+	var viper_active_body: String = SourceContractFunctionBody.extract(surface_source, "func _is_viper_ignition_aura_active(")
 	_expect(state_source.find("RuntimePerkEffectiveStatQuerySurface") >= 0, "state should preload the effective-stat query surface")
 	_expect(state_source.find("_effective_stat_queries.get_dash_recharge_frames_from_runtime_state") >= 0, "state should delegate dash stat queries to runtime-state query surface facades")
 	_expect(state_source.find("_effective_stat_queries.get_active_item_duration_frames_from_runtime_state") >= 0, "state should delegate active-item stat queries to runtime-state query surface facades")
@@ -204,7 +209,18 @@ func _verify_source_contract() -> void:
 	_expect(surface_source.find("func is_ignition_aura_level_bonus_eligible_from_runtime_state") >= 0, "query surface should expose Ignition Aura eligibility facade")
 	_expect(surface_source.find("func get_laurel_leaf_count_from_runtime_state") >= 0, "query surface should expose Laurel runtime-state facade")
 	_expect(surface_source.find("func _get_effective_levels") >= 0, "query surface should own effective-level helper lookup")
-	_expect(surface_source.find("_build_runtime_state_get_instance(runtime_state)") >= 0, "query surface should assemble runtime-state get-instance callback")
+	_expect(surface_source.find("RuntimePerkRuntimeStateAccess") >= 0, "query surface should preload runtime-state access helper")
+	_expect(surface_source.find("func _build_runtime_state_get_instance(") < 0, "query surface should not keep local get-instance callback builder")
+	_expect(surface_source.find("func _get_state_object(") < 0, "query surface should not keep local runtime-state object accessor")
+	_expect(surface_source.find("runtime_state.get(") < 0, "query surface should not read runtime-state properties directly")
+	_expect(surface_source.find("effective_levels.callv(") < 0, "query surface should route effective-level float calls through shared runtime-state access")
+	_expect(surface_source.find("RuntimePerkRuntimeStateAccess.call_float(effective_levels, method_name, args, fallback)") >= 0, "query surface should use shared float method caller")
+	_expect(effective_levels_body.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_effective_levels\")") >= 0, "query surface should use shared effective-level helper lookup")
+	_expect(runtime_levels_body.find("RuntimePerkRuntimeStateAccess.get_dict(runtime_state, \"runtime_skill_levels\")") >= 0, "query surface should use shared runtime-level lookup")
+	_expect(item_bonus_body.find("RuntimePerkRuntimeStateAccess.get_int(runtime_state, \"item_perk_level_bonus\")") >= 0, "query surface should use shared item bonus lookup")
+	_expect(viper_active_body.find("RuntimePerkRuntimeStateAccess.get_bool(runtime_state, \"viper_ignition_aura_active\")") >= 0, "query surface should use shared Viper active lookup")
+	_expect(surface_source.find("RuntimePerkRuntimeStateAccess.build_callable(") >= 0, "query surface should assemble runtime-state get-instance callback")
+	_expect(surface_source.find("Callable(self, \"_missing_instance\")") >= 0, "query surface should preserve valid null-return fallback callable")
 
 
 func _get_instance(registry: Object, key: String) -> Object:

@@ -120,6 +120,7 @@ func _run() -> void:
 	PerkConversionFlags.debug_set_enabled(false)
 	_verify_flag_off_legacy_mythic_routes()
 	_verify_flag_on_stage_clear_mythic_perk_grant()
+	_verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback()
 	_verify_flag_on_field_and_pandora_mythic_suppression()
 	_verify_flag_on_treasure_mythic_perk_grant()
 	_verify_all_owned_fallback_starpoints()
@@ -170,14 +171,21 @@ func _verify_flag_on_stage_clear_mythic_perk_grant() -> void:
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	})
 	var guaranteed: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
-	_expect(str(guaranteed.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON guaranteed mythic box should roll mythic_perk")
-	_expect(str(guaranteed.get("perk_id", "")) != "", "flag-ON mythic_perk reward should carry perk_id")
+	_expect(str(guaranteed.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON guaranteed mythic box should roll mythic_perk_choice")
+	_expect(str(guaranteed.get("perk_id", "")) == "", "flag-ON mythic_perk_choice reward should not carry a pre-picked perk_id")
 
 	var summary: Dictionary = resolver.grant_rewards([guaranteed], owner, registry)
-	var granted_perk_id: String = str(guaranteed.get("perk_id", ""))
-	_expect(int(summary.get("mythic_perk_granted", 0)) == 1, "flag-ON mythic_perk reward should increment mythic_perk grant count")
+	_expect(int(summary.get("mythic_perk_choice_opened", 0)) == 1, "flag-ON mythic_perk_choice reward should open the choice modal")
 	_expect(mythic_runtime.acquire_calls == 0, "flag-ON mythic_perk reward must not call mythic item acquire_item")
-	_expect(perk_state.get_runtime_skill_level(granted_perk_id) == 1, "flag-ON mythic_perk reward should apply Lv.1 through runtime perk state")
+	_expect(perk_state.is_choice_active(), "flag-ON mythic_perk_choice reward should activate the runtime perk modal")
+	_expect(perk_state.current_choices.size() > 0 and perk_state.current_choices.size() <= 3, "flag-ON mythic_perk_choice reward should expose up to three cards")
+	for choice_value in perk_state.current_choices:
+		var choice: Dictionary = _get_dict(choice_value)
+		_expect(str(choice.get("rarity", "")) == "mythic", "flag-ON mythic choice cards should be mythic-only")
+	var granted_perk_id: String = str((_get_dict(perk_state.current_choices[perk_state.selected_index])).get("id", ""))
+	perk_state.update(0.30, Vector2(760.0, 750.0), owner, registry)
+	perk_state.choose_selected(owner, registry, Vector2(760.0, 750.0))
+	_expect(perk_state.get_runtime_skill_level(granted_perk_id) == 1, "flag-ON mythic_perk_choice selection should apply Lv.1 through runtime perk state")
 
 	var immediate_owner := FakeOwner.new()
 	root.add_child(immediate_owner)
@@ -198,8 +206,101 @@ func _verify_flag_on_stage_clear_mythic_perk_grant() -> void:
 	_expect(bool(immediate_result.get("granted", false)), "result-screen immediate mythic_perk grant should succeed")
 	_expect(not bool(immediate_result.get("raise_mythic_acquisition_cinematic", false)), "mythic_perk immediate grant must not raise mythic item acquisition cinematic")
 	_expect(immediate_state.get_runtime_skill_level("odins_eye") == 1, "result-screen immediate mythic_perk grant should apply through runtime perk state")
+
+	var immediate_choice_owner := FakeOwner.new()
+	root.add_child(immediate_choice_owner)
+	var immediate_choice_state := RuntimePerkState.new()
+	var immediate_choice_registry := FakeRegistry.new({
+		"mythic_item_runtime": CountingMythicRuntime.new(),
+		"runtime_perk_state": immediate_choice_state,
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+	})
+	var immediate_choice_reward: Dictionary = MythicPerkGrantHelper.build_choice_reward(immediate_choice_owner, immediate_choice_registry)
+	var immediate_choice_result: Dictionary = StageClearResultImmediateRewardGrantData.grant_immediate_box_reward(
+		immediate_choice_reward,
+		immediate_choice_owner,
+		immediate_choice_registry,
+		false,
+		resolver
+	)
+	_expect(bool(immediate_choice_result.get("granted", false)), "result-screen immediate mythic_perk_choice grant should succeed")
+	_expect(bool(immediate_choice_result.get("mythic_perk_choice_opened", false)), "result-screen immediate mythic_perk_choice grant should expose the opened-choice flag")
+	_expect(immediate_choice_state.is_choice_active(), "result-screen immediate mythic_perk_choice grant should open the runtime choice modal")
 	owner.queue_free()
 	immediate_owner.queue_free()
+	immediate_choice_owner.queue_free()
+
+
+func _verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback() -> void:
+	# 상자에서 온 mythic_perk 보상이 grant 시점에 (모든 신화퍽 소유로) 스타포인트 폴백되면,
+	# 결과화면의 지연 선택 게이트 / 박스별 보상 추적 플로우를 타도록 defer_starpoint_choice
+	# 를 반환해야 한다. 폴백이 지연 플래그를 물려받지 않으면 폴백 선택 모달이 게이트를 우회해
+	# 즉시 열려 박스 추적이 어긋난다.
+	PerkConversionFlags.debug_set_enabled(true)
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var perk_state := RuntimePerkState.new()
+	for perk_id in MythicPerkGrantHelper.MYTHIC_PERK_IDS:
+		perk_state.runtime_skill_levels[str(perk_id)] = 1
+	var registry := FakeRegistry.new({
+		"mythic_item_runtime": CountingMythicRuntime.new(),
+		"runtime_perk_state": perk_state,
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+	})
+	var resolver := StageClearRewardResolver.new()
+	var reward := {"type": "mythic_perk", "perk_id": "odins_eye", "id": "odins_eye", "fallback_starpoints": 3}
+
+	var deferred_result: Dictionary = StageClearResultImmediateRewardGrantData.grant_immediate_box_reward(
+		reward,
+		owner,
+		registry,
+		true,
+		resolver
+	)
+	_expect(bool(deferred_result.get("granted", false)), "slot-full mythic_perk box reward should still grant as a starpoint fallback")
+	_expect(bool(deferred_result.get("defer_starpoint_choice", false)), "slot-full mythic_perk fallback should request the deferred starpoint choice when defer is available")
+
+	var immediate_result: Dictionary = StageClearResultImmediateRewardGrantData.grant_immediate_box_reward(
+		reward,
+		owner,
+		registry,
+		false,
+		resolver
+	)
+	_expect(bool(immediate_result.get("granted", false)), "mythic_perk fallback should still grant when defer is unavailable")
+	_expect(not bool(immediate_result.get("defer_starpoint_choice", false)), "mythic_perk fallback should not defer when the result screen cannot defer")
+
+	# mythic_perk_choice 타입의 grant 시점 폴백 브랜치도 직접 봉인. 실생산 all-owned 는
+	# 롤 단계에서 이미 starpoint 로 바뀌지만, 롤(클릭)-그랜트(오픈 완료) 사이에 다른
+	# 상자의 초이스로 마지막 신화퍽이 소진되면 이 방어 브랜치를 탄다. 위 mythic_perk
+	# 레그와 달리 resolver 의 fallback_reward["defer_choice_open"] 상속 라인도 이
+	# 레그만 통과한다. (이전 레그의 defer=false 지급이 모달을 즉시 열어 두므로 fresh
+	# state 로 격리한다.)
+	var choice_owner := FakeOwner.new()
+	root.add_child(choice_owner)
+	var choice_perk_state := RuntimePerkState.new()
+	for perk_id in MythicPerkGrantHelper.MYTHIC_PERK_IDS:
+		choice_perk_state.runtime_skill_levels[str(perk_id)] = 1
+	var choice_registry := FakeRegistry.new({
+		"mythic_item_runtime": CountingMythicRuntime.new(),
+		"runtime_perk_state": choice_perk_state,
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+	})
+	var choice_reward := {"type": "mythic_perk_choice", "choice_count": 3, "fallback_starpoints": 3}
+	var choice_deferred_result: Dictionary = StageClearResultImmediateRewardGrantData.grant_immediate_box_reward(
+		choice_reward,
+		choice_owner,
+		choice_registry,
+		true,
+		resolver
+	)
+	_expect(bool(choice_deferred_result.get("granted", false)), "all-owned mythic_perk_choice box reward should still grant as a starpoint fallback")
+	_expect(not bool(choice_deferred_result.get("mythic_perk_choice_opened", false)), "grant-time mythic_perk_choice fallback should not report an opened choice")
+	_expect(bool(choice_deferred_result.get("defer_starpoint_choice", false)), "grant-time mythic_perk_choice fallback should request the deferred starpoint choice")
+	_expect(not choice_perk_state.is_choice_active(), "deferred mythic_perk_choice fallback should not open the perk choice modal immediately")
+	_expect(int(choice_perk_state.pending_skill_choices) >= 1, "deferred mythic_perk_choice fallback should bank pending choices for the deferred open")
+	choice_owner.queue_free()
+	owner.queue_free()
 
 
 func _verify_flag_on_field_and_pandora_mythic_suppression() -> void:

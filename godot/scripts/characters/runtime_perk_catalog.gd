@@ -1480,7 +1480,7 @@ func get_perk_slot_limit() -> int:
 	return PERK_SLOT_LIMIT
 
 
-func get_perk_slot_status(runtime_levels: Dictionary) -> Dictionary:
+func get_perk_slot_status(runtime_levels: Dictionary, _registry: Object = null) -> Dictionary:
 	var count := count_owned_slot_perks(runtime_levels)
 	return {
 		"count": count,

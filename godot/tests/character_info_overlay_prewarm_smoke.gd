@@ -471,7 +471,7 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(source.find("var _perk_level_text_size_cache_values: Array[Vector2] = []") >= 0, "perk grid level text should keep a typed size cache")
 	_expect(overlay_acquired_body.find("var effective_levels: Dictionary = effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)") >= 0, "acquired perk cache should compute snapshot effective levels once")
 	_expect(acquired_cache_hash_body.find("has_snapshot_effective_levels") >= 0, "acquired perk cache hash should only use the fast snapshot hash when effective levels are present")
-	_expect(acquired_cache_hash_body.find("return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
+	_expect(acquired_cache_hash_body.find("hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
 	_expect(acquired_cache_hash_body.find("for skill_id_value in levels") < 0, "snapshot-backed acquired perk cache hash should not iterate every perk level")
 	_expect(acquired_runtime_hash_body.find("var result: int = hash(catalog_id)") >= 0, "direct acquired perk runtime cache should accumulate a numeric hash")
 	_expect(acquired_runtime_hash_body.find("for skill_id_value in levels.keys():") < 0, "direct acquired perk runtime cache should not allocate dictionary key arrays")

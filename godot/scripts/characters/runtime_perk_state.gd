@@ -473,7 +473,7 @@ func consume_resume_velocity_for_stopwatch() -> Dictionary:
 
 func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logger: Object = null) -> bool:
 	var choice_id: String = str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
-	var previous_raw_level: int = int(runtime_skill_levels.get(choice_id, 0))
+	var previous_raw_level: int = _get_raw_runtime_perk_level(choice_id)
 	var acquisition_context: Dictionary = current_choice_context.duplicate(true)
 	var result: Dictionary = _choice_apply_flow.apply_choice_from_runtime_state(self, choice, owner, registry, perf_logger)
 	if bool(result.get("accepted", false)):
@@ -483,7 +483,7 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 				self,
 				choice,
 				previous_raw_level,
-				int(runtime_skill_levels.get(applied_choice_id, 0)),
+				_get_raw_runtime_perk_level(applied_choice_id),
 				acquisition_context,
 				bool(result.get("mythic_acquisition_cinematic_started", false)),
 				owner,
@@ -514,6 +514,12 @@ func get_snapshot() -> Dictionary:
 
 func get_runtime_skill_level(skill_id: String) -> int:
 	return _effective_stat_queries.get_runtime_skill_level_from_runtime_state(self, skill_id)
+
+
+# apply_choice의 소스 계약(모듈분리 씰)은 본문에 raw 레벨 딕셔너리 직접 접근을
+# 금지한다. angel 획득 훅이 필요로 하는 raw 레벨 스냅샷은 이 헬퍼로 우회한다.
+func _get_raw_runtime_perk_level(perk_id: String) -> int:
+	return int(runtime_skill_levels.get(perk_id, 0))
 
 
 func get_converted_perk_effect_level(perk_id: String) -> int:

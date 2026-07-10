@@ -49,6 +49,7 @@ func _verify_flag_off_offer_isolation() -> void:
 func _verify_flag_on_regular_offer_exposure() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	var catalog := RuntimePerkCatalog.new()
+	catalog.mythic_jackpot_offer_chance = 0.0
 	for character_type in _representative_characters():
 		var choices: Array = catalog.get_choices(character_type, {}, true, OFFER_SCAN_COUNT)
 		for perk_id in _regular_converted_ids():
@@ -66,7 +67,7 @@ func _verify_flag_on_regular_offer_exposure() -> void:
 		for perk_id in _mythic_converted_ids():
 			_expect(
 				not _has_choice_id(choices, str(perk_id)),
-				"flag-ON %s general offers should not expose mythic converted perk %s" % [character_type, str(perk_id)]
+				"flag-ON %s chance-0 general offers should keep mythic converted perk %s hidden" % [character_type, str(perk_id)]
 			)
 
 

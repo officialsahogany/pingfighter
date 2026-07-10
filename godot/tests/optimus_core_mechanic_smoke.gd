@@ -107,8 +107,10 @@ func _verify_energy_state_math() -> void:
 
 	var drained: Dictionary = state.update_energy(10.0, 500.0)
 	_expect(is_equal_approx(float(drained.get("special_gauge", 0.0)), 430.0), "Optimus should drain 7 gauge per second")
-	_expect(float(drained.get("player_paddle_width", 0.0)) < 296.0, "drained battery should shrink paddle width")
-	_expect(float(drained.get("player_paddle_width", 0.0)) > 240.0, "partially drained battery should stay above minimum width")
+	var drained_base_width: float = float(drained.get("runtime_paddle_base_width", 0.0))
+	_expect(drained_base_width < 296.0, "drained battery should shrink the runtime paddle base width")
+	_expect(drained_base_width > 240.0, "partially drained battery should stay above minimum base width")
+	_expect(not drained.has("player_paddle_width"), "per-tick energy updates should leave final paddle width to shared composition")
 
 	var empty: Dictionary = state.build_scale_snapshot(0.0)
 	_expect(is_equal_approx(float(empty.get("player_paddle_width", 0.0)), 240.0), "empty battery should clamp to minimum paddle width")
@@ -130,6 +132,13 @@ func _verify_energy_state_math() -> void:
 
 func _verify_actor_update_applies_optimus_energy() -> void:
 	var owner := FakeOwner.new()
+	owner.player_paddle_width = 333.0
+	owner.player_paddle_height = 165.0
+	owner.player_paddle_scale = owner.player_paddle_width / 155.0
+	owner.player_pos = Vector2(213.5, 585.0)
+	var preserved_paddle_size := Vector2(owner.player_paddle_width, owner.player_paddle_height)
+	var preserved_paddle_scale: float = owner.player_paddle_scale
+	var preserved_paddle_y: float = owner.player_pos.y
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"battle_update_context": BattleUpdateContext.new(),
@@ -143,9 +152,13 @@ func _verify_actor_update_applies_optimus_energy() -> void:
 
 	_expect(owner.gameplay_frame_counter == 1, "Optimus update should advance gameplay frame")
 	_expect(is_equal_approx(owner.special_gauge, 243.0), "Optimus update should drain battery through the player controller")
-	_expect(owner.player_paddle_width < 296.0 and owner.player_paddle_width > 240.0, "Optimus owner width should follow current battery")
-	_expect(is_equal_approx(owner.runtime_paddle_base_width, owner.player_paddle_width), "Optimus owner should publish current runtime base width")
-	_expect(owner.player_paddle_height > 50.0, "Optimus owner height should use its large mecha hitbox scale")
+	_expect(owner.runtime_paddle_base_width < 296.0 and owner.runtime_paddle_base_width > 240.0, "Optimus owner should publish the battery-derived runtime base width")
+	_expect(
+		Vector2(owner.player_paddle_width, owner.player_paddle_height).is_equal_approx(preserved_paddle_size),
+		"Optimus actor update should not overwrite a composed final paddle size"
+	)
+	_expect(is_equal_approx(owner.player_paddle_scale, preserved_paddle_scale), "Optimus actor update should not overwrite final paddle draw scale")
+	_expect(is_equal_approx(owner.player_pos.y, preserved_paddle_y), "Optimus actor update should not shift the composed paddle vertically")
 	_expect(owner.player_speed <= 2.01, "half battery should cut Optimus max movement speed roughly in half")
 	_expect(owner.optimus_energy_ratio < 0.5, "owner should publish the post-drain battery ratio")
 

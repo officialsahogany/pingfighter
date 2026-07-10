@@ -101,12 +101,12 @@ func _verify_stage_clear_box_redirect() -> void:
 	_expect(str(advanced_on.get("type", "")) == StageClearRewardResolver.REWARD_STARPOINT, "flag-ON advanced passive roll should redirect to starpoint")
 	_expect(int(advanced_on.get("amount", 0)) == 2, "flag-ON advanced passive roll should grant two starpoints")
 	var normal_mythic_on: Dictionary = resolver._roll_normal_box_reward(null, null, 0.99)
-	_expect(str(normal_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON normal mythic roll should redirect to a mythic perk")
-	_expect(str(normal_mythic_on.get("perk_id", "")) != "", "flag-ON normal mythic perk reward should carry a perk id")
+	_expect(str(normal_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON normal mythic roll should redirect to a mythic perk choice")
+	_expect(str(normal_mythic_on.get("perk_id", "")) == "", "flag-ON normal mythic perk choice should not pre-pick a perk id")
 	var advanced_mythic_on: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.0)
-	_expect(str(advanced_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON advanced mythic roll should redirect to a mythic perk")
+	_expect(str(advanced_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON advanced mythic roll should redirect to a mythic perk choice")
 	var guaranteed_mythic_on: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC)
-	_expect(str(guaranteed_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK, "flag-ON guaranteed mythic box should roll a mythic perk")
+	_expect(str(guaranteed_mythic_on.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON guaranteed mythic box should roll a mythic perk choice")
 
 
 func _verify_pandora_passive_pool_gate() -> void:
