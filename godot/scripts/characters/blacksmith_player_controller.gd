@@ -40,7 +40,8 @@ func update(
 			deps
 		)
 		next_special_gauge = float(shield_result.get("special_gauge", next_special_gauge))
-		_apply_speed_multiplier(motion_config, shield_state)
+		if not bool(motion_config.get("horn_strawberry_transformed", false)):
+			_apply_speed_multiplier(motion_config, shield_state)
 	motion_config["special_gauge"] = next_special_gauge
 	var shared_result: Dictionary = shared_controller.update(
 		delta,

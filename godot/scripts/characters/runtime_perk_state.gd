@@ -400,8 +400,8 @@ func _finish_successful_choice(
 	registry: Object,
 	perf_logger: Object = null,
 	choice: Dictionary = {}
-) -> void:
-	_choice_finish_flow.finish_successful_choice_from_runtime_state(
+) -> Dictionary:
+	var result: Dictionary = _choice_finish_flow.finish_successful_choice_from_runtime_state(
 		self,
 		choice_id,
 		owner,
@@ -409,6 +409,7 @@ func _finish_successful_choice(
 		perf_logger,
 		choice
 	)
+	return result
 
 
 func _finish_or_open_unlock_showcase(

@@ -74,9 +74,17 @@ func update(
 	var movement_config: Dictionary = config.duplicate(true)
 	movement_config["special_gauge"] = next_special_gauge
 	if firearm_runtime != null and firearm_runtime.has_method("is_player_control_locked"):
-		movement_config["horizontal_input_locked"] = bool(firearm_runtime.is_player_control_locked())
+		movement_config["horizontal_input_locked"] = (
+			bool(movement_config.get("horizontal_input_locked", false))
+			or bool(firearm_runtime.is_player_control_locked())
+		)
 	if firearm_runtime != null and firearm_runtime.has_method("get_movement_speed_multiplier"):
-		movement_config["paddle_max_speed_multiplier"] = float(firearm_runtime.get_movement_speed_multiplier())
+		var firearm_speed_multiplier: float = float(firearm_runtime.get_movement_speed_multiplier())
+		# Horn replaces Commando's character-specific AK slow, but an active
+		# suicide drone still owns a hard movement freeze through multiplier 0.
+		if bool(movement_config.get("horn_strawberry_transformed", false)) and firearm_speed_multiplier > 0.0:
+			firearm_speed_multiplier = 1.0
+		movement_config["paddle_max_speed_multiplier"] = firearm_speed_multiplier
 	var result: Dictionary = shared_controller.update(delta, frame_counter, player_pos, player_speed, movement_config, deps)
 	# The shared controller already receives the Commando gauge changes through
 	# movement_config.special_gauge AND applies any Soul Burst dash spend during

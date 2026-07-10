@@ -7,7 +7,7 @@ const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_gra
 
 const ANGEL_PERK_ID := "angel_blessing"
 const EXPECTED_MYTHIC_COUNT := 13
-const EXPECTED_CONVERSION_SOURCE_COUNT := 39
+const EXPECTED_CONVERSION_SOURCE_COUNT := 41
 
 var _failures: Array[String] = []
 
@@ -43,7 +43,7 @@ func _verify_catalog_contract() -> void:
 
 
 func _verify_conversion_value_contract() -> void:
-	_expect_eq(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size(), EXPECTED_CONVERSION_SOURCE_COUNT, "conversion source map should expose 39 entries")
+	_expect_eq(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size(), EXPECTED_CONVERSION_SOURCE_COUNT, "conversion source map should expose 41 entries")
 	_expect_eq(
 		str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(ANGEL_PERK_ID, "")),
 		ANGEL_PERK_ID,

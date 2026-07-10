@@ -225,6 +225,8 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 
 
 func _get_jetpack_movement_config(config: Dictionary, jetpack_state: Object) -> Dictionary:
+	if bool(config.get("horn_strawberry_transformed", false)):
+		return config
 	if jetpack_state == null or not jetpack_state.has_method("get_movement_bonus_multiplier"):
 		return config
 	var multiplier: float = max(1.0, float(jetpack_state.get_movement_bonus_multiplier()))

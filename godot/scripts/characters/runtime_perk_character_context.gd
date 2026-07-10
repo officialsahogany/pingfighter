@@ -13,6 +13,8 @@ func get_skill_config_key(character_type: String) -> String:
 			return "commando_skill_config"
 		"optimus":
 			return ""
+		"blacksmith":
+			return "blacksmith_skill_config"
 	return "smasher_skill_config"
 
 
@@ -24,7 +26,13 @@ func get_skill_state_key(character_type: String) -> String:
 			return "commando_skill_state"
 		"optimus":
 			return ""
+		"blacksmith":
+			return "blacksmith_skill_state"
 	return "smasher_skill_state"
+
+
+func get_owner_skill_state_key(owner: Object) -> String:
+	return get_skill_state_key(get_owner_character_type(owner))
 
 
 func normalize_character_type(character_type: String) -> String:
@@ -35,6 +43,8 @@ func normalize_character_type(character_type: String) -> String:
 		return "soldier"
 	if normalized == "optimus" or normalized == "io":
 		return "optimus"
+	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
+		return "blacksmith"
 	return "smasher"
 
 
@@ -49,7 +59,18 @@ func get_owner_character_type(owner: Object) -> String:
 		return "viper"
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
+	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
+		return "blacksmith"
 	return "smasher"
+
+
+func get_normalized_owner_character_type(owner: Object) -> String:
+	if owner == null:
+		return "smasher"
+	var value: Variant = owner.get("selected_character_type")
+	if value == null:
+		return "smasher"
+	return normalize_character_type(str(value))
 
 
 func get_current_stage(owner: Object) -> int:

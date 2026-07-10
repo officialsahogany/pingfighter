@@ -59,6 +59,7 @@ var umbrella_swing_direction := 0
 var _last_hit_msec := -100000
 var _last_player_pos := Vector2(302.5, 700.0)
 var _last_player_size := Vector2(155.0, 50.0)
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func reset() -> void:
@@ -73,10 +74,43 @@ func reset() -> void:
 	umbrella_swing_timer = 0.0
 	umbrella_swing_direction = 0
 	_last_hit_msec = -100000
+	_runtime_perk_modal_pause_started_msec = -1
+
+
+func force_close_for_character_skill_lock() -> void:
+	# Transform locks replace the character kit without replenishing durability.
+	# Clear every transient shield surface so it cannot reappear after detransform.
+	umbrella_open = false
+	umbrella_anim_timer = 0.0
+	umbrella_retracting = false
+	umbrella_anim_direction = 1
+	umbrella_damage_flash_timer = 0.0
+	umbrella_hit_pulse_timer = 0.0
+	umbrella_swing_active = false
+	umbrella_swing_timer = 0.0
+	umbrella_swing_direction = 0
+	_last_hit_msec = -100000
+	_runtime_perk_modal_pause_started_msec = -1
 
 
 func reset_round(_deps: Dictionary = {}) -> void:
 	reset()
+
+
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec >= 0 or _last_hit_msec <= 0:
+		return
+	_runtime_perk_modal_pause_started_msec = maxi(0, current_msec)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	var paused_duration_msec: int = maxi(0, current_msec - pause_started_msec)
+	if paused_duration_msec > 0 and _last_hit_msec > 0:
+		_last_hit_msec += paused_duration_msec
 
 
 func update_input(
@@ -95,6 +129,8 @@ func update_input(
 	)
 	var input_locked: bool = bool(config.get("player_skill_input_locked", false))
 	if input_locked:
+		if bool(config.get("horn_strawberry_skill_input_locked", false)):
+			force_close_for_character_skill_lock()
 		_tick_timers(delta)
 		return _build_owner_snapshot(special_gauge)
 

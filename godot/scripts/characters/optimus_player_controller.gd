@@ -32,12 +32,19 @@ func update(
 	var manual_charge_locked := false
 	var manual_charge_active := false
 	var working_gauge: float = float(config.get("special_gauge", 500.0))
+	var working_gauge_max: float = maxf(1.0, float(config.get("gauge_max", 500.0)))
+	var working_paddle_base_scale: float = maxf(
+		0.1,
+		float(config.get("optimus_paddle_base_scale", 1.0))
+	)
 	if energy_state != null and energy_state.has_method("update_manual_charge"):
 		manual_charge_result = energy_state.update_manual_charge(
 			delta,
 			bool(input_snapshot.get("down_pressed", false)),
 			working_gauge,
-			_is_manual_charge_blocked(deps)
+			_is_manual_charge_blocked(deps),
+			working_gauge_max,
+			working_paddle_base_scale
 		)
 		working_gauge = float(manual_charge_result.get("special_gauge", working_gauge))
 		manual_charge_locked = bool(manual_charge_result.get("optimus_charge_movement_locked", false))
@@ -52,10 +59,15 @@ func update(
 	optimus_config["paddle_turn_decel"] = float(optimus_config.get("paddle_turn_decel", 0.2))
 	if manual_charge_locked:
 		optimus_config["horizontal_input_locked"] = true
-	if energy_state != null and energy_state.has_method("apply_movement_config"):
+	if (
+		energy_state != null
+		and energy_state.has_method("apply_movement_config")
+		and not bool(optimus_config.get("horn_strawberry_transformed", false))
+	):
 		optimus_config = energy_state.apply_movement_config(
 			optimus_config,
-			working_gauge
+			working_gauge,
+			working_gauge_max
 		)
 
 	var movement_deps: Dictionary = _build_movement_deps(deps, input_snapshot, manual_charge_locked)
@@ -75,7 +87,9 @@ func update(
 		var energy_result: Dictionary = energy_state.update_energy(
 			delta,
 			float(result.get("special_gauge", optimus_config.get("special_gauge", 500.0))),
-			manual_charge_active or bool(optimus_config.get("optimus_energy_paused", false))
+			manual_charge_active or bool(optimus_config.get("optimus_energy_paused", false)),
+			working_gauge_max,
+			working_paddle_base_scale
 		)
 		result.merge(energy_result, true)
 	return result

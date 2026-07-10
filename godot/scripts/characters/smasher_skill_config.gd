@@ -195,6 +195,8 @@ func get_snapshot() -> Dictionary:
 		"item_cooldown_multiplier": item_cooldown_multiplier,
 		"item_skill_slot_bonus": item_skill_slot_bonus,
 		"cooldown_multiplier": _get_effective_cooldown_multiplier(),
+		"cooldown_reduction_eligible": true,
+		"cooldown_reduction_skill_ids": get_cooldown_reduction_skill_ids(),
 		"cooldown_seconds": _get_effective_cooldown_seconds_map(),
 		"skill_data": _get_effective_skill_data_map(),
 	}
@@ -212,6 +214,21 @@ func get_max_skill_slots() -> int:
 
 func get_cooldown_seconds(skill_name: String) -> float:
 	return float(COOLDOWN_SECONDS.get(skill_name, 0.0)) * _get_effective_cooldown_multiplier()
+
+
+func get_cooldown_reduction_skill_ids() -> Array[String]:
+	var result: Array[String] = []
+	for skill_name_value: Variant in COOLDOWN_SECONDS.keys():
+		if float(COOLDOWN_SECONDS.get(skill_name_value, 0.0)) > 0.0:
+			result.append(str(skill_name_value))
+	result.sort()
+	return result
+
+
+func get_effective_cooldown_multiplier() -> float:
+	return _get_effective_cooldown_multiplier()
+
+
 
 
 func set_runtime_cooldown_multiplier(multiplier: float) -> void:

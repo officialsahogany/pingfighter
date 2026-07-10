@@ -1301,6 +1301,9 @@ const UNLOCK_SLOT_BUDGET := {
 }
 
 
+var mythic_jackpot_offer_chance := 0.1
+
+
 func get_choices(
 	character_type: String,
 	runtime_levels: Dictionary,
@@ -1333,11 +1336,27 @@ func get_choices(
 		_append_instant_choices(choices)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
-	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(choices, target_choice_count)
+	var mythic_reserved: Array = []
+	var mythic_count := 0
+	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels):
+		var mythic_offer_chances := _get_mythic_offer_chances(runtime_levels)
+		var jackpot_chance := float(mythic_offer_chances.get("jackpot", 0.0))
+		if randf() < jackpot_chance:
+			mythic_count = target_choice_count
+	if mythic_count > 0:
+		mythic_reserved = _build_unowned_mythic_choices(runtime_levels, normalized, mythic_count)
+	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(
+		choices,
+		maxi(0, target_choice_count - mythic_reserved.size())
+	)
 	var reserved_choices: Array = ring_core_reservation.get("reserved", []) as Array
 	choices = ring_core_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
+	for mythic_choice in mythic_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(mythic_choice, "mythic_jackpot", true))
 	for reserved_choice in reserved_choices:
 		if result.size() >= target_choice_count:
 			break
@@ -1515,6 +1534,54 @@ func _append_converted_perk_choices(output: Array, runtime_levels: Dictionary, c
 		var restriction := str(skill_data.get("character_restriction", ""))
 		var choice: Dictionary = _build_level_choice(skill_id, skill_data, current_level, next_level, restriction)
 		output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _with_offer_metadata(choice_value: Variant, lane: String, is_protected: bool) -> Dictionary:
+	if not choice_value is Dictionary:
+		return {}
+	var choice: Dictionary = (choice_value as Dictionary).duplicate(true)
+	choice["offer_lane"] = lane
+	choice["offer_protected"] = is_protected
+	return choice
+
+
+func _get_mythic_offer_chances(_runtime_levels: Dictionary) -> Dictionary:
+	return {
+		"jackpot": clampf(float(mythic_jackpot_offer_chance), 0.0, 1.0),
+	}
+
+
+func _get_unowned_mythic_perk_ids(runtime_levels: Dictionary, character_type: String) -> Array[String]:
+	var candidates: Array[String] = []
+	for mid_value in CONVERTED_MYTHIC_PERKS.keys():
+		var mid := str(mid_value)
+		var mythic_data: Dictionary = CONVERTED_MYTHIC_PERKS[mid]
+		if int(runtime_levels.get(mid, 0)) > 0:
+			continue
+		if not _is_perk_allowed_for_character(mythic_data, character_type):
+			continue
+		candidates.append(mid)
+	return candidates
+
+
+func _build_unowned_mythic_choices(runtime_levels: Dictionary, character_type: String, count: int) -> Array:
+	var candidates: Array[String] = _get_unowned_mythic_perk_ids(runtime_levels, character_type)
+	if candidates.is_empty():
+		return []
+	candidates.shuffle()
+	var choices: Array = []
+	for index in range(mini(maxi(0, count), candidates.size())):
+		var mythic_id: String = candidates[index]
+		var mythic_data: Dictionary = CONVERTED_MYTHIC_PERKS[mythic_id]
+		var mythic_choice := _build_level_choice(
+			mythic_id,
+			mythic_data,
+			0,
+			1,
+			str(mythic_data.get("character_restriction", ""))
+		)
+		choices.append(LanguageSettings.localize_perk_data(mythic_choice))
+	return choices
 
 
 func _is_perk_allowed_for_character(skill_data: Dictionary, character_type: String) -> bool:

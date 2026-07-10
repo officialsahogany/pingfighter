@@ -82,6 +82,16 @@ func get_configured_cooldown_remaining(skill_name: String, time_now: int, skill_
 	return get_cooldown_remaining(skill_name, time_now, _get_config_cooldown(skill_name, skill_config))
 
 
+# 현재 걸려 있는 쿨타임의 전체 길이(초). 가변 쿨타임 스킬(플라즈마)의 HUD가 남은 초를
+# ratio * 실제 총쿨타임으로 정확히 표시할 수 있게 한다. 쿨타임이 없으면 0.
+func get_cooldown_total_seconds(skill_name: String) -> float:
+	var data: Variant = cooldowns.get(skill_name, null)
+	if data is Dictionary:
+		var cooldown_msec: int = int((data as Dictionary).get("cooldown_msec", (data as Dictionary).get("cooldown_ms", 0)))
+		return float(max(0, cooldown_msec)) / 1000.0
+	return 0.0
+
+
 func reduce_all_cooldowns_by_fraction(reduction_fraction: float, time_now: int = -1) -> int:
 	var fraction: float = clamp(float(reduction_fraction), 0.0, 0.95)
 	if fraction <= 0.0 or cooldowns.is_empty():

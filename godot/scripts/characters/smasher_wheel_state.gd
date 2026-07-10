@@ -49,6 +49,7 @@ var _last_player_size := DEFAULT_PLAYER_SIZE
 var _cached_body_spin_msec := -1
 var _cached_body_spin_frame := BODY_SPIN_FRAME_START
 var _timer_font: Font
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func prewarm_assets() -> void:
@@ -65,12 +66,36 @@ func reset() -> void:
 	trail_timer_frames = 0
 	_cached_body_spin_msec = -1
 	_cached_body_spin_frame = BODY_SPIN_FRAME_START
+	_runtime_perk_modal_pause_started_msec = -1
 	command_buffer.clear()
 	_clear_previous_command_keys()
 
 
 func reset_round() -> void:
 	reset()
+
+
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec >= 0 or (not active and command_buffer.is_empty()):
+		return
+	_runtime_perk_modal_pause_started_msec = maxi(0, current_msec)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec := _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	var paused_duration_msec: int = maxi(0, current_msec - pause_started_msec)
+	if paused_duration_msec <= 0:
+		return
+	if active:
+		start_msec += paused_duration_msec
+		end_msec += paused_duration_msec
+		_cached_body_spin_msec = -1
+	for command: Dictionary in command_buffer:
+		if command.has("msec"):
+			command["msec"] = int(command.get("msec", 0)) + paused_duration_msec
 
 
 func is_active() -> bool:
@@ -145,11 +170,14 @@ func update_input(
 	_last_player_size = _get_player_size(config)
 	activated_this_frame = false
 	_expire_if_needed(current_msec)
-	_update_command_buffer(input_snapshot, current_msec)
 	var result := {
 		"special_gauge": special_gauge,
 		"activated": false,
 	}
+	if bool(config.get("player_skill_input_locked", false)):
+		reset()
+		return result
+	_update_command_buffer(input_snapshot, current_msec)
 
 	if active:
 		command_buffer.clear()
