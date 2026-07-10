@@ -217,9 +217,6 @@ const CONVERTED_MYTHIC_VALUES := {
 
 
 static func get_value(perk_id: String, key: String, level: int) -> float:
-	},
-	},
-	},
 	var clean_id := perk_id.strip_edges()
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return 0.0
