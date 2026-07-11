@@ -370,6 +370,18 @@ static func localize_item_data(item_data: Dictionary) -> Dictionary:
 	return result
 
 
+# 퍽 표시명 단건 로컬라이즈 (딕셔너리 deep-copy 없는 이름 전용 경로).
+static func localize_perk_name(perk_id: String, korean_name: String) -> String:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
+		return korean_name
+	var perk_name_map := _get_perk_name_map(language)
+	var key := _get_perk_localization_key(perk_id)
+	if perk_name_map.has(key):
+		return str(perk_name_map[key])
+	return translate_text(korean_name)
+
+
 static func localize_perk_data(perk_data: Dictionary) -> Dictionary:
 	var language := get_language()
 	if language == LANGUAGE_KOREAN:

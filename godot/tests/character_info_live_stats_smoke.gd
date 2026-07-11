@@ -179,6 +179,24 @@ func _run() -> void:
 		"TAB active-item cooldown reductions should be highlighted as a buff color"
 	)
 
+	# 능력치 툴팁 소스별 증감 내역 (2026-07-11): 어떤 퍽·아이템·상태이상이 스탯을
+	# 바꿨는지 툴팁 본문에 원인 줄("· 라벨: ±N%")이 떠야 한다.
+	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "신속 (퍽)")
+	_expect(not speed_perk_entry.is_empty(), "move-speed breakdown should attribute the common_swiftness perk by display name")
+	_expect(abs(float(speed_perk_entry.get("ratio", 0.0)) - 1.12) < 0.005, "swiftness Lv.2 should read as a +12% move-speed contribution")
+	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "액티브 아이템")
+	_expect(abs(float(speed_item_entry.get("ratio", 0.0)) - 1.5) < 0.005, "vitamin pill should read as a +50% active-item move-speed contribution")
+	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "숙련 (퍽)")
+	_expect(
+		not cooldown_perk_entry.is_empty() and float(cooldown_perk_entry.get("ratio", 1.0)) < 1.0,
+		"item-cooldown breakdown should attribute the mastery perk as a reduction"
+	)
+	_expect(not _find_stat(stats, "최대 게이지").has("breakdown"), "max-gauge row has no per-source decomposition and should not carry a breakdown")
+	var speed_tooltip: String = _player_stat_tooltip(stats, "이동 속도")
+	_expect(speed_tooltip.find("· 신속 (퍽): +12%") >= 0, "move-speed tooltip should include the swiftness attribution line")
+	_expect(speed_tooltip.find("· 액티브 아이템: +50%") >= 0, "move-speed tooltip should include the active-item attribution line")
+	_expect(_player_stat_tooltip(stats, "아이템 재충전").find("· 숙련 (퍽): -13%") >= 0, "item-cooldown tooltip should include the mastery reduction line")
+
 	var lingpet_boosted_speed: float = CharacterInfoOverlayStatsPresenter.effective_move_speed(
 		"mika",
 		FakeCharacterRuntime.new(),
@@ -229,6 +247,15 @@ func _run() -> void:
 	_expect(
 		_is_debuff_color(_stat_color(debuff_stats, "아이템 재충전")),
 		"TAB active-item cooldown increases should be highlighted as a debuff color"
+	)
+	var debuff_cooldown_entry: Dictionary = _stat_breakdown_entry(debuff_stats, "아이템 재충전", "신화 아이템")
+	_expect(
+		abs(float(debuff_cooldown_entry.get("ratio", 0.0)) - 1.25) < 0.005,
+		"cooldown-penalty source should read as a +25% item-cooldown breakdown entry with its source label"
+	)
+	_expect(
+		_player_stat_tooltip(debuff_stats, "아이템 재충전").find("· 신화 아이템: +25%") >= 0,
+		"item-cooldown tooltip should name the debuff source with its +25% line"
 	)
 
 	var lingpet_owner := FakeOwner.new({
@@ -765,6 +792,23 @@ func _find_stat(stats: Array, label: String) -> Dictionary:
 			if str(stat.get("label", "")) == label:
 				return stat
 	return {}
+
+
+func _stat_breakdown_entry(stats: Array, label: String, entry_label: String) -> Dictionary:
+	var breakdown: Variant = _find_stat(stats, label).get("breakdown", [])
+	if breakdown is Array:
+		for value in (breakdown as Array):
+			if value is Dictionary and str((value as Dictionary).get("label", "")) == entry_label:
+				return value
+	return {}
+
+
+func _player_stat_tooltip(stats: Array, label: String) -> String:
+	for i in range(stats.size()):
+		if stats[i] is Dictionary and str((stats[i] as Dictionary).get("label", "")) == label:
+			if i < CharacterInfoOverlayStatsPresenter._player_stat_tooltip_cache.size():
+				return str(CharacterInfoOverlayStatsPresenter._player_stat_tooltip_cache[i])
+	return ""
 
 
 func _stat_float(stats: Array, label: String) -> float:

@@ -1428,6 +1428,15 @@ func get_perk_data(skill_id: String) -> Dictionary:
 	return {}
 
 
+# 표시명만 필요한 소비자용 O(1) 접근자 (능력치 툴팁 증감 내역 등).
+# get_perk_data의 deep-copy + 전체 로컬라이즈 비용을 피한다.
+static func get_perk_display_name(skill_id: String) -> String:
+	var data: Dictionary = _get_regular_perk_data_ref(skill_id)
+	if data.is_empty():
+		return ""
+	return LanguageSettings.localize_perk_name(skill_id, str(data.get("name", "")))
+
+
 static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	if perk_data.is_empty():
 		return false

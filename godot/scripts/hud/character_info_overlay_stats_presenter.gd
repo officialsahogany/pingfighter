@@ -8,8 +8,23 @@ const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
+
+# 능력치 툴팁 소스별 증감 내역(breakdown) 상수.
+# 0.5% 미만 기여는 표시하지 않는다 (반올림 시 0%가 되는 줄 방지).
+const BREAKDOWN_MIN_RATIO_DELTA := 0.005
+# stat_sources 기본 배열([퍽, 액티브, 신화, 링펫]) 순서와 짝을 이루는 폴백 라벨.
+# override 소스 배열이 다른 구성이면 측정값은 유지되고 인덱스 라벨로 떨어진다.
+const CHAIN_SOURCE_FALLBACK_LABELS: Array[String] = ["퍽 효과", "액티브 아이템", "신화 아이템", "링펫 버프"]
+# 체인 스탯별 구동 퍽 (단일 퍽 계약 — runtime_perk_effective_levels 참조).
+const CHAIN_PERK_ID_BY_METHOD := {
+	"get_dash_duration_frames": "dash_jump",
+	"get_dash_recovery_frames": "dash_module_control",
+	"get_dash_recharge_frames": "dash_lightweight",
+	"get_active_item_cooldown_msec": "item_cooldown_mastery",
+}
 
 
 static func build_player_stat_rows(
@@ -76,15 +91,37 @@ static func build_player_stat_rows(
 	var active_item_slot_count: int = CharacterInfoOverlayOwnerState.active_item_slot_count_from_owner(owner, active_item_slots_override)
 	var active_item_slot_color: Color = stat_delta_color(float(base_active_item_slot_count), float(active_item_slot_capacity), true, stat_buff_color, stat_debuff_color)
 
+	var numeric_multiplier_callable := Callable(CharacterInfoOverlayOwnerState, "call_numeric_multiplier")
 	return [
-		delta_stat_row("이동 속도", "%.2f" % move_speed, base_move_speed_value, move_speed, true, stat_buff_color, stat_debuff_color).merged({"icon": "speed", "tooltip_body": "패들이 좌우로 움직이는 속도입니다. 퍽·아이템·링펫 버프가 모두 반영된 최종 값이며, 높을수록 공을 따라잡기 쉽습니다."}),
-		delta_stat_row("몸집 크기", "%.0fpx" % paddle_width, base_paddle_width_value, paddle_width, true, stat_buff_color, stat_debuff_color).merged({"icon": "size", "tooltip_body": "패들의 가로 길이입니다. 넓을수록 공을 받아내기 쉽습니다. 일부 아이템·보스 기술이 일시적으로 크기를 바꿉니다."}),
-		delta_stat_row("게이지 획득량", "%dpt" % int(round(gauge_gain)), base_gauge_gain_value, gauge_gain, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_gain", "tooltip_body": "공을 쳐낼 때마다 차오르는 스페셜 게이지의 1회 획득량입니다. 높을수록 스킬 게이지가 빨리 모입니다."}),
+		with_breakdown(
+			delta_stat_row("이동 속도", "%.2f" % move_speed, base_move_speed_value, move_speed, true, stat_buff_color, stat_debuff_color).merged({"icon": "speed", "tooltip_body": "패들이 좌우로 움직이는 속도입니다. 퍽·아이템·링펫 버프가 모두 반영된 최종 값이며, 높을수록 공을 따라잡기 쉽습니다."}),
+			move_speed_breakdown(character_type, character_runtime, runtime_state, smasher_recovery_state, active_item_runtime, mythic_item_runtime, lingpet_runtime, weather_event_state, status_effect_state, numeric_multiplier_callable)
+		),
+		with_breakdown(
+			delta_stat_row("몸집 크기", "%.0fpx" % paddle_width, base_paddle_width_value, paddle_width, true, stat_buff_color, stat_debuff_color).merged({"icon": "size", "tooltip_body": "패들의 가로 길이입니다. 넓을수록 공을 받아내기 쉽습니다. 일부 아이템·보스 기술이 일시적으로 크기를 바꿉니다."}),
+			paddle_width_breakdown(runtime_scale_fallback, runtime_state, active_item_runtime, mythic_item_runtime, numeric_multiplier_callable, player_base_paddle_width)
+		),
+		with_breakdown(
+			delta_stat_row("게이지 획득량", "%dpt" % int(round(gauge_gain)), base_gauge_gain_value, gauge_gain, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_gain", "tooltip_body": "공을 쳐낼 때마다 차오르는 스페셜 게이지의 1회 획득량입니다. 높을수록 스킬 게이지가 빨리 모입니다."}),
+			gauge_gain_breakdown(combo_state, stat_sources, runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+		),
 		delta_stat_row("최대 게이지", "%dpt" % int(round(max_gauge)), base_max_gauge_value, max_gauge, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_max", "tooltip_body": "스페셜 게이지의 최대치입니다. 게이지가 가득 차면 강력한 스킬을 사용할 수 있습니다."}),
-		delta_stat_row("대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "대시 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
-		delta_stat_row("대시 후딜 시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds_value, dash_recovery_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "delay", "tooltip_body": "대시가 끝난 뒤 다음 행동까지 굳는 시간입니다. 짧을수록 연속 대응이 빨라집니다."}),
-		delta_stat_row("대시 재충전", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds_value, dash_cooldown_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "recharge", "tooltip_body": "소모한 대시 토큰 1개가 다시 차오르는 데 걸리는 시간입니다. 짧을수록 대시를 자주 쓸 수 있습니다."}),
-		delta_stat_row("아이템 재충전", "%.2f초" % item_cooldown_seconds, base_item_cooldown_seconds_value, item_cooldown_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "recharge", "tooltip_body": "액티브 아이템을 사용한 뒤 다시 쓸 수 있을 때까지의 대기 시간입니다. 짧을수록 좋습니다."}),
+		with_breakdown(
+			delta_stat_row("대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "대시 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
+			dash_distance_breakdown(stat_sources, runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+		),
+		with_breakdown(
+			delta_stat_row("대시 후딜 시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds_value, dash_recovery_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "delay", "tooltip_body": "대시가 끝난 뒤 다음 행동까지 굳는 시간입니다. 짧을수록 연속 대응이 빨라집니다."}),
+			stat_chain_breakdown(SmasherDashState.DASH_BASE_RECOVERY_FRAMES, stat_sources, "get_dash_recovery_frames", runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+		),
+		with_breakdown(
+			delta_stat_row("대시 재충전", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds_value, dash_cooldown_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "recharge", "tooltip_body": "소모한 대시 토큰 1개가 다시 차오르는 데 걸리는 시간입니다. 짧을수록 대시를 자주 쓸 수 있습니다."}),
+			stat_chain_breakdown(SmasherDashState.DASH_BASE_RECHARGE_FRAMES, stat_sources, "get_dash_recharge_frames", runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+		),
+		with_breakdown(
+			delta_stat_row("아이템 재충전", "%.2f초" % item_cooldown_seconds, base_item_cooldown_seconds_value, item_cooldown_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "recharge", "tooltip_body": "액티브 아이템을 사용한 뒤 다시 쓸 수 있을 때까지의 대기 시간입니다. 짧을수록 좋습니다."}),
+			stat_chain_breakdown(float(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC), stat_sources, "get_active_item_cooldown_msec", runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+		),
 		simple_stat_row("액티브 아이템 슬롯", CharacterInfoOverlayFormatter.format_int_pair(active_item_slot_count, active_item_slot_capacity), active_item_slot_color).merged({"icon": "slots", "tooltip_body": "장착 중인 액티브 아이템 수와 최대 슬롯 수입니다. 일부 신화 아이템이 슬롯을 늘려 줍니다."}),
 	]
 
@@ -111,6 +148,157 @@ static func stat_delta_color(base_value: float, current_value: float, higher_is_
 		return Color.WHITE
 	var improved: bool = delta > 0.0 if higher_is_better else delta < 0.0
 	return buff_color if improved else debuff_color
+
+
+# 소스별 증감 내역을 행에 부착한다. 열거한 소스로 설명되지 않는 잔여 배율
+# (몸집 크기의 owner_width 폴백 경로 등 외부 직접 기록자)은 "기타 효과"로
+# 정직하게 노출해 툴팁 합계가 항상 기본→현재 비율과 일치하게 유지한다.
+static func with_breakdown(row: Dictionary, entries: Array) -> Dictionary:
+	var base_value: float = float(row.get("base", 0.0))
+	var current_value: float = float(row.get("current", 0.0))
+	if base_value > 0.0001 and current_value > 0.0:
+		var attributed: float = 1.0
+		for entry_value in entries:
+			if entry_value is Dictionary:
+				attributed *= maxf(0.0001, float((entry_value as Dictionary).get("ratio", 1.0)))
+		var residual: float = (current_value / base_value) / attributed
+		if absf(residual - 1.0) >= 0.01:
+			entries.append({"label": "기타 효과", "ratio": residual})
+	if not entries.is_empty():
+		row["breakdown"] = entries
+	return row
+
+
+static func _append_ratio_entry(entries: Array, label: String, ratio: float) -> void:
+	if absf(ratio - 1.0) < BREAKDOWN_MIN_RATIO_DELTA:
+		return
+	entries.append({"label": label, "ratio": ratio})
+
+
+# 퍽 소스 라벨: 구동 퍽 레벨이 살아 있으면 카탈로그 표시명으로 특정하고,
+# 아니면(레벨 0인데 배율이 남는 특수 경로) 범주 라벨로 떨어진다.
+static func _perk_source_label(runtime_state: Object, perk_id: String) -> String:
+	if (
+		perk_id != ""
+		and runtime_state != null
+		and runtime_state.has_method("get_runtime_skill_level")
+		and int(runtime_state.get_runtime_skill_level(perk_id)) > 0
+	):
+		var perk_name: String = RuntimePerkCatalog.get_perk_display_name(perk_id)
+		if perk_name != "":
+			return "%s (퍽)" % perk_name
+	return "퍽 효과"
+
+
+static func _chain_source_label(source: Object, index: int, method_name: String, runtime_state: Object, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> String:
+	if source == runtime_state:
+		return _perk_source_label(runtime_state, str(CHAIN_PERK_ID_BY_METHOD.get(method_name, "")))
+	if source == active_item_runtime:
+		return "액티브 아이템"
+	if source == mythic_item_runtime:
+		return "신화 아이템"
+	if source == lingpet_runtime:
+		return "링펫 버프"
+	if index >= 0 and index < CHAIN_SOURCE_FALLBACK_LABELS.size():
+		return CHAIN_SOURCE_FALLBACK_LABELS[index]
+	return "기타 효과"
+
+
+# apply_stat_chain과 같은 순서·같은 변환으로 체인을 재실행하며 소스별
+# before→after 비율을 기록한다 (측정 기반이라 가산·배율 변환 모두 커버).
+static func stat_chain_breakdown(base_value: float, sources: Array, method_name: String, runtime_state: Object, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> Array:
+	var entries: Array = []
+	var current: float = base_value
+	for i in range(sources.size()):
+		var source_value: Variant = sources[i]
+		if not (source_value is Object):
+			continue
+		var source: Object = source_value
+		if source == null or not source.has_method(method_name):
+			continue
+		var result: Variant = source.call(method_name, current)
+		if not (result is int or result is float):
+			continue
+		var next_value: float = float(result)
+		if absf(current) > 0.0001:
+			_append_ratio_entry(entries, _chain_source_label(source, i, method_name, runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime), next_value / current)
+		current = next_value
+	return entries
+
+
+# effective_move_speed와 동일한 소스 집합을 개별 측정한다 (곱은 교환 가능하므로
+# 표시 순서만 다르고 합계는 현재값/기본값과 일치).
+static func move_speed_breakdown(
+	character_type: String,
+	character_runtime: Object,
+	runtime_state: Object,
+	smasher_recovery_state: Object,
+	active_item_runtime: Object,
+	mythic_item_runtime: Object,
+	lingpet_runtime: Object,
+	weather_event_state: Object,
+	status_effect_state: Object,
+	call_numeric_multiplier: Callable
+) -> Array:
+	var entries: Array = []
+	var transformed: bool = _is_horn_strawberry_transformed(mythic_item_runtime)
+	if transformed:
+		var base_speed: float = base_move_speed(character_type, character_runtime)
+		var horn_speed: Variant = mythic_item_runtime.get_horn_strawberry_move_speed()
+		if horn_speed != null and base_speed > 0.0001:
+			_append_ratio_entry(entries, "뿔딸기 변신", maxf(0.0, float(horn_speed)) / base_speed)
+	var perk_total: float = float(call_numeric_multiplier.call(runtime_state, "get_player_speed_multiplier"))
+	var fusion: float = 1.0
+	if runtime_state != null and runtime_state.has_method("get_perk_fusion_move_speed_multiplier"):
+		fusion = maxf(0.0, float(runtime_state.get_perk_fusion_move_speed_multiplier()))
+	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_swiftness"), perk_total / fusion if fusion > 0.0001 else perk_total)
+	_append_ratio_entry(entries, "퍽 융합", fusion)
+	if character_type == "smasher" and not transformed:
+		_append_ratio_entry(entries, "리커버리 스킬", float(call_numeric_multiplier.call(smasher_recovery_state, "get_player_speed_multiplier")))
+	_append_ratio_entry(entries, "날씨 이벤트", float(call_numeric_multiplier.call(weather_event_state, "get_player_speed_multiplier")))
+	_append_ratio_entry(entries, "상태이상", float(call_numeric_multiplier.call(status_effect_state, "get_player_speed_multiplier")))
+	_append_ratio_entry(entries, "액티브 아이템", float(call_numeric_multiplier.call(active_item_runtime, "get_player_speed_multiplier")))
+	_append_ratio_entry(entries, "신화 아이템", float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_speed_multiplier")))
+	_append_ratio_entry(entries, "링펫 버프", float(call_numeric_multiplier.call(lingpet_runtime, "get_player_speed_multiplier")))
+	return entries
+
+
+static func paddle_width_breakdown(
+	runtime_scale_fallback: float,
+	runtime_state: Object,
+	active_item_runtime: Object,
+	mythic_item_runtime: Object,
+	call_numeric_multiplier: Callable,
+	base_paddle_width: float
+) -> Array:
+	var entries: Array = []
+	var runtime_scale: float = runtime_paddle_scale(runtime_scale_fallback, runtime_state)
+	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_bulk_up"), runtime_scale)
+	var mythic_scale: float = float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_paddle_scale"))
+	_append_ratio_entry(entries, "신화 아이템", mythic_scale)
+	var scaled_base_width: float = base_paddle_width * runtime_scale * mythic_scale
+	if active_item_runtime != null and active_item_runtime.has_method("get_player_paddle_width") and scaled_base_width > 0.0001:
+		_append_ratio_entry(entries, "액티브 아이템", max(1.0, float(active_item_runtime.get_player_paddle_width(scaled_base_width))) / scaled_base_width)
+	return entries
+
+
+static func gauge_gain_breakdown(combo_state: Object, stat_sources: Array, runtime_state: Object, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> Array:
+	var entries: Array = []
+	var gauge_gain: float = BallUpdateStaticConfig.GAUGE_CHARGE_PER_HIT
+	if combo_state != null and combo_state.has_method("get_gauge_gain"):
+		var combo_gain: float = float(combo_state.get_gauge_gain(gauge_gain))
+		if gauge_gain > 0.0001:
+			_append_ratio_entry(entries, "콤보 보너스", combo_gain / gauge_gain)
+		gauge_gain = combo_gain
+	entries.append_array(stat_chain_breakdown(gauge_gain, stat_sources, "get_gauge_gain_per_hit", runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime))
+	return entries
+
+
+static func dash_distance_breakdown(stat_sources: Array, runtime_state: Object, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> Array:
+	var entries: Array = stat_chain_breakdown(SmasherDashState.DASH_BASE_DURATION_FRAMES, stat_sources, "get_dash_duration_frames", runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime)
+	if runtime_state != null and runtime_state.has_method("get_mystic_dice_multiplier"):
+		_append_ratio_entry(entries, "신비의 주사위", maxf(0.0, float(runtime_state.get_mystic_dice_multiplier("dash_distance"))))
+	return entries
 
 
 static func draw_cached_player_stat_rows(
@@ -394,6 +582,24 @@ static func _format_stat_number(value: float) -> String:
 	return ("%.2f" % value).rstrip("0").rstrip(".")
 
 
+# 소스별 증감 내역 줄 ("· 라벨: ±N%"). 숫자가 붙은 합성 줄은 exact-map 번역을
+# 통과하지 못하므로 정적 라벨 부분만 여기서 번역을 태운다.
+static func breakdown_lines_text(entries_value: Variant) -> String:
+	if not (entries_value is Array):
+		return ""
+	var text := ""
+	for entry_value in (entries_value as Array):
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var pct: int = int(round((float(entry.get("ratio", 1.0)) - 1.0) * 100.0))
+		if pct == 0:
+			continue
+		var pct_text: String = ("+%d" % pct) if pct > 0 else str(pct)
+		text += "\n· %s: %s%%" % [LanguageSettings.translate_text(str(entry.get("label", ""))), pct_text]
+	return text
+
+
 static func refresh_player_stat_cache(
 	rows: Array,
 	row_count: int,
@@ -433,6 +639,7 @@ static func refresh_player_stat_cache(
 			if tooltip_text != "":
 				tooltip_text += "\n"
 			tooltip_text += stat_bar_breakdown_text(base_value, current_value, higher_is_better)
+			tooltip_text += breakdown_lines_text(row_data.get("breakdown"))
 		else:
 			_player_stat_bar_fill_cache[i] = -1.0
 			_player_stat_bar_color_cache[i] = STAT_BAR_NEUTRAL_COLOR
@@ -453,6 +660,10 @@ static func refresh_player_stat_cache(
 				row.erase("base")
 				row.erase("current")
 				row.erase("higher_is_better")
+			if row_data.has("breakdown"):
+				row["breakdown"] = row_data.get("breakdown")
+			else:
+				row.erase("breakdown")
 		label_cache[i] = label
 		value_cache[i] = value_text
 		color_cache[i] = color
