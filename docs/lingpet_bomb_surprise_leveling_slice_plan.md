@@ -106,13 +106,15 @@ var _player_knockback_scale := PLAYER_KNOCKBACK_SCALE
 "cooldown_by_level": [60.0, 56.0, 52.0, 47.0, 42.0],
 ```
 
-**트랩**: volty bomb_surprise는 카탈로그에 `active_skill`과 `active_skill_pool[0]`
-**두 곳에 중복** 정의돼 있다. `cooldown_by_level`과 설명문 갱신을 **양쪽 모두**에 넣어야
-한다(한쪽만 고치면 풀 경로/기본 경로 중 하나가 누락).
+**단일 소스 확인(2026-07-11 정정)**: volty bomb_surprise는 카탈로그에
+`active_skill_pool[0]` **한 곳에만** 정의돼 있다(별도 `active_skill` 사본 없음).
+초안의 "active_skill + active_skill_pool[0] 두 곳 중복" 서술은 현재 구조와 다르므로
+폐기한다 — `cooldown_by_level`·설명문 갱신은 `active_skill_pool[0]` 한 곳만 고치면 된다.
+(중복 사본을 유지하는 다른 펫 엔트리를 편집할 때만 양쪽 동기화가 필요.)
 
 ## 4. 플레이어 노출 (설명문 — 현재 레벨 문구 0건)
 
-카탈로그 `description`(양쪽 사본) 끝에 레벨 문구 추가:
+카탈로그 `description`(`active_skill_pool[0]` 단일 소스) 끝에 레벨 문구 추가:
 
 > "…플레이어 쪽에서는 약한 스턴과 넉백, 상대 쪽에서는 강한 스턴과 넉백을 일으킵니다.
 > **레벨이 오를수록 상대 폭발의 스턴과 넉백이 강해지고, 자폭 시 받는 피해는 줄며,
@@ -153,7 +155,7 @@ snapshot의 `bomb_surprise_last_stun_frames` / `bomb_surprise_last_knockback_vel
 ## 7. 트랩 요약
 
 - 폭발 반경은 비주얼 전용 → 게임플레이 스케일 축으로 쓰지 말 것.
-- 카탈로그 중복(active_skill + active_skill_pool[0]) 양쪽 동기화.
+- volty는 `active_skill_pool[0]` 단일 소스(§3-2 정정) — 중복 사본 없음.
 - 스턴/넉백은 모듈에만(이중소스 회피), 쿨다운은 카탈로그에만.
 - `cooldown_by_level` 존재 시 범용 쿨 감소 자동 OFF — 의도된 동작.
 - launch_context에 active_skill_level이 실리는지 디스패처 확인.
@@ -215,3 +217,26 @@ snapshot의 `bomb_surprise_last_stun_frames` / `bomb_surprise_last_knockback_vel
   스킬명만 다국어 테이블에 있고 설명문은 미배선(현행 전반 갭과 동일).
 - snapshot: `bomb_surprise_self_rescue_chance` / `bomb_surprise_reroute_active` /
   `bomb_surprise_last_self_rescue`.
+
+### 리뷰 2차 수정 (2026-07-11, Codex P2 3건 반영)
+
+1. **페일세이프 위치·판정 분리(P2-1)**: `_step_reroute_to_boss`의 페일세이프
+   폭발이 뒤처진 `_body_pos`가 아니라 **이번 프레임 LIVE `boss_center`**로 스냅한다.
+   보스 CC는 어차피 보스 rect에 적용되므로, 빠른 대시 보스(Stage 7)가 폭탄을
+   따돌리면 빈 공간 폭발과 보스 CC가 분리됐다. 도달 케이스는 `_body_pos ==
+   boss_center`라 무영향. 씰: 이동 보스가 매 프레임 폭탄 앞 300px로 도망 → 1.2s
+   페일세이프 → 폭발이 live boss_center에 스냅(뒤처진 body와 200px+ 이격) 검증.
+2. **취소 시 긴급틱 미정리(P2-2)**: registry-aware `cancel(owner, registry)` 추가.
+   호스트 `_reset_skill`이 `cancel`을 `reset()`보다 우선 호출하는데 기존엔 `cancel`이
+   없어 `reset()`만 돌았고, `reset()`은 강제 루프 SFX(`stop_bomb_surprise_urgent_tick`)를
+   안 멈춰 링펫 교체/전체 리셋 시 긴급틱이 드론으로 남았다(재라우팅이 이 창을
+   넓힘). `cancel`은 reset 전에 긴급틱을 정지. 씰: 긴급틱 재생 중 `host.reset` →
+   stop 1회 호출 검증.
+3. **레벨별 확률 증가 노출·중간레벨 미검증(P2-3)**: `effect_text`에 "레벨이 오를수록
+   그 확률이 높아집니다" 추가(description은 이미 보유). 씰에 Lv.2/3/4 구조 확률
+   0.10/0.20/0.30 검증 + description/effect_text 노출 문구 존재 검증 추가(문구 삭제
+   회귀 방지).
+
+각 수정은 개별 in-place 토글로 반증검증 완료(해당 신규 레그만 RED, 나머지 무손상).
+씰 총 레그: `_verify_self_rescue_reroute_outcomes` + `_verify_dispatcher_and_catalog`
+노출 4건 + Lv.2/3/4 3건 + 이동보스 페일세이프 + 취소 정리.

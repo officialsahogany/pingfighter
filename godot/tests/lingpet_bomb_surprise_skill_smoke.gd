@@ -175,6 +175,13 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(is_equal_approx(float(skill.get("cooldown", 0.0)), 60.0), "Volty Bomb Surprise should use the requested 60-second cooldown")
 	_expect(str(skill.get("name", "")) == "폭탄 서프라이즈", "Volty active skill should keep the requested Korean name")
 	_expect(str(skill.get("description", "")).find("레벨이 오를수록") >= 0, "Volty Bomb Surprise description should expose level scaling")
+	# 자폭 구조(보스 재라우팅) 노출: 확률이 레벨에 따라 증가한다는 점을 캐릭터 정보의
+	# effect_text와 스킬 description 양쪽이 드러내야 한다(문구 삭제 회귀 방지).
+	_expect(str(skill.get("description", "")).find("대신 폭발") >= 0, "Volty Bomb Surprise description should expose the self-rescue reroute mechanic")
+	_expect(str(skill.get("description", "")).find("이 확률이 높아") >= 0, "Volty Bomb Surprise description should say the rescue chance rises with level")
+	var volty_effect_text := str(LingpetCatalog.get_effect_text("volty"))
+	_expect(volty_effect_text.find("대신 폭발") >= 0, "Volty effect_text should expose the self-rescue reroute mechanic")
+	_expect(volty_effect_text.find("확률이 높아") >= 0, "Volty effect_text should say the rescue chance rises with level")
 	var lv1_skill: Dictionary = LingpetCatalog.get_active_skill("volty", "volty_bomb_surprise", 1)
 	var lv5_skill: Dictionary = LingpetCatalog.get_active_skill("volty", "volty_bomb_surprise", 5)
 	_expect(is_equal_approx(float(lv1_skill.get("cooldown", 0.0)), 60.0), "Bomb Surprise Lv.1 cooldown should keep the 60-second baseline")
@@ -407,6 +414,89 @@ func _verify_self_rescue_reroute_outcomes() -> void:
 	_expect(is_equal_approx(float(lv1_snap.get("bomb_surprise_self_rescue_chance", -1.0)), 0.0), "Lv.1 should keep a zero self-rescue chance")
 	_expect(str(lv1_snap.get("bomb_surprise_last_target", "")) == "bottom", "Lv.1 should never reroute a self-explosion")
 	_expect(bool(lv1_snap.get("bomb_surprise_last_self_explosion", false)), "Lv.1 self-explosion should stay the weak explosion")
+
+	# Lv.2/3/4 중간 구조 확률: 테이블 편집 회귀를 잡는다(Lv.1/5만으로는 못 잡음).
+	for level_chance in [[2, 0.10], [3, 0.20], [4, 0.30]]:
+		var lv := int(level_chance[0])
+		var expected := float(level_chance[1])
+		var chance_snap := _launch_snapshot(lv)
+		_expect(
+			is_equal_approx(float(chance_snap.get("bomb_surprise_self_rescue_chance", -1.0)), expected),
+			"Lv.%d should cache a %d percent self-rescue chance" % [lv, int(round(expected * 100.0))]
+		)
+
+	# 이동 보스 페일세이프(P2-1): 폭탄이 절대 못 따라잡도록 매 프레임 보스를 폭탄 앞
+	# 300px에 재배치 → 1.2s 페일세이프 → 폭발이 LIVE boss_center로 스냅되는지 검증.
+	# (버그판: 폭발이 뒤처진 _body_pos에 남아 보스 CC와 시각이 분리된다.)
+	var mhost: Object = LingpetSkillRuntimeHost.new()
+	var mowner := FakeOwner.new()
+	var mstatus := FakeStatusEffectState.new()
+	var mregistry := FakeRegistry.new({"status_effect_state": mstatus})
+	mowner.ball_pos = Vector2(680.0, 640.0)
+	mowner.ball_vel = Vector2(0.0, 10.0)
+	var mlaunch := Vector2(300.0, 600.0)
+	_expect(mhost.launch("volty_bomb_surprise", mlaunch, mowner, {
+		"active_skill_level": 5,
+		"fuse_seconds": 0.20,
+		"self_rescue_roll": 0.0,
+		"companion_pos": mlaunch,
+	}), "moving-boss fixture should launch Bomb Surprise")
+	var mattached := _drive_until_phase(mhost, mowner, mregistry, "attached", 1.0)
+	_expect(str(mattached.get("bomb_surprise_phase", "")) == "attached", "moving-boss fixture should attach before detonation")
+	mhost.update(0.21, mowner, mregistry, "volty_bomb_surprise")
+	var last_body := Vector2.ZERO
+	var melapsed := 0.0
+	while melapsed < 1.6:
+		var msnap: Dictionary = mhost.get_snapshot()
+		if str(msnap.get("bomb_surprise_phase", "")) != "reroute_to_boss":
+			break
+		last_body = msnap.get("bomb_surprise_body_pos", Vector2.ZERO)
+		# boss_center = last_body + (300, 0)  →  boss_pos = boss_center - (boss_w/2, boss_h/2)
+		mowner.boss_pos = last_body + Vector2(300.0 - 50.0, -20.0)
+		mhost.update(0.1, mowner, mregistry, "volty_bomb_surprise")
+		melapsed += 0.1
+	var mfs: Dictionary = mhost.get_snapshot()
+	_expect(str(mfs.get("bomb_surprise_phase", "")) == "returning", "moving-boss failsafe should still detonate and start returning")
+	_expect(str(mfs.get("bomb_surprise_last_target", "")) == "top", "moving-boss failsafe should still target the boss side")
+	var live_boss_center := mowner.boss_pos + Vector2(50.0, 20.0)
+	_expect(_vector2_close(mfs.get("bomb_surprise_explosion_pos", Vector2.ZERO), live_boss_center, 8.0), "failsafe should snap the explosion to the LIVE boss center")
+	_expect((mfs.get("bomb_surprise_explosion_pos", Vector2.ZERO) as Vector2).distance_to(last_body) > 200.0, "failsafe explosion should be far from the lagging bomb body, proving the live-boss snap (not the old _body_pos)")
+	var mcalls: Array[Dictionary] = mstatus.get_calls_for_source("volty_bomb_surprise")
+	_expect(mcalls.size() == 1 and str(mcalls[0].get("target", "")) == "boss", "moving-boss failsafe should still stun the boss")
+
+	# 취소 시 긴급틱 정리(P2-2): 긴급틱 재생 중 host.reset(=cancel 경로)이 SFX를 멈춰야 한다.
+	var chost: Object = LingpetSkillRuntimeHost.new()
+	var cowner := FakeOwner.new()
+	var caudio := FakeAudio.new()
+	var cregistry := FakeRegistry.new({"game_audio": caudio})
+	cowner.ball_pos = Vector2(360.0, 400.0)
+	cowner.ball_vel = Vector2(0.0, 10.0)
+	var claunch := Vector2(300.0, 600.0)
+	_expect(chost.launch("volty_bomb_surprise", claunch, cowner, {
+		"active_skill_level": 3,
+		"fuse_seconds": 0.6,
+		"companion_pos": claunch,
+	}), "cancel fixture should launch Bomb Surprise")
+	var cattached := _drive_until_phase(chost, cowner, cregistry, "attached", 1.0)
+	_expect(str(cattached.get("bomb_surprise_phase", "")) == "attached", "cancel fixture should attach before the urgent tick starts")
+	chost.update(0.15, cowner, cregistry, "volty_bomb_surprise")
+	_expect(caudio.bomb_urgent_tick_count == 1, "urgent tick should start when the fuse nears detonation")
+	_expect(caudio.bomb_urgent_stop_count == 0, "urgent tick should still be playing before cancel")
+	_expect(bool(chost.get_snapshot().get("bomb_surprise_urgent_tick_playing", false)), "skill should record the urgent tick as playing")
+	chost.reset(cowner, cregistry)
+	_expect(caudio.bomb_urgent_stop_count == 1, "cancel should stop the urgent tick loop so it does not drone after a lingpet swap / reset")
+	_expect(str(chost.get_snapshot().get("bomb_surprise_phase", "")) == "idle", "cancel should reset the skill to idle")
+
+
+func _launch_snapshot(active_skill_level: int) -> Dictionary:
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var launch_origin := Vector2(300.0, 600.0)
+	_expect(host.launch("volty_bomb_surprise", launch_origin, owner, {
+		"active_skill_level": active_skill_level,
+		"companion_pos": launch_origin,
+	}), "launch-snapshot fixture should launch Bomb Surprise")
+	return host.get_snapshot()
 
 
 func _rescue_roll_fixture(active_skill_level: int, rescue_roll: float) -> Dictionary:

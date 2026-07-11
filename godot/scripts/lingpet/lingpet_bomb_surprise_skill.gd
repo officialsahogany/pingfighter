@@ -120,6 +120,23 @@ func reset() -> void:
 	_last_self_rescue = false
 
 
+func cancel(_owner: Object = null, registry: Object = null) -> void:
+	# 호스트 _reset_skill은 cancel(owner, registry)를 reset()보다 우선 호출한다.
+	# 링펫 교체 / 전체 리셋이 퓨즈 만료 직전(긴급틱 재생 중)이나 재라우팅 도중에
+	# 발생하면 reset()만으로는 강제 루프 SFX가 멈추지 않으므로, reset() 전에
+	# registry를 통해 긴급틱을 명시적으로 정지한다.
+	_stop_urgent_tick_audio(registry)
+	reset()
+
+
+func _stop_urgent_tick_audio(registry: Object) -> void:
+	if not _urgent_tick_playing:
+		return
+	var audio := _get_registry_instance(registry, "game_audio")
+	if audio != null and audio.has_method("stop_bomb_surprise_urgent_tick"):
+		audio.stop_bomb_surprise_urgent_tick()
+
+
 func prewarm() -> void:
 	pass
 
@@ -355,7 +372,11 @@ func _step_reroute_to_boss(delta: float, owner: Object, registry: Object) -> voi
 	var boss_center := _get_boss_rect(owner).get_center()
 	var arrived := _move_body_toward(boss_center, REROUTE_FLIGHT_SPEED, delta, REROUTE_ARRIVE_DISTANCE)
 	if arrived or _reroute_timer >= REROUTE_FAILSAFE_SECONDS:
-		_detonate(owner, registry, LOCATION_TOP, _body_pos)
+		# 폭발 위치는 항상 이번 프레임의 LIVE boss_center로 스냅한다. 도달 케이스에서는
+		# _body_pos == boss_center이므로 무영향이고, 페일세이프 케이스(빠른 대시 보스가
+		# 폭탄보다 빨라 못 따라잡음)에서 _body_pos에 터뜨리면 보스 CC는 보스 rect에
+		# 적용되는데 폭발 비주얼만 빈 공간에 남아 분리되는 문제를 막는다.
+		_detonate(owner, registry, LOCATION_TOP, boss_center)
 
 
 func _detonate(owner: Object, registry: Object, target: String, explosion_pos: Vector2) -> void:
