@@ -121,7 +121,7 @@ static func draw_frame(
 		_perf_end(perf_logger, "character_info.pendulum_interior", sample_start)
 	if not hover_data.is_empty():
 		sample_start = _perf_begin(perf_logger)
-		target.call("_draw_tooltip", canvas, hover_data, mouse_pos, view_size, font)
+		target.call("_draw_tooltip", canvas, hover_data, mouse_pos, view_size, font, runtime_perk_icon_renderer)
 		_perf_end(perf_logger, "character_info.tooltip", sample_start)
 
 

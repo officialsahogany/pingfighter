@@ -184,11 +184,13 @@ func get_player_stat_breakdown(target: Object, stat_key: String) -> Array:
 				entries.append({
 					"label": LanguageSettings.localize_item_display_name("vitamin_pill", "비타민드링크"),
 					"ratio": ActiveItemEffectStatus.VITAMIN_PILL_SPEED_MULTIPLIER,
+					"icon_id": "vitamin_pill",
 				})
 			if bool(target.get("strange_vial_active")) and float(target.get("strange_vial_timer_frames")) > 0.0:
 				entries.append({
 					"label": LanguageSettings.localize_item_display_name("strange_vial", "기묘한 약병"),
 					"ratio": maxf(0.0, float(target.get("strange_vial_speed_multiplier"))),
+					"icon_id": "strange_vial",
 				})
 		"paddle_scale":
 			var long_boost_scale: float = _get_float_property(target, "long_boost_scale", 1.0)
@@ -196,18 +198,21 @@ func get_player_stat_breakdown(target: Object, stat_key: String) -> Array:
 				entries.append({
 					"label": LanguageSettings.localize_item_display_name("long_boost", "거대화포션"),
 					"ratio": maxf(0.0, long_boost_scale),
+					"icon_id": "long_boost",
 				})
 			var milk_bottle_scale: float = _get_float_property(target, "milk_bottle_scale", 1.0)
 			if absf(milk_bottle_scale - 1.0) > 0.001:
 				entries.append({
 					"label": LanguageSettings.localize_item_display_name("milk_bottle", "우유병"),
 					"ratio": maxf(0.0, milk_bottle_scale),
+					"icon_id": "milk_bottle",
 				})
 			var strange_vial_scale: float = _get_float_property(target, "strange_vial_scale", 1.0)
 			if absf(strange_vial_scale - 1.0) > 0.001:
 				entries.append({
 					"label": LanguageSettings.localize_item_display_name("strange_vial", "기묘한 약병"),
 					"ratio": maxf(0.0, strange_vial_scale),
+					"icon_id": "strange_vial",
 				})
 	return entries
 

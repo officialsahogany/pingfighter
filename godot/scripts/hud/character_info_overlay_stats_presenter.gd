@@ -241,10 +241,24 @@ static func with_breakdown(row: Dictionary, entries: Array, include: bool = true
 	return row
 
 
-static func _append_ratio_entry(entries: Array, label: String, ratio: float) -> void:
+static func _append_ratio_entry(entries: Array, label: String, ratio: float, icon_id: String = "") -> void:
 	if absf(ratio - 1.0) < BREAKDOWN_MIN_RATIO_DELTA:
 		return
-	entries.append({"label": label, "ratio": ratio})
+	entries.append({"label": label, "ratio": ratio, "icon_id": icon_id})
+
+
+# 증감 내역 줄에 붙일 아이콘 id (툴팁이 runtime_perk_icon_renderer / 아이템
+# 텍스처로 그린다). 구동 퍽이 실제로 살아 있을 때만 그 퍽 아이콘을 붙인다
+# (레벨 0 범주 폴백엔 특정 아이콘을 붙이면 오해를 부른다).
+static func _perk_icon_id(runtime_state: Object, perk_id: String) -> String:
+	if (
+		perk_id != ""
+		and runtime_state != null
+		and runtime_state.has_method("get_runtime_skill_level")
+		and int(runtime_state.get_runtime_skill_level(perk_id)) > 0
+	):
+		return perk_id
+	return ""
 
 
 # 퍽 소스 라벨: 구동 퍽 레벨이 살아 있으면 카탈로그 표시명으로 특정하고,
@@ -306,14 +320,15 @@ static func _append_runtime_perk_chain_entries(entries: Array, runtime_state: Ob
 	_append_ratio_entry(
 		entries,
 		_perk_source_label(runtime_state, perk_id),
-		_perk_bonus_ratio(runtime_state, perk_id, bool(CHAIN_PERK_BONUS_IS_REDUCTION.get(method_name, false)))
+		_perk_bonus_ratio(runtime_state, perk_id, bool(CHAIN_PERK_BONUS_IS_REDUCTION.get(method_name, false))),
+		_perk_icon_id(runtime_state, perk_id)
 	)
 	var dice_key: String = str(CHAIN_DICE_KEY_BY_METHOD.get(method_name, ""))
 	if dice_key != "":
-		_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, dice_key))
+		_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, dice_key), "mystic_dice")
 	var angel_kind: String = str(CHAIN_ANGEL_KIND_BY_METHOD.get(method_name, ""))
 	if angel_kind != "":
-		_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, angel_kind))
+		_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, angel_kind), "angel_blessing")
 
 
 static func _chain_source_label(source: Object, index: int, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> String:
@@ -362,7 +377,7 @@ static func _append_source_multiplier_entries(entries: Array, source: Object, st
 			for entry_value in (detailed as Array):
 				if entry_value is Dictionary:
 					var entry: Dictionary = entry_value
-					_append_ratio_entry(entries, str(entry.get("label", category_label)), maxf(0.0, float(entry.get("ratio", 1.0))))
+					_append_ratio_entry(entries, str(entry.get("label", category_label)), maxf(0.0, float(entry.get("ratio", 1.0))), str(entry.get("icon_id", "")))
 			return
 	_append_ratio_entry(entries, category_label, measured_ratio)
 
@@ -389,9 +404,9 @@ static func move_speed_breakdown(
 		var horn_speed: Variant = mythic_item_runtime.get_horn_strawberry_move_speed()
 		if horn_speed != null and base_speed > 0.0001:
 			_append_ratio_entry(entries, "뿔딸기 변신", maxf(0.0, float(horn_speed)) / base_speed)
-	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_swiftness"), _perk_bonus_ratio(runtime_state, "common_swiftness", false))
-	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "player_speed"))
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "move_speed"))
+	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_swiftness"), _perk_bonus_ratio(runtime_state, "common_swiftness", false), _perk_icon_id(runtime_state, "common_swiftness"))
+	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "player_speed"), "mystic_dice")
+	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "move_speed"), "angel_blessing")
 	if runtime_state != null and runtime_state.has_method("get_perk_fusion_move_speed_multiplier"):
 		_append_ratio_entry(entries, "퍽 융합", maxf(0.0, float(runtime_state.get_perk_fusion_move_speed_multiplier())))
 	if character_type == "smasher" and not transformed:
@@ -413,9 +428,9 @@ static func paddle_width_breakdown(
 	base_paddle_width: float
 ) -> Array:
 	var entries: Array = []
-	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_bulk_up"), _perk_bonus_ratio(runtime_state, "common_bulk_up", false))
-	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "paddle_size"))
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "paddle_size"))
+	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_bulk_up"), _perk_bonus_ratio(runtime_state, "common_bulk_up", false), _perk_icon_id(runtime_state, "common_bulk_up"))
+	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "paddle_size"), "mystic_dice")
+	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "paddle_size"), "angel_blessing")
 	var runtime_scale: float = runtime_paddle_scale(runtime_scale_fallback, runtime_state)
 	var mythic_scale: float = float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_paddle_scale"))
 	_append_ratio_entry(entries, "신화 아이템", mythic_scale)
@@ -442,7 +457,8 @@ static func gauge_breakdown_from_steps(steps: Array) -> Array:
 		var before: float = float(step.get("before", 0.0))
 		if absf(before) <= 0.0001:
 			continue
-		_append_ratio_entry(entries, _gauge_step_label(str(step.get("source", ""))), float(step.get("after", 0.0)) / before)
+		var gauge_source: String = str(step.get("source", ""))
+		_append_ratio_entry(entries, _gauge_step_label(gauge_source), float(step.get("after", 0.0)) / before, _gauge_step_icon_id(gauge_source))
 	return entries
 
 
@@ -453,6 +469,14 @@ static func _gauge_step_label(source: String) -> String:
 		"gold_digger":
 			return LanguageSettings.localize_item_display_name("gold_digger", "골드디거")
 	return str(GAUGE_SOURCE_LABELS.get(source, "기타 효과"))
+
+
+# 블루투스링·골드디거는 퍽 아이콘 렌더러가 커버(신화→퍽 아이콘 공유); 콤보·
+# 링펫·뿔딸기 등 범주 스텝은 특정 아이콘이 없다.
+static func _gauge_step_icon_id(source: String) -> String:
+	if source == "bluetooth_ring" or source == "gold_digger":
+		return source
+	return ""
 
 
 # 대시 거리: 지속시간 스텝을 실거리 적분(compute_total_dash_distance)으로
@@ -467,9 +491,12 @@ static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object
 		if before_distance <= 0.0001:
 			continue
 		var after_distance: float = SmasherDashActiveMotionResolver.compute_total_dash_distance(float(step.get("after", 0.0)))
-		var label: String = _perk_source_label(runtime_state, "dash_jump") if str(step.get("source", "")) == "perk" else _dash_step_label(str(step.get("source", "")))
-		_append_ratio_entry(entries, label, after_distance / before_distance)
-	_append_ratio_entry(entries, "신비의 주사위", dice_multiplier)
+		var dist_source: String = str(step.get("source", ""))
+		var is_perk_step: bool = dist_source == "perk"
+		var label: String = _perk_source_label(runtime_state, "dash_jump") if is_perk_step else _dash_step_label(dist_source)
+		var icon_id: String = _perk_icon_id(runtime_state, "dash_jump") if is_perk_step else _dash_step_icon_id(dist_source)
+		_append_ratio_entry(entries, label, after_distance / before_distance, icon_id)
+	_append_ratio_entry(entries, "신비의 주사위", dice_multiplier, "mystic_dice")
 	return entries
 
 
@@ -489,8 +516,16 @@ static func dash_frames_breakdown_from_steps(steps: Array, runtime_state: Object
 		var before: float = float(step.get("before", 0.0))
 		if absf(before) <= 0.0001:
 			continue
-		_append_ratio_entry(entries, _dash_step_label(source), float(step.get("after", 0.0)) / before)
+		_append_ratio_entry(entries, _dash_step_label(source), float(step.get("after", 0.0)) / before, _dash_step_icon_id(source))
 	return entries
+
+
+# 대시 부스트는 액티브 아이템(퍽 렌더러 미커버) → 아이템 텍스처 폴백 id;
+# 신화 아이템 스텝은 특정 아이콘 없음.
+static func _dash_step_icon_id(source: String) -> String:
+	if source == "active_item":
+		return "dash_boost"
+	return ""
 
 
 static func _dash_step_label(source: String) -> String:
@@ -506,7 +541,7 @@ static func _dash_step_label(source: String) -> String:
 # 직접 측정 가능한 천사의 축복만 특정하고 나머지는 잔여("기타 효과")로 남긴다.
 static func max_gauge_breakdown(runtime_state: Object) -> Array:
 	var entries: Array = []
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "gauge_max"))
+	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "gauge_max"), "angel_blessing")
 	return entries
 
 
@@ -517,11 +552,11 @@ static func active_item_slot_breakdown(runtime_state: Object, mythic_item_runtim
 	if runtime_state != null and runtime_state.has_method("get_active_item_slot_capacity"):
 		perk_capacity = int(runtime_state.get_active_item_slot_capacity(base_count))
 		if perk_capacity != base_count:
-			entries.append({"label": _perk_source_label(runtime_state, "item_bag_expansion"), "text": _signed_int_text(perk_capacity - base_count)})
+			entries.append({"label": _perk_source_label(runtime_state, "item_bag_expansion"), "text": _signed_int_text(perk_capacity - base_count), "icon_id": _perk_icon_id(runtime_state, "item_bag_expansion")})
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_slot_capacity"):
 		var mythic_capacity: int = int(mythic_item_runtime.get_active_item_slot_capacity(perk_capacity))
 		if mythic_capacity != perk_capacity:
-			entries.append({"label": "신화 아이템", "text": _signed_int_text(mythic_capacity - perk_capacity)})
+			entries.append({"label": "신화 아이템", "text": _signed_int_text(mythic_capacity - perk_capacity), "icon_id": ""})
 	return entries
 
 
@@ -587,6 +622,9 @@ static func draw_cached_player_stat_rows(
 		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color, ui_text_scale)
 		if i < _player_stat_tooltip_cache.size() and _player_stat_tooltip_cache[i] != "" and row_rect.has_point(mouse_pos):
 			_fill_hover_data(hover_data, str(label_cache[i]), value_text, _player_stat_tooltip_cache[i], value_color, row_rect)
+			var breakdown_rows: Variant = _player_stat_breakdown_rows_cache[i] if i < _player_stat_breakdown_rows_cache.size() else []
+			if breakdown_rows is Array and not (breakdown_rows as Array).is_empty():
+				hover_data["breakdown_rows"] = breakdown_rows
 	return hover_data
 
 
@@ -773,6 +811,9 @@ static func build_overlay_player_stat_rows(
 # through four call signatures).
 static var _player_stat_icon_cache: Array[String] = []
 static var _player_stat_tooltip_cache: Array[String] = []
+# 소스별 증감 내역 행 (2026-07-12): 각 행은 {text, icon_id}. 툴팁 드로어가
+# 아이콘 + "라벨: ±N%" 텍스트로 그린다 (본문 텍스트에는 더 이상 넣지 않는다).
+static var _player_stat_breakdown_rows_cache: Array = []
 # Gauge bar per row (2026-07-09 stats redesign): fill ratio (-1 = no bar) and fill
 # color, computed at cache-refresh time so the draw loop stays allocation-free.
 static var _player_stat_bar_fill_cache: Array[float] = []
@@ -811,28 +852,30 @@ static func _format_stat_number(value: float) -> String:
 	return ("%.2f" % value).rstrip("0").rstrip(".")
 
 
-# 소스별 증감 내역 줄 ("· 라벨: ±N%" 또는 "· 라벨: +N" 텍스트 항목).
+# 소스별 증감 내역을 구조화 행 배열 [{text, icon_id}]로 만든다. 툴팁 드로어가
+# 각 행 앞에 원인 아이콘(퍽/아이템)을 그리고 "라벨: ±N%" 텍스트를 잇는다.
 # 숫자가 붙은 합성 줄은 exact-map 번역을 통과하지 못하므로 정적 라벨 부분만
-# 여기서 번역을 태운다 (이미 로컬라이즈된 아이템/퍽 라벨은 passthrough).
-static func breakdown_lines_text(entries_value: Variant) -> String:
+# 번역을 태운다 (이미 로컬라이즈된 아이템/퍽 라벨은 passthrough).
+static func breakdown_rows_from_entries(entries_value: Variant) -> Array:
+	var rows: Array = []
 	if not (entries_value is Array):
-		return ""
-	var text := ""
+		return rows
 	for entry_value in (entries_value as Array):
 		if not (entry_value is Dictionary):
 			continue
 		var entry: Dictionary = entry_value
 		var label: String = LanguageSettings.translate_text(str(entry.get("label", "")))
+		var icon_id: String = str(entry.get("icon_id", ""))
 		var entry_text: String = str(entry.get("text", ""))
 		if entry_text != "":
-			text += "\n· %s: %s" % [label, entry_text]
+			rows.append({"text": "%s: %s" % [label, entry_text], "icon_id": icon_id})
 			continue
 		var pct: int = int(round((float(entry.get("ratio", 1.0)) - 1.0) * 100.0))
 		if pct == 0:
 			continue
 		var pct_text: String = ("+%d" % pct) if pct > 0 else str(pct)
-		text += "\n· %s: %s%%" % [label, pct_text]
-	return text
+		rows.append({"text": "%s: %s%%" % [label, pct_text], "icon_id": icon_id})
+	return rows
 
 
 static func refresh_player_stat_cache(
@@ -856,6 +899,8 @@ static func refresh_player_stat_cache(
 		_player_stat_icon_cache.resize(row_count)
 	if _player_stat_tooltip_cache.size() != row_count:
 		_player_stat_tooltip_cache.resize(row_count)
+	if _player_stat_breakdown_rows_cache.size() != row_count:
+		_player_stat_breakdown_rows_cache.resize(row_count)
 	if _player_stat_bar_fill_cache.size() != row_count:
 		_player_stat_bar_fill_cache.resize(row_count)
 	if _player_stat_bar_color_cache.size() != row_count:
@@ -877,8 +922,8 @@ static func refresh_player_stat_cache(
 		else:
 			_player_stat_bar_fill_cache[i] = -1.0
 			_player_stat_bar_color_cache[i] = STAT_BAR_NEUTRAL_COLOR
-		tooltip_text += breakdown_lines_text(row_data.get("breakdown"))
 		_player_stat_tooltip_cache[i] = tooltip_text
+		_player_stat_breakdown_rows_cache[i] = breakdown_rows_from_entries(row_data.get("breakdown"))
 		var label: String = str(row_data.get("label", ""))
 		var value_text: String = str(row_data.get("value", ""))
 		var color: Color = CharacterInfoOverlayValueUtils.get_color(row_data.get("color", Color.WHITE))

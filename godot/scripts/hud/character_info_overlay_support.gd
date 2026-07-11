@@ -43,8 +43,38 @@ func _build_lingpet_stats(owner: Object) -> Array:
 func _build_stats(owner: Object, registry: Object, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], write_row_cache: bool = true, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null, include_breakdown: bool = true) -> Array:
 	return CharacterInfoOverlayStatsPresenter.build_overlay_player_stat_rows(self, owner, registry, _character_runtime, runtime_state_override, active_item_runtime_override, mythic_item_runtime_override, character_type_override, stat_sources_override, write_row_cache, active_item_slot_capacity_override, active_item_slots_override, STAT_ROW_COUNT, _stats_row_cache, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, SPECIAL_GAUGE_MAX, PLAYER_BASE_PADDLE_WIDTH, BASE_ACTIVE_ITEM_SLOT_COUNT, STAT_BUFF_COLOR, STAT_DEBUFF_COLOR, include_breakdown)
 
-func _draw_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font) -> void:
-	CharacterInfoOverlayTooltipPresenter.draw_tooltip(canvas, data, mouse_pos, view_size, font, _empty_tooltip_roll_entries, ACCENT_BLUE, TEXT_SOFT, OVERLAY_TOOLTIP_PANEL_FILL, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(CharacterInfoOverlayValueUtils, "tooltip_width").bind(Callable(self, "_text_size")), Callable(self, "_draw_dual_item_tooltip"), Callable(self, "_tooltip_subtitle_color"))
+func _draw_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font, perk_icon_renderer: Object = null) -> void:
+	CharacterInfoOverlayTooltipPresenter.draw_tooltip(canvas, data, mouse_pos, view_size, font, _empty_tooltip_roll_entries, ACCENT_BLUE, TEXT_SOFT, OVERLAY_TOOLTIP_PANEL_FILL, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(CharacterInfoOverlayValueUtils, "tooltip_width").bind(Callable(self, "_text_size")), Callable(self, "_draw_dual_item_tooltip"), Callable(self, "_tooltip_subtitle_color"), Callable(self, "_draw_breakdown_icon").bind(perk_icon_renderer))
+
+
+# 능력치 툴팁 증감 내역 줄 앞의 원인 아이콘. 퍽/신화(gold_digger·bluetooth_ring·
+# angel_blessing·celestial_armor·mystic_dice)는 runtime_perk_icon_renderer가
+# 커버하고, 나머지 액티브 아이템은 아이템 텍스처로 폴백한다. 카테고리 전용
+# 항목(icon_id 없음)은 그리지 않는다.
+const _BREAKDOWN_ITEM_ICON_PATHS := {
+	"vitamin_pill": "res://assets/sprites/items/vitamin_pill.png",
+	"strange_vial": "res://assets/sprites/items/strange_vial.png",
+	"long_boost": "res://assets/sprites/items/long_boost_icon.png",
+	"dash_boost": "res://assets/sprites/items/dash_boost.png",
+	"milk_bottle": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+}
+var _breakdown_item_icon_cache: Dictionary = {}
+
+func _draw_breakdown_icon(canvas: CanvasItem, icon_id: String, rect: Rect2, perk_icon_renderer: Object) -> bool:
+	if canvas == null or icon_id == "":
+		return false
+	if perk_icon_renderer != null and perk_icon_renderer.has_method("has_icon") and bool(perk_icon_renderer.has_icon(icon_id)):
+		return bool(perk_icon_renderer.draw_icon(canvas, icon_id, rect, 1.0, true))
+	if _BREAKDOWN_ITEM_ICON_PATHS.has(icon_id):
+		var texture: Texture2D = _breakdown_item_icon_cache.get(icon_id, null)
+		if texture == null:
+			texture = ProjectResourceLoader.load_texture(str(_BREAKDOWN_ITEM_ICON_PATHS[icon_id]))
+			if texture != null:
+				_breakdown_item_icon_cache[icon_id] = texture
+		if texture != null:
+			canvas.draw_texture_rect(texture, rect, false, Color(1.0, 1.0, 1.0, 1.0))
+			return true
+	return false
 
 func _draw_dual_item_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font, color: Color, title: String, subtitle: String, body: String, roll_entries: Array) -> void:
 	CharacterInfoOverlayTooltipPresenter.draw_dual_item_tooltip(canvas, data, mouse_pos, view_size, font, color, title, subtitle, body, roll_entries, TEXT_SOFT, ACCENT_GOLD, OVERLAY_TOOLTIP_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_BORDER, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(self, "_build_tooltip_entry_lines"), Callable(self, "_tooltip_subtitle_color"), _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache)

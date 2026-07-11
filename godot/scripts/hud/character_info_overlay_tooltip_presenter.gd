@@ -18,7 +18,8 @@ static func draw_tooltip(
 	wrap_text_callable: Callable,
 	tooltip_width_callable: Callable,
 	draw_dual_item_tooltip_callable: Callable,
-	tooltip_subtitle_color_callable: Callable
+	tooltip_subtitle_color_callable: Callable,
+	breakdown_icon_drawer: Callable = Callable()
 ) -> void:
 	var color: Color = CharacterInfoOverlayValueUtils.get_color(data.get("color", accent_blue))
 	var title: String = str(data.get("title", ""))
@@ -29,7 +30,20 @@ static func draw_tooltip(
 	if not roll_entries.is_empty() and body != "":
 		draw_dual_item_tooltip_callable.call(canvas, data, mouse_pos, view_size, font, color, title, subtitle, body, roll_entries)
 		return
+	# 소스별 증감 내역 행 (2026-07-12): [{text, icon_id}]. 본문 아래에 원인
+	# 아이콘 + 텍스트로 그린다.
+	var breakdown_rows: Array = CharacterInfoOverlayValueUtils.get_array(data.get("breakdown_rows"))
+	var breakdown_line_height := 18.0
+	var breakdown_icon_size := 13.0
+	var breakdown_text_indent := 18.0
 	var width: float = float(tooltip_width_callable.call(font, title, subtitle, body, view_size))
+	if not breakdown_rows.is_empty() and font != null:
+		var max_breakdown_w := 0.0
+		for row_value in breakdown_rows:
+			if row_value is Dictionary:
+				var row_w := font.get_string_size(str((row_value as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12).x + breakdown_text_indent
+				max_breakdown_w = maxf(max_breakdown_w, row_w)
+		width = maxf(width, minf(view_size.x - 16.0, max_breakdown_w + 28.0))
 	var text_width: float = width - 28.0
 	var title_lines: Array = _call_array(wrap_text_callable, [font, title, 15, text_width, 2])
 	var subtitle_lines: Array = _call_array(wrap_text_callable, [font, subtitle, 12, text_width, 2])
@@ -38,7 +52,8 @@ static func draw_tooltip(
 	var fixed_height: float = 38.0 + float(title_lines.size() + subtitle_lines.size()) * line_height
 	var body_line_limit: int = max(1, int(floor((max_tooltip_height - fixed_height) / line_height)))
 	var body_lines: Array = _call_array(wrap_text_callable, [font, body, 13, text_width, body_line_limit])
-	var height: float = fixed_height + float(body_lines.size()) * line_height
+	var breakdown_block_h: float = (6.0 + float(breakdown_rows.size()) * breakdown_line_height) if not breakdown_rows.is_empty() else 0.0
+	var height: float = fixed_height + float(body_lines.size()) * line_height + breakdown_block_h
 	var anchor_rect: Rect2 = CharacterInfoOverlayValueUtils.tooltip_anchor_rect(data, mouse_pos)
 	var pos_x: float = anchor_rect.position.x + 10.0
 	var pos_y: float = anchor_rect.end.y + 12.0
@@ -63,6 +78,20 @@ static func draw_tooltip(
 	for line in body_lines:
 		draw_text_callable.call(canvas, font, str(line), text_x, y, 13, text_soft)
 		y += line_height
+	if not breakdown_rows.is_empty():
+		y += 6.0
+		var breakdown_color := Color(text_soft.r, text_soft.g, text_soft.b, text_soft.a * 0.88)
+		for row_value in breakdown_rows:
+			if not (row_value is Dictionary):
+				continue
+			var row: Dictionary = row_value
+			var icon_id: String = str(row.get("icon_id", ""))
+			var drew_icon := false
+			if breakdown_icon_drawer.is_valid() and icon_id != "":
+				var icon_rect := Rect2(text_x, y - breakdown_icon_size + 1.0, breakdown_icon_size, breakdown_icon_size)
+				drew_icon = bool(breakdown_icon_drawer.call(canvas, icon_id, icon_rect))
+			draw_text_callable.call(canvas, font, str(row.get("text", "")), text_x + breakdown_text_indent, y, 12, breakdown_color)
+			y += breakdown_line_height
 
 
 static func draw_dual_item_tooltip(

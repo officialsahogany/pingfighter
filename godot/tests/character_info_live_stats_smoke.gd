@@ -209,10 +209,17 @@ func _run() -> void:
 		"item-cooldown breakdown should attribute the mastery perk as a reduction"
 	)
 	_expect(not _find_stat(stats, "최대 게이지").has("breakdown"), "base-value max-gauge row should not carry breakdown lines")
-	var speed_tooltip: String = _player_stat_tooltip(stats, "이동 속도")
-	_expect(speed_tooltip.find("· 신속 (퍽): +12%") >= 0, "move-speed tooltip should include the swiftness attribution line")
-	_expect(speed_tooltip.find("· 비타민드링크: +50%") >= 0, "move-speed tooltip should name the vitamin drink as the active-item cause")
-	_expect(_player_stat_tooltip(stats, "아이템 재충전").find("· 숙련 (퍽): -13%") >= 0, "item-cooldown tooltip should include the mastery reduction line")
+	# 증감 내역은 구조화 행(_player_stat_breakdown_rows_cache)으로 이동 —
+	# 각 행은 {text, icon_id}. 툴팁 드로어가 아이콘 + 텍스트로 그린다.
+	var speed_rows: Array = _stat_breakdown_rows(stats, "이동 속도")
+	_expect(not _breakdown_row(speed_rows, "신속 (퍽): +12%").is_empty(), "move-speed breakdown row should carry the swiftness attribution")
+	_expect(not _breakdown_row(speed_rows, "비타민드링크: +50%").is_empty(), "move-speed breakdown row should name the vitamin drink as the active-item cause")
+	_expect(not _breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련 (퍽): -13%").is_empty(), "item-cooldown breakdown row should carry the mastery reduction")
+
+	# 편의 아이콘 (2026-07-12): 원인 행에 퍽/아이템 아이콘 id가 붙어야 한다.
+	_expect(str(_breakdown_row(speed_rows, "신속 (퍽): +12%").get("icon_id", "")) == "common_swiftness", "swiftness breakdown row should carry the common_swiftness perk icon id")
+	_expect(str(_breakdown_row(speed_rows, "비타민드링크: +50%").get("icon_id", "")) == "vitamin_pill", "vitamin drink breakdown row should carry its item icon id")
+	_expect(str(_breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련 (퍽): -13%").get("icon_id", "")) == "item_cooldown_mastery", "mastery breakdown row should carry the item_cooldown_mastery perk icon id")
 
 	# 대시 거리는 스피릿 레이저 상수식(15×40×0.7=420)이 아니라 실전 감속 커브
 	# 적분(210px)을 표시해야 한다 (2026-07-11 리뷰 P1: 실산식 일치).
@@ -309,8 +316,8 @@ func _run() -> void:
 		"cooldown-penalty source should read as a +25% item-cooldown breakdown entry with its source label"
 	)
 	_expect(
-		_player_stat_tooltip(debuff_stats, "아이템 재충전").find("· 신화 아이템: +25%") >= 0,
-		"item-cooldown tooltip should name the debuff source with its +25% line"
+		not _breakdown_row(_stat_breakdown_rows(debuff_stats, "아이템 재충전"), "신화 아이템: +25%").is_empty(),
+		"item-cooldown breakdown row should name the debuff source with its +25% line"
 	)
 
 	var lingpet_owner := FakeOwner.new({
@@ -864,6 +871,22 @@ func _player_stat_tooltip(stats: Array, label: String) -> String:
 			if i < CharacterInfoOverlayStatsPresenter._player_stat_tooltip_cache.size():
 				return str(CharacterInfoOverlayStatsPresenter._player_stat_tooltip_cache[i])
 	return ""
+
+
+func _stat_breakdown_rows(stats: Array, label: String) -> Array:
+	for i in range(stats.size()):
+		if stats[i] is Dictionary and str((stats[i] as Dictionary).get("label", "")) == label:
+			if i < CharacterInfoOverlayStatsPresenter._player_stat_breakdown_rows_cache.size():
+				var rows: Variant = CharacterInfoOverlayStatsPresenter._player_stat_breakdown_rows_cache[i]
+				return rows if rows is Array else []
+	return []
+
+
+func _breakdown_row(rows: Array, text: String) -> Dictionary:
+	for value in rows:
+		if value is Dictionary and str((value as Dictionary).get("text", "")) == text:
+			return value
+	return {}
 
 
 func _stat_float(stats: Array, label: String) -> float:
