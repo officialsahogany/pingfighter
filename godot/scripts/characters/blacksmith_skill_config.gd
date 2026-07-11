@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
+
 const MAX_SKILL_SLOTS := 5
 
 var runtime_cooldown_multiplier := 1.0
@@ -35,7 +37,9 @@ func get_cooldown_seconds(_skill_name: String) -> float:
 
 
 func get_effective_cooldown_multiplier() -> float:
-	return max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
+	return CooldownFloorPolicy.floor_final_multiplier(
+		max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
+	)
 
 
 func set_runtime_cooldown_multiplier(multiplier: float) -> void:

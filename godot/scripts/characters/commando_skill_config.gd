@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const MAX_SKILL_SLOTS := 5
@@ -481,7 +482,9 @@ func _get_skill_gold_reward_map() -> Dictionary:
 
 
 func _get_effective_cooldown_multiplier() -> float:
-	return max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
+	return CooldownFloorPolicy.floor_final_multiplier(
+		max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
+	)
 
 
 func _restore_equipped_permanent_from_save(value: Variant, dropped_ids: Array) -> void:

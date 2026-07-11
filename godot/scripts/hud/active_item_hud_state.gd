@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemCooldownComposer := preload("res://scripts/items/active_item_cooldown_composer.gd")
 
 const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const COOLDOWN_FLASH_DURATION_MS := 400
@@ -106,13 +107,11 @@ func get_active_item_cooldown_msec(item_data: Dictionary, registry: Object = nul
 		base_cooldown_msec = max(0, int(item_data["cooldown_ms"]))
 	if runtime_perk_state == null:
 		runtime_perk_state = _get_instance(registry, "runtime_perk_state")
-	var cooldown_msec: int = base_cooldown_msec
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_cooldown_msec"):
-		cooldown_msec = int(runtime_perk_state.get_active_item_cooldown_msec(cooldown_msec))
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_cooldown_msec"):
-		cooldown_msec = int(mythic_item_runtime.get_active_item_cooldown_msec(cooldown_msec))
-	return max(0, cooldown_msec)
+	return ActiveItemCooldownComposer.compose_effective_cooldown_msec(
+		base_cooldown_msec,
+		runtime_perk_state,
+		_get_instance(registry, "mythic_item_runtime")
+	)
 
 
 func _get_active_item_cooldown_time_msec(current_time_msec: int, registry: Object = null) -> int:

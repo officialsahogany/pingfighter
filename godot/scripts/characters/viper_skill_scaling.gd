@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
+
 const KICK_PREP_SPEED_START := 9.0
 const KICK_PREP_SPEED_FULL := 24.0
 const KICK_PREP_SPEED_MIN_MULT := 0.78
@@ -43,10 +45,14 @@ func get_four_poisons_additive_cooldown_seconds(
 	chaos_spear_name: String,
 	dual_glitch_name: String
 ) -> float:
-	var configured_seconds: float = fallback_base_seconds
+	# 0값 의미 분리 (2026-07-11 감사 합의): config 누락/메서드 부재/음수만
+	# fallback 기본값으로 복귀한다. 유효한 0 입력(쿨감 스택 100% 붕괴)은
+	# 기본값 복귀가 아니라 최종 하한(base의 5%)으로 보정한다 — 0 직전에는
+	# 초단축이다가 정확히 0에서 기본 쿨다운으로 튀던 불연속 제거.
+	var configured_seconds: float = -1.0
 	if skill_config != null and skill_config.has_method("get_cooldown_seconds"):
 		configured_seconds = float(skill_config.get_cooldown_seconds(skill_name))
-	if configured_seconds <= 0.0:
+	if configured_seconds < 0.0:
 		configured_seconds = fallback_base_seconds
 	var base_seconds: float = fallback_base_seconds
 	match skill_name:
@@ -58,6 +64,7 @@ func get_four_poisons_additive_cooldown_seconds(
 			base_seconds = 30.0
 		dual_glitch_name:
 			base_seconds = 40.0
+	configured_seconds = CooldownFloorPolicy.floor_final_seconds(base_seconds, configured_seconds)
 	var configured_reduction: float = clamp(1.0 - configured_seconds / max(0.001, base_seconds), 0.0, 0.95)
 	var cooldown_reduction_pct: int = get_four_poisons_scaled_pct(
 		four_poisons_level,

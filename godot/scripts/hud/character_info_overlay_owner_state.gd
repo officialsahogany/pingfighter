@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 
 static func get_instance(registry: Object, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
@@ -182,11 +183,12 @@ static func smasher_dash_snapshot(registry: Object) -> Dictionary:
 
 
 static func active_item_cooldown_from_base(base_cooldown_msec: int, sources: Array, stat_chain_callable: Callable) -> int:
-	return max(0, int(round(stat_chain_callable.call(
+	# 슬롯 컨트롤러/전투 HUD의 ActiveItemCooldownComposer와 같은 최종 하한 계약.
+	return CooldownFloorPolicy.floor_final_msec(base_cooldown_msec, max(0, int(round(stat_chain_callable.call(
 		float(base_cooldown_msec),
 		sources,
 		"get_active_item_cooldown_msec"
-	))))
+	)))))
 
 
 static func passive_item_roll_polish_multiplier(registry: Object, runtime_state_override: Object) -> float:

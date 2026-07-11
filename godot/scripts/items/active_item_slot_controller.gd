@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemCooldownComposer := preload("res://scripts/items/active_item_cooldown_composer.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
@@ -530,14 +531,11 @@ func _uses_global_cooldown(item_data: Dictionary) -> bool:
 
 func _get_effective_active_item_cooldown_msec(item_data: Dictionary, registry: Object) -> int:
 	var base_cooldown_msec: int = max(0, int(item_data.get("cooldown_msec", item_data.get("cooldown_ms", DEFAULT_COOLDOWN_MSEC))))
-	var cooldown_msec: int = base_cooldown_msec
-	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_cooldown_msec"):
-		cooldown_msec = int(runtime_perk_state.get_active_item_cooldown_msec(cooldown_msec))
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_cooldown_msec"):
-		cooldown_msec = int(mythic_item_runtime.get_active_item_cooldown_msec(cooldown_msec))
-	return max(0, cooldown_msec)
+	return ActiveItemCooldownComposer.compose_effective_cooldown_msec(
+		base_cooldown_msec,
+		_get_instance(registry, "runtime_perk_state"),
+		_get_instance(registry, "mythic_item_runtime")
+	)
 
 
 func _should_recycle_used_item(registry: Object) -> bool:
