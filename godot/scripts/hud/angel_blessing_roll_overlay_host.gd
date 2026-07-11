@@ -2,6 +2,7 @@ extends Node2D
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const AngelLocalization := preload("res://scripts/characters/runtime_perk_angel_blessing_localization.gd")
+const WritheEmberMaterial := preload("res://scripts/effects/writhe_ember_material.gd")
 
 const SELF_PATH := "res://scripts/hud/angel_blessing_roll_overlay_host.gd"
 const HOST_NAME := "AngelBlessingRollOverlayHost"
@@ -10,16 +11,26 @@ const FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const ICON_PATH := "res://assets/sprites/perks/angel_blessing_perk_icon.png"
 const LIGHTBURST_PATH := "res://assets/sprites/hud/mythic_reveal_lightburst_v1.png"
 const SMOKE_PATH := "res://assets/sprites/hud/mythic_reveal_smoke_v1.png"
-const MOTE_PATH := "res://assets/sprites/stage4/effects/stage4_ponk_awaken_aura_mote_imagegen_v1.png"
+# 주사위 연출 3-피스(정적 텍스처 + 엔진 모션): 백플레이트=실체(MIX),
+# 호/트레일=빛(ADD, writhe-ember 셰이더), 모트=파티클(ADD, GPUParticles2D).
+const DICE_BACKPLATE_PATH := "res://assets/sprites/hud/angel_dice_backplate_imagegen_v1.png"
+const DICE_ARC_PATH := "res://assets/sprites/hud/angel_dice_arc_imagegen_v1.png"
+const MOTE_PATH := "res://assets/sprites/hud/angel_dice_mote_imagegen_v1.png"
 const HALO_SHADER_PATH := "res://shaders/angel_blessing_halo.gdshader"
 const MODAL_PANEL := Rect2(130.0, 108.0, 500.0, 520.0)
+const DICE_CENTER := Vector2(380.0, 302.0)
+const DICE_BACKPLATE_SIZE := 344.0
+const DICE_ARC_SIZE := 306.0
 const AMBIENT_PARTICLE_AMOUNT := 34
 const ABSORB_PARTICLE_AMOUNT := 22
+const DICE_BURST_PARTICLE_AMOUNT := 26
 const ABSORB_TRAIL_STEPS := 8
 
 static var _icon_texture: Texture2D = null
 static var _lightburst_texture: Texture2D = null
 static var _smoke_texture: Texture2D = null
+static var _dice_backplate_texture: Texture2D = null
+static var _dice_arc_texture: Texture2D = null
 static var _mote_texture: Texture2D = null
 static var _halo_shader: Shader = null
 static var _prewarmed := false
@@ -38,17 +49,22 @@ class OverlayDrawBridge:
 
 var _playfield_clip: Control = null
 var _halo_layer: ColorRect = null
+var _dice_arc_layer: TextureRect = null
 var _lightburst_layer: TextureRect = null
 var _smoke_layer: TextureRect = null
 var _ambient_particles: GPUParticles2D = null
+var _dice_burst_particles: GPUParticles2D = null
 var _absorb_particles: GPUParticles2D = null
 var _draw_bridge: Control = null
 var _halo_material: ShaderMaterial = null
+var _dice_arc_material: ShaderMaterial = null
+var _dice_arc_preset := ""
 var _snapshot: Dictionary = {}
 var _player_pos := Vector2(380.0, 690.0)
 var _active := false
 var _was_modal_active := false
 var _was_absorbing := false
+var _was_rolling := false
 
 
 func _init() -> void:
@@ -64,8 +80,11 @@ static func prewarm_assets() -> void:
 	_icon_texture = _load_texture(ICON_PATH, "Angel blessing icon")
 	_lightburst_texture = _load_texture(LIGHTBURST_PATH, "Angel blessing lightburst")
 	_smoke_texture = _load_texture(SMOKE_PATH, "Angel blessing smoke")
-	_mote_texture = _load_texture(MOTE_PATH, "Angel blessing mote")
+	_dice_backplate_texture = _load_texture(DICE_BACKPLATE_PATH, "Angel dice backplate")
+	_dice_arc_texture = _load_texture(DICE_ARC_PATH, "Angel dice arc")
+	_mote_texture = _load_texture(MOTE_PATH, "Angel dice mote")
 	_halo_shader = load(HALO_SHADER_PATH) as Shader
+	WritheEmberMaterial.prewarm()
 	_prewarmed = true
 
 
@@ -79,11 +98,15 @@ static func build_pipeline_status() -> Dictionary:
 	return {
 		"icon_ready": _icon_texture != null,
 		"texture_layers_ready": _lightburst_texture != null and _smoke_texture != null,
+		"dice_layers_ready": _dice_backplate_texture != null and _dice_arc_texture != null,
 		"particle_texture_ready": _mote_texture != null,
 		"shader_ready": _halo_shader != null,
-		"texture_layer_count": 3,
-		"shader_layer_count": 1,
-		"gpu_particle_layer_count": 2,
+		"dice_arc_shader_ready": WritheEmberMaterial.get_shader() != null
+			and WritheEmberMaterial.has_preset("angel_dice_halo")
+			and WritheEmberMaterial.has_preset("angel_dice_roll_surge"),
+		"texture_layer_count": 5,
+		"shader_layer_count": 2,
+		"gpu_particle_layer_count": 3,
 		"game_size": GAME_SIZE,
 	}
 
@@ -168,12 +191,17 @@ func set_active(next_active: bool) -> void:
 	_snapshot.clear()
 	_was_modal_active = false
 	_was_absorbing = false
+	_was_rolling = false
 	if _ambient_particles != null:
 		_ambient_particles.emitting = false
+	if _dice_burst_particles != null:
+		_dice_burst_particles.emitting = false
 	if _absorb_particles != null:
 		_absorb_particles.emitting = false
 	if _halo_layer != null:
 		_halo_layer.visible = false
+	if _dice_arc_layer != null:
+		_dice_arc_layer.visible = false
 	if _lightburst_layer != null:
 		_lightburst_layer.visible = false
 	if _smoke_layer != null:
@@ -208,11 +236,26 @@ func get_debug_status() -> Dictionary:
 		"particle_layers_inside_clip": (
 			_ambient_particles != null
 			and _absorb_particles != null
+			and _dice_burst_particles != null
 			and _ambient_particles.get_parent() == _playfield_clip
 			and _absorb_particles.get_parent() == _playfield_clip
+			and _dice_burst_particles.get_parent() == _playfield_clip
 		),
 		"ambient_emitting": _ambient_particles != null and _ambient_particles.emitting,
 		"absorb_emitting": _absorb_particles != null and _absorb_particles.emitting,
+		"dice_arc_visible": _dice_arc_layer != null and _dice_arc_layer.visible,
+		"dice_arc_preset": _dice_arc_preset,
+		"dice_arc_rotation": _dice_arc_layer.rotation if _dice_arc_layer != null else 0.0,
+		"dice_arc_above_bridge": (
+			_dice_arc_layer != null
+			and _draw_bridge != null
+			and _dice_arc_layer.get_index() > _draw_bridge.get_index()
+		),
+		"dice_arc_uses_writhe_shader": (
+			_dice_arc_material != null
+			and WritheEmberMaterial.is_material_using_shader(_dice_arc_material)
+		),
+		"dice_burst_emitting": _dice_burst_particles != null and _dice_burst_particles.emitting,
 		"game_offset": position,
 		"render_scale": scale.x,
 		"phase": get_phase_name(),
@@ -252,6 +295,7 @@ func _sync_layers(modal_active: bool, absorbing: bool, absorption: Dictionary) -
 	var pulse := 0.78 + 0.12 * sin(elapsed * 3.4)
 	_lightburst_layer.modulate = Color(1.0, 0.86, 0.38, pulse * intensity)
 	_smoke_layer.modulate = Color(0.78, 0.52, 1.0, (0.22 + 0.08 * sin(elapsed * 2.1)) * intensity)
+	_sync_dice_layers(modal_active, elapsed)
 	_ambient_particles.emitting = modal_active
 	if absorbing:
 		_absorb_particles.position = _player_pos
@@ -260,6 +304,76 @@ func _sync_layers(modal_active: bool, absorbing: bool, absorption: Dictionary) -
 		_absorb_particles.emitting = true
 	elif not absorbing:
 		_absorb_particles.emitting = false
+
+
+func _sync_dice_layers(modal_active: bool, elapsed: float) -> void:
+	if _dice_arc_layer == null:
+		return
+	if not modal_active:
+		_dice_arc_layer.visible = false
+		if _dice_burst_particles != null:
+			_dice_burst_particles.emitting = false
+		_was_rolling = false
+		return
+	# 개시/종료 envelope와 페이즈 intensity는 wall-clock Tween 대신 modal_elapsed
+	# 파생 함수로 계산한다. 모달이 물리를 막는 동안에도 스냅샷 시계와 어긋나지
+	# 않고, PSO 프리워머의 고정 elapsed 픽스처에서도 결정적으로 그려진다.
+	var envelope := _dice_envelope(elapsed)
+	var rolling := elapsed >= 0.60 and elapsed < 2.25
+	_dice_arc_layer.visible = envelope > 0.01
+	_dice_arc_layer.rotation = _dice_arc_rotation(elapsed)
+	var settle_pop := 1.0 + 0.12 * _settle_pop(elapsed)
+	_dice_arc_layer.scale = Vector2.ONE * settle_pop
+	_dice_arc_layer.modulate = Color(1.0, 1.0, 1.0, envelope)
+	var next_preset := "angel_dice_roll_surge" if rolling else "angel_dice_halo"
+	if _dice_arc_material != null:
+		if next_preset != _dice_arc_preset:
+			WritheEmberMaterial.apply_preset(_dice_arc_material, next_preset)
+			_dice_arc_preset = next_preset
+		_dice_arc_material.set_shader_parameter("elapsed", elapsed)
+		_dice_arc_material.set_shader_parameter("intensity", envelope)
+	if _dice_burst_particles != null:
+		if rolling and not _was_rolling:
+			_dice_burst_particles.restart()
+			_dice_burst_particles.emitting = true
+		elif not rolling and _was_rolling and elapsed >= 2.25:
+			# settle 진입: 착지 반짝임 한 번 더.
+			_dice_burst_particles.restart()
+			_dice_burst_particles.emitting = true
+	_was_rolling = rolling
+
+
+func _dice_envelope(elapsed: float) -> float:
+	# descent 램프인 -> rolling 풀 -> settle 감쇠 -> highlight/wait 호흡 유지.
+	if elapsed < 0.60:
+		return clampf(elapsed / 0.60, 0.0, 1.0) * 0.85
+	if elapsed < 2.25:
+		return 1.0
+	if elapsed < 2.70:
+		return lerpf(1.0, 0.66, (elapsed - 2.25) / 0.45)
+	return 0.60 + 0.08 * sin(elapsed * 1.7)
+
+
+func _dice_arc_rotation(elapsed: float) -> float:
+	# 주사위 텀블(아이콘 회전)과 같은 리듬 가족: rolling 동안 반대 방향 0.6배로
+	# 돌아 시차 리듬을 만들고, settle에서 감속해 고정 각도로 눕는다.
+	if elapsed < 0.60:
+		return -elapsed * 0.35
+	if elapsed < 2.25:
+		var rolling_t := (elapsed - 0.60) / 1.65
+		return -0.21 - rolling_t * TAU * 1.95
+	var settle_base := -0.21 - TAU * 1.95
+	if elapsed < 2.70:
+		var settle_t := (elapsed - 2.25) / 0.45
+		return settle_base - (1.0 - (1.0 - settle_t) * (1.0 - settle_t)) * 0.55
+	return settle_base - 0.55 - (elapsed - 2.70) * 0.10
+
+
+func _settle_pop(elapsed: float) -> float:
+	if elapsed < 2.25 or elapsed >= 2.70:
+		return 0.0
+	var t := (elapsed - 2.25) / 0.45
+	return (1.0 - t) * (1.0 - t)
 
 
 func _build_children() -> void:
@@ -304,7 +418,33 @@ func _build_children() -> void:
 	bridge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_playfield_clip.add_child(bridge)
 	_draw_bridge = bridge
+
+	# 3-피스 주사위 빛 레이어는 브리지(패널·아이콘·텍스트) 위에 얹는다. 브리지가
+	# 거의 불투명한 패널을 그리므로 아래 형제로 두면 묻힌다(조상 불투명 채움 트랩의
+	# 형제 변형). 백플레이트(실체·MIX)는 브리지 캔버스 안에서 패널 뒤에 그린다.
+	_dice_arc_layer = _build_dice_layer("AngelDiceArcLayer", _dice_arc_texture, DICE_ARC_SIZE)
+	_dice_arc_material = WritheEmberMaterial.build_material("angel_dice_halo")
+	_dice_arc_preset = "angel_dice_halo"
+	_dice_arc_layer.material = _dice_arc_material
+	_playfield_clip.add_child(_dice_arc_layer)
+	_dice_burst_particles = _build_particles("AngelDiceBurstParticles", DICE_BURST_PARTICLE_AMOUNT, true)
+	_dice_burst_particles.position = DICE_CENTER
+	_playfield_clip.add_child(_dice_burst_particles)
 	set_active(false)
+
+
+func _build_dice_layer(name_value: String, texture: Texture2D, size_value: float) -> TextureRect:
+	var layer := TextureRect.new()
+	layer.name = name_value
+	layer.texture = texture
+	layer.size = Vector2.ONE * size_value
+	layer.position = DICE_CENTER - Vector2.ONE * size_value * 0.5
+	layer.pivot_offset = Vector2.ONE * size_value * 0.5
+	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.visible = false
+	return layer
 
 
 func _build_texture_layer(name_value: String, texture: Texture2D, size_value: Vector2, position_value: Vector2) -> TextureRect:
@@ -381,6 +521,7 @@ func _draw_modal(canvas: CanvasItem) -> void:
 		icon_center.y += absf(sin(rolling_t * PI * 6.0)) * -22.0 * (1.0 - rolling_t * 0.45)
 	elif elapsed >= 2.25 and elapsed < 2.70:
 		rotation = (1.0 - (elapsed - 2.25) / 0.45) * 0.42
+	_draw_dice_backplate(canvas, icon_center, elapsed)
 	_draw_holy_rays(canvas, icon_center, elapsed)
 	_draw_angel_icon(canvas, icon_center, 156.0 * icon_scale, rotation)
 	_draw_orbit_accents(canvas, icon_center, elapsed)
@@ -393,6 +534,28 @@ func _draw_modal(canvas: CanvasItem) -> void:
 	if elapsed >= 3.0:
 		var prompt_alpha := 0.62 + 0.38 * (0.5 + 0.5 * sin(elapsed * 4.8))
 		_draw_text_centered(canvas, AngelLocalization.text("continue"), Vector2(380.0, 601.0), 16, Color(1.0, 0.94, 0.70, prompt_alpha))
+
+
+func _draw_dice_backplate(canvas: CanvasItem, center: Vector2, elapsed: float) -> void:
+	# 3-피스의 실체 조각(MIX). 패널 위·아이콘 아래에서 천천히 역회전하며 숨쉰다.
+	# 아이콘과 동일한 확립 패턴(center 변환 -> 그리기 -> 원점 복원)만 사용하고,
+	# 별도 셰이더 패스나 canvas.material 교체는 하지 않는다(1패스 원칙).
+	if _dice_backplate_texture == null:
+		return
+	var envelope := _dice_envelope(elapsed)
+	if envelope <= 0.01:
+		return
+	var intro := clampf(elapsed / 0.60, 0.0, 1.0)
+	var breath := 1.0 + 0.02 * sin(elapsed * 1.7)
+	var size_value := DICE_BACKPLATE_SIZE * (0.72 + 0.28 * _ease_out_back(intro)) * breath
+	canvas.draw_set_transform(center, -elapsed * 0.12, Vector2.ONE)
+	canvas.draw_texture_rect(
+		_dice_backplate_texture,
+		Rect2(Vector2(-size_value, -size_value) * 0.5, Vector2.ONE * size_value),
+		false,
+		Color(1.0, 1.0, 1.0, 0.42 + 0.50 * envelope)
+	)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_angel_icon(canvas: CanvasItem, center: Vector2, size_value: float, rotation: float) -> void:

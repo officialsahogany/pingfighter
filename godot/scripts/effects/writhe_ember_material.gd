@@ -435,6 +435,34 @@ const PRESETS := {
 		"ember_color": Color(1.00, 1.00, 1.00, 1.0),
 		"amethyst_color": Color(0.50, 0.80, 1.00, 1.0),
 	},
+	# 천사의 주사위 모달 호(arc) 레이어. 성스러운 금-보라 광휘가 천천히 숨쉬는
+	# 대기 상태 — 낮은 distort와 느린 flow로 UI 광륜답게 안정적으로 읽힌다.
+	"angel_dice_halo": {
+		"distort_strength": 0.020,
+		"lateral_strength": 0.016,
+		"jitter_strength": 0.006,
+		"bolt_flow_speed": 0.7,
+		"flicker_speed": 3.6,
+		"pulse_speed": 0.9,
+		"breath_amp": 0.10,
+		"hot_color": Color(1.00, 0.96, 0.80, 1.0),
+		"ember_color": Color(1.00, 0.84, 0.40, 1.0),
+		"amethyst_color": Color(0.72, 0.55, 1.00, 1.0),
+	},
+	# 주사위가 구르는(rolling) 동안의 서지 변형 — 같은 셰이더, 색은 유지하고
+	# flow/flicker/breath만 끌어올려 텀블 리듬에 빛이 요동치게 한다.
+	"angel_dice_roll_surge": {
+		"distort_strength": 0.042,
+		"lateral_strength": 0.036,
+		"jitter_strength": 0.014,
+		"bolt_flow_speed": 2.6,
+		"flicker_speed": 7.5,
+		"pulse_speed": 1.8,
+		"breath_amp": 0.20,
+		"hot_color": Color(1.00, 0.96, 0.80, 1.0),
+		"ember_color": Color(1.00, 0.84, 0.40, 1.0),
+		"amethyst_color": Color(0.72, 0.55, 1.00, 1.0),
+	},
 }
 
 static var _shader: Shader = null

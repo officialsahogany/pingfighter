@@ -27,6 +27,7 @@ func _run() -> void:
 
 	_verify_pipeline_and_clip_contract(host)
 	_verify_phase_boundaries(host)
+	_verify_dice_three_piece_layers(host)
 	_verify_absorption_projection(host)
 	await _verify_letterbox_clip_when_available(viewport, host)
 	_verify_explicit_and_static_cleanup(viewport, host)
@@ -77,6 +78,38 @@ func _verify_phase_boundaries(host: Node2D) -> void:
 				str(case.get("phase", "")),
 			]
 		)
+
+
+func _verify_dice_three_piece_layers(host: Node2D) -> void:
+	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
+	_expect(bool(pipeline.get("dice_layers_ready", false)), "Angel overlay should prewarm both dice texture pieces (backplate + arc)")
+	_expect(bool(pipeline.get("dice_arc_shader_ready", false)), "Angel dice arc should have the writhe-ember shader plus both angel presets")
+	_expect(int(pipeline.get("gpu_particle_layer_count", 0)) >= 3, "Angel overlay should expose the dedicated dice burst particle layer")
+
+	# rolling 진입: 서지 프리셋 + 호 가시화 + 버스트 원샷.
+	host.sync_state(_modal_snapshot(0.30), Vector2(380.0, 690.0), _layout())
+	host.sync_state(_modal_snapshot(0.80), Vector2(380.0, 690.0), _layout())
+	var rolling_status: Dictionary = host.get_debug_status()
+	_expect(bool(rolling_status.get("dice_arc_visible", false)), "dice arc light layer should be visible while rolling")
+	_expect(str(rolling_status.get("dice_arc_preset", "")) == "angel_dice_roll_surge", "rolling phase should switch the arc to the surge preset")
+	_expect(bool(rolling_status.get("dice_arc_above_bridge", false)), "dice arc light must sit above the draw bridge so the opaque panel cannot bury it")
+	_expect(bool(rolling_status.get("dice_arc_uses_writhe_shader", false)), "dice arc must reuse the shared writhe-ember shader family")
+	_expect(bool(rolling_status.get("dice_burst_emitting", false)), "entering the rolling phase should fire the dice burst particles")
+	var rolling_rotation := float(rolling_status.get("dice_arc_rotation", 0.0))
+
+	# 텀블 리듬: rolling 중 회전이 계속 진행되어야 한다(엔진측 모션).
+	host.sync_state(_modal_snapshot(1.60), Vector2(380.0, 690.0), _layout())
+	var later_status: Dictionary = host.get_debug_status()
+	_expect(
+		absf(float(later_status.get("dice_arc_rotation", 0.0)) - rolling_rotation) > 0.5,
+		"dice arc rotation should advance with the tumble rhythm during rolling"
+	)
+
+	# wait_confirm: 서지 해제 + calm 프리셋 복귀, 호는 숨쉬며 유지.
+	host.sync_state(_modal_snapshot(3.2), Vector2(380.0, 690.0), _layout())
+	var calm_status: Dictionary = host.get_debug_status()
+	_expect(str(calm_status.get("dice_arc_preset", "")) == "angel_dice_halo", "post-settle phases should return the arc to the calm halo preset")
+	_expect(bool(calm_status.get("dice_arc_visible", false)), "dice arc should keep breathing through wait_confirm")
 
 
 func _verify_absorption_projection(host: Node2D) -> void:
