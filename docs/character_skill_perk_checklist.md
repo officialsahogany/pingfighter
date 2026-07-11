@@ -133,6 +133,20 @@ Before adding ANY runtime character perk / skill, confirm:
 - [ ] If this changes player-skill cooldowns:
       decide whether it affects only gameplay, or gameplay + all HUD
       readouts (default: both)
+- [ ] If this adds a cooldown-reduction lane or a NEW cooldown-reading
+      surface (HUD wedge, tooltip, TAB row, judgment path): the final
+      composed cooldown must route through the shared floor policy
+      (`cooldown_floor_policy.gd`, base>0 → final ≥ 5% of base, max 95%
+      reduction; intentional base-0 stays 0). Apply the floor ONLY at the
+      final composition point — skill = character skill_config
+      `_get_effective_cooldown_multiplier`, active item =
+      `active_item_cooldown_composer` (slot controller / battle HUD /
+      TAB `active_item_cooldown_from_base` all share it) — never inside
+      intermediate query surfaces (double-apply / display-vs-judgment
+      drift). Consumers must NOT treat a valid 0/near-0 cooldown as
+      "missing value" and reset to base (viper four_poisons `< 0.0`
+      sentinel precedent — only a missing config/negative falls back).
+      Seal: `cooldown_floor_policy_smoke.gd`.
 - [ ] If this is an active-skill enhancer / passive that modifies an
       existing orb skill, decide whether the target orb tooltip needs a
       dedicated runtime synergy / bonus-line summary. Default: yes when
