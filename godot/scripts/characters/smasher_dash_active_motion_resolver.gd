@@ -42,6 +42,7 @@ func _get_recovery_timer(ended: bool, is_half: bool, recovery_frames: float) -> 
 
 
 func _get_current_speed(timer: float) -> float:
+	if timer > DASH_DECEL_FRAMES:
 		return DASH_BASE_SPEED
 	var dash_strength: float = clamp(timer / DASH_DECEL_FRAMES, 0.0, 1.0)
 	return DASH_BASE_SPEED * dash_strength
