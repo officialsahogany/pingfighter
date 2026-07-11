@@ -524,6 +524,21 @@ the single sanitize helper; seals need residue-injection + real-tick
 sequence legs (synthetic exact-0 cases prove nothing). Full rule:
 `docs/godot_runtime_traps.md`.
 
+## Godot TextureRect Min-Size Clamp Renders At Native Texture Size Trap
+
+Setting a `TextureRect`'s `.size` SMALLER than its texture AFTER assigning
+`.texture` (default `EXPAND_KEEP_SIZE` makes the Control's min size = texture
+size) clamps `.size` back UP to native; switching `expand_mode` to
+`EXPAND_IGNORE_SIZE` afterward lowers the min but does NOT re-shrink the already
+-set size, so it renders at native texture px (overflowing). Code "looks 306" and
+state smokes stay GREEN — only live pixel QA catches it. For a centered/rotating/
+scaled/ShaderMaterial sprite use `Sprite2D` (position=center, `centered=true`,
+`scale = px / max(tex.w, tex.h)`); if `TextureRect` is required, set
+`EXPAND_IGNORE_SIZE` BEFORE `.texture`/`.size`. Seal with an on-screen-span assert
+that excludes the native width, and keep piecewise VFX motion (envelope/rotation)
+C0-continuous at phase boundaries (phase-lock breathing sin to the boundary).
+Full rule + seal (angel dice arc): `docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such

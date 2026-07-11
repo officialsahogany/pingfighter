@@ -1446,3 +1446,65 @@ Standing rules:
   precision) before theorizing — this bug was invisible at %.3f and %.9f
   display precision and only the branch logger exposed "reset(satiety>0)"
   with a printed value of 0.000000000.
+## Godot TextureRect Min-Size Clamp Renders At Native Texture Size Trap (use Sprite2D for scaled/rotated shader sprites)
+
+Incident (2026-07-12, 천사의 주사위 투척 연출 3-피스 VFX): the dice halo "arc"
+layer was a `TextureRect` intended to draw a 768x768 source at ~306px, centered
+on the dice, rotating with the tumble under a shared writhe-ember ADD shader. In
+code the size was set correctly:
+
+```gdscript
+layer.texture = texture              # (a) default expand_mode == EXPAND_KEEP_SIZE
+layer.size = Vector2.ONE * 306.0     # (b) intended 306px
+layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # (c) later
+layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+```
+
+It rendered at the FULL native ~768px, sweeping a giant comet across the whole
+760x750 canvas and far outside the modal panel — the single worst break in the
+composition. Every state smoke was GREEN (they asserted visibility, preset swap,
+rotation advance, above-bridge order — never the on-screen SIZE), and it was
+caught only by live windowed pixel QA.
+
+Mechanism: assigning `.texture` (step a) while `expand_mode` is still the default
+`EXPAND_KEEP_SIZE` makes the Control's MINIMUM size become the texture size
+(768). Setting `.size = 306` (step b) is then clamped UP to the 768 minimum.
+Switching `expand_mode = EXPAND_IGNORE_SIZE` afterward (step c) lowers the
+minimum to 0 but does NOT re-shrink the already-clamped `size`, so the rect stays
+768 and `STRETCH_KEEP_ASPECT_CENTERED` fills that 768 box. The node "looks 306"
+in code and is unmeasured by structural smokes.
+
+Standing rules:
+- For a centered, rotating, scaled, ShaderMaterial'd sprite, use `Sprite2D`, not
+  `TextureRect`. `Sprite2D` has no layout min-size interaction: `position` = the
+  center (with `centered = true`), `rotation` rotates about that center, and
+  `scale = intended_px / max(texture.get_width(), texture.get_height())` gives an
+  exact on-screen size. It composes cleanly with an additive-blend ShaderMaterial
+  and a single pass (no `canvas.material` set/restore). Sibling z-order vs a
+  `Control` bridge still works (canvas draw order is tree order via `get_index()`
+  regardless of Control-vs-Node2D). When a phase scale-pop multiplies the sprite,
+  multiply the BASE scale (`base_scale * pop`), never overwrite it with the pop
+  factor alone.
+- If a `TextureRect` is genuinely required at a size smaller than its texture,
+  set `expand_mode = EXPAND_IGNORE_SIZE` BEFORE assigning `.texture`/`.size` so
+  the minimum never clamps the size up. Sibling `_build_texture_layer` layers
+  (mythic_reveal lightburst/smoke) share this ordering risk — audit them if their
+  on-screen size ever looks wrong.
+- This class is INVISIBLE to state smokes. Seal it with an on-screen-span assert
+  driven from a debug status field: `dice_arc_span_px = max(tex.w, tex.h) *
+  abs(sprite.scale.x)`, asserted to sit near the intended size and to EXCLUDE the
+  native texture width. Prove it RED by forcing `base_scale = 1.0` (native span).
+- Piecewise VFX motion functions (envelope/intensity/rotation derived from
+  modal_elapsed) must be C0-continuous at phase boundaries. The same incident's
+  review also found `_dice_envelope` stepping 0.66 -> 0.5206 at the
+  settle->wait_confirm boundary (2.70s) — a one-frame ADD-arc dim pop because
+  rotation was continuous there and did not mask it. Phase-lock the breathing
+  band's sin phase to the boundary (`sin((elapsed - boundary) * w)`) so it starts
+  at the exact prior value. Seal with a left/right-limit continuity assert at
+  each boundary.
+
+Seal: `angel_blessing_overlay_host_smoke.gd` dice on-screen-span leg + envelope
+2.70 continuity leg (both reverse-verified RED via toggles). Live pixel QA
+harness: `tools/angel_dice_overlay_capture.gd` (non-headless SubViewport, 7
+phases). Run windowed: `godot --path godot -s
+res://tools/angel_dice_overlay_capture.gd`.
