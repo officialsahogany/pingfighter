@@ -153,6 +153,7 @@ func _init() -> void:
 	_verify_enemy_side_explosion()
 	_verify_player_side_self_explosion()
 	_verify_level_scaling_outcomes()
+	_verify_self_rescue_reroute_outcomes()
 
 	if _failures.is_empty():
 		print("lingpet_bomb_surprise_skill_smoke: ok")
@@ -360,6 +361,73 @@ func _verify_level_scaling_outcomes() -> void:
 	_expect(is_equal_approx(absf(float(lv5_self.get("bomb_surprise_last_knockback_velocity", 0.0))), 12.96), "Lv.5 self explosion should use 72 * 0.18 knockback")
 
 
+func _verify_self_rescue_reroute_outcomes() -> void:
+	# Lv.5 + 강제 성공 롤: 자폭 판정이 보스 재라우팅으로 구조되어 보스쪽 폭발이 된다.
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new({"status_effect_state": status_state})
+	owner.ball_pos = Vector2(680.0, 640.0)
+	owner.ball_vel = Vector2(0.0, 10.0)
+	var launch_origin := Vector2(300.0, 600.0)
+	_expect(host.launch("volty_bomb_surprise", launch_origin, owner, {
+		"active_skill_level": 5,
+		"fuse_seconds": 0.20,
+		"self_rescue_roll": 0.0,
+		"companion_pos": launch_origin,
+	}), "rescue fixture should launch Bomb Surprise")
+	var attached_snap := _drive_until_phase(host, owner, registry, "attached", 1.0)
+	_expect(str(attached_snap.get("bomb_surprise_phase", "")) == "attached", "rescue fixture should reach the attached phase before detonation")
+	_expect(is_equal_approx(float(attached_snap.get("bomb_surprise_self_rescue_chance", -1.0)), 0.40), "Lv.5 launch should cache the 40 percent self-rescue chance")
+	host.update(0.21, owner, registry, "volty_bomb_surprise")
+	var reroute_snap: Dictionary = host.get_snapshot()
+	_expect(str(reroute_snap.get("bomb_surprise_phase", "")) == "reroute_to_boss", "rescued self-explosion should enter the boss reroute flight instead of detonating")
+	_expect(bool(reroute_snap.get("bomb_surprise_reroute_active", false)), "reroute phase should be published in the snapshot")
+	_expect(not bool(reroute_snap.get("bomb_surprise_explosion_active", true)), "rescued bomb should not detonate before reaching the boss")
+	_expect(bool(reroute_snap.get("bomb_surprise_last_self_rescue", false)), "rescue roll success should be recorded")
+	var exploded_snap := _drive_until_phase(host, owner, registry, "returning", 1.5)
+	_expect(str(exploded_snap.get("bomb_surprise_phase", "")) == "returning", "rescued bomb should detonate at the boss and start returning home")
+	_expect(str(exploded_snap.get("bomb_surprise_last_target", "")) == "top", "rescued detonation should target the boss side")
+	_expect(not bool(exploded_snap.get("bomb_surprise_last_self_explosion", true)), "rescued detonation should be the strong boss explosion")
+	_expect(is_equal_approx(float(exploded_snap.get("bomb_surprise_last_stun_frames", 0.0)), 276.0), "rescued Lv.5 detonation should apply the Lv.5 boss stun")
+	_expect(is_equal_approx(absf(float(exploded_snap.get("bomb_surprise_last_knockback_velocity", 0.0))), 72.0), "rescued Lv.5 detonation should use the Lv.5 boss knockback velocity")
+	var boss_center := Vector2(330.0 + 50.0, 25.0 + 20.0)
+	_expect(_vector2_close(exploded_snap.get("bomb_surprise_explosion_pos", Vector2.ZERO), boss_center, 12.0), "rescued detonation should explode at the live boss position")
+	var calls: Array[Dictionary] = status_state.get_calls_for_source("volty_bomb_surprise")
+	_expect(calls.size() == 1 and str(calls[0].get("target", "")) == "boss", "rescued detonation should stun the boss")
+
+	# Lv.5 + 강제 실패 롤: 구조 실패 시 기존 자폭이 그대로 일어난다.
+	var fail_snap := _rescue_roll_fixture(5, 0.99)
+	_expect(str(fail_snap.get("bomb_surprise_last_target", "")) == "bottom", "failed rescue roll should keep the original self-explosion")
+	_expect(bool(fail_snap.get("bomb_surprise_last_self_explosion", false)), "failed rescue roll should stay a weak self explosion")
+	_expect(not bool(fail_snap.get("bomb_surprise_last_self_rescue", true)), "failed rescue roll should not record a rescue")
+
+	# Lv.1 앵커: 구조 확률 0 — 최상의 롤(0.0)에도 자폭이 유지된다(현행 밸런스 보존).
+	var lv1_snap := _rescue_roll_fixture(1, 0.0)
+	_expect(is_equal_approx(float(lv1_snap.get("bomb_surprise_self_rescue_chance", -1.0)), 0.0), "Lv.1 should keep a zero self-rescue chance")
+	_expect(str(lv1_snap.get("bomb_surprise_last_target", "")) == "bottom", "Lv.1 should never reroute a self-explosion")
+	_expect(bool(lv1_snap.get("bomb_surprise_last_self_explosion", false)), "Lv.1 self-explosion should stay the weak explosion")
+
+
+func _rescue_roll_fixture(active_skill_level: int, rescue_roll: float) -> Dictionary:
+	var host: Object = LingpetSkillRuntimeHost.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.ball_pos = Vector2(680.0, 640.0)
+	owner.ball_vel = Vector2(0.0, 10.0)
+	var launch_origin := Vector2(300.0, 600.0)
+	_expect(host.launch("volty_bomb_surprise", launch_origin, owner, {
+		"active_skill_level": active_skill_level,
+		"fuse_seconds": 0.20,
+		"self_rescue_roll": rescue_roll,
+		"companion_pos": launch_origin,
+	}), "rescue roll fixture should launch Bomb Surprise")
+	var attached_snap := _drive_until_phase(host, owner, registry, "attached", 1.0)
+	_expect(str(attached_snap.get("bomb_surprise_phase", "")) == "attached", "rescue roll fixture should reach the attached phase before detonation")
+	host.update(0.21, owner, registry, "volty_bomb_surprise")
+	return host.get_snapshot()
+
+
 func _explode_level_fixture(active_skill_level: int, self_explosion: bool) -> Dictionary:
 	var host: Object = LingpetSkillRuntimeHost.new()
 	var owner := FakeOwner.new()
@@ -370,6 +438,9 @@ func _explode_level_fixture(active_skill_level: int, self_explosion: bool) -> Di
 	var launch_context := {
 		"active_skill_level": active_skill_level,
 		"fuse_seconds": 0.20,
+		# 자폭 레인 검증 픽스처: Lv.2+에서 자폭 구조 롤이 확률적으로 개입하지 않도록
+		# 실패 롤을 고정한다(구조 성공 레인은 _verify_self_rescue_reroute_outcomes 담당).
+		"self_rescue_roll": 0.99,
 		"companion_pos": launch_origin,
 	}
 	_expect(host.launch("volty_bomb_surprise", launch_origin, owner, launch_context), "level fixture should launch Bomb Surprise")

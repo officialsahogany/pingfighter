@@ -16,6 +16,12 @@ const BOSS_STUN_SECONDS_BY_LEVEL := [3.0, 3.3, 3.7, 4.1, 4.6]
 const BOSS_KNOCKBACK_VELOCITY_BY_LEVEL := [52.0, 56.0, 60.0, 66.0, 72.0]
 const PLAYER_STUN_SECONDS_BY_LEVEL := [0.80, 0.72, 0.62, 0.52, 0.40]
 const PLAYER_KNOCKBACK_SCALE_BY_LEVEL := [0.30, 0.27, 0.24, 0.21, 0.18]
+# 자폭 구조 확률: 퓨즈 만료 판정이 플레이어쪽(자폭)일 때만 1회 굴리는 유예 확률.
+# 성공 시 폭탄이 보스에게 날아가 보스쪽 폭발로 대체된다(최종 보스폭발률 = q + (1-q)p).
+const SELF_RESCUE_CHANCE_BY_LEVEL := [0.0, 0.10, 0.20, 0.30, 0.40]
+const REROUTE_FLIGHT_SPEED := 980.0
+const REROUTE_ARRIVE_DISTANCE := 10.0
+const REROUTE_FAILSAFE_SECONDS := 1.2
 const BOSS_KNOCKBACK_FRAMES := 18.0
 const PLAYER_KNOCKBACK_FRAMES := 10.0
 const KNOCKBACK_DECAY := 0.85
@@ -35,6 +41,7 @@ const STATUS_SOURCE := "volty_bomb_surprise"
 const PHASE_IDLE := "idle"
 const PHASE_FLY_TO_BALL := "fly_to_ball"
 const PHASE_ATTACHED := "attached"
+const PHASE_REROUTE_TO_BOSS := "reroute_to_boss"
 const PHASE_RETURNING := "returning"
 
 const LOCATION_BALL := "ball"
@@ -71,6 +78,10 @@ var _boss_stun_seconds := BOSS_STUN_SECONDS
 var _boss_knockback_velocity := BOSS_KNOCKBACK_VELOCITY
 var _player_stun_seconds := PLAYER_STUN_SECONDS
 var _player_knockback_scale := PLAYER_KNOCKBACK_SCALE
+var _self_rescue_chance := 0.0
+var _self_rescue_roll_override := -1.0
+var _reroute_timer := 0.0
+var _last_self_rescue := false
 
 
 func reset() -> void:
@@ -103,6 +114,10 @@ func reset() -> void:
 	_boss_knockback_velocity = BOSS_KNOCKBACK_VELOCITY
 	_player_stun_seconds = PLAYER_STUN_SECONDS
 	_player_knockback_scale = PLAYER_KNOCKBACK_SCALE
+	_self_rescue_chance = 0.0
+	_self_rescue_roll_override = -1.0
+	_reroute_timer = 0.0
+	_last_self_rescue = false
 
 
 func prewarm() -> void:
@@ -116,6 +131,8 @@ func launch(origin: Vector2, owner: Object = null, launch_context: Dictionary = 
 	_boss_knockback_velocity = _get_level_float(BOSS_KNOCKBACK_VELOCITY_BY_LEVEL, _active_skill_level, BOSS_KNOCKBACK_VELOCITY)
 	_player_stun_seconds = _get_level_float(PLAYER_STUN_SECONDS_BY_LEVEL, _active_skill_level, PLAYER_STUN_SECONDS)
 	_player_knockback_scale = _get_level_float(PLAYER_KNOCKBACK_SCALE_BY_LEVEL, _active_skill_level, PLAYER_KNOCKBACK_SCALE)
+	_self_rescue_chance = _get_level_float(SELF_RESCUE_CHANCE_BY_LEVEL, _active_skill_level, 0.0)
+	_self_rescue_roll_override = clampf(float(launch_context.get("self_rescue_roll", -1.0)), -1.0, 1.0)
 	_active = true
 	_phase = PHASE_FLY_TO_BALL
 	_timer = 0.0
@@ -141,6 +158,8 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 			_update_fuse_audio(safe_delta, registry)
 			if _timer >= _fuse_seconds:
 				_explode(owner, registry)
+		PHASE_REROUTE_TO_BOSS:
+			_step_reroute_to_boss(safe_delta, owner, registry)
 		PHASE_RETURNING:
 			_step_return(safe_delta)
 		_:
@@ -158,9 +177,9 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_particles(canvas, shake_offset)
 	if _explosion_timer > 0.0:
 		_draw_explosion(canvas, _explosion_pos + shake_offset)
-	if _phase == PHASE_FLY_TO_BALL or _phase == PHASE_RETURNING:
+	if _phase == PHASE_FLY_TO_BALL or _phase == PHASE_RETURNING or _phase == PHASE_REROUTE_TO_BOSS:
 		_draw_travel_trail(canvas, shake_offset)
-	if _phase == PHASE_ATTACHED:
+	if _phase == PHASE_ATTACHED or _phase == PHASE_REROUTE_TO_BOSS:
 		_draw_bomb(canvas, _body_pos + shake_offset)
 
 
@@ -212,6 +231,9 @@ func get_snapshot() -> Dictionary:
 		"bomb_surprise_explosion_count": _explosion_count,
 		"bomb_surprise_last_target": _last_explosion_target,
 		"bomb_surprise_last_self_explosion": _last_self_explosion,
+		"bomb_surprise_self_rescue_chance": _self_rescue_chance,
+		"bomb_surprise_reroute_active": _phase == PHASE_REROUTE_TO_BOSS,
+		"bomb_surprise_last_self_rescue": _last_self_rescue,
 		"bomb_surprise_last_knockback_velocity": _last_knockback_velocity,
 		"bomb_surprise_last_stun_frames": _last_stun_frames,
 		"bomb_surprise_particle_count": _particles.size(),
@@ -302,12 +324,46 @@ func _append_trail_point(pos: Vector2) -> void:
 
 
 func _explode(owner: Object, registry: Object) -> void:
+	var target := _get_explosion_target(owner)
+	if target == LOCATION_BOTTOM and _try_start_self_rescue_reroute(owner, registry):
+		return
+	_detonate(owner, registry, target, _get_attached_position(owner))
+
+
+# 자폭 구조 롤은 퓨즈 만료라는 "기회"당 정확히 1회만 굴린다(프레임당 롤 중첩 금지 트랩).
+# 성공 시 폭탄이 실제 보스 위치까지 날아간 뒤 그 자리에서 보스쪽 폭발로 판정된다.
+func _try_start_self_rescue_reroute(owner: Object, registry: Object) -> bool:
+	if _self_rescue_chance <= 0.0:
+		return false
+	var roll := _self_rescue_roll_override
+	if roll < 0.0:
+		roll = _seeded_unit(_attached_pos.x + _attached_pos.y, float(Time.get_ticks_msec() % 100000) + 23.0)
+	if roll >= _self_rescue_chance:
+		return false
+	_phase = PHASE_REROUTE_TO_BOSS
+	_reroute_timer = 0.0
+	_last_self_rescue = true
+	_body_pos = _get_attached_position(owner)
+	_trail.clear()
+	_play_transfer_feedback(registry)
+	return true
+
+
+func _step_reroute_to_boss(delta: float, owner: Object, registry: Object) -> void:
+	_reroute_timer += delta
+	_append_trail_point(_body_pos)
+	var boss_center := _get_boss_rect(owner).get_center()
+	var arrived := _move_body_toward(boss_center, REROUTE_FLIGHT_SPEED, delta, REROUTE_ARRIVE_DISTANCE)
+	if arrived or _reroute_timer >= REROUTE_FAILSAFE_SECONDS:
+		_detonate(owner, registry, LOCATION_TOP, _body_pos)
+
+
+func _detonate(owner: Object, registry: Object, target: String, explosion_pos: Vector2) -> void:
 	_active = false
 	_phase = PHASE_RETURNING
-	_explosion_pos = _get_attached_position(owner)
+	_explosion_pos = explosion_pos
 	_body_pos = _explosion_pos
 	_trail.clear()
-	var target := _get_explosion_target(owner)
 	var self_explosion := target == LOCATION_BOTTOM
 	_last_explosion_target = target
 	_last_self_explosion = self_explosion
