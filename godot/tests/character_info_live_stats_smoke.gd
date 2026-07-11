@@ -198,12 +198,12 @@ func _run() -> void:
 	# 능력치 툴팁 소스별 증감 내역 (2026-07-11): 어떤 퍽·아이템·상태이상이 스탯을
 	# 바꿨는지 툴팁 본문에 원인 줄("· 라벨: ±N%")이 떠야 한다. 퍽 스텝은 구동
 	# 퍽 이름으로, 액티브 아이템은 soft-contract를 통해 아이템 표시명으로 특정.
-	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "신속 (퍽)")
+	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "신속")
 	_expect(not speed_perk_entry.is_empty(), "move-speed breakdown should attribute the common_swiftness perk by display name")
 	_expect(abs(float(speed_perk_entry.get("ratio", 0.0)) - 1.12) < 0.005, "swiftness Lv.2 should read as a +12% move-speed contribution")
 	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "비타민드링크")
 	_expect(abs(float(speed_item_entry.get("ratio", 0.0)) - 1.5) < 0.005, "vitamin pill should read as a +50% move-speed contribution under its ITEM display name")
-	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "숙련 (퍽)")
+	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "숙련")
 	_expect(
 		not cooldown_perk_entry.is_empty() and float(cooldown_perk_entry.get("ratio", 1.0)) < 1.0,
 		"item-cooldown breakdown should attribute the mastery perk as a reduction"
@@ -212,14 +212,14 @@ func _run() -> void:
 	# 증감 내역은 구조화 행(_player_stat_breakdown_rows_cache)으로 이동 —
 	# 각 행은 {text, icon_id}. 툴팁 드로어가 아이콘 + 텍스트로 그린다.
 	var speed_rows: Array = _stat_breakdown_rows(stats, "이동 속도")
-	_expect(not _breakdown_row(speed_rows, "신속 (퍽): +12%").is_empty(), "move-speed breakdown row should carry the swiftness attribution")
+	_expect(not _breakdown_row(speed_rows, "신속: +12%").is_empty(), "move-speed breakdown row should carry the swiftness attribution")
 	_expect(not _breakdown_row(speed_rows, "비타민드링크: +50%").is_empty(), "move-speed breakdown row should name the vitamin drink as the active-item cause")
-	_expect(not _breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련 (퍽): -13%").is_empty(), "item-cooldown breakdown row should carry the mastery reduction")
+	_expect(not _breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련: -13%").is_empty(), "item-cooldown breakdown row should carry the mastery reduction")
 
 	# 편의 아이콘 (2026-07-12): 원인 행에 퍽/아이템 아이콘 id가 붙어야 한다.
-	_expect(str(_breakdown_row(speed_rows, "신속 (퍽): +12%").get("icon_id", "")) == "common_swiftness", "swiftness breakdown row should carry the common_swiftness perk icon id")
+	_expect(str(_breakdown_row(speed_rows, "신속: +12%").get("icon_id", "")) == "common_swiftness", "swiftness breakdown row should carry the common_swiftness perk icon id")
 	_expect(str(_breakdown_row(speed_rows, "비타민드링크: +50%").get("icon_id", "")) == "vitamin_pill", "vitamin drink breakdown row should carry its item icon id")
-	_expect(str(_breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련 (퍽): -13%").get("icon_id", "")) == "item_cooldown_mastery", "mastery breakdown row should carry the item_cooldown_mastery perk icon id")
+	_expect(str(_breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련: -13%").get("icon_id", "")) == "item_cooldown_mastery", "mastery breakdown row should carry the item_cooldown_mastery perk icon id")
 
 	# 대시 거리는 스피릿 레이저 상수식(15×40×0.7=420)이 아니라 실전 감속 커브
 	# 적분(210px)을 표시해야 한다 (2026-07-11 리뷰 P1: 실산식 일치).
@@ -255,7 +255,7 @@ func _run() -> void:
 		var dice_stats: Array = overlay._build_stats(owner, dice_registry)
 		var dice_entry: Dictionary = _stat_breakdown_entry(dice_stats, "이동 속도", "신비의 주사위")
 		_expect(abs(float(dice_entry.get("ratio", 0.0)) - 1.10) < 0.005, "dice-only move-speed boost should surface as its own 신비의 주사위 line")
-		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "신속 (퍽)").is_empty(), "dice-only boost must NOT be misattributed to the swiftness perk")
+		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "신속").is_empty(), "dice-only boost must NOT be misattributed to the swiftness perk")
 		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "퍽 효과").is_empty(), "dice-only boost must NOT fall back to the generic perk-effect label")
 	stats = overlay._build_stats(owner, registry)
 

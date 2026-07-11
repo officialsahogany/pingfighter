@@ -272,7 +272,9 @@ static func _perk_source_label(runtime_state: Object, perk_id: String) -> String
 	):
 		var perk_name: String = RuntimePerkCatalog.get_perk_display_name(perk_id)
 		if perk_name != "":
-			return "%s (%s)" % [perk_name, LanguageSettings.translate_text("퍽")]
+			# 퍽 아이콘이 소스가 퍽임을 이미 보여주므로 "(퍽)" 접미사는 중복 —
+			# 아이템 줄(접미사 없음)과 맞춰 퍽 이름만 표기한다.
+			return perk_name
 	return "퍽 효과"
 
 
