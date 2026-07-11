@@ -228,10 +228,13 @@ snapshot의 `bomb_surprise_last_stun_frames` / `bomb_surprise_last_knockback_vel
    페일세이프 → 폭발이 live boss_center에 스냅(뒤처진 body와 200px+ 이격) 검증.
 2. **취소 시 긴급틱 미정리(P2-2)**: registry-aware `cancel(owner, registry)` 추가.
    호스트 `_reset_skill`이 `cancel`을 `reset()`보다 우선 호출하는데 기존엔 `cancel`이
-   없어 `reset()`만 돌았고, `reset()`은 강제 루프 SFX(`stop_bomb_surprise_urgent_tick`)를
-   안 멈춰 링펫 교체/전체 리셋 시 긴급틱이 드론으로 남았다(재라우팅이 이 창을
-   넓힘). `cancel`은 reset 전에 긴급틱을 정지. 씰: 긴급틱 재생 중 `host.reset` →
-   stop 1회 호출 검증.
+   없어 `reset()`만 돌았고, `reset()`은 `stop_bomb_surprise_urgent_tick`을 안 불러
+   링펫 교체/전체 리셋이 긴급틱 재생 중에 겹치면 스트레이 틱 잔향이 남았다.
+   (정확성: `ticking3.wav`는 `loop_mode=0` 원샷 + `_enable_loop` 미적용이라 무한
+   드론이 아니라 최대 ~0.75s 잔향. 그래도 "폭탄 사라졌는데 임박 틱이 울리는" 글리치라
+   정지 가치 있음. 재라우팅이 스왑이 틱을 붙잡을 수 있는 창을 넓힌다.) `cancel`은
+   reset 전에 긴급틱을 정지. round reset은 bomb_surprise가 `reset_round` 미보유라
+   `_reset_skill`로 폴백해 동일 경로. 씰: 긴급틱 재생 중 `host.reset` → stop 1회 검증.
 3. **레벨별 확률 증가 노출·중간레벨 미검증(P2-3)**: `effect_text`에 "레벨이 오를수록
    그 확률이 높아집니다" 추가(description은 이미 보유). 씰에 Lv.2/3/4 구조 확률
    0.10/0.20/0.30 검증 + description/effect_text 노출 문구 존재 검증 추가(문구 삭제
