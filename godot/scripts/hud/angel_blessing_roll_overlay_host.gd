@@ -49,7 +49,8 @@ class OverlayDrawBridge:
 
 var _playfield_clip: Control = null
 var _halo_layer: ColorRect = null
-var _dice_arc_layer: TextureRect = null
+var _dice_arc_layer: Sprite2D = null
+var _dice_arc_base_scale := 1.0
 var _lightburst_layer: TextureRect = null
 var _smoke_layer: TextureRect = null
 var _ambient_particles: GPUParticles2D = null
@@ -246,6 +247,7 @@ func get_debug_status() -> Dictionary:
 		"dice_arc_visible": _dice_arc_layer != null and _dice_arc_layer.visible,
 		"dice_arc_preset": _dice_arc_preset,
 		"dice_arc_rotation": _dice_arc_layer.rotation if _dice_arc_layer != null else 0.0,
+		"dice_arc_span_px": _dice_arc_on_screen_span(),
 		"dice_arc_above_bridge": (
 			_dice_arc_layer != null
 			and _draw_bridge != null
@@ -323,7 +325,7 @@ func _sync_dice_layers(modal_active: bool, elapsed: float) -> void:
 	_dice_arc_layer.visible = envelope > 0.01
 	_dice_arc_layer.rotation = _dice_arc_rotation(elapsed)
 	var settle_pop := 1.0 + 0.12 * _settle_pop(elapsed)
-	_dice_arc_layer.scale = Vector2.ONE * settle_pop
+	_dice_arc_layer.scale = Vector2.ONE * (_dice_arc_base_scale * settle_pop)
 	_dice_arc_layer.modulate = Color(1.0, 1.0, 1.0, envelope)
 	var next_preset := "angel_dice_roll_surge" if rolling else "angel_dice_halo"
 	if _dice_arc_material != null:
@@ -351,7 +353,10 @@ func _dice_envelope(elapsed: float) -> float:
 		return 1.0
 	if elapsed < 2.70:
 		return lerpf(1.0, 0.66, (elapsed - 2.25) / 0.45)
-	return 0.60 + 0.08 * sin(elapsed * 1.7)
+	# settle 끝값 0.66에서 연속으로 이어받아 호흡한다. 위상을 (elapsed-2.70)로
+	# 맞춰 경계에서 sin=0 -> 정확히 0.66에서 출발하므로 순간 침침해지는 불연속
+	# (2.70에서 0.66->0.52 스텝)이 없다.
+	return 0.66 + 0.05 * sin((elapsed - 2.70) * 1.6)
 
 
 func _dice_arc_rotation(elapsed: float) -> float:
@@ -422,7 +427,7 @@ func _build_children() -> void:
 	# 3-피스 주사위 빛 레이어는 브리지(패널·아이콘·텍스트) 위에 얹는다. 브리지가
 	# 거의 불투명한 패널을 그리므로 아래 형제로 두면 묻힌다(조상 불투명 채움 트랩의
 	# 형제 변형). 백플레이트(실체·MIX)는 브리지 캔버스 안에서 패널 뒤에 그린다.
-	_dice_arc_layer = _build_dice_layer("AngelDiceArcLayer", _dice_arc_texture, DICE_ARC_SIZE)
+	_dice_arc_layer = _build_dice_arc_sprite("AngelDiceArcLayer", _dice_arc_texture, DICE_ARC_SIZE)
 	_dice_arc_material = WritheEmberMaterial.build_material("angel_dice_halo")
 	_dice_arc_preset = "angel_dice_halo"
 	_dice_arc_layer.material = _dice_arc_material
@@ -433,18 +438,30 @@ func _build_children() -> void:
 	set_active(false)
 
 
-func _build_dice_layer(name_value: String, texture: Texture2D, size_value: float) -> TextureRect:
-	var layer := TextureRect.new()
-	layer.name = name_value
-	layer.texture = texture
-	layer.size = Vector2.ONE * size_value
-	layer.position = DICE_CENTER - Vector2.ONE * size_value * 0.5
-	layer.pivot_offset = Vector2.ONE * size_value * 0.5
-	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.visible = false
-	return layer
+# 호 스프라이트의 실제 화면 폭(px). scale이 무시되어 네이티브(768)로 렌더되는
+# TextureRect min_size 함정의 회귀 가드용 — 씰이 DICE_ARC_SIZE 대비 실측한다.
+func _dice_arc_on_screen_span() -> float:
+	if _dice_arc_layer == null or _dice_arc_layer.texture == null:
+		return 0.0
+	var tex_span := float(maxi(_dice_arc_layer.texture.get_width(), _dice_arc_layer.texture.get_height()))
+	return tex_span * absf(_dice_arc_layer.scale.x)
+
+
+func _build_dice_arc_sprite(name_value: String, texture: Texture2D, size_value: float) -> Sprite2D:
+	# 회전·스케일·셰이더 스프라이트에는 Sprite2D가 정석이다. TextureRect는
+	# texture 지정으로 min_size가 원본(768)이 되면 이후 size 축소가 min_size로
+	# 되돌려져 네이티브 크기로 렌더되는 레이아웃 함정이 있으므로 쓰지 않는다.
+	# centered=true라 position=중심, rotation은 중심 회전, scale로 정확한 크기 제어.
+	var sprite := Sprite2D.new()
+	sprite.name = name_value
+	sprite.texture = texture
+	sprite.position = DICE_CENTER
+	sprite.centered = true
+	var tex_span := maxf(1.0, float(maxi(texture.get_width(), texture.get_height())))
+	_dice_arc_base_scale = size_value / tex_span
+	sprite.scale = Vector2.ONE * _dice_arc_base_scale
+	sprite.visible = false
+	return sprite
 
 
 func _build_texture_layer(name_value: String, texture: Texture2D, size_value: Vector2, position_value: Vector2) -> TextureRect:

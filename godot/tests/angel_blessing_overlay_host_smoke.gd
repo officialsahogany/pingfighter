@@ -105,6 +105,25 @@ func _verify_dice_three_piece_layers(host: Node2D) -> void:
 		"dice arc rotation should advance with the tumble rhythm during rolling"
 	)
 
+	# 호 크기 회귀 가드: TextureRect는 texture 지정으로 min_size가 원본(768)이 되면
+	# 이후 size 축소가 되돌려져 네이티브로 렌더되는 함정이 있다(라이브 픽셀 QA에서
+	# 발견). Sprite2D + 명시 scale이라 실측 span이 DICE_ARC_SIZE 근처여야 한다.
+	# settle_pop(최대 1.12배)까지 감안해 상한을 잡고, 네이티브 768 폭은 반드시 배제.
+	var arc_span := float(rolling_status.get("dice_arc_span_px", 0.0))
+	_expect(arc_span > 0.0, "dice arc should report a measurable on-screen span")
+	_expect(arc_span <= 380.0, "dice arc must render near DICE_ARC_SIZE, not its native ~768px texture size (TextureRect min-size trap)")
+	_expect(arc_span >= 240.0, "dice arc on-screen span should stay close to its intended ~306px size")
+
+	# 엔벨로프 연속성 회귀 가드(적대 리뷰에서 발견): settle(끝값 0.66) -> wait_confirm
+	# 호흡 밴드가 2.70 경계에서 C0 연속이어야 한다. 불연속이면 ADD 호+백플레이트가
+	# 한 프레임 침침해지는 팝으로 읽힌다. 경계 좌우극한 차이를 직접 잰다.
+	var env_before := float(host._dice_envelope(2.6999))
+	var env_after := float(host._dice_envelope(2.70))
+	_expect(
+		absf(env_before - env_after) < 0.01,
+		"dice envelope must be continuous across the settle->wait_confirm boundary (2.70s), got %.4f -> %.4f" % [env_before, env_after]
+	)
+
 	# wait_confirm: 서지 해제 + calm 프리셋 복귀, 호는 숨쉬며 유지.
 	host.sync_state(_modal_snapshot(3.2), Vector2(380.0, 690.0), _layout())
 	var calm_status: Dictionary = host.get_debug_status()
