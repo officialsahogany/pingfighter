@@ -4290,7 +4290,7 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	_expect(_stat_values_have_exact(lingpet_stats, "30%"), "character-info lingpet stats should show the real defense rate")
 	_expect(_stat_values_have_exact(lingpet_stats, "Lv.0"), "character-info lingpet stats should show the text-only affinity level row")
 
-	var overlay_gain: float = CharacterInfoOverlayStatsPresenter.effective_gauge_gain_per_hit(null, [runtime], Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
+	var overlay_gain: float = CharacterInfoOverlayStatsPresenter.effective_gauge_gain_per_hit(null, null, runtime)
 	_expect(is_equal_approx(overlay_gain, 52.0), "character-info gauge-gain stat should read the Lv.1 Resonance Boost passive bonus")
 
 	var router := PaddleBounceEventRouter.new()

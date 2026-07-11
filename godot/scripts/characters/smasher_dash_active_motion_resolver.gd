@@ -42,7 +42,26 @@ func _get_recovery_timer(ended: bool, is_half: bool, recovery_frames: float) -> 
 
 
 func _get_current_speed(timer: float) -> float:
-	if timer > DASH_DECEL_FRAMES:
 		return DASH_BASE_SPEED
 	var dash_strength: float = clamp(timer / DASH_DECEL_FRAMES, 0.0, 1.0)
 	return DASH_BASE_SPEED * dash_strength
+
+
+# 실전 대시 이동거리: update()가 프레임마다 수행하는 감속 커브 이동
+# (round(direction * speed), fps_scale=1 기준)을 그대로 적분한다. 능력치 패널
+# 대시 거리 표시가 이 함수를 쓰므로 커브 상수가 바뀌면 표시도 따라온다.
+# _get_current_speed와 동일 커브를 인라인한다 — 그 인스턴스 메서드에 의존하지
+# 않아야 정적 컨텍스트에서 호출 가능하고 다른 세션의 시그니처 변경과도 무관하다.
+static func compute_total_dash_distance(duration_frames: float, distance_multiplier: float = 1.0) -> float:
+	var timer: float = max(1.0, duration_frames)
+	var mult: float = maxf(0.0, distance_multiplier)
+	var distance: float = 0.0
+	var frame_guard: int = 0
+	while timer > 0.0 and frame_guard < 600:
+		timer -= 1.0
+		var speed: float = DASH_BASE_SPEED * mult
+		if timer <= DASH_DECEL_FRAMES:
+			speed *= clampf(timer / DASH_DECEL_FRAMES, 0.0, 1.0)
+		distance += absf(round(speed))
+		frame_guard += 1
+	return distance

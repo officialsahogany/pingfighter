@@ -107,6 +107,22 @@ class CooldownPenaltyRuntime:
 		return float(base_cooldown_msec) * 1.25
 
 
+# 실전 게이지 산식(블루투스링) 배선 씰용 신화 스텁.
+class BluetoothRingMythicStub:
+	extends RefCounted
+
+	func calculate_bluetooth_ring_gauge_charge(base_gain: float) -> float:
+		return base_gain * 1.2
+
+
+# 실전 대시 재충전 산식(대시 부스트 배율) 배선 씰용 액티브 스텁.
+class DashBoostActiveStub:
+	extends RefCounted
+
+	func get_dash_cooldown_multiplier() -> float:
+		return 0.5
+
+
 class SpeedMultiplierRuntime:
 	extends RefCounted
 
@@ -180,22 +196,61 @@ func _run() -> void:
 	)
 
 	# 능력치 툴팁 소스별 증감 내역 (2026-07-11): 어떤 퍽·아이템·상태이상이 스탯을
-	# 바꿨는지 툴팁 본문에 원인 줄("· 라벨: ±N%")이 떠야 한다.
+	# 바꿨는지 툴팁 본문에 원인 줄("· 라벨: ±N%")이 떠야 한다. 퍽 스텝은 구동
+	# 퍽 이름으로, 액티브 아이템은 soft-contract를 통해 아이템 표시명으로 특정.
 	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "신속 (퍽)")
 	_expect(not speed_perk_entry.is_empty(), "move-speed breakdown should attribute the common_swiftness perk by display name")
 	_expect(abs(float(speed_perk_entry.get("ratio", 0.0)) - 1.12) < 0.005, "swiftness Lv.2 should read as a +12% move-speed contribution")
-	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "액티브 아이템")
-	_expect(abs(float(speed_item_entry.get("ratio", 0.0)) - 1.5) < 0.005, "vitamin pill should read as a +50% active-item move-speed contribution")
+	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "비타민드링크")
+	_expect(abs(float(speed_item_entry.get("ratio", 0.0)) - 1.5) < 0.005, "vitamin pill should read as a +50% move-speed contribution under its ITEM display name")
 	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "숙련 (퍽)")
 	_expect(
 		not cooldown_perk_entry.is_empty() and float(cooldown_perk_entry.get("ratio", 1.0)) < 1.0,
 		"item-cooldown breakdown should attribute the mastery perk as a reduction"
 	)
-	_expect(not _find_stat(stats, "최대 게이지").has("breakdown"), "max-gauge row has no per-source decomposition and should not carry a breakdown")
+	_expect(not _find_stat(stats, "최대 게이지").has("breakdown"), "base-value max-gauge row should not carry breakdown lines")
 	var speed_tooltip: String = _player_stat_tooltip(stats, "이동 속도")
 	_expect(speed_tooltip.find("· 신속 (퍽): +12%") >= 0, "move-speed tooltip should include the swiftness attribution line")
-	_expect(speed_tooltip.find("· 액티브 아이템: +50%") >= 0, "move-speed tooltip should include the active-item attribution line")
+	_expect(speed_tooltip.find("· 비타민드링크: +50%") >= 0, "move-speed tooltip should name the vitamin drink as the active-item cause")
 	_expect(_player_stat_tooltip(stats, "아이템 재충전").find("· 숙련 (퍽): -13%") >= 0, "item-cooldown tooltip should include the mastery reduction line")
+
+	# 대시 거리는 스피릿 레이저 상수식(15×40×0.7=420)이 아니라 실전 감속 커브
+	# 적분(210px)을 표시해야 한다 (2026-07-11 리뷰 P1: 실산식 일치).
+	_expect(str(_find_stat(stats, "대시 거리").get("value", "")) == "210px", "TAB dash distance should show the real decel-curve traversal (210px), not the laser-length formula (420px)")
+
+	# 실전 산식 배선 씰: 게이지=히트 라우터 체인(블루투스링), 대시 재충전=대시
+	# 상태 체인(대시 부스트 배율). HUD가 산식을 재구축하면 이 두 소스가 빠진다.
+	var real_math_registry := FakeRegistry.new(RuntimePerkState.new(), DashBoostActiveStub.new(), BluetoothRingMythicStub.new())
+	var real_math_stats: Array = overlay._build_stats(owner, real_math_registry)
+	_expect(str(_find_stat(real_math_stats, "게이지 획득량").get("value", "")) == "60pt", "TAB gauge gain should route through the real hit chain (bluetooth ring 50→60)")
+	var ring_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "게이지 획득량", "블루투스링")
+	_expect(abs(float(ring_entry.get("ratio", 0.0)) - 1.2) < 0.005, "gauge breakdown should name the bluetooth ring as a +20% source")
+	_expect(str(_find_stat(real_math_stats, "대시 재충전").get("value", "")) == "2.50초", "TAB dash recharge should include the active dash-boost cooldown multiplier (300f×0.5)")
+	var dash_boost_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "대시 재충전", "대시 부스트")
+	_expect(abs(float(dash_boost_entry.get("ratio", 0.0)) - 0.5) < 0.005, "dash-recharge breakdown should name the dash boost as a -50% source")
+
+	# 오귀속 씰 (2026-07-11 리뷰 P1): 신비의 주사위만 적용된 상태에서 주사위
+	# 배율이 퍽 이름("신속")이나 범주("퍽 효과")로 흡수되지 않고 자기 이름으로
+	# 표시되어야 한다. 신비의 주사위는 별도 세션 WIP라 아직 미배선일 수 있어
+	# has_method로 게이트한다 (미배선이면 오귀속할 대상 자체가 없다).
+	if RuntimePerkState.new().has_method("commit_mystic_dice_roll"):
+		var dice_state := RuntimePerkState.new()
+		dice_state.commit_mystic_dice_roll({
+			"player_speed": 10,
+			"paddle_size": 0,
+			"skill_gauge": 0,
+			"dash_distance": 0,
+			"dash_recovery": 0,
+			"dash_cooldown": 0,
+			"item_cooldown": 0,
+		})
+		var dice_registry := FakeRegistry.new(dice_state, active_runtime, null)
+		var dice_stats: Array = overlay._build_stats(owner, dice_registry)
+		var dice_entry: Dictionary = _stat_breakdown_entry(dice_stats, "이동 속도", "신비의 주사위")
+		_expect(abs(float(dice_entry.get("ratio", 0.0)) - 1.10) < 0.005, "dice-only move-speed boost should surface as its own 신비의 주사위 line")
+		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "신속 (퍽)").is_empty(), "dice-only boost must NOT be misattributed to the swiftness perk")
+		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "퍽 효과").is_empty(), "dice-only boost must NOT fall back to the generic perk-effect label")
+	stats = overlay._build_stats(owner, registry)
 
 	var lingpet_boosted_speed: float = CharacterInfoOverlayStatsPresenter.effective_move_speed(
 		"mika",

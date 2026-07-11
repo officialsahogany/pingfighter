@@ -503,6 +503,10 @@ func get_dash_boost_context() -> Dictionary:
 
 func get_dash_boost_timer_context() -> Dictionary:
 	return _effect_query.get_dash_boost_timer_context(self)
+func get_player_stat_breakdown(stat_key: String) -> Array:
+	return _effect_query.get_player_stat_breakdown(self, stat_key)
+
+
 
 
 func get_brick_wall_collision_context() -> Dictionary:

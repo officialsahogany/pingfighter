@@ -388,6 +388,15 @@ func handle_debug_spawn_menu_click(
 ) -> bool:
 	_ensure_helpers_ready()
 	return debug_facade.handle_debug_spawn_menu_click(self, mouse_position, view_size, owner, registry)
+# 능력치 툴팁 소스별 내역 soft-contract: 구현한 소스는 카테고리 라벨 대신
+# 아이템별 줄로 표시된다 (stats presenter가 has_method로 탐지).
+func get_player_stat_breakdown(stat_key: String) -> Array:
+	_ensure_helpers_ready()
+	if effect_controller != null and effect_controller.has_method("get_player_stat_breakdown"):
+		return effect_controller.get_player_stat_breakdown(stat_key)
+	return []
+
+
 
 
 func handle_debug_spawn_menu_input(

@@ -50,16 +50,13 @@ func register_player_hit(
 		return updated_gauge
 
 	if not drive_activated and not power_activated and not _is_dash_gauge_gain_blocked(deps):
-		var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
-		var gauge_gain: float = _get_horn_strawberry_gauge_on_hit(mythic_item_runtime) if horn_strawberry_transformed else float(context.get("gauge_charge_per_hit", 0.0))
-		if not horn_strawberry_transformed:
-			if combo_state != null:
-				gauge_gain = combo_state.get_gauge_gain(gauge_gain)
-			if mythic_item_runtime != null and mythic_item_runtime.has_method("calculate_bluetooth_ring_gauge_charge"):
-				gauge_gain = float(mythic_item_runtime.calculate_bluetooth_ring_gauge_charge(gauge_gain))
-			if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
-				gauge_gain = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_gain))
-			gauge_gain = _apply_lingpet_gauge_gain(gauge_gain, deps)
+		var gauge_gain: float = compute_gauge_gain_per_hit(
+			float(context.get("gauge_charge_per_hit", 0.0)),
+			combo_state,
+			deps.get("mythic_item_runtime", null),
+			deps.get("lingpet_egg_runtime", null),
+			horn_strawberry_transformed
+		)
 		updated_gauge = min(updated_gauge + gauge_gain, float(context.get("gauge_max", updated_gauge)))
 		var feedback = deps.get("feedback", null)
 		if feedback != null:
@@ -93,17 +90,47 @@ func _is_horn_strawberry_transformed(deps: Dictionary) -> bool:
 	)
 
 
-func _get_horn_strawberry_gauge_on_hit(mythic_item_runtime: Object) -> float:
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_gauge_on_hit"):
-		return max(0.0, float(mythic_item_runtime.get_horn_strawberry_gauge_on_hit()))
-	return 0.0
-
-
-func _apply_lingpet_gauge_gain(gauge_gain: float, deps: Dictionary) -> float:
-	var lingpet_runtime: Object = deps.get("lingpet_egg_runtime", null)
+# 실전 패들 히트 게이지 획득 산식의 단일 소유자. register_player_hit와 능력치
+# 패널(캐릭터 정보창)이 같은 함수를 쓰므로 표시값·증감 내역이 전투 결과와
+# 어긋날 수 없다. collector에 Array를 주면 소스별 {source, before, after}
+# 스텝이 기록된다 (뿔딸기 변신은 기본치 자체를 대체하고 나머지 소스를 건너뜀).
+static func compute_gauge_gain_per_hit(
+	base_gain: float,
+	combo_state: Object,
+	mythic_item_runtime: Object,
+	lingpet_runtime: Object,
+	horn_strawberry_transformed: bool,
+	collector: Variant = null
+) -> float:
+	if horn_strawberry_transformed:
+		var horn_gain := 0.0
+		if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_gauge_on_hit"):
+			horn_gain = max(0.0, float(mythic_item_runtime.get_horn_strawberry_gauge_on_hit()))
+		_collect_gauge_step(collector, "horn_strawberry", base_gain, horn_gain)
+		return horn_gain
+	var gauge_gain := base_gain
+	if combo_state != null and combo_state.has_method("get_gauge_gain"):
+		var combo_gain: float = float(combo_state.get_gauge_gain(gauge_gain))
+		_collect_gauge_step(collector, "combo", gauge_gain, combo_gain)
+		gauge_gain = combo_gain
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("calculate_bluetooth_ring_gauge_charge"):
+		var ring_gain: float = float(mythic_item_runtime.calculate_bluetooth_ring_gauge_charge(gauge_gain))
+		_collect_gauge_step(collector, "bluetooth_ring", gauge_gain, ring_gain)
+		gauge_gain = ring_gain
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
+		var digger_gain: float = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_gain))
+		_collect_gauge_step(collector, "gold_digger", gauge_gain, digger_gain)
+		gauge_gain = digger_gain
 	if lingpet_runtime != null and lingpet_runtime.has_method("get_gauge_gain_per_hit"):
-		return max(0.0, float(lingpet_runtime.get_gauge_gain_per_hit(gauge_gain)))
+		var lingpet_gain: float = float(lingpet_runtime.get_gauge_gain_per_hit(gauge_gain))
+		_collect_gauge_step(collector, "lingpet", gauge_gain, lingpet_gain)
+		gauge_gain = lingpet_gain
 	return max(0.0, gauge_gain)
+
+
+static func _collect_gauge_step(collector: Variant, source: String, before: float, after: float) -> void:
+	if collector is Array:
+		(collector as Array).append({"source": source, "before": before, "after": after})
 
 
 func _resolve_hit_intensity(drive_activated: bool, power_activated: bool) -> float:

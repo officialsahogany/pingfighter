@@ -707,8 +707,12 @@ func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect
 		stat_sources_override,
 		false,
 		active_item_slot_capacity_override,
-		active_item_slots_override
+		active_item_slots_override,
+		rect.has_point(mouse_pos)
 	)
 	var lingpet_rows: Array = _build_lingpet_stats(owner)
 	var row_count: int = _stats_row_count
 	return CharacterInfoOverlayStatsPresenter.draw_stat_sections(canvas, font, rect, row_count, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, lingpet_rows, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
+	# 소스별 증감 내역(breakdown)은 툴팁 전용이라 마우스가 이 패널 위에 있을
+	# 때만 계산한다 — 링펫 동반 시 패널이 상시 redraw되므로 hover 게이팅으로
+	# build-then-discard 비용을 막는다 (2026-07-11 리뷰 P2).

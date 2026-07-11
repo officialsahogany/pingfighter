@@ -370,6 +370,18 @@ static func localize_item_data(item_data: Dictionary) -> Dictionary:
 	return result
 
 
+# 아이템 표시명 단건 로컬라이즈 (딕셔너리 deep-copy 없는 이름 전용 경로).
+# ITEM_DISPLAY 맵은 아이템 ID로 키잉된다 (localize_item_data와 동일).
+static func localize_item_display_name(item_id: String, korean_name: String) -> String:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
+		return korean_name
+	var item_display_map := _get_item_display_map(language)
+	if item_display_map.has(item_id):
+		return str(item_display_map[item_id])
+	return translate_text(korean_name)
+
+
 # 퍽 표시명 단건 로컬라이즈 (딕셔너리 deep-copy 없는 이름 전용 경로).
 static func localize_perk_name(perk_id: String, korean_name: String) -> String:
 	var language := get_language()

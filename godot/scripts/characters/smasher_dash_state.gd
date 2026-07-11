@@ -187,20 +187,70 @@ func get_ball_collision_context() -> Dictionary:
 
 func _get_dash_recharge_frames(runtime_perk_state: Object, registry: Object = null) -> float:
 	var frames: float = DASH_BASE_RECHARGE_FRAMES
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_recharge_frames"):
-		frames = float(runtime_perk_state.get_dash_recharge_frames(frames))
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_recharge_frames"):
-		frames = float(mythic_item_runtime.get_dash_recharge_frames(frames))
-	frames *= _get_dash_cooldown_multiplier(registry)
+	return compute_dash_recharge_frames(runtime_perk_state, registry)
+
+
+# --- 실전 대시 스탯 산식의 단일 소유자 -------------------------------------
+# 아래 compute_* 3종은 대시 시작/재충전이 실제로 쓰는 체인(퍽 → 신화 아이템
+# → 액티브 대시부스트 배율)이며, 능력치 패널(캐릭터 정보창)도 같은 함수를
+# 호출해 표시값·증감 내역이 전투 결과와 어긋날 수 없다. collector에 Array를
+# 주면 소스별 {source, before, after} 스텝이 기록된다.
+
+static func compute_dash_duration_frames(runtime_perk_state: Object, registry: Object, collector: Variant = null, mythic_item_runtime_override: Object = null) -> float:
+	var frames: float = DASH_BASE_DURATION_FRAMES
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_duration_frames"):
+		var perk_frames: float = float(runtime_perk_state.get_dash_duration_frames(frames))
+		_collect_dash_stat_step(collector, "perk", frames, perk_frames)
+		frames = perk_frames
+	var mythic_item_runtime: Object = mythic_item_runtime_override if mythic_item_runtime_override != null else _registry_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_duration_frames"):
+		var mythic_frames: float = float(mythic_item_runtime.get_dash_duration_frames(frames))
+		_collect_dash_stat_step(collector, "mythic_item", frames, mythic_frames)
+		frames = mythic_frames
 	return max(1.0, frames)
 
 
-func _get_dash_cooldown_multiplier(registry: Object) -> float:
-	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+static func compute_dash_recovery_frames(runtime_perk_state: Object, registry: Object, collector: Variant = null, mythic_item_runtime_override: Object = null) -> float:
+	var frames: float = DASH_BASE_RECOVERY_FRAMES
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_recovery_frames"):
+		var perk_frames: float = float(runtime_perk_state.get_dash_recovery_frames(frames))
+		_collect_dash_stat_step(collector, "perk", frames, perk_frames)
+		frames = perk_frames
+	var mythic_item_runtime: Object = mythic_item_runtime_override if mythic_item_runtime_override != null else _registry_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_recovery_frames"):
+		var mythic_frames: float = float(mythic_item_runtime.get_dash_recovery_frames(frames))
+		_collect_dash_stat_step(collector, "mythic_item", frames, mythic_frames)
+		frames = mythic_frames
+	return max(1.0, frames)
+
+
+static func compute_dash_recharge_frames(runtime_perk_state: Object, registry: Object, collector: Variant = null, mythic_item_runtime_override: Object = null, active_item_runtime_override: Object = null) -> float:
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_recharge_frames"):
+		var perk_frames: float = float(runtime_perk_state.get_dash_recharge_frames(frames))
+		_collect_dash_stat_step(collector, "perk", frames, perk_frames)
+		frames = perk_frames
+	var mythic_item_runtime: Object = mythic_item_runtime_override if mythic_item_runtime_override != null else _registry_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_recharge_frames"):
+		var mythic_frames: float = float(mythic_item_runtime.get_dash_recharge_frames(frames))
+		_collect_dash_stat_step(collector, "mythic_item", frames, mythic_frames)
+		frames = mythic_frames
+	var active_item_runtime: Object = active_item_runtime_override if active_item_runtime_override != null else _registry_instance(registry, "active_item_runtime")
 	if active_item_runtime != null and active_item_runtime.has_method("get_dash_cooldown_multiplier"):
-		return max(0.0, float(active_item_runtime.get_dash_cooldown_multiplier()))
-	return 1.0
+		var boosted_frames: float = frames * max(0.0, float(active_item_runtime.get_dash_cooldown_multiplier()))
+		_collect_dash_stat_step(collector, "active_item", frames, boosted_frames)
+		frames = boosted_frames
+	return max(1.0, frames)
+
+
+static func _collect_dash_stat_step(collector: Variant, source: String, before: float, after: float) -> void:
+	if collector is Array:
+		(collector as Array).append({"source": source, "before": before, "after": after})
+
+
+static func _registry_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)
 
 
 func _is_dash_cost_free(registry: Object) -> bool:
@@ -211,13 +261,7 @@ func _is_dash_cost_free(registry: Object) -> bool:
 
 
 func _get_dash_recovery_frames(runtime_perk_state: Object, registry: Object = null) -> float:
-	var frames: float = DASH_BASE_RECOVERY_FRAMES
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_recovery_frames"):
-		frames = float(runtime_perk_state.get_dash_recovery_frames(frames))
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_recovery_frames"):
-		frames = float(mythic_item_runtime.get_dash_recovery_frames(frames))
-	return max(1.0, frames)
+	return compute_dash_recovery_frames(runtime_perk_state, registry)
 
 
 func _get_dash_duration_frames(runtime_perk_state: Object, registry: Object = null) -> float:

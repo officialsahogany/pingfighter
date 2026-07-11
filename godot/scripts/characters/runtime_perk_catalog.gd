@@ -1428,13 +1428,33 @@ func get_perk_data(skill_id: String) -> Dictionary:
 	return {}
 
 
-# 표시명만 필요한 소비자용 O(1) 접근자 (능력치 툴팁 증감 내역 등).
-# get_perk_data의 deep-copy + 전체 로컬라이즈 비용을 피한다.
+# 표시명 전용 O(1) 인덱스 (능력치 툴팁 증감 내역 등). get_perk_data의
+# deep-copy + 전체 로컬라이즈 비용을 피하고, pool 상수만 참조해 이 함수
+# 단독으로도 파싱/동작한다 (다른 헬퍼 인덱스와의 통합은 후속 정리 후보).
+static var _perk_display_name_index: Dictionary = {}
+
+
 static func get_perk_display_name(skill_id: String) -> String:
-	var data: Dictionary = _get_regular_perk_data_ref(skill_id)
-	if data.is_empty():
+	if _perk_display_name_index.is_empty():
+		for pool_value: Variant in [
+			COMMON_PERKS,
+			SMASHER_PERKS,
+			VIPER_PERKS,
+			SOLDIER_PERKS,
+			CONVERTED_PERKS,
+			CONVERTED_MYTHIC_PERKS,
+		]:
+			if not pool_value is Dictionary:
+				continue
+			var pool := pool_value as Dictionary
+			for perk_id_value: Variant in pool.keys():
+				var entry_value: Variant = pool.get(perk_id_value)
+				if entry_value is Dictionary:
+					_perk_display_name_index[str(perk_id_value)] = str((entry_value as Dictionary).get("name", ""))
+	var korean_name: String = str(_perk_display_name_index.get(skill_id, ""))
+	if korean_name == "":
 		return ""
-	return LanguageSettings.localize_perk_name(skill_id, str(data.get("name", "")))
+	return LanguageSettings.localize_perk_name(skill_id, korean_name)
 
 
 static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ActiveItemEffectContextBuilder := preload("res://scripts/items/active_item_effect_context_builder.gd")
 const ActiveItemEffectStatus := preload("res://scripts/items/active_item_effect_status.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ActiveItemPaddleSync := preload("res://scripts/items/active_item_paddle_sync.gd")
 const ActiveItemPickupEffectState := preload("res://scripts/items/active_item_pickup_effect_state.gd")
 const ActiveItemStopwatchOwnerEffects := preload("res://scripts/items/active_item_stopwatch_owner_effects.gd")
@@ -171,6 +172,46 @@ func get_player_speed_multiplier(target: Object) -> float:
 func get_aipill_context(target: Object) -> Dictionary:
 	return _context_builder.build_aipill_context(
 		bool(target.get("aipill_active")),
+# 능력치 툴팁용 아이템별 기여 내역. get_player_speed_multiplier /
+# get_player_paddle_scale과 같은 상태 플래그·배율 소스를 읽으므로 두 값이
+# 어긋나면 툴팁의 "기타 효과" 잔여 줄로 드러난다. 라벨은 아이템 표시명
+# 로컬라이즈를 거친 최종 문자열이다.
+func get_player_stat_breakdown(target: Object, stat_key: String) -> Array:
+	var entries: Array = []
+	match stat_key:
+		"player_speed":
+			if bool(target.get("vitamin_pill_active")) and float(target.get("vitamin_pill_timer_frames")) > 0.0:
+				entries.append({
+					"label": LanguageSettings.localize_item_display_name("vitamin_pill", "비타민드링크"),
+					"ratio": ActiveItemEffectStatus.VITAMIN_PILL_SPEED_MULTIPLIER,
+				})
+			if bool(target.get("strange_vial_active")) and float(target.get("strange_vial_timer_frames")) > 0.0:
+				entries.append({
+					"label": LanguageSettings.localize_item_display_name("strange_vial", "기묘한 약병"),
+					"ratio": maxf(0.0, float(target.get("strange_vial_speed_multiplier"))),
+				})
+		"paddle_scale":
+			var long_boost_scale: float = _get_float_property(target, "long_boost_scale", 1.0)
+			if absf(long_boost_scale - 1.0) > 0.001:
+				entries.append({
+					"label": LanguageSettings.localize_item_display_name("long_boost", "거대화포션"),
+					"ratio": maxf(0.0, long_boost_scale),
+				})
+			var milk_bottle_scale: float = _get_float_property(target, "milk_bottle_scale", 1.0)
+			if absf(milk_bottle_scale - 1.0) > 0.001:
+				entries.append({
+					"label": LanguageSettings.localize_item_display_name("milk_bottle", "우유병"),
+					"ratio": maxf(0.0, milk_bottle_scale),
+				})
+			var strange_vial_scale: float = _get_float_property(target, "strange_vial_scale", 1.0)
+			if absf(strange_vial_scale - 1.0) > 0.001:
+				entries.append({
+					"label": LanguageSettings.localize_item_display_name("strange_vial", "기묘한 약병"),
+					"ratio": maxf(0.0, strange_vial_scale),
+				})
+	return entries
+
+
 		float(target.get("aipill_phase")),
 		float(target.get("aipill_flash_timer_frames"))
 	)
