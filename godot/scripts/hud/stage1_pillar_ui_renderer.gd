@@ -16,8 +16,8 @@ const GOLD_HUD_FONT_SIZE := 24
 const GOLD_HUD_MIN_FONT_SIZE := 13
 const GOLD_HUD_TEXT_GAP := 8.0
 const GOLD_HUD_TEXT_RIGHT_PAD := 12.0
-const SENSOR_FRAME_ARC_SEGMENTS := 16
-const SENSOR_FRAME_ARC_SEGMENTS_LOD := 12
+const SENSOR_FRAME_ARC_SEGMENTS := 24
+const SENSOR_FRAME_ARC_SEGMENTS_LOD := 16
 const SENSOR_PROGRESS_ARC_SEGMENTS := 16
 const SENSOR_PROGRESS_ARC_SEGMENTS_LOD := 12
 const SENSOR_READY_WAVE_COUNT := 1
@@ -433,37 +433,91 @@ func _draw_sensor_cooldown_orb(
 	var frame_arc_segments := SENSOR_FRAME_ARC_SEGMENTS_LOD if lod_active else SENSOR_FRAME_ARC_SEGMENTS
 	var progress_arc_segments := SENSOR_PROGRESS_ARC_SEGMENTS_LOD if lod_active else SENSOR_PROGRESS_ARC_SEGMENTS
 	var ready_wave_segments := SENSOR_READY_WAVE_SEGMENTS_LOD if lod_active else SENSOR_READY_WAVE_SEGMENTS
+	var sf: float = scale_factor
 	var radius: float = max(10.0, orb_radius * 0.42)
-	var center := dash_center + Vector2(orb_radius * 0.64, -(orb_radius + radius + 18.0 * scale_factor))
+	var center := dash_center + Vector2(orb_radius * 0.64, -(orb_radius + radius + 18.0 * sf))
 	var progress: float = clamp(float(sensor_context.get("cooldown_progress", 0.0)), 0.0, 1.0)
 	var ready: bool = bool(sensor_context.get("ready", false)) and bool(sensor_context.get("enabled", true))
-	var pulse: float = 0.5 + 0.5 * sin(time_seconds * 7.0)
-	var base_alpha: float = 0.74 if ready else 0.52
-	var glow_alpha: float = 0.12 + 0.08 * pulse if ready else 0.08
+	var pulse: float = 0.5 + 0.5 * sin(time_seconds * 6.0)
 
-	canvas.draw_circle(center, radius + 7.0 * scale_factor, Color(105.0 / 255.0, 70.0 / 255.0, 1.0, glow_alpha))
-	canvas.draw_circle(center, radius, Color(18.0 / 255.0, 12.0 / 255.0, 34.0 / 255.0, 0.92))
-	canvas.draw_arc(center, radius, 0.0, TAU, frame_arc_segments, Color(95.0 / 255.0, 68.0 / 255.0, 150.0 / 255.0, 0.82), max(1.0, 2.0 * scale_factor), true)
+	# 프리미엄 팔레트: 건메탈 베젤(상단 밝음/하단 어두운 원통 셰이딩) + 골드/청록/
+	# 플래티넘 다층 림 + 오브시디언 웰, 정체성 유지용 광택 보라 젬. (프리미엄 HUD 크롬 정합)
+	var col_glow := Color(0.44, 0.32, 1.0)
+	var col_bezel := Color(0.22, 0.22, 0.27)
+	var col_bezel_hi := Color(0.42, 0.42, 0.50)
+	var col_bezel_lo := Color(0.10, 0.10, 0.14)
+	var col_edge := Color(0.04, 0.04, 0.06)
+	var col_gold := Color(0.90, 0.77, 0.47)
+	var col_platinum := Color(0.82, 0.84, 0.92)
+	var col_teal := Color(0.34, 0.78, 0.85)
+	var col_well := Color(0.05, 0.04, 0.09)
+	var col_gem := Color(0.58, 0.45, 1.0)
+	var col_gem_hi := Color(0.86, 0.80, 1.0)
 
+	var bezel_inner: float = radius * 0.64
+	var well_radius: float = radius * 0.60
+	var band_mid: float = (radius + bezel_inner) * 0.5
+	var band_w: float = radius - bezel_inner
+
+	# 외곽 글로우(타이트 — 베젤 금속감을 죽이지 않도록)
+	var glow_alpha: float = (0.14 if ready else 0.07) + 0.05 * pulse
+	canvas.draw_circle(center, radius + 5.0 * sf, Color(col_glow.r, col_glow.g, col_glow.b, glow_alpha))
+
+	# 건메탈 베젤 본체 + 밴드 상/하 셰이딩(원통형 브러시드 금속)
+	canvas.draw_circle(center, radius, col_bezel)
+	canvas.draw_arc(center, band_mid, PI, TAU, frame_arc_segments, Color(col_bezel_hi.r, col_bezel_hi.g, col_bezel_hi.b, 0.9), max(1.0, band_w), true)
+	canvas.draw_arc(center, band_mid, 0.0, PI, frame_arc_segments, Color(col_bezel_lo.r, col_bezel_lo.g, col_bezel_lo.b, 0.9), max(1.0, band_w), true)
+
+	# 림 스택: 외곽 다크 엣지 → 골드 → 청록 헤어라인 → 내측 플래티넘
+	canvas.draw_arc(center, radius, 0.0, TAU, frame_arc_segments, col_edge, max(1.0, 1.2 * sf), true)
+	canvas.draw_arc(center, radius - 1.7 * sf, 0.0, TAU, frame_arc_segments, Color(col_gold.r, col_gold.g, col_gold.b, 0.95), max(1.0, 1.9 * sf), true)
+	canvas.draw_arc(center, radius - 4.2 * sf, 0.0, TAU, frame_arc_segments, Color(col_teal.r, col_teal.g, col_teal.b, 0.6), max(1.0, 1.0 * sf), true)
+	canvas.draw_arc(center, bezel_inner, 0.0, TAU, frame_arc_segments, Color(col_platinum.r, col_platinum.g, col_platinum.b, 0.85), max(1.0, 1.5 * sf), true)
+
+	# 베젤 리벳(볼트) — 다크 소켓 + 플래티넘 헤드
+	var rivet_count: int = 4 if lod_active else 6
+	for ri in range(rivet_count):
+		var ra: float = -PI * 0.5 + float(ri) * TAU / float(rivet_count)
+		var rp := center + Vector2(cos(ra), sin(ra)) * band_mid
+		canvas.draw_circle(rp, max(1.4, 2.1 * sf), Color(0.06, 0.06, 0.08, 0.92))
+		canvas.draw_circle(rp, max(0.8, 1.3 * sf), Color(col_platinum.r, col_platinum.g, col_platinum.b, 0.95))
+
+	# 오브시디언 웰 + 상단 인너 섀도우(깊이감)
+	canvas.draw_circle(center, well_radius, col_well)
+	canvas.draw_arc(center + Vector2(0.0, -well_radius * 0.14), well_radius * 0.84, PI, TAU, frame_arc_segments, Color(0.0, 0.0, 0.0, 0.45), max(1.0, well_radius * 0.26), true)
+
+	# 쿨다운 진행 아크(2층: 넓은 딤 베이스 + 얇은 브라이트 톱)
 	var end_angle: float = -PI * 0.5 + TAU * progress
 	if progress > 0.0:
-		canvas.draw_arc(center, radius + 1.0 * scale_factor, -PI * 0.5, end_angle, progress_arc_segments, Color(180.0 / 255.0, 150.0 / 255.0, 1.0, base_alpha), max(1.0, 3.0 * scale_factor), true)
-	var core_radius: float = radius * (0.30 + 0.22 * progress)
-	canvas.draw_circle(center, core_radius + 4.0 * scale_factor, Color(130.0 / 255.0, 96.0 / 255.0, 1.0, 0.16 + 0.12 * progress))
-	canvas.draw_circle(center, core_radius, Color(210.0 / 255.0, 196.0 / 255.0, 1.0, 0.62 + 0.20 * progress))
+		canvas.draw_arc(center, well_radius - 1.5 * sf, -PI * 0.5, end_angle, progress_arc_segments, Color(col_gem.r, col_gem.g, col_gem.b, 0.30), max(1.0, 3.2 * sf), true)
+		canvas.draw_arc(center, well_radius - 1.5 * sf, -PI * 0.5, end_angle, progress_arc_segments, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, 0.95), max(1.0, 1.3 * sf), true)
+		if progress < 1.0:
+			# 진행 아크 헤드(코멧) — 채워지는 방향을 또렷하게
+			var head := center + Vector2(cos(end_angle), sin(end_angle)) * (well_radius - 1.5 * sf)
+			canvas.draw_circle(head, max(1.0, 1.9 * sf), Color(1.0, 1.0, 1.0, 0.9))
 
-	for i in range(3):
-		var angle: float = -PI * 0.5 + float(i - 1) * 0.72
-		var ray_start := center + Vector2(cos(angle), sin(angle)) * (radius * 0.26)
-		var ray_end := center + Vector2(cos(angle), sin(angle)) * (radius * 0.72)
-		canvas.draw_line(ray_start, ray_end, Color(120.0 / 255.0, 94.0 / 255.0, 1.0, 0.55), max(1.0, 1.4 * scale_factor), true)
+	# 광택 센서 젬(항상 lit) — 베이스 → 하단 내부 반사 → 상단 광택 → 스페큘러
+	var core_radius: float = well_radius * (0.44 + 0.10 * progress)
+	var gem_bright: float = 0.62 + 0.26 * progress + (0.12 * pulse if ready else 0.0)
+	canvas.draw_circle(center, core_radius + 2.5 * sf, Color(col_gem.r, col_gem.g, col_gem.b, 0.22 + 0.16 * progress))
+	canvas.draw_circle(center, core_radius, Color(col_gem.r, col_gem.g, col_gem.b, clampf(gem_bright, 0.0, 1.0)))
+	canvas.draw_arc(center + Vector2(0.0, core_radius * 0.18), core_radius * 0.70, 0.2, PI - 0.2, 10, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, 0.5), max(1.0, 1.2 * sf), true)
+	canvas.draw_circle(center + Vector2(0.0, -core_radius * 0.16), core_radius * 0.48, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, 0.5))
+	var spec := center + Vector2(-core_radius * 0.30, -core_radius * 0.36)
+	canvas.draw_circle(spec, max(1.0, core_radius * 0.20), Color(1.0, 1.0, 1.0, 0.88))
 
+	# 레디 상태: 레이더 스윕(회전 스캔) + 확장 링 — "센서" 정체성 강화
 	if ready and not static_hud_lod:
-		for i in range(SENSOR_READY_WAVE_COUNT):
-			var wave_phase: float = fmod(time_seconds * 1.8 + float(i) * 0.5, 1.0)
-			var wave_radius: float = radius * (0.82 + 0.58 * wave_phase)
-			var wave_alpha: float = 0.22 * (1.0 - wave_phase)
-			canvas.draw_arc(center, wave_radius, 0.0, TAU, ready_wave_segments, Color(196.0 / 255.0, 172.0 / 255.0, 1.0, wave_alpha), max(1.0, 1.5 * scale_factor), true)
+		var sweep_a: float = fmod(time_seconds * 1.5, 1.0) * TAU - PI * 0.5
+		var sweep_seg: int = 6 if lod_active else 10
+		canvas.draw_arc(center, well_radius - 2.0 * sf, sweep_a, sweep_a + 0.7, sweep_seg, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, 0.5), max(1.0, 1.5 * sf), true)
+		var lead := center + Vector2(cos(sweep_a + 0.7), sin(sweep_a + 0.7)) * (well_radius - 2.0 * sf)
+		canvas.draw_circle(lead, max(1.0, 1.5 * sf), Color(1.0, 1.0, 1.0, 0.7))
+		for wi in range(SENSOR_READY_WAVE_COUNT):
+			var wave_phase: float = fmod(time_seconds * 1.8 + float(wi) * 0.5, 1.0)
+			var wave_radius: float = radius * (0.9 + 0.45 * wave_phase)
+			var wave_alpha: float = 0.2 * (1.0 - wave_phase)
+			canvas.draw_arc(center, wave_radius, 0.0, TAU, ready_wave_segments, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, wave_alpha), max(1.0, 1.4 * sf), true)
 
 
 # 센서 대쉬토큰 오브 가시성 판정 (단일 소스). 퍽-인지 "active" 플래그를 우선하고,
