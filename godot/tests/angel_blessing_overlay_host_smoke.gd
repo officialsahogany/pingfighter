@@ -84,6 +84,14 @@ func _verify_phase_boundaries(host: Node2D) -> void:
 func _verify_dice_toss_and_wings(host: Node2D) -> void:
 	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
 	_expect(bool(pipeline.get("dice_toss_ready", false)), "Angel overlay should prewarm the separated die + wing textures for the toss animation")
+	_expect(bool(pipeline.get("wing_flap_sheet_ready", false)), "Angel overlay should prewarm the AutoSprite wing flap sheet (양쪽 날갯짓 애니메이션)")
+
+	# 날갯짓은 정적 회전 오실레이션이 아니라 AutoSprite 시트 프레임 재생: 시간이
+	# 지나면 프레임 인덱스가 순환해야 하고 항상 유효 범위(0..15)여야 한다.
+	var wf_a := int(host._wing_flap_frame(0.80))
+	var wf_b := int(host._wing_flap_frame(1.20))
+	_expect(wf_a >= 0 and wf_a < 16 and wf_b >= 0 and wf_b < 16, "wing flap frame index must stay within the 16-frame sheet")
+	_expect(wf_a != wf_b, "wing flap should advance frames over time (프레임 재생 펄럭)")
 
 	# 주사위는 중앙에서 위로 던져졌다 낙하한다: rolling 중 정점에서 위(음수 오프셋),
 	# settle/wait_confirm에서는 0(안착). 날개 펄럭은 좌우 대칭이므로 여기서는 주사위

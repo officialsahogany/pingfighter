@@ -20,10 +20,17 @@ const MOTE_PATH := "res://assets/sprites/hud/angel_dice_mote_imagegen_v1.png"
 # 펄럭). 통합 아이콘(angel_blessing_perk_icon)은 퍽 카드/HUD 전용으로 그대로 둔다.
 const DICE_DIE_PATH := "res://assets/sprites/hud/angel_dice_die_imagegen_v1.png"
 const DICE_WING_PATH := "res://assets/sprites/hud/angel_dice_wing_imagegen_v1.png"
+# 날개 날갯짓 애니메이션 시트(AutoSprite, 4x4 16프레임, 256px 셀). 정적 회전
+# 오실레이션 대신 실제 깃털 펄럭 프레임을 재생한다. 정적 날개는 시트 부재 시 폴백.
+const DICE_WING_FLAP_PATH := "res://assets/sprites/hud/angel_dice_wing_flap_autosprite_v1.png"
+const WING_FLAP_COLS := 4
+const WING_FLAP_FRAMES := 16
+const WING_FLAP_CELL := 256.0
 const DICE_DIE_SIZE := 138.0
 const WING_SIZE := 168.0
-# 날개 텍스처(오른쪽 방향) 안에서 어깨(밑동) 위치의 UV — 여기를 축으로 펄럭인다.
-const WING_SHOULDER := Vector2(0.070, 0.805)
+# 날개 텍스처(오른쪽 방향) 안에서 어깨(밑동) 위치의 UV — 여기를 원점에 맞춰 배치.
+# AutoSprite 시트 16프레임 전부 어깨가 (18,204)/256 = (0.070,0.797)로 고정, 팁만 이동.
+const WING_SHOULDER := Vector2(0.070, 0.797)
 const HALO_SHADER_PATH := "res://shaders/angel_blessing_halo.gdshader"
 const MODAL_PANEL := Rect2(130.0, 108.0, 500.0, 520.0)
 const DICE_CENTER := Vector2(380.0, 302.0)
@@ -41,6 +48,7 @@ static var _dice_backplate_texture: Texture2D = null
 static var _dice_arc_texture: Texture2D = null
 static var _dice_die_texture: Texture2D = null
 static var _dice_wing_texture: Texture2D = null
+static var _dice_wing_flap_texture: Texture2D = null
 static var _mote_texture: Texture2D = null
 static var _halo_shader: Shader = null
 static var _prewarmed := false
@@ -95,6 +103,7 @@ static func prewarm_assets() -> void:
 	_dice_arc_texture = _load_texture(DICE_ARC_PATH, "Angel dice arc")
 	_dice_die_texture = _load_texture(DICE_DIE_PATH, "Angel dice die")
 	_dice_wing_texture = _load_texture(DICE_WING_PATH, "Angel dice wing")
+	_dice_wing_flap_texture = _load_texture(DICE_WING_FLAP_PATH, "Angel dice wing flap sheet")
 	_mote_texture = _load_texture(MOTE_PATH, "Angel dice mote")
 	_halo_shader = load(HALO_SHADER_PATH) as Shader
 	WritheEmberMaterial.prewarm()
@@ -112,7 +121,8 @@ static func build_pipeline_status() -> Dictionary:
 		"icon_ready": _icon_texture != null,
 		"texture_layers_ready": _lightburst_texture != null and _smoke_texture != null,
 		"dice_layers_ready": _dice_backplate_texture != null and _dice_arc_texture != null,
-		"dice_toss_ready": _dice_die_texture != null and _dice_wing_texture != null,
+		"dice_toss_ready": _dice_die_texture != null and (_dice_wing_flap_texture != null or _dice_wing_texture != null),
+		"wing_flap_sheet_ready": _dice_wing_flap_texture != null,
 		"particle_texture_ready": _mote_texture != null,
 		"shader_ready": _halo_shader != null,
 		"dice_arc_shader_ready": WritheEmberMaterial.get_shader() != null
@@ -588,14 +598,14 @@ func _draw_dice_backplate(canvas: CanvasItem, center: Vector2, elapsed: float) -
 # IDENTITY 복원)만 쓴다. 브리지 _draw는 매 프레임 IDENTITY에서 시작하므로 복원
 # 대상은 IDENTITY로 안전.
 func _draw_dice_and_wings(canvas: CanvasItem, center: Vector2, elapsed: float, intro_scale: float) -> void:
-	if _dice_die_texture == null or _dice_wing_texture == null:
+	if _dice_die_texture == null or (_dice_wing_flap_texture == null and _dice_wing_texture == null):
 		_draw_fallback_die(canvas, center, 156.0 * intro_scale)
 		return
-	var flap := _wing_flap(elapsed)
-	var open := _wing_open(elapsed) * intro_scale
-	# 날개는 주사위 뒤에서 좌우로. 오른쪽은 그대로, 왼쪽은 scale.x=-1로 미러.
-	_draw_wing(canvas, center + Vector2(20.0, 10.0), 1.0, -0.10 - open + flap, WING_SIZE * intro_scale)
-	_draw_wing(canvas, center + Vector2(-20.0, 10.0), -1.0, -0.10 - open + flap, WING_SIZE * intro_scale)
+	# 날개는 주사위 뒤에서 좌우로. 펄럭은 AutoSprite 시트 프레임 재생(정적 회전
+	# 오실레이션 아님). 오른쪽은 그대로, 왼쪽은 scale.x=-1로 미러.
+	var frame := _wing_flap_frame(elapsed)
+	_draw_wing(canvas, center + Vector2(20.0, 10.0), 1.0, frame, WING_SIZE * intro_scale)
+	_draw_wing(canvas, center + Vector2(-20.0, 10.0), -1.0, frame, WING_SIZE * intro_scale)
 
 	_draw_halo(canvas, center, elapsed, intro_scale)
 
@@ -617,18 +627,44 @@ func _draw_dice_and_wings(canvas: CanvasItem, center: Vector2, elapsed: float, i
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-func _draw_wing(canvas: CanvasItem, shoulder: Vector2, mirror_x: float, rotation: float, size_value: float) -> void:
-	# 어깨(WING_SHOULDER UV)를 원점에 맞춰 배치하고 그 축으로 회전한다. mirror_x=-1은
-	# scale.x 반전만으로 좌우 미러(어깨를 원점에 두는 rect_pos는 스케일 부호와 무관).
+func _draw_wing(canvas: CanvasItem, shoulder: Vector2, mirror_x: float, frame_index: int, size_value: float) -> void:
+	# 어깨(WING_SHOULDER UV)를 원점에 맞춰 배치. mirror_x=-1은 scale.x 반전만으로
+	# 좌우 미러(어깨를 원점에 두는 rect_pos는 스케일 부호와 무관). 펄럭은 시트
+	# 프레임 재생이므로 회전은 주지 않는다. 시트 부재 시 정적 날개 1프레임 폴백.
 	var rect_pos := -WING_SHOULDER * size_value
-	canvas.draw_set_transform(shoulder, rotation, Vector2(mirror_x, 1.0))
-	canvas.draw_texture_rect(
-		_dice_wing_texture,
-		Rect2(rect_pos, Vector2.ONE * size_value),
-		false,
-		Color(1.0, 0.98, 0.90, 0.96)
-	)
+	var tint := Color(1.0, 0.98, 0.90, 0.96)
+	canvas.draw_set_transform(shoulder, 0.0, Vector2(mirror_x, 1.0))
+	if _dice_wing_flap_texture != null:
+		var col := frame_index % WING_FLAP_COLS
+		var row := frame_index / WING_FLAP_COLS
+		var src := Rect2(float(col) * WING_FLAP_CELL, float(row) * WING_FLAP_CELL, WING_FLAP_CELL, WING_FLAP_CELL)
+		canvas.draw_texture_rect_region(
+			_dice_wing_flap_texture,
+			Rect2(rect_pos, Vector2.ONE * size_value),
+			src,
+			tint
+		)
+	else:
+		canvas.draw_texture_rect(
+			_dice_wing_texture,
+			Rect2(rect_pos, Vector2.ONE * size_value),
+			false,
+			tint
+		)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _wing_flap_frame(elapsed: float) -> int:
+	# 연속 누적 flap 사이클 -> 프레임 인덱스. rolling 동안 빠르게(1.7/s), 그 외에는
+	# 느리게(0.9/s) 재생. 구간 경계에서 누적값이 연속이라 프레임 점프가 없다.
+	var cycles := 0.0
+	if elapsed < 0.60:
+		cycles = elapsed * 0.9
+	elif elapsed < 2.25:
+		cycles = 0.60 * 0.9 + (elapsed - 0.60) * 1.7
+	else:
+		cycles = 0.60 * 0.9 + 1.65 * 1.7 + (elapsed - 2.25) * 0.9
+	return int(floorf(cycles * float(WING_FLAP_FRAMES))) % WING_FLAP_FRAMES
 
 
 func _draw_halo(canvas: CanvasItem, center: Vector2, elapsed: float, intro_scale: float) -> void:
@@ -643,17 +679,19 @@ func _draw_halo(canvas: CanvasItem, center: Vector2, elapsed: float, intro_scale
 
 
 func _die_toss_offset(elapsed: float) -> float:
-	# 음수 = 위로. rolling 동안 2번 던져 올렸다 낙하(정점 높이 감쇠), settle+에서 착지.
+	# 음수 = 위로. 자연스러운 단일 던지기: 빠르게 솟구쳐(감속) 정점에서 잠시 hang,
+	# 이후 중력처럼 가속 낙하해 rolling 끝(2.25)에 정확히 착지. 2회 튀는 기계적
+	# 궤적 대신 "위로 던졌다 떨어지는" 한 번의 아치로 읽힌다.
 	if elapsed < 0.60 or elapsed >= 2.25:
 		return 0.0
 	var t := (elapsed - 0.60) / 1.65
-	var arcs := 2.0
-	var seg := t * arcs
-	var idx := floorf(seg)
-	var frac := seg - idx
-	var arch := 4.0 * frac * (1.0 - frac)
-	var height := 96.0 * (1.0 - 0.42 * idx / arcs)
-	return -height * arch
+	var peak := 96.0
+	if t < 0.44:
+		# 상승: sin 1/4파 이징아웃 — 빠르게 올라 정점에서 감속(hang).
+		return -peak * sin((t / 0.44) * PI * 0.5)
+	# 낙하: 2차 가속(중력 느낌) — 정점에서 0으로 점점 빠르게 내려온다.
+	var fall := (t - 0.44) / 0.56
+	return -peak * (1.0 - fall * fall)
 
 
 func _die_tumble(elapsed: float, intro_scale: float) -> float:
@@ -667,25 +705,6 @@ func _die_tumble(elapsed: float, intro_scale: float) -> float:
 		var settle_t := (elapsed - 2.25) / 0.45
 		return base + sin(settle_t * PI) * 0.12 * (1.0 - settle_t)
 	return base
-
-
-func _wing_flap(elapsed: float) -> float:
-	# rolling 동안 빠르고 크게 펄럭, 그 외에는 느리고 얕게 호흡.
-	var rolling := elapsed >= 0.60 and elapsed < 2.25
-	var speed := 8.5 if rolling else 3.2
-	var amp := 0.22 if rolling else 0.10
-	return sin(elapsed * speed) * amp
-
-
-func _wing_open(elapsed: float) -> float:
-	# rolling 동안 날개를 조금 더 펼친다(펄럭이 커 보이게).
-	if elapsed < 0.60:
-		return 0.0
-	if elapsed < 2.25:
-		return 0.10
-	if elapsed < 2.70:
-		return lerpf(0.10, 0.0, (elapsed - 2.25) / 0.45)
-	return 0.0
 
 
 func _draw_fallback_die(canvas: CanvasItem, center: Vector2, size_value: float) -> void:
