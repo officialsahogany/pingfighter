@@ -27,6 +27,7 @@ func _run() -> void:
 
 	_verify_pipeline_and_clip_contract(host)
 	_verify_phase_boundaries(host)
+	_verify_dice_toss_and_wings(host)
 	_verify_dice_three_piece_layers(host)
 	_verify_absorption_projection(host)
 	await _verify_letterbox_clip_when_available(viewport, host)
@@ -78,6 +79,25 @@ func _verify_phase_boundaries(host: Node2D) -> void:
 				str(case.get("phase", "")),
 			]
 		)
+
+
+func _verify_dice_toss_and_wings(host: Node2D) -> void:
+	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
+	_expect(bool(pipeline.get("dice_toss_ready", false)), "Angel overlay should prewarm the separated die + wing textures for the toss animation")
+
+	# 주사위는 중앙에서 위로 던져졌다 낙하한다: rolling 중 정점에서 위(음수 오프셋),
+	# settle/wait_confirm에서는 0(안착). 날개 펄럭은 좌우 대칭이므로 여기서는 주사위
+	# 토스 궤적의 형태만 봉인한다(위로 던졌다 떨어지는 계약).
+	var toss_rolling := float(host._die_toss_offset(0.90))
+	var toss_settle := float(host._die_toss_offset(2.40))
+	var toss_rest := float(host._die_toss_offset(3.20))
+	_expect(toss_rolling < -20.0, "die should be tossed clearly UP (negative offset) during the rolling phase, got %.1f" % toss_rolling)
+	_expect(is_equal_approx(toss_settle, 0.0), "die should have landed (offset 0) by the settle phase, got %.1f" % toss_settle)
+	_expect(is_equal_approx(toss_rest, 0.0), "die should rest at center (offset 0) in wait_confirm, got %.1f" % toss_rest)
+	# 텀블은 rolling 동안 계속 진행(엔진측 회전).
+	var tumble_a := float(host._die_tumble(0.80, 1.0))
+	var tumble_b := float(host._die_tumble(1.80, 1.0))
+	_expect(absf(tumble_b - tumble_a) > 1.0, "die tumble rotation should advance through the rolling phase")
 
 
 func _verify_dice_three_piece_layers(host: Node2D) -> void:

@@ -16,6 +16,14 @@ const SMOKE_PATH := "res://assets/sprites/hud/mythic_reveal_smoke_v1.png"
 const DICE_BACKPLATE_PATH := "res://assets/sprites/hud/angel_dice_backplate_imagegen_v1.png"
 const DICE_ARC_PATH := "res://assets/sprites/hud/angel_dice_arc_imagegen_v1.png"
 const MOTE_PATH := "res://assets/sprites/hud/angel_dice_mote_imagegen_v1.png"
+# 분리 연출용: 주사위 단독(중앙에서 위로 던졌다 낙하 + 텀블)과 날개 단독(양쪽에서
+# 펄럭). 통합 아이콘(angel_blessing_perk_icon)은 퍽 카드/HUD 전용으로 그대로 둔다.
+const DICE_DIE_PATH := "res://assets/sprites/hud/angel_dice_die_imagegen_v1.png"
+const DICE_WING_PATH := "res://assets/sprites/hud/angel_dice_wing_imagegen_v1.png"
+const DICE_DIE_SIZE := 138.0
+const WING_SIZE := 168.0
+# 날개 텍스처(오른쪽 방향) 안에서 어깨(밑동) 위치의 UV — 여기를 축으로 펄럭인다.
+const WING_SHOULDER := Vector2(0.070, 0.805)
 const HALO_SHADER_PATH := "res://shaders/angel_blessing_halo.gdshader"
 const MODAL_PANEL := Rect2(130.0, 108.0, 500.0, 520.0)
 const DICE_CENTER := Vector2(380.0, 302.0)
@@ -31,6 +39,8 @@ static var _lightburst_texture: Texture2D = null
 static var _smoke_texture: Texture2D = null
 static var _dice_backplate_texture: Texture2D = null
 static var _dice_arc_texture: Texture2D = null
+static var _dice_die_texture: Texture2D = null
+static var _dice_wing_texture: Texture2D = null
 static var _mote_texture: Texture2D = null
 static var _halo_shader: Shader = null
 static var _prewarmed := false
@@ -83,6 +93,8 @@ static func prewarm_assets() -> void:
 	_smoke_texture = _load_texture(SMOKE_PATH, "Angel blessing smoke")
 	_dice_backplate_texture = _load_texture(DICE_BACKPLATE_PATH, "Angel dice backplate")
 	_dice_arc_texture = _load_texture(DICE_ARC_PATH, "Angel dice arc")
+	_dice_die_texture = _load_texture(DICE_DIE_PATH, "Angel dice die")
+	_dice_wing_texture = _load_texture(DICE_WING_PATH, "Angel dice wing")
 	_mote_texture = _load_texture(MOTE_PATH, "Angel dice mote")
 	_halo_shader = load(HALO_SHADER_PATH) as Shader
 	WritheEmberMaterial.prewarm()
@@ -100,6 +112,7 @@ static func build_pipeline_status() -> Dictionary:
 		"icon_ready": _icon_texture != null,
 		"texture_layers_ready": _lightburst_texture != null and _smoke_texture != null,
 		"dice_layers_ready": _dice_backplate_texture != null and _dice_arc_texture != null,
+		"dice_toss_ready": _dice_die_texture != null and _dice_wing_texture != null,
 		"particle_texture_ready": _mote_texture != null,
 		"shader_ready": _halo_shader != null,
 		"dice_arc_shader_ready": WritheEmberMaterial.get_shader() != null
@@ -528,19 +541,14 @@ func _draw_modal(canvas: CanvasItem) -> void:
 	canvas.draw_rect(MODAL_PANEL, Color(0.76, 0.65, 1.0, 0.92), false, 3.0)
 	_draw_text_centered(canvas, AngelLocalization.text("title"), Vector2(380.0, 154.0), 31, Color(1.0, 0.91, 0.54))
 
-	var icon_center := Vector2(380.0, 302.0)
-	var intro_scale := clampf(elapsed / 0.60, 0.0, 1.0)
-	var rotation := 0.0
-	var icon_scale := 0.64 + 0.36 * _ease_out_back(intro_scale)
-	if elapsed >= 0.60 and elapsed < 2.25:
-		var rolling_t := (elapsed - 0.60) / 1.65
-		rotation = rolling_t * TAU * 3.25
-		icon_center.y += absf(sin(rolling_t * PI * 6.0)) * -22.0 * (1.0 - rolling_t * 0.45)
-	elif elapsed >= 2.25 and elapsed < 2.70:
-		rotation = (1.0 - (elapsed - 2.25) / 0.45) * 0.42
+	# 만다라 백플레이트·홀리레이·궤도 악센트는 중심 고정. 주사위만 토스되고
+	# 날개는 양쪽에서 펄럭인다(주사위와 날개를 분리 연출).
+	var icon_center := DICE_CENTER
+	var intro := clampf(elapsed / 0.60, 0.0, 1.0)
+	var icon_scale := 0.64 + 0.36 * _ease_out_back(intro)
 	_draw_dice_backplate(canvas, icon_center, elapsed)
 	_draw_holy_rays(canvas, icon_center, elapsed)
-	_draw_angel_icon(canvas, icon_center, 156.0 * icon_scale, rotation)
+	_draw_dice_and_wings(canvas, icon_center, elapsed, icon_scale)
 	_draw_orbit_accents(canvas, icon_center, elapsed)
 
 	if elapsed < 2.25:
@@ -575,18 +583,109 @@ func _draw_dice_backplate(canvas: CanvasItem, center: Vector2, elapsed: float) -
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-func _draw_angel_icon(canvas: CanvasItem, center: Vector2, size_value: float, rotation: float) -> void:
-	if _icon_texture == null:
-		_draw_fallback_die(canvas, center, size_value)
+# 분리 연출: 양쪽 날개(펄럭) 뒤 -> 후광 -> 중앙 주사위(토스+텀블, 맨 앞).
+# 셰이더 패스 없이 아이콘과 동일한 확립 패턴(draw_set_transform 설정->그리기->
+# IDENTITY 복원)만 쓴다. 브리지 _draw는 매 프레임 IDENTITY에서 시작하므로 복원
+# 대상은 IDENTITY로 안전.
+func _draw_dice_and_wings(canvas: CanvasItem, center: Vector2, elapsed: float, intro_scale: float) -> void:
+	if _dice_die_texture == null or _dice_wing_texture == null:
+		_draw_fallback_die(canvas, center, 156.0 * intro_scale)
 		return
-	canvas.draw_set_transform(center, rotation, Vector2.ONE)
+	var flap := _wing_flap(elapsed)
+	var open := _wing_open(elapsed) * intro_scale
+	# 날개는 주사위 뒤에서 좌우로. 오른쪽은 그대로, 왼쪽은 scale.x=-1로 미러.
+	_draw_wing(canvas, center + Vector2(20.0, 10.0), 1.0, -0.10 - open + flap, WING_SIZE * intro_scale)
+	_draw_wing(canvas, center + Vector2(-20.0, 10.0), -1.0, -0.10 - open + flap, WING_SIZE * intro_scale)
+
+	_draw_halo(canvas, center, elapsed, intro_scale)
+
+	var toss := _die_toss_offset(elapsed)
+	var tumble := _die_tumble(elapsed, intro_scale)
+	var apex := clampf(-toss / 96.0, 0.0, 1.0)
+	var die_size := DICE_DIE_SIZE * intro_scale * (1.0 + 0.06 * apex)
+	var die_center := center + Vector2(0.0, toss)
+	# 토스 정점에서 살짝 밝아지는 광채
+	if apex > 0.02:
+		canvas.draw_circle(die_center, die_size * 0.62, Color(1.0, 0.92, 0.62, 0.12 * apex))
+	canvas.draw_set_transform(die_center, tumble, Vector2.ONE)
 	canvas.draw_texture_rect(
-		_icon_texture,
-		Rect2(Vector2(-size_value, -size_value) * 0.5, Vector2.ONE * size_value),
+		_dice_die_texture,
+		Rect2(Vector2(-die_size, -die_size) * 0.5, Vector2.ONE * die_size),
 		false,
 		Color.WHITE
 	)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_wing(canvas: CanvasItem, shoulder: Vector2, mirror_x: float, rotation: float, size_value: float) -> void:
+	# 어깨(WING_SHOULDER UV)를 원점에 맞춰 배치하고 그 축으로 회전한다. mirror_x=-1은
+	# scale.x 반전만으로 좌우 미러(어깨를 원점에 두는 rect_pos는 스케일 부호와 무관).
+	var rect_pos := -WING_SHOULDER * size_value
+	canvas.draw_set_transform(shoulder, rotation, Vector2(mirror_x, 1.0))
+	canvas.draw_texture_rect(
+		_dice_wing_texture,
+		Rect2(rect_pos, Vector2.ONE * size_value),
+		false,
+		Color(1.0, 0.98, 0.90, 0.96)
+	)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_halo(canvas: CanvasItem, center: Vector2, elapsed: float, intro_scale: float) -> void:
+	# 절차적 금빛 후광: 주사위 위에 납작한 링으로 hover, 은은히 상하 진동.
+	var halo_center := center + Vector2(0.0, -82.0 + 3.0 * sin(elapsed * 2.0))
+	var radius := 26.0 * intro_scale
+	canvas.draw_set_transform(halo_center, 0.0, Vector2(1.0, 0.42))
+	canvas.draw_circle(Vector2.ZERO, radius * 1.35, Color(1.0, 0.86, 0.40, 0.10 * intro_scale))
+	canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 30, Color(1.0, 0.90, 0.46, 0.92 * intro_scale), 4.5)
+	canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 30, Color(1.0, 1.0, 0.86, 0.85 * intro_scale), 1.6)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _die_toss_offset(elapsed: float) -> float:
+	# 음수 = 위로. rolling 동안 2번 던져 올렸다 낙하(정점 높이 감쇠), settle+에서 착지.
+	if elapsed < 0.60 or elapsed >= 2.25:
+		return 0.0
+	var t := (elapsed - 0.60) / 1.65
+	var arcs := 2.0
+	var seg := t * arcs
+	var idx := floorf(seg)
+	var frac := seg - idx
+	var arch := 4.0 * frac * (1.0 - frac)
+	var height := 96.0 * (1.0 - 0.42 * idx / arcs)
+	return -height * arch
+
+
+func _die_tumble(elapsed: float, intro_scale: float) -> float:
+	# descent 살짝 -> rolling 3바퀴 -> settle 감쇠 진동 후 정립(정수 회전).
+	if elapsed < 0.60:
+		return _ease_out_back(intro_scale) * 0.3
+	if elapsed < 2.25:
+		return 0.3 + (elapsed - 0.60) / 1.65 * TAU * 3.0
+	var base := 0.3 + TAU * 3.0
+	if elapsed < 2.70:
+		var settle_t := (elapsed - 2.25) / 0.45
+		return base + sin(settle_t * PI) * 0.12 * (1.0 - settle_t)
+	return base
+
+
+func _wing_flap(elapsed: float) -> float:
+	# rolling 동안 빠르고 크게 펄럭, 그 외에는 느리고 얕게 호흡.
+	var rolling := elapsed >= 0.60 and elapsed < 2.25
+	var speed := 8.5 if rolling else 3.2
+	var amp := 0.22 if rolling else 0.10
+	return sin(elapsed * speed) * amp
+
+
+func _wing_open(elapsed: float) -> float:
+	# rolling 동안 날개를 조금 더 펼친다(펄럭이 커 보이게).
+	if elapsed < 0.60:
+		return 0.0
+	if elapsed < 2.25:
+		return 0.10
+	if elapsed < 2.70:
+		return lerpf(0.10, 0.0, (elapsed - 2.25) / 0.45)
+	return 0.0
 
 
 func _draw_fallback_die(canvas: CanvasItem, center: Vector2, size_value: float) -> void:
