@@ -254,6 +254,13 @@ func _draw_stage1_pillar_ui(
 	var horn_strawberry_context: Dictionary = mythic_item_runtime.get_horn_strawberry_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context") else {}
 	var horn_strawberry_skill_pillar_renderer: Object = _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer")
 	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
+	# Reactive pillar portraits: resolve the boss / player face from live stun +
+	# per-point score state (stateless direct mapping; latch/decay lands in a later
+	# slice). Read the modules via the registry so the face does not depend on
+	# whichever context keys the HUD context happens to carry.
+	var status_effect_state: Object = _get_cached_module(registry, "status_effect_state")
+	var scoreboard_state: Object = _get_cached_module(registry, "scoreboard_state")
+	var portrait_expr: Dictionary = _resolve_portrait_expressions(status_effect_state, scoreboard_state)
 	_perf_end(perf_logger, "stage1.pillar.ui_prepare", prep_start)
 	var renderer_start: int = _perf_begin(perf_logger)
 	# 매 프레임 새 Dictionary 리터럴 대신 멤버 dict를 재사용한다 (할당 제거).
@@ -301,6 +308,14 @@ func _draw_stage1_pillar_ui(
 	ui_context["boss_dash_snapshot"] = boss_dash_snapshot
 	ui_context["boss_dash_frame_texture"] = null
 	ui_context["boss_dash_frame_spin_angle"] = 0.0
+	# This HUD drawer is reused by stage6/7/8 pillar scene drawers, so gate the
+	# reactive portrait to the Stage 1 slice (v1 scope). Boss identity resolves from
+	# stage1_boss_variant, which is only meaningful on Stage 1.
+	ui_context["portrait_enabled"] = int(context.get("current_stage", 1)) == 1
+	ui_context["portrait_boss_expression"] = portrait_expr.get("boss", "neutral")
+	ui_context["portrait_player_expression"] = portrait_expr.get("player", "neutral")
+	ui_context["portrait_boss_identity"] = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
+	ui_context["portrait_player_identity"] = character_type
 	renderer.draw(canvas, game_offset, game_size, time_seconds, ui_context)
 	_perf_end(perf_logger, "stage1.pillar.ui_renderer", renderer_start)
 
@@ -607,6 +622,35 @@ func _is_cleanse_status_active(registry: Object) -> bool:
 		"movement_state": _get_cached_module(registry, "player_movement_state"),
 		"active_item_runtime": _get_cached_module(registry, "active_item_runtime"),
 	}))
+
+
+# Resolve the reactive-portrait face for boss + player from live runtime state.
+# Priority: per-point score result (only during the scoreboard pulse window) >
+# stun (pained) > neutral — mirrors the boss sprite contract (defeat/victory > stun).
+# Stateless: reads current flags each frame; the ~1.75s scoreboard pulse means the
+# happy/sad face flashes per point and returns to neutral between points (a latch +
+# decay layer is a later slice). Boss stun currently reads the main status channel
+# (covers active_item_boss_stun / status_boss_stun); ragnarok-hammer stun is a later
+# refinement.
+func _resolve_portrait_expressions(status_effect_state: Object, scoreboard_state: Object) -> Dictionary:
+	var boss_expr := "neutral"
+	var player_expr := "neutral"
+	if scoreboard_state != null and scoreboard_state.has_method("is_active") and bool(scoreboard_state.is_active()):
+		var side := ""
+		if scoreboard_state.has_method("get_last_scoring_side"):
+			side = str(scoreboard_state.get_last_scoring_side())
+		if side == "player":
+			boss_expr = "sad"
+			player_expr = "happy"
+		elif side == "boss":
+			boss_expr = "happy"
+			player_expr = "sad"
+	if status_effect_state != null:
+		if boss_expr == "neutral" and status_effect_state.has_method("has_status") and bool(status_effect_state.has_status("boss", "stun")):
+			boss_expr = "pained"
+		if player_expr == "neutral" and status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
+			player_expr = "pained"
+	return {"boss": boss_expr, "player": player_expr}
 
 
 func _build_default_boss_dash_snapshot() -> Dictionary:

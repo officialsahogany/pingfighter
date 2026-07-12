@@ -5,6 +5,7 @@ const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_p
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
+const RightPillarPortraitRenderer := preload("res://scripts/hud/right_pillar_portrait_renderer.gd")
 
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
 const GOLD_HUD_MIN_SOURCE_SIZE := Vector2(100.0, 40.0)
@@ -28,6 +29,7 @@ const COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME := "CommandoFirearmHudRainbowFxHost"
 
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var status_context_builder: Object = Stage1PillarStatusOrbContextBuilder.new()
+var portrait_renderer: Object = RightPillarPortraitRenderer.new()
 var _boost_fx_host_pending: Node = null
 var _firearm_rainbow_fx_host_pending: Node = null
 var _gold_text_size_cache: Dictionary = {}
@@ -80,6 +82,14 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	var hud_lod_scale: float = float(status_context.get("hud_lod_scale", 1.0))
 	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
 	_perf_end(perf_logger, "stage1.pillar_ui.layout", sample_start)
+
+	# Reactive portrait boxes ride the empty band between the boss dash orb (top)
+	# and the player dash orb (bottom). Drawn BEFORE the orbs so any near-orb
+	# overshoot is painted over by the orbs. Expression keys are computed upstream
+	# in stage1_pillar_hud_scene_drawer and read from `context`.
+	sample_start = _perf_begin(perf_logger)
+	portrait_renderer.draw(canvas, layout, time_seconds, context)
+	_perf_end(perf_logger, "stage1.pillar_ui.portrait", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context(context, orb_drawer)
