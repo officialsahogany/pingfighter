@@ -19,6 +19,11 @@ func get_dowsing_pendulum_context(runtime: Object, constants: Dictionary) -> Dic
 func get_sensor_context(runtime: Object) -> Dictionary:
 	return {
 		"equipped": runtime.is_sensor_equipped(),
+		# HUD/게이트용 퍽-인지 가시성 플래그. 패시브→퍽 전환(flag ON) 이후 센서는
+		# equipped_items에 없으므로 "equipped"만 보면 pillar 대쉬토큰 오브가
+		# 사라진다. is_sensor_effect_active()는 flag OFF=장착 / flag ON=퍽 레벨>0
+		# 양쪽을 정확히 커버한다.
+		"active": runtime.is_sensor_effect_active(),
 		"enabled": runtime.sensor_enabled,
 		"ready": runtime.is_sensor_auto_dash_ready(),
 		"cooldown_seconds": runtime.get_sensor_cooldown_seconds(),

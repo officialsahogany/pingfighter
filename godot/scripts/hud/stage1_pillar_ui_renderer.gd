@@ -427,7 +427,7 @@ func _draw_sensor_cooldown_orb(
 	hud_lod_scale: float,
 	static_hud_lod: bool = false
 ) -> void:
-	if canvas == null or sensor_context.is_empty() or not bool(sensor_context.get("equipped", false)):
+	if canvas == null or not _is_sensor_orb_visible(sensor_context):
 		return
 	var lod_active := hud_lod_scale < 0.85
 	var frame_arc_segments := SENSOR_FRAME_ARC_SEGMENTS_LOD if lod_active else SENSOR_FRAME_ARC_SEGMENTS
@@ -464,6 +464,15 @@ func _draw_sensor_cooldown_orb(
 			var wave_radius: float = radius * (0.82 + 0.58 * wave_phase)
 			var wave_alpha: float = 0.22 * (1.0 - wave_phase)
 			canvas.draw_arc(center, wave_radius, 0.0, TAU, ready_wave_segments, Color(196.0 / 255.0, 172.0 / 255.0, 1.0, wave_alpha), max(1.0, 1.5 * scale_factor), true)
+
+
+# 센서 대쉬토큰 오브 가시성 판정 (단일 소스). 퍽-인지 "active" 플래그를 우선하고,
+# 구(舊) 스냅샷 호환을 위해 없으면 "equipped"로 폴백한다. 패시브→퍽 전환 후에도
+# 센서 퍽을 획득하면(active=true) 오브가 계속 렌더되도록 보장한다.
+func _is_sensor_orb_visible(sensor_context: Dictionary) -> bool:
+	if sensor_context.is_empty():
+		return false
+	return bool(sensor_context.get("active", sensor_context.get("equipped", false)))
 
 
 func _get_dict(value: Variant) -> Dictionary:
