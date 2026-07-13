@@ -29,6 +29,8 @@ func _run() -> void:
 		return
 	var shots := [
 		{"size": Vector2i(1920, 1080), "name": "desktop_1920"},
+		{"size": Vector2i(1280, 800), "name": "desktop_1280"},
+		{"size": Vector2i(1024, 768), "name": "desktop_1024"},
 		{"size": Vector2i(900, 700), "name": "mobile_900"},
 		{"size": Vector2i(900, 1200), "name": "mobile_tall_900"},
 		{"size": Vector2i(560, 900), "name": "narrow_560"},
