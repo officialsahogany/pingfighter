@@ -20,6 +20,8 @@ var finished: bool = false
 
 
 func begin(character_select_scene_path: String) -> void:
+	if active or current_path != "":
+		cancel_and_drain_current_request()
 	jobs.clear()
 	current_job = {}
 	current_path = ""
@@ -37,6 +39,27 @@ func begin(character_select_scene_path: String) -> void:
 	CharacterSelectPreviewVfxHost.prewarm_materials()
 	total_count = jobs.size()
 	_request_next_job()
+
+
+func cancel_and_drain_current_request() -> void:
+	jobs.clear()
+	if current_path != "":
+		var status := ResourceLoader.load_threaded_get_status(current_path)
+		if status in [
+			ResourceLoader.THREAD_LOAD_IN_PROGRESS,
+			ResourceLoader.THREAD_LOAD_LOADED,
+		]:
+			# Godot has no threaded-load cancellation API. Claiming the current
+			# request is the only safe way to release it before its owner dies.
+			ResourceLoader.load_threaded_get(current_path)
+	current_job = {}
+	current_path = ""
+	current_progress = 0.0
+	completed_count = total_count
+	loaded_character_select_scene = null
+	failed_paths.clear()
+	active = false
+	finished = true
 
 
 func update() -> bool:
