@@ -690,7 +690,7 @@ func _resolve_portrait_face(textures: Dictionary, identity: Variant, expression:
 		"frame": frame_index,
 		"cols": 2,
 		"rows": 2,
-		"head_source_rect": Rect2(0.03, 0.02, 0.94, 0.96),
+		"head_source_rect": Rect2(0.11, 0.0, 0.78, 0.89),
 		"tint": Color.WHITE,
 	}
 

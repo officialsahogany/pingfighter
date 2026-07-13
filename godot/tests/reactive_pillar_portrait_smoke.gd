@@ -100,7 +100,7 @@ func _verify_face_resolution() -> void:
 	var loaded_portrait := load(DALJI_PORTRAIT_PATH) as Texture2D
 	_expect(loaded_portrait != null, "portrait sheet should import as Texture2D")
 	if loaded_portrait != null:
-		_expect(loaded_portrait.get_size() == Vector2(1456.0, 2142.0), "portrait sheet should keep four 728x1071 cells")
+		_expect(loaded_portrait.get_size() == Vector2(1456.0, 1456.0), "portrait sheet should keep four 728x728 cells")
 
 	var neutral: Dictionary = drawer._resolve_portrait_face(textures, "dalji", "neutral")
 	_expect(not neutral.is_empty(), "dalji neutral face should resolve")
@@ -108,7 +108,7 @@ func _verify_face_resolution() -> void:
 	_expect(int(neutral.get("frame", -1)) == 0, "neutral should map to frame 0")
 	_expect(int(neutral.get("cols", -1)) == 2, "portrait sheet should use cols=2")
 	_expect(int(neutral.get("rows", -1)) == 2, "portrait sheet should use rows=2")
-	_expect(_rect_equal(_get_rect2(neutral.get("head_source_rect", Rect2())), Rect2(0.03, 0.02, 0.94, 0.96)), "neutral head crop should match expected portrait inset")
+	_expect(_rect_equal(_get_rect2(neutral.get("head_source_rect", Rect2())), Rect2(0.11, 0.0, 0.78, 0.89)), "neutral head crop should match expected portrait inset")
 	_expect(_is_white_tint(neutral.get("tint", Color())), "neutral tint should be Color.WHITE")
 
 	var pained: Dictionary = drawer._resolve_portrait_face(textures, "dalji", "pained")
