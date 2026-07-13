@@ -5,6 +5,10 @@ const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const EXPRESSION_NEUTRAL := "neutral"
+const EXPRESSION_HAPPY := "happy"
+const EXPRESSION_SAD := "sad"
+const EXPRESSION_PAINED := "pained"
 
 const BASE_PREWARM_MODULE_KEYS := [
 	"scoreboard_renderer",
@@ -312,10 +316,14 @@ func _draw_stage1_pillar_ui(
 	# reactive portrait to the Stage 1 slice (v1 scope). Boss identity resolves from
 	# stage1_boss_variant, which is only meaningful on Stage 1.
 	ui_context["portrait_enabled"] = int(context.get("current_stage", 1)) == 1
-	ui_context["portrait_boss_expression"] = portrait_expr.get("boss", "neutral")
-	ui_context["portrait_player_expression"] = portrait_expr.get("player", "neutral")
+	var boss_expression: String = _normalize_expression(portrait_expr.get("boss", "neutral"))
+	var player_expression: String = _normalize_expression(portrait_expr.get("player", "neutral"))
+	ui_context["portrait_boss_expression"] = boss_expression
+	ui_context["portrait_player_expression"] = player_expression
 	ui_context["portrait_boss_identity"] = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
 	ui_context["portrait_player_identity"] = character_type
+	ui_context["portrait_boss_face"] = _resolve_portrait_face(textures, ui_context["portrait_boss_identity"], boss_expression)
+	ui_context["portrait_player_face"] = _resolve_portrait_face(textures, ui_context["portrait_player_identity"], player_expression)
 	renderer.draw(canvas, game_offset, game_size, time_seconds, ui_context)
 	_perf_end(perf_logger, "stage1.pillar.ui_renderer", renderer_start)
 
@@ -651,6 +659,40 @@ func _resolve_portrait_expressions(status_effect_state: Object, scoreboard_state
 		if player_expr == "neutral" and status_effect_state.has_method("is_player_stun_active") and bool(status_effect_state.is_player_stun_active()):
 			player_expr = "pained"
 	return {"boss": boss_expr, "player": player_expr}
+
+
+func _normalize_expression(value: Variant) -> String:
+	var id: String = str(value).strip_edges().to_lower()
+	if id == EXPRESSION_HAPPY or id == EXPRESSION_SAD or id == EXPRESSION_PAINED:
+		return id
+	return EXPRESSION_NEUTRAL
+
+
+func _resolve_portrait_face(textures: Dictionary, identity: Variant, expression: String) -> Dictionary:
+	var normalized_identity: String = str(identity).strip_edges().to_lower()
+	if normalized_identity != "dalji":
+		return {}
+	var portrait_texture: Variant = _get_value(textures, "boss_portrait_sheet")
+	if not (portrait_texture is Texture2D):
+		return {}
+	var frame_index: int = 0
+	match _normalize_expression(expression):
+		EXPRESSION_NEUTRAL:
+			frame_index = 0
+		EXPRESSION_PAINED:
+			frame_index = 1
+		EXPRESSION_HAPPY:
+			frame_index = 2
+		EXPRESSION_SAD:
+			frame_index = 3
+	return {
+		"texture": portrait_texture as Texture2D,
+		"frame": frame_index,
+		"cols": 2,
+		"rows": 2,
+		"head_source_rect": Rect2(0.03, 0.02, 0.94, 0.96),
+		"tint": Color.WHITE,
+	}
 
 
 func _build_default_boss_dash_snapshot() -> Dictionary:

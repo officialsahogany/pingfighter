@@ -12,6 +12,7 @@ const DALJI_BOSS_DEFEAT_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_de
 const DALJI_BOSS_STUN_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_stun.png"
 const DALJI_BOSS_WHIP_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_whip.png"
 const DALJI_BOSS_PAENGI_TOP_WHIP_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_paengi_top_whip_32f_autosprite_v2.png"
+const DALJI_BOSS_PORTRAIT_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png"
 
 # Stage 1 boss variant = Gaksital. Walk left is a baked cell-wise mirror of
 # the front-biased right sidestep; do not runtime-flip the whole atlas.

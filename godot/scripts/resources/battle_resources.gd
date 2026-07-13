@@ -171,6 +171,7 @@ const DALJI_BOSS_ATTACK_PATH := BattleBossSpritePaths.DALJI_BOSS_ATTACK_PATH
 const DALJI_BOSS_DASH_PATH := BattleBossSpritePaths.DALJI_BOSS_DASH_PATH
 const DALJI_BOSS_VICTORY_PATH := BattleBossSpritePaths.DALJI_BOSS_VICTORY_PATH
 const DALJI_BOSS_DEFEAT_PATH := BattleBossSpritePaths.DALJI_BOSS_DEFEAT_PATH
+const DALJI_BOSS_PORTRAIT_PATH := BattleBossSpritePaths.DALJI_BOSS_PORTRAIT_PATH
 const DALJI_BOSS_STUN_PATH := BattleBossSpritePaths.DALJI_BOSS_STUN_PATH
 const DALJI_BOSS_WHIP_PATH := BattleBossSpritePaths.DALJI_BOSS_WHIP_PATH
 const DALJI_BOSS_PAENGI_TOP_WHIP_PATH := BattleBossSpritePaths.DALJI_BOSS_PAENGI_TOP_WHIP_PATH
@@ -1170,6 +1171,7 @@ func _clear_boss_textures() -> void:
 		"boss_turn_sheet",
 		"boss_victory_sheet",
 		"boss_defeat_sheet",
+		"boss_portrait_sheet",
 		"boss_texture",
 	]:
 		_resource_cache.erase(key)
@@ -1241,6 +1243,7 @@ func _get_stage1_dalji_boss_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["boss_idle_sheet"], DALJI_BOSS_IDLE_PATH),
 		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], DALJI_BOSS_ATTACK_PATH),
 		_texture_spec(["boss_dash_sheet"], DALJI_BOSS_DASH_PATH),
+		_texture_spec(["boss_portrait_sheet"], DALJI_BOSS_PORTRAIT_PATH),
 		_texture_spec(["boss_stun_sheet"], DALJI_BOSS_STUN_PATH),
 		_texture_spec(["boss_whip_sheet"], DALJI_BOSS_WHIP_PATH),
 		_texture_spec(["boss_paengi_top_whip_sheet"], DALJI_BOSS_PAENGI_TOP_WHIP_PATH),

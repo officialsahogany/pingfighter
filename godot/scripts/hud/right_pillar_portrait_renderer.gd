@@ -27,6 +27,8 @@ const BOX_GAP := 10.0
 # 박스 목표 크기 (px, 스케일 곱 전). 세로가 약간 긴 초상화 비율.
 const BOX_WIDTH := 118.0
 const BOX_HEIGHT := 132.0
+# Dalji portrait sheet head crop (fractional within a frame): near-full crop.
+const CROP_DALJI := Rect2(0.03, 0.02, 0.94, 0.96)
 # 박스가 최소한 이 높이(스케일 곱 후)는 확보돼야 그린다. 밴드가 더 짧으면
 # 두 박스가 오브 클러스터를 침범하므로 통째로 스킵한다 (draw-time 용량 규율).
 const MIN_BOX_HEIGHT := 44.0
@@ -60,9 +62,11 @@ func draw(canvas: CanvasItem, layout: Dictionary, time_seconds: float, context: 
 
 	var boss_expression: String = _normalize_expression(context.get("portrait_boss_expression", EXPRESSION_NEUTRAL))
 	var player_expression: String = _normalize_expression(context.get("portrait_player_expression", EXPRESSION_NEUTRAL))
+	var boss_face: Dictionary = _get_dict(context.get("portrait_boss_face", {}))
+	var player_face: Dictionary = _get_dict(context.get("portrait_player_face", {}))
 
-	_draw_portrait_box(canvas, boss_rect, scale_factor, time_seconds, boss_expression, true)
-	_draw_portrait_box(canvas, player_rect, scale_factor, time_seconds, player_expression, false)
+	_draw_portrait_box(canvas, boss_rect, scale_factor, time_seconds, boss_expression, true, boss_face)
+	_draw_portrait_box(canvas, player_rect, scale_factor, time_seconds, player_expression, false, player_face)
 
 
 # 밴드/박스 기하 계산 (단일 소스). 밴드가 두 박스를 담기엔 너무 짧으면 ok=false.
@@ -104,7 +108,8 @@ func _draw_portrait_box(
 	scale_factor: float,
 	time_seconds: float,
 	expression: String,
-	is_boss: bool
+	is_boss: bool,
+	face_data: Dictionary
 ) -> void:
 	var bg: Color = BOSS_BG if is_boss else PLAYER_BG
 	var border: Color = BOSS_BORDER if is_boss else PLAYER_BORDER
@@ -125,12 +130,81 @@ func _draw_portrait_box(
 	var face_area := rect.grow(-inset)
 	# 미세한 아이들 바브 (front-facing 생동감).
 	var bob: float = sin(time_seconds * 2.2 + (0.0 if is_boss else 1.6)) * face_area.size.y * 0.012
-	var face_center := face_area.get_center() + Vector2(0.0, bob)
-	var face_radius: float = min(face_area.size.x, face_area.size.y) * 0.40
-	_draw_face(canvas, face_center, face_radius, expression, scale_factor, time_seconds)
+	var face_box := Rect2(
+		face_area.get_center().x - face_area.size.x * 0.5,
+		face_area.get_center().y + bob - face_area.size.y * 0.5,
+		face_area.size.x,
+		face_area.size.y
+	)
+	if face_data.is_empty():
+		var face_center := face_box.get_center()
+		var face_radius: float = min(face_box.size.x, face_box.size.y) * 0.40
+		_draw_face(canvas, face_center, face_radius, expression, scale_factor, time_seconds)
+	else:
+		_draw_portrait_face_texture(canvas, face_box, face_data)
 
 
 # 절차적 플레이스홀더 얼굴. neutral / happy / sad / pained 4종.
+func _draw_portrait_face_texture(
+	canvas: CanvasItem,
+	face_box: Rect2,
+	face_data: Dictionary
+) -> void:
+	var texture: Variant = face_data.get("texture", null)
+	if not (texture is Texture2D):
+		return
+	var texture_obj := texture as Texture2D
+	var cols: int = max(1, int(face_data.get("cols", 1)))
+	var rows: int = max(1, int(face_data.get("rows", 1)))
+	var frame_count: int = cols * rows
+	var frame: int = max(0, int(face_data.get("frame", 0)))
+	if frame_count > 0:
+		frame %= frame_count
+	var texture_size: Vector2 = texture_obj.get_size()
+	var cell_size: Vector2 = Vector2(texture_size.x / float(cols), texture_size.y / float(rows))
+	var row: int = frame / cols
+	var col: int = frame - row * cols
+	var head_rect := Rect2(
+		cell_size.x * float(col),
+		cell_size.y * float(row),
+		cell_size.x,
+		cell_size.y
+	)
+	var head_source := _get_rect2(face_data.get("head_source_rect", CROP_DALJI))
+	var source_rect := Rect2(
+		head_rect.position.x + head_rect.size.x * head_source.position.x,
+		head_rect.position.y + head_rect.size.y * head_source.position.y,
+		head_rect.size.x * head_source.size.x,
+		head_rect.size.y * head_source.size.y
+	)
+	var dest_rect := _fit_center_crop_dest(face_box, source_rect.size)
+	var tint: Color = face_data.get("tint", Color.WHITE)
+	canvas.draw_texture_rect_region(texture_obj, dest_rect, source_rect, tint, false, true)
+
+
+func _fit_center_crop_dest(container: Rect2, source_size: Vector2) -> Rect2:
+	var source_aspect: float = source_size.x / max(1.0, source_size.y)
+	var container_aspect: float = container.size.x / max(1.0, container.size.y)
+	var scale: float = 1.0
+	if source_aspect > container_aspect:
+		scale = container.size.x / max(1.0, source_size.x)
+	else:
+		scale = container.size.y / max(1.0, source_size.y)
+	var target_size := source_size * scale
+	return Rect2(
+		container.position.x + (container.size.x - target_size.x) * 0.5,
+		container.position.y + (container.size.y - target_size.y) * 0.5,
+		target_size.x,
+		target_size.y
+	)
+
+
+func _get_rect2(value: Variant) -> Rect2:
+	if value is Rect2:
+		return value
+	return Rect2(0.0, 0.0, 1.0, 1.0)
+
+
 func _draw_face(
 	canvas: CanvasItem,
 	center: Vector2,
@@ -258,3 +332,9 @@ func _as_vec2(value: Variant) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
