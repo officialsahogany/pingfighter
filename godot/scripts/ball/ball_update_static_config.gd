@@ -13,6 +13,7 @@ const MIN_BALL_SPEED := 3.0
 const MAX_BALL_SPEED := BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED
 const POWER_SMASH_MAX_BALL_SPEED := 35.0
 const IMPACT_BOOST_MAX_BALL_SPEED := MAX_BALL_SPEED
+const LIMIT_MAX_BALL_SPEED := BallSpeedPolicy.LIMIT_MAX_BALL_SPEED
 const MYTHIC_MAX_BALL_SPEED := BallSpeedPolicy.MYTHIC_MAX_BALL_SPEED
 const FIRE_WEATHER_MAX_BALL_SPEED := BallSpeedPolicy.FIRE_WEATHER_MAX_BALL_SPEED
 const RALLY_SPEED_CAP_INCREASE_PER_HIT := 0.5
@@ -72,6 +73,7 @@ func build_update_config() -> Dictionary:
 		"max_ball_speed": MAX_BALL_SPEED,
 		"power_smash_max_ball_speed": POWER_SMASH_MAX_BALL_SPEED,
 		"impact_boost_max_ball_speed": IMPACT_BOOST_MAX_BALL_SPEED,
+		"limit_max_ball_speed": LIMIT_MAX_BALL_SPEED,
 		"mythic_max_ball_speed": MYTHIC_MAX_BALL_SPEED,
 		"fire_weather_max_ball_speed": FIRE_WEATHER_MAX_BALL_SPEED,
 		"rally_speed_cap_increase_per_hit": RALLY_SPEED_CAP_INCREASE_PER_HIT,

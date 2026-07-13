@@ -85,7 +85,11 @@ func _get_max_ball_speed(
 			_get_magnum_grip_speed_cap(registry),
 			_get_viper_blade_speed_cap(registry)
 		)
-	var speed_cap: float = float(update_config.get("mythic_max_ball_speed", 32.0)) if league_mode == "mythic" else float(update_config.get("max_ball_speed", 26.0))
+	var speed_cap: float = float(update_config.get("max_ball_speed", 26.0))
+	if league_mode == "mythic":
+		speed_cap = float(update_config.get("mythic_max_ball_speed", 32.0))
+	elif league_mode == "limit":
+		speed_cap = float(update_config.get("limit_max_ball_speed", 29.0))
 	if impact_boost > 1.001 and league_mode != "mythic":
 		speed_cap = max(speed_cap, float(update_config.get("impact_boost_max_ball_speed", 26.0)))
 	speed_cap += clamp(rally_speed_cap_bonus, 0.0, float(update_config.get("rally_speed_cap_bonus_max", 10.0)))

@@ -13,6 +13,7 @@ const MYTHIC_BOSS_PADDLE_SCALE: float = 1.15
 const BALL_SIZE: float = 28.6
 const BOSS_Y: float = 25.0
 const BOSS_HITBOX_HEIGHT: float = 40.0
+const LIMIT_BOSS_PADDLE_SCALE: float = 1.07
 const HITBOX_PADDING: float = 5.0
 const DEFAULT_BOSS_MISTAKE_CHANCE: float = 0.10
 const STAGE2_BOSS_MISTAKE_CHANCE: float = 0.09
@@ -30,6 +31,10 @@ const MYTHIC_BOSS_MISTAKE_MIN_CHANCE: float = 0.005
 const MYTHIC_BOSS_MISTAKE_ERROR_MIN: float = 0.0
 const MYTHIC_BOSS_MISTAKE_ERROR_MAX: float = 20.0
 const MYTHIC_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
+const LIMIT_BOSS_MISTAKE_CHANCE: float = 0.07
+const LIMIT_BOSS_MISTAKE_ERROR_MIN: float = 40.0
+const LIMIT_BOSS_MISTAKE_ERROR_MAX: float = 80.0
+const LIMIT_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
 const BASE_BOSS_ACCEL: float = 0.798
 const BASE_BOSS_DECEL: float = 0.798
 const BASE_BOSS_MAX_SPEED: float = 6.3175
@@ -38,8 +43,10 @@ const BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS: float = 40.0
 const BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS: float = 55.0
 const CHAMPION_BOSS_SPEED_MULTIPLIER: float = 1.5
 const JUNIOR_BOSS_MOVEMENT_MULTIPLIER: float = 0.90
+const LIMIT_BOSS_MOVEMENT_MULTIPLIER: float = 1.11
 const MYTHIC_BOSS_MOVEMENT_MULTIPLIER: float = 1.2307692308
 const DEFAULT_BOSS_DASH_TRIGGER_CHANCE: float = 0.30
+const LIMIT_BOSS_DASH_TRIGGER_CHANCE: float = 0.60
 const MYTHIC_BOSS_DASH_TRIGGER_CHANCE: float = 1.0
 const DEFAULT_BOSS_DASH_MAX_TOKENS: int = 1
 const MYTHIC_BOSS_DASH_MAX_TOKENS: int = 2
@@ -197,13 +204,19 @@ func _is_smasher(character_type: String) -> bool:
 func _get_boss_paddle_width(owner: Object, ai_mode: String) -> float:
 	var league_width: float = BOSS_PADDLE_WIDTH * _get_boss_paddle_scale(ai_mode)
 	var owner_width: float = float(_get_owner_value(owner, "boss_paddle_width", league_width))
-	if _normalize_league_mode(ai_mode) == "mythic":
+	if _normalize_league_mode(ai_mode) in ["limit", "mythic"]:
 		return max(1.0, max(owner_width, league_width))
 	return max(1.0, owner_width)
 
 
 func _get_boss_paddle_scale(ai_mode: String) -> float:
-	return MYTHIC_BOSS_PADDLE_SCALE if _normalize_league_mode(ai_mode) == "mythic" else 1.0
+	match _normalize_league_mode(ai_mode):
+		"mythic":
+			return MYTHIC_BOSS_PADDLE_SCALE
+		"limit":
+			return LIMIT_BOSS_PADDLE_SCALE
+		_:
+			return 1.0
 
 
 func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> float:
@@ -222,12 +235,20 @@ func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> floa
 
 
 func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Dictionary:
-	if _normalize_league_mode(ai_mode) == "mythic":
+	var normalized_mode: String = _normalize_league_mode(ai_mode)
+	if normalized_mode == "mythic":
 		return {
 			"boss_mistake_chance": _get_mythic_stage_boss_mistake_chance(current_stage),
 			"boss_mistake_error_min": MYTHIC_BOSS_MISTAKE_ERROR_MIN,
 			"boss_mistake_error_max": MYTHIC_BOSS_MISTAKE_ERROR_MAX,
 			"boss_mistake_speed_scale": MYTHIC_BOSS_MISTAKE_SPEED_SCALE,
+		}
+	if normalized_mode == "limit":
+		return {
+			"boss_mistake_chance": LIMIT_BOSS_MISTAKE_CHANCE,
+			"boss_mistake_error_min": LIMIT_BOSS_MISTAKE_ERROR_MIN,
+			"boss_mistake_error_max": LIMIT_BOSS_MISTAKE_ERROR_MAX,
+			"boss_mistake_speed_scale": LIMIT_BOSS_MISTAKE_SPEED_SCALE,
 		}
 	return {
 		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage, ai_mode),
@@ -274,6 +295,8 @@ func _get_boss_league_movement_multiplier(ai_mode: String) -> float:
 	var normalized_mode: String = _normalize_league_mode(ai_mode)
 	if normalized_mode == "junior":
 		return JUNIOR_BOSS_MOVEMENT_MULTIPLIER
+	if normalized_mode == "limit":
+		return LIMIT_BOSS_MOVEMENT_MULTIPLIER
 	if normalized_mode == "mythic":
 		return MYTHIC_BOSS_MOVEMENT_MULTIPLIER
 	return 1.0
@@ -288,9 +311,13 @@ func _get_boss_dash_max_tokens(ai_mode: String, current_stage: int) -> int:
 
 
 func _get_boss_dash_trigger_chance(ai_mode: String) -> float:
-	if _normalize_league_mode(ai_mode) == "mythic":
-		return MYTHIC_BOSS_DASH_TRIGGER_CHANCE
-	return DEFAULT_BOSS_DASH_TRIGGER_CHANCE
+	match _normalize_league_mode(ai_mode):
+		"mythic":
+			return MYTHIC_BOSS_DASH_TRIGGER_CHANCE
+		"limit":
+			return LIMIT_BOSS_DASH_TRIGGER_CHANCE
+		_:
+			return DEFAULT_BOSS_DASH_TRIGGER_CHANCE
 
 
 func _get_boss_dash_chain_trigger_chance(ai_mode: String) -> float:

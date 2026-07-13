@@ -146,6 +146,8 @@ func _build_context() -> Dictionary:
 
 func _get_companion_guard_speed_cap(rally_speed_cap_bonus: float) -> float:
 	var cap: float = BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED
+	if ai_mode == "limit":
+		cap = BallSpeedPolicy.LIMIT_MAX_BALL_SPEED
 	if ai_mode == "mythic":
 		cap = BallSpeedPolicy.MYTHIC_MAX_BALL_SPEED
 	if weather_active and weather_type == "fire":

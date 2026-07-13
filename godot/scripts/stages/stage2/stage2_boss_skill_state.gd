@@ -636,7 +636,7 @@ func _get_quake_rock_count_range(context: Dictionary) -> Vector2i:
 	match str(context.get("ai_mode", "champion")):
 		"mythic":
 			return Vector2i(4, 8) if bool(context.get("enraged_boss_active", false)) else Vector2i(2, 4)
-		"champion":
+		"champion", "limit":
 			return Vector2i(2, 4)
 		_:
 			return Vector2i(1, 2)

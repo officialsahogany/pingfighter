@@ -5,6 +5,7 @@ const BallUpdateOwnerSnapshot := preload("res://scripts/ball/ball_update_owner_s
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
+const LIMIT_BOSS_PADDLE_SCALE := 1.07
 const MYTHIC_BOSS_PADDLE_SCALE := 1.15
 
 var dependency_context: Object = BallDependencyContext.new()
@@ -112,15 +113,33 @@ func _get_dwarf_magic_shrink_scale(owner: Object) -> float:
 
 func _get_boss_paddle_width(owner: Object, fallback_width: float) -> float:
 	var ai_mode: String = _normalize_league_mode(str(owner_snapshot.get_owner_value(owner, "ai_mode", "champion")))
-	var league_width: float = max(1.0, fallback_width) * (MYTHIC_BOSS_PADDLE_SCALE if ai_mode == "mythic" else 1.0)
+	var league_scale: float = _get_league_boss_paddle_scale(ai_mode)
+	var league_width: float = max(1.0, fallback_width) * league_scale
 	var owner_width: float = max(1.0, float(owner_snapshot.get_owner_value(owner, "boss_paddle_width", league_width)))
-	if ai_mode == "mythic":
+	if league_scale > 1.0:
 		return max(owner_width, league_width)
 	return owner_width
 
 
+func _get_league_boss_paddle_scale(ai_mode: String) -> float:
+	match ai_mode:
+		"mythic":
+			return MYTHIC_BOSS_PADDLE_SCALE
+		"limit":
+			return LIMIT_BOSS_PADDLE_SCALE
+		_:
+			return 1.0
+
+
 func _apply_league_speed_policy(context: Dictionary) -> void:
-	if _normalize_league_mode(str(context.get("ai_mode", "champion"))) != "mythic":
+	var ai_mode: String = _normalize_league_mode(str(context.get("ai_mode", "champion")))
+	if ai_mode == "limit":
+		var limit_speed_cap: float = float(context.get("limit_max_ball_speed", 29.0))
+		context["max_ball_speed"] = limit_speed_cap
+		context["impact_boost_max_ball_speed"] = limit_speed_cap
+		context["speed_limit_disabled"] = false
+		return
+	if ai_mode != "mythic":
 		return
 	var mythic_speed_limit: float = float(context.get("mythic_max_ball_speed", 32.0))
 	context["max_ball_speed"] = mythic_speed_limit

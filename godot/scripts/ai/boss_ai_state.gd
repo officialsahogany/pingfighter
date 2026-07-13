@@ -2,6 +2,7 @@ extends RefCounted
 
 const BossAiPredictionState := preload("res://scripts/ai/boss_ai_prediction_state.gd")
 const BossAiTurnInertiaResolver := preload("res://scripts/ai/boss_ai_turn_inertia_resolver.gd")
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 
 const WHIP_DEACTIVATION_FAST_SPEED: float = 8.8
 const WHIP_DEACTIVATION_SLOW_SPEED: float = 1.8
@@ -844,8 +845,8 @@ func _start_boss_dash_recharge(context: Dictionary) -> void:
 
 
 func _get_boss_dash_league_cooldown_multiplier(ai_mode: String) -> float:
-	match ai_mode:
-		"champion", "mythic":
+	match BattleSceneConfig.normalize_league_mode(ai_mode):
+		"champion", "limit", "mythic":
 			return 0.4
 		_:
 			return 1.0

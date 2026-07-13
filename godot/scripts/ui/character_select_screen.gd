@@ -10,6 +10,7 @@ const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_
 const MotionConfigBuilder := preload("res://scripts/ui/character_select_motion_config_builder.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const CharacterSelectLayout := preload("res://scripts/ui/character_select_layout.gd")
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
@@ -27,6 +28,12 @@ const BGM_TOGGLE_KEY := KEY_B
 const FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO := 0.902
 const LOCKED_CHARACTER_FEEDBACK_DURATION := 1.4
 const DEFAULT_LEAGUE_MODE := "junior"
+const LEAGUE_BUTTONS := [
+	{"mode": "junior"},
+	{"mode": "champion"},
+	{"mode": "limit"},
+	{"mode": "mythic"},
+]
 const CHARACTER_SELECT_RING_CORE_TIER := 0
 
 # Slice A editorial chrome (D1): chrome stays neutral dark; character accent
@@ -64,6 +71,7 @@ var confirm_rect := Rect2()
 var back_rect := Rect2()
 var junior_rect := Rect2()
 var champion_rect := Rect2()
+var limit_rect := Rect2()
 var mythic_rect := Rect2()
 var language_rect := Rect2()
 var preview_rect_cache := Rect2()
@@ -269,6 +277,10 @@ func _gui_input(event: InputEvent) -> void:
 		_select_league_mode("champion")
 		accept_event()
 		return
+	if limit_rect.has_point(pos):
+		_select_league_mode("limit")
+		accept_event()
+		return
 	if mythic_rect.has_point(pos):
 		_select_league_mode("mythic")
 		accept_event()
@@ -317,6 +329,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_move_selection(1)
 			if is_inside_tree() and get_viewport() != null:
 				get_viewport().set_input_as_handled()
+		KEY_TAB:
+			_cycle_league_mode(-1 if key_event.shift_pressed else 1)
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
 		KEY_SPACE, KEY_ENTER, KEY_KP_ENTER:
 			_confirm_selection()
 			if is_inside_tree() and get_viewport() != null:
@@ -345,6 +361,12 @@ func _handle_gamepad_unhandled_input(event: InputEvent) -> void:
 	)
 	if navigation_direction != 0:
 		_move_selection(navigation_direction)
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	var league_direction: int = GamepadInput.get_tab_direction_event(event)
+	if league_direction != 0:
+		_cycle_league_mode(league_direction)
 		if is_inside_tree() and get_viewport() != null:
 			get_viewport().set_input_as_handled()
 		return
@@ -797,10 +819,21 @@ func _store_selection(character: Dictionary) -> void:
 
 func _select_league_mode(mode: String) -> void:
 	selected_league_mode = _normalize_league_mode(mode)
-	var state: Node = get_node_or_null("/root/GameSelectionState")
+	var state: Node = get_node_or_null("/root/GameSelectionState") if is_inside_tree() else null
 	if state != null and state.has_method("set_league_mode"):
 		state.set_league_mode(selected_league_mode)
 	queue_redraw()
+
+
+func _cycle_league_mode(direction: int) -> void:
+	var modes: Array[String] = []
+	for button_value in LEAGUE_BUTTONS:
+		if button_value is Dictionary:
+			modes.append(str((button_value as Dictionary).get("mode", "")))
+	if modes.is_empty():
+		return
+	var current_index: int = maxi(0, modes.find(selected_league_mode))
+	_select_league_mode(modes[wrapi(current_index + direction, 0, modes.size())])
 
 
 func _cycle_language() -> void:
@@ -1599,51 +1632,24 @@ func _draw_stats(origin: Vector2, max_width: float, character: Dictionary) -> vo
 
 
 func _action_bar_layout(view_size: Vector2) -> Dictionary:
-	if view_size.x < 980.0:
-		# Single left-to-right row above the bottom card column so league tabs
-		# and the confirm CTA cannot stack on the cards or on each other
-		# (Slice A pixel-QA findings (b)/(c)). Under 640px the confirm CTA
-		# gets its own row instead (fixed widths would overlap the mythic tab).
-		var bottom_y := _mobile_action_bar_bottom_y(view_size)
-		var row_y := bottom_y + 2.0
-		if view_size.x < 640.0:
-			var narrow_confirm_width: float = minf(170.0, view_size.x - 48.0)
-			var narrow_back := Rect2(24.0, row_y, 78.0, 34.0)
-			var narrow_league_width: float = clampf((view_size.x - 24.0 - 78.0 - 12.0 - 24.0 - 12.0) / 3.0, 64.0, 118.0)
-			var narrow_junior := Rect2(narrow_back.end.x + 12.0, row_y - 2.0, narrow_league_width, 38.0)
-			var narrow_champion := Rect2(narrow_junior.end.x + 6.0, row_y - 2.0, narrow_league_width, 38.0)
-			var narrow_mythic := Rect2(narrow_champion.end.x + 6.0, row_y - 2.0, narrow_league_width, 38.0)
-			var narrow_confirm := Rect2(view_size.x - 24.0 - narrow_confirm_width, bottom_y - 58.0, narrow_confirm_width, 50.0)
-			return {"back": narrow_back, "junior": narrow_junior, "champion": narrow_champion, "mythic": narrow_mythic, "confirm": narrow_confirm}
-		var confirm_width := 170.0
-		var back_width := 90.0
-		var league_width: float = clampf((view_size.x - 24.0 - back_width - 12.0 - confirm_width - 12.0 - 24.0 - 12.0) / 3.0, 78.0, 118.0)
-		var back := Rect2(24.0, row_y, back_width, 34.0)
-		var junior := Rect2(back.end.x + 12.0, row_y - 2.0, league_width, 38.0)
-		var champion := Rect2(junior.end.x + 6.0, row_y - 2.0, league_width, 38.0)
-		var mythic := Rect2(champion.end.x + 6.0, row_y - 2.0, league_width, 38.0)
-		var confirm := Rect2(view_size.x - 24.0 - confirm_width, bottom_y - 8.0, confirm_width, 50.0)
-		return {"back": back, "junior": junior, "champion": champion, "mythic": mythic, "confirm": confirm}
-	var bottom_y_desktop: float = view_size.y - 98.0
-	var center_x: float = view_size.x * 0.5
-	# Reference right-column composition: while the rail is visible the
-	# confirm CTA docks into its bottom band instead of floating bottom-right.
-	var rail := _full_body_rail_rect(view_size)
-	var confirm := Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y_desktop - 8.0, 214.0, 50.0)
-	if rail.has_area():
-		confirm = Rect2(rail.position.x + 14.0, rail.end.y - 64.0, rail.size.x - 28.0, 50.0)
-	var league_width := 150.0
-	var league_height := 44.0
-	var league_gap := 12.0
-	var league_row_y: float = bottom_y_desktop - 3.0
-	var league_start: float = center_x - league_width * 1.5 - league_gap
-	return {
-		"back": Rect2(_card_column_rect(view_size).position.x + 14.0, bottom_y_desktop + 2.0, 106.0, 34.0),
-		"junior": Rect2(league_start, league_row_y, league_width, league_height),
-		"champion": Rect2(league_start + league_width + league_gap, league_row_y, league_width, league_height),
-		"mythic": Rect2(league_start + (league_width + league_gap) * 2.0, league_row_y, league_width, league_height),
-		"confirm": confirm,
-	}
+	return CharacterSelectLayout.action_bar_layout(view_size, LEAGUE_BUTTONS)
+
+
+func _build_league_button_layout(
+	start_x: float,
+	row_y: float,
+	button_width: float,
+	button_height: float,
+	gap: float
+) -> Dictionary:
+	return CharacterSelectLayout.build_league_button_layout(
+		LEAGUE_BUTTONS,
+		start_x,
+		row_y,
+		button_width,
+		button_height,
+		gap
+	)
 
 
 func _draw_action_bar(view_size: Vector2) -> void:
@@ -1654,11 +1660,13 @@ func _draw_action_bar(view_size: Vector2) -> void:
 	back_rect = bar_layout.get("back", Rect2())
 	junior_rect = bar_layout.get("junior", Rect2())
 	champion_rect = bar_layout.get("champion", Rect2())
+	limit_rect = bar_layout.get("limit", Rect2())
 	mythic_rect = bar_layout.get("mythic", Rect2())
 	confirm_rect = bar_layout.get("confirm", Rect2())
 	_draw_button(back_rect, LanguageSettings.translate_text("뒤로"), Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
 	_draw_league_button(junior_rect, LanguageSettings.translate_text("테스트"), "junior", Color(0.38, 0.92, 0.45, 1.0))
 	_draw_league_button(champion_rect, LanguageSettings.translate_text("실전"), "champion", Color(0.82, 0.30, 1.0, 1.0))
+	_draw_league_button(limit_rect, LanguageSettings.translate_text("리미트"), "limit", Color(1.0, 0.36, 0.42, 1.0))
 	_draw_league_button(mythic_rect, LanguageSettings.translate_text("오버클럭"), "mythic", Color(1.0, 0.76, 0.26, 1.0))
 	var select_name := str(character.get("character_name", character.get("name", "")))
 	if not character.is_empty() and not _is_character_unlocked(character):

@@ -15,6 +15,7 @@ const BOSS_Y := 25.0
 const BOSS_PADDLE_WIDTH := 100.0
 const BOSS_HITBOX_HEIGHT := 40.0
 const JUNIOR_PLAYER_PADDLE_SCALE := 1.5
+const LIMIT_BOSS_PADDLE_SCALE := 1.07
 const MYTHIC_BOSS_PADDLE_SCALE := 1.15
 const DEFAULT_STARTING_DASH_TOKENS := 1
 const JUNIOR_STARTING_DASH_TOKENS := 2
@@ -82,7 +83,11 @@ func get_league_boss_paddle_scale(owner: Object) -> float:
 
 func get_league_boss_paddle_scale_for_mode(mode: String) -> float:
 	var ai_mode := normalize_league_mode(mode)
-	return MYTHIC_BOSS_PADDLE_SCALE if ai_mode == "mythic" else 1.0
+	if ai_mode == "mythic":
+		return MYTHIC_BOSS_PADDLE_SCALE
+	if ai_mode == "limit":
+		return LIMIT_BOSS_PADDLE_SCALE
+	return 1.0
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
@@ -95,4 +100,6 @@ static func normalize_league_mode(mode: String) -> String:
 		return "junior"
 	if normalized == "mythic" or normalized == "mythicleague":
 		return "mythic"
+	if normalized == "limit" or normalized == "limitleague":
+		return "limit"
 	return "champion"

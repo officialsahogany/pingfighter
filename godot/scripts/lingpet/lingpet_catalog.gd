@@ -1890,8 +1890,11 @@ static func _matches_unlock(entry: Dictionary, context: Dictionary) -> bool:
 		return true
 	var unlock_data: Dictionary = unlock as Dictionary
 	var required_league := str(unlock_data.get("league_mode", "")).strip_edges().to_lower()
-	if required_league != "" and _normalize_league_mode(str(context.get("league_mode", ""))) != required_league:
-		return false
+	var context_league := _normalize_league_mode(str(context.get("league_mode", "")))
+	if required_league != "" and context_league != required_league:
+		# 리미트는 별도 해금 트랙이 없는 champion 동치 티어 (세이브 스키마 무변 정책).
+		if not (required_league == "champion" and context_league == "limit"):
+			return false
 	var required_character := str(unlock_data.get("character_type", "")).strip_edges().to_lower()
 	if required_character != "" and _normalize_character_type(str(context.get("character_type", ""))) != required_character:
 		return false
@@ -1910,6 +1913,8 @@ static func _normalize_league_mode(value: String) -> String:
 	var normalized := value.strip_edges().to_lower().replace(" ", "").replace("-", "").replace("_", "")
 	if normalized in ["junior", "juniorleague", "주니어", "주니어리그"]:
 		return "junior"
+	if normalized in ["limit", "limitleague", "리미트", "리미트리그"]:
+		return "limit"
 	return normalized
 
 
