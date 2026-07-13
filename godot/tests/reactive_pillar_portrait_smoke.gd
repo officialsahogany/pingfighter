@@ -108,7 +108,7 @@ func _verify_face_resolution() -> void:
 	_expect(int(neutral.get("frame", -1)) == 0, "neutral should map to frame 0")
 	_expect(int(neutral.get("cols", -1)) == 2, "portrait sheet should use cols=2")
 	_expect(int(neutral.get("rows", -1)) == 2, "portrait sheet should use rows=2")
-	_expect(_rect_equal(_get_rect2(neutral.get("head_source_rect", Rect2())), Rect2(0.11, 0.0, 0.78, 0.89)), "neutral head crop should match expected portrait inset")
+	_expect(_rect_equal(_get_rect2(neutral.get("head_source_rect", Rect2())), Rect2(0.13, 0.03, 0.68, 0.80)), "neutral head crop should match expected portrait inset")
 	_expect(_is_white_tint(neutral.get("tint", Color())), "neutral tint should be Color.WHITE")
 
 	var pained: Dictionary = drawer._resolve_portrait_face(textures, "dalji", "pained")

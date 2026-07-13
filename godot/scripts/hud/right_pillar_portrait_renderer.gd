@@ -27,8 +27,8 @@ const BOX_GAP := 10.0
 # 박스 목표 크기 (px, 스케일 곱 전). 세로가 약간 긴 초상화 비율.
 const BOX_WIDTH := 118.0
 const BOX_HEIGHT := 132.0
-# Dalji portrait crop keeps the sangmo streamer while enlarging the face at HUD scale.
-const CROP_DALJI := Rect2(0.11, 0.0, 0.78, 0.89)
+# Dalji portrait crop keeps the sangmo streamer and janggu edge readable at HUD scale.
+const CROP_DALJI := Rect2(0.13, 0.03, 0.68, 0.80)
 # 박스가 최소한 이 높이(스케일 곱 후)는 확보돼야 그린다. 밴드가 더 짧으면
 # 두 박스가 오브 클러스터를 침범하므로 통째로 스킵한다 (draw-time 용량 규율).
 const MIN_BOX_HEIGHT := 44.0
