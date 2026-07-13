@@ -73,6 +73,7 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"smasher_cleanse_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_cleanse_state"),
 		"smasher_warp_gate_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_warp_gate_state"),
 		"smasher_wheel_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_wheel_state"),
+		"smasher_overdrive_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_overdrive_state"),
 		"smasher_magnum_grip_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_magnum_grip_state"),
 		"smasher_dash_spirit_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_dash_spirit_state"),
 		"smasher_shield_kiting_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_shield_kiting_state"),

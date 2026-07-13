@@ -126,8 +126,19 @@ func update(
 		next_special_gauge = float(cleanse_result.get("special_gauge", next_special_gauge))
 		cleanse_activated = bool(cleanse_result.get("activated", false))
 
+	var overdrive_activated := false
+	var overdrive_state: Object = deps.get("smasher_overdrive_state", null)
+	var overdrive_active: bool = overdrive_state != null and overdrive_state.has_method("is_active") and bool(overdrive_state.is_active())
+	if overdrive_state != null and overdrive_state.has_method("update_input") and (overdrive_active or (not recovery_activated and not cleanse_activated)):
+		var overdrive_result: Dictionary = overdrive_state.update_input(
+			input_snapshot, current_msec, next_special_gauge, next_pos, config, deps
+		)
+		next_special_gauge = float(overdrive_result.get("special_gauge", next_special_gauge))
+		overdrive_activated = bool(overdrive_result.get("activated", false))
+	var overdrive_live: bool = overdrive_state != null and overdrive_state.has_method("is_active") and bool(overdrive_state.is_active())
+
 	var warp_gate_activated := false
-	if not recovery_activated and not cleanse_activated and warp_gate_state != null and warp_gate_state.has_method("update_input"):
+	if not recovery_activated and not cleanse_activated and not overdrive_activated and warp_gate_state != null and warp_gate_state.has_method("update_input"):
 		var warp_gate_result: Dictionary = warp_gate_state.update_input(
 			input_snapshot,
 			current_msec,
@@ -140,7 +151,7 @@ func update(
 		warp_gate_activated = bool(warp_gate_result.get("activated", false))
 
 	var smasher_wheel_state: Object = deps.get("smasher_wheel_state", null)
-	if not recovery_activated and not cleanse_activated and not warp_gate_activated and smasher_wheel_state != null and smasher_wheel_state.has_method("update_input"):
+	if not recovery_activated and not cleanse_activated and not overdrive_live and not warp_gate_activated and smasher_wheel_state != null and smasher_wheel_state.has_method("update_input"):
 		var wheel_result: Dictionary = smasher_wheel_state.update_input(
 			input_snapshot,
 			current_msec,
@@ -182,7 +193,7 @@ func update(
 			var audio = deps.get("audio", null)
 			if audio != null and audio.has_method("stop_magnum_grip"):
 				audio.stop_magnum_grip()
-	elif not wheel_active and magnum_grip_state != null and magnum_grip_state.has_method("update_input"):
+	elif not wheel_active and not overdrive_live and magnum_grip_state != null and magnum_grip_state.has_method("update_input"):
 		var magnum_result: Dictionary = magnum_grip_state.update_input(
 			input_snapshot,
 			current_msec,
@@ -231,7 +242,7 @@ func update(
 			motion_config["special_gauge"] = next_special_gauge
 			handled_by_dash = true
 
-	if not wheel_active and not handled_by_dash:
+	if not wheel_active and not handled_by_dash and not overdrive_activated:
 		motion_config["special_gauge"] = next_special_gauge
 		var dash_input: Dictionary = dash_controller.handle_dash_input(
 			down_pressed,

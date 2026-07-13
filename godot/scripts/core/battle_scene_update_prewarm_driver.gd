@@ -349,6 +349,7 @@ func _get_player_control_context_prewarm_keys(character_type: String) -> Array:
 			"smasher_cleanse_state",
 			"smasher_warp_gate_state",
 			"smasher_wheel_state",
+			"smasher_overdrive_state",
 			"smasher_magnum_grip_state",
 			"smasher_dash_spirit_state",
 			"smasher_shield_kiting_state",

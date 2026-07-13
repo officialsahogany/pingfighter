@@ -411,6 +411,16 @@ const SMASHER_PERKS := {
 		"character_restriction": "smasher",
 		"unlocks_skill": "smasher_wheel",
 	},
+	"unlock_smasher_overdrive": {
+		"name": "오버드라이브 해금",
+		"max_level": 1,
+		"descriptions": {1: "오버드라이브 스킬 해금"},
+		"detail": "S/↓ + 우클릭으로 5초간 공을 가속하고 지그재그 궤도로 전환하는 스킬을 해금합니다.",
+		"icon_color": Color(80.0 / 255.0, 225.0 / 255.0, 1.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "smasher_overdrive",
+	},
 	"extension_gear": {
 		"name": "연장기어",
 		"max_level": 5,

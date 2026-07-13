@@ -3,6 +3,19 @@ extends RefCounted
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
+const OVERDRIVE_REFLECTION_EVENTS := {
+	"wall": true,
+	"sand_terrain": true,
+	"brick_wall": true,
+	"trampoline": true,
+	"horn_strawberry_field": true,
+	"lingpet_bone_barrier": true,
+	"holy_barrier": true,
+	"adversity_armor": true,
+	"player_paddle": true,
+	"boss_paddle": true,
+}
+
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
@@ -26,9 +39,11 @@ func step_motion(
 	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
 
 	var event: String = str(step_result.get("event", "none"))
+	var outcome := ""
+	var overdrive_reflection: bool = OVERDRIVE_REFLECTION_EVENTS.has(event)
 	if event == "wall":
 		if _process_wall(step_result, scene, context, deps):
-			return "rematch"
+			outcome = "rematch"
 	elif event == "sand_terrain":
 		_process_sand_terrain(step_result, scene, deps)
 	elif event == "brick_wall":
@@ -47,11 +62,18 @@ func step_motion(
 		_process_paddle(step_result, scene, context, deps, callbacks)
 	elif event == "player_scored":
 		if _process_stage2_quake_boss_backstop(scene, context, deps):
-			return ""
-		return "player"
+			overdrive_reflection = true
+		else:
+			outcome = "player"
 	elif event == "boss_scored":
-		return "boss"
-	return ""
+		outcome = "boss"
+	if overdrive_reflection:
+		_notify_smasher_overdrive_reflection(
+			scene,
+			_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
+			deps
+		)
+	return outcome
 
 
 func _process_sand_terrain(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
@@ -387,6 +409,13 @@ func _notify_power_smash_wall_bounce(step_result: Dictionary, deps: Dictionary) 
 	if power_state == null or not power_state.has_method("notify_wall_bounce"):
 		return
 	power_state.notify_wall_bounce(str(step_result.get("side", "")))
+
+
+func _notify_smasher_overdrive_reflection(scene: Dictionary, impact_pos: Vector2, deps: Dictionary) -> void:
+	var state: Object = deps.get("smasher_overdrive_state", null)
+	if state == null or not state.has_method("notify_ball_reflected"):
+		return
+	state.notify_ball_reflected(_get_vector2(scene, "ball_vel", Vector2.ZERO), impact_pos)
 
 
 func _register_ball_hit_pulse(

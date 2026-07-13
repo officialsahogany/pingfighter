@@ -88,6 +88,10 @@ func reset_power_and_drive(deps: Dictionary, reset_mythic: bool = true) -> void:
 	if wheel_state != null and wheel_state.has_method("reset_round"):
 		wheel_state.reset_round()
 
+	var overdrive_state = deps.get("smasher_overdrive_state", null)
+	if overdrive_state != null and overdrive_state.has_method("reset_round"):
+		overdrive_state.reset_round()
+
 	var dash_spirit_state = deps.get("smasher_dash_spirit_state", null)
 	if dash_spirit_state != null and dash_spirit_state.has_method("reset_round"):
 		dash_spirit_state.reset_round()

@@ -93,6 +93,10 @@ const MODULES := {
 		"path": "res://scripts/characters/smasher_wheel_state.gd",
 		"label": "smasher wheel state",
 	},
+	"smasher_overdrive_state": {
+		"path": "res://scripts/characters/smasher_overdrive_state.gd",
+		"label": "smasher overdrive state",
+	},
 	"smasher_magnum_grip_state": {
 		"path": "res://scripts/characters/smasher_magnum_grip_state.gd",
 		"label": "smasher magnum grip state",

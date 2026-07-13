@@ -45,6 +45,9 @@ const CONTROL_ROWS := {
 		[["key", "A"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "D"], ["accent", "우회전 발동"]],
 		[["key", "D"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "A"], ["accent", "좌회전 발동"]],
 	],
+	"smasher_overdrive": [
+		[["key", "S"], ["slash", "/"], ["key", "↓"], ["plus", "+"], ["mouse_right", ""], ["accent", "발동"]],
+	],
 }
 
 const VIPER_CONTROL_ROWS := {

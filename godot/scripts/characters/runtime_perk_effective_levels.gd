@@ -49,6 +49,7 @@ const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"unlock_ghost_shot": true,
 	"unlock_warp_gate": true,
 	"unlock_smasher_wheel": true,
+	"unlock_smasher_overdrive": true,
 	"unlock_nerve_strike": true,
 	"unlock_dive_strike": true,
 	"unlock_chaos_spear": true,

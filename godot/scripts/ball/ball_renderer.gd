@@ -5,6 +5,7 @@ const BombBallRenderer := preload("res://scripts/ball/bomb_ball_renderer.gd")
 const EnergyBallRenderer := preload("res://scripts/ball/energy_ball_renderer.gd")
 const PingpongBallRenderer := preload("res://scripts/ball/pingpong_ball_renderer.gd")
 const PrismBallRenderer := preload("res://scripts/ball/prism_ball_renderer.gd")
+const SmasherOverdriveBallTrailRenderer := preload("res://scripts/ball/smasher_overdrive_ball_trail_renderer.gd")
 
 const BALL_VISUAL_SCALE := 1.575
 const BALL_RENDER_RADIUS := 16.9 * BALL_VISUAL_SCALE
@@ -16,6 +17,7 @@ var energy_renderer: Object = EnergyBallRenderer.new()
 var pingpong_renderer: Object = PingpongBallRenderer.new()
 var prism_renderer: Object = PrismBallRenderer.new()
 var status_overlay_renderer: Object = BallStatusOverlayRenderer.new()
+var overdrive_trail_renderer: Object = SmasherOverdriveBallTrailRenderer.new()
 var _unit_ellipse_points_cache: Dictionary = {}
 
 
@@ -46,6 +48,7 @@ func clear() -> void:
 	energy_renderer.clear()
 	pingpong_renderer.clear()
 	status_overlay_renderer.clear()
+	overdrive_trail_renderer.clear()
 
 
 func draw_current(canvas: CanvasItem, pos: Vector2, context: Dictionary, perf_logger: Object = null) -> void:
@@ -89,6 +92,16 @@ func draw_current(canvas: CanvasItem, pos: Vector2, context: Dictionary, perf_lo
 			clamp(float(context.get("effect_lod_scale", 1.0)), 0.25, 1.0)
 		)
 		_perf_end(perf_logger, "ball.visual.energy", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	overdrive_trail_renderer.draw(
+		canvas,
+		pos,
+		_get_dict(context.get("smasher_overdrive_fx", {})),
+		_as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO),
+		clamp(float(context.get("effect_lod_scale", 1.0)), 0.25, 1.0)
+	)
+	_perf_end(perf_logger, "ball.overdrive_trail", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	status_overlay_renderer.draw(canvas, pos, context, BALL_RENDER_RADIUS)

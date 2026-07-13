@@ -153,6 +153,7 @@ const UNLOCK_ALIASES := {
 	"unlock_ghost_shot": "ghost_shot",
 	"unlock_warp_gate": "warp_gate",
 	"unlock_smasher_wheel": "smasher_wheel",
+	"unlock_smasher_overdrive": "smasher_overdrive",
 	"unlock_nerve_strike": "nerve_strike",
 	"unlock_dive_strike": "dive_strike",
 	"unlock_chaos_spear": "chaos_spear",

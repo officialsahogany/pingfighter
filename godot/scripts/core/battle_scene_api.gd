@@ -171,6 +171,9 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 		var wheel_state: Object = _get_instance(registry, "smasher_wheel_state")
 		if wheel_state != null and wheel_state.has_method("reset"):
 			wheel_state.reset()
+		var overdrive_state: Object = _get_instance(registry, "smasher_overdrive_state")
+		if overdrive_state != null and overdrive_state.has_method("reset"):
+			overdrive_state.reset()
 		var audio: Object = _get_instance(registry, "game_audio")
 		if audio != null:
 			if audio.has_method("stop_plasma_charge"):

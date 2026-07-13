@@ -166,6 +166,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"status_effect_state": registry.get_instance("status_effect_state"),
 		"smasher_warp_gate_state": registry.get_instance("smasher_warp_gate_state"),
 		"smasher_wheel_state": registry.get_instance("smasher_wheel_state"),
+		"smasher_overdrive_state": registry.get_instance("smasher_overdrive_state"),
 		"smasher_dash_spirit_state": registry.get_instance("smasher_dash_spirit_state"),
 		"smasher_shield_kiting_state": registry.get_instance("smasher_shield_kiting_state"),
 		"laurel_leaf_shield_state": registry.get_instance("laurel_leaf_shield_state"),
@@ -270,6 +271,7 @@ func _append_smasher_round_deps(
 	deps["smasher_cleanse_state"] = _get_round_instance(registry, "smasher_cleanse_state", perf_logger, perf_label_prefix)
 	deps["smasher_warp_gate_state"] = _get_round_instance(registry, "smasher_warp_gate_state", perf_logger, perf_label_prefix)
 	deps["smasher_wheel_state"] = _get_round_instance(registry, "smasher_wheel_state", perf_logger, perf_label_prefix)
+	deps["smasher_overdrive_state"] = _get_round_instance(registry, "smasher_overdrive_state", perf_logger, perf_label_prefix)
 	deps["smasher_dash_spirit_state"] = _get_round_instance(registry, "smasher_dash_spirit_state", perf_logger, perf_label_prefix)
 	deps["smasher_shield_kiting_state"] = _get_round_instance(registry, "smasher_shield_kiting_state", perf_logger, perf_label_prefix)
 	deps["combo_state"] = _get_round_instance(registry, "smasher_combo_state", perf_logger, perf_label_prefix)
@@ -355,6 +357,7 @@ func _append_smasher_update_deps(deps: Dictionary, registry, include_generic_key
 	deps["smasher_cleanse_state"] = _get_instance(registry, "smasher_cleanse_state")
 	deps["smasher_warp_gate_state"] = _get_instance(registry, "smasher_warp_gate_state")
 	deps["smasher_wheel_state"] = _get_instance(registry, "smasher_wheel_state")
+	deps["smasher_overdrive_state"] = _get_instance(registry, "smasher_overdrive_state")
 	deps["smasher_dash_spirit_state"] = _get_instance(registry, "smasher_dash_spirit_state")
 	deps["smasher_shield_kiting_state"] = _get_instance(registry, "smasher_shield_kiting_state")
 

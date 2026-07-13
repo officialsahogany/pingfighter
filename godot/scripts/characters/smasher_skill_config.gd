@@ -16,6 +16,7 @@ const SKILL_COSTS := {
 	"ghost_shot": 420.0,
 	"warp_gate": 100.0,
 	"smasher_wheel": 200.0,
+	"smasher_overdrive": 280.0,
 }
 const SKILL_COLORS := {
 	"drive": Color(255.0 / 255.0, 220.0 / 255.0, 50.0 / 255.0),
@@ -28,6 +29,7 @@ const SKILL_COLORS := {
 	"ghost_shot": Color(120.0 / 255.0, 50.0 / 255.0, 180.0 / 255.0),
 	"warp_gate": Color(200.0 / 255.0, 110.0 / 255.0, 1.0),
 	"smasher_wheel": Color(1.0, 165.0 / 255.0, 60.0 / 255.0),
+	"smasher_overdrive": Color(80.0 / 255.0, 225.0 / 255.0, 1.0),
 }
 const COOLDOWN_SECONDS := {
 	"drive": 15.0,
@@ -40,6 +42,7 @@ const COOLDOWN_SECONDS := {
 	"ghost_shot": 85.0,
 	"warp_gate": 50.0,
 	"smasher_wheel": 25.0,
+	"smasher_overdrive": 28.0,
 }
 const SKILL_DATA := {
 	"plasma": {
@@ -141,6 +144,17 @@ const SKILL_DATA := {
 		"how_to_use": "S 또는 ↓ 키를 0.5초 이상 홀드하여 발동",
 		"motion_hint": "차원 포털을 열어 좌/우 벽 워프",
 		"effect_type": "portal_purple",
+	},
+	"smasher_overdrive": {
+		"name": "smasher_overdrive",
+		"korean": "오버드라이브",
+		"cost": 280.0,
+		"color": Color(80.0 / 255.0, 225.0 / 255.0, 1.0),
+		"cooldown": 28.0,
+		"description": "5초간 공의 속도를 30% 높이고 지그재그 궤도로 전환합니다.\n12프레임마다 기준 진행 방향에서 좌우로 28° 꺾입니다.\n지속 중 공속 상한은 30이며 종료 즉시 일반 상한으로 복귀합니다.",
+		"how_to_use": "S/↓ + 마우스 우클릭으로 발동",
+		"motion_hint": "공을 가속해 좌우 지그재그 궤도로 전환",
+		"effect_type": "overdrive_zigzag",
 	},
 	"smasher_wheel": {
 		"name": "smasher_wheel",
@@ -340,6 +354,11 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["description"] = "The paddle spins for 1.2s. On ball contact, it relaunches very fast toward the boss with a strong drive curve."
 			data["how_to_use"] = "Input A-W-D or D-W-A within 0.6s"
 			data["motion_hint"] = "Spin the paddle and relaunch the ball"
+		"smasher_overdrive":
+			data["korean"] = "Overdrive"
+			data["description"] = "For 5 seconds, increase ball speed by 30% and bend its path 28 degrees left/right every 12 frames. Speed is capped at 30."
+			data["how_to_use"] = "Press S/Down + right-click"
+			data["motion_hint"] = "Accelerate the ball into a zigzag path"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

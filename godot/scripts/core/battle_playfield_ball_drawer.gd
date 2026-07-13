@@ -62,6 +62,10 @@ func draw_ball(
 		height
 	)
 	_perf_end(perf_logger, "ball.node_fx_layout", sample_start)
+	# Opus 비주얼 레인: 배선이 노출한 오버드라이브 신호 스냅샷을 렌더 컨텍스트로
+	# 전달(구독자). 활성일 때만 실제 스냅샷을 실어 비활성 프레임의 duplicate 비용을
+	# 피하고, 렌더러는 비활성/부재를 소멸 페이드로 처리한다.
+	ball_renderer_context["smasher_overdrive_fx"] = _build_overdrive_fx(registry)
 	sample_start = _perf_begin(perf_logger)
 	ball_renderer.draw_current(
 		canvas,
@@ -71,6 +75,17 @@ func draw_ball(
 	)
 	_perf_end(perf_logger, "ball.renderer_draw", sample_start)
 	BallRenderInterpolation.consume_reset_on_owner(canvas)
+
+
+func _build_overdrive_fx(registry: Object) -> Dictionary:
+	var overdrive_state: Object = _get_instance(registry, "smasher_overdrive_state")
+	if overdrive_state == null or not overdrive_state.has_method("is_active"):
+		return {}
+	if bool(overdrive_state.is_active()) and overdrive_state.has_method("get_snapshot"):
+		var snapshot: Variant = overdrive_state.get_snapshot()
+		if snapshot is Dictionary:
+			return snapshot
+	return {"smasher_overdrive_active": false}
 
 
 func _get_instance(registry: Object, key: String) -> Object:

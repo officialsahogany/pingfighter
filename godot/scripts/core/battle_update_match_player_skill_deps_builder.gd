@@ -70,6 +70,7 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 		"status_effect_state": _get_instance(registry, "status_effect_state"),
 		"smasher_warp_gate_state": _get_instance(registry, "smasher_warp_gate_state") if include_smasher else null,
 		"smasher_wheel_state": _get_instance(registry, "smasher_wheel_state") if include_smasher else null,
+		"smasher_overdrive_state": _get_instance(registry, "smasher_overdrive_state") if include_smasher else null,
 		"smasher_magnum_grip_state": _get_instance(registry, "smasher_magnum_grip_state") if include_smasher else null,
 		"smasher_dash_spirit_state": _get_instance(registry, "smasher_dash_spirit_state") if include_smasher else null,
 		"smasher_shield_kiting_state": _get_instance(registry, "smasher_shield_kiting_state") if include_smasher else null,

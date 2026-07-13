@@ -1046,6 +1046,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"smasher_cleanse_state",
 				"smasher_warp_gate_state",
 				"smasher_wheel_state",
+				"smasher_overdrive_state",
 				"smasher_dash_spirit_state",
 				"smasher_shield_kiting_state",
 				"smasher_dash_state",
@@ -1114,6 +1115,7 @@ func _prewarm_selected_character_runtime_resources_legacy(owner: Object, module_
 			module_keys = [
 				"smasher_warp_gate_state",
 				"smasher_wheel_state",
+				"smasher_overdrive_state",
 				"smasher_shield_kiting_state",
 			]
 		"soldier":

@@ -112,6 +112,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 		frame_motion_controller.apply_ball_speed_limits(scene, frame_deps)
 
 	frame_motion_controller.apply_laurel_leaf_shield_collision(scene, frame_context, frame_deps)
+	frame_motion_controller.apply_smasher_overdrive(scene, frame_context, frame_deps)
 	scene["previous_ball_pos"] = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	var motion_step_start: int = _perf_begin(perf_logger)
 	var score_event: String = motion_event_processor.step_motion(scene, fps_scale, frame_context, frame_deps, callbacks)

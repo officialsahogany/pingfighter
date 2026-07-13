@@ -141,6 +141,7 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"status_effect_state",
 		"smasher_warp_gate_state",
 		"smasher_wheel_state",
+		"smasher_overdrive_state",
 		"smasher_magnum_grip_state",
 		"smasher_dash_spirit_state",
 		"smasher_shield_kiting_state",

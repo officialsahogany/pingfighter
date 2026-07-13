@@ -77,6 +77,7 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 	if meditation_release_cap > 0.0:
 		speed_cap = max(speed_cap, meditation_release_cap)
 	speed_cap = max(speed_cap, float(scene.get("smasher_wheel_speed_cap", 0.0)))
+	speed_cap = max(speed_cap, _get_smasher_overdrive_speed_cap(deps))
 	speed_cap = max(speed_cap, float(scene.get("trampoline_launch_speed_cap", 0.0)))
 	speed_cap = max(speed_cap, _get_magnum_grip_speed_cap(deps))
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
@@ -364,6 +365,21 @@ func apply_smasher_wheel_collision(scene: Dictionary, context: Dictionary, deps:
 		scene[str(key)] = result[key]
 
 
+func apply_smasher_overdrive(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return
+	var state: Object = deps.get("smasher_overdrive_state", null)
+	if state == null or not state.has_method("apply_ball_motion"):
+		return
+	var result: Dictionary = state.apply_ball_motion(
+		_get_vector2(scene, "ball_pos", Vector2.ZERO),
+		_get_vector2(scene, "ball_vel", Vector2.ZERO),
+		max(0.001, float(scene.get("ball_impact_boost", 1.0)))
+	)
+	if not result.is_empty():
+		scene.merge(result, true)
+
+
 func apply_shield_kiting_collision(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	if str(context.get("selected_character_type", "smasher")) != "smasher":
 		return
@@ -450,6 +466,13 @@ func _get_magnum_grip_speed_cap(deps: Dictionary) -> float:
 	if magnum_state.has_method("get_pending_release_hit_speed_cap"):
 		cap = max(cap, float(magnum_state.get_pending_release_hit_speed_cap()))
 	return cap
+
+
+func _get_smasher_overdrive_speed_cap(deps: Dictionary) -> float:
+	var state: Object = deps.get("smasher_overdrive_state", null)
+	if state == null or not state.has_method("get_speed_cap"):
+		return 0.0
+	return float(state.get_speed_cap())
 
 
 func _get_viper_blade_speed_cap(deps: Dictionary) -> float:
