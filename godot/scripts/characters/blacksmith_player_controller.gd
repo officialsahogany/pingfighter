@@ -29,6 +29,7 @@ func update(
 	var next_special_gauge: float = float(motion_config.get("special_gauge", 0.0))
 	var shield_state: Object = deps.get("blacksmith_thor_shield_state", null)
 	var shield_result: Dictionary = {}
+	var shield_hard_rooted := false
 	if shield_state != null and shield_state.has_method("update_input"):
 		shield_result = shield_state.update_input(
 			delta,
@@ -41,13 +42,18 @@ func update(
 		)
 		next_special_gauge = float(shield_result.get("special_gauge", next_special_gauge))
 		if not bool(motion_config.get("horn_strawberry_transformed", false)):
-			_apply_speed_multiplier(motion_config, shield_state)
+			shield_hard_rooted = _apply_speed_multiplier(motion_config, shield_state)
 	motion_config["special_gauge"] = next_special_gauge
 	var shared_result: Dictionary = shared_controller.update(
 		delta,
 		frame_counter,
 		player_pos,
-		player_speed,
+		# A multiplier of 0 zeroes accel/max_speed/decel, but move_toward with a
+		# 0 decel step PRESERVES pre-existing speed — the paddle would keep
+		# sliding through the whole deploy. Zero the carried speed itself so the
+		# Thor Shield deploy/retract root is an actual stop (original
+		# umbrella_lock_active sets current_speed = 0).
+		0.0 if shield_hard_rooted else player_speed,
 		motion_config,
 		deps
 	)
@@ -58,15 +64,18 @@ func update(
 	return shared_result
 
 
-func _apply_speed_multiplier(config: Dictionary, source: Object) -> void:
+func _apply_speed_multiplier(config: Dictionary, source: Object) -> bool:
+	# Returns true when the multiplier is a hard root (0) so the caller can also
+	# zero the carried player_speed.
 	if source == null or not source.has_method("get_player_speed_multiplier"):
-		return
+		return false
 	var speed_multiplier: float = max(0.0, float(source.get_player_speed_multiplier()))
 	if abs(speed_multiplier - 1.0) <= 0.001:
-		return
+		return false
 	for key in MOVEMENT_SPEED_KEYS:
 		if config.has(key):
 			config[key] = float(config[key]) * speed_multiplier
+	return speed_multiplier <= 0.001
 
 
 func _is_active_item_control_locked(active_item_runtime: Object) -> bool:

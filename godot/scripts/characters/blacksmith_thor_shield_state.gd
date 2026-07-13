@@ -194,7 +194,14 @@ func needs_effect_update() -> bool:
 
 
 func has_visible_effects() -> bool:
-	return get_open_ratio() > 0.01 or umbrella_swing_active or umbrella_hit_pulse_timer > 0.0
+	# damage_flash included so the 0-durability deploy-refusal flash actually
+	# renders on the folded shield instead of existing only as state.
+	return (
+		get_open_ratio() > 0.01
+		or umbrella_swing_active
+		or umbrella_hit_pulse_timer > 0.0
+		or umbrella_damage_flash_timer > 0.0
+	)
 
 
 func is_guard_active() -> bool:
@@ -255,14 +262,26 @@ func notify_ball_hit(
 	deps: Dictionary
 ) -> Dictionary:
 	var current_msec: int = int(context.get("current_msec", Time.get_ticks_msec()))
-	if current_msec - _last_hit_msec < HIT_COOLDOWN_MSEC:
-		return {}
-	_last_hit_msec = current_msec
-	umbrella_damage_flash_timer = DAMAGE_FLASH_SECONDS
+	# Original parity (pingfighter.py shield_guarding block): guard FEEDBACK —
+	# block sound, impact pulse, knockback suppression, special-gauge gain —
+	# runs on EVERY shield contact. Only the DURABILITY decrement is gated by
+	# the 0.5s cooldown and by "the ball's previous hitter was not the player"
+	# (last_hit_by != "player"; the frame context captures the pre-contact
+	# hitter, since register_rally_feedback stamps "player" only after this
+	# handler). Early-returning on the cooldown here dropped
+	# suppress_paddle_hit_knockback too, so rapid re-contacts felt a raw paddle
+	# knockback through the shield.
 	umbrella_hit_pulse_timer = HIT_PULSE_SECONDS
-	umbrella_gauge = max(0, umbrella_gauge - 1)
-	if umbrella_gauge <= 0:
-		_start_close(deps)
+	var last_hit_by: String = str(context.get("last_hit_by", ""))
+	var durability_reduced := false
+	if current_msec - _last_hit_msec >= HIT_COOLDOWN_MSEC and last_hit_by != "player":
+		_last_hit_msec = current_msec
+		durability_reduced = true
+		umbrella_damage_flash_timer = DAMAGE_FLASH_SECONDS
+		umbrella_gauge = max(0, umbrella_gauge - 1)
+		umbrella_recharge_timer = 0.0
+		if umbrella_gauge <= 0:
+			_start_close(deps)
 	var gauge_max: float = max(1.0, float(context.get("gauge_max", context.get("special_gauge_max", 500.0))))
 	var next_special_gauge: float = max(
 		gauge_after_player_hit,
@@ -466,14 +485,23 @@ func _start_close(deps: Dictionary = {}) -> void:
 	# deploy animation is still running). Seeding the full ANIM_SECONDS here
 	# snapped a partially-open shield to fully-open before folding.
 	var close_ratio: float = get_open_ratio()
-	umbrella_open = true
-	umbrella_retracting = true
-	umbrella_anim_direction = -1
-	umbrella_anim_timer = max(ANIM_SECONDS * close_ratio, RETRACT_HIT_GRACE_SECONDS)
 	umbrella_swing_active = false
 	umbrella_swing_timer = 0.0
 	umbrella_swing_direction = 0
 	_swing_sound_pending = false
+	if close_ratio <= 0.01:
+		# Barely open: closing "up" to the grace floor would nudge the pose
+		# FORWARD before folding. Just snap shut.
+		umbrella_open = false
+		umbrella_retracting = false
+		umbrella_anim_direction = 1
+		umbrella_anim_timer = 0.0
+		_play_audio(deps, "play_thor_shield_close")
+		return
+	umbrella_open = true
+	umbrella_retracting = true
+	umbrella_anim_direction = -1
+	umbrella_anim_timer = ANIM_SECONDS * close_ratio
 	_play_audio(deps, "play_thor_shield_close")
 
 
@@ -509,12 +537,20 @@ func _get_shield_rect() -> Rect2:
 	var draw_width: float = max(18.0, float(metrics.get("shield_width", BASE_SHIELD_WIDTH)))
 	var draw_height: float = max(18.0, float(metrics.get("shield_height", BASE_SHIELD_HEIGHT)))
 	var visible_height: float = max(18.0, draw_height * INTEGRATED_STRETCH_VISIBLE_HEIGHT_RATIO)
-	return Rect2(
-		center.x - draw_width * 0.5,
-		center.y - visible_height * 0.5,
-		draw_width,
-		visible_height
+	# The shield PNG is drawn as a TILTED quad along the metrics axes (up to 75
+	# degrees when folded). Judge with the axis-aligned bounding box of that
+	# same rotated visible quad so the hitbox keeps tracking the picture in the
+	# folded / mid-open states; at full deploy the tilt is ~0 and this reduces
+	# to the plain width x visible-height rect.
+	var axis_right: Vector2 = _get_vector2(metrics, "axis_right", Vector2(1.0, 0.0))
+	var axis_down: Vector2 = _get_vector2(metrics, "axis_down", Vector2(0.0, 1.0))
+	var half_right: Vector2 = axis_right * draw_width * 0.5
+	var half_down: Vector2 = axis_down * visible_height * 0.5
+	var half_extent := Vector2(
+		abs(half_right.x) + abs(half_down.x),
+		abs(half_right.y) + abs(half_down.y)
 	)
+	return Rect2(center - half_extent, half_extent * 2.0)
 
 
 func _get_effective_gauge_gain(context: Dictionary) -> float:
@@ -635,7 +671,9 @@ func _get_integrated_thor_shield_overlay_metrics(shake_offset: Vector2 = Vector2
 		spread
 	) * visual_scale
 	var shield_center: Vector2 = hand_anchor + center_offset
-	var grip_anchor: Vector2 = shield_center + Vector2(0.0, shield_height * (0.23 + 0.03 * spread))
+	# Grip hangs along the shield's own tilted down-axis, not screen-vertical,
+	# so the handle stays attached to the rotated body while folded.
+	var grip_anchor: Vector2 = shield_center + axis_down * (shield_height * (0.23 + 0.03 * spread))
 	return {
 		"progress": progress,
 		"open_amount": open_amount,
@@ -664,7 +702,9 @@ func _draw_integrated_thor_shield_stretch_texture(
 	var axis_right: Vector2 = _get_vector2(metrics, "axis_right", Vector2(1.0, 0.0))
 	var axis_down: Vector2 = _get_vector2(metrics, "axis_down", Vector2(0.0, 1.0))
 	var spread: float = clamp(float(metrics.get("spread", 0.0)), 0.0, 1.0)
-	var draw_alpha: float = clamp(0.26 + spread * 0.74 + pulse * 0.10, 0.0, 1.0)
+	# flash boosts alpha so the deploy-refusal / durability flash reads even on
+	# the mostly-transparent folded shield.
+	var draw_alpha: float = clamp(0.26 + spread * 0.74 + pulse * 0.10 + flash * 0.35, 0.0, 1.0)
 	var tint := Color(1.0, 1.0, 1.0, draw_alpha).lerp(Color(1.0, 0.92, 0.62, draw_alpha), flash * 0.32)
 	# Draw the shield PNG along the metrics tilt axes so the folded / closing
 	# pose actually leans (VISUAL_CLOSED_TILT_DEGREES) instead of staying an
@@ -693,7 +733,8 @@ func _draw_integrated_thor_shield_stretch_texture(
 		axis_down,
 		shield_width * 0.82,
 		shield_height * INTEGRATED_STRETCH_VISIBLE_HEIGHT_RATIO,
-		flash
+		flash,
+		draw_alpha
 	)
 	_draw_integrated_thor_shield_handle(canvas, metrics, true)
 
@@ -874,13 +915,18 @@ func _draw_shield_damage_cracks(
 	axis_down: Vector2,
 	shield_width: float,
 	shield_height: float,
-	flash: float
+	flash: float,
+	alpha_scale: float = 1.0
 ) -> void:
 	var damage_stage: int = clampi(SHIELD_DURABILITY_MAX - umbrella_gauge, 0, 5)
 	if damage_stage <= 0:
 		return
 	var crack_color: Color = _rgb(186.0 + damage_stage * 6.0, 178.0 + damage_stage * 5.0, 168.0 + damage_stage * 5.0, 230.0).lerp(Color(1.0, 0.96, 0.86, 1.0), flash)
 	var crack_shadow := _rgb(58.0, 46.0, 38.0, 230.0)
+	# Inherit the shield body's fold-fade so cracks never float darker than the
+	# mostly-transparent folded PNG under them.
+	crack_color.a *= clamp(alpha_scale, 0.0, 1.0)
+	crack_shadow.a *= clamp(alpha_scale, 0.0, 1.0)
 	var crack_segments: Array[Array] = [
 		[Vector2(-0.14, -0.15), Vector2(-0.03, 0.10)],
 		[Vector2(0.08, -0.26), Vector2(0.00, 0.05)],

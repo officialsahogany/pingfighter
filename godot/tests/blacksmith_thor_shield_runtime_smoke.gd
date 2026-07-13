@@ -2,6 +2,8 @@ extends SceneTree
 
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const BlacksmithThorShieldState := preload("res://scripts/characters/blacksmith_thor_shield_state.gd")
+const BlacksmithPlayerController := preload("res://scripts/characters/blacksmith_player_controller.gd")
+const PlayerMovementState := preload("res://scripts/characters/player_movement_state.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
 const PaddleBouncePlayerPostHitHandler := preload("res://scripts/ball/paddle_bounce_player_post_hit_handler.gd")
@@ -25,6 +27,13 @@ class AudioStub:
 		calls.append("block")
 
 
+class InputReaderStub:
+	var snapshot: Dictionary = {}
+
+	func get_snapshot() -> Dictionary:
+		return snapshot
+
+
 func _init() -> void:
 	_verify_runtime_routing()
 	_verify_imagegen_stretch_draw_path()
@@ -39,6 +48,9 @@ func _init() -> void:
 	_verify_durability_recharge_and_zero_gauge_refusal()
 	_verify_deploy_anim_locks_movement()
 	_verify_dedicated_audio_cues()
+	_verify_shield_root_stops_residual_speed()
+	_verify_repeat_contact_keeps_block_feedback()
+	_verify_folded_hitbox_tracks_tilted_art()
 
 	if _failures.is_empty():
 		print("blacksmith_thor_shield_runtime_smoke: ok")
@@ -500,6 +512,111 @@ func _verify_dedicated_audio_cues() -> void:
 	state.update_input(1.20, _idle_input(), 10000, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
 	state.update_input(0.0, _up_input(), 10100, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
 	_expect(audio.calls.has("close"), "Manual fold should play the dedicated umbclose cue")
+
+
+func _verify_shield_root_stops_residual_speed() -> void:
+	# Integration guard for the "multiplier 0 zeroes decel so move_toward
+	# preserves the carried speed" hole: drive the REAL blacksmith controller +
+	# movement state with a paddle already sliding at 6 px/frame, deploy the
+	# shield, and require an actual stop (position unchanged, speed 0).
+	var controller: Object = BlacksmithPlayerController.new()
+	var shield: Object = BlacksmithThorShieldState.new()
+	var reader: InputReaderStub = InputReaderStub.new()
+	reader.snapshot = {
+		"up_just_pressed": true,
+		"action_just_pressed": false,
+		"blacksmith_swing_direction": 0,
+		"left_pressed": false,
+		"right_pressed": false,
+		"action_pressed": false,
+		"direction": 0.0,
+	}
+	var deps := {
+		"input_reader": reader,
+		"blacksmith_thor_shield_state": shield,
+		"movement_state": PlayerMovementState.new(),
+	}
+	var config := {
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_speed": 6.0,
+		"paddle_max_speed": 6.0,
+		"paddle_accel": 1.2,
+		"paddle_decel": 0.8,
+		"paddle_turn_decel": 1.5,
+		"special_gauge": 75.0,
+		"player_skill_input_locked": false,
+	}
+	var start_pos := Vector2(302.5, 700.0)
+	var result: Dictionary = controller.update(1.0 / 60.0, 0, start_pos, 6.0, config, deps)
+	_expect(bool(result.get("blacksmith_umbrella_open", false)), "Root-stop leg: shield should have opened")
+	_expect(is_zero_approx(float(result.get("player_speed", -1.0))), "Deploy must zero the carried player speed, not just the speed config keys")
+	var result_pos: Vector2 = result.get("player_pos", start_pos)
+	_expect(absf(result_pos.x - start_pos.x) <= 0.01, "Deploying paddle must not slide on residual speed (moved %.2fpx)" % absf(result_pos.x - start_pos.x))
+	# Second frame while still deploying: held horizontal input must not move it either.
+	reader.snapshot = {
+		"up_just_pressed": false,
+		"action_just_pressed": false,
+		"blacksmith_swing_direction": 0,
+		"left_pressed": false,
+		"right_pressed": true,
+		"action_pressed": false,
+		"direction": 1.0,
+	}
+	var second: Dictionary = controller.update(1.0 / 60.0, 1, result_pos, float(result.get("player_speed", 0.0)), config, deps)
+	var second_pos: Vector2 = second.get("player_pos", result_pos)
+	_expect(absf(second_pos.x - result_pos.x) <= 0.01, "Held input during the deploy animation must not move the rooted paddle")
+
+
+func _verify_repeat_contact_keeps_block_feedback() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	state.update_input(0.80, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	var first: Dictionary = state.notify_ball_hit(
+		Vector2(302.5, 620.0), Vector2(0.0, 12.0), 75.0, 75.0,
+		{"current_msec": 2000, "gauge_max": 500.0, "last_hit_by": "boss"}, {}
+	)
+	_expect(int(first.get("blacksmith_umbrella_gauge", -1)) == 4, "First boss-ball contact should consume one durability")
+	# Re-contact INSIDE the 0.5s durability cooldown: guard feedback (knockback
+	# suppression, gauge gain) must still process; only durability is protected.
+	var second: Dictionary = state.notify_ball_hit(
+		Vector2(302.5, 620.0), Vector2(0.0, 12.0), 75.0, 75.0,
+		{"current_msec": 2100, "gauge_max": 500.0, "last_hit_by": "boss", "blacksmith_umbrella_gauge_gain": 60.0}, {}
+	)
+	_expect(not second.is_empty(), "Re-contact within the durability cooldown must still return a block result")
+	_expect(bool(second.get("suppress_paddle_hit_knockback", false)), "Re-contact within the cooldown must still suppress paddle knockback")
+	_expect(int(second.get("blacksmith_umbrella_gauge", -1)) == 4, "Re-contact within the cooldown must NOT consume extra durability")
+	_expect(is_equal_approx(float(second.get("special_gauge", 0.0)), 135.0), "Re-contact within the cooldown should still grant the shield gauge gain")
+	# A ball whose PREVIOUS hitter was the player never consumes durability
+	# (original last_hit_by != "player" gate), but block feedback remains.
+	var player_ball: Dictionary = state.notify_ball_hit(
+		Vector2(302.5, 620.0), Vector2(0.0, 12.0), 75.0, 75.0,
+		{"current_msec": 3000, "gauge_max": 500.0, "last_hit_by": "player"}, {}
+	)
+	_expect(int(player_ball.get("blacksmith_umbrella_gauge", -1)) == 4, "Player-last-hit ball must not consume durability")
+	_expect(bool(player_ball.get("suppress_paddle_hit_knockback", false)), "Player-last-hit ball still gets shield block feedback")
+	var boss_ball_later: Dictionary = state.notify_ball_hit(
+		Vector2(302.5, 620.0), Vector2(0.0, 12.0), 75.0, 75.0,
+		{"current_msec": 3100, "gauge_max": 500.0, "last_hit_by": "boss"}, {}
+	)
+	_expect(int(boss_ball_later.get("blacksmith_umbrella_gauge", -1)) == 3, "Boss ball after the cooldown should consume durability again")
+
+
+func _verify_folded_hitbox_tracks_tilted_art() -> void:
+	# The folded/closing shield PNG is drawn tilted ~75 degrees; the judged rect
+	# must be the AABB of that rotated visible quad (taller than wide), not the
+	# untilted folded rectangle (wider than tall).
+	var state: Object = BlacksmithThorShieldState.new()
+	state.update_input(0.0, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	state.update_input(0.05, _idle_input(), 1100, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	var collision_context: Dictionary = state.get_ball_collision_context({
+		"player_pos": Vector2(302.5, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+	})
+	_expect(bool(collision_context.get("blacksmith_thor_shield_active", false)), "Opening shield should already publish a collision context")
+	var rect: Rect2 = collision_context.get("blacksmith_thor_shield_rect", Rect2())
+	_expect(rect.size.y > rect.size.x, "Folded-state hitbox must track the tilted art (AABB taller than wide), got %.0fx%.0f" % [rect.size.x, rect.size.y])
 
 
 func _expect(condition: bool, message: String) -> void:
