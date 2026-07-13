@@ -220,6 +220,7 @@ func _process_lingpet_bone_barrier(step_result: Dictionary, scene: Dictionary, d
 
 func _process_adversity_armor(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
 	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var built := bool(step_result.get("built", true))
 	var reflected_y: float = -max(abs(ball_vel.y), 8.0)
 	scene["ball_vel"] = Vector2(ball_vel.x, reflected_y)
 	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
