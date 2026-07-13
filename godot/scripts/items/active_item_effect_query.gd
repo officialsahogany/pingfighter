@@ -172,6 +172,11 @@ func get_player_speed_multiplier(target: Object) -> float:
 func get_aipill_context(target: Object) -> Dictionary:
 	return _context_builder.build_aipill_context(
 		bool(target.get("aipill_active")),
+		float(target.get("aipill_phase")),
+		float(target.get("aipill_flash_timer_frames"))
+	)
+
+
 # 능력치 툴팁용 아이템별 기여 내역. get_player_speed_multiplier /
 # get_player_paddle_scale과 같은 상태 플래그·배율 소스를 읽으므로 두 값이
 # 어긋나면 툴팁의 "기타 효과" 잔여 줄로 드러난다. 라벨은 아이템 표시명
@@ -215,11 +220,6 @@ func get_player_stat_breakdown(target: Object, stat_key: String) -> Array:
 					"icon_id": "strange_vial",
 				})
 	return entries
-
-
-		float(target.get("aipill_phase")),
-		float(target.get("aipill_flash_timer_frames"))
-	)
 
 
 func get_stopwatch_context(target: Object) -> Dictionary:
