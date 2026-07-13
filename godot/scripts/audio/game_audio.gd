@@ -82,6 +82,10 @@ const COMMANDO_NET_CONSTRICT_SOUND_PATH := "res://assets/sounds/netcome.wav"
 const COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH := "res://assets/sounds/ballingtrapsetup.wav"
 const COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH := "res://assets/sounds/ballingtrapgrap.wav"
 const COMMANDO_SUICIDE_DRONE_SOUND_PATH := "res://assets/sounds/drone.wav"
+const THOR_SHIELD_OPEN_SOUND_PATH := "res://assets/sounds/umbopen.wav"
+const THOR_SHIELD_CLOSE_SOUND_PATH := "res://assets/sounds/umbclose.wav"
+const THOR_SHIELD_SWING_SOUND_PATH := "res://assets/sounds/swing.wav"
+const THOR_SHIELD_BLOCK_SOUND_PATH := "res://assets/sounds/blocking.wav"
 const COMMANDO_SLINGSHOT_FIRE_GAIN_DB := -4.4370
 const COMMANDO_PISTOL_READY_GAIN_DB := -3.0980
 const COMMANDO_PISTOL_FIRE_GAIN_DB := -6.0206
@@ -442,6 +446,10 @@ var gaksital_fan_sfx: AudioStreamPlayer
 var gaksital_fan_sfx_layers: Array = []
 var gaksital_fan_sfx_cursor := 0
 var whipcrack_sfx: AudioStreamPlayer
+var thor_shield_open_sfx: AudioStreamPlayer
+var thor_shield_close_sfx: AudioStreamPlayer
+var thor_shield_swing_sfx: AudioStreamPlayer
+var thor_shield_block_sfx: AudioStreamPlayer
 var viper_jetpack_sfx: AudioStreamPlayer
 var viper_backstep_sfx: AudioStreamPlayer
 var viper_shadow_kick_sfx: AudioStreamPlayer
@@ -765,6 +773,10 @@ func _setup_smasher_skill_sfx() -> void:
 	gaksital_fan_sfx_layers = _create_optional_sfx_layers("GaksitalFanSfxLayer", FAN_SOUND_PATH, _volume_to_db(0.35), GAKSITAL_FAN_SOUND_POOL_SIZE - 1)
 	gaksital_fan_sfx_cursor = 0
 	whipcrack_sfx = player_factory.create(owner_node, "WhipcrackSfx", WHIPCRACK_SOUND_PATH, _volume_to_db(0.6))
+	thor_shield_open_sfx = player_factory.create(owner_node, "ThorShieldOpenSfx", THOR_SHIELD_OPEN_SOUND_PATH, -4.4)
+	thor_shield_close_sfx = player_factory.create(owner_node, "ThorShieldCloseSfx", THOR_SHIELD_CLOSE_SOUND_PATH, -4.4)
+	thor_shield_swing_sfx = player_factory.create(owner_node, "ThorShieldSwingSfx", THOR_SHIELD_SWING_SOUND_PATH, -5.0)
+	thor_shield_block_sfx = player_factory.create(owner_node, "ThorShieldBlockSfx", THOR_SHIELD_BLOCK_SOUND_PATH, -4.0)
 	viper_jetpack_sfx = player_factory.create(owner_node, "ViperJetpackSfx", VIPER_JETPACK_SOUND_PATH, -8.5)
 	_enable_loop(viper_jetpack_sfx)
 	viper_backstep_sfx = player_factory.create(owner_node, "ViperBackstepSfx", VIPER_BACKSTEP_SOUND_PATH, -6.0)
@@ -1627,6 +1639,22 @@ func sync_viper_jetpack_loop(active: bool) -> void:
 		play_viper_jetpack_loop()
 	else:
 		stop_viper_jetpack_loop()
+
+
+func play_thor_shield_open() -> void:
+	_play_with_pitch(thor_shield_open_sfx, randf_range(0.98, 1.02))
+
+
+func play_thor_shield_close() -> void:
+	_play_with_pitch(thor_shield_close_sfx, randf_range(0.98, 1.02))
+
+
+func play_thor_shield_swing() -> void:
+	_play_with_pitch(thor_shield_swing_sfx, randf_range(0.98, 1.02))
+
+
+func play_thor_shield_block() -> void:
+	_play_with_pitch(thor_shield_block_sfx, randf_range(0.98, 1.02))
 
 
 func play_viper_backstep() -> void:
@@ -3747,6 +3775,10 @@ func _get_sfx_players() -> Array:
 		whip_sfx,
 		gaksital_fan_sfx,
 		whipcrack_sfx,
+		thor_shield_open_sfx,
+		thor_shield_close_sfx,
+		thor_shield_swing_sfx,
+		thor_shield_block_sfx,
 		viper_jetpack_sfx,
 		viper_backstep_sfx,
 		viper_shadow_kick_sfx,

@@ -9,6 +9,22 @@ const PaddleBouncePlayerPostHitHandler := preload("res://scripts/ball/paddle_bou
 var _failures: Array[String] = []
 
 
+class AudioStub:
+	var calls: Array[String] = []
+
+	func play_thor_shield_open() -> void:
+		calls.append("open")
+
+	func play_thor_shield_close() -> void:
+		calls.append("close")
+
+	func play_thor_shield_swing() -> void:
+		calls.append("swing")
+
+	func play_thor_shield_block() -> void:
+		calls.append("block")
+
+
 func _init() -> void:
 	_verify_runtime_routing()
 	_verify_imagegen_stretch_draw_path()
@@ -18,6 +34,11 @@ func _init() -> void:
 	_verify_shield_collision_and_hit_reward()
 	_verify_hitbox_tracks_visible_shield()
 	_verify_shield_hit_repositions_to_shield_surface()
+	_verify_single_tick_per_dual_path_frame()
+	_verify_mid_open_input_and_forced_close_continuity()
+	_verify_durability_recharge_and_zero_gauge_refusal()
+	_verify_deploy_anim_locks_movement()
+	_verify_dedicated_audio_cues()
 
 	if _failures.is_empty():
 		print("blacksmith_thor_shield_runtime_smoke: ok")
@@ -345,6 +366,140 @@ func _verify_shield_hit_repositions_to_shield_surface() -> void:
 		"ball_size": ball_size,
 	})
 	_expect(absf(normal.y - (player_y - ball_size)) <= 0.5, "Non-shield player hit should still snap to the player paddle surface")
+
+
+func _default_config() -> Dictionary:
+	return {
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_skill_input_locked": false,
+	}
+
+
+func _idle_input() -> Dictionary:
+	return {"up_just_pressed": false, "action_just_pressed": false, "blacksmith_swing_direction": 0}
+
+
+func _up_input() -> Dictionary:
+	return {"up_just_pressed": true, "action_just_pressed": false, "blacksmith_swing_direction": 0}
+
+
+func _tick_dual_path_frame(state: Object, delta: float, input_snapshot: Dictionary, msec: int) -> void:
+	# Reproduce the REAL integrated frame flow: battle_frame_flow_controller
+	# calls update_player_control (-> update_input) AND update_effects in the
+	# SAME physics frame. The state object must advance its timers exactly once
+	# per frame under this dual-path drive.
+	state.update_input(delta, input_snapshot, msec, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	state.update_effects(delta * 60.0, {
+		"player_pos": Vector2(302.5, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"special_gauge": 75.0,
+	}, {})
+
+
+func _verify_single_tick_per_dual_path_frame() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	var frame_delta: float = 1.0 / 60.0
+	_tick_dual_path_frame(state, frame_delta, _up_input(), 1000)
+	# 21 more dual-path frames = 0.35s of game time. With the old double tick
+	# (input path + effects path both decremented the timer) the nominal 0.70s
+	# deploy already finished here; the fixed single tick must sit near 50%.
+	for frame_index in range(21):
+		_tick_dual_path_frame(state, frame_delta, _idle_input(), 1100 + frame_index * 16)
+	var mid_ratio: float = float(state.get_open_ratio())
+	_expect(mid_ratio > 0.40 and mid_ratio < 0.65, "Dual-path frame drive must advance the deploy timer once per frame (0.35s in => ~50%% open, got %.2f)" % mid_ratio)
+	_expect(not bool(state.is_deployed()), "Thor Shield must NOT be fully deployed after 0.35s of dual-path frames (double-tick regression)")
+	for frame_index in range(24):
+		_tick_dual_path_frame(state, frame_delta, _idle_input(), 1600 + frame_index * 16)
+	_expect(bool(state.is_deployed()), "Thor Shield should finish deploying after ~0.75s of dual-path frames")
+
+
+func _verify_mid_open_input_and_forced_close_continuity() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	state.update_input(0.0, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	state.update_input(0.20, _idle_input(), 1200, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	var ratio_before_press: float = float(state.get_open_ratio())
+	# Original parity: a manual fold press while the deploy animation still runs
+	# must be IGNORED (no retract, no pose snap).
+	state.update_input(0.0, _up_input(), 1250, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(not bool(state.get_snapshot().get("blacksmith_umbrella_retracting", true)), "Manual fold input during the deploy animation must be ignored (original anim_timer==0 gate)")
+	_expect(absf(float(state.get_open_ratio()) - ratio_before_press) <= 0.02, "Ignored mid-open fold press must not change the open ratio")
+	# Forced close (durability depletion mid-deploy) must fold from the CURRENT
+	# ratio instead of snapping to fully-open first.
+	state.set("umbrella_gauge", 1)
+	var ratio_before_forced_close: float = float(state.get_open_ratio())
+	state.notify_ball_hit(
+		Vector2(302.5, 620.0),
+		Vector2(0.0, 12.0),
+		75.0,
+		75.0,
+		{"current_msec": 5000, "gauge_max": 500.0},
+		{}
+	)
+	_expect(bool(state.get_snapshot().get("blacksmith_umbrella_retracting", false)), "Durability depletion must start the forced fold")
+	var ratio_after_forced_close: float = float(state.get_open_ratio())
+	_expect(absf(ratio_after_forced_close - ratio_before_forced_close) <= 0.02, "Forced fold must keep the open ratio continuous (got %.2f -> %.2f)" % [ratio_before_forced_close, ratio_after_forced_close])
+
+
+func _verify_durability_recharge_and_zero_gauge_refusal() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	state.set("umbrella_gauge", 0)
+	var refusal_snapshot: Dictionary = state.update_input(0.0, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(not bool(refusal_snapshot.get("blacksmith_umbrella_open", true)), "Deploy must be refused at 0 durability (original parity)")
+	_expect(float(refusal_snapshot.get("blacksmith_umbrella_damage_flash_timer", 0.0)) > 0.0, "Refused deploy should trigger the damage flash feedback")
+	_expect(int(refusal_snapshot.get("blacksmith_umbrella_gauge", -1)) == 0, "Refused deploy must NOT instantly refill durability")
+	# Folded recharge: 6 seconds per durability point.
+	for _second in range(6):
+		state.update_input(1.0, _idle_input(), 2000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(int(state.get_snapshot().get("blacksmith_umbrella_gauge", 0)) == 1, "Folded shield should recover one durability point after 6 seconds")
+	var reopen_snapshot: Dictionary = state.update_input(0.0, _up_input(), 9000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(bool(reopen_snapshot.get("blacksmith_umbrella_open", false)), "Deploy should be accepted again once durability recovered")
+
+
+func _verify_deploy_anim_locks_movement() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	_expect(is_equal_approx(float(state.get_player_speed_multiplier()), 1.0), "Folded Thor Shield should not slow movement")
+	state.update_input(0.0, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(is_zero_approx(float(state.get_player_speed_multiplier())), "Deploy animation must fully root the paddle (original umbrella_lock_active)")
+	state.update_input(0.80, _idle_input(), 1800, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(is_equal_approx(float(state.get_player_speed_multiplier()), 0.25), "Fully deployed guard should move at the 25% crawl")
+	state.update_input(0.0, _up_input(), 1900, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(is_zero_approx(float(state.get_player_speed_multiplier())), "Retract animation must fully root the paddle")
+	state.update_input(0.80, _idle_input(), 2700, 75.0, Vector2(302.5, 700.0), _default_config(), {})
+	_expect(is_equal_approx(float(state.get_player_speed_multiplier()), 1.0), "Completed retract should restore normal movement")
+
+
+func _verify_dedicated_audio_cues() -> void:
+	var state: Object = BlacksmithThorShieldState.new()
+	var audio: AudioStub = AudioStub.new()
+	var deps: Dictionary = {"audio": audio}
+	state.update_input(0.0, _up_input(), 1000, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
+	_expect(audio.calls.has("open"), "Deploy should play the dedicated umbopen cue")
+	state.update_input(0.80, _idle_input(), 1800, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
+	state.update_input(
+		0.0,
+		{"up_just_pressed": false, "action_just_pressed": true, "blacksmith_swing_direction": -1},
+		1900,
+		75.0,
+		Vector2(302.5, 700.0),
+		_default_config(),
+		deps
+	)
+	_expect(not audio.calls.has("swing"), "Swing cue must wait for the 0.5s prep phase (original sound delay)")
+	state.update_input(0.60, _idle_input(), 2500, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
+	_expect(audio.calls.has("swing"), "Swing cue should fire when the main swing phase starts")
+	state.notify_ball_hit(
+		Vector2(302.5, 620.0),
+		Vector2(0.0, 12.0),
+		75.0,
+		75.0,
+		{"current_msec": 9000, "gauge_max": 500.0},
+		deps
+	)
+	_expect(audio.calls.has("block"), "Shield block should play the dedicated blocking cue")
+	state.update_input(1.20, _idle_input(), 10000, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
+	state.update_input(0.0, _up_input(), 10100, 75.0, Vector2(302.5, 700.0), _default_config(), deps)
+	_expect(audio.calls.has("close"), "Manual fold should play the dedicated umbclose cue")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -381,8 +381,11 @@ The effects update path and the ball update path build DIFFERENT context
 dicts: an effects-only flag (e.g. `enraged_boss_active`) read from a
 ball-path helper silently returns false forever. Capture such flags at
 `activate()` time into a member; the regression smoke must use SEPARATE
-contexts for the two calls (a shared dict masks the bug). Full rule:
-`docs/godot_runtime_traps.md`.
+contexts for the two calls (a shared dict masks the bug). Inverse variant:
+a state module ticking `_tick_timers` from BOTH `update_input` and
+`update_effects` runs at DOUBLE speed (normal frames call both paths) —
+tick on exactly one path and seal with a dual-path frame-drive smoke
+(Thor Shield 0.7s→0.35s case). Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Shared Stateful Input-Reader Edge-Eating Trap (extra get_snapshot() consumer)
 

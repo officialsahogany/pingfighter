@@ -846,6 +846,35 @@ Standing rules:
   smoke originally did exactly this). Reverse-verify it FAILS on the
   ball-path-read code.
 
+### Variant: dual-path DOUBLE TICK (same timer decremented by two update paths)
+
+The inverse failure of the context-flag split: a character/skill state module
+whose `update_input` (player-control path) AND `update_effects` (effects path)
+BOTH call the shared `_tick_timers(delta)` runs every animation/cooldown at
+double speed, because `battle_frame_flow_controller` calls
+`update_player_control` (line ~63) and `update_effects` (line ~85) in the SAME
+physics frame. No error, and state smokes stay GREEN because tests drive the
+state object through ONE path only. Reference failure (2026-07-14): Blacksmith
+Thor Shield — the nominal 0.70s deploy/retract (`ANIM_SECONDS`, original-parity
+constant) actually completed in ~0.35s and the 1.0s swing in ~0.5s, so the
+"timing constants match the original" audit conclusion was false at runtime.
+
+Standing rules:
+- A state module reachable from BOTH `update_player_control` and
+  `update_effects` must tick its timers on exactly ONE path. Prefer the
+  player-control path (`update_input`): modal pause branches that run
+  `update_effects` alone then freeze the module, matching the original
+  Python game's frozen main loop during modals.
+- The regression smoke must reproduce the REAL integrated frame flow: one
+  simulated physics frame = `update_input(delta)` + `update_effects(...)`
+  back-to-back, then assert elapsed-time outcomes (e.g. ~50% open after half
+  the nominal duration), not just state flags. Reference seal:
+  `blacksmith_thor_shield_runtime_smoke._verify_single_tick_per_dual_path_frame`
+  (reverse-verified: re-adding the effects-path tick turns it RED).
+- When auditing timing parity against the Python original, verifying the
+  constants is NOT enough — verify the effective per-frame advancement under
+  the real dual-path frame flow.
+
 ## Godot Lazy Applied-Key Re-Apply Trap
 
 A lazy apply gate that early-returns on "already applied" BEFORE recomputing

@@ -4,7 +4,12 @@ const ANIM_SECONDS := 0.70
 const SWING_PREP_SECONDS := 0.50
 const SWING_MAIN_SECONDS := 0.50
 const RETRACT_HIT_GRACE_SECONDS := 2.0 / 60.0
-const HIT_COOLDOWN_MSEC := 90
+# Original parity: BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = 0.5s — one
+# durability point per half second, so fast balls cannot shred the shield.
+const HIT_COOLDOWN_MSEC := 500
+# Original parity: BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = 6s per
+# durability point, ticking only while the shield stays folded.
+const RECOVER_INTERVAL_SECONDS := 6.0
 const DAMAGE_FLASH_SECONDS := 0.18
 const HIT_PULSE_SECONDS := 0.22
 const MOVE_MULTIPLIER := 0.25
@@ -56,6 +61,9 @@ var umbrella_hit_pulse_timer := 0.0
 var umbrella_swing_active := false
 var umbrella_swing_timer := 0.0
 var umbrella_swing_direction := 0
+var umbrella_recharge_timer := 0.0
+var _swing_sound_pending := false
+var _audio_ref: Object = null
 var _last_hit_msec := -100000
 var _last_player_pos := Vector2(302.5, 700.0)
 var _last_player_size := Vector2(155.0, 50.0)
@@ -73,6 +81,8 @@ func reset() -> void:
 	umbrella_swing_active = false
 	umbrella_swing_timer = 0.0
 	umbrella_swing_direction = 0
+	umbrella_recharge_timer = 0.0
+	_swing_sound_pending = false
 	_last_hit_msec = -100000
 	_runtime_perk_modal_pause_started_msec = -1
 
@@ -89,6 +99,8 @@ func force_close_for_character_skill_lock() -> void:
 	umbrella_swing_active = false
 	umbrella_swing_timer = 0.0
 	umbrella_swing_direction = 0
+	umbrella_recharge_timer = 0.0
+	_swing_sound_pending = false
 	_last_hit_msec = -100000
 	_runtime_perk_modal_pause_started_msec = -1
 
@@ -127,6 +139,8 @@ func update_input(
 		max(1.0, float(config.get("paddle_width", _last_player_size.x))),
 		max(1.0, float(config.get("paddle_height", _last_player_size.y)))
 	)
+	if deps.get("audio", null) != null:
+		_audio_ref = deps.get("audio", null)
 	var input_locked: bool = bool(config.get("player_skill_input_locked", false))
 	if input_locked:
 		if bool(config.get("horn_strawberry_skill_input_locked", false)):
@@ -136,9 +150,21 @@ func update_input(
 
 	if bool(input_snapshot.get("up_just_pressed", false)):
 		if umbrella_open or umbrella_retracting:
-			_start_close()
+			# Original parity: manual fold input is ignored until the deploy
+			# animation finishes (anim_timer == 0 gate in pingfighter.py).
+			# Accepting it mid-open would snap the fold timer to a mismatched
+			# ratio and visibly teleport the shield pose.
+			if is_guard_ready():
+				_start_close(deps)
+		elif umbrella_gauge <= 0:
+			# Original parity: at 0 durability the deploy is refused with a
+			# damage flash; durability only returns via the folded recharge.
+			umbrella_damage_flash_timer = max(
+				umbrella_damage_flash_timer,
+				DAMAGE_FLASH_SECONDS * 0.75
+			)
 		else:
-			_start_open()
+			_start_open(deps)
 
 	_tick_timers(delta)
 	var swing_direction: int = int(input_snapshot.get("blacksmith_swing_direction", 0))
@@ -151,10 +177,15 @@ func update_input(
 	return _build_owner_snapshot(special_gauge)
 
 
-func update_effects(fps_scale: float, context: Dictionary = {}, _deps: Dictionary = {}) -> Dictionary:
+func update_effects(_fps_scale: float, context: Dictionary = {}, _deps: Dictionary = {}) -> Dictionary:
+	# Timers tick ONLY on the player-control path (update_input). The normal
+	# frame flow calls BOTH update_player_control and update_effects every
+	# physics frame, so ticking here too ran every animation at double speed
+	# (nominal 0.70s deploy finished in ~0.35s). Modal pause branches that run
+	# update_effects alone intentionally freeze the shield, matching the
+	# original game's frozen main loop during modals.
 	_last_player_pos = _get_vector2(context, "player_pos", _last_player_pos)
 	_last_player_size = _get_vector2(context, "player_paddle_size", _last_player_size)
-	_tick_timers(max(0.0, fps_scale) / 60.0)
 	return _build_owner_snapshot(float(context.get("special_gauge", 0.0)))
 
 
@@ -178,6 +209,11 @@ func is_guard_ready() -> bool:
 
 
 func get_player_speed_multiplier() -> float:
+	# Original parity: the paddle is fully rooted while the deploy / retract
+	# animation runs (umbrella_lock_active zeroed current_speed); the 25%
+	# guard crawl applies only once fully deployed.
+	if umbrella_anim_timer > 0.0 and (umbrella_open or umbrella_retracting):
+		return 0.0
 	return MOVE_MULTIPLIER if is_guard_active() else 1.0
 
 
@@ -226,14 +262,16 @@ func notify_ball_hit(
 	umbrella_hit_pulse_timer = HIT_PULSE_SECONDS
 	umbrella_gauge = max(0, umbrella_gauge - 1)
 	if umbrella_gauge <= 0:
-		_start_close()
+		_start_close(deps)
 	var gauge_max: float = max(1.0, float(context.get("gauge_max", context.get("special_gauge_max", 500.0))))
 	var next_special_gauge: float = max(
 		gauge_after_player_hit,
 		min(gauge_max, gauge_before_player_hit + _get_effective_gauge_gain(context))
 	)
 	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_wall_hit"):
+	if audio != null and audio.has_method("play_thor_shield_block"):
+		audio.play_thor_shield_block()
+	elif audio != null and audio.has_method("play_wall_hit"):
 		audio.play_wall_hit(max(8.0, abs(ball_vel.y)))
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("max_screen_shake"):
@@ -388,40 +426,70 @@ func _tick_timers(delta: float) -> void:
 			umbrella_anim_direction = 1
 	if umbrella_swing_active:
 		umbrella_swing_timer = max(0.0, umbrella_swing_timer - delta)
+		if _swing_sound_pending and get_swing_ratio() >= 0.5:
+			# Original parity: swing.wav fires at the main-swing phase after
+			# the 0.5s prep, not at input time.
+			_swing_sound_pending = false
+			_play_audio({}, "play_thor_shield_swing")
 		if umbrella_swing_timer <= 0.0:
 			umbrella_swing_active = false
 			umbrella_swing_direction = 0
+			_swing_sound_pending = false
 	if umbrella_damage_flash_timer > 0.0:
 		umbrella_damage_flash_timer = max(0.0, umbrella_damage_flash_timer - delta)
 	if umbrella_hit_pulse_timer > 0.0:
 		umbrella_hit_pulse_timer = max(0.0, umbrella_hit_pulse_timer - delta)
+	if umbrella_open or umbrella_retracting or umbrella_gauge >= SHIELD_DURABILITY_MAX:
+		umbrella_recharge_timer = 0.0
+	elif delta > 0.0:
+		umbrella_recharge_timer += delta
+		if umbrella_recharge_timer >= RECOVER_INTERVAL_SECONDS:
+			umbrella_recharge_timer = 0.0
+			umbrella_gauge = min(SHIELD_DURABILITY_MAX, umbrella_gauge + 1)
 
 
-func _start_open() -> void:
+func _start_open(deps: Dictionary = {}) -> void:
 	umbrella_open = true
 	umbrella_retracting = false
 	umbrella_anim_direction = 1
 	umbrella_anim_timer = ANIM_SECONDS
-	if umbrella_gauge <= 0:
-		umbrella_gauge = SHIELD_DURABILITY_MAX
+	umbrella_recharge_timer = 0.0
+	_play_audio(deps, "play_thor_shield_open")
 
 
-func _start_close() -> void:
+func _start_close(deps: Dictionary = {}) -> void:
 	if not umbrella_open or umbrella_retracting:
 		return
+	# Fold from the CURRENT open ratio: while retracting, get_open_ratio() is
+	# timer / ANIM_SECONDS, so seeding the timer with ratio * ANIM_SECONDS keeps
+	# the pose continuous even on forced closes (durability depletion while the
+	# deploy animation is still running). Seeding the full ANIM_SECONDS here
+	# snapped a partially-open shield to fully-open before folding.
+	var close_ratio: float = get_open_ratio()
 	umbrella_open = true
 	umbrella_retracting = true
 	umbrella_anim_direction = -1
-	umbrella_anim_timer = max(ANIM_SECONDS, RETRACT_HIT_GRACE_SECONDS)
+	umbrella_anim_timer = max(ANIM_SECONDS * close_ratio, RETRACT_HIT_GRACE_SECONDS)
 	umbrella_swing_active = false
 	umbrella_swing_timer = 0.0
 	umbrella_swing_direction = 0
+	_swing_sound_pending = false
+	_play_audio(deps, "play_thor_shield_close")
 
 
 func _start_swing(direction: int, _current_msec: int, _deps: Dictionary) -> void:
 	umbrella_swing_active = true
 	umbrella_swing_timer = SWING_PREP_SECONDS + SWING_MAIN_SECONDS
 	umbrella_swing_direction = direction
+	_swing_sound_pending = true
+
+
+func _play_audio(deps: Dictionary, method: String) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio == null:
+		audio = _audio_ref
+	if audio != null and audio.has_method(method):
+		audio.call(method)
 
 
 func _get_shield_rect() -> Rect2:
@@ -593,15 +661,40 @@ func _draw_integrated_thor_shield_stretch_texture(
 	var shield_center: Vector2 = _get_vector2(metrics, "shield_center", Vector2.ZERO)
 	var shield_width: float = max(1.0, float(metrics.get("shield_width", 1.0)))
 	var shield_height: float = max(1.0, float(metrics.get("shield_height", 1.0)))
+	var axis_right: Vector2 = _get_vector2(metrics, "axis_right", Vector2(1.0, 0.0))
+	var axis_down: Vector2 = _get_vector2(metrics, "axis_down", Vector2(0.0, 1.0))
 	var spread: float = clamp(float(metrics.get("spread", 0.0)), 0.0, 1.0)
 	var draw_alpha: float = clamp(0.26 + spread * 0.74 + pulse * 0.10, 0.0, 1.0)
 	var tint := Color(1.0, 1.0, 1.0, draw_alpha).lerp(Color(1.0, 0.92, 0.62, draw_alpha), flash * 0.32)
-	var draw_rect := Rect2(
-		shield_center - Vector2(shield_width * 0.5, shield_height * 0.5),
-		Vector2(shield_width, shield_height)
-	)
+	# Draw the shield PNG along the metrics tilt axes so the folded / closing
+	# pose actually leans (VISUAL_CLOSED_TILT_DEGREES) instead of staying an
+	# axis-aligned rectangle. UVs are the full normalized [0,1] quad.
+	var half_right: Vector2 = axis_right * shield_width * 0.5
+	var half_down: Vector2 = axis_down * shield_height * 0.5
+	var quad := PackedVector2Array([
+		shield_center - half_right - half_down,
+		shield_center + half_right - half_down,
+		shield_center + half_right + half_down,
+		shield_center - half_right + half_down,
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	var colors := PackedColorArray([tint, tint, tint, tint])
 	_draw_integrated_thor_shield_handle(canvas, metrics, false)
-	canvas.draw_texture_rect(stretch_texture, draw_rect, false, tint)
+	canvas.draw_polygon(quad, colors, uvs, stretch_texture)
+	_draw_shield_damage_cracks(
+		canvas,
+		shield_center,
+		axis_right,
+		axis_down,
+		shield_width * 0.82,
+		shield_height * INTEGRATED_STRETCH_VISIBLE_HEIGHT_RATIO,
+		flash
+	)
 	_draw_integrated_thor_shield_handle(canvas, metrics, true)
 
 
