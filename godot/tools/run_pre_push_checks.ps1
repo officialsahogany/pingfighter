@@ -20,7 +20,7 @@
     $env:GODOT_EXE / PATH / disk search via resolve_godot_exe.ps1.
 
 .PARAMETER Mode
-    full  (default) -> load check + warning scan + focused (5) smokes
+    full  (default) -> load check + warning scan + focused smokes ($focusedSmoke)
     all              -> load check + warning scan + FULL smoke suite (all
                         tests/*_smoke.gd discovered by run_smoke_tests.ps1;
                         slow, opt-in -- intended for big refactors before a push)

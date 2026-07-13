@@ -4,7 +4,7 @@
     Nightly FULL-suite smoke runner for 디스크하츠 - 링피아 (Godot).
 
 .DESCRIPTION
-    The automatic pre-push / CI gate only runs a 5-test focused subset. This job
+    The automatic pre-push / CI gate only runs a small focused subset. This job
     closes that gap on a schedule: it runs the headless load check + the FULL
     smoke suite (all *_smoke.gd under godot/tests), captures the complete
     console output to a persistent timestamped log, records PASS/FAIL in
