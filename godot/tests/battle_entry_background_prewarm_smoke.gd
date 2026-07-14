@@ -274,8 +274,8 @@ func _verify_character_select_screen_wires_idle_prewarm() -> void:
 		"character select _process should drive the battle-entry background prewarm"
 	)
 	_expect(
-		select_source.find("Engine.is_editor_hint() or confirm_intro_active") >= 0,
-		"entry background prewarm must pause in the editor and during the confirm intro"
+		select_source.find("Engine.is_editor_hint() or _confirm_intro_state.active") >= 0,
+		"entry background prewarm must pause in the editor and during the confirm intro (owner: _confirm_intro_state)"
 	)
 	_expect(
 		select_source.find("_selected_entry_stage_id()") >= 0,
