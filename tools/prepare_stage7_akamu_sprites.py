@@ -25,6 +25,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -392,40 +394,122 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
     return manifest_path
 
 
+MANIFEST_NAME = "stage7_akamu_boss_sprite_manifest.json"
+
+
+def _expected_export_files() -> list[str]:
+    """Exact promotion whitelist: nine sheets plus the manifest, nothing else."""
+    return sorted(f"stage7_akamu_boss_{key}.png" for key in SOURCE_FILES) + [MANIFEST_NAME]
+
+
+def _sha256_of(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _verify_staged_export(staging_dir: Path) -> None:
-    """Refuse promotion unless the staged set is the complete 9-sheet contract."""
-    expected_sheets = {f"stage7_akamu_boss_{key}.png" for key in SOURCE_FILES}
+    """Refuse promotion unless the staged set is EXACTLY the 9-sheet contract.
+
+    Checks: exact file whitelist (extras such as importer-generated `.import`
+    sidecars are rejected, not promoted), sheet raster size/mode, manifest
+    state uniqueness/completeness, per-asset path/grid/frame fields, and
+    manifest sha256 == actual staged sheet hash.
+    """
     staged_files = {path.name for path in staging_dir.iterdir() if path.is_file()}
-    missing_sheets = expected_sheets - staged_files
-    if missing_sheets:
-        raise ValueError(f"Staged export is missing sheets: {sorted(missing_sheets)}")
-    manifest_name = "stage7_akamu_boss_sprite_manifest.json"
-    if manifest_name not in staged_files:
-        raise ValueError("Staged export is missing the runtime manifest")
-    for sheet_name in sorted(expected_sheets):
+    expected_files = set(_expected_export_files())
+    missing_files = expected_files - staged_files
+    if missing_files:
+        raise ValueError(f"Staged export is missing files: {sorted(missing_files)}")
+    extra_files = staged_files - expected_files
+    if extra_files:
+        raise ValueError(f"Staged export contains non-contract files: {sorted(extra_files)}")
+
+    expected_size = (OUTPUT_CELL_SIZE * OUTPUT_COLS, OUTPUT_CELL_SIZE * OUTPUT_ROWS)
+    for key in SOURCE_FILES:
+        sheet_name = f"stage7_akamu_boss_{key}.png"
         with Image.open(staging_dir / sheet_name) as sheet:
-            expected_size = (OUTPUT_CELL_SIZE * OUTPUT_COLS, OUTPUT_CELL_SIZE * OUTPUT_ROWS)
             if sheet.size != expected_size or sheet.mode != "RGBA":
                 raise ValueError(
                     f"Staged sheet {sheet_name} is {sheet.mode} {sheet.size}, expected RGBA {expected_size}"
                 )
-    manifest = json.loads((staging_dir / manifest_name).read_text(encoding="utf-8"))
-    manifest_states = {str(asset["state"]) for asset in manifest.get("assets", [])}
-    if manifest_states != set(SOURCE_FILES):
+
+    manifest = json.loads((staging_dir / MANIFEST_NAME).read_text(encoding="utf-8"))
+    assets = manifest.get("assets", [])
+    states = [str(asset.get("state", "")) for asset in assets]
+    if len(states) != len(set(states)):
+        raise ValueError(f"Staged manifest has duplicate asset states: {sorted(states)}")
+    if set(states) != set(SOURCE_FILES):
         raise ValueError(
-            f"Staged manifest states {sorted(manifest_states)} != contract {sorted(SOURCE_FILES)}"
+            f"Staged manifest states {sorted(set(states))} != contract {sorted(SOURCE_FILES)}"
         )
+    for asset in assets:
+        state = str(asset["state"])
+        expected_path = f"res://assets/sprites/bosses/stage7_akamu/stage7_akamu_boss_{state}.png"
+        if str(asset.get("path", "")) != expected_path:
+            raise ValueError(f"Staged manifest path for {state} is {asset.get('path')!r}, expected {expected_path!r}")
+        grid_expectations = {
+            "cols": OUTPUT_COLS,
+            "rows": OUTPUT_ROWS,
+            "frames": FRAME_COUNT,
+            "cell_width": OUTPUT_CELL_SIZE,
+            "cell_height": OUTPUT_CELL_SIZE,
+            "width": OUTPUT_CELL_SIZE * OUTPUT_COLS,
+            "height": OUTPUT_CELL_SIZE * OUTPUT_ROWS,
+        }
+        for field_name, expected_value in grid_expectations.items():
+            if int(asset.get(field_name, -1)) != expected_value:
+                raise ValueError(
+                    f"Staged manifest {state}.{field_name} is {asset.get(field_name)!r}, expected {expected_value}"
+                )
+        actual_hash = _sha256_of(staging_dir / f"stage7_akamu_boss_{state}.png")
+        if str(asset.get("sha256", "")) != actual_hash:
+            raise ValueError(
+                f"Staged manifest sha256 for {state} does not match the staged sheet bytes"
+            )
+
+
+def _replace_file(source: Path, destination: Path) -> None:
+    """Single-file replace, factored out so tests can inject mid-set failures."""
+    source.replace(destination)
 
 
 def _promote_staged_export(staging_dir: Path, output_dir: Path) -> None:
+    """Whitelist-only, backup+rollback promotion; the manifest lands LAST.
+
+    `Path.replace` is only atomic per file, so a mid-set failure would leave a
+    mixed live directory.  Every live file is backed up first; on any failure
+    the backup is restored before re-raising, and the manifest is always the
+    final replacement so a live manifest never describes half-promoted sheets.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
-    for staged_path in sorted(staging_dir.iterdir()):
-        if staged_path.is_file():
-            staged_path.replace(output_dir / staged_path.name)
-    staging_dir.rmdir()
+    ordered_names = [name for name in _expected_export_files() if name != MANIFEST_NAME]
+    ordered_names.append(MANIFEST_NAME)
+
+    backup_dir = Path(tempfile.mkdtemp(prefix="stage7_akamu_live_backup_"))
+    backed_up: list[str] = []
+    for file_name in ordered_names:
+        live_path = output_dir / file_name
+        if live_path.is_file():
+            shutil.copy2(live_path, backup_dir / file_name)
+            backed_up.append(file_name)
+
+    replaced: list[str] = []
+    try:
+        for file_name in ordered_names:
+            _replace_file(staging_dir / file_name, output_dir / file_name)
+            replaced.append(file_name)
+    except BaseException:
+        for file_name in replaced:
+            if file_name in backed_up:
+                shutil.copy2(backup_dir / file_name, output_dir / file_name)
+            else:
+                (output_dir / file_name).unlink(missing_ok=True)
+        raise
+    finally:
+        shutil.rmtree(backup_dir, ignore_errors=True)
+    shutil.rmtree(staging_dir, ignore_errors=True)
 
 
-def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]:
+def prepare(source_dir: Path, output_dir: Path, qa_path: Path, promote: bool = False) -> dict[str, Any]:
     source_paths = {key: source_dir / file_name for key, file_name in SOURCE_FILES.items()}
     missing = [path for path in source_paths.values() if not path.is_file()]
     if missing:
@@ -438,16 +522,15 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]
         raise ValueError("Accepted walk-right anchor frame has no visible pixels")
     reference_anchor_size = _bbox_size(reference_bbox)
 
-    # Render into a sibling staging directory first; the live sheets are only
-    # replaced after the complete 9-sheet + manifest set verifies (atomic
-    # promotion), so a partial/failed run can never leave the runtime mixed.
-    staging_dir = output_dir.parent / (output_dir.name + "_staging")
-    if staging_dir.exists():
-        for stale_path in staging_dir.iterdir():
-            if stale_path.is_file():
-                stale_path.unlink()
-    else:
-        staging_dir.mkdir(parents=True)
+    # Render into a run-unique staging directory OUTSIDE the Godot project
+    # (never under res://, so the importer cannot mint `.import` sidecars into
+    # the staged set and parallel runs cannot collide).  By default the run
+    # STOPS at the verified staging set; the live directory is only touched
+    # with an explicit promote=True (whitelist + backup + rollback,
+    # manifest-last).
+    staging_root = ROOT / ".tmp" / "stage7_akamu_sprite"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(tempfile.mkdtemp(prefix="staging_", dir=staging_root))
 
     reports: list[dict[str, Any]] = []
     for key in SOURCE_FILES:
@@ -474,9 +557,13 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]
     qa_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _write_runtime_manifest(report, staging_dir)
     _verify_staged_export(staging_dir)
-    _promote_staged_export(staging_dir, output_dir)
-    manifest_path = output_dir / "stage7_akamu_boss_sprite_manifest.json"
-    report["manifest"] = manifest_path.relative_to(ROOT).as_posix()
+    report["staging_dir"] = staging_dir.as_posix()
+    report["promoted"] = bool(promote)
+    if promote:
+        _promote_staged_export(staging_dir, output_dir)
+        report["manifest"] = (output_dir / MANIFEST_NAME).relative_to(ROOT).as_posix()
+    else:
+        report["manifest"] = (staging_dir / MANIFEST_NAME).as_posix()
     return report
 
 
@@ -485,14 +572,30 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--qa-output", type=Path, default=DEFAULT_QA_PATH)
+    parser.add_argument(
+        "--promote",
+        action="store_true",
+        help=(
+            "Replace the LIVE runtime sheets with the verified staged set "
+            "(whitelist + backup + rollback, manifest last). Default is "
+            "staging-only: the live directory is never touched."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
-    report = prepare(args.source_dir.resolve(), args.output_dir.resolve(), args.qa_output.resolve())
+    report = prepare(
+        args.source_dir.resolve(),
+        args.output_dir.resolve(),
+        args.qa_output.resolve(),
+        promote=args.promote,
+    )
     print(json.dumps({
         "animations": len(report["animations"]),
+        "promoted": report["promoted"],
+        "staging_dir": report["staging_dir"],
         "output_dir": args.output_dir.resolve().as_posix(),
         "qa_output": args.qa_output.resolve().as_posix(),
         "manifest": report["manifest"],

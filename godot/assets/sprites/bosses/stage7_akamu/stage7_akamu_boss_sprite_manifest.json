@@ -19,9 +19,9 @@
     "idle"
   ],
   "grid_authority_note": "All nine accepted runtime sheets are deterministic 4x2 exports with 256px cells and eight row-major frames.",
-  "postprocess": "tools/prepare_stage7_akamu_sprites.py; one fixed NEAREST transform per sheet, with defeat-only per-frame ground anchoring; no runtime slicing or alpha scan.",
+  "postprocess": "HISTORICAL: tools/prepare_stage7_akamu_sprites.py (one fixed NEAREST transform per sheet, defeat-only per-frame ground anchoring; no runtime slicing or alpha scan). Demoted 2026-07-14: the WIP destruction lost the dash L/R split-session sources and the exact transforms behind the current walk_left/walk_right/attack sheets, so the tool cannot reproduce this committed 9-sheet set; THIS manifest plus the committed PNGs are the asset authority (sha256 re-measured 2026-07-14). The tool now stages outside res:// and only promotes with an explicit --promote (whitelist + backup + rollback, manifest last).",
   "result_reuse": "The Stage 7 clear-result actor loads the same stage7_akamu_boss_defeat.png sheet.",
-  "native_direction_policy": "walk_left and walk_right are separate accepted AutoSprite motions; runtime horizontal mirroring is forbidden.",
+  "native_direction_policy": "walk_left/walk_right AND dash_left/dash_right are separate accepted AutoSprite motions; runtime horizontal mirroring is forbidden for both families. The exact generation provenance of the current walk_left/walk_right/attack exports is uncertain (pre-destruction tool hashes did not match; file facts re-measured 2026-07-14 against the live-QA sheets).",
   "assets": [
     {
       "state": "idle",

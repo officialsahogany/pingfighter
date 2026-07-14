@@ -1,5 +1,9 @@
 extends SceneTree
 
+# expect-zero-object-leaks — run_smoke_tests.ps1이 종료 시 ObjectDB 누수
+# 경고를 이 스모크에 한해 실패로 승격한다(실 플레이어 재생 + 250ms 드레인
+# teardown 회수 봉인).
+
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_state.gd")
