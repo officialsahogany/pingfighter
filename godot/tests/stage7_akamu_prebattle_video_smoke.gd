@@ -20,6 +20,7 @@ const NATURAL_END_MIN_SECONDS := 9.65
 const NATURAL_END_MAX_SECONDS := 11.25
 
 var _failures: Array[String] = []
+var _qa_run_dir := ""
 
 
 class OwnerProbe:
@@ -56,6 +57,23 @@ class RegistryProbe:
 		return value as Object if value is Object else null
 
 
+class ShellLikeGetterProbe:
+	extends RefCounted
+
+	# 실제 배틀 셸 형태: 생성형 _get_module + 캐시 peek _get_cached_module.
+	var created_keys: Array[String] = []
+	var cached_instances: Dictionary = {}
+
+	func _get_module(key: String) -> Object:
+		created_keys.append(key)
+		var value: Variant = cached_instances.get(key, null)
+		return value as Object if value is Object else null
+
+	func _get_cached_module(key: String) -> Object:
+		var value: Variant = cached_instances.get(key, null)
+		return value as Object if value is Object else null
+
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -72,6 +90,7 @@ func _run() -> void:
 	for _frame in range(12):
 		await process_frame
 	await create_timer(0.05).timeout
+	_finalize_qa_evidence()
 	if _failures.is_empty():
 		print("stage7_akamu_prebattle_video_smoke: ok")
 		quit(0)
@@ -79,6 +98,35 @@ func _run() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _finalize_qa_evidence() -> void:
+	# 증적 자립성: 판정 결과와 실패 목록까지 QA 디렉터리에 남긴다.
+	if _qa_run_dir == "":
+		return
+	var result_file := FileAccess.open("%s/metrics.txt" % _qa_run_dir, FileAccess.READ_WRITE)
+	if result_file == null:
+		return
+	result_file.seek_end()
+	result_file.store_line("result=%s" % ("PASS" if _failures.is_empty() else "FAIL"))
+	for failure in _failures:
+		result_file.store_line("failure=%s" % failure)
+	result_file.close()
+
+
+func _describe_git_state() -> String:
+	var repo_dir := ProjectSettings.globalize_path("res://").rstrip("/").get_base_dir()
+	var head_output: Array = []
+	if OS.execute("git", ["-C", repo_dir, "rev-parse", "HEAD"], head_output) != 0:
+		return "unavailable"
+	var dirty_output: Array = []
+	OS.execute("git", ["-C", repo_dir, "status", "--porcelain", "--untracked-files=no"], dirty_output)
+	var dirty_lines := 0
+	if dirty_output.size() > 0:
+		for line in str(dirty_output[0]).split("\n"):
+			if line.strip_edges() != "":
+				dirty_lines += 1
+	return "%s dirty_files=%d" % [str(head_output[0]).strip_edges() if head_output.size() > 0 else "?", dirty_lines]
 
 
 func _verify_runtime_asset_contract() -> void:
@@ -317,6 +365,22 @@ func _verify_boot_gate_and_transition_order() -> void:
 		not bool(warmup._is_waiting_on_frame_gated_work(null, Callable(warmup_registry, "get_instance"))),
 		"an idle presentation must not hold the boot warmup gate open"
 	)
+	# 코덱스 P2 봉인: 실제 셸 형태(생성형 _get_module + 캐시 peek
+	# _get_cached_module)에서 프리배틀 키는 '생성형 getter로 조회되면 안
+	# 된다' — 타 스테이지 부트가 Stage 7 presentation을 생성하는 회귀 방지.
+	var shell_getter := ShellLikeGetterProbe.new()
+	warmup._is_waiting_on_frame_gated_work(null, Callable(shell_getter, "_get_module"))
+	_expect(
+		not shell_getter.created_keys.has("stage7_akamu_prebattle_presentation"),
+		"boot gate must peek the prebattle key through _get_cached_module, never the creating shell getter"
+	)
+	shell_getter.cached_instances["stage7_akamu_prebattle_presentation"] = inflight_probe
+	inflight_probe.set("_video_load_requested", true)
+	_expect(
+		bool(warmup._is_waiting_on_frame_gated_work(null, Callable(shell_getter, "_get_module"))),
+		"a cached in-flight presentation must still hold the gate through the shell-shaped peek"
+	)
+	inflight_probe.set("_video_load_requested", false)
 	inflight_probe = null
 
 	# 코덱스 P1 봉인 2: 스테이지 6→7 전환의 워크스텝 9는 BGM을 선재생하면
@@ -478,13 +542,16 @@ func _verify_windowed_video_frame(
 	_expect(lit_samples >= 3, "windowed OGV decode should produce visible pixels inside the playfield clip")
 	var max_outside_rgb := _get_outside_band_max_rgb(image, game_offset, game_size, image_scale)
 	_expect(max_outside_rgb < 0.08, "cinematic animation should stay black across every available band outside the playfield clip")
-	# 실행(타임스탬프)별 디렉터리에 PNG + 메트릭 + 영상 해시를 함께 보존한다
-	# — 고정 파일명 덮어쓰기로 과거 QA 증적이 사라지지 않게(코덱스 P2).
-	var qa_run_dir := "user://stage7_akamu_prebattle_qa/%s_%dx%d" % [
+	# 실행(타임스탬프+usec)별 디렉터리에 PNG + 메트릭 + '실측' 해시 + git
+	# 상태를 함께 보존한다 — 고정 파일명 덮어쓰기 금지, 병렬 동일 해상도
+	# 실행 충돌 방지, 증적 자립성(코덱스 P2).
+	var qa_run_dir := "user://stage7_akamu_prebattle_qa/%s_%d_%dx%d" % [
 		Time.get_datetime_string_from_system(false, true).replace(":", "-").replace(" ", "_").replace("T", "_"),
+		Time.get_ticks_usec(),
 		image.get_width(),
 		image.get_height(),
 	]
+	_qa_run_dir = qa_run_dir
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(qa_run_dir))
 	var capture_path := "%s/frame.png" % qa_run_dir
 	var save_error := image.save_png(capture_path)
@@ -492,8 +559,11 @@ func _verify_windowed_video_frame(
 	if save_error == OK:
 		print("stage7_akamu_prebattle_video_windowed_capture: %s" % ProjectSettings.globalize_path(capture_path))
 	var metrics_file := FileAccess.open("%s/metrics.txt" % qa_run_dir, FileAccess.WRITE)
+	_expect(metrics_file != null, "windowed QA metrics file must be writable (evidence self-containment)")
 	if metrics_file != null:
-		metrics_file.store_line("video_sha256=%s" % EXPECTED_VIDEO_SHA256)
+		metrics_file.store_line("video_sha256_measured=%s" % FileAccess.get_sha256(VIDEO_PATH).to_lower())
+		metrics_file.store_line("video_sha256_expected=%s" % EXPECTED_VIDEO_SHA256)
+		metrics_file.store_line("git=%s" % _describe_git_state())
 		metrics_file.store_line("viewport=%s image=%s scale=%s" % [viewport_size, image.get_size(), image_scale])
 		metrics_file.store_line("lit_samples=%d max_outside_rgb=%.4f" % [lit_samples, max_outside_rgb])
 		metrics_file.close()
@@ -534,10 +604,13 @@ func _verify_windowed_video_frame(
 		% [viewport_size, image.get_size(), image_scale, max_outside_rgb, natural_end_seconds]
 	)
 	var metrics_append := FileAccess.open("%s/metrics.txt" % qa_run_dir, FileAccess.READ_WRITE)
+	_expect(metrics_append != null, "windowed QA metrics file must accept the natural-end record")
 	if metrics_append != null:
 		metrics_append.seek_end()
 		metrics_append.store_line("natural_end_seconds=%.3f" % natural_end_seconds)
 		metrics_append.store_line("frame_signatures=%d" % frame_signatures.size())
+		for signature_record_index in range(frame_signatures.size()):
+			metrics_append.store_line("frame_signature_hash_%d=%d" % [signature_record_index, hash(str(frame_signatures[signature_record_index]))])
 		metrics_append.close()
 	if natural_end_reached:
 		presentation.update(0.51, owner, registry)

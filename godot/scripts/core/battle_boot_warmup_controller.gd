@@ -561,14 +561,22 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 
 
 func _peek_cached_module(module_getter: Callable, key: String) -> Object:
-	# 레지스트리가 비생성 peek(get_cached_instance)를 제공하면 그것만 쓴다 —
-	# 미등록 키를 여기서 get_instance로 조회하면 모듈이 '생성'된다.
+	# 비생성 peek 전용 — 미등록 키를 생성형 getter로 조회하면 모듈이 '생성'
+	# 된다. 실제 셸은 Callable(self, "_get_module")을 넘기고 캐시 peek는
+	# `_get_cached_module`로 노출하므로(레지스트리 직결 시엔
+	# get_cached_instance) 두 형태 모두 지원해야 실셸에서 peek가 된다.
 	if not module_getter.is_valid():
 		return null
 	var callable_owner: Object = module_getter.get_object()
-	if callable_owner != null and is_instance_valid(callable_owner) and callable_owner.has_method("get_cached_instance"):
-		var cached: Variant = callable_owner.call("get_cached_instance", key)
-		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
-			return cached as Object
-		return null
+	if callable_owner != null and is_instance_valid(callable_owner):
+		if callable_owner.has_method("_get_cached_module"):
+			var shell_cached: Variant = callable_owner.call("_get_cached_module", key)
+			if typeof(shell_cached) == TYPE_OBJECT and is_instance_valid(shell_cached):
+				return shell_cached as Object
+			return null
+		if callable_owner.has_method("get_cached_instance"):
+			var cached: Variant = callable_owner.call("get_cached_instance", key)
+			if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+				return cached as Object
+			return null
 	return _get_module(module_getter, key)

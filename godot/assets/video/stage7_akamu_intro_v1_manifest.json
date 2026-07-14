@@ -22,7 +22,10 @@
   },
   "offline_transform": {
     "aspect_policy": "contain",
-    "canvas": [760, 750],
+    "canvas": [
+      760,
+      750
+    ],
     "filter": "scale=760:750:force_original_aspect_ratio=decrease,pad=760:750:(ow-iw)/2:(oh-ih)/2:black,setsar=1",
     "video_quality": 7,
     "audio_quality": 5,
@@ -34,7 +37,13 @@
     "godot_stage": 7,
     "legacy_stage": 8,
     "play_once_per_stage_entry": true,
-    "skip_inputs": ["space", "enter", "left_mouse", "gamepad_a"],
+    "skip_inputs": [
+      "space",
+      "enter",
+      "left_mouse",
+      "gamepad_a",
+      "screen_touch"
+    ],
     "embedded_audio_bus": "BGM",
     "jrpg_dialogue": "intentionally_omitted_for_godot_port"
   }

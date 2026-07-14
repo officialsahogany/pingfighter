@@ -98,9 +98,6 @@ function Invoke-WindowedSmoke {
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
-        if (Test-Path -LiteralPath $logPath -PathType Leaf) {
-            Remove-Item -LiteralPath $logPath -Force
-        }
     }
 
     $output | ForEach-Object { Write-Host $_ }
@@ -115,6 +112,18 @@ function Invoke-WindowedSmoke {
             ($line -match "RID allocations.*leaked")
         )
     })
+    $passed = ($exitCode -eq 0) -and ($seriousLines.Count -eq 0) -and
+        ($outputText -match "stage7_akamu_prebattle_video_smoke: ok") -and
+        ($outputText -match "stage7_akamu_prebattle_video_windowed_metrics:")
+    # 성공 판정 '후'에만 로그를 정리한다 — 실패 시 로그는 증적으로 보존.
+    if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+        if ($passed) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+        else {
+            Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
+        }
+    }
     if ($exitCode -ne 0) {
         throw "windowed Stage 7 video smoke ${Width}x${Height} failed with exit code $exitCode"
     }

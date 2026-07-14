@@ -40,6 +40,7 @@ TMP_BUNDLE=""
 TMP_MANIFEST=""
 SNAP_OIDS=""
 SIDE_TMP=""
+SM_TMP=""
 cleanup() {
     rm -rf "$LOCK_DIR"
     [ -n "$TMP_INDEX" ] && rm -f "$TMP_INDEX"
@@ -47,6 +48,7 @@ cleanup() {
     [ -n "$TMP_MANIFEST" ] && rm -f "$TMP_MANIFEST"
     [ -n "$SNAP_OIDS" ] && rm -f "$SNAP_OIDS"
     [ -n "$SIDE_TMP" ] && rm -f "$SIDE_TMP"
+    [ -n "$SM_TMP" ] && rm -f "$SM_TMP"
 }
 # EXIT 트랩은 정리 전용. INT/TERM은 반드시 exit로 승격해야 한다 — Git Bash에서
 # 'trap cleanup INT'만 걸면 핸들러 실행 후 본문이 계속 돌며(잠금은 이미 삭제됨)
@@ -173,15 +175,42 @@ TMP_MANIFEST=""
 # gitignore(*.mp4)로 스냅샷/번들에 못 들어가는 원본 미디어의 단일 사본 방지.
 # 진실 = source_media/MANIFEST.txt의 sha256 기록. 사이드카 해시가 다르면
 # D: 원본(stagevideo/<name>)이 기록과 일치할 때만 임시복사→해시→원자 rename.
+# fail-closed: MANIFEST 부재/필수 항목 미기재/비정상 해시는 전부 FATAL —
+# manifest가 사라지면 verified=0으로 '성공'하는 fail-open을 금지한다.
 SM_DIR="$BACKUP_DIR/source_media"
+SM_REQUIRED="stage8.mp4"
 sm_verified=0
 sm_healed=0
-if [ -f "$SM_DIR/MANIFEST.txt" ]; then
+if [ ! -f "$SM_DIR/MANIFEST.txt" ]; then
+    echo "FATAL: source_media MANIFEST.txt 부재 — 원본 미디어 사이드카 검증 불가, 중단" >&2
+    exit 1
+fi
+for required_name in $SM_REQUIRED; do
+    if ! grep -q "^$required_name " "$SM_DIR/MANIFEST.txt"; then
+        echo "FATAL: source_media MANIFEST에 필수 항목 미기재: $required_name" >&2
+        exit 1
+    fi
+done
+# 커밋된 영상 provenance manifest의 source sha와 교차검증(단일 진실 이탈 방지)
+VIDEO_MANIFEST="$REPO/godot/assets/video/stage7_akamu_intro_v1_manifest.json"
+if [ -f "$VIDEO_MANIFEST" ]; then
+    committed_src_sha=$(grep -A2 '"path": "stagevideo/stage8.mp4"' "$VIDEO_MANIFEST" | grep -o '[0-9a-f]\{64\}' | head -1)
+    sidecar_sha=$(grep "^stage8.mp4 " "$SM_DIR/MANIFEST.txt" | tr ' ' '
+' | awk -F= '$1=="sha256"{print $2}')
+    if [ -n "$committed_src_sha" ] && [ "$committed_src_sha" != "$sidecar_sha" ]; then
+        echo "FATAL: source_media MANIFEST sha($sidecar_sha) != 커밋된 영상 manifest source sha($committed_src_sha)" >&2
+        exit 1
+    fi
+fi
+{
     while read -r name rest; do
         case "$name" in \#*|"") continue ;; esac
         want=$(printf '%s' "$rest" | tr ' ' '
 ' | awk -F= '$1=="sha256"{print $2}')
-        [ -n "$want" ] || continue
+        if ! printf '%s' "$want" | grep -Eq '^[0-9a-f]{64}$'; then
+            echo "FATAL: source_media MANIFEST 항목의 sha256이 비정상: $name ($want)" >&2
+            exit 1
+        fi
         dst="$SM_DIR/$name"
         ok=0
         if [ -f "$dst" ] && [ "$(sha256sum "$dst" | awk '{print $1}')" = "$want" ]; then
@@ -198,6 +227,7 @@ if [ -f "$SM_DIR/MANIFEST.txt" ]; then
                     exit 1
                 fi
                 mv "$SM_TMP" "$dst"
+                SM_TMP=""
                 sm_healed=$((sm_healed + 1))
             else
                 echo "FATAL: source_media 부패 감지 + D: 원본 불일치/부재: $name" >&2
@@ -206,8 +236,14 @@ if [ -f "$SM_DIR/MANIFEST.txt" ]; then
         fi
         sm_verified=$((sm_verified + 1))
     done < "$SM_DIR/MANIFEST.txt"
-    echo "source_media: verified=$sm_verified healed=$sm_healed"
+}
+required_count=$(printf '%s
+' $SM_REQUIRED | wc -l)
+if [ "$sm_verified" -lt "$required_count" ]; then
+    echo "FATAL: source_media 검증 수($sm_verified) < 필수 수($required_count)" >&2
+    exit 1
 fi
+echo "source_media: verified=$sm_verified healed=$sm_healed"
 
 # --- 5) 단일 디스크립터 CURRENT.txt: 마지막에 원자 교체 ---
 assert_tip_stable
