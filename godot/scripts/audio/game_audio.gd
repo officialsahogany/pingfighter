@@ -348,6 +348,12 @@ const STAGE6_TETRISER_SUPER_ROAR_SOUND_PATH := "res://assets/sounds/stage6_tetri
 const STAGE6_TETRISER_BIG_SOUND_PATH := "res://assets/sounds/stage6_tetriser_big.wav"
 const STAGE6_TETRISER_SHIELD_SOUND_PATH := "res://assets/sounds/stage6_tetriser_shield.wav"
 const STAGE6_TETRISER_LASER_SOUND_PATH := "res://assets/sounds/stage6_tetriser_laser.wav"
+const STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH := "res://assets/sounds/stage7_akamu_shuriken_shoot.wav"
+const STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH := "res://assets/sounds/stage7_akamu_shuriken_hit.wav"
+const STAGE7_AKAMU_CLOUD_SOUND_PATH := "res://assets/sounds/stage7_akamu_cloud.wav"
+const STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH := "res://assets/sounds/stage7_akamu_aura_block.wav"
+const STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH := "res://assets/sounds/stage7_akamu_clone_spawn.wav"
+const STAGE7_AKAMU_CLONE_OUT_SOUND_PATH := "res://assets/sounds/stage7_akamu_clone_out.wav"
 const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
 	"res://assets/sounds/stage5_hongryun_hurt_1.wav",
 	"res://assets/sounds/stage5_hongryun_hurt_2.wav",
@@ -367,6 +373,7 @@ const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.ogg"
 const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
 const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.ogg"
 const STAGE6_BGM_PATH := "res://assets/bgm/stage6_tetriser_bgm.ogg"
+const STAGE7_BGM_PATH := "res://assets/bgm/stage7_akamu_bgm.ogg"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
@@ -388,6 +395,7 @@ const STAGE3_BGM_GAIN := 0.9
 const STAGE4_BGM_GAIN := 0.9
 const STAGE5_BGM_GAIN := 0.9
 const STAGE6_BGM_GAIN := 0.9
+const STAGE7_BGM_GAIN := 0.9
 const STAGE1_BGM_NAMES := ["stage1", "stage1_alt", "stage1_alt2"]
 const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
 const BGM_BUS_NAME := "BGM"
@@ -395,7 +403,7 @@ const SFX_BUS_NAME := "SFX"
 const SFX_PAN_PADDLE_BUS_NAME := "SFXPanPaddle"
 const SFX_PAN_WALL_BUS_NAME := "SFXPanWall"
 const AUDIO_SETUP_STEP_COUNT := 7
-const BGM_SETUP_STEP_COUNT := 11
+const BGM_SETUP_STEP_COUNT := 12
 const PLAYFIELD_LEFT_X := 0.0
 const PLAYFIELD_RIGHT_X := 760.0
 const PLAYFIELD_CENTER_X := 380.0
@@ -651,6 +659,12 @@ var stage6_tetriser_super_sfx: AudioStreamPlayer
 var stage6_tetriser_big_sfx: AudioStreamPlayer
 var stage6_tetriser_shield_sfx: AudioStreamPlayer
 var stage6_tetriser_laser_sfx: AudioStreamPlayer
+var stage7_akamu_shuriken_shoot_sfx: AudioStreamPlayer
+var stage7_akamu_shuriken_hit_sfx: AudioStreamPlayer
+var stage7_akamu_cloud_sfx: AudioStreamPlayer
+var stage7_akamu_aura_block_sfx: AudioStreamPlayer
+var stage7_akamu_clone_spawn_sfx: AudioStreamPlayer
+var stage7_akamu_clone_out_sfx: AudioStreamPlayer
 var stage5_hongryun_hurt_sfx: Array = []
 var leaf_shield_sfx: AudioStreamPlayer
 var trampoline_bounce_sfx: AudioStreamPlayer
@@ -664,6 +678,7 @@ var stage4_bgm: AudioStreamPlayer
 var stage4_phase2_bgm: AudioStreamPlayer
 var stage5_bgm: AudioStreamPlayer
 var stage6_bgm: AudioStreamPlayer
+var stage7_bgm: AudioStreamPlayer
 var stage1_bgm_rng := RandomNumberGenerator.new()
 var stage1_bgm_rng_ready := false
 var stage2_bgm_rng := RandomNumberGenerator.new()
@@ -1010,6 +1025,12 @@ func _setup_stage_feedback_sfx() -> void:
 	stage6_tetriser_big_sfx = player_factory.create(owner_node, "Stage6TetriserBigSfx", STAGE6_TETRISER_BIG_SOUND_PATH, -4.0)
 	stage6_tetriser_shield_sfx = player_factory.create(owner_node, "Stage6TetriserShieldSfx", STAGE6_TETRISER_SHIELD_SOUND_PATH, -5.0)
 	stage6_tetriser_laser_sfx = player_factory.create(owner_node, "Stage6TetriserLaserSfx", STAGE6_TETRISER_LASER_SOUND_PATH, -4.0)
+	stage7_akamu_shuriken_shoot_sfx = player_factory.create(owner_node, "Stage7AkamuShurikenShootSfx", STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH, 0.0)
+	stage7_akamu_shuriken_hit_sfx = player_factory.create(owner_node, "Stage7AkamuShurikenHitSfx", STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH, 0.0)
+	stage7_akamu_cloud_sfx = player_factory.create(owner_node, "Stage7AkamuCloudSfx", STAGE7_AKAMU_CLOUD_SOUND_PATH, 0.0)
+	stage7_akamu_aura_block_sfx = player_factory.create(owner_node, "Stage7AkamuAuraBlockSfx", STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH, 0.0)
+	stage7_akamu_clone_spawn_sfx = player_factory.create(owner_node, "Stage7AkamuCloneSpawnSfx", STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH, 0.0)
+	stage7_akamu_clone_out_sfx = player_factory.create(owner_node, "Stage7AkamuCloneOutSfx", STAGE7_AKAMU_CLONE_OUT_SOUND_PATH, 0.0)
 	stage5_hongryun_hurt_sfx.clear()
 	for index in range(STAGE5_HONGRYUN_HURT_SOUND_PATHS.size()):
 		stage5_hongryun_hurt_sfx.append(player_factory.create(
@@ -1026,7 +1047,7 @@ func _setup_stage_feedback_sfx() -> void:
 
 
 func _setup_bgm_players() -> void:
-	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
+	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6", "stage7"]:
 		_ensure_bgm_player(str(bgm_name))
 	_bgm_setup_step = BGM_SETUP_STEP_COUNT
 	_restore_bgm_muted()
@@ -1066,6 +1087,9 @@ func _setup_bgm_players_step() -> bool:
 			if _should_setup_bgm_player("stage6"):
 				_ensure_bgm_player("stage6")
 		10:
+			if _should_setup_bgm_player("stage7"):
+				_ensure_bgm_player("stage7")
+		11:
 			_restore_bgm_muted()
 		_:
 			return true
@@ -1318,6 +1342,12 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				STAGE5_HONGRYUN_FIREBALL_SOUND_PATH,
 				STAGE5_HONGRYUN_CHARGE_SOUND_PATH,
 				STAGE5_HONGRYUN_SHOOT_SOUND_PATH,
+				STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH,
+				STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH,
+				STAGE7_AKAMU_CLOUD_SOUND_PATH,
+				STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH,
+				STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH,
+				STAGE7_AKAMU_CLONE_OUT_SOUND_PATH,
 				LEAF_SHIELD_SOUND_PATH,
 				TRAMPOLINE_BOUNCE_SOUND_PATH,
 			]
@@ -1335,7 +1365,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 
 func _get_required_bgm_stream_paths() -> Array[String]:
 	var paths: Array[String] = []
-	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
+	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6", "stage7"]:
 		var bgm_key := str(bgm_name)
 		if _should_setup_bgm_player(bgm_key):
 			paths.append(_get_bgm_stream_path(bgm_key))
@@ -1363,6 +1393,8 @@ func _get_bgm_stream_path(bgm_name: String) -> String:
 		return STAGE5_BGM_PATH
 	if bgm_name == "stage6":
 		return STAGE6_BGM_PATH
+	if bgm_name == "stage7":
+		return STAGE7_BGM_PATH
 	return ""
 
 
@@ -1393,6 +1425,8 @@ func _should_setup_bgm_player(bgm_name: String) -> bool:
 		return bgm_name == "stage5"
 	if setup_stage == 6:
 		return bgm_name == "stage6"
+	if setup_stage == 7:
+		return bgm_name == "stage7"
 	return true
 
 
@@ -1417,6 +1451,8 @@ func _is_required_bgm_player_ready() -> bool:
 		return false
 	if _should_setup_bgm_player("stage6") and not _is_owned_player_ready(stage6_bgm):
 		return false
+	if _should_setup_bgm_player("stage7") and not _is_owned_player_ready(stage7_bgm):
+		return false
 	return true
 
 
@@ -1432,6 +1468,7 @@ func _are_all_bgm_players_ready() -> bool:
 		and _is_owned_player_ready(stage4_phase2_bgm)
 		and _is_owned_player_ready(stage5_bgm)
 		and _is_owned_player_ready(stage6_bgm)
+		and _is_owned_player_ready(stage7_bgm)
 	)
 
 
@@ -3044,6 +3081,30 @@ func play_stage6_tetriser_laser() -> void:
 	_play_with_pitch(stage6_tetriser_laser_sfx, 1.0)
 
 
+func play_stage7_akamu_shuriken_shoot() -> void:
+	_play_with_pitch(stage7_akamu_shuriken_shoot_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage7_akamu_shuriken_hit() -> void:
+	_play_with_pitch(stage7_akamu_shuriken_hit_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage7_akamu_cloud() -> void:
+	_play_with_pitch(stage7_akamu_cloud_sfx, 1.0)
+
+
+func play_stage7_akamu_wind_aura_block() -> void:
+	_play_with_pitch(stage7_akamu_aura_block_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage7_akamu_clone_spawn() -> void:
+	_play_with_pitch(stage7_akamu_clone_spawn_sfx, 1.0)
+
+
+func play_stage7_akamu_clone_out() -> void:
+	_play_with_pitch(stage7_akamu_clone_out_sfx, randf_range(0.96, 1.04))
+
+
 func play_stage5_hongryun_hurt() -> void:
 	var valid_players: Array[AudioStreamPlayer] = []
 	for value in stage5_hongryun_hurt_sfx:
@@ -3071,6 +3132,8 @@ func play_stage_bgm(stage: int) -> bool:
 		return play_bgm("stage5")
 	if stage == 6:
 		return play_bgm("stage6")
+	if stage == 7:
+		return play_bgm("stage7")
 	stop_bgm()
 	return false
 
@@ -3090,6 +3153,8 @@ func prime_stage_bgm(stage: int) -> bool:
 		return prime_bgm("stage5")
 	if stage == 6:
 		return prime_bgm("stage6")
+	if stage == 7:
+		return prime_bgm("stage7")
 	return false
 
 
@@ -3593,6 +3658,9 @@ func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		"stage6":
 			stage6_bgm = _create_bgm_player("Stage6Bgm", STAGE6_BGM_PATH, STAGE6_BGM_GAIN)
 			return stage6_bgm
+		"stage7":
+			stage7_bgm = _create_bgm_player("Stage7Bgm", STAGE7_BGM_PATH, STAGE7_BGM_GAIN)
+			return stage7_bgm
 	return null
 
 
@@ -3626,6 +3694,8 @@ func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		return stage5_bgm
 	if bgm_name == "stage6":
 		return stage6_bgm
+	if bgm_name == "stage7":
+		return stage7_bgm
 	return null
 
 
@@ -3659,7 +3729,7 @@ func _get_existing_audio_bus_volume(bus_name: String, fallback: float) -> float:
 
 
 func _apply_bgm_bus_to_players() -> void:
-	for player in [stage1_bgm, stage1_alt_bgm, stage1_alt2_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm]:
+	for player in [stage1_bgm, stage1_alt_bgm, stage1_alt2_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm, stage7_bgm]:
 		if player is AudioStreamPlayer:
 			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
 
@@ -3964,6 +4034,12 @@ func _get_sfx_players() -> Array:
 		stage6_tetriser_big_sfx,
 		stage6_tetriser_shield_sfx,
 		stage6_tetriser_laser_sfx,
+		stage7_akamu_shuriken_shoot_sfx,
+		stage7_akamu_shuriken_hit_sfx,
+		stage7_akamu_cloud_sfx,
+		stage7_akamu_aura_block_sfx,
+		stage7_akamu_clone_spawn_sfx,
+		stage7_akamu_clone_out_sfx,
 		leaf_shield_sfx,
 		trampoline_bounce_sfx,
 	] + gaksital_fan_sfx_layers + commando_ak47_fire_sfx_layers + angel_blessing_absorb_sfx_layers + stage5_hongryun_hurt_sfx
