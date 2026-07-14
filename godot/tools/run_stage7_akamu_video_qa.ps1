@@ -112,17 +112,10 @@ function Invoke-WindowedSmoke {
             ($line -match "RID allocations.*leaked")
         )
     })
-    $passed = ($exitCode -eq 0) -and ($seriousLines.Count -eq 0) -and
-        ($outputText -match "stage7_akamu_prebattle_video_smoke: ok") -and
-        ($outputText -match "stage7_akamu_prebattle_video_windowed_metrics:")
-    # 성공 판정 '후'에만 로그를 정리한다 — 실패 시 로그는 증적으로 보존.
-    if (Test-Path -LiteralPath $logPath -PathType Leaf) {
-        if ($passed) {
-            Remove-Item -LiteralPath $logPath -Force
-        }
-        else {
-            Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
-        }
+    if (($exitCode -ne 0) -or ($seriousLines.Count -gt 0) -or
+        ($outputText -notmatch "stage7_akamu_prebattle_video_smoke: ok") -or
+        ($outputText -notmatch "stage7_akamu_prebattle_video_windowed_metrics:")) {
+        Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
     }
     if ($exitCode -ne 0) {
         throw "windowed Stage 7 video smoke ${Width}x${Height} failed with exit code $exitCode"
@@ -150,6 +143,11 @@ function Invoke-WindowedSmoke {
     $metricsText = Get-Content -LiteralPath $metricsPath -Raw
     if ($metricsText -notmatch "(?m)^result=PASS$") {
         throw "windowed Stage 7 QA evidence did not record result=PASS: $metricsPath"
+    }
+    # 모든 검증(stdout + 디스크 artifact result=PASS)을 통과한 뒤에만 로그를
+    # 정리한다 — 어떤 실패 경로든 로그는 증적으로 남는다(throw는 위에서 발생).
+    if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+        Remove-Item -LiteralPath $logPath -Force
     }
 }
 

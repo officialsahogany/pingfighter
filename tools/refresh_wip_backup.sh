@@ -201,13 +201,24 @@ if [ -z "$committed_manifest_json" ]; then
     echo "FATAL: 스냅샷에 영상 provenance manifest 블롭이 없음 — 교차검증 불가, 중단" >&2
     exit 1
 fi
-committed_src_sha=$(printf '%s' "$committed_manifest_json" | grep -A2 '"path": "stagevideo/stage8.mp4"' | grep -o '[0-9a-f]\{64\}')
-committed_src_count=$(printf '%s
-' "$committed_src_sha" | grep -c '[0-9a-f]' || true)
-if [ "$committed_src_count" -ne 1 ]; then
-    echo "FATAL: 영상 manifest에서 source sha 추출이 정확히 1건이 아님($committed_src_count건)" >&2
+PYTHON_EXE="/c/Users/woduq/AppData/Local/Programs/Python/Python312/python.exe"
+[ -x "$PYTHON_EXE" ] || PYTHON_EXE=$(command -v python || true)
+if [ -z "$PYTHON_EXE" ]; then
+    echo "FATAL: provenance JSON 검증에 필요한 python이 없음" >&2
     exit 1
 fi
+committed_src_sha=$(printf '%s' "$committed_manifest_json" | "$PYTHON_EXE" -c '
+import json, sys
+m = json.load(sys.stdin)
+src = m["source"]
+assert src["path"] == "stagevideo/stage8.mp4", "unexpected source path: %r" % src["path"]
+sha = str(src["sha256"]).lower()
+assert len(sha) == 64 and all(c in "0123456789abcdef" for c in sha), "malformed source sha"
+print(sha)
+') || {
+    echo "FATAL: 영상 manifest JSON에서 source.path/source.sha256 검증 실패" >&2
+    exit 1
+}
 sidecar_sha=$(awk '$1=="stage8.mp4"{print $2}' "$SM_DIR/MANIFEST.txt" | awk -F= '$1=="sha256"{print $2}')
 if [ "$committed_src_sha" != "$sidecar_sha" ]; then
     echo "FATAL: source_media MANIFEST sha($sidecar_sha) != 스냅샷 영상 manifest source sha($committed_src_sha)" >&2
@@ -273,7 +284,30 @@ if [ "$sm_verified" -lt "$required_count" ]; then
     echo "FATAL: source_media 검증 수($sm_verified) < 필수 수($required_count)" >&2
     exit 1
 fi
-echo "source_media: verified=$sm_verified healed=$sm_healed"
+# 검증한 manifest 세대를 '불변 버전 파일'로 발행 — 고정 MANIFEST.txt가
+# 이후 갱신돼도 이전 CURRENT 세대는 자기 버전 파일로 항상 복원 가능하다.
+# 명령 치환을 echo 안에 넣지 않는다(sha256sum 실패가 echo 성공에 가려져
+# 빈 해시가 발행되는 fail-open — 코덱스 재현).
+SM_MANIFEST_SHA=$(sha256sum "$SM_DIR/MANIFEST.txt" | awk '{print $1}')
+if ! printf '%s' "$SM_MANIFEST_SHA" | grep -Eq '^[0-9a-f]{64}$'; then
+    echo "FATAL: source manifest 해시 계산 실패($SM_MANIFEST_SHA)" >&2
+    exit 1
+fi
+FINAL_SM_MANIFEST="source_manifest_$GEN.txt"
+if [ -e "$SM_DIR/$FINAL_SM_MANIFEST" ]; then
+    echo "FATAL: 버전 source manifest가 이미 존재($FINAL_SM_MANIFEST) — no-clobber" >&2
+    exit 1
+fi
+SM_TMP=$(mktemp -p "$SM_DIR")
+cp "$SM_DIR/MANIFEST.txt" "$SM_TMP"
+if [ "$(sha256sum "$SM_TMP" | awk '{print $1}')" != "$SM_MANIFEST_SHA" ]; then
+    rm -f "$SM_TMP"
+    echo "FATAL: 버전 source manifest 복사 해시 불일치" >&2
+    exit 1
+fi
+mv "$SM_TMP" "$SM_DIR/$FINAL_SM_MANIFEST"
+SM_TMP=""
+echo "source_media: verified=$sm_verified healed=$sm_healed manifest=$FINAL_SM_MANIFEST"
 
 # --- 5) 단일 디스크립터 CURRENT.txt: 마지막에 원자 교체 ---
 assert_tip_stable
@@ -283,7 +317,8 @@ assert_tip_stable
     echo "snapshot=$SNAP"
     echo "tip=$TIP"
     echo "source_media_verified=$sm_verified"
-    echo "source_manifest_sha256=$(sha256sum "$SM_DIR/MANIFEST.txt" | awk '{print $1}')"
+    echo "source_manifest=$FINAL_SM_MANIFEST"
+    echo "source_manifest_sha256=$SM_MANIFEST_SHA"
 } > "$BACKUP_DIR/.tmp_CURRENT.txt"
 mv "$BACKUP_DIR/.tmp_CURRENT.txt" "$BACKUP_DIR/CURRENT.txt"
 echo "CURRENT.txt -> bundle=$FINAL_BUNDLE manifest=$FINAL_MANIFEST"

@@ -117,24 +117,45 @@ func _finalize_qa_evidence() -> void:
 
 
 func _describe_git_state() -> String:
-	# 정확한 워크트리 귀속: HEAD + tracked/untracked 포함 dirty 수 +
-	# porcelain 출력 자체의 sha256(개수만으론 내용 재현 불가).
+	# 정확한 워크트리 '내용' 귀속: HEAD + tracked 변경은 `git diff HEAD`
+	# 출력의 sha256(경로+상태만 담는 porcelain과 달리 바이트 차이를 식별),
+	# untracked는 파일별 내용 sha256을 정렬해 함께 해시. git 실패는
+	# unavailable로 표기(성공처럼 위장하지 않음).
 	var repo_dir := ProjectSettings.globalize_path("res://").rstrip("/").get_base_dir()
 	var head_output: Array = []
 	if OS.execute("git", ["-C", repo_dir, "rev-parse", "HEAD"], head_output) != 0:
 		return "unavailable"
-	var dirty_output: Array = []
-	OS.execute("git", ["-C", repo_dir, "status", "--porcelain", "--untracked-files=normal"], dirty_output)
-	var porcelain := str(dirty_output[0]) if dirty_output.size() > 0 else ""
+	var status_output: Array = []
+	if OS.execute("git", ["-C", repo_dir, "status", "--porcelain", "--untracked-files=normal"], status_output) != 0:
+		return "unavailable(status_failed)"
+	var porcelain := str(status_output[0]) if status_output.size() > 0 else ""
 	var dirty_lines := 0
 	for line in porcelain.split("\n"):
 		if line.strip_edges() != "":
 			dirty_lines += 1
-	var porcelain_sha := porcelain.sha256_text()
-	return "%s dirty_entries=%d porcelain_sha256=%s" % [
+	var diff_output: Array = []
+	if OS.execute("git", ["-C", repo_dir, "diff", "HEAD"], diff_output) != 0:
+		return "unavailable(diff_failed)"
+	var tracked_content_sha := (str(diff_output[0]) if diff_output.size() > 0 else "").sha256_text()
+	var untracked_output: Array = []
+	if OS.execute("git", ["-C", repo_dir, "ls-files", "--others", "--exclude-standard"], untracked_output) != 0:
+		return "unavailable(untracked_failed)"
+	var untracked_records: Array[String] = []
+	for untracked_line in (str(untracked_output[0]) if untracked_output.size() > 0 else "").split("\n"):
+		var untracked_path := untracked_line.strip_edges()
+		if untracked_path == "":
+			continue
+		var absolute_path := "%s/%s" % [repo_dir, untracked_path]
+		var content_sha := FileAccess.get_sha256(absolute_path)
+		untracked_records.append("%s:%s" % [untracked_path, content_sha])
+	untracked_records.sort()
+	var untracked_content_sha := "\n".join(untracked_records).sha256_text()
+	return "%s dirty_entries=%d tracked_diff_sha256=%s untracked_manifest_sha256=%s untracked_files=%d" % [
 		str(head_output[0]).strip_edges() if head_output.size() > 0 else "?",
 		dirty_lines,
-		porcelain_sha,
+		tracked_content_sha,
+		untracked_content_sha,
+		untracked_records.size(),
 	]
 
 
