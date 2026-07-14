@@ -19,7 +19,12 @@ $checkLogPath = Join-Path $checkLogDir ("headless_load_{0}_{1}.log" -f $PID, [Da
 $previousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 try {
-    $output = & $godotPath --headless --path $ProjectPath --log-file $checkLogPath --quit 2>&1
+    # --quit (첫 프레임 종료)는 부트가 character_select.tscn 의존체인을 스레드
+    # 로드하는 도중 종료를 걸어, 진행 중이던 스크립트 컴파일이 중단되며 가짜
+    # SCRIPT ERROR(폰트/셰이더 preload 실패)를 뿜거나 반대로 의존체인을 아예
+    # 로드하기 전에 끝나 허위 GREEN이 된다. 1200프레임이면 클린트리에서도
+    # 비동기 부트 로드가 완주한 뒤 종료된다(2026-07-14 트리아지).
+    $output = & $godotPath --headless --path $ProjectPath --log-file $checkLogPath --quit-after 1200 2>&1
     $exitCode = $LASTEXITCODE
 }
 finally {

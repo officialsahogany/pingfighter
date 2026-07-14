@@ -217,6 +217,20 @@ class FakePaddleBounceController:
 		}
 
 
+class FakePlayerPaddleMotionStepper:
+	extends RefCounted
+
+	func step(ball_pos: Vector2, _effective_move: Vector2, _ball_vel: Vector2, _context: Dictionary) -> Dictionary:
+		return {
+			"event": "player_paddle",
+			"is_player": true,
+			"paddle_x": 302.5,
+			"paddle_w": 155.0,
+			"impact_pos": ball_pos,
+			"ball_pos": ball_pos,
+		}
+
+
 class FakeWallMotionStepper:
 	extends RefCounted
 
@@ -805,6 +819,26 @@ func _verify_overdrive_reflection_requires_committed_bounce() -> void:
 	)
 	_expect(uncommitted_overdrive.reflect_calls == 0, "non-empty but uncommitted bounce result must not fake an overdrive reflection")
 	_expect(uncommitted_state.boss_hit_calls == 0, "non-empty but uncommitted bounce result must not fire the Stage 7 boss hook")
+
+	var player_overdrive := FakeOverdriveState.new()
+	var player_bounce := FakePaddleBounceController.new()
+	player_bounce.return_uncommitted = true
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": FakePlayerPaddleMotionStepper.new(),
+			"paddle_bounce_controller": player_bounce,
+			"stage7_akamu_state": FakeStage7CollisionState.new(),
+			"smasher_overdrive_state": player_overdrive,
+		},
+		{}
+	)
+	_expect(
+		player_overdrive.reflect_calls == 1,
+		"committed player-paddle bounce should notify overdrive even without the boss-commit flag"
+	)
 
 	var no_controller_overdrive := FakeOverdriveState.new()
 	processor.step_motion(
