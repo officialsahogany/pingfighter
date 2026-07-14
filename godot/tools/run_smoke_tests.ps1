@@ -61,6 +61,15 @@ function Invoke-GodotSmoke {
     })
     $testName = [System.IO.Path]::GetFileNameWithoutExtension($SmokePath)
     $hasOkMarker = $outputText -match [regex]::Escape("${testName}: ok")
+    # Opt-in leak gate: a smoke containing the literal marker
+    # "expect-zero-object-leaks" fails when Godot reports leaked ObjectDB
+    # instances at exit (the warning is otherwise ignored, so leak
+    # regressions would stay silently GREEN).
+    $expectZeroLeaks = $false
+    $smokeLocalPath = Join-Path $ProjectPath ($SmokePath -replace '^res://', '')
+    if (Test-Path -LiteralPath $smokeLocalPath -PathType Leaf) {
+        $expectZeroLeaks = (Get-Content -LiteralPath $smokeLocalPath -Raw) -match 'expect-zero-object-leaks'
+    }
 
     if ($exitCode -ne 0) {
         throw "$SmokePath failed with exit code $exitCode"
@@ -70,6 +79,9 @@ function Invoke-GodotSmoke {
     }
     if (-not $hasOkMarker) {
         throw "$SmokePath did not print its ok marker"
+    }
+    if ($expectZeroLeaks -and ($outputText -match 'ObjectDB instances leaked')) {
+        throw "$SmokePath leaked ObjectDB instances at exit (expect-zero-object-leaks gate)"
     }
 }
 

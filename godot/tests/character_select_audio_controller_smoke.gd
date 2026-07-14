@@ -1,5 +1,8 @@
 extends SceneTree
 
+# expect-zero-object-leaks — run_smoke_tests.ps1이 종료 시 ObjectDB 누수
+# 경고를 이 스모크에 한해 실패로 승격한다(오디오 playback 회수 봉인).
+
 const CharacterSelectAudioController := preload("res://scripts/audio/character_select_audio_controller.gd")
 
 var failure_count := 0
@@ -63,11 +66,27 @@ func _run() -> void:
 	controller.stop_confirm_voice()
 	_expect(controller.confirm_voice_player.stream == null, "stopping confirm voice should release its stream")
 
+	# 재생 '중' teardown 레그: 세 플레이어가 전부 재생 상태일 때 teardown이
+	# 즉시 회수하는지 봉인 — 정지 후 teardown만 검사하면 stop→free 순서
+	# 회귀(재생 중 free로 인한 playback 누수)를 놓친다.
+	var playing_voice_config := {
+		"confirm_intro_voice_path": "res://voice/commandoselect.mp3",
+		"confirm_intro_voice_delay": 0.0,
+		"confirm_intro_voice_volume_db": -5.0,
+	}
+	controller.prepare_click_voice(playing_voice_config)
+	controller.prepare_confirm_voice(playing_voice_config)
+	_expect(controller.click_voice_player.playing and controller.confirm_voice_player.playing, "playing-teardown leg precondition: both voices should be playing")
+	_expect(controller.bgm_player.playing, "playing-teardown leg precondition: BGM should still be playing")
 	var bgm_player := controller.bgm_player
+	var click_player := controller.click_voice_player
+	var confirm_player := controller.confirm_voice_player
 	controller.teardown(Callable(self, "_on_bgm_finished"))
 	_expect(controller.bgm_player == null and controller.click_voice_player == null and controller.confirm_voice_player == null, "teardown should clear all player references")
 	_expect(not controller.bgm_loop_enabled, "teardown should disarm BGM looping")
-	_expect(not is_instance_valid(bgm_player), "teardown should free detached audio players immediately")
+	_expect(not is_instance_valid(bgm_player), "teardown should free the detached BGM player immediately")
+	_expect(not is_instance_valid(click_player), "teardown should free the click voice player even while playing")
+	_expect(not is_instance_valid(confirm_player), "teardown should free the confirm voice player even while playing")
 	host.queue_free()
 	bgm_player = null
 	controller = null
