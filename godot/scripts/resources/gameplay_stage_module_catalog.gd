@@ -489,6 +489,14 @@ const MODULES := {
 		"path": "res://scripts/stages/stage7/stage7_akamu_boss_skill_hud_renderer.gd",
 		"label": "stage7 Akamu boss skill HUD renderer",
 	},
+	"stage7_akamu_prebattle_presentation": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_prebattle_presentation.gd",
+		"label": "stage7 Akamu prebattle presentation",
+	},
+	"stage7_akamu_prebattle_overlay_host": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_prebattle_overlay_host.gd",
+		"label": "stage7 Akamu prebattle overlay host",
+	},
 	"stage7_akamu_vfx_texture_cache": {
 		"path": "res://scripts/stages/stage7/stage7_akamu_vfx_texture_cache.gd",
 		"label": "stage7 Akamu VFX texture cache",

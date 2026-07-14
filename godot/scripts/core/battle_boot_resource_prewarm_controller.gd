@@ -416,9 +416,9 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 		5:
 			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
 		7:
-			# 프리배틀 영상 스텝은 재생 lifecycle(begin/update/input/gate)과 함께
-			# 프리배틀 완결 슬라이스에서 5스텝으로 복원한다 — 반쪽 배선 금지.
-			return 4
+			# 프리배틀 영상 스텝(0번, 최우선 — 스레드 VideoStream+숨은 호스트가
+			# 다른 렌더 프리웜과 병행 진행되도록 가장 먼저 시작) + 렌더 4스텝.
+			return 5
 	return 0
 
 
@@ -632,6 +632,7 @@ func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 
 
 const STAGE7_RUNTIME_PREWARM_STEP_LABELS := [
+	"stage7_akamu_prebattle_video",
 	"stage7_akamu_pillar_background",
 	"stage7_akamu_actor_renderer",
 	"stage7_akamu_pillar_scene",
@@ -648,16 +649,24 @@ func _get_stage7_runtime_prewarm_step_label(stage_step: int) -> String:
 func _run_stage7_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_pillar_background"))
+			# 프리배틀 영상: 스레드 VideoStream 로드 + 숨은 호스트 생성.
+			# 로드 실패는 presentation 내부에서 이번 엔트리 한정 degradation으로
+			# 래치되므로(재시도 스톰 없음) 스텝 자체는 완료로 취급된다.
+			var prebattle: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+			if prebattle == null or not prebattle.has_method("prewarm_stage_entry_step"):
+				return true
+			return bool(prebattle.prewarm_stage_entry_step(owner))
 		1:
-			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_actor_renderer"))
+			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_pillar_background"))
 		2:
+			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_actor_renderer"))
+		3:
 			return _prewarm_pillar_scene_assets_step(
 				_get_module(module_getter, "stage7_akamu_pillar_scene_drawer"),
 				module_getter,
 				_get_selected_character_type(owner)
 			)
-		3:
+		4:
 			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_boss_skill_hud_renderer"))
 	return true
 

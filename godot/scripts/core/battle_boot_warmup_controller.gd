@@ -216,6 +216,16 @@ func _is_waiting_on_frame_gated_work(owner: Object, module_getter: Callable) -> 
 func _is_threaded_prewarm_in_flight(module_getter: Callable) -> bool:
 	if ProjectResourceLoader.has_threaded_prewarm_in_flight():
 		return true
+	# Stage 7 프리배틀 영상은 ResourceLoader에 직접 스레드 요청을 건다(공유
+	# 슬롯 밖). in-flight를 여기 등재하지 않으면 budgeted 루프가 같은 스텝을
+	# 프레임당 128회 폴링해 냉부트에서 poll 예산이 수 프레임 만에 소진된다.
+	var stage7_prebattle: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if (
+		stage7_prebattle != null
+		and stage7_prebattle.has_method("is_video_thread_load_in_flight")
+		and bool(stage7_prebattle.is_video_thread_load_in_flight())
+	):
+		return true
 	# battle_resources owns separate transition/result threaded slots that do
 	# not go through the shared ProjectResourceLoader slot.
 	var resources: Object = _get_module(module_getter, "battle_resources")

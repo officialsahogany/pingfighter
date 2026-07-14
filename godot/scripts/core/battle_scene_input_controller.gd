@@ -41,6 +41,11 @@ func handle_unhandled_input(
 		return
 	if _handle_force_stage_clear_shortcut(event, owner, registry, module_getter, context):
 		return
+	# 스테이지 7 프리배틀 영상 스킵은 intro/warmup 차단 조기 반환보다 먼저
+	# 라우팅해야 실제로 도달한다 — 영상 재생 중엔 랜딩이 아직 시작 전이라
+	# _is_intro_or_warmup_blocking이 true이기 때문.
+	if _handle_stage7_prebattle_input(event, owner, registry, module_getter):
+		return
 	if _is_intro_or_warmup_blocking(module_getter, context):
 		return
 	var intro_input: Object = _get_intro_input_controller(module_getter)
@@ -467,6 +472,25 @@ func _is_mouse_wheel_event(event: InputEvent) -> bool:
 		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_LEFT
 		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_RIGHT
 	)
+
+
+func _handle_stage7_prebattle_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var presentation: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if presentation == null:
+		presentation = _get_instance(registry, "stage7_akamu_prebattle_presentation")
+	if presentation == null or not presentation.has_method("is_active") or not bool(presentation.is_active()):
+		return false
+	# 영상 재생 중에는 전투 조작이 게이트되므로 스킵 처리 여부와 무관하게
+	# 입력을 소비한다(모달 시네마틱 관례).
+	if presentation.has_method("handle_input") and bool(presentation.handle_input(event, owner, registry)):
+		_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
 
 
 func _is_intro_or_warmup_blocking(module_getter: Callable, context: Dictionary) -> bool:

@@ -16,6 +16,18 @@ func begin_stage_landing_intro(
 	if logo_intro != null and logo_intro.has_method("is_audio_playing") and bool(logo_intro.is_audio_playing()):
 		_queue_redraw(owner)
 		return
+	# 스테이지 7 프리배틀 영상 게이트: 랜딩 BGM 시작 전에 아카무 인트로
+	# 시네마틱을 먼저 재생한다. begin_video가 true면(영상 무장 성공) 랜딩을
+	# 시작하지 않고 반환 — 인트로 프레임 컨트롤러가 영상을 구동하고, 완료 후
+	# 같은 엔트리의 begin_video는 false를 반환해 정상 랜딩으로 진행된다.
+	var stage7_akamu_prebattle_presentation: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if (
+		stage7_akamu_prebattle_presentation != null
+		and stage7_akamu_prebattle_presentation.has_method("begin_video")
+		and bool(stage7_akamu_prebattle_presentation.begin_video(owner, registry))
+	):
+		_queue_redraw(owner)
+		return
 	start_battle_bgm(flow, owner, module_getter)
 	flow.set("_stage_landing_intro_started", true)
 	var landing_intro: Object = _get_module(module_getter, "stage_landing_intro")

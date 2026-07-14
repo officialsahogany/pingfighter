@@ -99,6 +99,7 @@ func _append_stage6_deps(deps: Dictionary, registry: Object, peek_only: bool = f
 
 func _append_stage7_deps(deps: Dictionary, registry: Object, peek_only: bool = false) -> void:
 	deps["stage7_akamu_state"] = _lookup_instance(registry, "stage7_akamu_state", peek_only)
+	deps["stage7_akamu_prebattle_presentation"] = _lookup_instance(registry, "stage7_akamu_prebattle_presentation", peek_only)
 
 
 

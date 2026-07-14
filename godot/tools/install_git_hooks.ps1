@@ -9,7 +9,8 @@
 
     It writes .git/hooks/pre-push as a managed wrapper that:
       1. runs godot/tools/run_pre_push_checks.ps1 ONLY when the pushed commits
-         touch godot/ (headless load + warning scan + focused smokes), and
+         touch godot/ OR root tools/ (headless load + asset-tool python
+         regression + warning scan + focused smokes), and
       2. then chains to the preserved original hook saved as pre-push.local
          (typically the Git LFS pre-push hook) so LFS objects still upload.
 
@@ -189,5 +190,5 @@ $chmod = Get-Command chmod -ErrorAction SilentlyContinue
 if ($chmod) { & $chmod.Source +x $prePush $downstream 2>$null }
 
 Write-Host ""
-Write-Host "Done. pre-push gate active: godot/ changes -> Godot checks, then $([System.IO.Path]::GetFileName($downstream))."
+Write-Host "Done. pre-push gate active: godot/ or tools/ changes -> Godot checks, then $([System.IO.Path]::GetFileName($downstream))."
 Write-Host "Bypass once: SKIP_GODOT_PREPUSH=1 git push   or   git push --no-verify"

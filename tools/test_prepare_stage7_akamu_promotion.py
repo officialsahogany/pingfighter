@@ -211,19 +211,46 @@ def main() -> int:
                 draw.rectangle((x0, y0, x0 + 200, y0 + 300), fill=(200, 40, 40, 255))
             source_image.save(source_dir / file_name)
         live_dir = ROOT / "godot" / "assets" / "sprites" / "bosses" / "stage7_akamu"
-        # 라이브 센티널 = 권위 10파일 전체(9시트 + manifest) 해시.
-        sentinel_files = [live_dir / name for name in prep._expected_export_files()]
+        # 독립 리터럴 계약(SOURCE_FILES 파생 아님): 도구 쪽에서 state 하나가
+        # 삭제되는 회귀가 나도 이 리터럴과의 대조가 잡는다.
+        authoritative_files = [
+            "stage7_akamu_boss_attack.png",
+            "stage7_akamu_boss_dash_left.png",
+            "stage7_akamu_boss_dash_right.png",
+            "stage7_akamu_boss_defeat.png",
+            "stage7_akamu_boss_idle.png",
+            "stage7_akamu_boss_stun.png",
+            "stage7_akamu_boss_victory.png",
+            "stage7_akamu_boss_walk_left.png",
+            "stage7_akamu_boss_walk_right.png",
+            "stage7_akamu_boss_sprite_manifest.json",
+        ]
+        check(
+            sorted(prep._expected_export_files()) == sorted(authoritative_files),
+            "derived export whitelist must equal the independent 10-file literal contract",
+        )
+        # 라이브 센티널 = 디렉터리 '전체' 파일명 집합 + 각 파일 해시(기대
+        # 10파일만 해싱하면 신규 파일 기록 회귀를 놓친다).
         sentinel_before = {
-            path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in live_dir.iterdir()
+            if path.is_file()
         }
+        for name in authoritative_files:
+            check(name in sentinel_before, f"authoritative live file missing before E2E: {name}")
         report = prep.prepare(source_dir, live_dir)
         e2e_staging = Path(report["staging_dir"])
         e2e_export = Path(report["export_dir"])
         try:
             sentinel_after = {
-                path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in live_dir.iterdir()
+                if path.is_file()
             }
-            check(sentinel_before == sentinel_after, "prepare() must leave all ten authoritative live files untouched")
+            check(
+                sentinel_before == sentinel_after,
+                "prepare() must leave the ENTIRE live directory untouched (no new/changed/deleted files)",
+            )
             check(
                 str(e2e_staging).startswith(str(ROOT / ".tmp")),
                 "prepare() staging must live under ROOT/.tmp (outside res://)",

@@ -8,6 +8,9 @@ func handle_input(
 	module_getter: Callable,
 	context: Dictionary
 ) -> bool:
+	if _is_stage7_prebattle_pending(module_getter):
+		_handle_stage7_prebattle_input(event, owner, registry, module_getter)
+		return true
 	if _is_stage_landing_intro_active(module_getter):
 		_handle_stage_landing_intro_input(event, owner, registry, module_getter, context)
 		return true
@@ -15,6 +18,20 @@ func handle_input(
 		_handle_ball_spawn_intro_input(event, owner, registry, module_getter)
 		return true
 	return false
+
+
+func _handle_stage7_prebattle_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> void:
+	var presentation: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if presentation == null or not presentation.has_method("handle_input"):
+		return
+	if bool(presentation.handle_input(event, owner, registry)):
+		_queue_redraw(owner)
+		_mark_handled(owner)
 
 
 func _handle_stage_landing_intro_input(
@@ -55,6 +72,10 @@ func _is_stage_landing_intro_active(module_getter: Callable) -> bool:
 
 func _is_ball_spawn_intro_active(module_getter: Callable) -> bool:
 	return _call_readiness_bool(module_getter, "is_ball_spawn_intro_active")
+
+
+func _is_stage7_prebattle_pending(module_getter: Callable) -> bool:
+	return _call_readiness_bool(module_getter, "is_stage7_prebattle_pending")
 
 
 func _get_readiness_controller(module_getter: Callable) -> Object:

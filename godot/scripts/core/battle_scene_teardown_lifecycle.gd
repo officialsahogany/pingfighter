@@ -9,6 +9,13 @@ func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, c
 	var logo_intro: Object = _get_module(cached_module_getter, "penguin_logo_intro")
 	if logo_intro != null and logo_intro.has_method("cleanup"):
 		logo_intro.cleanup()
+	# 프리배틀 영상 호스트는 detached Control이라 씬 퇴장 때 명시적으로
+	# 해제해야 한다(tear_down = 호스트 free + 스트림 참조 해제).
+	var stage7_akamu_prebattle_presentation: Object = _get_module(
+		cached_module_getter, "stage7_akamu_prebattle_presentation"
+	)
+	if stage7_akamu_prebattle_presentation != null and stage7_akamu_prebattle_presentation.has_method("tear_down"):
+		stage7_akamu_prebattle_presentation.tear_down()
 	var audio: Object = _get_module(cached_module_getter, "game_audio")
 	if audio != null and audio.has_method("stop_bgm"):
 		audio.stop_bgm()

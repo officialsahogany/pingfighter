@@ -9,7 +9,7 @@ const BallDependencyContext := preload("res://scripts/ball/ball_dependency_conte
 # Engine code-stage id where the demo sequence stops advancing automatically.
 # Keep this as a code-stage boundary; public stage numbering can differ from
 # the internal stage id mapping documented in AGENTS.md.
-const DEMO_STAGE_SEQUENCE_END := 6
+const DEMO_STAGE_SEQUENCE_END := 7
 const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92
@@ -331,7 +331,13 @@ func _run_stage_transition_loading_work_step(owner: Object, registry: Object, ne
 		8:
 			_stop_stage_bgm(registry)
 		9:
-			_play_stage_bgm(registry, next_stage)
+			# 스테이지 7은 전환 직후 프리배틀 영상이 오디오를 대체하므로 여기서
+			# BGM을 선재생하지 않는다(선재생→영상 시작 시 단절→영상음→재시작
+			# 왕복 방지). 영상 종료(또는 로드 실패 degradation) 후 랜딩
+			# lifecycle의 start_battle_bgm이 1회 시작한다 — BGM 래치는
+			# _replay_ball_spawn_intro_for_stage_transition에서 해제된다.
+			if next_stage != 7:
+				_play_stage_bgm(registry, next_stage)
 		_:
 			return true
 	_stage_transition_loading_work_step += 1
@@ -362,6 +368,27 @@ func _replay_ball_spawn_intro_for_stage_transition(owner: Object, registry: Obje
 	var flow: Object = _get_instance(registry, "battle_scene_flow_controller")
 	if flow == null:
 		return
+	var stage_id: int = int(owner.get("current_stage")) if owner != null else 0
+	if stage_id == 7:
+		# 스테이지 6→7 전환은 볼 스폰만 재생하면 아카무 인트로 영상이 통째로
+		# 건너뛰어진다 — 프리배틀 엔트리를 재무장하고 전체 인트로 체인을
+		# 다시 시작한다. 전환 워크스텝 9가 이미 stage7 BGM을 틀었으므로
+		# BGM 래치도 풀어 영상 종료 후 정확히 1회 재시작되게 한다(영상
+		# 시작이 기존 BGM을 정지시킨다).
+		var presentation: Object = _get_instance(registry, "stage7_akamu_prebattle_presentation")
+		if presentation != null and presentation.has_method("reset_for_stage_entry"):
+			presentation.reset_for_stage_entry(stage_id)
+		flow.set("_stage_landing_intro_started", false)
+		flow.set("_ball_spawn_intro_started", false)
+		flow.set("_battle_bgm_started", false)
+		if flow.has_method("begin_stage_landing_intro"):
+			flow.begin_stage_landing_intro(
+				owner,
+				registry,
+				Callable(registry, "get_instance"),
+				Callable(registry, "get_cached_instance")
+			)
+			return
 	flow.set("_ball_spawn_intro_started", false)
 	if not flow.has_method("begin_ball_spawn_intro"):
 		return

@@ -40,6 +40,19 @@ func process_idle(
 	if not _call_bool(callbacks, "is_stage_landing_intro_started") and _should_hold_loading_completion(owner, module_getter):
 		_queue_redraw(owner)
 		return true
+	# 스테이지 7 프리배틀 영상이 재생 중이면 begin_stage_landing_intro를 다시
+	# 부르지 않고(중복 begin_video 방지) 영상만 전진시킨다. update로 이번
+	# 프레임에 완료됐다면 반환하지 않고 아래 정상 랜딩 경로로 그대로
+	# 이어진다 — 완료 프레임에 로딩 화면이 1프레임 재출현하는 것을 방지.
+	var stage7_prebattle: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if _is_active(stage7_prebattle):
+		if stage7_prebattle.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			stage7_prebattle.update(delta, owner, registry)
+			_perf_end(perf_logger, "process.intro.stage7_akamu_video_update", sample_start)
+		if _is_active(stage7_prebattle):
+			_queue_redraw(owner)
+			return true
 	if not _call_bool(callbacks, "is_battle_initialized"):
 		sample_start = _perf_begin(perf_logger)
 		_call(callbacks, "initialize_battle")
@@ -99,6 +112,13 @@ func draw_intro_or_boot(
 		_hide_loading_screen(module_getter, owner)
 		if landing_intro.has_method("draw"):
 			landing_intro.draw(canvas, owner, registry, view_size)
+		return true
+	# 프리배틀 영상 재생 중에는 로딩 화면 대신 검정 레터박스를 깐다 — 영상
+	# 호스트(Control 자식)가 그 위에 렌더되고, 플레이필드 밖 밴드는 검정 유지.
+	var stage7_prebattle: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	if _is_active(stage7_prebattle):
+		_hide_loading_screen(module_getter, owner)
+		_draw_black(canvas, view_size)
 		return true
 	if not _is_boot_warmup_finished(module_getter) or not _call_bool(callbacks, "is_stage_landing_intro_started"):
 		_draw_loading_screen(canvas, owner, module_getter, callbacks, view_size)

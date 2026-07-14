@@ -4346,9 +4346,12 @@ This section is intentionally long; use search to find the nearest owner.
   hook), awakening gameplay-freeze, scripted boss AI position, 4-step boot
   prewarm, result/full reset fanout — then the audio slice landed the
   STAGE7_* game_audio routes (six one-shot SFX + stage7 BGM + stepped-boot
-  step). Prebattle video lifecycle and stage-clear result constants are
-  pending follow-up slices.**
-  Owners (9 committed modules; the prebattle pair below is NOT committed yet):
+  step) and the prebattle slice landed the intro-video lifecycle (threaded
+  OGV prewarm-first boot step, video gate before landing BGM, intro-frame
+  drive, skip input, physics/mobile gates, stage 6->7 full intro replay,
+  reset/result/teardown cleanup). Stage-clear result constants are pending a
+  follow-up slice.**
+  Owners (11 committed modules):
   - `stage7_akamu_state.gd` — single owner of boss gauge (round-persist:
     generation-guarded 0.7 score carry via `apply_score_round_carry`, generic
     resets are transient-only), awakening trigger/freeze, shadow clones,
@@ -4361,10 +4364,11 @@ This section is intentionally long; use search to find the nearest owner.
     (+ `_boss_skill_hud_assets.gd`, `_vfx_texture_cache.gd`) — render cluster;
     the skill-card gauge uses the shared
     `boss_skill_card_hud_spec.draw_skillcard_gauge_fill` cover-crop helper.
-  - PLANNED (uncommitted staged WIP — do not treat as live owners):
-    `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
-    prebattle intro video pair; files, catalog keys, and lifecycle wiring all
-    land together in the prebattle completion slice.
+  - `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
+    prebattle intro video pair (threaded VideoStream prewarm with this-entry
+    failure degradation, playfield-clipped detached host, skip/fade, one-shot
+    per stage entry); sealed by `tests/stage7_akamu_prebattle_video_smoke.gd`
+    + `tests/stage7_akamu_prebattle_live_frame_smoke.gd`.
   - Sprite contract: nine 4x2 sheets (dash is native left/right, mirroring
     forbidden) — `docs/sprites/stage7_akamu_rigo.md` +
     `stage7_akamu_boss_sprite_manifest.json`.

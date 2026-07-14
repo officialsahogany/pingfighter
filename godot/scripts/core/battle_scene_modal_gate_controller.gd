@@ -116,6 +116,8 @@ func is_treasure_hunt_effect_active(module_getter: Callable) -> bool:
 
 
 func _should_block_battle_physics(module_getter: Callable, perf_logger: Object = null) -> bool:
+	if _timed_module_bool(perf_logger, "physics.modal_gate.stage7_akamu_prebattle", module_getter, "stage7_akamu_prebattle_presentation", "blocks_battle_physics"):
+		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.runtime_perk_choice", module_getter, "runtime_perk_state", "is_choice_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.treasure_hunt", module_getter, "treasure_hunt_runtime", "is_effect_active"):

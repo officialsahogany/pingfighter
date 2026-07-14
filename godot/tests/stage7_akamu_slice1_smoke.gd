@@ -18,6 +18,7 @@ const BallRoundActorCleanup := preload("res://scripts/ball/ball_round_actor_clea
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const StageClearResultRuntimeContextData := preload("res://scripts/core/stage_clear_result_runtime_context_data.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 
 const STAGE7_ROUTE_EXPECTATIONS := {
 	"actor_renderer": "stage7_akamu_actor_renderer",
@@ -186,6 +187,15 @@ class FakeResultStage7State:
 		reset_for_result_calls += 1
 
 
+class FakeResetProbe:
+	extends RefCounted
+
+	var reset_calls := 0
+
+	func reset() -> void:
+		reset_calls += 1
+
+
 class FakePaddleBounceController:
 	extends RefCounted
 
@@ -308,6 +318,7 @@ func _init() -> void:
 	_verify_scripted_ai_position_bypasses_shared_postprocessors()
 	_verify_overdrive_reflection_requires_committed_bounce()
 	_verify_result_reset_reaches_stage7_owner()
+	_verify_prebattle_reset_plumbing()
 
 	if _failures.is_empty():
 		print("stage7_akamu_slice1_smoke: ok")
@@ -681,14 +692,16 @@ func _verify_post_motion_collision_hook_is_wired() -> void:
 
 
 func _verify_stage7_boot_prewarm_dispatch() -> void:
-	# 프리배틀 영상 스텝(5번째, 최우선)은 재생 lifecycle과 함께 프리배틀 완결
-	# 슬라이스에서 복원한다 — 현재 계약은 렌더 모듈 4스텝.
+	# 프리배틀 완결 슬라이스: 영상 스텝(0번, 최우선 — 스레드 VideoStream이
+	# 렌더 프리웜과 병행되도록 가장 먼저) + 렌더 모듈 4스텝 = 5스텝 계약.
+	var prebattle := FakeEntryPrewarmModule.new()
 	var background := FakePrewarmModule.new()
 	var actor := FakePrewarmModule.new()
 	var pillar := FakePillarPrewarmModule.new()
 	var hud := FakePrewarmModule.new()
 	var registry := FakeRegistry.new()
 	registry.instances = {
+		"stage7_akamu_prebattle_presentation": prebattle,
 		"stage7_akamu_pillar_background": background,
 		"stage7_akamu_actor_renderer": actor,
 		"stage7_akamu_pillar_scene_drawer": pillar,
@@ -696,7 +709,7 @@ func _verify_stage7_boot_prewarm_dispatch() -> void:
 	}
 	var controller: Object = BattleBootResourcePrewarmController.new()
 	var step_count := int(controller._get_stage_specific_runtime_prewarm_step_count(FakeOwner.new(), 7))
-	_expect(step_count == 4, "Stage 7 boot prewarm should expose four staged module steps (prebattle video step returns with its lifecycle slice)")
+	_expect(step_count == 5, "Stage 7 boot prewarm should expose the prebattle video step plus four render module steps")
 	for stage_step in range(step_count):
 		_expect(
 			bool(controller._run_stage7_runtime_prewarm_step(
@@ -704,10 +717,19 @@ func _verify_stage7_boot_prewarm_dispatch() -> void:
 			)),
 			"Stage 7 boot prewarm step %d should complete" % stage_step
 		)
+	_expect(prebattle.calls == 1, "Stage 7 boot prewarm should drive the prebattle video entry step first")
 	_expect(background.calls == 1, "Stage 7 boot prewarm should warm the pillar background")
 	_expect(actor.calls == 1, "Stage 7 boot prewarm should warm the actor renderer")
 	_expect(pillar.calls == 1 and pillar.character_type == "smasher", "Stage 7 boot prewarm should warm the pillar scene for the selected character")
 	_expect(hud.calls == 1, "Stage 7 boot prewarm should warm the boss skill HUD")
+	var missing_prebattle := FakeRegistry.new()
+	missing_prebattle.instances = {}
+	_expect(
+		bool(BattleBootResourcePrewarmController.new()._run_stage7_runtime_prewarm_step(
+			FakeOwner.new(), Callable(missing_prebattle, "get_instance"), 0
+		)),
+		"missing prebattle module must not wedge the staged prewarm sequence"
+	)
 
 
 func _verify_scripted_ai_position_bypasses_shared_postprocessors() -> void:
@@ -874,6 +896,23 @@ func _verify_result_reset_reaches_stage7_owner() -> void:
 		"ball_vel": Vector2(0.0, -12.0),
 	}, _active_stage7_context(), {})
 	_expect(not post_reset_hit, "reset_for_result should clear live clones so no collision survives into the result screen")
+
+
+func _verify_prebattle_reset_plumbing() -> void:
+	# 코덱스 P2 봉인: match-reset의 prebattle 정리는 deps builder가 키를
+	# 공급해야 실배선이다 — 빌더 산출 deps 그대로 리셋까지 관통시켜 검증.
+	var registry := FakeRegistry.new()
+	var prebattle := FakeResetProbe.new()
+	registry.instances["stage7_akamu_prebattle_presentation"] = prebattle
+	registry.instances["stage7_akamu_state"] = FakeResetProbe.new()
+	var deps: Dictionary = {}
+	StageRuntimeDepsBuilder.new()._append_stage7_deps(deps, registry)
+	_expect(
+		deps.get("stage7_akamu_prebattle_presentation", null) == prebattle,
+		"stage7 deps builder should supply the prebattle presentation to reset consumers"
+	)
+	MatchResetController.new().reset_stage_state(deps)
+	_expect(prebattle.reset_calls == 1, "match reset should reach the prebattle presentation through builder-supplied deps")
 
 
 func _boss_collision_scene() -> Dictionary:

@@ -99,6 +99,11 @@ static func reset_stage7_for_result(registry: Object, stage_id: int) -> void:
 	var stage7_akamu_state: Object = get_instance(registry, "stage7_akamu_state")
 	if stage7_akamu_state != null and stage7_akamu_state.has_method("reset_for_result"):
 		stage7_akamu_state.reset_for_result()
+	# 결과 화면 진입 시 재생 중이던 프리배틀 영상 호스트를 정지·은닉한다
+	# (detached Control 호스트라 명시 정리 없이는 결과 화면 위에 잔존).
+	var stage7_prebattle: Object = get_instance(registry, "stage7_akamu_prebattle_presentation")
+	if stage7_prebattle != null and stage7_prebattle.has_method("reset_for_result"):
+		stage7_prebattle.reset_for_result()
 
 
 static func _call_int(target: Object, method_name: String, fallback: int) -> int:

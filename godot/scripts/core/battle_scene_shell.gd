@@ -28,7 +28,16 @@ func _exit_tree() -> void:
 func _initialize_battle(play_stage_bgm: bool = true) -> void:
 	var flow: Object = _get_battle_flow_controller()
 	if flow != null and flow.has_method("initialize_battle"):
-		flow.initialize_battle(self, gameplay_modules, Callable(self, "_get_module"), play_stage_bgm)
+		# 스테이지 7은 프리배틀 인트로 영상이 있으면 초기화 시점 BGM을 틀지
+		# 않는다(래치 미소모) — 영상 종료 후 랜딩 lifecycle의
+		# start_battle_bgm이 정확히 1회 시작한다. 영상 로드 실패로 영상이
+		# 무장되지 못해도 같은 경로가 BGM을 시작하므로 무음 낙차가 없다.
+		var effective_play_stage_bgm := play_stage_bgm
+		if int(get("current_stage")) == 7:
+			var stage7_prebattle: Object = _get_module("stage7_akamu_prebattle_presentation")
+			if stage7_prebattle != null and stage7_prebattle.has_method("begin_video"):
+				effective_play_stage_bgm = false
+		flow.initialize_battle(self, gameplay_modules, Callable(self, "_get_module"), effective_play_stage_bgm)
 
 
 func _begin_stage_landing_intro() -> void:
