@@ -37,7 +37,10 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE_DIR = ROOT / ".tmp" / "stage7_akamu_sprite"
 DEFAULT_OUTPUT_DIR = ROOT / "godot" / "assets" / "sprites" / "bosses" / "stage7_akamu"
-DEFAULT_QA_PATH = DEFAULT_SOURCE_DIR / "stage7_akamu_runtime_qa.json"
+# QA 리포트는 항상 run-unique 스테이징 디렉토리 안에 쓴다(고정 파일명).
+# 임의 qa_path 인자/CLI 옵션은 2026-07-14 코덱스 리뷰로 제거 — QA 경로를
+# 라이브 manifest로 지정하면 검증 성공과 무관하게 라이브가 덮이는 우회였다.
+QA_REPORT_NAME = "stage7_akamu_runtime_qa.json"
 
 FRAME_COUNT = 8
 SOURCE_CELL_SIZE = 512
@@ -203,6 +206,13 @@ def _bbox_touches_output_edge(bbox: tuple[int, int, int, int]) -> bool:
     )
 
 
+def _repo_relative_or_absolute(path: Path) -> str:
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def _load_source_frames(path: Path) -> list[Image.Image]:
     image = Image.open(path).convert("RGBA")
     expected_width = SOURCE_CELL_SIZE * 3
@@ -304,8 +314,8 @@ def _prepare_animation(
     sheet.save(output_path, optimize=True)
     return {
         "key": key,
-        "source": source_path.relative_to(ROOT).as_posix(),
-        "output": output_path.relative_to(ROOT).as_posix(),
+        "source": _repo_relative_or_absolute(source_path),
+        "output": _repo_relative_or_absolute(output_path),
         "source_sha256": _sha256(source_path),
         "output_sha256": _sha256(output_path),
         "source_anchor_bbox": list(anchor_bbox),
@@ -506,7 +516,7 @@ def _verify_staged_export(staging_dir: Path) -> None:
 # copy-and-commit of a verified staging set.
 
 
-def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]:
+def prepare(source_dir: Path, output_dir: Path) -> dict[str, Any]:
     source_paths = {key: source_dir / file_name for key, file_name in SOURCE_FILES.items()}
     missing = [path for path in source_paths.values() if not path.is_file()]
     if missing:
@@ -549,13 +559,16 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]
         "reference_anchor_size": list(reference_anchor_size),
         "animations": reports,
     }
-    qa_path.parent.mkdir(parents=True, exist_ok=True)
-    qa_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _write_runtime_manifest(report, staging_dir)
     _verify_staged_export(staging_dir)
+    # QA 리포트는 검증 통과 후 스테이징 안에만 쓴다(검증기는 계약 외 파일을
+    # 거부하므로 검증 이후에 기록; 스테이징 밖 임의 경로 쓰기 없음).
+    qa_path = staging_dir / QA_REPORT_NAME
+    qa_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     report["staging_dir"] = staging_dir.as_posix()
     report["live_dir_untouched"] = output_dir.as_posix()
     report["manifest"] = (staging_dir / MANIFEST_NAME).as_posix()
+    report["qa_report"] = qa_path.as_posix()
     return report
 
 
@@ -563,7 +576,6 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--qa-output", type=Path, default=DEFAULT_QA_PATH)
     return parser.parse_args()
 
 
@@ -572,13 +584,12 @@ def main() -> None:
     report = prepare(
         args.source_dir.resolve(),
         args.output_dir.resolve(),
-        args.qa_output.resolve(),
     )
     print(json.dumps({
         "animations": len(report["animations"]),
         "staging_dir": report["staging_dir"],
         "live_dir_untouched": report["live_dir_untouched"],
-        "qa_output": args.qa_output.resolve().as_posix(),
+        "qa_report": report["qa_report"],
         "manifest": report["manifest"],
     }, ensure_ascii=False))
 

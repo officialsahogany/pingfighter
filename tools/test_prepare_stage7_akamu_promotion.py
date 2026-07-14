@@ -19,11 +19,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOL_PATH = ROOT / "tools" / "prepare_stage7_akamu_sprites.py"
@@ -178,21 +179,71 @@ def main() -> int:
             "live manifest native_direction_policy must equal the shared constant",
         )
 
-        # 12) no-promotion-entry-point guard
+        # 12) no-promotion / no-arbitrary-write entry-point guard
         check(
             not hasattr(prep, "_promote_staged_export") and not hasattr(prep, "_replace_file"),
             "module must not expose a promotion helper",
         )
         check("--promote" not in tool_source, "tool must not expose a --promote flag")
         check(
-            "def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> " in tool_source,
-            "prepare() must not accept a promote parameter",
+            "--qa-output" not in tool_source,
+            "tool must not expose an arbitrary QA output path (verified live-write bypass)",
         )
+        check(
+            "def prepare(source_dir: Path, output_dir: Path) -> " in tool_source,
+            "prepare() must accept no promote/qa_path parameters",
+        )
+
+        # 13) E2E: synthetic sources → prepare() writes ONLY inside staging;
+        # the real live directory (manifest + a sheet sentinel) is untouched.
+        source_dir = tmp / "case_e2e_sources"
+        source_dir.mkdir()
+        for key, file_name in prep.SOURCE_FILES.items():
+            source_image = Image.new(
+                "RGBA", (prep.SOURCE_CELL_SIZE * 3, prep.SOURCE_CELL_SIZE * 3), (0, 0, 0, 0)
+            )
+            draw = ImageDraw.Draw(source_image)
+            for frame_index in range(prep.FRAME_COUNT):
+                col = frame_index % 3
+                row = frame_index // 3
+                x0 = col * prep.SOURCE_CELL_SIZE + 156
+                y0 = row * prep.SOURCE_CELL_SIZE + 106
+                draw.rectangle((x0, y0, x0 + 200, y0 + 300), fill=(200, 40, 40, 255))
+            source_image.save(source_dir / file_name)
+        live_dir = ROOT / "godot" / "assets" / "sprites" / "bosses" / "stage7_akamu"
+        sentinel_files = [live_manifest_path, live_dir / "stage7_akamu_boss_idle.png"]
+        sentinel_before = {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
+        }
+        report = prep.prepare(source_dir, live_dir)
+        e2e_staging = Path(report["staging_dir"])
+        try:
+            sentinel_after = {
+                path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
+            }
+            check(sentinel_before == sentinel_after, "prepare() must leave the live directory untouched")
+            check(
+                str(e2e_staging).startswith(str(ROOT / ".tmp")),
+                "prepare() staging must live under ROOT/.tmp (outside res://)",
+            )
+            check(
+                Path(report["qa_report"]).parent == e2e_staging,
+                "QA report must be written inside the run-unique staging directory",
+            )
+            staged_manifest = json.loads((e2e_staging / prep.MANIFEST_NAME).read_text(encoding="utf-8"))
+            check(
+                staged_manifest.get("postprocess") == prep.MANIFEST_POSTPROCESS_NOTE
+                and staged_manifest.get("native_direction_policy") == prep.MANIFEST_NATIVE_DIRECTION_POLICY,
+                "E2E staged manifest must carry the sealed policy strings",
+            )
+            check(len(report["animations"]) == len(prep.SOURCE_FILES), "E2E should render all nine sheets")
+        finally:
+            shutil.rmtree(e2e_staging, ignore_errors=True)
 
     if FAILURES:
         print(f"{len(FAILURES)} failure(s)")
         return 1
-    print("test_prepare_stage7_akamu_promotion: ok (12 cases)")
+    print("test_prepare_stage7_akamu_promotion: ok (13 cases)")
     return 0
 
 

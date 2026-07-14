@@ -112,9 +112,11 @@ and source/output edge contact. The defeat sheet keeps the same identity scale
 but applies an offline per-frame ground anchor so the seated collapse neither
 clips the 256px cell nor jumps in the result scene.
 
-The generated detailed QA report remains at
-`.tmp/stage7_akamu_sprite/stage7_akamu_runtime_qa.json`; durable accepted hashes
-and provenance are copied into the runtime manifest.
+The detailed QA report is written as `stage7_akamu_runtime_qa.json` INSIDE the
+run-unique staging directory only (the arbitrary `--qa-output` path was removed
+2026-07-14 — pointing it at the live manifest was a verified live-write
+bypass); durable accepted hashes and provenance are copied into the staged
+runtime manifest.
 
 No runtime `_draw()` or `_process()` path may call `Image.get_image()`, scan
 alpha, resize cells, or build textures. The Stage 7 actor prewarms one imported

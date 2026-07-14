@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# WIP 백업 세트 갱신(이동 스냅샷 + C: 번들 + LFS 사이드카 + CURRENT 포인터).
+# WIP 백업 세트 갱신(이동 스냅샷 + C: 번들 + LFS 사이드카 + CURRENT 디스크립터).
 #
-# 실패 원자성 계약(코덱스 2026-07-14 리뷰 2회 반영):
-#   0) 단일 실행 잠금(mkdir 원자성) + EXIT/INT/TERM 트랩 정리
-#      + 현재 브랜치/HEAD 고정 검증(중간에 움직이면 중단)
-#   1) 스냅샷 재생성 — git add 실패는 삼키지 않고 ref 갱신 전에 중단,
-#      스냅샷 트리 파일 수가 HEAD 대비 급감하면(불완전 트리 방어) 중단,
+# 실패 원자성 계약(코덱스 2026-07-14 리뷰 3회 반영):
+#   0) 단일 실행 잠금(mkdir 원자성) + trap 분리(EXIT=정리 전용,
+#      INT/TERM은 즉시 exit로 승격 — Git Bash에서 'trap f INT'만으로는
+#      핸들러 후 실행이 계속되어 잠금 삭제 후 경합이 재현됐음)
+#      + 현재 심볼릭 HEAD/브랜치 ref/HEAD oid 3중 고정 검증
+#   1) 스냅샷 재생성 — git add 실패는 ref 갱신 전에 중단(오류 삼킴 없음),
 #      snapshot^ == HEAD 불변식 검증
-#   2) 번들을 임시 이름으로 생성 → verify 통과 후에만 최종 이름으로 이동
-#   3) LFS 커버리지 — 스냅샷 참조 oid를 **전수 sha256 검증**(파일명 존재만으론
-#      불충분: 잘린/불일치 파일 검출), 불량·미싱은 로컬 스토어에서
-#      같은 디렉터리 임시 파일로 복사 → sha256 검증 → 원자 rename으로 치유,
-#      최종 전수 재검증 통과 실패 시 CURRENT 미갱신
-#   4) lfs_manifest_current.txt를 임시 파일로 쓰고 이동
-#   5) CURRENT_BUNDLE.txt는 모든 단계 성공 후 **마지막에** 원자 교체
+#   2) 번들을 임시 이름으로 생성 → verify 통과 후 버전 이름으로 이동
+#   3) LFS 커버리지 — 스냅샷 참조 oid 전수 sha256 검증, 불량/미싱은
+#      같은 디렉터리 임시 복사 → 해시 검증 → 원자 rename 치유
+#   4) manifest는 버전 파일(lfs_manifest_<ts>.txt)로 생성 — 기존 포인터를
+#      건드리지 않음
+#   5) **단일 디스크립터 CURRENT.txt**(bundle/manifest/snapshot/tip)를
+#      모든 단계 성공 후 마지막에 원자 교체 — 중간 실패 시 이전
+#      디스크립터가 온전히 유효(신규 버전 파일은 무해한 고아)
 #
 # 사용: bash tools/refresh_wip_backup.sh ["스냅샷 메시지 접미"]
 set -euo pipefail
@@ -27,7 +29,7 @@ LABEL="${1:-}"
 cd "$REPO"
 unset GIT_INDEX_FILE || true
 
-# --- 0) 단일 실행 잠금 + 트랩 정리 + 브랜치/HEAD 고정 ---
+# --- 0) 단일 실행 잠금 + 트랩 + 브랜치/HEAD 3중 고정 ---
 LOCK_DIR="$BACKUP_DIR/.refresh_lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     echo "FATAL: 다른 refresh_wip_backup 실행이 잠금 보유 중($LOCK_DIR) — 중단" >&2
@@ -46,7 +48,12 @@ cleanup() {
     [ -n "$SNAP_OIDS" ] && rm -f "$SNAP_OIDS"
     [ -n "$SIDE_TMP" ] && rm -f "$SIDE_TMP"
 }
-trap cleanup EXIT INT TERM
+# EXIT 트랩은 정리 전용. INT/TERM은 반드시 exit로 승격해야 한다 — Git Bash에서
+# 'trap cleanup INT'만 걸면 핸들러 실행 후 본문이 계속 돌며(잠금은 이미 삭제됨)
+# 두 번째 실행과 경합하고 그 실행의 잠금까지 지울 수 있다(코덱스 재현).
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 CUR_BRANCH=$(git symbolic-ref --short HEAD)
 if [ "$CUR_BRANCH" != "$BRANCH" ]; then
@@ -56,10 +63,12 @@ fi
 TIP=$(git rev-parse HEAD)
 
 assert_tip_stable() {
-    local now
-    now=$(git rev-parse "refs/heads/$BRANCH")
-    if [ "$now" != "$TIP" ]; then
-        echo "FATAL: 실행 중 브랜치 tip이 이동($TIP -> $now) — 중단" >&2
+    local ref_now head_now sym_now
+    ref_now=$(git rev-parse "refs/heads/$BRANCH")
+    head_now=$(git rev-parse HEAD)
+    sym_now=$(git symbolic-ref --short HEAD)
+    if [ "$ref_now" != "$TIP" ] || [ "$head_now" != "$TIP" ] || [ "$sym_now" != "$BRANCH" ]; then
+        echo "FATAL: 실행 중 HEAD/브랜치 이동(ref=$ref_now head=$head_now sym=$sym_now, 기대 $TIP@$BRANCH) — 중단" >&2
         exit 1
     fi
 }
@@ -68,7 +77,7 @@ assert_tip_stable() {
 TMP_INDEX=$(mktemp)
 export GIT_INDEX_FILE="$TMP_INDEX"
 git read-tree HEAD
-# git add 실패(LFS clean 훅, 권한, 디스크 등)는 절대 삼키지 않는다.
+# git add 실패(LFS clean 훅, 권한, 디스크 등)는 절대 삼키지 않는다(set -e).
 # mcp/.env.save는 gitignore 등재라 -A에 걸리지 않으며, 아래 ls-files로 강제 확인.
 git add -A .
 if [ "$(git ls-files --cached -- mcp/.env.save | wc -l)" -ne 0 ]; then
@@ -78,11 +87,6 @@ fi
 SNAP_COUNT=$(git ls-files --cached | wc -l)
 SNAPTREE=$(git write-tree)
 unset GIT_INDEX_FILE
-HEAD_COUNT=$(git ls-tree -r --name-only HEAD | wc -l)
-if [ "$SNAP_COUNT" -lt "$HEAD_COUNT" ]; then
-    echo "FATAL: 스냅샷 트리 파일 수($SNAP_COUNT) < HEAD($HEAD_COUNT) — 불완전 트리 의심, 중단" >&2
-    exit 1
-fi
 assert_tip_stable
 SNAP=$(git commit-tree "$SNAPTREE" -p "$TIP" -m "backup: wip-snapshot-current $(date +%Y%m%d-%H%M)${LABEL:+ ($LABEL)}")
 git update-ref "$SNAP_REF" "$SNAP"
@@ -92,9 +96,11 @@ if [ "$(git rev-parse "$SNAP_REF^")" != "$TIP" ]; then
 fi
 echo "snapshot=$SNAP (parent==HEAD OK, files=$SNAP_COUNT)"
 
-# --- 2) 번들: 임시 생성 → verify → 최종 이동 ---
+# --- 2) 번들: 임시 생성 → verify → 버전 이름으로 이동 ---
 assert_tip_stable
-FINAL_BUNDLE="bosspong_wip_$(date +%Y%m%d_%H%M%S).bundle"
+STAMP=$(date +%Y%m%d_%H%M%S)
+FINAL_BUNDLE="bosspong_wip_$STAMP.bundle"
+FINAL_MANIFEST="lfs_manifest_$STAMP.txt"
 TMP_BUNDLE="$BACKUP_DIR/.tmp_$FINAL_BUNDLE"
 git bundle create "$TMP_BUNDLE" "$BRANCH" backup/wip-snapshot-current --not --remotes
 git bundle verify "$TMP_BUNDLE" >/dev/null
@@ -135,8 +141,8 @@ while read -r oid; do
 done < "$SNAP_OIDS"
 echo "lfs: verified=$verified healed=$healed missing=0 (전수 sha256)"
 
-# --- 4) LFS manifest 임시 작성 → 이동 ---
-TMP_MANIFEST="$BACKUP_DIR/.tmp_lfs_manifest.txt"
+# --- 4) manifest: 버전 파일로 생성(기존 포인터 비접촉) ---
+TMP_MANIFEST="$BACKUP_DIR/.tmp_$FINAL_MANIFEST"
 {
     echo "# lfs sidecar manifest — $(date +%Y-%m-%d\ %H:%M)"
     echo "# scope: backup/wip-snapshot-current $SNAP (tip $TIP) 참조 oid 전수 sha256 검증 $verified OK / healed $healed"
@@ -144,12 +150,17 @@ TMP_MANIFEST="$BACKUP_DIR/.tmp_lfs_manifest.txt"
     echo "# total sidecar objects: $(find "$BACKUP_DIR/lfs_objects" -type f | wc -l)"
     cat "$SNAP_OIDS"
 } > "$TMP_MANIFEST"
-mv "$TMP_MANIFEST" "$BACKUP_DIR/lfs_manifest_current.txt"
+mv "$TMP_MANIFEST" "$BACKUP_DIR/$FINAL_MANIFEST"
 TMP_MANIFEST=""
 
-# --- 5) CURRENT 포인터: 마지막에 원자 교체 ---
+# --- 5) 단일 디스크립터 CURRENT.txt: 마지막에 원자 교체 ---
 assert_tip_stable
-printf '%s\n' "$FINAL_BUNDLE" > "$BACKUP_DIR/.tmp_CURRENT_BUNDLE.txt"
-mv "$BACKUP_DIR/.tmp_CURRENT_BUNDLE.txt" "$BACKUP_DIR/CURRENT_BUNDLE.txt"
-echo "CURRENT_BUNDLE.txt -> $FINAL_BUNDLE"
+{
+    echo "bundle=$FINAL_BUNDLE"
+    echo "manifest=$FINAL_MANIFEST"
+    echo "snapshot=$SNAP"
+    echo "tip=$TIP"
+} > "$BACKUP_DIR/.tmp_CURRENT.txt"
+mv "$BACKUP_DIR/.tmp_CURRENT.txt" "$BACKUP_DIR/CURRENT.txt"
+echo "CURRENT.txt -> bundle=$FINAL_BUNDLE manifest=$FINAL_MANIFEST"
 echo "refresh_wip_backup: ok"

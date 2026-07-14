@@ -78,6 +78,16 @@ try {
         & (Join-Path $tools "run_headless_load_check.ps1") -GodotExe $godot
     }
 
+    Invoke-Step "stage7 asset tool regression (python, 13 cases)" {
+        # 코덱스 2026-07-14: 수동 게이트였던 자산 도구 봉인(스테이징 검증·
+        # 정책 씰·승격/QA 우회 진입점 가드·E2E 라이브 센티널)을 프리푸시에 등재.
+        $repoRoot = Split-Path (Split-Path $tools -Parent) -Parent
+        $python = "C:\Users\woduq\AppData\Local\Programs\Python\Python312\python.exe"
+        if (-not (Test-Path -LiteralPath $python)) { $python = "python" }
+        & $python (Join-Path $repoRoot "tools\test_prepare_stage7_akamu_promotion.py")
+        if ($LASTEXITCODE -ne 0) { throw "stage7 asset tool regression failed ($LASTEXITCODE)" }
+    }
+
     if ($Mode -eq "full" -or $Mode -eq "all") {
         Invoke-Step "warning scan" {
             & (Join-Path $tools "run_warning_scan.ps1") -GodotExe $godot
