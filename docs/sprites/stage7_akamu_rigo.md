@@ -76,7 +76,22 @@ The renderer must retain the existing Stage 7 layers around the sprite:
 
 ## Offline preparation and QA
 
-Run from the repository root with the bundled/Pillow-capable Python runtime:
+**Tool status (2026-07-14): historical reference — DO NOT re-run to "refresh"
+the live sheets.** The WIP destruction event lost the dash left/right
+split-session sources and the exact transforms behind the current live
+walk_left / walk_right / attack sheets, so
+`tools/prepare_stage7_akamu_sprites.py` cannot reproduce the committed 9-sheet
+contract in the present environment (the canonical run below fails on the
+missing dash L/R sources by design). The asset authority is the committed
+runtime PNG set plus `stage7_akamu_boss_sprite_manifest.json` (sha256
+re-measured 2026-07-14). The tool becomes runnable again only after per-side
+dash sources (and matching walk/attack sources) are restored; it now renders
+into a `*_staging` directory and only promotes atomically after the full
+9-sheet + manifest set verifies, so a partial run cannot clobber the live
+sheets.
+
+Historical invocation, from the repository root with the bundled/Pillow-capable
+Python runtime:
 
 ```powershell
 python tools/prepare_stage7_akamu_sprites.py

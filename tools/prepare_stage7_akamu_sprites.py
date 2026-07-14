@@ -1,6 +1,18 @@
 # -*- coding: utf-8 -*-
 """Prepare accepted AutoSprite Akamu sheets for the Godot runtime.
 
+HISTORICAL REFERENCE (2026-07-14 demotion): the WIP destruction event lost the
+dash left/right split-session sources and the exact transforms that produced
+the current live walk_left / walk_right / attack sheets, so running this tool
+in the present environment CANNOT reproduce the committed 9-sheet live
+contract.  The committed runtime PNGs plus
+`stage7_akamu_boss_sprite_manifest.json` are the asset authority; re-running
+this tool is only valid after the per-side dash sources (and matching walk /
+attack sources) are restored.  To keep an accidental run from clobbering the
+live sheets with a partial export, `prepare()` renders into a temporary
+staging directory, verifies the full 9-sheet + manifest set, and only then
+promotes the files atomically over the live directory.
+
 AutoSprite exports eight 512x512 frames in a 3x3 atlas.  The live renderer
 uses deterministic 4x2 atlases with 256x256 cells so battle entry never has
 to scan alpha, crop images, or build textures.  This script applies one fixed
@@ -363,21 +375,54 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
             "defeat",
             "victory",
             "stun",
-            "dash",
+            "dash_left/dash_right",
             "attack",
             "walk_left/walk_right",
             "idle",
         ],
-        "grid_authority_note": "All eight accepted runtime sheets are deterministic 4x2 exports with 256px cells and eight row-major frames.",
+        "grid_authority_note": "All nine accepted runtime sheets are deterministic 4x2 exports with 256px cells and eight row-major frames.",
         "postprocess": "tools/prepare_stage7_akamu_sprites.py; one fixed NEAREST transform per sheet, with defeat-only per-frame ground anchoring; no runtime slicing or alpha scan.",
         "result_reuse": "The Stage 7 clear-result actor loads the same stage7_akamu_boss_defeat.png sheet.",
-        "native_direction_policy": "walk_left and walk_right are separate accepted AutoSprite motions; runtime horizontal mirroring is forbidden.",
+        "native_direction_policy": "walk_left/walk_right AND dash_left/dash_right are separate accepted AutoSprite motions; runtime horizontal mirroring is forbidden for both families.",
         "assets": assets,
         "rejected_candidates": REJECTED_CANDIDATES,
     }
     manifest_path = output_dir / "stage7_akamu_boss_sprite_manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest_path
+
+
+def _verify_staged_export(staging_dir: Path) -> None:
+    """Refuse promotion unless the staged set is the complete 9-sheet contract."""
+    expected_sheets = {f"stage7_akamu_boss_{key}.png" for key in SOURCE_FILES}
+    staged_files = {path.name for path in staging_dir.iterdir() if path.is_file()}
+    missing_sheets = expected_sheets - staged_files
+    if missing_sheets:
+        raise ValueError(f"Staged export is missing sheets: {sorted(missing_sheets)}")
+    manifest_name = "stage7_akamu_boss_sprite_manifest.json"
+    if manifest_name not in staged_files:
+        raise ValueError("Staged export is missing the runtime manifest")
+    for sheet_name in sorted(expected_sheets):
+        with Image.open(staging_dir / sheet_name) as sheet:
+            expected_size = (OUTPUT_CELL_SIZE * OUTPUT_COLS, OUTPUT_CELL_SIZE * OUTPUT_ROWS)
+            if sheet.size != expected_size or sheet.mode != "RGBA":
+                raise ValueError(
+                    f"Staged sheet {sheet_name} is {sheet.mode} {sheet.size}, expected RGBA {expected_size}"
+                )
+    manifest = json.loads((staging_dir / manifest_name).read_text(encoding="utf-8"))
+    manifest_states = {str(asset["state"]) for asset in manifest.get("assets", [])}
+    if manifest_states != set(SOURCE_FILES):
+        raise ValueError(
+            f"Staged manifest states {sorted(manifest_states)} != contract {sorted(SOURCE_FILES)}"
+        )
+
+
+def _promote_staged_export(staging_dir: Path, output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for staged_path in sorted(staging_dir.iterdir()):
+        if staged_path.is_file():
+            staged_path.replace(output_dir / staged_path.name)
+    staging_dir.rmdir()
 
 
 def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]:
@@ -393,9 +438,20 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]
         raise ValueError("Accepted walk-right anchor frame has no visible pixels")
     reference_anchor_size = _bbox_size(reference_bbox)
 
+    # Render into a sibling staging directory first; the live sheets are only
+    # replaced after the complete 9-sheet + manifest set verifies (atomic
+    # promotion), so a partial/failed run can never leave the runtime mixed.
+    staging_dir = output_dir.parent / (output_dir.name + "_staging")
+    if staging_dir.exists():
+        for stale_path in staging_dir.iterdir():
+            if stale_path.is_file():
+                stale_path.unlink()
+    else:
+        staging_dir.mkdir(parents=True)
+
     reports: list[dict[str, Any]] = []
     for key in SOURCE_FILES:
-        output_path = output_dir / f"stage7_akamu_boss_{key}.png"
+        output_path = staging_dir / f"stage7_akamu_boss_{key}.png"
         reports.append(_prepare_animation(
             key,
             source_paths[key],
@@ -416,7 +472,10 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]
     }
     qa_path.parent.mkdir(parents=True, exist_ok=True)
     qa_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    manifest_path = _write_runtime_manifest(report, output_dir)
+    _write_runtime_manifest(report, staging_dir)
+    _verify_staged_export(staging_dir)
+    _promote_staged_export(staging_dir, output_dir)
+    manifest_path = output_dir / "stage7_akamu_boss_sprite_manifest.json"
     report["manifest"] = manifest_path.relative_to(ROOT).as_posix()
     return report
 
