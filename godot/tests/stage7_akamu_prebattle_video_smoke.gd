@@ -21,6 +21,7 @@ const NATURAL_END_MAX_SECONDS := 11.25
 
 var _failures: Array[String] = []
 var _qa_run_dir := ""
+var _git_state_cache := ""
 
 
 class OwnerProbe:
@@ -134,7 +135,10 @@ func _describe_git_state() -> String:
 		if line.strip_edges() != "":
 			dirty_lines += 1
 	var diff_output: Array = []
-	if OS.execute("git", ["-C", repo_dir, "diff", "HEAD"], diff_output) != 0:
+	# --binary --full-index: non-LFS 바이너리도 축약 blob id가 아닌 전체
+	# 내용/전체 인덱스로 식별. --no-ext-diff/--no-textconv: 외부 필터로
+	# fingerprint가 달라지는 것 방지.
+	if OS.execute("git", ["-C", repo_dir, "diff", "HEAD", "--binary", "--full-index", "--no-ext-diff", "--no-textconv"], diff_output) != 0:
 		return "unavailable(diff_failed)"
 	var tracked_content_sha := (str(diff_output[0]) if diff_output.size() > 0 else "").sha256_text()
 	var untracked_output: Array = []
@@ -147,6 +151,9 @@ func _describe_git_state() -> String:
 			continue
 		var absolute_path := "%s/%s" % [repo_dir, untracked_path]
 		var content_sha := FileAccess.get_sha256(absolute_path)
+		if content_sha == "":
+			# 빈 해시가 조용히 섞이면 귀속이 성공처럼 보인다 — 실패로 승격.
+			return "unavailable(untracked_hash_failed:%s)" % untracked_path
 		untracked_records.append("%s:%s" % [untracked_path, content_sha])
 	untracked_records.sort()
 	var untracked_content_sha := "\n".join(untracked_records).sha256_text()
@@ -273,6 +280,13 @@ func _verify_presentation_lifecycle_and_clip() -> void:
 	_expect(snapshot.get("video_size", Vector2.ZERO) == snapshot.get("clip_size", Vector2.ONE), "pre-padded video should fill only the clipped playfield")
 	if not _is_headless_runtime():
 		audio.muted = true
+		# 귀속 fingerprint는 '재생 시작 전'에 계산해 캐시한다 — 대형 diff를
+		# 재생 도중 동기 실행하면 자연 종료 시각이 ~0.4s 늘어난다(코덱스 계측).
+		_git_state_cache = _describe_git_state()
+		_expect(
+			not _git_state_cache.begins_with("unavailable"),
+			"windowed QA attribution requires a working git fingerprint (%s)" % _git_state_cache
+		)
 		var playback_started_msec := Time.get_ticks_msec()
 		await _verify_windowed_video_frame(presentation, owner, registry, expected_layout, playback_started_msec)
 		_expect(presentation.was_video_completed_for_entry(), "windowed playback should reach the VideoStream finished signal without the duration fallback")
@@ -593,7 +607,7 @@ func _verify_windowed_video_frame(
 	if metrics_file != null:
 		metrics_file.store_line("video_sha256_measured=%s" % FileAccess.get_sha256(VIDEO_PATH).to_lower())
 		metrics_file.store_line("video_sha256_expected=%s" % EXPECTED_VIDEO_SHA256)
-		metrics_file.store_line("git=%s" % _describe_git_state())
+		metrics_file.store_line("git=%s" % _git_state_cache)
 		metrics_file.store_line("viewport=%s image=%s scale=%s" % [viewport_size, image.get_size(), image_scale])
 		metrics_file.store_line("lit_samples=%d max_outside_rgb=%.4f" % [lit_samples, max_outside_rgb])
 		metrics_file.close()

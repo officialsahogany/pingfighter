@@ -133,15 +133,18 @@ function Invoke-WindowedSmoke {
     # (stdout ok 마커만 믿지 않는다).
     $captureLine = ($output | Where-Object { $_.ToString() -match "stage7_akamu_prebattle_video_windowed_capture: " } | Select-Object -First 1)
     if ($null -eq $captureLine) {
+        Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
         throw "windowed Stage 7 video smoke ${Width}x${Height} did not report its capture path"
     }
     $capturePath = ($captureLine.ToString() -split "stage7_akamu_prebattle_video_windowed_capture: ", 2)[1].Trim()
     $metricsPath = Join-Path (Split-Path -Parent $capturePath) "metrics.txt"
     if (-not (Test-Path -LiteralPath $metricsPath -PathType Leaf)) {
+        Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
         throw "windowed Stage 7 QA metrics file missing on disk: $metricsPath"
     }
     $metricsText = Get-Content -LiteralPath $metricsPath -Raw
     if ($metricsText -notmatch "(?m)^result=PASS$") {
+        Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
         throw "windowed Stage 7 QA evidence did not record result=PASS: $metricsPath"
     }
     # 모든 검증(stdout + 디스크 artifact result=PASS)을 통과한 뒤에만 로그를

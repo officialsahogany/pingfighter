@@ -207,13 +207,15 @@ if [ -z "$PYTHON_EXE" ]; then
     echo "FATAL: provenance JSON 검증에 필요한 python이 없음" >&2
     exit 1
 fi
-committed_src_sha=$(printf '%s' "$committed_manifest_json" | "$PYTHON_EXE" -c '
+committed_src_sha=$(printf '%s' "$committed_manifest_json" | "$PYTHON_EXE" -I -c '
 import json, sys
 m = json.load(sys.stdin)
 src = m["source"]
-assert src["path"] == "stagevideo/stage8.mp4", "unexpected source path: %r" % src["path"]
+if src["path"] != "stagevideo/stage8.mp4":
+    raise ValueError("unexpected source path: %r" % src["path"])
 sha = str(src["sha256"]).lower()
-assert len(sha) == 64 and all(c in "0123456789abcdef" for c in sha), "malformed source sha"
+if len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha):
+    raise ValueError("malformed source sha: %r" % sha)
 print(sha)
 ') || {
     echo "FATAL: 영상 manifest JSON에서 source.path/source.sha256 검증 실패" >&2
@@ -252,15 +254,31 @@ SM_SEEN=""
             echo "FATAL: source_media MANIFEST 항목의 sha256이 비정상: $name ($want)" >&2
             exit 1
         fi
-        dst="$SM_DIR/$name"
+        # blob은 내용 주소형 objects/<sha256> — 새 세대는 '추가'일 뿐이라
+        # 이전 세대 blob이 절대 덮이지 않는다(manifest 불변화와 짝).
+        mkdir -p "$SM_DIR/objects"
+        dst="$SM_DIR/objects/$want"
         ok=0
         if [ -f "$dst" ] && [ "$(sha256sum "$dst" | awk '{print $1}')" = "$want" ]; then
             ok=1
         fi
+        if [ "$ok" -ne 1 ] && [ -f "$SM_DIR/$name" ] && [ "$(sha256sum "$SM_DIR/$name" | awk '{print $1}')" = "$want" ]; then
+            # 레거시 평면 파일에서 1회 마이그레이션(원자 복사)
+            SM_TMP=$(mktemp -p "$SM_DIR/objects")
+            cp "$SM_DIR/$name" "$SM_TMP"
+            if [ "$(sha256sum "$SM_TMP" | awk '{print $1}')" = "$want" ]; then
+                mv "$SM_TMP" "$dst"
+                SM_TMP=""
+                ok=1
+            else
+                rm -f "$SM_TMP"
+                SM_TMP=""
+            fi
+        fi
         if [ "$ok" -ne 1 ]; then
             src="$REPO/stagevideo/$name"
             if [ -f "$src" ] && [ "$(sha256sum "$src" | awk '{print $1}')" = "$want" ]; then
-                SM_TMP=$(mktemp -p "$SM_DIR")
+                SM_TMP=$(mktemp -p "$SM_DIR/objects")
                 cp "$src" "$SM_TMP"
                 if [ "$(sha256sum "$SM_TMP" | awk '{print $1}')" != "$want" ]; then
                     rm -f "$SM_TMP"
