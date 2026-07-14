@@ -51,7 +51,9 @@ func _init() -> void:
 	var blacksmith := _get_character_by_runtime_id(characters, "blacksmith")
 	_expect(not blacksmith.is_empty(), "Kohaku / Baltor character data should be present")
 	if not blacksmith.is_empty():
-		_expect(bool(blacksmith.get("unlocked", false)), "Kohaku / Baltor should be unlocked in character select")
+		# 2026-07-05 데이터 계약: 코하쿠/발토르는 잠금 시작(unlock_hint 노출).
+		_expect(not bool(blacksmith.get("unlocked", true)), "Kohaku / Baltor should start locked in character select")
+		_expect(str(blacksmith.get("unlock_hint", "")) != "", "locked Kohaku / Baltor should expose an unlock hint")
 
 	screen.set("skill_icon_rects", {0: Rect2(Vector2(10.0, 10.0), Vector2(50.0, 50.0))})
 	screen.call("_update_hover_from_mouse", Vector2(20.0, 20.0))
