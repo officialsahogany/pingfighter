@@ -70,12 +70,13 @@ function Write-TextLf {
     [System.IO.File]::WriteAllText($Path, $lf, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-$MARKER = "godot-prepush-gate v1"
+$MARKER = "godot-prepush-gate v2"
 
 $wrapper = @'
 #!/bin/sh
-# godot-prepush-gate v1 (managed by godot/tools/install_git_hooks.ps1)
-# Runs godot/tools/run_pre_push_checks.ps1 when pushed commits touch godot/,
+# godot-prepush-gate v2 (managed by godot/tools/install_git_hooks.ps1)
+# Runs godot/tools/run_pre_push_checks.ps1 when pushed commits touch godot/
+# OR root tools/ (asset-pipeline python tools carry committed regressions),
 # then chains to the preserved original hook (pre-push.local, e.g. Git LFS).
 # Bypass: SKIP_GODOT_PREPUSH=1 git push   or   git push --no-verify
 
@@ -92,7 +93,7 @@ godot_changed() {
 		all_zero "$l_sha" && continue            # branch delete -> nothing to check
 		if all_zero "$r_sha"; then
 			changed=0; break                     # new remote branch -> run to be safe
-		elif git diff --name-only "$r_sha" "$l_sha" -- godot </dev/null 2>/dev/null | grep -q .; then
+		elif git diff --name-only "$r_sha" "$l_sha" -- godot tools </dev/null 2>/dev/null | grep -q .; then
 			changed=0; break
 		fi
 	done < "$reflist"
@@ -130,7 +131,7 @@ elif godot_changed; then
 		fi
 	fi
 else
-	echo "[pre-push] no godot/ changes in pushed commits -> skipping Godot checks"
+	echo "[pre-push] no godot/ or tools/ changes in pushed commits -> skipping Godot checks"
 fi
 
 # --- chain to preserved original hook (e.g. Git LFS) ---

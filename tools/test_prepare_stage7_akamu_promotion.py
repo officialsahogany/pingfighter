@@ -211,26 +211,34 @@ def main() -> int:
                 draw.rectangle((x0, y0, x0 + 200, y0 + 300), fill=(200, 40, 40, 255))
             source_image.save(source_dir / file_name)
         live_dir = ROOT / "godot" / "assets" / "sprites" / "bosses" / "stage7_akamu"
-        sentinel_files = [live_manifest_path, live_dir / "stage7_akamu_boss_idle.png"]
+        # 라이브 센티널 = 권위 10파일 전체(9시트 + manifest) 해시.
+        sentinel_files = [live_dir / name for name in prep._expected_export_files()]
         sentinel_before = {
             path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
         }
         report = prep.prepare(source_dir, live_dir)
         e2e_staging = Path(report["staging_dir"])
+        e2e_export = Path(report["export_dir"])
         try:
             sentinel_after = {
                 path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sentinel_files
             }
-            check(sentinel_before == sentinel_after, "prepare() must leave the live directory untouched")
+            check(sentinel_before == sentinel_after, "prepare() must leave all ten authoritative live files untouched")
             check(
                 str(e2e_staging).startswith(str(ROOT / ".tmp")),
                 "prepare() staging must live under ROOT/.tmp (outside res://)",
             )
             check(
-                Path(report["qa_report"]).parent == e2e_staging,
-                "QA report must be written inside the run-unique staging directory",
+                e2e_export.parent == e2e_staging and e2e_export.name == "export",
+                "runtime contract set must live in staging/export/",
             )
-            staged_manifest = json.loads((e2e_staging / prep.MANIFEST_NAME).read_text(encoding="utf-8"))
+            check(
+                Path(report["qa_report"]).parent == e2e_staging,
+                "QA report must be a SIBLING of export/, inside the staging directory",
+            )
+            # QA 기록 후에도 export/는 정확한 계약 세트로 재검증 가능해야 한다.
+            prep._verify_staged_export(e2e_export)
+            staged_manifest = json.loads((e2e_export / prep.MANIFEST_NAME).read_text(encoding="utf-8"))
             check(
                 staged_manifest.get("postprocess") == prep.MANIFEST_POSTPROCESS_NOTE
                 and staged_manifest.get("native_direction_policy") == prep.MANIFEST_NATIVE_DIRECTION_POLICY,

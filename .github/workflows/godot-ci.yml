@@ -7,6 +7,7 @@ on:
       - "AGENTS.md"
       - "docs/godot_port_checklist.md"
       - "godot/**"
+      - "tools/**"
   push:
     branches:
       - feature/refactor-ui
@@ -17,6 +18,7 @@ on:
       - "AGENTS.md"
       - "docs/godot_port_checklist.md"
       - "godot/**"
+      - "tools/**"
   workflow_dispatch:
     inputs:
       godot_version:
@@ -118,6 +120,19 @@ jobs:
           if ($exitCode -ne 0) {
             throw "Godot resource import failed with exit code $exitCode"
           }
+
+      - name: Set up Python for asset-tool regression
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stage7 asset tool regression (13 cases)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -m pip install --quiet Pillow
+          python tools/test_prepare_stage7_akamu_promotion.py
+          if ($LASTEXITCODE -ne 0) { throw "stage7 asset tool regression failed" }
 
       - name: Headless load check
         shell: pwsh

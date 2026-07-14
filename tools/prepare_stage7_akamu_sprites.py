@@ -533,14 +533,18 @@ def prepare(source_dir: Path, output_dir: Path) -> dict[str, Any]:
     # (never under res://, so the importer cannot mint `.import` sidecars into
     # the staged set and parallel runs cannot collide).  The run always STOPS
     # at the verified staging set — there is no code path that touches the
-    # live directory.
+    # live directory.  Layout: staging/export/ holds EXACTLY the 10-file
+    # runtime contract (re-verifiable at any time), and the QA report lives
+    # as a sibling of export/ so it never pollutes the contract set.
     staging_root = ROOT / ".tmp" / "stage7_akamu_sprite"
     staging_root.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(tempfile.mkdtemp(prefix="staging_", dir=staging_root))
+    export_dir = staging_dir / "export"
+    export_dir.mkdir()
 
     reports: list[dict[str, Any]] = []
     for key in SOURCE_FILES:
-        output_path = staging_dir / f"stage7_akamu_boss_{key}.png"
+        output_path = export_dir / f"stage7_akamu_boss_{key}.png"
         reports.append(_prepare_animation(
             key,
             source_paths[key],
@@ -559,15 +563,16 @@ def prepare(source_dir: Path, output_dir: Path) -> dict[str, Any]:
         "reference_anchor_size": list(reference_anchor_size),
         "animations": reports,
     }
-    _write_runtime_manifest(report, staging_dir)
-    _verify_staged_export(staging_dir)
-    # QA 리포트는 검증 통과 후 스테이징 안에만 쓴다(검증기는 계약 외 파일을
-    # 거부하므로 검증 이후에 기록; 스테이징 밖 임의 경로 쓰기 없음).
+    _write_runtime_manifest(report, export_dir)
+    _verify_staged_export(export_dir)
+    # QA 리포트는 export/의 SIBLING으로 기록 — 계약 세트(export/)는 QA 기록
+    # 후에도 언제든 재검증 가능하다(스테이징 밖 임의 경로 쓰기 없음).
     qa_path = staging_dir / QA_REPORT_NAME
     qa_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     report["staging_dir"] = staging_dir.as_posix()
+    report["export_dir"] = export_dir.as_posix()
     report["live_dir_untouched"] = output_dir.as_posix()
-    report["manifest"] = (staging_dir / MANIFEST_NAME).as_posix()
+    report["manifest"] = (export_dir / MANIFEST_NAME).as_posix()
     report["qa_report"] = qa_path.as_posix()
     return report
 
@@ -588,6 +593,7 @@ def main() -> None:
     print(json.dumps({
         "animations": len(report["animations"]),
         "staging_dir": report["staging_dir"],
+        "export_dir": report["export_dir"],
         "live_dir_untouched": report["live_dir_untouched"],
         "qa_report": report["qa_report"],
         "manifest": report["manifest"],

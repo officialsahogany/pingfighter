@@ -96,17 +96,33 @@ if [ "$(git rev-parse "$SNAP_REF^")" != "$TIP" ]; then
 fi
 echo "snapshot=$SNAP (parent==HEAD OK, files=$SNAP_COUNT)"
 
-# --- 2) 번들: 임시 생성 → verify → 버전 이름으로 이동 ---
+# --- 2) 번들: 임시 생성 → verify → 버전 이름으로 이동(no-clobber) ---
+# 파일명에 스냅샷 OID 12자리를 포함해 세대를 내용으로 식별한다 — 시계 역행으로
+# 같은 타임스탬프가 나와도 다른 세대를 덮지 못하고, 동일 이름 존재는 FATAL.
 assert_tip_stable
 STAMP=$(date +%Y%m%d_%H%M%S)
-FINAL_BUNDLE="bosspong_wip_$STAMP.bundle"
-FINAL_MANIFEST="lfs_manifest_$STAMP.txt"
+GEN="${STAMP}_${SNAP:0:12}"
+FINAL_BUNDLE="bosspong_wip_$GEN.bundle"
+FINAL_MANIFEST="lfs_manifest_$GEN.txt"
+for existing in "$BACKUP_DIR/$FINAL_BUNDLE" "$BACKUP_DIR/$FINAL_MANIFEST"; do
+    if [ -e "$existing" ]; then
+        echo "FATAL: 세대 파일이 이미 존재($existing) — 시계 역행/중복 실행 의심, 중단" >&2
+        exit 1
+    fi
+done
 TMP_BUNDLE="$BACKUP_DIR/.tmp_$FINAL_BUNDLE"
 git bundle create "$TMP_BUNDLE" "$BRANCH" backup/wip-snapshot-current --not --remotes
 git bundle verify "$TMP_BUNDLE" >/dev/null
+# 복원측 대조용: 디스크립터 4필드 vs 번들 heads가 일치해야 한다(아래서 즉시 자가검증).
+BUNDLE_SNAP=$(git bundle list-heads "$TMP_BUNDLE" | awk '$2=="refs/heads/backup/wip-snapshot-current"{print $1}')
+BUNDLE_TIP=$(git bundle list-heads "$TMP_BUNDLE" | awk -v ref="refs/heads/$BRANCH" '$2==ref{print $1}')
+if [ "$BUNDLE_SNAP" != "$SNAP" ] || [ "$BUNDLE_TIP" != "$TIP" ]; then
+    echo "FATAL: 번들 heads($BUNDLE_SNAP/$BUNDLE_TIP) != 스냅샷/tip($SNAP/$TIP)" >&2
+    exit 1
+fi
 mv "$TMP_BUNDLE" "$BACKUP_DIR/$FINAL_BUNDLE"
 TMP_BUNDLE=""
-echo "bundle=$FINAL_BUNDLE (verify OK)"
+echo "bundle=$FINAL_BUNDLE (verify+heads OK)"
 
 # --- 3) LFS 커버리지: 전수 sha256 검증 + 불량/미싱 원자 치유 ---
 SNAP_OIDS=$(mktemp)
