@@ -101,10 +101,6 @@ static func reset_stage7_for_result(registry: Object, stage_id: int) -> void:
 		stage7_akamu_state.reset_for_result()
 
 
-	if stage_id != 8:
-		return
-
-
 static func _call_int(target: Object, method_name: String, fallback: int) -> int:
 	if target == null or not target.has_method(method_name):
 		return fallback

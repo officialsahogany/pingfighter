@@ -70,7 +70,7 @@
       "source_video_id": "cmrer6vm7005ixycvmyp06iqm",
       "loop": true,
       "source_sha256": "fcd7cdbc7aaf072142487da5bb402a3adb027db42bd371fa24924f57faf9a8c7",
-      "sha256": "303f6a257eed1ea3f9f064832249c22d855e809584757cb4f8146c6bfcba3e93",
+      "sha256": "dc09f5d398d0132f0cc74aa7613ee37cfe559e2cf29d90ebccc2ab4a7d7c361c",
       "corner_alpha": [
         0,
         0,
@@ -83,7 +83,8 @@
       ],
       "alignment": "fixed_sheet",
       "source_edge_touch": false,
-      "output_edge_touch": false
+      "output_edge_touch": false,
+      "provenance_note": "sha256 re-measured 2026-07-14 against the committed live-QA sheet (pre-destruction manifest hash described an older export)"
     },
     {
       "state": "walk_right",
@@ -101,7 +102,7 @@
       "source_video_id": "cmreryso5001vhnnxbsqywd5o",
       "loop": true,
       "source_sha256": "650ab76e79a6857992b43bf433b44ab01da687f8a1d3ed1379430a8f65f2e4fb",
-      "sha256": "fc9d8961f32218b2042b61751a729f1b0847e18f3c0e6a22bb142225ac29f049",
+      "sha256": "8a6979302533ef9c9ff012919712db1549b1e782d606f9443984321a366261aa",
       "corner_alpha": [
         0,
         0,
@@ -114,7 +115,8 @@
       ],
       "alignment": "fixed_sheet",
       "source_edge_touch": false,
-      "output_edge_touch": false
+      "output_edge_touch": false,
+      "provenance_note": "sha256 re-measured 2026-07-14 against the committed live-QA sheet (pre-destruction manifest hash described an older export)"
     },
     {
       "state": "attack",
@@ -132,7 +134,7 @@
       "source_video_id": "cmrer47zk004bxycv33fb515g",
       "loop": false,
       "source_sha256": "fbd9b5fd425624f257f27eddbe9db45878d2463454da7da33ae219c1bb32302c",
-      "sha256": "a35b6e340484baf0777be8bcb21fee77960f1e47f431562f806e840212aaabd9",
+      "sha256": "29c4f3d1238cf1a195687913647b6e37868c46d4c59386d069df866dd7d76a89",
       "corner_alpha": [
         0,
         0,
@@ -145,7 +147,8 @@
       ],
       "alignment": "fixed_sheet",
       "source_edge_touch": false,
-      "output_edge_touch": false
+      "output_edge_touch": false,
+      "provenance_note": "sha256 re-measured 2026-07-14 against the committed live-QA sheet (pre-destruction manifest hash described an older export)"
     },
     {
       "state": "dash_left",

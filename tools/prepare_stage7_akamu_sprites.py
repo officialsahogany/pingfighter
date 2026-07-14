@@ -82,7 +82,17 @@ PROVENANCE = {
         "source_video_id": "cmrer47zk004bxycv33fb515g",
         "loop": False,
     },
-    "dash": {
+    # dash는 native left/right 분리(SOURCE_FILES와 키가 1:1이어야 manifest 빌드가
+    # KeyError 없이 돈다). WIP 파괴로 분할 세션의 개별 job 기록이 소실되어 두 키
+    # 모두 원본 dash 수락 세션의 provenance id를 상속한다(매니페스트
+    # provenance_note와 동일 계약).
+    "dash_left": {
+        "job_id": "wf_a4324566-654f-485b-9853-1b3998297858",
+        "spritesheet_id": "cmrer732y001ouepf39p2im3u",
+        "source_video_id": "cmrer48el004pxycvblxdcpeg",
+        "loop": False,
+    },
+    "dash_right": {
         "job_id": "wf_a4324566-654f-485b-9853-1b3998297858",
         "spritesheet_id": "cmrer732y001ouepf39p2im3u",
         "source_video_id": "cmrer48el004pxycvblxdcpeg",
@@ -301,6 +311,14 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
     for animation in report["animations"]:
         key = str(animation["key"])
         provenance = PROVENANCE[key]
+        entry_note = ""
+        if key in ("dash_left", "dash_right"):
+            entry_note = (
+                "native left/right dash variants supersede the single dash sheet "
+                "(WIP destruction lost the split session's job record; provenance ids "
+                "inherited from the original dash acceptance, file facts re-measured "
+                "2026-07-14)"
+            )
         assets.append({
             "state": key,
             "path": f"res://assets/sprites/bosses/stage7_akamu/stage7_akamu_boss_{key}.png",
@@ -324,6 +342,8 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
             "source_edge_touch": animation["source_edge_touch"],
             "output_edge_touch": animation["output_edge_touch"],
         })
+        if entry_note:
+            assets[-1]["provenance_note"] = entry_note
 
     manifest: dict[str, Any] = {
         "boss_id": "stage7_akamu_rigo",

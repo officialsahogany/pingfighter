@@ -17,6 +17,7 @@ const MatchScoreEventController := preload("res://scripts/core/match_score_event
 const BallRoundActorCleanup := preload("res://scripts/ball/ball_round_actor_cleanup.gd")
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+const StageClearResultRuntimeContextData := preload("res://scripts/core/stage_clear_result_runtime_context_data.gd")
 
 const STAGE7_ROUTE_EXPECTATIONS := {
 	"actor_renderer": "stage7_akamu_actor_renderer",
@@ -167,11 +168,30 @@ class FakeStage7CollisionState:
 		post_collision_calls += 1
 
 
+class FakeOverdriveState:
+	extends RefCounted
+
+	var reflect_calls := 0
+
+	func notify_ball_reflected(_ball_vel: Vector2, _impact_pos: Vector2) -> void:
+		reflect_calls += 1
+
+
+class FakeResultStage7State:
+	extends RefCounted
+
+	var reset_for_result_calls := 0
+
+	func reset_for_result() -> void:
+		reset_for_result_calls += 1
+
+
 class FakePaddleBounceController:
 	extends RefCounted
 
 	var calls := 0
 	var return_empty := false
+	var return_uncommitted := false
 
 	func bounce(
 		_paddle_x: float,
@@ -184,6 +204,11 @@ class FakePaddleBounceController:
 		calls += 1
 		if return_empty:
 			return {}
+		if return_uncommitted:
+			return {
+				"ball_pos": context.get("ball_pos", Vector2.ZERO),
+				"ball_vel": Vector2(3.0, 12.0),
+			}
 		return {
 			"ball_pos": context.get("ball_pos", Vector2.ZERO),
 			"ball_vel": Vector2(3.0, 12.0),
@@ -267,6 +292,8 @@ func _init() -> void:
 	_verify_post_motion_collision_hook_is_wired()
 	_verify_stage7_boot_prewarm_dispatch()
 	_verify_scripted_ai_position_bypasses_shared_postprocessors()
+	_verify_overdrive_reflection_requires_committed_bounce()
+	_verify_result_reset_reaches_stage7_owner()
 
 	if _failures.is_empty():
 		print("stage7_akamu_slice1_smoke: ok")
@@ -705,6 +732,114 @@ func _verify_scripted_ai_position_bypasses_shared_postprocessors() -> void:
 	result = BossAIState.new().update(1.0 / 60.0, held_pos, 7.0, context)
 	_expect(result.get("boss_pos", Vector2.ZERO) == held_pos, "gameplay freeze without scripted motion should hold the live boss position")
 	_expect_close(float(result.get("boss_vel", 99.0)), 0.0, "gameplay freeze should stop boss velocity")
+
+
+func _verify_overdrive_reflection_requires_committed_bounce() -> void:
+	# 코덱스 봉인: 오버드라이브 반사 통지는 "실제 커밋된 반사"에서만 나가야
+	# 한다 — 무형화 무시·빈 bounce 결과에서 가짜 통지가 나가면 RED.
+	var committed_overdrive := FakeOverdriveState.new()
+	var processor: Object = BallMotionEventProcessor.new()
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": BallMotionStepper.new(),
+			"paddle_bounce_controller": FakePaddleBounceController.new(),
+			"stage7_akamu_state": FakeStage7CollisionState.new(),
+			"smasher_overdrive_state": committed_overdrive,
+		},
+		{}
+	)
+	_expect(committed_overdrive.reflect_calls == 1, "committed boss bounce should notify overdrive reflection exactly once")
+
+	var intangible_overdrive := FakeOverdriveState.new()
+	var intangible_state := FakeStage7CollisionState.new()
+	intangible_state.intangible = true
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": BallMotionStepper.new(),
+			"paddle_bounce_controller": FakePaddleBounceController.new(),
+			"stage7_akamu_state": intangible_state,
+			"smasher_overdrive_state": intangible_overdrive,
+		},
+		{}
+	)
+	_expect(intangible_overdrive.reflect_calls == 0, "intangible boss overlap must not fake an overdrive reflection")
+
+	var empty_overdrive := FakeOverdriveState.new()
+	var empty_bounce := FakePaddleBounceController.new()
+	empty_bounce.return_empty = true
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": BallMotionStepper.new(),
+			"paddle_bounce_controller": empty_bounce,
+			"stage7_akamu_state": FakeStage7CollisionState.new(),
+			"smasher_overdrive_state": empty_overdrive,
+		},
+		{}
+	)
+	_expect(empty_overdrive.reflect_calls == 0, "empty bounce result must not fake an overdrive reflection")
+
+	var uncommitted_overdrive := FakeOverdriveState.new()
+	var uncommitted_state := FakeStage7CollisionState.new()
+	var uncommitted_bounce := FakePaddleBounceController.new()
+	uncommitted_bounce.return_uncommitted = true
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": BallMotionStepper.new(),
+			"paddle_bounce_controller": uncommitted_bounce,
+			"stage7_akamu_state": uncommitted_state,
+			"smasher_overdrive_state": uncommitted_overdrive,
+		},
+		{}
+	)
+	_expect(uncommitted_overdrive.reflect_calls == 0, "non-empty but uncommitted bounce result must not fake an overdrive reflection")
+	_expect(uncommitted_state.boss_hit_calls == 0, "non-empty but uncommitted bounce result must not fire the Stage 7 boss hook")
+
+	var no_controller_overdrive := FakeOverdriveState.new()
+	processor.step_motion(
+		_boss_collision_scene(),
+		1.0,
+		_boss_collision_context(),
+		{
+			"motion_stepper": BallMotionStepper.new(),
+			"smasher_overdrive_state": no_controller_overdrive,
+		},
+		{}
+	)
+	_expect(no_controller_overdrive.reflect_calls == 0, "missing bounce controller must not fake an overdrive reflection")
+
+
+func _verify_result_reset_reaches_stage7_owner() -> void:
+	# 코덱스 봉인: 결과화면 정리 fanout이 stage7 오너의 reset_for_result에
+	# 실제로 도달하고, 타 스테이지 id에서는 도달하지 않아야 한다.
+	var fake_state := FakeResultStage7State.new()
+	var registry := FakeRegistry.new()
+	registry.instances["stage7_akamu_state"] = fake_state
+	StageClearResultRuntimeContextData.reset_stage7_for_result(registry, 6)
+	_expect(fake_state.reset_for_result_calls == 0, "non-stage7 result must not reset the Akamu owner")
+	StageClearResultRuntimeContextData.reset_stage_for_result(registry, 7)
+	_expect(fake_state.reset_for_result_calls == 1, "stage7 result fanout should reset the Akamu owner exactly once")
+
+	var real_state: Object = Stage7AkamuState.new()
+	real_state.debug_spawn_shadow_clones(Vector2(380.0, 200.0))
+	real_state.reset_for_result()
+	var post_reset_hit: bool = real_state.resolve_ball_collision({
+		"previous_ball_pos": Vector2(380.0, 310.0),
+		"ball_pos": Vector2(380.0, 130.0),
+		"ball_vel": Vector2(0.0, -12.0),
+	}, _active_stage7_context(), {})
+	_expect(not post_reset_hit, "reset_for_result should clear live clones so no collision survives into the result screen")
 
 
 func _boss_collision_scene() -> Dictionary:

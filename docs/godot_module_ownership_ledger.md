@@ -4344,9 +4344,11 @@ This section is intentionally long; use search to find the nearest owner.
   Python Stage 8 닌자 보스; Godot slot 7). Status: **slice 1 wired — routing,
   deps, score-carry, collision (boss-ball intangibility gate + committed-bounce
   hook), awakening gameplay-freeze, scripted boss AI position, 4-step boot
-  prewarm, result/full reset fanout. Prebattle video lifecycle, STAGE7_* audio
-  routes, and stage-clear result constants are pending follow-up slices.**
-  Owners (11 modules):
+  prewarm, result/full reset fanout — then the audio slice landed the
+  STAGE7_* game_audio routes (six one-shot SFX + stage7 BGM + stepped-boot
+  step). Prebattle video lifecycle and stage-clear result constants are
+  pending follow-up slices.**
+  Owners (9 committed modules; the prebattle pair below is NOT committed yet):
   - `stage7_akamu_state.gd` — single owner of boss gauge (round-persist:
     generation-guarded 0.7 score carry via `apply_score_round_carry`, generic
     resets are transient-only), awakening trigger/freeze, shadow clones,
@@ -4359,13 +4361,17 @@ This section is intentionally long; use search to find the nearest owner.
     (+ `_boss_skill_hud_assets.gd`, `_vfx_texture_cache.gd`) — render cluster;
     the skill-card gauge uses the shared
     `boss_skill_card_hud_spec.draw_skillcard_gauge_fill` cover-crop helper.
-  - `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
-    prebattle intro video pair; catalog/lifecycle wiring deferred to the
-    prebattle completion slice.
+  - PLANNED (uncommitted staged WIP — do not treat as live owners):
+    `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
+    prebattle intro video pair; files, catalog keys, and lifecycle wiring all
+    land together in the prebattle completion slice.
   - Sprite contract: nine 4x2 sheets (dash is native left/right, mirroring
     forbidden) — `docs/sprites/stage7_akamu_rigo.md` +
     `stage7_akamu_boss_sprite_manifest.json`.
-  - Regression guard: `tests/stage7_akamu_slice1_smoke.gd` (64 assertions) +
+  - Regression guard: `tests/stage7_akamu_slice1_smoke.gd` (routing, deps,
+    score-carry, freeze, collision + intangibility, prewarm dispatch,
+    overdrive committed-bounce gating, result-reset fanout) +
+    `tests/stage7_akamu_audio_smoke.gd` +
     `tests/boss_skill_card_shuffle_motion_smoke.gd`; later slices own the
     remaining `stage7_akamu_*` smokes.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
