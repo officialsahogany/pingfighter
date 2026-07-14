@@ -372,9 +372,10 @@ func _replay_ball_spawn_intro_for_stage_transition(owner: Object, registry: Obje
 	if stage_id == 7:
 		# 스테이지 6→7 전환은 볼 스폰만 재생하면 아카무 인트로 영상이 통째로
 		# 건너뛰어진다 — 프리배틀 엔트리를 재무장하고 전체 인트로 체인을
-		# 다시 시작한다. 전환 워크스텝 9가 이미 stage7 BGM을 틀었으므로
-		# BGM 래치도 풀어 영상 종료 후 정확히 1회 재시작되게 한다(영상
-		# 시작이 기존 BGM을 정지시킨다).
+		# 다시 시작한다. 전환 워크스텝 9는 스테이지 7에서 BGM을 틀지 않고
+		# 유예하므로(선재생→단절 왕복 방지), 여기서 BGM 래치를 풀어 영상
+		# 종료(또는 로드 실패 degradation) 후 랜딩 lifecycle이 정확히 1회
+		# 시작하게 한다.
 		var presentation: Object = _get_instance(registry, "stage7_akamu_prebattle_presentation")
 		if presentation != null and presentation.has_method("reset_for_stage_entry"):
 			presentation.reset_for_stage_entry(stage_id)

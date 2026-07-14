@@ -169,6 +169,46 @@ TMP_MANIFEST="$BACKUP_DIR/.tmp_$FINAL_MANIFEST"
 mv "$TMP_MANIFEST" "$BACKUP_DIR/$FINAL_MANIFEST"
 TMP_MANIFEST=""
 
+# --- 4.5) source_media 사이드카: 부패 감지 + D: 원본에서 원자 치유 ---
+# gitignore(*.mp4)로 스냅샷/번들에 못 들어가는 원본 미디어의 단일 사본 방지.
+# 진실 = source_media/MANIFEST.txt의 sha256 기록. 사이드카 해시가 다르면
+# D: 원본(stagevideo/<name>)이 기록과 일치할 때만 임시복사→해시→원자 rename.
+SM_DIR="$BACKUP_DIR/source_media"
+sm_verified=0
+sm_healed=0
+if [ -f "$SM_DIR/MANIFEST.txt" ]; then
+    while read -r name rest; do
+        case "$name" in \#*|"") continue ;; esac
+        want=$(printf '%s' "$rest" | tr ' ' '
+' | awk -F= '$1=="sha256"{print $2}')
+        [ -n "$want" ] || continue
+        dst="$SM_DIR/$name"
+        ok=0
+        if [ -f "$dst" ] && [ "$(sha256sum "$dst" | awk '{print $1}')" = "$want" ]; then
+            ok=1
+        fi
+        if [ "$ok" -ne 1 ]; then
+            src="$REPO/stagevideo/$name"
+            if [ -f "$src" ] && [ "$(sha256sum "$src" | awk '{print $1}')" = "$want" ]; then
+                SM_TMP=$(mktemp -p "$SM_DIR")
+                cp "$src" "$SM_TMP"
+                if [ "$(sha256sum "$SM_TMP" | awk '{print $1}')" != "$want" ]; then
+                    rm -f "$SM_TMP"
+                    echo "FATAL: source_media 치유 복사본 해시 불일치: $name" >&2
+                    exit 1
+                fi
+                mv "$SM_TMP" "$dst"
+                sm_healed=$((sm_healed + 1))
+            else
+                echo "FATAL: source_media 부패 감지 + D: 원본 불일치/부재: $name" >&2
+                exit 1
+            fi
+        fi
+        sm_verified=$((sm_verified + 1))
+    done < "$SM_DIR/MANIFEST.txt"
+    echo "source_media: verified=$sm_verified healed=$sm_healed"
+fi
+
 # --- 5) 단일 디스크립터 CURRENT.txt: 마지막에 원자 교체 ---
 assert_tip_stable
 {
@@ -176,6 +216,7 @@ assert_tip_stable
     echo "manifest=$FINAL_MANIFEST"
     echo "snapshot=$SNAP"
     echo "tip=$TIP"
+    echo "source_media_verified=$sm_verified"
 } > "$BACKUP_DIR/.tmp_CURRENT.txt"
 mv "$BACKUP_DIR/.tmp_CURRENT.txt" "$BACKUP_DIR/CURRENT.txt"
 echo "CURRENT.txt -> bundle=$FINAL_BUNDLE manifest=$FINAL_MANIFEST"

@@ -1,11 +1,15 @@
 extends SceneTree
 
+# expect-zero-object-leaks — run_smoke_tests.ps1이 종료 시 ObjectDB 누수
+# 경고를 이 스모크에 한해 실패로 승격한다(detached 영상 호스트/스트림 회수 봉인).
+
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage7AkamuPrebattlePresentation := preload("res://scripts/stages/stage7/stage7_akamu_prebattle_presentation.gd")
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
 const BattleSceneReadinessController := preload("res://scripts/core/battle_scene_readiness_controller.gd")
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 const BattleSceneMatchEventDriver := preload("res://scripts/core/battle_scene_match_event_driver.gd")
+const BattleSceneFlowController := preload("res://scripts/core/battle_scene_flow_controller.gd")
 
 const VIDEO_PATH := "res://assets/video/stage7_akamu_intro_v1.ogv"
 const MANIFEST_PATH := "res://assets/video/stage7_akamu_intro_v1_manifest.json"
@@ -236,6 +240,39 @@ func _verify_presentation_lifecycle_and_clip() -> void:
 	touch_skip.pressed = true
 	_expect(presentation.handle_input(touch_skip, owner, registry), "mobile screen touch should skip the cinematic while battle controls are gated")
 	presentation.update(0.51, owner, registry)
+
+	# 코덱스 P2 봉인: 스킵 입력 계약을 Space 한 종류에 묶지 않는다 — Enter,
+	# 좌클릭, 게임패드 A, 터치 전부 '실제 셸 입력 컨트롤러' 경유로 도달.
+	audio.muted = false
+	var enter_skip := InputEventKey.new()
+	enter_skip.pressed = true
+	enter_skip.keycode = KEY_ENTER
+	var mouse_skip := InputEventMouseButton.new()
+	mouse_skip.pressed = true
+	mouse_skip.button_index = MOUSE_BUTTON_LEFT
+	var joy_skip := InputEventJoypadButton.new()
+	joy_skip.pressed = true
+	joy_skip.button_index = JOY_BUTTON_A
+	var touch_skip_shell := InputEventScreenTouch.new()
+	touch_skip_shell.pressed = true
+	var skip_matrix := {
+		"enter": enter_skip,
+		"mouse_left": mouse_skip,
+		"gamepad_a": joy_skip,
+		"screen_touch": touch_skip_shell,
+	}
+	for skip_label in skip_matrix:
+		presentation.reset_for_stage_entry(7)
+		_expect(presentation.begin_video(owner, registry), "skip matrix (%s) should re-arm a fresh entry" % skip_label)
+		shell_input.handle_unhandled_input(skip_matrix[skip_label], owner, registry, Callable(registry, "get_instance"), {
+			"battle_initialized": true,
+			"stage_landing_intro_started": false,
+		})
+		_expect(
+			presentation.get_phase() == "fade",
+			"real shell input routing should skip the cinematic via %s" % skip_label
+		)
+		presentation.update(0.51, owner, registry)
 	presentation.reset_for_stage_entry(7)
 	_expect(presentation.begin_video(owner, registry), "result cleanup coverage should begin from a live video")
 	presentation.reset_for_result()
@@ -303,6 +340,79 @@ func _verify_boot_gate_and_transition_order() -> void:
 	_expect(stage6_audio.played_stages == [6], "non-stage-7 transitions should keep the step-9 BGM start")
 	transition_owner.free()
 
+	# 코덱스 P2 봉인: 실제 6→7 전환 연속 경로 — step 9 무재생 → 전환 완료
+	# replay(전체 인트로 재무장, BGM 래치 해제) → 영상 재생 중 무재생 →
+	# 영상 종료 후 랜딩 재진입에서 BGM 정확히 1회.
+	var chain_owner := OwnerProbe.new()
+	chain_owner.current_stage = 6
+	root.add_child(chain_owner)
+	var chain_audio := AudioProbe.new()
+	var chain_flow: Object = BattleSceneFlowController.new()
+	chain_flow.set("_battle_initialized", true)
+	chain_flow.set("_battle_bgm_started", true)
+	var chain_presentation: Object = Stage7AkamuPrebattlePresentation.new()
+	chain_presentation.set("_video_stream", ResourceLoader.load(VIDEO_PATH))
+	var chain_registry := RegistryProbe.new()
+	chain_registry.instances = {
+		"game_audio": chain_audio,
+		"battle_view_layout": BattleViewLayout.new(),
+		"battle_scene_flow_controller": chain_flow,
+		"stage7_akamu_prebattle_presentation": chain_presentation,
+	}
+	var chain_driver: Object = BattleSceneMatchEventDriver.new()
+	chain_driver.set("_stage_transition_loading_work_step", 9)
+	chain_driver._run_stage_transition_loading_work_step(chain_owner, chain_registry, 7)
+	_expect(chain_audio.played_stages.is_empty(), "chained 6->7 step 9 must not pre-play stage 7 BGM")
+	chain_driver._replay_ball_spawn_intro_for_stage_transition(chain_owner, chain_registry)
+	_expect(chain_presentation.get_phase() == "video", "transition replay should re-arm and start the cinematic")
+	_expect(chain_audio.played_stages.is_empty(), "BGM must stay deferred while the transition cinematic plays")
+	var chain_skip := InputEventKey.new()
+	chain_skip.pressed = true
+	chain_skip.keycode = KEY_SPACE
+	chain_presentation.handle_input(chain_skip, chain_owner, chain_registry)
+	chain_presentation.update(0.51, chain_owner, chain_registry)
+	chain_flow.begin_stage_landing_intro(
+		chain_owner,
+		chain_registry,
+		Callable(chain_registry, "get_instance"),
+		Callable(chain_registry, "get_instance")
+	)
+	_expect(chain_audio.played_stages == [7], "post-video landing re-entry should start stage 7 BGM exactly once")
+	chain_presentation.reset_for_result()
+	chain_presentation.tear_down()
+	chain_presentation.set("_video_stream", null)
+
+	# 로드 실패 degradation 연속 경로: 전환 replay가 실패 래치 상태의 영상을
+	# 만나면 즉시 정상 랜딩으로 진행하고 BGM도 1회 시작해야 한다(무음 금지).
+	var degraded_owner := OwnerProbe.new()
+	degraded_owner.current_stage = 6
+	root.add_child(degraded_owner)
+	var degraded_audio := AudioProbe.new()
+	var degraded_flow: Object = BattleSceneFlowController.new()
+	degraded_flow.set("_battle_initialized", true)
+	degraded_flow.set("_battle_bgm_started", true)
+	var degraded_presentation: Object = Stage7AkamuPrebattlePresentation.new()
+	degraded_presentation.set("_video_load_failed", true)
+	degraded_presentation.set("_missing_warning_emitted", true)
+	var degraded_registry := RegistryProbe.new()
+	degraded_registry.instances = {
+		"game_audio": degraded_audio,
+		"battle_scene_flow_controller": degraded_flow,
+		"stage7_akamu_prebattle_presentation": degraded_presentation,
+	}
+	var degraded_driver: Object = BattleSceneMatchEventDriver.new()
+	degraded_driver.set("_stage_transition_loading_work_step", 9)
+	degraded_driver._run_stage_transition_loading_work_step(degraded_owner, degraded_registry, 7)
+	degraded_driver._replay_ball_spawn_intro_for_stage_transition(degraded_owner, degraded_registry)
+	_expect(
+		degraded_flow.is_stage_landing_intro_started(),
+		"load-failed degradation should continue straight into the landing flow"
+	)
+	_expect(degraded_audio.played_stages == [7], "load-failed degradation must still start stage 7 BGM exactly once (no silent battle)")
+	degraded_presentation.tear_down()
+	chain_owner.free()
+	degraded_owner.free()
+
 
 func _verify_wiring_and_omission_contract() -> void:
 	var catalog := FileAccess.get_file_as_string("res://scripts/resources/gameplay_stage_module_catalog.gd")
@@ -368,14 +478,25 @@ func _verify_windowed_video_frame(
 	_expect(lit_samples >= 3, "windowed OGV decode should produce visible pixels inside the playfield clip")
 	var max_outside_rgb := _get_outside_band_max_rgb(image, game_offset, game_size, image_scale)
 	_expect(max_outside_rgb < 0.08, "cinematic animation should stay black across every available band outside the playfield clip")
-	var capture_path := "user://stage7_akamu_prebattle_video_windowed_%dx%d.png" % [
+	# 실행(타임스탬프)별 디렉터리에 PNG + 메트릭 + 영상 해시를 함께 보존한다
+	# — 고정 파일명 덮어쓰기로 과거 QA 증적이 사라지지 않게(코덱스 P2).
+	var qa_run_dir := "user://stage7_akamu_prebattle_qa/%s_%dx%d" % [
+		Time.get_datetime_string_from_system(false, true).replace(":", "-").replace(" ", "_").replace("T", "_"),
 		image.get_width(),
 		image.get_height(),
 	]
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(qa_run_dir))
+	var capture_path := "%s/frame.png" % qa_run_dir
 	var save_error := image.save_png(capture_path)
 	_expect(save_error == OK, "windowed Stage 7 video QA frame should save")
 	if save_error == OK:
 		print("stage7_akamu_prebattle_video_windowed_capture: %s" % ProjectSettings.globalize_path(capture_path))
+	var metrics_file := FileAccess.open("%s/metrics.txt" % qa_run_dir, FileAccess.WRITE)
+	if metrics_file != null:
+		metrics_file.store_line("video_sha256=%s" % EXPECTED_VIDEO_SHA256)
+		metrics_file.store_line("viewport=%s image=%s scale=%s" % [viewport_size, image.get_size(), image_scale])
+		metrics_file.store_line("lit_samples=%d max_outside_rgb=%.4f" % [lit_samples, max_outside_rgb])
+		metrics_file.close()
 
 	var signature_targets_msec := [2500, 5000, 9000]
 	var frame_signatures: Array[Array] = []
@@ -412,6 +533,12 @@ func _verify_windowed_video_frame(
 		"stage7_akamu_prebattle_video_windowed_metrics: logical=%s image=%s scale=%s max_outside_rgb=%.4f natural_end=%.3fs"
 		% [viewport_size, image.get_size(), image_scale, max_outside_rgb, natural_end_seconds]
 	)
+	var metrics_append := FileAccess.open("%s/metrics.txt" % qa_run_dir, FileAccess.READ_WRITE)
+	if metrics_append != null:
+		metrics_append.seek_end()
+		metrics_append.store_line("natural_end_seconds=%.3f" % natural_end_seconds)
+		metrics_append.store_line("frame_signatures=%d" % frame_signatures.size())
+		metrics_append.close()
 	if natural_end_reached:
 		presentation.update(0.51, owner, registry)
 

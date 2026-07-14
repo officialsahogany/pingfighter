@@ -219,7 +219,9 @@ func _is_threaded_prewarm_in_flight(module_getter: Callable) -> bool:
 	# Stage 7 프리배틀 영상은 ResourceLoader에 직접 스레드 요청을 건다(공유
 	# 슬롯 밖). in-flight를 여기 등재하지 않으면 budgeted 루프가 같은 스텝을
 	# 프레임당 128회 폴링해 냉부트에서 poll 예산이 수 프레임 만에 소진된다.
-	var stage7_prebattle: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	# 캐시 peek 전용 — 타 스테이지 부트에서 Stage 7 presentation을 생성하지
+	# 않는다(핫패스 lazy-init 금지와 같은 취지).
+	var stage7_prebattle: Object = _peek_cached_module(module_getter, "stage7_akamu_prebattle_presentation")
 	if (
 		stage7_prebattle != null
 		and stage7_prebattle.has_method("is_video_thread_load_in_flight")
@@ -556,3 +558,17 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	if typeof(module) == TYPE_OBJECT and is_instance_valid(module):
 		return module as Object
 	return null
+
+
+func _peek_cached_module(module_getter: Callable, key: String) -> Object:
+	# 레지스트리가 비생성 peek(get_cached_instance)를 제공하면 그것만 쓴다 —
+	# 미등록 키를 여기서 get_instance로 조회하면 모듈이 '생성'된다.
+	if not module_getter.is_valid():
+		return null
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner != null and is_instance_valid(callable_owner) and callable_owner.has_method("get_cached_instance"):
+		var cached: Variant = callable_owner.call("get_cached_instance", key)
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			return cached as Object
+		return null
+	return _get_module(module_getter, key)

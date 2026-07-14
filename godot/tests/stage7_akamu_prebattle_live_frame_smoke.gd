@@ -1,5 +1,8 @@
 extends SceneTree
 
+# expect-zero-object-leaks — run_smoke_tests.ps1이 종료 시 ObjectDB 누수
+# 경고를 이 스모크에 한해 실패로 승격한다(라이브 셸/컨트롤러 회수 봉인).
+
 const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
 const BattleSceneIntroFrameController := preload("res://scripts/core/battle_scene_intro_frame_controller.gd")
 const BattleLoadingScreenRenderer := preload("res://scripts/core/battle_loading_screen_renderer.gd")
@@ -89,6 +92,12 @@ class AudioProbe:
 		pass
 
 
+class SingleFrameOwner:
+	extends Node2D
+
+	var current_stage := 7
+
+
 class LiveBattleShellProbe:
 	extends "res://scripts/core/battle_scene_shell.gd"
 
@@ -170,6 +179,47 @@ func _run() -> void:
 	_expect(flow.is_stage_landing_intro_started(), "live shell should leave the video and start landing without a loading-hold softlock")
 	_expect(frames_after_landing >= 3, "live shell should keep pumping after the post-video landing handoff")
 	_expect(audio.played_stages == [7], "live shell should start Stage 7 BGM exactly once after video completion")
+
+	# 코덱스 P2 봉인: 완료 프레임에 로딩 화면이 1프레임 재출현하지 않으려면
+	# '같은 process_idle 1회' 안에서 완료 update → 랜딩 시작으로 이어져야
+	# 한다(다음 프레임 랜딩만 보장하는 16프레임 대기 봉인으론 구식 return이
+	# 통과). 완료 직전 상태의 프레젠테이션으로 1회 호출을 직접 검증.
+	var single_registry := RegistryProbe.new()
+	var single_flow := BattleSceneFlowController.new()
+	single_flow.set("_battle_initialized", true)
+	var single_presentation := PresentationProbe.new()
+	single_presentation.active = true
+	single_presentation.update_calls = 1
+	var single_audio := AudioProbe.new()
+	var single_owner := SingleFrameOwner.new()
+	root.add_child(single_owner)
+	single_registry.instances = {
+		"stage7_akamu_prebattle_presentation": single_presentation,
+		"game_audio": single_audio,
+	}
+	var single_getter := Callable(single_registry, "get_instance")
+	var single_callbacks := {
+		"is_battle_initialized": Callable(single_flow, "is_battle_initialized"),
+		"is_stage_landing_intro_started": Callable(single_flow, "is_stage_landing_intro_started"),
+		"begin_stage_landing_intro": Callable(single_flow, "begin_stage_landing_intro").bind(
+			single_owner, single_registry, single_getter, single_getter
+		),
+	}
+	var single_result := bool(BattleSceneIntroFrameController.new().process_idle(
+		0.016, single_owner, single_registry, single_getter, single_callbacks
+	))
+	_expect(single_presentation.update_calls == 2 and single_presentation.completed, "single-call leg precondition: this process_idle should complete the video")
+	_expect(
+		single_flow.is_stage_landing_intro_started(),
+		"video completion must fall through to landing within the SAME process_idle call (no one-frame loading flash)"
+	)
+	_expect(single_audio.played_stages == [7], "same-call fall-through should also start stage 7 BGM once")
+	_expect(
+		not single_result,
+		"the completing call should hand the frame to the battle scene (returning intro ownership would draw the loading screen once more)"
+	)
+	single_owner.queue_free()
+	await process_frame
 
 	shell.process_mode = Node.PROCESS_MODE_DISABLED
 	shell.set_process(false)

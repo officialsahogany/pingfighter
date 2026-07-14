@@ -232,8 +232,8 @@ def main() -> int:
         # 라이브 센티널 = 디렉터리 '전체' 파일명 집합 + 각 파일 해시(기대
         # 10파일만 해싱하면 신규 파일 기록 회귀를 놓친다).
         sentinel_before = {
-            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in live_dir.iterdir()
+            path.relative_to(live_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in live_dir.rglob("*")
             if path.is_file()
         }
         for name in authoritative_files:
@@ -243,8 +243,8 @@ def main() -> int:
         e2e_export = Path(report["export_dir"])
         try:
             sentinel_after = {
-                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in live_dir.iterdir()
+                path.relative_to(live_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in live_dir.rglob("*")
                 if path.is_file()
             }
             check(
