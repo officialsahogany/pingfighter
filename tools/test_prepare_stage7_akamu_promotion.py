@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Committed regression tests for the stage7 Akamu staging→verify→promote path.
+"""Committed regression tests for the stage7 Akamu staging/verification path.
 
 Run: python tools/test_prepare_stage7_akamu_promotion.py
-Exits non-zero on the first failure.  Covers the Codex review cases: exact
-whitelist (extra-file rejection), manifest sha256/dup-state/path/grid checks,
-manifest-last replacement ordering, and mid-set failure injection with full
-rollback (no mixed live directory).
+Exits non-zero on the first failure.
+
+The tool has NO live-promotion path (removed 2026-07-14 — per-file replacement
+cannot be made set-atomic against interrupts).  These tests seal:
+- the staged-set verification rejections (missing/extra file, sheet raster,
+  manifest sha256 / duplicate state / path / grid fields),
+- the manifest policy-string seal (a re-run cannot roll back the demotion /
+  provenance notes), and
+- the no-promotion-entry-point guard (the module must never regrow a
+  promotion helper or a --promote flag).
 """
 
 from __future__ import annotations
@@ -20,9 +26,8 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-_SPEC = importlib.util.spec_from_file_location(
-    "prepare_stage7_akamu_sprites", ROOT / "tools" / "prepare_stage7_akamu_sprites.py"
-)
+TOOL_PATH = ROOT / "tools" / "prepare_stage7_akamu_sprites.py"
+_SPEC = importlib.util.spec_from_file_location("prepare_stage7_akamu_sprites", TOOL_PATH)
 prep = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(prep)
 
@@ -49,7 +54,10 @@ def build_valid_staging(base: Path) -> Path:
     assets = []
     for key in prep.SOURCE_FILES:
         sheet_path = staging / f"stage7_akamu_boss_{key}.png"
-        image = Image.new("RGBA", (prep.OUTPUT_CELL_SIZE * prep.OUTPUT_COLS, prep.OUTPUT_CELL_SIZE * prep.OUTPUT_ROWS))
+        image = Image.new(
+            "RGBA",
+            (prep.OUTPUT_CELL_SIZE * prep.OUTPUT_COLS, prep.OUTPUT_CELL_SIZE * prep.OUTPUT_ROWS),
+        )
         image.putpixel((0, 0), (len(key) % 256, 0, 0, 255))
         image.save(sheet_path)
         assets.append({
@@ -64,8 +72,13 @@ def build_valid_staging(base: Path) -> Path:
             "height": prep.OUTPUT_CELL_SIZE * prep.OUTPUT_ROWS,
             "sha256": hashlib.sha256(sheet_path.read_bytes()).hexdigest(),
         })
+    manifest = {
+        "postprocess": prep.MANIFEST_POSTPROCESS_NOTE,
+        "native_direction_policy": prep.MANIFEST_NATIVE_DIRECTION_POLICY,
+        "assets": assets,
+    }
     (staging / prep.MANIFEST_NAME).write_text(
-        json.dumps({"assets": assets}, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return staging
 
@@ -78,125 +91,108 @@ def rewrite_manifest(staging: Path, mutate) -> None:
     )
 
 
-def snapshot_dir(path: Path) -> dict[str, str]:
-    return {
-        child.name: hashlib.sha256(child.read_bytes()).hexdigest()
-        for child in path.iterdir()
-        if child.is_file()
-    }
-
-
-def make_live_with_old_set(base: Path) -> Path:
-    live = base / "live"
-    live.mkdir(parents=True, exist_ok=True)
-    for name in prep._expected_export_files():
-        (live / name).write_bytes(b"OLD:" + name.encode("utf-8"))
-    return live
-
-
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp_name:
         tmp = Path(tmp_name)
 
-        # 1) incomplete set rejected
-        staging = build_valid_staging(tmp / "case1")
+        # 1) valid staged set verifies clean
+        staging = build_valid_staging(tmp / "case_ok")
+        prep._verify_staged_export(staging)
+
+        # 2) incomplete set rejected
+        staging = build_valid_staging(tmp / "case_missing")
         (staging / "stage7_akamu_boss_stun.png").unlink()
         expect_value_error(lambda: prep._verify_staged_export(staging), "incomplete set must be rejected")
 
-        # 2) extra (foreign importer sidecar) file rejected
-        staging = build_valid_staging(tmp / "case2")
+        # 3) extra (foreign importer sidecar) file rejected
+        staging = build_valid_staging(tmp / "case_extra")
         (staging / "foreign.import").write_text("stale", encoding="utf-8")
         expect_value_error(lambda: prep._verify_staged_export(staging), "extra non-contract file must be rejected")
 
-        # 3) manifest sha256 mismatch rejected
-        staging = build_valid_staging(tmp / "case3")
+        # 4) wrong raster size rejected
+        staging = build_valid_staging(tmp / "case_raster")
+        Image.new("RGBA", (512, 512)).save(staging / "stage7_akamu_boss_attack.png")
+        expect_value_error(lambda: prep._verify_staged_export(staging), "wrong sheet raster must be rejected")
+
+        # 5) manifest sha256 mismatch rejected
+        staging = build_valid_staging(tmp / "case_hash")
         rewrite_manifest(staging, lambda m: m["assets"][0].__setitem__("sha256", "0" * 64))
         expect_value_error(lambda: prep._verify_staged_export(staging), "manifest sha256 mismatch must be rejected")
 
-        # 4) duplicate asset states rejected
-        staging = build_valid_staging(tmp / "case4")
+        # 6) duplicate asset states rejected
+        staging = build_valid_staging(tmp / "case_dup")
         rewrite_manifest(staging, lambda m: m["assets"].append(dict(m["assets"][0])))
         expect_value_error(lambda: prep._verify_staged_export(staging), "duplicate manifest states must be rejected")
 
-        # 5) wrong grid field rejected
-        staging = build_valid_staging(tmp / "case5")
+        # 7) wrong grid field rejected
+        staging = build_valid_staging(tmp / "case_grid")
         rewrite_manifest(staging, lambda m: m["assets"][2].__setitem__("frames", 9))
         expect_value_error(lambda: prep._verify_staged_export(staging), "wrong grid/frame field must be rejected")
 
-        # 6) wrong asset path rejected
-        staging = build_valid_staging(tmp / "case6")
+        # 8) wrong asset path rejected
+        staging = build_valid_staging(tmp / "case_path")
         rewrite_manifest(staging, lambda m: m["assets"][3].__setitem__("path", "res://wrong.png"))
         expect_value_error(lambda: prep._verify_staged_export(staging), "wrong manifest asset path must be rejected")
 
-        # 7) valid set verifies and promotes atomically over an old live set
-        staging = build_valid_staging(tmp / "case7")
-        prep._verify_staged_export(staging)
-        staged_snapshot = snapshot_dir(staging)
-        live = make_live_with_old_set(tmp / "case7")
-        prep._promote_staged_export(staging, live)
-        check(snapshot_dir(live) == staged_snapshot, "promotion must land exactly the staged whitelist set")
-        check(not staging.exists(), "promotion must consume the staging directory")
+        # 9) policy-string seal: a manifest that rolls back the demotion note is rejected
+        staging = build_valid_staging(tmp / "case_policy_post")
+        rewrite_manifest(staging, lambda m: m.__setitem__(
+            "postprocess",
+            "tools/prepare_stage7_akamu_sprites.py; one fixed NEAREST transform per sheet.",
+        ))
+        expect_value_error(
+            lambda: prep._verify_staged_export(staging),
+            "postprocess rollback must be rejected by the policy seal",
+        )
+        staging = build_valid_staging(tmp / "case_policy_dir")
+        rewrite_manifest(staging, lambda m: m.__setitem__(
+            "native_direction_policy",
+            "walk_left and walk_right are separate accepted AutoSprite motions.",
+        ))
+        expect_value_error(
+            lambda: prep._verify_staged_export(staging),
+            "direction-policy rollback must be rejected by the policy seal",
+        )
 
-        # 8) manifest must be the LAST replacement
-        staging = build_valid_staging(tmp / "case8")
-        live = make_live_with_old_set(tmp / "case8")
-        order: list[str] = []
-        original_replace = prep._replace_file
+        # 10) generator emits exactly the sealed policy strings — assert the
+        # template dict literally references the shared constants (no inline
+        # drift copies).
+        tool_source = TOOL_PATH.read_text(encoding="utf-8")
+        check(
+            '"postprocess": MANIFEST_POSTPROCESS_NOTE' in tool_source
+            and '"native_direction_policy": MANIFEST_NATIVE_DIRECTION_POLICY' in tool_source,
+            "generator must emit the shared policy constants (no inline drift copies)",
+        )
 
-        def recording_replace(source: Path, destination: Path) -> None:
-            order.append(destination.name)
-            original_replace(source, destination)
+        # 11) live authoritative manifest matches the shared constants
+        live_manifest_path = (
+            ROOT / "godot" / "assets" / "sprites" / "bosses" / "stage7_akamu" / prep.MANIFEST_NAME
+        )
+        live_manifest = json.loads(live_manifest_path.read_text(encoding="utf-8"))
+        check(
+            str(live_manifest.get("postprocess", "")) == prep.MANIFEST_POSTPROCESS_NOTE,
+            "live manifest postprocess must equal the shared constant",
+        )
+        check(
+            str(live_manifest.get("native_direction_policy", "")) == prep.MANIFEST_NATIVE_DIRECTION_POLICY,
+            "live manifest native_direction_policy must equal the shared constant",
+        )
 
-        prep._replace_file = recording_replace
-        try:
-            prep._promote_staged_export(staging, live)
-        finally:
-            prep._replace_file = original_replace
-        check(len(order) == 10 and order[-1] == prep.MANIFEST_NAME, "manifest must be replaced last")
-
-        # 9) mid-set failure injection → full rollback, live untouched
-        staging = build_valid_staging(tmp / "case9")
-        live = make_live_with_old_set(tmp / "case9")
-        old_snapshot = snapshot_dir(live)
-        calls = {"n": 0}
-
-        def failing_replace(source: Path, destination: Path) -> None:
-            calls["n"] += 1
-            if calls["n"] == 7:
-                raise OSError("injected mid-set failure")
-            original_replace(source, destination)
-
-        prep._replace_file = failing_replace
-        raised = False
-        try:
-            prep._promote_staged_export(staging, live)
-        except OSError:
-            raised = True
-        finally:
-            prep._replace_file = original_replace
-        check(raised, "mid-set failure must propagate")
-        check(snapshot_dir(live) == old_snapshot, "mid-set failure must roll the live directory back to the pre-promotion set")
-
-        # 10) mid-set failure with an EMPTY live directory → rollback removes partial files
-        staging = build_valid_staging(tmp / "case10")
-        live = tmp / "case10" / "live"
-        live.mkdir(parents=True)
-        calls["n"] = 0
-        prep._replace_file = failing_replace
-        raised = False
-        try:
-            prep._promote_staged_export(staging, live)
-        except OSError:
-            raised = True
-        finally:
-            prep._replace_file = original_replace
-        check(raised, "mid-set failure on empty live must propagate")
-        check(snapshot_dir(live) == {}, "mid-set failure on empty live must leave no partial files behind")
+        # 12) no-promotion-entry-point guard
+        check(
+            not hasattr(prep, "_promote_staged_export") and not hasattr(prep, "_replace_file"),
+            "module must not expose a promotion helper",
+        )
+        check("--promote" not in tool_source, "tool must not expose a --promote flag")
+        check(
+            "def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> " in tool_source,
+            "prepare() must not accept a promote parameter",
+        )
 
     if FAILURES:
         print(f"{len(FAILURES)} failure(s)")
         return 1
-    print("test_prepare_stage7_akamu_promotion: ok (10 cases)")
+    print("test_prepare_stage7_akamu_promotion: ok (12 cases)")
     return 0
 
 

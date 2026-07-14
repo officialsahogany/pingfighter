@@ -85,15 +85,18 @@ contract in the present environment (the canonical run below fails on the
 missing dash L/R sources by design). The asset authority is the committed
 runtime PNG set plus `stage7_akamu_boss_sprite_manifest.json` (sha256
 re-measured 2026-07-14). The tool becomes runnable again only after per-side
-dash sources (and matching walk/attack sources) are restored. The tool now
-renders into a run-unique staging directory OUTSIDE `res://` (so the Godot
-importer cannot mint `.import` sidecars into the staged set) and by DEFAULT
-never touches the live directory — it stops at the verified staging set.
-Replacing the live sheets requires an explicit `--promote`, which enforces an
-exact file whitelist, backs up the live set, replaces the manifest last, and
-rolls back fully on any mid-set failure. The committed regression tests live
-at `tools/test_prepare_stage7_akamu_promotion.py` (10 cases including
-extra-file rejection, manifest-hash mismatch, and mid-set failure rollback).
+dash sources (and matching walk/attack sources) are restored. The tool renders
+into a run-unique staging directory OUTSIDE `res://` (so the Godot importer
+cannot mint `.import` sidecars into the staged set) and ALWAYS stops at the
+verified staging set — it has **no live-promotion path** (removed 2026-07-14:
+per-file replacement cannot be made set-atomic against interrupts, so any
+scripted promotion risks a mixed live directory). Updating the live sheets is
+a manual, reviewed copy-and-commit of a verified staging set. The staged
+manifest's `postprocess` / `native_direction_policy` strings are sealed to the
+authoritative demotion/provenance notes via shared module constants, so a tool
+re-run cannot roll those notes back. Committed regression tests:
+`tools/test_prepare_stage7_akamu_promotion.py` (verification rejections,
+policy-string seal, and no-promotion-entry-point guard).
 
 Historical invocation, from the repository root with the bundled/Pillow-capable
 Python runtime:

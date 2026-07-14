@@ -8,10 +8,12 @@ in the present environment CANNOT reproduce the committed 9-sheet live
 contract.  The committed runtime PNGs plus
 `stage7_akamu_boss_sprite_manifest.json` are the asset authority; re-running
 this tool is only valid after the per-side dash sources (and matching walk /
-attack sources) are restored.  To keep an accidental run from clobbering the
-live sheets with a partial export, `prepare()` renders into a temporary
-staging directory, verifies the full 9-sheet + manifest set, and only then
-promotes the files atomically over the live directory.
+attack sources) are restored.  This tool has NO live-promotion path (removed
+2026-07-14 after a Codex review showed per-file replacement cannot be made
+set-atomic against interrupts): `prepare()` renders into a run-unique staging
+directory OUTSIDE res://, verifies the full 9-sheet + manifest set, and stops
+there.  Updating the live runtime sheets is always a manual, reviewed
+copy-and-commit of a verified staging set.
 
 AutoSprite exports eight 512x512 frames in a 3x3 atlas.  The live renderer
 uses deterministic 4x2 atlases with 256x256 cells so battle entry never has
@@ -25,7 +27,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -383,9 +384,9 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
             "idle",
         ],
         "grid_authority_note": "All nine accepted runtime sheets are deterministic 4x2 exports with 256px cells and eight row-major frames.",
-        "postprocess": "tools/prepare_stage7_akamu_sprites.py; one fixed NEAREST transform per sheet, with defeat-only per-frame ground anchoring; no runtime slicing or alpha scan.",
+        "postprocess": MANIFEST_POSTPROCESS_NOTE,
         "result_reuse": "The Stage 7 clear-result actor loads the same stage7_akamu_boss_defeat.png sheet.",
-        "native_direction_policy": "walk_left/walk_right AND dash_left/dash_right are separate accepted AutoSprite motions; runtime horizontal mirroring is forbidden for both families.",
+        "native_direction_policy": MANIFEST_NATIVE_DIRECTION_POLICY,
         "assets": assets,
         "rejected_candidates": REJECTED_CANDIDATES,
     }
@@ -395,6 +396,28 @@ def _write_runtime_manifest(report: dict[str, Any], output_dir: Path) -> Path:
 
 
 MANIFEST_NAME = "stage7_akamu_boss_sprite_manifest.json"
+
+# Single source of truth for the manifest's policy strings.  The generator
+# emits EXACTLY these, and _verify_staged_export refuses a staged manifest
+# whose fields differ — so a tool re-run can never silently roll back the
+# 2026-07-14 demotion / provenance-uncertainty notes in the live manifest.
+MANIFEST_POSTPROCESS_NOTE = (
+    "HISTORICAL: tools/prepare_stage7_akamu_sprites.py (one fixed NEAREST transform per "
+    "sheet, defeat-only per-frame ground anchoring; no runtime slicing or alpha scan). "
+    "Demoted 2026-07-14: the WIP destruction lost the dash L/R split-session sources and "
+    "the exact transforms behind the current walk_left/walk_right/attack sheets, so the "
+    "tool cannot reproduce this committed 9-sheet set; THIS manifest plus the committed "
+    "PNGs are the asset authority (sha256 re-measured 2026-07-14). The tool renders and "
+    "verifies a staging set outside res:// only and has NO live-promotion path; updating "
+    "the live sheets is a manual, reviewed copy + commit."
+)
+MANIFEST_NATIVE_DIRECTION_POLICY = (
+    "walk_left/walk_right AND dash_left/dash_right are separate accepted AutoSprite "
+    "motions; runtime horizontal mirroring is forbidden for both families. The exact "
+    "generation provenance of the current walk_left/walk_right/attack exports is "
+    "uncertain (pre-destruction tool hashes did not match; file facts re-measured "
+    "2026-07-14 against the live-QA sheets)."
+)
 
 
 def _expected_export_files() -> list[str]:
@@ -433,6 +456,14 @@ def _verify_staged_export(staging_dir: Path) -> None:
                 )
 
     manifest = json.loads((staging_dir / MANIFEST_NAME).read_text(encoding="utf-8"))
+    if str(manifest.get("postprocess", "")) != MANIFEST_POSTPROCESS_NOTE:
+        raise ValueError(
+            "Staged manifest postprocess text diverges from the authoritative demotion note"
+        )
+    if str(manifest.get("native_direction_policy", "")) != MANIFEST_NATIVE_DIRECTION_POLICY:
+        raise ValueError(
+            "Staged manifest native_direction_policy diverges from the authoritative policy text"
+        )
     assets = manifest.get("assets", [])
     states = [str(asset.get("state", "")) for asset in assets]
     if len(states) != len(set(states)):
@@ -467,49 +498,15 @@ def _verify_staged_export(staging_dir: Path) -> None:
             )
 
 
-def _replace_file(source: Path, destination: Path) -> None:
-    """Single-file replace, factored out so tests can inject mid-set failures."""
-    source.replace(destination)
+# NO live-promotion helper exists on purpose (Codex 2026-07-14): per-file
+# Path.replace cannot be made set-atomic against interrupts (a KeyboardInterrupt
+# between replace and bookkeeping, or a failing rollback copy, leaves a mixed
+# live directory).  The regression test asserts this module never regrows a
+# promotion entry point.  Updating the live sheets = manual, reviewed
+# copy-and-commit of a verified staging set.
 
 
-def _promote_staged_export(staging_dir: Path, output_dir: Path) -> None:
-    """Whitelist-only, backup+rollback promotion; the manifest lands LAST.
-
-    `Path.replace` is only atomic per file, so a mid-set failure would leave a
-    mixed live directory.  Every live file is backed up first; on any failure
-    the backup is restored before re-raising, and the manifest is always the
-    final replacement so a live manifest never describes half-promoted sheets.
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    ordered_names = [name for name in _expected_export_files() if name != MANIFEST_NAME]
-    ordered_names.append(MANIFEST_NAME)
-
-    backup_dir = Path(tempfile.mkdtemp(prefix="stage7_akamu_live_backup_"))
-    backed_up: list[str] = []
-    for file_name in ordered_names:
-        live_path = output_dir / file_name
-        if live_path.is_file():
-            shutil.copy2(live_path, backup_dir / file_name)
-            backed_up.append(file_name)
-
-    replaced: list[str] = []
-    try:
-        for file_name in ordered_names:
-            _replace_file(staging_dir / file_name, output_dir / file_name)
-            replaced.append(file_name)
-    except BaseException:
-        for file_name in replaced:
-            if file_name in backed_up:
-                shutil.copy2(backup_dir / file_name, output_dir / file_name)
-            else:
-                (output_dir / file_name).unlink(missing_ok=True)
-        raise
-    finally:
-        shutil.rmtree(backup_dir, ignore_errors=True)
-    shutil.rmtree(staging_dir, ignore_errors=True)
-
-
-def prepare(source_dir: Path, output_dir: Path, qa_path: Path, promote: bool = False) -> dict[str, Any]:
+def prepare(source_dir: Path, output_dir: Path, qa_path: Path) -> dict[str, Any]:
     source_paths = {key: source_dir / file_name for key, file_name in SOURCE_FILES.items()}
     missing = [path for path in source_paths.values() if not path.is_file()]
     if missing:
@@ -524,10 +521,9 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path, promote: bool = F
 
     # Render into a run-unique staging directory OUTSIDE the Godot project
     # (never under res://, so the importer cannot mint `.import` sidecars into
-    # the staged set and parallel runs cannot collide).  By default the run
-    # STOPS at the verified staging set; the live directory is only touched
-    # with an explicit promote=True (whitelist + backup + rollback,
-    # manifest-last).
+    # the staged set and parallel runs cannot collide).  The run always STOPS
+    # at the verified staging set — there is no code path that touches the
+    # live directory.
     staging_root = ROOT / ".tmp" / "stage7_akamu_sprite"
     staging_root.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(tempfile.mkdtemp(prefix="staging_", dir=staging_root))
@@ -558,12 +554,8 @@ def prepare(source_dir: Path, output_dir: Path, qa_path: Path, promote: bool = F
     _write_runtime_manifest(report, staging_dir)
     _verify_staged_export(staging_dir)
     report["staging_dir"] = staging_dir.as_posix()
-    report["promoted"] = bool(promote)
-    if promote:
-        _promote_staged_export(staging_dir, output_dir)
-        report["manifest"] = (output_dir / MANIFEST_NAME).relative_to(ROOT).as_posix()
-    else:
-        report["manifest"] = (staging_dir / MANIFEST_NAME).as_posix()
+    report["live_dir_untouched"] = output_dir.as_posix()
+    report["manifest"] = (staging_dir / MANIFEST_NAME).as_posix()
     return report
 
 
@@ -572,15 +564,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--qa-output", type=Path, default=DEFAULT_QA_PATH)
-    parser.add_argument(
-        "--promote",
-        action="store_true",
-        help=(
-            "Replace the LIVE runtime sheets with the verified staged set "
-            "(whitelist + backup + rollback, manifest last). Default is "
-            "staging-only: the live directory is never touched."
-        ),
-    )
     return parser.parse_args()
 
 
@@ -590,13 +573,11 @@ def main() -> None:
         args.source_dir.resolve(),
         args.output_dir.resolve(),
         args.qa_output.resolve(),
-        promote=args.promote,
     )
     print(json.dumps({
         "animations": len(report["animations"]),
-        "promoted": report["promoted"],
         "staging_dir": report["staging_dir"],
-        "output_dir": args.output_dir.resolve().as_posix(),
+        "live_dir_untouched": report["live_dir_untouched"],
         "qa_output": args.qa_output.resolve().as_posix(),
         "manifest": report["manifest"],
     }, ensure_ascii=False))
