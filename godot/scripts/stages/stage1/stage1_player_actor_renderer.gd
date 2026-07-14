@@ -417,8 +417,7 @@ func draw(
 		_draw_player_slow_wave(canvas, drawn_player_visual_rect, player_slow_ratio)
 	if bool(context.get("active_item_aipill_active", false)):
 		_draw_aipill_system_label(canvas, drawn_player_visual_rect)
-	if status_overlay_renderer != null and status_overlay_renderer.has_method("draw_player_status_overlays"):
-	elif horn_strawberry_event_playing:
+	if horn_strawberry_event_playing:
 		# Python parity: transform/detransform events HIDE the normal paddle
 		# (_horn_strawberry_hide_paddle = is_transformed OR is_event_playing).
 		# During the first 35% of the transform event the REAL character sprite
@@ -437,6 +436,18 @@ func draw(
 				paddle_size,
 				shake_offset
 			)
+		status_overlay_renderer.draw_player_status_overlays(
+			canvas,
+			context,
+			player_pos,
+			paddle_size,
+			drawn_player_visual_rect,
+			shake_offset
+		)
+	elif status_overlay_renderer != null and status_overlay_renderer.has_method("draw_player_status_overlays"):
+		# Normal state (no horn cinematic): draw the player status overlays on top
+		# of the already-drawn sprite. Restores the `if` body lost in the committed
+		# WIP; horn now takes priority (the status-first ordering skipped horn).
 		status_overlay_renderer.draw_player_status_overlays(
 			canvas,
 			context,
@@ -1272,6 +1283,10 @@ func _draw_curse_reverse_head_effect(canvas: CanvasItem, player_visual_rect: Rec
 	var font_size := 14
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var pos := center + Vector2(-text_size.x * 0.5, -12.0)
+	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.72 * alpha))
+	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.68, 0.86, 0.95 * alpha))
+
+
 # Python parity: during the horn strawberry TRANSFORM event the real character
 # sprite floats up (-80px, ease-out 1-(1-t)^2) over the first 35% of the 4.5s
 # cinematic, mirroring the original's captured-paddle-snapshot rise. Returns
@@ -1288,10 +1303,6 @@ func horn_strawberry_event_sprite_rise_offset(horn_context: Dictionary) -> Vecto
 	var p: float = clamp(progress / 0.35, 0.0, 1.0)
 	var rise_ease: float = 1.0 - (1.0 - p) * (1.0 - p)
 	return Vector2(0.0, -80.0 * rise_ease)
-
-
-	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.72 * alpha))
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.68, 0.86, 0.95 * alpha))
 
 
 func _draw_aipill_system_label(canvas: CanvasItem, player_visual_rect: Rect2) -> void:

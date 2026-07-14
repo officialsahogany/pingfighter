@@ -225,6 +225,7 @@ static func compute_dash_recovery_frames(runtime_perk_state: Object, registry: O
 
 
 static func compute_dash_recharge_frames(runtime_perk_state: Object, registry: Object, collector: Variant = null, mythic_item_runtime_override: Object = null, active_item_runtime_override: Object = null) -> float:
+	var frames: float = DASH_BASE_RECHARGE_FRAMES
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_dash_recharge_frames"):
 		var perk_frames: float = float(runtime_perk_state.get_dash_recharge_frames(frames))
 		_collect_dash_stat_step(collector, "perk", frames, perk_frames)
