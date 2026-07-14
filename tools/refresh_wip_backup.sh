@@ -41,6 +41,7 @@ TMP_MANIFEST=""
 SNAP_OIDS=""
 SIDE_TMP=""
 SM_TMP=""
+SM_FROZEN=""
 cleanup() {
     rm -rf "$LOCK_DIR"
     [ -n "$TMP_INDEX" ] && rm -f "$TMP_INDEX"
@@ -49,6 +50,7 @@ cleanup() {
     [ -n "$SNAP_OIDS" ] && rm -f "$SNAP_OIDS"
     [ -n "$SIDE_TMP" ] && rm -f "$SIDE_TMP"
     [ -n "$SM_TMP" ] && rm -f "$SM_TMP"
+    [ -n "$SM_FROZEN" ] && rm -f "$SM_FROZEN"
 }
 # EXIT 트랩은 정리 전용. INT/TERM은 반드시 exit로 승격해야 한다 — Git Bash에서
 # 'trap cleanup INT'만 걸면 핸들러 실행 후 본문이 계속 돌며(잠금은 이미 삭제됨)
@@ -185,10 +187,16 @@ if [ ! -f "$SM_DIR/MANIFEST.txt" ]; then
     echo "FATAL: source_media MANIFEST.txt 부재 — 원본 미디어 사이드카 검증 불가, 중단" >&2
     exit 1
 fi
+# TOCTOU 차단: live MANIFEST를 실행 초기에 임시파일로 '동결'하고, 필수항목
+# 검사·provenance 대조·object 검증·최종 해시·버전 발행 전부 이 동결본만
+# 읽는다 — object 검증 직후 H1→H2 교체가 끼어들어 H1 object+H2 manifest
+# 조합이 CURRENT에 발행되는 경합 제거.
+SM_FROZEN=$(mktemp)
+cp "$SM_DIR/MANIFEST.txt" "$SM_FROZEN"
 for required_name in $SM_REQUIRED; do
     # 정규식 금지 — awk 문자열 '정확' 비교(stage8.mp4의 .이 wildcard가 되어
     # stage8Xmp4가 통과하는 fail-open을 차단).
-    if ! awk -v n="$required_name" '$1==n{found=1} END{exit !found}' "$SM_DIR/MANIFEST.txt"; then
+    if ! awk -v n="$required_name" '$1==n{found=1} END{exit !found}' "$SM_FROZEN"; then
         echo "FATAL: source_media MANIFEST에 필수 항목 미기재: $required_name" >&2
         exit 1
     fi
@@ -221,7 +229,7 @@ print(sha)
     echo "FATAL: 영상 manifest JSON에서 source.path/source.sha256 검증 실패" >&2
     exit 1
 }
-sidecar_sha=$(awk '$1=="stage8.mp4"{print $2}' "$SM_DIR/MANIFEST.txt" | awk -F= '$1=="sha256"{print $2}')
+sidecar_sha=$(awk '$1=="stage8.mp4"{print $2}' "$SM_FROZEN" | awk -F= '$1=="sha256"{print $2}')
 if [ "$committed_src_sha" != "$sidecar_sha" ]; then
     echo "FATAL: source_media MANIFEST sha($sidecar_sha) != 스냅샷 영상 manifest source sha($committed_src_sha)" >&2
     exit 1
@@ -294,7 +302,7 @@ SM_SEEN=""
             fi
         fi
         sm_verified=$((sm_verified + 1))
-    done < "$SM_DIR/MANIFEST.txt"
+    done < "$SM_FROZEN"
 }
 required_count=$(printf '%s
 ' $SM_REQUIRED | wc -l)
@@ -306,7 +314,7 @@ fi
 # 이후 갱신돼도 이전 CURRENT 세대는 자기 버전 파일로 항상 복원 가능하다.
 # 명령 치환을 echo 안에 넣지 않는다(sha256sum 실패가 echo 성공에 가려져
 # 빈 해시가 발행되는 fail-open — 코덱스 재현).
-SM_MANIFEST_SHA=$(sha256sum "$SM_DIR/MANIFEST.txt" | awk '{print $1}')
+SM_MANIFEST_SHA=$(sha256sum "$SM_FROZEN" | awk '{print $1}')
 if ! printf '%s' "$SM_MANIFEST_SHA" | grep -Eq '^[0-9a-f]{64}$'; then
     echo "FATAL: source manifest 해시 계산 실패($SM_MANIFEST_SHA)" >&2
     exit 1
@@ -317,7 +325,7 @@ if [ -e "$SM_DIR/$FINAL_SM_MANIFEST" ]; then
     exit 1
 fi
 SM_TMP=$(mktemp -p "$SM_DIR")
-cp "$SM_DIR/MANIFEST.txt" "$SM_TMP"
+cp "$SM_FROZEN" "$SM_TMP"
 if [ "$(sha256sum "$SM_TMP" | awk '{print $1}')" != "$SM_MANIFEST_SHA" ]; then
     rm -f "$SM_TMP"
     echo "FATAL: 버전 source manifest 복사 해시 불일치" >&2

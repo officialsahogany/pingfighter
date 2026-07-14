@@ -142,7 +142,13 @@ function Invoke-WindowedSmoke {
         Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
         throw "windowed Stage 7 QA metrics file missing on disk: $metricsPath"
     }
-    $metricsText = Get-Content -LiteralPath $metricsPath -Raw
+    try {
+        $metricsText = Get-Content -LiteralPath $metricsPath -Raw
+    }
+    catch {
+        Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
+        throw "windowed Stage 7 QA metrics unreadable ($metricsPath): $($_.Exception.Message)"
+    }
     if ($metricsText -notmatch "(?m)^result=PASS$") {
         Write-Host "windowed Stage 7 QA log preserved for triage: $logPath"
         throw "windowed Stage 7 QA evidence did not record result=PASS: $metricsPath"

@@ -142,7 +142,9 @@ func _describe_git_state() -> String:
 		return "unavailable(diff_failed)"
 	var tracked_content_sha := (str(diff_output[0]) if diff_output.size() > 0 else "").sha256_text()
 	var untracked_output: Array = []
-	if OS.execute("git", ["-C", repo_dir, "ls-files", "--others", "--exclude-standard"], untracked_output) != 0:
+	# core.quotePath=false: 한국어 등 비ASCII untracked 경로가 8진 quote로
+	# 나오면 실제 파일을 못 찾아 해시 실패 처리된다.
+	if OS.execute("git", ["-C", repo_dir, "-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard"], untracked_output) != 0:
 		return "unavailable(untracked_failed)"
 	var untracked_records: Array[String] = []
 	for untracked_line in (str(untracked_output[0]) if untracked_output.size() > 0 else "").split("\n"):
@@ -259,8 +261,20 @@ func _verify_presentation_lifecycle_and_clip() -> void:
 	_expect(prewarmed_host != null and not prewarmed_host.visible, "prewarmed host should remain hidden")
 	_expect(prewarmed_host != null and not prewarmed_host.is_processing(), "prewarmed host should not own an idle process loop")
 
+	# windowed 귀속 fingerprint와 mute는 begin_video '이전'에 준비한다 —
+	# 재생 시작~측정 타이머 사이의 동기 작업(대형 diff)이 자연 종료 계측을
+	# 수백 ms 단축/연장시키는 교란 제거(코덱스 계측 2회).
+	var windowed_playback_started_msec := 0
+	if not _is_headless_runtime():
+		audio.muted = true
+		_git_state_cache = _describe_git_state()
+		_expect(
+			not _git_state_cache.begins_with("unavailable"),
+			"windowed QA attribution requires a working git fingerprint (%s)" % _git_state_cache
+		)
 	presentation.reset_for_stage_entry(7)
 	_expect(presentation.blocks_battle_physics(), "a fresh Stage 7 entry should block physics until its video completes")
+	windowed_playback_started_msec = Time.get_ticks_msec()
 	_expect(presentation.begin_video(owner, registry), "fresh Stage 7 entry should begin the cinematic")
 	_expect(presentation.get_phase() == "video", "presentation should enter the video phase")
 	_expect(audio.stop_calls == 1, "embedded video audio should replace the already-primed stage BGM")
@@ -279,16 +293,7 @@ func _verify_presentation_lifecycle_and_clip() -> void:
 	_expect(snapshot.get("video_position", Vector2.ONE) == Vector2.ZERO, "pre-padded video should start at local playfield origin")
 	_expect(snapshot.get("video_size", Vector2.ZERO) == snapshot.get("clip_size", Vector2.ONE), "pre-padded video should fill only the clipped playfield")
 	if not _is_headless_runtime():
-		audio.muted = true
-		# 귀속 fingerprint는 '재생 시작 전'에 계산해 캐시한다 — 대형 diff를
-		# 재생 도중 동기 실행하면 자연 종료 시각이 ~0.4s 늘어난다(코덱스 계측).
-		_git_state_cache = _describe_git_state()
-		_expect(
-			not _git_state_cache.begins_with("unavailable"),
-			"windowed QA attribution requires a working git fingerprint (%s)" % _git_state_cache
-		)
-		var playback_started_msec := Time.get_ticks_msec()
-		await _verify_windowed_video_frame(presentation, owner, registry, expected_layout, playback_started_msec)
+		await _verify_windowed_video_frame(presentation, owner, registry, expected_layout, windowed_playback_started_msec)
 		_expect(presentation.was_video_completed_for_entry(), "windowed playback should reach the VideoStream finished signal without the duration fallback")
 		_expect(presentation.get_completion_reason() == "natural", "windowed playback should finish from VideoStreamPlayer.finished rather than the duration fallback")
 		presentation.reset_for_stage_entry(7)
