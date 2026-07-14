@@ -5,6 +5,9 @@ signal one_shot_finished
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
+const CharacterLivePreviewSheetGeometry := preload(
+	"res://scripts/ui/character_live_preview_sheet_geometry.gd"
+)
 
 const LAYER_ORDER := [
 	"back_hair",
@@ -1478,6 +1481,8 @@ func _glow_color() -> Color:
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_texture_cover(texture: Texture2D, target: Rect2, modulate: Color = Color.WHITE) -> void:
 	var tex_size := texture.get_size()
 	if tex_size.x <= 1.0 or tex_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
@@ -1495,6 +1500,8 @@ func _draw_texture_cover(texture: Texture2D, target: Rect2, modulate: Color = Co
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_texture_fit(texture: Texture2D, target: Rect2, modulate: Color = Color.WHITE) -> void:
 	var tex_size := texture.get_size()
 	if tex_size.x <= 1.0 or tex_size.y <= 1.0:
@@ -1507,6 +1514,8 @@ func _draw_texture_fit(texture: Texture2D, target: Rect2, modulate: Color = Colo
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_texture_region_fit(texture: Texture2D, source: Rect2, target: Rect2, modulate: Color = Color.WHITE) -> void:
 	if source.size.x <= 1.0 or source.size.y <= 1.0:
 		return
@@ -1516,6 +1525,8 @@ func _draw_texture_region_fit(texture: Texture2D, source: Rect2, target: Rect2, 
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_texture_region_deformed(texture: Texture2D, source: Rect2, target: Rect2, modulate: Color = Color.WHITE) -> void:
 	if source.size.x <= 1.0 or source.size.y <= 1.0:
 		return
@@ -1558,6 +1569,8 @@ func _draw_texture_region_deformed(texture: Texture2D, source: Rect2, target: Re
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_still_motion_regions(texture: Texture2D, source: Rect2, target: Rect2, modulate: Color = Color.WHITE) -> void:
 	var regions_value: Variant = character.get("live2d_motion_regions", [])
 	if not (regions_value is Array):
@@ -1655,6 +1668,8 @@ func _draw_closed_eye(center: Vector2, eye_size: Vector2, angle: float, amount: 
 
 
 @warning_ignore("shadowed_variable_base_class")
+
+
 func _draw_texture_region_transformed(texture: Texture2D, source: Rect2, target: Rect2, pivot_ratio: Vector2, offset: Vector2, rotation: float, modulate: Color = Color.WHITE, scale: Vector2 = Vector2.ONE) -> void:
 	var pivot := target.position + Vector2(target.size.x * pivot_ratio.x, target.size.y * pivot_ratio.y)
 	draw_set_transform(pivot + offset, rotation, scale)
@@ -1669,29 +1684,16 @@ func _fullframe_render_source_rect(source_rect: Rect2) -> Rect2:
 		_apply_explicit_fullframe_trim_rect(character, "live2d_trim_rect")
 	if not fullframe_trim_valid:
 		_build_fullframe_trim_rect()
-	if not fullframe_trim_valid or fullframe_trim_relative_rect.size.x <= 1.0 or fullframe_trim_relative_rect.size.y <= 1.0:
+	if not fullframe_trim_valid:
 		return source_rect
-	return Rect2(source_rect.position + fullframe_trim_relative_rect.position, fullframe_trim_relative_rect.size)
+	return CharacterLivePreviewSheetGeometry.apply_relative_trim(
+		source_rect,
+		fullframe_trim_relative_rect
+	)
 
 
 func _apply_explicit_fullframe_trim_rect(source: Dictionary, key: String) -> void:
-	var rect_value: Variant = source.get(key, Rect2())
-	var rect := Rect2()
-	if rect_value is Rect2:
-		rect = rect_value
-	elif rect_value is Dictionary:
-		var rect_dict: Dictionary = rect_value
-		rect = Rect2(
-			Vector2(float(rect_dict.get("x", 0.0)), float(rect_dict.get("y", 0.0))),
-			Vector2(float(rect_dict.get("w", 0.0)), float(rect_dict.get("h", 0.0)))
-		)
-	elif rect_value is Array:
-		var rect_array: Array = rect_value
-		if rect_array.size() >= 4:
-			rect = Rect2(
-				Vector2(float(rect_array[0]), float(rect_array[1])),
-				Vector2(float(rect_array[2]), float(rect_array[3]))
-			)
+	var rect := CharacterLivePreviewSheetGeometry.parse_rect(source.get(key, Rect2()))
 	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
 	fullframe_trim_relative_rect = rect
@@ -1706,97 +1708,43 @@ func _build_fullframe_trim_rect() -> void:
 	var image := fullframe_sheet_texture.get_image()
 	if image == null or image.get_width() <= 1 or image.get_height() <= 1:
 		return
-	var texture_size := fullframe_sheet_texture.get_size()
-	var cell_w: int = max(1, int(floor(texture_size.x / float(max(1, fullframe_cols)))))
-	var cell_h: int = max(1, int(floor(texture_size.y / float(max(1, fullframe_rows)))))
-	var min_x: int = cell_w
-	var min_y: int = cell_h
-	var max_x: int = 0
-	var max_y: int = 0
-	var found := false
-	var sample_limit: int = clamp(int(character.get("live2d_trim_sample_frame_limit", 16)), 1, max(1, fullframe_count))
-	var sample_indices: Array = []
-	if sample_limit >= fullframe_count:
-		for all_frame_index in range(fullframe_count):
-			sample_indices.append(all_frame_index)
-	else:
-		for sample_index in range(sample_limit):
-			var t: float = 0.0 if sample_limit <= 1 else float(sample_index) / float(sample_limit - 1)
-			var sampled_frame_index := int(round(t * float(fullframe_count - 1)))
-			if sample_indices.find(sampled_frame_index) < 0:
-				sample_indices.append(sampled_frame_index)
-	for frame_index_value in sample_indices:
-		var sample_frame_index := int(frame_index_value)
-		var col := sample_frame_index % fullframe_cols
-		var row := int(floor(float(sample_frame_index) / float(fullframe_cols)))
-		var origin := Vector2i(col * cell_w, row * cell_h)
-		if origin.x >= image.get_width() or origin.y >= image.get_height():
-			continue
-		var region_size := Vector2i(min(cell_w, image.get_width() - origin.x), min(cell_h, image.get_height() - origin.y))
-		if region_size.x <= 1 or region_size.y <= 1:
-			continue
-		var used := image.get_region(Rect2i(origin, region_size)).get_used_rect()
-		if used.size.x <= 0 or used.size.y <= 0:
-			continue
-		var used_end := used.position + used.size
-		min_x = min(min_x, used.position.x)
-		min_y = min(min_y, used.position.y)
-		max_x = max(max_x, used_end.x)
-		max_y = max(max_y, used_end.y)
-		found = true
-	if not found:
+	var trim_rect := CharacterLivePreviewSheetGeometry.build_alpha_trim_rect(
+		image,
+		fullframe_sheet_texture.get_size(),
+		fullframe_cols,
+		fullframe_rows,
+		fullframe_count,
+		int(character.get("live2d_trim_sample_frame_limit", 16)),
+		float(character.get("live2d_trim_padding_ratio", 0.035))
+	)
+	if trim_rect.size.x <= 1.0 or trim_rect.size.y <= 1.0:
 		return
-	var pad: int = int(max(6.0, float(min(cell_w, cell_h)) * float(character.get("live2d_trim_padding_ratio", 0.035))))
-	var x0: int = int(clamp(min_x - pad, 0, max(0, cell_w - 1)))
-	var y0: int = int(clamp(min_y - pad, 0, max(0, cell_h - 1)))
-	var x1: int = int(clamp(max_x + pad, x0 + 1, cell_w))
-	var y1: int = int(clamp(max_y + pad, y0 + 1, cell_h))
-	fullframe_trim_relative_rect = Rect2(Vector2(float(x0), float(y0)), Vector2(float(x1 - x0), float(y1 - y0)))
+	fullframe_trim_relative_rect = trim_rect
 	fullframe_trim_valid = true
 
 
 func _normalized_rect_to_source(source: Rect2, normalized_rect: Rect2) -> Rect2:
-	return Rect2(
-		source.position + Vector2(source.size.x * normalized_rect.position.x, source.size.y * normalized_rect.position.y),
-		Vector2(source.size.x * normalized_rect.size.x, source.size.y * normalized_rect.size.y)
-	)
+	return CharacterLivePreviewSheetGeometry.normalized_rect_to_source(source, normalized_rect)
 
 
 func _source_subrect_to_target_rect(source: Rect2, target: Rect2, source_region: Rect2) -> Rect2:
-	var pos_ratio := Vector2(
-		(source_region.position.x - source.position.x) / source.size.x,
-		(source_region.position.y - source.position.y) / source.size.y
-	)
-	var size_ratio := Vector2(source_region.size.x / source.size.x, source_region.size.y / source.size.y)
-	return Rect2(
-		target.position + Vector2(target.size.x * pos_ratio.x, target.size.y * pos_ratio.y),
-		Vector2(target.size.x * size_ratio.x, target.size.y * size_ratio.y)
-	)
+	return CharacterLivePreviewSheetGeometry.source_subrect_to_target(source, target, source_region)
 
 
 func _fit_region_rect(source_size: Vector2, target: Rect2) -> Rect2:
-	if source_size.x <= 1.0 or source_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
-		return Rect2(target.position, Vector2.ZERO)
-	var scale_factor: float = min(target.size.x / source_size.x, target.size.y / source_size.y)
-	var draw_size := source_size * scale_factor
-	return Rect2(target.position + (target.size - draw_size) * 0.5, draw_size)
+	return CharacterLivePreviewSheetGeometry.fit_region_rect(source_size, target)
 
 
 func _live2d_stage_fit_rect(source_size: Vector2, target: Rect2) -> Rect2:
-	var fit_rect := _fit_region_rect(source_size, target)
-	var y_scale: float = max(0.50, float(character.get("live2d_stage_y_scale", 1.0)))
-	if fit_rect.size.y <= 1.0 or abs(y_scale - 1.0) <= 0.001:
-		return fit_rect
-	var bottom_y: float = fit_rect.end.y
-	fit_rect.size.y *= y_scale
-	fit_rect.position.y = bottom_y - fit_rect.size.y
-	return fit_rect
+	return CharacterLivePreviewSheetGeometry.live2d_stage_fit_rect(
+		source_size,
+		target,
+		float(character.get("live2d_stage_y_scale", 1.0))
+	)
 
 
 func _scale_rect(rect: Rect2, scale_factor: float) -> Rect2:
-	var center := rect.get_center()
-	var scaled_size := rect.size * scale_factor
-	return Rect2(center - scaled_size * 0.5, scaled_size)
+	return CharacterLivePreviewSheetGeometry.scale_rect(rect, scale_factor)
 
 
 func _draw_centered_text(font: Font, text: String, center: Vector2, font_size: int, color: Color) -> void:

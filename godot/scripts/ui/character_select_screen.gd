@@ -5,25 +5,28 @@ signal character_confirmed(character_id: String, runtime_character_id: String)
 signal back_requested
 
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
+const CharacterSelectLayout := preload("res://scripts/ui/character_select_layout.gd")
+const CharacterSelectConfirmIntroState := preload(
+	"res://scripts/ui/character_select_confirm_intro_state.gd"
+)
+const CharacterSelectAudioController := preload(
+	"res://scripts/audio/character_select_audio_controller.gd"
+)
+const CharacterSelectSkillPreviewResolver := preload(
+	"res://scripts/ui/character_select_skill_preview_resolver.gd"
+)
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_flash_overlay.gd")
 const MotionConfigBuilder := preload("res://scripts/ui/character_select_motion_config_builder.gd")
-const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
-const CharacterSelectLayout := preload("res://scripts/ui/character_select_layout.gd")
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
-const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
-const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
-const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const BattleEntryBackgroundPrewarm := preload("res://scripts/ui/battle_entry_background_prewarm.gd")
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
-const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
-const BGM_BUS_NAME := "BGM"
 const BGM_TOGGLE_KEY := KEY_B
 const FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO := 0.902
 const LOCKED_CHARACTER_FEEDBACK_DURATION := 1.4
@@ -90,23 +93,8 @@ var _roster_card_box: StyleBoxFlat = null
 # animation clock — re-arms on every roster switch).
 var _rail_stage_switch_at: float = -10.0
 
-var character_select_bgm_player: AudioStreamPlayer = null
-var character_select_bgm_loop_enabled: bool = false
-var character_select_bgm_muted: bool = false
-var click_motion_voice_player: AudioStreamPlayer = null
-var click_motion_voice_pending: bool = false
-var click_motion_voice_delay_remaining: float = 0.0
-
-var confirm_intro_voice_player: AudioStreamPlayer = null
-var confirm_intro_voice_pending: bool = false
-var confirm_intro_voice_delay_remaining: float = 0.0
-var confirm_intro_active: bool = false
-var confirm_intro_character: Dictionary = {}
-var confirm_intro_elapsed: float = 0.0
-var confirm_intro_pending_scene_path: String = ""
-var confirm_intro_exit_flash_pending: bool = false
-var confirm_intro_exit_flash_hold_remaining: float = 0.0
-var confirm_intro_exit_flash_started: bool = false
+var _audio_controller: CharacterSelectAudioController = CharacterSelectAudioController.new()
+var _confirm_intro_state: CharacterSelectConfirmIntroState = CharacterSelectConfirmIntroState.new()
 var confirm_intro_exit_flash_overlay: Control = null
 var gamepad_menu_horizontal_latch: int = 0
 var gamepad_menu_vertical_latch: int = 0
@@ -115,6 +103,29 @@ var entry_background_prewarm: Object = BattleEntryBackgroundPrewarm.new()
 # Slice H: the backdrop VFX host is adopted out of the LivePreview clip and
 # runs fullscreen as this screen's own negative-z child.
 var _backdrop_host: Control = null
+
+
+func _get(property: StringName) -> Variant:
+	match str(property):
+		"character_select_bgm_player":
+			return _audio_controller.bgm_player
+		"character_select_bgm_loop_enabled":
+			return _audio_controller.bgm_loop_enabled
+		"character_select_bgm_muted":
+			return _audio_controller.bgm_muted
+		"click_motion_voice_player":
+			return _audio_controller.click_voice_player
+		"click_motion_voice_pending":
+			return _audio_controller.click_voice_pending
+		"click_motion_voice_delay_remaining":
+			return _audio_controller.click_voice_delay_remaining
+		"confirm_intro_voice_player":
+			return _audio_controller.confirm_voice_player
+		"confirm_intro_voice_pending":
+			return _audio_controller.confirm_voice_pending
+		"confirm_intro_voice_delay_remaining":
+			return _audio_controller.confirm_voice_delay_remaining
+	return null
 
 
 func _ready() -> void:
@@ -150,18 +161,7 @@ func _prewarm_lingpet_ring_core_icons() -> void:
 
 func _exit_tree() -> void:
 	set_process(false)
-	character_select_bgm_loop_enabled = false
-	_stop_click_motion_voice()
-	_stop_confirm_intro_voice()
-	_dispose_audio_player(
-		character_select_bgm_player,
-		Callable(self, "_on_character_select_bgm_finished")
-	)
-	character_select_bgm_player = null
-	_dispose_audio_player(click_motion_voice_player)
-	click_motion_voice_player = null
-	_dispose_audio_player(confirm_intro_voice_player)
-	confirm_intro_voice_player = null
+	_audio_controller.teardown(Callable(self, "_on_character_select_bgm_finished"))
 	if confirm_intro_exit_flash_overlay != null:
 		var flash_finished_callback := Callable(self, "_on_confirm_intro_exit_flash_finished")
 		if confirm_intro_exit_flash_overlay.has_signal("finished") and confirm_intro_exit_flash_overlay.is_connected("finished", flash_finished_callback):
@@ -187,7 +187,7 @@ func _exit_tree() -> void:
 	card_rects.clear()
 	skill_icon_rects.clear()
 	skill_config_instances.clear()
-	confirm_intro_character.clear()
+	_confirm_intro_state.reset()
 	_lingpet_ring_core_icon_renderer = null
 	if entry_background_prewarm != null and entry_background_prewarm.has_method("clear_runtime_state"):
 		entry_background_prewarm.clear_runtime_state()
@@ -212,8 +212,10 @@ func _process(delta: float) -> void:
 # pillar backplates / stage-clear result sheets) so the entry loading screen's
 # threaded waits become instant cache hits. Paused during the confirm intro so
 # the cinematic and the battle scene change keep the IO worker to themselves.
+
+
 func _update_entry_background_prewarm() -> void:
-	if Engine.is_editor_hint() or confirm_intro_active:
+	if Engine.is_editor_hint() or _confirm_intro_state.active:
 		return
 	if entry_background_prewarm == null or not entry_background_prewarm.has_method("update"):
 		return
@@ -223,6 +225,8 @@ func _update_entry_background_prewarm() -> void:
 # Mirrors battle_scene_selection_startup_lifecycle.apply_selection_state: the
 # battle boot's entry stage comes from GameSelectionState.stage_id, so the
 # background prewarm must target the same stage or it warms the wrong assets.
+
+
 func _selected_entry_stage_id() -> int:
 	var state: Node = get_node_or_null("/root/GameSelectionState")
 	if state != null and state.has_method("get_selection"):
@@ -257,7 +261,7 @@ func _gui_input(event: InputEvent) -> void:
 	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var pos := mouse_event.position
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		accept_event()
 		return
 	language_rect = _language_button_rect(_resolved_view_size())
@@ -316,7 +320,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key_event := event as InputEventKey
 	if not key_event.pressed or key_event.echo:
 		return
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		if is_inside_tree() and get_viewport() != null:
 			get_viewport().set_input_as_handled()
 		return
@@ -348,7 +352,7 @@ func _handle_gamepad_unhandled_input(event: InputEvent) -> void:
 		if is_inside_tree() and get_viewport() != null:
 			get_viewport().set_input_as_handled()
 		return
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		if is_inside_tree() and get_viewport() != null:
 			get_viewport().set_input_as_handled()
 		return
@@ -556,34 +560,7 @@ func _load_portraits() -> void:
 
 
 func _setup_audio_players() -> void:
-	if Engine.is_editor_hint():
-		return
-	character_select_bgm_player = AudioStreamPlayer.new()
-	character_select_bgm_player.name = "CharacterSelectBGM"
-	character_select_bgm_player.bus = BGM_BUS_NAME
-	var bgm_finished_callback := Callable(self, "_on_character_select_bgm_finished")
-	if not character_select_bgm_player.is_connected("finished", bgm_finished_callback):
-		character_select_bgm_player.connect("finished", bgm_finished_callback)
-	character_select_bgm_player.stream = ProjectResourceLoader.load_audio_stream(
-		CHARACTER_SELECT_BGM_PATH,
-		"Missing character-select BGM: %s",
-		"Failed to load character-select BGM: %s"
-	)
-	add_child(character_select_bgm_player)
-	if character_select_bgm_player.stream != null:
-		character_select_bgm_loop_enabled = true
-		if not character_select_bgm_muted:
-			character_select_bgm_player.play()
-
-	click_motion_voice_player = AudioStreamPlayer.new()
-	click_motion_voice_player.name = "ClickMotionVoice"
-	click_motion_voice_player.bus = "SFX"
-	add_child(click_motion_voice_player)
-
-	confirm_intro_voice_player = AudioStreamPlayer.new()
-	confirm_intro_voice_player.name = "ConfirmIntroVoice"
-	confirm_intro_voice_player.bus = "SFX"
-	add_child(confirm_intro_voice_player)
+	_audio_controller.setup(self, Callable(self, "_on_character_select_bgm_finished"))
 
 
 func _setup_confirm_flash_overlay() -> void:
@@ -616,15 +593,7 @@ func _ensure_cache_dictionaries() -> void:
 
 
 func _on_character_select_bgm_finished() -> void:
-	if not character_select_bgm_loop_enabled:
-		return
-	if character_select_bgm_muted:
-		return
-	if character_select_bgm_player == null or character_select_bgm_player.stream == null:
-		return
-	if not is_inside_tree():
-		return
-	character_select_bgm_player.play()
+	_audio_controller.on_bgm_finished(is_inside_tree())
 
 
 func _handle_bgm_toggle_input(event: InputEvent) -> bool:
@@ -637,18 +606,11 @@ func _handle_bgm_toggle_input(event: InputEvent) -> bool:
 
 
 func _toggle_character_select_bgm() -> bool:
-	character_select_bgm_muted = BgmMuteState.toggle(get_tree())
-	if character_select_bgm_muted:
-		if character_select_bgm_player != null and character_select_bgm_player.playing:
-			character_select_bgm_player.stop()
-		return true
-	if character_select_bgm_player != null and character_select_bgm_player.stream != null and not character_select_bgm_player.playing:
-		character_select_bgm_player.play()
-	return false
+	return _audio_controller.toggle_bgm(get_tree())
 
 
 func _restore_character_select_bgm_muted() -> void:
-	character_select_bgm_muted = BgmMuteState.is_muted(get_tree())
+	_audio_controller.restore_bgm_muted(get_tree())
 
 
 func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
@@ -774,7 +736,7 @@ func _update_preview_layout() -> void:
 
 
 func _confirm_selection() -> void:
-	if Engine.is_editor_hint() or confirm_intro_active:
+	if Engine.is_editor_hint() or _confirm_intro_state.active:
 		return
 	if selected_index < 0 or selected_index >= characters.size():
 		return
@@ -796,7 +758,7 @@ func _show_locked_character_feedback() -> void:
 
 
 func _go_back() -> void:
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		return
 	back_requested.emit()
 	if main_menu_scene_path != "":
@@ -901,14 +863,8 @@ func _try_begin_confirm_intro(character: Dictionary, next_scene_path: String) ->
 			"character_id": str(character.get("id", "")),
 			"amount": 1.0,
 		})
-	confirm_intro_active = true
-	confirm_intro_character = character.duplicate(true)
-	confirm_intro_elapsed = 0.0
-	confirm_intro_pending_scene_path = next_scene_path
-	confirm_intro_exit_flash_pending = false
-	confirm_intro_exit_flash_hold_remaining = 0.0
-	confirm_intro_exit_flash_started = false
-	_prepare_confirm_intro_voice(confirm_intro_character)
+	_confirm_intro_state.begin(character, next_scene_path)
+	_prepare_confirm_intro_voice(_confirm_intro_state.character)
 	queue_redraw()
 	return true
 
@@ -930,63 +886,36 @@ func _build_preview_click_motion_config(character: Dictionary) -> Dictionary:
 
 
 func _request_confirm_intro_finish() -> void:
-	if not confirm_intro_active:
-		return
-	if bool(confirm_intro_character.get("confirm_intro_exit_flash_enabled", false)):
-		confirm_intro_exit_flash_pending = true
-		confirm_intro_exit_flash_hold_remaining = max(0.0, float(confirm_intro_character.get("confirm_intro_exit_flash_hold", 0.0)))
-		if confirm_intro_exit_flash_hold_remaining <= 0.0:
+	match _confirm_intro_state.request_finish():
+		CharacterSelectConfirmIntroState.ACTION_START_FLASH:
 			_start_confirm_intro_exit_flash()
-	else:
-		_finish_confirm_intro()
+		CharacterSelectConfirmIntroState.ACTION_FINISH:
+			_finish_confirm_intro()
 
 
 func _update_confirm_intro(delta: float) -> void:
-	if not confirm_intro_active:
+	if not _confirm_intro_state.active:
 		return
-	confirm_intro_elapsed += delta
+	var action := _confirm_intro_state.advance(delta)
 	_update_confirm_intro_voice(delta)
-	if confirm_intro_exit_flash_pending and not confirm_intro_exit_flash_started:
-		confirm_intro_exit_flash_hold_remaining -= delta
-		if confirm_intro_exit_flash_hold_remaining <= 0.0:
-			_start_confirm_intro_exit_flash()
+	if action == CharacterSelectConfirmIntroState.ACTION_START_FLASH:
+		_start_confirm_intro_exit_flash()
 
 
 func _start_confirm_intro_exit_flash() -> void:
 	if confirm_intro_exit_flash_overlay == null:
 		_finish_confirm_intro()
 		return
-	confirm_intro_exit_flash_pending = false
-	confirm_intro_exit_flash_started = true
-	var accent := _character_color(confirm_intro_character, "confirm_intro_exit_flash_color", _character_color(confirm_intro_character, "card_color", Color(0.0, 0.9, 1.0)))
-	var glow := _character_color(confirm_intro_character, "confirm_intro_exit_flash_glow_color", _character_color(confirm_intro_character, "glow_color", accent))
-	var secondary := _character_color(confirm_intro_character, "confirm_intro_exit_flash_secondary_color", Color.WHITE)
+	_confirm_intro_state.mark_flash_started()
 	confirm_intro_exit_flash_overlay.size = _resolved_view_size()
-	confirm_intro_exit_flash_overlay.call("play", {
-		"duration": float(confirm_intro_character.get("confirm_intro_exit_flash_duration", 0.45)),
-		"source_rect": preview_rect_cache,
-		"style": str(confirm_intro_character.get("confirm_intro_exit_flash_style", "burst")),
-		"accent": accent,
-		"glow": glow,
-		"secondary": secondary,
-		"field_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_field_intensity", 1.0)),
-		"card_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_card_intensity", 1.0)),
-		"white_wash_target": float(confirm_intro_character.get("confirm_intro_exit_flash_white_wash_target", 0.92)),
-		"chroma": float(confirm_intro_character.get("confirm_intro_exit_flash_chroma", 0.012)),
-		"split_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_split_intensity", 0.85)),
-		"split_count": int(confirm_intro_character.get("confirm_intro_exit_flash_split_count", 10)),
-	})
+	confirm_intro_exit_flash_overlay.call(
+		"play",
+		_confirm_intro_state.build_flash_payload(preview_rect_cache)
+	)
 
 
 func _finish_confirm_intro() -> void:
-	var next_scene_path := confirm_intro_pending_scene_path
-	confirm_intro_active = false
-	confirm_intro_character.clear()
-	confirm_intro_elapsed = 0.0
-	confirm_intro_pending_scene_path = ""
-	confirm_intro_exit_flash_pending = false
-	confirm_intro_exit_flash_hold_remaining = 0.0
-	confirm_intro_exit_flash_started = false
+	var next_scene_path := _confirm_intro_state.finish()
 	_stop_confirm_intro_voice()
 	if confirm_intro_exit_flash_overlay != null and confirm_intro_exit_flash_overlay.has_method("cancel"):
 		confirm_intro_exit_flash_overlay.call("cancel")
@@ -995,12 +924,12 @@ func _finish_confirm_intro() -> void:
 
 
 func _on_preview_one_shot_finished() -> void:
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		_request_confirm_intro_finish()
 
 
 func _on_confirm_intro_exit_flash_finished() -> void:
-	if confirm_intro_active:
+	if _confirm_intro_state.active:
 		_finish_confirm_intro()
 
 
@@ -1011,96 +940,27 @@ func _change_to_battle_scene(scene_path: String) -> void:
 
 
 func _prepare_click_motion_voice(character: Dictionary) -> void:
-	if click_motion_voice_player == null:
-		return
-	var path := str(character.get("click_motion_voice_path", ""))
-	if path == "":
-		path = str(character.get("confirm_intro_voice_path", ""))
-	if path == "":
-		return
-	var stream := ProjectResourceLoader.load_audio_stream(path)
-	if stream == null:
-		return
-	click_motion_voice_player.stop()
-	click_motion_voice_player.stream = stream
-	var volume_value: Variant = character.get("click_motion_voice_volume_db", character.get("confirm_intro_voice_volume_db", -5.0))
-	var delay_value: Variant = character.get("click_motion_voice_delay", character.get("confirm_intro_voice_delay", 0.0))
-	click_motion_voice_player.volume_db = float(volume_value)
-	click_motion_voice_delay_remaining = max(0.0, float(delay_value))
-	click_motion_voice_pending = true
-	if click_motion_voice_delay_remaining <= 0.0:
-		_update_click_motion_voice(0.0)
+	_audio_controller.prepare_click_voice(character)
 
 
 func _update_click_motion_voice(delta: float) -> void:
-	if not click_motion_voice_pending:
-		return
-	click_motion_voice_delay_remaining -= delta
-	if click_motion_voice_delay_remaining > 0.0:
-		return
-	click_motion_voice_pending = false
-	click_motion_voice_delay_remaining = 0.0
-	if click_motion_voice_player != null and click_motion_voice_player.stream != null:
-		click_motion_voice_player.play()
+	_audio_controller.update_click_voice(delta)
 
 
 func _stop_click_motion_voice() -> void:
-	click_motion_voice_pending = false
-	click_motion_voice_delay_remaining = 0.0
-	if click_motion_voice_player != null:
-		click_motion_voice_player.stop()
-		click_motion_voice_player.stream = null
+	_audio_controller.stop_click_voice()
 
 
 func _prepare_confirm_intro_voice(character: Dictionary) -> void:
-	if confirm_intro_voice_player == null:
-		return
-	var path := str(character.get("confirm_intro_voice_path", ""))
-	if path == "":
-		return
-	var stream := ProjectResourceLoader.load_audio_stream(path)
-	if stream == null:
-		return
-	confirm_intro_voice_player.stop()
-	confirm_intro_voice_player.stream = stream
-	confirm_intro_voice_player.volume_db = float(character.get("confirm_intro_voice_volume_db", -6.0))
-	confirm_intro_voice_delay_remaining = max(0.0, float(character.get("confirm_intro_voice_delay", 0.0)))
-	confirm_intro_voice_pending = true
-	if confirm_intro_voice_delay_remaining <= 0.0:
-		_update_confirm_intro_voice(0.0)
+	_audio_controller.prepare_confirm_voice(character)
 
 
 func _update_confirm_intro_voice(delta: float) -> void:
-	if not confirm_intro_voice_pending:
-		return
-	confirm_intro_voice_delay_remaining -= delta
-	if confirm_intro_voice_delay_remaining > 0.0:
-		return
-	confirm_intro_voice_pending = false
-	confirm_intro_voice_delay_remaining = 0.0
-	if confirm_intro_voice_player != null and confirm_intro_voice_player.stream != null:
-		confirm_intro_voice_player.play()
+	_audio_controller.update_confirm_voice(delta)
 
 
 func _stop_confirm_intro_voice() -> void:
-	confirm_intro_voice_pending = false
-	confirm_intro_voice_delay_remaining = 0.0
-	if confirm_intro_voice_player != null:
-		confirm_intro_voice_player.stop()
-		confirm_intro_voice_player.stream = null
-
-
-func _dispose_audio_player(player: AudioStreamPlayer, finished_callback: Callable = Callable()) -> void:
-	if player == null:
-		return
-	if finished_callback.is_valid() and player.is_connected("finished", finished_callback):
-		player.disconnect("finished", finished_callback)
-	if player.playing:
-		player.stop()
-	player.stream = null
-	if player.get_parent() != null:
-		player.get_parent().remove_child(player)
-	player.free()
+	_audio_controller.stop_confirm_voice()
 
 
 func _draw_background(view_size: Vector2, backdrop_fullscreen: bool = false) -> void:
@@ -1493,111 +1353,15 @@ func _draw_info_panel(rect: Rect2) -> void:
 
 
 func _info_panel_visible_blocks(rect: Rect2, layout: Dictionary, unlocked: bool) -> Dictionary:
-	var content_bottom: float = rect.end.y - 10.0
-	var blocks := {}
-	var name_top: Vector2 = layout.get("name_top_left", rect.position)
-	blocks["name"] = name_top.y + 37.0 <= content_bottom
-	var tagline_top: Vector2 = layout.get("tagline_top_left", rect.position)
-	var tagline_lines := _layout_string_lines(layout, "tagline_lines").size()
-	blocks["tagline"] = tagline_lines > 0 and tagline_top.y + float(tagline_lines) * 22.0 <= content_bottom
-	var description_top: Vector2 = layout.get("description_top_left", rect.position)
-	var description_lines := _layout_string_lines(layout, "description_lines").size()
-	blocks["description"] = description_lines > 0 and description_top.y + float(description_lines) * 20.0 <= content_bottom
-	var difficulty_top: Vector2 = layout.get("difficulty_top_left", rect.position)
-	blocks["difficulty"] = difficulty_top.y + 20.0 <= content_bottom
-	if unlocked:
-		var skill_rect: Rect2 = layout.get("skill_rect", Rect2())
-		blocks["skills"] = skill_rect.has_area() and skill_rect.end.y <= content_bottom
-	else:
-		var locked_rect: Rect2 = layout.get("locked_status_rect", Rect2())
-		blocks["locked"] = locked_rect.has_area() and locked_rect.end.y <= content_bottom
-	return blocks
+	return CharacterSelectLayout.info_panel_visible_blocks(rect, layout, unlocked)
 
 
 func _build_info_panel_layout(rect: Rect2, character: Dictionary, font: Font) -> Dictionary:
-	var content_left := rect.position.x + 26.0
-	var content_width: float = max(80.0, rect.size.x - 52.0)
-	var content_right := content_left + content_width
-	var y := rect.position.y + 22.0
-	var layout := {
-		"role_top_left": Vector2(content_left, y),
-	}
-	var role_lines := _get_wrapped_text_lines(font, str(character.get("role", "")), content_width, 14, 2)
-	layout["role_lines"] = role_lines
-	y += max(18.0, float(role_lines.size()) * 18.0)
-
-	var name_top_left := Vector2(content_left, y + 6.0)
-	layout["name_top_left"] = name_top_left
-	var character_name := str(character.get("character_name", character.get("name", "")))
-	var class_label := str(character.get("class_name", character.get("name", "")))
-	var name_size := font.get_string_size(character_name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 31)
-	var badge_size := _badge_size(font, class_label, 14)
-	var badge_top_left := Vector2(content_left + name_size.x + 18.0, name_top_left.y + 1.0)
-	var name_bottom: float = name_top_left.y + 37.0
-	if class_label.strip_edges() != "":
-		if badge_top_left.x + badge_size.x > content_right:
-			badge_top_left = Vector2(content_left, name_top_left.y + 40.0)
-		name_bottom = max(name_bottom, badge_top_left.y + badge_size.y + 6.0)
-	layout["badge_top_left"] = badge_top_left
-	y = name_bottom
-
-	var tagline_lines := _get_wrapped_text_lines(font, str(character.get("tagline", "")), content_width, 17, 2)
-	var tagline_top_left := Vector2(content_left, y)
-	layout["tagline_top_left"] = tagline_top_left
-	layout["tagline_lines"] = tagline_lines
-	if not tagline_lines.is_empty():
-		y = tagline_top_left.y + float(tagline_lines.size()) * 22.0
-	else:
-		y += 4.0
-
-	var description_lines := _get_wrapped_text_lines(font, str(character.get("description", "")), content_width, 14, 3)
-	var description_top_left := Vector2(content_left, y + 5.0)
-	layout["description_top_left"] = description_top_left
-	layout["description_lines"] = description_lines
-	if not description_lines.is_empty():
-		y = description_top_left.y + float(description_lines.size()) * 20.0
-	else:
-		y = description_top_left.y
-
-	var difficulty_top_left := Vector2(content_left, y + 6.0)
-	layout["difficulty_top_left"] = difficulty_top_left
-	y = difficulty_top_left.y + 24.0
-
-	if _is_character_unlocked(character):
-		var skills_label_top_left := Vector2(content_left, y + 2.0)
-		var ring_core_size := 50.0
-		var ring_core_gap := 18.0
-		var skill_row_width := maxf(174.0, content_width - ring_core_size - ring_core_gap)
-		var skill_rect := Rect2(Vector2(content_left, skills_label_top_left.y + 26.0), Vector2(skill_row_width, 56.0))
-		var ring_core_rect := Rect2(Vector2(content_right - ring_core_size, skill_rect.position.y), Vector2(ring_core_size, ring_core_size))
-		layout["skills_label_top_left"] = skills_label_top_left
-		layout["skill_rect"] = skill_rect
-		layout["ring_core_label_top_left"] = Vector2(ring_core_rect.position.x, skills_label_top_left.y)
-		layout["ring_core_rect"] = ring_core_rect
-		y = skill_rect.end.y
-	else:
-		var locked_status_rect := Rect2(Vector2(content_left, y + 4.0), Vector2(content_width, 76.0))
-		layout["locked_status_rect"] = locked_status_rect
-		y = locked_status_rect.end.y
-
-	var full_body_top: float = max(rect.position.y + 252.0, y + 22.0)
-	var full_body_height: float = rect.end.y - full_body_top - 20.0
-	if full_body_height < 120.0:
-		# 행 양보 규칙: 공간이 모자라면 풀바디 패널이 먼저 드랍된다. 음수
-		# 여유를 최소 높이로 승격해 패널 밖(카드열 위)으로 탈출시키지 않는다.
-		layout["full_body_rect"] = Rect2()
-	else:
-		layout["full_body_rect"] = Rect2(Vector2(rect.position.x + 22.0, full_body_top), Vector2(max(80.0, rect.size.x - 44.0), full_body_height))
-	return layout
+	return CharacterSelectLayout.build_info_panel_layout(rect, character, font)
 
 
 func _layout_string_lines(layout: Dictionary, key: String) -> Array[String]:
-	var result: Array[String] = []
-	var lines_value: Variant = layout.get(key, [])
-	if lines_value is Array:
-		for line_value in lines_value:
-			result.append(str(line_value))
-	return result
+	return CharacterSelectLayout.layout_string_lines(layout, key)
 
 
 func _draw_locked_info_status(rect: Rect2, character: Dictionary, accent: Color) -> void:
@@ -1703,10 +1467,7 @@ func _draw_badge(top_left: Vector2, label: String, accent: Color) -> void:
 
 
 func _badge_size(font: Font, label: String, font_size: int) -> Vector2:
-	if label.strip_edges() == "":
-		return Vector2.ZERO
-	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	return Vector2(text_size.x + 22.0, 25.0)
+	return CharacterSelectLayout.badge_size(font, label, font_size)
 
 
 func _draw_difficulty(top_left: Vector2, stars: int, accent: Color) -> void:
@@ -1845,129 +1606,48 @@ func _draw_skill_hover_tooltip(view_size: Vector2) -> void:
 
 
 func _get_skill_preview_data(character: Dictionary, icon_index: int) -> Dictionary:
-	var skill_ids := _get_character_skill_preview_ids(character)
-	if icon_index < 0 or icon_index >= skill_ids.size():
-		return {}
-	var skill_id := str(skill_ids[icon_index]).strip_edges()
-	if skill_id == "":
-		return {}
-	var skill_config := _get_skill_config_for_character(character)
-	if skill_config == null or not skill_config.has_method("get_skill_data"):
-		return {}
-	var data_value: Variant = skill_config.get_skill_data(skill_id)
-	if data_value is Dictionary:
-		var skill_data: Dictionary = data_value
-		if not skill_data.is_empty():
-			return skill_data
-	return {}
+	return CharacterSelectSkillPreviewResolver.get_preview_data(
+		character,
+		icon_index,
+		skill_config_instances
+	)
 
 
 func _get_character_skill_preview_ids(character: Dictionary) -> Array[String]:
-	var result: Array[String] = []
-	var configured_ids_value: Variant = character.get("skill_preview_ids", [])
-	if configured_ids_value is Array:
-		for id_value in configured_ids_value:
-			result.append(str(id_value))
-	if not result.is_empty():
-		return result
-	var icon_paths_value: Variant = character.get("skill_icon_paths", [])
-	if icon_paths_value is Array:
-		for path_value in icon_paths_value:
-			result.append(_infer_skill_id_from_icon_path(str(path_value), character))
-	return result
+	return CharacterSelectSkillPreviewResolver.get_character_skill_preview_ids(character)
 
 
 func _infer_skill_id_from_icon_path(path: String, character: Dictionary) -> String:
-	var file_name := path
-	var slash_index: int = max(path.rfind("/"), path.rfind("\\"))
-	if slash_index >= 0:
-		file_name = path.substr(slash_index + 1)
-	if file_name.ends_with(".png"):
-		file_name = file_name.substr(0, file_name.length() - 4)
-	if file_name.ends_with("_skill_orb"):
-		file_name = file_name.substr(0, file_name.length() - "_skill_orb".length())
-	var runtime_id := str(character.get("runtime_id", character.get("id", ""))).strip_edges().to_lower()
-	var prefix := "commando" if runtime_id == "soldier" else runtime_id
-	if prefix == "commando" and file_name == "commando_pistol":
-		return "commando_pistol"
-	if prefix != "" and file_name.begins_with("%s_" % prefix):
-		return file_name.substr(prefix.length() + 1)
-	return file_name
+	return CharacterSelectSkillPreviewResolver.infer_skill_id_from_icon_path(path, character)
 
 
 func _get_skill_config_for_character(character: Dictionary) -> Object:
-	var runtime_id := str(character.get("runtime_id", character.get("id", ""))).strip_edges().to_lower()
-	if runtime_id == "soldier":
-		runtime_id = "commando"
-	match runtime_id:
-		"smasher":
-			if not skill_config_instances.has("smasher"):
-				skill_config_instances["smasher"] = SmasherSkillConfig.new()
-			return skill_config_instances["smasher"]
-		"commando":
-			if not skill_config_instances.has("commando"):
-				skill_config_instances["commando"] = CommandoSkillConfig.new()
-			return skill_config_instances["commando"]
-		"viper":
-			if not skill_config_instances.has("viper"):
-				skill_config_instances["viper"] = ViperSkillConfig.new()
-			return skill_config_instances["viper"]
-	return null
+	return CharacterSelectSkillPreviewResolver.get_skill_config_for_character(
+		character,
+		skill_config_instances
+	)
 
 
 func _skill_data_color(skill_data: Dictionary, fallback: Color) -> Color:
-	var value: Variant = skill_data.get("color", fallback)
-	return value if value is Color else fallback
+	return CharacterSelectSkillPreviewResolver.skill_data_color(skill_data, fallback)
 
 
 func _format_skill_meta(skill_data: Dictionary) -> String:
-	var cost: float = float(skill_data.get("cost", 0.0))
-	var cooldown: float = float(skill_data.get("cooldown", 0.0))
-	if cost > 0.0 and cooldown > 0.0:
-		return LanguageSettings.translate_text("비용 %s  쿨타임 %s초" % [_format_number(cost), _format_number(cooldown)])
-	if cooldown > 0.0:
-		return LanguageSettings.translate_text("쿨타임 %s초" % _format_number(cooldown))
-	if cost > 0.0:
-		return "비용 %s" % _format_number(cost)
-	return ""
+	return CharacterSelectSkillPreviewResolver.format_skill_meta(skill_data)
 
 
 func _format_number(value: float) -> String:
-	var rounded: float = round(value)
-	if is_equal_approx(value, rounded):
-		return str(int(rounded))
-	var text := "%.1f" % value
-	if text.ends_with(".0"):
-		text = text.substr(0, text.length() - 2)
-	return text
+	return CharacterSelectSkillPreviewResolver.format_number(value)
 
 
 func _get_wrapped_text_lines(font: Font, source_text: String, max_width: float, font_size: int, max_lines: int) -> Array[String]:
-	var result: Array[String] = []
-	if source_text.strip_edges() == "" or max_lines <= 0:
-		return result
-	var paragraphs := source_text.split("\n", false)
-	for paragraph_value in paragraphs:
-		var paragraph := str(paragraph_value).strip_edges()
-		if paragraph == "":
-			continue
-		var words := paragraph.split(" ", false)
-		var current_line := ""
-		for word_value in words:
-			var word := str(word_value)
-			var candidate := word if current_line == "" else "%s %s" % [current_line, word]
-			if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width or current_line == "":
-				current_line = candidate
-			else:
-				result.append(current_line)
-				if result.size() >= max_lines:
-					return result
-				current_line = word
-		if current_line != "":
-			result.append(current_line)
-			if result.size() >= max_lines:
-				return result
-	return result
+	return CharacterSelectLayout.wrapped_text_lines(
+		font,
+		source_text,
+		max_width,
+		font_size,
+		max_lines
+	)
 
 
 func _draw_text_line_block(font: Font, lines: Array[String], top_left: Vector2, font_size: int, color: Color, line_step: float) -> float:
@@ -2154,19 +1834,7 @@ func _draw_section_label(top_left: Vector2, text: String, accent: Color) -> void
 
 
 func _full_body_microstat_rows(character: Dictionary) -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	var entries := [
-		{"label": "HEIGHT", "key": "lore_height"},
-		{"label": "WEIGHT", "key": "lore_weight"},
-		{"label": "AFFILIATION", "key": "lore_affiliation"},
-	]
-	for entry_value in entries:
-		var entry: Dictionary = entry_value
-		var value := str(character.get(str(entry.get("key", "")), "")).strip_edges()
-		if value == "":
-			continue
-		rows.append({"label": str(entry.get("label", "")), "value": value})
-	return rows
+	return CharacterSelectLayout.full_body_microstat_rows(character)
 
 
 func _draw_full_body_live2d_sheet(texture: Texture2D, target: Rect2, character: Dictionary) -> void:
@@ -2355,135 +2023,48 @@ func _draw_wrapped_text(font: Font, source_text: String, top_left: Vector2, max_
 
 
 func _layout_cards(view_size: Vector2) -> Dictionary:
-	var rects: Dictionary = {}
-	var count: int = visible_indices.size()
-	if count <= 0:
-		return rects
-	var column := _card_column_rect(view_size)
-	if view_size.x < 980.0:
-		var mobile_card_w: float = min(172.0, (column.size.x - 18.0) / float(count))
-		var mobile_card_h: float = column.size.y - 26.0
-		var step_x: float = (column.size.x - mobile_card_w) / float(max(1, count - 1))
-		for pos in range(count):
-			var index := int(visible_indices[pos])
-			var scale_factor := float(hover_scales[index])
-			var card_size := Vector2(mobile_card_w, mobile_card_h) * scale_factor
-			var center := Vector2(column.position.x + mobile_card_w * 0.5 + float(pos) * step_x, column.position.y + column.size.y * 0.54 - float(hover_lifts[index]))
-			rects[index] = Rect2(center - card_size * 0.5, card_size)
-		return rects
-	var padding := 8.0
-	var top_pad := 96.0
-	var gap := 10.0
-	var card_w: float = column.size.x - padding * 2.0
-	var available_h: float = column.size.y - top_pad - 92.0 - gap * float(max(0, count - 1))
-	# v2 G1 (Slice H 개정): taller roster cards — the portrait fills the left
-	# half at full card height so the face reads large (reference parity).
-	var card_h: float = min(126.0, available_h / float(count))
-	for pos in range(count):
-		var index := int(visible_indices[pos])
-		var scale_factor := float(hover_scales[index])
-		var card_size := Vector2(card_w, card_h) * scale_factor
-		var x := column.position.x + padding
-		var y := column.position.y + top_pad + float(pos) * (card_h + gap) - float(hover_lifts[index]) * 0.35
-		var center := Vector2(x + card_w * 0.5, y + card_h * 0.5)
-		rects[index] = Rect2(center - card_size * 0.5, card_size)
-	return rects
+	return CharacterSelectLayout.layout_cards(
+		view_size,
+		visible_indices,
+		hover_scales,
+		hover_lifts
+	)
 
 
 func _card_column_rect(view_size: Vector2) -> Rect2:
-	if view_size.x < 980.0:
-		return Rect2(24.0, view_size.y - 248.0, view_size.x - 48.0, 172.0)
-	var top := 106.0
-	var left: float = clamp(view_size.x * 0.085, 86.0, 150.0)
-	# v2 G1: wider column hosts horizontal roster cards (portrait + name + tag).
-	var width: float = clamp(view_size.x * 0.152, 246.0, 292.0)
-	return Rect2(left, top, width, view_size.y - top - 84.0)
+	return CharacterSelectLayout.card_column_rect(view_size)
 
 
 func _language_button_rect(view_size: Vector2) -> Rect2:
-	if view_size.x < 980.0:
-		var mobile_width: float = min(156.0, max(132.0, view_size.x - 68.0))
-		return Rect2(view_size.x - mobile_width - 34.0, 34.0, mobile_width, 32.0)
-	var column := _card_column_rect(view_size)
-	return Rect2(column.position.x + 14.0, column.end.y - 72.0, column.size.x - 28.0, 34.0)
+	return CharacterSelectLayout.language_button_rect(view_size)
 
 
 func _mobile_action_bar_bottom_y(view_size: Vector2) -> float:
-	return _card_column_rect(view_size).position.y - 46.0
+	return CharacterSelectLayout.mobile_action_bar_bottom_y(view_size)
 
 
 func _mobile_action_band_top(view_size: Vector2) -> float:
-	# Top edge of the whole action band. Below 640px the confirm CTA moves to
-	# its own row above the tab row (single-row fixed widths overlap the
-	# mythic tab under ~566px — Codex Slice B review P3).
-	var bottom_y := _mobile_action_bar_bottom_y(view_size)
-	if view_size.x < 640.0:
-		return bottom_y - 58.0
-	return bottom_y - 8.0
+	return CharacterSelectLayout.mobile_action_band_top(view_size)
 
 
 func _preview_rect(view_size: Vector2) -> Rect2:
-	if view_size.x < 980.0:
-		# Stacked layout budget: preview may not push info/action-bar into the
-		# bottom card column (Slice A pixel-QA finding (b)).
-		var top := 108.0
-		# Narrow+short guard (Codex Slice C review P2): fixed minimum heights
-		# must never push the stack past the action band. Reserve info-panel
-		# space only when the budget can actually hold it — otherwise the info
-		# panel yields entirely (0 height) instead of overlapping the CTA.
-		var total_budget: float = _mobile_action_band_top(view_size) - 12.0 - top
-		var info_reserve := 0.0
-		if total_budget >= 176.0:
-			info_reserve = 96.0 + 16.0
-		var preview_height: float = clampf(view_size.y * 0.44, 64.0, maxf(64.0, total_budget - info_reserve))
-		return Rect2(34.0, top, view_size.x - 68.0, preview_height)
-	var card_column := _card_column_rect(view_size)
-	var x := card_column.end.x + 24.0
-	# v2 G2 (D7 개정): the hero absorbs the old info-panel space, minus the
-	# restored full-body rail on the right (user feedback — the hero preview
-	# is bust-up art, so the rail is the only full-body read).
-	var rail := _full_body_rail_rect(view_size)
-	var right_edge: float = (rail.position.x - 24.0) if rail.has_area() else (view_size.x - _layout_right_margin(view_size))
-	var width: float = clamp(right_edge - x, 560.0, 1560.0)
-	return Rect2(x, 116.0, width, max(360.0, view_size.y - 238.0))
+	return CharacterSelectLayout.preview_rect(view_size)
 
 
 func _full_body_rail_rect(view_size: Vector2) -> Rect2:
-	if view_size.x < 980.0:
-		return Rect2()
-	var column := _card_column_rect(view_size)
-	var x := column.end.x + 24.0
-	var right_margin := _layout_right_margin(view_size)
-	var rail_width: float = clamp(view_size.x * 0.155, 264.0, 300.0)
-	# Narrow desktop: the hero keeps its 560px minimum and the rail yields.
-	if view_size.x - right_margin - x < 560.0 + 24.0 + rail_width:
-		return Rect2()
-	return Rect2(view_size.x - right_margin - rail_width, 116.0, rail_width, max(360.0, view_size.y - 238.0))
+	return CharacterSelectLayout.full_body_rail_rect(view_size)
 
 
 func _info_panel_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
-	if view_size.x < 980.0:
-		var info_top := preview_rect_value.end.y + 16.0
-		var info_bottom: float = _mobile_action_band_top(view_size) - 12.0
-		# No minimum-height promotion: a floor here overlaps the action band on
-		# narrow+short windows. A fully empty Rect2 (not a zero-height rect at
-		# a live position) signals the yielded panel — degenerate rects still
-		# report intersects() when their position sits inside another rect.
-		var info_height: float = min(250.0, info_bottom - info_top)
-		if info_height < 1.0:
-			return Rect2()
-		return Rect2(34.0, info_top, view_size.x - 68.0, info_height)
-	# v2 G2 (D7): the desktop info panel is retired — difficulty / skills /
-	# ring core live in the hero info overlay, lore stays in the title block.
-	return Rect2()
+	return CharacterSelectLayout.info_panel_rect(view_size, preview_rect_value)
 
 
 func _layout_right_margin(view_size: Vector2) -> float:
-	return clamp(view_size.x * 0.080, 84.0, 156.0)
+	return CharacterSelectLayout.layout_right_margin(view_size)
 
 
 func _info_panel_width(view_size: Vector2) -> float:
-	return clamp(view_size.x * 0.245, 390.0, 500.0)
+	return CharacterSelectLayout.info_panel_width(view_size)
 
 
 func _detail_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
