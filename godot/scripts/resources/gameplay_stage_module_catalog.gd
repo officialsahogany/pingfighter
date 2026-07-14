@@ -461,6 +461,42 @@ const MODULES := {
 		"path": "res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd",
 		"label": "stage6 Tetriser boss skill HUD renderer",
 	},
+	"stage7_akamu_state": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_state.gd",
+		"label": "stage7 Akamu boss state",
+	},
+	"stage7_akamu_actor_renderer": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_actor_renderer.gd",
+		"label": "stage7 Akamu actor renderer",
+	},
+	"stage7_akamu_boss_actor_renderer": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_boss_actor_renderer.gd",
+		"label": "stage7 Akamu boss actor renderer",
+	},
+	"stage7_akamu_playfield_renderer": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_playfield_renderer.gd",
+		"label": "stage7 Akamu playfield renderer",
+	},
+	"stage7_akamu_pillar_background": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_pillar_background.gd",
+		"label": "stage7 Akamu pillar background",
+	},
+	"stage7_akamu_pillar_scene_drawer": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_pillar_scene_drawer.gd",
+		"label": "stage7 Akamu pillar scene drawer",
+	},
+	"stage7_akamu_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_boss_skill_hud_renderer.gd",
+		"label": "stage7 Akamu boss skill HUD renderer",
+	},
+	"stage7_akamu_vfx_texture_cache": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_vfx_texture_cache.gd",
+		"label": "stage7 Akamu VFX texture cache",
+	},
+	"stage7_akamu_boss_skill_hud_assets": {
+		"path": "res://scripts/stages/stage7/stage7_akamu_boss_skill_hud_assets.gd",
+		"label": "stage7 Akamu boss skill HUD assets",
+	},
 }
 
 

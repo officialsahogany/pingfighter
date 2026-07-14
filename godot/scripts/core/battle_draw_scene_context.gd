@@ -79,6 +79,7 @@ func _build_full_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"stage5_hongryun_fire_machine_event": _get_instance(registry, "stage5_hongryun_fire_machine_event"),
 		"stage5_hongryun_boss_skill_hud_renderer": _get_instance(registry, "stage5_hongryun_boss_skill_hud_renderer"),
 		"stage6_tetriser_state": _get_instance(registry, "stage6_tetriser_state"),
+		"stage7_akamu_state": _get_instance(registry, "stage7_akamu_state"),
 		"active_item_runtime": _get_instance(registry, "active_item_runtime"),
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
 		"status_effect_state": _get_instance(registry, "status_effect_state"),
@@ -150,6 +151,8 @@ func _append_stage_scene_deps(
 			deps["stage5_hongryun_boss_skill_hud_renderer"] = _get_instance(registry, "stage5_hongryun_boss_skill_hud_renderer")
 		6:
 			deps["stage6_tetriser_state"] = _get_instance(registry, "stage6_tetriser_state")
+		7:
+			deps["stage7_akamu_state"] = _get_instance(registry, "stage7_akamu_state")
 
 
 func _append_character_scene_deps(deps: Dictionary, registry, character_type: String) -> void:

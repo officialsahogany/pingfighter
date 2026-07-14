@@ -24,6 +24,7 @@ func build_deps(
 		_append_stage4_deps(deps, registry, true)
 		_append_stage5_deps(deps, registry, true)
 		_append_stage6_deps(deps, registry, true)
+		_append_stage7_deps(deps, registry, true)
 	else:
 		_append_current_stage_deps(deps, registry, current_stage, _normalize_stage1_boss_variant(stage1_boss_variant))
 	return deps
@@ -48,6 +49,8 @@ func _append_current_stage_deps(
 			_append_stage5_deps(deps, registry)
 		6:
 			_append_stage6_deps(deps, registry)
+		7:
+			_append_stage7_deps(deps, registry)
 
 
 func _append_stage1_deps(
@@ -92,6 +95,12 @@ func _append_stage5_deps(deps: Dictionary, registry: Object, peek_only: bool = f
 
 func _append_stage6_deps(deps: Dictionary, registry: Object, peek_only: bool = false) -> void:
 	deps["stage6_tetriser_state"] = _lookup_instance(registry, "stage6_tetriser_state", peek_only)
+
+
+func _append_stage7_deps(deps: Dictionary, registry: Object, peek_only: bool = false) -> void:
+	deps["stage7_akamu_state"] = _lookup_instance(registry, "stage7_akamu_state", peek_only)
+
+
 
 
 # peek_only callers must never instantiate: registries expose

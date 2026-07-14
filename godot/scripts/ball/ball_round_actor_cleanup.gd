@@ -120,6 +120,12 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_round"):
 		stage6_tetriser_state.reset_round()
 
+	var stage7_akamu_state = deps.get("stage7_akamu_state", null)
+	if stage7_akamu_state != null and stage7_akamu_state.has_method("reset_round"):
+		# 트랜지언트/freeze만 정리 — 게이지 캐리는 점수 이벤트의
+		# apply_score_round_carry() 전용(중복 감쇠 금지).
+		stage7_akamu_state.reset_round()
+
 	var stage5_hongryun_fire_machine_event = deps.get("stage5_hongryun_fire_machine_event", null)
 	if stage5_hongryun_fire_machine_event != null and stage5_hongryun_fire_machine_event.has_method("reset_round"):
 		stage5_hongryun_fire_machine_event.reset_round()

@@ -27,6 +27,21 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call(callbacks, "hide_skill_orb_tooltip_overlay")
 	_clear_skill_orb_tooltip_pause()
 
+	var stage7_akamu_state = deps.get("stage7_akamu_state", null)
+	if (
+		int(deps.get("current_stage", 1)) == 7
+		and stage7_akamu_state != null
+		and stage7_akamu_state.has_method("is_gameplay_freeze_active")
+		and bool(stage7_akamu_state.is_gameplay_freeze_active())
+	):
+		# 아카무 각성 freeze: 오너의 인트로 시계만 직접 전진한다. update_effects를
+		# 태우면 스테이지 투사체/스킬 타이머까지 흐르므로(freeze 의미 파괴)
+		# 다른 업데이트 콜백은 일절 부르지 않고 redraw만 요청한다.
+		if stage7_akamu_state.has_method("advance_gameplay_freeze"):
+			stage7_akamu_state.advance_gameplay_freeze(delta)
+		_call(callbacks, "queue_redraw")
+		return
+
 	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
 	if (
 		int(deps.get("current_stage", 1)) == 3

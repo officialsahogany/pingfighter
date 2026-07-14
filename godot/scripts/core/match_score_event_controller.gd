@@ -75,6 +75,9 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_clear_stage6_round_boundary_fx(deps)
 	_perf_end(perf_logger, "physics.score_event.round_boundary.stage6_fx", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_apply_stage7_score_boundary(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.stage7_akamu", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_start_score_result_texture_prewarm(scoring_side, deps)
 	_perf_end(perf_logger, "physics.score_event.result_texture_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -502,6 +505,24 @@ func _clear_stage6_round_boundary_fx(deps: Dictionary) -> void:
 	var stage6_tetriser_state: Object = deps.get("stage6_tetriser_state", null)
 	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_round"):
 		stage6_tetriser_state.reset_round()
+
+
+func _apply_stage7_score_boundary(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 7:
+		return
+	var stage7_akamu_state: Object = deps.get("stage7_akamu_state", null)
+	if stage7_akamu_state == null:
+		return
+	if stage7_akamu_state.has_method("handle_score_event"):
+		stage7_akamu_state.handle_score_event(scoring_side, score_result)
+	# 확정 점수 세대(총 득점 수)로 0.7 게이지 캐리를 정확히 1회 적용.
+	# 이후의 일반 볼-리셋 정리는 reset_round(트랜지언트 전용)만 태운다.
+	if stage7_akamu_state.has_method("apply_score_round_carry"):
+		var round_generation: int = int(score_result.get("player_score", 0)) + int(score_result.get("boss_score", 0))
+		stage7_akamu_state.apply_score_round_carry(round_generation)
+	var stage_background: Object = deps.get("stage_background", null)
+	if stage_background != null and stage_background.has_method("trigger_excitement"):
+		stage_background.trigger_excitement()
 
 
 func _get_battle_resources(deps: Dictionary) -> Object:

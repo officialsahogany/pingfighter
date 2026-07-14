@@ -151,6 +151,8 @@ static func get_stage_round_dep_keys(current_stage: int, stage1_boss_variant: St
 			keys.append("stage5_hongryun_actor_renderer")
 		6:
 			keys.append("stage6_tetriser_state")
+		7:
+			keys.append("stage7_akamu_state")
 	return keys
 
 
@@ -212,6 +214,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"stage5_hongryun_fire_machine_event": registry.get_instance("stage5_hongryun_fire_machine_event"),
 		"stage5_hongryun_actor_renderer": registry.get_instance("stage5_hongryun_actor_renderer"),
 		"stage6_tetriser_state": registry.get_instance("stage6_tetriser_state"),
+		"stage7_akamu_state": registry.get_instance("stage7_akamu_state"),
 		"stage1_balloon_event": registry.get_instance("stage1_balloon_event"),
 	}
 
@@ -466,6 +469,8 @@ func _append_stage_update_deps(
 			deps["stage5_hongryun_fire_machine_event"] = _get_instance(registry, "stage5_hongryun_fire_machine_event")
 		6:
 			deps["stage6_tetriser_state"] = _get_instance(registry, "stage6_tetriser_state")
+		7:
+			deps["stage7_akamu_state"] = _get_instance(registry, "stage7_akamu_state")
 
 
 func _get_stage_background_key(router: Object, current_stage: int) -> String:

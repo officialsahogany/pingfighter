@@ -415,6 +415,10 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 			return 3 + STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size()
 		5:
 			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
+		7:
+			# 프리배틀 영상 스텝은 재생 lifecycle(begin/update/input/gate)과 함께
+			# 프리배틀 완결 슬라이스에서 5스텝으로 복원한다 — 반쪽 배선 금지.
+			return 4
 	return 0
 
 
@@ -437,6 +441,8 @@ func _get_stage_runtime_prewarm_step_label(owner: Object, current_stage: int, st
 			return _get_stage4_runtime_prewarm_step_label(stage_step)
 		5:
 			return _get_stage5_runtime_prewarm_step_label(stage_step)
+		7:
+			return _get_stage7_runtime_prewarm_step_label(stage_step)
 	return "stage%d_step%d" % [current_stage, stage_step]
 
 
@@ -508,6 +514,8 @@ func _run_stage_specific_runtime_prewarm_step(
 			return _run_stage4_runtime_prewarm_step(owner, module_getter, stage_step)
 		5:
 			return _run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
+		7:
+			return _run_stage7_runtime_prewarm_step(owner, module_getter, stage_step)
 	return true
 
 
@@ -621,6 +629,37 @@ func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 			if module_key == "stage5_hongryun_pillar_scene_drawer":
 				return _prewarm_pillar_scene_assets_step(module, module_getter, _get_selected_character_type(owner))
 			return _prewarm_module_assets_step(module)
+
+
+const STAGE7_RUNTIME_PREWARM_STEP_LABELS := [
+	"stage7_akamu_pillar_background",
+	"stage7_akamu_actor_renderer",
+	"stage7_akamu_pillar_scene",
+	"stage7_akamu_skill_hud",
+]
+
+
+func _get_stage7_runtime_prewarm_step_label(stage_step: int) -> String:
+	if stage_step >= 0 and stage_step < STAGE7_RUNTIME_PREWARM_STEP_LABELS.size():
+		return str(STAGE7_RUNTIME_PREWARM_STEP_LABELS[stage_step])
+	return "stage7_step%d" % stage_step
+
+
+func _run_stage7_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
+	match stage_step:
+		0:
+			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_pillar_background"))
+		1:
+			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_actor_renderer"))
+		2:
+			return _prewarm_pillar_scene_assets_step(
+				_get_module(module_getter, "stage7_akamu_pillar_scene_drawer"),
+				module_getter,
+				_get_selected_character_type(owner)
+			)
+		3:
+			return _prewarm_module_assets_step(_get_module(module_getter, "stage7_akamu_boss_skill_hud_renderer"))
+	return true
 
 
 # Attach a hidden offscreen Node2D once per stage so Vulkan / GPU

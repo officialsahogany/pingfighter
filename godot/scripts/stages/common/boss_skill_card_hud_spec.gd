@@ -21,6 +21,8 @@ const TOOLTIP_SCALE_MAX := 1.15
 const TOOLTIP_MIN_LEFT_WIDTH := 120.0
 const SORT_ACTIVE_REMAINING := -0.001
 const SORT_INACTIVE_REMAINING := 100000000.0
+# 2분법 색 계약: 보스 스킬 카드 좌측 띠 = 붉은 띠(링펫 레일은 렌더러 쪽 청록).
+const BOSS_SKILL_STRIP_COLOR := Color(0.86, 0.22, 0.24, 0.95)
 
 
 static func get_scale_factor(pillar_width: float) -> float:
@@ -219,6 +221,106 @@ static func rects_overlap_x(a: Rect2, b: Rect2) -> bool:
 	return a.position.x < b.end.x and b.position.x < a.end.x
 
 
+# --- Skill-card reorder "shuffle" motion (single-sourced, v2 timed tween) ----
+# 스킬카드 정렬(다음 발동 순)이 바뀔 때 카드게임에서 카드를 뽑아 옮겨 꽂는 듯한
+# 셔플 모션. v1은 감쇠 스프링 + |vy| 비례 리프트였는데, 오버슈트 정점에서 vy가
+# 0을 지나며 리프트가 꺼졌다 켜지는 더블펌프(중간 버벅거림)가 있어 폐기했다.
+# v2는 고정 시간 트윈: easeInOutCubic으로 단조 이동(오버슈트 0) + 리프트는
+# 이동 "진행률"의 사인 아치 sin(p*PI)라 구조적으로 단일 아치 — 버벅거림 불가.
+# 위로 가는 카드에 리프트 배율을 더 줘 스왑 시 두 카드가 좌우로 벌어지며
+# 지나간다(리플감). 리프트는 항상 왼쪽(필러 안쪽)이라 플레이필드 침범 없음.
+# 상태는 호출부 소유 Dictionary(store)에 카드 id별 sub-dict로 저장.
+const SHUFFLE_DURATION := 0.38            # 재정렬 트윈 시간(초)
+const SHUFFLE_LIFT_MAX_BASE := 7.0        # 최대 가로 리프트(base px @ scale 1)
+const SHUFFLE_LIFT_DIR_BIAS := 0.5        # 위로 가는 카드 추가 리프트 배율(스왑 좌우 분리)
+const SHUFFLE_LIFT_TRAVEL_REF_BASE := 11.0  # 이 이동거리(base px)에서 리프트 100% (미세 재정렬은 살짝만)
+const SHUFFLE_RETARGET_EPS := 0.5         # 목표 y 변경 감지 임계(px)
+
+
+# `store`: 렌더러 소유 Dictionary(카드 id → 트윈 상태). 반환:
+#   {"x": 이번 프레임 x, "y": 이번 프레임 y, "motion": 0..1 이동 강도}.
+# 정지 시 x==target_x, y==target_y로 정확히 수렴(정지 픽셀 기존과 동일).
+# 시간 점프(스톨/탭 복귀)는 트윈이 그냥 완료될 뿐이라 폭주/NaN이 없다.
+static func advance_card_shuffle(
+	store: Dictionary,
+	key: String,
+	target_x: float,
+	target_y: float,
+	scale_factor: float,
+	time_seconds: float
+) -> Dictionary:
+	var sf: float = maxf(0.25, scale_factor)
+	var state: Variant = store.get(key)
+	if not (state is Dictionary):
+		# 새 카드 첫 등장: 목적지에 스냅(트윈 완료 상태로 시작).
+		store[key] = {
+			"from_y": target_y,
+			"target_y": target_y,
+			"t0": time_seconds - SHUFFLE_DURATION,
+			"lift_from": 0.0,
+			"up": false,
+		}
+		return {"x": target_x, "y": target_y, "motion": 0.0}
+
+	var s: Dictionary = state
+	# 현재(구 목표 기준) 표시 위치/리프트 — 재타겟 연속성의 기준점.
+	var p_now: float = _shuffle_progress(s, time_seconds)
+	var y_now: float = lerpf(float(s.get("from_y", target_y)), float(s.get("target_y", target_y)), _shuffle_ease(p_now))
+	var lift_now: float = _shuffle_lift(s, p_now, sf)
+
+	if absf(target_y - float(s.get("target_y", target_y))) > SHUFFLE_RETARGET_EPS:
+		# 정렬이 바뀜: 현재 표시 위치에서 새 트윈 시작(위치·리프트 연속, 점프 없음).
+		s["from_y"] = y_now
+		s["target_y"] = target_y
+		s["t0"] = time_seconds
+		s["lift_from"] = lift_now
+		s["up"] = target_y < y_now
+
+	var p: float = _shuffle_progress(s, time_seconds)
+	var y: float = lerpf(float(s.get("from_y", target_y)), float(s.get("target_y", target_y)), _shuffle_ease(p))
+	var lift: float = _shuffle_lift(s, p, sf)
+	if p >= 1.0:
+		y = float(s.get("target_y", target_y))
+		lift = 0.0
+	return {"x": target_x - lift, "y": y, "motion": sin(clampf(p, 0.0, 1.0) * PI)}
+
+
+static func _shuffle_progress(s: Dictionary, time_seconds: float) -> float:
+	return clampf((time_seconds - float(s.get("t0", time_seconds))) / SHUFFLE_DURATION, 0.0, 1.0)
+
+
+# easeInOutCubic: 살짝 모았다가 미끄러져 들어가 감속 안착. 단조라 오버슈트 없음.
+static func _shuffle_ease(p: float) -> float:
+	if p < 0.5:
+		return 4.0 * p * p * p
+	var q: float = -2.0 * p + 2.0
+	return 1.0 - q * q * q * 0.5
+
+
+static func _shuffle_lift(s: Dictionary, p: float, sf: float) -> float:
+	if p >= 1.0:
+		return 0.0
+	var travel: float = absf(float(s.get("target_y", 0.0)) - float(s.get("from_y", 0.0)))
+	# 한 칸(카드높이급) 이상 이동이면 풀 리프트, 미세 조정은 비례해 살짝만.
+	var travel_norm: float = clampf(travel / (SHUFFLE_LIFT_TRAVEL_REF_BASE * sf), 0.0, 1.0)
+	var dir_mult: float = 1.0 + (SHUFFLE_LIFT_DIR_BIAS if bool(s.get("up", false)) else 0.0)
+	var arc: float = SHUFFLE_LIFT_MAX_BASE * sf * dir_mult * travel_norm * sin(p * PI)
+	# 재타겟 직후엔 이전 리프트에서 이어받아 자연 감쇠(리프트 순간 점프 방지).
+	return maxf(arc, float(s.get("lift_from", 0.0)) * (1.0 - p))
+
+
+# 정렬에서 사라진 카드의 트윈 상태 정리(렌더러별 _prune_queue_positions 공용화).
+# `entries`의 각 항목은 "id" 키를 갖는 Dictionary를 기대한다.
+static func prune_shuffle_store(store: Dictionary, entries: Array) -> void:
+	var active_keys := {}
+	for entry in entries:
+		if entry is Dictionary:
+			active_keys[str((entry as Dictionary).get("id", ""))] = true
+	for key in store.keys():
+		if not active_keys.has(str(key)):
+			store.erase(key)
+
+
 static func _build_tooltip_info(skill: Dictionary, tooltip_info: Dictionary) -> Dictionary:
 	var info: Dictionary = tooltip_info.duplicate(true)
 	if not info.has("name") or str(info.get("name", "")).is_empty():
@@ -411,3 +513,44 @@ static func _has_numeric_value(source: Dictionary, key: String) -> bool:
 	var value: Variant = source.get(key)
 	var value_type := typeof(value)
 	return value_type == TYPE_INT or value_type == TYPE_FLOAT
+
+
+# 스킬카드 게이지 필 공용 draw (수정14 cover-crop 통일 복원): 카드 아트를
+# 종횡비 보존 cover-crop으로 배치해 찌그러짐을 없애고, 어두운 백플레이트 위에
+# 좌→우 fill 비율만큼 밝은 부분을 같은 비율의 소스 크롭으로 겹친다.
+# draw_texture_rect_region은 픽셀 rect를 받으므로 UV 정규화 트랩과 무관.
+static func draw_skillcard_gauge_fill(
+	canvas: CanvasItem,
+	rect: Rect2,
+	texture: Texture2D,
+	source_rect: Rect2,
+	fill_ratio: float,
+	back_modulate: Color,
+	front_modulate: Color
+) -> void:
+	if canvas == null or texture == null or not rect.has_area():
+		return
+	var cover: Rect2 = _cover_crop_source(texture, source_rect, rect.size)
+	canvas.draw_texture_rect_region(texture, rect, cover, back_modulate)
+	var clamped: float = clampf(fill_ratio, 0.0, 1.0)
+	if clamped <= 0.0:
+		return
+	var lit_rect := Rect2(rect.position, Vector2(rect.size.x * clamped, rect.size.y))
+	var lit_source := Rect2(cover.position, Vector2(cover.size.x * clamped, cover.size.y))
+	canvas.draw_texture_rect_region(texture, lit_rect, lit_source, front_modulate)
+
+
+static func _cover_crop_source(texture: Texture2D, source_rect: Rect2, target_size: Vector2) -> Rect2:
+	var source := source_rect
+	if not source.has_area():
+		source = Rect2(Vector2.ZERO, texture.get_size())
+	var source_aspect: float = source.size.x / maxf(1.0, source.size.y)
+	var target_aspect: float = target_size.x / maxf(1.0, target_size.y)
+	var cropped := source
+	if source_aspect > target_aspect:
+		cropped.size.x = source.size.y * target_aspect
+		cropped.position.x += (source.size.x - cropped.size.x) * 0.5
+	else:
+		cropped.size.y = source.size.x / maxf(0.01, target_aspect)
+		cropped.position.y += (source.size.y - cropped.size.y) * 0.5
+	return cropped

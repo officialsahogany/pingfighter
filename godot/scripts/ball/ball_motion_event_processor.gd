@@ -59,7 +59,10 @@ func step_motion(
 	elif event == "adversity_armor":
 		_process_adversity_armor(step_result, scene, deps)
 	elif event == "player_paddle" or event == "boss_paddle":
-		_process_paddle(step_result, scene, context, deps, callbacks)
+		# 패들 이벤트의 오버드라이브 반사는 이벤트명 선판정이 아니라 실제
+		# 반사 커밋 여부로 게이트한다 — 무형화 무시·컨트롤러 부재·빈 결과에서
+		# 가짜 반사 통지가 나가지 않도록.
+		overdrive_reflection = _process_paddle(step_result, scene, context, deps, callbacks)
 	elif event == "player_scored":
 		if _process_stage2_quake_boss_backstop(scene, context, deps):
 			overdrive_reflection = true
@@ -347,10 +350,14 @@ func _process_paddle(
 	context: Dictionary,
 	deps: Dictionary,
 	callbacks: Dictionary
-) -> void:
+) -> bool:
 	var controller = deps.get("paddle_bounce_controller", null)
 	if controller == null:
-		return
+		return false
+	if not bool(step_result.get("is_player", false)) and _is_stage7_boss_ball_intangible(context, deps):
+		# 아카무 무형화: 보스 패들 접촉 이벤트를 정상 반사 처리 전에 통째로
+		# 무시한다(속도 보존·훅 미호출·점수 이벤트 없음).
+		return false
 	var wall_controller = deps.get("wall_bounce_controller", null)
 	if wall_controller != null and wall_controller.has_method("register_paddle_hit"):
 		wall_controller.register_paddle_hit()
@@ -377,6 +384,34 @@ func _process_paddle(
 		callbacks
 	)
 	scene.merge(result, true)
+	if result.is_empty():
+		return false
+	if bool(step_result.get("is_player", false)):
+		return true
+	if not bool(result.get("normal_boss_bounce_committed", false)):
+		return false
+	_notify_stage7_boss_paddle_hit(scene, context, deps)
+	return true
+
+
+func _is_stage7_boss_ball_intangible(context: Dictionary, deps: Dictionary) -> bool:
+	if int(context.get("current_stage", 1)) != 7:
+		return false
+	var state: Object = deps.get("stage7_akamu_state", null)
+	return (
+		state != null
+		and state.has_method("is_boss_ball_intangible")
+		and bool(state.is_boss_ball_intangible())
+	)
+
+
+func _notify_stage7_boss_paddle_hit(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+	if int(context.get("current_stage", 1)) != 7:
+		return
+	var state: Object = deps.get("stage7_akamu_state", null)
+	if state == null or not state.has_method("handle_boss_paddle_hit"):
+		return
+	state.handle_boss_paddle_hit(scene, context, deps)
 
 
 func _process_stage2_quake_boss_backstop(scene: Dictionary, context: Dictionary, deps: Dictionary) -> bool:

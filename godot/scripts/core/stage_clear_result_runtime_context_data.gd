@@ -57,6 +57,7 @@ static func reset_stage_for_result(registry: Object, stage_id: int) -> void:
 	reset_stage4_for_result(registry, stage_id)
 	reset_stage5_for_result(registry, stage_id)
 	reset_stage6_for_result(registry, stage_id)
+	reset_stage7_for_result(registry, stage_id)
 
 
 static func reset_stage4_for_result(registry: Object, stage_id: int) -> void:
@@ -90,6 +91,18 @@ static func reset_stage6_for_result(registry: Object, stage_id: int) -> void:
 	var stage6_tetriser_state: Object = get_instance(registry, "stage6_tetriser_state")
 	if stage6_tetriser_state != null and stage6_tetriser_state.has_method("reset_for_result"):
 		stage6_tetriser_state.reset_for_result()
+
+
+static func reset_stage7_for_result(registry: Object, stage_id: int) -> void:
+	if stage_id != 7:
+		return
+	var stage7_akamu_state: Object = get_instance(registry, "stage7_akamu_state")
+	if stage7_akamu_state != null and stage7_akamu_state.has_method("reset_for_result"):
+		stage7_akamu_state.reset_for_result()
+
+
+	if stage_id != 8:
+		return
 
 
 static func _call_int(target: Object, method_name: String, fallback: int) -> int:

@@ -176,6 +176,11 @@ func _merge_stage_context(context: Dictionary, registry: Object, current_stage: 
 		if stage6_tetriser_state != null and stage6_tetriser_state.has_method("get_boss_ai_context"):
 			context.merge(stage6_tetriser_state.get_boss_ai_context(), true)
 		return
+	if current_stage == 7:
+		var stage7_akamu_state: Object = _get_instance(registry, "stage7_akamu_state")
+		if stage7_akamu_state != null and stage7_akamu_state.has_method("get_boss_ai_context"):
+			context.merge(stage7_akamu_state.get_boss_ai_context(), true)
+		return
 	if current_stage != 2:
 		return
 	var stage_background: Object = _get_stage_instance(registry, current_stage, "stage_background", "stage2_pillar_background")

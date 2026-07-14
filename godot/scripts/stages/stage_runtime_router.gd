@@ -39,6 +39,14 @@ const STAGE_MODULES := {
 		"playfield_renderer": "stage6_tetriser_playfield_renderer",
 		"boss_skill_hud_renderer": "stage6_tetriser_boss_skill_hud_renderer",
 	},
+	7: {
+		"actor_renderer": "stage7_akamu_actor_renderer",
+		"boss_actor_renderer": "stage7_akamu_boss_actor_renderer",
+		"pillar_scene_drawer": "stage7_akamu_pillar_scene_drawer",
+		"stage_background": "stage7_akamu_pillar_background",
+		"playfield_renderer": "stage7_akamu_playfield_renderer",
+		"boss_skill_hud_renderer": "stage7_akamu_boss_skill_hud_renderer",
+	},
 }
 
 

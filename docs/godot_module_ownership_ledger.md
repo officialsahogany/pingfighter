@@ -4340,6 +4340,34 @@ This section is intentionally long; use search to find the nearest owner.
     `tests/battle_scene_stage_transition_loading_smoke.gd`,
     `tests/battle_perf_logger_smoke.gd`, full warning/headless gate, and direct
     Stage 6 runtime serve capture.
+- `scripts/stages/stage7/` — Stage 7 아카무 리고 / Akamu Rigo cluster (port of
+  Python Stage 8 닌자 보스; Godot slot 7). Status: **slice 1 wired — routing,
+  deps, score-carry, collision (boss-ball intangibility gate + committed-bounce
+  hook), awakening gameplay-freeze, scripted boss AI position, 4-step boot
+  prewarm, result/full reset fanout. Prebattle video lifecycle, STAGE7_* audio
+  routes, and stage-clear result constants are pending follow-up slices.**
+  Owners (11 modules):
+  - `stage7_akamu_state.gd` — single owner of boss gauge (round-persist:
+    generation-guarded 0.7 score carry via `apply_score_round_carry`, generic
+    resets are transient-only), awakening trigger/freeze, shadow clones,
+    shurikens, cloud dash, escape, superspeed, wind aura, boss-ball
+    intangibility (`is_boss_ball_intangible`), scripted boss position, and the
+    boss-AI / actor-draw / HUD context exports.
+  - `stage7_akamu_actor_renderer.gd` / `stage7_akamu_boss_actor_renderer.gd` /
+    `stage7_akamu_playfield_renderer.gd` / `stage7_akamu_pillar_background.gd` /
+    `stage7_akamu_pillar_scene_drawer.gd` / `stage7_akamu_boss_skill_hud_renderer.gd`
+    (+ `_boss_skill_hud_assets.gd`, `_vfx_texture_cache.gd`) — render cluster;
+    the skill-card gauge uses the shared
+    `boss_skill_card_hud_spec.draw_skillcard_gauge_fill` cover-crop helper.
+  - `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
+    prebattle intro video pair; catalog/lifecycle wiring deferred to the
+    prebattle completion slice.
+  - Sprite contract: nine 4x2 sheets (dash is native left/right, mirroring
+    forbidden) — `docs/sprites/stage7_akamu_rigo.md` +
+    `stage7_akamu_boss_sprite_manifest.json`.
+  - Regression guard: `tests/stage7_akamu_slice1_smoke.gd` (64 assertions) +
+    `tests/boss_skill_card_shuffle_motion_smoke.gd`; later slices own the
+    remaining `stage7_akamu_*` smokes.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
   `scripts/stages/stage4/stage4_brazier_monk_event.gd`
   Own the first Stage 4 event runtime slice. `stage4_bird_event` handles

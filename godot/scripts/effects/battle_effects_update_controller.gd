@@ -100,6 +100,17 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		stage6_tetriser_result = stage6_tetriser_state.update(delta, context, effect_deps)
 		context.merge(stage6_tetriser_result, true)
 
+	var stage7_akamu_state: Object = deps.get("stage7_akamu_state", null)
+	var stage7_akamu_result: Dictionary = {}
+	if (
+		int(context.get("current_stage", 1)) == 7
+		and stage7_akamu_state != null
+		and stage7_akamu_state.has_method("update")
+	):
+		_merge_score_context(context, deps.get("score_state", null))
+		stage7_akamu_result = stage7_akamu_state.update(delta, context, effect_deps)
+		context.merge(stage7_akamu_result, true)
+
 	var drive_text_timer_frames: float = max(
 		0.0,
 		float(context.get("drive_text_timer_frames", 0.0)) - fps_scale
@@ -262,6 +273,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	result.merge(stage3_boss_skill_result, true)
 	result.merge(stage5_hongryun_result, true)
 	result.merge(stage5_hongryun_fire_machine_result, true)
+	# 아카무 스크립트 보스 좌표/해제 신호가 owner까지 도달해야 한다 —
+	# context 병합만으로는 이번 프레임의 임시 사본에서 끝난다.
+	result.merge(stage7_akamu_result, true)
 	result.merge(commando_firearm_result, true)
 	result.merge(blacksmith_thor_shield_result, true)
 	result["special_gauge"] = next_special_gauge

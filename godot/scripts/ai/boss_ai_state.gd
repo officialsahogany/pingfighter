@@ -177,6 +177,15 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 	# knockback) because update_active_items — where the molotov's own contact
 	# bounce lives — runs a frame earlier, so a dash started/advanced here would
 	# otherwise cross the fire before the molotov ever sees it.
+	if bool(context.get("stage7_akamu_boss_ai_frozen", false)):
+		# 아카무 연출 소유 프레임: 스크립트 좌표는 저작 값을 그대로 신뢰하고,
+		# 몰로토프/모래감옥 후처리도 우회한다(연출 좌표를 공유 클램프가 밀면
+		# 워프/분신 연출이 찢어진다). 스크립트 좌표가 없는 순수 freeze는 현재
+		# 위치를 유지한 채 속도만 0으로 정지한다.
+		var frozen_pos: Vector2 = boss_pos
+		if bool(context.get("stage7_akamu_scripted_motion_active", false)):
+			frozen_pos = _as_vector2(context.get("stage7_akamu_scripted_boss_pos", boss_pos), boss_pos)
+		return {"boss_pos": frozen_pos, "boss_vel": 0.0}
 	var entry_boss_pos: Vector2 = boss_pos
 	var result: Dictionary = _update_motion(delta, boss_pos, boss_vel, context)
 	result = _apply_molotov_fire_barrier(result, entry_boss_pos, context)

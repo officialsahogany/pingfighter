@@ -21,8 +21,12 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 	_sync_ball_intensity_stakes(registry)
 	_perf_end(perf_logger, "physics.deps.ball_intensity_stakes", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
 	var deps := {
-		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"current_stage": current_stage,
+		# 스테이지 게이트: 비-7 스테이지 프레임에서 stage7 상태를 cold-instantiate
+		# 하지 않도록 조건부로만 조회한다(핫패스 lazy-init 트랩).
+		"stage7_akamu_state": _get_instance(registry, "stage7_akamu_state") if current_stage == 7 else null,
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
 		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
 		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == PlayerCharacterRuntime.SMASHER else null,
