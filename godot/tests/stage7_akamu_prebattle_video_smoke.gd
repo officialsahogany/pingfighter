@@ -102,10 +102,12 @@ func _run() -> void:
 
 func _finalize_qa_evidence() -> void:
 	# 증적 자립성: 판정 결과와 실패 목록까지 QA 디렉터리에 남긴다.
+	# 기록 실패는 스모크 실패로 승격한다(판정 직전에 호출되므로 반영됨).
 	if _qa_run_dir == "":
 		return
 	var result_file := FileAccess.open("%s/metrics.txt" % _qa_run_dir, FileAccess.READ_WRITE)
 	if result_file == null:
+		_failures.append("windowed QA evidence must record the final verdict (metrics.txt reopen failed)")
 		return
 	result_file.seek_end()
 	result_file.store_line("result=%s" % ("PASS" if _failures.is_empty() else "FAIL"))
@@ -115,18 +117,25 @@ func _finalize_qa_evidence() -> void:
 
 
 func _describe_git_state() -> String:
+	# 정확한 워크트리 귀속: HEAD + tracked/untracked 포함 dirty 수 +
+	# porcelain 출력 자체의 sha256(개수만으론 내용 재현 불가).
 	var repo_dir := ProjectSettings.globalize_path("res://").rstrip("/").get_base_dir()
 	var head_output: Array = []
 	if OS.execute("git", ["-C", repo_dir, "rev-parse", "HEAD"], head_output) != 0:
 		return "unavailable"
 	var dirty_output: Array = []
-	OS.execute("git", ["-C", repo_dir, "status", "--porcelain", "--untracked-files=no"], dirty_output)
+	OS.execute("git", ["-C", repo_dir, "status", "--porcelain", "--untracked-files=normal"], dirty_output)
+	var porcelain := str(dirty_output[0]) if dirty_output.size() > 0 else ""
 	var dirty_lines := 0
-	if dirty_output.size() > 0:
-		for line in str(dirty_output[0]).split("\n"):
-			if line.strip_edges() != "":
-				dirty_lines += 1
-	return "%s dirty_files=%d" % [str(head_output[0]).strip_edges() if head_output.size() > 0 else "?", dirty_lines]
+	for line in porcelain.split("\n"):
+		if line.strip_edges() != "":
+			dirty_lines += 1
+	var porcelain_sha := porcelain.sha256_text()
+	return "%s dirty_entries=%d porcelain_sha256=%s" % [
+		str(head_output[0]).strip_edges() if head_output.size() > 0 else "?",
+		dirty_lines,
+		porcelain_sha,
+	]
 
 
 func _verify_runtime_asset_contract() -> void:

@@ -136,6 +136,21 @@ function Invoke-WindowedSmoke {
     if ($outputText -notmatch "stage7_akamu_prebattle_video_windowed_metrics:") {
         throw "windowed Stage 7 video smoke ${Width}x${Height} did not print visual metrics"
     }
+    # 디스크 증적 대조: 스모크가 남긴 metrics.txt의 result=PASS를 실제로 확인
+    # (stdout ok 마커만 믿지 않는다).
+    $captureLine = ($output | Where-Object { $_.ToString() -match "stage7_akamu_prebattle_video_windowed_capture: " } | Select-Object -First 1)
+    if ($null -eq $captureLine) {
+        throw "windowed Stage 7 video smoke ${Width}x${Height} did not report its capture path"
+    }
+    $capturePath = ($captureLine.ToString() -split "stage7_akamu_prebattle_video_windowed_capture: ", 2)[1].Trim()
+    $metricsPath = Join-Path (Split-Path -Parent $capturePath) "metrics.txt"
+    if (-not (Test-Path -LiteralPath $metricsPath -PathType Leaf)) {
+        throw "windowed Stage 7 QA metrics file missing on disk: $metricsPath"
+    }
+    $metricsText = Get-Content -LiteralPath $metricsPath -Raw
+    if ($metricsText -notmatch "(?m)^result=PASS$") {
+        throw "windowed Stage 7 QA evidence did not record result=PASS: $metricsPath"
+    }
 }
 
 function Invoke-HeadlessSmoke {
@@ -160,9 +175,6 @@ function Invoke-HeadlessSmoke {
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
-        if (Test-Path -LiteralPath $logPath -PathType Leaf) {
-            Remove-Item -LiteralPath $logPath -Force
-        }
     }
 
     $output | ForEach-Object { Write-Host $_ }
@@ -177,6 +189,17 @@ function Invoke-HeadlessSmoke {
             ($line -match "RID allocations.*leaked")
         )
     })
+    $passed = ($exitCode -eq 0) -and ($seriousLines.Count -eq 0) -and
+        ($outputText -match [regex]::Escape($OkMarker))
+    # 성공 판정 후에만 로그 삭제 — 실패 시 증적 보존(windowed 경로와 동일 계약).
+    if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+        if ($passed) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+        else {
+            Write-Host "headless Stage 7 QA log preserved for triage: $logPath"
+        }
+    }
     if ($exitCode -ne 0) {
         throw "headless Stage 7 video smoke failed with exit code $exitCode"
     }

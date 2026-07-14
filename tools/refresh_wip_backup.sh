@@ -186,25 +186,55 @@ if [ ! -f "$SM_DIR/MANIFEST.txt" ]; then
     exit 1
 fi
 for required_name in $SM_REQUIRED; do
-    if ! grep -q "^$required_name " "$SM_DIR/MANIFEST.txt"; then
+    # 정규식 금지 — awk 문자열 '정확' 비교(stage8.mp4의 .이 wildcard가 되어
+    # stage8Xmp4가 통과하는 fail-open을 차단).
+    if ! awk -v n="$required_name" '$1==n{found=1} END{exit !found}' "$SM_DIR/MANIFEST.txt"; then
         echo "FATAL: source_media MANIFEST에 필수 항목 미기재: $required_name" >&2
         exit 1
     fi
 done
-# 커밋된 영상 provenance manifest의 source sha와 교차검증(단일 진실 이탈 방지)
-VIDEO_MANIFEST="$REPO/godot/assets/video/stage7_akamu_intro_v1_manifest.json"
-if [ -f "$VIDEO_MANIFEST" ]; then
-    committed_src_sha=$(grep -A2 '"path": "stagevideo/stage8.mp4"' "$VIDEO_MANIFEST" | grep -o '[0-9a-f]\{64\}' | head -1)
-    sidecar_sha=$(grep "^stage8.mp4 " "$SM_DIR/MANIFEST.txt" | tr ' ' '
-' | awk -F= '$1=="sha256"{print $2}')
-    if [ -n "$committed_src_sha" ] && [ "$committed_src_sha" != "$sidecar_sha" ]; then
-        echo "FATAL: source_media MANIFEST sha($sidecar_sha) != 커밋된 영상 manifest source sha($committed_src_sha)" >&2
-        exit 1
-    fi
+# 커밋된 영상 provenance manifest의 source sha와 교차검증 — fail-closed:
+# 워크트리 파일이 아니라 방금 만든 '스냅샷 블롭'에서 읽고(백업이 실제로
+# 담는 세대와 대조), 부재/추출 0건·2건 이상이면 전부 FATAL.
+committed_manifest_json=$(git show "$SNAP:godot/assets/video/stage7_akamu_intro_v1_manifest.json" 2>/dev/null || true)
+if [ -z "$committed_manifest_json" ]; then
+    echo "FATAL: 스냅샷에 영상 provenance manifest 블롭이 없음 — 교차검증 불가, 중단" >&2
+    exit 1
 fi
+committed_src_sha=$(printf '%s' "$committed_manifest_json" | grep -A2 '"path": "stagevideo/stage8.mp4"' | grep -o '[0-9a-f]\{64\}')
+committed_src_count=$(printf '%s
+' "$committed_src_sha" | grep -c '[0-9a-f]' || true)
+if [ "$committed_src_count" -ne 1 ]; then
+    echo "FATAL: 영상 manifest에서 source sha 추출이 정확히 1건이 아님($committed_src_count건)" >&2
+    exit 1
+fi
+sidecar_sha=$(awk '$1=="stage8.mp4"{print $2}' "$SM_DIR/MANIFEST.txt" | awk -F= '$1=="sha256"{print $2}')
+if [ "$committed_src_sha" != "$sidecar_sha" ]; then
+    echo "FATAL: source_media MANIFEST sha($sidecar_sha) != 스냅샷 영상 manifest source sha($committed_src_sha)" >&2
+    exit 1
+fi
+SM_SEEN=""
 {
     while read -r name rest; do
         case "$name" in \#*|"") continue ;; esac
+        # 이름 안전성: basename만(경로 분리자·.. 금지) + 허용 문자 + 중복 금지
+        case "$name" in
+            */*|*\*|*..*)
+                echo "FATAL: source_media MANIFEST 항목명에 경로 요소 포함: $name" >&2
+                exit 1
+                ;;
+        esac
+        if ! printf '%s' "$name" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+            echo "FATAL: source_media MANIFEST 항목명이 허용 문자 밖: $name" >&2
+            exit 1
+        fi
+        case " $SM_SEEN " in
+            *" $name "*)
+                echo "FATAL: source_media MANIFEST 항목 중복: $name" >&2
+                exit 1
+                ;;
+        esac
+        SM_SEEN="$SM_SEEN $name"
         want=$(printf '%s' "$rest" | tr ' ' '
 ' | awk -F= '$1=="sha256"{print $2}')
         if ! printf '%s' "$want" | grep -Eq '^[0-9a-f]{64}$'; then
@@ -253,6 +283,7 @@ assert_tip_stable
     echo "snapshot=$SNAP"
     echo "tip=$TIP"
     echo "source_media_verified=$sm_verified"
+    echo "source_manifest_sha256=$(sha256sum "$SM_DIR/MANIFEST.txt" | awk '{print $1}')"
 } > "$BACKUP_DIR/.tmp_CURRENT.txt"
 mv "$BACKUP_DIR/.tmp_CURRENT.txt" "$BACKUP_DIR/CURRENT.txt"
 echo "CURRENT.txt -> bundle=$FINAL_BUNDLE manifest=$FINAL_MANIFEST"
