@@ -935,7 +935,8 @@ const PERK_NAME_EN := {
 	"treasure_map": "Treasure Map",
 	"active_slot_expand": "Bag Expansion",
 	"move_speed": "Swift",
-	"accessory_slot_expand": "Expansion",
+	"accessory_slot_expand": "Perk Slot Expansion",
+	"accessory_slot_expand_legacy": "Expansion",
 	"paddle_bulk": "Bulk Up",
 	"boost_charging": "Boost Charging",
 	"perk_laurel_shield": "Laurel Leaf",
@@ -1037,7 +1038,8 @@ const PERK_NAME_ZH := {
 	"treasure_map": "藏宝图",
 	"active_slot_expand": "背包扩展",
 	"move_speed": "迅捷",
-	"accessory_slot_expand": "饰品扩展",
+	"accessory_slot_expand": "天赋栏扩展",
+	"accessory_slot_expand_legacy": "饰品扩展",
 	"paddle_bulk": "增大体型",
 	"boost_charging": "强化充能",
 	"perk_laurel_shield": "月桂叶",
@@ -1139,7 +1141,8 @@ const PERK_NAME_JA := {
 	"treasure_map": "宝の地図",
 	"active_slot_expand": "バッグ拡張",
 	"move_speed": "俊足",
-	"accessory_slot_expand": "アクセサリ拡張",
+	"accessory_slot_expand": "パークスロット拡張",
+	"accessory_slot_expand_legacy": "アクセサリ拡張",
 	"paddle_bulk": "バルクアップ",
 	"boost_charging": "ブーストチャージ",
 	"perk_laurel_shield": "月桂の葉",
@@ -1241,7 +1244,8 @@ const PERK_NAME_ES := {
 	"treasure_map": "Mapa del tesoro",
 	"active_slot_expand": "Expansión de bolsa",
 	"move_speed": "Rapidez",
-	"accessory_slot_expand": "Expansión",
+	"accessory_slot_expand": "Expansión de espacios de pericia",
+	"accessory_slot_expand_legacy": "Expansión",
 	"paddle_bulk": "Volumen",
 	"boost_charging": "Carga de impulso",
 	"perk_laurel_shield": "Hoja de laurel",
@@ -1343,7 +1347,8 @@ const PERK_NAME_PT_BR := {
 	"treasure_map": "Mapa do Tesouro",
 	"active_slot_expand": "Expansão da Bolsa",
 	"move_speed": "Rapidez",
-	"accessory_slot_expand": "Expansão",
+	"accessory_slot_expand": "Expansão de Espaços de Perk",
+	"accessory_slot_expand_legacy": "Expansão",
 	"paddle_bulk": "Volume",
 	"boost_charging": "Carga de Impulso",
 	"perk_laurel_shield": "Folha de Louro",
@@ -1445,7 +1450,8 @@ const PERK_NAME_RU := {
 	"treasure_map": "Карта сокровищ",
 	"active_slot_expand": "Расширение сумки",
 	"move_speed": "Быстрота",
-	"accessory_slot_expand": "Расширение",
+	"accessory_slot_expand": "Расширение ячеек перков",
+	"accessory_slot_expand_legacy": "Расширение",
 	"paddle_bulk": "Масса",
 	"boost_charging": "Заряд ускорения",
 	"perk_laurel_shield": "Лавровый лист",
@@ -1547,7 +1553,8 @@ const PERK_SUMMARY_EN := {
 	"treasure_map": "Improves mythic reward odds and passive drop share.",
 	"active_slot_expand": "Store more active items.",
 	"move_speed": "Movement speed increased.",
-	"accessory_slot_expand": "Adds accessory slots.",
+	"accessory_slot_expand": "Increases the maximum perk slots by 1 per level. Only directly invested levels count; effective-level bonuses (Crown, Sage Pact, Ignition) do not add slots.",
+	"accessory_slot_expand_legacy": "Adds accessory slots.",
 	"paddle_bulk": "Paddle size increased.",
 	"boost_charging": "Next dash may cost no token and recharge faster.",
 	"perk_laurel_shield": "Protective laurel leaves block the ball.",
@@ -1649,7 +1656,8 @@ const PERK_SUMMARY_ZH := {
 	"treasure_map": "提高神话奖励概率和被动掉落占比。",
 	"active_slot_expand": "可携带更多主动道具。",
 	"move_speed": "移动速度提高。",
-	"accessory_slot_expand": "增加饰品栏位。",
+	"accessory_slot_expand": "每级使天赋最大栏位增加 1。仅计算直接投资的等级；王冠、贤者契约、点火等有效等级加成不会增加栏位。",
+	"accessory_slot_expand_legacy": "增加饰品栏位。",
 	"paddle_bulk": "球拍体型增加。",
 	"boost_charging": "下一次冲刺可能不消耗令牌，并更快恢复。",
 	"perk_laurel_shield": "防护月桂叶会挡住球。",
@@ -1751,7 +1759,8 @@ const PERK_SUMMARY_JA := {
 	"treasure_map": "神話報酬確率とパッシブドロップ比率を高めます。",
 	"active_slot_expand": "より多くのアクティブアイテムを保管できます。",
 	"move_speed": "移動速度が上昇します。",
-	"accessory_slot_expand": "アクセサリスロットを追加します。",
+	"accessory_slot_expand": "レベルごとに最大パークスロットを1つ増やします。直接投資したレベルのみ適用され、王冠・賢者の契約・点火などの有効レベルボーナスではスロットは増えません。",
+	"accessory_slot_expand_legacy": "アクセサリスロットを追加します。",
 	"paddle_bulk": "パドルサイズが増加します。",
 	"boost_charging": "次のダッシュがトークンを消費せず、より早く回復することがあります。",
 	"perk_laurel_shield": "保護する月桂の葉がボールを防ぎます。",
@@ -1853,7 +1862,8 @@ const PERK_SUMMARY_ES := {
 	"treasure_map": "Mejora la probabilidad mítica y la proporción de drops pasivos.",
 	"active_slot_expand": "Permite guardar más objetos activos.",
 	"move_speed": "Aumenta la velocidad de movimiento.",
-	"accessory_slot_expand": "Añade espacios de accesorio.",
+	"accessory_slot_expand": "Aumenta en 1 los espacios máximos de pericia por nivel. Solo cuentan los niveles invertidos directamente; los bonos de nivel efectivo (Corona, Pacto del Sabio, Ignición) no añaden espacios.",
+	"accessory_slot_expand_legacy": "Añade espacios de accesorio.",
 	"paddle_bulk": "Aumenta el tamaño de la paleta.",
 	"boost_charging": "El próximo dash puede no consumir ficha y recargarse más rápido.",
 	"perk_laurel_shield": "Hojas de laurel protectoras bloquean la pelota.",
@@ -1955,7 +1965,8 @@ const PERK_SUMMARY_PT_BR := {
 	"treasure_map": "Melhora as chances de recompensas míticas e a fatia de drops passivos.",
 	"active_slot_expand": "Armazena mais itens ativos.",
 	"move_speed": "Aumenta a velocidade de movimento.",
-	"accessory_slot_expand": "Adiciona espaços de acessório.",
+	"accessory_slot_expand": "Aumenta em 1 os espaços máximos de perk por nível. Apenas níveis investidos diretamente contam; bônus de nível efetivo (Coroa, Pacto do Sábio, Ignição) não adicionam espaços.",
+	"accessory_slot_expand_legacy": "Adiciona espaços de acessório.",
 	"paddle_bulk": "Aumenta o tamanho da raquete.",
 	"boost_charging": "O próximo dash pode não custar ficha e recarregar mais rápido.",
 	"perk_laurel_shield": "Folhas de louro protetoras bloqueiam a bola.",
@@ -2057,7 +2068,8 @@ const PERK_SUMMARY_RU := {
 	"treasure_map": "Повышает шанс мифических наград и долю пассивных дропов.",
 	"active_slot_expand": "Позволяет хранить больше активных предметов.",
 	"move_speed": "Увеличивает скорость движения.",
-	"accessory_slot_expand": "Добавляет ячейки аксессуаров.",
+	"accessory_slot_expand": "Увеличивает максимум ячеек перков на 1 за уровень. Учитываются только напрямую вложенные уровни; бонусы эффективного уровня (Корона, Договор мудреца, Воспламенение) ячейки не добавляют.",
+	"accessory_slot_expand_legacy": "Добавляет ячейки аксессуаров.",
 	"paddle_bulk": "Увеличивает размер ракетки.",
 	"boost_charging": "Следующий рывок может не тратить жетон и быстрее перезаряжаться.",
 	"perk_laurel_shield": "Защитные лавровые листья блокируют мяч.",
@@ -2676,6 +2688,8 @@ const SKILL_DATA_RU := {
 }
 
 const EXACT_TEXT_EN := {
+	"보유 퍽 강화만": "Owned upgrades only",
+	"강화·비소모 퍽만": "Upgrades & non-slot perks only",
 	"난쟁이마술": "Dwarf Magic",
 	"뿔박치기": "Horn Headbutt",
 	"모래감옥": "Sand Prison",
@@ -3225,6 +3239,8 @@ const EXACT_TEXT_EN := {
 }
 
 const EXACT_TEXT_ZH := {
+	"보유 퍽 강화만": "仅可强化已有天赋",
+	"강화·비소모 퍽만": "仅强化与不占位天赋",
 	"난쟁이마술": "矮人魔法",
 	"뿔박치기": "角撞",
 	"모래감옥": "沙牢",
@@ -3774,6 +3790,8 @@ const EXACT_TEXT_ZH := {
 }
 
 const EXACT_TEXT_JA := {
+	"보유 퍽 강화만": "所持パークの強化のみ",
+	"강화·비소모 퍽만": "強化・非消費パークのみ",
 	"난쟁이마술": "小人の魔法",
 	"뿔박치기": "角頭突き",
 	"모래감옥": "砂の牢獄",
@@ -4323,6 +4341,8 @@ const EXACT_TEXT_JA := {
 }
 
 const EXACT_TEXT_ES := {
+	"보유 퍽 강화만": "Solo mejoras de pericias",
+	"강화·비소모 퍽만": "Solo mejoras y pericias sin espacio",
 	"난쟁이마술": "Magia de enano",
 	"뿔박치기": "Cabezazo con cuerno",
 	"모래감옥": "Prisión de arena",
@@ -4874,6 +4894,8 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"보유 퍽 강화만": "Apenas melhorias de perks",
+	"강화·비소모 퍽만": "Apenas melhorias e perks sem espaço",
 	"소식 체질": "Constituição frugal",
 	"난쟁이마술": "Magia de anão",
 	"뿔박치기": "Cabeçada com chifre",
@@ -4995,6 +5017,8 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"보유 퍽 강화만": "Только улучшение перков",
+	"강화·비소모 퍽만": "Только улучшения и перки без ячейки",
 	"소식 체질": "Скромный аппетит",
 	"난쟁이마술": "Магия карлика",
 	"뿔박치기": "Удар рогом",

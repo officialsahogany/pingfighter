@@ -1305,6 +1305,13 @@ Current Godot-first rule:
       level only.
 - [ ] If the perk is supposed to scale, make sure the **gameplay path**
       reads the effective level too, not just the UI.
+- [ ] RAW-only exception: the perk-slot expansion perk
+      (`common_expansion`, flag ON) must scale from directly invested
+      levels ONLY — effective-level bonuses (Transcendent Crown, Sage
+      Pact/Ring, Ignition-style buffs) must never raise the max perk
+      slot limit. `get_perk_slot_limit()` reads RAW runtime levels and
+      `runtime_perk_effective_levels` excludes the perk from level
+      bonuses; keep BOTH sides when touching either.
 - [ ] For new invested passive / scaling perks, the default is that
       effective levels above `Lv.5` keep increasing real numeric power.
       Do not ship a silent overflow clamp unless the design explicitly

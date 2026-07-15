@@ -8,7 +8,11 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
-const PERK_SLOT_LIMIT := 6
+# 퍽 슬롯 동적 한도(flag ON): 기본 6 + 슬롯 확장 퍽(common_expansion) RAW
+# 레벨(최대 10). flag OFF에서는 고정 6이며 확장 퍽은 레거시 장신구 의미.
+const BASE_PERK_SLOT_LIMIT := 6
+const MAX_PERK_SLOT_LIMIT := 10
+const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
 const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
@@ -248,12 +252,14 @@ const COMMON_PERKS := {
 	},
 	"common_expansion": {
 		"name": "확장",
-		"max_level": 2,
+		"max_level": 4,
 		"descriptions": {
-			1: "장신구 슬롯 +1",
-			2: "장신구 슬롯 +2",
+			1: "퍽 최대 슬롯 +1 (총 7)",
+			2: "퍽 최대 슬롯 +1 (총 8)",
+			3: "퍽 최대 슬롯 +1 (총 9)",
+			4: "퍽 최대 슬롯 +1 (총 10)",
 		},
-		"detail": "장신구 슬롯을 추가로 활성화합니다.",
+		"detail": "자신은 퍽 슬롯을 차지하지 않고, 이번 런의 퍽 최대 슬롯을 1칸씩 늘립니다. 직접 투자한 레벨만 적용되며, 초월자의 왕관·현자의 계약·점화 등 유효 레벨 보너스로는 슬롯이 늘지 않습니다.",
 		"icon_color": Color(200.0 / 255.0, 150.0 / 255.0, 1.0),
 		"tree": "common",
 	},
@@ -1401,6 +1407,10 @@ func get_all_perk_data() -> Dictionary:
 	data.merge(SOLDIER_PERKS, true)
 	data.merge(CONVERTED_PERKS, true)
 	data.merge(CONVERTED_MYTHIC_PERKS, true)
+	# bulk 소비자(디버그 목록 등)도 조회/오퍼와 같은 flag-OFF 레거시
+	# 정의를 봐야 한다 — pool 원본을 그대로 합치면 여기서 다시 갈라진다.
+	if data.has(SLOT_EXPANSION_PERK_ID):
+		data[SLOT_EXPANSION_PERK_ID] = _resolve_expansion_definition(SLOT_EXPANSION_PERK_ID, data[SLOT_EXPANSION_PERK_ID])
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
 		return data
 	var localized: Dictionary = {}
@@ -1417,6 +1427,7 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		var data: Dictionary = all_data[skill_id]
 		var result := data.duplicate(true)
 		result["id"] = skill_id
+		result = _resolve_expansion_definition(skill_id, result)
 		return LanguageSettings.localize_perk_data(result)
 	if INSTANT_PERKS.has(skill_id):
 		var instant_data: Dictionary = INSTANT_PERKS[skill_id]
@@ -1467,6 +1478,21 @@ static func get_perk_display_name(skill_id: String) -> String:
 	return LanguageSettings.localize_perk_name(skill_id, korean_name)
 
 
+# flag OFF에서 슬롯 확장 퍽은 레거시 장신구 의미로 노출한다 — 새 정의
+# (max_level 4·퍽 슬롯 문구)를 그대로 내보내면 OFF 실효(장신구 2칸)와
+# 모순되는 무효 레벨 3~4가 노출된다. get_perk_data(조회)와 오퍼 후보 생성
+# (_append_pool_choices)이 같은 헬퍼를 지나야 한다 — 조회만 고치면 실제
+# 오퍼가 pool 원본(새 정의)을 직접 읽어 계약을 우회한다.
+static func _resolve_expansion_definition(skill_id: String, skill_data: Dictionary) -> Dictionary:
+	if skill_id != SLOT_EXPANSION_PERK_ID or PerkConversionFlags.is_enabled():
+		return skill_data
+	var legacy: Dictionary = skill_data.duplicate(true)
+	legacy["max_level"] = 2
+	legacy["descriptions"] = {1: "장신구 슬롯 +1", 2: "장신구 슬롯 +2"}
+	legacy["detail"] = "장신구 슬롯을 추가로 활성화합니다."
+	return legacy
+
+
 static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	if perk_data.is_empty():
 		return false
@@ -1476,6 +1502,11 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	if bool(perk_data.get("is_instant", false)) or str(perk_data.get("tree", "")) == "instant":
 		return false
 	if str(perk_data.get("unlocks_skill", "")).strip_edges() != "":
+		return false
+	# 슬롯 확장 퍽은 flag ON에서만 비소모(자신은 슬롯을 먹지 않고 최대치만
+	# 올림 — 가득 상태에서도 오퍼에 등장하는 탈출 밸브). OFF에서는 레거시
+	# 장신구 퍽 의미라 기존 소모 규칙을 유지한다.
+	if PerkConversionFlags.is_enabled() and perk_id == SLOT_EXPANSION_PERK_ID:
 		return false
 	if bool(perk_data.get("is_lingpet_affinity_chip", false)) or bool(perk_data.get("is_lingpet_ring_core_upgrade", false)):
 		return false
@@ -1512,19 +1543,26 @@ func count_owned_slot_perks(runtime_levels: Dictionary) -> int:
 
 
 func has_open_perk_slot(runtime_levels: Dictionary) -> bool:
-	return count_owned_slot_perks(runtime_levels) < PERK_SLOT_LIMIT
+	return count_owned_slot_perks(runtime_levels) < get_perk_slot_limit(runtime_levels)
 
 
-func get_perk_slot_limit() -> int:
-	return PERK_SLOT_LIMIT
+func get_perk_slot_limit(runtime_levels: Dictionary) -> int:
+	# flag OFF에서는 고정 6(UI가 flag와 무관하게 조회하므로 여기서 중앙
+	# 격리). ON에서만 슬롯 확장 퍽의 RAW 레벨을 반영한다 — 유효레벨
+	# 보너스(초월자의 왕관·현자의 계약·점화 등)로 최대 슬롯이 늘면 안 됨.
+	if not PerkConversionFlags.is_enabled():
+		return BASE_PERK_SLOT_LIMIT
+	var expansion_level: int = maxi(0, int(runtime_levels.get(SLOT_EXPANSION_PERK_ID, 0)))
+	return clampi(BASE_PERK_SLOT_LIMIT + expansion_level, BASE_PERK_SLOT_LIMIT, MAX_PERK_SLOT_LIMIT)
 
 
 func get_perk_slot_status(runtime_levels: Dictionary, _registry: Object = null) -> Dictionary:
 	var count := count_owned_slot_perks(runtime_levels)
+	var limit := get_perk_slot_limit(runtime_levels)
 	return {
 		"count": count,
-		"limit": PERK_SLOT_LIMIT,
-		"is_full": count >= PERK_SLOT_LIMIT,
+		"limit": limit,
+		"is_full": count >= limit,
 	}
 
 
@@ -1550,7 +1588,7 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 
 func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dictionary, character_restriction: String) -> void:
 	for skill_id in pool.keys():
-		var skill_data: Dictionary = pool[skill_id]
+		var skill_data: Dictionary = _resolve_expansion_definition(str(skill_id), pool[skill_id])
 		var max_level: int = int(skill_data.get("max_level", 1))
 		var current_level: int = int(runtime_levels.get(skill_id, 0))
 		if max_level >= 0 and current_level >= max_level:
@@ -1710,7 +1748,10 @@ func _build_lingpet_ring_core_upgrade_data(current_tier: int, next_tier: int, ma
 
 func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
 	for skill_id in pool.keys():
-		var data: Dictionary = pool[skill_id].duplicate(true)
+		# 디버그 목록도 조회/오퍼/bulk와 같은 flag-OFF 레거시 정의를 봐야
+		# 한다 — 원본을 그대로 복사하면 OFF 디버그 피커가 max 4를 보여주고
+		# 적용 단계(get_perk_data=max 2)와 어긋난다.
+		var data: Dictionary = _resolve_expansion_definition(str(skill_id), pool[skill_id]).duplicate(true)
 		data["id"] = skill_id
 		data["debug_group"] = debug_group
 		output.append(LanguageSettings.localize_perk_data(data))
@@ -1788,7 +1829,7 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Arr
 		var current_cost: int = get_slot_cost_for_level(choice, current_level)
 		var next_cost: int = get_slot_cost_for_level(choice, next_level)
 		var extra_slots: int = max(0, next_cost - current_cost)
-		if occupied_slots + extra_slots <= PERK_SLOT_LIMIT:
+		if occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels):
 			filtered.append(choice)
 	return filtered
 

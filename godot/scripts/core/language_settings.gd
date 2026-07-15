@@ -24,6 +24,7 @@ const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_RUSSIAN,
 ]
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
 const LANGUAGE_NATIVE_NAMES := LanguageSettingsData.LANGUAGE_NATIVE_NAMES
 const ITEM_DISPLAY_EN := LanguageSettingsData.ITEM_DISPLAY_EN
@@ -89,29 +90,71 @@ static func apply_saved_language() -> String:
 
 
 static func get_language() -> String:
+	if not _test_locale_override.is_empty():
+		return _test_locale_override
 	if not _cached_language.is_empty():
 		return _cached_language
 	var config := _load_settings()
 	_cached_language = normalize_language(str(config.get_value(SETTINGS_SECTION, SETTINGS_LANGUAGE_KEY, DEFAULT_LANGUAGE)))
-	_apply_engine_locale(_cached_language)
+	if _test_locale_override.is_empty():
+		_apply_engine_locale(_cached_language)
 	return _cached_language
 
 
 static func set_language(language: String) -> String:
 	var normalized := normalize_language(language)
 	_cached_language = normalized
-	_apply_engine_locale(normalized)
+	# override 활성 중에는 저장·캐시만 갱신하고 엔진 locale은 override가
+	# 계속 소유한다(해제 시점에 저장 locale이 엔진에 재적용됨).
+	# override 활성 중에는 저장·캐시만 갱신하고 엔진 locale은 override가
+	# 계속 소유한다(해제 시점에 저장 locale이 엔진에 재적용됨).
+	if _test_locale_override.is_empty():
+		_apply_engine_locale(normalized)
 	var config := _load_settings()
 	config.set_value(SETTINGS_SECTION, SETTINGS_SCHEMA_KEY, SETTINGS_SCHEMA_VERSION)
 	config.set_value(SETTINGS_SECTION, SETTINGS_LANGUAGE_KEY, normalized)
-	if config.save(SETTINGS_PATH) != OK:
-		print_verbose("Failed to save language settings: %s" % SETTINGS_PATH)
+	if config.save(_settings_path()) != OK:
+		print_verbose("Failed to save language settings: %s" % _settings_path())
 	return normalized
 
 
 static func reset_cache_for_tests() -> void:
 	_cached_language = ""
 	_item_description_override_maps.clear()
+
+
+# 테스트 전용 비저장 locale 고정: user:// 설정 파일을 읽지도 쓰지도 않고
+# get_language()만 override한다 — 스모크가 도중 크래시해도 실제 사용자
+# 설정이 오염되지 않는다. 빈 문자열로 해제.
+static var _test_locale_override := ""
+
+# 테스트 전용 설정 파일 경로 seam: set_language의 저장까지 포함한 전체
+# 실경로를 스크래치 파일로 돌린다 — 저장 계열 API를 검증하는 스모크가
+# 실 사용자 설정(SETTINGS_PATH)에 어떤 쓰기도 하지 않게 하며, 도중
+# 크래시 잔재도 스크래치 파일뿐이다. 빈 문자열로 해제.
+static var _test_settings_path_override := ""
+
+
+static func set_test_settings_path_override(path: String) -> void:
+	_test_settings_path_override = path
+
+
+static func _settings_path() -> String:
+	if not _test_settings_path_override.is_empty():
+		return _test_settings_path_override
+	return SETTINGS_PATH
+
+
+static func set_test_locale_override(language: String) -> void:
+	_test_locale_override = normalize_language(language) if language.strip_edges() != "" else ""
+	if not _test_locale_override.is_empty():
+		_apply_engine_locale(_test_locale_override)
+	else:
+		# 해제: 변수만 비우면 get_language()는 저장 locale로 돌아가는데
+		# TranslationServer는 마지막 override locale에 남는 split-brain이
+		# 된다 — 저장/캐시 locale을 엔진에도 재적용해 함께 복원한다.
+		# (reset_cache_for_tests는 override를 건드리지 않는 별개 레이어.)
+		_apply_engine_locale(get_language())
 
 
 static func normalize_language(language: String) -> String:
@@ -241,6 +284,10 @@ static func _get_perk_summary_map(language: String) -> Dictionary:
 
 
 static func _get_perk_localization_key(perk_id: String) -> String:
+	# flag OFF에서 슬롯 확장 퍽은 레거시 장신구 의미 — alias가 새 문구
+	# (Perk Slot Expansion 계열)로 대체하면 비한국어에서만 다시 갈라진다.
+	if perk_id == "common_expansion" and not PerkConversionFlags.is_enabled():
+		return "accessory_slot_expand_legacy"
 	return str(PERK_LOCALIZATION_ALIASES.get(perk_id, perk_id))
 
 
@@ -912,8 +959,8 @@ static func _get_array(value: Variant) -> Array:
 
 static func _load_settings() -> ConfigFile:
 	var config := ConfigFile.new()
-	if FileAccess.file_exists(SETTINGS_PATH):
-		var result := config.load(SETTINGS_PATH)
+	if FileAccess.file_exists(_settings_path()):
+		var result := config.load(_settings_path())
 		if result != OK:
 			return ConfigFile.new()
 	return config

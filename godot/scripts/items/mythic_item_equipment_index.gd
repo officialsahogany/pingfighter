@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+
 
 func rebuild_equipped_items(runtime: Object, constants: Dictionary) -> void:
 	runtime.equipped_items.clear()
@@ -144,7 +146,10 @@ func is_equipment_slot_enabled(runtime: Object, slot_key: String, owner: Object)
 	var slot_count: int = explicit_count if explicit_count > 0 else 2
 	var runtime_bonus: int = int(runtime._safe_owner_get(owner, "runtime_accessory_slot_bonus", 0))
 	var levels: Dictionary = runtime._get_dict(runtime._safe_owner_get(owner, "runtime_perk_levels", {}))
-	runtime_bonus = max(runtime_bonus, int(levels.get("common_expansion", 0)))
+	# flag ON에서 common_expansion은 퍽 최대 슬롯 확장 전용 — 장신구 슬롯에
+	# 합산하면 이중 적용된다. OFF(레거시 장신구 퍽 의미)에서만 반영.
+	if not PerkConversionFlags.is_enabled():
+		runtime_bonus = max(runtime_bonus, int(levels.get("common_expansion", 0)))
 	return slot_number <= clamp(slot_count + runtime_bonus, 1, 4)
 
 

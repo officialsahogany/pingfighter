@@ -1,5 +1,6 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 
 static func get_instance(registry: Object, key: String) -> Object:
@@ -127,7 +128,10 @@ static func equipment_slot_accessory_number(slot_key: String) -> int:
 static func accessory_slot_count(explicit_count: int, runtime_bonus: int, levels: Dictionary, base_count: int) -> int:
 	if explicit_count > 0:
 		return clamp(explicit_count, 1, 4)
-	runtime_bonus = max(runtime_bonus, int(levels.get("common_expansion", 0)))
+	# flag ON에서 common_expansion은 퍽 최대 슬롯 확장 전용 — 장신구 슬롯에
+	# 합산하면 이중 적용된다. OFF(레거시 장신구 퍽 의미)에서만 반영.
+	if not PerkConversionFlags.is_enabled():
+		runtime_bonus = max(runtime_bonus, int(levels.get("common_expansion", 0)))
 	return clamp(base_count + runtime_bonus, 1, 4)
 
 

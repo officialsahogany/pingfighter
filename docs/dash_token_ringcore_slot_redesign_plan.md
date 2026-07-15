@@ -1,6 +1,12 @@
 # 대쉬토큰 · 퍽슬롯 · 링코어 슬롯 재설계 (슬라이스 플랜)
 
 Status: DESIGN LOCKED (배선 대기). 2026-07-08 세션 합의.
+⚠️ **부분 대체(2026-07-15):** 본 문서의 "슬롯 6→8 고정"은
+`docs/perk_slot_expansion_handoff.md`의 **동적 한도(기본 6 + 슬롯 확장 퍽으로
+최대 10)**로 대체됐다 — 현행 권위는 `runtime_perk_catalog.gd`의
+`get_perk_slot_limit()`과 `perk_slot_limit_smoke`다. 이 문서의 슬롯 상한
+수치를 새 배선에 역지시로 쓰지 말 것. 대쉬 증폭 슬롯-비용 스택/링코어
+슬롯화 항목은 별도 트랙.
 Owner split: 이 문서 = 설계/디렉션(Claude). GDScript 배선 = 사용자/Codex.
 Claude = 배선 후 적대적 리뷰 + 반증검증. (feedback_design_slice_review_division)
 

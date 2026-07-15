@@ -1,5 +1,6 @@
 extends RefCounted
 
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
@@ -867,7 +868,7 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 				slot_color = Color(1.0, 190.0 / 255.0, 90.0 / 255.0, 0.98)
 			_draw_text(canvas, "슬롯 %d/%d" % [slot_count, slot_limit], rect.position + Vector2(rect.size.x - 118.0, 67.0), 13, slot_color)
 			if slot_count >= slot_limit:
-				_draw_text(canvas, "보유 퍽 강화만", rect.position + Vector2(rect.size.x - 118.0, 89.0), 12, Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.90))
+				_draw_text(canvas, get_full_slot_hint(), rect.position + Vector2(rect.size.x - 118.0, 89.0), 12, Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.90))
 
 	var acquired: Array = _build_acquired_perks(levels, catalog, runtime_state)
 	if acquired.is_empty():
@@ -1343,6 +1344,15 @@ func _wrap_text(text: String, max_chars: int, max_lines: int) -> Array:
 	if remaining != "" and lines.size() < max_lines:
 		lines.append(remaining)
 	return lines
+
+
+static func get_full_slot_hint() -> String:
+	# 가득 시 실제 규칙은 '새 슬롯-소모 퍽만 제외'다: flag ON에서는 보유
+	# 강화에 더해 비소모 후보(슬롯 확장·해금·즉시·골드·링펫)가 전부 계속
+	# 나온다 — 특정 부류만 콕 집는 문구는 실제 후보와 다시 어긋난다.
+	if PerkConversionFlags.is_enabled():
+		return "강화·비소모 퍽만"
+	return "보유 퍽 강화만"
 
 
 func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color) -> void:

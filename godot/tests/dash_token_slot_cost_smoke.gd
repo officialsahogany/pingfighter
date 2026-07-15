@@ -123,12 +123,12 @@ func _verify_dash_capacity_still_uses_base_plus_level() -> void:
 
 func _verify_offer_filter_requires_one_open_slot_per_dash_level() -> void:
 	var catalog := RuntimePerkCatalog.new()
-	var open_levels := _filled_levels_with_dash_level(2, RuntimePerkCatalog.PERK_SLOT_LIMIT - 1)
+	var open_levels := _filled_levels_with_dash_level(2, RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT - 1)
 	var open_choices: Array = catalog.get_choices("smasher", open_levels, true, OFFER_SCAN_COUNT)
 	_expect(_has_choice_id(open_choices, DASH_TOKEN_ID), "dash token Lv2->Lv3 should be offerable when one perk slot is still open")
 
-	var full_levels := _filled_levels_with_dash_level(2, RuntimePerkCatalog.PERK_SLOT_LIMIT)
-	_expect(catalog.count_owned_slot_perks(full_levels) == RuntimePerkCatalog.PERK_SLOT_LIMIT, "test fixture should fill the current perk-slot limit")
+	var full_levels := _filled_levels_with_dash_level(2, RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT)
+	_expect(catalog.count_owned_slot_perks(full_levels) == RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "test fixture should fill the current perk-slot limit")
 	var full_choices: Array = catalog.get_choices("smasher", full_levels, true, OFFER_SCAN_COUNT)
 	_expect(not _has_choice_id(full_choices, DASH_TOKEN_ID), "dash token Lv2->Lv3 should be suppressed when all perk slots are full")
 	_expect(_has_choice_id(full_choices, "dash_lightweight"), "ordinary owned perk level-ups should remain offerable when slots are full")
