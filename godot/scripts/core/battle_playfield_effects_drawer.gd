@@ -534,7 +534,7 @@ func _get_cached_stage_instance(registry: Object, stage: int, role: String) -> O
 
 
 func _clear_inactive_stage_actor_transients(registry: Object, current_stage: int, current_renderer: Object) -> void:
-	for stage in [1, 2, 3, 4, 5, 6]:
+	for stage in [1, 2, 3, 4, 5, 6, 7]:
 		if stage == current_stage:
 			continue
 		var renderer: Object = _get_cached_stage_instance(registry, stage, "actor_renderer")

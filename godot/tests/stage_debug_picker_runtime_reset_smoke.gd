@@ -1,6 +1,8 @@
 extends SceneTree
 
 const StageDebugPicker := preload("res://scripts/core/stage_debug_picker.gd")
+const Stage7AkamuActorRenderer := preload("res://scripts/stages/stage7/stage7_akamu_actor_renderer.gd")
+const Stage7AkamuPrebattlePresentation := preload("res://scripts/stages/stage7/stage7_akamu_prebattle_presentation.gd")
 
 
 class FakeSelectionState:
@@ -65,6 +67,19 @@ class FakeAudio:
 	func play_stage_bgm(stage_id: int) -> bool:
 		played_stage = stage_id
 		return true
+
+
+class FakeStage7PillarSceneModule:
+	# 실물 필러 씬 드로어에는 reset()이 없다 — 허구 reset 계약을 만들지
+	# 않도록 fake에도 두지 않는다(reset fanout 대상이 아님).
+	var prewarm_count := 0
+	var module_getter_valid := false
+	var prewarm_character_type := ""
+
+	func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
+		prewarm_count += 1
+		module_getter_valid = module_getter.is_valid()
+		prewarm_character_type = selected_character_type
 
 
 class FakeResetModule:
@@ -162,6 +177,12 @@ class FakeRegistry:
 	var stage1_skill_hud := FakeResetModule.new()
 	var stage1_gaksital_skill_hud := FakeResetModule.new()
 	var stage2_bg := FakeResetModule.new()
+	var stage7_bg := FakeResetModule.new()
+	var stage7_actor := FakeResetModule.new()
+	var stage7_pillar_scene := FakeStage7PillarSceneModule.new()
+	var stage7_skill_hud := FakeResetModule.new()
+	var stage7_state := FakeResetModule.new()
+	var prebattle_presentation: RefCounted = null
 	var impact_effects := FakeClearModule.new()
 	var ball_effects := FakeClearModule.new()
 	var ball_physics := FakeBallPhysics.new()
@@ -191,6 +212,18 @@ class FakeRegistry:
 				return stage1_gaksital_skill_hud
 			"stage2_pillar_background":
 				return stage2_bg
+			"stage7_akamu_pillar_background":
+				return stage7_bg
+			"stage7_akamu_actor_renderer":
+				return stage7_actor
+			"stage7_akamu_pillar_scene_drawer":
+				return stage7_pillar_scene
+			"stage7_akamu_boss_skill_hud_renderer":
+				return stage7_skill_hud
+			"stage7_akamu_state":
+				return stage7_state
+			"stage7_akamu_prebattle_presentation":
+				return prebattle_presentation
 			"impact_effects":
 				return impact_effects
 			"ball_effects":
@@ -293,6 +326,57 @@ func _init() -> void:
 	_expect(podo_registry.stage1_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Dalji boss skill HUD assets")
 	_expect(podo_registry.stage1_gaksital_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Gaksital boss skill HUD assets")
 	_expect(not podo_registry.requested_keys.has("stage1_pododaejang_boss_skill_hud_renderer"), "Pododaejang Slice 1 should not request missing Pododaejang HUD modules yet")
+	var stage7_owner := FakeOwner.new()
+	stage7_owner.selected_character_type = "viper"
+	var stage7_registry := FakeRegistry.new()
+	picker.toggle(stage7_owner)
+	picker.selected_index = picker._find_stage_index(7)
+	_expect(picker.handle_input(event, stage7_owner, stage7_registry, Vector2(1280.0, 720.0)), "Enter should apply Stage 7 Akamu")
+	_expect(stage7_owner.current_stage == 7, "Stage 7 Akamu debug route should route to stage 7")
+	_expect(stage7_registry.audio.played_stage == 7, "Stage 7 debug reset should restart Stage 7 BGM (picker route has no prebattle video lifecycle)")
+	_expect(stage7_registry.match_flow.reset_game_count == 1, "Stage 7 debug reset should use full match reset")
+	_expect(stage7_registry.stage7_bg.prewarm_count == 1, "Stage 7 debug reset should prewarm the Akamu pillar background")
+	_expect(stage7_registry.stage7_actor.prewarm_count == 1, "Stage 7 debug reset should prewarm the Akamu actor renderer")
+	_expect(stage7_registry.stage7_pillar_scene.prewarm_count == 1, "Stage 7 debug reset should prewarm the Akamu pillar scene drawer")
+	_expect(stage7_registry.stage7_pillar_scene.module_getter_valid, "Stage 7 pillar scene prewarm should receive a module getter")
+	_expect(stage7_registry.stage7_pillar_scene.prewarm_character_type == "viper", "Stage 7 pillar scene prewarm should receive the selected character type")
+	_expect(stage7_registry.stage7_skill_hud.prewarm_count == 1, "Stage 7 debug reset should prewarm the Akamu boss skill HUD")
+	_expect(stage7_registry.active_item_runtime.prewarm_count == 1, "Stage 7 debug reset should prewarm active item runtime assets")
+	_expect(stage7_registry.stage7_bg.reset_count == 1, "picker fanout should reset the Akamu pillar background exactly once")
+	_expect(stage7_registry.stage7_actor.reset_count == 1, "picker fanout should reset the Akamu actor renderer (live parent) exactly once")
+	_expect(stage7_registry.stage7_state.reset_count == 1, "picker fanout should reset the Akamu boss state exactly once")
+	_expect(stage7_registry.stage7_skill_hud.reset_count == 1, "picker fanout should reset the Akamu boss skill HUD exactly once")
+	# 보스/플레이필드 렌더러는 액터 렌더러의 자식(reset 위임)이라 registry 키
+	# 조회는 standalone 사본만 만든다 — 피커가 요청조차 하지 않아야 한다.
+	_expect(not stage7_registry.requested_keys.has("stage7_akamu_boss_actor_renderer"), "picker fanout must not instantiate a standalone Akamu boss actor renderer copy")
+	_expect(not stage7_registry.requested_keys.has("stage7_akamu_playfield_renderer"), "picker fanout must not instantiate a standalone Akamu playfield renderer copy")
+	# 실 액터 렌더러(live parent)의 reset()이 자식 보스/플레이필드 렌더러로
+	# 위임하는 실계약 봉인 — fanout 4키가 실제 정리 범위를 커버함을 증명.
+	var real_stage7_actor: RefCounted = Stage7AkamuActorRenderer.new()
+	var delegated_boss := FakeResetModule.new()
+	var delegated_playfield := FakeResetModule.new()
+	real_stage7_actor.set("boss_renderer", delegated_boss)
+	real_stage7_actor.set("playfield_renderer", delegated_playfield)
+	real_stage7_actor.reset()
+	_expect(delegated_boss.reset_count == 1, "real Stage 7 actor renderer reset should delegate to its boss renderer child")
+	_expect(delegated_playfield.reset_count == 1, "real Stage 7 actor renderer reset should delegate to its playfield renderer child")
+
+	# no-driver fallback: match-flow driver가 없으면 정상 경로의 프리배틀
+	# 정리가 빠진다 — 피커 fallback이 프리배틀 presentation을 직접 reset해
+	# 활성 인트로가 unarm(호스트 숨김·정지 포함)되는지 실물로 봉인한다.
+	var fallback_owner := FakeOwner.new()
+	var fallback_registry := FakeRegistry.new()
+	fallback_registry.match_flow = null
+	var real_prebattle: RefCounted = Stage7AkamuPrebattlePresentation.new()
+	real_prebattle.reset_for_stage_entry(7)
+	_expect(real_prebattle.blocks_battle_physics(), "fallback probe should start with an armed Stage 7 prebattle entry")
+	fallback_registry.prebattle_presentation = real_prebattle
+	picker.toggle(fallback_owner)
+	picker.selected_index = picker._find_stage_index(7)
+	_expect(picker.handle_input(event, fallback_owner, fallback_registry, Vector2(1280.0, 720.0)), "Enter should apply Stage 7 on the no-driver fallback path")
+	_expect(not real_prebattle.blocks_battle_physics(), "no-driver fallback must disarm the Stage 7 prebattle intro (no leftover video host behind restarted BGM)")
+	_expect(fallback_registry.audio.played_stage == 7, "no-driver fallback should still restart Stage 7 BGM after the prebattle cleanup")
+
 	var panel_rect: Rect2 = picker._get_panel_rect(Vector2(1280.0, 720.0))
 	var last_card_rect: Rect2 = picker._get_card_rect(picker._find_stage_index(12), panel_rect)
 	_expect(last_card_rect.end.y <= panel_rect.end.y - 20.0, "stage debug picker panel should expand for the fourth row after adding Stage 1-C")

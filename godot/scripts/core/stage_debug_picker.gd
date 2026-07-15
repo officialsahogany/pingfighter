@@ -12,8 +12,8 @@ const STAGE_OPTIONS := [
 	{"id": 4, "name": "스테이지 4", "desc": "소림사"},
 	{"id": 5, "name": "스테이지 5", "desc": "홍련"},
 	{"id": 6, "name": "스테이지 6", "desc": "테트리서"},
-	{"id": 8, "name": "스테이지 8", "desc": "아카무 리고"},
-	{"id": 9, "name": "스테이지 9", "desc": "미노타우로스"},
+	{"id": 7, "name": "스테이지 7", "desc": "아카무 리고"},
+	{"id": 8, "name": "스테이지 8", "desc": "미노타우로스 (파르테논)"},
 	{"id": 10, "name": "스테이지 10", "desc": "최종 관문"},
 	{"id": 11, "name": "4천왕", "desc": "스테이지 11"},
 	{"id": 12, "name": "진엔딩", "desc": "스테이지 12"},
@@ -54,6 +54,13 @@ const STAGE_RESET_MODULE_KEYS := [
 	"stage6_tetriser_pillar_scene_drawer",
 	"stage6_tetriser_state",
 	"stage6_tetriser_boss_skill_hud_renderer",
+	# stage7 보스/플레이필드 렌더러는 액터 렌더러가 자식으로 직접 생성·소유
+	# 하며 actor.reset()이 위임 정리한다 — registry 키 조회는 standalone
+	# 사본을 만들 뿐이라 목록에 넣지 않는다(필러 씬 드로어는 reset 없음).
+	"stage7_akamu_pillar_background",
+	"stage7_akamu_actor_renderer",
+	"stage7_akamu_state",
+	"stage7_akamu_boss_skill_hud_renderer",
 	"stage1_dalji_whip_skill_state",
 	"stage1_dalji_spinning_top_skill_state",
 	"stage1_dalji_boss_skill_cooldown_state",
@@ -177,13 +184,13 @@ func draw(canvas: CanvasItem, owner: Object, view_size: Vector2) -> void:
 			_is_current_option(option, current_stage, current_stage1_boss_variant)
 		)
 
-	var foot := "스테이지 5는 홍련, 6번은 테트리서 포팅 슬롯입니다(스캐폴드 단계)."
+	var foot := "5 홍련 · 6 테트리서 · 7 아카무. 8 미노타우로스는 포팅 예정."
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, panel_rect.size.y - 18.0), foot, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 12, Color(0.58, 0.66, 0.74))
 
 
 func _draw_card(canvas: CanvasItem, font: Font, rect: Rect2, option: Dictionary, selected: bool, is_current: bool) -> void:
 	var stage_id: int = int(option.get("id", 1))
-	var implemented: bool = stage_id <= 6
+	var implemented: bool = stage_id <= 7
 	var base := Color(0.10, 0.13, 0.18, 0.96)
 	var border := Color(0.24, 0.34, 0.46, 0.82)
 	if implemented:
@@ -271,6 +278,13 @@ func _reset_match_runtime(owner: Object, registry: Object) -> void:
 	var round_state: Object = _get_instance(registry, "round_flow_state")
 	if round_state != null and round_state.has_method("reset_game"):
 		round_state.reset_game()
+	# 정상 match-flow 리셋은 프리배틀 인트로(영상 host·modal gate)를 함께
+	# 정리하지만, driver 없는 fallback은 그 정리가 빠져 활성 영상 host가
+	# 남은 채 새 스테이지 BGM이 겹칠 수 있다 — fallback 전용으로만 정리
+	# (driver 경로에서는 중복 reset하지 않는다).
+	var prebattle_presentation: Object = _get_instance(registry, "stage7_akamu_prebattle_presentation")
+	if prebattle_presentation != null and prebattle_presentation.has_method("reset"):
+		prebattle_presentation.reset()
 
 
 func _stop_and_restart_stage_audio(registry: Object, stage_id: int) -> void:
@@ -309,6 +323,9 @@ func _prewarm_selected_stage_modules(owner: Object, registry: Object, stage_id: 
 	if stage_id == 6:
 		_prewarm_stage6_selected_modules(owner, registry)
 		return
+	if stage_id == 7:
+		_prewarm_stage7_akamu_selected_modules(owner, registry)
+		return
 	if stage_id != 2:
 		return
 	for key in [
@@ -320,6 +337,25 @@ func _prewarm_selected_stage_modules(owner: Object, registry: Object, stage_id: 
 		var stage_module: Object = _get_instance(registry, str(key))
 		if stage_module != null and stage_module.has_method("prewarm_assets"):
 			stage_module.prewarm_assets()
+
+
+func _prewarm_stage7_akamu_selected_modules(owner: Object, registry: Object) -> void:
+	# 프리배틀 인트로 영상 프리웜은 스테이지 진입 lifecycle(부트/로딩 게이트가
+	# is_video_thread_load_in_flight를 대기)이 소유한다 — 디버그 피커는
+	# 렌더 모듈 프리웜만 담당.
+	var stage_background: Object = _get_instance(registry, "stage7_akamu_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+	var actor_renderer: Object = _get_instance(registry, "stage7_akamu_actor_renderer")
+	if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
+		actor_renderer.prewarm_assets()
+	var module_getter := Callable(registry, "get_instance") if registry != null and registry.has_method("get_instance") else Callable()
+	var pillar_scene_drawer: Object = _get_instance(registry, "stage7_akamu_pillar_scene_drawer")
+	if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets") and module_getter.is_valid():
+		pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
+	var skill_hud: Object = _get_instance(registry, "stage7_akamu_boss_skill_hud_renderer")
+	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+		skill_hud.prewarm_assets()
 
 
 func _prewarm_active_item_runtime(registry: Object) -> void:
