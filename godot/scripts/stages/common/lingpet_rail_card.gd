@@ -12,6 +12,7 @@ extends RefCounted
 # Stage 3 atlas), and "maribo_hydro_sphere" is in none of those maps -- so the
 # lingpet card must NOT route through any renderer's texture system.
 
+const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
@@ -431,15 +432,15 @@ static func _draw_gauge(canvas: CanvasItem, rect: Rect2, fill_ratio: float, acce
 				Color(accent.r * 0.55, accent.g * 0.55, accent.b * 0.55, 1.0)
 			)
 		return
-	canvas.draw_texture_rect(card_texture, rect, false, Color(0.18, 0.18, 0.20, 1.0))
-	if clamped_fill <= 0.0:
-		return
-	var texture_size: Vector2 = card_texture.get_size()
-	var source_width: float = texture_size.x * clamped_fill
-	canvas.draw_texture_rect_region(
+	# 종횡비 보존(cover) 게이지 draw는 공용 스펙으로 단일화(찌그러짐 방지).
+	BossSkillCardHudSpec.draw_skillcard_gauge_fill(
+		canvas,
+		rect,
 		card_texture,
-		Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
-		Rect2(Vector2.ZERO, Vector2(source_width, texture_size.y))
+		Rect2(Vector2.ZERO, card_texture.get_size()),
+		clamped_fill,
+		Color(0.18, 0.18, 0.20, 1.0),
+		Color(1.0, 1.0, 1.0, 1.0)
 	)
 
 

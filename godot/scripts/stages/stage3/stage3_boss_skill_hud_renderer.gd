@@ -153,13 +153,14 @@ func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fi
 		Vector2(source_w * float(SKILLCARD_ID_TO_INDEX[skill_id]), 0.0),
 		Vector2(source_w, texture_size.y)
 	)
-	canvas.draw_texture_rect_region(atlas, rect, source_rect, Color(0.22, 0.20, 0.22, 1.0))
-	if clamped_fill <= 0.0:
-		return
-	canvas.draw_texture_rect_region(
+	# 종횡비 보존(cover) 게이지 draw는 공용 스펙으로 단일화(찌그러짐 방지).
+	BossSkillCardHudSpec.draw_skillcard_gauge_fill(
+		canvas,
+		rect,
 		atlas,
-		Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
-		Rect2(source_rect.position, Vector2(source_rect.size.x * clamped_fill, source_rect.size.y)),
+		source_rect,
+		clamped_fill,
+		Color(0.22, 0.20, 0.22, 1.0),
 		Color(1.0, 0.96, 1.0, 1.0)
 	)
 
