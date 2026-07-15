@@ -13,7 +13,8 @@ static func get_actor_reaction_timer_context(
 	dalji_dialogue_timer: float,
 	stage6_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
 	stage4_ponk_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.BOSS_DEFEAT_CLICK_TOTAL_DURATION,
-	stage5_hongryun_result_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION
+	stage5_hongryun_result_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION,
+	stage7_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION
 ) -> Dictionary:
 	return {
 		"dalji_base_timer": dalji_base_timer,
@@ -24,6 +25,7 @@ static func get_actor_reaction_timer_context(
 		"stage6_boss_defeat_click_reaction_timer": stage6_boss_defeat_click_reaction_timer,
 		"stage4_ponk_boss_defeat_click_reaction_timer": stage4_ponk_boss_defeat_click_reaction_timer,
 		"stage5_hongryun_result_click_reaction_timer": stage5_hongryun_result_click_reaction_timer,
+		"stage7_boss_defeat_click_reaction_timer": stage7_boss_defeat_click_reaction_timer,
 		"dalji_dialogue_timer": dalji_dialogue_timer,
 	}
 
@@ -109,5 +111,10 @@ static func _get_reaction_timer_payload_configs() -> Array[Dictionary]:
 			"apply_key": "stage6_boss_defeat_click_reaction_timer",
 			"field_key": "_stage6_boss_defeat_click_reaction_timer",
 			"total_duration": StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
+		},
+		{
+			"apply_key": "stage7_boss_defeat_click_reaction_timer",
+			"field_key": "_stage7_boss_defeat_click_reaction_timer",
+			"total_duration": StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION,
 		},
 	]

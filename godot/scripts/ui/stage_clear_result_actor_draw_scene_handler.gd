@@ -24,7 +24,8 @@ static func draw_defeated_boss(scene: Control, view_size: Vector2, draw_scale: f
 		_get_scene_rect(scene, &"_dalji_click_rect"),
 		_get_scene_rect(scene, &"_stage6_boss_defeat_click_rect"),
 		_get_scene_rect(scene, &"_stage4_ponk_boss_defeat_click_rect"),
-		_get_scene_rect(scene, &"_stage5_hongryun_result_click_rect")
+		_get_scene_rect(scene, &"_stage5_hongryun_result_click_rect"),
+		_get_scene_rect(scene, &"_stage7_boss_defeat_click_rect")
 	))
 
 
@@ -90,7 +91,10 @@ static func get_defeated_boss_draw_context(scene: Object) -> Dictionary:
 		_get_scene_int(scene, &"_stage6_boss_defeat_click_transition_base_frame"),
 		_get_scene_texture(scene, &"_stage5_hongryun_result_sheet"),
 		_get_scene_float(scene, &"_stage5_hongryun_result_click_reaction_timer", StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION),
-		_get_scene_int(scene, &"_stage5_hongryun_result_click_transition_base_frame")
+		_get_scene_int(scene, &"_stage5_hongryun_result_click_transition_base_frame"),
+		_get_scene_texture(scene, &"_stage7_boss_defeat_sheet"),
+		_get_scene_float(scene, &"_stage7_boss_defeat_click_reaction_timer", StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION),
+		_get_scene_int(scene, &"_stage7_boss_defeat_click_transition_base_frame")
 	)
 
 

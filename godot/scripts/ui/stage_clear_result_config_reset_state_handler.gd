@@ -103,6 +103,11 @@ static func _get_reaction_timer_reset_configs() -> Array[Dictionary]:
 			"field_key": "_stage6_boss_defeat_click_reaction_timer",
 			"reset_value": StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
 		},
+		{
+			"apply_key": "stage7_boss_defeat_click_reaction_timer",
+			"field_key": "_stage7_boss_defeat_click_reaction_timer",
+			"reset_value": StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION,
+		},
 	]
 
 

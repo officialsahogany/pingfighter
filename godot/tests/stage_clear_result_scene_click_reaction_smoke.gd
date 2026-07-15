@@ -449,6 +449,64 @@ func _init() -> void:
 	_expect(not bool(stage6_status.get("stage6_boss_defeat_click_reaction_active", true)), "Stage 6 Tetriser click pulse should return to the base loop")
 	stage6_scene.free()
 
+	var stage7_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(stage7_scene != null, "stage clear result scene should instantiate for Stage 7 Akamu result")
+	root.add_child(stage7_scene)
+	_configure_scene(stage7_scene, {
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 7,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var stage7_status: Dictionary = _get_interaction_status(stage7_scene)
+	_expect(bool(stage7_status.get("stage7_boss_defeat_active", false)), "Stage 7 result should activate the Akamu defeat actor")
+	_expect(bool(stage7_status.get("stage7_boss_defeat_sheet_loaded", false)), "Stage 7 result should load the Akamu defeat sheet")
+	var stage7_click_rect: Rect2 = stage7_status.get("stage7_boss_defeat_click_rect", Rect2())
+	_expect(stage7_click_rect.size.x > 0.0 and stage7_click_rect.size.y > 0.0, "Stage 7 Akamu click rect should be available")
+	_update_result_scene(stage7_scene, 0.25)
+	stage7_status = _get_interaction_status(stage7_scene)
+	var stage7_base_frame_early: int = int(stage7_status.get("stage7_boss_defeat_base_frame", 0))
+	_expect(stage7_base_frame_early > 0, "Stage 7 Akamu defeat sheet should animate over time")
+	# One-shot 계약(defeat.loop=false): 시트를 끝까지 재생한 뒤에는 마지막
+	# 프레임(7)에 머물러야 하며, stage6식 % 순환으로 다시 일어나면 안 된다.
+	_update_result_scene(stage7_scene, 0.60)
+	stage7_status = _get_interaction_status(stage7_scene)
+	_expect(int(stage7_status.get("stage7_boss_defeat_base_frame", -1)) == 7, "Stage 7 Akamu defeat sheet should reach and hold the final frame (t≈0.85s)")
+	_update_result_scene(stage7_scene, 0.80)
+	stage7_status = _get_interaction_status(stage7_scene)
+	_expect(int(stage7_status.get("stage7_boss_defeat_base_frame", -1)) == 7, "Stage 7 Akamu defeat sheet must stay on the final frame instead of looping (t≈1.65s)")
+	var stage7_base_frame_before_click: int = int(stage7_status.get("stage7_boss_defeat_base_frame", 0))
+	var stage7_click := InputEventMouseButton.new()
+	stage7_click.button_index = MOUSE_BUTTON_LEFT
+	stage7_click.pressed = true
+	stage7_click.position = stage7_click_rect.get_center()
+	_expect(_handle_result_input(stage7_scene, stage7_click), "Stage 7 Akamu click should be consumed by the result scene")
+
+	stage7_status = _get_interaction_status(stage7_scene)
+	_expect(bool(stage7_status.get("stage7_boss_defeat_click_reaction_active", false)), "Stage 7 Akamu click should start the pulse reaction")
+	_expect(float(stage7_status.get("stage7_boss_defeat_click_reaction_duration", 99.0)) < 0.5, "Stage 7 Akamu click reaction should be a short pulse")
+	_expect(
+		int(stage7_status.get("stage7_boss_defeat_click_transition_base_frame", -1)) == stage7_base_frame_before_click,
+		"Stage 7 Akamu click should freeze the held final frame for the pulse"
+	)
+
+	_update_result_scene(stage7_scene, 0.04)
+	stage7_status = _get_interaction_status(stage7_scene)
+	var stage7_mid_alpha: float = float(stage7_status.get("stage7_boss_defeat_reaction_alpha", 0.0))
+	_expect(stage7_mid_alpha > 0.05 and stage7_mid_alpha < 1.0, "Stage 7 Akamu click should ease into the pulse")
+
+	_update_result_scene(stage7_scene, 1.0)
+	stage7_status = _get_interaction_status(stage7_scene)
+	_expect(not bool(stage7_status.get("stage7_boss_defeat_click_reaction_active", true)), "Stage 7 Akamu click pulse should settle back to the held final frame")
+	_expect(int(stage7_status.get("stage7_boss_defeat_base_frame", -1)) == 7, "Stage 7 Akamu must still hold the final frame after the click pulse")
+	stage7_scene.free()
+
 	_expect(
 		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(9856.0, 8064.0),
 		"Smasher result base Live2D should use the identity-locked Real-ESRGAN hq1408 11x9 98-frame sheet"

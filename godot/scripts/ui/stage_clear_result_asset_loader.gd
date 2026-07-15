@@ -10,6 +10,7 @@ const STAGE3_BACKGROUND_PATH := "res://assets/sprites/stage3/result/stage3_resul
 const STAGE4_BACKGROUND_PATH := "res://assets/sprites/stage4/result/stage4_result_background_imagegen_v1.png"
 const STAGE5_BACKGROUND_PATH := "res://assets/sprites/stage5/result/stage5_result_background_imagegen_v1.png"
 const STAGE6_BACKGROUND_PATH := "res://assets/sprites/hud/stage6_tetriser_pillar_bg_imagegen_v1.png"
+const STAGE7_BACKGROUND_PATH := "res://assets/sprites/hud/stage7_akamu_pillar_base_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
@@ -21,6 +22,7 @@ const STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage4/
 const STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_dalji_ratio_click_reaction_98f_autosprite_v3_realesrgan_animev3_hq1152.png"
 const STAGE5_HONGRYUN_RESULT_SHEET_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_victory.png"
 const STAGE6_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage6_tetriser/stage6_tetriser_boss_defeat.png"
+const STAGE7_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage7_akamu/stage7_akamu_boss_defeat.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
@@ -32,7 +34,10 @@ const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_
 const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
 const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
 
-const PREWARM_ASSET_STEP_COUNT := 19
+# TEXTURE_KEYS.size() + Dalji voice 스텝 + result-box FX 스텝과 항상 같아야
+# 한다 — 키를 추가/제거하면 이 수도 함께 갱신(asset_loader 스모크의 예산
+# assert가 어긋남을 잡는다).
+const PREWARM_ASSET_STEP_COUNT := 20  # TEXTURE_KEYS (18) + voice + FX
 const TEXTURE_KEYS := [
 	"background_texture",
 	"dalji_defeat_sheet",
@@ -45,6 +50,7 @@ const TEXTURE_KEYS := [
 	"stage4_ponk_boss_defeat_click_reaction_sheet",
 	"stage5_hongryun_result_sheet",
 	"stage6_boss_defeat_sheet",
+	"stage7_boss_defeat_sheet",
 	"player_victory_sheet",
 	"player_victory_click_reaction_sheet",
 	"scroll_texture",
@@ -64,6 +70,7 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 	"stage4_ponk_boss_defeat_click_reaction_sheet": true,
 	"stage5_hongryun_result_sheet": true,
 	"stage6_boss_defeat_sheet": true,
+	"stage7_boss_defeat_sheet": true,
 	"player_victory_sheet": true,
 	"player_victory_click_reaction_sheet": true,
 	"result_box_sheet_common": true,
@@ -83,6 +90,7 @@ const TEXTURE_MESSAGES := {
 	"stage4_ponk_boss_defeat_click_reaction_sheet": ["Missing Stage 4 Ponk result click reaction Live2D sheet at %s", "Failed to load Stage 4 Ponk result click reaction Live2D sheet at %s"],
 	"stage5_hongryun_result_sheet": ["Missing Stage 5 Hongryun result fallback sheet at %s", "Failed to load Stage 5 Hongryun result fallback sheet at %s"],
 	"stage6_boss_defeat_sheet": ["Missing Stage 6 Tetriser result defeat sheet at %s", "Failed to load Stage 6 Tetriser result defeat sheet at %s"],
+	"stage7_boss_defeat_sheet": ["Missing Stage 7 Akamu result defeat sheet at %s", "Failed to load Stage 7 Akamu result defeat sheet at %s"],
 	"player_victory_sheet": ["Missing player victory sheet at %s", "Failed to load player victory sheet at %s"],
 	"player_victory_click_reaction_sheet": ["Missing player victory click reaction sheet at %s", "Failed to load player victory click reaction sheet at %s"],
 	"scroll_texture": ["Missing stage clear cyber scroll panel at %s", "Failed to load stage clear cyber scroll panel at %s"],
@@ -105,6 +113,7 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"stage4_background_texture": STAGE4_BACKGROUND_PATH,
 		"stage5_background_texture": STAGE5_BACKGROUND_PATH,
 		"stage6_background_texture": STAGE6_BACKGROUND_PATH,
+		"stage7_background_texture": STAGE7_BACKGROUND_PATH,
 		"smasher_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
 		"smasher_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
 		"commando_victory_sheet": COMMANDO_VICTORY_SHEET_PATH,
@@ -123,6 +132,7 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"stage4_ponk_boss_defeat_click_reaction_sheet": STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage5_hongryun_result_sheet": STAGE5_HONGRYUN_RESULT_SHEET_PATH,
 		"stage6_boss_defeat_sheet": STAGE6_BOSS_DEFEAT_SHEET_PATH,
+		"stage7_boss_defeat_sheet": STAGE7_BOSS_DEFEAT_SHEET_PATH,
 		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
 		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
 		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
@@ -156,6 +166,11 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 		paths["stage5_hongryun_result_sheet"] = str(path_config.get("stage5_hongryun_result_sheet", ""))
 	elif normalized_stage_id == 6:
 		paths["stage6_boss_defeat_sheet"] = str(path_config.get("stage6_boss_defeat_sheet", ""))
+	elif normalized_stage_id == 7:
+		# 선택적 AutoSprite 시트: 도착해 있을 때만 자동 승격 — 없으면 빈
+		# 경로로 코드 네이티브 결과 액터가 그린다(스폰 게이트 비차단).
+		var stage7_sheet_path := str(path_config.get("stage7_boss_defeat_sheet", ""))
+		paths["stage7_boss_defeat_sheet"] = stage7_sheet_path if ResourceLoader.exists(stage7_sheet_path) else ""
 	elif normalized_stage_id == 1:
 		paths["dalji_defeat_sheet"] = str(path_config.get("dalji_defeat_sheet", ""))
 		paths["dalji_click_reaction_sheet"] = str(path_config.get("dalji_click_reaction_sheet", ""))
@@ -177,6 +192,8 @@ static func get_result_background_path_for_stage(stage_id: int, path_config: Dic
 		return str(path_config.get("stage5_background_texture", path_config.get("background_texture", "")))
 	if normalized_stage_id == 6:
 		return str(path_config.get("stage6_background_texture", path_config.get("background_texture", "")))
+	if normalized_stage_id == 7:
+		return str(path_config.get("stage7_background_texture", path_config.get("background_texture", "")))
 	return str(path_config.get("background_texture", ""))
 
 

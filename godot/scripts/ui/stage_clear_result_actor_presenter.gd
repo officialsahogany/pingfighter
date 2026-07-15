@@ -1,6 +1,7 @@
 extends RefCounted
 
 const StageClearResultActorDrawHelper := preload("res://scripts/ui/stage_clear_result_actor_draw_helper.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 
 
 static func get_player_victory_draw_context(
@@ -44,7 +45,10 @@ static func get_defeated_boss_draw_context(
 	stage6_boss_defeat_click_transition_base_frame: int = 0,
 	stage5_hongryun_result_sheet: Texture2D = null,
 	stage5_hongryun_result_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE5_HONGRYUN_CLICK_TOTAL_DURATION,
-	stage5_hongryun_result_click_transition_base_frame: int = 0
+	stage5_hongryun_result_click_transition_base_frame: int = 0,
+	stage7_boss_defeat_sheet: Texture2D = null,
+	stage7_boss_defeat_click_reaction_timer: float = StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION,
+	stage7_boss_defeat_click_transition_base_frame: int = 0
 ) -> Dictionary:
 	return {
 		"current_stage": current_stage,
@@ -72,6 +76,9 @@ static func get_defeated_boss_draw_context(
 		"stage5_hongryun_result_sheet": stage5_hongryun_result_sheet,
 		"stage5_hongryun_result_click_reaction_timer": stage5_hongryun_result_click_reaction_timer,
 		"stage5_hongryun_result_click_transition_base_frame": stage5_hongryun_result_click_transition_base_frame,
+		"stage7_boss_defeat_sheet": stage7_boss_defeat_sheet,
+		"stage7_boss_defeat_click_reaction_timer": stage7_boss_defeat_click_reaction_timer,
+		"stage7_boss_defeat_click_transition_base_frame": stage7_boss_defeat_click_transition_base_frame,
 	}
 
 
@@ -226,6 +233,16 @@ static func _get_stage_result_fallback_config(current_stage: int) -> Dictionary:
 				"rect_key": "stage6_boss_defeat_rect",
 				"click_rect_key": "stage6_boss_defeat_click_rect",
 			}
+		7:
+			return {
+				"stage": 7,
+				"sheet_key": "stage7_boss_defeat_sheet",
+				"reaction_timer_key": "stage7_boss_defeat_click_reaction_timer",
+				"transition_base_frame_key": "stage7_boss_defeat_click_transition_base_frame",
+				"default_reaction_timer": StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION,
+				"rect_key": "stage7_boss_defeat_rect",
+				"click_rect_key": "stage7_boss_defeat_click_rect",
+			}
 	return {}
 
 
@@ -239,6 +256,21 @@ static func _draw_stage_result_fallback_actor(
 	var sheet_key: String = String(config.get("sheet_key", ""))
 	var sheet: Texture2D = draw_context.get(sheet_key, null) as Texture2D
 	if sheet == null:
+		# 스테이지 7은 시트 부재가 스폰을 막지 않는다: AutoSprite 결과
+		# 시트가 도착하기 전에는 코드 네이티브 아카무 액터가 같은 공유
+		# rect에 그려진다(시트가 도착하면 자동 승격). 클릭 반응은 시트
+		# 프레임 연출이라 실입력 계약(sheet != null 게이트)과 맞춰 폴백은
+		# 클릭 rect를 광고하지 않는다.
+		if int(config.get("stage", 0)) == 7:
+			var code_native_rect: Rect2 = StageClearResultLayoutHelper.get_stage7_result_draw_rect(view_size, draw_scale)
+			StageClearResultActorDrawHelper.draw_stage7_akamu_code_native(
+				canvas,
+				code_native_rect,
+				float(draw_context.get("timer", 0.0))
+			)
+			return {
+				String(config.get("rect_key", "")): code_native_rect,
+			}
 		return {}
 
 	var timer: float = float(draw_context.get("timer", 0.0))
@@ -270,6 +302,17 @@ static func _draw_stage_result_fallback_actor(
 				reaction_timer,
 				transition_base_frame
 			)
+		7:
+			draw_rect = StageClearResultActorDrawHelper.draw_stage7_akamu_defeated(
+				canvas,
+				sheet,
+				timer,
+				view_size,
+				draw_scale,
+				0.98,
+				reaction_timer,
+				transition_base_frame
+			)
 		_:
 			return {}
 
@@ -284,7 +327,8 @@ static func get_defeated_boss_draw_apply_result(
 	current_dalji_click_rect: Rect2,
 	current_stage6_boss_defeat_click_rect: Rect2 = Rect2(),
 	current_stage4_ponk_boss_defeat_click_rect: Rect2 = Rect2(),
-	current_stage5_hongryun_result_click_rect: Rect2 = Rect2()
+	current_stage5_hongryun_result_click_rect: Rect2 = Rect2(),
+	current_stage7_boss_defeat_click_rect: Rect2 = Rect2()
 ) -> Dictionary:
 	return _get_click_rect_apply_result(
 		draw_result,
@@ -292,7 +336,8 @@ static func get_defeated_boss_draw_apply_result(
 			current_dalji_click_rect,
 			current_stage6_boss_defeat_click_rect,
 			current_stage4_ponk_boss_defeat_click_rect,
-			current_stage5_hongryun_result_click_rect
+			current_stage5_hongryun_result_click_rect,
+			current_stage7_boss_defeat_click_rect
 		)
 	)
 
@@ -302,13 +347,15 @@ static func get_defeated_boss_draw_scene_apply_result(
 	current_dalji_click_rect: Rect2,
 	current_stage6_boss_defeat_click_rect: Rect2 = Rect2(),
 	current_stage4_ponk_boss_defeat_click_rect: Rect2 = Rect2(),
-	current_stage5_hongryun_result_click_rect: Rect2 = Rect2()
+	current_stage5_hongryun_result_click_rect: Rect2 = Rect2(),
+	current_stage7_boss_defeat_click_rect: Rect2 = Rect2()
 ) -> Dictionary:
 	var payload_configs: Array[Dictionary] = _get_defeated_boss_click_rect_payload_configs(
 		current_dalji_click_rect,
 		current_stage6_boss_defeat_click_rect,
 		current_stage4_ponk_boss_defeat_click_rect,
-		current_stage5_hongryun_result_click_rect
+		current_stage5_hongryun_result_click_rect,
+		current_stage7_boss_defeat_click_rect
 	)
 	var apply_result: Dictionary = _get_click_rect_apply_result(draw_result, payload_configs)
 	return {
@@ -320,7 +367,8 @@ static func _get_defeated_boss_click_rect_payload_configs(
 	current_dalji_click_rect: Rect2,
 	current_stage6_boss_defeat_click_rect: Rect2,
 	current_stage4_ponk_boss_defeat_click_rect: Rect2,
-	current_stage5_hongryun_result_click_rect: Rect2
+	current_stage5_hongryun_result_click_rect: Rect2,
+	current_stage7_boss_defeat_click_rect: Rect2
 ) -> Array[Dictionary]:
 	return [
 		{
@@ -342,6 +390,11 @@ static func _get_defeated_boss_click_rect_payload_configs(
 			"apply_key": "stage5_hongryun_result_click_rect",
 			"field_key": "_stage5_hongryun_result_click_rect",
 			"current_rect": current_stage5_hongryun_result_click_rect,
+		},
+		{
+			"apply_key": "stage7_boss_defeat_click_rect",
+			"field_key": "_stage7_boss_defeat_click_rect",
+			"current_rect": current_stage7_boss_defeat_click_rect,
 		},
 	]
 

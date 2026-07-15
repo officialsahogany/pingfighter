@@ -32,6 +32,7 @@ class FakeResultScene:
 	var _stage4_ponk_boss_defeat_click_reaction_timer: float = 0.0
 	var _stage5_hongryun_result_click_reaction_timer: float = 0.0
 	var _stage6_boss_defeat_click_reaction_timer: float = 0.0
+	var _stage7_boss_defeat_click_reaction_timer: float = 0.0
 	var _dalji_dialogue_timer: float = 0.0
 	var _runtime_perk_state: Object = null
 	var _treasure_hunt_runtime: Object = null

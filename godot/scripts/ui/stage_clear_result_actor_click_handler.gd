@@ -50,7 +50,7 @@ static func handle_boss_defeat_click(
 	reaction_timer: float,
 	base_timer: float
 ) -> Dictionary:
-	if not has_reaction_sheet or (stage_id != 2 and stage_id != 3 and stage_id != 4 and stage_id != 5 and stage_id != 6):
+	if not has_reaction_sheet or (stage_id != 2 and stage_id != 3 and stage_id != 4 and stage_id != 5 and stage_id != 6 and stage_id != 7):
 		return _empty_result()
 	if stage_id == 5:
 		return _build_attempt_result(StageClearResultActorDrawHelper.get_stage5_hongryun_click_attempt(
@@ -62,6 +62,14 @@ static func handle_boss_defeat_click(
 		))
 	if stage_id == 6:
 		return _build_attempt_result(StageClearResultActorDrawHelper.get_stage6_tetriser_click_attempt(
+			mouse_position,
+			view_size,
+			draw_scale,
+			reaction_timer,
+			base_timer
+		))
+	if stage_id == 7:
+		return _build_attempt_result(StageClearResultActorDrawHelper.get_stage7_akamu_click_attempt(
 			mouse_position,
 			view_size,
 			draw_scale,
@@ -110,11 +118,17 @@ static func get_boss_result_click_config(stage_id: int) -> Dictionary:
 				"transition_base_frame_property": &"_stage6_boss_defeat_click_transition_base_frame",
 				"reaction_timer_property": &"_stage6_boss_defeat_click_reaction_timer",
 			}
+		7:
+			return {
+				"sheet_property": &"_stage7_boss_defeat_sheet",
+				"transition_base_frame_property": &"_stage7_boss_defeat_click_transition_base_frame",
+				"reaction_timer_property": &"_stage7_boss_defeat_click_reaction_timer",
+			}
 	return {}
 
 
 static func get_stage_result_fallback_click_config(stage_id: int) -> Dictionary:
-	if stage_id != 5 and stage_id != 6:
+	if stage_id != 5 and stage_id != 6 and stage_id != 7:
 		return {}
 	return get_boss_result_click_config(stage_id)
 

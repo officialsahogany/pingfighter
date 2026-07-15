@@ -29,6 +29,16 @@ static func _get_stage_result_fallback_status_configs(view_size: Vector2, layout
 			"reaction_state_key": "stage6_boss_reaction_state",
 			"draw_rect": StageClearResultLayoutHelper.get_stage6_tetriser_result_draw_rect(view_size, layout_scale),
 		},
+		{
+			"stage_id": 7,
+			"prefix": "stage7_boss_defeat",
+			"reaction_state_key": "stage7_boss_reaction_state",
+			"draw_rect": StageClearResultLayoutHelper.get_stage7_result_draw_rect(view_size, layout_scale),
+			# 시트 부재(코드 네이티브 폴백)에서는 클릭 계약이 없으므로 status가
+			# 빈 scene rect를 draw_rect로 '되살리지' 않는다 — 실입력의
+			# sheet != null 게이트와 정합.
+			"clickless_without_sheet": true,
+		},
 	]
 
 
@@ -40,10 +50,13 @@ static func _get_single_stage_result_fallback_status(
 	var prefix: String = str(config.get("prefix", ""))
 	var reaction_state: Dictionary = _get_dictionary(context, str(config.get("reaction_state_key", "")))
 	var draw_rect: Rect2 = config.get("draw_rect", Rect2())
+	var sheet_loaded: bool = bool(context.get("%s_sheet_loaded" % prefix, false))
 	var click_rect: Rect2 = _get_valid_rect_or_default(context.get("%s_click_rect" % prefix, draw_rect), draw_rect)
+	if bool(config.get("clickless_without_sheet", false)) and not sheet_loaded:
+		click_rect = Rect2()
 	return {
 		"%s_sheet_path" % prefix: str(context.get("%s_sheet_path" % prefix, "")),
-		"%s_sheet_loaded" % prefix: bool(context.get("%s_sheet_loaded" % prefix, false)),
+		"%s_sheet_loaded" % prefix: sheet_loaded,
 		"%s_active" % prefix: current_stage == int(config.get("stage_id", 0)),
 		"%s_frame_count" % prefix: int(context.get("%s_frame_count" % prefix, 0)),
 		"%s_grid_cols" % prefix: int(context.get("%s_grid_cols" % prefix, 0)),

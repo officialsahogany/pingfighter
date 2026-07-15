@@ -381,6 +381,9 @@ func _get_stained_glass_mask_texture(stage: int) -> Texture2D:
 
 
 func _can_show_stained_glass(owner: Object) -> bool:
+	# Stage 7 is intentionally absent: the Akamu prebattle intro video owns the
+	# loading spectacle, and the stained-glass completion hold would deadlock the
+	# video handoff (sealed by stage7_akamu_prebattle_live_frame_smoke).
 	return [1, 2, 3, 4, 5, 6].has(maxi(1, int(_safe_owner_get(owner, "current_stage", 1))))
 
 

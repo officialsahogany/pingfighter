@@ -54,7 +54,9 @@ $focusedSmoke = @(
     "res://tests/weather_event_render_budget_smoke.gd",
     "res://tests/limit_league_tier_smoke.gd",
     "res://tests/stage7_akamu_prebattle_video_smoke.gd",
-    "res://tests/stage7_akamu_prebattle_live_frame_smoke.gd"
+    "res://tests/stage7_akamu_prebattle_live_frame_smoke.gd",
+    "res://tests/stage7_akamu_slice6_result_loading_smoke.gd",
+    "res://tests/stage7_akamu_result_scene_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

@@ -202,6 +202,16 @@ static func get_stage6_tetriser_result_draw_rect(view_size: Vector2, draw_scale:
 	return Rect2(position, draw_size)
 
 
+static func get_stage7_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	# 스테이지 6 결과 액터와 같은 좌하단 무대 배치 계약(4x2 256px 시트 공용).
+	var draw_size := Vector2(420.0, 420.0) * draw_scale
+	var position := Vector2(48.0, 404.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(344.0, 344.0) * draw_scale
+		position = Vector2(32.0, 458.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
 static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float, header_reserve: float = -1.0) -> Dictionary:
 	# header_reserve = vertical space taken by a top label row before the cards.
 	# Default (-1) preserves the legacy top-header section (42px); the left-label

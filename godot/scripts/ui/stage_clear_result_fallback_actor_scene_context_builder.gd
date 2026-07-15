@@ -43,6 +43,21 @@ static func _get_stage_result_fallback_scene_context_configs() -> Array[Dictiona
 			"click_reaction_duration": StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_REACTION_DURATION,
 			"click_total_duration": StageClearResultActorDrawHelper.STAGE6_TETRISER_CLICK_TOTAL_DURATION,
 		},
+		{
+			"prefix": "stage7_boss_defeat",
+			"reaction_state_key": "stage7_boss_reaction_state",
+			"reaction_kind": "stage7_akamu",
+			"sheet_path": StageClearResultAssetLoader.STAGE7_BOSS_DEFEAT_SHEET_PATH,
+			"sheet_property": "_stage7_boss_defeat_sheet",
+			"click_rect_property": "_stage7_boss_defeat_click_rect",
+			"reaction_timer_property": "_stage7_boss_defeat_click_reaction_timer",
+			"transition_base_frame_property": "_stage7_boss_defeat_click_transition_base_frame",
+			"frame_count": StageClearResultActorDrawHelper.STAGE7_AKAMU_DEFEAT_FRAME_COUNT,
+			"grid_cols": StageClearResultActorDrawHelper.STAGE7_AKAMU_DEFEAT_GRID_COLS,
+			"cell_size": StageClearResultActorDrawHelper.STAGE7_AKAMU_DEFEAT_CELL_SIZE,
+			"click_reaction_duration": StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_REACTION_DURATION,
+			"click_total_duration": StageClearResultActorDrawHelper.STAGE7_AKAMU_CLICK_TOTAL_DURATION,
+		},
 	]
 
 
@@ -88,6 +103,12 @@ static func _get_stage_result_fallback_scene_reaction_state(
 			)
 		"stage6_tetriser":
 			return StageClearResultActorDrawHelper.get_stage6_tetriser_reaction_state(
+				timer,
+				reaction_timer,
+				transition_base_frame
+			)
+		"stage7_akamu":
+			return StageClearResultActorDrawHelper.get_stage7_akamu_reaction_state(
 				timer,
 				reaction_timer,
 				transition_base_frame

@@ -187,6 +187,7 @@ static func get_config_reset_current_state(scene: Object) -> Dictionary:
 		"stage4_ponk_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage4_ponk_boss_defeat_click_reaction_timer"),
 		"stage5_hongryun_result_click_reaction_timer": _get_scene_float(scene, &"_stage5_hongryun_result_click_reaction_timer"),
 		"stage6_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage6_boss_defeat_click_reaction_timer"),
+		"stage7_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage7_boss_defeat_click_reaction_timer"),
 		"dalji_dialogue_timer": _get_scene_float(scene, &"_dalji_dialogue_timer"),
 	}
 

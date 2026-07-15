@@ -72,6 +72,10 @@ func get_required_scene_asset_keys(stage_id: int) -> Array[String]:
 		"result_box_fx",
 	]
 	match stage_id:
+		7:
+			# 스테이지 7: 전용 배경/시트가 선택적 — 제네릭 배경과 코드
+			# 네이티브 액터로 스폰을 허용한다(에셋 도착 시 자동 승격).
+			keys.erase("background_texture")
 		1:
 			keys.append("dalji_defeat_sheet")
 			keys.append("dalji_click_reaction_sheet")

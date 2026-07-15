@@ -338,6 +338,7 @@ func _asset_paths() -> Dictionary:
 		"stage3_boss_defeat_click_reaction_sheet": StageClearResultAssetLoader.STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"stage4_ponk_boss_defeat_live2d_sheet": StageClearResultAssetLoader.STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage4_ponk_boss_defeat_click_reaction_sheet": StageClearResultAssetLoader.STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage7_boss_defeat_sheet": StageClearResultAssetLoader.STAGE7_BOSS_DEFEAT_SHEET_PATH,
 		"stage5_hongryun_result_sheet": StageClearResultAssetLoader.STAGE5_HONGRYUN_RESULT_SHEET_PATH,
 		"stage6_boss_defeat_sheet": StageClearResultAssetLoader.STAGE6_BOSS_DEFEAT_SHEET_PATH,
 		"player_victory_sheet": StageClearResultAssetLoader.SMASHER_VICTORY_SHEET_PATH,

@@ -41,6 +41,7 @@ var _player_victory_click_rect: Rect2 = Rect2()
 var _stage4_ponk_boss_defeat_click_rect: Rect2 = Rect2()
 var _stage5_hongryun_result_click_rect: Rect2 = Rect2()
 var _stage6_boss_defeat_click_rect: Rect2 = Rect2()
+var _stage7_boss_defeat_click_rect: Rect2 = Rect2()
 var _background_texture: Texture2D
 var _dalji_defeat_sheet: Texture2D
 var _dalji_click_reaction_sheet: Texture2D
@@ -52,6 +53,7 @@ var _stage4_ponk_boss_defeat_live2d_sheet: Texture2D
 var _stage4_ponk_boss_defeat_click_reaction_sheet: Texture2D
 var _stage5_hongryun_result_sheet: Texture2D
 var _stage6_boss_defeat_sheet: Texture2D
+var _stage7_boss_defeat_sheet: Texture2D
 var _player_victory_sheet: Texture2D
 var _player_victory_click_reaction_sheet: Texture2D
 var _player_victory_sheet_loaded_path: String = ""
@@ -82,6 +84,7 @@ var _stage3_boss_defeat_click_reaction_timer: float = StageClearResultConfigScen
 var _stage4_ponk_boss_defeat_click_reaction_timer: float = StageClearResultConfigSceneHandler.get_default_reaction_timer("stage4_ponk_boss_defeat_click_reaction_timer")
 var _stage5_hongryun_result_click_reaction_timer: float = StageClearResultConfigSceneHandler.get_default_reaction_timer("stage5_hongryun_result_click_reaction_timer")
 var _stage6_boss_defeat_click_reaction_timer: float = StageClearResultConfigSceneHandler.get_default_reaction_timer("stage6_boss_defeat_click_reaction_timer")
+var _stage7_boss_defeat_click_reaction_timer: float = StageClearResultConfigSceneHandler.get_default_reaction_timer("stage7_boss_defeat_click_reaction_timer")
 var _dalji_dialogue_timer: float = 0.0
 var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
@@ -90,6 +93,7 @@ var _stage3_boss_defeat_click_transition_base_frame: int = 0
 var _stage4_ponk_boss_defeat_click_transition_base_frame: int = 0
 var _stage5_hongryun_result_click_transition_base_frame: int = 0
 var _stage6_boss_defeat_click_transition_base_frame: int = 0
+var _stage7_boss_defeat_click_transition_base_frame: int = 0
 var _font_cache: Object = StageClearResultConfigSceneHandler.create_font_cache()
 var _fx_host_pool: Object = StageClearResultConfigSceneHandler.create_fx_host_pool()
 var _lid_open_counter: int = 0
