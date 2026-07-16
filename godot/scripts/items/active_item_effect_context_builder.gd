@@ -180,6 +180,32 @@ func build_magnet_field_context(
 	}
 
 
+func build_hologram_disk_context(
+	active: bool,
+	timer_frames: float,
+	initial_timer_frames: float,
+	phase: float,
+	decoys: Array[Dictionary],
+	pop_particles: Array[Dictionary],
+	locked_decoy_index: int
+) -> Dictionary:
+	var remaining_ratio: float = 0.0
+	if active and initial_timer_frames > 0.0:
+		remaining_ratio = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
+	return {
+		"active": active,
+		"timer_frames": timer_frames,
+		"initial_timer_frames": initial_timer_frames,
+		"remaining_ratio": remaining_ratio,
+		"phase": phase,
+		"decoys": decoys,
+		"pop_particles": pop_particles,
+		"locked_decoy_index": locked_decoy_index,
+		"width": FIELD_WIDTH,
+		"height": FIELD_HEIGHT,
+	}
+
+
 func build_holy_barrier_context(active: bool, timer_frames: float, initial_timer_frames: float, glow_phase: float) -> Dictionary:
 	return {
 		"active": active,

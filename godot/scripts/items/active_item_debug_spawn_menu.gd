@@ -38,6 +38,7 @@ const DEBUG_ENTRY_ORDER := [
 	"molotov",
 	"stopwatch",
 	"magnet_field",
+	"hologram_disk",
 	"long_boost",
 	"regeneration_potion",
 	"holy_barrier",

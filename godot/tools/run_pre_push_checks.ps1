@@ -60,7 +60,8 @@ $focusedSmoke = @(
     "res://tests/boss_skill_hud_gauge_cover_smoke.gd",
     "res://tests/stage_debug_picker_runtime_reset_smoke.gd",
     "res://tests/battle_playfield_effects_drawer_character_gate_smoke.gd",
-    "res://tests/perk_slot_limit_smoke.gd"
+    "res://tests/perk_slot_limit_smoke.gd",
+    "res://tests/active_item_hologram_disk_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

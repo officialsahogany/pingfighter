@@ -8,6 +8,7 @@ const ActiveItemDashBoostParticles := preload("res://scripts/items/active_item_d
 const ActiveItemDashBoostRuntime := preload("res://scripts/items/active_item_dash_boost_runtime.gd")
 const ActiveItemMagnetFieldParticles := preload("res://scripts/items/active_item_magnet_field_particles.gd")
 const ActiveItemMagnetFieldRuntime := preload("res://scripts/items/active_item_magnet_field_runtime.gd")
+const ActiveItemHologramDiskRuntime := preload("res://scripts/items/active_item_hologram_disk_runtime.gd")
 const ActiveItemAipillRuntime := preload("res://scripts/items/active_item_aipill_runtime.gd")
 const ActiveItemPickupEffectState := preload("res://scripts/items/active_item_pickup_effect_state.gd")
 const ActiveItemBrickWallGeometry := preload("res://scripts/items/active_item_brick_wall_geometry.gd")
@@ -90,6 +91,18 @@ var magnet_field_phase: float = 0.0
 var magnet_field_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
 var magnet_field_particle_accumulator_frames: float = 0.0
 var magnet_field_particles: Array[Dictionary] = []
+var hologram_disk_active: bool = false
+var hologram_disk_timer_frames: float = 0.0
+var hologram_disk_initial_timer_frames: float = 0.0
+var hologram_disk_phase: float = 0.0
+var hologram_decoys: Array[Dictionary] = []
+var hologram_decoy_pop_particles: Array[Dictionary] = []
+var hologram_locked_decoy_index: int = -1
+var hologram_deception_flight_active: bool = false
+var hologram_deception_roll_locked: bool = false
+var hologram_deception_roll_count: int = 0
+var hologram_last_ball_ascending: bool = false
+var hologram_disk_deception_chance_override: float = -1.0
 var holy_barrier_active: bool = false
 var holy_barrier_timer_frames: float = 0.0
 var holy_barrier_initial_timer_frames: float = 0.0
@@ -118,6 +131,7 @@ var _dash_boost_particles: Object = ActiveItemDashBoostParticles.new()
 var _dash_boost_runtime: Object = ActiveItemDashBoostRuntime.new()
 var _magnet_field_particles: Object = ActiveItemMagnetFieldParticles.new()
 var _magnet_field_runtime: Object = ActiveItemMagnetFieldRuntime.new()
+var _hologram_disk_runtime: Object = ActiveItemHologramDiskRuntime.new()
 var _aipill_runtime: Object = ActiveItemAipillRuntime.new()
 var _pickup_effect_state: Object = ActiveItemPickupEffectState.new()
 var _brick_wall_geometry: Object = ActiveItemBrickWallGeometry.new()
@@ -152,6 +166,7 @@ func _init() -> void:
 		"stopwatch_owner_effects": _stopwatch_owner_effects,
 		"magnet_field_runtime": _magnet_field_runtime,
 		"magnet_field_particles": _magnet_field_particles,
+		"hologram_disk_runtime": _hologram_disk_runtime,
 		"timed_paddle_effects": _timed_paddle_effects,
 		"holy_barrier_runtime": _holy_barrier_runtime,
 		"holy_barrier_particles": _holy_barrier_particles,
@@ -175,6 +190,7 @@ func reset() -> void:
 		_timed_paddle_effects,
 		_stopwatch_runtime,
 		_magnet_field_runtime,
+		_hologram_disk_runtime,
 		_holy_barrier_runtime,
 		_dash_boost_runtime,
 		_brick_wall_installation,
@@ -335,6 +351,16 @@ func activate_magnet_field(owner: Object, registry: Object) -> bool:
 	)
 
 
+func activate_hologram_disk(_owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_hologram_disk(
+		self,
+		registry,
+		_hologram_disk_runtime,
+		_state_applier,
+		_effect_feedback
+	)
+
+
 func activate_holy_barrier(_owner: Object, registry: Object) -> bool:
 	return _effect_action_facade.activate_holy_barrier(
 		self,
@@ -489,6 +515,14 @@ func get_magnet_field_context() -> Dictionary:
 	return _effect_query.get_magnet_field_context(self)
 
 
+func get_hologram_disk_context() -> Dictionary:
+	return _effect_query.get_hologram_disk_context(self)
+
+
+func get_hologram_decoys() -> Array[Dictionary]:
+	return _effect_query.get_hologram_decoys(self)
+
+
 func get_holy_barrier_context() -> Dictionary:
 	return _effect_query.get_holy_barrier_context(self)
 
@@ -584,12 +618,32 @@ func is_magnet_field_active() -> bool:
 	return _effect_query.is_magnet_field_active(self)
 
 
+func is_hologram_disk_active() -> bool:
+	return _effect_query.is_hologram_disk_active(self)
+
+
 func is_wall_installing() -> bool:
 	return _effect_query.is_wall_installing(self)
 
 
 func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
 	return _effect_interaction_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
+
+
+func apply_hologram_decoy_tick(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
+	return _hologram_disk_runtime.apply_ball_path_tick(self, fps_scale, context, deps)
+
+
+func peek_hologram_deception_ball_context() -> Dictionary:
+	return _hologram_disk_runtime.peek_deception_ball_context(self)
+
+
+func clear_hologram_decoys_and_lock() -> void:
+	_hologram_disk_runtime.clear_decoys_and_lock_state(self)
+
+
+func clear_hologram_disk_runtime() -> void:
+	_state_applier.apply_hologram_disk_state(self, _hologram_disk_runtime.clear_state())
 
 
 func notify_holy_barrier_hit(impact_pos: Vector2) -> void:

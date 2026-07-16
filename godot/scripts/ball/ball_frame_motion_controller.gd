@@ -424,6 +424,17 @@ func apply_active_item_magnet_field(scene: Dictionary, fps_scale: float, context
 		scene["ball_vel"] = _get_vector2(result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
 
 
+func apply_active_item_hologram_decoys(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime == null or not active_item_runtime.has_method("apply_hologram_decoy_tick"):
+		return
+	if active_item_runtime.has_method("is_hologram_disk_active") and not bool(active_item_runtime.is_hologram_disk_active()):
+		return
+	var motion_context: Dictionary = context.duplicate()
+	motion_context.merge(scene, true)
+	active_item_runtime.apply_hologram_decoy_tick(fps_scale, motion_context, deps)
+
+
 func apply_poseidon_trident(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("apply_poseidon_wave_to_ball"):

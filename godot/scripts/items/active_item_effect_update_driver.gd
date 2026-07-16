@@ -9,6 +9,7 @@ var _aipill_runtime: Object
 var _stopwatch_runtime: Object
 var _stopwatch_owner_effects: Object
 var _magnet_field_runtime: Object
+var _hologram_disk_runtime: Object
 var _magnet_field_particles: Object
 var _timed_paddle_effects: Object
 var _holy_barrier_runtime: Object
@@ -39,6 +40,7 @@ func configure(deps: Dictionary) -> void:
 	_stopwatch_runtime = deps.get("stopwatch_runtime")
 	_stopwatch_owner_effects = deps.get("stopwatch_owner_effects")
 	_magnet_field_runtime = deps.get("magnet_field_runtime")
+	_hologram_disk_runtime = deps.get("hologram_disk_runtime")
 	_magnet_field_particles = deps.get("magnet_field_particles")
 	_timed_paddle_effects = deps.get("timed_paddle_effects")
 	_holy_barrier_runtime = deps.get("holy_barrier_runtime")
@@ -83,6 +85,10 @@ func apply_update(
 		sample_start = _perf_begin(detail_perf_logger)
 		_update_magnet_field(target, owner, delta)
 		_perf_end(detail_perf_logger, "physics.callback.active_items.magnet_field", sample_start)
+	if _should_update_hologram_disk(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_hologram_disk(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.hologram_disk", sample_start)
 	if _should_update_long_boost(target):
 		sample_start = _perf_begin(detail_perf_logger)
 		_update_long_boost(target, delta)
@@ -196,6 +202,12 @@ func _update_magnet_field(target: Object, owner: Object, delta: float) -> void:
 		_state_applier,
 		_magnet_field_particles
 	)
+
+
+func _update_hologram_disk(target: Object, delta: float) -> void:
+	if _hologram_disk_runtime == null:
+		return
+	_hologram_disk_runtime.apply_effects_update(target, delta, _state_applier)
 
 
 func _update_long_boost(target: Object, delta: float) -> void:
@@ -481,6 +493,14 @@ func _should_update_magnet_field(target: Object) -> bool:
 		_get_bool_property(target, "magnet_field_active")
 		or _get_float_property(target, "magnet_field_timer_frames", 0.0) > 0.0
 		or _has_array_items(target.get("magnet_field_particles"))
+	)
+
+
+func _should_update_hologram_disk(target: Object) -> bool:
+	return (
+		_get_bool_property(target, "hologram_disk_active")
+		or _get_float_property(target, "hologram_disk_timer_frames", 0.0) > 0.0
+		or _has_array_items(target.get("hologram_decoy_pop_particles"))
 	)
 
 

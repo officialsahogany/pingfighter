@@ -50,6 +50,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_stopwatch", [owner, registry])
 	if _matches(item_name, effect_name, "magnet_field"):
 		return _call_bool(effect_controller, "activate_magnet_field", [owner, registry])
+	if _matches(item_name, effect_name, "hologram_disk"):
+		return _call_bool(effect_controller, "activate_hologram_disk", [owner, registry])
 	if _matches(item_name, effect_name, "long_boost"):
 		return _call_bool(effect_controller, "activate_long_boost", [owner, registry])
 	if _matches(item_name, effect_name, "milk_bottle"):

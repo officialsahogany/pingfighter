@@ -126,6 +126,13 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 		if _try_intercept_viper_practice_ball_loss(scene, frame_deps):
 			return _snapshot_result(scene)
 		return _snapshot_result(scene, {"score_event": score_event})
+	# 홀로그램 분신 훅은 step_motion(패들 충돌 반사) '뒤'에 있어야 한다:
+	# 패들 반사로 상승 전환한 그 프레임에 스폰·롤이 끝나야, 다음 물리
+	# 프레임의 보스 AI(공 업데이트보다 먼저 돈다)가 첫 상승 프레임부터
+	# 분신을 본다. motion 앞이면 스폰이 한 틱 늦어 AI가 진짜 공을 1틱
+	# 먼저 추적한다. skip_ball_motion_step 프레임은 위의 조기 반환으로
+	# 여기 오지 않으므로 홀드 중 분신 정지 계약도 유지된다.
+	frame_motion_controller.apply_active_item_hologram_decoys(scene, fps_scale, frame_context, frame_deps)
 	var stage_collision_start: int = _perf_begin(perf_logger)
 	_process_stage_background_collision(scene, frame_context, frame_deps)
 	_process_stage1_balloon_collision(scene, frame_context, frame_deps)
@@ -682,6 +689,12 @@ func _try_intercept_viper_practice_ball_loss(scene: Dictionary, frame_deps: Dict
 		return false
 	scene["ball_active"] = false
 	scene["ball_vel"] = Vector2.ZERO
+	# 연습모드 재시도는 라운드 리셋 없이 공만 재실체화한다 — 이전 홀로그램
+	# 분신·락이 남으면 홀드 중에도 그려지고, 재상승 첫 프레임의 보스 AI가
+	# 오래된 락을 재사용한다. 여기서 명시적으로 정리한다(효과 타이머는 유지).
+	var active_item_runtime: Object = frame_deps.get("active_item_runtime", null)
+	if active_item_runtime != null and active_item_runtime.has_method("clear_hologram_decoys_and_lock"):
+		active_item_runtime.clear_hologram_decoys_and_lock()
 	return true
 
 

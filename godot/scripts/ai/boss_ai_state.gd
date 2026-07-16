@@ -495,10 +495,11 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			deactivation_target_x = prediction_state.predict_exact_arrival_x(
 				deactivation_ball_pos,
 				deactivation_ball_vel,
-				play_left,
-				play_right,
+				float(context.get("prediction_play_left", play_left)),
+				float(context.get("prediction_play_right", play_right)),
 				boss_paddle_width,
-				context
+				context,
+				fps_scale
 			)
 		boss_vel = _update_whip_deactivation_velocity(
 			deactivation_target_x,
@@ -525,12 +526,15 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 		var ball_pos: Vector2 = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 		var ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 		ball_approaching_boss = ball_vel.y < 0.0
+		# 예측 벽 경계는 오버라이드 가능(홀로그램 기만 프레임은 분신의 시각
+		# 여백 벽과 같은 경계로 예측해야 실제 분신 궤적과 일치한다). 이동
+		# 클램프는 그대로 전역 play_left/right를 쓴다.
 		future_x = prediction_state.predict_future_x(
 			ball_pos,
 			ball_vel,
 			fps_scale,
-			play_left,
-			play_right,
+			float(context.get("prediction_play_left", play_left)),
+			float(context.get("prediction_play_right", play_right)),
 			boss_paddle_width,
 			context
 		)
@@ -797,8 +801,8 @@ func _try_start_chained_boss_dash(boss_pos: Vector2, context: Dictionary, fps_sc
 		ball_pos,
 		ball_vel,
 		fps_scale,
-		play_left,
-		play_right,
+		float(context.get("prediction_play_left", play_left)),
+		float(context.get("prediction_play_right", play_right)),
 		boss_paddle_width,
 		context
 	)

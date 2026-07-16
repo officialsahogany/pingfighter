@@ -22,6 +22,7 @@ const DYNAMITE_ICON_PATH := "res://assets/sprites/items/dynamite.png"
 const MOLOTOV_ICON_PATH := "res://assets/sprites/items/molotov.png"
 const STOPWATCH_ICON_PATH := "res://assets/sprites/items/stopwatch_icon.png"
 const MAGNET_FIELD_ICON_PATH := "res://assets/sprites/items/magnet_field.png"
+const HOLOGRAM_DISK_ICON_PATH := "res://assets/sprites/items/hologram_disk.png"
 const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
 const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_potion.png"
 const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/holy_barrier.png"
@@ -63,6 +64,7 @@ const FIELD_SPAWN_ORDER := [
 	"molotov",
 	"stopwatch",
 	"magnet_field",
+	"hologram_disk",
 	"long_boost",
 	"regeneration_potion",
 	"holy_barrier",
@@ -119,6 +121,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_stopwatch()
 		"magnet_field":
 			item_data = _build_magnet_field()
+		"hologram_disk":
+			item_data = _build_hologram_disk()
 		"long_boost":
 			item_data = _build_long_boost()
 		"regeneration_potion":
@@ -561,6 +565,22 @@ func _build_magnet_field() -> Dictionary:
 		"description": "일정 시간 공을 플레이어 패들 쪽으로 끌어당깁니다.",
 		"icon_path": MAGNET_FIELD_ICON_PATH,
 		"color": Color(100.0 / 255.0, 120.0 / 255.0, 1.0),
+		"consumable": true,
+	}
+
+
+func _build_hologram_disk() -> Dictionary:
+	return {
+		"name": "hologram_disk",
+		"display_name": "홀로그램 디스크",
+		"type": "active",
+		"effect": "hologram_disk",
+		"chance": 0.008,
+		"duration": 300,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"description": "일정 시간 공이 홀로그램 분신을 만들어 보스의 예측을 교란합니다.",
+		"icon_path": HOLOGRAM_DISK_ICON_PATH,
+		"color": Color(0.35, 0.9, 1.0),
 		"consumable": true,
 	}
 

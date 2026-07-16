@@ -273,6 +273,7 @@ func _call_effect_renderer_draw_field_effects(
 	_perf_end(detail_perf_logger, "active_item.field.context", context_start)
 	_draw_trampoline_effect(canvas, draw_context, shake_offset, detail_perf_logger)
 	var doping_potion_context: Dictionary = _get_context_dictionary(draw_context, "doping_potion_timer_context")
+	var hologram_disk_context: Dictionary = _get_context_dictionary(draw_context, "hologram_disk_context")
 	if argument_count <= 6:
 		effect_renderer.draw_field_effects(
 			canvas,
@@ -284,6 +285,30 @@ func _call_effect_renderer_draw_field_effects(
 		)
 		return
 	if _cached_effect_accepts_perf_logger:
+		if argument_count >= 20:
+			effect_renderer.draw_field_effects(
+				canvas,
+				_get_context_array(draw_context, "pickup_particles"),
+				_get_context_array(draw_context, "regeneration_potion_rings"),
+				_get_context_array(draw_context, "regeneration_potion_particles"),
+				_get_context_dictionary(draw_context, "stopwatch_context"),
+				_get_context_dictionary(draw_context, "magnet_field_context"),
+				_get_context_array(draw_context, "magnet_field_particles"),
+				_get_context_dictionary(draw_context, "holy_barrier_context"),
+				_get_context_array(draw_context, "holy_barrier_particles"),
+				_get_context_dictionary(draw_context, "brick_wall_context"),
+				_get_context_dictionary(draw_context, "long_boost_timer_context"),
+				_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+				_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+				_get_context_dictionary(draw_context, "dash_boost_context"),
+				_get_context_array(draw_context, "dash_boost_particles"),
+				shake_offset,
+				_get_instance(registry, "horizontal_timer_gauge_stack"),
+				perf_logger,
+				doping_potion_context,
+				hologram_disk_context
+			)
+			return
 		if argument_count >= 19:
 			effect_renderer.draw_field_effects(
 				canvas,
@@ -326,6 +351,30 @@ func _call_effect_renderer_draw_field_effects(
 			shake_offset,
 			_get_instance(registry, "horizontal_timer_gauge_stack"),
 			perf_logger
+		)
+		return
+	if argument_count >= 20:
+		effect_renderer.draw_field_effects(
+			canvas,
+			_get_context_array(draw_context, "pickup_particles"),
+			_get_context_array(draw_context, "regeneration_potion_rings"),
+			_get_context_array(draw_context, "regeneration_potion_particles"),
+			_get_context_dictionary(draw_context, "stopwatch_context"),
+			_get_context_dictionary(draw_context, "magnet_field_context"),
+			_get_context_array(draw_context, "magnet_field_particles"),
+			_get_context_dictionary(draw_context, "holy_barrier_context"),
+			_get_context_array(draw_context, "holy_barrier_particles"),
+			_get_context_dictionary(draw_context, "brick_wall_context"),
+			_get_context_dictionary(draw_context, "long_boost_timer_context"),
+			_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+			_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+			_get_context_dictionary(draw_context, "dash_boost_context"),
+			_get_context_array(draw_context, "dash_boost_particles"),
+			shake_offset,
+			_get_instance(registry, "horizontal_timer_gauge_stack"),
+			null,
+			doping_potion_context,
+			hologram_disk_context
 		)
 		return
 	if argument_count >= 19:
@@ -442,6 +491,7 @@ func _get_field_effect_draw_context(effect_controller: Object) -> Dictionary:
 		"stopwatch_context": _get_dictionary_method(effect_controller, "get_stopwatch_context"),
 		"magnet_field_context": _get_dictionary_method(effect_controller, "get_magnet_field_context"),
 		"magnet_field_particles": _get_array_method(effect_controller, "get_magnet_field_particles"),
+		"hologram_disk_context": _get_dictionary_method(effect_controller, "get_hologram_disk_context"),
 		"holy_barrier_context": _get_dictionary_method(effect_controller, "get_holy_barrier_context"),
 		"holy_barrier_particles": _get_array_method(effect_controller, "get_holy_barrier_particles"),
 		"brick_wall_context": _get_dictionary_method(effect_controller, "get_brick_wall_context"),

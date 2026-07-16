@@ -21,6 +21,8 @@ func can_store_item(item_name: String, active_flags: Dictionary) -> bool:
 		return false
 	if item_name == "magnet_field" and bool(active_flags.get("magnet_field_active", false)):
 		return false
+	if item_name == "hologram_disk" and bool(active_flags.get("hologram_disk_active", false)):
+		return false
 	if item_name == "holy_barrier" and bool(active_flags.get("holy_barrier_active", false)):
 		return false
 	if item_name == "dash_boost" and bool(active_flags.get("dash_boost_active", false)):
@@ -38,6 +40,9 @@ func has_field_effects(effect_flags: Dictionary) -> bool:
 		or bool(effect_flags.get("stopwatch_active", false))
 		or bool(effect_flags.get("magnet_field_active", false))
 		or bool(effect_flags.get("has_magnet_field_particles", false))
+		or bool(effect_flags.get("hologram_disk_active", false))
+		or bool(effect_flags.get("has_hologram_decoys", false))
+		or bool(effect_flags.get("has_hologram_decoy_pop_particles", false))
 		or bool(effect_flags.get("holy_barrier_active", false))
 		or bool(effect_flags.get("has_holy_barrier_particles", false))
 		or bool(effect_flags.get("dash_boost_active", false))

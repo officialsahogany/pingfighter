@@ -69,6 +69,25 @@ func apply_magnet_field_state(target: Object, state: Dictionary) -> void:
 		_clear_array_property(target, "magnet_field_particles")
 
 
+func apply_hologram_disk_state(target: Object, state: Dictionary) -> void:
+	target.set("hologram_disk_active", bool(state.get("active", false)))
+	target.set("hologram_disk_timer_frames", float(state.get("timer_frames", 0.0)))
+	target.set("hologram_disk_initial_timer_frames", float(state.get("initial_timer_frames", 0.0)))
+	target.set("hologram_disk_phase", float(state.get("phase", _get_float_property(target, "hologram_disk_phase", 0.0))))
+	if state.has("locked_decoy_index"):
+		target.set("hologram_locked_decoy_index", int(state.get("locked_decoy_index", -1)))
+	if state.has("flight_active"):
+		target.set("hologram_deception_flight_active", bool(state.get("flight_active", false)))
+	if state.has("roll_locked"):
+		target.set("hologram_deception_roll_locked", bool(state.get("roll_locked", false)))
+	if state.has("last_ball_ascending"):
+		target.set("hologram_last_ball_ascending", bool(state.get("last_ball_ascending", false)))
+	if bool(state.get("clear_decoys", false)):
+		_clear_array_property(target, "hologram_decoys")
+	if bool(state.get("clear_pop_particles", false)):
+		_clear_array_property(target, "hologram_decoy_pop_particles")
+
+
 func apply_holy_barrier_state(target: Object, state: Dictionary) -> void:
 	target.set("holy_barrier_active", bool(state.get("active", false)))
 	target.set("holy_barrier_timer_frames", float(state.get("timer_frames", 0.0)))
@@ -122,3 +141,10 @@ func _get_vector2_property(target: Object, key: String) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _get_float_property(target: Object, key: String, fallback: float) -> float:
+	var value: Variant = target.get(key)
+	if value == null:
+		return fallback
+	return float(value)

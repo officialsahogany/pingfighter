@@ -146,6 +146,14 @@ func is_magnet_field_active(runtime: Object) -> bool:
 	)
 
 
+func is_hologram_disk_active(runtime: Object) -> bool:
+	return (
+		runtime.effect_controller != null
+		and runtime.effect_controller.has_method("is_hologram_disk_active")
+		and bool(runtime.effect_controller.is_hologram_disk_active())
+	)
+
+
 func apply_aipill_player_control(
 	runtime: Object,
 	player_pos: Vector2,
@@ -213,6 +221,24 @@ func apply_magnet_field_ball_pull(runtime: Object, fps_scale: float, context: Di
 	if not runtime.effect_controller.has_method("apply_magnet_field_ball_pull"):
 		return {}
 	return runtime.effect_controller.apply_magnet_field_ball_pull(fps_scale, context)
+
+
+func apply_hologram_decoy_tick(runtime: Object, fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
+	if runtime.effect_controller == null:
+		return {}
+	if _is_time_frozen(runtime):
+		return {}
+	if not runtime.effect_controller.has_method("apply_hologram_decoy_tick"):
+		return {}
+	return runtime.effect_controller.apply_hologram_decoy_tick(fps_scale, context, deps)
+
+
+func peek_hologram_deception_ball_context(runtime: Object) -> Dictionary:
+	if runtime.effect_controller == null:
+		return {"active": false}
+	if not runtime.effect_controller.has_method("peek_hologram_deception_ball_context"):
+		return {"active": false}
+	return runtime.effect_controller.peek_hologram_deception_ball_context()
 
 
 func notify_holy_barrier_hit(runtime: Object, impact_pos: Vector2) -> void:

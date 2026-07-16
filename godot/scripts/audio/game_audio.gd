@@ -2067,6 +2067,10 @@ func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
+func play_hologram_disk() -> void:
+	play_active_item()
+
+
 func play_trade() -> void:
 	_play_with_pitch(trade_sfx, randf_range(0.98, 1.02))
 
@@ -2803,6 +2807,10 @@ func play_stage_landing_zoom_intro() -> void:
 
 func play_stage1_balloon_pop() -> void:
 	_play_with_pitch(balloon_pop_sfx, randf_range(0.98, 1.04))
+
+
+func play_hologram_decoy_pop() -> void:
+	play_stage1_balloon_pop()
 
 
 func play_stage1_balloon_door() -> void:

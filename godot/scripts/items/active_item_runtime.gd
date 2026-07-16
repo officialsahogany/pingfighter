@@ -102,6 +102,8 @@ func reset_round() -> void:
 	_ensure_helpers_ready()
 	if throw_controller != null and throw_controller.has_method("clear_round_boss_status_effects"):
 		throw_controller.clear_round_boss_status_effects()
+	if effect_controller != null and effect_controller.has_method("clear_hologram_disk_runtime"):
+		effect_controller.clear_hologram_disk_runtime()
 	_deactivate_render_hosts()
 
 
@@ -612,9 +614,31 @@ func is_magnet_field_active() -> bool:
 	return context_facade.is_magnet_field_active(self)
 
 
+func is_hologram_disk_active() -> bool:
+	_ensure_helpers_ready()
+	return context_facade.is_hologram_disk_active(self)
+
+
 func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
 	_ensure_helpers_ready()
 	return context_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
+
+
+func apply_hologram_decoy_tick(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
+	_ensure_helpers_ready()
+	return context_facade.apply_hologram_decoy_tick(self, fps_scale, context, deps)
+
+
+func clear_hologram_decoys_and_lock() -> void:
+	_ensure_helpers_ready()
+	if effect_controller != null and effect_controller.has_method("clear_hologram_decoys_and_lock"):
+		effect_controller.clear_hologram_decoys_and_lock()
+
+
+func peek_hologram_deception_ball_context() -> Dictionary:
+	if effect_controller == null or context_facade == null:
+		return {"active": false}
+	return context_facade.peek_hologram_deception_ball_context(self)
 
 
 func notify_holy_barrier_hit(impact_pos: Vector2) -> void:

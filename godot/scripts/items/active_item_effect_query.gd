@@ -75,6 +75,8 @@ func get_field_effect_draw_context(target: Object) -> Dictionary:
 	var regeneration_potion_particles: Array[Dictionary] = _get_array_property(target, "regeneration_potion_particles")
 	var regeneration_potion_rings: Array[Dictionary] = _get_array_property(target, "regeneration_potion_rings")
 	var magnet_field_particles: Array[Dictionary] = _get_array_property(target, "magnet_field_particles")
+	var hologram_decoys: Array[Dictionary] = get_hologram_decoys(target)
+	var hologram_pop_particles: Array[Dictionary] = _get_array_property(target, "hologram_decoy_pop_particles")
 	var holy_barrier_particles: Array[Dictionary] = _get_array_property(target, "holy_barrier_particles")
 	var dash_boost_particles: Array[Dictionary] = _get_array_property(target, "dash_boost_particles")
 	var brick_walls: Array[Dictionary] = _get_array_property(target, "brick_walls")
@@ -88,6 +90,7 @@ func get_field_effect_draw_context(target: Object) -> Dictionary:
 		"stopwatch_context": get_stopwatch_context(target) if bool(target.get("stopwatch_active")) else {},
 		"magnet_field_context": get_magnet_field_context(target) if bool(target.get("magnet_field_active")) else {},
 		"magnet_field_particles": magnet_field_particles,
+		"hologram_disk_context": get_hologram_disk_context(target) if bool(target.get("hologram_disk_active")) or not hologram_decoys.is_empty() or not hologram_pop_particles.is_empty() else {},
 		"holy_barrier_context": get_holy_barrier_context(target) if bool(target.get("holy_barrier_active")) else {},
 		"holy_barrier_particles": holy_barrier_particles,
 		"brick_wall_context": get_brick_wall_context(target) if bool(target.get("brick_wall_installing")) or not brick_walls.is_empty() or not brick_particles.is_empty() else {},
@@ -243,6 +246,39 @@ func get_magnet_field_context(target: Object) -> Dictionary:
 	)
 
 
+func get_hologram_disk_context(target: Object) -> Dictionary:
+	# draw용 분신 배열은 alive만 남겨 압축되므로, 저장된 locked 인덱스(원
+	# 배열 기준)를 그대로 넘기면 [dead0, locked1] 케이스에서 잠금 강조가
+	# 엉뚱한 분신에 붙거나 사라진다 — 압축 후 인덱스로 재매핑해서 넘긴다.
+	var stored_locked_index: int = int(target.get("hologram_locked_decoy_index"))
+	var draw_decoys: Array[Dictionary] = []
+	var remapped_locked_index: int = -1
+	var source_decoys: Array = _get_array_property(target, "hologram_decoys")
+	for source_index in range(source_decoys.size()):
+		var decoy_value: Variant = source_decoys[source_index]
+		if decoy_value is Dictionary and bool(decoy_value.get("alive", false)):
+			if source_index == stored_locked_index:
+				remapped_locked_index = draw_decoys.size()
+			draw_decoys.append((decoy_value as Dictionary).duplicate(true))
+	return _context_builder.build_hologram_disk_context(
+		bool(target.get("hologram_disk_active")),
+		float(target.get("hologram_disk_timer_frames")),
+		float(target.get("hologram_disk_initial_timer_frames")),
+		float(target.get("hologram_disk_phase")),
+		draw_decoys,
+		_get_array_property(target, "hologram_decoy_pop_particles"),
+		remapped_locked_index
+	)
+
+
+func get_hologram_decoys(target: Object) -> Array[Dictionary]:
+	var alive_decoys: Array[Dictionary] = []
+	for decoy_value in _get_array_property(target, "hologram_decoys"):
+		if decoy_value is Dictionary and bool(decoy_value.get("alive", false)):
+			alive_decoys.append((decoy_value as Dictionary).duplicate(true))
+	return alive_decoys
+
+
 func get_holy_barrier_context(target: Object) -> Dictionary:
 	return _context_builder.build_holy_barrier_context(
 		bool(target.get("holy_barrier_active")),
@@ -337,6 +373,10 @@ func is_magnet_field_active(target: Object) -> bool:
 	return _status.is_active(bool(target.get("magnet_field_active")))
 
 
+func is_hologram_disk_active(target: Object) -> bool:
+	return _status.is_active(bool(target.get("hologram_disk_active")))
+
+
 func is_wall_installing(target: Object) -> bool:
 	return _status.is_active(bool(target.get("brick_wall_installing")))
 
@@ -355,6 +395,7 @@ func _build_active_status_flags(target: Object) -> Dictionary:
 		"doping_potion_active": bool(target.get("doping_potion_active")),
 		"stopwatch_active": bool(target.get("stopwatch_active")),
 		"magnet_field_active": bool(target.get("magnet_field_active")),
+		"hologram_disk_active": bool(target.get("hologram_disk_active")),
 		"holy_barrier_active": bool(target.get("holy_barrier_active")),
 		"dash_boost_active": bool(target.get("dash_boost_active")),
 		"brick_wall_installing": bool(target.get("brick_wall_installing")),
@@ -368,6 +409,8 @@ func _build_field_effect_flags(target: Object) -> Dictionary:
 		"has_regeneration_potion_rings": not get_regeneration_potion_rings(target).is_empty(),
 		"has_regeneration_potion_particles": not get_regeneration_potion_particles(target).is_empty(),
 		"has_magnet_field_particles": not get_magnet_field_particles(target).is_empty(),
+		"has_hologram_decoys": not get_hologram_decoys(target).is_empty(),
+		"has_hologram_decoy_pop_particles": not _get_array_property(target, "hologram_decoy_pop_particles").is_empty(),
 		"has_holy_barrier_particles": not get_holy_barrier_particles(target).is_empty(),
 		"has_dash_boost_particles": not get_dash_boost_particles(target).is_empty(),
 		"has_brick_walls": not _get_array_property(target, "brick_walls").is_empty(),

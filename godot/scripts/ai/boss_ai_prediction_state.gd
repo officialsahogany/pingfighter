@@ -32,7 +32,7 @@ func reset() -> void:
 func predict_future_x(
 	ball_pos: Vector2,
 	ball_vel: Vector2,
-	_fps_scale: float,
+	fps_scale: float,
 	play_left: float,
 	play_right: float,
 	boss_paddle_width: float,
@@ -40,9 +40,15 @@ func predict_future_x(
 ) -> float:
 	var effective_ball_vel: Vector2 = ball_vel * float(context.get("ball_impact_boost", 1.0))
 	var predict_frame: float = _get_predict_frames(effective_ball_vel)
-	var min_center: float = play_left + boss_paddle_width * 0.5
-	var max_center: float = play_right - boss_paddle_width * 0.5
-	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context)
+	# 인자 play_left/right는 '공 반사 경계'(홀로그램 기만 프레임은 분신의
+	# 시각 여백으로 좁혀 들어온다). 보스 '목표 중심' 클램프는 컨텍스트의
+	# 전역 play 경계 기준 — 반사 경계로 클램프하면 보스 목표 범위까지
+	# 좁아진다. 일반 경로는 둘이 같아 동작 불변.
+	var clamp_play_left: float = float(context.get("play_left", play_left))
+	var clamp_play_right: float = float(context.get("play_right", play_right))
+	var min_center: float = clamp_play_left + boss_paddle_width * 0.5
+	var max_center: float = clamp_play_right - boss_paddle_width * 0.5
+	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context, fps_scale)
 	if ball_vel.y >= -0.001:
 		_reset_approach_decision()
 		return clamp(future_x, min_center, max_center)
@@ -58,13 +64,18 @@ func predict_exact_arrival_x(
 	play_left: float,
 	play_right: float,
 	boss_paddle_width: float,
-	context: Dictionary = {}
+	context: Dictionary = {},
+	fps_scale: float = 1.0
 ) -> float:
 	var effective_ball_vel: Vector2 = ball_vel * float(context.get("ball_impact_boost", 1.0))
 	var predict_frame: float = _get_predict_frames(effective_ball_vel)
-	var min_center: float = play_left + boss_paddle_width * 0.5
-	var max_center: float = play_right - boss_paddle_width * 0.5
-	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context)
+	# 반사 경계(인자)와 보스 목표 클램프(전역) 분리 — predict_future_x와
+	# 동일한 계약.
+	var clamp_play_left: float = float(context.get("play_left", play_left))
+	var clamp_play_right: float = float(context.get("play_right", play_right))
+	var min_center: float = clamp_play_left + boss_paddle_width * 0.5
+	var max_center: float = clamp_play_right - boss_paddle_width * 0.5
+	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context, fps_scale)
 	return clamp(future_x, min_center, max_center)
 
 
@@ -137,12 +148,13 @@ func _predict_arrival_x(
 	fallback_frames: float,
 	play_left: float,
 	play_right: float,
-	context: Dictionary
+	context: Dictionary,
+	fps_scale: float = 1.0
 ) -> float:
 	if ball_vel.y >= -0.001:
 		var effective_vx: float = ball_vel.x * float(context.get("ball_impact_boost", 1.0))
 		return _predict_x_with_walls(ball_pos.x, effective_vx, fallback_frames, play_left, play_right)
-	return _predict_x_until_boss_line(ball_pos, ball_vel, play_left, play_right, context)
+	return _predict_x_until_boss_line(ball_pos, ball_vel, play_left, play_right, context, fps_scale)
 
 
 func _predict_x_until_boss_line(
@@ -150,7 +162,8 @@ func _predict_x_until_boss_line(
 	ball_vel: Vector2,
 	play_left: float,
 	play_right: float,
-	context: Dictionary
+	context: Dictionary,
+	fps_scale: float = 1.0
 ) -> float:
 	var target_y: float = _get_boss_intercept_y(context)
 	if ball_pos.y <= target_y or abs(ball_vel.y) < 0.001:
@@ -160,6 +173,28 @@ func _predict_x_until_boss_line(
 	var impact_boost: float = float(context.get("ball_impact_boost", 1.0))
 	var min_boost: float = float(context.get("ball_min_boost", 0.70))
 	var decay_rate: float = clamp(float(context.get("ball_boost_decay_rate", 0.975)), 0.01, 0.9999)
+	# 홀로그램 기만 프레임 옵트인: 분신은 벽 반사 후 반전된 vel.x를 유지한
+	# 채 raw velocity(부스트 계약 무력화 = boost/decay 상수)로 직진하므로,
+	# 도착 프레임 수를 닫힌형으로 구하고 최초 signed vx × 총 프레임을
+	# 삼각파 modulo로 접으면 O(1) exact arrival이다 — 프레임 컷도 반사
+	# 횟수 제한도 없고, 물리 hot path에서 프레임당 Dictionary 할당(얕은
+	# 궤적 기준 틱당 최대 1200회)도 발생하지 않는다. 실 공 경로(플래그
+	# 부재)는 기존 근사(매 프레임 원래 vx)를 그대로 유지해 회귀가 없다.
+	if bool(context.get("prediction_reflect_velocity", false)):
+		# 실 분신은 vel × fps_scale로 이동한다(72Hz 기본 = 5/6) — 명목
+		# 프레임으로 계산하면 live scale에서 parity가 깨진다. 정수-tick
+		# 판정까지 미러: ticks = ceil(거리 / (하강분×fps_scale)),
+		# dx = vx × fps_scale × ticks.
+		var descent_per_tick: float = -ball_vel.y * impact_boost * max(0.0001, fps_scale)
+		if descent_per_tick <= 0.0005:
+			return clamp(ball_pos.x, play_left, play_right)
+		var ticks_to_intercept: float = ceilf((ball_pos.y - target_y) / descent_per_tick)
+		return _predict_x_reflected_modulo(
+			ball_pos.x,
+			ball_vel.x * impact_boost * max(0.0001, fps_scale) * ticks_to_intercept,
+			play_left,
+			play_right
+		)
 	for _frame_index in range(PREDICTION_SIMULATION_MAX_FRAMES):
 		var move: Vector2 = ball_vel * impact_boost
 		predicted_pos.x = _advance_x_with_walls(predicted_pos.x, move.x, play_left, play_right)
@@ -184,6 +219,19 @@ func _get_boss_intercept_y(context: Dictionary) -> float:
 		+ float(context.get("hitbox_padding", 5.0))
 		+ float(context.get("ball_size", 28.6)) * 0.5
 	)
+
+
+# 총 이동량을 삼각파 modulo로 접어 반사 횟수 제한 없이 정확한 최종 x를
+# 돌려준다 — 홀로그램 기만 예측의 극단(초장거리 이동) 안전망.
+func _predict_x_reflected_modulo(x: float, total_dx: float, play_left: float, play_right: float) -> float:
+	var span: float = play_right - play_left
+	if span <= 0.001:
+		return clamp(x, play_left, play_right)
+	var period: float = span * 2.0
+	var phase: float = fposmod(clamp(x, play_left, play_right) - play_left + total_dx, period)
+	if phase <= span:
+		return play_left + phase
+	return play_left + (period - phase)
 
 
 func _advance_x_with_walls(x: float, dx: float, play_left: float, play_right: float) -> float:

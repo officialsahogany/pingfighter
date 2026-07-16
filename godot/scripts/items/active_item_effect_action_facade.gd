@@ -5,6 +5,7 @@ const ActiveItemBrickWallActions := preload("res://scripts/items/active_item_bri
 const ActiveItemGaugeActions := preload("res://scripts/items/active_item_gauge_actions.gd")
 const ActiveItemHolyBarrierActions := preload("res://scripts/items/active_item_holy_barrier_actions.gd")
 const ActiveItemDashBoostActions := preload("res://scripts/items/active_item_dash_boost_actions.gd")
+const ActiveItemDurationBonus := preload("res://scripts/items/active_item_duration_bonus.gd")
 const ActiveItemMagnetFieldActions := preload("res://scripts/items/active_item_magnet_field_actions.gd")
 const ActiveItemPickupActions := preload("res://scripts/items/active_item_pickup_actions.gd")
 const ActiveItemRegenerationPotionActions := preload("res://scripts/items/active_item_regeneration_potion_actions.gd")
@@ -16,6 +17,7 @@ var _brick_wall_actions: Object = ActiveItemBrickWallActions.new()
 var _gauge_actions: Object = ActiveItemGaugeActions.new()
 var _holy_barrier_actions: Object = ActiveItemHolyBarrierActions.new()
 var _dash_boost_actions: Object = ActiveItemDashBoostActions.new()
+var _duration_bonus: Object = ActiveItemDurationBonus.new()
 var _magnet_field_actions: Object = ActiveItemMagnetFieldActions.new()
 var _pickup_actions: Object = ActiveItemPickupActions.new()
 var _regeneration_potion_actions: Object = ActiveItemRegenerationPotionActions.new()
@@ -305,6 +307,25 @@ func activate_magnet_field(
 		state_applier,
 		effect_feedback
 	)
+
+
+func activate_hologram_disk(
+	target: Object,
+	registry: Object,
+	hologram_disk_runtime: Object,
+	state_applier: Object,
+	effect_feedback: Object
+) -> bool:
+	if target == null or hologram_disk_runtime == null or state_applier == null:
+		return false
+	state_applier.apply_hologram_disk_state(
+		target,
+		hologram_disk_runtime.start_state(_duration_bonus.get_multiplier(registry))
+	)
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_hologram_disk", "play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 0.018, 0.26)
+	return true
 
 
 func activate_holy_barrier(

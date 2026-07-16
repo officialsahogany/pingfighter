@@ -33,6 +33,7 @@ func _verify_reset_helper_direct_application() -> void:
 		controller._timed_paddle_effects,
 		controller._stopwatch_runtime,
 		controller._magnet_field_runtime,
+		controller._hologram_disk_runtime,
 		controller._holy_barrier_runtime,
 		controller._dash_boost_runtime,
 		controller._brick_wall_installation,
@@ -100,6 +101,17 @@ func _expect_reset_clean(controller: Object, default_center: Vector2) -> void:
 	_expect(controller.magnet_field_player_center == default_center, "reset should restore magnet field default center")
 	_expect(is_equal_approx(controller.magnet_field_particle_accumulator_frames, 0.0), "reset should clear magnet field accumulator")
 	_expect(controller.magnet_field_particles.is_empty(), "reset should clear magnet field particles")
+
+	_expect(not controller.hologram_disk_active, "reset should clear hologram disk active state")
+	_expect(is_equal_approx(controller.hologram_disk_timer_frames, 0.0), "reset should clear hologram disk timer")
+	_expect(is_equal_approx(controller.hologram_disk_initial_timer_frames, 0.0), "reset should clear hologram disk initial timer")
+	_expect(is_equal_approx(controller.hologram_disk_phase, 0.0), "reset should clear hologram disk phase")
+	_expect(controller.hologram_decoys.is_empty(), "reset should clear hologram decoys")
+	_expect(controller.hologram_decoy_pop_particles.is_empty(), "reset should clear hologram pop particles")
+	_expect(controller.hologram_locked_decoy_index == -1, "reset should clear hologram locked decoy")
+	_expect(not controller.hologram_deception_flight_active, "reset should clear hologram flight lock")
+	_expect(not controller.hologram_deception_roll_locked, "reset should clear hologram roll lock")
+	_expect(not controller.hologram_last_ball_ascending, "reset should clear hologram ascent edge memory")
 
 	_expect(not controller.holy_barrier_active, "reset should clear holy barrier active state")
 	_expect(is_equal_approx(controller.holy_barrier_timer_frames, 0.0), "reset should clear holy barrier timer")
@@ -169,6 +181,17 @@ func _dirty_every_effect_bucket(controller: Object) -> void:
 	controller.magnet_field_player_center = Vector2(333.0, 444.0)
 	controller.magnet_field_particle_accumulator_frames = 2.5
 	controller.magnet_field_particles.append({"alpha": 1.0})
+
+	controller.hologram_disk_active = true
+	controller.hologram_disk_timer_frames = 240.0
+	controller.hologram_disk_initial_timer_frames = 600.0
+	controller.hologram_disk_phase = 3.0
+	controller.hologram_decoys.append({"alive": true, "pos": Vector2(300.0, 300.0), "vel": Vector2(1.0, -8.0)})
+	controller.hologram_decoy_pop_particles.append({"age_frames": 1.0})
+	controller.hologram_locked_decoy_index = 0
+	controller.hologram_deception_flight_active = true
+	controller.hologram_deception_roll_locked = true
+	controller.hologram_last_ball_ascending = true
 
 	controller.holy_barrier_active = true
 	controller.holy_barrier_timer_frames = 240.0

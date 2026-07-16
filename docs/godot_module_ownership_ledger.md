@@ -1977,6 +1977,24 @@ This section is intentionally long; use search to find the nearest owner.
   alpha fade, position updates, lifetime compaction, and cap enforcement.
   Magnet Field duration / phase state and ball-pull gameplay remain in the
   runtime and pull helpers.
+- `scripts/items/active_item_hologram_disk_runtime.gd`
+  Owns Hologram Disk runtime lifecycle and deception logic: activation /
+  clear state snapshots, effects-path duration ticking with atomic
+  expiry cleanup, ball-path decoy spawning on the descent-to-ascent edge
+  (player-side lower-half gate), per-ascent single deception roll with
+  edge + roll-locked double guards, decoy kinematics in center-coordinate
+  convention (wall reflection at radius margins, boss-band glitch-pop
+  death), pop-particle spawning, and the cache-only deception peek the
+  boss AI context builder consumes. Rendering stays in
+  `active_item_effect_renderer.gd` (energy-ball layer mirror at reduced
+  alpha); timer gauge in `active_item_timer_gauge_renderer.gd`; the
+  ball_pos/ball_vel substitution choke point in
+  `battle_update_boss_ai_context_builder.gd`. Deception frames additionally
+  substitute the prediction-model contract: impact-boost neutralization
+  (decoys fly at raw velocity), hologram-only prediction wall bounds
+  (`prediction_play_left/right` at the visual margin), and the
+  reflected-velocity opt-in flag (`prediction_reflect_velocity`) that
+  `boss_ai_prediction_state.gd` consumes.
 - `scripts/items/active_item_magnet_field_runtime.gd`
   Owns Magnet Field runtime lifecycle state: activation snapshots,
   duration ticking, phase advance, inactive tick reset, owner-null /
@@ -7680,7 +7698,21 @@ This section is intentionally long; use search to find the nearest owner.
   frames, impact-boost / decay-aware boss-line arrival simulation,
   side-wall reflection prediction, boss-center target clamping, random
   prediction error, Power-Smashing combo focus mistake reduction, temporary
-  fail windows, and fail-timer reset.
+  fail windows, and fail-timer reset. The reflection bounds arguments and
+  the boss-center clamp are decoupled: callers may narrow the reflection
+  bounds (hologram deception frames pass the decoy visual margin) while the
+  target clamp stays on the context-global play bounds. The hologram opt-in
+  flag prediction_reflect_velocity switches the boss-line arrival to an O(1)
+  closed form that is fps-scale-aware to mirror the decoy's real integer-tick
+  motion (decoys move vel × fps_scale per tick; the project default is 72Hz
+  = 5/6): ticks = ceil(distance / (descent × fps_scale)) and
+  dx = vx × fps_scale × ticks, folded with the initial signed vx through a
+  reflected triangle-wave modulo — no frame budget, no bounce limit, and no
+  per-frame allocation. The fps_scale plumbing responsibility spans all
+  three BossAiState call surfaces (normal tracking predict_future_x, the
+  whip-deactivation predict_exact_arrival_x trailing argument, and
+  chained-dash targeting); the legacy real-ball approximation keeps the
+  original vx each frame and stays untouched.
 - `scenes/main.gd`
   Is now only a one-line entry script that extends
   `res://scripts/core/battle_scene_shell.gd`.
