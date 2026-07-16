@@ -133,6 +133,7 @@ var soul_burst_wind_trails: Array = []
 var foul_whistle_state: Object = null
 var revival_state: Object = null
 var odins_eye_state: Object = null
+var odins_eye_afterimage_state: Object = null
 var sensor_enabled := true
 var sensor_cooldown_timer_frames := 0.0
 var sensor_auto_dash_tokens := 0
@@ -1841,6 +1842,10 @@ func get_odins_eye_death_energy_buildup() -> float:
 func get_odins_eye_death_disintegrate_progress() -> float:
 	_ensure_helpers_ready()
 	return odins_eye_runtime.get_death_disintegrate_progress(self)
+
+
+func get_odins_eye_cinematic_shake_intensity() -> float:
+	return odins_eye_runtime.get_cinematic_shake_intensity(self)
 
 
 func get_odins_eye_death_shake_intensity() -> float:

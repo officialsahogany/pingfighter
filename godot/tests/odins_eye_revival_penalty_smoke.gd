@@ -204,7 +204,7 @@ func _verify_odins_eye_score_loss_flow() -> void:
 
 	var item_driver := BattleSceneItemUpdateDriver.new()
 	owner.set("gameplay_frame_counter", int(owner.get("gameplay_frame_counter")) + 1)
-	item_driver.update_mythic_items(owner, registry, 3.1)
+	item_driver.update_mythic_items(owner, registry, 3.85)
 	_expect(ball_driver.reset_calls == 1, "revival finalize should reset the ball")
 	_expect(boss_health.reset_calls == 1, "revival finalize should reset boss round health")
 	_expect(round_state.waiting_for_serve and round_state.player_serves, "revival finalize should return to player serve wait")
@@ -229,7 +229,7 @@ func _verify_odins_eye_score_loss_flow() -> void:
 	_expect(scoreboard.start_args.is_empty(), "penalty loss should not start scoreboard before death finalize")
 
 	owner.set("gameplay_frame_counter", int(owner.get("gameplay_frame_counter")) + 1)
-	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 2.6)
+	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 4.6)
 	var snapshot: Dictionary = score_state.get_snapshot()
 	_expect(int(snapshot.get("boss_score", -1)) == 1, "death finalize should dispatch the real boss score")
 	_expect(scoreboard.start_args == [0, 1, false, "boss", 5], "death finalize score should use normal scoreboard flow")
@@ -283,7 +283,7 @@ func _verify_penalty_cleared_on_player_victory() -> void:
 	# Lose a point -> revival roll -> penalty form, then finalize the revival.
 	match_flow.handle_score_event("boss", deps, {})
 	owner.set("gameplay_frame_counter", int(owner.get("gameplay_frame_counter")) + 1)
-	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 3.1)
+	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 3.85)
 	_expect(runtime.is_odins_eye_penalty_active(), "setup: revival finalize should keep penalty active")
 	_expect(runtime.has_odins_eye_revival_used(), "setup: penalty cycle should mark revival used")
 

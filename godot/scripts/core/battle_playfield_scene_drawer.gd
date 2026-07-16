@@ -386,7 +386,11 @@ func _method_accepts_argument_count(target: Object, method_name: String, arg_cou
 		var default_value: Variant = method_info.get("default_args", [])
 		if default_value is Array:
 			default_count = default_value.size()
-		var accepts := arg_count <= args_count + default_count
+		# declared-defaults <= requested <= declared (battle_scene_drawer와
+		# 동일 계약) — 구판 requested <= declared+defaults 는 디폴트를 이중
+		# 계산해 3선언/1디폴트 메서드를 4-인자 호출 가능으로 오판한다.
+		var min_args_count: int = max(0, args_count - default_count)
+		var accepts := arg_count >= min_args_count and arg_count <= args_count
 		_method_accepts_argument_count_cache[cache_key] = accepts
 		return accepts
 	_method_accepts_argument_count_cache[cache_key] = false

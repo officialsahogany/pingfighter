@@ -9,11 +9,33 @@ const DEATH_PHASE_PRE_EXPLOSION := "pre_explosion"
 const DEATH_PHASE_EXPLOSION := "explosion"
 const DEATH_PHASE_DISINTEGRATE := "disintegrate"
 
-const REVIVAL_EVENT_SEC := 3.0
-const DEATH_EVENT_SEC := 2.5
-const DEATH_PRE_FRAC := 0.40
-const DEATH_EXPLODE_FRAC := 0.68
-const DEATH_SHAKE_PRE_MAX := 3.0
+# 변신 3.75s = odinchange.wav 타임라인(빌드업 3.0s + dark-burst 45f) 정렬.
+# 렌더러 REVIVAL_DURATION_SEC와 반드시 동일해야 한다(불일치 시 safe_progress
+# 클램프로 버스트가 동결된다).
+const REVIVAL_EVENT_SEC := 3.75
+# 사망 4.5s = odindeath.wav(5.07s) 타임라인 정렬: 폭발직전 2.0s(4/9) +
+# 폭발 1.0s(→2/3) + 분해 1.5s — 폭발 발화 2.0s가 오디오 BANG(1.92s)과
+# 사실상 동시가 되는 원본 배치.
+const DEATH_EVENT_SEC := 4.5
+const DEATH_PRE_FRAC := 4.0 / 9.0
+const DEATH_EXPLODE_FRAC := 2.0 / 3.0
+const DEATH_SHAKE_PRE_MAX := 8.0
+
+# 오디오 출력지연 보정 단일 튜너블: 시각 '팡'(플래시·몸 스냅·흔들림 스파이크)
+# 을 실제 들리는 소리에 맞춘다. 라이브에서 시각이 여전히 소리보다 앞서면
+# 이 값을 올리고, 뒤처지면 내린다 — 파생 상수 2종이 함께 밀린다.
+const BANG_LATENCY_SEC := 0.15
+# 변신: odinchange.wav BANG=3.20s, dark-burst 창(3.0~3.75s=0.75s) 내 위치.
+# 앵커: 3.0 + REVIVAL_BANG_T * 0.75 == 3.20 + BANG_LATENCY_SEC.
+const REVIVAL_BANG_T := (0.20 + BANG_LATENCY_SEC) / 0.75
+# 사망: odindeath.wav BANG=1.92s가 폭발 발화(2.0s)보다 0.08s 이르므로 차감,
+# 폭발 페이즈(1.0s) 내 위치. 앵커: 2.0 + DEATH_BANG_FRAC == 1.92 + 지연.
+const DEATH_BANG_FRAC := (BANG_LATENCY_SEC - 0.08) / 1.0
+# 변신 화면흔들림(원본 dark_burst screen_shake 계열): 빌드 최대 3 →
+# BANG 스파이크 12 → 감쇠. 렌더러의 burst-prep 경계(0.80)와 단일 소스.
+const REVIVAL_BURST_PREP_FRAC := 0.80
+const REVIVAL_SHAKE_BUILD_MAX := 3.0
+const REVIVAL_SHAKE_BANG_SPIKE := 12.0
 const DEATH_SHAKE_EXPLOSION_PEAK := 10.0
 const DEATH_SHAKE_DISINTEGRATE_START := 5.0
 const PENALTY_MOVE_SPEED_MULTIPLIER := 0.5
@@ -177,6 +199,23 @@ func clear_after_death() -> void:
 
 func is_revival_animation_active() -> bool:
 	return active and state == STATE_REVIVAL_EVENT
+
+
+# 변신 화면흔들림 강도: 빌드(0→3) → BANG 스파이크(12) → 감쇠(→0).
+# BANG 위치는 REVIVAL_BURST_PREP_FRAC + REVIVAL_BANG_T 파생 — BANG_LATENCY_SEC
+# 하나로 플래시·몸 스냅·흔들림이 함께 밀린다.
+func get_revival_shake_intensity() -> float:
+	if not is_revival_animation_active():
+		return 0.0
+	var progress: float = clampf(1.0 - revival_timer_sec / REVIVAL_EVENT_SEC, 0.0, 1.0)
+	var bang_progress: float = REVIVAL_BURST_PREP_FRAC + REVIVAL_BANG_T * (1.0 - REVIVAL_BURST_PREP_FRAC)
+	if progress < REVIVAL_BURST_PREP_FRAC:
+		return REVIVAL_SHAKE_BUILD_MAX * (progress / REVIVAL_BURST_PREP_FRAC)
+	if progress <= bang_progress:
+		var ramp: float = (progress - REVIVAL_BURST_PREP_FRAC) / maxf(0.0001, bang_progress - REVIVAL_BURST_PREP_FRAC)
+		return lerpf(REVIVAL_SHAKE_BUILD_MAX, REVIVAL_SHAKE_BANG_SPIKE, ramp)
+	var decay: float = (progress - bang_progress) / maxf(0.0001, 1.0 - bang_progress)
+	return lerpf(REVIVAL_SHAKE_BANG_SPIKE, 0.0, decay)
 
 
 func is_death_animation_active() -> bool:

@@ -53,7 +53,7 @@ func update(
 	runtime.revival_runtime.update_runtime(runtime, fps_scale)
 	_perf_end(perf_logger, "physics.items.mythic.revival", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	runtime.odins_eye_runtime.update_runtime(runtime, fps_scale)
+	runtime.odins_eye_runtime.update_runtime(runtime, fps_scale, owner, registry)
 	_perf_end(perf_logger, "physics.items.mythic.odins_eye", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	runtime.auto_defense_runtime.update_sensor_runtime(runtime, fps_scale)

@@ -1,0 +1,150 @@
+extends SceneTree
+
+const OdinsEyeSkillPillarRenderer := preload("res://scripts/hud/odins_eye_skill_pillar_renderer.gd")
+const SmasherSkillOrbSlotRenderer := preload("res://scripts/hud/smasher_skill_orb_slot_renderer.gd")
+const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
+
+const SKILL_DARK_SWAMP := "odins_eye_dark_swamp"
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_visibility_and_layout_contract()
+	_verify_ready_state_matrix()
+	_verify_tooltip_metadata_and_hover()
+
+	if _failures.is_empty():
+		print("odins_eye_skill_hud_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_visibility_and_layout_contract() -> void:
+	var renderer := OdinsEyeSkillPillarRenderer.new()
+	_expect(not renderer.is_active({"transformed": false}), "normal character form should keep the regular skill HUD")
+	_expect(renderer.is_active({"transformed": true}), "Odin transformed form should activate its skill HUD")
+
+	var skill_context: Dictionary = _build_skill_context(renderer, _build_odin_context(), 100.0)
+	var skill_order: Array = skill_context.get("equipped_skills", [])
+	_expect(int(skill_context.get("max_slots", 0)) == 1, "Odin transformed HUD should expose exactly one skill slot")
+	_expect(skill_order.size() == 1 and str(skill_order[0]) == SKILL_DARK_SWAMP, "the transformed slot should contain Dark Swamp")
+	var costs: Dictionary = skill_context.get("skill_costs", {})
+	var cooldowns: Dictionary = skill_context.get("cooldown_seconds", {})
+	_expect(is_equal_approx(float(costs.get(SKILL_DARK_SWAMP, 0.0)), 100.0), "Dark Swamp HUD cost should be 100")
+	_expect(is_equal_approx(float(cooldowns.get(SKILL_DARK_SWAMP, 0.0)), 2.0), "Dark Swamp HUD cooldown should be 2.0 seconds")
+
+	var positions: Array[Vector2] = renderer.get_slot_positions(Vector2(120.0, 600.0), 55.0, 1.0, skill_context)
+	_expect(positions.size() == 1, "one-slot Odin HUD should produce one orb position")
+	if not positions.is_empty():
+		_expect(positions[0].x < 120.0 and is_equal_approx(positions[0].y, 600.0), "Dark Swamp orb should sit directly left of the gauge")
+
+
+func _verify_ready_state_matrix() -> void:
+	var renderer := OdinsEyeSkillPillarRenderer.new()
+	var ready_context: Dictionary = _build_skill_context(renderer, _build_odin_context(), 100.0)
+	_expect(_is_ready(ready_context), "enabled transformed Dark Swamp should be ready at 100 gauge")
+
+	var low_gauge_context: Dictionary = _build_skill_context(renderer, _build_odin_context(), 99.0)
+	_expect(not _is_ready(low_gauge_context), "Dark Swamp should be disabled below 100 gauge")
+
+	var disabled_odin: Dictionary = _build_odin_context()
+	var disabled_swamp: Dictionary = disabled_odin["dark_swamp"]
+	disabled_swamp["enabled"] = false
+	_expect(not _is_ready(_build_skill_context(renderer, disabled_odin, 100.0)), "Dark Swamp should not be ready before revival finalize enables it")
+
+	var revival_odin: Dictionary = _build_odin_context()
+	revival_odin["revival_animation_active"] = true
+	_expect(not _is_ready(_build_skill_context(renderer, revival_odin, 100.0)), "Dark Swamp should stay disabled during the revival cinematic")
+
+	var death_odin: Dictionary = _build_odin_context()
+	death_odin["death_animation_active"] = true
+	_expect(not _is_ready(_build_skill_context(renderer, death_odin, 100.0)), "Dark Swamp should stay disabled during the death cinematic")
+
+	var active_odin: Dictionary = _build_odin_context()
+	var active_swamp: Dictionary = active_odin["dark_swamp"]
+	active_swamp["active"] = true
+	var active_context: Dictionary = _build_skill_context(renderer, active_odin, 100.0)
+	_expect(not _is_ready(active_context), "Dark Swamp should not be ready while its spike wave is active")
+	var active_overrides: Dictionary = active_context.get("skill_active_overrides", {})
+	_expect(bool(active_overrides.get(SKILL_DARK_SWAMP, false)), "active spike wave state should be exposed to the HUD ring")
+
+	var cooldown_odin: Dictionary = _build_odin_context()
+	var cooldown_swamp: Dictionary = cooldown_odin["dark_swamp"]
+	cooldown_swamp["cooldown_remaining_frames"] = 60.0
+	cooldown_swamp["cooldown_ratio"] = 0.5
+	var cooldown_context: Dictionary = _build_skill_context(renderer, cooldown_odin, 100.0)
+	_expect(not _is_ready(cooldown_context), "Dark Swamp should not be ready during cooldown")
+	var ratios: Dictionary = cooldown_context.get("skill_cooldown_remaining_ratios", {})
+	_expect(is_equal_approx(float(ratios.get(SKILL_DARK_SWAMP, 0.0)), 0.5), "HUD cooldown wedge should use the runtime ratio")
+
+	var slot_renderer := SmasherSkillOrbSlotRenderer.new()
+	_expect(
+		is_equal_approx(slot_renderer._get_cooldown_remaining(null, SKILL_DARK_SWAMP, 0, {}, cooldown_context), 0.5),
+		"shared slot renderer should honor Odin's cooldown ratio override"
+	)
+	_expect(
+		not slot_renderer._is_activation_condition_met(SKILL_DARK_SWAMP, cooldown_context),
+		"shared slot renderer should honor Odin's not-ready override"
+	)
+
+
+func _verify_tooltip_metadata_and_hover() -> void:
+	var renderer := OdinsEyeSkillPillarRenderer.new()
+	var skill_context: Dictionary = _build_skill_context(renderer, _build_odin_context(), 100.0)
+	var center := Vector2(120.0, 600.0)
+	var positions: Array[Vector2] = renderer.get_slot_positions(center, 55.0, 1.0, skill_context)
+	if positions.is_empty():
+		_expect(false, "Dark Swamp hover smoke requires an orb position")
+		return
+	var hovered: Dictionary = renderer.find_hovered_skill(positions[0], center, 55.0, 1.0, skill_context)
+	_expect(str(hovered.get("name", "")) == SKILL_DARK_SWAMP, "hover hit-test should return Dark Swamp metadata")
+	_expect(str(hovered.get("korean", "")) == "어둠의 늪", "tooltip should expose the Korean skill name")
+	_expect(str(hovered.get("how_to_use", "")).find("좌클릭") >= 0, "tooltip should explain the left-click input")
+	_expect(str(hovered.get("effect_type", "")) == "odins_eye_dark_swamp", "tooltip should route to the Odin Dark Swamp effect preview")
+	var preview_metadata: Dictionary = hovered.get("preview_metadata", {})
+	_expect(str(preview_metadata.get("scene", "")) == "player_to_boss_spike_wave", "preview metadata should identify the player-to-boss spike wave")
+	_expect(int(preview_metadata.get("spike_count", 0)) == 12, "preview metadata should preserve the twelve-spike identity")
+	var boss_effects: Array = preview_metadata.get("boss_effects", [])
+	_expect(boss_effects.has("knockback") and boss_effects.has("stun"), "preview metadata should describe the boss knockback and stun")
+
+
+func _build_skill_context(renderer: Object, odins_eye_context: Dictionary, special_gauge: float) -> Dictionary:
+	var layout := Stage1PillarUiLayout.new()
+	var base_context: Dictionary = layout.build_skill_orb_context({
+		"selected_character_type": "smasher",
+		"skill_config_snapshot": {
+			"max_slots": 5,
+			"equipped_skills": [],
+		},
+	}, null)
+	return renderer.build_skill_orb_context(odins_eye_context, special_gauge, null, base_context)
+
+
+func _build_odin_context() -> Dictionary:
+	return {
+		"transformed": true,
+		"revival_animation_active": false,
+		"death_animation_active": false,
+		"dark_swamp": {
+			"enabled": true,
+			"active": false,
+			"cooldown_remaining_frames": 0.0,
+			"cooldown_ratio": 0.0,
+			"gauge_cost": 100.0,
+			"spikes": [],
+		},
+	}
+
+
+func _is_ready(skill_context: Dictionary) -> bool:
+	var ready: Dictionary = skill_context.get("skill_ready_overrides", {})
+	return bool(ready.get(SKILL_DARK_SWAMP, false))
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

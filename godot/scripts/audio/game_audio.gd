@@ -234,6 +234,11 @@ const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
 const HORN_STRAWBERRY_CHANGE_SOUND_PATH := "res://assets/sounds/strawberrychange.wav"
+const ODINS_EYE_CHANGE_SOUND_PATH := "res://assets/sounds/odinchange.wav"
+const ODINS_EYE_DEATH_SOUND_PATH := "res://assets/sounds/odindeath.wav"
+const ODINS_EYE_SPIRIT_SOUND_PATH := "res://assets/sounds/odinspirit.wav"
+const ODINS_EYE_ATTACK_SOUND_PATH := "res://assets/sounds/odinattack.wav"
+const ODINS_EYE_SHADOW_SOUND_PATH := "res://assets/sounds/odinshadow.wav"
 const HORN_STRAWBERRY_EAT_SOUND_PATH := "res://assets/sounds/strawberryeat.wav"
 const HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
 const HORN_STRAWBERRY_STEM_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
@@ -577,6 +582,11 @@ var horn_strawberry_horn_charge_sfx: AudioStreamPlayer
 var horn_strawberry_field_build_sfx: AudioStreamPlayer
 var horn_strawberry_field_break_sfx: AudioStreamPlayer
 var horn_strawberry_field_build_break_sfx: AudioStreamPlayer
+var odins_eye_change_sfx: AudioStreamPlayer
+var odins_eye_death_sfx: AudioStreamPlayer
+var odins_eye_spirit_sfx: AudioStreamPlayer
+var odins_eye_attack_sfx: AudioStreamPlayer
+var odins_eye_shadow_sfx: AudioStreamPlayer
 var horn_strawberry_bomb_trigger_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
 var flashbomb_sfx: AudioStreamPlayer
@@ -928,6 +938,11 @@ func _setup_item_command_sfx() -> void:
 	horn_strawberry_field_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBreakSfx", HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_GAIN_DB)
 	horn_strawberry_field_build_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBuildBreakSfx", HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB)
 	horn_strawberry_bomb_trigger_sfx = player_factory.create(owner_node, "HornStrawberryBombTriggerSfx", HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH, HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB)
+	odins_eye_change_sfx = player_factory.create(owner_node, "OdinsEyeChangeSfx", ODINS_EYE_CHANGE_SOUND_PATH, -4.0)
+	odins_eye_death_sfx = player_factory.create(owner_node, "OdinsEyeDeathSfx", ODINS_EYE_DEATH_SOUND_PATH, -4.0)
+	odins_eye_spirit_sfx = player_factory.create(owner_node, "OdinsEyeSpiritSfx", ODINS_EYE_SPIRIT_SOUND_PATH, -5.0)
+	odins_eye_attack_sfx = player_factory.create(owner_node, "OdinsEyeAttackSfx", ODINS_EYE_ATTACK_SOUND_PATH, -5.0)
+	odins_eye_shadow_sfx = player_factory.create(owner_node, "OdinsEyeShadowSfx", ODINS_EYE_SHADOW_SOUND_PATH, -5.0)
 
 
 func _setup_projectile_item_sfx() -> void:
@@ -2386,6 +2401,28 @@ func play_throw_before() -> void:
 
 func play_throw() -> void:
 	_play_with_pitch(throw_sfx, randf_range(0.98, 1.02))
+
+
+# 오딘의 눈 5종 원샷 큐 — 루프 SFX 금지 계약(모달 loop-audio 트랩 자체 회피).
+# 변신·사망 큐는 타임라인 원샷(재생 시점=시퀀스 시작)이라 피치 랜덤 없이 1.0.
+func play_odins_eye_change() -> void:
+	_play_with_pitch(odins_eye_change_sfx, 1.0)
+
+
+func play_odins_eye_death() -> void:
+	_play_with_pitch(odins_eye_death_sfx, 1.0)
+
+
+func play_odins_eye_spirit() -> void:
+	_play_with_pitch(odins_eye_spirit_sfx, randf_range(0.98, 1.02))
+
+
+func play_odins_eye_attack() -> void:
+	_play_with_pitch(odins_eye_attack_sfx, randf_range(0.98, 1.02))
+
+
+func play_odins_eye_shadow() -> void:
+	_play_with_pitch(odins_eye_shadow_sfx, randf_range(0.98, 1.02))
 
 
 func play_horn_strawberry_change() -> void:
@@ -3962,6 +3999,11 @@ func _get_sfx_players() -> Array:
 		throw_before_sfx,
 		throw_sfx,
 		horn_strawberry_change_sfx,
+		odins_eye_change_sfx,
+		odins_eye_death_sfx,
+		odins_eye_spirit_sfx,
+		odins_eye_attack_sfx,
+		odins_eye_shadow_sfx,
 		horn_strawberry_eat_sfx,
 		horn_strawberry_stem_fire_sfx,
 		horn_strawberry_stem_hit_sfx,

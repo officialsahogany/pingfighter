@@ -291,6 +291,10 @@ func _try_start_odins_eye_death_sequence(scoring_side: String, score_state: Obje
 	var audio: Object = deps.get("audio", null)
 	if audio != null:
 		_stop_score_audio_loops(audio)
+		# odindeath.wav는 t=0 원샷 — 사망 타임라인(4.5s, BANG=1.92s)이 이
+		# 재생 시점 기준으로 정렬된다. 루프 정지 후에 재생해야 잘리지 않는다.
+		if audio.has_method("play_odins_eye_death"):
+			audio.play_odins_eye_death()
 	_hide_ball_for_odins_eye_event(deps)
 	_sync_mythic_owner(mythic_item_runtime, deps)
 	return true
@@ -308,6 +312,10 @@ func _try_trigger_odins_eye_revival(scoring_side: String, score_state: Object, d
 	var audio: Object = deps.get("audio", null)
 	if audio != null:
 		_stop_score_audio_loops(audio)
+		# odinchange.wav는 t=0 원샷 — 부활 타임라인(3.75s, BANG=3.20s)이 이
+		# 재생 시점 기준으로 정렬된다.
+		if audio.has_method("play_odins_eye_change"):
+			audio.play_odins_eye_change()
 	_hide_ball_for_odins_eye_event(deps)
 	_sync_mythic_owner(mythic_item_runtime, deps)
 	return true

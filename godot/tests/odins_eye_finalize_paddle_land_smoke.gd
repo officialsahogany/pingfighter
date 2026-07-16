@@ -174,7 +174,7 @@ func _verify_odins_eye_revival_finalize_lands_viper_paddle() -> void:
 	_expect(not is_equal_approx(_get_vector2(owner, "player_pos").y, PLAYER_Y), "smoke should begin with airborne owner y")
 
 	owner.set("gameplay_frame_counter", int(owner.get("gameplay_frame_counter")) + 1)
-	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 3.1)
+	BattleSceneItemUpdateDriver.new().update_mythic_items(owner, registry, 3.85)
 
 	var player_pos: Vector2 = _get_vector2(owner, "player_pos")
 	_expect(not runtime.is_odins_eye_revival_animation_active(), "revival animation should be finalized")

@@ -128,6 +128,9 @@ func _verify_runtime_state_contract() -> void:
 	_expect(runtime.is_odins_eye_available(), "failed roll should not consume Odin's Eye")
 
 	_expect(runtime.try_trigger_odins_eye_revival("round", 20.0), "roll below chance should trigger Odin's Eye")
+	# 라이브 무장값 씰: try_trigger가 리터럴(구 3.0)이 아니라 state 상수로
+	# 무장해야 한다 — 리터럴 드리프트는 3.75 재타이밍을 조용히 무효화한다.
+	_expect(is_equal_approx(float(runtime.odins_eye_state.revival_timer_sec), 3.75), "try_trigger must arm the 3.75s audio-sync revival timer (not a stale literal)")
 	_expect(runtime.is_odins_eye_revival_animation_active(), "trigger should enter revival animation")
 	_expect(runtime.is_odins_eye_penalty_active(), "trigger should immediately enable penalty")
 	_expect(not runtime.is_odins_eye_available(), "trigger should consume availability")
@@ -137,7 +140,7 @@ func _verify_runtime_state_contract() -> void:
 	_expect(is_equal_approx(runtime.get_dash_recharge_frames(120.0), 240.0), "dash recharge hook should consume Odin's penalty multiplier")
 	_expect(runtime.get_dash_token_capacity(3) == 1, "dash token capacity hook should consume Odin's penalty limit")
 
-	runtime.odins_eye_runtime.update_runtime(runtime, 180.0)
+	runtime.odins_eye_runtime.update_runtime(runtime, 225.0)
 	_expect(runtime.consume_odins_eye_revival_finalize_ready(), "revival update should expose one finalize edge")
 	_expect(not runtime.consume_odins_eye_revival_finalize_ready(), "revival finalize edge should be one-shot")
 	_expect(runtime.is_odins_eye_penalty_active(), "revival finalize should keep penalty active")
@@ -145,9 +148,9 @@ func _verify_runtime_state_contract() -> void:
 
 	_expect(runtime.begin_odins_eye_death_sequence("round"), "penalty loss should be able to begin Odin's death sequence")
 	_expect(runtime.is_odins_eye_death_animation_active(), "death sequence should enter death animation")
-	runtime.odins_eye_runtime.update_runtime(runtime, 72.0)
-	_expect(not runtime.consume_odins_eye_death_finalize_ready(), "death should not finalize at old 1.2s placeholder timing")
-	runtime.odins_eye_runtime.update_runtime(runtime, 78.0)
+	runtime.odins_eye_runtime.update_runtime(runtime, 132.0)
+	_expect(not runtime.consume_odins_eye_death_finalize_ready(), "death should not finalize before the 4.5s audio-aligned event")
+	runtime.odins_eye_runtime.update_runtime(runtime, 140.0)
 	_expect(runtime.consume_odins_eye_death_finalize_ready(), "death update should expose one finalize edge")
 	_expect(not runtime.is_odins_eye_penalty_active(), "death finalize should clear penalty")
 

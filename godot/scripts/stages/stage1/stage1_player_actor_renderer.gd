@@ -6,6 +6,8 @@ const Stage1DashSideGaugeRenderer := preload("res://scripts/stages/stage1/stage1
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const PaddleHologramGlitchRenderer := preload("res://scripts/effects/paddle_hologram_glitch_renderer.gd")
+const OdinsEyePresentationFxHost := preload("res://scripts/items/odins_eye_presentation_fx_host.gd")
+const OdinsEyePresentationRenderer := preload("res://scripts/items/odins_eye_presentation_renderer.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
 const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
@@ -59,6 +61,7 @@ const PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS := 0.06
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
 var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
+var odins_eye_presentation_renderer: Object = OdinsEyePresentationRenderer.new()
 var _state_glow_renderer: Object = PlayerStateGlowRenderer.new()
 var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
 var _prewarm_step_index := 0
@@ -104,6 +107,105 @@ func clear_transient_canvas_items() -> void:
 		sprite_renderer.clear_transient_canvas_items()
 
 
+# 오딘의 눈 변신/부활/사망/잔상 시각은 detached FX 호스트(z=620, 플레이필드
+# 클립)에 그린다. 활성 전환은 호스트를 부착·싱크하고, 비활성 전환은 명시
+# set_active(false)로 즉시 숨긴다(호스트 스스로는 오버레이 종료를 모른다 —
+# clear 없는 스테일 잔상 방지). 셰이크는 컨텍스트의 단일 샘플
+# screen_shake_offset을 우선한다(호출부마다 재샘플하면 셰이크가 찢어진다).
+func _sync_odins_eye_overlay_host(
+	canvas: CanvasItem,
+	context: Dictionary,
+	player_pos: Vector2,
+	paddle_size: Vector2,
+	shake_offset: Vector2
+) -> void:
+	if canvas == null:
+		return
+	var odins_context: Dictionary = _as_dictionary(context.get("odins_eye_context", {}))
+	var host: Node = canvas.get_node_or_null("OdinsEyePresentationFxHost")
+	if not _is_odins_eye_overlay_active(odins_context):
+		if host != null and host.has_method("set_active"):
+			host.set_active(false)
+		return
+	if host == null:
+		host = OdinsEyePresentationFxHost.new()
+		host.name = "OdinsEyePresentationFxHost"
+		canvas.add_child(host)
+	var effective_shake: Vector2 = shake_offset
+	var context_shake: Variant = context.get("screen_shake_offset", null)
+	if context_shake is Vector2:
+		effective_shake = context_shake
+	host.sync_state(
+		_build_odins_eye_host_context(context, odins_context),
+		player_pos,
+		paddle_size,
+		effective_shake,
+		{
+			"game_offset": _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO),
+			"render_scale": float(context.get("render_scale", 1.0)),
+		}
+	)
+
+
+# 오버레이 호스트 활성 판정: 부활/사망 시네마틱과 잔상·다이브 payload가
+# 대상이다. transformed 단독으로는 켜지 않는다 — 변신 몸체는 플레이어
+# 드로우 스왑이 그리고, 이 호스트는 시네마틱·잔상 전용이라 빈 payload에
+# 호스트를 켜 두면 매 프레임 공회전한다. 반대로 폼이 꺼진 뒤에도 payload가
+# 남아 있으면 페이드를 계속 그려야 한다(payload 누락="오버레이 안 그려짐"
+# 회귀 클래스).
+# 호스트에 넘길 최소 context 스냅샷. 호스트는 매 렌더 프레임 이 dict를
+# duplicate(true)하므로 전체 actor context(기본 리터럴 308개+stage/item/
+# status 병합 트리)를 넘기면 가시 VFX hot _draw() 경로에 대형 할당 회귀가
+# 된다 — 렌더러가 최상위 폴백으로 실제 조회하는 키만 담는다(sub-context에
+# 이미 있는 death_*/revival_*/afterimage는 제외).
+const ODINS_EYE_HOST_CONTEXT_TOP_KEYS: Array[String] = [
+	"player_speed",
+	"player_anim_clock",
+	"player_paddle_scale",
+	"render_time_sec",
+	"animation_time_sec",
+]
+
+
+func _build_odins_eye_host_context(context: Dictionary, odins_context: Dictionary) -> Dictionary:
+	var host_context := {"odins_eye_context": odins_context}
+	for key in ODINS_EYE_HOST_CONTEXT_TOP_KEYS:
+		if context.has(key):
+			host_context[key] = context[key]
+	return host_context
+
+
+# 변신 본체 스와프 판정: 변신 유지(transformed) 중과 부활/사망 시네마틱
+# 중에는 일반 캐릭터 스프라이트 대신 오딘 본체 경로가 그린다(부활 중에는
+# draw_player의 plan이 몸을 숨기고 시네마틱이 공개를 소유). 잔상 payload
+# 단독으로는 스와프하지 않는다 — 그건 오버레이 호스트 몫이다.
+func _is_odins_eye_body_swap_active(odins_context: Dictionary) -> bool:
+	if odins_context.is_empty():
+		return false
+	return (
+		bool(odins_context.get("transformed", odins_context.get("penalty_active", false)))
+		or bool(odins_context.get("revival_animation_active", false))
+		or bool(odins_context.get("death_animation_active", false))
+	)
+
+
+func _is_odins_eye_overlay_active(odins_context: Dictionary) -> bool:
+	if odins_context.is_empty():
+		return false
+	if bool(odins_context.get("revival_animation_active", false)):
+		return true
+	if bool(odins_context.get("death_animation_active", false)):
+		return true
+	var afterimage_context: Dictionary = _as_dictionary(odins_context.get("afterimage", {}))
+	if bool(afterimage_context.get("dive_active", false)):
+		return true
+	for payload_key in ["afterimages", "soul_particles", "ambient_particles", "trail", "ground_cracks", "ground_ripples", "burst_particles"]:
+		var payload_value: Variant = afterimage_context.get(payload_key, null)
+		if payload_value is Array and not (payload_value as Array).is_empty():
+			return true
+	return false
+
+
 func draw(
 	canvas: CanvasItem,
 	context: Dictionary,
@@ -120,6 +222,16 @@ func draw(
 		(lingpet_body_hook as Callable).call(canvas)
 	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
 		sprite_renderer.clear_transient_canvas_items()
+	# 오딘의 눈 오버레이 호스트 싱크는 플레이어-숨김 얼리리턴(인트로 홀로그램/
+	# 고스트 빙의)보다 먼저 실행돼야 한다 — 얼리리턴 뒤에 두면 인트로 동안
+	# 호스트가 싱크되지 않아 스테일 프레임(정지 스파이크 잔상)이 화면에 남는다.
+	_sync_odins_eye_overlay_host(
+		canvas,
+		context,
+		_as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO),
+		_as_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0)),
+		shake_offset
+	)
 	# Ball-spawn-intro paddle hologram gate. Mirrors Python's
 	# `get_paddle_hologram_state()`: the player paddle is fully hidden until
 	# the materialize window opens, then renders through a glitch reveal.
@@ -341,6 +453,8 @@ func draw(
 	var paddle_hologram_plan: Dictionary = {}
 	var horn_strawberry_transformed: bool = bool(context.get("horn_strawberry_transformed", false))
 	var horn_strawberry_event_playing: bool = bool(context.get("horn_strawberry_event_playing", false))
+	var odins_eye_body_context: Dictionary = _as_dictionary(context.get("odins_eye_context", {}))
+	var odins_eye_body_active: bool = _is_odins_eye_body_swap_active(odins_eye_body_context)
 	if paddle_hologram_active:
 		paddle_hologram_plan = PaddleHologramGlitchRenderer.compute_pass_plan(
 			paddle_hologram_progress, Time.get_ticks_msec()
@@ -365,7 +479,21 @@ func draw(
 	_perf_end(perf_logger, "actors.stage1.player.hover_embers", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var drawn_player_visual_rect: Rect2 = player_visual_rect
-	if horn_strawberry_transformed:
+	if odins_eye_body_active:
+		# 변신 몸체는 일반 캐릭터 스프라이트를 대체한다(혼딸기 스와프 형제).
+		# 부활 연출 중에는 draw_player가 plan(draw_player=false)으로 몸을
+		# 그리지 않고 시네마틱(오버레이 호스트)이 공개를 소유한다 — 일반
+		# 스프라이트도 함께 숨겨야 원본 hide_paddle 계약과 일치한다.
+		# 전체 actor context를 넘긴다 — 렌더러의 _value는 odins 하위 컨텍스트를
+		# 우선 조회하고 player_speed/player_anim_clock 같은 최상위 키로 폴백한다.
+		drawn_player_visual_rect = odins_eye_presentation_renderer.draw_player(
+			canvas,
+			context,
+			player_pos,
+			paddle_size,
+			shake_offset
+		)
+	elif horn_strawberry_transformed:
 		var horn_context: Dictionary = _as_dictionary(context.get("horn_strawberry_context", {}))
 		var horn_charge_context: Dictionary = _as_dictionary(horn_context.get("horn_charge", {}))
 		var horn_charge_offset: Vector2 = _as_vector2(horn_charge_context.get("current_offset", Vector2.ZERO), Vector2.ZERO)
@@ -408,7 +536,7 @@ func draw(
 			paddle_size,
 			shake_offset
 		)
-	if not horn_strawberry_transformed and not horn_strawberry_event_playing:
+	if not horn_strawberry_transformed and not horn_strawberry_event_playing and not odins_eye_body_active:
 		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
 		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
 	if curse_reverse_active:
