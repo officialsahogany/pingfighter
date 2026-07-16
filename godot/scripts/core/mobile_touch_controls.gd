@@ -53,6 +53,26 @@ var active_touches: Dictionary = {}
 var pressed_actions: Dictionary = {}
 var controls_enabled := false
 
+# 모바일 ACCEPT 버튼 → 좌클릭 계약 정적 채널. 모바일 런타임은
+# emulate_mouse_from_touch가 모든 터치를 합성 LMB로 바꿔 입력 리더의 raw
+# 마우스 폴링(Input.is_mouse_button_pressed)이 신뢰 불가하므로, 화면
+# ACCEPT 버튼의 눌림을 정적 채널로 게시하고 리더가 mouse_left에 합산해
+# 소비한다(리더는 컨트롤 인스턴스를 모르므로 static). 게시는 실 입력
+# 경로(_sync_actions)에서만 일어나고 release_all이 반드시 내린다.
+static var _touch_accept_pressed_static := false
+
+
+static func is_touch_accept_pressed() -> bool:
+	return _touch_accept_pressed_static
+
+
+# 씬 teardown처럼 인스턴스가 이미 사라졌을 수 있는 경로용 강제 정리 —
+# 수동 Input.action_press 잔존과 정적 accept 채널 누출을 함께 내린다.
+static func force_release_static() -> void:
+	for action in ACTIONS:
+		Input.action_release(str(action))
+	_touch_accept_pressed_static = false
+
 
 func set_controls_enabled(enabled: bool) -> void:
 	controls_enabled = enabled
@@ -68,23 +88,33 @@ func handle_input(event: InputEvent, view_size: Vector2, enabled: bool = true, l
 
 	if event is InputEventScreenTouch:
 		var touch_event: InputEventScreenTouch = event
+		if not controls_enabled:
+			# disabled(모달) 윈도우의 터치는 기록조차 하지 않는다 — 여기서
+			# active_touches에 넣으면 재활성화 프레임에 phantom ACCEPT로
+			# 부활한다. 눌려 있던 손가락도 지금 내린다.
+			active_touches.erase(touch_event.index)
+			release_all()
+			return false
 		if touch_event.pressed:
 			active_touches[touch_event.index] = touch_event.position
 		else:
 			active_touches.erase(touch_event.index)
-		if controls_enabled:
-			_sync_actions(view_size, layout_context)
-			return _point_hits_any_control(touch_event.position, view_size, layout_context)
-		release_all()
-		return false
+		_sync_actions(view_size, layout_context)
+		return _point_hits_any_control(touch_event.position, view_size, layout_context)
 
 	var drag_event: InputEventScreenDrag = event
+	if not controls_enabled:
+		active_touches.erase(drag_event.index)
+		release_all()
+		return false
+	if not active_touches.has(drag_event.index):
+		# enabled 상태에서 press를 본 적 없는 orphan drag(모달 중 시작된
+		# 드래그가 해제 후 흘러들어오는 경로)는 phantom finger로 등록하지
+		# 않는다.
+		return false
 	active_touches[drag_event.index] = drag_event.position
-	if controls_enabled:
-		_sync_actions(view_size, layout_context)
-		return _point_hits_any_control(drag_event.position, view_size, layout_context)
-	release_all()
-	return false
+	_sync_actions(view_size, layout_context)
+	return _point_hits_any_control(drag_event.position, view_size, layout_context)
 
 
 func draw(canvas: CanvasItem, view_size: Vector2, layout_context: Dictionary = {}) -> void:
@@ -101,6 +131,7 @@ func release_all() -> void:
 	for action in pressed_actions.keys():
 		Input.action_release(str(action))
 	pressed_actions.clear()
+	_touch_accept_pressed_static = false
 
 
 func _sync_actions(view_size: Vector2, layout_context: Dictionary = {}) -> void:
@@ -122,6 +153,7 @@ func _sync_actions(view_size: Vector2, layout_context: Dictionary = {}) -> void:
 		elif not should_press and is_pressed:
 			Input.action_release(action)
 			pressed_actions.erase(action)
+	_touch_accept_pressed_static = pressed_actions.has(ACTION_ACCEPT)
 
 
 func _should_draw() -> bool:

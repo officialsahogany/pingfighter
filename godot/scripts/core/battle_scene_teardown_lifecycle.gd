@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
+const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
 
 
 func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
@@ -19,6 +20,14 @@ func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, c
 	var audio: Object = _get_module(cached_module_getter, "game_audio")
 	if audio != null and audio.has_method("stop_bgm"):
 		audio.stop_bgm()
+	# 모바일 터치 컨트롤은 수동 Input.action_press와 정적 accept 채널을
+	# 유지한다 — 손가락을 누른 채 전투를 떠나면 눌림이 다음 씬으로
+	# 누출되므로 registry를 지우기 전에 해제한다. 모듈이 이미 없어도
+	# 정적 채널·수동 액션은 강제로 내린다(getter-null fallback).
+	var mobile_touch_controls: Object = _get_module(cached_module_getter, "mobile_touch_controls")
+	if mobile_touch_controls != null and mobile_touch_controls.has_method("release_all"):
+		mobile_touch_controls.release_all()
+	MobileTouchControls.force_release_static()
 	# Clear battle resources but KEEP the character-select warm set. Every
 	# post-battle exit (F10 booth reset, true-defeat settlement, stage-clear
 	# exit) skips the boot loading screen, so wiping these here forces a cold
