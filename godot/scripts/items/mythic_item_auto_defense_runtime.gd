@@ -45,7 +45,7 @@ func get_sensor_cooldown_seconds(runtime: Object) -> float:
 		var level := _get_converted_perk_level(runtime, ITEM_SENSOR)
 		if level <= 0:
 			return SENSOR_DEFAULT_COOLDOWN_SEC
-		return max(SENSOR_MIN_COOLDOWN_SEC, PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_cooldown_sec", level))
+		return max(SENSOR_MIN_COOLDOWN_SEC, PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_cooldown_sec", level, runtime.runtime_perk_state_ref))
 	if not is_sensor_equipped(runtime):
 		return SENSOR_DEFAULT_COOLDOWN_SEC
 	var seconds: float = runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SENSOR, "sensor_cooldown_sec")
@@ -92,7 +92,7 @@ func get_sensor_auto_dash_token_capacity(runtime: Object) -> int:
 	var level := _get_converted_perk_level(runtime, ITEM_SENSOR)
 	if level <= 0:
 		return 0
-	return max(0, int(round(PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_token_count", level))))
+	return max(0, int(round(PerkConversionValues.get_value(ITEM_SENSOR, "auto_dash_token_count", level, runtime.runtime_perk_state_ref))))
 
 
 func get_sensor_auto_dash_tokens(runtime: Object) -> int:

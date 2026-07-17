@@ -166,6 +166,10 @@ static func refresh_tooltip_entry_lines(
 			var line_entry: Dictionary = tooltip_entry_line_dict(line_dict_cache, result.size())
 			line_entry["text"] = line_text
 			line_entry["color"] = color
+			# 삭제 흉터의 렌더러 소유 취소선 메타를 래핑을 통과해 보존한다
+			# (U+0336 결합 글리프는 폰트 미지원 — 명시 세그먼트로 그린다).
+			if bool(entry.get("strikethrough", false)):
+				line_entry["strikethrough"] = true
 			text_cache.append(line_text)
 			color_cache.append(color)
 			result.append(line_entry)

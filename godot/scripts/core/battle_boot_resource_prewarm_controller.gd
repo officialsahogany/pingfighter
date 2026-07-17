@@ -1192,6 +1192,11 @@ func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: C
 	var overlay_renderer: Object = _get_module(module_getter, "runtime_perk_overlay_renderer")
 	if overlay_renderer != null and overlay_renderer.has_method("prewarm_assets"):
 		overlay_renderer.prewarm_assets()
+	# 융합 재료쌍 합성 텍스처 프리웜(부트 로딩 프레임 — draw 밖): 세이브
+	# 복원으로 이미 융합을 보유한 매치가 첫 표시 프레임에서 합성 히치를
+	# 겪지 않게 한다.
+	if icon_renderer != null and icon_renderer.has_method("prewarm_fusion_pair_icons_for_state"):
+		icon_renderer.prewarm_fusion_pair_icons_for_state(_get_module(module_getter, "runtime_perk_state"))
 	var treasure_hunt_runtime: Object = _get_module(module_getter, "treasure_hunt_runtime")
 	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("prewarm_assets"):
 		treasure_hunt_runtime.prewarm_assets()

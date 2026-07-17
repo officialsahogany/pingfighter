@@ -2921,6 +2921,7 @@ const EXACT_TEXT_EN := {
 	"보유": "Owned",
 	"장착": "Equipped",
 	"해금": "Unlock",
+	"고유": "Unique",
 	"부위": "Part",
 	"머리": "Head",
 	"상의": "Top",
@@ -3472,6 +3473,7 @@ const EXACT_TEXT_ZH := {
 	"보유": "持有",
 	"장착": "装备",
 	"해금": "解锁",
+	"고유": "专属",
 	"부위": "部位",
 	"머리": "头部",
 	"상의": "上装",
@@ -4023,6 +4025,7 @@ const EXACT_TEXT_JA := {
 	"보유": "所持",
 	"장착": "装備",
 	"해금": "解放",
+	"고유": "固有",
 	"부위": "部位",
 	"머리": "頭",
 	"상의": "上着",
@@ -4574,6 +4577,7 @@ const EXACT_TEXT_ES := {
 	"보유": "Poseído",
 	"장착": "Equipado",
 	"해금": "Desbloquear",
+	"고유": "Único",
 	"부위": "Parte",
 	"머리": "Cabeza",
 	"상의": "Parte superior",
@@ -4901,6 +4905,7 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"고유": "Único",
 	"보유 퍽 강화만": "Apenas melhorias de perks",
 	"강화·비소모 퍽만": "Apenas melhorias e perks sem espaço",
 	"소식 체질": "Constituição frugal",
@@ -5095,6 +5100,7 @@ const EXACT_TEXT_RU_OVERRIDES := {
 	"링코어": "Кольцевое ядро",
 	"강화칩 %d / %d": "Чипы усиления %d / %d",
 	"해금": "Открыть",
+	"고유": "Уникальный",
 	"부위": "Часть",
 	"머리": "Голова",
 	"상의": "Верх",

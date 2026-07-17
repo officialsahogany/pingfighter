@@ -81,4 +81,4 @@ func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) ->
 		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
 	if level <= 0:
 		return 0.0
-	return PerkConversionValues.get_value(perk_id, key, level)
+	return PerkConversionValues.get_value(perk_id, key, level, runtime.runtime_perk_state_ref if runtime != null else null)

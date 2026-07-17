@@ -8,6 +8,55 @@ const StageClearResultRuntimeOverlaySceneHandler := preload("res://scripts/ui/st
 const StageClearResultViewportSceneHandler := preload("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd")
 
 
+# 결과 씬 구성 직후 융합 보상 카드 아이콘을 실 fitted 크기로 프리컴포즈한다
+# (드로우 핫패스 합성 금지). 스냅샷 퍽 밴드+결과상자 resolved 보상을 함께
+# 순회한다. 반환=준비한 융합 아이콘 수.
+static func prepare_fusion_reward_icons(scene: Control) -> int:
+	if scene == null:
+		return 0
+	# 보상 카드 드로우 컨텍스트("perk_icon_renderer")가 소비하는 인스턴스는
+	# 씬 로컬 _perk_icon_renderer다 — 배틀 레지스트리 주입본(_runtime_perk_
+	# icon_renderer)을 데우면 카드 경로는 빈 캐시를 본다(별개 인스턴스).
+	var renderer: Object = scene.get("_perk_icon_renderer")
+	if renderer == null or not renderer.has_method("prepare_fusion_pair_icon"):
+		renderer = scene.get("_runtime_perk_icon_renderer")
+	if renderer == null or not renderer.has_method("prepare_fusion_pair_icon"):
+		return 0
+	var snapshot: Dictionary = scene.get("stage_reward_snapshot") if scene.get("stage_reward_snapshot") is Dictionary else {}
+	var view_size: Vector2 = scene.size
+	var layout_scale: float = load("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd").get_layout_scale(view_size)
+	var icon_size: Vector2 = load("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd").get_fusion_reward_card_icon_size(
+		view_size,
+		layout_scale,
+		snapshot,
+		[]
+	)
+	var prepared := 0
+	var pending: Array = []
+	var perks_value: Variant = snapshot.get("perks", [])
+	if perks_value is Array:
+		pending.append_array(perks_value)
+	var boxes_value: Variant = scene.get("_boxes")
+	if boxes_value is Array:
+		for box_value: Variant in boxes_value:
+			if not (box_value is Dictionary):
+				continue
+			var reward_value: Variant = (box_value as Dictionary).get("reward", {})
+			if reward_value is Dictionary:
+				var resolved_value: Variant = (reward_value as Dictionary).get("resolved_perk_rewards", [])
+				if resolved_value is Array:
+					pending.append_array(resolved_value)
+	for reward_entry_value: Variant in pending:
+		if not (reward_entry_value is Dictionary):
+			continue
+		var draw_id := str((reward_entry_value as Dictionary).get("draw_id", ""))
+		if not draw_id.begins_with("perk_fusion_pair:"):
+			continue
+		if renderer.prepare_fusion_pair_icon(draw_id, icon_size, true):
+			prepared += 1
+	return prepared
+
+
 static func update_hovered_button(scene: Control, mouse_position: Vector2) -> void:
 	if scene == null:
 		return

@@ -38,6 +38,9 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		"selected_choice_sequence": int(state.get("selected_choice_sequence")),
 		"current_choice_context": RuntimePerkPayloadAccess.copy_dict(state.get("current_choice_context")),
 		"perk_slot_status": RuntimePerkPayloadAccess.copy_dict(state.get("current_perk_slot_status")),
+		# 융합 표시 projection(접힘 정본): TAB/오버레이 소비자가 스냅샷에서
+		# 그대로 읽는다 — state 소유 기본 카탈로그로 캐시 경유(핫패스 안전).
+		"perk_fusion_display_projection": RuntimePerkRuntimeStateAccess.call_dict(state, "get_perk_fusion_display_projection"),
 		"angel_blessing": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_snapshot"),
 		"angel_blessing_acquisition": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_acquisition_snapshot"),
 		"pending_dimension_gate_after_spawn_intro": RuntimePerkRuntimeStateAccess.call_bool(deferred_instants, "has_pending_dimension_gate"),

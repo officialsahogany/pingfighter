@@ -204,6 +204,13 @@ func prewarm_assets(
 	CharacterInfoOverlayPrewarmPresenter.prewarm_draw_caches(self, font, owner, registry, module_getter, BASE_ACTIVE_ITEM_SLOT_COUNT)
 	CharacterInfoOverlayPrewarmPresenter.prewarm_shared_assets_and_text(self, font, owner, registry, module_getter, include_shared_icon_assets, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed, lingpet_prewarm_pet_ids)
 	_prewarm_pendulum_interior(owner, registry)
+	# 융합 재료쌍 아이콘 스테이지드 프리웜: TAB 오픈 시점(배틀 입력 컨트롤러·
+	# 플라자 호스트 공통 경유) 소유 — 퍽 그리드 draw는 조회 전용이라 여기서
+	# 합성해 둬야 첫 표시 프레임 히치가 없다.
+	var fusion_icon_renderer: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_icon_renderer")
+	var fusion_runtime_state: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_state")
+	if fusion_icon_renderer != null and fusion_icon_renderer.has_method("prewarm_fusion_pair_icons_for_state"):
+		fusion_icon_renderer.prewarm_fusion_pair_icons_for_state(fusion_runtime_state)
 
 func prewarm_assets_step(
 	owner: Object = null,

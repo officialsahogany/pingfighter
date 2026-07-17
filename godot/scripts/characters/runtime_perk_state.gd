@@ -94,6 +94,17 @@ var selected_index := 0
 var animation_time := 0.0
 var particles: Array = []
 var gold_from_perks := 0
+# ---- 퍽 융합 위임 계층 ----
+# 코어(records/커밋/오버레이/한계돌파)는 PerkFusionState가 소유하고, 이
+# 래퍼는 central getter·projection·부산물 런타임을 잇는 접착만 담당한다.
+var _perk_fusion_state: Object = null
+var _perk_fusion_byproduct_runtime: Object = null
+var _perk_fusion_display_projector: Object = null
+var _perk_fusion_display_catalog: Object = null
+var _perk_fusion_projection_cache: Dictionary = {}
+var _perk_fusion_projection_cache_key := 0
+var _perk_fusion_projection_cache_ready := false
+var _perk_fusion_projection_builds := 0
 var feedback_text := ""
 var feedback_timer := 0.0
 var last_selected_id := ""
@@ -162,7 +173,191 @@ var _unlock_choice_apply: Object = RuntimePerkUnlockChoiceApply.new()
 var _dynamic_effects: Object = RuntimePerkDynamicEffects.new()
 
 
+func _get_perk_fusion_state() -> Object:
+	if _perk_fusion_state == null:
+		_perk_fusion_state = load("res://scripts/characters/perk_fusion_state.gd").new()
+	return _perk_fusion_state
+
+
+func _get_perk_fusion_byproduct_runtime() -> Object:
+	if _perk_fusion_byproduct_runtime == null:
+		_perk_fusion_byproduct_runtime = load("res://scripts/characters/perk_fusion_byproduct_runtime.gd").new()
+	return _perk_fusion_byproduct_runtime
+
+
+func get_perk_fusion_state() -> Object:
+	return _get_perk_fusion_state()
+
+
+# 커밋: 코어가 record를 소유하고 revision을 올린다 — projection 캐시 키에
+# revision이 들어가므로 커밋은 자동으로 캐시를 무효화한다.
+func commit_perk_fusion(source_ids: Array, outcome_data: Dictionary, catalog: Object) -> Dictionary:
+	return _get_perk_fusion_state().commit_fusion(source_ids, outcome_data, catalog, runtime_skill_levels)
+
+
+func restore_perk_fusion_snapshot(snapshot: Dictionary, catalog: Object) -> Dictionary:
+	return _get_perk_fusion_state().restore_snapshot(snapshot, catalog, runtime_skill_levels)
+
+
+func apply_perk_fusion_option_value(perk_id: String, option_key: String, base_value: float) -> float:
+	return float(_get_perk_fusion_state().apply_option_value(perk_id, option_key, base_value))
+
+
+func get_perk_fusion_snapshot() -> Dictionary:
+	return _get_perk_fusion_state().get_snapshot()
+
+
+func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
+	return int(_get_perk_fusion_state().get_effective_level_bonus(perk_id))
+
+
+func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
+	return _get_perk_fusion_state().get_owned_byproduct_ids()
+
+
+func get_perk_fusion_slot_reduction() -> int:
+	return int(_get_perk_fusion_state().get_slot_reduction())
+
+
+# 황금 궤적: 부산물 런타임이 라운드 40 실골드 캡을 소유한다. 골드 배수
+# (아이템 배수·점화 오라)는 클램프 "이전"에 적용해, 배수로 부풀린 지급이
+# 실 저장 골드 기준 캡을 넘지 못하게 한다.
+func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary) -> int:
+	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
+	var offer: int = int(byproduct_runtime.get_wall_bounce_gold_offer(get_perk_fusion_owned_byproduct_ids()))
+	if offer <= 0:
+		return 0
+	var modified := float(offer) * maxf(0.0, item_gold_gain_multiplier)
+	if viper_ignition_aura_active:
+		modified *= 2.0
+	var remaining: int = int(byproduct_runtime.get_remaining_wall_bounce_gold())
+	var actual: int = mini(int(round(modified)), remaining)
+	if actual <= 0:
+		return 0
+	byproduct_runtime.record_wall_bounce_gold(actual)
+	gold_from_perks += actual
+	return actual
+
+
+func get_perk_fusion_round_golden_trajectory_gold() -> int:
+	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
+	return int(byproduct_runtime.GOLDEN_TRAJECTORY_ROUND_CAP) - int(byproduct_runtime.get_remaining_wall_bounce_gold())
+
+
+# 융합 결과 컨텍스트(모달/부산물 payload 후보): 한계돌파 자격은 "base 레벨이
+# 저작 테이블 최대"인 소스 — 자격 판정은 catalog의 max_level과 비교한다.
+func _build_perk_fusion_result_context(source_ids: Array, catalog: Object) -> Dictionary:
+	var eligible: Array[String] = []
+	for source_value: Variant in source_ids:
+		var perk_id := str(source_value).strip_edges()
+		if perk_id.is_empty():
+			continue
+		var base_level := int(runtime_skill_levels.get(perk_id, 0))
+		var max_level := 5
+		if catalog != null and catalog.has_method("get_perk_data"):
+			var data: Dictionary = catalog.get_perk_data(perk_id)
+			max_level = int(data.get("max_level", 5)) if not data.is_empty() else 5
+		if base_level > 0 and base_level >= max_level:
+			eligible.append(perk_id)
+	return {"limit_break_eligible_sources": eligible}
+
+
+# TAB/모달이 매 프레임 읽는 표시 projection의 캐시 래퍼. 키=레벨 해시 ×
+# fusion revision × locale × 유효레벨 보정(왕관/반지 성장이 라이브 hover
+# 값을 바꾼다) — reset은 코어 revision 증가로 자동 무효화된다.
+func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
+	# catalog 미지정(스냅샷 경로)은 state 소유 기본 표시 카탈로그를 쓴다 —
+	# 저작 slot_cost 등 카탈로그 파생 필드가 커밋 전에도 보존돼야 한다.
+	if catalog == null:
+		if _perk_fusion_display_catalog == null:
+			_perk_fusion_display_catalog = load("res://scripts/characters/runtime_perk_catalog.gd").new()
+		catalog = _perk_fusion_display_catalog
+	var cache_key: int = hash([
+		runtime_skill_levels.hash(),
+		_get_perk_fusion_state().get_revision(),
+		_get_perk_fusion_display_locale(),
+		item_perk_level_bonus,
+		int(viper_ignition_aura_active),
+		catalog.get_instance_id() if catalog != null else 0,
+	])
+	if _perk_fusion_projection_cache_ready and cache_key == _perk_fusion_projection_cache_key:
+		return _perk_fusion_projection_cache
+	if _perk_fusion_display_projector == null:
+		_perk_fusion_display_projector = load("res://scripts/characters/perk_fusion_display_projection.gd").new()
+	_perk_fusion_projection_builds += 1
+	var projection: Dictionary = _perk_fusion_display_projector.build(
+		runtime_skill_levels,
+		get_perk_fusion_snapshot(),
+		catalog,
+		get_effective_runtime_skill_levels(),
+		_build_perk_fusion_live_source_options()
+	)
+	projection["cache_signature"] = cache_key
+	_perk_fusion_projection_cache = projection
+	_perk_fusion_projection_cache_key = cache_key
+	_perk_fusion_projection_cache_ready = true
+	return projection
+
+
+func get_perk_fusion_display_cache_stats() -> Dictionary:
+	return {"projection_builds": _perk_fusion_projection_builds}
+
+
+func _get_perk_fusion_display_locale() -> String:
+	var language_settings: Object = load("res://scripts/core/language_settings.gd")
+	if language_settings != null and language_settings.has_method("get_language"):
+		return str(language_settings.get_language())
+	return ""
+
+
+# 라이브 hover 옵션: value=성장한 base(융합 이전), adjusted_value=production
+# central getter와 일치하는 값(이중 페널티 금지 — 오버레이는 한 번만).
+func _build_perk_fusion_live_source_options() -> Dictionary:
+	var live: Dictionary = {}
+	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
+	for record: Dictionary in _get_perk_fusion_state().get_all_records():
+		var penalties: Dictionary = record.get("option_penalties", {}) as Dictionary
+		var snapshots: Dictionary = record.get("commit_value_snapshots", {}) as Dictionary
+		var deleted: Dictionary = record.get("deleted_options", {}) as Dictionary
+		for source_value: Variant in record.get("sources", []) as Array:
+			var perk_id := str(source_value)
+			var option_keys: Array[String] = []
+			for key_source: Dictionary in [
+				penalties.get(perk_id, {}) as Dictionary,
+				snapshots.get(perk_id, {}) as Dictionary,
+			]:
+				for option_value: Variant in key_source.keys():
+					var option_key := str(option_value)
+					if option_key not in option_keys:
+						option_keys.append(option_key)
+			for option_value: Variant in deleted.get(perk_id, []) as Array:
+				var deleted_key := str(option_value)
+				if deleted_key not in option_keys:
+					option_keys.append(deleted_key)
+			if option_keys.is_empty():
+				continue
+			var per_perk: Dictionary = {}
+			var effective_level: int = get_runtime_skill_level(perk_id)
+			for option_key: String in option_keys:
+				var base_value: float
+				if option_key == "runtime_skill_bonus":
+					base_value = _effective_stat_queries.get_runtime_skill_bonus_before_fusion_from_runtime_state(self, perk_id)
+				else:
+					base_value = float(conversion_values.get_value(perk_id, option_key, effective_level))
+				per_perk[option_key] = {
+					"value": base_value,
+					"adjusted_value": apply_perk_fusion_option_value(perk_id, option_key, base_value),
+				}
+			live[perk_id] = per_perk
+	return live
+
+
 func reset() -> void:
+	if _perk_fusion_state != null:
+		_perk_fusion_state.reset()
+	if _perk_fusion_byproduct_runtime != null:
+		_perk_fusion_byproduct_runtime.reset()
+	_perk_fusion_projection_cache_ready = false
 	_reset_state.reset_from_runtime_state(self)
 
 
@@ -275,6 +470,10 @@ func update_with_perf(delta: float, view_size: Vector2, owner: Object = null, re
 
 
 func _update_internal(delta: float, view_size: Vector2, owner: Object, registry: Object, perf_logger: Object) -> void:
+	# 융합 재료쌍 아이콘 스테이지드 프리웜: 업데이트 경로(배틀 오버레이 프레임
+	# 컨트롤러·플라자·결과화면 스타포인트 핸들러 공통) 소유 — 리비전 변경 후
+	# 첫 update 틱에서 합성되고, CanvasItem draw 프레임은 조회 히트만 본다.
+	_prewarm_fusion_pair_icons(registry)
 	_update_flow.update_internal_from_runtime_state(
 		delta,
 		view_size,
@@ -287,6 +486,14 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 	# or open a higher-priority modal during this same frame.
 	if has_angel_blessing_modal_work():
 		update_angel_blessing_acquisition(delta, owner, registry)
+
+
+func _prewarm_fusion_pair_icons(registry: Object) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var icon_renderer: Object = registry.get_instance("runtime_perk_icon_renderer")
+	if icon_renderer != null and icon_renderer.has_method("prewarm_fusion_pair_icons_for_state"):
+		icon_renderer.prewarm_fusion_pair_icons_for_state(self)
 
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:

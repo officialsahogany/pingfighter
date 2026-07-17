@@ -4,6 +4,32 @@ const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 
 
+
+# 삭제 흉터의 명시 취소선: 폰트 스택에 U+0336 결합 글리프가 없어 결합
+# 문자를 주입하면 tofu가 된다 — 렌더러가 텍스트 폭(패널 폭 클램프) 기준의
+# 수평 세그먼트를 직접 긋는다. 반환은 [시작점, 끝점] 2점.
+static func build_strikethrough_segment(
+	font: Font,
+	text: String,
+	baseline: Vector2,
+	font_size: int,
+	max_width: float
+) -> PackedVector2Array:
+	if font == null or text.strip_edges().is_empty():
+		return PackedVector2Array()
+	var text_width: float = font.get_string_size(
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		font_size
+	).x
+	var width: float = clampf(text_width, 1.0, maxf(1.0, max_width))
+	var strike_y: float = baseline.y - font.get_ascent(font_size) * 0.32
+	return PackedVector2Array([
+		Vector2(baseline.x, strike_y),
+		Vector2(baseline.x + width, strike_y),
+	])
+
 static func draw_tooltip(
 	canvas: CanvasItem,
 	data: Dictionary,
@@ -124,8 +150,15 @@ static func draw_dual_item_tooltip(
 		var available: float = max(300.0, view_size.x - 16.0 - gap)
 		desc_width = max(178.0, available * 0.58)
 		roll_width = max(132.0, available - desc_width)
+	# 동적 행 예산: 융합 스탯 패널(tooltip_kind == "fusion")은 2 헤더+옵션
+	# 레인+부산물 레인이 8줄 legacy 캡을 초과한다 — 엔트리 수 기반으로
+	# 확장하되 화면 보호를 위해 24줄에서 캡.
+	var tooltip_kind := str(data.get("tooltip_kind", ""))
+	var entry_line_limit := 8
+	if tooltip_kind == "fusion":
+		entry_line_limit = mini(24, maxi(8, roll_entries.size() + 2))
 	var body_lines: Array = _call_array(wrap_text_callable, [font, body, 13, desc_width - 28.0, 8])
-	var roll_lines: Array = _call_array(build_entry_lines_callable, [font, roll_entries, 13, roll_width - 24.0, 8])
+	var roll_lines: Array = _call_array(build_entry_lines_callable, [font, roll_entries, 13, roll_width - 24.0, entry_line_limit])
 	var title_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get("title_color", Color.WHITE))
 	var line_height := 20.0
 	var desc_height: float = 58.0 + float(body_lines.size()) * line_height
@@ -164,6 +197,18 @@ static func draw_dual_item_tooltip(
 	var roll_y := pos_y + 44.0
 	for i in range(roll_lines.size()):
 		draw_text_callable.call(canvas, font, tooltip_entry_line_text_cache[i], roll_text_x, roll_y, 13, tooltip_entry_line_color_cache[i])
+		# 삭제 흉터: U+0336 결합 글리프 대신 렌더러 소유 명시 취소선.
+		var roll_line_value: Variant = roll_lines[i]
+		if roll_line_value is Dictionary and bool((roll_line_value as Dictionary).get("strikethrough", false)):
+			var strike_segment: PackedVector2Array = build_strikethrough_segment(
+				font,
+				tooltip_entry_line_text_cache[i],
+				Vector2(roll_text_x, roll_y),
+				13,
+				roll_width - 24.0
+			)
+			if strike_segment.size() == 2:
+				canvas.draw_line(strike_segment[0], strike_segment[1], tooltip_entry_line_color_cache[i], 1.5, true)
 		roll_y += line_height
 
 

@@ -12,6 +12,47 @@ const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_
 const PLACEHOLDER_GOLD := 1240
 
 
+# 융합 보상 카드 아이콘의 준비 크기: 실 카드 fitter 체인(스크롤 영역 →
+# 콘텐츠 rect → 섹션 밴드 스택 레이아웃)을 관통해 card_scale을 얻는다 —
+# 외곽 뷰포트 스케일을 그대로 쓰면 합성 텍스처가 실 카드와 다르게 준비돼
+# 리샘플 흐림이 생긴다. 아이콘 종횡비는 리워드 카드의 64×54 그대로.
+# 융합 상세 패널 예약은 두지 않는다: 패널 렌더러가 실재하지 않는 상태의
+# 선예약은 실 레이아웃과 준비 크기를 갈라놓는 가공 규격이 된다(코덱스
+# 재리뷰 P2) — 상세 패널은 융합 core 슬라이스에서 렌더러와 함께 온다.
+static func get_fusion_reward_card_icon_size(
+	_view_size: Vector2,
+	ui_scale: float,
+	stage_snapshot: Dictionary,
+	_reserved: Array = []
+) -> Vector2:
+	var scroll_state: Object = load("res://scripts/ui/stage_clear_result_scroll_state.gd")
+	var layout_helper: Object = load("res://scripts/ui/stage_clear_result_layout_helper.gd")
+	var full_rect: Rect2 = scroll_state.get_region_full_rect(ui_scale, Vector2.ZERO)
+	var content_rect: Rect2 = layout_helper.get_scroll_content_rect(
+		full_rect,
+		ui_scale,
+		scroll_state.SCROLL_CONTENT_MARGIN
+	)
+	# draw_scroll_contents의 실 섹션 rect 공식 미러(헤더 188/버튼 90/여백 22).
+	var section_top: float = content_rect.position.y + 188.0 * ui_scale
+	var button_top: float = content_rect.position.y + content_rect.size.y - 90.0 * ui_scale
+	var section_bottom: float = button_top - 22.0 * ui_scale
+	var body_rect := Rect2(
+		Vector2(content_rect.position.x + 34.0 * ui_scale, section_top),
+		Vector2(content_rect.size.x - 68.0 * ui_scale, max(150.0 * ui_scale, section_bottom - section_top))
+	)
+	var item_counts: Array = []
+	for band_key in ["perks", "active_items", "passive_items"]:
+		var band_value: Variant = stage_snapshot.get(band_key, [])
+		if band_value is Array and not (band_value as Array).is_empty():
+			item_counts.append((band_value as Array).size())
+	if item_counts.is_empty():
+		item_counts.append(1)
+	var band_layout: Dictionary = layout_helper.calculate_reward_band_stack_layout(item_counts, body_rect, ui_scale)
+	var card_scale: float = float(band_layout.get("card_scale", ui_scale))
+	return Vector2(64.0, 54.0) * card_scale
+
+
 static func draw_scroll_contents(
 	canvas: CanvasItem,
 	font: Font,

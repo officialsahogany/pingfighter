@@ -136,6 +136,24 @@ static func get_resolved_rewards(scene: Object) -> Array:
 static func append_box_resolved_perk_reward(scene: Control, box_index: int, perk_reward: Dictionary) -> void:
 	if scene == null:
 		return
+	# 늦게 도착한 융합 보상은 stale base-size 프리웜에 기대지 말고 같은
+	# fitted 크기로 즉시 프리컴포즈한다 — 대상은 카드 드로우 컨텍스트가
+	# 소비하는 씬 로컬 _perk_icon_renderer(레지스트리 주입본은 별개 인스턴스).
+	if str(perk_reward.get("draw_id", "")).begins_with("perk_fusion_pair:"):
+		var renderer: Object = scene.get("_perk_icon_renderer")
+		if renderer == null or not renderer.has_method("prepare_fusion_pair_icon"):
+			renderer = scene.get("_runtime_perk_icon_renderer")
+		if renderer != null and renderer.has_method("prepare_fusion_pair_icon"):
+			var view_size: Vector2 = scene.size
+			var layout_scale: float = load("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd").get_layout_scale(view_size)
+			var snapshot: Dictionary = scene.get("stage_reward_snapshot") if scene.get("stage_reward_snapshot") is Dictionary else {}
+			var icon_size: Vector2 = load("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd").get_fusion_reward_card_icon_size(
+				view_size,
+				layout_scale,
+				snapshot,
+				[]
+			)
+			renderer.prepare_fusion_pair_icon(str(perk_reward.get("draw_id", "")), icon_size, true)
 	var current_boxes: Array = _get_scene_array(scene, &"_boxes")
 	var result: Dictionary = StageClearResultBoxData.append_resolved_perk_reward(
 		current_boxes,

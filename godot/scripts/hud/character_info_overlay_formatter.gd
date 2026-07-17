@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 static func frames_to_seconds(frames: float) -> float:
 	return max(0.0, float(frames)) / 60.0
 
@@ -149,8 +151,12 @@ static func format_plain_number(value: float) -> String:
 
 
 static func perk_level_text(perk: Dictionary) -> String:
+	# 라벨은 렌더 시점에 LanguageSettings로 해석한다 — 캐시된 한국어
+	# 리터럴이 언어 전환 후에도 남는 것을 막는다.
 	if int(perk.get("max_level", 1)) == 1 and str(perk.get("character_restriction", "")) != "":
-		return "해금"
+		return LanguageSettings.translate_text("해금")
+	if int(perk.get("max_level", 1)) == 1:
+		return LanguageSettings.translate_text("고유")
 	return "Lv.%d" % int(perk.get("level", 1))
 
 

@@ -580,14 +580,18 @@ func _get_runtime_skill_levels_with_all_fusion_bonuses(runtime_state: Object) ->
 	return adjusted_levels
 
 
-func _apply_fusion_skill_bonus(_runtime_state: Object, _perk_id: String, base_value: float) -> float:
-	# 퍽 융합 미탑재 트리: 융합 보정 없이 원값을 그대로 반환한다.
-	return base_value
+func _apply_fusion_skill_bonus(runtime_state: Object, perk_id: String, base_value: float) -> float:
+	# 융합 흉터(central bonus 오버레이)는 runtime_perk_state의 위임 래퍼를
+	# 경유한다 — 융합 미보유 state는 코어가 원값을 그대로 돌려준다.
+	if runtime_state == null or not runtime_state.has_method("apply_perk_fusion_option_value"):
+		return base_value
+	return float(runtime_state.apply_perk_fusion_option_value(perk_id, "runtime_skill_bonus", base_value))
 
 
-func _get_fusion_effective_level_bonus(_runtime_state: Object, _perk_id: String) -> int:
-	# 퍽 융합 미탑재 트리: 유효 레벨 보너스 0.
-	return 0
+func _get_fusion_effective_level_bonus(runtime_state: Object, perk_id: String) -> int:
+	if runtime_state == null or not runtime_state.has_method("get_perk_fusion_effective_level_bonus"):
+		return 0
+	return int(runtime_state.get_perk_fusion_effective_level_bonus(perk_id))
 
 
 func _get_item_perk_level_bonus(runtime_state: Object) -> int:

@@ -2,6 +2,7 @@ extends RefCounted
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
@@ -870,7 +871,10 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 			if slot_count >= slot_limit:
 				_draw_text(canvas, get_full_slot_hint(), rect.position + Vector2(rect.size.x - 118.0, 89.0), 12, Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.90))
 
-	var acquired: Array = _build_acquired_perks(levels, catalog, runtime_state)
+	# 실경로 fold: 스냅샷의 융합 projection을 소비하는 4인자 빌더가 정본 —
+	# 융합 소스 퍽은 개별 아이콘으로 재등장하지 않고 재료쌍 합성 셀 하나로
+	# 접힌다(레거시 3인자 빌더는 projection 미인지).
+	var acquired: Array = _build_acquired_perks_for_snapshot(levels, catalog, runtime_state, snapshot)
 	if acquired.is_empty():
 		_draw_text(canvas, LanguageSettings.translate_text("획득한 퍽 없음"), rect.position + Vector2(108.0, 27.0), 13, Color(115.0 / 255.0, 120.0 / 255.0, 140.0 / 255.0))
 		return
@@ -879,6 +883,9 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	var gap := 6.0
 	var start := rect.position + Vector2(108.0, 18.0)
 	var max_count: int = max(1, int((rect.size.x - 122.0) / (icon_size + gap)))
+	# 융합 재료쌍 합성 텍스처는 업데이트 경로(runtime_perk_state.update의
+	# 스테이지드 프리웜)가 소유한다 — 이 draw는 조회 전용이고 미스 프레임은
+	# 아이콘 렌더러의 절차 폴백이 담당한다(draw 내 합성 금지).
 	for idx in range(min(max_count, acquired.size())):
 		var skill: Dictionary = acquired[idx]
 		var icon_rect := Rect2(start + Vector2(float(idx) * (icon_size + gap), 0.0), Vector2(icon_size, icon_size))
@@ -1263,38 +1270,33 @@ func _draw_perk_symbol(canvas: CanvasItem, rect: Rect2, color: Color, tree: Stri
 		canvas.draw_circle(center, radius * 0.36, hi)
 
 
-func _build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: Object = null) -> Array:
-	var result: Array = []
-	for skill_id in levels.keys():
-		var base_level: int = int(levels[skill_id])
-		if base_level <= 0:
+# 런타임 선택 상태 패널이 스냅샷의 접힌 융합 projection을 그대로 소비한다
+# (TAB presenter와 같은 fold — 융합 소스 퍽을 개별 셀로 재드로우하지 않고
+# 재료쌍 합성 아이콘 키 하나로 라우팅).
+func _build_acquired_perks_for_snapshot(levels: Dictionary, catalog: Object, runtime_state: Object, snapshot: Dictionary) -> Array:
+	var entries: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		levels,
+		catalog,
+		runtime_state,
+		snapshot
+	)
+	# 상태 패널의 아이콘 라우팅은 엔트리 id를 그대로 아이콘 키로 쓴다 —
+	# 융합 셀은 재료쌍 합성 키(리비전 포함)로 승격한다(TAB은 id=fusion_id와
+	# _draw_id를 분리 유지하는 것과 대비되는 소비자별 계약).
+	for entry_value: Variant in entries:
+		if not (entry_value is Dictionary):
 			continue
-		var skill_id_text: String = str(skill_id)
-		var level: int = _get_effective_runtime_perk_level(runtime_state, skill_id_text, base_level)
-		var data: Dictionary = {}
-		if catalog != null and catalog.has_method("get_perk_data"):
-			data = catalog.get_perk_data(skill_id_text)
-		if data.is_empty():
-			data = {"name": skill_id_text, "icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0), "tree": ""}
-		data = data.duplicate(true)
-		data["id"] = skill_id_text
-		data["base_level"] = base_level
-		data["level"] = level
-		result.append(data)
-	result.sort_custom(Callable(self, "_sort_perks_by_level"))
-	return result
+		var entry: Dictionary = entry_value as Dictionary
+		var draw_id := str(entry.get("_draw_id", ""))
+		if draw_id.begins_with("perk_fusion_pair:"):
+			entry["id"] = draw_id
+	return entries
 
 
-func _get_effective_runtime_perk_level(runtime_state: Object, skill_id: String, base_level: int) -> int:
-	if base_level <= 0:
-		return base_level
-	if runtime_state != null and runtime_state.has_method("get_runtime_skill_level"):
-		return max(0, int(runtime_state.get_runtime_skill_level(skill_id)))
-	return base_level
-
-
-func _sort_perks_by_level(a: Dictionary, b: Dictionary) -> bool:
-	return int(a.get("level", 0)) > int(b.get("level", 0))
+# 레거시 3인자 진입점: snapshot 없는 호출을 정본 4인자 fold로 위임한다
+# (별도 자체 빌더를 유지하면 projection 미인지 dead 경로가 재발한다).
+func _build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: Object = null) -> Array:
+	return _build_acquired_perks_for_snapshot(levels, catalog, runtime_state, {})
 
 
 func _level_text(choice: Dictionary) -> String:
@@ -1302,11 +1304,15 @@ func _level_text(choice: Dictionary) -> String:
 	if override != "":
 		return override
 	if bool(choice.get("is_gold_conversion", false)):
-		return "골드"
+		return LanguageSettings.translate_text("골드")
 	if bool(choice.get("is_instant", false)):
-		return "즉시"
+		return LanguageSettings.translate_text("즉시")
 	if _shows_character_unlock_badge(choice):
-		return "해금"
+		return LanguageSettings.translate_text("해금")
+	# 1회성(최대 Lv.1) 퍽은 레벨 대신 '고유' 태그 — 선택 카드와 획득 패널이
+	# 같은 라우팅(LanguageSettings)을 쓴다.
+	if int(choice.get("max_level", 99)) == 1 and str(choice.get("character_restriction", "")) == "":
+		return LanguageSettings.translate_text("고유")
 	return "Lv.%d" % int(choice.get("next_level", 1))
 
 
@@ -1351,8 +1357,8 @@ static func get_full_slot_hint() -> String:
 	# 강화에 더해 비소모 후보(슬롯 확장·해금·즉시·골드·링펫)가 전부 계속
 	# 나온다 — 특정 부류만 콕 집는 문구는 실제 후보와 다시 어긋난다.
 	if PerkConversionFlags.is_enabled():
-		return "강화·비소모 퍽만"
-	return "보유 퍽 강화만"
+		return LanguageSettings.translate_text("강화·비소모 퍽만")
+	return LanguageSettings.translate_text("보유 퍽 강화만")
 
 
 func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color) -> void:

@@ -121,6 +121,10 @@ static func configure(
 	scene.set("reward_roll_callback", on_roll_reward)
 	scene.set("immediate_reward_callback", on_immediate_reward)
 	StageClearResultViewportSceneHandler.sync_control_to_viewport(scene)
+	# 융합 보상 카드 아이콘 프리컴포즈(씬 구성 시점 — 드로우 핫패스 밖).
+	# 스냅샷·_boxes·뷰포트 크기가 모두 확정된 뒤에 호출해야 실 fitted
+	# 크기로 준비된다.
+	load("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd").prepare_fusion_reward_icons(scene)
 	load_textures(scene)
 	load_audio(scene)
 	scene.queue_redraw()

@@ -216,7 +216,28 @@ const CONVERTED_MYTHIC_VALUES := {
 }
 
 
-static func get_value(perk_id: String, key: String, level: int) -> float:
+# 값이 낮을수록 이득인 레인 여부(쿨타임 초·게이지 코스트류 — 융합 페널티
+# 레인의 polarity=reverse 판정). 방향은 저작 테이블에서 유도한다: 레벨
+# 진행으로 마지막 값이 첫 값보다 작으면 lower-better — 별도 키 명단을 두면
+# 테이블과 이중 소스가 되어 드리프트한다. 단일 엔트리/불리언 테이블은
+# 방향이 없으므로 false.
+static func is_lower_value_better(perk_id: String, key: String) -> bool:
+	var clean_id := perk_id.strip_edges()
+	if not CONVERTED_PERK_VALUES.has(clean_id):
+		return false
+	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
+	if not table.has(key):
+		return false
+	var values_value: Variant = table[key]
+	if not (values_value is Array):
+		return false
+	var values: Array = values_value
+	if values.size() < 2:
+		return false
+	return float(values[values.size() - 1]) < float(values[0])
+
+
+static func get_value(perk_id: String, key: String, level: int, fusion_overlay_source: Object = null) -> float:
 	var clean_id := perk_id.strip_edges()
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return 0.0
@@ -227,7 +248,19 @@ static func get_value(perk_id: String, key: String, level: int) -> float:
 	if values.is_empty():
 		return 0.0
 	var index := clampi(int(level), 1, values.size()) - 1
-	return float(values[index])
+	var base_value := float(values[index])
+	# 저작 테이블 밖 오버플로우 레벨(왕관/반지/한계돌파 성장)은 마지막 구간
+	# 기울기로 선형 외삽한다 — 유효레벨 오버플로우는 기본이 계속 스케일이다
+	# (하드캡은 명시적 예외만).
+	if int(level) > values.size() and values.size() >= 2:
+		var last_step := float(values[values.size() - 1]) - float(values[values.size() - 2])
+		base_value += last_step * float(int(level) - values.size())
+	# 4번째 인자(runtime_perk_state)가 있으면 융합 오버레이를 적용한다 —
+	# 정수 레인은 코어가 성장한 base에 대해 라이브 재양자화한다(3인자
+	# 호출은 융합 이전 원값으로 하위호환).
+	if fusion_overlay_source != null and fusion_overlay_source.has_method("apply_perk_fusion_option_value"):
+		return float(fusion_overlay_source.apply_perk_fusion_option_value(clean_id, key, base_value))
+	return base_value
 
 
 static func get_mythic_value(perk_id: String, key: String) -> float:

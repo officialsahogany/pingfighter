@@ -323,7 +323,7 @@ func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) ->
 	var level := _get_converted_perk_level(runtime, perk_id)
 	if level <= 0:
 		return 0.0
-	return PerkConversionValues.get_value(perk_id, key, level)
+	return PerkConversionValues.get_value(perk_id, key, level, runtime.runtime_perk_state_ref if runtime != null else null)
 
 
 func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:

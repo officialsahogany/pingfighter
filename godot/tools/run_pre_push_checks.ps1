@@ -74,7 +74,25 @@ $focusedSmoke = @(
     "res://tests/battle_playfield_effects_drawer_character_gate_smoke.gd",
     "res://tests/perk_slot_limit_smoke.gd",
     "res://tests/active_item_hologram_disk_smoke.gd",
-    "res://tests/mobile_touch_accept_channel_smoke.gd"
+    "res://tests/mobile_touch_accept_channel_smoke.gd",
+    "res://tests/perk_fusion_state_smoke.gd",
+    "res://tests/perk_fusion_outcome_rules_smoke.gd",
+    "res://tests/perk_fusion_result_builder_smoke.gd",
+    "res://tests/perk_fusion_penalty_lane_builder_smoke.gd",
+    "res://tests/perk_fusion_byproduct_catalog_smoke.gd",
+    "res://tests/perk_fusion_byproduct_runtime_smoke.gd",
+    "res://tests/perk_fusion_offer_planner_smoke.gd",
+    "res://tests/perk_fusion_modal_flow_smoke.gd",
+    "res://tests/perk_fusion_modal_input_smoke.gd",
+    "res://tests/perk_fusion_localization_smoke.gd",
+    "res://tests/perk_fusion_display_projection_smoke.gd",
+    "res://tests/perk_fusion_projection_cache_smoke.gd",
+    "res://tests/perk_fusion_display_consumer_smoke.gd",
+    "res://tests/perk_fusion_tooltip_worst_case_smoke.gd",
+    "res://tests/perk_fusion_icon_runtime_smoke.gd",
+    "res://tests/perk_fusion_overlay_renderer_smoke.gd",
+    "res://tests/perk_fusion_result_icon_prepare_smoke.gd",
+    "res://tests/perk_fusion_value_hooks_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

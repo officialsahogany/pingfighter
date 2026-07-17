@@ -90,6 +90,19 @@ const PERK_ICON_PATHS := {
 	"angel_blessing": "res://assets/sprites/perks/angel_blessing_perk_icon.png",
 }
 
+# 융합 제안 카드 아트: 명시 PNG 경로 테이블(공유 텍스처 캐시 진입).
+const FUSION_OFFER_ICON_PATHS := {
+	"perk_fusion": "res://assets/sprites/perks/perk_fusion_offer_0.png",
+	"perk_fusion_0": "res://assets/sprites/perks/perk_fusion_offer_0.png",
+	"perk_fusion_1": "res://assets/sprites/perks/perk_fusion_offer_1.png",
+	"perk_fusion_2": "res://assets/sprites/perks/perk_fusion_offer_2.png",
+	"perk_fusion_3": "res://assets/sprites/perks/perk_fusion_offer_3.png",
+	"perk_fusion_4": "res://assets/sprites/perks/perk_fusion_offer_4.png",
+}
+const FUSION_PAIR_KEY_PREFIX := "perk_fusion_pair:"
+const FUSION_PAIR_DEFAULT_SIZE := Vector2(64.0, 64.0)
+const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
+
 const PERK_SHEET_PATHS := {
 	"common_refresh": "res://assets/sprites/perks/common_refresh_perk_icon_sheet.png",
 	"instant_gauge_full": "res://assets/sprites/perks/instant_gauge_full_perk_icon_sheet.png",
@@ -228,6 +241,12 @@ func prewarm_assets_step(batch_size: int = PREWARM_ASSET_BATCH_SIZE) -> bool:
 func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float = 1.0, active: bool = true) -> bool:
 	if canvas == null or skill_id == "":
 		return false
+	# 융합 재료쌍: 조회 전용 캐시 소비+소유 절차 폴백 — 캐시 미스 프레임도
+	# 융합 아이콘으로 렌더되고, 합성은 프리웜(엔트리 빌드/씬 구성) 소유라
+	# 드로우 핫패스 재합성이 없다.
+	if skill_id.begins_with(FUSION_PAIR_KEY_PREFIX):
+		_draw_perk_fusion_pair_icon(canvas, skill_id, rect, active, alpha)
+		return true
 	var source: Dictionary = _get_icon_source(skill_id)
 	var texture: Texture2D = source.get("texture", null)
 	if texture == null:
@@ -247,11 +266,198 @@ func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float =
 
 
 func has_icon(skill_id: String) -> bool:
+	# 융합 재료쌍 키는 파싱만 유효하면 항상 렌더 가능하다(합성 텍스처 미스
+	# 프레임도 소유 절차 폴백이 담당) — 캐시 상태에 따라 has/hasn't가
+	# 흔들리면 소비자 폴백 분기가 프레임마다 튄다.
+	if skill_id.begins_with(FUSION_PAIR_KEY_PREFIX):
+		return not PerkFusionIconKey.parse(skill_id).is_empty()
 	return _get_icon_source(skill_id).get("texture", null) != null
+
+
+# 애니메이션(시트) 아이콘 여부. 융합 재료쌍 합성은 항상 정적 경로 — 시트
+# 재료도 임의 프레임을 얼리는 대신 결정적 정적 companion으로 합성한다.
+func has_animated_icon(skill_id: String) -> bool:
+	if skill_id.begins_with(FUSION_PAIR_KEY_PREFIX):
+		return false
+	return PERK_SHEET_PATHS.has(skill_id)
+
+
+# 재료쌍 합성 텍스처 준비(드로우 핫패스 밖). 슬롯 키=fusion_id — 복수
+# 융합(A/B)이 동시에 표시돼도 서로의 텍스처를 몰아내지 않는다. 슬롯 안의
+# cache_key=pair_id(리비전·소스 포함)/size/active — 같은 fusion_id의 키
+# 변경(리비전·소스·크기)만 그 슬롯을 교체 재합성한다.
+var _fusion_pair_texture_cache: Dictionary = {}
+var _fusion_pair_compositions := 0
+var _fusion_pair_cache_hits := 0
+
+
+func prepare_fusion_pair_icon(pair_id: String, icon_size: Vector2, active: bool) -> bool:
+	var cache_key := "%s|%dx%d|%d" % [pair_id, int(icon_size.x), int(icon_size.y), int(active)]
+	# 히트 경로는 parse/합성 없이 슬롯 키 대조만 — 프레임 안 반복 호출 무비용.
+	for slot_value: Variant in _fusion_pair_texture_cache.values():
+		if slot_value is Dictionary and str((slot_value as Dictionary).get("key", "")) == cache_key:
+			_fusion_pair_cache_hits += 1
+			return true
+	var parsed: Dictionary = PerkFusionIconKey.parse(pair_id)
+	if parsed.is_empty():
+		return false
+	var texture: Texture2D = _compose_fusion_pair_texture(parsed, icon_size, active)
+	if texture == null:
+		return false
+	_fusion_pair_texture_cache[str(parsed.get("fusion_id", pair_id))] = {
+		"key": cache_key,
+		"texture": texture,
+	}
+	_fusion_pair_compositions += 1
+	return true
+
+
+func get_fusion_pair_cache_stats() -> Dictionary:
+	return {
+		"textures": _fusion_pair_texture_cache.size(),
+		"compositions": _fusion_pair_compositions,
+		"hits": _fusion_pair_cache_hits,
+	}
+
+
+# 스테이지드 프리웜(업데이트/오픈 경로 소유 — CanvasItem draw 밖): 상태의
+# 융합 projection을 읽어 재료쌍 텍스처를 미리 합성한다. 마커=리비전×캐시
+# 서명×크기 — 무변경 재호출은 O(1) 문자열 비교로 끝나고, 드로우 소비자는
+# 조회 전용(미스=절차 폴백)을 유지하므로 draw 프레임에서 합성이 없다.
+var _fusion_pair_prewarm_marker := ""
+
+
+func prewarm_fusion_pair_icons_for_state(runtime_state: Object, icon_size: Vector2 = FUSION_PAIR_DEFAULT_SIZE) -> int:
+	if runtime_state == null or not runtime_state.has_method("get_perk_fusion_display_projection"):
+		return 0
+	var projection: Dictionary = runtime_state.get_perk_fusion_display_projection()
+	var marker := "%s|%s|%dx%d" % [
+		str(projection.get("fusion_revision", 0)),
+		str(projection.get("cache_signature", 0)),
+		int(icon_size.x),
+		int(icon_size.y),
+	]
+	if marker == _fusion_pair_prewarm_marker:
+		return 0
+	var prepared := 0
+	var complete := true
+	for entry_value: Variant in projection.get("entries", []) as Array:
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		if str(entry.get("type", "")) != "fusion":
+			continue
+		var pair_id: String = PerkFusionIconKey.build(
+			str(entry.get("fusion_id", "")),
+			int(entry.get("fusion_revision", 0)),
+			entry.get("sources", []) as Array
+		)
+		if prepare_fusion_pair_icon(pair_id, icon_size, true):
+			prepared += 1
+		else:
+			complete = false
+	if complete:
+		_fusion_pair_prewarm_marker = marker
+	return prepared
+
+
+# 드로우 경로 소비자: 조회 전용(합성·parse 없음). 저장된 cache_key가 요청
+# pair_id(리비전·소스 포함)와 맞아야만 히트 — stale 리비전 텍스처를 그리지
+# 않는다.
+func _get_fusion_pair_cached_texture(pair_id: String) -> Texture2D:
+	var wanted_prefix := pair_id + "|"
+	for slot_value: Variant in _fusion_pair_texture_cache.values():
+		if not (slot_value is Dictionary):
+			continue
+		var slot: Dictionary = slot_value
+		if str(slot.get("key", "")).begins_with(wanted_prefix):
+			return slot.get("texture", null) as Texture2D
+	return null
+
+
+# 두 재료 아이콘을 좌/우 반반 합성(대각 컷 없이 결정적 배치). Image 합성 —
+# 드로우 경로의 폴리곤 삼각분할·뷰포트 캡처 비용을 피한다.
+func _compose_fusion_pair_texture(parsed: Dictionary, icon_size: Vector2, active: bool) -> Texture2D:
+	var sources: Array = parsed.get("sources", []) as Array
+	if sources.size() != 2:
+		return null
+	var width: int = maxi(8, int(round(icon_size.x)))
+	var height: int = maxi(8, int(round(icon_size.y)))
+	var composed := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	composed.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var half_width: int = maxi(1, width / 2)
+	for side in range(2):
+		var source_image: Image = _get_fusion_source_icon(str(sources[side]), Vector2(half_width, height))
+		if source_image == null:
+			continue
+		if not active:
+			source_image.adjust_bcs(0.72, 1.0, 0.55)
+		composed.blit_rect(
+			source_image,
+			Rect2i(Vector2i.ZERO, Vector2i(half_width, height)),
+			Vector2i(side * half_width, 0)
+		)
+	return ImageTexture.create_from_image(composed)
+
+
+# 재료 소스 아이콘의 결정적 정적 이미지. 정적 PNG가 있으면 그 텍스처를,
+# 시트만 있으면(임의 프레임 얼림 금지) 아이콘 id 해시 기반의 결정적
+# 그라디언트 플레이스홀더를 쓴다.
+func _get_fusion_source_icon(perk_id: String, target_size: Vector2) -> Image:
+	var width: int = maxi(1, int(round(target_size.x)))
+	var height: int = maxi(1, int(round(target_size.y)))
+	var static_path: String = _get_static_path(perk_id)
+	if static_path != "":
+		var texture: Texture2D = _get_texture(static_path)
+		if texture != null:
+			var image: Image = texture.get_image()
+			if image != null and not image.is_empty():
+				image = image.duplicate()
+				if image.is_compressed():
+					image.decompress()
+				image.convert(Image.FORMAT_RGBA8)
+				image.resize(width, height, Image.INTERPOLATE_LANCZOS)
+				return image
+	var seed_hash: int = hash(perk_id)
+	var base_color := Color.from_hsv(float(seed_hash % 360) / 360.0, 0.55, 0.85, 1.0)
+	var placeholder := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	for y in range(height):
+		var row_shade: float = 0.75 + 0.25 * (1.0 - float(y) / maxf(1.0, float(height - 1)))
+		var row_color := Color(base_color.r * row_shade, base_color.g * row_shade, base_color.b * row_shade, 1.0)
+		for x in range(width):
+			placeholder.set_pixel(x, y, row_color)
+	return placeholder
+
+
+# 소유 폴백 아트: PNG가 전부 실패해도 융합 아이콘은 렌더 가능해야 한다.
+# 원/링 기반 절차 드로우 — draw_colored_polygon 삼각분할 위험 회피.
+func _draw_perk_fusion_icon(canvas: CanvasItem, rect: Rect2, active: bool) -> void:
+	var center: Vector2 = rect.get_center()
+	var radius: float = minf(rect.size.x, rect.size.y) * 0.42
+	var body_color := Color(0.72, 0.46, 0.98, 1.0 if active else 0.6)
+	canvas.draw_circle(center, radius, Color(0.16, 0.10, 0.24, 0.9))
+	canvas.draw_arc(center, radius * 0.92, 0.0, TAU, 24, body_color, 2.0, true)
+	canvas.draw_circle(center + Vector2(-radius * 0.3, 0.0), radius * 0.34, Color(0.5, 0.75, 1.0, 0.85))
+	canvas.draw_circle(center + Vector2(radius * 0.3, 0.0), radius * 0.34, Color(1.0, 0.62, 0.42, 0.85))
+	canvas.draw_arc(center, radius * 0.45, 0.0, TAU, 16, Color(1.0, 0.9, 0.6, 0.9), 1.5, true)
+
+
+# 재료쌍 표시 아이콘의 소유 드로우 진입점(합성 텍스처 캐시 소비). 미스는
+# 저비용 절차 폴백 — 드로우 핫패스에서 합성하지 않는다(프리웜은 엔트리
+# 빌드/씬 구성 시점 소유).
+func _draw_perk_fusion_pair_icon(canvas: CanvasItem, pair_id: String, rect: Rect2, active: bool, alpha: float = 1.0) -> void:
+	var cached: Texture2D = _get_fusion_pair_cached_texture(pair_id)
+	if cached != null:
+		var modulate := Color(1.0, 1.0, 1.0, alpha) if active else Color(0.48, 0.48, 0.48, 0.78 * alpha)
+		canvas.draw_texture_rect(cached, rect, false, modulate)
+		return
+	_draw_perk_fusion_icon(canvas, rect, active)
 
 
 func covered_ids() -> Array:
 	var ids: Array = []
+	for key in FUSION_OFFER_ICON_PATHS.keys():
+		ids.append(str(key))
 	for key in PERK_ICON_PATHS.keys():
 		ids.append(str(key))
 	for key in SKILL_ICON_PATHS.keys():
@@ -289,6 +495,14 @@ func _run_prewarm_asset_job(job_value: Variant) -> void:
 
 
 func _get_icon_source(skill_id: String) -> Dictionary:
+	# 융합 재료쌍 키: 조회 전용(드로우 핫패스 — 합성 금지). 미스={} →
+	# 소비자 폴백 심볼이 그 프레임을 담당하고, 프리웜(엔트리 빌드/씬 구성
+	# 시점)이 다음 표시 전에 채운다.
+	if skill_id.begins_with(FUSION_PAIR_KEY_PREFIX):
+		var pair_texture: Texture2D = _get_fusion_pair_cached_texture(skill_id)
+		if pair_texture != null:
+			return {"texture": pair_texture, "region": Rect2(Vector2.ZERO, pair_texture.get_size())}
+		return {}
 	var sheet_path: String = str(PERK_SHEET_PATHS.get(skill_id, ""))
 	if sheet_path != "":
 		var sheet_texture: Texture2D = _get_sheet_texture(sheet_path)
@@ -317,6 +531,8 @@ func _get_icon_source(skill_id: String) -> Dictionary:
 
 
 func _get_static_path(skill_id: String) -> String:
+	if FUSION_OFFER_ICON_PATHS.has(skill_id):
+		return str(FUSION_OFFER_ICON_PATHS[skill_id])
 	if PERK_ICON_PATHS.has(skill_id):
 		return str(PERK_ICON_PATHS[skill_id])
 	var resolved_id: String = _resolve_skill_icon_id(skill_id)
