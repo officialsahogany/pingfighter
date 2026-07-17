@@ -134,6 +134,9 @@ var foul_whistle_state: Object = null
 var revival_state: Object = null
 var odins_eye_state: Object = null
 var odins_eye_afterimage_state: Object = null
+var odins_eye_dark_swamp_state: Object = null
+# 늪 시전 poll-gap 추적(물리-차단 모달 관통 홀드의 합성 에지 억제).
+var odins_eye_dark_swamp_last_poll_frame: int = -1
 var sensor_enabled := true
 var sensor_cooldown_timer_frames := 0.0
 var sensor_auto_dash_tokens := 0
@@ -1772,6 +1775,54 @@ func try_trigger_odins_eye_revival(loss_type: String = "round", roll_pct: float 
 func begin_odins_eye_death_sequence(loss_type: String = "round") -> bool:
 	_ensure_helpers_ready()
 	return odins_eye_runtime.begin_death_sequence(self, loss_type)
+
+
+# stage7 영체탈주 트리거가 읽는 보스 무력화 컨텍스트 — 오딘 늪 스턴과
+# ragnarok/shrapnel 스턴을 합산한다(탈주는 "보스가 CC로 묶였는가"만 본다).
+func get_boss_disable_context() -> Dictionary:
+	_ensure_helpers_ready()
+	var stun_active := false
+	var stun_remaining_frames := 0.0
+	if ragnarok_boss_stun_timer_frames > 0.0:
+		stun_active = true
+		stun_remaining_frames = maxf(stun_remaining_frames, float(ragnarok_boss_stun_timer_frames))
+	if shrapnel_armor_boss_stun_timer_frames > 0.0:
+		stun_active = true
+		stun_remaining_frames = maxf(stun_remaining_frames, float(shrapnel_armor_boss_stun_timer_frames))
+	if odins_eye_dark_swamp_state != null and odins_eye_dark_swamp_state.boss_stun_timer_frames > 0.0:
+		stun_active = true
+		stun_remaining_frames = maxf(stun_remaining_frames, float(odins_eye_dark_swamp_state.boss_stun_timer_frames))
+	return {
+		"stun_active": stun_active,
+		"stun_remaining_frames": stun_remaining_frames,
+	}
+
+
+# 영체탈주 성공 시 무력화 소거. 오딘 늪은 스턴+잔여 속도만 지우고 넉백
+# 창(타이머)은 보존한다(source-split clear — 탈주 복귀 후 남은 넉백 프레임이
+# 정상 소비되도록). ragnarok/shrapnel은 기존 계약대로 전체 소거.
+func clear_boss_disable_effects_for_escape(_registry: Object = null) -> void:
+	_ensure_helpers_ready()
+	ragnarok_boss_stun_timer_frames = 0.0
+	ragnarok_boss_knockback_timer_frames = 0.0
+	ragnarok_boss_knockback_vel = 0.0
+	shrapnel_armor_boss_stun_timer_frames = 0.0
+	shrapnel_armor_boss_knockback_timer_frames = 0.0
+	shrapnel_armor_boss_knockback_vel = 0.0
+	if odins_eye_dark_swamp_state != null:
+		odins_eye_dark_swamp_state.clear_boss_stun_for_escape()
+
+
+func try_activate_odins_eye_dark_swamp(owner: Object, registry: Object) -> bool:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.try_activate_dark_swamp(self, owner, registry)
+
+
+func get_odins_eye_dark_swamp_context() -> Dictionary:
+	_ensure_helpers_ready()
+	if odins_eye_dark_swamp_state == null:
+		return {"enabled": false, "active": false}
+	return odins_eye_dark_swamp_state.get_context(-1.0)
 
 
 func consume_odins_eye_revival_finalize_ready() -> bool:

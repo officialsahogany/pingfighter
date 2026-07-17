@@ -63,6 +63,7 @@ $focusedSmoke = @(
     "res://tests/odins_eye_catalog_smoke.gd",
     "res://tests/odins_eye_chance_gem_floor_smoke.gd",
     "res://tests/odins_eye_dark_swamp_state_smoke.gd",
+    "res://tests/odins_eye_dark_swamp_runtime_smoke.gd",
     "res://tests/odins_eye_death_cinematic_smoke.gd",
     "res://tests/odins_eye_finalize_paddle_land_smoke.gd",
     "res://tests/odins_eye_presentation_fx_host_smoke.gd",

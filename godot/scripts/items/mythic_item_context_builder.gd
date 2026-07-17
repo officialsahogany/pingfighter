@@ -192,6 +192,13 @@ func get_boss_ai_context(runtime: Object, constants: Dictionary) -> Dictionary:
 		"shrapnel_armor_boss_knockback_vel": runtime.shrapnel_armor_boss_knockback_vel,
 	}
 	runtime.baal_boots_combat_state.merge_boss_ai_context(context, baal_rain_slow_multiplier)
+	var dark_swamp: Object = runtime.odins_eye_dark_swamp_state
+	if dark_swamp != null:
+		# 타이머-단독 게이트(Python :178178 파리티): 벽 스톱이 속도를 0으로
+		# 만들어도 남은 넉백 프레임은 보스를 붙들고 대쉬를 막는다.
+		context["odins_eye_boss_stun_active"] = dark_swamp.boss_stun_timer_frames > 0.0
+		context["odins_eye_boss_knockback_active"] = dark_swamp.boss_knockback_timer_frames > 0.0
+		context["odins_eye_boss_knockback_vel"] = dark_swamp.boss_knockback_vel
 	return context
 
 

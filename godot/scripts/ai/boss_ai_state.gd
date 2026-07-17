@@ -73,6 +73,12 @@ var boss_dash_max_tokens := BOSS_DASH_STAGE1_MAX_TOKENS
 var boss_dash_charge_timer_frames := 0.0
 var boss_dash_recharge_frames := 1.0
 var boss_dash_active := false
+# stage7 극정호신 소유 대쉬의 좀비 판정용 1-AI페이즈 미러: 극정호신 플래그가
+# 꺼진 프레임에 아직 살아 있는 소유 대쉬를 취소하고 같은 update에서 오딘
+# 스턴을 낙하 적용한다(취소→다음 프레임 grace 중복이 61회 적용을 만들던
+# 함정). 이 미러는 dash 분기 진입 시에만 갱신되는 스테일 값이므로 아이템측
+# 게이트 소스로 쓰면 안 된다(runtime은 stage7 state를 직접 peek).
+var _stage7_superspeed_was_active := false
 var boss_dash_timer_frames := 0.0
 var boss_dash_duration_frames := 0.0
 var boss_dash_direction := 0
@@ -185,6 +191,32 @@ func update(delta: float, boss_pos: Vector2, boss_vel: float, context: Dictionar
 		var frozen_pos: Vector2 = boss_pos
 		if bool(context.get("stage7_akamu_scripted_motion_active", false)):
 			frozen_pos = _as_vector2(context.get("stage7_akamu_scripted_boss_pos", boss_pos), boss_pos)
+		# 실 Stage7은 scripted motion 중 이 frozen 플래그를 항상 true로 내므로,
+		# escape > 오딘 넉백 > 캐스팅 핀 우선순위는 이 외곽 게이트에서 성립해야
+		# 한다(_update_motion 안에만 두면 실전 도달 불가). 순수 연출 동결
+		# (gameplay freeze)은 CC까지 전부 동결한다.
+		if (
+			bool(context.get("stage7_akamu_scripted_motion_active", false))
+			and not bool(context.get("stage7_akamu_gameplay_freeze_active", false))
+			and not bool(context.get("stage7_akamu_escape_active", false))
+			and not _is_stage2_speed_defense_status_immune(context)
+			and bool(context.get("odins_eye_boss_knockback_active", false))
+		):
+			var frozen_odin_kb_vel: float = float(context.get("odins_eye_boss_knockback_vel", 0.0))
+			var frozen_kb_pos: Vector2 = boss_pos
+			frozen_kb_pos.x += frozen_odin_kb_vel * (delta * 60.0)
+			frozen_kb_pos.x = clamp(
+				frozen_kb_pos.x,
+				float(context.get("play_left", 0.0)),
+				float(context.get("play_right", float(context.get("width", 760.0)))) - float(context.get("boss_paddle_width", 100.0))
+			)
+			# 넉백은 실제 이동이므로 정상 이동 경로와 같은 순서로 몰로토프
+			# 장벽→모래감옥 후처리를 통과해야 한다 — 조기 반환으로 우회하면
+			# 캐스팅 중 늪 넉백이 화염을 관통하거나 감옥 밖으로 나간다.
+			# 저작(authored) frozen 좌표의 기존 후처리 우회는 아래 반환이 유지.
+			var frozen_kb_result: Dictionary = {"boss_pos": frozen_kb_pos, "boss_vel": frozen_odin_kb_vel}
+			frozen_kb_result = _apply_molotov_fire_barrier(frozen_kb_result, boss_pos, context)
+			return _apply_lingpet_sand_prison_clamp(frozen_kb_result, context)
 		return {"boss_pos": frozen_pos, "boss_vel": 0.0}
 	var entry_boss_pos: Vector2 = boss_pos
 	var result: Dictionary = _update_motion(delta, boss_pos, boss_vel, context)
@@ -291,6 +323,7 @@ func cancel_dash_for_fire_block(stun_seconds: float = BOSS_DASH_STAGE1_STUN_SECO
 	boss_dash_active = false
 	boss_dash_timer_frames = 0.0
 	boss_dash_direction = 0
+	_stage7_superspeed_was_active = false
 	boss_dash_stun_total_frames = max(1.0, max(0.0, stun_seconds) * 60.0)
 	boss_dash_stun_timer_frames = boss_dash_stun_total_frames
 	if audio != null and audio.has_method("play_dash_delay"):
@@ -352,14 +385,51 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			"boss_vel": 0.0,
 		}
 
+	# 오딘 스파이크 넉백: 대쉬/후딜/극정호신 복귀보다
+	# 위(Python :178176 "대쉬/후딜보다 우선 처리"). 게이트는 타이머 단독 —
+	# 벽 스톱으로 속도가 0이어도 남은 프레임은 보스를 붙들고 대쉬 타이머를
+	# 동결시킨다(대쉬 분기 미도달 = 타이머 미소비).
+	if not stage2_status_immune and bool(context.get("odins_eye_boss_knockback_active", false)):
+		var odin_knockback_vel: float = float(context.get("odins_eye_boss_knockback_vel", 0.0))
+		boss_pos.x += odin_knockback_vel * fps_scale
+		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": odin_knockback_vel,
+		}
+
 	if boss_dash_active:
-		return _update_boss_dash_motion(boss_pos, context, fps_scale)
+		if (
+			_stage7_superspeed_was_active
+			and not bool(context.get("stage7_akamu_superspeed_active", false))
+		):
+			# 좀비 대쉬: 극정호신 소유 대쉬가 플래그 드랍 후 잔존 — 취소하고
+			# 이번 update에서 아래 분기(오딘 스턴 등)로 낙하한다.
+			boss_dash_active = false
+			boss_dash_timer_frames = 0.0
+			boss_dash_direction = 0
+			_stage7_superspeed_was_active = false
+		else:
+			_stage7_superspeed_was_active = bool(context.get("stage7_akamu_superspeed_active", false))
+			return _update_boss_dash_motion(boss_pos, context, fps_scale)
 
 	if boss_dash_stun_timer_frames > 0.0:
 		if stage2_status_immune:
 			_clear_boss_dash_stun()
 		else:
 			return _update_boss_dash_stun(boss_pos, context, fps_scale)
+
+	# 오딘 스턴 잔여: 대쉬 아래(Python :178654 — 대쉬가 살아 있으면 대쉬가
+	# 먼저 끝나고, 아이템측 게이트가 스턴 타이머를 동결한다). 감쇠 잔여
+	# 속도는 state가 소유하고 여기서는 그대로 적용만 한다.
+	if not stage2_status_immune and bool(context.get("odins_eye_boss_stun_active", false)):
+		var odin_stun_residual: float = float(context.get("odins_eye_boss_knockback_vel", 0.0))
+		boss_pos.x += odin_stun_residual * fps_scale
+		boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": odin_stun_residual,
+		}
 
 	if not stage2_status_immune and bool(context.get("stage1_dalji_whip_post_stun_active", false)):
 		return {
@@ -609,6 +679,7 @@ func _apply_stage2_speed_defense_initial_velocity(
 
 
 func _reset_boss_dash() -> void:
+	_stage7_superspeed_was_active = false
 	boss_dash_max_tokens = BOSS_DASH_STAGE1_MAX_TOKENS
 	boss_dash_tokens = boss_dash_max_tokens
 	boss_dash_charge_timer_frames = 0.0
@@ -709,6 +780,10 @@ func _try_start_boss_dash(
 
 func _start_boss_dash(direction: int, target_center_x: float, dash_distance: float, context: Dictionary) -> void:
 	boss_dash_active = true
+	# 극정호신 소유권은 대쉬 시작 시점에 명시 래치한다 — 활성 분기에서만
+	# 갱신하면 이전 극정호신 대쉬의 잔존 true가 다음 일반 대쉬를 첫 업데이트에
+	# 좀비로 오인·즉시 취소시킨다.
+	_stage7_superspeed_was_active = bool(context.get("stage7_akamu_superspeed_active", false))
 	boss_dash_direction = direction
 	boss_dash_target_x = target_center_x
 	boss_dash_stun_timer_frames = 0.0
@@ -772,6 +847,7 @@ func _finish_boss_dash(boss_pos: Vector2, context: Dictionary, fps_scale: float)
 		return
 	boss_dash_active = false
 	boss_dash_timer_frames = 0.0
+	_stage7_superspeed_was_active = false
 	if _try_start_chained_boss_dash(boss_pos, context, fps_scale):
 		return
 	var stun_seconds: float = max(0.0, float(context.get("boss_dash_stun_seconds", BOSS_DASH_STAGE1_STUN_SECONDS)))

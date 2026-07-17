@@ -131,7 +131,13 @@ func begin_death_sequence(runtime: Object, loss_type: String = "round") -> bool:
 
 func consume_revival_finalize_ready(runtime: Object) -> bool:
 	var state: Object = runtime.odins_eye_state
-	return state != null and state.consume_revival_finalize_ready()
+	if state == null or not state.consume_revival_finalize_ready():
+		return false
+	# 부활 finalize가 페널티 폼을 확정하는 프레임이 어둠의 늪 해금 지점이다 —
+	# 연출 종료(타이머 소진)만으로 해금하면 finalize 이전 프레임에 시전이 샌다.
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.enable()
+	return true
 
 
 func consume_death_finalize_ready(runtime: Object) -> bool:
@@ -154,6 +160,8 @@ func clear_after_victory(runtime: Object) -> void:
 	if state != null:
 		state.clear_after_victory()
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.clear_after_victory()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -162,6 +170,8 @@ func clear_after_death(runtime: Object) -> void:
 	if state != null:
 		state.clear_after_death()
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.clear_after_death()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -244,6 +254,11 @@ func get_context(runtime: Object) -> Dictionary:
 	var afterimage_state: Object = runtime.odins_eye_afterimage_state
 	if afterimage_state != null:
 		context["afterimage"] = afterimage_state.get_context()
+	# 렌더러의 늪 스핀(_resolve_spin)·가시 드로우가 중첩 "dark_swamp" 키를
+	# 소비한다 — 잔상과 같은 중첩-키 관통 계약.
+	var dark_swamp: Object = runtime.odins_eye_dark_swamp_state
+	if dark_swamp != null:
+		context["dark_swamp"] = dark_swamp.get_context(-1.0)
 	return context
 
 
@@ -259,6 +274,8 @@ func clear_on_unequip(runtime: Object) -> void:
 	if state != null:
 		state.set_equipped(false)
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.reset_all()
 	# owner-null cancel 계약: unequip은 owner 없이도 호스트를 직접 숨긴다.
 	OdinsEyePresentationFxHost.hide_all()
 
@@ -268,6 +285,8 @@ func reset(runtime: Object) -> void:
 	if state != null:
 		state.reset_all()
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.reset_all()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -279,6 +298,8 @@ func reset_round(runtime: Object) -> void:
 	# 잔여물을 함께 지운다.
 	if runtime.odins_eye_afterimage_state != null:
 		runtime.odins_eye_afterimage_state.reset_round()
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.reset_round()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -289,6 +310,8 @@ func on_stage_advance(runtime: Object) -> void:
 	sync_equipment_state(runtime)
 	state.on_stage_advance()
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.on_stage_advance()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -297,6 +320,8 @@ func clear_runtime(runtime: Object) -> void:
 	if state != null:
 		state.on_stage_advance()
 	_clear_afterimage_state(runtime)
+	if runtime.odins_eye_dark_swamp_state != null:
+		runtime.odins_eye_dark_swamp_state.on_stage_advance()
 	OdinsEyePresentationFxHost.hide_all()
 
 
@@ -311,6 +336,7 @@ func update_runtime(runtime: Object, fps_scale: float, owner: Object = null, reg
 		return false
 	var advanced: bool = state.update(max(0.0, fps_scale) / 60.0)
 	_update_afterimage_runtime(runtime, fps_scale, owner, registry)
+	_update_dark_swamp_runtime(runtime, fps_scale, owner, registry)
 	return advanced
 
 
@@ -387,6 +413,172 @@ func _update_afterimage_runtime(runtime: Object, fps_scale: float, owner: Object
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
+# 늪 시전 에지의 poll-gap 억제용 물리 프레임 시계. 물리-차단 모달
+# (스코어보드/TAB 정보)은 update_mythic_items를 통째로 건너뛰어 리더 에지가
+# 스테일해지고, 재개 첫 프레임이 "모달 내내 누르고 있던 버튼"에서 합성
+# just-pressed를 만들 수 있다 — 직전 poll과의 프레임 간격이 1을 넘으면 그
+# 에지를 버린다(Python은 모달 종료 후 새 MOUSEBUTTONDOWN 이벤트가 없었다).
+func _get_input_poll_frame() -> int:
+	return int(Engine.get_physics_frames())
+
+
+# 스턴/넉백 타이머 동결 게이트. active = 극정호신(stage7 state의
+# _superspeed_active 단독 소스 — boss_ai의 1-AI페이즈 스테일 미러를 읽으면
+# 61회 적용 겹침) OR 살아 있는 보스 대쉬. arm_grace = 좀비 대쉬(극정호신
+# 소유 대쉬가 플래그 드랍 후 잔존)면 false — 같은 update에서 AI가 취소·낙하
+# 적용하므로 release grace를 남기면 중복 적용이 된다.
+func _resolve_boss_gate(registry: Object) -> Dictionary:
+	var stage7_state: Object = _peek_registry_instance(registry, "stage7_akamu_state")
+	if _object_flag(stage7_state, "_superspeed_active"):
+		return {"active": true, "arm_grace": true}
+	var boss_ai: Object = _peek_registry_instance(registry, "boss_ai_state")
+	if _object_flag(boss_ai, "boss_dash_active"):
+		var zombie: bool = (
+			_object_flag(boss_ai, "_stage7_superspeed_was_active")
+			and not _object_flag(stage7_state, "_superspeed_active")
+		)
+		return {"active": true, "arm_grace": not zombie}
+	return {"active": false, "arm_grace": true}
+
+
+func _is_boss_dash_gate_active(registry: Object) -> bool:
+	return bool(_resolve_boss_gate(registry).get("active", false))
+
+
+func _is_stage7_escape_freeze_active(registry: Object) -> bool:
+	return _object_flag(_peek_registry_instance(registry, "stage7_akamu_state"), "_escape_active")
+
+
+# Object.get()은 미선언 프로퍼티에 null을 돌려주고 bool(null)은 생성자
+# 에러다 — 진성 true만 참으로 취급하는 null-safe 플래그 읽기.
+func _object_flag(target: Object, property: String) -> bool:
+	if target == null:
+		return false
+	return target.get(property) == true
+
+
+# 어둠의 늪 시전: 페널티 폼의 유일한 공격 수단(legendary_items.py 원본 —
+# 게이지 100/쿨 2s/좌클릭 전용/스파이크 순차 발사/볼 반사/보스 넉백+스턴).
+func try_activate_dark_swamp(runtime: Object, owner: Object, registry: Object) -> bool:
+	var state: Object = runtime.odins_eye_state
+	var swamp: Object = runtime.odins_eye_dark_swamp_state
+	if state == null or swamp == null or owner == null:
+		return false
+	swamp.set_activation_blocked(state.is_revival_animation_active(), state.is_death_animation_active())
+	var gauge: float = float(owner.get("special_gauge"))
+	var player_pos: Vector2 = _as_vector2(owner.get("player_pos"))
+	var paddle_size := Vector2(
+		float(owner.get("player_paddle_width") if owner.get("player_paddle_width") != null else 155.0),
+		float(owner.get("player_paddle_height") if owner.get("player_paddle_height") != null else 50.0)
+	)
+	var boss_pos: Vector2 = _as_vector2(owner.get("boss_pos"))
+	var boss_width: float = float(owner.get("boss_paddle_width") if owner.get("boss_paddle_width") != null else 100.0)
+	var boss_height: float = float(owner.get("boss_hitbox_height") if owner.get("boss_hitbox_height") != null else 40.0)
+	if not swamp.activate(
+		player_pos + paddle_size * 0.5,
+		boss_pos + Vector2(boss_width, boss_height) * 0.5,
+		gauge
+	):
+		return false
+	owner.set("special_gauge", maxf(0.0, gauge - float(swamp.consume_activation_gauge_cost())))
+	# 시전 큐는 문서화된 odinshadow 대용 큐(전용 시전음 미보유).
+	var audio: Object = _peek_registry_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_odins_eye_shadow"):
+		audio.play_odins_eye_shadow()
+	var feedback: Object = _peek_registry_instance(registry, "battle_feedback_state")
+	if feedback != null and feedback.has_method("trigger_gauge_flash"):
+		feedback.trigger_gauge_flash()
+	return true
+
+
+func _update_dark_swamp_runtime(runtime: Object, fps_scale: float, owner: Object, registry: Object) -> void:
+	var state: Object = runtime.odins_eye_state
+	var swamp: Object = runtime.odins_eye_dark_swamp_state
+	if state == null or swamp == null or owner == null:
+		return
+	# 부활/사망 연출 중 시전 차단 동기화(연출이 몸을 소유하는 동안 늪 금지).
+	swamp.set_activation_blocked(state.is_revival_animation_active(), state.is_death_animation_active())
+	var paused: bool = (
+		runtime.pause_gate != null
+		and runtime.pause_gate.has_method("should_pause_game")
+		and bool(runtime.pause_gate.should_pause_game(runtime))
+	)
+
+	# 시전 에지 리스너: 좌클릭 계열 전용(키보드 Space/X의 action 에지는
+	# Python 계약상 시전하지 않는다). poll-gap이 1을 넘으면 물리-차단 모달을
+	# 통과한 홀드가 합성한 에지이므로 버린다.
+	var poll_frame: int = _get_input_poll_frame()
+	var previous_poll_frame: int = int(runtime.odins_eye_dark_swamp_last_poll_frame)
+	runtime.odins_eye_dark_swamp_last_poll_frame = poll_frame
+	var synthesized_edge: bool = previous_poll_frame >= 0 and poll_frame - previous_poll_frame > 1
+	if bool(state.penalty_active) and not paused and not synthesized_edge:
+		var input_reader_key: String = _character_runtime.get_input_reader_key(owner.get("selected_character_type"))
+		var input_reader: Object = _peek_registry_instance(registry, input_reader_key)
+		if input_reader != null and input_reader.has_method("get_snapshot"):
+			var input_snapshot: Dictionary = input_reader.get_snapshot()
+			if bool(input_snapshot.get("mouse_left_just_pressed", false)):
+				try_activate_dark_swamp(runtime, owner, registry)
+
+	if paused or not swamp.has_runtime_update_work():
+		return
+
+	# 벽 스톱(Python 파리티): 벽에 붙은 보스의 잔여 속도가 벽 쪽을 향하면
+	# 0으로 — 이후의 대쉬가 보스를 벽에서 떼어내며 스테일 잔여를 재적용하지
+	# 못하게 한다. 창(타이머)은 살아남는다.
+	if swamp.boss_stun_timer_frames > 0.0 or swamp.boss_knockback_timer_frames > 0.0:
+		var boss_x: float = _as_vector2(owner.get("boss_pos")).x
+		var wall_boss_width: float = float(owner.get("boss_paddle_width") if owner.get("boss_paddle_width") != null else 100.0)
+		var residual: float = float(swamp.boss_knockback_vel)
+		if (boss_x <= 0.0 and residual < 0.0) or (boss_x >= 760.0 - wall_boss_width and residual > 0.0):
+			swamp.boss_knockback_vel = 0.0
+
+	# 웨이브/스파이크/CC 틱: 대쉬·극정호신 게이트와 영체탈주 전량 동결을
+	# state에 전달한다(순차 소비·release grace·감쇠는 state 소유).
+	var gate: Dictionary = _resolve_boss_gate(registry)
+	swamp.update(
+		max(0.0, fps_scale) / 60.0,
+		bool(gate.get("active", false)),
+		bool(gate.get("arm_grace", true)),
+		_is_stage7_escape_freeze_active(registry)
+	)
+	var audio: Object = _peek_registry_instance(registry, "game_audio")
+	if int(swamp.consume_spawned_spike_count()) > 0:
+		if audio != null and audio.has_method("play_odins_eye_spirit"):
+			audio.play_odins_eye_spirit()
+
+	# 볼 반사: 필드의 늪 가시는 공을 위로 튕긴다(±45° 1.4~1.7× — state 소유).
+	if _object_flag(owner, "ball_active"):
+		var ball_pos: Vector2 = _as_vector2(owner.get("ball_pos"))
+		var ball_vel: Vector2 = _as_vector2(owner.get("ball_vel"))
+		var ball_rect := Rect2(ball_pos - Vector2(AFTERIMAGE_BALL_RADIUS_PX, AFTERIMAGE_BALL_RADIUS_PX), Vector2(AFTERIMAGE_BALL_RADIUS_PX * 2.0, AFTERIMAGE_BALL_RADIUS_PX * 2.0))
+		var ball_hit: Dictionary = swamp.check_ball_collision(ball_rect, ball_vel)
+		if bool(ball_hit.get("hit", false)):
+			owner.set("ball_vel", ball_hit.get("new_velocity", ball_vel))
+			if audio != null and audio.has_method("play_odins_eye_attack"):
+				audio.play_odins_eye_attack()
+
+	# 보스 충돌: 히트 시 CC(넉백 24f+스턴 60f)는 state가 기록하고 boss AI
+	# context로 관통한다. 공 비활성이어도 가시는 보스를 때린다. 스테이지2
+	# 상태면역 중에는 무장 자체를 거부하고(ragnarok 계약과 동일) 남아 있던
+	# 오딘 CC도 정리한다 — 타이머만 남으면 면역 종료 뒤 지연 넉백·스턴이
+	# 발동한다.
+	var stage2_immune: bool = (
+		runtime.stage_immunity != null
+		and runtime.stage_immunity.is_stage2_speed_defense_boss_immune(runtime, registry)
+	)
+	if stage2_immune:
+		if swamp.boss_stun_timer_frames > 0.0 or swamp.boss_knockback_timer_frames > 0.0:
+			swamp.clear_boss_status()
+		return
+	var boss_pos: Vector2 = _as_vector2(owner.get("boss_pos"))
+	var hit_boss_width: float = float(owner.get("boss_paddle_width") if owner.get("boss_paddle_width") != null else 100.0)
+	var hit_boss_height: float = float(owner.get("boss_hitbox_height") if owner.get("boss_hitbox_height") != null else 40.0)
+	var boss_hit: Dictionary = swamp.check_boss_collision(Rect2(boss_pos, Vector2(hit_boss_width, hit_boss_height)))
+	if bool(boss_hit.get("hit", false)):
+		if audio != null and audio.has_method("play_odins_eye_attack"):
+			audio.play_odins_eye_attack()
+
+
 func _peek_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
@@ -418,6 +610,13 @@ func has_runtime_update_work(runtime: Object) -> bool:
 		afterimage_state != null
 		and afterimage_state.has_method("has_runtime_update_work")
 		and bool(afterimage_state.has_runtime_update_work())
+	):
+		return true
+	var dark_swamp_state: Object = runtime.odins_eye_dark_swamp_state
+	if (
+		dark_swamp_state != null
+		and dark_swamp_state.has_method("has_runtime_update_work")
+		and bool(dark_swamp_state.has_runtime_update_work())
 	):
 		return true
 	return (
