@@ -12,6 +12,7 @@ const CALLBACK_CONSUME_UNLOCK_SWAP_GAMEPAD_NAVIGATION := "consume_unlock_swap_ga
 const CALLBACK_MOVE_CHOICE_SELECTION := "move_choice_selection"
 const CALLBACK_MOVE_UNLOCK_SWAP_SELECTION := "move_unlock_swap_selection"
 const CALLBACK_CHOOSE_SELECTED := "choose_selected"
+const CALLBACK_NOTE_CONFIRM_INPUT_SOURCE := "note_choice_confirm_input_source"
 const CALLBACK_CONFIRM_UNLOCK_SWAP := "confirm_unlock_swap"
 const CALLBACK_CANCEL_UNLOCK_SWAP := "cancel_unlock_swap"
 const CALLBACK_GET_CARD_INDEX_AT := "get_card_index_at"
@@ -34,6 +35,7 @@ func build_state_callbacks(state: Object) -> Dictionary:
 		CALLBACK_MOVE_CHOICE_SELECTION: Callable(state, "move_selection"),
 		CALLBACK_MOVE_UNLOCK_SWAP_SELECTION: Callable(state, "move_unlock_swap_selection"),
 		CALLBACK_CHOOSE_SELECTED: Callable(state, "choose_selected"),
+		CALLBACK_NOTE_CONFIRM_INPUT_SOURCE: Callable(state, "note_choice_confirm_input_source"),
 		CALLBACK_CONFIRM_UNLOCK_SWAP: Callable(state, "confirm_pending_unlock_swap"),
 		CALLBACK_CANCEL_UNLOCK_SWAP: Callable(state, "cancel_pending_unlock_swap"),
 		CALLBACK_GET_CARD_INDEX_AT: Callable(state, "_get_card_index_at"),
@@ -89,6 +91,14 @@ func handle_choice_input(
 			_call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [navigation_direction])
 			return true
 		if GamepadInput.is_confirm_event(event):
+			# 진입 입력원 전달: 공용 choose_selected callback은 3인자 계약을
+			# 유지한다(스텁·소비자 호환) — RT 여부는 별도 note 채널로 먼저
+			# 알린 뒤 표준 3인자로 호출한다. 주사위 모달은 RT 진입일 때만
+			# 첫 RT 캐스케이드 억제 래치를 무장한다.
+			_call_void(callbacks, CALLBACK_NOTE_CONFIRM_INPUT_SOURCE, [
+				event is InputEventJoypadMotion
+				and (event as InputEventJoypadMotion).axis == JOY_AXIS_TRIGGER_RIGHT
+			])
 			_call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
 			return true
 		return true

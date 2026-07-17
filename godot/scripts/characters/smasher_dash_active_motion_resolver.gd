@@ -15,10 +15,14 @@ func update(
 	direction: float,
 	timer: float,
 	is_half: bool,
-	recovery_frames: float = DASH_RECOVERY_FRAMES
+	recovery_frames: float = DASH_RECOVERY_FRAMES,
+	distance_multiplier: float = 1.0
 ) -> Dictionary:
 	timer -= fps_scale
-	var current_speed: float = _get_current_speed(timer)
+	# 신비의 주사위 dash_distance: 지속프레임이 아니라 속도 배율로 거리를
+	# 조정한다("느리게 오래" 체감 기각 — compute_total_dash_distance와 동일
+	# 커브·동일 배율 결합).
+	var current_speed: float = _get_current_speed(timer) * maxf(0.0, distance_multiplier)
 	player_pos.x += round(direction * current_speed * fps_scale)
 	player_pos.x = clamp(player_pos.x, play_left, play_right - paddle_width)
 

@@ -103,6 +103,17 @@ const FUSION_STAT_DELETED_COLOR := Color(0.62, 0.62, 0.66, 1.0)
 const FUSION_STAT_BYPRODUCT_COLOR := Color(0.55, 0.85, 1.0, 1.0)
 const FUSION_ENTRY_DRAW_COLOR := Color(0.72, 0.46, 0.98, 1.0)
 
+# 신비의 주사위 스탯 행 색: 표시는 raw 부호가 아니라 "이득/손해"(benefit)
+# 기준 — LIB(낮을수록 이득) 3종은 raw 부호가 반전돼 색이 뒤집힌다.
+const MYSTIC_DICE_STAT_BENEFIT_COLOR := Color(0.45, 0.95, 0.55, 1.0)
+const MYSTIC_DICE_STAT_CURSE_COLOR := Color(1.0, 0.45, 0.42, 1.0)
+const MYSTIC_DICE_STAT_NEUTRAL_COLOR := Color(0.66, 0.68, 0.74, 1.0)
+const MYSTIC_DICE_ENTRY_DRAW_COLOR := Color(0.38, 0.28, 0.82, 1.0)
+
+
+static func _mystic_dice_localization() -> Object:
+	return load("res://scripts/characters/mystic_dice_localization.gd")
+
 
 static func _fusion_localization() -> Object:
 	return load("res://scripts/characters/perk_fusion_localization.gd")
@@ -133,6 +144,11 @@ static func build_acquired_perks_from_projection(
 			var fusion_data: Dictionary = _fusion_display_entry(entry, accent_gold)
 			if not fusion_data.is_empty():
 				result.append(fusion_data)
+			continue
+		if str(entry.get("type", "perk")) == "mystic_dice":
+			var dice_data: Dictionary = _mystic_dice_display_entry(entry, accent_gold)
+			if not dice_data.is_empty():
+				result.append(dice_data)
 			continue
 		var perk_id := str(entry.get("perk_id", entry.get("id", "")))
 		var base_level := int(entry.get("base_level", 0))
@@ -209,6 +225,48 @@ static func _fusion_display_entry(entry: Dictionary, accent_gold: Color) -> Dict
 	return data
 
 
+# 신비의 주사위 projection 엔트리 → TAB 표시 엔트리(접착). 슬롯 비소모
+# 셀(_slot_free_cell) 하나로 접히고, detail=플레이버, description=7행
+# 태그 스탯([[dice:*]] — benefit 부호 기준 색)으로 분리 유지한다.
+static func _mystic_dice_display_entry(entry: Dictionary, accent_gold: Color) -> Dictionary:
+	var localization: Object = _mystic_dice_localization()
+	var roller: Object = load("res://scripts/characters/mystic_dice_roller.gd")
+	var permanent_raw: Dictionary = entry.get("permanent_raw", {}) as Dictionary
+	var stat_lines: Array[String] = []
+	for stat_key: String in roller.STAT_KEYS:
+		var raw_value: int = int(permanent_raw.get(stat_key, 0))
+		var benefit: int = -raw_value if stat_key in roller.LOWER_IS_BETTER_STAT_KEYS else raw_value
+		var prefix: String = localization.STAT_NEUTRAL_PREFIX
+		if benefit > 0:
+			prefix = localization.STAT_BENEFIT_PREFIX
+		elif benefit < 0:
+			prefix = localization.STAT_CURSE_PREFIX
+		var value_text := "%+d%%" % raw_value if raw_value != 0 else "0%"
+		stat_lines.append("%s%s %s" % [prefix, str(localization.text(stat_key)), value_text])
+	var card: Dictionary = load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
+	var data: Dictionary = {
+		"id": "mystic_dice",
+		"name": str(card.get("name", "신비의 주사위")),
+		"tree": "mystic_dice",
+		"level": 1,
+		"base_level": 1,
+		"max_level": 1,
+		"slot_cost": 0,
+		"_slot_free_cell": true,
+		"use_count": int(entry.get("use_count", 0)),
+		"detail": str(card.get("detail", card.get("description", ""))),
+		"description": "\n".join(stat_lines),
+		"icon_color": MYSTIC_DICE_ENTRY_DRAW_COLOR,
+	}
+	data["_draw_id"] = "mystic_dice"
+	data["_draw_color"] = MYSTIC_DICE_ENTRY_DRAW_COLOR
+	data["_draw_border_color"] = Color(MYSTIC_DICE_ENTRY_DRAW_COLOR.r, MYSTIC_DICE_ENTRY_DRAW_COLOR.g, MYSTIC_DICE_ENTRY_DRAW_COLOR.b, 0.48)
+	data["_draw_hover_border_color"] = Color(MYSTIC_DICE_ENTRY_DRAW_COLOR.r, MYSTIC_DICE_ENTRY_DRAW_COLOR.g, MYSTIC_DICE_ENTRY_DRAW_COLOR.b, 0.92)
+	data["_level_text"] = str(localization.text("badge"))
+	data["_level_color"] = accent_gold
+	return data
+
+
 # fusion 셀의 hover 본문 팩킹 구분자: hover_body_cache는 String 배열이라
 # 구조를 실을 수 없다 — detail(결과 로그, 좌패널)과 description(태그 스탯,
 # 우패널 분해용)을 제어문자 1개로 팩킹해 드로우 시점에 분해한다.
@@ -234,9 +292,13 @@ static func build_fusion_hover_payload(packed_body: String) -> Dictionary:
 		return {}
 	if detail_text.strip_edges().is_empty():
 		detail_text = str((entries[0] as Dictionary).get("text", " "))
+	# 행 예산 프로파일은 태그 출처가 결정한다: [[dice:*]] 스탯이면 주사위
+	# 전용(14행), 아니면 융합(24행).
+	var tooltip_kind := "mystic_dice" if tagged_stats.contains("[[dice:") else "fusion"
 	return {
 		"body": detail_text,
 		"roll_options": entries,
+		"tooltip_kind": tooltip_kind,
 	}
 
 
@@ -245,6 +307,7 @@ static func build_fusion_hover_payload(packed_body: String) -> Dictionary:
 # (한국어 폰트 스택에 결합 취소선 글리프가 없어 tofu가 된다).
 static func build_perk_stat_entries(stats: String, _detail: String) -> Array:
 	var localization: Object = _fusion_localization()
+	var dice_localization: Object = _mystic_dice_localization()
 	var entries: Array = []
 	for raw_line: String in stats.split("\n", false):
 		var line := raw_line
@@ -263,6 +326,15 @@ static func build_perk_stat_entries(stats: String, _detail: String) -> Array:
 		elif line.begins_with(localization.STAT_BYPRODUCT_PREFIX):
 			line = line.trim_prefix(localization.STAT_BYPRODUCT_PREFIX)
 			color = FUSION_STAT_BYPRODUCT_COLOR
+		elif line.begins_with(dice_localization.STAT_BENEFIT_PREFIX):
+			line = line.trim_prefix(dice_localization.STAT_BENEFIT_PREFIX)
+			color = MYSTIC_DICE_STAT_BENEFIT_COLOR
+		elif line.begins_with(dice_localization.STAT_CURSE_PREFIX):
+			line = line.trim_prefix(dice_localization.STAT_CURSE_PREFIX)
+			color = MYSTIC_DICE_STAT_CURSE_COLOR
+		elif line.begins_with(dice_localization.STAT_NEUTRAL_PREFIX):
+			line = line.trim_prefix(dice_localization.STAT_NEUTRAL_PREFIX)
+			color = MYSTIC_DICE_STAT_NEUTRAL_COLOR
 		elif line.begins_with(localization.STAT_NORMAL_PREFIX):
 			line = line.trim_prefix(localization.STAT_NORMAL_PREFIX)
 		if line.strip_edges().is_empty():
@@ -554,10 +626,11 @@ static func refresh_draw_arrays(
 		level_text_cache[i] = str(perk.get("_level_text", perk_level_text_callable.call(perk)))
 		level_color_cache[i] = CharacterInfoOverlayValueUtils.get_color(perk.get("_level_color", perk_level_color_callable.call(perk)))
 		hover_title_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "name", "id")
-		if str(perk.get("tree", "")) == "fusion":
-			# fusion 셀: detail(결과 로그)+태그 스탯을 팩킹 — 실 hover가
-			# build_fusion_hover_payload로 분해해 dual 툴팁(13행·색·취소선)을
-			# 탄다. [[fusion:*]] 태그 원문을 일반 본문으로 노출하지 않는다.
+		if str(perk.get("tree", "")) in ["fusion", "mystic_dice"]:
+			# fusion/주사위 셀: detail(결과 로그·플레이버)+태그 스탯을 팩킹 —
+			# 실 hover가 build_fusion_hover_payload로 분해해 dual 툴팁(색·
+			# 취소선·전용 행 예산)을 탄다. 태그 원문을 일반 본문으로 노출하지
+			# 않는다.
 			hover_body_cache[i] = pack_fusion_hover_body(str(perk.get("detail", "")), str(perk.get("description", "")))
 		else:
 			hover_body_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "description", "detail")
@@ -620,7 +693,7 @@ static func draw_grid_cells(
 				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, hover_body_cache[i], color)
 			else:
 				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, str(fusion_payload.get("body", "")), color, null, null, fusion_payload.get("roll_options", []))
-				hover_data["tooltip_kind"] = "fusion"
+				hover_data["tooltip_kind"] = str(fusion_payload.get("tooltip_kind", "fusion"))
 	return hover_data
 
 

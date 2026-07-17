@@ -94,7 +94,9 @@ func collect_star_points(
 	if bool(post_collection_plan.get("open_next_choice", false)):
 		if bool(post_collection_plan.get("capture_resume_pre_choice_velocity", false)):
 			_call_optional(callbacks, CALLBACK_CAPTURE_RESUME_PRE_CHOICE_VELOCITY, [owner])
-		_call_optional(callbacks, CALLBACK_OPEN_NEXT_CHOICE, [character_type, catalog, false, owner, registry])
+		# allowlist source 스탬프: 시스템 카드 로테이션(융합·신비의 주사위)의
+		# 오퍼 후처리는 이 출처 컨텍스트로만 열린다(아카데미 등은 fail-closed).
+		_call_optional(callbacks, CALLBACK_OPEN_NEXT_CHOICE, [character_type, catalog, false, owner, registry, null, {"source": "battle_starpoint"}])
 		if starpoint_absorption.should_clear_pre_choice_after_open(
 			post_collection_plan,
 			bool(runtime_state.get("choice_active"))

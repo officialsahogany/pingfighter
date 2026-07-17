@@ -152,7 +152,11 @@ func _init() -> void:
 	_expect(tests_dir != null, "fusion smokes should be able to enumerate the tests directory")
 	if tests_dir != null:
 		for file_name: String in tests_dir.get_files():
-			if not file_name.begins_with("perk_fusion_") or not file_name.ends_with(".gd"):
+			if not file_name.ends_with(".gd"):
+				continue
+			# 같은 시스템 카드 로테이션 계열(융합·신비의 주사위) focused
+			# 스모크 전수 — 저장형 호출은 실 user:// 설정을 오염시킨다.
+			if not file_name.begins_with("perk_fusion_") and not file_name.begins_with("mystic_dice_"):
 				continue
 			var smoke_source := FileAccess.get_file_as_string("res://tests/" + file_name)
 			_expect(not smoke_source.contains(persistent_language_call), "%s must use the non-persistent set_test_locale_override instead of the saving set_language" % file_name)

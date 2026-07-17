@@ -99,6 +99,7 @@ var gold_from_perks := 0
 # 래퍼는 central getter·projection·부산물 런타임을 잇는 접착만 담당한다.
 var _perk_fusion_state: Object = null
 var _perk_fusion_byproduct_runtime: Object = null
+var _perk_fusion_offer_planner: Object = null
 var _perk_fusion_display_projector: Object = null
 var _perk_fusion_display_catalog: Object = null
 var _perk_fusion_projection_cache: Dictionary = {}
@@ -275,6 +276,9 @@ func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
 	var cache_key: int = hash([
 		runtime_skill_levels.hash(),
 		_get_perk_fusion_state().get_revision(),
+		# 주사위 리비전: 합성 채널이 주사위 synthetic 엔트리를 함께 실으므로
+		# 주사위 커밋/리셋도 표시 캐시를 무효화해야 한다.
+		get_mystic_dice_revision(),
 		_get_perk_fusion_display_locale(),
 		item_perk_level_bonus,
 		int(viper_ignition_aura_active),
@@ -292,6 +296,11 @@ func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
 		get_effective_runtime_skill_levels(),
 		_build_perk_fusion_live_source_options()
 	)
+	# 주사위 synthetic 엔트리를 기존 합성 채널에 병합 — HUD/TAB 소비자가
+	# 두 번째 merge 정책을 배우지 않게 한다(projector.merge 소유).
+	if _mystic_dice_display_projector == null:
+		_mystic_dice_display_projector = load("res://scripts/characters/mystic_dice_display_projection.gd").new()
+	projection = _mystic_dice_display_projector.merge(projection, get_mystic_dice_snapshot())
 	projection["cache_signature"] = cache_key
 	_perk_fusion_projection_cache = projection
 	_perk_fusion_projection_cache_key = cache_key
@@ -352,6 +361,283 @@ func _build_perk_fusion_live_source_options() -> Dictionary:
 	return live
 
 
+# ── 신비의 주사위 위임 계층 (융합 위임 패턴 미러) ────────────────────
+# 코어 모듈(state/roller/planner/modal flow/input/paddle effect)은 각자
+# 소유 파일에 살고, 이 파사드는 배선·리비전·리셋 경계만 소유한다.
+
+var _mystic_dice_state: Object = null
+var _mystic_dice_roller: Object = null
+var _mystic_dice_offer_planner: Object = null
+var _mystic_dice_modal_flow: Object = null
+var _mystic_dice_modal_input: Object = null
+var _mystic_dice_display_projector: Object = null
+var _mystic_dice_paddle_effect: Object = null
+var _mystic_dice_paddle_effect_pending := false
+var _mystic_dice_last_finished_revision := 0
+
+
+func _get_mystic_dice_state() -> Object:
+	if _mystic_dice_state == null:
+		_mystic_dice_state = load("res://scripts/characters/mystic_dice_state.gd").new()
+	return _mystic_dice_state
+
+
+func _get_mystic_dice_offer_planner() -> Object:
+	if _mystic_dice_offer_planner == null:
+		_mystic_dice_offer_planner = load("res://scripts/characters/mystic_dice_offer_planner.gd").new()
+	return _mystic_dice_offer_planner
+
+
+func _get_mystic_dice_modal_flow() -> Object:
+	if _mystic_dice_modal_flow == null:
+		_mystic_dice_modal_flow = load("res://scripts/characters/mystic_dice_modal_flow.gd").new()
+	return _mystic_dice_modal_flow
+
+
+func _get_mystic_dice_modal_input() -> Object:
+	if _mystic_dice_modal_input == null:
+		_mystic_dice_modal_input = load("res://scripts/characters/mystic_dice_modal_input.gd").new()
+	return _mystic_dice_modal_input
+
+
+func _get_mystic_dice_paddle_effect() -> Object:
+	if _mystic_dice_paddle_effect == null:
+		_mystic_dice_paddle_effect = load("res://scripts/characters/mystic_dice_paddle_effect.gd").new()
+	return _mystic_dice_paddle_effect
+
+
+func commit_mystic_dice_roll(raw_roll: Dictionary) -> Dictionary:
+	return _get_mystic_dice_state().commit_roll(raw_roll)
+
+
+func get_mystic_dice_raw(stat_key: String) -> int:
+	return int(_get_mystic_dice_state().get_raw(stat_key))
+
+
+func get_mystic_dice_multiplier(stat_key: String) -> float:
+	return float(_get_mystic_dice_state().get_multiplier(stat_key))
+
+
+func get_mystic_dice_revision() -> int:
+	return int(_get_mystic_dice_state().get_revision())
+
+
+func get_mystic_dice_snapshot() -> Dictionary:
+	return _get_mystic_dice_state().get_snapshot()
+
+
+func get_mystic_dice_display_projection() -> Dictionary:
+	if _mystic_dice_display_projector == null:
+		_mystic_dice_display_projector = load("res://scripts/characters/mystic_dice_display_projection.gd").new()
+	return _mystic_dice_display_projector.build(get_mystic_dice_snapshot())
+
+
+# 오퍼 후처리(이벤트 시점 1회 — per-frame 확률 롤 금지): 골드 lane만 신비의
+# 주사위 카드로 스왑한다. roll_unit < 0 → 실 랜덤 1회(플래너는 순수 주입형).
+func _try_inject_mystic_dice_offer(roll_unit: float = -1.0) -> Dictionary:
+	if not choice_active:
+		return {"rolled": false}
+	var planner: Object = _get_mystic_dice_offer_planner()
+	var offer_source := str(current_choice_context.get("source", ""))
+	var remaining_uses: int = int(_get_mystic_dice_state().get_remaining_uses())
+	# 부적격 오퍼(source 비허용/골드 lane 부재/캡 소진)는 전역 RNG를 한 번도
+	# 소비하지 않는다 — randf 선소비는 rolled=false여도 이후 보상 난수열을
+	# 교란한다. can_roll 통과 후에만 롤 유닛을 뽑는다.
+	if not bool(planner.can_roll(current_choices, offer_source, remaining_uses)):
+		return {"rolled": false}
+	var unit: float = roll_unit if roll_unit >= 0.0 else randf()
+	var result: Dictionary = planner.plan_offer(current_choices, offer_source, remaining_uses, unit)
+	if bool(result.get("appeared", false)):
+		current_choices = result.get("choices", current_choices) as Array
+	return result
+
+
+# 융합 오퍼 후처리: 주사위보다 먼저 돈다(주사위는 골드 lane만 스왑하므로
+# 융합 카드 주입 뒤에 돌아야 서로 간섭이 없다). 전체 행동 봉인·자격 정책
+# 정련은 융합 core 슬라이스의 offer 통합 스모크 소유 — 여기서는 생존
+# 플래너에 소유 퍽(카탈로그 인지 + Lv≥1) 후보를 위임하는 접착만 놓는다.
+func _try_inject_perk_fusion_offer(catalog: Object, roll_unit: float = -1.0) -> Dictionary:
+	if not choice_active:
+		return {"rolled": false}
+	if _perk_fusion_offer_planner == null:
+		_perk_fusion_offer_planner = load("res://scripts/characters/perk_fusion_offer_planner.gd").new()
+	var offer_source := str(current_choice_context.get("source", ""))
+	var eligible_sources: Array = []
+	for skill_id_value: Variant in runtime_skill_levels.keys():
+		var skill_id := str(skill_id_value)
+		if int(runtime_skill_levels[skill_id_value]) <= 0:
+			continue
+		if catalog != null and catalog.has_method("get_perk_data") and (catalog.get_perk_data(skill_id) as Dictionary).is_empty():
+			continue
+		eligible_sources.append(skill_id)
+	# 주사위와 동일한 RNG 무소비 계약: 부적격(비허용 source/재료 2종 미만/
+	# 교체 가능 lane 부재 — all-protected 오퍼 포함) 경로는 난수를 한 번도
+	# 뽑지 않는다. 자격 판별은 플래너 can_roll 단일 소스.
+	if not bool(_perk_fusion_offer_planner.can_roll(current_choices, eligible_sources, offer_source)):
+		return {"rolled": false}
+	var appearance_unit: float = roll_unit if roll_unit >= 0.0 else randf()
+	var replacement_unit: float = roll_unit if roll_unit >= 0.0 else randf()
+	var result: Dictionary = _perk_fusion_offer_planner.plan_offer(
+		current_choices,
+		eligible_sources,
+		offer_source,
+		appearance_unit,
+		replacement_unit
+	)
+	if bool(result.get("appeared", false)):
+		current_choices = result.get("choices", current_choices) as Array
+	return result
+
+
+func is_mystic_dice_modal_active() -> bool:
+	return _mystic_dice_modal_flow != null and bool(_mystic_dice_modal_flow.is_active())
+
+
+func get_mystic_dice_modal_snapshot() -> Dictionary:
+	if _mystic_dice_modal_flow == null:
+		return {}
+	return _mystic_dice_modal_flow.get_snapshot()
+
+
+# D0→D1: 주사위 카드는 표준 apply_choice를 타지 않는다. raw choice_active/
+# pending 큐는 전 구간 유지(새 freeze actor / modal-gate OR 금지 계약).
+# roll_units 비움 → 실 랜덤 7유닛 1회.
+func _begin_mystic_dice_modal(selected_choice: Dictionary, registry: Object, roll_units: Array = [], entered_via_rt: bool = false) -> bool:
+	var roll_payload: Dictionary = _roll_mystic_dice(roll_units)
+	if not bool(roll_payload.get("accepted", false)):
+		return false
+	var flow: Object = _get_mystic_dice_modal_flow()
+	if not bool(flow.start(selected_choice, current_choices.duplicate(true), roll_payload)):
+		return false
+	_get_mystic_dice_modal_input().reset()
+	# 진입 입력원이 실제 RT일 때만 래치를 무장한다 — D0에서 눌려 있던 RT가
+	# D2 확정으로 캐스케이드하는 것을 막되, 키보드/마우스/A 진입 후의 첫
+	# RT press까지 삼키면 안 된다(입력원별 계약).
+	if entered_via_rt:
+		_get_mystic_dice_modal_input().suppress_confirm_until_release()
+	_play_perk_select_audio(registry)
+	return true
+
+
+func _roll_mystic_dice(roll_units: Array = []) -> Dictionary:
+	if _mystic_dice_roller == null:
+		_mystic_dice_roller = load("res://scripts/characters/mystic_dice_roller.gd").new()
+	var units: Array = roll_units
+	if units.is_empty():
+		units = []
+		for _index: int in range(_mystic_dice_roller.get_stat_keys().size()):
+			units.append(randf())
+	return _mystic_dice_roller.roll(units)
+
+
+func _handle_mystic_dice_modal_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
+	var resolution: Dictionary = _get_mystic_dice_modal_input().resolve(
+		event,
+		get_mystic_dice_modal_snapshot(),
+		view_size
+	)
+	var flow: Object = _get_mystic_dice_modal_flow()
+	if resolution.has("move"):
+		flow.move_selection(int(resolution.get("move", 0)))
+	if resolution.has("selected_action") and int(resolution.get("selected_action", -1)) >= 0:
+		flow.set_selected_action(int(resolution.get("selected_action", -1)))
+	# cancel(ESC/X)은 의도적 no-op — 주사위는 커밋 의사 흐름이라 취소 불가.
+	if bool(resolution.get("activate", false)):
+		_activate_mystic_dice_selected_action(owner, registry)
+	return bool(resolution.get("consumed", true))
+
+
+func _activate_mystic_dice_selected_action(owner: Object, registry: Object, reroll_units: Array = []) -> Dictionary:
+	var flow: Object = _get_mystic_dice_modal_flow()
+	var request: Dictionary = flow.request_selected_action()
+	if bool(request.get("reroll_requested", false)):
+		var payload: Dictionary = _roll_mystic_dice(reroll_units)
+		if bool(flow.begin_reroll(payload)):
+			return {"rerolled": true}
+		return {"rerolled": false}
+	if bool(request.get("commit_requested", false)):
+		return _finish_mystic_dice_modal(owner, registry, request)
+	return request
+
+
+# D3: 원자 커밋 + 표준 finish 위임. 커밋 실패(캡)는 요청 래치를 되돌리고
+# 모달을 유지한다.
+func _finish_mystic_dice_modal(owner: Object, registry: Object, request: Dictionary) -> Dictionary:
+	var finish_result: Dictionary = commit_mystic_dice_roll(request.get("raw", {}) as Dictionary)
+	if not bool(finish_result.get("accepted", false)):
+		_get_mystic_dice_modal_flow().reject_commit_request()
+		return finish_result
+	# 스탯 소비자(일반+mythic) 즉시 1회 갱신 — 모달이 닫히기 전에 착지.
+	_owner_sync_flow.sync_owner_effects_from_runtime_state(self, owner, registry)
+	_owner_sync_flow.refresh_mythic_runtime_perk_consumers_from_runtime_state(self, owner, registry)
+	# 모달 physics 차단 중에는 패들 연출 시작을 미룬다 — 재개 첫 게임플레이
+	# 틱(update_mystic_dice_paddle_effect)이 시작한다.
+	_mystic_dice_paddle_effect_pending = true
+	var committed_choice: Dictionary = {
+		"id": "mystic_dice",
+		"type": "mystic_dice",
+		"mystic_dice_revision": get_mystic_dice_revision(),
+	}
+	_get_mystic_dice_modal_flow().mark_committed(finish_result, committed_choice)
+	var finish: Dictionary = _finish_successful_choice("mystic_dice", owner, registry, null, committed_choice)
+	_get_mystic_dice_modal_flow().reset()
+	_get_mystic_dice_modal_input().reset()
+	var merged: Dictionary = finish_result.duplicate(true)
+	merged["finish"] = finish
+	return merged
+
+
+func start_mystic_dice_paddle_effect() -> Dictionary:
+	_mystic_dice_paddle_effect_pending = false
+	return _get_mystic_dice_paddle_effect().start()
+
+
+func bind_mystic_dice_paddle_fx_host(host: Node) -> void:
+	_get_mystic_dice_paddle_effect().bind_host(host)
+
+
+func get_mystic_dice_paddle_effect_snapshot() -> Dictionary:
+	var snapshot: Dictionary = _get_mystic_dice_paddle_effect().get_snapshot()
+	snapshot["pending_start"] = _mystic_dice_paddle_effect_pending
+	return snapshot
+
+
+func get_mystic_dice_paddle_fx_host() -> Node:
+	if _mystic_dice_paddle_effect == null:
+		return null
+	return _mystic_dice_paddle_effect.get_bound_host()
+
+
+# 게임플레이 시간 전용 3초 시계: 모달 차단 중엔 드라이버가 안 불러서
+# 자연 정지, 재개 첫 틱이 지연 시작한다(그 틱의 delta는 소모하지 않음).
+func update_mystic_dice_paddle_effect(delta: float) -> bool:
+	if _mystic_dice_paddle_effect_pending:
+		start_mystic_dice_paddle_effect()
+		return true
+	if _mystic_dice_paddle_effect == null:
+		return false
+	return bool(_mystic_dice_paddle_effect.update(delta))
+
+
+func clear_mystic_dice_paddle_effect() -> void:
+	_mystic_dice_paddle_effect_pending = false
+	if _mystic_dice_paddle_effect != null:
+		_mystic_dice_paddle_effect.reset()
+
+
+# 라운드/스코어/스테이지 경계 공통 훅: 진행 중 3초 패들 연출만 걷는다 —
+# 주사위 영구 스탯은 런 스코프라 보존된다(new-run reset만 지운다).
+func reset_mystic_dice_round_visuals() -> void:
+	clear_mystic_dice_paddle_effect()
+
+
+# new-run 리셋 파사드 위임(runtime_perk_reset_state 소유): 영구 raw·사용
+# 횟수를 지우고 revision을 올려 표시 캐시를 무효화한다.
+func reset_mystic_dice_state() -> void:
+	if _mystic_dice_state != null:
+		_mystic_dice_state.reset()
+
+
 func reset() -> void:
 	if _perk_fusion_state != null:
 		_perk_fusion_state.reset()
@@ -400,6 +686,9 @@ func open_next_choice(
 		perf_logger,
 		choice_context
 	)
+	# 오퍼 후처리(오퍼 생성 직후 1회): 융합 → 주사위 순서 고정.
+	_try_inject_perk_fusion_offer(catalog)
+	_try_inject_mystic_dice_offer()
 
 
 func open_mythic_perk_choice(
@@ -474,6 +763,10 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 	# 컨트롤러·플라자·결과화면 스타포인트 핸들러 공통) 소유 — 리비전 변경 후
 	# 첫 update 틱에서 합성되고, CanvasItem draw 프레임은 조회 히트만 본다.
 	_prewarm_fusion_pair_icons(registry)
+	# 주사위 모달 시계(D1 굴림 진행/D2 바운디드 hover)는 모달 활성 중에만
+	# 전진한다 — 표준 update 흐름과 같은 틱에서 함께 돈다.
+	if is_mystic_dice_modal_active():
+		_mystic_dice_modal_flow.update(delta)
 	_update_flow.update_internal_from_runtime_state(
 		delta,
 		view_size,
@@ -497,6 +790,10 @@ func _prewarm_fusion_pair_icons(registry: Object) -> void:
 
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
+	# 주사위 모달이 열려 있는 동안은 모든 입력을 모달이 우선 소비한다
+	# (ESC 포함 — 커밋 의사 흐름이라 취소 no-op).
+	if is_mystic_dice_modal_active():
+		return _handle_mystic_dice_modal_input(event, owner, registry, view_size)
 	return _modal_input.handle_input_from_runtime_state(self, event, owner, registry, view_size)
 
 
@@ -554,13 +851,44 @@ func move_unlock_swap_selection(delta_index: int) -> void:
 	_unlock_swap_flow.move_selection_from_runtime_state(self, delta_index)
 
 
+# 게임패드 confirm의 실 입력원(RT 트리거 여부)을 공용 3인자 choose_selected
+# 계약을 깨지 않고 전달하는 별도 note 채널 — 다음 choose_selected 1회가
+# 소비하고 리셋한다.
+var _choice_confirm_entered_via_rt := false
+
+
+func note_choice_confirm_input_source(entered_via_rt: bool) -> void:
+	_choice_confirm_entered_via_rt = entered_via_rt
+
+
 func choose_selected(owner: Object, registry: Object, view_size: Vector2 = Vector2.ZERO) -> void:
+	var entered_via_rt := _choice_confirm_entered_via_rt
+	_choice_confirm_entered_via_rt = false
+	# 공용 선택 가능 게이트를 한 번만 통과한 뒤 주사위/표준 경로로 분기한다
+	# — 주사위만 게이트를 우회하면 카드 등장 애니메이션(animation_time <
+	# 0.24)이나 flight/showcase/swap 전환 중 입력으로도 모달이 열린다.
+	# 게이트 불통과는 표준 경로에 그대로 넘긴다(실패 피드백 소유).
+	if is_selectable():
+		# D0 주사위 가로채기: 주사위 카드는 표준 apply_choice를 타지 않는다 —
+		# 모달(D1~D3)이 굴림·커밋을 소유하고, raw choice_active/pending 큐는
+		# 전 구간 유지된다(새 freeze actor / modal-gate OR 금지 계약).
+		var selected_choice: Dictionary = _get_selected_choice_snapshot()
+		if bool(selected_choice.get("is_mystic_dice", false)):
+			_begin_mystic_dice_modal(selected_choice, registry, [], entered_via_rt)
+			return
 	_choice_confirm_flow.choose_selected_from_runtime_state(
 		self,
 		owner,
 		registry,
 		view_size
 	)
+
+
+func _get_selected_choice_snapshot() -> Dictionary:
+	if not choice_active or selected_index < 0 or selected_index >= current_choices.size():
+		return {}
+	var choice_value: Variant = current_choices[selected_index]
+	return choice_value if choice_value is Dictionary else {}
 
 
 func _update_choice_flight_effect(delta: float, owner: Object, registry: Object, perf_logger: Object = null) -> void:
@@ -608,6 +936,13 @@ func _finish_successful_choice(
 	perf_logger: Object = null,
 	choice: Dictionary = {}
 ) -> Dictionary:
+	# 주사위 D3 리비전 가드: 같은 커밋 리비전의 중복 finish는 pending/
+	# sequence/다음 모달을 두 번 소비하지 않는 no-op이어야 한다.
+	if str(choice.get("type", "")) == "mystic_dice":
+		var dice_revision := int(choice.get("mystic_dice_revision", 0))
+		if dice_revision > 0 and dice_revision <= _mystic_dice_last_finished_revision:
+			return {"already_finished": true}
+		_mystic_dice_last_finished_revision = maxi(_mystic_dice_last_finished_revision, dice_revision)
 	var result: Dictionary = _choice_finish_flow.finish_successful_choice_from_runtime_state(
 		self,
 		choice_id,

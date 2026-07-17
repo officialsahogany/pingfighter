@@ -152,11 +152,13 @@ static func draw_dual_item_tooltip(
 		roll_width = max(132.0, available - desc_width)
 	# 동적 행 예산: 융합 스탯 패널(tooltip_kind == "fusion")은 2 헤더+옵션
 	# 레인+부산물 레인이 8줄 legacy 캡을 초과한다 — 엔트리 수 기반으로
-	# 확장하되 화면 보호를 위해 24줄에서 캡.
+	# 확장하되 화면 보호를 위해 24줄에서 캡. 신비의 주사위(tooltip_kind ==
+	# "mystic_dice")는 7개 로컬라이즈 스탯 행+랩 여유의 전용 14줄 프로파일.
 	var tooltip_kind := str(data.get("tooltip_kind", ""))
+	var is_fusion := tooltip_kind == "fusion"
 	var entry_line_limit := 8
-	if tooltip_kind == "fusion":
-		entry_line_limit = mini(24, maxi(8, roll_entries.size() + 2))
+	if is_fusion or tooltip_kind == "mystic_dice":
+		entry_line_limit = mini(24 if is_fusion else 14, maxi(8, roll_entries.size() + 2))
 	var body_lines: Array = _call_array(wrap_text_callable, [font, body, 13, desc_width - 28.0, 8])
 	var roll_lines: Array = _call_array(build_entry_lines_callable, [font, roll_entries, 13, roll_width - 24.0, entry_line_limit])
 	var title_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get("title_color", Color.WHITE))

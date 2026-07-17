@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 
 const PERK_ICON_PATHS := {
+	"mystic_dice": "res://assets/sprites/perks/mystic_dice_perk_icon.png",
 	"dash_lightweight": "res://assets/sprites/perks/dash_lightweight_perk_icon.png",
 	"dash_module_control": "res://assets/sprites/perks/dash_module_control_perk_icon.png",
 	"dash_jump": "res://assets/sprites/perks/dash_jump_perk_icon.png",

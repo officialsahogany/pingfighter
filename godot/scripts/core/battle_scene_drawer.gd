@@ -5,6 +5,9 @@ const BattleContextReader := preload("res://scripts/core/battle_context_reader.g
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
 var _arity_cache: Dictionary = {}
+# 좌측 레터박스 퍽 스트립 렌더러(드로어 소유 — 엔트리 캐시는 렌더러 내부
+# 소유, 투영 cache_signature/리비전 키로 무효화).
+var hud_strip_renderer: Object = preload("res://scripts/hud/runtime_perk_hud_strip_renderer.gd").new()
 
 
 func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:
@@ -31,9 +34,36 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	_draw_post_playfield_pillar_hud(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.post_pillar_hud", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_perk_hud_strip(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.scene.perk_hud_strip", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_hud_overlays(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
 	_perf_end(perf_logger, "draw.scene.total", total_start)
+
+
+# 좌측 레터박스 퍽 스트립: 게이트는 levels OR 표시 투영 엔트리 — 일반 퍽
+# 레벨이 비어도 신비의 주사위 전용 투영이 스트립을 열 수 있어야 하므로
+# 레벨-공백 조기 반환을 두지 않는다.
+func _draw_perk_hud_strip(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
+	if hud_strip_renderer == null or not hud_strip_renderer.has_method("draw"):
+		return
+	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	var levels: Dictionary = {}
+	var display_projection: Dictionary = {}
+	if perk_state != null:
+		var levels_value: Variant = perk_state.get("runtime_skill_levels")
+		if levels_value is Dictionary:
+			levels = levels_value
+		if perk_state.has_method("get_perk_fusion_display_projection"):
+			display_projection = perk_state.get_perk_fusion_display_projection()
+	if not bool(hud_strip_renderer.has_visible_entries(levels, display_projection)):
+		return
+	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	var perk_icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
+	var game_offset: Vector2 = _get_vector2(layout, "game_offset", Vector2.ZERO)
+	var game_size: Vector2 = _get_vector2(layout, "game_size", view_size)
+	hud_strip_renderer.draw(canvas, levels, perk_catalog, perk_icon_renderer, game_offset, game_size, display_projection)
 
 
 func draw_playfield_underlay(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:

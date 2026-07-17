@@ -275,11 +275,15 @@ func _try_spawn_dash_spirit(
 	if dash_spirit_state == null or not dash_spirit_state.has_method("try_spawn_from_dash"):
 		return
 	var dash_frames: float = 0.0
+	var dash_distance_multiplier: float = 1.0
 	if dash_state != null and dash_state.has_method("get_snapshot"):
 		var snapshot: Dictionary = dash_state.get_snapshot()
 		dash_frames = float(snapshot.get("timer", 0.0))
+		# 방금 시작한 실 대쉬의 스냅샷 배율(신비의 주사위 dash_distance)을
+		# 그대로 물려받아 레이저 길이가 실 이동 거리와 일치하게 한다.
+		dash_distance_multiplier = maxf(0.0, float(snapshot.get("dash_distance_multiplier", 1.0)))
 	var paddle_size := Vector2(
 		max(1.0, float(config.get("paddle_width", 155.0))),
 		max(1.0, float(config.get("paddle_height", 50.0)))
 	)
-	dash_spirit_state.try_spawn_from_dash(direction, is_half, player_pos, paddle_size, deps, dash_frames)
+	dash_spirit_state.try_spawn_from_dash(direction, is_half, player_pos, paddle_size, deps, dash_frames, dash_distance_multiplier)

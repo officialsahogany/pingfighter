@@ -41,7 +41,8 @@ func try_spawn_from_dash(
 	player_pos: Vector2,
 	player_size: Vector2,
 	deps: Dictionary,
-	dash_frames: float = 0.0
+	dash_frames: float = 0.0,
+	dash_distance_multiplier: float = 1.0
 ) -> bool:
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	var chance: float = _get_dash_spirit_chance(runtime_perk_state)
@@ -56,7 +57,10 @@ func try_spawn_from_dash(
 	var frames: float = dash_frames
 	if frames <= 0.0:
 		frames = HALF_DASH_FRAMES if is_half else FULL_DASH_FRAMES
-	var dash_distance: float = floor(frames * DASH_FRAME_SPEED * DASH_DISTANCE_SCALE * LASER_DISTANCE_RATIO)
+	# 충돌 레이저 길이는 실 대쉬 거리와 함께 스케일해야 한다 — 신비의 주사위
+	# dash_distance 배율이 실 이동만 늘리고 레이저가 base에 남으면 판정이
+	# 시각 이동보다 짧아진다.
+	var dash_distance: float = floor(frames * DASH_FRAME_SPEED * DASH_DISTANCE_SCALE * LASER_DISTANCE_RATIO * maxf(0.0, dash_distance_multiplier))
 	var player_center: Vector2 = player_pos + safe_player_size * 0.5
 	create_laser(player_center, normalized_direction, dash_distance, safe_player_size.x)
 	return true

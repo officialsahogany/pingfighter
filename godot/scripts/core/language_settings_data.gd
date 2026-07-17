@@ -927,6 +927,7 @@ const MYTHIC_DESCRIPTION_RU := {
 }
 
 const PERK_NAME_EN := {
+	"mystic_dice": "Mystic Dice",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Lightweight",
@@ -1030,6 +1031,7 @@ const PERK_NAME_EN := {
 }
 
 const PERK_NAME_ZH := {
+	"mystic_dice": "神秘骰子",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "轻量化",
@@ -1133,6 +1135,7 @@ const PERK_NAME_ZH := {
 }
 
 const PERK_NAME_JA := {
+	"mystic_dice": "神秘のダイス",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "軽量化",
@@ -1236,6 +1239,7 @@ const PERK_NAME_JA := {
 }
 
 const PERK_NAME_ES := {
+	"mystic_dice": "Dado Místico",
 	"lingpet_affinity_chip": "Chip de Afinidad",
 	"lingpet_ring_core_upgrade": "Mejora de Ring Core",
 	"dash_lightweight": "Ligereza",
@@ -1339,6 +1343,7 @@ const PERK_NAME_ES := {
 }
 
 const PERK_NAME_PT_BR := {
+	"mystic_dice": "Dado Místico",
 	"lingpet_affinity_chip": "Chip de Afinidade",
 	"lingpet_ring_core_upgrade": "Melhoria de Ring Core",
 	"dash_lightweight": "Leveza",
@@ -1442,6 +1447,7 @@ const PERK_NAME_PT_BR := {
 }
 
 const PERK_NAME_RU := {
+	"mystic_dice": "Таинственный кубик",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Легкость",
@@ -1545,6 +1551,7 @@ const PERK_NAME_RU := {
 }
 
 const PERK_SUMMARY_EN := {
+	"mystic_dice": "Give up the perk and roll the dice to permanently adjust seven stats. Two rerolls.",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Dash cooldown reduced.",
@@ -1648,6 +1655,7 @@ const PERK_SUMMARY_EN := {
 }
 
 const PERK_SUMMARY_ZH := {
+	"mystic_dice": "放弃该福利，掷骰子永久调整7项能力值。可重掷2次。",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "减少冲刺冷却。",
@@ -1751,6 +1759,7 @@ const PERK_SUMMARY_ZH := {
 }
 
 const PERK_SUMMARY_JA := {
+	"mystic_dice": "パークを諦めてダイスを振り、7つの能力値を永久に調整します。振り直し2回。",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "ダッシュのクールタイムが短縮されます。",
@@ -1854,6 +1863,7 @@ const PERK_SUMMARY_JA := {
 }
 
 const PERK_SUMMARY_ES := {
+	"mystic_dice": "Renuncia al beneficio y lanza el dado para ajustar permanentemente siete atributos. Dos relanzamientos.",
 	"lingpet_affinity_chip": "Aumenta la afinidad de Lingpet ganada en esta partida. Se acumula hasta 5.",
 	"lingpet_ring_core_upgrade": "Mejora el Ring Core de esta partida en un nivel sin gastar oro. Se reinicia cada partida.",
 	"dash_lightweight": "Reduce la recarga del dash.",
@@ -1957,6 +1967,7 @@ const PERK_SUMMARY_ES := {
 }
 
 const PERK_SUMMARY_PT_BR := {
+	"mystic_dice": "Abra mão do benefício e role o dado para ajustar permanentemente sete atributos. Duas rerrolagens.",
 	"lingpet_affinity_chip": "Aumenta a afinidade de Lingpet recebida nesta run. Acumula até 5.",
 	"lingpet_ring_core_upgrade": "Melhora o Ring Core desta partida em um tier sem gastar ouro. Reinicia a cada partida.",
 	"dash_lightweight": "Reduz a recarga do dash.",
@@ -2060,6 +2071,7 @@ const PERK_SUMMARY_PT_BR := {
 }
 
 const PERK_SUMMARY_RU := {
+	"mystic_dice": "Откажитесь от перка и бросьте кубик, чтобы навсегда изменить семь характеристик. Два переброса.",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Сокращает перезарядку рывка.",

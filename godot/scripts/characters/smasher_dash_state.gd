@@ -114,7 +114,8 @@ func start(
 		_get_dash_acceleration_bonus(runtime_perk_state),
 		_get_dash_acceleration_level(runtime_perk_state),
 		PLAYER_BASE_PADDLE_HEIGHT,
-		skip_recovery
+		skip_recovery,
+		_get_mystic_dice_distance_multiplier(runtime_perk_state)
 	):
 		return false
 	dash_key_released_since_last = false
@@ -188,6 +189,14 @@ func get_ball_collision_context() -> Dictionary:
 func _get_dash_recharge_frames(runtime_perk_state: Object, registry: Object = null) -> float:
 	var frames: float = DASH_BASE_RECHARGE_FRAMES
 	return compute_dash_recharge_frames(runtime_perk_state, registry)
+
+
+# 신비의 주사위 dash_distance: 5캐릭 공용 위임(공유 대쉬 컨트롤러 경유)이라
+# 여기 한 곳이 전 캐릭터의 거리 배율을 소유한다.
+static func _get_mystic_dice_distance_multiplier(runtime_perk_state: Object) -> float:
+	if runtime_perk_state == null or not runtime_perk_state.has_method("get_mystic_dice_multiplier"):
+		return 1.0
+	return maxf(0.0, float(runtime_perk_state.get_mystic_dice_multiplier("dash_distance")))
 
 
 # --- 실전 대시 스탯 산식의 단일 소유자 -------------------------------------

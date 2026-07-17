@@ -76,6 +76,17 @@ func is_choice_replaceable(choice_value: Variant) -> bool:
 	return (has_protection_marker and not bool(choice.get("offer_protected", true))) or lane == OFFER_LANE_REPLACEABLE
 
 
+# 등장 롤 자격의 단일 소스(런타임 RNG 무소비 계약 공용화): plan_offer가
+# rolled=false로 끝나는 모든 조기 종료 조건(source 비허용/재료 2종 미만/
+# 교체 가능 lane 부재)을 난수 소비 전에 판별한다.
+func can_roll(choices: Array, eligible_source_ids: Array, offer_source: String) -> bool:
+	if not is_offer_source_allowed(offer_source):
+		return false
+	if _normalize_source_ids(eligible_source_ids).size() < 2:
+		return false
+	return not _get_replaceable_indices(choices).is_empty()
+
+
 func _get_replaceable_indices(choices: Array) -> Array[int]:
 	var indices: Array[int] = []
 	for index: int in range(choices.size()):

@@ -94,6 +94,10 @@ func draw(
 	effects_drawer.draw_actors(canvas, registry, draw_context, actor_context, perf_logger)
 	_perf_end(perf_logger, "01.actors.total", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	# 신비의 주사위 패들 오라: 플레이어 렌더 직후 분리형 호스트 동기화.
+	effects_drawer.draw_mystic_dice_paddle_effect(registry, draw_context, shake_offset)
+	_perf_end(perf_logger, "01b.mystic_dice_paddle", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_stage1_butterfly_event(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "02.stage1_butterfly", sample_start)
 	sample_start = _perf_begin(perf_logger)

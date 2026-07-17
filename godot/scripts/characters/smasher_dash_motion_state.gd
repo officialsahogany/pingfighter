@@ -15,6 +15,9 @@ var dash_acceleration_bonus: float = 0.0
 var dash_acceleration_height_bonus: float = 0.0
 var dash_acceleration_skill_level: int = 0
 var dash_skip_recovery: bool = false
+# 신비의 주사위 dash_distance 속도 배율(시작 시 1회 스냅샷 — 대쉬 중
+# 커밋이 진행 중 대쉬를 소급 변경하지 않는다).
+var dash_distance_multiplier: float = 1.0
 var dash_stun_timer: float = 0.0
 var dash_recovery_total_frames: float = 0.0
 var dash_available_timer: float = 0.0
@@ -92,13 +95,15 @@ func start(
 	acceleration_bonus: float = 0.0,
 	acceleration_level: int = 0,
 	base_paddle_height: float = PLAYER_BASE_PADDLE_HEIGHT,
-	skip_recovery: bool = false
+	skip_recovery: bool = false,
+	distance_multiplier: float = 1.0
 ) -> bool:
 	if direction == 0.0:
 		return false
 	dash_active = true
 	dash_direction = direction
 	dash_is_half = is_half
+	dash_distance_multiplier = maxf(0.0, distance_multiplier)
 	dash_acceleration_bonus = max(0.0, acceleration_bonus)
 	dash_acceleration_skill_level = max(0, acceleration_level)
 	dash_acceleration_height_bonus = max(0.0, float(base_paddle_height)) * dash_acceleration_bonus
@@ -137,6 +142,7 @@ func get_snapshot() -> Dictionary:
 		"dash_acceleration_height_bonus": dash_acceleration_height_bonus if acceleration_active else 0.0,
 		"dash_acceleration_skill_level": dash_acceleration_skill_level if acceleration_active else 0,
 		"skip_recovery": dash_skip_recovery,
+		"dash_distance_multiplier": dash_distance_multiplier,
 		"recovering": dash_stun_timer > 0.0,
 		"stun_timer": dash_stun_timer,
 		"recovery_total_frames": dash_recovery_total_frames,

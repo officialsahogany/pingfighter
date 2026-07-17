@@ -43,7 +43,8 @@ func update(
 		float(state.get("dash_direction")),
 		float(state.get("dash_timer")),
 		bool(state.get("dash_is_half")),
-		recovery_frames
+		recovery_frames,
+		maxf(0.0, float(state.get("dash_distance_multiplier")))
 	)
 	player_pos = active_update.get("player_pos", player_pos)
 	state.set("dash_timer", float(active_update.get("timer", state.get("dash_timer"))))

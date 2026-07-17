@@ -219,7 +219,7 @@ func _run() -> void:
 		"static func draw_grid_cells("
 	)
 	_expect(grid_cells_body.contains("build_fusion_hover_payload"), "real grid hover branch must decode the packed fusion body")
-	_expect(grid_cells_body.contains("hover_data[\"tooltip_kind\"] = \"fusion\""), "real grid hover branch must inject the fusion tooltip kind")
+	_expect(grid_cells_body.contains("hover_data[\"tooltip_kind\"] = str(fusion_payload.get(\"tooltip_kind\", \"fusion\"))"), "real grid hover branch must inject the payload-owned tooltip kind (fusion default)")
 	_expect(grid_cells_body.contains("fusion_payload.get(\"roll_options\", [])"), "real grid hover branch must forward decoded stat entries as roll options")
 
 	# v3(재리뷰 P2·게이트): 실 draw 관통 행동 레그 — 실제 CanvasItem draw

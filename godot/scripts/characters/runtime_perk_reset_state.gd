@@ -16,6 +16,9 @@ func reset_from_runtime_state(runtime_state: Object) -> Dictionary:
 	_reset_resume_safety(runtime_state)
 	_reset_angel_blessing(runtime_state)
 	_reset_angel_blessing_modal(runtime_state)
+	_reset_mystic_dice(runtime_state)
+	_reset_mystic_dice_paddle_effect(runtime_state)
+	_reset_mystic_dice_modal(runtime_state)
 	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 	return result
 
@@ -179,3 +182,24 @@ func _reset_angel_blessing_modal(runtime_state: Object) -> void:
 	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_angel_blessing_modal_flow")
 	if helper != null and helper.has_method("reset"):
 		helper.reset()
+
+
+# 주사위 new-run 리셋: 영구 raw·사용 횟수를 지우고 revision을 올린다
+# (라운드/스테이지 경계는 여길 타지 않는다 — 연출만 걷는 별도 훅).
+func _reset_mystic_dice(runtime_state: Object) -> void:
+	if runtime_state != null and runtime_state.has_method("reset_mystic_dice_state"):
+		runtime_state.reset_mystic_dice_state()
+
+
+func _reset_mystic_dice_paddle_effect(runtime_state: Object) -> void:
+	if runtime_state != null and runtime_state.has_method("clear_mystic_dice_paddle_effect"):
+		runtime_state.clear_mystic_dice_paddle_effect()
+
+
+func _reset_mystic_dice_modal(runtime_state: Object) -> void:
+	var flow: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_modal_flow")
+	if flow != null and flow.has_method("reset"):
+		flow.reset()
+	var modal_input: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_modal_input")
+	if modal_input != null and modal_input.has_method("reset"):
+		modal_input.reset()

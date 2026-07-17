@@ -41,6 +41,12 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		# 융합 표시 projection(접힘 정본): TAB/오버레이 소비자가 스냅샷에서
 		# 그대로 읽는다 — state 소유 기본 카탈로그로 캐시 경유(핫패스 안전).
 		"perk_fusion_display_projection": RuntimePerkRuntimeStateAccess.call_dict(state, "get_perk_fusion_display_projection"),
+		# 주사위: 게임플레이 상태 스냅샷 + 전용 표시 projection + 정본 revision
+		# — 소비자는 합성 채널(perk_fusion_display_projection)에 병합된 dice
+		# synthetic 엔트리를 기본으로 읽고, 전용 채널은 dice 전용 UI가 쓴다.
+		"mystic_dice": RuntimePerkRuntimeStateAccess.call_dict(state, "get_mystic_dice_snapshot"),
+		"mystic_dice_revision": RuntimePerkRuntimeStateAccess.call_int(state, "get_mystic_dice_revision"),
+		"mystic_dice_display_projection": RuntimePerkRuntimeStateAccess.call_dict(state, "get_mystic_dice_display_projection"),
 		"angel_blessing": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_snapshot"),
 		"angel_blessing_acquisition": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_acquisition_snapshot"),
 		"pending_dimension_gate_after_spawn_intro": RuntimePerkRuntimeStateAccess.call_bool(deferred_instants, "has_pending_dimension_gate"),

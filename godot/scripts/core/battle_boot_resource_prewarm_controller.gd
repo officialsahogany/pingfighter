@@ -1197,6 +1197,11 @@ func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: C
 	# 겪지 않게 한다.
 	if icon_renderer != null and icon_renderer.has_method("prewarm_fusion_pair_icons_for_state"):
 		icon_renderer.prewarm_fusion_pair_icons_for_state(_get_module(module_getter, "runtime_perk_state"))
+	# 신비의 주사위 패들 오라 분리형 스크린 호스트: 상태는 바인딩된 호스트만
+	# 반환하고 드로어는 조회 전용이라, 여기(부트 로딩 프레임 — draw 밖)서
+	# 씬에 부착·바인딩하지 않으면 실게임에서 오라가 렌더되지 않는다.
+	# 호스트는 배틀 씬의 자식으로 붙어 씬 해제와 함께 정리된다.
+	_ensure_mystic_dice_paddle_fx_host(owner, _get_module(module_getter, "runtime_perk_state"))
 	var treasure_hunt_runtime: Object = _get_module(module_getter, "treasure_hunt_runtime")
 	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("prewarm_assets"):
 		treasure_hunt_runtime.prewarm_assets()
@@ -1209,6 +1214,23 @@ func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: C
 		return false
 	battle_runtime_perk_overlay_prewarmed = true
 	return true
+
+
+# 주사위 패들 오라 호스트 보증: 유효 호스트가 이미 트리 안에 바인딩돼
+# 있으면 no-op(중복 부착 금지), 아니면 생성→씬 부착→상태 바인딩. 씬 교체로
+# 호스트가 해제된 뒤의 재부트에서는 새 호스트를 다시 붙인다.
+func _ensure_mystic_dice_paddle_fx_host(owner: Object, runtime_perk_state: Object) -> void:
+	if runtime_perk_state == null or not runtime_perk_state.has_method("bind_mystic_dice_paddle_fx_host"):
+		return
+	if not (owner is Node):
+		return
+	if runtime_perk_state.has_method("get_mystic_dice_paddle_fx_host"):
+		var bound_host: Node = runtime_perk_state.get_mystic_dice_paddle_fx_host()
+		if bound_host != null and is_instance_valid(bound_host) and bound_host.is_inside_tree():
+			return
+	var host: Node = load("res://scripts/characters/mystic_dice_paddle_fx_host.gd").new()
+	(owner as Node).add_child(host)
+	runtime_perk_state.bind_mystic_dice_paddle_fx_host(host)
 
 
 func prewarm_runtime_perk_debug_resources(owner: Object, module_getter: Callable) -> void:

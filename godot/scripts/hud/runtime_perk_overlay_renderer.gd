@@ -5,6 +5,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
+const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -47,8 +48,14 @@ var _text_cache_font_id := 0
 var _back_glow_stylebox: StyleBoxFlat = null
 
 
+# 신비의 주사위 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
+# 함께 프리웜).
+var _mystic_dice_overlay_renderer: Object = MysticDiceOverlayRenderer.new()
+
+
 func prewarm_assets() -> void:
 	AngelBlessingRollOverlayHost.prewarm_assets()
+	_mystic_dice_overlay_renderer.prewarm_assets()
 	var font: Font = _get_font()
 	if font == null:
 		return
@@ -121,6 +128,19 @@ func draw(
 	var sample_start: int = _perf_begin(perf_logger)
 	var snapshot: Dictionary = runtime_state.get_snapshot()
 	_perf_end(perf_logger, "hud.perk_overlay.snapshot", sample_start)
+	# 신비의 주사위 모달(D1~D3): 표준 선택 카드 대신 전용 렌더러가 그린다 —
+	# raw choice_active는 유지되므로 이 라우팅이 카드 드로우보다 먼저 온다.
+	if runtime_state.has_method("is_mystic_dice_modal_active") and bool(runtime_state.is_mystic_dice_modal_active()):
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
+		sample_start = _perf_begin(perf_logger)
+		_mystic_dice_overlay_renderer.draw(
+			canvas,
+			runtime_state.get_mystic_dice_modal_snapshot(),
+			runtime_state.get_mystic_dice_snapshot(),
+			view_size
+		)
+		_perf_end(perf_logger, "hud.perk_overlay.mystic_dice_modal", sample_start)
+		return
 	if runtime_state.has_method("is_unlock_showcase_active") and bool(runtime_state.is_unlock_showcase_active()):
 		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
 		sample_start = _perf_begin(perf_logger)
@@ -1244,6 +1264,14 @@ func _draw_perk_symbol(canvas: CanvasItem, rect: Rect2, color: Color, tree: Stri
 	if skill_id == "convert_to_gold":
 		canvas.draw_circle(center, radius, Color(1.0, 200.0 / 255.0, 40.0 / 255.0, 0.95 * alpha))
 		_draw_text_centered(canvas, "G", center + Vector2(0.0, 2.0), int(radius * 1.35), Color(70.0 / 255.0, 42.0 / 255.0, 0.0, alpha))
+	elif skill_id == "mystic_dice":
+		# 절차 five-pip 폴백: PNG 로드가 실패해도 주사위 카드가 주사위로
+		# 읽히게 한다(둥근 몸체+5핍).
+		canvas.draw_rect(Rect2(center - Vector2(radius * 0.82, radius * 0.82), Vector2(radius * 1.64, radius * 1.64)), Color(c.r, c.g, c.b, 0.85 * alpha))
+		canvas.draw_rect(Rect2(center - Vector2(radius * 0.82, radius * 0.82), Vector2(radius * 1.64, radius * 1.64)), hi, false, 1.4)
+		var pip_radius: float = radius * 0.16
+		for pip_offset: Vector2 in [Vector2(-0.45, -0.45), Vector2(0.45, -0.45), Vector2(0.0, 0.0), Vector2(-0.45, 0.45), Vector2(0.45, 0.45)]:
+			canvas.draw_circle(center + pip_offset * radius, pip_radius, hi)
 	elif tree.find("unlock") >= 0:
 		canvas.draw_circle(center, radius, Color(c.r, c.g, c.b, 0.36 * alpha))
 		canvas.draw_arc(center, radius, -PI * 0.75, PI * 0.75, PERK_UNLOCK_SYMBOL_ARC_SEGMENTS, c, 3.0)

@@ -61,6 +61,15 @@ func build_path(perk_id: String, perk_data: Dictionary, ring_core_choice_id: Str
 		}
 	if clean_id == ring_core_choice_id:
 		return _accepted_path(clean_id, PATH_RING_CORE)
+	# 신비의 주사위: 굴림·커밋은 모달(D1~D3)이 소유한다 — 디버그 직접 부여는
+	# 굴림 없는 스탯 위조가 되므로 명시 사유와 함께 거부한다.
+	if clean_id == "mystic_dice" or bool(perk_data.get("is_mystic_dice", false)):
+		return {
+			"accepted": false,
+			"path": PATH_INVALID,
+			"choice_id": clean_id,
+			"blocked_reason": "modal_only_choice",
+		}
 	if bool(perk_data.get("is_instant", false)) or clean_id == "convert_to_gold" or int(perk_data.get("max_level", 1)) <= 0:
 		return _accepted_path(clean_id, PATH_INSTANT)
 	if str(perk_data.get("unlocks_skill", "")) != "":

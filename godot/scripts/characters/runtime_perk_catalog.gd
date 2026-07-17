@@ -1304,6 +1304,11 @@ const GOLD_CHOICE := {
 	"character_restriction": "",
 	"is_instant": true,
 	"is_gold_conversion": true,
+	# 오퍼 lane 메타: 시스템 카드 로테이션(융합·신비의 주사위)이 골드 lane을
+	# 판별/스왑하는 계약 필드 — 골드는 항상 보호 lane으로 남고, 로테이션은
+	# 카탈로그 밖(오퍼 후처리)에서만 일어난다.
+	"offer_lane": "gold",
+	"offer_protected": true,
 	"gold_amount": 500,
 	"current_level": 0,
 	"next_level": 0,
@@ -1438,6 +1443,10 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		var gold_choice := GOLD_CHOICE.duplicate(true)
 		gold_choice["id"] = "convert_to_gold"
 		return LanguageSettings.localize_perk_data(gold_choice)
+	if skill_id == "mystic_dice":
+		# 카드 정의 단일 소스는 오퍼 플래너의 build_card — 카탈로그는 조회
+		# 해석만 담당하고 로테이션 로직은 갖지 않는다(get_choices 비등장).
+		return load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
 	if skill_id == LINGPET_AFFINITY_CHIP_CHOICE_ID:
 		var chip_choice := LINGPET_AFFINITY_CHIP_PERK.duplicate(true)
 		chip_choice["id"] = LINGPET_AFFINITY_CHIP_CHOICE_ID
@@ -1498,6 +1507,10 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 		return false
 	var perk_id: String = str(perk_data.get("id", "")).strip_edges()
 	if perk_id == "convert_to_gold" or bool(perk_data.get("is_gold_conversion", false)):
+		return false
+	# 신비의 주사위: 모달 전용 시스템 카드 — 퍽 슬롯을 절대 소모하지 않는다
+	# (영구 스탯은 슬롯 밖 run-scope 누적).
+	if perk_id == "mystic_dice" or bool(perk_data.get("is_mystic_dice", false)):
 		return false
 	if bool(perk_data.get("is_instant", false)) or str(perk_data.get("tree", "")) == "instant":
 		return false
@@ -1579,6 +1592,11 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	gold_choice["id"] = "convert_to_gold"
 	gold_choice["debug_group"] = "instant"
 	entries.append(LanguageSettings.localize_perk_data(gold_choice))
+	# 신비의 주사위: 디버그 피커에는 검사용으로 노출하되, 직접 부여는
+	# RuntimePerkDebugGrants가 modal_only_choice로 거부한다.
+	var mystic_dice_choice: Dictionary = get_perk_data("mystic_dice")
+	mystic_dice_choice["debug_group"] = "instant"
+	entries.append(mystic_dice_choice)
 	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	ring_core_choice["debug_group"] = "lingpet"
 	entries.append(LanguageSettings.localize_perk_data(ring_core_choice))

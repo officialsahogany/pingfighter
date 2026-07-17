@@ -124,13 +124,28 @@ func apply_full_gauge(
 	get_instance: Callable
 ) -> void:
 	if owner != null:
-		owner.set("special_gauge", special_gauge_max)
-	var dash_state: Object = get_instance.call(registry, "smasher_dash_state")
+		# "가득"은 실 합성 최대치 기준이다: 게이지 최대 소스(연료 주머니×
+		# 신비의 주사위×천사)가 owner에 반영돼 있으면 base 상수 대신 그
+		# 값을 채운다 — base로 채우면 증가 소스가 있는 판에서 최대 미만,
+		# 감소(저주 롤) 판에서 오버플로우가 된다.
+		var owner_max_value: Variant = owner.get("special_gauge_max")
+		var fill_value: float = special_gauge_max
+		if owner_max_value != null and float(owner_max_value) > 0.0:
+			fill_value = float(owner_max_value)
+		owner.set("special_gauge", fill_value)
+	var dash_state: Object = _resolve_instance(get_instance, registry, "smasher_dash_state")
 	if dash_state != null and dash_state.has_method("refill_tokens"):
 		dash_state.refill_tokens()
-	var skill_state: Object = get_instance.call(registry, skill_state_key)
+	var skill_state: Object = _resolve_instance(get_instance, registry, skill_state_key)
 	if skill_state != null and skill_state.has_method("reset_cooldowns"):
 		skill_state.reset_cooldowns()
+
+
+func _resolve_instance(get_instance: Callable, registry: Object, key: String) -> Object:
+	if not get_instance.is_valid():
+		return null
+	var instance: Variant = get_instance.call(registry, key)
+	return instance if instance is Object else null
 
 
 func apply_owner_full_gauge(

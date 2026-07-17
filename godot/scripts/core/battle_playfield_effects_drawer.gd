@@ -41,6 +41,56 @@ func draw_actors(
 	_perf_end(perf_logger, "actors.renderer_draw", draw_start)
 
 
+# 신비의 주사위 패들 오라: 플레이어 렌더 직후의 팬아웃에서 분리형 스크린
+# 호스트를 컨트롤러 구동으로 동기화한다(호스트 자체 _process 금지 계약).
+func draw_mystic_dice_paddle_effect(registry: Object, draw_context: Dictionary, shake_offset: Vector2) -> void:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null or not runtime_perk_state.has_method("get_mystic_dice_paddle_effect_snapshot"):
+		return
+	var effect_snapshot: Dictionary = runtime_perk_state.get_mystic_dice_paddle_effect_snapshot()
+	if not runtime_perk_state.has_method("get_mystic_dice_paddle_fx_host"):
+		return
+	var host: Object = runtime_perk_state.get_mystic_dice_paddle_fx_host()
+	if host == null or not host.has_method("sync_state"):
+		return
+	var screen_state: Dictionary = _build_mystic_dice_paddle_screen_state(
+		effect_snapshot,
+		null,
+		null,
+		draw_context,
+		shake_offset
+	)
+	host.sync_state(screen_state, bool(effect_snapshot.get("active", false)))
+
+
+# 화면 상태 매핑(순수): 패들 중심(+셰이크)을 게임 좌표에서 스크린 좌표로
+# 올린다 — FX host 좌표식 offset + (pos + shake) × scale. 클립은 항상
+# 렌더된 풀 게임 캔버스(호스트가 플레이필드 전체를 클립 소유).
+func _build_mystic_dice_paddle_screen_state(
+	effect_snapshot: Dictionary,
+	_owner: Object,
+	_registry: Object,
+	draw_context: Dictionary,
+	shake_offset: Vector2
+) -> Dictionary:
+	var game_offset: Vector2 = draw_context.get("game_offset", Vector2.ZERO)
+	var game_size: Vector2 = draw_context.get("game_size", Vector2.ZERO)
+	var render_scale: float = maxf(0.001, float(draw_context.get("render_scale", 1.0)))
+	var player_pos: Vector2 = draw_context.get("player_pos", Vector2.ZERO)
+	var paddle_size: Vector2 = draw_context.get("player_paddle_size", Vector2.ZERO)
+	var paddle_center: Vector2 = player_pos + paddle_size * 0.5 + shake_offset
+	return {
+		"active": bool(effect_snapshot.get("active", false)),
+		"screen_pos": game_offset + paddle_center * render_scale,
+		"clip_position": game_offset,
+		"clip_size": game_size,
+		"paddle_size": paddle_size,
+		"render_scale": render_scale,
+		"elapsed_seconds": float(effect_snapshot.get("elapsed_seconds", 0.0)),
+		"intensity": clampf(float(effect_snapshot.get("intensity", 1.0)), 0.0, 1.0),
+	}
+
+
 func draw_power_smash_effects(
 	canvas: CanvasItem,
 	registry: Object,
