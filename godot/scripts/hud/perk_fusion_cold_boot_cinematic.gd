@@ -75,6 +75,9 @@ var _prepared_icon_lookup: Dictionary = {}
 var _prepared_pair_icon_id := ""
 var _vent_spark_nodes: Array = []
 var _gold_shower_node: GPUParticles2D = null
+var _ignition_haze_sprite: Sprite2D = null
+var _haze_elapsed := 0.0
+var _haze_preset := ""
 
 
 # §5 텍스처 프리웜(이산 시점 1회): 존재하는 에셋만 캐시에 올린다 —
@@ -129,6 +132,20 @@ func _ready() -> void:
 		)
 		_vent_spark_nodes = [spark_nodes.get("vent_left"), spark_nodes.get("vent_right")]
 		_gold_shower_node = spark_nodes.get("gold_shower") as GPUParticles2D
+	# CB4c-3 용융/열 아지랑이(WRITHE 공유 패밀리 프리셋 — 인라인 셰이더
+	# 신설 금지 계약): 점등 섀시 아트 자체를 왜곡하는 additive 쉬머 레이어.
+	# B3 크레스트 엔벨로프에서만 보이고, 프리셋은 record 파생 tell로 구동.
+	var haze_texture: Texture2D = _texture("chassis_on")
+	if haze_texture != null:
+		_ignition_haze_sprite = Sprite2D.new()
+		_ignition_haze_sprite.texture = haze_texture
+		_ignition_haze_sprite.centered = true
+		var haze_span: float = (CHASSIS_RADIUS + 10.0) * 2.0
+		_ignition_haze_sprite.scale = Vector2.ONE * (haze_span / maxf(1.0, float(haze_texture.get_width())))
+		_ignition_haze_sprite.material = WritheEmberMaterial.build_material("cold_boot_ignition_haze")
+		_ignition_haze_sprite.visible = false
+		add_child(_ignition_haze_sprite)
+		_haze_preset = "cold_boot_ignition_haze"
 
 
 func is_boot_active() -> bool:
@@ -176,6 +193,35 @@ func get_prepared_icon_ids() -> Array:
 	return ids
 
 
+# CB4c-3: B3 크레스트 열 아지랑이 엔벨로프 — intensity는 비트 진행 사인
+# 아치 + B4 초입 잔광, 프리셋은 plan.ignition_surge(부작용 적 번짐 tell)
+# 로 데이터 구동 스왑(uniforms only — 공유 셰이더 유지). elapsed는 실
+# delta 누적이라 모달 물리 정지와 무관하게 쉬머가 살아 있다.
+func _update_ignition_haze(delta: float) -> void:
+	if _ignition_haze_sprite == null or not is_instance_valid(_ignition_haze_sprite):
+		return
+	var beat := str(_boot_snapshot.get("beat", ""))
+	var progress: float = clampf(float(_boot_snapshot.get("beat_progress", 0.0)), 0.0, 1.0)
+	var envelope := 0.0
+	if beat == PerkFusionColdBootTimelineState.BEAT_IGNITION_CREST:
+		envelope = sin(progress * PI)
+	elif beat == PerkFusionColdBootTimelineState.BEAT_REVEAL and progress < 0.2:
+		envelope = (1.0 - progress / 0.2) * 0.45
+	if envelope <= 0.0:
+		_ignition_haze_sprite.visible = false
+		return
+	var plan: Dictionary = _boot_snapshot.get("presentation", {}) as Dictionary
+	var wanted_preset := "cold_boot_ignition_haze_surge" if bool(plan.get("ignition_surge", false)) else "cold_boot_ignition_haze"
+	if wanted_preset != _haze_preset:
+		WritheEmberMaterial.apply_preset(_ignition_haze_sprite.material as ShaderMaterial, wanted_preset)
+		_haze_preset = wanted_preset
+	_haze_elapsed += maxf(0.0, delta)
+	var haze_material := _ignition_haze_sprite.material as ShaderMaterial
+	haze_material.set_shader_parameter("elapsed", _haze_elapsed)
+	haze_material.set_shader_parameter("intensity", envelope)
+	_ignition_haze_sprite.visible = true
+
+
 func _align_spark_anchors() -> void:
 	var center: Vector2 = get_viewport_rect().size * 0.5
 	if _vent_spark_nodes.size() == 2:
@@ -187,6 +233,8 @@ func _align_spark_anchors() -> void:
 			vent_right.position = center + PerkFusionColdBootParticleFactory.VENT_RIGHT_OFFSET
 	if _gold_shower_node != null and is_instance_valid(_gold_shower_node):
 		_gold_shower_node.position = center + PerkFusionColdBootParticleFactory.SHOWER_OFFSET
+	if _ignition_haze_sprite != null and is_instance_valid(_ignition_haze_sprite):
+		_ignition_haze_sprite.position = center
 
 
 # 종료 즉시 잔존 파티클 하드 클리어(mythic v2 선례: false→restart→false).
@@ -234,6 +282,7 @@ func sync_boot(snapshot: Dictionary, events: Array, delta: float) -> void:
 	# 감쇠를 먼저, 신규 이벤트 펄스를 나중에 — 같은 호출의 delta가 방금
 	# 도착한 전이 펄스를 소멸시키면 저프레임(delta>=0.25)에서 CHNK 촉감이
 	# 통째로 사라진다.
+	_update_ignition_haze(delta)
 	_event_pulse = maxf(0.0, _event_pulse - maxf(0.0, delta) * EVENT_PULSE_DECAY)
 	if not events.is_empty():
 		_event_pulse = 1.0
@@ -256,6 +305,9 @@ func finish_boot() -> void:
 			_clear_spark_node(vent_value as GPUParticles2D)
 	if _gold_shower_node != null and is_instance_valid(_gold_shower_node):
 		_clear_spark_node(_gold_shower_node)
+	if _ignition_haze_sprite != null and is_instance_valid(_ignition_haze_sprite):
+		_ignition_haze_sprite.visible = false
+	_haze_elapsed = 0.0
 	_boot_snapshot = {}
 	_event_pulse = 0.0
 	_last_events = []

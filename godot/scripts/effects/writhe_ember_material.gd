@@ -449,6 +449,36 @@ const PRESETS := {
 		"ember_color": Color(1.00, 0.84, 0.40, 1.0),
 		"amethyst_color": Color(0.72, 0.55, 1.00, 1.0),
 	},
+	# 퍽 융합 콜드부트 B3 이그니션 크레스트의 용융/열 아지랑이(§5: WRITHE
+	# 공유 패밀리 확장 — 일회용 인라인 셰이더 신설 지양 계약). 점등 섀시
+	# 아트 자체를 왜곡·재발색하는 additive 쉬머: 골드 용융 코어 + 시안
+	# 동기화 액센트, 짧은 크레스트 엔벨로프에 맞춘 중간 flow.
+	"cold_boot_ignition_haze": {
+		"distort_strength": 0.034,
+		"lateral_strength": 0.026,
+		"jitter_strength": 0.010,
+		"bolt_flow_speed": 2.4,
+		"flicker_speed": 7.5,
+		"pulse_speed": 1.7,
+		"breath_amp": 0.16,
+		"hot_color": Color(1.00, 0.80, 0.34, 1.0),
+		"ember_color": Color(1.00, 0.90, 0.55, 1.0),
+		"amethyst_color": Color(0.30, 0.85, 1.00, 1.0),
+	},
+	# 부작용 서지 변형(플랜 §4 ignition_surge=적 번짐 tell): 같은 셰이더,
+	# 적 시프트 + 강한 distort/flicker만 다르다(uniforms only).
+	"cold_boot_ignition_haze_surge": {
+		"distort_strength": 0.052,
+		"lateral_strength": 0.042,
+		"jitter_strength": 0.016,
+		"bolt_flow_speed": 3.4,
+		"flicker_speed": 11.0,
+		"pulse_speed": 2.4,
+		"breath_amp": 0.24,
+		"hot_color": Color(1.00, 0.42, 0.28, 1.0),
+		"ember_color": Color(1.00, 0.62, 0.30, 1.0),
+		"amethyst_color": Color(0.55, 0.08, 0.10, 1.0),
+	},
 	# 주사위가 구르는(rolling) 동안의 서지 변형 — 같은 셰이더, 색은 유지하고
 	# flow/flicker/breath만 끌어올려 텀블 리듬에 빛이 요동치게 한다.
 	"angel_dice_roll_surge": {

@@ -71,6 +71,7 @@ func _run() -> void:
 	_verify_ignition_sheet_cell_content_seal()
 	_verify_committed_icon_prepare_on_boot_entry()
 	_verify_spark_particle_contract()
+	_verify_ignition_haze_contract()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
@@ -374,6 +375,66 @@ func _verify_spark_particle_contract() -> void:
 	controller.process_idle(2.10, owner_node, success_registry, Callable(success_getter, "get_module"))
 	var success_vents: Array = success_host._vent_spark_nodes
 	_expect(not (success_vents[0] as GPUParticles2D).emitting and not (success_host._gold_shower_node as GPUParticles2D).emitting, "a clean success must keep every spark emitter silent")
+	owner_node.queue_free()
+
+
+# CB4c-3: 용융/열 아지랑이 계약 — 재질은 WRITHE 공유 패밀리 셰이더
+# (인라인 신설 금지), 프리셋 2종 등록, B3에서만 가시+intensity 아치,
+# 부작용 record는 surge 프리셋으로 데이터 구동 스왑, finish로 소등.
+func _verify_ignition_haze_contract() -> void:
+	_expect(
+		WritheEmberMaterial.has_preset("cold_boot_ignition_haze")
+			and WritheEmberMaterial.has_preset("cold_boot_ignition_haze_surge"),
+		"both cold-boot haze presets must be registered in the shared writhe family"
+	)
+	var owner_node := Node2D.new()
+	root.add_child(owner_node)
+	var controller := BattleSceneOverlayFrameController.new()
+
+	# side_effect record: B3에서 surge 프리셋 + 가시 + intensity>0.
+	var side_fixture: Dictionary = _build_animation_state(0.60)
+	var side_state: Object = side_fixture["state"]
+	var side_registry: Object = side_fixture["registry"]
+	var side_getter: Object = side_fixture["getter"]
+	controller.process_idle(0.016, owner_node, side_registry, Callable(side_getter, "get_module"))
+	var host: Object = side_state._cold_boot_cinematic_host
+	var haze: Sprite2D = host._ignition_haze_sprite
+	_expect(haze != null and is_instance_valid(haze), "the host should build the ignition haze layer at ready time")
+	_expect(not haze.visible, "the haze must stay dark outside the ignition crest (B0)")
+	_expect(
+		WritheEmberMaterial.is_material_using_shader(haze.material as ShaderMaterial),
+		"the haze material must reuse the shared writhe-ember shader (no one-off inline shader)"
+	)
+	controller.process_idle(1.84, owner_node, side_registry, Callable(side_getter, "get_module"))
+	_expect(haze.visible, "the haze must light during the B3 ignition crest")
+	_expect(float((haze.material as ShaderMaterial).get_shader_parameter("intensity")) > 0.0, "the crest envelope must drive a positive intensity")
+	var surge_hot: Color = (haze.material as ShaderMaterial).get_shader_parameter("hot_color")
+	_expect(
+		surge_hot.is_equal_approx(Color(1.00, 0.42, 0.28, 1.0)),
+		"a side-effect record must swap to the surge preset (red-shift tell)"
+	)
+	side_state._confirm_perk_fusion_modal(null, side_registry)
+	side_state._confirm_perk_fusion_modal(null, side_registry)
+	_expect(not haze.visible, "finishing the modal must extinguish the haze")
+
+	# success record: B3에서 기본 프리셋(골드), B4 후반에서 소등.
+	var success_fixture: Dictionary = _build_animation_state(0.0)
+	var success_state: Object = success_fixture["state"]
+	var success_registry: Object = success_fixture["registry"]
+	var success_getter: Object = success_fixture["getter"]
+	controller.process_idle(0.016, owner_node, success_registry, Callable(success_getter, "get_module"))
+	var success_host: Object = success_state._cold_boot_cinematic_host
+	var success_haze: Sprite2D = success_host._ignition_haze_sprite
+	controller.process_idle(1.84, owner_node, success_registry, Callable(success_getter, "get_module"))
+	_expect(success_haze.visible, "a success record still lights the base haze at B3")
+	var base_hot: Color = (success_haze.material as ShaderMaterial).get_shader_parameter("hot_color")
+	_expect(
+		base_hot.is_equal_approx(Color(1.00, 0.80, 0.34, 1.0)),
+		"a success record must keep the base gold haze preset"
+	)
+	controller.process_idle(0.75, owner_node, success_registry, Callable(success_getter, "get_module"))
+	_expect(not success_haze.visible, "the haze must go dark after the B4 residual window"
+	)
 	owner_node.queue_free()
 
 

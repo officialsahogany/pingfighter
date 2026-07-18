@@ -145,6 +145,11 @@ func _run() -> void:
 		# finish → 같은 호스트로 무발화 success 모달 즉시 재개 — 하드
 		# 클리어가 없으면 수명(0.85s) 안의 생존 스파크가 이월 노출된다.
 		["s17_stale_reuse_success", _side_effect_rolls(), false, true, [0.016, 1.84], false, 0, true],
+		# CB4c-3: s12(전개 초기, B4 progress 0.023)와 "동시각" success
+		# 베이스라인 — B4 초입 haze 잔광이 모듈 annulus에 얹히므로, 초기
+		# 잉크 차분은 잔광까지 같은 조건의 쌍으로 계산해야 한다(잔광 없는
+		# s13(progress 0.78) 차분은 타이밍 불일치로 오염).
+		["s18_success_early_baseline", _success_rolls(), false, true, [0.016, 2.05], false, 0],
 	]
 	var captures: Dictionary = {}
 	for shot_value: Variant in shots:
@@ -440,7 +445,8 @@ func _analyze(captures: Dictionary) -> void:
 	var module_ink_1: int = _scan_module_ink(captures.get("s9_deploy_count1") as Image) - module_baseline
 	var module_ink_2: int = _scan_module_ink(captures.get("s10_deploy_count2") as Image) - module_baseline
 	var module_ink_3: int = _scan_module_ink(captures.get("s11_deploy_count3") as Image) - module_baseline
-	var module_ink_early: int = maxi(0, _scan_module_ink(captures.get("s12_deploy_early_snap") as Image) - module_baseline)
+	var module_early_baseline := _scan_module_ink(captures.get("s18_success_early_baseline") as Image)
+	var module_ink_early: int = maxi(0, _scan_module_ink(captures.get("s12_deploy_early_snap") as Image) - module_early_baseline)
 	_check(module_ink_1 > 60, "부산물 1개: 모듈 하드웨어 잉크 전개(%d px)" % module_ink_1)
 	_check(module_ink_2 >= module_ink_1 + 60, "부산물 2개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_2, module_ink_1])
 	_check(module_ink_3 >= module_ink_2 + 60, "부산물 3개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_3, module_ink_2])
@@ -485,6 +491,15 @@ func _analyze(captures: Dictionary) -> void:
 	var shower_image: Image = captures.get("s15_gold_shower_byproduct") as Image
 	var shower_ink := _scan_shower_band(shower_image)
 	_check(shower_ink > 60, "s15: 골드 각성 스파크 샤워 실렌더(%d px)" % shower_ink)
+	# CB4c-3: B3 용융/열 아지랑이 — 픽셀 봉인은 "서지 적" 밴드만 소유한다
+	# (실측: haze ON 25px / OFF 7px — FAULT 서지 아크 7px만 잔존, 임계 15).
+	# 기본 골드 프리셋은 이그니션 시트 아트와 동색이라 밴드 판별 불가
+	# (haze OFF에서도 98px)임을 반증 실측으로 확인 — 기본 프리셋의 계약은
+	# 스모크 행동 씰(B3 가시·intensity·공유 셰이더·finish 소등)+시각 검수
+	# 소유. 휘도 합 차분도 6~7%라 절대 임계 부적격(실측 기록).
+	var haze_surge := _scan_annulus_band(captures.get("s14_vent_sparks_side_effect") as Image, 34.0, 108.0, 0.72, 1.01, 0.18, 0.52, 0.02, 0.42)
+	_check(haze_surge > 15, "s14: 서지 적 용융 쉬머 실렌더(%d px > 15 — haze OFF 실측 7px)" % haze_surge)
+
 	# [P2-1] 스테일 재사용: 재개된 success 모달 B0 프레임에서 이전 모달의
 	# 벤트 스파크가 보이면 하드 클리어 실패(수명 내 생존자 이월).
 	var stale_image: Image = captures.get("s17_stale_reuse_success") as Image
@@ -550,6 +565,39 @@ func _band_extent_x(
 				if extent == -1 or (want_max and x > extent) or (not want_max and x < extent):
 					extent = x
 	return extent
+
+
+# 중심 annulus 색 밴드 스캔(r_min~r_max) — 용융 쉬머 등 섀시 몸통 위
+# additive 레이어의 잉크를 계수한다.
+func _scan_annulus_band(
+	image: Image,
+	radius_min: float,
+	radius_max: float,
+	r_min: float,
+	r_max: float,
+	g_min: float,
+	g_max: float,
+	b_min: float,
+	b_max: float
+) -> int:
+	if image == null:
+		return -1
+	var center := Vector2(760.0, 750.0) * 0.5
+	var count := 0
+	var span: int = int(radius_max) + 4
+	for y in range(int(center.y) - span, int(center.y) + span, 2):
+		for x in range(int(center.x) - span, int(center.x) + span, 2):
+			var radius: float = Vector2(float(x), float(y)).distance_to(center)
+			if radius < radius_min or radius > radius_max:
+				continue
+			var pixel: Color = image.get_pixel(x, y)
+			if (
+				pixel.r >= r_min and pixel.r < r_max
+				and pixel.g >= g_min and pixel.g < g_max
+				and pixel.b >= b_min and pixel.b < b_max
+			):
+				count += 1
+	return count
 
 
 # 골드 샤워 대역 스캔: 상부 낙하 대역(240~520 x 218~310)에서 웜-골드
