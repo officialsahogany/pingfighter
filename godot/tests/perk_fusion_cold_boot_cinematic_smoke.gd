@@ -56,6 +56,14 @@ class PerfLabelProbe:
 
 
 func _init() -> void:
+	# 코덱스 CB4bv2-P1: SceneTree._init() 시점엔 root.add_child 직후에도
+	# 노드 is_inside_tree()가 false라 get_viewport_rect() 계열이 엔진
+	# ERROR를 뿜고, 표준 러너(run_smoke_tests.ps1)의 serious-error 게이트가
+	# exit 0이어도 실패로 승격한다 — 실제 검증은 트리 진입 후(_run)만.
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_prewarm_rides_overlay_prewarm_path()
 	_verify_asset_manifest_prewarms_textures()
 	_verify_ignition_sheet_cell_content_seal()
