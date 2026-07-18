@@ -3,11 +3,12 @@ extends Node2D
 # 콜드부트 시네마틱 Node2D 호스트(CB3) — mythic v2 패턴 포크. 타임라인/
 # 프레젠테이션 플랜(CB1/CB2)의 스냅샷과 1회성 전이 이벤트를 외부 update
 # 드라이버가 밀어 넣는다(_process 없음 — 모달 물리 정지 중에도 같은
-# 드라이버 틱으로 돈다). CB3는 절차 드로 스탠드인: CB4가 §5 매니페스트
-# 에셋(섀시/카트리지/이그니션 시트)으로 교체한다. 미생성 에셋 경로는
-# 여기 배선하지 않는다(예약 에셋 per-frame re-stat 트랩).
+# 드라이버 틱으로 돈다). §5 매니페스트 에셋(섀시/카트리지/링파츠/이그니션
+# 시트)을 텍스처 우선으로 그리고, 부재 시 절차 드로 degraded 폴백을
+# 유지한다(예약 에셋 per-frame re-stat 트랩 금지 — 로드는 prewarm 1회).
 const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_fusion_cold_boot_timeline_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 
 # §5 에셋 매니페스트(CB4b): 텍스처 우선 + 절차 드로 degraded 폴백. 존재
 # 검사·로드는 prewarm 1회에서만(예약 에셋 per-frame re-stat 트랩 금지).
@@ -26,6 +27,23 @@ const IGNITION_SHEET_COLS := 4
 const IGNITION_SHEET_ROWS := 4
 const IGNITION_SHEET_FRAMES := 16
 
+# 카트리지 페이스 플레이트(에셋 실측 frac): 좌 x=0.442(우는 미러 1-x),
+# y=0.510, 아이콘 스팬 32px — 커밋된 재료 퍽 아이콘을 B0~B3 내내
+# 플레이트에 합성한다(카트리지 정체성 연속 계약, 소멸은 B4 코어 합체만).
+const CARTRIDGE_DRAW_HEIGHT := 96.0
+const CARTRIDGE_PLATE_CENTER_X_FRAC := 0.442
+const CARTRIDGE_PLATE_CENTER_Y_FRAC := 0.510
+const CARTRIDGE_PLATE_ICON_SPAN := 32.0
+
+# B4 각성 모듈 = 몸-마운트 링파츠 전개 스펙: 모듈별 앵커 각/폭/회전이
+# 다르다(균일 72px 정사각 즉시 배치 금지 계약). 회전은 draw_set_transform
+# 트랩을 피해 정점 직접 계산 + 정규화 UV draw_polygon으로 그린다.
+const MODULE_DEPLOY_SPECS := [
+	{"key": "module_shoulder_pod", "angle": -PI * 0.5, "width": 88.0, "rotation": 0.0},
+	{"key": "module_collar_ring", "angle": PI * 5.0 / 6.0, "width": 58.0, "rotation": PI * 5.0 / 6.0 + PI * 0.5},
+	{"key": "module_gem_plate", "angle": PI / 6.0, "width": 66.0, "rotation": PI / 6.0 + PI * 0.5},
+]
+
 # 플랜 §2 팔레트 — 결과 신호 문법(시안=동기화/골드=각성/적=과부하).
 const ACCENT_COLOR := Color(0.32, 0.86, 1.0)
 const GOLD_COLOR := Color(1.0, 0.79, 0.27)
@@ -40,12 +58,14 @@ const EVENT_PULSE_DECAY := 4.0
 
 static var _assets_prewarmed := false
 static var _textures: Dictionary = {}
+static var _icon_renderer: Object = null
 
 var _boot_active := false
 var _boot_snapshot: Dictionary = {}
 var _event_pulse := 0.0
 var _last_events: Array = []
 var consumed_event_count := 0
+var _prepared_icon_lookup: Dictionary = {}
 
 
 # §5 텍스처 프리웜(이산 시점 1회): 존재하는 에셋만 캐시에 올린다 —
@@ -70,6 +90,8 @@ static func prewarm_assets() -> void:
 		var texture: Variant = ProjectResourceLoader.load_imported_texture(path)
 		if texture is Texture2D:
 			_textures[texture_key] = texture
+	if _icon_renderer == null:
+		_icon_renderer = RuntimePerkIconRenderer.new()
 	_assets_prewarmed = true
 
 
@@ -91,6 +113,26 @@ func _ready() -> void:
 
 func is_boot_active() -> bool:
 	return _boot_active
+
+
+# 부트 진입 에지(모달당 1회, 이산 시점): 커밋된 재료 아이콘을 프리웜한다
+# — has_icon()이 텍스처를 로드+캐시하므로 draw 경로는 캐시 히트만 탄다.
+# 아이콘이 없는 id는 lookup에서 제외해 draw 재시도(로더는 성공만 캐시 —
+# 부재 에셋 per-frame re-stat 트랩)를 원천 차단한다.
+func prepare_committed_icons(source_ids: Array) -> void:
+	_prepared_icon_lookup = {}
+	if _icon_renderer == null:
+		return
+	for source_value: Variant in source_ids:
+		var source_id := str(source_value)
+		if not source_id.is_empty() and bool(_icon_renderer.has_icon(source_id)):
+			_prepared_icon_lookup[source_id] = true
+
+
+func get_prepared_icon_ids() -> Array:
+	var ids: Array = _prepared_icon_lookup.keys()
+	ids.sort()
+	return ids
 
 
 # 외부 드라이버 틱: 스냅샷(비트/progress/presentation)과 이번 틱에 드레인된
@@ -117,6 +159,7 @@ func finish_boot() -> void:
 	_boot_snapshot = {}
 	_event_pulse = 0.0
 	_last_events = []
+	_prepared_icon_lookup = {}
 	queue_redraw()
 
 
@@ -146,8 +189,10 @@ func _draw() -> void:
 		PerkFusionColdBootTimelineState.BEAT_TWIST_LOCK:
 			_draw_twist_lock(center, progress)
 		PerkFusionColdBootTimelineState.BEAT_BOOT_POST:
+			_draw_docked_bays(center)
 			_draw_boot_gauge(center, progress, plan)
 		PerkFusionColdBootTimelineState.BEAT_IGNITION_CREST:
+			_draw_docked_bays(center)
 			_draw_boot_gauge(center, 1.0, plan)
 			_draw_ignition(center, progress, plan)
 		PerkFusionColdBootTimelineState.BEAT_REVEAL:
@@ -176,28 +221,18 @@ func _draw_chassis(center: Vector2) -> void:
 
 
 func _draw_dock_in(center: Vector2, progress: float) -> void:
-	# B0: 좌우 레일에서 카트리지 2기가 중앙 베이로 활주(정체성 보존은 CB4
-	# 아이콘 오버레이 소관 — CB3는 셸 실루엣).
+	# B0: 좌우 레일에서 카트리지 2기가 중앙 베이로 활주 — 각 페이스가
+	# 자기 재료 퍽 아이콘을 싣고 이동한다(정체성 보존, _draw_cartridge 소관).
 	var travel: float = lerpf(240.0, 46.0, progress)
 	for side: int in [-1, 1]:
-		var cartridge_center: Vector2 = center + Vector2(float(side) * travel, 0.0)
-		if _draw_cartridge(cartridge_center, side):
-			continue
-		var cartridge_rect := Rect2(cartridge_center - Vector2(20.0, 30.0), Vector2(40.0, 60.0))
-		draw_rect(cartridge_rect, Color(CHASSIS_COLOR.lightened(0.12), 0.95))
-		draw_rect(cartridge_rect, Color(ACCENT_COLOR, 0.75), false, 2.0)
+		_draw_cartridge(center + Vector2(float(side) * travel, 0.0), side)
 
 
 func _draw_twist_lock(center: Vector2, progress: float) -> void:
 	# B1: 링 칼라 회전-스냅 체결.
 	var snap_angle: float = lerpf(0.62, 0.0, progress)
 	for side: int in [-1, 1]:
-		var bay_center: Vector2 = center + Vector2(float(side) * 46.0, 0.0)
-		if _draw_cartridge(bay_center, side):
-			continue
-		var bay_rect := Rect2(bay_center - Vector2(20.0, 30.0), Vector2(40.0, 60.0))
-		draw_rect(bay_rect, Color(CHASSIS_COLOR.lightened(0.12), 0.95))
-		draw_rect(bay_rect, Color(ACCENT_COLOR, 0.85), false, 2.0)
+		_draw_cartridge(center + Vector2(float(side) * 46.0, 0.0), side)
 	draw_arc(center, 78.0, -PI * 0.5 + snap_angle, PI * 0.5 + snap_angle, 32, Color(ACCENT_COLOR, 0.85), 4.0)
 	draw_arc(center, 78.0, PI * 0.5 + snap_angle, PI * 1.5 + snap_angle, 32, Color(ACCENT_COLOR, 0.85), 4.0)
 
@@ -255,19 +290,54 @@ func _draw_ignition(center: Vector2, progress: float, plan: Dictionary) -> void:
 		draw_arc(center, 84.0, -PI * 0.5, -PI * 0.5 + coil_sweep, 48, Color(CORE_STABLE_COLOR, 0.95), 5.0)
 
 
-# 카트리지 텍스처 드로(좌/우 미러 셸): 텍스처 부재면 false — 절차 폴백.
-func _draw_cartridge(cartridge_center: Vector2, side: int) -> bool:
+# B2/B3: 도킹된 카트리지 유지 — 점등 섀시에서 베이가 다시 비면 카트리지
+# 정체성 연속이 끊긴다. 카트리지 소멸은 B4 코어 합체 시점뿐이다.
+func _draw_docked_bays(center: Vector2) -> void:
+	for side: int in [-1, 1]:
+		_draw_cartridge(center + Vector2(float(side) * 46.0, 0.0), side)
+
+
+# 카트리지 셸(좌/우 미러; 텍스처 부재면 절차 폴백) + 커밋된 재료 퍽
+# 아이콘을 페이스 플레이트에 합성.
+func _draw_cartridge(cartridge_center: Vector2, side: int) -> void:
 	var cartridge_texture: Texture2D = _texture("cartridge_left" if side < 0 else "cartridge_right")
-	if cartridge_texture == null:
-		return false
-	var cartridge_h := 96.0
-	var cartridge_w: float = cartridge_h * float(cartridge_texture.get_width()) / float(cartridge_texture.get_height())
-	draw_texture_rect(
-		cartridge_texture,
-		Rect2(cartridge_center - Vector2(cartridge_w, cartridge_h) * 0.5, Vector2(cartridge_w, cartridge_h)),
-		false
+	var icon_center := cartridge_center
+	var icon_span := 24.0
+	if cartridge_texture != null:
+		var cartridge_h := CARTRIDGE_DRAW_HEIGHT
+		var cartridge_w: float = cartridge_h * float(cartridge_texture.get_width()) / float(cartridge_texture.get_height())
+		draw_texture_rect(
+			cartridge_texture,
+			Rect2(cartridge_center - Vector2(cartridge_w, cartridge_h) * 0.5, Vector2(cartridge_w, cartridge_h)),
+			false
+		)
+		var plate_x_frac := CARTRIDGE_PLATE_CENTER_X_FRAC if side < 0 else 1.0 - CARTRIDGE_PLATE_CENTER_X_FRAC
+		icon_center = cartridge_center + Vector2(
+			(plate_x_frac - 0.5) * cartridge_w,
+			(CARTRIDGE_PLATE_CENTER_Y_FRAC - 0.5) * cartridge_h
+		)
+		icon_span = CARTRIDGE_PLATE_ICON_SPAN
+	else:
+		var cartridge_rect := Rect2(cartridge_center - Vector2(20.0, 30.0), Vector2(40.0, 60.0))
+		draw_rect(cartridge_rect, Color(CHASSIS_COLOR.lightened(0.12), 0.95))
+		draw_rect(cartridge_rect, Color(ACCENT_COLOR, 0.8), false, 2.0)
+	_draw_cartridge_face_icon(icon_center, icon_span, side)
+
+
+# 커밋 record.sources(정확히 2, 정렬)를 좌/우 페이스에 1:1 합성 — 부트
+# 진입 에지에서 프리웜된 아이콘만 그린다(캐시 히트 전용 draw 계약).
+func _draw_cartridge_face_icon(icon_center: Vector2, icon_span: float, side: int) -> void:
+	var sources: Array = (_boot_snapshot.get("committed_record", {}) as Dictionary).get("sources", []) as Array
+	if _icon_renderer == null or sources.size() < 2:
+		return
+	var source_id := str(sources[0] if side < 0 else sources[1])
+	if not _prepared_icon_lookup.has(source_id):
+		return
+	_icon_renderer.draw_icon(
+		self,
+		source_id,
+		Rect2(icon_center - Vector2(icon_span, icon_span) * 0.5, Vector2(icon_span, icon_span))
 	)
-	return true
 
 
 func _draw_core_reveal(center: Vector2, progress: float, plan: Dictionary) -> void:
@@ -290,14 +360,41 @@ func _draw_core_reveal(center: Vector2, progress: float, plan: Dictionary) -> vo
 		var fault_color := Color(FAULT_COLOR, 0.85) if fault_index < brown_out_count else Color(CHASSIS_COLOR.lightened(0.25), 0.95)
 		draw_arc(center, 96.0, fault_angle, fault_angle + 0.30, 8, fault_color, 7.0)
 	var deployed_count: int = int(plan.get("deployed_module_count", 0))
-	var module_keys := ["module_shoulder_pod", "module_collar_ring", "module_gem_plate"]
-	for module_index: int in range(mini(deployed_count, 3)):
-		var module_angle: float = -PI * 0.5 + TAU * float(module_index) / 3.0
-		var module_center: Vector2 = center + Vector2(cos(module_angle), sin(module_angle)) * (CHASSIS_RADIUS - 6.0)
-		var module_texture: Texture2D = _texture(module_keys[module_index])
-		if module_texture != null:
-			var module_span := 72.0
-			draw_texture_rect(module_texture, Rect2(module_center - Vector2(module_span, module_span) * 0.5, Vector2(module_span, module_span)), false)
-			continue
-		draw_circle(module_center, 12.0, Color(GOLD_COLOR, 0.9))
-		draw_arc(module_center, 16.0, 0.0, TAU, 24, Color(GOLD_COLOR, 0.5), 2.0)
+	for module_index: int in range(mini(deployed_count, MODULE_DEPLOY_SPECS.size())):
+		_draw_awakened_module(center, module_index, progress)
+
+
+# B4 SNAP OPEN: 모듈별 스태거 전개 — 베이 안쪽(림 내측)에서 섀시 림
+# 마운트 지점으로 슬라이드+스냅 팝(즉시 배치 금지 계약). 몸(섀시)에
+# 마운트되는 링파츠 read — 플로팅 링 금지. 회전 텍스처 quad는
+# draw_set_transform 트랩을 피해 정점 직접 계산+정규화 UV draw_polygon.
+func _draw_awakened_module(center: Vector2, module_index: int, progress: float) -> void:
+	var spec: Dictionary = MODULE_DEPLOY_SPECS[module_index]
+	var deploy: float = clampf((progress * 2.2 - float(module_index) * 0.28) / 0.45, 0.0, 1.0)
+	if deploy <= 0.0:
+		return
+	var snap: float = 1.0 - pow(1.0 - deploy, 3.0)
+	var pop: float = 1.0 + 0.16 * sin(deploy * PI)
+	var mount_dir := Vector2(cos(float(spec["angle"])), sin(float(spec["angle"])))
+	var module_center: Vector2 = center + mount_dir * lerpf(CHASSIS_RADIUS - 46.0, CHASSIS_RADIUS - 4.0, snap)
+	var alpha: float = clampf(deploy * 1.8, 0.0, 1.0)
+	var module_texture: Texture2D = _texture(str(spec["key"]))
+	if module_texture == null:
+		draw_circle(module_center, 12.0 * snap * pop, Color(GOLD_COLOR, 0.9 * alpha))
+		draw_arc(module_center, maxf(1.0, 16.0 * snap * pop), 0.0, TAU, 24, Color(GOLD_COLOR, 0.5 * alpha), 2.0)
+		return
+	var half_w: float = float(spec["width"]) * 0.5 * (0.55 + 0.45 * snap) * pop
+	var half_h: float = half_w * float(module_texture.get_height()) / float(module_texture.get_width())
+	var rotation_rad := float(spec["rotation"])
+	var axis_x := Vector2(cos(rotation_rad), sin(rotation_rad))
+	var axis_y := Vector2(-axis_x.y, axis_x.x)
+	var points := PackedVector2Array([
+		module_center - axis_x * half_w - axis_y * half_h,
+		module_center + axis_x * half_w - axis_y * half_h,
+		module_center + axis_x * half_w + axis_y * half_h,
+		module_center - axis_x * half_w + axis_y * half_h,
+	])
+	# draw_polygon 텍스처 UV는 반드시 정규화 [0,1](픽셀 rect 금지 트랩).
+	var uvs := PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
+	var modulate := Color(1.0, 1.0, 1.0, alpha)
+	draw_polygon(points, PackedColorArray([modulate, modulate, modulate, modulate]), uvs, module_texture)

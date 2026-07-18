@@ -110,21 +110,29 @@ func _run() -> void:
 	_summary_lines.append("META dirty_status_fingerprint=%s" % dirty_fingerprint)
 	_summary_lines.append("META dirty_content_fingerprint=%s" % dirty_content_fingerprint)
 
-	# [샷 이름, 티어 롤, core 선무장, 호스트 사용, idle 시퀀스, 음성 z 강제]
+	# [샷 이름, 티어 롤, core 선무장, 호스트 사용, idle 시퀀스, 음성 z 강제,
+	#  기대 부산물 카운트(-1=검사 안 함 — record 파생 fixture 실검증)]
 	var shots := [
-		["s0_degraded_b2_immediate", _success_rolls(), false, false, [0.016, 1.30], false],
-		["s1_host_b0_dock", _success_rolls(), false, true, [0.016, 0.20], false],
-		["s2_host_b2_gauge_success", _success_rolls(), false, true, [0.016, 1.30], false],
-		["s3_host_b2_gauge_stutter", _side_effect_rolls(), false, true, [0.016, 1.30], false],
-		["s4_host_b2_overshoot_gold", _byproduct_rolls(), false, true, [0.016, 1.75], false],
-		["s5_host_b3_ignition_stabilizer", _side_effect_rolls(), true, true, [0.016, 1.90], false],
-		["s6_host_b4_reveal_awakened", _byproduct_rolls(), false, true, [0.016, 2.30], false],
+		["s0_degraded_b2_immediate", _success_rolls(), false, false, [0.016, 1.30], false, -1],
+		["s1_host_b0_dock", _success_rolls(), false, true, [0.016, 0.20], false, -1],
+		["s2_host_b2_gauge_success", _success_rolls(), false, true, [0.016, 1.30], false, -1],
+		["s3_host_b2_gauge_stutter", _side_effect_rolls(), false, true, [0.016, 1.30], false, -1],
+		["s4_host_b2_overshoot_gold", _byproduct_rolls(), false, true, [0.016, 1.75], false, -1],
+		["s5_host_b3_ignition_stabilizer", _side_effect_rolls(), true, true, [0.016, 1.90], false, -1],
+		["s6_host_b4_reveal_awakened", _byproduct_rolls(), false, true, [0.016, 2.30], false, -1],
 		# 음성 대조: 호스트 z를 패널 아래로 강제 — 게이지 시그니처가 패널에
 		# 가려져 사라져야 z-order 검출기가 실제로 z를 보고 있음을 증명한다.
-		["s8_negative_host_below_panel", _success_rolls(), false, true, [0.016, 1.30], true],
+		["s8_negative_host_below_panel", _success_rolls(), false, true, [0.016, 1.30], true, -1],
 		# B5 핸드오프: B4 후반에서 reveal을 관통하는 idle 한 번 — 같은
 		# 프레임에 호스트가 닫히고 리빌 패널이 그려져 단절 프레임이 없다.
-		["s7_handoff_reveal", _byproduct_rolls(), false, true, [0.016, 2.60, 0.30], false],
+		["s7_handoff_reveal", _byproduct_rolls(), false, true, [0.016, 2.60, 0.30], false, -1],
+		# [P1-2] 각성 모듈 전개: 부산물 1/2/3개 카운트 구동 + SNAP OPEN
+		# (초기 프레임≪완전 전개). s13=success 동시각 베이스라인(모듈 0).
+		["s9_deploy_count1", _byproduct_rolls_with_count(0.0, [0.0]), false, true, [0.016, 2.58], false, 1],
+		["s10_deploy_count2", _byproduct_rolls_with_count(0.40, [0.0, 0.0]), false, true, [0.016, 2.58], false, 2],
+		["s11_deploy_count3", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.58], false, 3],
+		["s12_deploy_early_snap", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.05], false, 3],
+		["s13_reveal_success_baseline", _success_rolls(), false, true, [0.016, 2.58], false, 0],
 	]
 	var captures: Dictionary = {}
 	for shot_value: Variant in shots:
@@ -135,7 +143,8 @@ func _run() -> void:
 			bool(shot[2]),
 			bool(shot[3]),
 			shot[4] as Array,
-			bool(shot[5])
+			bool(shot[5]),
+			int(shot[6])
 		)
 
 	_analyze(captures)
@@ -216,7 +225,8 @@ func _capture_shot(
 	pre_own_core: bool,
 	use_host: bool,
 	idle_deltas: Array,
-	force_host_below_panel: bool
+	force_host_below_panel: bool,
+	expected_byproduct_count: int
 ) -> Image:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(int(GAME_SIZE.x), int(GAME_SIZE.y))
@@ -261,6 +271,15 @@ func _capture_shot(
 	state._perk_fusion_modal_flow.select_source_at(1)
 	state._perk_fusion_modal_flow.confirm_current()
 	state._confirm_perk_fusion_modal(null, registry, rolls)
+	if expected_byproduct_count >= 0:
+		var committed_check: Dictionary = (
+			state.get_perk_fusion_modal_snapshot().get("cold_boot", {}) as Dictionary
+		).get("committed_record", {}) as Dictionary
+		var byproduct_count: int = (committed_check.get("byproducts", []) as Array).size()
+		_check(
+			byproduct_count == expected_byproduct_count,
+			"%s: 부산물 카운트 fixture 실검증(%d == %d)" % [shot_name, byproduct_count, expected_byproduct_count]
+		)
 
 	var canvas := ModalCanvas.new()
 	canvas.renderer = RuntimePerkOverlayRenderer.new()
@@ -354,9 +373,77 @@ func _analyze(captures: Dictionary) -> void:
 	var reveal_hint := _scan_region_band(handoff, 545, 748, 662, 706, 0.70, 1.01, 0.70, 1.01, 0.70, 1.01)
 	_check(reveal_hint > 12, "핸드오프 프레임: 계속 힌트 렌더(%d px)" % reveal_hint)
 
+	# [P1-1] 카트리지 정체성 연속(B0→B2): 좌/우 페이스 플레이트에 재료
+	# 아이콘 잉크가 실재하고 좌≠우(각자 자기 아이콘)여야 한다 — B2 검사가
+	# 점등 섀시에서의 도킹 유지까지 함께 증명한다. ROI는 플레이트 실측
+	# frac(x 0.442/0.558, y 0.510)과 결정론적 idle 시퀀스에서 유도.
+	var plate_rois := {
+		"s1_host_b0_dock": [[206, 234], [526, 554]],
+		"s2_host_b2_gauge_success": [[316, 344], [416, 444]],
+	}
+	for plate_shot: String in plate_rois.keys():
+		var roi_pair: Array = plate_rois[plate_shot] as Array
+		var left_roi: Array = roi_pair[0] as Array
+		var right_roi: Array = roi_pair[1] as Array
+		var plate_image: Image = captures.get(plate_shot) as Image
+		var left_stats: Dictionary = _plate_ink_stats(plate_image, int(left_roi[0]), int(left_roi[1]), 362, 390)
+		var right_stats: Dictionary = _plate_ink_stats(plate_image, int(right_roi[0]), int(right_roi[1]), 362, 390)
+		_check(int(left_stats["count"]) > 25, "%s: 좌 플레이트 재료 아이콘 잉크(%d px)" % [plate_shot, int(left_stats["count"])])
+		_check(int(right_stats["count"]) > 25, "%s: 우 플레이트 재료 아이콘 잉크(%d px)" % [plate_shot, int(right_stats["count"])])
+		var palette_distance: float = (left_stats["mean"] as Vector3).distance_to(right_stats["mean"] as Vector3)
+		_check(palette_distance > 0.10, "%s: 좌≠우 아이콘 팔레트(dist=%.3f) — 각 페이스가 자기 재료 아이콘" % [plate_shot, palette_distance])
+
+	# [P1-2] 각성 모듈: success 동시각 베이스라인 차감 잉크가 부산물
+	# 카운트(1<2<3)로 단조 증가하고, B4 초기 프레임은 완전 전개 대비
+	# 절반 미만이다(즉시 배치 반증 가드 — SNAP OPEN 전개 실렌더).
+	var module_baseline := _scan_module_ink(captures.get("s13_reveal_success_baseline") as Image)
+	var module_ink_1: int = _scan_module_ink(captures.get("s9_deploy_count1") as Image) - module_baseline
+	var module_ink_2: int = _scan_module_ink(captures.get("s10_deploy_count2") as Image) - module_baseline
+	var module_ink_3: int = _scan_module_ink(captures.get("s11_deploy_count3") as Image) - module_baseline
+	var module_ink_early: int = maxi(0, _scan_module_ink(captures.get("s12_deploy_early_snap") as Image) - module_baseline)
+	_check(module_ink_1 > 60, "부산물 1개: 모듈 하드웨어 잉크 전개(%d px)" % module_ink_1)
+	_check(module_ink_2 >= module_ink_1 + 60, "부산물 2개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_2, module_ink_1])
+	_check(module_ink_3 >= module_ink_2 + 60, "부산물 3개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_3, module_ink_2])
+	_check(module_ink_early * 2 < module_ink_3, "SNAP OPEN 전개: B4 초기 잉크(%d px)가 완전 전개(%d px)의 절반 미만 — 즉시 배치 아님" % [module_ink_early, module_ink_3])
+
 	var degraded: Image = captures.get("s0_degraded_b2_immediate") as Image
 	var corner: Color = degraded.get_pixel(8, 8)
 	_check(corner.v < 0.09, "백드롭 dim 적용(모서리 v=%.2f < 원배경 0.12)" % corner.v)
+
+
+# 플레이트 ROI 잉크 통계: 빈 플레이트는 근흑(v≈0.14) — v>0.30 픽셀이
+# 재료 아이콘 잉크다. mean 팔레트로 좌≠우 상이성을 판정한다.
+func _plate_ink_stats(image: Image, x_min: int, x_max: int, y_min: int, y_max: int) -> Dictionary:
+	if image == null:
+		return {"count": -1, "mean": Vector3.ZERO}
+	var count := 0
+	var sum := Vector3.ZERO
+	for y in range(y_min, y_max):
+		for x in range(x_min, x_max):
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.v > 0.30:
+				count += 1
+				sum += Vector3(pixel.r, pixel.g, pixel.b)
+	return {"count": count, "mean": (sum / float(count)) if count > 0 else Vector3.ZERO}
+
+
+# B4 각성 모듈 잉크: 섀시 림 annulus(r 104~170) 안의 밝은 비-시안 픽셀
+# — 시안 계열(전이 펄스 링/섀시 인레이) 제외로 모듈 하드웨어(골드/스틸)
+# 만 계수한다. success 동시각 샷과의 차분이 모듈 순수 기여분.
+func _scan_module_ink(image: Image) -> int:
+	if image == null:
+		return -1
+	var center := Vector2(760.0, 750.0) * 0.5
+	var count := 0
+	for y in range(int(center.y) - 176, int(center.y) + 176, 2):
+		for x in range(int(center.x) - 176, int(center.x) + 176, 2):
+			var radius: float = Vector2(float(x), float(y)).distance_to(center)
+			if radius < 104.0 or radius > 170.0:
+				continue
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.v > 0.26 and (pixel.b - pixel.r) < 0.22:
+				count += 1
+	return count
 
 
 func _scan_immediate_orange(image: Image) -> int:
@@ -482,4 +569,11 @@ func _side_effect_rolls() -> Dictionary:
 func _byproduct_rolls() -> Dictionary:
 	var rolls := _success_rolls()
 	rolls["outcome"] = 0.90
+	return rolls
+
+
+func _byproduct_rolls_with_count(count_roll: float, selection_rolls: Array) -> Dictionary:
+	var rolls := _byproduct_rolls()
+	rolls["byproduct_count"] = count_roll
+	rolls["byproduct_selection"] = selection_rolls
 	return rolls

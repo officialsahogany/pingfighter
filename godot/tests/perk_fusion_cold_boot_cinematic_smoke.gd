@@ -58,6 +58,8 @@ class PerfLabelProbe:
 func _init() -> void:
 	_verify_prewarm_rides_overlay_prewarm_path()
 	_verify_asset_manifest_prewarms_textures()
+	_verify_ignition_sheet_cell_content_seal()
+	_verify_committed_icon_prepare_on_boot_entry()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
@@ -141,6 +143,80 @@ func _verify_asset_manifest_prewarms_textures() -> void:
 			and PerkFusionColdBootCinematic.IGNITION_SHEET_FRAMES == 16,
 		"the AutoSprite ignition sheet must declare its 4x4=16 atlas grid authority"
 	)
+
+
+# CB4b v2 [P2]: 이그니션 시트 실내용 봉인 — 상수(4x4=16)만이 아니라 실제
+# 치수(정사각 셀 그리드), 셀별 2px 경계 알파 0(region 슬라이스 블리드
+# 가드), 셀별 실콘텐츠 존재, 초/중/후반 프레임 상이(정지 스틸 시트
+# 가드)를 파일 내용에서 직접 검사한다.
+func _verify_ignition_sheet_cell_content_seal() -> void:
+	var image: Image = Image.load_from_file(
+		ProjectSettings.globalize_path(PerkFusionColdBootCinematic.IGNITION_SHEET_TEXTURE_PATH)
+	)
+	_expect(image != null and not image.is_empty(), "the ignition sheet source file must load")
+	if image == null or image.is_empty():
+		return
+	var cols: int = PerkFusionColdBootCinematic.IGNITION_SHEET_COLS
+	var rows: int = PerkFusionColdBootCinematic.IGNITION_SHEET_ROWS
+	_expect(
+		image.get_width() % cols == 0 and image.get_height() % rows == 0,
+		"the sheet dimensions must divide evenly into the declared %dx%d grid" % [cols, rows]
+	)
+	var cell_w: int = image.get_width() / cols
+	var cell_h: int = image.get_height() / rows
+	_expect(cell_w == cell_h, "ignition cells must be square (%dx%d)" % [cell_w, cell_h])
+	var frame_signatures: Array = []
+	for frame_index: int in range(PerkFusionColdBootCinematic.IGNITION_SHEET_FRAMES):
+		var origin_x: int = (frame_index % cols) * cell_w
+		var origin_y: int = (frame_index / cols) * cell_h
+		var border_alpha_max := 0.0
+		for x in range(cell_w):
+			for edge_y: int in [0, 1, cell_h - 2, cell_h - 1]:
+				border_alpha_max = maxf(border_alpha_max, image.get_pixel(origin_x + x, origin_y + edge_y).a)
+		for y in range(cell_h):
+			for edge_x: int in [0, 1, cell_w - 2, cell_w - 1]:
+				border_alpha_max = maxf(border_alpha_max, image.get_pixel(origin_x + edge_x, origin_y + y).a)
+		_expect(border_alpha_max == 0.0, "frame %d must keep its 2px cell border fully transparent (slice-bleed guard, max a=%.3f)" % [frame_index, border_alpha_max])
+		var content_pixels := 0
+		for y in range(2, cell_h - 2, 4):
+			for x in range(2, cell_w - 2, 4):
+				if image.get_pixel(origin_x + x, origin_y + y).a > 0.03:
+					content_pixels += 1
+		_expect(content_pixels > 50, "frame %d must carry real pulse content (%d sampled px)" % [frame_index, content_pixels])
+		if frame_index in [0, 8, 15]:
+			frame_signatures.append(
+				image.get_region(Rect2i(origin_x, origin_y, cell_w, cell_h)).get_data()
+			)
+	_expect(
+		frame_signatures[0] != frame_signatures[1]
+			and frame_signatures[1] != frame_signatures[2]
+			and frame_signatures[0] != frame_signatures[2],
+		"early/mid/late ignition frames must differ (frozen-still sheet guard)"
+	)
+
+
+# CB4b v2 [P1-1]: 부트 진입 에지에서 커밋 record.sources(정렬 2종)의
+# 아이콘이 정확히 프리웜된다 — draw 핫패스는 캐시 히트만 타는 계약의
+# 배선 씰(실 process_idle 관통).
+func _verify_committed_icon_prepare_on_boot_entry() -> void:
+	var fixture: Dictionary = _build_animation_state()
+	var state: Object = fixture["state"]
+	var registry: Object = fixture["registry"]
+	var getter: Object = fixture["getter"]
+	var owner_node := Node2D.new()
+	root.add_child(owner_node)
+	var controller := BattleSceneOverlayFrameController.new()
+	controller.process_idle(0.016, owner_node, registry, Callable(getter, "get_module"))
+	var host: Object = state._cold_boot_cinematic_host
+	_expect(host != null and is_instance_valid(host), "icon-prepare fixture should create a cinematic host")
+	var cold_boot_snapshot: Dictionary = state.get_perk_fusion_modal_snapshot().get("cold_boot", {}) as Dictionary
+	var committed_sources: Array = (cold_boot_snapshot.get("committed_record", {}) as Dictionary).get("sources", []) as Array
+	_expect(committed_sources.size() == 2, "the committed record should carry exactly two sorted sources")
+	_expect(
+		host.get_prepared_icon_ids() == committed_sources,
+		"boot entry must prewarm exactly the committed source icons 1:1 (%s vs %s)" % [str(host.get_prepared_icon_ids()), str(committed_sources)]
+	)
+	owner_node.queue_free()
 
 
 # 코덱스 CB3-P1: 물리 flow는 choice_active에서 조기 반환하므로, 실 idle
