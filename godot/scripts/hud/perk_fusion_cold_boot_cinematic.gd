@@ -10,6 +10,7 @@ const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
+const PerkFusionColdBootParticleFactory := preload("res://scripts/hud/perk_fusion_cold_boot_particle_factory.gd")
 
 # §5 에셋 매니페스트(CB4b): 텍스처 우선 + 절차 드로 degraded 폴백. 존재
 # 검사·로드는 prewarm 1회에서만(예약 에셋 per-frame re-stat 트랩 금지).
@@ -22,6 +23,7 @@ const MODULE_SHOULDER_POD_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_shoulder
 const MODULE_COLLAR_RING_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_collar_ring.png"
 const MODULE_GEM_PLATE_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_gem_plate.png"
 const IGNITION_SHEET_TEXTURE_PATH := ASSET_DIR + "cold_boot_ignition_ring_sheet.png"
+const SPARK_SHARD_TEXTURE_PATH := ASSET_DIR + "cold_boot_spark_shard.png"
 # 아틀라스 그리드 권위: AutoSprite 4x4 = 16프레임(잘못된 그리드는 조용히
 # 엉뚱한 셀을 자른다 — atlas grid authority 트랩).
 const IGNITION_SHEET_COLS := 4
@@ -71,6 +73,8 @@ var _last_events: Array = []
 var consumed_event_count := 0
 var _prepared_icon_lookup: Dictionary = {}
 var _prepared_pair_icon_id := ""
+var _vent_spark_nodes: Array = []
+var _gold_shower_node: GPUParticles2D = null
 
 
 # §5 텍스처 프리웜(이산 시점 1회): 존재하는 에셋만 캐시에 올린다 —
@@ -87,6 +91,7 @@ static func prewarm_assets() -> void:
 		"module_collar_ring": MODULE_COLLAR_RING_TEXTURE_PATH,
 		"module_gem_plate": MODULE_GEM_PLATE_TEXTURE_PATH,
 		"ignition_sheet": IGNITION_SHEET_TEXTURE_PATH,
+		"spark_shard": SPARK_SHARD_TEXTURE_PATH,
 	}
 	for texture_key: String in manifest.keys():
 		var path := str(manifest[texture_key])
@@ -114,6 +119,16 @@ func _ready() -> void:
 	z_as_relative = false
 	top_level = true
 	visible = false
+	# CB4c-2 스파크 파티클(이산 시점: 호스트 생성=ensure 1회) — 텍스처
+	# 부재면 파티클 없이 degraded(절차 드로 무영향). 자식 노드라 호스트
+	# visible/z를 상속하고, 발화는 sync_boot의 전이 이벤트 소비가 소유.
+	var spark_texture: Texture2D = _texture("spark_shard")
+	if spark_texture != null:
+		var spark_nodes: Dictionary = PerkFusionColdBootParticleFactory.build(
+			self, spark_texture, get_viewport_rect().size * 0.5
+		)
+		_vent_spark_nodes = [spark_nodes.get("vent_left"), spark_nodes.get("vent_right")]
+		_gold_shower_node = spark_nodes.get("gold_shower") as GPUParticles2D
 
 
 func is_boot_active() -> bool:
@@ -161,12 +176,60 @@ func get_prepared_icon_ids() -> Array:
 	return ids
 
 
+func _align_spark_anchors() -> void:
+	var center: Vector2 = get_viewport_rect().size * 0.5
+	if _vent_spark_nodes.size() == 2:
+		var vent_left := _vent_spark_nodes[0] as GPUParticles2D
+		var vent_right := _vent_spark_nodes[1] as GPUParticles2D
+		if vent_left != null and is_instance_valid(vent_left):
+			vent_left.position = center + PerkFusionColdBootParticleFactory.VENT_LEFT_OFFSET
+		if vent_right != null and is_instance_valid(vent_right):
+			vent_right.position = center + PerkFusionColdBootParticleFactory.VENT_RIGHT_OFFSET
+	if _gold_shower_node != null and is_instance_valid(_gold_shower_node):
+		_gold_shower_node.position = center + PerkFusionColdBootParticleFactory.SHOWER_OFFSET
+
+
+# 종료 즉시 잔존 파티클 하드 클리어(mythic v2 선례: false→restart→false).
+# emitting=false만으로는 수명(0.85/1.1s) 안의 살아 있는 스파크가 남아,
+# 재사용 호스트의 다음 모달(무발화 success 포함)에 이월 노출된다.
+static func _clear_spark_node(particles: GPUParticles2D) -> void:
+	particles.emitting = false
+	particles.restart()
+	particles.emitting = false
+
+
+# 부작용 벤트/EJECT 스파크 팬(B3 진입 1회): 페널티 물량(암전 레인+EJECT
+# 모듈)이 실재하는 record에서만 발화 — 데이터 구동 tell, 무물량 stable
+# 세이브/성공/부산물에서는 침묵한다.
+func _maybe_fire_vent_sparks() -> void:
+	var plan: Dictionary = _boot_snapshot.get("presentation", {}) as Dictionary
+	var fault_total: int = int(plan.get("brown_out_lane_count", 0)) + int(plan.get("ejected_module_count", 0))
+	if fault_total <= 0:
+		return
+	for vent_value: Variant in _vent_spark_nodes:
+		if vent_value is GPUParticles2D and is_instance_valid(vent_value):
+			(vent_value as GPUParticles2D).restart()
+
+
+# 부산물 각성 골드 스파크 샤워(B4 진입 1회): 전개 모듈>0에서만 발화.
+func _maybe_fire_gold_shower() -> void:
+	var plan: Dictionary = _boot_snapshot.get("presentation", {}) as Dictionary
+	if int(plan.get("deployed_module_count", 0)) <= 0:
+		return
+	if _gold_shower_node != null and is_instance_valid(_gold_shower_node):
+		_gold_shower_node.restart()
+
+
 # 외부 드라이버 틱: 스냅샷(비트/progress/presentation)과 이번 틱에 드레인된
 # 1회성 전이 이벤트를 받는다 — 이벤트는 여기서 촉감 펄스(CHNK/THUNK 계열)
 # 엔벨로프로 소비된다(정확히-한-번 소비 계약의 실 소비자).
 func sync_boot(snapshot: Dictionary, events: Array, delta: float) -> void:
 	_boot_active = true
 	visible = true
+	# P2: 본체 드로는 매 프레임 현재 viewport 중심을 쓴다 — 파티클 앵커도
+	# 매 sync 같은 중심으로 재정렬해, 모달 도중 창 리사이즈 시 스파크만
+	# 섀시에서 분리되는 것을 막는다(오프셋은 팩토리 상수 단일 소스).
+	_align_spark_anchors()
 	_boot_snapshot = snapshot.duplicate(true)
 	# 감쇠를 먼저, 신규 이벤트 펄스를 나중에 — 같은 호출의 delta가 방금
 	# 도착한 전이 펄스를 소멸시키면 저프레임(delta>=0.25)에서 CHNK 촉감이
@@ -176,12 +239,23 @@ func sync_boot(snapshot: Dictionary, events: Array, delta: float) -> void:
 		_event_pulse = 1.0
 		_last_events = events.duplicate()
 		consumed_event_count += events.size()
+		for event_value: Variant in events:
+			match str(event_value):
+				PerkFusionColdBootTimelineState.EVENT_ENTER_IGNITION_CREST:
+					_maybe_fire_vent_sparks()
+				PerkFusionColdBootTimelineState.EVENT_ENTER_REVEAL:
+					_maybe_fire_gold_shower()
 	queue_redraw()
 
 
 func finish_boot() -> void:
 	_boot_active = false
 	visible = false
+	for vent_value: Variant in _vent_spark_nodes:
+		if vent_value is GPUParticles2D and is_instance_valid(vent_value):
+			_clear_spark_node(vent_value as GPUParticles2D)
+	if _gold_shower_node != null and is_instance_valid(_gold_shower_node):
+		_clear_spark_node(_gold_shower_node)
 	_boot_snapshot = {}
 	_event_pulse = 0.0
 	_last_events = []

@@ -9,8 +9,10 @@
 코어 페이스 대각 합성 융합 아이콘 — 공유 컴포지터를 실제 반대각
 마스크로 정합(리빌 패널 동시 수혜)·prepare_fusion_pair_icon 프리웜
 소유·publish-on-success·draw 캐시 소비 전용·암판+골드 헤어라인 페이스).
-잔여 CB4c-2~4(벤트/골드 GPUParticles 스파크·용융 셰이더 프리셋·§9
-오디오).
++ CB4c-2 랜딩(벤트/EJECT 방향성 스파크 팬 + 골드 각성 스파크 샤워 —
+mythic shard 패턴 포크 GPUParticles2D, record 카운트 게이트 발화,
+fixed-seed 픽셀 QA, finish 하드 클리어(false→restart→false)+sync별
+앵커 재정렬). 잔여 CB4c-3~4(용융 셰이더 프리셋·§9 오디오).
 2026-07-12 컨셉 선정(사용자: 옵션 3 풀 시네마틱,
 "전혀 다른 방식" = 뻔한 슬램+빛줄기+히트스톱+카메라셰이크 거부). 7개 은유 병렬
 발상 중 **링코어 콜드부트** 채택.

@@ -133,6 +133,18 @@ func _run() -> void:
 		["s11_deploy_count3", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.58], false, 3],
 		["s12_deploy_early_snap", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.05], false, 3],
 		["s13_reveal_success_baseline", _success_rolls(), false, true, [0.016, 2.58], false, 0],
+		# CB4c-2 스파크: 벤트 팬(부작용, B3 진입 직후)·골드 샤워(부산물,
+		# B4 진입 직후) — fixed seed, 캡처는 발화 후 수 프레임 안.
+		["s14_vent_sparks_side_effect", _side_effect_rolls(), false, true, [0.016, 1.84, 0.03, 0.03], false, 0],
+		["s15_gold_shower_byproduct", _byproduct_rolls(), false, true, [0.016, 2.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02], false, 1],
+		# 샤워 침묵 대조는 s15와 "같은 타이밍"의 success 샷이 소유한다 —
+		# s13(2.58 단발 틱)은 발화 직후 페이드-인 알파 구간이라 항상-발화
+		# 버그도 안 보여 반증이 공허해진다(FV-A 실측).
+		["s16_shower_silent_success", _success_rolls(), false, true, [0.016, 2.05, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02], false, 0],
+		# [P2-1] 스테일 재사용 프로브: 부작용 모달에서 벤트 발화(B3) 직후
+		# finish → 같은 호스트로 무발화 success 모달 즉시 재개 — 하드
+		# 클리어가 없으면 수명(0.85s) 안의 생존 스파크가 이월 노출된다.
+		["s17_stale_reuse_success", _side_effect_rolls(), false, true, [0.016, 1.84], false, 0, true],
 	]
 	var captures: Dictionary = {}
 	for shot_value: Variant in shots:
@@ -144,7 +156,8 @@ func _run() -> void:
 			bool(shot[3]),
 			shot[4] as Array,
 			bool(shot[5]),
-			int(shot[6])
+			int(shot[6]),
+			bool(shot[7]) if shot.size() > 7 else false
 		)
 
 	_analyze(captures)
@@ -226,7 +239,8 @@ func _capture_shot(
 	use_host: bool,
 	idle_deltas: Array,
 	force_host_below_panel: bool,
-	expected_byproduct_count: int
+	expected_byproduct_count: int,
+	stale_reuse_probe: bool = false
 ) -> Image:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(int(GAME_SIZE.x), int(GAME_SIZE.y))
@@ -306,6 +320,32 @@ func _capture_shot(
 					host_z_forced = true
 		else:
 			state.update(float(delta_value), GAME_SIZE, null, registry)
+		canvas.queue_redraw()
+		await process_frame
+	if stale_reuse_probe:
+		# 발화 모달 finish → 같은 state/호스트로 무발화 success 모달 재개
+		# (첫 모달이 재료를 소비했으므로 남은 만렙 쌍 사용).
+		state._confirm_perk_fusion_modal(null, registry)
+		state._confirm_perk_fusion_modal(null, registry)
+		state.pending_skill_choices = 1
+		state.choice_active = true
+		state.animation_time = 10.0
+		state.current_choice_context = {"source": "battle_starpoint"}
+		state.current_choices = [{
+			"id": "perk_fusion",
+			"name": "퍽 융합",
+			"is_perk_fusion": true,
+			"eligible_sources": ["common_swiftness", "dash_lightweight"],
+			"offer_lane": "fusion",
+			"offer_protected": true,
+		}]
+		state.selected_index = 0
+		state.choose_selected(null, registry, GAME_SIZE)
+		state._perk_fusion_modal_flow.select_source_at(0)
+		state._perk_fusion_modal_flow.select_source_at(1)
+		state._perk_fusion_modal_flow.confirm_current()
+		state._confirm_perk_fusion_modal(null, registry, _success_rolls())
+		controller.process_idle(0.05, bg, registry, Callable(getter, "get_module"))
 		canvas.queue_redraw()
 		await process_frame
 	for _settle: int in range(3):
@@ -434,6 +474,31 @@ func _analyze(captures: Dictionary) -> void:
 	_check(tilt_red_bottom_max == -1 or tilt_red_bottom_max <= 378, "s13: 대각 — 하단 적 후퇴(max_x=%d <= 378, 전면 중첩 아님)" % tilt_red_bottom_max)
 	_check(tilt_green_top_min == -1 or tilt_green_top_min >= 382, "s13: 대각 — 상단 녹 후퇴(min_x=%d >= 382, 전면 중첩 아님)" % tilt_green_top_min)
 
+	# CB4c-2: 스파크 실렌더 — 벤트 팬(측면 해치 대역, 백열-핫 코어 밴드:
+	# 골드 버클(b 0.27)·시안 룬(r 0.32)과 분리)과 골드 샤워(상부 낙하
+	# 대역). 성공 s13 동일 대역=침묵(카운트 게이트의 픽셀 증명).
+	var vent_image: Image = captures.get("s14_vent_sparks_side_effect") as Image
+	var vent_left_ink := _scan_region_band(vent_image, 190, 310, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
+	var vent_right_ink := _scan_region_band(vent_image, 450, 570, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
+	_check(vent_left_ink > 60, "s14: 좌 벤트 스파크 팬 실렌더(%d px)" % vent_left_ink)
+	_check(vent_right_ink > 60, "s14: 우 벤트 스파크 팬 실렌더(%d px)" % vent_right_ink)
+	var shower_image: Image = captures.get("s15_gold_shower_byproduct") as Image
+	var shower_ink := _scan_shower_band(shower_image)
+	_check(shower_ink > 60, "s15: 골드 각성 스파크 샤워 실렌더(%d px)" % shower_ink)
+	# [P2-1] 스테일 재사용: 재개된 success 모달 B0 프레임에서 이전 모달의
+	# 벤트 스파크가 보이면 하드 클리어 실패(수명 내 생존자 이월).
+	var stale_image: Image = captures.get("s17_stale_reuse_success") as Image
+	var stale_vent_left := _scan_region_band(stale_image, 190, 310, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
+	var stale_vent_right := _scan_region_band(stale_image, 450, 570, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
+	_check(stale_vent_left <= 20, "s17: 재사용 호스트 벤트 대역 클리어(좌 %d px) — 이전 모달 스파크 이월 없음" % stale_vent_left)
+	_check(stale_vent_right <= 20, "s17: 재사용 호스트 벤트 대역 클리어(우 %d px)" % stale_vent_right)
+
+	var success_b4: Image = captures.get("s13_reveal_success_baseline") as Image
+	var silent_vent := _scan_region_band(success_b4, 190, 310, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
+	var silent_shower := _scan_shower_band(captures.get("s16_shower_silent_success") as Image)
+	_check(silent_vent <= 20, "s13(성공): 벤트 대역 침묵(%d px, 정적 림 하이라이트 잔량 허용) — 카운트 게이트 픽셀 증명" % silent_vent)
+	_check(silent_shower <= 8, "s16(성공, s15 동일 타이밍): 샤워 대역 침묵(%d px)" % silent_shower)
+
 	var degraded: Image = captures.get("s0_degraded_b2_immediate") as Image
 	var corner: Color = degraded.get_pixel(8, 8)
 	_check(corner.v < 0.09, "백드롭 dim 적용(모서리 v=%.2f < 원배경 0.12)" % corner.v)
@@ -485,6 +550,32 @@ func _band_extent_x(
 				if extent == -1 or (want_max and x > extent) or (not want_max and x < extent):
 					extent = x
 	return extent
+
+
+# 골드 샤워 대역 스캔: 상부 낙하 대역(240~520 x 218~310)에서 웜-골드
+# 스파크(b 0.42~0.80 — 백색 스펙큘러 b>=0.80 제외)를 계수하되, 정적 림
+# 골드 버클 3점(좌상/정상/우상)의 웜-화이트 하이라이트 박스를 제외한다
+# (s13 실측 오염 클러스터 (280,260~290)/(360~390,220~250)/(460~490,
+# 255~295) — 실측 재캘리브 트랩: 에셋 바뀌면 다시 잰다).
+func _scan_shower_band(image: Image) -> int:
+	if image == null:
+		return -1
+	var count := 0
+	for y in range(218, 310):
+		for x in range(240, 520, 2):
+			if x >= 268 and x < 302 and y >= 253 and y < 297:
+				continue
+			if x >= 353 and x < 397 and y >= 213 and y < 257:
+				continue
+			if x >= 448 and x < 497 and y >= 253 and y < 297:
+				continue
+			var pixel: Color = image.get_pixel(x, y)
+			if (
+				pixel.r >= 0.88 and pixel.g >= 0.80
+				and pixel.b >= 0.42 and pixel.b < 0.80
+			):
+				count += 1
+	return count
 
 
 # B4 각성 모듈 잉크: 섀시 림 annulus(r 104~170) 안의 밝은 비-시안 픽셀

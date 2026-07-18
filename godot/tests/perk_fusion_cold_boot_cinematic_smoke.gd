@@ -7,6 +7,7 @@ const BattleSceneModalGateController := preload("res://scripts/core/battle_scene
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
+const PerkFusionColdBootParticleFactory := preload("res://scripts/hud/perk_fusion_cold_boot_particle_factory.gd")
 
 var _failures: Array[String] = []
 
@@ -69,6 +70,7 @@ func _run() -> void:
 	_verify_asset_manifest_prewarms_textures()
 	_verify_ignition_sheet_cell_content_seal()
 	_verify_committed_icon_prepare_on_boot_entry()
+	_verify_spark_particle_contract()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
@@ -85,11 +87,16 @@ func _run() -> void:
 	quit(1)
 
 
-func _build_animation_state() -> Dictionary:
+func _build_animation_state(outcome_roll: float = 0.0) -> Dictionary:
 	var state := RuntimePerkState.new()
 	var catalog := RuntimePerkCatalog.new()
 	var registry := RegistryStub.new(state, catalog)
-	state.runtime_skill_levels = {"item_luck": 5, "common_bulk_up": 5}
+	state.runtime_skill_levels = {
+		"item_luck": 5,
+		"common_bulk_up": 5,
+		"common_swiftness": 5,
+		"dash_lightweight": 5,
+	}
 	state.pending_skill_choices = 1
 	state.choice_active = true
 	state.animation_time = 10.0
@@ -108,7 +115,7 @@ func _build_animation_state() -> Dictionary:
 	state._perk_fusion_modal_flow.select_source_at(1)
 	state._perk_fusion_modal_flow.confirm_current()
 	var commit_result: Dictionary = state._confirm_perk_fusion_modal(null, registry, {
-		"outcome": 0.0,
+		"outcome": outcome_roll,
 		"magnitude": [0.0, 0.0],
 		"lane_selection": [0.0],
 		"delete": 1.0,
@@ -269,6 +276,135 @@ func _verify_committed_icon_prepare_on_boot_entry() -> void:
 		"the pair id must only be published when prepare succeeds (publish-on-success gate)"
 	)
 	owner_node.queue_free()
+
+
+# CB4c-2: 스파크 파티클 계약 — 생성은 호스트 _ready 1회(전 노드
+# one_shot·fixed seed·emitting=false), 발화는 실 idle 경로의 전이 이벤트
+# 소비가 소유하며 record 파생 카운트로 게이트된다(부작용=벤트 팬,
+# 부산물=골드 샤워, 성공=침묵). finish는 방출을 내린다.
+func _verify_spark_particle_contract() -> void:
+	# side_effect record(outcome 0.60): B3 진입 시 벤트 발화, 골드 침묵.
+	var side_fixture: Dictionary = _build_animation_state(0.60)
+	var side_state: Object = side_fixture["state"]
+	var side_registry: Object = side_fixture["registry"]
+	var side_getter: Object = side_fixture["getter"]
+	var owner_node := Node2D.new()
+	root.add_child(owner_node)
+	var controller := BattleSceneOverlayFrameController.new()
+	controller.process_idle(0.016, owner_node, side_registry, Callable(side_getter, "get_module"))
+	var host: Object = side_state._cold_boot_cinematic_host
+	_expect(host != null and is_instance_valid(host), "spark fixture should create a cinematic host")
+	var vents: Array = host._vent_spark_nodes
+	var shower: Object = host._gold_shower_node
+	_expect(vents.size() == 2 and shower != null, "the host should build two vent fans and one gold shower at ready time")
+	for vent_value: Variant in vents:
+		var vent := vent_value as GPUParticles2D
+		_expect(vent != null and vent.one_shot and vent.use_fixed_seed and not vent.emitting, "vent fans must start armed-but-silent (one_shot, fixed seed, not emitting)")
+	_expect((shower as GPUParticles2D).one_shot and (shower as GPUParticles2D).use_fixed_seed and not (shower as GPUParticles2D).emitting, "the gold shower must start armed-but-silent")
+	var side_plan: Dictionary = (side_state.get_perk_fusion_modal_snapshot().get("cold_boot", {}) as Dictionary).get("presentation", {}) as Dictionary
+	_expect(int(side_plan.get("brown_out_lane_count", 0)) + int(side_plan.get("ejected_module_count", 0)) > 0, "the side-effect fixture must carry real penalty volume (vent gate precondition)")
+	controller.process_idle(1.84, owner_node, side_registry, Callable(side_getter, "get_module"))
+	_expect((vents[0] as GPUParticles2D).emitting and (vents[1] as GPUParticles2D).emitting, "entering B3 with penalty volume must fire both vent fans")
+	_expect(not (shower as GPUParticles2D).emitting, "a side-effect record must not fire the gold shower")
+	side_state._confirm_perk_fusion_modal(null, side_registry)
+	side_state._confirm_perk_fusion_modal(null, side_registry)
+	_expect(not (vents[0] as GPUParticles2D).emitting, "finishing the modal must stop vent emission")
+
+	# CB4c-2 v2 [P2-1]: 발화 티어 finish → 같은 호스트로 "무발화 success"
+	# 모달 즉시 재개 — 잔존 파티클은 하드 클리어(false→restart→false)돼야
+	# 하고(emitting=false 단독은 0.85/1.1s 생존자를 남긴다), 재개 후에도
+	# 전 이미터가 침묵을 유지한다.
+	_rearm_fusion_modal(side_state, side_registry, ["common_swiftness", "dash_lightweight"], 0.0)
+	controller.process_idle(0.016, owner_node, side_registry, Callable(side_getter, "get_module"))
+	_expect(side_state._cold_boot_cinematic_host == host, "the second modal must reuse the same host instance")
+	_expect(bool(host.is_boot_active()), "the reused host should boot for the second modal")
+	_expect(
+		not (vents[0] as GPUParticles2D).emitting
+			and not (vents[1] as GPUParticles2D).emitting
+			and not (shower as GPUParticles2D).emitting,
+		"a no-fire success reopen on the reused host must keep every emitter silent"
+	)
+	var host_clear_source := FileAccess.get_file_as_string("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
+	_expect(
+		host_clear_source.contains("particles.emitting = false
+	particles.restart()
+	particles.emitting = false"),
+		"finish must hard-clear live particles (false->restart->false, mythic v2 precedent)"
+	)
+
+	# CB4c-2 v2 [P2-2]: 파티클 앵커는 매 sync 현재 viewport 중심+팩토리
+	# 오프셋으로 재정렬된다(모달 도중 창 리사이즈 분리 방지) — 스테일
+	# 위치 강제 후 다음 idle이 되돌리는지 검증.
+	var expected_center: Vector2 = (host as Node2D).get_viewport_rect().size * 0.5
+	_expect(
+		((vents[0] as GPUParticles2D).position - (expected_center + PerkFusionColdBootParticleFactory.VENT_LEFT_OFFSET)).length() < 0.5,
+		"the left vent anchor should sit at viewport center + factory offset"
+	)
+	(vents[0] as GPUParticles2D).position = Vector2(11.0, 22.0)
+	(shower as GPUParticles2D).position = Vector2(33.0, 44.0)
+	controller.process_idle(0.016, owner_node, side_registry, Callable(side_getter, "get_module"))
+	_expect(
+		((vents[0] as GPUParticles2D).position - (expected_center + PerkFusionColdBootParticleFactory.VENT_LEFT_OFFSET)).length() < 0.5,
+		"a later sync must re-align a displaced vent anchor (window-resize contract)"
+	)
+	_expect(
+		((shower as GPUParticles2D).position - (expected_center + PerkFusionColdBootParticleFactory.SHOWER_OFFSET)).length() < 0.5,
+		"a later sync must re-align the shower anchor"
+	)
+
+	# byproduct record(outcome 0.90): B4 진입 시 골드 샤워 발화, 벤트 침묵.
+	var gold_fixture: Dictionary = _build_animation_state(0.90)
+	var gold_state: Object = gold_fixture["state"]
+	var gold_registry: Object = gold_fixture["registry"]
+	var gold_getter: Object = gold_fixture["getter"]
+	controller.process_idle(0.016, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	var gold_host: Object = gold_state._cold_boot_cinematic_host
+	controller.process_idle(2.10, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(bool((gold_host._gold_shower_node as GPUParticles2D).emitting), "entering B4 with deployed modules must fire the gold shower")
+	var gold_vents: Array = gold_host._vent_spark_nodes
+	_expect(not (gold_vents[0] as GPUParticles2D).emitting, "a byproduct record (no penalties) must keep the vent fans silent")
+
+	# success record: 어느 비트에서도 침묵.
+	var success_fixture: Dictionary = _build_animation_state(0.0)
+	var success_state: Object = success_fixture["state"]
+	var success_registry: Object = success_fixture["registry"]
+	var success_getter: Object = success_fixture["getter"]
+	controller.process_idle(0.016, owner_node, success_registry, Callable(success_getter, "get_module"))
+	var success_host: Object = success_state._cold_boot_cinematic_host
+	controller.process_idle(2.10, owner_node, success_registry, Callable(success_getter, "get_module"))
+	var success_vents: Array = success_host._vent_spark_nodes
+	_expect(not (success_vents[0] as GPUParticles2D).emitting and not (success_host._gold_shower_node as GPUParticles2D).emitting, "a clean success must keep every spark emitter silent")
+	owner_node.queue_free()
+
+
+# 같은 state 위에 두 번째 융합 모달을 재무장한다(호스트 재사용 시나리오
+# 전용 — 첫 모달의 재료는 소비됐으므로 남은 만렙 쌍을 쓴다).
+func _rearm_fusion_modal(state: Object, registry: Object, eligible_sources: Array, outcome_roll: float) -> void:
+	state.pending_skill_choices = 1
+	state.choice_active = true
+	state.animation_time = 10.0
+	state.current_choice_context = {"source": "battle_starpoint"}
+	state.current_choices = [{
+		"id": "perk_fusion",
+		"name": "퍽 융합",
+		"is_perk_fusion": true,
+		"eligible_sources": eligible_sources,
+		"offer_lane": "fusion",
+		"offer_protected": true,
+	}]
+	state.selected_index = 0
+	state.choose_selected(null, registry, Vector2(760.0, 750.0))
+	state._perk_fusion_modal_flow.select_source_at(0)
+	state._perk_fusion_modal_flow.select_source_at(1)
+	state._perk_fusion_modal_flow.confirm_current()
+	state._confirm_perk_fusion_modal(null, registry, {
+		"outcome": outcome_roll,
+		"magnitude": [0.0, 0.0],
+		"lane_selection": [0.0],
+		"delete": 1.0,
+		"byproduct_count": 0.0,
+		"byproduct_selection": [0.0],
+	})
 
 
 # 코덱스 CB3-P1: 물리 flow는 choice_active에서 조기 반환하므로, 실 idle
