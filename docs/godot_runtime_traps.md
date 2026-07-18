@@ -1537,3 +1537,54 @@ Seal: `angel_blessing_overlay_host_smoke.gd` dice on-screen-span leg + envelope
 harness: `tools/angel_dice_overlay_capture.gd` (non-headless SubViewport, 7
 phases). Run windowed: `godot --path godot -s
 res://tools/angel_dice_overlay_capture.gd`.
+
+## Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
+
+Incident (2026-07-18, 퍽 융합 core 슬라이스): 융합 modal 통합 스모크의
+dowsing 레그와 신규 슬롯-환급 레그가 `catalog.dash_token_boost_chances =
+[...]` (존재하지 않는 프로퍼티) 대입에서 `SCRIPT ERROR: Invalid assignment
+of property or key ...`로 그 지점에서 **함수(레그)만 조용히 abort**됐다.
+`_expect` 실패 누적식 스모크는 abort된 레그의 어서션을 하나도 실행하지
+못한 채 나머지 레그만 돌고 `ok`를 출력 — 몇 세션 동안 공허 GREEN이었다.
+같은 이유로 `perk_offer_owned_upgrade_priority_smoke.gd`(별도 슬라이스)도
+겉보기와 다른 지점에서 죽고 있었다.
+
+Mechanism: typed 객체(비-dynamic GDScript 인스턴스)에 대한 미선언 프로퍼티
+대입·미존재 함수 호출은 런타임 SCRIPT ERROR를 내고 **현재 스택 프레임만
+중단**한다. SceneTree 스모크의 `_init`이 레그를 함수 호출로 나누는 표준
+구조에서는 죽은 레그가 조용히 사라지고 러너는 계속 진행한다. `quit(1)
+즉시 호출=씰 공허` 트랩의 사촌이지만, 이쪽은 exit code도 stdout도 아닌
+stderr에만 흔적이 남는다.
+
+Standing rules:
+- 스모크 실행 판정은 `": ok" 존재` 단독으로 하지 말 것. `SCRIPT ERROR`
+  grep을 함께 걸어 "OK인데 script error 있음"을 별도 상태로 분류한다
+  (이 슬라이스의 회귀 스윕/격리 게이트 러너가 쓰는
+  `ok=N script_err=M` 2필드 형식이 표준).
+- 스모크 픽스처에서 카탈로그/상태 객체의 튜닝 프로퍼티를 끌 때는 대입
+  전에 그 프로퍼티가 실제 선언돼 있는지 확인한다(`var` 선언 grep). 존재
+  하지 않으면 그 대입 줄 자체가 레그를 통째로 삼킨다.
+- 새 레그를 추가했는데 기대한 실패가 안 나오면, 반증 토글 전에 먼저
+  풀 출력에서 해당 레그 이름이 backtrace에 있는지(=abort 여부) 본다.
+
+Incident 확장 (2026-07-19, 콜드부트 CB4b v3): 판정을 `ok` + `SCRIPT
+ERROR` 2필드로만 하면 **엔진 ERROR 클래스를 놓친다**. 콜드부트 스모크가
+SceneTree `_init()` 안에서 `root.add_child()` 직후 노드를 사용했는데,
+`_init` 시점엔 방금 붙인 노드도 `is_inside_tree()==false`라
+`get_viewport_rect()` 계열이 `ERROR: Condition "!is_inside_tree()"`를
+6회 뿜었다. 직접 실행은 exit 0 + ok + SCRIPT ERROR 0이어서 3개 리뷰
+라운드를 통과했지만, 표준 러너 `godot/tools/run_smoke_tests.ps1`의
+serious-error 게이트는 exit 0이어도 이를 실패로 승격한다(코덱스가 잡음).
+
+Standing rules(확장):
+- 스모크 판정의 정석은 **표준 러너 관통**이다(`run_smoke_tests.ps1
+  -Tests @(...)`) — ok 마커+exit code+SCRIPT ERROR+엔진 `ERROR:` 라인
+  +옵트인 leak 게이트를 한 번에 건다. 수동 grep 판정을 쓸 땐 최소
+  `ok / SCRIPT ERROR / ^ERROR` 3필드.
+- SceneTree 스모크의 `_init()`은 `call_deferred("_run")`만 수행하고
+  실검증은 트리 진입 후 `_run()`에서 시작한다(캡처 하니스와 동일 패턴).
+  `_init`에서 `root.add_child` 직후 노드의 viewport/tree 의존 경로를
+  호출하면 위 엔진 ERROR가 조용히 쌓인다.
+
+Seal: 회귀 스윕 러너의 `OK_WITH_SCRIPT_ERROR` 분류가 이 클래스를 잡는다.
+융합 modal/integration 스모크는 문제 대입 제거 후 전 레그 실주행 GREEN.

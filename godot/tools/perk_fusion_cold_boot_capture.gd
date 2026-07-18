@@ -406,6 +406,34 @@ func _analyze(captures: Dictionary) -> void:
 	_check(module_ink_3 >= module_ink_2 + 60, "부산물 3개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_3, module_ink_2])
 	_check(module_ink_early * 2 < module_ink_3, "SNAP OPEN 전개: B4 초기 잉크(%d px)가 완전 전개(%d px)의 절반 미만 — 즉시 배치 아님" % [module_ink_early, module_ink_3])
 
+	# CB4c-1: B4 코어 페이스 대각 합성 융합 아이콘 — 두 재료의 고유 팔레트
+	# (벌크업 적 / 럭 녹)가 코어 중앙 ROI에 "함께" 실재해야 합성이 증명된다.
+	# byproduct(s6, 골드 코어)와 success(s13, 시안 코어) 양쪽 티어를 봉인.
+	for face_shot: String in ["s6_host_b4_reveal_awakened", "s13_reveal_success_baseline"]:
+		var face_image: Image = captures.get(face_shot) as Image
+		var face_red := _scan_region_band(face_image, 354, 406, 349, 401, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
+		var face_green := _scan_region_band(face_image, 354, 406, 349, 401, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
+		_check(face_red > 25, "%s: 코어 페이스 합성 아이콘 적 팔레트(%d px)" % [face_shot, face_red])
+		_check(face_green > 25, "%s: 코어 페이스 합성 아이콘 녹 팔레트(%d px)" % [face_shot, face_green])
+		# CB4c-1 v2 [P1] 대각 분할 봉인(귀속): 좌상 삼각=적(첫 재료)·우하
+		# 삼각=녹(둘째 재료). 상단 행의 적과 하단 행의 녹이 각각 세로 반반
+		# 경계(x=380)를 넘어가야 한다 — 수직 50:50 합성이면 두 레그 다
+		# 성립 불가(적은 x<380, 녹은 x>380에 갇힌다).
+		var red_top_max := _band_extent_x(face_image, 354, 406, 349, 375, true, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
+		var green_bottom_min := _band_extent_x(face_image, 354, 406, 377, 401, false, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
+		_check(red_top_max >= 386, "%s: 대각 — 상단 적 귀속이 세로 경계 우측까지(max_x=%d >= 386)" % [face_shot, red_top_max])
+		_check(green_bottom_min != -1 and green_bottom_min <= 374, "%s: 대각 — 하단 녹 귀속이 세로 경계 좌측까지(min_x=%d <= 374)" % [face_shot, green_bottom_min])
+
+	# 경사/비중첩(전면 오버레이 반증) 레그는 고알파(0.90) s13이 소유한다 —
+	# s6(알파 0.72)은 우측 재료 아트의 저채도 적 디테일이 어두운 블렌드에서
+	# 적 밴드로 섞여(실측 max_x=394) 아트 노이즈에 취약. 하단에서 적이
+	# 후퇴하고 상단에서 녹이 후퇴해야 두 재료가 겹치지 않는 실제 분할이다.
+	var tilt_image: Image = captures.get("s13_reveal_success_baseline") as Image
+	var tilt_red_bottom_max := _band_extent_x(tilt_image, 354, 406, 384, 401, true, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
+	var tilt_green_top_min := _band_extent_x(tilt_image, 354, 406, 349, 366, false, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
+	_check(tilt_red_bottom_max == -1 or tilt_red_bottom_max <= 378, "s13: 대각 — 하단 적 후퇴(max_x=%d <= 378, 전면 중첩 아님)" % tilt_red_bottom_max)
+	_check(tilt_green_top_min == -1 or tilt_green_top_min >= 382, "s13: 대각 — 상단 녹 후퇴(min_x=%d >= 382, 전면 중첩 아님)" % tilt_green_top_min)
+
 	var degraded: Image = captures.get("s0_degraded_b2_immediate") as Image
 	var corner: Color = degraded.get_pixel(8, 8)
 	_check(corner.v < 0.09, "백드롭 dim 적용(모서리 v=%.2f < 원배경 0.12)" % corner.v)
@@ -425,6 +453,38 @@ func _plate_ink_stats(image: Image, x_min: int, x_max: int, y_min: int, y_max: i
 				count += 1
 				sum += Vector3(pixel.r, pixel.g, pixel.b)
 	return {"count": count, "mean": (sum / float(count)) if count > 0 else Vector3.ZERO}
+
+
+# 밴드 픽셀의 x-극값(want_max=true면 최대, false면 최소; 부재 시 -1) —
+# 대각 분할의 행별 재료 귀속 경계를 재는 전수(스트라이드 1) 스캔.
+func _band_extent_x(
+	image: Image,
+	x_min: int,
+	x_max: int,
+	y_min: int,
+	y_max: int,
+	want_max: bool,
+	r_min: float,
+	r_max: float,
+	g_min: float,
+	g_max: float,
+	b_min: float,
+	b_max: float
+) -> int:
+	if image == null:
+		return -1
+	var extent := -1
+	for y in range(y_min, y_max):
+		for x in range(x_min, x_max):
+			var pixel: Color = image.get_pixel(x, y)
+			if (
+				pixel.r >= r_min and pixel.r < r_max
+				and pixel.g >= g_min and pixel.g < g_max
+				and pixel.b >= b_min and pixel.b < b_max
+			):
+				if extent == -1 or (want_max and x > extent) or (not want_max and x < extent):
+					extent = x
+	return extent
 
 
 # B4 각성 모듈 잉크: 섀시 림 annulus(r 104~170) 안의 밝은 비-시안 픽셀
@@ -450,8 +510,25 @@ func _scan_immediate_orange(image: Image) -> int:
 	# 즉시모드 시그니처: draw_circle(right_center, Color(1.0, 0.64, 0.30, 0.75)).
 	# 알파 0.75 플랫 블렌드의 실측값 ≈ (0.75, 0.49, 0.25) — 상한은 스터터
 	# 앰버(r>=0.85), 하한·g 상한은 §5 텍스처의 골드 트림 AA 에지(실측
-	# r 0.66~0.71 / g 0.55~0.60)를 배제하도록 타이트닝.
-	return _scan_color_band(image, 0.72, 0.82, 0.42, 0.54, 0.18, 0.34)
+	# r 0.66~0.71 / g 0.55~0.60)를 배제하도록 타이트닝. 중앙 코어 페이스
+	# 박스는 제외 — 대각 씸 골드×적 잉크 블렌드가 1~2px 밴드에 들어올 수
+	# 있고(실측 s6 1px), 즉시모드 시그니처 원은 중앙이 아니라 우측 결과
+	# 패널 쪽에 그려진다.
+	if image == null:
+		return -1
+	var count := 0
+	for y in range(0, image.get_height(), 2):
+		for x in range(0, image.get_width(), 2):
+			if x >= 346 and x < 414 and y >= 341 and y < 409:
+				continue
+			var pixel: Color = image.get_pixel(x, y)
+			if (
+				pixel.r >= 0.72 and pixel.r < 0.82
+				and pixel.g >= 0.42 and pixel.g < 0.54
+				and pixel.b >= 0.18 and pixel.b < 0.34
+			):
+				count += 1
+	return count
 
 
 func _scan_gauge_cyan(image: Image) -> int:

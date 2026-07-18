@@ -38,10 +38,11 @@ func sync_from_runtime_state(state: Object, owner: Object, delta: float) -> void
 		if state.has_method("consume_perk_fusion_cold_boot_events"):
 			events = state.consume_perk_fusion_cold_boot_events()
 		if not bool(host.is_boot_active()) and host.has_method("prepare_committed_icons"):
-			# 부트 진입 에지(모달당 1회, 이산 시점): 커밋된 재료 아이콘을
-			# 프리웜한다 — draw 핫패스 로드 금지 계약.
+			# 부트 진입 에지(모달당 1회, 이산 시점): 커밋 record의 재료
+			# 아이콘+B4 코어 페이스 합성쌍을 프리웜한다 — draw 핫패스
+			# 로드/합성 금지 계약.
 			host.prepare_committed_icons(
-				(boot_snapshot.get("committed_record", {}) as Dictionary).get("sources", []) as Array
+				boot_snapshot.get("committed_record", {}) as Dictionary
 			)
 		host.sync_boot(boot_snapshot, events, delta)
 		return

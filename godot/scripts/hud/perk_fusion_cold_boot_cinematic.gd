@@ -9,6 +9,7 @@ extends Node2D
 const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_fusion_cold_boot_timeline_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 
 # §5 에셋 매니페스트(CB4b): 텍스처 우선 + 절차 드로 degraded 폴백. 존재
 # 검사·로드는 prewarm 1회에서만(예약 에셋 per-frame re-stat 트랩 금지).
@@ -34,6 +35,9 @@ const CARTRIDGE_DRAW_HEIGHT := 96.0
 const CARTRIDGE_PLATE_CENTER_X_FRAC := 0.442
 const CARTRIDGE_PLATE_CENTER_Y_FRAC := 0.510
 const CARTRIDGE_PLATE_ICON_SPAN := 32.0
+# B4 코어 페이스 대각 합성 융합 아이콘(§3 B4 계약 — prepare_fusion_pair_icon
+# 재사용): 합성은 부트 진입 프리웜이 소유하고 draw는 캐시 소비만 한다.
+const CORE_FACE_ICON_SPAN := 52.0
 
 # B4 각성 모듈 = 몸-마운트 링파츠 전개 스펙: 모듈별 앵커 각/폭/회전이
 # 다르다(균일 72px 정사각 즉시 배치 금지 계약). 회전은 draw_set_transform
@@ -66,6 +70,7 @@ var _event_pulse := 0.0
 var _last_events: Array = []
 var consumed_event_count := 0
 var _prepared_icon_lookup: Dictionary = {}
+var _prepared_pair_icon_id := ""
 
 
 # §5 텍스처 프리웜(이산 시점 1회): 존재하는 에셋만 캐시에 올린다 —
@@ -115,18 +120,39 @@ func is_boot_active() -> bool:
 	return _boot_active
 
 
-# 부트 진입 에지(모달당 1회, 이산 시점): 커밋된 재료 아이콘을 프리웜한다
-# — has_icon()이 텍스처를 로드+캐시하므로 draw 경로는 캐시 히트만 탄다.
-# 아이콘이 없는 id는 lookup에서 제외해 draw 재시도(로더는 성공만 캐시 —
-# 부재 에셋 per-frame re-stat 트랩)를 원천 차단한다.
-func prepare_committed_icons(source_ids: Array) -> void:
+# 부트 진입 에지(모달당 1회, 이산 시점): 커밋 record의 재료 아이콘과 B4
+# 코어 페이스 대각 합성쌍을 프리웜한다 — has_icon()/prepare_fusion_pair_icon
+# 이 로드·합성을 소유하므로 draw 경로는 캐시 히트만 탄다. 아이콘이 없는
+# id는 lookup에서 제외해 draw 재시도(로더는 성공만 캐시 — 부재 에셋
+# per-frame re-stat 트랩)를 원천 차단한다.
+func prepare_committed_icons(record: Dictionary) -> void:
 	_prepared_icon_lookup = {}
+	_prepared_pair_icon_id = ""
 	if _icon_renderer == null:
 		return
-	for source_value: Variant in source_ids:
+	var sources: Array = record.get("sources", []) as Array
+	for source_value: Variant in sources:
 		var source_id := str(source_value)
 		if not source_id.is_empty() and bool(_icon_renderer.has_icon(source_id)):
 			_prepared_icon_lookup[source_id] = true
+	var pair_id: String = PerkFusionIconKey.build(
+		str(record.get("fusion_id", "")),
+		int(record.get("created_revision", 0)),
+		sources
+	)
+	# publish-on-success: prepare가 실패하면 id를 게시하지 않는다 — draw가
+	# 미합성 키로 소유 폴백만 반복 렌더하는 것을 막는 계약.
+	if (
+		pair_id.begins_with(PerkFusionIconKey.PREFIX)
+		and bool(_icon_renderer.prepare_fusion_pair_icon(
+			pair_id, Vector2(CORE_FACE_ICON_SPAN, CORE_FACE_ICON_SPAN), true
+		))
+	):
+		_prepared_pair_icon_id = pair_id
+
+
+func get_prepared_pair_icon_id() -> String:
+	return _prepared_pair_icon_id
 
 
 func get_prepared_icon_ids() -> Array:
@@ -160,6 +186,7 @@ func finish_boot() -> void:
 	_event_pulse = 0.0
 	_last_events = []
 	_prepared_icon_lookup = {}
+	_prepared_pair_icon_id = ""
 	queue_redraw()
 
 
@@ -352,6 +379,7 @@ func _draw_core_reveal(center: Vector2, progress: float, plan: Dictionary) -> vo
 		core_color = CORE_STABLE_COLOR
 	draw_circle(center, 42.0, Color(core_color, 0.28 + 0.22 * progress))
 	draw_arc(center, 52.0, 0.0, TAU, 48, Color(core_color, 0.9), 3.0)
+	_draw_core_face_icon(center, progress)
 	var brown_out_count: int = int(plan.get("brown_out_lane_count", 0))
 	var ejected_count: int = int(plan.get("ejected_module_count", 0))
 	var fault_total: int = brown_out_count + ejected_count
@@ -362,6 +390,22 @@ func _draw_core_reveal(center: Vector2, progress: float, plan: Dictionary) -> vo
 	var deployed_count: int = int(plan.get("deployed_module_count", 0))
 	for module_index: int in range(mini(deployed_count, MODULE_DEPLOY_SPECS.size())):
 		_draw_awakened_module(center, module_index, progress)
+
+
+# B4 코어 페이스: 통합 코어에 대각 합성 융합 아이콘 안착 — 리빌 패널과
+# 같은 페이스 처리(암판+골드 헤어라인)로 가독과 검출 결정론을 확보한다.
+# 합성 텍스처는 프리웜 캐시 소비 전용(draw 핫패스 재합성 없음 계약).
+func _draw_core_face_icon(center: Vector2, progress: float) -> void:
+	if _prepared_pair_icon_id == "" or _icon_renderer == null:
+		return
+	var icon_rect := Rect2(
+		center - Vector2(CORE_FACE_ICON_SPAN, CORE_FACE_ICON_SPAN) * 0.5,
+		Vector2(CORE_FACE_ICON_SPAN, CORE_FACE_ICON_SPAN)
+	)
+	var face_alpha: float = clampf(0.55 + 0.45 * progress, 0.0, 1.0)
+	draw_rect(icon_rect.grow(5.0), Color(0.02, 0.03, 0.06, 0.92 * face_alpha))
+	draw_rect(icon_rect.grow(5.0), Color(GOLD_COLOR, 0.8 * face_alpha), false, 1.5)
+	_icon_renderer.draw_icon(self, _prepared_pair_icon_id, icon_rect, face_alpha)
 
 
 # B4 SNAP OPEN: 모듈별 스태거 전개 — 베이 안쪽(림 내측)에서 섀시 림

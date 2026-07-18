@@ -376,28 +376,49 @@ func _get_fusion_pair_cached_texture(pair_id: String) -> Texture2D:
 	return null
 
 
-# 두 재료 아이콘을 좌/우 반반 합성(대각 컷 없이 결정적 배치). Image 합성 —
-# 드로우 경로의 폴리곤 삼각분할·뷰포트 캡처 비용을 피한다.
+# 두 재료 아이콘을 대각 분할 합성(§5 계약: 반대각 경계 — 좌상 삼각=첫
+# 재료, 우하 삼각=둘째 재료, 경계 1.5px AA + 잉크 위 골드 씸 틴트).
+# 각 재료는 풀사이즈로 스케일 후 마스크(반폭 압착 금지 — 모티프 보존).
+# Image 합성 — 드로우 경로의 폴리곤 삼각분할·뷰포트 캡처 비용을 피한다.
+# 프리웜 소유 경로 전용이라 per-pixel 루프 비용(<80x80)은 핫패스 무관.
 func _compose_fusion_pair_texture(parsed: Dictionary, icon_size: Vector2, active: bool) -> Texture2D:
 	var sources: Array = parsed.get("sources", []) as Array
 	if sources.size() != 2:
 		return null
 	var width: int = maxi(8, int(round(icon_size.x)))
 	var height: int = maxi(8, int(round(icon_size.y)))
+	var left_image: Image = _get_fusion_source_icon(str(sources[0]), Vector2(width, height))
+	var right_image: Image = _get_fusion_source_icon(str(sources[1]), Vector2(width, height))
+	if left_image == null and right_image == null:
+		return null
+	if not active:
+		if left_image != null:
+			left_image.adjust_bcs(0.72, 1.0, 0.55)
+		if right_image != null:
+			right_image.adjust_bcs(0.72, 1.0, 0.55)
 	var composed := Image.create(width, height, false, Image.FORMAT_RGBA8)
 	composed.fill(Color(0.0, 0.0, 0.0, 0.0))
-	var half_width: int = maxi(1, width / 2)
-	for side in range(2):
-		var source_image: Image = _get_fusion_source_icon(str(sources[side]), Vector2(half_width, height))
-		if source_image == null:
-			continue
-		if not active:
-			source_image.adjust_bcs(0.72, 1.0, 0.55)
-		composed.blit_rect(
-			source_image,
-			Rect2i(Vector2i.ZERO, Vector2i(half_width, height)),
-			Vector2i(side * half_width, 0)
-		)
+	var transparent := Color(0.0, 0.0, 0.0, 0.0)
+	var seam_tint := Color(1.0, 0.92, 0.62)
+	for y in range(height):
+		for x in range(width):
+			# 반대각 부호거리(px 단위): <0 = 좌상 삼각(첫 재료), >0 = 우하
+			# 삼각(둘째 재료). 정사각이 아니면 y를 폭 비율로 정규화.
+			var diagonal_px: float = float(x) + 0.5 + (float(y) + 0.5) * float(width) / float(height) - float(width)
+			var blend: float = smoothstep(-0.75, 0.75, diagonal_px)
+			var left_px: Color = left_image.get_pixel(x, y) if left_image != null else transparent
+			var right_px: Color = right_image.get_pixel(x, y) if right_image != null else transparent
+			var px: Color = left_px.lerp(right_px, blend)
+			if absf(diagonal_px) < 0.9 and px.a > 0.05:
+				# 씸은 잉크 위 RGB 틴트만 — 알파를 새로 만들지 않는다
+				# (코너 투명 계약, perk_fusion_icon_runtime_smoke).
+				px = Color(
+					lerpf(px.r, seam_tint.r, 0.35),
+					lerpf(px.g, seam_tint.g, 0.35),
+					lerpf(px.b, seam_tint.b, 0.35),
+					px.a
+				)
+			composed.set_pixel(x, y, px)
 	return ImageTexture.create_from_image(composed)
 
 

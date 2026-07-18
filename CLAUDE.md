@@ -542,6 +542,17 @@ that excludes the native width, and keep piecewise VFX motion (envelope/rotation
 C0-continuous at phase boundaries (phase-lock breathing sin to the boundary).
 Full rule + seal (angel dice arc): `docs/godot_runtime_traps.md`.
 
+## Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
+
+typed 객체에 미선언 프로퍼티 대입/미존재 함수 호출은 SCRIPT ERROR로
+**그 레그 함수만** 중단시키고 러너는 계속 돌아 `ok`가 찍힌다 — 어서션이
+한 줄도 실행되지 않은 공허 GREEN. 판정 정석은 표준 러너
+`run_smoke_tests.ps1` 관통(엔진 `ERROR:`도 실패 승격); 수동 grep이면
+`ok / SCRIPT ERROR / ^ERROR` 3필드. SceneTree 스모크 `_init()`은
+`call_deferred("_run")`만(트리 진입 전 노드 사용=is_inside_tree 엔진
+ERROR). 픽스처 튜닝 프로퍼티 대입은 선언 존재 먼저 확인. Full rule:
+`docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such

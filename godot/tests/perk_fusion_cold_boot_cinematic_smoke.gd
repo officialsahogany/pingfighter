@@ -6,6 +6,7 @@ const BattleSceneOverlayFrameController := preload("res://scripts/core/battle_sc
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
+const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 
 var _failures: Array[String] = []
 
@@ -223,6 +224,49 @@ func _verify_committed_icon_prepare_on_boot_entry() -> void:
 	_expect(
 		host.get_prepared_icon_ids() == committed_sources,
 		"boot entry must prewarm exactly the committed source icons 1:1 (%s vs %s)" % [str(host.get_prepared_icon_ids()), str(committed_sources)]
+	)
+	# CB4c-1: B4 코어 페이스 대각 합성쌍도 같은 에지에서 프리웜된다 —
+	# 키는 record(fusion_id@revision|sources) 파생과 정확히 일치해야 한다.
+	var committed_record: Dictionary = (cold_boot_snapshot.get("committed_record", {}) as Dictionary)
+	var expected_pair_id: String = PerkFusionIconKey.build(
+		str(committed_record.get("fusion_id", "")),
+		int(committed_record.get("created_revision", 0)),
+		committed_sources
+	)
+	_expect(
+		expected_pair_id.begins_with(PerkFusionIconKey.PREFIX),
+		"the fixture record should yield a valid fusion pair icon key"
+	)
+	_expect(
+		str(host.get_prepared_pair_icon_id()) == expected_pair_id,
+		"boot entry must prewarm the B4 core-face fusion pair icon with the record-derived key (%s vs %s)" % [str(host.get_prepared_pair_icon_id()), expected_pair_id]
+	)
+	# CB4c-1 v2 [P2]: "프리웜 완료"의 실증 — 합성/텍스처 카운터가 실제로
+	# 올라가야 하고, 같은 record의 재-prepare는 캐시 히트만 내야 한다
+	# (재합성 0). id는 prepare 성공 시에만 게시된다(소스씰).
+	var icon_renderer: Object = PerkFusionColdBootCinematic._icon_renderer
+	var pair_stats: Dictionary = icon_renderer.get_fusion_pair_cache_stats()
+	_expect(
+		int(pair_stats.get("compositions", 0)) >= 1 and int(pair_stats.get("textures", 0)) >= 1,
+		"boot-entry prepare must actually compose and cache the pair texture (%s)" % str(pair_stats)
+	)
+	var hits_before: int = int(pair_stats.get("hits", 0))
+	var compositions_before: int = int(pair_stats.get("compositions", 0))
+	host.prepare_committed_icons(committed_record)
+	var repeat_stats: Dictionary = icon_renderer.get_fusion_pair_cache_stats()
+	_expect(
+		int(repeat_stats.get("hits", 0)) == hits_before + 1
+			and int(repeat_stats.get("compositions", 0)) == compositions_before,
+		"re-preparing the same record must cache-hit without recomposition (%s -> %s)" % [str(pair_stats), str(repeat_stats)]
+	)
+	_expect(
+		str(host.get_prepared_pair_icon_id()) == expected_pair_id,
+		"a cache-hit re-prepare must keep publishing the same pair id"
+	)
+	var host_pair_source := FileAccess.get_file_as_string("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
+	_expect(
+		host_pair_source.contains("and bool(_icon_renderer.prepare_fusion_pair_icon("),
+		"the pair id must only be published when prepare succeeds (publish-on-success gate)"
 	)
 	owner_node.queue_free()
 
