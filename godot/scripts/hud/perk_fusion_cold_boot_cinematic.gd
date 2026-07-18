@@ -110,7 +110,9 @@ func _draw() -> void:
 		PerkFusionColdBootTimelineState.BEAT_IGNITION_CREST:
 			_draw_boot_gauge(center, 1.0, plan)
 			_draw_ignition(center, progress, plan)
-		PerkFusionColdBootTimelineState.BEAT_REVEAL, PerkFusionColdBootTimelineState.BEAT_SETTLE:
+		PerkFusionColdBootTimelineState.BEAT_REVEAL:
+			# B5 SETTLE은 렌더하지 않는다 — flow reveal 진입과 동시에 호스트가
+			# 닫히고 모달 리빌 패널이 홀드를 소유한다(B5=핸드오프 공식 계약).
 			_draw_core_reveal(center, progress, plan)
 	if _event_pulse > 0.0:
 		# 전이 순간 촉감 펄스(하드웨어 래치 CHNK 시각 앵커).

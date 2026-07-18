@@ -5,8 +5,11 @@ const PerkFusionColdBootPresentation := preload("res://scripts/characters/perk_f
 # 퍽 융합 "링코어 콜드부트" 시네마틱 6비트 타임라인(B0~B5) — 스토리보드
 # 권위는 docs/perk_fusion_cold_boot_cinematic_plan.md §3. 모달 flow의
 # PHASE_ANIMATION 구간을 B0~B4로 세분하고, flow가 reveal로 넘어가면(자연
-# 완주든 스킵이든) B5 SETTLE로 수렴한다. outcome은 committed_record에 이미
-# 롤려 있으므로 이 타임라인은 라이브 RNG 없이 결정론적으로 재생만 한다.
+# 완주든 스킵이든) B5 SETTLE로 수렴한다. SETTLE은 상태 수렴 마커일 뿐
+# 렌더 비트가 아니다 — reveal 진입과 동시에 호스트는 닫히고 SETTLE 홀드의
+# 화면 소유권은 모달 리빌 패널로 핸드오프된다(B5=핸드오프 공식 계약,
+# 재료 태그/결과 로그는 §10.1 상세 패널 소유). outcome은 committed_record에
+# 이미 롤려 있으므로 이 타임라인은 라이브 RNG 없이 결정론적으로 재생만 한다.
 const BEAT_DOCK_IN := "dock_in"
 const BEAT_TWIST_LOCK := "twist_lock"
 const BEAT_BOOT_POST := "boot_post"

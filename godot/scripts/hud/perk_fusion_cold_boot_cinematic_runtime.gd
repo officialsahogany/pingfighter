@@ -7,7 +7,10 @@ extends RefCounted
 # 모달 중 도달 불가하다. 같은 프레임 스킵→확정처럼 idle이 다시 오지 않는
 # 종료 경로는 state의 _finish_perk_fusion_modal이 호스트를 직접 닫는다.
 # 호스트 생성/prewarm은 애니메이션 진입이라는 이산 시점에만 일어난다
-# (_draw/_process 인스턴스화 금지 — 핫패스 lazy-init 트랩).
+# (_draw/_process 인스턴스화 금지 — 핫패스 lazy-init 트랩). B5 SETTLE의
+# 화면은 호스트가 아니라 모달 리빌 패널이 소유한다(핸드오프 계약) —
+# reveal 진입 프레임에 호스트를 닫아도 같은 프레임의 즉시모드가 리빌
+# 패널을 그리므로 단절 프레임이 없다.
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
 
 const HOST_STATE_FIELD := "_cold_boot_cinematic_host"
