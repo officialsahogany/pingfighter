@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PerkFusionColdBootPresentation := preload("res://scripts/characters/perk_fusion_cold_boot_presentation.gd")
+
 # 퍽 융합 "링코어 콜드부트" 시네마틱 6비트 타임라인(B0~B5) — 스토리보드
 # 권위는 docs/perk_fusion_cold_boot_cinematic_plan.md §3. 모달 flow의
 # PHASE_ANIMATION 구간을 B0~B4로 세분하고, flow가 reveal로 넘어가면(자연
@@ -47,6 +49,9 @@ var beat := BEAT_DOCK_IN
 var beat_timer := 0.0
 var elapsed := 0.0
 var committed_record: Dictionary = {}
+# CB2: committed_record에서 begin 시 1회 파생되는 결정론적 티어 플랜
+# (tell/카운트) — 스냅샷 소비자(렌더러/CB3 호스트)가 그대로 읽는다.
+var presentation: Dictionary = {}
 
 
 func begin(record: Dictionary) -> void:
@@ -55,6 +60,7 @@ func begin(record: Dictionary) -> void:
 	beat_timer = 0.0
 	elapsed = 0.0
 	committed_record = record.duplicate(true)
+	presentation = PerkFusionColdBootPresentation.build_plan(committed_record)
 
 
 # 한 delta가 여러 비트 경계를 관통해도 순서대로 전이 이벤트를 전부 낸다
@@ -95,6 +101,7 @@ func reset() -> void:
 	beat_timer = 0.0
 	elapsed = 0.0
 	committed_record.clear()
+	presentation = {}
 
 
 func is_settled() -> bool:
@@ -129,6 +136,7 @@ func get_snapshot() -> Dictionary:
 		"elapsed": elapsed,
 		"total_duration": TOTAL_ANIMATION_DURATION,
 		"committed_record": committed_record.duplicate(true),
+		"presentation": presentation.duplicate(true),
 	}
 
 

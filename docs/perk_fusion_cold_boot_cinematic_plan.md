@@ -1,6 +1,9 @@
 # 퍽 융합 풀 시네마틱 — "링코어 콜드부트" 아트디렉션 + 스토리보드
 
-상태: 아트디렉션 확정(구현 전). 2026-07-12 컨셉 선정(사용자: 옵션 3 풀 시네마틱,
+상태: CB1 랜딩(6비트 타임라인·duration 단일 권위·스킵/reset 수렴·전이
+이벤트 큐-드레인) + CB2 랜딩(티어 프레젠테이션 플랜 — 실 committed_record
+파생 tell/카운트). 잔여 CB3(Node2D 호스트/prewarm/degraded 폴백)·CB4(에셋).
+2026-07-12 컨셉 선정(사용자: 옵션 3 풀 시네마틱,
 "전혀 다른 방식" = 뻔한 슬램+빛줄기+히트스톱+카메라셰이크 거부). 7개 은유 병렬
 발상 중 **링코어 콜드부트** 채택.
 
@@ -35,7 +38,10 @@ re-stat/음수-z 조상 fill), 포크 템플릿
   모른다.
 - **임팩트는 원반형 링 펄스**(빔 아님) + 하드웨어 THUNK. 전면 카메라 셰이크가
   아니라 모달-로컬 오버레이 넛지 + 하드웨어 래치 촉감.
-- **3티어는 색이 아니라 기계 거동으로 차등.** 리컬러 금지 — 서로 다른 부팅 결말.
+- **티어는 색이 아니라 기계 거동으로 차등.** 리컬러 금지 — 서로 다른 부팅
+  결말. 티어 모델은 **기본 3결과(성공/부작용/부산물) + stable 대체 분기**다:
+  stable은 독립 4번째 롤이 아니라 부작용 롤이 core_stabilize 세이브(또는 빈
+  페널티 해소)로 성공급 부팅으로 대체된 분기다.
 - **순손실 없음 계약 유지.** 부작용도 코어는 살아서 부팅을 마친다.
 
 ---
@@ -114,10 +120,15 @@ B2 게이지가 ~90%에서 상한을 **OVERSHOOT** — 캡이 깨지고 시안 �
 골드가 링 전체 범람, 이그니션은 골드+시안 이중 링. 리드아웃 "코어 각성 / CORE
 AWAKENED" 골드, 각 베이 락오픈마다 부산물명이 금색 각인. 최대 도파민.
 
-**안정 융합(stable, 부작용→성공 대체) — STABILIZED 세이브 비트.**
-`core_stabilize` 무장 시: B3 surge 프레임에서 **별도 시안 안정화 코일이 SNAP-IN**해
-과부하를 시안으로 클램프, "안정 융합 / STABILIZED". 아슬한 재앙을 붙잡는 긴장-해소.
-색은 core_stable 시안-청. 확인 패널의 `prob_core_stable` 표기와 정합.
+**안정 융합(stable, 부작용→성공 대체) — STABILIZED. 성립 경로 2가지.**
+① `core_stabilize` 세이브: B3 surge 프레임에서 **별도 시안 안정화 코일이
+SNAP-IN**해 과부하를 시안으로 클램프(`stabilizer_snap=true`). 아슬한 재앙을
+붙잡는 긴장-해소. ② **빈 페널티 자가 해소**: 페널티 lane이 없는 소스 쌍
+(캐릭터 제한 numeric passive 등 비-hookable)의 raw 부작용 롤이 벤트 없이
+스스로 안착 — 코일 없음(`stabilizer_snap=false`), B2 게이지 스터터만 남고
+서지는 확정되지 않으며(`ignition_surge=false`) 카운트 전부 0. 두 경로 모두
+리드아웃 "안정 융합 / STABILIZED", 색은 core_stable 시안-청, 확인 패널의
+`prob_core_stable` 표기와 정합.
 
 ---
 
@@ -174,12 +185,14 @@ AWAKENED" 골드, 각 베이 락오픈마다 부산물명이 금색 각인. 최�
 
 무배선 이점: **outcome은 이미 데이터-레디.** `begin_committed_result(record)`가
 `_phase=PHASE_ANIMATION` 이전에 `_committed_record`를 세팅하고 스냅샷이 이미
-`committed_record`를 실어 보내므로, 3티어 분기는 애니가 `record.outcome`(+ penalty/
-deleted/byproducts 카운트)을 읽는 것만으로 가능 — 게임플레이 재배선 0.
+`committed_record`를 실어 보내므로, 기본 3결과+stable 대체 분기는 애니가
+`record.outcome`(+ penalty/deleted/byproducts 카운트)을 읽는 것만으로 가능 —
+게임플레이 재배선 0. (CB2 랜딩: 타임라인 스냅샷의 `presentation` 채널이 이
+파생을 이미 수행한다 — CB3는 plan의 tell/카운트만 소비하면 된다.)
 
 착수 시 필독 트랩(전부 리포 표준):
-- [ ] **이중 duration 상수** — `DEFAULT_ANIMATION_DURATION`이 `perk_fusion_modal_flow.gd`
-      + `perk_fusion_overlay_renderer.gd` 두 곳. 1.1→~3.0s 확장 시 **동기 수정**.
+- [x] **이중 duration 상수** — (CB1 완료) 두 곳 모두 타임라인
+      `TOTAL_ANIMATION_DURATION`(2.75s)의 파생 상수로 단일 권위화, 소스씰로 봉인.
 - [ ] **컨텍스트-폴백 사이징** — 풀스크린 오버레이/플래시 rect는 반드시
       `canvas.get_viewport_rect().size`(엔진 트루스)에서. `view_size` 컨텍스트 키
       폴백 금지(몽환포영 "왼쪽 절반만" 재발).
@@ -192,8 +205,8 @@ deleted/byproducts 카운트)을 읽는 것만으로 가능 — 게임플레이 
       z 순서. state 스모크로 안 잡힘 → **픽셀 QA** 필수.
 - [ ] **모달 = update 드라이버 tick** — 모달이 물리 정지 실행이므로 `_physics_process`
       아닌 mythic과 동일 update 드라이버로 tick(스킵/취소/finish 정리 포함).
-- [ ] **스킵 경로 보존** — 기존 `PHASE_ANIMATION` confirm→`PHASE_REVEAL` 점프 유지.
-      스킵 시 확정 코어 리빌로 즉시 점프(어느 비트에서든).
+- [x] **스킵 경로 보존** — (CB1 완료) confirm→reveal 점프 유지 + 어느 비트든
+      SETTLE 수렴, 전이 이벤트는 큐-드레인으로 정확히-한-번 소비.
 - [ ] **owner 스키마** — 새 owner sync 키가 생기면 `BattleSceneState.DEFAULT_VALUES`
       선언(현재 자기완결이라 불필요 예상, 생기면 준수).
 - [ ] **AutoSprite (cols,rows) const 권위 / draw_polygon 정규화 UV** — 시트/절차 조각.
@@ -209,7 +222,7 @@ deleted/byproducts 카운트)을 읽는 것만으로 가능 — 게임플레이 
 | 슬라이스 | 내용 | 씰 |
 |---|---|---|
 | CB1 | 타임라인 상태 포크(6비트) + duration 2곳 동기 + 스킵 경로 | 페이즈 전이/스킵→확정 리빌 점프 / duration 동기 |
-| CB2 | outcome 데이터 구동 분기(성공/부작용/부산물/안정) — 벤트/EJECT/전개 카운트가 penalty/deleted/byproducts에서 파생 | force-inject 아닌 **실 committed_record** 4티어 각 1레그 + 카운트 정합 |
+| CB2 | outcome 데이터 구동 분기(기본 3결과+stable 대체) — 벤트/EJECT/전개 카운트가 penalty/deleted/byproducts에서 파생 | force-inject 아닌 **실 committed_record** 기본 3결과+삭제 변형+stable 대체 각 1레그 + 카운트 정합 |
 | CB3 | Node2D 호스트 + 셰이더/파티클 + prewarm + degraded 폴백 | 미프리웜 시 즉시모드 폴백 무크래시 / lazy-init 반증 |
 | CB4 | 에셋 합성(섀시/카트리지/이그니션/전개 모듈) + 대각 아이콘 재사용 | 알파/누끼/여백 QA + 최소해상도 픽셀 QA + 음수-z 조상 fill 픽셀 QA |
 
