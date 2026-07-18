@@ -173,6 +173,8 @@ func update(
 		if smasher_wheel_state.has_method("apply_movement_config"):
 			motion_config = smasher_wheel_state.apply_movement_config(motion_config, next_speed, direction)
 
+	var plasma_charging := false
+	var plasma_activated := false
 	var plasma_state: Object = deps.get("smasher_plasma_state", null)
 	if not recovery_activated and not cleanse_activated and not warp_gate_activated and not wheel_active and plasma_state != null and plasma_state.has_method("update_input"):
 		var plasma_result: Dictionary = plasma_state.update_input(
@@ -184,7 +186,10 @@ func update(
 			deps
 		)
 		next_special_gauge = float(plasma_result.get("special_gauge", next_special_gauge))
+		plasma_charging = bool(plasma_result.get("charging", false))
+		plasma_activated = bool(plasma_result.get("activated", false))
 
+	var magnum_activated := false
 	var magnum_grip_state: Object = deps.get("smasher_magnum_grip_state", null)
 	var skill_input_locked: bool = bool(config.get("player_skill_input_locked", false))
 	if magnum_grip_state != null and skill_input_locked:
@@ -201,10 +206,28 @@ func update(
 			deps
 		)
 		next_special_gauge = float(magnum_result.get("special_gauge", next_special_gauge))
-		if bool(magnum_result.get("activated", false)):
+		magnum_activated = bool(magnum_result.get("activated", false))
+		if magnum_activated:
 			var audio = deps.get("audio", null)
 			if audio != null and audio.has_method("play_magnum_grip"):
 				audio.play_magnum_grip()
+
+	# 융합 스킬-사용 에지: 이 프레임에 발동한 원샷 스킬 1개(컨트롤러의
+	# 상호배제 게이트 순서 그대로 first-wins). 대시는 스킬이 아니라 별도
+	# 대시 훅으로 흐른다.
+	var fusion_skill_edge := ""
+	if recovery_activated:
+		fusion_skill_edge = "recovery"
+	elif cleanse_activated:
+		fusion_skill_edge = "cleanse"
+	elif overdrive_activated:
+		fusion_skill_edge = "smasher_overdrive"
+	elif warp_gate_activated:
+		fusion_skill_edge = "warp_gate"
+	elif magnum_activated:
+		fusion_skill_edge = "magnum_grip"
+	elif plasma_activated:
+		fusion_skill_edge = "plasma"
 
 	var shield_kiting_state: Object = deps.get("smasher_shield_kiting_state", null)
 	if not wheel_active and shield_kiting_state != null and shield_kiting_state.has_method("update_input"):
@@ -225,12 +248,14 @@ func update(
 				float(motion_config.get("play_right", 0.0)) - float(motion_config.get("paddle_width", 0.0))
 			)
 			var shield_final: Dictionary = _finalize_warp_gate_position(next_pos, next_special_gauge, config, deps)
-			return {
+			# 실드 카이팅 조기 반환도 같은 프레임의 플라즈마 차징/스킬 에지를
+			# 보존해야 한다 — 여기서 유실되면 카이팅 중 플라즈마가 죽는다.
+			return _apply_smasher_skill_result_fields({
 				"frame_counter": next_frame_counter,
 				"player_pos": shield_final.get("player_pos", next_pos),
 				"player_speed": 0.0,
 				"special_gauge": float(shield_final.get("special_gauge", next_special_gauge)),
-			}
+			}, plasma_charging, fusion_skill_edge)
 
 	var handled_by_dash := false
 	if not wheel_active:
@@ -287,12 +312,25 @@ func update(
 		next_pos = final_pos
 	next_special_gauge = float(final_wrap.get("special_gauge", next_special_gauge))
 
-	return {
+	return _apply_smasher_skill_result_fields({
 		"frame_counter": next_frame_counter,
 		"player_pos": next_pos,
 		"player_speed": next_speed,
 		"special_gauge": next_special_gauge,
-	}
+	}, plasma_charging, fusion_skill_edge)
+
+
+func _apply_smasher_skill_result_fields(
+	result: Dictionary,
+	plasma_charging: bool,
+	fusion_skill_edge: String
+) -> Dictionary:
+	if plasma_charging:
+		result["plasma_charging"] = true
+	if not fusion_skill_edge.is_empty():
+		result["activated"] = true
+		result["activated_skill"] = fusion_skill_edge
+	return result
 
 
 func _read_dash_down_pressed(deps: Dictionary, input_reader: Object, input_snapshot: Dictionary) -> bool:

@@ -148,6 +148,7 @@ func update_input(
 		_tick_timers(delta)
 		return _build_owner_snapshot(special_gauge)
 
+	var skill_edge_started := false
 	if bool(input_snapshot.get("up_just_pressed", false)):
 		if umbrella_open or umbrella_retracting:
 			# Original parity: manual fold input is ignored until the deploy
@@ -165,6 +166,7 @@ func update_input(
 			)
 		else:
 			_start_open(deps)
+			skill_edge_started = true
 
 	_tick_timers(delta)
 	var swing_direction: int = int(input_snapshot.get("blacksmith_swing_direction", 0))
@@ -174,7 +176,14 @@ func update_input(
 		and bool(input_snapshot.get("action_just_pressed", false))
 	):
 		_start_swing(swing_direction, current_msec, deps)
-	return _build_owner_snapshot(special_gauge)
+		skill_edge_started = true
+	var input_result: Dictionary = _build_owner_snapshot(special_gauge)
+	if skill_edge_started:
+		# 융합 스킬-사용 에지: 개방 시작·스윙 시작 프레임만 발행한다.
+		# 접기(_start_close)와 전개 유지 프레임은 스킬 사용이 아니다.
+		input_result["activated"] = true
+		input_result["activated_skill"] = "thor_shield"
+	return input_result
 
 
 func update_effects(_fps_scale: float, context: Dictionary = {}, _deps: Dictionary = {}) -> Dictionary:

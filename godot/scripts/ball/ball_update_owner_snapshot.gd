@@ -13,6 +13,8 @@ func build(owner: Object) -> Dictionary:
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"skip_ball_motion_step": bool(_get_owner_value(owner, "skip_ball_motion_step", false)),
+		"perk_fusion_overload_speed_cap": float(_get_owner_value(owner, "perk_fusion_overload_speed_cap", 0.0)),
+		"perk_fusion_overload_speed_cap_frames": float(_get_owner_value(owner, "perk_fusion_overload_speed_cap_frames", 0.0)),
 		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
 		"ball_boost_decay_rate": float(_get_owner_value(owner, "ball_boost_decay_rate", 0.975)),
 		"ball_min_boost": float(_get_owner_value(owner, "ball_min_boost", 0.70)),

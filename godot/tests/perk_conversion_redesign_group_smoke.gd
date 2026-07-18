@@ -73,7 +73,7 @@ class OpenSlotCatalog:
 	func get_perk_data(perk_id: String) -> Dictionary:
 		return catalog.get_perk_data(perk_id)
 
-	func has_open_perk_slot(_runtime_levels: Dictionary) -> bool:
+	func has_open_perk_slot(_runtime_levels: Dictionary, _slot_context: Object = null) -> bool:
 		return true
 
 

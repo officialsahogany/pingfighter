@@ -92,6 +92,11 @@ func update(
 			working_paddle_base_scale
 		)
 		result.merge(energy_result, true)
+	if bool(manual_charge_result.get("optimus_charge_started", false)):
+		# 융합 스킬-사용 에지: 임계 돌파 프레임 1회만. 홀드/해제/드레인
+		# 프레임은 started=false라 에지를 반복하지 않는다.
+		result["activated"] = true
+		result["activated_skill"] = "optimus_manual_charge"
 	return result
 
 

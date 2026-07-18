@@ -64,11 +64,13 @@ func step_motion(
 		# 가짜 반사 통지가 나가지 않도록.
 		overdrive_reflection = _process_paddle(step_result, scene, context, deps, callbacks)
 	elif event == "player_scored":
+		_close_perk_fusion_overload_cap(scene)
 		if _process_stage2_quake_boss_backstop(scene, context, deps):
 			overdrive_reflection = true
 		else:
 			outcome = "player"
 	elif event == "boss_scored":
+		_close_perk_fusion_overload_cap(scene)
 		outcome = "boss"
 	if overdrive_reflection:
 		_notify_smasher_overdrive_reflection(
@@ -179,6 +181,12 @@ func _process_wall(step_result: Dictionary, scene: Dictionary, context: Dictiona
 	if not bool(result.get("rematch_requested", false)):
 		_notify_power_smash_wall_bounce(step_result, deps)
 		_apply_chargebag_wall_gauge(scene, context, deps)
+		# 황금 궤적: 해소된 벽 바운스마다 정확 1회 — 0 지급이어도 부산물
+		# 런타임의 캡/쿼리 상태는 전진한다(캡 클램프·라운드 잔여는 런타임
+		# award 트랜잭션이 소유).
+		var fusion_runtime: Object = deps.get("runtime_perk_state", null)
+		if fusion_runtime != null and fusion_runtime.has_method("award_perk_fusion_wall_bounce_gold"):
+			fusion_runtime.award_perk_fusion_wall_bounce_gold({}, deps)
 	return bool(result.get("rematch_requested", false))
 
 
@@ -387,11 +395,56 @@ func _process_paddle(
 	if result.is_empty():
 		return false
 	if bool(step_result.get("is_player", false)):
+		_apply_perk_fusion_overload_after_player_bounce(scene, deps)
+		_notify_perk_fusion_paddle_skill_edges(result, deps)
 		return true
+	# 보스 리턴: 과부하는 한 랠리 한정 — 커밋된 보스 반사에서 캡을 마감한다.
+	_close_perk_fusion_overload_cap(scene)
 	if not bool(result.get("normal_boss_bounce_committed", false)):
 		return false
 	_notify_stage7_boss_paddle_hit(scene, context, deps)
 	return true
+
+
+# 플레이어 패들 커밋 반사 직후의 과부하 처리: 무장돼 있으면 1회 소비해
+# 나가는 속도에 ×배수, 커밋된 랠리 보정 유효 캡(같은 프레임 merge 반영)
+# × 배수를 일시 캡으로 연다. 무장 안 된 리턴은 잔존(stale) 캡을 마감한다.
+func _apply_perk_fusion_overload_after_player_bounce(scene: Dictionary, deps: Dictionary) -> void:
+	var fusion_runtime: Object = deps.get("runtime_perk_state", null)
+	if fusion_runtime == null or not fusion_runtime.has_method("consume_perk_fusion_paddle_bounce_speed_multiplier"):
+		return
+	var multiplier: float = float(fusion_runtime.consume_perk_fusion_paddle_bounce_speed_multiplier())
+	if multiplier <= 1.0:
+		_close_perk_fusion_overload_cap(scene)
+		return
+	# 유효속도 공간 계약: 커밋된 랠리 보정 캡으로 먼저 정규화한 뒤 ×배수 —
+	# 그래야 임팩트 부스트 유무와 무관하게 결과가 정확히 "유효캡 × 배수"다.
+	var boost: float = maxf(1.0, float(scene.get("ball_impact_boost", 1.0)))
+	var effective_cap: float = float(scene.get("max_ball_speed", 26.0))
+	if boost > 1.001:
+		effective_cap = float(scene.get("impact_boost_max_ball_speed", effective_cap))
+	var velocity: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var effective_speed: float = velocity.length() * boost
+	if effective_speed > 0.0:
+		var target_effective: float = minf(effective_speed, effective_cap) * multiplier
+		scene["ball_vel"] = velocity.normalized() * (target_effective / boost)
+	scene["perk_fusion_overload_speed_cap"] = effective_cap * multiplier
+	scene["perk_fusion_overload_speed_cap_frames"] = 90.0
+
+
+func _close_perk_fusion_overload_cap(scene: Dictionary) -> void:
+	scene["perk_fusion_overload_speed_cap"] = 0.0
+	scene["perk_fusion_overload_speed_cap_frames"] = 0.0
+
+
+# 패들 소유 파워스매싱/드라이브 활성화 에지 → 융합 스킬 사용 훅(잔향 등)
+# 1회 통지. 에지 플래그는 패들 컨트롤러 결과가 소유한다.
+func _notify_perk_fusion_paddle_skill_edges(result: Dictionary, deps: Dictionary) -> void:
+	if not bool(result.get("power_activated", false)) and not bool(result.get("drive_activated", false)):
+		return
+	var fusion_runtime: Object = deps.get("runtime_perk_state", null)
+	if fusion_runtime != null and fusion_runtime.has_method("notify_perk_fusion_skill_used"):
+		fusion_runtime.notify_perk_fusion_skill_used()
 
 
 func _is_stage7_boss_ball_intangible(context: Dictionary, deps: Dictionary) -> bool:

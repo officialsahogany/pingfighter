@@ -19,6 +19,7 @@ func reset_from_runtime_state(runtime_state: Object) -> Dictionary:
 	_reset_mystic_dice(runtime_state)
 	_reset_mystic_dice_paddle_effect(runtime_state)
 	_reset_mystic_dice_modal(runtime_state)
+	_reset_perk_fusion_modal(runtime_state)
 	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
 	return result
 
@@ -201,5 +202,16 @@ func _reset_mystic_dice_modal(runtime_state: Object) -> void:
 	if flow != null and flow.has_method("reset"):
 		flow.reset()
 	var modal_input: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_mystic_dice_modal_input")
+	if modal_input != null and modal_input.has_method("reset"):
+		modal_input.reset()
+
+
+# 융합 모달도 new-run reset에서 flow/input을 함께 해제한다 — 리셋 도중
+# 열린 모달이 다음 런 첫 프레임에 잔존하면 안 된다.
+func _reset_perk_fusion_modal(runtime_state: Object) -> void:
+	var flow: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_modal_flow")
+	if flow != null and flow.has_method("reset"):
+		flow.reset()
+	var modal_input: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_modal_input")
 	if modal_input != null and modal_input.has_method("reset"):
 		modal_input.reset()

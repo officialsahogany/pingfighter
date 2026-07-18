@@ -110,6 +110,10 @@ func bounce(
 	var result: Dictionary = frame_state.build_result_snapshot(frame, ball_pos, ball_vel, player_speed, boss_vel)
 	if post_hit_result.has("runtime_perk_gold"):
 		result["runtime_perk_gold"] = int(post_hit_result.get("runtime_perk_gold", 0))
+	# 패들 소유 스킬 활성화 에지(파워스매싱/드라이브)를 결과로 전파한다 —
+	# 융합 스킬-사용 훅 등 같은 프레임 소비자가 result에서만 읽는 일회성 에지.
+	result["power_activated"] = power_activated
+	result["drive_activated"] = drive_activated
 	for key in [
 		"player_collision_cooldown",
 		"boss_collision_cooldown",

@@ -361,7 +361,9 @@ static func _has_open_perk_slot(registry: Object) -> bool:
 	var runtime_perk_catalog: Object = _get_runtime_perk_catalog(registry)
 	if runtime_perk_catalog == null or not runtime_perk_catalog.has_method("has_open_perk_slot"):
 		return true
-	return bool(runtime_perk_catalog.has_open_perk_slot(_get_runtime_perk_levels(registry)))
+	# 융합 슬롯 환급을 강제 신화 지급 판정도 봐야 한다 — registry를 slot
+	# context로 관통(소비자별 구식 계산 금지).
+	return bool(runtime_perk_catalog.has_open_perk_slot(_get_runtime_perk_levels(registry), registry))
 
 
 static func _get_runtime_perk_levels(registry: Object) -> Dictionary:

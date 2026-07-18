@@ -1350,7 +1350,7 @@ func get_choices(
 
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
 	if PerkConversionFlags.is_enabled():
-		choices = _filter_perk_slot_budget(choices, runtime_levels)
+		choices = _filter_perk_slot_budget(choices, runtime_levels, _registry)
 	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
 	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
 	if not exclude_instant:
@@ -1359,16 +1359,29 @@ func get_choices(
 	choices = _filter_lingpet_owned_gate(choices, owner)
 	var mythic_reserved: Array = []
 	var mythic_count := 0
-	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels):
+	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels, _registry):
 		var mythic_offer_chances := _get_mythic_offer_chances(runtime_levels)
 		var jackpot_chance := float(mythic_offer_chances.get("jackpot", 0.0))
 		if randf() < jackpot_chance:
 			mythic_count = target_choice_count
 	if mythic_count > 0:
 		mythic_reserved = _build_unowned_mythic_choices(runtime_levels, normalized, mythic_count)
+	# 만석 소유 업그레이드 예약: fill order 계약(mythic -> owned upgrades ->
+	# ring-core -> shuffled)에 맞춰 링코어보다 먼저 추출한다. 마지막 일반
+	# lane 1개는 항상 예약 예산에서 제외해 교체형 오퍼(융합/주사위) 진입로를
+	# 남긴다.
+	var owned_upgrade_budget: int = maxi(0, target_choice_count - mythic_reserved.size() - 1)
+	var owned_upgrade_reservation: Dictionary = _extract_owned_upgrade_reserved_choices(
+		choices,
+		runtime_levels,
+		_registry,
+		owned_upgrade_budget
+	)
+	var owned_upgrade_reserved: Array = owned_upgrade_reservation.get("reserved", []) as Array
+	choices = owned_upgrade_reservation.get("remaining", []) as Array
 	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(
 		choices,
-		maxi(0, target_choice_count - mythic_reserved.size())
+		maxi(0, target_choice_count - mythic_reserved.size() - owned_upgrade_reserved.size())
 	)
 	var reserved_choices: Array = ring_core_reservation.get("reserved", []) as Array
 	choices = ring_core_reservation.get("remaining", []) as Array
@@ -1378,6 +1391,10 @@ func get_choices(
 		if result.size() >= target_choice_count:
 			break
 		result.append(_with_offer_metadata(mythic_choice, "mythic_jackpot", true))
+	for owned_reserved_choice in owned_upgrade_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(owned_reserved_choice)
 	for reserved_choice in reserved_choices:
 		if result.size() >= target_choice_count:
 			break
@@ -1385,7 +1402,9 @@ func get_choices(
 	for choice in choices:
 		if result.size() >= target_choice_count:
 			break
-		result.append(choice)
+		# 일반 lane 명시 스탬프: 교체형 오퍼는 명시된 replaceable lane만
+		# 교체할 수 있다(미표기=보호, fail-closed).
+		result.append(_with_offer_metadata(choice, "replaceable", false))
 
 	if not exclude_instant and result.size() < target_choice_count:
 		var filler: Array = []
@@ -1540,7 +1559,7 @@ static func get_slot_cost_for_level(perk_data: Dictionary, level: int) -> int:
 	return 1 if normalized_level > 0 else 0
 
 
-func count_owned_slot_perks(runtime_levels: Dictionary) -> int:
+func count_owned_slot_perks(runtime_levels: Dictionary, slot_context: Object = null) -> int:
 	var count := 0
 	for skill_id_value in runtime_levels.keys():
 		var skill_id: String = str(skill_id_value)
@@ -1552,11 +1571,29 @@ func count_owned_slot_perks(runtime_levels: Dictionary) -> int:
 			continue
 		data["id"] = skill_id
 		count += get_slot_cost_for_level(data, level)
+	# 퍽 융합 슬롯 환급: record 1건=슬롯 1 환급 — 오퍼 필터/신화 지급/양쪽
+	# UI가 전부 이 함수를 통해 같은 환급값을 봐야 한다(소비자별 자체 계산
+	# 금지). slot_context는 registry(get_instance) 또는 runtime_perk_state
+	# 자체를 받는다.
+	count = maxi(0, count - _resolve_perk_fusion_slot_reduction(slot_context))
 	return count
 
 
-func has_open_perk_slot(runtime_levels: Dictionary) -> bool:
-	return count_owned_slot_perks(runtime_levels) < get_perk_slot_limit(runtime_levels)
+# slot_context에서 융합 슬롯 환급을 해석한다: registry면 runtime_perk_state
+# 인스턴스를 꺼내고, state 자체면 그대로 위임 조회.
+func _resolve_perk_fusion_slot_reduction(slot_context: Object) -> int:
+	if slot_context == null:
+		return 0
+	var runtime_state: Object = slot_context
+	if slot_context.has_method("get_instance"):
+		runtime_state = slot_context.get_instance("runtime_perk_state")
+	if runtime_state == null or not runtime_state.has_method("get_perk_fusion_slot_reduction"):
+		return 0
+	return maxi(0, int(runtime_state.get_perk_fusion_slot_reduction()))
+
+
+func has_open_perk_slot(runtime_levels: Dictionary, slot_context: Object = null) -> bool:
+	return count_owned_slot_perks(runtime_levels, slot_context) < get_perk_slot_limit(runtime_levels)
 
 
 func get_perk_slot_limit(runtime_levels: Dictionary) -> int:
@@ -1569,8 +1606,8 @@ func get_perk_slot_limit(runtime_levels: Dictionary) -> int:
 	return clampi(BASE_PERK_SLOT_LIMIT + expansion_level, BASE_PERK_SLOT_LIMIT, MAX_PERK_SLOT_LIMIT)
 
 
-func get_perk_slot_status(runtime_levels: Dictionary, _registry: Object = null) -> Dictionary:
-	var count := count_owned_slot_perks(runtime_levels)
+func get_perk_slot_status(runtime_levels: Dictionary, slot_context: Object = null) -> Dictionary:
+	var count := count_owned_slot_perks(runtime_levels, slot_context)
 	var limit := get_perk_slot_limit(runtime_levels)
 	return {
 		"count": count,
@@ -1830,8 +1867,8 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 	return filtered
 
 
-func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Array:
-	var occupied_slots := count_owned_slot_perks(runtime_levels)
+func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_context: Object = null) -> Array:
+	var occupied_slots := count_owned_slot_perks(runtime_levels, slot_context)
 	var filtered: Array = []
 	for value in choices:
 		if not (value is Dictionary):
@@ -1850,6 +1887,32 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary) -> Arr
 		if occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels):
 			filtered.append(choice)
 	return filtered
+
+
+# 만석 소유 업그레이드 예약(오퍼 lane 최소 복원): 슬롯이 만석이면 이미
+# 보유한 퍽의 업그레이드 카드를 보호 lane으로 예약해 셔플 순서/교체형
+# 오퍼에 잠식되지 않게 한다. 융합 슬롯 환급이 슬롯을 열면(5/6) 예약은
+# 자연히 비활성화된다(has_open_perk_slot 공유 판정).
+func _extract_owned_upgrade_reserved_choices(
+	choices: Array,
+	runtime_levels: Dictionary,
+	slot_context: Object,
+	reserve_budget: int
+) -> Dictionary:
+	if reserve_budget <= 0 or has_open_perk_slot(runtime_levels, slot_context):
+		return {"reserved": [], "remaining": choices}
+	var reserved: Array = []
+	var remaining: Array = []
+	for value in choices:
+		if (
+			reserved.size() < reserve_budget
+			and value is Dictionary
+			and int(runtime_levels.get(str((value as Dictionary).get("id", "")), 0)) > 0
+		):
+			reserved.append(_with_offer_metadata(value, "owned_upgrade_reserved", true))
+		else:
+			remaining.append(value)
+	return {"reserved": reserved, "remaining": remaining}
 
 
 func _filter_lingpet_owned_gate(choices: Array, owner: Object) -> Array:

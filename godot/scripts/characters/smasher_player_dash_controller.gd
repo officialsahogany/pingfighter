@@ -58,6 +58,18 @@ func handle_dash_input(
 	}
 
 
+# 융합 부산물(과부하) 대시 훅: 확정된 대시 시작(소울버스트 취소 통과 이후,
+# 센서 대시 시작 성공 이후)에서만 1회 통지한다.
+func _notify_perk_fusion_player_dash(deps: Dictionary) -> void:
+	var fusion_runtime: Object = deps.get("runtime_perk_state", null)
+	if fusion_runtime == null:
+		var registry: Object = deps.get("registry", null)
+		if registry != null and registry.has_method("get_instance"):
+			fusion_runtime = registry.get_instance("runtime_perk_state")
+	if fusion_runtime != null and fusion_runtime.has_method("notify_perk_fusion_player_dash"):
+		fusion_runtime.notify_perk_fusion_player_dash()
+
+
 func try_start_sensor_dash(
 	direction: float,
 	_player_pos: Vector2,
@@ -88,6 +100,8 @@ func try_start_sensor_dash(
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null:
 		feedback.set_screen_shake(0.12, 4.0)
+
+	_notify_perk_fusion_player_dash(deps)
 
 	return {
 		"started": true,
@@ -183,6 +197,8 @@ func _start_dash(
 				_cancel_started_soul_burst_dash(dash_state)
 				return {"started": false, "special_gauge": next_special_gauge}
 			next_special_gauge = float(consume_result.get("special_gauge", next_special_gauge))
+
+	_notify_perk_fusion_player_dash(deps)
 
 	var combo_state: Object = deps.get("combo_state", null)
 	if combo_state != null:

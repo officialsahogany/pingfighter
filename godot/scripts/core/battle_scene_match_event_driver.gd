@@ -630,6 +630,12 @@ func _reset_ball(owner: Object, registry: Object) -> void:
 		var ball_start: int = _perf_begin(perf_logger)
 		ball_driver.reset_ball(owner, registry)
 		_perf_end(perf_logger, "physics.reset_ball.ball_driver", ball_start)
+	# 융합 점수손실 부산물(정전기장/재활용 프로토콜)은 볼 리셋(구 라운드
+	# 상태 정리) 뒤에 정확히 1회 적용된다 — reset_ball 이전에 적용하면
+	# status_effect_state.reset_round()가 새로 깐 슬로우를 지운다.
+	var fusion_start: int = _perf_begin(perf_logger)
+	_apply_pending_perk_fusion_round_start(registry)
+	_perf_end(perf_logger, "physics.reset_ball.perk_fusion_round_start", fusion_start)
 	var health_start: int = _perf_begin(perf_logger)
 	_reset_boss_round_health(owner, registry)
 	_perf_end(perf_logger, "physics.reset_ball.boss_health", health_start)
@@ -641,6 +647,36 @@ func _reset_ball(owner: Object, registry: Object) -> void:
 		var weather_start: int = _perf_begin(perf_logger)
 		weather_driver.on_round_start(owner, registry)
 		_perf_end(perf_logger, "physics.reset_ball.weather_round_start", weather_start)
+
+
+# 융합 점수손실 부산물의 새 라운드 적용(정확히 1회 — pending은 소비형):
+# 정전기장=보스 slow 채널(60fps 프레임 환산, 공용 WEAK 배수), 재활용
+# 프로토콜=대시 토큰 전량 리필+HUD 오브 동기.
+func _apply_pending_perk_fusion_round_start(registry: Object) -> void:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null or not runtime_perk_state.has_method("consume_pending_perk_fusion_point_loss_effects"):
+		return
+	var pending: Dictionary = runtime_perk_state.consume_pending_perk_fusion_point_loss_effects()
+	if pending.is_empty():
+		return
+	var static_field: Dictionary = pending.get("static_field", {}) as Dictionary
+	if not static_field.is_empty():
+		var status_state: Object = _get_instance(registry, "status_effect_state")
+		if status_state != null and status_state.has_method("apply_status"):
+			status_state.apply_status(
+				"boss",
+				"slow",
+				maxf(0.0, float(static_field.get("duration_sec", 0.0))) * 60.0,
+				{"multiplier": float(static_field.get("boss_slow_multiplier", 1.0))},
+				"perk_fusion_static_field"
+			)
+	if bool(pending.get("restore_dash_tokens", false)):
+		var dash_state: Object = _get_instance(registry, "smasher_dash_state")
+		if dash_state != null and dash_state.has_method("refill_tokens"):
+			dash_state.refill_tokens()
+			var orb_hud_state: Object = _get_instance(registry, "orb_hud_state")
+			if orb_hud_state != null and orb_hud_state.has_method("reset_dash_tokens") and dash_state.has_method("get_snapshot"):
+				orb_hud_state.reset_dash_tokens(int((dash_state.get_snapshot() as Dictionary).get("tokens", 0)))
 
 
 func _notify_mythic_round_start(owner: Object, registry: Object) -> void:

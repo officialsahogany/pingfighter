@@ -22,6 +22,7 @@ func update(
 	var current_stage: int = int(max(1, int(config.get("current_stage", deps.get("current_stage", 1)))))
 	deps["current_stage"] = current_stage
 	var pending_skill_gold_award := 0
+	var fusion_activated_skill := ""
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
 	var skill_config: Object = deps.get("skill_config", null)
 	var skill_input_locked: bool = _is_player_skill_input_locked(deps)
@@ -41,6 +42,8 @@ func update(
 		next_special_gauge = float(emergency_result.get("special_gauge", next_special_gauge))
 		if bool(emergency_result.get("activated", false)):
 			pending_skill_gold_award += _get_skill_gold_award("emergency_supply", deps)
+			if fusion_activated_skill.is_empty():
+				fusion_activated_skill = "emergency_supply"
 			var existing_supply_state: Object = deps.get("commando_supply_drop_state", null)
 			if existing_supply_state != null and existing_supply_state.has_method("cancel_transient"):
 				existing_supply_state.cancel_transient()
@@ -60,6 +63,8 @@ func update(
 		if bool(supply_result.get("activated", false)):
 			_trigger_configured_cooldown("supply_drop", deps)
 			pending_skill_gold_award += _get_skill_gold_award("supply_drop", deps)
+			if fusion_activated_skill.is_empty():
+				fusion_activated_skill = "supply_drop"
 
 	var firearm_runtime: Object = deps.get("commando_firearm_runtime", null)
 	if not skill_input_locked and firearm_runtime != null and firearm_runtime.has_method("update_input"):
@@ -70,6 +75,9 @@ func update(
 		next_special_gauge = float(firearm_result.get("special_gauge", next_special_gauge))
 		if bool(firearm_result.get("fired", false)):
 			pending_skill_gold_award += _get_skill_gold_award(str(firearm_result.get("weapon_id", "")), deps)
+			if fusion_activated_skill.is_empty():
+				var fired_weapon_id: String = str(firearm_result.get("weapon_id", ""))
+				fusion_activated_skill = fired_weapon_id if not fired_weapon_id.is_empty() else "commando_firearm"
 
 	var movement_config: Dictionary = config.duplicate(true)
 	movement_config["special_gauge"] = next_special_gauge
@@ -96,6 +104,11 @@ func update(
 	result["special_gauge"] = next_special_gauge
 	if pending_skill_gold_award > 0:
 		result["skill_gold_award"] = int(result.get("skill_gold_award", 0)) + pending_skill_gold_award
+	if not fusion_activated_skill.is_empty():
+		# 같은 물리 프레임에 복수 런타임이 보고해도 결정적 primary 에지 1개만
+		# publish한다(우선순위: 비상보급 > 물자투하 > 화기).
+		result["activated"] = true
+		result["activated_skill"] = fusion_activated_skill
 	return result
 
 

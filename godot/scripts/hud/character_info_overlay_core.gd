@@ -641,7 +641,8 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	if levels.is_empty() and not snapshot.has("runtime_skill_levels"):
 		levels = CharacterInfoOverlayValueUtils.get_dict(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "runtime_perk_levels", {}))
 	if catalog != null and catalog.has_method("get_perk_slot_status"):
-		var slot_status: Dictionary = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_slot_status(levels))
+		# 융합 슬롯 환급 반영: registry를 slot context로 관통.
+		var slot_status: Dictionary = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_slot_status(levels, registry))
 		var slot_count: int = int(slot_status.get("count", 0))
 		var slot_limit: int = int(slot_status.get("limit", 0))
 		if slot_limit > 0:

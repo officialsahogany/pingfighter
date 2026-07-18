@@ -11,6 +11,10 @@ func update_runtime_perk_resume(owner: Object, registry: Object, delta: float) -
 	if runtime_perk_state != null and runtime_perk_state.has_method("update_mystic_dice_paddle_effect"):
 		if bool(runtime_perk_state.update_mystic_dice_paddle_effect(delta)):
 			_request_battle_redraw(owner)
+	# 융합 부산물 게임플레이 시계(잔향 이속 버프 만료 등): 항상 도는 이
+	# 드라이버가 소유해 오버레이 없이도 만료된다.
+	if runtime_perk_state != null and runtime_perk_state.has_method("update_perk_fusion_byproducts"):
+		runtime_perk_state.update_perk_fusion_byproducts(delta)
 	var laurel_leaf_shield_state: Object = _get_instance(registry, "laurel_leaf_shield_state")
 	if laurel_leaf_shield_state != null and laurel_leaf_shield_state.has_method("update_from_runtime"):
 		laurel_leaf_shield_state.update_from_runtime(owner, registry, delta)

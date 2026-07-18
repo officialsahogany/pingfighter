@@ -416,7 +416,17 @@ func get_player_speed_multiplier(effective_levels: Object, runtime_state: Object
 		_get_angel_blessing_state(runtime_state),
 		(1.0 + maxf(0.0, get_runtime_skill_bonus(effective_levels, runtime_state, "common_swiftness")))
 		* _get_mystic_dice_multiplier(runtime_state, "player_speed")
+		* _get_perk_fusion_move_speed_multiplier(runtime_state)
 	)
+
+
+# 융합 부산물(잔향) 이동속도 버프: 게임플레이 시계는 update 드라이버가
+# 소유하고, 여기서는 현재 배수만 소비한다 — HUD 표시와 실 이동이 같은
+# 합성식을 읽어야 한다.
+func _get_perk_fusion_move_speed_multiplier(runtime_state: Object) -> float:
+	if runtime_state == null or not runtime_state.has_method("get_perk_fusion_move_speed_multiplier"):
+		return 1.0
+	return maxf(1.0, float(runtime_state.get_perk_fusion_move_speed_multiplier()))
 
 
 func get_player_paddle_size_multiplier(effective_levels: Object, runtime_state: Object) -> float:

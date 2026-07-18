@@ -41,6 +41,9 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		# 융합 표시 projection(접힘 정본): TAB/오버레이 소비자가 스냅샷에서
 		# 그대로 읽는다 — state 소유 기본 카탈로그로 캐시 경유(핫패스 안전).
 		"perk_fusion_display_projection": RuntimePerkRuntimeStateAccess.call_dict(state, "get_perk_fusion_display_projection"),
+		# 융합 core: 정본 리비전 + 세이브/복원용 record 스냅샷(딥카피).
+		"fusion_revision": RuntimePerkRuntimeStateAccess.call_int(state, "get_perk_fusion_revision"),
+		"perk_fusion": RuntimePerkRuntimeStateAccess.call_dict(state, "get_perk_fusion_snapshot"),
 		# 주사위: 게임플레이 상태 스냅샷 + 전용 표시 projection + 정본 revision
 		# — 소비자는 합성 채널(perk_fusion_display_projection)에 병합된 dice
 		# synthetic 엔트리를 기본으로 읽고, 전용 채널은 dice 전용 UI가 쓴다.

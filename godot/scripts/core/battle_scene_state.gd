@@ -9,6 +9,9 @@ const DEFAULT_VALUES: Dictionary = {
 	"ball_vel": Vector2.ZERO,
 	"ball_active": false,
 	"skip_ball_motion_step": false,
+	# 융합 과부하 일시 캡(유효속도 공간)+failsafe TTL — 프레임 간 보존 키.
+	"perk_fusion_overload_speed_cap": 0.0,
+	"perk_fusion_overload_speed_cap_frames": 0.0,
 	"ball_impact_boost": 1.0,
 	"stage3_kuromi_ball_hidden": false,
 	"ball_boost_decay_rate": 0.975,

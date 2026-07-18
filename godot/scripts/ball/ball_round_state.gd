@@ -53,6 +53,9 @@ func build_common_snapshot() -> Dictionary:
 		# (예: 연출 pause 창 만료, owner 없는 round cleanup), 공유 홀드 플래그는
 		# 리셋/서브 스냅샷 계층에서 항상 정규화한다. 어떤 홀드도 라운드를 넘겨 살 수 없다.
 		"skip_ball_motion_step": false,
+		# 융합 과부하 일시 캡은 라운드를 넘지 않는다.
+		"perk_fusion_overload_speed_cap": 0.0,
+		"perk_fusion_overload_speed_cap_frames": 0.0,
 		"ball_impact_boost": 1.0,
 		"ball_boost_decay_rate": BALL_IMPACT_BASE_DECAY_RATE,
 		"ball_min_boost": BALL_IMPACT_BASE_MIN_BOOST,

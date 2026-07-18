@@ -69,6 +69,12 @@ func apply_player_result(owner: Object, registry: Object, result: Dictionary) ->
 		_award_skill_gold(owner, registry, int(result.get("skill_gold_award", 0)))
 	if result.has("runtime_perk_gold") and int(result.get("runtime_perk_gold", -1)) >= 0:
 		owner.set("runtime_perk_gold", int(result.get("runtime_perk_gold", 0)))
+	if bool(result.get("activated", false)):
+		# 캐릭터 컨트롤러가 publish한 스킬 활성화 에지 -> 융합 부산물(잔향)
+		# 스킬-사용 훅. 에지 발행 프레임에만 도달하므로 홀드 프레임 반복 없음.
+		var fusion_runtime: Object = _get_instance(registry, "runtime_perk_state")
+		if fusion_runtime != null and fusion_runtime.has_method("notify_perk_fusion_skill_used"):
+			fusion_runtime.notify_perk_fusion_skill_used()
 
 
 func apply_boss_result(owner: Object, result: Dictionary) -> void:

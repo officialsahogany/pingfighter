@@ -6,6 +6,7 @@ const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
+const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -48,14 +49,16 @@ var _text_cache_font_id := 0
 var _back_glow_stylebox: StyleBoxFlat = null
 
 
-# 신비의 주사위 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
+# 시스템 카드 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
 # 함께 프리웜).
 var _mystic_dice_overlay_renderer: Object = MysticDiceOverlayRenderer.new()
+var _perk_fusion_overlay_renderer: Object = PerkFusionOverlayRenderer.new()
 
 
 func prewarm_assets() -> void:
 	AngelBlessingRollOverlayHost.prewarm_assets()
 	_mystic_dice_overlay_renderer.prewarm_assets()
+	_perk_fusion_overlay_renderer.prewarm_assets()
 	var font: Font = _get_font()
 	if font == null:
 		return
@@ -128,6 +131,21 @@ func draw(
 	var sample_start: int = _perf_begin(perf_logger)
 	var snapshot: Dictionary = runtime_state.get_snapshot()
 	_perf_end(perf_logger, "hud.perk_overlay.snapshot", sample_start)
+	# 퍽 융합 모달(S1~S4): 표준 선택 카드 대신 전용 렌더러가 그린다 —
+	# raw choice_active는 유지되므로 이 라우팅이 카드 드로우보다 먼저 오고,
+	# 융합 모달 활성 중 일반 카드는 그리지 않는다.
+	if runtime_state.has_method("is_perk_fusion_modal_active") and bool(runtime_state.is_perk_fusion_modal_active()):
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
+		sample_start = _perf_begin(perf_logger)
+		_perk_fusion_overlay_renderer.draw(
+			canvas,
+			runtime_state.get_perk_fusion_modal_snapshot(),
+			catalog,
+			view_size,
+			icon_renderer
+		)
+		_perf_end(perf_logger, "hud.perk_overlay.perk_fusion_modal", sample_start)
+		return
 	# 신비의 주사위 모달(D1~D3): 표준 선택 카드 대신 전용 렌더러가 그린다 —
 	# raw choice_active는 유지되므로 이 라우팅이 카드 드로우보다 먼저 온다.
 	if runtime_state.has_method("is_mystic_dice_modal_active") and bool(runtime_state.is_mystic_dice_modal_active()):
@@ -880,7 +898,8 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	_draw_text(canvas, "퍽 골드: %d" % gold, rect.position + Vector2(rect.size.x - 118.0, 45.0), 13, Color(1.0, 215.0 / 255.0, 100.0 / 255.0))
 
 	if catalog != null and catalog.has_method("get_perk_slot_status"):
-		var slot_status: Dictionary = _get_dict(catalog.get_perk_slot_status(levels))
+		# 융합 슬롯 환급 반영: runtime_state 자체를 slot context로 관통.
+		var slot_status: Dictionary = _get_dict(catalog.get_perk_slot_status(levels, runtime_state))
 		var slot_count: int = int(slot_status.get("count", 0))
 		var slot_limit: int = int(slot_status.get("limit", 0))
 		if slot_limit > 0:

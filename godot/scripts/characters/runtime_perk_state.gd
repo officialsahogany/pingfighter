@@ -309,7 +309,10 @@ func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
 
 
 func get_perk_fusion_display_cache_stats() -> Dictionary:
-	return {"projection_builds": _perk_fusion_projection_builds}
+	return {
+		"projection_builds": _perk_fusion_projection_builds,
+		"modal_preview_builds": _perk_fusion_modal_preview_builds,
+	}
 
 
 func _get_perk_fusion_display_locale() -> String:
@@ -456,27 +459,36 @@ func _try_inject_mystic_dice_offer(roll_unit: float = -1.0) -> Dictionary:
 # 융합 카드 주입 뒤에 돌아야 서로 간섭이 없다). 전체 행동 봉인·자격 정책
 # 정련은 융합 core 슬라이스의 offer 통합 스모크 소유 — 여기서는 생존
 # 플래너에 소유 퍽(카탈로그 인지 + Lv≥1) 후보를 위임하는 접착만 놓는다.
-func _try_inject_perk_fusion_offer(catalog: Object, roll_unit: float = -1.0) -> Dictionary:
+# 테스트 전용 결정적 오퍼 RNG seam: 다음 '실제 롤이 수행되는' 실 오퍼
+# open 1회에서만 소비된다(부적격 fail-closed 경로는 소비하지 않음).
+# user:// 등 어디에도 저장되지 않으며 reset()이 해제한다.
+func set_test_perk_fusion_offer_roll_override(appearance_roll_unit: float, replacement_roll_unit: float) -> void:
+	_test_perk_fusion_offer_roll_override = [appearance_roll_unit, replacement_roll_unit]
+
+
+var _test_perk_fusion_offer_roll_override: Array = []
+
+
+func _try_inject_perk_fusion_offer(catalog: Object, appearance_roll_unit: float = -1.0, replacement_roll_unit: float = -1.0) -> Dictionary:
 	if not choice_active:
 		return {"rolled": false}
 	if _perk_fusion_offer_planner == null:
 		_perk_fusion_offer_planner = load("res://scripts/characters/perk_fusion_offer_planner.gd").new()
 	var offer_source := str(current_choice_context.get("source", ""))
-	var eligible_sources: Array = []
-	for skill_id_value: Variant in runtime_skill_levels.keys():
-		var skill_id := str(skill_id_value)
-		if int(runtime_skill_levels[skill_id_value]) <= 0:
-			continue
-		if catalog != null and catalog.has_method("get_perk_data") and (catalog.get_perk_data(skill_id) as Dictionary).is_empty():
-			continue
-		eligible_sources.append(skill_id)
+	# 재료 후보=융합 카탈로그 자격(레벨·이미 융합됨 제외) — 플래너/모달과
+	# 같은 판정 소스를 공유한다.
+	var eligible_sources: Array = _build_perk_fusion_candidate_ids(catalog)
 	# 주사위와 동일한 RNG 무소비 계약: 부적격(비허용 source/재료 2종 미만/
 	# 교체 가능 lane 부재 — all-protected 오퍼 포함) 경로는 난수를 한 번도
 	# 뽑지 않는다. 자격 판별은 플래너 can_roll 단일 소스.
 	if not bool(_perk_fusion_offer_planner.can_roll(current_choices, eligible_sources, offer_source)):
 		return {"rolled": false}
-	var appearance_unit: float = roll_unit if roll_unit >= 0.0 else randf()
-	var replacement_unit: float = roll_unit if roll_unit >= 0.0 else randf()
+	if appearance_roll_unit < 0.0 and replacement_roll_unit < 0.0 and not _test_perk_fusion_offer_roll_override.is_empty():
+		appearance_roll_unit = float(_test_perk_fusion_offer_roll_override[0])
+		replacement_roll_unit = float(_test_perk_fusion_offer_roll_override[1])
+		_test_perk_fusion_offer_roll_override = []
+	var appearance_unit: float = appearance_roll_unit if appearance_roll_unit >= 0.0 else randf()
+	var replacement_unit: float = replacement_roll_unit if replacement_roll_unit >= 0.0 else randf()
 	var result: Dictionary = _perk_fusion_offer_planner.plan_offer(
 		current_choices,
 		eligible_sources,
@@ -638,12 +650,300 @@ func reset_mystic_dice_state() -> void:
 		_mystic_dice_state.reset()
 
 
+# ── 퍽 융합 core 위임 계층 (모달 S1~S4·부산물·오퍼) ──────────────────
+# 코어 모듈(modal flow/input·outcome rules·result builder·byproduct
+# runtime·penalty lane builder)은 각자 소유 파일에 살고, 이 파사드는
+# 배선·트랜잭션 경계·리셋만 소유한다.
+
+var _perk_fusion_modal_flow: Object = null
+var _perk_fusion_modal_input: Object = null
+# 모달 수명 동안의 자격 판정 카탈로그(시작 시 보존): 프리뷰의 한계돌파
+# 자격/가중치가 실 커밋(레지스트리 카탈로그)과 같은 max_level을 봐야 한다.
+var _perk_fusion_modal_catalog: Object = null
+var _perk_fusion_modal_preview_cache: Dictionary = {}
+var _perk_fusion_modal_preview_cache_key := 0
+var _perk_fusion_modal_preview_builds := 0
+var _perk_fusion_last_finished_revision := 0
+
+
+# 프리뷰 캐시 경계 초기화: 캐시 키(선택·phase·리비전)에 카탈로그 식별자가
+# 없으므로, 카탈로그가 바뀔 수 있는 모달 경계(시작·완전 취소·finish)에서
+# 반드시 비운다. 리비전 불변 경로(취소 후 재진입)의 stale 서빙이 실 위험.
+func _reset_perk_fusion_modal_preview_cache() -> void:
+	_perk_fusion_modal_preview_cache = {}
+	_perk_fusion_modal_preview_cache_key = 0
+
+
+func _get_perk_fusion_modal_flow() -> Object:
+	if _perk_fusion_modal_flow == null:
+		_perk_fusion_modal_flow = load("res://scripts/characters/perk_fusion_modal_flow.gd").new()
+	return _perk_fusion_modal_flow
+
+
+func _get_perk_fusion_modal_input() -> Object:
+	if _perk_fusion_modal_input == null:
+		_perk_fusion_modal_input = load("res://scripts/characters/perk_fusion_modal_input.gd").new()
+	return _perk_fusion_modal_input
+
+
+func get_perk_fusion_revision() -> int:
+	return int(_get_perk_fusion_state().get_revision())
+
+
+func get_perk_fusion_token_snapshot() -> Dictionary:
+	return _get_perk_fusion_state().get_next_fusion_token_snapshot()
+
+
+# ── 부산물 게임플레이 파사드 ──
+func consume_perk_fusion_paddle_bounce_speed_multiplier() -> float:
+	return float(_get_perk_fusion_byproduct_runtime().consume_player_paddle_bounce_speed_multiplier())
+
+
+func notify_perk_fusion_player_dash() -> void:
+	_get_perk_fusion_byproduct_runtime().on_player_dash(get_perk_fusion_owned_byproduct_ids())
+
+
+func notify_perk_fusion_skill_used() -> void:
+	_get_perk_fusion_byproduct_runtime().on_skill_used(get_perk_fusion_owned_byproduct_ids())
+
+
+func get_perk_fusion_move_speed_multiplier() -> float:
+	return float(_get_perk_fusion_byproduct_runtime().get_player_move_speed_multiplier())
+
+
+# 게임플레이 시간 부산물 시계(잔향 만료 등) — 항상 도는 update 드라이버가
+# 소유한다(오버레이 없는 만료).
+func update_perk_fusion_byproducts(delta: float) -> void:
+	_get_perk_fusion_byproduct_runtime().update(delta)
+
+
+func reset_perk_fusion_round_byproducts() -> void:
+	_get_perk_fusion_byproduct_runtime().reset_round()
+
+
+# 종결 득점(match_finished)은 부산물 기회를 만들지 않는다 — pending이
+# 스테이지 전환을 넘어 다음 스테이지 첫 라운드에 발동하는 이월을 차단.
+func queue_perk_fusion_player_point_lost(match_finished: bool = false) -> Dictionary:
+	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
+	if match_finished:
+		byproduct_runtime.consume_pending_point_loss_effects()
+		return {}
+	return byproduct_runtime.queue_player_point_lost(get_perk_fusion_owned_byproduct_ids(), randf())
+
+
+func consume_pending_perk_fusion_point_loss_effects() -> Dictionary:
+	return _get_perk_fusion_byproduct_runtime().consume_pending_point_loss_effects()
+
+
+# ── 융합 모달 S0(가로채기)~S4(finish) ──
+func is_perk_fusion_modal_active() -> bool:
+	return _perk_fusion_modal_flow != null and bool(_perk_fusion_modal_flow.is_active())
+
+
+func _begin_perk_fusion_modal(selected_choice: Dictionary, registry: Object, entered_via_rt: bool = false) -> bool:
+	var catalog: Object = _get_catalog(registry)
+	var candidate_ids: Array = selected_choice.get("eligible_sources", []) as Array
+	if candidate_ids.is_empty():
+		candidate_ids = _build_perk_fusion_candidate_ids(catalog)
+	var flow: Object = _get_perk_fusion_modal_flow()
+	if not bool(flow.start(selected_choice, current_choices.duplicate(true), candidate_ids)):
+		return false
+	_perk_fusion_modal_catalog = catalog
+	_reset_perk_fusion_modal_preview_cache()
+	_get_perk_fusion_modal_input().reset()
+	if entered_via_rt:
+		_get_perk_fusion_modal_input().suppress_confirm_until_release()
+	_play_perk_select_audio(registry)
+	return true
+
+
+func _build_perk_fusion_candidate_ids(catalog: Object) -> Array:
+	var fused_lookup: Dictionary = _get_perk_fusion_state().get_fused_source_lookup()
+	var candidates: Array = []
+	var fusion_catalog: Object = load("res://scripts/characters/perk_fusion_catalog.gd").new()
+	for skill_id_value: Variant in runtime_skill_levels.keys():
+		var skill_id := str(skill_id_value)
+		var base_level: int = int(runtime_skill_levels[skill_id_value])
+		if base_level <= 0:
+			continue
+		if bool(fusion_catalog.is_candidate(skill_id, base_level, catalog, fused_lookup)):
+			candidates.append(skill_id)
+	return candidates
+
+
+func get_perk_fusion_modal_snapshot() -> Dictionary:
+	if _perk_fusion_modal_flow == null:
+		return {}
+	var snapshot: Dictionary = _perk_fusion_modal_flow.get_snapshot()
+	if not bool(_perk_fusion_modal_flow.is_active()):
+		return snapshot
+	# 파생 프리뷰(가중치·armed 토큰·재료 옵션)는 선택이 바뀔 때만 재구축한다
+	# — 매 프레임 스냅샷 소비자(입력 레이아웃·렌더러)가 캐시를 공유한다.
+	var preview_key: int = hash([
+		snapshot.get("selected_source_ids", []),
+		str(snapshot.get("phase", "")),
+		get_perk_fusion_revision(),
+	])
+	if preview_key != _perk_fusion_modal_preview_cache_key or _perk_fusion_modal_preview_cache.is_empty():
+		_perk_fusion_modal_preview_cache = _build_perk_fusion_modal_preview(snapshot)
+		_perk_fusion_modal_preview_cache_key = preview_key
+		_perk_fusion_modal_preview_builds += 1
+	snapshot.merge(_perk_fusion_modal_preview_cache, true)
+	return snapshot
+
+
+func _build_perk_fusion_modal_preview(snapshot: Dictionary) -> Dictionary:
+	var outcome_rules: Object = load("res://scripts/characters/perk_fusion_outcome_rules.gd")
+	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
+	var tokens: Dictionary = get_perk_fusion_token_snapshot()
+	var source_ids: Array = snapshot.get("selected_source_ids", []) as Array
+	var owned: Array[String] = get_perk_fusion_owned_byproduct_ids()
+	var limit_context: Dictionary = _build_perk_fusion_result_context(
+		source_ids,
+		_perk_fusion_modal_catalog if _perk_fusion_modal_catalog != null else _get_catalog(null)
+	)
+	var byproduct_catalog: Object = load("res://scripts/characters/perk_fusion_byproduct_catalog.gd").new()
+	var available: Array[String] = byproduct_catalog.get_contextual_pool(
+		owned,
+		limit_context.get("limit_break_eligible_sources", []) as Array
+	)
+	var dual_catalyst_armed := bool(tokens.get("dual_catalyst_armed", false))
+	var weights: Dictionary = outcome_rules.build_final_outcome_weights(available.is_empty(), dual_catalyst_armed)
+	var source_previews: Array = []
+	for source_value: Variant in source_ids:
+		var perk_id := str(source_value)
+		var options: Array = []
+		for option_key_value: Variant in conversion_values.get_value_keys(perk_id):
+			var option_key := str(option_key_value)
+			options.append({
+				"option_key": option_key,
+				"value": float(conversion_values.get_value(perk_id, option_key, get_runtime_skill_level(perk_id), self)),
+			})
+		source_previews.append({"perk_id": perk_id, "options": options})
+	return {
+		"outcome_preview": {
+			"core_stabilize_armed": bool(tokens.get("core_stabilize_armed", false)),
+			"side_effect_effective_outcome": "stable" if bool(tokens.get("core_stabilize_armed", false)) else "side_effect",
+			"weights": weights.duplicate(true),
+		},
+		"source_previews": source_previews,
+		"weights": weights.duplicate(true),
+	}
+
+
+func _handle_perk_fusion_modal_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
+	var resolution: Dictionary = _get_perk_fusion_modal_input().resolve(
+		event,
+		get_perk_fusion_modal_snapshot(),
+		view_size
+	)
+	var flow: Object = _get_perk_fusion_modal_flow()
+	if resolution.has("move"):
+		flow.move_highlight(int(resolution.get("move", 0)))
+	if resolution.has("highlight_index") and int(resolution.get("highlight_index", -1)) >= 0:
+		flow.set_highlight(int(resolution.get("highlight_index", -1)))
+	if resolution.has("select_index"):
+		flow.select_source_at(int(resolution.get("select_index", -1)))
+	if bool(resolution.get("cancel", false)):
+		_cancel_perk_fusion_modal()
+	if bool(resolution.get("confirm", false)):
+		_confirm_perk_fusion_modal(owner, registry)
+	return bool(resolution.get("consumed", true))
+
+
+# S1 취소=frozen 오퍼 복원(완전 no-op) / S2 취소=S1 복귀 / S3·S4 취소=
+# 소비만(no-op). 원 오퍼는 flow가 스냅샷을 소유한다.
+func _cancel_perk_fusion_modal() -> Dictionary:
+	var flow: Object = _get_perk_fusion_modal_flow()
+	var result: Dictionary = flow.cancel_current()
+	if bool(result.get("cancel_to_choices", false)):
+		current_choices = (result.get("origin_choices", current_choices) as Array).duplicate(true)
+		_get_perk_fusion_modal_input().reset()
+		_perk_fusion_modal_catalog = null
+		_reset_perk_fusion_modal_preview_cache()
+	return result
+
+
+# S2 원자 커밋: 롤 주입(테스트) 또는 실 랜덤 → 중앙 result builder →
+# 코어 record 커밋(리비전+1) → 애니메이션 진입. raw choice 트랜잭션
+# (pending/sequence/frozen 오퍼)은 S4 finish까지 동결된다.
+func _confirm_perk_fusion_modal(owner: Object, registry: Object, rolls: Dictionary = {}) -> Dictionary:
+	var flow: Object = _get_perk_fusion_modal_flow()
+	var action: Dictionary = flow.confirm_current()
+	if bool(action.get("commit_requested", false)):
+		# 커밋 권위 카탈로그 = 모달 시작 시 보존본(프리뷰와 구조적 동일) —
+		# 커밋 시점 registry 교체/누락이 프리뷰-커밋 가중치를 가를 수 없다.
+		var catalog: Object = _perk_fusion_modal_catalog if _perk_fusion_modal_catalog != null else _get_catalog(registry)
+		var source_ids: Array = action.get("source_ids", []) as Array
+		var result: Dictionary = _build_perk_fusion_commit_result(source_ids, catalog, rolls)
+		var record: Dictionary = commit_perk_fusion(source_ids, result, catalog)
+		if record.is_empty():
+			return {"accepted": false, "blocked_reason": "invalid_sources"}
+		flow.begin_committed_result(record)
+		return {"accepted": true, "record": record}
+	if bool(action.get("finish_requested", false)):
+		return _finish_perk_fusion_modal(owner, registry, action.get("record", {}) as Dictionary)
+	return action
+
+
+func _build_perk_fusion_commit_result(source_ids: Array, catalog: Object, rolls: Dictionary) -> Dictionary:
+	var result_builder: Object = load("res://scripts/characters/perk_fusion_result_builder.gd")
+	var lane_builder: Object = load("res://scripts/characters/perk_fusion_penalty_lane_builder.gd").new()
+	var byproduct_catalog: Object = load("res://scripts/characters/perk_fusion_byproduct_catalog.gd").new()
+	var tokens: Dictionary = get_perk_fusion_token_snapshot()
+	var context: Dictionary = _build_perk_fusion_result_context(source_ids, catalog)
+	context["source_ids"] = source_ids.duplicate()
+	context["owned_byproducts"] = get_perk_fusion_owned_byproduct_ids()
+	context["available_byproducts"] = byproduct_catalog.get_contextual_pool(
+		context["owned_byproducts"],
+		context.get("limit_break_eligible_sources", []) as Array
+	)
+	context["core_stabilize_armed"] = bool(tokens.get("core_stabilize_armed", false))
+	context["dual_catalyst_armed"] = bool(tokens.get("dual_catalyst_armed", false))
+	context["penalty_lanes"] = lane_builder.build(source_ids, self, catalog)
+	var effective_rolls: Dictionary = rolls
+	if effective_rolls.is_empty():
+		effective_rolls = {
+			"outcome": randf(),
+			"magnitude": [randf(), randf()],
+			"lane_selection": [randf(), randf()],
+			"delete": randf(),
+			"byproduct_count": randf(),
+			"byproduct_selection": [randf(), randf()],
+		}
+	return result_builder.build_result(context, effective_rolls)
+
+
+# S4 finish: 표준 finish 위임 — 시퀀스/다음 모달/마지막 close·ramp는
+# 기존 choice finish 흐름이 소유한다. 같은 record의 중복 finish는
+# 리비전 가드로 no-op.
+func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictionary) -> Dictionary:
+	var committed_choice: Dictionary = {
+		"id": "perk_fusion",
+		"type": "fusion",
+		"fusion_record": record.duplicate(true),
+		"fusion_revision": get_perk_fusion_revision(),
+	}
+	var finish: Dictionary = _finish_successful_choice("perk_fusion", owner, registry, null, committed_choice)
+	_get_perk_fusion_modal_flow().reset()
+	_get_perk_fusion_modal_input().reset()
+	_perk_fusion_modal_catalog = null
+	_reset_perk_fusion_modal_preview_cache()
+	var merged: Dictionary = {"accepted": true, "record": record.duplicate(true)}
+	merged["finish"] = finish
+	return merged
+
+
 func reset() -> void:
 	if _perk_fusion_state != null:
 		_perk_fusion_state.reset()
 	if _perk_fusion_byproduct_runtime != null:
 		_perk_fusion_byproduct_runtime.reset()
 	_perk_fusion_projection_cache_ready = false
+	_perk_fusion_modal_preview_cache = {}
+	_perk_fusion_modal_preview_cache_key = 0
+	_perk_fusion_modal_catalog = null
+	_test_perk_fusion_offer_roll_override = []
 	_reset_state.reset_from_runtime_state(self)
 
 
@@ -767,6 +1067,9 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 	# 전진한다 — 표준 update 흐름과 같은 틱에서 함께 돈다.
 	if is_mystic_dice_modal_active():
 		_mystic_dice_modal_flow.update(delta)
+	# 융합 모달 S3(연출) 시계 — reveal 진입은 flow가 소유한다.
+	if is_perk_fusion_modal_active():
+		_perk_fusion_modal_flow.update(delta)
 	_update_flow.update_internal_from_runtime_state(
 		delta,
 		view_size,
@@ -790,8 +1093,10 @@ func _prewarm_fusion_pair_icons(registry: Object) -> void:
 
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
-	# 주사위 모달이 열려 있는 동안은 모든 입력을 모달이 우선 소비한다
-	# (ESC 포함 — 커밋 의사 흐름이라 취소 no-op).
+	# 시스템 카드 모달(융합·주사위)이 열려 있는 동안은 모든 입력을 해당
+	# 모달이 우선 소비한다(융합 S3/S4의 ESC는 소비-후-no-op).
+	if is_perk_fusion_modal_active():
+		return _handle_perk_fusion_modal_input(event, owner, registry, view_size)
 	if is_mystic_dice_modal_active():
 		return _handle_mystic_dice_modal_input(event, owner, registry, view_size)
 	return _modal_input.handle_input_from_runtime_state(self, event, owner, registry, view_size)
@@ -869,10 +1174,13 @@ func choose_selected(owner: Object, registry: Object, view_size: Vector2 = Vecto
 	# 0.24)이나 flight/showcase/swap 전환 중 입력으로도 모달이 열린다.
 	# 게이트 불통과는 표준 경로에 그대로 넘긴다(실패 피드백 소유).
 	if is_selectable():
-		# D0 주사위 가로채기: 주사위 카드는 표준 apply_choice를 타지 않는다 —
-		# 모달(D1~D3)이 굴림·커밋을 소유하고, raw choice_active/pending 큐는
-		# 전 구간 유지된다(새 freeze actor / modal-gate OR 금지 계약).
+		# D0/S0 시스템 카드 가로채기: 융합·주사위 카드는 표준 apply_choice를
+		# 타지 않는다 — 각 모달이 트랜잭션을 소유하고, raw choice_active/
+		# pending 큐는 전 구간 유지된다(새 freeze actor / modal-gate OR 금지).
 		var selected_choice: Dictionary = _get_selected_choice_snapshot()
+		if bool(selected_choice.get("is_perk_fusion", false)):
+			_begin_perk_fusion_modal(selected_choice, registry, entered_via_rt)
+			return
 		if bool(selected_choice.get("is_mystic_dice", false)):
 			_begin_mystic_dice_modal(selected_choice, registry, [], entered_via_rt)
 			return
@@ -943,6 +1251,13 @@ func _finish_successful_choice(
 		if dice_revision > 0 and dice_revision <= _mystic_dice_last_finished_revision:
 			return {"already_finished": true}
 		_mystic_dice_last_finished_revision = maxi(_mystic_dice_last_finished_revision, dice_revision)
+	# 융합 S4 트랜잭션 가드: 같은 fusion record(리비전)의 반복 finish도
+	# 동일하게 no-op — 메긴기요르드/Dowsing/다음 모달을 두 번 굴리지 않는다.
+	if str(choice.get("type", "")) == "fusion":
+		var fusion_revision := int(choice.get("fusion_revision", 0))
+		if fusion_revision > 0 and fusion_revision <= _perk_fusion_last_finished_revision:
+			return {"already_finished": true}
+		_perk_fusion_last_finished_revision = maxi(_perk_fusion_last_finished_revision, fusion_revision)
 	var result: Dictionary = _choice_finish_flow.finish_successful_choice_from_runtime_state(
 		self,
 		choice_id,

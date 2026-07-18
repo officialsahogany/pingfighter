@@ -86,7 +86,27 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 		speed_cap = min(speed_cap, float(scene.get("fire_weather_max_ball_speed", 35.0)))
 	if meditation_release_cap > 0.0:
 		speed_cap = min(speed_cap, meditation_release_cap)
+	# 융합 과부하 일시 캡: 한 랠리 한정 유효속도 초과 허용 — 일반 하드캡
+	# (화염 기상·명상 해방)보다 상위다. AI 알약류 무제한 정책은 이 함수에
+	# 오기 전에 클램프 자체를 끈다(우세 유지).
+	var overload_cap: float = float(scene.get("perk_fusion_overload_speed_cap", 0.0))
+	if overload_cap > 0.0:
+		speed_cap = max(speed_cap, overload_cap)
 	return speed_cap
+
+
+# 융합 과부하 캡 failsafe TTL(프레임): 보스 리턴/득점/라운드 리셋이 정상
+# 마감하지만, 소유 이벤트가 유실된 leak도 바운디드로 닫는다.
+func update_perk_fusion_overload_speed_cap(scene: Dictionary, fps_scale: float) -> void:
+	var remaining: float = float(scene.get("perk_fusion_overload_speed_cap_frames", 0.0))
+	if remaining <= 0.0:
+		return
+	remaining -= maxf(0.0, fps_scale)
+	if remaining <= 0.0:
+		scene["perk_fusion_overload_speed_cap"] = 0.0
+		scene["perk_fusion_overload_speed_cap_frames"] = 0.0
+		return
+	scene["perk_fusion_overload_speed_cap_frames"] = remaining
 
 
 func _cap_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:

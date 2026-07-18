@@ -42,7 +42,7 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	var score_result: Dictionary = score_state.score_for(scoring_side)
 	_perf_end(perf_logger, "physics.score_event.score_state.score_for", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_queue_perk_fusion_round_boundary(scoring_side, deps)
+	_queue_perk_fusion_round_boundary(scoring_side, deps, score_result)
 	_perf_end(perf_logger, "physics.score_event.perk_fusion_round_boundary", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_apply_lingpet_affinity_score_event(scoring_side, score_result, deps)
@@ -117,10 +117,16 @@ func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary)
 	)
 
 
-func _queue_perk_fusion_round_boundary(scoring_side: String, deps: Dictionary) -> void:
+func _queue_perk_fusion_round_boundary(scoring_side: String, deps: Dictionary, score_result: Dictionary = {}) -> void:
 	# This is the accepted-score boundary, so it also covers stage/manual score
 	# routes that never pass through BallMotionEventProcessor's geometry event.
 	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
+	# 과부하 일시 캡은 라운드를 넘지 않는다 — 확정 득점(양쪽) 즉시 owner
+	# 키를 마감한다(볼 리셋 이전의 결과 연출 프레임에서도 캡 잔존 금지).
+	var owner: Object = deps.get("owner", null)
+	if owner != null:
+		owner.set("perk_fusion_overload_speed_cap", 0.0)
+		owner.set("perk_fusion_overload_speed_cap_frames", 0.0)
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	if runtime_perk_state == null:
 		return
@@ -131,8 +137,13 @@ func _queue_perk_fusion_round_boundary(scoring_side: String, deps: Dictionary) -
 	# The accepted boss score is the one and only probability opportunity. The
 	# external slow/token effects stay queued until reset_ball has cleared the
 	# old round, otherwise status_effect_state.reset_round() would erase them.
+	# 종결 득점(match_finished)은 기회를 만들지 않는다 — pending이 스테이지
+	# 전환 reset을 넘어 다음 스테이지 첫 라운드에 발동하는 이월 차단.
+	var match_finished := bool(score_result.get("match_finished", false))
 	if scoring_side == "boss" and runtime_perk_state.has_method("queue_perk_fusion_player_point_lost"):
-		runtime_perk_state.queue_perk_fusion_player_point_lost()
+		runtime_perk_state.queue_perk_fusion_player_point_lost(match_finished)
+	elif match_finished and runtime_perk_state.has_method("consume_pending_perk_fusion_point_loss_effects"):
+		runtime_perk_state.consume_pending_perk_fusion_point_loss_effects()
 	if runtime_perk_state.has_method("reset_perk_fusion_round_byproducts"):
 		runtime_perk_state.reset_perk_fusion_round_byproducts()
 

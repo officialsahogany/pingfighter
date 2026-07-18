@@ -102,7 +102,14 @@ $focusedSmoke = @(
     "res://tests/mystic_dice_paddle_effect_smoke.gd",
     "res://tests/mystic_dice_display_projection_smoke.gd",
     "res://tests/mystic_dice_overlay_renderer_smoke.gd",
-    "res://tests/runtime_perk_modal_input_smoke.gd"
+    "res://tests/runtime_perk_modal_input_smoke.gd",
+    "res://tests/perk_fusion_ball_event_hooks_smoke.gd",
+    "res://tests/perk_fusion_character_skill_edge_smoke.gd",
+    "res://tests/perk_fusion_commando_skill_edge_smoke.gd",
+    "res://tests/perk_fusion_round_boundary_integration_smoke.gd",
+    "res://tests/runtime_perk_fusion_integration_smoke.gd",
+    "res://tests/runtime_perk_fusion_modal_integration_smoke.gd",
+    "res://tests/runtime_perk_fusion_offer_integration_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).
