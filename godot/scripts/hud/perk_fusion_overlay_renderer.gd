@@ -178,6 +178,9 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 		_draw_text_centered(canvas, "%d%%" % int(round(percent)), center + Vector2(0.0, 27.0), 22, Color.WHITE)
 
 
+# CB3 degraded 폴백 계약: 콜드부트 호스트가 트리에서 부팅 중이면 비주얼은
+# 호스트가 그리고(같은 프레임 이중 드로 방지), 여기 즉시모드는 호스트
+# 부재/미프리웜에서만 그린다 — 무크래시 폴백.
 func _draw_animation(
 	canvas: CanvasItem,
 	snapshot: Dictionary,
@@ -186,6 +189,8 @@ func _draw_animation(
 ) -> void:
 	var panel_rect: Rect2 = _as_rect2(layout.get("panel_rect", Rect2()))
 	_draw_heading(canvas, panel_rect, PerkFusionLocalization.text("animation_title"), PerkFusionLocalization.text("animation_subtitle"))
+	if bool(snapshot.get("cold_boot_host_live", false)):
+		return
 	var result_rect: Rect2 = _as_rect2(layout.get("result_rect", Rect2()))
 	var center: Vector2 = result_rect.get_center()
 	var progress: float = _animation_progress(snapshot)

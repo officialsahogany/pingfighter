@@ -7,6 +7,7 @@ const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_key
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
+const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -59,6 +60,7 @@ func prewarm_assets() -> void:
 	AngelBlessingRollOverlayHost.prewarm_assets()
 	_mystic_dice_overlay_renderer.prewarm_assets()
 	_perk_fusion_overlay_renderer.prewarm_assets()
+	PerkFusionColdBootCinematic.prewarm_assets()
 	var font: Font = _get_font()
 	if font == null:
 		return

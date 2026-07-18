@@ -2,7 +2,8 @@
 
 상태: CB1 랜딩(6비트 타임라인·duration 단일 권위·스킵/reset 수렴·전이
 이벤트 큐-드레인) + CB2 랜딩(티어 프레젠테이션 플랜 — 실 committed_record
-파생 tell/카운트). 잔여 CB3(Node2D 호스트/prewarm/degraded 폴백)·CB4(에셋).
+파생 tell/카운트) + CB3 랜딩(Node2D 호스트·실 idle 경로 sync·degraded
+폴백·finish 직접 종료). 잔여 CB4(에셋+픽셀 QA).
 2026-07-12 컨셉 선정(사용자: 옵션 3 풀 시네마틱,
 "전혀 다른 방식" = 뻔한 슬램+빛줄기+히트스톱+카메라셰이크 거부). 7개 은유 병렬
 발상 중 **링코어 콜드부트** 채택.
@@ -127,8 +128,10 @@ SNAP-IN**해 과부하를 시안으로 클램프(`stabilizer_snap=true`). 아슬
 (캐릭터 제한 numeric passive 등 비-hookable)의 raw 부작용 롤이 벤트 없이
 스스로 안착 — 코일 없음(`stabilizer_snap=false`), B2 게이지 스터터만 남고
 서지는 확정되지 않으며(`ignition_surge=false`) 카운트 전부 0. 두 경로 모두
-리드아웃 "안정 융합 / STABILIZED", 색은 core_stable 시안-청, 확인 패널의
-`prob_core_stable` 표기와 정합.
+리드아웃 "안정 융합 / STABILIZED", 색은 core_stable 시안-청. 확인 패널의
+`prob_core_stable` 표기와 정합하는 것은 ①(core_stabilize 무장 시 S2
+프리뷰가 그 확률로 표기)뿐이다 — ②빈 페널티 경로는 사전에는 일반 부작용
+확률로 보이고 커밋 후 stable로 자가 해소된다.
 
 ---
 
@@ -203,8 +206,11 @@ SNAP-IN**해 과부하를 시안으로 클램프(`stabilizer_snap=true`). 아슬
       플레이스홀더 또는 아트+`file_exists`를 같은 슬라이스에 랜딩.
 - [ ] **음수-z 호스트 vs 조상 opaque fill** — 시네마틱 호스트 z와 모달 패널/백드롭
       z 순서. state 스모크로 안 잡힘 → **픽셀 QA** 필수.
-- [ ] **모달 = update 드라이버 tick** — 모달이 물리 정지 실행이므로 `_physics_process`
-      아닌 mythic과 동일 update 드라이버로 tick(스킵/취소/finish 정리 포함).
+- [x] **모달 = idle 오버레이 tick** — (CB3 확정) 물리 flow는 choice_active에서
+      조기 반환하므로 update 드라이버는 모달 중 도달 불가. 호스트 sync는
+      `battle_scene_overlay_frame_controller.process_idle`의
+      `runtime_perk_state.update` 직후가 소유하고, 같은 프레임 스킵→확정
+      종료는 `_finish_perk_fusion_modal`이 호스트를 직접 닫는다.
 - [x] **스킵 경로 보존** — (CB1 완료) confirm→reveal 점프 유지 + 어느 비트든
       SETTLE 수렴, 전이 이벤트는 큐-드레인으로 정확히-한-번 소비.
 - [ ] **owner 스키마** — 새 owner sync 키가 생기면 `BattleSceneState.DEFAULT_VALUES`

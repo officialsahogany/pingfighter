@@ -4,6 +4,7 @@ const CharacterInfoOverlayHost := preload("res://scripts/hud/character_info_over
 const BattleSceneOverlayFrameUtils := preload("res://scripts/core/battle_scene_overlay_frame_utils.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
+const PerkFusionColdBootCinematicRuntime := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic_runtime.gd")
 
 const CLEAN_CAPTURE_ENV := "PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE"
 const CLEAN_CAPTURE_FLAG_PATH := "res://battle_perf_clean_capture.flag"
@@ -15,6 +16,10 @@ var _clean_capture_enabled := false
 var _character_info_overlay_host: Control = null
 var _angel_blessing_overlay_host: Object = null
 var _battle_view_layout: Object = BattleViewLayout.new()
+# 콜드부트 시네마틱 호스트 lifecycle(CB3): 융합 모달은 물리 flow가
+# choice_active에서 조기 반환하므로, 모달 중에도 도는 이 idle 경로의
+# runtime_perk_state.update 직후가 유일한 실 sync 지점이다.
+var _cold_boot_cinematic_runtime: Object = PerkFusionColdBootCinematicRuntime.new()
 
 
 func process_idle(
@@ -53,6 +58,9 @@ func process_idle(
 			else:
 				runtime_perk_state.update(delta, BattleSceneOverlayFrameUtils.get_view_size(owner), owner, _registry)
 			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.runtime_perk_update", sample_start)
+			# 콜드부트 호스트 sync: flow 틱(위 update) 직후 같은 idle 프레임에서
+			# 생성/비트 미러/이벤트 소비/종료를 처리한다.
+			_cold_boot_cinematic_runtime.sync_from_runtime_state(runtime_perk_state, owner, delta)
 			var next_angel_modal_work := _has_angel_blessing_modal_work(passive_module_getter, modal_gate)
 			if next_angel_modal_work:
 				_sync_angel_blessing_overlay_host(owner, module_getter, true)

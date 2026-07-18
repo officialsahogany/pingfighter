@@ -215,3 +215,6 @@ func _reset_perk_fusion_modal(runtime_state: Object) -> void:
 	var modal_input: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_perk_fusion_modal_input")
 	if modal_input != null and modal_input.has_method("reset"):
 		modal_input.reset()
+	var boot_host: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_cold_boot_cinematic_host")
+	if boot_host != null and is_instance_valid(boot_host) and boot_host.has_method("finish_boot"):
+		boot_host.finish_boot()

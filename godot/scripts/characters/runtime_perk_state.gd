@@ -660,6 +660,8 @@ var _perk_fusion_modal_input: Object = null
 # 모달 수명 동안의 자격 판정 카탈로그(시작 시 보존): 프리뷰의 한계돌파
 # 자격/가중치가 실 커밋(레지스트리 카탈로그)과 같은 max_level을 봐야 한다.
 var _perk_fusion_modal_catalog: Object = null
+# CB3: 콜드부트 시네마틱 Node2D 호스트(래퍼가 생성/정리 — freed 가드 필수).
+var _cold_boot_cinematic_host: Object = null
 var _perk_fusion_modal_preview_cache: Dictionary = {}
 var _perk_fusion_modal_preview_cache_key := 0
 var _perk_fusion_modal_preview_builds := 0
@@ -771,6 +773,23 @@ func _build_perk_fusion_candidate_ids(catalog: Object) -> Array:
 	return candidates
 
 
+# 콜드부트: 애니메이션 비트 구간 판별(update 드라이버의 호스트 lifecycle
+# 게이트) — 모달 활성 + flow가 PHASE_ANIMATION일 때만 호스트가 산다.
+func is_perk_fusion_boot_animation_active() -> bool:
+	return (
+		is_perk_fusion_modal_active()
+		and str(_perk_fusion_modal_flow.get_phase()) == "animation"
+	)
+
+
+# 콜드부트 호스트 생존 판별(렌더러 degraded 폴백 게이트): 호스트가 트리에
+# 살아 있고 부팅 중일 때만 true — 아니면 즉시모드가 그린다.
+func is_perk_fusion_cold_boot_host_live() -> bool:
+	if _cold_boot_cinematic_host == null or not is_instance_valid(_cold_boot_cinematic_host):
+		return false
+	return bool(_cold_boot_cinematic_host.is_boot_active())
+
+
 # 콜드부트 1회성 전이 이벤트 드레인 파사드(CB3 시네마틱 호스트 소비 지점).
 func consume_perk_fusion_cold_boot_events() -> Array:
 	if _perk_fusion_modal_flow == null:
@@ -796,6 +815,9 @@ func get_perk_fusion_modal_snapshot() -> Dictionary:
 		_perk_fusion_modal_preview_cache_key = preview_key
 		_perk_fusion_modal_preview_builds += 1
 	snapshot.merge(_perk_fusion_modal_preview_cache, true)
+	# CB3: 렌더러가 즉시모드(degraded)와 호스트 드로 중 무엇을 그릴지
+	# 스냅샷 플래그로 판별한다.
+	snapshot["cold_boot_host_live"] = is_perk_fusion_cold_boot_host_live()
 	return snapshot
 
 
@@ -936,6 +958,15 @@ func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictiona
 	_get_perk_fusion_modal_input().reset()
 	_perk_fusion_modal_catalog = null
 	_reset_perk_fusion_modal_preview_cache()
+	# 같은 프레임 스킵→확정(연속 confirm)은 choice_active=false가 된 뒤라
+	# 다음 idle이 조기 반환해 호스트 정리 sync에 도달하지 못한다 — finish가
+	# detached 풀스크린 호스트를 직접 닫는다.
+	if (
+		_cold_boot_cinematic_host != null
+		and is_instance_valid(_cold_boot_cinematic_host)
+		and bool(_cold_boot_cinematic_host.is_boot_active())
+	):
+		_cold_boot_cinematic_host.finish_boot()
 	var merged: Dictionary = {"accepted": true, "record": record.duplicate(true)}
 	merged["finish"] = finish
 	return merged
