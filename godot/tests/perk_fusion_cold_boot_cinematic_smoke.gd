@@ -57,6 +57,7 @@ class PerfLabelProbe:
 
 func _init() -> void:
 	_verify_prewarm_rides_overlay_prewarm_path()
+	_verify_asset_manifest_prewarms_textures()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
@@ -116,6 +117,30 @@ func _build_animation_state() -> Dictionary:
 func _verify_prewarm_rides_overlay_prewarm_path() -> void:
 	RuntimePerkOverlayRenderer.new().prewarm_assets()
 	_expect(PerkFusionColdBootCinematic.is_prewarmed(), "the overlay prewarm path should statically prewarm the cold-boot host assets")
+
+
+# CB4b: §5 에셋 매니페스트 프리움 씰 — repo에 랜딩된 8종 텍스처가
+# 이산 시점 프리움으로 캐시에 올라야 하고(부재시 절차 폴백은 degraded
+# 계약), 아틀라스 그리드 권위 상수(4x4=16)도 봉인한다.
+func _verify_asset_manifest_prewarms_textures() -> void:
+	PerkFusionColdBootCinematic.prewarm_assets()
+	for texture_key: String in [
+		"chassis_off",
+		"chassis_on",
+		"cartridge_left",
+		"cartridge_right",
+		"module_shoulder_pod",
+		"module_collar_ring",
+		"module_gem_plate",
+		"ignition_sheet",
+	]:
+		_expect(PerkFusionColdBootCinematic._texture(texture_key) != null, "prewarm should cache the %s texture from the landed manifest" % texture_key)
+	_expect(
+		PerkFusionColdBootCinematic.IGNITION_SHEET_COLS == 4
+			and PerkFusionColdBootCinematic.IGNITION_SHEET_ROWS == 4
+			and PerkFusionColdBootCinematic.IGNITION_SHEET_FRAMES == 16,
+		"the AutoSprite ignition sheet must declare its 4x4=16 atlas grid authority"
+	)
 
 
 # 코덱스 CB3-P1: 물리 flow는 choice_active에서 조기 반환하므로, 실 idle

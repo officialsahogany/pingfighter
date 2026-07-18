@@ -86,9 +86,18 @@ func _run() -> void:
 		push_error("perk_fusion_cold_boot_capture must run WITHOUT --headless (needs the real renderer)")
 		quit(1)
 		return
-	var commit_full := _git_output(["rev-parse", "HEAD"])
+	var env_pollution := _detect_git_env_pollution()
+	_check(env_pollution == "", "GIT_* env 오염 없음(%s)" % (env_pollution if env_pollution != "" else "clean"))
+	var head_query: Dictionary = _git_query(["rev-parse", "HEAD"])
+	var commit_full := str(head_query.get("text", ""))
 	var commit12 := commit_full.substr(0, 12) if commit_full.length() >= 12 else "nocommit"
-	var dirty_fingerprint := _git_output(["status", "--porcelain"]).md5_text()
+	var porcelain_query: Dictionary = _git_query(["status", "--porcelain"])
+	_check(bool(porcelain_query.get("ok", false)), "dirty 상태 조회 성공(exit 분리 — 실패는 clean과 다르다)")
+	var porcelain_text := str(porcelain_query.get("text", ""))
+	var dirty_fingerprint := "clean" if porcelain_text.is_empty() else porcelain_text.md5_text()
+	var diff_query: Dictionary = _git_query(["diff", "HEAD"])
+	_check(bool(diff_query.get("ok", false)), "dirty 내용 조회 성공")
+	var dirty_content_fingerprint := "clean" if str(diff_query.get("text", "")).is_empty() else str(diff_query.get("text", "")).md5_text()
 	_out_dir = "%s/perk_fusion_cold_boot_%d_%d_%s" % [OUT_ROOT, Time.get_ticks_usec(), OS.get_process_id(), commit12]
 	if DirAccess.dir_exists_absolute(_out_dir):
 		push_error("[ColdBootQA] evidence dir collision (no-clobber): %s" % _out_dir)
@@ -96,9 +105,10 @@ func _run() -> void:
 		return
 	var mkdir_error: Error = DirAccess.make_dir_recursive_absolute(_out_dir)
 	_check(mkdir_error == OK, "증적 디렉터리 생성(%s, err=%d)" % [_out_dir, mkdir_error])
-	_check(commit_full.length() >= 12, "커밋 귀속(HEAD=%s)" % commit_full)
+	_check(bool(head_query.get("ok", false)) and commit_full.length() >= 12, "커밋 귀속(HEAD=%s)" % commit_full)
 	_summary_lines.append("META commit=%s" % commit_full)
-	_summary_lines.append("META dirty_fingerprint_md5=%s" % dirty_fingerprint)
+	_summary_lines.append("META dirty_status_fingerprint=%s" % dirty_fingerprint)
+	_summary_lines.append("META dirty_content_fingerprint=%s" % dirty_content_fingerprint)
 
 	# [샷 이름, 티어 롤, core 선무장, 호스트 사용, idle 시퀀스, 음성 z 강제]
 	var shots := [
@@ -176,7 +186,17 @@ func _run() -> void:
 	quit(1 if failed else 0)
 
 
-func _git_output(git_args: Array) -> String:
+# git 질의(P3 보강): 종료코드를 결과와 분리해 "실패"와 "clean 빈 출력"이
+# 합쳐지지 않게 한다. 임시 인덱스 커밋 절차의 GIT_INDEX_FILE 등이 남아
+# 있으면 질의가 다른 인덱스를 볼 수 있어 오염을 fail-closed로 거부한다.
+func _detect_git_env_pollution() -> String:
+	for env_key: String in ["GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE"]:
+		if OS.has_environment(env_key):
+			return env_key
+	return ""
+
+
+func _git_query(git_args: Array) -> Dictionary:
 	var repo_root: String = ProjectSettings.globalize_path("res://").rstrip("/").get_base_dir()
 	var output: Array = []
 	# 일회성 safe.directory 주입 — 격리 게이트 worktree(임시 경로)에서의
@@ -184,9 +204,10 @@ func _git_output(git_args: Array) -> String:
 	var args: Array = ["-c", "safe.directory=*", "-C", repo_root]
 	args.append_array(git_args)
 	var exit_code: int = OS.execute("git", PackedStringArray(args), output)
-	if exit_code != 0 or output.is_empty():
-		return ""
-	return str(output[0]).strip_edges()
+	var text := ""
+	if not output.is_empty():
+		text = str(output[0]).strip_edges()
+	return {"ok": exit_code == 0, "text": text, "exit_code": exit_code}
 
 
 func _capture_shot(
@@ -340,9 +361,10 @@ func _analyze(captures: Dictionary) -> void:
 
 func _scan_immediate_orange(image: Image) -> int:
 	# 즉시모드 시그니처: draw_circle(right_center, Color(1.0, 0.64, 0.30, 0.75)).
-	# 알파 0.75 블렌드라 r이 0.85 미만으로 눌린다 — 호스트의 스터터 앰버
-	# (FAULT→GOLD lerp, 사실상 불투명 아크라 r>=0.85)와 R 상한으로 분리.
-	return _scan_color_band(image, 0.66, 0.85, 0.40, 0.60, 0.16, 0.38)
+	# 알파 0.75 플랫 블렌드의 실측값 ≈ (0.75, 0.49, 0.25) — 상한은 스터터
+	# 앰버(r>=0.85), 하한·g 상한은 §5 텍스처의 골드 트림 AA 에지(실측
+	# r 0.66~0.71 / g 0.55~0.60)를 배제하도록 타이트닝.
+	return _scan_color_band(image, 0.72, 0.82, 0.42, 0.54, 0.18, 0.34)
 
 
 func _scan_gauge_cyan(image: Image) -> int:
