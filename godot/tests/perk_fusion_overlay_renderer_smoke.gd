@@ -113,7 +113,15 @@ func _verify_renderer_contract() -> void:
 	var authored_weights := PerkFusionOutcomeRules.build_final_outcome_weights(false)
 	_expect(fallback_probabilities == authored_weights, "missing preview weights should fall back to the production outcome-rules owner")
 	_expect(source.find("weights.get(\"success\", 55.0)") < 0, "overlay must not duplicate authored outcome constants in a renderer fallback")
-	_expect(is_equal_approx(renderer._animation_progress({"animation_remaining": 0.55}), 0.5), "overlay animation should read canonical animation_remaining")
+	# 콜드부트 타임라인이 duration 권위(CB1) — 리터럴 대신 권위 파생 절반값으로
+	# 같은 canonical-read 속성을 검사한다(duration 재조정에 중립).
+	_expect(
+		is_equal_approx(
+			renderer._animation_progress({"animation_remaining": float(renderer.DEFAULT_ANIMATION_DURATION) * 0.5}),
+			0.5
+		),
+		"overlay animation should read canonical animation_remaining"
+	)
 	_expect(renderer._selected_sources({"selected_source_ids": ["alpha", "beta"]}) == ["alpha", "beta"], "overlay should read canonical selected_source_ids")
 	_expect(renderer._record({"committed_record": {"fusion_id": "fusion_0"}}).get("fusion_id", "") == "fusion_0", "overlay should read canonical committed_record")
 	var localization_source := FileAccess.get_file_as_string("res://scripts/characters/perk_fusion_localization.gd")

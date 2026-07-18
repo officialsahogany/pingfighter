@@ -96,12 +96,12 @@ func _verify_confirm_cancel_and_commit_contract() -> void:
 	var duplicate_commit: Dictionary = flow.confirm_current()
 	_expect(not bool(duplicate_commit.get("commit_requested", true)), "a repeated confirm should not emit a duplicate commit")
 	_expect(bool(duplicate_commit.get("already_requested", false)), "a repeated commit request should report idempotency")
-	_expect(not flow.begin_committed_result({}, 0.5), "an empty committed record should not enter animation")
+	_expect(not flow.begin_committed_result({}), "an empty committed record should not enter animation")
 	_expect(flow.get_phase() == PerkFusionModalFlow.PHASE_CONFIRM, "an empty committed record should leave confirm intact")
 
 
 func _verify_committed_record_animation_and_reveal_contract() -> void:
-	var flow := _committed_flow(1.1)
+	var flow := _committed_flow()
 	var animation_snapshot: Dictionary = flow.get_snapshot()
 	_expect(flow.get_phase() == PerkFusionModalFlow.PHASE_ANIMATION, "a committed record should enter animation")
 	_expect(str(_dict(animation_snapshot.get("committed_record", {})).get("outcome", "")) == "stable", "committed record should exist during animation")
@@ -129,9 +129,11 @@ func _verify_committed_record_animation_and_reveal_contract() -> void:
 
 
 func _verify_timed_reveal_transition_runs_once() -> void:
-	var flow := _committed_flow(0.2)
-	_expect(not bool(flow.update(0.1).get("entered_reveal", true)), "partial animation update should not reveal")
-	var reveal_result: Dictionary = flow.update(0.11)
+	# duration 주입 인자는 제거됨 — 권위 상수의 비율로 구동한다.
+	var total: float = float(PerkFusionModalFlow.DEFAULT_ANIMATION_DURATION)
+	var flow := _committed_flow()
+	_expect(not bool(flow.update(total * 0.5).get("entered_reveal", true)), "partial animation update should not reveal")
+	var reveal_result: Dictionary = flow.update(total * 0.5 + 0.01)
 	_expect(bool(reveal_result.get("entered_reveal", false)), "animation expiry should enter reveal once")
 	_expect(flow.get_phase() == PerkFusionModalFlow.PHASE_REVEAL, "animation expiry should leave the flow in reveal")
 	_expect(not bool(flow.update(1.0).get("entered_reveal", true)), "updates after reveal should not repeat the transition")
@@ -147,13 +149,13 @@ func _started_flow(candidate_ids: Array) -> Object:
 	return flow
 
 
-func _committed_flow(duration: float) -> Object:
+func _committed_flow() -> Object:
 	var flow: Object = _started_flow(["source_b", "source_a"])
 	flow.select_source_at(0)
 	flow.select_source_at(1)
 	flow.confirm_current()
 	flow.confirm_current()
-	_expect(flow.begin_committed_result({"outcome": "stable", "nested": {"value": 2}}, duration), "valid committed record should be accepted")
+	_expect(flow.begin_committed_result({"outcome": "stable", "nested": {"value": 2}}), "valid committed record should be accepted")
 	return flow
 
 

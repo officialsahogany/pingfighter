@@ -11,7 +11,10 @@ const PHASE_MATERIALS := "materials"
 const PHASE_CONFIRM := "confirm"
 const PHASE_ANIMATION := "animation"
 const PHASE_REVEAL := "reveal"
-const DEFAULT_ANIMATION_DURATION := 1.1
+const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_fusion_cold_boot_timeline_state.gd")
+# 콜드부트 타임라인이 단일 권위 — modal flow의 같은 이름 상수와 동일 파생
+# (이중 duration 상수 트랩 봉인).
+const DEFAULT_ANIMATION_DURATION := PerkFusionColdBootTimelineState.TOTAL_ANIMATION_DURATION
 const MAX_RESULT_LINES := 8
 const MAX_LINE_CHARS := 48
 

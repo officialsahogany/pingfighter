@@ -771,6 +771,13 @@ func _build_perk_fusion_candidate_ids(catalog: Object) -> Array:
 	return candidates
 
 
+# 콜드부트 1회성 전이 이벤트 드레인 파사드(CB3 시네마틱 호스트 소비 지점).
+func consume_perk_fusion_cold_boot_events() -> Array:
+	if _perk_fusion_modal_flow == null:
+		return []
+	return _perk_fusion_modal_flow.consume_cold_boot_events()
+
+
 func get_perk_fusion_modal_snapshot() -> Dictionary:
 	if _perk_fusion_modal_flow == null:
 		return {}
