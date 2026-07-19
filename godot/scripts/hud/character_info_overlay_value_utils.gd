@@ -146,8 +146,8 @@ static func fallback_symbol_letter(id_text: String, letter_cache: Dictionary, ca
 	return CharacterInfoOverlayMiscValueUtils.fallback_symbol_letter(id_text, letter_cache, cache_limit)
 
 
-static func set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null) -> Dictionary:
-	return CharacterInfoOverlayMiscValueUtils.set_hover_data(data, title, subtitle, body, color, title_color, anchor_rect, roll_options)
+static func set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null, right_header: String = "") -> Dictionary:
+	return CharacterInfoOverlayMiscValueUtils.set_hover_data(data, title, subtitle, body, color, title_color, anchor_rect, roll_options, right_header)
 
 
 static func cached_alpha_color(target: Object, color: Color, source_color: Color, cached_color: Color, source_property: String, cache_property: String, alpha: float) -> Color:

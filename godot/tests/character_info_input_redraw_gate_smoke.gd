@@ -1,5 +1,7 @@
 extends SceneTree
 
+const SourceContractFunctionBody := preload("res://tests/source_contract_function_body.gd")
+
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const BattleSceneOverlayInputController := preload("res://scripts/core/battle_scene_overlay_input_controller.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
@@ -81,6 +83,7 @@ func _init() -> void:
 	_verify_character_info_mouse_motion_is_throttled()
 	_verify_character_info_hover_signature_is_section_gated()
 	_verify_character_info_open_animation_consumes_pending_redraw()
+	_verify_character_info_animated_perk_redraw_is_throttled()
 	_verify_character_info_context_click_queues_single_redraw()
 	_verify_character_info_equipment_context_click_is_section_gated()
 	_verify_character_info_equipment_context_click_uses_index_cache()
@@ -197,7 +200,7 @@ func _verify_character_info_hover_signature_is_section_gated() -> void:
 	_expect(
 		skill_overlay_layout_body.find("target.set(\"_last_skill_slot_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
 		and skill_overlay_layout_body.find("target.set(\"_last_skill_slot_count\", max_slots)") >= 0
-		and skill_layout_body.find("\"start\": Vector2(start_x, slot_y)") >= 0,
+		and skill_layout_body.find("\"start\": Vector2(start_x, card_y)") >= 0,
 		"skill slot hover metrics should be cached during draw"
 	)
 	_expect(
@@ -230,7 +233,7 @@ func _verify_character_info_hover_signature_is_section_gated() -> void:
 		and passive_grid_layout_body.find("\"start\": Vector2(start_x, start_y)") >= 0,
 		"passive inventory layout helper should publish cached hover metrics"
 	)
-	_expect(source.find("_update_perk_grid_layout(grid_rect, cell_size, stride, columns, acquired.size(), perk_scroll)") >= 0, "perk grid hover metrics should be cached during draw")
+	_expect(source.find("_update_perk_grid_layout(layout_rect, cell_size, stride, columns, entry_count, perk_scroll)") >= 0, "perk grid hover metrics should include the padded TAB slot cells during draw")
 	_expect(
 		perk_overlay_grid_body.find("target.set(\"_last_perk_grid_start\", layout_state.get(\"start\", Vector2.ZERO))") >= 0
 		and perk_overlay_grid_body.find("target.set(\"_last_perk_grid_item_count\", item_count)") >= 0
@@ -275,6 +278,34 @@ func _verify_character_info_open_animation_consumes_pending_redraw() -> void:
 	_expect(float(overlay.get("lingpet_panel_live2d_time")) > live2d_time_before, "lingpet panel Live2D timer should advance only through the overlay lifecycle")
 	overlay.close()
 	_expect(not bool(overlay.get("_lingpet_panel_live2d_redraw_active")), "closing character info should stop lingpet panel Live2D redraws")
+
+
+func _verify_character_info_animated_perk_redraw_is_throttled() -> void:
+	# Structural: the settled-panel redraw path must gate on a live animated perk icon
+	# and throttle to one request per animation step (so an all-static panel keeps zero
+	# redraw cost and an animated one does not redraw every frame).
+	var lifecycle_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lifecycle.gd")
+	var update_body := _function_body(lifecycle_source, "static func update(")
+	_expect(update_body.find("_consume_animated_perk_redraw(target)") >= 0, "settled character info update should consult the animated-perk redraw gate")
+	var consume_body := _function_body(lifecycle_source, "static func _consume_animated_perk_redraw(")
+	_expect(consume_body.find("if not bool(target.get(\"_perk_grid_has_animated_icon\")):") >= 0, "animated perk redraw should gate on a live animated icon being present")
+	_expect(consume_body.find("PERK_ICON_ANIM_STEP_MS") >= 0 and consume_body.find("_perk_grid_anim_frame_step") >= 0, "animated perk redraw should throttle to one request per animation step")
+
+	# Behavioral: gate off keeps the settled panel silent; gate on requests a redraw and
+	# records the consumed animation step; clearing the gate returns to zero cost.
+	var overlay := CharacterInfoOverlay.new()
+	overlay.open()
+	overlay.update(1.0)
+	_expect(not overlay.update(0.016), "settled panel with no animated perk should stay at zero redraw cost")
+
+	overlay.set("_perk_grid_has_animated_icon", true)
+	overlay.set("_perk_grid_anim_frame_step", -1)
+	_expect(overlay.update(0.016), "settled panel with an animated perk should request an animation redraw")
+	_expect(int(overlay.get("_perk_grid_anim_frame_step")) >= 0, "animated perk redraw should record the consumed animation step")
+
+	overlay.set("_perk_grid_has_animated_icon", false)
+	_expect(not overlay.update(0.016), "removing the animated perk should return the panel to zero redraw cost")
+	overlay.close()
 
 
 func _verify_character_info_context_click_queues_single_redraw() -> void:
@@ -382,19 +413,8 @@ func _character_info_value_utils_contract_source() -> String:
 	return FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_layout_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_slot_cache_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_misc_value_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_text_utils.gd") + "\n" + FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_value_utils.gd")
 
 
-func _function_body(source: String, marker: String) -> String:
-	var start: int = source.find(marker)
-	if start < 0:
-		return ""
-	var next_func: int = source.find("\nfunc ", start + marker.length())
-	var next_static_func: int = source.find("\nstatic func ", start + marker.length())
-	var next: int = next_func
-	if next < 0 or (next_static_func >= 0 and next_static_func < next):
-		next = next_static_func
-	if next < 0:
-		return source.substr(start)
-	return source.substr(start, next - start)
-
+func _function_body(source: String, signature: String) -> String:
+	return SourceContractFunctionBody.extract(source, signature)
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:

@@ -195,7 +195,8 @@ static func draw_dual_item_tooltip(
 
 	CharacterInfoOverlayTextureDrawer.draw_panel(canvas, roll_rect, roll_panel_fill, roll_border, 2.0)
 	var roll_text_x: float = pos_x + desc_width + gap + 12.0
-	draw_text_callable.call(canvas, font, "롤 옵션", roll_text_x, pos_y + 24.0, 13, accent_gold)
+	var right_header: String = str(data.get("right_header", "롤 옵션"))
+	draw_text_callable.call(canvas, font, right_header, roll_text_x, pos_y + 24.0, 13, accent_gold)
 	var roll_y := pos_y + 44.0
 	for i in range(roll_lines.size()):
 		draw_text_callable.call(canvas, font, tooltip_entry_line_text_cache[i], roll_text_x, roll_y, 13, tooltip_entry_line_color_cache[i])

@@ -4,8 +4,64 @@ const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 
 const LEVEL_BADGE_FILL := Color(0.05, 0.09, 0.15, 0.92)
+
+# Perk tooltip right-panel ("능력치") stat-line color and header. The 2-panel
+# perk tooltip mirrors the passive-item dual tooltip: left = friendly `detail`,
+# right = the per-level numeric breakdown (`descriptions[level]`) split into lines.
+const PERK_STAT_ENTRY_COLOR := Color(0.72, 0.86, 1.0)
+const PERK_STAT_HEADER := "능력치"
+
+
+# Split a per-level stat string ("넉백 +20%, 스턴 +20%, ...") into right-panel
+# entry dicts. Returns [] (→ single-panel fallback) when there is nothing
+# distinct to show on the right: empty stats, or stats identical to the left-panel
+# detail. The identical case is the non-Korean locale collapse — `localize_perk_data`
+# rewrites both `detail` and every `descriptions[level]` to the same summary string,
+# so a 2-panel split would just duplicate the text.
+static func build_perk_stat_entries(stats_text: String, detail_text: String) -> Array:
+	# 단일 진입점: 융합/주사위 태그 라인([[fusion:*]]/[[dice:*]] 프리픽스)은
+	# 전용 색·취소선 분해기로, 일반 퍽 스탯은 개편 범용 콤마 분해(detail==
+	# stats면 단일 패널 붕괴)로 라우팅한다 — 소실 개편 원본과 사후 융합
+	# 재구축본의 병합 지점.
+	var stats: String = stats_text.strip_edges()
+	if stats == "":
+		return []
+	if _has_tagged_stat_prefix(stats):
+		return _build_tagged_stat_entries(stats)
+	var detail: String = detail_text.strip_edges()
+	if stats == detail:
+		return []
+	var entries: Array = []
+	for piece in stats.split(",", false):
+		var text: String = str(piece).strip_edges()
+		if text == "":
+			continue
+		entries.append({"text": text, "color": PERK_STAT_ENTRY_COLOR})
+	return entries
+
+
+static func _has_tagged_stat_prefix(stats: String) -> bool:
+	var localization: Object = _fusion_localization()
+	var dice_localization: Object = _mystic_dice_localization()
+	var prefixes: Array = [
+		localization.STAT_HEADER_PREFIX,
+		localization.STAT_PENALTY_PREFIX,
+		localization.STAT_DELETED_PREFIX,
+		localization.STAT_BYPRODUCT_PREFIX,
+		localization.STAT_NORMAL_PREFIX,
+		dice_localization.STAT_BENEFIT_PREFIX,
+		dice_localization.STAT_CURSE_PREFIX,
+		dice_localization.STAT_NEUTRAL_PREFIX,
+	]
+	for raw_line: String in stats.split("
+", false):
+		for prefix_value: Variant in prefixes:
+			if raw_line.begins_with(str(prefix_value)):
+				return true
+	return false
 
 
 static func _apply_runtime_status_lines(data: Dictionary, skill_id: String, runtime_state: Object) -> void:
@@ -305,7 +361,7 @@ static func build_fusion_hover_payload(packed_body: String) -> Dictionary:
 # 융합 스탯 문자열([[fusion:*]] 프리픽스 라인) → 렌더 엔트리 분해. 삭제
 # 흉터는 U+0336 결합 글리프 대신 렌더러 소유 strikethrough 메타로 표기한다
 # (한국어 폰트 스택에 결합 취소선 글리프가 없어 tofu가 된다).
-static func build_perk_stat_entries(stats: String, _detail: String) -> Array:
+static func _build_tagged_stat_entries(stats: String) -> Array:
 	var localization: Object = _fusion_localization()
 	var dice_localization: Object = _mystic_dice_localization()
 	var entries: Array = []
@@ -368,10 +424,16 @@ static func acquired_perk_data(
 	data["level"] = level
 	if not data.has("description"):
 		var descriptions: Dictionary = CharacterInfoOverlayValueUtils.get_dict(data.get("descriptions", {}))
-		var description_value: Variant = descriptions.get(level, null)
-		if description_value == null:
-			description_value = data.get("detail", "")
-		data["description"] = str(description_value)
+		# Effective level (transcendent_crown / sage_ring +N) can exceed the max
+		# defined description level. resolve_stats_text generates the Lv.6+ stat
+		# line from the runtime scaling patterns (Korean), and falls back to the
+		# HIGHEST defined level's stats otherwise — never straight to the detail,
+		# which collapsed the "능력치" panel (2026-07-09 bug). Showing the stale
+		# Lv.5 text at Lv.7 was the follow-up bug (2026-07-10).
+		var description: String = RuntimePerkOverflowDescriptions.resolve_stats_text(skill_id, descriptions, level)
+		if description == "":
+			description = str(data.get("detail", ""))
+		data["description"] = description
 	return data
 
 
@@ -413,10 +475,57 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 		data["_level_text"] = CharacterInfoOverlayFormatter.perk_level_text(data)
 		data["_level_color"] = CharacterInfoOverlayFormatter.perk_level_color(data, accent_gold)
 		_apply_runtime_status_lines(data, skill_id, runtime_state)
-		result.append(data)
+		var slot_cost := slot_cost_for_level(catalog, data, base_level)
+		data["_slot_cost"] = slot_cost
+		if slot_cost > 1:
+			for cell_index in range(slot_cost):
+				var cell_data: Dictionary = data.duplicate(true)
+				cell_data["_is_slot_cell"] = true
+				cell_data["_slot_cell_index"] = cell_index
+				cell_data["_slot_cell_total"] = slot_cost
+				cell_data["_level_text"] = ""
+				result.append(cell_data)
+		elif slot_cost <= 0:
+			data["_slot_free_cell"] = true
+			result.append(data)
+		else:
+			result.append(data)
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return sort_perks(a, b)
 	)
+	return result
+
+
+static func slot_cost_for_level(catalog: Object, perk_data: Dictionary, base_level: int) -> int:
+	if catalog != null and catalog.has_method("get_slot_cost_for_level"):
+		return max(0, int(catalog.get_slot_cost_for_level(perk_data, base_level)))
+	return 1
+
+
+static func build_slot_grid_entries(acquired: Array, slot_count: int) -> Array:
+	var result: Array = []
+	var free_entries: Array = []
+	for entry_value in acquired:
+		var entry: Dictionary = entry_value if entry_value is Dictionary else {}
+		if entry.is_empty():
+			continue
+		if bool(entry.get("_slot_free_cell", false)):
+			free_entries.append(entry)
+		else:
+			result.append(entry)
+	while result.size() < slot_count:
+		result.append({
+			"_empty_slot": true,
+			"_draw_id": "",
+			"_draw_color": Color(0.34, 0.42, 0.52, 0.46),
+			"_draw_border_color": Color(0.34, 0.42, 0.52, 0.32),
+			"_draw_hover_border_color": Color(0.34, 0.42, 0.52, 0.32),
+			"_level_text": "",
+			"_level_color": Color.TRANSPARENT,
+			"name": "",
+			"description": "",
+		})
+	result.append_array(free_entries)
 	return result
 
 
@@ -438,6 +547,7 @@ static func build_overlay_acquired_perks_cached(
 	level_color_cache: Array[Color],
 	hover_title_cache: Array[String],
 	hover_body_cache: Array[String],
+	hover_detail_cache: Array[String],
 	accent_blue: Color,
 	accent_gold: Color
 ) -> Array:
@@ -446,7 +556,7 @@ static func build_overlay_acquired_perks_cached(
 	if cache_ready and cache_hash == current_cache_hash:
 		return cached_perks
 	var acquired: Array = build_acquired_perks(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels, equipped_skills_for_filter, accent_blue, accent_gold)
-	refresh_draw_arrays(acquired, draw_id_cache, draw_color_cache, border_color_cache, hover_border_color_cache, level_text_cache, level_color_cache, hover_title_cache, hover_body_cache, accent_blue, Callable(CharacterInfoOverlayFormatter, "perk_level_text"), Callable(CharacterInfoOverlayFormatter, "perk_level_color").bind(accent_gold))
+	refresh_draw_arrays(acquired, draw_id_cache, draw_color_cache, border_color_cache, hover_border_color_cache, level_text_cache, level_color_cache, hover_title_cache, hover_body_cache, hover_detail_cache, accent_blue, Callable(CharacterInfoOverlayFormatter, "perk_level_text"), Callable(CharacterInfoOverlayFormatter, "perk_level_color").bind(accent_gold))
 	target.set("_acquired_perk_cache_hash", cache_hash)
 	target.set("_acquired_perk_cache_ready", true)
 	target.set("_acquired_perk_cache", acquired)
@@ -603,6 +713,7 @@ static func refresh_draw_arrays(
 	level_color_cache: Array[Color],
 	hover_title_cache: Array[String],
 	hover_body_cache: Array[String],
+	hover_detail_cache: Array[String],
 	accent_blue: Color,
 	perk_level_text_callable: Callable,
 	perk_level_color_callable: Callable
@@ -616,6 +727,7 @@ static func refresh_draw_arrays(
 	level_color_cache.resize(acquired_count)
 	hover_title_cache.resize(acquired_count)
 	hover_body_cache.resize(acquired_count)
+	hover_detail_cache.resize(acquired_count)
 	for i in range(acquired_count):
 		var perk: Dictionary = CharacterInfoOverlayValueUtils.get_dict(acquired[i])
 		draw_id_cache[i] = str(perk.get("_draw_id", perk.get("id", "")))
@@ -626,14 +738,16 @@ static func refresh_draw_arrays(
 		level_text_cache[i] = str(perk.get("_level_text", perk_level_text_callable.call(perk)))
 		level_color_cache[i] = CharacterInfoOverlayValueUtils.get_color(perk.get("_level_color", perk_level_color_callable.call(perk)))
 		hover_title_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "name", "id")
+		# body = per-level numeric stats (right panel source); detail = friendly
+		# description (left panel). fusion/주사위 셀은 팩킹 본문(결과 로그·태그
+		# 스탯)을 쓰고 detail 캐시는 비운다 — hover 실경로가 전용 dual 툴팁으로
+		# 분기한다(태그 원문을 일반 본문으로 노출하지 않는다).
 		if str(perk.get("tree", "")) in ["fusion", "mystic_dice"]:
-			# fusion/주사위 셀: detail(결과 로그·플레이버)+태그 스탯을 팩킹 —
-			# 실 hover가 build_fusion_hover_payload로 분해해 dual 툴팁(색·
-			# 취소선·전용 행 예산)을 탄다. 태그 원문을 일반 본문으로 노출하지
-			# 않는다.
 			hover_body_cache[i] = pack_fusion_hover_body(str(perk.get("detail", "")), str(perk.get("description", "")))
+			hover_detail_cache[i] = ""
 		else:
 			hover_body_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "description", "detail")
+			hover_detail_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "detail", "description")
 
 
 static func draw_grid_cells(
@@ -656,6 +770,7 @@ static func draw_grid_cells(
 	level_color_cache: Array[Color],
 	hover_title_cache: Array[String],
 	hover_body_cache: Array[String],
+	hover_detail_cache: Array[String],
 	letter_cache: Dictionary,
 	letter_cache_limit: int,
 	ring_segments: int,
@@ -674,26 +789,38 @@ static func draw_grid_cells(
 			border_color = hover_border_color_cache[i]
 		CharacterInfoOverlayTextureDrawer.draw_hex_cell(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.2)
 		var perk_id: String = draw_id_cache[i]
+		if perk_id == "":
+			# Empty pad slot: dim "+" hint (mockup v2 2026-07-08).
+			var plus_center: Vector2 = cell_rect.get_center()
+			var plus_half: float = cell_rect.size.x * 0.14
+			var plus_color := Color(color.r, color.g, color.b, 0.60)
+			canvas.draw_line(plus_center - Vector2(plus_half, 0.0), plus_center + Vector2(plus_half, 0.0), plus_color, 1.6)
+			canvas.draw_line(plus_center - Vector2(0.0, plus_half), plus_center + Vector2(0.0, plus_half), plus_color, 1.6)
+			continue
 		if not can_draw_perk_icon or not bool(icon_renderer.draw_icon(canvas, perk_id, icon_rect_cache[i], 1.0, true)):
 			CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, icon_rect_cache[i], color, perk_id, letter_cache, letter_cache_limit, ring_segments, draw_text_centered_xy_callable)
 		var level_text: String = level_text_cache[i]
 		var level_color: Color = level_color_cache[i]
-		var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 9)
-		var badge_rect := Rect2(center_x_cache[i] - level_text_size.x * 0.5 - 6.0, level_y_cache[i] - 10.0, level_text_size.x + 12.0, 13.0)
-		canvas.draw_rect(badge_rect, LEVEL_BADGE_FILL)
-		canvas.draw_rect(badge_rect, Color(level_color.r, level_color.g, level_color.b, 0.55), false, 1.0)
-		draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], level_y_cache[i], 9, level_color, level_text_size)
+		if level_text != "":
+			var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 9)
+			var badge_rect := Rect2(center_x_cache[i] - level_text_size.x * 0.5 - 6.0, level_y_cache[i] - 10.0, level_text_size.x + 12.0, 13.0)
+			canvas.draw_rect(badge_rect, LEVEL_BADGE_FILL)
+			canvas.draw_rect(badge_rect, Color(level_color.r, level_color.g, level_color.b, 0.55), false, 1.0)
+			draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], level_y_cache[i], 9, level_color, level_text_size)
 		if hovered:
-			# fusion 셀 hover 실경로: 팩킹 본문을 분해해 roll_options(스탯
-			# 엔트리)+tooltip_kind="fusion"을 실으면 draw_tooltip이 dual
-			# 툴팁(동적 행 예산+색·취소선)으로 분기한다. 비-fusion은 기존
-			# 단일 툴팁 경로 그대로.
+			# fusion/주사위 셀은 팩킹 본문을 분해한 전용 dual 툴팁(동적 행
+			# 예산+색·취소선), 그 외는 개편 범용 2단(좌=detail 설명/우=레벨별
+			# 스탯 엔트리)으로 분기한다.
 			var fusion_payload: Dictionary = build_fusion_hover_payload(hover_body_cache[i])
-			if fusion_payload.is_empty():
-				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, hover_body_cache[i], color)
-			else:
+			if not fusion_payload.is_empty():
 				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, str(fusion_payload.get("body", "")), color, null, null, fusion_payload.get("roll_options", []))
 				hover_data["tooltip_kind"] = str(fusion_payload.get("tooltip_kind", "fusion"))
+			else:
+				var detail_body: String = hover_detail_cache[i] if i < hover_detail_cache.size() else ""
+				var stat_entries: Array = build_perk_stat_entries(hover_body_cache[i], detail_body)
+				var left_body: String = detail_body if detail_body != "" else hover_body_cache[i]
+				var right_header: String = PERK_STAT_HEADER if not stat_entries.is_empty() else ""
+				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, left_body, color, null, null, stat_entries, right_header)
 	return hover_data
 
 
@@ -734,6 +861,7 @@ static func draw_overlay_grid_cells(
 		target.get("_acquired_perk_level_color_cache"),
 		target.get("_acquired_perk_hover_title_cache"),
 		target.get("_acquired_perk_hover_body_cache"),
+		target.get("_acquired_perk_hover_detail_cache"),
 		letter_cache,
 		letter_cache_limit,
 		ring_segments,
@@ -765,5 +893,9 @@ static func sort_perks(a: Dictionary, b: Dictionary) -> bool:
 	var a_level: int = int(a.get("level", 0))
 	var b_level: int = int(b.get("level", 0))
 	if a_level == b_level:
-		return str(a.get("id", "")) < str(b.get("id", ""))
+		var a_id := str(a.get("id", ""))
+		var b_id := str(b.get("id", ""))
+		if a_id != b_id:
+			return a_id < b_id
+		return int(a.get("_slot_cell_index", 0)) < int(b.get("_slot_cell_index", 0))
 	return a_level > b_level

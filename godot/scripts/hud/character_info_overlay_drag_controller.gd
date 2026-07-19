@@ -57,6 +57,18 @@ static func compute_trash_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(pos, size)
 
 
+static func should_show_trash(target: Object) -> bool:
+	# The trash can only receives drags that start from the equipment slots, the
+	# active-item slots, or the passive vault. With the passive-item system retired
+	# those sections are zero-hidden, so the always-on trash chrome would be a dead
+	# drop target -- show it only while at least one drag-source section is laid out.
+	for layout_key in ["_layout_equipment_rect", "_layout_active_items_rect", "_layout_inventory_rect"]:
+		var value: Variant = target.get(layout_key)
+		if value is Rect2 and (value as Rect2).size != Vector2.ZERO:
+			return true
+	return false
+
+
 # --- Hit testing ------------------------------------------------------------
 
 static func hit_test(target: Object, owner: Object, mouse_pos: Vector2) -> Dictionary:
@@ -313,10 +325,11 @@ static func draw_overlay(target: Object, canvas: CanvasItem, owner: Object, regi
 		var confirm: Object = target.get("_discard_confirm")
 		confirm.draw(canvas, font, panel_rect, view_size, mouse_pos)
 		return
-	# Always-visible discard trash can in the top-right corner; brightens while an
-	# item is held and turns red while hovered.
+	# Discard trash can in the top-right corner; brightens while an item is held and
+	# turns red while hovered. Hidden while every drag-source section is zero-hidden
+	# (see should_show_trash) -- no drag can start, so it would be a dead drop target.
 	var dragging: bool = bool(target.get("_drag_active"))
-	var trash_rect: Rect2 = compute_trash_rect(panel_rect)
+	var trash_rect: Rect2 = compute_trash_rect(panel_rect) if should_show_trash(target) else Rect2()
 	target.set("_last_trash_rect", trash_rect)
 	_draw_trash(canvas, trash_rect, dragging, trash_rect.size.x > 0.0 and trash_rect.has_point(mouse_pos))
 	if not dragging:

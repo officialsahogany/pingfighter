@@ -334,9 +334,12 @@ static func _prewarm_skills(target: Object, owner: Object, registry: Object, mod
 	var skill_config: Object = CharacterInfoOverlayOwnerState.prewarm_skill_config(registry, module_getter, character_type, character_runtime)
 	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
 	var max_slots: int = max(1, int(skill_snapshot.get("max_slots", 5)))
-	var slot_width_limit: float = (layout_skill_rect.size.x - 24.0 - float(max_slots - 1) * 8.0) / float(max_slots)
-	var slot_height_limit: float = layout_skill_rect.size.y - 60.0
-	var slot_size: float = min(60.0, max(36.0, min(slot_width_limit, slot_height_limit)))
+	# Skill cards: keep this sizing formula identical to _draw_skill_slots in
+	# character_info_overlay_core.gd (two-path trap).
+	var card_width_limit: float = (layout_skill_rect.size.x - 24.0 - float(max_slots - 1) * 12.0) / float(max_slots)
+	var slot_width_limit: float = card_width_limit - 24.0
+	var slot_height_limit: float = layout_skill_rect.size.y - 118.0
+	var slot_size: float = min(96.0, max(40.0, min(slot_width_limit, slot_height_limit)))
 	target.call("_update_skill_slot_layout", layout_skill_rect, slot_size, max_slots)
 	target.call(
 		"_refresh_skill_slot_draw_cache",

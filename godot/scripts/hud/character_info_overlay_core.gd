@@ -46,10 +46,10 @@ func _should_redraw_for_mouse_motion(mouse_pos: Vector2) -> bool:
 	return CharacterInfoOverlayHoverGeometry.should_redraw_for_mouse_motion(self, mouse_pos, _get_hover_signature(mouse_pos), _last_hover_signature, _has_mouse_redraw_position, _last_mouse_redraw_position, MOUSE_MOTION_REDRAW_DISTANCE_SQ)
 
 func _get_hover_signature(mouse_pos: Vector2) -> String:
-	return CharacterInfoOverlayHoverGeometry.overlay_hover_signature(mouse_pos, _last_hover_signature, Callable(self, "_hover_signature_contains_mouse"), _last_equipment_rect, Callable(self, "_get_equipment_hover_signature"), _last_skill_rect, _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_items_rect, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_rect, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects)
+	return CharacterInfoOverlayHoverGeometry.overlay_hover_signature(mouse_pos, _last_hover_signature, Callable(self, "_hover_signature_contains_mouse"), _last_equipment_rect, Callable(self, "_get_equipment_hover_signature"), _last_skill_rect, _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_items_rect, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_rect, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects, _last_skill_slot_height)
 
 func _hover_signature_contains_mouse(signature: String, mouse_pos: Vector2) -> bool:
-	return CharacterInfoOverlayHoverGeometry.overlay_signature_contains_mouse(signature, mouse_pos, _last_passive_inventory_rect, _last_perk_grid_rect, Callable(self, "_equipment_signature_contains_mouse"), _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects)
+	return CharacterInfoOverlayHoverGeometry.overlay_signature_contains_mouse(signature, mouse_pos, _last_passive_inventory_rect, _last_perk_grid_rect, Callable(self, "_equipment_signature_contains_mouse"), _last_skill_slot_start, _last_skill_slot_size, _last_skill_slot_stride, _last_skill_slot_count, _last_active_slot_start, _last_active_slot_size, _last_active_slot_stride, _last_active_slot_count, _last_passive_inventory_grid_rect, _last_passive_grid_start, _last_passive_grid_cell_size, _last_passive_grid_stride, _last_passive_grid_columns, _last_passive_grid_item_count, _last_perk_grid_start, _last_perk_grid_cell_size, _last_perk_grid_stride, _last_perk_grid_columns, _last_perk_grid_item_count, _last_lingpet_skill_icon_rects, _last_lingpet_ring_core_rects, _last_lingpet_stat_row_rects, _last_skill_slot_height)
 
 func _get_equipment_hover_signature(mouse_pos: Vector2) -> String:
 	var slot_index: int = _find_hovered_equipment_slot_index(mouse_pos)
@@ -462,15 +462,19 @@ func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect
 	var can_draw_skill_icon: bool = icon_renderer != null and icon_renderer.has_method("draw_icon")
 	var mouse_in_skill_rect: bool = rect.has_point(mouse_pos)
 
-	var slot_width_limit: float = (rect.size.x - 24.0 - float(max_slots - 1) * 8.0) / float(max_slots)
-	var slot_height_limit: float = rect.size.y - 60.0
-	var slot_size: float = min(60.0, max(36.0, min(slot_width_limit, slot_height_limit)))
+	# Skill cards: slot_size is the orb-well size; the card adds side pads plus the
+	# name/badge rows (SKILL_CARD_* in CharacterInfoOverlayLayoutUtils). Keep this
+	# formula identical to _prewarm_skills in the prewarm presenter (two-path trap).
+	var card_width_limit: float = (rect.size.x - 24.0 - float(max_slots - 1) * 12.0) / float(max_slots)
+	var slot_width_limit: float = card_width_limit - 24.0
+	var slot_height_limit: float = rect.size.y - 118.0
+	var slot_size: float = min(96.0, max(40.0, min(slot_width_limit, slot_height_limit)))
 	_update_skill_slot_layout(rect, slot_size, max_slots)
 	var fallback_skill_color: Color = CharacterInfoOverlayFormatter.skill_fallback_color(character_type, ACCENT_BLUE)
 	_refresh_skill_slot_draw_cache(equipped, skill_data, fallback_skill_color)
 	var hovered_skill_slot := -1
 	if mouse_in_skill_rect:
-		hovered_skill_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots)
+		hovered_skill_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots, _last_skill_slot_height)
 	return CharacterInfoOverlaySkillSlotPresenter.draw_overlay_slots(
 		canvas,
 		font,
@@ -640,11 +644,12 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	var levels: Dictionary = CharacterInfoOverlayValueUtils.get_dict(snapshot.get("runtime_skill_levels", {}))
 	if levels.is_empty() and not snapshot.has("runtime_skill_levels"):
 		levels = CharacterInfoOverlayValueUtils.get_dict(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "runtime_perk_levels", {}))
+	var slot_limit := 6
 	if catalog != null and catalog.has_method("get_perk_slot_status"):
 		# 융합 슬롯 환급 반영: registry를 slot context로 관통.
 		var slot_status: Dictionary = CharacterInfoOverlayValueUtils.get_dict(catalog.get_perk_slot_status(levels, registry))
 		var slot_count: int = int(slot_status.get("count", 0))
-		var slot_limit: int = int(slot_status.get("limit", 0))
+		slot_limit = int(slot_status.get("limit", slot_limit))
 		if slot_limit > 0:
 			var slot_text := "슬롯 %d/%d" % [slot_count, slot_limit]
 			var slot_width: float = _text_size(font, slot_text, 11).x
@@ -658,7 +663,13 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	var mouse_in_perk_grid_rect: bool = grid_rect.has_point(mouse_pos)
 	_last_perk_grid_rect = grid_rect
 	canvas.draw_rect(grid_rect, OVERLAY_GRID_FILL)
-	if acquired.is_empty():
+	var gap := 8.0
+	var display_slot_count: int = max(6, slot_limit)
+	var display_entries: Array = _build_perk_display_entries_cached(acquired, display_slot_count, _get_run_ring_core_tier_for_grid(registry))
+	# Recompute animation liveness from the just-refreshed display draw ids so the
+	# lifecycle update loop knows whether it must keep redrawing for an animated perk.
+	_perk_grid_has_animated_icon = _perk_grid_contains_animated_icon(icon_renderer, can_draw_perk_icon)
+	if display_entries.is_empty():
 		_set_perk_grid_hover_layout(Vector2.ZERO, 0.0, 0.0, 0, 0)
 		_draw_empty_state_hero(canvas, _empty_perk_hero_texture, grid_rect, -74.0, 0.52, 76.0, 132.0, 6.0)
 		_draw_text_centered_xy(canvas, font, "NO PERKS OBTAINED", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 - 6.0, 15, Color(ACCENT_BLUE.r, ACCENT_BLUE.g, ACCENT_BLUE.b, 0.85))
@@ -667,18 +678,33 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 		_last_perk_content_height = grid_rect.size.y
 		return hover_data
 
-	var columns: int = max(3, int(floor((grid_rect.size.x + 8.0) / 58.0)))
-	var cell_size: float = min(52.0, floor((grid_rect.size.x - float(columns - 1) * 8.0) / float(columns)))
-	var gap := 8.0
-	var rows: int = int(ceil(float(acquired.size()) / float(columns)))
+	# Wide redesign (mockup v2 2026-07-08): prefer a single centered row of hex slots
+	# across the widened panel; wrap back to the legacy 4-column grid only when the
+	# section is too narrow for readable single-row cells.
+	var entry_count: int = display_entries.size()
+	var single_row_cell: float = (grid_rect.size.x - float(max(0, entry_count - 1)) * gap) / float(max(1, entry_count))
+	var columns: int = entry_count if single_row_cell >= 44.0 else 4
+	var rows: int = int(ceil(float(entry_count) / float(columns)))
+	var cell_width_limit: float = floor((grid_rect.size.x - float(columns - 1) * gap) / float(columns))
+	var cell_height_limit: float = floor((grid_rect.size.y - float(max(0, rows - 1)) * gap) / float(max(1, rows)))
+	# Cells scale up to fill the section (width/height limits govern); the cap only
+	# stops comically large hexes on very large windows.
+	var cell_size: float = min(110.0, max(28.0, min(cell_width_limit, cell_height_limit)))
 	_last_perk_content_height = float(rows) * (cell_size + gap) - gap
 	var max_perk_scroll: float = max(0.0, _last_perk_content_height - _last_perk_grid_rect.size.y)
 	perk_scroll = clamp(perk_scroll, 0.0, max_perk_scroll)
 	var stride: float = cell_size + gap
-	_update_perk_grid_layout(grid_rect, cell_size, stride, columns, acquired.size(), perk_scroll)
+	# Center the hex block inside the section while it fits (no scroll); a scrolling
+	# grid keeps the legacy top-left origin so the scroll math stays untouched.
+	var layout_rect := grid_rect
+	if max_perk_scroll <= 0.0:
+		var used_w: float = float(columns) * stride - gap
+		layout_rect.position.x += max(0.0, (grid_rect.size.x - used_w) * 0.5)
+		layout_rect.position.y += max(0.0, (grid_rect.size.y - _last_perk_content_height) * 0.5)
+	_update_perk_grid_layout(layout_rect, cell_size, stride, columns, entry_count, perk_scroll)
 	var hovered_perk_index := -1
 	if mouse_in_perk_grid_rect:
-		hovered_perk_index = CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, acquired.size())
+		hovered_perk_index = CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, display_entries.size())
 	hover_data = CharacterInfoOverlayPerkPresenter.draw_overlay_grid_cells(
 		canvas,
 		font,
@@ -701,6 +727,19 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 		CharacterInfoOverlayTextureDrawer.draw_scrollbar(canvas, _perk_scrollbar_track_rect, _perk_scrollbar_thumb_rect, OVERLAY_SCROLLBAR_TRACK, OVERLAY_PERK_SCROLLBAR_THUMB)
 	return hover_data
 
+
+# True when any padded perk-grid cell renders an animated (sheet-backed) icon.
+# Scans the already-built display draw ids (empty slots are ""), so it is O(slots)
+# and only touched on the ~9x/sec animation redraws it enables.
+func _perk_grid_contains_animated_icon(icon_renderer: Object, can_draw_perk_icon: bool) -> bool:
+	if not can_draw_perk_icon or icon_renderer == null or not icon_renderer.has_method("has_animated_icon"):
+		return false
+	for id_value in _acquired_perk_draw_id_cache:
+		var perk_id: String = str(id_value)
+		if perk_id != "" and bool(icon_renderer.has_animated_icon(perk_id)):
+			return true
+	return false
+
 func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], mouse_pos: Vector2 = Vector2.INF, hover_data: Dictionary = {}, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
 	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "chart", SECTION_GLYPH_COLOR)
@@ -718,9 +757,25 @@ func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect
 		active_item_slots_override,
 		rect.has_point(mouse_pos)
 	)
-	var lingpet_rows: Array = _build_lingpet_stats(owner)
 	var row_count: int = _stats_row_count
+	if _layout_lingpet_stats_rect.size != Vector2.ZERO:
+		# Redesign (mockup v2 2026-07-08): lingpet stats live in their own right-column
+		# box (_draw_lingpet_stats_panel, drawn BEFORE this panel so its drawer clears
+		# the shared hover-rect list first) -- this panel renders player rows only.
+		var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 38.0, rect.size.x - 24.0, rect.size.y - 50.0)
+		return CharacterInfoOverlayStatsPresenter.draw_cached_player_stat_rows(canvas, font, "플레이어 능력치", inner_rect, row_count, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE, mouse_pos, hover_data, _last_lingpet_stat_row_rects)
+	var lingpet_rows: Array = _build_lingpet_stats(owner)
 	return CharacterInfoOverlayStatsPresenter.draw_stat_sections(canvas, font, rect, row_count, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, lingpet_rows, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
+
+
+# Right-column lingpet stats box (mockup v2 2026-07-08). Must draw BEFORE the player
+# stats panel: draw_lingpet_stat_rows CLEARS the shared hover-rect list and the player
+# rows then append into it (the same protocol draw_stat_sections relied on).
+func _draw_lingpet_stats_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary) -> Dictionary:
+	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 10.0, rect.size.x - 24.0, rect.size.y - 22.0)
+	return CharacterInfoOverlayStatsPresenter.draw_lingpet_stat_rows(canvas, font, "링펫 능력치", _build_lingpet_stats(owner), inner_rect, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
+
 	# 소스별 증감 내역(breakdown)은 툴팁 전용이라 마우스가 이 패널 위에 있을
 	# 때만 계산한다 — 링펫 동반 시 패널이 상시 redraw되므로 hover 게이팅으로
 	# build-then-discard 비용을 막는다 (2026-07-11 리뷰 P2).

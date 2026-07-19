@@ -151,18 +151,26 @@ static func format_plain_number(value: float) -> String:
 
 
 static func perk_level_text(perk: Dictionary) -> String:
-	# 라벨은 렌더 시점에 LanguageSettings로 해석한다 — 캐시된 한국어
-	# 리터럴이 언어 전환 후에도 남는 것을 막는다.
-	if int(perk.get("max_level", 1)) == 1 and str(perk.get("character_restriction", "")) != "":
-		return LanguageSettings.translate_text("해금")
+	# 단일 레벨(max_level==1) 퍽은 "Lv.1"이 노이즈라 태그로 대체: 해금(캐릭터
+	# 제한)/신화(신화 레어리티)/고유(그 외 — 2026-07-09 문구 확정). 라벨은
+	# 렌더 시점에 LanguageSettings로 해석한다 — 캐시된 한국어 리터럴이 언어
+	# 전환 후에도 남는 것을 막는다.
 	if int(perk.get("max_level", 1)) == 1:
+		if str(perk.get("character_restriction", "")) != "":
+			return LanguageSettings.translate_text("해금")
+		if str(perk.get("rarity", "")) == "mythic":
+			return LanguageSettings.translate_text("신화")
 		return LanguageSettings.translate_text("고유")
 	return "Lv.%d" % int(perk.get("level", 1))
 
 
 static func perk_level_color(perk: Dictionary, accent_gold: Color) -> Color:
-	if int(perk.get("max_level", 1)) == 1 and str(perk.get("character_restriction", "")) != "":
-		return Color(120.0 / 255.0, 1.0, 210.0 / 255.0)
+	if int(perk.get("max_level", 1)) == 1:
+		if str(perk.get("character_restriction", "")) != "":
+			return Color(120.0 / 255.0, 1.0, 210.0 / 255.0)
+		if str(perk.get("rarity", "")) == "mythic":
+			return Color(1.0, 0.84, 0.32)
+		return Color(0.74, 0.64, 1.0)
 	return accent_gold
 
 

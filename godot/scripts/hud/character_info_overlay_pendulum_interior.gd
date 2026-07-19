@@ -10,6 +10,7 @@ const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_pr
 const LingpetDecoder := preload("res://scripts/lingpet/lingpet_decoder.gd")
 const LingpetLanguageCatalog := preload("res://scripts/lingpet/lingpet_language_catalog.gd")
 const LingpetLanguageRichText := preload("res://scripts/lingpet/lingpet_language_rich_text.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const LINE_SECONDS := 4.8
@@ -57,7 +58,7 @@ const CLOSE_FILL_COLOR := Color(0.02, 0.05, 0.07, 0.94)
 const CLOSE_GOLD_COLOR := Color(1.0, 0.86, 0.60, 0.96)
 const CLOSE_HOVER_FILL_COLOR := Color(0.08, 0.18, 0.20, 0.98)
 const CLOSE_HOVER_GOLD_COLOR := Color(1.0, 0.95, 0.76, 1.0)
-const MAX_RING_CORE_TIER_DISPLAY := 6
+const MAX_RING_CORE_TIER_DISPLAY := LingpetRingCoreRules.MAX_RING_CORE_TIER
 var active := false
 var pet_id := ""
 var ring_core_tier := 0

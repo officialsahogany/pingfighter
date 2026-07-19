@@ -104,7 +104,8 @@ static func overlay_signature_contains_mouse(
 	perk_count: int,
 	lingpet_skill_rects: Array[Rect2],
 	lingpet_ring_core_rects: Array[Rect2],
-	lingpet_stat_rects: Array[Rect2]
+	lingpet_stat_rects: Array[Rect2],
+	skill_height: float = -1.0
 ) -> bool:
 	if signature == "passive_inventory":
 		return passive_inventory_rect.has_point(mouse_pos)
@@ -119,7 +120,7 @@ static func overlay_signature_contains_mouse(
 		"equipment":
 			return bool(equipment_contains_callable.call(key_text, mouse_pos))
 		"skill":
-			return cached_linear_signature_contains_mouse(key_text, mouse_pos, skill_start, skill_size, skill_stride, skill_count)
+			return cached_linear_signature_contains_mouse(key_text, mouse_pos, skill_start, skill_size, skill_stride, skill_count, skill_height)
 		"active_item":
 			return cached_linear_signature_contains_mouse(key_text, mouse_pos, active_start, active_size, active_stride, active_count)
 		"passive_item":
@@ -165,7 +166,8 @@ static func overlay_hover_signature(
 	perk_count: int,
 	lingpet_skill_rects: Array[Rect2],
 	lingpet_ring_core_rects: Array[Rect2],
-	lingpet_stat_rects: Array[Rect2]
+	lingpet_stat_rects: Array[Rect2],
+	skill_height: float = -1.0
 ) -> String:
 	if last_hover_signature.find(":") >= 0 and bool(hover_contains_callable.call(last_hover_signature, mouse_pos)):
 		return last_hover_signature
@@ -174,7 +176,7 @@ static func overlay_hover_signature(
 		if equipment_signature != "":
 			return equipment_signature
 	if skill_rect.has_point(mouse_pos):
-		var skill_signature: String = get_cached_linear_hover_signature(mouse_pos, skill_start, skill_size, skill_stride, skill_count, "skill")
+		var skill_signature: String = get_cached_linear_hover_signature(mouse_pos, skill_start, skill_size, skill_stride, skill_count, "skill", skill_height)
 		if skill_signature != "":
 			return skill_signature
 	if active_rect.has_point(mouse_pos):
@@ -244,9 +246,10 @@ static func get_cached_linear_hover_signature(
 	slot_size: float,
 	stride: float,
 	slot_count: int,
-	prefix: String
+	prefix: String,
+	slot_height: float = -1.0
 ) -> String:
-	var index: int = get_cached_linear_hover_index(mouse_pos, start, slot_size, stride, slot_count)
+	var index: int = get_cached_linear_hover_index(mouse_pos, start, slot_size, stride, slot_count, slot_height)
 	if index < 0:
 		return ""
 	return prefix + ":" + str(index)
@@ -257,11 +260,12 @@ static func cached_linear_signature_contains_mouse(
 	start: Vector2,
 	slot_size: float,
 	stride: float,
-	slot_count: int
+	slot_count: int,
+	slot_height: float = -1.0
 ) -> bool:
 	if not key_text.is_valid_int():
 		return false
-	var index: int = get_cached_linear_hover_index(mouse_pos, start, slot_size, stride, slot_count)
+	var index: int = get_cached_linear_hover_index(mouse_pos, start, slot_size, stride, slot_count, slot_height)
 	return index >= 0 and index == int(key_text)
 
 static func get_cached_linear_hover_index(
@@ -269,9 +273,10 @@ static func get_cached_linear_hover_index(
 	start: Vector2,
 	slot_size: float,
 	stride: float,
-	slot_count: int
+	slot_count: int,
+	slot_height: float = -1.0
 ) -> int:
-	return get_hovered_linear_slot_index(mouse_pos, start.x, start.y, slot_size, stride, slot_count)
+	return get_hovered_linear_slot_index(mouse_pos, start.x, start.y, slot_size, stride, slot_count, slot_height)
 
 static func find_hovered_rect_key(rects: Dictionary, mouse_pos: Vector2) -> Variant:
 	for key_value in rects:
@@ -282,17 +287,22 @@ static func find_hovered_rect_key(rects: Dictionary, mouse_pos: Vector2) -> Vari
 				return key_value
 	return null
 
+# slot_size is the slot WIDTH (x gap rejection). slot_height covers non-square
+# slots (skill cards are taller than wide); it defaults to slot_size so square
+# consumers (active items) keep the original single-value contract.
 static func get_hovered_linear_slot_index(
 	mouse_pos: Vector2,
 	start_x: float,
 	start_y: float,
 	slot_size: float,
 	stride: float,
-	slot_count: int
+	slot_count: int,
+	slot_height: float = -1.0
 ) -> int:
 	if slot_count < 1 or slot_size <= 0.0 or stride <= 0.0:
 		return -1
-	if mouse_pos.y < start_y or mouse_pos.y >= start_y + slot_size:
+	var row_height: float = slot_height if slot_height > 0.0 else slot_size
+	if mouse_pos.y < start_y or mouse_pos.y >= start_y + row_height:
 		return -1
 	var slot_index: int = int(floor((mouse_pos.x - start_x) / stride))
 	if slot_index < 0 or slot_index >= slot_count:

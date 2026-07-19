@@ -144,6 +144,11 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 		sample_start = _perf_begin(perf_logger)
 		hover_data = target.call("_draw_active_items", canvas, owner, registry, active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)
 		_perf_end(perf_logger, "character_info.active_items", sample_start)
+	else:
+		target.set("_last_active_items_rect", Rect2())
+		target.set("_last_active_slot_count", 0)
+		target.set("_last_active_slot_size", 0.0)
+		target.set("_last_active_slot_stride", 0.0)
 
 	sample_start = _perf_begin(perf_logger)
 	hover_data = target.call("_draw_perk_grid", canvas, owner, registry, layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, CharacterInfoOverlayValueUtils.get_array(skill_snapshot.get("equipped_skills", [])))
@@ -163,6 +168,14 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 	target.set("_lingpet_panel_live2d_redraw_active", lingpet_panel_live2d_active)
 	hover_data = CharacterInfoOverlayLingpetPresenter.draw_panel(canvas, font, layout_lingpet_rect, lingpet_snapshot, mouse_pos, hover_data, lingpet_skill_icon_rects, lingpet_unlock_options, lingpet_unlock_card_rects, lingpet_ring_core_rects, lingpet_slot_tab_rects, lingpet_art_texture_cache, lingpet_skill_icon_texture_cache, empty_ringpet_hero_texture, section_color, section_border, overlay_grid_fill, stat_buff_color, overlay_grid_empty_text, accent_blue, accent_gold, text_soft, overlay_slot_fill, fallback_symbol_ring_segments, ui_text_scale, Callable(target, "_wrap_text_to_width"), lingpet_hatch_required_hits, float(target.get("lingpet_panel_live2d_time")))
 	_perf_end(perf_logger, "character_info.lingpet", sample_start)
+
+	# Lingpet stats box (right column). Drawn BEFORE the player stats panel because its
+	# drawer clears the shared hover-rect list that the player rows then append into.
+	var lingpet_stats_rect_value: Variant = target.get("_layout_lingpet_stats_rect")
+	if lingpet_stats_rect_value is Rect2 and (lingpet_stats_rect_value as Rect2).size != Vector2.ZERO:
+		sample_start = _perf_begin(perf_logger)
+		hover_data = target.call("_draw_lingpet_stats_panel", canvas, owner, lingpet_stats_rect_value, font, mouse_pos, hover_data)
+		_perf_end(perf_logger, "character_info.lingpet_stats", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	hover_data = target.call("_draw_stats_panel", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)

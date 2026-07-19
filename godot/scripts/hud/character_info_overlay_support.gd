@@ -1,6 +1,9 @@
 extends "res://scripts/hud/character_info_overlay_state.gd"
 
 const CharacterInfoOverlayDragController := preload("res://scripts/hud/character_info_overlay_drag_controller.gd")
+const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+
+const RING_CORE_CELL_COLOR := Color(1.0, 210.0 / 255.0, 82.0 / 255.0)
 
 func _drag_handle_left_press(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
 	return CharacterInfoOverlayDragController.handle_left_press(self, mouse_pos, owner, registry)
@@ -82,8 +85,8 @@ func _draw_dual_item_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Ve
 func _tooltip_subtitle_color(color: Color) -> Color:
 	return CharacterInfoOverlayValueUtils.cached_alpha_color(self, color, _tooltip_subtitle_color_source, _tooltip_subtitle_color_cache, "_tooltip_subtitle_color_source", "_tooltip_subtitle_color_cache", 0.95)
 
-func _set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null) -> Dictionary:
-	return CharacterInfoOverlayValueUtils.set_hover_data(data, title, subtitle, body, color, title_color, anchor_rect, roll_options)
+func _set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null, right_header: String = "") -> Dictionary:
+	return CharacterInfoOverlayValueUtils.set_hover_data(data, title, subtitle, body, color, title_color, anchor_rect, roll_options, right_header)
 
 func _build_tooltip_entry_lines(font: Font, entries: Array, size: int, max_width: float, max_lines: int) -> Array:
 	return CharacterInfoOverlayValueUtils.build_overlay_tooltip_entry_lines(self, font, entries, size, max_width, max_lines, _tooltip_entry_lines_cache_entries_hash, _tooltip_entry_lines_cache_size, _tooltip_entry_lines_cache_width, _tooltip_entry_lines_cache_max_lines, _tooltip_entry_lines_cache, _tooltip_entry_line_dict_cache, _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, Callable(self, "_wrap_text_to_width"), ACCENT_GOLD)
@@ -220,11 +223,62 @@ func _refresh_active_item_label_cache(slots: Array) -> void:
 	CharacterInfoOverlayValueUtils.refresh_active_item_label_cache(slots, _active_item_catalog, _active_item_label_cache_names, _active_item_label_cache_raw_display_names, _active_item_display_name_cache, _active_item_trimmed_label_cache, Callable(CharacterInfoOverlayFormatter, "trim_label"))
 
 func _build_acquired_perks_cached(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null, equipped_skills_for_filter: Array = []) -> Array:
-	return CharacterInfoOverlayPerkPresenter.build_overlay_acquired_perks_cached(self, levels, catalog, runtime_state, runtime_snapshot_override, equipped_skills_for_filter, _acquired_perk_cache_hash, _acquired_perk_cache_ready, _acquired_perk_cache, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, ACCENT_BLUE, ACCENT_GOLD)
+	return CharacterInfoOverlayPerkPresenter.build_overlay_acquired_perks_cached(self, levels, catalog, runtime_state, runtime_snapshot_override, equipped_skills_for_filter, _acquired_perk_cache_hash, _acquired_perk_cache_ready, _acquired_perk_cache, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, _acquired_perk_hover_detail_cache, ACCENT_BLUE, ACCENT_GOLD)
+
+# Padded slot-grid display entries (acquired perks + run ring-core tier cells + empty
+# hex cells up to the slot budget). build_overlay_acquired_perks_cached returns the
+# SAME cached Array instance until its hash-keyed rebuild, so instance identity + the
+# slot budget + the ring-core tier is an exact change key -- gating here keeps the
+# per-draw path free of dictionary allocation and keeps the typed draw arrays
+# refreshed only when the padded entries actually change.
+func _build_perk_display_entries_cached(acquired: Array, display_slot_count: int, ring_core_tier: int = 0) -> Array:
+	if is_same(acquired, _perk_display_entries_source) and display_slot_count == _perk_display_entries_slot_count and ring_core_tier == _perk_display_entries_ring_core_tier:
+		return _perk_display_entries_cache
+	_perk_display_entries_source = acquired
+	_perk_display_entries_slot_count = display_slot_count
+	_perk_display_entries_ring_core_tier = ring_core_tier
+	var display_source: Array = acquired
+	if ring_core_tier > 0:
+		display_source = acquired.duplicate()
+		display_source.append_array(_build_ring_core_display_entries(ring_core_tier))
+	_perk_display_entries_cache = CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(display_source, display_slot_count)
+	CharacterInfoOverlayPerkPresenter.refresh_draw_arrays(_perk_display_entries_cache, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, _acquired_perk_hover_detail_cache, ACCENT_BLUE, Callable(CharacterInfoOverlayFormatter, "perk_level_text"), Callable(CharacterInfoOverlayFormatter, "perk_level_color").bind(ACCENT_GOLD))
+	return _perk_display_entries_cache
+
+
+# The run ring-core tier consumes one perk slot per tier (Slice B slot bridge), so the
+# TAB grid shows one gold cell per acquired tier -- mirroring the dash-token
+# one-cell-per-slot read. Uses the perk-card tier art (lingpet_ring_core_upgrade_tier_N).
+func _build_ring_core_display_entries(ring_core_tier: int) -> Array:
+	var entries: Array = []
+	var clamped_tier: int = clampi(ring_core_tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
+	for tier in range(1, clamped_tier + 1):
+		entries.append({
+			"id": "lingpet_ring_core_upgrade",
+			"_ring_core_cell": true,
+			"_draw_id": "lingpet_ring_core_upgrade_tier_%d" % tier,
+			"_draw_color": RING_CORE_CELL_COLOR,
+			"_draw_border_color": Color(RING_CORE_CELL_COLOR.r, RING_CORE_CELL_COLOR.g, RING_CORE_CELL_COLOR.b, 0.48),
+			"_draw_hover_border_color": Color(RING_CORE_CELL_COLOR.r, RING_CORE_CELL_COLOR.g, RING_CORE_CELL_COLOR.b, 0.92),
+			"_level_text": "Lv.%d" % tier,
+			"_level_color": RING_CORE_CELL_COLOR,
+			"name": "링코어 강화 Lv.%d" % tier,
+			"description": "이번 런의 링코어 티어 %d — 친밀도 상한 Lv.%d 해금. 퍽 슬롯 1칸을 사용합니다." % [tier, LingpetRingCoreRules.get_ring_core_cap_for_tier(tier)],
+		})
+	return entries
+
+
+func _get_run_ring_core_tier_for_grid(registry: Object) -> int:
+	if registry == null or not registry.has_method("get_instance"):
+		return 0
+	var runtime: Object = registry.get_instance("lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("get_run_ring_core_tier"):
+		return 0
+	return maxi(0, int(runtime.get_run_ring_core_tier()))
 
 func _build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null, effective_levels_override: Dictionary = {}, equipped_skills_for_filter: Array = []) -> Array:
 	var result: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels_override, equipped_skills_for_filter, ACCENT_BLUE, ACCENT_GOLD)
-	CharacterInfoOverlayPerkPresenter.refresh_draw_arrays(result, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, ACCENT_BLUE, Callable(CharacterInfoOverlayFormatter, "perk_level_text"), Callable(CharacterInfoOverlayFormatter, "perk_level_color").bind(ACCENT_GOLD))
+	CharacterInfoOverlayPerkPresenter.refresh_draw_arrays(result, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, _acquired_perk_hover_detail_cache, ACCENT_BLUE, Callable(CharacterInfoOverlayFormatter, "perk_level_text"), Callable(CharacterInfoOverlayFormatter, "perk_level_color").bind(ACCENT_GOLD))
 	return result
 
 func _wrap_text_to_width(font: Font, text: String, size: int, max_width: float, max_lines: int) -> Array:

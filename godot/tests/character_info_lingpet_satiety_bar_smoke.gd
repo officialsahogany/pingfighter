@@ -23,13 +23,16 @@ func _run() -> void:
 
 func _verify_source_contract() -> void:
 	var presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+	var vitality_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_vitality_projection.gd")
 	var frame_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_frame_presenter.gd")
 	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 50.0") >= 0, "TAB lingpet affinity band should be expanded for the satiety strip")
 	_expect(presenter_source.find("max(24.0, affinity_band_h - 10.0)") >= 0, "TAB lingpet affinity rect should keep the 42px unlock-choice gate after the expanded band")
-	_expect(presenter_source.find("satiety_pct") >= 0, "TAB satiety strip should consume the active runtime satiety snapshot")
-	_expect(presenter_source.find("companion_exhausted") >= 0, "TAB satiety strip should distinguish exhausted 0 from no-pet 0")
-	_expect(presenter_source.find("satiety_exhaustion_ratio") >= 0, "TAB satiety strip should keep the exhaustion telegraph ratio in the render contract")
+	_expect(vitality_source.find("satiety_pct") >= 0, "TAB vitality projection should consume the active runtime satiety snapshot")
+	_expect(vitality_source.find("companion_exhausted") >= 0, "TAB vitality projection should distinguish exhausted 0 from no-pet 0")
+	_expect(vitality_source.find("satiety_exhaustion_ratio") >= 0, "TAB vitality projection should keep the exhaustion telegraph ratio in the render contract")
 	_expect(presenter_source.find("lingpet_satiety_pct") < 0, "TAB satiety strip should not read the owner-only lingpet_satiety_pct key")
+	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot") >= 0, "TAB presenter should delegate runtime satiety merging")
+	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.get_strip_state") >= 0, "TAB presenter should delegate satiety state projection")
 	_expect(frame_source.find("merge_runtime_satiety_snapshot") >= 0, "TAB frame presenter should merge the existing lingpet runtime snapshot into the panel snapshot")
 	_expect(frame_source.find("lingpet_satiety_pct") < 0, "TAB frame presenter should not read the owner-only lingpet_satiety_pct key")
 	# Bar hover tooltips: the caller must thread mouse/hover into draw_affinity_status

@@ -503,6 +503,8 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	var after_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	var after_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(after_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(int(after_snapshot.get("affinity_level", 0)) == 2, "TAB panel snapshot should read affinity Lv.2 through the schema-gated owner after a live level-up")
+	# 주의: 백업(7/9) 계약은 +3 커브(21발→2.0/56.0)였으나 현행 런타임은
+	# 재구축 flat 50 — 커브 복원은 친밀도 트랙 후속. 여기선 현행 계약 유지.
 	_expect(is_equal_approx(float(after_snapshot.get("affinity_points", -1.0)), 0.0), "TAB panel snapshot should read post-level-up affinity points")
 	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 50.0), "TAB panel snapshot should read the Lv.2 next requirement (flat 50)")
 	_expect(str(after_snapshot.get("affinity_next_label", "")) != "", "TAB panel snapshot should read the next affinity reward label")
@@ -527,7 +529,7 @@ func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
 	_expect(presenter_source.find("var ring_core_row_rect := Rect2") >= 0, "TAB lingpet ring-core slot should live in its own row, not inside the affinity band")
 	_expect(presenter_source.find("draw_affinity_status(canvas, font, affinity_rect") >= 0, "TAB lingpet affinity text should use the full affinity band width")
 	_expect(presenter_source.find("affinity_text_rect") < 0, "TAB lingpet affinity band should not keep the old ring-core inset")
-	_expect(layout_source.find("right_top_rect.size.x * 0.45") >= 0 and layout_source.find("250.0, 360.0") >= 0, "TAB layout should widen the lingpet column by shrinking the perk column")
+	_expect(layout_source.find("content_width * 0.30") >= 0 and layout_source.find("200.0, 380.0") >= 0, "TAB layout should give the lingpet panel its own full-height right column (2026-07-08 redesign)")
 	_expect(presenter_source.find("_draw_ring_core_and_chip_status") < 0, "TAB lingpet panel should not keep the old inline ring-core/chip band renderer")
 	_expect(presenter_source.find("var tier_text := \"T%d\" % tier if tier > 0 else") >= 0, "TAB lingpet ring-core row should keep the tier label inside the dedicated row")
 	_expect(presenter_source.find("skill_specs.size() + 1") < 0, "TAB lingpet skill rail should stay skill-only after ring-core moves into its own row")

@@ -2,6 +2,12 @@ extends RefCounted
 
 const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_info_overlay_owner_state.gd")
 
+# Animated perk-icon redraw cadence. Mirrors RuntimePerkIconRenderer.SHEET_FRAME_STEP_MS
+# (kept as a local literal so lifecycle need not preload the renderer). Only the redraw
+# rate depends on it, not correctness — a slight drift from the render step just changes
+# how often the animation is refreshed, never whether it plays.
+const PERK_ICON_ANIM_STEP_MS := 110
+
 
 static func open(target: Object, owner: Object = null, registry: Object = null, pause_active: bool = false, pause_owner: Object = null, pause_registry: Object = null) -> Dictionary:
 	target.set("active", true)
@@ -71,4 +77,21 @@ static func update(target: Object, delta: float, open_animation_duration: float)
 		return true
 	var should_redraw: bool = bool(target.get("_redraw_requested"))
 	target.set("_redraw_requested", false)
-	return should_redraw or live2d_redraw_active or pendulum_active
+	var animated_perk_redraw: bool = _consume_animated_perk_redraw(target)
+	return should_redraw or live2d_redraw_active or pendulum_active or animated_perk_redraw
+
+
+# Throttled redraw request that keeps sheet-backed (animated) perk icons playing in the
+# TAB panel without a mouse-move nudge. Returns true at most once per ~110ms animation
+# step (≈9x/sec) while an animated perk is on the grid, and false otherwise so an
+# all-static panel keeps zero redraw cost. Safe on the physics-paused TAB modal: it has
+# ample frame budget and the panel draw is fully cached — the same rationale the lingpet
+# Live2D / dowsing-pendulum live-content redraw paths already rely on.
+static func _consume_animated_perk_redraw(target: Object) -> bool:
+	if not bool(target.get("_perk_grid_has_animated_icon")):
+		return false
+	var step: int = int(Time.get_ticks_msec() / PERK_ICON_ANIM_STEP_MS)
+	if step == int(target.get("_perk_grid_anim_frame_step")):
+		return false
+	target.set("_perk_grid_anim_frame_step", step)
+	return true

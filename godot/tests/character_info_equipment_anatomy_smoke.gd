@@ -1,5 +1,7 @@
 extends SceneTree
 
+const SourceContractFunctionBody := preload("res://tests/source_contract_function_body.gd")
+
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 
 var _failures: Array[String] = []
@@ -369,7 +371,7 @@ func _verify_character_info_uses_anatomy_equipment_slots() -> void:
 	_expect(source.find("_update_perk_scrollbar_layout(grid_rect, max_perk_scroll)") >= 0, "perk scrollbar should reuse the computed max scroll")
 	_expect(source.find("var mouse_in_perk_grid_rect: bool = grid_rect.has_point(mouse_pos)") >= 0, "perk hover hit-tests should be section-gated")
 	_expect(source.find("var hovered_perk_index := -1") >= 0, "perk grid should resolve hovered perk index once")
-	_expect(source.find("hovered_perk_index = CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, acquired.size())") >= 0, "perk grid hover should use cached grid index math")
+	_expect(source.find("hovered_perk_index = CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, display_entries.size())") >= 0, "perk grid hover should use cached grid index math across padded slot cells")
 	_expect(perk_grid_draw_body.find("var hovered: bool = i == hovered_perk_index") >= 0, "perk grid draw loop should reuse the hovered perk index")
 	_expect(source.find("func _get_hovered_grid_index(") < 0, "character info should not keep the overlay grid hover index wrapper")
 	var prewarm_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
@@ -385,18 +387,7 @@ func _character_info_value_utils_contract_source() -> String:
 
 
 func _function_body(source: String, signature: String) -> String:
-	var start := source.find(signature)
-	if start < 0:
-		return ""
-	var next_func := source.find("\nfunc ", start + signature.length())
-	var next_static_func := source.find("\nstatic func ", start + signature.length())
-	var next_boundary := next_func
-	if next_boundary < 0 or (next_static_func >= 0 and next_static_func < next_boundary):
-		next_boundary = next_static_func
-	if next_boundary < 0:
-		return source.substr(start)
-	return source.substr(start, next_boundary - start)
-
+	return SourceContractFunctionBody.extract(source, signature)
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:

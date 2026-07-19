@@ -127,7 +127,7 @@ func _run() -> void:
 		_expect(ring_rect.size.x >= 54.0 and ring_rect.size.y >= 54.0, "ring-core slot should render at the enlarged row size")
 	_expect(str(probe.hover_data.get("title", "")) == "링코어", "hovering the row label area should resolve the ring-core tooltip")
 	_expect(str(probe.hover_data.get("subtitle", "")) == "T3", "ring-core tooltip should expose the run tier")
-	_expect(str(probe.hover_data.get("body", "")).find("Lv.15") >= 0, "ring-core tooltip should expose the T3 affinity cap")
+	_expect(str(probe.hover_data.get("body", "")).find("Lv.15") >= 0, "ring-core tooltip should expose the T3 affinity cap")  # 현행 룰 T3=15(백업 계약 30은 룰 트랙 소유)
 
 	var display_name := DisplayServer.get_name().to_lower()
 	if display_name.find("headless") >= 0:

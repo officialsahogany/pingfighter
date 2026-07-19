@@ -1,5 +1,14 @@
 extends RefCounted
 
+# Skill cards (2026-07-08 TAB redesign): each equipped-skill slot renders as a
+# vertical card -- orb well on top, nameplate row, then a type badge -- so the
+# cached slot rect is the FULL card and the icon rect is the orb well inside it.
+# slot_size stays the orb-well size; the card adds side pads and the name/badge rows.
+const SKILL_CARD_SIDE_PAD := 12.0
+const SKILL_CARD_TOP_PAD := 12.0
+const SKILL_CARD_EXTRA_H := 70.0
+const SKILL_CARD_GAP := 12.0
+
 
 static func refresh_skill_slot_layout_arrays(
 	rect: Rect2,
@@ -12,22 +21,26 @@ static func refresh_skill_slot_layout_arrays(
 	center_x_cache: Array[float]
 ) -> Dictionary:
 	_resize_arrays([rect_cache, icon_rect_cache, fallback_rect_cache, center_cache, center_x_cache], max_slots)
-	var skill_slot_step: float = slot_size + 8.0
-	var start_x: float = rect.position.x + (rect.size.x - (slot_size * float(max_slots) + 8.0 * float(max_slots - 1))) * 0.5
-	var slot_y: float = rect.position.y + 42.0
-	var skill_icon_size: float = slot_size - 20.0
-	var fallback_icon_size: float = slot_size - 26.0
+	var card_w: float = slot_size + SKILL_CARD_SIDE_PAD * 2.0
+	var card_h: float = slot_size + SKILL_CARD_EXTRA_H
+	var stride: float = card_w + SKILL_CARD_GAP
+	var start_x: float = rect.position.x + (rect.size.x - (card_w * float(max_slots) + SKILL_CARD_GAP * float(max_slots - 1))) * 0.5
+	var card_y: float = rect.position.y + 40.0
+	var fallback_icon_size: float = slot_size - 10.0
 	for i in range(max_slots):
-		var slot_x: float = start_x + float(i) * skill_slot_step
-		rect_cache[i] = Rect2(slot_x, slot_y, slot_size, slot_size)
-		icon_rect_cache[i] = Rect2(slot_x + (slot_size - skill_icon_size) * 0.5, slot_y + 5.0, skill_icon_size, skill_icon_size)
-		fallback_rect_cache[i] = Rect2(slot_x + (slot_size - fallback_icon_size) * 0.5, slot_y + 9.0, fallback_icon_size, fallback_icon_size)
-		center_x_cache[i] = slot_x + slot_size * 0.5
-		center_cache[i] = Vector2(center_x_cache[i], slot_y + slot_size * 0.5)
+		var card_x: float = start_x + float(i) * stride
+		rect_cache[i] = Rect2(card_x, card_y, card_w, card_h)
+		var icon_y: float = card_y + SKILL_CARD_TOP_PAD
+		icon_rect_cache[i] = Rect2(card_x + (card_w - slot_size) * 0.5, icon_y, slot_size, slot_size)
+		fallback_rect_cache[i] = Rect2(card_x + (card_w - fallback_icon_size) * 0.5, icon_y + 5.0, fallback_icon_size, fallback_icon_size)
+		center_x_cache[i] = card_x + card_w * 0.5
+		center_cache[i] = Vector2(center_x_cache[i], icon_y + slot_size * 0.5)
 	return {
-		"start": Vector2(start_x, slot_y),
-		"stride": skill_slot_step,
-		"label_y": slot_y + slot_size - 11.0,
+		"start": Vector2(start_x, card_y),
+		"stride": stride,
+		"card_width": card_w,
+		"card_height": card_h,
+		"label_y": card_y + SKILL_CARD_TOP_PAD + slot_size + 18.0,
 	}
 
 

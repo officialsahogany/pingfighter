@@ -66,7 +66,7 @@ static func fallback_symbol_letter(id_text: String, letter_cache: Dictionary, ca
 	return letter
 
 
-static func set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null) -> Dictionary:
+static func set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null, right_header: String = "") -> Dictionary:
 	data.clear()
 	data["title"] = title
 	data["subtitle"] = subtitle
@@ -79,6 +79,8 @@ static func set_hover_data(data: Dictionary, title: String, subtitle: String, bo
 	if roll_options is Array:
 		if not (roll_options as Array).is_empty():
 			data["roll_options"] = roll_options
+	if right_header != "":
+		data["right_header"] = right_header
 	return data
 
 

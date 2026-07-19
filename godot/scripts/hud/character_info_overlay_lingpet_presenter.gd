@@ -2,6 +2,7 @@ extends RefCounted
 
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayLingpetSnapshotBuilder := preload("res://scripts/hud/character_info_overlay_lingpet_snapshot_builder.gd")
+const CharacterInfoOverlayLingpetVitalityProjection := preload("res://scripts/hud/character_info_overlay_lingpet_vitality_projection.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
@@ -391,44 +392,13 @@ static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity
 
 
 static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
-	if runtime_snapshot.has("satiety_pct"):
-		panel_snapshot["satiety_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
-	if runtime_snapshot.has("companion_exhausted"):
-		panel_snapshot["companion_exhausted"] = bool(runtime_snapshot.get("companion_exhausted", false))
-	if runtime_snapshot.has("satiety_exhaustion_ratio"):
-		panel_snapshot["satiety_exhaustion_ratio"] = clampf(float(runtime_snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
-	return panel_snapshot
+	# 사후 리팩토링 정합: 포만도 병합은 프로젝션 모듈이 단일 소유(씰 계약).
+	return CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot(panel_snapshot, runtime_snapshot)
 
 
 static func get_satiety_strip_state(snapshot: Dictionary) -> Dictionary:
-	var has_active_companion := str(snapshot.get("state", "")) == "companion" and str(snapshot.get("pet_id", "")).strip_edges() != ""
-	if not has_active_companion:
-		return {
-			"visible": false,
-			"pct": 0,
-			"exhausted": false,
-			"ratio": 0.0,
-			"label": "",
-			"value": "",
-			"color_key": "hidden",
-		}
-	var pct := clampi(int(snapshot.get("satiety_pct", 0)), 0, 100)
-	var exhausted := bool(snapshot.get("companion_exhausted", false))
-	var ratio := clampf(float(snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
-	var color_key := "normal"
-	if exhausted or pct <= SATIETY_CRITICAL_THRESHOLD:
-		color_key = "critical"
-	elif pct <= SATIETY_WARNING_THRESHOLD:
-		color_key = "warning"
-	return {
-		"visible": true,
-		"pct": pct,
-		"exhausted": exhausted,
-		"ratio": ratio,
-		"label": "포만도",
-		"value": "탈진 Zzz" if exhausted else "%d%%" % pct,
-		"color_key": color_key,
-	}
+	# 사후 리팩토링 정합: 스트립 상태 판정은 프로젝션 모듈이 단일 소유(씰 계약).
+	return CharacterInfoOverlayLingpetVitalityProjection.get_strip_state(snapshot)
 
 
 static func get_satiety_strip_layout_for_tests(font: Font, rect: Rect2, snapshot: Dictionary, ui_text_scale: float) -> Dictionary:

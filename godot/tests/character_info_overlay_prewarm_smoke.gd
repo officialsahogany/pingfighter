@@ -1,5 +1,7 @@
 extends SceneTree
 
+const SourceContractFunctionBody := preload("res://tests/source_contract_function_body.gd")
+
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterInfoOverlayActiveItemPresenter := preload("res://scripts/hud/character_info_overlay_active_item_presenter.gd")
 const CharacterInfoOverlayHoverGeometry := preload("res://scripts/hud/character_info_overlay_hover_geometry.gd")
@@ -8,6 +10,7 @@ const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/charact
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayPassiveItemPresenter := preload("res://scripts/hud/character_info_overlay_passive_item_presenter.gd")
 const CharacterInfoOverlayPrewarmPresenter := preload("res://scripts/hud/character_info_overlay_prewarm_presenter.gd")
+const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -99,6 +102,14 @@ class FakePerkCatalog:
 				2: "%s Lv.2" % skill_id,
 			},
 		}
+
+	func get_slot_cost_for_level(perk_data: Dictionary, level: int) -> int:
+		if bool(perk_data.get("slot_cost_equals_level", false)):
+			return max(0, level)
+		return int(perk_data.get("slot_cost", 1))
+
+	func get_perk_slot_status(_runtime_levels: Dictionary, _registry: Object = null) -> Dictionary:
+		return {"count": 0, "limit": 8}
 
 
 class FakeEffectiveRuntimeState:
@@ -233,10 +244,10 @@ func _init() -> void:
 	var layout_overlay := CharacterInfoOverlay.new()
 	layout_overlay.prewarm_assets(FakeOwner.new(), _registry, Callable(), false, Vector2.ZERO, ["maribo"])
 	_expect(layout_overlay._layout_panel_rect.size != Vector2.ZERO, "character info prewarm should prepare the frame layout when a viewport is available")
-	_expect(layout_overlay._layout_equipment_rect.size != Vector2.ZERO, "character info should keep the equipment slot panel visible")
+	_expect(layout_overlay._layout_equipment_rect.size == Vector2.ZERO, "character info should zero-hide the equipment slot panel (passive-item retirement)")
 	_expect(layout_overlay._layout_skill_rect.size != Vector2.ZERO, "character info should keep the skill slot panel visible")
-	_expect(layout_overlay._layout_active_items_rect.size != Vector2.ZERO, "character info should keep the active item panel visible")
-	_expect(layout_overlay._layout_inventory_rect.size != Vector2.ZERO, "character info should keep the passive inventory panel visible")
+	_expect(layout_overlay._layout_active_items_rect == Rect2(), "character info must keep the active-item strip zero-hidden (reference-PNG authority)")
+	_expect(layout_overlay._layout_inventory_rect.size == Vector2.ZERO, "character info should zero-hide the passive inventory panel (passive-item retirement)")
 	_expect(layout_overlay._last_perk_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare perk grid bounds")
 	_expect(layout_overlay._layout_lingpet_rect.size != Vector2.ZERO, "character info prewarm should prepare the lingpet build panel")
 	_expect(layout_overlay._stats_row_cache.size() >= 8, "character info prewarm should prepare the compact live stat rows")
@@ -454,6 +465,48 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	var visible_unlocks: Array = unlock_overlay._build_acquired_perks_cached(unlock_levels, unlock_catalog, null, {}, [])
 	_expect(visible_unlocks.size() == 2, "unequipped unlock-skill perks should remain visible in the acquired perk grid")
 
+	var slot_catalog := FakePerkCatalog.new()
+	slot_catalog.data_by_id = {
+		"dash_amplification": {
+			"name": "Dash Token",
+			"icon_color": Color.RED,
+			"descriptions": {3: "Dash Token Lv.3"},
+			"slot_cost_equals_level": true,
+		},
+		"item_luck": {
+			"name": "Item Luck",
+			"icon_color": Color.WHITE,
+			"descriptions": {1: "Item Luck Lv.1"},
+		},
+		"affinity_chip": {
+			"name": "Affinity Chip",
+			"icon_color": Color(0.45, 0.75, 1.0),
+			"descriptions": {1: "Affinity Chip Lv.1"},
+			"slot_cost": 0,
+		},
+	}
+	var slotted: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks({"dash_amplification": 3, "item_luck": 1, "affinity_chip": 1}, slot_catalog)
+	var dash_cells := 0
+	var free_cells := 0
+	for perk in slotted:
+		if str(perk.get("id", "")) == "dash_amplification":
+			dash_cells += 1
+			_expect(bool(perk.get("_is_slot_cell", false)), "dash token acquired grid entries should mark each occupied slot cell")
+			_expect(str(perk.get("_level_text", "")) == "", "dash token slot-cell badges should be hidden in the TAB grid")
+		if str(perk.get("id", "")) == "affinity_chip":
+			free_cells += 1
+			_expect(bool(perk.get("_slot_free_cell", false)), "free perks should be marked so they do not consume TAB slot cells")
+	_expect(dash_cells == 3, "dash token Lv.3 should occupy three visible TAB perk cells")
+	_expect(free_cells == 1, "free acquired perks should remain visible without occupying TAB slot cells")
+	var slot_entries: Array = CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(slotted, 6)
+	_expect(slot_entries.size() == 7, "TAB perk grid should keep six base slot cells plus non-slot free perk entries")
+	var empty_cells := 0
+	for perk in slot_entries:
+		if bool(perk.get("_empty_slot", false)):
+			empty_cells += 1
+			_expect(str(perk.get("_draw_id", "")) == "", "empty TAB perk slot cells should not draw a perk icon")
+	_expect(empty_cells == 2, "TAB perk grid should expose remaining empty slots after slotted perks")
+
 	var source := _character_info_overlay_source()
 	var perk_presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 	var text_width_cache_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_text_width_cache.gd")
@@ -483,6 +536,19 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(build_acquired_body.find("var draw_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get(\"icon_color\", accent_blue))") >= 0, "acquired perk cache should compute perk draw color once through value utils")
 	_expect(build_acquired_body.find("data[\"_draw_color\"] = draw_color") >= 0, "acquired perk cache should precompute perk draw color")
 	_expect(build_acquired_body.find("data[\"_draw_id\"] = skill_id") >= 0, "acquired perk cache should precompute perk draw id")
+	_expect(build_acquired_body.find("cell_data[\"_is_slot_cell\"] = true") >= 0, "acquired perk cache should expand multi-slot perks into explicit slot cells")
+	_expect(build_acquired_body.find("cell_data[\"_level_text\"] = \"\"") >= 0, "dash-token slot cells should hide per-cell level badges")
+	_expect(build_acquired_body.find("data[\"_slot_free_cell\"] = true") >= 0, "free acquired perks should be marked outside the slot budget")
+	_expect(perk_presenter_source.find("static func build_slot_grid_entries(acquired: Array, slot_count: int) -> Array:") >= 0, "TAB perk grid should have an explicit empty-slot padding helper")
+	_expect(perk_presenter_source.find("result.append_array(free_entries)") >= 0, "TAB perk grid should append free entries after the slot-budget cells")
+	_expect(perk_presenter_source.find("\"_empty_slot\": true") >= 0, "TAB perk grid padding should mark empty slot cells")
+	_expect(perk_grid_draw_body.find("if perk_id == \"\":") >= 0, "TAB perk grid should skip icons and hover data for empty slot cells")
+	_expect(perk_grid_draw_body.find("if level_text != \"\":") >= 0, "TAB perk grid should skip hidden slot-cell badges")
+	_expect(source.find("var slot_limit := 6") >= 0, "TAB perk grid should default to six visible slots")
+	_expect(source.find("CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(display_source, display_slot_count)") >= 0, "TAB perk grid should draw padded slot entries (acquired + ring-core cells) instead of only acquired perks")
+	_expect(source.find("var display_slot_count: int = max(6, slot_limit)") >= 0, "TAB perk grid should keep at least six slot cells before non-slot free entries")
+	_expect(source.find("_update_perk_grid_layout(layout_rect, cell_size, stride, columns, entry_count, perk_scroll)") >= 0, "TAB perk grid hover metrics should include empty slot cells (centered layout rect)")
+	_expect(source.find("CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, display_entries.size())") >= 0, "TAB perk grid hover should resolve against the padded slot-cell count")
 	_expect(source.find("func _should_hide_equipped_unlock_perk(") < 0, "acquired perk grid should not keep the unused equipped-unlock wrapper")
 	_expect(build_acquired_body.find("acquired_perk_data(skill_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)") >= 0, "acquired perk grid should delegate equipped unlock filtering to the presenter")
 	_expect(source.find("var _acquired_perk_draw_id_cache: Array[String] = []") >= 0, "acquired perk draw should keep typed id caches")
@@ -832,16 +898,24 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info layout cache should be keyed by view size"
 	)
 	_expect(
-		layout_source.find("target.set(\"_layout_equipment_rect\", section_rect(left_rect, 0.0, 0.58))") >= 0,
-		"character info layout should keep the equipment panel rect alive beside the lingpet layout"
+		layout_source.find("target.set(\"_layout_equipment_rect\", Rect2())") >= 0,
+		"character info layout should zero-hide the equipment panel (passive-item retirement)"
 	)
 	_expect(
-		layout_source.find("target.set(\"_layout_inventory_rect\", Rect2(") >= 0,
-		"character info layout should keep the passive inventory panel rect alive"
+		layout_source.find("target.set(\"_layout_skill_rect\", section_rect(left_rect, 0.0,") >= 0,
+		"character info layout should place the skill hero section at the top of the left column"
 	)
 	_expect(
-		layout_source.find("var left_rect := Rect2(") >= 0 and layout_source.find("var right_rect := Rect2(") >= 0,
-		"character info layout should build explicit player and lingpet columns"
+		layout_source.find("target.set(\"_layout_active_items_rect\", Rect2())") >= 0,
+		"character info layout must zero-hide the active-item strip (reference-PNG authority)"
+	)
+	_expect(
+		layout_source.find("target.set(\"_layout_inventory_rect\", Rect2())") >= 0,
+		"character info layout should zero-hide the passive inventory strip (passive-item retirement)"
+	)
+	_expect(
+		layout_source.find("var left_rect := Rect2(") >= 0,
+		"character info layout should build the skill/perk hero column (equipment column retired)"
 	)
 	_expect(
 		layout_source.find("return Rect2(column_rect.position.x, y, column_rect.size.x, max(64.0, height))") >= 0,
@@ -868,12 +942,17 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill slots should reuse the frame-level skill snapshot and icon renderer"
 	)
 	_expect(
+		frame_presenter_source.find("target.set(\"_last_active_items_rect\", Rect2())") >= 0
+			and frame_presenter_source.find("target.set(\"_last_active_slot_count\", 0)") >= 0,
+		"character info frame presenter should clear stale active-item hover geometry when the tab is hidden"
+	)
+	_expect(
 		source.find("var hovered_skill_slot := -1") >= 0,
 		"character info skill slots should resolve hovered slot once"
 	)
 	_expect(
-		source.find("hovered_skill_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots)") >= 0,
-		"character info skill hover should use cached linear slot math"
+		source.find("hovered_skill_slot = CharacterInfoOverlayHoverGeometry.get_hovered_linear_slot_index(mouse_pos, _last_skill_slot_start.x, _last_skill_slot_start.y, _last_skill_slot_size, _last_skill_slot_stride, max_slots, _last_skill_slot_height)") >= 0,
+		"character info skill hover should use cached linear slot math with the card width/height split"
 	)
 	_expect(
 		source.find("_last_skill_slot_rects") < 0,
@@ -920,16 +999,16 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill draw should refresh slot layout once before iteration"
 	)
 	_expect(
-		skill_layout_body.find("var slot_x: float = start_x + float(i) * skill_slot_step") >= 0,
-		"character info skill slot x should be computed only when the layout changes"
+		skill_layout_body.find("var card_x: float = start_x + float(i) * stride") >= 0,
+		"character info skill card x should be computed only when the layout changes"
 	)
 	_expect(
-		skill_slot_draw_body.find("var slot_x: float = start_x + float(i) * skill_slot_step") < 0,
-		"character info skill presenter draw loop should not recompute slot x every frame"
+		skill_slot_draw_body.find("float(i) * stride") < 0,
+		"character info skill presenter draw loop should not recompute card x every frame"
 	)
 	_expect(
-		skill_slot_draw_body.find("var slot_rect: Rect2 = slot_rect_cache[i]") >= 0,
-		"character info skill presenter should read cached slot rects in the draw loop"
+		skill_slot_draw_body.find("var card_rect: Rect2 = slot_rect_cache[i]") >= 0,
+		"character info skill presenter should read cached card rects in the draw loop"
 	)
 	_expect(
 		skill_slot_draw_body.find("var slot_rect := Rect2(slot_x, slot_y, slot_size, slot_size)") < 0,
@@ -984,8 +1063,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info empty skill hover fill should be a shared constant"
 	)
 	_expect(
-		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_empty_slot_socket(canvas, slot_rect, slot_fill, slot_border)") >= 0,
-		"character info skill presenter should route empty slots through the shared empty-slot socket helper"
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_empty_slot_socket(canvas, icon_rect_cache[i].grow(4.0), slot_fill, slot_border)") >= 0,
+		"character info skill presenter should route empty orb wells through the shared empty-slot socket helper"
 	)
 	_expect(
 		texture_drawer_source.find("static func draw_slot_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:") >= 0,
@@ -1000,20 +1079,16 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill presenter empty-slot hover detail should reuse cached center and fixed hover color"
 	)
 	_expect(
-		skill_slot_draw_body.find("draw_text_centered_xy_callable.call(canvas, font, label, center_x_cache[i], label_y, 10, text_dim)") >= 0,
+		skill_slot_draw_body.find("draw_text_centered_xy_callable.call(canvas, font, label, center_x_cache[i], label_y, 12,") >= 0,
 		"character info skill presenter labels should reuse cached center x and label y"
 	)
 	_expect(
-		skill_layout_body.find("\"label_y\": slot_y + slot_size - 11.0") >= 0,
-		"character info skill labels should stay inside the skill slot bottom edge"
+		skill_layout_body.find("\"label_y\": card_y + SKILL_CARD_TOP_PAD + slot_size + 18.0") >= 0,
+		"character info skill nameplate row should sit under the orb well inside the card"
 	)
 	_expect(
-		skill_layout_body.find("slot_size - 20.0") >= 0,
-		"character info skill icons should reserve lower in-slot space for the label glyph"
-	)
-	_expect(
-		skill_layout_body.find("\"label_y\": slot_y + slot_size +") < 0,
-		"character info skill labels should not be positioned below the slot box"
+		skill_layout_body.find("slot_size - 10.0") >= 0,
+		"character info skill fallback glyph should stay slightly inset within the orb well"
 	)
 	_expect(
 		_function_body(lingpet_presenter_source, "static func _draw_skill_symbol(").find("maribo_resonance_boost") >= 0,
@@ -1040,7 +1115,7 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info skill presenter draw loop should not rebuild tinted fill colors"
 	)
 	_expect(
-		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, slot_rect, fill_color_cache[i], border_color_cache[i], 2.0)") >= 0,
+		skill_slot_draw_body.find("CharacterInfoOverlayTextureDrawer.draw_slot_panel(canvas, card_rect, fill_color_cache[i], border_color_cache[i], 2.0)") >= 0,
 		"character info skill presenter should draw cached tinted fills through the shared slot panel helper"
 	)
 	_expect(
@@ -2018,18 +2093,7 @@ func _character_info_value_utils_contract_source() -> String:
 
 
 func _function_body(source: String, signature: String) -> String:
-	var start: int = source.find(signature)
-	if start < 0:
-		return ""
-	var next_func: int = source.find("\nfunc ", start + signature.length())
-	var next_static_func: int = source.find("\nstatic func ", start + signature.length())
-	var next_boundary := next_func
-	if next_boundary < 0 or (next_static_func >= 0 and next_static_func < next_boundary):
-		next_boundary = next_static_func
-	if next_boundary < 0:
-		return source.substr(start)
-	return source.substr(start, next_boundary - start)
-
+	return SourceContractFunctionBody.extract(source, signature)
 
 func _assert_wrapped_lines_fit(overlay: Object, font: Font, lines: Array, size: int, max_width: float, message: String) -> void:
 	for line_value in lines:

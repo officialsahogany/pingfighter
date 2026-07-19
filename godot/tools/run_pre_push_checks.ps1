@@ -47,6 +47,8 @@ if ($Mode -notin @("full", "all", "light", "load")) {
 # .github/workflows/godot-ci.yml. The two are separate literal copies; if you
 # add/remove a focused smoke, edit BOTH.
 $focusedSmoke = @(
+    "res://tests/character_info_passive_ui_retire_smoke.gd",
+    "res://tests/perk_tooltip_dual_panel_smoke.gd",
     "res://tests/project_resource_loader_import_preference_smoke.gd",
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
     "res://tests/match_player_skill_deps_builder_smoke.gd",
