@@ -91,6 +91,9 @@ var pending_skill_choices := 0
 var choice_active := false
 var current_choices: Array = []
 var selected_index := 0
+# 퍽 선택 모달의 마우스 포인터(상태 패널 "현재 퍽" hover 판정용) —
+# 모달 입력 핸들러가 매 motion마다 갱신한다.
+var status_hover_mouse_pos: Vector2 = Vector2(-1.0, -1.0)
 var animation_time := 0.0
 var particles: Array = []
 var gold_from_perks := 0
@@ -1138,6 +1141,14 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 	if is_mystic_dice_modal_active():
 		return _handle_mystic_dice_modal_input(event, owner, registry, view_size)
 	return _modal_input.handle_input_from_runtime_state(self, event, owner, registry, view_size)
+
+
+func set_status_hover_mouse_pos(position: Vector2) -> void:
+	status_hover_mouse_pos = position
+
+
+func get_status_hover_mouse_pos() -> Vector2:
+	return status_hover_mouse_pos
 
 
 func move_selection(delta_index: int) -> void:

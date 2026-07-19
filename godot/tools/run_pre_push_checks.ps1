@@ -49,6 +49,12 @@ if ($Mode -notin @("full", "all", "light", "load")) {
 $focusedSmoke = @(
     "res://tests/character_info_passive_ui_retire_smoke.gd",
     "res://tests/perk_tooltip_dual_panel_smoke.gd",
+    "res://tests/perk_status_owned_tooltip_smoke.gd",
+    "res://tests/perk_choice_per_card_description_smoke.gd",
+    "res://tests/perk_overlay_dash_token_slot_cells_smoke.gd",
+    "res://tests/mythic_perk_offer_chance_smoke.gd",
+    "res://tests/perk_offer_owned_upgrade_priority_smoke.gd",
+    "res://tests/perk_status_panel_render_capture_smoke.gd",
     "res://tests/project_resource_loader_import_preference_smoke.gd",
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
     "res://tests/match_player_skill_deps_builder_smoke.gd",

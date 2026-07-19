@@ -16,6 +16,7 @@ const CALLBACK_NOTE_CONFIRM_INPUT_SOURCE := "note_choice_confirm_input_source"
 const CALLBACK_CONFIRM_UNLOCK_SWAP := "confirm_unlock_swap"
 const CALLBACK_CANCEL_UNLOCK_SWAP := "cancel_unlock_swap"
 const CALLBACK_GET_CARD_INDEX_AT := "get_card_index_at"
+const CALLBACK_SET_STATUS_HOVER := "set_status_hover_mouse_pos"
 const CALLBACK_GET_UNLOCK_SWAP_INDEX_AT := "get_unlock_swap_index_at"
 const CALLBACK_SELECT_CHOICE_INDEX := "select_choice_index"
 const CALLBACK_SELECT_UNLOCK_SWAP_INDEX := "select_unlock_swap_index"
@@ -39,6 +40,7 @@ func build_state_callbacks(state: Object) -> Dictionary:
 		CALLBACK_CONFIRM_UNLOCK_SWAP: Callable(state, "confirm_pending_unlock_swap"),
 		CALLBACK_CANCEL_UNLOCK_SWAP: Callable(state, "cancel_pending_unlock_swap"),
 		CALLBACK_GET_CARD_INDEX_AT: Callable(state, "_get_card_index_at"),
+		CALLBACK_SET_STATUS_HOVER: Callable(state, "set_status_hover_mouse_pos"),
 		CALLBACK_GET_UNLOCK_SWAP_INDEX_AT: Callable(state, "_get_unlock_swap_index_at"),
 		CALLBACK_SELECT_CHOICE_INDEX: Callable(state, "_select_choice_index"),
 		CALLBACK_SELECT_UNLOCK_SWAP_INDEX: Callable(state, "_select_unlock_swap_index"),
@@ -133,6 +135,8 @@ func handle_choice_input(
 		return true
 	if event is InputEventMouseMotion:
 		var motion_event: InputEventMouseMotion = event
+		# Track the raw pointer so the renderer can hover-test the "현재 퍽" icons.
+		_call_void(callbacks, CALLBACK_SET_STATUS_HOVER, [motion_event.position])
 		var hovered_index: int = _call_int(
 			callbacks,
 			CALLBACK_GET_CARD_INDEX_AT,

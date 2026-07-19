@@ -1323,6 +1323,11 @@ const UNLOCK_SLOT_BUDGET := {
 
 
 var mythic_jackpot_offer_chance := 0.1
+# 오퍼 예약 seam(스모크가 결정론 주입): 대쉬토큰 per-level 부스트 확률
+# [Lv0, Lv1, Lv2] — 페이싱 부스트 튜닝 값(docs/perk_offer_pacing_boost_handoff.md),
+# 소유 업그레이드 partial 예약 확률.
+var dash_token_boost_chances: Array = [0.25, 0.10, 0.05]
+var owned_upgrade_partial_chance := 0.5
 
 
 func get_choices(
@@ -1366,22 +1371,37 @@ func get_choices(
 			mythic_count = target_choice_count
 	if mythic_count > 0:
 		mythic_reserved = _build_unowned_mythic_choices(runtime_levels, normalized, mythic_count)
-	# 만석 소유 업그레이드 예약: fill order 계약(mythic -> owned upgrades ->
-	# ring-core -> shuffled)에 맞춰 링코어보다 먼저 추출한다. 마지막 일반
-	# lane 1개는 항상 예약 예산에서 제외해 교체형 오퍼(융합/주사위) 진입로를
-	# 남긴다.
-	var owned_upgrade_budget: int = maxi(0, target_choice_count - mythic_reserved.size() - 1)
-	var owned_upgrade_reservation: Dictionary = _extract_owned_upgrade_reserved_choices(
-		choices,
-		runtime_levels,
-		_registry,
-		owned_upgrade_budget
-	)
-	var owned_upgrade_reserved: Array = owned_upgrade_reservation.get("reserved", []) as Array
-	choices = owned_upgrade_reservation.get("remaining", []) as Array
+	# 예약 체인(fill order 계약: mythic -> dash token -> owned upgrades ->
+	# ring-core -> shuffled). 대쉬토큰은 전용 per-level 부스트 lane(소유 후
+	# generic 예약과 이중 등장 금지), 소유 업그레이드는 만석=target-1(마지막
+	# 일반 lane 1개는 교체형 오퍼(융합/주사위) 진입로로 항상 남김) /
+	# 빈슬롯=partial 확률 1장. 융합 슬롯 환급이 슬롯을 열면 만석 예약은
+	# 자연 비활성화된다(has_open_perk_slot 공유 판정).
+	var dash_token_reserved: Array = []
+	if PerkConversionFlags.is_enabled():
+		var dash_level: int = int(runtime_levels.get("dash_amplification", 0))
+		if dash_level >= 0 and dash_level < dash_token_boost_chances.size():
+			var dash_chance := clampf(float(dash_token_boost_chances[dash_level]), 0.0, 1.0)
+			if randf() < dash_chance:
+				dash_token_reserved = _extract_choice_by_id(choices, "dash_amplification")
+	var owned_upgrade_reserved: Array = []
+	if PerkConversionFlags.is_enabled():
+		var owned_reserve_limit := 0
+		if not has_open_perk_slot(runtime_levels, _registry):
+			owned_reserve_limit = maxi(0, target_choice_count - 1)
+		elif randf() < clampf(float(owned_upgrade_partial_chance), 0.0, 1.0):
+			owned_reserve_limit = 1
+		if owned_reserve_limit > 0:
+			var owned_upgrade_reservation: Dictionary = _extract_owned_slot_upgrade_reserved_choices(
+				choices,
+				runtime_levels,
+				owned_reserve_limit
+			)
+			owned_upgrade_reserved = owned_upgrade_reservation.get("reserved", []) as Array
+			choices = owned_upgrade_reservation.get("remaining", []) as Array
 	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(
 		choices,
-		maxi(0, target_choice_count - mythic_reserved.size() - owned_upgrade_reserved.size())
+		maxi(0, target_choice_count - mythic_reserved.size() - dash_token_reserved.size() - owned_upgrade_reserved.size())
 	)
 	var reserved_choices: Array = ring_core_reservation.get("reserved", []) as Array
 	choices = ring_core_reservation.get("remaining", []) as Array
@@ -1391,10 +1411,14 @@ func get_choices(
 		if result.size() >= target_choice_count:
 			break
 		result.append(_with_offer_metadata(mythic_choice, "mythic_jackpot", true))
-	for owned_reserved_choice in owned_upgrade_reserved:
+	for dash_token_choice in dash_token_reserved:
 		if result.size() >= target_choice_count:
 			break
-		result.append(owned_reserved_choice)
+		result.append(dash_token_choice)
+	for owned_upgrade_choice in owned_upgrade_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(owned_upgrade_choice)
 	for reserved_choice in reserved_choices:
 		if result.size() >= target_choice_count:
 			break
@@ -1889,30 +1913,52 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_c
 	return filtered
 
 
-# 만석 소유 업그레이드 예약(오퍼 lane 최소 복원): 슬롯이 만석이면 이미
-# 보유한 퍽의 업그레이드 카드를 보호 lane으로 예약해 셔플 순서/교체형
-# 오퍼에 잠식되지 않게 한다. 융합 슬롯 환급이 슬롯을 열면(5/6) 예약은
-# 자연히 비활성화된다(has_open_perk_slot 공유 판정).
-func _extract_owned_upgrade_reserved_choices(
-	choices: Array,
-	runtime_levels: Dictionary,
-	slot_context: Object,
-	reserve_budget: int
-) -> Dictionary:
-	if reserve_budget <= 0 or has_open_perk_slot(runtime_levels, slot_context):
-		return {"reserved": [], "remaining": choices}
-	var reserved: Array = []
+# 소유 슬롯퍽 업그레이드 예약: choices 풀에서 이미 보유(Lv>0)한 슬롯 소모
+# 퍽의 업그레이드 카드를 셔플해 reserve_limit장 추출한다. 대쉬토큰은 전용
+# per-level 부스트 lane을 따로 가지므로 여기서 제외(이중 등장 금지 —
+# docs/dash_token_single_boost_double_draw_bug.md).
+func _extract_owned_slot_upgrade_reserved_choices(choices: Array, runtime_levels: Dictionary, reserve_limit: int) -> Dictionary:
+	var upgrades: Array = []
 	var remaining: Array = []
 	for value in choices:
-		if (
-			reserved.size() < reserve_budget
-			and value is Dictionary
-			and int(runtime_levels.get(str((value as Dictionary).get("id", "")), 0)) > 0
-		):
-			reserved.append(_with_offer_metadata(value, "owned_upgrade_reserved", true))
+		if value is Dictionary:
+			var choice: Dictionary = value as Dictionary
+			var choice_id: String = str(choice.get("id", "")).strip_edges()
+			var current_level: int = int(runtime_levels.get(choice_id, choice.get("current_level", 0)))
+			if choice_id == "dash_amplification":
+				remaining.append(value)
+				continue
+			if is_slot_consuming_perk(choice) and current_level > 0:
+				upgrades.append(choice)
+				continue
+		remaining.append(value)
+	upgrades.shuffle()
+	var limit := maxi(0, reserve_limit)
+	var reserved: Array = []
+	for index in range(upgrades.size()):
+		var upgrade: Dictionary = upgrades[index] as Dictionary
+		if index < limit:
+			reserved.append(upgrade)
 		else:
-			remaining.append(value)
-	return {"reserved": reserved, "remaining": remaining}
+			remaining.append(upgrade)
+	return {
+		"reserved": reserved,
+		"remaining": remaining,
+	}
+
+
+# 풀에서 id 일치 카드 1장을 승격 추출한다(새 카드를 만들지 않고 기존 카드를
+# 그대로 옮겨 current/next_level 메타데이터를 보존).
+func _extract_choice_by_id(choices: Array, choice_id: String) -> Array:
+	var normalized_id := choice_id.strip_edges()
+	if normalized_id == "":
+		return []
+	for index in range(choices.size()):
+		var value = choices[index]
+		if value is Dictionary and str((value as Dictionary).get("id", "")).strip_edges() == normalized_id:
+			choices.remove_at(index)
+			return [value]
+	return []
 
 
 func _filter_lingpet_owned_gate(choices: Array, owner: Object) -> Array:
