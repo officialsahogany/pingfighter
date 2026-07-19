@@ -16,7 +16,7 @@ const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold
 const HOST_STATE_FIELD := "_cold_boot_cinematic_host"
 
 
-func sync_from_runtime_state(state: Object, owner: Object, delta: float) -> void:
+func sync_from_runtime_state(state: Object, owner: Object, delta: float, registry: Object = null) -> void:
 	if state == null or not state.has_method("is_perk_fusion_modal_active"):
 		return
 	var host: Object = _get_host(state)
@@ -37,6 +37,8 @@ func sync_from_runtime_state(state: Object, owner: Object, delta: float) -> void
 		var events: Array = []
 		if state.has_method("consume_perk_fusion_cold_boot_events"):
 			events = state.consume_perk_fusion_cold_boot_events()
+		if not events.is_empty():
+			_play_transition_audio(registry, state, events)
 		if not bool(host.is_boot_active()) and host.has_method("prepare_committed_icons"):
 			# 부트 진입 에지(모달당 1회, 이산 시점): 커밋 record의 재료
 			# 아이콘+B4 코어 페이스 합성쌍을 프리웜한다 — draw 핫패스
@@ -49,9 +51,38 @@ func sync_from_runtime_state(state: Object, owner: Object, delta: float) -> void
 	if host != null and bool(host.is_boot_active()):
 		host.finish_boot()
 		# 마지막 프레임에 큐에 남은 전이 이벤트(settle 등)는 폐기한다 —
-		# 다음 모달의 첫 sync로 stale 전이가 배달되면 안 된다.
+		# 다음 모달의 첫 sync로 stale 전이가 배달되면 안 된다(오디오도
+		# 함께 침묵 — 종료 프레임의 스킵-배치가 소리를 쏟으면 안 된다).
 		if state.has_method("consume_perk_fusion_cold_boot_events"):
 			state.consume_perk_fusion_cold_boot_events()
+
+
+# §9 전이 오디오(CB4c-4): 같은 드레인 배치에서 "마지막" 이벤트의 소리만
+# 낸다 — 저프레임/스킵 틱이 2개 이상을 배치하면 도착점 소리 하나가
+# 맞다(4음 동시 재생 노이즈 방지). 각성 팡파르는 record 파생
+# deployed_module_count>0에서만(§9: 부산물 전개 시).
+func _play_transition_audio(registry: Object, state: Object, events: Array) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var audio: Object = registry.get_instance("game_audio")
+	if audio == null:
+		return
+	var method_name := ""
+	match str(events.back()):
+		"enter_twist_lock":
+			method_name = "play_cold_boot_chnk_latch"
+		"enter_boot_post":
+			method_name = "play_cold_boot_post_ramp"
+		"enter_ignition_crest":
+			method_name = "play_cold_boot_ignition_thunk"
+		"enter_reveal":
+			var plan: Dictionary = {}
+			if state.has_method("get_perk_fusion_modal_snapshot"):
+				plan = (state.get_perk_fusion_modal_snapshot().get("cold_boot", {}) as Dictionary).get("presentation", {}) as Dictionary
+			if int(plan.get("deployed_module_count", 0)) > 0:
+				method_name = "play_cold_boot_awaken_fanfare"
+	if method_name != "" and audio.has_method(method_name):
+		audio.call(method_name)
 
 
 # freed-인스턴스 가드: typed 인자·`is` 연산도 freed에 에러이므로

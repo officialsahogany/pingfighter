@@ -60,7 +60,7 @@ func process_idle(
 			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "process.overlay.runtime_perk_update", sample_start)
 			# 콜드부트 호스트 sync: flow 틱(위 update) 직후 같은 idle 프레임에서
 			# 생성/비트 미러/이벤트 소비/종료를 처리한다.
-			_cold_boot_cinematic_runtime.sync_from_runtime_state(runtime_perk_state, owner, delta)
+			_cold_boot_cinematic_runtime.sync_from_runtime_state(runtime_perk_state, owner, delta, _registry)
 			var next_angel_modal_work := _has_angel_blessing_modal_work(passive_module_getter, modal_gate)
 			if next_angel_modal_work:
 				_sync_angel_blessing_overlay_host(owner, module_getter, true)

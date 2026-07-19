@@ -119,6 +119,12 @@ const ANGEL_BLESSING_ABSORB_GAIN_DB := 0.0
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const DEFEAT_JEWEL_SOUND_PATH := "res://assets/sounds/defeatjewel1.wav"
 const DEFEAT_GEM_SHATTER_SOUND_PATH := "res://assets/sounds/defeat_gem_shatter.wav"
+# 퍽 융합 콜드부트 시네마틱 §9 전이 SFX(CB4c-4) — 전부 원샷(루프 아님:
+# 모달-블록 루프 오디오 정지 트랩의 STOP_METHODS 의무 없음).
+const COLD_BOOT_CHNK_LATCH_SOUND_PATH := "res://assets/sounds/cold_boot_chnk_latch.wav"
+const COLD_BOOT_POST_RAMP_SOUND_PATH := "res://assets/sounds/cold_boot_post_ramp.wav"
+const COLD_BOOT_IGNITION_THUNK_SOUND_PATH := "res://assets/sounds/cold_boot_ignition_thunk.wav"
+const COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH := "res://assets/sounds/cold_boot_awaken_fanfare.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
 const LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"
 const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"
@@ -525,6 +531,10 @@ var angel_blessing_absorb_sfx_cursor := 0
 var result_box_open_sfx: AudioStreamPlayer
 var defeat_jewel_sfx: AudioStreamPlayer
 var defeat_gem_shatter_sfx: AudioStreamPlayer
+var cold_boot_chnk_latch_sfx: AudioStreamPlayer
+var cold_boot_post_ramp_sfx: AudioStreamPlayer
+var cold_boot_ignition_thunk_sfx: AudioStreamPlayer
+var cold_boot_awaken_fanfare_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
 var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer
 var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer
@@ -884,6 +894,10 @@ func _setup_item_command_sfx() -> void:
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
 	defeat_jewel_sfx = player_factory.create(owner_node, "DefeatJewelSfx", DEFEAT_JEWEL_SOUND_PATH, -4.0)
 	defeat_gem_shatter_sfx = player_factory.create(owner_node, "DefeatGemShatterSfx", DEFEAT_GEM_SHATTER_SOUND_PATH, -3.0)
+	cold_boot_chnk_latch_sfx = player_factory.create(owner_node, "ColdBootChnkLatchSfx", COLD_BOOT_CHNK_LATCH_SOUND_PATH, -5.0)
+	cold_boot_post_ramp_sfx = player_factory.create(owner_node, "ColdBootPostRampSfx", COLD_BOOT_POST_RAMP_SOUND_PATH, -8.0)
+	cold_boot_ignition_thunk_sfx = player_factory.create(owner_node, "ColdBootIgnitionThunkSfx", COLD_BOOT_IGNITION_THUNK_SOUND_PATH, -4.0)
+	cold_boot_awaken_fanfare_sfx = player_factory.create(owner_node, "ColdBootAwakenFanfareSfx", COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH, -6.0)
 	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
 	lingpet_acquire_click_deep_bass_sfx = player_factory.create(owner_node, "LingpetAcquireClickDeepBassSfx", LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH, LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB)
 	lingpet_acquire_click_crackle_sweep_sfx = player_factory.create(owner_node, "LingpetAcquireClickCrackleSweepSfx", LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH, LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB)
@@ -1556,6 +1570,24 @@ func sync_plasma_shock(active: bool) -> void:
 
 func play_recovery() -> void:
 	_play_with_pitch(recovery_sfx, randf_range(0.98, 1.02))
+
+
+# 콜드부트 §9 전이 SFX: B1 트위스트락 CHNK / B2 부팅 램프(0.85s 원샷) /
+# B3 이그니션 THUNK / B4 각성 팡파르(부산물 전개 시에만 — 호출측 게이트).
+func play_cold_boot_chnk_latch() -> void:
+	_play_with_pitch(cold_boot_chnk_latch_sfx, randf_range(0.97, 1.03))
+
+
+func play_cold_boot_post_ramp() -> void:
+	_play_with_pitch(cold_boot_post_ramp_sfx, randf_range(0.99, 1.01))
+
+
+func play_cold_boot_ignition_thunk() -> void:
+	_play_with_pitch(cold_boot_ignition_thunk_sfx, randf_range(0.97, 1.03))
+
+
+func play_cold_boot_awaken_fanfare() -> void:
+	_play_with_pitch(cold_boot_awaken_fanfare_sfx, randf_range(0.99, 1.01))
 
 
 func play_defeat_jewel() -> void:
@@ -3950,6 +3982,10 @@ func _get_sfx_players() -> Array:
 		angel_blessing_absorb_sfx,
 		result_box_open_sfx,
 		defeat_jewel_sfx,
+		cold_boot_chnk_latch_sfx,
+		cold_boot_post_ramp_sfx,
+		cold_boot_ignition_thunk_sfx,
+		cold_boot_awaken_fanfare_sfx,
 		defeat_gem_shatter_sfx,
 		lingpet_acquire_cutin_sfx,
 		lingpet_acquire_click_deep_bass_sfx,

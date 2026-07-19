@@ -8,6 +8,7 @@ const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_over
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 const PerkFusionColdBootParticleFactory := preload("res://scripts/hud/perk_fusion_cold_boot_particle_factory.gd")
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
 
 var _failures: Array[String] = []
 
@@ -22,6 +23,7 @@ class RegistryStub:
 
 	var state: Object
 	var catalog: Object
+	var audio: Object = null
 
 	func _init(state_value: Object, catalog_value: Object) -> void:
 		state = state_value
@@ -33,7 +35,27 @@ class RegistryStub:
 				return state
 			"runtime_perk_catalog":
 				return catalog
+			"game_audio":
+				return audio
 		return null
+
+
+class FakeColdBootAudio:
+	extends RefCounted
+
+	var calls: Array = []
+
+	func play_cold_boot_chnk_latch() -> void:
+		calls.append("chnk")
+
+	func play_cold_boot_post_ramp() -> void:
+		calls.append("ramp")
+
+	func play_cold_boot_ignition_thunk() -> void:
+		calls.append("thunk")
+
+	func play_cold_boot_awaken_fanfare() -> void:
+		calls.append("fanfare")
 
 
 class ModuleGetterStub:
@@ -72,6 +94,8 @@ func _run() -> void:
 	_verify_committed_icon_prepare_on_boot_entry()
 	_verify_spark_particle_contract()
 	_verify_ignition_haze_contract()
+	_verify_transition_audio_contract()
+	_verify_real_game_audio_cold_boot_wiring()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
@@ -438,6 +462,102 @@ func _verify_ignition_haze_contract() -> void:
 	owner_node.queue_free()
 
 
+# CB4c-4: §9 전이 오디오 계약 — 실 idle 경로에서 비트 전이마다 도착점
+# 소리 하나(B1 CHNK/B2 램프/B3 THUNK), 저프레임 다중-이벤트 배치는
+# 마지막 이벤트 소리만, 각성 팡파르는 부산물 전개 record에서만, 종료
+# 프레임의 잔여 이벤트 폐기는 오디오도 침묵.
+func _verify_transition_audio_contract() -> void:
+	var owner_node := Node2D.new()
+	root.add_child(owner_node)
+	var controller := BattleSceneOverlayFrameController.new()
+
+	# byproduct record: 비트별 단일 소리 + 리빌 팡파르.
+	var gold_fixture: Dictionary = _build_animation_state(0.90)
+	var gold_state: Object = gold_fixture["state"]
+	var gold_registry: Object = gold_fixture["registry"]
+	var gold_getter: Object = gold_fixture["getter"]
+	var gold_audio := FakeColdBootAudio.new()
+	gold_registry.audio = gold_audio
+	controller.process_idle(0.016, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(gold_audio.calls.is_empty(), "B0 dock-in must play no transition audio yet")
+	controller.process_idle(0.6, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(gold_audio.calls == ["chnk"], "entering B1 must play exactly the CHNK latch (%s)" % str(gold_audio.calls))
+	controller.process_idle(0.4, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(gold_audio.calls == ["chnk", "ramp"], "entering B2 must add exactly the POST ramp (%s)" % str(gold_audio.calls))
+	controller.process_idle(0.95, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(gold_audio.calls == ["chnk", "ramp", "thunk"], "entering B3 must add exactly the ignition thunk (%s)" % str(gold_audio.calls))
+	controller.process_idle(0.3, owner_node, gold_registry, Callable(gold_getter, "get_module"))
+	_expect(gold_audio.calls == ["chnk", "ramp", "thunk", "fanfare"], "a byproduct record entering B4 must add the awaken fanfare (%s)" % str(gold_audio.calls))
+
+	# success record: 저프레임 배치=마지막 이벤트 소리만 + 팡파르 없음 +
+	# 종료 프레임 잔여 이벤트=침묵.
+	var success_fixture: Dictionary = _build_animation_state(0.0)
+	var success_state: Object = success_fixture["state"]
+	var success_registry: Object = success_fixture["registry"]
+	var success_getter: Object = success_fixture["getter"]
+	var success_audio := FakeColdBootAudio.new()
+	success_registry.audio = success_audio
+	controller.process_idle(0.016, owner_node, success_registry, Callable(success_getter, "get_module"))
+	controller.process_idle(1.0, owner_node, success_registry, Callable(success_getter, "get_module"))
+	_expect(success_audio.calls == ["ramp"], "a low-frame tick batching B1+B2 must play only the arrival sound (%s)" % str(success_audio.calls))
+	controller.process_idle(1.2, owner_node, success_registry, Callable(success_getter, "get_module"))
+	_expect(success_audio.calls == ["ramp"], "a success record crossing into B4 must stay silent (no fanfare, %s)" % str(success_audio.calls))
+	controller.process_idle(2.0, owner_node, success_registry, Callable(success_getter, "get_module"))
+	_expect(success_audio.calls == ["ramp"], "the finish-frame event discard must stay silent too (%s)" % str(success_audio.calls))
+	owner_node.queue_free()
+
+
+# CB4c-4 v2 [P2]: Fake 관통만으로는 실 GameAudio 회귀(플레이어 미생성·
+# WAV 미연결·루프 모드·facade 1:1 배선·볼륨 그룹 누락·teardown 누수)가
+# 전부 GREEN — 실 인스턴스를 setup하고 네 facade를 각각 호출해 봉인한다.
+func _verify_real_game_audio_cold_boot_wiring() -> void:
+	var audio_owner := Node.new()
+	root.add_child(audio_owner)
+	var audio: Object = GameAudio.new()
+	audio.setup(audio_owner)
+	var players: Array = [
+		audio.cold_boot_chnk_latch_sfx,
+		audio.cold_boot_post_ramp_sfx,
+		audio.cold_boot_ignition_thunk_sfx,
+		audio.cold_boot_awaken_fanfare_sfx,
+	]
+	var sfx_group: Array = audio._get_sfx_players()
+	for player_value: Variant in players:
+		var player := player_value as AudioStreamPlayer
+		_expect(player != null and player.stream != null, "each cold-boot facade must own a real player with a loaded WAV stream")
+		if player == null or player.stream == null:
+			continue
+		_expect(
+			player.stream is AudioStreamWAV and (player.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_DISABLED,
+			"cold-boot SFX must be one-shot (LOOP_DISABLED)"
+		)
+		_expect(player.bus == "SFX", "cold-boot players must be routed onto the SFX bus by setup (global SFX volume/effects)")
+		_expect(sfx_group.has(player), "cold-boot players must be enrolled in the _get_sfx_players volume group")
+	var facade_names := [
+		"play_cold_boot_chnk_latch",
+		"play_cold_boot_post_ramp",
+		"play_cold_boot_ignition_thunk",
+		"play_cold_boot_awaken_fanfare",
+	]
+	for facade_index: int in range(facade_names.size()):
+		for player_value: Variant in players:
+			(player_value as AudioStreamPlayer).stop()
+		audio.call(facade_names[facade_index])
+		for player_index: int in range(players.size()):
+			var expected: bool = player_index == facade_index
+			_expect(
+				(players[player_index] as AudioStreamPlayer).playing == expected,
+				"%s must drive exactly its own player (1:1, player %d)" % [facade_names[facade_index], player_index]
+			)
+	# teardown: owner free로 전 플레이어가 해제돼야 한다(객체 누수 없음).
+	var player_refs: Array = []
+	for player_value: Variant in players:
+		player_refs.append(weakref(player_value))
+	audio_owner.free()
+	for ref_value: Variant in player_refs:
+		_expect((ref_value as WeakRef).get_ref() == null, "teardown must free the cold-boot players (no leaked nodes)")
+
+
 # 같은 state 위에 두 번째 융합 모달을 재무장한다(호스트 재사용 시나리오
 # 전용 — 첫 모달의 재료는 소비됐으므로 남은 만렙 쌍을 쓴다).
 func _rearm_fusion_modal(state: Object, registry: Object, eligible_sources: Array, outcome_roll: float) -> void:
@@ -612,7 +732,7 @@ func _verify_lazy_init_and_fallback_source_contracts() -> void:
 	# 배선 위치 소스씰: 물리 flow 게이트에 막히지 않는 실 idle 경로의
 	# runtime_perk_update 직후에서만 sync한다(드라이버 재배선 드리프트 방지).
 	var idle_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_frame_controller.gd")
-	_expect(idle_source.contains("_cold_boot_cinematic_runtime.sync_from_runtime_state(runtime_perk_state, owner, delta)"), "the host sync must live on the idle overlay path right after the runtime-perk update")
+	_expect(idle_source.contains("_cold_boot_cinematic_runtime.sync_from_runtime_state(runtime_perk_state, owner, delta, _registry)"), "the host sync must live on the idle overlay path right after the runtime-perk update")
 	var driver_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_runtime_perk_update_driver.gd")
 	_expect(not driver_source.contains("cold_boot"), "the physics-gated update driver must not re-own the host sync (unreachable during the fusion modal)")
 	var host_probe: Node2D = PerkFusionColdBootCinematic.new()
