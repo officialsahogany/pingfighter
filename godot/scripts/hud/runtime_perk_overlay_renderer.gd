@@ -4,6 +4,7 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
@@ -33,9 +34,17 @@ const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
 const PERK_UNLOCK_SYMBOL_ARC_SEGMENTS := 20
 const PERK_FALLBACK_SYMBOL_ARC_SEGMENTS := 24
 const TITLE_TEXT := "스킬 강화!"
+const UNLOCK_SHOWCASE_PANEL_TEXTURE_PATH := "res://assets/sprites/hud/runtime_perk_unlock_showcase_panel_imagegen_v1.png"
+const UNLOCK_SHOWCASE_PANEL_ASPECT := 1939.0 / 811.0
+const UNLOCK_SHOWCASE_PANEL_MIN_WIDTH := 520.0
+const UNLOCK_SHOWCASE_PANEL_MAX_WIDTH := 690.0
+const UNLOCK_SHOWCASE_PANEL_HORIZONTAL_MARGIN := 84.0
 const UNLOCK_SHOWCASE_TITLE_TEXT := "새 스킬 획득!"
 const UNLOCK_SHOWCASE_PROMPT_TEXT := "아무 키나 눌러 계속"
 const TITLE_FONT_SIZE := 34
+const MYTHIC_REVEAL_LIGHTBURST_PATH := "res://assets/sprites/hud/mythic_reveal_lightburst_v1.png"
+const MYTHIC_REVEAL_SMOKE_PATH := "res://assets/sprites/hud/mythic_reveal_smoke_v1.png"
+const MYTHIC_REVEAL_DURATION := 1.5
 const MYTHIC_GOLD_DEEP := Color(1.0, 178.0 / 255.0, 44.0 / 255.0)
 const MYTHIC_GOLD_BRIGHT := Color(1.0, 224.0 / 255.0, 120.0 / 255.0)
 const MYTHIC_GOLD_HIGHLIGHT := Color(1.0, 247.0 / 255.0, 214.0 / 255.0)
@@ -60,6 +69,11 @@ var _back_glow_stylebox: StyleBoxFlat = null
 # width changes (the modal redraws every frame for its animation).
 var _card_desc_cache_signature := 0
 var _card_desc_cache: Array = []
+# prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
+# 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
+var _unlock_showcase_panel_texture: Texture2D = null
+var _mythic_reveal_lightburst_texture: Texture2D = null
+var _mythic_reveal_smoke_texture: Texture2D = null
 
 
 # 시스템 카드 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
@@ -69,6 +83,24 @@ var _perk_fusion_overlay_renderer: Object = PerkFusionOverlayRenderer.new()
 
 
 func prewarm_assets() -> void:
+	if _unlock_showcase_panel_texture == null:
+		_unlock_showcase_panel_texture = ProjectResourceLoader.load_texture(
+			UNLOCK_SHOWCASE_PANEL_TEXTURE_PATH,
+			"Missing unlock showcase panel texture: %s",
+			"Failed to load unlock showcase panel texture: %s"
+		)
+	if _mythic_reveal_lightburst_texture == null:
+		_mythic_reveal_lightburst_texture = ProjectResourceLoader.load_texture(
+			MYTHIC_REVEAL_LIGHTBURST_PATH,
+			"Missing mythic reveal lightburst texture: %s",
+			"Failed to load mythic reveal lightburst texture: %s"
+		)
+	if _mythic_reveal_smoke_texture == null:
+		_mythic_reveal_smoke_texture = ProjectResourceLoader.load_texture(
+			MYTHIC_REVEAL_SMOKE_PATH,
+			"Missing mythic reveal smoke texture: %s",
+			"Failed to load mythic reveal smoke texture: %s"
+		)
 	AngelBlessingRollOverlayHost.prewarm_assets()
 	_mystic_dice_overlay_renderer.prewarm_assets()
 	_perk_fusion_overlay_renderer.prewarm_assets()
@@ -210,6 +242,9 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	_draw_title(canvas, _get_vector2(layout.get("title_pos", Vector2.ZERO)), float(snapshot.get("animation_time", 0.0)))
 	_perf_end(perf_logger, "hud.perk_overlay.title", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_mythic_reveal_backdrop(canvas, runtime_state, choices, view_size, float(snapshot.get("animation_time", 0.0)))
+	_perf_end(perf_logger, "hud.perk_overlay.mythic_reveal", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_cards(canvas, runtime_state, choices, selected_index, view_size, float(snapshot.get("animation_time", 0.0)), icon_renderer)
 	_perf_end(perf_logger, "hud.perk_overlay.cards", sample_start)
@@ -399,54 +434,130 @@ func _draw_unlock_showcase(canvas: CanvasItem, snapshot: Dictionary, view_size: 
 	var skill_name: String = str(skill_data.get("korean", skill_data.get("name", choice.get("name", skill_id))))
 	var how_to_use: String = _normalize_keycap_message(str(skill_data.get("how_to_use", "")))
 	var motion_hint: String = str(skill_data.get("motion_hint", ""))
-	var panel_width: float = min(max(460.0, view_size.x - 96.0), 640.0)
-	var panel_height: float = 268.0
-	if how_to_use == "":
-		panel_height -= 34.0
-	if motion_hint == "":
-		panel_height -= 24.0
+	var panel_width: float = min(max(UNLOCK_SHOWCASE_PANEL_MIN_WIDTH, view_size.x - UNLOCK_SHOWCASE_PANEL_HORIZONTAL_MARGIN), UNLOCK_SHOWCASE_PANEL_MAX_WIDTH)
+	var panel_height: float = panel_width / UNLOCK_SHOWCASE_PANEL_ASPECT
 	var panel_rect := Rect2(
 		Vector2(floor((view_size.x - panel_width) * 0.5), floor((view_size.y - panel_height) * 0.5)),
 		Vector2(panel_width, panel_height)
 	)
 	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.006)
-	for grow in [16.0, 9.0, 4.0]:
-		canvas.draw_rect(panel_rect.grow(grow), Color(color.r, color.g, color.b, (0.06 + 0.06 * pulse) * alpha), false, max(1.0, 5.0 - grow * 0.18))
-	canvas.draw_rect(panel_rect, Color(12.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0, 0.95 * alpha))
-	canvas.draw_rect(panel_rect, Color(color.r, color.g, color.b, 0.76 * alpha), false, 2.4)
-	canvas.draw_line(panel_rect.position + Vector2(24.0, 82.0), Vector2(panel_rect.end.x - 24.0, panel_rect.position.y + 82.0), Color(color.r, color.g, color.b, 0.34 * alpha), 1.0)
+	_draw_unlock_showcase_backplate(canvas, panel_rect, color, alpha, pulse)
 
-	_draw_text_centered(canvas, UNLOCK_SHOWCASE_TITLE_TEXT, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 36.0), 24, Color(1.0, 225.0 / 255.0, 125.0 / 255.0, alpha))
+	var title_center := panel_rect.position + Vector2(panel_rect.size.x * 0.5, panel_rect.size.y * 0.165)
+	_draw_text_centered(canvas, UNLOCK_SHOWCASE_TITLE_TEXT, title_center + Vector2(0.0, 1.0), 25, Color(color.r, color.g * 0.62, color.b, 0.24 * alpha))
+	_draw_text_centered(canvas, UNLOCK_SHOWCASE_TITLE_TEXT, title_center, 25, Color(1.0, 235.0 / 255.0, 150.0 / 255.0, alpha))
 
-	var icon_rect := Rect2(panel_rect.position + Vector2(34.0, 101.0), Vector2(72.0, 72.0))
-	canvas.draw_rect(icon_rect, Color(7.0 / 255.0, 12.0 / 255.0, 22.0 / 255.0, 0.90 * alpha))
-	canvas.draw_rect(icon_rect, Color(color.r, color.g, color.b, 0.58 * alpha), false, 1.6)
+	var icon_size: float = clamp(panel_rect.size.y * 0.31, 76.0, 92.0)
+	var icon_center := panel_rect.position + Vector2(panel_rect.size.x * 0.157, panel_rect.size.y * 0.515)
+	var icon_rect := Rect2(icon_center - Vector2(icon_size, icon_size) * 0.5, Vector2(icon_size, icon_size))
+	canvas.draw_circle(icon_center, icon_size * (0.78 + 0.04 * pulse), Color(color.r, color.g, color.b, 0.14 * alpha))
+	canvas.draw_circle(icon_center, icon_size * 0.62, Color(4.0 / 255.0, 7.0 / 255.0, 15.0 / 255.0, 0.82 * alpha))
+	canvas.draw_arc(icon_center, icon_size * 0.63, 0.0, TAU, 32, Color(color.r, color.g, color.b, 0.66 * alpha), 2.0)
 	var icon_choice := choice.duplicate(true)
 	icon_choice["id"] = skill_id
 	icon_choice["icon_id"] = skill_id
 	icon_choice["icon_color"] = color
-	_draw_icon(canvas, icon_renderer, icon_choice, icon_rect.grow(-7.0), alpha)
+	_draw_icon(canvas, icon_renderer, icon_choice, icon_rect.grow(-8.0), alpha)
 
-	var text_left: float = icon_rect.end.x + 22.0
-	var text_width: float = max(80.0, panel_rect.end.x - text_left - 34.0)
-	_draw_text_fitted(canvas, skill_name, Vector2(text_left, panel_rect.position.y + 132.0), 28, Color(0.96, 0.99, 1.0, alpha), text_width, 17)
+	var text_left: float = panel_rect.position.x + panel_rect.size.x * 0.30
+	var text_width: float = max(110.0, panel_rect.end.x - text_left - panel_rect.size.x * 0.075)
+	var name_y: float = panel_rect.position.y + panel_rect.size.y * (0.49 if motion_hint != "" else 0.53)
+	_draw_text_fitted(canvas, skill_name, Vector2(text_left, name_y), 30, Color(0.97, 0.99, 1.0, alpha), text_width, 18)
 	if motion_hint != "":
-		_draw_text_fitted(canvas, motion_hint, Vector2(text_left, panel_rect.position.y + 164.0), 15, Color(170.0 / 255.0, 190.0 / 255.0, 215.0 / 255.0, 0.92 * alpha), text_width, 11)
+		_draw_text_fitted(canvas, motion_hint, Vector2(text_left, name_y + 32.0), 15, Color(185.0 / 255.0, 205.0 / 255.0, 230.0 / 255.0, 0.94 * alpha), text_width, 11)
 
 	if how_to_use != "":
-		var keycap_y: float = panel_rect.position.y + 210.0
-		var available_width: float = max(120.0, panel_rect.size.x - 56.0)
+		var keycap_y: float = panel_rect.position.y + panel_rect.size.y * 0.735
+		var available_width: float = max(120.0, text_width)
 		var keycap_font_size: int = TutorialHintKeycapRenderer.fit_font_size(font, how_to_use, available_width, 23, 13)
-		TutorialHintKeycapRenderer.draw_centered_line(canvas, font, how_to_use, Vector2(panel_rect.get_center().x, keycap_y), keycap_font_size, alpha)
+		TutorialHintKeycapRenderer.draw_centered_line(canvas, font, how_to_use, Vector2(text_left + text_width * 0.5, keycap_y), keycap_font_size, alpha)
 
 	var blink: float = 0.55 + 0.45 * sin(float(_get_draw_msec()) * 0.005)
 	_draw_text_centered(
 		canvas,
 		UNLOCK_SHOWCASE_PROMPT_TEXT,
-		Vector2(panel_rect.get_center().x, panel_rect.end.y - 27.0),
+		Vector2(panel_rect.get_center().x, min(view_size.y - 26.0, panel_rect.end.y + 20.0)),
 		14,
 		Color(185.0 / 255.0, 200.0 / 255.0, 225.0 / 255.0, (0.58 + 0.34 * blink) * alpha)
 	)
+
+
+func _draw_unlock_showcase_backplate(canvas: CanvasItem, panel_rect: Rect2, color: Color, alpha: float, pulse: float) -> void:
+	for grow in [12.0, 6.0]:
+		canvas.draw_rect(panel_rect.grow(grow), Color(color.r, color.g, color.b, (0.055 + 0.035 * pulse) * alpha), false, max(1.0, 3.0 - grow * 0.12))
+	var texture: Texture2D = _get_unlock_showcase_panel_texture()
+	if texture != null:
+		canvas.draw_texture_rect(texture, panel_rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return
+	canvas.draw_rect(panel_rect, Color(12.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0, 0.95 * alpha))
+	canvas.draw_rect(panel_rect, Color(color.r, color.g, color.b, 0.76 * alpha), false, 2.4)
+	canvas.draw_line(panel_rect.position + Vector2(24.0, panel_rect.size.y * 0.30), Vector2(panel_rect.end.x - 24.0, panel_rect.position.y + panel_rect.size.y * 0.30), Color(color.r, color.g, color.b, 0.34 * alpha), 1.0)
+
+
+
+
+# 조회 전용 게터 3종(draw 핫패스): 로드는 prewarm_assets()가 소유한다.
+# 프리웜되지 않은 cold 렌더러(플라자/결과화면 등 별도 인스턴스)에서는
+# null을 돌려 절차 폴백이 그려진다 — 첫 표시 프레임 디스크 로드 금지.
+func _get_unlock_showcase_panel_texture() -> Texture2D:
+	return _unlock_showcase_panel_texture
+
+
+func _get_mythic_reveal_lightburst_texture() -> Texture2D:
+	return _mythic_reveal_lightburst_texture
+
+
+func _get_mythic_reveal_smoke_texture() -> Texture2D:
+	return _mythic_reveal_smoke_texture
+
+
+func _draw_mythic_reveal_backdrop(
+	canvas: CanvasItem,
+	_runtime_state: Object,
+	choices: Array,
+	view_size: Vector2,
+	animation_time: float
+) -> void:
+	if canvas == null or view_size.x <= 1.0 or view_size.y <= 1.0:
+		return
+	if not _choices_include_mythic(choices):
+		return
+	var age: float = clampf(animation_time, 0.0, MYTHIC_REVEAL_DURATION)
+	var alpha: float = clampf(age / 0.20, 0.0, 1.0) * clampf((MYTHIC_REVEAL_DURATION - age) / 0.72, 0.0, 1.0)
+	if alpha <= 0.003:
+		return
+	var center := view_size * 0.5
+	var base_size: float = max(view_size.x, view_size.y)
+	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.004)
+	var lightburst: Texture2D = _get_mythic_reveal_lightburst_texture()
+	if lightburst != null:
+		var light_size := Vector2(base_size * (0.82 + 0.05 * pulse), base_size * (0.54 + 0.03 * pulse))
+		canvas.draw_texture_rect(
+			lightburst,
+			Rect2(center - light_size * 0.5, light_size),
+			false,
+			Color(1.0, 1.0, 1.0, 0.42 * alpha)
+		)
+	else:
+		canvas.draw_circle(center, base_size * 0.30, Color(1.0, 0.72, 0.18, 0.10 * alpha))
+	var smoke: Texture2D = _get_mythic_reveal_smoke_texture()
+	if smoke != null:
+		var drift := Vector2(sin(float(_get_draw_msec()) * 0.0017) * 18.0, -age * 12.0)
+		var smoke_size := Vector2(base_size * 0.94, base_size * 0.50)
+		canvas.draw_texture_rect(
+			smoke,
+			Rect2(center - smoke_size * 0.5 + drift, smoke_size),
+			false,
+			Color(1.0, 0.92, 0.72, 0.26 * alpha)
+		)
+
+
+func _choices_include_mythic(choices: Array) -> bool:
+	for choice in choices:
+		if choice is Dictionary and str(choice.get("rarity", "")).to_lower() == "mythic":
+			return true
+	return false
+
 
 
 func _normalize_keycap_message(text: String) -> String:
