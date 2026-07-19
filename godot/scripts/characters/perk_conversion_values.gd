@@ -237,6 +237,43 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 	return float(values[values.size() - 1]) < float(values[0])
 
 
+# Effective-level overflow (Lv.6+) domain limits. Authored table entries are
+# returned verbatim; only the extrapolated overflow segment is clamped here.
+# Chance / resist / reduction-percent lanes cap at 100, resource costs floor
+# at 0, and the sensor auto-dash cooldown keeps a 1s minimum so overflow can
+# never produce a zero-cooldown auto dash. Balance-motivated caps do NOT
+# belong here — per CLAUDE.md the overflow default is "keep scaling", and any
+# intentional hard cap must be declared in catalog wording too.
+# sage_ring is effective_level_exempt, so its lanes never reach overflow.
+const OVERFLOW_VALUE_BOUNDS := {
+	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
+	"reinforced_boomerang_gauntlet": {
+		"boomerang_stun_pct": {"max": 100.0},
+		"boomerang_homing_pct": {"max": 100.0},
+	},
+	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
+	"battery": {"gauge_preserve_pct": {"max": 100.0}},
+	"master": {"item_cooldown_pct": {"max": 100.0}},
+	"lucky_coin": {"double_spawn_pct": {"max": 100.0}},
+	"shrapnel_armor": {
+		"trigger_chance_pct": {"max": 100.0},
+		"gauge_cost": {"min": 0.0},
+	},
+	"foul_whistle": {"negate_chance_pct": {"max": 100.0}},
+	"neural_helmet": {"aipill_gauge_reduction": {"max": 100.0}},
+	"commando_arm": {"prep_reduction_pct": {"max": 100.0}},
+	"rainbow_fur_glove": {
+		"rainbow_glove_trigger_chance_pct": {"max": 100.0},
+		"rainbow_glove_cooldown_reduction_pct": {"max": 100.0},
+	},
+	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
+	"bulletproof_hat": {"stun_resist_pct": {"max": 100.0}},
+	"spiked_helmet": {"knockback_resist_pct": {"max": 100.0}},
+	"venom_mist_gauntlet": {"mist_trigger_chance_pct": {"max": 100.0}},
+	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
+}
+
+
 static func get_value(perk_id: String, key: String, level: int, fusion_overlay_source: Object = null) -> float:
 	var clean_id := perk_id.strip_edges()
 	if not CONVERTED_PERK_VALUES.has(clean_id):
@@ -249,18 +286,33 @@ static func get_value(perk_id: String, key: String, level: int, fusion_overlay_s
 		return 0.0
 	var index := clampi(int(level), 1, values.size()) - 1
 	var base_value := float(values[index])
-	# 저작 테이블 밖 오버플로우 레벨(왕관/반지/한계돌파 성장)은 마지막 구간
-	# 기울기로 선형 외삽한다 — 유효레벨 오버플로우는 기본이 계속 스케일이다
-	# (하드캡은 명시적 예외만).
+	# 저작 테이블 밖 오버플로우 레벨(왕관/반지/한계돌파 성장)은 테이블
+	# 평균 기울기로 선형 외삽한다 — plateau 모양 테이블(sensor 토큰
+	# [1,1,2,2,2])은 마지막 구간 기울기가 0이라 그 방식으로는 레인이 영원히
+	# 동결된다(씰 계약=평균 기울기). 유효레벨 오버플로우는 기본이 계속
+	# 스케일이고(하드캡 금지), OVERFLOW_VALUE_BOUNDS는 도메인 무결(확률
+	# >100%·음수 비용·0초 쿨다운)만 클램프한다.
 	if int(level) > values.size() and values.size() >= 2:
-		var last_step := float(values[values.size() - 1]) - float(values[values.size() - 2])
-		base_value += last_step * float(int(level) - values.size())
+		var average_step := (float(values[values.size() - 1]) - float(values[0])) / float(values.size() - 1)
+		base_value += average_step * float(int(level) - values.size())
+		base_value = _clamp_overflow_value(clean_id, key, base_value)
 	# 4번째 인자(runtime_perk_state)가 있으면 융합 오버레이를 적용한다 —
 	# 정수 레인은 코어가 성장한 base에 대해 라이브 재양자화한다(3인자
 	# 호출은 융합 이전 원값으로 하위호환).
 	if fusion_overlay_source != null and fusion_overlay_source.has_method("apply_perk_fusion_option_value"):
 		return float(fusion_overlay_source.apply_perk_fusion_option_value(clean_id, key, base_value))
 	return base_value
+
+
+static func _clamp_overflow_value(perk_id: String, key: String, value: float) -> float:
+	var perk_bounds: Dictionary = OVERFLOW_VALUE_BOUNDS.get(perk_id, {})
+	var bounds: Dictionary = perk_bounds.get(key, {})
+	var bounded := value
+	if bounds.has("min"):
+		bounded = maxf(bounded, float(bounds["min"]))
+	if bounds.has("max"):
+		bounded = minf(bounded, float(bounds["max"]))
+	return bounded
 
 
 static func get_mythic_value(perk_id: String, key: String) -> float:

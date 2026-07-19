@@ -109,7 +109,10 @@ func _verify_star_endpoints() -> void:
 	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 1), 5.0, "star_detector Lv1 endpoint")
 	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 5), 25.0, "star_detector Lv5 endpoint")
 	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 0), 5.0, "get_value should clamp low levels")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 99), 25.0, "get_value should clamp high levels")
+	# 씰 갱신(2026-07-20): 고레벨은 클램프가 아니라 평균 기울기 외삽이 계약
+	# (CLAUDE.md 유효레벨 오버플로우 표준 — 상세 씰은
+	# perk_conversion_overflow_scaling_smoke가 소유). 25 + 5*(99-5) = 495.
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 99), 495.0, "get_value should extrapolate high levels by the table's average slope")
 
 	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 1), 20.0, "adversity_armor trigger Lv1")
 	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 5), 40.0, "adversity_armor trigger Lv5")
