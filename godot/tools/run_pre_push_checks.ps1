@@ -57,6 +57,8 @@ $focusedSmoke = @(
     "res://tests/perk_status_panel_render_capture_smoke.gd",
     "res://tests/mythic_reveal_backdrop_smoke.gd",
     "res://tests/mythic_reveal_render_capture_smoke.gd",
+    "res://tests/runtime_perk_lingpet_ring_core_upgrade_smoke.gd",
+    "res://tests/runtime_perk_lingpet_affinity_chip_smoke.gd",
     "res://tests/project_resource_loader_import_preference_smoke.gd",
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
     "res://tests/match_player_skill_deps_builder_smoke.gd",

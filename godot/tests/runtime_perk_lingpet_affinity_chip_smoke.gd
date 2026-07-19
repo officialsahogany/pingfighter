@@ -130,11 +130,22 @@ func _verify_chip_source_contracts() -> void:
 	_expect(affinity_source.find("var enhancement_multiplier := 1.0 if source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()") >= 0, "affinity state should exempt only ring-core-upgrade while keeping the chip multiplier at the point-grant chokepoint")
 	_expect(affinity_source.find("granted_points *= enhancement_multiplier") >= 0, "affinity state should multiply granted_points at the single chokepoint")
 	_expect(affinity_source.find("bonus_points *= enhancement_multiplier") >= 0, "affinity state should keep reported bonus_points scaled with granted_points")
-	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
-	var chip_branch := runtime_source.find("if choice_id == LINGPET_AFFINITY_CHIP_CHOICE_ID")
-	var generic_level := runtime_source.find("var old_level: int = int(runtime_skill_levels.get(choice_id, 0))")
-	_expect(chip_branch >= 0 and generic_level > chip_branch, "affinity chip special branch should run before generic runtime_skill_levels level-up")
-	_expect(runtime_source.find("runtime.add_enhancement_chip(owner, registry)") >= 0, "affinity chip branch should route through lingpet_egg_runtime.add_enhancement_chip")
+	# 배선 소스씰(모듈 분리 구조 — 2026-07-20 씰 갱신): 특수 적용은
+	# choice dispatch → action runner 콜백 → state 위임 → rewards 실적용
+	# 사슬로 흐른다(구 인라인 분기 소스씰은 모듈 분리로 이동된 실코드를
+	# 못 찾는 낡은 계약).
+	var flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_apply_flow.gd")
+	var dispatch_call := flow_source.find("choice_action_runner.run_dispatch(")
+	var standard_call := flow_source.find("choice_standard_path.apply_level_choice_to_runtime_state(")
+	_expect(dispatch_call >= 0 and standard_call > dispatch_call, "special dispatch must run before the generic standard path (chip must never fall into a runtime_skill_levels tally)")
+	var dispatch_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_dispatch.gd")
+	_expect(dispatch_source.find("ACTION_LINGPET_AFFINITY_CHIP") >= 0, "choice dispatch must resolve the affinity chip special action")
+	var runner_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_action_runner.gd")
+	_expect(runner_source.find("Callable(state, \"_apply_lingpet_affinity_chip\")") >= 0, "the action runner must bind the affinity chip state callback")
+	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	_expect(state_source.find("_lingpet_rewards.apply_affinity_chip_from_runtime_state(") >= 0, "state must delegate the chip apply to the lingpet rewards module")
+	var rewards_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_lingpet_rewards.gd")
+	_expect(rewards_source.find("runtime.add_enhancement_chip(owner, registry)") >= 0, "rewards must route through lingpet_egg_runtime.add_enhancement_chip")
 	_expect(RuntimePerkIconRenderer.new().covered_ids().has("lingpet_affinity_chip"), "affinity chip card should have a PNG icon renderer path")
 	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
 	_expect(catalog_source.find("LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1") >= 0, "affinity chip catalog gate should require at least ring-core tier 1")

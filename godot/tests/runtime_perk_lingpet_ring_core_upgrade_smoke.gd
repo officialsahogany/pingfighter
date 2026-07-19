@@ -5,6 +5,8 @@ const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.g
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const RuntimePerkLingpetRewards := preload("res://scripts/characters/runtime_perk_lingpet_rewards.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const OFFER_SAMPLE_COUNT := 20
 
@@ -64,6 +66,7 @@ func _run() -> void:
 	_verify_ring_core_early_reserve_offer()
 	_verify_cooldown_suppresses_force_include_after_upgrade()
 	_verify_cooldown_ticks_once_per_presented_choice_screen()
+	_verify_non_korean_tier_names_have_no_hangul()
 
 	if _failures.is_empty():
 		print("runtime_perk_lingpet_ring_core_upgrade_smoke: ok")
@@ -148,14 +151,27 @@ func _verify_ring_core_monotonic_debug_and_icon_contracts() -> void:
 	_expect(catalog_source.find("_append_lingpet_ring_core_upgrade_choice") >= 0, "catalog should append the dynamic ring-core upgrade card")
 	_expect(catalog_source.find("icon_id") >= 0 and catalog_source.find("LINGPET_RING_CORE_ICON_ID_PREFIX") >= 0, "catalog should emit a tier-aware icon id")
 	_expect(catalog_source.find("get_run_ring_core_tier()") >= 0, "catalog ring-core card should read the run-state tier, not the permanent store")
+	# 배선 소스씰(모듈 분리 구조 — 2026-07-20 씰 갱신): 특수 적용은
+	# choice dispatch → action runner 콜백 → state 위임 → rewards 실적용
+	# 사슬로 흐르고, generic runtime_skill_levels 레벨업(standard path)은
+	# dispatch가 특수 액션을 해석한 뒤에만 도달한다. (구 인라인 분기
+	# 소스씰은 rewards 모듈 분리로 이동된 실코드를 못 찾는 낡은 계약.)
+	var flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_apply_flow.gd")
+	var dispatch_call := flow_source.find("choice_action_runner.run_dispatch(")
+	var standard_call := flow_source.find("choice_standard_path.apply_level_choice_to_runtime_state(")
+	_expect(dispatch_call >= 0 and standard_call > dispatch_call, "special dispatch must run before the generic standard path (ring-core must never fall into a runtime_skill_levels tally)")
+	var dispatch_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_dispatch.gd")
+	_expect(dispatch_source.find("ACTION_LINGPET_RING_CORE_UPGRADE") >= 0, "choice dispatch must resolve the ring-core special action")
+	var runner_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_action_runner.gd")
+	_expect(runner_source.find("Callable(state, \"_apply_lingpet_ring_core_upgrade\")") >= 0, "the action runner must bind the ring-core state callback")
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
-	var ring_branch := state_source.find("if choice_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID")
-	var generic_level := state_source.find("var old_level: int = int(runtime_skill_levels.get(choice_id, 0))")
-	_expect(ring_branch >= 0 and generic_level > ring_branch, "ring-core special branch should run before generic runtime_skill_levels level-up")
-	_expect(state_source.find("upgrade_run_ring_core_tier(target_tier") >= 0, "ring-core branch should route through the run-state upgrade")
-	_expect(state_source.find("store.upgrade_ring_core_tier") < 0, "ring-core apply must not call the dropped permanent store upgrade")
-	_expect(state_source.find("LingpetRingCoreRules.MAX_RING_CORE_TIER") >= 0, "ring-core apply should use the ring-core rules max tier constant")
-	_expect(state_source.find("LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN") >= 0, "ring-core feedback tier names should avoid leaking Korean into non-Korean locales")
+	_expect(state_source.find("_lingpet_rewards.apply_ring_core_upgrade_from_runtime_state(") >= 0, "state must delegate the ring-core apply to the lingpet rewards module")
+	_expect(state_source.find("store.upgrade_ring_core_tier") < 0, "state must not call the dropped permanent store upgrade")
+	var rewards_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_lingpet_rewards.gd")
+	_expect(rewards_source.find("upgrade_run_ring_core_tier(target_tier") >= 0, "rewards must route through the run-state upgrade")
+	_expect(rewards_source.find("store.upgrade_ring_core_tier") < 0, "rewards must not call the dropped permanent store upgrade")
+	_expect(rewards_source.find("LingpetRingCoreRules.MAX_RING_CORE_TIER") >= 0, "rewards must clamp against the ring-core rules max tier constant")
+	_expect(rewards_source.find("LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN") >= 0, "rewards must branch tier names on the non-Korean locale")
 
 	# R5 / per-run: localize_perk_data overrides description with PERK_SUMMARY_* for
 	# non-KR, so those summaries must NOT still claim a permanent/shared upgrade.
@@ -304,6 +320,32 @@ func _ring_core_hits_in_target3_samples(catalog: Object, owner: Object, registry
 		if not _choice_by_id(choices, "lingpet_ring_core_upgrade").is_empty():
 			hits += 1
 	return hits
+
+
+func _verify_non_korean_tier_names_have_no_hangul() -> void:
+	# 설계 권위(2026-07-20): 6티어 유지 — 비한국어 로케일에서 티어명 전부
+	# 라틴 표기여야 하며 피드백 문구에 한글이 누출되면 안 된다. 비저장
+	# override로 엔진 locale만 고정한다(user:// 무접촉).
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
+	var rewards: Object = RuntimePerkLingpetRewards.new()
+	var expected := ["Standard", "Boost", "Hyper", "Overdrive", "Ultimate", "Zenith"]
+	for tier in range(1, 7):
+		var tier_name: String = rewards.get_ring_core_tier_name(tier)
+		_expect(
+			tier_name == expected[tier - 1],
+			"non-Korean tier %d name should be %s (got %s)" % [tier, expected[tier - 1], tier_name]
+		)
+		var feedback: String = rewards.format_ring_core_upgrade_feedback("Ring Core", tier_name)
+		_expect(not _contains_hangul(feedback), "non-Korean feedback must not leak Korean tier names: %s" % feedback)
+	LanguageSettings.set_test_locale_override("")
+
+
+func _contains_hangul(text: String) -> bool:
+	for i in range(text.length()):
+		var code := text.unicode_at(i)
+		if code >= 0xAC00 and code <= 0xD7A3:
+			return true
+	return false
 
 
 func _drain_ring_core_offer_cooldown(runtime: Object) -> void:

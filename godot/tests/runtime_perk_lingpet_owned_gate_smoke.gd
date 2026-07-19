@@ -112,10 +112,15 @@ func _verify_gate_is_before_shuffle_and_academy_preview_threads_owner() -> void:
 	_expect(shuffle_index > filter_index, "lingpet owned gate should run before choice shuffle")
 	_expect(truncate_index > shuffle_index, "choice truncation should happen after lingpet owned gate, reservation, and shuffle")
 
-	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	# 씰 갱신(2026-07-20, 모듈 분리): get_choices 실호출은 state가 아니라
+	# choice open flow가 소유한다 — owner/registry 관통을 실호출 블록에서
+	# 검사한다(구 state 단일-파일 소스씰은 이동한 실코드를 못 찾는 낡은 계약).
+	var open_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_open_flow.gd")
+	var open_call_index := open_flow_source.find("catalog.get_choices(")
+	var open_call_block := open_flow_source.substr(maxi(0, open_call_index), 240)
 	_expect(
-		state_source.find("catalog.get_choices(character_type, runtime_skill_levels, exclude_instant, target_choice_count, owner, registry)") >= 0,
-		"runtime perk state should thread owner/registry into get_choices"
+		open_call_index >= 0 and open_call_block.find("owner") >= 0 and open_call_block.find("registry") >= 0,
+		"choice open flow should thread owner/registry into get_choices"
 	)
 
 	var academy_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_academy_transactions.gd")
