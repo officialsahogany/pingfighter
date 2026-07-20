@@ -245,7 +245,14 @@ face/ponytail gaps, neck-side pockets, and sleeve-body gaps — RGB median
 deterministically removable because the blobs are LARGE near-neutral
 areas (character darks differ: navy hair [61,61,71], line art = thin
 strokes protected by an area gate): seed on `max(RGB) < 12` components
-≥ 40 px, geodesic-grow ~4 steps over `luma < 28 & sat < 20`, alpha→0.
+(area-gated), geodesic-grow over a dark-mix domain, alpha→0. Tune the
+growth by DISTANCE-from-core, never by loosening the color domain
+globally — a loose dark scan (luma<40, sat<30) lights up eyes, skirt
+folds, shield art and glove shadows (measured false-positive bomb),
+while core-seeded growth keeps interior art safe because it is far from
+any core. Mika shipped values: core ≥24 px, grow 8 steps over
+`luma < 34 & sat < 26` (the first pass at 4 steps / 28 / 20 left mixed
+residue bands in ponytail gaps and neck-side pockets).
 Two ordering traps: run the removal AGAIN at the very end of the clean
 (the feather resurrects removed borders as >128 semi-alpha with
 still-near-black RGB — measured 126 px residue), and make the QC gate
