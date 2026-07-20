@@ -465,6 +465,38 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	var visible_unlocks: Array = unlock_overlay._build_acquired_perks_cached(unlock_levels, unlock_catalog, null, {}, [])
 	_expect(visible_unlocks.size() == 2, "unequipped unlock-skill perks should remain visible in the acquired perk grid")
 
+	# 라이브 실경로(2026-07-21 P2): 실 RuntimePerkState 스냅샷은 보유 퍽이
+	# 있으면 항상 projection을 실어 오므로, 장착 해금퍽 숨김은 projection
+	# 분기에서도 양방향으로 봉인해야 한다(빈 {} lookup 고정 회귀 방지).
+	var projection_state = load("res://scripts/characters/runtime_perk_state.gd").new()
+	projection_state.runtime_skill_levels["soldier_unlock_ak47"] = 1
+	projection_state.runtime_skill_levels["item_luck"] = 1
+	var projection_snapshot: Dictionary = projection_state.get_snapshot()
+	var projection_payload: Dictionary = projection_snapshot.get("perk_fusion_display_projection", {}) as Dictionary
+	_expect(not (projection_payload.get("entries", []) as Array).is_empty(), "real state snapshot must carry projection entries (unlock-filter projection legs would be void)")
+	var real_catalog := RuntimePerkCatalog.new()
+	var projected_filtered: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		projection_state.runtime_skill_levels, real_catalog, projection_state, projection_snapshot, {}, ["ak47"]
+	)
+	var projected_has_unlock := false
+	var projected_has_item_luck := false
+	for entry_value in projected_filtered:
+		match str((entry_value as Dictionary).get("id", "")):
+			"soldier_unlock_ak47":
+				projected_has_unlock = true
+			"item_luck":
+				projected_has_item_luck = true
+	_expect(not projected_has_unlock, "projection branch should hide the unlock perk whose skill is equipped")
+	_expect(projected_has_item_luck, "projection branch should keep non-unlock perks visible while filtering")
+	var projected_visible: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		projection_state.runtime_skill_levels, real_catalog, projection_state, projection_snapshot, {}, []
+	)
+	var projected_visible_unlock := false
+	for entry_value in projected_visible:
+		if str((entry_value as Dictionary).get("id", "")) == "soldier_unlock_ak47":
+			projected_visible_unlock = true
+	_expect(projected_visible_unlock, "projection branch should keep unlock perks visible when nothing is equipped")
+
 	var slot_catalog := FakePerkCatalog.new()
 	slot_catalog.data_by_id = {
 		"dash_amplification": {

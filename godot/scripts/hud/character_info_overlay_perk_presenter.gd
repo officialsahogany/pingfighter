@@ -190,7 +190,8 @@ static func build_acquired_perks_from_projection(
 	effective_levels: Dictionary,
 	accent_blue: Color,
 	accent_gold: Color,
-	runtime_state: Object = null
+	runtime_state: Object = null,
+	equipped_skill_lookup: Dictionary = {}
 ) -> Array:
 	var result: Array = []
 	for entry_value: Variant in projection_entries:
@@ -212,7 +213,9 @@ static func build_acquired_perks_from_projection(
 		if perk_id.is_empty() or base_level <= 0:
 			continue
 		var level := int(entry.get("effective_level", int(effective_levels.get(perk_id, base_level))))
-		var data: Dictionary = acquired_perk_data(perk_id, base_level, level, catalog, {}, accent_blue)
+		# 장착 해금퍽 숨김은 acquired_perk_data의 lookup 인자를 그대로 관통
+		# — 빈 {} 고정이면 projection 상시인 라이브에서 필터가 죽는다.
+		var data: Dictionary = acquired_perk_data(perk_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)
 		if data.is_empty():
 			continue
 		_decorate_presented_perk(data, perk_id, accent_blue, accent_gold)
@@ -447,6 +450,10 @@ static func acquired_perk_data(
 static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null, effective_levels_override: Dictionary = {}, equipped_skills_for_filter: Array = [], accent_blue: Color = Color.WHITE, accent_gold: Color = Color.WHITE) -> Array:
 	var result: Array = []
 	var effective_levels: Dictionary = effective_levels_override if not effective_levels_override.is_empty() else effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)
+	# 장착 해금퍽 숨김 lookup은 projection 분기보다 먼저 만든다 — 라이브는
+	# 항상 projection 분기라, 일반 분기에서만 만들면 장착된 액티브 스킬의
+	# 해금퍽 카드가 실전 TAB에 다시 노출된다(2026-07-21 P2).
+	var equipped_skill_lookup: Dictionary = build_equipped_skill_lookup(equipped_skills_for_filter)
 	# 융합 projection이 스냅샷에 실려 오면 그 접힘(fold)이 정본이다 — 융합된
 	# 소스 퍽은 개별 셀로 다시 그리지 않고 합성 fusion 셀 하나로 표시한다.
 	if runtime_snapshot_override is Dictionary:
@@ -459,13 +466,13 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 				effective_levels,
 				accent_blue,
 				accent_gold,
-				runtime_state
+				runtime_state,
+				equipped_skill_lookup
 			)
 			projected.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 				return sort_perks(a, b)
 			)
 			return projected
-	var equipped_skill_lookup: Dictionary = build_equipped_skill_lookup(equipped_skills_for_filter)
 	for skill_id_value in levels:
 		var skill_id: String = str(skill_id_value)
 		var base_level: int = int(levels.get(skill_id_value, 0))
