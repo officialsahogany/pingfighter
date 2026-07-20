@@ -1588,3 +1588,48 @@ Standing rules(확장):
 
 Seal: 회귀 스윕 러너의 `OK_WITH_SCRIPT_ERROR` 분류가 이 클래스를 잡는다.
 융합 modal/integration 스모크는 문제 대입 제거 후 전 레그 실주행 GREEN.
+
+## Godot 퍽 표시 Projection-분기 후처리 탈락 트랩 (라이브=항상 projection)
+
+Incident (2026-07-21): 대쉬토큰 퍽이 링코어와 달리 슬롯 셀을 차지하지
+않고 Lv 배지만 오른다는 유저 리포트. 원인은
+`character_info_overlay_perk_presenter.build_acquired_perks`의 이중 빌드
+경로 — 스냅샷에 융합 display projection이 실려 오면 projection 분기로
+조기 반환하는데, **라이브 스냅샷은 보유 퍽이 1개라도 있으면 항상
+projection이 비어있지 않다**(`perk_fusion_display_projection.build`가
+융합 여부와 무관하게 모든 보유 퍽을 엔트리화). 그래서 TAB 그리드와
+전투 "현재 퍽" 상태 패널의 실전 경로는 100% projection 분기인데, 그
+분기가 일반(레벨 dict) 분기의 후처리를 잃은 채 퍽당 1엔트리만
+append했다. 같은 자리에서 두 건이 동시 발견됨:
+
+1. **슬롯 비용 확장 탈락** — `_slot_cost`/`_is_slot_cell` N셀 확장/배지
+   억제/`_slot_free_cell` 마킹이 없어 대쉬토큰 Lv.N이 배지 셀 1개로
+   붕괴(그리드 셀 수 ≠ 슬롯 카운터; 카운터 `get_perk_slot_status`는
+   정확했고 표시만 어긋남).
+2. **런타임 상태 라인 탈락** — `_apply_runtime_status_lines`(천사의
+   주사위 라이브 상태 라인) 미호출. 이 계약의 씰
+   `angel_blessing_status_tooltip_smoke`는 CI/pre-push 미등재라
+   **조용히 RED로 잔존**했다(랜딩 커밋 7f4e52262 시점엔 인라인 처리라
+   GREEN → projection 분기 추출 커밋에서 탈락 → 아무도 모름).
+
+표준 규칙:
+
+- 퍽 표시 경로(일반 분기)에 후처리를 추가/수정하면 **projection 분기
+  (`build_acquired_perks_from_projection`)에도 같은 후처리를 공용 헬퍼
+  관통으로 반영**해야 한다. 라이브는 항상 projection 분기라, 일반
+  분기 전용 개선은 스모크에서만 보이고 실전에서 죽는다. 슬롯 셀
+  확장의 공용 헬퍼는 `append_presented_perk_with_slot_cells`(두 분기
+  모두 이 헬퍼를 지나는 것이 계약 — prewarm 스모크 소스씰이 봉인).
+- 퍽 표시 스모크 픽스처는 `snapshot={}`/null 만으로는 실경로를 봉인하지
+  못한다. **실 `runtime_perk_state.get_snapshot()` 레그 + "projection
+  엔트리가 비어있지 않다" fail-closed 가드**를 함께 넣어라(스냅샷
+  형태가 바뀌어 projection이 빠지면 레그가 공허해지는 것을 차단).
+  참조 씰: `perk_overlay_dash_token_slot_cells_smoke`
+  `_run_projection_snapshot_legs`(presenter 4 + overlay fold 2 assert,
+  반증검증 6-assert RED 실증).
+- 씰 신설은 CI(`godot-ci.yml`)/pre-push(`run_pre_push_checks.ps1`)
+  락스텝 등재까지가 한 단위 — 미등재 씰은 후속 리팩토링 때 조용히
+  RED로 남는다(angel 사례).
+- 잠재 발산 잔여(후속 후보): projection 분기는 equipped unlock 숨김
+  lookup을 받지 않아(빈 `{}` 전달) 장착된 해금 퍽 숨김 계약이 일반
+  분기와 다르게 동작할 수 있다.

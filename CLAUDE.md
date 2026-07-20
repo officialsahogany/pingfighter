@@ -553,6 +553,15 @@ typed 객체에 미선언 프로퍼티 대입/미존재 함수 호출은 SCRIPT 
 ERROR). 픽스처 튜닝 프로퍼티 대입은 선언 존재 먼저 확인. Full rule:
 `docs/godot_runtime_traps.md`.
 
+## Godot 퍽 표시 Projection-분기 후처리 탈락 트랩
+
+라이브 스냅샷은 보유 퍽이 있으면 항상 융합 display projection을 실어
+오므로 TAB/전투 퍽 표시의 실전 경로는 100% projection 분기다. 일반
+분기에만 넣은 표시 후처리(슬롯 셀 확장, 런타임 상태 라인)는 스모크에서만
+GREEN이고 실전에서 죽는다 — 공용 헬퍼 관통 + 실 `get_snapshot()` 레그 +
+projection 비어있으면 fail-closed 가드 + 씰 CI 락스텝 등재까지가 한 단위.
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
