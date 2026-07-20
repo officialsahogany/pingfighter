@@ -9,17 +9,16 @@ extends SceneTree
 
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
-# 기대 바운드 맵 독립 선언(코덱스 P2 게이트): 정확히 16개 퍽의 19개
-# 레인. 실제 OVERFLOW_VALUE_BOUNDS와 perk/key/min·max/값 집합을 양방향
+# 기대 바운드 맵 독립 선언(코덱스 P2 게이트): 정확히 15개 퍽의 17개
+# 레인. 부메랑 스턴/유도 pct는 확률이 아니라 배수 소비(1.0+pct/100,
+# mythic_item_throw_bonus_runtime)라 100% 캡=부당한 밸런스 하드캡 —
+# 바운드 없이 계속 스케일한다(구조 스윕이 계속-성장 레그로 커버).
+# 실제 OVERFLOW_VALUE_BOUNDS와 perk/key/min·max/값 집합을 양방향
 # 정확 비교하고, 각 레인은 bound를 확실히 넘는 오버레벨에서 최종값이
 # 정확히 bound에 붙는 행동까지 검증한다 — 구조 스윕만으로는 바운드
 # 다수가 삭제돼도(직접 검증 5레인 외) GREEN인 구멍이 있었다.
 const EXPECTED_OVERFLOW_BOUNDS := {
 	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
-	"reinforced_boomerang_gauntlet": {
-		"boomerang_stun_pct": {"max": 100.0},
-		"boomerang_homing_pct": {"max": 100.0},
-	},
 	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
 	"battery": {"gauge_preserve_pct": {"max": 100.0}},
 	"master": {"item_cooldown_pct": {"max": 100.0}},
@@ -136,7 +135,7 @@ func _verify_bounds_map_matches_expected_exactly() -> void:
 
 
 func _verify_every_expected_bound_is_reachable_and_sticks() -> void:
-	# 19레인 전수 행동 검증: 각 레인의 평균 기울기로 bound를 확실히 넘는
+	# 17레인 전수 행동 검증: 각 레인의 평균 기울기로 bound를 확실히 넘는
 	# 오버레벨을 계산해 최종값이 정확히 bound에 붙는지 확인한다.
 	for perk_id_value in EXPECTED_OVERFLOW_BOUNDS.keys():
 		var perk_id: String = str(perk_id_value)

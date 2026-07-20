@@ -241,16 +241,15 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 # returned verbatim; only the extrapolated overflow segment is clamped here.
 # Chance / resist / reduction-percent lanes cap at 100, resource costs floor
 # at 0, and the sensor auto-dash cooldown keeps a 1s minimum so overflow can
-# never produce a zero-cooldown auto dash. Balance-motivated caps do NOT
+# never produce a zero-cooldown auto dash. Boomerang stun/homing pct are
+# NOT chances — they feed 1.0 + pct/100 multipliers in
+# mythic_item_throw_bonus_runtime, so they carry no bound here and keep
+# scaling. Balance-motivated caps do NOT
 # belong here — per CLAUDE.md the overflow default is "keep scaling", and any
 # intentional hard cap must be declared in catalog wording too.
 # sage_ring is effective_level_exempt, so its lanes never reach overflow.
 const OVERFLOW_VALUE_BOUNDS := {
 	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
-	"reinforced_boomerang_gauntlet": {
-		"boomerang_stun_pct": {"max": 100.0},
-		"boomerang_homing_pct": {"max": 100.0},
-	},
 	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
 	"battery": {"gauge_preserve_pct": {"max": 100.0}},
 	"master": {"item_cooldown_pct": {"max": 100.0}},
