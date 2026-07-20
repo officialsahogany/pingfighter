@@ -48,7 +48,11 @@ func _init() -> void:
 
 
 func _run() -> void:
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+	# 비저장 locale 고정(표준): 저장형 set_language()는 실 user://
+	# language_settings.cfg를 저장한다 — 정상 완주해도 원래 언어를
+	# 파괴하고, 중간 종료 시 영어가 남는다. 성공·실패 공통 종료에서
+	# ""로 해제한다.
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	_test_reproduces_every_authored_level()
 	_test_linear_overflow_values()
 	_test_converted_overflow_single_sourced()
@@ -57,6 +61,7 @@ func _run() -> void:
 	_test_presenter_consumes_overflow_text()
 	_test_overlay_renderer_consumes_overflow_text()
 	_test_non_korean_keeps_summary_fallback()
+	LanguageSettings.set_test_locale_override("")
 	if not _failures.is_empty():
 		ProjectResourceLoader.clear_caches()
 		quit(1)
@@ -212,7 +217,7 @@ func _test_overlay_renderer_consumes_overflow_text() -> void:
 
 
 func _test_non_korean_keeps_summary_fallback() -> void:
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
 	var generated: String = RuntimePerkOverflowDescriptions.generate_stats_text("dash_jump", 7)
 	_expect(generated == "", "non-Korean locales must not generate Korean pattern text")
 	var catalog: Object = RuntimePerkCatalog.new()
@@ -224,7 +229,7 @@ func _test_non_korean_keeps_summary_fallback() -> void:
 		resolved == summary and resolved != "",
 		"non-Korean overflow must fall back to the localized summary, got: %s" % resolved
 	)
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _expect_text(skill_id: String, level: int, expected: String) -> void:
