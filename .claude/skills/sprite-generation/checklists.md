@@ -236,6 +236,62 @@ as a new character before generating the click-reaction sheet.
 
 ---
 
+## 0.4b. Live2D matte keying gate (build post-process)
+
+§0.4 governs the SOURCE art. This gate governs the build script that turns an
+AutoSprite sheet into a runtime sheet. Different failure class, different owner.
+
+| # | Check | Pass |
+|---|---|---|
+| 1 | The chroma removal is a CONTINUOUS unmix (`alpha *= 1 - keyness`), never a binary kill (`alpha[keyed] = 0`) | yes |
+| 2 | The key strength `T` is ESTIMATED PER FRAME, not a hardcoded constant | yes |
+| 3 | Attenuation is applied globally under a palette size-gate — NOT restricted to a distance band from the silhouette | yes |
+| 4 | `visible_magenta_count == 0` at the cleaned source-cell stage (gate, not a report) | yes |
+| 5 | No opaque erosion: pixels at `alpha >= 245` before the change are still `>= 200` after | yes |
+| 6 | Grid-phase clustering `R < 0.25` on the upscaled alpha (see below) | yes |
+
+**Why binary kill is wrong.** A partially covered edge pixel is by definition
+`observed = subject * a + bg * (1 - a)`, so it *is* partly key-colored. A
+threshold test therefore matches most of the antialiasing band and deletes it.
+Measured on Mika v8: 70–77% of the partial-alpha band erased, silhouette area
+−5.4%, perimeter +15–25%, 239 thin components (hair tips, tassels) lost, and
+100% of the pipeline's added temporal jitter traced to that one line.
+
+**Grid-phase R** is the fingerprint. Take the subpixel x where the upscaled
+alpha crosses 128 per row, fold it modulo the upscale ratio, and take the
+circular-mean resultant length. A binary kill snaps edges onto the source grid
+(Mika v8: 0.49 / 0.54); a continuous unmix does not (v9: 0.17 / 0.14).
+
+**Never band-limit the attenuation.** removeBg leaves ENCLOSED background holes
+(background visible through a gap between limbs) fully opaque, 78–81 px deep
+inside the silhouette. A `distance <= N` guard skips them and revives visible
+key color (measured 325–364 px/frame). The palette size-gate already protects
+the character's own colors — that is what does the protecting, not the band.
+
+**Do not remove the sub-pixel feather** (`GaussianBlur σ≈0.42`) while "cleaning
+up" the keyer. Ablation shows it REDUCES frame-to-frame boil (128.8 → 142.5
+when removed). The nearby `<=8 / >=247` clamps are measured no-ops; leave them.
+
+**Matte acceptance gates must be motion-normalized.** An absolute
+"quietest-tile wobble" threshold measures how STILL the take is, not how clean
+the matte is — it rejects lively takes and passes near-frozen ones. Bucket by
+actual motion (RGB temporal deviation of always-opaque interior pixels) and
+compare wobble within a bucket.
+
+**AutoSprite native resolution is 640×640 yuv420p.** `frameSize` above 640 is
+pure upscale, and 4:2:0 means the chroma driving any key is effectively
+320×320. Probed 2026-07-20: the `max` video tier is also 640×640 (97 frames),
+so no tier buys a larger matte — do not spend credits re-testing this. Asset-path
+tools (`animate_asset`, `generate_asset_spritesheet`) cap `frameSize` at 512,
+offer no `compression` parameter, and have no `removeBg: "none"`; only the
+character path (`regenerate_spritesheet`, free) exposes those.
+
+Reference implementation: `preview_outputs/mika_hwangyeok_io_grade_source_v4/
+build_io_grade_runtime_sheets_v9.py` (module docstring carries the full
+measurement record).
+
+---
+
 ## 0.5. Character-select Live2D card loop gate
 
 Run this for character-select cards, standing previews, Live2D-style UI
