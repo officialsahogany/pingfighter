@@ -1630,6 +1630,7 @@ append했다. 같은 자리에서 두 건이 동시 발견됨:
 - 씰 신설은 CI(`godot-ci.yml`)/pre-push(`run_pre_push_checks.ps1`)
   락스텝 등재까지가 한 단위 — 미등재 씰은 후속 리팩토링 때 조용히
   RED로 남는다(angel 사례).
-- 잠재 발산 잔여(후속 후보): projection 분기는 equipped unlock 숨김
-  lookup을 받지 않아(빈 `{}` 전달) 장착된 해금 퍽 숨김 계약이 일반
-  분기와 다르게 동작할 수 있다.
+- 장착 해금퍽 숨김 lookup 미관통도 같은 클래스의 **확정 회귀**였다
+  (projection 상시라 "잠재"란 없다 — 그 분기에서 빠진 후처리는 전부
+  실전 버그다). 수정: lookup을 projection 분기 전에 생성해 빌더까지
+  관통, 씰=prewarm 스모크 실 스냅샷 양방향(장착→숨김/빈 목록→표시).
