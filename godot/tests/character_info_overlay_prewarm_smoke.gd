@@ -536,9 +536,17 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(build_acquired_body.find("var draw_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get(\"icon_color\", accent_blue))") >= 0, "acquired perk cache should compute perk draw color once through value utils")
 	_expect(build_acquired_body.find("data[\"_draw_color\"] = draw_color") >= 0, "acquired perk cache should precompute perk draw color")
 	_expect(build_acquired_body.find("data[\"_draw_id\"] = skill_id") >= 0, "acquired perk cache should precompute perk draw id")
-	_expect(build_acquired_body.find("cell_data[\"_is_slot_cell\"] = true") >= 0, "acquired perk cache should expand multi-slot perks into explicit slot cells")
-	_expect(build_acquired_body.find("cell_data[\"_level_text\"] = \"\"") >= 0, "dash-token slot cells should hide per-cell level badges")
-	_expect(build_acquired_body.find("data[\"_slot_free_cell\"] = true") >= 0, "free acquired perks should be marked outside the slot budget")
+	# 슬롯 셀 확장은 공용 헬퍼(append_presented_perk_with_slot_cells)로
+	# 단일화됐다(2026-07-21) — 일반(레벨 dict) 분기와 융합 projection 분기가
+	# 모두 이 헬퍼를 지나야 dash 토큰 셀 확장이 라이브(projection 상시)에서
+	# 유지된다. 본문 씰도 헬퍼 본문 + 두 분기의 호출로 갱신.
+	var slot_cell_helper_body := _function_body(perk_presenter_source, "static func append_presented_perk_with_slot_cells(")
+	_expect(slot_cell_helper_body.find("cell_data[\"_is_slot_cell\"] = true") >= 0, "slot-cell helper should expand multi-slot perks into explicit slot cells")
+	_expect(slot_cell_helper_body.find("cell_data[\"_level_text\"] = \"\"") >= 0, "slot-cell helper should hide per-cell level badges")
+	_expect(slot_cell_helper_body.find("data[\"_slot_free_cell\"] = true") >= 0, "slot-cell helper should mark free perks outside the slot budget")
+	_expect(build_acquired_body.find("append_presented_perk_with_slot_cells(") >= 0, "ordinary levels branch should route through the shared slot-cell helper")
+	var projection_branch_body := _function_body(perk_presenter_source, "static func build_acquired_perks_from_projection(")
+	_expect(projection_branch_body.find("append_presented_perk_with_slot_cells(") >= 0, "fusion projection branch should route through the shared slot-cell helper")
 	_expect(perk_presenter_source.find("static func build_slot_grid_entries(acquired: Array, slot_count: int) -> Array:") >= 0, "TAB perk grid should have an explicit empty-slot padding helper")
 	_expect(perk_presenter_source.find("result.append_array(free_entries)") >= 0, "TAB perk grid should append free entries after the slot-budget cells")
 	_expect(perk_presenter_source.find("\"_empty_slot\": true") >= 0, "TAB perk grid padding should mark empty slot cells")

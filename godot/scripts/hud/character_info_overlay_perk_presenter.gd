@@ -189,7 +189,8 @@ static func build_acquired_perks_from_projection(
 	catalog: Object,
 	effective_levels: Dictionary,
 	accent_blue: Color,
-	accent_gold: Color
+	accent_gold: Color,
+	runtime_state: Object = null
 ) -> Array:
 	var result: Array = []
 	for entry_value: Variant in projection_entries:
@@ -215,7 +216,13 @@ static func build_acquired_perks_from_projection(
 		if data.is_empty():
 			continue
 		_decorate_presented_perk(data, perk_id, accent_blue, accent_gold)
-		result.append(data)
+		# 런타임 상태 라인(천사의 주사위 등)은 일반 분기와 동일하게 여기서도
+		# 적용한다 — projection 분기 추출 때 탈락해 씰(angel_blessing_status_
+		# tooltip_smoke)이 조용히 RED로 남았던 자리(2026-07-21 복원).
+		_apply_runtime_status_lines(data, perk_id, runtime_state)
+		# 대쉬토큰류 slot_cost>1 퍽은 projection 경유에서도 슬롯 셀 N개로
+		# 확장해야 한다 — 그리드 셀 수와 슬롯 카운터가 같은 수를 읽는 계약.
+		append_presented_perk_with_slot_cells(result, data, slot_cost_for_level(catalog, data, base_level))
 	return result
 
 
@@ -451,7 +458,8 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 				catalog,
 				effective_levels,
 				accent_blue,
-				accent_gold
+				accent_gold,
+				runtime_state
 			)
 			projected.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 				return sort_perks(a, b)
@@ -475,21 +483,7 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 		data["_level_text"] = CharacterInfoOverlayFormatter.perk_level_text(data)
 		data["_level_color"] = CharacterInfoOverlayFormatter.perk_level_color(data, accent_gold)
 		_apply_runtime_status_lines(data, skill_id, runtime_state)
-		var slot_cost := slot_cost_for_level(catalog, data, base_level)
-		data["_slot_cost"] = slot_cost
-		if slot_cost > 1:
-			for cell_index in range(slot_cost):
-				var cell_data: Dictionary = data.duplicate(true)
-				cell_data["_is_slot_cell"] = true
-				cell_data["_slot_cell_index"] = cell_index
-				cell_data["_slot_cell_total"] = slot_cost
-				cell_data["_level_text"] = ""
-				result.append(cell_data)
-		elif slot_cost <= 0:
-			data["_slot_free_cell"] = true
-			result.append(data)
-		else:
-			result.append(data)
+		append_presented_perk_with_slot_cells(result, data, slot_cost_for_level(catalog, data, base_level))
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return sort_perks(a, b)
 	)
@@ -500,6 +494,26 @@ static func slot_cost_for_level(catalog: Object, perk_data: Dictionary, base_lev
 	if catalog != null and catalog.has_method("get_slot_cost_for_level"):
 		return max(0, int(catalog.get_slot_cost_for_level(perk_data, base_level)))
 	return 1
+
+
+# 슬롯 비용 표시 확장의 단일 소스 — 일반(레벨 dict) 분기와 융합 projection
+# 분기가 반드시 같은 헬퍼를 지나야 한다. projection 분기가 자체 append를
+# 유지하면 라이브(스냅샷은 항상 projection을 실음)에서만 대쉬토큰 Lv.N이
+# 슬롯 셀 N개 대신 배지 셀 1개로 붕괴한다(2026-07-21 리포트).
+static func append_presented_perk_with_slot_cells(result: Array, data: Dictionary, slot_cost: int) -> void:
+	data["_slot_cost"] = slot_cost
+	if slot_cost > 1:
+		for cell_index in range(slot_cost):
+			var cell_data: Dictionary = data.duplicate(true)
+			cell_data["_is_slot_cell"] = true
+			cell_data["_slot_cell_index"] = cell_index
+			cell_data["_slot_cell_total"] = slot_cost
+			cell_data["_level_text"] = ""
+			result.append(cell_data)
+		return
+	if slot_cost <= 0:
+		data["_slot_free_cell"] = true
+	result.append(data)
 
 
 static func build_slot_grid_entries(acquired: Array, slot_count: int) -> Array:

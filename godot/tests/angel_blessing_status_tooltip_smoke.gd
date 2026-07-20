@@ -32,13 +32,15 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var original_language := LanguageSettings.get_language()
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	# 비저장 locale override 표준: 저장형 set_language()는 실제 사용자
+	# language_settings.cfg를 오염시키므로 스모크에서 금지. 성공·실패 공통
+	# 종료에서 ""로 해제해 엔진 locale까지 복원한다.
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
 	_verify_unrolled_and_next_intro_status()
 	var rolled_state: Object = _verify_face_three_and_all_six_buff_signs()
 	_verify_character_info_presenter_reflects_runtime_status(rolled_state)
 	_verify_angel_revision_invalidates_presenter_cache(rolled_state)
-	LanguageSettings.set_language(original_language)
+	LanguageSettings.set_test_locale_override("")
 
 	if _failures.is_empty():
 		print("angel_blessing_status_tooltip_smoke: ok")
