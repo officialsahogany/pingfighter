@@ -238,6 +238,20 @@ far from the character's palette — avoid near-black only if the character
 is itself near-black); keep flat `#ff00ff` for pipelines that key the
 background themselves (chroma_key.py, strict-magenta hard keying).
 
+The near-black anchor has its OWN failure mode to gate: removeBg keeps
+near-black background chunks as opaque character pixels ("ink blobs") in
+face/ponytail gaps, neck-side pockets, and sleeve-body gaps — RGB median
+[2,2,4] = pure background, 1.4–3.4k px/frame measured on Mika. It is
+deterministically removable because the blobs are LARGE near-neutral
+areas (character darks differ: navy hair [61,61,71], line art = thin
+strokes protected by an area gate): seed on `max(RGB) < 12` components
+≥ 40 px, geodesic-grow ~4 steps over `luma < 28 & sat < 20`, alpha→0.
+Two ordering traps: run the removal AGAIN at the very end of the clean
+(the feather resurrects removed borders as >128 semi-alpha with
+still-near-black RGB — measured 126 px residue), and make the QC gate
+re-run the SAME detector on the FINAL cleaned frame (residue > 0 =
+build failure), mirroring the visible-magenta gate.
+
 Recovery for an already-built character whose base was a dirty / hue-adjacent
 key: do NOT keep regenerating motion sheets from it and fighting fringe in
 post. Despill the source to a clean transparent cutout, tight-reframe it to
