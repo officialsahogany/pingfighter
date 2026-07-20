@@ -53,6 +53,10 @@ func update_hover_state(owner: Object, registry: Object) -> Dictionary:
 	if not horn_result.is_empty():
 		_store_cached_result(owner, mouse_pos, view_size, horn_result)
 		return horn_result
+	var odins_result: Dictionary = _find_hovered_odins_eye_skill_fast(owner, registry, mouse_pos, layout, scene_config)
+	if not odins_result.is_empty():
+		_store_cached_result(owner, mouse_pos, view_size, odins_result)
+		return odins_result
 	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	if not character_runtime.is_commando(character_type):
 		var fast_result: Dictionary = _find_hovered_skill_fast(registry, mouse_pos, layout, scene_config, character_type)
@@ -283,6 +287,61 @@ func _find_hovered_horn_strawberry_skill_fast(
 		base_context
 	)
 	var skill_data: Dictionary = horn_renderer.find_hovered_skill(
+		mouse_pos,
+		_get_vector2(ui_layout, "left_center", Vector2.ZERO),
+		float(ui_layout.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	if skill_data.is_empty():
+		return {}
+	return {
+		"skill_name": str(skill_data.get("name", "")),
+	}
+
+
+# 오딘의 눈 변신 오브 hover(혼딸기 형제 계약 미러): 변신 중 어둠의 늪
+# 단일 오브가 일반 클러스터를 대체하므로 hover도 오딘 렌더러가 소유한다.
+func _find_hovered_odins_eye_skill_fast(
+	owner: Object,
+	registry: Object,
+	mouse_pos: Vector2,
+	layout: Dictionary,
+	scene_config: Dictionary
+) -> Dictionary:
+	var mythic_item_runtime: Object = _get_cached_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("get_odins_eye_context"):
+		return {}
+	var odins_context: Dictionary = _get_dict(mythic_item_runtime.get_odins_eye_context())
+	if not bool(odins_context.get("transformed", false)):
+		return {}
+	var odins_renderer: Object = _get_cached_instance(registry, "odins_eye_skill_pillar_renderer")
+	if (
+		odins_renderer == null
+		or not odins_renderer.has_method("build_skill_orb_context")
+		or not odins_renderer.has_method("find_hovered_skill")
+	):
+		return {}
+	var game_offset: Vector2 = _get_vector2(layout, "game_offset", Vector2.ZERO)
+	var game_size: Vector2 = _get_vector2(layout, "game_size", Vector2(760.0, 750.0))
+	var ui_layout: Dictionary = layout_helper.build_layout(game_offset, game_size, {
+		"height": float(scene_config.get("height", 750.0)),
+	})
+	var scale_factor: float = float(ui_layout.get("scale_factor", 1.0))
+	var base_context: Dictionary = layout_helper.build_skill_orb_context({
+		"selected_character_type": "smasher",
+		"skill_config_snapshot": {
+			"max_slots": 4,
+			"equipped_skills": [],
+		},
+	}, _get_cached_instance(registry, "pillar_orb_drawer"))
+	var skill_context: Dictionary = odins_renderer.build_skill_orb_context(
+		odins_context,
+		float(_get_owner_value(owner, "special_gauge", 0.0)),
+		_get_cached_instance(registry, "pillar_orb_drawer"),
+		base_context
+	)
+	var skill_data: Dictionary = odins_renderer.find_hovered_skill(
 		mouse_pos,
 		_get_vector2(ui_layout, "left_center", Vector2.ZERO),
 		float(ui_layout.get("orb_radius", 55.0)),

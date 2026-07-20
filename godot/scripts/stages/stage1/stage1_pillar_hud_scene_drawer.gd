@@ -18,6 +18,7 @@ const BASE_PREWARM_MODULE_KEYS := [
 	"pillar_orb_drawer",
 	"smasher_skill_orb_renderer",
 	"horn_strawberry_skill_pillar_renderer",
+	"odins_eye_skill_pillar_renderer",
 	"pillar_status_orb_renderer",
 	"active_item_hud_layout",
 	"active_item_hud_renderer",
@@ -257,6 +258,8 @@ func _draw_stage1_pillar_ui(
 	var sensor_context: Dictionary = mythic_item_runtime.get_sensor_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_sensor_context") else {}
 	var horn_strawberry_context: Dictionary = mythic_item_runtime.get_horn_strawberry_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context") else {}
 	var horn_strawberry_skill_pillar_renderer: Object = _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer")
+	var odins_eye_context: Dictionary = mythic_item_runtime.get_odins_eye_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_odins_eye_context") else {}
+	var odins_eye_skill_pillar_renderer: Object = _get_cached_module(registry, "odins_eye_skill_pillar_renderer")
 	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
 	# Reactive pillar portraits: resolve the boss / player face from live stun +
 	# per-point score state (stateless direct mapping; latch/decay lands in a later
@@ -278,6 +281,8 @@ func _draw_stage1_pillar_ui(
 	ui_context["skill_orb_renderer"] = skill_orb_renderer
 	ui_context["horn_strawberry_skill_pillar_renderer"] = horn_strawberry_skill_pillar_renderer
 	ui_context["horn_strawberry_context"] = horn_strawberry_context
+	ui_context["odins_eye_skill_pillar_renderer"] = odins_eye_skill_pillar_renderer
+	ui_context["odins_eye_context"] = odins_eye_context
 	ui_context["status_orb_renderer"] = status_orb_renderer
 	ui_context["commando_firearm_selector_renderer"] = commando_firearm_selector_renderer
 	ui_context["commando_weapon_controller"] = commando_weapon_controller
@@ -495,6 +500,8 @@ func _build_commando_firearm_panel_state_for_boss_hud(
 		"skill_orb_renderer": _get_cached_module(registry, "smasher_skill_orb_renderer"),
 		"horn_strawberry_skill_pillar_renderer": _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer"),
 		"horn_strawberry_context": _get_horn_strawberry_context(registry),
+		"odins_eye_skill_pillar_renderer": _get_cached_module(registry, "odins_eye_skill_pillar_renderer"),
+		"odins_eye_context": _get_odins_eye_context(registry),
 		"commando_firearm_selector_renderer": selector_renderer,
 		"commando_weapon_controller": weapon_controller,
 		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
@@ -525,6 +532,15 @@ func _get_horn_strawberry_context(registry: Object) -> Dictionary:
 	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context"):
 		var value: Variant = mythic_item_runtime.get_horn_strawberry_context()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _get_odins_eye_context(registry: Object) -> Dictionary:
+	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_odins_eye_context"):
+		var value: Variant = mythic_item_runtime.get_odins_eye_context()
 		if value is Dictionary:
 			return value
 	return {}

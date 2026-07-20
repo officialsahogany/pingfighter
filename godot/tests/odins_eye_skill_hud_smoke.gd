@@ -3,16 +3,33 @@ extends SceneTree
 const OdinsEyeSkillPillarRenderer := preload("res://scripts/hud/odins_eye_skill_pillar_renderer.gd")
 const SmasherSkillOrbSlotRenderer := preload("res://scripts/hud/smasher_skill_orb_slot_renderer.gd")
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
+const GameplayHudModuleCatalog := preload("res://scripts/resources/gameplay_hud_module_catalog.gd")
+const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 
 const SKILL_DARK_SWAMP := "odins_eye_dark_swamp"
 
 var _failures: Array[String] = []
 
 
+class FakeSelectorRenderer:
+	extends RefCounted
+
+	var build_count := 0
+
+	func build_panel_state(_panel_center: Vector2, _scale_factor: float, _context: Dictionary) -> Dictionary:
+		build_count += 1
+		return {
+			"rect": Rect2(Vector2(10.0, 20.0), Vector2(100.0, 40.0)),
+		}
+
+
 func _init() -> void:
 	_verify_visibility_and_layout_contract()
 	_verify_ready_state_matrix()
 	_verify_tooltip_metadata_and_hover()
+	_verify_catalog_registration()
+	_verify_pillar_swap_predicate()
+	_verify_commando_panel_hidden_while_transformed()
 
 	if _failures.is_empty():
 		print("odins_eye_skill_hud_smoke: ok")
@@ -122,6 +139,59 @@ func _build_skill_context(renderer: Object, odins_eye_context: Dictionary, speci
 		},
 	}, null)
 	return renderer.build_skill_orb_context(odins_eye_context, special_gauge, null, base_context)
+
+
+# 라이브 배선 씰(2026-07-21 회귀 복원): 렌더러 모듈이 GREEN이어도 HUD 모듈
+# 카탈로그 미등록이면 scene drawer의 _get_cached_module이 null을 돌려 오브가
+# 라이브에서 영구 부재였다("변신했는데 스킬도 안 씀" 증상의 HUD 절반).
+func _verify_catalog_registration() -> void:
+	var catalog := GameplayHudModuleCatalog.new()
+	var spec: Dictionary = catalog.get_spec("odins_eye_skill_pillar_renderer")
+	_expect(not spec.is_empty(), "Odin's Eye skill HUD renderer should be registered in the HUD module catalog")
+	_expect(
+		str(spec.get("path", "")) == "res://scripts/hud/odins_eye_skill_pillar_renderer.gd",
+		"Odin HUD catalog path should point at the pillar renderer"
+	)
+
+
+func _verify_pillar_swap_predicate() -> void:
+	var pillar_renderer := Stage1PillarUiRenderer.new()
+	var odins_renderer := OdinsEyeSkillPillarRenderer.new()
+	_expect(
+		pillar_renderer._is_odins_eye_skill_hud_active(odins_renderer, _build_odin_context()),
+		"pillar UI should swap to the Odin orb renderer while transformed"
+	)
+	_expect(
+		not pillar_renderer._is_odins_eye_skill_hud_active(odins_renderer, {"transformed": false}),
+		"pillar UI should keep the normal orb renderer when Odin is not transformed"
+	)
+	_expect(
+		not pillar_renderer._is_odins_eye_skill_hud_active(null, _build_odin_context()),
+		"missing Odin renderer module should fail closed to the normal orb renderer"
+	)
+
+
+func _verify_commando_panel_hidden_while_transformed() -> void:
+	var pillar_renderer := Stage1PillarUiRenderer.new()
+	var selector := FakeSelectorRenderer.new()
+	var odins_renderer := OdinsEyeSkillPillarRenderer.new()
+	var panel_state: Dictionary = pillar_renderer.build_commando_firearm_panel_state(
+		Vector2.ZERO,
+		Vector2(760.0, 750.0),
+		{
+			"height": 750.0,
+			"selected_character_type": "soldier",
+			"commando_firearm_selector_renderer": selector,
+			"odins_eye_skill_pillar_renderer": odins_renderer,
+			"odins_eye_context": _build_odin_context(),
+			"skill_config_snapshot": {
+				"max_slots": 5,
+				"equipped_skills": [],
+			},
+		}
+	)
+	_expect(panel_state.is_empty(), "commando firearm panel should be hidden while the Odin transformed HUD is active")
+	_expect(selector.build_count == 0, "hidden commando panel should not build selector state while Odin HUD is active")
 
 
 func _build_odin_context() -> Dictionary:

@@ -49,6 +49,8 @@ func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2
 	var horn_context: Dictionary = _get_dict(context.get("horn_strawberry_context", {}))
 	if _is_horn_strawberry_skill_hud_active(horn_renderer, horn_context):
 		return {}
+	if _is_odins_eye_skill_hud_active(context.get("odins_eye_skill_pillar_renderer", null), _get_dict(context.get("odins_eye_context", {}))):
+		return {}
 	var panel_center: Vector2 = _get_commando_firearm_panel_center(
 		left_center,
 		orb_radius,
@@ -98,12 +100,26 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 		horn_strawberry_skill_renderer,
 		horn_strawberry_context
 	)
+	var odins_eye_skill_renderer: Object = context.get("odins_eye_skill_pillar_renderer", null)
+	var odins_eye_context: Dictionary = _get_dict(context.get("odins_eye_context", {}))
+	var odins_eye_hud_active: bool = _is_odins_eye_skill_hud_active(odins_eye_skill_renderer, odins_eye_context)
 	var active_skill_orb_renderer: Object = skill_orb_renderer
 	if horn_strawberry_hud_active:
 		active_skill_orb_renderer = horn_strawberry_skill_renderer
 		if horn_strawberry_skill_renderer.has_method("build_skill_orb_context"):
 			skill_orb_context = horn_strawberry_skill_renderer.build_skill_orb_context(
 				horn_strawberry_context,
+				float(context.get("special_gauge", 0.0)),
+				orb_drawer,
+				skill_orb_context
+			)
+	elif odins_eye_hud_active:
+		# 오딘의 눈 변신(페널티 폼): 일반 캐릭터 오브 클러스터를 어둠의 늪
+		# 단일 오브로 대체한다(혼딸기 형제 계약 — 혼딸기 변신이 선순위).
+		active_skill_orb_renderer = odins_eye_skill_renderer
+		if odins_eye_skill_renderer.has_method("build_skill_orb_context"):
+			skill_orb_context = odins_eye_skill_renderer.build_skill_orb_context(
+				odins_eye_context,
 				float(context.get("special_gauge", 0.0)),
 				orb_drawer,
 				skill_orb_context
@@ -189,7 +205,7 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	if boost_fx_host != null and boost_fx_host.has_method("end_frame"):
 		boost_fx_host.end_frame()
 
-	if commando_firearm_selector_renderer != null and not horn_strawberry_hud_active:
+	if commando_firearm_selector_renderer != null and not horn_strawberry_hud_active and not odins_eye_hud_active:
 		sample_start = _perf_begin(perf_logger)
 		var firearm_rainbow_fx_host: Node = _get_or_create_firearm_rainbow_fx_host(canvas)
 		if firearm_rainbow_fx_host != null and firearm_rainbow_fx_host.has_method("begin_frame"):
@@ -551,6 +567,14 @@ func _is_horn_strawberry_skill_hud_active(horn_renderer: Object, horn_context: D
 	if horn_renderer.has_method("is_active"):
 		return bool(horn_renderer.is_active(horn_context))
 	return bool(horn_context.get("transformed", false))
+
+
+func _is_odins_eye_skill_hud_active(odins_renderer: Object, odins_context: Dictionary) -> bool:
+	if odins_renderer == null:
+		return false
+	if odins_renderer.has_method("is_active"):
+		return bool(odins_renderer.is_active(odins_context))
+	return bool(odins_context.get("transformed", false))
 
 
 func _build_status_context(context: Dictionary) -> Dictionary:

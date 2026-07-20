@@ -65,6 +65,10 @@ const MODULES := {
 		"path": "res://scripts/hud/horn_strawberry_skill_pillar_renderer.gd",
 		"label": "horn strawberry skill pillar renderer",
 	},
+	"odins_eye_skill_pillar_renderer": {
+		"path": "res://scripts/hud/odins_eye_skill_pillar_renderer.gd",
+		"label": "odins eye skill pillar renderer",
+	},
 	"smasher_skill_orb_tooltip_renderer": {
 		"path": "res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd",
 		"label": "smasher skill orb tooltip renderer",
