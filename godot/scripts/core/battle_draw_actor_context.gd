@@ -502,6 +502,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_customization_debug_overlay_enabled": bool(context.get("player_customization_debug_overlay_enabled", false)),
 		"player_customization_overlay_slots": player_customization_overlay_slots,
 		"player_customization_overlay_textures": player_customization_overlay_textures,
+		"player_socket_glow_perk_level": int(context.get("player_socket_glow_perk_level", 0)),
+		"player_socket_debug_overlay_enabled": bool(context.get("player_socket_debug_overlay_enabled", false)),
 		"dash_active": dash_context.get("active", false),
 		"dash_timer": float(dash_context.get("timer", 0.0)),
 		"dash_elapsed_frames": float(dash_context.get("elapsed_frames", 0.0)),

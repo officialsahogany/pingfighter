@@ -79,6 +79,11 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_customization_debug_overlay_enabled": bool(_get_owner_value(owner, "player_customization_debug_overlay_enabled", false)),
 		"player_customization_overlay_slots": _get_owner_dict(owner, "player_customization_overlay_slots"),
 		"player_customization_overlay_textures": _get_owner_dict(owner, "player_customization_overlay_textures"),
+		# Socket-composition pilot: project the gating perk's owned level to a
+		# scalar so renderers never touch the raw perk dict (or its display
+		# projection) on the draw path.
+		"player_socket_glow_perk_level": int(_get_owner_dict(owner, "runtime_perk_levels").get("dash_module_control", 0)),
+		"player_socket_debug_overlay_enabled": bool(_get_owner_value(owner, "player_socket_debug_overlay_enabled", false)),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_paddle_size": Vector2(player_paddle_width, player_paddle_height),

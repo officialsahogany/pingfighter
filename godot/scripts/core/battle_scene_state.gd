@@ -153,6 +153,7 @@ const DEFAULT_VALUES: Dictionary = {
 	"player_customization_debug_overlay_enabled": false,
 	"player_customization_overlay_slots": {},
 	"player_customization_overlay_textures": {},
+	"player_socket_debug_overlay_enabled": false,
 	"runtime_perk_levels": {},
 	"runtime_perk_pending_choices": 0,
 	"runtime_perk_starpoints": 0,

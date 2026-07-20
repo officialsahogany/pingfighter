@@ -2,6 +2,7 @@ extends RefCounted
 
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const PlayerCustomizationOverlayRenderer := preload("res://scripts/characters/player_customization_overlay_renderer.gd")
+const PlayerSocketGlowRenderer := preload("res://scripts/characters/player_socket_glow_renderer.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
 const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
 
@@ -20,6 +21,7 @@ const PLAYER_SILHOUETTE_RIM_OFFSET_PX := 2.0
 static var _character_rim_shader_ready: bool = false
 
 var customization_overlay_renderer: Object = PlayerCustomizationOverlayRenderer.new()
+var socket_glow_renderer: Object = PlayerSocketGlowRenderer.new()
 var _wheel_spin_prewarmed_texture: Texture2D
 var _silhouette_rim_material: ShaderMaterial
 # resolve-only 훅: 현재 컨텍스트가 그릴 base 스프라이트의 (texture, region, flip)을
@@ -1121,9 +1123,15 @@ func _draw_texture_with_customization_overlays(
 		context,
 		overlay_metadata
 	)
+	var socket_cell_size := Vector2(
+		float(metadata.get("cell_width", 0.0)),
+		float(metadata.get("cell_height", 0.0))
+	)
+	socket_glow_renderer.draw_under_glow(canvas, context, motion_id, frame_index, direction, dest_rect, socket_cell_size)
 	customization_overlay_renderer.draw_layer(canvas, context, base_plan, "back")
 	_draw_texture_region(canvas, texture, dest_rect, source_rect, context, false, enable_silhouette_rim)
 	customization_overlay_renderer.draw_layer(canvas, context, base_plan, "front")
+	socket_glow_renderer.draw_debug_markers(canvas, context, motion_id, frame_index, direction, dest_rect, socket_cell_size)
 
 
 func _get_hit_direction(context: Dictionary) -> String:
