@@ -20,6 +20,7 @@ var _probe_level_text_cache: Array[String] = []
 var _probe_level_color_cache: Array[Color] = []
 var _probe_hover_title_cache: Array[String] = []
 var _probe_hover_body_cache: Array[String] = []
+var _probe_hover_detail_cache: Array[String] = []
 var _dual_dispatch_capture: Dictionary = {}
 
 
@@ -168,6 +169,9 @@ func _run() -> void:
 	var level_color_cache: Array[Color] = []
 	var hover_title_cache: Array[String] = []
 	var hover_body_cache: Array[String] = []
+	# 씰 갱신(2026-07-20): hover_detail_cache 도입 후 시그니처(파스-RED
+	# 소실분 — 낡은 인자 목록은 자리밀림 파스 에러).
+	var hover_detail_cache: Array[String] = []
 	CharacterInfoOverlayPerkPresenter.refresh_draw_arrays(
 		acquired,
 		draw_id_cache,
@@ -178,6 +182,7 @@ func _run() -> void:
 		level_color_cache,
 		hover_title_cache,
 		hover_body_cache,
+		hover_detail_cache,
 		Color.CORNFLOWER_BLUE,
 		func(_perk: Dictionary) -> String: return "",
 		func(_perk: Dictionary) -> Color: return Color.WHITE
@@ -235,6 +240,7 @@ func _run() -> void:
 	_probe_level_color_cache = level_color_cache
 	_probe_hover_title_cache = hover_title_cache
 	_probe_hover_body_cache = hover_body_cache
+	_probe_hover_detail_cache = hover_detail_cache
 	var probe := Control.new()
 	root.add_child(probe)
 	probe.draw.connect(_on_probe_draw.bind(probe))
@@ -316,6 +322,7 @@ func _on_probe_draw(probe: CanvasItem) -> void:
 		_probe_level_color_cache,
 		_probe_hover_title_cache,
 		_probe_hover_body_cache,
+		_probe_hover_detail_cache,
 		{},
 		24,
 		24,
