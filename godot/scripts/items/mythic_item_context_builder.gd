@@ -238,7 +238,23 @@ func get_actor_draw_context(runtime: Object, constants: Dictionary) -> Dictionar
 		context["horn_strawberry_transformed"] = runtime.is_horn_strawberry_transformed()
 		context["horn_strawberry_event_playing"] = runtime.is_horn_strawberry_event_playing()
 		context["horn_strawberry_context"] = runtime.get_horn_strawberry_context()
+	if _has_odins_eye_actor_context(runtime):
+		# 오딘의 눈(혼딸기 형제 계약): 변신 본체 스와프·부활/사망 시네마틱·
+		# 잔상 오버레이·늪 가시 렌더 전부가 액터 컨텍스트의 "odins_eye_context"
+		# 한 키만 소비한다. 이 병합이 빠지면 상태·화면흔들림은 살아도 시각이
+		# 전멸한다(2026-07-21 라이브 회귀 — 복구 트랙에서 이 헝크만 누락).
+		context["odins_eye_context"] = runtime.get_odins_eye_context()
 	return context
+
+
+# 오딘 액터-컨텍스트 필요 판정: 변신 유지(본체 스와프)+부활/사망 시네마틱
+# (is_odins_eye_effect_active)+잔상/다이브 payload 잔존(폼 종료 후 페이드도
+# 계속 그려야 한다 — payload 누락="오버레이 안 그려짐" 회귀 클래스).
+func _has_odins_eye_actor_context(runtime: Object) -> bool:
+	if runtime.is_odins_eye_transformed() or runtime.is_odins_eye_effect_active():
+		return true
+	var afterimage_state: Object = runtime.odins_eye_afterimage_state
+	return afterimage_state != null and afterimage_state.has_runtime_update_work()
 
 
 func has_actor_draw_context(runtime: Object) -> bool:
@@ -251,6 +267,7 @@ func has_actor_draw_context(runtime: Object) -> bool:
 		or runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0
 		or runtime.is_horn_strawberry_transformed()
 		or runtime.is_horn_strawberry_event_playing()
+		or _has_odins_eye_actor_context(runtime)
 	)
 
 

@@ -75,6 +75,7 @@ $focusedSmoke = @(
     "res://tests/stage7_akamu_result_scene_smoke.gd",
     "res://tests/boss_skill_hud_gauge_cover_smoke.gd",
     "res://tests/odins_eye_afterimage_dive_smoke.gd",
+    "res://tests/odins_eye_actor_context_merge_smoke.gd",
     "res://tests/odins_eye_audio_smoke.gd",
     "res://tests/odins_eye_catalog_smoke.gd",
     "res://tests/odins_eye_chance_gem_floor_smoke.gd",
