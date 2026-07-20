@@ -249,6 +249,7 @@ AutoSprite sheet into a runtime sheet. Different failure class, different owner.
 | 4 | `visible_magenta_count == 0` at the cleaned source-cell stage (gate, not a report) | yes |
 | 5 | No opaque erosion: pixels at `alpha >= 245` before the change are still `>= 200` after | yes |
 | 6 | Grid-phase clustering `R < 0.25` on the upscaled alpha (see below) | yes |
+| 7 | The upscaled alpha ramp is REQUANTIZED (SDF band) to match the reference character's on-screen ramp — measure semi-alpha run lengths at real display scale and match the accepted-clean reference (Io: median 2 / p90 4 px). Continuous unmix alone PRESERVES removeBg ultra's mushy 4–9px matte, which reads as a body-colored fuzz band ("번짐") once the hard kill that was accidentally trimming it is removed. Fix = subpixel SDF (0.5 level-set preserved) upscaled then requantized with a band tuned by screen-scale eyeball QA (Mika: band 1.8 → ramp 5/12 → 2/5, area −0.004%); too-narrow bands notch thin hair wisps | yes |
 
 **Why binary kill is wrong.** A partially covered edge pixel is by definition
 `observed = subject * a + bg * (1 - a)`, so it *is* partly key-colored. A
