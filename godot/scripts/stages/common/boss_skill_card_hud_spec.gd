@@ -3,8 +3,11 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const BASE_PILLAR_WIDTH := 80.0
-const CARD_WIDTH_BASE := 33.6
-const CARD_HEIGHT_BASE := 9.0
+# 2026-07-21 카드 전체 확대(사용자 확정): 33.6x9(3.73:1) -> 38x12(3.17:1).
+# 높이를 더 키워 카드 종횡비를 실제 카드 아트(스테이지 평균 ~3.0:1)에
+# 붙임 — 커지면서 cover-crop의 세로 잘림도 함께 줄어드는 방향.
+const CARD_WIDTH_BASE := 38.0
+const CARD_HEIGHT_BASE := 12.0
 const CARD_GAP_BASE := 2.0
 const CARD_RIGHT_MARGIN_BASE := 3.0
 const CARD_MIN_SIZE := Vector2(24.0, 10.0)

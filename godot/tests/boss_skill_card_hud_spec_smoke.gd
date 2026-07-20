@@ -41,11 +41,13 @@ func _init() -> void:
 
 func _verify_official_dalji_spec() -> void:
 	_expect(is_equal_approx(BossSkillCardHudSpec.BASE_PILLAR_WIDTH, 80.0), "boss skillcard spec should keep the Dalji base pillar width")
-	_expect(is_equal_approx(BossSkillCardHudSpec.CARD_WIDTH_BASE, 33.6), "boss skillcard spec should keep Dalji card width base")
-	_expect(is_equal_approx(BossSkillCardHudSpec.CARD_HEIGHT_BASE, 9.0), "boss skillcard spec should keep Dalji card height base")
+	# 2026-07-21 카드 전체 확대 설계값: 38x12 베이스(3.17:1 — 카드 아트
+	# 평균 종횡비 ~3.0:1 근접). 구 33.6x9은 폐기된 설계값.
+	_expect(is_equal_approx(BossSkillCardHudSpec.CARD_WIDTH_BASE, 38.0), "boss skillcard spec should keep the enlarged card width base (38)")
+	_expect(is_equal_approx(BossSkillCardHudSpec.CARD_HEIGHT_BASE, 12.0), "boss skillcard spec should keep the enlarged card height base (12)")
 	_expect(BossSkillCardHudSpec.CARD_MIN_SIZE == Vector2(24.0, 10.0), "boss skillcard spec should keep Dalji minimum card size")
 	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(80.0)
-	_expect(_vector2_equal(_get_vector2(metrics.get("card_size", Vector2.ZERO)), Vector2(34.0, 10.0)), "official base pillar card rect should resolve to 34x10 after rounding and min clamp")
+	_expect(_vector2_equal(_get_vector2(metrics.get("card_size", Vector2.ZERO)), Vector2(38.0, 12.0)), "official base pillar card rect should resolve to 38x12 after rounding and min clamp")
 
 
 func _verify_commando_panel_avoidance_contract() -> void:
