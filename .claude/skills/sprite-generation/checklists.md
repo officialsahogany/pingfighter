@@ -222,6 +222,22 @@ Fail any row -> do not treat the source art as a production Live2D anchor.
 Regenerate on a proper chroma-key background, redo the nukki pass, or despill
 to a clean transparent base before animating, upscaling, or wiring the asset.
 
+**Scope limit — the flat-magenta rule is for SELF-KEYING pipelines only.**
+When the animation matte comes from AutoSprite `removeBg` (a segmentation
+model, not a chroma keyer), the key color buys nothing and the magenta
+background becomes the SPILL SOURCE: the video model paints magenta
+reflections into hair gaps and edge pixels that removeBg then keeps at
+full opacity, unreachable by any downstream cleanup. Measured on Mika
+iofit (4 takes, same anchor/prompt): rim mottle 5,234 / 5,048 / 4,783 px
+(magenta anchor — turbo t1/t2/pro; tier and retakes do NOT help) vs
+**800 px on a near-black `#020202` anchor (−85%)**, interior noise −17%,
+and the purple silhouette outline visible in every magenta take is simply
+absent (take_compare_board). For removeBg-matted animation anchors,
+composite the clean transparent cutout over near-black (or a neutral tone
+far from the character's palette — avoid near-black only if the character
+is itself near-black); keep flat `#ff00ff` for pipelines that key the
+background themselves (chroma_key.py, strict-magenta hard keying).
+
 Recovery for an already-built character whose base was a dirty / hue-adjacent
 key: do NOT keep regenerating motion sheets from it and fighting fringe in
 post. Despill the source to a clean transparent cutout, tight-reframe it to
