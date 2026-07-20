@@ -5,6 +5,7 @@ const SmasherSkillOrbSlotRenderer := preload("res://scripts/hud/smasher_skill_or
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const GameplayHudModuleCatalog := preload("res://scripts/resources/gameplay_hud_module_catalog.gd")
 const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
+const SmasherSkillOrbTooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 
 const SKILL_DARK_SWAMP := "odins_eye_dark_swamp"
 
@@ -30,6 +31,7 @@ func _init() -> void:
 	_verify_catalog_registration()
 	_verify_pillar_swap_predicate()
 	_verify_commando_panel_hidden_while_transformed()
+	_verify_tooltip_pipeline_ownership_while_transformed()
 
 	if _failures.is_empty():
 		print("odins_eye_skill_hud_smoke: ok")
@@ -139,6 +141,63 @@ func _build_skill_context(renderer: Object, odins_eye_context: Dictionary, speci
 		},
 	}, null)
 	return renderer.build_skill_orb_context(odins_eye_context, special_gauge, null, base_context)
+
+
+# 툴팁 파이프라인 소유권 씰(2026-07-21 2차 리포트): 실제 보이는 툴팁은
+# smasher_skill_orb_tooltip_renderer 내부 hover 파이프라인이다. 변신 중
+# 이 파이프라인에 오딘 분기가 없으면 그려지지 않는 일반 클러스터 위치로
+# hover가 해석돼 "드라이브" 유령 툴팁이 뜬다.
+func _verify_tooltip_pipeline_ownership_while_transformed() -> void:
+	var tooltip_renderer := SmasherSkillOrbTooltipRenderer.new()
+	var odins_renderer := OdinsEyeSkillPillarRenderer.new()
+	var odin_context: Dictionary = _build_odin_context()
+	var skill_context: Dictionary = _build_skill_context(odins_renderer, odin_context, 100.0)
+	var left_center := Vector2(120.0, 600.0)
+	var positions: Array[Vector2] = odins_renderer.get_slot_positions(left_center, 55.0, 1.0, skill_context)
+	_expect(not positions.is_empty(), "tooltip pipeline seal needs the Odin orb position")
+	if positions.is_empty():
+		return
+	var hover_context := {
+		"odins_eye_active": true,
+		"odins_eye_context": odin_context,
+		"odins_eye_skill_pillar_renderer": odins_renderer,
+		"skill_context": skill_context,
+		"mouse_pos": positions[0],
+		"left_center": left_center,
+		"orb_radius": 55.0,
+		"scale_factor": 1.0,
+		"selected_character_type": "smasher",
+		# 유령 툴팁 판별자: 일반 스매셔 클러스터 데이터가 남아 있어도 변신
+		# 중에는 절대 해석되면 안 된다.
+		"skill_config_snapshot": {
+			"equipped_skills": ["drive"],
+			"skill_data": {"drive": {"name": "drive", "korean": "드라이브"}},
+		},
+	}
+	var hovered: Dictionary = tooltip_renderer._find_hovered_skill(hover_context)
+	_expect(
+		str(hovered.get("name", "")) == SKILL_DARK_SWAMP,
+		"hovering the Odin orb while transformed should resolve the Dark Swamp tooltip (got '%s')" % str(hovered.get("name", ""))
+	)
+	var miss_context: Dictionary = hover_context.duplicate(true)
+	miss_context["mouse_pos"] = Vector2(-500.0, -500.0)
+	miss_context["odins_eye_skill_pillar_renderer"] = odins_renderer
+	var missed: Dictionary = tooltip_renderer._find_hovered_skill(miss_context)
+	_expect(
+		missed.is_empty(),
+		"missing the Odin orb while transformed must not fall through to the normal cluster (ghost Drive tooltip)"
+	)
+	var by_name: Dictionary = tooltip_renderer._find_skill_by_name(hover_context, SKILL_DARK_SWAMP)
+	_expect(
+		str(by_name.get("name", "")) == SKILL_DARK_SWAMP and by_name.has("slot_rect"),
+		"gamepad-selected lookup should resolve Dark Swamp data with a slot rect while transformed"
+	)
+	var firearm_context: Dictionary = hover_context.duplicate(true)
+	firearm_context["selected_character_type"] = "soldier"
+	_expect(
+		tooltip_renderer._find_hovered_commando_firearm(firearm_context).is_empty(),
+		"commando firearm hover must stay suppressed while the Odin HUD is active"
+	)
 
 
 # 라이브 배선 씰(2026-07-21 회귀 복원): 렌더러 모듈이 GREEN이어도 HUD 모듈

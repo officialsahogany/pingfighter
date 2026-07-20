@@ -260,6 +260,23 @@ func _build_hover_context(
 			_get_instance(registry, "pillar_orb_drawer"),
 			skill_orb_context
 		)
+	# 오딘의 눈 변신(혼딸기 형제 계약, 혼딸기 선순위): 변신 중 툴팁 hover는
+	# 늪 오브 렌더러가 소유한다 — 이 분기가 없으면 그려지지 않는 일반
+	# 클러스터 위치로 hover가 해석돼 "드라이브" 유령 툴팁이 뜬다(2026-07-21).
+	var odins_eye_context: Dictionary = _get_odins_eye_context(registry, scene_context)
+	var odins_eye_skill_renderer: Object = _get_instance(registry, "odins_eye_skill_pillar_renderer")
+	var odins_eye_active: bool = (
+		not horn_strawberry_active
+		and _is_odins_eye_skill_hud_active(odins_eye_skill_renderer, odins_eye_context)
+	)
+	if odins_eye_active and odins_eye_skill_renderer.has_method("build_skill_orb_context"):
+		orb_renderer = odins_eye_skill_renderer
+		skill_orb_context = odins_eye_skill_renderer.build_skill_orb_context(
+			odins_eye_context,
+			float(scene_context.get("special_gauge", 0.0)),
+			_get_instance(registry, "pillar_orb_drawer"),
+			skill_orb_context
+		)
 	var commando_firearm_runtime: Object = _get_instance(registry, "commando_firearm_runtime") if is_commando else null
 	var commando_firearm_context: Dictionary = {}
 	if commando_firearm_runtime != null and commando_firearm_runtime.has_method("get_actor_draw_context"):
@@ -288,6 +305,9 @@ func _build_hover_context(
 		"horn_strawberry_active": horn_strawberry_active,
 		"horn_strawberry_context": horn_strawberry_context,
 		"horn_strawberry_skill_pillar_renderer": horn_strawberry_skill_renderer,
+		"odins_eye_active": odins_eye_active,
+		"odins_eye_context": odins_eye_context,
+		"odins_eye_skill_pillar_renderer": odins_eye_skill_renderer,
 	}
 
 
@@ -297,6 +317,19 @@ func _find_hovered_skill(hover_context: Dictionary) -> Dictionary:
 		var horn_renderer: Object = hover_context.get("horn_strawberry_skill_pillar_renderer", null)
 		if horn_renderer != null and horn_renderer.has_method("find_hovered_skill"):
 			return horn_renderer.find_hovered_skill(
+				_get_vector2(hover_context, "mouse_pos", Vector2.ZERO),
+				_get_vector2(hover_context, "left_center", Vector2.ZERO),
+				float(hover_context.get("orb_radius", 55.0)),
+				float(hover_context.get("scale_factor", 1.0)),
+				skill_context
+			)
+		return {}
+	if bool(hover_context.get("odins_eye_active", false)):
+		# 변신 중에는 늪 오브 렌더러가 hover를 소유하고, 미스 시 {}로 끝낸다
+		# — 일반 클러스터 폴스루가 유령 툴팁을 만든다.
+		var odins_renderer: Object = hover_context.get("odins_eye_skill_pillar_renderer", null)
+		if odins_renderer != null and odins_renderer.has_method("find_hovered_skill"):
+			return odins_renderer.find_hovered_skill(
 				_get_vector2(hover_context, "mouse_pos", Vector2.ZERO),
 				_get_vector2(hover_context, "left_center", Vector2.ZERO),
 				float(hover_context.get("orb_radius", 55.0)),
@@ -344,6 +377,8 @@ func _find_skill_by_name(hover_context: Dictionary, target_skill_name: String) -
 		return {}
 	if bool(hover_context.get("horn_strawberry_active", false)):
 		return _find_horn_strawberry_skill_by_name(hover_context, target_skill_name)
+	if bool(hover_context.get("odins_eye_active", false)):
+		return _find_odins_eye_skill_by_name(hover_context, target_skill_name)
 	var snapshot: Dictionary = _get_dictionary(hover_context.get("skill_config_snapshot", {}))
 	var equipped_skills: Array = _get_array(snapshot.get("equipped_skills", []))
 	var skill_data_map: Dictionary = _get_dictionary(snapshot.get("skill_data", {}))
@@ -418,8 +453,51 @@ func _find_horn_strawberry_skill_by_name(hover_context: Dictionary, target_skill
 	return data
 
 
+func _find_odins_eye_skill_by_name(hover_context: Dictionary, target_skill_name: String) -> Dictionary:
+	var odins_renderer: Object = hover_context.get("odins_eye_skill_pillar_renderer", null)
+	if (
+		odins_renderer == null
+		or not odins_renderer.has_method("get_skill_order")
+		or not odins_renderer.has_method("get_skill_data_map")
+		or not odins_renderer.has_method("get_slot_positions")
+	):
+		return {}
+	var data_map: Dictionary = _get_dictionary(odins_renderer.get_skill_data_map())
+	if not data_map.has(target_skill_name):
+		return {}
+	var order: Array = _get_array(odins_renderer.get_skill_order())
+	var target_index := -1
+	for i in range(order.size()):
+		if str(order[i]) == target_skill_name:
+			target_index = i
+			break
+	if target_index < 0:
+		return {}
+	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	var scale_factor: float = float(hover_context.get("scale_factor", 1.0))
+	var positions: Array = odins_renderer.get_slot_positions(
+		_get_vector2(hover_context, "left_center", Vector2.ZERO),
+		float(hover_context.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	if target_index >= positions.size():
+		return {}
+	var icon_radius: float = float(skill_context.get("skill_orb_radius", 24.0)) * scale_factor
+	var slot_center: Vector2 = _get_vector2_from_variant(positions[target_index], Vector2.ZERO)
+	var rect := Rect2(
+		slot_center - Vector2(icon_radius, icon_radius),
+		Vector2(icon_radius * 2.0, icon_radius * 2.0)
+	)
+	var data: Dictionary = _get_dictionary(data_map.get(target_skill_name, {})).duplicate(true)
+	data["slot_rect"] = rect
+	return data
+
+
 func _find_hovered_commando_firearm(hover_context: Dictionary) -> Dictionary:
 	if bool(hover_context.get("horn_strawberry_active", false)):
+		return {}
+	if bool(hover_context.get("odins_eye_active", false)):
 		return {}
 	if str(hover_context.get("selected_character_type", "")) != "soldier":
 		return {}
@@ -1221,6 +1299,26 @@ func _is_horn_strawberry_skill_hud_active(horn_renderer: Object, horn_context: D
 	if horn_renderer.has_method("is_active"):
 		return bool(horn_renderer.is_active(horn_context))
 	return bool(horn_context.get("transformed", false))
+
+
+func _get_odins_eye_context(registry: Object, scene_context: Dictionary) -> Dictionary:
+	var context: Dictionary = _get_dictionary(scene_context.get("odins_eye_context", {}))
+	if not context.is_empty():
+		return context
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_odins_eye_context"):
+		var value: Variant = mythic_item_runtime.get_odins_eye_context()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _is_odins_eye_skill_hud_active(odins_renderer: Object, odins_context: Dictionary) -> bool:
+	if odins_renderer == null:
+		return false
+	if odins_renderer.has_method("is_active"):
+		return bool(odins_renderer.is_active(odins_context))
+	return bool(odins_context.get("transformed", false))
 
 
 func _token_color(token_type: String) -> Color:
