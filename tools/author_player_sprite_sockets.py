@@ -9,6 +9,8 @@ Current extractors:
   foot_l / foot_r : left/right contact points of the lowest solid band
                     (for board-riding characters this is the board's
                     underside edges).
+  head_top        : centroid-x of the topmost solid band at its top row
+                    (anchor for hats / floating charms above the head).
 
 Outputs per sheet:
   <out_dir>/<sheet_stem>_sockets.json   : frame -> {socket: [x, y]} (cell-local px)
@@ -41,6 +43,18 @@ BOTTOM_BAND_PX = 10
 # this many solid px thick. Ground-splash / energy wisps are thin strokes
 # (2-4 px) while the board body is 8+ px thick, so this isolates the board.
 MIN_COLUMN_THICKNESS = 5
+# Top band height for the head_top centroid (hair silhouette rows).
+TOP_BAND_PX = 6
+
+
+def _is_energy_prop_pixel(rgba):
+    """Bright cyan energy props (raised paddle disc, glide trails) that can
+    rise above the head and steal the head_top anchor. Palette heuristic
+    tuned for the current Mika sheets (dark navy hair vs luminous cyan
+    props) -- re-tune per character when authoring other rosters, and always
+    verify with the marker QA strip."""
+    r, g, b, a = rgba
+    return a >= SOLID_ALPHA and g >= 140 and b >= 170 and r <= 160
 
 SHEETS = [
     {
@@ -123,10 +137,55 @@ def extract_cell_sockets(cell):
             contact_y = y
             break
 
-    return {
+    rgba = cell.load()
+    # Prop mask: bright-cyan energy pixels DILATED by a few px so the props'
+    # dark outline rows (which are not cyan themselves) are excluded too --
+    # the raised paddle disc's navy rim otherwise survives a color-only
+    # filter and steals the head anchor.
+    prop = [[False] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if _is_energy_prop_pixel(rgba[x, y]):
+                prop[y][x] = True
+    PROP_DILATE = 3
+    prop_near = [[False] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if not prop[y][x]:
+                continue
+            for dy in range(-PROP_DILATE, PROP_DILATE + 1):
+                yy = y + dy
+                if yy < 0 or yy >= h:
+                    continue
+                for dx in range(-PROP_DILATE, PROP_DILATE + 1):
+                    xx = x + dx
+                    if 0 <= xx < w:
+                        prop_near[yy][xx] = True
+
+    def is_head_pixel(x, y):
+        return data[x, y] >= SOLID_ALPHA and not prop_near[y][x]
+
+    top_y = -1
+    for y in range(h):
+        if any(is_head_pixel(x, y) for x in range(w)):
+            top_y = y
+            break
+    sockets = {
         "foot_l": (x_lo, float(contact_y)),
         "foot_r": (x_hi, float(contact_y)),
     }
+    if top_y >= 0:
+        band_bottom = min(h - 1, top_y + TOP_BAND_PX)
+        weighted_x = 0
+        count = 0
+        for y in range(top_y, band_bottom + 1):
+            for x in range(w):
+                if is_head_pixel(x, y):
+                    weighted_x += x
+                    count += 1
+        if count > 0:
+            sockets["head_top"] = (round(weighted_x / count, 1), float(top_y))
+    return sockets
 
 
 def process_sheet(spec, out_dir):
@@ -150,7 +209,12 @@ def process_sheet(spec, out_dir):
         for sid, (sx, sy) in sockets.items():
             gx = col * cell_w + sx
             gy = row * cell_h + sy
-            color = (255, 64, 64, 255) if sid.endswith("_l") else (64, 160, 255, 255)
+            if sid.endswith("_l"):
+                color = (255, 64, 64, 255)
+            elif sid.endswith("_r"):
+                color = (64, 160, 255, 255)
+            else:
+                color = (80, 255, 120, 255)
             draw.line([(gx - 5, gy), (gx + 5, gy)], fill=color, width=1)
             draw.line([(gx, gy - 5), (gx, gy + 5)], fill=color, width=1)
             draw.ellipse([gx - 2, gy - 2, gx + 2, gy + 2], outline=color, width=1)

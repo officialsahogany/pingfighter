@@ -107,7 +107,7 @@ func _verify_catalog_walk_right_mapping() -> void:
 	# walk right f0 authored foot_l=(56,130), foot_r=(108,130) in a 160 cell.
 	var dest := Rect2(100.0, 200.0, 80.0, 80.0)
 	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "walk", "right", 0, dest)
-	_expect(sockets.size() == 2, "walk right f0 should resolve both foot sockets")
+	_expect(sockets.has("foot_l") and sockets.has("foot_r"), "walk right f0 should resolve both foot sockets")
 	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(100.0 + 56.0 / 160.0 * 80.0, 200.0 + 130.0 / 160.0 * 80.0), "walk right f0 foot_l should map cell-local px into the dest rect")
 	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(100.0 + 108.0 / 160.0 * 80.0, 200.0 + 130.0 / 160.0 * 80.0), "walk right f0 foot_r should map cell-local px into the dest rect")
 
@@ -117,7 +117,7 @@ func _verify_catalog_left_mirror_swaps_ids() -> void:
 	# stays the screen-left socket. right f0 foot_l=56 -> mirrored 104 -> foot_r.
 	var dest := Rect2(0.0, 0.0, 160.0, 160.0)
 	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "walk", "left", 0, dest)
-	_expect(sockets.size() == 2, "walk left f0 should resolve mirrored sockets")
+	_expect(sockets.has("foot_l") and sockets.has("foot_r"), "walk left f0 should resolve mirrored sockets")
 	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(160.0 - 108.0, 130.0), "walk left foot_l should be the mirrored right-sheet foot_r")
 	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(160.0 - 56.0, 130.0), "walk left foot_r should be the mirrored right-sheet foot_l")
 	var foot_l: Vector2 = sockets.get("foot_l", Vector2.ZERO)
@@ -202,7 +202,8 @@ func _verify_debug_marker_gate() -> void:
 	_expect(renderer.build_debug_marker_commands(off_context, "walk", 0, "right", PROBE_RECT).is_empty(), "debug markers should stay off without the debug flag")
 	var on_context := {"selected_character_type": "smasher", "player_socket_debug_overlay_enabled": true}
 	var commands: Array = renderer.build_debug_marker_commands(on_context, "walk", 0, "right", PROBE_RECT)
-	_expect(commands.size() == 4, "debug markers should emit 2 crosshair lines per socket")
+	var socket_count: int = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "walk", "right", 0, PROBE_RECT).size()
+	_expect(socket_count > 0 and commands.size() == socket_count * 2, "debug markers should emit 2 crosshair lines per resolved socket")
 
 
 func _verify_owner_schema_declaration() -> void:
@@ -216,10 +217,10 @@ func _verify_scene_context_projection() -> void:
 	var builder := BattleDrawContext.new()
 	var registry := FakeRegistry.new()
 	var owner := FakeOwner.new()
-	owner.runtime_perk_levels = {"dash_module_control": 3}
+	owner.runtime_perk_levels = {"common_swiftness": 3}
 	owner.player_socket_debug_overlay_enabled = true
 	var context: Dictionary = builder.build_scene_context(owner, Vector2.ZERO, registry)
-	_expect(int(context.get("player_socket_glow_perk_level", -1)) == 3, "scene context should project the owned dash_module_control level to the glow scalar (divergent case)")
+	_expect(int(context.get("player_socket_glow_perk_level", -1)) == 3, "scene context should project the owned common_swiftness (신속) level to the glow scalar (divergent case)")
 	_expect(bool(context.get("player_socket_debug_overlay_enabled", false)) == true, "scene context should carry the socket debug flag from the owner")
 
 	var bare_owner := FakeOwner.new()

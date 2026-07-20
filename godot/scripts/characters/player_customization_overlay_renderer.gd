@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PlayerSpriteSocketCatalog := preload("res://scripts/characters/player_sprite_socket_catalog.gd")
+
 const LAYER_BACK := "back"
 const LAYER_FRONT := "front"
 const SLOT_BACK := "back"
@@ -73,6 +75,12 @@ func build_draw_commands(context: Dictionary, base_plan: Dictionary, layer_id: S
 		if not (texture is Texture2D):
 			continue
 		var texture_typed: Texture2D = texture
+		var dest_rect: Rect2 = _get_entry_dest_rect(entry, base_plan)
+		# Socket-anchored entries fail-closed to a zero rect when no authored
+		# socket covers the current motion/frame -- skip instead of drawing a
+		# part at a guessed position.
+		if dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
+			continue
 		commands.append({
 			"slot_id": slot_id,
 			"layer_id": layer_id,
@@ -81,7 +89,7 @@ func build_draw_commands(context: Dictionary, base_plan: Dictionary, layer_id: S
 			"frame_index": int(base_plan.get("frame_index", 0)),
 			"texture": texture_typed,
 			"source_rect": _get_entry_source_rect(entry, base_plan, texture_typed),
-			"dest_rect": _get_entry_dest_rect(entry, base_plan),
+			"dest_rect": dest_rect,
 			"flip_h": bool(entry.get("flip_h", base_plan.get("flip_h", false))),
 			"modulate": _get_entry_modulate(entry, base_plan),
 			"rotation_degrees": float(entry.get("rotation_degrees", base_plan.get("rotation_degrees", 0.0))),
@@ -251,6 +259,9 @@ func _get_entry_source_rect(entry: Dictionary, base_plan: Dictionary, texture: T
 
 
 func _get_entry_dest_rect(entry: Dictionary, base_plan: Dictionary) -> Rect2:
+	var socket_id := str(entry.get("socket_id", "")).strip_edges()
+	if socket_id != "":
+		return _get_socket_entry_dest_rect(entry, base_plan, socket_id)
 	var dest_rect: Rect2 = _as_rect2(base_plan.get("dest_rect", Rect2()))
 	if entry.get("dest_rect", null) is Rect2:
 		dest_rect = entry.get("dest_rect")
@@ -262,6 +273,41 @@ func _get_entry_dest_rect(entry: Dictionary, base_plan: Dictionary) -> Rect2:
 		dest_rect.position = center - dest_rect.size * 0.5
 	dest_rect.position += offset
 	return dest_rect
+
+
+# Socket-anchored placement: the part rides a per-frame authored anchor
+# (PlayerSpriteSocketCatalog) instead of the whole-body rect. `socket_offset`
+# and `socket_part_size` are in the authored cell's pixel space and scale with
+# the body draw. Fail-closed: any missing precondition returns a zero rect so
+# the command builder skips the part rather than guessing a position.
+func _get_socket_entry_dest_rect(entry: Dictionary, base_plan: Dictionary, socket_id: String) -> Rect2:
+	var dest_rect: Rect2 = _as_rect2(base_plan.get("dest_rect", Rect2()))
+	if dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
+		return Rect2()
+	var character_id := _normalize_character(base_plan.get("character_id", "smasher"))
+	var authored_cell: Vector2 = PlayerSpriteSocketCatalog.get_cell_size(character_id)
+	var base_cell := Vector2(float(base_plan.get("cell_width", 0.0)), float(base_plan.get("cell_height", 0.0)))
+	if authored_cell == Vector2.ZERO or not base_cell.is_equal_approx(authored_cell):
+		return Rect2()
+	var part_size_cell: Vector2 = _as_vector2(entry.get("socket_part_size", Vector2.ZERO), Vector2.ZERO)
+	if part_size_cell.x <= 0.0 or part_size_cell.y <= 0.0:
+		return Rect2()
+	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets(
+		character_id,
+		str(base_plan.get("motion_id", "")),
+		str(base_plan.get("direction", "back")),
+		int(base_plan.get("frame_index", 0)),
+		dest_rect
+	)
+	if not sockets.has(socket_id):
+		return Rect2()
+	var scale := Vector2(dest_rect.size.x / authored_cell.x, dest_rect.size.y / authored_cell.y)
+	var offset_cell: Vector2 = _as_vector2(entry.get("socket_offset", Vector2.ZERO), Vector2.ZERO)
+	if str(base_plan.get("direction", "back")) == "left":
+		offset_cell.x = -offset_cell.x
+	var center: Vector2 = sockets[socket_id] + Vector2(offset_cell.x * scale.x, offset_cell.y * scale.y)
+	var part_size := Vector2(part_size_cell.x * scale.x, part_size_cell.y * scale.y)
+	return Rect2(center - part_size * 0.5, part_size)
 
 
 func _get_entry_modulate(entry: Dictionary, base_plan: Dictionary) -> Color:

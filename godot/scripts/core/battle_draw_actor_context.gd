@@ -3,6 +3,7 @@ extends RefCounted
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const ResultContext := preload("res://scripts/core/battle_draw_actor_result_context.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const RuntimePerkVisualPartCatalog := preload("res://scripts/characters/runtime_perk_visual_part_catalog.gd")
 const CommandoWeaponAnchorTable := preload("res://scripts/characters/commando_weapon_anchor_table.gd")
 const ViperHoverSheetOverride := preload("res://scripts/core/viper_hover_sheet_override.gd")
 
@@ -503,6 +504,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_customization_overlay_slots": player_customization_overlay_slots,
 		"player_customization_overlay_textures": player_customization_overlay_textures,
 		"player_socket_glow_perk_level": int(context.get("player_socket_glow_perk_level", 0)),
+		"player_perk_visual_part_levels": _get_dict(context.get("player_perk_visual_part_levels", {})),
 		"player_socket_debug_overlay_enabled": bool(context.get("player_socket_debug_overlay_enabled", false)),
 		"dash_active": dash_context.get("active", false),
 		"dash_timer": float(dash_context.get("timer", 0.0)),
@@ -939,6 +941,10 @@ func _get_player_customization_overlay_textures(context: Dictionary, textures: D
 	var debug_paddle_sheet: Variant = _get_value(textures, "smasher_debug_paddle_overlay_sheet")
 	if debug_paddle_sheet is Texture2D and not overlay_textures.has("smasher_debug_paddle_overlay_sheet"):
 		overlay_textures["smasher_debug_paddle_overlay_sheet"] = debug_paddle_sheet
+	for part_texture_key in RuntimePerkVisualPartCatalog.texture_keys():
+		var part_sheet: Variant = _get_value(textures, part_texture_key)
+		if part_sheet is Texture2D and not overlay_textures.has(part_texture_key):
+			overlay_textures[part_texture_key] = part_sheet
 	for optimus_key in [
 		"optimus_overlay_paddle",
 		"optimus_overlay_core_glow",
@@ -960,6 +966,11 @@ func _get_player_customization_overlay_slots(
 	var overlay_slots: Dictionary = _get_dict(context.get("player_customization_overlay_slots", {})).duplicate(true)
 	if character_type == PlayerCharacterRuntime.OPTIMUS:
 		_inject_optimus_default_overlay_slots(overlay_slots, overlay_textures)
+	RuntimePerkVisualPartCatalog.inject_overlay_slots(
+		overlay_slots,
+		overlay_textures,
+		_get_dict(context.get("player_perk_visual_part_levels", {}))
+	)
 	if not bool(context.get("player_customization_debug_overlay_enabled", false)):
 		return overlay_slots
 	if character_type != PlayerCharacterRuntime.SMASHER:

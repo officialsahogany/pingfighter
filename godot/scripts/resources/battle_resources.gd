@@ -903,6 +903,7 @@ func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
 		_texture_spec(["player_attack_sheet"], SMASHER_ATTACK_SHEET_PATH),
 		_texture_spec(["player_wheel_spin_sheet"], SMASHER_WHEEL_BODY_SHEET_PATH),
 		_texture_spec(["smasher_debug_paddle_overlay_sheet"], SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH),
+		_imported_texture_spec(["perk_visual_part_lucky_coin"], "res://assets/sprites/items/lucky_coin.png"),
 		_imported_texture_spec(["smasher_power_smashing_cutin_sheet"], SMASHER_POWER_SMASHING_CUTIN_SHEET_PATH),
 		_imported_texture_spec(["smasher_ghost_smashing_cutin_sheet"], SMASHER_GHOST_SMASHING_CUTIN_SHEET_PATH),
 		_imported_texture_spec(["smasher_drive_cutin_backplate"], SMASHER_DRIVE_CUTIN_BACKPLATE_PATH),
@@ -1080,6 +1081,10 @@ func _load_smasher_player_textures(include_result_sheets: bool) -> void:
 	_resource_cache["player_attack_sheet"] = _load_texture_resource(SMASHER_ATTACK_SHEET_PATH)
 	_resource_cache["player_wheel_spin_sheet"] = _load_texture_resource(SMASHER_WHEEL_BODY_SHEET_PATH)
 	_resource_cache["smasher_debug_paddle_overlay_sheet"] = _load_texture_resource(SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH)
+	# Keep in sync with the perk_visual_part spec in
+	# _get_smasher_player_texture_specs (spec list and this loader are
+	# separate copies).
+	_resource_cache["perk_visual_part_lucky_coin"] = _load_imported_texture_resource("res://assets/sprites/items/lucky_coin.png")
 	if include_result_sheets:
 		_resource_cache["player_victory_sheet"] = _load_texture_resource(SMASHER_VICTORY_SHEET_PATH)
 		_resource_cache["player_defeat_sheet"] = _load_texture_resource(SMASHER_DEFEAT_SHEET_PATH)

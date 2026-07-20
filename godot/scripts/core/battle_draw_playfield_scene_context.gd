@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const RuntimePerkVisualPartCatalog := preload("res://scripts/characters/runtime_perk_visual_part_catalog.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -79,10 +80,11 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_customization_debug_overlay_enabled": bool(_get_owner_value(owner, "player_customization_debug_overlay_enabled", false)),
 		"player_customization_overlay_slots": _get_owner_dict(owner, "player_customization_overlay_slots"),
 		"player_customization_overlay_textures": _get_owner_dict(owner, "player_customization_overlay_textures"),
-		# Socket-composition pilot: project the gating perk's owned level to a
-		# scalar so renderers never touch the raw perk dict (or its display
-		# projection) on the draw path.
-		"player_socket_glow_perk_level": int(_get_owner_dict(owner, "runtime_perk_levels").get("dash_module_control", 0)),
+		# Socket-composition pilot: project the gating perks' owned levels to
+		# scalars / a bounded manifest dict so renderers never touch the raw
+		# perk dict (or its display projection) on the draw path.
+		"player_socket_glow_perk_level": int(_get_owner_dict(owner, "runtime_perk_levels").get("common_swiftness", 0)),
+		"player_perk_visual_part_levels": RuntimePerkVisualPartCatalog.project_owned_levels(_get_owner_dict(owner, "runtime_perk_levels")),
 		"player_socket_debug_overlay_enabled": bool(_get_owner_value(owner, "player_socket_debug_overlay_enabled", false)),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
