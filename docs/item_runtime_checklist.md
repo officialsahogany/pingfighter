@@ -235,6 +235,18 @@ Before sign-off on any Godot item VFX:
 
 These are the bugs most likely to survive a "looks registered" pass:
 
+- **Mythic 아이템의 플레이어/액터 시각은 `mythic_item_context_builder`의
+  `has_actor_draw_context` / `get_actor_draw_context` 쌍에 분기를 추가해야
+  라이브에 도달한다.** 라이브 프레임의 액터 draw 컨텍스트는 이 빌더 병합
+  으로만 mythic 시각 정보를 받는다 — 상태 머신·owner sync·셰이크·모듈
+  스모크가 전부 GREEN이어도 이 분기가 없으면 렌더러(전 스테이지 공유
+  `Stage1PlayerActorRenderer`)의 본체 스와프·오버레이 호스트가 빈
+  컨텍스트로 영구 비활성 = 시각 전멸(오딘의 눈 2026-07-21 라이브 회귀:
+  화면흔들림만 살고 변신/사망 연출·변신 몸·스킬 비주얼 0). 씰은 실
+  runtime 트리거로 producer와 렌더러 소비 판정을 함께 관통할 것
+  (`odins_eye_actor_context_merge_smoke` 참조). 변신형 아이템이 스킬
+  HUD 오브를 갖는다면 `gameplay_hud_module_catalog` 등록+scene drawer
+  주입+pillar UI 스와프+hover 분기(혼딸기/오딘 미러 4접점)까지가 한 단위.
 - `owned / obtained` and `equipped / active` are different concepts.
   `[item_name]_obtained` should mean ownership / first acquire /
   respawn-gating, not "currently equipped".
