@@ -86,6 +86,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_socket_glow_perk_level": int(_get_owner_dict(owner, "runtime_perk_levels").get("common_swiftness", 0)),
 		"player_perk_visual_part_levels": RuntimePerkVisualPartCatalog.project_owned_levels(_get_owner_dict(owner, "runtime_perk_levels")),
 		"player_socket_debug_overlay_enabled": bool(_get_owner_value(owner, "player_socket_debug_overlay_enabled", false)),
+		"player_mount_rider_lift_px": _get_mount_rider_lift(registry),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_paddle_size": Vector2(player_paddle_width, player_paddle_height),
@@ -231,6 +232,17 @@ func _merge_blacksmith_thor_shield_state_context(context: Dictionary, character_
 		var key_name := str(key)
 		if key_name.begins_with("blacksmith_umbrella") or key_name == "blacksmith_thor_shield_open_ratio":
 			context[key_name] = snapshot[key]
+
+
+# Non-instantiating peek (hot-path lazy init trap: the draw path must never
+# cold-instantiate the lingpet runtime).
+func _get_mount_rider_lift(registry) -> float:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return 0.0
+	var lingpet_runtime: Object = registry.get_cached_instance("lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("get_mount_rider_lift_px"):
+		return 0.0
+	return float(lingpet_runtime.get_mount_rider_lift_px())
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

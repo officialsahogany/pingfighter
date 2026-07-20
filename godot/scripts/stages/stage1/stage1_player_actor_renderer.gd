@@ -362,6 +362,10 @@ func draw(
 			player_draw_size.y *= 1.0 + breath_wave * _get_player_idle_breath_scale_y(context)
 
 	var player_visual_y_offset: float = -hover_offset - move_bob - (breath_wave * _get_player_idle_breath_y(context))
+	# 수호령 탑승: lift the whole rider sprite stack (body + socket glow +
+	# perk parts follow automatically -- they anchor to this rect) onto the
+	# mount's back. Visual only; the physics paddle stays grounded.
+	player_visual_y_offset -= float(context.get("player_mount_rider_lift_px", 0.0))
 	if hit_active and not player_result_active:
 		var hit_progress: float = _get_player_hit_progress(
 			float(context.get("player_hit_timer", 0.0)),

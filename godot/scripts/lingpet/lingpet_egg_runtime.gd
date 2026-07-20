@@ -153,6 +153,7 @@ var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
 var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _feed_controller: Object = LingpetFeedController.new()
+var _mount_state: Object = preload("res://scripts/lingpet/lingpet_mount_state.gd").new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _companion_body_presence_resolver: Object = LingpetCompanionBodyPresenceResolver.new()
 var _companion_player_block_resolver: Object = LingpetCompanionPlayerBlockResolver.new()
@@ -1151,6 +1152,14 @@ func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictio
 	)
 
 
+func is_mount_active() -> bool:
+	return _mount_state.is_mounted()
+
+
+func get_mount_rider_lift_px() -> float:
+	return _mount_state.get_rider_lift_px()
+
+
 func get_lingpet_slots() -> Array[String]:
 	return _collection_state.get_battle_slots()
 
@@ -1176,6 +1185,8 @@ func _set_current_pet_id(value: String) -> void:
 		_snapshot_builder,
 		LingpetAffinityState.MAX_LEVEL
 	)
+	_mount_state.reset()
+	_mount_state.set_pet_id(_pet_id)
 
 
 func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
@@ -1815,6 +1826,7 @@ func reset_for_tests() -> void:
 
 func reset_round(deps: Dictionary = {}) -> void:
 	_invalidate_runtime_snapshot_cache()
+	_mount_state.reset()
 	var owner: Object = deps.get("owner", null) as Object
 	var registry: Object = deps.get("registry", null) as Object
 	if _overflow_choice_state.has_pending_or_active():
@@ -2324,6 +2336,19 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_companion_pos
 	)
 	var has_skill_position_override: bool = _skill_runtime_surface.has_active_position_override(_companion_skill_visual_resolver, skill_position_override)
+	# 수호령 탑승: toggle + follow. Skill position overrides (sortie strikes
+	# etc.) win over the mount while active; the mount wins over feed /
+	# starlight loitering below.
+	_mount_state.advance(owner, _companion_pos, _state == STATE_COMPANION and not has_skill_position_override)
+	if _mount_state.has_companion_position_override() and not has_skill_position_override:
+		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
+		_companion_motion_state.pos = _companion_pos
+		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
+			prev_pos,
+			_companion_pos,
+			_companion_facing_left
+		)
+		return
 	if has_skill_position_override:
 		_ring_dash_state.reset_round_transients()
 		_ring_dash_vfx.reset()
@@ -2446,6 +2471,11 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 	if _is_companion_exhausted_for_owner(owner):
+		_companion_body_hit_state.ball_was_inside = false
+		return false
+	# 탑승 중엔 수비 정지 (parked != disabled trap: the suppression must be
+	# explicit, not implied by the position override).
+	if _mount_state.is_mounted():
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 	var visual_surface: Dictionary = _skill_runtime_surface.get_visual_surface(
