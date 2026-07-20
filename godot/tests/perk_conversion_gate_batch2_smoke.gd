@@ -101,6 +101,7 @@ func _init() -> void:
 	_verify_on_flag_perk_replaces_item_without_max()
 	_verify_boolean_effect_gates()
 	_verify_runtime_consumers_use_batch2_getters()
+	_verify_overflow_saturates_at_consumer_limits()
 	PerkConversionFlags.debug_set_enabled(false)
 
 	if _failures.is_empty():
@@ -397,6 +398,21 @@ func _verify_runtime_consumers_use_batch2_getters() -> void:
 		"icon_path": ActiveItemCatalog.BOOMERANG_ICON_PATH,
 	}, item_only_registry)
 	_expect(str(normal_visual.get("icon_path", "")) == ActiveItemCatalog.BOOMERANG_ICON_PATH, "ON item-only Boomerang Gauntlet should not make stored boomerang metal")
+
+
+func _verify_overflow_saturates_at_consumer_limits() -> void:
+	# 감소 계열 오버플로우가 소비 코드의 실효 한도에 정확히 포화한다
+	# (레거시 패리티 — OVERFLOW_VALUE_BOUNDS와 공개 소비 함수의 관통 씰:
+	# 100 캡이었다면 neural은 실효 무증가·master는 실제 쿨다운 0이 된다).
+	PerkConversionFlags.debug_set_enabled(true)
+	var neural_runtime: Object = _make_runtime({"neural_helmet": 9})
+	_expect_close(neural_runtime.get_neural_helmet_aipill_gauge_reduction(), 90.0, "overflow neural gauge reduction must saturate at the 90 base-gauge limit")
+	_expect_close(neural_runtime.get_aipill_gauge_drain(90.0), 0.0, "overflow neural drain must land exactly on 0, never negative")
+	var master_runtime: Object = _make_runtime({"master": 60})
+	_expect_close(master_runtime.get_master_item_cooldown_reduction_pct(), 95.0, "overflow master cooldown reduction must saturate at the legacy 95 limit")
+	var commando_runtime: Object = _make_runtime({"commando_arm": 20})
+	_expect_close(commando_runtime.get_commando_arm_prep_reduction_pct(), 95.0, "overflow commando prep reduction must saturate at the legacy 95 limit")
+	_expect_close(commando_runtime.get_commando_arm_prep_multiplier(), 0.05, "overflow commando prep multiplier must floor at 0.05, not the 0.01 emergency floor")
 
 
 func _make_runtime(levels: Dictionary, bonus: int = 0) -> Object:

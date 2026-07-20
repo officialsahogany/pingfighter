@@ -151,6 +151,7 @@ func _init() -> void:
 	_verify_boolean_effect_gates()
 	_verify_runtime_consumers_use_batch3a_getters()
 	_verify_venom_guard_structure()
+	_verify_overflow_saturates_at_consumer_limits()
 	PerkConversionFlags.debug_set_enabled(false)
 
 	if _failures.is_empty():
@@ -430,6 +431,14 @@ func _verify_venom_guard_structure() -> void:
 	_expect(spawn_pool.get_field_spawn_candidate_names(registry, viper_owner).has("venom_mist_gauntlet"), "flag-OFF existing Venom guard should allow Viper field offers")
 	PerkConversionFlags.debug_set_enabled(true)
 	_expect(runtime.try_spawn_venom_mist_at_boss(Vector2(380.0, 95.0), {"owner": smasher_owner, "registry": registry}, true), "existing Venom runtime has no character guard beyond offer restrictions")
+
+
+func _verify_overflow_saturates_at_consumer_limits() -> void:
+	# 무지개 털장갑 쿨감 오버플로우가 소비자 0.95 클램프와 정합하게 95에
+	# 포화한다(OVERFLOW_VALUE_BOUNDS↔공개 소비 함수 관통 씰).
+	PerkConversionFlags.debug_set_enabled(true)
+	var runtime: Object = _make_runtime({"rainbow_fur_glove": 20})
+	_expect_close(runtime.get_rainbow_fur_glove_cooldown_reduction_pct(), 95.0, "overflow rainbow cooldown reduction must saturate at the consumer 0.95 clamp")
 
 
 func _make_runtime(levels: Dictionary, bonus: int = 0) -> Object:

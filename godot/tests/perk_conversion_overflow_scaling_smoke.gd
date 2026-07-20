@@ -21,18 +21,18 @@ const EXPECTED_OVERFLOW_BOUNDS := {
 	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
 	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
 	"battery": {"gauge_preserve_pct": {"max": 100.0}},
-	"master": {"item_cooldown_pct": {"max": 100.0}},
+	"master": {"item_cooldown_pct": {"max": 95.0}},
 	"lucky_coin": {"double_spawn_pct": {"max": 100.0}},
 	"shrapnel_armor": {
 		"trigger_chance_pct": {"max": 100.0},
 		"gauge_cost": {"min": 0.0},
 	},
 	"foul_whistle": {"negate_chance_pct": {"max": 100.0}},
-	"neural_helmet": {"aipill_gauge_reduction": {"max": 100.0}},
-	"commando_arm": {"prep_reduction_pct": {"max": 100.0}},
+	"neural_helmet": {"aipill_gauge_reduction": {"max": 90.0}},
+	"commando_arm": {"prep_reduction_pct": {"max": 95.0}},
 	"rainbow_fur_glove": {
 		"rainbow_glove_trigger_chance_pct": {"max": 100.0},
-		"rainbow_glove_cooldown_reduction_pct": {"max": 100.0},
+		"rainbow_glove_cooldown_reduction_pct": {"max": 95.0},
 	},
 	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
 	"bulletproof_hat": {"stun_resist_pct": {"max": 100.0}},
@@ -101,6 +101,12 @@ func _verify_overflow_respects_domain_bounds() -> void:
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 10), 100.0, "bonus perk chance must cap at 100%")
 	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 12), 0.0, "cost lanes must floor at 0, never negative")
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 12), 1.0, "sensor auto-dash cooldown must floor at 1s")
+	# 감소 계열 4레인은 소비 코드 실효 한도와 정합(레거시 패리티 —
+	# 100으로 두면 neural은 실효 무증가·master는 쿨다운 0이 된다).
+	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_gauge_reduction", 9), 90.0, "neural gauge reduction must cap at the 90 base-gauge consumption limit")
+	_expect_close(PerkConversionValues.get_value("master", "item_cooldown_pct", 60), 95.0, "master cooldown reduction must cap at the legacy 95 limit (never a zero cooldown)")
+	_expect_close(PerkConversionValues.get_value("commando_arm", "prep_reduction_pct", 20), 95.0, "commando prep reduction must cap at the legacy 95 limit")
+	_expect_close(PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", 20), 95.0, "rainbow cooldown reduction must cap at the consumer 0.95 clamp")
 
 
 func _verify_bounds_map_matches_expected_exactly() -> void:

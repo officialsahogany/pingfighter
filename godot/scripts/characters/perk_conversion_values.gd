@@ -252,18 +252,22 @@ const OVERFLOW_VALUE_BOUNDS := {
 	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
 	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
 	"battery": {"gauge_preserve_pct": {"max": 100.0}},
-	"master": {"item_cooldown_pct": {"max": 100.0}},
+	# 감소 계열 바운드는 각 소비 코드의 실효 한도와 1:1 정합한다(레거시
+	# 클램프/최소 배율과 패리티): master=95(레거시 clamp·쿨0 금지),
+	# neural=90(기본 게이지 90 감산·레거시 캡 90), commando prep=95(레거시
+	# 캡·최소 배율 0.05), rainbow 쿨감=95(소비자 0.95 클램프).
+	"master": {"item_cooldown_pct": {"max": 95.0}},
 	"lucky_coin": {"double_spawn_pct": {"max": 100.0}},
 	"shrapnel_armor": {
 		"trigger_chance_pct": {"max": 100.0},
 		"gauge_cost": {"min": 0.0},
 	},
 	"foul_whistle": {"negate_chance_pct": {"max": 100.0}},
-	"neural_helmet": {"aipill_gauge_reduction": {"max": 100.0}},
-	"commando_arm": {"prep_reduction_pct": {"max": 100.0}},
+	"neural_helmet": {"aipill_gauge_reduction": {"max": 90.0}},
+	"commando_arm": {"prep_reduction_pct": {"max": 95.0}},
 	"rainbow_fur_glove": {
 		"rainbow_glove_trigger_chance_pct": {"max": 100.0},
-		"rainbow_glove_cooldown_reduction_pct": {"max": 100.0},
+		"rainbow_glove_cooldown_reduction_pct": {"max": 95.0},
 	},
 	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
 	"bulletproof_hat": {"stun_resist_pct": {"max": 100.0}},
