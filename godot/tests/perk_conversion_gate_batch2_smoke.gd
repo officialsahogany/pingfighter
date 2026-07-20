@@ -410,6 +410,9 @@ func _verify_overflow_saturates_at_consumer_limits() -> void:
 	_expect_close(neural_runtime.get_aipill_gauge_drain(90.0), 0.0, "overflow neural drain must land exactly on 0, never negative")
 	var master_runtime: Object = _make_runtime({"master": 60})
 	_expect_close(master_runtime.get_master_item_cooldown_reduction_pct(), 95.0, "overflow master cooldown reduction must saturate at the legacy 95 limit")
+	# 최종 소비 관통: 실제 쿨다운 계산이 5%를 남긴다(95 게터만으로는 소비
+	# 단계 드리프트를 못 잡는다).
+	_expect(master_runtime.get_active_item_cooldown_msec(10000) == 500, "overflow master must leave exactly 5%% of a 10s cooldown (got %d msec)" % master_runtime.get_active_item_cooldown_msec(10000))
 	var commando_runtime: Object = _make_runtime({"commando_arm": 20})
 	_expect_close(commando_runtime.get_commando_arm_prep_reduction_pct(), 95.0, "overflow commando prep reduction must saturate at the legacy 95 limit")
 	_expect_close(commando_runtime.get_commando_arm_prep_multiplier(), 0.05, "overflow commando prep multiplier must floor at 0.05, not the 0.01 emergency floor")

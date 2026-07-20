@@ -239,9 +239,11 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 
 # Effective-level overflow (Lv.6+) domain limits. Authored table entries are
 # returned verbatim; only the extrapolated overflow segment is clamped here.
-# Chance / resist / reduction-percent lanes cap at 100, resource costs floor
-# at 0, and the sensor auto-dash cooldown keeps a 1s minimum so overflow can
-# never produce a zero-cooldown auto dash. Boomerang stun/homing pct are
+# Chance / resist lanes cap at 100; reduction-percent lanes cap at their
+# CONSUMER's effective limit (neural 90 = base-gauge subtraction, master /
+# commando / rainbow 95 = legacy clamps and the 0.95 consumer fraction);
+# resource costs floor at 0, and the sensor auto-dash cooldown keeps a 1s
+# minimum so overflow can never produce a zero-cooldown auto dash. Boomerang stun/homing pct are
 # NOT chances — they feed 1.0 + pct/100 multipliers in
 # mythic_item_throw_bonus_runtime, so they carry no bound here and keep
 # scaling. Balance-motivated caps do NOT

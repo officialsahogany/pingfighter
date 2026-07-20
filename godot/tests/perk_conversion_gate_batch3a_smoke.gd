@@ -437,8 +437,16 @@ func _verify_overflow_saturates_at_consumer_limits() -> void:
 	# 무지개 털장갑 쿨감 오버플로우가 소비자 0.95 클램프와 정합하게 95에
 	# 포화한다(OVERFLOW_VALUE_BOUNDS↔공개 소비 함수 관통 씰).
 	PerkConversionFlags.debug_set_enabled(true)
-	var runtime: Object = _make_runtime({"rainbow_fur_glove": 20})
+	# Lv.60: trigger 외삽(12+2.25/lv)이 100 캡에 도달해 proc이 결정론이
+	# 된다(Lv.20은 45.75%라 randf 게이트가 비결정론 — 실측).
+	var runtime: Object = _make_runtime({"rainbow_fur_glove": 60})
 	_expect_close(runtime.get_rainbow_fur_glove_cooldown_reduction_pct(), 95.0, "overflow rainbow cooldown reduction must saturate at the consumer 0.95 clamp")
+	_expect_close(runtime.get_rainbow_fur_glove_trigger_chance_pct(), 100.0, "overflow rainbow trigger must cap at 100 for the deterministic proc leg")
+	# 최종 소비 관통: 실제 적용 fraction이 정확히 0.95에 클램프됨을 봉인
+	# (소비 clamp가 0.90으로 드리프트해도 게터 씰만으로는 GREEN인 구멍 차단).
+	var proc_result: Dictionary = runtime.try_proc_rainbow_fur_glove_player_hit(Vector2(380.0, 600.0))
+	_expect(bool(proc_result.get("activated", false)), "overflow rainbow (trigger capped at 100) must proc deterministically")
+	_expect_close(float(proc_result.get("cooldown_reduction_fraction", 0.0)), 0.95, "overflow rainbow proc must apply exactly the 0.95 clamped fraction")
 
 
 func _make_runtime(levels: Dictionary, bonus: int = 0) -> Object:
