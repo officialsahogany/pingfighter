@@ -69,7 +69,10 @@ func draw(
 	)
 	var host := _ensure_loading_cameo_host(owner)
 	if host != null:
-		host.show_loading(view_size, tick_seconds, _get_loading_font())
+		# Scene changes can expose the previous Control scene's logical size for
+		# one draw. The node-backed cameo must use its attached live viewport or
+		# that 1280x720 position lands near the center of the 2020px battle view.
+		host.show_loading(view_size, tick_seconds, _get_loading_font(), true)
 
 
 func prewarm_assets() -> void:

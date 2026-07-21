@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 const LoadingCameoCatalog := preload("res://scripts/core/loading_cameo_catalog.gd")
+const LoadingCameoHost := preload("res://scripts/core/loading_cameo_host.gd")
 const BattleLoadingScreenRenderer := preload("res://scripts/core/battle_loading_screen_renderer.gd")
 const BattleSceneIntroFrameController := preload("res://scripts/core/battle_scene_intro_frame_controller.gd")
 
@@ -165,6 +166,7 @@ func _run() -> void:
 	_verify_warmup_progress_contract()
 	_verify_boot_warmup_process_perf_batch_label()
 	await _verify_minimal_cameo_prewarm_and_session_lock()
+	_verify_cameo_uses_live_viewport_after_scene_transition()
 	await _verify_minimal_completion_hold_timing()
 	await _verify_hide_loading_resets_session()
 	await _verify_all_stage_numbers_share_minimal_loading()
@@ -704,6 +706,27 @@ func _verify_minimal_cameo_prewarm_and_session_lock() -> void:
 	renderer.hide_loading()
 	owner.queue_free()
 	canvas.queue_free()
+
+
+func _verify_cameo_uses_live_viewport_after_scene_transition() -> void:
+	var host := LoadingCameoHost.new()
+	get_root().add_child(host)
+	LoadingCameoHost.prewarm_assets()
+	var stale_previous_scene_size := Vector2(1280.0, 720.0)
+	host.show_loading(stale_previous_scene_size, 0.0, ThemeDB.fallback_font, true)
+	var live_view_size: Vector2 = host.get_viewport().get_visible_rect().size
+	var state: Dictionary = host.get_debug_state()
+	var resolved_view_size: Vector2 = state.get("resolved_view_size", Vector2.ZERO)
+	var cameo_center: Vector2 = state.get("cameo_center", Vector2.ZERO)
+	_expect(
+		resolved_view_size.is_equal_approx(live_view_size),
+		"initial battle cameo must resolve the live viewport instead of a stale previous-scene size"
+	)
+	_expect(
+		cameo_center.is_equal_approx(LoadingCameoCatalog.get_cameo_center(live_view_size)),
+		"initial battle cameo must stay in the live viewport lower-right corner"
+	)
+	host.queue_free()
 
 
 func _verify_minimal_completion_hold_timing() -> void:

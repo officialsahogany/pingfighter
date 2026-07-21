@@ -12,6 +12,8 @@ var _sprites: Array[Sprite2D] = []
 var _copy_label: Label = null
 var _selected_entry: Dictionary = {}
 var _session_pick_count := 0
+var _resolved_view_size := Vector2.ZERO
+var _cameo_center := Vector2.ZERO
 
 
 static func prewarm_assets() -> void:
@@ -26,7 +28,14 @@ func _init() -> void:
 	_rng.randomize()
 
 
-func show_loading(view_size: Vector2, tick_seconds: float, font: Font = null) -> void:
+func show_loading(
+	view_size: Vector2,
+	tick_seconds: float,
+	font: Font = null,
+	prefer_live_viewport: bool = false
+) -> void:
+	view_size = _resolve_view_size(view_size, prefer_live_viewport)
+	_resolved_view_size = view_size
 	if _selected_entry.is_empty():
 		_select_entry_for_session()
 	var texture := LoadingCameoCatalog.get_prewarmed_texture(_selected_entry)
@@ -47,6 +56,7 @@ func show_loading(view_size: Vector2, tick_seconds: float, font: Font = null) ->
 	var content_height := maxf(1.0, float(_selected_entry.get("content_height_px", cell_size.y)))
 	var base_scale := target_height / content_height
 	var center := LoadingCameoCatalog.get_cameo_center(view_size)
+	_cameo_center = center
 	var cameo_material := LoadingCameoCatalog.get_cameo_material()
 	for index in range(_sprites.size()):
 		var sprite := _sprites[index]
@@ -68,6 +78,8 @@ func hide_loading() -> void:
 	visible = false
 	_selected_entry.clear()
 	_session_pick_count = 0
+	_resolved_view_size = Vector2.ZERO
+	_cameo_center = Vector2.ZERO
 	for sprite in _sprites:
 		sprite.visible = false
 	if _copy_label != null:
@@ -81,12 +93,26 @@ func get_debug_state() -> Dictionary:
 		"session_pick_count": _session_pick_count,
 		"visible": visible,
 		"sprite_count": _sprites.size(),
+		"resolved_view_size": _resolved_view_size,
+		"cameo_center": _cameo_center,
 	}
 
 
 func _select_entry_for_session() -> void:
 	_selected_entry = LoadingCameoCatalog.pick_random_entry(_rng)
 	_session_pick_count += 1
+
+
+func _resolve_view_size(requested_view_size: Vector2, prefer_live_viewport: bool) -> Vector2:
+	if prefer_live_viewport and is_inside_tree():
+		var viewport := get_viewport()
+		if viewport != null:
+			var live_view_size: Vector2 = viewport.get_visible_rect().size
+			if live_view_size.x > 1.0 and live_view_size.y > 1.0:
+				return live_view_size
+	if requested_view_size.x > 1.0 and requested_view_size.y > 1.0:
+		return requested_view_size
+	return LoadingCameoCatalog.REFERENCE_VIEW_SIZE
 
 
 func _ensure_sprites() -> void:

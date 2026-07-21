@@ -82,6 +82,15 @@ func _run() -> void:
 	var boot_flow := BootFlowScene.instantiate() as Control
 	root_window.add_child(boot_flow)
 	await process_frame
+	# BootFlow reapplies the player's saved fullscreen/window state in _ready().
+	# Restore the deterministic capture surface after that production call so a
+	# fullscreen preference cannot change the screenshot dimensions mid-test.
+	root_window.mode = Window.MODE_WINDOWED
+	root_window.content_scale_size = VIEW_SIZE
+	root_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root_window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	root_window.size = VIEW_SIZE
+	await process_frame
 	boot_flow.set_process(false)
 	boot_flow.set("logo_intro", null)
 	boot_flow.set("loading_character_select", true)
