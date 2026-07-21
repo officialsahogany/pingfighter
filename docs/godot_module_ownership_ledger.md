@@ -8382,3 +8382,18 @@ This section is intentionally long; use search to find the nearest owner.
   round/stage/full-reset cleanup owners
   Own the roll cue, three-voice absorption pool, first-use GPU/resource warmup,
   and direct host/audio teardown when draw fanout is inactive.
+
+## 2026-07-21 minimal loading cameo presentation
+
+- `scripts/core/loading_cameo_catalog.gd` owns the shared minimalist loading
+  layout, prewarmed cameo registry, silhouette shader, and translated tip
+  projection used by both boot and battle loading surfaces.
+- `scripts/core/loading_cameo_host.gd` owns the loading-session random pick,
+  16-frame animation projection, layered glow sprites, and literal English
+  `Now Loading...` copy. The pick is stable until `hide_loading()` resets the
+  session.
+- `scripts/core/battle_loading_screen_renderer.gd` retains warmup snapshot,
+  completion-hold, stage-transition, and Stage 7 Akamu exemption contracts;
+  `scripts/core/boot_flow_scene.gd` retains character-select prewarm and
+  navigation ownership. Both delegate their visible loading presentation to
+  the shared cameo modules.

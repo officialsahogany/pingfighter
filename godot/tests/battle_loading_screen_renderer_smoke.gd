@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
+const LoadingCameoCatalog := preload("res://scripts/core/loading_cameo_catalog.gd")
 const BattleLoadingScreenRenderer := preload("res://scripts/core/battle_loading_screen_renderer.gd")
 const BattleSceneIntroFrameController := preload("res://scripts/core/battle_scene_intro_frame_controller.gd")
 
@@ -134,7 +135,28 @@ class FakeIntroModule:
 		update_calls += 1
 
 
+class LoadingDrawHarness:
+	extends Node2D
+
+	var renderer: Object = null
+	var loading_owner: Object = null
+	var module_getter: Callable
+	var view_size := Vector2(1280.0, 720.0)
+	var context: Dictionary = {}
+	var draw_count := 0
+
+	func _draw() -> void:
+		if renderer == null:
+			return
+		renderer.draw(self, loading_owner, module_getter, view_size, context)
+		draw_count += 1
+
+
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_not_initialized_gate_draws_loading_screen()
 	_verify_boot_warmup_gate_draws_loading_screen()
 	_verify_stage_intro_gate_draws_loading_screen()
@@ -142,14 +164,11 @@ func _init() -> void:
 	_verify_loading_snapshot_uses_warmup_status()
 	_verify_warmup_progress_contract()
 	_verify_boot_warmup_process_perf_batch_label()
-	_verify_stage1_stained_glass_loading_path()
-	_verify_stage2_stained_glass_loading_path()
-	_verify_stage3_stained_glass_loading_path()
-	_verify_stage4_stained_glass_loading_path()
-	_verify_stage5_stained_glass_loading_path()
-	_verify_stage6_stained_glass_loading_path()
-	_verify_stained_glass_host_released_on_unpainted_stage()
-	_verify_orphan_stained_glass_host_swept_on_unpainted_stage()
+	await _verify_minimal_cameo_prewarm_and_session_lock()
+	await _verify_minimal_completion_hold_timing()
+	await _verify_hide_loading_resets_session()
+	await _verify_all_stage_numbers_share_minimal_loading()
+	_verify_snapshot_keeps_tip_and_progress_contract()
 
 	if _failures.is_empty():
 		print("battle_loading_screen_renderer_smoke: ok")
@@ -660,6 +679,100 @@ func _verify_orphan_stained_glass_host_swept_on_unpainted_stage() -> void:
 	)
 	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "unpainted stage loading should sweep orphan stained-glass hosts without renderer references")
 	owner.free()
+
+
+func _verify_minimal_cameo_prewarm_and_session_lock() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStageNode.new()
+	var canvas := _build_loading_draw_harness(renderer, owner)
+	get_root().add_child(canvas)
+	renderer.prewarm_assets()
+	_expect(
+		LoadingCameoCatalog.get_prewarmed_entry_count() == LoadingCameoCatalog.ENTRIES.size(),
+		"minimal loading prewarm should load every landed cameo sheet"
+	)
+	canvas.queue_redraw()
+	await process_frame
+	var first_state: Dictionary = renderer.get_loading_cameo_debug_state()
+	canvas.queue_redraw()
+	await process_frame
+	var second_state: Dictionary = renderer.get_loading_cameo_debug_state()
+	_expect(str(first_state.get("entry_id", "")) == "dalji_hoop_roll", "minimal loading should select the landed Dalji cameo")
+	_expect(first_state.get("entry_id", "") == second_state.get("entry_id", ""), "cameo entry must stay fixed during one loading session")
+	_expect(int(second_state.get("session_pick_count", 0)) == 1, "draw must not reroll the cameo every frame")
+	_expect(bool(second_state.get("visible", false)), "minimal loading should show the cameo host after draw")
+	renderer.hide_loading()
+	owner.queue_free()
+	canvas.queue_free()
+
+
+func _verify_minimal_completion_hold_timing() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStageNode.new()
+	var warmup: Object = BattleBootWarmupController.new()
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
+	warmup.set("boot_warmup_finished", true)
+	_modules = {"battle_boot_warmup_controller": warmup}
+	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should hold briefly to prevent a one-frame flash")
+	await create_timer(0.62).timeout
+	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should enter its short final fade")
+	_expect(renderer._completion_fade_started_msec >= 0, "minimal loading should mark final fade start")
+	await create_timer(0.22).timeout
+	_expect(not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should release after the final fade")
+	owner.queue_free()
+
+
+func _verify_hide_loading_resets_session() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStageNode.new()
+	var canvas := _build_loading_draw_harness(renderer, owner)
+	get_root().add_child(canvas)
+	renderer.prewarm_assets()
+	canvas.queue_redraw()
+	await process_frame
+	_expect(str(renderer.get_loading_cameo_debug_state().get("entry_id", "")) != "", "draw should start a cameo session")
+	renderer.hide_loading()
+	var hidden_state: Dictionary = renderer.get_loading_cameo_debug_state()
+	_expect(str(hidden_state.get("entry_id", "")) == "", "hide_loading should clear the session cameo pick")
+	_expect(renderer._visible_started_msec == -1, "hide_loading should reset the visibility timer")
+	_expect(renderer._completion_fade_started_msec == -1, "hide_loading should reset the fade timer")
+	owner.queue_free()
+	canvas.queue_free()
+
+
+func _verify_all_stage_numbers_share_minimal_loading() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStageNode.new()
+	var canvas := _build_loading_draw_harness(renderer, owner)
+	get_root().add_child(canvas)
+	owner.current_stage = 99
+	renderer.prewarm_stage_assets(owner.current_stage)
+	canvas.queue_redraw()
+	await process_frame
+	var state: Dictionary = renderer.get_loading_cameo_debug_state()
+	_expect(str(state.get("entry_id", "")) == "dalji_hoop_roll", "minimal loading should not depend on stage-specific art")
+	_expect(int(state.get("frame_count", 0)) == 16, "minimal loading should expose the 16-frame cameo contract")
+	renderer.hide_loading()
+	owner.queue_free()
+	canvas.queue_free()
+
+
+func _verify_snapshot_keeps_tip_and_progress_contract() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStageNode.new()
+	var snapshot: Dictionary = renderer.build_snapshot(owner, Callable(self, "_get_module"), {"loading_progress": 0.42})
+	_expect(is_equal_approx(float(snapshot.get("progress", 0.0)), 0.42), "minimal loading snapshot should preserve caller progress")
+	_expect(str(snapshot.get("tip_tier", "")) != "", "minimal loading snapshot should preserve tip tier")
+	_expect(str(snapshot.get("tip_character", "")) == "viper", "minimal loading snapshot should preserve tip character")
+	owner.free()
+
+
+func _build_loading_draw_harness(renderer: Object, owner: Object) -> LoadingDrawHarness:
+	var harness := LoadingDrawHarness.new()
+	harness.renderer = renderer
+	harness.loading_owner = owner
+	harness.module_getter = Callable(self, "_get_module")
+	return harness
 
 
 func _true_callback() -> bool:

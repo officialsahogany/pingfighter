@@ -1,0 +1,66 @@
+{
+  "source": "items/dalji_loading_cameo_hoop_roll_src_2048.png",
+  "runtime": "godot/assets/ui/loading/loading_cameo_dalji_hoop_roll_16f_autosprite_v1.png",
+  "autosprite": {
+    "job_id": "wf_1a4bf7f4-8004-451c-bbb4-83fe1142ba39",
+    "spritesheet_id": "cmruhohy7002u7viruttmkl0q",
+    "video_id": "cmruhmbaq00g0t0n9ltf8ogvx"
+  },
+  "grid": {
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16
+  },
+  "source_cell_px": [
+    512,
+    512
+  ],
+  "fixed_transform": {
+    "source_union_crop": [
+      46,
+      54,
+      478,
+      444
+    ],
+    "scale": 0.5555555555555556,
+    "resized_px": [
+      240,
+      217
+    ],
+    "paste_px": [
+      8,
+      31
+    ]
+  },
+  "runtime_cell_px": 256,
+  "runtime_visible_union_bbox": [
+    11,
+    34,
+    245,
+    245
+  ],
+  "runtime_visible_height_px": 211,
+  "per_frame_edge_alpha_count": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "qa_preview_visible_height_px": 65,
+  "sha256": {
+    "source": "5c744f9ef76f029e65bbe16dfbfe92fcb240438935280d5e4e9e69f06fa55355",
+    "runtime": "6ec628b5a7d6d51fc2d24350826d67f82d4e957e5e0424ba2e28b1878d779a3b"
+  }
+}

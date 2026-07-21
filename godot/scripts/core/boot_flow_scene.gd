@@ -4,6 +4,9 @@ const PenguinLogoIntro := preload("res://scripts/core/penguin_logo_intro.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LoadingCameoCatalog := preload("res://scripts/core/loading_cameo_catalog.gd")
+const LoadingCameoHost := preload("res://scripts/core/loading_cameo_host.gd")
+const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -19,12 +22,6 @@ const MAIN_MENU_BGM_DEFAULT_BUS_VOLUME := 0.4
 const BGM_TOGGLE_KEY := KEY_B
 const BGM_PRELOAD_LEAD_SECONDS := 5.0
 const BGM_PRELOAD_MIN_PROGRESS := 0.05
-const LOADING_WAVE_SHEET_PATH := "res://assets/ui/loading/loading_energy_wave_loop64_autosprite_v1.png"
-const LOADING_WAVE_ANCHOR_PATH := "res://assets/ui/loading/loading_energy_wave_anchor_imagegen_v1.png"
-const LOADING_WAVE_SHEET_COLS := 8
-const LOADING_WAVE_SHEET_ROWS := 8
-const LOADING_WAVE_FRAME_COUNT := 64
-const LOADING_WAVE_FRAME_INTERVAL := 0.052
 const LOADING_FONT_PATHS := [
 	"res://assets/fonts/NanumSquareB.ttf",
 	"res://assets/fonts/PFStardust.ttf",
@@ -47,8 +44,7 @@ var loading_elapsed: float = 0.0
 var bgm_preload_started: bool = false
 var loading_status_text: String = ""
 var loading_font: Font = null
-var loading_wave_sheet_texture: Texture2D = null
-var loading_wave_anchor_texture: Texture2D = null
+var loading_cameo_host: Node2D = null
 var main_menu_bgm_muted: bool = false
 
 
@@ -71,6 +67,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if logo_intro != null and logo_intro.has_method("cleanup"):
 		logo_intro.cleanup()
+	_release_loading_cameo_host()
 
 
 func _process(delta: float) -> void:
@@ -237,8 +234,9 @@ func _begin_character_select_loading() -> void:
 	loading_elapsed = 0.0
 	bgm_preload_started = false
 	loading_status_text = ""
+	_release_loading_cameo_host()
 	_get_loading_font()
-	_load_loading_wave_textures()
+	LoadingCameoHost.prewarm_assets()
 	if logo_intro != null and logo_intro.has_method("cleanup"):
 		logo_intro.cleanup()
 	if character_select_prewarm != null and character_select_prewarm.has_method("begin"):
@@ -252,6 +250,7 @@ func _go_to_character_select() -> void:
 		return
 	transitioning = true
 	loading_character_select = false
+	_release_loading_cameo_host()
 	var state := get_node_or_null("/root/GameSelectionState")
 	if state != null:
 		if state.has_method("set_stage"):
@@ -304,25 +303,18 @@ func _update_loading_display(delta: float, loading_finished: bool) -> void:
 
 func _draw_character_select_loading(view_size: Vector2) -> void:
 	var font := _get_loading_font()
-	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.008, 0.010, 0.018, 1.0))
-	var center := view_size * 0.5
-	var pulse := 0.5 + sin(Time.get_ticks_msec() * 0.004) * 0.5
-	var accent := Color(0.0, 0.82, 1.0, 1.0)
-	var gold := Color(1.0, 0.72, 0.26, 1.0)
-	_draw_loading_energy_wave_layer(view_size, center, pulse)
-	var title_center := center + Vector2(0.0, -52.0)
-	_draw_centered_text(font, LanguageSettings.translate_text("게임 데이터 준비 중"), title_center, 26, Color.WHITE)
-	var status_text := loading_status_text if loading_status_text != "" else LanguageSettings.translate_text("데이터를 준비하는 중입니다")
-	var display_progress := float(loading_display_percent) / 100.0
-	_draw_centered_text(font, LanguageSettings.translate_text(status_text), center + Vector2(0.0, -8.0), 16, Color(0.76, 0.88, 0.96, 0.96))
-	var progress_w: float = clamp(view_size.x * 0.42, 340.0, 640.0)
-	var progress_rect := Rect2(Vector2(center.x - progress_w * 0.5, center.y + 34.0), Vector2(progress_w, 10.0))
-	draw_rect(progress_rect, Color(1.0, 1.0, 1.0, 0.12))
-	draw_rect(progress_rect, Color(0.0, 0.0, 0.0, 0.44), false, 1.0)
-	draw_rect(Rect2(progress_rect.position, Vector2(progress_rect.size.x * display_progress, progress_rect.size.y)), Color(accent.r, accent.g, accent.b, 0.92))
-	draw_line(progress_rect.position + Vector2(0.0, -8.0), progress_rect.position + Vector2(progress_rect.size.x, -8.0), Color(gold.r, gold.g, gold.b, 0.20), 1.0)
-	_draw_centered_text(font, "%d%%" % loading_display_percent, center + Vector2(0.0, 72.0), 18, Color(0.88, 0.94, 1.0, 0.94))
-	_draw_centered_text(font, LanguageSettings.translate_text("잠시만 기다려 주세요"), center + Vector2(0.0, 106.0), 13, Color(0.64, 0.74, 0.82, 0.72))
+	var tick_seconds := Time.get_ticks_msec() / 1000.0
+	LoadingCameoCatalog.draw_minimal_chrome(
+		self,
+		font,
+		view_size,
+		BattleLoadingTips.TIER_BASIC,
+		"",
+		tick_seconds
+	)
+	var host := _ensure_loading_cameo_host()
+	if host != null:
+		host.show_loading(view_size, tick_seconds, _get_loading_font())
 
 
 func _consider_main_menu_bgm_preload(loading_finished: bool) -> void:
@@ -430,37 +422,22 @@ func _get_loading_font() -> Font:
 	return loading_font
 
 
-func _load_loading_wave_textures() -> void:
-	if loading_wave_sheet_texture == null:
-		loading_wave_sheet_texture = ProjectResourceLoader.load_texture(LOADING_WAVE_SHEET_PATH)
-	if loading_wave_anchor_texture == null:
-		loading_wave_anchor_texture = ProjectResourceLoader.load_texture(LOADING_WAVE_ANCHOR_PATH)
+func _ensure_loading_cameo_host() -> Node2D:
+	if loading_cameo_host != null and is_instance_valid(loading_cameo_host):
+		return loading_cameo_host
+	loading_cameo_host = LoadingCameoHost.new()
+	add_child(loading_cameo_host)
+	return loading_cameo_host
 
 
-func _draw_loading_energy_wave_layer(view_size: Vector2, center: Vector2, pulse: float) -> void:
-	_load_loading_wave_textures()
-	var texture := loading_wave_sheet_texture
-	var source := Rect2()
-	if texture != null:
-		var texture_size := texture.get_size()
-		if texture_size.x <= 1.0 or texture_size.y <= 1.0:
-			return
-		var cell_size := Vector2(texture_size.x / float(LOADING_WAVE_SHEET_COLS), texture_size.y / float(LOADING_WAVE_SHEET_ROWS))
-		var frame_index := int(floor(Time.get_ticks_msec() / 1000.0 / LOADING_WAVE_FRAME_INTERVAL)) % LOADING_WAVE_FRAME_COUNT
-		var col := frame_index % LOADING_WAVE_SHEET_COLS
-		var row := int(floor(float(frame_index) / float(LOADING_WAVE_SHEET_COLS)))
-		source = Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
-	else:
-		texture = loading_wave_anchor_texture
-		if texture == null:
-			return
-		source = Rect2(Vector2.ZERO, texture.get_size())
-	var wave_width: float = max(view_size.x * 1.12, 640.0)
-	var wave_height: float = clamp(view_size.y * 0.30, 190.0, 340.0)
-	var wave_center := Vector2(center.x, center.y - 20.0 + sin(Time.get_ticks_msec() * 0.0018) * 7.0)
-	var wave_rect := Rect2(wave_center - Vector2(wave_width, wave_height) * 0.5, Vector2(wave_width, wave_height))
-	draw_texture_rect_region(texture, wave_rect.grow(20.0), source, Color(0.0, 0.72, 1.0, 0.10 + pulse * 0.035), false, true)
-	draw_texture_rect_region(texture, wave_rect, source, Color(1.0, 1.0, 1.0, 0.26 + pulse * 0.08), false, true)
+func _release_loading_cameo_host() -> void:
+	if loading_cameo_host != null and is_instance_valid(loading_cameo_host):
+		loading_cameo_host.hide_loading()
+		var parent := loading_cameo_host.get_parent()
+		if parent != null:
+			parent.remove_child(loading_cameo_host)
+		loading_cameo_host.queue_free()
+	loading_cameo_host = null
 
 
 func _draw_centered_text(font: Font, text: String, center: Vector2, font_size: int, color: Color) -> void:

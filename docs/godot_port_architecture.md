@@ -874,3 +874,14 @@ For each Godot refactor:
 3. If an external live project is introduced again, sync from `godot/`,
    compare edited-file hashes, and headless-load that external project.
 4. Record any unverified visual-only risk in the handoff.
+
+### Shared minimal loading cameo boundary
+
+`loading_cameo_catalog.gd` owns the black-screen layout, translated tip band,
+prewarmed cameo registry, and silhouette material shared by boot and battle
+loading. `loading_cameo_host.gd` owns the fixed-per-session random pick,
+animation frame projection, layered glow, and literal English loading copy.
+`boot_flow_scene.gd` retains character-select prewarm/navigation ownership;
+`battle_loading_screen_renderer.gd` retains warmup snapshots, completion hold,
+stage-transition reuse, and the Stage 7 Akamu video exemption. Neither caller
+may load or reroll cameo assets from a draw hot path.
