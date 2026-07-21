@@ -61,14 +61,12 @@ const RIDE_BOUNCE_MOVE_PX := 3.2
 const RIDE_BOUNCE_MOVE_HZ := 5.0
 const RIDE_BREATH_PX := 1.5
 const RIDE_BREATH_HZ := 0.9
-const FOLLOW_SMOOTH_PER_SEC := 11.0
 const RIDE_MOVE_SPEED_EPSILON := 0.2
 
 var _hop_t := 1.0
 var _dismount_t := 1.0
 var _ride_clock := 0.0
 var _riding_moving := false
-var _follow_x := 0.0
 var _last_delta := 0.0
 
 
@@ -150,7 +148,6 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	_mounted = true
 	_hop_t = 0.0
 	_ride_clock = 0.0
-	_follow_x = companion_pos.x
 	result["toggled"] = true
 	result["mounted"] = true
 	return result
@@ -166,16 +163,15 @@ func has_companion_position_override() -> bool:
 
 
 # Ground pet keeps its lane Y -- only X follows the rider (companion
-# teleport/reposition locomotion trap). The X-follow uses exponential
-# smoothing so the mount trails the rider with a little inertia instead of
-# snapping rigidly (this also drives the walk animator with real movement).
+# teleport/reposition locomotion trap). The X-follow SNAPS to the rider:
+# the rider is glued to the physics paddle, so ANY follow inertia visibly
+# separates the pair at move speed (lag = speed / k). Inertia belongs to
+# follower pets, never to a mounted pair -- ride life comes from the
+# Y-channel (hop / gait bounce / breath) instead.
 func get_companion_position_override(owner: Object, current: Vector2) -> Vector2:
 	if not _mounted:
 		return current
-	var target_x: float = _get_player_center_x(owner)
-	var blend: float = 1.0 - exp(-FOLLOW_SMOOTH_PER_SEC * _last_delta)
-	_follow_x = lerpf(_follow_x, target_x, blend)
-	return Vector2(_follow_x, current.y)
+	return Vector2(_get_player_center_x(owner), current.y)
 
 
 func _get_player_center_x(owner: Object) -> float:

@@ -144,10 +144,10 @@ func _verify_position_override_keeps_lane_y() -> void:
 	state.advance(owner, pet_pos, true)
 	_expect(bool(state.has_companion_position_override()), "mounted state should own a companion position override")
 	owner.player_pos.x = 520.0
-	# Large delta so the inertia follow fully converges for the exact assert.
-	state.advance(owner, pet_pos, true, false, 2.0)
+	# X-follow SNAPS to the rider: any follow inertia visibly separates the
+	# pair at move speed (the rider is glued to the physics paddle).
 	var follow: Vector2 = state.get_companion_position_override(owner, pet_pos)
-	_expect(absf(follow.x - _player_center(owner)) < 0.1, "mounted companion should converge onto the player center X")
+	_expect(is_equal_approx(follow.x, _player_center(owner)), "mounted companion X must snap to the player center (no separating inertia)")
 	_expect(is_equal_approx(follow.y, 641.5), "mounted ground pet must KEEP its lane Y (X changes only)")
 
 
