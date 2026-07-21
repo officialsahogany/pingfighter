@@ -53,9 +53,33 @@ func _is_down_pressed() -> bool:
 	return Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S)
 
 
+# Ride-motion tuning: hop-on arc, dismount drop, gait bounce, breath sway,
+# and X-follow inertia. All procedural (no art), all delta-driven.
+const MOUNT_HOP_SECONDS := 0.28
+const DISMOUNT_SECONDS := 0.16
+const RIDE_BOUNCE_MOVE_PX := 3.2
+const RIDE_BOUNCE_MOVE_HZ := 5.0
+const RIDE_BREATH_PX := 1.5
+const RIDE_BREATH_HZ := 0.9
+const FOLLOW_SMOOTH_PER_SEC := 11.0
+const RIDE_MOVE_SPEED_EPSILON := 0.2
+
+var _hop_t := 1.0
+var _dismount_t := 1.0
+var _ride_clock := 0.0
+var _riding_moving := false
+var _follow_x := 0.0
+var _last_delta := 0.0
+
+
 func reset() -> void:
 	_mounted = false
 	_last_rmb_pressed = false
+	_hop_t = 1.0
+	_dismount_t = 1.0
+	_ride_clock = 0.0
+	_riding_moving = false
+	_last_delta = 0.0
 
 
 func set_pet_id(pet_id: String) -> void:
@@ -68,18 +92,40 @@ func is_mounted() -> bool:
 	return _mounted
 
 
+# Animated rider lift: hop-on arc with a small overshoot, then gait bounce
+# while the pair moves / gentle breath sway at rest; eased drop on dismount.
 func get_rider_lift_px() -> float:
-	return ONIMARU_SADDLE_LIFT_PX if _mounted else 0.0
+	if _mounted:
+		var hop: float = clampf(_hop_t, 0.0, 1.0)
+		var eased: float = 1.0 - pow(1.0 - hop, 3.0)
+		var overshoot: float = sin(hop * PI) * 0.3 * (1.0 - hop)
+		return ONIMARU_SADDLE_LIFT_PX * (eased + overshoot) + _get_ride_bounce_px() * eased
+	if _dismount_t < 1.0:
+		return ONIMARU_SADDLE_LIFT_PX * pow(1.0 - _dismount_t, 2.0)
+	return 0.0
 
 
-# Ticks the toggle. Call once per companion update frame while the companion
-# is in its active (non-egg) state; pass companion_active=false to force a
-# dismount (e.g. the pet got incapacitated or despawned).
-func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool = false) -> Dictionary:
+func _get_ride_bounce_px() -> float:
+	if _riding_moving:
+		return RIDE_BOUNCE_MOVE_PX * absf(sin(_ride_clock * TAU * RIDE_BOUNCE_MOVE_HZ * 0.5))
+	return RIDE_BREATH_PX * 0.5 * (1.0 + sin(_ride_clock * TAU * RIDE_BREATH_HZ * 0.5))
+
+
+# Ticks the toggle + ride motion clocks. Call once per companion update frame
+# while the companion is in its active (non-egg) state; pass
+# companion_active=false to force a dismount (pet incapacitated / despawned).
+func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool = false, delta: float = 0.0) -> Dictionary:
 	var result := {"toggled": false, "mounted": _mounted}
+	_last_delta = maxf(delta, 0.0)
+	if _mounted:
+		_hop_t = minf(1.0, _hop_t + _last_delta / MOUNT_HOP_SECONDS)
+		_ride_clock += _last_delta
+		_riding_moving = absf(float(BattleSceneOwnerReader.get_value(owner, "player_speed", 0.0))) > RIDE_MOVE_SPEED_EPSILON
+	else:
+		_dismount_t = minf(1.0, _dismount_t + _last_delta / DISMOUNT_SECONDS)
 	if not MOUNT_SUPPORTED_PET_IDS.has(_pet_id) or not companion_active:
 		if _mounted:
-			_mounted = false
+			_dismount()
 			result["toggled"] = true
 		result["mounted"] = _mounted
 		_last_rmb_pressed = _is_rmb_pressed()
@@ -94,7 +140,7 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	if _is_down_pressed():
 		return result
 	if _mounted:
-		_mounted = false
+		_dismount()
 		result["toggled"] = true
 		result["mounted"] = false
 		return result
@@ -102,9 +148,17 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	if absf(player_center_x - companion_pos.x) > MOUNT_PROXIMITY_PX:
 		return result
 	_mounted = true
+	_hop_t = 0.0
+	_ride_clock = 0.0
+	_follow_x = companion_pos.x
 	result["toggled"] = true
 	result["mounted"] = true
 	return result
+
+
+func _dismount() -> void:
+	_mounted = false
+	_dismount_t = 0.0
 
 
 func has_companion_position_override() -> bool:
@@ -112,11 +166,16 @@ func has_companion_position_override() -> bool:
 
 
 # Ground pet keeps its lane Y -- only X follows the rider (companion
-# teleport/reposition locomotion trap).
+# teleport/reposition locomotion trap). The X-follow uses exponential
+# smoothing so the mount trails the rider with a little inertia instead of
+# snapping rigidly (this also drives the walk animator with real movement).
 func get_companion_position_override(owner: Object, current: Vector2) -> Vector2:
 	if not _mounted:
 		return current
-	return Vector2(_get_player_center_x(owner), current.y)
+	var target_x: float = _get_player_center_x(owner)
+	var blend: float = 1.0 - exp(-FOLLOW_SMOOTH_PER_SEC * _last_delta)
+	_follow_x = lerpf(_follow_x, target_x, blend)
+	return Vector2(_follow_x, current.y)
 
 
 func _get_player_center_x(owner: Object) -> float:

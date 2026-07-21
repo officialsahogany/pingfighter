@@ -142,8 +142,10 @@ func _verify_position_override_keeps_lane_y() -> void:
 	state.advance(owner, pet_pos, true)
 	_expect(bool(state.has_companion_position_override()), "mounted state should own a companion position override")
 	owner.player_pos.x = 520.0
+	# Large delta so the inertia follow fully converges for the exact assert.
+	state.advance(owner, pet_pos, true, false, 2.0)
 	var follow: Vector2 = state.get_companion_position_override(owner, pet_pos)
-	_expect(is_equal_approx(follow.x, _player_center(owner)), "mounted companion should follow the player center X")
+	_expect(absf(follow.x - _player_center(owner)) < 0.1, "mounted companion should converge onto the player center X")
 	_expect(is_equal_approx(follow.y, 641.5), "mounted ground pet must KEEP its lane Y (X changes only)")
 
 
@@ -194,7 +196,11 @@ func _verify_rider_lift_values() -> void:
 	_expect(float(state.get_rider_lift_px()) == 0.0, "unmounted rider lift should be 0")
 	probe.rmb = true
 	state.advance(owner, Vector2(_player_center(owner), 660.0), true)
-	_expect(float(state.get_rider_lift_px()) > 0.0, "mounted rider lift should be positive")
+	var lift_at_mount: float = float(state.get_rider_lift_px())
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.5)
+	var lift_settled: float = float(state.get_rider_lift_px())
+	_expect(lift_settled > 0.0, "mounted rider lift should be positive after the hop progresses")
+	_expect(lift_settled > lift_at_mount, "hop-on should animate the lift upward over time, not snap")
 
 
 func _verify_scene_context_lift_chain() -> void:

@@ -2339,7 +2339,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	# 수호령 탑승: toggle + follow. Skill position overrides (sortie strikes
 	# etc.) win over the mount while active; the mount wins over feed /
 	# starlight loitering below.
-	_mount_state.advance(owner, _companion_pos, _state == STATE_COMPANION and not has_skill_position_override)
+	_mount_state.advance(owner, _companion_pos, _state == STATE_COMPANION and not has_skill_position_override, false, delta)
 	if _mount_state.has_companion_position_override() and not has_skill_position_override:
 		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
 		_companion_motion_state.pos = _companion_pos
