@@ -22,9 +22,11 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 
 const MOUNT_PROXIMITY_PX := 78.0
 const MOUNT_SUPPORTED_PET_IDS := ["onimaru"]
-# Saddle height above the companion's ground anchor, in companion draw px
-# (authored from the onimaru sheets' back line; consumed as a rider Y-lift).
-const ONIMARU_SADDLE_LIFT_PX := 34.0
+# Rider Y-lift for the shoulder-ride (목말) composition: low enough that the
+# rider's board/seat hides BEHIND the mount's head (the companion draws in
+# front of the rider while mounted), leaving her upper body above his head.
+# Tuned against the 목말 reference shot; live-QA adjustable.
+const ONIMARU_SADDLE_LIFT_PX := 14.0
 
 var _mounted := false
 var _last_rmb_pressed := false

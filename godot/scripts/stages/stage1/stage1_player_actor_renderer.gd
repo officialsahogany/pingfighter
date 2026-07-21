@@ -218,7 +218,12 @@ func draw(
 	# player. Runs BEFORE the player-hidden early returns below (intro hologram / ghost
 	# possession) so the lingpet never vanishes while the paddle is hidden.
 	var lingpet_body_hook: Variant = context.get("lingpet_body_draw", null)
-	if lingpet_body_hook is Callable and (lingpet_body_hook as Callable).is_valid():
+	var lingpet_body_hook_valid: bool = lingpet_body_hook is Callable and (lingpet_body_hook as Callable).is_valid()
+	# 목말 탑승: while mounted the companion renders IN FRONT of the rider so
+	# his head / raised hands cover her seat (shoulder-ride read) -- defer the
+	# body hook to after the player sprite. Unmounted keeps behind-player order.
+	var defer_lingpet_body: bool = float(context.get("player_mount_rider_lift_px", 0.0)) > 0.0
+	if lingpet_body_hook_valid and not defer_lingpet_body:
 		(lingpet_body_hook as Callable).call(canvas)
 	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
 		sprite_renderer.clear_transient_canvas_items()
@@ -236,12 +241,16 @@ func draw(
 	# `get_paddle_hologram_state()`: the player paddle is fully hidden until
 	# the materialize window opens, then renders through a glitch reveal.
 	if not bool(context.get("paddle_hologram_should_draw", true)):
+		if lingpet_body_hook_valid and defer_lingpet_body:
+			(lingpet_body_hook as Callable).call(canvas)
 		return
 	# Ghost-smashing possession: Mika is sucked into the ball, so hide the field
 	# paddle entirely (sprite + shadow) while she rides it. When the boss returns
 	# the ball she leaves the RIDING phase, this gate falls through, and the
 	# paddle draws normally again at the live position.
 	if bool(context.get("ghost_possession_paddle_hidden", false)):
+		if lingpet_body_hook_valid and defer_lingpet_body:
+			(lingpet_body_hook as Callable).call(canvas)
 		return
 	var pillar_drawer = context.get("pillar_drawer", null)
 	var player_pos: Vector2 = _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
@@ -543,6 +552,10 @@ func draw(
 	if not horn_strawberry_transformed and not horn_strawberry_event_playing and not odins_eye_body_active:
 		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
 		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
+	# Deferred shoulder-ride companion pass: mount body over the rider's lower
+	# body, under status-effect overlays.
+	if lingpet_body_hook_valid and defer_lingpet_body:
+		(lingpet_body_hook as Callable).call(canvas)
 	if curse_reverse_active:
 		_draw_curse_reverse_head_effect(canvas, drawn_player_visual_rect, curse_reverse_ratio)
 	if player_slow_active:
