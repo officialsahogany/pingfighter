@@ -57,10 +57,12 @@ def _is_energy_prop_pixel(rgba):
     return a >= SOLID_ALPHA and g >= 140 and b >= 170 and r <= 160
 
 SHEETS = [
+    # 환격전 한미량 리스타일 시트 (2026-07-22). Left variants are exact
+    # per-cell mirrors, so only right/any needs authoring (runtime mirrors).
     {
         "motion": "walk",
         "direction": "right",
-        "path": "godot/assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png",
+        "path": "godot/assets/sprites/smasher/hanmiryang_rear_cloud_glide_right_autosprite_v1_4x2_160_clean.png",
         "cols": 4,
         "rows": 2,
         "frames": 8,
@@ -68,7 +70,7 @@ SHEETS = [
     {
         "motion": "dash",
         "direction": "right",
-        "path": "godot/assets/sprites/smasher/smasher_dash_right_rugby_shoulder_charge_autosprite_v4_4x2_160_clean.png",
+        "path": "godot/assets/sprites/smasher/hanmiryang_rear_cloud_dash_right_autosprite_v1_4x2_160_clean.png",
         "cols": 4,
         "rows": 2,
         "frames": 8,
@@ -76,7 +78,7 @@ SHEETS = [
     {
         "motion": "idle",
         "direction": "any",
-        "path": "godot/assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png",
+        "path": "godot/assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png",
         "cols": 4,
         "rows": 2,
         "frames": 8,

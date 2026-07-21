@@ -1,12 +1,15 @@
 extends RefCounted
 
 const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
-const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
-const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png"
-const PLAYER_DASH_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_left_rugby_shoulder_charge_autosprite_v4_mirror_from_right_4x2_160_clean.png"
-const PLAYER_DASH_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/smasher_dash_right_rugby_shoulder_charge_autosprite_v4_4x2_160_clean.png"
-const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
-const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
+# 환격전 한미량 리스타일 (2026-07-22): rear-view SD, 근두운 구름 탑승.
+# 구세대 서브컬처(smasher_rear_*_blue_energy / rugby_shoulder) 시트는 롤백
+# 레퍼런스로 디스크에 보존. attack 계열은 아직 구세대 — 후속 슬라이스.
+const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_left_autosprite_v1_mirror_4x2_160_clean.png"
+const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_right_autosprite_v1_4x2_160_clean.png"
+const PLAYER_DASH_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_dash_left_autosprite_v1_mirror_4x2_160_clean.png"
+const PLAYER_DASH_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_dash_right_autosprite_v1_4x2_160_clean.png"
+const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png"
+const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png"
 const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := "res://assets/sprites/characters/smasher/customization_debug/smasher_debug_paddle_overlay_sheet.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_victory_joydance_64f_autosprite_v6.png"
 const SMASHER_WHEEL_BODY_SHEET_PATH := "res://assets/sprites/smasher/smasher_wheel_flame_blade_spin_16f_autosprite_v3.png"

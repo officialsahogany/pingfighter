@@ -123,10 +123,10 @@ func _verify_socket_entry_dest_rect_right() -> void:
 	var commands: Array = renderer.build_draw_commands(context, _build_walk_base_plan(renderer, "right"), "front")
 	_expect(commands.size() == 1, "socket-anchored accessory should emit one front command for walk right")
 	if commands.size() == 1:
-		# walk right f0 head_top = (87.1, 28.0); offset (0,-15), size 20x20 at
-		# 1:1 scale -> rect position (77.1, 3.0).
+		# 한미량 walk right f0 head_top = (81.9, 27.0); offset (0,-15), size
+		# 20x20 at 1:1 scale -> rect position (71.9, 2.0).
 		var dest: Rect2 = (commands[0] as Dictionary).get("dest_rect", Rect2())
-		_expect(dest.position.is_equal_approx(Vector2(77.1, 3.0)) and dest.size.is_equal_approx(Vector2(20.0, 20.0)), "accessory dest rect should center on head_top + offset (got %s)" % dest)
+		_expect(dest.position.is_equal_approx(Vector2(71.9, 2.0)) and dest.size.is_equal_approx(Vector2(20.0, 20.0)), "accessory dest rect should center on head_top + offset (got %s)" % dest)
 		var source: Rect2 = (commands[0] as Dictionary).get("source_rect", Rect2())
 		_expect(source.size.is_equal_approx(Vector2(64.0, 64.0)), "static part should use its full 1x1 source cell, not the body grid")
 
@@ -138,9 +138,9 @@ func _verify_socket_entry_dest_rect_left_mirror() -> void:
 	var commands: Array = renderer.build_draw_commands(context, _build_walk_base_plan(renderer, "left"), "front")
 	_expect(commands.size() == 1, "socket-anchored accessory should emit one front command for walk left")
 	if commands.size() == 1:
-		# Mirrored head_top x = 160 - 87.1 = 72.9 -> rect position (62.9, 3.0).
+		# Mirrored head_top x = 160 - 81.9 = 78.1 -> rect position (68.1, 2.0).
 		var dest: Rect2 = (commands[0] as Dictionary).get("dest_rect", Rect2())
-		_expect(dest.position.is_equal_approx(Vector2(62.9, 3.0)), "left-direction accessory should ride the mirrored head_top socket (got %s)" % dest)
+		_expect(dest.position.is_equal_approx(Vector2(68.1, 2.0)), "left-direction accessory should ride the mirrored head_top socket (got %s)" % dest)
 
 
 func _verify_socket_entry_fail_closed() -> void:
