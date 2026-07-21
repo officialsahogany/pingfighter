@@ -152,7 +152,7 @@ v1 드래프트에 쓴 프롬프트(한글 타이틀+부적 문자 포함)는
 - [x] 하단 버튼 스택 명도 충돌·글린트/문틈 마스크·전환 연출을 통합 슬라이스에서 QA.
 - [ ] 원본 목업 정본은 아직 `docs/references/main_menu_hwangyeokjeon_gate_mockup_v1.png`에 미배치. 배치 후 최종 무드 대조 필요.
 
-### 8.4 폴리시 라운드 R6 (2026-07-21 검수+외부 리뷰 반영, 실행 대기)
+### 8.4 폴리시 라운드 R6 (2026-07-21 실행 완료, felt QA 대기)
 
 배경 방향은 유지. 어색함의 근원은 아트워크가 아니라 락업·하단 UI라는
 진단에 합의. 우선순위 순:
@@ -188,6 +188,24 @@ v1 드래프트에 쓴 프롬프트(한글 타이틀+부적 문자 포함)는
 R6 검증 세트: 메뉴 스모크 9종 재실행 + 글린트/문틈 마스크 재생성 +
 `main_menu_flow_smoke` 픽셀 좌표 재튜닝 + 픽셀 QA 3장(유휴/열림/460) 재캡처.
 
+실행 체크포인트(2026-07-21):
+
+- B `goldleaf_v1`을 정본으로 베이크. 폰트 크기 244→200(×0.82), 낙관 ×0.75,
+  투명 레이어 실측 사용 영역 581×256. 17px 라운드 외곽선을 제거하고 5px
+  산화 가장자리·금박 태니시·헤어라인 크랙·패티나로 교체했다.
+- 배너 시작 y=423, 낙관 y=665로 올렸고, 플레이트에 가장자리 최대 알파 30,
+  문 하단 최대 알파 26의 고정 시드 안개 패스를 추가했다.
+- 하단 프롬프트는 배경 알파 0, `#b08d57` 1px 상하 헤어라인+중앙 마름모로
+  교체. 문틈 광은 유휴 ×0.825, 3.5초 ±8% 호흡, 입력 램프 ×1.12로 봉인했다.
+- 열림 발광역 상단과 좌우 문 그림자 경계를 36px 페더 처리했다. 1920 캡처
+  기준 상단 경계 인접 최대 luma 점프 5.37, 좌측 경계 1px 점프 최대 3.28.
+- 글린트 마스크는 610×280 / ON 63,997, 문틈 마스크는 220×780 / ON
+  37,910으로 재생성. `main_menu_flow_smoke` 좌표 씰도 새 락업에 맞췄다.
+- 재현 캡처:
+  `docs/references/main_menu_hwangyeokjeon_r6_idle_1920.png`,
+  `docs/references/main_menu_hwangyeokjeon_r6_opening_1920.png`,
+  `docs/references/main_menu_hwangyeokjeon_r6_capsule_460.png`.
+
 비채택 의견 기록: ①락업/배너 런타임 레이어화 — 카피는 이미 런타임 렌더,
 락업 품질 문제는 질감/폰트로 해결(베이크 구조·마스크·씰 유지), 배너는
 디제틱 오브젝트로 배경 소속 유지. ②카피 "아무 키나 눌러" 회귀 — 전시
@@ -199,7 +217,8 @@ R6 검증 세트: 메뉴 스모크 9종 재실행 + 글린트/문틈 마스크 �
 - `godot/tools/bake_main_menu_hwangyeokjeon_artwork.py`: 고정 시드와 정확한
   문자 상수로 배경·타이틀·부적 레이어를 재현하는 오프라인 베이커.
 - `godot/assets/ui/main_menu/main_menu_hwangyeokjeon_title_lockup_a.png`:
-  `환격전` 금 균열 석질 락업 + `幻擊戰` 적색 낙관 투명 레이어.
+  `환격전` 낡은 금박(태니시·헤어라인 크랙·패티나) 락업 + `幻擊戰` 축소
+  적색 낙관 투명 레이어.
 - `godot/assets/ui/main_menu/main_menu_hwangyeokjeon_banner_text_layer.png`:
   좌 `귀문봉인`, 우 `벽사진경` 투명 레이어.
 - `godot/assets/ui/main_menu/main_menu_hwangyeokjeon_artwork_manifest.json`:
