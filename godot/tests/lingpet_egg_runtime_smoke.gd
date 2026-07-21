@@ -7760,6 +7760,42 @@ func _verify_egg_ball_hit_knockback_impulse() -> void:
 		"a player-serve pass-through must not apply any knockback impulse"
 	)
 
+	# 데드센터 접촉(리뷰 P2): 바운스 반사가 vx를 0으로 만들어도 넉백은
+	# 반사 전 진입 방향(+7 → 오른쪽 스키드)을 따라야 한다.
+	var center_owner := FakeOwner.new()
+	var center_runtime: Object = LingpetEggRuntime.new()
+	center_runtime.update(0.0, center_owner)
+	center_runtime.get("_egg_state").set_required_hits(3)
+	center_owner.player_pos = Vector2(-500.0, 700.0)
+	center_owner.ball_active = true
+	center_owner.ball_serve_origin = "boss"
+	center_owner.ball_pos = center_owner.lingpet_egg_pos + Vector2(0.0, -8.0)
+	center_owner.ball_vel = Vector2(7.0, 12.0)
+	center_runtime.update(0.0, center_owner)
+	_expect(
+		float(center_runtime.get_snapshot().get("egg_dash_vx", 0.0)) > 0.0,
+		"dead-center hit must skid along the PRE-bounce entry direction (reflected vx=0 must not erase it)"
+	)
+
+	# 반대 잔여 모멘텀(리뷰 P2): dash_vx=+16으로 미끄러지는 중 오른쪽 피격
+	# (기대 방향 −)이면 단순 가산(+10)이 아니라 부호가 반드시 −여야 한다.
+	var momentum_owner := FakeOwner.new()
+	var momentum_runtime: Object = LingpetEggRuntime.new()
+	momentum_runtime.update(0.0, momentum_owner)
+	var momentum_state: Object = momentum_runtime.get("_egg_state")
+	momentum_state.set_required_hits(3)
+	momentum_owner.player_pos = Vector2(-500.0, 700.0)
+	momentum_state.dash_vx = 16.0
+	momentum_owner.ball_active = true
+	momentum_owner.ball_serve_origin = "boss"
+	momentum_owner.ball_pos = momentum_owner.lingpet_egg_pos + Vector2(20.0, -8.0)
+	momentum_owner.ball_vel = Vector2(0.0, 12.0)
+	momentum_runtime.update(0.0, momentum_owner)
+	_expect(
+		float(momentum_state.dash_vx) < 0.0,
+		"a fresh hit must override opposing residual momentum (post-hit dash_vx sign == intent direction)"
+	)
+
 
 # 크랙 PNG 오버레이 씰(2026-07-06 퀄업 재배선): 파일 존재(부재 경로를
 # per-frame draw에 물리면 재-stat 트랩)+프리웜 실로드+스테이지 클램프+

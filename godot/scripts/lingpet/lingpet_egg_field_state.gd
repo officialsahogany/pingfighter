@@ -323,6 +323,9 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 		return {"changed": false, "hit": false, "hatched": false, "counted": false}
 
 	hit_cooldown = HIT_COOLDOWN_SECONDS
+	# 진입 vx는 바운스 반사 전에 보존한다 — 데드센터 접촉의 넉백 방향
+	# 폴백이 반사된(0이 될 수 있는) vx를 읽으면 원래 진행방향이 소실된다.
+	var entry_ball_vel_x: float = BattleSceneOwnerReader.get_vector2(owner, "ball_vel", Vector2.ZERO).x
 	_apply_paddle_bounce(owner, ball_pos, hit_radius)
 
 	var safe_required_hits: int = maxi(1, required_hits)
@@ -332,7 +335,7 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 		# 피격 넉백은 counted 비최종 히트 전용. 최종 히트는 임펄스 금지 —
 		# trigger_hatch_break가 잔여 모션을 zero로 만들고 셸브레이크 안무가
 		# 위치를 소유한다.
-		_apply_ball_hit_knockback(owner, ball_pos)
+		_apply_ball_hit_knockback(ball_pos, entry_ball_vel_x)
 	return {
 		"changed": true,
 		"hit": true,
@@ -342,16 +345,19 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 
 
 # 접촉 반대방향으로 굴러가며 튕겨나가는 스키드. 데드센터(수직 낙하 등)는
-# 공의 진행 방향(vx)을, 그것도 0이면 필드의 넓은 쪽을 따른다.
-func _apply_ball_hit_knockback(owner: Object, ball_pos: Vector2) -> void:
+# 반사 전 진입 vx(공의 원래 진행 방향)를, 그것도 0이면 필드의 넓은 쪽을
+# 따른다. 피격 직후의 dash_vx 부호는 반드시 의도 방향과 일치해야 한다 —
+# 반대 잔여 모멘텀(예: +16)에 단순 가산하면 알이 접촉 쪽으로 계속 간다.
+func _apply_ball_hit_knockback(ball_pos: Vector2, entry_ball_vel_x: float) -> void:
 	var direction: float = signf(pos.x - ball_pos.x)
 	if direction == 0.0:
-		direction = signf(BattleSceneOwnerReader.get_vector2(owner, "ball_vel", Vector2.ZERO).x)
+		direction = signf(entry_ball_vel_x)
 	if direction == 0.0:
 		direction = 1.0 if pos.x < 380.0 else -1.0
-	dash_vx = clampf(dash_vx + direction * EGG_BALL_HIT_KNOCKBACK_VX, -EGG_DASH_MAX_VX, EGG_DASH_MAX_VX)
-	if absf(dash_vx) < EGG_BALL_HIT_KNOCKBACK_VX:
-		dash_vx = direction * EGG_BALL_HIT_KNOCKBACK_VX
+	var boosted: float = dash_vx + direction * EGG_BALL_HIT_KNOCKBACK_VX
+	if signf(boosted) != direction or absf(boosted) < EGG_BALL_HIT_KNOCKBACK_VX:
+		boosted = direction * EGG_BALL_HIT_KNOCKBACK_VX
+	dash_vx = clampf(boosted, -EGG_DASH_MAX_VX, EGG_DASH_MAX_VX)
 	wobble_vel += direction * EGG_BALL_HIT_WOBBLE_IMPULSE
 
 
