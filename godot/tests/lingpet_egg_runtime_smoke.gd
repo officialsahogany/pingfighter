@@ -563,6 +563,8 @@ func _init() -> void:
 	_verify_bare_egg_roll_physics_and_renderer()
 	_verify_egg_hatch_required_hits_roll()
 	_verify_egg_settle_oscillation()
+	_verify_egg_ball_hit_knockback_impulse()
+	_verify_egg_crack_overlay_assets_and_prewarm()
 	_verify_egg_dash_collision_knocks_and_wall_rebounds()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
@@ -7668,6 +7670,9 @@ func _write_lingpet_snapshot(path: String, snapshot: Dictionary) -> void:
 
 
 func _smoke_save_path(slug: String) -> String:
+	# 격리 worktree(신선 체크아웃)에는 미추적 res://.tmp가 없어 ConfigFile.save가
+	# 통째로 실패한다 — 저장 레그가 환경에 기대지 않도록 여기서 보장한다.
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.tmp"))
 	return "res://.tmp/lingpet_egg_runtime_smoke_%s_%d_%d.cfg" % [
 		slug,
 		OS.get_process_id(),
@@ -7678,3 +7683,102 @@ func _smoke_save_path(slug: String) -> String:
 func _remove_user_file(path: String) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+# 피격 넉백 씰(2026-07-06 전시 후속, WIP 파괴 후 재구현): counted 비최종
+# 히트는 접촉 반대방향으로 굴러가며 튕겨나가고(dash 임펄스 레인 재사용),
+# 최종 히트(셸브레이크 안무 소유)와 서브공(타격판정 없음)은 임펄스가
+# 없어야 한다. ⚠️크랙 히트 후 알이 미끄러지므로 다타격 조준은 반드시
+# owner.lingpet_egg_pos 신선 재독으로 해야 한다.
+func _verify_egg_ball_hit_knockback_impulse() -> void:
+	for direction_info in [[-20.0, 1.0], [20.0, -1.0]]:
+		var contact_dx: float = float(direction_info[0])
+		var expected_sign: float = float(direction_info[1])
+		var owner := FakeOwner.new()
+		var runtime: Object = LingpetEggRuntime.new()
+		runtime.update(0.0, owner)
+		var egg_state: Object = runtime.get("_egg_state")
+		egg_state.set_required_hits(3)
+		owner.player_pos = Vector2(-500.0, 700.0)
+		var egg_pos: Vector2 = owner.lingpet_egg_pos
+		owner.ball_active = true
+		owner.ball_serve_origin = "boss"
+		owner.ball_pos = egg_pos + Vector2(contact_dx, -8.0)
+		owner.ball_vel = Vector2(0.0, 12.0)
+		runtime.update(0.0, owner)
+		_expect(int(owner.lingpet_hatch_hits) == 1, "knockback leg: contact should count the crack hit (dx=%.0f)" % contact_dx)
+		var snapshot: Dictionary = runtime.get_snapshot()
+		_expect(
+			signf(float(snapshot.get("egg_dash_vx", 0.0))) == expected_sign,
+			"counted crack hit should skid the egg away from the contact side (dx=%.0f)" % contact_dx
+		)
+		_expect(
+			signf(float(snapshot.get("egg_wobble_vel", 0.0))) == expected_sign,
+			"counted crack hit should wobble the egg toward the skid direction (dx=%.0f)" % contact_dx
+		)
+		var start_x: float = owner.lingpet_egg_pos.x
+		for _frame_index in range(600):
+			runtime.update(1.0 / 60.0, owner)
+		var skid: float = (owner.lingpet_egg_pos.x - start_x) * expected_sign
+		_expect(skid > 25.0, "ball-hit knockback should visibly skid the egg (>25px, got %.1f)" % skid)
+		var settled: Dictionary = runtime.get_snapshot()
+		_expect(
+			is_equal_approx(float(settled.get("egg_dash_vx", 1.0)), 0.0),
+			"knockback impulse should be spent after the skid settles (dx=%.0f)" % contact_dx
+		)
+		_expect(
+			is_equal_approx(float(settled.get("egg_roll_angle", 1.0)), 0.0),
+			"egg should settle upright after the knockback skid (dx=%.0f)" % contact_dx
+		)
+
+	var final_owner := FakeOwner.new()
+	var final_runtime: Object = LingpetEggRuntime.new()
+	final_runtime.update(0.0, final_owner)
+	var final_state: Object = final_runtime.get("_egg_state")
+	final_state.set_required_hits(1)
+	final_owner.ball_active = true
+	final_owner.ball_serve_origin = "boss"
+	final_owner.ball_pos = final_owner.lingpet_egg_pos + Vector2(-20.0, -8.0)
+	final_owner.ball_vel = Vector2(0.0, 12.0)
+	final_runtime.update(0.0, final_owner)
+	_expect(
+		is_equal_approx(float(final_state.dash_vx), 0.0),
+		"the FINAL counted hit must not apply the knockback impulse (shell-break choreography owns motion)"
+	)
+
+	var serve_owner := FakeOwner.new()
+	var serve_runtime: Object = LingpetEggRuntime.new()
+	serve_runtime.update(0.0, serve_owner)
+	serve_owner.ball_active = true
+	serve_owner.ball_serve_origin = "player"
+	serve_owner.ball_pos = serve_owner.lingpet_egg_pos + Vector2(-20.0, -8.0)
+	serve_owner.ball_vel = Vector2(0.0, 12.0)
+	serve_runtime.update(0.0, serve_owner)
+	var serve_state: Object = serve_runtime.get("_egg_state")
+	_expect(
+		is_equal_approx(float(serve_state.dash_vx), 0.0),
+		"a player-serve pass-through must not apply any knockback impulse"
+	)
+
+
+# 크랙 PNG 오버레이 씰(2026-07-06 퀄업 재배선): 파일 존재(부재 경로를
+# per-frame draw에 물리면 재-stat 트랩)+프리웜 실로드+스테이지 클램프+
+# 구조(오버레이 관통·절차 폴백·회전쿼드 동일변환·셸브레이크 누적 유지).
+func _verify_egg_crack_overlay_assets_and_prewarm() -> void:
+	for crack_path: String in LingpetEggFieldRenderer.EGG_CRACK_STAGE_TEXTURE_PATHS:
+		_expect(ResourceLoader.exists(crack_path), "crack overlay texture must exist on disk: %s" % crack_path)
+	var renderer := LingpetEggFieldRenderer.new()
+	renderer.prewarm()
+	var stage1: Texture2D = renderer._get_cached_crack_texture(0)
+	var stage2: Texture2D = renderer._get_cached_crack_texture(1)
+	_expect(stage1 != null, "prewarm should load the stage-1 crack overlay texture")
+	_expect(stage2 != null, "prewarm should load the stage-2 crack overlay texture")
+	_expect(renderer._get_cached_crack_texture(99) == stage2, "crack stage lookup must clamp to the last stage (3-hit eggs)")
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
+	var draw_body := _function_body(renderer_source, "func draw_egg(")
+	_expect(draw_body.find("_draw_egg_crack_overlay(") >= 0, "draw_egg must route hit cracks through the PNG overlay")
+	var overlay_body := _function_body(renderer_source, "func _draw_egg_crack_overlay(")
+	_expect(overlay_body.find("_draw_egg_crack_light(") >= 0, "crack overlay must keep the procedural fallback for load failure")
+	_expect(overlay_body.find("_draw_rotated_texture(") >= 0, "crack overlay must ride the same rotated-quad transform as the egg (rotation sync)")
+	var break_body := _function_body(renderer_source, "func draw_hatch_break_egg(")
+	_expect(break_body.find("_draw_egg_crack_overlay(") >= 0, "shell-break must keep drawing the accumulated hit cracks")

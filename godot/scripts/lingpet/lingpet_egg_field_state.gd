@@ -25,6 +25,11 @@ const EGG_DASH_WALL_RESTITUTION := 0.72
 const EGG_DASH_WALL_MIN_REBOUND_VX := 5.0
 const EGG_DASH_CONTACT_COOLDOWN_SECONDS := 0.12
 const EGG_DASH_WOBBLE_IMPULSE := 5.5
+# 공 피격 넉백(2026-07-06 전시 후속, WIP 파괴 후 재구현): counted 비최종
+# 히트에 접촉 반대방향으로 dash 임펄스 레인을 재사용한다 — 마찰·벽반동·
+# 굴림 적분·오뚜기 셋틀이 공짜로 따라온다. 6.0 ≈ 100px 스키드.
+const EGG_BALL_HIT_KNOCKBACK_VX := 6.0
+const EGG_BALL_HIT_WOBBLE_IMPULSE := 4.0
 const EGG_ROLL_CONTACT_RADIUS := 30.0
 # Roly-poly (오뚜기) settle: a damped restoring spring toward upright, NOT a
 # monotonic ease. Low stiffness + high damping-retention makes the egg tip
@@ -322,12 +327,32 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 
 	var safe_required_hits: int = maxi(1, required_hits)
 	hatch_hits = mini(safe_required_hits, hatch_hits + 1)
+	var hatched: bool = hatch_hits >= safe_required_hits
+	if not hatched:
+		# 피격 넉백은 counted 비최종 히트 전용. 최종 히트는 임펄스 금지 —
+		# trigger_hatch_break가 잔여 모션을 zero로 만들고 셸브레이크 안무가
+		# 위치를 소유한다.
+		_apply_ball_hit_knockback(owner, ball_pos)
 	return {
 		"changed": true,
 		"hit": true,
-		"hatched": hatch_hits >= safe_required_hits,
+		"hatched": hatched,
 		"counted": true,
 	}
+
+
+# 접촉 반대방향으로 굴러가며 튕겨나가는 스키드. 데드센터(수직 낙하 등)는
+# 공의 진행 방향(vx)을, 그것도 0이면 필드의 넓은 쪽을 따른다.
+func _apply_ball_hit_knockback(owner: Object, ball_pos: Vector2) -> void:
+	var direction: float = signf(pos.x - ball_pos.x)
+	if direction == 0.0:
+		direction = signf(BattleSceneOwnerReader.get_vector2(owner, "ball_vel", Vector2.ZERO).x)
+	if direction == 0.0:
+		direction = 1.0 if pos.x < 380.0 else -1.0
+	dash_vx = clampf(dash_vx + direction * EGG_BALL_HIT_KNOCKBACK_VX, -EGG_DASH_MAX_VX, EGG_DASH_MAX_VX)
+	if absf(dash_vx) < EGG_BALL_HIT_KNOCKBACK_VX:
+		dash_vx = direction * EGG_BALL_HIT_KNOCKBACK_VX
+	wobble_vel += direction * EGG_BALL_HIT_WOBBLE_IMPULSE
 
 
 func get_snapshot() -> Dictionary:

@@ -43,14 +43,26 @@ const EGG_VARIANT_GLOW := [
 	Color(1.0, 0.46, 0.64),
 	Color(0.42, 0.92, 0.64),
 ]
+# 히트 누적 크랙 PNG 오버레이(2026-07-06 퀄업, WIP 파괴 후 재배선): 512
+# 변종 캔버스와 1:1 정렬된 공유 크랙 2단 — 같은 rect·같은 회전쿼드 변환을
+# 지나므로 회전동기가 공짜다. 진행 코히런스: stage2 = stage1 ∪ 신규 웹
+# (금은 자라기만 한다 — 재생성 시 필수 규칙). 로드 실패 시 절차 크랙 폴백.
+const EGG_CRACK_STAGE_TEXTURE_PATHS := [
+	"res://assets/sprites/lingpet/resonance_egg_bare_crack_stage_1.png",
+	"res://assets/sprites/lingpet/resonance_egg_bare_crack_stage_2.png",
+]
 
 var _variant_textures: Array = []
+var _crack_stage_textures: Array = []
 
 
 func prewarm() -> void:
 	_variant_textures.clear()
 	for path: String in EGG_BARE_VARIANT_PATHS:
 		_variant_textures.append(_load_egg_texture(path))
+	_crack_stage_textures.clear()
+	for crack_path: String in EGG_CRACK_STAGE_TEXTURE_PATHS:
+		_crack_stage_textures.append(_load_egg_texture(crack_path))
 
 
 func get_variant_count() -> int:
@@ -85,7 +97,44 @@ func draw_egg(
 	var egg_texture: Texture2D = _get_cached_variant_texture(variant_index)
 	if egg_texture != null:
 		_draw_rotated_texture(canvas, egg_texture, texture_rect, final_rotation)
-	_draw_egg_crack_light(canvas, texture_rect, hatch_hits, pulse, final_rotation)
+	_draw_egg_crack_overlay(canvas, texture_rect, hatch_hits, pulse, final_rotation)
+
+
+# 히트 누적 크랙: PNG 오버레이 우선, 로드 실패 시 절차 크랙 폴백. 펄스는
+# 동일 텍스처 2회 블릿(오프셋/스케일 변주 금지 — 오정렬 방지)으로 알파만
+# 맥동시킨다.
+func _draw_egg_crack_overlay(canvas: CanvasItem, texture_rect: Rect2, hatch_hits: int, pulse: float, rotation: float) -> void:
+	if hatch_hits <= 0:
+		return
+	var stage_index: int = clampi(hatch_hits, 1, EGG_CRACK_STAGE_TEXTURE_PATHS.size()) - 1
+	var crack_texture: Texture2D = _get_cached_crack_texture(stage_index)
+	if crack_texture == null:
+		_draw_egg_crack_light(canvas, texture_rect, hatch_hits, pulse, rotation)
+		return
+	_draw_rotated_texture(canvas, crack_texture, texture_rect, rotation)
+	_draw_rotated_texture(
+		canvas,
+		crack_texture,
+		texture_rect,
+		rotation,
+		Color(1.0, 1.0, 1.0, 0.18 + 0.30 * pulse)
+	)
+
+
+func _get_cached_crack_texture(stage_index: int) -> Texture2D:
+	if EGG_CRACK_STAGE_TEXTURE_PATHS.is_empty():
+		return null
+	var normalized_index: int = clampi(stage_index, 0, EGG_CRACK_STAGE_TEXTURE_PATHS.size() - 1)
+	if normalized_index < _crack_stage_textures.size():
+		var cached_value: Variant = _crack_stage_textures[normalized_index]
+		if cached_value is Texture2D:
+			return cached_value as Texture2D
+	var shared_cached: Texture2D = ProjectResourceLoader.get_cached_texture(EGG_CRACK_STAGE_TEXTURE_PATHS[normalized_index])
+	if shared_cached != null:
+		while _crack_stage_textures.size() < EGG_CRACK_STAGE_TEXTURE_PATHS.size():
+			_crack_stage_textures.append(null)
+		_crack_stage_textures[normalized_index] = shared_cached
+	return shared_cached
 
 
 func draw_profile_egg(
@@ -137,6 +186,16 @@ func draw_hatch_break_egg(
 	var egg_texture: Texture2D = _get_cached_variant_texture(variant_index)
 	if egg_texture != null:
 		_draw_rotated_texture(canvas, egg_texture, texture_rect, final_rotation)
+	# 셸브레이크 중에도 히트로 쌓인 누적 크랙(최종 단계)은 유지 드로우 —
+	# 금이 사라졌다 브레이크 크랙이 새로 생기면 연출이 끊긴다.
+	var accumulated_pulse: float = 0.5 + sin(float(Time.get_ticks_msec()) * 0.006) * 0.5
+	_draw_egg_crack_overlay(
+		canvas,
+		texture_rect,
+		EGG_CRACK_STAGE_TEXTURE_PATHS.size(),
+		accumulated_pulse,
+		final_rotation
+	)
 	var stage: int = get_hatch_break_crack_stage(t)
 	if stage <= 0:
 		return
@@ -305,9 +364,9 @@ func _get_roll_bob_offset(roll_angle: float) -> float:
 	return EGG_SEMI_MAJOR - contact_height
 
 
-func _draw_rotated_texture(canvas: CanvasItem, texture: Texture2D, texture_rect: Rect2, rotation: float) -> void:
+func _draw_rotated_texture(canvas: CanvasItem, texture: Texture2D, texture_rect: Rect2, rotation: float, modulate: Color = Color.WHITE) -> void:
 	var points: PackedVector2Array = _build_rotated_rect_points(texture_rect, rotation)
-	var colors := PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
 	var uvs := PackedVector2Array([
 		Vector2(0.0, 0.0),
 		Vector2(1.0, 0.0),
