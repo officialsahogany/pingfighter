@@ -6,6 +6,7 @@ const ViperInputReader := preload("res://scripts/characters/viper_input_reader.g
 const SmasherInputReader := preload("res://scripts/characters/smasher_input_reader.gd")
 const BlacksmithInputReader := preload("res://scripts/characters/blacksmith_input_reader.gd")
 const CommandoInputReader := preload("res://scripts/characters/commando_input_reader.gd")
+const SmasherOverdriveState := preload("res://scripts/characters/smasher_overdrive_state.gd")
 const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
 const BattleSceneTeardownLifecycle := preload("res://scripts/core/battle_scene_teardown_lifecycle.gd")
 const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_state.gd")
@@ -176,6 +177,8 @@ func _init() -> void:
 	_verify_poll_gap_suppresses_synthesized_edge()
 	_verify_viper_reader_edge_contract_and_routing()
 	_verify_all_character_readers_publish_cast_channel_and_cast()
+	_verify_raw_lmb_casts_for_all_characters()
+	_verify_raw_rmb_activates_overdrive_through_production_reader()
 	if _failures.is_empty():
 		print("odins_eye_dark_swamp_runtime_smoke: ok")
 		quit(0)
@@ -1519,8 +1522,9 @@ func _expect(condition: bool, message: String) -> void:
 # 키인데 viper 리더만 이 채널을 게시해 스매셔/커맨도/대장장이에서 시전이
 # 전멸했던 회귀. 4캐릭 실 리더 전부 채널 키를 게시해야 하고, 스매셔·
 # 대장장이는 실 리더(모바일 심)로 update_runtime 관통까지 시전을 봉인한다
-# (데스크톱 raw LMB 분기는 헤드리스에서 구동 불가 — 같은 채널 코드의
-# 모바일 분기로 결정론 봉인, raw LMB는 윈도우드 QA 하니스 몫).
+# (데스크톱 raw LMB 분기는 아래 _verify_raw_lmb_casts_for_all_characters가
+# Input.parse_input_event 합성 이벤트로 헤드리스에서도 직접 봉인한다 —
+# 여기의 모바일 심 레그는 모바일 분기 커버 몫).
 func _verify_all_character_readers_publish_cast_channel_and_cast() -> void:
 	for reader_info in [
 		["smasher", SmasherInputReader.new()],
@@ -1563,3 +1567,121 @@ func _verify_all_character_readers_publish_cast_channel_and_cast() -> void:
 			is_equal_approx(float(owner.get("special_gauge")), 400.0),
 			"%s cast must consume 100 gauge through the real reader (got %s)" % [character_type, str(owner.get("special_gauge"))]
 		)
+
+
+class FakeOverdriveSkillConfig:
+	extends RefCounted
+
+	func is_skill_equipped(skill_name: String) -> bool:
+		return skill_name == "smasher_overdrive"
+
+	func get_skill_cost(_skill_name: String) -> float:
+		return 280.0
+
+
+func _press_raw_mouse(button_index: int, pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = button_index
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
+
+func _press_raw_key(keycode: int, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
+
+# P2 씰(2026-07-21 코덱스 리뷰): 데스크톱 raw LMB -> production reader ->
+# update_runtime 실 시전을 4캐릭 전부 직접 봉인한다(모바일 심 없이 실
+# 데스크톱 분기 — Input.parse_input_event 합성 이벤트는 헤드리스에서도
+# Input 싱글턴 상태를 구동한다). 커맨도는 리더 키가 캐릭터 문자열
+# ("soldier")과 다른 "commando_input_reader"라 픽스처를 수동 구성한다.
+func _verify_raw_lmb_casts_for_all_characters() -> void:
+	for cast_info in [
+		["smasher", "smasher_input_reader", SmasherInputReader.new()],
+		["blacksmith", "blacksmith_input_reader", BlacksmithInputReader.new()],
+		["soldier", "commando_input_reader", CommandoInputReader.new()],
+		["viper", "viper_input_reader", ViperInputReader.new()],
+	]:
+		var character_type: String = str(cast_info[0])
+		var reader_key: String = str(cast_info[1])
+		var reader: Object = cast_info[2]
+		var owner := FakeOwner.new()
+		owner.set("selected_character_type", character_type)
+		var registry := FakeRegistry.new({
+			reader_key: reader,
+			"game_audio": FakeAudio.new(),
+			"battle_feedback_state": FakeFeedback.new(),
+		})
+		var runtime: Object = MythicItemRuntime.new()
+		_expect(
+			runtime.equip_item("odins_eye", owner, registry, {"revival_chance": 100.0}, false),
+			"raw-LMB fixture(%s): Odin's Eye should equip" % character_type
+		)
+		_expect(
+			runtime.try_trigger_odins_eye_revival("round", 0.0),
+			"raw-LMB fixture(%s): revival should trigger" % character_type
+		)
+		runtime.odins_eye_runtime.update_runtime(runtime, 231.0, owner, registry)
+		_expect(
+			runtime.consume_odins_eye_revival_finalize_ready(),
+			"raw-LMB fixture(%s): finalize edge should consume" % character_type
+		)
+		owner.set("special_gauge", 500.0)
+		_press_raw_mouse(MOUSE_BUTTON_LEFT, true)
+		reader._same_frame_snapshot_key = -1
+		runtime.odins_eye_runtime.update_runtime(runtime, 1.0, owner, registry)
+		_press_raw_mouse(MOUSE_BUTTON_LEFT, false)
+		_expect(
+			bool(runtime.get_odins_eye_dark_swamp_context().get("active", false)),
+			"%s raw LMB must cast the dark swamp through the production reader" % character_type
+		)
+		_expect(
+			is_equal_approx(float(owner.get("special_gauge")), 400.0),
+			"%s raw LMB cast must consume 100 gauge (got %s)" % [character_type, str(owner.get("special_gauge"))]
+		)
+
+
+# P3 동봉 정당화 씰(2026-07-21 코덱스 리뷰): 스매셔 리더의 우클릭 채널
+# (secondary_action_*)은 오딘 슬라이스에 동봉된 오버드라이브 실배선이다 —
+# 이 채널이 없으면 S+RMB 오버드라이브도 라이브 전멸(오딘 좌클릭과 같은
+# 클래스). raw S+RMB -> production reader -> smasher_overdrive_state
+# update_input 실소비(활성+게이지 280 소비)까지 봉인한다.
+func _verify_raw_rmb_activates_overdrive_through_production_reader() -> void:
+	var reader := SmasherInputReader.new()
+	_press_raw_key(KEY_S, true)
+	_press_raw_mouse(MOUSE_BUTTON_RIGHT, true)
+	reader._same_frame_snapshot_key = -1
+	var snapshot: Dictionary = reader.get_snapshot()
+	_press_raw_mouse(MOUSE_BUTTON_RIGHT, false)
+	_press_raw_key(KEY_S, false)
+	_expect(bool(snapshot.get("down_pressed", false)), "raw S key must read as down_pressed on the production smasher reader")
+	_expect(
+		bool(snapshot.get("secondary_action_just_pressed", false)),
+		"raw RMB must publish secondary_action_just_pressed on the production smasher reader"
+	)
+	var overdrive := SmasherOverdriveState.new()
+	var result: Dictionary = overdrive.update_input(
+		snapshot,
+		100000,
+		500.0,
+		Vector2.ZERO,
+		{
+			"ball_active": true,
+			"player_skill_input_locked": false,
+			"ball_vel": Vector2(6.0, -6.0),
+			"ball_impact_boost": 1.0,
+		},
+		{"skill_config": FakeOverdriveSkillConfig.new()}
+	)
+	_expect(bool(result.get("activated", false)), "S+RMB snapshot must activate Smasher overdrive through the real consumer")
+	_expect(overdrive.active, "overdrive state must be active after the S+RMB activation")
+	_expect(
+		is_equal_approx(float(result.get("special_gauge", -1.0)), 220.0),
+		"overdrive activation must consume the 280 skill cost (got %s)" % str(result.get("special_gauge"))
+	)
