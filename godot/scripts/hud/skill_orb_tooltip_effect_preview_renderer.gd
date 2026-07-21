@@ -26,6 +26,9 @@ const VIPER_EFFECT_PREVIEW_TYPES := {
 	"glitch_clone": true,
 	"ignition_burst": true,
 }
+const ODINS_EYE_EFFECT_PREVIEW_TYPES := {
+	"odins_eye_dark_swamp": true,
+}
 const COMMANDO_EFFECT_PREVIEW_TYPES := {
 	"supply_green": true,
 	"emergency_red": true,
@@ -68,6 +71,9 @@ func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, 
 	if _get_effect_preview_family(effect_type) == "commando":
 		_draw_commando_effect_preview(canvas, rect, effect_type, color)
 		return
+	if _get_effect_preview_family(effect_type) == "odins_eye":
+		_draw_odins_dark_swamp_preview(canvas, rect, color)
+		return
 	if effect_type == "drive_curve":
 		_draw_drive_curve_preview(canvas, rect, color)
 	elif effect_type == "smash_orange":
@@ -95,6 +101,8 @@ func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, 
 func _get_effect_preview_family(effect_type: String) -> String:
 	if VIPER_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "viper"
+	if ODINS_EYE_EFFECT_PREVIEW_TYPES.has(effect_type):
+		return "odins_eye"
 	if COMMANDO_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "commando"
 	if SMASHER_EFFECT_PREVIEW_TYPES.has(effect_type):
@@ -1643,6 +1651,57 @@ func _viper_palette(alpha: float, tint: Color) -> Dictionary:
 		"blade": _draw_primitives.tint(_draw_primitives.color8(214, 188, 255, 245.0 * alpha), tint),
 		"scarf": _draw_primitives.tint(_draw_primitives.color8(88, 255, 210, 210.0 * alpha), tint),
 	}
+
+
+# 오딘의 눈 어둠의 늪 미리보기: 변신 폼(좌하단) -> 보스(우상단)로 12연쇄
+# 어둠 수정 가시가 순차로 솟고, 막바지에 보스가 밀려나는 씬. 클릭 큐는
+# 사이클 초반 펄스 링(키캡 헬퍼의 허용-문자 elif 함정 회피 — 마우스 안내는
+# control row가 소유). 좌표는 전부 _preview_metrics 패널 내부.
+func _draw_odins_dark_swamp_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var local_progress: float = float(time_ms % 2600) / 2600.0
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var floor_y: float = preview_bottom - 2.0
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), Color(90.0 / 255.0, 110.0 / 255.0, 145.0 / 255.0, 45.0 / 255.0), 2.0)
+	var player := Vector2(preview_left + 42.0, preview_bottom - 10.0)
+	var boss_base := Vector2(preview_right - 40.0, preview_top + 18.0)
+	_draw_primitives.draw_round_rect(canvas, Rect2(player + Vector2(-10.0, -20.0), Vector2(20.0, 24.0)), Color(64.0 / 255.0, 34.0 / 255.0, 108.0 / 255.0, 200.0 / 255.0), 5.0)
+	canvas.draw_circle(player + Vector2(4.0, -13.0), 1.8, Color(1.0, 0.30, 0.28, 0.95))
+	var wave_t: float = clamp((local_progress - 0.16) / 0.62, 0.0, 1.0)
+	var hit_t: float = clamp((local_progress - 0.82) / 0.18, 0.0, 1.0)
+	var boss := boss_base + Vector2(hit_t * 10.0, -sin(hit_t * PI) * 3.0)
+	var boss_color := Color(120.0 / 255.0, 132.0 / 255.0, 160.0 / 255.0, 200.0 / 255.0).lerp(Color(0.85, 0.30, 0.28, 0.9), hit_t * 0.7)
+	_draw_primitives.draw_round_rect(canvas, Rect2(boss + Vector2(-13.0, -5.0), Vector2(26.0, 10.0)), boss_color, 4.0)
+	if local_progress < 0.16:
+		var cue_t: float = local_progress / 0.16
+		canvas.draw_arc(player + Vector2(0.0, -8.0), 10.0 + cue_t * 8.0, 0.0, TAU, 28, _draw_primitives.alpha(color, (1.0 - cue_t) * 0.55), 1.4)
+	for spike_index in range(12):
+		var spawn_t: float = float(spike_index) / 12.0
+		if wave_t <= spawn_t:
+			continue
+		var rise_t: float = clamp((wave_t - spawn_t) / 0.14, 0.0, 1.0)
+		var path_t: float = (float(spike_index) + 0.5) / 12.0
+		var base_x: float = lerp(player.x + 16.0, boss.x - 6.0, path_t)
+		var base_y: float = lerp(floor_y, preview_top + 30.0, path_t * 0.55)
+		var spike_h: float = (7.0 + path_t * 9.0) * rise_t
+		var half_w: float = 2.4 + path_t * 1.4
+		var tip := Vector2(base_x, base_y - spike_h)
+		var spike_points := PackedVector2Array([
+			Vector2(base_x - half_w, base_y),
+			tip,
+			Vector2(base_x + half_w, base_y),
+		])
+		canvas.draw_colored_polygon(spike_points, Color(0.36, 0.18, 0.56, 0.55 + rise_t * 0.35))
+		canvas.draw_circle(tip, 1.4, _draw_primitives.alpha(color, 0.5 + rise_t * 0.4))
+	if wave_t > 0.35:
+		var ball_t: float = clamp((wave_t - 0.35) / 0.5, 0.0, 1.0)
+		var ball_x: float = lerp(player.x + 60.0, player.x + 84.0, ball_t)
+		var ball_y: float = floor_y - 12.0 - sin(ball_t * PI) * 22.0
+		canvas.draw_circle(Vector2(ball_x, ball_y), 3.2, Color(1.0, 1.0, 1.0, 0.85))
 
 
 func _preview_metrics(rect: Rect2) -> Dictionary:

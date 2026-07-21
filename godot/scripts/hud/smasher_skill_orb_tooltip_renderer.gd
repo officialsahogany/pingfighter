@@ -116,6 +116,12 @@ const COMMANDO_CONTROL_ROWS := {
 	],
 }
 
+const ODINS_EYE_CONTROL_ROWS := {
+	"odins_eye_dark_swamp": [
+		[["text", "변신 중"], ["mouse_left", ""], ["accent", "좌클릭 발동"]],
+	],
+}
+
 const HORN_STRAWBERRY_CONTROL_ROWS := {
 	"horn_strawberry_horn_charge": [
 		[["key", "W"], ["accent", "발동"]],
@@ -1249,6 +1255,10 @@ func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_colo
 
 
 func _get_control_rows(skill_name: String, character_type: String = "smasher") -> Array:
+	if ODINS_EYE_CONTROL_ROWS.has(skill_name):
+		var odins_rows: Variant = ODINS_EYE_CONTROL_ROWS.get(skill_name, [])
+		if odins_rows is Array:
+			return odins_rows
 	if HORN_STRAWBERRY_CONTROL_ROWS.has(skill_name):
 		var horn_rows: Variant = HORN_STRAWBERRY_CONTROL_ROWS.get(skill_name, [])
 		if horn_rows is Array:

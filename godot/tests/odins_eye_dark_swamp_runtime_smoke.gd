@@ -3,6 +3,9 @@ extends SceneTree
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const ViperInputReader := preload("res://scripts/characters/viper_input_reader.gd")
+const SmasherInputReader := preload("res://scripts/characters/smasher_input_reader.gd")
+const BlacksmithInputReader := preload("res://scripts/characters/blacksmith_input_reader.gd")
+const CommandoInputReader := preload("res://scripts/characters/commando_input_reader.gd")
 const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
 const BattleSceneTeardownLifecycle := preload("res://scripts/core/battle_scene_teardown_lifecycle.gd")
 const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_state.gd")
@@ -140,6 +143,20 @@ class MobileShimViperReader:
 		return true
 
 
+class MobileShimSmasherReader:
+	extends "res://scripts/characters/smasher_input_reader.gd"
+
+	func _is_mobile_runtime() -> bool:
+		return true
+
+
+class MobileShimBlacksmithReader:
+	extends "res://scripts/characters/blacksmith_input_reader.gd"
+
+	func _is_mobile_runtime() -> bool:
+		return true
+
+
 class PollClockStubOdinsRuntime:
 	extends "res://scripts/items/mythic_item_odins_eye_runtime.gd"
 
@@ -158,6 +175,7 @@ func _init() -> void:
 	_verify_stage2_immunity_refuses_and_clears_cc()
 	_verify_poll_gap_suppresses_synthesized_edge()
 	_verify_viper_reader_edge_contract_and_routing()
+	_verify_all_character_readers_publish_cast_channel_and_cast()
 	if _failures.is_empty():
 		print("odins_eye_dark_swamp_runtime_smoke: ok")
 		quit(0)
@@ -1495,3 +1513,53 @@ func _expect_close(actual: float, expected: float, message: String, tolerance: f
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+# P1 씰(2026-07-21 코덱스 리뷰): 시전 에지는 mouse_left_just_pressed 단일
+# 키인데 viper 리더만 이 채널을 게시해 스매셔/커맨도/대장장이에서 시전이
+# 전멸했던 회귀. 4캐릭 실 리더 전부 채널 키를 게시해야 하고, 스매셔·
+# 대장장이는 실 리더(모바일 심)로 update_runtime 관통까지 시전을 봉인한다
+# (데스크톱 raw LMB 분기는 헤드리스에서 구동 불가 — 같은 채널 코드의
+# 모바일 분기로 결정론 봉인, raw LMB는 윈도우드 QA 하니스 몫).
+func _verify_all_character_readers_publish_cast_channel_and_cast() -> void:
+	for reader_info in [
+		["smasher", SmasherInputReader.new()],
+		["blacksmith", BlacksmithInputReader.new()],
+		["commando", CommandoInputReader.new()],
+		["viper", ViperInputReader.new()],
+	]:
+		var reader_label: String = str(reader_info[0])
+		var idle_reader: Object = reader_info[1]
+		var idle_snapshot: Dictionary = idle_reader.get_snapshot()
+		_expect(
+			idle_snapshot.has("mouse_left_pressed"),
+			"%s reader snapshot must publish mouse_left_pressed" % reader_label
+		)
+		_expect(
+			idle_snapshot.has("mouse_left_just_pressed"),
+			"%s reader snapshot must publish mouse_left_just_pressed (dark swamp cast edge)" % reader_label
+		)
+
+	for cast_info in [
+		["smasher", MobileShimSmasherReader.new()],
+		["blacksmith", MobileShimBlacksmithReader.new()],
+	]:
+		var character_type: String = str(cast_info[0])
+		var shim_reader: Object = cast_info[1]
+		var fixture: Dictionary = _build_transformed_fixture(character_type, shim_reader)
+		var owner: Object = fixture["owner"]
+		var registry: Object = fixture["registry"]
+		var runtime: Object = fixture["runtime"]
+		owner.set("special_gauge", 500.0)
+		MobileTouchControls._touch_accept_pressed_static = true
+		shim_reader._same_frame_snapshot_key = -1
+		runtime.odins_eye_runtime.update_runtime(runtime, 1.0, owner, registry)
+		MobileTouchControls._touch_accept_pressed_static = false
+		_expect(
+			bool(runtime.get_odins_eye_dark_swamp_context().get("active", false)),
+			"%s primary-pointer press must cast the dark swamp through the real reader" % character_type
+		)
+		_expect(
+			is_equal_approx(float(owner.get("special_gauge")), 400.0),
+			"%s cast must consume 100 gauge through the real reader (got %s)" % [character_type, str(owner.get("special_gauge"))]
+		)

@@ -6,6 +6,7 @@ const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout
 const GameplayHudModuleCatalog := preload("res://scripts/resources/gameplay_hud_module_catalog.gd")
 const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 const SmasherSkillOrbTooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
+const SkillOrbTooltipEffectPreviewRenderer := preload("res://scripts/hud/skill_orb_tooltip_effect_preview_renderer.gd")
 
 const SKILL_DARK_SWAMP := "odins_eye_dark_swamp"
 
@@ -32,6 +33,7 @@ func _init() -> void:
 	_verify_pillar_swap_predicate()
 	_verify_commando_panel_hidden_while_transformed()
 	_verify_tooltip_pipeline_ownership_while_transformed()
+	_verify_tooltip_control_row_and_preview_family()
 
 	if _failures.is_empty():
 		print("odins_eye_skill_hud_smoke: ok")
@@ -197,6 +199,42 @@ func _verify_tooltip_pipeline_ownership_while_transformed() -> void:
 	_expect(
 		tooltip_renderer._find_hovered_commando_firearm(firearm_context).is_empty(),
 		"commando firearm hover must stay suppressed while the Odin HUD is active"
+	)
+
+
+# P2·P3 씰(2026-07-21 코덱스 리뷰): control row가 있으면 how_to_use가
+# 스킵되므로 오딘 전용 마우스 control row('좌클릭 발동')가 있어야 입력
+# 안내가 실제 툴팁에 나타난다. 미리보기는 family 미등록 시 Drive 곡선으로
+# 폴백하므로 odins_eye family 등록을 봉인한다.
+func _verify_tooltip_control_row_and_preview_family() -> void:
+	var tooltip_renderer := SmasherSkillOrbTooltipRenderer.new()
+	var control_rows: Array = tooltip_renderer._get_control_rows(SKILL_DARK_SWAMP, "smasher")
+	_expect(not control_rows.is_empty(), "Dark Swamp must own a dedicated control row (how_to_use is skipped when rows exist)")
+	var has_mouse_token := false
+	var has_cast_label := false
+	for row_value in control_rows:
+		for token_value in (row_value as Array):
+			var token: Array = token_value as Array
+			if str(token[0]) == "mouse_left":
+				has_mouse_token = true
+			if str(token[1]).find("좌클릭 발동") >= 0:
+				has_cast_label = true
+	_expect(has_mouse_token, "Dark Swamp control row must show the left-mouse keycap")
+	_expect(has_cast_label, "Dark Swamp control row must carry the '좌클릭 발동' activation label")
+	# 캐릭터 무관: 대장장이/커맨도 폼에서도 같은 row가 나와야 한다.
+	_expect(
+		not tooltip_renderer._get_control_rows(SKILL_DARK_SWAMP, "blacksmith").is_empty(),
+		"Dark Swamp control row must resolve regardless of the base character"
+	)
+
+	var preview_renderer := SkillOrbTooltipEffectPreviewRenderer.new()
+	_expect(
+		preview_renderer.get_effect_preview_family("odins_eye_dark_swamp") == "odins_eye",
+		"odins_eye_dark_swamp must register its own preview family (Drive-curve fallback ban)"
+	)
+	_expect(
+		preview_renderer.get_effect_preview_family("drive_curve") == "smasher",
+		"registering the Odin preview family must not disturb the Smasher family routing"
 	)
 
 

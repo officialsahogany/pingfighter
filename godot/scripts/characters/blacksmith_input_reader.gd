@@ -1,10 +1,12 @@
 extends RefCounted
 
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
 
 var _last_action_pressed := false
 var _last_middle_pressed := false
 var _last_up_pressed := false
+var _last_mouse_left_pressed := false
 var _same_frame_snapshot: Dictionary = {}
 var _same_frame_snapshot_key := -1
 
@@ -32,6 +34,16 @@ func get_snapshot() -> Dictionary:
 	var action_just_pressed: bool = action_pressed and not _last_action_pressed
 	var action_just_released: bool = not action_pressed and _last_action_pressed
 	_last_action_pressed = action_pressed
+	# 좌클릭 채널(오딘 어둠의 늪 시전 에지 소비 지점, viper 미러): 모바일은
+	# 화면 ACCEPT 채널만, 데스크톱은 raw LMB만 포인터 소스다.
+	var primary_pointer_pressed: bool
+	if _is_mobile_runtime():
+		primary_pointer_pressed = MobileTouchControls.is_touch_accept_pressed()
+	else:
+		primary_pointer_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var mouse_left_pressed: bool = primary_pointer_pressed
+	var mouse_left_just_pressed: bool = mouse_left_pressed and not _last_mouse_left_pressed
+	_last_mouse_left_pressed = mouse_left_pressed
 	var middle_pressed: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE) or GamepadInput.is_firearm_reset_pressed()
 	var middle_just_pressed: bool = middle_pressed and not _last_middle_pressed
 	_last_middle_pressed = middle_pressed
@@ -50,6 +62,8 @@ func get_snapshot() -> Dictionary:
 		"action_pressed": action_pressed,
 		"action_just_pressed": action_just_pressed,
 		"action_just_released": action_just_released,
+		"mouse_left_pressed": mouse_left_pressed,
+		"mouse_left_just_pressed": mouse_left_just_pressed,
 		"mouse_middle_pressed": middle_pressed,
 		"mouse_middle_just_pressed": middle_just_pressed,
 		"firearm_reset_just_pressed": middle_just_pressed,
@@ -71,3 +85,7 @@ func _get_exclusive_horizontal_direction(left_pressed: bool, right_pressed: bool
 	if right_pressed and not left_pressed:
 		return 1
 	return 0
+
+
+func _is_mobile_runtime() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
