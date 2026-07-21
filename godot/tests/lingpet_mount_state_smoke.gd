@@ -6,6 +6,7 @@ extends SceneTree
 
 const LingpetMountState := preload("res://scripts/lingpet/lingpet_mount_state.gd")
 const BattleDrawContext := preload("res://scripts/core/battle_draw_context.gd")
+const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 
 var _failures: Array[String] = []
 
@@ -55,6 +56,7 @@ func _init() -> void:
 	_verify_reset_clears_mount()
 	_verify_rider_lift_values()
 	_verify_scene_context_lift_chain()
+	_verify_mounted_carry_sheet_swap()
 
 	if _failures.is_empty():
 		print("lingpet_mount_state_smoke: ok")
@@ -217,6 +219,45 @@ func _verify_scene_context_lift_chain() -> void:
 
 	var bare_context: Dictionary = builder.build_scene_context(FakeOwner.new(), Vector2.ZERO, FakeRegistry.new())
 	_expect(float(bare_context.get("player_mount_rider_lift_px", -1.0)) == 0.0, "missing lingpet runtime should resolve to zero lift (fail-closed)")
+
+
+class FakeProfile extends RefCounted:
+	var carry_texture: Texture2D = null
+	var body_texture: Texture2D = null
+
+	func get_visual_texture(visual_key: String, _fallback: Variant = null) -> Texture2D:
+		if visual_key == "companion_carry":
+			return carry_texture
+		if visual_key in ["companion_idle", "companion_move_left", "companion_move_right", "companion_walk"]:
+			return body_texture
+		return null
+
+
+func _verify_mounted_carry_sheet_swap() -> void:
+	var builder: Object = LingpetCompanionDrawContextBuilder.new()
+	var carry := _make_texture()
+	var body := _make_texture()
+	var profile := FakeProfile.new()
+	profile.carry_texture = carry
+	profile.body_texture = body
+
+	var mounted: Dictionary = builder.build_config({"current_profile": profile, "mount_carry_active": true})
+	for key in ["idle_texture", "move_left_texture", "move_right_texture", "walk_texture"]:
+		_expect(mounted.get(key, null) == carry, "mounted %s should swap to the shoulder-carry sheet" % key)
+
+	var unmounted: Dictionary = builder.build_config({"current_profile": profile, "mount_carry_active": false})
+	_expect(unmounted.get("idle_texture", null) == body, "unmounted companion should keep its normal body sheets")
+
+	var no_carry := FakeProfile.new()
+	no_carry.body_texture = body
+	var fallback: Dictionary = builder.build_config({"current_profile": no_carry, "mount_carry_active": true})
+	_expect(fallback.get("idle_texture", null) == body, "pets without an authored carry sheet should keep normal sheets (fail-closed)")
+
+
+func _make_texture() -> Texture2D:
+	var image := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	image.fill(Color.WHITE)
+	return ImageTexture.create_from_image(image)
 
 
 func _expect(condition: bool, message: String) -> void:

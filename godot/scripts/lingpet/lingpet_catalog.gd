@@ -958,6 +958,7 @@ const PETS := {
 			"companion_walk": "res://assets/sprites/lingpet/onimaru_companion_move_right_25f.png",
 			"companion_strike": "res://assets/sprites/lingpet/onimaru_companion_strike_25f.png",
 			"companion_cast": "res://assets/sprites/lingpet/onimaru_companion_standing_idle_25f.png",
+			"companion_carry": "res://assets/sprites/lingpet/onimaru_companion_carry_idle_25f.png",
 			"cutin_art": "res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png",
 			"cutin_anim": "res://assets/sprites/lingpet/onimaru_cutin_live2d_autosprite_32f_amber.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/onimaru_click_live2d_autosprite_98f_amber_gripfix.png",

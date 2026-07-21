@@ -2784,6 +2784,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"companion_alpha": _companion_motion_state.ghost_alpha,
 		"windup_seconds": float(visual_surface.get("windup_seconds", 0.0)),
 		"affinity_feedback_state": _affinity_feedback_state,
+		"mount_carry_active": _mount_state.is_mounted(),
 	}))
 
 

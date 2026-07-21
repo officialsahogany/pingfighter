@@ -65,10 +65,10 @@ func build_config(params: Dictionary) -> Dictionary:
 		"companion_visible": bool(params.get("companion_visible", true)),
 		"companion_exhausted": bool(params.get("companion_exhausted", false)),
 		"satiety_exhaustion_ratio": clampf(float(params.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0),
-		"idle_texture": _get_visual_texture(current_profile, "companion_idle"),
-		"move_left_texture": _get_visual_texture(current_profile, "companion_move_left"),
-		"move_right_texture": _get_visual_texture(current_profile, "companion_move_right"),
-		"walk_texture": _get_visual_texture(current_profile, "companion_walk"),
+		"idle_texture": _resolve_body_texture(current_profile, "companion_idle", params),
+		"move_left_texture": _resolve_body_texture(current_profile, "companion_move_left", params),
+		"move_right_texture": _resolve_body_texture(current_profile, "companion_move_right", params),
+		"walk_texture": _resolve_body_texture(current_profile, "companion_walk", params),
 		"distance_roll_source_texture": _get_visual_texture(current_profile, "companion_distance_roll_source"),
 		"bind_sheet_texture": _get_visual_texture(current_profile, "companion_star_coil_bind"),
 		"bind_sheet_active": bool(bind_sheet_state.get("active", false)),
@@ -198,6 +198,19 @@ func _get_visual_texture(current_profile: Object, visual_key: String) -> Texture
 	if current_profile == null:
 		return null
 	return current_profile.get_visual_texture(visual_key, null)
+
+
+# 수호령 탑승: while the rider is mounted, every body sheet (idle / move /
+# walk) swaps to the arms-raised shoulder-carry sheet. The carry sheet
+# matches the companion sheet format (25f 5x5), so animator geometry is
+# unchanged. Fail-closed: pets without an authored companion_carry sheet
+# keep their normal sheets.
+func _resolve_body_texture(current_profile: Object, visual_key: String, params: Dictionary) -> Texture2D:
+	if bool(params.get("mount_carry_active", false)):
+		var carry: Texture2D = _get_visual_texture(current_profile, "companion_carry")
+		if carry != null:
+			return carry
+	return _get_visual_texture(current_profile, visual_key)
 
 
 func _get_visual_layout_value(current_profile: Object, layout_key: String) -> float:
