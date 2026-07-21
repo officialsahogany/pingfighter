@@ -108,3 +108,44 @@ v1 드래프트에 쓴 프롬프트(한글 타이틀+부적 문자 포함)는
 - [ ] 배너·낙관의 한글/한자가 실제 유효 문자인지(레이어 합성 검증)
 - [ ] 1920×1080 크롭 후 달·석등 절단 여부
 - [ ] 기존 메뉴 버튼 스택 영역(하단 중앙)과 명도 충돌 여부
+
+## 8. Codex 텍스트리스 플레이트 생성 라운드 (2026-07-21)
+
+### 8.1 후보
+
+| 후보 | 원본 생성본 | Real-ESRGAN 후 1920×1080 | 판단 |
+|---|---|---|---|
+| 균형형 | `docs/references/main_menu_hwangyeokjeon_gate_plate_balanced_imagegen_v1_source_1672.png` | `docs/references/main_menu_hwangyeokjeon_gate_plate_balanced_imagegen_v1_1920.png` | 문짝·금속 장식 판독 우위. 안전한 비교 기준 |
+| 안개 강화형 | `docs/references/main_menu_hwangyeokjeon_gate_plate_heavy_fog_imagegen_v1_source_1672.png` | `docs/references/main_menu_hwangyeokjeon_gate_plate_heavy_fog_imagegen_v1_1920.png` | R5의 안개·위압감 우위. 아트 디렉션 1순위 후보 |
+
+두 후보 모두 **배경 플레이트 후보**일 뿐이다. §5의 타이틀 락업·시작 카피·
+부적 문구가 확정되기 전에는 `lingpia_main_menu_bg_logo.png` 재베이크나 런타임
+배선을 진행하지 않는다.
+
+### 8.2 생성·후처리 기록
+
+- 도구: Codex 내장 `imagegen` 편집 경로. 입력 앵커는
+  `main_menu_hwangyeokjeon_gate_concept_hangul_v1.jpg`.
+- 균형형 프롬프트: §4.1을 기본으로, 기존 구도를 잠그고 상단 금색 타이틀·붉은
+  낙관·양쪽 배너 글리프를 제거했다. 배너는 낡은 **빈 종이**로 유지하고, v1보다
+  안개를 늘리고 전체 명도를 낮추되 문틈 청백 빛과 석등 촛불 대비는 보존했다.
+- 문자 오염 정리 프롬프트: 상단 원진에서 글자·숫자·룬·낙관처럼 읽히는 표식을
+  전부 제거하고 비의미적 동심원·호·방사형 직선만 남겼다. 나머지 구도와 조명은
+  변경 금지로 잠갔다.
+- 안개 강화형 프롬프트: 균형형을 입력으로 사용해 하단 1/4과 문짝 하부·석등
+  기단 주변의 체적 안개만 강화했다. 객체·구도·텍스트리스 조건은 그대로 잠갔다.
+- 내장 도구 원본은 1672×941 RGB PNG로 산출되었다. 이를 리포 로컬
+  `tools/realesrgan/realesrgan-ncnn-vulkan.exe`와
+  `realesr-animevideov3 -s 2`로 3344×1882까지 실제 업스케일한 다음,
+  Lanczos로 1920×1080 RGB PNG에 다운스케일했다. 재현 가능한 x2 중간 파일은
+  최종 납품 목록에서 제외한다.
+
+### 8.3 플레이트 범위 QA
+
+- [x] 최종 후보 2종 모두 1920×1080 RGB PNG.
+- [x] 상단 타이틀·낙관·배너 문자 없음. 배너는 빈 종이이며 원진은 비문자 기하선만 사용.
+- [x] 460×259 축소 육안 QA에서 귀면·문틈 빛기둥·달·양쪽 석등 판독.
+- [x] 1920×1080에서 달과 양쪽 석등이 프레임 안에 유지됨.
+- [ ] 타이틀 판독·배너 유효 문구·시작 카피는 §5 사용자 확정 후 합성본에서 QA.
+- [ ] 하단 버튼 스택 명도 충돌·글린트/오브 마스크·전환 연출은 아트 확정 후 통합 슬라이스에서 QA.
+- [ ] 원본 목업 정본은 아직 `docs/references/main_menu_hwangyeokjeon_gate_mockup_v1.png`에 미배치. 배치 후 최종 무드 대조 필요.
