@@ -310,7 +310,8 @@ func _draw_character_select_loading(view_size: Vector2) -> void:
 		view_size,
 		BattleLoadingTips.TIER_BASIC,
 		"",
-		tick_seconds
+		tick_seconds,
+		false
 	)
 	var host := _ensure_loading_cameo_host()
 	if host != null:

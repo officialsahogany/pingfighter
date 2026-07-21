@@ -74,7 +74,7 @@ func _run() -> void:
 	await process_frame
 	var battle_image := root_window.get_texture().get_image()
 	_expect(battle_image.save_png(battle_path) == OK, "stage-transition loading QA screenshot should save")
-	_verify_minimal_pixels(battle_image, "stage transition")
+	_verify_minimal_pixels(battle_image, "stage transition", true)
 	renderer.hide_loading()
 	surface.queue_free()
 	await process_frame
@@ -101,7 +101,7 @@ func _run() -> void:
 	await process_frame
 	var boot_image := root_window.get_texture().get_image()
 	_expect(boot_image.save_png(boot_path) == OK, "boot loading QA screenshot should save")
-	_verify_minimal_pixels(boot_image, "boot")
+	_verify_minimal_pixels(boot_image, "boot", false)
 	boot_flow.queue_free()
 	await process_frame
 
@@ -116,7 +116,7 @@ func _run() -> void:
 	quit(1)
 
 
-func _verify_minimal_pixels(image: Image, surface_name: String) -> void:
+func _verify_minimal_pixels(image: Image, surface_name: String, expect_tip: bool) -> void:
 	_expect(image != null and image.get_size() == VIEW_SIZE, "%s QA capture should be 1280x720" % surface_name)
 	if image == null or image.get_size() != VIEW_SIZE:
 		return
@@ -133,10 +133,17 @@ func _verify_minimal_pixels(image: Image, surface_name: String) -> void:
 		_count_bright(image, Rect2i(1010, 640, 230, 48)) > 90,
 		"%s loading should render the Now Loading copy under the cameo" % surface_name
 	)
-	_expect(
-		_count_nonblack(image, Rect2i(36, 626, 900, 70)) > 120,
-		"%s loading should render one gameplay-tip line in the lower-left" % surface_name
-	)
+	var tip_pixel_count := _count_nonblack(image, Rect2i(36, 626, 900, 70))
+	if expect_tip:
+		_expect(
+			tip_pixel_count > 120,
+			"%s loading should render one gameplay-tip line in the lower-left" % surface_name
+		)
+	else:
+		_expect(
+			tip_pixel_count < 12,
+			"%s loading should not render gameplay-tip copy" % surface_name
+		)
 
 
 func _count_nonblack(image: Image, rect: Rect2i) -> int:

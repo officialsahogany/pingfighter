@@ -105,11 +105,14 @@ static func draw_minimal_chrome(
 	view_size: Vector2,
 	tip_tier: String,
 	tip_character: String,
-	tick_seconds: float
+	tick_seconds: float,
+	show_tip: bool = true
 ) -> void:
 	if canvas == null or font == null:
 		return
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color.BLACK)
+	if not show_tip:
+		return
 	var view_scale := get_view_scale(view_size)
 	var copy_y := get_copy_band_y(view_size)
 	var tip_text := BattleLoadingTips.rotation_tip_for_elapsed(
