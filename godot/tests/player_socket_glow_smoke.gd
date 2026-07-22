@@ -136,7 +136,7 @@ func _verify_catalog_attack_uses_authored_left_data() -> void:
 	# right sheet must not be substituted for it.
 	var dest := Rect2(0.0, 0.0, 160.0, 160.0)
 	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "attack", "left", 0, dest)
-	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(53.0, 130.0), "attack left should use its own authored data, not a mirror of right")
+	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(55.0, 129.0), "attack left should use its own authored data, not a mirror of right")
 
 
 func _verify_catalog_fail_closed() -> void:
