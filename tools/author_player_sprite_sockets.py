@@ -42,6 +42,9 @@ BOTTOM_BAND_PX = 10
 # A column inside the band counts as "board body" only when it is at least
 # this many solid px thick. Ground-splash / energy wisps are thin strokes
 # (2-4 px) while the board body is 8+ px thick, so this isolates the board.
+# Per-sheet override: a low-riding cloud TAIL can enter the bottom band at
+# 5-8 px thickness (한미량 glide tailfix_b), so tail-bearing sheets set
+# "min_column_thickness" in SHEETS to sit between tail max and body min.
 MIN_COLUMN_THICKNESS = 5
 # Top band height for the head_top centroid (hair silhouette rows).
 TOP_BAND_PX = 6
@@ -66,6 +69,9 @@ SHEETS = [
         "cols": 4,
         "rows": 2,
         "frames": 8,
+        # Low-riding trailing cloud tail enters the bottom band at 5-8 px
+        # column thickness; cloud body under her feet is 9-11 px.
+        "min_column_thickness": 9,
     },
     {
         "motion": "dash",
@@ -104,7 +110,7 @@ SHEETS = [
 ]
 
 
-def extract_cell_sockets(cell):
+def extract_cell_sockets(cell, min_column_thickness=MIN_COLUMN_THICKNESS):
     """Return {socket_id: (x, y)} for one cell image (RGBA), or None."""
     alpha = cell.getchannel("A")
     w, h = cell.size
@@ -125,7 +131,7 @@ def extract_cell_sockets(cell):
         thickness = sum(
             1 for y in range(band_top, lowest_y + 1) if data[x, y] >= SOLID_ALPHA
         )
-        if thickness >= MIN_COLUMN_THICKNESS:
+        if thickness >= min_column_thickness:
             body_xs.append(x)
     if not body_xs:
         return None
@@ -204,7 +210,7 @@ def process_sheet(spec, out_dir):
         col = f % cols
         row = f // cols
         cell = img.crop((col * cell_w, row * cell_h, (col + 1) * cell_w, (row + 1) * cell_h))
-        sockets = extract_cell_sockets(cell)
+        sockets = extract_cell_sockets(cell, spec.get("min_column_thickness", MIN_COLUMN_THICKNESS))
         frame_sockets.append(sockets)
         if sockets is None:
             continue

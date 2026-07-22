@@ -104,22 +104,22 @@ func _run() -> void:
 
 
 func _verify_catalog_walk_right_mapping() -> void:
-	# 한미량 v1방식 단청(소품통일) walk right f0 foot_l=(57,128), foot_r=(106,128).
+	# 한미량 v1방식 단청(소품통일) walk right f0 foot_l=(63,127), foot_r=(92,127).
 	var dest := Rect2(100.0, 200.0, 80.0, 80.0)
 	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "walk", "right", 0, dest)
 	_expect(sockets.has("foot_l") and sockets.has("foot_r"), "walk right f0 should resolve both foot sockets")
-	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(100.0 + 57.0 / 160.0 * 80.0, 200.0 + 128.0 / 160.0 * 80.0), "walk right f0 foot_l should map cell-local px into the dest rect")
-	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(100.0 + 106.0 / 160.0 * 80.0, 200.0 + 128.0 / 160.0 * 80.0), "walk right f0 foot_r should map cell-local px into the dest rect")
+	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(100.0 + 63.0 / 160.0 * 80.0, 200.0 + 127.0 / 160.0 * 80.0), "walk right f0 foot_l should map cell-local px into the dest rect")
+	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(100.0 + 92.0 / 160.0 * 80.0, 200.0 + 127.0 / 160.0 * 80.0), "walk right f0 foot_r should map cell-local px into the dest rect")
 
 
 func _verify_catalog_left_mirror_swaps_ids() -> void:
 	# Left sheets are mirrors of right: x flips AND _l/_r ids swap so foot_l
-	# stays the screen-left socket. right f0 foot_l=57/foot_r=106.
+	# stays the screen-left socket. right f0 foot_l=63/foot_r=92.
 	var dest := Rect2(0.0, 0.0, 160.0, 160.0)
 	var sockets: Dictionary = PlayerSpriteSocketCatalog.resolve_screen_sockets("smasher", "walk", "left", 0, dest)
 	_expect(sockets.has("foot_l") and sockets.has("foot_r"), "walk left f0 should resolve mirrored sockets")
-	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(160.0 - 106.0, 128.0), "walk left foot_l should be the mirrored right-sheet foot_r")
-	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(160.0 - 57.0, 128.0), "walk left foot_r should be the mirrored right-sheet foot_l")
+	_expect_vec(sockets.get("foot_l", Vector2.ZERO), Vector2(160.0 - 92.0, 127.0), "walk left foot_l should be the mirrored right-sheet foot_r")
+	_expect_vec(sockets.get("foot_r", Vector2.ZERO), Vector2(160.0 - 63.0, 127.0), "walk left foot_r should be the mirrored right-sheet foot_l")
 	var foot_l: Vector2 = sockets.get("foot_l", Vector2.ZERO)
 	var foot_r: Vector2 = sockets.get("foot_r", Vector2.ZERO)
 	_expect(foot_l.x < foot_r.x, "mirrored socket ids must keep foot_l on the screen-left side")
