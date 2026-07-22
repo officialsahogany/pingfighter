@@ -573,6 +573,16 @@ GREEN이고 실전에서 죽는다 — 공용 헬퍼 관통 + 실 `get_snapshot(
 projection 비어있으면 fail-closed 가드 + 씰 CI 락스텝 등재까지가 한 단위.
 Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot HUD 상시-가시성 승격 × 프리미엄 절차 드로우 트랩
+
+비용 = 단가 × 유병률: 프리미엄 절차 리드로우(단가↑)와 가시성 게이트 확장
+(장착→퍽 보유 등, 유병률↑)이 각각 무해해 보여도 곱이 상시 회귀를 만든다
+(센서 오브 0.26ms/frame 사례). 게이트를 넓히면 per-frame 비용 재평가 +
+~10드로 사이트 초과 정적 스택은 bake-once; 리스타일이 세그먼트/레이어
+상수를 올리면 봉인 budget smoke를 같이 돌려 락스텝 갱신(센서 아크 예산
+씰 HEAD RED 사례). 정상 상태 픽셀 불변 HUD 박스는 리테인드 자식
+CanvasItem + 상태 키 게이팅. Full rule: `docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
