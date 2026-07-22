@@ -23,14 +23,14 @@ const SMASHER_SOCKET_CELL_SIZE := Vector2(160.0, 160.0)
 const SMASHER_SOCKETS := {
 	"walk": {
 		"right": [
-			{"foot_l": Vector2(72.0, 129.0), "foot_r": Vector2(93.0, 129.0), "head_top": Vector2(76.5, 27.0)},
-			{"foot_l": Vector2(72.0, 129.0), "foot_r": Vector2(94.0, 129.0), "head_top": Vector2(77.7, 27.0)},
-			{"foot_l": Vector2(73.0, 129.0), "foot_r": Vector2(95.0, 129.0), "head_top": Vector2(80.6, 27.0)},
-			{"foot_l": Vector2(73.0, 129.0), "foot_r": Vector2(95.0, 129.0), "head_top": Vector2(82.3, 27.0)},
-			{"foot_l": Vector2(73.0, 129.0), "foot_r": Vector2(95.0, 129.0), "head_top": Vector2(82.7, 27.0)},
-			{"foot_l": Vector2(73.0, 129.0), "foot_r": Vector2(95.0, 129.0), "head_top": Vector2(81.2, 27.0)},
-			{"foot_l": Vector2(73.0, 129.0), "foot_r": Vector2(94.0, 129.0), "head_top": Vector2(78.0, 27.0)},
-			{"foot_l": Vector2(72.0, 129.0), "foot_r": Vector2(94.0, 129.0), "head_top": Vector2(76.6, 27.0)},
+			{"foot_l": Vector2(71.0, 129.0), "foot_r": Vector2(92.0, 129.0), "head_top": Vector2(77.9, 30.0)},
+			{"foot_l": Vector2(71.0, 128.0), "foot_r": Vector2(92.0, 128.0), "head_top": Vector2(77.6, 29.0)},
+			{"foot_l": Vector2(72.0, 127.0), "foot_r": Vector2(91.0, 127.0), "head_top": Vector2(77.3, 28.0)},
+			{"foot_l": Vector2(66.0, 126.0), "foot_r": Vector2(93.0, 126.0), "head_top": Vector2(77.5, 27.0)},
+			{"foot_l": Vector2(72.0, 127.0), "foot_r": Vector2(92.0, 127.0), "head_top": Vector2(77.0, 28.0)},
+			{"foot_l": Vector2(71.0, 128.0), "foot_r": Vector2(92.0, 128.0), "head_top": Vector2(77.4, 29.0)},
+			{"foot_l": Vector2(71.0, 129.0), "foot_r": Vector2(92.0, 129.0), "head_top": Vector2(77.8, 30.0)},
+			{"foot_l": Vector2(71.0, 129.0), "foot_r": Vector2(93.0, 129.0), "head_top": Vector2(78.0, 30.0)},
 		],
 	},
 	"dash": {
