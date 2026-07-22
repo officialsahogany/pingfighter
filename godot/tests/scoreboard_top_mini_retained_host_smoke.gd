@@ -59,6 +59,7 @@ func _init() -> void:
 func _run() -> void:
 	await _verify_non_node_canvas_falls_back_inline()
 	await _verify_retained_host_redraw_gating()
+	await _verify_stale_freed_pending_host_recovers()
 
 	if _failures.is_empty():
 		print("scoreboard_top_mini_retained_host_smoke: ok")
@@ -200,6 +201,53 @@ func _verify_retained_host_redraw_gating() -> void:
 
 	root.remove_child(canvas)
 	canvas.free()
+	await process_frame
+
+
+# (7) 스테일 freed pending 복구: 호스트가 부착된 뒤 그 씬이 통째로 해제되면
+# 렌더러의 pending 참조가 freed 인스턴스로 남는다(호스트가 씬의 마지막 HUD
+# 프레임에 만들어진 배틀에서 실전 재현 — 2026-07-23 라이브 신고). 구 코드는
+# 'is' 타입 검사를 is_instance_valid보다 먼저 태워 "Left operand of 'is' is a
+# previously freed instance" SCRIPT ERROR를 냈다(러너가 RED로 승격 = 이 레그의
+# 반증 축). 새 코드는 스테일 참조를 청소하고 새 캔버스에 새 호스트를 붙인다.
+func _verify_stale_freed_pending_host_recovers() -> void:
+	var renderer := ScoreboardRenderer.new()
+	var fake_top := FakeForwardTopMiniRenderer.new()
+	renderer.top_mini_renderer = fake_top
+
+	var canvas_a := Node2D.new()
+	root.add_child(canvas_a)
+	_draw_once(renderer, canvas_a)
+	# 부착까지 대기하되 draw는 더 부르지 않는다 — pending이 남은 채 부착되는
+	# 실전 창을 재현하기 위함(정리는 다음 _get_or_create 호출에서만 일어남).
+	var attached: Node = null
+	for _spin in range(10):
+		attached = canvas_a.get_node_or_null("TopMiniScoreboardRetainedHost")
+		if attached != null and attached.is_inside_tree():
+			break
+		await process_frame
+	_expect(attached != null and attached.is_inside_tree(), "precondition: host should attach under canvas A")
+
+	root.remove_child(canvas_a)
+	canvas_a.free()
+	await process_frame
+
+	var canvas_b := Node2D.new()
+	root.add_child(canvas_b)
+	_draw_once(renderer, canvas_b)
+	var recovered: Node = null
+	for _spin in range(10):
+		recovered = canvas_b.get_node_or_null("TopMiniScoreboardRetainedHost")
+		if recovered != null and recovered.is_inside_tree():
+			break
+		await process_frame
+	_expect(
+		recovered != null and recovered.is_inside_tree(),
+		"stale freed pending should be cleared and a fresh host should attach under canvas B"
+	)
+
+	root.remove_child(canvas_b)
+	canvas_b.free()
 	await process_frame
 
 

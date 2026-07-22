@@ -1720,7 +1720,13 @@ triage에서 스테이지2 인배틀 74창 중 41창이 60fps 미만, 공용 필
    키는 렌더 출력에 영향을 주는 전 입력을 커버(Lazy Applied-Key Re-Apply
    Trap 동족), 애니 창 종료 시 정착 redraw 1회, 호스트는
    `physics_interpolation_mode = OFF`(스폰-글라이드 트랩), 비-노드 캔버스
-   (스모크)와 부착 전 프레임은 즉시 경로 폴백.
+   (스모크)와 부착 전 프레임은 즉시 경로 폴백. **pending 강참조는 씬
+   teardown 뒤 freed 인스턴스로 남을 수 있다**(호스트가 그 씬의 마지막
+   HUD 프레임에 만들어진 경우) — freed 참조는 `is` 타입 검사조차
+   "previously freed instance" 에러를 내므로 `is_instance_valid`를 반드시
+   타입/메서드 검사보다 먼저 태우고 스테일 참조는 그 자리에서 null 청소
+   한다(라이브 재발 사례 → 씰 레그
+   `_verify_stale_freed_pending_host_recovers`, 버그 순서 토글로 RED 반증).
 
 **씰.** `scoreboard_top_mini_retained_host_smoke.gd`(redraw 게이트/키
 커버리지/애니 창/폴백/위임 — 게이트 무력화 토글로 RED 반증 확인),

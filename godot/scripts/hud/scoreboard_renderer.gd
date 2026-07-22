@@ -102,10 +102,16 @@ func _get_or_create_top_mini_retained_host(canvas: Object) -> Node2D:
 	if not parent.is_inside_tree():
 		return null
 	var existing: Node = parent.get_node_or_null(TOP_MINI_RETAINED_HOST_NAME)
-	if existing is Node2D and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion() and existing is Node2D:
 		_top_mini_host_pending = null
 		return existing
-	if _top_mini_host_pending is Node2D and is_instance_valid(_top_mini_host_pending) and not _top_mini_host_pending.is_queued_for_deletion():
+	# 스테일 pending 가드: 배틀 씬 teardown이 부착된 호스트를 해제한 뒤에도
+	# pending 참조가 남을 수 있다(호스트가 그 씬의 마지막 HUD 프레임에
+	# 만들어진 경우 등). freed 인스턴스는 'is' 타입 검사조차 "previously
+	# freed instance" 에러를 내므로 반드시 is_instance_valid를 먼저 통과시킨다.
+	if _top_mini_host_pending != null and not is_instance_valid(_top_mini_host_pending):
+		_top_mini_host_pending = null
+	if _top_mini_host_pending != null and not _top_mini_host_pending.is_queued_for_deletion() and _top_mini_host_pending is Node2D:
 		return _top_mini_host_pending
 	var host: Node2D = ScoreboardTopMiniRetainedHost.new()
 	_top_mini_host_pending = host
