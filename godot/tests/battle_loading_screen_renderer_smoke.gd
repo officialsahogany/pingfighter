@@ -26,42 +26,6 @@ class FakeStageNode:
 	var selected_character_type := "viper"
 
 
-class FakeStage2Node:
-	extends Node2D
-
-	var current_stage := 2
-	var selected_character_name := "바이퍼"
-	var selected_character_type := "viper"
-
-
-class FakeStage3Node:
-	extends Node2D
-
-	var current_stage := 3
-	var selected_character_type := "viper"
-
-
-class FakeStage4Node:
-	extends Node2D
-
-	var current_stage := 4
-	var selected_character_type := "viper"
-
-
-class FakeStage5Node:
-	extends Node2D
-
-	var current_stage := 5
-	var selected_character_type := "viper"
-
-
-class FakeStage6Node:
-	extends Node2D
-
-	var current_stage := 6
-	var selected_character_type := "viper"
-
-
 class FakeReadiness:
 	extends RefCounted
 
@@ -167,6 +131,7 @@ func _run() -> void:
 	_verify_boot_warmup_process_perf_batch_label()
 	await _verify_minimal_cameo_prewarm_and_session_lock()
 	_verify_cameo_uses_live_viewport_after_scene_transition()
+	_verify_cameo_host_disables_physics_interpolation()
 	await _verify_minimal_completion_hold_timing()
 	await _verify_hide_loading_resets_session()
 	await _verify_all_stage_numbers_share_minimal_loading()
@@ -414,275 +379,6 @@ func _verify_boot_warmup_process_perf_batch_label() -> void:
 	)
 
 
-func _verify_stage1_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStageNode.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_assets()
-	_expect(renderer.get("stage1_stained_glass_texture") != null, "stage 1 stained-glass full-color texture should load")
-	_expect(renderer.get("stage1_stained_glass_mask_texture") != null, "stage 1 stained-glass reveal mask should load")
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 1 loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 1 loading should hold the completion reveal briefly")
-	_spin_wait_msec(1350)
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 1 loading should hold the final stained-glass flash")
-	_expect(renderer._completion_reveal_started_msec >= 0, "stage 1 loading should start a completion reveal timer")
-	var final_progress := float(renderer._get_stained_glass_display_progress(1.0))
-	_expect(final_progress >= 0.92, "stage 1 final reveal should open the last color band")
-	renderer._completion_reveal_started_msec = Time.get_ticks_msec() - 500
-	_expect(not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 1 loading should release after the final flash")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 1 loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stage2_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage2Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_assets()
-	_expect(renderer.get("stage2_stained_glass_texture") != null, "stage 2 stained-glass full-color texture should load")
-	_expect(renderer.get("stage2_stained_glass_mask_texture") != null, "stage 2 stained-glass reveal mask should load")
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 2 loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 2 loading should reuse the stained-glass completion hold")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 2 loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stage3_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage3Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_assets()
-	_expect(renderer.get("stage3_stained_glass_texture") != null, "stage 3 stained-glass full-color texture should load")
-	_expect(renderer.get("stage3_stained_glass_mask_texture") != null, "stage 3 stained-glass reveal mask should load")
-	_expect(
-		is_equal_approx(float(renderer._get_stage_reveal_softness(3)), float(renderer._get_stage_reveal_softness(1))),
-		"stage 3 stained-glass reveal softness should match the stage 1 bottom-up reveal"
-	)
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 3 loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 3 loading should reuse the stained-glass completion hold")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 3 loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stage4_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage4Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_assets()
-	_expect(renderer.get("stage4_stained_glass_texture") != null, "stage 4 stained-glass full-color texture should load")
-	_expect(renderer.get("stage4_stained_glass_mask_texture") != null, "stage 4 stained-glass reveal mask should load")
-	_expect(
-		is_equal_approx(float(renderer._get_stage_reveal_softness(4)), float(renderer._get_stage_reveal_softness(1))),
-		"stage 4 stained-glass reveal softness should match the stage 1 bottom-up reveal"
-	)
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 4 loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 4 loading should reuse the stained-glass completion hold")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 4 loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stage5_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage5Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_stage_assets(5)
-	_expect(renderer.get("stage5_stained_glass_texture") != null, "stage 5 stained-glass full-color texture should load")
-	_expect(renderer.get("stage5_stained_glass_mask_texture") != null, "stage 5 stained-glass reveal mask should load")
-	_expect(
-		renderer.get("stage4_stained_glass_texture") == null,
-		"stage 5 transition prewarm should not eagerly load stage 4 loading art"
-	)
-	_expect(
-		is_equal_approx(float(renderer._get_stage_reveal_softness(5)), float(renderer._get_stage_reveal_softness(1))),
-		"stage 5 stained-glass reveal softness should match the bottom-up reveal screens"
-	)
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 5 loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 5 loading should reuse the stained-glass completion hold")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 5 loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stage6_stained_glass_loading_path() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage6Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-
-	renderer.prewarm_stage_assets(6)
-	_expect(renderer.get("stage6_stained_glass_texture") != null, "stage 6 Tetriser loading texture should load")
-	_expect(renderer.get("stage6_stained_glass_mask_texture") != null, "stage 6 Tetriser reveal mask should load")
-	_expect(
-		renderer.get("stage5_stained_glass_texture") == null,
-		"stage 6 transition prewarm should not eagerly load stage 5 loading art"
-	)
-	_expect(
-		is_equal_approx(float(renderer._get_stage_reveal_softness(6)), float(renderer._get_stage_reveal_softness(1))),
-		"stage 6 Tetriser reveal softness should match the bottom-up reveal screens"
-	)
-
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 6 Tetriser loading should attach a stained-glass host")
-	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 6 Tetriser loading should reuse the stained-glass completion hold")
-
-	renderer.hide_loading()
-	_expect(renderer.get("stained_glass_host") == null, "stage 6 Tetriser loading should release the stained-glass host after hide")
-	owner.free()
-	canvas.free()
-
-
-func _verify_stained_glass_host_released_on_unpainted_stage() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage2Node.new()
-	var canvas := Node2D.new()
-	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
-	warmup.set("boot_warmup_finished", true)
-	_modules = {"battle_boot_warmup_controller": warmup}
-	renderer.prewarm_assets()
-	renderer.draw(
-		canvas,
-		owner,
-		Callable(self, "_get_module"),
-		Vector2(1280.0, 720.0),
-		{
-			"battle_initialized": false,
-			"stage_landing_intro_started": false,
-		}
-	)
-	_expect(renderer.get("stained_glass_host") != null, "stage 2 loading should create the stained-glass host before stage changes")
-	owner.current_stage = 99
-	_expect(
-		not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))),
-		"unpainted stage loading should not hold stained-glass completion"
-	)
-	_expect(renderer.get("stained_glass_host") == null, "unpainted stage loading draw should release the previous stained-glass host")
-	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "unpainted stage loading draw should remove the stained-glass host from the battle tree")
-	owner.free()
-	canvas.free()
-
-
-func _verify_orphan_stained_glass_host_swept_on_unpainted_stage() -> void:
-	var renderer := BattleLoadingScreenRenderer.new()
-	var owner := FakeStage2Node.new()
-	var stale_host := Control.new()
-	stale_host.name = "BattleLoadingStainedGlassHost"
-	owner.add_child(stale_host)
-	owner.current_stage = 99
-	_expect(
-		not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))),
-		"unpainted stage loading should not hold completion with an orphan stained-glass host"
-	)
-	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "unpainted stage loading should sweep orphan stained-glass hosts without renderer references")
-	owner.free()
-
-
 func _verify_minimal_cameo_prewarm_and_session_lock() -> void:
 	var renderer := BattleLoadingScreenRenderer.new()
 	var owner := FakeStageNode.new()
@@ -727,6 +423,20 @@ func _verify_cameo_uses_live_viewport_after_scene_transition() -> void:
 		"initial battle cameo must stay in the live viewport lower-right corner"
 	)
 	host.queue_free()
+
+
+func _verify_cameo_host_disables_physics_interpolation() -> void:
+	# Global physics interpolation is enabled project-wide. A host whose sprites
+	# spawn at (0,0) and get positioned to the lower-right corner on the same
+	# frame renders partway along that path (near screen center) until physics
+	# ticks catch up — and the warmup-stalled first battle loading frames keep
+	# that artifact on screen for ~0.5s. Full rule: docs/godot_runtime_traps.md.
+	var host := LoadingCameoHost.new()
+	_expect(
+		host.physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_OFF,
+		"loading cameo host must opt out of global physics interpolation or spawn-frame repositioning glides through screen center"
+	)
+	host.free()
 
 
 func _verify_minimal_completion_hold_timing() -> void:
@@ -817,12 +527,6 @@ func _get_module(key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT:
 		return value as Object
 	return null
-
-
-func _spin_wait_msec(duration_msec: int) -> void:
-	var started := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - started < duration_msec:
-		pass
 
 
 func _expect(condition: bool, message: String) -> void:
