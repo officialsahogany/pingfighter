@@ -6,6 +6,7 @@ const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.g
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
 const RightPillarPortraitRenderer := preload("res://scripts/hud/right_pillar_portrait_renderer.gd")
+const PillarOrbStaticLayerCache := preload("res://scripts/hud/pillar_orb_static_layer_cache.gd")
 
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
 const GOLD_HUD_MIN_SOURCE_SIZE := Vector2(100.0, 40.0)
@@ -17,13 +18,29 @@ const GOLD_HUD_FONT_SIZE := 24
 const GOLD_HUD_MIN_FONT_SIZE := 13
 const GOLD_HUD_TEXT_GAP := 8.0
 const GOLD_HUD_TEXT_RIGHT_PAD := 12.0
-const SENSOR_FRAME_ARC_SEGMENTS := 24
-const SENSOR_FRAME_ARC_SEGMENTS_LOD := 16
+# 프레임(정적 베젤 스택) 아크 세그먼트는 베이크 완료 전 벡터 폴백에서만 쓰인다.
+# 프리미엄 화질은 베이크본(해석적 원호 — 세그먼트 수 무관)이 담당하므로, 폴백은
+# stage1_dalji_commando_hud_layout_smoke가 봉인한 예산(<=16 / LOD <=12)을 지킨다.
+# (프리미엄 리드로우 7e866bac0가 24/16으로 올리며 이 씰을 깨뜨렸던 것의 해소.)
+const SENSOR_FRAME_ARC_SEGMENTS := 16
+const SENSOR_FRAME_ARC_SEGMENTS_LOD := 12
 const SENSOR_PROGRESS_ARC_SEGMENTS := 16
 const SENSOR_PROGRESS_ARC_SEGMENTS_LOD := 12
 const SENSOR_READY_WAVE_COUNT := 1
 const SENSOR_READY_WAVE_SEGMENTS := 12
 const SENSOR_READY_WAVE_SEGMENTS_LOD := 8
+# 센서 오브 정적 베젤 스택 팔레트 — 베이크 ops(_build_sensor_bezel_ops)와
+# 벡터 폴백(_draw_sensor_bezel_vector)이 공유하는 단일 소스.
+const SENSOR_COL_BEZEL := Color(0.22, 0.22, 0.27)
+const SENSOR_COL_BEZEL_HI := Color(0.42, 0.42, 0.50)
+const SENSOR_COL_BEZEL_LO := Color(0.10, 0.10, 0.14)
+const SENSOR_COL_EDGE := Color(0.04, 0.04, 0.06)
+const SENSOR_COL_GOLD := Color(0.90, 0.77, 0.47)
+const SENSOR_COL_PLATINUM := Color(0.82, 0.84, 0.92)
+const SENSOR_COL_TEAL := Color(0.34, 0.78, 0.85)
+const SENSOR_COL_WELL := Color(0.05, 0.04, 0.09)
+const SENSOR_BEZEL_RIVET_COUNT := 6
+const SENSOR_BEZEL_RIVET_COUNT_LOD := 4
 const BOOST_FX_HOST_NAME := "DashTokenBoostFxHost"
 const COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME := "CommandoFirearmHudRainbowFxHost"
 
@@ -33,6 +50,7 @@ var portrait_renderer: Object = RightPillarPortraitRenderer.new()
 var _boost_fx_host_pending: Node = null
 var _firearm_rainbow_fx_host_pending: Node = null
 var _gold_text_size_cache: Dictionary = {}
+var _sensor_static_layer_cache: Object = PillarOrbStaticLayerCache.new()
 
 
 func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2, context: Dictionary) -> Dictionary:
@@ -467,50 +485,33 @@ func _draw_sensor_cooldown_orb(
 	var pulse: float = 0.5 + 0.5 * sin(time_seconds * 6.0)
 
 	# 프리미엄 팔레트: 건메탈 베젤(상단 밝음/하단 어두운 원통 셰이딩) + 골드/청록/
-	# 플래티넘 다층 림 + 오브시디언 웰, 정체성 유지용 광택 보라 젬. (프리미엄 HUD 크롬 정합)
+	# 플래티넘 다층 림 + 오브시디언 웰, 정체성 유지용 광택 보라 젬. (프리미엄 HUD
+	# 크롬 정합) 정적 스택 색상은 SENSOR_COL_* 클래스 상수(베이크 ops와 공유).
 	var col_glow := Color(0.44, 0.32, 1.0)
-	var col_bezel := Color(0.22, 0.22, 0.27)
-	var col_bezel_hi := Color(0.42, 0.42, 0.50)
-	var col_bezel_lo := Color(0.10, 0.10, 0.14)
-	var col_edge := Color(0.04, 0.04, 0.06)
-	var col_gold := Color(0.90, 0.77, 0.47)
-	var col_platinum := Color(0.82, 0.84, 0.92)
-	var col_teal := Color(0.34, 0.78, 0.85)
-	var col_well := Color(0.05, 0.04, 0.09)
 	var col_gem := Color(0.58, 0.45, 1.0)
 	var col_gem_hi := Color(0.86, 0.80, 1.0)
 
 	var bezel_inner: float = radius * 0.64
 	var well_radius: float = radius * 0.60
-	var band_mid: float = (radius + bezel_inner) * 0.5
-	var band_w: float = radius - bezel_inner
 
-	# 외곽 글로우(타이트 — 베젤 금속감을 죽이지 않도록)
+	# 외곽 글로우(타이트 — 베젤 금속감을 죽이지 않도록). 펄스 알파라 동적 유지.
 	var glow_alpha: float = (0.14 if ready else 0.07) + 0.05 * pulse
 	canvas.draw_circle(center, radius + 5.0 * sf, Color(col_glow.r, col_glow.g, col_glow.b, glow_alpha))
 
-	# 건메탈 베젤 본체 + 밴드 상/하 셰이딩(원통형 브러시드 금속)
-	canvas.draw_circle(center, radius, col_bezel)
-	canvas.draw_arc(center, band_mid, PI, TAU, frame_arc_segments, Color(col_bezel_hi.r, col_bezel_hi.g, col_bezel_hi.b, 0.9), max(1.0, band_w), true)
-	canvas.draw_arc(center, band_mid, 0.0, PI, frame_arc_segments, Color(col_bezel_lo.r, col_bezel_lo.g, col_bezel_lo.b, 0.9), max(1.0, band_w), true)
-
-	# 림 스택: 외곽 다크 엣지 → 골드 → 청록 헤어라인 → 내측 플래티넘
-	canvas.draw_arc(center, radius, 0.0, TAU, frame_arc_segments, col_edge, max(1.0, 1.2 * sf), true)
-	canvas.draw_arc(center, radius - 1.7 * sf, 0.0, TAU, frame_arc_segments, Color(col_gold.r, col_gold.g, col_gold.b, 0.95), max(1.0, 1.9 * sf), true)
-	canvas.draw_arc(center, radius - 4.2 * sf, 0.0, TAU, frame_arc_segments, Color(col_teal.r, col_teal.g, col_teal.b, 0.6), max(1.0, 1.0 * sf), true)
-	canvas.draw_arc(center, bezel_inner, 0.0, TAU, frame_arc_segments, Color(col_platinum.r, col_platinum.g, col_platinum.b, 0.85), max(1.0, 1.5 * sf), true)
-
-	# 베젤 리벳(볼트) — 다크 소켓 + 플래티넘 헤드
-	var rivet_count: int = 4 if lod_active else 6
-	for ri in range(rivet_count):
-		var ra: float = -PI * 0.5 + float(ri) * TAU / float(rivet_count)
-		var rp := center + Vector2(cos(ra), sin(ra)) * band_mid
-		canvas.draw_circle(rp, max(1.4, 2.1 * sf), Color(0.06, 0.06, 0.08, 0.92))
-		canvas.draw_circle(rp, max(0.8, 1.3 * sf), Color(col_platinum.r, col_platinum.g, col_platinum.b, 0.95))
-
-	# 오브시디언 웰 + 상단 인너 섀도우(깊이감)
-	canvas.draw_circle(center, well_radius, col_well)
-	canvas.draw_arc(center + Vector2(0.0, -well_radius * 0.14), well_radius * 0.84, PI, TAU, frame_arc_segments, Color(0.0, 0.0, 0.0, 0.45), max(1.0, well_radius * 0.26), true)
+	# 정적 베젤 스택(본체/셰이딩/림/리벳/웰)은 (radius, sf)당 픽셀 불변이라 1회
+	# 베이크 후 블릿 1회로 그린다(~15드로 → 1드로). 텍스처 준비 전에는 기존 벡터
+	# 경로로 폴백(빌드는 공유 프레임 예산 안에서 백그라운드 진행 — 히치 없음).
+	# 베이크본은 풀퀄리티 지오메트리 1벌을 LOD 상태와 무관하게 공용한다: 정적
+	# 형상 bake-once는 풀화질이면서 LOD 삭감 즉시드로보다도 싸다(순이익 —
+	# docs/severe_lod_visual_restore_slice_plan.md의 bake 원칙).
+	var bezel_key: String = _sensor_bezel_cache_key(radius, sf)
+	var bezel_texture: Texture2D = _sensor_static_layer_cache.get_texture(bezel_key)
+	if bezel_texture == null and not _sensor_static_layer_cache.is_pending(bezel_key):
+		bezel_texture = _sensor_static_layer_cache.request_build(bezel_key, _build_sensor_bezel_ops(radius, sf))
+	if bezel_texture != null:
+		_sensor_static_layer_cache.draw_centered(canvas, bezel_texture, center)
+	else:
+		_draw_sensor_bezel_vector(canvas, center, radius, sf, frame_arc_segments, lod_active)
 
 	# 쿨다운 진행 아크(2층: 넓은 딤 베이스 + 얇은 브라이트 톱)
 	var end_angle: float = -PI * 0.5 + TAU * progress
@@ -544,6 +545,78 @@ func _draw_sensor_cooldown_orb(
 			var wave_radius: float = radius * (0.9 + 0.45 * wave_phase)
 			var wave_alpha: float = 0.2 * (1.0 - wave_phase)
 			canvas.draw_arc(center, wave_radius, 0.0, TAU, ready_wave_segments, Color(col_gem_hi.r, col_gem_hi.g, col_gem_hi.b, wave_alpha), max(1.0, 1.4 * sf), true)
+
+
+# 센서 베젤 정적 스택 캐시 키. 색은 전부 클래스 상수라 키에 넣지 않는다.
+# 지오메트리 입력이 (radius, sf)뿐이므로 창 크기당 1엔트리로 수렴한다.
+func _sensor_bezel_cache_key(radius: float, sf: float) -> String:
+	return "sensor_bezel:v1:r%.2f:s%.3f" % [radius, sf]
+
+
+# 센서 베젤 정적 스택의 베이크 ops. _draw_sensor_bezel_vector와 지오메트리
+# 1:1 대응(원=해석 채움, AA 아크=해석 페더 밴드)이어야 한다 — 한쪽을 바꾸면
+# 반드시 다른 쪽도 함께 바꿀 것. 리벳은 풀퀄리티 6개 고정(베이크본은 LOD
+# 무관 공용, 즉시 경로의 LOD 4개 삭감보다 시각 우위·비용 동일).
+func _build_sensor_bezel_ops(radius: float, sf: float) -> Array:
+	var bezel_inner: float = radius * 0.64
+	var well_radius: float = radius * 0.60
+	var band_mid: float = (radius + bezel_inner) * 0.5
+	var band_w: float = radius - bezel_inner
+	var ops: Array = []
+	ops.append(PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, radius, SENSOR_COL_BEZEL))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, band_mid, PI, TAU, max(1.0, band_w), Color(SENSOR_COL_BEZEL_HI.r, SENSOR_COL_BEZEL_HI.g, SENSOR_COL_BEZEL_HI.b, 0.9)))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, band_mid, 0.0, PI, max(1.0, band_w), Color(SENSOR_COL_BEZEL_LO.r, SENSOR_COL_BEZEL_LO.g, SENSOR_COL_BEZEL_LO.b, 0.9)))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, radius, 0.0, TAU, max(1.0, 1.2 * sf), SENSOR_COL_EDGE))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, radius - 1.7 * sf, 0.0, TAU, max(1.0, 1.9 * sf), Color(SENSOR_COL_GOLD.r, SENSOR_COL_GOLD.g, SENSOR_COL_GOLD.b, 0.95)))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, radius - 4.2 * sf, 0.0, TAU, max(1.0, 1.0 * sf), Color(SENSOR_COL_TEAL.r, SENSOR_COL_TEAL.g, SENSOR_COL_TEAL.b, 0.6)))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2.ZERO, bezel_inner, 0.0, TAU, max(1.0, 1.5 * sf), Color(SENSOR_COL_PLATINUM.r, SENSOR_COL_PLATINUM.g, SENSOR_COL_PLATINUM.b, 0.85)))
+	for ri in range(SENSOR_BEZEL_RIVET_COUNT):
+		var ra: float = -PI * 0.5 + float(ri) * TAU / float(SENSOR_BEZEL_RIVET_COUNT)
+		var rp := Vector2(cos(ra), sin(ra)) * band_mid
+		ops.append(PillarOrbStaticLayerCache.make_circle(rp, max(1.4, 2.1 * sf), Color(0.06, 0.06, 0.08, 0.92)))
+		ops.append(PillarOrbStaticLayerCache.make_circle(rp, max(0.8, 1.3 * sf), Color(SENSOR_COL_PLATINUM.r, SENSOR_COL_PLATINUM.g, SENSOR_COL_PLATINUM.b, 0.95)))
+	ops.append(PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, well_radius, SENSOR_COL_WELL))
+	ops.append(PillarOrbStaticLayerCache.make_arc_band_aa(Vector2(0.0, -well_radius * 0.14), well_radius * 0.84, PI, TAU, max(1.0, well_radius * 0.26), Color(0.0, 0.0, 0.0, 0.45)))
+	return ops
+
+
+# 센서 베젤 정적 스택 벡터 폴백(베이크 완료 전) — 이 슬라이스 이전의 즉시
+# 드로우와 지오메트리/LOD 동작 동일(정확성-동일 폴백).
+func _draw_sensor_bezel_vector(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	sf: float,
+	frame_arc_segments: int,
+	lod_active: bool
+) -> void:
+	var bezel_inner: float = radius * 0.64
+	var well_radius: float = radius * 0.60
+	var band_mid: float = (radius + bezel_inner) * 0.5
+	var band_w: float = radius - bezel_inner
+
+	# 건메탈 베젤 본체 + 밴드 상/하 셰이딩(원통형 브러시드 금속)
+	canvas.draw_circle(center, radius, SENSOR_COL_BEZEL)
+	canvas.draw_arc(center, band_mid, PI, TAU, frame_arc_segments, Color(SENSOR_COL_BEZEL_HI.r, SENSOR_COL_BEZEL_HI.g, SENSOR_COL_BEZEL_HI.b, 0.9), max(1.0, band_w), true)
+	canvas.draw_arc(center, band_mid, 0.0, PI, frame_arc_segments, Color(SENSOR_COL_BEZEL_LO.r, SENSOR_COL_BEZEL_LO.g, SENSOR_COL_BEZEL_LO.b, 0.9), max(1.0, band_w), true)
+
+	# 림 스택: 외곽 다크 엣지 → 골드 → 청록 헤어라인 → 내측 플래티넘
+	canvas.draw_arc(center, radius, 0.0, TAU, frame_arc_segments, SENSOR_COL_EDGE, max(1.0, 1.2 * sf), true)
+	canvas.draw_arc(center, radius - 1.7 * sf, 0.0, TAU, frame_arc_segments, Color(SENSOR_COL_GOLD.r, SENSOR_COL_GOLD.g, SENSOR_COL_GOLD.b, 0.95), max(1.0, 1.9 * sf), true)
+	canvas.draw_arc(center, radius - 4.2 * sf, 0.0, TAU, frame_arc_segments, Color(SENSOR_COL_TEAL.r, SENSOR_COL_TEAL.g, SENSOR_COL_TEAL.b, 0.6), max(1.0, 1.0 * sf), true)
+	canvas.draw_arc(center, bezel_inner, 0.0, TAU, frame_arc_segments, Color(SENSOR_COL_PLATINUM.r, SENSOR_COL_PLATINUM.g, SENSOR_COL_PLATINUM.b, 0.85), max(1.0, 1.5 * sf), true)
+
+	# 베젤 리벳(볼트) — 다크 소켓 + 플래티넘 헤드
+	var rivet_count: int = SENSOR_BEZEL_RIVET_COUNT_LOD if lod_active else SENSOR_BEZEL_RIVET_COUNT
+	for ri in range(rivet_count):
+		var ra: float = -PI * 0.5 + float(ri) * TAU / float(rivet_count)
+		var rp := center + Vector2(cos(ra), sin(ra)) * band_mid
+		canvas.draw_circle(rp, max(1.4, 2.1 * sf), Color(0.06, 0.06, 0.08, 0.92))
+		canvas.draw_circle(rp, max(0.8, 1.3 * sf), Color(SENSOR_COL_PLATINUM.r, SENSOR_COL_PLATINUM.g, SENSOR_COL_PLATINUM.b, 0.95))
+
+	# 오브시디언 웰 + 상단 인너 섀도우(깊이감)
+	canvas.draw_circle(center, well_radius, SENSOR_COL_WELL)
+	canvas.draw_arc(center + Vector2(0.0, -well_radius * 0.14), well_radius * 0.84, PI, TAU, frame_arc_segments, Color(0.0, 0.0, 0.0, 0.45), max(1.0, well_radius * 0.26), true)
 
 
 # 센서 대쉬토큰 오브 가시성 판정 (단일 소스). 퍽-인지 "active" 플래그를 우선하고,
