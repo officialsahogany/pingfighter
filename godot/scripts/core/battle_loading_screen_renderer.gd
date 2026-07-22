@@ -22,6 +22,7 @@ var _loading_cameo_owner: Node = null
 var _visible_started_msec: int = -1
 var _completion_fade_started_msec: int = -1
 var _legacy_host_sweep_done := false
+var _tip_start_slot: int = -1
 
 
 func build_snapshot(owner: Object, module_getter: Callable, context: Dictionary = {}) -> Dictionary:
@@ -59,13 +60,23 @@ func draw(
 	_mark_visible_started()
 	var snapshot := build_snapshot(owner, module_getter, context)
 	var tick_seconds := Time.get_ticks_msec() / 1000.0
+	var tip_tier := str(snapshot.get("tip_tier", BattleLoadingTips.TIER_ADVANCED))
+	var tip_character := str(snapshot.get("tip_character", ""))
+	# The tip rotation clock must be anchored to when THIS loading became
+	# visible. Feeding absolute engine uptime opened every loading at a random
+	# phase of the rotate window, so the first tip could flip away after a few
+	# hundred milliseconds — unreadable on short loads. The start slot is
+	# rolled once per loading session so variety comes from the session pick,
+	# not from the random phase.
 	LoadingCameoCatalog.draw_minimal_chrome(
 		canvas,
 		_get_loading_font(),
 		view_size,
-		str(snapshot.get("tip_tier", BattleLoadingTips.TIER_ADVANCED)),
-		str(snapshot.get("tip_character", "")),
-		tick_seconds
+		tip_tier,
+		tip_character,
+		_elapsed_visible_seconds(),
+		true,
+		_resolve_tip_start_slot(tip_tier, tip_character)
 	)
 	var host := _ensure_loading_cameo_host(owner)
 	if host != null:
@@ -104,6 +115,7 @@ func hide_loading() -> void:
 	_visible_started_msec = -1
 	_completion_fade_started_msec = -1
 	_legacy_host_sweep_done = false
+	_tip_start_slot = -1
 
 
 func release_stained_glass_hosts(owner: Object = null) -> void:
@@ -138,6 +150,13 @@ func _resolve_progress(
 	if not stage_landing_intro_started:
 		return 0.97
 	return 1.0
+
+
+func _resolve_tip_start_slot(tip_tier: String, tip_character: String) -> int:
+	if _tip_start_slot < 0:
+		var slot_count := BattleLoadingTips.get_rotation_tip_count(tip_tier, tip_character)
+		_tip_start_slot = 0 if slot_count <= 0 else randi() % slot_count
+	return _tip_start_slot
 
 
 func _ensure_loading_cameo_host(owner: Object) -> Node2D:

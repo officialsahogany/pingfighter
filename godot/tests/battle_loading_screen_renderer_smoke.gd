@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
+const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
 const LoadingCameoCatalog := preload("res://scripts/core/loading_cameo_catalog.gd")
 const LoadingCameoHost := preload("res://scripts/core/loading_cameo_host.gd")
 const BattleLoadingScreenRenderer := preload("res://scripts/core/battle_loading_screen_renderer.gd")
@@ -132,6 +133,7 @@ func _run() -> void:
 	await _verify_minimal_cameo_prewarm_and_session_lock()
 	_verify_cameo_uses_live_viewport_after_scene_transition()
 	_verify_cameo_host_disables_physics_interpolation()
+	_verify_tip_rotation_anchored_to_visible_start()
 	await _verify_minimal_completion_hold_timing()
 	await _verify_hide_loading_resets_session()
 	await _verify_all_stage_numbers_share_minimal_loading()
@@ -437,6 +439,35 @@ func _verify_cameo_host_disables_physics_interpolation() -> void:
 		"loading cameo host must opt out of global physics interpolation or spawn-frame repositioning glides through screen center"
 	)
 	host.free()
+
+
+func _verify_tip_rotation_anchored_to_visible_start() -> void:
+	# The tip rotation clock must run on loading-visible elapsed time, not on
+	# absolute engine uptime — otherwise every loading opens at a random phase
+	# of the rotate window and the first tip can flip away almost instantly.
+	var renderer := BattleLoadingScreenRenderer.new()
+	var slot_count: int = BattleLoadingTips.get_rotation_tip_count(BattleLoadingTips.TIER_ADVANCED, "viper")
+	var first_slot: int = renderer._resolve_tip_start_slot(BattleLoadingTips.TIER_ADVANCED, "viper")
+	_expect(first_slot >= 0 and first_slot < slot_count, "tip start slot should land inside the rotation list")
+	_expect(
+		int(renderer._resolve_tip_start_slot(BattleLoadingTips.TIER_ADVANCED, "viper")) == first_slot,
+		"tip start slot must stay fixed during one loading session"
+	)
+	renderer._mark_visible_started()
+	_expect(
+		float(renderer._elapsed_visible_seconds()) < 1.0,
+		"tip clock should start near zero when the loading opens"
+	)
+	var now := Time.get_ticks_msec()
+	var offset_msec: int = mini(now - 100, int(BattleLoadingTips.TIP_ROTATE_SECONDS * 1000.0) + 200)
+	renderer._visible_started_msec = now - offset_msec
+	var elapsed := float(renderer._elapsed_visible_seconds())
+	_expect(
+		absf(elapsed - float(offset_msec) / 1000.0) < 0.5,
+		"tip clock should measure elapsed from the visible-start anchor, not absolute uptime"
+	)
+	renderer.hide_loading()
+	_expect(int(renderer._tip_start_slot) == -1, "hide_loading should reroll the tip start slot for the next loading")
 
 
 func _verify_minimal_completion_hold_timing() -> void:

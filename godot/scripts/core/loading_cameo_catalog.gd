@@ -106,7 +106,8 @@ static func draw_minimal_chrome(
 	tip_tier: String,
 	tip_character: String,
 	tick_seconds: float,
-	show_tip: bool = true
+	show_tip: bool = true,
+	tip_start_slot: int = 0
 ) -> void:
 	if canvas == null or font == null:
 		return
@@ -118,7 +119,7 @@ static func draw_minimal_chrome(
 	var tip_text := BattleLoadingTips.rotation_tip_for_elapsed(
 		tip_tier,
 		tip_character,
-		0,
+		tip_start_slot,
 		tick_seconds
 	)
 	var tip_font_size := maxi(TIP_MIN_FONT_SIZE, int(round(TIP_FONT_SIZE * view_scale)))
