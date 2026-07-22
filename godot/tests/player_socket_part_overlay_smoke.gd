@@ -123,7 +123,7 @@ func _verify_socket_entry_dest_rect_right() -> void:
 	var commands: Array = renderer.build_draw_commands(context, _build_walk_base_plan(renderer, "right"), "front")
 	_expect(commands.size() == 1, "socket-anchored accessory should emit one front command for walk right")
 	if commands.size() == 1:
-		# v1+원화구름 walk right f0 head_top = (81.9, 27.0); offset (0,-15), size
+		# 침하합성 walk right f0 head_top = (81.9, 27.0); offset (0,-15), size
 		# 20x20 at 1:1 scale -> rect position (71.9, 2.0).
 		var dest: Rect2 = (commands[0] as Dictionary).get("dest_rect", Rect2())
 		_expect(dest.position.is_equal_approx(Vector2(71.9, 2.0)) and dest.size.is_equal_approx(Vector2(20.0, 20.0)), "accessory dest rect should center on head_top + offset (got %s)" % dest)
