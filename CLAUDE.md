@@ -556,12 +556,13 @@ Full rule + seal (angel dice arc): `docs/godot_runtime_traps.md`.
 
 typed 객체에 미선언 프로퍼티 대입/미존재 함수 호출은 SCRIPT ERROR로
 **그 레그 함수만** 중단시키고 러너는 계속 돌아 `ok`가 찍힌다 — 어서션이
-한 줄도 실행되지 않은 공허 GREEN. 판정 정석은 표준 러너
+한 줄도 실행되지 않은 공허 GREEN. 변종: `_expect`의 `quit(1)`은 실행을
+멈추지 않아 말미의 무조건 `ok`+`quit(0)`가 종료코드를 덮어씀 —
+`_failed` 플래그로 최종 ok를 게이트. 판정 정석은 표준 러너
 `run_smoke_tests.ps1` 관통(엔진 `ERROR:`도 실패 승격); 수동 grep이면
 `ok / SCRIPT ERROR / ^ERROR` 3필드. SceneTree 스모크 `_init()`은
-`call_deferred("_run")`만(트리 진입 전 노드 사용=is_inside_tree 엔진
-ERROR). 픽스처 튜닝 프로퍼티 대입은 선언 존재 먼저 확인. Full rule:
-`docs/godot_runtime_traps.md`.
+`call_deferred("_run")`만. 픽스처 튜닝 프로퍼티 대입은 선언 존재 먼저
+확인. Full rule: `docs/godot_runtime_traps.md`.
 
 ## Godot 퍽 표시 Projection-분기 후처리 탈락 트랩
 
@@ -589,6 +590,11 @@ wire the PNG-first loader/cache path, and verify that no procedural
 fallback or special-case early return bypasses the new file.
 
 ## Ringpet Visual Terminology
+
+The shipped player-facing name is `수호령` (`Guardian Spirit`). Keep
+`Ringpet` / `Lingpet` in established art prompts and internal compatibility
+identifiers when needed for visual continuity and runtime stability; do not
+surface those legacy names in UI copy or localized descriptions.
 
 When the user says "링파츠" / "ring parts" for a Ringpet / Lingpet design,
 do NOT interpret that as literal circular rings only. In this project,
@@ -618,6 +624,18 @@ and cleaned alpha PNG, record the key color and cleanup method, and verify
 alpha channel, transparent corners, non-edge-touching alpha bbox, and no
 magenta / green fringe on dark and light preview backgrounds. The required
 checklist is `.claude/skills/sprite-generation/checklists.md` §0.4.
+
+## Character Live2D Idle / Click Dialogue Continuity
+
+Treat every character Live2D click reaction as a complete
+`idle neutral -> click / speech -> idle neutral` round trip. Generate it from
+the accepted idle anchor, lock crop / stage fit / props, and measure
+`idleLast -> clickFirst` plus `clickLast -> idleFirst` separately. Spoken
+reactions need several natural mouth shapes across the full audible line,
+with a settled mouth before and after speech; runtime voice delay must be
+checked against the real audio. The detailed production and acceptance rules
+live in `.claude/skills/sprite-generation/SKILL.md` section 2.5 and
+`checklists.md` section 0.6.
 
 ## Upscale Request Routing
 

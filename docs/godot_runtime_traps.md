@@ -1583,6 +1583,17 @@ Standing rules(확장):
   `ok / SCRIPT ERROR / ^ERROR` 3필드.
 - SceneTree 스모크의 `_init()`은 `call_deferred("_run")`만 수행하고
   실검증은 트리 진입 후 `_run()`에서 시작한다(캡처 하니스와 동일 패턴).
+
+Incident 확장 (2026-07-22, dalji result 스모크 attack 교체): `_expect`가
+실패 시 `push_error + quit(1)`를 부르는 조기-종료식 스모크도 공허 GREEN을
+낸다 — SceneTree의 `quit()`는 요청일 뿐 현재 프레임 실행을 멈추지 않으므로
+나머지 코드가 끝까지 달려 마지막의 **무조건 `print(ok)` + `quit(0)`가
+종료코드를 덮어쓴다**. 실패 레그 10개가 stderr에 ERROR로 찍히는데 stdout엔
+ok, exit는 0이었다(표준 러너의 `^ERROR` 승격만이 방어선). Standing rule:
+`quit(1)`식 `_expect`를 쓰는 스모크는 `_failed` 플래그를 함께 세우고 최종
+ok 출력을 `if _failed: quit(1); return`으로 게이트한다. 수정 시 반증검증
+(기대값 토글 → exit 1 + ok 미출력 확인) 필수. 참조 수정:
+`stage1_dalji_result_sprite_smoke.gd` (커밋 cbd3c47f8).
   `_init`에서 `root.add_child` 직후 노드의 viewport/tree 의존 경로를
   호출하면 위 엔진 ERROR가 조용히 쌓인다.
 
