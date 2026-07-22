@@ -7,11 +7,11 @@ const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_bos
 const Stage1DaljiSpinningTopRenderer := preload("res://scripts/stages/stage1/stage1_dalji_spinning_top_renderer.gd")
 const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 
-const SMASHER_REAR_IDLE_PATH := "res://assets/sprites/smasher/smasher_rear_idle_breathe_sd_idle_layout_autosprite_v2_4x2_160_clean.png"
-const SMASHER_REAR_MOVE_LEFT_PATH := "res://assets/sprites/smasher/smasher_rear_move_left_sd_blue_energy_glide_bodyweight_v9_mirror_from_right_4x2_160_clean.png"
-const SMASHER_REAR_MOVE_RIGHT_PATH := "res://assets/sprites/smasher/smasher_rear_move_right_sd_blue_energy_glide_bodyweight_v9_4x2_160_clean.png"
-const SMASHER_DASH_LEFT_PATH := "res://assets/sprites/smasher/smasher_dash_left_rugby_shoulder_charge_autosprite_v4_mirror_from_right_4x2_160_clean.png"
-const SMASHER_DASH_RIGHT_PATH := "res://assets/sprites/smasher/smasher_dash_right_rugby_shoulder_charge_autosprite_v4_4x2_160_clean.png"
+const SMASHER_REAR_IDLE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png"
+const SMASHER_REAR_MOVE_LEFT_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_left_autosprite_v1_mirror_4x2_160_clean.png"
+const SMASHER_REAR_MOVE_RIGHT_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_right_autosprite_v1_4x2_160_clean.png"
+const SMASHER_DASH_LEFT_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_dash_left_autosprite_v1_mirror_4x2_160_clean.png"
+const SMASHER_DASH_RIGHT_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_dash_right_autosprite_v1_4x2_160_clean.png"
 const SMASHER_ATTACK_LEFT_PATH := "res://assets/sprites/smasher/smasher_attack_left_sheet_16f.png"
 const SMASHER_ATTACK_RIGHT_PATH := "res://assets/sprites/smasher/smasher_attack_right_sheet_16f.png"
 
@@ -129,10 +129,10 @@ func _init() -> void:
 	_expect(_has_texture(textures, "player_idle_back_sheet"), "Smasher idle-back sheet should load")
 	_expect(_has_texture(textures, "player_walk_left_texture"), "Smasher left walk sheet should load")
 	_expect(_has_texture(textures, "player_walk_right_texture"), "Smasher right walk sheet should load")
-	_expect(_has_texture(textures, "player_dash_left_texture"), "Smasher left shoulder-charge dash sheet should load")
-	_expect(_has_texture(textures, "player_dash_right_texture"), "Smasher right shoulder-charge dash sheet should load")
-	_expect(_has_texture(textures, "player_attack_left_sheet"), "Smasher left-contact racket attack sheet should load")
-	_expect(_has_texture(textures, "player_attack_right_sheet"), "Smasher right-contact shield attack sheet should load")
+	_expect(_has_texture(textures, "player_dash_left_texture"), "Smasher left cloud dash sheet should load")
+	_expect(_has_texture(textures, "player_dash_right_texture"), "Smasher right cloud dash sheet should load")
+	_expect(_has_texture(textures, "player_attack_left_sheet"), "Smasher left-contact shield attack sheet should load")
+	_expect(_has_texture(textures, "player_attack_right_sheet"), "Smasher right-contact racket attack sheet should load")
 	_expect(_texture_size(textures, "boss_victory_sheet") == Vector2(1536.0, 1024.0), "Dalji victory sheet should keep the 4x2 static-sheet size")
 	_expect(_texture_size(textures, "boss_defeat_sheet") == Vector2(1536.0, 1024.0), "Dalji defeat sheet should keep the 4x2 static-sheet size")
 	_expect(_texture_size(textures, "boss_walk_left_sheet") == Vector2(1376.0, 1536.0), "Dalji left run should use the 4x4 16-frame runtime-sheet size")
@@ -140,14 +140,14 @@ func _init() -> void:
 	_expect(_texture_size(textures, "boss_paengi_top_whip_sheet") == Vector2(4096.0, 2048.0), "Dalji paengi top-whip sheet should use the 8x4 32-frame runtime-sheet size")
 	_expect(_texture_size(textures, "player_victory_sheet") == Vector2(1280.0, 1280.0), "Smasher victory sheet should keep the 8-column 64-frame result-sheet size")
 	_expect(_texture_size(textures, "player_defeat_sheet") == Vector2(640.0, 640.0), "Smasher defeat sheet should keep the 4x4 result-sheet size")
-	_expect(_texture_size(textures, "player_idle_back_sheet") == Vector2(640.0, 320.0), "Smasher idle should use the subculture 4x2 8-frame runtime-sheet size")
-	_expect(_texture_size(textures, "player_idle_sprite_texture") == Vector2(640.0, 320.0), "Smasher idle fallback should use the same subculture sheet")
+	_expect(_texture_size(textures, "player_idle_back_sheet") == Vector2(640.0, 320.0), "Smasher idle should use the hanmiryang 4x2 8-frame runtime-sheet size")
+	_expect(_texture_size(textures, "player_idle_sprite_texture") == Vector2(640.0, 320.0), "Smasher idle fallback should use the same hanmiryang sheet")
 	_expect(_texture_size(textures, "player_walk_left_texture") == Vector2(640.0, 320.0), "Smasher left walk should keep the 4x2 8-frame runtime-sheet size")
 	_expect(_texture_size(textures, "player_walk_right_texture") == Vector2(640.0, 320.0), "Smasher right walk should keep the 4x2 8-frame runtime-sheet size")
 	_expect(_texture_size(textures, "player_dash_left_texture") == Vector2(640.0, 320.0), "Smasher left dash should keep the 4x2 8-frame runtime-sheet size")
 	_expect(_texture_size(textures, "player_dash_right_texture") == Vector2(640.0, 320.0), "Smasher right dash should keep the 4x2 8-frame runtime-sheet size")
-	_expect(_texture_size(textures, "player_attack_left_sheet") == Vector2(640.0, 640.0), "Smasher left-contact racket attack should use a 4x4 16-frame runtime sheet")
-	_expect(_texture_size(textures, "player_attack_right_sheet") == Vector2(640.0, 640.0), "Smasher right-contact shield attack should use a 4x4 16-frame runtime sheet")
+	_expect(_texture_size(textures, "player_attack_left_sheet") == Vector2(640.0, 640.0), "Smasher left-contact shield attack should use a 4x4 16-frame runtime sheet")
+	_expect(_texture_size(textures, "player_attack_right_sheet") == Vector2(640.0, 640.0), "Smasher right-contact racket attack should use a 4x4 16-frame runtime sheet")
 	var expected_smasher_idle: Texture2D = load(SMASHER_REAR_IDLE_PATH) as Texture2D
 	var expected_smasher_left_walk: Texture2D = load(SMASHER_REAR_MOVE_LEFT_PATH) as Texture2D
 	var expected_smasher_right_walk: Texture2D = load(SMASHER_REAR_MOVE_RIGHT_PATH) as Texture2D
@@ -155,14 +155,14 @@ func _init() -> void:
 	var expected_smasher_right_dash: Texture2D = load(SMASHER_DASH_RIGHT_PATH) as Texture2D
 	var expected_smasher_left_attack: Texture2D = load(SMASHER_ATTACK_LEFT_PATH) as Texture2D
 	var expected_smasher_right_attack: Texture2D = load(SMASHER_ATTACK_RIGHT_PATH) as Texture2D
-	_expect(textures.get("player_idle_back_sheet", null) == expected_smasher_idle, "Smasher idle should load the blue-energy rear SD breathing sheet")
-	_expect(textures.get("player_idle_sprite_texture", null) == expected_smasher_idle, "Smasher idle fallback should share the blue-energy rear SD breathing sheet")
-	_expect(textures.get("player_walk_left_texture", null) == expected_smasher_left_walk, "Smasher left walk should load the blue-energy rear SD movement sheet")
-	_expect(textures.get("player_walk_right_texture", null) == expected_smasher_right_walk, "Smasher right walk should load the blue-energy rear SD movement sheet")
-	_expect(textures.get("player_dash_left_texture", null) == expected_smasher_left_dash, "Smasher left dash should load the shoulder-charge dash sheet")
-	_expect(textures.get("player_dash_right_texture", null) == expected_smasher_right_dash, "Smasher right dash should load the shoulder-charge dash sheet")
-	_expect(textures.get("player_attack_left_sheet", null) == expected_smasher_left_attack, "Smasher left contact should load the racket-swing attack sheet")
-	_expect(textures.get("player_attack_right_sheet", null) == expected_smasher_right_attack, "Smasher right contact should load the shield-guard attack sheet")
+	_expect(textures.get("player_idle_back_sheet", null) == expected_smasher_idle, "Smasher idle should load the hanmiryang rear-cloud idle sheet")
+	_expect(textures.get("player_idle_sprite_texture", null) == expected_smasher_idle, "Smasher idle fallback should share the hanmiryang rear-cloud idle sheet")
+	_expect(textures.get("player_walk_left_texture", null) == expected_smasher_left_walk, "Smasher left walk should load the hanmiryang rear-cloud glide sheet")
+	_expect(textures.get("player_walk_right_texture", null) == expected_smasher_right_walk, "Smasher right walk should load the hanmiryang rear-cloud glide sheet")
+	_expect(textures.get("player_dash_left_texture", null) == expected_smasher_left_dash, "Smasher left dash should load the hanmiryang cloud dash sheet")
+	_expect(textures.get("player_dash_right_texture", null) == expected_smasher_right_dash, "Smasher right dash should load the hanmiryang cloud dash sheet")
+	_expect(textures.get("player_attack_left_sheet", null) == expected_smasher_left_attack, "Smasher left contact should load the shield-smash attack sheet")
+	_expect(textures.get("player_attack_right_sheet", null) == expected_smasher_right_attack, "Smasher right contact should load the racket-smash attack sheet")
 
 	var update_context: Dictionary = BattleUpdateEffectsContext.new().build_context(
 		FakeOwner.new({
@@ -175,7 +175,7 @@ func _init() -> void:
 	)
 	_expect(int(update_context.get("player_sprite_frame_count", 0)) == 8, "Smasher directional walk should animate over 8 frames")
 	_expect(abs(float(update_context.get("player_sprite_animation_speed", 0.0)) - 0.050) < 0.0001, "Smasher directional walk should keep the 0.050s runtime cadence")
-	_expect(bool(update_context.get("player_has_dash_sheet", false)), "Smasher should expose shoulder-charge dash sheets")
+	_expect(bool(update_context.get("player_has_dash_sheet", false)), "Smasher should expose cloud dash sheets")
 	_expect(int(update_context.get("player_dash_frame_count", 0)) == 8, "Smasher dash sheets should animate over 8 frames")
 	_expect(int(update_context.get("player_idle_frame_count", 0)) == 8, "Smasher idle should animate over 8 frames")
 	_expect(abs(float(update_context.get("player_idle_animation_speed", 0.0)) - 0.15) < 0.0001, "Smasher idle-back should keep the 0.15s runtime cadence")
@@ -196,8 +196,8 @@ func _init() -> void:
 	)
 	_expect(int(left_hit_context.get("player_hit_frame_count", 0)) == 16, "left-contact draw context should expose 16 Smasher hit frames")
 	_expect(int(left_hit_context.get("player_directional_attack_grid_rows", 0)) == 4, "Smasher directional attack grid should stay 4x4")
-	_expect(player_sprite_renderer.call("_get_player_directional_attack_texture", left_hit_context) == expected_smasher_left_attack, "left-of-center ball contact should select the racket-swing sheet")
-	_expect(player_sprite_renderer.call("_get_player_directional_attack_texture", right_hit_context) == expected_smasher_right_attack, "right-of-center ball contact should select the shield-guard sheet")
+	_expect(player_sprite_renderer.call("_get_player_directional_attack_texture", left_hit_context) == expected_smasher_left_attack, "left-of-center ball contact should select the shield-smash sheet")
+	_expect(player_sprite_renderer.call("_get_player_directional_attack_texture", right_hit_context) == expected_smasher_right_attack, "right-of-center ball contact should select the racket-smash sheet")
 	var left_dash_context: Dictionary = context_builder.build(
 		{
 			"textures": textures,
@@ -221,8 +221,8 @@ func _init() -> void:
 	_expect(int(left_dash_context.get("player_directional_dash_grid_cols", 0)) == 4, "Smasher dash draw context should expose the 4-column grid")
 	_expect(left_dash_context.get("player_dash_left_texture", null) == expected_smasher_left_dash, "draw context should expose Smasher left dash sheet")
 	_expect(right_dash_context.get("player_dash_right_texture", null) == expected_smasher_right_dash, "draw context should expose Smasher right dash sheet")
-	_expect(player_sprite_renderer.call("_get_player_directional_dash_texture", left_dash_context) == expected_smasher_left_dash, "left dash should select the mirrored shoulder-charge sheet")
-	_expect(player_sprite_renderer.call("_get_player_directional_dash_texture", right_dash_context) == expected_smasher_right_dash, "right dash should select the authored shoulder-charge sheet")
+	_expect(player_sprite_renderer.call("_get_player_directional_dash_texture", left_dash_context) == expected_smasher_left_dash, "left dash should select the mirrored cloud dash sheet")
+	_expect(player_sprite_renderer.call("_get_player_directional_dash_texture", right_dash_context) == expected_smasher_right_dash, "right dash should select the authored cloud dash sheet")
 	_expect(int(left_dash_context.get("dash_elapsed_frames", 0.0)) == 11, "Smasher dash context should expose elapsed frames for pose hold timing")
 	var late_dash_region: Rect2 = player_sprite_renderer.call("_get_player_directional_dash_region", left_dash_context)
 	_expect(late_dash_region.position == Vector2(160.0, 160.0), "late Smasher dash should hold on 1-based frame #6")
@@ -345,6 +345,12 @@ func _init() -> void:
 	_expect(tip26.distance_to(boss_center_start) > 40.0, "paengi whip line should not collapse to the boss hitbox center")
 	_expect(tip26.distance_to(expected_tip26) < 0.01, "paengi whip line should map the frame-specific stick tip through the visual rect")
 
+	if _failed:
+		# A failed _expect already pushed the error and requested quit(1);
+		# without this gate the unconditional ok + quit(0) below would
+		# override the exit code and print a vacuous GREEN.
+		quit(1)
+		return
 	print("stage1_dalji_result_sprite_smoke: ok")
 	quit(0)
 
@@ -360,8 +366,12 @@ func _texture_size(textures: Dictionary, key: String) -> Vector2:
 	return Vector2.ZERO
 
 
+var _failed := false
+
+
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_failed = true
 	push_error(message)
 	quit(1)
