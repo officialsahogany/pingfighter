@@ -542,6 +542,16 @@ that excludes the native width, and keep piecewise VFX motion (envelope/rotation
 C0-continuous at phase boundaries (phase-lock breathing sin to the boundary).
 Full rule + seal (angel dice arc): `docs/godot_runtime_traps.md`.
 
+## Godot 전역 물리 보간 오버레이 스폰-글라이드 트랩
+
+전역 `physics_interpolation=true` 환경에서 노드를 (0,0)에 만들고 같은
+프레임에 최종 위치로 옮기면 물리 틱이 따라잡을 때까지 이동 경로 중간
+(화면 중앙 부근)에 렌더된다 — 로딩 카메오처럼 첫 프레임이 정체되는
+구간에선 ~0.5초 유령으로 보인다. 이산 재배치형 정지 오버레이 호스트는
+생성 시 `physics_interpolation_mode = OFF` 명시. 씰:
+`battle_loading_screen_renderer_smoke`. Full rule:
+`docs/godot_runtime_traps.md`.
+
 ## Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
 
 typed 객체에 미선언 프로퍼티 대입/미존재 함수 호출은 SCRIPT ERROR로

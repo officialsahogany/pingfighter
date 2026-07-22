@@ -24,6 +24,13 @@ func _init() -> void:
 	name = HOST_NAME
 	z_as_relative = false
 	z_index = HOST_Z_INDEX
+	# The project enables global physics interpolation, so a sprite spawned at
+	# (0,0) and positioned to the lower-right corner on the same frame renders
+	# partway along that path (near screen center) until physics ticks catch up
+	# — and the loading screen's warmup-stalled first frames keep that artifact
+	# on screen for ~0.5s. This host is a static overlay repositioned only at
+	# discrete moments, so interpolation is disabled for it and its children.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	set_process(false)
 	_rng.randomize()
 
