@@ -245,7 +245,8 @@ func force_wall_clock_timeout_for_tests() -> void:
 func _get_victory_frame(phase_elapsed: float) -> int:
 	var is_blacksmith := selected_character_type == PlayerCharacterRuntime.BLACKSMITH
 	var is_commando := selected_character_type == PlayerCharacterRuntime.COMMANDO
-	var frame_count := BattleDrawActorResultContext.get_player_victory_frame_count(is_blacksmith, is_commando)
+	var is_smasher := selected_character_type == PlayerCharacterRuntime.SMASHER
+	var frame_count := BattleDrawActorResultContext.get_player_victory_frame_count(is_blacksmith, is_commando, is_smasher)
 	var speed := BattleDrawActorResultContext.get_player_victory_frame_speed(is_commando)
 	var frame := int(floor(maxf(0.0, phase_elapsed) / speed))
 	return clampi(frame, 0, max(0, frame_count - 1))

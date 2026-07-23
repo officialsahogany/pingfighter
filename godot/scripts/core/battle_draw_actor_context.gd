@@ -114,6 +114,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		var stage7_akamu_state = deps.get("stage7_akamu_state", null)
 		stage7_akamu_context = stage7_akamu_state.get_actor_draw_context() if stage7_akamu_state != null and stage7_akamu_state.has_method("get_actor_draw_context") else {}
 
+	var stage8_minotaur_context: Dictionary = {}
+	if current_stage == 8:
+		var stage8_minotaur_state = deps.get("stage8_minotaur_state", null)
+		stage8_minotaur_context = stage8_minotaur_state.get_actor_draw_context() if stage8_minotaur_state != null and stage8_minotaur_state.has_method("get_actor_draw_context") else {}
+
 	var active_item_runtime = deps.get("active_item_runtime", null)
 	var active_item_context: Dictionary = active_item_runtime.get_actor_draw_context() if _should_read_actor_draw_context(active_item_runtime) else {}
 	var mythic_item_runtime = deps.get("mythic_item_runtime", null)
@@ -455,8 +460,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	)
 	var player_default_draw_size := Vector2(160.0, 160.0)
 	var player_runtime_draw_size: Vector2 = BLACKSMITH_PLAYER_DRAW_SIZE if is_blacksmith else player_default_draw_size
-	var _player_victory_frame_count: int = ResultContext.get_player_victory_frame_count(is_blacksmith, is_commando)
-	var _player_victory_grid_cols: int = ResultContext.get_player_victory_grid_cols(is_blacksmith, is_commando)
+	var _player_victory_frame_count: int = ResultContext.get_player_victory_frame_count(is_blacksmith, is_commando, is_smasher)
+	var _player_victory_grid_cols: int = ResultContext.get_player_victory_grid_cols(is_blacksmith, is_commando, is_smasher)
 	var _player_victory_frame_key: String = ResultContext.get_player_victory_frame_key(is_commando)
 	var _player_defeat_frame_count: int = ResultContext.get_player_defeat_frame_count(is_blacksmith, is_viper, is_commando)
 	var _player_defeat_grid_cols: int = ResultContext.get_player_defeat_grid_cols(is_blacksmith, is_viper, is_commando)
@@ -865,6 +870,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		actor_context.merge(stage6_tetriser_context, true)
 	if current_stage == 7:
 		actor_context.merge(stage7_akamu_context, true)
+	if current_stage == 8:
+		actor_context.merge(stage8_minotaur_context, true)
 	actor_context.merge(active_item_context, true)
 	actor_context.merge(mythic_item_context, true)
 	actor_context.merge(status_effect_context, true)

@@ -14,6 +14,10 @@ const PLAYER_VICTORY_8_FRAME_COUNT := 8
 const PLAYER_VICTORY_8_GRID_COLS := 4
 const BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT := 49
 const BLACKSMITH_PLAYER_VICTORY_GRID_COLS := 7
+# 한미량(스매셔) 승리 라투디: AutoSprite 생성 상한이 49프레임(7x7)이라
+# 구 64f/8열 계약에서 49f/7열로 이관 (2026-07-23).
+const SMASHER_PLAYER_VICTORY_FRAME_COUNT := 49
+const SMASHER_PLAYER_VICTORY_GRID_COLS := 7
 const BLACKSMITH_PLAYER_DEFEAT_FRAME_COUNT := 49
 const BLACKSMITH_PLAYER_DEFEAT_GRID_COLS := 7
 const PLAYER_DEFEAT_FRAME_SPEED := 0.09
@@ -98,19 +102,23 @@ static func get_boss_result_context(deps: Dictionary, current_stage: int) -> Dic
 	}
 
 
-static func get_player_victory_frame_count(is_blacksmith: bool, is_commando: bool) -> int:
+static func get_player_victory_frame_count(is_blacksmith: bool, is_commando: bool, is_smasher: bool = false) -> int:
 	if is_blacksmith:
 		return BLACKSMITH_PLAYER_VICTORY_FRAME_COUNT
 	if is_commando:
 		return PLAYER_VICTORY_8_FRAME_COUNT
+	if is_smasher:
+		return SMASHER_PLAYER_VICTORY_FRAME_COUNT
 	return PLAYER_VICTORY_FRAME_COUNT
 
 
-static func get_player_victory_grid_cols(is_blacksmith: bool, is_commando: bool) -> int:
+static func get_player_victory_grid_cols(is_blacksmith: bool, is_commando: bool, is_smasher: bool = false) -> int:
 	if is_blacksmith:
 		return BLACKSMITH_PLAYER_VICTORY_GRID_COLS
 	if is_commando:
 		return PLAYER_VICTORY_8_GRID_COLS
+	if is_smasher:
+		return SMASHER_PLAYER_VICTORY_GRID_COLS
 	return PLAYER_VICTORY_GRID_COLS
 
 
