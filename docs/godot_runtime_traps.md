@@ -1735,3 +1735,52 @@ draw_arc 5/draw_circle 7 + 베이크 ops 지오메트리 21op 계약 + 베이크
 핫패스 프리미티브 추가 토글로 RED 반증 확인). 폴백이 correctness-identical
 이라 픽셀 패리티 씰은 봉인력이 없으므로(플레이북 규율), 라이브 재측정의
 라벨 us/prims가 런타임 직교 카운터다. 커밋 817b76b24.
+
+## Godot 스크린-공간 FX 호스트 플레이필드 클립 트랩 (구조 GREEN ≠ 픽셀 클립)
+
+**사건 (2026-07-23).** 스매셔 플라즈마 FX 호스트(`smasher_plasma_fx_host.gd`,
+Node2D)를 배틀 캔버스에 직접 `add_child`로 붙였다. 드로어가 오브를 스크린
+좌표(`game_offset + playfield_pos*render_scale`)로 배치하는데, 호스트는 캔버스의
+노드 자식이라 플레이필드 패스의 `draw_set_transform`을 물려받지 않고 화면 전체에
+그린다 — 오브 배경판 반경(radius×2.8)이 `game_offset` 밖 좌/우 레터박스 필러까지
+새어나갔다(x=0, offset=190, scale=1.18 실렌더에서 시안 10,882px). 상태 스모크는
+좌표(host.position)만 검사해 이 침범을 놓쳤다(픽셀 QA 필요).
+
+**메커니즘 / 함정 3겹.**
+1. **`Control.clip_contents=true`는 Control 자식만이 아니라 Node2D/Sprite2D
+   자식도 rect로 클립한다.** stage_ball_spawn_intro_fx_host는 자식이 전부
+   Control(TextureRect/ColorRect)이라 "clip_contents=Control 전용"으로 오해하기
+   쉽다. 정본 선례는 mystic_dice_paddle_fx_host(호스트 자체가 Control,
+   clip_contents=true, 자식 Node2D draw). Sprite2D 오브 레이어에도 먹는다.
+2. **`clip_children=CLIP_CHILDREN_ONLY` 마스크 방식은 ADD 블렌드 Sprite2D를
+   완전히 못 잡는다.** 마스크 rect를 draw해도 레터박스에 픽셀이 남았다(5716
+   잔류). 반드시 `clip_contents`를 써라.
+3. **구조 씰만으론 공허-GREEN.** `clip_contents==true` + 레이어 부모 검사 +
+   클립 월드 rect 검사가 전부 GREEN인데 실제 픽셀은 안 잘리는 케이스를 겪었다
+   (마스크 방식). 클립 효능은 **비헤드리스 픽셀 씰**로만 증명된다.
+
+**호스트가 오브 위치일 때의 클립 배치.** 좌표 계약(host.position = 오브 스크린
+좌표)을 보존하려면 클립을 host-local `clip_local_origin = (clip_position_screen -
+host.position) / render_scale`에 놓고 size=GAME_SIZE(760x750, render_scale 무관
+상수), 자식 레이어는 전부 `.position = wobble - clip_local_origin`으로 보정한다.
+그러면 자식 월드 = host.position + scale*wobble(오브 위치 불변), 클립 월드 rect =
+game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어는
+`fx_state["clip_position"] = game_offset`만 실어 보낸다. clip_position이 없으면
+(스모크/폴백) 클립을 끄고(clip_contents=false) 오브를 host 원점 기준 그대로 그린다
+— 호스트가 오브 위치인데 클립을 host-local ZERO에 두면 오브 좌/상단 절반이 잘린다.
+
+**표준 규칙.**
+- 스크린-공간 FX 호스트(스타포인트/주사위/플라즈마류)가 오브/파티클을 그리면
+  플레이필드 클립을 반드시 확인하라 — 노드 자식은 draw_set_transform을 안
+  물려받아 레터박스로 샌다. 내부 Control(clip_contents=true)로 클립한다.
+- **클립은 구조 씰 + 비헤드리스 픽셀 씰 2단으로 봉인.** 구조 씰(clip_contents/
+  부모/월드rect)은 헤드리스 CI용, 픽셀 씰은 오브를 왼쪽 가장자리에 두고 렌더해
+  레터박스 lit 픽셀이 clip_ON=0 / OFF>0인지 실측(디스플레이 있을 때만; 헤드리스
+  스킵+ok 마커). 씰: `smasher_plasma_playfield_clip_smoke`(구조) +
+  `smasher_plasma_clip_letterbox_pixel_smoke`(비헤드리스 실픽셀).
+- **픽셀 프로브 오염 주의.** ①배경 회색이면 배경 픽셀이 카운트를 압도 →
+  `RenderingServer.set_default_clear_color(검정)` + 밝은(플라즈마) 픽셀만 카운트.
+  ②다른 활성 호스트가 트리에 남아 bleed → 격리 측정 전 free/set_active(false).
+  ③단일 호스트로 OFF→ON 순차 측정이 매번 free/생성 반복보다 안정.
+
+커밋 90ec14c06. 씰 반증: clip_contents=false 토글 시 레터박스 9794px RED.

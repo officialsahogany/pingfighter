@@ -583,6 +583,19 @@ Full rule: `docs/godot_runtime_traps.md`.
 씰 HEAD RED 사례). 정상 상태 픽셀 불변 HUD 박스는 리테인드 자식
 CanvasItem + 상태 키 게이팅. Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot 스크린-공간 FX 호스트 플레이필드 클립 트랩 (구조 GREEN ≠ 픽셀 클립)
+
+스크린-공간 FX 호스트(스타포인트/주사위/플라즈마류)의 노드 자식은 플레이필드
+패스의 `draw_set_transform`을 안 물려받아 오브/배경판이 좌/우 레터박스 필러로
+샌다(플라즈마 시안 10,882px 사례). 내부 `Control(clip_contents=true)`로 760x750
+클립 — ⭐`clip_contents`는 **Sprite2D(Node2D) 자식도** 클립한다(Control 전용
+아님; `CLIP_CHILDREN_ONLY` 마스크는 ADD 블렌드를 못 잡음). 호스트가 오브 위치면
+클립을 host-local `(game_offset-host_pos)/scale`에 놓고 자식을 `wobble-
+clip_local_origin`으로 보정(좌표 계약 불변). **구조 씰(clip_contents/부모/rect)
+만으론 공허-GREEN** — 실제 픽셀 클립은 비헤드리스 픽셀 씰(레터박스 lit
+clip_ON=0/OFF>0)로만 증명. 프로브는 clear_color 검정+밝은픽셀만+타 호스트
+free. Full rule: `docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
