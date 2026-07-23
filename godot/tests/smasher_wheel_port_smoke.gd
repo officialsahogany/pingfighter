@@ -160,7 +160,7 @@ func _init() -> void:
 	})
 	_expect(runtime_textures.get("player_wheel_spin_sheet", null) is Texture2D, "smasher wheel should load its body spin sheet without result prewarm")
 	var wheel_spin_texture: Texture2D = runtime_textures["player_wheel_spin_sheet"]
-	_expect(wheel_spin_texture.get_size() == Vector2(640.0, 640.0), "smasher wheel body spin sheet should use the dedicated 4x4 flame-blade spin sheet")
+	_expect(wheel_spin_texture.get_size() == Vector2(640.0, 640.0), "smasher wheel body spin sheet should use the hanmiryang 4x4 풍운천선무 pirouette spin sheet")
 
 	var scene_state := BattleSceneState.new()
 	_expect(scene_state.has_key("smasher_wheel_speed_cap"), "battle scene state should preserve smasher wheel speed cap")
