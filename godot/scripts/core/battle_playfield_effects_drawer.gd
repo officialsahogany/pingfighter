@@ -3,6 +3,7 @@ extends RefCounted
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const SmasherPlasmaFxHost := preload("res://scripts/characters/smasher_plasma_fx_host.gd")
 
 const INACTIVE_ACTOR_TRANSIENT_CLEANUP_FRAMES := 2
 
@@ -384,17 +385,59 @@ func draw_laurel_leaf_shield(
 		laurel_leaf_shield_state.draw(canvas, shake_offset, BattleRenderQuality.effect_scale(draw_context))
 
 
+# 3-피스 모듈러 VFX(2026-07-06 리메이크, WIP 파괴 후 재배선): 구체 본체
+# (차징/파동/페이드)는 분리형 FX 호스트가 그린다 — 절차적 charge/wave draw는
+# 은퇴하고, 보스 접촉 오버레이만 절차 draw로 유지한다. 소스 계약
+# (smasher_plasma_visual_render_smoke)이 이 함수 본문에서 get_plasma_fx_state /
+# sync_state / draw_contact_overlay 호출을 직접 검사하므로 헬퍼로 쪼개지 말 것.
+# FX 호스트 좌표식(공유 규약): screen = game_offset + (playfield_pos + shake)
+# × render_scale. 호스트는 캔버스 노드 자식(스크린 공간 — draw_set_transform
+# 미상속)이고, 상태 pos는 get_plasma_fx_state(shake)로 셰이크가 접힌 값이다.
 func draw_plasma_effects(
 	canvas: CanvasItem,
 	registry: Object,
 	shake_offset: Vector2,
 	draw_context: Dictionary = {}
 ) -> void:
-	if not _is_smasher_context(draw_context):
+	if canvas == null:
 		return
 	var plasma_state: Object = _get_instance(registry, "smasher_plasma_state")
-	if _has_visible_effects(plasma_state) and plasma_state.has_method("draw"):
-		plasma_state.draw(canvas, shake_offset)
+	if (
+		not _is_smasher_context(draw_context)
+		or plasma_state == null
+		or not plasma_state.has_method("get_plasma_fx_state")
+	):
+		# 캐릭터 전환 / 상태 부재 프레임에도 기존 호스트가 잔상으로 남지 않게
+		# 같은 draw 호출 안에서 동기 숨김한다(씰이 await 없이 검사).
+		var stale_host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
+		if stale_host != null:
+			stale_host.visible = false
+		return
+	# 셰이크는 공유 피드백 상태가 있으면 그쪽을 정본으로 쓴다(플레이필드 씬
+	# 드로어와 동일 선례) — 없으면 호출자 인자 폴백.
+	var shake: Vector2 = shake_offset
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback != null and feedback.has_method("get_shake_offset"):
+		shake = feedback.get_shake_offset()
+	var fx_state: Dictionary = plasma_state.get_plasma_fx_state(shake)
+	var phase_active: bool = bool(fx_state.get("phase_active", false))
+	var host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
+	if host == null:
+		if not phase_active:
+			return
+		host = SmasherPlasmaFxHost.new()
+		host.name = "SmasherPlasmaFxHost"
+		canvas.add_child(host)
+	if host.has_method("sync_state"):
+		var game_offset: Vector2 = draw_context.get("game_offset", Vector2.ZERO)
+		var render_scale: float = maxf(0.001, float(draw_context.get("render_scale", 1.0)))
+		var playfield_pos: Vector2 = fx_state.get("pos", Vector2.ZERO)
+		fx_state["pos"] = game_offset + playfield_pos * render_scale
+		fx_state["render_scale"] = render_scale
+		fx_state["quality_scale"] = BattleRenderQuality.effect_scale(draw_context)
+		host.sync_state(fx_state, phase_active)
+	if _has_visible_effects(plasma_state) and plasma_state.has_method("draw_contact_overlay"):
+		plasma_state.draw_contact_overlay(canvas, shake)
 
 
 func draw_recovery_effects(

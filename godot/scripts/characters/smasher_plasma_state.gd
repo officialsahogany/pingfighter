@@ -2,6 +2,7 @@ extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
+const SmasherPlasmaFxHost := preload("res://scripts/characters/smasher_plasma_fx_host.gd")
 
 const SKILL_NAME := "plasma"
 const FIELD_WIDTH := 760.0
@@ -14,13 +15,22 @@ const CHARGE_DRAIN_AMOUNT := 30.0
 const MIN_GAUGE_COST := 40.0
 const MIN_CHARGE_FRAMES := 30.0
 const MAX_CHARGE_FRAMES := 180.0
-const FIELD_MIN_RADIUS := 20.0
-const FIELD_MAX_RADIUS := 80.0
-const WAVE_BASE_RADIUS := 40.0
-const WAVE_MAX_RADIUS := 100.0
+const FIELD_MIN_RADIUS := 26.0
+const FIELD_MAX_RADIUS := 104.0
+const WAVE_BASE_RADIUS := 52.0
+const WAVE_MAX_RADIUS := 130.0
 const WAVE_SPEED := 6.0
 const WAVE_DURATION_FRAMES := 180.0
 const WAVE_HOMING_SPEED := 1.2
+# 투사체 크기 +30%(FIELD 26/104, WAVE 52/130) + 차징 비례 감속/쿨타임
+# (2026-07-06 게임플레이 변경, WIP 파괴 후 재구현): 차징이 클수록 파동이
+# 최대 60% 느려지고(수명을 역비례로 늘려 도달거리는 불변), 쿨타임은
+# 발사가능 최소 차징 3초 ~ 최대 차징 15초로 비례한다.
+const WAVE_CHARGE_SLOWDOWN_MAX := 0.60
+const COOLDOWN_MIN_SECONDS := 3.0
+const COOLDOWN_MAX_SECONDS := 15.0
+const WAVE_FADE_FRAMES := 12.0
+const ENRAGED_CHARGE_THRESHOLD := 0.9
 const BASE_SLOW_AMOUNT := 0.20
 const SLOW_PER_CHARGE_TICK := 0.05
 const MAX_SLOW_AMOUNT := 0.80
@@ -43,6 +53,12 @@ var wave_pos := Vector2.ZERO
 var wave_radius := 0.0
 var wave_slow_amount := 0.0
 var wave_timer_frames := 0.0
+var wave_speed := WAVE_SPEED
+var wave_enraged := false
+var wave_fade_timer_frames := 0.0
+var wave_fade_pos := Vector2.ZERO
+var wave_fade_radius := 0.0
+var wave_fade_enraged := false
 var wave_trail: Array[Dictionary] = []
 var wave_particles: Array[Dictionary] = []
 var boss_slowed := false
@@ -78,6 +94,10 @@ func prewarm_assets_step() -> bool:
 			ImpactShockwaveTextureCache.get_wall_ring_texture("left")
 		5:
 			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
+		6:
+			# 3-피스 모듈러 VFX 호스트 프리웜(셰이더 4프리셋+텍스처 3장) —
+			# 첫 캐스트 핫패스 lazy-init을 차단한다.
+			SmasherPlasmaFxHost.prewarm_assets()
 		_:
 			_prewarm_step_index = 0
 			return true
@@ -96,6 +116,12 @@ func reset() -> void:
 	wave_radius = 0.0
 	wave_slow_amount = 0.0
 	wave_timer_frames = 0.0
+	wave_speed = WAVE_SPEED
+	wave_enraged = false
+	wave_fade_timer_frames = 0.0
+	wave_fade_pos = Vector2.ZERO
+	wave_fade_radius = 0.0
+	wave_fade_enraged = false
 	wave_trail.clear()
 	wave_particles.clear()
 	boss_slowed = false
@@ -185,6 +211,7 @@ func update_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> 
 	)
 	_update_charge_particles(fps_scale)
 	_update_wave(fps_scale, context, deps)
+	_update_wave_fade(fps_scale)
 	_update_contact_distortion(fps_scale)
 	_sync_charge_audio(deps)
 	_sync_shock_audio(deps)
@@ -226,6 +253,15 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_boss_contact_overlay(canvas, shake_offset, now)
 
 
+# 라이브 경로: 구체 본체는 3-피스 모듈러 FX 호스트가 그리고, 절차 draw는
+# 보스 접촉 오버레이만 유지한다(full draw()는 폴백/스모크 호환용 보존).
+func draw_contact_overlay(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	if canvas == null:
+		return
+	if boss_slowed or plasma_contact_distortion > 0.01:
+		_draw_boss_contact_overlay(canvas, shake_offset, Time.get_ticks_msec() / 1000.0)
+
+
 func is_charging() -> bool:
 	return charging
 
@@ -247,6 +283,7 @@ func has_visible_effects() -> bool:
 		or not charge_particles.is_empty()
 		or not wave_trail.is_empty()
 		or not wave_particles.is_empty()
+		or wave_fade_timer_frames > 0.0
 	)
 
 
@@ -307,7 +344,12 @@ func _fire_wave(special_gauge: float, player_pos: Vector2, current_msec: int, de
 	wave_radius = WAVE_BASE_RADIUS + (WAVE_MAX_RADIUS - WAVE_BASE_RADIUS) * charge_size
 	var charge_ticks: float = floor(gauge_consumed / CHARGE_DRAIN_AMOUNT)
 	wave_slow_amount = min(MAX_SLOW_AMOUNT, BASE_SLOW_AMOUNT + charge_ticks * SLOW_PER_CHARGE_TICK)
-	wave_timer_frames = WAVE_DURATION_FRAMES
+	# 차징 비례 감속(최대 60%): 큰 구체일수록 느리고 묵직하게. 수명을
+	# 역비례로 늘려 도달거리는 불변 — 소멸은 위치 조건이 소유한다.
+	wave_speed = WAVE_SPEED * (1.0 - WAVE_CHARGE_SLOWDOWN_MAX * charge_size)
+	wave_enraged = charge_size >= ENRAGED_CHARGE_THRESHOLD
+	wave_fade_timer_frames = 0.0
+	wave_timer_frames = WAVE_DURATION_FRAMES * (WAVE_SPEED / maxf(0.1, wave_speed))
 	wave_active = true
 	wave_trail.clear()
 	wave_particles.clear()
@@ -334,7 +376,7 @@ func _update_wave(fps_scale: float, context: Dictionary, deps: Dictionary) -> vo
 		shock_audio_active = false
 		return
 
-	var speed: float = WAVE_SPEED * 0.5 if boss_slowed else WAVE_SPEED
+	var speed: float = wave_speed * 0.5 if boss_slowed else wave_speed
 	wave_pos.y -= speed * fps_scale
 	var boss_center_x: float = _last_boss_pos.x + _last_boss_size.x * 0.5
 	var dx: float = boss_center_x - wave_pos.x
@@ -374,6 +416,13 @@ func _update_wave(fps_scale: float, context: Dictionary, deps: Dictionary) -> vo
 
 
 func _clear_wave(deps: Dictionary = {}) -> void:
+	# 릴리즈 테일: 파동 종료 시 12프레임 fade 페이즈(비주얼 전용)로 넘겨
+	# FX 호스트가 뚝 끊기지 않게 한다.
+	if wave_active:
+		wave_fade_timer_frames = WAVE_FADE_FRAMES
+		wave_fade_pos = wave_pos
+		wave_fade_radius = wave_radius
+		wave_fade_enraged = wave_enraged
 	wave_active = false
 	wave_trail.clear()
 	wave_particles.clear()
@@ -683,8 +732,76 @@ func _draw_boss_contact_overlay(canvas: CanvasItem, shake_offset: Vector2, now: 
 
 func _trigger_cooldown(current_msec: int, deps: Dictionary) -> void:
 	var skill_state: Object = deps.get("skill_state", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown(SKILL_NAME, current_msec, deps.get("skill_config", null))
+	if skill_state == null or not skill_state.has_method("trigger_cooldown"):
+		return
+	var seconds: float = _charge_scaled_cooldown_seconds(charge_size)
+	# 런타임/아이템 쿨감 배수는 configured 경로와 같은 실효 배수로 승계한다
+	# (configured/base 비율 — 배수 소스가 늘어도 이 비율이 전부 담는다).
+	var skill_config: Object = deps.get("skill_config", null)
+	if skill_config != null and skill_config.has_method("get_cooldown_seconds"):
+		var base: float = 8.0
+		var configured: float = float(skill_config.get_cooldown_seconds(SKILL_NAME))
+		if base > 0.0 and configured > 0.0:
+			seconds *= configured / base
+	skill_state.trigger_cooldown(SKILL_NAME, current_msec, seconds)
+
+
+# 차징 비례 쿨타임: 발사가능 최소 차징(MIN/MAX_CHARGE_FRAMES=1/6)=3초,
+# 최대 차징=15초 선형 보간.
+func _charge_scaled_cooldown_seconds(charge: float) -> float:
+	var min_charge: float = MIN_CHARGE_FRAMES / MAX_CHARGE_FRAMES
+	var charge_t: float = clampf((charge - min_charge) / maxf(0.001, 1.0 - min_charge), 0.0, 1.0)
+	return lerpf(COOLDOWN_MIN_SECONDS, COOLDOWN_MAX_SECONDS, charge_t)
+
+
+# FX 호스트 피드(3-피스 모듈러 VFX): phase/pos(플레이필드 px)/radius/
+# intensity/enraged. 드로어가 스크린 좌표 변환을 소유한다.
+func _update_wave_fade(fps_scale: float) -> void:
+	if wave_fade_timer_frames > 0.0:
+		wave_fade_timer_frames = maxf(0.0, wave_fade_timer_frames - maxf(0.0, fps_scale))
+
+
+func get_plasma_fx_state(shake_offset: Vector2 = Vector2.ZERO) -> Dictionary:
+	if charging:
+		var charge_center := Vector2(
+			_last_player_pos.x + _last_player_size.x * 0.5,
+			_last_player_pos.y - 20.0
+		)
+		return {
+			"phase": "charge",
+			"phase_active": true,
+			"pos": charge_center + shake_offset,
+			"radius": FIELD_MIN_RADIUS + (FIELD_MAX_RADIUS - FIELD_MIN_RADIUS) * charge_size,
+			"intensity": charge_size,
+			"enraged": charge_size >= ENRAGED_CHARGE_THRESHOLD,
+		}
+	if wave_active:
+		return {
+			"phase": "wave",
+			"phase_active": true,
+			"pos": wave_pos + shake_offset,
+			"radius": wave_radius,
+			"intensity": maxf(0.6, wave_slow_amount),
+			"enraged": wave_enraged,
+		}
+	if wave_fade_timer_frames > 0.0:
+		var fade_t: float = wave_fade_timer_frames / WAVE_FADE_FRAMES
+		return {
+			"phase": "fade",
+			"phase_active": true,
+			"pos": wave_fade_pos + shake_offset,
+			"radius": wave_fade_radius,
+			"intensity": 0.6 * fade_t,
+			"enraged": wave_fade_enraged,
+		}
+	return {
+		"phase": "idle",
+		"phase_active": false,
+		"pos": Vector2.ZERO,
+		"radius": 0.0,
+		"intensity": 0.0,
+		"enraged": false,
+	}
 
 
 func _play_shoot_sound(deps: Dictionary) -> void:

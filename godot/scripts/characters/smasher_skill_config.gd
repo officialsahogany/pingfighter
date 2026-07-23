@@ -2,6 +2,7 @@ extends RefCounted
 
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const SmasherPlasmaState := preload("res://scripts/characters/smasher_plasma_state.gd")
 
 const MAX_SKILL_SLOTS := 5
 const EQUIPPED_SKILLS := ["drive", "power_smashing"]
@@ -291,6 +292,14 @@ func get_skill_data(skill_name: String) -> Dictionary:
 		var data: Dictionary = value
 		data = data.duplicate(true)
 		data["cooldown"] = get_cooldown_seconds(skill_name)
+		if skill_name == "plasma":
+			# 플라즈마는 차징 비례 쿨(3~15초) — 툴팁이 단일값 대신 range로
+			# 표기할 수 있게 실효 쿨감 배수를 접은 범위를 노출한다.
+			var cooldown_scale: float = _get_effective_cooldown_multiplier()
+			data["cooldown_range"] = [
+				SmasherPlasmaState.COOLDOWN_MIN_SECONDS * cooldown_scale,
+				SmasherPlasmaState.COOLDOWN_MAX_SECONDS * cooldown_scale,
+			]
 		_localize_skill_data(data, skill_name)
 		return data
 	return {}
