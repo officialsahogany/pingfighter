@@ -1,5 +1,20 @@
 extends Node2D
 
+# 플레이필드 클립 노드. 오브 레이어는 Sprite2D(Node2D)라 Control.clip_contents로는
+# 클립되지 않는다(그건 Control 자식만 rect 클립). Node2D 자식을 rect로 클립하려면
+# 마스크를 직접 draw하고 clip_children=CLIP_CHILDREN_ONLY(마스크만, 자기 자신은
+# 렌더 안 함)로 자식을 그 마스크로 클립해야 한다.
+class PlasmaPlayfieldClip:
+	extends Control
+
+	var clip_size: Vector2 = Vector2(760.0, 750.0)
+
+	func set_clip(enabled: bool, next_size: Vector2) -> void:
+		clip_size = next_size
+		size = next_size
+		clip_contents = enabled
+
+
 # 스매셔 플라즈마 3-피스 모듈러 VFX 호스트 (절차적 라인-그리기 스타일 대체).
 #
 # 정적 텍스처 3장(Gemini imagegen, 휘도->알파 + 라디얼 마스크) + writhe-ember 셰이더
@@ -28,6 +43,14 @@ const BACKPLATE_PATH := "res://assets/sprites/skills/plasma_vfx/plasma_backplate
 const ARC_PATH := "res://assets/sprites/skills/plasma_vfx/plasma_arc.png"
 const PARTICLE_PATH := "res://assets/sprites/skills/plasma_vfx/plasma_particle.png"
 
+# 플레이필드 클립(WIP 파괴 후 재검수 회귀 수정): 오브 레이어들이 좌/우 레터박스
+# 필러까지 새어나가지 않도록 760x750 게임 영역으로 클립한다. 게임 영역은
+# render_scale와 무관하게 항상 760x750 게임 단위이므로 클립 크기는 상수
+# (stage_ball_spawn_intro_fx_host GAME_SIZE 선례). 스크린 좌표 host 아래의
+# Control이라 clip_contents로 자식 Node2D/Sprite2D를 rect 클립한다
+# (mystic_dice_paddle_fx_host 선례).
+const GAME_SIZE := Vector2(760.0, 750.0)
+
 # 오브 반경(playfield px) 대비 각 레이어의 지름 배수.
 const BACKPLATE_DIAM_MULT := 2.8   # 방전 볼트 필드: 오브 밖으로 뻗음
 const ARC_DIAM_MULT := 1.9         # 회전 자기장 필드 링: 오브에 가깝게
@@ -54,6 +77,7 @@ var elapsed_sec := 0.0
 
 var _state: Dictionary = {}
 var _phase_envelope := 1.0
+var _playfield_clip: PlasmaPlayfieldClip = null
 var _backplate: Sprite2D = null
 var _backplate_material: ShaderMaterial = null
 var _arc: Sprite2D = null
@@ -169,6 +193,20 @@ func get_debug_status() -> Dictionary:
 		"enraged": _last_enraged,
 		"phase": _last_phase,
 		"phase_envelope": _phase_envelope,
+		"playfield_clip_active": (
+			_playfield_clip != null
+			and _playfield_clip.clip_contents
+			and _playfield_clip.clip_size == GAME_SIZE
+		),
+		"layers_clipped_to_playfield": (
+			_playfield_clip != null
+			and _backplate != null and _backplate.get_parent() == _playfield_clip
+			and _arc != null and _arc.get_parent() == _playfield_clip
+			and _core != null and _core.get_parent() == _playfield_clip
+			and _particles != null and _particles.get_parent() == _playfield_clip
+		),
+		"clip_world_origin": position + scale * (_playfield_clip.position if _playfield_clip != null else Vector2.ZERO),
+		"clip_world_extent": position + scale * ((_playfield_clip.position + GAME_SIZE) if _playfield_clip != null else Vector2.ZERO),
 	}
 
 
@@ -185,6 +223,24 @@ func _apply_state() -> void:
 	var render_scale: float = max(0.01, float(_state.get("render_scale", 1.0)))
 	position = pos
 	scale = Vector2(render_scale, render_scale)
+
+	# 플레이필드 클립 앵커. 호스트는 오브(스크린) 위치에 있으므로, 클립 Control은
+	# 플레이필드 원점(clip_position, 스크린)을 host-local로 되돌린 자리에 둔다.
+	# 자식 레이어는 wobble - clip_local_origin으로 보정 → 자식 월드 =
+	# position + scale*wobble (오브 위치 불변). 클립 월드 rect = game_offset ..
+	# game_offset + GAME_SIZE*scale = 정확한 760x750 플레이필드. clip_position이
+	# 없으면(스모크/폴백) 클립을 끄고 오브를 host 원점 기준 그대로 그린다.
+	var clip_local_origin := Vector2.ZERO
+	var clip_pos_screen: Variant = _state.get("clip_position", null)
+	if _playfield_clip != null:
+		if clip_pos_screen is Vector2:
+			clip_local_origin = ((clip_pos_screen as Vector2) - position) / render_scale
+			_playfield_clip.position = clip_local_origin
+			_playfield_clip.set_clip(true, GAME_SIZE)
+		else:
+			_playfield_clip.position = Vector2.ZERO
+			_playfield_clip.set_clip(false, GAME_SIZE)
+		_playfield_clip.visible = true
 
 	var base_radius: float = max(1.0, float(_state.get("radius", 40.0)))
 	var pop_amount: float = max(0.0, _phase_envelope - 1.0)
@@ -206,7 +262,7 @@ func _apply_state() -> void:
 
 	# backplate (분위기·깊이, ADD)
 	_size_sprite(_backplate, _get_backplate_texture(), radius * BACKPLATE_DIAM_MULT)
-	_backplate.position = wobble
+	_backplate.position = wobble - clip_local_origin
 	_backplate.modulate = Color(1.0, 1.0, 1.0, clamp((0.42 + 0.42 * alpha_intensity) * quality_alpha, 0.0, 1.0))
 	_backplate.visible = true
 	if _backplate_material != null:
@@ -215,7 +271,7 @@ func _apply_state() -> void:
 
 	# arc (율동 필라멘트, ADD) — 회전 + intensity로 알파/속도
 	_size_sprite(_arc, _get_arc_texture(), radius * ARC_DIAM_MULT)
-	_arc.position = wobble
+	_arc.position = wobble - clip_local_origin
 	_arc.rotation = elapsed_sec * ARC_SPIN_SPEED * (1.0 + intensity * 0.6)
 	_arc.modulate = Color(1.0, 1.0, 1.0, clamp((0.30 + 0.55 * alpha_intensity) * quality_alpha, 0.0, 1.0))
 	_arc.visible = true
@@ -227,7 +283,7 @@ func _apply_state() -> void:
 	# 스케일 맥동으로 살린다(backplate는 셰이더로 churn하지만 코어는 MIX라 셰이더 없음).
 	var core_breath: float = 1.0 + 0.12 * sin(elapsed_sec * 5.0)
 	_size_sprite(_core, _get_backplate_texture(), radius * CORE_DIAM_MULT * core_breath)
-	_core.position = wobble
+	_core.position = wobble - clip_local_origin
 	_core.rotation = elapsed_sec * CORE_SPIN_SPEED
 	var core_pulse: float = 0.85 + 0.15 * sin(elapsed_sec * 7.0)
 	var core_tint: float = 0.7 + 0.3 * alpha_intensity
@@ -236,7 +292,7 @@ func _apply_state() -> void:
 
 	# particles (에너지 모트, ADD) — 오브 반경에서 방출, LOD 게이트
 	if _particles != null:
-		_particles.position = wobble
+		_particles.position = wobble - clip_local_origin
 		var allow: bool = quality_scale >= PARTICLE_QUALITY_GATE and alpha_intensity > 0.05
 		_particles.emitting = allow
 		var process_mat: ParticleProcessMaterial = _particles.process_material
@@ -303,6 +359,17 @@ func _build_children() -> void:
 	if _additive_material == null:
 		_additive_material = _make_additive_material()
 
+	# 클립 부모 먼저. 오브 레이어 4종은 이 Control 아래로 들어가 760x750
+	# 플레이필드로 clip_contents 클립된다. 클립 켜짐/위치는 _apply_state가
+	# clip_position(있을 때만)으로 매 프레임 세팅한다 — 없으면 clip 끔.
+	if _playfield_clip == null:
+		_playfield_clip = PlasmaPlayfieldClip.new()
+		_playfield_clip.name = "PlasmaPlayfieldClip"
+		_playfield_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_playfield_clip.clip_size = GAME_SIZE
+		_playfield_clip.size = GAME_SIZE
+		add_child(_playfield_clip)
+
 	if _backplate == null:
 		_backplate = Sprite2D.new()
 		_backplate.name = "PlasmaBackplate"
@@ -311,7 +378,7 @@ func _build_children() -> void:
 		_backplate.material = WritheEmber.build_material("smasher_plasma_orb")
 		_backplate.visible = false
 		_backplate.z_index = 0
-		add_child(_backplate)
+		_playfield_clip.add_child(_backplate)
 		_backplate_material = _backplate.material as ShaderMaterial
 
 	if _arc == null:
@@ -322,7 +389,7 @@ func _build_children() -> void:
 		_arc.material = WritheEmber.build_material("smasher_plasma_arc")
 		_arc.visible = false
 		_arc.z_index = 1
-		add_child(_arc)
+		_playfield_clip.add_child(_arc)
 		_arc_material = _arc.material as ShaderMaterial
 
 	if _core == null:
@@ -333,7 +400,7 @@ func _build_children() -> void:
 		# material=null -> 기본 MIX 블렌드 (실체 구체)
 		_core.visible = false
 		_core.z_index = 2
-		add_child(_core)
+		_playfield_clip.add_child(_core)
 
 	if _particles == null:
 		_particles = GPUParticles2D.new()
@@ -351,7 +418,7 @@ func _build_children() -> void:
 		_particles.process_material = _build_particle_process_material()
 		_particles.emitting = false
 		_particles.z_index = 3
-		add_child(_particles)
+		_playfield_clip.add_child(_particles)
 
 
 func _size_sprite(sprite: Sprite2D, texture: Texture2D, target_diameter: float) -> void:

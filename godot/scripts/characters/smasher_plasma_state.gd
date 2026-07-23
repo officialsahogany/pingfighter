@@ -184,8 +184,6 @@ func update_input(
 				result["charging"] = charging
 				return result
 			charge_size = min(1.0, charge_time_frames / MAX_CHARGE_FRAMES)
-			if int(charge_time_frames) % 2 == 0:
-				_spawn_charge_particle()
 	else:
 		if charging:
 			if charge_time_frames >= MIN_CHARGE_FRAMES and gauge_consumed > 0.0:
@@ -209,7 +207,11 @@ func update_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> 
 		max(1.0, float(context.get("boss_paddle_width", _last_boss_size.x))),
 		max(1.0, float(context.get("boss_hitbox_height", _last_boss_size.y)))
 	)
-	_update_charge_particles(fps_scale)
+	# 절차적 CPU 파티클(charge_particles/wave_trail/wave_particles) 갱신은 은퇴했다.
+	# 오브 비주얼은 이제 SmasherPlasmaFxHost(GPUParticles2D 포함)가 소유하며, 이
+	# Dictionary 배열들은 런타임에서 그려지지 않는(죽은) draw() 경로만 읽는다.
+	# 배열 선언 / .clear() / export는 계약 안정을 위해 남기되 매 프레임 spawn/update
+	# 비용은 제거한다(항상 빈 배열 유지).
 	_update_wave(fps_scale, context, deps)
 	_update_wave_fade(fps_scale)
 	_update_contact_distortion(fps_scale)
@@ -383,16 +385,8 @@ func _update_wave(fps_scale: float, context: Dictionary, deps: Dictionary) -> vo
 	if abs(dx) > 2.0:
 		wave_pos.x += sign(dx) * WAVE_HOMING_SPEED * fps_scale
 
-	if wave_trail.is_empty() or int(wave_timer_frames) % 3 == 0:
-		wave_trail.append({
-			"pos": wave_pos,
-			"radius": wave_radius,
-			"alpha": 0.47,
-		})
-	_update_wave_trail(fps_scale)
-	_spawn_wave_particle()
-	_update_wave_particles(fps_scale)
-
+	# 은퇴한 절차 트레일/파티클 피드(wave_trail/wave_particles) 제거 — FX 호스트가
+	# 오브 비주얼을 소유. wave_pos 전진/유도/둔화 게임플레이는 위/아래에서 그대로.
 	var boss_in_plasma: bool = _is_boss_inside_wave()
 	if boss_in_plasma:
 		boss_slowed = true

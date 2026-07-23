@@ -17,6 +17,7 @@ func _init() -> void:
 	_test_max_charge_wave_reaches_top()
 	_test_charge_scaled_cooldown()
 	_test_charge_scaled_cooldown_multiplier_and_tooltip_range()
+	_test_retired_cpu_particles_stay_empty()
 	print("smasher_plasma_charge_size_speed_smoke: ok")
 	quit(0)
 
@@ -163,6 +164,38 @@ func _test_charge_scaled_cooldown_multiplier_and_tooltip_range() -> void:
 	var cooldown_range: Array = range_value
 	_expect(absf(float(cooldown_range[0]) - 1.5) < 0.01, "tooltip minimum cooldown range should include cooldown multiplier")
 	_expect(absf(float(cooldown_range[1]) - 7.5) < 0.01, "tooltip maximum cooldown range should include cooldown multiplier")
+
+
+# 은퇴한 절차 CPU 파티클(charge_particles/wave_trail/wave_particles)이 매 프레임
+# 갱신되지 않고 항상 빈 배열인지 봉인 — FX 호스트(GPUParticles2D)가 오브 비주얼을
+# 소유하므로 이 Dictionary 배열들의 spawn/update per-frame 비용은 은퇴했다.
+func _test_retired_cpu_particles_stay_empty() -> void:
+	var state := SmasherPlasmaState.new()
+	var skill_config := SmasherSkillConfig.new()
+	var skill_state := SmasherSkillState.new()
+	_expect(skill_config.unlock_and_equip_skill("plasma"), "plasma should equip for retirement seal")
+	var deps := {"skill_config": skill_config, "skill_state": skill_state}
+	var config := {"ball_active": true, "paddle_width": 155.0, "paddle_height": 50.0, "gauge_max": 500.0}
+	var gauge := 500.0
+	for i in range(120):
+		var r: Dictionary = state.update_input({"up_pressed": true}, 1000 + i * 16, gauge, PLAYER_POS, config, deps)
+		gauge = float(r.get("special_gauge", gauge))
+	_expect((state.get_draw_context().get("smasher_plasma_charge_particles", []) as Array).is_empty(), "charge_particles must stay empty every frame (retired CPU feed)")
+	state.update_input({"up_pressed": false}, 1000 + 120 * 16, gauge, PLAYER_POS, config, deps)
+	_expect(bool(state.get_draw_context().get("smasher_plasma_wave_active", false)), "release should fire the wave for the retirement seal")
+	var ctx := {
+		"current_stage": 1,
+		"player_pos": PLAYER_POS,
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(20.0, 20.0),
+		"boss_paddle_width": 40.0,
+		"boss_hitbox_height": 20.0,
+	}
+	for _f in range(20):
+		state.update_effects(1.0, ctx, deps)
+	var dc: Dictionary = state.get_draw_context()
+	_expect((dc.get("smasher_plasma_wave_trail", []) as Array).is_empty(), "wave_trail must stay empty every frame (retired CPU feed)")
+	_expect((dc.get("smasher_plasma_wave_particles", []) as Array).is_empty(), "wave_particles must stay empty every frame (retired CPU feed)")
 
 
 func _expect(condition: bool, message: String) -> void:

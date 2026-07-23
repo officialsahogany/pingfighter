@@ -95,14 +95,45 @@ func _run() -> void:
 		var expected_wave_pos: Vector2 = GAME_OFFSET + _as_vector2(wave_fx.get("pos", Vector2.ZERO), Vector2.ZERO) * RENDER_SCALE
 		_expect(wave_host.visible, "plasma host should stay visible while the projectile is active")
 		_expect_vector2_close(wave_host.position, expected_wave_pos, "wave host should follow the projectile in screen space")
+		var wave_dbg: Dictionary = wave_host.get_debug_status()
+		_expect(bool(wave_dbg.get("particle_emitting", false)), "active plasma wave should have GPU particles emitting (residue precondition)")
 
+	# 캐릭터 전환: 호스트가 숨을 뿐 아니라 GPU 파티클 방출까지 멈춰야 한다
+	# (visible=false만으로는 emitting이 계속됨 = P2 잔류 회귀).
 	_drawer.draw_plasma_effects(_probe, _registry, Vector2.ZERO, _draw_context("viper"))
 	_expect(host != null and not host.visible, "plasma host should hide outside smasher context")
+	var leave_dbg: Dictionary = host.get_debug_status() if host != null else {}
+	_expect(not bool(leave_dbg.get("particle_emitting", true)), "plasma host must stop emitting particles on character switch (not just hide)")
+	_expect(not bool(leave_dbg.get("active", true)), "plasma host must be inactive on character switch")
 
 	_registry.instances.erase("smasher_plasma_state")
 	_drawer.draw_plasma_effects(_probe, _registry, Vector2.ZERO, _draw_context("smasher"))
 	_expect(host != null and not host.visible, "plasma host should stay hidden when the plasma state is absent")
+	var absent_dbg: Dictionary = host.get_debug_status() if host != null else {}
+	_expect(not bool(absent_dbg.get("particle_emitting", true)), "plasma host must not emit when the plasma state is absent")
+
+	_verify_inactive_prewarm_on_first_frame()
 	_finish()
+
+
+# 레이지-init 제거: 첫 스매셔 프레임(진입, 아직 차징 전 = phase_active false)에
+# 호스트가 비활성으로 미리 생성되는지 — 첫 캐스트 프레임 콜드 생성 히치 제거.
+func _verify_inactive_prewarm_on_first_frame() -> void:
+	var probe := PlasmaVisualProbe.new()
+	probe.name = "PlasmaPrewarmProbe"
+	get_root().add_child(probe)
+	var idle_registry := FakeRegistry.new()
+	idle_registry.instances["battle_view_layout"] = BattleViewLayout.new()
+	idle_registry.instances["battle_feedback_state"] = FakeFeedback.new(Vector2.ZERO)
+	idle_registry.instances["smasher_plasma_state"] = SmasherPlasmaState.new()  # 갓 생성 = 차징/파동 없음
+	_drawer.draw_plasma_effects(probe, idle_registry, Vector2.ZERO, _draw_context("smasher"))
+	var idle_host: Node = probe.get_node_or_null(HOST_NAME)
+	_expect(idle_host != null, "plasma host must be pre-created inactive on the first smasher frame (before any cast)")
+	if idle_host != null:
+		_expect(not idle_host.visible, "prewarmed plasma host must enter inactive (not visible) before a cast")
+		var idle_dbg: Dictionary = idle_host.get_debug_status()
+		_expect(not bool(idle_dbg.get("particle_emitting", true)), "prewarmed plasma host must not emit before a cast")
+	probe.queue_free()
 
 
 func _draw_context(character_type: String) -> Dictionary:

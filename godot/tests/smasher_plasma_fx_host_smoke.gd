@@ -79,7 +79,7 @@ func _verify_active_charge_state() -> void:
 	_expect(bool(dbg.get("arc_shader_ready", false)), "arc should use the writhe-ember shader (ADD light)")
 	_expect(bool(dbg.get("core_blend_mix", false)), "core should be a plain MIX sprite (실체), not the additive shader")
 	# 파티클은 additive CanvasItemMaterial이어야 한다.
-	var particles: Node = _host.get_node_or_null("PlasmaParticles")
+	var particles: Node = _host.get_node_or_null("PlasmaPlayfieldClip/PlasmaParticles")
 	_expect(particles != null, "particle node should exist")
 	if particles != null:
 		var mat = particles.material
@@ -147,7 +147,7 @@ func _verify_cleanup() -> void:
 	var dbg: Dictionary = _host.get_debug_status()
 	_expect(not bool(dbg.get("particle_emitting", true)), "particles should stop emitting on cleanup")
 	for child_name in ["PlasmaBackplate", "PlasmaArc", "PlasmaCore"]:
-		var child: Node = _host.get_node_or_null(child_name)
+		var child: Node = _host.get_node_or_null("PlasmaPlayfieldClip/" + child_name)
 		_expect(child != null and not (child as CanvasItem).visible, "child should hide on cleanup: " + child_name)
 
 

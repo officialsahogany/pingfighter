@@ -692,18 +692,44 @@ func _draw_cost_and_cooldown_line(
 		cooldown_seconds,
 		hover_context
 	)
-	var cooldown_text: String
-	var cooldown_color: Color
-	var cooldown_label := LanguageSettings.translate_text("쿨타임")
-	var seconds_suffix := LanguageSettings.translate_text("초")
-	if cooldown_ratio > 0.0:
-		cooldown_text = "%s: %.1f%s" % [cooldown_label, cooldown_seconds * cooldown_ratio, seconds_suffix]
-		cooldown_color = Color(1.0, 180.0 / 255.0, 80.0 / 255.0)
-	else:
-		cooldown_text = "%s: %s%s" % [cooldown_label, _format_number(cooldown_seconds), seconds_suffix]
-		cooldown_color = Color(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0)
+	var cooldown_text: String = _compose_cooldown_text(skill_data, hover_context, cooldown_seconds, cooldown_ratio)
+	var cooldown_color: Color = Color(1.0, 180.0 / 255.0, 80.0 / 255.0) if cooldown_ratio > 0.0 else Color(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0)
 	var cd_size: Vector2 = font.get_string_size(cooldown_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, small_size)
 	_draw_text(canvas, font, Vector2(tooltip_pos.x + tooltip_width - padding - cd_size.x, y + 2.0), cooldown_text, small_size, cooldown_color)
+
+
+# 쿨타임 표기 조립. 가변 쿨타임 스킬(플라즈마: skill_data["cooldown_range"] 보유)은
+# 대기 중엔 "min~max초" 범위를, 발동 중엔 실제로 걸린 총쿨(skill_state가 저장한
+# 이번 시전 cooldown_msec) × 잔여비율을 표시한다. 범위 데이터가 없는 다른 모든
+# 스킬은 이전과 바이트-동일한 두 포맷 문자열로 폴백한다(플라즈마만 분기).
+func _compose_cooldown_text(skill_data: Dictionary, hover_context: Dictionary, cooldown_seconds: float, cooldown_ratio: float) -> String:
+	var cooldown_label := LanguageSettings.translate_text("쿨타임")
+	var seconds_suffix := LanguageSettings.translate_text("초")
+	var cooldown_range: Array = _get_cooldown_range(skill_data)
+	var has_range: bool = cooldown_range.size() == 2
+	if cooldown_ratio > 0.0:
+		var active_total: float = cooldown_seconds
+		if has_range:
+			var state_total: float = _get_active_cooldown_total_seconds(hover_context.get("skill_state", null), str(skill_data.get("name", "")))
+			if state_total > 0.0:
+				active_total = state_total
+		return "%s: %.1f%s" % [cooldown_label, active_total * cooldown_ratio, seconds_suffix]
+	if has_range:
+		return "%s: %s~%s%s" % [cooldown_label, _format_number(cooldown_range[0]), _format_number(cooldown_range[1]), seconds_suffix]
+	return "%s: %s%s" % [cooldown_label, _format_number(cooldown_seconds), seconds_suffix]
+
+
+func _get_cooldown_range(skill_data: Dictionary) -> Array:
+	var value: Variant = skill_data.get("cooldown_range", null)
+	if value is Array and (value as Array).size() == 2:
+		return [float((value as Array)[0]), float((value as Array)[1])]
+	return []
+
+
+func _get_active_cooldown_total_seconds(skill_state: Object, skill_name: String) -> float:
+	if skill_state != null and skill_state.has_method("get_cooldown_total_seconds"):
+		return float(skill_state.get_cooldown_total_seconds(skill_name))
+	return 0.0
 
 
 func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context: Dictionary) -> String:

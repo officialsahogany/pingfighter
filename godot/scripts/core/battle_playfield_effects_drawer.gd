@@ -408,10 +408,15 @@ func draw_plasma_effects(
 		or not plasma_state.has_method("get_plasma_fx_state")
 	):
 		# 캐릭터 전환 / 상태 부재 프레임에도 기존 호스트가 잔상으로 남지 않게
-		# 같은 draw 호출 안에서 동기 숨김한다(씰이 await 없이 검사).
+		# 같은 draw 호출 안에서 동기 정리한다(씰이 await 없이 검사). visible=false
+		# 만으로는 GPUParticles2D가 계속 emit하므로(visible과 emitting은 독립)
+		# set_active(false)로 파티클 방출까지 멈춘다.
 		var stale_host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
 		if stale_host != null:
-			stale_host.visible = false
+			if stale_host.has_method("set_active"):
+				stale_host.set_active(false)
+			else:
+				stale_host.visible = false
 		return
 	# 셰이크는 공유 피드백 상태가 있으면 그쪽을 정본으로 쓴다(플레이필드 씬
 	# 드로어와 동일 선례) — 없으면 호출자 인자 폴백.
@@ -421,10 +426,12 @@ func draw_plasma_effects(
 		shake = feedback.get_shake_offset()
 	var fx_state: Dictionary = plasma_state.get_plasma_fx_state(shake)
 	var phase_active: bool = bool(fx_state.get("phase_active", false))
+	# 첫 스매셔 프레임(진입)에 호스트를 비활성으로 미리 생성한다 — 첫 캐스트
+	# 프레임에 노드/재질/GPUParticles를 콜드 생성하던 hot-path lazy-init 히치를
+	# 제거한다. _ready가 빈 _state로 set_active(false)를 호출해 비활성 진입.
+	# phase_active=false 프레임은 아래 sync_state가 set_active(false)로 값싸게 유지.
 	var host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
 	if host == null:
-		if not phase_active:
-			return
 		host = SmasherPlasmaFxHost.new()
 		host.name = "SmasherPlasmaFxHost"
 		canvas.add_child(host)
@@ -435,6 +442,9 @@ func draw_plasma_effects(
 		fx_state["pos"] = game_offset + playfield_pos * render_scale
 		fx_state["render_scale"] = render_scale
 		fx_state["quality_scale"] = BattleRenderQuality.effect_scale(draw_context)
+		# 플레이필드 클립 원점(스크린) — 호스트가 오브 레이어를 760x750 게임
+		# 영역으로 클립해 좌/우 레터박스 침범을 막는다.
+		fx_state["clip_position"] = game_offset
 		host.sync_state(fx_state, phase_active)
 	if _has_visible_effects(plasma_state) and plasma_state.has_method("draw_contact_overlay"):
 		plasma_state.draw_contact_overlay(canvas, shake)
