@@ -573,6 +573,17 @@ GREEN이고 실전에서 죽는다 — 공용 헬퍼 관통 + 실 `get_snapshot(
 projection 비어있으면 fail-closed 가드 + 씰 CI 락스텝 등재까지가 한 단위.
 Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot 프리웜 경량-값-위해 무거운-모듈 콜드생성 트랩
+
+프리웜/워밍이 값 하나 때문에 그 값을 소유한 무거운 모듈을 강제 인스턴스화하면
+전환 프레임에 그 모듈 콜드 로드가 통째로 얹힌다(stage_clear_result_screen
+골드 위해 1237ms/fps=2 사례). 그 값이 경량 리더로도 동일하게 얻어지고 무거운
+모듈이 거기에 위임만 하는 중간자면 특히 낭비 — 경량 소스 직접 읽기로 워밍하고,
+무거운 모듈은 자연 필요 시점에 생성, draw/consume은 non-instantiating peek 유지.
+스텝형 프리웜 단일 프레임 1초+ 스톨=한 모듈 콜드생성 → 로더 헬퍼에 임계-게이트
+경고(모듈키+ms) 심어 라이브 1판으로 범인 특정(존치=회귀 트립와이어).
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot HUD 상시-가시성 승격 × 프리미엄 절차 드로우 트랩
 
 비용 = 단가 × 유병률: 프리미엄 절차 리드로우(단가↑)와 가시성 게이트 확장
