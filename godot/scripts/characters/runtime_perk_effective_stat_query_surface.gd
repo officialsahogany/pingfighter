@@ -9,8 +9,39 @@ func get_runtime_skill_level_from_runtime_state(runtime_state: Object, skill_id:
 	return get_runtime_skill_level(_get_effective_levels(runtime_state), runtime_state, skill_id)
 
 
+# 전환 퍽 유효레벨 메모 — mythic sync·HUD·게임플레이가 틱당 수십 회
+# 재조회하는 최다빈도 쿼리(2026-07-23 sync_after 재분해: 리프 조회 7.8us ×
+# 틱당 ~60회가 컨텍스트 빌드 층 61%의 본체). 유효레벨은 (해당 퍽 raw 레벨,
+# 아이템 퍽 레벨 보너스, 점화 오라 플래그, 융합 리비전)의 순수 함수이므로
+# 무효화 훅 없이 매 호출 O(1) 입력 대조로 유효성을 재유도한다 — 입력이
+# 하나라도 다르면 즉시 재계산이라 스테일이 구조적으로 불가능하다(융합
+# 레코드 변이는 전부 perk_fusion_state._revision을 bump함을 확인).
+var _converted_level_memo: Dictionary = {}
+
+
 func get_converted_perk_effect_level_from_runtime_state(runtime_state: Object, perk_id: String) -> int:
-	return get_converted_perk_effect_level(_get_effective_levels(runtime_state), runtime_state, perk_id)
+	var clean_id: String = perk_id.strip_edges()
+	if clean_id.is_empty():
+		return 0
+	var raw_level: int = int(_get_runtime_skill_levels(runtime_state).get(clean_id, 0))
+	var item_bonus: int = _get_item_perk_level_bonus(runtime_state)
+	var ignition: bool = _is_viper_ignition_aura_active(runtime_state)
+	var fusion_revision: int = RuntimePerkRuntimeStateAccess.call_int(runtime_state, "get_perk_fusion_revision")
+	var state_id: int = runtime_state.get_instance_id() if runtime_state != null else 0
+	var cached: Variant = _converted_level_memo.get(clean_id)
+	if cached is Array and (cached as Array).size() == 6:
+		var entry: Array = cached
+		if (
+			int(entry[0]) == raw_level
+			and int(entry[1]) == item_bonus
+			and bool(entry[2]) == ignition
+			and int(entry[3]) == fusion_revision
+			and int(entry[4]) == state_id
+		):
+			return int(entry[5])
+	var resolved: int = get_converted_perk_effect_level(_get_effective_levels(runtime_state), runtime_state, clean_id)
+	_converted_level_memo[clean_id] = [raw_level, item_bonus, ignition, fusion_revision, state_id, resolved]
+	return resolved
 
 
 func get_effective_runtime_skill_levels_from_runtime_state(runtime_state: Object) -> Dictionary:
