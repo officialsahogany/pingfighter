@@ -50,7 +50,7 @@ func _run() -> void:
 	_verify_no_render_error_and_enraged_swap()
 	await _verify_runtime_pixels_if_available()
 	_verify_no_center_fallback()
-	_verify_live_drawer_wiring()
+	await _verify_live_drawer_wiring()
 	_verify_cleanup()
 	_finish()
 
@@ -221,10 +221,11 @@ class FakeDrawerRegistry:
 		return null
 
 
-# 라이브 배선 씰(WIP 파괴 후 재배선): draw_plasma_effects가 ①호스트를
-# 캔버스 자식으로 붙이고 FX 좌표식(screen = game_offset + (playfield_pos +
-# shake) × render_scale)으로 sync하며 ②절차적 charge/wave draw()는 은퇴,
-# 접촉 오버레이만 절차 draw로 유지하는지 스파이로 봉인한다.
+# 라이브 배선 씰(WIP 파괴 후 재배선 + 재검수 P2): draw_plasma_effects가
+# ①호스트를 즉시모드 draw 안에서 동기 생성하지 않고 call_deferred로 붙이며(구성=
+# _draw 밖) ②트리에 들어온 뒤 FX 좌표식(screen = game_offset + (playfield_pos +
+# shake) × render_scale)으로 sync하며 ③절차적 charge/wave draw()는 은퇴하되 접촉
+# 오버레이는 호스트 준비와 무관하게 매 프레임 그리는지 스파이로 봉인한다.
 func _verify_live_drawer_wiring() -> void:
 	var effects_drawer: Object = load("res://scripts/core/battle_playfield_effects_drawer.gd").new()
 	var canvas := Node2D.new()
@@ -238,9 +239,17 @@ func _verify_live_drawer_wiring() -> void:
 		"game_offset": Vector2(550.0, 60.0),
 		"render_scale": 1.5,
 	}
+	# 첫 draw: 호스트는 즉시모드 draw에서 동기 생성되면 안 된다(deferred). 접촉
+	# 오버레이는 호스트와 무관하게 이번 프레임에도 그려야 한다.
 	effects_drawer.draw_plasma_effects(canvas, registry, shake, draw_context)
+	_expect(canvas.get_node_or_null("SmasherPlasmaFxHost") == null, "live drawer must NOT create the host synchronously in the immediate draw path (deferred add_child)")
+	_expect(spy.draw_calls == 0, "live path must retire the procedural charge/wave draw() (modular host owns the orb)")
+	_expect(spy.contact_calls == 1, "boss-contact overlay must draw even while the host is deferred-creating")
+	await process_frame
 	var live_host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
-	_expect(live_host != null, "live drawer should attach the plasma FX host as a canvas child")
+	_expect(live_host != null, "live drawer should attach the plasma FX host as a canvas child after one idle frame")
+	# 두 번째 draw: 트리에 들어온 호스트를 조회해 sync(좌표 계약).
+	effects_drawer.draw_plasma_effects(canvas, registry, shake, draw_context)
 	if live_host != null:
 		var expected_pos: Vector2 = Vector2(550.0, 60.0) + (Vector2(300.0, 400.0) + shake) * 1.5
 		_expect(
@@ -250,6 +259,6 @@ func _verify_live_drawer_wiring() -> void:
 				str(expected_pos),
 			]
 		)
-	_expect(spy.draw_calls == 0, "live path must retire the procedural charge/wave draw() (modular host owns the orb)")
-	_expect(spy.contact_calls == 1, "live path must keep the procedural boss-contact overlay draw")
+	_expect(spy.draw_calls == 0, "live path must retire the procedural charge/wave draw() across both frames")
+	_expect(spy.contact_calls == 2, "boss-contact overlay must draw on the sync frame too")
 	canvas.queue_free()

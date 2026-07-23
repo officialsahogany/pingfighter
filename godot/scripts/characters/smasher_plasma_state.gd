@@ -95,9 +95,17 @@ func prewarm_assets_step() -> bool:
 		5:
 			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
 		6:
-			# 3-피스 모듈러 VFX 호스트 프리웜(셰이더 4프리셋+텍스처 3장) —
-			# 첫 캐스트 핫패스 lazy-init을 차단한다.
+			# 3-피스 모듈러 VFX 호스트 자산 프리웜(셰이더 4프리셋+텍스처 3장).
 			SmasherPlasmaFxHost.prewarm_assets()
+		7:
+			# 노드 파이프라인 프리웜: 셰이더/재질/GPUParticles2D 노드 생성을 버려질
+			# 인스턴스로 부트에서 warm → 첫 스매셔 드로 프레임의 콜드 노드 생성 hitch
+			# 제거(커맨도 화기 호스트 선례). 실 호스트 생성은 드로어가 call_deferred로
+			# _draw 밖에서 붙인다.
+			var fx_probe: Node = SmasherPlasmaFxHost.new()
+			if fx_probe != null and fx_probe.has_method("prewarm_node_pipeline"):
+				fx_probe.prewarm_node_pipeline()
+				fx_probe.free()
 		_:
 			_prewarm_step_index = 0
 			return true

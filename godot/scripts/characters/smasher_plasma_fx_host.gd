@@ -1,9 +1,12 @@
 extends Node2D
 
-# 플레이필드 클립 노드. 오브 레이어는 Sprite2D(Node2D)라 Control.clip_contents로는
-# 클립되지 않는다(그건 Control 자식만 rect 클립). Node2D 자식을 rect로 클립하려면
-# 마스크를 직접 draw하고 clip_children=CLIP_CHILDREN_ONLY(마스크만, 자기 자신은
-# 렌더 안 함)로 자식을 그 마스크로 클립해야 한다.
+# 플레이필드 클립 노드. **정본: Control.clip_contents=true가 Sprite2D(Node2D)
+# 자식도 rect로 클립한다**(비헤드리스 픽셀 증적: 클립 ON에서 레터박스 lit 0,
+# OFF에서 >0 — mystic_dice_paddle_fx_host 선례). Control 자식뿐 아니라 Node2D
+# 자식에도 먹으므로 마스크 draw가 필요 없다. ⚠️`clip_children=CLIP_CHILDREN_ONLY`
+# 마스크 방식은 시도했으나 ADD 블렌드 Sprite2D를 완전히 못 잘라(레터박스 5716
+# 잔류) 폐기했다 — clip_children로 되돌리지 말 것. 상세=docs/godot_runtime_traps.md
+# "스크린-공간 FX 호스트 플레이필드 클립 트랩".
 class PlasmaPlayfieldClip:
 	extends Control
 
@@ -103,6 +106,19 @@ static func prewarm_assets() -> void:
 	_get_arc_texture()
 	_get_particle_texture()
 	_prewarmed = true
+
+
+# 노드 파이프라인 프리웜(커맨도 화기 호스트 선례): 셰이더/재질/GPUParticles2D
+# 노드 생성 비용을 버려질 인스턴스로 부트에서 warm한다. prewarm_assets(정적 텍스처/
+# 셰이더 리소스)만으로는 노드/재질 생성 hitch가 남으므로 이 메서드로 _build_children
+# 파이프라인까지 warm한 뒤 free한다. 첫 캐스트/첫 스매셔 드로 프레임의 콜드 노드
+# 생성 hitch를 제거한다. Idempotent.
+func prewarm_node_pipeline() -> void:
+	prewarm_assets()
+	if _additive_material == null:
+		_additive_material = _make_additive_material()
+	_build_children()
+	set_active(false)
 
 
 static func build_pipeline_status() -> Dictionary:

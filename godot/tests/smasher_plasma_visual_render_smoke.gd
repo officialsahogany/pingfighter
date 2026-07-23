@@ -66,8 +66,21 @@ func _run() -> void:
 	var charge_state: Object = _make_charging_state()
 	_expect(charge_state.is_charging(), "charge fixture should be charging")
 	_registry.instances["smasher_plasma_state"] = charge_state
+
+	# P2 씰(재검수): 호스트 노드 생성은 즉시모드 _draw() 안에서 동기로 일어나면
+	# 안 된다. 첫 draw 직후(await 전) 호스트가 아직 트리에 없어야 한다 —
+	# call_deferred(add_child)로 _ready→_build_children(Sprite/재질/GPUParticles)이
+	# idle에서 돌기 때문. (부트 prewarm_node_pipeline이 파이프라인을 이미 warm.)
 	_drawer.draw_plasma_effects(_probe, _registry, Vector2.ZERO, _draw_context("smasher"))
+	_expect(_probe.get_node_or_null(HOST_NAME) == null, "plasma host must NOT be created synchronously inside the immediate draw path (deferred add_child)")
 	await process_frame
+	var created_host: Node = _probe.get_node_or_null(HOST_NAME)
+	_expect(created_host != null, "plasma host should attach via deferred add after one idle frame (construction off the _draw path)")
+	if created_host != null:
+		_expect(not created_host.visible, "deferred-created host enters inactive until the next draw syncs it")
+
+	# 두 번째 draw: 트리에 들어온 호스트를 조회해 sync(활성).
+	_drawer.draw_plasma_effects(_probe, _registry, Vector2.ZERO, _draw_context("smasher"))
 	await process_frame
 
 	var host: Node = _probe.get_node_or_null(HOST_NAME)
@@ -112,12 +125,12 @@ func _run() -> void:
 	var absent_dbg: Dictionary = host.get_debug_status() if host != null else {}
 	_expect(not bool(absent_dbg.get("particle_emitting", true)), "plasma host must not emit when the plasma state is absent")
 
-	_verify_inactive_prewarm_on_first_frame()
+	await _verify_inactive_prewarm_on_first_frame()
 	_finish()
 
 
 # 레이지-init 제거: 첫 스매셔 프레임(진입, 아직 차징 전 = phase_active false)에
-# 호스트가 비활성으로 미리 생성되는지 — 첫 캐스트 프레임 콜드 생성 히치 제거.
+# 호스트가 deferred로 비활성 생성되는지 — 구성이 _draw() 밖(idle)에서 일어나야 한다.
 func _verify_inactive_prewarm_on_first_frame() -> void:
 	var probe := PlasmaVisualProbe.new()
 	probe.name = "PlasmaPrewarmProbe"
@@ -126,9 +139,12 @@ func _verify_inactive_prewarm_on_first_frame() -> void:
 	idle_registry.instances["battle_view_layout"] = BattleViewLayout.new()
 	idle_registry.instances["battle_feedback_state"] = FakeFeedback.new(Vector2.ZERO)
 	idle_registry.instances["smasher_plasma_state"] = SmasherPlasmaState.new()  # 갓 생성 = 차징/파동 없음
+	# 첫 draw: 동기 생성 금지(deferred add) — draw 직후 호스트가 아직 트리에 없어야.
 	_drawer.draw_plasma_effects(probe, idle_registry, Vector2.ZERO, _draw_context("smasher"))
+	_expect(probe.get_node_or_null(HOST_NAME) == null, "idle-frame host must be created via deferred add, not synchronously in draw")
+	await process_frame
 	var idle_host: Node = probe.get_node_or_null(HOST_NAME)
-	_expect(idle_host != null, "plasma host must be pre-created inactive on the first smasher frame (before any cast)")
+	_expect(idle_host != null, "plasma host must be created (deferred) on the first smasher frame, before any cast")
 	if idle_host != null:
 		_expect(not idle_host.visible, "prewarmed plasma host must enter inactive (not visible) before a cast")
 		var idle_dbg: Dictionary = idle_host.get_debug_status()

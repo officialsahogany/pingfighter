@@ -35,10 +35,12 @@ func _run() -> void:
 		return
 
 	# 클립 없이: 레터박스에 새어나가는 픽셀이 존재해야 테스트가 유효(bleed 감지 가능).
+	# 비헤드리스(윈도우드 QA)인데 뷰포트 텍스처를 못 얻으면 fail-closed — 실제
+	# 판정 없이 성공 종료하면 클립 회귀를 조용히 통과시킨다.
 	var uncl_lb: int = await _render_and_count_letterbox(false)
+	_expect(uncl_lb >= 0, "windowed QA must obtain a viewport texture to verify the clip (fail-closed on missing texture)")
 	if uncl_lb < 0:
-		print("smasher_plasma_clip_letterbox_pixel_smoke: pixel QA skipped (no viewport texture)")
-		quit(0)
+		quit(1)
 		return
 	_expect(uncl_lb > 0, "unclipped orb near the left edge must bleed into the letterbox (else the test can't detect a clip regression)")
 

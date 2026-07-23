@@ -12,6 +12,7 @@ var _method_acceptance_cache: Dictionary = {}
 var _last_actor_stage_for_transient_cleanup: int = -1
 var _last_actor_renderer_id_for_transient_cleanup: int = 0
 var _inactive_actor_transient_cleanup_frames_remaining: int = 0
+var _plasma_fx_host: Node = null
 var character_runtime: Object = PlayerCharacterRuntime.new()
 
 
@@ -426,16 +427,15 @@ func draw_plasma_effects(
 		shake = feedback.get_shake_offset()
 	var fx_state: Dictionary = plasma_state.get_plasma_fx_state(shake)
 	var phase_active: bool = bool(fx_state.get("phase_active", false))
-	# 첫 스매셔 프레임(진입)에 호스트를 비활성으로 미리 생성한다 — 첫 캐스트
-	# 프레임에 노드/재질/GPUParticles를 콜드 생성하던 hot-path lazy-init 히치를
-	# 제거한다. _ready가 빈 _state로 set_active(false)를 호출해 비활성 진입.
-	# phase_active=false 프레임은 아래 sync_state가 set_active(false)로 값싸게 유지.
-	var host: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
-	if host == null:
-		host = SmasherPlasmaFxHost.new()
-		host.name = "SmasherPlasmaFxHost"
-		canvas.add_child(host)
-	if host.has_method("sync_state"):
+	# 호스트 노드 생성/부착은 즉시모드 _draw() 밖에서 한다(재검수 P2). 부재 시
+	# call_deferred로 붙여 _ready→_build_children(Sprite/재질/GPUParticles 생성)이
+	# idle에서 돌게 하고, 이번 프레임은 sync를 생략한다(다음 프레임에 트리에
+	# 들어온 호스트를 조회해 sync). 노드 파이프라인은 부트 prewarm_node_pipeline이
+	# 이미 warm하므로 deferred 구성도 값싸다.
+	var host: Node = _get_or_create_plasma_host(canvas)
+	# 호스트가 deferred 생성 중(첫 프레임 null)이면 이번 프레임 sync는 건너뛴다 —
+	# 접촉 오버레이는 호스트와 무관(플라즈마 state가 직접 그림)하므로 항상 그린다.
+	if host != null and host.has_method("sync_state"):
 		var game_offset: Vector2 = draw_context.get("game_offset", Vector2.ZERO)
 		var render_scale: float = maxf(0.001, float(draw_context.get("render_scale", 1.0)))
 		var playfield_pos: Vector2 = fx_state.get("pos", Vector2.ZERO)
@@ -448,6 +448,40 @@ func draw_plasma_effects(
 		host.sync_state(fx_state, phase_active)
 	if _has_visible_effects(plasma_state) and plasma_state.has_method("draw_contact_overlay"):
 		plasma_state.draw_contact_overlay(canvas, shake)
+
+
+# 플라즈마 FX 호스트 조회/생성(커맨도 화기 호스트 선례). 반환값 규약: 트리에
+# 들어와 sync 준비된 호스트만 반환, 생성 대기 중이면 null(호출자가 sync 생략).
+# 없으면 SmasherPlasmaFxHost.new()(값싼 alloc) + set_active(false) 후
+# canvas.call_deferred("add_child") 로 붙인다 — 실제 노드 구성(_ready→
+# _build_children: Sprite/ShaderMaterial/GPUParticles2D)은 idle에서 실행되어
+# 즉시모드 _draw() 경로를 벗어난다(재검수 P2). 캐시 ref로 deferred 창 동안 중복
+# add를 막고, 캔버스 재구성(호스트 free)이나 다른 캔버스로 그리면 캐시 미스 →
+# 재조회/재생성해 pending-leak을 피한다.
+func _get_or_create_plasma_host(canvas: CanvasItem) -> Node:
+	if canvas == null:
+		return null
+	# 캐시된 호스트가 여전히 이 캔버스의 유효 자식이면 재사용.
+	if (
+		_plasma_fx_host != null
+		and is_instance_valid(_plasma_fx_host)
+		and not _plasma_fx_host.is_queued_for_deletion()
+		and _plasma_fx_host.get_parent() == canvas
+	):
+		return _plasma_fx_host if _plasma_fx_host.is_inside_tree() else null
+	# 캐시 미스(첫 생성 / 캔버스 재구성 / 다른 캔버스): 이미 붙어있는지 조회.
+	var existing: Node = canvas.get_node_or_null("SmasherPlasmaFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_plasma_fx_host = existing
+		return existing if existing.is_inside_tree() else null
+	# 신규 생성 — 구성은 _ready(deferred)에서 _draw 밖. 붙는 프레임엔 null.
+	var host: Node = SmasherPlasmaFxHost.new()
+	host.name = "SmasherPlasmaFxHost"
+	if host.has_method("set_active"):
+		host.set_active(false)
+	_plasma_fx_host = host
+	canvas.call_deferred("add_child", host)
+	return null
 
 
 func draw_recovery_effects(
