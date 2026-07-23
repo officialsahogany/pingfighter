@@ -184,6 +184,31 @@ a wait/gate label that NEVER fires while the gated cost persists means the
 gate is not engaging — check the getter/bridge path before doubting the
 mechanism.
 
+Detached-FX-host-node variant (2026-07-23, plasma): a per-effect FX host
+NODE (`SmasherPlasmaFxHost` etc.) created from inside a `_draw()` draw path
+is a lazy-init hitch even if you move the create from "first cast" to "first
+smasher frame" — the `SmasherPlasmaFxHost.new()` + `add_child()` +
+`_ready`→`_build_children` (Sprite2D + ShaderMaterial + GPUParticles2D +
+ParticleProcessMaterial) still runs synchronously inside immediate-mode
+`_draw`. `prewarm_assets()` (textures/shaders) does NOT cover the node/
+material/particle construction. Canonical fix = the commando firearm host
+pattern: (a) a `prewarm_node_pipeline()` that `_build_children()` on a
+throwaway instance at a boot prewarm step then `free()`s it (warms the
+node/material/GPU pipeline); (b) the drawer resolves the host via a
+`_get_or_create_*` helper that uses `canvas.call_deferred("add_child", host)`
+so `_ready`→`_build_children` runs during idle, OFF the `_draw` path — return
+`null` on the create frame so the caller skips sync, and sync only once the
+host `is_inside_tree()`. Cache the host ref + gate on `is_inside_tree()` so a
+canvas rebuild (freed host) re-creates instead of pending-leaking. Keep any
+procedural overlay that does NOT need the host (boss-contact distortion)
+drawing every frame regardless of host readiness — do not gate it behind the
+host-null early return. Seal with a "host must NOT be a synchronous child
+after one draw (deferred), present + inactive after one idle frame" leg
+(reverse-verify: swap `call_deferred` → immediate `add_child` ⇒ RED).
+References: `stage1_commando_firearm_renderer._get_or_create_fx_host`
+(shipped precedent), `battle_playfield_effects_drawer._get_or_create_plasma_host`,
+sealed by `smasher_plasma_visual_render_smoke` / `smasher_plasma_fx_host_smoke`.
+
 ## Godot Missing Reserved-Asset Per-Frame Re-Stat Trap
 
 `ProjectResourceLoader.load_texture()` / `load_imported_texture()` cache only
