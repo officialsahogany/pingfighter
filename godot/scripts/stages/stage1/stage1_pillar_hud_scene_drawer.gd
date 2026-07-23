@@ -560,11 +560,31 @@ func _get_cached_plaza_gold(context: Dictionary, registry: Object) -> int:
 	return _plaza_gold_cache_value
 
 
-func _refresh_plaza_gold_cache_from_module_getter(module_getter: Callable) -> void:
-	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
-	if result_screen == null:
-		return
-	_sync_plaza_gold_cache_from_result_screen(result_screen, _plaza_gold_cache_stage, true)
+func _refresh_plaza_gold_cache_from_module_getter(_module_getter: Callable) -> void:
+	# 프리웜은 결과화면 모듈을 콜드 생성하지 않는다 — 그 첫 인스턴스화가 전환
+	# 프레임 1237ms 스톨의 정체였다(2026-07-24 [PrewarmColdInstantiate] 진단으로
+	# 확정, fps=2). 광장 골드 캐시는 경량 PlazaSaveStore(기본 경로)에서 직접
+	# 데운다. 결과화면의 get_plaza_save_summary()도 동일 PlazaSaveStore 클래스·
+	# 동일 기본 경로(SAVE_PATH)에 위임할 뿐이라 프로덕션에서 값이 정확히 같다
+	# (커스텀 경로는 set_plaza_save_path_for_test 테스트 전용). 결과화면은
+	# 스테이지 클리어 시점(실제 필요 시)에 자연 생성된다. draw 경로는 이미
+	# allow_lazy_create=false 피크라 결과화면을 강제 생성하지 않는다.
+	# (Hot-Path Lazy Init Trap: 프리웜에서 무거운 모듈 강제 생성 금지 → 직접읽기.)
+	# 드로어 자체 스토어의 현재 경로를 쓴다(프로덕션=기본 SAVE_PATH, 테스트는
+	# set_plaza_gold_store_save_path_for_test로 오버라이드해 실 세이브 미오염).
+	var plaza_save_path: String = PlazaSaveStore.SAVE_PATH
+	if _plaza_gold_store != null:
+		plaza_save_path = str(_plaza_gold_store.save_path)
+	_reload_plaza_gold_cache(plaza_save_path, _plaza_gold_cache_stage)
+
+
+# 테스트 전용: 프리웜 골드 캐시가 읽는 광장 세이브 경로를 임시 파일로
+# 지정해 실 유저 세이브(user://plaza_save.cfg)를 오염시키지 않게 한다.
+func set_plaza_gold_store_save_path_for_test(path: String) -> void:
+	if _plaza_gold_store == null:
+		_plaza_gold_store = PlazaSaveStore.new()
+	if _plaza_gold_store.has_method("set_save_path"):
+		_plaza_gold_store.set_save_path(path)
 
 
 func _sync_plaza_gold_cache_from_result_screen(result_screen: Object, stage_id: int, allow_load: bool) -> bool:
@@ -785,7 +805,16 @@ func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
 func _get_module(module_getter: Callable, key: String) -> Object:
 	if not module_getter.is_valid():
 		return null
+	# 진단(2026-07-24, 로딩 히치 조사): 이 헬퍼는 프리웜 전용 콜드
+	# 인스턴스화 경로다(draw는 _get_cached_module 사용). stage1_pillar_scene
+	# 프리웜 단일 스텝 1242ms의 정체가 어느 모듈의 첫 로드/컴파일인지 라벨이
+	# 안 찍혀 미상이므로, 임계 초과 시 모듈 키와 함께 1회 경고한다. 실제 콜드
+	# 스톨에서만 발화하는 비동작 계측(스텝당 1콜이라 오버헤드 무시).
+	var cold_start: int = Time.get_ticks_usec()
 	var value: Variant = module_getter.call(key)
+	var cold_ms: float = float(Time.get_ticks_usec() - cold_start) / 1000.0
+	if cold_ms >= 60.0:
+		push_warning("[PrewarmColdInstantiate] stage1_pillar_hud module '%s' first-fetch %.1fms" % [key, cold_ms])
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
