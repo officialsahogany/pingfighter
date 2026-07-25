@@ -6,6 +6,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
 const MainMenuAudioController := preload("res://scripts/audio/main_menu_audio_controller.gd")
+const HEADLESS_SYNC_PREWARM_ARG := "--ringpia-headless-sync-prewarm"
 
 # 캐릭터 선택 BGM = 메뉴 흐름 공유 트랙(조선의 달북) — 경로 단일 소스는
 # main_menu_audio_controller. 전투 복귀(F10 부스리셋 포함) 재진입 시 콜드
@@ -336,11 +337,20 @@ func _use_cached_job_if_available(job: Dictionary) -> bool:
 
 
 func _can_thread_load_job(job: Dictionary) -> bool:
+	# The full-project headless load check validates the same resources but must
+	# not leave ResourceLoader worker tasks racing engine ObjectDB teardown.
+	# Normal boot, menu re-entry, and gameplay never pass this explicit test arg.
+	if is_synchronous_headless_prewarm_requested(OS.get_cmdline_user_args()):
+		return false
 	var type_hint := str(job.get("type", ""))
 	var path := str(job.get("path", ""))
 	if type_hint != "Texture2D":
 		return true
 	return ProjectResourceLoader.can_thread_load_texture(path)
+
+
+static func is_synchronous_headless_prewarm_requested(arguments: PackedStringArray) -> bool:
+	return arguments.has(HEADLESS_SYNC_PREWARM_ARG)
 
 
 func _load_job_synchronously(job: Dictionary) -> void:

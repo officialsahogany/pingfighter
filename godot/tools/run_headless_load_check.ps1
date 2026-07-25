@@ -24,7 +24,11 @@ try {
     # SCRIPT ERROR(폰트/셰이더 preload 실패)를 뿜거나 반대로 의존체인을 아예
     # 로드하기 전에 끝나 허위 GREEN이 된다. 1200프레임이면 클린트리에서도
     # 비동기 부트 로드가 완주한 뒤 종료된다(2026-07-14 트리아지).
-    $output = & $godotPath --headless --path $ProjectPath --log-file $checkLogPath --quit-after 1200 2>&1
+    # The application quit coordinator starts graceful teardown at frame 1200.
+    # Keep a later engine-level fallback so a broken coordinator cannot hang
+    # this wrapper forever; the marker check below proves the fallback was not
+    # the path that ended a successful run.
+    $output = & $godotPath --headless --path $ProjectPath --log-file $checkLogPath --quit-after 1320 -- --ringpia-headless-load-quit-after=1200 --ringpia-headless-sync-prewarm 2>&1
     $exitCode = $LASTEXITCODE
 }
 finally {
@@ -38,6 +42,7 @@ finally {
 }
 
 $output | ForEach-Object { Write-Host $_ }
+$outputText = ($output | Out-String)
 $seriousErrorLines = @($output | Where-Object {
     $line = $_.ToString()
     ($line -notmatch "Failed to read the root certificate store") -and
@@ -50,6 +55,12 @@ if ($exitCode -ne 0) {
 }
 if ($seriousErrorLines.Count -gt 0) {
     throw "Godot headless load check emitted an error despite exit code 0"
+}
+if ($outputText -notmatch '\[ApplicationQuitCoordinator\] graceful headless shutdown complete') {
+    throw "Godot headless load check did not complete the graceful application shutdown path"
+}
+if ($outputText -match 'ObjectDB instances leaked') {
+    throw "Godot headless load check leaked ObjectDB instances at exit"
 }
 
 Write-Host ""

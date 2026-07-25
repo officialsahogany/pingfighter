@@ -7,6 +7,7 @@ var failure_count: int = 0
 
 
 func _init() -> void:
+	_verify_headless_sync_contract()
 	var prewarm := CharacterSelectPrewarm.new()
 	prewarm.begin(TEST_SCENE_PATH)
 	_expect(prewarm.active, "prewarm should be active after begin")
@@ -31,6 +32,26 @@ func _init() -> void:
 		return
 	print("character_select_prewarm_cancel_smoke: ok")
 	quit(0)
+
+
+func _verify_headless_sync_contract() -> void:
+	_expect(
+		CharacterSelectPrewarm.is_synchronous_headless_prewarm_requested(
+			PackedStringArray(["--unrelated", CharacterSelectPrewarm.HEADLESS_SYNC_PREWARM_ARG])
+		),
+		"the explicit headless sync arg should select synchronous prewarm"
+	)
+	_expect(
+		not CharacterSelectPrewarm.is_synchronous_headless_prewarm_requested(
+			PackedStringArray(["--ringpia-headless-load-quit-after=1200"])
+		),
+		"the graceful-quit arg alone must preserve the normal threaded prewarm path"
+	)
+	var wrapper_source := FileAccess.get_file_as_string("res://tools/run_headless_load_check.ps1")
+	_expect(
+		wrapper_source.find(CharacterSelectPrewarm.HEADLESS_SYNC_PREWARM_ARG) >= 0,
+		"the full-project headless wrapper should opt into synchronous prewarm explicitly"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
