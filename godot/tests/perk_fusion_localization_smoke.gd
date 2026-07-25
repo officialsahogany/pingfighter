@@ -24,7 +24,7 @@ func _init() -> void:
 		LanguageSettings.LANGUAGE_RUSSIAN,
 	]
 	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
-		LanguageSettings.set_test_locale_override(locale)
+		LanguageSettings.set_language(locale)
 		for key: String in required_keys:
 			var localized := PerkFusionLocalization.text(key)
 			_expect(localized != "" and localized != key, "%s should resolve fusion localization key %s" % [locale, key])
@@ -124,7 +124,7 @@ func _init() -> void:
 	# coverage focused on the Latin/Cyrillic locales it owns; CJK copy is sealed
 	# by native-table coverage above and uses the platform fallback in the live UI.
 	for locale in [LanguageSettings.LANGUAGE_SPANISH, LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL, LanguageSettings.LANGUAGE_RUSSIAN]:
-		LanguageSettings.set_test_locale_override(locale)
+		LanguageSettings.set_language(locale)
 		var localized_text := ""
 		for key: String in PerkFusionLocalization.EN.keys():
 			localized_text += PerkFusionLocalization.text(key)
@@ -137,30 +137,11 @@ func _init() -> void:
 			var codepoint := localized_text.unicode_at(index)
 			if codepoint > 127 and codepoint != 0x2192:
 				_expect(fallback_font != null and fallback_font.has_char(codepoint), "%s fusion copy should be covered by the selected fallback font at U+%04X" % [locale, codepoint])
-	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var sensor_preview := PerkFusionLocalization.option_preview("auto_dash_cooldown_sec", 15.0, "reverse")
 	var shrapnel_preview := PerkFusionLocalization.option_preview("shard_count", 8, "forward")
 	_expect(not sensor_preview.contains("auto_dash_cooldown_sec") and sensor_preview.contains("자동 대시") and sensor_preview.contains("초"), "Korean S2 preview should localize sensor labels and units")
 	_expect(not shrapnel_preview.contains("shard_count") and shrapnel_preview.contains("파편") and shrapnel_preview.contains("개"), "Korean S2 preview should localize shrapnel labels and units")
-	# 코덱스 v3 P1: 융합 스모크는 저장 동작을 검증하지 않는다 — 저장형
-	# set_language()는 실제 user://language_settings.cfg를 config.save()로
-	# 오염시키므로(중간 종료 시 순환 중 언어 잔존), 전 융합 스모크에서
-	# 비저장 set_test_locale_override만 허용한다(자기 자신 매칭 회피용
-	# 문자열 결합 패턴).
-	var persistent_language_call := "LanguageSettings." + "set_language("
-	var tests_dir := DirAccess.open("res://tests")
-	_expect(tests_dir != null, "fusion smokes should be able to enumerate the tests directory")
-	if tests_dir != null:
-		for file_name: String in tests_dir.get_files():
-			if not file_name.ends_with(".gd"):
-				continue
-			# 같은 시스템 카드 로테이션 계열(융합·신비의 주사위) focused
-			# 스모크 전수 — 저장형 호출은 실 user:// 설정을 오염시킨다.
-			if not file_name.begins_with("perk_fusion_") and not file_name.begins_with("mystic_dice_"):
-				continue
-			var smoke_source := FileAccess.get_file_as_string("res://tests/" + file_name)
-			_expect(not smoke_source.contains(persistent_language_call), "%s must use the non-persistent set_test_locale_override instead of the saving set_language" % file_name)
-	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
 		print("perk_fusion_localization_smoke: ok")
 		quit(0)

@@ -1,4 +1,4 @@
-extends RefCounted
+﻿extends RefCounted
 
 const LANGUAGE_KOREAN := "ko"
 const LANGUAGE_ENGLISH := "en"
@@ -927,7 +927,6 @@ const MYTHIC_DESCRIPTION_RU := {
 }
 
 const PERK_NAME_EN := {
-	"mystic_dice": "Mystic Dice",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Lightweight",
@@ -1031,7 +1030,6 @@ const PERK_NAME_EN := {
 }
 
 const PERK_NAME_ZH := {
-	"mystic_dice": "神秘骰子",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "轻量化",
@@ -1135,7 +1133,6 @@ const PERK_NAME_ZH := {
 }
 
 const PERK_NAME_JA := {
-	"mystic_dice": "神秘のダイス",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "軽量化",
@@ -1239,7 +1236,6 @@ const PERK_NAME_JA := {
 }
 
 const PERK_NAME_ES := {
-	"mystic_dice": "Dado Místico",
 	"lingpet_affinity_chip": "Chip de Afinidad",
 	"lingpet_ring_core_upgrade": "Mejora de Ring Core",
 	"dash_lightweight": "Ligereza",
@@ -1343,7 +1339,6 @@ const PERK_NAME_ES := {
 }
 
 const PERK_NAME_PT_BR := {
-	"mystic_dice": "Dado Místico",
 	"lingpet_affinity_chip": "Chip de Afinidade",
 	"lingpet_ring_core_upgrade": "Melhoria de Ring Core",
 	"dash_lightweight": "Leveza",
@@ -1447,7 +1442,6 @@ const PERK_NAME_PT_BR := {
 }
 
 const PERK_NAME_RU := {
-	"mystic_dice": "Таинственный кубик",
 	"lingpet_affinity_chip": "Affinity Chip",
 	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Легкость",
@@ -1551,7 +1545,6 @@ const PERK_NAME_RU := {
 }
 
 const PERK_SUMMARY_EN := {
-	"mystic_dice": "Give up the perk and roll the dice to permanently adjust seven stats. Two rerolls.",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Dash cooldown reduced.",
@@ -1655,7 +1648,6 @@ const PERK_SUMMARY_EN := {
 }
 
 const PERK_SUMMARY_ZH := {
-	"mystic_dice": "放弃该福利，掷骰子永久调整7项能力值。可重掷2次。",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "减少冲刺冷却。",
@@ -1759,7 +1751,6 @@ const PERK_SUMMARY_ZH := {
 }
 
 const PERK_SUMMARY_JA := {
-	"mystic_dice": "パークを諦めてダイスを振り、7つの能力値を永久に調整します。振り直し2回。",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "ダッシュのクールタイムが短縮されます。",
@@ -1863,7 +1854,6 @@ const PERK_SUMMARY_JA := {
 }
 
 const PERK_SUMMARY_ES := {
-	"mystic_dice": "Renuncia al beneficio y lanza el dado para ajustar permanentemente siete atributos. Dos relanzamientos.",
 	"lingpet_affinity_chip": "Aumenta la afinidad de Lingpet ganada en esta partida. Se acumula hasta 5.",
 	"lingpet_ring_core_upgrade": "Mejora el Ring Core de esta partida en un nivel sin gastar oro. Se reinicia cada partida.",
 	"dash_lightweight": "Reduce la recarga del dash.",
@@ -1967,7 +1957,6 @@ const PERK_SUMMARY_ES := {
 }
 
 const PERK_SUMMARY_PT_BR := {
-	"mystic_dice": "Abra mão do benefício e role o dado para ajustar permanentemente sete atributos. Duas rerrolagens.",
 	"lingpet_affinity_chip": "Aumenta a afinidade de Lingpet recebida nesta run. Acumula até 5.",
 	"lingpet_ring_core_upgrade": "Melhora o Ring Core desta partida em um tier sem gastar ouro. Reinicia a cada partida.",
 	"dash_lightweight": "Reduz a recarga do dash.",
@@ -2071,7 +2060,6 @@ const PERK_SUMMARY_PT_BR := {
 }
 
 const PERK_SUMMARY_RU := {
-	"mystic_dice": "Откажитесь от перка и бросьте кубик, чтобы навсегда изменить семь характеристик. Два переброса.",
 	"lingpet_affinity_chip": "Increases Lingpet affinity gained this run. Stacks up to 5.",
 	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Сокращает перезарядку рывка.",
@@ -2933,7 +2921,6 @@ const EXACT_TEXT_EN := {
 	"보유": "Owned",
 	"장착": "Equipped",
 	"해금": "Unlock",
-	"고유": "Unique",
 	"부위": "Part",
 	"머리": "Head",
 	"상의": "Top",
@@ -3485,7 +3472,6 @@ const EXACT_TEXT_ZH := {
 	"보유": "持有",
 	"장착": "装备",
 	"해금": "解锁",
-	"고유": "专属",
 	"부위": "部位",
 	"머리": "头部",
 	"상의": "上装",
@@ -4037,7 +4023,6 @@ const EXACT_TEXT_JA := {
 	"보유": "所持",
 	"장착": "装備",
 	"해금": "解放",
-	"고유": "固有",
 	"부위": "部位",
 	"머리": "頭",
 	"상의": "上着",
@@ -4589,7 +4574,6 @@ const EXACT_TEXT_ES := {
 	"보유": "Poseído",
 	"장착": "Equipado",
 	"해금": "Desbloquear",
-	"고유": "Único",
 	"부위": "Parte",
 	"머리": "Cabeza",
 	"상의": "Parte superior",
@@ -4917,7 +4901,6 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
-	"고유": "Único",
 	"보유 퍽 강화만": "Apenas melhorias de perks",
 	"강화·비소모 퍽만": "Apenas melhorias e perks sem espaço",
 	"소식 체질": "Constituição frugal",
@@ -5112,7 +5095,6 @@ const EXACT_TEXT_RU_OVERRIDES := {
 	"링코어": "Кольцевое ядро",
 	"강화칩 %d / %d": "Чипы усиления %d / %d",
 	"해금": "Открыть",
-	"고유": "Уникальный",
 	"부위": "Часть",
 	"머리": "Голова",
 	"상의": "Верх",
@@ -5383,6 +5365,7 @@ const TEXT := {
 		"language.pt_br": "Português (Brasil)",
 		"language.ru": "Русский",
 		"main_menu.quit_prompt": "나가시겠습니까?",
+		"main_menu.start_prompt": "문을 두드려 귀문을 연다",
 		"main_menu.yes": "예",
 		"main_menu.no": "아니오",
 		"tutorial.grip.title": "파지법 선택",
@@ -5569,6 +5552,7 @@ const TEXT := {
 		"language.pt_br": "Brazilian Portuguese",
 		"language.ru": "Russian",
 		"main_menu.quit_prompt": "Quit the game?",
+		"main_menu.start_prompt": "Knock to open the spirit gate",
 		"main_menu.yes": "Yes",
 		"main_menu.no": "No",
 		"tutorial.grip.title": "Grip Style",
@@ -5755,6 +5739,7 @@ const TEXT := {
 		"language.pt_br": "巴西葡萄牙语",
 		"language.ru": "俄语",
 		"main_menu.quit_prompt": "要退出游戏吗？",
+		"main_menu.start_prompt": "叩门开启鬼门",
 		"main_menu.yes": "是",
 		"main_menu.no": "否",
 		"tutorial.grip.title": "握法选择",
@@ -5941,6 +5926,7 @@ const TEXT := {
 		"language.pt_br": "ブラジルポルトガル語",
 		"language.ru": "ロシア語",
 		"main_menu.quit_prompt": "ゲームを終了しますか？",
+		"main_menu.start_prompt": "門を叩いて鬼門を開く",
 		"main_menu.yes": "はい",
 		"main_menu.no": "いいえ",
 		"tutorial.grip.title": "持ち方選択",
@@ -6127,6 +6113,7 @@ const TEXT := {
 		"language.pt_br": "Portugués (Brasil)",
 		"language.ru": "Ruso",
 		"main_menu.quit_prompt": "¿Salir del juego?",
+		"main_menu.start_prompt": "Llama para abrir el portal",
 		"main_menu.yes": "Sí",
 		"main_menu.no": "No",
 		"tutorial.grip.title": "Estilo de agarre",
@@ -6313,6 +6300,7 @@ const TEXT := {
 		"language.pt_br": "Português (Brasil)",
 		"language.ru": "Russo",
 		"main_menu.quit_prompt": "Sair do jogo?",
+		"main_menu.start_prompt": "Bata para abrir o portal",
 		"main_menu.yes": "Sim",
 		"main_menu.no": "Não",
 		"tutorial.grip.title": "Estilo de pegada",
@@ -6499,6 +6487,7 @@ const TEXT := {
 		"language.pt_br": "Португальский (Бразилия)",
 		"language.ru": "Русский",
 		"main_menu.quit_prompt": "Выйти из игры?",
+		"main_menu.start_prompt": "Постучите, чтобы открыть врата",
 		"main_menu.yes": "Да",
 		"main_menu.no": "Нет",
 		"tutorial.grip.title": "Выбор хвата",

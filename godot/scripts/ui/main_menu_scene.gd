@@ -2,114 +2,32 @@ extends Control
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
+const MainMenuStartTransitionState := preload(
+	"res://scripts/ui/main_menu_start_transition_state.gd"
+)
+const MainMenuGateTransitionProjection := preload(
+	"res://scripts/ui/main_menu_gate_transition_projection.gd"
+)
+const MainMenuTouchStartPrompt := preload(
+	"res://scripts/ui/main_menu_touch_start_prompt.gd"
+)
+const MainMenuSettingsRegistry := preload("res://scripts/ui/main_menu_settings_registry.gd")
+const MainMenuAudioController := preload(
+	"res://scripts/audio/main_menu_audio_controller.gd"
+)
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
-const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_CHARACTER_SELECT_SCENE_PATH := "res://scenes/character_select.tscn"
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu_bg_logo.png"
-const MAIN_MENU_BGM_PATH := "res://assets/bgm/main_menu_moon_crack.wav"
-const MAIN_MENU_START_SFX_PATH := "res://assets/sounds/stagestart_godot_short.wav"
-const MAIN_MENU_BGM_GAIN := 0.82
-const MAIN_MENU_START_SFX_GAIN := 0.78
-const DEFAULT_BGM_VOLUME := 0.4
-const DEFAULT_SFX_VOLUME := 0.7
-const BGM_BUS_NAME := "BGM"
-const SFX_BUS_NAME := "SFX"
 const BGM_TOGGLE_KEY := KEY_B
-const PRELOADED_MAIN_MENU_BGM_PLAYER_NAME := "PreloadedMenuBgmPlayer"
 const START_TRANSITION_DURATION_SEC := 1.0
-const START_PROMPT_TEXT := "TOUCH TO START"
-const START_PROMPT_FONT_SIZE := 40
-const START_PROMPT_PULSE_PERIOD_SEC := 2.0
-const START_PROMPT_RIBBON_HEIGHT := 40.0
-const START_PROMPT_RIBBON_EDGE_FADE_WIDTH := 216.0
-const START_TRANSITION_BG_ZOOM := 1.10
 const START_TRANSITION_BUTTON_FADE_SEC := 0.18
 const START_TRANSITION_BGM_DUCK_DB := 7.0
 const START_TRANSITION_BGM_DUCK_SEC := 0.28
-
-
-class MainMenuAudioSettings:
-	extends RefCounted
-
-	const AUDIO_BGM_BUS_NAME := "BGM"
-	const AUDIO_SFX_BUS_NAME := "SFX"
-	const AUDIO_DEFAULT_BGM_VOLUME := 0.4
-	const AUDIO_DEFAULT_SFX_VOLUME := 0.7
-
-	func _init() -> void:
-		_ensure_audio_bus(AUDIO_BGM_BUS_NAME, AUDIO_DEFAULT_BGM_VOLUME)
-		_ensure_audio_bus(AUDIO_SFX_BUS_NAME, AUDIO_DEFAULT_SFX_VOLUME)
-
-	func get_bgm_volume() -> float:
-		return _get_bus_volume(AUDIO_BGM_BUS_NAME, AUDIO_DEFAULT_BGM_VOLUME)
-
-	func set_bgm_volume(value: float) -> float:
-		return _set_bus_volume(AUDIO_BGM_BUS_NAME, value, AUDIO_DEFAULT_BGM_VOLUME)
-
-	func get_sfx_volume() -> float:
-		return _get_bus_volume(AUDIO_SFX_BUS_NAME, AUDIO_DEFAULT_SFX_VOLUME)
-
-	func set_sfx_volume(value: float) -> float:
-		return _set_bus_volume(AUDIO_SFX_BUS_NAME, value, AUDIO_DEFAULT_SFX_VOLUME)
-
-	func _get_bus_volume(bus_name: String, fallback: float) -> float:
-		var bus_index: int = _ensure_audio_bus(bus_name, fallback)
-		if bus_index < 0:
-			return fallback
-		var volume_db: float = AudioServer.get_bus_volume_db(bus_index)
-		if volume_db <= -79.0:
-			return 0.0
-		return clampf(db_to_linear(volume_db), 0.0, 1.0)
-
-	func _set_bus_volume(bus_name: String, value: float, fallback: float) -> float:
-		var clamped: float = clampf(value, 0.0, 1.0)
-		var bus_index: int = _ensure_audio_bus(bus_name, fallback)
-		if bus_index >= 0:
-			AudioServer.set_bus_volume_db(bus_index, _volume_to_db(clamped))
-		return clamped
-
-	func _ensure_audio_bus(bus_name: String, default_volume: float) -> int:
-		var bus_index: int = AudioServer.get_bus_index(bus_name)
-		if bus_index >= 0:
-			return bus_index
-		AudioServer.add_bus(AudioServer.get_bus_count())
-		bus_index = AudioServer.get_bus_count() - 1
-		AudioServer.set_bus_name(bus_index, bus_name)
-		AudioServer.set_bus_volume_db(bus_index, _volume_to_db(default_volume))
-		return bus_index
-
-	func _volume_to_db(volume: float) -> float:
-		var clamped: float = clampf(volume, 0.0, 1.0)
-		if clamped <= 0.0:
-			return -80.0
-		return linear_to_db(clamped)
-
-
-class MainMenuSettingsRegistry:
-	extends RefCounted
-
-	var audio_settings: Object = null
-	var view_layout: Object = null
-
-	func _init(audio: Object, layout: Object) -> void:
-		audio_settings = audio
-		view_layout = layout
-
-	func get_instance(key: String) -> Object:
-		match key:
-			"game_audio":
-				return audio_settings
-			"battle_view_layout":
-				return view_layout
-		return null
-
-	func clear_runtime_state() -> void:
-		audio_settings = null
-		view_layout = null
+const START_TRANSITION_BEAM_STRIP_MAX := 96
 
 @export_file("*.tscn") var character_select_scene_path: String = DEFAULT_CHARACTER_SELECT_SCENE_PATH
 
@@ -126,24 +44,42 @@ class MainMenuSettingsRegistry:
 @onready var reveal_layer: Control = $RevealLayer
 
 var transitioning: bool = false
-var main_menu_bgm_player: AudioStreamPlayer = null
-var start_transition_sfx_player: AudioStreamPlayer = null
-var main_menu_bgm_muted: bool = false
+var main_menu_audio_controller: MainMenuAudioController = MainMenuAudioController.new()
+var start_transition_state: MainMenuStartTransitionState = MainMenuStartTransitionState.new(
+	START_TRANSITION_DURATION_SEC
+)
+var touch_start_prompt: MainMenuTouchStartPrompt = null
 var main_menu_settings_overlay: Object = null
-var main_menu_settings_registry: Object = null
+var main_menu_settings_registry: MainMenuSettingsRegistry = null
 var main_menu_settings_layer: Control = null
 var start_transition_layer: Control = null
 var settings_overlay_was_active := false
 var intro_reveal_active: bool = false
-var start_prompt_elapsed: float = 0.0
-var start_transition_active: bool = false
-var start_transition_elapsed: float = 0.0
-var start_prompt_ribbon: Control = null
-var start_prompt_label: Label = null
 var application_quit_callback: Callable = Callable()
-var character_select_prewarm: Object = null
+var character_select_prewarm: CharacterSelectPrewarm = null
 var character_select_prewarm_finished: bool = false
 var _start_transition_tweens: Array[Tween] = []
+
+
+func _get(property: StringName) -> Variant:
+	match str(property):
+		"main_menu_bgm_player":
+			return main_menu_audio_controller.bgm_player
+		"start_transition_sfx_player":
+			return main_menu_audio_controller.start_sfx_player
+		"main_menu_bgm_muted":
+			return main_menu_audio_controller.muted
+		"start_transition_active":
+			return start_transition_state.active
+		"start_transition_elapsed":
+			return start_transition_state.elapsed_sec
+		"start_prompt_elapsed":
+			return touch_start_prompt.elapsed_sec if touch_start_prompt != null else 0.0
+		"start_prompt_ribbon":
+			return touch_start_prompt
+		"start_prompt_label":
+			return touch_start_prompt.prompt_label if touch_start_prompt != null else null
+	return null
 
 
 func _ready() -> void:
@@ -215,7 +151,8 @@ func _ensure_main_menu_background() -> void:
 
 func _exit_tree() -> void:
 	set_process(false)
-	start_transition_active = false
+	if start_transition_state != null:
+		start_transition_state.cancel()
 	_kill_start_transition_tweens()
 	application_quit_callback = Callable()
 	_clear_settings_overlay_runtime_state()
@@ -223,21 +160,23 @@ func _exit_tree() -> void:
 	main_menu_settings_registry = null
 	_stop_main_menu_bgm()
 	_stop_start_transition_sfx()
+	if character_select_prewarm != null:
+		character_select_prewarm.cancel_and_drain_current_request()
+	character_select_prewarm = null
+	touch_start_prompt = null
+	start_transition_state = null
+	main_menu_audio_controller = null
 
 
 func _process(delta: float) -> void:
-	start_prompt_elapsed += delta
-	_update_touch_start_prompt_visual()
+	if touch_start_prompt != null:
+		touch_start_prompt.advance(delta, start_transition_state.active)
 	_update_character_select_background_prewarm()
-	if start_transition_active:
-		start_transition_elapsed = minf(
-			start_transition_elapsed + delta,
-			START_TRANSITION_DURATION_SEC
-		)
+	if start_transition_state.active:
+		var transition_finished := start_transition_state.advance(delta)
 		if start_transition_layer != null:
 			start_transition_layer.queue_redraw()
-		if start_transition_elapsed >= START_TRANSITION_DURATION_SEC:
-			start_transition_active = false
+		if transition_finished:
 			call_deferred("_change_to_character_select")
 	if _is_settings_overlay_active():
 		main_menu_settings_overlay.update(delta)
@@ -379,7 +318,11 @@ func _change_to_character_select() -> void:
 		transitioning = false
 		return
 	_stop_start_transition_sfx()
-	_stop_main_menu_bgm()
+	# 메뉴 BGM(조선의 달북)은 여기서 끊지 않는다 — /root 상주 플레이어로
+	# 승격해 캐릭터 선택 → 스테이지 로딩까지 이어지고, 전투 BGM 핸드오프
+	# (start_battle_bgm)가 해제한다. _exit_tree의 stop_bgm은 persisted
+	# 플래그를 보고 스킵된다.
+	main_menu_audio_controller.persist_bgm_for_handoff(tree)
 	var next_scene_path := character_select_scene_path
 	if next_scene_path == "":
 		next_scene_path = DEFAULT_CHARACTER_SELECT_SCENE_PATH
@@ -393,6 +336,7 @@ func _change_to_character_select() -> void:
 	)
 	if error != OK:
 		transitioning = false
+		main_menu_audio_controller.cancel_bgm_handoff()
 		push_warning("Failed to change scene to %s (error %d)" % [next_scene_path, error])
 
 
@@ -418,8 +362,13 @@ func _on_quit_confirmed() -> void:
 		application_quit_callback.call()
 		return
 	var tree := get_tree()
-	if tree != null:
-		tree.quit()
+	if tree == null:
+		return
+	var quit_coordinator := tree.root.get_node_or_null("ApplicationQuitCoordinator")
+	if quit_coordinator != null and quit_coordinator.has_method("request_quit"):
+		quit_coordinator.call("request_quit")
+		return
+	tree.quit()
 
 
 func _on_quit_canceled() -> void:
@@ -457,12 +406,19 @@ func _setup_touch_start_prompt() -> void:
 		button_stack.offset_bottom = -50.0
 		button_stack.add_theme_constant_override("separation", 0)
 	if start_button != null:
-		start_button.text = START_PROMPT_TEXT
+		var localized_start_prompt := LanguageSettings.translate(
+			"main_menu.start_prompt",
+			MainMenuTouchStartPrompt.PROMPT_TEXT
+		)
+		start_button.text = localized_start_prompt
 		start_button.custom_minimum_size = Vector2(845.0, 61.0)
 		start_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		start_button.focus_mode = Control.FOCUS_NONE
 		start_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		start_button.add_theme_font_size_override("font_size", START_PROMPT_FONT_SIZE)
+		start_button.add_theme_font_size_override(
+			"font_size",
+			MainMenuTouchStartPrompt.PROMPT_FONT_SIZE
+		)
 		start_button.add_theme_constant_override("outline_size", 0)
 		start_button.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.0))
 		start_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 0.0))
@@ -489,7 +445,7 @@ func _setup_touch_start_prompt() -> void:
 			"disabled",
 			_make_touch_start_clear_style()
 		)
-		_setup_touch_start_ribbon()
+		_setup_touch_start_ribbon(localized_start_prompt)
 	if settings_button != null:
 		_setup_utility_button(settings_button, "MENU", 176.0)
 	if quit_button != null:
@@ -498,6 +454,14 @@ func _setup_touch_start_prompt() -> void:
 
 
 func refresh_language_texts() -> void:
+	var localized_start_prompt := LanguageSettings.translate(
+		"main_menu.start_prompt",
+		MainMenuTouchStartPrompt.PROMPT_TEXT
+	)
+	if touch_start_prompt != null:
+		touch_start_prompt.set_prompt_text(localized_start_prompt)
+	elif start_button != null:
+		start_button.text = localized_start_prompt
 	if quit_confirm_prompt_label != null:
 		quit_confirm_prompt_label.text = LanguageSettings.translate("main_menu.quit_prompt")
 	if quit_confirm_yes_button != null:
@@ -529,143 +493,21 @@ func _setup_utility_button(button: Button, label: String, width: float) -> void:
 
 
 func _update_touch_start_prompt_visual() -> void:
-	if start_button == null:
-		return
-	if start_transition_active:
-		return
-	var pulse: float = 0.5 + 0.5 * sin(start_prompt_elapsed * TAU / START_PROMPT_PULSE_PERIOD_SEC)
-	var alpha: float = lerpf(0.90, 1.0, _smoothstep01(pulse))
-	start_button.modulate = Color(1.0, 1.0, 1.0, alpha)
-	if start_prompt_ribbon != null:
-		start_prompt_ribbon.queue_redraw()
-	if start_prompt_label != null:
-		var color := Color(0.72, 0.88, 0.98, lerpf(0.92, 1.0, _smoothstep01(pulse)))
-		start_prompt_label.add_theme_color_override("font_color", color)
+	if touch_start_prompt != null:
+		touch_start_prompt.sync_visual(start_transition_state.active)
 
 
-func _setup_touch_start_ribbon() -> void:
+func _setup_touch_start_ribbon(localized_text: String) -> void:
 	if start_button == null:
 		return
 	var existing := start_button.get_node_or_null("PromptRibbon")
 	if existing != null:
+		start_button.remove_child(existing)
 		existing.queue_free()
-	start_prompt_label = null
-	start_prompt_ribbon = Control.new()
-	start_prompt_ribbon.name = "PromptRibbon"
-	start_prompt_ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	start_prompt_ribbon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	start_prompt_ribbon.draw.connect(_draw_touch_start_ribbon)
-	start_button.add_child(start_prompt_ribbon)
-	var center := CenterContainer.new()
-	center.name = "PromptTextCenter"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	start_prompt_label = Label.new()
-	start_prompt_label.name = "PromptText"
-	start_prompt_label.text = START_PROMPT_TEXT
-	start_prompt_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	start_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	start_prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	start_prompt_label.add_theme_font_size_override("font_size", START_PROMPT_FONT_SIZE)
-	start_prompt_label.add_theme_constant_override("outline_size", 4)
-	start_prompt_label.add_theme_color_override("font_outline_color", Color(0.01, 0.03, 0.08, 0.72))
-	var font: Font = start_button.get_theme_font("font")
-	if font != null:
-		start_prompt_label.add_theme_font_override("font", font)
-	center.add_child(start_prompt_label)
-	start_prompt_ribbon.add_child(center)
+	touch_start_prompt = MainMenuTouchStartPrompt.new()
+	start_button.add_child(touch_start_prompt)
+	touch_start_prompt.configure(start_button, localized_text)
 	_update_touch_start_prompt_visual()
-
-
-func _draw_touch_start_ribbon() -> void:
-	if start_prompt_ribbon == null:
-		return
-	var rect := Rect2(Vector2.ZERO, start_prompt_ribbon.size)
-	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
-		return
-	var pulse: float = _smoothstep01(
-		0.5 + 0.5 * sin(start_prompt_elapsed * TAU / START_PROMPT_PULSE_PERIOD_SEC)
-	)
-	var ribbon_height: float = minf(START_PROMPT_RIBBON_HEIGHT, rect.size.y)
-	var y: float = (rect.size.y - ribbon_height) * 0.5
-	var fade_width: float = minf(START_PROMPT_RIBBON_EDGE_FADE_WIDTH, rect.size.x * 0.34)
-	var base_color := Color(0.62, 0.86, 1.0, 0.23 + pulse * 0.08)
-	var glow_color := Color(0.88, 0.98, 1.0, 0.12 + pulse * 0.05)
-	_draw_faded_touch_start_band(
-		start_prompt_ribbon,
-		Rect2(Vector2.ZERO, rect.size),
-		y,
-		ribbon_height,
-		fade_width,
-		base_color
-	)
-	_draw_faded_touch_start_band(
-		start_prompt_ribbon,
-		Rect2(Vector2.ZERO, rect.size),
-		y + ribbon_height * 0.22,
-		ribbon_height * 0.48,
-		fade_width * 0.86,
-		glow_color
-	)
-	var core_rect := Rect2(Vector2(0.0, y + ribbon_height * 0.46), Vector2(rect.size.x, 1.4))
-	_draw_faded_touch_start_band(
-		start_prompt_ribbon,
-		Rect2(Vector2.ZERO, rect.size),
-		core_rect.position.y,
-		core_rect.size.y,
-		fade_width * 0.72,
-		Color(0.92, 0.99, 1.0, 0.35 + pulse * 0.10)
-	)
-
-
-func _draw_faded_touch_start_band(
-	canvas: Control,
-	bounds: Rect2,
-	y: float,
-	height: float,
-	fade_width: float,
-	color: Color
-) -> void:
-	if canvas == null:
-		return
-	if bounds.size.x <= 1.0 or height <= 0.0:
-		return
-	var left: float = bounds.position.x
-	var right: float = bounds.end.x
-	var top: float = y
-	var bottom: float = y + height
-	var clamped_fade: float = clampf(fade_width, 1.0, bounds.size.x * 0.5)
-	var inner_left: float = left + clamped_fade
-	var inner_right: float = right - clamped_fade
-	var transparent := Color(color.r, color.g, color.b, 0.0)
-	if inner_right > inner_left:
-		canvas.draw_polygon(
-			PackedVector2Array([
-				Vector2(inner_left, top),
-				Vector2(inner_right, top),
-				Vector2(inner_right, bottom),
-				Vector2(inner_left, bottom),
-			]),
-			PackedColorArray([color, color, color, color])
-		)
-	canvas.draw_polygon(
-		PackedVector2Array([
-			Vector2(left, top),
-			Vector2(inner_left, top),
-			Vector2(inner_left, bottom),
-			Vector2(left, bottom),
-		]),
-		PackedColorArray([transparent, color, color, transparent])
-	)
-	canvas.draw_polygon(
-		PackedVector2Array([
-			Vector2(inner_right, top),
-			Vector2(right, top),
-			Vector2(right, bottom),
-			Vector2(inner_right, bottom),
-		]),
-		PackedColorArray([color, transparent, transparent, color])
-	)
 
 
 func _setup_start_transition_layer() -> void:
@@ -683,11 +525,9 @@ func _setup_start_transition_layer() -> void:
 
 func _start_character_select_entry_transition() -> void:
 	_request_skip_battle_logo_once()
-	start_transition_active = true
-	start_transition_elapsed = 0.0
+	start_transition_state.begin()
 	_set_menu_buttons_disabled(true)
 	_kill_start_transition_tweens()
-	_start_background_zoom_tween()
 	_start_button_stack_fade_tween()
 	_start_ambient_layer_fade_tween()
 	_start_bgm_duck_tween()
@@ -701,25 +541,6 @@ func _request_skip_battle_logo_once() -> void:
 	var state := get_node_or_null("/root/GameSelectionState")
 	if state != null and state.has_method("request_skip_battle_logo_once"):
 		state.request_skip_battle_logo_once()
-
-
-func _start_background_zoom_tween() -> void:
-	if background_rect == null:
-		return
-	var bg_size: Vector2 = background_rect.size
-	if bg_size.x <= 1.0 or bg_size.y <= 1.0:
-		bg_size = get_viewport_rect().size
-	background_rect.pivot_offset = bg_size * 0.5
-	var tween: Tween = create_tween()
-	_track_start_transition_tween(tween)
-	tween.set_ease(Tween.EASE_OUT)
-	tween.set_trans(Tween.TRANS_CUBIC)
-	tween.tween_property(
-		background_rect,
-		"scale",
-		Vector2(START_TRANSITION_BG_ZOOM, START_TRANSITION_BG_ZOOM),
-		START_TRANSITION_DURATION_SEC
-	)
 
 
 func _start_button_stack_fade_tween() -> void:
@@ -754,15 +575,16 @@ func _start_ambient_layer_fade_tween() -> void:
 
 
 func _start_bgm_duck_tween() -> void:
-	if main_menu_bgm_player == null or not main_menu_bgm_player.playing:
+	var bgm_player := main_menu_audio_controller.bgm_player
+	if bgm_player == null or not bgm_player.playing:
 		return
-	var current_db: float = main_menu_bgm_player.volume_db
+	var current_db: float = bgm_player.volume_db
 	var tween: Tween = create_tween()
 	_track_start_transition_tween(tween)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.tween_property(
-		main_menu_bgm_player,
+		bgm_player,
 		"volume_db",
 		current_db - START_TRANSITION_BGM_DUCK_DB,
 		START_TRANSITION_BGM_DUCK_SEC
@@ -786,17 +608,156 @@ func _draw_start_transition_layer() -> void:
 		view_size = get_viewport_rect().size
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
-	var progress: float = clampf(start_transition_elapsed / START_TRANSITION_DURATION_SEC, 0.0, 1.0)
-	var transition_ease: float = 1.0 - pow(1.0 - progress, 3.0)
-	var dark_alpha: float = lerpf(0.12, 0.62, transition_ease)
-	start_transition_layer.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.01, 0.015, 0.035, dark_alpha))
-	var flash: float = sin(clampf((progress - 0.68) / 0.32, 0.0, 1.0) * PI)
-	var whitewash: float = _smoothstep01(clampf((progress - 0.86) / 0.14, 0.0, 1.0))
-	var combined_white: float = clampf(flash * 0.34 + whitewash * 0.78, 0.0, 1.0)
-	if combined_white > 0.001:
+	var progress := start_transition_state.get_progress()
+	var frame := MainMenuGateTransitionProjection.build_frame(progress, view_size)
+	var door_shadow_alpha := float(frame.get("door_shadow_alpha", 0.0))
+	var left_panel: Rect2 = frame.get("left_panel_rect", Rect2())
+	var right_panel: Rect2 = frame.get("right_panel_rect", Rect2())
+	var edge_feather_px := float(frame.get("edge_feather_px", 36.0))
+	if left_panel.size.x > 0.0:
+		_draw_gate_shadow_panel(
+			left_panel,
+			Color(0.004, 0.008, 0.018, door_shadow_alpha),
+			edge_feather_px,
+			true
+		)
+	if right_panel.size.x > 0.0:
+		_draw_gate_shadow_panel(
+			right_panel,
+			Color(0.004, 0.008, 0.018, door_shadow_alpha),
+			edge_feather_px,
+			false
+		)
+	_draw_gate_spirit_light(frame)
+	var whitewash_alpha := float(frame.get("whitewash_alpha", 0.0))
+	if whitewash_alpha > 0.001:
 		start_transition_layer.draw_rect(
 			Rect2(Vector2.ZERO, view_size),
-			Color(1.0, 0.98, 0.94, combined_white)
+			Color(0.90, 0.98, 1.0, whitewash_alpha)
+		)
+
+
+func _draw_gate_spirit_light(frame: Dictionary) -> void:
+	var beam_rect: Rect2 = frame.get("beam_rect", Rect2())
+	if beam_rect.size.x <= 0.0 or beam_rect.size.y <= 0.0:
+		return
+	var strip_count := clampi(int(ceil(beam_rect.size.x / 8.0)), 3, START_TRANSITION_BEAM_STRIP_MAX)
+	var strip_width := beam_rect.size.x / float(strip_count)
+	var start_light_scale := float(frame.get("start_light_scale", 1.0))
+	var beam_alpha := clampf(float(frame.get("beam_alpha", 0.0)) * start_light_scale, 0.0, 1.0)
+	var edge_feather_px := minf(float(frame.get("edge_feather_px", 36.0)), beam_rect.size.y)
+	var light_peak_y := float(frame.get("light_peak_y", beam_rect.get_center().y))
+	var light_top_weight := float(frame.get("light_top_weight", 0.28))
+	var light_bottom_weight := float(frame.get("light_bottom_weight", 0.55))
+	for strip_index in strip_count:
+		var normalized := (float(strip_index) + 0.5) / float(strip_count)
+		var center_fade := pow(1.0 - absf(normalized * 2.0 - 1.0), 1.55)
+		var strip_rect := Rect2(
+			Vector2(beam_rect.position.x + float(strip_index) * strip_width, beam_rect.position.y),
+			Vector2(strip_width + 1.0, beam_rect.size.y)
+		)
+		_draw_gate_light_vertical_gradient_rect(
+			strip_rect,
+			Color(0.22, 0.80, 1.0, beam_alpha * center_fade * 0.76),
+			edge_feather_px,
+			light_peak_y,
+			light_top_weight,
+			light_bottom_weight
+		)
+	var core_width := clampf(beam_rect.size.x * 0.020, 3.0, 14.0)
+	var core_rect := Rect2(
+		Vector2(beam_rect.get_center().x - core_width * 0.5, beam_rect.position.y),
+		Vector2(core_width, beam_rect.size.y)
+	)
+	_draw_gate_light_vertical_gradient_rect(
+		core_rect,
+		Color(0.92, 0.99, 1.0, clampf(float(frame.get("core_alpha", 0.0)) * start_light_scale, 0.0, 1.0)),
+		edge_feather_px,
+		light_peak_y,
+		light_top_weight,
+		light_bottom_weight
+	)
+
+
+func _draw_gate_shadow_panel(rect: Rect2, color: Color, feather_px: float, fade_at_right: bool) -> void:
+	var fade_width := clampf(feather_px, 1.0, rect.size.x)
+	var transparent := Color(color.r, color.g, color.b, 0.0)
+	if fade_at_right:
+		var fade_start_x := rect.end.x - fade_width
+		if fade_start_x > rect.position.x:
+			start_transition_layer.draw_rect(
+				Rect2(rect.position, Vector2(fade_start_x - rect.position.x, rect.size.y)),
+				color
+			)
+		start_transition_layer.draw_polygon(
+			PackedVector2Array([
+				Vector2(fade_start_x, rect.position.y),
+				Vector2(rect.end.x, rect.position.y),
+				Vector2(rect.end.x, rect.end.y),
+				Vector2(fade_start_x, rect.end.y),
+			]),
+			PackedColorArray([color, transparent, transparent, color])
+		)
+		return
+	var fade_end_x := rect.position.x + fade_width
+	start_transition_layer.draw_polygon(
+		PackedVector2Array([
+			rect.position,
+			Vector2(fade_end_x, rect.position.y),
+			Vector2(fade_end_x, rect.end.y),
+			Vector2(rect.position.x, rect.end.y),
+		]),
+		PackedColorArray([transparent, color, color, transparent])
+	)
+	if fade_end_x < rect.end.x:
+		start_transition_layer.draw_rect(
+			Rect2(Vector2(fade_end_x, rect.position.y), Vector2(rect.end.x - fade_end_x, rect.size.y)),
+			color
+		)
+
+
+func _draw_gate_light_vertical_gradient_rect(
+	rect: Rect2,
+	color: Color,
+	feather_px: float,
+	peak_y: float,
+	top_weight: float,
+	bottom_weight: float
+) -> void:
+	var fade_height := clampf(feather_px, 1.0, rect.size.y)
+	var fade_end_y := minf(rect.position.y + fade_height, rect.end.y)
+	var clamped_peak_y := clampf(peak_y, fade_end_y, rect.end.y)
+	var transparent := Color(color.r, color.g, color.b, 0.0)
+	var top_color := Color(color.r, color.g, color.b, color.a * clampf(top_weight, 0.0, 1.0))
+	var bottom_color := Color(color.r, color.g, color.b, color.a * clampf(bottom_weight, 0.0, 1.0))
+	start_transition_layer.draw_polygon(
+		PackedVector2Array([
+			rect.position,
+			Vector2(rect.end.x, rect.position.y),
+			Vector2(rect.end.x, fade_end_y),
+			Vector2(rect.position.x, fade_end_y),
+		]),
+		PackedColorArray([transparent, transparent, top_color, top_color])
+	)
+	if clamped_peak_y > fade_end_y:
+		start_transition_layer.draw_polygon(
+			PackedVector2Array([
+				Vector2(rect.position.x, fade_end_y),
+				Vector2(rect.end.x, fade_end_y),
+				Vector2(rect.end.x, clamped_peak_y),
+				Vector2(rect.position.x, clamped_peak_y),
+			]),
+			PackedColorArray([top_color, top_color, color, color])
+		)
+	if rect.end.y > clamped_peak_y:
+		start_transition_layer.draw_polygon(
+			PackedVector2Array([
+				Vector2(rect.position.x, clamped_peak_y),
+				Vector2(rect.end.x, clamped_peak_y),
+				rect.end,
+				Vector2(rect.position.x, rect.end.y),
+			]),
+			PackedColorArray([color, color, bottom_color, bottom_color])
 		)
 
 
@@ -833,7 +794,7 @@ func _setup_settings_overlay() -> void:
 		return
 	main_menu_settings_overlay = PauseMenuOverlay.new()
 	main_menu_settings_registry = MainMenuSettingsRegistry.new(
-		MainMenuAudioSettings.new(),
+		main_menu_audio_controller.get_audio_settings(),
 		BattleViewLayout.new()
 	)
 	main_menu_settings_layer = Control.new()
@@ -920,65 +881,11 @@ func _is_focus_on_menu_button() -> bool:
 
 
 func _start_main_menu_bgm() -> void:
-	if Engine.is_editor_hint():
-		return
-	if main_menu_bgm_player != null and main_menu_bgm_player.playing:
-		return
-	# Adopt the player the boot flow may have preloaded near the end of
-	# the loading screen so the BGM is already playing as the menu opens.
-	var tree: SceneTree = get_tree()
-	if tree != null and tree.root != null:
-		var preloaded: Node = tree.root.get_node_or_null(PRELOADED_MAIN_MENU_BGM_PLAYER_NAME)
-		var preloaded_player: AudioStreamPlayer = preloaded as AudioStreamPlayer
-		if preloaded_player != null:
-			main_menu_bgm_player = preloaded_player
-			if main_menu_bgm_muted:
-				if main_menu_bgm_player.playing:
-					main_menu_bgm_player.stop()
-			elif not main_menu_bgm_player.playing:
-				main_menu_bgm_player.play()
-			return
-	var stream := ProjectResourceLoader.load_audio_stream(
-		MAIN_MENU_BGM_PATH,
-		"Missing main-menu BGM: %s",
-		"Failed to load main-menu BGM: %s"
-	)
-	if stream == null:
-		return
-	_enable_audio_loop(stream)
-	_ensure_bgm_bus()
-	if main_menu_bgm_player == null:
-		main_menu_bgm_player = AudioStreamPlayer.new()
-		main_menu_bgm_player.name = "MainMenuBgm"
-		add_child(main_menu_bgm_player)
-	main_menu_bgm_player.bus = BGM_BUS_NAME
-	main_menu_bgm_player.stream = stream
-	main_menu_bgm_player.volume_db = _volume_to_db(MAIN_MENU_BGM_GAIN)
-	main_menu_bgm_player.pitch_scale = 1.0
-	if not main_menu_bgm_muted:
-		main_menu_bgm_player.play()
+	main_menu_audio_controller.start_bgm(self, get_tree())
 
 
 func _play_start_transition_sound() -> void:
-	if Engine.is_editor_hint():
-		return
-	var stream := ProjectResourceLoader.load_audio_stream(
-		MAIN_MENU_START_SFX_PATH,
-		"Missing main-menu start transition sound: %s",
-		"Failed to load main-menu start transition sound: %s"
-	)
-	if stream == null:
-		return
-	if start_transition_sfx_player == null:
-		start_transition_sfx_player = AudioStreamPlayer.new()
-		start_transition_sfx_player.name = "StartTransitionSfx"
-		add_child(start_transition_sfx_player)
-	_ensure_sfx_bus()
-	start_transition_sfx_player.bus = SFX_BUS_NAME
-	start_transition_sfx_player.stream = stream
-	start_transition_sfx_player.volume_db = _volume_to_db(MAIN_MENU_START_SFX_GAIN)
-	start_transition_sfx_player.pitch_scale = 1.0
-	start_transition_sfx_player.play()
+	main_menu_audio_controller.play_start_sfx(self)
 
 
 func _track_start_transition_tween(tween: Tween) -> void:
@@ -995,26 +902,11 @@ func _kill_start_transition_tweens() -> void:
 
 
 func _stop_main_menu_bgm() -> void:
-	if main_menu_bgm_player == null:
-		return
-	if main_menu_bgm_player.playing:
-		main_menu_bgm_player.stop()
-	main_menu_bgm_player.stream = null
-	# If this player was the boot-flow preload (parented to the SceneTree
-	# root rather than the menu), free it so it does not linger.
-	var tree: SceneTree = get_tree()
-	if tree != null and main_menu_bgm_player.get_parent() == tree.root:
-		main_menu_bgm_player.queue_free()
-	main_menu_bgm_player = null
+	main_menu_audio_controller.stop_bgm(get_tree())
 
 
 func _stop_start_transition_sfx() -> void:
-	if start_transition_sfx_player == null:
-		return
-	if start_transition_sfx_player.playing:
-		start_transition_sfx_player.stop()
-	start_transition_sfx_player.stream = null
-	start_transition_sfx_player = null
+	main_menu_audio_controller.stop_start_sfx()
 
 
 func _handle_bgm_toggle_input(event: InputEvent) -> bool:
@@ -1028,20 +920,11 @@ func _handle_bgm_toggle_input(event: InputEvent) -> bool:
 
 
 func _toggle_main_menu_bgm() -> bool:
-	main_menu_bgm_muted = BgmMuteState.toggle(get_tree())
-	if main_menu_bgm_muted:
-		if main_menu_bgm_player != null and main_menu_bgm_player.playing:
-			main_menu_bgm_player.stop()
-		return true
-	if main_menu_bgm_player == null or main_menu_bgm_player.stream == null:
-		_start_main_menu_bgm()
-	elif not main_menu_bgm_player.playing:
-		main_menu_bgm_player.play()
-	return false
+	return main_menu_audio_controller.toggle_bgm(self, get_tree())
 
 
 func _restore_main_menu_bgm_muted() -> void:
-	main_menu_bgm_muted = BgmMuteState.is_muted(get_tree())
+	main_menu_audio_controller.restore_muted(get_tree())
 
 
 func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
@@ -1051,49 +934,6 @@ func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
 	if not key_event.pressed or key_event.echo:
 		return false
 	return key_event.keycode == keycode or key_event.physical_keycode == keycode
-
-
-func _ensure_bgm_bus() -> int:
-	var bus_index: int = AudioServer.get_bus_index(BGM_BUS_NAME)
-	if bus_index >= 0:
-		return bus_index
-	AudioServer.add_bus(AudioServer.get_bus_count())
-	bus_index = AudioServer.get_bus_count() - 1
-	AudioServer.set_bus_name(bus_index, BGM_BUS_NAME)
-	AudioServer.set_bus_volume_db(bus_index, _volume_to_db(DEFAULT_BGM_VOLUME))
-	return bus_index
-
-
-func _ensure_sfx_bus() -> int:
-	var bus_index: int = AudioServer.get_bus_index(SFX_BUS_NAME)
-	if bus_index >= 0:
-		return bus_index
-	AudioServer.add_bus(AudioServer.get_bus_count())
-	bus_index = AudioServer.get_bus_count() - 1
-	AudioServer.set_bus_name(bus_index, SFX_BUS_NAME)
-	AudioServer.set_bus_volume_db(bus_index, _volume_to_db(DEFAULT_SFX_VOLUME))
-	return bus_index
-
-
-func _volume_to_db(volume: float) -> float:
-	var clamped: float = clampf(volume, 0.0, 1.0)
-	if clamped <= 0.0:
-		return -80.0
-	return linear_to_db(clamped)
-
-
-func _enable_audio_loop(stream: AudioStream) -> void:
-	if stream is AudioStreamWAV:
-		var wav_stream: AudioStreamWAV = stream
-		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		wav_stream.loop_begin = 0
-		wav_stream.loop_end = max(0, int(round(wav_stream.get_length() * float(wav_stream.mix_rate))))
-	elif stream is AudioStreamMP3:
-		var mp3_stream: AudioStreamMP3 = stream
-		mp3_stream.loop = true
-	elif stream is AudioStreamOggVorbis:
-		var ogg_stream: AudioStreamOggVorbis = stream
-		ogg_stream.loop = true
 
 
 func _smoothstep01(value: float) -> float:

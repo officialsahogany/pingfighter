@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-10",
+  "generator": "Gemini MCP image generation",
+  "theme": "Akamu Rigo shadow dojo with restrained Ringpia VR seams",
+  "runtime_owner": "res://scripts/stages/stage7/stage7_akamu_pillar_background.gd",
+  "coordinate_contract": {
+    "field": "full Godot 760x750 game canvas; no legacy 80px inset",
+    "pillar": "screen-space left/right letterbox rects outside the game canvas",
+    "draw_order": "side base -> center field -> motion sprites -> score-reactive props -> shared pillar HUD"
+  },
+  "assets": {
+    "base": {
+      "source": "images/ui/hud/stage7_akamu_pillar_base_imagegen_v1_source.png",
+      "source_size": [5504, 3072],
+      "source_sha256": "5186af5293db901e453d2f7352699c5b09698aa57af85d22766110afe36bb5a9",
+      "runtime": "res://assets/sprites/hud/stage7_akamu_pillar_base_imagegen_v1.png",
+      "runtime_size": [1920, 1080],
+      "runtime_sha256": "c9ce62a766c3b71676b8ed5c8ca218fdf2ed95600ffe0aef1c66f07d48b1fc70"
+    },
+    "field": {
+      "source": "images/ui/hud/stage7_akamu_center_field_imagegen_v1_source.png",
+      "source_size": [4096, 4096],
+      "source_sha256": "cd788a39674b70e19ac1aabfc76edbdeeafa4be0ffbbb861f7410c38d7ca1b28",
+      "runtime": "res://assets/sprites/hud/stage7_akamu_center_field_imagegen_v1.png",
+      "runtime_size": [1520, 1500],
+      "runtime_sha256": "62f3b72627a1a2b86e3980dcb29bb37da5e9b76c117acc784b91661d0e82f3ac"
+    },
+    "motion_sprites": {
+      "source": "images/ui/hud/stage7_akamu_pillar_motion_sprites_imagegen_v1_source.png",
+      "source_size": [2752, 1536],
+      "source_sha256": "16ef7239b0e45d5889e90a60d27218f86f1f95a5e0a79b63d7e17726a2c74370",
+      "runtime": "res://assets/sprites/hud/stage7_akamu_pillar_motion_sprites_imagegen_v1.png",
+      "runtime_size": [1024, 576],
+      "runtime_sha256": "2d1b43861c4ca486ff8ae6457e9919d12056dc6230ee133a00e82c131a99df51",
+      "grid": [4, 2],
+      "frame_count": 8,
+      "cells": [
+        "mist_left_a",
+        "mist_left_b",
+        "mist_right_a",
+        "mist_right_b",
+        "paper_left",
+        "paper_right",
+        "lantern_glow_left",
+        "lantern_glow_right"
+      ]
+    },
+    "reactive_sprites": {
+      "source": "images/ui/hud/stage7_akamu_pillar_reactive_sprites_imagegen_v1_source.png",
+      "source_size": [2752, 1536],
+      "source_sha256": "b6ad0409ba88514b8bd596d4df5133c77d6ab6483294529c1cf5b7037f027b17",
+      "runtime": "res://assets/sprites/hud/stage7_akamu_pillar_reactive_sprites_imagegen_v1.png",
+      "runtime_size": [1024, 576],
+      "runtime_sha256": "7c6180ff1fa42625a507f4c6cbb7143bea37f88c8fcdaa6dbc0b13187f9d50bf",
+      "grid": [4, 2],
+      "frame_count": 8,
+      "cells": [
+        "bamboo_left_rest",
+        "bamboo_left_score",
+        "bamboo_right_rest",
+        "bamboo_right_score",
+        "lantern_rest",
+        "lantern_score",
+        "scroll_rest",
+        "scroll_score"
+      ]
+    }
+  },
+  "postprocess": [
+    "base resized to 1920x1080 and stored as opaque RGBA8",
+    "field center-cropped to 4096x4042 then resized to 1520x1500 and stored as opaque RGBA8",
+    "sprite sheets resized to 1024x576 before chroma removal",
+    "green key removed with .claude/skills/sprite-generation/chroma_key.py using full-sheet padding",
+    "enclosed high-dominance neon-green remnants removed without deleting muted bamboo leaf color",
+    "right bamboo rest/score cells mirrored offline for inward score reaction"
+  ],
+  "legacy_references": [
+    "stage8_field.png",
+    "generate_stage8_ninja.py",
+    "pillar_ninja.py",
+    "backgrounds/animated_background_stage8.py"
+  ]
+}

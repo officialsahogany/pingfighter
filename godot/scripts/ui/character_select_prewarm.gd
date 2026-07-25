@@ -5,7 +5,12 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
 
-const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
+const MainMenuAudioController := preload("res://scripts/audio/main_menu_audio_controller.gd")
+
+# 캐릭터 선택 BGM = 메뉴 흐름 공유 트랙(조선의 달북) — 경로 단일 소스는
+# main_menu_audio_controller. 전투 복귀(F10 부스리셋 포함) 재진입 시 콜드
+# 로드를 막는 프리웜 용도.
+const CHARACTER_SELECT_BGM_PATH := MainMenuAudioController.MAIN_MENU_BGM_PATH
 
 var jobs: Array = []
 var current_job: Dictionary = {}

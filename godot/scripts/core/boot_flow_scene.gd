@@ -7,18 +7,15 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const LoadingCameoCatalog := preload("res://scripts/core/loading_cameo_catalog.gd")
 const LoadingCameoHost := preload("res://scripts/core/loading_cameo_host.gd")
 const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
-const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const MainMenuAudioController := preload(
+	"res://scripts/audio/main_menu_audio_controller.gd"
+)
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const LOADING_PERCENT_RATE := 72.0
 const LOADING_FINISH_PERCENT_RATE := 96.0
-const MAIN_MENU_BGM_PATH := "res://assets/bgm/main_menu_moon_crack.wav"
-const MAIN_MENU_BGM_GAIN := 0.82
-const MAIN_MENU_BGM_PLAYER_NAME := "PreloadedMenuBgmPlayer"
-const MAIN_MENU_BGM_BUS_NAME := "BGM"
-const MAIN_MENU_BGM_DEFAULT_BUS_VOLUME := 0.4
 const BGM_TOGGLE_KEY := KEY_B
 const BGM_PRELOAD_LEAD_SECONDS := 5.0
 const BGM_PRELOAD_MIN_PROGRESS := 0.05
@@ -34,7 +31,8 @@ const LOADING_FONT_PATHS := [
 
 var logo_intro: Object = PenguinLogoIntro.new()
 var view_layout: Object = BattleViewLayout.new()
-var character_select_prewarm: Object = CharacterSelectPrewarm.new()
+var character_select_prewarm: CharacterSelectPrewarm = CharacterSelectPrewarm.new()
+var main_menu_audio_controller: MainMenuAudioController = MainMenuAudioController.new()
 var transitioning: bool = false
 var loading_character_select: bool = false
 var loading_display_percent: int = 0
@@ -45,7 +43,12 @@ var bgm_preload_started: bool = false
 var loading_status_text: String = ""
 var loading_font: Font = null
 var loading_cameo_host: Node2D = null
-var main_menu_bgm_muted: bool = false
+
+
+func _get(property: StringName) -> Variant:
+	if str(property) == "main_menu_bgm_muted":
+		return main_menu_audio_controller.muted
+	return null
 
 
 func _ready() -> void:
@@ -65,9 +68,20 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	set_process(false)
 	if logo_intro != null and logo_intro.has_method("cleanup"):
 		logo_intro.cleanup()
 	_release_loading_cameo_host()
+	if character_select_prewarm != null:
+		character_select_prewarm.cancel_and_drain_current_request()
+	# SceneTree can tear down the outgoing boot scene while process-lifetime
+	# resources (the adopted menu BGM player and loader caches) stay alive.
+	# Release the short-lived RefCounted owners here instead of relying on the
+	# engine's final ObjectDB shutdown order.
+	logo_intro = null
+	view_layout = null
+	character_select_prewarm = null
+	main_menu_audio_controller = null
 
 
 func _process(delta: float) -> void:
@@ -167,17 +181,7 @@ func _handle_bgm_toggle(event: InputEvent) -> bool:
 
 
 func _toggle_main_menu_bgm() -> bool:
-	main_menu_bgm_muted = BgmMuteState.toggle(get_tree())
-	var player := _get_preloaded_main_menu_bgm_player()
-	if main_menu_bgm_muted:
-		if player != null and player.playing:
-			player.stop()
-		return true
-	if player == null or player.stream == null:
-		_preload_main_menu_bgm()
-	elif not player.playing:
-		player.play()
-	return false
+	return main_menu_audio_controller.toggle_preloaded_bgm(get_tree())
 
 
 func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
@@ -340,74 +344,15 @@ func _consider_main_menu_bgm_preload(loading_finished: bool) -> void:
 
 
 func _preload_main_menu_bgm() -> void:
-	var tree: SceneTree = get_tree()
-	if tree == null or tree.root == null:
-		return
-	var existing_player := _get_preloaded_main_menu_bgm_player()
-	if existing_player != null and existing_player.playing:
-		return
-	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(
-		MAIN_MENU_BGM_PATH,
-		"Missing main-menu BGM: %s",
-		"Failed to load main-menu BGM: %s"
-	)
-	if stream == null:
-		return
-	_enable_main_menu_bgm_loop(stream)
-	_ensure_main_menu_bgm_bus()
-	var player: AudioStreamPlayer = existing_player
-	if player == null:
-		player = AudioStreamPlayer.new()
-		player.name = MAIN_MENU_BGM_PLAYER_NAME
-		tree.root.add_child(player)
-	player.bus = MAIN_MENU_BGM_BUS_NAME
-	player.stream = stream
-	player.volume_db = _main_menu_bgm_volume_to_db(MAIN_MENU_BGM_GAIN)
-	player.pitch_scale = 1.0
-	if not main_menu_bgm_muted:
-		player.play()
+	main_menu_audio_controller.start_preloaded_bgm(get_tree())
 
 
 func _get_preloaded_main_menu_bgm_player() -> AudioStreamPlayer:
-	var tree: SceneTree = get_tree()
-	if tree == null or tree.root == null:
-		return null
-	var existing: Node = tree.root.get_node_or_null(MAIN_MENU_BGM_PLAYER_NAME)
-	return existing as AudioStreamPlayer
+	return main_menu_audio_controller.get_preloaded_bgm_player(get_tree())
 
 
 func _restore_main_menu_bgm_muted() -> void:
-	main_menu_bgm_muted = BgmMuteState.is_muted(get_tree())
-
-
-func _enable_main_menu_bgm_loop(stream: AudioStream) -> void:
-	if stream is AudioStreamWAV:
-		var wav_stream: AudioStreamWAV = stream
-		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		wav_stream.loop_begin = 0
-		wav_stream.loop_end = max(0, int(round(wav_stream.get_length() * float(wav_stream.mix_rate))))
-	elif stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = true
-	elif stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
-
-
-func _ensure_main_menu_bgm_bus() -> int:
-	var bus_index: int = AudioServer.get_bus_index(MAIN_MENU_BGM_BUS_NAME)
-	if bus_index >= 0:
-		return bus_index
-	AudioServer.add_bus(AudioServer.get_bus_count())
-	bus_index = AudioServer.get_bus_count() - 1
-	AudioServer.set_bus_name(bus_index, MAIN_MENU_BGM_BUS_NAME)
-	AudioServer.set_bus_volume_db(bus_index, _main_menu_bgm_volume_to_db(MAIN_MENU_BGM_DEFAULT_BUS_VOLUME))
-	return bus_index
-
-
-func _main_menu_bgm_volume_to_db(volume: float) -> float:
-	var clamped: float = clampf(volume, 0.0, 1.0)
-	if clamped <= 0.0:
-		return -80.0
-	return linear_to_db(clamped)
+	main_menu_audio_controller.restore_muted(get_tree())
 
 
 func _get_loading_font() -> Font:
@@ -433,11 +378,11 @@ func _ensure_loading_cameo_host() -> Node2D:
 
 func _release_loading_cameo_host() -> void:
 	if loading_cameo_host != null and is_instance_valid(loading_cameo_host):
-		loading_cameo_host.hide_loading()
+		loading_cameo_host.tear_down()
 		var parent := loading_cameo_host.get_parent()
 		if parent != null:
 			parent.remove_child(loading_cameo_host)
-		loading_cameo_host.queue_free()
+		loading_cameo_host.free()
 	loading_cameo_host = null
 
 

@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BootFlowScene := preload("res://scripts/core/boot_flow_scene.gd")
+const MainMenuAudioController := preload("res://scripts/audio/main_menu_audio_controller.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var failure_count: int = 0
@@ -25,6 +26,25 @@ func _run() -> void:
 	_expect(player != null, "loading screen should create the preloaded menu BGM player")
 	if player != null:
 		_expect(player.playing, "loading screen preloaded BGM should start playing")
+		var cached_stream := ProjectResourceLoader.get_cached_audio_stream(
+			MainMenuAudioController.MAIN_MENU_BGM_PATH
+		)
+		_expect(cached_stream != null, "boot preload should retain the shared cached BGM stream")
+		_expect(player.stream != cached_stream, "boot preload should loop a private stream duplicate")
+		if cached_stream is AudioStreamWAV:
+			_expect(
+				(cached_stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_DISABLED,
+				"boot preload must not mutate the path-cached WAV loop state"
+			)
+	var boot_source := FileAccess.get_file_as_string("res://scripts/core/boot_flow_scene.gd")
+	_expect(
+		boot_source.find("var main_menu_audio_controller: MainMenuAudioController") >= 0,
+		"boot flow should delegate preloaded BGM lifetime to the shared controller"
+	)
+	_expect(
+		boot_source.find("func _enable_main_menu_bgm_loop") == -1,
+		"boot flow should not retain a cached-stream loop mutator"
+	)
 	_send_b_to_boot()
 	await process_frame
 	_expect(bool(boot.get("main_menu_bgm_muted")), "B key should mark loading BGM muted")

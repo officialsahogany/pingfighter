@@ -23,6 +23,7 @@ ScreenshotCapture="*res://scripts/core/screenshot_capture.gd"
 FullscreenToggle="*res://scripts/core/fullscreen_toggle.gd"
 DisplayRefreshManager="*res://scripts/core/display_refresh_manager.gd"
 ExhibitionResetHandler="*res://scripts/core/exhibition_reset_handler.gd"
+ApplicationQuitCoordinator="*res://scripts/core/application_quit_coordinator.gd"
 
 [display]
 

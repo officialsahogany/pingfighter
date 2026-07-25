@@ -9,7 +9,11 @@ const SERVE_MAX_BASE_MULT := 1.6
 const JUNIOR_BALL_SPEED_MULT := 0.85
 const SPEED_DAMPEN_K := 0.6
 const JUNIOR_SPEED_INCREASE_MULT := 0.85
-const DEFAULT_RALLY_SPEED_MULT := 0.1008
+# 정상 랠리 가속의 단일 레버. 파이썬 원본은 여기서 1.0을 반환하므로(타격당 명목
+# +2.4~8.4% 그대로 적용) 0.1008은 약 10배 완만해진 포팅 회귀였음 → 원본 파리티로 복원.
+# 이 값이 미풍(×1.6)·화염(×2.0) 스케일의 베이스이기도 해 날씨 파리티도 함께 맞음.
+# 캡(DEFAULT_MAX_BALL_SPEED=26)·감쇠(SPEED_DAMPEN_K)·각도 리듀서가 상한/폭주를 계속 억제.
+const DEFAULT_RALLY_SPEED_MULT := 1.0
 const ARENA_RALLY_SPEED_MULT := 2.24
 const WEATHER_RALLY_SPEED_MULT := 1.6
 const FIRE_RALLY_SPEED_MULT := 2.0

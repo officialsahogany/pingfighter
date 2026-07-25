@@ -20,7 +20,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
 		feedback.update(delta, dash_token_max)
-		_push_odins_eye_cinematic_shake(feedback, deps.get("mythic_item_runtime", null), now_msec)
 
 	var audio = deps.get("audio", null)
 	if audio != null:
@@ -281,24 +280,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	result.merge(blacksmith_thor_shield_result, true)
 	result["special_gauge"] = next_special_gauge
 	return result
-
-
-# 오딘의 눈 부활/사망 시네마틱 화면흔들림: state 곡선(px)을 프레임-리셋되는
-# fixed shake offset으로 민다. 반드시 feedback.update(리셋) 직후 — mythic 틱은
-# 프레임 순서상 먼저라 거기서 밀면 이 리셋에 지워진다. 방향은 결정적 단위원
-# 회전(고주파) — offset.length()가 항상 곡선 강도와 일치해야 BANG 스파이크
-# 12px이 그대로 12px로 착지한다(주파수 상이 sin/cos 조합은 실길이가
-# 0~√2×강도로 요동해 스파이크가 2.5px로 증발하거나 17px로 튄다).
-func _push_odins_eye_cinematic_shake(feedback: Object, mythic_item_runtime: Object, now_msec: int) -> void:
-	if mythic_item_runtime == null or not feedback.has_method("push_fixed_shake_offset"):
-		return
-	if not mythic_item_runtime.has_method("get_odins_eye_cinematic_shake_intensity"):
-		return
-	var intensity: float = float(mythic_item_runtime.get_odins_eye_cinematic_shake_intensity())
-	if intensity <= 0.0:
-		return
-	var angle: float = float(now_msec) / 1000.0 * 47.0
-	feedback.push_fixed_shake_offset(Vector2(cos(angle), sin(angle)) * intensity)
 
 
 func _update_actor_animation(

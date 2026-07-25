@@ -3,7 +3,6 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
-const ActiveItemHologramDiskRuntime := preload("res://scripts/items/active_item_hologram_disk_runtime.gd")
 
 const WIDTH: float = 760.0
 const PLAY_LEFT: float = 0.0
@@ -78,9 +77,6 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage, ai_mode)
 	var boss_dash_profile: Dictionary = _build_boss_dash_profile(current_stage)
 	var boss_mistake_profile: Dictionary = _build_boss_mistake_profile(current_stage, ai_mode)
-	var real_ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
-	var real_ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
-	var hologram_ball_context: Dictionary = _get_hologram_deception_context(registry, real_ball_pos, real_ball_vel)
 	return {
 		"width": WIDTH,
 		"play_left": PLAY_LEFT,
@@ -121,15 +117,11 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_serve_target_delay": _get_round_snapshot_float(round_state, "serve_delay", 1.0),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_paddle_width": PADDLE_WIDTH,
-		"ball_pos": _get_dictionary_vector2(hologram_ball_context, "ball_pos", real_ball_pos),
-		"ball_vel": _get_dictionary_vector2(hologram_ball_context, "ball_vel", real_ball_vel),
-		"hologram_deception_active": bool(hologram_ball_context.get("hologram_deception_active", false)),
-		"ball_impact_boost": float(hologram_ball_context.get("ball_impact_boost", _get_owner_value(owner, "ball_impact_boost", 1.0))),
-		"ball_boost_decay_rate": float(hologram_ball_context.get("ball_boost_decay_rate", _get_owner_value(owner, "ball_boost_decay_rate", 0.975))),
-		"ball_min_boost": float(hologram_ball_context.get("ball_min_boost", _get_owner_value(owner, "ball_min_boost", 0.70))),
-		"prediction_play_left": float(hologram_ball_context.get("prediction_play_left", PLAY_LEFT)),
-		"prediction_play_right": float(hologram_ball_context.get("prediction_play_right", PLAY_RIGHT)),
-		"prediction_reflect_velocity": bool(hologram_ball_context.get("prediction_reflect_velocity", false)),
+		"ball_pos": _get_owner_vector2(owner, "ball_pos", Vector2.ZERO),
+		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
+		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
+		"ball_boost_decay_rate": float(_get_owner_value(owner, "ball_boost_decay_rate", 0.975)),
+		"ball_min_boost": float(_get_owner_value(owner, "ball_min_boost", 0.70)),
 		"ball_size": BALL_SIZE,
 		"boss_y": BOSS_Y,
 		"boss_hitbox_height": max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT))),
@@ -418,68 +410,6 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
-
-
-func _get_hologram_deception_context(registry: Object, real_ball_pos: Vector2, real_ball_vel: Vector2) -> Dictionary:
-	# 하강 전환 프레임 stale-lock 가드: 물리 프레임 순서가 active item →
-	# boss AI → ball update라서, 보스 반사로 공이 하강 전환한 그 프레임의
-	# 락 해제는 '다음' ball tick에서야 일어난다. 실 공이 이미 하강 중이면
-	# peek 결과와 무관하게 즉시 진짜 공으로 폴백해 stale 분신을 한 틱 더
-	# 추적하는 것을 차단한다(하강 중 기만 없음은 설계 계약이기도 하다).
-	if real_ball_vel.y >= 0.0:
-		return {
-			"ball_pos": real_ball_pos,
-			"ball_vel": real_ball_vel,
-		}
-	var active_item_runtime: Object = _get_cached_instance(registry, "active_item_runtime")
-	if active_item_runtime == null or not active_item_runtime.has_method("peek_hologram_deception_ball_context"):
-		return {
-			"ball_pos": real_ball_pos,
-			"ball_vel": real_ball_vel,
-		}
-	var peek: Variant = active_item_runtime.peek_hologram_deception_ball_context()
-	if not (peek is Dictionary):
-		return {
-			"ball_pos": real_ball_pos,
-			"ball_vel": real_ball_vel,
-		}
-	var peek_context: Dictionary = peek
-	if not bool(peek_context.get("active", false)):
-		return {
-			"ball_pos": real_ball_pos,
-			"ball_vel": real_ball_vel,
-		}
-	return {
-		"ball_pos": _get_dictionary_vector2(peek_context, "ball_pos", real_ball_pos),
-		"ball_vel": _get_dictionary_vector2(peek_context, "ball_vel", real_ball_vel),
-		"hologram_deception_active": true,
-		# 분신 운동 모델 = raw velocity(부스트/감쇠 없음) + 시각 여백 벽
-		# 반사. 예측이 실 공 모델(0..760 벽 + impact boost/decay)을 그대로
-		# 쓰면 벽 반사 후 목표 x가 최대 ~53px 어긋난다 — 기만 프레임에는
-		# 부스트 계약을 무력화하고 홀로그램 전용 예측 벽 경계를 싣는다.
-		"ball_impact_boost": 1.0,
-		"ball_boost_decay_rate": 1.0,
-		"ball_min_boost": 1.0,
-		"prediction_play_left": ActiveItemHologramDiskRuntime.DECOY_WALL_MARGIN,
-		"prediction_play_right": WIDTH - ActiveItemHologramDiskRuntime.DECOY_WALL_MARGIN,
-		"prediction_reflect_velocity": true,
-	}
-
-
-func _get_cached_instance(registry: Object, key: String) -> Object:
-	if registry == null or key == "" or not registry.has_method("get_cached_instance"):
-		return null
-	var value: Variant = registry.get_cached_instance(key)
-	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-		return value as Object
-	return null
-
-
-func _get_dictionary_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

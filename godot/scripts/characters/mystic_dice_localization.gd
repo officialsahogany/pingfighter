@@ -2,13 +2,6 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-# TAB 스탯 행 태그 프리픽스(융합 [[fusion:*]] 패턴 미러): 렌더 엔트리
-# 분해기(build_perk_stat_entries)가 색으로 변환한다 — 표시는 raw 부호가
-# 아니라 benefit(이득/손해) 부호 기준이다.
-const STAT_BENEFIT_PREFIX := "[[dice:benefit]]"
-const STAT_CURSE_PREFIX := "[[dice:curse]]"
-const STAT_NEUTRAL_PREFIX := "[[dice:neutral]]"
-
 const TEXT_BY_LOCALE := {
 	"ko": {
 		"roll_title": "신비의 주사위",

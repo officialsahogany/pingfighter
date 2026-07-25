@@ -41,6 +41,7 @@ const ActiveItemThrowMolotovRenderer := preload("res://scripts/items/active_item
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
 const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pillar_background.gd")
+const Stage7AkamuPillarBackground := preload("res://scripts/stages/stage7/stage7_akamu_pillar_background.gd")
 const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
 const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
 
@@ -54,7 +55,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 23
+const WARMUP_DRAW_STEPS := 24
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -85,6 +86,7 @@ var _defeat_color_restore_fx_host: Node = null
 var _stage4_illusion_ripple_fx_host: Node = null
 var _stage4_awaken_aura_fx_host: Node = null
 var _angel_blessing_fx_host: Node = null
+var _stage7_art_texture_draws_issued: int = 0
 
 
 class PsoWeatherWarmupState:
@@ -251,6 +253,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_angel_blessing_modal_shader_state()
 		22:
 			_prewarm_angel_blessing_absorb_shader_state()
+		23:
+			_prewarm_stage7_akamu_pillar_field_textures()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -966,6 +970,27 @@ func _prewarm_playfield_primitives() -> void:
 		ellipse_transform,
 		Color(1.0, 0.92, 0.20, 0.32)
 	)
+
+
+func _prewarm_stage7_akamu_pillar_field_textures() -> void:
+	_stage7_art_texture_draws_issued = 0
+	var texture_paths: Array[String] = [
+		Stage7AkamuPillarBackground.BASE_TEXTURE_PATH,
+		Stage7AkamuPillarBackground.FIELD_TEXTURE_PATH,
+		Stage7AkamuPillarBackground.MOTION_TEXTURE_PATH,
+		Stage7AkamuPillarBackground.REACTIVE_TEXTURE_PATH,
+	]
+	for texture_index in range(texture_paths.size()):
+		var texture := _get_texture(texture_paths[texture_index])
+		if texture == null:
+			continue
+		draw_texture_rect(
+			texture,
+			Rect2(float(texture_index) * 96.0, 1860.0, 88.0, 88.0),
+			false,
+			Color(1.0, 1.0, 1.0, 0.72)
+		)
+		_stage7_art_texture_draws_issued += 1
 
 
 func _prewarm_stage1_result_pose_textures() -> void:

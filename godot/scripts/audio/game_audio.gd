@@ -119,12 +119,6 @@ const ANGEL_BLESSING_ABSORB_GAIN_DB := 0.0
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const DEFEAT_JEWEL_SOUND_PATH := "res://assets/sounds/defeatjewel1.wav"
 const DEFEAT_GEM_SHATTER_SOUND_PATH := "res://assets/sounds/defeat_gem_shatter.wav"
-# 퍽 융합 콜드부트 시네마틱 §9 전이 SFX(CB4c-4) — 전부 원샷(루프 아님:
-# 모달-블록 루프 오디오 정지 트랩의 STOP_METHODS 의무 없음).
-const COLD_BOOT_CHNK_LATCH_SOUND_PATH := "res://assets/sounds/cold_boot_chnk_latch.wav"
-const COLD_BOOT_POST_RAMP_SOUND_PATH := "res://assets/sounds/cold_boot_post_ramp.wav"
-const COLD_BOOT_IGNITION_THUNK_SOUND_PATH := "res://assets/sounds/cold_boot_ignition_thunk.wav"
-const COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH := "res://assets/sounds/cold_boot_awaken_fanfare.wav"
 const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
 const LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"
 const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"
@@ -240,11 +234,6 @@ const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
 const HORN_STRAWBERRY_CHANGE_SOUND_PATH := "res://assets/sounds/strawberrychange.wav"
-const ODINS_EYE_CHANGE_SOUND_PATH := "res://assets/sounds/odinchange.wav"
-const ODINS_EYE_DEATH_SOUND_PATH := "res://assets/sounds/odindeath.wav"
-const ODINS_EYE_SPIRIT_SOUND_PATH := "res://assets/sounds/odinspirit.wav"
-const ODINS_EYE_ATTACK_SOUND_PATH := "res://assets/sounds/odinattack.wav"
-const ODINS_EYE_SHADOW_SOUND_PATH := "res://assets/sounds/odinshadow.wav"
 const HORN_STRAWBERRY_EAT_SOUND_PATH := "res://assets/sounds/strawberryeat.wav"
 const HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
 const HORN_STRAWBERRY_STEM_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
@@ -531,10 +520,6 @@ var angel_blessing_absorb_sfx_cursor := 0
 var result_box_open_sfx: AudioStreamPlayer
 var defeat_jewel_sfx: AudioStreamPlayer
 var defeat_gem_shatter_sfx: AudioStreamPlayer
-var cold_boot_chnk_latch_sfx: AudioStreamPlayer
-var cold_boot_post_ramp_sfx: AudioStreamPlayer
-var cold_boot_ignition_thunk_sfx: AudioStreamPlayer
-var cold_boot_awaken_fanfare_sfx: AudioStreamPlayer
 var lingpet_acquire_cutin_sfx: AudioStreamPlayer
 var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer
 var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer
@@ -592,11 +577,6 @@ var horn_strawberry_horn_charge_sfx: AudioStreamPlayer
 var horn_strawberry_field_build_sfx: AudioStreamPlayer
 var horn_strawberry_field_break_sfx: AudioStreamPlayer
 var horn_strawberry_field_build_break_sfx: AudioStreamPlayer
-var odins_eye_change_sfx: AudioStreamPlayer
-var odins_eye_death_sfx: AudioStreamPlayer
-var odins_eye_spirit_sfx: AudioStreamPlayer
-var odins_eye_attack_sfx: AudioStreamPlayer
-var odins_eye_shadow_sfx: AudioStreamPlayer
 var horn_strawberry_bomb_trigger_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
 var flashbomb_sfx: AudioStreamPlayer
@@ -894,10 +874,6 @@ func _setup_item_command_sfx() -> void:
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
 	defeat_jewel_sfx = player_factory.create(owner_node, "DefeatJewelSfx", DEFEAT_JEWEL_SOUND_PATH, -4.0)
 	defeat_gem_shatter_sfx = player_factory.create(owner_node, "DefeatGemShatterSfx", DEFEAT_GEM_SHATTER_SOUND_PATH, -3.0)
-	cold_boot_chnk_latch_sfx = player_factory.create(owner_node, "ColdBootChnkLatchSfx", COLD_BOOT_CHNK_LATCH_SOUND_PATH, -5.0)
-	cold_boot_post_ramp_sfx = player_factory.create(owner_node, "ColdBootPostRampSfx", COLD_BOOT_POST_RAMP_SOUND_PATH, -8.0)
-	cold_boot_ignition_thunk_sfx = player_factory.create(owner_node, "ColdBootIgnitionThunkSfx", COLD_BOOT_IGNITION_THUNK_SOUND_PATH, -4.0)
-	cold_boot_awaken_fanfare_sfx = player_factory.create(owner_node, "ColdBootAwakenFanfareSfx", COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH, -6.0)
 	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
 	lingpet_acquire_click_deep_bass_sfx = player_factory.create(owner_node, "LingpetAcquireClickDeepBassSfx", LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH, LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB)
 	lingpet_acquire_click_crackle_sweep_sfx = player_factory.create(owner_node, "LingpetAcquireClickCrackleSweepSfx", LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH, LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB)
@@ -952,11 +928,6 @@ func _setup_item_command_sfx() -> void:
 	horn_strawberry_field_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBreakSfx", HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_GAIN_DB)
 	horn_strawberry_field_build_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBuildBreakSfx", HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB)
 	horn_strawberry_bomb_trigger_sfx = player_factory.create(owner_node, "HornStrawberryBombTriggerSfx", HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH, HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB)
-	odins_eye_change_sfx = player_factory.create(owner_node, "OdinsEyeChangeSfx", ODINS_EYE_CHANGE_SOUND_PATH, -4.0)
-	odins_eye_death_sfx = player_factory.create(owner_node, "OdinsEyeDeathSfx", ODINS_EYE_DEATH_SOUND_PATH, -4.0)
-	odins_eye_spirit_sfx = player_factory.create(owner_node, "OdinsEyeSpiritSfx", ODINS_EYE_SPIRIT_SOUND_PATH, -5.0)
-	odins_eye_attack_sfx = player_factory.create(owner_node, "OdinsEyeAttackSfx", ODINS_EYE_ATTACK_SOUND_PATH, -5.0)
-	odins_eye_shadow_sfx = player_factory.create(owner_node, "OdinsEyeShadowSfx", ODINS_EYE_SHADOW_SOUND_PATH, -5.0)
 
 
 func _setup_projectile_item_sfx() -> void:
@@ -1570,24 +1541,6 @@ func sync_plasma_shock(active: bool) -> void:
 
 func play_recovery() -> void:
 	_play_with_pitch(recovery_sfx, randf_range(0.98, 1.02))
-
-
-# 콜드부트 §9 전이 SFX: B1 트위스트락 CHNK / B2 부팅 램프(0.85s 원샷) /
-# B3 이그니션 THUNK / B4 각성 팡파르(부산물 전개 시에만 — 호출측 게이트).
-func play_cold_boot_chnk_latch() -> void:
-	_play_with_pitch(cold_boot_chnk_latch_sfx, randf_range(0.97, 1.03))
-
-
-func play_cold_boot_post_ramp() -> void:
-	_play_with_pitch(cold_boot_post_ramp_sfx, randf_range(0.99, 1.01))
-
-
-func play_cold_boot_ignition_thunk() -> void:
-	_play_with_pitch(cold_boot_ignition_thunk_sfx, randf_range(0.97, 1.03))
-
-
-func play_cold_boot_awaken_fanfare() -> void:
-	_play_with_pitch(cold_boot_awaken_fanfare_sfx, randf_range(0.99, 1.01))
 
 
 func play_defeat_jewel() -> void:
@@ -2433,28 +2386,6 @@ func play_throw_before() -> void:
 
 func play_throw() -> void:
 	_play_with_pitch(throw_sfx, randf_range(0.98, 1.02))
-
-
-# 오딘의 눈 5종 원샷 큐 — 루프 SFX 금지 계약(모달 loop-audio 트랩 자체 회피).
-# 변신·사망 큐는 타임라인 원샷(재생 시점=시퀀스 시작)이라 피치 랜덤 없이 1.0.
-func play_odins_eye_change() -> void:
-	_play_with_pitch(odins_eye_change_sfx, 1.0)
-
-
-func play_odins_eye_death() -> void:
-	_play_with_pitch(odins_eye_death_sfx, 1.0)
-
-
-func play_odins_eye_spirit() -> void:
-	_play_with_pitch(odins_eye_spirit_sfx, randf_range(0.98, 1.02))
-
-
-func play_odins_eye_attack() -> void:
-	_play_with_pitch(odins_eye_attack_sfx, randf_range(0.98, 1.02))
-
-
-func play_odins_eye_shadow() -> void:
-	_play_with_pitch(odins_eye_shadow_sfx, randf_range(0.98, 1.02))
 
 
 func play_horn_strawberry_change() -> void:
@@ -3982,10 +3913,6 @@ func _get_sfx_players() -> Array:
 		angel_blessing_absorb_sfx,
 		result_box_open_sfx,
 		defeat_jewel_sfx,
-		cold_boot_chnk_latch_sfx,
-		cold_boot_post_ramp_sfx,
-		cold_boot_ignition_thunk_sfx,
-		cold_boot_awaken_fanfare_sfx,
 		defeat_gem_shatter_sfx,
 		lingpet_acquire_cutin_sfx,
 		lingpet_acquire_click_deep_bass_sfx,
@@ -4035,11 +3962,6 @@ func _get_sfx_players() -> Array:
 		throw_before_sfx,
 		throw_sfx,
 		horn_strawberry_change_sfx,
-		odins_eye_change_sfx,
-		odins_eye_death_sfx,
-		odins_eye_spirit_sfx,
-		odins_eye_attack_sfx,
-		odins_eye_shadow_sfx,
 		horn_strawberry_eat_sfx,
 		horn_strawberry_stem_fire_sfx,
 		horn_strawberry_stem_hit_sfx,

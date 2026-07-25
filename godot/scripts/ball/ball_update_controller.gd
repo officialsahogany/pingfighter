@@ -58,9 +58,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	var motion_apply_start: int = _perf_begin(perf_logger)
 	frame_motion_controller.update_serve_collision_cooldowns(scene, fps_scale)
 	frame_motion_controller.update_trampoline_launch_cap(scene, fps_scale)
-	# 융합 과부하 failsafe TTL: 보스 리턴/득점이 없어도 열린 캡이 90프레임을
-	# 넘겨 살 수 없다 — 실 볼 업데이트마다 1회 틱(스킵 프레임 포함).
-	frame_motion_controller.update_perk_fusion_overload_speed_cap(scene, fps_scale)
 	if not power_smashing_parabola_active and not ball_speed_recovery_active:
 		frame_motion_controller.apply_ball_speed_limits(scene, frame_deps)
 
@@ -633,8 +630,6 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 			_get_vector2(context, "ball_pos", Vector2.ZERO)
 		),
 		"ball_interp_reset_requested": bool(context.get("ball_interp_reset_requested", false)),
-		"perk_fusion_overload_speed_cap": float(context.get("perk_fusion_overload_speed_cap", 0.0)),
-		"perk_fusion_overload_speed_cap_frames": float(context.get("perk_fusion_overload_speed_cap_frames", 0.0)),
 		"ball_interp_last_physics_usec": int(context.get("ball_interp_last_physics_usec", 0)),
 		"ball_render_interpolation_enabled": bool(context.get("ball_render_interpolation_enabled", true)),
 		"ball_vel": _get_vector2(context, "ball_vel", Vector2.ZERO),
@@ -753,10 +748,6 @@ func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
 	if bool(context.get("fire_weather_speed_cap_active", false)):
 		speed_cap = min(speed_cap, float(context.get("fire_weather_max_ball_speed", 35.0)))
-	# 융합 과부하 일시 캡은 파워스매싱 캡 경로도 관통한다(일반 하드캡 상위).
-	var overload_cap: float = float(scene.get("perk_fusion_overload_speed_cap", 0.0))
-	if overload_cap > 0.0:
-		speed_cap = max(speed_cap, overload_cap)
 	return speed_cap
 
 

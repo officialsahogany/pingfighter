@@ -3,15 +3,16 @@ extends SceneTree
 const MAIN_MENU_SCENE_PATH := "res://scenes/main_menu.tscn"
 const CHARACTER_SELECT_SCENE_PATH := "res://scenes/character_select.tscn"
 const LOGO_BAKED_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu_bg_logo.png"
-const MAIN_MENU_BGM_PATH := "res://assets/bgm/main_menu_moon_crack.wav"
+const MainMenuAudioController := preload("res://scripts/audio/main_menu_audio_controller.gd")
+const MAIN_MENU_BGM_PATH := MainMenuAudioController.MAIN_MENU_BGM_PATH
 const MAIN_MENU_START_SFX_PATH := "res://assets/sounds/stagestart_godot_short.wav"
 const BGM_BUS_NAME := "BGM"
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 
 var failure_count: int = 0
 var menu: Control = null
-var quit_calls: int = 0
 var menu_background_prewarm: Object = null
 
 
@@ -20,6 +21,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	LanguageSettings.set_test_locale_override("ko")
 	ProjectResourceLoader.clear_caches()
 	var packed := load(MAIN_MENU_SCENE_PATH) as PackedScene
 	_expect(packed != null, "main menu scene should load")
@@ -181,7 +183,7 @@ func _run() -> void:
 		_expect(button_stack.get_child(1) == settings_button, "settings button should sit between start and quit")
 		_expect(button_stack.get_child(2) == quit_button, "quit button should stay last in the main-menu stack")
 	if start_button != null:
-		_expect(start_button.text == "TOUCH TO START", "main menu start prompt should use the uppercase touch-to-start label")
+		_expect(start_button.text == "문을 두드려 귀문을 연다", "main menu start prompt should use the approved Korean input-neutral copy")
 		_expect(start_button.get_theme_font_size("font_size") >= 40, "touch-to-start prompt should stay scaled up in the faded ribbon")
 		_expect(start_button.custom_minimum_size.x >= 845.0, "touch-to-start prompt should keep the enlarged ribbon width")
 		var prompt_ribbon := start_button.get_node_or_null("PromptRibbon") as Control
@@ -213,29 +215,6 @@ func _run() -> void:
 			settings_overlay != null and settings_overlay.has_method("is_active") and not bool(settings_overlay.is_active()),
 			"ESC from main-menu settings should close the settings overlay instead of showing the pause panel"
 		)
-	quit_calls = 0
-	menu.set("application_quit_callback", Callable(self, "_request_quit"))
-	if quit_button != null and quit_overlay != null:
-		quit_button.pressed.emit()
-		await process_frame
-		_expect(quit_overlay.visible, "quit button should open the quit confirmation overlay")
-		_expect(quit_no_button != null and quit_no_button.has_focus(), "quit confirmation should default focus to the no button")
-		if quit_no_button != null:
-			quit_no_button.pressed.emit()
-		await process_frame
-		_expect(not quit_overlay.visible, "no button should close the quit confirmation overlay")
-		_expect(current_scene == menu, "canceling quit should keep the main menu active")
-		quit_button.pressed.emit()
-		await process_frame
-		_expect(quit_overlay.visible, "quit confirmation should reopen on a repeated quit request")
-		if quit_yes_button != null:
-			quit_yes_button.pressed.emit()
-		await process_frame
-		_expect(not quit_overlay.visible, "yes button should close the quit confirmation overlay before quitting")
-		_expect(quit_calls == 1, "yes button should trigger exactly one quit request")
-		_expect(bool(menu.get("transitioning")), "confirmed quit should lock the menu transition state")
-		menu.set("transitioning", false)
-	menu.set("application_quit_callback", Callable())
 	if bgm_player != null:
 		_send_b_to_menu()
 		await process_frame
@@ -308,6 +287,12 @@ func _run() -> void:
 				await process_frame
 	await _cleanup_main_menu_reference()
 	await _cleanup_current_scene()
+	MainMenuAudioController.release_preloaded_bgm_player(self)
+	await process_frame
+	_expect(
+		root.get_node_or_null(MainMenuAudioController.PRELOADED_BGM_PLAYER_NAME) == null,
+		"smoke teardown should release the persisted root BGM player"
+	)
 	await _drain_menu_background_prewarm()
 	ProjectResourceLoader.clear_caches()
 	for _i in range(120):
@@ -319,6 +304,7 @@ func _run() -> void:
 
 
 func _finish() -> void:
+	LanguageSettings.set_test_locale_override("")
 	if failure_count > 0:
 		quit(1)
 		return
@@ -377,10 +363,6 @@ func _finish_intro_reveal() -> void:
 	var reveal := menu.get_node_or_null("RevealLayer")
 	if reveal != null and reveal.has_method("_finish_reveal"):
 		reveal.call("_finish_reveal")
-
-
-func _request_quit() -> void:
-	quit_calls += 1
 
 
 func _cleanup_current_scene() -> void:

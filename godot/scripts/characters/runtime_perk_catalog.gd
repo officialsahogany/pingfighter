@@ -1418,7 +1418,11 @@ func get_choices(
 	for owned_upgrade_choice in owned_upgrade_reserved:
 		if result.size() >= target_choice_count:
 			break
-		result.append(owned_upgrade_choice)
+		result.append(_with_offer_metadata(
+			owned_upgrade_choice,
+			"owned_upgrade_reserved",
+			true
+		))
 	for reserved_choice in reserved_choices:
 		if result.size() >= target_choice_count:
 			break

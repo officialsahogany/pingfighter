@@ -25,7 +25,7 @@ const STARLIGHT_COLOR := Color(0.82, 0.97, 1.0, 1.0)
 const BENEFIT_COLOR := Color(0.42, 1.0, 0.62, 1.0)
 const HARM_COLOR := Color(1.0, 0.38, 0.44, 1.0)
 const NEUTRAL_COLOR := Color(0.68, 0.73, 0.84, 1.0)
-const MAX_ACCUMULATED_RAW := 9
+const MAX_ACCUMULATED_RAW := 30
 const DIE_SUPERELLIPSE_N := 4.0
 const DIE_OUTLINE_POINTS := 32
 

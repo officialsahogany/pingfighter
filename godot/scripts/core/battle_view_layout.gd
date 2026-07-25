@@ -1,5 +1,6 @@
 extends RefCounted
 
+const DisplaySettingsConfigCodec := preload("res://scripts/core/display_settings_config_codec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const VIEW_WIDTH := 1488.0
@@ -9,19 +10,19 @@ const WINDOW_TARGET_WIDTH_RATIO := 0.90
 const GAME_RENDER_MARGIN_Y_RATIO := 0.065
 const GAME_RENDER_MIN_MARGIN_Y := 30.0
 const MOBILE_SAFE_MARGIN_MIN := 8.0
-const DISPLAY_MODE_FULLSCREEN := "fullscreen"
-const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := "exclusive_fullscreen"
-const DISPLAY_MODE_WINDOWED := "windowed"
+const DISPLAY_MODE_FULLSCREEN := DisplaySettingsConfigCodec.DISPLAY_MODE_FULLSCREEN
+const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := DisplaySettingsConfigCodec.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+const DISPLAY_MODE_WINDOWED := DisplaySettingsConfigCodec.DISPLAY_MODE_WINDOWED
 const SETTINGS_PATH := "user://display_settings.cfg"
 const SETTINGS_BACKUP_PATH := "user://display_settings.last_good.cfg"
-const SETTINGS_SCHEMA_VERSION := 5
-const RENDER_FPS_CAP_UNLIMITED := 0
+const SETTINGS_SCHEMA_VERSION := DisplaySettingsConfigCodec.SETTINGS_SCHEMA_VERSION
+const RENDER_FPS_CAP_UNLIMITED := DisplaySettingsConfigCodec.RENDER_FPS_CAP_UNLIMITED
 const RENDER_FPS_CAP_STABILITY := 48
 const RENDER_FPS_CAP_SMOOTH := 60
-const RENDER_FPS_CAP_BALANCED := 72
-const RENDER_FPS_CAP_MONITOR := -1
-const RENDER_FPS_CAP_STABLE_MONITOR := -2
-const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABLE_MONITOR
+const RENDER_FPS_CAP_BALANCED := DisplaySettingsConfigCodec.RENDER_FPS_CAP_BALANCED
+const RENDER_FPS_CAP_MONITOR := DisplaySettingsConfigCodec.RENDER_FPS_CAP_MONITOR
+const RENDER_FPS_CAP_STABLE_MONITOR := DisplaySettingsConfigCodec.RENDER_FPS_CAP_STABLE_MONITOR
+const RENDER_FPS_CAP_DEFAULT := DisplaySettingsConfigCodec.RENDER_FPS_CAP_DEFAULT
 const RENDER_FPS_CAP_STABLE_MAX := 90
 const RENDER_FPS_CAP_STABLE_MIN := 45
 # 2026-06-11 promotion: 72 so a 144Hz monitor maps to 72 (was 60 -> 144Hz
@@ -36,7 +37,7 @@ const PHYSICS_TICKS_SETTING := "physics/common/physics_ticks_per_second"
 const PHYSICS_TICKS_PROJECT_DEFAULT := 72
 const PHYSICS_TICKS_SYNC_MIN := 30
 const PHYSICS_TICKS_SYNC_MAX := 120
-const VSYNC_MODE_AUTO := -1
+const VSYNC_MODE_AUTO := DisplaySettingsConfigCodec.VSYNC_MODE_AUTO
 const VSYNC_MODE_OPTIONS: Array[int] = [
 	VSYNC_MODE_AUTO,
 	DisplayServer.VSYNC_ENABLED,
@@ -51,14 +52,7 @@ const RENDER_FPS_CAP_OPTIONS: Array[int] = [
 	RENDER_FPS_CAP_STABLE_MONITOR,
 	RENDER_FPS_CAP_MONITOR,
 ]
-const DISPLAY_SETTINGS_GRAPHICS_KEYS: Array[String] = [
-	"remember_display_mode",
-	"display_mode",
-	"render_fps_cap",
-	"vsync_mode",
-	"auto_60hz_refresh_rate",
-]
-
+var _display_settings_codec: DisplaySettingsConfigCodec = DisplaySettingsConfigCodec.new()
 var _last_windowed_size := Vector2i.ZERO
 var _last_windowed_position := Vector2i.ZERO
 static var _runtime_render_fps_cap := RENDER_FPS_CAP_DEFAULT
@@ -478,34 +472,15 @@ func is_fullscreen(window: Window) -> bool:
 
 
 func _normalize_display_mode(mode: String) -> String:
-	var normalized := mode.strip_edges().to_lower()
-	if normalized == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN or normalized == "exclusive":
-		return DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
-	if normalized == DISPLAY_MODE_FULLSCREEN:
-		return DISPLAY_MODE_FULLSCREEN
-	return DISPLAY_MODE_WINDOWED
+	return DisplaySettingsConfigCodec.normalize_display_mode(mode)
 
 
 func _normalize_render_fps_cap(cap: int) -> int:
-	if cap == RENDER_FPS_CAP_STABLE_MONITOR:
-		return RENDER_FPS_CAP_STABLE_MONITOR
-	if cap == RENDER_FPS_CAP_MONITOR:
-		return RENDER_FPS_CAP_MONITOR
-	if cap <= 0:
-		return RENDER_FPS_CAP_UNLIMITED
-	return max(1, cap)
+	return DisplaySettingsConfigCodec.normalize_render_fps_cap(cap)
 
 
 func _normalize_vsync_mode(mode: int) -> int:
-	if mode == VSYNC_MODE_AUTO:
-		return VSYNC_MODE_AUTO
-	if mode == DisplayServer.VSYNC_DISABLED:
-		return DisplayServer.VSYNC_DISABLED
-	if mode == DisplayServer.VSYNC_MAILBOX:
-		return DisplayServer.VSYNC_MAILBOX
-	if mode == DisplayServer.VSYNC_ADAPTIVE:
-		return DisplayServer.VSYNC_ADAPTIVE
-	return DisplayServer.VSYNC_ENABLED
+	return DisplaySettingsConfigCodec.normalize_vsync_mode(mode)
 
 
 func _resolve_render_fps_cap(window: Window, cap: int, _vsync_mode: int = VSYNC_MODE_AUTO) -> int:
@@ -653,46 +628,14 @@ func _load_display_settings() -> ConfigFile:
 
 
 func _migrate_display_settings(config: ConfigFile) -> void:
-	var version: int = int(config.get_value("meta", "settings_schema_version", 0))
-	if version >= SETTINGS_SCHEMA_VERSION:
+	if not _display_settings_codec.migrate(config):
 		return
-	var changed := false
-	if version < 2 and config.has_section_key("graphics", "render_fps_cap"):
-		var saved_cap: int = _normalize_render_fps_cap(int(config.get_value(
-			"graphics",
-			"render_fps_cap",
-			RENDER_FPS_CAP_DEFAULT
-		)))
-		if saved_cap == RENDER_FPS_CAP_BALANCED:
-			config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
-			changed = true
-	if version < 3 and not config.has_section_key("graphics", "remember_display_mode"):
-		var saved_display_mode := _normalize_display_mode(str(config.get_value(
-			"graphics",
-			"display_mode",
-			DISPLAY_MODE_WINDOWED
-		)))
-		if saved_display_mode != DISPLAY_MODE_WINDOWED:
-			config.set_value("graphics", "remember_display_mode", true)
-			changed = true
-	if version < 5 and config.has_section_key("graphics", "render_fps_cap"):
-		var saved_cap: int = _normalize_render_fps_cap(int(config.get_value(
-			"graphics",
-			"render_fps_cap",
-			RENDER_FPS_CAP_DEFAULT
-		)))
-		if saved_cap == RENDER_FPS_CAP_MONITOR:
-			config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
-			changed = true
-	_stamp_display_settings_schema(config)
-	changed = true
-	if changed:
-		var result := config.save(_get_settings_path())
-		_record_settings_save("migrate", config, result)
+	var result := config.save(_get_settings_path())
+	_record_settings_save("migrate", config, result)
 
 
 func _stamp_display_settings_schema(config: ConfigFile) -> void:
-	config.set_value("meta", "settings_schema_version", SETTINGS_SCHEMA_VERSION)
+	_display_settings_codec.stamp_schema(config)
 
 
 func _record_settings_save(reason: String, config: ConfigFile, result: int) -> void:
@@ -736,7 +679,7 @@ func _load_config_file(config: ConfigFile) -> Dictionary:
 
 
 func _has_utf8_bom(bytes: PackedByteArray) -> bool:
-	return bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF
+	return DisplaySettingsConfigCodec.has_utf8_bom(bytes)
 
 
 func _repair_empty_display_settings_payload(config: ConfigFile) -> String:
@@ -753,47 +696,19 @@ func _repair_empty_display_settings_payload(config: ConfigFile) -> String:
 
 
 func _set_default_display_settings_payload(config: ConfigFile) -> void:
-	config.set_value("graphics", "remember_display_mode", false)
-	config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
-	config.set_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)
-	config.set_value("graphics", "auto_60hz_refresh_rate", false)
-	_stamp_display_settings_schema(config)
+	_display_settings_codec.set_default_payload(config)
 
 
 func _complete_missing_display_settings(config: ConfigFile) -> String:
-	var changed := false
-	if not config.has_section_key("graphics", "remember_display_mode"):
-		var saved_mode := _normalize_display_mode(str(config.get_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)))
-		config.set_value("graphics", "remember_display_mode", saved_mode != DISPLAY_MODE_WINDOWED)
-		changed = true
-	if not config.has_section_key("graphics", "render_fps_cap"):
-		config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
-		changed = true
-	if not config.has_section_key("graphics", "vsync_mode"):
-		config.set_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)
-		changed = true
-	if not config.has_section_key("graphics", "auto_60hz_refresh_rate"):
-		config.set_value("graphics", "auto_60hz_refresh_rate", false)
-		changed = true
-	if bool(config.get_value("graphics", "remember_display_mode", false)):
-		var saved_display_mode := _normalize_display_mode(str(config.get_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)))
-		if not config.has_section_key("graphics", "display_mode") or saved_display_mode == "":
-			config.set_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)
-			changed = true
-	return "repair_partial" if changed else ""
+	return _display_settings_codec.complete_missing_payload(config)
 
 
 func _has_display_settings_payload(config: ConfigFile) -> bool:
-	for key in DISPLAY_SETTINGS_GRAPHICS_KEYS:
-		if config.has_section_key("graphics", key):
-			return true
-	return false
+	return _display_settings_codec.has_payload(config)
 
 
 func _copy_display_settings_payload(source: ConfigFile, target: ConfigFile) -> void:
-	for key in DISPLAY_SETTINGS_GRAPHICS_KEYS:
-		if source.has_section_key("graphics", key):
-			target.set_value("graphics", key, source.get_value("graphics", key))
+	_display_settings_codec.copy_payload(source, target)
 
 
 func _save_last_good_display_settings(config: ConfigFile) -> void:

@@ -197,7 +197,7 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
-text = "TOUCH TO START"
+text = "문을 두드려 귀문을 연다"
 
 [node name="SettingsButton" type="Button" parent="ButtonStack"]
 visible = false
