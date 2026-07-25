@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhdvuqhi8bnd2"
-path="res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.ctex"
+path.bptc="res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.bptc.ctex"
+path.astc="res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/character_live2d/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png"
-dest_files=["res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.ctex"]
+dest_files=["res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.bptc.ctex", "res://.godot/imported/viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png-cd5dfc7474e66ebe3afe7815fdb53d6c.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

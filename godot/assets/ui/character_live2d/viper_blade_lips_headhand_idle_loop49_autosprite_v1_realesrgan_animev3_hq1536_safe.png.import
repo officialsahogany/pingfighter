@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsrgqeek0ja1j"
-path="res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.ctex"
+path.bptc="res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.bptc.ctex"
+path.astc="res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/character_live2d/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png"
-dest_files=["res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.ctex"]
+dest_files=["res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.bptc.ctex", "res://.godot/imported/viper_blade_lips_headhand_idle_loop49_autosprite_v1_realesrgan_animev3_hq1536_safe.png-02914ed536df36c72dc5aba9c0dcf6f6.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

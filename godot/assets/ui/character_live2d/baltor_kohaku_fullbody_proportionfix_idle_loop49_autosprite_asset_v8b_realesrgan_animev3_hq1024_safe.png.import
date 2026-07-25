@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://1x2ibvtw85gr"
-path="res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.ctex"
+path.bptc="res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.bptc.ctex"
+path.astc="res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/character_live2d/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png"
-dest_files=["res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.ctex"]
+dest_files=["res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.bptc.ctex", "res://.godot/imported/baltor_kohaku_fullbody_proportionfix_idle_loop49_autosprite_asset_v8b_realesrgan_animev3_hq1024_safe.png-68e0b0f3b7606944b8118bc4b4858ab6.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

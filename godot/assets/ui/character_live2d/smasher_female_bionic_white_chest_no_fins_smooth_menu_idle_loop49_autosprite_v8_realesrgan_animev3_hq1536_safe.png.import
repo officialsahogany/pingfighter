@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cenolrsx8rru7"
-path="res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.ctex"
+path.bptc="res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.bptc.ctex"
+path.astc="res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/character_live2d/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png"
-dest_files=["res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.ctex"]
+dest_files=["res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.bptc.ctex", "res://.godot/imported/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png-e4706b8e69228b0d434c31d555541eb7.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

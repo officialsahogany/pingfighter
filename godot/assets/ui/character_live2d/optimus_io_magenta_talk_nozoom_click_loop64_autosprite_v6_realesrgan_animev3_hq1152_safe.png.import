@@ -3,20 +3,22 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://do43pmnqqyi78"
-path="res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.ctex"
+path.bptc="res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.bptc.ctex"
+path.astc="res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.astc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/ui/character_live2d/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
-dest_files=["res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.ctex"]
+dest_files=["res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.bptc.ctex", "res://.godot/imported/optimus_io_magenta_talk_nozoom_click_loop64_autosprite_v6_realesrgan_animev3_hq1152_safe.png-bd74ce47a32fe42a1e1ad277a9435518.astc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
