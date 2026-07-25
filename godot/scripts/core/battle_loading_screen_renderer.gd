@@ -174,11 +174,11 @@ func _ensure_loading_cameo_host(owner: Object) -> Node2D:
 
 func _release_loading_cameo_host() -> void:
 	if loading_cameo_host != null and is_instance_valid(loading_cameo_host):
-		loading_cameo_host.hide_loading()
+		loading_cameo_host.tear_down()
 		var parent := loading_cameo_host.get_parent()
 		if parent != null:
 			parent.remove_child(loading_cameo_host)
-		loading_cameo_host.queue_free()
+		loading_cameo_host.free()
 	loading_cameo_host = null
 	_loading_cameo_owner = null
 

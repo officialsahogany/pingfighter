@@ -7,7 +7,7 @@ const HOST_Z_INDEX := 3000
 const GLOW_SCALES := [1.30, 1.15, 1.0]
 const GLOW_ALPHAS := [0.05, 0.10, 1.0]
 
-var _rng := RandomNumberGenerator.new()
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _sprites: Array[Sprite2D] = []
 var _copy_label: Label = null
 var _selected_entry: Dictionary = {}
@@ -91,6 +91,20 @@ func hide_loading() -> void:
 		sprite.visible = false
 	if _copy_label != null:
 		_copy_label.visible = false
+
+
+func tear_down() -> void:
+	hide_loading()
+	for sprite in _sprites:
+		if sprite == null or not is_instance_valid(sprite):
+			continue
+		sprite.texture = null
+		sprite.material = null
+	_sprites.clear()
+	if _copy_label != null and is_instance_valid(_copy_label):
+		_copy_label.remove_theme_font_override("font")
+	_copy_label = null
+	_rng = null
 
 
 func get_debug_state() -> Dictionary:

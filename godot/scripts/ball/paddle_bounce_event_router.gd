@@ -9,7 +9,11 @@ const POWER_COUNTER_KNOCKBACK_FRAMES: float = 18.0
 const PADDLE_HIT_KNOCKBACK_BASE: float = 2.4
 const PADDLE_HIT_KNOCKBACK_FRAMES: float = 36.0
 const PADDLE_HIT_KNOCKBACK_DECAY: float = 0.85
-const PADDLE_HIT_KNOCKBACK_INTENSITY_SCALE := [1.5, 2.2, 2.2, 3.8, 3.8, 5.5]
+# 인텐시티 레벨(0~5)별 패들 리코일 배수. base 2.4 × 이 값 = 넉백 속도.
+# ⚠️ 의도적 파리티 이탈(고티어 집중 강화). 파이썬 원본 = [1.5, 2.2, 2.2, 3.8, 3.8, 5.5]
+# 이지만, 느린 초반(L0)은 원본 유지하고 빠르고 긴 랠리(L2+)일수록 넉백이 확 세지도록
+# 상위 티어를 상향해 "달아오를수록 펀치감" 튜닝. 파리티 감사가 이걸 회귀로 되돌리지 말 것.
+const PADDLE_HIT_KNOCKBACK_INTENSITY_SCALE := [1.5, 2.4, 3.0, 4.6, 5.8, 7.5]
 
 # Smasher contact-animation intensity, ported from Python
 # `trigger_smasher_contact_animation(offset_x, intensity)` callers in
@@ -263,11 +267,13 @@ func _trigger_power_smash_counter_knockback(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
+	# 부동갑주 계약: 패들-히트 recoil은 무시 대상 밖(스턴·넉백만 차단). 파워스매시
+	# 카운터 넉백은 플레이어 패들 액션에서 나오는 recoil이라 "recoil"로 태깅해 제외.
 	var immunity_result: Dictionary = _try_player_status_immunity(
 		deps,
 		context,
 		"power_smash_counter_knockback",
-		"knockback"
+		"recoil"
 	)
 	if bool(immunity_result.get("immune", false)):
 		return immunity_result
@@ -303,11 +309,13 @@ func _apply_paddle_hit_knockback(
 	var knockback_dir: float = -1.0 if ball_pos.x > paddle_center_x else 1.0
 	var velocity: float = knockback_dir * strength
 	if is_player:
+		# 부동갑주 계약: 패들-히트 recoil은 제외(스턴·넉백만 차단). 일반 패들 히트
+		# 넉백은 recoil로 태깅 — 적대 히트(stage1/2/6) "knockback"만 갑주로 막힌다.
 		var immunity_result: Dictionary = _try_player_status_immunity(
 			deps,
 			context,
 			"paddle_hit_knockback",
-			"knockback"
+			"recoil"
 		)
 		if bool(immunity_result.get("immune", false)):
 			return immunity_result

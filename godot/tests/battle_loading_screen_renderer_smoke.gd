@@ -478,10 +478,16 @@ func _verify_minimal_completion_hold_timing() -> void:
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should hold briefly to prevent a one-frame flash")
-	await create_timer(0.62).timeout
+	var minimum_visible_msec := ceili(BattleLoadingScreenRenderer.MIN_LOADING_VISIBLE_SECONDS * 1000.0) + 1
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < minimum_visible_msec:
+		OS.delay_msec(minimum_visible_msec - now_msec)
+		now_msec = Time.get_ticks_msec()
+	renderer._visible_started_msec = now_msec - minimum_visible_msec
 	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should enter its short final fade")
 	_expect(renderer._completion_fade_started_msec >= 0, "minimal loading should mark final fade start")
-	await create_timer(0.22).timeout
+	var final_fade_msec := ceili(BattleLoadingScreenRenderer.FINAL_FADE_SECONDS * 1000.0) + 1
+	renderer._completion_fade_started_msec = Time.get_ticks_msec() - final_fade_msec
 	_expect(not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "minimal loading should release after the final fade")
 	owner.queue_free()
 
@@ -495,9 +501,14 @@ func _verify_hide_loading_resets_session() -> void:
 	canvas.queue_redraw()
 	await process_frame
 	_expect(str(renderer.get_loading_cameo_debug_state().get("entry_id", "")) != "", "draw should start a cameo session")
+	var released_host := renderer.loading_cameo_host
 	renderer.hide_loading()
 	var hidden_state: Dictionary = renderer.get_loading_cameo_debug_state()
 	_expect(str(hidden_state.get("entry_id", "")) == "", "hide_loading should clear the session cameo pick")
+	_expect(
+		released_host == null or not is_instance_valid(released_host),
+		"hide_loading should synchronously free the detached cameo host"
+	)
 	_expect(renderer._visible_started_msec == -1, "hide_loading should reset the visibility timer")
 	_expect(renderer._completion_fade_started_msec == -1, "hide_loading should reset the fade timer")
 	owner.queue_free()
