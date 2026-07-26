@@ -13,6 +13,9 @@ const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_r
 const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
 const PlayerStateGlowRenderer := preload("res://scripts/effects/player_state_glow_renderer.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
+const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
+const PillarOrbStaticLayerCache := preload("res://scripts/hud/pillar_orb_static_layer_cache.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 # The legacy generated attack sheet uses 344x384 cells and fills most of each cell.
 # Python's Smasher renderer uses a 250x120 character surface whose visible body
@@ -58,12 +61,51 @@ const PLAYER_GROUND_SHADOW_BASE_HEIGHT := 22.0
 const PLAYER_GROUND_SHADOW_ALPHA := 0.26
 const PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS := 0.06
 
+# ── 신령환(aipill) = 호신령 빙의 상태 ────────────────────────────────────────
+# 구 연출은 시안 스캔라인 글리치 + 사이버 시스템 라벨이었다(PingFighter
+# 잔재). 환격전 리브랜딩 이후 이 아이템의 픽션은 "호신령이 몸을 대신 움직여
+# 자동 가드한다"이므로, 어휘를 무속 강신(降神)으로 전면 교체한다.
+# 구 라벨 문자열의 부활은 aipill_possession_visual_smoke 가 막는다.
+#
+# 팔레트 규칙: 청록/시안은 절대 쓰지 않는다 — 옥빛은 플레이어 소켓 글로우와
+# 코요라(무녀 링펫)가 이미 점유 중이라 어휘가 충돌한다. 금/백금/주사 3색만.
+const POSSESSION_SPIRIT_CORE := Color(1.000, 0.965, 0.860)
+const POSSESSION_SPIRIT_HALO := Color(0.900, 0.780, 0.440)
+const POSSESSION_TALISMAN_PAPER := Color(0.880, 0.790, 0.550)
+const POSSESSION_CINNABAR := Color(0.940, 0.100, 0.055)
+const POSSESSION_CINNABAR_DARK := Color(0.170, 0.012, 0.008)
+const POSSESSION_INK := Color(0.090, 0.085, 0.075)
+const POSSESSION_UNDER_SHADOW := Color(0.060, 0.050, 0.040, 0.55)
+const POSSESSION_LEAD_AFTERIMAGE := Color(0.980, 0.840, 0.460)
+# 드로우 슬롯 상한 — 상시-가시성 절차 드로우 회귀 방지용 봉인 대상 상수.
+const _POSSESSION_MOTE_SLOT_COUNT := 2
+const _POSSESSION_FLASH_MERIDIAN_COUNT := 2
+const _POSSESSION_BACKPLATE_LAYER_COUNT := 1
+# 머리 위 상태 라벨. 구 사이버 시스템 라벨을 대체하며 LanguageSettings로 번역된다.
+const POSSESSION_LABEL_TEXT := "호신령 빙의"
+const POSSESSION_LABEL_FONT_SIZE := 12
+# 부적 슬립 / 주사 낙관 베이크. 키에 연속 float(호흡·스케일)을 넣지 말 것 —
+# MAX_CACHE_ENTRIES(24) 초과 시 캐시 전체가 flush된다.
+const POSSESSION_TALISMAN_CACHE_KEY := "possession_talisman:v1"
+const POSSESSION_SEAL_CACHE_KEY := "possession_seal:v1"
+# 베이크는 고해상도로 굽고 축소해 그린다(다운스케일 = crisp). 부적은 픽셀 QA
+# 1차에서 "머리를 덮는 포스터"로 읽혀 0.5 → 0.34 로 줄였다.
+const POSSESSION_TALISMAN_DRAW_SCALE := 0.34
+const POSSESSION_SEAL_DRAW_SCALE := 0.5
+# 선행 잔상: 프레임 간 x 델타가 이보다 크게 튀면 라운드 리셋/텔레포트로 보고
+# 자기치유(0으로 리셋)한다. 라운드 리셋 훅에 의존하지 않기 위한 안전장치.
+const POSSESSION_LEAD_TELEPORT_PX := 60.0
+
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
 var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
 var odins_eye_presentation_renderer: Object = OdinsEyePresentationRenderer.new()
 var _state_glow_renderer: Object = PlayerStateGlowRenderer.new()
 var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
+var _possession_layer_cache: Object = PillarOrbStaticLayerCache.new()
+var _possession_plan: Dictionary = {}
+var _possession_lead_prev_x := 0.0
+var _possession_lead_valid := false
 var _prewarm_step_index := 0
 
 
@@ -95,6 +137,21 @@ func prewarm_runtime_assets_step() -> bool:
 		7:
 			if _state_glow_renderer != null:
 				_state_glow_renderer.prewarm()
+		8:
+			# 신령환 빙의 정적 스택은 여기서 굽는다. 드로우 경로에서 처음
+			# 만들면 발동 프레임에 콜드 래스터가 통째로 얹힌다
+			# (Godot Hot-Path Lazy Init Trap).
+			SoftGlowTexture.get_texture(128)
+		9:
+			if _possession_layer_cache != null:
+				_possession_layer_cache.build_now(
+					POSSESSION_TALISMAN_CACHE_KEY, _build_possession_talisman_ops()
+				)
+		10:
+			if _possession_layer_cache != null:
+				_possession_layer_cache.build_now(
+					POSSESSION_SEAL_CACHE_KEY, _build_possession_seal_ops()
+				)
 		_:
 			_prewarm_step_index = 0
 			return true
@@ -405,8 +462,15 @@ func draw(
 		hover_shadow_ratio = (hover_offset + hover_amplitude) / (hover_amplitude * 2.0)
 	var shadow_scale: float = 1.0 - hover_shadow_ratio * 0.18
 	shadow_scale *= lerp(1.0, 0.58, altitude_ratio)
-	var shadow_width: float = PLAYER_GROUND_SHADOW_BASE_WIDTH * shadow_scale * max(1.0, player_paddle_scale)
-	var shadow_height: float = PLAYER_GROUND_SHADOW_BASE_HEIGHT * shadow_scale * (0.82 + 0.18 * max(1.0, player_paddle_scale))
+	# 신령환 빙의: 신령이 몸을 들어 쓰는 동안 접지감을 뺀다. PLAYER_GROUND_SHADOW_*
+	# 상수는 예산 씰이 범위를 봉인 중이므로 상수가 아니라 드로우 사이트에서만 곱한다.
+	var possession_shadow_scale := 1.0
+	var possession_shadow_alpha_scale := 1.0
+	if bool(context.get("active_item_aipill_active", false)):
+		possession_shadow_scale = 0.80 - 0.04 * possession_breath(float(Time.get_ticks_msec()))
+		possession_shadow_alpha_scale = 0.62
+	var shadow_width: float = PLAYER_GROUND_SHADOW_BASE_WIDTH * shadow_scale * possession_shadow_scale * max(1.0, player_paddle_scale)
+	var shadow_height: float = PLAYER_GROUND_SHADOW_BASE_HEIGHT * shadow_scale * possession_shadow_scale * (0.82 + 0.18 * max(1.0, player_paddle_scale))
 	var shadow_floor_y: float = float(context.get("viper_jetpack_floor_y", player_pos.y))
 	var player_shadow_rect := Rect2(
 		player_pos.x + paddle_size.x * 0.5 - shadow_width * 0.5 + shake_offset.x,
@@ -419,7 +483,7 @@ func draw(
 		var shadow_alpha: float = (
 			PLAYER_GROUND_SHADOW_ALPHA
 			+ (1.0 - shadow_scale) * PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS
-		) * lerp(1.0, 0.62, altitude_ratio)
+		) * lerp(1.0, 0.62, altitude_ratio) * possession_shadow_alpha_scale
 		pillar_drawer.draw_soft_shadow_ellipse(
 			canvas,
 			player_shadow_rect,
@@ -444,11 +508,38 @@ func draw(
 	var curse_reverse_active: bool = bool(context.get("stage3_curse_reverse_active", false)) or curse_reverse_ratio > 0.001
 	if curse_reverse_active and curse_reverse_ratio <= 0.001:
 		curse_reverse_ratio = 1.0
+	# 신령환 빙의 플랜은 본체 스프라이트보다 먼저 필요하다(배경판이 뒤에 깔리고,
+	# 본체 틴트 / 실루엣 림 오버라이드가 sprite_context 에 실려야 한다).
+	var aipill_active: bool = bool(context.get("active_item_aipill_active", false))
+	var possession_lead_dx: float = _advance_possession_lead_offset(
+		aipill_active,
+		player_visual_rect.get_center().x,
+		clampf(player_visual_rect.size.y / 160.0, 0.60, 1.60)
+	)
+	_possession_plan = build_possession_plan(
+		context,
+		player_visual_rect,
+		float(Time.get_ticks_msec()),
+		_possession_lod_level(context),
+		possession_lead_dx
+	)
+	var possession_active: bool = bool(_possession_plan.get("active", false))
 	var sprite_context: Dictionary = context
-	if throw_pose_active or curse_reverse_active or player_slow_active or ghost_possession_alpha < 0.999:
+	if throw_pose_active or curse_reverse_active or player_slow_active or possession_active or ghost_possession_alpha < 0.999:
 		sprite_context = context.duplicate()
 	if player_slow_active:
 		sprite_context["player_sprite_modulate"] = _get_player_slow_sprite_modulate(player_slow_ratio)
+	# 둔화 분기가 modulate 를 통째로 덮어쓰므로 빙의 틴트는 그 뒤에서 합류해야
+	# 한다(저주 반전 / 고스트 알파와 같은 자리).
+	if possession_active:
+		sprite_context["player_sprite_modulate"] = _combine_modulate_colors(
+			sprite_context.get("player_sprite_modulate", Color.WHITE),
+			_as_color(_possession_plan.get("sprite_modulate", Color.WHITE), Color.WHITE)
+		)
+		sprite_context["stage1_player_rim_intensity"] = float(_possession_plan.get("rim_intensity", 0.65))
+		sprite_context["stage1_player_rim_color"] = _as_color(
+			_possession_plan.get("rim_color", POSSESSION_SPIRIT_CORE), POSSESSION_SPIRIT_CORE
+		)
 	if curse_reverse_active:
 		sprite_context["player_sprite_modulate"] = _combine_modulate_colors(
 			sprite_context.get("player_sprite_modulate", Color.WHITE),
@@ -491,6 +582,9 @@ func draw(
 	_draw_viper_hover_flame_embers(canvas, context, shake_offset, player_visual_rect)
 	_perf_end(perf_logger, "actors.stage1.player.hover_embers", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_possession_backplate(canvas, _possession_plan)
+	_perf_end(perf_logger, "actors.stage1.player.possession_back", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	var drawn_player_visual_rect: Rect2 = player_visual_rect
 	if odins_eye_body_active:
 		# 변신 몸체는 일반 캐릭터 스프라이트를 대체한다(혼딸기 스와프 형제).
@@ -531,6 +625,16 @@ func draw(
 			paddle_hologram_plan
 		)
 	else:
+		_draw_possession_lead_afterimage(
+			canvas,
+			_possession_plan,
+			sprite_context,
+			player_visual_rect,
+			player_move_active,
+			player_pos,
+			paddle_size,
+			shake_offset
+		)
 		_draw_viper_dual_glitch_clone_sprites(
 			canvas,
 			sprite_context,
@@ -560,8 +664,10 @@ func draw(
 		_draw_curse_reverse_head_effect(canvas, drawn_player_visual_rect, curse_reverse_ratio)
 	if player_slow_active:
 		_draw_player_slow_wave(canvas, drawn_player_visual_rect, player_slow_ratio)
-	if bool(context.get("active_item_aipill_active", false)):
-		_draw_aipill_system_label(canvas, drawn_player_visual_rect)
+	if possession_active:
+		sample_start = _perf_begin(perf_logger)
+		_draw_possession_overlay(canvas, _possession_plan)
+		_perf_end(perf_logger, "actors.stage1.player.possession_front", sample_start)
 	if horn_strawberry_event_playing:
 		# Python parity: transform/detransform events HIDE the normal paddle
 		# (_horn_strawberry_hide_paddle = is_transformed OR is_event_playing).
@@ -1450,25 +1556,515 @@ func horn_strawberry_event_sprite_rise_offset(horn_context: Dictionary) -> Vecto
 	return Vector2(0.0, -80.0 * rise_ease)
 
 
-func _draw_aipill_system_label(canvas: CanvasItem, player_visual_rect: Rect2) -> void:
+# ── 신령환 = 호신령 빙의 연출 ────────────────────────────────────────────────
+#
+# 이 상태가 말해야 하는 것은 "버프가 걸렸다"가 아니라 "내가 조종당하고 있다"다.
+# 한미량은 뒷모습 SD라 표정을 쓸 수 없으므로, 조종당함은 아래 4개 장치가 진다.
+#
+#  ① 인과 역전 (주장치) — 가드 12프레임 중 12→10f 구간은 신령측(기맥·낙관·
+#     부적·배경판)만 반응하고 몸은 가만히 있는다. 9f부터 본체가 뒤늦게 과열
+#     된다. 3프레임(~42ms)은 세기엔 짧지만 "명령 → 반응"의 인과 순서로는
+#     확실히 읽힌다. spirit_ease / body_ease 가 이 두 축이다.
+#  ② 선행 잔상 (주장치) — 자동 가드가 패들을 스냅시킬 때 금빛 잔상이 진행
+#     방향으로 "먼저" 가 있다. 뒤따르는 잔상은 "내가 움직였다"지만 앞서는
+#     잔상은 "내가 정하기 전에 몸이 끌려갔다"로만 읽힌다.
+#  ③ 신탁 조준선 — 입력과 무관하게 요격점이 먼저 정해지고, 보간 없이 즉시
+#     순간이동한다. 관성 없는 스냅이 "사람이 조작하는 게 아니다"의 직접 증거.
+#     타깃 x는 active_item_aipill_behavior.apply_player_control 과 동일한 식
+#     (공 x - 패들폭/2 를 play 범위로 클램프)이라 신규 컨텍스트 키가 필요 없다.
+#  ④ 하강 강신 — 광점 2개가 머리 위에서 정수리로 수렴해 접점 글로우에 흡수
+#     된다. 둔화 물결(상승)·대시(수평)·저주(회전)와 방향이 겹치지 않는다.
+#
+# 클럭 규칙: phase 는 active_item_aipill_runtime 에서 TAU 로 fmod 되므로
+# 분수 계수(sin(0.19 * phase) 같은 것)를 쓰면 랩 순간 전 레이어가 동시에
+# 튄다. 고속 성분은 phase 의 정수 배음만, 저속 성분은 벽시계로 만든다.
+# 2-rate 호흡. 벽시계 기반이라 phase TAU 랩의 영향을 받지 않는다. 지면 그림자
+# 축소(플랜 구축 전에 필요)와 플랜이 같은 값을 쓰도록 단일 소스로 둔다.
+static func possession_breath(now_msec: float) -> float:
+	return lerpf(
+		0.5 + 0.5 * sin(now_msec * 0.00118),
+		0.5 + 0.5 * sin(now_msec * 0.00187 + 1.3),
+		0.32
+	)
+
+
+static func build_possession_plan(
+	context: Dictionary,
+	visual_rect: Rect2,
+	now_msec: float,
+	lod_level: int,
+	lead_dx: float
+) -> Dictionary:
+	if not bool(context.get("active_item_aipill_active", false)):
+		return {"active": false, "draw_count": 0}
+	if visual_rect.size.x <= 0.0 or visual_rect.size.y <= 0.0:
+		return {"active": false, "draw_count": 0}
+
+	# 치수는 rect 비율이 아니라 base_px * u 로 잡는다. 블랙스미스 128x128,
+	# 레거시 250x120 폴백에서 종횡비가 무너지는 것을 막는다.
+	var u: float = clampf(visual_rect.size.y / 160.0, 0.60, 1.60)
+	var cx: float = visual_rect.position.x + visual_rect.size.x * 0.5
+	var top: float = visual_rect.position.y
+	# 한미량 뒷모습 SD 시트에서 실제 머리 꼭대기는 셀 상단이 아니라 rect 상단
+	# +30u 부근이다(위쪽 여백 + 근두운 정렬). 접점은 거기에 놓아야 "정수리로
+	# 들어온다"로 읽힌다.
+	var crown := Vector2(cx, top + 30.0 * u)
+
+	# 저속 = 벽시계(자유 분수 계수 안전), 고속 = phase 정수 배음.
+	var breath: float = possession_breath(now_msec)
+	var phase: float = float(context.get("active_item_aipill_phase", 0.0))
+	var tremor: float = sin(phase)
+
+	# 가드 판정 플래시. 신령측은 12프레임 전 구간 즉시 반응하고, 육체측은
+	# 앞 3프레임을 흘려보낸 뒤에야 따라온다 = 인과 역전.
+	var flash_timer: float = float(context.get("active_item_aipill_flash_timer_frames", 0.0))
+	var flash_initial: float = maxf(1.0, float(context.get("active_item_aipill_flash_initial_frames", 12.0)))
+	var body_delay: float = maxf(1.0, flash_initial - 3.0)
+	var spirit_ease: float = pow(clampf(flash_timer / flash_initial, 0.0, 1.0), 1.6)
+	var body_ease: float = 0.0
+	if flash_timer <= body_delay:
+		body_ease = pow(clampf(flash_timer / body_delay, 0.0, 1.0), 1.6)
+
+	var lod: int = clampi(lod_level, 0, 2)
+	var draw_count := 0
+
+	# L0 신주(神柱) 배경판 — 본체 뒤. 세로 축인 것이 중요하다: 둔화 물결(가로
+	# 타원)과 저주 반전(원형 궤도)이 이미 그 밴드의 가로/원형 어휘를 점유했다.
+	var backplate_rect := Rect2(
+		cx - 50.0 * u,
+		top - 8.0 * u,
+		100.0 * u,
+		170.0 * u
+	)
+	var backplate_alpha: float = 0.13 + 0.06 * breath + 0.09 * spirit_ease
+	draw_count += 1
+
+	# L5 강신부 슬립 — 정수리 바로 위에 떠 있게 둔다. 머리를 덮으면 캐릭터
+	# 판독이 죽고 "포스터"로 보인다(픽셀 QA 1차에서 실제로 그렇게 나왔다).
+	var talisman_center := Vector2(
+		cx + sin(now_msec * 0.0016) * 2.6 * u,
+		top + 9.0 * u + sin(now_msec * 0.0023) * 1.4 * u
+	)
+	var talisman_alpha: float = 0.74 + 0.06 * breath + 0.12 * spirit_ease
+	draw_count += 1
+
+	# L6 강하 광점 — 좌우로 벌어진 두 갈래가 정수리로 수렴한다.
+	var motes: Array = []
+	var mote_slots: int = _POSSESSION_MOTE_SLOT_COUNT
+	if lod == 1:
+		mote_slots = 1
+	elif lod >= 2:
+		mote_slots = 0
+	for idx in range(mote_slots):
+		var travel: float = fposmod(now_msec * 0.00046 + float(idx) * 0.5, 1.0)
+		# 부적 뒤에 가리면 하강이 안 보인다 — 슬립 폭 밖(좌우 ±30u)에서
+		# 출발해 정수리로 수렴시킨다.
+		var start := Vector2(cx + (-30.0 + 60.0 * float(idx)) * u, top - 24.0 * u)
+		motes.append({
+			"pos": start.lerp(crown, travel),
+			"radius": (8.4 - 3.0 * travel) * u,
+			# 양 끝 페이드 — 팝인/팝아웃 방지.
+			"alpha": (0.82 + 0.18 * spirit_ease) * sin(PI * travel),
+		})
+	draw_count += motes.size()
+
+	# L7 정수리 접점.
+	var crown_radius: float = (13.0 + 3.0 * tremor) * u
+	var crown_alpha: float = 0.44 + 0.12 * breath + 0.30 * spirit_ease
+	draw_count += 1
+
+	# L10 상태 라벨 — 구 사이버 라벨이 있던 슬롯. 그림자 + 본문 2 draw.
+	var label_pos := Vector2(cx, top - 14.0 * u)
+	var label_alpha: float = 0.82 + 0.10 * breath + 0.08 * spirit_ease
+	draw_count += 2
+
+	# L9 신탁 조준선 — 자동 가드가 노리는 지점. 스무딩 금지(즉시 스냅이 핵심).
+	var sight: Dictionary = {"enabled": false}
+	if lod <= 1 and bool(context.get("ball_active", false)):
+		var paddle_size_value: Variant = context.get("player_paddle_size", null)
+		var paddle_width := 155.0
+		if paddle_size_value is Vector2:
+			paddle_width = maxf(1.0, (paddle_size_value as Vector2).x)
+		var ball_pos_value: Variant = context.get("ball_pos", null)
+		var ball_pos := Vector2.ZERO
+		if ball_pos_value is Vector2:
+			ball_pos = ball_pos_value
+		var play_left: float = float(context.get("play_left", 0.0))
+		var play_right: float = float(context.get("play_right", 760.0))
+		# active_item_aipill_behavior.apply_player_control 과 동일한 클램프.
+		var target_left: float = clampf(
+			ball_pos.x - paddle_width * 0.5,
+			play_left,
+			maxf(play_left, play_right - paddle_width)
+		)
+		var sight_x: float = target_left + paddle_width * 0.5
+		# 패들 상단에 붙인다. visual_rect 하단은 패들보다 아래(스프라이트가
+		# 패들 위로 솟은 만큼)라 그대로 쓰면 화면 밖으로 나간다.
+		# rect 구성식을 역산하면 흔들림까지 포함된 패들 상단이 나온다:
+		#   rect.bottom = player_pos.y + paddle_h + 12 + shake.y
+		var paddle_height: float = 50.0
+		if paddle_size_value is Vector2:
+			paddle_height = maxf(1.0, (paddle_size_value as Vector2).y)
+		var sight_y: float = visual_rect.position.y + visual_rect.size.y - paddle_height - 12.0 - 4.0 * u
+		sight = {
+			"enabled": true,
+			"from": Vector2(sight_x - 11.0 * u, sight_y),
+			"to": Vector2(sight_x + 11.0 * u, sight_y),
+			"width": 2.0 * u,
+			"alpha": 0.30 + 0.22 * breath,
+		}
+		draw_count += 1
+
+	# L8 가드 플래시 전용 — 기맥 2가닥 + 주사 낙관. 상시 선(thread) 형상은 0개다
+	# (코요라 인형실과 어휘가 겹치면 안 된다). 12프레임 한정.
+	var meridians: Array = []
+	var seal: Dictionary = {"enabled": false}
+	if spirit_ease > 0.001:
+		for side in [-1.0, 1.0]:
+			meridians.append({
+				"from": crown + Vector2(7.0 * u * side, 0.0),
+				"to": Vector2(cx + 14.0 * u * side, top - 20.0 * u),
+				"width": (0.9 + 1.9 * spirit_ease) * u,
+				"alpha": 0.62 * spirit_ease,
+			})
+		draw_count += meridians.size()
+		var seal_half: float = 10.0 * u
+		seal = {
+			"enabled": true,
+			"center": visual_rect.get_center(),
+			"half": seal_half,
+			"alpha": 0.70 * pow(spirit_ease, 0.6),
+		}
+		draw_count += 1
+
+	# L4 선행 잔상 — 대시 잔상(수평 산개)과 겹치면 판독이 붕괴하므로 대시 중
+	# 에는 배타적으로 끈다.
+	var dash_active: bool = bool(context.get("dash_active", false)) \
+		or bool(context.get("player_dashing", false)) \
+		or bool(context.get("dash_recovering", false))
+	var lead := {"enabled": false}
+	if lod <= 1 and not dash_active and absf(lead_dx) > 1.5 * u:
+		lead = {
+			"enabled": true,
+			"offset": Vector2(clampf(lead_dx, -22.0 * u, 22.0 * u), 0.0),
+			"color": Color(
+				POSSESSION_LEAD_AFTERIMAGE.r,
+				POSSESSION_LEAD_AFTERIMAGE.g,
+				POSSESSION_LEAD_AFTERIMAGE.b,
+				0.28 + 0.14 * body_ease
+			),
+		}
+		draw_count += 1
+
+	# L2 신열(神熱) 본체 틴트 — 곱셈 성분을 1.0 이하로만 잡아 blue를 깎는다.
+	# 목표 인상은 "핏기 없음"(시체)이 아니라 "안에서 타고 있음"이다.
+	var body_tint: Color = Color(1.000, 0.940, 0.800).lerp(Color(1.000, 0.975, 0.885), breath)
+	if body_ease > 0.0:
+		body_tint = body_tint.lerp(Color(1.000, 1.000, 0.975), body_ease * 0.7)
+
+	return {
+		"active": true,
+		"u": u,
+		"crown": crown,
+		"breath": breath,
+		"tremor": tremor,
+		"spirit_ease": spirit_ease,
+		"body_ease": body_ease,
+		"lod": lod,
+		"backplate_rect": backplate_rect,
+		"backplate_alpha": backplate_alpha,
+		"talisman_center": talisman_center,
+		"talisman_alpha": talisman_alpha,
+		"motes": motes,
+		"crown_radius": crown_radius,
+		"crown_alpha": crown_alpha,
+		"label_pos": label_pos,
+		"label_alpha": label_alpha,
+		"sight": sight,
+		"meridians": meridians,
+		"seal": seal,
+		"lead": lead,
+		"visual_rect": visual_rect,
+		"sprite_modulate": body_tint,
+		# L3: 구 코드는 빙의 중 실루엣 림을 통째로 껐다 — 글리치가 켜지는 바로
+		# 그 순간 캐릭터가 배경에서 분리되지 않는 출고된 회귀였다. 억제를
+		# 풀고 백금 과열 림으로 승격한다.
+		"rim_intensity": clampf(0.88 + 0.12 * spirit_ease, 0.0, 1.0),
+		"rim_color": POSSESSION_SPIRIT_CORE,
+		# L1(지면 그림자 축소)은 이 플랜에 없다 — 그림자는 player_visual_rect
+		# 보다 먼저 그려지므로 플랜을 만들 수 없고, 드로우 사이트에서 같은
+		# possession_breath() 로 직접 곱한다.
+		"draw_count": draw_count,
+	}
+
+
+# 기존 LOD 신호를 재사용한다(바이퍼 활공 / FPS 캡 강등). 새 LOD 축을 만들지
+# 않는다. effect_scale 은 정적 히스테리시스 상태를 만지므로 순수 플랜 빌더
+# 밖에서 한 번만 부른다.
+func _possession_lod_level(context: Dictionary) -> int:
+	var scale: float = ViperAirborneLod.effect_scale(context)
+	if scale >= 0.90:
+		return 0
+	if scale >= 0.50:
+		return 1
+	return 2
+
+
+# 프레임 간 x 델타로 선행 잔상 오프셋을 만든다. 라운드 리셋 / 텔레포트 /
+# 비활성 전이에서 반대편 잔상이 날아오지 않도록 자기치유한다.
+func _advance_possession_lead_offset(active: bool, center_x: float, u: float) -> float:
+	if not active:
+		_possession_lead_valid = false
+		return 0.0
+	if not _possession_lead_valid or absf(center_x - _possession_lead_prev_x) > POSSESSION_LEAD_TELEPORT_PX * u:
+		_possession_lead_prev_x = center_x
+		_possession_lead_valid = true
+		return 0.0
+	var delta: float = center_x - _possession_lead_prev_x
+	_possession_lead_prev_x = center_x
+	return delta * 2.2
+
+
+func _draw_possession_backplate(canvas: CanvasItem, plan: Dictionary) -> void:
+	if canvas == null or not bool(plan.get("active", false)):
+		return
+	var texture: Texture2D = SoftGlowTexture.get_texture(128)
+	if texture == null:
+		return
+	var rect: Rect2 = plan.get("backplate_rect", Rect2())
+	canvas.draw_texture_rect(
+		texture,
+		rect,
+		false,
+		Color(
+			POSSESSION_SPIRIT_HALO.r,
+			POSSESSION_SPIRIT_HALO.g,
+			POSSESSION_SPIRIT_HALO.b,
+			float(plan.get("backplate_alpha", 0.0))
+		)
+	)
+
+
+func _draw_possession_lead_afterimage(
+	canvas: CanvasItem,
+	plan: Dictionary,
+	sprite_context: Dictionary,
+	player_visual_rect: Rect2,
+	player_move_active: bool,
+	player_pos: Vector2,
+	paddle_size: Vector2,
+	shake_offset: Vector2
+) -> void:
+	if canvas == null or not bool(plan.get("active", false)):
+		return
+	var lead: Dictionary = plan.get("lead", {})
+	if not bool(lead.get("enabled", false)):
+		return
+	if sprite_renderer == null or not sprite_renderer.has_method("resolve_current_sprite"):
+		return
+	# sprite_renderer.draw() 를 재호출하지 않는다 — resolve + 1 blit 이어야
+	# 성능(바이퍼 듀얼글리치는 클론마다 풀 draw 를 돌려 수십 콜을 쓴다)과
+	# 소스 계약(lingpet_body_draw 바이트 오프셋 씰) 양쪽이 성립한다.
+	var resolved: Dictionary = sprite_renderer.resolve_current_sprite(
+		sprite_context, player_visual_rect, player_move_active, player_pos, paddle_size, shake_offset
+	)
+	var texture: Variant = resolved.get("texture", null)
+	if not (texture is Texture2D):
+		return
+	var region: Variant = resolved.get("region", null)
+	if not (region is Rect2):
+		return
+	canvas.draw_texture_rect_region(
+		texture,
+		Rect2(player_visual_rect.position + _as_vector2(lead.get("offset", Vector2.ZERO), Vector2.ZERO), player_visual_rect.size),
+		region,
+		lead.get("color", POSSESSION_LEAD_AFTERIMAGE),
+		false,
+		true
+	)
+
+
+func _draw_possession_overlay(canvas: CanvasItem, plan: Dictionary) -> void:
+	if canvas == null or not bool(plan.get("active", false)):
+		return
+	var u: float = float(plan.get("u", 1.0))
+
+	var talisman: Texture2D = _get_possession_layer_texture(POSSESSION_TALISMAN_CACHE_KEY)
+	if talisman != null:
+		var talisman_size: Vector2 = talisman.get_size() * POSSESSION_TALISMAN_DRAW_SCALE * u
+		var talisman_center: Vector2 = _as_vector2(plan.get("talisman_center", Vector2.ZERO), Vector2.ZERO)
+		canvas.draw_texture_rect(
+			talisman,
+			Rect2(talisman_center - talisman_size * 0.5, talisman_size),
+			false,
+			Color(1.0, 1.0, 1.0, float(plan.get("talisman_alpha", 1.0)))
+		)
+
+	for mote_value in plan.get("motes", []):
+		if not (mote_value is Dictionary):
+			continue
+		var mote: Dictionary = mote_value
+		ImpactFlareTextureCache.draw_sparkle(
+			canvas,
+			_as_vector2(mote.get("pos", Vector2.ZERO), Vector2.ZERO),
+			float(mote.get("radius", 1.0)),
+			POSSESSION_SPIRIT_CORE,
+			float(mote.get("alpha", 0.0))
+		)
+
+	ImpactFlareTextureCache.draw_glow(
+		canvas,
+		_as_vector2(plan.get("crown", Vector2.ZERO), Vector2.ZERO),
+		float(plan.get("crown_radius", 1.0)),
+		POSSESSION_SPIRIT_CORE,
+		float(plan.get("crown_alpha", 0.0))
+	)
+
+	var sight: Dictionary = plan.get("sight", {})
+	if bool(sight.get("enabled", false)):
+		canvas.draw_line(
+			_as_vector2(sight.get("from", Vector2.ZERO), Vector2.ZERO),
+			_as_vector2(sight.get("to", Vector2.ZERO), Vector2.ZERO),
+			Color(
+				POSSESSION_SPIRIT_HALO.r,
+				POSSESSION_SPIRIT_HALO.g,
+				POSSESSION_SPIRIT_HALO.b,
+				float(sight.get("alpha", 0.0))
+			),
+			float(sight.get("width", 2.0)),
+			true
+		)
+
+	for meridian_value in plan.get("meridians", []):
+		if not (meridian_value is Dictionary):
+			continue
+		var meridian: Dictionary = meridian_value
+		canvas.draw_line(
+			_as_vector2(meridian.get("from", Vector2.ZERO), Vector2.ZERO),
+			_as_vector2(meridian.get("to", Vector2.ZERO), Vector2.ZERO),
+			Color(
+				POSSESSION_SPIRIT_HALO.r,
+				POSSESSION_SPIRIT_HALO.g,
+				POSSESSION_SPIRIT_HALO.b,
+				float(meridian.get("alpha", 0.0))
+			),
+			float(meridian.get("width", 1.0)),
+			true
+		)
+
+	var seal: Dictionary = plan.get("seal", {})
+	if bool(seal.get("enabled", false)):
+		var seal_texture: Texture2D = _get_possession_layer_texture(POSSESSION_SEAL_CACHE_KEY)
+		if seal_texture != null:
+			var seal_half: float = float(seal.get("half", 10.0))
+			var seal_center: Vector2 = _as_vector2(seal.get("center", Vector2.ZERO), Vector2.ZERO)
+			canvas.draw_texture_rect(
+				seal_texture,
+				Rect2(seal_center - Vector2(seal_half, seal_half), Vector2(seal_half, seal_half) * 2.0),
+				false,
+				Color(
+					POSSESSION_CINNABAR.r,
+					POSSESSION_CINNABAR.g,
+					POSSESSION_CINNABAR.b,
+					float(seal.get("alpha", 0.0))
+				)
+			)
+
+	_draw_possession_label(canvas, plan)
+
+
+func _draw_possession_label(canvas: CanvasItem, plan: Dictionary) -> void:
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var now_msec: int = Time.get_ticks_msec()
-	var prefix_cycle := ["|", "/", "-", "\\"]
-	@warning_ignore("integer_division")
-	var prefix: String = str(prefix_cycle[int(now_msec / 150) % prefix_cycle.size()])
-	var text := "%s AI SYSTEM" % prefix
-	var font_size := 12
-	var flicker: int = int((sin(float(now_msec) * 0.012) + 1.0) * 0.5 * 45.0)
-	var text_color := Color(float(120 + flicker) / 255.0, 240.0 / 255.0, 1.0, 1.0)
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	var pos := Vector2(
-		player_visual_rect.get_center().x - text_size.x * 0.5,
-		player_visual_rect.position.y - 10.0
+	# ThemeDB.fallback_font 를 유지할 것. 명시 NanumSquareB 로 바꾸면 JA/ZH
+	# 글리프가 통째로 빈칸이 된다(feedback_godot_explicit_nanum_drops_cjk).
+	var text: String = LanguageSettings.translate_text(POSSESSION_LABEL_TEXT)
+	if text.strip_edges().is_empty():
+		text = POSSESSION_LABEL_TEXT
+	var alpha: float = clampf(float(plan.get("label_alpha", 0.0)), 0.0, 1.0)
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, POSSESSION_LABEL_FONT_SIZE)
+	var anchor: Vector2 = _as_vector2(plan.get("label_pos", Vector2.ZERO), Vector2.ZERO)
+	var pos := Vector2(anchor.x - text_size.x * 0.5, anchor.y)
+	canvas.draw_string(
+		font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+		POSSESSION_LABEL_FONT_SIZE, Color(POSSESSION_INK.r, POSSESSION_INK.g, POSSESSION_INK.b, 0.80 * alpha)
 	)
-	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.78))
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, text_color)
+	canvas.draw_string(
+		font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+		POSSESSION_LABEL_FONT_SIZE,
+		Color(POSSESSION_SPIRIT_CORE.r, POSSESSION_SPIRIT_CORE.g, POSSESSION_SPIRIT_CORE.b, alpha)
+	)
+
+
+func _get_possession_layer_texture(key: String) -> Texture2D:
+	if _possession_layer_cache == null:
+		return null
+	var cached: Texture2D = _possession_layer_cache.get_texture(key)
+	if cached != null:
+		return cached
+	# 프리웜을 놓친 경우에도 핫 프레임을 통째로 태우지 않는다 — 프레임 예산
+	# 안에서만 진행하고, 준비 전에는 그 레이어를 건너뛴다(1~2프레임 무해).
+	var ops: Array = _build_possession_talisman_ops() if key == POSSESSION_TALISMAN_CACHE_KEY else _build_possession_seal_ops()
+	return _possession_layer_cache.request_build(key, ops)
+
+
+# 강신부(부적) 슬립. 좌표는 중심 (0,0) 기준, 2배 해상도로 굽는다.
+# 획은 어떤 문자로도 읽히면 안 된다 — 세로 한자를 넣으면 ZH/JA 사용자에게
+# 강시(僵屍) 부적으로 읽힌다. 비대칭 가로획 2개로 글리프 독법을 차단한다.
+static func _build_possession_talisman_ops() -> Array:
+	var body := PackedVector2Array([
+		Vector2(-23.0, -40.0), Vector2(23.0, -40.0), Vector2(23.0, 32.0),
+		Vector2(15.0, 48.0), Vector2(9.0, 34.0), Vector2(0.0, 54.0),
+		Vector2(-9.0, 34.0), Vector2(-15.0, 48.0), Vector2(-23.0, 32.0),
+	])
+	var shadow := PackedVector2Array()
+	for point in body:
+		shadow.append(point + Vector2(2.0, 2.0))
+	var ops: Array = [
+		PillarOrbStaticLayerCache.make_polygon(shadow, POSSESSION_UNDER_SHADOW),
+		PillarOrbStaticLayerCache.make_polygon(body, POSSESSION_TALISMAN_PAPER),
+		PillarOrbStaticLayerCache.make_polygon(PackedVector2Array([
+			Vector2(-16.0, -46.0), Vector2(16.0, -46.0), Vector2(16.0, -34.0), Vector2(-16.0, -34.0),
+		]), POSSESSION_INK),
+	]
+	var border := Color(POSSESSION_CINNABAR.r, POSSESSION_CINNABAR.g, POSSESSION_CINNABAR.b, 0.85)
+	var inset := [
+		[Vector2(-19.0, -36.0), Vector2(19.0, -36.0)],
+		[Vector2(19.0, -36.0), Vector2(19.0, 30.0)],
+		[Vector2(19.0, 30.0), Vector2(-19.0, 30.0)],
+		[Vector2(-19.0, 30.0), Vector2(-19.0, -36.0)],
+	]
+	for edge in inset:
+		ops.append(PillarOrbStaticLayerCache.make_line(edge[0], edge[1], 1.5, border))
+	# 세로 척추획 + 좌우 대칭 사선은 Ψ / 半 으로 읽힌다(픽셀 QA 1차). 척추를
+	# 기울이고 가지를 한쪽으로 몰아 문자 독법을 깬다.
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(-3.0, -26.0), Vector2(3.0, 22.0), 4.5, POSSESSION_CINNABAR))
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(-14.0, -16.0), Vector2(-1.0, -6.0), 3.0, POSSESSION_CINNABAR))
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(12.0, -8.0), Vector2(1.0, 2.0), 3.0, POSSESSION_CINNABAR))
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(-11.0, 12.0), Vector2(2.0, 16.0), 2.5, POSSESSION_CINNABAR_DARK))
+	ops.append(PillarOrbStaticLayerCache.make_circle(Vector2(9.0, 24.0), 2.4, POSSESSION_CINNABAR_DARK))
+	return ops
+
+
+# 가드 성공 낙관(인장). 회전은 텍스처에 굽고 런타임 회전은 쓰지 않는다
+# (draw_set_transform 은 이 렌더러에서 금지).
+static func _build_possession_seal_ops() -> Array:
+	# 붉은 사각 테두리 + 사선은 "통행금지 표지"로 읽힌다(픽셀 QA 2차).
+	# 실제 낙관처럼 주사 원판을 꽉 채우고 먹빛 획을 파낸다.
+	var ops: Array = [
+		PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, 16.0, POSSESSION_CINNABAR_DARK),
+		PillarOrbStaticLayerCache.make_circle(Vector2.ZERO, 13.5, POSSESSION_CINNABAR),
+	]
+	# 획은 어떤 문자로도 읽히면 안 된다. 대칭 가로획 + 중앙 세로획 조합은
+	# 즉시 王/干 으로 읽히므로(픽셀 QA 1차 실패), 비대칭 사선 + 오프셋 점으로
+	# 간다 — 문자 독법이 성립하지 않는 낙관 자국.
+	# 원판을 가로지르는 긴 사선은 "통행금지"가 된다(픽셀 QA 3차). 원판 안을
+	# 가로지르지 않는 짧은 획 3개만 쓴다 — 새겨진 낙관 자국.
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(-6.0, -4.5), Vector2(-1.5, 3.0), 3.0, POSSESSION_CINNABAR_DARK))
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(1.5, -6.0), Vector2(6.5, -2.0), 2.6, POSSESSION_CINNABAR_DARK))
+	ops.append(PillarOrbStaticLayerCache.make_line(Vector2(0.5, 6.0), Vector2(6.5, 6.0), 2.6, POSSESSION_CINNABAR_DARK))
+	return ops
 
 
 func _draw_viper_air_strike_flash(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:

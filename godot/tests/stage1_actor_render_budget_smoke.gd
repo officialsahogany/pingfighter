@@ -173,6 +173,12 @@ func _verify_render_budget_constants() -> void:
 	var playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 	var pillar_background_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_background.gd")
 	_expect(player_source.find("const _HOVER_EMBER_SLOT_COUNT := 8") >= 0, "Viper hover ember draw slots should stay capped")
+	# 신령환 빙의는 뉴럴헬멧 aipill_gauge_reduction 이 캡에 닿으면 가드로 종료되지
+	# 않고(effective_drain = 0), 옵티머스는 애초에 기력을 안 쓴다 — 유병률이
+	# 사실상 상시로 승격되는 경로가 둘 있으므로 슬롯 상한을 봉인한다.
+	_expect(player_source.find("const _POSSESSION_BACKPLATE_LAYER_COUNT := 1") >= 0, "possession backplate should stay a single stretched glow layer")
+	_expect(player_source.find("const _POSSESSION_MOTE_SLOT_COUNT := 2") >= 0, "possession descending motes should stay capped at 2")
+	_expect(player_source.find("const _POSSESSION_FLASH_MERIDIAN_COUNT := 2") >= 0, "possession guard-flash meridians should stay capped at 2")
 	_expect(Stage1PlayfieldRenderer.DASH_AFTERIMAGE_MAX_COUNT <= 3, "Stage 1 dash afterimages should stay capped")
 	_expect(Stage1PlayfieldRenderer.DASH_AFTERIMAGE_LOD_MAX_COUNT <= 1, "Stage 1 Viper LOD dash afterimages should stay tighter")
 	_expect(Stage1PlayfieldRenderer.GRID_PARTICLE_COUNT <= 6, "Stage 1 grid particles should stay capped")

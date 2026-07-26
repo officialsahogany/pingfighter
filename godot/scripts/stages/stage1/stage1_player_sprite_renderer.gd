@@ -17,6 +17,12 @@ const WHEEL_SPIN_PREWARM_DEST_RECT := Rect2(Vector2(-4096.0, -4096.0), Vector2(1
 const WHEEL_SPIN_PREWARM_TINT := Color(1.0, 1.0, 1.0, 0.01)
 const DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY := 0.65
 const PLAYER_SILHOUETTE_RIM_OFFSET_PX := 2.0
+# 신령환(호신령 빙의) 절차 폴백 팔레트. 곱셈 성분을 1.0 이하로만 잡아 blue를
+# 깎는 난색 이동 — 구 시안 틴트(0.62,1.0,1.25)의 "해킹" 인상을 신열(神熱)로 교체.
+const POSSESSION_FALLBACK_BODY_TINT := Color(1.00, 0.965, 0.86, 1.0)
+const POSSESSION_FALLBACK_LIGHT_TINT := Color(1.00, 0.98, 0.90, 1.0)
+const POSSESSION_FALLBACK_HALO := Color(0.900, 0.780, 0.440, 0.16)
+const POSSESSION_FALLBACK_GRIP := Color(1.000, 0.965, 0.860, 0.55)
 
 static var _character_rim_shader_ready: bool = false
 
@@ -576,8 +582,10 @@ func draw_fallback(
 		player_color = _multiply_rgb(player_color, stun_tint)
 		player_color_light = _multiply_rgb(player_color_light, stun_tint)
 	if bool(context.get("active_item_aipill_active", false)):
-		player_color = _multiply_rgb(player_color, Color(0.62, 1.0, 1.25, 1.0))
-		player_color_light = _multiply_rgb(player_color_light, Color(0.72, 1.0, 1.25, 1.0))
+		# 신령환 빙의: 시안 "해킹" 틴트가 아니라 신열(神熱) 난색 이동.
+		# blue만 깎아 안에서 타오르는 인상을 만든다(§신령환 빙의 팔레트).
+		player_color = _multiply_rgb(player_color, POSSESSION_FALLBACK_BODY_TINT)
+		player_color_light = _multiply_rgb(player_color_light, POSSESSION_FALLBACK_LIGHT_TINT)
 	var explicit_modulate: Color = _as_color(context.get("player_sprite_modulate", Color.WHITE), Color.WHITE)
 	player_color = _multiply_rgb(player_color, explicit_modulate)
 	player_color_light = _multiply_rgb(player_color_light, explicit_modulate)
@@ -592,7 +600,7 @@ func draw_fallback(
 			player_color_light
 		)
 		if bool(context.get("active_item_aipill_active", false)):
-			_draw_ai_glitch_fallback(canvas, context, player_pos, paddle_size, shake_offset)
+			_draw_possession_paddle_fallback(canvas, player_pos, paddle_size, shake_offset)
 		return
 	canvas.draw_rect(Rect2(player_pos + shake_offset, paddle_size), player_color)
 	canvas.draw_rect(
@@ -600,7 +608,7 @@ func draw_fallback(
 		player_color_light
 	)
 	if bool(context.get("active_item_aipill_active", false)):
-		_draw_ai_glitch_fallback(canvas, context, player_pos, paddle_size, shake_offset)
+		_draw_possession_paddle_fallback(canvas, player_pos, paddle_size, shake_offset)
 
 
 func _is_optimus_context(context: Dictionary) -> bool:
@@ -1160,9 +1168,6 @@ func _draw_texture_region(
 		return
 	var sprite_modulate: Color = _get_player_sprite_modulate(context)
 	var angle_degrees: float = float(context.get("player_sprite_rotation_degrees", 0.0))
-	if bool(context.get("active_item_aipill_active", false)) and abs(angle_degrees) <= 0.01 and not flip_h:
-		_draw_ai_glitch_texture_region(canvas, texture, dest_rect, source_rect, context, sprite_modulate)
-		return
 	if abs(angle_degrees) <= 0.01:
 		if flip_h:
 			_draw_flipped_texture_region(canvas, texture, source_rect, dest_rect, sprite_modulate)
@@ -1179,8 +1184,6 @@ func _silhouette_rim_should_apply(context: Dictionary, texture: Texture2D, dest_
 	if texture == null:
 		return false
 	if not bool(context.get("stage1_player_silhouette_rim_enabled", true)):
-		return false
-	if bool(context.get("active_item_aipill_active", false)):
 		return false
 	var intensity: float = clamp(
 		float(context.get("stage1_player_rim_intensity", DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY)),
@@ -1242,88 +1245,28 @@ func _get_silhouette_rim_material() -> ShaderMaterial:
 	return _silhouette_rim_material
 
 
-func _draw_ai_glitch_texture_region(
+# 신령환 빙의 — 스프라이트 시트가 없는 캐릭터(옵티머스 플레이스홀더 / 평면 rect
+# 패들)용 절차 폴백. 구 글리치 폴백의 시안 스캔라인(~10 draw)을 대체한다.
+# 스캔라인은 "해킹된 화면"이라 신령 빙의와 어휘가 정반대였다.
+# 좌우 끝에 신기 호(弧)를 걸어 "양쪽에서 붙잡혀 있다"를 읽히게 한다. 3 draw 고정.
+func _draw_possession_paddle_fallback(
 	canvas: CanvasItem,
-	texture: Texture2D,
-	dest_rect: Rect2,
-	source_rect: Rect2,
-	context: Dictionary,
-	sprite_modulate: Color
-) -> void:
-	var phase: float = float(context.get("active_item_aipill_phase", 0.0))
-	canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
-
-	var slice_count := 9
-	var dest_slice_h: float = max(4.0, dest_rect.size.y / float(slice_count))
-	var source_slice_h: float = source_rect.size.y * dest_slice_h / max(1.0, dest_rect.size.y)
-	for i in range(slice_count):
-		var slice_y: float = min(dest_rect.size.y, float(i) * dest_slice_h)
-		if slice_y >= dest_rect.size.y:
-			break
-		var slice_h: float = min(dest_slice_h, dest_rect.size.y - slice_y)
-		var source_h: float = source_rect.size.y * slice_h / max(1.0, dest_rect.size.y)
-		var shift: float = round(sin(phase + float(i) * 0.6) * 5.0)
-		var dest_slice := Rect2(
-			dest_rect.position + Vector2(shift, slice_y),
-			Vector2(dest_rect.size.x, slice_h)
-		)
-		var source_slice := Rect2(
-			source_rect.position + Vector2(0.0, float(i) * source_slice_h),
-			Vector2(source_rect.size.x, source_h)
-		)
-		var tint_alpha: float = (50.0 + float(i % 3) * 25.0) / 255.0
-		_draw_clipped_ai_glitch_slice(
-			canvas,
-			texture,
-			dest_slice,
-			source_slice,
-			dest_rect,
-			Color(40.0 / 255.0, 220.0 / 255.0, 1.0, min(180.0 / 255.0, tint_alpha))
-		)
-
-
-func _draw_clipped_ai_glitch_slice(
-	canvas: CanvasItem,
-	texture: Texture2D,
-	dest_slice: Rect2,
-	source_slice: Rect2,
-	clip_rect: Rect2,
-	tint: Color
-) -> void:
-	var clipped_x: float = max(dest_slice.position.x, clip_rect.position.x)
-	var clipped_end_x: float = min(dest_slice.end.x, clip_rect.end.x)
-	if clipped_end_x <= clipped_x:
-		return
-	var x_offset_ratio: float = (clipped_x - dest_slice.position.x) / max(1.0, dest_slice.size.x)
-	var width_ratio: float = (clipped_end_x - clipped_x) / max(1.0, dest_slice.size.x)
-	var clipped_dest := Rect2(
-		Vector2(clipped_x, dest_slice.position.y),
-		Vector2(clipped_end_x - clipped_x, dest_slice.size.y)
-	)
-	var clipped_source := Rect2(
-		source_slice.position + Vector2(source_slice.size.x * x_offset_ratio, 0.0),
-		Vector2(source_slice.size.x * width_ratio, source_slice.size.y)
-	)
-	canvas.draw_texture_rect_region(texture, clipped_dest, clipped_source, tint, false, true)
-
-
-func _draw_ai_glitch_fallback(
-	canvas: CanvasItem,
-	context: Dictionary,
 	player_pos: Vector2,
 	paddle_size: Vector2,
 	shake_offset: Vector2
 ) -> void:
-	var phase: float = float(context.get("active_item_aipill_phase", 0.0))
-	var glow_rect := Rect2(player_pos + shake_offset + Vector2(-4.0, -4.0), paddle_size + Vector2(8.0, 8.0))
-	canvas.draw_rect(glow_rect, Color(0.0, 0.85, 1.0, 0.12), false, 2.0)
-	for y in range(0, int(paddle_size.y), 6):
-		var shift: float = sin(phase + float(y) * 0.22) * 4.0
-		var line_rect := Rect2(
-			player_pos + shake_offset + Vector2(shift, float(y)),
-			Vector2(paddle_size.x, 1.0)
-		)
-		canvas.draw_rect(line_rect, Color(0.55, 1.0, 1.0, 0.35))
+	var rect := Rect2(player_pos + shake_offset, paddle_size)
+	canvas.draw_rect(rect.grow(2.0), POSSESSION_FALLBACK_HALO, false, 2.0)
+	var grip_radius: float = max(5.0, paddle_size.y * 0.30)
+	var mid_y: float = rect.position.y + rect.size.y * 0.5
+	canvas.draw_arc(
+		Vector2(rect.position.x, mid_y), grip_radius, PI * 0.3, PI * 1.7, 14,
+		POSSESSION_FALLBACK_GRIP, 2.5, true
+	)
+	canvas.draw_arc(
+		Vector2(rect.end.x, mid_y), grip_radius, PI * 1.3, PI * 2.7, 14,
+		POSSESSION_FALLBACK_GRIP, 2.5, true
+	)
 
 
 func _draw_rotated_texture_region(
