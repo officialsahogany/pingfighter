@@ -8,7 +8,7 @@ const TRIGGER_PLAYER_SCORE := 4
 const BLOCK_COUNT := 24
 const BLOCK_SIZE := 16.0
 const COLLISION_SIZE := 40.0
-const ORBIT_RADIUS := 110.0
+const ORBIT_RADIUS := 165.0
 const ORBIT_SPEED := 0.4
 const FORMATION_FREEZE_SEC := 1.8
 const HIT_FADE_SEC := 0.28
@@ -74,6 +74,17 @@ func schedule_activation() -> void:
 
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> bool:
 	if phase != "active" or hit_cooldown_sec > 0.0 or not _is_player_ball(context, deps):
+		return false
+	# The crystal shield defends the boss's goal at the top of the field, so it
+	# only intercepts balls heading TOWARD the boss (moving up). The boss's own
+	# serve spawns just below the boss — inside the orbit ring — and travels
+	# downward toward the player; without this guard that outgoing serve clips a
+	# ring block and is reflected straight back into the boss's own goal, handing
+	# the player a free point. A ball moving away (the boss serve/return) passes
+	# straight through; a player serve/return climbing toward the boss is still
+	# reflected.
+	var ball_vel: Vector2 = _as_vector2(scene.get("ball_vel", Vector2.ZERO))
+	if ball_vel.y >= 0.0:
 		return false
 	var ball_pos: Vector2 = _as_vector2(scene.get("ball_pos", Vector2.ZERO))
 	var radius: float = maxf(1.0, float(context.get("ball_size", 28.6)) * 0.5)

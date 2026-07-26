@@ -8,7 +8,7 @@ const Stage6TetriserPlayfieldRenderer := preload("res://scripts/stages/stage6/st
 const Stage6TetriserBossSkillHudRenderer := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_renderer.gd")
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const STAGE6_PILLAR_SCENE_DRAWER_PATH := "res://scripts/stages/stage6/stage6_tetriser_pillar_scene_drawer.gd"
-const EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS := 110.0
+const EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS := 165.0
 
 var _failures: Array[String] = []
 
@@ -186,6 +186,7 @@ func _init() -> void:
 	_test_center_cube_renderer_uses_3d_projected_faces()
 	_test_crystal_shield_score_schedules_and_starts()
 	_test_crystal_shield_collision_and_reset()
+	_test_crystal_shield_ignores_outgoing_boss_serve()
 	_test_crystal_shield_persists_across_reset_round()
 	_test_stage6_score_context_reaches_crystal_shield()
 	_test_boss_skill_hud()
@@ -1121,7 +1122,7 @@ func _test_crystal_shield_score_schedules_and_starts() -> void:
 	_expect(not bool(waiting_result.get("skip_ball_motion_step", true)), "crystal shield freeze flag must not set skip_ball_motion_step")
 	var draw_context: Dictionary = state.get_actor_draw_context()
 	_expect((draw_context.get("stage6_tetriser_crystal_shield_blocks", []) as Array).size() == 24, "crystal shield exposes 24 draw blocks")
-	_expect(is_equal_approx(float(draw_context.get("stage6_tetriser_crystal_shield_radius", -1.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield draw context exposes the Python 1.1x orbit radius")
+	_expect(is_equal_approx(float(draw_context.get("stage6_tetriser_crystal_shield_radius", -1.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield draw context exposes the widened 1.5x orbit radius")
 
 	for _i in range(24):
 		state.update(0.1, active_ctx)
@@ -1139,7 +1140,7 @@ func _test_crystal_shield_collision_and_reset() -> void:
 		return
 	var target_block: Dictionary = blocks[0]
 	var hit_pos: Vector2 = target_block.get("position", Vector2.ZERO)
-	_expect(is_equal_approx(hit_pos.distance_to(Vector2(380.0, 75.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield active blocks orbit at the Python 1.1x radius")
+	_expect(is_equal_approx(hit_pos.distance_to(Vector2(380.0, 75.0)), EXPECTED_CRYSTAL_SHIELD_ORBIT_RADIUS), "crystal shield active blocks orbit at the widened 1.5x radius")
 	var boss_scene := {
 		"ball_pos": hit_pos,
 		"previous_ball_pos": hit_pos - Vector2(0.0, 30.0),
@@ -1151,11 +1152,11 @@ func _test_crystal_shield_collision_and_reset() -> void:
 
 	var player_scene := {
 		"ball_pos": hit_pos,
-		"previous_ball_pos": hit_pos - Vector2(0.0, 30.0),
-		"ball_vel": Vector2(0.0, 12.0),
+		"previous_ball_pos": hit_pos + Vector2(0.0, 30.0),
+		"ball_vel": Vector2(0.0, -12.0),
 	}
 	var player_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": "player"}
-	_expect(state.resolve_ball_collision(player_scene, player_ctx, {}), "player ball should hit crystal shield")
+	_expect(state.resolve_ball_collision(player_scene, player_ctx, {}), "player ball climbing toward the boss should hit crystal shield")
 	_expect(state.debug_get_crystal_shield_block_count() == 21, "crystal shield hit evaporates the hit block and two neighbors")
 	_expect((player_scene["ball_vel"] as Vector2).length() >= 10.0, "crystal shield reflection preserves a minimum ball speed")
 	for _i in range(5):
@@ -1164,6 +1165,49 @@ func _test_crystal_shield_collision_and_reset() -> void:
 	state.reset()
 	_expect(not state.debug_is_crystal_shield_active(), "full reset clears active crystal shield")
 	_expect(state.debug_get_crystal_shield_block_count() == 0, "full reset removes crystal shield blocks")
+
+
+func _test_crystal_shield_ignores_outgoing_boss_serve() -> void:
+	# Regression: the boss's own serve spawns just below the boss (inside the
+	# orbit ring) and travels downward toward the player. The shield must let it
+	# pass — otherwise the outgoing serve clips a ring block, is reflected back
+	# up into the boss's own goal, and the boss loses on its own serve.
+	var state: Object = Stage6TetriserState.new()
+	var boss_center := Vector2(380.0, 75.0)
+	state.debug_start_crystal_shield(boss_center, true)
+	_expect(state.debug_is_crystal_shield_active(), "precondition: crystal shield active for serve test")
+	var blocks: Array = state.get_actor_draw_context().get("stage6_tetriser_crystal_shield_blocks", [])
+	var bottom_block: Dictionary = {}
+	var best_y: float = -INF
+	for b in blocks:
+		var p: Vector2 = b.get("position", Vector2.ZERO)
+		if p.y > best_y:
+			best_y = p.y
+			bottom_block = b
+	_expect(not bottom_block.is_empty(), "precondition: found a bottom ring block below the boss")
+	var serve_pos: Vector2 = bottom_block.get("position", Vector2.ZERO)
+
+	# Fresh, unowned boss serve travelling DOWN, away from the boss goal.
+	var serve_scene := {
+		"ball_pos": serve_pos,
+		"previous_ball_pos": serve_pos - Vector2(0.0, 30.0),
+		"ball_vel": Vector2(0.0, 12.0),
+	}
+	var serve_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": ""}
+	_expect(not state.resolve_ball_collision(serve_scene, serve_ctx, {}), "outgoing boss serve moving away from the boss must pass through the crystal shield")
+	_expect((serve_scene["ball_vel"] as Vector2) == Vector2(0.0, 12.0), "ignored boss serve keeps its outgoing velocity untouched")
+	_expect(state.debug_get_crystal_shield_block_count() == 24, "ignored boss serve does not evaporate any shield blocks")
+
+	# A ball climbing UP toward the boss goal (player serve/return) is still
+	# reflected, even before anyone is recorded as its owner.
+	var threat_scene := {
+		"ball_pos": serve_pos,
+		"previous_ball_pos": serve_pos + Vector2(0.0, 30.0),
+		"ball_vel": Vector2(0.0, -12.0),
+	}
+	var threat_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": ""}
+	_expect(state.resolve_ball_collision(threat_scene, threat_ctx, {}), "a ball climbing toward the boss goal is still reflected by the shield")
+	state.reset()
 
 
 func _test_crystal_shield_persists_across_reset_round() -> void:
@@ -1356,11 +1400,11 @@ func _test_sound_events() -> void:
 		var shield_pos: Vector2 = (shield_blocks[0] as Dictionary).get("position", Vector2.ZERO)
 		var shield_scene := {
 			"ball_pos": shield_pos,
-			"previous_ball_pos": shield_pos - Vector2(0.0, 30.0),
-			"ball_vel": Vector2(0.0, 12.0),
+			"previous_ball_pos": shield_pos + Vector2(0.0, 30.0),
+			"ball_vel": Vector2(0.0, -12.0),
 		}
 		var shield_ctx := {"current_stage": 6, "ball_size": 20.0, "last_hit_by": "player"}
-		_expect(shield_state.resolve_ball_collision(shield_scene, shield_ctx, {}), "player ball collides with crystal shield")
+		_expect(shield_state.resolve_ball_collision(shield_scene, shield_ctx, {}), "player ball climbing toward the boss collides with crystal shield")
 		shield_state.update(0.0, _active_context(), {"audio": shield_audio})
 		_expect(shield_audio.calls.has("shield"), "crystal shield hit plays tetrominoshield sound")
 		_expect(not shield_audio.calls.has("break"), "crystal shield hit does not reuse break sound")
