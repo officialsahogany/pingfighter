@@ -95,6 +95,22 @@ func _init() -> void:
 			"stage8_minotaur_state must expose %s() for the framework contract" % method_name
 		)
 
+	# Stage 8's chosen Slice-5 mechanic is Earthquake Smash. Until that slice is
+	# implemented, the shell must not inherit Stage 7's score-three Awakening.
+	stage8_state.handle_score_event("player", {"player_score": 3})
+	stage8_state.update(1.0 / 60.0, {
+		"current_stage": 8,
+		"player_score": 3,
+		"ball_active": true,
+		"waiting_for_serve": false,
+	})
+	var actor_context: Dictionary = stage8_state.get_actor_draw_context()
+	_expect(
+		not bool(actor_context.get("stage8_minotaur_awakened", true))
+			and not bool(actor_context.get("stage8_minotaur_gameplay_freeze_active", true)),
+		"the Stage 8 placeholder shell must not activate copied Stage 7 Awakening gameplay"
+	)
+
 	if _failures.is_empty():
 		print("stage8_minotaur_wiring_smoke: ok")
 		quit(0)

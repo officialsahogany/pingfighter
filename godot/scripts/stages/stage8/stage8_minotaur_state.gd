@@ -110,27 +110,15 @@ func apply_score_round_carry(round_generation: int) -> bool:
 	return true
 
 
-func handle_score_event(_scoring_side: String, score_result: Dictionary) -> void:
-	if awakened or _awakening_intro_done:
-		return
-	if int(score_result.get("player_score", 0)) >= AWAKEN_SCORE_THRESHOLD:
-		_awakening_trigger_armed = true
+func handle_score_event(_scoring_side: String, _score_result: Dictionary) -> void:
+	# Stage 8 does not inherit Stage 7 Akamu's score-three Awakening. The chosen
+	# Slice-5 mechanic is Earthquake Smash and remains inactive until implemented.
+	pass
 
 
 func try_begin_pending_awakening() -> bool:
-	if (
-		not _awakening_trigger_armed
-		or awakened
-		or _awakening_intro_done
-		or _awakening_intro_pending
-		or is_gameplay_freeze_active()
-	):
-		return false
-	_awakening_intro_pending = true
-	_gameplay_freeze_reason = "awakening"
-	_gameplay_freeze_remaining_sec = AWAKEN_FREEZE_SEC
-	status = "awakening_freeze"
-	return true
+	# Compatibility method only. No Stage 8 Awakening is designed or wired.
+	return false
 
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
@@ -144,9 +132,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 		return advance_gameplay_freeze(clamped_delta, context, deps)
 	if _is_timing_frozen(context):
 		status = "paused"
-		return _build_result()
-	_sync_awakening_trigger(context)
-	if try_begin_pending_awakening():
 		return _build_result()
 	# Slice 1: boss gauge is the only live scaffold; no active-skill ticking yet.
 	status = "awakened" if awakened else "charging"

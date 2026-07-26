@@ -265,6 +265,16 @@ func _init() -> void:
 	_expect(registry.ball_physics.configured_weather == "", "ball physics should use cleared weather")
 	_expect(registry.match_flow.reset_for_stage_transition_calls == 0, "stage transition reset should wait for its own staged chunk")
 
+	# Round dependencies now prewarm one module per loading-frame chunk. Keep the
+	# progression smoke independent from the exact dependency count while still
+	# proving the preserving reset cannot run before that staged work completes.
+	for _round_dep_frame: int in range(256):
+		if int(driver.get("_stage_transition_loading_work_step")) >= 2:
+			break
+		driver.update_stage_transition_loading(0.05, owner, registry)
+	_expect(int(driver.get("_stage_transition_loading_work_step")) >= 2, "round dependency prewarm should complete within the bounded loading window")
+	_expect(registry.match_flow.reset_for_stage_transition_calls == 0, "round dependency prewarm should finish before the preserving reset chunk")
+
 	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.match_flow.reset_for_stage_transition_calls == 1, "stage transition should run the preserving reset once")
 	_expect(registry.match_flow.reset_game_calls == 0, "stage transition preserving reset should not call reset_game")
@@ -323,6 +333,11 @@ func _init() -> void:
 	driver.update_scoreboard(0.1, owner, registry)
 	_expect(int(owner.data.get("current_stage", 0)) == 5, "Stage 4 clear should advance to the Hongryun demo stage")
 	_expect(bool(driver.is_stage_transition_loading_active()), "Stage 4 clear should enter the Stage 5 loading gate")
+
+	owner.set("current_stage", 7)
+	_expect(int(driver.call("_get_demo_next_stage", owner, registry)) == 8, "Stage 7 clear should advance into the routed Stage 8 Minotaur encounter")
+	owner.set("current_stage", 8)
+	_expect(int(driver.call("_get_demo_next_stage", owner, registry)) == 0, "Stage 8 should remain the current demo sequence endpoint")
 
 	if _failures.is_empty():
 		print("demo_stage_progression_smoke: ok")
