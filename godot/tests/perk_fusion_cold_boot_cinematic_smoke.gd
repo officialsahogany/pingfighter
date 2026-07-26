@@ -1,4 +1,5 @@
 extends SceneTree
+# expect-zero-object-leaks
 
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -102,6 +103,16 @@ func _run() -> void:
 	_verify_same_frame_skip_finish_closes_host_without_idle()
 	await _verify_degraded_fallback_draws_without_host()
 	_verify_lazy_init_and_fallback_source_contracts()
+	# Every fixture above releases tree-owned hosts with queue_free(), and the
+	# real-audio leg frees its owner while the final one-shot is playing. Drain
+	# both the SceneTree deletion queue and one audio mix window before quit();
+	# otherwise fast headless exits can race AudioStreamPlayback retirement and
+	# nondeterministically report an ObjectDB leak after all assertions pass.
+	await process_frame
+	await process_frame
+	OS.delay_msec(250)
+	await process_frame
+	await process_frame
 
 	if _failures.is_empty():
 		print("perk_fusion_cold_boot_cinematic_smoke: ok")
