@@ -1809,3 +1809,69 @@ game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어
   ③단일 호스트로 OFF→ON 순차 측정이 매번 free/생성 반복보다 안정.
 
 커밋 90ec14c06. 씰 반증: clip_contents=false 토글 시 레터박스 9794px RED.
+
+## Godot 링펫 스킬 idle-업데이트 게이트 "보이는 것 ≠ 살아있는 것" 트랩 (VISIBLE vs LIVE)
+
+**Incident (2026-07-07 최초 수정 → 7월 WIP 대량소실로 유실 → 2026-07-27 재랜딩 + 클래스
+전수 감사).** 빠나몽 바나나슬라이스에서 보스가 바나나를 **2개 연속 밟으면** 슬립이
+영구 지속돼 한쪽 벽으로 계속 밀리며 구석에 고착, 라운드가 끝날 때까지 회복 불가.
+
+**메커니즘 — 틱 게이트는 "보이는 상태", 소비자는 "살아있는 상태"를 본다.**
+- `lingpet_companion_skill_effect_update_gate.can_skip_idle()`은 `windup` 없고
+  `has_visible_effects_for_skill()` false이며 `skill_state.cooldown > 0`이면 그 슬롯을
+  `continue`로 건너뛴다 → `lingpet_skill_runtime_host.update()` 자체가 호출되지 않는다.
+  repo 전역에서 `skill_runtime_host.update(`의 라이브 호출자는
+  `lingpet_companion_skill_controller` 단 하나이므로 **우회 틱 경로가 없다**.
+- 반면 소비자는 게이트 밖에서 매 프레임 폴링된다:
+  `battle_update_boss_ai_context_builder._merge_shared_context`가
+  `lingpet_egg_runtime.get_boss_ai_context()`를 무조건 merge하고, 이는
+  `lingpet_skill_runtime_surface`(state==COMPANION만 확인) → host → 스킬로 그대로 통과.
+- 바나나슬라이스의 `has_visible_effects()`는 phase/projectile/landed/particle만 봤고
+  `_slip_timer`가 빠져 있었다. 마지막 바나나 소모 후 남는 건 버스트 파티클(수명
+  0.33~0.67s)뿐인데 Lv3~5 슬립은 0.65/0.72/0.80s → **파티클이 슬립보다 먼저 죽는
+  구간**에서 update가 끊기고 `_slip_timer`가 잔여값에 영구 동결.
+  `boss_ai_state`의 슬립 분기(`combined_banana_slip_vel`)는 감쇠 없는 고정 속도로
+  매 프레임 `boss_pos.x`를 밀고 **early return** → 정상 AI가 아예 안 돈다.
+- 바나나 1개(Lv1~2)는 슬립 0.45/0.55s라 파티클이 더 오래 살아 대부분 안 걸린다 —
+  유저 증언 "2개 연속일 때"의 정확한 원인.
+
+**표준 규칙.**
+- **`has_visible_effects()`(그릴 게 있나)와 "업데이트가 더 필요한가"는 다른 질문이다.**
+  게이트는 둘 다 봐야 한다. 게이트는 이제 호스트의 **스킬별 생존 맵**
+  `is_launch_blocked(skill_id)`도 함께 조회한다("아직 재시전을 막고 있다 = 아직 돌고
+  있다"). 새 스킬은 `is_launch_blocked`의 kind 분기에 자기 생존 술어를 등록하면
+  자동으로 안전하다.
+- 그럼에도 **스킬 자신의 `has_visible_effects()`에 비-시각 라이브 상태를 접는 형제
+  관용구는 유지**하라(방어 이중화): dwarf_magic `_needs_owner_sync`, sand_prison
+  `_owns_clamp`, star_coil `_needs_owner_slow_sync`, banana_slice `_slip_timer`.
+- 소유 플래그(`_owns_boss`, `_owns_clamp`)와 pending 자기-스케줄(`_scheduled_refires`,
+  `_shots_launched < _shot_count_target`)은 **반드시 `is_active()`에 포함**하라.
+- **유닛 스모크는 공허-GREEN이다.** 스킬 모듈의 `update()`를 매 프레임 직접 부르는
+  기존 레그는 게이트를 통째로 우회하므로 이 클래스를 절대 못 잡는다. 씰은
+  **실제 게이트(`can_skip_idle`) + 실제 `LingpetCompanionSkillState`(캐스트 쿨다운
+  스탬프) + 호스트를 관통**해야 하고, 라운드 리셋을 건너선 안 된다(리셋이 증거를
+  지운다). 반드시 in-place Edit 토글로 RED 반증검증할 것.
+
+**같은 클래스 전수 감사(2026-07-27, 6렌즈 × 적대검증 25에이전트) 결과.**
+- 확정·수정: banana_slice `_slip_timer`(보스 고착), solar_bolt
+  `_scheduled_refires`/`_refire_timer` — Lv3+ 후속 낙뢰가 약 93% 확률로 동결되어
+  **조용히 폐기**(라운드 리셋이 지움)되고, 22초 랠리를 넘길 때만 "유령 낙뢰 +
+  재시전 지연"으로 보인다.
+- 구조는 같으나 **수치상 도달 불가**: bubble_trap `is_shot_sequence_active()` —
+  버스트 파티클 수명 최대 ≈0.61s가 발사 간격 0.6s를 덮어 구멍이 열리지 않는다
+  (게이트 수정으로 덮이지만, RED를 만들 수 없으므로 전용 씰을 두지 않았다.
+  실측 없이 정적 분석만으로 "확정"하지 말 것 — 이 건이 그 반례다).
+- 반증됨: 로드아웃 재조정으로 스킬이 슬롯에서 이탈해 컨텍스트만 남는다는 가설군
+  (4건) — `lingpet_affinity_context_coordinator.configure()`가 보상 지급 **전에**
+  현재 장착 액티브를 `active_present_id`로 pin하므로 언락 랜덤 재해결이 장착
+  스킬을 뒤바꾸지 못한다. puppet_grab `_owns_boss` 굶주림 — 라이브 teardown 경로가
+  전부 real owner를 실어 `cancel(null)` 파킹이 도달 불가(방어 가드로만 반영).
+- 모달/일시정지 축은 **대칭**이다: `battle_frame_flow_controller`의 모든 조기 return
+  분기와 `battle_physics_gate_coordinator`는 `update_boss_ai`와 `update_lingpet`을
+  둘 다 건너뛴다. 이 축은 재조사하지 마라.
+
+**씰.** `lingpet_companion_skill_effect_update_gate_smoke._verify_invisible_but_live_skill_keeps_updating`
+(구조), `lingpet_banana_slice_skill_smoke._verify_two_step_slip_expires_under_idle_update_gate`
+(2연속 밟기 → 게이트 관통 600프레임 → 슬립 컨텍스트 소멸; 토글 시 554/600프레임 고착으로 RED),
+`lingpet_solar_bolt_skill_smoke._verify_pending_refire_survives_idle_update_gate`
+(예약된 후속 낙뢰가 게이트 뒤에서 발사; 토글 시 RED). 셋 다 반증검증 완료.

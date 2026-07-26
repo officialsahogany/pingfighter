@@ -365,6 +365,17 @@ incapacitation window (self-stun, freeze, knockdown) must route through
 and anticipatory strike -- and suppress ONLY the incapacitated window, never
 the active / charge phase. Full rules: `docs/godot_runtime_traps.md`.
 
+## Godot 링펫 스킬 idle-게이트 "보이는 것 ≠ 살아있는 것" 트랩
+
+`can_skip_idle`이 `has_visible_effects()` false + 쿨다운 중이면 그 스킬의
+`update()`를 통째로 끊는데, 보스-AI 컨텍스트는 **게이트 밖에서 매 프레임**
+폴링된다 → 파티클이 죽고 남은 비-시각 라이브 상태(보스 슬립 타이머, 예약된
+후속 발사, 소유 플래그)가 **영구 동결**되고 소비자는 stale 값을 영원히 읽는다
+(바나나슬라이스 2연속 밟기 = 보스 벽 고착). 게이트는 이제 호스트의 생존 맵
+`is_launch_blocked(skill_id)`도 함께 본다 — 새 스킬은 거기에 자기 생존 술어를
+등록하라. `update()`를 직접 부르는 유닛 스모크는 공허-GREEN, 씰은 실제 게이트를
+관통해야 한다. Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
 `owner.set(key, ...)` is a SILENT no-op for keys not declared in

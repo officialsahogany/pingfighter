@@ -154,11 +154,24 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func has_visible_effects() -> bool:
-	return _phase != PHASE_IDLE or not _projectiles.is_empty() or not _landed_bananas.is_empty() or not _particles.is_empty()
+	# The boss-slip window MUST be part of this predicate: the companion skill
+	# idle-update gate cuts update() whenever this returns false while the skill
+	# is on cooldown, but get_boss_ai_context() keeps being polled every frame
+	# outside that gate. Dropping the slip here freezes _slip_timer at whatever
+	# is left after the burst particles die (0.33~0.67s) while the boss keeps
+	# reading slip_active forever -> boss slides into a wall and never recovers.
+	# Same idiom as dwarf_magic (_needs_owner_sync) and sand_prison (_owns_clamp).
+	return (
+		_phase != PHASE_IDLE
+		or not _projectiles.is_empty()
+		or not _landed_bananas.is_empty()
+		or not _particles.is_empty()
+		or _slip_timer > 0.0
+	)
 
 
 func is_active() -> bool:
-	return has_visible_effects() or _slip_timer > 0.0
+	return has_visible_effects()
 
 
 func has_companion_position_override() -> bool:

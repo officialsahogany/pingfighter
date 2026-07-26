@@ -4,6 +4,8 @@ const LingpetBananaSliceSkill := preload("res://scripts/lingpet/lingpet_banana_s
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
+const LingpetCompanionSkillEffectUpdateGate := preload("res://scripts/lingpet/lingpet_companion_skill_effect_update_gate.gd")
+const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
 const BattleUpdateBossAiContextBuilder := preload("res://scripts/core/battle_update_boss_ai_context_builder.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -89,6 +91,7 @@ func _init() -> void:
 	_verify_landed_banana_triggers_boss_slip()
 	_verify_offcenter_slip_direction_and_expiry()
 	_verify_boss_ai_context_builder_and_motion()
+	_verify_two_step_slip_expires_under_idle_update_gate()
 	_verify_host_wiring_and_cleanup_guards()
 
 	if _failures.is_empty():
@@ -276,6 +279,63 @@ func _verify_boss_ai_context_builder_and_motion() -> void:
 	var next_pos: Vector2 = result.get("boss_pos", owner.boss_pos)
 	_expect(is_equal_approx(next_pos.x, owner.boss_pos.x + 15.0), "Boss AI should apply Banana Slice slip as px/frame motion")
 	_expect(is_equal_approx(float(result.get("boss_vel", 0.0)), 15.0), "Boss AI should early-return Banana Slice slip velocity instead of tracking the ball")
+
+
+func _verify_two_step_slip_expires_under_idle_update_gate() -> void:
+	# Regression seal: the boss steps on BOTH Lv.5 bananas back to back, driven
+	# through the REAL companion idle-update gate instead of a bare update()
+	# loop. Once the last banana is consumed and the burst particles die
+	# (0.33~0.67s), a has_visible_effects() that ignores the 0.8s slip lets the
+	# gate cut update() while get_boss_ai_context() keeps being polled outside
+	# the gate -> _slip_timer freezes and the boss slides into a wall forever.
+	var host := LingpetSkillRuntimeHost.new()
+	var gate := LingpetCompanionSkillEffectUpdateGate.new()
+	var state := LingpetCompanionSkillState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(FakeAudio.new(), null)
+	gate.reset_counters_for_tests()
+
+	_expect(
+		bool(host.launch(SKILL_ID, Vector2(300.0, 610.0), owner, {"registry": registry, "active_skill_level": 5})),
+		"two-step slip seal should launch Banana Slice at Lv.5 (two bananas, 0.8s slip)"
+	)
+	# The live controller stamps the cast cooldown on the slot state right after
+	# launch, and that cooldown is what arms the gate's idle-skip branch.
+	state.complete_launch(Vector2(300.0, 610.0), 18.0, 0.35)
+
+	var delta := 1.0 / 60.0
+	var slip_active_frames := 0
+	var slip_steps := 0
+	for _frame in range(600):
+		state.advance(delta)
+		# Walk the boss onto whichever banana is currently on the floor so the
+		# two contacts happen back to back, exactly like the reported play.
+		var snapshot: Dictionary = host.get_snapshot()
+		var landed: Array = snapshot.get("banana_slice_landed_bananas", []) as Array
+		if not landed.is_empty():
+			var banana_pos: Vector2 = (landed[0] as Dictionary).get("position", Vector2(380.0, 45.0))
+			owner.boss_pos = Vector2(banana_pos.x - owner.boss_paddle_width * 0.5, 25.0)
+		slip_steps = int(snapshot.get("banana_slice_slip_sound_count", slip_steps))
+		if gate.can_skip_idle(SKILL_ID, state, true, host):
+			gate.record_idle_skip()
+		else:
+			host.update(delta, owner, registry, SKILL_ID, {"registry": registry})
+		if bool(host.get_boss_ai_context().get("lingpet_banana_slice_boss_slip_active", false)):
+			slip_active_frames += 1
+
+	slip_steps = int(host.get_snapshot().get("banana_slice_slip_sound_count", slip_steps))
+	_expect(slip_steps >= 2, "two-step slip seal should really have the boss step on both bananas (got %d)" % slip_steps)
+	_expect(gate.get_idle_skip_count() > 0, "two-step slip seal must actually exercise the gate idle-skip branch, otherwise it proves nothing")
+	_expect(
+		host.get_boss_ai_context().is_empty(),
+		"two consecutive Banana Slice steps must not strand the boss slip context under the idle update gate"
+	)
+	var slip_state: Dictionary = host.get_banana_slice_slip_state_for_tests()
+	_expect(not bool(slip_state.get("active", true)), "stranded slip timer would keep the boss pinned to a wall after both bananas are consumed")
+	_expect(float(slip_state.get("timer", 1.0)) <= 0.0, "Banana Slice slip timer must reach zero even while the idle update gate is skipping the skill")
+	# Two 0.8s slips = ~96 frames; anything past that means the timer froze and
+	# the boss kept sliding for the rest of the run.
+	_expect(slip_active_frames <= 110, "Banana Slice slip should not outlive its two 0.8s windows (%d frames active)" % slip_active_frames)
 
 
 func _verify_host_wiring_and_cleanup_guards() -> void:

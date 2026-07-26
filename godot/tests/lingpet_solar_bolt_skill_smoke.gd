@@ -8,6 +8,8 @@ const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const LingpetSolarBoltSkill := preload("res://scripts/lingpet/lingpet_solar_bolt_skill.gd")
+const LingpetCompanionSkillEffectUpdateGate := preload("res://scripts/lingpet/lingpet_companion_skill_effect_update_gate.gd")
+const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const SKILL_ID := "lumion_solar_bolt"
@@ -95,6 +97,7 @@ func _init() -> void:
 	_verify_refire_retargets_current_boss_center_once()
 	_verify_host_feedback_snapshot_and_rail_card()
 	_verify_reset_and_ball_inactive_cancel_refires()
+	_verify_pending_refire_survives_idle_update_gate()
 	_verify_source_wiring_surfaces()
 
 	if _failures.is_empty():
@@ -340,10 +343,53 @@ func _verify_reset_and_ball_inactive_cancel_refires() -> void:
 	_expect(inactive_skill.get_scheduled_refires_for_tests() == 0, "ball_active=false at refire time should clear remaining refires")
 
 
+func _verify_pending_refire_survives_idle_update_gate() -> void:
+	# Every other refire leg calls skill.update() directly, which bypasses the
+	# companion idle-update gate and is therefore vacuous for this bug class.
+	# Live, the ONLY caller is the slot loop behind can_skip_idle(): once the
+	# first strike's lightning + sparks die (~0.55s) the skill has no VISIBLE
+	# effects, so a gate that only asks "visible?" skips update() for the whole
+	# 22s cooldown and the scheduled follow-up bolt never fires.
+	var host := LingpetSkillRuntimeHost.new()
+	var gate := LingpetCompanionSkillEffectUpdateGate.new()
+	var state := LingpetCompanionSkillState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(FakeAudio.new(), BallIntensity.new())
+	gate.reset_counters_for_tests()
+	host.set_solar_bolt_force_rolls_for_tests([0.0, 1.0])
+	host.set_solar_bolt_jitter_degrees_for_tests([0.0])
+
+	var context: Dictionary = _launch_context(owner, registry, 3, 100.0)
+	_expect(bool(host.launch(SKILL_ID, Vector2(500.0, 610.0), owner, context)), "gate seal should launch Solar Bolt at Lv.3")
+	state.complete_launch(Vector2(500.0, 610.0), 22.0, 0.35)
+	_expect(host.get_solar_bolt_scheduled_refires_for_tests() == 1, "gate seal setup should schedule one follow-up bolt")
+	var strikes_before := host.get_solar_bolt_strike_count_for_tests()
+
+	var delta := 1.0 / 60.0
+	owner.ball_pos = Vector2(500.0, 300.0)
+	for _frame in range(180):
+		state.advance(delta)
+		context = _launch_context(owner, registry, 3, 100.0)
+		if gate.can_skip_idle(SKILL_ID, state, true, host):
+			gate.record_idle_skip()
+			continue
+		host.update(delta, owner, registry, SKILL_ID, context)
+
+	_expect(
+		host.get_solar_bolt_scheduled_refires_for_tests() == 0,
+		"a scheduled Solar Bolt follow-up must not stay frozen behind the idle update gate"
+	)
+	_expect(
+		host.get_solar_bolt_strike_count_for_tests() > strikes_before,
+		"the queued follow-up bolt must actually fire within its rolled 0.5~1.0s gap, not 22 seconds later"
+	)
+
+
 func _verify_source_wiring_surfaces() -> void:
 	var host_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 	_expect(host_src.find("SOLAR_BOLT_SKILL_PATH") >= 0, "runtime host should lazy-load the Solar Bolt module")
-	_expect(host_src.find("play_solar_bolt_strike") >= 0, "runtime host should call the dedicated Solar Bolt audio API")
+	var feedback_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
+	_expect(feedback_src.find("play_solar_bolt_strike") >= 0, "launch-feedback router should call the dedicated Solar Bolt audio API")
 	var payload_builder_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd")
 	_expect(payload_builder_src.find("\"refire_chance_pct\"") >= 0, "payload builder should pass Solar Bolt refire chance through launch_context")
 	var rail_src := FileAccess.get_file_as_string("res://scripts/stages/common/lingpet_rail_card.gd")

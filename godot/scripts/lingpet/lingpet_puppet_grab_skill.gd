@@ -588,7 +588,14 @@ func _update_sparkles(delta: float) -> void:
 
 
 func is_active() -> bool:
-	return _active
+	# Defensive: the ownerless cancel(null) path below parks the skill with
+	# _active=false while the boss ownership is still held, and the DEFERRED
+	# release in update() is the only thing that can finish it. Every live
+	# teardown currently carries a real owner, so that park is unreachable today
+	# -- but if it ever becomes reachable, leaving _owns_boss out of liveness
+	# lets the companion idle-update gate starve the release. Mirrors the
+	# sand_prison `_owns_clamp` sibling.
+	return _active or _owns_boss
 
 
 func has_visible_effects() -> bool:
