@@ -66,7 +66,7 @@ func _verify_loading_route() -> void:
 	renderer.prewarm_stage_assets(7)
 	_expect(renderer.get("stage6_stained_glass_texture") == null, "Stage 7 loading prewarm must not load Stage 6 art as the actor identity")
 	var stage7_owner := StageOwnerProbe.new()
-	_expect(not bool(renderer.call("_can_show_stained_glass", stage7_owner)), "Stage 7 loading must stay OUT of the stained-glass reveal gate (the prebattle intro video owns the loading spectacle; the reveal hold would deadlock the video handoff)")
+	_expect(not renderer.should_hold_completion(stage7_owner, Callable()), "Stage 7 loading must stay OUT of the completion hold (the prebattle intro video owns the loading spectacle; the hold would deadlock the video handoff)")
 
 
 func _verify_result_asset_contract() -> void:
