@@ -1,0 +1,63 @@
+{
+  "asset_family": "viper_hwangyeokjeon_secret_manuals",
+  "source_provenance": "not recorded in workspace",
+  "runtime_contract": "Dedicated acquisition-card cover only; equipped skills keep their existing runtime skill IDs and orb/icon routes.",
+  "entries": [
+    {
+      "perk_id": "unlock_nerve_strike",
+      "skill_id": "nerve_strike",
+      "display_name_ko": "독영절맥 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_dokyeong_jeolmaek_manual_icon.png",
+      "sha256": "f44646740bceffbd5611e4cc1f967b23057200c6ea662de78dd2a92f0d643b98"
+    },
+    {
+      "perk_id": "unlock_dive_strike",
+      "skill_id": "dive_strike",
+      "display_name_ko": "천뢰진각 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_cheonroe_jingak_manual_icon.png",
+      "sha256": "391cf2c5954d7c956f14dffa4e9dcd7d3c6cf50d258632bc2938f0febcd614e7"
+    },
+    {
+      "perk_id": "unlock_chaos_spear",
+      "skill_id": "chaos_spear",
+      "display_name_ko": "혼천흑창 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_honcheon_heukchang_manual_icon.png",
+      "sha256": "0e4bd8cfbe2ec923a809929c5625dd54a7cda9662754bb18a7adb9137f138bf3"
+    },
+    {
+      "perk_id": "unlock_dual_glitch",
+      "skill_id": "dual_glitch",
+      "display_name_ko": "쌍영분신 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_ssangyeong_bunsin_manual_icon.png",
+      "sha256": "39a82fbb905573eb7e2a96980f80689a462e908039382a63a606ada3d4ba704f"
+    },
+    {
+      "perk_id": "unlock_ignition_aura",
+      "skill_id": "ignition_aura",
+      "display_name_ko": "염화개맥 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_yeomhwa_gaemaek_manual_icon.png",
+      "sha256": "3737691de8830abc1e70b16246f903efc311c1bc090d46634056e4b431ac7e4b"
+    },
+    {
+      "perk_id": "double_marshal_kick",
+      "skill_id": "phantom_kick",
+      "display_name_ko": "환영연각 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_hwanyeong_yeongak_manual_icon.png",
+      "sha256": "8829770eedf4fbff3b7de8ee6b633edadfaff03c78d661ce05054ff56804c31c"
+    },
+    {
+      "perk_id": "core_flip",
+      "skill_id": "core_flip",
+      "display_name_ko": "화랑비천각 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_hwarang_bicheongak_manual_icon.png",
+      "sha256": "45e3690e9d5fb2030245760b44d632aa4e5f06cdf51e812d330f242f3b47ab5b"
+    },
+    {
+      "perk_id": "dark_blade",
+      "skill_id": "dark_blade",
+      "display_name_ko": "혈영참 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_hyeolyeong_cham_manual_icon.png",
+      "sha256": "d915b408b41593400d1c5b6cfd99a868458eaeda933234ac9b768dd958621ce8"
+    }
+  ]
+}

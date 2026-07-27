@@ -3,7 +3,7 @@ extends RefCounted
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const DIVE_HIT_TEXT := "EMP 스트라이크"
+const DIVE_HIT_TEXT := "천뢰진각"
 const MISS_TEXT := "MISS!"
 
 

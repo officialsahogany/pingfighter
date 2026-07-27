@@ -76,7 +76,7 @@ func draw_ignition_aura_timer_gauge(
 			seconds_text = "%.1fс" % remaining_seconds
 		elif timer_language != LanguageSettings.LANGUAGE_ENGLISH and timer_language != LanguageSettings.LANGUAGE_SPANISH and timer_language != LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			seconds_text = "%.1f초" % remaining_seconds
-		var label: String = "%s %s" % [LanguageSettings.translate_text("이그니션"), seconds_text]
+		var label: String = "%s %s" % [LanguageSettings.translate_text("염화개맥"), seconds_text]
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 104.0, 10, Color(1.0, 0.95, 0.82, 0.90))
 
 
@@ -146,7 +146,7 @@ func draw_dual_glitch_timer_gauge(
 	canvas.draw_arc(icon_center, 12.0, 0.0, TAU, 24, Color(0.96, 0.90, 1.0, 0.52), 1.6)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
-		var label: String = "%s %.1f" % [LanguageSettings.translate_text("듀얼"), max(0.0, remaining_seconds)]
+		var label: String = "%s %.1f" % [LanguageSettings.translate_text("쌍영분신"), max(0.0, remaining_seconds)]
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 92.0, 10, Color(0.90, 0.98, 1.0, 0.88))
 
 

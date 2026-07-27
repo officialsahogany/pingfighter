@@ -439,7 +439,7 @@ func _draw_hit_text(_render_scale: float) -> void:
 	var text_width: float = 270.0 * render_scale
 	var font_size: int = int(round((24.0 + sin(progress * PI) * 3.0) * render_scale))
 	var origin := Vector2(center.x - text_width * 0.5, center.y)
-	var text := "EMP 스트라이크"
+	var text := "천뢰진각"
 	draw_string(font, origin + Vector2(3.0, 3.0) * render_scale, text, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.02, 0.03, 0.06, alpha * 0.84))
 	draw_string(font, origin + Vector2(-1.0, 0.0) * render_scale, text, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.20, 0.96, 1.0, alpha * 0.55))
 	draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(1.0, 0.86, 0.48, alpha))

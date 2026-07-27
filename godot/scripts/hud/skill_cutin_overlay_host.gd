@@ -256,7 +256,7 @@ func _get_cutin_profile(skill_name: String) -> Dictionary:
 	if skill_name == SKILL_PHANTOM_KICK:
 		return {
 			"skill_name": SKILL_PHANTOM_KICK,
-			"title": "팬텀 킥",
+			"title": "환영연각",
 			"sheet_path": VIPER_PHANTOM_KICK_CUTIN_SHEET_PATH,
 			"title_color": PHANTOM_KICK_COLOR,
 			"wipe_color": PHANTOM_WIPE_COLOR,

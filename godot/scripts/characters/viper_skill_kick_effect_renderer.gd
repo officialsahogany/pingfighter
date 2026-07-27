@@ -153,7 +153,7 @@ func draw_phantom_kick_show_overlay(
 	var font: Font = ThemeDB.fallback_font
 	var text_width := 240.0
 	var text_origin := Vector2(center.x - text_width * 0.5, center.y + text_shake.y)
-	var label := LanguageSettings.translate_text("팬텀 킥")
+	var label := LanguageSettings.translate_text("환영연각")
 	canvas.draw_string(font, text_origin + Vector2(text_shake.x + 3.0, 3.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.04, 0.0, 0.06, text_alpha))
 	canvas.draw_string(font, text_origin + Vector2(text_shake.x, 0.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.63, 0.20, 0.78, text_alpha))
 	canvas.draw_string(font, text_origin + Vector2(text_shake.x - 1.0, -1.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.78, 0.47, 0.90, text_alpha * 0.18))

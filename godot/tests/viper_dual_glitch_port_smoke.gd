@@ -811,7 +811,7 @@ func _test_tooltip_runtime_bonus() -> void:
 	var hover_context := {"runtime_perk_state": perk_state}
 	var description: String = renderer._build_description_with_runtime_bonus(skill_data, hover_context)
 	_expect(description.find("분신 HP 4") >= 0, "Dual Glitch tooltip should show Four Poisons clone HP")
-	_expect(description.find("스킬 복제") >= 0, "Dual Glitch tooltip should show the Lv5 clone replication bonus")
+	_expect(description.find("초식 복제") >= 0, "Dual Glitch tooltip should show the Lv5 clone replication bonus")
 	var cooldown: float = renderer._get_effective_skill_cooldown_seconds(skill_data, hover_context)
 	_expect(abs(cooldown - 32.0) < 0.01, "Dual Glitch tooltip cooldown should include Four Poisons reduction")
 

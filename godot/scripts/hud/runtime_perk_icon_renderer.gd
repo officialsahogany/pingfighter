@@ -158,6 +158,20 @@ const SKILL_ICON_PATHS := {
 	"ak47": "res://assets/sprites/skills/commando_ak47_skill_orb.png",
 }
 
+# 비급 획득 카드 전용 표지. 전투 중 장착 초식은 SKILL_ICON_PATHS의
+# 즉시 판독 가능한 술법 인장을 유지하고, 아래에 명시한 획득 카드 ID만
+# 책 표지를 쓴다. 전용 표지가 없으면 UNLOCK_ALIASES의 초식 인장으로 폴백한다.
+const MANUAL_ICON_PATHS := {
+	"unlock_nerve_strike": "res://assets/sprites/perks/viper_dokyeong_jeolmaek_manual_icon.png",
+	"unlock_dive_strike": "res://assets/sprites/perks/viper_cheonroe_jingak_manual_icon.png",
+	"unlock_chaos_spear": "res://assets/sprites/perks/viper_honcheon_heukchang_manual_icon.png",
+	"unlock_dual_glitch": "res://assets/sprites/perks/viper_ssangyeong_bunsin_manual_icon.png",
+	"unlock_ignition_aura": "res://assets/sprites/perks/viper_yeomhwa_gaemaek_manual_icon.png",
+	"double_marshal_kick": "res://assets/sprites/perks/viper_hwanyeong_yeongak_manual_icon.png",
+	"core_flip": "res://assets/sprites/perks/viper_hwarang_bicheongak_manual_icon.png",
+	"dark_blade": "res://assets/sprites/perks/viper_hyeolyeong_cham_manual_icon.png",
+}
+
 const UNLOCK_ALIASES := {
 	"unlock_plasma": "plasma",
 	"unlock_recovery_skill": "recovery",
@@ -495,6 +509,8 @@ func _build_prewarm_asset_jobs() -> Array:
 		jobs.append({"type": "texture", "path": str(PERK_ICON_PATHS[key])})
 	for key in SKILL_ICON_PATHS.keys():
 		jobs.append({"type": "texture", "path": str(SKILL_ICON_PATHS[key])})
+	for key in MANUAL_ICON_PATHS.keys():
+		jobs.append({"type": "texture", "path": str(MANUAL_ICON_PATHS[key])})
 	for key in PERK_SHEET_PATHS.keys():
 		jobs.append({"type": "sheet", "path": str(PERK_SHEET_PATHS[key])})
 	for skill_id in covered_ids():
@@ -546,7 +562,10 @@ func _get_icon_source(skill_id: String) -> Dictionary:
 	var texture: Texture2D = _get_texture(path)
 	if texture == null:
 		return {}
-	texture = SkillOrbTextureNormalizer.normalize(_resolve_skill_icon_id(skill_id), texture)
+	# 비급책은 완성된 투명 실루엣이므로 원형 초식 구슬의 crop/zoom 정규화를
+	# 적용하지 않는다. 같은 호환 id를 쓰더라도 책 외곽을 보존해야 한다.
+	if not MANUAL_ICON_PATHS.has(skill_id):
+		texture = SkillOrbTextureNormalizer.normalize(_resolve_skill_icon_id(skill_id), texture)
 	var source := {"texture": texture, "region": Rect2()}
 	_static_source_cache[skill_id] = source
 	return source
@@ -557,6 +576,8 @@ func _get_static_path(skill_id: String) -> String:
 		return str(FUSION_OFFER_ICON_PATHS[skill_id])
 	if PERK_ICON_PATHS.has(skill_id):
 		return str(PERK_ICON_PATHS[skill_id])
+	if MANUAL_ICON_PATHS.has(skill_id):
+		return str(MANUAL_ICON_PATHS[skill_id])
 	var resolved_id: String = _resolve_skill_icon_id(skill_id)
 	if SKILL_ICON_PATHS.has(resolved_id):
 		return str(SKILL_ICON_PATHS[resolved_id])
@@ -630,7 +651,7 @@ func _get_draw_rect(rect: Rect2, skill_id: String, texture: Texture2D) -> Rect2:
 
 
 func _needs_unlock_badge(skill_id: String) -> bool:
-	return skill_id.begins_with("unlock_") or bool(COMMANDO_UNLOCK_BADGE_IDS.get(skill_id, false))
+	return MANUAL_ICON_PATHS.has(skill_id) or skill_id.begins_with("unlock_") or bool(COMMANDO_UNLOCK_BADGE_IDS.get(skill_id, false))
 
 
 func _draw_unlock_badge(canvas: CanvasItem, rect: Rect2, alpha: float) -> void:

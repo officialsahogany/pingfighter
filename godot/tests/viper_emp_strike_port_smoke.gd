@@ -156,13 +156,13 @@ func _test_four_poisons_catalog_text_sync() -> void:
 	var lv3: String = str(descriptions.get(3, ""))
 	var lv5: String = str(descriptions.get(5, ""))
 	var detail: String = str(data.get("detail", ""))
-	_expect(lv3.find("EMP 수면 +15%") >= 0, "four_poisons Lv.3 card should mention EMP sleep scaling")
-	_expect(lv3.find("4스킬 쿨 -10%") >= 0, "four_poisons Lv.3 card should mention 4-skill cooldown reduction")
+	_expect(lv3.find("천뢰진각 수면 +15%") >= 0, "four_poisons Lv.3 card should mention Heavenly Thunder sleep scaling")
+	_expect(lv3.find("4초식 쿨 -10%") >= 0, "four_poisons Lv.3 card should mention four-form cooldown reduction")
 	_expect(lv3.find("슈퍼아머") >= 0, "four_poisons Lv.3 card should mention startup super armor")
-	_expect(lv5.find("EMP 수면 +25%") >= 0, "four_poisons Lv.5 card should mention max-invested EMP sleep scaling")
-	_expect(lv5.find("듀얼 HP 4") >= 0, "four_poisons Lv.5 card should mention dual glitch clone HP")
+	_expect(lv5.find("천뢰진각 수면 +25%") >= 0, "four_poisons Lv.5 card should mention max-invested Heavenly Thunder sleep scaling")
+	_expect(lv5.find("쌍영분신 HP 4") >= 0, "four_poisons Lv.5 card should mention twin-shadow clone HP")
 	_expect(lv5.find("분신 복제") >= 0, "four_poisons Lv.5 card should mention clone skill replication")
-	_expect(detail.find("추가 게이지/쿨/골드") >= 0, "four_poisons detail should explain clone replication reward limits")
+	_expect(detail.find("추가 기력/쿨/골드") >= 0, "four_poisons detail should explain clone replication reward limits")
 
 
 func _test_emp_audio_asset_parity() -> void:

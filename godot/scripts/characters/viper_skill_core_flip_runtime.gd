@@ -185,7 +185,7 @@ static func _apply_kick_hit(runtime: Object, result: Dictionary, kick_center: Ve
 		runtime._spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
 	runtime._destroy_marshal_impact_objects(ball_pos, deps)
 	runtime._mark_kick_skill_knockback_pending(deps)
-	# 화랑 킥의 2.2x 발사 부스트는 원본(_viper_speed_boost)에서 임시였다 — 보스가
+	# 화랑비천각의 2.2x 발사 부스트는 원본(_viper_speed_boost)에서 임시였다 — 보스가
 	# 받아치면 원래 속도로 복귀한다. Godot 포트는 이 복원을 마샬 킥과 동일한
 	# kick_guard_speed_reduction 경로로 처리하므로, core_flip 히트도 마샬처럼 arm해
 	# 부스트가 영구로 남지 않게 한다 (parity: pingfighter.py:105602-105603).

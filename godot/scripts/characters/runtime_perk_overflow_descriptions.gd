@@ -267,14 +267,14 @@ static func _blade_amp_text(level: int) -> String:
 
 
 static func _four_poisons_text(level: int) -> String:
-	var text: String = "EMP/카오스 준비 -%d%%, EMP 수면 +%d%%, 베놈 혼란 +%d%%, 듀얼 지속 +%d%%" % [
+	var text: String = "천뢰진각/혼천흑창 준비 -%d%%, 천뢰진각 수면 +%d%%, 독영절맥 혼란 +%d%%, 쌍영분신 지속 +%d%%" % [
 		_four_poisons_scaled_pct(level, FOUR_POISONS_PREP),
 		_four_poisons_scaled_pct(level, FOUR_POISONS_SLEEP),
 		_four_poisons_scaled_pct(level, FOUR_POISONS_CONFUSION),
 		_four_poisons_scaled_pct(level, FOUR_POISONS_DUAL_DURATION),
 	]
 	if level >= 3:
-		text += ", 듀얼 HP %d, 4스킬 쿨 -%d%%, 슈퍼아머" % [
+		text += ", 쌍영분신 HP %d, 4초식 쿨 -%d%%, 슈퍼아머" % [
 			_four_poisons_clone_hp(level),
 			_four_poisons_scaled_pct(level, FOUR_POISONS_COOLDOWN),
 		]

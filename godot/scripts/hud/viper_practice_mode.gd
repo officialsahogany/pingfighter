@@ -41,7 +41,7 @@ const FONT_SIZE := 24
 const MIN_FONT_SIZE := 18
 
 # 주의: 연결자로 "→"를 쓰면 키캡 토크나이저가 방향키 키캡으로 렌더하므로 단어를 쓴다.
-const SHADOW_MESSAGE := "A / D 이동 중 S ( 대쉬 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기"
+const SHADOW_MESSAGE := "A / D 이동 중 S ( 활주 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기"
 const MARSHAL_MESSAGE := "이어서 S - 마샬킥 연계!"
 const SHADOW_MESSAGE_KEY := "tutorial.viper.practice.shadow.keyboard"
 const MARSHAL_MESSAGE_KEY := "tutorial.viper.practice.marshal.keyboard"
@@ -142,7 +142,7 @@ func get_message() -> String:
 	var gamepad: bool = _grip_style == "gamepad"
 	match _phase:
 		PHASE_AWAIT_SHADOW:
-			return LanguageSettings.translate(SHADOW_GAMEPAD_MESSAGE_KEY, "이동 중 B ( 대쉬 ) 후 A / X - 쉐도우 백스텝으로 공 맞추기") if gamepad else LanguageSettings.translate(SHADOW_MESSAGE_KEY, SHADOW_MESSAGE)
+			return LanguageSettings.translate(SHADOW_GAMEPAD_MESSAGE_KEY, "이동 중 B ( 활주 ) 후 A / X - 쉐도우 백스텝으로 공 맞추기") if gamepad else LanguageSettings.translate(SHADOW_MESSAGE_KEY, SHADOW_MESSAGE)
 		PHASE_AWAIT_MARSHAL:
 			return LanguageSettings.translate(MARSHAL_GAMEPAD_MESSAGE_KEY, "이어서 A / X - 마샬킥 연계!") if gamepad else LanguageSettings.translate(MARSHAL_MESSAGE_KEY, MARSHAL_MESSAGE)
 	return ""

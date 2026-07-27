@@ -205,7 +205,7 @@ func _test_dark_blade_unlock_catalog_wiring() -> void:
 	var unlock_data: Dictionary = catalog.get_perk_data("dark_blade")
 	_expect(not unlock_data.is_empty(), "dark_blade should exist as the Dark Blade unlock perk")
 	_expect(str(unlock_data.get("unlocks_skill", "")) == "dark_blade", "dark_blade perk should unlock the runtime dark_blade orb")
-	_expect(str(unlock_data.get("name", "")) == "다크 블레이드", "dark_blade perk should use the Korean display name")
+	_expect(str(unlock_data.get("name", "")) == "혈영참 비급", "dark_blade perk should use the rebranded Korean manual name")
 	_expect(not skill_config.is_skill_equipped("dark_blade"), "dark_blade should not be equipped before unlock")
 	var icon_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/skills/viper_dark_blade_skill_orb.png")
 	_expect(icon_texture != null, "Dark Blade orb PNG should load from Godot skill assets")

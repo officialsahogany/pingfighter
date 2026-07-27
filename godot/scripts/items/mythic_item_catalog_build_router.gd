@@ -330,7 +330,7 @@ func _build_venom_mist_gauntlet(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "독안개 건틀릿",
 		"korean_name": "독안개 건틀릿",
-		"description": "바이퍼 전용. 화랑 킥으로 공에 독을 싣고, 보스가 감염된 공을 가드하면 보스 주변에 독안개를 생성합니다. 독안개 안의 보스는 이동속도와 특수 게이지가 감소합니다.",
+		"description": "바이퍼 전용. 화랑비천각으로 공에 독을 싣고, 보스가 감염된 공을 가드하면 보스 주변에 독안개를 생성합니다. 독안개 안의 보스는 이동속도와 기력이 감소합니다.",
 		"character_restriction": "viper",
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 80.0 / 255.0),
 	}, catalog, "venom_mist_gauntlet", "passive", "arm", catalog.get_field_chance("venom_mist_gauntlet"))

@@ -16,13 +16,46 @@ var playfield_renderer: Object = Stage6TetriserPlayfieldRenderer.new()
 var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage6TetriserBossActorRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
+var _prewarm_step_index := 0
+var _prewarmed := false
 
 
 func prewarm_assets() -> void:
-	pass
+	while not prewarm_assets_step():
+		pass
 
 
+# 자식 렌더러로 스텝 위임(Stage 5 패턴). 위임이 없던 동안 boss_renderer의
+# 768x768 시트 7장이 `_ensure_textures()` -> 동기 while 루프로 첫 전투 draw
+# 프레임 안에서 디코드됐다(actors.renderer_draw 51.7ms 실측).
 func prewarm_assets_step() -> bool:
+	if _prewarmed:
+		return true
+	var done := true
+	match _prewarm_step_index:
+		0:
+			done = _prewarm_module_assets_step(playfield_renderer)
+		1:
+			done = _prewarm_module_assets_step(boss_renderer)
+		2:
+			done = _prewarm_module_assets_step(commando_firearm_renderer)
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	if not done:
+		return false
+	_prewarm_step_index += 1
+	return false
+
+
+func _prewarm_module_assets_step(module: Object) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_assets_step"):
+		return bool(module.prewarm_assets_step())
+	if module.has_method("prewarm_assets"):
+		module.prewarm_assets()
 	return true
 
 

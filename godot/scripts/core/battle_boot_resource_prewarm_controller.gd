@@ -38,6 +38,15 @@ const STAGE5_RUNTIME_PREWARM_MODULE_KEYS := [
 	"stage5_hongryun_pillar_scene_drawer",
 	"stage5_hongryun_boss_skill_hud_renderer",
 ]
+# Stage 6 비주얼 셸 전체(액터 시트 7장 + 필러 씬 + 보스 스킬 카드 PNG). 이 목록이
+# 비어 있던 동안 두 콜드 경로가 첫 전투 draw 프레임으로 떨어졌다:
+# actors.lookup_renderer 43.5ms + actors.renderer_draw 51.7ms, 그리고
+# stage6.pillar.tetriser_boss_hud 156.6ms(= draw.pillar_overlay.post_hud 157.2ms).
+const STAGE6_RUNTIME_PREWARM_MODULE_KEYS := [
+	"stage6_tetriser_actor_renderer",
+	"stage6_tetriser_pillar_scene_drawer",
+	"stage6_tetriser_boss_skill_hud_renderer",
+]
 const CHARACTER_INFO_OVERLAY_MODULE_KEY := "character_info_overlay"
 
 var battle_resources_prewarmed: bool = false
@@ -65,6 +74,7 @@ var battle_stage3_playfield_resources_prewarmed: bool = false
 var battle_stage4_pillar_background_prewarmed: bool = false
 var battle_stage4_playfield_resources_prewarmed: bool = false
 var battle_stage5_pillar_background_prewarmed: bool = false
+var battle_stage6_pillar_background_prewarmed: bool = false
 var battle_runtime_perk_overlay_prewarmed: bool = false
 var battle_runtime_perk_debug_prewarmed: bool = false
 var battle_character_info_prewarmed: bool = false
@@ -415,6 +425,8 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 			return 3 + STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size()
 		5:
 			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
+		6:
+			return 1 + STAGE6_RUNTIME_PREWARM_MODULE_KEYS.size()
 		7:
 			# 프리배틀 영상 스텝(0번, 최우선 — 스레드 VideoStream+숨은 호스트가
 			# 다른 렌더 프리웜과 병행 진행되도록 가장 먼저 시작) + 렌더 4스텝.
@@ -441,6 +453,8 @@ func _get_stage_runtime_prewarm_step_label(owner: Object, current_stage: int, st
 			return _get_stage4_runtime_prewarm_step_label(stage_step)
 		5:
 			return _get_stage5_runtime_prewarm_step_label(stage_step)
+		6:
+			return _get_stage6_runtime_prewarm_step_label(stage_step)
 		7:
 			return _get_stage7_runtime_prewarm_step_label(stage_step)
 	return "stage%d_step%d" % [current_stage, stage_step]
@@ -497,6 +511,15 @@ func _get_stage5_runtime_prewarm_step_label(stage_step: int) -> String:
 	return "stage5_step%d" % stage_step
 
 
+func _get_stage6_runtime_prewarm_step_label(stage_step: int) -> String:
+	if stage_step == 0:
+		return "stage6_pillar_background"
+	var module_index := stage_step - 1
+	if module_index >= 0 and module_index < STAGE6_RUNTIME_PREWARM_MODULE_KEYS.size():
+		return str(STAGE6_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+	return "stage6_step%d" % stage_step
+
+
 func _run_stage_specific_runtime_prewarm_step(
 	owner: Object,
 	module_getter: Callable,
@@ -514,6 +537,8 @@ func _run_stage_specific_runtime_prewarm_step(
 			return _run_stage4_runtime_prewarm_step(owner, module_getter, stage_step)
 		5:
 			return _run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
+		6:
+			return _run_stage6_runtime_prewarm_step(owner, module_getter, stage_step)
 		7:
 			return _run_stage7_runtime_prewarm_step(owner, module_getter, stage_step)
 	return true
@@ -627,6 +652,21 @@ func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 			var module_key := str(STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
 			var module: Object = _get_module(module_getter, STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
 			if module_key == "stage5_hongryun_pillar_scene_drawer":
+				return _prewarm_pillar_scene_assets_step(module, module_getter, _get_selected_character_type(owner))
+			return _prewarm_module_assets_step(module)
+
+
+func _run_stage6_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
+	match stage_step:
+		0:
+			return prewarm_stage6_pillar_background_step(module_getter)
+		_:
+			var module_index := stage_step - 1
+			if module_index < 0 or module_index >= STAGE6_RUNTIME_PREWARM_MODULE_KEYS.size():
+				return true
+			var module_key := str(STAGE6_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+			var module: Object = _get_module(module_getter, STAGE6_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+			if module_key == "stage6_tetriser_pillar_scene_drawer":
 				return _prewarm_pillar_scene_assets_step(module, module_getter, _get_selected_character_type(owner))
 			return _prewarm_module_assets_step(module)
 
@@ -847,6 +887,16 @@ func prewarm_stage5_pillar_background_step(module_getter: Callable) -> bool:
 	if not _prewarm_module_assets_step(stage_background):
 		return false
 	battle_stage5_pillar_background_prewarmed = true
+	return true
+
+
+func prewarm_stage6_pillar_background_step(module_getter: Callable) -> bool:
+	if battle_stage6_pillar_background_prewarmed:
+		return true
+	var stage_background: Object = _get_module(module_getter, "stage6_tetriser_pillar_background")
+	if not _prewarm_module_assets_step(stage_background):
+		return false
+	battle_stage6_pillar_background_prewarmed = true
 	return true
 
 

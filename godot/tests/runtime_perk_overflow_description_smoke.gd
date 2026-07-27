@@ -144,7 +144,7 @@ func _test_special_overflow_values() -> void:
 	# four_poisons Lv.6 extrapolates every lane by its runtime per-extra step.
 	_expect_text(
 		"four_poisons", 6,
-		"EMP/카오스 준비 -44%, EMP 수면 +30%, 베놈 혼란 +80%, 듀얼 지속 +38%, 듀얼 HP 5, 4스킬 쿨 -24%, 슈퍼아머, 분신 복제"
+		"천뢰진각/혼천흑창 준비 -44%, 천뢰진각 수면 +30%, 독영절맥 혼란 +80%, 쌍영분신 지속 +38%, 쌍영분신 HP 5, 4초식 쿨 -24%, 슈퍼아머, 분신 복제"
 	)
 
 

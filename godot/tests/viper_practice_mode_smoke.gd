@@ -146,7 +146,7 @@ func _verify_gating() -> void:
 	_expect(bool(mode.update(0.0, owner, registry)), "junior viper with a grip should start the practice mode")
 	_expect(str(mode.get_snapshot().get("phase", "")) == "await_shadow", "practice mode should begin awaiting the shadow step")
 	_expect(bool(mode.wants_ball_hold()), "practice mode should request the frozen-ball hold while awaiting the shadow step")
-	_expect(str(mode.get_snapshot().get("message", "")) == "A / D 이동 중 S ( 대쉬 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기", "shadow phase should teach the full move-dash-shadow step input chain")
+	_expect(str(mode.get_snapshot().get("message", "")) == "A / D 이동 중 S ( 활주 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기", "shadow phase should teach the full move-glide-shadow step input chain")
 
 
 func _verify_happy_path_combo() -> void:
@@ -311,7 +311,7 @@ func _verify_hint_fade_and_keycap() -> void:
 	_expect(float(mode.get_snapshot().get("alpha", 1.0)) < 0.1, "phase transition should restart the hint fade-in")
 
 	# 연결자에 "→"를 쓰면 방향키 키캡으로 오인 렌더되므로 단어 연결자("후")를 봉인한다.
-	var shadow_tokens: Array = TutorialHintKeycapRenderer.split_render_tokens("A / D 이동 중 S ( 대쉬 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기")
+	var shadow_tokens: Array = TutorialHintKeycapRenderer.split_render_tokens("A / D 이동 중 S ( 활주 ) 후 다시 S - 쉐도우 백스텝으로 공 맞추기")
 	_expect(_keycap_values(shadow_tokens) == ["A", "D", "S", "S"], "shadow hint should keycap exactly the move keys, the dash S and the shadow-step S (no stray arrow keycap)")
 	var marshal_tokens: Array = TutorialHintKeycapRenderer.split_render_tokens("이어서 S - 마샬킥 연계!")
 	_expect(_keycap_values(marshal_tokens) == ["S"], "marshal hint should keycap only the S key")

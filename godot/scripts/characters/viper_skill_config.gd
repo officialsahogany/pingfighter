@@ -51,8 +51,8 @@ const SKILL_DATA := {
 		"cost": 100.0,
 		"color": Color(100.0 / 255.0, 0.0, 180.0 / 255.0),
 		"cooldown": 15.0,
-		"description": "대쉬를 하기 전 위치로 순간이동합니다.\n빠르게 뒷차기를 하며 연계기를 엽니다.\n마샬 킥 또는 다크 블레이드 선행기술.",
-		"how_to_use": "대쉬 중 또는 직후 S키로 발동",
+		"description": "활주하기 전 위치로 순간이동합니다.\n빠르게 뒷차기를 하며 연계기를 엽니다.\n마샬 킥 또는 혈영참 선행기술.",
+		"how_to_use": "활주 중 또는 직후 S키로 발동",
 		"motion_hint": "잔상 남기고 시작 위치로 텔레포트",
 		"effect_type": "shadow_teleport",
 	},
@@ -69,24 +69,24 @@ const SKILL_DATA := {
 	},
 	"nerve_strike": {
 		"name": "nerve_strike",
-		"korean": "베놈 엣지",
+		"korean": "독영절맥",
 		"cost": 90.0,
 		"color": Color(180.0 / 255.0, 0.0, 220.0 / 255.0),
 		"cooldown": 35.0,
 		"description": "상대의 배후로 빠르게 날아갑니다.\n등 뒤에서 눈을 베어 혼란을 부여합니다.",
-		"how_to_use": "블레이드 계열 스킬 사용 후 착지 전 W 또는 위쪽 방향키",
+		"how_to_use": "블레이드 계열 초식 사용 후 착지 전 W 또는 위쪽 방향키",
 		"motion_hint": "보스 등 뒤로 날아가 베어 혼란 부여",
 		"effect_type": "stun_purple",
 	},
 	"dive_strike": {
 		"name": "dive_strike",
-		"korean": "EMP 스트라이크",
+		"korean": "천뢰진각",
 		"cost": 250.0,
 		"color": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
 		"cooldown": 70.0,
-		"description": "강한 충격으로 원형 EMP 펄스를 끝까지 퍼트려 공을 튕기고 상대를 감전 둔화시킵니다.\n원형 파동의 테두리가 보스에게 닿으면 보스를 슬립 상태로 만듭니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",
+		"description": "강한 충격으로 원형 뇌전 파동을 끝까지 퍼트려 공을 튕기고 상대를 감전 둔화시킵니다.\n원형 파동의 테두리가 보스에게 닿으면 보스를 슬립 상태로 만듭니다.\n체공 높이에 비례해 파동 강도가 증가합니다.",
 		"how_to_use": "체공 중 S키 또는 아래쪽 방향키를 0.3초 이상 누르기",
-		"motion_hint": "끝까지 퍼지는 원형 EMP 둔화",
+		"motion_hint": "끝까지 퍼지는 원형 뇌전 둔화",
 		"effect_type": "dive_impact",
 	},
 	"marshal_kick": {
@@ -96,13 +96,13 @@ const SKILL_DATA := {
 		"color": Color(130.0 / 255.0, 0.0, 200.0 / 255.0),
 		"cooldown": 25.0,
 		"description": "벽을 짚은 뒤 강한 반동으로 돌진합니다.\n공을 향해 날아가 발로 찹니다.\n다양한 콤보 연계에 사용됩니다.",
-		"how_to_use": "쉐도우 백스텝, 블레이드 계열, 화랑 킥 발동 후",
+		"how_to_use": "쉐도우 백스텝, 블레이드 계열, 화랑비천각 발동 후",
 		"motion_hint": "벽점프 후 공 쪽으로 돌진",
 		"effect_type": "wall_dive_purple",
 	},
 	"phantom_kick": {
 		"name": "phantom_kick",
-		"korean": "팬텀 킥",
+		"korean": "환영연각",
 		"cost": 60.0,
 		"color": Color(180.0 / 255.0, 0.0, 1.0),
 		"cooldown": 40.0,
@@ -113,57 +113,57 @@ const SKILL_DATA := {
 	},
 	"dark_blade": {
 		"name": "dark_blade",
-		"korean": "다크 블레이드",
+		"korean": "혈영참",
 		"cost": 150.0,
 		"color": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
 		"cooldown": 45.0,
 		"description": "공을 타격한 뒤 붉게 빛나는 1초 안에 공중에서 강화 검기를 쏩니다.\n검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기에 맞은 공은 난이도와 관계없이 공속 상한 50을 적용합니다.",
-		"how_to_use": "쉐도우 백스텝, 에어 블레이드, 마샬/팬텀/화랑 킥 타격 후",
+		"how_to_use": "쉐도우 백스텝, 에어 블레이드, 마샬 킥/환영연각/화랑비천각 타격 후",
 		"motion_hint": "공중에서 검붉은 강화 검기 발사",
 		"effect_type": "slash_dark",
 	},
 	"chaos_spear": {
 		"name": "chaos_spear",
-		"korean": "카오스 스피어",
+		"korean": "혼천흑창",
 		"cost": 150.0,
 		"color": Color(135.0 / 255.0, 70.0 / 255.0, 1.0),
 		"cooldown": 30.0,
-		"description": "혼돈의 창을 투척합니다.\n맵 중앙에 블랙홀이 생성됩니다.\n공과 일반 투사체를 빨아들입니다.",
+		"description": "혼천흑창을 투척합니다.\n맵 중앙에 흡인하는 흑점이 생성됩니다.\n공과 일반 투사체를 빨아들입니다.",
 		"how_to_use": "지상에서 A, W, D 순서로 입력",
-		"motion_hint": "맵 중앙 블랙홀로 공과 투사체 흡수",
+		"motion_hint": "맵 중앙 흑점으로 공과 투사체 흡수",
 		"effect_type": "chaos_vortex",
 	},
 	"core_flip": {
 		"name": "core_flip",
-		"korean": "화랑 킥",
+		"korean": "화랑비천각",
 		"cost": 120.0,
 		"color": Color(1.0, 110.0 / 255.0, 200.0 / 255.0),
 		"cooldown": 25.0,
 		"description": "화랑의 혼을 실은 킥으로 공을 타격합니다.\n예측이 힘든 사선으로 반격합니다.",
-		"how_to_use": "대쉬로 공 타격 후 A와 D를 함께 입력",
+		"how_to_use": "활주로 공 타격 후 A와 D를 함께 입력",
 		"motion_hint": "벽을 두 번 차고 공으로 돌진",
 		"effect_type": "core_flip_arc",
 	},
 	"dual_glitch": {
 		"name": "dual_glitch",
-		"korean": "듀얼 글리치",
+		"korean": "쌍영분신",
 		"cost": 220.0,
 		"color": Color(60.0 / 255.0, 220.0 / 255.0, 150.0 / 255.0),
 		"cooldown": 40.0,
-		"description": "바이퍼 고대기술로 스스로를 분열합니다.\n분신이 플레이어 움직임을 미러링합니다.\n좌우에서 공을 가드합니다.",
+		"description": "바이퍼의 고대 비술로 두 잔영을 나눕니다.\n분신은 플레이어 움직임을 거울처럼 따릅니다.\n좌우에서 공을 가드합니다.",
 		"how_to_use": "A, D, A, D 순서 또는 좌우좌우 입력",
 		"motion_hint": "좌우 분신 패들 소환",
 		"effect_type": "glitch_clone",
 	},
 	"ignition_aura": {
 		"name": "ignition_aura",
-		"korean": "이그니션 오라",
+		"korean": "염화개맥",
 		"cost": 230.0,
 		"color": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
 		"cooldown": 70.0,
-		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 퍽 레벨이 증가합니다.\n골드 보너스도 함께 증가합니다.",
+		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 무공 레벨이 증가합니다.\n골드 보너스도 함께 증가합니다.",
 		"how_to_use": "지상에서 W키 또는 위쪽 방향키를 0.5초 이상 누르기",
-		"motion_hint": "화염 에너지 분출",
+		"motion_hint": "화염 경맥을 열어 기운 분출",
 		"effect_type": "ignition_burst",
 	},
 }
@@ -316,50 +316,50 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["how_to_use"] = "Press W or Up while airborne"
 			data["motion_hint"] = "Fire a giant purple slash forward"
 		"nerve_strike":
-			data["korean"] = "Venom Edge"
+			data["korean"] = "Poison-Shadow Meridian Sever"
 			data["description"] = "Rush behind the opponent and slash from behind to inflict confusion."
 			data["how_to_use"] = "After a blade skill, press W or Up before landing"
 			data["motion_hint"] = "Fly behind the boss and slash to confuse"
 		"dive_strike":
-			data["korean"] = "EMP Strike"
-			data["description"] = "Release the circular EMP pulse with a hard impact, bouncing the ball and disrupting enemy movement. The same expanding ring reaches the boss and applies EMP slip. Pulse strength scales with airborne height."
+			data["korean"] = "Heavenly Thunder Quaking Kick"
+			data["description"] = "Release a circular thunder pulse with a hard impact, bouncing the ball and disrupting enemy movement. The same expanding ring reaches the boss and applies slip. Pulse strength scales with airborne height."
 			data["how_to_use"] = "Hold S or Down for 0.3s while airborne"
-			data["motion_hint"] = "Full-reach circular EMP slow"
+			data["motion_hint"] = "Full-reach circular thunder slow"
 		"marshal_kick":
 			data["korean"] = "Martial Kick"
 			data["description"] = "Kick off a wall and rush toward the ball. Used as a combo bridge."
-			data["how_to_use"] = "After Shadow Backstep, blade skills, or Hwarang Kick"
+			data["how_to_use"] = "After Shadow Backstep, blade skills, or Hwarang Sky-Flying Kick"
 			data["motion_hint"] = "Wall-jump and rush toward the ball"
 		"phantom_kick":
-			data["korean"] = "Phantom Kick"
+			data["korean"] = "Phantom Chain Kick"
 			data["description"] = "Load dark energy into the rebound from Martial Kick."
 			data["how_to_use"] = "Press S or Down after Martial Kick hits"
 			data["motion_hint"] = "Dark antimatter kick"
 		"dark_blade":
-			data["korean"] = "Dark Blade"
+			data["korean"] = "Blood-Shadow Slash"
 			data["description"] = "Within 3 seconds after hitting the ball, fire an empowered aerial slash. On hit, it opens the Martial Kick window."
-			data["how_to_use"] = "After Shadow Backstep, Air Blade, Martial/Phantom/Hwarang Kick hits"
+			data["how_to_use"] = "After Shadow Backstep, Air Blade, Martial Kick, Phantom Chain Kick, or Hwarang Sky-Flying Kick hits"
 			data["motion_hint"] = "Fire a dark red empowered slash in the air"
 		"chaos_spear":
-			data["korean"] = "Chaos Spear"
-			data["description"] = "Throw a spear of chaos. A black hole forms at center map and pulls in the ball and normal projectiles."
+			data["korean"] = "Chaos-Heaven Black Spear"
+			data["description"] = "Throw the Chaos-Heaven Black Spear. A dark vortex forms at center map and pulls in the ball and normal projectiles."
 			data["how_to_use"] = "Input A, W, D on the ground"
-			data["motion_hint"] = "Center-map black hole absorbs balls and projectiles"
+			data["motion_hint"] = "Center-map dark vortex absorbs balls and projectiles"
 		"core_flip":
-			data["korean"] = "Hwarang Kick"
+			data["korean"] = "Hwarang Sky-Flying Kick"
 			data["description"] = "Kick the ball with Hwarang spirit and counterattack along a hard-to-read diagonal."
 			data["how_to_use"] = "After hitting the ball with dash, press A and D together"
 			data["motion_hint"] = "Kick off walls twice and rush toward the ball"
 		"dual_glitch":
-			data["korean"] = "Dual Glitch"
-			data["description"] = "Split yourself with ancient Viper tech. Clones mirror player movement and guard the ball from both sides."
+			data["korean"] = "Twin-Shadow Doppelganger"
+			data["description"] = "Split two shadows from yourself with an ancient Viper art. The doubles mirror player movement and guard the ball from both sides."
 			data["how_to_use"] = "Input A, D, A, D or left-right-left-right"
 			data["motion_hint"] = "Summon left and right clone paddles"
 		"ignition_aura":
-			data["korean"] = "Ignition Aura"
+			data["korean"] = "Flame Meridian Opening"
 			data["description"] = "Amplify internal fire energy. All perk levels increase for a duration, and gold bonuses increase too."
 			data["how_to_use"] = "Hold W or Up for 0.5s on the ground"
-			data["motion_hint"] = "Release flame energy"
+			data["motion_hint"] = "Open the flame meridians and release power"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

@@ -980,7 +980,7 @@ func draw_nerve_strike_effects(canvas: CanvasItem, shake_offset: Vector2, runtim
 			ImpactFlareTextureCache.draw_glow(canvas, center, 78.0 + pulse * 12.0, Color(0.18, 1.0, 0.58), 0.24)
 			var font: Font = ThemeDB.fallback_font
 			if font != null:
-				var text := LanguageSettings.translate_text("베놈 엣지!")
+				var text := LanguageSettings.translate_text("독영절맥!")
 				canvas.draw_string(font, center + Vector2(-74.0, -82.0), text, HORIZONTAL_ALIGNMENT_CENTER, 148.0, 24, Color(0.02, 0.0, 0.04, 0.86))
 				canvas.draw_string(font, center + Vector2(-76.0, -84.0), text, HORIZONTAL_ALIGNMENT_CENTER, 148.0, 24, Color(0.88, 0.60, 1.0, 0.94))
 		elif runtime.nerve_strike_phase == 2:
