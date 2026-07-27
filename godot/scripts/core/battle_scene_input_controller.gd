@@ -1,23 +1,42 @@
 extends RefCounted
 
-const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const BattleSystemShortcutInputRouter := preload(
+	"res://scripts/core/battle_system_shortcut_input_router.gd"
+)
+const BattleLingpetInteractionInputRouter := preload(
+	"res://scripts/core/battle_lingpet_interaction_input_router.gd"
+)
+const BattleTerminalScreenInputRouter := preload(
+	"res://scripts/core/battle_terminal_screen_input_router.gd"
+)
+const BattleRewardModalInputRouter := preload(
+	"res://scripts/core/battle_reward_modal_input_router.gd"
+)
+const BattleCombatShortcutInputRouter := preload(
+	"res://scripts/core/battle_combat_shortcut_input_router.gd"
+)
+const BattlePreIntroStageInputRouter := preload(
+	"res://scripts/core/battle_pre_intro_stage_input_router.gd"
+)
 
-const GAME_WIDTH := 760.0
-const GAME_HEIGHT := 750.0
-const FULLSCREEN_TOGGLE_KEY := KEY_F11
-const BGM_TOGGLE_KEY := KEY_B
-const FORCE_STAGE_CLEAR_KEY := KEY_F9
-const FORCE_STAGE_CLEAR_PLAYER_SCORE := 5
-const FORCE_STAGE_CLEAR_BOSS_SCORE := 0
-const LINGPET_CYCLE_KEY := KEY_L
-const LINGPET_INTERACT_KEY := KEY_E
-const LINGPET_INTERACT_TRIGGER_AXIS := JOY_AXIS_TRIGGER_RIGHT
-const LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD := 0.60
-const LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD := 0.35
-const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := 450
+const FULLSCREEN_TOGGLE_KEY := BattleSystemShortcutInputRouter.FULLSCREEN_TOGGLE_KEY
+const BGM_TOGGLE_KEY := BattleSystemShortcutInputRouter.BGM_TOGGLE_KEY
+const FORCE_STAGE_CLEAR_KEY := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_KEY
+const FORCE_STAGE_CLEAR_PLAYER_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_PLAYER_SCORE
+const FORCE_STAGE_CLEAR_BOSS_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_BOSS_SCORE
+const LINGPET_CYCLE_KEY := BattleLingpetInteractionInputRouter.LINGPET_CYCLE_KEY
+const LINGPET_INTERACT_KEY := BattleLingpetInteractionInputRouter.LINGPET_INTERACT_KEY
+const LINGPET_INTERACT_TRIGGER_AXIS := BattleLingpetInteractionInputRouter.LINGPET_INTERACT_TRIGGER_AXIS
+const LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD := BattleLingpetInteractionInputRouter.LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD
+const LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD := BattleLingpetInteractionInputRouter.LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD
+const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := BattleSystemShortcutInputRouter.RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
 
-var _right_stick_mouse_wheel_suppress_until_msec := 0
-var _lingpet_interact_trigger_latched := false
+var _system_shortcut_input_router := BattleSystemShortcutInputRouter.new()
+var _lingpet_input_router := BattleLingpetInteractionInputRouter.new()
+var _terminal_input_router := BattleTerminalScreenInputRouter.new()
+var _reward_modal_input_router := BattleRewardModalInputRouter.new()
+var _combat_shortcut_input_router := BattleCombatShortcutInputRouter.new()
+var _pre_intro_stage_input_router := BattlePreIntroStageInputRouter.new()
 
 
 func handle_unhandled_input(
@@ -27,11 +46,7 @@ func handle_unhandled_input(
 	module_getter: Callable,
 	context: Dictionary
 ) -> void:
-	if _handle_window_shortcut(event, owner, module_getter):
-		return
-	if _handle_bgm_shortcut(event, owner, module_getter):
-		return
-	if _handle_right_stick_suppression(event, owner):
+	if _system_shortcut_input_router.handle_input(event, owner, module_getter):
 		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
@@ -39,13 +54,17 @@ func handle_unhandled_input(
 		return
 	if _handle_mobile_touch_input(event, owner, module_getter, bool(context.get("mobile_touch_scene_ready", false))):
 		return
-	if _handle_force_stage_clear_shortcut(event, owner, registry, module_getter, context):
+	if _pre_intro_stage_input_router.handle_input(
+		event,
+		owner,
+		registry,
+		module_getter,
+		context
+	):
 		return
 	# 스테이지 7 프리배틀 영상 스킵은 intro/warmup 차단 조기 반환보다 먼저
 	# 라우팅해야 실제로 도달한다 — 영상 재생 중엔 랜딩이 아직 시작 전이라
 	# _is_intro_or_warmup_blocking이 true이기 때문.
-	if _handle_stage7_prebattle_input(event, owner, registry, module_getter):
-		return
 	if _is_intro_or_warmup_blocking(module_getter, context):
 		return
 	var intro_input: Object = _get_intro_input_controller(module_getter)
@@ -53,36 +72,24 @@ func handle_unhandled_input(
 		if bool(intro_input.handle_input(event, owner, registry, module_getter, context)):
 			return
 
-	if _handle_lingpet_acquire_cutin_input(event, owner, registry, module_getter):
+	if _lingpet_input_router.handle_priority_cutin_input(event, owner, registry, module_getter):
 		return
-	if _handle_defeat_chance_gems_continue_input(event, owner, registry, module_getter):
-		return
-	if _handle_defeat_settlement_input(event, owner, registry, module_getter):
-		return
-	if _handle_stage_clear_result_input(event, owner, registry, module_getter):
+	if _terminal_input_router.handle_input(event, owner, registry, module_getter):
 		return
 	if _handle_runtime_perk_choice_input(event, owner, registry, module_getter):
 		return
-	if _handle_mythic_acquisition_input(event, owner, registry, module_getter):
-		return
-	if _handle_pandora_legacy_selection_input(event, owner, registry, module_getter):
-		return
-	if _handle_angel_blessing_input(event, owner, registry, module_getter):
+	if _reward_modal_input_router.handle_input(event, owner, registry, module_getter):
 		return
 
 	var overlay_input: Object = _get_overlay_input_controller(module_getter)
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
-	if _handle_lingpet_companion_click(event, owner, registry, module_getter):
+	if _handle_active_item_hud_input(event, owner, registry, module_getter, context):
 		return
-	if _handle_lingpet_companion_interact_key(event, owner, registry, module_getter):
+	if _lingpet_input_router.handle_companion_input(event, owner, registry, module_getter):
 		return
-	if _handle_lingpet_slot_switch(event, owner, registry, module_getter):
-		return
-	if _handle_skill_orb_tooltip_cycle(event, owner, registry, module_getter):
-		return
-	if _handle_commando_weapon_switch(event, owner, registry, module_getter):
+	if _combat_shortcut_input_router.handle_input(event, owner, registry, module_getter):
 		return
 
 
@@ -93,222 +100,27 @@ func _handle_mobile_touch_input(event: InputEvent, owner: Object, module_getter:
 	return bool(mobile_touch.handle_input(event, owner, module_getter, scene_ready))
 
 
-func _handle_right_stick_suppression(event: InputEvent, owner: Object) -> bool:
-	if GamepadInput.should_suppress_right_stick_event(event):
-		_right_stick_mouse_wheel_suppress_until_msec = Time.get_ticks_msec() + RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
-		_mark_handled(owner)
-		return true
-	if _is_mouse_wheel_event(event) and Time.get_ticks_msec() <= _right_stick_mouse_wheel_suppress_until_msec:
-		_mark_handled(owner)
-		return true
-	return false
-
-
-func _handle_window_shortcut(event: InputEvent, owner: Object, module_getter: Callable) -> bool:
-	if not _is_key_pressed(event, FULLSCREEN_TOGGLE_KEY):
+func _handle_active_item_hud_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	context: Dictionary
+) -> bool:
+	var interaction: Object = _get_module(module_getter, "active_item_hud_interaction")
+	if interaction == null or not interaction.has_method("handle_input"):
 		return false
-	var view_layout: Object = _get_module(module_getter, "battle_view_layout")
-	if view_layout == null or not view_layout.has_method("toggle_fullscreen"):
-		return false
-	if owner == null or not owner.has_method("get_window"):
-		return false
-	view_layout.toggle_fullscreen(owner.get_window())
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_bgm_shortcut(event: InputEvent, owner: Object, module_getter: Callable) -> bool:
-	if not _is_key_pressed(event, BGM_TOGGLE_KEY):
-		return false
-	var audio: Object = _get_module(module_getter, "game_audio")
-	if audio == null or not audio.has_method("toggle_bgm"):
-		return false
-	audio.toggle_bgm()
-	_mark_handled(owner)
-	return true
-
-
-func _handle_commando_weapon_switch(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var input_reader: Object = _get_module(module_getter, "commando_input_reader")
-	if input_reader == null or not input_reader.has_method("handle_weapon_switch_event"):
-		return false
-	if not bool(input_reader.handle_weapon_switch_event(event, owner, registry)):
-		return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
-	if runtime == null:
-		runtime = _get_instance(registry, "lingpet_egg_runtime")
-	if runtime == null:
-		return false
-	var cycle_direction := _get_lingpet_cycle_direction(event)
-	if cycle_direction != 0:
-		if not runtime.has_method("cycle_lingpet_slot"):
-			return false
-		if not bool(runtime.cycle_lingpet_slot(cycle_direction, owner, registry)):
-			return false
+	var handled: bool = bool(interaction.handle_input(
+		event,
+		owner,
+		registry,
+		module_getter,
+		bool(context.get("battle_initialized", false))
+	))
+	if handled:
 		_queue_redraw(owner)
 		_mark_handled(owner)
-		return true
-	return false
-
-
-func _handle_lingpet_companion_click(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	if not (event is InputEventMouseButton):
-		return false
-	var mouse_event: InputEventMouseButton = event
-	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
-		return false
-	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
-	if runtime == null:
-		runtime = _get_instance(registry, "lingpet_egg_runtime")
-	if runtime == null or not runtime.has_method("try_begin_companion_click_reaction"):
-		return false
-	var layout: Dictionary = _build_input_game_layout(owner, module_getter)
-	var game_offset: Vector2 = _get_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO)
-	var game_size: Vector2 = _get_vector2(layout.get("game_size", Vector2(GAME_WIDTH, GAME_HEIGHT)), Vector2(GAME_WIDTH, GAME_HEIGHT))
-	var render_scale: float = maxf(0.001, float(layout.get("render_scale", 1.0)))
-	var game_rect := Rect2(game_offset, game_size)
-	if not game_rect.has_point(mouse_event.position):
-		return false
-	var playfield_pos: Vector2 = (mouse_event.position - game_offset) / render_scale
-	if not bool(runtime.try_begin_companion_click_reaction(playfield_pos, registry)):
-		return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_lingpet_companion_interact_key(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	# Non-mouse bond entry: E / gamepad RT self-targets the current companion
-	# through the runtime wrapper. On refusal (no companion / not ready) the
-	# input is NOT consumed so E stays a live key for anything downstream.
-	GamepadInput.update_primary_action_trigger_suppression_from_event(event)
-	var trigger_edge := false
-	if not _is_lingpet_interact_key_event(event):
-		trigger_edge = _consume_lingpet_interact_trigger_edge(event)
-		if not trigger_edge:
-			return false
-	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
-	if runtime == null:
-		runtime = _get_instance(registry, "lingpet_egg_runtime")
-	if runtime == null or not runtime.has_method("try_begin_companion_interact_reaction"):
-		return false
-	if not bool(runtime.try_begin_companion_interact_reaction(registry)):
-		return false
-	if trigger_edge:
-		GamepadInput.suppress_primary_action_trigger_until_release()
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _is_lingpet_interact_key_event(event: InputEvent) -> bool:
-	if not (event is InputEventKey):
-		return false
-	var key_event: InputEventKey = event
-	if not key_event.pressed or key_event.echo:
-		return false
-	return key_event.keycode == LINGPET_INTERACT_KEY or key_event.physical_keycode == LINGPET_INTERACT_KEY
-
-
-func _consume_lingpet_interact_trigger_edge(event: InputEvent) -> bool:
-	# RT is an axis, not a button: emulate a press edge with a latch so one pull
-	# fires exactly one interact, re-armed only after the trigger returns below
-	# the release threshold (analog jitter between the two thresholds is inert).
-	if not (event is InputEventJoypadMotion):
-		return false
-	var motion_event: InputEventJoypadMotion = event
-	if motion_event.axis != LINGPET_INTERACT_TRIGGER_AXIS:
-		return false
-	if motion_event.axis_value <= LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD:
-		_lingpet_interact_trigger_latched = false
-		return false
-	if motion_event.axis_value < LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD:
-		return false
-	if _lingpet_interact_trigger_latched:
-		return false
-	_lingpet_interact_trigger_latched = true
-	return true
-
-
-func _handle_lingpet_acquire_cutin_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
-	if runtime == null:
-		runtime = _get_instance(registry, "lingpet_egg_runtime")
-	if runtime == null or not runtime.has_method("is_acquire_cutin_active"):
-		return false
-	# The shell-break sequence is a short no-input cinematic beat: swallow input
-	# so pause/save cannot open mid-break (the modal gate already holds physics,
-	# and the break state is not persisted -- a mid-break save would strand a
-	# hatched-but-uncommitted egg).
-	if runtime.has_method("is_hatch_break_active") and bool(runtime.is_hatch_break_active()):
-		_mark_handled(owner)
-		return true
-	if not bool(runtime.is_acquire_cutin_active()):
-		return false
-	var overlay_input: Object = _get_overlay_input_controller(module_getter)
-	if overlay_input != null and overlay_input.has_method("handle_input"):
-		overlay_input.handle_input(event, owner, registry, module_getter, {})
-	_mark_handled(owner)
-	return true
-
-
-func _get_lingpet_cycle_direction(event: InputEvent) -> int:
-	if not (event is InputEventKey):
-		return 0
-	var key_event: InputEventKey = event
-	if not key_event.pressed or key_event.echo:
-		return 0
-	if key_event.keycode == LINGPET_CYCLE_KEY or key_event.physical_keycode == LINGPET_CYCLE_KEY:
-		return -1 if key_event.shift_pressed else 1
-	return 0
-
-
-func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
-	if result_screen == null or not result_screen.has_method("is_active") or not bool(result_screen.is_active()):
-		return false
-	if _is_runtime_perk_choice_active(module_getter):
-		var overlay_input: Object = _get_overlay_input_controller(module_getter)
-		if overlay_input != null and overlay_input.has_method("handle_input"):
-			overlay_input.handle_input(event, owner, registry, module_getter, {})
-		_queue_redraw(owner)
-		_mark_handled(owner)
-		return true
-	if result_screen.has_method("handle_input"):
-		result_screen.handle_input(event, owner, registry, _get_view_size(owner))
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_defeat_chance_gems_continue_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var continue_screen: Object = _get_module(module_getter, "defeat_chance_gems_continue_screen")
-	if continue_screen == null or not continue_screen.has_method("is_active") or not bool(continue_screen.is_active()):
-		return false
-	if continue_screen.has_method("handle_input"):
-		if not bool(continue_screen.handle_input(event, owner, registry, _get_view_size(owner))):
-			return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_defeat_settlement_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var settlement_screen: Object = _get_module(module_getter, "defeat_settlement_screen")
-	if settlement_screen == null or not settlement_screen.has_method("is_active") or not bool(settlement_screen.is_active()):
-		return false
-	if settlement_screen.has_method("handle_input"):
-		settlement_screen.handle_input(event, owner, registry, _get_view_size(owner))
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
+	return handled
 
 
 func _handle_runtime_perk_choice_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
@@ -318,177 +130,6 @@ func _handle_runtime_perk_choice_input(event: InputEvent, owner: Object, registr
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		overlay_input.handle_input(event, owner, registry, module_getter, {})
 	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_skill_orb_tooltip_cycle(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	if not GamepadInput.is_skill_tooltip_cycle_event(event) and not _is_arrow_space_grip_skill_tooltip_event(event, owner):
-		return false
-	var skill_tooltip_driver: Object = _get_module(module_getter, "battle_scene_skill_tooltip_driver")
-	if skill_tooltip_driver == null or not skill_tooltip_driver.has_method("cycle_gamepad_tooltip"):
-		return false
-	if not bool(skill_tooltip_driver.cycle_gamepad_tooltip(owner, registry)):
-		return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _is_arrow_space_grip_skill_tooltip_event(event: InputEvent, owner: Object) -> bool:
-	if not _is_key_pressed(event, KEY_SHIFT):
-		return false
-	return _get_owner_grip_style(owner) == "space_arrows"
-
-
-func _get_owner_grip_style(owner: Object) -> String:
-	if owner == null:
-		return ""
-	for key in ["tutorial_grip_style", "junior_mika_grip_style"]:
-		if owner.has_meta(key):
-			var normalized: String = _normalize_grip_style(str(owner.get_meta(key, "")))
-			if normalized != "":
-				return normalized
-	return ""
-
-
-func _normalize_grip_style(value: String) -> String:
-	var normalized := value.strip_edges().to_lower().replace("-", "_").replace(" ", "_")
-	if normalized == "space_arrows" or normalized == "arrows_space":
-		return "space_arrows"
-	return normalized
-
-
-func _handle_force_stage_clear_shortcut(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable,
-	context: Dictionary
-) -> bool:
-	if not _is_key_pressed(event, FORCE_STAGE_CLEAR_KEY):
-		return false
-	if not bool(context.get("battle_initialized", false)):
-		return false
-	if not bool(context.get("stage_landing_intro_started", false)):
-		return false
-
-	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
-	if result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active()):
-		_mark_handled(owner)
-		return true
-
-	_force_player_stage_clear_score(registry, module_getter)
-	_start_debug_scoreboard_snapshot(registry, module_getter)
-	if result_screen != null and result_screen.has_method("show_from_scoreboard"):
-		var reset_callback: Callable = context.get("reset_game_after_stage_clear", Callable())
-		var exit_callback: Callable = context.get("exit_to_menu_after_stage_clear", Callable())
-		result_screen.show_from_scoreboard(owner, registry, reset_callback, exit_callback)
-
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_mythic_acquisition_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
-	if mythic_item_runtime == null:
-		return false
-	if not mythic_item_runtime.has_method("is_acquisition_cinematic_active"):
-		return false
-	if not bool(mythic_item_runtime.is_acquisition_cinematic_active()):
-		return false
-	if mythic_item_runtime.has_method("handle_acquisition_cinematic_input"):
-		mythic_item_runtime.handle_acquisition_cinematic_input(event, registry)
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_pandora_legacy_selection_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
-	if mythic_item_runtime == null:
-		return false
-	if not mythic_item_runtime.has_method("is_pandora_legacy_selection_active"):
-		return false
-	if not bool(mythic_item_runtime.is_pandora_legacy_selection_active()):
-		return false
-	if mythic_item_runtime.has_method("handle_pandora_legacy_selection_input"):
-		mythic_item_runtime.handle_pandora_legacy_selection_input(
-			event,
-			owner,
-			registry,
-			_get_view_size(owner)
-		)
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _handle_angel_blessing_input(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable
-) -> bool:
-	var runtime_perk_state: Object = _get_module(module_getter, "runtime_perk_state")
-	if runtime_perk_state == null:
-		return false
-	if (
-		not runtime_perk_state.has_method("is_angel_blessing_modal_active")
-		or not bool(runtime_perk_state.is_angel_blessing_modal_active())
-	):
-		return false
-	if runtime_perk_state.has_method("handle_angel_blessing_input"):
-		runtime_perk_state.handle_angel_blessing_input(
-			event,
-			owner,
-			registry,
-			_get_view_size(owner)
-		)
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
-func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
-	if not (event is InputEventKey):
-		return false
-	var key_event: InputEventKey = event
-	if not key_event.pressed or key_event.echo:
-		return false
-	return key_event.keycode == keycode or key_event.physical_keycode == keycode
-
-
-func _is_mouse_wheel_event(event: InputEvent) -> bool:
-	if not (event is InputEventMouseButton):
-		return false
-	var mouse_event: InputEventMouseButton = event
-	if not mouse_event.pressed:
-		return false
-	return (
-		mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP
-		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN
-		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_LEFT
-		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_RIGHT
-	)
-
-
-func _handle_stage7_prebattle_input(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable
-) -> bool:
-	var presentation: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
-	if presentation == null:
-		presentation = _get_instance(registry, "stage7_akamu_prebattle_presentation")
-	if presentation == null or not presentation.has_method("is_active") or not bool(presentation.is_active()):
-		return false
-	# 영상 재생 중에는 전투 조작이 게이트되므로 스킵 처리 여부와 무관하게
-	# 입력을 소비한다(모달 시네마틱 관례).
-	if presentation.has_method("handle_input") and bool(presentation.handle_input(event, owner, registry)):
-		_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
 
@@ -534,35 +175,6 @@ func _get_overlay_input_controller(module_getter: Callable) -> Object:
 	return _get_module(module_getter, "battle_scene_overlay_input_controller")
 
 
-func _force_player_stage_clear_score(registry: Object, module_getter: Callable) -> void:
-	var score_state: Object = _get_module(module_getter, "match_score_state")
-	if score_state == null:
-		score_state = _get_instance(registry, "match_score_state")
-	if score_state == null:
-		return
-	if score_state.has_method("force_score"):
-		score_state.force_score(FORCE_STAGE_CLEAR_PLAYER_SCORE, FORCE_STAGE_CLEAR_BOSS_SCORE)
-		return
-	score_state.set("player_score", FORCE_STAGE_CLEAR_PLAYER_SCORE)
-	score_state.set("boss_score", FORCE_STAGE_CLEAR_BOSS_SCORE)
-	score_state.set("deuce_mode", false)
-
-
-func _start_debug_scoreboard_snapshot(registry: Object, module_getter: Callable) -> void:
-	var scoreboard_state: Object = _get_module(module_getter, "scoreboard_state")
-	if scoreboard_state == null:
-		scoreboard_state = _get_instance(registry, "scoreboard_state")
-	if scoreboard_state == null:
-		return
-	if scoreboard_state.has_method("start"):
-		scoreboard_state.start(
-			FORCE_STAGE_CLEAR_PLAYER_SCORE,
-			FORCE_STAGE_CLEAR_BOSS_SCORE,
-			true,
-			"player"
-		)
-
-
 func _get_module(module_getter: Callable, key: String) -> Object:
 	if not module_getter.is_valid():
 		return null
@@ -572,48 +184,9 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	return null
 
 
-func _get_instance(registry: Object, key: String) -> Object:
-	if registry == null or not registry.has_method("get_instance"):
-		return null
-	var value: Variant = registry.get_instance(key)
-	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-		return value as Object
-	return null
-
-
 func _queue_redraw(owner: Object) -> void:
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
-
-
-func _get_view_size(owner: Object) -> Vector2:
-	if owner != null and owner.has_method("get_viewport_rect"):
-		return owner.get_viewport_rect().size
-	if owner != null and owner.has_method("get_viewport"):
-		var viewport: Viewport = owner.get_viewport()
-		if viewport != null:
-			return viewport.get_visible_rect().size
-	return Vector2(760.0, 750.0)
-
-
-func _build_input_game_layout(owner: Object, module_getter: Callable) -> Dictionary:
-	var view_size := _get_view_size(owner)
-	var view_layout: Object = _get_module(module_getter, "battle_view_layout")
-	if view_layout != null and view_layout.has_method("build_game_layout"):
-		return view_layout.build_game_layout(view_size, GAME_WIDTH, GAME_HEIGHT)
-	var game_size := Vector2(GAME_WIDTH, GAME_HEIGHT)
-	return {
-		"view_size": view_size,
-		"game_offset": (view_size - game_size) * 0.5,
-		"game_size": game_size,
-		"render_scale": 1.0,
-	}
-
-
-func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback
 
 
 func _mark_handled(owner: Object) -> void:

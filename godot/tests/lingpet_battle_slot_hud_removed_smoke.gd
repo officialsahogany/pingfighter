@@ -161,12 +161,14 @@ func _verify_lingpet_companion_click_uses_playfield_coordinates() -> void:
 func _verify_renderer_and_input_hide_battle_slot_hud() -> void:
 	var hud_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	var lingpet_input_source := FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_interaction_input_router.gd")
 	_expect(hud_source.find("lingpet_battle_slot_hud.gd") < 0, "pillar HUD renderer should not preload the removed lingpet battle slot HUD helper")
 	_expect(hud_source.find("LingpetBattleSlotHud.draw") < 0, "pillar HUD renderer should not draw the lingpet battle slot list")
 	_expect(not FileAccess.file_exists("res://scripts/hud/lingpet_battle_slot_hud.gd"), "lingpet battle slot HUD helper should be removed from the battle UI")
 	_expect(input_source.find("lingpet_battle_slot_hud.gd") < 0, "battle input should not depend on the removed lingpet battle slot HUD helper")
-	_expect(input_source.find("_get_lingpet_cycle_direction") >= 0, "battle input should keep the non-number-key lingpet cycle shortcut")
-	_expect(input_source.find("cycle_lingpet_slot") >= 0, "battle input should cycle lingpets instead of consuming active-item number keys")
+	_expect(input_source.find("BattleLingpetInteractionInputRouter") >= 0, "battle input should delegate lingpet interactions to the focused router")
+	_expect(lingpet_input_source.find("_get_lingpet_cycle_direction") >= 0, "lingpet input router should keep the non-number-key lingpet cycle shortcut")
+	_expect(lingpet_input_source.find("cycle_lingpet_slot") >= 0, "lingpet input router should cycle lingpets instead of consuming active-item number keys")
 	_expect(input_source.find("get_slot_index_at_position") < 0, "battle input should not keep hidden mouse hit-areas for the removed slot HUD")
 
 
