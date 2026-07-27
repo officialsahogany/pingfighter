@@ -2,6 +2,7 @@ extends RefCounted
 
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetDurationState := preload("res://scripts/lingpet/lingpet_duration_state.gd")
 
 const SOURCE_ROUND_COMMIT := "round_commit"
 const SOURCE_BALL_HIT := "ball_hit"
@@ -36,23 +37,23 @@ const MAX_DEFENSE_STACKS := 2
 const MAX_GAUGE_STACKS := 4
 const RING_CORE_OFFER_COOLDOWN_SCREENS := 3
 const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title"]
-const SATIETY_KEY := "satiety"
-const SATIETY_MIN := 0.0
-const SATIETY_MAX := 100.0
-const SATIETY_DRAIN_PER_SECOND := 0.52
-const SATIETY_REST_RECOVERY_RATIO := 1.0 / 3.0
-const SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
-const SATIETY_EXHAUSTED_KEY := "satiety_exhausted"
-const SATIETY_EXHAUSTION_TIMER_KEY := "satiety_exhaustion_timer"
-const SATIETY_SLOW_START := 50.0
-const SATIETY_SLOW_FLOOR_START := 10.0
-const SATIETY_SLOW_MIN_MULTIPLIER := 0.60
-const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := 1.75
-const SATIETY_WAKE_THRESHOLD := 10.0
+const SATIETY_KEY := LingpetDurationState.SAVE_VALUE_KEY
+const SATIETY_MIN := LingpetDurationState.DURATION_MIN
+const SATIETY_MAX := LingpetDurationState.DURATION_MAX
+const SATIETY_DRAIN_PER_SECOND := LingpetDurationState.DRAIN_PER_SECOND
+const SATIETY_REST_RECOVERY_RATIO := LingpetDurationState.REST_RECOVERY_RATIO
+const SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL := LingpetDurationState.DRAIN_REDUCTION_PCT_BY_LEVEL
+const SATIETY_EXHAUSTED_KEY := LingpetDurationState.SAVE_EXHAUSTED_KEY
+const SATIETY_EXHAUSTION_TIMER_KEY := LingpetDurationState.SAVE_EXHAUSTION_TIMER_KEY
+const SATIETY_SLOW_START := LingpetDurationState.SLOW_START
+const SATIETY_SLOW_FLOOR_START := LingpetDurationState.SLOW_FLOOR_START
+const SATIETY_SLOW_MIN_MULTIPLIER := LingpetDurationState.SLOW_MIN_MULTIPLIER
+const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetDurationState.EXHAUSTION_TELEGRAPH_SECONDS
+const SATIETY_WAKE_THRESHOLD := LingpetDurationState.WAKE_THRESHOLD
 # Snap band for float residue at both satiety rails (see _sanitize_satiety_value):
 # values inside (0, ε) collapse to 0 and (100-ε, 100) to 100 so write-gating /
 # strict comparisons never pin the gauge just off a rail. Gameplay-invisible.
-const SATIETY_VALUE_SNAP_EPSILON := 0.001
+const SATIETY_VALUE_SNAP_EPSILON := LingpetDurationState.VALUE_SNAP_EPSILON
 
 const REQUIREMENT_BY_CURRENT_LEVEL := [
 	50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0,
@@ -177,6 +178,11 @@ var _enhancement_chips := 0
 var _run_ring_core_tier := 0
 var _ring_core_offer_cooldown_screens := 0
 var _dirty := false
+var _duration_state := LingpetDurationState.new()
+
+
+func _init() -> void:
+	_duration_state.bind_pet_store(_pets, _get_or_create_pet_data)
 
 
 # Run-end/test reset only. Do not call this for pet swaps or hatch flows because it clears
@@ -247,17 +253,7 @@ func _sanitize_pet_run_state(pet_data: Dictionary) -> Dictionary:
 	var pet_copy := pet_data.duplicate(true)
 	for legacy_key in LEGACY_PET_RUN_STATE_KEYS:
 		pet_copy.erase(legacy_key)
-	var sanitized_satiety := _sanitize_satiety_value(pet_copy.get(SATIETY_KEY, SATIETY_MAX))
-	pet_copy[SATIETY_KEY] = sanitized_satiety
-	pet_copy[SATIETY_EXHAUSTION_TIMER_KEY] = _sanitize_satiety_exhaustion_timer(
-		pet_copy.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
-		sanitized_satiety
-	)
-	pet_copy[SATIETY_EXHAUSTED_KEY] = sanitized_satiety < SATIETY_WAKE_THRESHOLD and (
-		bool(pet_copy.get(SATIETY_EXHAUSTED_KEY, false))
-		or float(pet_copy.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)) >= SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
-	)
-	return pet_copy
+	return _duration_state.sanitize_pet_run_state(pet_copy)
 
 
 func is_dirty() -> bool:
@@ -286,47 +282,22 @@ func get_enhancement_chip_multiplier() -> float:
 
 
 func get_satiety(pet_id: String) -> float:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return SATIETY_MAX
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	if pet_data.is_empty():
-		return SATIETY_MAX
-	return _sanitize_satiety_value(pet_data.get(SATIETY_KEY, SATIETY_MAX))
+	return _duration_state.get_duration(pet_id)
 
 
 func get_satiety_pct(pet_id: String) -> int:
-	return clampi(roundi(get_satiety(pet_id)), int(SATIETY_MIN), int(SATIETY_MAX))
+	return _duration_state.get_duration_pct(pet_id)
 
 
 func set_satiety(pet_id: String, value: float) -> float:
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return SATIETY_MAX
-	var pet_data := _get_or_create_pet_data(normalized_pet_id)
-	var next_satiety := _sanitize_satiety_value(value)
-	var changed := false
-	if not is_equal_approx(float(pet_data.get(SATIETY_KEY, SATIETY_MAX)), next_satiety):
-		pet_data[SATIETY_KEY] = next_satiety
-		changed = true
-	if next_satiety >= SATIETY_WAKE_THRESHOLD:
-		if bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false)) or float(pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)) > 0.0:
-			pet_data[SATIETY_EXHAUSTED_KEY] = false
-			pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = 0.0
-			changed = true
-	elif next_satiety > SATIETY_MIN:
-		if bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false)):
-			var rested_timer := maxf(float(pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)), SATIETY_EXHAUSTION_TELEGRAPH_SECONDS)
-			if not is_equal_approx(float(pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)), rested_timer):
-				pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = rested_timer
-				changed = true
-		elif float(pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0)) > 0.0:
-			pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = 0.0
-			changed = true
-	if changed:
-		_pets[normalized_pet_id] = pet_data
+	_get_or_create_pet_data(normalized_pet_id)
+	var result := _duration_state.set_duration(normalized_pet_id, value)
+	if bool(result.get("changed", false)):
 		_dirty = true
-	return next_satiety
+	return float(result.get("value", SATIETY_MAX))
 
 
 func add_satiety(pet_id: String, amount: float) -> float:
@@ -341,36 +312,19 @@ func advance_satiety(
 	rest_recovery_multiplier: float = 1.0,
 	active_resting: bool = false
 ) -> Dictionary:
-	if delta_seconds <= 0.0:
-		return {"changed": false, "active_satiety": get_satiety(active_pet_id)}
-	var normalized_active_pet_id := _normalize_pet_id(active_pet_id)
-	var changed := false
-	var rest_amount := SATIETY_DRAIN_PER_SECOND * SATIETY_REST_RECOVERY_RATIO * delta_seconds * maxf(0.0, rest_recovery_multiplier)
-	if normalized_active_pet_id != "":
-		if active_resting:
-			if rest_amount > 0.0:
-				var before_active_rest := get_satiety(normalized_active_pet_id)
-				var after_active_rest := set_satiety(normalized_active_pet_id, before_active_rest + rest_amount)
-				changed = changed or not is_equal_approx(before_active_rest, after_active_rest)
-		else:
-			var drain_amount := SATIETY_DRAIN_PER_SECOND * delta_seconds * maxf(0.0, active_drain_multiplier)
-			if drain_amount > 0.0:
-				var before_active := get_satiety(normalized_active_pet_id)
-				var after_active := set_satiety(normalized_active_pet_id, before_active - drain_amount)
-				changed = changed or not is_equal_approx(before_active, after_active)
-	if rest_amount > 0.0:
-		var seen := {}
-		for raw_pet_id in battle_slot_pet_ids:
-			var rest_pet_id := _normalize_pet_id(str(raw_pet_id))
-			if rest_pet_id == "" or rest_pet_id == normalized_active_pet_id or seen.has(rest_pet_id):
-				continue
-			seen[rest_pet_id] = true
-			var before_rest := get_satiety(rest_pet_id)
-			var after_rest := set_satiety(rest_pet_id, before_rest + rest_amount)
-			changed = changed or not is_equal_approx(before_rest, after_rest)
+	var result := _duration_state.advance_duration(
+		active_pet_id,
+		battle_slot_pet_ids,
+		delta_seconds,
+		active_drain_multiplier,
+		rest_recovery_multiplier,
+		active_resting
+	)
+	if bool(result.get("changed", false)):
+		_dirty = true
 	return {
-		"changed": changed,
-		"active_satiety": get_satiety(normalized_active_pet_id),
+		"changed": bool(result.get("changed", false)),
+		"active_satiety": float(result.get("active_duration", SATIETY_MAX)),
 	}
 
 
@@ -380,85 +334,33 @@ func advance_satiety_exhaustion(
 	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS,
 	enabled: bool = true
 ) -> Dictionary:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return {"changed": false, "exhausted": false, "timer": 0.0, "ratio": 0.0}
-	var pet_data := _get_or_create_pet_data(normalized_pet_id)
-	var current_satiety := get_satiety(normalized_pet_id)
-	var before_timer := _sanitize_satiety_exhaustion_timer(
-		pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
-		current_satiety
-	)
-	var before_exhausted := bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false))
-	var next_timer := before_timer
-	var next_exhausted := before_exhausted
-	if not enabled or current_satiety >= SATIETY_WAKE_THRESHOLD:
-		next_timer = 0.0
-		next_exhausted = false
-	elif before_exhausted:
-		next_timer = maxf(before_timer, maxf(0.0, telegraph_seconds))
-		next_exhausted = true
-	elif current_satiety > SATIETY_MIN:
-		next_timer = 0.0
-		next_exhausted = false
-	else:
-		next_timer = maxf(0.0, before_timer + maxf(0.0, delta_seconds))
-		next_exhausted = next_timer >= maxf(0.0, telegraph_seconds)
-	var changed := (
-		not is_equal_approx(before_timer, next_timer)
-		or before_exhausted != next_exhausted
-	)
-	if changed:
-		pet_data[SATIETY_EXHAUSTION_TIMER_KEY] = next_timer
-		pet_data[SATIETY_EXHAUSTED_KEY] = next_exhausted
-		_pets[normalized_pet_id] = pet_data
+	var result := _duration_state.advance_exhaustion(pet_id, delta_seconds, telegraph_seconds, enabled)
+	if bool(result.get("changed", false)):
 		_dirty = true
-	return {
-		"changed": changed,
-		"exhausted": next_exhausted,
-		"timer": next_timer,
-		"ratio": _get_satiety_exhaustion_ratio(next_timer, telegraph_seconds),
-	}
+	return result
 
 
 func is_satiety_exhausted(pet_id: String) -> bool:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "" or get_satiety(normalized_pet_id) >= SATIETY_WAKE_THRESHOLD:
-		return false
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	return bool(pet_data.get(SATIETY_EXHAUSTED_KEY, false))
+	return _duration_state.is_exhausted(pet_id)
 
 
 func get_satiety_exhaustion_timer(pet_id: String) -> float:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return 0.0
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	return _sanitize_satiety_exhaustion_timer(
-		pet_data.get(SATIETY_EXHAUSTION_TIMER_KEY, 0.0),
-		get_satiety(normalized_pet_id)
-	)
+	return _duration_state.get_exhaustion_timer(pet_id)
 
 
 func get_satiety_exhaustion_ratio(
 	pet_id: String,
 	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
 ) -> float:
-	return _get_satiety_exhaustion_ratio(get_satiety_exhaustion_timer(pet_id), telegraph_seconds)
+	return _duration_state.get_exhaustion_ratio(pet_id, telegraph_seconds)
 
 
 func get_satiety_speed_multiplier(pet_id: String) -> float:
-	return get_satiety_speed_multiplier_for_value(get_satiety(pet_id))
+	return _duration_state.get_speed_multiplier(pet_id)
 
 
 static func get_satiety_speed_multiplier_for_value(value: float) -> float:
-	var satiety := clampf(value, SATIETY_MIN, SATIETY_MAX)
-	if satiety > SATIETY_SLOW_START:
-		return 1.0
-	if satiety >= SATIETY_SLOW_FLOOR_START:
-		var ratio := (satiety - SATIETY_SLOW_FLOOR_START) / (SATIETY_SLOW_START - SATIETY_SLOW_FLOOR_START)
-		return lerpf(SATIETY_SLOW_MIN_MULTIPLIER, 1.0, ratio)
-	return SATIETY_SLOW_MIN_MULTIPLIER
+	return LingpetDurationState.get_duration_speed_multiplier_for_value(value)
 
 
 func get_run_ring_core_tier() -> int:
@@ -579,10 +481,7 @@ static func get_empty_hatch_stat_roll() -> Dictionary:
 
 
 static func get_satiety_drain_reduction_pct_for_level(level: int) -> float:
-	if level <= 0:
-		return 0.0
-	var index := clampi(level, 1, SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL.size()) - 1
-	return float(SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL[index])
+	return LingpetDurationState.get_drain_reduction_pct_for_level(level)
 
 
 func set_unlock_choice_candidates(pet_id: String, reward_type: String, candidates: Array) -> void:
@@ -1799,9 +1698,6 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"pet_id": pet_id,
 		"affinity_points": 0.0,
 		"affinity_level": 0,
-		SATIETY_KEY: SATIETY_MAX,
-		SATIETY_EXHAUSTED_KEY: false,
-		SATIETY_EXHAUSTION_TIMER_KEY: 0.0,
 		"hatch_bonus_granted": false,
 		"reward_motion_style": MOTION_STYLE_PATROL,
 		"active_skill_base_level": 1,
@@ -1816,34 +1712,10 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"pending_unlock_choices": {},
 		"resolved_unlock_choices": {},
 	}
+	_duration_state.initialize_pet_state(pet_data)
 	_ensure_unlock_state(pet_id, pet_data)
 	_pets[pet_id] = pet_data
 	return pet_data
-
-
-func _sanitize_satiety_value(value: Variant) -> float:
-	var clamped := clampf(float(value), SATIETY_MIN, SATIETY_MAX)
-	# Float-residue snap: a real-tick drain sequence can land on a sub-epsilon
-	# positive remainder (e.g. 2e-10) that set_satiety's is_equal_approx write
-	# gate then freezes forever ("2e-10 ≈ 0" skips the 0.0 write). A strictly
-	# positive residue keeps the exhaustion "satiety > 0" branch resetting the
-	# KO timer every tick, so the pet can never exhaust. Snap both rails.
-	if clamped < SATIETY_VALUE_SNAP_EPSILON:
-		return SATIETY_MIN
-	if clamped > SATIETY_MAX - SATIETY_VALUE_SNAP_EPSILON:
-		return SATIETY_MAX
-	return clamped
-
-
-func _sanitize_satiety_exhaustion_timer(value: Variant, satiety: float) -> float:
-	if satiety >= SATIETY_WAKE_THRESHOLD:
-		return 0.0
-	return maxf(0.0, float(value))
-
-
-func _get_satiety_exhaustion_ratio(timer: float, telegraph_seconds: float) -> float:
-	var duration := maxf(0.001, telegraph_seconds)
-	return clampf(maxf(0.0, timer) / duration, 0.0, 1.0)
 
 
 func _get_existing_pet_data(pet_id: String) -> Dictionary:
