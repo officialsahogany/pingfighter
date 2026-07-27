@@ -7,6 +7,19 @@ Status: DESIGN LOCKED (배선 대기). 2026-07-08 세션 합의.
 `get_perk_slot_limit()`과 `perk_slot_limit_smoke`다. 이 문서의 슬롯 상한
 수치를 새 배선에 역지시로 쓰지 말 것. 대쉬 증폭 슬롯-비용 스택/링코어
 슬롯화 항목은 별도 트랙.
+⚠️ **링코어 슬롯화(B2) 표시 절반 롤백(2026-07-27):** 카운트 브리지 없이 TAB
+무공 그리드에만 티어당 셀 1개가 랜딩돼 있었다(복원 커밋 `0848d4480`, 주석은
+"Slice B slot bridge"를 근거로 댔지만 브리지는 어떤 커밋에도 없었음) → 헤더
+`슬롯 6/6`에 8칸이 그려지는 유저 리포트. **표시 절반을 제거**해 랜딩 계약
+(링코어=슬롯 비소모)에 맞췄다. B2를 실제로 배선할 때는 §2.B 순서대로
+**카운트 브리지를 먼저** 넣고 표시를 뒤에 붙일 것. 그때 함께 처리할 미착지
+파편: (a) 오퍼 슬롯 게이트(§2.B step 4) 부재, (b)
+`plaza_transaction_message_formatter`의 `perk_slots_full` 문구가 **생산자 0**,
+(c) `slot_context`가 registry일 때만 링코어 티어에 닿는다 — ESC 퍽 상태
+패널은 `RuntimePerkState`를 넘기므로 언더카운트(브리지를 registry 전용으로
+만들지, `RuntimePerkState`에 `get_run_ring_core_tier()` 위임을 추가할지
+먼저 정할 것), (d) `MAX_RING_CORE_TIER = 6 == BASE_PERK_SLOT_LIMIT 6`이라
+Slice C(6→3티어) 없이 브리지만 넣으면 만렙 링코어가 예산을 전부 먹는다.
 Owner split: 이 문서 = 설계/디렉션(Claude). GDScript 배선 = 사용자/Codex.
 Claude = 배선 후 적대적 리뷰 + 반증검증. (feedback_design_slice_review_division)
 

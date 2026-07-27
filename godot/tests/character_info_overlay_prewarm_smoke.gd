@@ -585,7 +585,10 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(perk_grid_draw_body.find("if perk_id == \"\":") >= 0, "TAB perk grid should skip icons and hover data for empty slot cells")
 	_expect(perk_grid_draw_body.find("if level_text != \"\":") >= 0, "TAB perk grid should skip hidden slot-cell badges")
 	_expect(source.find("var slot_limit := 6") >= 0, "TAB perk grid should default to six visible slots")
-	_expect(source.find("CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(display_source, display_slot_count)") >= 0, "TAB perk grid should draw padded slot entries (acquired + ring-core cells) instead of only acquired perks")
+	# 링코어 티어 셀은 2026-07-27에 제거됐다(슬롯 비소모인데 예산 셀로 그려져
+	# "슬롯 6/6"에 8칸이 나왔다) — 이제 예산 목록은 acquired 하나뿐이다.
+	# 계약 씰은 character_info_passive_ui_retire_smoke의 링코어 셀 금지 레그.
+	_expect(source.find("CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(acquired, display_slot_count)") >= 0, "TAB perk grid should draw padded slot entries from the acquired perks alone (no ring-core cells in the slot budget)")
 	_expect(source.find("var display_slot_count: int = max(6, slot_limit)") >= 0, "TAB perk grid should keep at least six slot cells before non-slot free entries")
 	_expect(source.find("_update_perk_grid_layout(layout_rect, cell_size, stride, columns, entry_count, perk_scroll)") >= 0, "TAB perk grid hover metrics should include empty slot cells (centered layout rect)")
 	_expect(source.find("CharacterInfoOverlayHoverGeometry.get_hovered_grid_index(mouse_pos, _last_perk_grid_start.x, _last_perk_grid_start.y, _last_perk_grid_cell_size, _last_perk_grid_stride, columns, display_entries.size())") >= 0, "TAB perk grid hover should resolve against the padded slot-cell count")

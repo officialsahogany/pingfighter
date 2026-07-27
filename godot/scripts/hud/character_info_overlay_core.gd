@@ -665,7 +665,7 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	canvas.draw_rect(grid_rect, OVERLAY_GRID_FILL)
 	var gap := 8.0
 	var display_slot_count: int = max(6, slot_limit)
-	var display_entries: Array = _build_perk_display_entries_cached(acquired, display_slot_count, _get_run_ring_core_tier_for_grid(registry))
+	var display_entries: Array = _build_perk_display_entries_cached(acquired, display_slot_count)
 	# Recompute animation liveness from the just-refreshed display draw ids so the
 	# lifecycle update loop knows whether it must keep redrawing for an animated perk.
 	_perk_grid_has_animated_icon = _perk_grid_contains_animated_icon(icon_renderer, can_draw_perk_icon)

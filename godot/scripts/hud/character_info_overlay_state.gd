@@ -430,7 +430,6 @@ var _layout_lingpet_stats_rect := Rect2()
 var _perk_display_entries_cache: Array = []
 var _perk_display_entries_source: Array = []
 var _perk_display_entries_slot_count := 0
-var _perk_display_entries_ring_core_tier := -1
 var _last_skill_slot_start := Vector2.ZERO
 var _last_skill_slot_size := 0.0
 var _last_skill_slot_height := 0.0

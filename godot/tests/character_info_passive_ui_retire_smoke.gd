@@ -213,22 +213,39 @@ func _verify_perk_display_entries_cache() -> void:
 	var rebuilt: Array = overlay._build_perk_display_entries_cached(rebuilt_source, 7)
 	_expect(not is_same(wider, rebuilt), "a rebuilt acquired cache instance should rebuild the display entries")
 
-	# Ring-core tiers occupy perk slots (Slice B bridge), so the grid must show one
-	# gold cell per acquired tier -- "Lv.1 / Lv.2 링코어" for tier 2.
-	var ring2: Array = overlay._build_perk_display_entries_cached(rebuilt_source, 6, 2)
-	_expect(not is_same(rebuilt, ring2), "a ring-core tier change should rebuild the display entries")
-	var ring_cells: Array = []
-	for entry_value in ring2:
-		var entry: Dictionary = entry_value
-		if bool(entry.get("_ring_core_cell", false)):
-			ring_cells.append(entry)
-	_expect(ring_cells.size() == 2, "ring-core tier 2 should add two grid cells (got %d)" % ring_cells.size())
-	if ring_cells.size() == 2:
-		_expect(str((ring_cells[0] as Dictionary).get("_level_text", "")) == "Lv.1" and str((ring_cells[1] as Dictionary).get("_level_text", "")) == "Lv.2", "ring-core cells should carry Lv.1 / Lv.2 badges")
-		_expect(str((ring_cells[0] as Dictionary).get("_draw_id", "")) == "lingpet_ring_core_upgrade_tier_1", "ring-core cells should use the per-tier perk-card art ids")
-	_expect(ring2.size() == 6, "ring-core cells should occupy padded slots, not extend past the slot budget (got %d)" % ring2.size())
-	var ring2_again: Array = overlay._build_perk_display_entries_cached(rebuilt_source, 6, 2)
-	_expect(is_same(ring2, ring2_again), "unchanged ring-core tier should reuse the cached display entries")
+	# 링코어 셀 금지 씰 (2026-07-27). 링코어 티어는 슬롯 **비소모**다 --
+	# RuntimePerkCatalog.is_slot_consuming_perk가 두 번 면제하고(:1572/:1574),
+	# count_owned_slot_perks는 runtime_skill_levels만 훑으므로 affinity state에
+	# 사는 티어를 볼 수조차 없다(perk_slot_limit_smoke:210이 그 계약을 봉인).
+	# 그런데 표시 절반만 랜딩된 시기가 있었다(0848d4480, "Slice B slot bridge"
+	# 주석 -- 그 브리지는 어떤 커밋에도 존재한 적이 없다): 티어당 셀 1개가 예산
+	# 목록에 섞여 들어가 헤더가 "슬롯 6/6"인데 셀은 8개가 그려졌고, 한도 미달일
+	# 땐 빈 슬롯 패딩을 잡아먹었다. 예산이 **가득 찬** 픽스처로 그 산술을 직접
+	# 봉인한다 -- 1퍽 픽스처는 패딩 잠식만 보므로 이 버그로 절대 실패하지 못한다.
+	var full_budget: Array = []
+	for slot_index in range(6):
+		full_budget.append({"id": "perk_%d" % slot_index, "name": "무공 %d" % slot_index, "_draw_id": "perk_%d" % slot_index})
+	var full_grid: Array = overlay._build_perk_display_entries_cached(full_budget, 6)
+	_expect(full_grid.size() == 6, "a full 6-perk budget must draw exactly 6 cells, never more (got %d)" % full_grid.size())
+	var stray_ring_cells := 0
+	for entry_value in full_grid:
+		if bool((entry_value as Dictionary).get("_ring_core_cell", false)):
+			stray_ring_cells += 1
+	_expect(stray_ring_cells == 0, "the perk grid must not inject ring-core tier cells (slot-free, and already shown as its own slot in the 수호령 panel)")
+	# 재도입 트립와이어: 링코어 레인을 되살리려면 빌더 파라미터를 다시 늘리거나
+	# 오버레이 쪽 티어 리더를 다시 들여와야 한다 -- 둘 다 여기서 RED.
+	_expect(not overlay.has_method("_get_run_ring_core_tier_for_grid"), "the overlay must not read the run ring-core tier for the perk grid")
+	var builder_arity := -1
+	for method_info in overlay.get_method_list():
+		if str(method_info.get("name", "")) == "_build_perk_display_entries_cached":
+			builder_arity = (method_info.get("args", []) as Array).size()
+			break
+	_expect(builder_arity == 2, "_build_perk_display_entries_cached must take only (acquired, display_slot_count) (got %d args)" % builder_arity)
+	var core_source: String = _read_script_source("res://scripts/hud/character_info_overlay_core.gd")
+	_expect(core_source.find("_build_perk_display_entries_cached(acquired, display_slot_count)") >= 0, "the TAB perk grid must build display entries from the acquired perks + slot budget alone")
+	var support_source: String = _read_script_source("res://scripts/hud/character_info_overlay_support.gd")
+	_expect(support_source.find("_ring_core_cell") < 0, "the perk-grid display builder must not re-add ring-core cells")
+	_expect(support_source.find("무공 슬롯 1칸을 사용합니다") < 0, "the false ring-core slot-cost copy must stay deleted (ring core consumes no Mugong slot)")
 
 
 # Stats gauge bars (2026-07-09 redesign): base-anchored fill (base = 5/10 cells,
@@ -247,3 +264,18 @@ func _verify_stat_gauge_bar_metrics() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+# 소스락 레그용 원문 리더. 읽기 실패는 빈 문자열이 아니라 명시 실패로 -- 빈
+# 문자열을 돌려주면 "find(...) < 0" 금지 어서션들이 전부 공허 GREEN이 된다.
+func _read_script_source(path: String) -> String:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_expect(false, "source-lock leg could not open %s (a read failure must fail closed)" % path)
+		return "<<unreadable>>"
+	var text: String = file.get_as_text()
+	file.close()
+	if text.strip_edges().is_empty():
+		_expect(false, "source-lock leg read an empty %s (fail closed)" % path)
+		return "<<unreadable>>"
+	return text

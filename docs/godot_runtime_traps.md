@@ -1671,6 +1671,47 @@ append했다. 같은 자리에서 두 건이 동시 발견됨:
   실전 버그다). 수정: lookup을 projection 분기 전에 생성해 빌더까지
   관통, 씰=prewarm 스모크 실 스냅샷 양방향(장착→숨김/빈 목록→표시).
 
+## Godot 반쪽-랜딩 슬라이스 트랩 (표시가 없는 브리지를 근거로 댄다)
+
+Incident (2026-07-27): TAB "무공" 패널 헤더가 `슬롯 6/6`인데 셀은 **8개**.
+원인은 링코어 티어 셀. 링코어는 슬롯 **비소모**가 랜딩 계약인데
+(`RuntimePerkCatalog.is_slot_consuming_perk`가 `is_lingpet_ring_core_upgrade`
++ `LINGPET_GATED_CHOICE_IDS`로 **두 번** 면제, `count_owned_slot_perks`는
+`runtime_skill_levels`만 훑는데 티어는 `LingpetAffinityState._run_ring_core_tier`
+에 살아 **구조적으로 보이지도 않음**), 표시 쪽만
+`_build_ring_core_display_entries`가 티어당 셀 1개를 예산 목록에 append하고
+있었다. 셀에 `_slot_free_cell`이 없어 `build_slot_grid_entries`의 예산 배열로
+들어갔고, 이 헬퍼는 **패딩만 하고 절단은 안 한다** → 6퍽+티어2 = 8셀. 한도
+미달일 땐 같은 셀이 빈 슬롯 패딩을 **잡아먹어** "4/6인데 빈칸 0"이 됐다.
+
+핵심은 코드 주석이 **거짓 근거**를 댔다는 것이다: `(Slice B slot bridge)` —
+그 브리지는 어떤 커밋에도 존재한 적이 없다(`git log -S` 전 ref 확인). 설계는
+`docs/dash_token_ringcore_slot_redesign_plan.md` §2.B에 LOCKED로 있었지만
+**배선 대기** 상태였고, 표시 절반만 복원 커밋 `0848d4480`으로 들어왔다.
+
+표준 규칙:
+
+- **"설계 LOCKED / 배선 대기" 슬라이스의 표시 절반만 랜딩하지 마라.** 계산
+  절반이 없으면 UI가 존재하지 않는 계약을 주장한다. 반쪽만 넣어야 한다면
+  계산 쪽이 먼저다(표시는 없어도 거짓말을 안 한다).
+- **코드 주석/툴팁의 "이 값은 X를 소비한다" 주장은 근거가 아니다.** 소비
+  주장을 보면 반드시 카운터 실경로(`count_owned_slot_perks` 류)와 그 계약
+  씰(`perk_slot_limit_smoke`)을 대조하라. 이 사례에선 툴팁 문구
+  "무공 슬롯 1칸을 사용합니다"까지 플레이어에게 거짓을 말하고 있었다.
+- **비소모 엔트리는 예산 배열이 아니라 free 레인으로 보내라.** 규범 패턴은
+  `append_presented_perk_with_slot_cells`(cost<=0 → `_slot_free_cell` → 패딩
+  **뒤** append). 이 헬퍼를 우회해 직접 append하면 자동으로 예산 셀이 된다.
+- **반쪽 랜딩은 죽은 파편을 남긴다 — 같이 훑어라.** 이 슬라이스는
+  `plaza_transaction_message_formatter`의 `perk_slots_full`
+  ("무공 슬롯이 가득 차 링코어를 강화할 수 없습니다") 문구를 **생산자 0**인
+  채로 남겼고, 그 문구를 검사하는 스모크는 공허 GREEN이다.
+- **표시-수량 씰의 픽스처는 예산을 가득 채워라.** 기존 씰은 1퍽 픽스처로
+  `size()==6`만 봐서 패딩 잠식만 관찰했고, 6/6 오버플로로는 **절대 실패할 수
+  없었다**. 씰=`character_info_passive_ui_retire_smoke` 링코어 셀 금지 레그
+  (6퍽 예산 → 정확히 6셀 + `_ring_core_cell` 0 + 재도입 트립와이어 4종:
+  빌더 arity 2 / `_get_run_ring_core_tier_for_grid` 부재 / core·support
+  소스락). 반증검증=티어2 강제 주입 시 7 assert RED("got 8" 실증).
+
 ## Godot 전역 물리 보간 오버레이 스폰-글라이드 트랩 (spawn-frame reposition glide)
 
 `project.godot`가 `physics/common/physics_interpolation=true`를 켜 두었기

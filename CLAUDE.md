@@ -491,6 +491,17 @@ the tracked key while suppressing acquisition UI unless an explicit pickup
 event says otherwise. Seal replacement + `remove_at` compaction cases. Full
 rule: `docs/godot_runtime_traps.md`.
 
+## Godot 반쪽-랜딩 슬라이스 트랩 (표시가 없는 브리지를 근거로 댄다)
+
+"설계 LOCKED / 배선 대기" 슬라이스의 **표시 절반만** 랜딩하면 UI가 존재하지
+않는 계약을 주장한다 — 링코어 티어 셀이 `(Slice B slot bridge)` 주석과
+"무공 슬롯 1칸을 사용합니다" 툴팁을 근거로 예산 셀을 그렸지만 그 브리지는
+어떤 커밋에도 없었고, 결과는 `슬롯 6/6`에 8칸. 소비 주장을 보면 카운터
+실경로 + 계약 씰을 대조하라. 비소모 엔트리는 `_slot_free_cell`(패딩 뒤
+append)로, 반쪽 랜딩이 남긴 생산자-0 문구/공허 씰도 같이 훑고, 표시-수량
+씰 픽스처는 **예산을 가득 채워라**(미달 픽스처는 오버플로로 실패 불가).
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot Per-Frame Catalog Lookup Trap (miss-case full scan)
 
 A catalog / registry helper on a per-frame draw or physics path must be O(1):
