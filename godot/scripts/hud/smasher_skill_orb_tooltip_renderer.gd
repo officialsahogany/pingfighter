@@ -1055,7 +1055,7 @@ func _format_four_poisons_dual_lv5_line() -> String:
 		return "四毒Lv5：主动期间分身复制技能"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
 		return "四毒Lv5：アクティブ中、分身がスキルをコピー"
-	return "사독 Lv5: active 중 분신 스킬 복제"
+	return "사독 Lv5: active 중 분신 초식 복제"
 
 
 func _format_four_poisons_nerve_line(confusion_pct: int) -> String:
