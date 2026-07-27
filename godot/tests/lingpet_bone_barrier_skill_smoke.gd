@@ -131,6 +131,12 @@ func _verify_catalog_dispatcher_audio_and_host_wiring() -> void:
 	host.update(0.02, owner, registry, SKILL_ID)
 	snapshot = host.get_bone_barrier_snapshot_for_tests()
 	_expect(int(snapshot.get("bone_barrier_built_count", 0)) == 1, "Bone Barrier should become built after 3s")
+	# Relaunch policy and LIVENESS are different questions. Bone Barrier is
+	# nest-allowed, so is_launch_blocked stays false while its barriers are alive
+	# -- which is exactly why the companion idle-update gate must read liveness
+	# from needs_runtime_update_for_skill() instead.
+	_expect(not host.is_launch_blocked(SKILL_ID), "nest-allowed Bone Barrier should stay castable while its barriers are alive")
+	_expect(host.needs_runtime_update_for_skill(SKILL_ID), "a live Bone Barrier must still need runtime updates even though relaunch stays allowed")
 	# Round boundary preserves installed barriers (original reset_for_new_round parity).
 	host.reset_round(owner, registry)
 	snapshot = host.get_bone_barrier_snapshot_for_tests()

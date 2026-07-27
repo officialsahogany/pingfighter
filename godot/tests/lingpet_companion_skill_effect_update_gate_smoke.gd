@@ -27,7 +27,7 @@ class FakeRuntimeHost:
 	func has_visible_effects_for_skill(skill_id: String) -> bool:
 		return bool(visible_skill_ids.get(skill_id, false))
 
-	func is_launch_blocked(skill_id: String) -> bool:
+	func needs_runtime_update_for_skill(skill_id: String) -> bool:
 		return bool(live_skill_ids.get(skill_id, false))
 
 
@@ -74,7 +74,8 @@ func _verify_invisible_but_live_skill_keeps_updating() -> void:
 	# a pending self-schedule (solar bolt refire, bubble trap queued shots), a
 	# deferred ownerless release -- must keep receiving update(), or its timer
 	# freezes for the whole remaining cooldown while consumers outside this gate
-	# keep reading the stale state. `is_launch_blocked` is the host's liveness map.
+	# keep reading the stale state. Liveness comes from the host's dedicated
+	# needs_runtime_update_for_skill(), never from relaunch policy.
 	var gate := LingpetCompanionSkillEffectUpdateGate.new()
 	var state := FakeSkillState.new()
 	state.cooldown = 18.0
@@ -114,17 +115,31 @@ func _verify_counter_recording() -> void:
 
 
 func _verify_runtime_delegates_idle_skip_gate() -> void:
+	# Which module owns the companion slot tick is IN FLIGHT (it is moving from
+	# lingpet_egg_runtime into lingpet_companion_skill_controller), so this leg
+	# must not hardcode either owner -- pinning one side makes the seal fail on
+	# whichever tree does not have that refactor. Assert the invariant instead:
+	# exactly one production module both composes the gate AND delegates
+	# can_skip_idle to it, and the idle-skip policy never gets re-inlined.
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var controller_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
 	var owner_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_effect_update_gate.gd")
-	_expect(runtime_source.find("LingpetCompanionSkillEffectUpdateGate") < 0, "egg runtime should leave the skill effect update gate inside the skill controller")
-	_expect(controller_source.find("LingpetCompanionSkillEffectUpdateGate") >= 0, "skill controller should compose the skill effect update gate")
-	_expect(controller_source.find("_effect_update_gate.can_skip_idle") >= 0, "controller-owned slot tick should delegate idle skip decisions")
-	_expect(runtime_source.find("_companion_skill_controller.reset_effect_update_counters_for_tests") >= 0, "runtime public test seam should forward counters through the skill controller")
+	var slot_tick_owners := 0
+	for candidate in [runtime_source, controller_source]:
+		var source := str(candidate)
+		if source.find("LingpetCompanionSkillEffectUpdateGate") >= 0 and source.find(".can_skip_idle(") >= 0:
+			slot_tick_owners += 1
+	_expect(slot_tick_owners == 1, "exactly one production module should compose the gate and delegate can_skip_idle (got %d)" % slot_tick_owners)
+	_expect(
+		runtime_source.find("effect_update_counters_for_tests") >= 0,
+		"egg runtime should expose the skill-effect counter test seam wherever the gate lives"
+	)
 	_expect(runtime_source.find("_skill_effect_update_counters_enabled_for_tests") < 0, "runtime should not keep skill-effect counter enable state locally")
 	_expect(runtime_source.find("func _can_skip_companion_skill_effect_idle") < 0, "runtime should not keep idle-skip policy inline")
 	_expect(owner_source.find("has_visible_effects_for_skill") >= 0, "gate should preserve the visible-effect guard")
-	_expect(owner_source.find("is_launch_blocked") >= 0, "gate should preserve the live-runtime-state guard alongside the visible-effect guard")
+	_expect(owner_source.find("needs_runtime_update_for_skill") >= 0, "gate should read liveness from the dedicated API, not from relaunch policy")
+	# Match the CALL form so the explanatory comment may still name the method.
+	_expect(owner_source.find(".is_launch_blocked(") < 0, "gate must NOT call is_launch_blocked as its liveness source -- nest-allowed skills return false while alive")
 
 
 func _expect(condition: bool, message: String) -> void:

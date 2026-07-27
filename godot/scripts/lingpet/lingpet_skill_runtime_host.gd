@@ -323,6 +323,38 @@ func has_visible_effects_for_skill(skill_id: String) -> bool:
 			return false
 
 
+func needs_runtime_update_for_skill(skill_id: String) -> bool:
+	# LIVENESS, deliberately independent of relaunch policy. `is_launch_blocked`
+	# looks similar but answers a DIFFERENT question and intentionally returns
+	# false for nest-allowed skills (skeleton_archer / bone_barrier) whose
+	# archers / barriers are still alive, so it must not be reused as the tick
+	# gate's liveness source. Non-instantiating peek: this runs on the per-frame
+	# companion slot tick.
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill: Object = _peek_skill_for_kind(skill_kind)
+	if skill == null:
+		return false
+	if _skill_has_visible_effects(skill):
+		return true
+	if skill.has_method("is_active") and bool(skill.is_active()):
+		return true
+	# The few skills that expose no is_active() publish their own liveness surfaces.
+	match skill_kind:
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return bool(skill.is_projectile_active())
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return bool(skill.is_projectile_active()) or bool(skill.is_orbit_field_active())
+		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
+			return (
+				bool(skill.is_projectile_active())
+				or bool(skill.is_capture_active())
+				or bool(skill.is_shot_sequence_active())
+			)
+		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
+			return bool(skill.is_producing())
+	return false
+
+
 func prewarm(skill_id: String) -> void:
 	var skill: Object = _get_skill_for_kind(LingpetSkillDispatcher.get_skill_kind(skill_id))
 	if skill != null and skill.has_method("prewarm"):

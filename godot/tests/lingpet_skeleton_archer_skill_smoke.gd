@@ -174,6 +174,11 @@ func _verify_catalog_dispatcher_and_host_wiring() -> void:
 	_expect(not host.is_launch_blocked(SKILL_ID), "Skeleton Archer should allow later casts while existing archers remain alive")
 	host.update(1.21, owner, registry, SKILL_ID)
 	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "runtime host should update the live archer module")
+	# Relaunch policy != liveness: nest-allowed Skeleton Archer keeps
+	# is_launch_blocked false while its archers are alive, so the companion
+	# idle-update gate has to read needs_runtime_update_for_skill() instead.
+	_expect(not host.is_launch_blocked(SKILL_ID), "nest-allowed Skeleton Archer should stay castable while its archers are alive")
+	_expect(host.needs_runtime_update_for_skill(SKILL_ID), "a live Skeleton Archer must still need runtime updates even though relaunch stays allowed")
 	var host_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(host_source.find("draw.lingpet.skeleton_archer") >= 0, "Skeleton Archer draw should expose a focused BattlePerf sample label")

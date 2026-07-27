@@ -1861,8 +1861,10 @@ game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어
 - `lingpet_companion_skill_effect_update_gate.can_skip_idle()`은 `windup` 없고
   `has_visible_effects_for_skill()` false이며 `skill_state.cooldown > 0`이면 그 슬롯을
   `continue`로 건너뛴다 → `lingpet_skill_runtime_host.update()` 자체가 호출되지 않는다.
-  repo 전역에서 `skill_runtime_host.update(`의 라이브 호출자는
-  `lingpet_companion_skill_controller` 단 하나이므로 **우회 틱 경로가 없다**.
+  repo 전역에서 `skill_runtime_host.update(`의 라이브 호출자는 **컴패니언 슬롯 틱
+  루프 하나뿐**이므로 우회 틱 경로가 없다(그 루프의 소유 모듈은 이관 중이다 —
+  `lingpet_egg_runtime` → `lingpet_companion_skill_controller`. 어느 트리든
+  게이트 뒤에 있다는 사실은 같으니, 씰은 특정 소유 모듈을 못 박지 말 것).
 - 반면 소비자는 게이트 밖에서 매 프레임 폴링된다:
   `battle_update_boss_ai_context_builder._merge_shared_context`가
   `lingpet_egg_runtime.get_boss_ai_context()`를 무조건 merge하고, 이는

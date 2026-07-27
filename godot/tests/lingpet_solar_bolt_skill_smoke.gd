@@ -388,8 +388,14 @@ func _verify_pending_refire_survives_idle_update_gate() -> void:
 func _verify_source_wiring_surfaces() -> void:
 	var host_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 	_expect(host_src.find("SOLAR_BOLT_SKILL_PATH") >= 0, "runtime host should lazy-load the Solar Bolt module")
+	# The launch-feedback call is being extracted from the runtime host into a
+	# dedicated router, so accept either owner -- pinning the router alone makes
+	# this leg read a file that does not exist on trees without that extraction.
 	var feedback_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
-	_expect(feedback_src.find("play_solar_bolt_strike") >= 0, "launch-feedback router should call the dedicated Solar Bolt audio API")
+	_expect(
+		host_src.find("play_solar_bolt_strike") >= 0 or feedback_src.find("play_solar_bolt_strike") >= 0,
+		"the launch-feedback path should call the dedicated Solar Bolt audio API"
+	)
 	var payload_builder_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd")
 	_expect(payload_builder_src.find("\"refire_chance_pct\"") >= 0, "payload builder should pass Solar Bolt refire chance through launch_context")
 	var rail_src := FileAccess.get_file_as_string("res://scripts/stages/common/lingpet_rail_card.gd")
