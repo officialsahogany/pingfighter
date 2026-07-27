@@ -1,0 +1,29 @@
+{
+  "asset_family": "guardian_spirit_egg_traditional_v1",
+  "player_facing_concept": "환격전 수호령알",
+  "internal_id_policy": "Keep lingpet and ringpet compatibility identifiers unchanged.",
+  "runtime_contract": {
+    "canvas": [512, 512],
+    "alpha_bounds": [98, 58, 316, 396],
+    "field_draw_size": [88, 88],
+    "stand_or_pedestal": false
+  },
+  "variants": [
+    {"index": 0, "theme": "청화백자", "file": "guardian_spirit_egg_traditional_variant_0_v1.png"},
+    {"index": 1, "theme": "황토단청", "file": "guardian_spirit_egg_traditional_variant_1_v1.png"},
+    {"index": 2, "theme": "칠성옻칠", "file": "guardian_spirit_egg_traditional_variant_2_v1.png"},
+    {"index": 3, "theme": "홍매자개", "file": "guardian_spirit_egg_traditional_variant_3_v1.png"},
+    {"index": 4, "theme": "비취청자", "file": "guardian_spirit_egg_traditional_variant_4_v1.png"}
+  ],
+  "shared_surfaces": {
+    "crack_stage_1": "guardian_spirit_egg_traditional_crack_stage_1_v1.png",
+    "crack_stage_2": "guardian_spirit_egg_traditional_crack_stage_2_v1.png",
+    "active_item_icon": "guardian_spirit_egg_traditional_item_icon_v1.png",
+    "character_info_hero": "../../ui/character_info/character_info_empty_guardian_spirit_egg_traditional_v1.png"
+  },
+  "generation": {
+    "mode": "imagegen reference-locked variants plus deterministic alpha and sizing postprocess",
+    "chroma_key": "flat magenta border auto-key",
+    "prompt_summary": "Egg-shaped Korean folklore fantasy sealing vessel using porcelain, dancheong, cloud and wave motifs, obangsaek accents, and an aged-brass guardian seal; no machinery, crystal facets, neon, or pedestal."
+  }
+}
