@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const PillarDashOrbRenderer := preload("res://scripts/hud/pillar_dash_orb_renderer.gd")
 const PillarDashTokenFillRenderer := preload("res://scripts/hud/pillar_dash_token_fill_renderer.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
 
@@ -31,62 +32,45 @@ func _init() -> void:
 	texture_image.fill(Color.WHITE)
 	var bell_texture := ImageTexture.create_from_image(texture_image)
 	var renderer := PillarDashTokenFillRenderer.new()
+	var orb_renderer := PillarDashOrbRenderer.new()
 	var center := Vector2(100.0, 90.0)
-	var multi_specs: Array = renderer.build_bell_cell_draw_specs(
+	var content_radius: float = orb_renderer.get_orb_content_radius(55.0, bell_texture)
+	var inner_radius: float = content_radius * PillarDashOrbRenderer.TOKEN_INNER_RADIUS_RATIO
+	var frame_hole_radius := 154.0 * (196.0 / 240.0) * 0.5
+	_expect(content_radius >= frame_hole_radius, "textured dash-orb content must underlap the measured v3 frame hole without a background gap")
+	_expect(is_equal_approx(orb_renderer.get_orb_content_radius(55.0, null), 55.0), "frame-null boss dial must keep its existing content radius")
+	var decorative_spec: Dictionary = renderer.build_decorative_bell_draw_spec(
 		center,
-		50.0,
-		5,
-		2,
-		0.5,
-		-PI * 0.5,
-		TAU / 5.0,
+		inner_radius,
 		{"bell_cell_texture": bell_texture}
 	)
-	_expect(multi_specs.size() == 5, "five-token dial must emit one bell-cell draw spec per sector")
-	if multi_specs.size() == 5:
-		var acquired: Color = multi_specs[0].get("modulate", Color.TRANSPARENT)
-		var charging: Color = multi_specs[2].get("modulate", Color.TRANSPARENT)
-		var empty: Color = multi_specs[4].get("modulate", Color.TRANSPARENT)
-		_expect(_brightness(acquired) > _brightness(charging), "acquired bell must be brighter than charging bell")
-		_expect(_brightness(charging) > _brightness(empty), "charging bell must brighten above the empty silhouette")
-		for spec_value in multi_specs:
-			var spec: Dictionary = spec_value
-			var cell_rect: Rect2 = spec.get("rect", Rect2())
-			_expect(is_equal_approx(cell_rect.size.x, 24.0), "r=55 five-token bell cell must use the 24px readability target")
+	_expect(not decorative_spec.is_empty(), "dash dial must emit one decorative bell independent of token count")
+	if not decorative_spec.is_empty():
+		var bell_rect: Rect2 = decorative_spec.get("rect", Rect2())
+		_expect(is_equal_approx(bell_rect.size.x, 28.0), "r=55 decorative HUD bell must keep the accepted 28px size")
+		var visual_center_y := bell_rect.get_center().y - PillarDashTokenFillRenderer.BELL_VISUAL_CENTER_Y_RATIO * bell_rect.size.y
+		_expect(abs(visual_center_y - (center.y - content_radius)) <= 0.25, "decorative bell alpha centroid must sit on the orb's top boundary")
 
-	var single_specs: Array = renderer.build_bell_cell_draw_specs(
+	var orb_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_dash_orb_renderer.gd")
+	var frame_draw_index := orb_source.find("pillar_drawer.draw_rotating_orb_frame_texture")
+	var glass_draw_index := orb_source.find("pillar_drawer.draw_pillar_orb_glass(canvas")
+	var bell_overlay_index := orb_source.find("token_renderer.draw_decorative_bell_overlay")
+	_expect(frame_draw_index >= 0 and glass_draw_index > frame_draw_index, "glass must remain above the rotating frame/body pass")
+	_expect(bell_overlay_index > glass_draw_index, "the single decorative bell must draw above the frame and glass instead of inside the orb pass")
+
+	var fallback_spec: Dictionary = renderer.build_decorative_bell_draw_spec(
 		center,
 		50.0,
-		1,
-		0,
-		0.0,
-		-PI * 0.5,
-		TAU,
-		{"bell_cell_texture": bell_texture}
-	)
-	_expect(single_specs.size() == 1, "single-token dial must emit one large bell-cell draw spec")
-	if single_specs.size() == 1:
-		var single_rect: Rect2 = single_specs[0].get("rect", Rect2())
-		_expect(single_rect.end.y < center.y, "single-token bell texture rect must stay above the centered N/M count text")
-
-	var fallback_specs: Array = renderer.build_bell_cell_draw_specs(
-		center,
-		50.0,
-		3,
-		1,
-		0.25,
-		-PI * 0.5,
-		TAU / 3.0,
 		{}
 	)
-	_expect(fallback_specs.is_empty(), "missing bell texture must preserve the liquid-only fallback without draw calls")
+	_expect(fallback_spec.is_empty(), "missing bell texture must preserve the liquid-only fallback without draw calls")
 
 	var context_builder := Stage1PillarStatusOrbContextBuilder.new()
 	var threaded_context := {"dash_token_bell_cell_texture": bell_texture}
 	var player_context: Dictionary = context_builder.build_dash_orb_context(threaded_context, null)
 	var boss_context: Dictionary = context_builder.build_boss_dash_orb_context(threaded_context, null)
-	_expect(player_context.get("bell_cell_texture", null) == bell_texture, "player dash context must receive the prewarmed bell texture")
-	_expect(boss_context.get("bell_cell_texture", null) == bell_texture, "boss dash context must intentionally share the bell-cell texture")
+	_expect(player_context.get("bell_cell_texture", null) == bell_texture, "player dash context must receive the prewarmed decorative bell texture")
+	_expect(boss_context.get("bell_cell_texture", null) == bell_texture, "boss dash context must intentionally share the decorative bell texture")
 	_expect(boss_context.get("frame_texture", bell_texture) == null, "boss dash frame must remain null in this slice")
 
 	var resources := BattleResources.new()
@@ -106,10 +90,6 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
-
-
-func _brightness(color: Color) -> float:
-	return color.r + color.g + color.b
 
 
 func _expect(condition: bool, message: String) -> void:

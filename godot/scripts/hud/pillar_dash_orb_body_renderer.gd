@@ -57,7 +57,8 @@ func draw(
 	flash_timer: float,
 	flash_duration: float,
 	frame_texture,
-	context: Dictionary
+	context: Dictionary,
+	content_radius: float = -1.0
 ) -> void:
 	if canvas == null or pillar_drawer == null:
 		return
@@ -71,14 +72,15 @@ func draw(
 
 	var lod_active: bool = _is_hud_lod_active(context)
 	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
+	var safe_content_radius: float = radius if content_radius <= 0.0 else max(radius, content_radius)
 	if not static_hud_lod:
 		_draw_outer_glow(canvas, center, radius, frame_width, outer_glow, _get_color(context, "orb_outer_glow_color", Color(0.92, 0.28, 0.28, 1.0)), lod_active)
 	if not (frame_texture is Texture2D):
 		_draw_fallback_frame(canvas, pillar_drawer, center, radius, frame_width, context)
-	_draw_background(canvas, center, radius, context)
+	_draw_background(canvas, center, safe_content_radius, context)
 	if not static_hud_lod:
-		_draw_ambient_particles(canvas, center, radius, t, context)
-	_draw_core(canvas, center, radius, t, available_tokens, max_tokens, context)
+		_draw_ambient_particles(canvas, center, safe_content_radius, t, context)
+	_draw_core(canvas, center, safe_content_radius, t, available_tokens, max_tokens, context)
 
 
 func _draw_outer_glow(canvas: CanvasItem, center: Vector2, radius: float, frame_width: float, outer_glow: float, glow_color: Color, lod_active: bool) -> void:

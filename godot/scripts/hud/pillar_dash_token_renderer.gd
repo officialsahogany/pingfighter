@@ -44,5 +44,19 @@ func draw_tokens(
 	)
 
 
+func draw_decorative_bell_overlay(
+	canvas: CanvasItem,
+	center: Vector2,
+	inner_radius: float,
+	context: Dictionary
+) -> void:
+	fill_renderer.draw_decorative_bell_overlay(
+		canvas,
+		center,
+		inner_radius,
+		context
+	)
+
+
 func draw_flash(canvas: CanvasItem, center: Vector2, radius: float, flash_progress: float, scale_factor: float, context: Dictionary = {}) -> void:
 	flash_renderer.draw_flash(canvas, center, radius, flash_progress, scale_factor, float(context.get("hud_lod_scale", 1.0)))

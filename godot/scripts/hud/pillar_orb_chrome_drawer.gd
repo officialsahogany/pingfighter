@@ -33,7 +33,7 @@ const GLASS_PREWARM_RIM_COLORS := [
 # 높이의 정확한 키만 노린다: 750(창모드 1x) / 1080(FHD) / 1440(QHD).
 # 그 외 해상도는 정적 레이어 캐시의 예산제 백그라운드 빌드가 인트로 프레임
 # 동안 즉시 경로 폴백을 유지한 채 채운다 (히치 없음).
-const GLASS_PREWARM_RADII := [55.0, 79.2, 105.6]
+const GLASS_PREWARM_RADII := [55.0, 63.25, 79.2, 91.08, 105.6, 121.44]
 
 var shape_helper: Object = PillarShapeHelper.new()
 var _text_size_cache: Dictionary = {}

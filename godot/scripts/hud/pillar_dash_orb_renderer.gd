@@ -24,14 +24,18 @@ const RECOVERY_SEAL_OUTER_POINTS := 20
 const RECOVERY_SEAL_OUTER_POINTS_LOD := 12
 const RECOVERY_SEAL_INNER_POINTS := 14
 const RECOVERY_SEAL_INNER_POINTS_LOD := 10
+const TEXTURED_FRAME_CONTENT_RADIUS_RATIO := 1.15
+const TOKEN_INNER_RADIUS_RATIO := 50.0 / 55.0
 
 var body_renderer: Object = PillarDashOrbBodyRenderer.new()
 var token_renderer: Object = PillarDashTokenRenderer.new()
 
 
 func prewarm_caches(orb_radius: float, context: Dictionary = {}) -> void:
-	body_renderer.prewarm_caches(max(16.0, orb_radius), context)
-	token_renderer.prewarm_caches(max(16.0, orb_radius), context)
+	var radius: float = max(16.0, orb_radius)
+	var content_radius: float = get_orb_content_radius(radius, context.get("frame_texture", null))
+	body_renderer.prewarm_caches(content_radius, context)
+	token_renderer.prewarm_caches(content_radius, context)
 
 
 func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scale_factor: float, context: Dictionary) -> void:
@@ -59,6 +63,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 	var flash_duration: float = max(0.001, float(context.get("flash_duration", 1.0)))
 	var flash_timer: float = max(0.0, float(context.get("flash_timer", 0.0)))
 	var frame_texture = context.get("frame_texture", null)
+	var content_radius: float = get_orb_content_radius(radius, frame_texture)
 	body_renderer.draw(
 		canvas,
 		pillar_drawer,
@@ -71,10 +76,11 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		flash_timer,
 		flash_duration,
 		frame_texture,
-		context
+		context,
+		content_radius
 	)
 
-	var inner_radius: float = radius - 5.0 * scale_factor
+	var inner_radius: float = content_radius * TOKEN_INNER_RADIUS_RATIO
 	var start_angle_offset: float = -PI * 0.5
 	var sector_angle: float = TAU / float(max_tokens)
 
@@ -101,9 +107,15 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 
 	var glass_rim_color: Color = _get_color(context, "glass_rim_color", Color(1.0, 0.56, 0.50, 1.0))
 	if static_hud_lod and pillar_drawer.has_method("draw_pillar_orb_glass_lod"):
-		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, radius, glass_rim_color)
+		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, content_radius, glass_rim_color)
 	else:
-		pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, glass_rim_color)
+		pillar_drawer.draw_pillar_orb_glass(canvas, center, content_radius, glass_rim_color)
+	token_renderer.draw_decorative_bell_overlay(
+		canvas,
+		center,
+		inner_radius,
+		context
+	)
 	# The rainbow ring + sector + half-ready + recovery (plasma ball) overlays
 	# migrated to the GPU shader host. When the host is wired into the context
 	# we hand it the current state and skip the legacy CPU draws. The CPU paths
@@ -137,6 +149,13 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 	if bool(context.get("show_half_label", true)) and available_tokens <= 0 and float(context.get("dash_available_timer", 0.0)) <= 0.0 and not bool(context.get("dash_active", false)):
 		var half_alpha: float = 0.50 + 0.30 * sin(t * 8.0)
 		pillar_drawer.draw_pillar_text_centered(canvas, center + Vector2(0.0, radius + 20.0 * scale_factor), "HALF", int(round(10.0 * scale_factor)), Color(0.72, 0.76, 1.0, half_alpha))
+
+
+func get_orb_content_radius(orb_radius: float, frame_texture) -> float:
+	var radius: float = max(16.0, orb_radius)
+	if frame_texture is Texture2D:
+		return radius * TEXTURED_FRAME_CONTENT_RADIUS_RATIO
+	return radius
 
 
 func _is_dash_recovering(context: Dictionary) -> bool:
