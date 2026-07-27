@@ -1,7 +1,7 @@
 extends RefCounted
 
 const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball_runtime_128.png"
-const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v1.png"
+const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v2.png"
 const DASH_TOKEN_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_frame_imagegen_v3.png"
 const DASH_TOKEN_BELL_CELL_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_bell_cell_imagegen_v1.png"
 const SKILL_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/skill_orb_frame_imagegen_v1.png"
