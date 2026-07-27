@@ -18,6 +18,15 @@ const BOOST_SECTOR_CORE_SEGMENTS := 8
 const BOOST_SECTOR_PULSE_SEGMENTS := 9
 const BOOST_SECTOR_RAINBOW_SEGMENTS := 9
 
+const BELL_CELL_ORBIT_RATIO := 0.60
+const BELL_CELL_SIZE_RATIO := 0.48
+const BELL_SINGLE_SIZE_RATIO := 0.56
+const BELL_SINGLE_Y_OFFSET_RATIO := -0.42
+const BELL_VISUAL_CENTER_Y_RATIO := -0.067
+const BELL_ACQUIRED_MODULATE := Color(1.0, 1.0, 1.0, 0.98)
+const BELL_EMPTY_MODULATE := Color(0.24, 0.20, 0.16, 0.58)
+const BELL_CHARGING_BASE_MODULATE := Color(0.36, 0.28, 0.20, 0.72)
+
 var divider_renderer: Object = PillarDashTokenDividerRenderer.new()
 var _static_layer_cache: Object = PillarOrbStaticLayerCache.new()
 
@@ -93,11 +102,13 @@ func _draw_single_dash_token(
 	elif charge_progress > 0.0:
 		fill_ratio_total = charge_progress
 	if fill_ratio_total <= 0.0:
+		_draw_bell_cells(canvas, center, inner_radius, 1, available_tokens, charge_progress, -PI * 0.5, TAU, context)
 		return
 
 	var is_boost_charging: bool = _is_boost_charging_token(context, 0)
 	if is_boost_charging:
 		_draw_single_boost_charging_token(canvas, pillar_drawer, center, inner_radius, fill_ratio_total, t, context)
+		_draw_bell_cells(canvas, center, inner_radius, 1, available_tokens, charge_progress, -PI * 0.5, TAU, context)
 		return
 
 	var liquid_top: Color = _get_color(context, "token_liquid_top", Color(0.98, 0.46, 0.36, 1.0))
@@ -106,10 +117,12 @@ func _draw_single_dash_token(
 	var inner_glow: Color = _get_color(context, "token_inner_glow", Color(1.0, 0.46, 0.36, 1.0))
 	if _should_draw_compact_full_single_token(context, fill_ratio_total, is_boost_charging):
 		_draw_compact_full_single_token(canvas, center, inner_radius, liquid_top, liquid_bottom, wave_glow, inner_glow)
+		_draw_bell_cells(canvas, center, inner_radius, 1, available_tokens, charge_progress, -PI * 0.5, TAU, context)
 		return
 	pillar_drawer.draw_pillar_liquid_fill(canvas, center, inner_radius, fill_ratio_total, t, liquid_top, liquid_bottom, wave_glow, float(context.get("hud_lod_scale", 1.0)))
 	canvas.draw_circle(center, inner_radius * (0.18 + fill_ratio_total * 0.24), Color(inner_glow.r, inner_glow.g, inner_glow.b, 0.12 + fill_ratio_total * 0.16))
 	canvas.draw_circle(center + Vector2(0.0, inner_radius * 0.10), inner_radius * (0.10 + fill_ratio_total * 0.12), Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.06 + fill_ratio_total * 0.08))
+	_draw_bell_cells(canvas, center, inner_radius, 1, available_tokens, charge_progress, -PI * 0.5, TAU, context)
 
 
 func _draw_multi_dash_tokens(
@@ -152,6 +165,17 @@ func _draw_multi_dash_tokens(
 			else:
 				pillar_drawer.draw_dash_sector_liquid(canvas, center, inner_radius, start_rad, end_rad, charge_progress, t, scale_factor, float(context.get("hud_lod_scale", 1.0)))
 
+	_draw_bell_cells(
+		canvas,
+		center,
+		inner_radius,
+		max_tokens,
+		available_tokens,
+		charge_progress,
+		start_angle_offset,
+		sector_angle,
+		context
+	)
 	divider_renderer.draw(
 		canvas,
 		pillar_drawer,
@@ -163,6 +187,125 @@ func _draw_multi_dash_tokens(
 		sector_angle,
 		scale_factor
 	)
+
+
+# Bell cells stay outside the compact liquid cache so acquired / empty /
+# charging modulates remain live. This also keeps texture identity out of the
+# compact cache key and prevents a stale baked bell after early-boot fallback.
+func _draw_bell_cells(
+	canvas: CanvasItem,
+	center: Vector2,
+	inner_radius: float,
+	max_tokens: int,
+	available_tokens: int,
+	charge_progress: float,
+	start_angle_offset: float,
+	sector_angle: float,
+	context: Dictionary
+) -> void:
+	var texture_value: Variant = context.get("bell_cell_texture", null)
+	if not (texture_value is Texture2D):
+		return
+	var texture: Texture2D = texture_value
+	var safe_max_tokens: int = max(1, max_tokens)
+	var safe_available_tokens: int = clamp(available_tokens, 0, safe_max_tokens)
+	if safe_max_tokens == 1:
+		canvas.draw_texture_rect(
+			texture,
+			_get_single_bell_cell_rect(center, inner_radius),
+			false,
+			_get_bell_cell_modulate(0, safe_available_tokens, charge_progress)
+		)
+		return
+	for token_index in range(safe_max_tokens):
+		canvas.draw_texture_rect(
+			texture,
+			_get_multi_bell_cell_rect(
+				center,
+				inner_radius,
+				token_index,
+				start_angle_offset,
+				sector_angle
+			),
+			false,
+			_get_bell_cell_modulate(token_index, safe_available_tokens, charge_progress)
+		)
+
+
+func build_bell_cell_draw_specs(
+	center: Vector2,
+	inner_radius: float,
+	max_tokens: int,
+	available_tokens: int,
+	charge_progress: float,
+	start_angle_offset: float,
+	sector_angle: float,
+	context: Dictionary
+) -> Array:
+	var texture_value: Variant = context.get("bell_cell_texture", null)
+	if not (texture_value is Texture2D):
+		return []
+	var texture: Texture2D = texture_value
+	var safe_max_tokens: int = max(1, max_tokens)
+	var safe_available_tokens: int = clamp(available_tokens, 0, safe_max_tokens)
+	var specs: Array = []
+	if safe_max_tokens == 1:
+		specs.append({
+			"texture": texture,
+			"rect": _get_single_bell_cell_rect(center, inner_radius),
+			"modulate": _get_bell_cell_modulate(0, safe_available_tokens, charge_progress),
+		})
+		return specs
+
+	for token_index in range(safe_max_tokens):
+		specs.append({
+			"texture": texture,
+			"rect": _get_multi_bell_cell_rect(
+				center,
+				inner_radius,
+				token_index,
+				start_angle_offset,
+				sector_angle
+			),
+			"modulate": _get_bell_cell_modulate(token_index, safe_available_tokens, charge_progress),
+		})
+	return specs
+
+
+func _get_single_bell_cell_rect(center: Vector2, inner_radius: float) -> Rect2:
+	var single_size: float = max(10.0, inner_radius * BELL_SINGLE_SIZE_RATIO)
+	var single_center := center + Vector2(
+		0.0,
+		inner_radius * BELL_SINGLE_Y_OFFSET_RATIO + single_size * BELL_VISUAL_CENTER_Y_RATIO
+	)
+	return Rect2(single_center - Vector2.ONE * single_size * 0.5, Vector2.ONE * single_size)
+
+
+func _get_multi_bell_cell_rect(
+	center: Vector2,
+	inner_radius: float,
+	token_index: int,
+	start_angle_offset: float,
+	sector_angle: float
+) -> Rect2:
+	var cell_size: float = max(10.0, inner_radius * BELL_CELL_SIZE_RATIO)
+	var orbit_radius: float = inner_radius * BELL_CELL_ORBIT_RATIO
+	var middle_angle: float = start_angle_offset + sector_angle * (float(token_index) + 0.5)
+	var cell_center := (
+		center
+		+ Vector2(cos(middle_angle), sin(middle_angle)) * orbit_radius
+		+ Vector2(0.0, cell_size * BELL_VISUAL_CENTER_Y_RATIO)
+	)
+	return Rect2(cell_center - Vector2.ONE * cell_size * 0.5, Vector2.ONE * cell_size)
+
+
+func _get_bell_cell_modulate(token_index: int, available_tokens: int, charge_progress: float) -> Color:
+	if token_index < available_tokens:
+		return BELL_ACQUIRED_MODULATE
+	if token_index == available_tokens and charge_progress > 0.0:
+		var progress: float = clamp(charge_progress, 0.0, 1.0)
+		return BELL_CHARGING_BASE_MODULATE.lerp(BELL_ACQUIRED_MODULATE, progress)
+	return BELL_EMPTY_MODULATE
 
 
 func _get_color(context: Dictionary, key: String, fallback: Color) -> Color:

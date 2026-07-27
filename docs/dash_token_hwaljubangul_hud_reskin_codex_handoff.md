@@ -149,6 +149,24 @@ exactly flat #ff00ff. Do not use #ff00ff inside the bell art.
 - 방울 셀: 최종 PNG 크기, 알파 bbox, 방울 본체의 시각적 무게중심(고리
   포함 시 중심이 위로 쏠림 — 센트로이드 배치 시 Y 보정값을 실측으로 기록).
 
+### 4.1 Codex 에셋 수락 실측 (2026-07-28)
+
+- 프레임 v3: imagegen 마젠타 소스 `1254x1254`, 누끼/패딩 시블링
+  `969x981`, 런타임 PNG `240x240`. `alpha > 16` bbox는
+  `Rect2i(22, 21, 196, 198)`, 중심 투명 홀은 같은 임계값에서 가로
+  `154px` / 세로 `157px`다. v2의 외곽 bbox `198x198` 대비 가로만
+  `-2px`이고, 중심 홀은 v2 축 실측 `130~132px`보다 `24~27px` 넓다.
+  따라서 기존 `196/55` 프레임 드로우 크기에는 코드 보정 없이 교체한다.
+- 방울 셀: imagegen 마젠타 소스 `1254x1254`, 누끼/패딩 시블링
+  `615x892`, 런타임 PNG `128x128`. `alpha > 16` bbox는
+  `Rect2i(27, 10, 74, 108)`. 알파 가중 무게중심은 `(63.61, 72.58)`로
+  이미지 중심보다 Y가 `+8.58px` 아래이므로, 런타임은 셀 드로우 크기의
+  `-0.067`만큼 위로 보정한다. 단일 토큰은 중앙 `N/M` 텍스트와 분리하기
+  위해 추가로 `inner_radius * -0.42` 위치에 둔다.
+- 두 런타임 PNG 모두 네 모서리 알파 `0`, 불투명 마젠타 우세 픽셀 `0`.
+  r=55 다중 토큰 셀 드로우 박스는 `24px`(실제 알파 높이 약 `20.3px`)며,
+  r=105.6에서도 동일 비율로 확대된다.
+
 ## 5. 런타임 배선 지점 (Codex)
 
 1. **프레임 교체**: `battle_core_texture_paths.gd:5`의
@@ -216,6 +234,25 @@ exactly flat #ff00ff. Do not use #ff00ff inside the bell art.
   충전 중) ③ "N/M" 카운트 텍스트와 방울 겹침 없음 ④ 소진 스핀 시 프레임
   회전 읽기 ⑤ 보스 다이얼 보라 팔레트 방울 확인.
 - 스크린샷 아카이브: 교체 전/후 비교 1세트.
+
+### 7.1 Codex 구현 검증 결과 (2026-07-28)
+
+- `--headless --import`로 신규 PNG 2장의 `.png.import`와 대응 `.ctex` 생성
+  확인. 신규 씰 `dash_token_bell_cell_renderer_smoke.gd`는 에셋/프리웜 스펙,
+  플레이어·보스 컨텍스트 공유, 1/5셀 배치, 확보·충전·빈 밝기 순서,
+  텍스처 부재 폴백을 검증한다.
+- 대쉬/리소스/PSO 집중 회귀 11개 GREEN. 생산 드로우 경로의 per-frame
+  Dictionary 생성을 제거한 뒤 신규 씰, boost FX host, status-orb prewarm
+  3개를 다시 GREEN으로 확인했다.
+- Stage 2~8 공유 경로는 각 스테이지의 pillar/HUD/wiring 스모크 7개 GREEN.
+  전 스테이지 드로어가 동일 `Stage1PillarHudSceneDrawer`를 소유하는 preload
+  체인도 재확인했다.
+- 최종 `run_headless_load_check.ps1` GREEN. 최종 `run_warning_scan.ps1`은
+  3,187개 GDScript 전체를 경고 없이 통과했다.
+- 비헤드리스 Vulkan 캡처에서 r=55 / r=105.6, 1·3·5토큰, 충전/빈/확보,
+  단일토큰 `N/M` 분리, 보스 보라 다이얼의 방울 공유와 보스 프레임 null을
+  확인했다. 로컬 비교 캡처는
+  `godot/.tmp/dash_token_hwaljubangul_visual_qa.png`에 보관한다.
 
 ```text
 Use this HUD PNG as the single visual source. Runtime may slice repeatable

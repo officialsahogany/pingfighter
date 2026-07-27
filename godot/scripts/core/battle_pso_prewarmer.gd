@@ -347,6 +347,7 @@ func _prewarm_pillar_overlay_primitives() -> void:
 	_prewarm_pillar_hud_primitives()
 	var gauge_frame := _get_texture(BattleResources.GAUGE_ORB_FRAME_TEXTURE_PATH)
 	var dash_frame := _get_texture(BattleResources.DASH_TOKEN_FRAME_TEXTURE_PATH)
+	var dash_bell_cell := _get_texture(BattleResources.DASH_TOKEN_BELL_CELL_TEXTURE_PATH)
 	var skill_frame := _get_texture(BattleResources.SKILL_ORB_FRAME_TEXTURE_PATH)
 	var skill_cluster_frame := _get_texture(BattleResources.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH)
 
@@ -389,6 +390,7 @@ func _prewarm_pillar_overlay_primitives() -> void:
 			"dash_recovering": true,
 			"boost_charging_active": true,
 			"frame_texture": dash_frame,
+			"bell_cell_texture": dash_bell_cell,
 			"frame_spin_angle": -32.0,
 		}
 	)
@@ -410,6 +412,7 @@ func _prewarm_pillar_overlay_primitives() -> void:
 			"dash_divider_anim_progress": 1.0,
 			"compact_fallback_frame": true,
 			"show_half_label": false,
+			"bell_cell_texture": dash_bell_cell,
 			"glass_rim_color": Color(0.86, 0.56, 1.0, 1.0),
 			"orb_outer_glow_color": Color(0.62, 0.26, 1.0, 1.0),
 			"orb_metal_dark": Color(0.10, 0.06, 0.16, 1.0),

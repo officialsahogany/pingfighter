@@ -17,6 +17,7 @@ const Smasher25DSheetOverride := preload("res://scripts/core/smasher_25d_sheet_o
 const PINGPONG_BALL_TEXTURE_PATH := BattleCoreTexturePaths.PINGPONG_BALL_TEXTURE_PATH
 const GAUGE_ORB_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.GAUGE_ORB_FRAME_TEXTURE_PATH
 const DASH_TOKEN_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.DASH_TOKEN_FRAME_TEXTURE_PATH
+const DASH_TOKEN_BELL_CELL_TEXTURE_PATH := BattleCoreTexturePaths.DASH_TOKEN_BELL_CELL_TEXTURE_PATH
 const SKILL_ORB_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SKILL_ORB_FRAME_TEXTURE_PATH
 const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
 const VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := BattleCoreTexturePaths.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH
@@ -820,6 +821,7 @@ func _get_core_texture_specs() -> Array:
 		_texture_spec(["pingpong_ball_texture"], PINGPONG_BALL_TEXTURE_PATH),
 		_texture_spec(["gauge_orb_frame_texture"], GAUGE_ORB_FRAME_TEXTURE_PATH),
 		_texture_spec(["dash_token_frame_texture"], DASH_TOKEN_FRAME_TEXTURE_PATH),
+		_texture_spec(["dash_token_bell_cell_texture"], DASH_TOKEN_BELL_CELL_TEXTURE_PATH),
 		_texture_spec(["skill_orb_frame_texture"], SKILL_ORB_FRAME_TEXTURE_PATH),
 		_texture_spec(["smasher_skill_cluster_frame_texture"], SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),
 		_texture_spec(["viper_skill_cluster_frame_texture"], VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),

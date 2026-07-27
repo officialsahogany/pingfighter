@@ -310,6 +310,7 @@ func _draw_stage1_pillar_ui(
 	ui_context["dash_flash_duration"] = feedback.get_dash_flash_duration() if feedback != null else 0.55
 	ui_context["dash_divider_anim_progress"] = feedback.get_dash_divider_anim_progress() if feedback != null else 1.0
 	ui_context["dash_frame_texture"] = _get_value(textures, "dash_token_frame_texture")
+	ui_context["dash_token_bell_cell_texture"] = _get_value(textures, "dash_token_bell_cell_texture")
 	ui_context["dash_frame_spin_angle"] = orb_state.get_dash_token_spin_angle(now_msec) if orb_state != null else 0.0
 	ui_context["sensor_context"] = sensor_context
 	ui_context["lingpet_runtime"] = lingpet_runtime
