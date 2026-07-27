@@ -12,14 +12,14 @@
 |---|---|---|---|---|
 | 1 | 세라비(orbi) · **라이브** | 중력가속 `orbi_gravity_accel` | `orbi_ring_orbit_skillcard_imagegen_v1.png` | 범용 링오빗 아트 재사용 |
 | 2 | 세라비(orbi) · **라이브** | 난쟁이마술 `orbi_dwarf_magic` | `orbi_ring_orbit_skillcard_imagegen_v1.png` | **1번과 동일 파일** → 두 스킬 구분 불가 |
-| 3 | 오니마루(onimaru) · **F7 디버그** | 뿔박치기 `onimaru_headbutt` | `onimaru_lingpet_live2d_anchor_v2_amber.png` | 라투디 앵커 재사용 |
+| 3 | 방망깨비(onimaru) · **F7 디버그** | 뿔박치기 `onimaru_headbutt` | `onimaru_lingpet_live2d_anchor_v2_amber.png` | 라투디 앵커 재사용 |
 | 4 | 라호세트(rahoset) · **F7 디버그** | 모래감옥 `rahoset_sand_prison` | `rahoset_lingpet_live2d_anchor_v1.png` | 라투디 앵커 재사용 |
 
 우선순위:
 - **P0 = 세라비 2종.** `enabled: true` 정식 부화풀 펫이라 실제 노출되고, 두 스킬이
   카드·아이콘을 **완전히 같은 파일**로 공유해 인게임에서 구분되지 않음. 두 카드는
   **한눈에 서로 다르게** 읽혀야 함(아래 §3.1/§3.2 distinguishing 참조).
-- **P1 = 오니마루·라호세트.** `enabled: false` + `debug_enabled: true`(부화풀 밖 F7 전용).
+- **P1 = 방망깨비·라호세트.** `enabled: false` + `debug_enabled: true`(부화풀 밖 F7 전용).
   카드/아이콘 아트는 만들되, **이 작업이 정식 승격(enabled 플립)을 의미하지 않음.**
   `enabled` 값은 그대로 두고 카드/아이콘만 교체.
 
@@ -103,14 +103,14 @@
   > trail, downscaling shrink rings around the tiny boss, mystical light-dust motif; distinct
   > from a gravity well (no ball-lift, no vortex), no text, no border.
 
-### 3.3 오니마루 뿔박치기 `onimaru_headbutt` — Horn Charge  [P1 · 디버그]
+### 3.3 방망깨비 뿔박치기 `onimaru_headbutt` — Horn Charge  [P1 · 디버그]
 
 - **정체성 앵커**: `res://assets/sprites/lingpet/onimaru_lingpet_live2d_anchor_v2_amber.png`
   (붉은 도깨비 오니, 앰버/골드 링파츠 젬 팔레트, 뿔).
-- **컨셉**: 오니마루가 **뿔을 앞세워 보스에게 돌진**, 착지 순간 **지면 강타 → 지진
+- **컨셉**: 방망깨비가 **뿔을 앞세워 보스에게 돌진**, 착지 순간 **지면 강타 → 지진
   충격파/흙먼지.** 단일 커밋 박치기.
 - **팔레트**: 붉은 오니 바디 + 앰버/골드 젬, 주황-적색 임팩트 버스트, 방사형 충격파/먼지 링.
-- **구도(와이드)**: 머리를 낮추고 뿔을 앞세워 돌진하는 오니마루, 모션 스트릭 → 어두운 보스
+- **구도(와이드)**: 머리를 낮추고 뿔을 앞세워 돌진하는 방망깨비, 모션 스트릭 → 어두운 보스
   실루엣에 충돌, 방사형 충격파 + 지진 균열 + 흙먼지.
 - **프롬프트**:
   > Wide Onimaru Horn Charge Lingpet skill card: fierce cute red oni lingpet with horns and

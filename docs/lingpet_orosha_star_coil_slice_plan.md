@@ -247,7 +247,7 @@ custom 프롬프트로 우기지 말고 generate_pose 선행.
 | 8 | `lingpet_egg_runtime.gd` | `launch_context` 이미 전달(변경 없음). reconcile 단일-풀 `resolve_single_unlock` 경로 확인(§6-7) |
 | 9 | `lingpet_rail_card.gd` + `character_info_overlay_lingpet_*` | 스냅샷 `star_coil_*` 키 + 쿨타임/둔화 표시(effective cooldown) |
 | 10 | `game_audio.gd` | ✅ BIND 스퀴시 SE 배선 완료 (아래 노트) |
-| 11 | 카탈로그 플래그 | 잠정 `enabled:false` + `debug_enabled:true`(F7 QA). 프로덕션 사인오프 시 `enabled:true` + `debug_enabled:false`(밀쿠링/루미온 선례) |
+| 11 | 카탈로그 플래그 | 잠정 `enabled:false` + `debug_enabled:true`(F7 QA). 프로덕션 사인오프 시 `enabled:true` + `debug_enabled:false`(밀쿠링/벼락여우 선례) |
 
 **✅ BIND 사운드 배선 완료 (2026-06-22)**: 별똬리가 보스를 **휘감는(BIND) 동안** 젖은 스퀴시
 SE 재생. 자산 `res://assets/sounds/lingpet/orosha_star_coil_bind.wav`(ESM Blood&Gore

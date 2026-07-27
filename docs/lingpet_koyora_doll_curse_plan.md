@@ -1,7 +1,7 @@
-# 코요라 액티브 스킬 #2 — 인형의 저주 (Doll Curse) 포팅 기획서
+# 살각시 액티브 스킬 #2 — 인형의 저주 (Doll Curse) 포팅 기획서
 
 원본 PingFighter 아레나 영웅 **연화(maria)** 의 `DollCurse`(`downtown/hero_skills.py:5053`)를
-**코요라 링펫의 2번째 액티브 스킬**로 포팅한다. 원본을 그대로 복제하지 않고, 아래
+**살각시 수호령의 2번째 액티브 스킬**로 포팅한다. 원본을 그대로 복제하지 않고, 아래
 "디자인 변경점"을 적용한 **새 버전**이다.
 
 - 분담: 이 문서는 디자인 노트(신호 계약) + 슬라이스 브리프(백본/스모크/트랩)다.
@@ -15,7 +15,7 @@
 
 | # | 결정 | 값 |
 |---|------|-----|
-| D1 | 인형 위치 | **플레이어(코요라) 쪽 좌우** (코요라/플레이어 중심 ±150px, 화면 하단) |
+| D1 | 인형 위치 | **플레이어(살각시) 쪽 좌우** (살각시/플레이어 중심 ±150px, 화면 하단) |
 | D2 | 공-인형 충돌 | **튕김 + 파괴** (하강 공만 위로 튕긴 뒤 그 인형 파괴) |
 | D3 | 쿨타임 | 30.0초 |
 | D4 | 혼란 모델 | 빛(등대 빔)이 **보스에 닿고 있는 프레임에만** 보스 혼란 |
@@ -224,7 +224,7 @@ puppet_grab가 등장하는 **모든** 지점에 doll_curse 추가:
 `has_visible_effects` / `prewarm`(`_get_skill_for_kind` 경유) / `is_launch_blocked`
 (`is_active()`) / `launch` / `get_launch_origin` / `trigger_launch_feedback` /
 `get_snapshot` / `_get_skill_for_kind` + 테스트 접근자.
-- `get_launch_origin`: `companion_pos`(인형 중심 좌표가 아니라 코요라 위치) 반환.
+- `get_launch_origin`: `companion_pos`(인형 중심 좌표가 아니라 살각시 위치) 반환.
   좌/우 인형 위치는 스킬 내부에서 origin 중심 ±150으로 계산.
 
 ### 7.3 catalog (`lingpet_catalog.gd`)
@@ -234,7 +234,7 @@ Koyora `active_skill_pool`(`:669`)에 2번째 엔트리 추가:
     "id": "koyora_doll_curse",
     "runtime_kind": "doll_curse",
     "name": "인형의 저주",
-    "description": "코요라가 양쪽에 줄에 묶인 목각 저주 인형을 내려보낸다. 인형이 "
+    "description": "살각시가 양쪽에 줄에 묶인 목각 저주 인형을 내려보낸다. 인형이 "
         + "등대처럼 빛을 휘저으며, 그 빛은 Lv.1~5에 따라 35~95% 확률로 보스를 유도하고 "
         + "고레벨일수록 더 집중적으로 비춘다. 빛에 닿는 동안 보스가 혼란에 빠진다. "
         + "하강하는 공을 위로 튕겨 막지만, 공에 맞은 인형은 부서진다. 지속 후 "
@@ -266,7 +266,7 @@ draw(canvas, shake_offset:=Vector2.ZERO)
 is_active() -> bool
 has_visible_effects() -> bool
 get_snapshot() -> Dictionary
-# 선택(코요라 캐스트 연출): has_companion_position_override(),
+# 선택(살각시 캐스트 연출): has_companion_position_override(),
 #   get_companion_position_override(fallback), get_companion_cast_pose_progress()
 # 테스트 접근자: get_confusion_apply_count_for_tests(),
 #   get_doll_destroyed_count_for_tests(), get_phase_for_tests() 등
@@ -350,7 +350,7 @@ get_snapshot() -> Dictionary
   지금 `enabled:false, debug_enabled:true`(F7 디버그 전용)이므로 우선순위는 낮지만,
   F7 디버그 피커/로드아웃에서 skill_id로 특정 스킬을 고르도록 확인할 것
   (`get_active_skill(pet_id, "koyora_doll_curse")` 경로는 이미 존재).
-- **윈드업 vs EMERGE**: `windup_seconds`(코요라 손드는 제스처)와 `EMERGE`(1s 하늘 강하)의
+- **윈드업 vs EMERGE**: `windup_seconds`(살각시 손드는 제스처)와 `EMERGE`(1s 하늘 강하)의
   중복 연출 톤 — 인게임에서 둘 합이 너무 길면 windup→0.
 
 ---
@@ -372,4 +372,4 @@ get_snapshot() -> Dictionary
 | 종료 | 인형 소멸 | **1s 하늘 쪽으로 인형 회수** |
 | 공-인형 | 수호인형이 공 무한 반사 | **하강 공 튕김 + 그 인형 파괴**(자기제한) |
 | 쿨 | 18s | **30s** |
-| 대상 | 아레나 상대 영웅 | **코요라 링펫 → 보스** |
+| 대상 | 아레나 상대 영웅 | **살각시 수호령 → 보스** |

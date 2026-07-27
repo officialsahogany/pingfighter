@@ -1,6 +1,6 @@
-# 루미온 천둥 낙뢰 (Solar Bolt) 슬라이스 플랜 — v1.2
+# 벼락여우 천둥 낙뢰 (Solar Bolt) 슬라이스 플랜 — v1.2
 
-루미온의 **두 번째 액티브 스킬** — 원본 핑파이터 영웅 라(Ra)/호루스의 `SolarBolt`
+벼락여우의 **두 번째 액티브 스킬** — 원본 핑파이터 영웅 라(Ra)/호루스의 `SolarBolt`
 (`downtown/hero_skills.py:16204-16612`, 한글명 "천둥 낙뢰")를 Godot 링펫 액티브로
 포팅한다. 원본은 **공이 시전자 쪽으로 내려올 때 번개로 타격해 상대 방향으로 반사**시키는
 방어형 반사 스킬이며(디바인쉴드 번개 요격 `pingfighter.py:169865-169940`과 동일 로직),
@@ -20,7 +20,7 @@
   자동시전 + ball_vel 쓰기 + can_arm가 ball 키 읽음**),
   `docs/lingpet_monkeyring_banana_slice_plan.md`,
   `docs/lingpet_affinity_system_plan.md` §13 (링코어 게이트 = 이 스킬의 **해금 프레임워크**).
-- **기존 형제 스킬:** 루미온 1번 액티브 = **천둥 뇌구**(`lumion_thunder_orb` /
+- **기존 형제 스킬:** 벼락여우 1번 액티브 = **천둥 뇌구**(`lumion_thunder_orb` /
   `lingpet_thunder_orb_skill.gd`, 구체 발사→보스 폭발→감전). 천둥 낙뢰는 같은 호루스
   킷("ra" = `[SolarBolt, ThunderOrb]`)의 나머지 한 짝.
 - **원본 보조 레퍼런스:** `hero_skills.py` 16273 `_check_ball_conditions`, 16378 `_apply_effect`,
@@ -240,7 +240,7 @@ INF/미존재 센티넬은 launch_context-less 리셋/콜드 경로 가드용. �
   — 이제 원본 음원·피치와 동일.**
   검증: 헤드리스 로드(wav import)·solar_bolt 스모크·경고스캔 통과.
 
-### §6.6 카탈로그 `lingpet_catalog.gd` — 루미온 풀 전환 + 해치 정책
+### §6.6 카탈로그 `lingpet_catalog.gd` — 벼락여우 풀 전환 + 해치 정책
 현재 단일 `active_skill`(466-477) → `active_skill_pool` 배열(maribo 154-185 패턴). solar_bolt를
 두 번째 항목으로. **링코어 모델에서 풀 = 2중1 해금 후보군.**
 
@@ -268,8 +268,8 @@ INF/미존재 센티넬은 launch_context-less 리셋/콜드 경로 가드용. �
      영향 0, 친밀도 작업과 독립적으로 검증 가능.
   2. **카탈로그 풀 노출 + `pick_skill_loadout` 비활성화(no-skill-at-hatch)는 친밀도 해금 작업과 같은
      슬라이스에서 합류.** 그 작업이 active 배정을 소유하면 풀은 자동으로 '해금 후보'로만 읽힌다.
-  3. 기존 저장 루미온 thunder_orb는 `normalize_active_skill_id`로 유지(save-compat).
-  - 스모크: '신규 해치 루미온이 의도된 상태(무보유 또는 default)로 resolve' + '해금 후 의도 액티브
+  3. 기존 저장 벼락여우(`lumion`) thunder_orb는 `normalize_active_skill_id`로 유지(save-compat).
+  - 스모크: '신규 해치 벼락여우가 의도된 상태(무보유 또는 default)로 resolve' + '해금 후 의도 액티브
     resolve' + '기존 세이브 로드'.
 - `effect_text`(478)/`note`(481) 두 스킬 모두 언급하도록 갱신.
 - `_validate_active_skill`(1281)이 풀 각 항목 `cooldown>0`·텍스처 존재 검증 → 카드/아이콘 자산 선행.

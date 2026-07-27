@@ -1,4 +1,4 @@
-# 코요라 인형의 저주 — 등대 빔(빛) VFX 업그레이드 설계 노트
+# 살각시 인형의 저주 — 등대 빔(빛) VFX 업그레이드 설계 노트
 
 [docs/lingpet_koyora_doll_curse_plan.md](lingpet_koyora_doll_curse_plan.md)의 §3(등대 빔)
 **비주얼 품질만** 끌어올리는 슬라이스다. 게임플레이(혼란 적중 / 공-인형 충돌 /
@@ -56,7 +56,7 @@ const BEAM_OUTER_END_HALF_WIDTH := BEAM_LENGTH * tan(BEAM_HALF_ANGLE)  # ≈ 86
 원점 `origin = _get_doll_beam_origin(doll) + shake_offset`, 방향
 `dir = Vector2(cos(beam_angle), sin(beam_angle))`, `perp = Vector2(-dir.y, dir.x)`,
 `end_pos = origin + dir * BEAM_LENGTH`. 모든 색은 일반 알파 블렌드(기존 파일·천둥
-오브와 동일). 분홍 코요라 무녀 톤 유지.
+오브와 동일). 분홍 살각시 무녀 톤 유지.
 
 ### 2.1 파생 파라미터 (draw 진입 시 1회 계산)
 ```

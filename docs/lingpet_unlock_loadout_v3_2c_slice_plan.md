@@ -49,12 +49,12 @@
 | D5 | 선택 해결 | **자동선택 = candidates[0]**(결정론적). QA 디버그 오버라이드 제공. 과거 V3-2c-UI 피커 대체안은 2026-06-30 per-run 개정으로 폐기 | Q1=A + per-run |
 | D6 | 1-엔트리 액티브 풀 (**milkring/nekuring**, volty 아님) | **신규 백엔드 `resolve_single_unlock(pet,type,only_id)`** — unlocked 플래그 + `resolved[key]={selected:only_id}` 직접 기록(pending 없음). reconcile가 pool 크기 1이면 호출 | `set_unlock_choice_candidates`<2 silent + `choose_skill_unlock(real_id)`=invalid_selection → 단일 id는 현 백엔드로 **영영 해금 불가**. 새 API 필수(affinity_state 추가) |
 | D7 | resolved→로드아웃 | `set_pet_loadout` → **`_invalidate_current_loadout_cache`** → `_apply_current_loadout(owner,true,false)`. 새 owner 키 0 | Lazy Applied-Key 트랩. 기존 `lingpet_active_skill_id` 등 재사용 |
-| D8 | 루미온 카탈로그 노출 | 단일 `active_skill` → `active_skill_pool [thunder_orb(=pool[0]), solar_bolt]`. solar_bolt 카드/아이콘 = **임시 placeholder(thunder_orb 재사용), step-3 자산 슬라이스에서 스왑** | "active_skill_pool 노출" + `_validate_active_skill`가 텍스처 존재 요구 |
+| D8 | 벼락여우 카탈로그 노출 | 단일 `active_skill` → `active_skill_pool [thunder_orb(=pool[0]), solar_bolt]`. solar_bolt 카드/아이콘 = **임시 placeholder(thunder_orb 재사용), step-3 자산 슬라이스에서 스왑** | "active_skill_pool 노출" + `_validate_active_skill`가 텍스처 존재 요구 |
 | D9 | 스코프 (2026-06-30 정정) | **1st/2nd 액티브 + 1st/2nd 패시브 로드아웃 배선.** 2nd 액티브/패시브 unlock은 resolved choice에서 `second_active_id` / `second_passive_id`를 뽑아 loadout slot-1에 기록한다. | `lingpet_unlock_loadout_reconciler.gd`가 final two-slot loadout writes를 소유한다. 봉인: `lingpet_unlock_loadout_v3_2c_smoke.gd::_verify_second_unlock_flags_fill_slot_one`. |
 | D10 | 펫 전환 / 디버그 | 전환 시 reconcile가 **활성 펫의** `resolved_unlock_choices`에서 슬롯 재도출(per-pet). F7 `debug_grant_and_activate_pet`는 unlock 게이트 우회(직접 배정 유지) | affinity_state는 per-pet. 디버그는 별도 표면 |
 | D11 | no-skill 컴패니언 | 존재·패트롤 O, 자동캐스트 X(이미 안전). 레일/TAB는 빈 액티브에 **"미해금" 상태** 표기 | 빈 name 그대로 두면 공백 렌더 |
 
-함의: 이 슬라이스는 **펫-불문 코어 배선**(no-skill-at-hatch + 해금→로드아웃) + **루미온 풀 노출**이다.
+함의: 이 슬라이스는 **펫-불문 코어 배선**(no-skill-at-hatch + 해금→로드아웃) + **벼락여우 풀 노출**이다.
 자동선택이라 **체감 동작은 오늘과 유사**(해치 직후 Lv.1 도달 시 액티브 자동 해금)하되 구조는
 unlock 카드 경로로 정정된다. 과거 "플레이어가 2중1 선택" V3-2c-UI는
 per-run 개정 후 구현 대상이 아니다.
@@ -122,7 +122,7 @@ gameplay 읽기(`get_active_skill(0)`). 레일/TAB는 synced snapshot에서 자�
 
 ## §3 후보 선택 규칙 (D3/D4)
 
-**액티브 후보:** `LingpetCatalog.get_active_skill_pool(pet_id)`의 id들. 루미온 = `[lumion_thunder_orb,
+**액티브 후보:** `LingpetCatalog.get_active_skill_pool(pet_id)`의 id들. 벼락여우 = `[lumion_thunder_orb,
 lumion_solar_bolt]`(D8 노출 후). pool 크기 1이면 D6 단일-후보 직접 해결.
 
 **패시브 후보 (시드 랜덤 2):**
@@ -191,7 +191,7 @@ _seeded_shuffle(remaining, rng); var second_passive_candidates := [remaining[0],
      를 no-skill로 보고 빈 스킬 필드 emit(`get_active_skill` 호출 전). 안 하면 빈 로드아웃이어도
      레일/TAB가 pool[0]을 "장착됨"으로 표시 → 미해금(D11) 안 나옴. **스모크는 스냅샷
      (`companion_skill_id==""`)에 단언**(로드아웃 배열만 보면 버그가 green으로 통과).
-3. **`lingpet_catalog.gd`** — 루미온 단일 `active_skill`(:468-479) → `active_skill_pool`(D8). solar_bolt
+3. **`lingpet_catalog.gd`** — 벼락여우 단일 `active_skill`(:468-479) → `active_skill_pool`(D8). solar_bolt
    엔트리: **`runtime_kind:"solar_bolt"`**(REQUIRED_ACTIVE_SKILL_KEYS — 누락 시 `_validate_active_skill_data`
    헤드리스 실패), name "천둥 낙뢰", cooldown 22, refire_chance_pct 50, **card_texture_path = 임시
    thunder_orb 재사용**(검증은 path 존재만 보고 uniqueness/중복-id 미검사 → 안전), icon은 선택. 단일
@@ -337,7 +337,7 @@ func _reconcile_unlock_choices(owner) -> void:
 - **V3-6** — 요구치/쿨타임/클릭 수치 튜닝(12스테이지 풀런 기준).
 
 **후속 착수 시 확인:**
-1. 임시 자동선택 = candidates[0](pool 순서) — 루미온은 thunder_orb 자동픽. QA는 디버그로 solar_bolt 강제.
+1. 임시 자동선택 = candidates[0](pool 순서) — 벼락여우는 thunder_orb 자동픽. QA는 디버그로 solar_bolt 강제.
 2. "미해금" 표기 문구/위치(레일/TAB) — 기존 UI 톤 따름.
 
 ---
@@ -353,7 +353,7 @@ func _reconcile_unlock_choices(owner) -> void:
 | resolved 쓰기 | `loadout_state.set_pet_loadout:109` → `egg_runtime._invalidate_current_loadout_cache:1449` → `_apply_current_loadout:1429` |
 | 2중1 백엔드 | `affinity_state.gd:203/221/229/237` (seed/pending/resolved/choose) |
 | 효과레벨 | `lingpet_current_profile.gd` slot-aware active/passive effective level helpers |
-| 루미온 카탈로그 | `lingpet_catalog.gd:468-479` (단일 active_skill → 풀 전환) |
+| 벼락여우 카탈로그 | `lingpet_catalog.gd:468-479` (단일 active_skill → 풀 전환) |
 | 합성 폴백 | `affinity_state.gd:964` `_default_unlock_candidates` |
 | 휘발 세이브 | `lingpet_save_store.gd` volatile clear + `LingpetAffinityState` run-state export/import. `lingpet_affinity_store.gd`는 v5 meta-only |
 | 2슬롯 런타임 LIVE | `egg_runtime.gd:1328` `_is_second_active_slot_enabled` / smoke 4381-4405 |
