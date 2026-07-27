@@ -26,6 +26,8 @@ func bounce(
 ) -> Dictionary:
 	var ball_pos: Vector2 = _get_vector2(context, "ball_pos", Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(context, "ball_vel", Vector2.ZERO)
+	if is_player:
+		ball_vel = _restore_perk_resume_suppressed_speed(ball_vel, context)
 	var pre_hit_speed: float = ball_vel.length()
 	var incoming_dx: float = ball_vel.x
 	var paddle_center_x: float = paddle_x + paddle_w * 0.5
@@ -209,6 +211,25 @@ func _raise_cap(
 	if current_cap >= INF:
 		return
 	result[key] = current_cap + increase
+
+
+func _restore_perk_resume_suppressed_speed(ball_vel: Vector2, context: Dictionary) -> Vector2:
+	# 퍽(스타포인트) 선택 모달 복귀 안전장치는 하강 중인 공의 ball_vel "크기"를 매 프레임
+	# original*ratio(하한 0.30)로 덮어쓴다(runtime_perk_resume_safety.gd). 그 램프는
+	# update_ball보다 먼저 도는데(battle_frame_flow_controller: update_runtime_perk_resume
+	# -> update_ball), 기존 해제 조건은 "공이 위로 움직일 때"라 타격 프레임에는 아직
+	# 하강 중이다 -> 해제가 한 프레임 늦어 이번 타구의 입력 공속이 눌린 채 확정된다.
+	# 그 결과 안전장치가 반응시간이 아니라 페널티가 된다: 천뢰격/벽력타가 눌린 속도로
+	# target_speed / original_speed를 시딩해 순항속이 떨어지고(콤보증폭칩 장착 시에는
+	# 발사 속도 자체가), 보스 카운터 복원 속도까지 오염된다.
+	# 플레이어가 실제로 받아친 순간 안전장치는 목적을 다했으므로, 방향은 그대로 두고
+	# 크기만 모달 이전 원속으로 되돌린다(초과 금지 = 램프가 없었을 때와 동일한 입력).
+	# 램프 자체의 teardown은 기존 상승-즉시-해제가 다음 프레임에 처리한다.
+	var pre_modal_speed: float = _get_vector2(context, "perk_resume_original_ball_vel", Vector2.ZERO).length()
+	var current_speed: float = ball_vel.length()
+	if current_speed <= 0.001 or pre_modal_speed <= current_speed + 0.001:
+		return ball_vel
+	return ball_vel * (pre_modal_speed / current_speed)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

@@ -344,6 +344,18 @@ rules: `docs/godot_runtime_traps.md`.
 `frames−1`. 씰은 `step_motion` 관통 + **변위 px 결과** 단언. Full rule:
 `docs/godot_runtime_traps.md`.
 
+## Godot 회복 램프 플레이어 재개입 트랩 (해제는 한 프레임 늦다)
+
+공유 `ball_vel` **크기**를 매 프레임 덮어쓰는 회복/감속 램프(퍽 모달 리줌 안전장치)는
+`update_ball`보다 먼저 돌므로, "공이 위로 가면 해제"는 **타격 프레임엔 아직 하강
+중**이라 구조적으로 한 프레임 늦다 → 스킬이 눌린 입력 공속으로 target/original을
+시딩(천뢰격 순항 -25%, 보스 카운터 복원 -41%, 콤보칩 발사 -18%; 발사 첫 프레임은
+캡 포화로 **같아 보여 재현에 실패한다**). 플레이어 타격의 입력 공속을 `bounce()`
+단일 지점에서 원속 복원(is_player 한정·크기만·max 의미론). 프리즈 중 쿨다운 미감소로
+차단이 14→24프레임 부풀리는 동반 결함도 같이 본다. 씰 주의: RNG 시드 고정,
+실 발동 미주입 시 공허-GREEN, 발사크기-only 레그는 변별력 0.
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot Per-Frame Probability Roll Trap
 
 A `chance_pct` rolled EVERY frame inside a multi-frame window compounds to

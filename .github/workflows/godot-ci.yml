@@ -143,6 +143,7 @@ env:
     res://tests/player_socket_glow_smoke.gd
     res://tests/player_socket_part_overlay_smoke.gd
     res://tests/lingpet_mount_state_smoke.gd
+    res://tests/perk_resume_player_bounce_speed_restore_smoke.gd
 
 jobs:
   godot-ci:
