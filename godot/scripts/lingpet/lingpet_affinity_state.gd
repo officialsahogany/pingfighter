@@ -3,6 +3,9 @@ extends RefCounted
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetDurationState := preload("res://scripts/lingpet/lingpet_duration_state.gd")
+const LingpetEnhancementBuffStore := preload(
+	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
+)
 
 const SOURCE_ROUND_COMMIT := "round_commit"
 const SOURCE_BALL_HIT := "ball_hit"
@@ -12,17 +15,17 @@ const SOURCE_VICTORY := "victory"
 const SOURCE_STAGE_CLEAR := "stage_clear"
 const SOURCE_RING_CORE_UPGRADE := "ring_core_upgrade"
 
-const REWARD_TYPE_ACTIVE_UNLOCK := "active_unlock"
-const REWARD_TYPE_PASSIVE_UNLOCK := "passive_unlock"
-const REWARD_TYPE_SECOND_ACTIVE_UNLOCK := "second_active_unlock"
-const REWARD_TYPE_SECOND_PASSIVE_UNLOCK := "second_passive_unlock"
-const REWARD_TYPE_ACTIVE_SKILL := "active_skill"
-const REWARD_TYPE_PASSIVE_SKILL := "passive_skill"
-const REWARD_TYPE_MOBILITY := "mobility"
-const REWARD_TYPE_DEFENSE := "defense"
-const REWARD_TYPE_GAUGE := "gauge"
+const REWARD_TYPE_ACTIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK
+const REWARD_TYPE_PASSIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK
+const REWARD_TYPE_SECOND_ACTIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_ACTIVE_UNLOCK
+const REWARD_TYPE_SECOND_PASSIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_PASSIVE_UNLOCK
+const REWARD_TYPE_ACTIVE_SKILL := LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL
+const REWARD_TYPE_PASSIVE_SKILL := LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_SKILL
+const REWARD_TYPE_MOBILITY := LingpetEnhancementBuffStore.REWARD_TYPE_MOBILITY
+const REWARD_TYPE_DEFENSE := LingpetEnhancementBuffStore.REWARD_TYPE_DEFENSE
+const REWARD_TYPE_GAUGE := LingpetEnhancementBuffStore.REWARD_TYPE_GAUGE
 const REWARD_TYPE_TITLE := "title"
-const REWARD_TYPE_NO_REWARD := "no_reward"
+const REWARD_TYPE_NO_REWARD := LingpetEnhancementBuffStore.REWARD_TYPE_NO_REWARD
 
 const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FLIGHT := "flight"
@@ -30,11 +33,11 @@ const MOTION_STYLE_FLIGHT := "flight"
 const MAX_LEVEL := 30
 const MAX_ENHANCEMENT_CHIPS := 5
 const ENHANCEMENT_CHIP_BONUS := 0.20
-const SKILL_LEVEL_MAX := 5
+const SKILL_LEVEL_MAX := LingpetEnhancementBuffStore.SKILL_LEVEL_MAX
 const RING_CORE_CAP_UNCHANGED := -1
-const MAX_MOBILITY_STACKS := 6
-const MAX_DEFENSE_STACKS := 2
-const MAX_GAUGE_STACKS := 4
+const MAX_MOBILITY_STACKS := LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS
+const MAX_DEFENSE_STACKS := LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS
+const MAX_GAUGE_STACKS := LingpetEnhancementBuffStore.MAX_GAUGE_STACKS
 const RING_CORE_OFFER_COOLDOWN_SCREENS := 3
 const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title"]
 const SATIETY_KEY := LingpetDurationState.SAVE_VALUE_KEY
@@ -253,7 +256,8 @@ func _sanitize_pet_run_state(pet_data: Dictionary) -> Dictionary:
 	var pet_copy := pet_data.duplicate(true)
 	for legacy_key in LEGACY_PET_RUN_STATE_KEYS:
 		pet_copy.erase(legacy_key)
-	return _duration_state.sanitize_pet_run_state(pet_copy)
+	var duration_copy := _duration_state.sanitize_pet_run_state(pet_copy)
+	return LingpetEnhancementBuffStore.sanitize_pet_run_state(duration_copy)
 
 
 func is_dirty() -> bool:
@@ -963,22 +967,7 @@ static func get_cumulative_rewards_for_level(level: int) -> Dictionary:
 
 
 static func get_empty_reward_counts() -> Dictionary:
-	return {
-		"active_unlocked": false,
-		"passive_unlocked": false,
-		"second_active_unlocked": false,
-		"second_passive_unlocked": false,
-		"active_skill_bonus": 0,
-		"passive_skill_bonus": 0,
-		"second_active_skill_bonus": 0,
-		"second_passive_skill_bonus": 0,
-		"mobility_stacks": 0,
-		"defense_stacks": 0,
-		"gauge_stacks": 0,
-		"support_stacks": 0,
-		"title_unlocked": false,
-		"signature": _empty_reward_signature(),
-	}
+	return LingpetEnhancementBuffStore.get_empty_reward_counts()
 
 
 func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: Dictionary) -> Dictionary:
@@ -1237,56 +1226,22 @@ func _has_pending_rollable_second_unlock(pet_data: Dictionary) -> bool:
 
 
 func _resolve_effective_reward_card(pet_data: Dictionary, card: Dictionary) -> Dictionary:
-	var card_type := str(card.get("type", ""))
-	if _can_apply_reward_card(pet_data, card):
-		return card.duplicate(true)
-	var replacement := _select_replacement_reward_card(pet_data)
-	if replacement.is_empty():
-		return {
-			"type": REWARD_TYPE_NO_REWARD,
-			"label": str(LABEL_BY_REWARD_TYPE.get(REWARD_TYPE_NO_REWARD, "보상 없음")),
-			"replaced_type": card_type,
-			"no_reward": true,
-		}
-	var replacement_card := replacement.duplicate(true)
-	replacement_card["replaced_type"] = card_type
-	return replacement_card
+	return LingpetEnhancementBuffStore.resolve_effective_reward_card(
+		pet_data,
+		card,
+		LABEL_BY_REWARD_TYPE,
+		_pet_has_second_active_skill(pet_data),
+		_pet_has_second_passive_skill(pet_data)
+	)
 
 
 func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
-	var counts := _reward_counts_snapshot(pet_data)
-	var card_type := str(card.get("type", ""))
-	var skill_slot := int(card.get("skill_slot", 0))
-	match card_type:
-		REWARD_TYPE_ACTIVE_UNLOCK:
-			return not bool(counts.get("active_unlocked", false))
-		REWARD_TYPE_PASSIVE_UNLOCK:
-			return not bool(counts.get("passive_unlocked", false))
-		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
-			# A pet whose catalog active pool only has one skill has nothing to put in
-			# the second active slot, so granting the unlock would set the flag but leave
-			# an empty second-active card (the reconciler erases the primary from the
-			# candidate pool, leaving zero candidates). WIP pets ship with one active
-			# skill today and their second skill is authored later; gating on pool size
-			# auto-enables this unlock the moment a second active skill lands, with no
-			# further code change. The reward level is recovered into the next available
-			# reward by _select_replacement_reward_card.
-			return not bool(counts.get("second_active_unlocked", false)) and _pet_has_second_active_skill(pet_data)
-		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
-			return not bool(counts.get("second_passive_unlocked", false)) and _pet_has_second_passive_skill(pet_data)
-		REWARD_TYPE_ACTIVE_SKILL:
-			return _can_apply_skill_bonus(pet_data, counts, true, skill_slot)
-		REWARD_TYPE_PASSIVE_SKILL:
-			return _can_apply_skill_bonus(pet_data, counts, false, skill_slot)
-		REWARD_TYPE_MOBILITY:
-			return int(counts.get("mobility_stacks", 0)) < MAX_MOBILITY_STACKS
-		REWARD_TYPE_DEFENSE:
-			return _normalize_motion_style(str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL))) == MOTION_STYLE_PATROL and int(counts.get("defense_stacks", 0)) < MAX_DEFENSE_STACKS
-		REWARD_TYPE_GAUGE:
-			return int(counts.get("gauge_stacks", 0)) < MAX_GAUGE_STACKS
-		REWARD_TYPE_NO_REWARD:
-			return true
-	return true
+	return LingpetEnhancementBuffStore.can_apply_reward_card(
+		pet_data,
+		card,
+		_pet_has_second_active_skill(pet_data),
+		_pet_has_second_passive_skill(pet_data)
+	)
 
 
 # When a drawn card cannot apply (maxed stat, locked/maxed skill, already-done
@@ -1300,69 +1255,27 @@ func _can_apply_reward_card(pet_data: Dictionary, card: Dictionary) -> bool:
 # capacity (slot 1, then slot 2 once its unlock has landed). {} means the pet is
 # genuinely fully enhanced — the only true NO_REWARD case now.
 func _select_replacement_reward_card(pet_data: Dictionary) -> Dictionary:
-	var motion_style := _normalize_motion_style(str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)))
-	var candidates: Array[Dictionary] = []
-	if motion_style == MOTION_STYLE_PATROL:
-		candidates.append(_make_reward_card(REWARD_TYPE_MOBILITY))
-		candidates.append(_make_reward_card(REWARD_TYPE_GAUGE))
-		candidates.append(_make_reward_card(REWARD_TYPE_DEFENSE))
-	else:
-		candidates.append(_make_reward_card(REWARD_TYPE_GAUGE))
-		candidates.append(_make_reward_card(REWARD_TYPE_MOBILITY))
-	candidates.append(_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 1))
-	candidates.append(_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 1))
-	candidates.append(_make_reward_card(REWARD_TYPE_ACTIVE_SKILL, 2))
-	candidates.append(_make_reward_card(REWARD_TYPE_PASSIVE_SKILL, 2))
-	for candidate in candidates:
-		if _can_apply_reward_card(pet_data, candidate):
-			return candidate
-	return {}
+	return LingpetEnhancementBuffStore.select_replacement_reward_card(
+		pet_data,
+		LABEL_BY_REWARD_TYPE,
+		_pet_has_second_active_skill(pet_data),
+		_pet_has_second_passive_skill(pet_data)
+	)
 
 
 func _apply_reward_to_pet_counts(pet_data: Dictionary, reward: Dictionary) -> void:
-	var counts := _reward_counts_snapshot(pet_data)
-	_apply_reward_type_to_counts(counts, str(reward.get("type", "")), int(reward.get("skill_slot", 0)))
-	if bool(reward.has("title")):
-		counts["title_unlocked"] = true
-	counts["signature"] = _build_reward_signature_from_counts(counts)
-	pet_data["reward_counts"] = counts
+	LingpetEnhancementBuffStore.apply_reward_to_pet_counts(pet_data, reward)
 	if _is_unlock_reward_type(str(reward.get("type", ""))):
 		_record_pending_unlock_choice(pet_data, reward)
 
 
 static func _apply_reward_type_to_counts(counts: Dictionary, reward_type: String, skill_slot: int = 0) -> void:
-	match reward_type:
-		REWARD_TYPE_ACTIVE_UNLOCK:
-			counts["active_unlocked"] = true
-		REWARD_TYPE_PASSIVE_UNLOCK:
-			counts["passive_unlocked"] = true
-		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
-			counts["second_active_unlocked"] = true
-		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
-			counts["second_passive_unlocked"] = true
-		REWARD_TYPE_ACTIVE_SKILL:
-			if skill_slot == 2:
-				counts["second_active_skill_bonus"] = int(counts.get("second_active_skill_bonus", 0)) + 1
-			else:
-				counts["active_skill_bonus"] = int(counts.get("active_skill_bonus", 0)) + 1
-		REWARD_TYPE_PASSIVE_SKILL:
-			if skill_slot == 2:
-				counts["second_passive_skill_bonus"] = int(counts.get("second_passive_skill_bonus", 0)) + 1
-			else:
-				counts["passive_skill_bonus"] = int(counts.get("passive_skill_bonus", 0)) + 1
-		REWARD_TYPE_MOBILITY:
-			counts["mobility_stacks"] = int(counts.get("mobility_stacks", 0)) + 1
-		REWARD_TYPE_DEFENSE:
-			counts["defense_stacks"] = int(counts.get("defense_stacks", 0)) + 1
-		REWARD_TYPE_GAUGE:
-			counts["gauge_stacks"] = int(counts.get("gauge_stacks", 0)) + 1
-	counts["support_stacks"] = int(counts.get("defense_stacks", 0)) + int(counts.get("gauge_stacks", 0))
+	LingpetEnhancementBuffStore.apply_reward_type_to_counts(counts, reward_type, skill_slot)
 
 
 func _ensure_reward_state(pet_id: String, pet_data: Dictionary) -> void:
 	_ensure_unlock_state(pet_id, pet_data)
-	if not pet_data.has("reward_counts"):
-		pet_data["reward_counts"] = get_empty_reward_counts()
+	LingpetEnhancementBuffStore.initialize_pet_state(pet_data)
 	if not pet_data.has("reward_history"):
 		pet_data["reward_history"] = []
 	if not _has_reward_deck(pet_data):
@@ -1474,14 +1387,6 @@ func _has_reward_deck(pet_data: Dictionary) -> bool:
 	return raw_deck is Array and (raw_deck as Array).size() >= MAX_LEVEL
 
 
-func _available_active_skill_bonus_slots(pet_data: Dictionary) -> int:
-	return maxi(0, SKILL_LEVEL_MAX - int(pet_data.get("active_skill_base_level", 1)))
-
-
-func _available_passive_skill_bonus_slots(pet_data: Dictionary) -> int:
-	return maxi(0, SKILL_LEVEL_MAX - int(pet_data.get("passive_skill_base_level", 1)))
-
-
 func _pet_has_second_active_skill(pet_data: Dictionary) -> bool:
 	var pet_id := str(pet_data.get("pet_id", "")).strip_edges()
 	if pet_id == "":
@@ -1495,29 +1400,6 @@ func _pet_has_second_passive_skill(pet_data: Dictionary) -> bool:
 	if pet_id == "":
 		return true
 	return LingpetCatalog.get_passive_skill_pool(pet_id).size() >= 2
-
-
-func _can_apply_skill_bonus(pet_data: Dictionary, counts: Dictionary, active: bool, skill_slot: int) -> bool:
-	var normalized_slot := 1 if skill_slot <= 1 else 2
-	if active:
-		if normalized_slot == 2:
-			return (
-				bool(counts.get("second_active_unlocked", false))
-				and int(counts.get("second_active_skill_bonus", 0)) < SKILL_LEVEL_MAX - 1
-			)
-		return (
-			bool(counts.get("active_unlocked", false))
-			and int(counts.get("active_skill_bonus", 0)) < _available_active_skill_bonus_slots(pet_data)
-		)
-	if normalized_slot == 2:
-		return (
-			bool(counts.get("second_passive_unlocked", false))
-			and int(counts.get("second_passive_skill_bonus", 0)) < SKILL_LEVEL_MAX - 1
-		)
-	return (
-		bool(counts.get("passive_unlocked", false))
-		and int(counts.get("passive_skill_bonus", 0)) < _available_passive_skill_bonus_slots(pet_data)
-	)
 
 
 func _record_pending_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> void:
@@ -1727,15 +1609,7 @@ func _get_existing_pet_data(pet_id: String) -> Dictionary:
 
 
 func _reward_counts_snapshot(pet_data: Dictionary) -> Dictionary:
-	var raw_counts: Variant = pet_data.get("reward_counts", {})
-	var counts := get_empty_reward_counts()
-	if raw_counts is Dictionary:
-		for key in counts.keys():
-			if (raw_counts as Dictionary).has(key):
-				counts[key] = (raw_counts as Dictionary).get(key)
-	counts["support_stacks"] = int(counts.get("defense_stacks", 0)) + int(counts.get("gauge_stacks", 0))
-	counts["signature"] = _build_reward_signature_from_counts(counts)
-	return counts
+	return LingpetEnhancementBuffStore.reward_counts_snapshot(pet_data)
 
 
 func _ensure_unlock_state(pet_id: String, pet_data: Dictionary) -> void:
@@ -1771,24 +1645,11 @@ func _migrate_seeded_pending_unlock_choices_to_random_resolved(pet_data: Diction
 
 
 static func _empty_reward_signature() -> String:
-	return "0|0|0|0|0|0|0|0|0|0|0|0"
+	return LingpetEnhancementBuffStore.empty_reward_signature()
 
 
 static func _build_reward_signature_from_counts(counts: Dictionary) -> String:
-	return "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d" % [
-		1 if bool(counts.get("active_unlocked", false)) else 0,
-		1 if bool(counts.get("passive_unlocked", false)) else 0,
-		1 if bool(counts.get("second_active_unlocked", false)) else 0,
-		1 if bool(counts.get("second_passive_unlocked", false)) else 0,
-		int(counts.get("active_skill_bonus", 0)),
-		int(counts.get("passive_skill_bonus", 0)),
-		int(counts.get("second_active_skill_bonus", 0)),
-		int(counts.get("second_passive_skill_bonus", 0)),
-		int(counts.get("mobility_stacks", 0)),
-		int(counts.get("defense_stacks", 0)),
-		int(counts.get("gauge_stacks", 0)),
-		1 if bool(counts.get("title_unlocked", false)) else 0,
-	]
+	return LingpetEnhancementBuffStore.build_reward_signature(counts)
 
 
 func _build_blocked_result(pet_id: String, source: String, reason: String) -> Dictionary:
