@@ -134,8 +134,8 @@ func _verify_launch_feedback_uses_ported_dollcurse_sound() -> void:
 	_expect(audio.dollcurse_count == 1, "Doll Curse launch feedback should use the ported dollcurse sound cue")
 	_expect(audio.launch_count == 0, "Doll Curse should not fall back to generic active-item audio when dollcurse audio exists")
 
-	var host_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
-	_expect(host_src.find("play_lingpet_doll_curse") >= 0 and host_src.find("play_stage3_dollcurse") >= 0, "Doll Curse host feedback should prefer the lingpet cue and keep the original Stage 3 fallback")
+	var feedback_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
+	_expect(feedback_src.find("play_lingpet_doll_curse") >= 0 and feedback_src.find("play_stage3_dollcurse") >= 0, "Doll Curse feedback router should prefer the lingpet cue and keep the original Stage 3 fallback")
 	var audio_src := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
 	_expect(audio_src.find("func play_lingpet_doll_curse") >= 0 and audio_src.find("stage3_dollcurse_sfx") >= 0, "game_audio should expose a lingpet Doll Curse method backed by the ported dollcurse.wav player")
 
@@ -165,9 +165,10 @@ func _verify_wooden_dance_sheet_loads_and_keeps_procedural_fallback() -> void:
 		_expect(texture.get_width() == 512 and texture.get_height() == 512, "Doll Curse wooden dance sheet should use 128px cells")
 
 	var src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_doll_curse_skill.gd")
+	var renderer_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_doll_curse_renderer.gd")
 	_expect(src.find("DOLL_SHEET_PATH") >= 0 and src.find("koyora_doll_curse_wooden_marionette_dance.png") >= 0, "Doll Curse runtime should reference the wooden marionette dance sheet")
-	_expect(src.find("draw_texture_rect_region") >= 0, "Doll Curse runtime should render sheet cells when the PNG loads")
-	_expect(src.find("_draw_doll_procedural") >= 0, "Doll Curse runtime should keep the procedural doll fallback")
+	_expect(renderer_src.find("draw_texture_rect_region") >= 0, "Doll Curse renderer should render sheet cells when the PNG loads")
+	_expect(renderer_src.find("_draw_doll_procedural") >= 0, "Doll Curse renderer should keep the procedural doll fallback")
 
 	var skill: Object = load("res://scripts/lingpet/lingpet_doll_curse_skill.gd").new()
 	skill.prewarm()
@@ -203,10 +204,11 @@ func _verify_wooden_dance_frame_mapping_uses_full_loop() -> void:
 
 func _verify_sky_descent_and_marionette_rigging_contract() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_doll_curse_skill.gd")
+	var renderer_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_doll_curse_renderer.gd")
 	_expect(src.find("DOLL_SKY_SPAWN_Y") >= 0, "Doll Curse should name the sky spawn point explicitly")
 	_expect(src.find("FIELD_HEIGHT + 48.0") < 0, "Doll Curse should no longer spawn dolls from below the field")
-	_expect(src.find("_draw_marionette_rigging") >= 0, "Doll Curse should draw runtime marionette rigging")
-	_expect(src.find("MARIONETTE_CONTROL_BAR") >= 0, "Doll Curse should draw a control bar for the marionette silhouette")
+	_expect(renderer_src.find("draw_marionette_rigging") >= 0, "Doll Curse renderer should draw runtime marionette rigging")
+	_expect(renderer_src.find("MARIONETTE_CONTROL_BAR") >= 0, "Doll Curse renderer should draw a control bar for the marionette silhouette")
 
 	var skill: Object = load("res://scripts/lingpet/lingpet_doll_curse_skill.gd").new()
 	var owner := FakeOwner.new()

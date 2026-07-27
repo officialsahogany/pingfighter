@@ -109,9 +109,11 @@ func _verify_active_skill_defaults() -> void:
 
 func _verify_runtime_delegates_context_assembly() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var controller_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
 	var builder_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_update_context_builder.gd")
-	_expect(runtime_source.find("LingpetCompanionSkillUpdateContextBuilder") >= 0, "egg runtime should preload the companion skill update context builder")
-	_expect(runtime_source.find("_companion_skill_update_context_builder.build") >= 0, "runtime skill-effect hook should delegate update context assembly")
+	_expect(runtime_source.find("LingpetCompanionSkillUpdateContextBuilder") < 0, "egg runtime should leave update-context assembly inside the skill controller")
+	_expect(controller_source.find("LingpetCompanionSkillUpdateContextBuilder") >= 0, "skill controller should compose the companion skill update context builder")
+	_expect(controller_source.find("_update_context_builder.build") >= 0, "controller-owned slot tick should delegate update context assembly")
 	_expect(runtime_source.find("\"companion_catch_height\": _get_current_stat") < 0, "runtime should not keep the catch-height context field inline")
 	_expect(runtime_source.find("\"roar_radius\": float(current_active_skill.get") < 0, "runtime should not keep Wild Roar numeric context fields inline")
 	_expect(builder_source.find("\"companion_catch_height\"") >= 0, "builder should own companion catch-height context key")

@@ -19,6 +19,9 @@ const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lin
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetSatietyRuntimeState := preload(
+	"res://scripts/lingpet/lingpet_satiety_runtime_state.gd"
+)
 const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
 const LingpetAffinityGrantController := preload("res://scripts/lingpet/lingpet_affinity_grant_controller.gd")
 const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
@@ -43,9 +46,7 @@ const LingpetCompanionSkillVisualResolver := preload("res://scripts/lingpet/ling
 const LingpetCompanionSkillPersistence := preload("res://scripts/lingpet/lingpet_companion_skill_persistence.gd")
 const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
 const LingpetCompanionSkillController := preload("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
-const LingpetCompanionSkillEffectUpdateGate := preload("res://scripts/lingpet/lingpet_companion_skill_effect_update_gate.gd")
 const LingpetCompanionSkillLaunchPayloadBuilder := preload("res://scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd")
-const LingpetCompanionSkillUpdateContextBuilder := preload("res://scripts/lingpet/lingpet_companion_skill_update_context_builder.gd")
 const LingpetCompanionStrikeAnticipator := preload("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd")
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetDebugStatOverrideState := preload("res://scripts/lingpet/lingpet_debug_stat_override_state.gd")
@@ -185,9 +186,7 @@ var _active_skill_slot_resolver: Object = LingpetActiveSkillSlotResolver.new()
 var _companion_skill_visual_resolver: Object = LingpetCompanionSkillVisualResolver.new()
 var _companion_skill_persistence: Object = LingpetCompanionSkillPersistence.new()
 var _companion_skill_controller: Object = LingpetCompanionSkillController.new()
-var _companion_skill_effect_update_gate: Object = LingpetCompanionSkillEffectUpdateGate.new()
 var _companion_skill_launch_payload_builder: Object = LingpetCompanionSkillLaunchPayloadBuilder.new()
-var _companion_skill_update_context_builder: Object = LingpetCompanionSkillUpdateContextBuilder.new()
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _skill_runtime_surface: Object = LingpetSkillRuntimeSurface.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
@@ -234,7 +233,7 @@ var _affinity_battle_lifecycle: Object = LingpetAffinityBattleLifecycle.new()
 var _affinity_owner_surface: Object = LingpetAffinityOwnerSurface.new()
 var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
 var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
-var _satiety_penalty_exempt := false
+var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
 var _hatch_stat_roll_state: Object = LingpetHatchStatRollState.new()
 # Shell-break cinematic sequencer: the final counted egg hit no longer opens the
 # acquire cut-in on the same frame. Instead the egg runs the 1.5s scripted
@@ -278,6 +277,17 @@ var _item_egg_absorb_vfx: Object = LingpetItemEggAbsorbVfx.new()
 func _init() -> void:
 	_companion_skill_states = [_companion_skill_state, _companion_second_skill_state]
 	_companion_skill_persistence.sync_shared_trigger_count(_companion_skill_states)
+	_companion_skill_controller.configure(
+		_current_profile,
+		_active_skill_slot_resolver,
+		_companion_skill_visual_resolver,
+		_companion_skill_persistence,
+		_companion_skill_states,
+		_skill_runtime_host,
+		_skill_runtime_surface,
+		COMPANION_SKILL_WINDUP_SECONDS,
+		COMPANION_RADIUS
+	)
 
 
 # physics.callback.lingpet.update measured ~1.0ms/tick standing as an opaque
@@ -387,7 +397,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		sample_start = _perf_probe.begin(perf_logger)
 		var starlight_passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
 		var companion_motion_style: String = _profile_runtime_surface.get_motion_style(_current_profile)
-		_starlight_tracking_state.advance(delta, starlight_passive_skill, _state == STATE_COMPANION, _companion_pos)
+		# 탈진(포만도 소진) 중엔 위치-스크립팅 패시브를 억제한다(WIP 파괴 후 복원).
+		# companion_active에 fold — 패시브 모듈은 탈진을 모른 채 _is_enabled false로
+		# 받아 reset이 자가치유 티어다운. KO 중 별빛추적 순간이동/전달 방지.
+		_starlight_tracking_state.advance(delta, starlight_passive_skill, _state == STATE_COMPANION and not is_companion_exhausted(), _companion_pos)
 		if _feed_controller.is_active():
 			var feed_step: Dictionary = _feed_controller.advance(
 				delta,
@@ -790,15 +803,15 @@ func notify_lingpet_bone_barrier_hit(
 
 
 func reset_skill_effect_update_counters_for_tests() -> void:
-	_companion_skill_effect_update_gate.reset_counters_for_tests()
+	_companion_skill_controller.reset_effect_update_counters_for_tests()
 
 
 func get_skill_effect_idle_skip_count_for_tests() -> int:
-	return int(_companion_skill_effect_update_gate.get_idle_skip_count())
+	return int(_companion_skill_controller.get_effect_idle_skip_count_for_tests())
 
 
 func get_skill_effect_runtime_update_count_for_tests() -> int:
-	return int(_companion_skill_effect_update_gate.get_runtime_update_count())
+	return int(_companion_skill_controller.get_effect_runtime_update_count_for_tests())
 
 
 func reset_owner_affinity_surface_counters_for_tests() -> void:
@@ -1387,11 +1400,13 @@ func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_second
 		_initialize_companion_patrol(owner, true)
 	var previous_pos := _companion_pos
 	var passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
+	# 탈진 중엔 별빛추적 스타포인트 전달을 억제(WIP 파괴 후 복원). companion_active에
+	# fold — 탈진 시 is_companion false로 update_drop이 자가 reset/티어다운.
 	var result: Dictionary = _starlight_tracking_state.update_drop(
 		maxf(0.0, delta_seconds),
 		drop,
 		passive_skill,
-		_state == STATE_COMPANION,
+		_state == STATE_COMPANION and not is_companion_exhausted(),
 		_companion_pos,
 		_vector_resolver.get_starlight_tracking_delivery_pos(context),
 		_profile_runtime_surface.get_motion_style(_current_profile),
@@ -1799,7 +1814,7 @@ func reset_for_tests() -> void:
 	_affinity_income_tracker.reset_all()
 	_affinity_battle_lifecycle.reset_all()
 	_affinity_grant_controller.clear_last_result()
-	_satiety_penalty_exempt = false
+	_satiety_runtime_state.reset()
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO
@@ -1855,7 +1870,7 @@ func _clear_lingpet_field_state() -> void:
 	_invalidate_runtime_snapshot_cache()
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
-	_satiety_penalty_exempt = false
+	_satiety_runtime_state.reset()
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
@@ -2046,7 +2061,7 @@ func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Obje
 	var hit_result: Dictionary = _egg_state.resolve_ball_hit(owner, _get_main_egg_required_hits())
 	_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.ball_hit", hatch_resolve_part_start)
 	if bool(hit_result.get("hit", false)):
-		# 링펫알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 랜덤 재생. 실제 물리 충돌
+		# 수호령 알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 랜덤 재생. 실제 물리 충돌
 		# (패들 바운스)이 일어난 모든 히트마다 재생하며, counted 여부는 보지 않는다.
 		# 단, 플레이어가 서브로 발사한 공은 알과 타격판정 자체를 하지 않아 hit=false로
 		# 통과하므로 여기 SFX 경로에도 진입하지 않는다(바운스도 없음).
@@ -2328,6 +2343,10 @@ func commit_unlock_pick(_pet_id_arg: String, _choice_key: String, _candidate_id:
 
 func _update_companion_motion(delta: float, owner: Object, registry: Object = null) -> void:
 	var prev_pos: Vector2 = _companion_pos
+	# 탈진 판정 호이스트(WIP 파괴 후 복원): 링크포트(ring_dash) advance가 이 아래에서
+	# 탈진 판정보다 먼저 돌며 companion_active만 받아 KO 중 순간이동+VFX+사운드를
+	# 냈다. companion_active에 fold하기 위해 여기서 미리 판정한다.
+	var companion_exhausted: bool = _is_companion_exhausted_for_owner(owner)
 	var skill_position_override: Dictionary = _skill_runtime_surface.get_active_position_owner(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -2339,7 +2358,13 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	# 수호령 탑승: toggle + follow. Skill position overrides (sortie strikes
 	# etc.) win over the mount while active; the mount wins over feed /
 	# starlight loitering below.
-	_mount_state.advance(owner, _companion_pos, _state == STATE_COMPANION and not has_skill_position_override, false, delta)
+	_mount_state.advance(
+		owner,
+		_companion_pos,
+		_state == STATE_COMPANION and not has_skill_position_override,
+		_is_right_click_claimed_by_player_skill(registry),
+		delta
+	)
 	if _mount_state.has_companion_position_override() and not has_skill_position_override:
 		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
 		_companion_motion_state.pos = _companion_pos
@@ -2360,11 +2385,12 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 			delta,
 			owner,
 			passive_skill,
-			_state == STATE_COMPANION,
+			_state == STATE_COMPANION and not companion_exhausted,
 			_companion_pos,
 			_profile_runtime_surface.get_catch_width(_current_profile, COMPANION_HIT_HALF_WIDTH * 2.0),
 			_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
-			motion_style
+			motion_style,
+			_resolve_player_dash_state(registry)
 		)
 		if _ring_dash_state.has_companion_position_override():
 			_companion_pos = _ring_dash_state.get_companion_position_override(_companion_pos)
@@ -2409,7 +2435,6 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		)
 		return
 	_companion_motion_state.pos = _companion_pos
-	var companion_exhausted := _is_companion_exhausted_for_owner(owner)
 	var satiety_speed_scale := _get_satiety_speed_scale(owner)
 	_companion_motion_state.update(
 		delta,
@@ -2431,6 +2456,47 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_companion_pos,
 		_companion_facing_left
 	)
+
+
+# 탑승 토글은 맨 우클릭을 쓰는데, 스매셔 벽력유성이 "우클릭 홀드로 무장 →
+# 타구 시점 발사" 계약으로 바뀌면서 같은 버튼을 쓴다. 무장 가능한(=장착 +
+# 기력 + 쿨타임 + 랠리 진행 중) 순간에는 스킬이 우클릭을 소유하고, 그 외
+# (서브 대기 / 쿨타임 / 기력 부족 / 미장착 / 타 캐릭터)에는 탑승이 그대로
+# 가져간다. 그래서 랠리 밖에서는 탑승이 100% 종전대로 동작한다.
+# ⚠️peek 전용(`get_cached_instance`) — 매 컴패니언 프레임 경로라 콜드
+# 인스턴스화가 끼면 첫 호출이 히치가 된다(Hot-Path Lazy Init Trap).
+func _is_right_click_claimed_by_player_skill(registry: Object) -> bool:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return false
+	var cached: Variant = registry.get_cached_instance("smasher_overdrive_state")
+	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
+		return false
+	var overdrive_state: Object = cached as Object
+	if overdrive_state.has_method("is_active") and bool(overdrive_state.is_active()):
+		return true
+	return overdrive_state.has_method("is_armed") and bool(overdrive_state.is_armed())
+
+
+# 링크포트(ring_dash) 이중수비 게이트용 플레이어 대쉬 스냅샷.
+# ⚠️peek 전용(`get_cached_instance`) — `get_instance` 폴백을 넣지 마라.
+# 여기는 매 물리 프레임 도는 컴패니언 모션 경로이고, 콜드 인스턴스화가 끼면
+# 첫 호출이 100ms+ 히치가 된다(Godot Hot-Path Lazy Init Trap).
+# `smasher_dash_state`는 부트 프리웜 대상이라 실전에선 peek이 항상 적중하고,
+# 미캐시(=대쉬 시스템 미가동)면 빈 dict로 정적 패들 게이트만 남는다.
+# 스냅샷 dict 생성도 대쉬 중일 때만 — 비대쉬 프레임은 bool 한 번으로 끝난다.
+func _resolve_player_dash_state(registry: Object) -> Dictionary:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return {}
+	var cached: Variant = registry.get_cached_instance("smasher_dash_state")
+	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
+		return {}
+	var dash_state: Object = cached as Object
+	if not dash_state.has_method("is_active") or not bool(dash_state.is_active()):
+		return {}
+	if not dash_state.has_method("get_snapshot"):
+		return {}
+	var snapshot: Variant = dash_state.get_snapshot()
+	return snapshot if snapshot is Dictionary else {}
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -2556,97 +2622,34 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 
 
 func _update_companion_skill_effects(delta: float, owner: Object, registry: Object = null) -> void:
-	var ball_active := bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false))
-	var ball_context_ready := false
-	var ball_pos := Vector2.ZERO
-	var ball_vel := Vector2.ZERO
-	var ball_size := 28.6
-	var companion_exhausted := _is_companion_exhausted_for_owner(owner)
-	var active_slot_count: int = _skill_runtime_surface.get_active_slot_count(_current_profile, _active_skill_slot_resolver, _skill_runtime_host)
-	var active_skill_ids: Array[String] = _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host)
-	for slot in range(active_slot_count):
-		var skill_surface: Dictionary = _skill_runtime_surface.get_active_surface_for_slot(
-			_current_profile,
-			_active_skill_slot_resolver,
-			_companion_skill_persistence,
-			_companion_skill_states,
-			_skill_runtime_host,
-			COMPANION_SKILL_WINDUP_SECONDS,
-			slot,
-			active_slot_count
-		)
-		var skill_id: String = str(skill_surface.get("skill_id", ""))
-		if skill_id == "":
-			continue
-		var skill_state: Object = skill_surface.get("skill_state", null) as Object
-		if _companion_skill_effect_update_gate.can_skip_idle(skill_id, skill_state, ball_active, _skill_runtime_host):
-			_companion_skill_effect_update_gate.record_idle_skip()
-			continue
-		if not ball_context_ready:
-			ball_pos = BattleSceneOwnerReader.get_value(owner, "ball_pos", Vector2.ZERO)
-			ball_vel = BattleSceneOwnerReader.get_value(owner, "ball_vel", Vector2.ZERO)
-			ball_size = float(BattleSceneOwnerReader.get_value(owner, "ball_size", 28.6))
-			ball_context_ready = true
-		var current_active_skill: Dictionary = skill_surface.get("active_skill", {}) as Dictionary
-		_companion_skill_effect_update_gate.record_runtime_update()
-		var decision: Dictionary = _companion_skill_controller.update(
-			delta,
-			_companion_skill_update_context_builder.build(
-				_state,
-				STATE_COMPANION,
-				owner,
-				registry,
-				skill_id,
-				skill_state,
-				_skill_runtime_host,
-				float(skill_surface.get("windup_seconds", COMPANION_SKILL_WINDUP_SECONDS)),
-				ball_active,
-				ball_pos,
-				ball_vel,
-				ball_size,
-				_switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0,
-				_companion_motion_state.motion_visible,
-				_companion_pos,
-				COMPANION_RADIUS,
-				_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
-				current_active_skill,
-				int(skill_surface.get("active_skill_level_fallback", 0)),
-				slot,
-				active_skill_ids,
-				_companion_skill_states,
-				companion_exhausted
-			)
-		)
-		match str(decision.get("action", LingpetCompanionSkillController.ACTION_NONE)):
-			LingpetCompanionSkillController.ACTION_ARM:
-				if _companion_pos == Vector2.ZERO:
-					_initialize_companion_patrol(owner, true)
-				_companion_skill_controller.arm_windup(
-					skill_state,
-					_skill_runtime_host,
-					skill_id
-				)
-			LingpetCompanionSkillController.ACTION_LAUNCH:
-				_launch_companion_skill(owner, registry, slot)
-			_:
-				pass
-		if _skill_runtime_surface.consume_companion_strike_request(
-			_skill_runtime_host,
-			skill_id
-		):
-			_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
-	var override_owner: Dictionary = _skill_runtime_surface.get_active_position_owner_for_ids(
-		active_skill_ids,
-		_companion_skill_visual_resolver,
-		_skill_runtime_host,
-		_companion_pos
+	_companion_pos = _companion_skill_controller.update_active_slots(
+		delta,
+		_state,
+		STATE_COMPANION,
+		owner,
+		registry,
+		_switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0,
+		_companion_motion_state.motion_visible,
+		_companion_pos,
+		_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
+		_is_companion_exhausted_for_owner(owner),
+		self
 	)
-	if _skill_runtime_surface.has_active_position_override(_companion_skill_visual_resolver, override_owner):
-		_companion_pos = _vector_resolver.vector2_or_fallback(
-			override_owner.get("pos", _companion_pos),
-			_companion_pos
-		)
-		_companion_motion_state.pos = _companion_pos
+	_companion_motion_state.pos = _companion_pos
+
+
+func ensure_companion_position_for_skill_tick(owner: Object) -> Vector2:
+	_initialize_companion_patrol(owner, true)
+	return _companion_pos
+
+
+func launch_companion_skill_from_controller(owner: Object, registry: Object, slot: int) -> Vector2:
+	_launch_companion_skill(owner, registry, slot)
+	return _companion_pos
+
+
+func begin_companion_skill_strike_from_controller() -> void:
+	_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
 
 
 func _launch_companion_skill(owner: Object, registry: Object, slot_index: int = 0) -> void:
@@ -2990,9 +2993,7 @@ func set_satiety_for_tests(pet_id: String, value: float) -> float:
 
 
 func is_companion_exhausted() -> bool:
-	if _state != STATE_COMPANION or _satiety_penalty_exempt:
-		return false
-	return _affinity_state.is_satiety_exhausted(_pet_id)
+	return _is_companion_exhausted_for_owner(null)
 
 
 func is_companion_exhausted_for_tests(owner: Object = null) -> bool:
@@ -3004,9 +3005,14 @@ func get_satiety_speed_scale_for_tests(owner: Object = null) -> float:
 
 
 func get_satiety_exhaustion_ratio_for_tests(owner: Object = null) -> float:
-	if _state != STATE_COMPANION or _is_satiety_penalty_exempt(owner):
-		return 0.0
-	return _affinity_state.get_satiety_exhaustion_ratio(_pet_id, SATIETY_EXHAUSTION_TELEGRAPH_SECONDS)
+	return _satiety_runtime_state.get_exhaustion_ratio(
+		_state == STATE_COMPANION,
+		_pet_id,
+		_affinity_state,
+		owner,
+		_collection_state,
+		SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
+	)
 
 
 func get_last_affinity_result_for_tests() -> Dictionary:
@@ -3076,67 +3082,46 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 
 func _advance_satiety(delta: float, owner: Object = null) -> void:
 	if _state != STATE_COMPANION:
-		_satiety_penalty_exempt = false
+		_satiety_runtime_state.advance_inactive()
 		return
-	_satiety_penalty_exempt = _is_satiety_penalty_exempt(owner)
-	var result: Dictionary = _affinity_state.advance_satiety(
+	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state)
+	var changed: bool = bool(_satiety_runtime_state.advance_active(
 		_pet_id,
 		_collection_state.get_battle_slots(),
 		delta,
-		_get_satiety_drain_multiplier(),
-		1.0,
-		_is_companion_exhausted_for_owner(owner)
-	)
-	if bool(result.get("changed", false)):
-		_invalidate_runtime_snapshot_cache()
-	var exhaustion_result: Dictionary = _affinity_state.advance_satiety_exhaustion(
-		_pet_id,
-		delta,
-		SATIETY_EXHAUSTION_TELEGRAPH_SECONDS,
-		not _satiety_penalty_exempt
-	)
-	if bool(exhaustion_result.get("changed", false)):
+		_affinity_state,
+		owner,
+		_collection_state,
+		_profile_runtime_surface.get_passive_skills(_current_profile),
+		SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
+	))
+	if changed:
 		_invalidate_runtime_snapshot_cache()
 
 
 func _get_active_satiety_pct() -> int:
-	return _affinity_state.get_satiety_pct(_pet_id) if _state == STATE_COMPANION else 0
+	return _satiety_runtime_state.get_active_satiety_pct(
+		_state == STATE_COMPANION,
+		_pet_id,
+		_affinity_state
+	)
 
 
 func _get_satiety_speed_scale(owner: Object = null) -> float:
-	if _state != STATE_COMPANION:
-		return 1.0
-	if _is_satiety_penalty_exempt(owner):
-		return 1.0
-	if _affinity_state.is_satiety_exhausted(_pet_id):
-		return 0.0
-	return _affinity_state.get_satiety_speed_multiplier(_pet_id)
+	return _satiety_runtime_state.get_speed_scale(
+		_state == STATE_COMPANION,
+		_pet_id,
+		_affinity_state,
+		owner,
+		_collection_state
+	)
 
 
 func _is_companion_exhausted_for_owner(owner: Object = null) -> bool:
-	if _state != STATE_COMPANION:
-		return false
-	if _is_satiety_penalty_exempt(owner):
-		return false
-	return _affinity_state.is_satiety_exhausted(_pet_id)
-
-
-func _is_satiety_penalty_exempt(owner: Object = null) -> bool:
-	if owner == null:
-		return _satiety_penalty_exempt
-	return bool(_collection_state.is_auto_present_league(owner))
-
-
-func _get_satiety_drain_multiplier() -> float:
-	var reduction_pct := 0.0
-	for passive_skill in _profile_runtime_surface.get_passive_skills(_current_profile):
-		var passive_reduction_pct := 0.0
-		if str(passive_skill.get("id", "")).strip_edges() == "lingpet_light_eater":
-			passive_reduction_pct = LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(
-				int(passive_skill.get("level", 1))
-			)
-		else:
-			passive_reduction_pct = float(passive_skill.get("satiety_drain_reduction_pct", 0.0))
-		reduction_pct += maxf(0.0, passive_reduction_pct)
-	reduction_pct = clampf(reduction_pct, 0.0, 60.0)
-	return clampf(1.0 - reduction_pct / 100.0, 0.4, 1.0)
+	return _satiety_runtime_state.is_companion_exhausted(
+		_state == STATE_COMPANION,
+		_pet_id,
+		_affinity_state,
+		owner,
+		_collection_state
+	)

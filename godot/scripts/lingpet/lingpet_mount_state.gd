@@ -1,10 +1,17 @@
 extends RefCounted
 
-# 수호령 탑승 (socket composition contract, lane C pilot -- 오니마루).
+# 수호령 탑승 (socket composition contract, lane C pilot -- 방망깨비 / onimaru).
 #
 # Interaction: while the companion is active and the player stands within
-# MOUNT_PROXIMITY_PX of it, a bare right-click (no S/down held -- S+RMB stays
-# reserved for Smasher Overdrive) toggles mount. While mounted:
+# MOUNT_PROXIMITY_PX of it, a bare right-click toggles mount. Right-click is
+# SHARED with Smasher 벽력유성 (hold-to-arm, fires on the paddle hit), so the
+# caller passes input_blocked=true whenever that skill currently claims the
+# button -- see lingpet_egg_runtime._is_right_click_claimed_by_player_skill.
+# The skill only claims it while it is actually armable (equipped + gauge +
+# cooldown + live rally) or in flight, so outside a rally the mount keeps the
+# button unconditionally. S/down is ALSO still excluded here: it neighbours the
+# dash / warp-gate chords and a crouch-mount reads as a misfire.
+# While mounted:
 #  - the companion position-overrides to the player's center X, KEEPING its
 #    own lane Y (ground-pet locomotion trap: X changes only)
 #  - companion body-hit / defense is suppressed (parked != disabled trap)
@@ -134,7 +141,8 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	_last_rmb_pressed = rmb_pressed
 	if input_blocked or not rmb_just_pressed:
 		return result
-	# S+RMB is Smasher Overdrive -- never steal that chord.
+	# S+RMB neighbours the dash / warp-gate chords -- never mount on a crouch.
+	# (벽력유성 우클릭 소유권은 호출자가 input_blocked 로 이미 걸러 준다.)
 	if _is_down_pressed():
 		return result
 	if _mounted:

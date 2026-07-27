@@ -106,7 +106,8 @@ func _verify_catalog_dispatcher_audio_and_host_wiring() -> void:
 	_expect(str(spec.get("path", "")) == "res://scripts/lingpet/lingpet_bone_barrier_payload_factory.gd", "module catalog should list the Bone Barrier payload factory")
 
 	var audio_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
-	_expect(audio_source.find("LINGPET_BONE_BARRIER_BUILD_SOUND_PATH") >= 0, "game audio should define a dedicated Bone Barrier build cue")
+	var combat_audio_source := FileAccess.get_file_as_string("res://scripts/audio/lingpet_combat_audio.gd")
+	_expect(combat_audio_source.find("\"bone_barrier_build\"") >= 0 and combat_audio_source.find("bonemake3.wav") >= 0, "combat-audio owner should define a dedicated Bone Barrier build cue")
 	_expect(audio_source.find("func play_lingpet_bone_barrier_break") >= 0, "game audio should expose a dedicated Bone Barrier break cue")
 
 	var host_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")

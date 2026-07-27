@@ -521,6 +521,31 @@ class FakeRegistry:
 			return value
 		return null
 
+	# 핫패스 소비자는 peek 전용(get_cached_instance)만 쓴다 — 이 훅이 없으면
+	# 그 경로가 조용히 빈손으로 돌아 씰이 공허-GREEN이 된다.
+	func get_cached_instance(key: String) -> Object:
+		return get_instance(key)
+
+
+class FakePlayerDashState:
+	extends RefCounted
+
+	var dash_active := false
+	var dash_timer := 0.0
+	var dash_direction := 0.0
+	var dash_distance_multiplier := 1.0
+
+	func is_active() -> bool:
+		return dash_active
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"active": dash_active,
+			"timer": dash_timer,
+			"direction": dash_direction,
+			"dash_distance_multiplier": dash_distance_multiplier,
+		}
+
 
 class FakeEggHitAudio:
 	extends RefCounted
@@ -592,8 +617,11 @@ func _init() -> void:
 	_verify_afterglow_leak_passive()
 	_verify_tailwind_steps_passive()
 	_verify_starlight_tracking_passive()
+	_verify_exhaustion_suppresses_starlight_tracking()
+	_verify_exhaustion_suppresses_linkport()
 	_verify_ring_dash_passive()
 	_verify_ring_dash_single_roll_per_descent()
+	_verify_ring_dash_defers_to_committed_player_dash()
 	_verify_ring_dash_ground_pet_keeps_y_on_teleport()
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
@@ -698,9 +726,15 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(LingpetEggFieldRenderer.EGG_BARE_VARIANT_PATHS.size() == asset_renderer.get_variant_count(), "egg renderer variant count should be derived from the bare variant path list")
 	_expect(LingpetEggFieldRenderer.EGG_VARIANT_GLOW.size() == asset_renderer.get_variant_count(), "egg renderer should keep one glow color per variant path")
 	for variant_index in range(asset_renderer.get_variant_count()):
-		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_bare_variant_%d.png" % variant_index), "field lingpet egg should ship bare variant layer %d" % variant_index)
+		var traditional_path: String = str(LingpetEggFieldRenderer.EGG_BARE_VARIANT_PATHS[variant_index])
+		_expect(FileAccess.file_exists(traditional_path), "field guardian-spirit egg should ship traditional variant layer %d" % variant_index)
+		_expect(traditional_path.ends_with("guardian_spirit_egg_traditional_variant_%d_v1.png" % variant_index), "field guardian-spirit egg variant %d should use the traditional craft family" % variant_index)
+		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_bare_variant_%d.png" % variant_index), "legacy bare resonance egg variant layer %d should stay on disk for rollback/reference" % variant_index)
 		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_variant_%d.png" % variant_index), "holder-era resonance egg variant layer %d should stay on disk for rollback/icon/reference" % variant_index)
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_item_icon.png"), "lingpet egg active-item slot icon should ship the precomposited holder+crystal image")
+	for crack_path: String in LingpetEggFieldRenderer.EGG_CRACK_STAGE_TEXTURE_PATHS:
+		_expect(FileAccess.file_exists(crack_path), "guardian-spirit egg should ship its warm ceramic-fissure overlay")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"), "guardian-spirit egg active-item slot icon should ship the traditional porcelain image")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_item_icon.png"), "legacy resonance egg active-item slot icon should stay on disk for rollback/reference")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base.png"), "legacy neutral resonance egg base should stay on disk for rollback/reference")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_1.png"), "legacy neutral first-crack resonance egg should stay on disk for rollback/reference")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_2.png"), "legacy neutral second-crack resonance egg should stay on disk for rollback/reference")
@@ -917,14 +951,14 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	var prewarm_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 	_expect(prewarm_source.find("lingpet_acquire_cutin_overlay_host") >= 0, "Smasher prewarm should warm the lingpet acquisition cut-in host before the hatch frame")
 	# Pause + dismiss wiring: the cut-in must gate battle physics and be reachable
-	# by the overlay input controller for click dismissal.
+	# by the priority lingpet input owner for click dismissal.
 	var modal_gate_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_modal_gate_controller.gd")
 	_expect(modal_gate_source.find("is_lingpet_acquire_cutin_active") >= 0, "modal gate should expose the lingpet acquisition cut-in as a physics-blocking modal")
 	_expect(modal_gate_source.find("physics.modal_gate.lingpet_acquire_cutin") >= 0, "modal gate should block battle physics while the acquisition cut-in is active")
-	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_input_controller.gd")
-	_expect(input_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "overlay input controller should only act after the reveal finishes")
-	_expect(input_source.find("begin_acquire_cutin_dismiss") >= 0, "overlay input controller should start the exit action on click/confirm (not close instantly)")
-	_expect(input_source.find("begin_acquire_cutin_dismiss(registry)") >= 0, "overlay input controller should pass the registry so acquisition-click voice can play")
+	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_priority_input_router.gd")
+	_expect(input_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "priority lingpet input owner should only act after the reveal finishes")
+	_expect(input_source.find("begin_acquire_cutin_dismiss") >= 0, "priority lingpet input owner should start the exit action on click/confirm (not close instantly)")
+	_expect(input_source.find("begin_acquire_cutin_dismiss(registry)") >= 0, "priority lingpet input owner should pass the registry so acquisition-click voice can play")
 	var modal_gate: Object = GameplayModuleRegistry.new().get_instance("battle_scene_modal_gate_controller")
 	_expect(modal_gate != null and modal_gate.has_method("is_lingpet_acquire_cutin_active"), "modal gate controller should implement the cut-in gate method")
 	var host: Object = GameplayModuleRegistry.new().get_instance("lingpet_acquire_cutin_overlay_host")
@@ -968,10 +1002,13 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	var acquire_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav")
 	_expect(acquire_stream != null and acquire_stream.get_length() > 2.0, "lingpet acquisition cut-in SFX should load as a playable Godot AudioStream")
 	var game_audio_source: String = FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
-	_expect(game_audio_source.find("LINGPET_ACQUIRE_CUTIN_SOUND_PATH") >= 0, "GameAudio should register the lingpet acquisition cut-in sound path")
-	_expect(game_audio_source.find("LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0") >= 0, "GameAudio should play the cinematic lingpet acquisition sound at full SFX gain")
-	_expect(game_audio_source.find("LingpetAcquireCutinSfx") >= 0, "GameAudio should create a dedicated player for the lingpet acquisition cut-in sound")
-	_expect(game_audio_source.find("_ensure_lingpet_acquire_cutin_sfx") >= 0, "GameAudio should lazily recover the lingpet acquisition SFX player if setup did not create it")
+	var acquisition_audio_source: String = FileAccess.get_file_as_string("res://scripts/audio/lingpet_acquisition_audio.gd")
+	var click_voice_audio_source: String = FileAccess.get_file_as_string("res://scripts/audio/lingpet_click_voice_audio.gd")
+	var combat_audio_source: String = FileAccess.get_file_as_string("res://scripts/audio/lingpet_combat_audio.gd")
+	_expect(acquisition_audio_source.find("lingpet_acquire_ominous_shadow_shimmer_02.wav") >= 0, "acquisition audio owner should register the lingpet acquisition cut-in sound path")
+	_expect(acquisition_audio_source.find('"gain_db": 0.0') >= 0, "acquisition audio owner should play the cinematic lingpet acquisition sound at full SFX gain")
+	_expect(acquisition_audio_source.find("LingpetAcquireCutinSfx") >= 0, "acquisition audio owner should create a dedicated player for the lingpet acquisition cut-in sound")
+	_expect(acquisition_audio_source.find("func ensure_player") >= 0, "acquisition audio owner should lazily recover the lingpet acquisition SFX player if setup did not create it")
 	_expect(game_audio_source.find("play_lingpet_acquire_cutin") >= 0, "GameAudio should expose a lingpet acquisition cut-in play method")
 	_expect(runtime_source.find("play_lingpet_acquire_cutin") >= 0, "lingpet runtime should request the acquisition cut-in sound when the screen starts")
 	_expect(runtime_source.find("func _play_acquire_cutin_audio") < 0, "lingpet runtime should not keep a single-use acquisition cut-in audio wrapper")
@@ -983,10 +1020,10 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	var acquire_click_sweep_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav")
 	_expect(acquire_click_bass_stream != null and acquire_click_bass_stream.get_length() > 2.0, "lingpet acquisition click deep bass SFX should load as a playable Godot AudioStream")
 	_expect(acquire_click_sweep_stream != null and acquire_click_sweep_stream.get_length() > 2.0, "lingpet acquisition click crackle sweep SFX should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH") >= 0, "GameAudio should register the lingpet acquisition click deep bass sound path")
-	_expect(game_audio_source.find("LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH") >= 0, "GameAudio should register the lingpet acquisition click crackle sweep sound path")
-	_expect(game_audio_source.find("LingpetAcquireClickDeepBassSfx") >= 0, "GameAudio should create a dedicated player for the acquisition click deep bass backing")
-	_expect(game_audio_source.find("LingpetAcquireClickCrackleSweepSfx") >= 0, "GameAudio should create a dedicated player for the acquisition click crackle sweep backing")
+	_expect(acquisition_audio_source.find("lingpet_acquire_click_deep_bass_doom.wav") >= 0, "acquisition audio owner should register the lingpet acquisition click deep bass sound path")
+	_expect(acquisition_audio_source.find("lingpet_acquire_click_magic_crackle_sweep.wav") >= 0, "acquisition audio owner should register the lingpet acquisition click crackle sweep sound path")
+	_expect(acquisition_audio_source.find("LingpetAcquireClickDeepBassSfx") >= 0, "acquisition audio owner should create a dedicated player for the acquisition click deep bass backing")
+	_expect(acquisition_audio_source.find("LingpetAcquireClickCrackleSweepSfx") >= 0, "acquisition audio owner should create a dedicated player for the acquisition click crackle sweep backing")
 	_expect(game_audio_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "GameAudio should expose a dedicated acquisition-click backing play method")
 	_expect(runtime_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should request the backing SFX only when the acquisition click Live2D starts")
 	_expect(runtime_source.find("func _play_acquire_click_reaction_backing_audio") < 0, "lingpet runtime should not keep a single-use acquisition-click backing audio wrapper")
@@ -994,41 +1031,39 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"), "Lunabi should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var lunabi_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3")
 	_expect(lunabi_click_voice_stream != null and lunabi_click_voice_stream.get_length() > 0.1, "Lunabi click-reaction voice should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Lunabi click-reaction voice sound path")
-	_expect(game_audio_source.find("LingpetLunabiClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Lunabi click-reaction voice")
-	_expect(game_audio_source.find("_ensure_lingpet_lunabi_click_voice_sfx") >= 0, "GameAudio should lazily recover the Lunabi click-reaction voice player if setup did not create it")
-	_expect(game_audio_source.find("normalized_pet_id == \"lunabi\"") >= 0, "GameAudio click-reaction dispatch should route the lunabi pet id to its dedicated voice")
+	_expect(click_voice_audio_source.find("lunabi_click_reaction_voice_v1.mp3") >= 0, "click-voice owner should register the Lunabi sound path")
+	_expect(click_voice_audio_source.find("LingpetLunabiClickVoiceSfx") >= 0, "click-voice owner should create a dedicated Lunabi player")
+	_expect(click_voice_audio_source.find("func ensure_player_for_pet") >= 0, "click-voice owner should lazily recover missing voice players")
+	_expect(click_voice_audio_source.find("\"lunabi\"") >= 0 and click_voice_audio_source.find("_normalize_pet_id") >= 0, "click-voice owner should route normalized lunabi ids")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"), "Volty should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var volty_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3")
 	_expect(volty_click_voice_stream != null and volty_click_voice_stream.get_length() > 0.1, "Volty click-reaction voice should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Volty click-reaction voice sound path")
-	_expect(game_audio_source.find("LingpetVoltyClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Volty click-reaction voice")
-	_expect(game_audio_source.find("_ensure_lingpet_volty_click_voice_sfx") >= 0, "GameAudio should lazily recover the Volty click-reaction voice player if setup did not create it")
+	_expect(click_voice_audio_source.find("volty_click_reaction_voice_v1.mp3") >= 0, "click-voice owner should register the Volty sound path")
+	_expect(click_voice_audio_source.find("LingpetVoltyClickVoiceSfx") >= 0, "click-voice owner should create a dedicated Volty player")
+	_expect(game_audio_source.find("lingpet_click_voice_audio.ensure_player_for_pet(pet_id)") >= 0, "GameAudio should delegate click-voice lazy recovery")
 	_expect(game_audio_source.find("func play_lingpet_click_reaction") >= 0, "GameAudio should expose a pet-agnostic click-reaction play method")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"), "Milkring should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var milkring_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3")
 	_expect(milkring_click_voice_stream != null and milkring_click_voice_stream.get_length() > 0.1, "Milkring click-reaction voice should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Milkring click-reaction voice sound path")
-	_expect(game_audio_source.find("LingpetMilkringClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Milkring click-reaction voice")
-	_expect(game_audio_source.find("_ensure_lingpet_milkring_click_voice_sfx") >= 0, "GameAudio should lazily recover the Milkring click-reaction voice player if setup did not create it")
+	_expect(click_voice_audio_source.find("milkring_click_reaction_voice_v1.mp3") >= 0, "click-voice owner should register the Milkring sound path")
+	_expect(click_voice_audio_source.find("LingpetMilkringClickVoiceSfx") >= 0, "click-voice owner should create a dedicated Milkring player")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"), "Red Dragon (Farukiras) should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var red_dragon_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3")
 	_expect(red_dragon_click_voice_stream != null and red_dragon_click_voice_stream.get_length() > 0.1, "Red Dragon click-reaction voice should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH") >= 0, "GameAudio should register the Red Dragon click-reaction voice sound path")
-	_expect(game_audio_source.find("LingpetRedDragonClickVoiceSfx") >= 0, "GameAudio should create a dedicated player for the Red Dragon click-reaction voice")
-	_expect(game_audio_source.find("_ensure_lingpet_red_dragon_click_voice_sfx") >= 0, "GameAudio should lazily recover the Red Dragon click-reaction voice player if setup did not create it")
-	_expect(game_audio_source.find("normalized_pet_id == \"red_dragon\"") >= 0, "GameAudio click-reaction dispatch should route the red_dragon pet id to its dedicated voice")
-	# 링펫알 히트 SFX(뼈 부러지는 임팩트 2종 랜덤): 자산 + GameAudio 등록 + 디스패처 + 런타임/아이템알 배선.
+	_expect(click_voice_audio_source.find("red_dragon_click_reaction_voice_v1.mp3") >= 0, "click-voice owner should register the Red Dragon sound path")
+	_expect(click_voice_audio_source.find("LingpetRedDragonClickVoiceSfx") >= 0, "click-voice owner should create a dedicated Red Dragon player")
+	_expect(click_voice_audio_source.find("\"red_dragon\"") >= 0, "click-voice owner should route the red_dragon pet id")
+	# 수호령 알 히트 SFX(뼈 부러지는 임팩트 2종 랜덤): 자산 + GameAudio 등록 + 디스패처 + 런타임/아이템 알 배선.
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav"), "lingpet egg-hit should ship its first bone-break impact SFX in the lingpet sound asset folder")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav"), "lingpet egg-hit should ship its second bone-break impact SFX in the lingpet sound asset folder")
 	var egg_hit_stream_1: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav")
 	var egg_hit_stream_2: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav")
 	_expect(egg_hit_stream_1 != null and egg_hit_stream_1.get_length() > 0.1, "first lingpet egg-hit bone-break SFX should load as a playable Godot AudioStream")
 	_expect(egg_hit_stream_2 != null and egg_hit_stream_2.get_length() > 0.1, "second lingpet egg-hit bone-break SFX should load as a playable Godot AudioStream")
-	_expect(game_audio_source.find("LINGPET_EGG_HIT_SOUND_PATHS") >= 0, "GameAudio should register the lingpet egg-hit bone-break sound path list")
-	_expect(game_audio_source.find("lingpet_egg_hit_streams = _load_audio_stream_candidates(LINGPET_EGG_HIT_SOUND_PATHS)") >= 0, "GameAudio should preload both egg-hit candidate streams for random selection")
+	_expect(combat_audio_source.find("const EGG_HIT_STREAM_PATHS") >= 0, "combat-audio owner should register the lingpet egg-hit bone-break sound path list")
+	_expect(combat_audio_source.find("egg_hit_streams = _load_audio_stream_candidates(EGG_HIT_STREAM_PATHS)") >= 0, "combat-audio owner should load both egg-hit candidate streams for random selection")
 	_expect(game_audio_source.find("func play_lingpet_egg_hit") >= 0, "GameAudio should expose a lingpet egg-hit play method")
-	_expect(game_audio_source.find("_play_random_stream_with_pitch(lingpet_egg_hit_sfx, lingpet_egg_hit_streams") >= 0, "GameAudio egg-hit play should randomly pick one of the two bone-break streams")
+	_expect(game_audio_source.find("lingpet_combat_audio.get_candidate_streams(\"egg_hit\")") >= 0, "GameAudio egg-hit facade should consume both focused random candidates")
 	var egg_hit_dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
 	_expect(egg_hit_dispatcher_source.find("func play_lingpet_egg_hit") >= 0, "audio dispatcher should own a lingpet egg-hit dispatch method")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_egg_hit") >= 0, "lingpet runtime should dispatch the egg-hit SFX when the ball strikes the egg")
@@ -1210,8 +1245,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_display_name("volty") == "볼탄", "catalog should expose Voltan as the visible name for the volty runtime id")
 	_expect(LingpetCatalog.get_display_name("nekuring") == "네쿠링", "catalog should expose Nekuring as the visible name for the nekuring debug id")
 	_expect(LingpetCatalog.get_display_name("rabi") == "모락모랑", "catalog should expose Morakmorang as the visible name for the rabi runtime id")
-	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("resonance_egg_base.png"), "catalog should own the current shared unidentified egg visual path")
-	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("resonance_egg_base.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("guardian_spirit_egg_traditional_variant_0_v1.png"), "catalog should own the current shared traditional guardian-spirit egg visual path")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("guardian_spirit_egg_traditional_variant_0_v1.png"), "Lunabi should hatch from the same shared traditional guardian-spirit egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
 	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_walk")).ends_with("milkring_companion_walk.png"), "catalog should own Milkring's true leg-walk companion visual path")
 	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_strike")).ends_with("milkring_companion_strike.png"), "catalog should own Milkring companion strike visual path")
@@ -1552,10 +1587,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(is_equal_approx(float(current_profile.get_hit_gauge_gain(0.0)), 40.0), "current-profile helper should expose current pet hit gauge gain")
 	_expect(runtime_source.find("_update_companion_skill_effects") >= 0, "egg runtime should keep a narrow companion active-skill update hook")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_active_skill_slot_resolver.gd"), "active skill slot resolver should exist for second-active slot policy")
-	_expect(runtime_source.find("_skill_runtime_surface.get_active_slot_count") >= 0, "egg runtime should ask the skill-runtime surface for active slot count")
+	_expect(skill_controller_source.find("skill_runtime_surface.get_active_slot_count") >= 0, "skill controller should ask the skill-runtime surface for active slot count")
 	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_slot_count") < 0, "egg runtime should not reassemble active slot count inline")
 	_expect(runtime_source.find("_active_skill_slot_resolver.get_skill_id_for_slot") < 0, "egg runtime should ask the skill-runtime surface for per-slot skill ids")
-	_expect(runtime_source.find("_skill_runtime_surface.get_active_skill_ids") >= 0, "egg runtime should ask the skill-runtime surface for runtime active skill id lists")
+	_expect(skill_controller_source.find("skill_runtime_surface.get_active_skill_ids") >= 0, "skill controller should ask the skill-runtime surface for runtime active skill id lists")
 	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_skill_ids_for_runtime") < 0, "egg runtime should not reassemble runtime active skill id lists inline")
 	_expect(runtime_source.find("_active_skill_slot_resolver.get_active_skill_for_slot") < 0, "egg runtime should ask the skill-runtime surface for active skill dictionaries")
 	_expect(runtime_source.find("_active_skill_slot_resolver.get_skill_windup_seconds_for_slot") < 0, "egg runtime should ask the skill-runtime surface for per-slot windup seconds")
@@ -1567,6 +1602,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		_expect(runtime_source.find(affinity_pet_id_wrapper) < 0, "egg runtime should resolve affinity pet ids at the public call site instead of keeping private pass-through wrappers (%s)" % affinity_pet_id_wrapper)
 	_expect(runtime_source.find("lingpet_companion_skill_controller.gd") >= 0, "egg runtime should delegate companion active-skill arm/launch decisions to the skill controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_controller.gd"), "companion skill controller should exist for future lingpet active skills")
+	_expect(skill_controller_source.find("func update_active_slots") >= 0, "companion skill controller should own full active-slot update orchestration")
 	_expect(skill_controller_source.find("ACTION_ARM") >= 0 and skill_controller_source.find("ACTION_LAUNCH") >= 0, "companion skill controller should own active-skill action decisions")
 	_expect(skill_controller_source.find("LingpetSkillDispatcher.has_supported_runtime") >= 0, "companion skill controller should guard supported runtime skill ids")
 	_expect(skill_controller_source.find("LingpetCompanionSkillArmGate") >= 0 and skill_controller_source.find("_arm_gate.can_arm") >= 0, "companion skill controller should own cross-slot arm-gate mediation")
@@ -1673,7 +1709,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_runtime_surface_source.find("func get_active_surface_for_slot") >= 0 and skill_runtime_surface_source.find("get_skill_id_for_slot") >= 0 and skill_runtime_surface_source.find("get_active_skill_for_slot") >= 0 and skill_runtime_surface_source.find("get_skill_windup_seconds_for_slot") >= 0 and skill_runtime_surface_source.find("get_state_for_slot") >= 0 and skill_runtime_surface_source.find("get_active_skill_level_for_slot") >= 0, "skill runtime surface should own per-slot active-skill update/snapshot/owner-sync surface assembly")
 	_expect(skill_runtime_surface_source.find("func get_second_active_surface") >= 0 and skill_runtime_surface_source.find("get_active_surface_for_slot(") >= 0, "skill runtime surface should keep second-active surface as a slot-1 specialization")
 	var skill_update_body := _function_body(runtime_source, "func _update_companion_skill_effects")
-	_expect(skill_update_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "companion skill update should ask skill runtime surface for per-slot active surface data")
+	_expect(skill_update_body.find("_companion_skill_controller.update_active_slots") >= 0, "companion skill runtime hook should delegate the full slot tick to the controller")
+	_expect(skill_controller_source.find("skill_runtime_surface.get_active_surface_for_slot") >= 0, "companion skill controller should ask skill runtime surface for per-slot active surface data")
 	_expect(skill_update_body.find("_active_skill_slot_resolver.get_active_skill_for_slot") < 0 and skill_update_body.find("_active_skill_slot_resolver.get_skill_windup_seconds_for_slot") < 0 and skill_update_body.find("_companion_skill_persistence.get_state_for_slot") < 0 and skill_update_body.find("_current_profile.get_active_skill_level_for_slot") < 0, "companion skill update should not reassemble active-skill surface inline")
 	var skill_launch_body := _function_body(runtime_source, "func _launch_companion_skill")
 	_expect(skill_launch_body.find("_skill_runtime_surface.get_active_surface_for_slot") >= 0, "companion skill launch should ask skill runtime surface for per-slot active surface data")
@@ -1734,12 +1771,13 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_runtime_host_source.find("get_companion_position_override") >= 0, "skill runtime host should let body-driven skills override the real companion position")
 	_expect(runtime_source.find("func _apply_active_companion_skill_position_override") < 0, "egg runtime should not keep a single-use position-override apply wrapper")
 	_expect(runtime_source.find("func _apply_companion_skill_position_override") < 0, "egg runtime should not keep a dead companion skill position-override wrapper")
-	_expect(runtime_source.find("_skill_runtime_surface.get_active_position_owner") >= 0 and runtime_source.find("_skill_runtime_surface.has_active_position_override") >= 0 and runtime_source.find("_vector_resolver.vector2_or_fallback") >= 0, "egg runtime should apply body-driven skill positions through the skill-runtime active-position surface")
+	_expect(skill_controller_source.find("_skill_runtime_surface.get_active_position_owner_for_ids") >= 0 and skill_controller_source.find("_skill_runtime_surface.has_active_position_override") >= 0 and skill_controller_source.find("_vector2_or_fallback") >= 0, "skill controller should resolve body-driven positions through the skill-runtime active-position surface")
+	_expect(runtime_source.find("_companion_pos = _companion_skill_controller.update_active_slots") >= 0, "egg runtime should apply the controller-resolved companion position")
 	_expect(runtime_source.find("_companion_skill_visual_resolver.get_active_position_override_owner") < 0 and runtime_source.find("_companion_skill_visual_resolver.has_active_position_override") < 0, "egg runtime should not reassemble active position-owner queries inline")
 	for visual_wrapper in ["func _get_active_position_override_owner", "func _has_active_companion_position_override", "func _get_companion_body_skill_id"]:
 		_expect(runtime_source.find(visual_wrapper) < 0, "egg runtime should not keep single-use companion-skill visual resolver pass-through wrappers (%s)" % visual_wrapper)
 	_expect(runtime_source.find("func _trigger_companion_skill_strike_if_requested") < 0, "egg runtime should not keep a single-use companion strike-request wrapper")
-	_expect(runtime_source.find("_skill_runtime_surface.consume_companion_strike_request") >= 0, "egg runtime should consume companion strike requests through the skill-runtime surface directly")
+	_expect(skill_controller_source.find("skill_runtime_surface.consume_companion_strike_request") >= 0, "skill controller should consume companion strike requests through the skill-runtime surface")
 	_expect(skill_runtime_surface_source.find("func is_companion_body_hit_suppressed") >= 0, "skill-runtime surface should own companion body-hit suppression checks")
 	_expect(runtime_source.find("func _is_companion_body_hit_suppressed") < 0, "egg runtime should not keep a single-use companion body-hit suppression wrapper")
 	_expect(runtime_source.find("_skill_runtime_surface.is_companion_body_hit_suppressed") >= 0, "egg runtime should ask the skill-runtime surface directly for body-hit suppression")
@@ -2069,7 +2107,7 @@ func _verify_egg_color_rolls_once_and_restores() -> void:
 	_expect(field_state_source.find("pet_id") < 0 and field_state_source.find("profile") < 0, "egg resonance color roll must stay decoupled from pet/profile identity")
 
 	var item_catalog_source: String = FileAccess.get_file_as_string("res://scripts/items/active_item_catalog.gd")
-	_expect(item_catalog_source.find("resonance_egg_item_icon.png") >= 0, "active item slot icon should point at the precomposited resonance egg item icon")
+	_expect(item_catalog_source.find("guardian_spirit_egg_traditional_item_icon_v1.png") >= 0, "active item slot icon should point at the traditional guardian-spirit egg icon")
 	_expect(item_catalog_source.find("Color(0.30, 0.80, 1.0)") >= 0 and item_catalog_source.find("Color(1.0, 0.86, 0.62)") < 0, "lingpet egg pickup catalog color should use the cyan resonance color, not the old peach-gold glow")
 
 	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
@@ -2082,8 +2120,8 @@ func _verify_egg_color_rolls_once_and_restores() -> void:
 func _verify_bare_egg_roll_physics_and_renderer() -> void:
 	var renderer: Object = LingpetEggFieldRenderer.new()
 	for variant_index in range(renderer.get_variant_count()):
-		var path := "res://assets/sprites/lingpet/resonance_egg_bare_variant_%d.png" % variant_index
-		_expect(FileAccess.file_exists(path), "bare field egg variant %d should exist" % variant_index)
+		var path: String = str(LingpetEggFieldRenderer.EGG_BARE_VARIANT_PATHS[variant_index])
+		_expect(FileAccess.file_exists(path), "traditional field guardian-spirit egg variant %d should exist" % variant_index)
 		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
 		_expect(image != null, "bare field egg variant %d should load as an image" % variant_index)
 		if image == null:
@@ -2617,8 +2655,8 @@ func _verify_hatch_break_sequence_defers_cutin() -> void:
 	_expect(modal_gate_source.find("physics.modal_gate.lingpet_hatch_break") >= 0 and modal_gate_source.find("is_hatch_break_active") >= 0, "the modal gate must hold battle physics through the shell-break window")
 	var frame_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
 	_expect(frame_controller_source.find("advance_hatch_break") >= 0, "the frame controller idle pump must advance the shell-break clock while physics is held")
-	var input_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
-	_expect(input_controller_source.find("is_hatch_break_active") >= 0, "the input controller must swallow input during the shell-break beat (mid-break pause/save would strand an uncommitted hatch)")
+	var lingpet_input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_interaction_input_router.gd")
+	_expect(lingpet_input_source.find("is_hatch_break_active") >= 0, "the lingpet input router must swallow input during the shell-break beat (mid-break pause/save would strand an uncommitted hatch)")
 	var egg_break_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 	_expect(egg_break_renderer_source.find("func draw_hatch_break_egg") >= 0 and egg_break_renderer_source.find("HATCH_BREAK_CRACK_STAGE_RATIOS") >= 0, "the egg renderer must own the staged shell-break crack visuals")
 	var behind_pass_body: String = _function_body(runtime_source, "func draw_lingpet_body_behind_actors")
@@ -3453,10 +3491,10 @@ func _verify_starlight_tracking_passive() -> void:
 	_expect(float(passive_lv5.get("starpoint_tracking_chase_speed", 0.0)) > float(passive_lv1.get("starpoint_tracking_chase_speed", 0.0)), "Starlight Tracking chase speed should scale by passive level")
 
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var stage1_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_balloon_event.gd")
-	var stage2_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
-	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
-	var stage4_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_bird_event.gd")
+	var stage1_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd")
+	var stage2_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_starpoint_coordinator.gd")
+	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_starpoint_state.gd")
+	var stage4_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_bird_starpoint_state.gd")
 	_expect(runtime_source.find("update_starlight_tracking_for_starpoint_drop") >= 0, "lingpet runtime should expose a starpoint-drop tracking hook")
 	_expect(stage1_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 1 starpoint drops should offer Starlight Tracking collection")
 	_expect(stage2_source.find("LingpetStarlightTrackingBridge.update_drop") >= 0, "Stage 2 starpoint drops should offer Starlight Tracking collection")
@@ -3552,6 +3590,62 @@ func _verify_starlight_tracking_passive() -> void:
 	var jump_pos_value: Variant = ground_catch_result.get("companion_pos", Vector2.ZERO)
 	var jump_pos: Vector2 = jump_pos_value if jump_pos_value is Vector2 else Vector2.ZERO
 	_expect(jump_pos != Vector2.ZERO and jump_pos.y < ground_start.y, "Ground Starlight Tracking should use a small jump at pickup instead of staying flat")
+
+
+# WIP 파괴 소실 복원 씰: 탈진(포만도 소진) 중엔 위치-스크립팅 패시브 별빛추적이
+# 억제돼야 한다. Slice3a 탈진 5소비처 게이트가 이 패시브를 안 덮어 KO 중 순간이동/
+# 전달이 났다. companion_active fold(2콜사이트: advance + update_starlight)로 봉인.
+func _verify_exhaustion_suppresses_starlight_tracking() -> void:
+	var owner := FakeOwner.new()
+	owner.ai_mode = "champion"  # 주니어 리그는 탈진 면제(D9) — 비면제 리그로 강제
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "exhaustion seal should equip Starlight Tracking Lv.5")
+	# 탈진 강제: 포만도 0 + 텔레그래프 창 경과(1.75s).
+	runtime.set_satiety_for_tests("maribo", 0.0)
+	for _i in 160:
+		runtime.update(1.0 / 60.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "fixture must reach exhaustion before the suppression assert")
+	# 탈진 중 클레임 가능한(roll 0 = 항상 성공) 근접 드랍 → 별빛추적 억제.
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	var drop := _make_starpoint_drop(companion_pos + Vector2(8.0, 0.0), 0.0)
+	owner.player_pos = companion_pos + Vector2(116.0, 0.0) - Vector2(owner.player_paddle_width, owner.player_paddle_height) * 0.5
+	var result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(drop, 0.0, _starpoint_delivery_context(owner))
+	_expect(
+		not bool(result.get("claimed", false)) and not bool(result.get("picked_up", false)) and not bool(result.get("delivered", false)),
+		"exhausted companion must NOT run Starlight Tracking (KO teleport/delivery bug — WIP-loss restore)"
+	)
+	_expect(not bool(runtime.is_starlight_tracking_active_for_tests()), "exhaustion must clear any Starlight Tracking position override")
+
+
+# WIP 파괴 소실 복원 씰: 탈진 중엔 링크포트(ring_dash) 비상 순간이동도 억제돼야
+# 한다. advance가 _update_companion_motion에서 탈진 판정보다 먼저 돌며
+# companion_active만 받아 KO 중 순간이동+VFX+사운드를 냈다(탈진 판정 호이스트로 봉인).
+func _verify_exhaustion_suppresses_linkport() -> void:
+	var owner := FakeOwner.new()
+	owner.ai_mode = "champion"  # 주니어 면제 회피
+	owner.lingpet_ring_dash_force_roll_pct = 0.0  # 롤 강제 성공
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "exhaustion seal should equip Ring Dash Lv.5")
+	# 탈진 강제: 비상 공 없이 텔레그래프 경과(탈진 전 트리거 방지).
+	owner.ball_active = false
+	runtime.set_satiety_for_tests("maribo", 0.0)
+	for _i in 160:
+		runtime.update(1.0 / 60.0, owner, registry)
+	_expect(runtime.is_companion_exhausted_for_tests(owner), "linkport fixture must reach exhaustion")
+	# 탈진 후 비상 하강 공 → 링크포트 억제(트리거/순간이동 없음).
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
+	owner.player_pos = Vector2(240.0, owner.player_pos.y)
+	owner.player_paddle_width = 170.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(640.0, owner.player_pos.y - 40.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	var trigger_before: int = int(runtime.get_ring_dash_trigger_count_for_tests())
+	runtime.update(0.12, owner, registry)
+	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "exhausted companion must NOT run Linkport emergency dash (KO teleport bug — WIP-loss restore)")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == trigger_before, "exhaustion must not spend a Linkport trigger")
 
 
 func _verify_ring_dash_passive() -> void:
@@ -3696,8 +3790,88 @@ func _verify_ring_dash_single_roll_per_descent() -> void:
 	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == 1, "the fresh descent should produce exactly one successful trigger")
 
 
+func _verify_ring_dash_defers_to_committed_player_dash() -> void:
+	# 이중수비 씰: 플레이어가 이미 공 쪽으로 대쉬를 커밋했으면 링크포트가 같은 공에
+	# 동시 발동해선 안 된다. `_player_can_block`은 패들의 현재 정지 스팬만 보므로
+	# 대쉬 비행 중엔 "못 막음"으로 오판한다 — 접촉 시점 위치를 투영해야 한다.
+	# 반대로 커버가 불가능한 대쉬(반대 방향 / 접촉까지 못 닿는 짧은 잔여 타이머)는
+	# 보류하면 안 된다. "대쉬 중이면 무조건 보류"는 링크포트를 죽인다.
+	# 지오메트리: 패들 400..570(+공반지름 14.3 -> 385.7..584.3), 접촉 X 620 = 정지
+	# 스팬 밖(대조군이 실제로 발동함으로 증명). 공 하강 4px/frame -> 접촉까지 ~10프레임,
+	# 풀 대쉬(15f) 잔여 이동 ~194px -> 투영 스팬이 620을 덮는다.
+	var contact_x := 620.0
+
+	# --- 레그 1(대조군): 대쉬 없음 -> 정상 발동 (이 지오메트리가 진짜 비상 상황임을 증명)
+	var idle_dash := FakePlayerDashState.new()
+	var idle_registry := FakeRegistry.new({"smasher_dash_state": idle_dash})
+	var owner_idle := FakeOwner.new()
+	owner_idle.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime_idle: Object = LingpetEggRuntime.new()
+	_expect(runtime_idle.debug_grant_and_activate_pet("maribo", owner_idle, false, "maribo_hydro_sphere", "lingpet_ring_dash", idle_registry, 1, 5), "dash-defer control leg should equip Linkport Lv.5")
+	_arm_ring_dash_dash_defer_scenario(runtime_idle, owner_idle, contact_x)
+	runtime_idle.update(0.05, owner_idle, idle_registry)
+	_expect(bool(runtime_idle.is_ring_dash_active_for_tests()), "control leg: Linkport must fire when the standing paddle span cannot reach the contact X (otherwise the defer legs prove nothing)")
+	_expect(int(runtime_idle.get_ring_dash_trigger_count_for_tests()) == 1, "control leg: the unblockable descent should spend exactly one Linkport trigger")
+
+	# --- 레그 2: 공 쪽으로 커밋된 대쉬 -> 보류(굴림 락도 소모하지 않는다)
+	var committed_dash := FakePlayerDashState.new()
+	committed_dash.dash_active = true
+	committed_dash.dash_direction = 1.0
+	committed_dash.dash_timer = 15.0
+	var committed_registry := FakeRegistry.new({"smasher_dash_state": committed_dash})
+	var owner_dash := FakeOwner.new()
+	owner_dash.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime_dash: Object = LingpetEggRuntime.new()
+	_expect(runtime_dash.debug_grant_and_activate_pet("maribo", owner_dash, false, "maribo_hydro_sphere", "lingpet_ring_dash", committed_registry, 1, 5), "dash-defer leg should equip Linkport Lv.5")
+	_arm_ring_dash_dash_defer_scenario(runtime_dash, owner_dash, contact_x)
+	runtime_dash.update(0.05, owner_dash, committed_registry)
+	_expect(not bool(runtime_dash.is_ring_dash_active_for_tests()), "Linkport must NOT double-guard a ball the player already dashed to cover")
+	_expect(int(runtime_dash.get_ring_dash_trigger_count_for_tests()) == 0, "a deferred Linkport must not spend a trigger")
+	_expect(not bool(runtime_dash.get_snapshot().get("ring_dash_rolled_this_descent", true)), "a deferred Linkport must not burn the per-descent roll lock — the dash may still whiff")
+
+	# --- 레그 3: 반대 방향 대쉬 -> 커버 불가이므로 보류하지 않는다
+	var away_dash := FakePlayerDashState.new()
+	away_dash.dash_active = true
+	away_dash.dash_direction = -1.0
+	away_dash.dash_timer = 15.0
+	var away_registry := FakeRegistry.new({"smasher_dash_state": away_dash})
+	var owner_away := FakeOwner.new()
+	owner_away.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime_away: Object = LingpetEggRuntime.new()
+	_expect(runtime_away.debug_grant_and_activate_pet("maribo", owner_away, false, "maribo_hydro_sphere", "lingpet_ring_dash", away_registry, 1, 5), "opposite-direction dash leg should equip Linkport Lv.5")
+	_arm_ring_dash_dash_defer_scenario(runtime_away, owner_away, contact_x)
+	runtime_away.update(0.05, owner_away, away_registry)
+	_expect(bool(runtime_away.is_ring_dash_active_for_tests()), "a dash AWAY from the ball cannot cover it — Linkport must still fire")
+
+	# --- 레그 4: 잔여 타이머가 접촉까지 닿지 못하는 대쉬 -> 보류하지 않는다
+	var short_dash := FakePlayerDashState.new()
+	short_dash.dash_active = true
+	short_dash.dash_direction = 1.0
+	short_dash.dash_timer = 2.0
+	var short_registry := FakeRegistry.new({"smasher_dash_state": short_dash})
+	var owner_short := FakeOwner.new()
+	owner_short.lingpet_ring_dash_force_roll_pct = 0.0
+	var runtime_short: Object = LingpetEggRuntime.new()
+	_expect(runtime_short.debug_grant_and_activate_pet("maribo", owner_short, false, "maribo_hydro_sphere", "lingpet_ring_dash", short_registry, 1, 5), "short-timer dash leg should equip Linkport Lv.5")
+	_arm_ring_dash_dash_defer_scenario(runtime_short, owner_short, contact_x)
+	runtime_short.update(0.05, owner_short, short_registry)
+	_expect(bool(runtime_short.is_ring_dash_active_for_tests()), "a dash whose remaining travel cannot reach the contact X must NOT suppress Linkport")
+
+
+func _arm_ring_dash_dash_defer_scenario(runtime: Object, owner: Object, contact_x: float) -> void:
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
+	owner.player_pos = Vector2(400.0, owner.player_pos.y)
+	owner.player_paddle_width = 170.0
+	owner.ball_active = true
+	owner.ball_pos = Vector2(contact_x, owner.player_pos.y - 40.0)
+	# 느린 하강(4px/frame)으로 접촉까지 ~10프레임을 확보한다 — 대쉬가 실제로
+	# 접촉 지점까지 이동할 시간이 있는 상황이어야 투영 판정이 의미를 가진다.
+	owner.ball_vel = Vector2(0.0, 4.0)
+
+
 func _verify_ring_dash_ground_pet_keeps_y_on_teleport() -> void:
-	# 지상형(patrol) 링펫은 공중으로 이동할 수 없으므로, 링크포트(Linkport) 순간이동은 X만
+	# 지상형(patrol) 수호령은 공중으로 이동할 수 없으므로, 링크포트(Linkport) 순간이동은 X만
 	# 바꾸고 Y(지상 레인)는 유지해야 한다. 가드 센터 Y로 내려보내면 패들 높이만큼 위로
 	# 튀어오르는데, 50px 기본 패들에선 미미하지만 패들 높이 증가 퍽/아이템이 켜지면 눈에
 	# 보일 만큼 커진다. 여기서는 패들 높이 75로 그 분기(rest Y ~712.5 vs 옛 guard Y ~697)를
@@ -4108,16 +4282,20 @@ func _verify_hydro_puddle_vfx() -> void:
 	_expect(spawned, "hydro puddle should spawn after the projectile reaches the opponent wall")
 	_expect(runtime.get_hydro_puddle_particle_count_for_tests() > 0, "wall impact should seed a splash particle burst")
 
-	# Source wiring: the puddle draws via the texture cache + caustic layers + particles.
+	# Source wiring: gameplay state stays in the skill while the focused renderer owns
+	# texture-cache preparation plus the caustic/particle CanvasItem recipe.
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var skill_runtime_host_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 	var hydro_skill_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
+	var hydro_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_hydro_sphere_renderer.gd")
 	_expect(runtime_source.find("lingpet_skill_runtime_host.gd") >= 0, "egg runtime should delegate concrete skill effects to the runtime host")
 	_expect(skill_runtime_host_source.find("lingpet_hydro_sphere_skill.gd") >= 0, "skill runtime host should delegate Hydro Sphere projectile/puddle behavior to the skill module")
-	_expect(hydro_skill_source.find("HydroPuddleTextureCache") >= 0, "Hydro Sphere module should draw through the procedural texture cache")
-	_expect(hydro_skill_source.find("_draw_particles") >= 0, "Hydro Sphere module should draw pooled water particles")
-	_expect(hydro_skill_source.find("_blit_hydro_caustic") >= 0, "Hydro Sphere module should blit scroll-animated caustic layers")
+	_expect(hydro_skill_source.find("LingpetHydroSphereRenderer") >= 0, "Hydro Sphere gameplay owner should delegate presentation to the focused renderer")
+	_expect(hydro_renderer_source.find("HydroPuddleTextureCache") >= 0, "Hydro Sphere renderer should draw through the procedural texture cache")
+	_expect(hydro_renderer_source.find("_draw_particles") >= 0, "Hydro Sphere renderer should draw borrowed pooled water particles")
+	_expect(hydro_renderer_source.find("_blit_hydro_caustic") >= 0, "Hydro Sphere renderer should blit scroll-animated caustic layers")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd"), "Hydro Sphere skill module should exist")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_hydro_sphere_renderer.gd"), "Hydro Sphere renderer module should exist")
 	_expect(FileAccess.file_exists("res://scripts/effects/hydro_puddle_texture_cache.gd"), "hydro puddle texture cache script should exist")
 
 
@@ -4516,12 +4694,12 @@ func _verify_lingpet_body_draws_behind_player() -> void:
 
 func _verify_lingpet_defense_guard_chase_feedback() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+	var defense_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_defense_state.gd")
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	_expect(runtime_source.find("COMPANION_DEFENSE_GUARD_PLAYER_SPEED_BONUS_PCT") < 0, "defense guard should not smuggle an undocumented player speed bonus into the runtime")
-	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN") >= 0, "defense guard chase speed should scale with defense_rate through a single rate-gain lever, not a fixed multiplier")
-	_expect(motion_source.find("COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS") >= 0, "every defending lingpet must get the universal +60% guard-speed floor (not a maribo-only value)")
+	_expect(defense_source.find("COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN") >= 0, "defense guard chase speed should scale with defense_rate through a single rate-gain lever, not a fixed multiplier")
+	_expect(defense_source.find("COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS") >= 0, "every defending lingpet must get the universal +60% guard-speed floor (not a maribo-only value)")
 	_expect(renderer_source.find("defense_guard_aura_ratio") >= 0 and renderer_source.find("_resolve_aura_color") >= 0, "companion renderer should tint the soft aura through a guard ratio")
 	_expect(draw_context_source.find("\"defense_guard_active\"") >= 0 and draw_context_source.find("\"defense_guard_aura_ratio\"") >= 0, "draw context should expose guard chase aura fields")
 	var guard_speed: float = LingpetCompanionMotionState.get_defense_guard_speed(120.0, 0.30)
@@ -5444,10 +5622,11 @@ func _verify_koyora_puppet_grab_skill() -> void:
 		"game_audio should expose the three original Puppet Control SFX calls"
 	)
 	var skill_host_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
+	var launch_feedback_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
 	_expect(
-		skill_host_src.find("_play_puppet_grab_cast_feedback") >= 0
-			and skill_host_src.find("play_lingpet_puppet_grab_cast") >= 0,
-		"skill runtime host should use the original tentacle cast SFX instead of generic active-item feedback"
+		skill_host_src.find("_launch_feedback_router.trigger(skill_id, registry)") >= 0
+			and launch_feedback_src.find("play_lingpet_puppet_grab_cast") >= 0,
+		"skill runtime facade should delegate the original tentacle cast SFX instead of generic active-item feedback"
 	)
 	var draw_context_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 	var visual_cache_src: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
@@ -6088,6 +6267,7 @@ func _verify_companion_click_reaction() -> void:
 	var current_visual_prewarm_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_visual_prewarm_coordinator.gd")
 	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	var lingpet_input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_interaction_input_router.gd")
 	var body_presence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 	_expect(runtime_source.find("lingpet_companion_click_reaction_state.gd") >= 0, "lingpet runtime should delegate click-reaction timing state")
 	_expect(runtime_source.find("_draw_companion_click_reaction") < 0, "lingpet runtime should delegate click-reaction sheet drawing to the click-reaction module")
@@ -6129,8 +6309,9 @@ func _verify_companion_click_reaction() -> void:
 	var body_draw_fn := _function_body(runtime_source, "func draw_lingpet_body_behind_actors")
 	_expect(body_draw_fn.find("_companion_body_presence_resolver.is_click_reaction_visible") >= 0, "lingpet body draw should ask body-presence resolver for click-reaction visibility")
 	_expect(body_draw_fn.find("_ring_dash_state.is_companion_visual_hidden") < 0, "lingpet body draw should not reassemble click-reaction visibility inline")
-	_expect(input_source.find("try_begin_companion_click_reaction") >= 0, "battle input should route playfield companion clicks to the lingpet runtime")
-	_expect(input_source.find("try_begin_companion_click_reaction(playfield_pos, registry)") >= 0, "battle input should hand the registry to the click-reaction so the per-pet voice can play")
+	_expect(input_source.find("BattleLingpetInteractionInputRouter") >= 0, "battle input should compose the focused lingpet interaction router")
+	_expect(lingpet_input_source.find("try_begin_companion_click_reaction") >= 0, "lingpet input router should route playfield companion clicks to the lingpet runtime")
+	_expect(lingpet_input_source.find("try_begin_companion_click_reaction(playfield_pos, registry)") >= 0, "lingpet input router should hand the registry to the click-reaction so the per-pet voice can play")
 	_expect(runtime_source.find("func _play_click_reaction_audio") < 0, "lingpet runtime should not keep a single-use click-reaction audio wrapper")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_click_reaction") >= 0, "lingpet runtime should route click-reaction voice timing directly through the audio dispatcher")
 
@@ -6246,8 +6427,10 @@ func _verify_companion_interact_key_reaction() -> void:
 	var interact_body := _function_body(runtime_source, "func try_begin_companion_interact_reaction")
 	_expect(interact_body.find("try_begin_companion_click_reaction(_companion_pos") >= 0, "interact wrapper should self-target _companion_pos through the click body instead of forking a second grant path")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
-	_expect(input_source.find("LINGPET_INTERACT_KEY := KEY_E") >= 0, "battle input should bind the non-mouse bond interact key to E")
-	_expect(input_source.find("try_begin_companion_interact_reaction(registry)") >= 0, "battle input should hand the registry to the interact wrapper so the per-pet voice can play")
+	var lingpet_input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_interaction_input_router.gd")
+	_expect(input_source.find("BattleLingpetInteractionInputRouter") >= 0, "battle input should compose the focused lingpet interaction router")
+	_expect(lingpet_input_source.find("LINGPET_INTERACT_KEY := KEY_E") >= 0, "lingpet input router should bind the non-mouse bond interact key to E")
+	_expect(lingpet_input_source.find("try_begin_companion_interact_reaction(registry)") >= 0, "lingpet input router should hand the registry to the interact wrapper so the per-pet voice can play")
 
 
 func _verify_ring_core_upgrade_grants_affinity_to_all_owned_pets() -> void:

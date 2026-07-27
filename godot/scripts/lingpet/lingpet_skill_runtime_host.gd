@@ -1,6 +1,8 @@
 extends RefCounted
 
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
+const LingpetSkillLaunchFeedbackRouter := preload("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
+const LingpetSkillCompanionSurfaceRouter := preload("res://scripts/lingpet/lingpet_skill_companion_surface_router.gd")
 
 const HYDRO_SPHERE_SKILL_PATH := "res://scripts/lingpet/lingpet_hydro_sphere_skill.gd"
 const HEADBUTT_SKILL_PATH := "res://scripts/lingpet/lingpet_headbutt_skill.gd"
@@ -71,6 +73,8 @@ var _star_coil_skill: Object = null
 var _gravity_accel_skill: Object = null
 var _dwarf_magic_skill: Object = null
 var _sand_prison_skill: Object = null
+var _launch_feedback_router := LingpetSkillLaunchFeedbackRouter.new()
+var _companion_surface_router := LingpetSkillCompanionSurfaceRouter.new()
 
 
 func reset(owner: Object = null, registry: Object = null) -> void:
@@ -518,103 +522,19 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 
 
 func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radius: float) -> Vector2:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
-		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
-		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) * 0.35)
-		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
-		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
-		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
-		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
-			return companion_pos
-		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
-			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 10.0)
-		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
-			return companion_pos
-		_:
-			return companion_pos
+	return _companion_surface_router.get_launch_origin(skill_id, companion_pos, companion_radius)
 
 
 func has_companion_position_override(skill_id: String) -> bool:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill != null and bool(_headbutt_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
-			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			return _gatling_burst_skill != null and bool(_gatling_burst_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			return _puppet_grab_skill != null and bool(_puppet_grab_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
-			return _doll_curse_skill != null and bool(_doll_curse_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
-			return _banana_slice_skill != null and bool(_banana_slice_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
-			return _wild_roar_skill != null and bool(_wild_roar_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
-			return _star_coil_skill != null and bool(_star_coil_skill.has_companion_position_override())
-		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
-			return _sand_prison_skill != null and bool(_sand_prison_skill.has_companion_position_override())
-		_:
-			return false
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.has_companion_position_override(skill_kind, skill)
 
 
 func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vector2:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill.get_companion_position_override(fallback) if _headbutt_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
-			return _bomb_surprise_skill.get_companion_position_override(fallback) if _bomb_surprise_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			return _gatling_burst_skill.get_companion_position_override(fallback) if _gatling_burst_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			return _puppet_grab_skill.get_companion_position_override(fallback) if _puppet_grab_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
-			return _doll_curse_skill.get_companion_position_override(fallback) if _doll_curse_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
-			return _banana_slice_skill.get_companion_position_override(fallback) if _banana_slice_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
-			return _wild_roar_skill.get_companion_position_override(fallback) if _wild_roar_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
-			return _star_coil_skill.get_companion_position_override(fallback) if _star_coil_skill != null else fallback
-		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
-			return _sand_prison_skill.get_companion_position_override(fallback) if _sand_prison_skill != null else fallback
-		_:
-			return fallback
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.get_companion_position_override(skill_kind, skill, fallback)
 
 
 func get_active_position_override_owner(skill_ids: Array, fallback: Vector2) -> Dictionary:
@@ -636,110 +556,35 @@ func get_active_position_override_owner(skill_ids: Array, fallback: Vector2) -> 
 
 
 func suppresses_companion_body_hit(skill_id: String) -> bool:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill != null and _headbutt_skill.has_method("suppresses_companion_body_hit") and bool(_headbutt_skill.suppresses_companion_body_hit())
-		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
-			return _bomb_surprise_skill != null and bool(_bomb_surprise_skill.suppresses_companion_body_hit())
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			return _gatling_burst_skill != null and bool(_gatling_burst_skill.suppresses_companion_body_hit())
-		_:
-			return false
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.suppresses_companion_body_hit(skill_kind, skill)
 
 
 func suppresses_companion_body_draw(skill_id: String) -> bool:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			return _gatling_burst_skill != null and _gatling_burst_skill.has_method("suppresses_companion_body_draw") and bool(_gatling_burst_skill.suppresses_companion_body_draw())
-		_:
-			return false
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.suppresses_companion_body_draw(skill_kind, skill)
 
 
 func consume_companion_strike_request(skill_id: String) -> bool:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			return _headbutt_skill != null and bool(_headbutt_skill.consume_companion_strike_request())
-		_:
-			return false
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.consume_companion_strike_request(skill_kind, skill)
 
 
 func should_show_cast_windup(skill_id: String) -> bool:
-	return LingpetSkillDispatcher.has_supported_runtime(skill_id)
+	return _companion_surface_router.should_show_cast_windup(skill_id)
 
 
 func get_companion_cast_pose_progress(skill_id: String) -> float:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			if _puppet_grab_skill != null and _puppet_grab_skill.has_method("get_companion_cast_pose_progress"):
-				return float(_puppet_grab_skill.get_companion_cast_pose_progress())
-		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
-			if _doll_curse_skill != null and _doll_curse_skill.has_method("get_companion_cast_pose_progress"):
-				return float(_doll_curse_skill.get_companion_cast_pose_progress())
-		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
-			if _banana_slice_skill != null and _banana_slice_skill.has_method("get_companion_cast_pose_progress"):
-				return float(_banana_slice_skill.get_companion_cast_pose_progress())
-		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
-			if _wild_roar_skill != null and _wild_roar_skill.has_method("get_companion_cast_pose_progress"):
-				return float(_wild_roar_skill.get_companion_cast_pose_progress())
-		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
-			if _sand_prison_skill != null and _sand_prison_skill.has_method("get_companion_cast_pose_progress"):
-				return float(_sand_prison_skill.get_companion_cast_pose_progress())
-	return -1.0
+	var skill_kind := LingpetSkillDispatcher.get_skill_kind(skill_id)
+	var skill := _peek_skill_for_kind(skill_kind)
+	return _companion_surface_router.get_companion_cast_pose_progress(skill_kind, skill)
 
 
 func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
-	match LingpetSkillDispatcher.get_skill_kind(skill_id):
-		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_play_hydro_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
-			pass
-		LingpetSkillDispatcher.SKILL_KIND_BUBBLE_TRAP:
-			_play_hydro_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_MILK_PRODUCTION:
-			_play_active_item_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_MILK_SHOT:
-			# Milk Shot plays its fire cadence from the projectile runtime.
-			pass
-		LingpetSkillDispatcher.SKILL_KIND_THUNDER_ORB:
-			_play_thunder_orb_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_SOLAR_BOLT:
-			_play_solar_bolt_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_BOMB_SURPRISE:
-			_play_bomb_surprise_attach_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_GATLING_BURST:
-			pass
-		LingpetSkillDispatcher.SKILL_KIND_DRAGON_BREATH:
-			_play_dragon_breath_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_DRAGON_WING:
-			_play_dragon_wing_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_GHOST_SUMMON:
-			_play_ghost_summon_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_SKELETON_ARCHER:
-			_play_skeleton_archer_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_BONE_BARRIER:
-			_play_bone_barrier_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_SOUL_CLONE:
-			_play_soul_clone_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB:
-			_play_puppet_grab_cast_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE:
-			_play_doll_curse_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE:
-			# Banana Slice plays its throw cue when PREPARE actually releases.
-			pass
-		LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR:
-			# Wild Roar plays its one-shot roar from the launch module itself.
-			pass
-		LingpetSkillDispatcher.SKILL_KIND_STAR_COIL:
-			_play_active_item_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_GRAVITY_ACCEL:
-			_play_gravity_accel_cast_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_DWARF_MAGIC:
-			_play_dwarf_magic_cast_feedback(registry)
-		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
-			_play_sand_prison_cast_feedback(registry)
-		_:
-			pass
+	_launch_feedback_router.trigger(skill_id, registry)
 
 
 func get_boss_ai_context() -> Dictionary:
@@ -1398,219 +1243,3 @@ func _merge_skill_snapshot(snapshot: Dictionary, skill: Object) -> void:
 	var skill_snapshot: Variant = skill.get_snapshot()
 	if skill_snapshot is Dictionary:
 		snapshot.merge(skill_snapshot as Dictionary, true)
-
-
-func _play_hydro_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_stage2_hydro"):
-		audio.play_stage2_hydro()
-
-
-func _play_active_item_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_thunder_orb_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_thunder_orb_shot"):
-		audio.play_thunder_orb_shot()
-	elif audio.has_method("play_ragnarok_shot"):
-		audio.play_ragnarok_shot()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_solar_bolt_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_solar_bolt_strike"):
-		audio.play_solar_bolt_strike()
-	elif audio.has_method("play_ragnarok_shot"):
-		audio.play_ragnarok_shot()
-	elif audio.has_method("play_thunder_orb_boom"):
-		audio.play_thunder_orb_boom()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_bomb_surprise_attach_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_bomb_surprise_attach"):
-		audio.play_bomb_surprise_attach()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_dragon_breath_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_dragon_breath_fire"):
-		audio.play_dragon_breath_fire(false)
-	elif audio.has_method("play_molotov_explosion"):
-		audio.play_molotov_explosion()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_dragon_wing_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_active_item"):
-		audio.play_active_item()
-	elif audio.has_method("play_dragon_breath_fire"):
-		audio.play_dragon_breath_fire(true)
-
-
-func _play_ghost_summon_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_ghost_summon"):
-		audio.play_lingpet_ghost_summon()
-	elif audio.has_method("play_stage3_kuromi_tongue"):
-		audio.play_stage3_kuromi_tongue()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_skeleton_archer_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	# Original PingFighter summon cue is bonemake2.wav (bones assembling), matching the
-	# visible bone-assembly emerge animation -- not the borrowed ghost-summon whoosh.
-	if audio.has_method("play_lingpet_skeleton_archer_summon"):
-		audio.play_lingpet_skeleton_archer_summon()
-	elif audio.has_method("play_lingpet_ghost_summon"):
-		audio.play_lingpet_ghost_summon()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_bone_barrier_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_bone_barrier_build"):
-		audio.play_lingpet_bone_barrier_build()
-	elif audio.has_method("play_lingpet_skeleton_archer_summon"):
-		audio.play_lingpet_skeleton_archer_summon()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_soul_clone_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_ghost_summon"):
-		audio.play_lingpet_ghost_summon()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_puppet_grab_cast_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_puppet_grab_cast"):
-		audio.play_lingpet_puppet_grab_cast()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_gravity_accel_cast_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_gravity_accel_cast"):
-		audio.play_lingpet_gravity_accel_cast()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_dwarf_magic_cast_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_dwarf_magic_cast"):
-		audio.play_lingpet_dwarf_magic_cast()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_sand_prison_cast_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_sand_prison_cast"):
-		audio.play_lingpet_sand_prison_cast()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _play_doll_curse_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio == null:
-		return
-	if audio.has_method("play_lingpet_doll_curse"):
-		audio.play_lingpet_doll_curse()
-	elif audio.has_method("play_stage3_dollcurse"):
-		audio.play_stage3_dollcurse()
-	elif audio.has_method("play_active_item"):
-		audio.play_active_item()
-
-
-func _get_registry_instance(registry: Object, key: String) -> Object:
-	if registry == null:
-		return null
-	if registry.has_method("get_cached_instance"):
-		var cached: Variant = registry.get_cached_instance(key)
-		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
-			return cached as Object
-	if registry.has_method("get_instance"):
-		var value: Variant = registry.get_instance(key)
-		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-			return value as Object
-	return null

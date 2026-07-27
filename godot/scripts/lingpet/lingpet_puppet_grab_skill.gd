@@ -12,8 +12,8 @@ extends RefCounted
 # freezes the boss at the scripted position instead of chasing the ball. Boss
 # paddle collision remains normal while displaced, matching the Python original.
 
-const CHU_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const LingpetPuppetGrabPayloadFactory := preload("res://scripts/lingpet/lingpet_puppet_grab_payload_factory.gd")
+const LingpetPuppetGrabRenderer := preload("res://scripts/lingpet/lingpet_puppet_grab_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -75,34 +75,12 @@ const SPARKLE_MAX := 16
 const SPARKLE_SPAWN_INTERVAL := 0.045
 const SPARKLE_LIFE_SECONDS := 0.5
 
-const PULL_TENSION_LINE_COUNT := 3
-const PULL_TENSION_LINE_MIN := 20.0
-const PULL_TENSION_LINE_MAX := 40.0
-
-const CHU_TEXT := "CHU~"
-const CHU_FONT_SIZE := 22
-const CHU_OFFSET := Vector2(48.0, -28.0)
-
-const MISS_TEXT := "MISS"
-const MISS_FONT_SIZE := 32
-const MISS_FLOAT_UP_SPEED := 28.0
-const MISS_OFFSET := Vector2(-32.0, -6.0)
 const ROPE_CUT_BALL_RADIUS_PAD := 18.0
 const ROPE_CUT_ARMING_SECONDS := 0.14
-const ROPE_CUT_GAP := 18.0
-# Elastic snap-back: when the strings are cut they behave like a stretched
-# rubber band that lets go — both halves whip back toward their anchors (fast
-# then settle), leaving a short dangling stub. `_cut_recoil_retract` is the
-# ease-out fraction; RESIDUAL is the share of the original free length left
-# hanging so the stub never collapses into the anchor.
-const CUT_RECOIL_EASE_POWER := 2.4
-const CUT_RECOIL_RESIDUAL := 0.26
-const CUT_BODY_SEGMENTS := 7
-const CUT_BODY_LASH_AMPLITUDE := 15.0
-const CUT_BODY_LASH_FREQ := 23.0
-const CUT_TEXT := "끊김!"
-const CUT_FONT_SIZE := 25
-const CUT_OFFSET := Vector2(-36.0, -18.0)
+
+# Presentation recipes and deterministic tension-line projection live in the
+# focused renderer. This retained instance is replaceable by focused spies.
+var _renderer: Object = LingpetPuppetGrabRenderer.new()
 
 var _active := false
 var _phase := PHASE_EXTENDING
@@ -704,377 +682,56 @@ func set_retry_roll_queue_for_tests(values: Array) -> void:
 		_retry_roll_queue_for_tests.append(bool(value))
 
 
-func _is_miss_feedback_phase() -> bool:
-	return _phase == PHASE_MISSING or _phase == PHASE_RETRY_WAIT
-
-
-func _miss_feedback_progress() -> float:
-	return clampf(minf(_phase_timer, MISS_SECONDS) / MISS_SECONDS, 0.0, 1.0)
-
-
-func _miss_feedback_fade() -> float:
-	return 1.0 - _miss_feedback_progress()
-
-
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
 	if _active:
-		_draw_strings(canvas, shake_offset)
+		_renderer.draw_strings(
+			canvas,
+			shake_offset,
+			_phase,
+			_phase_timer,
+			_anim_time,
+			_cast_pos,
+			_boss_draw_center,
+			_predicted_target_center,
+			_cut_by_ball,
+			_cut_point,
+			_cut_fray_hand,
+			_cut_fray_boss,
+			EXTEND_SECONDS,
+			MISS_SECONDS,
+			RETURN_SECONDS
+		)
 		if _phase == PHASE_PULLING:
-			_draw_pull_tension(canvas, shake_offset)
-		_draw_hand(canvas, shake_offset)
+			_renderer.draw_pull_tension(canvas, shake_offset, _cast_pos, _boss_draw_center, _anim_time, _shot_count)
+		_renderer.draw_hand(canvas, shake_offset, _cast_pos)
 		if _phase == PHASE_KISSING:
-			_draw_chu_text(canvas, shake_offset)
+			_renderer.draw_chu_text(canvas, shake_offset, _kiss_center, _phase_timer)
 		if _cut_by_ball and _phase == PHASE_RETURNING:
-			_draw_cut_text(canvas, shake_offset)
-		if _is_miss_feedback_phase():
-			_draw_miss_text(canvas, shake_offset)
+			_renderer.draw_cut_text(canvas, shake_offset, _cut_point, _boss_draw_center, _phase_timer, RETURN_SECONDS)
+		if _phase == PHASE_MISSING or _phase == PHASE_RETRY_WAIT:
+			_renderer.draw_miss_text(canvas, shake_offset, _predicted_target_center, _phase_timer, MISS_SECONDS)
 	if not _sparkles.is_empty():
-		_draw_sparkles(canvas, shake_offset)
+		_renderer.draw_sparkles(canvas, shake_offset, _sparkles)
 	if not _hearts.is_empty():
-		_draw_hearts(canvas, shake_offset)
+		_renderer.draw_hearts(canvas, shake_offset, _hearts)
 
 
-func _compute_string_tip(hand: Vector2, shake_offset: Vector2) -> Vector2:
-	# The visible string TIP is decoupled from `_boss_draw_center`. During
-	# EXTENDING the strings race outward toward the snapshot lock-on point
-	# (fast-out cubic easing) — this is what makes the strings actually look
-	# like they're being thrown, instead of snapping to the boss instantly.
-	# During MISSING the same tip retracts back to the hand.
-	match _phase:
-		PHASE_EXTENDING:
-			var p: float = clampf(_phase_timer / EXTEND_SECONDS, 0.0, 1.0)
-			var eased: float = 1.0 - pow(1.0 - p, 3.0)  # ease-out cubic: quick start, settled finish
-			return hand.lerp(_predicted_target_center + shake_offset, eased)
-		PHASE_MISSING, PHASE_RETRY_WAIT:
-			var rp: float = _miss_feedback_fade()
-			return hand.lerp(_predicted_target_center + shake_offset, rp)
-		_:
-			return _boss_draw_center + shake_offset
+func _cut_recoil_retract(progress: float) -> float:
+	return _renderer.recoil_retract(progress)
 
 
-func _draw_strings(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var hand: Vector2 = _cast_pos + Vector2(0.0, HAND_OFFSET_Y) + shake_offset
-	var tip: Vector2 = _compute_string_tip(hand, shake_offset)
-	var kissing := _phase == PHASE_KISSING or _phase == PHASE_RETURNING
-	# Mirror the original PuppetControl 분홍-보라 그라데이션:
-	#   pre-kiss  (180, 100, 150)  → kiss  (255, 150, 180)
-	# MISS path overrides to a fading red so the failure reads instantly.
-	var base_color: Color
-	if _is_miss_feedback_phase():
-		var miss_fade: float = _miss_feedback_fade()
-		base_color = Color(0.85, 0.30, 0.40, 0.85 * miss_fade)
-	elif kissing:
-		base_color = Color(1.0, 0.588, 0.706, 0.9)
-	else:
-		base_color = Color(0.706, 0.392, 0.588, 0.85)
-	var axis: Vector2 = tip - hand
-	var length: float = axis.length()
-	if length < 1.0:
-		return
-	if _cut_by_ball and _phase == PHASE_RETURNING:
-		_draw_cut_strings(canvas, hand, tip, base_color)
-		return
-	var perp: Vector2 = Vector2(-axis.y, axis.x).normalized()
-	# Strings reach their full wave only once they've extended; during EXTENDING
-	# the wave is suppressed proportionally to extend progress so the strings
-	# read as taut/quiet at launch and lazy/dangling by arrival.
-	var extend_ratio: float = 1.0
-	if _phase == PHASE_EXTENDING:
-		extend_ratio = clampf(_phase_timer / EXTEND_SECONDS, 0.0, 1.0)
-	for s in range(STRING_COUNT):
-		var offset: float = -20.0 + float(s) * 10.0
-		var phase_seed: float = float(s) * 1.31 + _anim_time * STRING_WAVE_SPEED
-		var points := PackedVector2Array()
-		for seg in range(STRING_SEGMENTS + 1):
-			var t: float = float(seg) / float(STRING_SEGMENTS)
-			var along: Vector2 = hand.lerp(tip, t)
-			# Original taper: (1 - prog * 0.5) — full wave at the hand, half at the boss.
-			# Lazy dangling string feel, NOT a vibrating midpoint.
-			var taper: float = 1.0 - t * 0.5
-			var wave: float = sin(phase_seed + t * PI * 3.0) * STRING_WAVE_AMPLITUDE * taper * extend_ratio
-			var tip_focus := _string_tip_focus(t)
-			along += perp * ((offset * (1.0 - t * 0.6) + wave) * tip_focus)
-			points.append(along)
-		canvas.draw_polyline(points, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.85), 2.0, true)
-
-
-func _cut_recoil_retract(rp: float) -> float:
-	# Ease-out: the snapped end whips back fast at the instant of the cut, then
-	# settles. 0 → still at the break, 1 → fully retracted to the residual stub.
-	return 1.0 - pow(1.0 - clampf(rp, 0.0, 1.0), CUT_RECOIL_EASE_POWER)
-
-
-func get_cut_recoil_free_point_for_tests(anchor: Vector2, break_point: Vector2, rp: float) -> Vector2:
-	# Mirrors the exact draw-path recoil so a smoke can assert the free end moves
-	# toward its anchor as the snap progresses (elastic snap-back, not a static
-	# gap). `break_point` is the per-end break (already nudged by the half gap).
-	var retract := _cut_recoil_retract(rp)
-	return anchor.lerp(break_point, lerpf(1.0, CUT_RECOIL_RESIDUAL, retract))
+func get_cut_recoil_free_point_for_tests(anchor: Vector2, break_point: Vector2, progress: float) -> Vector2:
+	return _renderer.recoil_free_point(anchor, break_point, progress)
 
 
 func get_cut_fray_for_tests() -> Dictionary:
 	return {"hand": _cut_fray_hand, "boss": _cut_fray_boss}
 
 
-func _draw_cut_strings(canvas: CanvasItem, hand: Vector2, tip: Vector2, base_color: Color) -> void:
-	var axis := tip - hand
-	var length := axis.length()
-	if length < 1.0:
-		return
-	var dir := axis / length
-	var perp := Vector2(-dir.y, dir.x)
-	var break_point := _cut_point
-	if break_point == Vector2.ZERO:
-		break_point = hand.lerp(tip, 0.5)
-	else:
-		break_point += hand - _get_rope_hand()
-	var local_break := _closest_point_on_segment(break_point, hand, tip)
-	# A small initial separation so the snap reads as "stretched, then let go"
-	# the instant it breaks — the two halves already part by the gap at rp=0.
-	var half_gap := ROPE_CUT_GAP * 0.5
-	var hand_break := local_break - dir * half_gap
-	var boss_break := local_break + dir * half_gap
-	var rp := clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
-	# The lash (rubber-band twang) is loud at the cut and dies out as it settles.
-	var lash_decay := pow(1.0 - rp, 1.4)
-	var fade := 1.0 - rp * 0.6
-	for s in range(STRING_COUNT):
-		var lat: float = -20.0 + float(s) * 10.0
-		var hand_anchor := hand + perp * (lat * 0.34)
-		var boss_anchor := tip + perp * (lat * 0.34)
-		var hand_free := get_cut_recoil_free_point_for_tests(hand_anchor, hand_break, rp)
-		var boss_free := get_cut_recoil_free_point_for_tests(boss_anchor, boss_break, rp)
-		var seed_phase := float(s) * 1.7
-		_draw_snapped_half(canvas, hand_anchor, hand_free, perp, base_color, fade, lash_decay, seed_phase, s, true)
-		_draw_snapped_half(canvas, boss_anchor, boss_free, perp, base_color, fade, lash_decay, seed_phase, s, false)
-
-
-func _draw_snapped_half(
-	canvas: CanvasItem,
-	anchor: Vector2,
-	free_end: Vector2,
-	perp: Vector2,
-	base_color: Color,
-	fade: float,
-	lash_decay: float,
-	seed_phase: float,
-	string_idx: int,
-	is_hand: bool
-) -> void:
-	# Curved rope body: anchored (no sway) at the held end, lashing harder toward
-	# the free end — the recoiling cord whipping back, not a rigid stub.
-	var body_len := anchor.distance_to(free_end)
-	var lash_amp: float = minf(CUT_BODY_LASH_AMPLITUDE, body_len * 0.55)
-	var lash_sign: float = 1.0 if is_hand else -1.0
-	var pts := PackedVector2Array()
-	for i in range(CUT_BODY_SEGMENTS + 1):
-		var u := float(i) / float(CUT_BODY_SEGMENTS)
-		var base := anchor.lerp(free_end, u)
-		var lash := sin(_anim_time * CUT_BODY_LASH_FREQ + seed_phase + u * PI * 1.3) * lash_amp * lash_decay * u * lash_sign
-		pts.append(base + perp * lash)
-	canvas.draw_polyline(pts, Color(base_color.r, base_color.g, base_color.b, base_color.a * 0.82 * fade), 2.0, true)
-	if pts.size() < 2:
-		return
-	var tail: Vector2 = pts[pts.size() - 1]
-	var tail_dir: Vector2 = tail - pts[pts.size() - 2]
-	if tail_dir.length() > 0.001:
-		tail_dir = tail_dir.normalized()
-	else:
-		tail_dir = (free_end - anchor).normalized()
-	var bundle: Array = _cut_fray_hand if is_hand else _cut_fray_boss
-	if string_idx < bundle.size():
-		_draw_fray_bundle(canvas, tail, tail_dir, bundle[string_idx], base_color, fade, lash_decay)
-
-
-func _draw_fray_bundle(
-	canvas: CanvasItem,
-	origin: Vector2,
-	out_dir: Vector2,
-	fibers: Array,
-	base_color: Color,
-	fade: float,
-	lash_decay: float
-) -> void:
-	# Each loose thread fans off the snapped tail at its own splay, curls as it
-	# goes, and twangs perpendicular to itself — several strands lashing in
-	# different directions, the signature of a torn cord vs a clean cut. The LONG
-	# streamers additionally drape downward under gravity and flutter slowly, so
-	# a few threads visibly stretch and flow as the cord lets go.
-	var lit := Color(
-		minf(1.0, base_color.r * 1.08),
-		minf(1.0, base_color.g + 0.18),
-		minf(1.0, base_color.b + 0.12),
-		base_color.a
-	)
-	for fiber in fibers:
-		var is_long: bool = bool(fiber.get("long", false))
-		var splay := float(fiber.get("splay", 0.0))
-		var flen := float(fiber.get("len", 14.0))
-		var curl := float(fiber.get("curl", 0.0))
-		var droop := float(fiber.get("droop", 0.0))
-		var wob_phase := float(fiber.get("wob_phase", 0.0))
-		var wob_freq := float(fiber.get("wob_freq", 32.0))
-		var wob_amp := float(fiber.get("wob_amp", 3.5))
-		var thick := float(fiber.get("thick", 1.3))
-		var fiber_segs: int = 10 if is_long else 4
-		var base_dir := out_dir.rotated(splay)
-		var cursor := origin
-		var step_len := flen / float(fiber_segs)
-		var lash_wave: float = 0.6 if is_long else 1.0
-		var fpts := PackedVector2Array()
-		fpts.append(cursor)
-		for i in range(fiber_segs):
-			var u := float(i + 1) / float(fiber_segs)
-			# Gravity bends the heading toward straight-down the further the
-			# thread streams out (long streamers droop and drape; stubs barely).
-			var heading: Vector2 = (base_dir.rotated(curl * u) + Vector2(0.0, droop * u)).normalized()
-			cursor += heading * step_len
-			var fperp := Vector2(-heading.y, heading.x)
-			var lash := sin(_anim_time * wob_freq + wob_phase + u * PI * lash_wave) * wob_amp * lash_decay * u
-			fpts.append(cursor + fperp * lash)
-		# Long streamers read wispier (lower alpha) so they flow rather than
-		# pop; short stubs stay slightly brighter at the torn cross-section.
-		var fade_alpha: float = base_color.a * (0.46 if is_long else 0.62) * fade
-		canvas.draw_polyline(fpts, Color(lit.r, lit.g, lit.b, fade_alpha), thick, true)
-
-
-func _string_tip_focus(t: float) -> float:
-	var progress := clampf((t - STRING_TIP_FOCUS_START) / maxf(0.001, 1.0 - STRING_TIP_FOCUS_START), 0.0, 1.0)
-	var eased := pow(progress, STRING_TIP_FOCUS_POWER)
-	return clampf(1.0 - eased, 0.0, 1.0)
-
-
-func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	# "MISS" reads where the strings landed (the predicted lock-on point that
-	# the boss successfully dodged), drifting upward and fading out.
-	var anchor: Vector2 = _predicted_target_center + MISS_OFFSET + shake_offset
-	anchor.y -= MISS_FLOAT_UP_SPEED * _phase_timer
-	var fade: float = _miss_feedback_fade()
-	var alpha: float = 0.95 * fade
-	# Drop shadow for legibility against busy backgrounds.
-	canvas.draw_string(
-		CHU_FONT,
-		anchor + Vector2(2.0, 2.0),
-		MISS_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		MISS_FONT_SIZE,
-		Color(0.0, 0.0, 0.0, 0.6 * fade),
-	)
-	canvas.draw_string(
-		CHU_FONT,
-		anchor,
-		MISS_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		MISS_FONT_SIZE,
-		Color(1.0, 0.27, 0.32, alpha),
-	)
-
-
-func _draw_cut_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var anchor := (_cut_point if _cut_point != Vector2.ZERO else _boss_draw_center) + CUT_OFFSET + shake_offset
-	var fade := 1.0 - clampf(_phase_timer / RETURN_SECONDS, 0.0, 1.0)
-	var alpha := 0.95 * fade
-	canvas.draw_string(
-		CHU_FONT,
-		anchor + Vector2(2.0, 2.0),
-		CUT_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		CUT_FONT_SIZE,
-		Color(0.0, 0.0, 0.0, 0.58 * fade),
-	)
-	canvas.draw_string(
-		CHU_FONT,
-		anchor,
-		CUT_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		CUT_FONT_SIZE,
-		Color(1.0, 0.82, 0.92, alpha),
-	)
-
-
-func _draw_pull_tension(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	# Original: 3 random radial tension lines from the midpoint of hand→boss while
-	# pulling, faint pink (255, 200, 220, ~100/255).
-	var hand: Vector2 = _cast_pos + Vector2(0.0, HAND_OFFSET_Y) + shake_offset
-	var tip: Vector2 = _boss_draw_center + shake_offset
-	var center: Vector2 = hand.lerp(tip, 0.5)
-	var color := Color(1.0, 0.784, 0.863, 0.4)
-	for _i in range(PULL_TENSION_LINE_COUNT):
-		var angle: float = randf_range(0.0, TAU)
-		var line_len: float = randf_range(PULL_TENSION_LINE_MIN, PULL_TENSION_LINE_MAX)
-		var endp: Vector2 = center + Vector2(cos(angle), sin(angle)) * line_len
-		canvas.draw_line(center, endp, color, 1.0, true)
-
-
-func _draw_hand(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var hand: Vector2 = _cast_pos + Vector2(0.0, HAND_OFFSET_Y) + shake_offset
-	# Original 손 잡는 곳: outer (150, 80, 120) r=8, inner (200, 120, 160) r=5.
-	canvas.draw_circle(hand, 8.0, Color(0.588, 0.314, 0.471, 0.85))
-	canvas.draw_circle(hand, 5.0, Color(0.784, 0.471, 0.627, 0.95))
-
-
-func _draw_sparkles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for sp in _sparkles:
-		var life_ratio: float = clampf(float(sp.get("life", 0.0)) / SPARKLE_LIFE_SECONDS, 0.0, 1.0)
-		var pos: Vector2 = sp.get("pos", Vector2.ZERO) + shake_offset
-		var size: float = float(sp.get("size", 3.0))
-		# Original 반짝이 색: 옅은 노란 (255, 255, 200), 알파는 life_ratio.
-		canvas.draw_circle(pos, size, Color(1.0, 1.0, 0.784, life_ratio))
-
-
-func _draw_chu_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	# Original "CHU~" 텍스트 효과: pink-yellow (255, 150, 200), 작은 폰트, 키스 중 표시.
-	# Position: 키스 지점 옆 (offset right + up toward Koyora side).
-	var anchor: Vector2 = _kiss_center + CHU_OFFSET + shake_offset
-	# Soft fade-in for the first ~150ms of the kiss so it doesn't pop hard.
-	var fade: float = clampf(_phase_timer / 0.18, 0.0, 1.0)
-	var alpha: float = 0.95 * fade
-	# Drop shadow for legibility against busy scene.
-	canvas.draw_string(
-		CHU_FONT,
-		anchor + Vector2(2.0, 2.0),
-		CHU_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		CHU_FONT_SIZE,
-		Color(0.0, 0.0, 0.0, 0.5 * fade),
-	)
-	canvas.draw_string(
-		CHU_FONT,
-		anchor,
-		CHU_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		CHU_FONT_SIZE,
-		Color(1.0, 0.588, 0.784, alpha),
-	)
-
-
-func _draw_hearts(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for heart in _hearts:
-		var life_ratio: float = clampf(float(heart.get("life", 0.0)) / HEART_LIFE_SECONDS, 0.0, 1.0)
-		var pos: Vector2 = heart.get("pos", Vector2.ZERO) + shake_offset
-		var size: float = float(heart.get("size", 6.0))
-		var alpha: float = 0.85 * life_ratio
-		_draw_heart(canvas, pos, size, Color(1.0, 0.42, 0.62, alpha))
-
-
-func _draw_heart(canvas: CanvasItem, center: Vector2, size: float, color: Color) -> void:
-	var lobe: float = size * 0.5
-	canvas.draw_circle(center + Vector2(-lobe * 0.55, -lobe * 0.25), lobe, color)
-	canvas.draw_circle(center + Vector2(lobe * 0.55, -lobe * 0.25), lobe, color)
-	var tri := PackedVector2Array([
-		center + Vector2(-size * 0.6, 0.0),
-		center + Vector2(size * 0.6, 0.0),
-		center + Vector2(0.0, size * 0.9),
-	])
-	canvas.draw_colored_polygon(tri, color)
+func _string_tip_focus(path_progress: float) -> float:
+	return _renderer.string_tip_focus(path_progress)
 
 
 func _play_audio(registry: Object, method_name: String) -> void:

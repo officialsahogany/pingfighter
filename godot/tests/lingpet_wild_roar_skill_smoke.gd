@@ -10,7 +10,7 @@ const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const PaddleBounceBossPostHitHandler := preload("res://scripts/ball/paddle_bounce_boss_post_hit_handler.gd")
 const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_controller.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
-const GameAudio := preload("res://scripts/audio/game_audio.gd")
+const LingpetCombatAudio := preload("res://scripts/audio/lingpet_combat_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const SKILL_ID := "monkeyring_wild_roar"
@@ -209,7 +209,7 @@ func _verify_catalog_dispatcher_assets_and_audio() -> void:
 	_expect(cast != null and cast.get_width() == 1280 and cast.get_height() == 1280, "Wild Roar companion cast should load as a 5x5 256px sheet")
 	_expect(FileAccess.file_exists(AUDIO_PATH), "Wild Roar should ship the original monkeyshouting.wav")
 	_expect(FileAccess.file_exists("%s.import" % AUDIO_PATH), "Wild Roar wav should commit its .wav.import sidecar")
-	_expect(GameAudio.LINGPET_WILD_ROAR_SOUND_PATH == AUDIO_PATH, "GameAudio should expose the Wild Roar sound path")
+	_expect(str(LingpetCombatAudio.PLAYER_SPECS["wild_roar"].get("path", "")) == AUDIO_PATH, "combat-audio owner should expose the Wild Roar sound path")
 
 	var default_skill: Dictionary = LingpetCatalog.get_active_skill("monkeyring")
 	_expect(str(default_skill.get("id", "")) == "monkeyring_banana_slice", "Ppanamong default active skill should remain Banana Slice")
@@ -435,8 +435,10 @@ func _verify_schema_reset_and_host_wiring() -> void:
 
 func _verify_source_wiring_surfaces() -> void:
 	var egg_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var controller_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
 	var update_context_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_skill_update_context_builder.gd")
-	_expect(egg_src.find("LingpetCompanionSkillUpdateContextBuilder") >= 0, "egg runtime should delegate companion skill update context assembly")
+	_expect(egg_src.find("_companion_skill_controller.update_active_slots") >= 0, "egg runtime should delegate the active-skill slot tick")
+	_expect(controller_src.find("LingpetCompanionSkillUpdateContextBuilder") >= 0, "skill controller should delegate companion skill update context assembly")
 	_expect(update_context_src.find("\"roar_radius\"") >= 0 and update_context_src.find("\"ball_boost\"") >= 0, "skill update context builder should pass Wild Roar flattened level values")
 	_expect(update_context_src.find("\"companion_catch_height\"") >= 0, "skill update context builder should pass catch height for dynamic arm_min_gap")
 	var skill_src := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_wild_roar_skill.gd")
@@ -447,8 +449,9 @@ func _verify_source_wiring_surfaces() -> void:
 	var frame_src := FileAccess.get_file_as_string("res://scripts/ball/ball_frame_motion_controller.gd")
 	_expect(frame_src.find("ROAR_LAUNCH_SPEED_MAX") < 0, "apply_ball_speed_limits surface should not own Wild Roar's 60 backstop")
 	var audio_src := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
-	_expect(audio_src.find("LINGPET_WILD_ROAR_SOUND_PATH") >= 0, "GameAudio should declare Wild Roar sound const")
-	_expect(audio_src.find("LingpetWildRoarSfx") >= 0, "GameAudio setup should create the Wild Roar SFX player")
+	var combat_audio_src := FileAccess.get_file_as_string("res://scripts/audio/lingpet_combat_audio.gd")
+	_expect(combat_audio_src.find("monkeyshouting.wav") >= 0, "combat-audio owner should declare the Wild Roar stream")
+	_expect(combat_audio_src.find("LingpetWildRoarSfx") >= 0, "combat-audio owner should create the Wild Roar SFX player")
 	_expect(audio_src.find("func play_lingpet_wild_roar") >= 0, "GameAudio should expose Wild Roar play method")
 
 

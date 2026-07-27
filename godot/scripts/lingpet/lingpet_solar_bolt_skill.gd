@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const LingpetSolarBoltRenderer := preload("res://scripts/lingpet/lingpet_solar_bolt_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -23,24 +24,6 @@ const SPARK_COUNT := 22
 const PARTICLE_MAX := 72
 const SCREEN_FLASH_ALPHA := 0.16
 
-# Original PingFighter SolarBolt palette ported faithfully (gold main bolt =
-# 태양신; lavender branch cores + blue-white explosion arcs are the original's
-# accents). Glow alpha is bumped vs the original's BLEND_ADD surface because
-# Godot immediate draw_polyline has no per-call additive blend.
-const BOLT_GLOW_COLOR := Color(1.0, 0.706, 0.118, 0.34)   # GLOW_WIDE (255,180,30)
-const BOLT_CORE_COLOR := Color(1.0, 0.941, 0.549, 1.0)    # CORE_OUTER (255,240,140)
-const BOLT_WHITE_COLOR := Color(1.0, 1.0, 0.941, 1.0)     # CORE_INNER (255,255,240)
-const BRANCH_CORE_COLOR := Color(0.863, 0.863, 1.0, 1.0)  # BRANCH_CORE (220,220,255)
-const BRANCH_GLOW_COLOR := Color(0.784, 0.706, 1.0, 0.28) # BRANCH_GLOW (200,180,255)
-const FORK_GLOW_COLOR := Color(1.0, 1.0, 0.902, 0.63)     # fork point (255,255,230)
-const FLASH_COLOR := Color(1.0, 0.90, 0.39, 1.0)          # ScreenEffect flash (255,230,100)
-const EXPL_FLASH_COLOR := Color(1.0, 1.0, 0.941, 1.0)     # EXPLOSION_FLASH (255,255,240)
-const EXPL_CORE_COLOR := Color(1.0, 0.941, 0.588, 1.0)    # EXPLOSION_CORE (255,240,150)
-const EXPL_INNER_COLOR := Color(1.0, 1.0, 0.863, 1.0)     # EXPLOSION_INNER (255,255,220)
-const EXPL_RING_COLOR := Color(1.0, 0.784, 0.314, 1.0)    # EXPLOSION_RING (255,200,80)
-const EXPL_ARC_COLORS: Array[Color] = [                   # EXPLOSION_ARC + accents
-	Color(0.706, 0.824, 1.0), Color(1.0, 0.941, 0.706), Color(0.863, 0.902, 1.0),
-]
 const SPARK_GRAVITY := 288.0  # original vy += 0.08 px/frame^2 -> 0.08*60*60 px/sec^2
 const SPARK_TYPES: Array[String] = ["streak", "dot", "flash"]
 const SPARK_COLORS: Array[Color] = [
@@ -73,6 +56,7 @@ var _force_roll := -1.0
 var _force_rolls: Array[float] = []
 var _jitter_radians_for_tests: Array[float] = []
 var _force_refire_delays: Array[float] = []
+var _renderer: Object = LingpetSolarBoltRenderer.new()
 
 
 func reset() -> void:
@@ -96,7 +80,7 @@ func reset() -> void:
 
 
 func prewarm() -> void:
-	pass
+	_renderer.prewarm()
 
 
 func can_arm(params: Dictionary) -> bool:
@@ -176,12 +160,20 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null:
+	if canvas == null or not has_visible_effects():
 		return
-	_draw_screen_flash(canvas)
-	for effect in _effects:
-		_draw_effect(canvas, effect, shake_offset)
-	_draw_particles(canvas, shake_offset)
+	_renderer.draw_solar_bolt(
+		canvas,
+		shake_offset,
+		_elapsed,
+		_effects,
+		_particles,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		LIGHTNING_SECONDS,
+		EXPLOSION_SECONDS,
+		SPARK_SECONDS,
+		SCREEN_FLASH_ALPHA
+	)
 
 
 func has_visible_effects() -> bool:
@@ -424,120 +416,6 @@ func _update_particles(delta: float) -> void:
 		write_index += 1
 	if write_index < _particles.size():
 		_particles.resize(write_index)
-
-
-func _draw_screen_flash(canvas: CanvasItem) -> void:
-	var alpha := 0.0
-	for effect in _effects:
-		alpha = maxf(alpha, clampf(float(effect.get("lightning", 0.0)) / LIGHTNING_SECONDS, 0.0, 1.0) * SCREEN_FLASH_ALPHA)
-	if alpha > 0.0:
-		canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(FLASH_COLOR.r, FLASH_COLOR.g, FLASH_COLOR.b, alpha), true)
-
-
-func _draw_effect(canvas: CanvasItem, effect: Dictionary, shake_offset: Vector2) -> void:
-	var end: Vector2 = effect.get("end", Vector2.ZERO)
-	var lightning_left := float(effect.get("lightning", 0.0))
-	var explosion_left := float(effect.get("explosion", 0.0))
-	# Original SolarBolt: a fixed procedural path generated once at strike time,
-	# rendered as a 4-layer bolt + branches, flickering on/off (85%) over its life.
-	if lightning_left > 0.0 and randf() < 0.85:
-		var fade := minf(1.0, lightning_left / 0.06)
-		var main: PackedVector2Array = effect.get("main", PackedVector2Array())
-		var branches: Array = effect.get("branches", [])
-		if main.size() >= 2:
-			var main_pts := _shift_points(main, shake_offset)
-			# Layer 1 — wide soft glow (alpha-emulated additive).
-			canvas.draw_polyline(main_pts, Color(BOLT_GLOW_COLOR.r, BOLT_GLOW_COLOR.g, BOLT_GLOW_COLOR.b, BOLT_GLOW_COLOR.a * fade), 6.0, true)
-			for branch in branches:
-				var bg: PackedVector2Array = branch
-				if bg.size() >= 2:
-					canvas.draw_polyline(_shift_points(bg, shake_offset), Color(BRANCH_GLOW_COLOR.r, BRANCH_GLOW_COLOR.g, BRANCH_GLOW_COLOR.b, BRANCH_GLOW_COLOR.a * fade), 4.0, true)
-			# Layer 2 — cores: main gold, branches lavender.
-			canvas.draw_polyline(main_pts, Color(BOLT_CORE_COLOR.r, BOLT_CORE_COLOR.g, BOLT_CORE_COLOR.b, fade), 2.0, true)
-			for branch in branches:
-				var bc: PackedVector2Array = branch
-				if bc.size() >= 2:
-					canvas.draw_polyline(_shift_points(bc, shake_offset), Color(BRANCH_CORE_COLOR.r, BRANCH_CORE_COLOR.g, BRANCH_CORE_COLOR.b, fade), 1.0, true)
-			# Layer 3 — inner white core (main only).
-			canvas.draw_polyline(main_pts, Color(BOLT_WHITE_COLOR.r, BOLT_WHITE_COLOR.g, BOLT_WHITE_COLOR.b, fade), 1.0, true)
-			# Branch fork glow points.
-			for branch in branches:
-				var bf: PackedVector2Array = branch
-				if bf.size() >= 1:
-					canvas.draw_circle(bf[0] + shake_offset, 2.5, Color(FORK_GLOW_COLOR.r, FORK_GLOW_COLOR.g, FORK_GLOW_COLOR.b, FORK_GLOW_COLOR.a * fade))
-	if explosion_left > 0.0:
-		_draw_explosion(canvas, end + shake_offset, explosion_left, float(effect.get("seed", 0.0)))
-
-
-func _draw_explosion(canvas: CanvasItem, center: Vector2, explosion_left: float, seed_value: float) -> void:
-	var progress := clampf(1.0 - explosion_left / EXPLOSION_SECONDS, 0.0, 1.0)  # 0 -> 1
-	var life_ratio := 1.0 - progress
-	# Central flash (first 30%).
-	if progress < 0.3:
-		var flash_a := 1.0 - progress / 0.3
-		canvas.draw_circle(center, 12.0 + progress * 30.0, Color(EXPL_FLASH_COLOR.r, EXPL_FLASH_COLOR.g, EXPL_FLASH_COLOR.b, 0.85 * flash_a))
-	# Core glow.
-	var core_r := 6.0 + progress * 40.0
-	canvas.draw_circle(center, core_r * 0.6, Color(EXPL_CORE_COLOR.r, EXPL_CORE_COLOR.g, EXPL_CORE_COLOR.b, 0.78 * life_ratio))
-	canvas.draw_circle(center, core_r * 0.3, Color(EXPL_INNER_COLOR.r, EXPL_INNER_COLOR.g, EXPL_INNER_COLOR.b, 0.5 * life_ratio))
-	# 3 staggered shockwave rings (gold).
-	for ri in range(3):
-		var rd := float(ri) * 0.1
-		var rp := (progress - rd) / maxf(0.01, 1.0 - rd)
-		if rp <= 0.0 or rp > 1.0:
-			continue
-		var rr := EXPLOSION_SECONDS * 60.0 * rp * float(ri + 1) * 0.25
-		var ra := (0.63 - float(ri) * 0.16) * (1.0 - rp)
-		if ra <= 0.0 or rr <= 4.0:
-			continue
-		canvas.draw_arc(center, rr, 0.0, TAU, 48, Color(EXPL_RING_COLOR.r, EXPL_RING_COLOR.g, EXPL_RING_COLOR.b, ra), maxf(1.0, 3.0 - float(ri)), true)
-	# Radial lightning arcs (blue-white) — first 70%.
-	if progress < 0.7:
-		var arc_count := 5 + int(progress * 8.0)
-		var flick := floorf(_elapsed * 30.0)
-		for i in range(arc_count):
-			var a := (float(i) / float(arc_count)) * TAU + (_seeded_unit(seed_value + float(i), flick) - 0.5) * 0.4
-			var inner_r := 4.0 + progress * 15.0
-			var outer_r := inner_r + lerpf(15.0, 35.0, _seeded_unit(seed_value + float(i) + 5.0, flick)) * (1.0 + progress)
-			var dir := Vector2(cos(a), sin(a))
-			var arc_s := center + dir * inner_r
-			var arc_e := center + dir * outer_r
-			var arc_mid := (arc_s + arc_e) * 0.5 + Vector2((_seeded_unit(seed_value + float(i), flick + 3.0) - 0.5) * 12.0, (_seeded_unit(seed_value + float(i), flick + 7.0) - 0.5) * 12.0)
-			var col: Color = EXPL_ARC_COLORS[i % EXPL_ARC_COLORS.size()]
-			canvas.draw_polyline(PackedVector2Array([arc_s, arc_mid, arc_e]), Color(col.r, col.g, col.b, 0.9 * life_ratio), 1.0, true)
-
-
-func _shift_points(points: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
-	if offset == Vector2.ZERO:
-		return points
-	var out := PackedVector2Array()
-	out.resize(points.size())
-	for i in range(points.size()):
-		out[i] = points[i] + offset
-	return out
-
-
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _particles:
-		var max_life := maxf(0.01, float(particle.get("max_life", SPARK_SECONDS)))
-		var life_t := clampf(float(particle.get("life", 0.0)) / max_life, 0.0, 1.0)
-		var am := minf(1.0, life_t * 2.0)
-		var color: Color = particle.get("color", SPARK_COLORS[0])
-		var pos: Vector2 = (particle.get("pos", Vector2.ZERO) as Vector2) + shake_offset
-		var vel: Vector2 = particle.get("vel", Vector2.ZERO)
-		var size := maxf(1.0, float(particle.get("size", 2.0)) * am)
-		var ptype: String = particle.get("type", "dot")
-		if ptype == "streak":
-			var tail := pos - vel * (0.8 / 60.0)  # original tail = velocity * 0.8 px/frame
-			canvas.draw_line(tail, pos, Color(color.r, color.g, color.b, am), maxf(1.0, size * 0.5), true)
-			canvas.draw_circle(pos, maxf(1.0, size * 0.34), Color(1.0, 1.0, 1.0, am))
-		elif ptype == "flash":
-			canvas.draw_circle(pos, size, Color(color.r, color.g, color.b, 0.7 * am))
-			canvas.draw_circle(pos, maxf(1.0, size * 0.5), Color(1.0, 1.0, 1.0, 0.6 * am))
-		else:
-			canvas.draw_circle(pos, maxf(1.0, size * 0.5), Color(color.r, color.g, color.b, am))
-			if size > 2.0:
-				canvas.draw_circle(pos, maxf(1.0, size * 0.25), Color(1.0, 1.0, 1.0, am))
 
 
 # Recursive midpoint-displacement bolt, ported from the original SolarBolt

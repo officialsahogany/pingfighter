@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const LingpetStarCoilRenderer := preload("res://scripts/lingpet/lingpet_star_coil_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -38,7 +39,6 @@ const SPARK_MAX := 56
 const ROLL_STAR_RATE := 48.0
 const SPARK_GRAVITY := 130.0
 const SPARK_DRAG := 0.90
-const STAR_INNER_RATIO := 0.46
 # Pretty multi-hue palette. Violet + gold carry the Orosha constellation identity;
 # the rest add the "색깔이 이쁜" candy-star variety the request asks for.
 const STAR_COLORS: Array[Color] = [
@@ -87,10 +87,11 @@ var _bind_audio_active := false
 # moving phase (roll/climb/lunge/cross/descend) and a single stop on every exit path
 # (bind / idle / retire / cancel) so the loop never trails past the journey.
 var _move_audio_active := false
+var _renderer: Object = LingpetStarCoilRenderer.new()
 
 
 func prewarm() -> void:
-	pass
+	_renderer.prewarm()
 
 
 func reset() -> void:
@@ -214,13 +215,15 @@ func update(delta: float, owner: Object, registry: Object = null, launch_context
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null:
-		return
-	# BIND visual is the orosha body bind sheet drawn by the companion renderer, not a separate
-	# procedural coil here. The skill only draws its motion trail (non-bind phases) and sparks.
-	if _phase != PHASE_IDLE and _phase != PHASE_BIND:
-		_draw_motion_trail(canvas, shake_offset)
-	_draw_sparks(canvas, shake_offset)
+	# BIND body art remains with the companion renderer. This facade forwards only
+	# the procedural trail visibility and borrowed live visual collections.
+	_renderer.draw_star_coil(
+		canvas,
+		shake_offset,
+		_phase != PHASE_IDLE and _phase != PHASE_BIND,
+		_trail,
+		_sparks
+	)
 
 
 func is_active() -> bool:
@@ -614,55 +617,6 @@ func _update_sparks(delta: float) -> void:
 		write_index += 1
 	if write_index < _sparks.size():
 		_sparks.resize(write_index)
-
-
-func _draw_motion_trail(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for index in range(_trail.size()):
-		var ratio := float(index + 1) / float(maxi(1, _trail.size()))
-		var trail_pos: Vector2 = _trail[index] + shake_offset
-		var alpha := 0.08 + ratio * 0.18
-		canvas.draw_circle(trail_pos, lerpf(2.0, 7.0, ratio), Color(0.34, 0.26, 0.74, alpha))
-		if index % 3 == 0:
-			canvas.draw_circle(trail_pos, lerpf(1.0, 2.2, ratio), Color(1.0, 0.86, 0.42, alpha + 0.08))
-
-
-func _draw_sparks(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for spark in _sparks:
-		var max_life := maxf(0.001, float(spark.get("max_life", 0.3)))
-		var ratio := clampf(float(spark.get("life", 0.0)) / max_life, 0.0, 1.0)
-		var pos: Vector2 = spark.get("pos", Vector2.ZERO) + shake_offset
-		var base_color: Color = spark.get("color", Color(1.0, 0.84, 0.36))
-		var size := float(spark.get("size", 2.0)) * (0.55 + ratio * 0.45)
-		# Soft colored glow halo. Doubles as the safe fallback for the polygon fill
-		# (Godot Animated Polygon Triangulation Trap) — always visible even if a fill
-		# were ever rejected.
-		canvas.draw_circle(pos, size + 2.4, Color(base_color.r, base_color.g, base_color.b, 0.16 * ratio))
-		# The star body.
-		_draw_star(
-			canvas,
-			pos,
-			size,
-			float(spark.get("rotation", 0.0)),
-			Color(base_color.r, base_color.g, base_color.b, clampf(ratio * 1.1, 0.0, 1.0)),
-			int(spark.get("points", 5))
-		)
-		# Bright white twinkle core.
-		canvas.draw_circle(pos, maxf(0.5, size * 0.30), Color(1.0, 1.0, 1.0, 0.85 * ratio))
-
-
-# A regular N-point star (alternating outer/inner radius in angular order) is always a
-# simple, non-self-intersecting polygon, so draw_colored_polygon triangulates safely no
-# matter the rotation. See the glow halo above for the belt-and-suspenders fallback.
-func _draw_star(canvas: CanvasItem, center: Vector2, radius: float, rotation: float, color: Color, points: int) -> void:
-	var p := maxi(4, points)
-	var inner := radius * STAR_INNER_RATIO
-	var verts := PackedVector2Array()
-	var total := p * 2
-	for i in range(total):
-		var r := radius if (i % 2 == 0) else inner
-		var a := rotation + float(i) * PI / float(p)
-		verts.push_back(center + Vector2(cos(a), sin(a)) * r)
-	canvas.draw_colored_polygon(verts, color)
 
 
 func _seeded_unit(seed_value: float, salt: float) -> float:

@@ -8,7 +8,7 @@ extends RefCounted
 # boss's final x into the cage while preserving normal AI velocity/collision.
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
-const CHU_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
+const LingpetSandPrisonRenderer := preload("res://scripts/lingpet/lingpet_sand_prison_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -41,18 +41,6 @@ const COMPANION_CAST_DISSOLVE_PROGRESS := 0.44
 
 const SAND_PARTICLE_MAX := 64
 const SAND_SPAWN_INTERVAL := 0.045
-const WALL_ALPHA_CAP := 200.0 / 255.0
-const WALL_GRAIN_STEP := 3
-const WALL_GRAIN_WIDTH := 6.0
-const WALL_SURFACE_WIDTH := 8.0
-const WALL_GLOW_WIDTH := 24.0
-const WALL_GLOW_MAX_HEIGHT := 30.0
-const DECOR_BAR_HEIGHT := 5.0
-const TOP_BAR_REVEAL_RATIO := 0.9
-const CORNER_REVEAL_RATIO := 0.8
-const CORNER_RADIUS := 6.0
-const MISS_TEXT := "MISS"
-const MISS_FONT_SIZE := 32
 
 # Body->cage sand stream (원본 SandPrison body_particles 포팅, hero_skills.py:15368-15496):
 # 시전자(라호세트) 몸(_cast_pos)에서 형성 중인 감옥으로 흘러가는 모래 가루. 건설
@@ -63,8 +51,6 @@ const BODY_PARTICLE_MAX := 200
 const BODY_WALL_DEST_CHANCE := 0.6
 const BODY_TRAVEL_MIN := 0.5
 const BODY_TRAVEL_MAX := 0.9
-const BODY_COLOR_BRIGHT := Color(0.902, 0.784, 0.431, 1.0)  # (230,200,110)
-const BODY_COLOR_DARK := Color(0.784, 0.686, 0.353, 1.0)    # (200,175,90)
 
 var _active := false
 var _phase := PHASE_CREATING
@@ -92,10 +78,11 @@ var _sand_spawn_accum := 0.0
 var _sand_particles: Array[Dictionary] = []
 var _body_spawn_accum := 0.0
 var _body_particles: Array[Dictionary] = []
+var _renderer: Object = LingpetSandPrisonRenderer.new()
 
 
 func prewarm() -> void:
-	pass
+	_renderer.prewarm()
 
 
 func reset() -> void:
@@ -181,15 +168,29 @@ func update(delta: float, owner: Object = null, registry: Object = null, _launch
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null:
+	if canvas == null or not has_visible_effects():
 		return
-	_draw_sand_particles(canvas, shake_offset)
-	if not _active:
-		return
-	_draw_cage(canvas, shake_offset)
-	_draw_body_particles(canvas, shake_offset)
-	if _phase == PHASE_MISSING:
-		_draw_miss_text(canvas, shake_offset)
+	_renderer.draw_sand_prison(
+		canvas,
+		shake_offset,
+		_active,
+		_phase == PHASE_CREATING,
+		_phase == PHASE_DISSOLVE,
+		_phase == PHASE_MISSING,
+		_phase == PHASE_RETRY_WAIT,
+		_phase_timer,
+		_anim_time,
+		_get_creation_seconds(),
+		DISSOLVE_SECONDS,
+		MISS_SECONDS,
+		_cage_left,
+		_cage_right,
+		_get_cage_top(),
+		_get_cage_bottom(),
+		_wash_dir,
+		_sand_particles,
+		_body_particles
+	)
 
 
 func has_visible_effects() -> bool:
@@ -300,18 +301,7 @@ func get_wash_dir_for_tests() -> float:
 
 
 func get_visual_tuning_for_tests() -> Dictionary:
-	return {
-		"wall_alpha_cap": WALL_ALPHA_CAP,
-		"wall_grain_step": WALL_GRAIN_STEP,
-		"wall_grain_width": WALL_GRAIN_WIDTH,
-		"wall_surface_width": WALL_SURFACE_WIDTH,
-		"wall_glow_width": WALL_GLOW_WIDTH,
-		"decor_bar_height": DECOR_BAR_HEIGHT,
-		"top_bar_reveal_ratio": TOP_BAR_REVEAL_RATIO,
-		"corner_reveal_ratio": CORNER_REVEAL_RATIO,
-		"corner_radius": CORNER_RADIUS,
-		"floor_alpha_cap": 22.0 / 255.0,
-	}
+	return _renderer.get_visual_tuning_for_tests()
 
 
 func _begin_summon(origin: Vector2, owner: Object = null) -> bool:
@@ -591,180 +581,6 @@ func _spawn_body_particle() -> void:
 		"size": randf_range(1.5, 4.0),
 		"init_alpha": randf_range(0.63, 0.94),
 	})
-
-
-func _draw_cage(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var alpha := WALL_ALPHA_CAP
-	var visible_ratio := 1.0
-	var wash_p := 0.0
-	match _phase:
-		PHASE_CREATING:
-			var create_p := clampf(_phase_timer / _get_creation_seconds(), 0.0, 1.0)
-			visible_ratio = 1.0 - pow(1.0 - create_p, 2.5)
-			alpha = WALL_ALPHA_CAP * visible_ratio
-		PHASE_DISSOLVE:
-			var dissolve_p := clampf(_phase_timer / DISSOLVE_SECONDS, 0.0, 1.0)
-			# 원본 ease-in 붕괴 (hero_skills.py:15440 dissolve_progress ** 2.0): 처음 느리다가 빨라짐.
-			visible_ratio = maxf(0.0, 1.0 - dissolve_p * dissolve_p)
-			alpha = WALL_ALPHA_CAP * visible_ratio
-		PHASE_MISSING:
-			# 놓침: 다 지어진 감옥이 도망 방향 모래바람에 그레인 단위로 쓸려 내려가며 사라진다.
-			wash_p = clampf(_phase_timer / maxf(0.01, MISS_SECONDS), 0.0, 1.0)
-			visible_ratio = 1.0
-			alpha = WALL_ALPHA_CAP * (1.0 - 0.4 * wash_p)
-		PHASE_RETRY_WAIT:
-			return  # 감옥은 이미 쓸려나갔다; 재소환이 새로 지어 올린다.
-		_:
-			visible_ratio = 1.0
-	var top := lerpf(_get_cage_bottom(), _get_cage_top(), visible_ratio)
-	var bottom := _get_cage_bottom()
-	var draw_h := bottom - top
-	if draw_h < 2.0 or alpha <= 0.02:
-		return
-	var floor_alpha := (22.0 / 255.0) * clampf(visible_ratio, 0.0, 1.0) * (1.0 - wash_p)
-	canvas.draw_rect(Rect2(Vector2(_cage_left, top) + shake_offset, Vector2(_cage_right - _cage_left, draw_h)), Color(0.824, 0.706, 0.392, floor_alpha), true)
-	for wall_index in range(2):
-		var wall_x := _cage_left if wall_index == 0 else _cage_right
-		_draw_wall_grain(canvas, wall_x, top, draw_h, alpha, wall_index, shake_offset, wash_p, _wash_dir)
-		_draw_wall_glow(canvas, wall_x, top, draw_h, alpha * clampf(1.0 - wash_p * 2.0, 0.0, 1.0), shake_offset)
-	if draw_h > DECOR_BAR_HEIGHT:
-		if visible_ratio > TOP_BAR_REVEAL_RATIO:
-			_draw_grain_bar(canvas, top, alpha, 11, shake_offset, wash_p, _wash_dir)
-		_draw_grain_bar(canvas, bottom - DECOR_BAR_HEIGHT, alpha, 29, shake_offset, wash_p, _wash_dir)
-	if visible_ratio > CORNER_REVEAL_RATIO:
-		var corner_fade := clampf((visible_ratio - CORNER_REVEAL_RATIO) / (1.0 - CORNER_REVEAL_RATIO), 0.0, 1.0)
-		var corner_alpha := alpha * 0.7 * corner_fade * clampf(1.0 - wash_p * 2.5, 0.0, 1.0)
-		if corner_alpha > 0.01:
-			var corner_color := Color(0.784, 0.667, 0.353, corner_alpha)
-			for corner_x in [_cage_left, _cage_right]:
-				for corner_y in [top, bottom]:
-					canvas.draw_circle(Vector2(corner_x, corner_y) + shake_offset, CORNER_RADIUS, corner_color)
-
-
-func _draw_wall_grain(canvas: CanvasItem, wall_x: float, top: float, draw_h: float, alpha: float, wall_index: int, shake_offset: Vector2, wash_p := 0.0, wash_dir := 1.0) -> void:
-	var draw_h_int := int(ceil(draw_h))
-	var surface_x := wall_x - WALL_SURFACE_WIDTH * 0.5
-	var grain_x := surface_x + (WALL_SURFACE_WIDTH - WALL_GRAIN_WIDTH) * 0.5
-	var frame_seed := int(floor(_anim_time * 18.0))
-	for y in range(0, draw_h_int, WALL_GRAIN_STEP):
-		var seed := frame_seed * 131 + wall_index * 997 + y * 17
-		var y_f := float(y)
-		var segment_h := minf(draw_h - y_f, 2.0 + _grain_unit(seed + 4) * 2.0)
-		if segment_h <= 0.0:
-			continue
-		var grain_alpha := alpha
-		var wash_offset := Vector2.ZERO
-		if wash_p > 0.0:
-			# 세척 임계값은 위치 고정 시드(프레임 시드 제외)로 — 18Hz 재추첨에 알갱이가
-			# 사라졌다 살아나며 깜빡이지 않고, 한 번 쓸린 알갱이는 계속 쓸려나간다.
-			var wash_seed := wall_index * 997 + y * 17
-			var vanish := clampf((wash_p * 1.25 - _grain_unit(wash_seed + 8)) / 0.25, 0.0, 1.0)
-			if vanish >= 1.0:
-				continue
-			grain_alpha = alpha * (1.0 - vanish)
-			wash_offset = Vector2(wash_dir * (26.0 + 60.0 * _grain_unit(wash_seed + 9)), 12.0 + 22.0 * _grain_unit(wash_seed + 10)) * vanish
-		canvas.draw_rect(Rect2(Vector2(grain_x, top + y_f) + wash_offset + shake_offset, Vector2(WALL_GRAIN_WIDTH, segment_h)), _grain_color(seed, grain_alpha), true)
-
-
-func _draw_wall_glow(canvas: CanvasItem, wall_x: float, top: float, draw_h: float, alpha: float, shake_offset: Vector2) -> void:
-	if draw_h <= 20.0:
-		return
-	var glow_h := minf(WALL_GLOW_MAX_HEIGHT, draw_h - 5.0)
-	var glow_top := top + draw_h * 0.5 - glow_h * 0.5
-	var glow_lines := int(ceil(glow_h))
-	for gy in range(glow_lines):
-		var t := float(gy) / maxf(1.0, float(glow_lines))
-		var glow_alpha := alpha * 0.3 * (1.0 - t)
-		var y := glow_top + float(gy)
-		canvas.draw_line(
-			Vector2(wall_x - WALL_GLOW_WIDTH * 0.5, y) + shake_offset,
-			Vector2(wall_x + WALL_GLOW_WIDTH * 0.5, y) + shake_offset,
-			Color(0.863, 0.745, 0.471, glow_alpha),
-			1.0
-		)
-
-
-func _draw_grain_bar(canvas: CanvasItem, bar_y: float, alpha: float, bar_seed: int, shake_offset: Vector2, wash_p := 0.0, wash_dir := 1.0) -> void:
-	var bar_width := (_cage_right - _cage_left) + 8.0
-	var bar_width_int := int(ceil(bar_width))
-	var start_x := _cage_left - 4.0
-	var frame_seed := int(floor(_anim_time * 18.0))
-	for bx in range(0, bar_width_int, WALL_GRAIN_STEP):
-		var segment_w := minf(float(WALL_GRAIN_STEP), bar_width - float(bx))
-		if segment_w <= 0.0:
-			continue
-		var seed := frame_seed * 149 + bar_seed * 577 + bx * 19
-		var grain_alpha := alpha
-		var wash_offset := Vector2.ZERO
-		if wash_p > 0.0:
-			# 위치 고정 시드(프레임 시드 제외) — _draw_wall_grain의 세척 규칙과 동일.
-			var wash_seed := bar_seed * 577 + bx * 19
-			var vanish := clampf((wash_p * 1.25 - _grain_unit(wash_seed + 8)) / 0.25, 0.0, 1.0)
-			if vanish >= 1.0:
-				continue
-			grain_alpha = alpha * (1.0 - vanish)
-			wash_offset = Vector2(wash_dir * (26.0 + 60.0 * _grain_unit(wash_seed + 9)), 12.0 + 22.0 * _grain_unit(wash_seed + 10)) * vanish
-		canvas.draw_rect(Rect2(Vector2(start_x + float(bx), bar_y) + wash_offset + shake_offset, Vector2(segment_w, DECOR_BAR_HEIGHT)), _grain_color(seed, grain_alpha), true)
-
-
-func _grain_color(seed: int, alpha: float) -> Color:
-	var r := lerpf(185.0, 220.0, _grain_unit(seed + 1)) / 255.0
-	var g := lerpf(155.0, 180.0, _grain_unit(seed + 2)) / 255.0
-	var b := lerpf(80.0, 110.0, _grain_unit(seed + 3)) / 255.0
-	return Color(r, g, b, alpha)
-
-
-func _grain_unit(seed: int) -> float:
-	var raw := sin(float(seed) * 12.9898 + 78.233) * 43758.5453
-	return raw - floor(raw)
-
-
-func _draw_sand_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _sand_particles:
-		var pos := _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
-		var life := float(particle.get("life", 0.0))
-		var max_life := maxf(0.01, float(particle.get("max_life", 1.0)))
-		var alpha := clampf(life / max_life, 0.0, 1.0)
-		var color: Color = particle.get("color", Color(0.86, 0.64, 0.33, 1.0))
-		color.a *= alpha
-		canvas.draw_circle(pos, float(particle.get("radius", 2.0)) * (0.65 + 0.35 * alpha), color)
-
-
-func _draw_body_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _body_particles:
-		var max_life := maxf(0.01, float(particle.get("max_life", 1.0)))
-		var life := float(particle.get("life", 0.0))
-		var progress := clampf(1.0 - life / max_life, 0.0, 1.0)
-		var envelope := 1.0
-		if progress < 0.2:
-			envelope = progress / 0.2
-		elif progress > 0.75:
-			envelope = (1.0 - progress) / 0.25
-		var alpha := clampf(float(particle.get("init_alpha", 0.8)) * envelope, 0.0, 1.0)
-		if alpha <= 0.02:
-			continue
-		var base_size := float(particle.get("size", 2.0))
-		var size := base_size
-		if progress > 0.8:
-			size = base_size * lerpf(1.0, 0.5, clampf((progress - 0.8) / 0.2, 0.0, 1.0))
-		var color := BODY_COLOR_BRIGHT.lerp(BODY_COLOR_DARK, progress)
-		color.a = alpha
-		var pos := _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
-		canvas.draw_circle(pos, maxf(0.5, size), color)
-		# Motion tail: a smaller, dimmer dot trailing behind the grain (opposite velocity).
-		if base_size > 1.0 and progress < 0.8:
-			var vel := _as_vector2(particle.get("vel", Vector2.ZERO), Vector2.ZERO)
-			if vel.length() > 1.0:
-				var tail_color := color
-				tail_color.a = alpha / 3.0
-				canvas.draw_circle(pos - vel.normalized() * size * 1.5, maxf(0.5, size - 1.0), tail_color)
-
-
-func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var fade := 1.0 - clampf(_phase_timer / maxf(0.01, MISS_SECONDS), 0.0, 1.0)
-	var pos := Vector2(_cage_center - 38.0, _get_cage_mid_y() - 12.0 - (1.0 - fade) * 18.0) + shake_offset
-	canvas.draw_string(CHU_FONT, pos + Vector2(2.0, 2.0), MISS_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1.0, MISS_FONT_SIZE, Color(0.0, 0.0, 0.0, 0.65 * fade))
-	canvas.draw_string(CHU_FONT, pos, MISS_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1.0, MISS_FONT_SIZE, Color(1.0, 0.88, 0.52, 0.95 * fade))
 
 
 func _get_cage_top() -> float:

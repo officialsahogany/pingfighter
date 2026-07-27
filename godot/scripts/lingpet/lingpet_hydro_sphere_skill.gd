@@ -1,6 +1,6 @@
 extends RefCounted
 
-const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
+const LingpetHydroSphereRenderer := preload("res://scripts/lingpet/lingpet_hydro_sphere_renderer.gd")
 const LingpetHydroSpherePayloadFactory := preload("res://scripts/lingpet/lingpet_hydro_sphere_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
@@ -38,7 +38,7 @@ var _puddle_half_width := PUDDLE_HALF_WIDTH
 var _slow_multiplier := SLOW_MULTIPLIER
 var _particles: Array = []
 var _ambient_timer := 0.0
-var _textures_prewarmed := false
+var _renderer: Object = LingpetHydroSphereRenderer.new()
 
 
 func reset() -> void:
@@ -58,10 +58,7 @@ func reset() -> void:
 
 
 func prewarm() -> void:
-	if _textures_prewarmed:
-		return
-	HydroPuddleTextureCache.prewarm()
-	_textures_prewarmed = true
+	_renderer.prewarm()
 
 
 func update(delta: float, owner: Object, registry: Object = null) -> void:
@@ -108,16 +105,27 @@ func launch(origin: Vector2, launch_context: Dictionary = {}) -> void:
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null:
-		return
-	if _puddle_timer > 0.0:
-		_draw_puddle(canvas, _puddle_pos + shake_offset)
-	if not _particles.is_empty():
-		_draw_particles(canvas, shake_offset)
-	if _splash_timer > 0.0:
-		_draw_splash(canvas, _puddle_pos - Vector2(0.0, PUDDLE_DROP_Y) + shake_offset)
-	if _projectile_active:
-		_draw_projectile(canvas, _projectile_pos + shake_offset, shake_offset)
+	var visual_time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	_renderer.draw_hydro_sphere(
+		canvas,
+		shake_offset,
+		visual_time_seconds,
+		_projectile_active,
+		_projectile_pos,
+		_projectile_vel,
+		PROJECTILE_RADIUS,
+		_trail,
+		_puddle_pos,
+		_puddle_timer,
+		PUDDLE_DURATION_SECONDS,
+		_puddle_seed,
+		_puddle_half_width,
+		PUDDLE_HALF_HEIGHT,
+		PUDDLE_DROP_Y,
+		_splash_timer,
+		SPLASH_FLASH_SECONDS,
+		_particles
+	)
 
 
 func has_visible_effects() -> bool:
@@ -254,102 +262,6 @@ func _get_boss_rect(owner: Object) -> Rect2:
 
 func _get_wall_y(owner: Object) -> float:
 	return clampf(float(_get_owner_value(owner, "boss_wall_y", WALL_Y)), 0.0, FIELD_HEIGHT * 0.35)
-
-
-func _draw_projectile(canvas: CanvasItem, pos: Vector2, shake_offset: Vector2) -> void:
-	for i in range(_trail.size()):
-		var trail_pos: Vector2 = _trail[i] + shake_offset
-		var ratio: float = float(i + 1) / float(maxi(1, _trail.size()))
-		canvas.draw_circle(trail_pos, lerpf(2.0, 5.5, ratio), Color(0.26, 0.98, 1.0, 0.10 + 0.24 * ratio))
-		if i > 0:
-			var prev_pos: Vector2 = _trail[i - 1] + shake_offset
-			canvas.draw_line(prev_pos, trail_pos, Color(0.60, 1.0, 1.0, 0.30 * ratio), maxf(1.0, 3.0 * ratio), true)
-
-	var dir: Vector2 = _projectile_vel.normalized()
-	if dir.length_squared() <= 0.001:
-		dir = Vector2(0.0, -1.0)
-	var side: Vector2 = dir.orthogonal()
-	var spear_points := PackedVector2Array([
-		pos + dir * 24.0,
-		pos + side * 8.0,
-		pos - dir * 18.0,
-		pos - side * 8.0,
-	])
-	canvas.draw_colored_polygon(spear_points, Color(0.44, 1.0, 1.0, 0.86))
-	canvas.draw_polyline(PackedVector2Array([spear_points[0], spear_points[1], spear_points[2], spear_points[3], spear_points[0]]), Color(0.90, 1.0, 1.0, 0.92), 1.6, true)
-	canvas.draw_circle(pos, PROJECTILE_RADIUS + 7.0, Color(0.14, 0.88, 1.0, 0.18))
-
-
-func _draw_puddle(canvas: CanvasItem, center: Vector2) -> void:
-	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
-	var life_ratio: float = clampf(_puddle_timer / PUDDLE_DURATION_SECONDS, 0.0, 1.0)
-	var appear_lin: float = clampf((PUDDLE_DURATION_SECONDS - _puddle_timer) / 0.34, 0.0, 1.0)
-	var appear: float = _ease_out_back(appear_lin)
-	var fade: float = clampf(life_ratio / 0.18, 0.0, 1.0)
-	var alpha: float = clampf(minf(appear_lin * 1.6, 1.0) * fade, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	var grow: float = 0.72 + 0.28 * appear
-	var rx: float = _puddle_half_width * grow
-	var ry: float = PUDDLE_HALF_HEIGHT * grow
-	var pulse: float = 0.92 + 0.08 * sin(time_seconds * 2.3)
-	var surface: Texture2D = HydroPuddleTextureCache.get_surface_texture()
-	_blit_hydro(canvas, surface, center, rx, ry, Color(0.16, 0.74, 0.95, alpha * 0.46))
-	_blit_hydro_caustic(canvas, center, rx * 0.94, ry * 0.94, Color(0.55, 1.0, 1.0, alpha * 0.42), time_seconds)
-	_blit_hydro_caustic(canvas, center, rx * 0.76, ry * 0.76, Color(0.85, 1.0, 1.0, alpha * 0.30), -time_seconds * 0.8 + 2.0)
-	_blit_hydro(canvas, surface, center, rx * 0.5, ry * 0.5, Color(0.80, 1.0, 1.0, alpha * 0.30 * pulse))
-	_blit_hydro(canvas, HydroPuddleTextureCache.get_foam_ring_texture(), center, rx * 1.02, ry * 1.04, Color(0.82, 1.0, 1.0, alpha * 0.85 * pulse))
-
-
-func _draw_splash(canvas: CanvasItem, center: Vector2) -> void:
-	var ratio: float = clampf(_splash_timer / SPLASH_FLASH_SECONDS, 0.0, 1.0)
-	var expansion: float = 1.0 - ratio
-	var radius: float = lerpf(26.0, 104.0, expansion)
-	_blit_hydro(canvas, HydroPuddleTextureCache.get_surface_texture(), center, radius, radius, Color(0.52, 1.0, 1.0, 0.34 * ratio))
-	_blit_hydro(canvas, HydroPuddleTextureCache.get_foam_ring_texture(), center, radius * 0.92, radius * 0.92, Color(0.92, 1.0, 1.0, 0.70 * ratio))
-
-
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var tex: Texture2D = HydroPuddleTextureCache.get_droplet_texture()
-	if tex == null:
-		return
-	for particle in _particles:
-		var max_life: float = maxf(0.01, float(particle["max_life"]))
-		var life_t: float = clampf(float(particle["life"]) / max_life, 0.0, 1.0)
-		var is_splash: bool = int(particle["kind"]) == 0
-		var alpha: float = clampf(life_t * 1.4, 0.0, 1.0) if is_splash else life_t
-		if alpha <= 0.02:
-			continue
-		var size: float = float(particle["size"]) * (0.7 + 0.3 * life_t)
-		var pos: Vector2 = (particle["pos"] as Vector2) + shake_offset
-		var color: Color = Color(0.74, 1.0, 1.0, alpha * 0.92) if is_splash else Color(0.56, 0.96, 1.0, alpha * 0.58)
-		canvas.draw_texture_rect(tex, Rect2(pos - Vector2(size, size), Vector2(size * 2.0, size * 2.0)), false, color)
-
-
-func _blit_hydro(canvas: CanvasItem, tex: Texture2D, center: Vector2, rx: float, ry: float, color: Color) -> void:
-	if tex == null or rx <= 0.5 or ry <= 0.5 or color.a <= 0.0:
-		return
-	canvas.draw_texture_rect(tex, Rect2(center - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), false, color)
-
-
-func _blit_hydro_caustic(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color, time_seconds: float) -> void:
-	if rx <= 0.5 or ry <= 0.5 or color.a <= 0.0:
-		return
-	var tex: Texture2D = HydroPuddleTextureCache.get_caustic_texture()
-	if tex == null:
-		return
-	var seed_phase: float = float(_puddle_seed) * 0.013
-	var breathe: float = 1.0 + 0.07 * sin(time_seconds * 1.4 + seed_phase)
-	var width: float = rx * breathe
-	var height: float = ry * breathe
-	canvas.draw_texture_rect(tex, Rect2(center - Vector2(width, height), Vector2(width * 2.0, height * 2.0)), false, color)
-
-
-func _ease_out_back(x: float) -> float:
-	var clamped: float = clampf(x, 0.0, 1.0)
-	var s := 1.70158
-	var u: float = clamped - 1.0
-	return 1.0 + (s + 1.0) * pow(u, 3.0) + s * pow(u, 2.0)
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

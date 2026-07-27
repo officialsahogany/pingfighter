@@ -201,7 +201,9 @@ func _verify_clean_lingpia_visual_layers() -> void:
 	# Lumion Spirit-Revenant: ONE convex cloak-bell silhouette + a skull-lantern + 링파츠 hardware
 	# (twin shoulder pods, forehead + chest-core gems), hovering (no legs). This guards the clean
 	# design AND that the old anatomical clutter the user rejected stays removed.
-	var source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skeleton_archer_skill.gd")
+	var gameplay_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skeleton_archer_skill.gd")
+	var source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skeleton_archer_renderer.gd")
+	_expect(gameplay_source.find("LingpetSkeletonArcherRenderer") >= 0, "Skeleton Archer gameplay should delegate presentation to the focused renderer")
 	# --- new clean layers present ---
 	_expect(source.find("func _draw_archer_cloak_bell") >= 0, "redesign should draw the single convex cloak-bell silhouette")
 	_expect(source.find("func _draw_archer_hem_underglow") >= 0, "redesign should draw the hovering-spirit hem underglow (replaces legs/feet)")
@@ -448,17 +450,18 @@ func _verify_original_event_audio_is_ported() -> void:
 	_expect(FileAccess.file_exists("res://assets/sounds/bullethit.wav"), "original bullethit hit sound should exist in the Godot asset tree")
 
 	var audio_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
-	_expect(audio_source.find("LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH := \"res://assets/sounds/bonemake2.wav\"") >= 0, "game audio should map the summon cue to the original bonemake2.wav")
-	_expect(audio_source.find("LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH := \"res://assets/sounds/skulldead.wav\"") >= 0, "game audio should map the death cue to the original skulldead.wav")
-	_expect(audio_source.find("LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH := \"res://assets/sounds/arrow.wav\"") >= 0, "game audio should map the fire cue to the original arrow.wav")
-	_expect(audio_source.find("LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH := \"res://assets/sounds/bullethit.wav\"") >= 0, "game audio should map the hit cue to the original bullethit.wav")
+	var combat_audio_source := FileAccess.get_file_as_string("res://scripts/audio/lingpet_combat_audio.gd")
+	_expect(combat_audio_source.find("\"path\": \"res://assets/sounds/bonemake2.wav\"") >= 0, "combat-audio owner should map the summon cue to the original bonemake2.wav")
+	_expect(combat_audio_source.find("\"path\": \"res://assets/sounds/skulldead.wav\"") >= 0, "combat-audio owner should map the death cue to the original skulldead.wav")
+	_expect(combat_audio_source.find("\"path\": \"res://assets/sounds/arrow.wav\"") >= 0, "combat-audio owner should map the fire cue to the original arrow.wav")
+	_expect(combat_audio_source.find("\"path\": \"res://assets/sounds/bullethit.wav\"") >= 0, "combat-audio owner should map the hit cue to the original bullethit.wav")
 	_expect(audio_source.find("func play_lingpet_skeleton_archer_summon") >= 0, "game audio should expose the dedicated summon play method")
 	_expect(audio_source.find("func play_lingpet_skeleton_archer_death") >= 0, "game audio should expose the dedicated death play method")
 	_expect(audio_source.find("func play_lingpet_skeleton_archer_arrow_fire") >= 0, "game audio should expose the dedicated fire play method")
 	_expect(audio_source.find("func play_lingpet_skeleton_archer_arrow_hit") >= 0, "game audio should expose the dedicated hit play method")
 
-	var host_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
-	_expect(host_source.find("play_lingpet_skeleton_archer_summon") >= 0, "host launch feedback should prefer the dedicated summon cue")
+	var feedback_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_launch_feedback_router.gd")
+	_expect(feedback_source.find("play_lingpet_skeleton_archer_summon") >= 0, "launch-feedback router should prefer the dedicated summon cue")
 
 	var skill_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skeleton_archer_skill.gd")
 	_expect(skill_source.find("play_lingpet_skeleton_archer_arrow_fire") >= 0, "skill should prefer the dedicated arrow-fire cue")

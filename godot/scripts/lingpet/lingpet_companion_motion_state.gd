@@ -1,10 +1,12 @@
 extends RefCounted
 
+const LingpetCompanionDefenseState := preload(
+	"res://scripts/lingpet/lingpet_companion_defense_state.gd"
+)
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
-const BALL_RADIUS_FALLBACK := 14.3
 const COMPANION_RADIUS := 16.0
-const COMPANION_HIT_HALF_HEIGHT := 22.0
 const COMPANION_PATROL_SPEED := 120.0
 const COMPANION_PATROL_EDGE_MARGIN := 42.0
 const COMPANION_PATROL_LANE_Y_OFFSET := 0.5
@@ -14,9 +16,8 @@ const COMPANION_PATROL_CHANGE_INTERVAL_MIN := 0.45
 const COMPANION_PATROL_CHANGE_INTERVAL_MAX := 1.40
 const COMPANION_PATROL_SURPRISE_CHANCE_PER_SECOND := 0.30
 const COMPANION_PATROL_SEED_MOD := 2147483647
-const COMPANION_DEFENSE_DECISION_INTERVAL_MIN := 0.55
-const COMPANION_DEFENSE_DECISION_INTERVAL_MAX := 0.95
-const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
+# Defense tuning and runtime now live in LingpetCompanionDefenseState; this
+# rationale stays beside the patrol facade because patrol is its only host.
 # Defense is a LOCAL, ANTICIPATORY predictive guard, NOT a field-wide goalkeeper.
 # Design intent: when the lingpet is off doing its own thing (far from the player)
 # and a ball the player cannot reach falls NEAR the lingpet, it predicts the landing
@@ -44,23 +45,14 @@ const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
 # end from snapping. Playtest defaults -- keep speed on this SINGLE lever (saga: do not
 # raise guard speed in more than one place). If a live look still reads weak, bump this
 # floor (0.70/0.80); if it snaps/teleports, drop it back.
-const COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS := 0.60
-const COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN := 1.0
-const COMPANION_DEFENSE_GUARD_SPEED_CAP := 320.0
 # Ease-in: ramp from patrol speed up to the peak so even the small guard move starts
 # gently instead of snapping.
-const COMPANION_DEFENSE_INTERCEPT_ACCEL := 1500.0
-const COMPANION_DEFENSE_GUARD_AURA_RAMP_SECONDS := 0.15
 # Ease-out: cap the speed at distance / this time so it decelerates into the
 # intercept point (smooth arrival) instead of stopping dead.
-const COMPANION_DEFENSE_INTERCEPT_EASE_OUT_TIME := 0.12
 # Local commit zone: the lingpet anchors to (and eases toward) a predicted landing X
 # only when it is within this horizontal radius of the lingpet. It scales with
 # defense_rate so higher defense is both more likely and broader, while still
 # bounded so far balls stay out of scope (no field sprint).
-const COMPANION_DEFENSE_LOCAL_ZONE_MIN := 150.0
-const COMPANION_DEFENSE_LOCAL_ZONE_MAX := 350.0
-const COMPANION_DEFENSE_TARGET_TOLERANCE := 8.0
 const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FREE_FLIGHT := "free_flight"
 const MOTION_STYLE_SORTIE_FLIGHT := "sortie_flight"
@@ -132,6 +124,8 @@ const FLIGHT_EXHAUSTED_PARK_SPEED := 145.0
 const FLIGHT_EXHAUSTED_PARK_ENTRY_OFFSET_Y := 132.0
 const FLIGHT_EXHAUSTED_PARK_TOLERANCE := 8.0
 
+var _defense_state: Object = LingpetCompanionDefenseState.new()
+
 var pos := Vector2.ZERO
 var motion_style := MOTION_STYLE_PATROL
 var free_flight_target := Vector2.ZERO
@@ -154,18 +148,51 @@ var patrol_speed := 0.0
 var patrol_lane_y := 0.0
 var patrol_min_x := 0.0
 var patrol_max_x := 0.0
-var defense_decision_timer := 0.0
-var defense_intercept_active := false
-var defense_intercept_target_x := 0.0
-var defense_intercept_speed := 0.0
+var defense_decision_timer: float:
+	get:
+		return float(_defense_state.defense_decision_timer)
+	set(value):
+		_defense_state.defense_decision_timer = value
+
+var defense_intercept_active: bool:
+	get:
+		return bool(_defense_state.defense_intercept_active)
+	set(value):
+		_defense_state.defense_intercept_active = value
+
+var defense_intercept_target_x: float:
+	get:
+		return float(_defense_state.defense_intercept_target_x)
+	set(value):
+		_defense_state.defense_intercept_target_x = value
+
+var defense_intercept_speed: float:
+	get:
+		return float(_defense_state.defense_intercept_speed)
+	set(value):
+		_defense_state.defense_intercept_speed = value
 # ACTUAL per-frame intercept movement speed (0 while parked at the anchor waiting
 # for the ball). motion_speed_ratio is the renderer's walk/idle gate AND walk-anim
 # speed, so it must come from this, never from the guard capability cap — the
 # anticipatory guard arrives EARLY by design, and a cap-based ratio makes the
 # arrived-and-holding companion treadmill in place at full walk speed.
-var defense_intercept_step_speed := 0.0
-var defense_last_roll := 1.0
-var defense_guard_aura_ratio := 0.0
+var defense_intercept_step_speed: float:
+	get:
+		return float(_defense_state.defense_intercept_step_speed)
+	set(value):
+		_defense_state.defense_intercept_step_speed = value
+
+var defense_last_roll: float:
+	get:
+		return float(_defense_state.defense_last_roll)
+	set(value):
+		_defense_state.defense_last_roll = value
+
+var defense_guard_aura_ratio: float:
+	get:
+		return float(_defense_state.defense_guard_aura_ratio)
+	set(value):
+		_defense_state.defense_guard_aura_ratio = value
 
 
 func reset() -> void:
@@ -189,33 +216,19 @@ func reset() -> void:
 
 
 func reset_defense() -> void:
-	defense_decision_timer = 0.0
-	defense_last_roll = 1.0
-	clear_defense_intercept()
+	_defense_state.reset()
 
 
 func clear_defense_intercept() -> void:
-	defense_intercept_active = false
-	defense_intercept_target_x = 0.0
-	defense_intercept_speed = 0.0
-	defense_intercept_step_speed = 0.0
-	defense_guard_aura_ratio = 0.0
+	_defense_state.clear_intercept()
 
 
 static func get_defense_local_zone(defense_rate: float) -> float:
-	return lerpf(
-		COMPANION_DEFENSE_LOCAL_ZONE_MIN,
-		COMPANION_DEFENSE_LOCAL_ZONE_MAX,
-		clampf(defense_rate, 0.0, 1.0)
-	)
+	return LingpetCompanionDefenseState.get_defense_local_zone(defense_rate)
 
 
 static func get_defense_guard_speed(speed_default: float, defense_rate: float) -> float:
-	var rate: float = clampf(defense_rate, 0.0, 1.0)
-	# +60% floor for EVERY defending pet, scaling above it once defense_rate > 0.60.
-	var bonus: float = maxf(COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS, COMPANION_DEFENSE_GUARD_SPEED_RATE_GAIN * rate)
-	var scaled: float = maxf(1.0, speed_default) * (1.0 + bonus)
-	return minf(scaled, COMPANION_DEFENSE_GUARD_SPEED_CAP)
+	return LingpetCompanionDefenseState.get_defense_guard_speed(speed_default, defense_rate)
 
 
 func _normalize_motion_style(value: String) -> String:
@@ -277,11 +290,18 @@ func update(
 	if safe_delta <= 0.0:
 		motion_speed_ratio = 0.0 if patrol_pause > 0.0 else _speed_ratio(patrol_speed * speed_scale, speed_min, speed_max)
 		return
-	if _try_update_defense_intercept(safe_delta, owner, defense_rate, speed_default * speed_scale, speed_min * speed_scale):
-		_advance_defense_guard_aura(safe_delta)
+	if bool(_defense_state.try_update(
+		safe_delta,
+		owner,
+		self,
+		defense_rate,
+		speed_default * speed_scale,
+		speed_min * speed_scale
+	)):
+		_defense_state.advance_guard_aura(safe_delta)
 		motion_speed_ratio = _speed_ratio(defense_intercept_step_speed, speed_min, speed_max)
 		return
-	_advance_defense_guard_aura(safe_delta)
+	_defense_state.advance_guard_aura(safe_delta)
 	if patrol_pause > 0.0:
 		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
 		motion_speed_ratio = 0.0
@@ -476,9 +496,7 @@ func get_save_snapshot() -> Dictionary:
 func configure_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer: float, test_intercept_active: bool) -> void:
 	pos = test_pos
 	patrol_seed = test_seed
-	defense_decision_timer = maxf(0.0, test_decision_timer)
-	defense_intercept_active = test_intercept_active
-	defense_guard_aura_ratio = 1.0 if test_intercept_active else 0.0
+	_defense_state.configure_for_tests(test_decision_timer, test_intercept_active)
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	motion_visible = true
@@ -1010,111 +1028,6 @@ func _sync_free_flight_bounds() -> void:
 	patrol_lane_y = FIELD_HEIGHT * 0.5
 	patrol_min_x = -FREE_FLIGHT_MARGIN_X
 	patrol_max_x = FIELD_WIDTH + FREE_FLIGHT_MARGIN_X
-
-
-func _try_update_defense_intercept(delta: float, owner: Object, defense_rate: float, speed_default: float, speed_min: float) -> bool:
-	if defense_rate <= 0.0:
-		clear_defense_intercept()
-		return false
-	if not bool(_get_owner_value(owner, "ball_active", false)):
-		clear_defense_intercept()
-		defense_decision_timer = 0.0
-		return false
-	var ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
-	if ball_vel.y <= 0.0:
-		clear_defense_intercept()
-		defense_decision_timer = 0.0
-		return false
-	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
-	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
-	var vertical_gap: float = (patrol_lane_y - COMPANION_HIT_HALF_HEIGHT) - (ball_pos.y + ball_radius)
-	if vertical_gap < 0.0:
-		clear_defense_intercept()
-		return false
-	# Predict where the ball will cross the lane (used for both tracking and arming).
-	var impact_boost: float = maxf(0.01, float(_get_owner_value(owner, "ball_impact_boost", 1.0)))
-	var frames_to_contact: float = vertical_gap / maxf(0.01, ball_vel.y * impact_boost)
-	var future_ball_x: float = ball_pos.x + ball_vel.x * impact_boost * frames_to_contact
-	var target_clamped: float = clampf(future_ball_x, patrol_min_x, patrol_max_x)
-	if defense_intercept_active:
-		# Anticipatory tracking: keep re-anchoring to the predicted landing X while the
-		# ball descends, so a still-descending (or gently curving) ball stays guarded.
-		# The slow intercept speed caps total travel per descent, so re-anchoring can
-		# never become a field sprint even if the prediction drifts.
-		defense_intercept_target_x = target_clamped
-		return _advance_defense_intercept(delta, speed_default, speed_min, defense_rate)
-	defense_decision_timer = maxf(0.0, defense_decision_timer - delta)
-	if defense_decision_timer > 0.0 or vertical_gap > COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP:
-		return false
-	# Only guard balls the PLAYER cannot reach -- guarding a ball the player could
-	# block anyway is pointless (mirrors lingpet_ring_dash_state._player_can_block).
-	# Checked before the roll/timer so player-blockable balls don't burn the roll.
-	if _player_can_block(owner, target_clamped, ball_radius):
-		return false
-	# Local commit zone (ANTICIPATORY): arm as soon as the predicted X is within the
-	# defense-rate-scaled local radius, then anchor and ease toward it EARLY -- do NOT
-	# wait until the ball is close enough to reach this very frame (that late-commit
-	# window is exactly why a high defense rate still whiffed nearby balls).
-	var local_zone: float = get_defense_local_zone(defense_rate)
-	if absf(target_clamped - pos.x) > local_zone:
-		return false
-	defense_decision_timer = _next_range(
-		COMPANION_DEFENSE_DECISION_INTERVAL_MIN,
-		COMPANION_DEFENSE_DECISION_INTERVAL_MAX
-	)
-	defense_last_roll = _next_unit()
-	if defense_last_roll >= defense_rate:
-		return false
-	defense_intercept_target_x = target_clamped
-	defense_intercept_active = true
-	defense_intercept_speed = 0.0  # start the ease-in ramp fresh from patrol speed
-	patrol_pause = 0.0
-	return _advance_defense_intercept(delta, speed_default, speed_min, defense_rate)
-
-
-func _player_can_block(owner: Object, future_ball_x: float, ball_radius: float) -> bool:
-	var player_width: float = maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0)))
-	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - player_width * 0.5, 0.0))
-	return future_ball_x >= player_pos.x - ball_radius and future_ball_x <= player_pos.x + player_width + ball_radius
-
-
-func _advance_defense_intercept(delta: float, speed_default: float, speed_min: float, defense_rate: float) -> bool:
-	var safe_delta: float = maxf(0.0, delta)
-	var target_x: float = clampf(defense_intercept_target_x, patrol_min_x, patrol_max_x)
-	var distance: float = target_x - pos.x
-	if absf(distance) <= COMPANION_DEFENSE_TARGET_TOLERANCE:
-		pos.x = target_x
-		patrol_dir = 0.0
-		defense_intercept_speed = 0.0
-		defense_intercept_step_speed = 0.0
-		return true
-	patrol_dir = 1.0 if distance > 0.0 else -1.0
-	# Ease-in: ramp from the patrol launch speed up to the cap so the dash starts
-	# gently (a constant cap-speed slide from a standstill read as a teleport).
-	var guard_speed: float = get_defense_guard_speed(speed_default, defense_rate)
-	defense_intercept_speed = minf(
-		guard_speed,
-		maxf(defense_intercept_speed, speed_min) + COMPANION_DEFENSE_INTERCEPT_ACCEL * safe_delta
-	)
-	# Ease-out: never move faster than what settles onto the target within the
-	# ease-out window, so the companion decelerates into the intercept point.
-	var ease_out_speed: float = absf(distance) / COMPANION_DEFENSE_INTERCEPT_EASE_OUT_TIME
-	var step_speed: float = minf(defense_intercept_speed, ease_out_speed)
-	defense_intercept_step_speed = step_speed
-	patrol_speed = clampf(step_speed, speed_min, guard_speed)
-	pos.x = move_toward(pos.x, target_x, step_speed * safe_delta)
-	pos.x = clampf(pos.x, patrol_min_x, patrol_max_x)
-	return true
-
-
-func _advance_defense_guard_aura(delta: float) -> void:
-	if not defense_intercept_active:
-		defense_guard_aura_ratio = 0.0
-		return
-	defense_guard_aura_ratio = minf(
-		1.0,
-		defense_guard_aura_ratio + maxf(0.0, delta) / COMPANION_DEFENSE_GUARD_AURA_RAMP_SECONDS
-	)
 
 
 func _resolve_lane(owner: Object) -> Dictionary:

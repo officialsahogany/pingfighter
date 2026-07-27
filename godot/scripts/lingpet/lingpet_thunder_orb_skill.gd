@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LingpetThunderOrbPayloadFactory := preload("res://scripts/lingpet/lingpet_thunder_orb_payload_factory.gd")
+const LingpetThunderOrbRenderer := preload("res://scripts/lingpet/lingpet_thunder_orb_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -43,9 +44,6 @@ const MINI_SPARK_PARTICLES := 12
 # real CC zone, while staying clearly smaller than the 170px main blast.
 const MINI_SPARK_LARGE_PARTICLES := 5
 const MINI_SPARK_FLASH_SECONDS := 0.24
-const MINI_SPARK_VISUAL_RADIUS := 48.0  # scatter bound for the random sparks (== hit radius)
-const MINI_SPARK_BOLT_COUNT := 10
-const MINI_SPARK_DOT_COUNT := 6
 
 # Horus-parity visual identity: a BLUE-WHITE energy orb (gold only as a faint
 # outer-arc accent), ported from the original PingFighter hero "Horus" thunder
@@ -54,22 +52,6 @@ const MINI_SPARK_DOT_COUNT := 6
 # of the Python version's frame drops).
 const ORB_ROTATION_SPEED_DEG := 280.0
 const ENERGY_PARTICLE_MAX := 20
-const ORB_INNER_COLOR := Color(0.78, 0.90, 1.0)
-const ORB_RING_COLOR := Color(0.31, 0.63, 1.0)
-const ARC_GLOW_COLOR := Color(0.24, 0.51, 1.0)
-const ARC_CORE_COLOR := Color(0.78, 0.90, 1.0)
-const TRAIL_COLOR := Color(0.39, 0.70, 1.0)
-const OUTER_ARC_COLORS: Array[Color] = [
-	Color(0.47, 0.71, 1.0), Color(0.31, 0.55, 1.0), Color(0.63, 0.78, 1.0),
-	Color(1.0, 0.94, 0.47), Color(1.0, 0.86, 0.31),
-]
-const SPARK_COLORS: Array[Color] = [
-	Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 0.90), Color(0.78, 0.90, 1.0),
-]
-const RING_COLORS: Array[Color] = [
-	Color(0.39, 0.70, 1.0), Color(0.59, 0.82, 1.0), Color(0.31, 0.63, 1.0),
-	Color(0.71, 0.86, 1.0), Color(0.24, 0.55, 0.94),
-]
 const ENERGY_COLORS: Array[Color] = [
 	Color(0.78, 0.90, 1.0), Color(0.59, 0.78, 1.0), Color(0.39, 0.70, 1.0), Color(1.0, 1.0, 1.0),
 ]
@@ -126,6 +108,7 @@ var _mini_spark_offset_scale := 1.0  # tests force 0.0 to spawn sparks at the bl
 # Outlives _mini_spark_remaining by up to MINI_SPARK_FLASH_SECONDS so the final
 # spark's crackle finishes drawing even after the chain count hits 0.
 var _mini_spark_flashes: Array = []
+var _renderer: Object = LingpetThunderOrbRenderer.new()
 
 
 func reset() -> void:
@@ -229,19 +212,36 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
 	if not _explosion_particles.is_empty():
-		_draw_particles(canvas, shake_offset)
+		_renderer.draw_particles(canvas, _explosion_particles, shake_offset)
 	if _explosion_timer > 0.0:
-		_draw_explosion(canvas, _explosion_pos + shake_offset)
+		_renderer.draw_explosion(
+			canvas,
+			_explosion_pos + shake_offset,
+			_explosion_timer,
+			EXPLOSION_DURATION_SECONDS,
+			_explosion_radius,
+			_visual_seed
+		)
 	if not _mini_spark_flashes.is_empty():
-		_draw_mini_spark_flashes(canvas, shake_offset)
-	# The on-boss electric arcs during the stun are now drawn by the shared,
-	# source-agnostic BossElectrocutionFieldHost (driven from the boss actor
-	# renderer via the central `electric_stun` -> `boss_electric_stun_active`
-	# flag), so Lumion's shock looks identical to Ragnarok's and any future
-	# electric stun. `_draw_boss_electric_stun` is retained as a fallback
-	# reference but intentionally no longer called here.
+		_renderer.draw_mini_spark_flashes(
+			canvas,
+			_mini_spark_flashes,
+			shake_offset,
+			MINI_SPARK_FLASH_SECONDS,
+			MINI_SPARK_HIT_RADIUS
+		)
 	if _phase == PHASE_TRAVELING:
-		_draw_orb(canvas, _orb_pos + shake_offset, shake_offset)
+		_renderer.draw_orb(
+			canvas,
+			_orb_pos + shake_offset,
+			shake_offset,
+			_elapsed,
+			_visual_seed,
+			_orb_rotation,
+			ORB_VISUAL_RADIUS,
+			_trail,
+			_energy_particles
+		)
 
 
 func has_visible_effects() -> bool:
@@ -516,46 +516,6 @@ func _update_mini_spark_flashes(delta: float) -> void:
 	_mini_spark_flashes = kept
 
 
-func _draw_mini_spark_flashes(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	# Chaotic SCATTERED electric sparks — deliberately NO central orb / ring /
-	# flash core. Each short zig-zag bolt jumps between two RANDOM points inside
-	# the spark radius (not radiating from one centre), re-rolled per discrete
-	# tick and randomly skipped, so the whole thing snaps and scatters like a
-	# live short-circuit. A few tiny spark dots flick on/off at random spots.
-	for flash in _mini_spark_flashes:
-		var life_t: float = clampf(float(flash["timer"]) / MINI_SPARK_FLASH_SECONDS, 0.0, 1.0)  # 1 -> 0
-		var center: Vector2 = (flash["pos"] as Vector2) + shake_offset
-		var seed_v: float = float(flash["seed"])
-		var progress: float = 1.0 - life_t  # 0 -> 1
-		var tick: float = floorf(progress * 13.0)  # discrete electric flicker
-
-		for i in range(MINI_SPARK_BOLT_COUNT):
-			# Re-roll this bolt each tick; randomly skip some for a flickery scatter.
-			if _seeded_unit(seed_v + float(i) * 7.3, tick + 5.0) > 0.66:
-				continue
-			var rng_base: float = seed_v + float(i) * 3.1 + tick
-			var anchor_ang: float = _seeded_unit(rng_base, 1.0) * TAU
-			var anchor_rad: float = MINI_SPARK_VISUAL_RADIUS * (0.10 + 0.78 * _seeded_unit(rng_base, 2.0))
-			var bolt_start: Vector2 = center + Vector2(cos(anchor_ang), sin(anchor_ang)) * anchor_rad
-			var jump_ang: float = _seeded_unit(rng_base, 3.0) * TAU
-			var jump_len: float = MINI_SPARK_VISUAL_RADIUS * (0.16 + 0.36 * _seeded_unit(rng_base, 4.0))
-			var bolt_end: Vector2 = bolt_start + Vector2(cos(jump_ang), sin(jump_ang)) * jump_len
-			var bolt_pts: PackedVector2Array = _build_bolt(bolt_start, bolt_end, rng_base, 3, 8.0)
-			var glow: Color = OUTER_ARC_COLORS[i % OUTER_ARC_COLORS.size()]
-			canvas.draw_polyline(bolt_pts, Color(glow.r, glow.g, glow.b, 0.40 * life_t), 2.5, true)
-			canvas.draw_polyline(bolt_pts, Color(1.0, 1.0, 1.0, 0.88 * life_t), 1.0, true)
-
-		# Tiny scattered spark dots (random flicker) — sparks, not an orb.
-		for j in range(MINI_SPARK_DOT_COUNT):
-			if _seeded_unit(seed_v + float(j) * 5.7, tick + 11.0) > 0.5:
-				continue
-			var dot_ang: float = _seeded_unit(seed_v + float(j) * 5.7, tick + 1.0) * TAU
-			var dot_rad: float = MINI_SPARK_VISUAL_RADIUS * _seeded_unit(seed_v + float(j) * 5.7, tick + 2.0)
-			var dot_pos: Vector2 = center + Vector2(cos(dot_ang), sin(dot_ang)) * dot_rad
-			var dot_r: float = 1.0 + _seeded_unit(seed_v + float(j) * 5.7, tick + 3.0) * 1.4
-			canvas.draw_circle(dot_pos, dot_r, Color(1.0, 1.0, 0.9, 0.9 * life_t))
-
-
 func _apply_boss_electric_stun(registry: Object) -> void:
 	var status_state: Object = _get_registry_instance(registry, "status_effect_state")
 	if status_state == null or not status_state.has_method("apply_status"):
@@ -604,236 +564,11 @@ func _update_particles(delta: float) -> void:
 	_explosion_particles = kept
 
 
-func _draw_orb(canvas: CanvasItem, pos: Vector2, shake_offset: Vector2) -> void:
-	var vr := ORB_VISUAL_RADIUS
-	var time_seconds := float(Time.get_ticks_msec()) / 1000.0
-
-	# Trail (blue).
-	for i in range(_trail.size()):
-		var trail_pos: Vector2 = _trail[i] + shake_offset
-		var ratio: float = float(i + 1) / float(maxi(1, _trail.size()))
-		canvas.draw_circle(trail_pos, lerpf(4.0, 12.0, ratio), Color(TRAIL_COLOR.r, TRAIL_COLOR.g, TRAIL_COLOR.b, 0.06 + 0.20 * ratio))
-		if i > 0:
-			var prev_pos: Vector2 = _trail[i - 1] + shake_offset
-			canvas.draw_line(prev_pos, trail_pos, Color(0.62, 0.80, 1.0, 0.24 * ratio), maxf(1.0, 3.0 * ratio), true)
-
-	# Floating energy motes (behind the core).
-	for p in _energy_particles:
-		var lt: float = clampf(float(p["life"]) / maxf(0.01, float(p["max_life"])), 0.0, 1.0)
-		var mote_col: Color = p["color"]
-		canvas.draw_circle((p["pos"] as Vector2) + shake_offset, maxf(1.0, float(p["size"]) * lt), Color(mote_col.r, mote_col.g, mote_col.b, 0.78 * lt))
-
-	# Multi-layer blue-white energy core (Horus: 2 glows + 3 body + 2 cores).
-	var pulse := 1.0 + 0.10 * sin(time_seconds * 5.0 + _visual_seed * TAU)
-	var orb_r := vr * 0.40 * pulse
-	canvas.draw_circle(pos, orb_r * 1.6, Color(ORB_INNER_COLOR.r, ORB_INNER_COLOR.g, ORB_INNER_COLOR.b, 0.20))
-	canvas.draw_circle(pos, orb_r * 1.2, Color(ORB_INNER_COLOR.r, ORB_INNER_COLOR.g, ORB_INNER_COLOR.b, 0.31))
-	canvas.draw_circle(pos, orb_r, Color(ORB_INNER_COLOR.r, ORB_INNER_COLOR.g, ORB_INNER_COLOR.b, 0.63))
-	canvas.draw_circle(pos, orb_r * 0.75, Color(0.82, 0.92, 1.0, 0.75))
-	canvas.draw_circle(pos, orb_r * 0.5, Color(0.86, 0.94, 1.0, 0.86))
-	canvas.draw_circle(pos, maxf(2.0, orb_r * 0.35), Color(1.0, 1.0, 1.0, 0.94))
-	canvas.draw_circle(pos, maxf(1.0, orb_r * 0.175), Color(1.0, 1.0, 1.0, 0.98))
-
-	# Rotating hexagonal frame + orb->vertex arcs (angle-math rotation, no
-	# transform.rotate). Wobble on the mid point keeps the arcs alive.
-	var hex_r := vr * 1.15
-	var hex_pts := PackedVector2Array()
-	for i in range(6):
-		var v_ang: float = TAU * float(i) / 6.0 - PI * 0.5 + _orb_rotation
-		hex_pts.append(pos + Vector2(cos(v_ang), sin(v_ang)) * hex_r)
-	canvas.draw_arc(pos, hex_r * 0.92, 0.0, TAU, 40, Color(ORB_RING_COLOR.r, ORB_RING_COLOR.g, ORB_RING_COLOR.b, 0.5), 1.5, true)
-	for i in range(6):
-		var a_ang: float = TAU * float(i) / 6.0 - PI * 0.5 + _orb_rotation
-		var arc_start := pos + Vector2(cos(a_ang), sin(a_ang)) * (orb_r * 0.9)
-		var wobble: float = sin(time_seconds * 8.0 + float(i) * 1.1) * deg_to_rad(5.0)
-		var mid_ang: float = a_ang + deg_to_rad(10.0) + wobble
-		var mid := pos + Vector2(cos(mid_ang), sin(mid_ang)) * (hex_r * 0.55)
-		var arc_pts := PackedVector2Array([arc_start, mid, hex_pts[i]])
-		canvas.draw_polyline(arc_pts, Color(ARC_GLOW_COLOR.r, ARC_GLOW_COLOR.g, ARC_GLOW_COLOR.b, 0.35), 3.0, true)
-		canvas.draw_polyline(arc_pts, Color(ARC_CORE_COLOR.r, ARC_CORE_COLOR.g, ARC_CORE_COLOR.b, 0.86), 1.0, true)
-	for hp in hex_pts:
-		canvas.draw_circle(hp, 3.0, Color(0.70, 0.86, 1.0, 0.78))
-		canvas.draw_circle(hp, 1.0, Color(1.0, 1.0, 1.0, 0.63))
-
-	# Per-frame outer crackle arcs (blue + faint gold accent).
-	var outer_n := 2 + (randi() % 3)
-	for _k in range(outer_n):
-		var oa := randf_range(0.0, TAU)
-		var osr := vr * randf_range(0.8, 1.3)
-		var os := pos + Vector2(cos(oa), sin(oa)) * osr
-		var oa2 := oa + randf_range(-0.6, 0.6)
-		var oer := osr + randf_range(5.0, 12.0)
-		var oe := pos + Vector2(cos(oa2), sin(oa2)) * oer
-		var oc: Color = OUTER_ARC_COLORS[randi() % OUTER_ARC_COLORS.size()]
-		canvas.draw_line(os, oe, Color(oc.r, oc.g, oc.b, 0.85), 1.0, true)
-	# Occasional white discharge spark.
-	if randf() < 0.6:
-		var spark_a := randf_range(0.0, TAU)
-		var spark_sr := vr * randf_range(0.6, 1.1)
-		var spark_s := pos + Vector2(cos(spark_a), sin(spark_a)) * spark_sr
-		var spark_e := pos + Vector2(cos(spark_a), sin(spark_a)) * (spark_sr + randf_range(4.0, 10.0))
-		canvas.draw_line(spark_s, spark_e, SPARK_COLORS[randi() % SPARK_COLORS.size()], 1.0, true)
-
-
-func _draw_explosion(canvas: CanvasItem, center: Vector2) -> void:
-	var ratio := clampf(_explosion_timer / EXPLOSION_DURATION_SECONDS, 0.0, 1.0)  # 1 -> 0
-	var progress := 1.0 - ratio  # 0 -> 1
-	var current_r := _explosion_radius * clampf(progress * 1.1, 0.0, 1.0)
-	var flick := floorf(progress * 60.0)  # discrete per-frame re-seed for the web
-
-	# Initial flash (outer blue glow + white centre) — first 40% of the burst.
-	if progress < 0.4:
-		var flash_f := 1.0 - progress / 0.4
-		canvas.draw_circle(center, current_r * 0.9, Color(0.39, 0.70, 1.0, 0.31 * flash_f))
-		canvas.draw_circle(center, current_r * 0.5, Color(1.0, 1.0, 1.0, 0.86 * flash_f))
-
-	# Five time-staggered shockwave rings (blue palette, thickness 4 -> 1).
-	for ring_idx in range(5):
-		var ring_delay := float(ring_idx) * 0.07
-		var ring_prog := progress - ring_delay
-		if ring_prog <= 0.0:
-			continue
-		var ring_r := _explosion_radius * minf(1.0, ring_prog * 1.4)
-		var ring_a := (0.86 - float(ring_idx) * 0.12) * (1.0 - minf(1.0, ring_prog))
-		if ring_r <= 0.0 or ring_a <= 0.0:
-			continue
-		var ring_w := maxf(1.0, 4.0 - float(ring_idx))
-		var rc: Color = RING_COLORS[ring_idx]
-		if ring_w >= 2.0:
-			canvas.draw_arc(center, ring_r + 2.0, 0.0, TAU, 56, Color(rc.r, rc.g, rc.b, ring_a / 3.0), ring_w + 2.0, true)
-		canvas.draw_arc(center, ring_r, 0.0, TAU, 56, Color(rc.r, rc.g, rc.b, ring_a), ring_w, true)
-
-	# Inner energy field.
-	canvas.draw_circle(center, current_r * 0.9, Color(0.08, 0.31, 0.71, 0.20 * ratio))
-	canvas.draw_circle(center, current_r * 0.5, Color(0.24, 0.55, 0.90, 0.35 * ratio))
-
-	# Lightning web: 12-22 radial bolts (glow 4 / mid 2 / core 1) + circular
-	# connections between adjacent bolt endpoints.
-	var arc_count := 12 + int(progress * 10.0)
-	var web_pts := PackedVector2Array()
-	for i in range(arc_count):
-		var bolt_seed := _visual_seed + float(i) * 2.1 + flick
-		var ang := (float(i) / float(arc_count)) * TAU + (_seeded_unit(bolt_seed, 3.0) - 0.5) * 0.3
-		var dir := Vector2(cos(ang), sin(ang))
-		var s := center + dir * (current_r * 0.1)
-		var e := center + dir * (current_r * lerpf(0.85, 1.15, _seeded_unit(bolt_seed, 7.0)))
-		var pts := _build_bolt(s, e, bolt_seed, 4, 14.0)
-		web_pts.append(e)
-		var glow: Color = OUTER_ARC_COLORS[i % OUTER_ARC_COLORS.size()]
-		canvas.draw_polyline(pts, Color(glow.r, glow.g, glow.b, 0.39 * ratio), 4.0, true)
-		var mid_c: Color = SPARK_COLORS[i % SPARK_COLORS.size()]
-		canvas.draw_polyline(pts, Color(mid_c.r, mid_c.g, mid_c.b, 0.80 * ratio), 2.0, true)
-		canvas.draw_polyline(pts, Color(1.0, 1.0, 1.0, 0.92 * ratio), 1.0, true)
-	for i in range(web_pts.size()):
-		if _seeded_unit(_visual_seed + float(i) * 1.7, flick + 51.0) < 0.7:
-			var p1 := web_pts[i]
-			var p2 := web_pts[(i + 1) % web_pts.size()]
-			var cmid := (p1 + p2) * 0.5 + Vector2(
-				(_seeded_unit(_visual_seed + float(i), flick + 5.0) - 0.5) * 16.0,
-				(_seeded_unit(_visual_seed + float(i), flick + 9.0) - 0.5) * 16.0
-			)
-			canvas.draw_polyline(PackedVector2Array([p1, cmid, p2]), Color(0.86, 0.94, 1.0, 0.7 * ratio), 1.4, true)
-
-	# Bright centre core glow (3 layers), fading as the burst ends.
-	var core_f := ratio
-	canvas.draw_circle(center, maxf(3.0, 18.0 * core_f), Color(0.31, 0.63, 1.0, 0.5 * core_f))
-	canvas.draw_circle(center, maxf(2.0, 12.0 * core_f), Color(0.78, 0.90, 1.0, 0.86 * core_f))
-	canvas.draw_circle(center, maxf(1.0, 6.0 * core_f), Color(1.0, 1.0, 1.0, core_f))
-
-
-func _draw_boss_electric_stun(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	var center := (_electric_stun_center if _electric_stun_center != Vector2.ZERO else _get_default_boss_center()) + shake_offset
-	var now_msec := float(Time.get_ticks_msec())
-	var ratio := clampf(_electric_stun_timer / maxf(0.05, _stun_duration_seconds), 0.0, 1.0)
-	var alpha := clampf(ratio / 0.16, 0.0, 1.0)
-	# Discrete ~16Hz re-seed so the arcs snap frame-to-frame like a live
-	# electric discharge instead of smoothly rotating. Matches the Ragnarok
-	# stun's tick flicker and the project electric-shader recipe (discrete-time
-	# resampling beats sin-based wander for an electric read).
-	var tick := float(int(now_msec / 60.0))
-	canvas.draw_circle(center, 54.0 + sin(now_msec * 0.01) * 3.0, Color(0.25, 0.75, 1.0, 0.12 * alpha))
-	for idx in range(8):
-		var seed_a := _seeded_unit(_visual_seed + float(idx) * 5.3, tick)
-		var seed_b := _seeded_unit(_visual_seed + float(idx) * 7.1, tick + 13.0)
-		var angle_a: float = TAU * (float(idx) / 8.0 + (seed_a - 0.5) * 0.12)
-		var angle_b: float = angle_a + 0.62 + seed_b * 0.52
-		var reach_a: float = 50.0 + seed_a * 12.0
-		var reach_b: float = 50.0 + seed_b * 14.0
-		var start := center + Vector2(cos(angle_a) * reach_a, sin(angle_a) * reach_a * 0.36)
-		var end := center + Vector2(cos(angle_b) * reach_b, sin(angle_b) * reach_b * 0.36)
-		_draw_lightning(canvas, start, end, Color(1.0, 0.96, 0.32, 0.70 * alpha), 1.5, _visual_seed + float(idx) * 5.3, 9.0, tick + float(idx))
-	# Per-tick spark dots scattered over the boss for a buzzing electric read.
-	for spark_idx in range(4):
-		var sx := _seeded_unit(_visual_seed + float(spark_idx) * 3.7, tick + float(spark_idx) * 2.0)
-		var sy := _seeded_unit(_visual_seed + float(spark_idx) * 9.1, tick + 5.0)
-		var spark_pos := center + Vector2((sx - 0.5) * 96.0, (sy - 0.5) * 38.0)
-		canvas.draw_circle(spark_pos, 1.0 + sx * 1.6, Color(1.0, 1.0, 0.85, 0.8 * alpha))
-
-
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _explosion_particles:
-		var max_life: float = maxf(0.01, float(particle["max_life"]))
-		var life_t: float = clampf(float(particle["life"]) / max_life, 0.0, 1.0)
-		var pos: Vector2 = (particle["pos"] as Vector2) + shake_offset
-		var size: float = float(particle["size"]) * (0.7 + 0.3 * life_t)
-		var base: Color = particle.get("color", ORB_INNER_COLOR)
-		var alpha: float = (0.72 if int(particle["kind"]) == 0 else 0.6) * life_t
-		canvas.draw_circle(pos, size, Color(base.r, base.g, base.b, alpha))
-
-
-# Zig-zag bolt point builder shared by the explosion lightning web (glow / mid /
-# core strokes). Re-seeded per frame by the caller for a crackling flicker.
-func _build_bolt(start: Vector2, end: Vector2, seed_value: float, segments: int, jitter: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	var delta := end - start
-	var normal := delta.orthogonal()
-	if normal.length_squared() > 0.001:
-		normal = normal.normalized()
-	var seg: int = maxi(2, segments)
-	for k in range(seg + 1):
-		var t := float(k) / float(seg)
-		var taper := 1.0 - absf(t * 2.0 - 1.0) * 0.25
-		var j := (_seeded_unit(seed_value, float(k) + 1.0) - 0.5) * jitter * taper
-		pts.append(start.lerp(end, t) + normal * j)
-	return pts
-
-
-func _draw_lightning(
-	canvas: CanvasItem,
-	start: Vector2,
-	end: Vector2,
-	color: Color,
-	width: float,
-	seed_value: float,
-	bend: float,
-	flicker_seed: float = -1.0
-) -> void:
-	var points := PackedVector2Array()
-	var delta := end - start
-	var normal := delta.orthogonal()
-	if normal.length_squared() > 0.001:
-		normal = normal.normalized()
-	var segments := 4
-	# Default: continuous wander keyed off elapsed time (orb / explosion bolts).
-	# flicker_seed >= 0 swaps in a discrete per-tick phase so the zig-zag snaps
-	# and holds instead of drifting (boss electric-stun arcs).
-	var jitter_phase: float = (_elapsed * 13.0) if flicker_seed < 0.0 else flicker_seed
-	for idx in range(segments + 1):
-		var t := float(idx) / float(segments)
-		var jitter := (_seeded_unit(seed_value, float(idx) + jitter_phase) - 0.5) * bend * (1.0 - absf(t * 2.0 - 1.0) * 0.22)
-		points.append(start.lerp(end, t) + normal * jitter)
-	canvas.draw_polyline(points, color, width, true)
-
-
 func _get_boss_rect(owner: Object) -> Rect2:
 	var boss_pos: Vector2 = _get_owner_vector2(owner, "boss_pos", Vector2(FIELD_WIDTH * 0.5 - 50.0, 25.0))
 	var boss_w: float = maxf(1.0, float(_get_owner_value(owner, "boss_paddle_width", 100.0)))
 	var boss_h: float = maxf(1.0, float(_get_owner_value(owner, "boss_hitbox_height", 40.0)))
 	return Rect2(boss_pos, Vector2(boss_w, boss_h))
-
-
-func _get_default_boss_center() -> Vector2:
-	return Vector2(FIELD_WIDTH * 0.5, 45.0)
 
 
 func _get_target_y(owner: Object) -> float:

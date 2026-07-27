@@ -7,6 +7,7 @@ const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_tex
 const WritheEmberMaterial := preload("res://scripts/effects/writhe_ember_material.gd")
 const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
 const LingpetDragonBreathPayloadFactory := preload("res://scripts/lingpet/lingpet_dragon_breath_payload_factory.gd")
+const LingpetDragonBreathRenderer := preload("res://scripts/lingpet/lingpet_dragon_breath_renderer.gd")
 # Lingering ground fire reuses the molotov fire-zone effect (5-layer WritheEmber
 # host + GPU embers). We drive a SEPARATE host pool via a dedicated name prefix
 # so the lingpet breath never fights the molotov active item over hosts.
@@ -96,6 +97,7 @@ var _registry: Object = null
 var _jet_material: ShaderMaterial = null
 var _additive_material: CanvasItemMaterial = null
 var _zone_fx_renderer: Object = null
+var _renderer: Object = LingpetDragonBreathRenderer.new()
 var _zone_fx_dirty := false
 var _zone_id_counter := 0
 
@@ -217,18 +219,21 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if not has_visible_effects():
 		return
 	_ensure_materials()
-	var time_sec := float(Time.get_ticks_msec()) / 1000.0
-	# Shader backplate: the active breath jet pouring from the mouth.
-	_draw_breath_jet(canvas, shake_offset, time_sec)
-	# Additive textured detail: muzzle, embers, hit flash. One additive context.
-	var prev_material: Material = canvas.material
-	canvas.material = _additive_material
-	_draw_breath_muzzle(canvas, shake_offset, time_sec)
-	for particle in _particles:
-		_draw_breath_particle(canvas, particle, shake_offset)
-	if _hit_flash_timer > 0.0:
-		_draw_hit_flash(canvas, _last_hit_pos + shake_offset, _hit_flash_timer / HIT_FLASH_SECONDS)
-	canvas.material = prev_material
+	_renderer.draw_breath(
+		canvas,
+		shake_offset,
+		_breath_active,
+		_elapsed,
+		_origin,
+		_direction,
+		_particles,
+		_hit_flash_timer,
+		_last_hit_pos,
+		HIT_FLASH_SECONDS,
+		BREATH_SPAWN_SECONDS,
+		_jet_material,
+		_additive_material
+	)
 
 
 func has_visible_effects() -> bool:
@@ -695,12 +700,12 @@ func _play_fire_zone_feedback(registry: Object, low_volume: bool = false) -> voi
 func _draw_fire_zones_molotov(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if not _fire_zones.is_empty():
 		_ensure_zone_fx_renderer()
-		_zone_fx_renderer.draw_molotov_fire_zones(canvas, _build_molotov_zone_payload(), shake_offset)
+		_zone_fx_renderer.draw_molotov_fire_zones(canvas, _build_molotov_zone_payload(), shake_offset, _elapsed)
 		_zone_fx_dirty = true
 	elif _zone_fx_dirty:
 		# Final empty sync so the molotov hosts hide after the last patch ends.
 		if _zone_fx_renderer != null:
-			_zone_fx_renderer.draw_molotov_fire_zones(canvas, [], shake_offset)
+			_zone_fx_renderer.draw_molotov_fire_zones(canvas, [], shake_offset, _elapsed)
 		_zone_fx_dirty = false
 
 
@@ -732,176 +737,6 @@ func _convert_zone_flames(flames: Array) -> Array:
 		var flame: Dictionary = flame_value as Dictionary
 		out.append(LingpetDragonBreathPayloadFactory.build_molotov_flame_payload(flame, 8.0, 0.66))
 	return out
-
-
-func _draw_breath_jet(canvas: CanvasItem, shake_offset: Vector2, time_sec: float) -> void:
-	if _jet_material == null:
-		return
-	var env := _jet_envelope()
-	if env <= 0.01:
-		return
-	var tex: Texture2D = DragonBreathTextureCache.get_flame_tongue_texture()
-	if tex == null:
-		return
-	var pulse := 0.86 + 0.14 * sin(time_sec * 11.0)
-	var up := Vector2(0.0, _direction)
-	var origin := _origin + shake_offset
-	var jet_len := lerpf(90.0, 230.0, env) * pulse
-	var outer_w := lerpf(46.0, 86.0, env)
-	_jet_material.set_shader_parameter("elapsed", time_sec)
-	_jet_material.set_shader_parameter("intensity", 1.0 + 0.6 * env)
-	var prev_material: Material = canvas.material
-	canvas.material = _jet_material
-	# Warm modulate is required: the WritheEmber shader only tints ~50% toward
-	# the preset, so a plain-white piece reads washed-out. The deep-orange outer
-	# pour + a hotter, narrower inner core give the fiery breath body.
-	_draw_flame_tongue(canvas, tex, origin + up * (jet_len * 0.5), up, outer_w, jet_len * 0.5, Color(1.0, 0.50, 0.15, 0.62 * env))
-	var inner_len := jet_len * 0.7
-	_draw_flame_tongue(canvas, tex, origin + up * (inner_len * 0.5), up, outer_w * 0.55, inner_len * 0.5, Color(1.0, 0.82, 0.46, 0.7 * env))
-	canvas.material = prev_material
-
-
-func _jet_envelope() -> float:
-	# Tween envelope: ease the pour in over 0.18s, hold, ease out as the spawn
-	# (mouth pour) phase closes -- the flying embers carry the look afterward.
-	if not _breath_active or _elapsed >= BREATH_SPAWN_SECONDS + 0.25:
-		return 0.0
-	var jet_in := _ease_out(clampf(_elapsed / 0.18, 0.0, 1.0))
-	var jet_out := 1.0 - _ease_out(clampf((_elapsed - (BREATH_SPAWN_SECONDS - 0.30)) / 0.55, 0.0, 1.0))
-	return jet_in * clampf(jet_out, 0.0, 1.0)
-
-
-# Bright warm glow anchored at the dragon's mouth while the breath pours. Drawn
-# in the additive layer (not the shader pass) so it stacks as light.
-func _draw_breath_muzzle(canvas: CanvasItem, shake_offset: Vector2, time_sec: float) -> void:
-	var env := _jet_envelope()
-	if env <= 0.01:
-		return
-	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	if ember == null:
-		return
-	var origin := _origin + shake_offset
-	var up := Vector2(0.0, _direction)
-	var pulse := 0.85 + 0.15 * sin(time_sec * 17.0)
-	# Stretched vertical root glow so the base reads as a thick fire column
-	# feeding the cloud, not a thin stalk.
-	var root_len := 150.0 * env * pulse
-	_draw_flame_tongue(canvas, DragonBreathTextureCache.get_flame_tongue_texture(), origin + up * (root_len * 0.5), up, 46.0 * env, root_len * 0.5, Color(1.0, 0.52, 0.18, 0.4 * env))
-	_draw_centered_tex(canvas, ember, origin, 124.0 * env * pulse, Color(1.0, 0.46, 0.14, 0.4 * env))
-	_draw_centered_tex(canvas, ember, origin, 72.0 * env * pulse, Color(1.0, 0.72, 0.32, 0.5 * env))
-	_draw_centered_tex(canvas, ember, origin, 34.0 * env * pulse, Color(1.0, 0.96, 0.82, 0.62 * env))
-
-
-func _draw_breath_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
-	if float(particle.get("delay", 0.0)) > 0.0:
-		return
-	var pos: Vector2 = particle.get("pos", Vector2.ZERO) + shake_offset
-	var size := float(particle.get("size", 0.0))
-	if size <= 2.0:
-		return
-	var max_life := maxf(0.01, float(particle.get("max_life", 1.0)))
-	var life := float(particle.get("life", 0.0))
-	var life_ratio := _particle_life_ratio(life, max_life)
-	if life_ratio <= 0.02:
-		return
-	var phase := float(particle.get("phase", 0.0))
-	# Birth-pop tween: quick scale-up over the first 14% of the particle's life.
-	var age := 1.0 - clampf(life / max_life, 0.0, 1.0)
-	var pop := _ease_out(clampf(age / 0.14, 0.0, 1.0))
-	var draw_size := size * lerpf(0.5, 1.0, pop)
-	var heat := clampf(0.30 + 0.70 * life_ratio, 0.0, 1.0)
-	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	# Soft round billowing glow dominates the read so the mass looks like fire,
-	# not a field of parallel spikes. Two stacked auras (wide soft + tighter mid)
-	# fill the gaps between fast particles into a continuous burning cloud.
-	_draw_centered_tex(canvas, ember, pos, draw_size * 4.6, _tint(heat * 0.60, 0.20 * life_ratio))
-	_draw_centered_tex(canvas, ember, pos, draw_size * 2.7, _tint(heat * 0.85, 0.40 * life_ratio))
-	# Soft flame tongue as a HIGHLIGHT on the glow (rounder ~1.25:1 aspect, lower
-	# alpha). Each flame licks upward with a persistent per-particle tilt + slow
-	# sway so they fan out turbulently instead of aligning into parallel thorns.
-	var wob: float = float(particle.get("wob", 0.5))
-	var lick_angle: float = (wob - 0.5) * 0.95 + sin(phase * 2.3 + wob * TAU) * 0.22
-	var lick: Vector2 = Vector2(0.0, _direction).rotated(lick_angle)
-	var tongue: Texture2D = DragonBreathTextureCache.get_flame_tongue_texture()
-	_draw_flame_tongue(canvas, tongue, pos, lick, draw_size * 1.2, draw_size * 1.5, _tint(minf(heat, 0.80), 0.46 * life_ratio))
-	# Warm round core (not a sharp white spark).
-	_draw_centered_tex(canvas, ember, pos, draw_size * 1.05, Color(1.0, 0.82, 0.50, 0.42 * life_ratio))
-	# Rare soft warm mote (no harsh white -- avoids the sparkler read).
-	if randf() < 0.05 * life_ratio:
-		_draw_centered_tex(canvas, ember, pos + Vector2(randf_range(-size, size), randf_range(-size, size)), randf_range(2.5, 4.0), Color(1.0, 0.86, 0.56, 0.6))
-
-
-func _draw_hit_flash(canvas: CanvasItem, center: Vector2, ratio: float) -> void:
-	var clamped := clampf(ratio, 0.0, 1.0)
-	if clamped <= 0.01:
-		return
-	var burst: Texture2D = ImpactFlareTextureCache.get_burst_texture()
-	var ember: Texture2D = DragonBreathTextureCache.get_ember_texture()
-	# Expanding burst as it fades -- bigger/brighter so the strike clearly reads
-	# as a hit rather than the ball quietly changing speed.
-	var radius := lerpf(78.0, 22.0, clamped)
-	_draw_centered_tex(canvas, ember, center, radius * 1.4, Color(1.0, 0.5, 0.13, 0.46 * clamped))
-	_draw_centered_tex(canvas, burst, center, radius * 2.6, Color(1.0, 0.82, 0.40, 0.72 * clamped))
-	_draw_centered_tex(canvas, burst, center, radius * 1.5, Color(1.0, 0.92, 0.6, 0.6 * clamped))
-	_draw_centered_tex(canvas, ember, center, radius * 0.8, Color(1.0, 0.97, 0.84, 0.85 * clamped))
-
-
-func _draw_flame_tongue(canvas: CanvasItem, tex: Texture2D, center: Vector2, up: Vector2, half_w: float, half_h: float, color: Color) -> void:
-	if tex == null or half_w <= 0.0 or half_h <= 0.0:
-		return
-	var right := Vector2(-up.y, up.x)
-	var tip := up * half_h
-	var base := -up * half_h
-	var rw := right * half_w
-	var pts := PackedVector2Array([
-		center + tip - rw,
-		center + tip + rw,
-		center + base + rw,
-		center + base - rw,
-	])
-	var uvs := PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
-	canvas.draw_colored_polygon(pts, color, uvs, tex)
-
-
-func _draw_centered_tex(canvas: CanvasItem, tex: Texture2D, center: Vector2, size_px: float, color: Color) -> void:
-	if tex == null or size_px <= 0.0 or color.a <= 0.0:
-		return
-	var s := Vector2(size_px, size_px)
-	canvas.draw_texture_rect(tex, Rect2(center - s * 0.5, s), false, color)
-
-
-func _particle_life_ratio(life: float, max_life: float) -> float:
-	var fade_start := max_life * 0.4
-	if life > fade_start:
-		return 1.0
-	if life > 0.0:
-		var t := life / fade_start
-		var smooth_t := t * t * (3.0 - 2.0 * t)
-		return 0.3 + 0.7 * smooth_t
-	var tail := clampf((life + 0.5) / 0.5, 0.0, 1.0)
-	return 0.3 * tail * tail
-
-
-func _tint(heat: float, alpha: float) -> Color:
-	var c := _heat_color(heat)
-	c.a = clampf(alpha, 0.0, 1.0)
-	return c
-
-
-func _heat_color(heat: float) -> Color:
-	# Stays in the orange/red fire family; the top end lands at warm gold rather
-	# than pure white so additive stacking glows hot without going sparkler-white.
-	var h := clampf(heat, 0.0, 1.0)
-	if h < 0.5:
-		var t := h / 0.5
-		return Color(1.0, lerpf(0.18, 0.48, t), lerpf(0.03, 0.11, t))
-	var t2 := (h - 0.5) / 0.5
-	return Color(1.0, lerpf(0.48, 0.84, t2), lerpf(0.11, 0.46, t2))
-
-
-func _ease_out(t: float) -> float:
-	var c := clampf(t, 0.0, 1.0)
-	return 1.0 - pow(1.0 - c, 3.0)
 
 
 func _get_boss_rect(owner: Object) -> Rect2:

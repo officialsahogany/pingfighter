@@ -1,11 +1,6 @@
 extends RefCounted
 
-# Modular VFX texture pieces (3-piece methodology): white-RGB/alpha sprites tinted
-# additively at draw time. Reused from the sibling Dragon Breath kit and the
-# shared impact-flare cache so the vortex / wind read as real fire motes and a
-# glowing vortex body instead of thin procedural arcs.
-const DragonBreathTextureCache := preload("res://scripts/lingpet/lingpet_dragon_breath_texture_cache.gd")
-const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const LingpetDragonWingRenderer := preload("res://scripts/lingpet/lingpet_dragon_wing_renderer.gd")
 const LingpetDragonWingPayloadFactory := preload("res://scripts/lingpet/lingpet_dragon_wing_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
@@ -60,17 +55,6 @@ const DRAGON_HALF_WIDTH := 65.0
 const DRAGON_HALF_HEIGHT := 35.0
 const DRAGON_BOB_PIXELS := 8.0
 const DRAGON_BOB_SPEED := 2.5
-# Dedicated Farukiras SIDE-PROFILE wing-flap flight sheet (AutoSprite, 5x5 grid,
-# 24 frames, 256px cells), authored facing RIGHT so the swooping "용 그림자" reads
-# as flying in its travel direction (mirrored for leftward flight). This is a
-# separate asset from the rear-view companion sortie sheet — do NOT point this at
-# red_dragon_companion_wing_flap.png. Grid authority: the side-fly manifest.
-const DRAGON_SHEET_PATH := "res://assets/sprites/lingpet/red_dragon_companion_side_fly_flap.png"
-const DRAGON_SHEET_COLS := 5
-const DRAGON_SHEET_ROWS := 5
-const DRAGON_SHEET_FRAME_COUNT := 24
-const DRAGON_SPRITE_DRAW_SIZE := 160.0
-const DRAGON_FLAP_FPS := 22.0
 const DRAGON_TRAIL_LIFE_SECONDS := 0.34
 const DRAGON_TRAIL_MAX := 14
 const DRAGON_TRAIL_SPAWN_INTERVAL := 0.028
@@ -96,10 +80,9 @@ var _swirl_spin_sign := 1.0
 var _last_ball_pos := Vector2.ZERO
 var _ball_swirl_trail: Array[Dictionary] = []
 var _registry: Object = null
-var _additive_material: CanvasItemMaterial = null
-var _dragon_sheet_texture: Texture2D = null
 var _dragon_trail: Array[Dictionary] = []
 var _dragon_trail_accum := 0.0
+var _renderer: Object = LingpetDragonWingRenderer.new()
 
 
 func reset() -> void:
@@ -121,15 +104,12 @@ func reset() -> void:
 
 
 func prewarm() -> void:
-	_ensure_material()
-	_ensure_dragon_sheet()
-	DragonBreathTextureCache.prewarm()
-	ImpactFlareTextureCache.prewarm()
+	_renderer.prewarm()
 
 
 func launch(origin: Vector2, _owner: Object = null, _launch_context: Dictionary = {}) -> void:
 	reset()
-	_ensure_dragon_sheet()
+	_renderer.prepare_launch()
 	_active = true
 	_elapsed = 0.0
 	_wind_direction = 1.0 if randf() < 0.5 else -1.0
@@ -161,17 +141,27 @@ func update(delta: float, owner: Object, registry: Object = null, _launch_contex
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null or not has_visible_effects():
 		return
-	_ensure_material()
-	var prev_material: Material = canvas.material
-	canvas.material = _additive_material
-	_draw_swirl_field(canvas, shake_offset)
-	_draw_ball_swirl_trail(canvas, shake_offset)
-	_draw_wind_particles(canvas, shake_offset)
-	_draw_dragon_trail(canvas, shake_offset)
-	_draw_flying_dragon(canvas, shake_offset)
-	if _hit_flash_timer > 0.0:
-		_draw_hit_flash(canvas, _last_hit_pos + shake_offset, _hit_flash_timer / HIT_FLASH_SECONDS)
-	canvas.material = prev_material
+	_renderer.draw_dragon_wing(
+		canvas,
+		shake_offset,
+		_active,
+		_elapsed,
+		_swirl_envelope(),
+		_swirl_center,
+		_swirl_spin_sign,
+		_last_ball_pos,
+		_wind_direction,
+		_wind_particles,
+		_ball_swirl_trail,
+		SWIRL_TRAIL_LIFE_SECONDS,
+		_dragon_trail,
+		DRAGON_TRAIL_LIFE_SECONDS,
+		_flying_dragon,
+		_hit_flash_timer,
+		HIT_FLASH_SECONDS,
+		_last_hit_pos,
+		_last_hit_dir
+	)
 
 
 func has_visible_effects() -> bool:
@@ -433,24 +423,6 @@ func _update_dragon_trail(delta: float) -> void:
 		_dragon_trail.resize(write_index)
 
 
-func _draw_dragon_trail(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	if _dragon_trail.is_empty():
-		return
-	var ember := DragonBreathTextureCache.get_ember_texture()
-	if ember == null:
-		return
-	for entry in _dragon_trail:
-		var life := float(entry.get("life", 0.0))
-		var max_life := maxf(0.01, float(entry.get("max_life", DRAGON_TRAIL_LIFE_SECONDS)))
-		var ratio := clampf(life / max_life, 0.0, 1.0)
-		if ratio <= 0.01:
-			continue
-		var pos: Vector2 = entry.get("pos", Vector2.ZERO) + shake_offset
-		var grow := 1.0 - ratio
-		_draw_centered_tex(canvas, ember, pos, lerpf(16.0, 52.0, grow), Color(1.0, 0.40, 0.11, 0.18 * ratio))
-		_draw_centered_tex(canvas, ember, pos, lerpf(9.0, 26.0, grow), Color(1.0, 0.64, 0.24, 0.20 * ratio))
-
-
 func _try_hit_ball_with_flying_dragon(owner: Object, dragon: Dictionary) -> void:
 	if owner == null or float(dragon.get("hit_cooldown", 0.0)) > 0.0:
 		return
@@ -489,231 +461,8 @@ func _try_hit_ball_with_flying_dragon(owner: Object, dragon: Dictionary) -> void
 	_play_ball_hit_feedback()
 
 
-func _draw_wind_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _wind_particles:
-		var life := float(particle.get("life", 0.0))
-		var max_life := maxf(0.01, float(particle.get("max_life", 1.0)))
-		var ratio := clampf(life / max_life, 0.0, 1.0)
-		if ratio <= 0.01:
-			continue
-		var pos: Vector2 = particle.get("pos", Vector2.ZERO) + shake_offset
-		var vel: Vector2 = particle.get("vel", Vector2.RIGHT)
-		var dir := vel.normalized() if vel.length_squared() > 0.001 else Vector2.RIGHT * _wind_direction
-		var perp := Vector2(-dir.y, dir.x)
-		var length := float(particle.get("length", 36.0)) * 1.8
-		var phase := float(particle.get("phase", 0.0))
-		var width := maxf(1.0, float(particle.get("width", 2.0)))
-		var seg := 7
-		var points := PackedVector2Array()
-		var core_colors := PackedColorArray()
-		var halo_colors := PackedColorArray()
-		# Warm gold/orange tint so the wind streaks join the fire-dragon palette
-		# instead of reading as cold pale scratches against the warm vortex. Alpha
-		# stays low (은은한 바람) — color, not intensity, does the unification.
-		var core_a := 0.22 * ratio
-		var halo_a := 0.12 * ratio
-		for i in range(seg + 1):
-			var t := float(i) / float(seg)
-			var along := lerpf(-length, 0.0, t)
-			var bow := sin(t * PI * 1.15 + phase) * 6.0 * sin(t * PI)
-			points.append(pos + dir * along + perp * bow)
-			var gust := sin(t * PI)
-			core_colors.append(Color(1.0, 0.84, 0.38, core_a * gust))
-			halo_colors.append(Color(1.0, 0.54, 0.18, halo_a * gust))
-		canvas.draw_polyline_colors(points, halo_colors, maxf(2.5, width * 3.0), true)
-		canvas.draw_polyline_colors(points, core_colors, maxf(1.0, width), true)
 
 
-func _draw_swirl_field(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	if not _active or _swirl_center == Vector2.ZERO:
-		return
-	var center := _swirl_center + shake_offset
-	var time_sec := float(Time.get_ticks_msec()) / 1000.0
-	var envelope := _swirl_envelope()
-	# Piece ①: a glowing vortex BODY so the spiral reads as a churning heat well,
-	# not just a few thin empty arcs. Three concentric soft glows, gently breathing.
-	var glow_tex := ImpactFlareTextureCache.get_glow_texture()
-	if glow_tex != null:
-		var body_pulse := 0.5 + 0.5 * sin(time_sec * 4.2)
-		_draw_centered_tex(canvas, glow_tex, center, 188.0 + body_pulse * 22.0, Color(1.0, 0.32, 0.07, 0.085 * envelope))
-		_draw_centered_tex(canvas, glow_tex, center, 116.0 + body_pulse * 14.0, Color(1.0, 0.48, 0.14, 0.11 * envelope))
-		_draw_centered_tex(canvas, glow_tex, center, 60.0, Color(1.0, 0.74, 0.32, 0.10 * envelope))
-	for ring in range(4):
-		var ring_f := float(ring)
-		var radius := 34.0 + ring_f * 22.0 + sin(time_sec * 5.0 + ring_f) * 3.5
-		var start := time_sec * (2.6 + ring_f * 0.38) * _swirl_spin_sign + ring_f * 1.45
-		var alpha := (0.44 - ring_f * 0.065) * envelope
-		canvas.draw_arc(center, radius, start, start + PI * 1.42, 52, Color(1.0, 0.42, 0.10, alpha), maxf(1.2, 4.0 - ring_f * 0.55), true)
-		canvas.draw_arc(center + Vector2(0.0, -5.0), radius * 0.72, start + PI * 0.35, start + PI * 1.25, 38, Color(1.0, 0.88, 0.36, alpha * 0.72), 1.5, true)
-	# Embers swept into the vortex throat, riding the spiral so the well looks alive.
-	var swirl_ember := DragonBreathTextureCache.get_ember_texture()
-	if swirl_ember != null:
-		for i in range(7):
-			var fi := float(i)
-			var orbit_ang := time_sec * (3.1 + fi * 0.21) * _swirl_spin_sign + fi * (TAU / 7.0)
-			var orbit_r := 26.0 + fi * 9.0 + sin(time_sec * 6.0 + fi) * 4.0
-			var ep := center + Vector2(cos(orbit_ang), sin(orbit_ang) * 0.78) * orbit_r
-			var ea := (0.5 - fi * 0.04) * envelope
-			_draw_centered_tex(canvas, swirl_ember, ep, lerpf(18.0, 9.0, fi / 7.0), Color(1.0, 0.62, 0.24, ea))
-			_draw_centered_tex(canvas, swirl_ember, ep, lerpf(8.0, 4.0, fi / 7.0), Color(1.0, 0.95, 0.66, ea * 1.4))
-	if _last_ball_pos != Vector2.ZERO:
-		var ball_center := _last_ball_pos + shake_offset
-		if glow_tex != null:
-			_draw_centered_tex(canvas, glow_tex, ball_center, 54.0, Color(1.0, 0.62, 0.20, 0.22 * envelope))
-		for ring in range(3):
-			var ring_f := float(ring)
-			var radius := 18.0 + ring_f * 8.0 + sin(time_sec * 10.0 + ring_f) * 2.2
-			var start := -time_sec * (5.0 + ring_f) * _swirl_spin_sign + ring_f * 1.7
-			canvas.draw_arc(ball_center, radius, start, start + PI * 1.35, 36, Color(1.0, 0.74, 0.22, (0.42 - ring_f * 0.08) * envelope), 1.7, true)
-		var spark := 0.55 + 0.45 * sin(time_sec * 12.0)
-		ImpactFlareTextureCache.draw_sparkle(canvas, ball_center, lerpf(9.0, 15.0, spark), Color(1.0, 0.92, 0.56), 0.5 * envelope)
-
-
-func _draw_ball_swirl_trail(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for entry in _ball_swirl_trail:
-		var life := float(entry.get("life", 0.0))
-		var max_life := maxf(0.01, float(entry.get("max_life", SWIRL_TRAIL_LIFE_SECONDS)))
-		var ratio := clampf(life / max_life, 0.0, 1.0)
-		if ratio <= 0.01:
-			continue
-		var pos: Vector2 = entry.get("pos", Vector2.ZERO) + shake_offset
-		var phase := float(entry.get("phase", 0.0))
-		var radius := lerpf(7.0, 21.0, 1.0 - ratio)
-		var start := phase + (1.0 - ratio) * TAU * _swirl_spin_sign
-		var trail_ember := DragonBreathTextureCache.get_ember_texture()
-		if trail_ember != null:
-			_draw_centered_tex(canvas, trail_ember, pos, lerpf(6.0, 18.0, 1.0 - ratio), Color(1.0, 0.52, 0.18, 0.22 * ratio))
-		canvas.draw_arc(pos, radius, start, start + PI * 1.2, 24, Color(1.0, 0.90, 0.42, 0.34 * ratio), 1.4, true)
-		canvas.draw_arc(pos + Vector2(0.0, -2.0), radius * 0.64, start + PI * 0.65, start + PI * 1.55, 20, Color(1.0, 0.46, 0.14, 0.25 * ratio), 1.0, true)
-
-
-func _draw_flying_dragon(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	if not _is_flying_dragon_active():
-		return
-	var pos: Vector2 = _flying_dragon.get("pos", Vector2.ZERO) + shake_offset
-	var dir := float(_flying_dragon.get("direction", _wind_direction))
-	var wing_time := float(_flying_dragon.get("wing_time", 0.0))
-	# Fiery aura behind the dragon (additive material is active in draw()). Use
-	# the soft-falloff glow texture instead of raw draw_circle calls — solid
-	# discs at low alpha read as a flat brown shadow under additive blending,
-	# while the texture's gradient gives a proper hot-core → flame-fringe halo.
-	var glow_pulse := 0.5 + 0.5 * sin(wing_time * 9.0)
-	var halo_tex := ImpactFlareTextureCache.get_glow_texture()
-	if halo_tex != null:
-		var halo_size := 132.0 + glow_pulse * 24.0
-		_draw_centered_tex(canvas, halo_tex, pos, halo_size, Color(1.0, 0.32, 0.08, 0.26))
-		_draw_centered_tex(canvas, halo_tex, pos, halo_size * 0.58, Color(1.0, 0.58, 0.18, 0.30))
-		_draw_centered_tex(canvas, halo_tex, pos, halo_size * 0.32, Color(1.0, 0.86, 0.42, 0.26))
-	else:
-		canvas.draw_circle(pos, 52.0 + glow_pulse * 8.0, Color(1.0, 0.40, 0.10, 0.12))
-		canvas.draw_circle(pos, 34.0, Color(1.0, 0.62, 0.18, 0.14))
-	# The real flapping dragon sprite reads the swoop; fall back to the old
-	# procedural blob only if the sheet failed to load.
-	if _dragon_sheet_texture != null:
-		_draw_dragon_sprite(canvas, pos, dir, wing_time)
-	else:
-		_draw_flying_dragon_procedural(canvas, pos, dir, wing_time)
-	# Fiery wing-trail accents trailing behind the travel direction (additive).
-	canvas.draw_line(pos - Vector2(dir * 22.0, -4.0), pos - Vector2(dir * 78.0, 22.0), Color(1.0, 0.86, 0.36, 0.62), 4.0, true)
-	canvas.draw_line(pos - Vector2(dir * 30.0, 8.0), pos - Vector2(dir * 92.0, 34.0), Color(1.0, 0.46, 0.14, 0.46), 3.0, true)
-
-
-func _draw_dragon_sprite(canvas: CanvasItem, pos: Vector2, dir: float, wing_time: float) -> void:
-	var frame := int(wing_time * DRAGON_FLAP_FPS) % DRAGON_SHEET_FRAME_COUNT
-	if frame < 0:
-		frame += DRAGON_SHEET_FRAME_COUNT
-	var tex_size := _dragon_sheet_texture.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
-		_draw_flying_dragon_procedural(canvas, pos, dir, wing_time)
-		return
-	var cell_w := tex_size.x / float(DRAGON_SHEET_COLS)
-	var cell_h := tex_size.y / float(DRAGON_SHEET_ROWS)
-	var col := frame % DRAGON_SHEET_COLS
-	var row := frame / DRAGON_SHEET_COLS
-	var source := Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
-	var half := DRAGON_SPRITE_DRAW_SIZE * 0.5
-	var dest := Rect2(pos - Vector2(half, half), Vector2(DRAGON_SPRITE_DRAW_SIZE, DRAGON_SPRITE_DRAW_SIZE))
-	# Warm fiery tint, near-solid. A colored sprite must use the default mix
-	# blend; the additive material would wash it to white and lose the silhouette.
-	var warm := Color(1.0, 0.74, 0.52, 0.94)
-	var prev_material: Material = canvas.material
-	canvas.material = null
-	if dir < 0.0:
-		_blit_flipped_region(canvas, _dragon_sheet_texture, source, dest, warm)
-	else:
-		canvas.draw_texture_rect_region(_dragon_sheet_texture, dest, source, warm, false, true)
-	canvas.material = prev_material
-
-
-func _blit_flipped_region(canvas: CanvasItem, texture: Texture2D, source_rect: Rect2, target_rect: Rect2, modulate: Color) -> void:
-	var texture_size := texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
-	var points := PackedVector2Array([
-		target_rect.position,
-		Vector2(target_rect.end.x, target_rect.position.y),
-		target_rect.end,
-		Vector2(target_rect.position.x, target_rect.end.y),
-	])
-	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
-	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
-	var uvs := PackedVector2Array([
-		Vector2(uv_max.x, uv_min.y),
-		Vector2(uv_min.x, uv_min.y),
-		Vector2(uv_min.x, uv_max.y),
-		Vector2(uv_max.x, uv_max.y),
-	])
-	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
-	canvas.draw_polygon(points, colors, uvs, texture)
-
-
-func _draw_flying_dragon_procedural(canvas: CanvasItem, pos: Vector2, dir: float, wing_time: float) -> void:
-	var flap := 0.5 + 0.5 * sin(wing_time * 9.0)
-	var scale := 1.0
-	var body_color := Color(0.95, 0.11, 0.06, 0.58)
-	var glow_color := Color(1.0, 0.62, 0.16, 0.28)
-	canvas.draw_arc(pos, 26.0 * scale, 0.0, TAU, 32, glow_color, 8.0, true)
-	canvas.draw_circle(pos, 13.0 * scale, body_color)
-	canvas.draw_circle(pos + Vector2(dir * 14.0, -2.0), 8.0 * scale, Color(1.0, 0.34, 0.10, 0.62))
-	var wing_raise := lerpf(18.0, 34.0, flap)
-	var left_root := pos + Vector2(-dir * 4.0, -2.0)
-	var right_root := pos + Vector2(dir * 2.0, -2.0)
-	var top_wing := PackedVector2Array([
-		left_root,
-		pos + Vector2(-dir * 44.0, -wing_raise),
-		pos + Vector2(-dir * 22.0, 10.0),
-	])
-	var low_wing := PackedVector2Array([
-		right_root,
-		pos + Vector2(dir * 34.0, -wing_raise * 0.7),
-		pos + Vector2(dir * 20.0, 13.0),
-	])
-	canvas.draw_colored_polygon(top_wing, Color(1.0, 0.22, 0.08, 0.38))
-	canvas.draw_colored_polygon(low_wing, Color(1.0, 0.68, 0.24, 0.26))
-
-
-func _draw_hit_flash(canvas: CanvasItem, center: Vector2, ratio: float) -> void:
-	var clamped := clampf(ratio, 0.0, 1.0)
-	if clamped <= 0.01:
-		return
-	# Bigger, more pyrotechnic impact so a 160px dragon strike actually reads as
-	# a punch. Adds a directional comet tail along the post-bounce velocity so
-	# the moment of contact telegraphs "I kicked the ball THIS way" instead of
-	# popping a tiny radial puff behind the sprite.
-	var expand := 1.0 - clamped
-	var radius := lerpf(46.0, 138.0, expand)
-	ImpactFlareTextureCache.draw_glow(canvas, center, radius * 1.05, Color(1.0, 0.42, 0.12), 0.55 * clamped)
-	ImpactFlareTextureCache.draw_burst(canvas, center, radius, Color(1.0, 0.82, 0.40), 0.95 * clamped)
-	ImpactFlareTextureCache.draw_sparkle(canvas, center, radius * 0.58, Color(1.0, 0.97, 0.72), 0.80 * clamped)
-	canvas.draw_arc(center, radius * 0.88, 0.0, TAU, 56, Color(1.0, 0.90, 0.52, 0.55 * clamped), maxf(1.5, 3.0 * clamped), true)
-	if _last_hit_dir.length_squared() > 0.001:
-		var tail_dir := _last_hit_dir
-		for i in range(3):
-			var step := float(i + 1)
-			var offset := tail_dir * (radius * 0.42 * step)
-			var tail_size := radius * lerpf(0.78, 0.30, step / 3.0)
-			var tail_alpha := clamped * lerpf(0.55, 0.20, step / 3.0)
-			ImpactFlareTextureCache.draw_glow(canvas, center + offset, tail_size, Color(1.0, 0.62, 0.20), tail_alpha)
 
 
 func _play_ball_hit_feedback() -> void:
@@ -728,28 +477,6 @@ func _play_ball_hit_feedback() -> void:
 		audio.play_active_item()
 
 
-func _ensure_material() -> void:
-	if _additive_material != null:
-		return
-	_additive_material = CanvasItemMaterial.new()
-	_additive_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-
-
-func _draw_centered_tex(canvas: CanvasItem, tex: Texture2D, center: Vector2, size_px: float, color: Color) -> void:
-	if canvas == null or tex == null or size_px <= 0.0 or color.a <= 0.0:
-		return
-	var s := Vector2(size_px, size_px)
-	canvas.draw_texture_rect(tex, Rect2(center - s * 0.5, s), false, color)
-
-
-func _ensure_dragon_sheet() -> void:
-	if _dragon_sheet_texture != null:
-		return
-	# Small 640x640 imported sheet: plain load() of the .ctex is the lightest
-	# path and avoids the ProjectResourceLoader raw-PNG decode size trap.
-	var resource: Variant = load(DRAGON_SHEET_PATH)
-	if resource is Texture2D:
-		_dragon_sheet_texture = resource as Texture2D
 
 
 func _swirl_envelope() -> float:

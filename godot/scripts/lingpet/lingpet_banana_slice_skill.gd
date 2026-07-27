@@ -2,11 +2,10 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const LingpetBananaSlicePayloadFactory := preload("res://scripts/lingpet/lingpet_banana_slice_payload_factory.gd")
-const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LingpetBananaSliceRenderer := preload("res://scripts/lingpet/lingpet_banana_slice_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
-const BANANA_TEXTURE_PATH := "res://assets/sprites/items/banana.png"
 const PHASE_IDLE := 0
 const PHASE_PREPARE := 1
 
@@ -21,8 +20,6 @@ const LAND_RANDOM_MIN := 40.0
 const LAND_RANDOM_MAX := 720.0
 const LAND_RANDOM_MIN_GAP := 120.0
 const LAND_RANDOM_ATTEMPTS := 20
-const FLYING_DRAW_SIZE := 51.2
-const LANDED_DRAW_SIZE := 72.0
 const COLLISION_SIZE := Vector2(80.0, 50.0)
 const BOSS_PADDLE_WIDTH := 100.0
 const BOSS_HITBOX_HEIGHT := 40.0
@@ -56,13 +53,12 @@ var _active_skill_level := 1
 var _banana_count := 1
 var _slip_seconds := 0.45
 var _slip_speed_per_frame := 15.0
-var _banana_texture: Texture2D = null
-var _ellipse_mesh: ArrayMesh = null
 var _registry: Object = null
 var _landing_xs_for_tests: Array[float] = []
 var _slip_direction_rolls_for_tests: Array[float] = []
 var _throw_sound_count := 0
 var _slip_sound_count := 0
+var _renderer: Object = LingpetBananaSliceRenderer.new()
 
 
 func reset() -> void:
@@ -89,12 +85,12 @@ func cancel(_owner: Object = null, registry: Object = null) -> void:
 
 
 func prewarm() -> void:
-	_ensure_banana_texture()
+	_renderer.prewarm()
 
 
 func launch(origin: Vector2, _owner: Object = null, launch_context: Dictionary = {}) -> bool:
 	reset()
-	_ensure_banana_texture()
+	_renderer.prewarm()
 	var ctx_registry: Variant = launch_context.get("registry", null)
 	if typeof(ctx_registry) == TYPE_OBJECT and is_instance_valid(ctx_registry):
 		_registry = ctx_registry as Object
@@ -128,29 +124,18 @@ func update(delta: float, owner: Object = null, registry: Object = null, _launch
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
-	_ensure_banana_texture()
-	if _phase == PHASE_PREPARE:
-		var progress := clampf(_phase_timer / PREPARE_SECONDS, 0.0, 1.0)
-		var prepare_pos := _get_prepare_banana_pos(progress)
-		_draw_banana(canvas, prepare_pos + shake_offset, FLYING_DRAW_SIZE, lerpf(-15.0, 15.0, progress))
-	for projectile in _projectiles:
-		if float(projectile.get("delay", 0.0)) > 0.0:
-			continue
-		_draw_projectile_trail(canvas, projectile.get("trail", []) as Array, shake_offset)
-		_draw_banana(
-			canvas,
-			_get_vector2(projectile, "position", Vector2.ZERO) + shake_offset,
-			FLYING_DRAW_SIZE,
-			float(projectile.get("rotation_degrees", 0.0))
-		)
-	for landed in _landed_bananas:
-		var timer := float(landed.get("timer", 0.0))
-		if timer < 1.0 and int(timer * 12.0) % 2 == 0:
-			continue
-		var pos := _get_vector2(landed, "position", Vector2.ZERO) + shake_offset
-		_draw_filled_ellipse(canvas, Rect2(pos - Vector2(30.0, 5.0), Vector2(60.0, 10.0)), Color(1.0, 0.86, 0.18, 0.31))
-		_draw_banana(canvas, pos, LANDED_DRAW_SIZE, 15.0)
-	_draw_particles(canvas, shake_offset)
+	var prepare_active := _phase == PHASE_PREPARE
+	var prepare_progress := clampf(_phase_timer / PREPARE_SECONDS, 0.0, 1.0) if prepare_active else 0.0
+	_renderer.draw_banana_slice(
+		canvas,
+		shake_offset,
+		prepare_active,
+		prepare_progress,
+		_get_prepare_banana_pos(prepare_progress),
+		_projectiles,
+		_landed_bananas,
+		_particles
+	)
 
 
 func has_visible_effects() -> bool:
@@ -221,7 +206,7 @@ func get_snapshot() -> Dictionary:
 		"banana_slice_slip_speed": float(get_boss_ai_context().get("lingpet_banana_slice_boss_slip_speed", 0.0)),
 		"banana_slice_throw_sound_count": _throw_sound_count,
 		"banana_slice_slip_sound_count": _slip_sound_count,
-		"banana_slice_banana_texture_loaded": _banana_texture != null,
+		"banana_slice_banana_texture_loaded": _renderer.is_banana_texture_loaded(),
 		"banana_slice_companion_override_active": has_companion_position_override(),
 		"banana_slice_companion_cast_pose_progress": get_companion_cast_pose_progress(),
 		"banana_slice_projectiles": _projectiles.duplicate(true),
@@ -496,125 +481,6 @@ func _get_boss_rect(owner: Object) -> Rect2:
 	var boss_width := maxf(1.0, float(BattleSceneOwnerReader.get_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH)))
 	var boss_height := maxf(1.0, float(BattleSceneOwnerReader.get_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT)))
 	return Rect2(boss_pos, Vector2(boss_width, boss_height))
-
-
-func _draw_projectile_trail(canvas: CanvasItem, trail: Array, shake_offset: Vector2) -> void:
-	if trail.is_empty():
-		return
-	for index in range(trail.size()):
-		var value: Variant = trail[index]
-		if not (value is Vector2):
-			continue
-		var alpha := float(index + 1) / float(trail.size()) * 0.20
-		canvas.draw_circle((value as Vector2) + shake_offset, 7.0, Color(1.0, 0.90, 0.18, alpha))
-
-
-func _draw_banana(canvas: CanvasItem, center: Vector2, draw_size: float, angle_degrees: float) -> void:
-	if _banana_texture == null:
-		canvas.draw_circle(center, draw_size * 0.34, Color(1.0, 0.84, 0.10, 0.92))
-		canvas.draw_arc(center, draw_size * 0.36, -0.9, 0.9, 16, Color(0.55, 0.32, 0.05, 0.95), 3.0)
-		return
-	_draw_rotated_texture_region(
-		canvas,
-		_banana_texture,
-		Rect2(Vector2.ZERO, _banana_texture.get_size()),
-		center,
-		Vector2(draw_size, draw_size),
-		angle_degrees
-	)
-
-
-func _draw_rotated_texture_region(
-	canvas: CanvasItem,
-	texture: Texture2D,
-	source_rect: Rect2,
-	center: Vector2,
-	draw_size: Vector2,
-	angle_degrees: float
-) -> void:
-	if texture == null or draw_size.x <= 0.0 or draw_size.y <= 0.0:
-		return
-	var texture_size := texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
-	var angle := deg_to_rad(angle_degrees)
-	var half_size := draw_size * 0.5
-	var local_corners := [
-		Vector2(-half_size.x, -half_size.y),
-		Vector2(half_size.x, -half_size.y),
-		Vector2(half_size.x, half_size.y),
-		Vector2(-half_size.x, half_size.y),
-	]
-	var points := PackedVector2Array()
-	for corner in local_corners:
-		points.append(_rotated_local(center, corner, angle))
-	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
-	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
-	var uvs := PackedVector2Array([
-		Vector2(uv_min.x, uv_min.y),
-		Vector2(uv_max.x, uv_min.y),
-		Vector2(uv_max.x, uv_max.y),
-		Vector2(uv_min.x, uv_max.y),
-	])
-	canvas.draw_polygon(points, PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]), uvs, texture)
-
-
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _particles:
-		var max_life := maxf(0.001, float(particle.get("max_life", 0.67)))
-		var alpha := clampf(float(particle.get("life", 0.0)) / max_life, 0.0, 1.0)
-		var color: Color = particle.get("color", Color(1.0, 0.9, 0.2, 1.0))
-		color.a *= alpha
-		canvas.draw_circle(_get_vector2(particle, "position", Vector2.ZERO) + shake_offset, float(particle.get("size", 4.0)), color)
-
-
-func _draw_filled_ellipse(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
-	if rect.size.x <= 1.0 or rect.size.y <= 1.0 or color.a <= 0.0:
-		return
-	var radius := rect.size * 0.5
-	var center := rect.get_center()
-	var transform := Transform2D(Vector2(radius.x, 0.0), Vector2(0.0, radius.y), center)
-	canvas.draw_mesh(_get_filled_ellipse_mesh(), null, transform, color)
-
-
-func _get_filled_ellipse_mesh() -> ArrayMesh:
-	if _ellipse_mesh != null:
-		return _ellipse_mesh
-	var vertices := PackedVector3Array()
-	var indices := PackedInt32Array()
-	vertices.append(Vector3.ZERO)
-	for step in range(24):
-		var angle := TAU * float(step) / 24.0
-		vertices.append(Vector3(cos(angle), sin(angle), 0.0))
-	for step in range(24):
-		indices.append(0)
-		indices.append(step + 1)
-		indices.append((step + 1) % 24 + 1)
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_ellipse_mesh = mesh
-	return _ellipse_mesh
-
-
-func _rotated_local(center: Vector2, local: Vector2, angle: float) -> Vector2:
-	return center + Vector2(
-		local.x * cos(angle) - local.y * sin(angle),
-		local.x * sin(angle) + local.y * cos(angle)
-	)
-
-
-func _ensure_banana_texture() -> Texture2D:
-	if _banana_texture == null:
-		_banana_texture = ProjectResourceLoader.load_texture(
-			BANANA_TEXTURE_PATH,
-			"Missing Banana Slice texture at %s",
-			"Failed to load Banana Slice texture at %s"
-		)
-	return _banana_texture
 
 
 func _play_throw_feedback() -> void:

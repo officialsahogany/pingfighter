@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallRenderInterpolation := preload("res://scripts/ball/ball_render_interpolation.gd")
+const LingpetGhostSummonRenderer := preload("res://scripts/lingpet/lingpet_ghost_summon_renderer.gd")
 const LingpetGhostSummonPayloadFactory := preload("res://scripts/lingpet/lingpet_ghost_summon_payload_factory.gd")
 
 const FIELD_WIDTH := 760.0
@@ -33,18 +34,6 @@ const TELEPORT_PHASE_DISAPPEAR := "disappear"
 const TELEPORT_PHASE_APPEAR := "appear"
 const TELEPORT_PHASE_RELEASE := "release"
 
-# Faithful Banshee ghost visual constants (RGB ported from the original 0-255 palette).
-const GHOST_MAX_ALPHA := 0.706                          # original int(180) cap / 255
-const GHOST_BODY_RX := 22.0
-const GHOST_BODY_RY := 20.0
-const GHOST_BODY_COLOR := Color(0.314, 0.706, 0.627)    # (80, 180, 160)
-const GHOST_EYE_COLOR := Color(0.549, 1.0, 0.902)       # (140, 255, 230)
-const GHOST_EYE_HILITE := Color(0.784, 1.0, 0.961)      # (200, 255, 245)
-const GHOST_BULGE_COLOR := Color(0.353, 0.765, 0.686)   # (90, 195, 175)
-const GHOST_MOUTH_COLOR := Color(0.157, 0.314, 0.275)   # (40, 80, 70)
-const GHOST_EYE_GLOW := Color(0.627, 1.0, 0.922)        # (160, 255, 235)
-const GHOST_SHADOW_COLOR := Color(0.039, 0.078, 0.071)  # (10, 20, 18)
-const GHOST_FLASH_COLOR := Color(0.235, 0.471, 0.392)   # (60, 120, 100) cast flash
 const LAUNCH_FLASH_DURATION := 0.18
 
 var _active := false
@@ -68,6 +57,7 @@ var _last_release_vel := Vector2.ZERO
 var _last_audio_registry: Object = null
 var _launch_flash_timer := 0.0
 var _active_skill_level := 1
+var _renderer: Object = LingpetGhostSummonRenderer.new()
 
 
 func reset() -> void:
@@ -136,20 +126,21 @@ func update(delta: float, owner: Object, registry: Object = null, _launch_contex
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
-	_draw_particles(canvas, _particles, shake_offset, 1.0)
-	_draw_particles(canvas, _teleport_particles, shake_offset, 1.0)
-	if _launch_flash_timer > 0.0:
-		_draw_launch_flash(canvas, _launch_origin + shake_offset)
-	for dying_value in _dying_ghosts:
-		_draw_dying_ghost(canvas, dying_value as Dictionary, shake_offset)
-	for ghost_value in _ghosts:
-		var ghost := ghost_value as Dictionary
-		if bool(ghost.get("teleporting", false)):
-			_draw_teleporting_ghost(canvas, ghost, shake_offset)
-		elif bool(ghost.get("eating", false)):
-			_draw_eating_state(canvas, ghost, shake_offset)
-		else:
-			_draw_roaming_state(canvas, ghost, shake_offset)
+	_renderer.draw_ghost_summon(
+		canvas,
+		shake_offset,
+		_particles,
+		_teleport_particles,
+		_launch_flash_timer,
+		_launch_origin,
+		LAUNCH_FLASH_DURATION,
+		_dying_ghosts,
+		DEATH_DURATION,
+		_ghosts,
+		EMERGE_DURATION,
+		TELEPORT_DISAPPEAR_DUR,
+		TELEPORT_APPEAR_DUR
+	)
 
 
 func has_visible_effects() -> bool:
@@ -535,185 +526,6 @@ func _get_ghost_rect(ghost: Dictionary) -> Rect2:
 	return Rect2(pos - size * 0.5, size)
 
 
-func _draw_roaming_state(canvas: CanvasItem, ghost: Dictionary, shake_offset: Vector2) -> void:
-	var pos: Vector2 = _get_dict_vector2(ghost, "pos", Vector2.ZERO) + shake_offset
-	var spawn_time: float = float(ghost.get("spawn_time", 0.0))
-	var ghost_id: float = float(ghost.get("id", 0))
-	var phase: float = float(ghost.get("phase", 0.0))
-	var alpha: float = GHOST_MAX_ALPHA * clampf(spawn_time / EMERGE_DURATION, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	# Original 둥실둥실 hover: large primary bob + secondary jitter, per-ghost phase offset.
-	var hover_main: float = 14.0 * sin(spawn_time * 2.2 + ghost_id * PI)
-	var hover: float = hover_main + 5.0 * sin(spawn_time * 3.8 + ghost_id * 2.1)
-	_draw_ground_shadow(canvas, pos, 1.0, alpha, hover_main)
-	_draw_fallback_ghost(canvas, pos + Vector2(0.0, hover), 1.0, alpha, phase)
-
-
-func _draw_eating_state(canvas: CanvasItem, ghost: Dictionary, shake_offset: Vector2) -> void:
-	var pos: Vector2 = _get_dict_vector2(ghost, "pos", Vector2.ZERO) + shake_offset
-	var spawn_time: float = float(ghost.get("spawn_time", 0.0))
-	var phase: float = float(ghost.get("phase", 0.0))
-	var eat_scale: float = float(ghost.get("eat_scale", 1.0))
-	var bulge_phase: float = float(ghost.get("eat_bulge_phase", 0.0))
-	var eat_timer: float = float(ghost.get("eat_timer", 0.0))
-	var alpha: float = GHOST_MAX_ALPHA * clampf(spawn_time / EMERGE_DURATION, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	# Asymmetric bulge scale + digestion shake (ball squirming in the belly).
-	var sx: float = eat_scale * (1.0 + 0.06 * sin(bulge_phase))
-	var sy: float = eat_scale * (1.0 + 0.06 * sin(bulge_phase + 1.5))
-	var shake := Vector2(2.0 * sin(bulge_phase * 3.7), 1.5 * cos(bulge_phase * 2.9))
-	_draw_ground_shadow(canvas, pos, eat_scale, alpha, 0.0)
-	_draw_ghost_glyph(canvas, pos + shake, sx, sy, alpha, phase, true, eat_timer)
-
-
-func _draw_teleporting_ghost(canvas: CanvasItem, ghost: Dictionary, shake_offset: Vector2) -> void:
-	var phase_name := str(ghost.get("teleport_phase", ""))
-	var timer: float = float(ghost.get("teleport_timer", 0.0))
-	var phase: float = float(ghost.get("phase", 0.0))
-	var eat_scale: float = float(ghost.get("eat_scale", 1.0))
-	if phase_name == TELEPORT_PHASE_DISAPPEAR:
-		var t: float = clampf(timer / TELEPORT_DISAPPEAR_DUR, 0.0, 1.0)
-		var alpha: float = GHOST_MAX_ALPHA * (1.0 - t)
-		if alpha <= 0.04:
-			return
-		# Shrink the grown ghost while it swirls inward, then vanishes.
-		var shrink: float = eat_scale * (1.0 - t * 0.8)
-		var swirl := Vector2(8.0 * sin(timer * 25.0) * (1.0 - t), 8.0 * cos(timer * 25.0) * (1.0 - t))
-		var pre_pos: Vector2 = _get_dict_vector2(ghost, "pre_teleport_pos", _get_dict_vector2(ghost, "pos", Vector2.ZERO))
-		_draw_fallback_ghost(canvas, pre_pos + swirl + shake_offset, shrink, alpha, phase)
-	elif phase_name == TELEPORT_PHASE_APPEAR:
-		var t2: float = clampf(timer / TELEPORT_APPEAR_DUR, 0.0, 1.0)
-		# Elastic bounce-in: square-root ramp, then a slight overshoot past full size.
-		var ease_t: float
-		if t2 < 0.6:
-			ease_t = sqrt(t2 / 0.6)
-		else:
-			ease_t = 1.0 + 0.15 * sin((t2 - 0.6) / 0.4 * PI)
-		var alpha2: float = GHOST_MAX_ALPHA * minf(1.0, t2 * 1.5)
-		var appear_scale: float = 0.2 + 0.8 * ease_t
-		var pos: Vector2 = _get_dict_vector2(ghost, "pos", Vector2.ZERO) + shake_offset
-		_draw_fallback_ghost(canvas, pos, appear_scale, alpha2, phase)
-	else:
-		_draw_roaming_state(canvas, ghost, shake_offset)
-
-
-func _draw_dying_ghost(canvas: CanvasItem, dying: Dictionary, shake_offset: Vector2) -> void:
-	var progress: float = clampf(float(dying.get("death_timer", 0.0)) / DEATH_DURATION, 0.0, 1.0)
-	var alpha: float = GHOST_MAX_ALPHA * (1.0 - progress)
-	if alpha <= 0.04:
-		return
-	var pos: Vector2 = _get_dict_vector2(dying, "pos", Vector2.ZERO) + shake_offset
-	pos.y -= 40.0 * progress  # rise upward as it fades
-	var phase: float = float(dying.get("phase", 0.0))
-	# Upward scatter sparkle (intentionally shimmery over the brief 0.6s dissolve).
-	var count: int = int(8.0 * progress)
-	for _i in range(count):
-		var spark := Vector2(pos.x + randf_range(-30.0, 30.0), pos.y - 30.0 * progress + randf_range(-15.0, 15.0))
-		var spark_alpha: float = alpha * 0.5 * randf_range(0.3, 1.0)
-		if spark_alpha > 0.04:
-			canvas.draw_circle(spark, randf_range(2.0, 5.0), Color(0.35, 0.82, 0.71, spark_alpha))
-	_draw_fallback_ghost(canvas, pos, 1.0, alpha, phase)
-
-
-func _draw_launch_flash(canvas: CanvasItem, origin: Vector2) -> void:
-	var t: float = clampf(_launch_flash_timer / LAUNCH_FLASH_DURATION, 0.0, 1.0)
-	var radius: float = 36.0 + (1.0 - t) * 110.0
-	var disc := GHOST_FLASH_COLOR
-	disc.a = 0.34 * t
-	_fill_ellipse(canvas, origin, radius, radius, disc, 28)
-	canvas.draw_arc(origin, radius, 0.0, TAU, 36, Color(0.55, 1.0, 0.86, 0.7 * t), 2.5, true)
-
-
-func _draw_fallback_ghost(canvas: CanvasItem, center: Vector2, scale_value: float, alpha: float, phase: float) -> void:
-	if alpha <= 0.01 or scale_value <= 0.05:
-		return
-	_draw_ghost_glyph(canvas, center, scale_value, scale_value, alpha, phase, false, 0.0)
-
-
-func _draw_ghost_glyph(canvas: CanvasItem, center: Vector2, sx: float, sy: float, alpha: float, phase: float, eating: bool, eat_timer: float) -> void:
-	var body_color := GHOST_BODY_COLOR
-	body_color.a = alpha
-	var body_center := center + Vector2(0.0, -6.0 * sy)
-	# Rounded dome body.
-	_fill_ellipse(canvas, body_center, GHOST_BODY_RX * sx, GHOST_BODY_RY * sy, body_color, 28)
-	# Belly bulge (the swallowed ball shifting inside) while eating.
-	if eating:
-		var bulge_off := Vector2(8.0 * sin(eat_timer * 6.0), 5.0 * cos(eat_timer * 4.5))
-		var bulge_color := GHOST_BULGE_COLOR
-		bulge_color.a = minf(1.0, alpha * 1.1)
-		canvas.draw_circle(body_center + bulge_off, 8.0 * minf(sx, sy), bulge_color)
-	# Tattered bottom wave tendrils (classic ghost skirt).
-	var body_bottom: float = body_center.y + GHOST_BODY_RY * sy
-	var wave_offsets := [-16.5, -5.5, 5.5, 16.5]
-	var wave_amp: float = 4.0 if eating else 2.5
-	var wave_speed: float = (8.0 + eat_timer * 4.0) if eating else 1.5
-	for i in range(wave_offsets.size()):
-		var wx: float = float(wave_offsets[i]) * sx
-		var wave_ry: float = (8.0 + wave_amp * sin(phase * wave_speed + float(i) * 0.9)) * sy
-		_fill_ellipse(canvas, Vector2(center.x + wx, body_bottom + wave_ry * 0.5 - 2.0 * sy), 6.0 * sx, wave_ry, body_color, 12)
-	# Eyes.
-	var eye_y: float = body_center.y - 4.0 * sy
-	var left_eye := Vector2(center.x - 7.0 * sx, eye_y)
-	var right_eye := Vector2(center.x + 7.0 * sx, eye_y)
-	var eye_r: float = maxf(2.0, 3.2 * minf(sx, sy))
-	var eye_color := GHOST_EYE_COLOR
-	eye_color.a = alpha
-	if eating:
-		# Crescent happy eyes: cyan disc with a body-color disc covering the lower half.
-		canvas.draw_circle(left_eye, eye_r, eye_color)
-		canvas.draw_circle(right_eye, eye_r, eye_color)
-		canvas.draw_circle(left_eye + Vector2(0.0, 2.0 * sy), eye_r, body_color)
-		canvas.draw_circle(right_eye + Vector2(0.0, 2.0 * sy), eye_r, body_color)
-		var glow := GHOST_EYE_GLOW
-		glow.a = minf(1.0, alpha * 1.3)
-		canvas.draw_circle(left_eye + Vector2(0.0, -1.0), maxf(1.0, eye_r - 1.0), glow)
-		canvas.draw_circle(right_eye + Vector2(0.0, -1.0), maxf(1.0, eye_r - 1.0), glow)
-		# Open chewing mouth, oscillating with the swallow rhythm.
-		var chew: float = sin(eat_timer * 8.0)
-		var mouth_h: float = maxf(2.0, (4.0 + 3.0 * absf(chew)) * minf(sx, sy))
-		var mouth_w: float = maxf(3.0, (6.0 + 2.0 * chew) * minf(sx, sy))
-		var mouth_color := GHOST_MOUTH_COLOR
-		mouth_color.a = minf(1.0, alpha * 1.2)
-		_fill_ellipse(canvas, Vector2(center.x, body_center.y + 8.0 * sy), mouth_w * 0.5, mouth_h * 0.5, mouth_color, 14)
-	else:
-		canvas.draw_circle(left_eye, eye_r, eye_color)
-		canvas.draw_circle(right_eye, eye_r, eye_color)
-		var hilite := GHOST_EYE_HILITE
-		hilite.a = alpha
-		canvas.draw_circle(left_eye + Vector2(-1.0 * sx, -1.0 * sy), maxf(1.0, eye_r * 0.4), hilite)
-		canvas.draw_circle(right_eye + Vector2(-1.0 * sx, -1.0 * sy), maxf(1.0, eye_r * 0.4), hilite)
-
-
-func _draw_ground_shadow(canvas: CanvasItem, pos: Vector2, scale_value: float, alpha: float, hover_main: float) -> void:
-	var shadow_scale: float = clampf(1.0 - absf(hover_main) / 25.0, 0.35, 1.0)
-	var color := GHOST_SHADOW_COLOR
-	color.a = alpha * 0.35 * shadow_scale
-	_fill_ellipse(canvas, pos + Vector2(0.0, 24.0 * scale_value), GHOST_BODY_RX * scale_value * shadow_scale, 4.0 * scale_value, color, 16)
-
-
-func _fill_ellipse(canvas: CanvasItem, center: Vector2, rx: float, ry: float, color: Color, segments: int) -> void:
-	if rx <= 0.5 or ry <= 0.5 or color.a <= 0.0:
-		return
-	var points := PackedVector2Array()
-	var count: int = maxi(6, segments)
-	for i in range(count):
-		var angle: float = TAU * float(i) / float(count)
-		points.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
-	canvas.draw_colored_polygon(points, color)
-
-
-func _draw_particles(canvas: CanvasItem, particles: Array[Dictionary], shake_offset: Vector2, alpha_scale: float) -> void:
-	for particle_value in particles:
-		var particle := particle_value as Dictionary
-		var age: float = float(particle.get("age", 0.0))
-		var life: float = maxf(0.001, float(particle.get("life", 0.001)))
-		var ratio: float = clampf(1.0 - age / life, 0.0, 1.0)
-		var color_value: Color = particle.get("color", Color(0.55, 1.0, 0.9, 0.5))
-		color_value.a *= ratio * alpha_scale
-		var pos: Vector2 = _get_dict_vector2(particle, "pos", Vector2.ZERO) + shake_offset
-		canvas.draw_circle(pos, maxf(0.5, float(particle.get("size", 2.0))) * (0.6 + ratio * 0.8), color_value)
 
 
 func _spawn_launch_particles(origin: Vector2) -> void:

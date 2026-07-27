@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetHeadbuttRenderer := preload("res://scripts/lingpet/lingpet_headbutt_renderer.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const DASH_SPEED := 1080.0
@@ -18,9 +20,7 @@ const GUARANTEED_MISS_SPEED := 18.0
 const MOVING_MISS_CHANCE := 0.14
 const MOVING_MISS_MAX_CHANCE := 0.34
 const MISS_OFFSET_X := 130.0
-const MISS_TEXT := "MISS!"
 const MISS_TEXT_SECONDS := 0.85
-const MISS_TEXT_FLOAT_Y := 34.0
 const TRAIL_MAX_POINTS := 12
 const COMBO_MIN_COUNT := 1
 const COMBO_MAX_COUNT := 3
@@ -54,14 +54,9 @@ const GROUND_SLAM_DASH_SECONDS := 0.43
 const GROUND_SLAM_SHAKE_AMOUNT := 0.60
 const GROUND_SLAM_SHAKE_INTENSITY := 24.0
 const GROUND_SLAM_MAX_RADIUS := 120.0
-const GROUND_SLAM_DEBRIS_COUNT := 25
-const GROUND_SLAM_CRACK_COUNT := 6
-const GROUND_SLAM_SPARK_COUNT := 20
-const GROUND_SLAM_FLAME_TONGUES := 12
 # Flame aura is sized off the companion DRAW size (~82px WALK_DRAW_SIZE, half-extent ≈ 38),
-# NOT _dash_radius (the 31px collision radius), so the fire wraps the VISIBLE body instead
-# of hugging a small circle in Onimaru's middle. Mirrors the companion VFX sizing rule.
-const GROUND_SLAM_FLAME_BODY_RADIUS := 38.0
+# Presentation-only flame geometry is owned by LingpetHeadbuttRenderer.
+var _renderer: Object = LingpetHeadbuttRenderer.new()
 
 var _active := false
 var _planned_miss := false
@@ -331,27 +326,37 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
 	if _mega_charge_timer > 0.0:
-		_draw_mega_charge(canvas, _mega_charge_origin + shake_offset)
+		var mega_charge_ratio := clampf(1.0 - _mega_charge_timer / maxf(0.001, MEGA_CHARGE_SECONDS), 0.0, 1.0)
+		_renderer.draw_mega_charge(
+			canvas,
+			_mega_charge_origin + shake_offset,
+			mega_charge_ratio,
+			mega_charge_ratio * MEGA_CHARGE_SECONDS
+		)
 	if _active:
-		_draw_dash(canvas, shake_offset)
+		_renderer.draw_dash(canvas, shake_offset, _ground_slam, _trail, _pos, _dash_radius, _dash_dir, _dash_elapsed)
 	if _impact_timer > 0.0:
-		if _ground_slam:
-			# Cracks first so the dust rings + debris kick up OVER the split floor.
-			_draw_ground_cracks(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS)
-			_draw_ground_slam(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS)
-		_draw_impact(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS, true)
-		if _mega_impact:
-			_draw_mega_impact(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS)
-		if _ground_slam:
-			# Hot sparks truly LAST -- above the cyan hit flash + mega burst so the embers pop
-			# instead of being washed out by the generic impact overlay.
-			_draw_ground_slam_sparks(canvas, _impact_pos + shake_offset, _impact_timer / IMPACT_SECONDS)
+		_renderer.draw_hit_impact(
+			canvas,
+			_impact_pos + shake_offset,
+			_impact_pos,
+			_impact_timer / IMPACT_SECONDS,
+			_ground_slam,
+			_mega_impact,
+			_slam_radius,
+			_target,
+			_hit_count + _miss_count
+		)
 	if _miss_timer > 0.0:
-		_draw_impact(canvas, _impact_pos + shake_offset, _miss_timer / MISS_FLASH_SECONDS, false)
+		_renderer.draw_miss_impact(canvas, _impact_pos + shake_offset, _miss_timer / MISS_FLASH_SECONDS)
 	if _miss_text_timer > 0.0:
-		_draw_miss_text(canvas, shake_offset)
+		_renderer.draw_miss_text(
+			canvas,
+			_miss_text_pos + shake_offset,
+			1.0 - clampf(_miss_text_timer / MISS_TEXT_SECONDS, 0.0, 1.0)
+		)
 	if _self_stun_timer > 0.0:
-		_draw_self_stun(canvas, _self_stun_pos + shake_offset)
+		_renderer.draw_self_stun(canvas, _self_stun_pos + shake_offset, _self_stun_seconds - _self_stun_timer)
 
 
 func has_visible_effects() -> bool:
@@ -886,105 +891,6 @@ func _deterministic_unit(origin: Vector2, boss_pos: Vector2, moving_speed: float
 	return value - floor(value)
 
 
-func _draw_dash(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	if _ground_slam:
-		# Onimaru charges the boss wrapped in fire. Lunabi keeps its violet magic dash below.
-		_draw_dash_flames(canvas, shake_offset)
-		return
-	for i in range(_trail.size()):
-		var ratio := float(i + 1) / float(maxi(1, _trail.size()))
-		var trail_pos := _trail[i] + shake_offset
-		var alpha := 0.08 + 0.30 * ratio
-		canvas.draw_circle(trail_pos, lerpf(3.0, 10.0, ratio), Color(0.84, 0.34, 1.0, alpha))
-		if i > 0:
-			var prev_pos := _trail[i - 1] + shake_offset
-			canvas.draw_line(prev_pos, trail_pos, Color(0.55, 0.95, 1.0, 0.26 * ratio), maxf(1.0, 4.0 * ratio), true)
-	var pos := _pos + shake_offset
-	canvas.draw_circle(pos, _dash_radius + 9.0, Color(0.72, 0.25, 1.0, 0.12))
-	canvas.draw_arc(pos, _dash_radius + 5.0, 0.0, TAU, 30, Color(0.92, 0.62, 1.0, 0.42), 1.8, true)
-
-
-func _draw_dash_flames(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	# Fire wrapping Onimaru during the ground-slam charge: an ember trail streaming back
-	# along the flight path, a translucent heat aura, and flame tongues licking around the
-	# VISIBLE body perimeter (biased to the trailing side so the fire streams behind the
-	# flight). Animated from _dash_elapsed -- the dash clock that advances on the update
-	# tick and freezes if the tick is skipped (never wall-clock, per the walk-anim trap) --
-	# so the flames flicker while flying but do not march in place if a pause branch skips
-	# the update. draw_circle only, so it is immune to the animated-polygon triangulation
-	# trap, and every tongue stays translucent so Onimaru reads through the fire.
-	var clock := _dash_elapsed
-	# Fiery ember trail streaming back along the flight path.
-	for i in range(_trail.size()):
-		var ratio := float(i + 1) / float(maxi(1, _trail.size()))
-		var trail_pos := _trail[i] + shake_offset
-		var puff := lerpf(2.0, 9.0, ratio)
-		canvas.draw_circle(trail_pos, puff, Color(1.0, 0.40, 0.10, 0.05 + 0.20 * ratio))
-		canvas.draw_circle(trail_pos, puff * 0.5, Color(1.0, 0.80, 0.34, 0.08 + 0.26 * ratio))
-	var center := _pos + shake_offset
-	# Translucent heat aura wrapping the body (rings, not fills -> the sprite reads through).
-	canvas.draw_circle(center, GROUND_SLAM_FLAME_BODY_RADIUS + 15.0, Color(1.0, 0.34, 0.08, 0.10))
-	canvas.draw_circle(center, GROUND_SLAM_FLAME_BODY_RADIUS + 7.0, Color(1.0, 0.50, 0.16, 0.15))
-	# Flame tongues licking around the perimeter, pushed toward the trailing side.
-	var back := -_dash_dir
-	if back.length_squared() < 0.01:
-		back = Vector2(0.0, 1.0)
-	for i in range(GROUND_SLAM_FLAME_TONGUES):
-		var base_angle := TAU * float(i) / float(GROUND_SLAM_FLAME_TONGUES)
-		var out := Vector2(cos(base_angle), sin(base_angle))
-		var dir := (out + back * 0.55).normalized()
-		var flick := 0.55 + 0.45 * sin(clock * 45.0 + float(i) * 1.7)
-		var inner := GROUND_SLAM_FLAME_BODY_RADIUS * 0.55
-		var reach := GROUND_SLAM_FLAME_BODY_RADIUS + 4.0 + flick * 16.0
-		_draw_flame_tongue(canvas, center, dir, inner, reach, i, clock)
-
-
-func _draw_flame_tongue(canvas: CanvasItem, center: Vector2, dir: Vector2, inner: float, reach: float, seed_index: int, clock: float) -> void:
-	# Soft flame tongue: deep-orange wide base near the body -> wispy yellow-white tip.
-	# A few overlapping translucent circles along `dir`; alpha fades toward the tip so the
-	# flame dissipates instead of ending in a hard dot.
-	var perp := Vector2(-dir.y, dir.x)
-	var steps := 3
-	for s in range(steps + 1):
-		var frac := float(s) / float(steps)
-		var dist := lerpf(inner, reach, frac)
-		var wobble := sin(clock * 30.0 + float(seed_index) * 2.1 + frac * 3.4) * 2.4 * frac
-		var p := center + dir * dist + perp * wobble
-		var size := lerpf(4.8, 1.0, frac)
-		var col := Color(1.0, lerpf(0.34, 0.95, frac), lerpf(0.06, 0.55, frac), lerpf(0.72, 0.18, frac))
-		canvas.draw_circle(p, maxf(0.6, size), col)
-
-
-func _draw_impact(canvas: CanvasItem, pos: Vector2, ratio: float, hit: bool) -> void:
-	var clamped := clampf(ratio, 0.0, 1.0)
-	var expansion := 1.0 - clamped
-	var color := Color(0.58, 0.95, 1.0, 1.0) if hit else Color(0.75, 0.68, 0.90, 1.0)
-	var radius := lerpf(18.0, 58.0, expansion)
-	canvas.draw_circle(pos, radius, Color(color.r, color.g, color.b, 0.18 * clamped))
-	canvas.draw_arc(pos, radius * 0.82, 0.0, TAU, 32, Color(color.r, color.g, color.b, 0.62 * clamped), 2.4)
-	for i in range(8):
-		var angle := TAU * float(i) / 8.0 + expansion * 0.55
-		var start := pos + Vector2(cos(angle), sin(angle)) * radius * 0.26
-		var end := pos + Vector2(cos(angle), sin(angle)) * radius
-		canvas.draw_line(start, end, Color(1.0, 1.0, 1.0, 0.42 * clamped), 1.5, true)
-
-
-func _draw_miss_text(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	if _miss_text_timer <= 0.0:
-		return
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var progress := 1.0 - clampf(_miss_text_timer / MISS_TEXT_SECONDS, 0.0, 1.0)
-	var alpha := maxf(0.0, 1.0 - progress)
-	var draw_pos := _miss_text_pos + shake_offset + Vector2(0.0, -progress * MISS_TEXT_FLOAT_Y)
-	draw_pos.x = clampf(draw_pos.x, 60.0, FIELD_WIDTH - 60.0)
-	draw_pos.y = clampf(draw_pos.y, 60.0, FIELD_HEIGHT - 48.0)
-	var font_size := int(round(24.0 + sin(progress * PI) * 3.0))
-	canvas.draw_string(font, draw_pos + Vector2(-44.0, 2.0), MISS_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 88.0, font_size, Color(0.04, 0.02, 0.08, 0.78 * alpha))
-	canvas.draw_string(font, draw_pos + Vector2(-46.0, 0.0), MISS_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 88.0, font_size, Color(0.86, 0.36, 1.0, 0.95 * alpha))
-
-
 func _play_impact_sound(registry: Object) -> void:
 	if not _ground_slam:
 		_play_boomerang_hit(registry)
@@ -1073,229 +979,3 @@ func _get_launch_registry(launch_context: Dictionary) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
-
-func _draw_mega_charge(canvas: CanvasItem, center: Vector2) -> void:
-	var ratio := clampf(1.0 - _mega_charge_timer / maxf(0.001, MEGA_CHARGE_SECONDS), 0.0, 1.0)
-	var elapsed := ratio * MEGA_CHARGE_SECONDS
-	var intensity := ratio * ratio
-	var pulse := 0.5 + 0.5 * sin(elapsed * 26.0)
-	var swell := lerpf(60.0, 30.0, ratio)
-	# Gathering field: a soft violet aura that contracts and brightens as it charges.
-	canvas.draw_circle(center, swell + 12.0, Color(0.42, 0.16, 0.95, 0.05 + 0.12 * intensity))
-	canvas.draw_circle(center, swell, Color(0.60, 0.28, 1.0, 0.08 + 0.18 * intensity))
-	# Converging energy streams pulled inward from the gathering field.
-	for i in range(18):
-		var a := TAU * float(i) / 18.0 + ratio * 1.8
-		var dir := Vector2(cos(a), sin(a))
-		var far := lerpf(98.0, 30.0, ratio) + 7.0 * sin(elapsed * 9.0 + float(i))
-		var near := lerpf(42.0, 12.0, ratio)
-		var streak_alpha := (0.10 + 0.45 * intensity) * (0.6 + 0.4 * pulse)
-		canvas.draw_line(center + dir * far, center + dir * near, Color(0.80, 0.46, 1.0, streak_alpha), 1.2 + 1.8 * intensity, true)
-		canvas.draw_circle(center + dir * near, 1.4 + 2.6 * intensity, Color(1.0, 0.9, 0.72, 0.4 + 0.5 * intensity))
-	# Counter-rotating dashed energy rings.
-	_draw_charge_ring(canvas, center, lerpf(56.0, 26.0, ratio), ratio * 5.0, 10, Color(0.92, 0.62, 1.0, 0.28 + 0.45 * intensity), 2.0 + 1.6 * intensity)
-	_draw_charge_ring(canvas, center, lerpf(42.0, 18.0, ratio), -ratio * 7.0, 8, Color(0.70, 0.40, 1.0, 0.24 + 0.42 * intensity), 1.6 + 1.4 * intensity)
-	# Crackling electric bolts radiating from the core (more of them as it charges).
-	var bolt_count := 3 + int(round(3.0 * intensity))
-	for i in range(bolt_count):
-		_draw_charge_bolt(canvas, center, i, ratio, elapsed, intensity, pulse)
-	# Pulsing white-hot core.
-	var core := lerpf(5.0, 15.0, ratio) * (0.85 + 0.22 * pulse)
-	canvas.draw_circle(center, core + 7.0, Color(0.85, 0.55, 1.0, 0.18 + 0.34 * intensity))
-	canvas.draw_circle(center, core, Color(1.0, 0.93, 0.78, 0.55 + 0.4 * intensity))
-	canvas.draw_circle(center, core * 0.5, Color(1.0, 1.0, 0.96, 0.7 + 0.3 * pulse))
-	# Final-quarter shock ring telegraphs the imminent release.
-	if ratio > 0.75:
-		var burst := (ratio - 0.75) / 0.25
-		canvas.draw_arc(center, lerpf(14.0, 72.0, burst), 0.0, TAU, 40, Color(1.0, 0.95, 0.8, 0.7 * (1.0 - burst)), 3.0 * (1.0 - burst) + 1.0, true)
-	# Rising embers around the gather.
-	for i in range(6):
-		var t := fmod(elapsed * 0.7 + float(i) * 0.37, 1.0)
-		var ex := center.x + sin(float(i) * 2.1 + elapsed * 3.0) * lerpf(8.0, 22.0, t)
-		var ey := center.y + 18.0 - t * 46.0
-		canvas.draw_circle(Vector2(ex, ey), 1.4 + 2.0 * (1.0 - t), Color(0.95, 0.72, 1.0, (1.0 - t) * (0.3 + 0.4 * intensity)))
-
-
-func _draw_charge_ring(canvas: CanvasItem, center: Vector2, radius: float, rotation_offset: float, segments: int, color: Color, width: float) -> void:
-	var step := TAU / float(maxi(1, segments))
-	for i in range(segments):
-		var a0 := step * float(i) + rotation_offset
-		canvas.draw_arc(center, radius, a0, a0 + step * 0.55, 6, color, width, true)
-
-
-func _draw_charge_bolt(canvas: CanvasItem, center: Vector2, seed_index: int, ratio: float, elapsed: float, intensity: float, pulse: float) -> void:
-	var base_angle := TAU * float(seed_index) / 6.0 + ratio * 3.3 + _bolt_hash(seed_index, elapsed) * 1.4
-	var length := lerpf(22.0, 52.0, intensity)
-	var forward := Vector2(cos(base_angle), sin(base_angle))
-	var perp := Vector2(-forward.y, forward.x)
-	var points := PackedVector2Array()
-	points.append(center)
-	for s in range(1, 6):
-		var frac := float(s) / 5.0
-		var jitter := (_bolt_hash(seed_index * 17 + s, elapsed + float(s) * 0.13) - 0.5) * 18.0 * (1.0 - frac * 0.4)
-		points.append(center + forward * (length * frac) + perp * jitter)
-	canvas.draw_polyline(points, Color(0.96, 0.82, 1.0, (0.22 + 0.5 * intensity) * (0.5 + 0.5 * pulse)), 1.6, true)
-
-
-func _bolt_hash(index: int, time_seconds: float) -> float:
-	var v := sin(float(index) * 12.9898 + floor(time_seconds * 38.0) * 78.233) * 43758.5453
-	return v - floor(v)
-
-
-func _draw_ground_cracks(canvas: CanvasItem, pos: Vector2, ratio: float) -> void:
-	# The ground SPLITS on impact: jagged dark fissures snap outward from the slam point
-	# with a hot molten glow inside, then fade as the dust settles. Seeded on the STABLE
-	# _impact_pos / _target (never on the shaken `pos`) so the crack SHAPE does not
-	# re-randomize every frame under screen shake -- only the whole group translates with
-	# `pos`. Draws with draw_line / draw_circle only (no draw_colored_polygon), so it is
-	# immune to the animated-polygon triangulation trap.
-	var clamped := clampf(ratio, 0.0, 1.0)
-	var expansion := 1.0 - clamped
-	var grow := clampf(expansion / 0.28, 0.0, 1.0)
-	var reach := _slam_radius * 1.15 * grow
-	if reach <= 6.0:
-		return
-	var fade := clampf(clamped * 1.5, 0.0, 1.0)
-	# Faint scorched scar under the fissures to seat the split in the floor.
-	canvas.draw_circle(pos, reach * 0.42, Color(0.05, 0.02, 0.02, 0.16 * fade))
-	for i in range(GROUND_SLAM_CRACK_COUNT):
-		var angle_seed := _deterministic_unit(_impact_pos + Vector2(float(i) * 7.3, 5.0), _target, float(i + 3))
-		var base_angle := TAU * float(i) / float(GROUND_SLAM_CRACK_COUNT) + (angle_seed - 0.5) * 0.7
-		var len_seed := 0.68 + _deterministic_unit(_impact_pos + Vector2(2.0, float(i) * 9.1), _target, float(i + 11)) * 0.5
-		_draw_single_crack(canvas, pos, base_angle, reach * len_seed, i, fade, 0)
-
-
-func _draw_single_crack(canvas: CanvasItem, origin: Vector2, angle: float, length: float, seed_index: int, fade: float, depth: int) -> void:
-	if length <= 4.0:
-		return
-	var forward := Vector2(cos(angle), sin(angle))
-	var perp := Vector2(-forward.y, forward.x)
-	var seg_count := 5
-	var points := PackedVector2Array()
-	points.append(origin)
-	for s in range(1, seg_count + 1):
-		var frac := float(s) / float(seg_count)
-		var wander := _deterministic_unit(_impact_pos + Vector2(float(seed_index) * 5.0, float(s) * 12.0), _target, float(seed_index * 13 + s)) - 0.5
-		var jitter := wander * length * 0.16 * (1.0 - frac * 0.35)
-		points.append(origin + forward * (length * frac) + perp * jitter)
-	# Dark fissure body, tapering wide -> thin from the impact outward.
-	var body_base := 5.4 - float(depth) * 1.9
-	for s in range(points.size() - 1):
-		var frac := float(s) / float(points.size() - 1)
-		var w := lerpf(maxf(1.2, body_base), 0.9, frac)
-		canvas.draw_line(points[s], points[s + 1], Color(0.05, 0.02, 0.02, 0.9 * fade), w, true)
-	# Inner molten glow, hottest near the core.
-	var glow_base := 2.6 - float(depth) * 0.9
-	for s in range(points.size() - 1):
-		var frac := float(s) / float(points.size() - 1)
-		var w := lerpf(maxf(0.6, glow_base), 0.5, frac)
-		var g := 0.30 + 0.35 * (1.0 - frac)
-		canvas.draw_line(points[s], points[s + 1], Color(1.0, g, 0.12, 0.65 * fade * (1.0 - frac * 0.5)), w, true)
-	# A single branching fork off each main crack sells the "splitting" read.
-	if depth == 0 and points.size() >= 4:
-		var branch_seed := _deterministic_unit(_impact_pos + Vector2(float(seed_index) * 3.0, 21.0), _target, float(seed_index + 29))
-		var branch_dir := 1.0 if branch_seed > 0.5 else -1.0
-		var branch_angle := angle + branch_dir * lerpf(0.55, 1.0, branch_seed)
-		_draw_single_crack(canvas, points[2], branch_angle, length * 0.44, seed_index * 7 + 5, fade * 0.8, 1)
-
-
-func _draw_ground_slam(canvas: CanvasItem, pos: Vector2, ratio: float) -> void:
-	# Heavy ground-slam shockwave: expanding dust rings + a bright impact core + radial
-	# debris chunks that arc back down (gravity), echoing the arena HornCharge impact.
-	var clamped := clampf(ratio, 0.0, 1.0)
-	var expansion := 1.0 - clamped
-	for i in range(3):
-		var ring_delay := float(i) * 0.10
-		var rp := clampf((expansion - ring_delay) / maxf(0.001, 1.0 - ring_delay), 0.0, 1.0)
-		if rp <= 0.0:
-			continue
-		var radius := lerpf(10.0, _slam_radius, rp)
-		var ring_alpha := (1.0 - rp) * (0.78 - float(i) * 0.12)
-		var ring_width := 8.0
-		if i == 1:
-			ring_width = 5.0
-		elif i == 2:
-			ring_width = 3.0
-		canvas.draw_arc(pos, radius, 0.0, TAU, 40, Color(1.0, 0.32 + rp * 0.22, 0.12, ring_alpha), ring_width, true)
-	canvas.draw_circle(pos, lerpf(38.0, 10.0, expansion), Color(1.0, 0.55, 0.20, 0.55 * clamped))
-	for i in range(GROUND_SLAM_DEBRIS_COUNT):
-		# Seed from the STABLE _impact_pos, never the shaken `pos`: the hash re-rolls
-		# completely on any sub-pixel seed change, so seeding from the per-frame shake
-		# offset makes the debris boil/re-scatter instead of translating as one explosion.
-		var jitter := _deterministic_unit(_impact_pos + Vector2(float(i) * 13.0, 0.0), _target, float(i + 1)) * 0.5
-		var angle := TAU * float(i) / float(GROUND_SLAM_DEBRIS_COUNT) + jitter
-		var dir := Vector2(cos(angle), sin(angle))
-		var speed_seed := 0.65 + _deterministic_unit(_impact_pos, _target + Vector2(float(i), 17.0), float(i + 5)) * 0.55
-		var dist := lerpf(8.0, (_slam_radius - 2.0) * speed_seed, expansion)
-		var gravity := expansion * expansion * 48.0
-		var debris_pos := pos + dir * dist + Vector2(0.0, gravity)
-		var debris_size := lerpf(6.0, 1.2, expansion) * (0.7 + speed_seed * 0.45)
-		canvas.draw_circle(debris_pos, maxf(0.7, debris_size), Color(1.0, 0.47, 0.20, (1.0 - expansion) * 0.9))
-
-
-func _draw_ground_slam_sparks(canvas: CanvasItem, pos: Vector2, ratio: float) -> void:
-	# Fire sparks SPLASHING off the impact: bright white-hot heads with a fading ember
-	# trail, launched in an UPWARD-biased fan (they arc up out of the blast, unlike the
-	# heavier debris chunks that fall back down) and flickering like real embers. Seeded
-	# on the STABLE _impact_pos so the spread does not re-randomize per frame under screen
-	# shake. draw_line / draw_circle only -- no draw_colored_polygon.
-	var clamped := clampf(ratio, 0.0, 1.0)
-	var expansion := 1.0 - clamped
-	if expansion <= 0.0:
-		return
-	var life := clamped
-	for i in range(GROUND_SLAM_SPARK_COUNT):
-		var angle_seed := _deterministic_unit(_impact_pos + Vector2(float(i) * 4.7, 11.0), _target, float(i + 5))
-		var speed_seed := _deterministic_unit(_impact_pos + Vector2(3.0, float(i) * 6.3), _target, float(i + 17))
-		# Fan biased upward: spread ~260 degrees centered on straight up (-PI/2).
-		var angle := -PI * 0.5 + (angle_seed - 0.5) * (TAU * 0.72)
-		var dir := Vector2(cos(angle), sin(angle))
-		var reach := lerpf(6.0, (_slam_radius + 40.0) * lerpf(0.55, 1.0, speed_seed), expansion)
-		# Gravity bends each spark's arc back down as it flies out.
-		var gravity := expansion * expansion * lerpf(26.0, 72.0, speed_seed)
-		var head := pos + dir * reach + Vector2(0.0, gravity)
-		var tail := pos + dir * (reach * 0.72) + Vector2(0.0, gravity * 0.58)
-		var flick := 0.58 + 0.42 * sin(expansion * 40.0 + float(i) * 2.3)
-		var alpha := life * flick
-		# Ember trail streak.
-		canvas.draw_line(tail, head, Color(1.0, 0.60, 0.20, 0.55 * alpha), lerpf(2.4, 0.8, expansion), true)
-		# White-hot head with a hotter inner core.
-		var head_size := lerpf(2.9, 0.7, expansion) * (0.7 + speed_seed * 0.6)
-		canvas.draw_circle(head, maxf(0.6, head_size), Color(1.0, 0.90, 0.55, 0.9 * alpha))
-		canvas.draw_circle(head, maxf(0.3, head_size * 0.5), Color(1.0, 1.0, 0.92, alpha))
-
-
-func _draw_self_stun(canvas: CanvasItem, center: Vector2) -> void:
-	# Stun stars orbiting above the recoiling companion's head while it is incapacitated.
-	var spin := (_self_stun_seconds - _self_stun_timer) * 6.0
-	var head := center + Vector2(0.0, -34.0)
-	var star_count := 3
-	for i in range(star_count):
-		var angle := spin + TAU * float(i) / float(star_count)
-		var star_pos := head + Vector2(cos(angle) * 18.0, sin(angle) * 6.0)
-		_draw_stun_star(canvas, star_pos, 5.0 + 1.4 * sin(spin * 2.0 + float(i)))
-
-
-func _draw_stun_star(canvas: CanvasItem, center: Vector2, radius: float) -> void:
-	var points := PackedVector2Array()
-	for i in range(5):
-		var outer := center + Vector2(cos(TAU * float(i) / 5.0 - PI * 0.5), sin(TAU * float(i) / 5.0 - PI * 0.5)) * radius
-		var inner_angle := TAU * (float(i) + 0.5) / 5.0 - PI * 0.5
-		var inner := center + Vector2(cos(inner_angle), sin(inner_angle)) * (radius * 0.45)
-		points.append(outer)
-		points.append(inner)
-	canvas.draw_colored_polygon(points, Color(1.0, 0.92, 0.4, 0.92))
-
-
-func _draw_mega_impact(canvas: CanvasItem, pos: Vector2, ratio: float) -> void:
-	var clamped := clampf(ratio, 0.0, 1.0)
-	var expansion := 1.0 - clamped
-	var radius := lerpf(30.0, 104.0, expansion)
-	canvas.draw_circle(pos, radius, Color(1.0, 0.52, 0.16, 0.22 * clamped))
-	canvas.draw_circle(pos, radius * 0.6, Color(1.0, 0.86, 0.42, 0.30 * clamped))
-	canvas.draw_arc(pos, radius * 0.9, 0.0, TAU, 40, Color(1.0, 0.78, 0.36, 0.72 * clamped), 3.4, true)
-	for i in range(14):
-		var angle := TAU * float(i) / 14.0 + expansion * 0.7
-		var start := pos + Vector2(cos(angle), sin(angle)) * radius * 0.22
-		var end := pos + Vector2(cos(angle), sin(angle)) * radius * (1.0 + 0.18 * sin(float(i) * 1.7))
-		canvas.draw_line(start, end, Color(1.0, 0.95, 0.7, 0.5 * clamped), 2.2, true)

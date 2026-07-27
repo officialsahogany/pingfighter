@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const LingpetWildRoarRenderer := preload("res://scripts/lingpet/lingpet_wild_roar_renderer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -9,7 +10,6 @@ const PHASE_ROAR := 1
 
 const ROAR_SECONDS := 0.60
 const VFX_SECONDS := 1.80
-const SHOCKWAVE_GROW_SECONDS := 0.09
 const COMPANION_CAST_PROGRESS_MAX := 0.92
 const ROAR_RADIUS_BY_LEVEL := [180.0, 198.0, 216.0, 234.0, 252.0]
 const BALL_BOOST_BY_LEVEL := [2.60, 2.85, 3.10, 3.35, 3.60]
@@ -25,9 +25,6 @@ const DEFAULT_BALL_SIZE := 28.6
 const REFLECT_JITTER_RADIANS := 0.5235987756
 const SCREEN_FLASH_STATE_ALPHA := 200.0 / 255.0
 const SCREEN_FLASH_DRAW_ALPHA_CAP := 120.0 / 255.0
-const RING_COUNT := 6
-const RING_DELAY_SECONDS := 0.055
-const RING_LIFE_SECONDS := 0.42
 const SPARK_COUNT := 16
 const IMPACT_PARTICLE_COUNT := 40
 const PARTICLE_MAX := 80
@@ -58,6 +55,7 @@ var _registry: Object = null
 var _particles: Array[Dictionary] = []
 var _trigger_distances_for_tests: Array[float] = []
 var _jitter_degrees_for_tests: Array[float] = []
+var _renderer: Object = LingpetWildRoarRenderer.new()
 
 
 func reset() -> void:
@@ -93,7 +91,7 @@ func cancel(owner: Object = null, registry: Object = null) -> void:
 
 
 func prewarm() -> void:
-	pass
+	_renderer.prewarm()
 
 
 func can_arm(params: Dictionary) -> bool:
@@ -175,12 +173,22 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		return
 	if _vfx_timer <= 0.0 and _particles.is_empty():
 		return
-	var elapsed := VFX_SECONDS - _vfx_timer
-	_draw_screen_flash(canvas)
-	_draw_roar_zone(canvas, _origin + shake_offset, elapsed)
-	_draw_particles(canvas, shake_offset)
-	if _last_reflected:
-		_draw_ball_glow(canvas, _last_ball_pos + shake_offset, elapsed)
+	_renderer.draw_wild_roar(
+		canvas,
+		shake_offset,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		_vfx_timer,
+		VFX_SECONDS,
+		_origin,
+		_roar_radius,
+		SCREEN_FLASH_STATE_ALPHA,
+		SCREEN_FLASH_DRAW_ALPHA_CAP,
+		_particles,
+		_last_reflected,
+		_last_ball_pos,
+		_last_reflect_dir,
+		PARTICLE_LIFE_SECONDS
+	)
 
 
 func has_visible_effects() -> bool:
@@ -384,57 +392,6 @@ func _update_particles(delta: float) -> void:
 		write_index += 1
 	if write_index < _particles.size():
 		_particles.resize(write_index)
-
-
-func _draw_screen_flash(canvas: CanvasItem) -> void:
-	var flash_fade := clampf(_vfx_timer / VFX_SECONDS, 0.0, 1.0)
-	var state_alpha := SCREEN_FLASH_STATE_ALPHA * flash_fade
-	var draw_alpha := minf(state_alpha, SCREEN_FLASH_DRAW_ALPHA_CAP)
-	if draw_alpha <= 0.0:
-		return
-	canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(1.0, 0.88, 0.28, draw_alpha * 0.34), true)
-
-
-func _draw_roar_zone(canvas: CanvasItem, center: Vector2, elapsed: float) -> void:
-	var grow := clampf(elapsed / SHOCKWAVE_GROW_SECONDS, 0.0, 1.0)
-	var eased_grow := 1.0 - pow(1.0 - grow, 3.0)
-	var base_alpha := clampf(_vfx_timer / VFX_SECONDS, 0.0, 1.0)
-	canvas.draw_circle(center, _roar_radius * eased_grow, Color(1.0, 0.70, 0.08, 0.055 * base_alpha))
-	for index in range(RING_COUNT):
-		var ring_elapsed := elapsed - float(index) * RING_DELAY_SECONDS
-		if ring_elapsed < 0.0 or ring_elapsed > RING_LIFE_SECONDS:
-			continue
-		var t := clampf(ring_elapsed / RING_LIFE_SECONDS, 0.0, 1.0)
-		var radius := lerpf(_roar_radius * 0.16, _roar_radius, 1.0 - pow(1.0 - t, 2.0))
-		var alpha := (1.0 - t) * (0.66 if index == 0 else 0.42)
-		var color := Color(1.0, 0.82, 0.16, alpha)
-		canvas.draw_arc(center, radius, 0.0, TAU, 72, color, lerpf(4.5, 1.4, t), true)
-		if index % 2 == 0:
-			canvas.draw_arc(center, radius * 0.78, 0.0, TAU, 56, Color(0.35, 0.95, 1.0, alpha * 0.28), 1.4, true)
-	for spoke in range(10):
-		var angle := TAU * float(spoke) / 10.0 + elapsed * 2.2
-		var start := center + Vector2(cos(angle), sin(angle)) * _roar_radius * 0.18 * eased_grow
-		var end := center + Vector2(cos(angle), sin(angle)) * _roar_radius * (0.54 + 0.20 * sin(elapsed * 8.0 + float(spoke)))
-		canvas.draw_line(start, end, Color(1.0, 0.90, 0.34, 0.18 * base_alpha), 2.0, true)
-
-
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in _particles:
-		var max_life := maxf(0.001, float(particle.get("max_life", PARTICLE_LIFE_SECONDS)))
-		var alpha := clampf(float(particle.get("life", 0.0)) / max_life, 0.0, 1.0)
-		var color: Color = particle.get("color", Color(1.0, 0.82, 0.2, 1.0))
-		color.a *= alpha
-		canvas.draw_circle(_as_vector2(particle.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset, float(particle.get("size", 3.0)) * (0.55 + alpha * 0.45), color)
-
-
-func _draw_ball_glow(canvas: CanvasItem, center: Vector2, elapsed: float) -> void:
-	var alpha := clampf(1.0 - elapsed / 0.75, 0.0, 1.0)
-	if alpha <= 0.0:
-		return
-	canvas.draw_circle(center, 33.0, Color(1.0, 0.84, 0.18, 0.22 * alpha))
-	canvas.draw_arc(center, 41.0, 0.0, TAU, 48, Color(1.0, 0.95, 0.40, 0.48 * alpha), 2.2, true)
-	var streak_end := center + _last_reflect_dir * 54.0
-	canvas.draw_line(center, streak_end, Color(1.0, 0.94, 0.35, 0.62 * alpha), 4.0, true)
 
 
 func _play_roar_feedback() -> void:
