@@ -270,9 +270,14 @@ hitch. Prewarm at discrete moments (boot, loadout-apply, loading frames);
 reset / "is it active?" consumers use `registry.get_cached_instance` (the
 non-instantiating peek). In staged loading sequences the dep-instantiation
 step must run BEFORE dep-consuming steps (match reset), key list
-single-sourced from the consumer. Known repeat list (F3 icons, 370ms
-match-reset deps cold-instantiation, stage-transition step-order variant,
-lingpet skill host, ...): `docs/godot_runtime_traps.md`.
+single-sourced from the consumer. **New stage = register it in the prewarm
+controller `match` AND make its actor renderer delegate to children** — an
+unlisted stage silently `return 0`s and a non-delegating `prewarm_assets_step()`
+reads as "already warm" (S6 entry: 95ms actors + 157ms pillar in ONE live frame
+while S7 did the same work in 27ms of loading; ⚠️stage 8 still unregistered).
+Known repeat list (F3 icons, 370ms match-reset deps cold-instantiation,
+stage-transition step-order variant, lingpet skill host, per-stage prewarm
+registration, ...): `docs/godot_runtime_traps.md`.
 
 ## Godot Missing Reserved-Asset Per-Frame Re-Stat Trap
 
@@ -327,6 +332,18 @@ projectiles from the acting limb at the hand-empty frame; letterbox-actor
 projectiles need the letterbox band included in their draw cull. Full
 rules: `docs/godot_runtime_traps.md`.
 
+## Godot 보스 예측 모델 트랩 ("불규칙하게 흔들면 막기 어렵다"는 거짓)
+
+보스는 공의 **현재 속도**를 벽반사 포함 보스라인까지 정확히 적분하고 **매 프레임
+재계산**한다 → 부드러운 커브는 지연만, 대칭 지그재그는 평균 상쇄로 **더 쉬워지고**,
+넓은 횡궤도는 벽 감쇠로 역효과(수직 40° 초과 금지). 유일한 맹점 = **미래 가속도**
+→ 회복 불가는 **비행 마지막 ~8~16프레임의 단발 역방향 꺾임** 하나뿐(예측 브레이크가
+보스를 속도~0으로 주차 + 역전 제동이 `decel×0.82`). 꺾임 타이밍은 경과 타이머가
+아니라 `remaining_y/(|vel.y|·boost)`(=60fps프레임, `fps_scale` 곱 금지). 판정은
+인상이 아니라 수치로: 미스 임계 69.3px, 정지→T커버 `9.476T−37.5`, 실효 리드
+`frames−1`. 씰은 `step_motion` 관통 + **변위 px 결과** 단언. Full rule:
+`docs/godot_runtime_traps.md`.
+
 ## Godot Per-Frame Probability Roll Trap
 
 A `chance_pct` rolled EVERY frame inside a multi-frame window compounds to
@@ -357,13 +374,27 @@ target Y by locomotion style: ground (`patrol`) pets keep their lane Y
 paddle height, so regression smokes MUST use a non-base paddle height.
 Full rules: `docs/godot_runtime_traps.md`.
 
+## Godot Emergency-Assist Static-Paddle Gate Trap (committed dash = "can't block")
+
+"플레이어가 막을 수 있나?"를 패들의 **현재 정지 스팬**으로만 판정하는 비상지원
+게이트는 대쉬 비행 중 프레임마다 "못 막음"으로 오판해 이중수비를 만든다(링크포트
+사례). 대쉬는 방향·지속 확정된 스크립트 이동이니 접촉 시점 위치를 투영하라 —
+잔여 이동은 shipped 감속 커브(`compute_total_dash_distance` 차분)를
+`frames_to_contact`로 캡. ⚠️"대쉬 중이면 무조건 보류"는 금지(반대방향·짧은 타이머는
+실제로 못 막음), 보류가 per-opportunity 굴림 락을 소모해선 안 되고, 스냅샷 읽기는
+핫패스라 peek 전용. 씰=4레그+대조군 필수. Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot Lingpet Companion Incapacitation Body-Hit Trap (parked ≠ disabled)
 
 A companion parked by a position override stays fully hittable. Any
 incapacitation window (self-stun, freeze, knockdown) must route through
 `suppresses_companion_body_hit(skill_id)` -- one switch gates BOTH body hit
 and anticipatory strike -- and suppress ONLY the incapacitated window, never
-the active / charge phase. Full rules: `docs/godot_runtime_traps.md`.
+the active / charge phase. **역방향: 포만도 탈진(satiety KO)은 위치-스크립팅
+PASSIVE(별빛추적·링크포트)를 안 덮으므로, 탈진을 `companion_active`
+(`_state == STATE_COMPANION and not is_companion_exhausted()`)에 fold하라 —
+콜사이트 전부, 판정이 advance 아래면 호이스트. 씰=탈진 강제 후 억제 단언.**
+Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot 링펫 스킬 idle-게이트 "보이는 것 ≠ 살아있는 것" 트랩
 
@@ -595,6 +626,17 @@ GREEN이고 실전에서 죽는다 — 공용 헬퍼 관통 + 실 `get_snapshot(
 projection 비어있으면 fail-closed 가드 + 씰 CI 락스텝 등재까지가 한 단위.
 Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot 프리웜 경량-값-위해 무거운-모듈 콜드생성 트랩
+
+프리웜/워밍이 값 하나 때문에 그 값을 소유한 무거운 모듈을 강제 인스턴스화하면
+전환 프레임에 그 모듈 콜드 로드가 통째로 얹힌다(stage_clear_result_screen
+골드 위해 1237ms/fps=2 사례). 그 값이 경량 리더로도 동일하게 얻어지고 무거운
+모듈이 거기에 위임만 하는 중간자면 특히 낭비 — 경량 소스 직접 읽기로 워밍하고,
+무거운 모듈은 자연 필요 시점에 생성, draw/consume은 non-instantiating peek 유지.
+스텝형 프리웜 단일 프레임 1초+ 스톨=한 모듈 콜드생성 → 로더 헬퍼에 임계-게이트
+경고(모듈키+ms) 심어 라이브 1판으로 범인 특정(존치=회귀 트립와이어).
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot HUD 상시-가시성 승격 × 프리미엄 절차 드로우 트랩
 
 비용 = 단가 × 유병률: 프리미엄 절차 리드로우(단가↑)와 가시성 게이트 확장
@@ -604,6 +646,18 @@ Full rule: `docs/godot_runtime_traps.md`.
 상수를 올리면 봉인 budget smoke를 같이 돌려 락스텝 갱신(센서 아크 예산
 씰 HEAD RED 사례). 정상 상태 픽셀 불변 HUD 박스는 리테인드 자식
 CanvasItem + 상태 키 게이팅. Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot Fullscreen Screen-Read Overlay Context-Fallback Sizing Trap
+
+풀스크린 스크린-리드 오버레이(BackBufferCopy VIEWPORT + hint_screen_texture, 몽환
+포영 물결·color-restore)의 rect 크기를 draw 컨텍스트에서 뽑으면, 라이브 플레이필드
+컨텍스트엔 view_size가 없어 game_size(스케일 플레이필드<윈도우)로 저하 → ColorRect가
+position ZERO+game_size로 **화면 반쪽만** 덮는다(상태 스모크는 view_size 수동주입해
+가림). 크기 정본=엔진 뷰포트: `canvas.get_viewport_rect().size`를 PRIMARY로
+(context 키는 폴백). ⚠️`get_viewport_rect()`는 트리 밖 ERROR → `is_inside_tree()`
+가드 필수·컨텍스트 빌더 스레딩은 트레일링 `canvas=null`. 씰=view_size 없는 라이브형
+컨텍스트+작은 game_size로 view_size_px==뷰포트·!=game_size(async+프레임대기). Full
+rule: `docs/godot_runtime_traps.md`.
 
 ## Godot 스크린-공간 FX 호스트 플레이필드 클립 트랩 (구조 GREEN ≠ 픽셀 클립)
 
@@ -617,6 +671,54 @@ clip_local_origin`으로 보정(좌표 계약 불변). **구조 씰(clip_content
 만으론 공허-GREEN** — 실제 픽셀 클립은 비헤드리스 픽셀 씰(레터박스 lit
 clip_ON=0/OFF>0)로만 증명. 프로브는 clear_color 검정+밝은픽셀만+타 호스트
 free. Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot Fragment-Clip 캔버스-단위 vs 프레임버퍼-픽셀 트랩
+
+`SCREEN_UV / SCREEN_PIXEL_SIZE` = **프레임버퍼 px**, `get_viewport_rect()`에서
+나온 `game_offset` / `render_scale` = **캔버스(논리) 단위**. `stretch/mode=
+"canvas_items"`라 창이 기준 해상도(2020x1246)와 다르면 배율만큼 어긋나
+플레이필드 하단/우측이 통째로 discard된다(차징 오브가 그 밴드 = 무가시, 투사체는
+"잘려보임"; 실측 가시면적 22%). 업로드 전 `get_final_transform() *
+get_canvas_transform()`으로 변환하라. 클립 씰은 **양방향**(안쪽 lit>0 + 밖 0px)
++ 배율!=1에서. ⚠️스모크 `_init()`의 `get_root().size=`는 조용히 무시된다.
+하드 discard는 하드-에지 아트를 면도날로 자르니 안쪽 feather 밴드로 램프.
+Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot VFX 리브랜드 발광 예산 트랩 (ADD × 어두운 아트 = 빛 0)
+
+레이어/블렌드/알파를 그대로 둬도 아트가 밝은 것→어두운 먹선으로 바뀌면 결과가
+뒤집힌다: ADD는 어두운 텍스처에서 더할 빛이 없고(writhe 셰이더도 brightness
+게이트로 같이 죽음), MIX 저알파는 어두운 배경을 "더 어둡게"만 하며, 속 빈 원환은
+중심 발광이 0%다. **발광 정체성을 가운데가 찬 밝은 레이어로 재공급**하고 어두운
+아트는 실루엣/질감만 맡겨라. 차징류는 `intensity` 시각 하한 필수(반경은 raw 유지).
+`centered=true`+캔버스 맞춤은 새 텍스처의 fill 비율/무게중심 실측 후 재사용.
+판정은 **강한 임계** 픽셀 카운트로(약한 임계는 버그·정상이 같은 값). Full rule:
+`docs/godot_runtime_traps.md`.
+
+## Godot Duck-Typed `has_method`-Gated Dynamic-Call Arity Trap
+
+`Object`로 보관된 덕타이핑 런타임을 `has_method` 게이트로 부르는 동적 호출
+(`rt.notify_*(...)`)은 대상이 named class가 아니라 **인자수를 파서가 검증 못
+한다** — 잉여/부족 인자가 파스를 통과하고 그 분기가 실제 발동하는 프레임에만
+`Invalid call ... Expected N argument(s)`로 크래시. 형제 처리기에서 호출문을
+복붙할 때 대상마다 `built`/`registry` 유무가 갈리니 인자 목록을 그대로 옮기지
+말 것(역경의갑주 배리어 4인자 사례). 봉인은 런타임 함수 직접호출 레그로는
+부족 — 실제 caller 경로를 관통하는 씰 필요. 표준 러너가 `Invalid call`을 실패
+승격(공허-GREEN 방지). Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot Ball-Path Owner-Snapshot Stat-Refund Trap
+
+볼-패스 충돌 핸들러(`scene` 파라미터 있는 함수) 안에서 `owner.special_gauge`
+등 owner 스탯을 차감하는 런타임 효과는 프레임 끝에 **환불**된다 —
+`ball_update_controller`가 `scene`(프레임-시작 owner 값으로 시드, `frame_context`와
+별개 dict)을 만들고 `apply_snapshot`이 scene의 모든 키를 owner에 무조건 되쓰는데,
+게이트는 `owner`+`frame_context`에만 미러하고 `scene`엔 안 닿기 때문. 차감을
+**스냅샷되는 `scene` dict에 반영**하라(포스트-게이트 `context`를 FIRST로 읽거나
+proc 직후 `scene["special_gauge"]=context.get(...)`). 이펙트-패스/void-업데이트
+사이트(`scene` 없이 공유 `context`만; weather 우박·stage2 물파편·balloon 패들)는
+미러가 프레임엔드 sync 소스라 자기 교정되니 건드리지 마라. 유닛 스모크(dict 직접
+전달 후 직후 단언)는 공허-GREEN — 실제 `scene→apply_snapshot` 왕복 씰 필수
+(부동갑주 넉백 커버 달/부채 환불 사례). Full rule: `docs/godot_runtime_traps.md`.
 
 ## Direct Draw Request Routing
 

@@ -157,6 +157,48 @@ reappearance for the next new stage). Sealed by
 `battle_scene_stage_transition_loading_smoke` (reset step reached ⇒ all
 stage dep keys already `get_cached_instance`-non-null, stages 3→4 / 5 / 6).
 
+Per-stage REGISTRATION variant (2026-07-27, Stage 6 테트리서): the staged
+prewarm sequence is opt-in per stage via a `match current_stage` in
+`battle_boot_resource_prewarm_controller._get_stage_specific_runtime_prewarm_step_count`,
+and an unlisted stage falls through to `return 0` **silently** — no error, no
+warning, no label. Stage 6 was never listed (1,2,3,4,5,7 only), so its whole
+visual shell loaded cold inside the first live battle draw frame. Live proof
+(same session, S1→S7): S6 spike window #1 carried `actors.lookup_renderer`
+43.50ms (module cold-instantiation) + `actors.renderer_draw` 51.70ms (seven
+768² boss sheets sync-decoded) = `01.actors.total` 95.37ms, plus
+`stage6.pillar.tetriser_boss_hud` 156.61ms (four skillcard PNGs) surfacing as
+`draw.pillar_overlay.post_hud` 157.19ms — while **Stage 7 did the same class of
+work for 27.17ms inside the loading screen** (`stage_runtime_prewarm.step.13`).
+Steady state was innocent (S6 `draw.scene.playfield` avg 2.39ms, CHEAPER than
+S4 2.67 / S7 2.78; 1 of 103 windows under 60fps), so aggregate/avg triage hides
+this entirely — it is a one-frame entry hitch, findable only in spike windows.
+
+Second footgun in the same defect: a parent actor renderer whose
+`prewarm_assets_step()` returns `true` without delegating to its children is a
+**silent no-op that reads as "already warm"** — registering the stage in the
+controller alone would not have fixed it. Both halves must land together:
+controller registration AND child delegation
+(`playfield` / `boss` / `commando`, Stage 5 pattern).
+
+Standing rule for every NEW stage: add the stage to the controller `match`
+(step count + label + run dispatch) and verify the actor renderer delegates.
+⚠️ As of this writing **stage 8 is still unregistered** in both
+`battle_boot_resource_prewarm_controller` and
+`battle_scene_update_prewarm_key_sets` (its actor renderer DOES delegate
+correctly, so only the registration half is missing).
+
+Seal shape — three axes together, because any one alone stays GREEN on the bug
+(`stage6_visual_shell_prewarm_smoke`): ① controller wiring (stage step count +
+per-step labels), ② registry instantiation before first draw (catches the
+`lookup_renderer` cold-create half), ③ **uncached synchronous decode count** —
+count assets still absent from `ProjectResourceLoader`'s cache after prewarm,
+NOT total loader API calls. Pre-existing `battle_boot_resource_prewarm_smoke`
+(no S6 wiring) and `stage6_boss_skill_hud_prewarm_smoke` (HUD module in
+isolation, never through the controller) were both GREEN throughout the defect
+— a per-module prewarm smoke does not seal that the CONTROLLER ever calls it.
+Falsification via in-place toggle: `6:` → `return 0` reddens axes ①②③(cards),
+actor step → `return true` reddens the boss-sheet axis. Fix commit `df57dfaeb`.
+
 Second-order variant: per-module staged instantiation is NOT enough when a
 single module's first `get_instance` is itself huge — `stage2_pillar_background`
 carries a 50+ `preload` const cascade, so its first load compiles the whole
@@ -479,6 +521,64 @@ Standing rules:
   `0..WIDTH` plus a small margin -- otherwise the projectile pops into view
   mid-flight at the field edge even though its motion math is correct.
 
+## Godot 보스 예측 모델 트랩 ("불규칙하게 흔들면 막기 어렵다"는 거짓)
+
+**증상 / 설계 오판.** "가드하기 어려운 공"을 만들려고 지그재그·랜덤 스캐터·
+넓은 횡이동을 넣었는데 체감상 오히려 더 잘 막힌다. 벽력유성(smasher_overdrive)
+초기 구현이 정확히 이 경우였다: 12프레임마다 ±28° 대칭 톱니.
+
+**기전.** `boss_ai_prediction_state._predict_x_until_boss_line`은 공의 **그 순간
+속도**를 벽반사까지 포함해 보스 라인(`_get_boss_intercept_y` ≈ 84.3)까지 **정확히
+적분**하고, 이걸 **매 프레임 다시 돈다**. 즉 보스는 "현재 속도 기준 도착점"을
+항상 정확히 안다. 따라서:
+
+- **부드러운 커브**(드라이브 스핀)는 매 프레임 재추적되어 *지연*만 줄 뿐이다.
+- **대칭 주기 지그재그**는 평균이 상쇄돼 보스가 중앙에 수렴한다 → 더 쉬워진다.
+- **넓은 횡이동**은 벽으로 흘러 0.95 감쇠를 먹고 각도 레일에 걸린다.
+  `smasher_power_smash_motion_resolver`의 주석이 이미 명시한다 — 수직 기준 40°를
+  넘는 횡궤도는 "벽으로 흘러 속도를 잃고 **막기 쉬워진다**".
+
+**보스의 유일한 맹점 = 미래 가속도.** 예측 모델에 스핀항·중력항·속도장이 전혀
+없다. 그래서 회복 불가능한 것은 단 하나, **비행 마지막 ~8~16프레임에 들어오는
+단발 역방향 꺾임**이다. `boss_ai_turn_inertia_resolver`가 이유다: `_approach_target`
+의 예측 브레이크가 보스를 예측 지점에 **속도 ~0으로 주차**시키고, 방향을 되돌리려
+하면 `_brake_through_reversal`이 `decel × 0.82`(≈0.982 px/f²)로만 제동한다.
+
+**설계 기준값(스테이지1 챔피언).** 이 숫자로 판정하라, 인상으로 하지 말고:
+
+| 항목 | 값 |
+|---|---|
+| 클린 미스 임계 | `\|도착x − 보스중심\| ≥ 69.3px` (패들 100 + 패딩 5×2 vs 공 반지름 14.3) |
+| 정지→T프레임 커버 | `9.476·T − 37.5` (T>15.8), 그 아래는 `0.5·1.197·T²` |
+| 전속 역주행 손실 | 9.65프레임 동안 45.8px 반대로 더 감 |
+| 실효 리드 | `frames_to_intercept − 1` (보스 AI가 공보다 **먼저** 돔) |
+| 각도 상한 | 수직 기준 40° (초과 시 벽으로 흘러 역효과) |
+| 각도 하한 | `ensure_min_vertical_component` = 수평 기준 25° |
+
+**표준 규칙.**
+
+1. 꺾임 타이밍은 경과 타이머가 아니라 **보스 라인까지 남은 비행 프레임**으로
+   판정하라 — `remaining_y / (|vel.y| · boost)`. `ball_vel`은 60fps-프레임당 px라
+   이 값이 곧 60fps-프레임 단위이며 `fps_scale`을 곱하면 **안 된다**.
+2. 꺾임은 **단발**이어야 한다. 반복 꺾임은 평균이 상쇄돼 위 맹점을 못 쓴다.
+3. 꺾임 **전** 구간은 한쪽으로 확신 있게 흘려 보스를 커밋시켜라(기만). 기만이
+   없으면 보스가 중앙 부근에 있어 역꺾임 변위가 임계를 못 넘는다.
+4. 벽반사 후에는 기만 사이클을 **재무장**하라 — 보스가 새 heading으로 다시
+   예측하므로, 이미 소진된 꺾임으로 들어가면 그냥 잡힌다.
+5. **속도장(velocity field)** 클래스를 쓰라. `skip_ball_motion_step`(위치 스크립팅)은
+   벽/패들/홀리배리어/벽돌/뿔딸기/뼈/트램펄린/역경갑주 검사를 전부 직접 재구현해야
+   하고 해제-플래그 생명주기까지 떠안는다.
+6. 너무 강해지는 걸 막는 자기균형 레버가 이미 있다: 변위가
+   `boss_max_speed × 1.5 × frames_to_contact`를 넘고 ≥80px이며 잔여 ≤18프레임 +
+   수직갭 ≤100px이면 **보스 대쉬 구조**가 무장한다(챔피언 30% / 리미트 60% /
+   신화 100%). 변위를 이 위로 두면 상위 난이도에 자동으로 카운터가 생긴다.
+
+**씰 규칙.** 상태 모듈 메서드 직접 호출은 공허-GREEN이다. 발동/종료 레그는
+`BallMotionEventProcessor.step_motion`을 관통해야 하고, 궤도 레그는 플래그가 아니라
+**결과(변위 px)** 를 단언하라 — "역꺾임을 같은 방향 꺾임으로 바꾸면 변위가 임계
+아래로 떨어진다"가 반증검증의 정본이다(벽력유성 실측: 역꺾임 148px vs 동방향
+36.4px, 임계 69.3px / 커버 38.3px).
+
 ## Godot Per-Frame Probability Roll Trap
 
 A `chance_pct` that is meant as a per-opportunity success rate but is rolled
@@ -523,7 +623,7 @@ Standing rules for chance-gated per-frame gameplay effects:
   guards uncatchable balls that fall NEAR it (it is not a field-wide goalkeeper).
   The correct fix was therefore to SCOPE the stat, not buff reach: an eased speed
   (the live lever is now `COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS` in
-  `lingpet_companion_motion_state.gd`, NOT the retired `COMPANION_DEFENSE_INTERCEPT_SPEED`
+  `lingpet_companion_defense_state.gd`, NOT the retired `COMPANION_DEFENSE_INTERCEPT_SPEED`
   constant) and arm defense only for balls that match the FULL intent --
   (1) the **player cannot block** the predicted X (`_player_can_block`, mirroring
   `lingpet_ring_dash_state`; guarding a ball the player could make is pointless),
@@ -549,7 +649,7 @@ Standing rules for chance-gated per-frame gameplay effects:
   slightly-above-patrol" wording as an invariant and revert this raise; the single
   lever is `COMPANION_DEFENSE_GUARD_SPEED_MIN_BONUS` and live felt-QA decides its
   value. NOTE: the defense intercept
-  (`lingpet_companion_motion_state`) and the Linkport passive
+  (`lingpet_companion_defense_state`, orchestrated by the motion facade) and the Linkport passive
   (`lingpet_ring_dash_state`) are SEPARATE systems with their own gates -- do not
   assume a gate present in one (e.g. `_player_can_block`) exists in the other.
   Also: defense intercept is **PATROL-only** — flight-style companions
@@ -600,7 +700,7 @@ POSITION-stuck bug, not an animation bug. Chase the motion first.** The lingpet
 fixes (the mechanisms below) only changed WHETHER the stuck pet showed a walk or
 an idle frame — they never made it move. The real cause was that the defense
 intercept parks `patrol_dir = 0` when it arrives at the guard point
-(`lingpet_companion_motion_state._advance_defense_intercept`), and NOTHING
+(`lingpet_companion_defense_state._advance_intercept`), and NOTHING
 restores it once the guard clears: `clear_defense_intercept` does not touch
 `patrol_dir`, a flip is `-1 * 0 = 0`, and a heading-less pet can never reach a
 lane edge to be re-aimed — so `next_x = pos.x + 0 * speed = pos.x` froze the pet
@@ -731,6 +831,69 @@ Standing rules:
   (paddle 75; reverse-verified to FAIL on the old guard-dive code) plus the flight
   guard-Y assert added to `_verify_ring_dash_passive`.
 
+## Godot Emergency-Assist Static-Paddle Gate Trap (committed player dash reads as "can't block")
+
+An emergency-assist gate that asks "can the player block this ball?" by testing
+the paddle's **current standing span** against the projected contact X is wrong
+the moment the player is mid-**dash**. A dash is a committed, script-driven move
+(direction + duration are locked at `start()`), so on every frame of the dash
+flight the paddle is not yet at the contact X — the gate reads "player cannot
+block", the assist fires, and both defenders converge on the same ball.
+
+Reference failure (2026-07-06, re-implemented 2026-07-27 after the WIP-loss
+revert): Linkport (`lingpet_ring_dash`) teleported the companion onto a ball the
+player had already dashed to cover — user-visible as 이중수비. The gate was
+`lingpet_ring_dash_state._player_can_block`, which reads only `player_pos` +
+`player_paddle_width` at the current frame.
+
+Mechanism: the assist already computes `frames_to_contact` for its own lookahead
+(`vertical_gap / (ball_vel.y * impact_boost)`), so the contact **time** is known —
+only the paddle side was left un-projected. Both halves of the prediction must use
+the same horizon.
+
+Fix (`lingpet_ring_dash_state._player_dash_projects_block`): project the paddle to
+its contact-time position and re-run the span test. Remaining dash travel comes
+from the shipped decel curve — `SmasherDashActiveMotionResolver.compute_total_dash_distance`
+integrates a countdown to 0, so `total(timer) - total(timer - n)` = distance over
+the next `n` frames — capped by `frames_to_contact` (if the ball lands first, the
+dash only contributes what it covered by then) and clamped with the same
+`0 .. FIELD_WIDTH - paddle_width` bounds the live dash uses. Snapshot source is a
+**peek-only** registry lookup in the caller
+(`lingpet_egg_runtime._resolve_player_dash_state`, key `smasher_dash_state`).
+
+Standing rules:
+- **Do not defer on "a dash is active".** A dash away from the ball, or one whose
+  remaining timer cannot reach the contact X, genuinely does not block — deferring
+  on those kills the assist. Gate on projected COVERAGE, not on dash activity.
+- **Defer without consuming the opportunity.** A per-opportunity roll lock
+  (`_rolled_this_descent`, see the Per-Frame Probability Roll Trap) must NOT be
+  spent by a deferral: the dash may still whiff, and the descent should keep its
+  roll. Structurally this means the gate lives in the target-build step that
+  returns empty BEFORE the roll, not after it.
+- **The dash-state read is a hot path.** It runs from the per-frame companion
+  motion update, so use `get_cached_instance` (peek) with NO `get_instance`
+  fallback (Hot-Path Lazy Init Trap), and build the snapshot dict only when
+  `is_active()` is already true — otherwise every non-dash frame pays two dict
+  allocations for nothing.
+- **Single-source the motion curve.** Re-typing `DASH_BASE_SPEED` /
+  `DASH_DECEL_FRAMES` into the projection lets the predicted travel drift from the
+  real dash. Call the shipped resolver.
+- Seal: `lingpet_egg_runtime_smoke._verify_ring_dash_defers_to_committed_player_dash`
+  — 4 legs (control fires / committed dash defers with 3 asserts / opposite
+  direction fires / short remaining timer fires). Reverse-verified by disabling the
+  gate in place: exactly the 3 defer asserts go RED, the other 3 legs stay GREEN.
+  The **control leg is mandatory** — without it a defer assert also passes on
+  geometry that was never an emergency in the first place.
+- The smoke's fake registry must expose `get_cached_instance`, or the peek-only
+  consumer silently gets nothing and the seal is void-GREEN.
+
+Sibling copies of the same static-paddle predicate, still UNFIXED (documented
+candidates, same class): `lingpet_companion_defense_state._player_can_block`
+(defense intercept) and `lingpet_solar_bolt_skill._player_can_block` (solar bolt
+arm gate). `lingpet_companion_player_block_resolver.can_player_block` is a
+different predicate (current ball X, no lookahead) used by raw body-hit and is not
+part of this class.
+
 ## Godot Lingpet Companion Incapacitation Body-Hit Trap (parked ≠ disabled)
 
 A lingpet skill phase that INCAPACITATES the companion (self-stun, freeze,
@@ -763,6 +926,27 @@ Standing rules:
   `SKILL_KIND_*` case in `suppresses_companion_body_hit` is caught
   (`lingpet_headbutt_skill_smoke` self-stun + host-routing block is the
   reference).
+
+**역방향(탈진 → 위치-스크립팅 패시브) 규칙 (2026-07-06, 재발 2026-07-24 WIP
+파괴 후).** 포만도 탈진(satiety KO)은 별도 억제 소비처 목록(Slice3a body-hit /
+방어율 / 선제타격 / 스킬 arm / 클릭 교감)으로 게이트되는데, 이 목록이
+**위치-스크립팅 PASSIVE(별빛추적·링크포트)를 안 덮었다** — passive advance가
+탈진 판정보다 먼저 돌며 `companion_active`(= `_state == STATE_COMPANION`)만 받아
+KO(누워 자는) 중에도 순간이동/스타포인트 전달/VFX/사운드를 냈다. 표준 규칙:
+- **위치-스크립팅 패시브는 탈진을 `companion_active`에 fold하라** —
+  `_state == STATE_COMPANION and not is_companion_exhausted()`를 advance/update의
+  is_companion 인자로 넘긴다. 패시브 모듈은 탈진을 모른 채 `_is_enabled` false로
+  받아 reset이 자가치유 티어다운(별도 early-return보다 이 fold가 transient까지
+  정리). 콜사이트가 여러 개면 전부(별빛추적=advance + update_starlight_tracking_
+  for_starpoint_drop 2곳).
+- 탈진 판정이 advance보다 아래에 있으면 **호이스트**하라(링크포트=
+  `_update_companion_motion`이 ring_dash advance 아래에서 companion_exhausted를
+  계산 → 위로 끌어올려 fold, 중복 선언 제거).
+- 씰은 champion 리그(주니어는 D9 탈진 면제) owner로 탈진 강제(`set_satiety_for_
+  tests(0)` + 텔레그래프 창 ~160프레임) 후 패시브를 구동해 억제(클레임/트리거
+  없음)를 단언. 반증=fold 제거 시 탈진 중 발동 재현 RED. 씰:
+  `lingpet_egg_runtime_smoke._verify_exhaustion_suppresses_starlight_tracking` +
+  `_verify_exhaustion_suppresses_linkport`.
 
 ## Godot Owner-Field Schema Trap (runtime stat → character-info panel)
 
@@ -1565,6 +1749,21 @@ res://tools/angel_dice_overlay_capture.gd`.
 
 ## Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
 
+**⚠️ 자매 함정 (2026-07-27): 스윕 하네스 자체가 거짓말한다.** 표준 러너
+`run_smoke_tests.ps1`은 **첫 실패에서 throw**하므로, 더티 트리(병행 WIP 다수)에서
+전체 RED 목록을 보려면 continue-on-failure 스윕을 따로 짜게 된다. 이때 PowerShell
+5.1에서 `Start-Process -PassThru`로 실행하고 `-RedirectStandardOutput/Error`를 걸면
+**`$p.ExitCode`가 빈 문자열로 나온다**(`WaitForExit()` 무인자 재호출로도 안 채워짐 —
+실측). 빈 값은 `-ne 0` 비교에서 참이라 **1390종 전부 FAIL로 집계**됐고, 그대로
+보고했으면 "내 변경이 트리를 통째로 깼다"는 정반대 결론이 나올 뻔했다.
+정본은 호출 연산자 + `$LASTEXITCODE`(검증됨). 그리고 **스윕 하네스는 반드시
+정답을 아는 소표본(통과 2 + 실패 2)으로 먼저 검증한 뒤** 장시간 러닝에 태워라 —
+집계 결과가 "전부 통과" 또는 "전부 실패"로 나오면 대상이 아니라 하네스를 먼저 의심할 것.
+판정은 3필드(`$LASTEXITCODE` / `^ERROR:`·`SCRIPT ERROR`·`Invalid call` / `: ok` 마커)를
+모두 봐야 한다. 실측 정상 기준선(2026-07-27, 더티 트리): 1390종 중 PASS 1355 /
+FAIL 35 — 35건은 전부 병행 WIP 트랙(character_info·localization·stage4 ponk·stage7
+akamu·runtime_perk 등)이며 플라즈마/셰이더와 무관.
+
 Incident (2026-07-18, 퍽 융합 core 슬라이스): 융합 modal 통합 스모크의
 dowsing 레그와 신규 슬롯-환급 레그가 `catalog.dash_token_boost_chances =
 [...]` (존재하지 않는 프로퍼티) 대입에서 `SCRIPT ERROR: Invalid assignment
@@ -1813,17 +2012,23 @@ Node2D)를 배틀 캔버스에 직접 `add_child`로 붙였다. 드로어가 오
 좌표(host.position)만 검사해 이 침범을 놓쳤다(픽셀 QA 필요).
 
 **메커니즘 / 함정 3겹.**
-1. **`Control.clip_contents=true`는 Control 자식만이 아니라 Node2D/Sprite2D
-   자식도 rect로 클립한다.** stage_ball_spawn_intro_fx_host는 자식이 전부
-   Control(TextureRect/ColorRect)이라 "clip_contents=Control 전용"으로 오해하기
-   쉽다. 정본 선례는 mystic_dice_paddle_fx_host(호스트 자체가 Control,
-   clip_contents=true, 자식 Node2D draw). Sprite2D 오브 레이어에도 먹는다.
+1. **`Control.clip_contents=true`의 구조 상태만으로 Node2D/Sprite2D 픽셀 클립을
+   보장하지 마라.** 초기 플라즈마 호스트에서는 픽셀 씰이 통과했지만, 한령탄의
+   MIX 실체 + ADD 광원 + GPUParticles2D 6-layer 구성으로 교체한 뒤 Godot 4.6.2의
+   OpenGL/Vulkan 양쪽에서 `clip_contents==true`, 부모 관계, 월드 rect가 모두
+   정상인데도 각 Sprite2D가 레터박스에 그대로 그려졌다. 같은 API가 다른 호스트
+   구성에서 먹는다는 선례를 이 호스트의 픽셀 증거로 대신할 수 없다.
 2. **`clip_children=CLIP_CHILDREN_ONLY` 마스크 방식은 ADD 블렌드 Sprite2D를
    완전히 못 잡는다.** 마스크 rect를 draw해도 레터박스에 픽셀이 남았다(5716
    잔류). 반드시 `clip_contents`를 써라.
 3. **구조 씰만으론 공허-GREEN.** `clip_contents==true` + 레이어 부모 검사 +
    클립 월드 rect 검사가 전부 GREEN인데 실제 픽셀은 안 잘리는 케이스를 겪었다
    (마스크 방식). 클립 효능은 **비헤드리스 픽셀 씰**로만 증명된다.
+4. **안전 폴백은 화면 좌표 fragment clip이다.** `screen_clip_canvas_material.gd`는
+   MIX/ADD 실체·파티클용 재질을 제공하고, `writhe_ember_material.gd`는 동일한
+   opt-in screen-clip uniforms를 가진다. `SCREEN_UV / SCREEN_PIXEL_SIZE`로 viewport
+   pixel을 복원해 `game_offset .. game_offset + GAME_SIZE*render_scale` 밖 fragment를
+   버린다. 기본값은 비활성이므로 다른 WritheEmber 소비자는 변하지 않는다.
 
 **호스트가 오브 위치일 때의 클립 배치.** 좌표 계약(host.position = 오브 스크린
 좌표)을 보존하려면 클립을 host-local `clip_local_origin = (clip_position_screen -
@@ -1838,7 +2043,9 @@ game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어
 **표준 규칙.**
 - 스크린-공간 FX 호스트(스타포인트/주사위/플라즈마류)가 오브/파티클을 그리면
   플레이필드 클립을 반드시 확인하라 — 노드 자식은 draw_set_transform을 안
-  물려받아 레터박스로 샌다. 내부 Control(clip_contents=true)로 클립한다.
+  물려받아 레터박스로 샌다. 내부 Control(clip_contents=true)을 구조 경계로
+  유지하되, 해당 실제 레이어 조합의 픽셀 씰이 실패하면 화면 좌표 fragment clip을
+  모든 MIX/ADD/particle 재질에 함께 적용한다.
 - **클립은 구조 씰 + 비헤드리스 픽셀 씰 2단으로 봉인.** 구조 씰(clip_contents/
   부모/월드rect)은 헤드리스 CI용, 픽셀 씰은 오브를 왼쪽 가장자리에 두고 렌더해
   레터박스 lit 픽셀이 clip_ON=0 / OFF>0인지 실측(디스플레이 있을 때만; 헤드리스
@@ -1849,7 +2056,248 @@ game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어
   ②다른 활성 호스트가 트리에 남아 bleed → 격리 측정 전 free/set_active(false).
   ③단일 호스트로 OFF→ON 순차 측정이 매번 free/생성 반복보다 안정.
 
-커밋 90ec14c06. 씰 반증: clip_contents=false 토글 시 레터박스 9794px RED.
+커밋 90ec14c06. 초기 씰 반증: clip_contents=false 토글 시 레터박스 9794px RED.
+한령탄 교체 후 재반증(2026-07-26): 구조 clip ON인데도 OpenGL 4,420px / Vulkan
+4,118px RED, 화면 좌표 재질 clip 적용 후 양 렌더러 모두 0px GREEN.
+
+### ⚠️ 결정적 후속 함정 (2026-07-27): fragment clip의 단위 공간
+
+`SCREEN_UV / SCREEN_PIXEL_SIZE`는 **프레임버퍼(실제 렌더타깃) 픽셀**을 준다.
+반면 업로드하는 rect(`game_offset`, `GAME_SIZE * render_scale`)는
+`battle_view_layout`이 `get_viewport_rect().size`에서 뽑은 **캔버스(2D 논리)
+단위**다. `project.godot`가 `window/stretch/mode="canvas_items"` +
+`aspect="expand"`라 창 크기가 기준 해상도(2020x1246)와 다른 순간 두 공간은
+스트레치 배율만큼 어긋난다 — 실측: 창 2560x1440 → 뷰포트 rect 2215x1246, 배율
+1.1557 / 창 1280x800 → rect 2020x1262, 배율 0.6337. **창이 기준 해상도와 정확히
+같을 때만 우연히 일치**한다.
+
+변환 없이 올리면 `clip_max`가 배율만큼 작아져 **플레이필드 하단/우측 밴드가
+통째로 discard**된다. 한령탄 리브랜드에서 이 한 줄이 사용자 증상 2개를 동시에
+만들었다: 차징 오브는 패들 바로 위(게임 y≈680) = 잘리는 밴드 한복판이라
+**"차징(W 홀드) 이펙트가 안 보임"**, 투사체는 밴드를 벗어나는 높이에서 갑자기
+나타나 **"발사 투사체가 잘려보임"**. 실측: 배율 1.1558에서 차징 오브 가시 면적이
+정상 대비 **22%**(13,976 / 기대 63,026 px).
+
+**표준 규칙: 캔버스→프레임버퍼 변환 후 업로드하라.**
+`get_viewport().get_final_transform() * get_canvas_transform()`을 rect 양 끝점과
+feather 폭에 적용한다(`smasher_plasma_fx_host._canvas_to_framebuffer_transform()`).
+`get_canvas_transform()`이 CanvasLayer/카메라 변환을, 뷰포트 final transform이
+스트레치 배율을 담는다. 트리 밖이면 항등으로 폴백.
+
+**⚠️ 같이 나온 함정: canvas_item fragment의 `COLOR`는 이미 텍스처가 곱해져 있다.**
+클립 재질이 `vec4 source = texture(TEXTURE, UV); COLOR = source * COLOR;`로 써 있었는데,
+Godot canvas_item `fragment()` 진입 시점의 `COLOR`는 이미
+`texture(TEXTURE, UV) * modulate`다 — 그래서 저 한 줄이 **texture²**을 만든다.
+픽셀 실측(텍스처 RGBA(.5,.5,.5,.5), modulate 1.0, 검정 배경 blend_mix):
+무개입 셰이더 **0.247** / 재샘플 셰이더 **0.063**(= 0.247²). 알파가 제곱되니
+먹선·반투명 꼬리·소프트 헤일로가 의도보다 어둡고 얇아진다. 클립처럼 **색을 바꿀
+의도가 없는 재질은 절대 재샘플링하지 말고** 필요한 항(`COLOR.a *= clip_fade`)만
+건드려라. UV를 왜곡해 다시 샘플하는 셰이더(writhe-ember)는 재샘플이 목적이라
+해당 없음 — 다만 그런 셰이더도 `COLOR.rgb`를 다시 곱하면 같은 이중 곱이 되므로
+의도인지 확인할 것.
+⚠️ 이 버그를 고치면 **모든 레이어가 밝아지므로 알파 튜닝과 픽셀 씰 판별대를 함께
+재보정**해야 한다(실측: 최소 차징 lit 판별대가 325↔739 → 484↔1003으로 이동).
+
+**클립 씰은 반드시 양방향이어야 한다 — 단방향 씰은 증상을 PASS 조건으로
+인코딩한다.** 기존 레터박스 픽셀 씰은 "밖에 0px"만 봤는데, 과잉 클립(오브가 통째로
+사라짐)은 그 조건을 **더 잘** 만족한다. 그래서 이 회귀가 씰을 GREEN으로 통과했다.
+같은 렌더에서 ①의도한 rect **안쪽**에 lit 픽셀이 있다(과잉 클립 검출) ②밖에는
+0px(누출 검출)를 함께 단언하고, ③**스트레치 배율 != 1**에서 돌려라.
+임계 매직넘버 대신 **스트레치 불변 비율**을 쓰면 튜닝에 안 깨진다: 기준(배율 1.0)과
+확대(배율 s)에서 같은 오브를 그려 `lit_s ≈ lit_1 * s²`인지 본다
+(정상 62,956 vs 기대 62,989 GREEN / 버그 13,976 vs 63,026 RED).
+
+**⚠️ 스모크 `_init()`의 `get_root().size = ...`는 조용히 무시된다.** 창 오버라이드가
+나중에 덮어써서, VIEW=(960,900)을 넣어도 런타임은 (2020,1246) 스트레치 1.0으로
+돈다(실측). 캔버스 단위로 적은 프로브 좌표가 그 덕에 "우연히" 맞아 씰이 GREEN처럼
+보인다 — 즉 이 픽셀 씰들은 **스트레치 != 1을 한 번도 안 태웠다**. 리사이즈는 프레임
+진행 뒤에 하고 `get_final_transform()`으로 실제 배율을 읽어 단언하라(헤드리스는
+64x64 더미 창이라 배율 단언에서 제외).
+
+**하드 discard는 하드-에지 아트를 면도날로 자른다.** 경계 밖은 discard를 유지하되
+안쪽 feather 밴드(현 34 playfield px)에서 알파를 smoothstep으로 0까지 램프하면
+레터박스 무누출 씰은 그대로 두고 절단만 페이드로 바뀐다. 판별식 = 경계 직전 4행
+평균 휘도 / 안쪽(feather 밖) 4행 평균: 하드컷이면 **경계 쪽이 더 밝다**(실측 2.63),
+feather면 0.05 수준. 소프트 폴오프 아트(구 플라즈마 라디얼 글로우)는 경계에서 이미
+0에 가까워 절단이 안 보였고, 캔버스 끝까지 밀도가 있는 먹선 아트로 바뀌자 같은
+클립이 갑자기 눈에 띄었다 — **클립 규칙을 안 건드려도 아트 교체만으로 발현한다.**
+
+씰: `smasher_hanryeongtan_charge_visibility_pixel_smoke`(레그 D = 스트레치
+불변 비율 + 밖 0px, 레그 C = feather 판별식, 레그 A-2 = feather 유니폼이 전
+레이어에 실렸는지). 반증검증: 변환 제거 / `CLIP_FEATHER_PX=0` 각각 RED 확인.
+
+
+## Godot Duck-Typed `has_method`-Gated Dynamic-Call Arity Trap (caller-path seal, not direct-runtime seal)
+
+**증상.** 런타임 크래시 `Invalid call to function 'X' in base 'RefCounted
+(Y.gd)'. Expected N argument(s).` — 특정 이벤트 분기(예: 역경의갑주 배리어
+바닥 인터셉트)가 실제로 발동하는 프레임에만 터진다.
+
+**메커니즘.** `deps.get("mythic_item_runtime", null)` 처럼 `Object` 타입으로
+보관된 덕타이핑 런타임을 `if rt != null and rt.has_method("X"):` 로 게이트해
+`rt.X(...)` 를 호출하면, 대상이 정적 타입(named class)이 아니라 `Object` 이므로
+**GDScript 파서는 인자수를 검증하지 못한다**. 인자를 몇 개 넘기든 파스는
+통과하고, 그 분기가 런타임에 실제로 실행될 때 비로소 "Expected N argument(s)"
+로 크래시한다. `_draw_skill_icon_mini` elif-chain 트랩의 "미존재 분기=파스 통과,
+런타임에만 드러남" 구조와 동형이지만, 여기서는 skill_id 레벨이 아니라 **동적
+호출 인자수 레벨**이다.
+
+**실사례(2026-07).** `ball_motion_event_processor._process_adversity_armor` 가
+`notify_adversity_armor_barrier_hit(impact_pos, ball_vel, deps, built)` 로 **4번째
+`built` 인자**를 넘겼는데, 대상 함수(`mythic_item_runtime.gd`) 계약은 3인자
+(`impact_pos, ball_vel, deps=…`). `built` 은 형제 배리어 처리기
+(`_process_horn_strawberry_field`·`_process_lingpet_bone_barrier` — 이들의 대상은
+실제로 `built` 을 받는다)에서 **복붙된 잔재**였다. 과거 HEAD 파스 손상 복구
+(커밋 cb25f9432 "built 미선언 복구")가 `var built := …` **선언만 추가해 파스
+에러를 없앤 탓에** 근본 결함(잉여 4번째 인자)이 가려진 채로 릴리스됐다 — 선언은
+파스를 통과시키지만 크래시는 그대로 남는다.
+
+**표준 규칙.**
+- **덕타이핑 `has_method` 게이트 호출을 추가/수정하면, 대상 함수의 실제 시그니처
+  인자수를 눈으로 대조하라.** 파서가 안 잡아준다. 특히 형제 처리기에서 호출문을
+  복붙할 때 대상 함수마다 `built`/`registry`/`deps` 유무가 갈릴 수 있으니
+  인자 목록을 그대로 옮기지 말 것.
+- **봉인은 "런타임 함수를 직접 3인자로 부르는" 레그로는 부족하다.** 그건 계약
+  준수만 증명하고 **caller-side 인자수 회귀는 놓친다**(이 결함이 새어나간 이유).
+  실제 caller 경로(`_process_adversity_armor` 등)를 관통하는 레그를 추가하고,
+  가능하면 게이트 안쪽까지 도달했음(예: 배리어 파티클 spawn, 반사 방향 y<0)을
+  어서션으로 확인해 no-op/조기 return 이 아님을 증명하라.
+- **판정은 표준 러너 `run_smoke_tests.ps1` 관통.** SCRIPT ERROR("Invalid call")는
+  그 레그만 abort시키고 러너는 계속 돌아 `ok` 를 찍는 공허-GREEN이 되지만, 표준
+  러너는 엔진 `Invalid call`/`SCRIPT ERROR` 를 실패로 승격(exit 1)한다. 수동
+  grep 판정은 이 크래시를 놓칠 수 있다.
+- **반증 정석.** 잉여 인자를 in-place로 재주입 → 표준 러너 RED("Expected N
+  argument(s)" + caller 파일/라인 backtrace) 확인 → 되돌려 GREEN. `git
+  reset`/`stash` 금지.
+
+**씰.** `adversity_armor_port_smoke.gd`
+`_verify_event_processor_barrier_hit_caller_path` — `BallMotionEventProcessor.
+new()._process_adversity_armor()` 를 실제 caller 경로로 구동하고 배리어 파티클
+spawn + 상향 반사(y<0)까지 확인. 기존 `_verify_runtime_flow` 레그는 런타임
+함수를 직접 3인자로 불러 이 caller-side 회귀를 못 잡았다.
+
+## Godot Fullscreen Screen-Read Overlay Context-Fallback Sizing Trap
+
+**사건 (2026-07-05, 재발 2026-07-24 WIP 파괴 후).** 풀스크린 스크린-리드
+오버레이(BackBufferCopy `COPY_MODE_VIEWPORT` + `hint_screen_texture` SCREEN_UV,
+예: 스테이지4 퐁크 몽환포영 물결·`defeat_continue_color_restore_fx_host`)의 rect
+크기를 draw 컨텍스트에서 뽑을 때, **라이브 플레이필드 컨텍스트는 view_size를 안
+싣는다** — `battle_playfield_effects_drawer`는 game_offset/game_size/render_scale
+만 주입한다. 그래서 `context.get("view_size", ...)` 폴백이 game_size(스케일된
+플레이필드, 윈도우보다 작음)로 저하되고, ColorRect가 position ZERO(윈도우 0,0)
++ size=game_size로 그려져 **화면 좌측/부분만 덮는다**("반쪽 화면"). 상태 스모크는
+view_size_px를 수동 주입해 이 저하를 가려 GREEN을 유지한다.
+
+**메커니즘.** 크기의 정본은 draw 컨텍스트 dict가 아니라 **엔진 뷰포트**다. 노드가
+윈도우 전체를 덮어야 하는 스크린-리드 오버레이는 `canvas.get_viewport_rect().size`
+를 **PRIMARY** 소스로 써야 한다(context view_size/game_size/width는 폴백만).
+
+**표준 규칙.**
+- 풀스크린 스크린-리드 오버레이의 rect 크기는 `canvas.get_viewport_rect().size`
+  를 정본으로 — context 크기 키는 폴백. `defeat_continue_color_restore_fx_host`
+  가 형제 클래스(같은 반쪽 위험).
+- ⚠️`get_viewport_rect()`는 트리 밖에서 `Condition "!is_inside_tree()" is true`
+  ERROR를 뱉는다(표준 러너가 실패로 승격) — 반드시
+  `if canvas != null and canvas.is_inside_tree():` 가드. 컨텍스트 빌더로 canvas를
+  스레딩할 땐 트레일링 `canvas: CanvasItem = null` 기본값으로 기존 콜러/테스트
+  호환.
+- **씰은 반쪽을 가리지 않는 레그로.** view_size를 뺀 라이브-형태 컨텍스트 + 작은
+  game_size(760x750)로 build하고 결과 view_size_px == `canvas.get_viewport_rect().
+  size` AND != game_size를 단언. 트리가 필요하므로 async 스모크(_run + await
+  process_frame)에서, canvas를 `get_root().add_child` 후 프레임 대기. 반증=canvas
+  PRIMARY 분기 토글 시 game_size로 저하 → RED. 씰:
+  `stage4_ponk_illusion_ripple_smoke._test_illusion_full_viewport_without_view_size_context`.
+
+## Godot 프리웜 경량-값-위해 무거운-모듈 콜드생성 트랩 (전환 프레임 1초+ 스톨)
+
+**사건 (2026-07-24).** 프레임드랍 재발 조사의 로딩/전환 히치 추적에서
+`stage_runtime_prewarm.step.12.stage1_pillar_scene`가 **단일 프레임
+1237ms**(fps=2)로 확인. `_get_module` 콜드 fetch에 임계(>=60ms) 경고 계측을
+심고 라이브 1판(전환 포함)으로 정체를 특정: `[PrewarmColdInstantiate] module
+'stage_clear_result_screen' first-fetch 1237.2ms`. 원인 = 필러 HUD 프리웜이
+**광장 골드 숫자 하나를 데우려고 stage_clear_result_screen 모듈을 통째로 첫
+인스턴스화**했고, 그 결과화면의 스크립트 트리(플라자 씬/가챠/결과 렌더 등
+대형 preload 다수) 콜드 로드+컴파일이 1.2초였다.
+
+**메커니즘.** 무거운 모듈이 소유한 값(여기선 광장 골드)을 프리웜/워밍
+단계에서 읽으려고 그 모듈을 강제 인스턴스화하면, 값 자체는 싼데 **모듈
+생성 비용이 전환 프레임에 통째로 얹힌다**(Hot-Path Lazy Init Trap의
+프리웜 변종 — 스톨을 없애는 게 아니라 프리웜 프레임으로 옮김). 특히
+그 값이 **별도의 경량 리더(여기선 PlazaSaveStore, 세이브 파일 직접 read)로도
+동일하게 얻어지는데** 무거운 모듈이 그 경량 리더에 단순 위임만 하는
+중간자일 때 낭비가 크다.
+
+**표준 규칙.**
+
+1. 프리웜/캐시-워밍이 어떤 값을 필요로 할 때, 그 값의 **가장 경량인 소스**를
+   직접 읽어라. 무거운 소유 모듈을 값 하나 때문에 인스턴스화하지 말 것 —
+   그 모듈이 값을 경량 리더에 위임만 한다면 특히.
+2. 실제로 그 무거운 모듈이 나중에(그 모듈의 자연 필요 시점 = 여기선 스테이지
+   클리어) 생성되며 authoritative 값으로 덮으면, 프리웜의 경량 읽기는
+   correctness-identical 워밍이 된다. draw/consume 경로는 non-instantiating
+   peek(`allow_lazy_create=false` / `get_cached_instance`)를 유지해 강제
+   생성을 막을 것.
+3. 값 소스가 세이브 파일이면 프로덕션 기본 경로 == 무거운 모듈이 쓰는 경로임을
+   확인(커스텀 경로가 테스트 전용인지 grep). 테스트 오염 방지를 위해 프리웜
+   경로에 세이브 경로 오버라이드 테스트 훅을 두라.
+4. 진단 기법: 스텝형 프리웜(모듈당 1프레임)에서 단일 프레임 1초+ 스톨은
+   **한 모듈의 콜드 생성**이다. 라벨이 모듈명을 안 찍으면 로더 헬퍼
+   (`_get_module` 등)에 임계-게이트 push_warning(모듈 키 + ms)을 심어 라이브
+   1판으로 범인을 특정하라. 이 계측은 존치해 프리웜 콜드-스톨 회귀 트립와이어로
+   쓸 수 있다(프리웜 전용 경로라 오버헤드 무시).
+
+**씰.** `stage1_pillar_prewarm_gold_no_result_screen_smoke.gd`(프리웜
+gold-warm이 무거운 모듈을 module_getter로 요청 0회 + 골드 캐시가 세이브
+파일 실값으로 warm — 옛 코드 토글로 RED 반증). 커밋 7cb4c905d.
+
+## Godot Ball-Path Owner-Snapshot Stat-Refund Trap (owner.set mid-collision → refunded at frame end)
+
+**Incident (2026-07-24).** 부동갑주(celestial_armor)의 넉백 커버 복원 중, 갑주가
+소모하는 기력(`owner.special_gauge`)이 볼-패스 히트(stage4 달 파편, stage1 각시탈
+부채)에서 **매번 환불**되는 것을 코드 리뷰가 잡아냈다. 갑주는 정상적으로 owner를
+차감하는데도 프레임이 끝나면 다시 원복돼, 아이템이 사실상 **공짜로 발동**했다.
+
+**메커니즘 — 프레임당 게이지 저장소가 셋으로 갈린다.**
+- `ball_update_controller._build_frame_context(context)`는 `context.duplicate()`로
+  `frame_context`를 만들고, 별도로 `_build_scene_snapshot(context)`가 `scene`을
+  만든다. **`scene`과 `frame_context`는 다른 dict**이며, 둘 다 프레임 시작 시점의
+  `context["special_gauge"]`(= owner에서 읽은 값)로 각각 시드된다.
+- 갑주 게이트(`try_block_player_*` → `try_consume_celestial_armor_immunity` →
+  `consume_gauge`)는 콜사이트가 넘긴 `context`(= `frame_context`)에만 미러하고
+  `owner.set("special_gauge", next)`만 한다 — **`scene`엔 손대지 않는다.**
+- 프레임 끝: `ball_update_controller`가 `{"snapshot": scene}`를 반환하고,
+  `battle_scene_ball_snapshot_applier.apply_snapshot(owner, scene)`가 scene의
+  **모든 키를 무조건** `owner.set(key, scene[key])`로 되쓴다. scene엔 stale한
+  프레임-시작 `special_gauge`가 들어 있으므로 갑주 차감이 그대로 **덮여 환불**된다.
+- 달 파편은 더 나쁘다: `scene.get("special_gauge")`(stale 100)에서 자기 -2만 빼
+  98을 쓴다 → owner=98(정답 78: 100 - 20갑주 - 2파편). 부채/풍선/물파편처럼 scene
+  게이지를 아예 안 쓰는 사이트는 owner가 프레임-시작 100으로 100% 원복된다.
+
+**표준 규칙.**
+- **볼-패스 충돌 핸들러(`scene` 파라미터가 있는 함수)**에서 owner 스탯을 차감하는
+  런타임 효과는, 그 차감을 **스냅샷되는 바로 그 `scene` dict에 반영**해야 한다.
+  방법 (a) 사이트 자체 델타를 합성할 때 stale한 `scene`이 아니라 **포스트-게이트
+  `context`(= frame_context, 미러된 값)를 FIRST로 읽어라**(달 파편:
+  `context.get("special_gauge", scene.get(...))`). 방법 (b) 게이트 proc 직후
+  명시적으로 `scene["special_gauge"] = float(context.get("special_gauge",
+  scene.get("special_gauge", 0.0)))`(각시탈 whole-hit 블록). 클렌즈는 기력을 안
+  쓰므로 armor proc 브랜치에서만 동기화하라.
+- **이펙트-패스/void-업데이트 사이트는 자동 교정된다** — `weather_event_state`
+  (우박), `stage2_pillar_background`(물파편, `update()->void`),
+  `stage1_balloon_event._resolve_paddle_interactions`(패들 넉백)는 **공유 context**를
+  게이트에 넘기고, 그 context가 곧 프레임엔드 sync의 소스(effects 컨트롤러
+  `next_special_gauge = context.get("special_gauge")` 또는 직접 owner)이므로 미러가
+  살아남는다. 이들은 고치지 마라(불필요·리스크). 갈림 기준: **함수에 `scene`
+  파라미터가 있으면 볼-패스(환불 위험), `context`만 있으면 이펙트-패스(자기 교정).**
+- **유닛 스모크는 공허-GREEN**이다: 헬퍼에 dict를 직접 넘겨 직후 owner/context를
+  단언하면 중간 mutation만 보고 프레임엔드 snapshot 왕복을 안 탄다. 봉인은 **실제
+  `scene` → `BattleSceneBallSnapshotApplier.apply_snapshot` 왕복**을 태워 owner가
+  풀 코스트만큼 떨어졌는지(달 78, 부채 80) 단언하고, 옛 stale-read 코드로 RED
+  반증(98/100)까지 해야 한다.
+
+**씰.** `stage4_moon_celestial_armor_gauge_smoke.gd`(달 파편 refund+cleanse 왕복),
+`stage1_gaksital_fan_throw_smoke.gd`의 `_verify_fan_throw_celestial_armor_gauge_survives_snapshot`
+(부채 whole-hit 왕복). 둘 다 read-order/scene-sync 토글로 RED 반증 완료.
 
 ## Godot 링펫 스킬 idle-업데이트 게이트 "보이는 것 ≠ 살아있는 것" 트랩 (VISIBLE vs LIVE)
 
@@ -1918,3 +2366,60 @@ game_offset .. game_offset + 760x750*scale(정확한 플레이필드). 드로어
 (2연속 밟기 → 게이트 관통 600프레임 → 슬립 컨텍스트 소멸; 토글 시 554/600프레임 고착으로 RED),
 `lingpet_solar_bolt_skill_smoke._verify_pending_refire_survives_idle_update_gate`
 (예약된 후속 낙뢰가 게이트 뒤에서 발사; 토글 시 RED). 셋 다 반증검증 완료.
+
+
+## Godot VFX 리브랜드 발광 예산 트랩 (ADD × 어두운 아트 = 더할 빛이 없다)
+
+**사건 (2026-07-27).** 스매셔 플라즈마를 한령탄(먹/혼령 컨셉)으로 리브랜드하며
+텍스처 4장을 교체했다. 레이어 구성·블렌드 배정·알파 상수는 "같은 자리"에 그대로
+뒀는데 차징 오브가 사실상 안 보이게 됐다. 원인은 코드가 아니라 **아트의 휘도
+분포와 블렌드 의도의 불일치**다.
+
+**메커니즘 3겹.**
+1. **ADD 블렌드는 텍스처가 어두우면 더할 빛이 없다.** canvas `blend_add`는
+   `dst += src.rgb * src.a`이므로 목탄 먹선(거의 검정)은 알파를 아무리 올려도
+   화면을 못 밝힌다. 게다가 `writhe_ember`는 절차적 에너지를 per-fragment
+   `brightness`로 게이트하므로(밝은 곳에서만 flow/flicker가 산다) 어두운 아트에서는
+   셰이더 연출까지 함께 죽는다.
+2. **MIX 저알파 어두운 레이어는 어두운 배경 위에서 "더 어둡게"만 만든다.**
+   밝은 픽셀 카운트에 기여가 0이고, 스테이지 배경이 어두울수록 무가시에 가깝다.
+3. **속 빈 원환(annulus) 텍스처는 중심에 빛을 하나도 안 놓는다.** 교체 전
+   backplate는 가운데가 찬 라디얼 글로우라 중심부에 발광의 38%가 있었는데, 새
+   먹안개/봉인 원환은 r<0.30 구간 기여가 **0.0%**다. 구체의 "덩어리" 인상은 중심
+   발광이 만든다 — 원환 2장으로는 절대 복구되지 않는다.
+
+실측(반경 26 = 차징 시작, 검정 배경 위 배경 대비 강한 lit 픽셀): 리브랜드 직후
+**325px** vs 수정 후 **739px**. 파동(반경 130)에서도 밝은 픽셀이 구 플라즈마의
+약 절반이었다. 프록시로 계산한 ADD 발광 예산은 intensity 0에서 약 4.4배 감소.
+
+**표준 규칙.**
+- **VFX 리브랜드에서 "레이어 수·블렌드·알파를 그대로 뒀다"는 안전 근거가 아니다.**
+  아트의 휘도/알파 분포가 바뀌면 같은 상수가 완전히 다른 결과를 낸다. 밝은 아트 →
+  어두운/먹 아트 교체는 **발광 정체성을 별도 레이어로 다시 공급**해야 한다
+  (한령탄: 가운데가 찬 청백 라디얼 `_cold_halo`, ADD, HALO_DIAM_MULT 2.70 —
+  `ImpactFlareTextureCache.get_glow_texture()` 재사용. 부수 효과로 소프트 폴오프라
+  플레이필드 경계에서 자연 감쇠 = 클립 절단이 안 보인다).
+- **어두운 아트는 실루엣/질감 담당, 밝은 레이어는 발광 담당으로 역할을 분리**하고,
+  저차징 구간에서는 어두운 MIX 비중을 낮춰 발광을 덮지 않게 한다
+  (base+slope로 조절 — `clamp(..., 0, CAP)`의 CAP만 올리는 건 대개 무효다.
+  리브랜드 WIP의 CAP 4개는 base+slope가 도달 못 해 전부 死문이었다).
+- **차징류 스킬은 `intensity`에 시각 하한을 둬라.** 게임플레이 `charge_size`는 0에서
+  시작해 3초에 걸쳐 1.0이 되는데 그 값을 그대로 알파/셰이더 세기로 쓰면 첫 1초가
+  통째로 안 보인다. 반경은 raw `charge_size`로 유지해 차징량 피드백을 남긴다
+  (`SmasherPlasmaState.CHARGE_MIN_VISUAL_INTENSITY`, 파동 쪽 `maxf(0.6, ...)` 선례).
+- **`Sprite2D.centered=true` + `_size_sprite(전체 캔버스 → 한 변)` 조합은 텍스처의
+  가시 질량이 캔버스 중앙에 있다고 가정한다.** 한령탄 core는 밝은 머리 무게중심이
+  캔버스 중심보다 38.5/384 위에 있어 밝은 구체가 실제 투사체 좌표 위로 떴다. 또
+  가시 폭이 캔버스의 52.9%뿐이라 같은 배수로도 실제 구체가 훨씬 작게 읽힌다 —
+  **DIAM_MULT를 재사용하기 전에 새 텍스처의 fill 비율과 무게중심을 실측**하라
+  (측정 스크립트로 alpha bbox / mean premultiplied luminance / 밝은 머리 중심을 뽑는다).
+- **판정은 픽셀 카운트로.** "레이어가 visible=true", "셰이더 준비됨" 같은 구조
+  어서션은 이 클래스를 전혀 못 잡는다. 배경 대비 **강한** 임계(합 델타 0.45 수준)로
+  세라 — 약한 임계(0.09)는 먹 얼룩도 통과시켜 버그 상태와 정상 상태가 같은 값을
+  낸다(실측 680 vs 726 = 판별 불가 → 325 vs 739로 분리됨).
+
+씰: `smasher_hanryeongtan_charge_visibility_pixel_smoke`(레그 A-1 = 세기 하한을
+**하드 리터럴**로 단언 — 상수 자신과 비교하면 상수를 0으로 낮춰도 GREEN이 되는
+자기참조 어서션이 된다(반증검증에서 실제로 걸렸다), 레그 B = 최소 차징 lit 픽셀
+판별대 325↔739 사이 550). 반증검증: 헤일로 제거 + 하한 0 + 구 배수/알파 복원으로
+RED 확인.
