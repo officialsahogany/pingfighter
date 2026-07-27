@@ -314,7 +314,7 @@ func resolve_ball_hit(owner: Object, required_hits: int) -> Dictionary:
 	if not hit_now:
 		return {"changed": false, "hit": false, "hatched": false}
 
-	# 플레이어가 서브로 발사한 공은 링펫알과 타격판정 자체를 하지 않는다: 바운스도,
+	# 플레이어가 서브로 발사한 공은 수호령 알과 타격판정 자체를 하지 않는다: 바운스도,
 	# 부화 카운트도, 히트 SFX도 없이 공이 알을 그대로 통과한다(hit=false). 히트
 	# 쿨다운도 세팅하지 않으므로, ball_serve_origin이 "player"인 동안에는 같은 라운드의
 	# 공이 다시 겹쳐도 계속 통과한다. (예전에는 바운스+SFX는 시키고 카운트만 제외했지만,

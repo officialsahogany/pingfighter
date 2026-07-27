@@ -12,7 +12,7 @@ static func _get_display_name(lingpet_id: String) -> String:
 		"maribo":
 			return "마리보"
 		"":
-			return "링펫"
+			return "수호령"
 		_:
 			return lingpet_id
 
@@ -106,9 +106,9 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			return {
 				"state": "egg",
 				"slot_tabs": slot_tabs,
-				"title": "링펫 알",
+				"title": "수호령 알",
 				"subtitle": LanguageSettings.translate_text("공 충돌 %s") % CharacterInfoOverlayFormatter.format_int_pair(hits, required_hits),
-				"body": "공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
+				"body": "공에 맞을 때마다 금이 가고, 가득 차면 수호령이 깨어납니다.",
 				"hatch_hits": hits,
 				"required_hits": required_hits,
 			}
@@ -177,7 +177,7 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"pet_id": lingpet_id,
 				"title": display_name,
 				"subtitle": LanguageSettings.translate_text("동행 중"),
-				"body": str(safe_owner_get.call(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
+				"body": str(safe_owner_get.call(owner, "lingpet_effect_text", "수호령 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(safe_owner_get.call(owner, "lingpet_gauge_gain_bonus_pct", safe_owner_get.call(owner, "ringpet_gauge_gain_bonus_pct", catalog_gauge_bonus))),
 				"companion_player_speed_bonus_pct": float(safe_owner_get.call(owner, "lingpet_player_speed_bonus_pct", safe_owner_get.call(owner, "ringpet_player_speed_bonus_pct", catalog_player_speed_bonus))),
 				"companion_starpoint_tracking_chance_pct": float(safe_owner_get.call(owner, "lingpet_starpoint_tracking_chance_pct", safe_owner_get.call(owner, "ringpet_starpoint_tracking_chance_pct", catalog_starpoint_tracking_chance))),
@@ -232,9 +232,9 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			return {
 				"state": "none",
 				"slot_tabs": slot_tabs,
-				"title": "링펫 알 없음",
+				"title": "수호령 알 없음",
 				"subtitle": "미획득",
-				"body": "테스트 난이도에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
+				"body": "수련 난이도에서 한미량으로 플레이하면 첫 수호령 알이 나타납니다.",
 				"hatch_hits": 0,
 				"required_hits": required_hits,
 			}

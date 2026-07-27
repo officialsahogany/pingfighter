@@ -1,7 +1,7 @@
 {
   "asset_id": "onimaru_companion_standing_idle_25f",
   "pet_id": "onimaru",
-  "display_name": "오니마루",
+  "display_name": "방망깨비",
   "created_at": "2026-07-01",
   "regeneration_note": "Rear-view (뒷모습) regen 2026-07-01 to match the patrol-pet convention; Onimaru was the only patrol lingpet facing front (root cause: AutoSprite base was a FRONT upload). REVISION: the first rear pass used iso_walk_northeast/iso_idle_up which faithfully render the back BUT DROP Onimaru's signature spiked club/kanabo prop. Fix: regenerate as AutoSprite kind 'custom' with a forceful STRICT-BACK-VIEW + 'holds his brown spiked club (blue tassel) in his RIGHT hand every frame' prompt — custom preserves the held club where iso drops it, and the no-turn wording keeps it a pure back view. Postprocess anchors the BODY horizontally by head-centroid (head_cx) so the club naturally extends to the right instead of shifting the body left, and bottom-aligns by the FEET band. Prev front runtime PNGs backed up in scratchpad onimaru_prev_runtime_backup/.",
   "runtime_usage": "lingpet_companion_idle_rear_with_club_sheet (also reused as companion_cast)",

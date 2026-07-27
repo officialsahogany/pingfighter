@@ -1,7 +1,7 @@
 {
   "asset_id": "onimaru_companion_strike_25f",
   "pet_id": "onimaru",
-  "display_name": "오니마루",
+  "display_name": "방망깨비",
   "created_at": "2026-07-01",
   "regeneration_note": "Rear-view club-swing strike (2026-07-01, user request '방망이 휘두르는 공격모션'). Companion ball-hit/attack motion changed from a horn-headbutt to a CLUB SWING. AutoSprite kind 'custom' (keeps the held club where iso drops it) + strict-back-view/no-turn prompt: rear overhead swing of the brown spiked club/kanabo. NOTE: this is the companion ball-hit animation only; the separate active skill '뿔박치기' (lingpet_headbutt_skill / onimaru_headbutt) is unchanged. Prev headbutt-with-club strike sheet superseded; original front sheet in scratchpad backup.",
   "runtime_usage": "lingpet_companion_strike_rear_CLUB_SWING_sheet",

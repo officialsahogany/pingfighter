@@ -140,7 +140,7 @@ const STATIC_ART_BREATH_HZ := 0.72
 const STATIC_ART_SCALE_PULSE := 0.018
 const TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
-const SUBTITLE_TEXT := "공명으로 깨어난 링펫 · 동행 시작"
+const SUBTITLE_TEXT := "공명으로 깨어난 수호령 · 동행 시작"
 
 # Painted "resonance awakening" portal backplate (imagegen, alpha-baked from a
 # pure-black additive source so the black margins composite transparently — no

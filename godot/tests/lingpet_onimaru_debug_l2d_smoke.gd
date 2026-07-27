@@ -35,7 +35,7 @@ func _verify_catalog_entry() -> void:
 	_expect(LingpetCatalog.get_pet_ids().has("onimaru"), "enabled pet ids should include live Onimaru")
 	_expect(LingpetCatalog.get_debug_pet_ids().has("onimaru"), "debug pet ids should still include Onimaru for F7 quick-select")
 	_expect(LingpetCatalog.get_pet_ids(true).has("onimaru"), "all pet ids should include Onimaru metadata")
-	_expect(LingpetCatalog.get_display_name("onimaru") == "오니마루", "Onimaru should expose the accepted Korean display name")
+	_expect(LingpetCatalog.get_display_name("onimaru") == "방망깨비", "Onimaru compatibility id should expose the rebranded Korean display name")
 	var effect_text := LingpetCatalog.get_effect_text("onimaru")
 	_expect(effect_text.find("뿔박치기") >= 0, "Onimaru effect text should describe the Headbutt active skill")
 	_expect(effect_text.find("디버그") < 0, "Onimaru production effect text should not leak debug wording into the character-info panel")

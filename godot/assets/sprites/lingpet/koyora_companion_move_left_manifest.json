@@ -1,7 +1,7 @@
 {
   "asset_id": "koyora_companion_move_left_rear_3q_smooth_25f_v2",
   "pet_id": "koyora",
-  "display_name": "Koyora",
+  "display_name": "살각시",
   "created_at": "2026-06-08",
   "runtime_usage": "lingpet_companion_move_left_rear_three_quarter_smooth_sheet",
   "output_sheet": "res://assets/sprites/lingpet/koyora_companion_move_left.png",

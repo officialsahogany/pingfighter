@@ -29,8 +29,8 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 	canvas.draw_rect(panel, Color(0.45, 0.90, 0.88, 0.82), false, 2.0)
 
 	var title_pos := panel.position + Vector2(28.0, 42.0)
-	_draw_text(canvas, title_pos, "링펫 선택", 25, Color(0.82, 1.0, 0.96), true)
-	_draw_text(canvas, title_pos + Vector2(0.0, 30.0), "새 링펫", 15, Color(0.72, 0.84, 0.92), false)
+	_draw_text(canvas, title_pos, "수호령 선택", 25, Color(0.82, 1.0, 0.96), true)
+	_draw_text(canvas, title_pos + Vector2(0.0, 30.0), "새 수호령", 15, Color(0.72, 0.84, 0.92), false)
 	_draw_new_pet(canvas, layout.get("new_rect", Rect2()), snapshot)
 	_draw_slots(canvas, layout, snapshot)
 	_draw_release(canvas, layout.get("release_rect", Rect2()))

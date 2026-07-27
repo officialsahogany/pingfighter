@@ -47,11 +47,11 @@ static func build_stats(
 	var speed_display := speed_default / speed_display_px_per_point
 	var pet_name := str(snapshot.get("title", "")).strip_edges()
 	if pet_name.is_empty():
-		pet_name = "링펫"
+		pet_name = "수호령"
 	var rows := [
 		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, LanguageSettings.translate_text("%s이(가) 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다.") % [pet_name, CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
 		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, LanguageSettings.translate_text("%s이(가) 공을 튕겨낼 때 쓰는 실제 판정 범위입니다.") % pet_name),
-		make_display_stat_row("게이지 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
+		make_display_stat_row("기력 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "수호령이 공을 직접 튕겼을 때 얻는 공통 기본 기력 획득량입니다."),
 	]
 	if defense_rate > 0.0:
 		rows.append(make_display_stat_row("방어율", CharacterInfoOverlayFormatter.format_percent_text(defense_rate * 100.0), stat_buff_color, defense_rate_tooltip))

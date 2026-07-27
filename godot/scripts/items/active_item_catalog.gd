@@ -7,26 +7,26 @@ const LINGPET_FEED_COOLDOWN_MSEC := 1500
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 
-const AIPILL_ICON_PATH := "res://assets/sprites/items/aipill.png"
-const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_200.png"
-const LIFE_ELIXIR_ICON_PATH := "res://assets/sprites/items/life_elixir.png"
+const AIPILL_ICON_PATH := "res://assets/sprites/items/shinryeonghwan_icon_gemini_v1.png"
+const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/tangyak_icon_hud_bright_v1.png"
+const LIFE_ELIXIR_ICON_PATH := "res://assets/sprites/items/osaek_yaksu_icon_hud_v1.png"
 const AMMO_BOX_ICON_PATH := "res://assets/sprites/items/ammo_box.png"
 const DOPING_POTION_ICON_PATH := "res://assets/sprites/items/doping_potion.png"
-const VITAMIN_PILL_ICON_PATH := "res://assets/sprites/items/vitamin_pill.png"
+const VITAMIN_PILL_ICON_PATH := "res://assets/sprites/items/gyeongsinhwan_icon_imagegen_v1.png"
 const STRANGE_VIAL_ICON_PATH := "res://assets/sprites/items/strange_vial.png"
 const PANDORA_BOX_ICON_PATH := "res://assets/sprites/items/pandora_box.png"
-const GRENADE_ICON_PATH := "res://assets/sprites/items/grenade.png"
-const FLARE_ICON_PATH := "res://assets/sprites/items/flare.png"
+const GRENADE_ICON_PATH := "res://assets/sprites/items/jinroe_tan_icon_imagegen_v1_readable_v2.png"
+const FLARE_ICON_PATH := "res://assets/sprites/items/hwangwangtan_icon_imagegen_v1_readable_v2.png"
 const TEAR_GAS_ICON_PATH := "res://assets/sprites/items/smoke_grenade.png"
-const DYNAMITE_ICON_PATH := "res://assets/sprites/items/dynamite.png"
-const MOLOTOV_ICON_PATH := "res://assets/sprites/items/molotov.png"
+const DYNAMITE_ICON_PATH := "res://assets/sprites/items/pokryeol_hwatong_icon_hud_bright_v1.png"
+const MOLOTOV_ICON_PATH := "res://assets/sprites/items/yeolhwabyeong_icon_imagegen_v1.png"
 const STOPWATCH_ICON_PATH := "res://assets/sprites/items/stopwatch_icon.png"
 const MAGNET_FIELD_ICON_PATH := "res://assets/sprites/items/magnet_field.png"
 const HOLOGRAM_DISK_ICON_PATH := "res://assets/sprites/items/hologram_disk.png"
-const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon.png"
-const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_potion.png"
-const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/holy_barrier.png"
-const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost.png"
+const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/geosindan_icon_imagegen_v1.png"
+const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/wongitang_icon_imagegen_v1.png"
+const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/geumgang_barrier_icon_imagegen_v1.png"
+const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/chukjibu_icon_imagegen_v1.png"
 const WALL_ICON_PATH := "res://assets/sprites/items/wall.png"
 const TRAMPOLINE_ICON_PATH := "res://assets/sprites/items/trampoline.png"
 const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
@@ -44,7 +44,7 @@ const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.pn
 const LINGPET_APPLE_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_apple_feed_icon.png"
 const LINGPET_MELON_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_melon_feed_icon.png"
 const LINGPET_SPECIAL_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
-const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/resonance_egg_item_icon.png"
+const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
@@ -207,7 +207,7 @@ func get_display_name(item_name: String) -> String:
 func _build_gauge_charge() -> Dictionary:
 	return {
 		"name": "gauge_charge",
-		"display_name": "에너지드링크",
+		"display_name": "탕약",
 		"type": "active",
 		"effect": "gauge_charge",
 		"chance": 0.042,
@@ -215,7 +215,7 @@ func _build_gauge_charge() -> Dictionary:
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
 		"gauge_gain": GAUGE_CHARGE_AMOUNT,
 		"gauge_max": GAUGE_MAX,
-		"description": "게이지를 220 충전합니다.",
+		"description": "탕약을 마셔 기력을 220 충전합니다.",
 		"icon_path": GAUGE_CHARGE_ICON_PATH,
 		"color": Color(1.0, 100.0 / 255.0, 1.0),
 		"consumable": true,
@@ -232,7 +232,7 @@ func _build_lingpet_feed() -> Dictionary:
 		"duration": 0,
 		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
 		"feed_amount": 40.0,
-		"description": "활성 링펫에게 먹이를 줘 포만도를 40 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"description": "동행 중인 수호령에게 먹이를 줘 포만도를 40 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
 		"icon_path": LINGPET_FEED_ICON_PATH,
 		"color": Color(1.0, 0.58, 0.16),
 		"no_global_cooldown": true,
@@ -251,7 +251,7 @@ func _build_lingpet_apple_feed() -> Dictionary:
 		"duration": 0,
 		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
 		"feed_amount": 30.0,
-		"description": "활성 링펫에게 사과를 주어 포만도를 30 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"description": "동행 중인 수호령에게 사과를 주어 포만도를 30 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
 		"icon_path": LINGPET_APPLE_FEED_ICON_PATH,
 		"color": Color(0.88, 0.18, 0.20),
 		"no_global_cooldown": true,
@@ -270,7 +270,7 @@ func _build_lingpet_melon_feed() -> Dictionary:
 		"duration": 0,
 		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
 		"feed_amount": 50.0,
-		"description": "활성 링펫에게 멜론을 주어 포만도를 50 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"description": "동행 중인 수호령에게 멜론을 주어 포만도를 50 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
 		"icon_path": LINGPET_MELON_FEED_ICON_PATH,
 		"color": Color(0.48, 0.84, 0.34),
 		"no_global_cooldown": true,
@@ -290,7 +290,7 @@ func _build_lingpet_special_feed() -> Dictionary:
 		"duration": 0,
 		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
 		"feed_amount": 100.0,
-		"description": "활성 링펫에게 특제 사료를 줘 포만도를 100 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
+		"description": "동행 중인 수호령에게 특제 사료를 줘 포만도를 100 회복합니다. 만복 상태에서는 사용할 수 없습니다.",
 		"icon_path": LINGPET_SPECIAL_FEED_ICON_PATH,
 		"color": Color(0.96, 0.76, 0.28),
 		"no_global_cooldown": true,
@@ -310,13 +310,13 @@ func _build_lingpet_egg() -> Dictionary:
 	# never sees this item (its lingpet is auto-present).
 	return {
 		"name": "lingpet_egg",
-		"display_name": "링펫알",
+		"display_name": "수호령 알",
 		"type": "active",
 		"effect": "lingpet_egg",
 		"chance": 0.030,
 		"duration": 0,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "필드에 링펫알을 설치합니다. 공으로 맞혀 부화시키면 링펫 한 마리를 무작위로 얻습니다.",
+		"description": "필드에 수호령 알을 설치합니다. 공으로 맞혀 부화시키면 수호령 하나를 무작위로 얻습니다.",
 		"icon_path": LINGPET_EGG_ICON_PATH,
 		"color": Color(0.30, 0.80, 1.0),
 		"consumable": true,
@@ -330,7 +330,7 @@ func _build_lingpet_egg() -> Dictionary:
 func _build_life_elixir() -> Dictionary:
 	return {
 		"name": "life_elixir",
-		"display_name": "생명수",
+		"display_name": "오색약수",
 		"type": "active",
 		"effect": "life_elixir",
 		"chance": 0.008,
@@ -338,9 +338,9 @@ func _build_life_elixir() -> Dictionary:
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
 		"gauge_gain": GAUGE_MAX,
 		"gauge_max": GAUGE_MAX,
-		"description": "게이지를 최대치까지 충전합니다.",
+		"description": "오색약수를 마셔 기력을 최대치까지 충전합니다.",
 		"icon_path": LIFE_ELIXIR_ICON_PATH,
-		"color": Color(200.0 / 255.0, 100.0 / 255.0, 1.0),
+		"color": Color(0.35, 0.82, 1.0),
 		"consumable": true,
 	}
 
@@ -371,7 +371,7 @@ func _build_doping_potion() -> Dictionary:
 		"chance": 0.0,
 		"duration": 480,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 코만도 화기의 연사와 위력을 강화합니다.",
+		"description": "일정 시간 호란의 화기의 연사와 위력을 강화합니다.",
 		"icon_path": DOPING_POTION_ICON_PATH,
 		"color": Color(1.0, 0.42, 0.22),
 		"consumable": true,
@@ -391,15 +391,15 @@ func _build_doping_potion() -> Dictionary:
 func _build_vitamin_pill() -> Dictionary:
 	return {
 		"name": "vitamin_pill",
-		"display_name": "비타민드링크",
+		"display_name": "경신단",
 		"type": "active",
 		"effect": "vitamin_pill",
 		"chance": 0.012,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 이동 속도가 증가합니다.",
+		"description": "경신단을 복용해 일정 시간 이동 속도를 증가시킵니다.",
 		"icon_path": VITAMIN_PILL_ICON_PATH,
-		"color": Color(80.0 / 255.0, 170.0 / 255.0, 1.0),
+		"color": Color(0.24, 0.88, 0.78),
 		"consumable": true,
 	}
 
@@ -423,13 +423,13 @@ func _build_strange_vial() -> Dictionary:
 func _build_aipill() -> Dictionary:
 	return {
 		"name": "aipill",
-		"display_name": "AI 알약",
+		"display_name": "신령환",
 		"type": "active",
 		"effect": "aipill",
 		"chance": 0.006,
 		"duration": 300,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "자동 가드가 활성화되며, 가드할 때마다 게이지가 줄어듭니다. 가드로 공을 쳐낼 때마다 공 속도가 25%씩 증가합니다(상한 없음).",
+		"description": "신령환을 복용해 호신령의 자동 가드를 활성화합니다. 가드할 때마다 기력이 줄고, 공을 쳐낼 때마다 공 속도가 25%씩 증가합니다(상한 없음).",
 		"icon_path": AIPILL_ICON_PATH,
 		# 호신령 빙의 연출이 금/주사 팔레트로 바뀌면서 HUD 슬롯·픽업 토스트
 		# 강조색도 같이 옮긴다(구 시안은 사이버 글리치 시절의 잔재).
@@ -457,13 +457,13 @@ func _build_pandora_box() -> Dictionary:
 func _build_grenade() -> Dictionary:
 	return {
 		"name": "grenade",
-		"display_name": "수류탄",
+		"display_name": "진뢰탄",
 		"type": "active",
 		"effect": "grenade",
 		"chance": 0.018,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "수류탄을 던져 폭발 범위 안의 보스를 기절시킵니다.",
+		"description": "뇌문 부적을 두른 진뢰탄을 던져 폭발 범위 안의 보스를 기절시킵니다.",
 		"icon_path": GRENADE_ICON_PATH,
 		"color": Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0),
 		"consumable": true,
@@ -474,15 +474,15 @@ func _build_grenade() -> Dictionary:
 func _build_flare() -> Dictionary:
 	return {
 		"name": "flare",
-		"display_name": "조명탄",
+		"display_name": "환광탄",
 		"type": "active",
 		"effect": "flare",
 		"chance": 0.020,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "조명탄을 던져 범위 안의 보스를 혼란 상태로 만듭니다.",
+		"description": "환광탄을 던져 순간적인 환광으로 범위 안의 보스를 혼란 상태로 만듭니다.",
 		"icon_path": FLARE_ICON_PATH,
-		"color": Color(1.0, 1.0, 200.0 / 255.0),
+		"color": Color(0.64, 0.86, 1.0),
 		"consumable": true,
 		"count": 1,
 	}
@@ -508,15 +508,15 @@ func _build_tear_gas() -> Dictionary:
 func _build_dynamite() -> Dictionary:
 	return {
 		"name": "dynamite",
-		"display_name": "다이너마이트",
+		"display_name": "폭렬화통",
 		"type": "active",
 		"effect": "dynamite",
 		"chance": 0.006,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "다이너마이트를 설치해 카운트다운 후 강한 폭발을 일으킵니다.",
+		"description": "폭렬화통을 설치해 도화선이 다 타면 강력한 폭발을 일으킵니다.",
 		"icon_path": DYNAMITE_ICON_PATH,
-		"color": Color(200.0 / 255.0, 50.0 / 255.0, 50.0 / 255.0),
+		"color": Color(0.92, 0.25, 0.10),
 		"consumable": true,
 		"count": 1,
 	}
@@ -525,13 +525,13 @@ func _build_dynamite() -> Dictionary:
 func _build_molotov() -> Dictionary:
 	return {
 		"name": "molotov",
-		"display_name": "화염병",
+		"display_name": "열화병",
 		"type": "active",
 		"effect": "molotov",
 		"chance": 0.015,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "화염병을 던져 지속 피해를 주는 화염 지대를 만듭니다.",
+		"description": "열화병을 던져 지속 피해를 주는 화염 지대를 만듭니다.",
 		"icon_path": MOLOTOV_ICON_PATH,
 		"color": Color(1.0, 100.0 / 255.0, 0.0),
 		"consumable": true,
@@ -590,7 +590,7 @@ func _build_hologram_disk() -> Dictionary:
 func _build_long_boost() -> Dictionary:
 	return {
 		"name": "long_boost",
-		"display_name": "거대화포션",
+		"display_name": "거신단",
 		"type": "active",
 		"effect": "long_boost",
 		"chance": 0.028,
@@ -606,13 +606,13 @@ func _build_long_boost() -> Dictionary:
 func _build_regeneration_potion() -> Dictionary:
 	return {
 		"name": "regeneration_potion",
-		"display_name": "재생물약",
+		"display_name": "원기탕",
 		"type": "active",
 		"effect": "regeneration_potion",
 		"chance": 0.008,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "스킬 쿨타임과 대쉬 토큰을 즉시 회복합니다.",
+		"description": "원기를 북돋아 초식 쿨타임과 활주 횟수를 즉시 회복합니다.",
 		"icon_path": REGENERATION_POTION_ICON_PATH,
 		"color": Color(1.0, 230.0 / 255.0, 80.0 / 255.0),
 		"consumable": true,
@@ -622,13 +622,13 @@ func _build_regeneration_potion() -> Dictionary:
 func _build_holy_barrier() -> Dictionary:
 	return {
 		"name": "holy_barrier",
-		"display_name": "홀리베리어",
+		"display_name": "금강결계",
 		"type": "active",
 		"effect": "holy_barrier",
 		"chance": 0.006,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "플레이어 뒤쪽에 공을 튕겨내는 방벽을 펼칩니다.",
+		"description": "금강결계를 펼쳐 플레이어 뒤에서 공을 되받아칩니다.",
 		"icon_path": HOLY_BARRIER_ICON_PATH,
 		"color": Color(1.0, 245.0 / 255.0, 170.0 / 255.0),
 		"consumable": true,
@@ -638,13 +638,13 @@ func _build_holy_barrier() -> Dictionary:
 func _build_dash_boost() -> Dictionary:
 	return {
 		"name": "dash_boost",
-		"display_name": "대쉬부스트",
+		"display_name": "축지부",
 		"type": "active",
 		"effect": "dash_boost",
 		"chance": 0.005,
 		"duration": 480,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 대쉬 비용과 쿨타임을 크게 줄입니다.",
+		"description": "축지술로 일정 시간 활주 비용과 재충전 시간을 크게 줄입니다.",
 		"icon_path": DASH_BOOST_ICON_PATH,
 		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
 		"consumable": true,
@@ -766,7 +766,7 @@ func _build_elixir_of_mastery() -> Dictionary:
 		"color": Color(0.47, 0.2, 0.78),
 		"consumable": true,
 		"mythic_active": true,
-		"description": "보유 중인 퍽 하나를 무작위로 골라 즉시 Lv.5로 만듭니다.",
+		"description": "보유 중인 무공 하나를 무작위로 골라 즉시 Lv.5로 만듭니다.",
 	}
 
 
@@ -817,5 +817,5 @@ func _build_cheese(item_name: String, display_name: String, gauge_gain: float, p
 		"lingpet_generated_only": true,
 		"gauge_gain": gauge_gain,
 		"gauge_max": GAUGE_MAX,
-		"description": "사용 시 왼쪽 파란 게이지구슬을 즉시 %d 회복하고, 스테이지 종료까지 플레이어 패들과 이미지 크기가 %d%% 증가합니다." % [int(round(gauge_gain)), scale_percent],
+		"description": "사용 시 왼쪽 파란 기력 구슬을 즉시 %d 회복하고, 스테이지 종료까지 플레이어 패들과 이미지 크기가 %d%% 증가합니다." % [int(round(gauge_gain)), scale_percent],
 	}

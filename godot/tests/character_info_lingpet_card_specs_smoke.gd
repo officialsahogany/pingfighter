@@ -67,7 +67,7 @@ func _verify_full_skill_rail_projection() -> void:
 		_expect(str(passive_one.get("subtitle", "")).find(token) >= 0, "primary passive subtitle should preserve %s bonus copy" % token)
 	_expect(str(passive_two.get("subtitle", "")).find("Lv.5") >= 0, "second passive subtitle should preserve level")
 	_expect(CharacterInfoOverlayLingpetPresenter.get_skill_specs(snapshot, stat_color) == specs, "presenter compatibility facade should return the exact card-spec projection")
-	_expect(CharacterInfoOverlayLingpetCardSpecs.get_display_name("") == "링펫", "blank pet id should keep the generic Ringpet label")
+	_expect(CharacterInfoOverlayLingpetCardSpecs.get_display_name("") == "수호령", "blank pet id should keep the generic guardian-spirit label")
 
 
 func _verify_unlock_projection() -> void:

@@ -38,8 +38,8 @@ func _verify_source_contract() -> void:
 	# Bar hover tooltips: the caller must thread mouse/hover into draw_affinity_status
 	# and the drawer must publish both bar tooltip bodies through _fill_hover_data.
 	_expect(presenter_source.find("draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale, mouse_pos, hover_data)") >= 0, "TAB affinity/satiety draw should receive mouse_pos + hover_data for bar tooltips")
-	_expect(presenter_source.find("이번 판 동안 링펫과 쌓은 교감 수치입니다") >= 0, "교감 bar hover should publish an affinity tooltip body")
-	_expect(presenter_source.find("링펫의 포만도입니다. 시간이 지나면 서서히 줄고") >= 0, "포만도 bar hover should publish a satiety tooltip body")
+	_expect(presenter_source.find("이번 판 동안 수호령과 쌓은 교감 수치입니다") >= 0, "교감 bar hover should publish an affinity tooltip body")
+	_expect(presenter_source.find("수호령의 포만도입니다. 시간이 지나면 서서히 줄고") >= 0, "포만도 bar hover should publish a satiety tooltip body")
 
 
 func _verify_runtime_snapshot_merge() -> void:

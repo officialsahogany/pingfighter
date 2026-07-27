@@ -95,7 +95,7 @@ static func draw_panel(
 	slot_tab_rects.clear()
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, section_color, section_border, accent_blue)
 	_draw_paw_icon(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 13.0, Color(0.92, 0.96, 1.0, 0.95))
-	_draw_text_xy(canvas, font, "링펫", rect.position.x + 36.0, rect.position.y + 24.0, 13, text_soft, ui_text_scale)
+	_draw_text_xy(canvas, font, "수호령", rect.position.x + 36.0, rect.position.y + 24.0, 13, text_soft, ui_text_scale)
 	_draw_lingpet_slot_tabs(canvas, font, rect, snapshot, slot_tab_rects, accent_blue, slot_fill, empty_text_color, text_soft, ui_text_scale)
 	var content_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)
 	canvas.draw_rect(content_rect, grid_fill)
@@ -171,10 +171,10 @@ static func draw_non_companion_panel(
 	var progress: float = clamp(float(hits) / float(required_hits), 0.0, 1.0)
 	var compact: bool = content_rect.size.x < 260.0 or content_rect.size.y < 145.0
 	if state == "none" and empty_ring_texture != null and not compact:
-		# No-egg hero layout (mockup): centered text block on top, the large
-		# unhatched crystal egg filling the space below.
+		# No-egg hero layout: centered text block on top, with the large
+		# unhatched guardian-spirit porcelain egg filling the space below.
 		var none_center_x: float = content_rect.get_center().x
-		var none_title: String = str(snapshot.get("title", "링펫 없음"))
+		var none_title: String = str(snapshot.get("title", "수호령 없음"))
 		var none_subtitle: String = str(snapshot.get("subtitle", "미해금"))
 		var none_body: String = str(snapshot.get("body", ""))
 		_draw_centered_text(canvas, font, none_title, none_center_x, content_rect.position.y + 30.0, 16, Color.WHITE, ui_text_scale)
@@ -208,7 +208,7 @@ static func draw_non_companion_panel(
 	else:
 		draw_egg_icon(canvas, icon_rect, state, progress, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
 
-	var title: String = str(snapshot.get("title", "링펫 없음"))
+	var title: String = str(snapshot.get("title", "수호령 없음"))
 	var subtitle: String = str(snapshot.get("subtitle", "미해금"))
 	var body: String = str(snapshot.get("body", ""))
 	_draw_text_xy(canvas, font, title, text_x, text_y, 15, Color.WHITE, ui_text_scale)
@@ -245,7 +245,7 @@ static func draw_companion_panel(
 	ui_text_scale: float,
 	panel_animation_time: float = 0.0
 ) -> Dictionary:
-	var title: String = str(snapshot.get("title", "링펫"))
+	var title: String = str(snapshot.get("title", "수호령"))
 	var subtitle: String = str(snapshot.get("subtitle", "동행 중"))
 	var pet_id := str(snapshot.get("pet_id", "")).strip_edges().to_lower()
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
@@ -528,8 +528,8 @@ static func draw_affinity_status(
 			hover_data,
 			level_text,
 			value_text,
-			LanguageSettings.translate_text("이번 판 동안 링펫과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.")
-				+ " " + LanguageSettings.translate_text("링펫을 클릭하거나 E 키(패드 RT)로 교감할 수 있습니다."),
+			LanguageSettings.translate_text("이번 판 동안 수호령과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.")
+				+ " " + LanguageSettings.translate_text("수호령을 클릭하거나 E 키(패드 RT)로 교감할 수 있습니다."),
 			Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 1.0),
 			affinity_hover_rect
 		)
@@ -540,7 +540,7 @@ static func draw_affinity_status(
 				hover_data,
 				LanguageSettings.translate_text("포만도"),
 				str(satiety_state.get("value", "")),
-				LanguageSettings.translate_text("링펫의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다."),
+				LanguageSettings.translate_text("수호령의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다."),
 				_satiety_strip_color(satiety_state, stat_buff_color),
 				satiety_hover_rect
 			)
@@ -741,7 +741,7 @@ const SLOT_TAB_GAP := 4.0
 const SLOT_TAB_MAX_COUNT := 3
 
 
-# Draws up to 3 acquired-lingpet tabs to the right of the "링펫" header. Each
+# Draws up to 3 acquired-lingpet tabs to the right of the "수호령" header. Each
 # occupied tab appends {rect, slot_index, pet_id} to slot_tab_rects, which the
 # overlay click handler (_try_handle_lingpet_slot_tab_click) reads to switch the
 # active companion (lingpet_egg_runtime.switch_lingpet_slot). Tabs sit in the
@@ -768,7 +768,7 @@ static func _draw_lingpet_slot_tabs(
 	# Anchor after the paw icon + title (title draws at rect.x + 36 since the
 	# section glyph pass) so the tabs never cover the section label.
 	var header_x: float = rect.position.x + 36.0
-	var header_w: float = _text_size(font, "링펫", 13, ui_text_scale).x
+	var header_w: float = _text_size(font, "수호령", 13, ui_text_scale).x
 	var gap: float = SLOT_TAB_GAP * ui_text_scale
 	var start_x: float = header_x + header_w + 12.0 * ui_text_scale
 	var avail: float = rect.end.x - 8.0 - start_x
@@ -856,7 +856,7 @@ static func get_display_name(lingpet_id: String) -> String:
 		"maribo":
 			return "마리보"
 		"":
-			return "링펫"
+			return "수호령"
 		_:
 			return lingpet_id
 
@@ -871,7 +871,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 0.0))
 		var skill_description: String = str(snapshot.get("companion_skill_description", "")).strip_edges()
 		if skill_description == "":
-			skill_description = "링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다."
+			skill_description = "수호령이 전투 중 자동으로 사용하는 액티브 스킬입니다."
 		var icon_texture_id := str(snapshot.get("companion_skill_icon_path", "")).strip_edges()
 		var skill_level: int = int(snapshot.get("companion_skill_level", 0))
 		var active_level_label := "Lv.%d · " % skill_level if skill_level > 0 else ""
@@ -894,7 +894,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		var second_active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration_1", 0.0))
 		var second_skill_description: String = str(snapshot.get("companion_skill_description_1", "")).strip_edges()
 		if second_skill_description == "":
-			second_skill_description = "두 번째 액티브 슬롯에 장착된 링펫 스킬입니다."
+			second_skill_description = "두 번째 액티브 슬롯에 장착된 수호령 스킬입니다."
 		var second_icon_texture_id := str(snapshot.get("companion_skill_icon_path_1", "")).strip_edges()
 		var second_skill_level: int = int(snapshot.get("companion_skill_level_1", 0))
 		var second_active_level_label := "Lv.%d / " % second_skill_level if second_skill_level > 0 else ""
@@ -920,7 +920,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			passive_name = "패시브 스킬"
 		var passive_description: String = str(snapshot.get("companion_passive_skill_description", "")).strip_edges()
 		if passive_description == "":
-			passive_description = "링펫에게 배정된 패시브 스킬입니다."
+			passive_description = "수호령에게 배정된 패시브 스킬입니다."
 		var passive_subtitle := LanguageSettings.translate_text("패시브")
 		var passive_level: int = int(snapshot.get("companion_passive_skill_level", 0))
 		if passive_level > 0:
@@ -955,7 +955,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		if fallback_passive_title == "":
 			fallback_passive_title = "공명 증폭"
 		if fallback_passive_description == "":
-			fallback_passive_description = "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다."
+			fallback_passive_description = "플레이어가 공을 받아칠 때 기력 획득량이 증가합니다."
 		specs.append({
 			"id": fallback_passive_id,
 			"title": fallback_passive_title,
@@ -972,7 +972,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			second_passive_name = "2nd passive"
 		var second_passive_description: String = str(snapshot.get("companion_passive_skill_description_1", "")).strip_edges()
 		if second_passive_description == "":
-			second_passive_description = "두 번째 패시브 슬롯에 장착된 링펫 스킬입니다."
+			second_passive_description = "두 번째 패시브 슬롯에 장착된 수호령 스킬입니다."
 		var second_passive_subtitle := "2nd passive"
 		var second_passive_level: int = int(snapshot.get("companion_passive_skill_level_1", 0))
 		if second_passive_level > 0:
@@ -1024,7 +1024,7 @@ static func _unlock_candidate_spec(pet_id: String, choice_key: String, candidate
 		title = candidate_id
 	var body := str(entry.get("description", "")).strip_edges()
 	if body == "":
-		body = "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."
+		body = "선택하면 이 스킬이 수호령 슬롯에 고정됩니다."
 	var icon_path := str(entry.get("icon_texture_path", "")).strip_edges()
 	if not active_choice and icon_path == "":
 		icon_path = LingpetCatalog.get_passive_icon_path(pet_id, candidate_id)
@@ -1115,11 +1115,11 @@ static func build_stats(
 	# Tooltips describe the ACTUAL equipped lingpet, not a hardcoded "마리보".
 	var pet_name: String = str(snapshot.get("title", "")).strip_edges()
 	if pet_name == "":
-		pet_name = "링펫"
+		pet_name = "수호령"
 	var rows := [
 		make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, LanguageSettings.translate_text("%s이(가) 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다.") % [pet_name, CharacterInfoOverlayFormatter.format_plain_number(speed_min), CharacterInfoOverlayFormatter.format_plain_number(speed_max)]),
 		make_display_stat_row("몸집크기", "%sx%spx" % [CharacterInfoOverlayFormatter.format_plain_number(catch_width), CharacterInfoOverlayFormatter.format_plain_number(catch_height)], Color.WHITE, LanguageSettings.translate_text("%s이(가) 공을 튕겨낼 때 쓰는 실제 판정 범위입니다.") % pet_name),
-		make_display_stat_row("게이지 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
+		make_display_stat_row("기력 획득량", "%spt" % CharacterInfoOverlayFormatter.format_plain_number(hit_gain), stat_buff_color, "수호령이 공을 직접 튕겼을 때 얻는 공통 기본 기력 획득량입니다."),
 	]
 	# Defense is a PATROL-only local guard, so flight-style lingpets report a 0 rate
 	# (see lingpet_egg_runtime._get_current_defense_rate). Hide the row entirely for

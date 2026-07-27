@@ -1,7 +1,7 @@
 {
   "asset_id": "koyora_puppet_control_cast_original_idle_big_two_arm_v3",
   "pet_id": "koyora",
-  "display_name": "Koyora",
+  "display_name": "살각시",
   "created_at": "2026-06-10",
   "runtime_usage": "koyora_puppet_control_active_companion_cast_pose",
   "output_sheet": "res://assets/sprites/lingpet/koyora_puppet_control_cast.png",

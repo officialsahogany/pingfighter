@@ -55,7 +55,7 @@ const OVERLAY_SLOT_FILL := Color(12.0 / 255.0, 17.0 / 255.0, 29.0 / 255.0, 0.96)
 # The draw-side alpha lever lives in character_info_overlay_frame_presenter.gd.
 const EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png"
 const EMPTY_HERO_PERK_CRYSTAL_PATH := "res://assets/ui/character_info/character_info_empty_perk_crystal_imagegen_v1.png"
-const EMPTY_HERO_RINGPET_EGG_PATH := "res://assets/ui/character_info/character_info_empty_ringpet_egg_imagegen_v1.png"
+const EMPTY_HERO_RINGPET_EGG_PATH := "res://assets/ui/character_info/character_info_empty_guardian_spirit_egg_traditional_v1.png"
 const EMPTY_HERO_PASSIVE_CLUSTER_PATH := "res://assets/ui/character_info/character_info_empty_passive_crystal_cluster_imagegen_v1.png"
 # Slice C scene dressing: human hologram figure, machined empty-slot socket, mystic backdrop.
 const HUMAN_HOLOGRAM_PATH := "res://assets/ui/character_info/character_info_human_hologram_imagegen_v1.png"

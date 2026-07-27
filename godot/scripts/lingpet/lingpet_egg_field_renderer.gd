@@ -30,11 +30,11 @@ const HATCH_BREAK_SHARD_COUNT := 9
 const HATCH_BREAK_SHARD_DISTANCE := 44.0
 const HATCH_BREAK_SHARD_GRAVITY := 20.0
 const EGG_BARE_VARIANT_PATHS := [
-	"res://assets/sprites/lingpet/resonance_egg_bare_variant_0.png",
-	"res://assets/sprites/lingpet/resonance_egg_bare_variant_1.png",
-	"res://assets/sprites/lingpet/resonance_egg_bare_variant_2.png",
-	"res://assets/sprites/lingpet/resonance_egg_bare_variant_3.png",
-	"res://assets/sprites/lingpet/resonance_egg_bare_variant_4.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_variant_0_v1.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_variant_1_v1.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_variant_2_v1.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_variant_3_v1.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_variant_4_v1.png",
 ]
 const EGG_VARIANT_GLOW := [
 	Color(0.36, 0.82, 1.0),
@@ -43,13 +43,13 @@ const EGG_VARIANT_GLOW := [
 	Color(1.0, 0.46, 0.64),
 	Color(0.42, 0.92, 0.64),
 ]
-# 히트 누적 크랙 PNG 오버레이(2026-07-06 퀄업, WIP 파괴 후 재배선): 512
-# 변종 캔버스와 1:1 정렬된 공유 크랙 2단 — 같은 rect·같은 회전쿼드 변환을
+# 히트 누적 금빛 도자기 균열 PNG 오버레이(수호령알 전통 디자인): 512
+# 변형 캔버스와 1:1 정렬된 공유 균열 2단 — 같은 rect·같은 회전쿼드 변환을
 # 지나므로 회전동기가 공짜다. 진행 코히런스: stage2 = stage1 ∪ 신규 웹
 # (금은 자라기만 한다 — 재생성 시 필수 규칙). 로드 실패 시 절차 크랙 폴백.
 const EGG_CRACK_STAGE_TEXTURE_PATHS := [
-	"res://assets/sprites/lingpet/resonance_egg_bare_crack_stage_1.png",
-	"res://assets/sprites/lingpet/resonance_egg_bare_crack_stage_2.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_crack_stage_1_v1.png",
+	"res://assets/sprites/lingpet/guardian_spirit_egg_traditional_crack_stage_2_v1.png",
 ]
 
 var _variant_textures: Array = []

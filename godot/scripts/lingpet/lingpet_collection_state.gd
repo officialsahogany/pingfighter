@@ -5,7 +5,7 @@ const STATE_COMPANION := "companion"
 const MAX_BATTLE_SLOTS := 3
 const MAX_OWNED := MAX_BATTLE_SLOTS
 
-# 테스트(주니어) 난이도에서 시작 링펫 알을 스매셔와 동일하게 지급받는 캐릭터들.
+# 테스트(주니어) 난이도에서 시작 수호령 알을 스매셔와 동일하게 지급받는 캐릭터들.
 # 부화 후보(hatch candidates)의 unlock이 character_type == "smasher"로 게이트돼 있어,
 # 이 캐릭터들은 주니어 한정으로 hatch context의 character_type를 smasher로 승격해
 # 같은 시작 알 풀을 공유한다(is_first_lingpet_egg_eligible의 표준 링코어 지급도 같은

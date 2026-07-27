@@ -254,10 +254,11 @@ func _verify_catalog_and_source_wiring() -> void:
 	var spec: Dictionary = GameplayCoreModuleCatalog.new().get_spec("lingpet_debug_picker")
 	_expect(str(spec.get("path", "")) == "res://scripts/core/lingpet_debug_picker.gd", "lingpet debug picker should be registered in the core module catalog")
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_input_controller.gd")
+	var shortcut_source := FileAccess.get_file_as_string("res://scripts/core/battle_debug_menu_shortcut_router.gd")
 	var frame_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_frame_controller.gd")
 	var gate_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_modal_gate_controller.gd")
 	var picker_source := FileAccess.get_file_as_string("res://scripts/core/lingpet_debug_picker.gd")
-	_expect(input_source.find("KEY_F7") >= 0 and input_source.find("DEBUG_MENU_LINGPET_PICKER") >= 0, "overlay input should wire F7 to the lingpet debug menu")
+	_expect(input_source.find("BattleDebugMenuShortcutRouter") >= 0 and shortcut_source.find("LINGPET_DEBUG_KEY") >= 0 and shortcut_source.find("DEBUG_MENU_LINGPET_PICKER") >= 0, "overlay input should delegate F7 to the lingpet debug menu shortcut router")
 	_expect(frame_source.find("draw.overlay.lingpet_debug") >= 0, "overlay frame controller should draw the lingpet debug menu")
 	_expect(frame_source.find("process.overlay.lingpet_debug_queue_redraw") >= 0, "overlay frame controller should redraw F7 lingpet debug for animated thumbnails")
 	_expect(gate_source.find("is_lingpet_debug_picker_open") >= 0 and gate_source.find("physics.modal_gate.lingpet_debug") >= 0, "modal gate should expose lingpet debug as a blocking modal")
@@ -444,7 +445,7 @@ func _verify_f7_opens_lingpet_debug_picker() -> void:
 		and FileAccess.file_exists("res://assets/sprites/lingpet/rahoset_companion_click_ritual_linked_v2_autosprite_98f.png"),
 		"Rahoset source, exact-magenta source, and distinct F7 debug AutoSprite click-transition sheets should ship under the lingpet asset tree"
 	)
-	_expect(LingpetCatalog.get_display_name("koyora") == "코요라", "Koyora catalog display name should use the accepted Korean name")
+	_expect(LingpetCatalog.get_display_name("koyora") == "살각시", "Koyora compatibility id should expose the rebranded Korean display name")
 	_expect(
 		LingpetCatalog.get_visual_path("koyora", "cutin_art") == "res://assets/sprites/lingpet/puppet_miko_ringpet_cutin_art_imagegen_v3.png",
 		"Koyora static Live2D source art should use the accepted attached-tail puppet miko artwork"

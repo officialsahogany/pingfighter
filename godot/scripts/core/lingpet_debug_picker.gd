@@ -280,7 +280,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	canvas.draw_rect(panel_rect, Color(0.72, 0.82, 1.0, 0.86), false, 2.0)
 
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 32.0), "F7 \ub9c1\ud3ab \ub514\ubc84\uadf8 \uc120\ud0dd", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, Color(0.92, 0.97, 1.0))
-	var info := "현재: %s  /  클릭·숫자: 링펫 선택, Q/E 액티브, Z/X 패시브, R/F 액티브 Lv, V/C 패시브 Lv, Enter 적용" % current_name
+	var info := "현재: %s  /  클릭·숫자: 수호령 선택, Q/E 액티브, Z/X 패시브, R/F 액티브 Lv, V/C 패시브 Lv, Enter 적용" % current_name
 	canvas.draw_string(font, panel_rect.position + Vector2(22.0, 58.0), info, HORIZONTAL_ALIGNMENT_LEFT, panel_rect.size.x - 44.0, 13, Color(0.74, 0.82, 0.90))
 	_draw_defense_slider(canvas, font, panel_rect)
 	_draw_move_speed_slider(canvas, font, panel_rect)
@@ -1219,7 +1219,7 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 		"orbi":
 			return "세라비"
 		"koyora":
-			return "코요라"
+			return "살각시"
 		"nekuring":
 			return "네쿠링"
 		"monkeyring":
@@ -1227,7 +1227,7 @@ func _get_display_name(pet_id: String, entry: Dictionary) -> String:
 		"rabi":
 			return "모락모랑"
 		"onimaru":
-			return "오니마루"
+			return "방망깨비"
 		"rahoset":
 			return "라호세트"
 	var fallback := str(entry.get("display_name", pet_id))
@@ -1257,9 +1257,9 @@ func _get_summary_text(pet_id: String) -> String:
 		"orbi":
 			return "푸른 링 궤도로 공 반격 + 둔화장 보조"
 		"koyora":
-			return "인형실과 청록 부적으로 공명하는 무녀 링펫"
+			return "인형실과 청록 부적으로 공명하는 무녀 수호령"
 		"nekuring":
-			return "해골 링과 영혼 코어로 공명하는 네크로 링펫"
+			return "해골 링과 영혼 코어로 공명하는 네크로 수호령"
 		"monkeyring":
 			return "바나나 주머니와 꼬리 다이아 링파츠 라투디 후보"
 		"rabi":

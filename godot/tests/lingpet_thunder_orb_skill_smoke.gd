@@ -137,6 +137,7 @@ func _verify_dispatcher_and_catalog() -> void:
 	_expect(LingpetSkillDispatcher.is_supported_kind("thunder_orb"), "thunder_orb should be a supported lingpet runtime kind")
 	_expect(LingpetSkillDispatcher.has_supported_runtime("lumion_thunder_orb"), "lumion_thunder_orb should route to a supported runtime")
 	_expect(LingpetSkillDispatcher.is_thunder_orb("lumion_thunder_orb"), "dispatcher should expose a Thunder Orb helper")
+	_expect(LingpetCatalog.get_display_name("lumion") == "벼락여우", "Lumion compatibility id should expose the rebranded Korean display name")
 
 	var skill: Dictionary = LingpetCatalog.get_active_skill_entry("lumion_thunder_orb")
 	_expect(not skill.is_empty(), "Lumion catalog should expose Thunder Orb metadata")

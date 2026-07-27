@@ -12,7 +12,7 @@ static func get_display_name(lingpet_id: String) -> String:
 		"maribo":
 			return "마리보"
 		"":
-			return "링펫"
+			return "수호령"
 		_:
 			return lingpet_id
 
@@ -27,7 +27,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		var active_cooldown := float(snapshot.get("companion_skill_cooldown_duration", 0.0))
 		var skill_description := str(snapshot.get("companion_skill_description", "")).strip_edges()
 		if skill_description.is_empty():
-			skill_description = "링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다."
+			skill_description = "수호령이 전투 중 자동으로 사용하는 액티브 스킬입니다."
 		var icon_texture_id := str(snapshot.get("companion_skill_icon_path", "")).strip_edges()
 		var skill_level := int(snapshot.get("companion_skill_level", 0))
 		var active_level_label := "Lv.%d · " % skill_level if skill_level > 0 else ""
@@ -50,7 +50,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		var second_active_cooldown := float(snapshot.get("companion_skill_cooldown_duration_1", 0.0))
 		var second_skill_description := str(snapshot.get("companion_skill_description_1", "")).strip_edges()
 		if second_skill_description.is_empty():
-			second_skill_description = "두 번째 액티브 슬롯에 장착된 링펫 스킬입니다."
+			second_skill_description = "두 번째 액티브 슬롯에 장착된 수호령 스킬입니다."
 		var second_icon_texture_id := str(snapshot.get("companion_skill_icon_path_1", "")).strip_edges()
 		var second_skill_level := int(snapshot.get("companion_skill_level_1", 0))
 		var second_active_level_label := "Lv.%d / " % second_skill_level if second_skill_level > 0 else ""
@@ -76,7 +76,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			passive_name = "패시브 스킬"
 		var passive_description := str(snapshot.get("companion_passive_skill_description", "")).strip_edges()
 		if passive_description.is_empty():
-			passive_description = "링펫에게 배정된 패시브 스킬입니다."
+			passive_description = "수호령에게 배정된 패시브 스킬입니다."
 		var passive_subtitle := LanguageSettings.translate_text("패시브")
 		var passive_level := int(snapshot.get("companion_passive_skill_level", 0))
 		if passive_level > 0:
@@ -111,7 +111,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 		if fallback_passive_title.is_empty():
 			fallback_passive_title = "공명 증폭"
 		if fallback_passive_description.is_empty():
-			fallback_passive_description = "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다."
+			fallback_passive_description = "플레이어가 공을 받아칠 때 기력 획득량이 증가합니다."
 		specs.append({
 			"id": fallback_passive_id,
 			"title": fallback_passive_title,
@@ -128,7 +128,7 @@ static func get_skill_specs(snapshot: Dictionary, stat_buff_color: Color) -> Arr
 			second_passive_name = "2nd passive"
 		var second_passive_description := str(snapshot.get("companion_passive_skill_description_1", "")).strip_edges()
 		if second_passive_description.is_empty():
-			second_passive_description = "두 번째 패시브 슬롯에 장착된 링펫 스킬입니다."
+			second_passive_description = "두 번째 패시브 슬롯에 장착된 수호령 스킬입니다."
 		var second_passive_subtitle := "2nd passive"
 		var second_passive_level := int(snapshot.get("companion_passive_skill_level_1", 0))
 		if second_passive_level > 0:
@@ -180,7 +180,7 @@ static func unlock_candidate_spec(pet_id: String, choice_key: String, candidate_
 		title = candidate_id
 	var body := str(entry.get("description", "")).strip_edges()
 	if body.is_empty():
-		body = "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."
+		body = "선택하면 이 스킬이 수호령 슬롯에 고정됩니다."
 	var icon_path := str(entry.get("icon_texture_path", "")).strip_edges()
 	if not active_choice and icon_path.is_empty():
 		icon_path = LingpetCatalog.get_passive_icon_path(pet_id, candidate_id)
