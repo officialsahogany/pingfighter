@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemCooldownComposer := preload("res://scripts/items/active_item_cooldown_composer.gd")
+const ActiveItemSlotCooldownState := preload("res://scripts/items/active_item_slot_cooldown_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
@@ -11,80 +12,42 @@ const MAX_ACTIVE_ITEM_SLOTS := 3
 const ALCHEMY_NOTICE_DURATION_MSEC := 1000
 
 var slot_key_pressed: Dictionary = {}
-var last_item_use_msec: int = -1000000
 var gamepad_selected_use_pressed := false
 var gamepad_slot_cycle_direction := 0
-var cooldown_pause_started_msec := -1
-
-# [AIDBG] manual diagnostic toggle for "active item unusable after stage transition".
-# Keep false in committed code; flip to true locally only while diagnosing.
-# Gated as a const so real-play and perf-capture logs stay clean by default.
-const _AIDBG := false
+var _cooldown_state: Object = ActiveItemSlotCooldownState.new()
+var last_item_use_msec: int:
+	get:
+		return int(_cooldown_state.last_item_use_msec)
+	set(value):
+		_cooldown_state.last_item_use_msec = value
+var cooldown_pause_started_msec: int:
+	get:
+		return int(_cooldown_state.cooldown_pause_started_msec)
+	set(value):
+		_cooldown_state.cooldown_pause_started_msec = value
 
 
 func reset() -> void:
 	slot_key_pressed.clear()
-	last_item_use_msec = -1000000
 	gamepad_selected_use_pressed = false
 	gamepad_slot_cycle_direction = 0
-	cooldown_pause_started_msec = -1
+	_cooldown_state.reset()
 
 
 func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
-	last_item_use_msec = -1000000
-	cooldown_pause_started_msec = -1
-	var result: Array = active_item_slots.duplicate(true)
-	for i in range(result.size()):
-		var slot: Variant = result[i]
-		if not (slot is Dictionary):
-			continue
-		var item: Dictionary = slot
-		var item_identity: String = _get_item_identity(item)
-		if str(item.get("name", "")) == "" and item_identity != "":
-			item["name"] = item_identity
-		if item.has("last_use_msec"):
-			item["last_use_msec"] = -1
-		if item.has("last_use"):
-			item["last_use"] = -1
-		result[i] = item
-	return result
+	return _cooldown_state.reset_for_stage_transition(active_item_slots)
 
 
 func pause_cooldowns(time_now: int) -> void:
-	if cooldown_pause_started_msec >= 0:
-		return
-	cooldown_pause_started_msec = max(0, time_now)
+	_cooldown_state.pause(time_now)
 
 
 func resume_cooldowns(time_now: int, active_item_slots: Array = []) -> Array:
-	if cooldown_pause_started_msec < 0:
-		return active_item_slots
-	var pause_duration_msec: int = max(0, time_now - cooldown_pause_started_msec)
-	cooldown_pause_started_msec = -1
-	if pause_duration_msec <= 0:
-		return active_item_slots
-	if last_item_use_msec >= 0:
-		last_item_use_msec += pause_duration_msec
-	var result: Array = active_item_slots.duplicate(true)
-	for i in range(result.size()):
-		var slot: Variant = result[i]
-		if not (slot is Dictionary):
-			continue
-		var item: Dictionary = slot
-		if item.has("last_use_msec"):
-			var last_use_msec: int = int(item.get("last_use_msec", -1))
-			if last_use_msec >= 0:
-				item["last_use_msec"] = last_use_msec + pause_duration_msec
-		if item.has("last_use"):
-			var last_use: int = int(item.get("last_use", -1))
-			if last_use >= 0:
-				item["last_use"] = last_use + pause_duration_msec
-		result[i] = item
-	return result
+	return _cooldown_state.resume(time_now, active_item_slots)
 
 
 func get_cooldown_time_msec(current_time_msec: int) -> int:
-	return cooldown_pause_started_msec if cooldown_pause_started_msec >= 0 else current_time_msec
+	return _cooldown_state.get_effective_time_msec(current_time_msec)
 
 
 func build_starting_slots() -> Array:
@@ -103,18 +66,6 @@ func update(
 		return {}
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
-	if _AIDBG:
-		var _aidbg_edge: int = _aidbg_slot_key_edge(active_item_slots.size())
-		var _aidbg_pad: bool = GamepadInput.is_active_item_use_pressed() and not gamepad_selected_use_pressed
-		if _aidbg_edge >= 0 or _aidbg_pad:
-			print("[AIDBG] use attempt key_slot=%d pad=%s empty=%s input_locked=%s slots=%d | %s" % [
-				_aidbg_edge,
-				str(_aidbg_pad),
-				str(active_item_slots.is_empty()),
-				str(input_locked),
-				active_item_slots.size(),
-				_aidbg_lock_breakdown(registry),
-			])
 	if active_item_slots.is_empty() or input_locked:
 		_sync_slot_input_states()
 		return {
@@ -320,7 +271,7 @@ func store_active_item(
 	var item_data: Dictionary = source_item_data.duplicate(true)
 	item_data = _apply_item_runtime_visual_overrides(item_data, registry)
 	item_data["revealed"] = true
-	item_data["last_use_msec"] = last_item_use_msec
+	item_data["last_use_msec"] = _cooldown_state.get_inherited_last_use_msec()
 	active_item_slots.append(item_data)
 	var stored_slot_index: int = active_item_slots.size() - 1
 	field_item["stored_active_slot_index"] = stored_slot_index
@@ -352,7 +303,7 @@ func append_item_data(
 	var next_item: Dictionary = item_data.duplicate(true)
 	next_item = _apply_item_runtime_visual_overrides(next_item, registry)
 	next_item["revealed"] = true
-	next_item["last_use_msec"] = last_item_use_msec
+	next_item["last_use_msec"] = _cooldown_state.get_inherited_last_use_msec()
 	active_item_slots.append(next_item)
 	owner.set("active_item_slots", active_item_slots)
 	_select_slot(registry, active_item_slots.size() - 1)
@@ -390,13 +341,7 @@ func _try_use_slot(
 	var applied: bool = bool(apply_item_effect_callback.call(item_data, owner, registry))
 	_perf_end(perf_logger, "physics.callback.active_items.use.%s" % item_label, sample_start)
 	if not applied:
-		if _AIDBG:
-			print("[AIDBG] APPLY-FAILED slot=%d item=%s keys=%s" % [
-				slot_index, item_label, str(item_data.keys()),
-			])
 		return false
-	if _AIDBG:
-		print("[AIDBG] USED slot=%d item=%s" % [slot_index, item_label])
 	sample_start = _perf_begin(perf_logger)
 	_apply_active_item_use_gauge_bonus(owner, registry)
 	_perf_end(perf_logger, "physics.callback.active_items.use_gauge_bonus", sample_start)
@@ -422,7 +367,7 @@ func _try_use_slot(
 	# reads as "the first item does nothing" (live godot.log: a gauge_charge auto-use
 	# left a lone dash_boost BLOCKED by global-cooldown for the next ~7s).
 	if not ignore_cooldown and _uses_global_cooldown(item_data):
-		last_item_use_msec = now_msec
+		_cooldown_state.start_global_cooldown(now_msec)
 	if recycle_triggered:
 		_mark_alchemy_notice(item_data, now_msec)
 		active_item_slots[slot_index] = item_data
@@ -433,12 +378,7 @@ func _try_use_slot(
 	else:
 		active_item_slots[slot_index] = item_data
 	if not ignore_cooldown and _uses_global_cooldown(item_data):
-		for i in range(active_item_slots.size()):
-			var other_value: Variant = active_item_slots[i]
-			if other_value is Dictionary:
-				var other_item: Dictionary = other_value
-				other_item["last_use_msec"] = now_msec
-				active_item_slots[i] = other_item
+		_cooldown_state.propagate_global_cooldown(active_item_slots, now_msec)
 	return true
 
 
@@ -505,24 +445,12 @@ func _sync_slot_input_states() -> void:
 
 func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> bool:
 	var cooldown_msec: int = _get_effective_active_item_cooldown_msec(item_data, registry)
-	if _uses_global_cooldown(item_data) and now_msec - last_item_use_msec < cooldown_msec:
-		if _AIDBG:
-			print("[AIDBG] BLOCKED global-cooldown item=%s now=%d anchor=%d remain=%dms cd=%d" % [
-				_get_item_identity(item_data), now_msec, last_item_use_msec,
-				cooldown_msec - (now_msec - last_item_use_msec), cooldown_msec,
-			])
-		return false
-	var last_use_msec: int = int(item_data.get("last_use_msec", item_data.get("last_use", -1)))
-	if last_use_msec < 0:
-		return true
-	if now_msec - last_use_msec < cooldown_msec:
-		if _AIDBG:
-			print("[AIDBG] BLOCKED per-item-cooldown item=%s now=%d last_use=%d remain=%dms cd=%d" % [
-				_get_item_identity(item_data), now_msec, last_use_msec,
-				cooldown_msec - (now_msec - last_use_msec), cooldown_msec,
-			])
-		return false
-	return true
+	return _cooldown_state.is_item_ready(
+		item_data,
+		now_msec,
+		cooldown_msec,
+		_uses_global_cooldown(item_data)
+	)
 
 
 func _uses_global_cooldown(item_data: Dictionary) -> bool:
@@ -707,60 +635,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-# [AIDBG] temporary diagnostic helpers — remove with the rest of the _AIDBG blocks.
-func _aidbg_slot_key_edge(slot_count: int) -> int:
-	var limit: int = int(min(slot_count, SLOT_KEY_CODES.size()))
-	for i in range(limit):
-		if Input.is_key_pressed(int(SLOT_KEY_CODES[i])) and not bool(slot_key_pressed.get(i, false)):
-			return i
-	return -1
-
-
-func _aidbg_lock_breakdown(registry: Object) -> String:
-	var rs: Object = _get_instance(registry, "round_flow_state")
-	var waiting: bool = rs != null and rs.has_method("is_waiting_for_serve") and bool(rs.is_waiting_for_serve())
-	var rt: Object = _get_instance(registry, "active_item_runtime")
-	var ctrl_locked: bool = rt != null and rt.has_method("is_player_control_locked") and bool(rt.is_player_control_locked())
-	var aipill: bool = rt != null and rt.has_method("is_aipill_active") and bool(rt.is_aipill_active())
-	return "waiting_for_serve=%s landing_intro=%s ball_spawn_intro=%s ctrl_locked=%s aipill=%s pending_throws=%s" % [
-		str(waiting),
-		str(_aidbg_module_active(registry, "stage_landing_intro")),
-		str(_aidbg_module_active(registry, "stage_ball_spawn_intro")),
-		str(ctrl_locked),
-		str(aipill),
-		_aidbg_pending_throw_summary(rt),
-	]
-
-
-func _aidbg_module_active(registry: Object, key: String) -> bool:
-	var module: Object = _get_instance(registry, key)
-	return module != null and module.has_method("is_active") and bool(module.is_active())
-
-
-# [AIDBG] if ctrl_locked is true, this shows WHICH pending throw is stuck and
-# how overdue its release is (negative remain = should have released already).
-func _aidbg_pending_throw_summary(rt: Object) -> String:
-	if rt == null:
-		return "?"
-	var throw_controller_value: Variant = rt.get("throw_controller")
-	if not (throw_controller_value is Object):
-		return "?"
-	var throw_controller: Object = throw_controller_value
-	if not throw_controller.has_method("get_pending_throws"):
-		return "?"
-	var pending: Array = throw_controller.get_pending_throws()
-	if pending.is_empty():
-		return "0"
-	var now_msec: int = Time.get_ticks_msec()
-	var parts: Array = []
-	for entry_value in pending:
-		if not (entry_value is Dictionary):
-			continue
-		var entry: Dictionary = entry_value
-		parts.append("%s(remain=%dms)" % [
-			str(entry.get("item_name", "?")),
-			int(entry.get("release_msec", now_msec)) - now_msec,
-		])
-	return "%d[%s]" % [pending.size(), ", ".join(PackedStringArray(parts))]
