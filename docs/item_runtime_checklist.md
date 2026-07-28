@@ -1718,6 +1718,29 @@ Godot-first note:
   update callback. The outer physics gate was sampled before that callback and
   otherwise permits one gameplay tick between the cinematic and its successor.
 
+### 4.3. Programmatic item grants — the grant summary is the contract
+
+- `grant_item_to_slot(..., allow_overflow=true)` is NOT a guaranteed store.
+  `ActiveItemSlotController.append_item_data` checks the `can_store_item`
+  callback (`active_item_effect_status.can_store_item` — per-effect gates such
+  as "magnet_field while magnet_field_active") BEFORE the capacity guard, so
+  overflow permission does not bypass an active-effect rejection. Reachable in
+  practice: any duplicate active reward while the same effect is running.
+- Therefore every programmatic reward path (stage-clear reward resolver,
+  victory loot phase, future gacha/chest grants) must check the returned
+  grant summary (`granted > 0` / `failed`) and only mark the reward delivered
+  on success. Never treat "grant was called" as "reward was received".
+- On failure, deliver a deterministic substitute (the shipped pattern is a
+  guaranteed starpoint fallback — see
+  `victory_loot_phase_state._build_starpoint_fallback_reward`) instead of
+  silently completing, and never dump the reward as a field item during a
+  phase that is about to end (result-screen physics gate + stage-transition
+  `field_spawn_controller` reset destroy it).
+- Seal both halves: a fake-resolver leg for the fallback behavior AND a real
+  `ActiveItemRuntime` leg with the effect flag set, proving the rejection and
+  the `granted == 0` summary (reference:
+  `victory_loot_phase_state_smoke.gd`).
+
 ---
 
 ## 5. Godot reset lifecycle (death / main menu return)
