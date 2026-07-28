@@ -192,6 +192,7 @@ func _run() -> void:
 	_verify_real_runtime_effect_gate_forces_starpoint_fallback_premise()
 	_verify_final_win_scoreboard_plays_power_loss_vibration()
 	_verify_loot_defeat_reaches_renderer_facing_actor_context()
+	_verify_boss_body_flash_on_each_drop()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -772,6 +773,54 @@ func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
 	_expect(
 		int(stage2_held_context.get("boss_defeat_frame", -1)) == VictoryLootPhaseState.BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
 		"renderer-facing actor context must carry the stage2 held final defeat frame after the intro"
+	)
+
+
+func _verify_boss_body_flash_on_each_drop() -> void:
+	# 상자가 보스 몸에서 튀어나오는 순간마다 보스 바디 글린트가 트리거되고,
+	# 드랍 간격 안에서 소멸했다가 다음 상자에서 재트리거되는 엔벨로프를 봉인.
+	var loot := VictoryLootPhaseState.new()
+	var owner := SchemaGatedOwner.new()
+	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var registry := FakeRegistry.new()
+	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(loot.start(owner, registry, 5, 0, Callable()), "drop flash leg should start a three-box loot phase")
+	_expect(
+		float(loot.get_status_for_tests().get("drop_flash_timer", -1.0)) == 0.0,
+		"no boss flash should be armed during the defeat-latudi intro"
+	)
+	for _i in range(200):
+		loot.update(1.0 / 60.0)
+		if str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP:
+			break
+	var status: Dictionary = loot.get_status_for_tests()
+	_expect(
+		float(status.get("drop_flash_timer", 0.0)) > 0.0,
+		"first box popping out of the boss body must trigger the boss glint"
+	)
+	_expect(
+		str(status.get("drop_flash_kind", "")) == str((loot.boxes[0] as Dictionary).get("kind", "")),
+		"boss glint should carry the popped box kind tint"
+	)
+	for _i in range(28):
+		loot.update(1.0 / 60.0)
+	status = loot.get_status_for_tests()
+	_expect(
+		float(status.get("drop_flash_timer", -1.0)) == 0.0,
+		"boss glint must decay before the next box drop (distinct pulse per box)"
+	)
+	_expect(
+		str((loot.boxes[1] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_PENDING,
+		"second box should still be pending while the first glint decays"
+	)
+	for _i in range(30):
+		loot.update(1.0 / 60.0)
+		if float(loot.get_status_for_tests().get("drop_flash_timer", 0.0)) > 0.0:
+			break
+	_expect(
+		float(loot.get_status_for_tests().get("drop_flash_timer", 0.0)) > 0.0
+			and str((loot.boxes[1] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP,
+		"every box popping out must retrigger the boss glint"
 	)
 
 

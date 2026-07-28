@@ -8,6 +8,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
+const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -59,6 +60,17 @@ const OPEN_DURATION_SEC := 0.60
 const OPEN_GRANT_PROGRESS := 0.55
 const FINISH_LINGER_SEC := 0.75
 
+# 상자가 보스 몸에서 튀어나오는 순간의 보스 바디 글린트(반짝임). 드랍 간격
+# (0.55s)보다 짧게 잡아 상자마다 별개의 펄스로 읽힌다. 색은 상자 등급 틴트.
+const DROP_FLASH_DURATION_SEC := 0.45
+const DROP_FLASH_GLOW_RADIUS_PX := 84.0
+const DROP_FLASH_SPARKLE_COUNT := 5
+const DROP_FLASH_KIND_COLORS := {
+	BOX_KIND_NORMAL: Color(1.0, 0.86, 0.55),
+	BOX_KIND_ADVANCED: Color(0.55, 0.95, 0.85),
+	BOX_KIND_GUARANTEED_MYTHIC: Color(0.85, 0.6, 1.0),
+}
+
 # 보스 defeat 프레임 클럭: battle_draw_actor_result_context의 defeat 시트 상수
 # 미러. 최종 승리 스코어보드는 파워로스 진동만 틀므로, 슬럼프는 전리품 인트로
 # 에서 0프레임부터 재생된다.
@@ -88,6 +100,8 @@ var _registry: Object = null
 var _current_stage: int = 1
 var _plan_builder: Object = StageClearRewardPlanBuilder.new()
 var _reward_resolver: Object = null
+var _drop_flash_timer: float = 0.0
+var _drop_flash_kind: String = BOX_KIND_NORMAL
 
 
 func start(
@@ -117,6 +131,9 @@ func start(
 	_finish_timer = -1.0
 	_finish_fired = false
 	elapsed_sec = 0.0
+	_drop_flash_timer = 0.0
+	_drop_flash_kind = BOX_KIND_NORMAL
+	ImpactFlareTextureCache.prewarm()
 	active = true
 	_write_owner_state(owner)
 	return true
@@ -125,6 +142,8 @@ func start(
 func reset(owner: Object = null) -> void:
 	active = false
 	elapsed_sec = 0.0
+	_drop_flash_timer = 0.0
+	_drop_flash_kind = BOX_KIND_NORMAL
 	boxes = []
 	collected_rewards = []
 	finish_callback = Callable()
@@ -156,6 +175,9 @@ func update(delta: float) -> void:
 			BOX_PHASE_PENDING:
 				if elapsed_sec >= float(box.get("drop_at_sec", 0.0)):
 					box["phase"] = BOX_PHASE_DROP
+					# 보스 몸에서 상자가 튀어나오는 순간 — 바디 글린트 트리거.
+					_drop_flash_timer = DROP_FLASH_DURATION_SEC
+					_drop_flash_kind = str(box.get("kind", BOX_KIND_NORMAL))
 			BOX_PHASE_DROP:
 				_advance_drop(box, fps_scale)
 			BOX_PHASE_REST:
@@ -170,6 +192,7 @@ func update(delta: float) -> void:
 					_grant_box_reward(box)
 				if open_progress >= 1.0:
 					box["phase"] = BOX_PHASE_DONE
+	_drop_flash_timer = maxf(0.0, _drop_flash_timer - safe_delta)
 	_update_finish(safe_delta)
 
 
@@ -197,6 +220,7 @@ func get_actor_draw_context() -> Dictionary:
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null or not active:
 		return
+	_draw_boss_drop_flash(canvas, shake_offset)
 	for box_value in boxes:
 		if not (box_value is Dictionary):
 			continue
@@ -211,6 +235,8 @@ func get_status_for_tests() -> Dictionary:
 	return {
 		"active": active,
 		"elapsed": elapsed_sec,
+		"drop_flash_timer": _drop_flash_timer,
+		"drop_flash_kind": _drop_flash_kind,
 		"box_count": boxes.size(),
 		"box_phases": boxes.map(func(box): return str((box as Dictionary).get("phase", "")) if box is Dictionary else ""),
 		"collected_reward_count": collected_rewards.size(),
@@ -295,6 +321,26 @@ func _advance_drop(box: Dictionary, fps_scale: float) -> void:
 		box["pos"] = Vector2(base_x, REST_Y)
 		return
 	box["pos"] = Vector2(next_x, next_y)
+
+
+func _draw_boss_drop_flash(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if _drop_flash_timer <= 0.0:
+		return
+	var ratio: float = clampf(_drop_flash_timer / DROP_FLASH_DURATION_SEC, 0.0, 1.0)
+	var fade: float = pow(ratio, 1.4)
+	var expand: float = 1.0 + (1.0 - ratio) * 0.35
+	var boss_pos: Vector2 = _get_vector2(_get_owner_value(_owner, "boss_pos", Vector2(330.0, 25.0)), Vector2(330.0, 25.0))
+	var boss_size: Vector2 = _get_vector2(_get_owner_value(_owner, "boss_paddle_size", Vector2(100.0, 40.0)), Vector2(100.0, 40.0))
+	var center: Vector2 = boss_pos + boss_size * 0.5 + shake_offset
+	var kind_color: Color = DROP_FLASH_KIND_COLORS.get(_drop_flash_kind, DROP_FLASH_KIND_COLORS[BOX_KIND_NORMAL])
+	ImpactFlareTextureCache.draw_glow(canvas, center, DROP_FLASH_GLOW_RADIUS_PX * expand, kind_color, 0.34 * fade)
+	ImpactFlareTextureCache.draw_burst(canvas, center, (DROP_FLASH_GLOW_RADIUS_PX * 0.72) * expand, Color(1.0, 0.98, 0.9), 0.30 * fade)
+	for sparkle_index in range(DROP_FLASH_SPARKLE_COUNT):
+		# 결정적 스파클: 인덱스 기반 각도 + 약한 시간 드리프트(랜덤 금지).
+		var angle: float = float(sparkle_index) / float(DROP_FLASH_SPARKLE_COUNT) * TAU + elapsed_sec * 1.7
+		var radius: float = boss_size.x * 0.42 + float(sparkle_index % 2) * 9.0
+		var sparkle_pos: Vector2 = center + Vector2(cos(angle), sin(angle) * 0.55) * radius
+		ImpactFlareTextureCache.draw_sparkle(canvas, sparkle_pos, 9.0 + 3.0 * fade, Color(1.0, 0.97, 0.85), 0.42 * fade)
 
 
 func _is_box_picked_up(box: Dictionary, player_rect: Rect2) -> bool:
