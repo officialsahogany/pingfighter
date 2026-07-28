@@ -39,11 +39,11 @@ const EGG_ROLL_SETTLE_STIFFNESS := 0.055
 const EGG_ROLL_SETTLE_DAMPING := 0.90
 const EGG_ROLL_SETTLE_EPSILON := 0.02
 const EGG_VARIANT_COUNT := 5
-# Per-egg hatch difficulty pool: 1-hit eggs pop instantly, 2/3-hit eggs crack
+# Per-egg hatch difficulty pool: every egg needs 2-4 counted hits and cracks
 # per counted hit before breaking. Rolled once at spawn, pet-independent
 # (same spoiler-blocking rule as the visual variant roll). 0 = unrolled, so
 # consumers fall back to the caller-supplied value (legacy behavior).
-const HATCH_REQUIRED_HITS_POOL: Array[int] = [1, 2, 3]
+const HATCH_REQUIRED_HITS_POOL: Array[int] = [2, 3, 4]
 # Shell-break cinematic between the final counted hit and the acquire cut-in:
 # the egg rolls restlessly under a build-then-settle envelope, shivers harder
 # as the break approaches, and comes to rest before the shell bursts. Battle

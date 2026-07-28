@@ -2215,11 +2215,11 @@ func _verify_bare_egg_roll_physics_and_renderer() -> void:
 
 
 func _verify_egg_hatch_required_hits_roll() -> void:
-	# (a) hatch difficulty roll — 1/2/3 pool. Roll off a LOCAL seeded RNG so this
+	# (a) hatch difficulty roll — 2/3/4 pool. Roll off a LOCAL seeded RNG so this
 	# statistical seal never drains the global randi() stream that later RNG-coupled
 	# tests in this smoke depend on (reward-deck shuffle / V3-2c reconcile). Production
 	# spawn() still uses global randi (roll_required_hits() with no arg).
-	_expect(LingpetEggFieldState.HATCH_REQUIRED_HITS_POOL == [1, 2, 3], "hatch difficulty pool should be the 1/2/3 tiers")
+	_expect(LingpetEggFieldState.HATCH_REQUIRED_HITS_POOL == [2, 3, 4], "hatch difficulty pool should be the 2/3/4 tiers")
 	var roll_rng := RandomNumberGenerator.new()
 	roll_rng.seed = 20260703
 	var roll_state := LingpetEggFieldState.new()
@@ -2227,9 +2227,9 @@ func _verify_egg_hatch_required_hits_roll() -> void:
 	for _roll_index in range(60):
 		roll_state.roll_required_hits(roll_rng)
 		var rolled: int = int(roll_state.hatch_required_hits)
-		_expect(rolled >= 1 and rolled <= 3, "hatch difficulty roll should stay in the 1..3 pool")
+		_expect(rolled >= 2 and rolled <= 4, "hatch difficulty roll should stay in the 2..4 pool")
 		seen_tiers[rolled] = true
-	_expect(seen_tiers.size() == 3, "60 local-RNG rolls should hit every 1/2/3 tier (statistical seal, no global randi)")
+	_expect(seen_tiers.size() == 3, "60 local-RNG rolls should hit every 2/3/4 tier (statistical seal, no global randi)")
 	# no reroll on frame advance; rolled value beats the fallback; snapshot exposes it
 	var owner := FakeOwner.new()
 	owner.player_pos = Vector2(-800.0, -800.0)
