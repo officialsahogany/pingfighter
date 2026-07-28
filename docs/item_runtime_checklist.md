@@ -2186,6 +2186,37 @@ the source's particle list, call `_begin_absorb(type)`, then assert:
 `.tmp/baal_boots_v2/test_sand_dissolve.py` are working references for
 this pattern.
 
+### Guardian spirit-water migration addendum (2026-07-28)
+
+- `lingpet_spirit_water` (display name `심령수`) is a slot-stored active
+  item owned by the guardian runtime. Using it without an owned guardian
+  must reject without consuming the slot. A valid use sets the shared
+  duration current value to `max(pool_current, pool_max)`: an empty or
+  partially drained pool reaches full, while enhancement overfill remains
+  intact. Full and overfilled uses are accepted no-ops and consume the item.
+- Natural-drop eligibility is the conjunction of guardian ownership, an
+  unconsumed per-stage latch, and `pool_current < pool_max`. Queueing a drop
+  does not consume the latch; only successful field materialization does.
+  A missed or despawned materialized drop stays spent for that stage.
+- A real stage advance must refill the duration pool first and then re-arm
+  the spirit-water latch. `reset_round` must do neither. This ordering keeps
+  the freshly refilled pool ineligible until it drains, and a mid-stage first
+  guardian acquisition becomes eligible while the latch is still free.
+- Until the dedicated art lands, only
+  `res://assets/sprites/items/lingpet_special_feed_icon.png` is wired as the
+  spirit-water placeholder. Final icon art and the final natural-drop tuning
+  value remain pending.
+- The four legacy feed IDs are removed from battle/field/reward/debug/effect
+  acquisition and are blocked at the public active-item catalog boundary.
+  Plaza references still exist, so their dormant catalog definitions,
+  translations, modules, and PNGs remain marked for physical deletion in
+  guardian redesign §9-4. Retarget the retained
+  `lingpet_feed_active_item_smoke.gd` to prove zero live feed routes; the old
+  feed-affinity and bowl-return smokes are retired.
+- Focused/CI registration for the spirit-water seal remains deferred until
+  the foreign CI campaign is settled; do not treat local focused GREEN as CI
+  enrollment proof.
+
 ---
 
 ## 8. Smoke test before shipping
