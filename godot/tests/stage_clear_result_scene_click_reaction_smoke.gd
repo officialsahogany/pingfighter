@@ -1012,9 +1012,9 @@ func _verify_result_box_sheet_padding() -> void:
 
 
 func _verify_result_box_frame_policy() -> void:
-	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 12, 15)) == 12, "common result boxes should stop on the last non-truncated open-lid frame")
-	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 12, 15)) == 12, "common result box opening animation should not show the truncated late lid frames")
-	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15)) == 15, "advanced result boxes can keep the full final open frame")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 15, 15)) == 15, "redesigned common result boxes should keep the full final open frame")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 15, 15)) == 15, "redesigned common result-box opening should use all 16 valid frames")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 15, 15)) == 15, "advanced result boxes should keep the full final open frame")
 
 
 func _verify_result_box_sheet_image_padding(image: Image, label: String) -> void:

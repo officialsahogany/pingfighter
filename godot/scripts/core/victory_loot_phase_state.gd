@@ -18,11 +18,11 @@ const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
 const LEGACY_BOX_KIND_MYTHIC := "mythic"
 
 # 시트 계약은 stage_clear_result_box_draw_helper와 동일(4x4 그리드 · 256px 셀 ·
-# 16프레임, common 시트는 12프레임까지만 안전).
+# 16프레임 전부 안전).
 const BOX_SHEET_FRAME_COUNT := 16
 const BOX_SHEET_GRID_COLS := 4
 const BOX_SHEET_CELL_SIZE := Vector2(256.0, 256.0)
-const BOX_COMMON_SAFE_LAST_FRAME := 12
+const BOX_COMMON_SAFE_LAST_FRAME := 15
 const BOX_MYTHIC_SAFE_LAST_FRAME := BOX_SHEET_FRAME_COUNT - 1
 const BOX_FRAME_ASSET_GUARD_SCALE := 0.90
 const BOX_DRAW_SIZE := 78.0 / BOX_FRAME_ASSET_GUARD_SCALE

@@ -1,0 +1,585 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-28",
+  "source_policy": "AutoSprite MCP final frames; deterministic finishing only",
+  "runtime_contract": {
+    "grid": [
+      4,
+      4
+    ],
+    "frame_count": 16,
+    "cell_size": [
+      256,
+      256
+    ],
+    "frame_order": "left-to-right, top-to-bottom",
+    "frame_0": "fully closed",
+    "safe_last_frame": 15,
+    "display_size_px": 78
+  },
+  "accepted": [
+    {
+      "kind": "normal",
+      "concept_path": "images/victory_loot_boxes_hwangyeokjeon/concepts/normal_concept_autosprite_v2.png",
+      "source_path": "images/victory_loot_boxes_hwangyeokjeon/autosprite_raw/normal_open_16f_autosprite_raw.png",
+      "processed_path": "images/victory_loot_boxes_hwangyeokjeon/processed/result_box_common_open_16f.png",
+      "runtime_path": "godot/assets/sprites/result_boxes/result_box_common_open_16f.png",
+      "asset_id": "cms4gwdsp006pau1iamoab4xd",
+      "job_id": "wf_3ae9d6df-bb16-4256-8f50-8ecfb9212762",
+      "spritesheet_id": "cms4gyhvg00cbcpjekm04tn9g",
+      "animation_prompt": "Fixed camera and base. Hemp knot loosens, lid opens, soft amber light leaks then settles. Ends fully open and still. No chest bounce, morphing, rotation, text, or coins.",
+      "postprocess": {
+        "fixed_transform_all_frames": true,
+        "offset_xy": [
+          -2,
+          26
+        ],
+        "target_closed_baseline_y": 233,
+        "trim_below_source_closed_baseline": false,
+        "frame_reorder": false,
+        "interpolation": false
+      },
+      "qa": {
+        "sheet_size": [
+          1024,
+          1024
+        ],
+        "grid": [
+          4,
+          4
+        ],
+        "frame_count": 16,
+        "cell_size": [
+          256,
+          256
+        ],
+        "closed_frame_bbox": [
+          23,
+          85,
+          235,
+          234
+        ],
+        "frame_bboxes": [
+          [
+            23,
+            85,
+            235,
+            234
+          ],
+          [
+            23,
+            85,
+            235,
+            234
+          ],
+          [
+            23,
+            85,
+            235,
+            234
+          ],
+          [
+            23,
+            84,
+            235,
+            234
+          ],
+          [
+            23,
+            84,
+            235,
+            234
+          ],
+          [
+            22,
+            83,
+            235,
+            234
+          ],
+          [
+            22,
+            82,
+            235,
+            234
+          ],
+          [
+            22,
+            80,
+            235,
+            234
+          ],
+          [
+            21,
+            79,
+            235,
+            234
+          ],
+          [
+            21,
+            77,
+            235,
+            234
+          ],
+          [
+            20,
+            75,
+            235,
+            234
+          ],
+          [
+            20,
+            70,
+            235,
+            234
+          ],
+          [
+            20,
+            65,
+            234,
+            234
+          ],
+          [
+            19,
+            59,
+            234,
+            234
+          ],
+          [
+            19,
+            52,
+            234,
+            234
+          ],
+          [
+            19,
+            47,
+            234,
+            234
+          ]
+        ],
+        "frame_baselines": [
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233
+        ],
+        "edge_alpha_counts": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "sha256": {
+        "concept": "a1a6baa02e7644129647062a306e5ec87356baeb40ed1de448670069a7255449",
+        "source": "2c1674600a8e7907045eb88a0bcb6a9ca9db990d180414fe1bb263c5d0373795",
+        "processed": "d79afe81e6153f568cc1f750ead4783a9ca4ea20e6f0b1d3cedd02fcd4c75a7b",
+        "runtime": "d79afe81e6153f568cc1f750ead4783a9ca4ea20e6f0b1d3cedd02fcd4c75a7b"
+      }
+    },
+    {
+      "kind": "advanced",
+      "concept_path": "images/victory_loot_boxes_hwangyeokjeon/concepts/advanced_concept_autosprite_v2.png",
+      "source_path": "images/victory_loot_boxes_hwangyeokjeon/autosprite_raw/advanced_open_16f_autosprite_raw.png",
+      "processed_path": "images/victory_loot_boxes_hwangyeokjeon/processed/result_box_mythic_open_16f.png",
+      "runtime_path": "godot/assets/sprites/result_boxes/result_box_mythic_open_16f.png",
+      "asset_id": "cms4gwf6l006rau1i0m4q8f2n",
+      "job_id": "wf_90ad16dc-7147-401e-b870-06c11d48f160",
+      "spritesheet_id": "cms4h0cjo000h13stpal7yc0p",
+      "animation_prompt": "Fixed camera and base. Tassel lock loosens, lid opens, cyan-gold light blooms, pearl glints. Ends fully open and still. No chest bounce, morphing, rotation, text, or coins.",
+      "postprocess": {
+        "fixed_transform_all_frames": true,
+        "offset_xy": [
+          -2,
+          8
+        ],
+        "target_closed_baseline_y": 233,
+        "trim_below_source_closed_baseline": false,
+        "frame_reorder": false,
+        "interpolation": false
+      },
+      "qa": {
+        "sheet_size": [
+          1024,
+          1024
+        ],
+        "grid": [
+          4,
+          4
+        ],
+        "frame_count": 16,
+        "cell_size": [
+          256,
+          256
+        ],
+        "closed_frame_bbox": [
+          11,
+          51,
+          243,
+          234
+        ],
+        "frame_bboxes": [
+          [
+            11,
+            51,
+            243,
+            234
+          ],
+          [
+            11,
+            50,
+            243,
+            234
+          ],
+          [
+            11,
+            49,
+            244,
+            234
+          ],
+          [
+            11,
+            47,
+            244,
+            234
+          ],
+          [
+            11,
+            45,
+            244,
+            234
+          ],
+          [
+            11,
+            43,
+            245,
+            234
+          ],
+          [
+            11,
+            41,
+            245,
+            234
+          ],
+          [
+            11,
+            39,
+            246,
+            234
+          ],
+          [
+            12,
+            36,
+            246,
+            234
+          ],
+          [
+            12,
+            33,
+            246,
+            234
+          ],
+          [
+            12,
+            30,
+            247,
+            234
+          ],
+          [
+            12,
+            26,
+            247,
+            234
+          ],
+          [
+            12,
+            22,
+            247,
+            234
+          ],
+          [
+            12,
+            16,
+            248,
+            234
+          ],
+          [
+            12,
+            11,
+            248,
+            234
+          ],
+          [
+            12,
+            8,
+            248,
+            234
+          ]
+        ],
+        "frame_baselines": [
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233
+        ],
+        "edge_alpha_counts": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "sha256": {
+        "concept": "cbc4a212e962ed0bdab8d66a0761abcc217214b76390d51f2e2ef9649db154cc",
+        "source": "09bcf25e2e0afdb244adaa964b37504c20c0115ac7883cf52b716e4f61b74557",
+        "processed": "a25017c9c8c968df0866cd984d3130b716d3af8cf4dc132a0fa9dee00be1d619",
+        "runtime": "a25017c9c8c968df0866cd984d3130b716d3af8cf4dc132a0fa9dee00be1d619"
+      }
+    },
+    {
+      "kind": "guaranteed_mythic",
+      "concept_path": "images/victory_loot_boxes_hwangyeokjeon/concepts/guaranteed_mythic_concept_autosprite_v2.png",
+      "source_path": "images/victory_loot_boxes_hwangyeokjeon/autosprite_raw/guaranteed_mythic_open_16f_autosprite_v3_raw.png",
+      "processed_path": "images/victory_loot_boxes_hwangyeokjeon/processed/result_box_guaranteed_mythic_open_16f.png",
+      "runtime_path": "godot/assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
+      "asset_id": "cms4gwgo9006tau1iy07gk21t",
+      "job_id": "wf_b1d551cd-1350-4a61-a626-f14e3f5f9e16",
+      "spritesheet_id": "cms4hf6nn006a12vhdct3bq38",
+      "animation_prompt": "Fixed camera/base. Seal dissolves upward; nothing falls below. Lid opens; contained gold-white glow rises inside. Ends open and still. No debris, floor spill, forward beam, bounce, morph, text.",
+      "postprocess": {
+        "fixed_transform_all_frames": true,
+        "offset_xy": [
+          -3,
+          13
+        ],
+        "target_closed_baseline_y": 233,
+        "trim_below_source_closed_baseline": false,
+        "frame_reorder": false,
+        "interpolation": false
+      },
+      "qa": {
+        "sheet_size": [
+          1024,
+          1024
+        ],
+        "grid": [
+          4,
+          4
+        ],
+        "frame_count": 16,
+        "cell_size": [
+          256,
+          256
+        ],
+        "closed_frame_bbox": [
+          20,
+          62,
+          237,
+          234
+        ],
+        "frame_bboxes": [
+          [
+            20,
+            62,
+            237,
+            234
+          ],
+          [
+            20,
+            62,
+            237,
+            234
+          ],
+          [
+            20,
+            62,
+            237,
+            234
+          ],
+          [
+            20,
+            61,
+            237,
+            234
+          ],
+          [
+            20,
+            60,
+            237,
+            234
+          ],
+          [
+            20,
+            58,
+            237,
+            234
+          ],
+          [
+            20,
+            55,
+            237,
+            234
+          ],
+          [
+            20,
+            52,
+            237,
+            234
+          ],
+          [
+            20,
+            47,
+            238,
+            234
+          ],
+          [
+            20,
+            42,
+            238,
+            234
+          ],
+          [
+            20,
+            36,
+            239,
+            234
+          ],
+          [
+            20,
+            30,
+            240,
+            234
+          ],
+          [
+            20,
+            25,
+            241,
+            234
+          ],
+          [
+            20,
+            21,
+            242,
+            234
+          ],
+          [
+            20,
+            19,
+            242,
+            234
+          ],
+          [
+            20,
+            19,
+            242,
+            234
+          ]
+        ],
+        "frame_baselines": [
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233,
+          233
+        ],
+        "edge_alpha_counts": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "sha256": {
+        "concept": "a8e68c4d131791061f6e76e3c3ce0bf566eb395a092e3117a5e284fee7b9967b",
+        "source": "e9dad43ebb028df5202cb0118e1b7d95401748204a629c74aa08c642084eca40",
+        "processed": "0036743354acacf9b31aecadfd84c41df07ad91dfc580eeda262882cc9ffb60a",
+        "runtime": "0036743354acacf9b31aecadfd84c41df07ad91dfc580eeda262882cc9ffb60a"
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "kind": "guaranteed_mythic",
+      "job_id": "wf_1fa22c11-c102-48b4-8644-0ef8cc316f9c",
+      "spritesheet_id": "cms4h07io000813ste2csttpk",
+      "reason": "forward beam and particles touched cell edges and crossed the floor line"
+    },
+    {
+      "kind": "guaranteed_mythic",
+      "job_id": "wf_401f7372-9ef8-4cd2-b3a1-5e551b8a1b78",
+      "spritesheet_id": "cms4h4eb9001x13st00gjwf4e",
+      "reason": "broken seal and fragments remained on the floor through the final hold"
+    }
+  ]
+}

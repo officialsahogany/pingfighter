@@ -35,15 +35,15 @@ func _verify_box_layout() -> void:
 
 func _verify_box_frame_policy() -> void:
 	_expect(
-		StageClearResultLayoutHelper.get_result_box_frame_index("idle", 0.5, false, 16, 12, 15) == 0,
+		StageClearResultLayoutHelper.get_result_box_frame_index("idle", 0.5, false, 16, 15, 15) == 0,
 		"idle result boxes should use frame 0"
 	)
 	_expect(
-		StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 12, 15) == 12,
-		"common result boxes should clamp late opening frames to the safe lid frame"
+		StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 15, 15) == 15,
+		"redesigned common result boxes should use the full final open frame"
 	)
 	_expect(
-		StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15) == 15,
+		StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 15, 15) == 15,
 		"advanced result boxes should use the full final frame"
 	)
 
@@ -168,7 +168,7 @@ func _verify_source_rects() -> void:
 
 func _verify_scene_wrappers() -> void:
 	var wrapper_box := {"base_pos": Vector2(10.0, 20.0), "phase": 0.0, "amplitude": 4.0, "speed": 1.0}
-	_expect(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 12, 15) == 12, "box-frame helper should preserve scene frame policy")
+	_expect(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 15, 15) == 15, "box-frame helper should preserve the redesigned full-sheet policy")
 	_expect(StageClearResultLayoutHelper.get_box_draw_center(wrapper_box, 2.0, 0.0, 5.0, 1.4) == Vector2(20.0, 40.0), "box-center helper should preserve scene geometry policy")
 	_expect(StageClearResultLayoutHelper.get_box_aabb(wrapper_box, 2.0, 0.0, Vector2(65.0, 56.0), 1.06, 5.0, 1.4).has_point(Vector2(20.0, 40.0)), "box-aabb helper should preserve scene hitbox policy")
 	_expect(StageClearResultLayoutHelper.get_player_victory_actor_rect(Vector2(1920.0, 1080.0), 1.0).position == Vector2(1270.0, 213.0), "player-victory actor helper should preserve scene draw rect")

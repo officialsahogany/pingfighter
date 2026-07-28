@@ -85,3 +85,28 @@ Codex=생성·누끼·런타임 반영. `CLAUDE.md` §0.1)
 5. 기존 스모크 무변 GREEN: `victory_loot_phase_state_smoke`,
    `stage_clear_result_box_*` 계열(시트는 데이터 교체라 GREEN 유지가 정상).
    common safe-frame 상수를 올리는 경우에만 관련 상수 단언 갱신.
+
+## 7. Codex 생성·승격 완료 (2026-07-28)
+
+- AutoSprite 채택본:
+  - normal: asset `cms4gwdsp006pau1iamoab4xd`, job
+    `wf_3ae9d6df-bb16-4256-8f50-8ecfb9212762`
+  - advanced: asset `cms4gwf6l006rau1i0m4q8f2n`, job
+    `wf_90ad16dc-7147-401e-b870-06c11d48f160`
+  - guaranteed_mythic: asset `cms4gwgo9006tau1iy07gk21t`, 채택 job
+    `wf_b1d551cd-1350-4a61-a626-f14e3f5f9e16`
+- 신화 1차(전방 광선·셀 에지/바닥선 침범)와 2차(부서진 봉인 잔해가 마지막
+  홀드까지 바닥에 잔류)는 반려했다. 채택 3차는 봉인이 위로 소멸하고 상자
+  내부의 금백 잔광만 남는다.
+- 세 시트 모두 AutoSprite 16프레임을 순서 변경/보간 없이 사용했다. 모든
+  프레임에 동일한 정수 이동만 적용해 닫힘 중심과 접지선 y=233을 고정했다.
+- common 시트의 13~15프레임도 완전한 개방 홀드로 유효하므로 런타임 두
+  소비자의 common safe-last를 12→15로 함께 올렸다.
+- 원본·아틀라스·소스 비디오·채택 컨셉·가공본·78px 다크/라이트 프리뷰와
+  SHA256/QC 수치는 `images/victory_loot_boxes_hwangyeokjeon/`에 보존한다.
+  런타임 복제본의 provenance는
+  `godot/assets/sprites/result_boxes/victory_loot_box_autosprite_manifest.json`이다.
+- 자동 QA: 4x4/256셀/16f, 전 프레임 비어있지 않음, 셀 에지 알파 0,
+  접지선 y=233 고정, 닫힌 폭 등급 편차 10% 이내. Vulkan 창 모드에서 실제
+  `victory_loot_phase_state.draw()`로 drop/rest/mid-open/final-open 78px 캡처를
+  확인했다.
