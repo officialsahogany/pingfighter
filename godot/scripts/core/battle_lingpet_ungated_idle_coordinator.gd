@@ -31,12 +31,6 @@ func process_ungated(
 		_queue_redraw(owner)
 		return true
 
-	if _is_active(runtime, "is_guardian_enhance_choice_active"):
-		if runtime.has_method("advance_guardian_enhance_choice"):
-			runtime.call("advance_guardian_enhance_choice", delta)
-		_queue_redraw(owner)
-		return true
-
 	if _is_active(runtime, "is_guardian_enhance_cutin_active"):
 		if runtime.has_method("advance_guardian_enhance_cutin"):
 			runtime.call("advance_guardian_enhance_cutin", delta, registry)

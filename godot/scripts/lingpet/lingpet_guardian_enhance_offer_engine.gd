@@ -8,14 +8,13 @@ const LingpetEnhancementBuffStore := preload(
 
 const PERK_ID := "lingpet_guardian_enhance"
 const OFFER_COOLDOWN_SCREENS := 3
-const MAX_PRESENTED_CANDIDATES := 3
 const DURATION_WEIGHT := 0.35
 const DEFAULT_WEIGHT := 1.0
 
 const _COPY_BY_LANGUAGE := {
 	"ko": {
 		"name": "수호령강화",
-		"description": "현재 수호령에게 적용 가능한 강화 중 하나를 선택합니다.",
+		"description": "현재 수호령에게 적용 가능한 강화 중 하나를 무작위로 획득합니다.",
 		"active_skill": "액티브 스킬 +1",
 		"passive_skill": "패시브 스킬 +1",
 		"duration": "지속시간 +5초",
@@ -28,7 +27,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"en": {
 		"name": "Guardian Enhancement",
-		"description": "Choose one enhancement that can be applied to the current guardian spirit.",
+		"description": "Gain one random enhancement that can be applied to the current guardian spirit.",
 		"active_skill": "Active Skill +1",
 		"passive_skill": "Passive Skill +1",
 		"duration": "Duration +5 sec",
@@ -41,7 +40,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"zh": {
 		"name": "守护灵强化",
-		"description": "从当前守护灵可获得的强化中选择一项。",
+		"description": "随机获得一项当前守护灵可用的强化。",
 		"active_skill": "主动技能 +1",
 		"passive_skill": "被动技能 +1",
 		"duration": "持续时间 +5秒",
@@ -54,7 +53,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"ja": {
 		"name": "守護霊強化",
-		"description": "現在の守護霊に適用できる強化から1つ選びます。",
+		"description": "現在の守護霊に適用できる強化をランダムで1つ獲得します。",
 		"active_skill": "アクティブスキル +1",
 		"passive_skill": "パッシブスキル +1",
 		"duration": "持続時間 +5秒",
@@ -67,7 +66,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"es": {
 		"name": "Mejora del Guardián",
-		"description": "Elige una mejora aplicable al espíritu guardián actual.",
+		"description": "Obtén una mejora aleatoria aplicable al espíritu guardián actual.",
 		"active_skill": "Habilidad activa +1",
 		"passive_skill": "Habilidad pasiva +1",
 		"duration": "Duración +5 s",
@@ -80,7 +79,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"pt-BR": {
 		"name": "Aprimoramento do Guardião",
-		"description": "Escolha um aprimoramento aplicável ao espírito guardião atual.",
+		"description": "Receba um aprimoramento aleatório aplicável ao espírito guardião atual.",
 		"active_skill": "Habilidade ativa +1",
 		"passive_skill": "Habilidade passiva +1",
 		"duration": "Duração +5 s",
@@ -93,7 +92,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"ru": {
 		"name": "Усиление хранителя",
-		"description": "Выберите одно доступное усиление для текущего духа-хранителя.",
+		"description": "Получите одно случайное доступное усиление для текущего духа-хранителя.",
 		"active_skill": "Активный навык +1",
 		"passive_skill": "Пассивный навык +1",
 		"duration": "Длительность +5 сек.",
@@ -120,8 +119,7 @@ func build_offer(
 	pet_data: Dictionary,
 	duration_increase_count: int,
 	has_second_active_skill: bool = true,
-	has_second_passive_skill: bool = true,
-	rng: RandomNumberGenerator = null
+	has_second_passive_skill: bool = true
 ) -> Dictionary:
 	if not has_owned_guardian(owner):
 		return _blocked("no_owned_guardian")
@@ -131,18 +129,17 @@ func build_offer(
 		has_second_active_skill,
 		has_second_passive_skill
 	)
-	if applicable.size() < 2:
-		return _blocked("fewer_than_two_candidates", applicable)
+	if applicable.is_empty():
+		return _blocked("no_applicable_candidates")
 	if _cooldown_screens > 0:
 		_cooldown_screens -= 1
 		return _blocked("offer_cooldown", applicable)
 	var reserve := not _initial_reservation_consumed
 	_initial_reservation_consumed = true
-	var presented := _sample_without_replacement(applicable, rng)
 	return {
 		"offer_allowed": true,
 		"reserve": reserve,
-		"candidates": _localize_candidates(presented),
+		"candidates": _localize_candidates(applicable),
 		"applicable_count": applicable.size(),
 		"cooldown_screens": _cooldown_screens,
 	}
@@ -194,43 +191,6 @@ static func localize_candidate(candidate: Dictionary) -> Dictionary:
 		else DEFAULT_WEIGHT
 	)
 	return result
-
-
-func _sample_without_replacement(
-	applicable: Array[Dictionary],
-	rng: RandomNumberGenerator
-) -> Array[Dictionary]:
-	var remaining: Array[Dictionary] = []
-	for candidate in applicable:
-		remaining.append(candidate.duplicate(true))
-	var result: Array[Dictionary] = []
-	var target_count := mini(MAX_PRESENTED_CANDIDATES, remaining.size())
-	while result.size() < target_count and not remaining.is_empty():
-		var total_weight := 0.0
-		for candidate in remaining:
-			total_weight += _candidate_weight(candidate)
-		var roll := (
-			rng.randf_range(0.0, total_weight)
-			if rng != null
-			else randf_range(0.0, total_weight)
-		)
-		var selected_index := remaining.size() - 1
-		for index in range(remaining.size()):
-			roll -= _candidate_weight(remaining[index])
-			if roll <= 0.0:
-				selected_index = index
-				break
-		result.append(remaining[selected_index])
-		remaining.remove_at(selected_index)
-	return result
-
-
-static func _candidate_weight(candidate: Dictionary) -> float:
-	return (
-		DURATION_WEIGHT
-		if str(candidate.get("type", "")) == LingpetEnhancementBuffStore.REWARD_TYPE_DURATION
-		else DEFAULT_WEIGHT
-	)
 
 
 static func _localize_candidates(candidates: Array[Dictionary]) -> Array[Dictionary]:

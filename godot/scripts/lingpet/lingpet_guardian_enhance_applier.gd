@@ -9,127 +9,105 @@ const RUNTIME_KEY := "lingpet_egg_runtime"
 
 static func begin(choice: Dictionary, owner: Object, registry: Object) -> Dictionary:
 	var runtime := _get_runtime(registry)
-	if runtime == null or not runtime.has_method("start_guardian_enhance_choice"):
+	if runtime == null or not runtime.has_method("apply_guardian_enhance_random_roll"):
 		return {"accepted": false, "blocked_reason": "missing_lingpet_runtime"}
 	var raw_candidates: Variant = choice.get("guardian_enhance_candidates", [])
 	var candidates: Array = raw_candidates if raw_candidates is Array else []
-	var started := bool(runtime.call("start_guardian_enhance_choice", candidates, owner, registry))
-	return {
-		"accepted": started,
-		"modal_started": started,
-		"blocked_reason": "" if started else "choice_modal_rejected",
-	}
-
-
-static func confirm_from_runtime(
-	runtime: Object,
-	owner: Object,
-	registry: Object
-) -> Dictionary:
-	if runtime == null or not runtime.has_method("get_guardian_enhance_choice_snapshot"):
-		return {"accepted": false, "modal_should_close": true, "blocked_reason": "missing_runtime"}
-	var snapshot: Dictionary = runtime.call("get_guardian_enhance_choice_snapshot")
-	var result := resolve_selection(
-		snapshot.get("candidates", []) as Array,
-		int(snapshot.get("selected_index", 0)),
-		Callable(runtime, "can_apply_guardian_enhancement_candidate"),
-		Callable(runtime, "apply_guardian_enhancement_candidate").bind(owner, registry),
-		Callable(runtime, "apply_guardian_enhance_duration_fallback").bind(owner, registry)
+	var result: Dictionary = runtime.call(
+		"apply_guardian_enhance_random_roll",
+		candidates,
+		owner,
+		registry
 	)
-	if runtime.has_method("complete_guardian_enhance_choice"):
-		runtime.call("complete_guardian_enhance_choice", result, registry)
+	result["modal_started"] = false
 	return result
 
 
-static func resolve_choice_state(
-	choice_state: Object,
-	can_apply: Callable,
-	apply_candidate: Callable,
-	apply_fallback: Callable
-) -> Dictionary:
-	if choice_state == null or not choice_state.has_method("get_snapshot"):
-		return {"accepted": false, "modal_should_close": true, "blocked_reason": "missing_choice_state"}
-	var snapshot: Dictionary = choice_state.get_snapshot()
-	var result := resolve_selection(
-		snapshot.get("candidates", []) as Array,
-		int(snapshot.get("selected_index", 0)),
-		can_apply,
-		apply_candidate,
-		apply_fallback
-	)
-	if choice_state.has_method("close"):
-		choice_state.close()
-	result["modal_closed"] = not bool(choice_state.get("active"))
-	return result
-
-
-static func resolve_selection(
+static func resolve_random_roll(
 	candidates: Array,
-	selected_index: int,
 	can_apply: Callable,
 	apply_candidate: Callable,
-	apply_fallback: Callable
+	apply_fallback: Callable,
+	rng: RandomNumberGenerator = null
 ) -> Dictionary:
-	var normalized: Array[Dictionary] = []
-	for value in candidates:
+	var remaining: Array[Dictionary] = []
+	for source_index in range(candidates.size()):
+		var value: Variant = candidates[source_index]
 		if value is Dictionary:
-			normalized.append((value as Dictionary).duplicate(true))
-	var selected := clampi(selected_index, 0, maxi(0, normalized.size() - 1))
-	var attempt_order: Array[int] = []
-	if not normalized.is_empty():
-		attempt_order.append(selected)
-	for index in range(normalized.size()):
-		if index != selected:
-			attempt_order.append(index)
+			var candidate := (value as Dictionary).duplicate(true)
+			if str(candidate.get("type", "")).strip_edges() != "":
+				remaining.append({"candidate": candidate, "source_index": source_index})
 	var rejected_indices: Array[int] = []
-	for index in attempt_order:
-		var candidate := normalized[index]
+	var roll_order: Array[int] = []
+	while not remaining.is_empty():
+		var remaining_index := _weighted_index(remaining, rng)
+		var entry: Dictionary = remaining[remaining_index]
+		remaining.remove_at(remaining_index)
+		var candidate: Dictionary = entry.get("candidate", {}) as Dictionary
+		var source_index := int(entry.get("source_index", -1))
+		roll_order.append(source_index)
 		if not can_apply.is_valid() or not bool(can_apply.call(candidate)):
-			rejected_indices.append(index)
+			rejected_indices.append(source_index)
 			continue
 		var apply_result := _call_result(apply_candidate, [candidate])
 		if not bool(apply_result.get("accepted", false)):
-			rejected_indices.append(index)
+			rejected_indices.append(source_index)
 			continue
-		var auto_replaced := index != selected
 		return {
 			"accepted": true,
-			"modal_should_close": true,
-			"selected_index": selected,
-			"applied_index": index,
-			"selected_candidate": normalized[selected].duplicate(true),
+			"modal_started": false,
+			"applied_index": source_index,
 			"applied_candidate": candidate.duplicate(true),
-			"auto_replaced": auto_replaced,
+			"rerolled": roll_order.size() > 1,
 			"fallback_used": false,
+			"roll_order": roll_order.duplicate(),
 			"rejected_indices": rejected_indices.duplicate(),
-			"feedback_text": _build_feedback(candidate, auto_replaced, false),
+			"feedback_text": _build_feedback(candidate, false),
 			"apply_result": apply_result,
 		}
 	var fallback_result := _call_result(apply_fallback, [])
 	return {
 		"accepted": bool(fallback_result.get("accepted", false)),
-		"modal_should_close": true,
-		"selected_index": selected,
+		"modal_started": false,
 		"applied_index": -1,
-		"selected_candidate": (
-			normalized[selected].duplicate(true) if not normalized.is_empty() else {}
-		),
 		"applied_candidate": {},
-		"auto_replaced": false,
+		"rerolled": roll_order.size() > 1,
 		"fallback_used": true,
+		"roll_order": roll_order.duplicate(),
 		"rejected_indices": rejected_indices.duplicate(),
-		"feedback_text": _build_feedback({}, false, true),
+		"feedback_text": _build_feedback({}, true),
 		"apply_result": fallback_result,
 	}
 
 
-static func _build_feedback(candidate: Dictionary, auto_replaced: bool, fallback_used: bool) -> String:
+static func _weighted_index(entries: Array[Dictionary], rng: RandomNumberGenerator) -> int:
+	var total_weight := 0.0
+	for entry in entries:
+		total_weight += _candidate_weight(entry.get("candidate", {}) as Dictionary)
+	var roll := (
+		rng.randf_range(0.0, total_weight)
+		if rng != null
+		else randf_range(0.0, total_weight)
+	)
+	for index in range(entries.size()):
+		roll -= _candidate_weight(entries[index].get("candidate", {}) as Dictionary)
+		if roll <= 0.0:
+			return index
+	return maxi(0, entries.size() - 1)
+
+
+static func _candidate_weight(candidate: Dictionary) -> float:
+	return maxf(0.001, float(candidate.get(
+		"weight",
+		LingpetGuardianEnhanceOfferEngine.DEFAULT_WEIGHT
+	)))
+
+
+static func _build_feedback(candidate: Dictionary, fallback_used: bool) -> String:
 	if fallback_used:
 		return "모든 후보가 무효가 되어 지속시간 현재치 +15초로 대체되었습니다."
 	var localized := LingpetGuardianEnhanceOfferEngine.localize_candidate(candidate)
 	var label := str(localized.get("label", "수호령강화"))
-	if auto_replaced:
-		return "선택 후보가 무효가 되어 %s(으)로 자동 대체되었습니다." % label
 	return "%s 획득" % label
 
 

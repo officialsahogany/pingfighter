@@ -36,7 +36,7 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 	var registry: Object = fixture.registry
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 17031
-	runtime.set_guardian_enhance_offer_rng_for_tests(rng)
+	runtime.set_guardian_enhance_roll_rng_for_tests(rng)
 	var choices: Array = RuntimePerkCatalog.new().get_choices(
 		"smasher", {}, false, 3, owner, registry
 	)
@@ -58,9 +58,11 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 		registry,
 		{}
 	)
-	_expect(bool(action.get("accepted", false)), "action runner must start the secondary choice modal")
-	_expect(runtime.is_guardian_enhance_choice_active(), "live dispatch must activate the guardian choice state")
-	(runtime.get("_guardian_enhance_choice_state") as Object).reset()
+	_expect(bool(action.get("accepted", false)), "action runner must apply one automatic guardian enhancement")
+	var begin_result: Dictionary = action.get("begin_result", {}) as Dictionary
+	_expect(not bool(begin_result.get("modal_started", true)), "live dispatch must not open a secondary choice modal")
+	_expect(bool(runtime.get_guardian_enhance_last_result_for_tests().get("accepted", false)), "live dispatch must finish application before presentation starts")
+	runtime.cancel_guardian_enhance_cutin(registry)
 	var runtime_source := FileAccess.get_file_as_string(
 		"res://scripts/lingpet/lingpet_egg_runtime.gd"
 	)
@@ -83,11 +85,10 @@ func _verify_duration_owner_pet_switch_refill_and_cap() -> void:
 	runtime.set_duration_pool_for_tests(60.0, 60.0)
 	var duration_candidate := {"type": LingpetEnhancementBuffStore.REWARD_TYPE_DURATION}
 	for expected_count in [1, 2]:
-		_expect(_start_candidate_set(runtime, owner, duration_candidate), "duration fixture choice must start")
-		var applied: Dictionary = runtime.apply_guardian_enhancement_candidate(duration_candidate, owner, fixture.registry)
+		var applied: Dictionary = runtime.apply_guardian_enhancement_candidate(duration_candidate, owner, fixture.registry, "maribo")
 		_expect(bool(applied.get("accepted", false)), "duration increase %d must apply" % expected_count)
 		_expect(str(applied.get("storage_owner", "")) == "lingpet_duration_state", "duration increase must bypass the per-pet store")
-		runtime.complete_guardian_enhance_choice(applied)
+		runtime.complete_guardian_enhance_roll(applied, "maribo")
 	_expect_float(runtime.get_duration_pool_max(), 70.0, "two duration increases must raise the shared max by ten seconds")
 	_expect_float(runtime.get_duration_pool_current(), 70.0, "duration increase must raise current and max together")
 	_expect(runtime.switch_lingpet_slot(1, owner, fixture.registry), "fixture must switch to the second pet")
@@ -110,11 +111,11 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 		"type": LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL,
 		"skill_slot": 1,
 	}
-	_expect(_start_candidate_set(runtime, owner, active_candidate), "per-pet buff fixture choice must start")
 	var applied: Dictionary = runtime.apply_guardian_enhancement_candidate(
 		active_candidate,
 		owner,
-		fixture.registry
+		fixture.registry,
+		"maribo"
 	)
 	_expect(bool(applied.get("accepted", false)), "active-skill +1 must traverse the live buff store")
 	_expect(str(applied.get("storage_owner", "")) == "lingpet_enhancement_buff_store", "non-duration buff must report the unique per-pet owner")
@@ -123,7 +124,7 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	_expect((applied.get("reward_counts", {}) as Dictionary) == maribo_counts, "apply result and buff-store owner snapshot must be identical")
 	var lunabi_counts: Dictionary = runtime.get_affinity_rewards_for_tests("lunabi")
 	_expect(int(lunabi_counts.get("active_skill_bonus", 0)) == 0, "per-pet enhancement must not leak to another guardian")
-	runtime.complete_guardian_enhance_choice(applied)
+	runtime.complete_guardian_enhance_roll(applied, "maribo")
 	runtime.set_duration_pool_for_tests(70.0, 70.0)
 	var fallback: Dictionary = runtime.apply_guardian_enhance_duration_fallback(owner, fixture.registry)
 	_expect(bool(fallback.get("accepted", false)), "all-invalid fallback must always apply at a full pool")
@@ -142,14 +143,6 @@ func _make_runtime_fixture() -> Dictionary:
 	var registry := Smoke.FakeRegistry.new({"lingpet_egg_runtime": runtime})
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_spear_throw", "maribo_hydro_resonance", registry), "fixture must activate maribo")
 	return {"owner": owner, "runtime": runtime, "registry": registry}
-
-
-func _start_candidate_set(runtime: Object, owner: Object, selected: Dictionary) -> bool:
-	var candidates: Array = [
-		selected.duplicate(true),
-		{"type": LingpetEnhancementBuffStore.REWARD_TYPE_GAUGE},
-	]
-	return bool(runtime.start_guardian_enhance_choice(candidates, owner))
 
 
 func _seed_roster(owner: Object, pet_ids: Array) -> void:

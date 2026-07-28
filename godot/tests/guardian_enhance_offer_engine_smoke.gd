@@ -30,17 +30,17 @@ func _verify_owned_gate_and_offer_pacing() -> void:
 	var owner := DynamicOwner.new()
 	root.add_child(owner)
 	var pet_data := _open_pet_data("patrol")
-	var blocked := engine.build_offer(owner, pet_data, 0, true, true, _seeded_rng())
+	var blocked := engine.build_offer(owner, pet_data, 0, true, true)
 	_expect(not bool(blocked.get("offer_allowed", false)), "unowned players must never see Guardian Enhancement")
 	owner.lingpet_owned_pet_ids = ["maribo"]
-	var first := engine.build_offer(owner, pet_data, 0, true, true, _seeded_rng())
+	var first := engine.build_offer(owner, pet_data, 0, true, true)
 	_expect(bool(first.get("offer_allowed", false)), "owned guardian should open the enhancement lane")
 	_expect(bool(first.get("reserve", false)), "first eligible screen after ownership must be reserved")
 	engine.mark_applied()
 	for hidden_index in range(3):
-		var hidden := engine.build_offer(owner, pet_data, 0, true, true, _seeded_rng())
+		var hidden := engine.build_offer(owner, pet_data, 0, true, true)
 		_expect(not bool(hidden.get("offer_allowed", false)), "applied enhancement must hide on cooldown screen %d" % (hidden_index + 1))
-	var reappeared := engine.build_offer(owner, pet_data, 0, true, true, _seeded_rng())
+	var reappeared := engine.build_offer(owner, pet_data, 0, true, true)
 	_expect(bool(reappeared.get("offer_allowed", false)), "enhancement should become eligible after exactly three hidden screens")
 	_expect(not bool(reappeared.get("reserve", true)), "only the first ownership offer receives reservation priority")
 	owner.queue_free()
@@ -51,16 +51,26 @@ func _verify_prefilter_axes_and_cardinality() -> void:
 	root.add_child(owner)
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	var saturated := _saturated_pet_data("patrol")
-	var under_two := GuardianEnhanceOfferEngine.new().build_offer(
+	var exactly_one := GuardianEnhanceOfferEngine.new().build_offer(
 		owner,
 		saturated,
 		1,
 		false,
-		false,
-		_seeded_rng()
+		false
 	)
-	_expect(not bool(under_two.get("offer_allowed", false)), "fewer than two valid candidates must suppress the perk card")
-	_expect((under_two.get("candidates", []) as Array).size() == 1, "fixture must leave exactly one candidate instead of passing vacuously")
+	_expect(bool(exactly_one.get("offer_allowed", false)), "one valid candidate must keep the automatic enhancement card eligible")
+	_expect((exactly_one.get("candidates", []) as Array).size() == 1, "fixture must expose its one real roll candidate")
+
+	saturated["reward_counts"]["mobility_stacks"] = LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS
+	var none_left := GuardianEnhanceOfferEngine.new().build_offer(
+		owner,
+		saturated,
+		LingpetEnhancementBuffStore.MAX_DURATION_INCREASES,
+		false,
+		false
+	)
+	_expect(not bool(none_left.get("offer_allowed", false)), "zero valid candidates must suppress the perk card")
+	_expect(str(none_left.get("blocked_reason", "")) == "no_applicable_candidates", "zero-candidate suppression must report the canonical reason")
 
 	saturated["reward_counts"]["gauge_stacks"] = LingpetEnhancementBuffStore.MAX_GAUGE_STACKS - 1
 	var exactly_two := GuardianEnhanceOfferEngine.new().build_offer(
@@ -68,27 +78,25 @@ func _verify_prefilter_axes_and_cardinality() -> void:
 		saturated,
 		1,
 		false,
-		false,
-		_seeded_rng()
+		false
 	)
-	_expect((exactly_two.get("candidates", []) as Array).size() == 2, "exactly two valid candidates must both be presented")
+	_expect((exactly_two.get("candidates", []) as Array).size() == 2, "exactly two valid candidates must both enter the roll pool")
 
 	var open_offer := GuardianEnhanceOfferEngine.new().build_offer(
 		owner,
 		_open_pet_data("patrol"),
 		0,
 		true,
-		true,
-		_seeded_rng()
+		true
 	)
 	var presented: Array = open_offer.get("candidates", []) as Array
-	_expect(presented.size() == 3, "three or more valid candidates must present exactly three")
+	_expect(presented.size() == int(open_offer.get("applicable_count", -1)), "the automatic roll pool must retain every applicable candidate")
 	var seen := {}
 	for candidate_value in presented:
 		var candidate := candidate_value as Dictionary
 		var key := "%s:%d" % [str(candidate.get("type", "")), int(candidate.get("skill_slot", 0))]
 		seen[key] = true
-	_expect(seen.size() == presented.size(), "presented candidates must be sampled without replacement")
+	_expect(seen.size() == presented.size(), "automatic roll candidates must remain unique")
 
 	var flight_candidates := LingpetEnhancementBuffStore.build_guardian_enhancement_candidates(
 		_open_pet_data("flight"),
@@ -101,7 +109,7 @@ func _verify_prefilter_axes_and_cardinality() -> void:
 	_expect(str(flight_mobility.get("remapped_stat", "")) == "appearance_rate", "flight mobility must remain valid through the appearance-rate remap")
 
 	var duration_candidate := GuardianEnhanceOfferEngine.localize_candidate({"type": LingpetEnhancementBuffStore.REWARD_TYPE_DURATION})
-	_expect(float(duration_candidate.get("weight", 1.0)) < GuardianEnhanceOfferEngine.DEFAULT_WEIGHT, "duration increase must carry a lower presentation weight")
+	_expect(float(duration_candidate.get("weight", 1.0)) < GuardianEnhanceOfferEngine.DEFAULT_WEIGHT, "duration increase must carry a lower roll weight")
 	owner.queue_free()
 
 
@@ -156,12 +164,6 @@ func _saturated_pet_data(motion_style: String) -> Dictionary:
 		"passive_skill_base_level": LingpetEnhancementBuffStore.SKILL_LEVEL_MAX,
 		"reward_counts": counts,
 	}
-
-
-func _seeded_rng() -> RandomNumberGenerator:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260728
-	return rng
 
 
 func _has_type(candidates: Array[Dictionary], reward_type: String) -> bool:

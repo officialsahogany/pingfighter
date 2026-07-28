@@ -23,9 +23,6 @@ const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_st
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
-const LingpetGuardianEnhanceChoiceState := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_choice_state.gd"
-)
 const LingpetGuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
 )
@@ -258,8 +255,7 @@ var _soul_summon_offer_cooldown_screens := 0
 var _soul_summon_offer_pending_choice := false
 var _soul_summon_overflow_available_for_tests := true
 var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.new()
-var _guardian_enhance_choice_state: Object = LingpetGuardianEnhanceChoiceState.new()
-var _guardian_enhance_offer_rng_for_tests: RandomNumberGenerator = null
+var _guardian_enhance_roll_rng_for_tests: RandomNumberGenerator = null
 var _guardian_enhance_last_result: Dictionary = {}
 var _guardian_enhance_cutin_state: Object = LingpetGuardianEnhanceCutinState.new()
 var _guardian_enhance_cutin_prewarm_state: Object = LingpetAcquireCutinAssetPrewarmState.new()
@@ -582,64 +578,32 @@ func build_guardian_enhance_offer(owner: Object) -> Dictionary:
 		_affinity_state.get_pet_data(pet_id),
 		_affinity_state.get_duration_increase_count(),
 		bool(skill_availability.get("has_second_active", false)),
-		bool(skill_availability.get("has_second_passive", false)),
-		_guardian_enhance_offer_rng_for_tests
+		bool(skill_availability.get("has_second_passive", false))
 	)
 	result["pet_id"] = pet_id
 	return result
 
 
-func start_guardian_enhance_choice(
+func apply_guardian_enhance_random_roll(
 	candidates: Array,
-	owner: Object = null,
-	_registry: Object = null
-) -> bool:
-	var pet_id := _resolve_guardian_enhance_pet_id(owner)
-	if pet_id == "" or is_guardian_enhance_choice_active():
-		return false
-	return bool(_guardian_enhance_choice_state.start(pet_id, candidates))
-
-
-func is_guardian_enhance_choice_active() -> bool:
-	return bool(_guardian_enhance_choice_state.active)
-
-
-func get_guardian_enhance_choice_snapshot() -> Dictionary:
-	return _guardian_enhance_choice_state.get_snapshot()
-
-
-func advance_guardian_enhance_choice(delta: float) -> void:
-	_guardian_enhance_choice_state.advance(delta)
-
-
-func move_guardian_enhance_choice(delta_index: int) -> int:
-	return int(_guardian_enhance_choice_state.move_selection(delta_index))
-
-
-func move_guardian_enhance_choice_selection(delta_index: int) -> int:
-	return move_guardian_enhance_choice(delta_index)
-
-
-func select_guardian_enhance_choice(index: int) -> bool:
-	return bool(_guardian_enhance_choice_state.select_index(index))
-
-
-func select_guardian_enhance_choice_index(index: int) -> bool:
-	return select_guardian_enhance_choice(index)
-
-
-func confirm_guardian_enhance_choice(
 	owner: Object = null,
 	registry: Object = null
 ) -> Dictionary:
-	if not _guardian_enhance_choice_state.can_confirm():
-		return {"accepted": false, "modal_should_close": false, "blocked_reason": "input_guard"}
-	return LingpetGuardianEnhanceApplier.confirm_from_runtime(self, owner, registry)
+	var pet_id := _resolve_guardian_enhance_pet_id(owner)
+	if pet_id == "":
+		return {"accepted": false, "modal_started": false, "blocked_reason": "no_owned_guardian"}
+	var result := LingpetGuardianEnhanceApplier.resolve_random_roll(
+		candidates,
+		Callable(self, "can_apply_guardian_enhancement_candidate").bind(pet_id),
+		Callable(self, "apply_guardian_enhancement_candidate").bind(owner, registry, pet_id),
+		Callable(self, "apply_guardian_enhance_duration_fallback").bind(owner, registry),
+		_guardian_enhance_roll_rng_for_tests
+	)
+	complete_guardian_enhance_roll(result, pet_id, registry)
+	return result
 
 
-func can_apply_guardian_enhancement_candidate(candidate: Dictionary) -> bool:
-	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
-	var pet_id := str(snapshot.get("pet_id", ""))
+func can_apply_guardian_enhancement_candidate(candidate: Dictionary, pet_id: String) -> bool:
 	var skill_availability: Dictionary = (
 		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
 	)
@@ -654,22 +618,24 @@ func can_apply_guardian_enhancement_candidate(candidate: Dictionary) -> bool:
 func apply_guardian_enhancement_candidate(
 	candidate: Dictionary,
 	owner: Object = null,
-	registry: Object = null
+	registry: Object = null,
+	pet_id: String = ""
 ) -> Dictionary:
-	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
-	var pet_id := str(snapshot.get("pet_id", ""))
+	var target_pet_id := pet_id.strip_edges().to_lower()
+	if target_pet_id == "":
+		target_pet_id = _resolve_guardian_enhance_pet_id(owner)
 	var skill_availability: Dictionary = (
-		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+		_affinity_state.get_guardian_enhancement_skill_availability(target_pet_id)
 	)
 	var result: Dictionary = _affinity_state.apply_guardian_enhancement(
-		pet_id,
+		target_pet_id,
 		candidate,
 		bool(skill_availability.get("has_second_active", false)),
 		bool(skill_availability.get("has_second_passive", false))
 	)
 	if bool(result.get("accepted", false)):
 		_affinity_context_coordinator.handle_level_gain(
-			pet_id,
+			target_pet_id,
 			registry,
 			_pet_id,
 			_current_profile,
@@ -693,13 +659,14 @@ func apply_guardian_enhance_duration_fallback(
 	return result
 
 
-func complete_guardian_enhance_choice(result: Dictionary, registry: Object = null) -> void:
-	var choice_snapshot: Dictionary = _guardian_enhance_choice_state.get_snapshot()
-	var display_pet_id := str(choice_snapshot.get("pet_id", _pet_id))
+func complete_guardian_enhance_roll(
+	result: Dictionary,
+	display_pet_id: String,
+	registry: Object = null
+) -> void:
 	if display_pet_id.strip_edges() == "":
 		display_pet_id = _pet_id
 	_guardian_enhance_last_result = result.duplicate(true)
-	_guardian_enhance_choice_state.close()
 	if bool(result.get("accepted", false)):
 		_guardian_enhance_offer_engine.mark_applied()
 		_guardian_enhance_cutin_prewarm_state.reset()
@@ -709,14 +676,6 @@ func complete_guardian_enhance_choice(result: Dictionary, registry: Object = nul
 			_guardian_enhance_cutin_host_resolver
 		)
 		_guardian_enhance_cutin_state.start(display_pet_id, result)
-
-
-func cancel_guardian_enhance_choice() -> bool:
-	if not is_guardian_enhance_choice_active():
-		return false
-	# The reward modal itself is non-cancellable. ESC is consumed so neither the
-	# battle pause menu nor the underlying perk modal can steal focus.
-	return true
 
 
 func is_guardian_enhance_cutin_active() -> bool:
@@ -788,8 +747,8 @@ func _stop_guardian_enhance_cutin_audio(registry: Object) -> void:
 		audio.stop_lingpet_guardian_enhance_cutin_loop()
 
 
-func set_guardian_enhance_offer_rng_for_tests(rng: RandomNumberGenerator) -> void:
-	_guardian_enhance_offer_rng_for_tests = rng
+func set_guardian_enhance_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
+	_guardian_enhance_roll_rng_for_tests = rng
 
 
 func get_guardian_enhance_offer_state_for_tests() -> Dictionary:
@@ -2148,7 +2107,6 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 	_invalidate_runtime_snapshot_cache()
 	cancel_guardian_enhance_cutin(registry)
 	_overflow_choice_state.reset()
-	_guardian_enhance_choice_state.reset()
 	_reset_hatch_break_sequence()
 	var result: Dictionary = _save_restore_applier.apply(
 		snapshot,
@@ -2203,8 +2161,7 @@ func reset_for_tests() -> void:
 	_duration_warning_stage = 0
 	_duration_roll_rng_for_tests = null
 	_guardian_enhance_offer_engine.reset()
-	_guardian_enhance_choice_state.reset()
-	_guardian_enhance_offer_rng_for_tests = null
+	_guardian_enhance_roll_rng_for_tests = null
 	_guardian_enhance_last_result.clear()
 	_guardian_enhance_cutin_state.reset()
 	_guardian_enhance_cutin_prewarm_state.reset()

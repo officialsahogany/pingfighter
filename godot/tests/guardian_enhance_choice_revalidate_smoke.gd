@@ -1,8 +1,5 @@
 extends SceneTree
 
-const GuardianEnhanceChoiceState := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_choice_state.gd"
-)
 const GuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
 )
@@ -15,83 +12,88 @@ var _fallback_calls := 0
 
 
 func _init() -> void:
-	_verify_selected_candidate_applies()
-	_verify_injected_failure_auto_replaces_in_presented_order()
-	_verify_all_invalid_uses_uncapped_duration_fallback_and_closes()
+	_verify_seeded_roll_is_deterministic_and_modal_free()
+	_verify_injected_failure_rerolls_remaining_pool()
+	_verify_all_invalid_uses_uncapped_duration_fallback()
 	if _failures == 0:
 		print("guardian_enhance_choice_revalidate_smoke: ok")
 	quit(_failures)
 
 
-func _verify_selected_candidate_applies() -> void:
+func _verify_seeded_roll_is_deterministic_and_modal_free() -> void:
 	_reset_fixture()
 	_valid_by_type = {"active_skill": true, "gauge": true, "mobility": true}
-	var state := _started_state()
-	state.advance(GuardianEnhanceChoiceState.INPUT_GUARD_SECONDS)
-	state.select_index(1)
-	var result := GuardianEnhanceApplier.resolve_choice_state(
-		state,
+	var first := GuardianEnhanceApplier.resolve_random_roll(
+		_candidates(),
 		Callable(self, "_can_apply"),
 		Callable(self, "_apply"),
-		Callable(self, "_fallback")
+		Callable(self, "_fallback"),
+		_seeded_rng()
 	)
-	_expect(bool(result.get("accepted", false)), "valid selected candidate should apply")
-	_expect(int(result.get("applied_index", -1)) == 1, "valid selection must not be replaced")
-	_expect(not bool(result.get("auto_replaced", true)), "valid selection must preserve player choice")
-	_expect(bool(result.get("modal_closed", false)), "successful application must close the choice modal")
-
-
-func _verify_injected_failure_auto_replaces_in_presented_order() -> void:
+	var first_order: Array = first.get("roll_order", []) as Array
 	_reset_fixture()
-	var state := _started_state()
-	state.advance(GuardianEnhanceChoiceState.INPUT_GUARD_SECONDS)
-	state.select_index(2)
-	# Failure injection happens AFTER the presented set is captured: the selected
-	# mobility candidate becomes invalid, candidate 0 stays valid, candidate 1 is
-	# also valid. Presentation order therefore requires candidate 0 as replacement.
-	_valid_by_type = {"active_skill": true, "gauge": true, "mobility": false}
-	var result := GuardianEnhanceApplier.resolve_choice_state(
-		state,
+	_valid_by_type = {"active_skill": true, "gauge": true, "mobility": true}
+	var second := GuardianEnhanceApplier.resolve_random_roll(
+		_candidates(),
 		Callable(self, "_can_apply"),
 		Callable(self, "_apply"),
-		Callable(self, "_fallback")
+		Callable(self, "_fallback"),
+		_seeded_rng()
 	)
-	_expect(_can_apply_trace == ["mobility", "active_skill"], "fixture must actually reject the selected candidate before checking the first presented replacement")
-	_expect(_apply_trace == ["active_skill"], "only the first valid replacement in presentation order may apply")
-	_expect(bool(result.get("auto_replaced", false)), "invalid selected candidate must report automatic replacement")
-	_expect(int(result.get("applied_index", -1)) == 0, "replacement must use presentation-order candidate 0")
+	_expect(bool(first.get("accepted", false)), "a valid random candidate must apply immediately")
+	_expect(first_order == (second.get("roll_order", []) as Array), "the injected RNG must make the automatic roll deterministic")
+	_expect(not bool(first.get("modal_started", true)), "automatic enhancement must never open a secondary choice modal")
+
+
+func _verify_injected_failure_rerolls_remaining_pool() -> void:
+	_reset_fixture()
+	# The high-weight first roll is invalidated after offer construction. The
+	# resolver must remove it, draw again from the remaining pool, and apply once.
+	_valid_by_type = {"active_skill": false, "gauge": true, "mobility": true}
+	var result := GuardianEnhanceApplier.resolve_random_roll(
+		_candidates(),
+		Callable(self, "_can_apply"),
+		Callable(self, "_apply"),
+		Callable(self, "_fallback"),
+		_seeded_rng()
+	)
+	_expect(_can_apply_trace.size() == 2 and _can_apply_trace[0] == "active_skill", "fixture must reject the deterministic first roll before rerolling")
+	_expect(_apply_trace.size() == 1 and _apply_trace[0] != "active_skill", "only the valid rerolled candidate may apply")
+	_expect(bool(result.get("rerolled", false)), "invalid first roll must report a reroll")
 	_expect(not bool(result.get("fallback_used", true)), "a valid replacement must prevent fallback")
-	_expect(bool(result.get("modal_closed", false)), "replacement path must close the modal")
+	_expect(not bool(result.get("modal_started", true)), "reroll must remain modal-free")
 
 
-func _verify_all_invalid_uses_uncapped_duration_fallback_and_closes() -> void:
+func _verify_all_invalid_uses_uncapped_duration_fallback() -> void:
 	_reset_fixture()
-	var state := _started_state()
-	state.advance(GuardianEnhanceChoiceState.INPUT_GUARD_SECONDS)
 	_valid_by_type = {"active_skill": false, "gauge": false, "mobility": false}
-	var result := GuardianEnhanceApplier.resolve_choice_state(
-		state,
+	var result := GuardianEnhanceApplier.resolve_random_roll(
+		_candidates(),
 		Callable(self, "_can_apply"),
 		Callable(self, "_apply"),
-		Callable(self, "_fallback")
+		Callable(self, "_fallback"),
+		_seeded_rng()
 	)
-	_expect(_can_apply_trace == ["active_skill", "gauge", "mobility"], "all-invalid fixture must inject failure into every candidate from the same set")
+	_expect(_can_apply_trace.size() == 3, "all-invalid fixture must inject failure into every candidate in the roll pool")
 	_expect(_apply_trace.is_empty(), "invalid candidates must never reach apply")
 	_expect(_fallback_calls == 1, "all-invalid chain must apply the +15 second fallback exactly once")
 	_expect(bool(result.get("fallback_used", false)), "all-invalid chain must identify the fallback path")
 	_expect(bool(result.get("accepted", false)), "guaranteed fallback must preserve the perk reward")
-	_expect(bool(result.get("modal_closed", false)), "fallback path must close the modal")
+	_expect(not bool(result.get("modal_started", true)), "fallback path must remain modal-free")
 
 
-func _started_state() -> Object:
-	var state := GuardianEnhanceChoiceState.new()
-	var started := state.start("maribo", [
-		{"type": "active_skill", "label": "액티브 스킬 +1"},
-		{"type": "gauge", "label": "기력 획득량 증가"},
-		{"type": "mobility", "label": "이동속도 증가"},
-	])
-	_expect(started, "choice state fixture must start with three real candidates")
-	return state
+func _candidates() -> Array:
+	return [
+		{"type": "active_skill", "label": "액티브 스킬 +1", "weight": 1000.0},
+		{"type": "gauge", "label": "기력 획득량 증가", "weight": 1.0},
+		{"type": "mobility", "label": "이동속도 증가", "weight": 1.0},
+	]
+
+
+func _seeded_rng() -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260728
+	return rng
 
 
 func _can_apply(candidate: Dictionary) -> bool:

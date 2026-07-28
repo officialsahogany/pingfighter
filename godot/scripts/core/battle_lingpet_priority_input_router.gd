@@ -3,7 +3,6 @@ extends RefCounted
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const OVERFLOW_HOST_KEY := "lingpet_overflow_choice_overlay_host"
-const GUARDIAN_ENHANCE_HOST_KEY := "lingpet_guardian_enhance_choice_overlay_host"
 
 
 func handle_input(
@@ -18,15 +17,6 @@ func handle_input(
 		return true
 	if _call_modal_gate_bool(module_getter, "is_lingpet_overflow_choice_active"):
 		_handle_overflow_choice_input(
-			event,
-			owner,
-			registry,
-			module_getter,
-			view_size
-		)
-		return true
-	if _call_modal_gate_bool(module_getter, "is_lingpet_guardian_enhance_choice_active"):
-		_handle_guardian_enhance_choice_input(
 			event,
 			owner,
 			registry,
@@ -64,22 +54,6 @@ func _handle_guardian_enhance_cutin_input(
 		and runtime.has_method("begin_guardian_enhance_cutin_dismiss")
 		and bool(runtime.begin_guardian_enhance_cutin_dismiss())
 	):
-		_queue_redraw(owner)
-		_mark_handled(owner)
-
-
-func _handle_guardian_enhance_choice_input(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable,
-	view_size: Vector2
-) -> void:
-	var runtime := _get_module(module_getter, "lingpet_egg_runtime")
-	var host := _get_registry_instance(registry, GUARDIAN_ENHANCE_HOST_KEY)
-	if runtime == null or host == null or not host.has_method("handle_input"):
-		return
-	if bool(host.handle_input(event, runtime, owner, registry, view_size)):
 		_queue_redraw(owner)
 		_mark_handled(owner)
 
