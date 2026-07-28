@@ -13,6 +13,7 @@ const REWARD_TYPE_PASSIVE_SKILL := "passive_skill"
 const REWARD_TYPE_MOBILITY := "mobility"
 const REWARD_TYPE_DEFENSE := "defense"
 const REWARD_TYPE_GAUGE := "gauge"
+const REWARD_TYPE_DURATION := "duration"
 const REWARD_TYPE_NO_REWARD := "no_reward"
 
 const MOTION_STYLE_PATROL := "patrol"
@@ -21,6 +22,7 @@ const SKILL_LEVEL_MAX := 5
 const MAX_MOBILITY_STACKS := 6
 const MAX_DEFENSE_STACKS := 2
 const MAX_GAUGE_STACKS := 4
+const MAX_DURATION_INCREASES := 2
 
 # §9-3 reservation: a future duration-increase enhancement is run-global and
 # belongs to the shared duration owner. It must never be persisted in this
@@ -90,6 +92,105 @@ static func get_effective_skill_level(
 	return LingpetCatalog.clamp_skill_level(
 		base_level + get_reward_count(reward_counts, bonus_key)
 	)
+
+
+# Builds the eight-category Guardian Enhance candidate pool before any roll.
+# This is the single applicability source for both offer generation and the
+# confirm-time revalidation path. Duration is the sole run-owner exception;
+# every other candidate remains a reward_counts-backed per-pet enhancement.
+static func build_guardian_enhancement_candidates(
+	pet_data: Dictionary,
+	duration_increase_count: int,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	var counts := reward_counts_snapshot(pet_data)
+	var active_slot := _first_applicable_skill_bonus_slot(
+		pet_data,
+		counts,
+		true,
+		has_second_active_skill
+	)
+	if active_slot > 0:
+		candidates.append(_make_guardian_candidate(REWARD_TYPE_ACTIVE_SKILL, active_slot))
+	var passive_slot := _first_applicable_skill_bonus_slot(
+		pet_data,
+		counts,
+		false,
+		has_second_passive_skill
+	)
+	if passive_slot > 0:
+		candidates.append(_make_guardian_candidate(REWARD_TYPE_PASSIVE_SKILL, passive_slot))
+	if duration_increase_count < MAX_DURATION_INCREASES:
+		candidates.append({
+			"type": REWARD_TYPE_DURATION,
+			"storage_owner": "lingpet_duration_state",
+		})
+	for reward_type in [REWARD_TYPE_DEFENSE, REWARD_TYPE_GAUGE, REWARD_TYPE_MOBILITY]:
+		var stat_candidate := _make_guardian_candidate(str(reward_type))
+		if can_apply_reward_card(
+			pet_data,
+			stat_candidate,
+			has_second_active_skill,
+			has_second_passive_skill
+		):
+			if reward_type == REWARD_TYPE_MOBILITY and _normalize_motion_style(
+				str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL))
+			) == MOTION_STYLE_FLIGHT:
+				stat_candidate["remapped_stat"] = "appearance_rate"
+			candidates.append(stat_candidate)
+	for unlock_type in [REWARD_TYPE_SECOND_ACTIVE_UNLOCK, REWARD_TYPE_SECOND_PASSIVE_UNLOCK]:
+		var unlock_candidate := _make_guardian_candidate(str(unlock_type))
+		if can_apply_reward_card(
+			pet_data,
+			unlock_candidate,
+			has_second_active_skill,
+			has_second_passive_skill
+		):
+			candidates.append(unlock_candidate)
+	return candidates
+
+
+static func can_apply_guardian_enhancement(
+	pet_data: Dictionary,
+	candidate: Dictionary,
+	duration_increase_count: int,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> bool:
+	if str(candidate.get("type", "")) == REWARD_TYPE_DURATION:
+		return duration_increase_count < MAX_DURATION_INCREASES
+	return can_apply_reward_card(
+		pet_data,
+		candidate,
+		has_second_active_skill,
+		has_second_passive_skill
+	)
+
+
+static func apply_guardian_enhancement_to_pet(
+	pet_data: Dictionary,
+	candidate: Dictionary,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> Dictionary:
+	if str(candidate.get("type", "")) == REWARD_TYPE_DURATION:
+		return {"accepted": false, "blocked_reason": "duration_owner_required"}
+	if not can_apply_reward_card(
+		pet_data,
+		candidate,
+		has_second_active_skill,
+		has_second_passive_skill
+	):
+		return {"accepted": false, "blocked_reason": "candidate_no_longer_applicable"}
+	var counts := apply_reward_to_pet_counts(pet_data, candidate)
+	return {
+		"accepted": true,
+		"candidate": candidate.duplicate(true),
+		"reward_counts": counts.duplicate(true),
+		"storage_owner": "lingpet_enhancement_buff_store",
+	}
 
 
 static func resolve_effective_reward_card(
@@ -300,6 +401,29 @@ static func _can_apply_skill_bonus(
 		bool(counts.get("passive_unlocked", false))
 		and int(counts.get("passive_skill_bonus", 0)) < _available_passive_skill_bonus_slots(pet_data)
 	)
+
+
+static func _first_applicable_skill_bonus_slot(
+	pet_data: Dictionary,
+	counts: Dictionary,
+	active: bool,
+	has_second_skill: bool
+) -> int:
+	if _can_apply_skill_bonus(pet_data, counts, active, 1):
+		return 1
+	if has_second_skill and _can_apply_skill_bonus(pet_data, counts, active, 2):
+		return 2
+	return 0
+
+
+static func _make_guardian_candidate(reward_type: String, skill_slot: int = 0) -> Dictionary:
+	var candidate := {
+		"type": reward_type,
+		"storage_owner": "lingpet_enhancement_buff_store",
+	}
+	if skill_slot > 0:
+		candidate["skill_slot"] = skill_slot
+	return candidate
 
 
 static func _available_active_skill_bonus_slots(pet_data: Dictionary) -> int:
