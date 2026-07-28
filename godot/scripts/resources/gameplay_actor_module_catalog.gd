@@ -221,6 +221,10 @@ const MODULES := {
 		"path": "res://scripts/characters/blacksmith_skill_config.gd",
 		"label": "blacksmith skill config",
 	},
+	"optimus_skill_config": {
+		"path": "res://scripts/characters/optimus_skill_config.gd",
+		"label": "optimus skill config",
+	},
 	"player_movement_state": {
 		"path": "res://scripts/characters/player_movement_state.gd",
 		"label": "player movement state",

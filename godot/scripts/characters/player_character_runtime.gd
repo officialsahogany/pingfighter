@@ -76,7 +76,7 @@ func get_skill_config_key(character_type: Variant) -> String:
 	if is_commando(character_type):
 		return "commando_skill_config"
 	if is_optimus(character_type):
-		return ""
+		return "optimus_skill_config"
 	if is_viper(character_type):
 		return "viper_skill_config"
 	return "smasher_skill_config"

@@ -116,6 +116,7 @@ func classify_data(
 		slot_cost
 	)
 	var penalty_hookable: bool = _resolve_penalty_hookable(normalized_data, fusion_class)
+	var fusion_excluded := bool(normalized_data.get("exclude_from_perk_fusion", false))
 
 	return {
 		"perk_id": normalized_id,
@@ -124,7 +125,8 @@ func classify_data(
 		"penalty_hookable": penalty_hookable,
 		"max_level": max_level,
 		"slot_cost": slot_cost,
-		"is_candidate_class": bool(CANDIDATE_CLASSES.get(fusion_class, false)),
+		"is_candidate_class": bool(CANDIDATE_CLASSES.get(fusion_class, false)) and not fusion_excluded,
+		"fusion_excluded": fusion_excluded,
 		"limit_break_eligible": bool(perk_data.get(
 			"limit_break_eligible",
 			LIMIT_BREAK_ELIGIBLE_IDS.get(normalized_id, false)

@@ -37,7 +37,7 @@ const CHARACTER_SKILL_KEYS := {
 	},
 	CHARACTER_KEY_OPTIMUS: {
 		"state": "optimus_energy_state",
-		"config": "",
+		"config": "optimus_skill_config",
 		"runtimes": [],
 	},
 	CHARACTER_KEY_BLACKSMITH: {

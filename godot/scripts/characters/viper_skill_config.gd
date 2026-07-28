@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const MAX_SKILL_SLOTS := 5
@@ -198,8 +199,8 @@ func get_snapshot() -> Dictionary:
 	_snapshot_cache = {
 		"max_slots": get_max_skill_slots(),
 		"equipped_skills": equipped_skills.duplicate(),
-		"skill_costs": SKILL_COSTS,
-		"skill_colors": SKILL_COLORS,
+		"skill_costs": _get_effective_skill_costs_map(),
+		"skill_colors": _get_effective_skill_colors_map(),
 		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
 		"item_cooldown_multiplier": item_cooldown_multiplier,
 		"item_skill_slot_bonus": item_skill_slot_bonus,
@@ -248,6 +249,8 @@ func set_item_skill_slot_bonus(slot_bonus: int) -> Array:
 
 
 func get_skill_cost(skill_name: String) -> float:
+	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return 0.0
 	return float(SKILL_COSTS.get(skill_name, 0.0))
 
 
@@ -256,13 +259,30 @@ func is_skill_equipped(skill_name: String) -> bool:
 
 
 func unlock_and_equip_skill(skill_name: String) -> bool:
-	if not SKILL_DATA.has(skill_name):
+	if not SKILL_DATA.has(skill_name) and skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
 		return false
 	if equipped_skills.has(skill_name):
 		return true
 	if equipped_skills.size() >= get_max_skill_slots():
 		return false
 	equipped_skills.append(skill_name)
+	return true
+
+
+func is_shared_slot_full() -> bool:
+	return equipped_skills.size() >= get_max_skill_slots()
+
+
+func get_shared_slot_swap_candidates(skill_name: String) -> Array:
+	if (not SKILL_DATA.has(skill_name) and skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID) or equipped_skills.has(skill_name):
+		return []
+	return equipped_skills.duplicate()
+
+
+func unequip_skill(skill_name: String) -> bool:
+	if not equipped_skills.has(skill_name):
+		return false
+	equipped_skills.erase(skill_name)
 	return true
 
 
@@ -274,6 +294,8 @@ func reset_runtime_skills() -> void:
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
+	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return CommonSkillCatalog.get_skill_data()
 	var value: Variant = SKILL_DATA.get(skill_name, {})
 	if value is Dictionary:
 		var data: Dictionary = value
@@ -366,6 +388,7 @@ func _get_effective_cooldown_seconds_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in COOLDOWN_SECONDS.keys():
 		result[str(skill_name)] = get_cooldown_seconds(str(skill_name))
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
 	return result
 
 
@@ -373,6 +396,19 @@ func _get_effective_skill_data_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in SKILL_DATA.keys():
 		result[str(skill_name)] = get_skill_data(str(skill_name))
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.get_skill_data()
+	return result
+
+
+func _get_effective_skill_costs_map() -> Dictionary:
+	var result := SKILL_COSTS.duplicate()
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
+	return result
+
+
+func _get_effective_skill_colors_map() -> Dictionary:
+	var result := SKILL_COLORS.duplicate()
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.SOUL_SUMMON_ART_COLOR
 	return result
 
 

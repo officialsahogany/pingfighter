@@ -41,6 +41,8 @@ static func skill_config_key(character_type: String, character_runtime: Object) 
 		key = "viper_skill_config"
 	elif character_type == "soldier":
 		key = "commando_skill_config"
+	elif character_type == "optimus":
+		key = "optimus_skill_config"
 	return key
 
 

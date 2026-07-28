@@ -1,25 +1,22 @@
 extends RefCounted
 
-const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 
 const MAX_SKILL_SLOTS := 5
 
-var runtime_cooldown_multiplier := 1.0
-var item_cooldown_multiplier := 1.0
 var equipped_skills: Array[String] = []
 
 
 func get_snapshot() -> Dictionary:
 	var skill_data := CommonSkillCatalog.get_skill_data()
 	return {
-		"max_slots": get_max_skill_slots(),
+		"max_slots": MAX_SKILL_SLOTS,
 		"equipped_skills": equipped_skills.duplicate(),
 		"skill_costs": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
 		"skill_colors": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: CommonSkillCatalog.SOUL_SUMMON_ART_COLOR},
-		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
-		"item_cooldown_multiplier": item_cooldown_multiplier,
-		"cooldown_multiplier": get_effective_cooldown_multiplier(),
+		"runtime_cooldown_multiplier": 1.0,
+		"item_cooldown_multiplier": 1.0,
+		"cooldown_multiplier": 1.0,
 		"cooldown_reduction_eligible": false,
 		"cooldown_reduction_skill_ids": [],
 		"cooldown_seconds": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
@@ -39,19 +36,16 @@ func get_cooldown_seconds(_skill_name: String) -> float:
 	return 0.0
 
 
-func get_effective_cooldown_multiplier() -> float:
-	return CooldownFloorPolicy.floor_final_multiplier(
-		max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
-	)
+func get_cooldown_reduction_skill_ids() -> Array[String]:
+	return []
 
 
-func set_runtime_cooldown_multiplier(multiplier: float) -> void:
-	runtime_cooldown_multiplier = max(0.0, multiplier)
+func set_runtime_cooldown_multiplier(_multiplier: float) -> void:
+	pass
 
 
-func set_item_cooldown_multiplier(multiplier: float) -> void:
-	item_cooldown_multiplier = max(0.0, multiplier)
-
+func set_item_cooldown_multiplier(_multiplier: float) -> void:
+	pass
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
@@ -65,7 +59,7 @@ func is_skill_equipped(skill_name: String) -> bool:
 
 
 func is_shared_slot_full() -> bool:
-	return equipped_skills.size() >= get_max_skill_slots()
+	return equipped_skills.size() >= MAX_SKILL_SLOTS
 
 
 func get_shared_slot_swap_candidates(skill_name: String) -> Array:
@@ -93,6 +87,4 @@ func unequip_skill(skill_name: String) -> bool:
 
 
 func reset_runtime_skills() -> void:
-	runtime_cooldown_multiplier = 1.0
-	item_cooldown_multiplier = 1.0
 	equipped_skills.clear()

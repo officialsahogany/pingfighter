@@ -682,7 +682,9 @@ func _draw_cost_and_cooldown_line(
 	var cost: float = _get_effective_skill_cost(skill_data, hover_context)
 	var can_use: bool = current_gauge >= cost
 	var cost_color := Color(100.0 / 255.0, 1.0, 150.0 / 255.0) if can_use else Color(1.0, 100.0 / 255.0, 100.0 / 255.0)
-	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, y), "%s: %s" % [LanguageSettings.translate_text("게이지 비용"), _format_number(cost)], normal_size, cost_color)
+	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, y), "%s: %s" % [LanguageSettings.translate_text("기력 비용"), _format_number(cost)], normal_size, cost_color)
+	if not bool(skill_data.get("show_cooldown", true)):
+		return
 
 	var cooldown_seconds: float = _get_effective_skill_cooldown_seconds(skill_data, hover_context)
 	var cooldown_ratio: float = _get_cooldown_remaining(
@@ -783,21 +785,23 @@ func _append_combo_amplifier_runtime_bonus(description: String, hover_context: D
 func _format_combo_amplifier_line(is_drive: bool, pct_a: int, pct_b: int) -> String:
 	var lang := LanguageSettings.get_language()
 	if lang == LanguageSettings.LANGUAGE_ENGLISH:
-		return ("Combo Amp: drive combo speed +%d%%, curve +%d%%" if is_drive else "Combo Amp: power smash combo speed +%d%%, boost retention +%d%%") % [pct_a, pct_b]
+		return ("Thunder-Gathering Inner Art: Thunderclap Strike speed +%d%%, curve +%d%%" if is_drive else "Thunder-Gathering Inner Art: Heavenly Thunder Strike speed +%d%%, boost retention +%d%%") % [pct_a, pct_b]
 	if lang == LanguageSettings.LANGUAGE_CHINESE:
-		return ("连击增幅：回旋球连击球速 +%d%%，曲线 +%d%%" if is_drive else "连击增幅：强力粉碎连击球速 +%d%%，增幅维持 +%d%%") % [pct_a, pct_b]
+		return ("蓄雷心法：霹雳击球速 +%d%%，曲线 +%d%%" if is_drive else "蓄雷心法：天雷击球速 +%d%%，增幅维持 +%d%%") % [pct_a, pct_b]
 	if lang == LanguageSettings.LANGUAGE_JAPANESE:
-		return ("コンボ増幅：ドライブのコンボ球速 +%d%%、カーブ +%d%%" if is_drive else "コンボ増幅：パワースマッシュのコンボ球速 +%d%%、ブースト維持 +%d%%") % [pct_a, pct_b]
+		return ("蓄雷心法：霹靂打の球速 +%d%%、カーブ +%d%%" if is_drive else "蓄雷心法：天雷撃の球速 +%d%%、ブースト維持 +%d%%") % [pct_a, pct_b]
 	if lang == LanguageSettings.LANGUAGE_SPANISH:
-		return ("Amp. de combo: velocidad de combo de Drive +%d%%, curva +%d%%" if is_drive else "Amp. de combo: velocidad de combo de Power Smashing +%d%%, retención de impulso +%d%%") % [pct_a, pct_b]
+		return ("Arte Interior de Trueno Acumulado: velocidad de Golpe Relámpago +%d%%, curva +%d%%" if is_drive else "Arte Interior de Trueno Acumulado: velocidad de Golpe del Trueno Celestial +%d%%, retención de impulso +%d%%") % [pct_a, pct_b]
 	if lang == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return ("Amp. de combo: velocidade de combo do Drive +%d%%, curva +%d%%" if is_drive else "Amp. de combo: velocidade de combo do Power Smashing +%d%%, retenção de impulso +%d%%") % [pct_a, pct_b]
+		return ("Arte Interior do Trovão Acumulado: velocidade do Golpe Relâmpago +%d%%, curva +%d%%" if is_drive else "Arte Interior do Trovão Acumulado: velocidade do Golpe do Trovão Celestial +%d%%, retenção de impulso +%d%%") % [pct_a, pct_b]
 	if lang == LanguageSettings.LANGUAGE_RUSSIAN:
-		return ("Усиление комбо: скорость комбо Drive +%d%%, кривая +%d%%" if is_drive else "Усиление комбо: скорость комбо Power Smashing +%d%%, удержание ускорения +%d%%") % [pct_a, pct_b]
-	return ("콤보증폭칩: 드라이브 콤보 공속 +%d%%, 커브 +%d%%" if is_drive else "콤보증폭칩: 파워스매시 콤보 공속 +%d%%, 부스트 유지 +%d%%") % [pct_a, pct_b]
+		return ("Внутреннее Искусство Накопленной Молнии: скорость Громового удара +%d%%, кривая +%d%%" if is_drive else "Внутреннее Искусство Накопленной Молнии: скорость Удара небесного грома +%d%%, удержание ускорения +%d%%") % [pct_a, pct_b]
+	return ("축뢰심법: 벽력타 공속 +%d%%, 커브 +%d%%" if is_drive else "축뢰심법: 천뢰격 공속 +%d%%, 부스트 유지 +%d%%") % [pct_a, pct_b]
 
 
 func _get_description_max_lines(skill_data: Dictionary, hover_context: Dictionary) -> int:
+	if skill_data.has("description_max_lines"):
+		return maxi(1, int(skill_data.get("description_max_lines", 5)))
 	var skill_name: String = str(skill_data.get("name", ""))
 	if skill_name in ["drive", "power_smashing"] and _get_runtime_skill_level(hover_context, "combo_amplifier_chip") > 0:
 		return 6

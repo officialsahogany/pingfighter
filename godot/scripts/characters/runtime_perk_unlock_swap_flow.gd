@@ -77,11 +77,13 @@ func cancel_pending_swap_from_runtime_state(runtime_state: Object, owner: Object
 	)
 
 
-func should_start_swap(skill_config: Object, unlocked_skill: String, character_type: String) -> bool:
+func should_start_swap(skill_config: Object, unlocked_skill: String, _character_type: String) -> bool:
 	if skill_config == null:
 		return false
-	if _normalize_character_type(character_type) != "soldier":
-		return false
+	# The common art can occupy every character's shared five-orb budget. Once it
+	# is present, a later character unlock must be allowed to replace it too;
+	# otherwise the common slot silently turns the final authored unlock into a
+	# dead card. Config-owned candidate surfaces keep this generic gate fail-closed.
 	if skill_config.has_method("is_skill_equipped") and bool(skill_config.is_skill_equipped(unlocked_skill)):
 		return false
 	if skill_config.has_method("is_shared_slot_full") and not bool(skill_config.is_shared_slot_full()):

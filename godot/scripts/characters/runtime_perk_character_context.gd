@@ -12,7 +12,7 @@ func get_skill_config_key(character_type: String) -> String:
 		"soldier":
 			return "commando_skill_config"
 		"optimus":
-			return ""
+			return "optimus_skill_config"
 		"blacksmith":
 			return "blacksmith_skill_config"
 	return "smasher_skill_config"

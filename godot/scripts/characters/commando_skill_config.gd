@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const MAX_SKILL_SLOTS := 5
@@ -200,8 +201,8 @@ func get_snapshot() -> Dictionary:
 		"fixed_skills": FIXED_SKILLS.duplicate(),
 		"equipped_permanent": equipped_permanent.duplicate(),
 		"equipped_skills": get_equipped_skills(),
-		"skill_costs": SKILL_COSTS,
-		"skill_colors": SKILL_COLORS,
+		"skill_costs": _get_effective_skill_costs_map(),
+		"skill_colors": _get_effective_skill_colors_map(),
 		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
 		"item_cooldown_multiplier": item_cooldown_multiplier,
 		"item_skill_slot_bonus": item_skill_slot_bonus,
@@ -310,6 +311,8 @@ func set_item_skill_slot_bonus(slot_bonus: int) -> Array:
 
 
 func get_skill_cost(skill_name: String) -> float:
+	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return 0.0
 	return float(SKILL_COSTS.get(skill_name, 0.0))
 
 
@@ -337,6 +340,10 @@ func is_permanent_firearm_skill(skill_name: String) -> bool:
 	return PERMANENT_FIREARM_SKILLS.has(skill_name)
 
 
+func is_shared_slot_skill(skill_name: String) -> bool:
+	return is_permanent_firearm_skill(skill_name) or skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID
+
+
 func is_shared_slot_full() -> bool:
 	return equipped_permanent.size() >= get_shared_slot_capacity()
 
@@ -346,7 +353,7 @@ func get_equipped_permanent() -> Array:
 
 
 func get_shared_slot_swap_candidates(skill_name: String) -> Array:
-	if not is_permanent_firearm_skill(skill_name):
+	if not is_shared_slot_skill(skill_name):
 		return []
 	if equipped_permanent.has(skill_name):
 		return []
@@ -356,7 +363,7 @@ func get_shared_slot_swap_candidates(skill_name: String) -> Array:
 func unlock_and_equip_skill(skill_name: String) -> bool:
 	if FIXED_SKILLS.has(skill_name):
 		return true
-	if not is_permanent_firearm_skill(skill_name):
+	if not is_shared_slot_skill(skill_name):
 		return false
 	if equipped_permanent.has(skill_name):
 		return true
@@ -367,7 +374,7 @@ func unlock_and_equip_skill(skill_name: String) -> bool:
 
 
 func swap_equipped_permanent(old_skill_name: String, new_skill_name: String) -> bool:
-	if not is_permanent_firearm_skill(new_skill_name):
+	if not is_shared_slot_skill(new_skill_name):
 		return false
 	if not equipped_permanent.has(old_skill_name):
 		return false
@@ -395,6 +402,8 @@ func reset_runtime_skills() -> void:
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
+	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return CommonSkillCatalog.get_skill_data()
 	var value: Variant = SKILL_DATA.get(skill_name, {})
 	if value is Dictionary:
 		var data: Dictionary = value
@@ -464,6 +473,7 @@ func _get_effective_cooldown_seconds_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in COOLDOWN_SECONDS.keys():
 		result[str(skill_name)] = get_cooldown_seconds(str(skill_name))
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
 	return result
 
 
@@ -471,6 +481,19 @@ func _get_effective_skill_data_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in SKILL_DATA.keys():
 		result[str(skill_name)] = get_skill_data(str(skill_name))
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.get_skill_data()
+	return result
+
+
+func _get_effective_skill_costs_map() -> Dictionary:
+	var result := SKILL_COSTS.duplicate()
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
+	return result
+
+
+func _get_effective_skill_colors_map() -> Dictionary:
+	var result := SKILL_COLORS.duplicate()
+	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.SOUL_SUMMON_ART_COLOR
 	return result
 
 
@@ -494,7 +517,7 @@ func _restore_equipped_permanent_from_save(value: Variant, dropped_ids: Array) -
 		var skill_name: String = _normalize_skill_name(raw_skill_name)
 		if FIXED_SKILLS.has(skill_name):
 			continue
-		if not is_permanent_firearm_skill(skill_name):
+		if not is_shared_slot_skill(skill_name):
 			dropped_ids.append(skill_name)
 			continue
 		if equipped_permanent.has(skill_name):

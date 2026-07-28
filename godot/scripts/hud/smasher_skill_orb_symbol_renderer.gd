@@ -17,11 +17,39 @@ func draw(
 		_draw_drive_symbol(canvas, center, icon_radius, color, symbol_color)
 	elif skill_name == "power_smashing":
 		_draw_power_smashing_symbol(canvas, center, icon_radius, color, symbol_color)
+	elif skill_name == "soul_summon_art":
+		_draw_soul_summon_art_symbol(canvas, center, icon_radius, color, symbol_color)
 	elif skill_name.begins_with("horn_strawberry_"):
 		_draw_horn_strawberry_symbol(canvas, center, icon_radius, skill_name, color, symbol_color, is_active)
 	else:
 		var inactive_color: Color = Color(color.r * 0.45, color.g * 0.45, color.b * 0.45, 0.85)
 		canvas.draw_circle(center, icon_radius * 0.34, color if is_active else inactive_color)
+
+
+func _draw_soul_summon_art_symbol(
+	canvas: CanvasItem,
+	center: Vector2,
+	icon_radius: float,
+	color: Color,
+	symbol_color: Color
+) -> void:
+	var egg := PackedVector2Array()
+	for index in range(20):
+		var angle := TAU * float(index) / 20.0
+		egg.append(center + Vector2(
+			sin(angle) * icon_radius * (0.31 + 0.05 * maxf(0.0, cos(angle))),
+			-cos(angle) * icon_radius * 0.45 + icon_radius * 0.07
+		))
+	canvas.draw_colored_polygon(egg, Color(symbol_color.r, symbol_color.g, symbol_color.b, 0.92))
+	var outline := egg.duplicate()
+	outline.append(egg[0])
+	canvas.draw_polyline(outline, color, maxf(1.2, icon_radius * 0.07), true)
+	canvas.draw_polyline(PackedVector2Array([
+		center + Vector2(-icon_radius * 0.04, -icon_radius * 0.20),
+		center + Vector2(icon_radius * 0.08, -icon_radius * 0.05),
+		center + Vector2(-icon_radius * 0.02, icon_radius * 0.05),
+		center + Vector2(icon_radius * 0.09, icon_radius * 0.18),
+	]), color, maxf(1.3, icon_radius * 0.075), true)
 
 
 func _draw_drive_symbol(
@@ -50,11 +78,21 @@ func _draw_power_smashing_symbol(
 	color: Color,
 	symbol_color: Color
 ) -> void:
-	for i in range(8):
-		var angle: float = float(i) * TAU / 8.0
-		var end: Vector2 = center + Vector2(cos(angle), sin(angle)) * icon_radius * (0.42 + 0.18 * float(i % 2))
-		canvas.draw_line(center, end, color if i % 2 == 0 else symbol_color, 2.0)
-	canvas.draw_circle(center, icon_radius * 0.24, symbol_color)
+	var bolt_points := PackedVector2Array([
+		center + Vector2(-icon_radius * 0.08, -icon_radius * 0.62),
+		center + Vector2(-icon_radius * 0.34, -icon_radius * 0.02),
+		center + Vector2(-icon_radius * 0.04, -icon_radius * 0.02),
+		center + Vector2(-icon_radius * 0.20, icon_radius * 0.64),
+		center + Vector2(icon_radius * 0.38, -icon_radius * 0.16),
+		center + Vector2(icon_radius * 0.08, -icon_radius * 0.16),
+	])
+	canvas.draw_polyline(bolt_points, Color(color.r, color.g, color.b, 0.72), max(3.0, icon_radius * 0.20), true)
+	canvas.draw_polyline(bolt_points, symbol_color, max(1.4, icon_radius * 0.08), true)
+	for i in range(4):
+		var angle: float = -PI * 0.75 + float(i) * PI * 0.50
+		var start: Vector2 = center + Vector2(cos(angle), sin(angle)) * icon_radius * 0.30
+		var end: Vector2 = center + Vector2(cos(angle), sin(angle)) * icon_radius * 0.54
+		canvas.draw_line(start, end, color if i % 2 == 0 else symbol_color, max(1.0, icon_radius * 0.06), true)
 
 
 func _draw_horn_strawberry_symbol(

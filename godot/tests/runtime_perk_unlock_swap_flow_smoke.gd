@@ -90,7 +90,7 @@ func _verify_start_gate_and_payload() -> void:
 	var flow := RuntimePerkUnlockSwapFlow.new()
 	var config := FakeSkillConfig.new()
 	_expect(flow.should_start_swap(config, "bowling_trap", "commando"), "commando alias should use soldier swap flow")
-	_expect(not flow.should_start_swap(config, "bowling_trap", "smasher"), "non-soldier characters should not start Commando swap")
+	_expect(flow.should_start_swap(config, "bowling_trap", "smasher"), "shared-slot configs should own cross-character swap eligibility")
 	_expect(not flow.should_start_swap(config, "net_gun", "soldier"), "already equipped skill should not start swap")
 
 	var payload: Dictionary = flow.build_pending_swap(_choice(), config)

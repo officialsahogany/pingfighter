@@ -256,6 +256,11 @@ func prewarm_assets_step(batch_size: int = PREWARM_ASSET_BATCH_SIZE) -> bool:
 func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float = 1.0, active: bool = true) -> bool:
 	if canvas == null or skill_id == "":
 		return false
+	if skill_id in ["soul_summon_art", "unlock_soul_summon_art"]:
+		_draw_soul_summon_art_icon(canvas, rect, alpha, active)
+		if _needs_unlock_badge(skill_id):
+			_draw_unlock_badge(canvas, rect, alpha)
+		return true
 	# 융합 재료쌍: 조회 전용 캐시 소비+소유 절차 폴백 — 캐시 미스 프레임도
 	# 융합 아이콘으로 렌더되고, 합성은 프리웜(엔트리 빌드/씬 구성) 소유라
 	# 드로우 핫패스 재합성이 없다.
@@ -281,12 +286,50 @@ func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float =
 
 
 func has_icon(skill_id: String) -> bool:
+	if skill_id in ["soul_summon_art", "unlock_soul_summon_art"]:
+		return true
 	# 융합 재료쌍 키는 파싱만 유효하면 항상 렌더 가능하다(합성 텍스처 미스
 	# 프레임도 소유 절차 폴백이 담당) — 캐시 상태에 따라 has/hasn't가
 	# 흔들리면 소비자 폴백 분기가 프레임마다 튄다.
 	if skill_id.begins_with(FUSION_PAIR_KEY_PREFIX):
 		return not PerkFusionIconKey.parse(skill_id).is_empty()
 	return _get_icon_source(skill_id).get("texture", null) != null
+
+
+func _draw_soul_summon_art_icon(
+	canvas: CanvasItem,
+	rect: Rect2,
+	alpha: float,
+	active: bool
+) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.5
+	var brightness := 1.0 if active else 0.52
+	var cyan := Color(0.40 * brightness, 0.90 * brightness, 1.0 * brightness, alpha)
+	var pale := Color(0.90 * brightness, 1.0 * brightness, 1.0 * brightness, alpha)
+	var ink := Color(0.08 * brightness, 0.20 * brightness, 0.28 * brightness, alpha)
+	canvas.draw_circle(center, radius * 0.36, Color(cyan.r, cyan.g, cyan.b, alpha * 0.28))
+	var egg := PackedVector2Array()
+	for index in range(24):
+		var angle := TAU * float(index) / 24.0
+		var horizontal := sin(angle) * radius * (0.30 + 0.06 * maxf(0.0, cos(angle)))
+		var vertical := -cos(angle) * radius * 0.43
+		egg.append(center + Vector2(horizontal, vertical + radius * 0.08))
+	canvas.draw_colored_polygon(egg, Color(pale.r, pale.g, pale.b, alpha * 0.94))
+	var outline := egg.duplicate()
+	outline.append(egg[0])
+	canvas.draw_polyline(outline, ink, maxf(1.2, radius * 0.065), true)
+	var crack := PackedVector2Array([
+		center + Vector2(-radius * 0.04, -radius * 0.19),
+		center + Vector2(radius * 0.07, -radius * 0.05),
+		center + Vector2(-radius * 0.02, radius * 0.04),
+		center + Vector2(radius * 0.09, radius * 0.17),
+	])
+	canvas.draw_polyline(crack, cyan, maxf(1.5, radius * 0.075), true)
+	for offset in [Vector2(-0.52, -0.18), Vector2(0.48, -0.30), Vector2(0.46, 0.24)]:
+		var spark_center: Vector2 = center + (offset as Vector2) * radius
+		canvas.draw_line(spark_center - Vector2(radius * 0.07, 0.0), spark_center + Vector2(radius * 0.07, 0.0), cyan, maxf(1.0, radius * 0.045), true)
+		canvas.draw_line(spark_center - Vector2(0.0, radius * 0.07), spark_center + Vector2(0.0, radius * 0.07), cyan, maxf(1.0, radius * 0.045), true)
 
 
 # 애니메이션(시트) 아이콘 여부. 융합 재료쌍 합성은 항상 정적 경로 — 시트
