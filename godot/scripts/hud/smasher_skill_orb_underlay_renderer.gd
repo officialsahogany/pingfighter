@@ -2,6 +2,9 @@ extends RefCounted
 
 const DEFAULT_SOURCE_SIZE := Vector2(250.0, 650.0)
 const DEFAULT_GAUGE_CENTER := Vector2(141.0, 564.0)
+const SLOT_SHADOW_OFFSET_BASE := Vector2(1.0, 2.0)
+const SLOT_SHADOW_RADIUS_INSET_BASE := 1.0
+const SLOT_SHADOW_ALPHA := 0.26
 
 
 func draw(
@@ -34,7 +37,11 @@ func draw(
 		var slot_edge: Vector2 = slot_pos + dir * (frame_radius * 0.55)
 		var gauge_edge: Vector2 = center - dir * (orb_radius + 18.0 * scale_factor)
 		_draw_cluster_connector(canvas, slot_edge, gauge_edge, max(3.0, connector_width - 1.0))
-		canvas.draw_circle(slot_pos + Vector2(2.0, 3.0) * scale_factor, frame_radius + 3.0 * scale_factor, Color(0.0, 0.0, 0.0, 0.38))
+		canvas.draw_circle(
+			slot_pos + SLOT_SHADOW_OFFSET_BASE * scale_factor,
+			max(1.0, frame_radius - SLOT_SHADOW_RADIUS_INSET_BASE * scale_factor),
+			Color(0.0, 0.0, 0.0, SLOT_SHADOW_ALPHA)
+		)
 		var skill_orb_frame_texture = context.get("skill_orb_frame_texture", null)
 		if skill_orb_frame_texture is Texture2D:
 			var frame_rect: Rect2 = Rect2(slot_pos - Vector2(frame_size_f, frame_size_f) * 0.5, Vector2(frame_size_f, frame_size_f))

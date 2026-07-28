@@ -4,6 +4,7 @@ const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_tex
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
+const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 
 const FRAME_SIZE := Vector2i(256, 256)
 const CLUSTER_SIZE := Vector2i(250, 650)
@@ -20,6 +21,7 @@ func _init() -> void:
 	_expect(frame_path.ends_with("skill_orb_frame_imagegen_v2.png"), "Chosik sockets must use the accepted Korean-fantasy v2 ring")
 	_expect(smasher_cluster_path.ends_with("player_skill_gauge_full_frame_165_33_5_hwangyeok_v2.png"), "Smasher five-slot HUD must use the Korean-fantasy cluster")
 	_expect(viper_cluster_path.ends_with("player_skill_gauge_full_frame_155_32_5_hwangyeok_v2.png"), "Viper five-slot HUD must use the Korean-fantasy cluster")
+	_expect(is_equal_approx(Stage1PillarUiLayout.PLAYER_SKILL_ORB_GAUGE_GAP, 38.0), "Chosik sockets must keep the approved breathing room from the gauge")
 
 	for path in [frame_path, smasher_cluster_path, viper_cluster_path]:
 		_expect(FileAccess.file_exists(path), "Chosik HUD PNG must exist: %s" % path)
@@ -64,6 +66,9 @@ func _init() -> void:
 	var underlay_source := FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_underlay_renderer.gd")
 	_expect(underlay_source.find("22.0 / 255.0, 81.0 / 255.0, 70.0 / 255.0") >= 0, "six-slot fallback connectors must use the deep-teal dancheong accent")
 	_expect(underlay_source.find("32.0 / 255.0, 193.0 / 255.0, 230.0 / 255.0") < 0, "six-slot fallback connectors must retire the old electric-cyan accent")
+	_expect(underlay_source.find("SLOT_SHADOW_OFFSET_BASE := Vector2(1.0, 2.0)") >= 0, "Chosik socket shadows must stay closely aligned behind their frames")
+	_expect(underlay_source.find("SLOT_SHADOW_RADIUS_INSET_BASE := 1.0") >= 0, "Chosik socket shadows must not exceed the nominal frame radius")
+	_expect(underlay_source.find("frame_radius + 3.0 * scale_factor") < 0, "Chosik socket shadows must retire the oversized legacy disk")
 
 	if _failures.is_empty():
 		print("skill_orb_chosik_hud_reskin_smoke: ok")
@@ -82,7 +87,7 @@ func _verify_cluster(renderer: Object, path: String, base_angle: float, angle_st
 	var positions: Array[Vector2] = renderer.get_slot_positions(CLUSTER_CENTER, 55.0, 1.0, {
 		"max_slots": 5,
 		"skill_orb_radius": 24.0,
-		"gauge_gap": 28.0,
+		"gauge_gap": 38.0,
 		"orb_radius_base": 55.0,
 		"slot_base_angle": base_angle,
 		"slot_angle_step": angle_step,
