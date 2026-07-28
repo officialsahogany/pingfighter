@@ -3462,6 +3462,19 @@ func mark_spirit_water_field_drop_succeeded() -> bool:
 	return _spirit_water_drop_state.mark_drop_succeeded()
 
 
+func use_spirit_water(owner: Object = null, registry: Object = null) -> Dictionary:
+	var owned_pet_ids: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
+	if owned_pet_ids.is_empty():
+		return {"accepted": false, "blocked_reason": "missing_guardian"}
+	var result: Dictionary = _affinity_state.restore_duration_pool_to_full_preserving_overfill()
+	if not bool(result.get("accepted", false)):
+		return result
+	_invalidate_runtime_snapshot_cache()
+	_sync_owner(owner, registry)
+	result["item_name"] = "lingpet_spirit_water"
+	return result
+
+
 func get_spirit_water_drop_snapshot_for_tests() -> Dictionary:
 	return _spirit_water_drop_state.get_snapshot()
 

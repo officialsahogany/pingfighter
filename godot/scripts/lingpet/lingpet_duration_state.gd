@@ -199,6 +199,23 @@ func refill_to_max() -> bool:
 	return changed
 
 
+func restore_to_full_preserving_overfill() -> Dictionary:
+	if not is_initialized():
+		return {"accepted": false, "blocked_reason": "duration_pool_uninitialized"}
+	var before_current := _pool_current
+	_pool_current = _sanitize_uncapped_current(maxf(_pool_current, _pool_max))
+	if _pool_current > RESUMMON_THRESHOLD:
+		_resummon_locked = false
+	return {
+		"accepted": true,
+		"changed": not is_equal_approx(before_current, _pool_current),
+		"pool_current_before": before_current,
+		"pool_current": _pool_current,
+		"pool_max": _pool_max,
+		"overfill_preserved": before_current > _pool_max and is_equal_approx(before_current, _pool_current),
+	}
+
+
 func get_pool_current() -> float:
 	return _sanitize_uncapped_current(_pool_current)
 

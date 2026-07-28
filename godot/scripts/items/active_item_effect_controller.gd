@@ -229,6 +229,16 @@ func apply_lingpet_feed(item_data: Dictionary, owner: Object, registry: Object) 
 	)
 
 
+func apply_lingpet_spirit_water(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.apply_lingpet_spirit_water(
+		self,
+		item_data,
+		owner,
+		registry,
+		_effect_feedback
+	)
+
+
 func activate_lingpet_egg(owner: Object, registry: Object) -> bool:
 	return _effect_action_facade.activate_lingpet_egg(
 		self,

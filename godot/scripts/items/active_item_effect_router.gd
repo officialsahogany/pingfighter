@@ -16,6 +16,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "apply_life_elixir", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "lingpet_feed"):
 		return _call_bool(effect_controller, "apply_lingpet_feed", [item_data, owner, registry])
+	if _matches(item_name, effect_name, "lingpet_spirit_water"):
+		return _call_bool(effect_controller, "apply_lingpet_spirit_water", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "lingpet_egg"):
 		return _call_bool(effect_controller, "activate_lingpet_egg", [owner, registry])
 	if _matches(item_name, effect_name, "ammo_box"):

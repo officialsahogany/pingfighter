@@ -483,6 +483,13 @@ func refill_duration_pool_for_stage_transition() -> bool:
 	return changed
 
 
+func restore_duration_pool_to_full_preserving_overfill() -> Dictionary:
+	var result: Dictionary = _duration_state.restore_to_full_preserving_overfill()
+	if bool(result.get("changed", false)):
+		_dirty = true
+	return result
+
+
 func can_resummon_guardian() -> bool:
 	return _duration_state.can_resummon()
 

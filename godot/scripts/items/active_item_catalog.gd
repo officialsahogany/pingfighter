@@ -44,10 +44,12 @@ const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.pn
 const LINGPET_APPLE_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_apple_feed_icon.png"
 const LINGPET_MELON_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_melon_feed_icon.png"
 const LINGPET_SPECIAL_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
+const LINGPET_SPIRIT_WATER_ICON_PATH := LINGPET_SPECIAL_FEED_ICON_PATH
 const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
+	"lingpet_spirit_water",
 	"lingpet_feed",
 	"lingpet_apple_feed",
 	"lingpet_melon_feed",
@@ -83,6 +85,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
 		"gauge_charge":
 			item_data = _build_gauge_charge()
+		"lingpet_spirit_water":
+			item_data = _build_lingpet_spirit_water()
 		"lingpet_feed":
 			item_data = _build_lingpet_feed()
 		"lingpet_apple_feed":
@@ -238,6 +242,26 @@ func _build_lingpet_feed() -> Dictionary:
 		"no_global_cooldown": true,
 		"shop_guaranteed": true,
 		"consumable": true,
+	}
+
+
+func _build_lingpet_spirit_water() -> Dictionary:
+	return {
+		"name": "lingpet_spirit_water",
+		"display_name": "심령수",
+		"type": "active",
+		"effect": "lingpet_spirit_water",
+		# Transitional spawn weight inherited from the basic feed. Final tuning
+		# remains an explicit §10 approval item.
+		"chance": 0.010,
+		"duration": 0,
+		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"description": "수호령 지속시간을 전량 회복합니다. 남은 시간이 최대치를 넘었다면 그대로 보존합니다.",
+		"icon_path": LINGPET_SPIRIT_WATER_ICON_PATH,
+		"color": Color(0.30, 0.90, 0.84),
+		"no_global_cooldown": true,
+		"consumable": true,
+		"tuning_pending": true,
 	}
 
 

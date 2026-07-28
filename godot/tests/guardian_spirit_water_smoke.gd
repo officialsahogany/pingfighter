@@ -3,6 +3,10 @@ extends SceneTree
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item_field_spawn_controller.gd")
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemEffectRouter := preload("res://scripts/items/active_item_effect_router.gd")
+const ActiveItemEffectActionFacade := preload("res://scripts/items/active_item_effect_action_facade.gd")
+const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
 const LingpetEggRuntimeSmoke := preload("res://tests/lingpet_egg_runtime_smoke.gd")
 
 const ITEM_NAME := "lingpet_spirit_water"
@@ -43,12 +47,44 @@ class ReleasedSpiritWaterPortal:
 		}]
 
 
+class FakeFeedback:
+	extends RefCounted
+
+	var audio_calls := 0
+	var feedback_calls := 0
+
+	func play_first_audio(_registry: Object, _methods: Array) -> void:
+		audio_calls += 1
+
+	func trigger_registry_feedback(
+		_registry: Object,
+		_flash: bool,
+		_hitstop: bool,
+		_shake_strength: float,
+		_shake_duration: float
+	) -> void:
+		feedback_calls += 1
+
+
+class FakeSpiritWaterEffectController:
+	extends RefCounted
+
+	var calls := 0
+
+	func apply_lingpet_spirit_water(_item_data: Dictionary, _owner: Object, _registry: Object) -> bool:
+		calls += 1
+		return true
+
+
 func _init() -> void:
 	_verify_owned_gate_and_mid_stage_acquisition()
 	_verify_drop_success_and_stage_latch_lifecycle()
 	_verify_full_pool_gate_and_stage_refill_order()
 	_verify_save_restore_keeps_consumed_latch()
 	_verify_hot_paths_use_cached_runtime_only()
+	_verify_catalog_placeholder_and_localization()
+	_verify_use_routing_and_full_recovery()
+	_verify_overfill_is_preserved_on_use()
 
 	if _failures.is_empty():
 		print("guardian_spirit_water_smoke: ok")
@@ -149,6 +185,73 @@ func _verify_hot_paths_use_cached_runtime_only() -> void:
 	_expect(queue_source.find("_mark_spirit_water_drop_pending(item_data, registry)") >= 0, "both portal queue paths must mark the natural drop pending")
 	_expect(queue_source.count("_mark_spirit_water_drop_pending(item_data, registry)") == 2, "regular and dimension queues must share the pending latch")
 	_expect(controller_source.find("_notify_spirit_water_drop_succeeded(field_item, registry)") >= 0, "field release must own successful-drop latch consumption")
+	runtime.reset_for_tests()
+
+
+func _verify_catalog_placeholder_and_localization() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var item_data: Dictionary = catalog.call("_build_lingpet_spirit_water")
+	_expect(str(item_data.get("name", "")) == ITEM_NAME, "catalog must own the exact spirit-water id")
+	_expect(str(item_data.get("display_name", "")) == "심령수", "catalog must expose the Korean player-facing name")
+	_expect(str(item_data.get("effect", "")) == ITEM_NAME, "catalog and effect router must share one item identity")
+	_expect(bool(item_data.get("consumable", false)), "spirit water must be a slot-stored consumable")
+	_expect(ActiveItemCatalog.FIELD_SPAWN_ORDER.has(ITEM_NAME), "spirit water must enter the normal field candidate order")
+	var icon_path := str(item_data.get("icon_path", ""))
+	_expect(icon_path == "res://assets/sprites/items/lingpet_special_feed_icon.png", "only the approved special-feed placeholder may be wired")
+	_expect(FileAccess.file_exists(icon_path), "the placeholder path must exist before runtime wiring")
+	var localized_names := [
+		LanguageSettingsData.ITEM_DISPLAY_EN.get(ITEM_NAME, ""),
+		LanguageSettingsData.ITEM_DISPLAY_ZH.get(ITEM_NAME, ""),
+		LanguageSettingsData.ITEM_DISPLAY_JA.get(ITEM_NAME, ""),
+		LanguageSettingsData.ITEM_DISPLAY_ES.get(ITEM_NAME, ""),
+		LanguageSettingsData.ITEM_DISPLAY_PT_BR.get(ITEM_NAME, ""),
+		LanguageSettingsData.ITEM_DISPLAY_RU.get(ITEM_NAME, ""),
+	]
+	_expect(localized_names.all(func(value: Variant) -> bool: return str(value).strip_edges() != ""), "all six translated names plus Korean must be materialized")
+	_expect(str(LanguageSettingsData.ACTIVE_ITEM_DESCRIPTION_EN.get(ITEM_NAME, "")).find("overfill") >= 0, "English item copy must disclose overfill preservation")
+	var debug_source := FileAccess.get_file_as_string("res://scripts/items/active_item_debug_spawn_menu.gd")
+	_expect(debug_source.find("\"lingpet_spirit_water\"") >= 0, "debug spawn inventory must expose the new item")
+
+
+func _verify_use_routing_and_full_recovery() -> void:
+	var runtime: Object = LingpetEggRuntime.new()
+	var owner: Object = _make_owner(true)
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
+	var catalog: Object = ActiveItemCatalog.new()
+	var item_data: Dictionary = catalog.call("_build_lingpet_spirit_water")
+	var router: Object = ActiveItemEffectRouter.new()
+	var fake_controller := FakeSpiritWaterEffectController.new()
+	_expect(router.apply_item_effect(item_data, owner, registry, fake_controller, null), "effect router must dispatch spirit water")
+	_expect(fake_controller.calls == 1, "effect router must invoke the dedicated controller method exactly once")
+
+	var facade: Object = ActiveItemEffectActionFacade.new()
+	var feedback := FakeFeedback.new()
+	var no_guardian_owner: Object = _make_owner(false)
+	runtime.set_duration_pool_for_tests(0.0, 60.0)
+	_expect(not facade.apply_lingpet_spirit_water(null, item_data, no_guardian_owner, registry, feedback), "missing guardian must reject use without consuming the slot")
+	_expect(is_equal_approx(runtime.get_duration_pool_current(), 0.0), "rejected use must not mutate duration")
+	_expect(facade.apply_lingpet_spirit_water(null, item_data, owner, registry, feedback), "empty pool use must be accepted")
+	_expect(is_equal_approx(runtime.get_duration_pool_current(), 60.0), "empty pool use must restore the pool to maximum")
+	_expect(feedback.audio_calls == 1 and feedback.feedback_calls == 1, "accepted use must emit one standard active-item feedback cue")
+	_expect(facade.apply_lingpet_spirit_water(null, item_data, owner, registry, feedback), "full-pool no-op must still count as a consumed use")
+	_expect(is_equal_approx(runtime.get_duration_pool_current(), 60.0), "full-pool no-op must remain at maximum")
+	_expect(registry.lazy_lookup_count == 0, "spirit-water use must consume the prewarmed runtime owner without lazy construction")
+	runtime.reset_for_tests()
+
+
+func _verify_overfill_is_preserved_on_use() -> void:
+	var runtime: Object = LingpetEggRuntime.new()
+	var owner: Object = _make_owner(true)
+	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
+	runtime.set_duration_pool_for_tests(60.0, 60.0)
+	var fallback: Dictionary = runtime.apply_guardian_enhance_duration_fallback(owner, registry)
+	_expect(bool(fallback.get("accepted", false)), "counterexample fixture must create the +15-second overfill")
+	_expect(is_equal_approx(runtime.get_duration_pool_current(), 75.0), "overfill fixture must exceed pool maximum by 15 seconds")
+	var before: float = float(runtime.get_duration_pool_current())
+	var result: Dictionary = runtime.use_spirit_water(owner, registry)
+	_expect(bool(result.get("accepted", false)), "overfill use remains consumable")
+	_expect(is_equal_approx(runtime.get_duration_pool_current(), before), "max(current, pool_max) must preserve overfill exactly")
+	_expect(bool(result.get("overfill_preserved", false)), "recovery result must explicitly report the preserved overfill leg")
 	runtime.reset_for_tests()
 
 

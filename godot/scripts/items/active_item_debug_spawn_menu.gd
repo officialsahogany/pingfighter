@@ -21,6 +21,7 @@ const DEBUG_ACTION_BUTTON_GAP := 8.0
 
 const DEBUG_ENTRY_ORDER := [
 	"gauge_charge",
+	"lingpet_spirit_water",
 	"lingpet_feed",
 	"lingpet_apple_feed",
 	"lingpet_melon_feed",
@@ -463,6 +464,8 @@ func _get_debug_item_subtitle(item_name: String) -> String:
 	match item_name:
 		"gauge_charge":
 			return "게이지 +220 충전"
+		"lingpet_spirit_water":
+			return "수호령 지속시간 전량 회복"
 		"lingpet_feed":
 			return "포만도 +40"
 		"lingpet_apple_feed":

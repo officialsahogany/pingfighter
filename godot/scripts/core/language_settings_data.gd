@@ -18,6 +18,7 @@ const LANGUAGE_NATIVE_NAMES := {
 }
 
 const ITEM_DISPLAY_EN := {
+	"lingpet_spirit_water": "Spirit Water",
 	"lingpet_feed": "Tangerine",
 	"lingpet_apple_feed": "Apple",
 	"lingpet_melon_feed": "Melon",
@@ -106,6 +107,7 @@ const ITEM_DISPLAY_EN := {
 }
 
 const ITEM_DISPLAY_ZH := {
+	"lingpet_spirit_water": "灵水",
 	"lingpet_feed": "橘子",
 	"lingpet_apple_feed": "苹果",
 	"lingpet_melon_feed": "甜瓜",
@@ -194,6 +196,7 @@ const ITEM_DISPLAY_ZH := {
 }
 
 const ITEM_DISPLAY_JA := {
+	"lingpet_spirit_water": "霊水",
 	"lingpet_feed": "みかん",
 	"lingpet_apple_feed": "りんご",
 	"lingpet_melon_feed": "メロン",
@@ -282,6 +285,7 @@ const ITEM_DISPLAY_JA := {
 }
 
 const ITEM_DISPLAY_ES := {
+	"lingpet_spirit_water": "Agua espiritual",
 	"lingpet_feed": "Mandarina",
 	"lingpet_apple_feed": "Manzana",
 	"lingpet_melon_feed": "Melón",
@@ -370,6 +374,7 @@ const ITEM_DISPLAY_ES := {
 }
 
 const ITEM_DISPLAY_PT_BR := {
+	"lingpet_spirit_water": "Água espiritual",
 	"lingpet_feed": "Tangerina",
 	"lingpet_apple_feed": "Maçã",
 	"lingpet_melon_feed": "Melão",
@@ -458,6 +463,7 @@ const ITEM_DISPLAY_PT_BR := {
 }
 
 const ITEM_DISPLAY_RU := {
+	"lingpet_spirit_water": "Духовная вода",
 	"lingpet_feed": "Мандарин",
 	"lingpet_apple_feed": "Яблоко",
 	"lingpet_melon_feed": "Дыня",
@@ -546,6 +552,7 @@ const ITEM_DISPLAY_RU := {
 }
 
 const ACTIVE_ITEM_DESCRIPTION_EN := {
+	"lingpet_spirit_water": "Fully restores guardian spirit duration without reducing any overfill above the maximum.",
 	"lingpet_feed": "Restores 20 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
 	"lingpet_apple_feed": "Restores 15 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
 	"lingpet_melon_feed": "Restores 25 seconds to your guardian spirit's duration. Cannot be used while duration is full.",

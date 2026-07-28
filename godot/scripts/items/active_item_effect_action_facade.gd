@@ -81,6 +81,25 @@ func apply_lingpet_feed(
 	return true
 
 
+func apply_lingpet_spirit_water(
+	_target: Object,
+	_item_data: Dictionary,
+	owner: Object,
+	registry: Object,
+	effect_feedback: Object
+) -> bool:
+	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("use_spirit_water"):
+		return false
+	var result: Variant = lingpet_runtime.use_spirit_water(owner, registry)
+	if not (result is Dictionary) or not bool((result as Dictionary).get("accepted", false)):
+		return false
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 0.015, 0.18)
+	return true
+
+
 func activate_lingpet_egg(
 	_target: Object,
 	owner: Object,
@@ -418,6 +437,15 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func _get_array_property(target: Object, key: String) -> Array[Dictionary]:
