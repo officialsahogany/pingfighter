@@ -121,14 +121,7 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_verify_feed_catalog_tiers_and_icon()
-	_verify_feed_field_spawn_gate_uses_real_catalog()
-	_verify_basic_feed_active_item_restores_satiety()
-	_verify_melon_feed_wakes_ko_through_shared_effect()
-	_verify_full_satiety_and_battle_cap_preserve_item()
-	_verify_feed_no_global_cooldown_contract()
-	_verify_alchemy_recycle_cannot_bypass_battle_cap()
-	_verify_lingpet_feed_source_contracts()
+	_verify_legacy_feed_spawn_and_use_paths_removed()
 
 	if _failures.is_empty():
 		print("lingpet_feed_active_item_smoke: ok")
@@ -137,6 +130,39 @@ func _run() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_legacy_feed_spawn_and_use_paths_removed() -> void:
+	const LEGACY_FEED_IDS := [
+		"lingpet_feed",
+		"lingpet_apple_feed",
+		"lingpet_melon_feed",
+		"lingpet_special_feed",
+	]
+	var catalog := ActiveItemCatalog.new()
+	for item_id in LEGACY_FEED_IDS:
+		_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has(item_id), "%s must not remain in field-spawn order" % item_id)
+		_expect(catalog.build_item_by_name(item_id).is_empty(), "%s must be blocked at the public catalog acquisition boundary" % item_id)
+		_expect(ActiveItemCatalog.is_acquisition_disabled(item_id), "%s must carry an explicit deferred-plaza disable mark" % item_id)
+
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var spawn_pool_source := FileAccess.get_file_as_string("res://scripts/items/active_item_field_spawn_pool.gd")
+	var router_source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_router.gd")
+	var facade_source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_action_facade.gd")
+	var controller_source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_controller.gd")
+	var debug_source := FileAccess.get_file_as_string("res://scripts/items/active_item_debug_spawn_menu.gd")
+	var reward_source := FileAccess.get_file_as_string("res://scripts/core/stage_clear_reward_resolver.gd")
+	_expect(runtime_source.find("lingpet_feed_controller.gd") < 0 and runtime_source.find("func feed_lingpet") < 0, "guardian runtime must expose no legacy feed owner or use API")
+	_expect(runtime_source.find("LEGACY_FEED_POINT_TO_DURATION_SECONDS") < 0 and runtime_source.find("duration_feed") < 0, "temporary feed-to-duration mapping must be gone")
+	for item_id in LEGACY_FEED_IDS:
+		_expect(spawn_pool_source.find("\"%s\"" % item_id) < 0, "%s must not have a field candidate gate" % item_id)
+		_expect(debug_source.find("\"%s\"" % item_id) < 0, "%s must not appear in the debug grant/spawn inventory" % item_id)
+		_expect(reward_source.find("\"%s\"" % item_id) < 0, "%s must not appear in stage-clear rewards" % item_id)
+	_expect(router_source.find("\"lingpet_feed\"") < 0 and router_source.find("apply_lingpet_feed") < 0, "effect router must expose no legacy feed dispatch")
+	_expect(facade_source.find("apply_lingpet_feed") < 0 and facade_source.find("feed_lingpet") < 0, "effect facade must expose no legacy feed action")
+	_expect(controller_source.find("apply_lingpet_feed") < 0, "effect controller must expose no legacy feed method")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_feed_controller.gd"), "physical feed module deletion remains deferred to §9-4")
+	_expect(FileAccess.file_exists("res://assets/sprites/items/lingpet_special_feed_icon.png"), "special-feed PNG must remain as the spirit-water placeholder")
 
 
 func _verify_feed_catalog_tiers_and_icon() -> void:

@@ -47,12 +47,19 @@ const LINGPET_SPECIAL_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_spec
 const LINGPET_SPIRIT_WATER_ICON_PATH := LINGPET_SPECIAL_FEED_ICON_PATH
 const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
 
+# Plaza stock/pricing still references these legacy entries in an externally
+# dirty campaign. Keep their definitions and assets until §9-4, but make the
+# public catalog refuse every acquisition surface in the meantime.
+const LEGACY_DISABLED_ACQUISITION_NAMES := {
+	"lingpet_feed": true,
+	"lingpet_apple_feed": true,
+	"lingpet_melon_feed": true,
+	"lingpet_special_feed": true,
+}
+
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
 	"lingpet_spirit_water",
-	"lingpet_feed",
-	"lingpet_apple_feed",
-	"lingpet_melon_feed",
 	"lingpet_egg",
 	"life_elixir",
 	"vitamin_pill",
@@ -81,6 +88,8 @@ const FIELD_SPAWN_ORDER := [
 
 
 func build_item_by_name(item_name: String) -> Dictionary:
+	if is_acquisition_disabled(item_name):
+		return {}
 	var item_data: Dictionary = {}
 	match item_name:
 		"gauge_charge":
@@ -181,6 +190,10 @@ func build_item_by_name(item_name: String) -> Dictionary:
 	if item_data.is_empty():
 		return {}
 	return LanguageSettings.localize_item_data(item_data)
+
+
+static func is_acquisition_disabled(item_name: String) -> bool:
+	return LEGACY_DISABLED_ACQUISITION_NAMES.has(item_name)
 
 
 func build_random_spawn_item() -> Dictionary:

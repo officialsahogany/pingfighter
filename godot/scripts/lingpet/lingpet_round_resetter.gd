@@ -37,4 +37,5 @@ func reset_round(
 	ring_dash_vfx.reset()
 	ghost_blink_vfx.reset()
 	starlight_tracking_state.reset_round_transients()
-	feed_controller.reset_all()
+	if feed_controller != null:
+		feed_controller.reset_all()

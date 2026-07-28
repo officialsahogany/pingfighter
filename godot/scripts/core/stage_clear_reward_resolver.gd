@@ -32,9 +32,7 @@ const NORMAL_REWARD_STARPOINT_SINGLE := "starpoint_1"
 const NORMAL_REWARD_STARPOINT_DOUBLE := "starpoint_2"
 const ADVANCED_REWARD_STARPOINT_DOUBLE := "advanced_starpoint_2"
 const ADVANCED_REWARD_STARPOINT_TRIPLE := "advanced_starpoint_3"
-const EXTRA_ACTIVE_REWARD_ITEM_NAMES := [
-	"lingpet_special_feed",
-]
+const EXTRA_ACTIVE_REWARD_ITEM_NAMES: Array[String] = []
 
 var _spawn_pool: Object = ActiveItemFieldSpawnPool.new()
 var _active_catalog: Object = ActiveItemCatalog.new()

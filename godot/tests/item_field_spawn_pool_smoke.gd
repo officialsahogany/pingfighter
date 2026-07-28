@@ -64,21 +64,6 @@ class FakeCachedPassiveCatalog:
 		}]
 
 
-class FakeLingpetFeedCatalog:
-	var build_call_count := 0
-
-	func build_item_by_name(item_name: String) -> Dictionary:
-		build_call_count += 1
-		if not ["lingpet_feed", "lingpet_apple_feed", "lingpet_melon_feed"].has(item_name):
-			return {}
-		return {
-			"name": item_name,
-			"display_name": "Lingpet Feed",
-			"type": "active",
-			"chance": 1.0,
-		}
-
-
 class FakeEggRuntime:
 	var offer := true
 
@@ -208,7 +193,6 @@ func _init() -> void:
 		field_spawn_controller.get_field_spawn_candidate_names().has("banana"),
 		"field spawn controller should delegate candidate names to the spawn pool"
 	)
-	_verify_lingpet_feed_active_gate()
 	_verify_lingpet_egg_active_gate()
 	var controller_prewarm := ActiveItemFieldSpawnController.new()
 	controller_prewarm.prewarm_spawn_candidate_templates()
@@ -315,51 +299,6 @@ func _init() -> void:
 
 	print("item_field_spawn_pool_smoke: ok")
 	quit(0)
-
-
-func _verify_lingpet_feed_active_gate() -> void:
-	var empty_owner := FakeOwner.new()
-	var owned_owner := FakeOwner.new()
-	owned_owner.lingpet_owned_pet_ids = ["maribo"]
-
-	var feed_pool := ActiveItemFieldSpawnPool.new()
-	feed_pool.item_catalog = FakeLingpetFeedCatalog.new()
-	feed_pool.passive_mythic_catalog = null
-	_expect(
-		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_feed"),
-		"lingpet feed active field-spawn candidates should be hidden before the player owns a lingpet"
-	)
-	_expect(
-		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_apple_feed"),
-		"lingpet apple feed active field-spawn candidates should be hidden before the player owns a lingpet"
-	)
-	_expect(
-		not _array_has_item(feed_pool.build_spawn_candidates(null, empty_owner), "lingpet_melon_feed"),
-		"lingpet melon feed active field-spawn candidates should be hidden before the player owns a lingpet"
-	)
-	feed_pool.clear_spawn_candidate_cache()
-	_expect(
-		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_feed"),
-		"lingpet feed active field-spawn candidates should appear once the player owns a lingpet"
-	)
-	_expect(
-		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_apple_feed"),
-		"lingpet apple feed active field-spawn candidates should appear once the player owns a lingpet"
-	)
-	_expect(
-		_array_has_item(feed_pool.build_spawn_candidates(null, owned_owner), "lingpet_melon_feed"),
-		"lingpet melon feed active field-spawn candidates should appear once the player owns a lingpet"
-	)
-
-	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_field_spawn_pool.gd")
-	var active_loop_index := source.find("for active_template in _get_active_spawn_candidate_templates():")
-	var active_gate_index := source.find("_should_skip_active_spawn_candidate(active_template, registry, owner)", active_loop_index)
-	var append_index := source.find("candidates.append(_apply_passive_spawn_weight(active_template, registry))", active_loop_index)
-	_expect(active_gate_index > active_loop_index and active_gate_index < append_index, "lingpet feed active gate should run before active candidates are appended")
-	_expect(source.find("LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner)") >= 0, "lingpet feed active gate should reuse the canonical owned-lingpet predicate")
-	_expect(source.find("\"lingpet_feed\": true") >= 0, "basic feed should keep a reserved active field-spawn gate id for Slice 4")
-	_expect(source.find("\"lingpet_apple_feed\": true") >= 0, "apple feed should keep a reserved active field-spawn gate id")
-	_expect(source.find("\"lingpet_melon_feed\": true") >= 0, "melon feed should keep a reserved active field-spawn gate id")
 
 
 func _verify_lingpet_egg_active_gate() -> void:

@@ -9,7 +9,6 @@ const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_s
 const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
 const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
-const LingpetFeedController := preload("res://scripts/lingpet/lingpet_feed_controller.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetSpiritWaterDropState := preload("res://scripts/lingpet/lingpet_spirit_water_drop_state.gd")
 const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
@@ -143,7 +142,6 @@ const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
 const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetAffinityState.SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
 const DURATION_WARNING_STAGE_COUNT := 3
 const GUARDIAN_MIN_SUMMON_SECONDS := 6.0
-const LEGACY_FEED_POINT_TO_DURATION_SECONDS := 0.5
 # Runs from live companion physics, so it must not inherit the loading-screen
 # short expiry that demotes a slow threaded texture to a sync main-thread load.
 const CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC := 0
@@ -173,7 +171,6 @@ var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
 # Owns free-flight visibility edge latching so the blink "pong" VFX fires once per transition.
 var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
-var _feed_controller: Object = LingpetFeedController.new()
 var _mount_state: Object = preload("res://scripts/lingpet/lingpet_mount_state.gd").new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _companion_body_presence_resolver: Object = LingpetCompanionBodyPresenceResolver.new()
@@ -435,48 +432,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_perf_probe.end(perf_logger, "physics.lingpet.satiety", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		var starlight_passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
-		var companion_motion_style: String = _profile_runtime_surface.get_motion_style(_current_profile)
 		# 탈진(포만도 소진) 중엔 위치-스크립팅 패시브를 억제한다(WIP 파괴 후 복원).
 		# companion_active에 fold — 패시브 모듈은 탈진을 모른 채 _is_enabled false로
 		# 받아 reset이 자가치유 티어다운. KO 중 별빛추적 순간이동/전달 방지.
 		_starlight_tracking_state.advance(delta, starlight_passive_skill, guardian_summoned, _companion_pos)
-		if _feed_controller.is_active():
-			var feed_step: Dictionary = _feed_controller.advance(
-				delta,
-				_companion_pos,
-				companion_motion_style,
-				registry
-			)
-			if feed_step.has("companion_pos"):
-				var next_feed_pos: Variant = feed_step.get("companion_pos", _companion_pos)
-				if next_feed_pos is Vector2:
-					_companion_pos = next_feed_pos
-					_companion_motion_state.pos = _companion_pos
-			if bool(feed_step.get("completed", false)):
-				var feed_pet_id := str(feed_step.get("feed_pet_id", ""))
-				var feed_registry: Object = feed_step.get("feed_registry", registry) as Object
-				if feed_pet_id != "":
-					var recovery_seconds := maxf(0.0, float(feed_step.get("duration_recovery_seconds", 0.0)))
-					var duration_before: float = float(_affinity_state.get_duration_pool_current())
-					var duration_after: float = float(_affinity_state.add_satiety(feed_pet_id, recovery_seconds))
-					var feed_result := {
-						"accepted": duration_after > duration_before,
-						"pet_id": feed_pet_id,
-						"source": "duration_feed",
-						"duration_recovery_seconds": recovery_seconds,
-						"granted_duration_seconds": maxf(0.0, duration_after - duration_before),
-						"duration_before": duration_before,
-						"duration_after": duration_after,
-						# Transitional aliases until Slice 4 removes the four feed items.
-						"feed_amount": recovery_seconds,
-						"granted_satiety": maxf(0.0, duration_after - duration_before),
-						"satiety_before": duration_before,
-						"satiety_after": duration_after,
-						"blocked_reason": "",
-						"feed_registry": feed_registry,
-					}
-					_affinity_grant_controller.remember_result(feed_result)
-					_invalidate_runtime_snapshot_cache()
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
 		_perf_probe.end(perf_logger, "physics.lingpet.vfx_states", sample_start)
@@ -1102,8 +1061,6 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 	)
 	if not _is_guardian_summoned() and not switch_transition_active:
 		return
-	if _feed_controller.has_visible_effects():
-		_feed_controller.draw(canvas, shake_offset)
 	var body_skill_id: String = _skill_runtime_surface.get_body_skill_id(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -1158,7 +1115,6 @@ func has_visible_effects() -> bool:
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
-		or _feed_controller.has_visible_effects()
 		or _affinity_feedback_state.has_visible_effects(_is_guardian_summoned())
 		or _skill_runtime_host.has_visible_effects()
 		or _item_egg_lifecycle_state.is_active()
@@ -1707,7 +1663,7 @@ func get_companion_draw_motion_speed_ratio_for_tests() -> float:
 		_skill_runtime_host,
 		_companion_skill_visual_resolver,
 		_ring_dash_state,
-		_feed_controller,
+		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -1783,8 +1739,6 @@ func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_second
 		return {}
 	if not _is_guardian_summoned():
 		_starlight_tracking_state.end_for_stow(drop)
-		return {}
-	if _feed_controller.is_active():
 		return {}
 	var active_position_owner: Dictionary = _skill_runtime_surface.get_active_position_owner(
 		_current_profile,
@@ -2070,7 +2024,6 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
-	snapshot.merge(_feed_controller.get_snapshot(), true)
 	snapshot["companion_appearance_rate"] = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _is_guardian_summoned() else 0.0
 	var affinity_snapshot: Dictionary = _affinity_owner_surface.build_snapshot(
 		_state,
@@ -2265,7 +2218,6 @@ func reset_for_tests() -> void:
 	_companion_skill_persistence.reset_store()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
-	_feed_controller.reset_for_new_battle()
 	_overflow_choice_state.reset()
 	_item_egg_lifecycle_state.clear_runtime_state(
 		_item_egg_state,
@@ -2306,7 +2258,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 		_ring_dash_vfx,
 		_ghost_blink_vfx,
 		_starlight_tracking_state,
-		_feed_controller
+		null
 	)
 
 
@@ -2340,7 +2292,7 @@ func _reset_companion_runtime_state(reset_defense: bool = true, owner: Object = 
 		_ring_dash_vfx,
 		_ghost_blink_vfx,
 		_starlight_tracking_state,
-		_feed_controller,
+		null,
 		_companion_skill_persistence,
 		_companion_skill_states,
 		_companion_motion_state,
@@ -2370,7 +2322,6 @@ func _build_companion_runtime_reset_context(
 		"ring_dash_vfx": _ring_dash_vfx,
 		"ghost_blink_vfx": _ghost_blink_vfx,
 		"starlight_tracking_state": _starlight_tracking_state,
-		"feed_controller": _feed_controller,
 		"companion_skill_persistence": _companion_skill_persistence,
 		"companion_skill_states": _companion_skill_states,
 		"companion_motion_state": _companion_motion_state,
@@ -2427,7 +2378,6 @@ func _build_field_cleanup_context() -> Dictionary:
 		"ring_dash_vfx": _ring_dash_vfx,
 		"ghost_blink_vfx": _ghost_blink_vfx,
 		"starlight_tracking_state": _starlight_tracking_state,
-		"feed_controller": _feed_controller,
 		"overflow_choice_state": _overflow_choice_state,
 		"item_egg_lifecycle_state": _item_egg_lifecycle_state,
 		"item_egg_state": _item_egg_state,
@@ -2880,15 +2830,6 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 				motion_style
 			):
 				_companion_pos = _companion_motion_state.pos
-	if _feed_controller.has_companion_position_override() and not has_skill_position_override:
-		_companion_pos = _feed_controller.get_companion_position_override(_companion_pos)
-		_companion_motion_state.pos = _companion_pos
-		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
-			prev_pos,
-			_companion_pos,
-			_companion_facing_left
-		)
-		return
 	if _starlight_tracking_state.has_companion_position_override() and not has_skill_position_override:
 		_companion_pos = _starlight_tracking_state.get_companion_position_override(_companion_pos)
 		_companion_motion_state.pos = _companion_pos
@@ -3030,7 +2971,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	if not _companion_body_presence_resolver.is_available_for_hit_from_surface(
 		visual_surface,
 		_ring_dash_state,
-		_feed_controller,
+		null,
 		_starlight_tracking_state,
 		_companion_motion_state
 	):
@@ -3184,7 +3125,7 @@ func _advance_companion_draw_anim(delta: float) -> void:
 		_skill_runtime_host,
 		_companion_skill_visual_resolver,
 		_ring_dash_state,
-		_feed_controller,
+		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -3208,7 +3149,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		visual_surface,
 		_current_profile,
 		_ring_dash_state,
-		_feed_controller,
+		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -3243,7 +3184,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"companion_visible": _companion_body_presence_resolver.is_visible_for_draw_from_surface(
 			visual_surface,
 			_ring_dash_state,
-			_feed_controller,
+			null,
 			_starlight_tracking_state,
 			_companion_motion_state
 		),
@@ -3373,48 +3314,6 @@ func tick_ring_core_offer_cooldown() -> void:
 	_affinity_state.tick_ring_core_offer_cooldown()
 
 
-func feed_lingpet(owner: Object = null, registry: Object = null, feed_amount: float = 40.0) -> Dictionary:
-	_invalidate_runtime_snapshot_cache()
-	var affinity_pet_id := ""
-	if _state == STATE_COMPANION:
-		affinity_pet_id = _current_profile.normalize_pet_id(_pet_id)
-	if affinity_pet_id != "":
-		_affinity_context_coordinator.configure(
-			affinity_pet_id,
-			_pet_id,
-			_current_profile,
-			_loadout_state,
-			_affinity_state
-		)
-	if affinity_pet_id != "" and _companion_pos == Vector2.ZERO:
-		_initialize_companion_patrol(owner, true)
-	var active_position_owner: Dictionary = _skill_runtime_surface.get_active_position_owner(
-		_current_profile,
-		_active_skill_slot_resolver,
-		_companion_skill_visual_resolver,
-		_skill_runtime_host,
-		_companion_pos
-	)
-	var has_active_position_override: bool = _skill_runtime_surface.has_active_position_override(_companion_skill_visual_resolver, active_position_owner)
-	var duration_recovery_seconds := maxf(0.0, feed_amount) * LEGACY_FEED_POINT_TO_DURATION_SECONDS
-	var result: Dictionary = _feed_controller.request(
-		affinity_pet_id,
-		owner,
-		_companion_pos,
-		_profile_runtime_surface.get_motion_style(_current_profile),
-		_affinity_state,
-		has_active_position_override
-			or _ring_dash_state.has_companion_position_override()
-			or _starlight_tracking_state.has_companion_position_override(),
-		registry,
-		duration_recovery_seconds
-	)
-	result["legacy_feed_amount"] = maxf(0.0, feed_amount)
-	result["duration_recovery_seconds"] = duration_recovery_seconds
-	_affinity_grant_controller.remember_result(result)
-	return result
-
-
 func get_enhancement_chips() -> int:
 	return _affinity_state.get_enhancement_chips()
 
@@ -3426,7 +3325,6 @@ func get_enhancement_chip_multiplier() -> float:
 func reset_affinity_for_new_battle() -> void:
 	_invalidate_runtime_snapshot_cache()
 	_affinity_battle_lifecycle.reset_for_new_battle(_affinity_income_tracker, _affinity_state)
-	_feed_controller.reset_for_new_battle()
 	_affinity_grant_controller.clear_last_result()
 
 
@@ -3781,7 +3679,6 @@ func _end_guardian_runtime_for_stow(owner: Object, registry: Object) -> void:
 	_starlight_tracking_state.end_for_stow()
 	_ring_dash_state.end_for_stow()
 	_ring_dash_vfx.reset()
-	_feed_controller.reset_all()
 	_mount_state.reset()
 	_companion_motion_state.clear_defense_intercept()
 	_companion_body_hit_state.ball_was_inside = false

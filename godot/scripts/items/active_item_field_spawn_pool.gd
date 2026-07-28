@@ -23,11 +23,6 @@ const ONE_TIME_PASSIVE_SPAWN_NAMES := {
 const VIPER_ONLY_PASSIVE_SPAWN_NAMES := {
 	"venom_mist_gauntlet": true,
 }
-const LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES := {
-	"lingpet_feed": true,
-	"lingpet_apple_feed": true,
-	"lingpet_melon_feed": true,
-}
 const LINGPET_SPIRIT_WATER_ITEM_NAME := "lingpet_spirit_water"
 
 var item_catalog: Object = ActiveItemCatalog.new()
@@ -504,9 +499,7 @@ func _should_skip_active_spawn_candidate(item_data: Dictionary, registry: Object
 			or not runtime.has_method("can_offer_spirit_water_drop")
 			or not bool(runtime.can_offer_spirit_water_drop(owner))
 		)
-	if not LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES.has(item_name):
-		return false
-	return LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
+	return false
 
 
 # The Pro/Mythic "lingpet_egg" active item drops in non-junior leagues whenever

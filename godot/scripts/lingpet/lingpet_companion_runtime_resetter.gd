@@ -308,7 +308,8 @@ func reset_state(
 	ring_dash_vfx.reset()
 	ghost_blink_vfx.reset()
 	starlight_tracking_state.reset_all()
-	feed_controller.reset_all()
+	if feed_controller != null:
+		feed_controller.reset_all()
 	companion_skill_persistence.reset_states(companion_skill_states)
 	if reset_defense:
 		companion_motion_state.reset_defense()

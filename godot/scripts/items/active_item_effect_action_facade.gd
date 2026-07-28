@@ -58,29 +58,6 @@ func apply_life_elixir(
 	)
 
 
-func apply_lingpet_feed(
-	_target: Object,
-	item_data: Dictionary,
-	owner: Object,
-	registry: Object,
-	effect_feedback: Object
-) -> bool:
-	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
-	if lingpet_runtime == null or not lingpet_runtime.has_method("feed_lingpet"):
-		return false
-	var feed_amount := maxf(0.0, float(item_data.get("feed_amount", 40.0)))
-	var result: Variant = lingpet_runtime.feed_lingpet(owner, registry, feed_amount)
-	if not (result is Dictionary):
-		return false
-	var feed_result: Dictionary = result
-	if not bool(feed_result.get("accepted", false)):
-		return false
-	if effect_feedback != null:
-		effect_feedback.play_first_audio(registry, ["play_active_item"])
-		effect_feedback.trigger_registry_feedback(registry, false, false, 0.015, 0.18)
-	return true
-
-
 func apply_lingpet_spirit_water(
 	_target: Object,
 	_item_data: Dictionary,
