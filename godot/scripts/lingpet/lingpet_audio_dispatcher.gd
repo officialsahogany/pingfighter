@@ -20,6 +20,16 @@ func play_lingpet_click_reaction(registry: Object = null, pet_id: String = "") -
 	return _call_game_audio(registry, "play_lingpet_click_reaction", [pet_id])
 
 
+# Slice 1 exposes a stable warning hook even before dedicated audio assets land.
+# Missing game_audio support is an intentional silent fallback, not an error.
+func play_lingpet_duration_warning(registry: Object = null, warning_stage: int = 1) -> bool:
+	return _call_game_audio(
+		registry,
+		"play_lingpet_duration_warning",
+		[clampi(warning_stage, 1, 3)]
+	)
+
+
 func play_lingpet_acquire_click_reaction_backing(registry: Object = null) -> bool:
 	return _call_game_audio(registry, "play_lingpet_acquire_click_reaction_backing")
 

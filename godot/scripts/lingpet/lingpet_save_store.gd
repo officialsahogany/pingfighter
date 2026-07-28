@@ -3,7 +3,7 @@ extends RefCounted
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const SAVE_PATH := "user://lingpet_save.cfg"
-const SAVE_SCHEMA_VERSION := 1
+const SAVE_SCHEMA_VERSION := 2
 const META_SECTION := "meta"
 const LINGPET_SECTION := "lingpet"
 const SNAPSHOT_KEY := "snapshot"

@@ -1,5 +1,8 @@
 extends RefCounted
 
+# Transitional runtime facade for the run-shared guardian duration pool. The
+# filename stays stable for §9-2 ownership compatibility; satiety-only policy is
+# removed in §9-4 after all consumers speak duration terminology.
 const LingpetAffinityState := preload(
 	"res://scripts/lingpet/lingpet_affinity_state.gd"
 )
@@ -14,13 +17,49 @@ func reset() -> void:
 	_penalty_exempt = false
 
 
-func advance_inactive() -> void:
+func advance_inactive(affinity_state: Object = null) -> void:
 	_penalty_exempt = false
+	if affinity_state != null and affinity_state.has_method("clear_duration_drain_exempt_latch"):
+		affinity_state.clear_duration_drain_exempt_latch()
 
 
-func latch_penalty_exempt(owner: Object, collection_state: Object) -> bool:
-	_penalty_exempt = is_penalty_exempt(owner, collection_state)
+func latch_penalty_exempt(
+	owner: Object,
+	collection_state: Object,
+	affinity_state: Object = null
+) -> bool:
+	if affinity_state != null and affinity_state.has_method("latch_duration_drain_exempt"):
+		_penalty_exempt = bool(
+			affinity_state.latch_duration_drain_exempt(owner, collection_state)
+		)
+	else:
+		_penalty_exempt = is_penalty_exempt(owner, collection_state)
 	return _penalty_exempt
+
+
+func advance_duration(
+	pet_id: String,
+	battle_slots: Array,
+	delta: float,
+	affinity_state: Object,
+	owner: Object,
+	collection_state: Object,
+	passive_skills: Array,
+	summoned: bool
+) -> Dictionary:
+	var drain_multiplier := get_satiety_drain_multiplier(passive_skills)
+	var exempt := is_penalty_exempt(owner, collection_state, affinity_state)
+	var result: Dictionary = affinity_state.advance_satiety(
+		pet_id,
+		battle_slots,
+		delta,
+		drain_multiplier,
+		1.0,
+		not summoned
+	)
+	result["drain_exempt"] = exempt
+	result["summoned"] = summoned
+	return result
 
 
 func advance_active(
@@ -31,92 +70,91 @@ func advance_active(
 	owner: Object,
 	collection_state: Object,
 	passive_skills: Array,
-	exhaustion_telegraph_seconds: float
+	_exhaustion_telegraph_seconds: float,
+	summoned: bool = true
 ) -> bool:
-	var drain_multiplier := get_satiety_drain_multiplier(passive_skills)
-	var active_exhausted := (
-		not is_penalty_exempt(owner, collection_state)
-		and bool(affinity_state.is_satiety_exhausted(pet_id))
-	)
-	var satiety_result: Dictionary = affinity_state.advance_satiety(
+	return bool(advance_duration(
 		pet_id,
 		battle_slots,
 		delta,
-		drain_multiplier,
-		1.0,
-		active_exhausted
-	)
-	var exhaustion_result: Dictionary = affinity_state.advance_satiety_exhaustion(
-		pet_id,
-		delta,
-		exhaustion_telegraph_seconds,
-		not _penalty_exempt
-	)
-	return (
-		bool(satiety_result.get("changed", false))
-		or bool(exhaustion_result.get("changed", false))
-	)
+		affinity_state,
+		owner,
+		collection_state,
+		passive_skills,
+		summoned
+	).get("changed", false))
 
 
 func get_active_satiety_pct(
-	is_companion: bool,
-	pet_id: String,
+	has_guardian: bool,
+	_pet_id: String,
 	affinity_state: Object
 ) -> int:
-	if not is_companion:
+	if not has_guardian or affinity_state == null:
 		return 0
-	return int(affinity_state.get_satiety_pct(pet_id))
+	return int(affinity_state.get_duration_pool_pct())
 
 
 func get_speed_scale(
-	is_companion: bool,
-	pet_id: String,
-	affinity_state: Object,
-	owner: Object,
-	collection_state: Object
+	_companion_active: bool,
+	_pet_id: String,
+	_affinity_state: Object,
+	_owner: Object,
+	_collection_state: Object
 ) -> float:
-	if not is_companion or is_penalty_exempt(owner, collection_state):
-		return 1.0
-	if bool(affinity_state.is_satiety_exhausted(pet_id)):
-		return 0.0
-	return float(affinity_state.get_satiety_speed_multiplier(pet_id))
+	# Duration scarcity no longer slows movement. Reaching the lower rail folds
+	# companion_active false through the stow contract instead.
+	return 1.0
 
 
 func is_companion_exhausted(
-	is_companion: bool,
-	pet_id: String,
+	_has_guardian: bool,
+	_pet_id: String,
 	affinity_state: Object,
 	owner: Object,
 	collection_state: Object
 ) -> bool:
-	if not is_companion or is_penalty_exempt(owner, collection_state):
+	if affinity_state == null or is_penalty_exempt(owner, collection_state, affinity_state):
 		return false
-	return bool(affinity_state.is_satiety_exhausted(pet_id))
+	return bool(affinity_state.is_duration_resummon_locked())
 
 
 func get_exhaustion_ratio(
-	is_companion: bool,
-	pet_id: String,
+	_has_guardian: bool,
+	_pet_id: String,
 	affinity_state: Object,
 	owner: Object,
 	collection_state: Object,
-	exhaustion_telegraph_seconds: float
+	_exhaustion_telegraph_seconds: float
 ) -> float:
-	if not is_companion or is_penalty_exempt(owner, collection_state):
+	if affinity_state == null or is_penalty_exempt(owner, collection_state, affinity_state):
 		return 0.0
 	return float(affinity_state.get_satiety_exhaustion_ratio(
-		pet_id,
-		exhaustion_telegraph_seconds
+		"",
+		_exhaustion_telegraph_seconds
 	))
 
 
-func is_penalty_exempt(owner: Object, collection_state: Object) -> bool:
+func is_penalty_exempt(
+	owner: Object,
+	collection_state: Object,
+	affinity_state: Object = null
+) -> bool:
+	if affinity_state != null and affinity_state.has_method("is_duration_drain_exempt_latched"):
+		if owner == null:
+			return bool(affinity_state.is_duration_drain_exempt_latched())
 	if owner == null:
 		return _penalty_exempt
-	return bool(collection_state.is_auto_present_league(owner))
+	return (
+		collection_state != null
+		and collection_state.has_method("is_auto_present_league")
+		and bool(collection_state.is_auto_present_league(owner))
+	)
 
 
 func get_satiety_drain_multiplier(passive_skills: Array) -> float:
+	# The existing light-eater modifier remains live through Slice 3. Slice 1
+	# only moves its owner from a per-pet rail to the shared duration drain.
 	var reduction_pct := 0.0
 	for passive_skill in passive_skills:
 		var passive_reduction_pct := 0.0

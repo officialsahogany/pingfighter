@@ -40,8 +40,7 @@ func _init() -> void:
 
 func _verify_drain_and_rest_ratio() -> void:
 	var state := LingpetDurationState.new()
-	state.set_duration("maribo", 80.0)
-	state.set_duration("lunabi", 20.0)
+	state.ensure_initial_roll(null, 80)
 	var result: Dictionary = state.advance_duration(
 		"maribo",
 		["maribo", "lunabi", "lunabi", ""],
@@ -50,13 +49,14 @@ func _verify_drain_and_rest_ratio() -> void:
 	_expect(bool(result.get("changed", false)), "duration tick should report mutation")
 	_expect_float(
 		state.get_duration("maribo"),
-		78.44,
-		"active pet should drain at the preserved per-second rate"
+		77.0,
+		"summoned guardian should drain the run-shared pool one-to-one"
 	)
+	state.advance_duration("lunabi", ["maribo", "lunabi"], 3.0, 1.0, 1.0, true)
 	_expect_float(
 		state.get_duration("lunabi"),
-		20.52,
-		"resting pet should recover at the preserved one-third ratio"
+		78.0,
+		"stowed guardian should recover the same shared pool at one-third speed"
 	)
 
 
@@ -81,20 +81,15 @@ func _verify_real_tick_residue_snap() -> void:
 
 func _verify_exhaustion_telegraph() -> void:
 	var state := LingpetDurationState.new()
-	state.set_duration("maribo", 0.0)
-	var winding: Dictionary = state.advance_exhaustion("maribo", 0.75)
-	_expect(not bool(winding.get("exhausted", true)), "exhaustion should wait for the telegraph")
-	_expect_float(float(winding.get("timer", 0.0)), 0.75, "telegraph timer should accumulate real delta")
-	var exhausted: Dictionary = state.advance_exhaustion("maribo", 1.0)
-	_expect(bool(exhausted.get("exhausted", false)), "telegraph threshold should latch exhaustion")
-	_expect_float(
-		float(exhausted.get("timer", 0.0)),
-		LingpetDurationState.EXHAUSTION_TELEGRAPH_SECONDS,
-		"exhaustion timer should preserve the 1.75 second threshold"
-	)
-	state.set_duration("maribo", LingpetDurationState.WAKE_THRESHOLD)
-	_expect(not state.is_exhausted("maribo"), "wake threshold should clear exhaustion")
-	_expect_float(state.get_exhaustion_timer("maribo"), 0.0, "wake threshold should clear the timer")
+	state.ensure_initial_roll(null, 60)
+	state.set_duration("maribo", 0.5)
+	var expired: Dictionary = state.advance_duration("maribo", ["maribo"], 1.0)
+	_expect(bool(expired.get("expired", false)), "duration expiry should emit the forced-stow edge")
+	_expect(state.is_exhausted("maribo"), "compatibility exhaustion query should mirror the resummon lock")
+	state.advance_duration("maribo", ["maribo"], 30.0, 1.0, 1.0, true)
+	_expect(not state.can_resummon(), "exactly ten recovered seconds should remain below the strict resummon gate")
+	state.advance_duration("maribo", ["maribo"], 0.01, 1.0, 1.0, true)
+	_expect(state.can_resummon(), "recovery above ten seconds should clear the compatibility lock")
 
 
 func _verify_league_exemption_latch_passthrough() -> void:

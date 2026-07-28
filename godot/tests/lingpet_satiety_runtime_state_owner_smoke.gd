@@ -57,7 +57,13 @@ class FakeAffinityState:
 	func is_satiety_exhausted(_pet_id: String) -> bool:
 		return exhausted
 
+	func is_duration_resummon_locked() -> bool:
+		return exhausted
+
 	func get_satiety_pct(_pet_id: String) -> int:
+		return satiety_pct
+
+	func get_duration_pool_pct() -> int:
 		return satiety_pct
 
 	func get_satiety_speed_multiplier(_pet_id: String) -> float:
@@ -121,7 +127,7 @@ func _verify_active_advance_and_drain_contract() -> void:
 		"either satiety mutation should invalidate the runtime snapshot"
 	)
 	_expect_eq(affinity.drain_calls.size(), 1, "active advance should issue one drain/recovery update")
-	_expect_eq(affinity.exhaustion_calls.size(), 1, "active advance should issue one exhaustion update")
+	_expect_eq(affinity.exhaustion_calls.size(), 0, "shared duration advance should not retain a separate exhaustion timer update")
 	_expect_eq(collection.exemption_checks, 2, "active tick should preserve latch-then-KO exemption read order")
 	var drain_call: Dictionary = affinity.drain_calls[0]
 	_expect_str(str(drain_call.get("pet_id", "")), "maribo", "advance should preserve the active pet id")
@@ -134,10 +140,6 @@ func _verify_active_advance_and_drain_contract() -> void:
 	)
 	_expect_float(float(drain_call.get("rest_recovery_multiplier", 0.0)), 1.0, "bench recovery multiplier should stay unchanged")
 	_expect(not bool(drain_call.get("is_active_exhausted", true)), "non-exhausted active companion should drain instead of rest")
-	var exhaustion_call: Dictionary = affinity.exhaustion_calls[0]
-	_expect(bool(exhaustion_call.get("enabled", false)), "normal leagues should advance the exhaustion telegraph")
-	_expect_float(float(exhaustion_call.get("telegraph_seconds", 0.0)), 1.75, "advance should preserve the exhaustion telegraph duration")
-
 	var clamped_passives: Array = [
 		{"id": "lingpet_light_eater", "level": 5},
 		{"id": "custom_satiety_passive", "satiety_drain_reduction_pct": 40.0},
@@ -167,16 +169,16 @@ func _verify_exemption_and_query_contract() -> void:
 	)
 	_expect(state.is_penalty_exempt(null, collection), "null-owner reads should reuse the exemption latched by the active tick")
 	_expect(not bool(affinity.drain_calls[0].get("is_active_exhausted", true)), "exempt leagues should not route the active pet through KO rest")
-	_expect(not bool(affinity.exhaustion_calls[0].get("enabled", true)), "exempt leagues should disable exhaustion accumulation")
+	_expect_eq(affinity.exhaustion_calls.size(), 0, "exempt leagues should not resurrect the removed exhaustion timer")
 	_expect(not state.is_companion_exhausted(true, "maribo", affinity, owner, collection), "exempt companion should not publish KO")
 	_expect_float(state.get_speed_scale(true, "maribo", affinity, owner, collection), 1.0, "exempt companion should retain full speed")
 	_expect_float(state.get_exhaustion_ratio(true, "maribo", affinity, owner, collection, 1.75), 0.0, "exempt companion should hide the exhaustion telegraph")
 
 	collection.auto_present_league = false
 	_expect(state.is_companion_exhausted(true, "maribo", affinity, owner, collection), "non-exempt exhausted companion should publish KO")
-	_expect_float(state.get_speed_scale(true, "maribo", affinity, owner, collection), 0.0, "non-exempt exhausted companion should stop")
+	_expect_float(state.get_speed_scale(true, "maribo", affinity, owner, collection), 1.0, "duration expiry should stow instead of applying a speed penalty")
 	affinity.exhausted = false
-	_expect_float(state.get_speed_scale(true, "maribo", affinity, owner, collection), 0.8, "non-exhausted companion should use the affinity speed curve")
+	_expect_float(state.get_speed_scale(true, "maribo", affinity, owner, collection), 1.0, "remaining duration should not scale guardian movement speed")
 	_expect_eq(state.get_active_satiety_pct(true, "maribo", affinity), 73, "active snapshot should expose affinity satiety percent")
 	_expect_eq(state.get_active_satiety_pct(false, "maribo", affinity), 0, "inactive snapshot should clear satiety percent")
 	_expect_float(state.get_exhaustion_ratio(true, "maribo", affinity, owner, collection, 1.75), 0.45, "normal companion should expose affinity exhaustion progress")
@@ -198,7 +200,7 @@ func _verify_runtime_delegates_satiety_policy() -> void:
 	_expect(runtime_source.find("var _satiety_penalty_exempt :=") < 0, "egg runtime should not retain the exemption backing field")
 	_expect(runtime_source.find("_affinity_state.advance_satiety(") < 0, "egg runtime should not directly mutate satiety progression")
 	_expect(runtime_source.find("_affinity_state.advance_satiety_exhaustion(") < 0, "egg runtime should not directly mutate exhaustion progression")
-	_expect(runtime_source.find("_satiety_runtime_state.advance_active(") >= 0, "egg runtime active tick should delegate to the focused owner")
+	_expect(runtime_source.find("_satiety_runtime_state.advance_duration(") >= 0, "egg runtime active tick should delegate to the focused duration owner")
 	_expect(runtime_source.find("func _get_satiety_drain_multiplier()") < 0, "egg runtime should not retain passive drain policy")
 	_expect(state_source.find("LingpetAffinityState.get_satiety_drain_reduction_pct_for_level") >= 0, "satiety owner should retain the light-eater reduction table route")
 	_expect(state_source.find("MAX_DRAIN_REDUCTION_PCT := 60.0") >= 0, "satiety owner should retain the 60 percent reduction cap")

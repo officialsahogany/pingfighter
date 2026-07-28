@@ -192,6 +192,7 @@ func _init() -> void:
 # hatch_bonus_granted and deliberately allows a fresh run to receive hatch bonuses again.
 func reset_all() -> void:
 	_pets.clear()
+	_duration_state.reset_run()
 	_enhancement_chips = 0
 	_run_ring_core_tier = 0
 	_ring_core_offer_cooldown_screens = 0
@@ -216,12 +217,14 @@ func export_run_state() -> Dictionary:
 		var pet_data: Variant = _pets[raw_pet_id]
 		if pet_data is Dictionary:
 			pets_copy[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
-	return {
+	var run_state := {
 		"pets": pets_copy,
 		"enhancement_chips": _enhancement_chips,
 		"run_ring_core_tier": _run_ring_core_tier,
 		"ring_core_offer_cooldown_screens": _ring_core_offer_cooldown_screens,
 	}
+	run_state.merge(_duration_state.export_run_state(), true)
+	return run_state
 
 
 func import_run_state(data: Dictionary) -> void:
@@ -233,6 +236,7 @@ func import_run_state(data: Dictionary) -> void:
 		var pet_data: Variant = pets_in[raw_pet_id]
 		if pet_data is Dictionary:
 			_pets[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
+	_duration_state.import_run_state(data)
 	_enhancement_chips = clampi(int(data.get("enhancement_chips", 0)), 0, MAX_ENHANCEMENT_CHIPS)
 	_run_ring_core_tier = clampi(int(data.get("run_ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	_ring_core_offer_cooldown_screens = maxi(0, int(data.get("ring_core_offer_cooldown_screens", 0)))
@@ -326,10 +330,10 @@ func advance_satiety(
 	)
 	if bool(result.get("changed", false)):
 		_dirty = true
-	return {
-		"changed": bool(result.get("changed", false)),
-		"active_satiety": float(result.get("active_duration", SATIETY_MAX)),
-	}
+	var facade_result := result.duplicate(true)
+	facade_result["changed"] = bool(result.get("changed", false))
+	facade_result["active_satiety"] = float(result.get("active_duration", SATIETY_MAX))
+	return facade_result
 
 
 func advance_satiety_exhaustion(
@@ -361,6 +365,64 @@ func get_satiety_exhaustion_ratio(
 
 func get_satiety_speed_multiplier(pet_id: String) -> float:
 	return _duration_state.get_speed_multiplier(pet_id)
+
+
+func ensure_duration_pool_roll(
+	rng: RandomNumberGenerator = null,
+	forced_roll: int = 0
+) -> Dictionary:
+	var result := _duration_state.ensure_initial_roll(rng, forced_roll)
+	if bool(result.get("accepted", false)):
+		_dirty = true
+	return result
+
+
+func get_duration_pool_current() -> float:
+	return _duration_state.get_pool_current()
+
+
+func get_duration_pool_max() -> float:
+	return _duration_state.get_pool_max()
+
+
+func get_duration_pool_pct() -> int:
+	return _duration_state.get_pool_pct()
+
+
+func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
+	_duration_state.set_pool_for_tests(current, maximum)
+	_dirty = true
+
+
+func refill_duration_pool_for_stage_transition() -> bool:
+	var changed := _duration_state.refill_to_max()
+	if changed:
+		_dirty = true
+	return changed
+
+
+func can_resummon_guardian() -> bool:
+	return _duration_state.can_resummon()
+
+
+func is_duration_resummon_locked() -> bool:
+	return _duration_state.is_resummon_locked()
+
+
+func get_duration_resummon_lock_remaining() -> float:
+	return _duration_state.get_resummon_lock_remaining()
+
+
+func latch_duration_drain_exempt(owner: Object, collection_state: Object) -> bool:
+	return _duration_state.latch_drain_exempt(owner, collection_state)
+
+
+func clear_duration_drain_exempt_latch() -> void:
+	_duration_state.clear_drain_exempt_latch()
+
+
+func is_duration_drain_exempt_latched() -> bool:
+	return _duration_state.is_drain_exempt_latched()
 
 
 static func get_satiety_speed_multiplier_for_value(value: float) -> float:

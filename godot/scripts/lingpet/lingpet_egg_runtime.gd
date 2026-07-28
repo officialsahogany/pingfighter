@@ -83,7 +83,7 @@ const STATE_EGG := "egg"
 const STATE_COMPANION := "companion"
 const REQUIRED_HITS := 1
 const BALL_RADIUS_FALLBACK := 14.3
-const SAVE_SNAPSHOT_VERSION := 1
+const SAVE_SNAPSHOT_VERSION := 2
 const COMPANION_RADIUS := 16.0
 const DEFAULT_SKILL_LEVEL := 1
 # Anticipatory strike helper mirrors player/boss _maybe_trigger_anticipated_hit:
@@ -124,6 +124,7 @@ const COMPANION_SWITCH_TRANSITION_SECONDS := 0.62
 const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
 const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
 const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetAffinityState.SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
+const DURATION_WARNING_STAGE_COUNT := 3
 # Runs from live companion physics, so it must not inherit the loading-screen
 # short expiry that demotes a slow threaded texture to a sync main-thread load.
 const CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC := 0
@@ -234,6 +235,9 @@ var _affinity_owner_surface: Object = LingpetAffinityOwnerSurface.new()
 var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
 var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
 var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
+var _guardian_stowed := false
+var _duration_warning_stage := 0
+var _duration_roll_rng_for_tests: RandomNumberGenerator = null
 var _hatch_stat_roll_state: Object = LingpetHatchStatRollState.new()
 # Shell-break cinematic sequencer: the final counted egg hit no longer opens the
 # acquire cut-in on the same frame. Instead the egg runs the 1.5s scripted
@@ -392,7 +396,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			_apply_current_loadout(owner, true, false, registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.prewarm_step", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_advance_satiety(delta, owner)
+		_advance_satiety(delta, owner, registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.satiety", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		var starlight_passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
@@ -1028,6 +1032,7 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 	var old_pet_id := str(replace_result.get("old_pet_id", ""))
 	if old_pet_id != "" and old_pet_id != new_pet:
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
+	_ensure_duration_pool_roll()
 	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
 	_add_affinity_points(new_pet, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_overflow_choice_state.reset()
@@ -1041,12 +1046,12 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 
 
 func is_maribo_companion_active() -> bool:
-	return _pet_id == PET_ID and _state == STATE_COMPANION
+	return _pet_id == PET_ID and _is_guardian_summoned()
 
 
 func is_companion_active(pet_id: String = "") -> bool:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _state == STATE_COMPANION and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
+	return _is_guardian_summoned() and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
 
 
 func debug_grant_and_activate_pet(
@@ -1093,6 +1098,9 @@ func debug_grant_and_activate_pet(
 		if not _loadout_state.get_loadouts().has(normalized_pet_id):
 			_loadout_state.set_pet_loadout_and_invalidate(owner, normalized_pet_id, "", "", 0, 0, _snapshot_builder)
 	_state = STATE_COMPANION
+	_ensure_duration_pool_roll()
+	_guardian_stowed = false
+	_duration_warning_stage = 0
 	_set_current_pet_id(normalized_pet_id)
 	_loadout_state.set_skip_unlock_reconcile(has_explicit_loadout)
 	_apply_current_loadout(owner, true, false, registry)
@@ -1678,8 +1686,13 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot["affinity_points"] = float(affinity_snapshot.get("points", 0.0))
 	snapshot["affinity_next_requirement"] = float(affinity_snapshot.get("next_requirement", 0.0))
 	snapshot["affinity_next_label"] = str(affinity_snapshot.get("next_label", ""))
-	snapshot["satiety_pct"] = _get_active_satiety_pct()
-	snapshot["satiety"] = get_satiety(_pet_id) if _state == STATE_COMPANION else 0.0
+	snapshot["duration_pool_pct"] = _get_active_satiety_pct()
+	snapshot["duration_pool"] = _affinity_state.get_duration_pool_current()
+	snapshot["duration_pool_max"] = _affinity_state.get_duration_pool_max()
+	snapshot["guardian_stowed"] = _guardian_stowed
+	# Transitional aliases remain until the §9-4 deletion slice.
+	snapshot["satiety_pct"] = int(snapshot["duration_pool_pct"])
+	snapshot["satiety"] = float(snapshot["duration_pool"])
 	snapshot["satiety_speed_scale"] = _get_satiety_speed_scale()
 	snapshot["companion_exhausted"] = is_companion_exhausted()
 	snapshot["satiety_exhaustion_ratio"] = get_satiety_exhaustion_ratio_for_tests()
@@ -1738,7 +1751,7 @@ func is_item_egg_absorbing() -> bool:
 
 
 func get_save_snapshot() -> Dictionary:
-	return _snapshot_builder.build_save_snapshot(
+	var snapshot: Dictionary = _snapshot_builder.build_save_snapshot(
 		SAVE_SNAPSHOT_VERSION,
 		_pet_id,
 		_state,
@@ -1755,6 +1768,8 @@ func get_save_snapshot() -> Dictionary:
 		_loadout_state.get_loadouts(),
 		_affinity_state.export_run_state()
 	)
+	snapshot["guardian_stowed"] = _guardian_stowed
+	return snapshot
 
 
 func build_save_snapshot() -> Dictionary:
@@ -1778,7 +1793,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 	_invalidate_runtime_snapshot_cache()
 	_overflow_choice_state.reset()
 	_reset_hatch_break_sequence()
-	return _save_restore_applier.apply(
+	var result: Dictionary = _save_restore_applier.apply(
 		snapshot,
 		owner,
 		registry,
@@ -1795,6 +1810,15 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 			"restore_companion_patrol": Callable(self, "_restore_companion_patrol"),
 		}
 	)
+	_guardian_stowed = (
+		_state == STATE_COMPANION
+		and bool(snapshot.get(
+			"guardian_stowed",
+			_affinity_state.is_duration_resummon_locked()
+		))
+	)
+	_duration_warning_stage = _get_duration_warning_stage()
+	return result
 
 
 func restore_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
@@ -1815,6 +1839,9 @@ func reset_for_tests() -> void:
 	_affinity_battle_lifecycle.reset_all()
 	_affinity_grant_controller.clear_last_result()
 	_satiety_runtime_state.reset()
+	_guardian_stowed = false
+	_duration_warning_stage = 0
+	_duration_roll_rng_for_tests = null
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO
@@ -1871,6 +1898,8 @@ func _clear_lingpet_field_state() -> void:
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
 	_satiety_runtime_state.reset()
+	_guardian_stowed = false
+	_duration_warning_stage = 0
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
@@ -2089,7 +2118,10 @@ func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Obje
 
 
 func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
+	_ensure_duration_pool_roll()
 	_state = STATE_COMPANION
+	_guardian_stowed = false
+	_duration_warning_stage = 0
 	_apply_current_loadout(owner, true, true, registry)
 	_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
@@ -2125,7 +2157,10 @@ func _begin_overflow_hatch(_owner: Object, registry: Object = null, perf_logger:
 
 func _finish_overflow_hatch_commit(owner: Object, registry: Object = null) -> void:
 	var kept_pet_id := str(_overflow_choice_state.consume_commit_pet_id())
+	_ensure_duration_pool_roll()
 	_state = STATE_COMPANION
+	_guardian_stowed = false
+	_duration_warning_stage = 0
 	_set_current_pet_id(kept_pet_id)
 	_apply_current_loadout(owner, true, true, registry)
 	_add_affinity_points(kept_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
@@ -2170,6 +2205,7 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 	# hatch affinity a normal hatch grants.
 	var registered := str(absorb_route.get("registered_pet_id", ""))
 	if registered != "":
+		_ensure_duration_pool_roll()
 		_hatch_stat_roll_state.roll_item_egg_hatch_traits(registered, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
 		_add_affinity_points(registered, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_sync_owner(owner, registry)
@@ -2257,7 +2293,12 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	# share the change-gated last-pushed cache (F-lingpet-1).
 	var appearance_rate: float = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _state == STATE_COMPANION else 0.0
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_companion_appearance_rate", "ringpet_companion_appearance_rate", appearance_rate)
-	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_satiety_pct", "ringpet_satiety_pct", _get_active_satiety_pct())
+	_snapshot_builder.set_owner_pair_gated(
+		owner,
+		"lingpet_duration_pool_pct",
+		"ringpet_duration_pool_pct",
+		_get_active_satiety_pct()
+	)
 	_affinity_owner_surface.sync_owner_if_changed(
 		owner,
 		_snapshot_builder,
@@ -2961,6 +3002,14 @@ func reset_affinity_for_new_battle() -> void:
 	_affinity_grant_controller.clear_last_result()
 
 
+func refill_guardian_duration_for_stage_transition() -> bool:
+	var changed: bool = bool(_affinity_state.refill_duration_pool_for_stage_transition())
+	_duration_warning_stage = 0
+	if changed:
+		_invalidate_runtime_snapshot_cache()
+	return changed
+
+
 func get_affinity_data(pet_id: String = "") -> Dictionary:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
 	return _affinity_state.get_pet_data(normalized_pet_id if normalized_pet_id != "" else _pet_id)
@@ -2986,10 +3035,47 @@ func get_satiety_pct(pet_id: String = "") -> int:
 	return _affinity_state.get_satiety_pct(normalized_pet_id if normalized_pet_id != "" else _pet_id)
 
 
+func get_duration_pool_current() -> float:
+	return _affinity_state.get_duration_pool_current()
+
+
+func get_duration_pool_max() -> float:
+	return _affinity_state.get_duration_pool_max()
+
+
+func get_duration_pool_pct() -> int:
+	return _affinity_state.get_duration_pool_pct()
+
+
+func can_resummon_guardian() -> bool:
+	return _affinity_state.can_resummon_guardian()
+
+
+func is_guardian_stowed() -> bool:
+	return _state == STATE_COMPANION and _guardian_stowed
+
+
+func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
+	_affinity_state.set_duration_pool_for_tests(current, maximum)
+	_guardian_stowed = current <= 0.0
+	_duration_warning_stage = _get_duration_warning_stage()
+	_invalidate_runtime_snapshot_cache()
+
+
+func set_duration_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
+	_duration_roll_rng_for_tests = rng
+
+
 func set_satiety_for_tests(pet_id: String, value: float) -> float:
 	_invalidate_runtime_snapshot_cache()
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.set_satiety(normalized_pet_id if normalized_pet_id != "" else _pet_id, value)
+	var next_value: float = float(_affinity_state.set_satiety(
+		normalized_pet_id if normalized_pet_id != "" else _pet_id,
+		value
+	))
+	_guardian_stowed = next_value <= 0.0
+	_duration_warning_stage = _get_duration_warning_stage()
+	return next_value
 
 
 func is_companion_exhausted() -> bool:
@@ -3080,12 +3166,16 @@ func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {},
 	return result
 
 
-func _advance_satiety(delta: float, owner: Object = null) -> void:
+func _advance_satiety(
+	delta: float,
+	owner: Object = null,
+	registry: Object = null
+) -> void:
 	if _state != STATE_COMPANION:
-		_satiety_runtime_state.advance_inactive()
+		_satiety_runtime_state.advance_inactive(_affinity_state)
 		return
-	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state)
-	var changed: bool = bool(_satiety_runtime_state.advance_active(
+	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state, _affinity_state)
+	var result: Dictionary = _satiety_runtime_state.advance_duration(
 		_pet_id,
 		_collection_state.get_battle_slots(),
 		delta,
@@ -3093,9 +3183,15 @@ func _advance_satiety(delta: float, owner: Object = null) -> void:
 		owner,
 		_collection_state,
 		_profile_runtime_surface.get_passive_skills(_current_profile),
-		SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
-	))
-	if changed:
+		not _guardian_stowed
+	)
+	if bool(result.get("expired", false)):
+		_guardian_stowed = true
+	var warning_stage := _get_duration_warning_stage()
+	if warning_stage > _duration_warning_stage:
+		_audio_dispatcher.play_lingpet_duration_warning(registry, warning_stage)
+	_duration_warning_stage = warning_stage
+	if bool(result.get("changed", false)):
 		_invalidate_runtime_snapshot_cache()
 
 
@@ -3118,10 +3214,28 @@ func _get_satiety_speed_scale(owner: Object = null) -> float:
 
 
 func _is_companion_exhausted_for_owner(owner: Object = null) -> bool:
-	return _satiety_runtime_state.is_companion_exhausted(
-		_state == STATE_COMPANION,
-		_pet_id,
-		_affinity_state,
-		owner,
-		_collection_state
+	if _state != STATE_COMPANION:
+		return false
+	if _satiety_runtime_state.is_penalty_exempt(owner, _collection_state, _affinity_state):
+		return false
+	return _guardian_stowed and _affinity_state.is_duration_resummon_locked()
+
+
+func _ensure_duration_pool_roll() -> Dictionary:
+	return _affinity_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
+
+
+func _is_guardian_summoned() -> bool:
+	return _state == STATE_COMPANION and not _guardian_stowed
+
+
+func _get_duration_warning_stage() -> int:
+	var current: float = float(_affinity_state.get_duration_pool_current())
+	if current <= 0.0 or current > 10.0:
+		return 0 if current > 10.0 else DURATION_WARNING_STAGE_COUNT
+	var stage_width := 10.0 / float(DURATION_WARNING_STAGE_COUNT)
+	return clampi(
+		DURATION_WARNING_STAGE_COUNT - int(ceil(current / stage_width)) + 1,
+		1,
+		DURATION_WARNING_STAGE_COUNT
 	)

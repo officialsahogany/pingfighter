@@ -4309,7 +4309,7 @@ func _verify_save_snapshot_roundtrip() -> void:
 	var hatched_id := str(owner.active_lingpet_id)
 
 	var snapshot: Dictionary = runtime.get_save_snapshot()
-	_expect(int(snapshot.get("version", 0)) == 1, "lingpet save snapshot should carry a schema version")
+	_expect(int(snapshot.get("version", 0)) == 2, "lingpet save snapshot should carry the shared-duration schema version")
 	_expect((snapshot.get("owned_pet_ids", []) as Array).has(hatched_id), "lingpet save snapshot should preserve the hatched lingpet")
 	_expect(str((snapshot.get("battle_slot_pet_ids", []) as Array)[0]) == hatched_id, "lingpet save snapshot should preserve the battle slot assignment")
 	_expect(int(snapshot.get("active_slot_index", -1)) == 0, "lingpet save snapshot should preserve the active battle slot index")

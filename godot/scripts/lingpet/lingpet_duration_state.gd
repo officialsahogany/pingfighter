@@ -1,102 +1,256 @@
 extends RefCounted
 
-# §9-2 extraction owner for the legacy per-pet satiety rail. Internal APIs use
-# duration terminology, while the serialized field names remain unchanged until
-# the §9-3 schema/ownership swap.
-const SAVE_VALUE_KEY := "satiety"
-const SAVE_EXHAUSTED_KEY := "satiety_exhausted"
-const SAVE_EXHAUSTION_TIMER_KEY := "satiety_exhaustion_timer"
+# Run-shared guardian uptime pool. The public satiety-shaped facade methods are
+# intentionally retained for the Slice 1 transition, but pet_id and bench-slot
+# arguments no longer select separate batteries.
+const SAVE_VALUE_KEY := "duration_pool"
+const SAVE_MAX_KEY := "duration_pool_max"
+const SAVE_RESUMMON_LOCK_KEY := "duration_resummon_lock_remaining"
+const LEGACY_SAVE_KEYS := ["satiety", "satiety_exhausted", "satiety_exhaustion_timer"]
 
 const DURATION_MIN := 0.0
-const DURATION_MAX := 100.0
-const DRAIN_PER_SECOND := 0.52
+const DURATION_ROLL_MIN := 60
+const DURATION_ROLL_MAX := 80
+const DRAIN_PER_SECOND := 1.0
 const REST_RECOVERY_RATIO := 1.0 / 3.0
+const RESUMMON_THRESHOLD := 10.0
+const WARNING_START_SECONDS := 10.0
+const VALUE_SNAP_EPSILON := 0.001
+
+# Compatibility aliases used by callers that are removed in later §9-3 slices.
+const DURATION_MAX := float(DURATION_ROLL_MAX)
 const DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
 const SLOW_START := 50.0
 const SLOW_FLOOR_START := 10.0
-const SLOW_MIN_MULTIPLIER := 0.60
+const SLOW_MIN_MULTIPLIER := 1.0
 const EXHAUSTION_TELEGRAPH_SECONDS := 1.75
-const WAKE_THRESHOLD := 10.0
-# Snap band for float residue at both duration rails (see
-# _sanitize_duration_value): values inside (0, epsilon) collapse to 0 and
-# (100-epsilon, 100) to 100 so write-gating / strict comparisons never pin the
-# gauge just off a rail. Gameplay-invisible.
-const VALUE_SNAP_EPSILON := 0.001
+const WAKE_THRESHOLD := RESUMMON_THRESHOLD
+const SAVE_EXHAUSTED_KEY := SAVE_RESUMMON_LOCK_KEY
+const SAVE_EXHAUSTION_TIMER_KEY := SAVE_RESUMMON_LOCK_KEY
 
-var _pet_store: Dictionary = {}
-var _get_or_create_pet_data := Callable()
+var _pool_current := 0.0
+var _pool_max := 0.0
+var _resummon_locked := false
+var _drain_exempt_latched := false
 
 
-func bind_pet_store(pet_store: Dictionary, get_or_create_pet_data: Callable = Callable()) -> void:
-	_pet_store = pet_store
-	_get_or_create_pet_data = get_or_create_pet_data
+func bind_pet_store(_pet_store: Dictionary, _get_or_create_pet_data: Callable = Callable()) -> void:
+	# §9-2 injected this owner into the per-pet affinity dictionary. The shared
+	# pool deliberately owns no reference to that dictionary after the schema swap.
+	pass
+
+
+func reset_run() -> void:
+	_pool_current = 0.0
+	_pool_max = 0.0
+	_resummon_locked = false
+	_drain_exempt_latched = false
 
 
 func initialize_pet_state(pet_data: Dictionary) -> void:
-	if not pet_data.has(SAVE_VALUE_KEY):
-		pet_data[SAVE_VALUE_KEY] = DURATION_MAX
-	if not pet_data.has(SAVE_EXHAUSTED_KEY):
-		pet_data[SAVE_EXHAUSTED_KEY] = false
-	if not pet_data.has(SAVE_EXHAUSTION_TIMER_KEY):
-		pet_data[SAVE_EXHAUSTION_TIMER_KEY] = 0.0
+	# Old per-pet rail fields must not survive the §9-3 run-state schema swap.
+	for legacy_key in LEGACY_SAVE_KEYS:
+		pet_data.erase(legacy_key)
 
 
 func sanitize_pet_run_state(pet_data: Dictionary) -> Dictionary:
 	var pet_copy := pet_data.duplicate(true)
-	var sanitized_duration := _sanitize_duration_value(pet_copy.get(SAVE_VALUE_KEY, DURATION_MAX))
-	pet_copy[SAVE_VALUE_KEY] = sanitized_duration
-	pet_copy[SAVE_EXHAUSTION_TIMER_KEY] = _sanitize_exhaustion_timer(
-		pet_copy.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0),
-		sanitized_duration
-	)
-	pet_copy[SAVE_EXHAUSTED_KEY] = sanitized_duration < WAKE_THRESHOLD and (
-		bool(pet_copy.get(SAVE_EXHAUSTED_KEY, false))
-		or float(pet_copy.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0)) >= EXHAUSTION_TELEGRAPH_SECONDS
-	)
+	initialize_pet_state(pet_copy)
 	return pet_copy
 
 
-func get_duration(pet_id: String) -> float:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return DURATION_MAX
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	if pet_data.is_empty():
-		return DURATION_MAX
-	return _sanitize_duration_value(pet_data.get(SAVE_VALUE_KEY, DURATION_MAX))
+func ensure_initial_roll(
+	rng: RandomNumberGenerator = null,
+	forced_roll: int = 0
+) -> Dictionary:
+	if is_initialized():
+		return {
+			"accepted": false,
+			"blocked_reason": "already_rolled",
+			"pool_current": _pool_current,
+			"pool_max": _pool_max,
+		}
+	var rolled_seconds := forced_roll
+	if rolled_seconds <= 0:
+		rolled_seconds = (
+			rng.randi_range(DURATION_ROLL_MIN, DURATION_ROLL_MAX)
+			if rng != null
+			else randi_range(DURATION_ROLL_MIN, DURATION_ROLL_MAX)
+		)
+	rolled_seconds = clampi(rolled_seconds, DURATION_ROLL_MIN, DURATION_ROLL_MAX)
+	_pool_max = float(rolled_seconds)
+	_pool_current = _pool_max
+	_resummon_locked = false
+	return {
+		"accepted": true,
+		"blocked_reason": "",
+		"pool_current": _pool_current,
+		"pool_max": _pool_max,
+	}
 
 
-func get_duration_pct(pet_id: String) -> int:
-	return clampi(roundi(get_duration(pet_id)), int(DURATION_MIN), int(DURATION_MAX))
+func is_initialized() -> bool:
+	return _pool_max >= float(DURATION_ROLL_MIN)
 
 
-func set_duration(pet_id: String, value: float) -> Dictionary:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return {"changed": false, "value": DURATION_MAX}
-	var pet_data := _get_or_create_pet_state(normalized_pet_id)
-	var next_duration := _sanitize_duration_value(value)
-	var changed := false
-	if not is_equal_approx(float(pet_data.get(SAVE_VALUE_KEY, DURATION_MAX)), next_duration):
-		pet_data[SAVE_VALUE_KEY] = next_duration
-		changed = true
-	if next_duration >= WAKE_THRESHOLD:
-		if bool(pet_data.get(SAVE_EXHAUSTED_KEY, false)) or float(pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0)) > 0.0:
-			pet_data[SAVE_EXHAUSTED_KEY] = false
-			pet_data[SAVE_EXHAUSTION_TIMER_KEY] = 0.0
-			changed = true
-	elif next_duration > DURATION_MIN:
-		if bool(pet_data.get(SAVE_EXHAUSTED_KEY, false)):
-			var rested_timer := maxf(float(pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0)), EXHAUSTION_TELEGRAPH_SECONDS)
-			if not is_equal_approx(float(pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0)), rested_timer):
-				pet_data[SAVE_EXHAUSTION_TIMER_KEY] = rested_timer
-				changed = true
-		elif float(pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0)) > 0.0:
-			pet_data[SAVE_EXHAUSTION_TIMER_KEY] = 0.0
-			changed = true
-	if changed:
-		_pet_store[normalized_pet_id] = pet_data
-	return {"changed": changed, "value": next_duration}
+func export_run_state() -> Dictionary:
+	if not is_initialized():
+		return {
+			SAVE_VALUE_KEY: 0.0,
+			SAVE_MAX_KEY: 0.0,
+			SAVE_RESUMMON_LOCK_KEY: 0.0,
+		}
+	return {
+		SAVE_VALUE_KEY: _sanitize_duration_value(_pool_current),
+		SAVE_MAX_KEY: _sanitize_max_value(_pool_max),
+		SAVE_RESUMMON_LOCK_KEY: get_resummon_lock_remaining(),
+	}
+
+
+func import_run_state(data: Dictionary) -> void:
+	# Legacy per-pet satiety fields are intentionally ignored. Only the new
+	# run-global keys can initialize the shared pool.
+	var imported_max := _sanitize_max_value(data.get(SAVE_MAX_KEY, 0.0))
+	if imported_max <= 0.0:
+		reset_run()
+		return
+	_pool_max = imported_max
+	_pool_current = _sanitize_duration_value_for_max(
+		data.get(SAVE_VALUE_KEY, imported_max),
+		_pool_max
+	)
+	var imported_lock_remaining := maxf(
+		0.0,
+		float(data.get(SAVE_RESUMMON_LOCK_KEY, 0.0))
+	)
+	_resummon_locked = imported_lock_remaining > 0.0 or _pool_current <= DURATION_MIN
+	if _pool_current > RESUMMON_THRESHOLD:
+		_resummon_locked = false
+
+
+func latch_drain_exempt(owner: Object, collection_state: Object) -> bool:
+	_drain_exempt_latched = (
+		owner != null
+		and collection_state != null
+		and collection_state.has_method("is_auto_present_league")
+		and bool(collection_state.is_auto_present_league(owner))
+	)
+	return _drain_exempt_latched
+
+
+func clear_drain_exempt_latch() -> void:
+	_drain_exempt_latched = false
+
+
+func is_drain_exempt_latched() -> bool:
+	return _drain_exempt_latched
+
+
+func advance_pool(
+	delta_seconds: float,
+	summoned: bool,
+	drain_exempt: bool = false,
+	active_drain_multiplier: float = 1.0,
+	rest_recovery_multiplier: float = 1.0
+) -> Dictionary:
+	if delta_seconds <= 0.0 or not is_initialized():
+		return _build_advance_result(false, false)
+	var before := _pool_current
+	var expired_now := false
+	if summoned:
+		if not drain_exempt:
+			_pool_current = _sanitize_duration_value_for_max(
+				_pool_current
+				- DRAIN_PER_SECOND * maxf(0.0, active_drain_multiplier) * delta_seconds,
+				_pool_max
+			)
+			expired_now = before > DURATION_MIN and _pool_current <= DURATION_MIN
+			if expired_now:
+				_resummon_locked = true
+	else:
+		_pool_current = _sanitize_duration_value_for_max(
+			_pool_current
+			+ DRAIN_PER_SECOND * REST_RECOVERY_RATIO
+				* maxf(0.0, rest_recovery_multiplier) * delta_seconds,
+			_pool_max
+		)
+		if _pool_current > RESUMMON_THRESHOLD:
+			_resummon_locked = false
+	return _build_advance_result(not is_equal_approx(before, _pool_current), expired_now)
+
+
+func refill_to_max() -> bool:
+	if not is_initialized():
+		return false
+	var changed := not is_equal_approx(_pool_current, _pool_max) or _resummon_locked
+	_pool_current = _pool_max
+	_resummon_locked = false
+	return changed
+
+
+func get_pool_current() -> float:
+	return _sanitize_duration_value_for_max(_pool_current, _pool_max)
+
+
+func get_pool_max() -> float:
+	return _sanitize_max_value(_pool_max)
+
+
+func get_pool_pct() -> int:
+	if not is_initialized():
+		return 0
+	return clampi(roundi(get_pool_current() / get_pool_max() * 100.0), 0, 100)
+
+
+func can_resummon() -> bool:
+	return is_initialized() and not _resummon_locked and _pool_current > RESUMMON_THRESHOLD
+
+
+func is_resummon_locked() -> bool:
+	return _resummon_locked or (is_initialized() and _pool_current <= DURATION_MIN)
+
+
+func get_resummon_lock_remaining() -> float:
+	if not is_resummon_locked():
+		return 0.0
+	return maxf(0.0, RESUMMON_THRESHOLD - _pool_current + VALUE_SNAP_EPSILON)
+
+
+func get_warning_ratio() -> float:
+	if not is_initialized() or _pool_current > WARNING_START_SECONDS:
+		return 0.0
+	return clampf(1.0 - _pool_current / WARNING_START_SECONDS, 0.0, 1.0)
+
+
+func set_pool_for_tests(current: float, maximum: float = 0.0) -> void:
+	var target_max := maximum
+	if target_max <= 0.0:
+		target_max = _pool_max if is_initialized() else float(DURATION_ROLL_MAX)
+	_pool_max = _sanitize_max_value(target_max)
+	_pool_current = _sanitize_duration_value_for_max(current, _pool_max)
+	_resummon_locked = _pool_current <= DURATION_MIN
+
+
+# Transitional satiety-shaped facade -------------------------------------------------
+
+func get_duration(_pet_id: String = "") -> float:
+	return get_pool_current()
+
+
+func get_duration_pct(_pet_id: String = "") -> int:
+	return get_pool_pct()
+
+
+func set_duration(_pet_id: String, value: float) -> Dictionary:
+	if not is_initialized():
+		_pool_max = float(DURATION_ROLL_MAX)
+	var before := _pool_current
+	_pool_current = _sanitize_duration_value_for_max(value, _pool_max)
+	_resummon_locked = _pool_current <= DURATION_MIN
+	return {
+		"changed": not is_equal_approx(before, _pool_current),
+		"value": _pool_current,
+	}
 
 
 func add_duration(pet_id: String, amount: float) -> Dictionary:
@@ -104,130 +258,59 @@ func add_duration(pet_id: String, amount: float) -> Dictionary:
 
 
 func advance_duration(
-	active_pet_id: String,
-	battle_slot_pet_ids: Array,
+	_active_pet_id: String,
+	_battle_slot_pet_ids: Array,
 	delta_seconds: float,
 	active_drain_multiplier: float = 1.0,
 	rest_recovery_multiplier: float = 1.0,
 	active_resting: bool = false
 ) -> Dictionary:
-	if delta_seconds <= 0.0:
-		return {"changed": false, "active_duration": get_duration(active_pet_id)}
-	var normalized_active_pet_id := _normalize_pet_id(active_pet_id)
-	var changed := false
-	var rest_amount := DRAIN_PER_SECOND * REST_RECOVERY_RATIO * delta_seconds * maxf(0.0, rest_recovery_multiplier)
-	if normalized_active_pet_id != "":
-		if active_resting:
-			if rest_amount > 0.0:
-				var before_active_rest := get_duration(normalized_active_pet_id)
-				var active_rest_result := set_duration(normalized_active_pet_id, before_active_rest + rest_amount)
-				changed = changed or bool(active_rest_result.get("changed", false))
-		else:
-			var drain_amount := DRAIN_PER_SECOND * delta_seconds * maxf(0.0, active_drain_multiplier)
-			if drain_amount > 0.0:
-				var before_active := get_duration(normalized_active_pet_id)
-				var active_result := set_duration(normalized_active_pet_id, before_active - drain_amount)
-				changed = changed or bool(active_result.get("changed", false))
-	if rest_amount > 0.0:
-		var seen := {}
-		for raw_pet_id in battle_slot_pet_ids:
-			var rest_pet_id := _normalize_pet_id(str(raw_pet_id))
-			if rest_pet_id == "" or rest_pet_id == normalized_active_pet_id or seen.has(rest_pet_id):
-				continue
-			seen[rest_pet_id] = true
-			var before_rest := get_duration(rest_pet_id)
-			var rest_result := set_duration(rest_pet_id, before_rest + rest_amount)
-			changed = changed or bool(rest_result.get("changed", false))
-	return {
-		"changed": changed,
-		"active_duration": get_duration(normalized_active_pet_id),
-	}
+	var result := advance_pool(
+		delta_seconds,
+		not active_resting,
+		_drain_exempt_latched,
+		active_drain_multiplier,
+		rest_recovery_multiplier
+	)
+	result["active_duration"] = _pool_current
+	return result
 
 
 func advance_exhaustion(
-	pet_id: String,
-	delta_seconds: float,
-	telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS,
-	enabled: bool = true
+	_pet_id: String,
+	_delta_seconds: float,
+	_telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS,
+	_enabled: bool = true
 ) -> Dictionary:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return {"changed": false, "exhausted": false, "timer": 0.0, "ratio": 0.0}
-	var pet_data := _get_or_create_pet_state(normalized_pet_id)
-	var current_duration := get_duration(normalized_pet_id)
-	var before_timer := _sanitize_exhaustion_timer(
-		pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0),
-		current_duration
-	)
-	var before_exhausted := bool(pet_data.get(SAVE_EXHAUSTED_KEY, false))
-	var next_timer := before_timer
-	var next_exhausted := before_exhausted
-	if not enabled or current_duration >= WAKE_THRESHOLD:
-		next_timer = 0.0
-		next_exhausted = false
-	elif before_exhausted:
-		next_timer = maxf(before_timer, maxf(0.0, telegraph_seconds))
-		next_exhausted = true
-	elif current_duration > DURATION_MIN:
-		next_timer = 0.0
-		next_exhausted = false
-	else:
-		next_timer = maxf(0.0, before_timer + maxf(0.0, delta_seconds))
-		next_exhausted = next_timer >= maxf(0.0, telegraph_seconds)
-	var changed := (
-		not is_equal_approx(before_timer, next_timer)
-		or before_exhausted != next_exhausted
-	)
-	if changed:
-		pet_data[SAVE_EXHAUSTION_TIMER_KEY] = next_timer
-		pet_data[SAVE_EXHAUSTED_KEY] = next_exhausted
-		_pet_store[normalized_pet_id] = pet_data
 	return {
-		"changed": changed,
-		"exhausted": next_exhausted,
-		"timer": next_timer,
-		"ratio": _get_exhaustion_ratio(next_timer, telegraph_seconds),
+		"changed": false,
+		"exhausted": is_resummon_locked(),
+		"timer": get_resummon_lock_remaining(),
+		"ratio": get_warning_ratio(),
 	}
 
 
-func is_exhausted(pet_id: String) -> bool:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "" or get_duration(normalized_pet_id) >= WAKE_THRESHOLD:
-		return false
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	return bool(pet_data.get(SAVE_EXHAUSTED_KEY, false))
+func is_exhausted(_pet_id: String = "") -> bool:
+	return is_resummon_locked()
 
 
-func get_exhaustion_timer(pet_id: String) -> float:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		return 0.0
-	var pet_data := _get_existing_pet_data(normalized_pet_id)
-	return _sanitize_exhaustion_timer(
-		pet_data.get(SAVE_EXHAUSTION_TIMER_KEY, 0.0),
-		get_duration(normalized_pet_id)
-	)
+func get_exhaustion_timer(_pet_id: String = "") -> float:
+	return get_resummon_lock_remaining()
 
 
 func get_exhaustion_ratio(
-	pet_id: String,
-	telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS
+	_pet_id: String = "",
+	_telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS
 ) -> float:
-	return _get_exhaustion_ratio(get_exhaustion_timer(pet_id), telegraph_seconds)
+	return get_warning_ratio()
 
 
-func get_speed_multiplier(pet_id: String) -> float:
-	return get_duration_speed_multiplier_for_value(get_duration(pet_id))
+func get_speed_multiplier(_pet_id: String = "") -> float:
+	return 1.0
 
 
-static func get_duration_speed_multiplier_for_value(value: float) -> float:
-	var duration := clampf(value, DURATION_MIN, DURATION_MAX)
-	if duration > SLOW_START:
-		return 1.0
-	if duration >= SLOW_FLOOR_START:
-		var ratio := (duration - SLOW_FLOOR_START) / (SLOW_START - SLOW_FLOOR_START)
-		return lerpf(SLOW_MIN_MULTIPLIER, 1.0, ratio)
-	return SLOW_MIN_MULTIPLIER
+static func get_duration_speed_multiplier_for_value(_value: float) -> float:
+	return 1.0
 
 
 static func get_drain_reduction_pct_for_level(level: int) -> float:
@@ -237,57 +320,36 @@ static func get_drain_reduction_pct_for_level(level: int) -> float:
 	return float(DRAIN_REDUCTION_PCT_BY_LEVEL[index])
 
 
-func _get_or_create_pet_state(pet_id: String) -> Dictionary:
-	if _get_or_create_pet_data.is_valid():
-		var resolved: Variant = _get_or_create_pet_data.call(pet_id)
-		if resolved is Dictionary:
-			var resolved_state := resolved as Dictionary
-			initialize_pet_state(resolved_state)
-			return resolved_state
-	if _pet_store.has(pet_id):
-		var existing: Variant = _pet_store.get(pet_id, {})
-		if existing is Dictionary:
-			var existing_state := existing as Dictionary
-			initialize_pet_state(existing_state)
-			return existing_state
-	var pet_state := {"pet_id": pet_id}
-	initialize_pet_state(pet_state)
-	_pet_store[pet_id] = pet_state
-	return pet_state
+func _build_advance_result(changed: bool, expired_now: bool) -> Dictionary:
+	return {
+		"changed": changed,
+		"expired": expired_now,
+		"pool_current": _pool_current,
+		"pool_max": _pool_max,
+		"pool_pct": get_pool_pct(),
+		"warning_ratio": get_warning_ratio(),
+		"resummon_locked": is_resummon_locked(),
+		"resummon_lock_remaining": get_resummon_lock_remaining(),
+		"can_resummon": can_resummon(),
+	}
 
 
-func _get_existing_pet_data(pet_id: String) -> Dictionary:
-	if _pet_store.has(pet_id):
-		var existing: Variant = _pet_store.get(pet_id, {})
-		if existing is Dictionary:
-			return existing as Dictionary
-	return {}
+func _sanitize_max_value(value: Variant) -> float:
+	var numeric := float(value)
+	if numeric <= 0.0:
+		return 0.0
+	return clampf(numeric, float(DURATION_ROLL_MIN), float(DURATION_ROLL_MAX))
 
 
 func _sanitize_duration_value(value: Variant) -> float:
-	var clamped := clampf(float(value), DURATION_MIN, DURATION_MAX)
-	# Float-residue snap: a real-tick drain sequence can land on a sub-epsilon
-	# positive remainder (e.g. 2e-10) that set_duration's is_equal_approx write
-	# gate then freezes forever ("2e-10 -> 0" skips the 0.0 write). A strictly
-	# positive residue keeps the exhaustion "duration > 0" branch resetting the
-	# KO timer every tick, so the pet can never exhaust. Snap both rails.
+	return _sanitize_duration_value_for_max(value, _pool_max)
+
+
+func _sanitize_duration_value_for_max(value: Variant, maximum: float) -> float:
+	var safe_max := maxf(DURATION_MIN, maximum)
+	var clamped := clampf(float(value), DURATION_MIN, safe_max)
 	if clamped < VALUE_SNAP_EPSILON:
 		return DURATION_MIN
-	if clamped > DURATION_MAX - VALUE_SNAP_EPSILON:
-		return DURATION_MAX
+	if safe_max > DURATION_MIN and clamped > safe_max - VALUE_SNAP_EPSILON:
+		return safe_max
 	return clamped
-
-
-func _sanitize_exhaustion_timer(value: Variant, duration: float) -> float:
-	if duration >= WAKE_THRESHOLD:
-		return 0.0
-	return maxf(0.0, float(value))
-
-
-func _get_exhaustion_ratio(timer: float, telegraph_seconds: float) -> float:
-	var duration := maxf(0.001, telegraph_seconds)
-	return clampf(maxf(0.0, timer) / duration, 0.0, 1.0)
-
-
-func _normalize_pet_id(pet_id: String) -> String:
-	return pet_id.strip_edges()
