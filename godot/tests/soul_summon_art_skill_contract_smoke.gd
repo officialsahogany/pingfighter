@@ -9,6 +9,7 @@ const OptimusSkillConfig := preload("res://scripts/characters/optimus_skill_conf
 const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_perk_unlock_swap_flow.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const PerkFusionCatalog := preload("res://scripts/characters/perk_fusion_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -33,6 +34,7 @@ func _init() -> void:
 	_verify_full_slot_swap_and_cancel_noop()
 	_verify_full_unlock_budget_keeps_reserved_offer()
 	_verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion()
+	_verify_character_info_slot_free_contract()
 	_verify_removal_preserves_run_owned_state()
 	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
@@ -142,6 +144,10 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	var icon_renderer := RuntimePerkIconRenderer.new()
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must have an exact procedural icon branch")
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must have an exact procedural icon branch")
+	var icon_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
+	var manual_body := _function_body(icon_source, "func _draw_soul_summon_art_manual_icon")
+	_expect(icon_source.find("if skill_id == \"unlock_soul_summon_art\"") >= 0, "unlock card must route to a distinct manual presentation")
+	_expect(manual_body.find("var jade := Color(") >= 0 and manual_body.find("canvas.draw_rect(cover") >= 0, "common manual must use the jade book silhouette rather than the battle egg symbol")
 	var tooltip_source := FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 	var cooldown_body := _function_body(tooltip_source, "func _draw_cost_and_cooldown_line")
 	_expect(cooldown_body.find("show_cooldown") >= 0, "live orb tooltip must honor the common art cooldown-suppression field")
@@ -152,6 +158,50 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	)
 	_expect(bool(classification.get("fusion_excluded", false)), "unlock perk must be explicitly excluded from fusion")
 	_expect(not bool(classification.get("is_candidate_class", true)), "excluded unlock perk must never be a fusion candidate")
+
+
+func _verify_character_info_slot_free_contract() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var soul_data: Dictionary = catalog.get_perk_data(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID)
+	_expect(bool(soul_data.get("character_info_slot_free", false)), "common manual must declare the TAB-only slot-free presentation contract")
+	_expect(RuntimePerkCatalog.get_slot_cost_for_level(soul_data, 1) == 0, "Soul Summoning Art must consume zero Mugong budget in character info")
+	_expect(str(CommonSkillCatalog.get_skill_data().get("slot_occupancy", "")) == "active_orb", "combat Chosik orb must still occupy one of the five battle slots")
+
+	var full_levels := {
+		"dash_lightweight": 1,
+		"dash_module_control": 1,
+		"dash_jump": 1,
+		"dash_acceleration": 1,
+		"item_luck": 1,
+		"common_swiftness": 1,
+	}
+	var baseline_count := catalog.count_owned_slot_perks(full_levels)
+	var with_soul := full_levels.duplicate(true)
+	with_soul[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = 1
+	with_soul[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 1
+	_expect(baseline_count == RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "fixture must fill the entire Mugong budget before adding the common manual")
+	_expect(catalog.count_owned_slot_perks(with_soul) == baseline_count, "Soul Summoning Art must leave the full-budget counter unchanged")
+
+	var acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		with_soul,
+		catalog,
+		null,
+		null,
+		{},
+		[CommonSkillCatalog.SOUL_SUMMON_ART_ID],
+		Color(0.3, 0.7, 1.0),
+		Color(1.0, 0.8, 0.3)
+	)
+	var soul_entries := acquired.filter(func(entry: Dictionary) -> bool:
+		return str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	)
+	_expect(soul_entries.size() == 1, "equipped common art must remain visible as one TAB collection entry")
+	if soul_entries.size() == 1:
+		_expect(bool((soul_entries[0] as Dictionary).get("_slot_free_cell", false)), "TAB Soul Summoning Art entry must use the canonical _slot_free_cell marker")
+	var grid := CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(acquired, baseline_count)
+	_expect(grid.size() == baseline_count + 1, "slot-free common manual must append after six fully occupied paid cells")
+	if grid.size() == baseline_count + 1:
+		_expect(str((grid[-1] as Dictionary).get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "slot-free common manual must stay in the right-leading appended lane")
 
 
 func _verify_removal_preserves_run_owned_state() -> void:

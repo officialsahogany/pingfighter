@@ -146,6 +146,11 @@ static func acquired_perk_runtime_cache_hash(levels: Dictionary, catalog_id: int
 
 
 static func should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_skill_lookup: Dictionary) -> bool:
+	# Soul Summoning Art keeps a visible, slot-free record in the TAB Mugong
+	# collection even while its combat Chosik orb is equipped. Other manuals
+	# retain the duplicate-suppression behavior below.
+	if bool(perk_data.get("character_info_slot_free", false)):
+		return false
 	if equipped_skill_lookup.is_empty():
 		return false
 	var unlocked_skill: String = str(perk_data.get("unlocks_skill", ""))
@@ -153,6 +158,8 @@ static func should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_ski
 
 
 # 융합 재료 헤더 전용 색(스탯 패널에서 재료 섹션을 시각 구분).
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
+
 const FUSION_STAT_HEADER_COLOR := Color(1.0, 0.84, 0.42, 1.0)
 const FUSION_STAT_PENALTY_COLOR := Color(1.0, 0.55, 0.45, 1.0)
 const FUSION_STAT_DELETED_COLOR := Color(0.62, 0.62, 0.66, 1.0)
@@ -194,6 +201,9 @@ static func build_acquired_perks_from_projection(
 	equipped_skill_lookup: Dictionary = {}
 ) -> Array:
 	var result: Array = []
+	var has_soul_unlock_entry := projection_entries.any(func(value: Variant) -> bool:
+		return value is Dictionary and str((value as Dictionary).get("perk_id", (value as Dictionary).get("id", ""))) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	)
 	for entry_value: Variant in projection_entries:
 		if not (entry_value is Dictionary):
 			continue
@@ -212,13 +222,16 @@ static func build_acquired_perks_from_projection(
 		var base_level := int(entry.get("base_level", 0))
 		if perk_id.is_empty() or base_level <= 0:
 			continue
+		if has_soul_unlock_entry and perk_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			continue
 		var level := int(entry.get("effective_level", int(effective_levels.get(perk_id, base_level))))
 		# 장착 해금퍽 숨김은 acquired_perk_data의 lookup 인자를 그대로 관통
 		# — 빈 {} 고정이면 projection 상시인 라이브에서 필터가 죽는다.
 		var data: Dictionary = acquired_perk_data(perk_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)
 		if data.is_empty():
 			continue
-		_decorate_presented_perk(data, perk_id, accent_blue, accent_gold)
+		var draw_id := CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID if perk_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID else perk_id
+		_decorate_presented_perk(data, draw_id, accent_blue, accent_gold)
 		# 런타임 상태 라인(천사의 주사위 등)은 일반 분기와 동일하게 여기서도
 		# 적용한다 — projection 분기 추출 때 탈락해 씰(angel_blessing_status_
 		# tooltip_smoke)이 조용히 RED로 남았던 자리(2026-07-21 복원).
@@ -424,6 +437,8 @@ static func acquired_perk_data(
 	var data: Dictionary = {}
 	if catalog != null and catalog.has_method("get_perk_data"):
 		data = catalog.get_perk_data(skill_id)
+	if data.is_empty() and skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		data = CommonSkillCatalog.get_unlock_perk_data()
 	if data.is_empty():
 		data = {"name": skill_id, "icon_color": accent_blue, "tree": ""}
 	elif should_hide_equipped_unlock_perk(data, equipped_skill_lookup):
@@ -478,11 +493,15 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 		var base_level: int = int(levels.get(skill_id_value, 0))
 		if base_level <= 0:
 			continue
+		if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID and int(levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, 0)) > 0:
+			continue
 		var level: int = effective_runtime_perk_level(runtime_state, skill_id, base_level, effective_levels)
 		var data: Dictionary = acquired_perk_data(skill_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)
 		if data.is_empty():
 			continue
 		data["_draw_id"] = skill_id
+		if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			data["_draw_id"] = CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 		var draw_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get("icon_color", accent_blue))
 		data["_draw_color"] = draw_color
 		data["_draw_border_color"] = Color(draw_color.r, draw_color.g, draw_color.b, 0.48)

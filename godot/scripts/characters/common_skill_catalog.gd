@@ -92,6 +92,10 @@ static func get_unlock_perk_data() -> Dictionary:
 		"tree": "common_unlock",
 		"unlocks_skill": SOUL_SUMMON_ART_ID,
 		"slot_occupancy": "active_orb",
+		# The battle Chosik orb still occupies one of the five combat slots. This
+		# flag is only for the TAB Mugong collection grid, where the common art is
+		# presented after the paid cells without consuming their budget.
+		"character_info_slot_free": true,
 		"cooldown_reduction_eligible": false,
 		"show_cooldown": false,
 		"cleanup_policy": "perk_id_lookup",

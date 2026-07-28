@@ -256,10 +256,12 @@ func prewarm_assets_step(batch_size: int = PREWARM_ASSET_BATCH_SIZE) -> bool:
 func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float = 1.0, active: bool = true) -> bool:
 	if canvas == null or skill_id == "":
 		return false
-	if skill_id in ["soul_summon_art", "unlock_soul_summon_art"]:
+	if skill_id == "unlock_soul_summon_art":
+		_draw_soul_summon_art_manual_icon(canvas, rect, alpha, active)
+		_draw_unlock_badge(canvas, rect, alpha)
+		return true
+	if skill_id == "soul_summon_art":
 		_draw_soul_summon_art_icon(canvas, rect, alpha, active)
-		if _needs_unlock_badge(skill_id):
-			_draw_unlock_badge(canvas, rect, alpha)
 		return true
 	if skill_id == "lingpet_guardian_enhance":
 		_draw_guardian_enhance_placeholder_icon(canvas, rect, alpha, active)
@@ -335,6 +337,43 @@ func _draw_soul_summon_art_icon(
 		var spark_center: Vector2 = center + (offset as Vector2) * radius
 		canvas.draw_line(spark_center - Vector2(radius * 0.07, 0.0), spark_center + Vector2(radius * 0.07, 0.0), cyan, maxf(1.0, radius * 0.045), true)
 		canvas.draw_line(spark_center - Vector2(0.0, radius * 0.07), spark_center + Vector2(0.0, radius * 0.07), cyan, maxf(1.0, radius * 0.045), true)
+
+
+func _draw_soul_summon_art_manual_icon(
+	canvas: CanvasItem,
+	rect: Rect2,
+	alpha: float,
+	active: bool
+) -> void:
+	# Character-neutral Chosik manual: the same book silhouette on all five
+	# characters, colored in the guardian jade/teal family instead of borrowing
+	# any character-specific cover palette.
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.5
+	var brightness := 1.0 if active else 0.52
+	var jade := Color(0.25 * brightness, 0.86 * brightness, 0.64 * brightness, alpha)
+	var teal := Color(0.08 * brightness, 0.42 * brightness, 0.43 * brightness, alpha)
+	var paper := Color(0.78 * brightness, 0.94 * brightness, 0.82 * brightness, alpha)
+	var shadow := Color(0.02 * brightness, 0.12 * brightness, 0.13 * brightness, alpha)
+	var cover := Rect2(
+		center - Vector2(radius * 0.52, radius * 0.62),
+		Vector2(radius * 1.04, radius * 1.24)
+	)
+	canvas.draw_circle(center, radius * 0.66, Color(jade.r, jade.g, jade.b, alpha * 0.14))
+	canvas.draw_rect(cover.grow(radius * 0.045), shadow, true)
+	canvas.draw_rect(cover, teal, true)
+	canvas.draw_rect(Rect2(cover.position + Vector2(radius * 0.12, radius * 0.08), Vector2(radius * 0.80, radius * 1.08)), jade, true)
+	canvas.draw_line(
+		Vector2(cover.position.x + radius * 0.18, cover.position.y),
+		Vector2(cover.position.x + radius * 0.18, cover.end.y),
+		paper,
+		maxf(1.0, radius * 0.055),
+		true
+	)
+	var seal_center := center + Vector2(radius * 0.10, -radius * 0.02)
+	canvas.draw_arc(seal_center, radius * 0.22, 0.0, TAU, 24, paper, maxf(1.1, radius * 0.06), true)
+	canvas.draw_line(seal_center + Vector2(-radius * 0.13, 0.0), seal_center + Vector2(radius * 0.13, 0.0), paper, maxf(1.0, radius * 0.045), true)
+	canvas.draw_line(seal_center + Vector2(0.0, -radius * 0.13), seal_center + Vector2(0.0, radius * 0.13), paper, maxf(1.0, radius * 0.045), true)
 
 
 func _draw_guardian_enhance_placeholder_icon(
