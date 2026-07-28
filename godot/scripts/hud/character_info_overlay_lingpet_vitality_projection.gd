@@ -20,19 +20,29 @@ static func merge_runtime_snapshot(panel_snapshot: Dictionary, runtime_snapshot:
 	if runtime_snapshot.has("guardian_stowed"):
 		panel_snapshot["guardian_stowed"] = bool(runtime_snapshot.get("guardian_stowed", false))
 	var runtime_pet_id := str(runtime_snapshot.get("pet_id", "")).strip_edges().to_lower()
-	var restores_stowed_companion := (
-		bool(runtime_snapshot.get("guardian_stowed", false))
-		and str(runtime_snapshot.get("state", "")).strip_edges().to_lower() == "companion"
+	var runtime_is_companion := (
+		str(runtime_snapshot.get("state", "")).strip_edges().to_lower() == "companion"
 		and runtime_pet_id != ""
 	)
-	if restores_stowed_companion:
+	var display_snapshot_value: Variant = runtime_snapshot.get("character_info_display_snapshot", {})
+	if runtime_is_companion and display_snapshot_value is Dictionary and not (display_snapshot_value as Dictionary).is_empty():
+		# This HUD-only payload is deliberately ungated. Public owner keys remain
+		# suppressed while stowed, so gameplay consumers still see no active guardian.
+		panel_snapshot.merge(display_snapshot_value as Dictionary, true)
+	if runtime_is_companion and (
+		bool(runtime_snapshot.get("guardian_stowed", false))
+		or (display_snapshot_value is Dictionary and not (display_snapshot_value as Dictionary).is_empty())
+	):
 		# Gameplay owner projection intentionally publishes state=none while stowed so
-		# no combat consumer can mistake the guardian for active. The TAB panel merges
-		# the raw runtime snapshot afterward, so restore only its roster identity here.
+		# no combat consumer can mistake the guardian for active. The TAB panel instead
+		# reads the runtime-owned display channel and restores its roster identity here.
 		panel_snapshot["state"] = "companion"
 		panel_snapshot["pet_id"] = runtime_pet_id
-		panel_snapshot["title"] = _resolve_stowed_title(panel_snapshot, runtime_pet_id)
-		panel_snapshot["subtitle"] = LanguageSettings.translate_text("수납 중")
+		if bool(runtime_snapshot.get("guardian_stowed", false)):
+			panel_snapshot["title"] = _resolve_stowed_title(panel_snapshot, runtime_pet_id)
+			panel_snapshot["subtitle"] = LanguageSettings.translate_text("수납 중")
+		else:
+			panel_snapshot["subtitle"] = LanguageSettings.translate_text("동행 중")
 	return panel_snapshot
 
 

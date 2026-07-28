@@ -26,9 +26,16 @@ func _cancel_discard_confirm() -> void:
 func _draw_drag_overlay(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2, font: Font) -> void:
 	CharacterInfoOverlayDragController.draw_overlay(self, canvas, owner, registry, view_size, font, _layout_panel_rect)
 
-func _build_lingpet_stats(owner: Object) -> Array:
+func _build_lingpet_stats(owner: Object, panel_snapshot_override: Dictionary = {}) -> Array:
+	var panel_snapshot := panel_snapshot_override
+	if panel_snapshot.is_empty():
+		panel_snapshot = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(
+			owner,
+			Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"),
+			LINGPET_HATCH_REQUIRED_HITS
+		)
 	_lingpet_stats_cache = CharacterInfoOverlayLingpetPresenter.build_stats_cached(
-		CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS),
+		panel_snapshot,
 		_lingpet_stats_cache,
 		ACCENT_GOLD,
 		TEXT_SOFT,

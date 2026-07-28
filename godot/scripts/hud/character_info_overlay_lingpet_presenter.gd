@@ -383,9 +383,13 @@ static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity
 	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0 - maxf(0.0, affinity_band_h)))
 
 
-static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
-	# Transitional API name; shared duration-pool projection is the single owner.
+static func merge_runtime_display_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
 	return CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot(panel_snapshot, runtime_snapshot)
+
+
+static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
+	# Transitional compatibility alias retained through the §9-4 deletion slice.
+	return merge_runtime_display_snapshot(panel_snapshot, runtime_snapshot)
 
 
 static func get_satiety_strip_state(snapshot: Dictionary) -> Dictionary:

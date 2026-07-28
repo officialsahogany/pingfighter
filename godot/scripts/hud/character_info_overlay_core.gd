@@ -739,7 +739,7 @@ func _perk_grid_contains_animated_icon(icon_renderer: Object, can_draw_perk_icon
 			return true
 	return false
 
-func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], mouse_pos: Vector2 = Vector2.INF, hover_data: Dictionary = {}, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null) -> Dictionary:
+func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], mouse_pos: Vector2 = Vector2.INF, hover_data: Dictionary = {}, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null, lingpet_snapshot_override: Dictionary = {}) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
 	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "chart", SECTION_GLYPH_COLOR)
 	_draw_text_xy(canvas, font, "능력치", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
@@ -763,17 +763,17 @@ func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect
 		# the shared hover-rect list first) -- this panel renders player rows only.
 		var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 38.0, rect.size.x - 24.0, rect.size.y - 50.0)
 		return CharacterInfoOverlayStatsPresenter.draw_cached_player_stat_rows(canvas, font, "플레이어 능력치", inner_rect, row_count, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE, mouse_pos, hover_data, _last_lingpet_stat_row_rects)
-	var lingpet_rows: Array = _build_lingpet_stats(owner)
+	var lingpet_rows: Array = _build_lingpet_stats(owner, lingpet_snapshot_override)
 	return CharacterInfoOverlayStatsPresenter.draw_stat_sections(canvas, font, rect, row_count, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, lingpet_rows, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
 
 
 # Right-column lingpet stats box (mockup v2 2026-07-08). Must draw BEFORE the player
 # stats panel: draw_lingpet_stat_rows CLEARS the shared hover-rect list and the player
 # rows then append into it (the same protocol draw_stat_sections relied on).
-func _draw_lingpet_stats_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary) -> Dictionary:
+func _draw_lingpet_stats_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, lingpet_snapshot_override: Dictionary = {}) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
 	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 10.0, rect.size.x - 24.0, rect.size.y - 22.0)
-	return CharacterInfoOverlayStatsPresenter.draw_lingpet_stat_rows(canvas, font, "링펫 능력치", _build_lingpet_stats(owner), inner_rect, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
+	return CharacterInfoOverlayStatsPresenter.draw_lingpet_stat_rows(canvas, font, "링펫 능력치", _build_lingpet_stats(owner, lingpet_snapshot_override), inner_rect, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
 
 	# 소스별 증감 내역(breakdown)은 툴팁 전용이라 마우스가 이 패널 위에 있을
 	# 때만 계산한다 — 링펫 동반 시 패널이 상시 redraw되므로 hover 게이팅으로

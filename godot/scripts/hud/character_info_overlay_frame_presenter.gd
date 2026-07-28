@@ -153,7 +153,7 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 	if lingpet_runtime != null and lingpet_runtime.has_method("get_snapshot"):
 		var lingpet_runtime_snapshot_value: Variant = lingpet_runtime.get_snapshot()
 		if lingpet_runtime_snapshot_value is Dictionary:
-			CharacterInfoOverlayLingpetPresenter.merge_runtime_satiety_snapshot(lingpet_snapshot, lingpet_runtime_snapshot_value as Dictionary)
+			CharacterInfoOverlayLingpetPresenter.merge_runtime_display_snapshot(lingpet_snapshot, lingpet_runtime_snapshot_value as Dictionary)
 	if lingpet_runtime != null and lingpet_runtime.has_method("get_unlock_choice_options"):
 		lingpet_unlock_options = lingpet_runtime.get_unlock_choice_options(str(lingpet_snapshot.get("pet_id", "")), registry)
 	var lingpet_panel_live2d_active: bool = CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(lingpet_snapshot)
@@ -166,11 +166,11 @@ static func _draw_sections(target: Object, canvas: CanvasItem, owner: Object, re
 	var lingpet_stats_rect_value: Variant = target.get("_layout_lingpet_stats_rect")
 	if lingpet_stats_rect_value is Rect2 and (lingpet_stats_rect_value as Rect2).size != Vector2.ZERO:
 		sample_start = _perf_begin(perf_logger)
-		hover_data = target.call("_draw_lingpet_stats_panel", canvas, owner, lingpet_stats_rect_value, font, mouse_pos, hover_data)
+		hover_data = target.call("_draw_lingpet_stats_panel", canvas, owner, lingpet_stats_rect_value, font, mouse_pos, hover_data, lingpet_snapshot)
 		_perf_end(perf_logger, "character_info.lingpet_stats", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hover_data = target.call("_draw_stats_panel", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)
+	hover_data = target.call("_draw_stats_panel", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots, lingpet_snapshot)
 	_perf_end(perf_logger, "character_info.stats", sample_start)
 
 	var inventory_rect: Rect2 = layout_inventory_rect

@@ -1946,6 +1946,16 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		COMPANION_HIT_HALF_HEIGHT * 2.0,
 		COMPANION_HIT_GAUGE_GAIN
 	)
+	var patrol_speed_default: float = float(_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_default", COMPANION_PATROL_SPEED))
+	var patrol_speed_min: float = float(_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_min", COMPANION_PATROL_SPEED_MIN))
+	var patrol_speed_max: float = float(_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX))
+	var defense_rate: float = float(_debug_stat_overrides.get_defense_rate(_current_profile, COMPANION_DEFENSE_RATE))
+	var appearance_rate: float = float(_debug_stat_overrides.get_appearance_rate(_current_profile, 0.0))
+	var effect_text: String = LingpetEffectTextResolver.resolve(
+		_state,
+		_egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))),
+		_current_profile
+	)
 	var snapshot: Dictionary = _snapshot_builder.build_runtime_snapshot(
 		_pet_id,
 		_state,
@@ -1962,10 +1972,10 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		float(profile_surface.get("gauge_gain_bonus_pct", 0.0)),
 		_egg_state,
 		_companion_motion_state,
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_default", COMPANION_PATROL_SPEED),
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
-		_debug_stat_overrides.get_defense_rate(_current_profile, COMPANION_DEFENSE_RATE),
+		patrol_speed_default,
+		patrol_speed_min,
+		patrol_speed_max,
+		defense_rate,
 		_companion_body_hit_state,
 		float(profile_surface.get("hit_gauge_gain", COMPANION_HIT_GAUGE_GAIN)),
 		primary_skill_surface.get("skill_state", null) as Object,
@@ -1980,6 +1990,23 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		_profile_runtime_surface.get_passive_skill_pool(_current_profile)
 	)
+	var character_info_display_snapshot: Dictionary = _snapshot_builder.build_character_info_display_snapshot(
+		_pet_id,
+		_state,
+		float(profile_surface.get("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0)),
+		float(profile_surface.get("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)),
+		primary_skill_surface.get("active_skill", {}) as Dictionary,
+		second_skill_surface.get("active_skill", {}) as Dictionary,
+		profile_surface.get("passive_skills", []) as Array,
+		float(profile_surface.get("gauge_gain_bonus_pct", 0.0)),
+		patrol_speed_default,
+		patrol_speed_min,
+		patrol_speed_max,
+		defense_rate,
+		float(profile_surface.get("hit_gauge_gain", COMPANION_HIT_GAUGE_GAIN)),
+		appearance_rate,
+		effect_text
+	)
 	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
 	snapshot["guardian_transition"] = _guardian_transition_state.get_snapshot()
 	snapshot["companion_skill_shared_cooldown"] = _companion_skill_persistence.get_shared_cooldown()
@@ -1987,7 +2014,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
-	snapshot["companion_appearance_rate"] = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _is_guardian_summoned() else 0.0
+	snapshot["companion_appearance_rate"] = appearance_rate if _is_guardian_summoned() else 0.0
 	var affinity_snapshot: Dictionary = _affinity_owner_surface.build_snapshot(
 		_state,
 		STATE_COMPANION,
@@ -2001,6 +2028,12 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot["affinity_points"] = float(affinity_snapshot.get("points", 0.0))
 	snapshot["affinity_next_requirement"] = float(affinity_snapshot.get("next_requirement", 0.0))
 	snapshot["affinity_next_label"] = str(affinity_snapshot.get("next_label", ""))
+	if not character_info_display_snapshot.is_empty():
+		character_info_display_snapshot["affinity_level"] = int(snapshot["affinity_level"])
+		character_info_display_snapshot["affinity_points"] = float(snapshot["affinity_points"])
+		character_info_display_snapshot["affinity_next_requirement"] = float(snapshot["affinity_next_requirement"])
+		character_info_display_snapshot["affinity_next_label"] = str(snapshot["affinity_next_label"])
+	snapshot["character_info_display_snapshot"] = character_info_display_snapshot
 	snapshot["duration_pool_pct"] = _get_active_satiety_pct()
 	snapshot["duration_pool"] = _affinity_state.get_duration_pool_current()
 	snapshot["duration_pool_max"] = _affinity_state.get_duration_pool_max()

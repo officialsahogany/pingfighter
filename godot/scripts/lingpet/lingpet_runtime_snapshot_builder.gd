@@ -190,6 +190,101 @@ func build_runtime_snapshot(
 	return snapshot
 
 
+# TAB presentation is intentionally a separate channel from the public owner
+# projection. Stowing a guardian suppresses the public combat keys, but the
+# character-info panel must keep showing the acquired guardian's real loadout and
+# stats. Keep this payload ungated and merge it only in the HUD presenter.
+func build_character_info_display_snapshot(
+	pet_id: String,
+	state: String,
+	catch_width: float,
+	catch_height: float,
+	active_skill: Dictionary,
+	second_active_skill: Dictionary,
+	passive_skills: Array,
+	gauge_gain_bonus_pct: float,
+	patrol_speed_default: float,
+	patrol_speed_min: float,
+	patrol_speed_max: float,
+	defense_rate: float,
+	hit_gauge_gain: float,
+	appearance_rate: float,
+	effect_text: String
+) -> Dictionary:
+	if state != STATE_COMPANION or pet_id.strip_edges() == "":
+		return {}
+	var primary_passive := _dictionary_at(passive_skills, 0)
+	var second_passive := _dictionary_at(passive_skills, 1)
+	var primary_skill_enabled := _skill_is_enabled(active_skill)
+	var second_skill_enabled := _skill_is_enabled(second_active_skill)
+	var primary_passive_enabled := _skill_is_enabled(primary_passive)
+	var second_passive_enabled := _skill_is_enabled(second_passive)
+	return {
+		"body": effect_text,
+		"gauge_gain_bonus_pct": gauge_gain_bonus_pct,
+		"companion_player_speed_bonus_pct": _skill_value(primary_passive, "player_speed_bonus_pct") if primary_passive_enabled else 0.0,
+		"companion_starpoint_tracking_chance_pct": _skill_value(primary_passive, "starpoint_tracking_chance_pct") if primary_passive_enabled else 0.0,
+		"companion_ring_dash_chance_pct": _skill_value(primary_passive, "ring_dash_chance_pct") if primary_passive_enabled else 0.0,
+		"gauge_gain_bonus_icon_path": str(primary_passive.get("icon_texture_path", "")) if primary_passive_enabled else "",
+		"companion_hit_gauge_gain": hit_gauge_gain,
+		"companion_skill_id": str(active_skill.get("id", "")) if primary_skill_enabled else "",
+		"companion_skill_name": str(active_skill.get("name", "")) if primary_skill_enabled else "",
+		"companion_skill_description": str(active_skill.get("description", "")) if primary_skill_enabled else "",
+		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if primary_skill_enabled else "",
+		"companion_skill_icon_path": str(active_skill.get("icon_texture_path", "")) if primary_skill_enabled else "",
+		"companion_skill_cooldown_duration": float(active_skill.get("cooldown", 0.0)) if primary_skill_enabled else 0.0,
+		"companion_skill_level": int(active_skill.get("level", 1)) if primary_skill_enabled else 0,
+		"companion_skill_max_level": int(active_skill.get("max_level", 5)) if primary_skill_enabled else 0,
+		"companion_skill_id_1": str(second_active_skill.get("id", "")) if second_skill_enabled else "",
+		"companion_skill_name_1": str(second_active_skill.get("name", "")) if second_skill_enabled else "",
+		"companion_skill_description_1": str(second_active_skill.get("description", "")) if second_skill_enabled else "",
+		"companion_skill_card_path_1": str(second_active_skill.get("card_texture_path", "")) if second_skill_enabled else "",
+		"companion_skill_icon_path_1": str(second_active_skill.get("icon_texture_path", "")) if second_skill_enabled else "",
+		"companion_skill_cooldown_duration_1": float(second_active_skill.get("cooldown", 0.0)) if second_skill_enabled else 0.0,
+		"companion_skill_level_1": int(second_active_skill.get("level", 1)) if second_skill_enabled else 0,
+		"companion_skill_max_level_1": int(second_active_skill.get("max_level", 5)) if second_skill_enabled else 0,
+		"companion_passive_skill_id": str(primary_passive.get("id", "")) if primary_passive_enabled else "",
+		"companion_passive_skill_name": str(primary_passive.get("name", "")) if primary_passive_enabled else "",
+		"companion_passive_skill_description": str(primary_passive.get("description", "")) if primary_passive_enabled else "",
+		"companion_passive_skill_icon_path": str(primary_passive.get("icon_texture_path", "")) if primary_passive_enabled else "",
+		"companion_passive_skill_level": int(primary_passive.get("level", 1)) if primary_passive_enabled else 0,
+		"companion_passive_skill_max_level": int(primary_passive.get("max_level", 5)) if primary_passive_enabled else 0,
+		"companion_passive_skill_id_1": str(second_passive.get("id", "")) if second_passive_enabled else "",
+		"companion_passive_skill_name_1": str(second_passive.get("name", "")) if second_passive_enabled else "",
+		"companion_passive_skill_description_1": str(second_passive.get("description", "")) if second_passive_enabled else "",
+		"companion_passive_skill_icon_path_1": str(second_passive.get("icon_texture_path", "")) if second_passive_enabled else "",
+		"companion_passive_skill_level_1": int(second_passive.get("level", 1)) if second_passive_enabled else 0,
+		"companion_passive_skill_max_level_1": int(second_passive.get("max_level", 5)) if second_passive_enabled else 0,
+		"companion_patrol_speed_default": patrol_speed_default,
+		"companion_patrol_speed_min": patrol_speed_min,
+		"companion_patrol_speed_max": patrol_speed_max,
+		"companion_catch_width": catch_width,
+		"companion_catch_height": catch_height,
+		"companion_defense_rate": defense_rate,
+		"companion_appearance_rate": appearance_rate,
+	}
+
+
+func _dictionary_at(values: Array, index: int) -> Dictionary:
+	if index < 0 or index >= values.size() or not (values[index] is Dictionary):
+		return {}
+	return values[index] as Dictionary
+
+
+func _skill_is_enabled(skill: Dictionary) -> bool:
+	return not skill.is_empty() and str(skill.get("id", "")).strip_edges() != "" and bool(skill.get("enabled", true))
+
+
+func _skill_value(skill: Dictionary, key: String) -> float:
+	if skill.has(key + "_by_level"):
+		var values_value: Variant = skill.get(key + "_by_level", [])
+		if values_value is Array and not (values_value as Array).is_empty():
+			var values: Array = values_value as Array
+			var level := clampi(int(skill.get("level", 1)), 1, values.size())
+			return float(values[level - 1])
+	return maxf(0.0, float(skill.get(key, 0.0)))
+
+
 func build_save_snapshot(
 	version: int,
 	pet_id: String,

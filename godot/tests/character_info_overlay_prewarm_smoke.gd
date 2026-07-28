@@ -1474,8 +1474,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info equipment draw should build its content rect without temporary Vector2 allocations"
 	)
 	_expect(
-		frame_presenter_source.find("hover_data = target.call(\"_draw_stats_panel\", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)") >= 0,
-		"character info stats draw should reuse frame-level runtime sources, compact stat sources, active-item slots, capacity, and hover state"
+		frame_presenter_source.find("hover_data = target.call(\"_draw_stats_panel\", canvas, owner, registry, layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots, lingpet_snapshot)") >= 0,
+		"character info stats draw should reuse frame-level runtime sources, compact stat sources, active-item slots, capacity, hover state, and the merged lingpet display snapshot"
 	)
 	_expect(
 		stats_build_body.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]") >= 0,
