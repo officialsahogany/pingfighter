@@ -11,6 +11,8 @@ const ActiveItemFieldSpawnScheduler := preload("res://scripts/items/active_item_
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const MatchStateDepsBuilder := preload("res://scripts/core/battle_update_match_state_deps_builder.gd")
 const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
+const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
+const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
 
 var _failures: Array[String] = []
 var _finish_calls: int = 0
@@ -102,6 +104,9 @@ class FakeRewardResolver:
 	var grant_calls := 0
 	var rolled_kinds: Array = []
 	var granted_rewards: Array = []
+	# 이 타입의 보상은 grant summary에서 granted=0으로 보고한다(동일 액티브
+	# 효과 진행 중 can_store_item 거절 등 실 리졸버의 지급 실패 재현).
+	var grant_fail_types: Array = []
 
 	func roll_reward(box_kind: String, _owner: Object, _registry: Object) -> Dictionary:
 		roll_calls += 1
@@ -117,10 +122,18 @@ class FakeRewardResolver:
 
 	func grant_rewards(rewards: Array, _owner: Object, _registry: Object) -> Dictionary:
 		grant_calls += 1
+		var granted_count: int = 0
+		var failed: Array = []
 		for reward in rewards:
-			if reward is Dictionary:
-				granted_rewards.append((reward as Dictionary).duplicate(true))
-		return {"attempted": rewards.size(), "granted": rewards.size(), "failed": []}
+			if not (reward is Dictionary):
+				continue
+			var reward_dict: Dictionary = reward
+			granted_rewards.append(reward_dict.duplicate(true))
+			if grant_fail_types.has(str(reward_dict.get("type", ""))):
+				failed.append(reward_dict.duplicate(true))
+			else:
+				granted_count += 1
+		return {"attempted": rewards.size(), "granted": granted_count, "failed": failed}
 
 
 class LootCallRecordingState:
@@ -174,6 +187,7 @@ func _run() -> void:
 	_verify_frame_flow_loot_branch()
 	_verify_spawn_scheduler_blocks_during_loot()
 	_verify_match_reset_clears_loot()
+	_verify_real_runtime_effect_gate_forces_starpoint_fallback_premise()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -363,6 +377,45 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	_expect(full_item_runtime.spawn_calls == 0, "slot-full active reward must never be dumped as a field item (lost on result-screen gate + stage reset)")
 	_expect(_finish_calls == 1, "slot-full active reward loot phase should still finish once")
 
+	# 리졸버 지급마저 실패하는 시나리오(동일 액티브 효과 진행 중 can_store_item
+	# 거절 — allow_overflow보다 먼저 검사됨): 확정 스타포인트로 대체 지급되어야
+	# 하며 상자만 조용히 완료 처리되면 안 된다.
+	_finish_calls = 0
+	var gated_loot := VictoryLootPhaseState.new()
+	var gated_owner := SchemaGatedOwner.new()
+	gated_owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var gated_registry := FakeRegistry.new()
+	var gated_item_runtime := FakeActiveItemRuntime.new()
+	gated_item_runtime.collect_result = false
+	gated_registry.active_item_runtime = gated_item_runtime
+	var gated_resolver := FakeRewardResolver.new()
+	gated_resolver.reward_type = "active"
+	gated_resolver.grant_fail_types = ["active"]
+	gated_loot.set_reward_resolver_for_test(gated_resolver)
+	_expect(
+		gated_loot.start(gated_owner, gated_registry, 6, 4, Callable(self, "_record_finish")),
+		"grant-fail active reward leg should start a one-box loot phase"
+	)
+	for _i in range(600):
+		gated_loot.update(1.0 / 60.0)
+		if str((gated_loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+			break
+	var gated_rest_pos: Vector2 = (gated_loot.boxes[0] as Dictionary).get("pos")
+	gated_owner.scene_state.set_value("player_pos", gated_rest_pos - Vector2(77.5, 25.0))
+	for _i in range(120):
+		gated_loot.update(1.0 / 60.0)
+		if _finish_calls > 0:
+			break
+	_expect(gated_resolver.grant_calls == 2, "failed active grant must trigger a second fallback grant call")
+	var fallback_granted: Dictionary = gated_resolver.granted_rewards.back() if not gated_resolver.granted_rewards.is_empty() else {}
+	_expect(str(fallback_granted.get("type", "")) == "starpoint", "grant-fail fallback must be a guaranteed starpoint reward")
+	_expect(int(fallback_granted.get("amount", 0)) == 1, "grant-fail fallback should grant one starpoint")
+	_expect(str(fallback_granted.get("fallback_from_item_name", "")) == "banana", "starpoint fallback should record the lost item for audit")
+	_expect(not bool(fallback_granted.get("defer_choice_open", true)), "starpoint fallback should open the perk choice immediately like other loot starpoints")
+	var recorded_reward: Dictionary = gated_loot.collected_rewards.back() if not gated_loot.collected_rewards.is_empty() else {}
+	_expect(str(recorded_reward.get("type", "")) == "starpoint", "collected rewards must record the fallback, not the lost active")
+	_expect(_finish_calls == 1, "grant-fail loot phase should still finish once")
+
 
 func _verify_actor_draw_context() -> void:
 	var loot := VictoryLootPhaseState.new()
@@ -490,6 +543,34 @@ func _verify_match_reset_clears_loot() -> void:
 	MatchResetController.new()._reset_match_state(deps)
 	_expect(not loot.is_active(), "match reset must clear an in-progress victory loot phase")
 	_expect(not bool(owner.value_of("victory_loot_phase_active")), "match reset must clear the owner loot flag")
+
+
+func _verify_real_runtime_effect_gate_forces_starpoint_fallback_premise() -> void:
+	# 폴백의 실전 전제 봉인: 실제 ActiveItemRuntime에서 동일 액티브 효과가
+	# 진행 중이면(예: 자기장 지속 중 자기장) can_store_item 게이트가 용량 가드
+	# (allow_overflow)보다 먼저 거절하고, 실제 리졸버 grant summary도 granted=0을
+	# 보고한다 — 전리품 페이즈가 summary를 무시하면 보상이 소실되는 이유다.
+	var runtime := ActiveItemRuntime.new()
+	var owner := SchemaGatedOwner.new()
+	var registry := FakeRegistry.new()
+	registry.active_item_runtime = runtime
+	runtime._ensure_helpers_ready()
+	runtime.effect_controller.magnet_field_active = true
+	_expect(
+		not bool(runtime.grant_item_to_slot("magnet_field", owner, registry, true)),
+		"real runtime must reject a duplicate active while its effect runs (can_store gate precedes overflow)"
+	)
+	var resolver := StageClearRewardResolver.new()
+	var summary_value: Variant = resolver.grant_rewards(
+		[{"type": "active", "item_name": "magnet_field", "label": "자기장", "amount": 1}],
+		owner,
+		registry
+	)
+	var summary: Dictionary = summary_value if summary_value is Dictionary else {}
+	_expect(int(summary.get("granted", -1)) == 0, "real resolver must report zero granted for the effect-gated active reward")
+	var failed_value: Variant = summary.get("failed", [])
+	var failed: Array = failed_value if failed_value is Array else []
+	_expect(not failed.is_empty(), "real resolver should list the effect-gated reward as failed")
 
 
 func _record_finish() -> void:

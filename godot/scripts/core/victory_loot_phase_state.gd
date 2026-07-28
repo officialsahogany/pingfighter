@@ -315,8 +315,40 @@ func _grant_box_reward(box: Dictionary) -> void:
 	if reward_type == "active" and _try_collect_active_reward(reward, pos):
 		collected_rewards.append(reward)
 		return
-	_reward_resolver.grant_rewards([reward], _owner, _registry)
+	if _grant_reward_through_resolver(reward):
+		collected_rewards.append(reward)
+		return
+	# 리졸버 지급 실패: allow_overflow조차 can_store_item 게이트(동일 액티브 효과
+	# 진행 중 — 예: 자기장 지속 중 자기장 보상)보다 뒤에 검사되므로 실전에서
+	# 도달 가능한 실패다. 보상 소실 금지 — 확정 스타포인트로 대체 지급한다.
+	var fallback_reward: Dictionary = _build_starpoint_fallback_reward(reward)
+	if _grant_reward_through_resolver(fallback_reward):
+		collected_rewards.append(fallback_reward)
+		return
+	# 스타포인트 인프라마저 없으면 지급 수단이 없다 — 소실을 기록만 하고 상자
+	# 완료는 유지한다(전리품 페이즈 소프트락 방지).
+	reward["grant_failed"] = true
 	collected_rewards.append(reward)
+
+
+func _grant_reward_through_resolver(reward: Dictionary) -> bool:
+	var summary_value: Variant = _reward_resolver.grant_rewards([reward], _owner, _registry)
+	if not (summary_value is Dictionary):
+		return false
+	return int((summary_value as Dictionary).get("granted", 0)) > 0
+
+
+func _build_starpoint_fallback_reward(original_reward: Dictionary) -> Dictionary:
+	# 리졸버의 starpoint 보상 dict 형태를 미러링한다(_roll_starpoint_reward 계약).
+	return {
+		"type": "starpoint",
+		"label": "★ 1",
+		"amount": 1,
+		"defer_choice_open": false,
+		"pickup_position": original_reward.get("pickup_position", Vector2.ZERO),
+		"fallback_from_type": str(original_reward.get("type", "")),
+		"fallback_from_item_name": str(original_reward.get("item_name", "")),
+	}
 
 
 func _try_collect_active_reward(reward: Dictionary, pos: Vector2) -> bool:
