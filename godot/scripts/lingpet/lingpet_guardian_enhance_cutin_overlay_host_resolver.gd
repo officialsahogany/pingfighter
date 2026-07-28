@@ -18,6 +18,18 @@ func resolve(registry: Object) -> Object:
 
 func is_anim_ready(registry: Object, pet_id: String) -> bool:
 	var host := resolve(registry)
-	if host == null or not host.has_method("is_pet_cutin_anim_ready"):
+	if host == null:
+		return true
+	if host.has_method("is_pet_panel_anim_ready"):
+		return bool(host.is_pet_panel_anim_ready(pet_id))
+	if not host.has_method("is_pet_cutin_anim_ready"):
 		return true
 	return bool(host.is_pet_cutin_anim_ready(pet_id))
+
+
+func get_animation_contract(registry: Object, pet_id: String) -> Dictionary:
+	var host := resolve(registry)
+	if host == null or not host.has_method("get_animation_contract"):
+		return {}
+	var value: Variant = host.get_animation_contract(pet_id)
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}

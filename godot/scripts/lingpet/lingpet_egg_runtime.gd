@@ -682,25 +682,6 @@ func is_guardian_enhance_cutin_active() -> bool:
 	return bool(_guardian_enhance_cutin_state.active)
 
 
-func is_guardian_enhance_cutin_dismissing() -> bool:
-	return (
-		is_guardian_enhance_cutin_active()
-		and bool(_guardian_enhance_cutin_state.dismissing)
-	)
-
-
-func is_guardian_enhance_cutin_awaiting_dismiss() -> bool:
-	return bool(_guardian_enhance_cutin_state.is_awaiting_dismiss())
-
-
-func get_guardian_enhance_cutin_progress() -> float:
-	return float(_guardian_enhance_cutin_state.get_progress())
-
-
-func get_guardian_enhance_cutin_dismiss_progress() -> float:
-	return float(_guardian_enhance_cutin_state.get_dismiss_progress())
-
-
 func get_guardian_enhance_cutin_snapshot() -> Dictionary:
 	return _guardian_enhance_cutin_state.get_snapshot()
 
@@ -719,13 +700,19 @@ func advance_guardian_enhance_cutin(delta: float, registry: Object = null) -> vo
 		registry,
 		display_pet_id
 	))
-	var closed := bool(_guardian_enhance_cutin_state.advance(delta, assets_ready))
+	var animation_contract: Dictionary = (
+		_guardian_enhance_cutin_host_resolver.get_animation_contract(
+			registry,
+			display_pet_id
+		)
+	)
+	var closed := bool(_guardian_enhance_cutin_state.advance(
+		delta,
+		assets_ready,
+		animation_contract
+	))
 	if closed:
 		_stop_guardian_enhance_cutin_audio(registry)
-
-
-func begin_guardian_enhance_cutin_dismiss() -> bool:
-	return bool(_guardian_enhance_cutin_state.begin_dismiss())
 
 
 func cancel_guardian_enhance_cutin(registry: Object = null) -> bool:

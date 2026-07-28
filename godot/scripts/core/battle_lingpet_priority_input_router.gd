@@ -47,13 +47,8 @@ func _handle_guardian_enhance_cutin_input(
 			_queue_redraw(owner)
 			_mark_handled(owner)
 			return
-	if (
-		_is_confirm_event(event)
-		and runtime.has_method("is_guardian_enhance_cutin_awaiting_dismiss")
-		and bool(runtime.is_guardian_enhance_cutin_awaiting_dismiss())
-		and runtime.has_method("begin_guardian_enhance_cutin_dismiss")
-		and bool(runtime.begin_guardian_enhance_cutin_dismiss())
-	):
+	if _is_confirm_event(event) and runtime.has_method("cancel_guardian_enhance_cutin"):
+		runtime.cancel_guardian_enhance_cutin(registry)
 		_queue_redraw(owner)
 		_mark_handled(owner)
 
