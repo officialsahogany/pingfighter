@@ -1942,6 +1942,8 @@ func _level_text(choice: Dictionary) -> String:
 		return LanguageSettings.translate_text("골드")
 	if bool(choice.get("is_instant", false)):
 		return LanguageSettings.translate_text("즉시")
+	if bool(choice.get("is_skill_manual", false)):
+		return LanguageSettings.translate_text("비급")
 	if _shows_character_unlock_badge(choice):
 		return LanguageSettings.translate_text("해금")
 	# 1회성(최대 Lv.1) 퍽은 레벨 대신 태그 — 신화 레어리티는 "신화", 그 외
@@ -1962,6 +1964,8 @@ func _long_level_text(choice: Dictionary) -> String:
 		return "  (500골드)"
 	if bool(choice.get("is_instant", false)):
 		return "  (즉시 효과)"
+	if bool(choice.get("is_skill_manual", false)):
+		return "  (%s)" % LanguageSettings.translate_text("초식 비급")
 	if _shows_character_unlock_badge(choice):
 		return "  (액티브 해금)"
 	return "  (Lv.%d → Lv.%d)" % [int(choice.get("current_level", 0)), int(choice.get("next_level", 1))]

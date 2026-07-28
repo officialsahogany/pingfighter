@@ -156,6 +156,8 @@ static func perk_level_text(perk: Dictionary) -> String:
 	# 렌더 시점에 LanguageSettings로 해석한다 — 캐시된 한국어 리터럴이 언어
 	# 전환 후에도 남는 것을 막는다.
 	if int(perk.get("max_level", 1)) == 1:
+		if bool(perk.get("is_skill_manual", false)):
+			return LanguageSettings.translate_text("비급")
 		if str(perk.get("character_restriction", "")) != "":
 			return LanguageSettings.translate_text("해금")
 		if str(perk.get("rarity", "")) == "mythic":
@@ -166,6 +168,8 @@ static func perk_level_text(perk: Dictionary) -> String:
 
 static func perk_level_color(perk: Dictionary, accent_gold: Color) -> Color:
 	if int(perk.get("max_level", 1)) == 1:
+		if bool(perk.get("is_skill_manual", false)):
+			return Color(120.0 / 255.0, 1.0, 210.0 / 255.0)
 		if str(perk.get("character_restriction", "")) != "":
 			return Color(120.0 / 255.0, 1.0, 210.0 / 255.0)
 		if str(perk.get("rarity", "")) == "mythic":

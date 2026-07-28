@@ -10,9 +10,14 @@ const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_per
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
+const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
+const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const PerkFusionCatalog := preload("res://scripts/characters/perk_fusion_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const SOUL_SUMMON_MANUAL_ICON_PATH := "res://assets/sprites/perks/soul_summon_art_manual_icon.png"
+const SOUL_SUMMON_MANUAL_MANIFEST_PATH := "res://assets/sprites/perks/soul_summon_art_manual_icon_manifest.json"
+const ICON_SIZE := Vector2i(256, 256)
 
 var _failures: Array[String] = []
 
@@ -132,22 +137,58 @@ func _verify_full_unlock_budget_keeps_reserved_offer() -> void:
 
 func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	var languages := ["ko", "en", "zh", "ja", "es", "pt-BR", "ru"]
+	var expected_manual_names := {
+		"ko": "영혼소환술 비급",
+		"en": "Soul Summoning Art Manual",
+		"zh": "灵魂召唤术秘笈",
+		"ja": "魂魄召喚術秘伝書",
+		"es": "Manual del Arte de Invocación de Almas",
+		"pt-BR": "Manual da Arte de Invocação de Almas",
+		"ru": "Тайный свиток искусства призыва душ",
+	}
+	var overlay := RuntimePerkOverlayRenderer.new()
 	for language in languages:
 		LanguageSettings.set_test_locale_override(language)
 		var data := CommonSkillCatalog.get_skill_data()
+		var manual_data := CommonSkillCatalog.get_unlock_perk_data()
 		_expect(str(data.get("korean", "")).strip_edges() != "", "%s should provide a display name" % language)
 		_expect(str(data.get("description", "")).split("\n").size() <= 3, "%s description must stay within three lines" % language)
 		_expect(str(data.get("how_to_use", "")).find("\n") < 0, "%s how_to_use must be one sentence" % language)
 		_expect(not bool(data.get("show_cooldown", true)), "%s tooltip must suppress cooldown" % language)
 		_expect(int(data.get("fixed_level", 0)) == 1, "%s should expose fixed level one" % language)
 		_expect(not bool(data.get("cooldown_reduction_eligible", true)), "%s must opt out of cooldown reduction" % language)
+		_expect(bool(manual_data.get("is_skill_manual", false)), "%s unlock must declare the explicit common-manual classification" % language)
+		_expect(str(manual_data.get("name", "")) == str(expected_manual_names.get(language, "")), "%s unlock must use the localized manual title" % language)
+		_expect(CharacterInfoOverlayFormatter.perk_level_text(manual_data) == LanguageSettings.translate_text("비급"), "%s TAB entry must classify the common unlock as a manual" % language)
+		_expect(str(overlay._level_text(manual_data)) == LanguageSettings.translate_text("비급"), "%s choice card must classify the common unlock as a manual" % language)
 	var icon_renderer := RuntimePerkIconRenderer.new()
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must have an exact procedural icon branch")
-	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must have an exact procedural icon branch")
+	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must load its dedicated manual PNG")
 	var icon_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
-	var manual_body := _function_body(icon_source, "func _draw_soul_summon_art_manual_icon")
-	_expect(icon_source.find("if skill_id == \"unlock_soul_summon_art\"") >= 0, "unlock card must route to a distinct manual presentation")
-	_expect(manual_body.find("var jade := Color(") >= 0 and manual_body.find("canvas.draw_rect(cover") >= 0, "common manual must use the jade book silhouette rather than the battle egg symbol")
+	_expect(str(RuntimePerkIconRenderer.MANUAL_ICON_PATHS.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "")) == SOUL_SUMMON_MANUAL_ICON_PATH, "unlock card must route through the canonical manual PNG registry")
+	_expect(str(icon_renderer._get_static_path(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID)) == SOUL_SUMMON_MANUAL_ICON_PATH, "manual PNG must resolve before procedural or orb fallbacks")
+	_expect(icon_source.find("func _draw_soul_summon_art_manual_icon") < 0, "retired procedural placeholder must not remain as dead code")
+	var manual_texture: Texture2D = load(SOUL_SUMMON_MANUAL_ICON_PATH) as Texture2D
+	_expect(manual_texture != null, "Soul Summoning Art manual PNG should import as Texture2D")
+	if manual_texture != null:
+		_expect(Vector2i(manual_texture.get_width(), manual_texture.get_height()) == ICON_SIZE, "Soul Summoning Art manual icon should stay 256x256")
+		var source: Dictionary = icon_renderer._get_icon_source(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID)
+		var source_texture: Texture2D = source.get("texture", null)
+		_expect(source_texture != null and source_texture.resource_path == SOUL_SUMMON_MANUAL_ICON_PATH, "manual acquisition card must bypass circular orb normalization")
+	var manual_image := Image.new()
+	_expect(manual_image.load(ProjectSettings.globalize_path(SOUL_SUMMON_MANUAL_ICON_PATH)) == OK, "Soul Summoning Art manual PNG should load for alpha QA")
+	if not manual_image.is_empty():
+		var used_rect := manual_image.get_used_rect()
+		_expect(used_rect.position.x >= 12 and used_rect.position.y >= 12, "manual should keep transparent top-left safety padding")
+		_expect(used_rect.end.x <= 248 and used_rect.end.y <= 248, "manual alpha bounds should stay inside the shared safety inset")
+		for corner in [Vector2i(0, 0), Vector2i(255, 0), Vector2i(0, 255), Vector2i(255, 255)]:
+			_expect(is_zero_approx(manual_image.get_pixelv(corner).a), "manual corners should remain fully transparent")
+	var manifest_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(SOUL_SUMMON_MANUAL_MANIFEST_PATH))
+	_expect(manifest_value is Dictionary, "Soul Summoning Art manual manifest should parse")
+	if manifest_value is Dictionary:
+		var manifest: Dictionary = manifest_value
+		_expect(str(manifest.get("perk_id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "manual manifest should preserve the unlock perk id")
+		_expect(str(manifest.get("runtime_path", "")) == SOUL_SUMMON_MANUAL_ICON_PATH, "manual manifest should record the production path")
 	var tooltip_source := FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 	var cooldown_body := _function_body(tooltip_source, "func _draw_cost_and_cooldown_line")
 	_expect(cooldown_body.find("show_cooldown") >= 0, "live orb tooltip must honor the common art cooldown-suppression field")

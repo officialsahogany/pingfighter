@@ -1,0 +1,40 @@
+{
+  "asset_id": "soul_summon_art_manual_icon",
+  "perk_id": "unlock_soul_summon_art",
+  "skill_id": "soul_summon_art",
+  "display_name_ko": "영혼소환술 비급",
+  "runtime_path": "res://assets/sprites/perks/soul_summon_art_manual_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "reference-guided new static raster illustration",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019fa45f-c830-7261-b1f9-647d3f94e61f/exec-7cfebaa2-5858-4bc5-9eae-ea52a058fe4a.png",
+    "style_references": [
+      "res://assets/sprites/perks/smasher_hanryeongtan_manual_icon.png",
+      "res://assets/sprites/perks/smasher_heubinjang_manual_icon.png",
+      "res://assets/sprites/perks/viper_honcheon_heukchang_manual_icon.png"
+    ],
+    "prompt_summary": "A navy Korean thread-bound secret manual with a blank cream title strip and a bold luminous jade guardian-spirit egg seal, twin soul wisps, restrained gold linework, no text, badge, frame, or extra objects, isolated on flat magenta for alpha removal."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill"
+    ],
+    "key_color_observed": "#fb02f9",
+    "resize": "1254x1254 alpha source resized to 248x248 with ffmpeg Lanczos and centered on a 256x256 transparent canvas"
+  },
+  "qa": {
+    "rgba": true,
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [32, 13, 234, 241],
+    "sha256": "14f2a0e0b5d23da965049f5b5f18e954d6189ce855deba0a4c73affa8cfc0901",
+    "file_size_bytes": 79328,
+    "rendered_sizes": [112, 32],
+    "notes": "The acquisition card uses the dedicated book cover; the equipped combat Chosik keeps the separate procedural spirit-egg orb."
+  }
+}

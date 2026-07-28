@@ -9,6 +9,7 @@ const SOUL_SUMMON_ART_COLOR := Color(0.55, 0.88, 1.0, 1.0)
 const _COPY_BY_LANGUAGE := {
 	"ko": {
 		"name": "영혼소환술",
+		"manual_name": "영혼소환술 비급",
 		"description": "수호령 알을 깨워 함께 싸우게 합니다.\n소환 중에만 스킬 쿨타임과 기력이 진행됩니다.\n수호령은 하나의 공유 지속시간을 사용합니다.",
 		"how_to_use": "Ctrl 또는 R3로 수호령 소환/수납",
 		"motion_hint": "수호령 알을 부화해 소환",
@@ -16,6 +17,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"en": {
 		"name": "Soul Summoning Art",
+		"manual_name": "Soul Summoning Art Manual",
 		"description": "Awaken a guardian spirit egg to fight beside you.\nSkill cooldowns and energy advance only while summoned.\nAll guardians share one duration pool.",
 		"how_to_use": "Press Ctrl or R3 to summon or stow the guardian",
 		"motion_hint": "Hatch a guardian spirit egg and summon it",
@@ -23,6 +25,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"zh": {
 		"name": "灵魂召唤术",
+		"manual_name": "灵魂召唤术秘笈",
 		"description": "孵化守护灵蛋，让它与你并肩作战。\n只有在召唤中，技能冷却和能量才会推进。\n所有守护灵共用一个持续时间池。",
 		"how_to_use": "按 Ctrl 或 R3 召唤/收纳守护灵",
 		"motion_hint": "孵化守护灵蛋并召唤",
@@ -30,6 +33,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"ja": {
 		"name": "魂魄召喚術",
+		"manual_name": "魂魄召喚術秘伝書",
 		"description": "守護霊の卵を孵化させ、共に戦わせます。\n召喚中だけスキルのクールダウンと気力が進行します。\nすべての守護霊は1つの持続時間プールを共有します。",
 		"how_to_use": "Ctrl または R3 で守護霊を召喚/収納",
 		"motion_hint": "守護霊の卵を孵化させて召喚",
@@ -37,6 +41,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"es": {
 		"name": "Arte de Invocación de Almas",
+		"manual_name": "Manual del Arte de Invocación de Almas",
 		"description": "Incuba un huevo de espíritu guardián para que luche contigo.\nLos enfriamientos y la energía avanzan solo mientras está invocado.\nTodos los guardianes comparten una reserva de duración.",
 		"how_to_use": "Pulsa Ctrl o R3 para invocar o guardar al guardián",
 		"motion_hint": "Incuba un huevo de guardián y lo invoca",
@@ -44,6 +49,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"pt-BR": {
 		"name": "Arte de Invocação de Almas",
+		"manual_name": "Manual da Arte de Invocação de Almas",
 		"description": "Choque um ovo de espírito guardião para lutar ao seu lado.\nRecargas e energia avançam apenas enquanto ele está invocado.\nTodos os guardiões compartilham uma reserva de duração.",
 		"how_to_use": "Pressione Ctrl ou R3 para invocar ou guardar o guardião",
 		"motion_hint": "Choca um ovo de guardião e o invoca",
@@ -51,6 +57,7 @@ const _COPY_BY_LANGUAGE := {
 	},
 	"ru": {
 		"name": "Искусство призыва душ",
+		"manual_name": "Тайный свиток искусства призыва душ",
 		"description": "Выведите духа-хранителя из яйца, чтобы он сражался рядом.\nОткаты и энергия идут только во время призыва.\nВсе хранители делят один запас времени.",
 		"how_to_use": "Ctrl или R3: призвать/убрать хранителя",
 		"motion_hint": "Выводит духа-хранителя из яйца",
@@ -84,13 +91,17 @@ static func get_skill_data() -> Dictionary:
 static func get_unlock_perk_data() -> Dictionary:
 	var copy: Dictionary = _get_copy()
 	return {
-		"name": str(copy.get("name", "영혼소환술")),
+		"name": str(copy.get("manual_name", "영혼소환술 비급")),
 		"max_level": 1,
 		"descriptions": {1: str(copy.get("perk_description", ""))},
 		"detail": str(copy.get("description", "")),
 		"icon_color": SOUL_SUMMON_ART_COLOR,
 		"tree": "common_unlock",
 		"unlocks_skill": SOUL_SUMMON_ART_ID,
+		# This common unlock is still a real Chosik manual even though it has no
+		# character restriction. Presentation classifiers must not infer the
+		# manual category from character_restriction alone.
+		"is_skill_manual": true,
 		"slot_occupancy": "active_orb",
 		# The battle Chosik orb still occupies one of the five combat slots. This
 		# flag is only for the TAB Mugong collection grid, where the common art is
