@@ -1322,7 +1322,7 @@ const UNLOCK_SLOT_BUDGET := {
 }
 
 
-var mythic_jackpot_offer_chance := 0.1
+var mythic_jackpot_offer_chance := 0.05
 # 오퍼 예약 seam(스모크가 결정론 주입): 대쉬토큰 per-level 부스트 확률
 # [Lv0, Lv1, Lv2] — 페이싱 부스트 튜닝 값(docs/perk_offer_pacing_boost_handoff.md),
 # 소유 업그레이드 partial 예약 확률.

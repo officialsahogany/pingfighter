@@ -158,7 +158,7 @@ func _verify_mythic_choice_applies_through_runtime_state() -> void:
 func _verify_source_contracts() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
 	_expect(source.find("mythic_single_offer_chance") < 0, "catalog should no longer keep any single-card mythic offer seam")
-	_expect(source.find("var mythic_jackpot_offer_chance := 0.1") >= 0, "catalog should expose a jackpot mythic offer seam at 10%")
+	_expect(source.find("var mythic_jackpot_offer_chance := 0.05") >= 0, "catalog should expose a jackpot mythic offer seam at 5%")
 	_expect(source.find("var mythic_offer_chance :=") < 0, "catalog should not keep the old single mythic_offer_chance seam")
 	_expect(source.find("func _get_mythic_offer_chance(") < 0, "catalog should not keep the old single chance helper")
 	_expect(source.find("func _pick_random_unowned_mythic_perk_id") < 0, "catalog should not keep the old single mythic picker")
