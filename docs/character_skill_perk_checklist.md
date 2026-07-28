@@ -1957,4 +1957,30 @@ Common-form category (shared active forms):
       the cooldown line from the rendered tooltip instead of displaying
       a misleading `0s` cooldown.
 
+Guardian enhancement special-card contract (`lingpet_guardian_enhance`):
+
+- [ ] Treat 수호령강화 as a repeatable special card, not as a normal
+      active/passive slot occupant. Pre-filter candidates before the card is
+      offered: fewer than 2 valid candidates suppresses the card, exactly 2
+      presents 2, and 3 or more presents 3 unique choices.
+- [ ] Revalidate at confirmation time. If the selected candidate became
+      invalid, apply the first still-valid candidate in the original display
+      order; if all became invalid, add 15 seconds to the current shared
+      duration pool without changing its maximum, then close the modal.
+- [ ] Keep unique per-pet enhancement state in
+      `lingpet_enhancement_buff_store.gd`. The duration-capacity enhancement
+      is the explicit exception owned by `lingpet_duration_state.gd`, and its
+      run-shared value must survive pet swaps and normalize correctly on a
+      real stage refill.
+- [ ] Apply the gameplay reward before starting the SD cut-in. The cut-in is
+      presentation-only: skip, dismissal, round reset, save restore, and
+      field cleanup must never roll the reward back and must synchronously
+      stop presentation state/audio. Prewarm the inherited 14-pet sheet path
+      and verify the visible result in windowed Vulkan separately from logic
+      seals.
+- [ ] Keep the procedural card icon as an explicit placeholder until the art
+      track supplies the formal icon. Focused/CI registration and the module
+      ownership-ledger update remain required after their foreign dirty
+      campaigns are settled.
+
 Any failure = back to the checklist.
