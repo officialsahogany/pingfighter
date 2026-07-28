@@ -1,7 +1,10 @@
 extends SceneTree
 
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
+const Smoke := preload("res://tests/lingpet_egg_runtime_smoke.gd")
 
 const CONTENT_RECT := Rect2(Vector2(24.0, 22.0), Vector2(300.0, 360.0))
 
@@ -15,6 +18,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_source_contract()
 	_verify_runtime_snapshot_merge()
+	_verify_live_stowed_runtime_merge()
 	_verify_duration_states()
 	_verify_strip_layout()
 	_verify_bar_hover_zones()
@@ -62,6 +66,51 @@ func _verify_runtime_snapshot_merge() -> void:
 	CharacterInfoOverlayLingpetPresenter.merge_runtime_satiety_snapshot(panel_snapshot, runtime_snapshot)
 	_expect(int(panel_snapshot.get("duration_pool_pct", -1)) == 41, "panel snapshot should receive duration_pool_pct from the runtime snapshot")
 	_expect(bool(panel_snapshot.get("guardian_stowed", false)), "panel snapshot should preserve guardian_stowed for the visible stowed strip")
+
+
+func _verify_live_stowed_runtime_merge() -> void:
+	var owner := Smoke.FakeOwner.new()
+	owner.ai_mode = "champion"
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.owned_lingpet_ids = ["maribo"]
+	owner.owned_ringpet_ids = ["maribo"]
+	owner.lingpet_slots = ["maribo", "", ""]
+	owner.ringpet_slots = owner.lingpet_slots.duplicate()
+	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.lingpet_active_slot_index = 0
+	owner.ringpet_active_slot_index = 0
+	var registry := Smoke.FakeRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	registry.instances["lingpet_egg_runtime"] = runtime
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry), "live TAB fixture should activate Maribo")
+	runtime.update(6.1, owner, registry)
+	runtime.set_duration_pool_for_tests(30.0, 60.0)
+	_expect(runtime.try_toggle_guardian_stow(owner, registry), "live TAB fixture should consume the stow toggle")
+	_expect(runtime.is_guardian_stowed(), "live TAB fixture should enter stow")
+	var panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(
+		owner,
+		Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"),
+		3
+	)
+	_expect(str(panel_snapshot.get("state", "")) == "none", "counterproof: owner-only TAB snapshot should collapse to none while stowed")
+	var runtime_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(bool(runtime_snapshot.get("guardian_stowed", false)), "live runtime snapshot should publish guardian_stowed")
+	_expect(str(runtime_snapshot.get("state", "")) == "companion", "live runtime snapshot should preserve roster state")
+	_expect(str(runtime_snapshot.get("pet_id", "")) == "maribo", "live runtime snapshot should preserve roster pet id")
+	CharacterInfoOverlayLingpetPresenter.merge_runtime_satiety_snapshot(panel_snapshot, runtime_snapshot)
+	_expect(str(panel_snapshot.get("state", "")) == "companion", "runtime merge should restore the stowed companion panel")
+	_expect(str(panel_snapshot.get("pet_id", "")) == "maribo", "runtime merge should restore the stowed panel pet id")
+	_expect(str(panel_snapshot.get("subtitle", "")) == "수납 중", "stowed companion panel should use the approved subtitle")
+	var slot_tabs: Array = panel_snapshot.get("slot_tabs", []) as Array
+	_expect(not slot_tabs.is_empty() and str(panel_snapshot.get("title", "")) == str((slot_tabs[0] as Dictionary).get("name", "")), "stowed panel title should resolve from the live roster tab")
+	var strip: Dictionary = CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state(panel_snapshot)
+	_expect(bool(strip.get("visible", false)), "live stowed panel should keep the duration strip visible")
+	_expect(bool(strip.get("stowed", false)), "live stowed panel should preserve the stowed marker")
+	_expect(int(strip.get("pct", -1)) == 50, "live stowed panel should expose the recovering 50 percent pool")
+	if runtime.has_method("reset_for_tests"):
+		runtime.reset_for_tests()
+	registry.instances.clear()
 
 
 func _verify_duration_states() -> void:

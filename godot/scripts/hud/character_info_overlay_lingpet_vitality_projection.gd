@@ -19,7 +19,36 @@ static func merge_runtime_snapshot(panel_snapshot: Dictionary, runtime_snapshot:
 		panel_snapshot["duration_pool_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
 	if runtime_snapshot.has("guardian_stowed"):
 		panel_snapshot["guardian_stowed"] = bool(runtime_snapshot.get("guardian_stowed", false))
+	var runtime_pet_id := str(runtime_snapshot.get("pet_id", "")).strip_edges().to_lower()
+	var restores_stowed_companion := (
+		bool(runtime_snapshot.get("guardian_stowed", false))
+		and str(runtime_snapshot.get("state", "")).strip_edges().to_lower() == "companion"
+		and runtime_pet_id != ""
+	)
+	if restores_stowed_companion:
+		# Gameplay owner projection intentionally publishes state=none while stowed so
+		# no combat consumer can mistake the guardian for active. The TAB panel merges
+		# the raw runtime snapshot afterward, so restore only its roster identity here.
+		panel_snapshot["state"] = "companion"
+		panel_snapshot["pet_id"] = runtime_pet_id
+		panel_snapshot["title"] = _resolve_stowed_title(panel_snapshot, runtime_pet_id)
+		panel_snapshot["subtitle"] = LanguageSettings.translate_text("수납 중")
 	return panel_snapshot
+
+
+static func _resolve_stowed_title(panel_snapshot: Dictionary, pet_id: String) -> String:
+	var tabs_value: Variant = panel_snapshot.get("slot_tabs", [])
+	if tabs_value is Array:
+		for tab_value in tabs_value as Array:
+			if not (tab_value is Dictionary):
+				continue
+			var tab: Dictionary = tab_value as Dictionary
+			if str(tab.get("pet_id", "")).strip_edges().to_lower() != pet_id:
+				continue
+			var tab_name := str(tab.get("name", "")).strip_edges()
+			if tab_name != "":
+				return tab_name
+	return pet_id
 
 
 static func get_strip_state(snapshot: Dictionary) -> Dictionary:
