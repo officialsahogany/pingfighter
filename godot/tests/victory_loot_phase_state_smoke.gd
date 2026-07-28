@@ -14,6 +14,7 @@ const MatchResetController := preload("res://scripts/core/match_reset_controller
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
 const BattleDrawActorResultContext := preload("res://scripts/core/battle_draw_actor_result_context.gd")
+const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_context.gd")
 
 var _failures: Array[String] = []
 var _finish_calls: int = 0
@@ -190,6 +191,7 @@ func _run() -> void:
 	_verify_match_reset_clears_loot()
 	_verify_real_runtime_effect_gate_forces_starpoint_fallback_premise()
 	_verify_final_win_scoreboard_plays_power_loss_vibration()
+	_verify_loot_defeat_reaches_renderer_facing_actor_context()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -714,6 +716,33 @@ func _verify_final_win_scoreboard_plays_power_loss_vibration() -> void:
 		actor_context_source.find("boss_power_loss_shake_offset") >= 0
 			and actor_context_source.find("boss_draw_pos += ") >= 0,
 		"actor context should apply the power-loss shake offset to the boss render position"
+	)
+
+
+func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
+	# 회귀(라이브 발견): 전리품 defeat 키가 텍스처 sync용 combined에는 merge되고
+	# 렌더러-대면 actor_context에는 merge되지 않아 보스가 일반 포즈로 남았다.
+	# 소스(get_actor_draw_context) 단언만으로는 이 이음새를 못 잡으므로, 실제
+	# BattleDrawActorContext.build() 반환 dict까지 관통해 봉인한다.
+	var loot := VictoryLootPhaseState.new()
+	var owner := SchemaGatedOwner.new()
+	var registry := FakeRegistry.new()
+	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(loot.start(owner, registry, 5, 0, Callable()), "actor-context integration leg should start the loot phase")
+	loot.update(0.5)
+	var expected_frame: int = int(loot.get_actor_draw_context().get("boss_result_frame", -99))
+	var builder := BattleDrawActorContext.new()
+	var actor_context: Dictionary = builder.build(
+		{"current_stage": 1, "selected_character_type": "smasher"},
+		{"victory_loot_phase_state": loot}
+	)
+	_expect(
+		bool(actor_context.get("boss_defeat_active", false)),
+		"victory loot defeat keys must reach the renderer-facing actor context (not only the texture-sync combined context)"
+	)
+	_expect(
+		int(actor_context.get("boss_result_frame", -1)) == expected_frame,
+		"renderer-facing actor context should carry the loot defeat frame clock"
 	)
 
 

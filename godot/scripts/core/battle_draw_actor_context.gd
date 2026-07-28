@@ -856,6 +856,10 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		max(0, _player_defeat_frame_count - 1)
 	)
 	actor_context.merge(revival_result_context, true)
+	# 승리 전리품 페이즈의 보스 defeat 키(boss_defeat_active / boss_result_frame /
+	# boss_defeat_frame)도 렌더러-대면 컨텍스트에 실어야 한다 — combined(텍스처
+	# sync용)에만 merge하면 보스가 슬럼프 없이 일반 포즈로 남는다.
+	actor_context.merge(victory_loot_result_context, true)
 	actor_context.merge(boss_dash_context, true)
 	actor_context.merge(whip_context, true)
 	actor_context.merge(spinning_top_context, true)
