@@ -833,7 +833,7 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_feed_controller.gd"), "lingpet feed controller module should exist")
 	_expect(runtime_source.find("func _advance_feed_bowl_state") < 0, "egg runtime should not keep a single-use feed-bowl advance wrapper")
 	_expect(runtime_source.find("func _reset_feed_bowl_state") < 0, "egg runtime should not keep a single-use feed reset wrapper")
-	_expect(runtime_source.find("_feed_controller.advance") >= 0 and runtime_source.find("add_satiety") >= 0 and runtime_source.find("\"satiety_feed\"") >= 0, "egg runtime should advance feed bowls and restore completed feeds through the satiety source")
+	_expect(runtime_source.find("_feed_controller.advance") >= 0 and runtime_source.find("get_duration_pool_current") >= 0 and runtime_source.find("\"duration_feed\"") >= 0, "egg runtime should advance feed bowls and restore completed feeds through the shared duration source")
 	_expect(runtime_source.find("LingpetAffinityState.SOURCE_FEED") < 0, "egg runtime should not grant completed feeds through the superseded affinity source")
 	_expect(runtime_source.find("_feed_controller.reset_for_new_battle") >= 0, "egg runtime should call the feed controller directly for battle-cap reset")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd"), "companion body presence resolver module should exist")

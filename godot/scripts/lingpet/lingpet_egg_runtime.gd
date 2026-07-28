@@ -126,6 +126,7 @@ const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
 const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetAffinityState.SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
 const DURATION_WARNING_STAGE_COUNT := 3
 const GUARDIAN_MIN_SUMMON_SECONDS := 6.0
+const LEGACY_FEED_POINT_TO_DURATION_SECONDS := 0.5
 # Runs from live companion physics, so it must not inherit the loading-screen
 # short expiry that demotes a slow threaded texture to a sync main-thread load.
 const CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC := 0
@@ -426,17 +427,22 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 				var feed_pet_id := str(feed_step.get("feed_pet_id", ""))
 				var feed_registry: Object = feed_step.get("feed_registry", registry) as Object
 				if feed_pet_id != "":
-					var feed_amount := maxf(0.0, float(feed_step.get("feed_amount", 0.0)))
-					var satiety_before: float = float(_affinity_state.get_satiety(feed_pet_id))
-					var satiety_after: float = float(_affinity_state.add_satiety(feed_pet_id, feed_amount))
+					var recovery_seconds := maxf(0.0, float(feed_step.get("duration_recovery_seconds", 0.0)))
+					var duration_before: float = float(_affinity_state.get_duration_pool_current())
+					var duration_after: float = float(_affinity_state.add_satiety(feed_pet_id, recovery_seconds))
 					var feed_result := {
-						"accepted": satiety_after > satiety_before,
+						"accepted": duration_after > duration_before,
 						"pet_id": feed_pet_id,
-						"source": "satiety_feed",
-						"feed_amount": feed_amount,
-						"granted_satiety": maxf(0.0, satiety_after - satiety_before),
-						"satiety_before": satiety_before,
-						"satiety_after": satiety_after,
+						"source": "duration_feed",
+						"duration_recovery_seconds": recovery_seconds,
+						"granted_duration_seconds": maxf(0.0, duration_after - duration_before),
+						"duration_before": duration_before,
+						"duration_after": duration_after,
+						# Transitional aliases until Slice 4 removes the four feed items.
+						"feed_amount": recovery_seconds,
+						"granted_satiety": maxf(0.0, duration_after - duration_before),
+						"satiety_before": duration_before,
+						"satiety_after": duration_after,
 						"blocked_reason": "",
 						"feed_registry": feed_registry,
 					}
@@ -3002,6 +3008,7 @@ func feed_lingpet(owner: Object = null, registry: Object = null, feed_amount: fl
 		_companion_pos
 	)
 	var has_active_position_override: bool = _skill_runtime_surface.has_active_position_override(_companion_skill_visual_resolver, active_position_owner)
+	var duration_recovery_seconds := maxf(0.0, feed_amount) * LEGACY_FEED_POINT_TO_DURATION_SECONDS
 	var result: Dictionary = _feed_controller.request(
 		affinity_pet_id,
 		owner,
@@ -3012,8 +3019,10 @@ func feed_lingpet(owner: Object = null, registry: Object = null, feed_amount: fl
 			or _ring_dash_state.has_companion_position_override()
 			or _starlight_tracking_state.has_companion_position_override(),
 		registry,
-		feed_amount
+		duration_recovery_seconds
 	)
+	result["legacy_feed_amount"] = maxf(0.0, feed_amount)
+	result["duration_recovery_seconds"] = duration_recovery_seconds
 	_affinity_grant_controller.remember_result(result)
 	return result
 

@@ -49,7 +49,7 @@ const AFFINITY_BAND_HEIGHT := 50.0
 const AFFINITY_METER_HEIGHT := 8.0
 # Vertical split of the affinity band into the two hover zones: the top slice
 # (label + affinity meter + "다음:" row) belongs to the 교감 tooltip, everything
-# below to the 포만도 strip tooltip. The satiety strip starts at +30 (see
+# below to the 지속시간 strip tooltip. The duration strip starts at +30 (see
 # _get_satiety_strip_layout), so 28 keeps the two hover rects from overlapping.
 const AFFINITY_HOVER_BAND_HEIGHT := 28.0
 const SATIETY_METER_HEIGHT := 8.0
@@ -393,12 +393,12 @@ static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity
 
 
 static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
-	# 사후 리팩토링 정합: 포만도 병합은 프로젝션 모듈이 단일 소유(씰 계약).
+	# Transitional API name; shared duration-pool projection is the single owner.
 	return CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot(panel_snapshot, runtime_snapshot)
 
 
 static func get_satiety_strip_state(snapshot: Dictionary) -> Dictionary:
-	# 사후 리팩토링 정합: 스트립 상태 판정은 프로젝션 모듈이 단일 소유(씰 계약).
+	# Transitional API name; strip state comes from the shared duration pool.
 	return CharacterInfoOverlayLingpetVitalityProjection.get_strip_state(snapshot)
 
 
@@ -407,10 +407,10 @@ static func get_satiety_strip_layout_for_tests(font: Font, rect: Rect2, snapshot
 
 
 static func lingpet_progress_meter_width(rect: Rect2) -> float:
-	# Single source of truth for the 교감 and 포만 meter length. Both bars use
+	# Single source of truth for the 교감 and duration meter length. Both bars use
 	# this so they share an identical left edge + width and read as one tidy
-	# stack; their right-side annotations ("다음: …" / "포만도 …") then line up in
-	# the same column too. Changing the affinity meter span here keeps satiety
+	# stack; their right-side annotations ("다음: …" / "지속시간 …") then line up in
+	# the same column too. Changing the affinity meter span here keeps duration
 	# in lockstep automatically.
 	return clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 
@@ -421,8 +421,8 @@ static func _get_satiety_strip_layout(font: Font, rect: Rect2, satiety_state: Di
 	var label_text := str(satiety_state.get("label", ""))
 	var strip_y: float = rect.position.y + 18.0 + AFFINITY_METER_HEIGHT + SATIETY_METER_GAP
 	var baseline_y: float = strip_y + 8.0
-	# Align the 포만 meter to the exact span of the 교감 meter above it, then place
-	# the "포만도" label + value in the same right-hand annotation column the 교감
+	# Align the duration meter to the exact span of the 교감 meter above it, then place
+	# the "지속시간" label + value in the same right-hand annotation column the 교감
 	# "다음:" text uses, so the two bars stack cleanly instead of staggering.
 	var meter_w: float = lingpet_progress_meter_width(rect)
 	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
@@ -451,8 +451,8 @@ static func _satiety_strip_color(satiety_state: Dictionary, stat_buff_color: Col
 
 # Single source for the two bar hover zones inside the affinity band, so the
 # draw path and the regression smoke agree. The 교감 zone is the top slice; the
-# 포만도 zone is everything below it. They abut at AFFINITY_HOVER_BAND_HEIGHT and
-# never overlap (has_point is half-open, so the seam belongs to 포만도).
+# duration zone is everything below it. They abut at AFFINITY_HOVER_BAND_HEIGHT
+# and never overlap (has_point is half-open, so the seam belongs to duration).
 static func affinity_bar_hover_rect(rect: Rect2) -> Rect2:
 	return Rect2(rect.position.x, rect.position.y, rect.size.x, AFFINITY_HOVER_BAND_HEIGHT)
 
@@ -521,7 +521,7 @@ static func draw_affinity_status(
 
 	# Hover tooltips for the two bars, mirroring the stat-row / ring-core hover
 	# contract (_fill_hover_data clears + sets, so the last matching rect wins).
-	# The 교감 band is the top slice (label + meter + "다음:" row); the 포만도 band
+	# The 교감 band is the top slice (label + meter + "다음:" row); the duration band
 	# is the strip below it. The two rects never overlap, so at most one fills.
 	var affinity_hover_rect := affinity_bar_hover_rect(rect)
 	if affinity_hover_rect.has_point(mouse_pos):
@@ -539,9 +539,9 @@ static func draw_affinity_status(
 		if satiety_hover_rect.has_point(mouse_pos):
 			_fill_hover_data(
 				hover_data,
-				LanguageSettings.translate_text("포만도"),
+				LanguageSettings.translate_text("지속시간"),
 				str(satiety_state.get("value", "")),
-				LanguageSettings.translate_text("수호령의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다."),
+				LanguageSettings.translate_text("수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다."),
 				_satiety_strip_color(satiety_state, stat_buff_color),
 				satiety_hover_rect
 			)

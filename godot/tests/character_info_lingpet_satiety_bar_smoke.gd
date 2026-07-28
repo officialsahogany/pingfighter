@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CharacterInfoOverlayLingpetPresenter := preload("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
+const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
 
 const CONTENT_RECT := Rect2(Vector2(24.0, 22.0), Vector2(300.0, 360.0))
 
@@ -14,7 +15,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_source_contract()
 	_verify_runtime_snapshot_merge()
-	_verify_satiety_states()
+	_verify_duration_states()
 	_verify_strip_layout()
 	_verify_bar_hover_zones()
 	_verify_unlock_gate_survives_expanded_band()
@@ -27,9 +28,9 @@ func _verify_source_contract() -> void:
 	var frame_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_frame_presenter.gd")
 	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 50.0") >= 0, "TAB lingpet affinity band should be expanded for the satiety strip")
 	_expect(presenter_source.find("max(24.0, affinity_band_h - 10.0)") >= 0, "TAB lingpet affinity rect should keep the 42px unlock-choice gate after the expanded band")
-	_expect(vitality_source.find("satiety_pct") >= 0, "TAB vitality projection should consume the active runtime satiety snapshot")
-	_expect(vitality_source.find("companion_exhausted") >= 0, "TAB vitality projection should distinguish exhausted 0 from no-pet 0")
-	_expect(vitality_source.find("satiety_exhaustion_ratio") >= 0, "TAB vitality projection should keep the exhaustion telegraph ratio in the render contract")
+	_expect(vitality_source.find("duration_pool_pct") >= 0, "TAB vitality projection should consume the shared duration-pool snapshot")
+	_expect(vitality_source.find("guardian_stowed") >= 0, "TAB vitality projection should retain stowed state without hiding the duration strip")
+	_expect(vitality_source.find("탈진 Zzz") < 0, "TAB duration projection should remove the retired exhaustion presentation")
 	_expect(presenter_source.find("lingpet_satiety_pct") < 0, "TAB satiety strip should not read the owner-only lingpet_satiety_pct key")
 	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot") >= 0, "TAB presenter should delegate runtime satiety merging")
 	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.get_strip_state") >= 0, "TAB presenter should delegate satiety state projection")
@@ -39,7 +40,14 @@ func _verify_source_contract() -> void:
 	# and the drawer must publish both bar tooltip bodies through _fill_hover_data.
 	_expect(presenter_source.find("draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale, mouse_pos, hover_data)") >= 0, "TAB affinity/satiety draw should receive mouse_pos + hover_data for bar tooltips")
 	_expect(presenter_source.find("이번 판 동안 수호령과 쌓은 교감 수치입니다") >= 0, "교감 bar hover should publish an affinity tooltip body")
-	_expect(presenter_source.find("수호령의 포만도입니다. 시간이 지나면 서서히 줄고") >= 0, "포만도 bar hover should publish a satiety tooltip body")
+	_expect(presenter_source.find("수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고") >= 0, "duration bar hover should publish the shared-pool tooltip body")
+	var tooltip_key := "수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다."
+	_expect(LanguageSettingsData.EXACT_TEXT_EN.has(tooltip_key), "English exact text should localize the duration tooltip")
+	_expect(LanguageSettingsData.EXACT_TEXT_ZH.has(tooltip_key), "Chinese exact text should localize the duration tooltip")
+	_expect(LanguageSettingsData.EXACT_TEXT_JA.has(tooltip_key), "Japanese exact text should localize the duration tooltip")
+	_expect(LanguageSettingsData.EXACT_TEXT_ES.has(tooltip_key), "Spanish exact text should localize the duration tooltip")
+	_expect(LanguageSettingsData.EXACT_TEXT_PT_BR_OVERRIDES.has(tooltip_key), "Brazilian Portuguese overrides should localize the duration tooltip")
+	_expect(LanguageSettingsData.EXACT_TEXT_RU_OVERRIDES.has(tooltip_key), "Russian overrides should localize the duration tooltip")
 
 
 func _verify_runtime_snapshot_merge() -> void:
@@ -48,67 +56,61 @@ func _verify_runtime_snapshot_merge() -> void:
 		"pet_id": "maribo",
 	}
 	var runtime_snapshot := {
-		"satiety_pct": 41,
-		"companion_exhausted": false,
-		"satiety_exhaustion_ratio": 0.25,
+		"duration_pool_pct": 41,
+		"guardian_stowed": true,
 	}
 	CharacterInfoOverlayLingpetPresenter.merge_runtime_satiety_snapshot(panel_snapshot, runtime_snapshot)
-	_expect(int(panel_snapshot.get("satiety_pct", -1)) == 41, "panel snapshot should receive active satiety_pct from the existing runtime snapshot")
-	_expect(not bool(panel_snapshot.get("companion_exhausted", true)), "panel snapshot should receive active companion_exhausted from the existing runtime snapshot")
-	_expect(is_equal_approx(float(panel_snapshot.get("satiety_exhaustion_ratio", -1.0)), 0.25), "panel snapshot should receive satiety_exhaustion_ratio from the existing runtime snapshot")
+	_expect(int(panel_snapshot.get("duration_pool_pct", -1)) == 41, "panel snapshot should receive duration_pool_pct from the runtime snapshot")
+	_expect(bool(panel_snapshot.get("guardian_stowed", false)), "panel snapshot should preserve guardian_stowed for the visible stowed strip")
 
 
-func _verify_satiety_states() -> void:
+func _verify_duration_states() -> void:
 	var normal := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
-		"satiety_pct": 73,
-		"companion_exhausted": false,
-		"satiety_exhaustion_ratio": 0.0,
+		"duration_pool_pct": 73,
+		"guardian_stowed": false,
 	})
-	_expect(bool(normal.get("visible", false)), "normal companion should show the TAB satiety strip")
-	_expect(str(normal.get("color_key", "")) == "normal", "satiety above 50 should use the normal color key")
-	_expect(str(normal.get("value", "")) == "73%", "normal satiety strip should show the quantized percent")
+	_expect(bool(normal.get("visible", false)), "summoned guardian should show the TAB duration strip")
+	_expect(str(normal.get("label", "")) == "지속시간", "duration strip should use the approved label")
+	_expect(str(normal.get("color_key", "")) == "normal", "duration above 50 should use the normal color key")
+	_expect(str(normal.get("value", "")) == "73%", "duration strip should show the quantized percent")
 
 	var warning := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
-		"satiety_pct": 50,
-		"companion_exhausted": false,
+		"duration_pool_pct": 50,
 	})
-	_expect(str(warning.get("color_key", "")) == "warning", "satiety at 50 should enter the yellow warning color key")
+	_expect(str(warning.get("color_key", "")) == "warning", "duration at 50 should enter the yellow warning color key")
 
 	var critical := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
-		"satiety_pct": 20,
-		"companion_exhausted": false,
+		"duration_pool_pct": 20,
 	})
-	_expect(str(critical.get("color_key", "")) == "critical", "satiety at 20 should enter the red critical color key")
+	_expect(str(critical.get("color_key", "")) == "critical", "duration at 20 should enter the red critical color key")
 
-	var exhausted := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var stowed := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
-		"satiety_pct": 0,
-		"companion_exhausted": true,
-		"satiety_exhaustion_ratio": 1.0,
+		"duration_pool_pct": 0,
+		"guardian_stowed": true,
 	})
-	_expect(bool(exhausted.get("visible", false)), "exhausted companion should still show the TAB satiety strip")
-	_expect(str(exhausted.get("color_key", "")) == "critical", "exhausted companion should use the red critical color key")
-	_expect(str(exhausted.get("value", "")).find("탈진") >= 0, "exhausted companion should render the 탈진 label")
+	_expect(bool(stowed.get("visible", false)), "stowed guardian should keep the TAB duration strip visible")
+	_expect(bool(stowed.get("stowed", false)), "duration strip should retain the stowed marker")
+	_expect(str(stowed.get("color_key", "")) == "critical", "empty shared pool should use the red critical color key")
+	_expect(str(stowed.get("value", "")) == "0%", "stowed empty pool should render 0 percent without the retired exhaustion label")
 
 	var no_pet := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "none",
-		"satiety_pct": 0,
-		"companion_exhausted": true,
+		"duration_pool_pct": 0,
 	})
-	_expect(not bool(no_pet.get("visible", true)), "no-pet state should hide the strip even though satiety_pct is also 0")
+	_expect(not bool(no_pet.get("visible", true)), "no-pet state should hide the strip even though duration is also 0")
 
 	var empty_companion := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
 		"state": "companion",
 		"pet_id": "",
-		"satiety_pct": 0,
-		"companion_exhausted": true,
+		"duration_pool_pct": 0,
 	})
 	_expect(not bool(empty_companion.get("visible", true)), "empty companion id should hide the strip instead of reading as exhausted")
 
@@ -116,8 +118,8 @@ func _verify_satiety_states() -> void:
 func _verify_strip_layout() -> void:
 	var affinity_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)))
 	for snapshot in [
-		{"state": "companion", "pet_id": "maribo", "satiety_pct": 73, "companion_exhausted": false},
-		{"state": "companion", "pet_id": "maribo", "satiety_pct": 0, "companion_exhausted": true, "satiety_exhaustion_ratio": 1.0},
+		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 73, "guardian_stowed": false},
+		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 0, "guardian_stowed": true},
 	]:
 		var layout := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_layout_for_tests(ThemeDB.fallback_font, affinity_rect, snapshot, 1.0)
 		_expect(not layout.is_empty(), "visible satiety snapshot should build a layout")

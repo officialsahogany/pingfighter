@@ -12,12 +12,13 @@ const SATIETY_CRITICAL_THRESHOLD := 20
 
 
 static func merge_runtime_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
-	if runtime_snapshot.has("satiety_pct"):
-		panel_snapshot["satiety_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
-	if runtime_snapshot.has("companion_exhausted"):
-		panel_snapshot["companion_exhausted"] = bool(runtime_snapshot.get("companion_exhausted", false))
-	if runtime_snapshot.has("satiety_exhaustion_ratio"):
-		panel_snapshot["satiety_exhaustion_ratio"] = clampf(float(runtime_snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
+	if runtime_snapshot.has("duration_pool_pct"):
+		panel_snapshot["duration_pool_pct"] = clampi(int(runtime_snapshot.get("duration_pool_pct", 0)), 0, 100)
+	elif runtime_snapshot.has("satiety_pct"):
+		# Transitional fallback for snapshots produced before the shared-pool swap.
+		panel_snapshot["duration_pool_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
+	if runtime_snapshot.has("guardian_stowed"):
+		panel_snapshot["guardian_stowed"] = bool(runtime_snapshot.get("guardian_stowed", false))
 	return panel_snapshot
 
 
@@ -33,21 +34,20 @@ static func get_strip_state(snapshot: Dictionary) -> Dictionary:
 			"value": "",
 			"color_key": "hidden",
 		}
-	var pct := clampi(int(snapshot.get("satiety_pct", 0)), 0, 100)
-	var exhausted := bool(snapshot.get("companion_exhausted", false))
-	var ratio := clampf(float(snapshot.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
+	var pct := clampi(int(snapshot.get("duration_pool_pct", snapshot.get("satiety_pct", 0))), 0, 100)
 	var color_key := "normal"
-	if exhausted or pct <= SATIETY_CRITICAL_THRESHOLD:
+	if pct <= SATIETY_CRITICAL_THRESHOLD:
 		color_key = "critical"
 	elif pct <= SATIETY_WARNING_THRESHOLD:
 		color_key = "warning"
 	return {
 		"visible": true,
 		"pct": pct,
-		"exhausted": exhausted,
-		"ratio": ratio,
-		"label": "포만도",
-		"value": "탈진 Zzz" if exhausted else "%d%%" % pct,
+		"exhausted": false,
+		"ratio": 0.0,
+		"stowed": bool(snapshot.get("guardian_stowed", false)),
+		"label": "지속시간",
+		"value": "%d%%" % pct,
 		"color_key": color_key,
 	}
 
