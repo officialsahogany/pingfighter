@@ -304,6 +304,7 @@ func _draw_stage1_pillar_ui(
 	ui_context["gauge_flash_timer"] = feedback.get_gauge_flash_timer() if feedback != null else 0.0
 	ui_context["gauge_flash_duration"] = feedback.get_gauge_flash_duration() if feedback != null else 0.45
 	ui_context["gauge_frame_texture"] = _get_value(textures, "gauge_orb_frame_texture")
+	ui_context["gauge_orb_ki_jade_ornament_texture"] = _get_value(textures, "gauge_orb_ki_jade_ornament_texture")
 	ui_context["gauge_frame_spin_angle"] = orb_state.get_gauge_spin_angle(now_msec) if orb_state != null else 0.0
 	ui_context["dash_snapshot"] = dash_snapshot
 	ui_context["dash_flash_timer"] = feedback.get_dash_flash_timer() if feedback != null else 0.0

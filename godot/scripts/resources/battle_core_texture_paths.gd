@@ -1,9 +1,9 @@
 extends RefCounted
 
 const PINGPONG_BALL_TEXTURE_PATH := "res://assets/sprites/ball_runtime_128.png"
-const GAUGE_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_frame_imagegen_v3.png"
-const GAUGE_ORB_KI_JADE_ORNAMENT_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_ki_jade_ornament_imagegen_v1.png"
 const DASH_TOKEN_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_frame_imagegen_v3.png"
+const GAUGE_ORB_FRAME_TEXTURE_PATH := DASH_TOKEN_FRAME_TEXTURE_PATH
+const GAUGE_ORB_KI_JADE_ORNAMENT_TEXTURE_PATH := "res://assets/sprites/orbs/gauge_orb_ki_jade_ornament_imagegen_v1.png"
 const DASH_TOKEN_BELL_CELL_TEXTURE_PATH := "res://assets/sprites/orbs/dash_token_bell_cell_imagegen_v1.png"
 const SKILL_ORB_FRAME_TEXTURE_PATH := "res://assets/sprites/orbs/skill_orb_frame_imagegen_v1.png"
 const SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/player_skill_gauge_full_frame_165_33_5_imagegen_v1.png"

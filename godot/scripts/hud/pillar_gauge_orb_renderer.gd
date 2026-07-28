@@ -16,6 +16,7 @@ const LIQUID_DISPLAY_FALL_RESPONSE := 18.0
 const LIQUID_DISPLAY_MAX_DELTA_SECONDS := 0.25
 const LIQUID_DISPLAY_SNAP_EPSILON := 0.002
 const FULL_GAUGE_SNAP_THRESHOLD := 0.999
+const TEXTURED_FRAME_CONTENT_RADIUS_RATIO := 1.15
 const KI_JADE_ORNAMENT_SIZE_RATIO := 28.0 / 55.0
 const KI_JADE_ORNAMENT_Y_OFFSET_RATIO := -65.0 / 55.0
 const KI_JADE_ORNAMENT_MODULATE := Color(1.0, 1.0, 1.0, 0.98)
@@ -28,8 +29,14 @@ var _display_ratio_last_time := 0.0
 
 
 func prewarm_caches(orb_radius: float, _context: Dictionary = {}) -> void:
+	var radius: float = max(16.0, orb_radius)
 	background_cache.prewarm_radial_background(
-		max(16.0, orb_radius),
+		radius,
+		Color(0.02, 0.05, 0.12, 1.0),
+		Color(0.08, 0.13, 0.26, 1.0)
+	)
+	background_cache.prewarm_radial_background(
+		radius * TEXTURED_FRAME_CONTENT_RADIUS_RATIO,
 		Color(0.02, 0.05, 0.12, 1.0),
 		Color(0.08, 0.13, 0.26, 1.0)
 	)
@@ -68,6 +75,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		canvas.draw_circle(center, glow_radius, Color(0.36, 0.58, 1.0, alpha))
 
 	var frame_texture = context.get("frame_texture", null)
+	var content_radius: float = get_orb_content_radius(radius, frame_texture)
 	if not (frame_texture is Texture2D):
 		pillar_drawer.draw_pillar_orb_frame(
 			canvas,
@@ -84,16 +92,16 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 	background_cache.draw_radial_background(
 		canvas,
 		center,
-		radius,
+		content_radius,
 		Color(0.02, 0.05, 0.12, 1.0),
 		Color(0.08, 0.13, 0.26, 1.0)
 	)
 
-	var inner_limit_sq: float = (radius - 5.0) * (radius - 5.0)
+	var inner_limit_sq: float = (content_radius - 5.0) * (content_radius - 5.0)
 	var ambient_particle_count: int = 0 if static_hud_lod else (1 if lod_active else AMBIENT_PARTICLE_COUNT)
 	for i in range(ambient_particle_count):
 		var pa: float = t * 0.8 + float(i) * 1.05
-		var orbit_r: float = (radius - 10.0) * (0.25 + 0.45 * abs(sin(pa * 0.5 + float(i) * 0.7)))
+		var orbit_r: float = (content_radius - 10.0) * (0.25 + 0.45 * abs(sin(pa * 0.5 + float(i) * 0.7)))
 		var orbit_angle: float = pa * (0.6 + float(i % 3) * 0.15)
 		var particle_pos := center + Vector2(cos(orbit_angle), sin(orbit_angle * 0.8 + float(i))) * orbit_r
 		if particle_pos.distance_squared_to(center) < inner_limit_sq:
@@ -105,14 +113,14 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 	if not static_hud_lod:
 		var core_pulse: float = 0.5 + 0.5 * sin(t * 3.0)
 		var core_alpha: float = 0.06 + 0.05 * core_pulse + display_full_ratio * 0.08
-		canvas.draw_circle(center, radius * 0.55, Color(0.30, 0.55, 1.0, core_alpha))
-		canvas.draw_circle(center, radius * 0.30, Color(0.50, 0.75, 1.0, core_alpha * 0.7))
+		canvas.draw_circle(center, content_radius * 0.55, Color(0.30, 0.55, 1.0, core_alpha))
+		canvas.draw_circle(center, content_radius * 0.30, Color(0.50, 0.75, 1.0, core_alpha * 0.7))
 
-	fill_renderer.draw(canvas, pillar_drawer, center, radius, t, scale_factor, display_full_ratio, context)
+	fill_renderer.draw(canvas, pillar_drawer, center, content_radius, t, scale_factor, display_full_ratio, context)
 	if static_hud_lod and pillar_drawer.has_method("draw_pillar_orb_glass_lod"):
-		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
+		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, content_radius, Color(0.50, 0.74, 1.0, 1.0))
 	else:
-		pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
+		pillar_drawer.draw_pillar_orb_glass(canvas, center, content_radius, Color(0.50, 0.74, 1.0, 1.0))
 	if frame_texture is Texture2D:
 		var texture: Texture2D = frame_texture
 		var spin_angle: float = _get_frame_spin_angle(context)
@@ -130,19 +138,26 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		canvas.draw_arc(center, radius + 26.0 * scale_factor * (1.0 - flash_progress), 0.0, TAU, flash_ring_segments, Color(1.0, 0.86, 0.50, 0.50 * flash_progress), 3.0)
 
 	var ring_phase: float = fmod(t * 0.8, 1.0)
-	var ring_r: float = radius * (0.5 + ring_phase * 0.5)
+	var ring_r: float = content_radius * (0.5 + ring_phase * 0.5)
 	var ring_alpha: float = 0.0 if static_hud_lod else 0.12 * (1.0 - ring_phase)
 	if ring_alpha > 0.01:
 		var idle_ring_segments: int = IDLE_RING_SEGMENTS_LOD if lod_active else IDLE_RING_SEGMENTS
 		canvas.draw_arc(center, ring_r, 0.0, TAU, idle_ring_segments, Color(0.50, 0.74, 1.0, ring_alpha), 1.5)
 
-	canvas.draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + display_full_ratio * 0.18))
+	canvas.draw_circle(center, content_radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + display_full_ratio * 0.18))
 	var gauge_text := "%d/%d" % [int(round(gauge_value)), int(round(gauge_max))]
 	var gauge_font_size: int = int(round(16.0 * scale_factor))
 	if static_hud_lod and pillar_drawer.has_method("draw_pillar_text_centered_lod"):
 		pillar_drawer.draw_pillar_text_centered_lod(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
 	else:
 		pillar_drawer.draw_pillar_text_centered(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
+
+
+func get_orb_content_radius(orb_radius: float, frame_texture) -> float:
+	var radius: float = max(16.0, orb_radius)
+	if frame_texture is Texture2D:
+		return radius * TEXTURED_FRAME_CONTENT_RADIUS_RATIO
+	return radius
 
 
 func build_ki_jade_ornament_draw_spec(center: Vector2, radius: float, context: Dictionary) -> Dictionary:

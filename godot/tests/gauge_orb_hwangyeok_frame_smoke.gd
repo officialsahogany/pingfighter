@@ -10,8 +10,8 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	var frame_path := BattleCoreTexturePaths.GAUGE_ORB_FRAME_TEXTURE_PATH
-	_expect(frame_path.ends_with("gauge_orb_frame_imagegen_v3.png"), "ki orb must use the count-neutral Korean-fantasy v3 frame")
-	_expect(frame_path != BattleCoreTexturePaths.DASH_TOKEN_FRAME_TEXTURE_PATH, "ki and dash frames must keep separate hole geometry despite sharing ornament language")
+	_expect(frame_path.ends_with("dash_token_frame_imagegen_v3.png"), "ki orb must use the thin count-neutral Korean-fantasy v3 frame")
+	_expect(frame_path == BattleCoreTexturePaths.DASH_TOKEN_FRAME_TEXTURE_PATH, "ki and dash HUDs must share exactly one neutral ring geometry")
 	_expect(FileAccess.file_exists(frame_path), "ki-orb frame PNG must exist")
 	_expect(FileAccess.file_exists(frame_path + ".import"), "ki-orb frame PNG must ship with its import sidecar")
 
@@ -19,12 +19,12 @@ func _init() -> void:
 	_expect(image != null and image.get_size() == Vector2i(240, 240), "ki-orb frame must preserve the 240x240 runtime contract")
 	if image != null:
 		var alpha_bbox := _alpha_bbox(image, 16.0 / 255.0)
-		_expect(alpha_bbox.size.x >= 197 and alpha_bbox.size.x <= 199, "ki-orb frame outer alpha width must match the v1 socket")
+		_expect(alpha_bbox.size.x >= 195 and alpha_bbox.size.x <= 197, "ki-orb shared frame outer alpha width must preserve the accepted socket")
 		_expect(alpha_bbox.size.y >= 197 and alpha_bbox.size.y <= 199, "ki-orb frame outer alpha height must match the v1 socket")
 		var hole_width := _transparent_center_run_x(image, 16.0 / 255.0)
 		var hole_height := _transparent_center_run_y(image, 16.0 / 255.0)
-		_expect(hole_width >= 127 and hole_width <= 131, "ki-orb frame horizontal hole must preserve the v1 orb fit")
-		_expect(hole_height >= 129 and hole_height <= 133, "ki-orb frame vertical hole must preserve the v1 orb fit")
+		_expect(hole_width >= 153 and hole_width <= 155, "ki-orb shared frame horizontal hole must match the thin dash ring")
+		_expect(hole_height >= 156 and hole_height <= 158, "ki-orb shared frame vertical hole must match the thin dash ring")
 		_expect(image.get_pixel(120, 120).a <= 0.01, "ki-orb frame center must stay transparent")
 		_expect(image.get_pixel(0, 0).a <= 0.01, "ki-orb frame corners must stay transparent")
 		_expect(_opaque_magenta_count(image) == 0, "ki-orb frame must not retain opaque magenta chroma pixels")
@@ -54,6 +54,7 @@ func _init() -> void:
 	_expect(gauge_context.get("frame_texture", null) == frame_texture, "ki-orb context must receive the prewarmed v3 frame texture")
 	_expect(gauge_context.get("ornament_texture", null) == ornament_texture, "ki-orb context must receive the prewarmed jade ornament texture")
 	var renderer := PillarGaugeOrbRenderer.new()
+	_expect(is_equal_approx(renderer.get_orb_content_radius(55.0, frame_texture), 63.25), "ki-orb liquid and glass must expand to the shared thin-ring socket")
 	var ornament_draw_spec := renderer.build_ki_jade_ornament_draw_spec(Vector2(100.0, 100.0), 55.0, gauge_context)
 	var ornament_rect: Rect2 = ornament_draw_spec.get("rect", Rect2())
 	_expect(ornament_draw_spec.get("texture", null) == ornament_texture, "ki-orb ornament draw spec must retain texture identity")
@@ -72,7 +73,7 @@ func _init() -> void:
 			frame_spec_count += 1
 		if str(spec.get("path", "")) == ornament_path and "gauge_orb_ki_jade_ornament_texture" in spec.get("keys", []):
 			ornament_spec_count += 1
-	_expect(frame_spec_count == 1, "ki-orb v3 frame must join core staged prewarm exactly once")
+	_expect(frame_spec_count == 1, "ki-orb shared v3 frame must join core staged prewarm exactly once")
 	_expect(ornament_spec_count == 1, "ki-orb jade ornament must join core staged prewarm exactly once")
 
 	var gauge_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_gauge_orb_renderer.gd")
@@ -82,6 +83,11 @@ func _init() -> void:
 	_expect(glass_index >= 0 and frame_index > glass_index, "ki-orb frame must remain the final foreground collar above the glass")
 	_expect(ornament_index > frame_index, "ki-orb jade ornament must stay fixed above the rotating frame draw")
 	_expect(gauge_source.count("\t_draw_ki_jade_ornament_overlay(canvas") == 1, "ki-orb must draw exactly one decorative jade ornament")
+	var scene_drawer_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
+	_expect(
+		scene_drawer_source.find("ui_context[\"gauge_orb_ki_jade_ornament_texture\"] = _get_value(textures, \"gauge_orb_ki_jade_ornament_texture\")") >= 0,
+		"production pillar HUD chain must forward the prewarmed jade ornament texture"
+	)
 
 	if _failures.is_empty():
 		print("gauge_orb_hwangyeok_frame_smoke: ok")
