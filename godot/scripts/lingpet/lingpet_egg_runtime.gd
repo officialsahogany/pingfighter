@@ -125,6 +125,7 @@ const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
 const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
 const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetAffinityState.SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
 const DURATION_WARNING_STAGE_COUNT := 3
+const GUARDIAN_MIN_SUMMON_SECONDS := 6.0
 # Runs from live companion physics, so it must not inherit the loading-screen
 # short expiry that demotes a slow threaded texture to a sync main-thread load.
 const CLICK_REACTION_TEXTURE_PREWARM_MAX_MSEC := 0
@@ -236,6 +237,7 @@ var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
 var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
 var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
 var _guardian_stowed := false
+var _guardian_active_elapsed := 0.0
 var _duration_warning_stage := 0
 var _duration_roll_rng_for_tests: RandomNumberGenerator = null
 var _hatch_stat_roll_state: Object = LingpetHatchStatRollState.new()
@@ -1100,6 +1102,7 @@ func debug_grant_and_activate_pet(
 	_state = STATE_COMPANION
 	_ensure_duration_pool_roll()
 	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_set_current_pet_id(normalized_pet_id)
 	_loadout_state.set_skip_unlock_reconcile(has_explicit_loadout)
@@ -1817,6 +1820,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 			_affinity_state.is_duration_resummon_locked()
 		))
 	)
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = _get_duration_warning_stage()
 	return result
 
@@ -1840,6 +1844,7 @@ func reset_for_tests() -> void:
 	_affinity_grant_controller.clear_last_result()
 	_satiety_runtime_state.reset()
 	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_duration_roll_rng_for_tests = null
 	_egg_state.reset_all()
@@ -1899,6 +1904,7 @@ func _clear_lingpet_field_state() -> void:
 	_reset_hatch_break_sequence()
 	_satiety_runtime_state.reset()
 	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
@@ -2121,6 +2127,7 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 	_ensure_duration_pool_roll()
 	_state = STATE_COMPANION
 	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_apply_current_loadout(owner, true, true, registry)
 	_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
@@ -2160,6 +2167,7 @@ func _finish_overflow_hatch_commit(owner: Object, registry: Object = null) -> vo
 	_ensure_duration_pool_roll()
 	_state = STATE_COMPANION
 	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_set_current_pet_id(kept_pet_id)
 	_apply_current_loadout(owner, true, true, registry)
@@ -3055,6 +3063,29 @@ func is_guardian_stowed() -> bool:
 	return _state == STATE_COMPANION and _guardian_stowed
 
 
+func try_toggle_guardian_stow(
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	if _state != STATE_COMPANION or _pet_id.strip_edges() == "":
+		return false
+	if _guardian_stowed:
+		# Consume the dedicated toggle even while recovery has not crossed the
+		# strict >10s gate, so R3/Ctrl cannot leak into downstream battle input.
+		if not _affinity_state.can_resummon_guardian():
+			return true
+		_set_guardian_stowed(false, owner, registry)
+		return true
+	if _guardian_active_elapsed < GUARDIAN_MIN_SUMMON_SECONDS:
+		return true
+	_set_guardian_stowed(true, owner, registry)
+	return true
+
+
+func get_guardian_active_elapsed_for_tests() -> float:
+	return _guardian_active_elapsed
+
+
 func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
 	_affinity_state.set_duration_pool_for_tests(current, maximum)
 	_guardian_stowed = current <= 0.0
@@ -3174,6 +3205,8 @@ func _advance_satiety(
 	if _state != STATE_COMPANION:
 		_satiety_runtime_state.advance_inactive(_affinity_state)
 		return
+	if not _guardian_stowed:
+		_guardian_active_elapsed += maxf(0.0, delta)
 	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state, _affinity_state)
 	var result: Dictionary = _satiety_runtime_state.advance_duration(
 		_pet_id,
@@ -3186,7 +3219,7 @@ func _advance_satiety(
 		not _guardian_stowed
 	)
 	if bool(result.get("expired", false)):
-		_guardian_stowed = true
+		_set_guardian_stowed(true, owner, registry, true)
 	var warning_stage := _get_duration_warning_stage()
 	if warning_stage > _duration_warning_stage:
 		_audio_dispatcher.play_lingpet_duration_warning(registry, warning_stage)
@@ -3223,6 +3256,38 @@ func _is_companion_exhausted_for_owner(owner: Object = null) -> bool:
 
 func _ensure_duration_pool_roll() -> Dictionary:
 	return _affinity_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
+
+
+func _set_guardian_stowed(
+	stowed: bool,
+	owner: Object,
+	registry: Object,
+	forced: bool = false
+) -> bool:
+	if _guardian_stowed == stowed:
+		return false
+	if stowed and not forced and _guardian_active_elapsed < GUARDIAN_MIN_SUMMON_SECONDS:
+		return false
+	_guardian_stowed = stowed
+	_guardian_active_elapsed = 0.0
+	if stowed:
+		_switch_transition_state.begin(
+			_pet_id,
+			"",
+			COMPANION_SWITCH_TRANSITION_SECONDS
+		)
+		_ghost_blink_vfx.trigger_vanish(_companion_pos)
+	else:
+		_switch_transition_state.begin(
+			"",
+			_pet_id,
+			COMPANION_SWITCH_TRANSITION_SECONDS
+		)
+		_ghost_blink_vfx.trigger_appear(_companion_pos)
+	_invalidate_runtime_snapshot_cache()
+	if owner != null:
+		_sync_owner(owner, registry)
+	return true
 
 
 func _is_guardian_summoned() -> bool:

@@ -55,6 +55,10 @@ func _handle_bgm_shortcut(
 
 
 func _handle_right_stick_suppression(event: InputEvent, owner: Object) -> bool:
+	# Battle-only carve-out: R3 is the guardian_toggle action. Right-stick axes
+	# and the menu routers keep their existing suppression behavior.
+	if _is_guardian_toggle_button_event(event):
+		return false
 	if GamepadInput.should_suppress_right_stick_event(event):
 		_right_stick_mouse_wheel_suppress_until_msec = (
 			Time.get_ticks_msec() + RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
@@ -68,6 +72,13 @@ func _handle_right_stick_suppression(event: InputEvent, owner: Object) -> bool:
 		_mark_handled(owner)
 		return true
 	return false
+
+
+func _is_guardian_toggle_button_event(event: InputEvent) -> bool:
+	return (
+		event is InputEventJoypadButton
+		and (event as InputEventJoypadButton).button_index == JOY_BUTTON_RIGHT_STICK
+	)
 
 
 func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
