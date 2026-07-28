@@ -1605,7 +1605,7 @@ func _merge_rail_card_skill_runtime_snapshot(surface: Dictionary, skill_id: Stri
 
 
 func _is_rail_card_slot_active(skill_surface: Dictionary, active_slot_count: int, slot_index: int) -> bool:
-	if _state != STATE_COMPANION or slot_index >= active_slot_count:
+	if not _is_guardian_summoned() or slot_index >= active_slot_count:
 		return false
 	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
 	return str(active_skill.get("id", "")) != "" and bool(active_skill.get("enabled", true))
@@ -1665,6 +1665,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	var snapshot: Dictionary = _snapshot_builder.build_runtime_snapshot(
 		_pet_id,
 		_state,
+		_is_guardian_summoned(),
 		_egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))),
 		_companion_pos,
 		float(profile_surface.get("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0)),
@@ -2292,10 +2293,11 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		COMPANION_HIT_HALF_HEIGHT * 2.0,
 		COMPANION_HIT_GAUGE_GAIN
 	)
+	var runtime_state := STATE_NONE if _state == STATE_COMPANION and _guardian_stowed else _state
 	_snapshot_builder.sync_owner(
 		owner,
 		_pet_id,
-		_state,
+		runtime_state,
 		_egg_state.hatch_hits,
 		_egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))),
 		_egg_state.pos,
@@ -2317,7 +2319,7 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		second_skill_surface.get("skill_state", null) as Object,
 		float(second_skill_surface.get("windup_seconds", 0.0)),
 		float(profile_surface.get("gauge_gain_bonus_pct", 0.0)),
-		LingpetEffectTextResolver.resolve(_state, _egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))), _current_profile),
+		LingpetEffectTextResolver.resolve(runtime_state, _egg_state.get_required_hits(int(profile_surface.get("required_hits", REQUIRED_HITS))), _current_profile),
 		loadouts_snapshot,
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		should_sync_loadouts

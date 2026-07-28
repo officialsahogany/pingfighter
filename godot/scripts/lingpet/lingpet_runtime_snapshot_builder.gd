@@ -61,6 +61,7 @@ func _rebase_for_owner(owner: Object) -> void:
 func build_runtime_snapshot(
 	pet_id: String,
 	state: String,
+	companion_active: bool,
 	required_hits: int,
 	companion_pos: Vector2,
 	catch_width: float,
@@ -91,7 +92,6 @@ func build_runtime_snapshot(
 	passive_skill: Dictionary = {},
 	passive_skill_pool: Array[Dictionary] = []
 ) -> Dictionary:
-	var companion_active: bool = state == STATE_COMPANION
 	var raw_skill_id := str(active_skill.get("id", ""))
 	var skill_enabled := raw_skill_id != "" and bool(active_skill.get("enabled", true))
 	var skill_active := companion_active and skill_enabled
@@ -120,6 +120,7 @@ func build_runtime_snapshot(
 	var snapshot := {
 		"pet_id": pet_id,
 		"state": state,
+		"companion_active": companion_active,
 		"required_hits": required_hits,
 		"companion_pos": companion_pos,
 		"companion_catch_width": catch_width,
