@@ -1941,4 +1941,20 @@ Special QA for slot-full unlock / swap offer flows:
 - [ ] If AI / autoplay can resolve or cancel the offer, failure / cancel
       preserves the pending-choice count and matches manual semantics.
 
+Common-form category (shared active forms):
+
+- [ ] Keep ids, localized copy, slot occupancy, cooldown eligibility,
+      tooltip fields, and cleanup metadata in one common catalog owner;
+      character configs expose that definition by reference rather than
+      copying it.
+- [ ] Route the common form through every playable character config and
+      count it against the same live orb-slot budget, including each
+      character's full-slot swap dialog.
+- [ ] If the common form is swapped out, run its gameplay cleanup only
+      after the confirmed swap. Cancel remains a complete no-op, and
+      run-owned resources explicitly marked for preservation stay intact.
+- [ ] A no-cooldown common form opts out of cooldown reduction and omits
+      the cooldown line from the rendered tooltip instead of displaying
+      a misleading `0s` cooldown.
+
 Any failure = back to the checklist.
