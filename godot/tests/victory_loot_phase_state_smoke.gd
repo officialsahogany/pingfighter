@@ -416,6 +416,42 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	_expect(str(recorded_reward.get("type", "")) == "starpoint", "collected rewards must record the fallback, not the lost active")
 	_expect(_finish_calls == 1, "grant-fail loot phase should still finish once")
 
+	# 2차 스타포인트 지급까지 실패하는 극단 케이스(지급 인프라 부재): 소실을
+	# grant_failed로 기록만 하고 상자 완료/종료는 유지해 소프트락을 막는다.
+	_finish_calls = 0
+	var dead_loot := VictoryLootPhaseState.new()
+	var dead_owner := SchemaGatedOwner.new()
+	dead_owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var dead_registry := FakeRegistry.new()
+	var dead_item_runtime := FakeActiveItemRuntime.new()
+	dead_item_runtime.collect_result = false
+	dead_registry.active_item_runtime = dead_item_runtime
+	var dead_resolver := FakeRewardResolver.new()
+	dead_resolver.reward_type = "active"
+	dead_resolver.grant_fail_types = ["active", "starpoint"]
+	dead_loot.set_reward_resolver_for_test(dead_resolver)
+	_expect(
+		dead_loot.start(dead_owner, dead_registry, 6, 4, Callable(self, "_record_finish")),
+		"double-grant-fail leg should start a one-box loot phase"
+	)
+	for _i in range(600):
+		dead_loot.update(1.0 / 60.0)
+		if str((dead_loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+			break
+	var dead_rest_pos: Vector2 = (dead_loot.boxes[0] as Dictionary).get("pos")
+	dead_owner.scene_state.set_value("player_pos", dead_rest_pos - Vector2(77.5, 25.0))
+	for _i in range(120):
+		dead_loot.update(1.0 / 60.0)
+		if _finish_calls > 0:
+			break
+	_expect(dead_resolver.grant_calls == 2, "double-grant-fail leg should attempt the original grant and the starpoint fallback")
+	var dead_recorded: Dictionary = dead_loot.collected_rewards.back() if not dead_loot.collected_rewards.is_empty() else {}
+	_expect(str(dead_recorded.get("type", "")) == "active", "double failure should record the original reward for audit")
+	_expect(bool(dead_recorded.get("grant_failed", false)), "double failure must be flagged grant_failed on the recorded reward")
+	_expect(str((dead_loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DONE, "double failure must still complete the box (no softlock)")
+	_expect(_finish_calls == 1, "double failure must still fire the finish callback exactly once")
+	_expect(not dead_loot.is_active(), "double failure must still deactivate the loot phase")
+
 
 func _verify_actor_draw_context() -> void:
 	var loot := VictoryLootPhaseState.new()

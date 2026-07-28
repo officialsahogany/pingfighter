@@ -1727,9 +1727,14 @@ Godot-first note:
   overflow permission does not bypass an active-effect rejection. Reachable in
   practice: any duplicate active reward while the same effect is running.
 - Therefore every programmatic reward path (stage-clear reward resolver,
-  victory loot phase, future gacha/chest grants) must check the returned
-  grant summary (`granted > 0` / `failed`) and only mark the reward delivered
-  on success. Never treat "grant was called" as "reward was received".
+  victory loot phase, future gacha/chest grants) must check the grant result
+  and only mark the reward delivered on success. Never treat "grant was
+  called" as "reward was received". The result shape differs by API:
+  - `ActiveItemRuntime.grant_item_to_slot(...)` returns a plain `bool` —
+    check the return value directly (plaza gacha
+    `plaza_gacha_transactions.gd` is the reference consumer).
+  - `StageClearRewardResolver.grant_rewards(...)` returns a summary
+    Dictionary — check `granted > 0` / inspect `failed`.
 - On failure, deliver a deterministic substitute (the shipped pattern is a
   guaranteed starpoint fallback — see
   `victory_loot_phase_state._build_starpoint_fallback_reward`) instead of
