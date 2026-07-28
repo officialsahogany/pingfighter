@@ -40,34 +40,36 @@ func _init() -> void:
 
 
 func _verify_first_hatch_roll_is_run_shared_and_once() -> void:
+	_expect(LingpetDurationState.DURATION_ROLL_MIN == 35, "first-hatch roll minimum must stay at the live-QA 35s value")
+	_expect(LingpetDurationState.DURATION_ROLL_MAX == 50, "first-hatch roll maximum must stay at the live-QA 50s value")
 	var state := LingpetDurationState.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260728
-	var first: Dictionary = state.ensure_initial_roll(rng, 67)
+	var first: Dictionary = state.ensure_initial_roll(rng, 42)
 	_expect(bool(first.get("accepted", false)), "first hatch should commit the duration roll")
-	_expect_float(state.get_pool_current(), 67.0, "first hatch should fill current to the rolled maximum")
-	_expect_float(state.get_pool_max(), 67.0, "forced deterministic roll should stay inside the 60-80 contract")
-	var second: Dictionary = state.ensure_initial_roll(rng, 80)
+	_expect_float(state.get_pool_current(), 42.0, "first hatch should fill current to the rolled maximum")
+	_expect_float(state.get_pool_max(), 42.0, "forced deterministic roll should stay inside the 35-50 contract")
+	var second: Dictionary = state.ensure_initial_roll(rng, 50)
 	_expect(not bool(second.get("accepted", true)), "later hatches must not reroll the run pool")
 	_expect_str(str(second.get("blocked_reason", "")), "already_rolled", "later hatch should report the once guard")
-	state.set_duration("maribo", 42.0)
-	_expect_float(state.get_duration("lunabi"), 42.0, "pet ids must observe one shared battery after a slot swap")
+	state.set_duration("maribo", 32.0)
+	_expect_float(state.get_duration("lunabi"), 32.0, "pet ids must observe one shared battery after a slot swap")
 
 
 func _verify_drain_recovery_and_both_rail_snaps() -> void:
 	var state := LingpetDurationState.new()
-	state.ensure_initial_roll(null, 60)
+	state.ensure_initial_roll(null, 35)
 	state.advance_pool(3.0, true)
-	_expect_float(state.get_pool_current(), 57.0, "summoned guardian should drain at one second per second")
+	_expect_float(state.get_pool_current(), 32.0, "summoned guardian should drain at one second per second")
 	state.advance_pool(3.0, false)
-	_expect_float(state.get_pool_current(), 58.0, "stowed guardian should recover at one-third speed")
-	state.set_pool_for_tests(0.0002, 60.0)
+	_expect_float(state.get_pool_current(), 33.0, "stowed guardian should recover at one-third speed")
+	state.set_pool_for_tests(0.0002, 35.0)
 	_expect_float(state.get_pool_current(), 0.0, "lower rail epsilon residue should snap to exact zero")
-	state.set_pool_for_tests(59.9998, 60.0)
-	_expect_float(state.get_pool_current(), 60.0, "upper rail epsilon residue should snap to exact maximum")
+	state.set_pool_for_tests(34.9998, 35.0)
+	_expect_float(state.get_pool_current(), 35.0, "upper rail epsilon residue should snap to exact maximum")
 
 	var tick_delta := 1.0 / 60.0
-	state.set_pool_for_tests(7.0 * tick_delta + LingpetDurationState.VALUE_SNAP_EPSILON * 0.5, 60.0)
+	state.set_pool_for_tests(7.0 * tick_delta + LingpetDurationState.VALUE_SNAP_EPSILON * 0.5, 35.0)
 	for _tick in range(7):
 		state.advance_pool(tick_delta, true)
 	_expect_float(state.get_pool_current(), 0.0, "real 60 Hz ticks should land exactly on the lower rail", 0.000001)
@@ -75,8 +77,8 @@ func _verify_drain_recovery_and_both_rail_snaps() -> void:
 
 func _verify_expiry_threshold_and_stage_refill() -> void:
 	var state := LingpetDurationState.new()
-	state.ensure_initial_roll(null, 73)
-	state.set_pool_for_tests(0.5, 73.0)
+	state.ensure_initial_roll(null, 48)
+	state.set_pool_for_tests(0.5, 48.0)
 	var expired: Dictionary = state.advance_pool(1.0, true)
 	_expect(bool(expired.get("expired", false)), "crossing zero while summoned should emit one forced-stow edge")
 	_expect(state.is_resummon_locked(), "expiry should latch the resummon lock")
@@ -85,22 +87,22 @@ func _verify_expiry_threshold_and_stage_refill() -> void:
 	_expect(not state.can_resummon(), "the strict resummon gate should remain closed at exactly ten seconds")
 	state.advance_pool(0.01, false)
 	_expect(state.can_resummon(), "recovery above ten seconds should reopen summoning")
-	state.set_pool_for_tests(12.0, 73.0)
+	state.set_pool_for_tests(12.0, 48.0)
 	_expect(state.refill_to_max(), "real stage-advance refill should report a changed pool")
-	_expect_float(state.get_pool_current(), 73.0, "stage advance should refill to the run's rolled maximum")
+	_expect_float(state.get_pool_current(), 48.0, "stage advance should refill to the run's rolled maximum")
 
 
 func _verify_league_exemption_latch() -> void:
 	var state := LingpetDurationState.new()
-	state.ensure_initial_roll(null, 64)
+	state.ensure_initial_roll(null, 45)
 	var collection := FakeCollectionState.new()
 	collection.auto_present = true
 	_expect(state.latch_drain_exempt(RefCounted.new(), collection), "auto-present league should latch duration drain exemption")
 	state.advance_pool(5.0, true, state.is_drain_exempt_latched())
-	_expect_float(state.get_pool_current(), 64.0, "latched junior/auto-present exemption should prevent drain")
+	_expect_float(state.get_pool_current(), 45.0, "latched junior/auto-present exemption should prevent drain")
 	state.clear_drain_exempt_latch()
 	state.advance_pool(1.0, true, state.is_drain_exempt_latched())
-	_expect_float(state.get_pool_current(), 63.0, "clearing the latch should restore one-to-one drain")
+	_expect_float(state.get_pool_current(), 44.0, "clearing the latch should restore one-to-one drain")
 
 
 func _verify_run_state_schema_ignores_legacy_satiety() -> void:
@@ -110,8 +112,8 @@ func _verify_run_state_schema_ignores_legacy_satiety() -> void:
 		"satiety": 99.0,
 	})
 	_expect(not state.is_initialized(), "legacy satiety fields must not initialize the shared pool")
-	state.ensure_initial_roll(null, 69)
-	state.set_pool_for_tests(17.0, 69.0)
+	state.ensure_initial_roll(null, 49)
+	state.set_pool_for_tests(17.0, 49.0)
 	var exported := state.export_run_state()
 	_expect(exported.has("duration_pool"), "run state should export duration_pool")
 	_expect(exported.has("duration_pool_max"), "run state should export duration_pool_max")

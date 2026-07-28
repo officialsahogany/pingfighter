@@ -40,7 +40,7 @@ func _init() -> void:
 
 func _verify_drain_and_rest_ratio() -> void:
 	var state := LingpetDurationState.new()
-	state.ensure_initial_roll(null, 80)
+	state.ensure_initial_roll(null, 50)
 	var result: Dictionary = state.advance_duration(
 		"maribo",
 		["maribo", "lunabi", "lunabi", ""],
@@ -49,13 +49,13 @@ func _verify_drain_and_rest_ratio() -> void:
 	_expect(bool(result.get("changed", false)), "duration tick should report mutation")
 	_expect_float(
 		state.get_duration("maribo"),
-		77.0,
+		47.0,
 		"summoned guardian should drain the run-shared pool one-to-one"
 	)
 	state.advance_duration("lunabi", ["maribo", "lunabi"], 3.0, 1.0, 1.0, true)
 	_expect_float(
 		state.get_duration("lunabi"),
-		78.0,
+		48.0,
 		"stowed guardian should recover the same shared pool at one-third speed"
 	)
 
@@ -81,7 +81,7 @@ func _verify_real_tick_residue_snap() -> void:
 
 func _verify_exhaustion_telegraph() -> void:
 	var state := LingpetDurationState.new()
-	state.ensure_initial_roll(null, 60)
+	state.ensure_initial_roll(null, 35)
 	state.set_duration("maribo", 0.5)
 	var expired: Dictionary = state.advance_duration("maribo", ["maribo"], 1.0)
 	_expect(bool(expired.get("expired", false)), "duration expiry should emit the forced-stow edge")

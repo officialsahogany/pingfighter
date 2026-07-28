@@ -10,8 +10,8 @@ const SAVE_INCREASE_COUNT_KEY := "duration_increase_count"
 const LEGACY_SAVE_KEYS := ["satiety", "satiety_exhausted", "satiety_exhaustion_timer"]
 
 const DURATION_MIN := 0.0
-const DURATION_ROLL_MIN := 60
-const DURATION_ROLL_MAX := 80
+const DURATION_ROLL_MIN := 35
+const DURATION_ROLL_MAX := 50
 const DURATION_INCREASE_SECONDS := 5.0
 const MAX_DURATION_INCREASES := 2
 const DURATION_ENHANCED_MAX := float(DURATION_ROLL_MAX) + DURATION_INCREASE_SECONDS * MAX_DURATION_INCREASES

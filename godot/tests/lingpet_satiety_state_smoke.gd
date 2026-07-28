@@ -53,13 +53,13 @@ func _verify_runtime_shared_drain_and_stow_recovery() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	var registry := Smoke.FakeRegistry.new()
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry), "fixture should activate a guardian")
-	runtime.set_duration_pool_for_tests(60.0, 60.0)
+	runtime.set_duration_pool_for_tests(50.0, 50.0)
 	runtime.update(12.0, owner, registry)
-	_expect_float(runtime.get_duration_pool_current(), 48.0, "summoned guardian should drain one-to-one")
-	_expect_float(runtime.get_satiety("lunabi"), 48.0, "legacy pet-id facade should read the same shared pool")
+	_expect_float(runtime.get_duration_pool_current(), 38.0, "summoned guardian should drain one-to-one")
+	_expect_float(runtime.get_satiety("lunabi"), 38.0, "legacy pet-id facade should read the same shared pool")
 	runtime.set("_guardian_stowed", true)
 	runtime.update(3.0, owner, registry)
-	_expect_float(runtime.get_duration_pool_current(), 49.0, "stowed guardian should recover at one-third speed")
+	_expect_float(runtime.get_duration_pool_current(), 39.0, "stowed guardian should recover at one-third speed")
 	_cleanup_runtime(runtime)
 
 
@@ -67,11 +67,11 @@ func _verify_save_restore_uses_run_global_schema() -> void:
 	var owner := _make_owner()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.debug_grant_and_activate_pet("maribo", owner)
-	runtime.set_duration_pool_for_tests(23.0, 71.0)
+	runtime.set_duration_pool_for_tests(23.0, 47.0)
 	var snapshot: Dictionary = runtime.get_save_snapshot()
 	var run_state: Dictionary = snapshot.get("affinity_run_state", {}) as Dictionary
 	_expect_float(float(run_state.get("duration_pool", -1.0)), 23.0, "save should carry duration_pool")
-	_expect_float(float(run_state.get("duration_pool_max", -1.0)), 71.0, "save should carry duration_pool_max")
+	_expect_float(float(run_state.get("duration_pool_max", -1.0)), 47.0, "save should carry duration_pool_max")
 	var pets: Dictionary = run_state.get("pets", {}) as Dictionary
 	for raw_pet in pets.values():
 		if raw_pet is Dictionary:
@@ -80,7 +80,7 @@ func _verify_save_restore_uses_run_global_schema() -> void:
 	var restored: Object = LingpetEggRuntime.new()
 	restored.apply_save_snapshot(snapshot, _make_owner(), Smoke.FakeRegistry.new())
 	_expect_float(restored.get_duration_pool_current(), 23.0, "restore should preserve the shared current pool")
-	_expect_float(restored.get_duration_pool_max(), 71.0, "restore should preserve the run roll")
+	_expect_float(restored.get_duration_pool_max(), 47.0, "restore should preserve the run roll")
 	_cleanup_runtime(runtime)
 	_cleanup_runtime(restored)
 
@@ -91,14 +91,14 @@ func _verify_owner_schema_and_stage_only_refill() -> void:
 	var owner := _make_schema_owner()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.debug_grant_and_activate_pet("maribo", owner)
-	runtime.set_duration_pool_for_tests(45.0, 60.0)
+	runtime.set_duration_pool_for_tests(35.0, 50.0)
 	runtime.update(0.0, owner)
-	_expect_eq(int(owner.get("lingpet_duration_pool_pct")), 75, "schema-gated owner should receive the live duration percent")
-	_expect_eq(int(owner.get("ringpet_duration_pool_pct")), 75, "compatibility owner pair should receive the same percent")
+	_expect_eq(int(owner.get("lingpet_duration_pool_pct")), 70, "schema-gated owner should receive the live duration percent")
+	_expect_eq(int(owner.get("ringpet_duration_pool_pct")), 70, "compatibility owner pair should receive the same percent")
 	runtime.reset_round({"owner": owner})
-	_expect_float(runtime.get_duration_pool_current(), 45.0, "ordinary reset_round must not refill duration")
+	_expect_float(runtime.get_duration_pool_current(), 35.0, "ordinary reset_round must not refill duration")
 	_expect(runtime.refill_guardian_duration_for_stage_transition(), "real stage transition should report a refill")
-	_expect_float(runtime.get_duration_pool_current(), 60.0, "real stage transition should refill to the rolled maximum")
+	_expect_float(runtime.get_duration_pool_current(), 50.0, "real stage transition should refill to the rolled maximum")
 	_cleanup_runtime(runtime)
 
 
@@ -106,7 +106,7 @@ func _verify_expiry_gate_and_junior_exemption() -> void:
 	var owner := _make_owner()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.debug_grant_and_activate_pet("maribo", owner)
-	runtime.set_duration_pool_for_tests(0.5, 60.0)
+	runtime.set_duration_pool_for_tests(0.5, 50.0)
 	runtime.set("_guardian_stowed", false)
 	runtime.update(1.0, owner)
 	_expect(runtime.is_guardian_stowed(), "zero crossing should force stow immediately")
@@ -122,10 +122,10 @@ func _verify_expiry_gate_and_junior_exemption() -> void:
 	junior_owner.ai_mode = "junior"
 	var junior: Object = LingpetEggRuntime.new()
 	junior.debug_grant_and_activate_pet("maribo", junior_owner)
-	junior.set_duration_pool_for_tests(60.0, 60.0)
+	junior.set_duration_pool_for_tests(50.0, 50.0)
 	junior.set("_guardian_stowed", false)
 	junior.update(10.0, junior_owner)
-	_expect_float(junior.get_duration_pool_current(), 60.0, "junior auto-present league should be drain-exempt")
+	_expect_float(junior.get_duration_pool_current(), 50.0, "junior auto-present league should be drain-exempt")
 	_cleanup_runtime(junior)
 
 
