@@ -5,6 +5,8 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemCooldownComposer := preload("res://scripts/items/active_item_cooldown_composer.gd")
 const ActiveItemSlotCooldownState := preload("res://scripts/items/active_item_slot_cooldown_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
+const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
@@ -291,6 +293,12 @@ func append_item_data(
 		return false
 	var item_name: String = str(item_data.get("name", ""))
 	if can_store_item_callback.is_valid() and not bool(can_store_item_callback.call(item_name)):
+		return false
+	if item_name == "lingpet_egg" and _is_lingpet_egg_pickup_redundant(
+		BattleSceneOwnerReader.get_array(owner, "active_item_slots"),
+		registry,
+		owner
+	):
 		return false
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
@@ -610,8 +618,10 @@ func _is_lingpet_egg_pickup_redundant(active_item_slots: Array, registry: Object
 	# yet no lingpet can be deployed, so only the in-slot check above applies.
 	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
 	if lingpet_runtime != null and lingpet_runtime.has_method("can_offer_egg_item"):
-		return not bool(lingpet_runtime.can_offer_egg_item(owner))
-	return false
+		return not bool(lingpet_runtime.can_offer_egg_item(owner, registry))
+	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
+		return true
+	return LingpetCollectionState.new().is_auto_present_league(owner)
 
 
 func _get_cached_instance(registry: Object, key: String) -> Object:

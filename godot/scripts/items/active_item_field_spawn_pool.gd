@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
@@ -513,8 +514,8 @@ func _should_skip_lingpet_egg_spawn(registry: Object, owner: Object) -> bool:
 		return true
 	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
 	if lingpet_runtime != null and lingpet_runtime.has_method("can_offer_egg_item"):
-		return not bool(lingpet_runtime.can_offer_egg_item(owner))
-	return _is_junior_league(owner)
+		return not bool(lingpet_runtime.can_offer_egg_item(owner, registry))
+	return not GuardianEggAccessPolicy.has_egg_access(owner, registry) or _is_junior_league(owner)
 
 
 func _owner_has_lingpet_egg_in_slots(owner: Object) -> bool:
