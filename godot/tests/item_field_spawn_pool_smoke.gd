@@ -50,6 +50,11 @@ class FakeRegistry:
 			return runtime_perk_state
 		return null
 
+	# guardian_egg_access_policy reads runtime_perk_state via the non-instantiating
+	# cached peek only — expose the same lookup through that surface.
+	func get_cached_instance(key: String) -> Object:
+		return get_instance(key)
+
 
 class FakeCachedPassiveCatalog:
 	var field_spawn_call_count := 0
@@ -67,7 +72,7 @@ class FakeCachedPassiveCatalog:
 class FakeEggRuntime:
 	var offer := true
 
-	func can_offer_egg_item(_owner: Object) -> bool:
+	func can_offer_egg_item(_owner: Object, _registry: Object = null) -> bool:
 		return offer
 
 
@@ -116,6 +121,9 @@ func _init() -> void:
 	# lingpet exists). The first stores; the second is rejected and stays on the field.
 	var egg_slots: Array = []
 	var egg_owner := FakeOwner.new()
+	# Egg pickup is gated on owning 영혼소환술 since the guardian duration redesign
+	# (guardian_egg_access_policy) — grant it so this leg exercises the storage rule.
+	runtime_perk_state.runtime_skill_levels["soul_summon_art"] = 1
 	var egg_item_a: Dictionary = active_catalog.build_item_by_name("lingpet_egg")
 	_expect(not egg_item_a.is_empty(), "lingpet_egg should build in the active item catalog")
 	_expect(
