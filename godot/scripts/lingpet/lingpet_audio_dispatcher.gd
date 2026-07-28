@@ -30,6 +30,16 @@ func play_lingpet_duration_warning(registry: Object = null, warning_stage: int =
 	)
 
 
+func play_lingpet_guardian_summon_transition(registry: Object = null) -> bool:
+	# Optional hook: game_audio may omit the cue until the dedicated asset lands.
+	return _call_game_audio(registry, "play_lingpet_guardian_summon_transition")
+
+
+func play_lingpet_guardian_stow_transition(registry: Object = null) -> bool:
+	# Optional hook: silent fallback is intentional, never a runtime error.
+	return _call_game_audio(registry, "play_lingpet_guardian_stow_transition")
+
+
 func play_lingpet_acquire_click_reaction_backing(registry: Object = null) -> bool:
 	return _call_game_audio(registry, "play_lingpet_acquire_click_reaction_backing")
 

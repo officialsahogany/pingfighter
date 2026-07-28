@@ -130,8 +130,10 @@ func _verify_stow_freezes_progress_and_ends_residuals() -> void:
 	_expect(is_equal_approx(float(ring_dash.get("_cooldown")), 4.0), "stowed updates must not consume passive cooldown")
 
 	_expect(runtime.try_toggle_guardian_stow(owner, registry), "healthy pool should resummon guardian")
-	_expect(runtime.is_companion_active(), "resummon should restore companion_active")
+	_expect(not runtime.is_companion_active(), "resummon presentation should keep combat availability disabled")
 	_expect(is_equal_approx(float(motion.defense_decision_timer), 0.77), "resummon edge must not reroll or reset defense lock")
+	runtime.update(0.53, owner, registry)
+	_expect(runtime.is_companion_active(), "resummon completion should restore companion_active")
 	runtime.update(1.0, owner, registry)
 	_expect(float(primary_state.cooldown) < 10.0, "personal cooldown should resume only after resummon")
 	_expect(float(persistence.shared_cooldown) < 9.0, "shared cooldown should resume only after resummon")

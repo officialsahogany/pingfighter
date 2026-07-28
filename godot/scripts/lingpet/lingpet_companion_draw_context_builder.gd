@@ -64,6 +64,7 @@ func build_config(params: Dictionary) -> Dictionary:
 		"attacking": attacking,
 		"companion_visible": bool(params.get("companion_visible", true)),
 		"companion_exhausted": bool(params.get("companion_exhausted", false)),
+		"companion_alpha": clampf(float(params.get("companion_alpha", 1.0)), 0.0, 1.0),
 		"satiety_exhaustion_ratio": clampf(float(params.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0),
 		"idle_texture": _resolve_body_texture(current_profile, "companion_idle", params),
 		"move_left_texture": _resolve_body_texture(current_profile, "companion_move_left", params),

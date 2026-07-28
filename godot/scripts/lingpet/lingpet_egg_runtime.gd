@@ -8,6 +8,9 @@ const LingpetAfterglowLeakState := preload("res://scripts/lingpet/lingpet_afterg
 const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_state.gd")
 const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
 const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink_vfx.gd")
+const LingpetGuardianTransitionState := preload(
+	"res://scripts/lingpet/lingpet_guardian_transition_state.gd"
+)
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetSpiritWaterDropState := preload("res://scripts/lingpet/lingpet_spirit_water_drop_state.gd")
@@ -167,6 +170,7 @@ var _ring_dash_state: Object = LingpetRingDashState.new()
 var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
 # Owns free-flight visibility edge latching so the blink "pong" VFX fires once per transition.
 var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
+var _guardian_transition_state: Object = LingpetGuardianTransitionState.new()
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _mount_state: Object = preload("res://scripts/lingpet/lingpet_mount_state.gd").new()
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
@@ -336,6 +340,9 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	var perf_logger: Object = _perf_probe.get_runtime_logger(registry)
 	var sample_start: int = _perf_probe.begin(perf_logger)
 	_switch_transition_state.advance(delta)
+	var completed_guardian_transition: String = str(_guardian_transition_state.advance(delta))
+	if completed_guardian_transition == LingpetGuardianTransitionState.MODE_SUMMON:
+		_complete_guardian_summon_transition(owner, registry)
 	_egg_state.advance(delta)
 	_item_egg_state.advance(delta)
 	if _item_egg_absorb_vfx.has_visible_effects():
@@ -885,6 +892,7 @@ func set_soul_summon_overflow_available_for_tests(available: bool) -> void:
 func prewarm_assets() -> void:
 	_egg_renderer.prewarm()
 	_afterglow_leak_state.prewarm()
+	_guardian_transition_state.prewarm()
 	if _companion_renderer != null:
 		_companion_renderer.prewarm_assets()
 	_item_egg_absorb_vfx.prewarm()
@@ -926,6 +934,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
 			_ghost_blink_vfx.draw(canvas, shake_offset)
+		if _guardian_transition_state.is_active():
+			_guardian_transition_state.draw(canvas, shake_offset)
 		if _affinity_feedback_state.has_visible_effects(_is_guardian_summoned()):
 			_companion_renderer.draw_affinity_feedback(
 				canvas,
@@ -1005,7 +1015,11 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 	var switch_transition_active: bool = bool(
 		_switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0
 	)
-	if not _is_guardian_summoned() and not switch_transition_active:
+	var guardian_transition_body_active: bool = (
+		_guardian_transition_state.is_active()
+		and float(_guardian_transition_state.get_companion_alpha()) > 0.0
+	)
+	if not _is_guardian_summoned() and not switch_transition_active and not guardian_transition_body_active:
 		return
 	var body_skill_id: String = _skill_runtime_surface.get_body_skill_id(
 		_current_profile,
@@ -1037,8 +1051,12 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 		click_reaction_texture,
 		_ring_dash_state
 	)
-	if not click_reaction_visible:
-		_draw_companion(canvas, _companion_pos + shake_offset)
+	if not click_reaction_visible or guardian_transition_body_active:
+		_draw_companion(
+			canvas,
+			_companion_pos + shake_offset,
+			float(_guardian_transition_state.get_companion_alpha()) if guardian_transition_body_active else 1.0
+		)
 	else:
 		_companion_click_reaction_state.draw(
 			canvas,
@@ -1061,6 +1079,7 @@ func has_visible_effects() -> bool:
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
+		or _guardian_transition_state.is_active()
 		or _affinity_feedback_state.has_visible_effects(_is_guardian_summoned())
 		or _skill_runtime_host.has_visible_effects()
 		or _item_egg_lifecycle_state.is_active()
@@ -1965,6 +1984,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		_profile_runtime_surface.get_passive_skill_pool(_current_profile)
 	)
 	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
+	snapshot["guardian_transition"] = _guardian_transition_state.get_snapshot()
 	snapshot["companion_skill_shared_cooldown"] = _companion_skill_persistence.get_shared_cooldown()
 	snapshot["companion_skill_shared_cooldown_duration"] = COMPANION_SKILL_SHARED_COOLDOWN_SECONDS
 	snapshot.merge(_afterglow_leak_state.get_snapshot(), true)
@@ -2168,6 +2188,7 @@ func reset_for_tests() -> void:
 	_companion_skill_persistence.reset_store()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
+	_guardian_transition_state.reset()
 	_overflow_choice_state.reset()
 	_item_egg_lifecycle_state.clear_runtime_state(
 		_item_egg_state,
@@ -2183,6 +2204,7 @@ func reset_for_tests() -> void:
 
 func reset_round(deps: Dictionary = {}) -> void:
 	_invalidate_runtime_snapshot_cache()
+	_guardian_transition_state.reset()
 	# Round resets may cancel an unreleased portal item, but only a real stage
 	# transition may rearm the one-natural-drop latch.
 	_spirit_water_drop_state.cancel_pending_drop()
@@ -2216,6 +2238,7 @@ func _clear_lingpet_field_state() -> void:
 	_invalidate_runtime_snapshot_cache()
 	_guardian_enhance_cutin_state.reset()
 	_guardian_enhance_cutin_prewarm_state.reset()
+	_guardian_transition_state.reset()
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
 	_satiety_runtime_state.reset()
@@ -3083,7 +3106,11 @@ func _advance_companion_draw_anim(delta: float) -> void:
 	))
 
 
-func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
+func _draw_companion(
+	canvas: CanvasItem,
+	center: Vector2,
+	transition_alpha: float = 1.0
+) -> void:
 	var visual_surface: Dictionary = _skill_runtime_surface.get_visual_surface(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -3108,7 +3135,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	if companion_exhausted:
 		draw_motion_speed_ratio = 0.0
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
-		"companion_active": _is_guardian_summoned(),
+		"companion_active": _is_guardian_summoned() or transition_alpha < 1.0,
 		"radius": COMPANION_RADIUS,
 		"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
 		"body_hit_state": _companion_body_hit_state,
@@ -3141,7 +3168,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		# Ghost (free_flight) fade alpha, 0..1. The renderer multiplies the companion
 		# sprite + aura by this so rabi fades out/in instead of hard-popping. 1.0 for
 		# non-ghost pets (motion state leaves ghost_alpha at 1.0 for them).
-		"companion_alpha": _companion_motion_state.ghost_alpha,
+		"companion_alpha": _companion_motion_state.ghost_alpha * clampf(transition_alpha, 0.0, 1.0),
 		"windup_seconds": float(visual_surface.get("windup_seconds", 0.0)),
 		"affinity_feedback_state": _affinity_feedback_state,
 		"mount_carry_active": _mount_state.is_mounted(),
@@ -3380,6 +3407,10 @@ func try_toggle_guardian_stow(
 		return false
 	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
 		return false
+	# The dedicated edge is consumed while either presentation is active. This
+	# prevents key-repeat from reversing or double-committing the state machine.
+	if _guardian_transition_state.is_active():
+		return true
 	if _guardian_stowed:
 		# Consume the dedicated toggle even while recovery has not crossed the
 		# strict >10s gate, so R3/Ctrl cannot leak into downstream battle input.
@@ -3528,7 +3559,7 @@ func _advance_satiety(
 	if _state != STATE_COMPANION:
 		_satiety_runtime_state.advance_inactive(_affinity_state)
 		return
-	if not _guardian_stowed:
+	if _is_guardian_duration_draining():
 		_guardian_active_elapsed += maxf(0.0, delta)
 	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state, _affinity_state)
 	var result: Dictionary = _satiety_runtime_state.advance_duration(
@@ -3539,7 +3570,7 @@ func _advance_satiety(
 		owner,
 		_collection_state,
 		_profile_runtime_surface.get_passive_skills(_current_profile),
-		not _guardian_stowed
+		_is_guardian_duration_draining()
 	)
 	if bool(result.get("expired", false)):
 		_set_guardian_stowed(true, owner, registry, true)
@@ -3588,31 +3619,63 @@ func _set_guardian_stowed(
 	registry: Object,
 	forced: bool = false
 ) -> bool:
-	if _guardian_stowed == stowed:
+	if forced:
+		var interrupted_transition: bool = bool(_guardian_transition_state.is_active())
+		_guardian_transition_state.reset()
+		if _guardian_stowed == stowed:
+			return interrupted_transition
+		_guardian_stowed = stowed
+		_guardian_active_elapsed = 0.0
+		if stowed:
+			_end_guardian_runtime_for_stow(owner, registry)
+			_ghost_blink_vfx.trigger_vanish(_companion_pos)
+		else:
+			_ghost_blink_vfx.trigger_appear(_companion_pos)
+		_invalidate_runtime_snapshot_cache()
+		if owner != null:
+			_sync_owner(owner, registry)
+		return true
+	if _guardian_transition_state.is_active() or _guardian_stowed == stowed:
 		return false
 	if stowed and not forced and _guardian_active_elapsed < GUARDIAN_MIN_SUMMON_SECONDS:
 		return false
-	_guardian_stowed = stowed
-	_guardian_active_elapsed = 0.0
 	if stowed:
+		_guardian_stowed = true
+		_guardian_active_elapsed = 0.0
 		_end_guardian_runtime_for_stow(owner, registry)
-		_switch_transition_state.begin(
-			_pet_id,
-			"",
-			COMPANION_SWITCH_TRANSITION_SECONDS
+		_guardian_transition_state.begin_stow(
+			_companion_pos,
+			_vector_resolver.get_owner_player_paddle_center(owner, _companion_pos)
 		)
 		_ghost_blink_vfx.trigger_vanish(_companion_pos)
+		_audio_dispatcher.play_lingpet_guardian_stow_transition(registry)
 	else:
-		_switch_transition_state.begin(
-			"",
-			_pet_id,
-			COMPANION_SWITCH_TRANSITION_SECONDS
+		if _companion_pos == Vector2.ZERO:
+			_initialize_companion_patrol(owner, true)
+		_guardian_active_elapsed = 0.0
+		_guardian_transition_state.begin_summon(
+			_vector_resolver.get_owner_player_paddle_center(owner, _companion_pos),
+			_companion_pos
 		)
-		_ghost_blink_vfx.trigger_appear(_companion_pos)
+		_audio_dispatcher.play_lingpet_guardian_summon_transition(registry)
 	_invalidate_runtime_snapshot_cache()
 	if owner != null:
 		_sync_owner(owner, registry)
 	return true
+
+
+func _complete_guardian_summon_transition(owner: Object, registry: Object) -> void:
+	if _state != STATE_COMPANION or not _guardian_stowed:
+		return
+	_guardian_stowed = false
+	_ghost_blink_vfx.trigger_appear(_companion_pos)
+	_invalidate_runtime_snapshot_cache()
+	if owner != null:
+		_sync_owner(owner, registry)
+
+
+func _is_guardian_duration_draining() -> bool:
+	return _is_guardian_summoned() or _guardian_transition_state.is_summoning()
 
 
 func _end_guardian_runtime_for_stow(owner: Object, registry: Object) -> void:
