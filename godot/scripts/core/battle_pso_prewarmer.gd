@@ -346,6 +346,7 @@ func _prewarm_character_topdown_rim_shader() -> void:
 func _prewarm_pillar_overlay_primitives() -> void:
 	_prewarm_pillar_hud_primitives()
 	var gauge_frame := _get_texture(BattleResources.GAUGE_ORB_FRAME_TEXTURE_PATH)
+	var gauge_ornament := _get_texture(BattleResources.GAUGE_ORB_KI_JADE_ORNAMENT_TEXTURE_PATH)
 	var dash_frame := _get_texture(BattleResources.DASH_TOKEN_FRAME_TEXTURE_PATH)
 	var dash_bell_cell := _get_texture(BattleResources.DASH_TOKEN_BELL_CELL_TEXTURE_PATH)
 	var skill_frame := _get_texture(BattleResources.SKILL_ORB_FRAME_TEXTURE_PATH)
@@ -368,6 +369,7 @@ func _prewarm_pillar_overlay_primitives() -> void:
 			"flash_timer": 0.35,
 			"flash_duration": 0.55,
 			"frame_texture": gauge_frame,
+			"ornament_texture": gauge_ornament,
 			"frame_spin_angle": 24.0,
 		}
 	)

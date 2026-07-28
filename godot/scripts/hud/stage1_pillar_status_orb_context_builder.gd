@@ -12,6 +12,7 @@ func build_gauge_orb_context(context: Dictionary, orb_drawer: Object) -> Diction
 		"flash_timer": context.get("gauge_flash_timer", 0.0),
 		"flash_duration": context.get("gauge_flash_duration", 0.45),
 		"frame_texture": context.get("gauge_frame_texture", null),
+		"ornament_texture": context.get("gauge_orb_ki_jade_ornament_texture", null),
 		"frame_spin_angle": context.get("gauge_frame_spin_angle", 0.0),
 		"hud_lod_scale": context.get("hud_lod_scale", 1.0),
 		"pillar_hud_static_lod": bool(context.get("pillar_hud_static_lod", false)),

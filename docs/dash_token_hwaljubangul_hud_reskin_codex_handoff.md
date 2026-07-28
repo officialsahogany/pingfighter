@@ -300,3 +300,22 @@ regions from it, but should not mix old HUD pieces underneath it.
 - 검증 씰 `gauge_orb_hwangyeok_frame_smoke.gd`는 경로·임포트·알파 홀·bbox,
   불투명 마젠타 및 고정 청람 옥 부재, 컨텍스트 전달, 코어 프리웜 스펙,
   프레임 최종 전경 드로우 순서를 고정한다.
+
+## 11. 기력구슬 단일 상단 장식 확정 (2026-07-28)
+
+- 사용자 후속 요청으로 활주방울의 단일 방울과 짝을 이루는 **청옥 기력결정
+  노리개 1개**를 기력구슬 12시 방향에 둔다. 이는 장식일 뿐 게이지 칸이나
+  추가 자원을 뜻하지 않는다.
+- 자산은 `gauge_orb_ki_jade_ornament_imagegen_v1.png`: `128x128`,
+  `alpha > 16` bbox `68x108`. 놋쇠·옻칠·단청 받침에 푸른 옥 코어 한 알만
+  두며, 추가 구슬·술·문자·방울은 넣지 않는다.
+- 기준 반경 `55px`에서 `28x28px`로 그리고 중심은 구슬 중심에서
+  `y=-65px`에 둔다. 활주방울의 상단 장식과 같은 시각 높이로 링에 걸치되
+  액체 코어는 침범하지 않는다.
+- 장식은 회전 프레임 PNG에 굽지 않고 `pillar_gauge_orb_renderer.gd`가
+  프레임 드로우 이후에 별도 고정 오버레이로 그린다. 따라서 기력 소진 프레임 회전
+  중에도 청옥은 12시 방향을 유지한다.
+- `GAUGE_ORB_KI_JADE_ORNAMENT_TEXTURE_PATH` -> 코어 텍스처 스펙
+  `gauge_orb_ki_jade_ornament_texture` -> 게이지 컨텍스트
+  `ornament_texture`로만 전달한다. 핫패스 lazy load는 금지하며 PSO 프리웜도
+  실제 게이지 드로우 컨텍스트에 이 텍스처를 포함한다.

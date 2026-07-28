@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleCoreTexturePaths := preload("res://scripts/resources/battle_core_texture_paths.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const PillarGaugeOrbRenderer := preload("res://scripts/hud/pillar_gauge_orb_renderer.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
 
 var _failures: Array[String] = []
@@ -29,27 +30,58 @@ func _init() -> void:
 		_expect(_opaque_magenta_count(image) == 0, "ki-orb frame must not retain opaque magenta chroma pixels")
 		_expect(_luminous_blue_pixel_count(image) == 0, "ki-orb frame must not restore fixed blue jewel nodes")
 
+	var ornament_path := BattleCoreTexturePaths.GAUGE_ORB_KI_JADE_ORNAMENT_TEXTURE_PATH
+	_expect(ornament_path.ends_with("gauge_orb_ki_jade_ornament_imagegen_v1.png"), "ki orb must use the accepted single jade ornament")
+	_expect(FileAccess.file_exists(ornament_path), "ki-orb jade ornament PNG must exist")
+	_expect(FileAccess.file_exists(ornament_path + ".import"), "ki-orb jade ornament must ship with its import sidecar")
+	var ornament_image := Image.load_from_file(ProjectSettings.globalize_path(ornament_path))
+	_expect(ornament_image != null and ornament_image.get_size() == Vector2i(128, 128), "ki-orb jade ornament must preserve its 128x128 socket")
+	if ornament_image != null:
+		var ornament_bbox := _alpha_bbox(ornament_image, 16.0 / 255.0)
+		_expect(ornament_bbox.size == Vector2i(68, 108), "ki-orb jade ornament alpha bbox must preserve the bell-paired silhouette")
+		_expect(_opaque_magenta_count(ornament_image) == 0, "ki-orb jade ornament must not retain opaque magenta chroma pixels")
+		_expect(_luminous_blue_pixel_count(ornament_image) >= 1000, "ki-orb jade ornament must retain one readable blue energy core")
+
 	var texture_image := Image.create(4, 4, false, Image.FORMAT_RGBA8)
 	texture_image.fill(Color.WHITE)
 	var frame_texture := ImageTexture.create_from_image(texture_image)
+	var ornament_texture := ImageTexture.create_from_image(texture_image)
 	var builder := Stage1PillarStatusOrbContextBuilder.new()
-	var gauge_context: Dictionary = builder.build_gauge_orb_context({"gauge_frame_texture": frame_texture}, null)
-	_expect(gauge_context.get("frame_texture", null) == frame_texture, "ki-orb context must receive the prewarmed v2 frame texture")
+	var gauge_context: Dictionary = builder.build_gauge_orb_context({
+		"gauge_frame_texture": frame_texture,
+		"gauge_orb_ki_jade_ornament_texture": ornament_texture,
+	}, null)
+	_expect(gauge_context.get("frame_texture", null) == frame_texture, "ki-orb context must receive the prewarmed v3 frame texture")
+	_expect(gauge_context.get("ornament_texture", null) == ornament_texture, "ki-orb context must receive the prewarmed jade ornament texture")
+	var renderer := PillarGaugeOrbRenderer.new()
+	var ornament_draw_spec := renderer.build_ki_jade_ornament_draw_spec(Vector2(100.0, 100.0), 55.0, gauge_context)
+	var ornament_rect: Rect2 = ornament_draw_spec.get("rect", Rect2())
+	_expect(ornament_draw_spec.get("texture", null) == ornament_texture, "ki-orb ornament draw spec must retain texture identity")
+	_expect(ornament_rect.size.is_equal_approx(Vector2(28.0, 28.0)), "ki-orb ornament must match the dash bell's 28px base draw size")
+	_expect(is_equal_approx(ornament_rect.get_center().x, 100.0), "ki-orb ornament must stay centered at 12 o'clock")
+	_expect(is_equal_approx(ornament_rect.get_center().y, 35.0), "ki-orb ornament must overlap the top rim without entering the liquid core")
 
 	var resources := BattleResources.new()
 	var frame_spec_count := 0
+	var ornament_spec_count := 0
 	for spec_value in resources._get_core_texture_specs():
 		if not (spec_value is Dictionary):
 			continue
 		var spec: Dictionary = spec_value
 		if str(spec.get("path", "")) == frame_path and "gauge_orb_frame_texture" in spec.get("keys", []):
 			frame_spec_count += 1
+		if str(spec.get("path", "")) == ornament_path and "gauge_orb_ki_jade_ornament_texture" in spec.get("keys", []):
+			ornament_spec_count += 1
 	_expect(frame_spec_count == 1, "ki-orb v3 frame must join core staged prewarm exactly once")
+	_expect(ornament_spec_count == 1, "ki-orb jade ornament must join core staged prewarm exactly once")
 
 	var gauge_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_gauge_orb_renderer.gd")
 	var glass_index := gauge_source.find("pillar_drawer.draw_pillar_orb_glass(canvas")
 	var frame_index := gauge_source.find("pillar_drawer.draw_rotating_orb_frame_texture")
+	var ornament_index := gauge_source.find("_draw_ki_jade_ornament_overlay(canvas", frame_index)
 	_expect(glass_index >= 0 and frame_index > glass_index, "ki-orb frame must remain the final foreground collar above the glass")
+	_expect(ornament_index > frame_index, "ki-orb jade ornament must stay fixed above the rotating frame draw")
+	_expect(gauge_source.count("\t_draw_ki_jade_ornament_overlay(canvas") == 1, "ki-orb must draw exactly one decorative jade ornament")
 
 	if _failures.is_empty():
 		print("gauge_orb_hwangyeok_frame_smoke: ok")

@@ -16,6 +16,9 @@ const LIQUID_DISPLAY_FALL_RESPONSE := 18.0
 const LIQUID_DISPLAY_MAX_DELTA_SECONDS := 0.25
 const LIQUID_DISPLAY_SNAP_EPSILON := 0.002
 const FULL_GAUGE_SNAP_THRESHOLD := 0.999
+const KI_JADE_ORNAMENT_SIZE_RATIO := 28.0 / 55.0
+const KI_JADE_ORNAMENT_Y_OFFSET_RATIO := -65.0 / 55.0
+const KI_JADE_ORNAMENT_MODULATE := Color(1.0, 1.0, 1.0, 0.98)
 
 var background_cache: Object = PillarOrbBackgroundCache.new()
 var fill_renderer: Object = PillarGaugeOrbFillRenderer.new()
@@ -114,6 +117,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		var texture: Texture2D = frame_texture
 		var spin_angle: float = _get_frame_spin_angle(context)
 		pillar_drawer.draw_rotating_orb_frame_texture(canvas, texture, center, radius, spin_angle)
+	_draw_ki_jade_ornament_overlay(canvas, center, radius, context)
 
 	if flash_timer > 0.0 and not static_hud_lod:
 		var flash_progress: float = flash_timer / flash_duration
@@ -139,6 +143,34 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		pillar_drawer.draw_pillar_text_centered_lod(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
 	else:
 		pillar_drawer.draw_pillar_text_centered(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
+
+
+func build_ki_jade_ornament_draw_spec(center: Vector2, radius: float, context: Dictionary) -> Dictionary:
+	var texture_value: Variant = context.get("ornament_texture", null)
+	if not (texture_value is Texture2D):
+		return {}
+	var ornament_size: float = max(10.0, radius * KI_JADE_ORNAMENT_SIZE_RATIO)
+	var ornament_center := center + Vector2(0.0, radius * KI_JADE_ORNAMENT_Y_OFFSET_RATIO)
+	return {
+		"texture": texture_value,
+		"rect": Rect2(ornament_center - Vector2.ONE * ornament_size * 0.5, Vector2.ONE * ornament_size),
+		"modulate": KI_JADE_ORNAMENT_MODULATE,
+	}
+
+
+func _draw_ki_jade_ornament_overlay(canvas: CanvasItem, center: Vector2, radius: float, context: Dictionary) -> void:
+	var draw_spec := build_ki_jade_ornament_draw_spec(center, radius, context)
+	if draw_spec.is_empty():
+		return
+	var texture := draw_spec.get("texture", null) as Texture2D
+	var rect: Rect2 = draw_spec.get("rect", Rect2())
+	var modulate: Color = draw_spec.get("modulate", Color.WHITE)
+	canvas.draw_texture_rect(
+		texture,
+		rect,
+		false,
+		modulate
+	)
 
 
 func _update_display_ratio(target_ratio: float, time_seconds: float) -> float:
