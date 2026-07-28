@@ -745,6 +745,35 @@ func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
 		"renderer-facing actor context should carry the loot defeat frame clock"
 	)
 
+	# Stage 2(64f 시트) 픽스처: S2/S6 렌더러는 boss_defeat_frame을 우선 소비하고
+	# 키가 누락되면 자체 루프 클럭으로 조용히 폴백한다 — merge가 필드별 복사로
+	# 바뀌어 frame 키만 빠지는 회귀까지 build() 반환값에서 직접 봉인한다.
+	var stage2_loot := VictoryLootPhaseState.new()
+	var stage2_owner := SchemaGatedOwner.new()
+	stage2_owner.scene_state.set_value("current_stage", 2)
+	stage2_loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(
+		stage2_loot.start(stage2_owner, registry, 5, 0, Callable()),
+		"stage2 actor-context integration leg should start the loot phase"
+	)
+	var stage2_start_context: Dictionary = builder.build(
+		{"current_stage": 2, "selected_character_type": "smasher"},
+		{"victory_loot_phase_state": stage2_loot}
+	)
+	_expect(
+		int(stage2_start_context.get("boss_defeat_frame", -1)) == 0,
+		"renderer-facing actor context must carry the stage2 defeat frame from zero at loot start"
+	)
+	stage2_loot.update(VictoryLootPhaseState.INTRO_DEFEAT_SEC)
+	var stage2_held_context: Dictionary = builder.build(
+		{"current_stage": 2, "selected_character_type": "smasher"},
+		{"victory_loot_phase_state": stage2_loot}
+	)
+	_expect(
+		int(stage2_held_context.get("boss_defeat_frame", -1)) == VictoryLootPhaseState.BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
+		"renderer-facing actor context must carry the stage2 held final defeat frame after the intro"
+	)
+
 
 func _record_finish() -> void:
 	_finish_calls += 1
