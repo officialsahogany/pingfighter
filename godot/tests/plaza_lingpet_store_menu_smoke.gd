@@ -279,10 +279,13 @@ func _verify_lingpet_egg_purchase_spawns_runtime_egg() -> void:
 
 	owner.ball_active = true
 	owner.ball_serve_origin = "boss"
-	var required_hits := maxi(1, int(lingpet_runtime.get_snapshot().get("required_hits", owner.lingpet_hatch_required_hits)))
-	var egg_pos: Vector2 = owner.lingpet_egg_pos
-	for hit_index in range(required_hits):
-		_register_hit(lingpet_runtime, owner, egg_pos, hit_index + 1, registry)
+	# The production egg rolls [2, 3, 4]. Drive the real collision path up to
+	# that hard maximum and stop as soon as the hatch commits; querying the
+	# same-frame snapshot here can legally return its memoized pre-purchase view.
+	for hit_index in range(4):
+		if str(owner.lingpet_state) == "companion":
+			break
+		_register_hit(lingpet_runtime, owner, owner.lingpet_egg_pos, hit_index + 1, registry)
 	_expect(str(owner.lingpet_state) == "companion", "purchased plaza egg should hatch through the existing ball-hit flow")
 	_expect(owner.lingpet_owned_pet_ids.size() == 1, "hatching the plaza egg should grant ownership through the lingpet runtime")
 	_expect(str(owner.active_lingpet_id) != "", "hatching the plaza egg should publish the active lingpet id")
