@@ -11,6 +11,7 @@ const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
 const LingpetFeedController := preload("res://scripts/lingpet/lingpet_feed_controller.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
 const LingpetCompanionClickReactionDrawSizeResolver := preload("res://scripts/lingpet/lingpet_companion_click_reaction_draw_size_resolver.gd")
@@ -238,6 +239,10 @@ var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
 var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
 var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
 var _guardian_stowed := false
+var _soul_summon_offer_guarantee_count := 0
+var _soul_summon_offer_cooldown_screens := 0
+var _soul_summon_offer_pending_choice := false
+var _soul_summon_overflow_available_for_tests := true
 var _guardian_active_elapsed := 0.0
 var _duration_warning_stage := 0
 var _duration_roll_rng_for_tests: RandomNumberGenerator = null
@@ -536,8 +541,44 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 # incubator egg can collect another pet). Blocked only while an egg is mid-incubation
 # (STATE_EGG main egg or active coexist egg) so two eggs never incubate at once.
 # Junior never offers the item (its lingpet is auto-present).
-func can_offer_egg_item(owner: Object) -> bool:
+func begin_soul_summon_offer_screen(already_owned: bool) -> Dictionary:
+	if already_owned:
+		mark_soul_summon_art_acquired()
+		return {"offer_allowed": false, "reserve": false}
+	if _soul_summon_offer_pending_choice:
+		_soul_summon_offer_pending_choice = false
+		if _soul_summon_offer_guarantee_count >= 2:
+			_soul_summon_offer_cooldown_screens = 3
+	if _soul_summon_offer_cooldown_screens > 0:
+		_soul_summon_offer_cooldown_screens -= 1
+		return {"offer_allowed": false, "reserve": false}
+	if _soul_summon_offer_guarantee_count < 2:
+		_soul_summon_offer_guarantee_count += 1
+	_soul_summon_offer_pending_choice = true
+	return {
+		"offer_allowed": true,
+		"reserve": true,
+		"guarantee_index": _soul_summon_offer_guarantee_count,
+	}
+
+
+func mark_soul_summon_art_acquired() -> void:
+	_soul_summon_offer_pending_choice = false
+	_soul_summon_offer_cooldown_screens = 0
+
+
+func get_soul_summon_offer_state_for_tests() -> Dictionary:
+	return {
+		"guarantee_count": _soul_summon_offer_guarantee_count,
+		"cooldown_screens": _soul_summon_offer_cooldown_screens,
+		"pending_choice": _soul_summon_offer_pending_choice,
+	}
+
+
+func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
 	if owner == null:
+		return false
+	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
 		return false
 	if _state == STATE_EGG or _item_egg_lifecycle_state.has_blocking_incubation():
 		return false
@@ -557,10 +598,16 @@ func can_offer_egg_item(owner: Object) -> bool:
 # Returns false (so the slot controller does NOT consume the item or start its cooldown —
 # see active_item_slot_controller._try_use_slot) when an egg is already incubating, no pet
 # can be picked, or the league auto-presents its lingpet.
-func deploy_egg_from_item(owner: Object, registry: Object = null) -> bool:
+func deploy_egg_from_item(
+	owner: Object,
+	registry: Object = null,
+	bypass_soul_summon_gate: bool = false
+) -> bool:
 	if owner == null:
 		return false
 	_invalidate_runtime_snapshot_cache()
+	if not bypass_soul_summon_gate and not GuardianEggAccessPolicy.has_egg_access(owner, registry):
+		return false
 	# Junior auto-presents its single tutorial lingpet, so the egg item must NEVER
 	# deploy there. This is the central use-site seal: direct-grant reward paths
 	# (Pandora active grant, plaza gacha) deliver via append_item_data, which bypasses
@@ -608,6 +655,40 @@ func deploy_egg_from_item(owner: Object, registry: Object = null) -> bool:
 	))
 	_sync_owner(owner, registry)
 	return true
+
+
+func deploy_soul_summon_egg(owner: Object, registry: Object = null) -> Dictionary:
+	if owner == null:
+		return {"dropped": false, "skipped_reason": "missing_owner"}
+	if (
+		_state == STATE_EGG
+		or _item_egg_lifecycle_state.has_blocking_incubation()
+		or _item_egg_lifecycle_state.has_pending_absorb()
+		or _acquire_cutin_state.active
+		or _overflow_choice_state.has_pending_or_active()
+	):
+		return {"dropped": false, "skipped_reason": "egg_already_present"}
+	_collection_state.sync_from_owner(owner)
+	if (
+		_collection_state.is_full(owner)
+		and (
+			not _soul_summon_overflow_available_for_tests
+			or _overflow_choice_state == null
+			or not _overflow_choice_state.has_method("begin_item_egg_overflow")
+		)
+	):
+		return {"dropped": false, "skipped_reason": "overflow_unavailable"}
+	if not _collection_state.has_unowned_pet_candidates(owner):
+		return {"dropped": false, "skipped_reason": "no_unowned_pet_candidates"}
+	var dropped := deploy_egg_from_item(owner, registry, true)
+	return {
+		"dropped": dropped,
+		"skipped_reason": "" if dropped else "deploy_rejected",
+	}
+
+
+func set_soul_summon_overflow_available_for_tests(available: bool) -> void:
+	_soul_summon_overflow_available_for_tests = available
 
 
 	# Fire the ghost "퐁" pop on the rabi free-flight vanish/appear edges. Only the
@@ -1128,6 +1209,10 @@ func debug_grant_and_activate_pet(
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
+	_soul_summon_offer_guarantee_count = 0
+	_soul_summon_offer_cooldown_screens = 0
+	_soul_summon_offer_pending_choice = false
+	_soul_summon_overflow_available_for_tests = true
 	_set_current_pet_id(normalized_pet_id)
 	_loadout_state.set_skip_unlock_reconcile(has_explicit_loadout)
 	_apply_current_loadout(owner, true, false, registry)
@@ -3103,6 +3188,8 @@ func try_toggle_guardian_stow(
 ) -> bool:
 	if _state != STATE_COMPANION or _pet_id.strip_edges() == "":
 		return false
+	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
+		return false
 	if _guardian_stowed:
 		# Consume the dedicated toggle even while recovery has not crossed the
 		# strict >10s gate, so R3/Ctrl cannot leak into downstream battle input.
@@ -3114,6 +3201,18 @@ func try_toggle_guardian_stow(
 		return true
 	_set_guardian_stowed(true, owner, registry)
 	return true
+
+
+func on_soul_summon_art_removed(owner: Object, registry: Object = null) -> Dictionary:
+	var stowed := false
+	if _state == STATE_COMPANION:
+		stowed = _set_guardian_stowed(true, owner, registry, true)
+	return {
+		"stowed": stowed or is_guardian_stowed(),
+		"duration_pool_current": get_duration_pool_current(),
+		"duration_pool_max": get_duration_pool_max(),
+		"pet_id": _pet_id,
+	}
 
 
 func get_guardian_active_elapsed_for_tests() -> float:

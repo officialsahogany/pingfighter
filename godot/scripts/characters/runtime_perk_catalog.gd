@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
@@ -19,6 +20,7 @@ const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
 const LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1
 const LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER := [1, 1, 1, 0, 0, 0, 0]
 const LINGPET_RING_CORE_PRIORITY_KEY := "_lingpet_ring_core_reserved"
+const SOUL_SUMMON_PRIORITY_KEY := "_soul_summon_reserved"
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_AFFINITY_CHIP_CHOICE_ID: true,
 	LINGPET_RING_CORE_UPGRADE_CHOICE_ID: true,
@@ -1341,6 +1343,7 @@ func get_choices(
 	var target_choice_count: int = max(0, int(base_choice_count))
 	var choices: Array = []
 	_append_pool_choices(choices, COMMON_PERKS, runtime_levels, "")
+	_append_soul_summon_choice(choices, runtime_levels, _registry)
 
 	var normalized: String = _normalize_character(character_type)
 	if normalized == "smasher":
@@ -1362,6 +1365,9 @@ func get_choices(
 		_append_instant_choices(choices)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
+	var soul_summon_reservation: Dictionary = _extract_soul_summon_reserved_choice(choices)
+	var soul_summon_reserved: Array = soul_summon_reservation.get("reserved", []) as Array
+	choices = soul_summon_reservation.get("remaining", []) as Array
 	var mythic_reserved: Array = []
 	var mythic_count := 0
 	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels, _registry):
@@ -1407,6 +1413,10 @@ func get_choices(
 	choices = ring_core_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
+	for soul_choice in soul_summon_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(soul_choice, "soul_summon_reserved", true))
 	for mythic_choice in mythic_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1454,6 +1464,7 @@ func get_choices(
 func get_all_perk_data() -> Dictionary:
 	var data: Dictionary = {}
 	data.merge(COMMON_PERKS, true)
+	data[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data()
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
 	data.merge(SOLDIER_PERKS, true)
@@ -1474,6 +1485,10 @@ func get_all_perk_data() -> Dictionary:
 
 
 func get_perk_data(skill_id: String) -> Dictionary:
+	if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
+		var common_unlock := CommonSkillCatalog.get_unlock_perk_data()
+		common_unlock["id"] = skill_id
+		return common_unlock
 	var all_data: Dictionary = get_all_perk_data()
 	if all_data.has(skill_id):
 		var data: Dictionary = all_data[skill_id]
@@ -1648,6 +1663,10 @@ func get_perk_slot_status(runtime_levels: Dictionary, slot_context: Object = nul
 func get_debug_perk_entries(_character_type: String = "") -> Array:
 	var entries: Array = []
 	_append_debug_pool_entries(entries, COMMON_PERKS, "common")
+	var soul_summon_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data()
+	soul_summon_entry["id"] = CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	soul_summon_entry["debug_group"] = "common"
+	entries.append(soul_summon_entry)
 	_append_debug_pool_entries(entries, SMASHER_PERKS, "smasher")
 	_append_debug_pool_entries(entries, VIPER_PERKS, "viper")
 	_append_debug_pool_entries(entries, SOLDIER_PERKS, "soldier")
@@ -1680,6 +1699,61 @@ func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dicti
 		var next_level: int = current_level + 1
 		var choice: Dictionary = _build_level_choice(skill_id, skill_data, current_level, next_level, character_restriction)
 		output.append(LanguageSettings.localize_perk_data(choice))
+
+
+func _append_soul_summon_choice(
+	output: Array,
+	runtime_levels: Dictionary,
+	registry: Object
+) -> void:
+	if int(runtime_levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, 0)) > 0:
+		return
+	if int(runtime_levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_ID, 0)) > 0:
+		return
+	var reservation := {
+		"offer_allowed": true,
+		"reserve": true,
+	}
+	var runtime: Object = _get_lingpet_runtime(registry)
+	if runtime != null and runtime.has_method("begin_soul_summon_offer_screen"):
+		var runtime_result: Variant = runtime.begin_soul_summon_offer_screen(false)
+		if runtime_result is Dictionary:
+			reservation = (runtime_result as Dictionary).duplicate(true)
+	if not bool(reservation.get("offer_allowed", false)):
+		return
+	var choice: Dictionary = _build_level_choice(
+		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID,
+		CommonSkillCatalog.get_unlock_perk_data(),
+		0,
+		1,
+		""
+	)
+	if bool(reservation.get("reserve", false)):
+		choice[SOUL_SUMMON_PRIORITY_KEY] = true
+	output.append(choice)
+
+
+func _extract_soul_summon_reserved_choice(choices: Array) -> Dictionary:
+	var reserved: Array = []
+	var remaining: Array = []
+	for value in choices:
+		if value is Dictionary:
+			var choice: Dictionary = value as Dictionary
+			if bool(choice.get(SOUL_SUMMON_PRIORITY_KEY, false)):
+				var reserved_choice := choice.duplicate(true)
+				reserved_choice.erase(SOUL_SUMMON_PRIORITY_KEY)
+				reserved.append(reserved_choice)
+				continue
+			if choice.has(SOUL_SUMMON_PRIORITY_KEY):
+				var regular_choice := choice.duplicate(true)
+				regular_choice.erase(SOUL_SUMMON_PRIORITY_KEY)
+				remaining.append(regular_choice)
+				continue
+		remaining.append(value)
+	return {
+		"reserved": reserved,
+		"remaining": remaining,
+	}
 
 
 func _append_converted_perk_choices(output: Array, runtime_levels: Dictionary, character_type: String) -> void:
@@ -1891,6 +1965,9 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 
 	var filtered: Array = []
 	for choice in choices:
+		if str(choice.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
+			filtered.append(choice)
+			continue
 		if str(choice.get("unlocks_skill", "")) == "":
 			filtered.append(choice)
 	return filtered

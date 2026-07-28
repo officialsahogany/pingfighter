@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkSoulSummonArt := preload("res://scripts/characters/runtime_perk_soul_summon_art.gd")
+
 const CALLBACK_GET_INSTANCE := "get_instance"
 const CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE := "apply_unlock_swap_state_update"
 const CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS := "sync_runtime_perk_owner_effects"
@@ -72,6 +74,8 @@ func apply_choice(
 	var unlock_update: Dictionary = _commit_unlock_choice_level(level_side_effects, choice, runtime_skill_levels)
 	if not bool(unlock_update.get("accepted", false)):
 		return unlock_update
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(unlocked_skill):
+		runtime_skill_levels[unlocked_skill] = 1
 
 	sample_start = _perf_begin(perf_logger)
 	var owner_sync_result: Dictionary = _call_optional(
@@ -82,6 +86,9 @@ func apply_choice(
 	_perf_end(perf_logger, "process.runtime_perk.unlock.sync_owner_effects", sample_start)
 	if not bool(owner_sync_result.get("accepted", false)):
 		return owner_sync_result
+	var soul_summon_result: Dictionary = {}
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(unlocked_skill):
+		soul_summon_result = RuntimePerkSoulSummonArt.apply_acquired(owner, registry)
 
 	sample_start = _perf_begin(perf_logger)
 	if unlock_swap_flow != null and unlock_swap_flow.has_method("sync_commando_weapon_controller"):
@@ -105,6 +112,7 @@ func apply_choice(
 		"accepted": true,
 		"choice_id": choice_id,
 		"unlocked_skill": unlocked_skill,
+		"soul_summon_result": soul_summon_result,
 	}
 
 

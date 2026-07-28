@@ -1,5 +1,8 @@
 extends RefCounted
 
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
+const RuntimePerkSoulSummonArt := preload("res://scripts/characters/runtime_perk_soul_summon_art.gd")
+
 const SWAP_CANCEL_FEEDBACK_TEXT := "교체 취소"
 const SWAP_CANCEL_FEEDBACK_TIMER := 0.8
 const SWAP_COMPLETE_FEEDBACK_TEMPLATE := "%s 교체 완료"
@@ -436,6 +439,8 @@ func confirm_pending_swap(
 	)
 	if not bool(unlock_update.get("accepted", false)):
 		return unlock_update
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(str(confirm_request.get("unlocked_skill", ""))):
+		runtime_skill_levels[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 1
 
 	var owner_effect_sync: Dictionary = sync_confirm_owner_effects(
 		confirm_request,
@@ -445,6 +450,13 @@ func confirm_pending_swap(
 	)
 	if not bool(owner_effect_sync.get("accepted", false)):
 		return owner_effect_sync
+	var soul_summon_result: Dictionary = {}
+	var removed_skill: String = str(swap_result.get("removed_skill", ""))
+	var unlocked_skill: String = str(confirm_request.get("unlocked_skill", ""))
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(removed_skill):
+		soul_summon_result["removed"] = RuntimePerkSoulSummonArt.apply_removed(owner, registry)
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(unlocked_skill):
+		soul_summon_result["acquired"] = RuntimePerkSoulSummonArt.apply_acquired(owner, registry)
 
 	sync_commando_weapon_controller_for_confirm_request(
 		confirm_request,
@@ -455,13 +467,15 @@ func confirm_pending_swap(
 	var completion_plan: Dictionary = build_confirm_completion_plan(confirm_request)
 	if not bool(completion_plan.get("accepted", false)):
 		return completion_plan
-	return apply_confirm_completion_and_showcase(
+	var completion_result: Dictionary = apply_confirm_completion_and_showcase(
 		completion_plan,
 		owner,
 		registry,
 		_get_callback(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE),
 		_get_callback(callbacks, CALLBACK_FINISH_OR_OPEN_UNLOCK_SHOWCASE)
 	)
+	completion_result["soul_summon_result"] = soul_summon_result
+	return completion_result
 
 
 func apply_confirm_selected_swap_and_cleanup(
@@ -700,6 +714,8 @@ func apply_selected_swap_and_cleanup(
 		removed_skill,
 		catalog
 	)
+	if RuntimePerkSoulSummonArt.is_soul_summon_skill(removed_skill):
+		runtime_skill_levels.erase(CommonSkillCatalog.SOUL_SUMMON_ART_ID)
 	return swap_result
 
 

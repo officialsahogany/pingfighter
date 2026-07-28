@@ -43,6 +43,7 @@ const LingpetUnlockLoadoutReconciler := preload("res://scripts/lingpet/lingpet_u
 const LingpetNoneOwnerSyncState := preload("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
 const LingpetItemEggAbsorbRouter := preload("res://scripts/lingpet/lingpet_item_egg_absorb_router.gd")
 const LingpetItemEggLifecycleState := preload("res://scripts/lingpet/lingpet_item_egg_lifecycle_state.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -507,13 +508,27 @@ class FakeDashState:
 		}
 
 
+class FakeRuntimePerkState:
+	extends RefCounted
+
+	var runtime_skill_levels := {
+		CommonSkillCatalog.SOUL_SUMMON_ART_ID: 1,
+		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID: 1,
+	}
+
+	func get_runtime_skill_level(skill_id: String) -> int:
+		return int(runtime_skill_levels.get(skill_id, 0))
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var instances: Dictionary = {}
 
 	func _init(next_instances: Dictionary = {}) -> void:
-		instances = next_instances
+		instances = next_instances.duplicate()
+		if not instances.has("runtime_perk_state"):
+			instances["runtime_perk_state"] = FakeRuntimePerkState.new()
 
 	func get_instance(key: String) -> Object:
 		var value: Variant = instances.get(key, null)
@@ -2861,7 +2876,7 @@ func _verify_pro_league_egg_item_deploy() -> void:
 	var champion_runtime: Object = LingpetEggRuntime.new()
 	champion_runtime.update(0.0, champion_owner, registry)
 	_expect(str(champion_owner.lingpet_state) == "none", "Pro league should not auto-spawn a lingpet egg at battle start")
-	_expect(bool(champion_runtime.can_offer_egg_item(champion_owner)), "Pro league should offer the egg item while no lingpet is deployed")
+	_expect(bool(champion_runtime.can_offer_egg_item(champion_owner, registry)), "Pro league should offer the egg item while no lingpet is deployed")
 
 	# Using the egg item deploys the egg with a random catalog pet (STATE_EGG).
 	_expect(bool(champion_runtime.deploy_egg_from_item(champion_owner, registry)), "egg item use should deploy the egg in Pro league")
@@ -2872,7 +2887,7 @@ func _verify_pro_league_egg_item_deploy() -> void:
 
 	# Once deployed, the item no longer offers and a second use is a no-op so the
 	# slot controller leaves the item unconsumed (see _try_use_slot).
-	_expect(not bool(champion_runtime.can_offer_egg_item(champion_owner)), "egg item should stop being offered once a lingpet is deployed")
+	_expect(not bool(champion_runtime.can_offer_egg_item(champion_owner, registry)), "egg item should stop being offered once a lingpet is deployed")
 	_expect(not bool(champion_runtime.deploy_egg_from_item(champion_owner, registry)), "deploying a second egg while one is already present must be a no-op")
 
 	# Champion auto-adopt is also suppressed: owning a pet must NOT auto-deploy it
@@ -2884,7 +2899,7 @@ func _verify_pro_league_egg_item_deploy() -> void:
 	var owned_champion_runtime: Object = LingpetEggRuntime.new()
 	owned_champion_runtime.update(0.0, owned_champion, registry)
 	_expect(str(owned_champion.lingpet_state) == "none", "Pro league must not auto-adopt an owned lingpet at battle start")
-	_expect(bool(owned_champion_runtime.can_offer_egg_item(owned_champion)), "Pro league with an owned pet should still require the egg item to deploy")
+	_expect(bool(owned_champion_runtime.can_offer_egg_item(owned_champion, registry)), "Pro league with an owned pet should still require the egg item to deploy")
 
 	# Mythic league behaves like Pro (also gated).
 	var mythic_owner := FakeOwner.new()
@@ -2892,7 +2907,7 @@ func _verify_pro_league_egg_item_deploy() -> void:
 	var mythic_runtime: Object = LingpetEggRuntime.new()
 	mythic_runtime.update(0.0, mythic_owner, registry)
 	_expect(str(mythic_owner.lingpet_state) == "none", "Mythic league should not auto-spawn a lingpet egg at battle start")
-	_expect(bool(mythic_runtime.can_offer_egg_item(mythic_owner)), "Mythic league should offer the egg item while no lingpet is deployed")
+	_expect(bool(mythic_runtime.can_offer_egg_item(mythic_owner, registry)), "Mythic league should offer the egg item while no lingpet is deployed")
 
 
 # Coexist incubator egg: using the lingpet_egg item while a companion is ALREADY on field
@@ -2909,7 +2924,7 @@ func _verify_lingpet_egg_deploys_while_companion_active() -> void:
 	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
 	var runtime: Object = LingpetEggRuntime.new()
 	_expect(bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)), "fixture should start with Maribo as an active companion")
-	_expect(bool(runtime.can_offer_egg_item(owner)), "egg should still be offerable while a companion is active")
+	_expect(bool(runtime.can_offer_egg_item(owner, registry)), "egg should still be offerable while a companion is active")
 	_expect(bool(runtime.deploy_egg_from_item(owner, registry)), "egg item should deploy a coexisting incubator while a companion is active")
 	# The companion is NOT replaced -- it stays on field and in the panel.
 	_expect(str(owner.lingpet_state) == "companion", "deploying the egg must NOT suspend/replace the active companion")
@@ -2919,7 +2934,7 @@ func _verify_lingpet_egg_deploys_while_companion_active() -> void:
 	_expect(egg_pet_id != "maribo" and LingpetCatalog.has_pet(egg_pet_id), "incubator egg should roll an unowned catalog pet")
 	_expect(host.prewarm_calls.has(egg_pet_id), "coexisting egg item use should kick acquisition cut-in streaming for the rolled pet immediately")
 	# No second egg may be offered / deployed while one is already incubating.
-	_expect(not bool(runtime.can_offer_egg_item(owner)), "no second egg item should be offered while an incubator egg is active")
+	_expect(not bool(runtime.can_offer_egg_item(owner, registry)), "no second egg item should be offered while an incubator egg is active")
 	_expect(not bool(runtime.deploy_egg_from_item(owner, registry)), "a second incubator deploy must be a no-op while one is active")
 
 	_hatch_item_egg_with_reveal(runtime, owner, registry)
@@ -3005,10 +3020,10 @@ func _hatch_item_egg_with_reveal(runtime: Object, owner: FakeOwner, registry: Ob
 	_expect(str(owner.active_lingpet_id) == companion_before, "reveal must NOT publish the new pet as the active companion (owner active_lingpet_id unchanged)")
 	_expect(str(owner.lingpet_state) == state_before, "reveal must keep the owner lingpet_state as the companion")
 	# Medium: no new egg can be offered/deployed during the reveal.
-	_expect(not bool(runtime.can_offer_egg_item(owner)), "no egg should be offerable during the incubator-egg reveal")
+	_expect(not bool(runtime.can_offer_egg_item(owner, registry)), "no egg should be offerable during the incubator-egg reveal")
 	_finish_acquire_cutin(runtime, registry)
 	# Medium: the gap between the cut-in closing and the deferred absorb must also stay closed.
-	_expect(not bool(runtime.can_offer_egg_item(owner)), "no egg should be offerable between cut-in close and absorb")
+	_expect(not bool(runtime.can_offer_egg_item(owner, registry)), "no egg should be offerable between cut-in close and absorb")
 	_expect(not bool(runtime.deploy_egg_from_item(owner, registry)), "no egg should deploy between cut-in close and absorb")
 	runtime.update(0.0, owner, registry)
 
