@@ -141,7 +141,8 @@ $focusedSmoke = @(
     "res://tests/player_socket_glow_smoke.gd",
     "res://tests/player_socket_part_overlay_smoke.gd",
     "res://tests/lingpet_mount_state_smoke.gd",
-    "res://tests/perk_resume_player_bounce_speed_restore_smoke.gd"
+    "res://tests/perk_resume_player_bounce_speed_restore_smoke.gd",
+    "res://tests/soul_burst_dash_boost_free_dash_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

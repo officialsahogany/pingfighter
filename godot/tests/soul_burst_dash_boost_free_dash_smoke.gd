@@ -20,6 +20,12 @@ const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const SmasherPlayerDashController := preload("res://scripts/characters/smasher_player_dash_controller.gd")
 
+# `quit()` inside SceneTree is DEFERRED -- it does not stop the running function.
+# Without this flag the trailing unconditional `print(... ok)` + `quit(0)` overwrote
+# every `_expect` failure's `quit(1)`, so the smoke exited 0 while pushing errors
+# (a hollow GREEN for any gate that judges by exit code alone).
+var _failed := false
+
 
 class FakeOwner:
 	var player_pos := Vector2(300.0, 650.0)
@@ -232,6 +238,10 @@ func _init() -> void:
 	)
 	_expect(audio.soul_burst_calls == 1, "C: the Soul Burst replacement dash should play its audio when dash_boost is inactive")
 
+	if _failed:
+		push_error("soul_burst_dash_boost_free_dash_smoke: FAILED")
+		quit(1)
+		return
 	print("soul_burst_dash_boost_free_dash_smoke: ok")
 	quit(0)
 
@@ -240,4 +250,4 @@ func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
 	push_error(message)
-	quit(1)
+	_failed = true

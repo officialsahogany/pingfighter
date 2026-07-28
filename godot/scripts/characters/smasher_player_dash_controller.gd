@@ -16,17 +16,24 @@ func handle_dash_input(
 	if dash_state != null:
 		dash_state.update_key_release(down_pressed)
 
+	# dash_boost (active item) discounts the dash cost to zero, so smasher_dash_state
+	# already skips the dash-token consume. The mode decision below must respect the
+	# SAME free-cost condition: when a dash is free, prefer a free full dash and never
+	# fall through to the Soul Burst special-gauge spend (the reported bug: gauge
+	# drained while dash_boost was active because a chain / empty-token dash routed to
+	# Soul Burst instead of a free dash).
+	var dash_cost_free: bool = _is_dash_cost_free(deps)
 	if dash_state != null and dash_state.is_active():
-		var use_soul_burst: bool = _should_use_soul_burst_for_chain(dash_state, next_special_gauge, deps)
-		if dash_state.can_chain_dash(down_pressed, direction, use_soul_burst):
+		var use_soul_burst: bool = false if dash_cost_free else _should_use_soul_burst_for_chain(dash_state, next_special_gauge, deps)
+		if dash_state.can_chain_dash(down_pressed, direction, dash_cost_free or use_soul_burst):
 			var start_result: Dictionary = _start_dash(direction, false, player_pos, config, deps, use_soul_burst)
 			if bool(start_result.get("started", false)):
 				next_special_gauge = float(start_result.get("special_gauge", next_special_gauge))
 				next_speed = 0.0
 		handled_by_dash = true
 	elif dash_state != null and dash_state.is_recovering():
-		var use_soul_burst: bool = _should_use_soul_burst_for_chain(dash_state, next_special_gauge, deps)
-		if dash_state.can_chain_dash_from_recovery(down_pressed, direction, use_soul_burst):
+		var use_soul_burst: bool = false if dash_cost_free else _should_use_soul_burst_for_chain(dash_state, next_special_gauge, deps)
+		if dash_state.can_chain_dash_from_recovery(down_pressed, direction, dash_cost_free or use_soul_burst):
 			var start_result: Dictionary = _start_dash(direction, false, player_pos, config, deps, use_soul_burst)
 			if bool(start_result.get("started", false)):
 				next_special_gauge = float(start_result.get("special_gauge", next_special_gauge))
@@ -34,7 +41,7 @@ func handle_dash_input(
 		next_speed = 0.0
 		handled_by_dash = true
 	elif dash_state != null and dash_state.can_start_from_input(down_pressed, direction):
-		if dash_state.has_full_dash_token():
+		if dash_state.has_full_dash_token() or dash_cost_free:
 			var start_result: Dictionary = _start_dash(direction, false, player_pos, config, deps, false)
 			if bool(start_result.get("started", false)):
 				next_special_gauge = float(start_result.get("special_gauge", next_special_gauge))
@@ -250,6 +257,20 @@ func _can_soul_burst_dash(special_gauge: float, deps: Dictionary) -> bool:
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("can_soul_burst_dash"):
 		return false
 	return bool(mythic_item_runtime.can_soul_burst_dash(special_gauge))
+
+
+# True when the dash cost is fully discounted (dash_boost active item). Mirrors
+# smasher_dash_state._is_dash_cost_free so the mode decision and the token-consume
+# skip agree: a free dash must never spend the Soul Burst special-gauge.
+func _is_dash_cost_free(deps: Dictionary) -> bool:
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime == null:
+		var registry: Object = deps.get("registry", null)
+		if registry != null and registry.has_method("get_instance"):
+			active_item_runtime = registry.get_instance("active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("get_dash_cost_multiplier"):
+		return float(active_item_runtime.get_dash_cost_multiplier()) <= 0.0
+	return false
 
 
 func _get_mythic_item_runtime(deps: Dictionary) -> Object:
