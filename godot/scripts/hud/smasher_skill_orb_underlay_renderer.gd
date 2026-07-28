@@ -50,10 +50,10 @@ func _draw_cluster_connector(canvas: CanvasItem, start: Vector2, end: Vector2, w
 	if width <= 0.0:
 		return
 	canvas.draw_line(start, end, Color(0.0, 0.0, 0.0, 118.0 / 255.0), width + 8.0)
-	canvas.draw_line(start, end, Color(12.0 / 255.0, 15.0 / 255.0, 19.0 / 255.0, 238.0 / 255.0), width + 4.0)
-	canvas.draw_line(start, end, Color(58.0 / 255.0, 47.0 / 255.0, 31.0 / 255.0, 225.0 / 255.0), width)
-	canvas.draw_line(start, end, Color(155.0 / 255.0, 120.0 / 255.0, 62.0 / 255.0, 185.0 / 255.0), max(1.0, width / 3.0))
-	canvas.draw_line(start, end, Color(32.0 / 255.0, 193.0 / 255.0, 230.0 / 255.0, 118.0 / 255.0), max(1.0, width / 4.0))
+	canvas.draw_line(start, end, Color(18.0 / 255.0, 11.0 / 255.0, 6.0 / 255.0, 238.0 / 255.0), width + 4.0)
+	canvas.draw_line(start, end, Color(83.0 / 255.0, 48.0 / 255.0, 20.0 / 255.0, 230.0 / 255.0), width)
+	canvas.draw_line(start, end, Color(190.0 / 255.0, 126.0 / 255.0, 42.0 / 255.0, 205.0 / 255.0), max(1.0, width / 3.0))
+	canvas.draw_line(start, end, Color(22.0 / 255.0, 81.0 / 255.0, 70.0 / 255.0, 150.0 / 255.0), max(1.0, width / 4.0))
 
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
