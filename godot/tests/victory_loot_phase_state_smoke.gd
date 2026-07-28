@@ -9,6 +9,8 @@ const BattleFrameFlowController := preload("res://scripts/core/battle_frame_flow
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const ActiveItemFieldSpawnScheduler := preload("res://scripts/items/active_item_field_spawn_scheduler.gd")
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
+const MatchStateDepsBuilder := preload("res://scripts/core/battle_update_match_state_deps_builder.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 
 var _failures: Array[String] = []
 var _finish_calls: int = 0
@@ -171,6 +173,7 @@ func _run() -> void:
 	_verify_actor_draw_context()
 	_verify_frame_flow_loot_branch()
 	_verify_spawn_scheduler_blocks_during_loot()
+	_verify_match_reset_clears_loot()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -327,6 +330,39 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	_expect(resolver.grant_calls == 0, "active reward must not double-grant through the resolver when the pickup rail succeeds")
 	_expect(_finish_calls == 1, "active reward loot phase should still finish once")
 
+	# 슬롯 만석(수납 실패) 시나리오: 필드 아이템으로 남기면 결과화면 전환 +
+	# 다음 스테이지 field_spawn_controller 리셋에 보상이 소실되므로, 반드시
+	# 리졸버 그랜트(allow_overflow) 폴백으로 지급되어야 한다.
+	_finish_calls = 0
+	var full_loot := VictoryLootPhaseState.new()
+	var full_owner := SchemaGatedOwner.new()
+	full_owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var full_registry := FakeRegistry.new()
+	var full_item_runtime := FakeActiveItemRuntime.new()
+	full_item_runtime.collect_result = false
+	full_registry.active_item_runtime = full_item_runtime
+	var full_resolver := FakeRewardResolver.new()
+	full_resolver.reward_type = "active"
+	full_loot.set_reward_resolver_for_test(full_resolver)
+	_expect(
+		full_loot.start(full_owner, full_registry, 6, 4, Callable(self, "_record_finish")),
+		"slot-full active reward leg should start a one-box loot phase"
+	)
+	for _i in range(600):
+		full_loot.update(1.0 / 60.0)
+		if str((full_loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+			break
+	var full_rest_pos: Vector2 = (full_loot.boxes[0] as Dictionary).get("pos")
+	full_owner.scene_state.set_value("player_pos", full_rest_pos - Vector2(77.5, 25.0))
+	for _i in range(120):
+		full_loot.update(1.0 / 60.0)
+		if _finish_calls > 0:
+			break
+	_expect(full_item_runtime.collect_calls == 1, "slot-full leg should still try the pickup rail first")
+	_expect(full_resolver.grant_calls == 1, "slot-full active reward must fall back to the resolver overflow grant (no reward loss)")
+	_expect(full_item_runtime.spawn_calls == 0, "slot-full active reward must never be dumped as a field item (lost on result-screen gate + stage reset)")
+	_expect(_finish_calls == 1, "slot-full active reward loot phase should still finish once")
+
 
 func _verify_actor_draw_context() -> void:
 	var loot := VictoryLootPhaseState.new()
@@ -337,7 +373,13 @@ func _verify_actor_draw_context() -> void:
 	_expect(loot.start(owner, registry, 5, 0, Callable()), "actor context leg should start the loot phase")
 	var context: Dictionary = loot.get_actor_draw_context()
 	_expect(bool(context.get("boss_defeat_active", false)), "active loot phase should keep the boss defeat sheet playing")
-	_expect(int(context.get("boss_result_frame", -1)) == 0, "loot phase should start the defeat clock at frame zero")
+	# 연속성 계약: 전리품 페이즈는 스코어보드(1.75s)가 홀드하던 마지막 defeat
+	# 프레임에서 이어져야 한다(0프레임 되감김 금지). 1.75s > 8f x 0.18s 이므로
+	# 일반 보스는 시작 즉시 마지막 프레임 홀드 상태다.
+	_expect(
+		int(context.get("boss_result_frame", -1)) == VictoryLootPhaseState.BOSS_RESULT_FRAME_COUNT - 1,
+		"loot phase must continue the defeat clock from the scoreboard hold (no frame-zero rewind)"
+	)
 	loot.update(10.0)
 	context = loot.get_actor_draw_context()
 	_expect(
@@ -345,6 +387,19 @@ func _verify_actor_draw_context() -> void:
 		"long loot phases should hold the final defeat frame"
 	)
 	_expect(not context.has("player_victory_active"), "loot phase must leave the player actor in normal control poses")
+
+	# Stage 2 는 64프레임 defeat 시트를 쓴다: 스코어보드가 홀드하던
+	# min(63, floor(1.75/0.025)) = 63 프레임에서 이어져야 한다.
+	var stage2_loot := VictoryLootPhaseState.new()
+	var stage2_owner := SchemaGatedOwner.new()
+	stage2_owner.scene_state.set_value("current_stage", 2)
+	stage2_loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(stage2_loot.start(stage2_owner, registry, 5, 0, Callable()), "stage2 actor context leg should start the loot phase")
+	var stage2_context: Dictionary = stage2_loot.get_actor_draw_context()
+	_expect(
+		int(stage2_context.get("boss_defeat_frame", -1)) == VictoryLootPhaseState.BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
+		"stage2 loot phase must continue the 64f defeat clock from the scoreboard hold"
+	)
 
 
 func _verify_frame_flow_loot_branch() -> void:
@@ -405,6 +460,36 @@ func _verify_spawn_scheduler_blocks_during_loot() -> void:
 	_expect(scheduler.is_item_spawn_blocked(owner), "field item spawns must be blocked during the victory loot phase")
 	owner.scene_state.set_value("victory_loot_phase_active", false)
 	_expect(not scheduler.is_item_spawn_blocked(owner), "field item spawns should resume outside the loot phase")
+
+
+class FakeMatchStateDepsRegistry:
+	extends RefCounted
+
+	var loot: Object
+
+	func _init(new_loot: Object) -> void:
+		loot = new_loot
+
+	func get_instance(key: String) -> Object:
+		if key == "victory_loot_phase_state":
+			return loot
+		return null
+
+
+func _verify_match_reset_clears_loot() -> void:
+	# F9 결과화면 직행/매치 리셋 경로: 매치 상태 리셋 deps에 전리품 페이즈가
+	# 포함되고 _reset_match_state가 이를 reset해, 활성 전리품 페이즈가 다음
+	# 매치의 프레임 플로우를 하이재킹하는 것을 막는다.
+	var loot := VictoryLootPhaseState.new()
+	var owner := SchemaGatedOwner.new()
+	var registry := FakeRegistry.new()
+	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(loot.start(owner, registry, 5, 0, Callable()), "match reset leg should start the loot phase")
+	var deps: Dictionary = MatchStateDepsBuilder.new().build_deps(FakeMatchStateDepsRegistry.new(loot))
+	_expect(deps.get("victory_loot_phase_state") == loot, "match-state reset deps must include the victory loot phase")
+	MatchResetController.new()._reset_match_state(deps)
+	_expect(not loot.is_active(), "match reset must clear an in-progress victory loot phase")
+	_expect(not bool(owner.value_of("victory_loot_phase_active")), "match reset must clear the owner loot flag")
 
 
 func _record_finish() -> void:

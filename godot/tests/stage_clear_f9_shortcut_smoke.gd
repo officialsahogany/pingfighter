@@ -25,6 +25,20 @@ class FakeStageTransitionDriver:
 		return active
 
 
+class FakeVictoryLootState:
+	extends RefCounted
+
+	var active := true
+	var reset_calls := 0
+
+	func is_active() -> bool:
+		return active
+
+	func reset(_owner: Object = null) -> void:
+		reset_calls += 1
+		active = false
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -32,6 +46,7 @@ class FakeRegistry:
 	var scoreboard_state: Object = ScoreboardState.new()
 	var result_screen: Object = StageClearResultScreen.new()
 	var stage_transition_driver: Object = FakeStageTransitionDriver.new()
+	var victory_loot_state: Object = FakeVictoryLootState.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -43,6 +58,8 @@ class FakeRegistry:
 				return result_screen
 			"battle_scene_match_event_driver":
 				return stage_transition_driver
+			"victory_loot_phase_state":
+				return victory_loot_state
 		return null
 
 
@@ -105,6 +122,10 @@ func _verify_f9_forces_player_stage_clear() -> void:
 	_expect(registry.scoreboard_state.has_pending_game_reset(), "F9 scoreboard snapshot should request game reset")
 	_expect(registry.scoreboard_state.get_last_scoring_side() == "player", "F9 should mark the player as the winning scorer")
 	_expect(registry.result_screen.is_active(), "F9 should open the stage-clear result screen")
+	# F9는 결과화면 직행 치트이므로 진행 중이던 승리 전리품 페이즈를 정리해야 한다
+	# (안 하면 결과화면 물리 게이트 뒤에 활성 상태로 얼어붙어 다음 스테이지 하이재킹).
+	_expect(registry.victory_loot_state.reset_calls == 1, "F9 must reset an in-progress victory loot phase")
+	_expect(not registry.victory_loot_state.is_active(), "F9 must leave the victory loot phase inactive")
 	var result_status: Dictionary = registry.result_screen.get_status()
 	_expect(bool(result_status.get("spawn_pending", false)), "F9 result screen should stage the heavy result scene instead of blocking input")
 

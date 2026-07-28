@@ -6,6 +6,7 @@ func build_deps(registry: Object) -> Dictionary:
 		"score_state": _get_instance(registry, "match_score_state"),
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
+		"victory_loot_phase_state": _get_instance(registry, "victory_loot_phase_state"),
 		"audio": _get_instance(registry, "game_audio"),
 		"match_score_event_controller": _get_instance(registry, "match_score_event_controller"),
 		"match_scoreboard_flow_controller": _get_instance(registry, "match_scoreboard_flow_controller"),

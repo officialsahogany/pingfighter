@@ -8,6 +8,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
+const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -64,6 +65,10 @@ const BOX_PHASE_DONE := "done"
 
 var active: bool = false
 var elapsed_sec: float = 0.0
+# 보스 defeat 프레임 클럭 오프셋: 전리품 페이즈는 스코어보드(1.75s)가 끝난 뒤
+# 시작되므로, 0에서 다시 세면 스코어보드가 홀드 중이던 마지막 defeat 프레임에서
+# 0프레임으로 되감긴다. 스코어보드 총 길이를 시드해 프레임이 이어지게 한다.
+var boss_anim_offset_sec: float = 0.0
 var boxes: Array = []
 var collected_rewards: Array = []
 var finish_callback: Callable = Callable()
@@ -103,6 +108,7 @@ func start(
 	_finish_timer = -1.0
 	_finish_fired = false
 	elapsed_sec = 0.0
+	boss_anim_offset_sec = ScoreboardState.SCOREBOARD_TOTAL_DURATION
 	active = true
 	_write_owner_state(owner)
 	return true
@@ -111,6 +117,7 @@ func start(
 func reset(owner: Object = null) -> void:
 	active = false
 	elapsed_sec = 0.0
+	boss_anim_offset_sec = 0.0
 	boxes = []
 	collected_rewards = []
 	finish_callback = Callable()
@@ -166,10 +173,12 @@ func has_actor_draw_context() -> bool:
 func get_actor_draw_context() -> Dictionary:
 	if not active:
 		return {}
-	var frame: int = mini(BOSS_RESULT_FRAME_COUNT - 1, int(floor(elapsed_sec / BOSS_RESULT_FRAME_SPEED)))
+	# 스코어보드 구간에서 이어지는 단일 defeat 클럭(되감김 금지).
+	var boss_anim_sec: float = elapsed_sec + boss_anim_offset_sec
+	var frame: int = mini(BOSS_RESULT_FRAME_COUNT - 1, int(floor(boss_anim_sec / BOSS_RESULT_FRAME_SPEED)))
 	var stage2_defeat_frame: int = mini(
 		BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
-		int(floor(elapsed_sec / BOSS_STAGE2_DEFEAT_FRAME_SPEED))
+		int(floor(boss_anim_sec / BOSS_STAGE2_DEFEAT_FRAME_SPEED))
 	)
 	return {
 		"boss_defeat_active": true,
@@ -312,21 +321,17 @@ func _grant_box_reward(box: Dictionary) -> void:
 
 func _try_collect_active_reward(reward: Dictionary, pos: Vector2) -> bool:
 	# 액티브 아이템은 필드 픽업 라우터를 태워 기존 획득 팝업/사운드/슬롯 규칙을
-	# 그대로 재사용한다. 슬롯이 가득 차면 필드 아이템으로 남아 플레이어가 선택.
+	# 그대로 재사용한다. 슬롯 만석 등으로 수납이 실패하면 false를 돌려 리졸버
+	# 그랜트(allow_overflow) 경로가 이어받는다 — 필드 아이템으로 남기면 결과화면
+	# 전환(물리 게이트) + 다음 스테이지 field_spawn_controller 리셋에 보상이
+	# 소실되므로 절대 필드 스폰으로 대체하지 말 것.
 	var item_name: String = str(reward.get("item_name", ""))
 	if item_name == "":
 		return false
 	var active_item_runtime: Object = _get_registry_instance("active_item_runtime")
 	if active_item_runtime == null or not active_item_runtime.has_method("collect_item_by_name"):
 		return false
-	if bool(active_item_runtime.collect_item_by_name(item_name, pos, _owner, _registry)):
-		return true
-	if active_item_runtime.has_method("spawn_field_item_data"):
-		var item_data_value: Variant = reward.get("item_data", {})
-		if item_data_value is Dictionary and not (item_data_value as Dictionary).is_empty():
-			active_item_runtime.spawn_field_item_data(item_data_value, pos)
-			return true
-	return false
+	return bool(active_item_runtime.collect_item_by_name(item_name, pos, _owner, _registry))
 
 
 func _update_finish(safe_delta: float) -> void:

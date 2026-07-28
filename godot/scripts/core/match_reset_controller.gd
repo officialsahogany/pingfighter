@@ -92,6 +92,9 @@ func _build_stage_transition_reset_result() -> Dictionary:
 
 func _reset_match_state(deps: Dictionary) -> void:
 	_call_reset(deps.get("scoreboard_state", null))
+	# 승리 전리품 페이즈가 살아있는 채로 매치/스테이지가 리셋되면(F9 등)
+	# 다음 매치의 프레임 플로우를 하이재킹하므로 매치 상태와 함께 정리한다.
+	_call_reset(deps.get("victory_loot_phase_state", null))
 	_call_reset(deps.get("score_state", null))
 	var round_state: Object = deps.get("round_state", null)
 	if round_state != null and round_state.has_method("reset_game"):

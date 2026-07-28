@@ -40,6 +40,7 @@ func _handle_force_stage_clear_shortcut(
 		_mark_handled(owner)
 		return true
 
+	_reset_victory_loot_phase(owner, registry, module_getter)
 	_force_player_stage_clear_score(registry, module_getter)
 	_start_debug_scoreboard_snapshot(registry, module_getter)
 	if result_screen != null and result_screen.has_method("show_from_scoreboard"):
@@ -87,6 +88,21 @@ func _handle_stage7_prebattle_input(
 		_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
+
+
+func _reset_victory_loot_phase(
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> void:
+	# F9는 결과화면을 직접 열므로, 진행 중이던 승리 전리품 페이즈를 정리하지
+	# 않으면 결과화면 물리 게이트 뒤에 활성 상태로 얼어붙었다가 다음 스테이지
+	# 프레임 플로우를 하이재킹한다.
+	var loot_state: Object = _get_module(module_getter, "victory_loot_phase_state")
+	if loot_state == null:
+		loot_state = _get_instance(registry, "victory_loot_phase_state")
+	if loot_state != null and loot_state.has_method("reset"):
+		loot_state.reset(owner)
 
 
 func _force_player_stage_clear_score(
