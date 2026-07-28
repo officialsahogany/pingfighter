@@ -28,6 +28,7 @@ const LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES := {
 	"lingpet_apple_feed": true,
 	"lingpet_melon_feed": true,
 }
+const LINGPET_SPIRIT_WATER_ITEM_NAME := "lingpet_spirit_water"
 
 var item_catalog: Object = ActiveItemCatalog.new()
 var passive_mythic_catalog: Object = MythicItemCatalog.new()
@@ -496,6 +497,13 @@ func _should_skip_active_spawn_candidate(item_data: Dictionary, registry: Object
 	var item_name: String = str(item_data.get("name", ""))
 	if item_name == "lingpet_egg":
 		return _should_skip_lingpet_egg_spawn(registry, owner)
+	if item_name == LINGPET_SPIRIT_WATER_ITEM_NAME:
+		var runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+		return (
+			runtime == null
+			or not runtime.has_method("can_offer_spirit_water_drop")
+			or not bool(runtime.can_offer_spirit_water_drop(owner))
+		)
 	if not LINGPET_OWNED_GATED_ACTIVE_SPAWN_NAMES.has(item_name):
 		return false
 	return LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()

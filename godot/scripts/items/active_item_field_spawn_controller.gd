@@ -72,7 +72,7 @@ func update(
 		_update_spawn_timer(owner, registry, detail_perf_logger)
 		_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.spawn_timer", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_release_pending_spawn_items()
+	_release_pending_spawn_items(registry)
 	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.release_pending", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_update_item_spawn_portals()
@@ -304,9 +304,19 @@ func _build_field_item(item_data: Dictionary, position: Vector2) -> Dictionary:
 	return field_item_motion.build_field_item(item_data, position)
 
 
-func _release_pending_spawn_items() -> void:
+func _release_pending_spawn_items(registry: Object = null) -> void:
 	for field_item in spawn_portals.release_pending_spawn_items():
 		spawned_items.append(field_item)
+		_notify_spirit_water_drop_succeeded(field_item, registry)
+
+
+func _notify_spirit_water_drop_succeeded(field_item: Dictionary, registry: Object) -> void:
+	var item_data: Dictionary = _get_dictionary(field_item, "item_data")
+	if str(item_data.get("name", "")) != "lingpet_spirit_water":
+		return
+	var runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("mark_spirit_water_field_drop_succeeded"):
+		runtime.mark_spirit_water_field_drop_succeeded()
 
 
 func _update_item_spawn_portals() -> void:
@@ -444,6 +454,15 @@ func _get_instance(registry: Object, key: String) -> Object:
 		var value: Variant = registry.get_instance(key)
 		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 			return value as Object
+	return null
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var cached: Variant = registry.get_cached_instance(key)
+	if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+		return cached as Object
 	return null
 
 

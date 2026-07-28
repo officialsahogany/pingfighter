@@ -28,6 +28,7 @@ func queue_item_after_portal(
 	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.queue.regular.build_field_item", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var release_msec: int = spawn_portals.queue_item_after_portal(field_item, position)
+	_mark_spirit_water_drop_pending(item_data, registry)
 	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.queue.regular.portal_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_queue_lucky_coin_bonus_after_portal(
@@ -70,6 +71,7 @@ func queue_dimension_gate_item(
 	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.queue.dimension.build_field_item", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var release_msec: int = spawn_portals.queue_dimension_gate_item(field_item)
+	_mark_spirit_water_drop_pending(item_data, registry)
 	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.queue.dimension.portal_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_queue_lucky_coin_bonus_after_portal(
@@ -165,6 +167,23 @@ func _play_lucky_coin_spawn_audio(registry: Object) -> void:
 		audio.play_lucky_coin_spawn()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
+
+
+func _mark_spirit_water_drop_pending(item_data: Dictionary, registry: Object) -> void:
+	if str(item_data.get("name", "")) != "lingpet_spirit_water":
+		return
+	var runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("mark_spirit_water_drop_pending"):
+		runtime.mark_spirit_water_drop_pending()
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func _get_instance(registry: Object, key: String) -> Object:

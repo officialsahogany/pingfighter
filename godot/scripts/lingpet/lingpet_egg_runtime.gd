@@ -11,6 +11,7 @@ const LingpetGhostBlinkVfx := preload("res://scripts/lingpet/lingpet_ghost_blink
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
 const LingpetFeedController := preload("res://scripts/lingpet/lingpet_feed_controller.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const LingpetSpiritWaterDropState := preload("res://scripts/lingpet/lingpet_spirit_water_drop_state.gd")
 const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
@@ -179,6 +180,7 @@ var _companion_body_presence_resolver: Object = LingpetCompanionBodyPresenceReso
 var _companion_player_block_resolver: Object = LingpetCompanionPlayerBlockResolver.new()
 var _companion_runtime_resetter: Object = LingpetCompanionRuntimeResetter.new()
 var _collection_state: Object = LingpetCollectionState.new()
+var _spirit_water_drop_state: Object = LingpetSpiritWaterDropState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
 # F7 debug-only stat overrides live in LingpetDebugStatOverrideState.
 var _debug_stat_overrides: Object = LingpetDebugStatOverrideState.new()
@@ -2148,6 +2150,8 @@ func is_item_egg_absorbing() -> bool:
 
 
 func get_save_snapshot() -> Dictionary:
+	var affinity_run_state: Dictionary = _affinity_state.export_run_state()
+	affinity_run_state.merge(_spirit_water_drop_state.export_run_state(), true)
 	var snapshot: Dictionary = _snapshot_builder.build_save_snapshot(
 		SAVE_SNAPSHOT_VERSION,
 		_pet_id,
@@ -2163,7 +2167,7 @@ func get_save_snapshot() -> Dictionary:
 		_profile_runtime_surface.get_gauge_gain_bonus_pct(_current_profile, 0.0),
 		_companion_motion_state,
 		_loadout_state.get_loadouts(),
-		_affinity_state.export_run_state()
+		affinity_run_state
 	)
 	snapshot["guardian_stowed"] = _guardian_stowed
 	return snapshot
@@ -2183,6 +2187,7 @@ func import_affinity_run_state(run_state: Dictionary) -> void:
 		return
 	_invalidate_runtime_snapshot_cache()
 	_affinity_state.import_run_state(run_state)
+	_spirit_water_drop_state.import_run_state(run_state)
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
 
 
@@ -2233,6 +2238,7 @@ func reset_for_tests() -> void:
 	_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
 	_affinity_state.reset_for_new_run()
+	_spirit_water_drop_state.reset_run()
 	_affinity_context_coordinator.reset_for_new_run()
 	_affinity_feedback_state.reset_all()
 	_affinity_income_tracker.reset_all()
@@ -2275,6 +2281,9 @@ func reset_for_tests() -> void:
 
 func reset_round(deps: Dictionary = {}) -> void:
 	_invalidate_runtime_snapshot_cache()
+	# Round resets may cancel an unreleased portal item, but only a real stage
+	# transition may rearm the one-natural-drop latch.
+	_spirit_water_drop_state.cancel_pending_drop()
 	_mount_state.reset()
 	var owner: Object = deps.get("owner", null) as Object
 	var registry: Object = deps.get("registry", null) as Object
@@ -3422,11 +3431,39 @@ func reset_affinity_for_new_battle() -> void:
 
 
 func refill_guardian_duration_for_stage_transition() -> bool:
+	# Fixed order: refill first, then rearm. The full-pool eligibility gate keeps
+	# spirit water out of the candidate pool until duration is spent again.
 	var changed: bool = bool(_affinity_state.refill_duration_pool_for_stage_transition())
+	_spirit_water_drop_state.rearm_for_stage_transition()
 	_duration_warning_stage = 0
 	if changed:
 		_invalidate_runtime_snapshot_cache()
 	return changed
+
+
+func can_offer_spirit_water_drop(owner: Object = null) -> bool:
+	var owned_pet_ids: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
+	return _spirit_water_drop_state.can_offer(
+		not owned_pet_ids.is_empty(),
+		_affinity_state.get_duration_pool_current(),
+		_affinity_state.get_duration_pool_max()
+	)
+
+
+func mark_spirit_water_drop_pending() -> bool:
+	return _spirit_water_drop_state.mark_drop_pending()
+
+
+func cancel_spirit_water_drop_pending() -> bool:
+	return _spirit_water_drop_state.cancel_pending_drop()
+
+
+func mark_spirit_water_field_drop_succeeded() -> bool:
+	return _spirit_water_drop_state.mark_drop_succeeded()
+
+
+func get_spirit_water_drop_snapshot_for_tests() -> Dictionary:
+	return _spirit_water_drop_state.get_snapshot()
 
 
 func get_affinity_data(pet_id: String = "") -> Dictionary:
