@@ -1546,6 +1546,14 @@ func _pet_has_second_passive_skill(pet_data: Dictionary) -> bool:
 	return LingpetCatalog.get_passive_skill_pool(pet_id).size() >= 2
 
 
+func get_guardian_enhancement_skill_availability(pet_id: String) -> Dictionary:
+	var pet_data := {"pet_id": pet_id.strip_edges()}
+	return {
+		"has_second_active": _pet_has_second_active_skill(pet_data),
+		"has_second_passive": _pet_has_second_passive_skill(pet_data),
+	}
+
+
 func _record_pending_unlock_choice(pet_data: Dictionary, reward: Dictionary) -> void:
 	var reward_type := str(reward.get("type", ""))
 	var choice_key := _unlock_choice_key(reward_type)

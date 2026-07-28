@@ -20,7 +20,6 @@ const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lin
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
@@ -614,14 +613,15 @@ func build_guardian_enhance_offer(owner: Object) -> Dictionary:
 		_loadout_state,
 		_affinity_state
 	)
-	var has_second_active := LingpetCatalog.get_active_skill_pool(pet_id).size() > 1
-	var has_second_passive := LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+	var skill_availability: Dictionary = (
+		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+	)
 	var result: Dictionary = _guardian_enhance_offer_engine.build_offer(
 		owner,
 		_affinity_state.get_pet_data(pet_id),
 		_affinity_state.get_duration_increase_count(),
-		has_second_active,
-		has_second_passive,
+		bool(skill_availability.get("has_second_active", false)),
+		bool(skill_availability.get("has_second_passive", false)),
 		_guardian_enhance_offer_rng_for_tests
 	)
 	result["pet_id"] = pet_id
@@ -679,11 +679,14 @@ func confirm_guardian_enhance_choice(
 func can_apply_guardian_enhancement_candidate(candidate: Dictionary) -> bool:
 	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
 	var pet_id := str(snapshot.get("pet_id", ""))
+	var skill_availability: Dictionary = (
+		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+	)
 	return _affinity_state.can_apply_guardian_enhancement(
 		pet_id,
 		candidate,
-		LingpetCatalog.get_active_skill_pool(pet_id).size() > 1,
-		LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+		bool(skill_availability.get("has_second_active", false)),
+		bool(skill_availability.get("has_second_passive", false))
 	)
 
 
@@ -694,11 +697,14 @@ func apply_guardian_enhancement_candidate(
 ) -> Dictionary:
 	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
 	var pet_id := str(snapshot.get("pet_id", ""))
+	var skill_availability: Dictionary = (
+		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+	)
 	var result: Dictionary = _affinity_state.apply_guardian_enhancement(
 		pet_id,
 		candidate,
-		LingpetCatalog.get_active_skill_pool(pet_id).size() > 1,
-		LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+		bool(skill_availability.get("has_second_active", false)),
+		bool(skill_availability.get("has_second_passive", false))
 	)
 	if bool(result.get("accepted", false)):
 		_affinity_context_coordinator.handle_level_gain(

@@ -64,7 +64,15 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 	var runtime_source := FileAccess.get_file_as_string(
 		"res://scripts/lingpet/lingpet_egg_runtime.gd"
 	)
+	var affinity_source := FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_affinity_state.gd"
+	)
 	_expect(runtime_source.find("var _guardian_enhancement_buff_store") < 0, "runtime must not create a parallel enhancement store")
+	_expect(
+		affinity_source.find("func get_guardian_enhancement_skill_availability") >= 0
+		and runtime_source.find("LingpetCatalog") < 0,
+		"affinity owner must resolve enhancement skill availability without reopening catalog ownership in egg runtime"
+	)
 	_cleanup_runtime(runtime)
 
 
