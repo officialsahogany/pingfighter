@@ -3,6 +3,7 @@ extends RefCounted
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const CharacterInfoOverlayLingpetSnapshotBuilder := preload("res://scripts/hud/character_info_overlay_lingpet_snapshot_builder.gd")
 const CharacterInfoOverlayLingpetCardSpecs := preload("res://scripts/hud/character_info_overlay_lingpet_card_specs.gd")
+const CharacterInfoOverlayLingpetStatsProjection := preload("res://scripts/hud/character_info_overlay_lingpet_stats_projection.gd")
 const CharacterInfoOverlayLingpetVitalityProjection := preload("res://scripts/hud/character_info_overlay_lingpet_vitality_projection.gd")
 const CharacterInfoOverlayLingpetTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
@@ -934,6 +935,30 @@ static func build_stats(
 	defense_rate_tooltip: String,
 	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
 ) -> Array:
+	return CharacterInfoOverlayLingpetStatsProjection.build_stats(
+		snapshot,
+		accent_gold,
+		text_soft,
+		empty_text_color,
+		stat_buff_color,
+		speed_display_px_per_point,
+		hatch_required_hits,
+		defense_rate_tooltip,
+		row_budget_rect
+	)
+
+
+static func _build_stats_legacy(
+	snapshot: Dictionary,
+	accent_gold: Color,
+	text_soft: Color,
+	empty_text_color: Color,
+	stat_buff_color: Color,
+	speed_display_px_per_point: float,
+	hatch_required_hits: int,
+	defense_rate_tooltip: String,
+	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
+) -> Array:
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "egg":
 		var hits: int = int(snapshot.get("hatch_hits", 0))
@@ -1005,6 +1030,32 @@ static func build_stats_cached(
 	defense_rate_tooltip: String,
 	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
 ) -> Dictionary:
+	return CharacterInfoOverlayLingpetStatsProjection.build_stats_cached(
+		snapshot,
+		cache,
+		accent_gold,
+		text_soft,
+		empty_text_color,
+		stat_buff_color,
+		speed_display_px_per_point,
+		hatch_required_hits,
+		defense_rate_tooltip,
+		row_budget_rect
+	)
+
+
+static func _build_stats_cached_legacy(
+	snapshot: Dictionary,
+	cache: Dictionary,
+	accent_gold: Color,
+	text_soft: Color,
+	empty_text_color: Color,
+	stat_buff_color: Color,
+	speed_display_px_per_point: float,
+	hatch_required_hits: int,
+	defense_rate_tooltip: String,
+	row_budget_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
+) -> Dictionary:
 	var cache_hash: int = hash([
 		get_stats_cache_hash(snapshot, hatch_required_hits),
 		int(round(row_budget_rect.size.x)),
@@ -1020,6 +1071,10 @@ static func build_stats_cached(
 
 
 static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int) -> int:
+	return CharacterInfoOverlayLingpetStatsProjection.get_stats_cache_hash(snapshot, hatch_required_hits)
+
+
+static func _get_stats_cache_hash_legacy(snapshot: Dictionary, hatch_required_hits: int) -> int:
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "egg":
 		return hash([
