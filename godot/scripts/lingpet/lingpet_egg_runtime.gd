@@ -30,6 +30,12 @@ const LingpetGuardianEnhanceChoiceState := preload(
 const LingpetGuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
 )
+const LingpetGuardianEnhanceCutinState := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd"
+)
+const LingpetGuardianEnhanceCutinOverlayHostResolver := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_overlay_host_resolver.gd"
+)
 const LingpetSatietyRuntimeState := preload(
 	"res://scripts/lingpet/lingpet_satiety_runtime_state.gd"
 )
@@ -257,6 +263,9 @@ var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.n
 var _guardian_enhance_choice_state: Object = LingpetGuardianEnhanceChoiceState.new()
 var _guardian_enhance_offer_rng_for_tests: RandomNumberGenerator = null
 var _guardian_enhance_last_result: Dictionary = {}
+var _guardian_enhance_cutin_state: Object = LingpetGuardianEnhanceCutinState.new()
+var _guardian_enhance_cutin_prewarm_state: Object = LingpetAcquireCutinAssetPrewarmState.new()
+var _guardian_enhance_cutin_host_resolver: Object = LingpetGuardianEnhanceCutinOverlayHostResolver.new()
 var _guardian_active_elapsed := 0.0
 var _duration_warning_stage := 0
 var _duration_roll_rng_for_tests: RandomNumberGenerator = null
@@ -717,11 +726,22 @@ func apply_guardian_enhance_duration_fallback(
 	return result
 
 
-func complete_guardian_enhance_choice(result: Dictionary, _registry: Object = null) -> void:
+func complete_guardian_enhance_choice(result: Dictionary, registry: Object = null) -> void:
+	var choice_snapshot: Dictionary = _guardian_enhance_choice_state.get_snapshot()
+	var display_pet_id := str(choice_snapshot.get("pet_id", _pet_id))
+	if display_pet_id.strip_edges() == "":
+		display_pet_id = _pet_id
 	_guardian_enhance_last_result = result.duplicate(true)
 	_guardian_enhance_choice_state.close()
 	if bool(result.get("accepted", false)):
 		_guardian_enhance_offer_engine.mark_applied()
+		_guardian_enhance_cutin_prewarm_state.reset()
+		_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
+			display_pet_id,
+			registry,
+			_guardian_enhance_cutin_host_resolver
+		)
+		_guardian_enhance_cutin_state.start(display_pet_id, result)
 
 
 func cancel_guardian_enhance_choice() -> bool:
@@ -730,6 +750,75 @@ func cancel_guardian_enhance_choice() -> bool:
 	# The reward modal itself is non-cancellable. ESC is consumed so neither the
 	# battle pause menu nor the underlying perk modal can steal focus.
 	return true
+
+
+func is_guardian_enhance_cutin_active() -> bool:
+	return bool(_guardian_enhance_cutin_state.active)
+
+
+func is_guardian_enhance_cutin_dismissing() -> bool:
+	return (
+		is_guardian_enhance_cutin_active()
+		and bool(_guardian_enhance_cutin_state.dismissing)
+	)
+
+
+func is_guardian_enhance_cutin_awaiting_dismiss() -> bool:
+	return bool(_guardian_enhance_cutin_state.is_awaiting_dismiss())
+
+
+func get_guardian_enhance_cutin_progress() -> float:
+	return float(_guardian_enhance_cutin_state.get_progress())
+
+
+func get_guardian_enhance_cutin_dismiss_progress() -> float:
+	return float(_guardian_enhance_cutin_state.get_dismiss_progress())
+
+
+func get_guardian_enhance_cutin_snapshot() -> Dictionary:
+	return _guardian_enhance_cutin_state.get_snapshot()
+
+
+func advance_guardian_enhance_cutin(delta: float, registry: Object = null) -> void:
+	if not is_guardian_enhance_cutin_active():
+		return
+	var snapshot: Dictionary = _guardian_enhance_cutin_state.get_snapshot()
+	var display_pet_id := str(snapshot.get("pet_id", _pet_id))
+	_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
+		display_pet_id,
+		registry,
+		_guardian_enhance_cutin_host_resolver
+	)
+	var assets_ready: bool = bool(_guardian_enhance_cutin_host_resolver.is_anim_ready(
+		registry,
+		display_pet_id
+	))
+	var closed := bool(_guardian_enhance_cutin_state.advance(delta, assets_ready))
+	if closed:
+		_stop_guardian_enhance_cutin_audio(registry)
+
+
+func begin_guardian_enhance_cutin_dismiss() -> bool:
+	return bool(_guardian_enhance_cutin_state.begin_dismiss())
+
+
+func cancel_guardian_enhance_cutin(registry: Object = null) -> bool:
+	var cancelled := bool(_guardian_enhance_cutin_state.cancel_immediate())
+	if cancelled:
+		_stop_guardian_enhance_cutin_audio(registry)
+	return cancelled
+
+
+func _stop_guardian_enhance_cutin_audio(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Variant = null
+	if registry.has_method("get_cached_instance"):
+		audio = registry.get_cached_instance("game_audio")
+	if (typeof(audio) != TYPE_OBJECT or audio == null) and registry.has_method("get_instance"):
+		audio = registry.get_instance("game_audio")
+	if typeof(audio) == TYPE_OBJECT and audio != null and audio.has_method("stop_lingpet_guardian_enhance_cutin_loop"):
+		audio.stop_lingpet_guardian_enhance_cutin_loop()
 
 
 func set_guardian_enhance_offer_rng_for_tests(rng: RandomNumberGenerator) -> void:
@@ -2093,6 +2182,7 @@ func import_affinity_run_state(run_state: Dictionary) -> void:
 
 func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
 	_invalidate_runtime_snapshot_cache()
+	cancel_guardian_enhance_cutin(registry)
 	_overflow_choice_state.reset()
 	_guardian_enhance_choice_state.reset()
 	_reset_hatch_break_sequence()
@@ -2151,6 +2241,8 @@ func reset_for_tests() -> void:
 	_guardian_enhance_choice_state.reset()
 	_guardian_enhance_offer_rng_for_tests = null
 	_guardian_enhance_last_result.clear()
+	_guardian_enhance_cutin_state.reset()
+	_guardian_enhance_cutin_prewarm_state.reset()
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO
@@ -2180,6 +2272,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_mount_state.reset()
 	var owner: Object = deps.get("owner", null) as Object
 	var registry: Object = deps.get("registry", null) as Object
+	cancel_guardian_enhance_cutin(registry)
 	if _overflow_choice_state.has_pending_or_active():
 		commit_overflow_release(owner, registry)
 	_round_resetter.reset_round(
@@ -2204,6 +2297,8 @@ func reset_round(deps: Dictionary = {}) -> void:
 
 func _clear_lingpet_field_state() -> void:
 	_invalidate_runtime_snapshot_cache()
+	_guardian_enhance_cutin_state.reset()
+	_guardian_enhance_cutin_prewarm_state.reset()
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
 	_satiety_runtime_state.reset()

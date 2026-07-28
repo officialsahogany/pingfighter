@@ -34,7 +34,38 @@ func handle_input(
 			view_size
 		)
 		return true
+	if _call_modal_gate_bool(module_getter, "is_lingpet_guardian_enhance_cutin_active"):
+		_handle_guardian_enhance_cutin_input(event, owner, registry, module_getter)
+		return true
 	return false
+
+
+func _handle_guardian_enhance_cutin_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> void:
+	var runtime := _get_module(module_getter, "lingpet_egg_runtime")
+	if runtime == null:
+		return
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed and not key.echo and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
+			if runtime.has_method("cancel_guardian_enhance_cutin"):
+				runtime.cancel_guardian_enhance_cutin(registry)
+			_queue_redraw(owner)
+			_mark_handled(owner)
+			return
+	if (
+		_is_confirm_event(event)
+		and runtime.has_method("is_guardian_enhance_cutin_awaiting_dismiss")
+		and bool(runtime.is_guardian_enhance_cutin_awaiting_dismiss())
+		and runtime.has_method("begin_guardian_enhance_cutin_dismiss")
+		and bool(runtime.begin_guardian_enhance_cutin_dismiss())
+	):
+		_queue_redraw(owner)
+		_mark_handled(owner)
 
 
 func _handle_guardian_enhance_choice_input(

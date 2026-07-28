@@ -119,6 +119,14 @@ func is_lingpet_guardian_enhance_choice_active(module_getter: Callable) -> bool:
 	)
 
 
+func is_lingpet_guardian_enhance_cutin_active(module_getter: Callable) -> bool:
+	return _module_bool(
+		module_getter,
+		"lingpet_egg_runtime",
+		"is_guardian_enhance_cutin_active"
+	)
+
+
 func is_treasure_hunt_effect_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "treasure_hunt_runtime", "is_effect_active")
 
@@ -169,6 +177,8 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_overflow_choice", module_getter, "lingpet_egg_runtime", "is_overflow_choice_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_guardian_enhance_choice", module_getter, "lingpet_egg_runtime", "is_guardian_enhance_choice_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_guardian_enhance_cutin", module_getter, "lingpet_egg_runtime", "is_guardian_enhance_cutin_active"):
 		return true
 	return false
 

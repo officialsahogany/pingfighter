@@ -129,6 +129,10 @@ const MODULES := {
 		"path": "res://scripts/hud/lingpet_guardian_enhance_choice_overlay_host.gd",
 		"label": "lingpet guardian enhance choice overlay host",
 	},
+	"lingpet_guardian_enhance_cutin_overlay_host": {
+		"path": "res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd",
+		"label": "lingpet guardian enhance cutin overlay host",
+	},
 	"ball_speed_debug_overlay": {
 		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
 		"label": "ball speed debug overlay",

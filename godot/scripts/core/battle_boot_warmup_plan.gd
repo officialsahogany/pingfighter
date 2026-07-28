@@ -111,6 +111,7 @@ const MODULE_GROUPS := {
 		"skill_cutin_overlay_host",
 		"lingpet_acquire_cutin_overlay_host",
 		"lingpet_guardian_enhance_choice_overlay_host",
+		"lingpet_guardian_enhance_cutin_overlay_host",
 		"scoreboard_renderer",
 		"serve_wait_indicator_renderer",
 		"battle_feedback_state",

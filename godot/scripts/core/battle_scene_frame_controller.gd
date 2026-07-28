@@ -91,6 +91,16 @@ func process_idle(
 		_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
+	if (
+		lingpet_acquire_runtime != null
+		and lingpet_acquire_runtime.has_method("is_guardian_enhance_cutin_active")
+		and bool(lingpet_acquire_runtime.is_guardian_enhance_cutin_active())
+	):
+		if lingpet_acquire_runtime.has_method("advance_guardian_enhance_cutin"):
+			lingpet_acquire_runtime.advance_guardian_enhance_cutin(delta, registry)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
 
 	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
 	if grip_overlay != null and grip_overlay.has_method("update"):
@@ -379,6 +389,7 @@ func draw(
 		_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 		_draw_lingpet_overflow_choice_if_active(canvas, registry, view_size, perf_logger)
 		_draw_lingpet_guardian_enhance_choice_if_active(canvas, registry, view_size, perf_logger)
+		_draw_lingpet_guardian_enhance_cutin_if_active(canvas, registry, view_size, perf_logger)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
 		return
 
@@ -477,6 +488,7 @@ func draw(
 	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 	_draw_lingpet_overflow_choice_if_active(canvas, registry, view_size, perf_logger)
 	_draw_lingpet_guardian_enhance_choice_if_active(canvas, registry, view_size, perf_logger)
+	_draw_lingpet_guardian_enhance_cutin_if_active(canvas, registry, view_size, perf_logger)
 
 	var defeat_continue_screen: Object = _get_defeat_chance_gems_continue_screen(module_getter)
 	if _is_defeat_chance_gems_continue_active(defeat_continue_screen):
@@ -784,6 +796,35 @@ func _draw_lingpet_guardian_enhance_choice_if_active(
 	var start: int = _perf_begin(perf_logger)
 	host.draw(canvas, runtime, view_size)
 	_perf_end(perf_logger, "draw.frame.lingpet_guardian_enhance_choice", start)
+
+
+func _draw_lingpet_guardian_enhance_cutin_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null:
+		return
+	var runtime: Variant = null
+	if registry.has_method("get_cached_instance"):
+		runtime = registry.get_cached_instance("lingpet_egg_runtime")
+	if (typeof(runtime) != TYPE_OBJECT or runtime == null) and registry.has_method("get_instance"):
+		runtime = registry.get_instance("lingpet_egg_runtime")
+	if typeof(runtime) != TYPE_OBJECT or runtime == null:
+		return
+	if not runtime.has_method("is_guardian_enhance_cutin_active") or not bool(runtime.is_guardian_enhance_cutin_active()):
+		return
+	var host: Variant = null
+	if registry.has_method("get_cached_instance"):
+		host = registry.get_cached_instance("lingpet_guardian_enhance_cutin_overlay_host")
+	if (typeof(host) != TYPE_OBJECT or host == null) and registry.has_method("get_instance"):
+		host = registry.get_instance("lingpet_guardian_enhance_cutin_overlay_host")
+	if typeof(host) != TYPE_OBJECT or host == null or not host.has_method("draw"):
+		return
+	var start: int = _perf_begin(perf_logger)
+	host.draw(canvas, runtime, view_size)
+	_perf_end(perf_logger, "draw.frame.lingpet_guardian_enhance_cutin", start)
 
 
 func _get_readiness_controller(module_getter: Callable) -> Object:
