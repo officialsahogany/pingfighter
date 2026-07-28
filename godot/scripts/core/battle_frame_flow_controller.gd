@@ -27,6 +27,29 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call(callbacks, "hide_skill_orb_tooltip_overlay")
 	_clear_skill_orb_tooltip_pause()
 
+	var victory_loot_state = deps.get("victory_loot_phase_state", null)
+	if (
+		victory_loot_state != null
+		and victory_loot_state.has_method("is_active")
+		and bool(victory_loot_state.is_active())
+	):
+		# 승리 전리품 페이즈: 공/보스 AI/서브 흐름은 동결하고 플레이어 조작·
+		# 아이템·이펙트만 태운다. 신화 획득 시네마틱이나 퍽 선택 모달이 열리면
+		# 그 프레임은 이펙트만 흐르고 전리품 갱신도 함께 멈춘다.
+		_call_delta(callbacks, "update_weather", delta)
+		_call_delta(callbacks, "update_mythic_items", delta)
+		if _is_mythic_pause_active(deps) or _is_runtime_perk_pause_active(deps):
+			_call_delta(callbacks, "update_effects", delta)
+			_call(callbacks, "queue_redraw")
+			return
+		_call_delta(callbacks, "update_player_control", delta)
+		_call_delta(callbacks, "update_active_items", delta)
+		if victory_loot_state.has_method("update"):
+			victory_loot_state.update(delta)
+		_call_delta(callbacks, "update_effects", delta)
+		_call(callbacks, "queue_redraw")
+		return
+
 	var stage7_akamu_state = deps.get("stage7_akamu_state", null)
 	if (
 		int(deps.get("current_stage", 1)) == 7

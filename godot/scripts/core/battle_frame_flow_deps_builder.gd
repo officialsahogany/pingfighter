@@ -32,6 +32,7 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == PlayerCharacterRuntime.SMASHER else null,
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
+		"victory_loot_phase_state": _get_instance(registry, "victory_loot_phase_state"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),
 		"serve_context": _build_serve_context(owner),
 		"skill_orb_tooltip_active": not skill_orb_tooltip_state.is_empty(),

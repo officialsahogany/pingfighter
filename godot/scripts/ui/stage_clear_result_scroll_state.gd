@@ -5,7 +5,9 @@ const PHASE_DELAY := "delay"
 const PHASE_UNFURLING := "unfurling"
 const PHASE_VISIBLE := "visible"
 
-const SCROLL_DELAY := 1.10
+# 상자 개봉 이벤트가 인게임 전리품 페이즈로 이관되어 결과화면은 정산 스크롤로
+# 바로 진행한다 — 개봉 여운용이던 1.10s 딜레이를 짧은 호흡만 남기고 축소.
+const SCROLL_DELAY := 0.35
 const SCROLL_UNFURL_DURATION := 0.95
 
 # Extended downward (was 850) so the acquired-item list has room for the

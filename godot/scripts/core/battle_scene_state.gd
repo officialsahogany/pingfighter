@@ -31,6 +31,9 @@ const DEFAULT_VALUES: Dictionary = {
 	"trampoline_launch_speed_cap_frames": 0.0,
 	"gameplay_frame_counter": 0,
 	"ball_visual_type": "energy",
+	# 승리 전리품 페이즈(victory_loot_phase_state) 진행 중 플래그 — 필드 아이템
+	# 스폰 차단 등 외부 소비자용 미러.
+	"victory_loot_phase_active": false,
 	"boost_charging_active": false,
 	"poisoned_ball_overlay_active": false,
 	"viper_knockback_overlay_active": false,

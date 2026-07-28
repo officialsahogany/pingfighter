@@ -90,6 +90,7 @@ func update_scoreboard(
 				reset_drive_input_callback,
 				reset_ball_callback
 			),
+			"try_start_victory_loot": Callable(self, "_try_start_victory_loot_phase").bind(registry, owner, reset_game_callback),
 			"show_stage_clear_result": Callable(self, "_show_stage_clear_result").bind(registry, reset_game_callback, owner),
 		},
 		{
@@ -134,6 +135,12 @@ func _apply_scoreboard_update_result(
 			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
 		_perf_end(perf_logger, "physics.scoreboard_result.resolve_defeat", defeat_start)
+		var victory_loot_start: int = _perf_begin(perf_logger)
+		if _try_start_victory_loot_phase(registry, owner, reset_game_callback):
+			_perf_end(perf_logger, "physics.scoreboard_result.victory_loot", victory_loot_start)
+			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
+			return
+		_perf_end(perf_logger, "physics.scoreboard_result.victory_loot", victory_loot_start)
 		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
@@ -325,6 +332,32 @@ func _show_stage_clear_result(registry: Object, reset_game_callback: Callable, o
 	# Stage-clear (win) exit returns to character select to start the next run.
 	var exit_callback := Callable(self, "_exit_to_character_select").bind(owner)
 	return bool(result_screen.show_from_scoreboard(owner, registry, reset_game_callback, exit_callback))
+
+
+func _try_start_victory_loot_phase(registry: Object, owner: Object, reset_game_callback: Callable) -> bool:
+	# 승리 시 결과화면 직행 대신 보스 드랍 전리품 페이즈를 먼저 연다. 시작에
+	# 실패하면 false를 돌려 기존 결과화면 래더가 그대로 이어진다.
+	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
+	if loot_state == null or not loot_state.has_method("start"):
+		return false
+	if loot_state.has_method("is_active") and bool(loot_state.is_active()):
+		return false
+	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
+	if scoreboard_state == null or not scoreboard_state.has_method("get_player_points"):
+		return false
+	var player_points: int = int(scoreboard_state.get_player_points())
+	var boss_points: int = int(scoreboard_state.get_boss_points()) if scoreboard_state.has_method("get_boss_points") else 0
+	if player_points <= boss_points:
+		return false
+	var finish_callback := Callable(self, "_finish_victory_loot_phase").bind(registry, reset_game_callback, owner)
+	return bool(loot_state.start(owner, registry, player_points, boss_points, finish_callback))
+
+
+func _finish_victory_loot_phase(registry: Object, reset_game_callback: Callable, owner: Object) -> void:
+	# 전리품 페이즈 종료 = 기존 스코어보드 승리 래더의 나머지 절반을 그대로 실행.
+	if _show_stage_clear_result(registry, reset_game_callback, owner):
+		return
+	_call_callback(reset_game_callback)
 
 
 func exit_to_main_menu(owner: Object) -> void:

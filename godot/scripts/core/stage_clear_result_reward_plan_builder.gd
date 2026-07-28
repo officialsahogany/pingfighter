@@ -21,15 +21,13 @@ func build_reward_plan(winning_score: int, losing_score: int) -> Dictionary:
 
 
 func get_reward_box_count(winning_score: int, losing_score: int) -> int:
-	if winning_score == 5 and losing_score == 0:
-		return 5
-	if winning_score == 5 and losing_score == 1:
-		return 4
-	if winning_score == 5 and losing_score == 2:
+	# 2026-07-28 보상 하향: 압승(5:0~5:1) 3개 / 일반 승리(5:2~5:4) 2개 /
+	# 듀스 승리(6:4·6:5·7:5·7:6) 1개.
+	if winning_score > 5:
+		return 1
+	if losing_score <= 1:
 		return 3
-	if winning_score == 5 and losing_score == 3:
-		return 2
-	return 1
+	return 2
 
 
 func roll_stage_clear_box_kind(roll: float) -> String:

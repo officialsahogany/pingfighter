@@ -156,8 +156,8 @@ static func get_box_state_counts(boxes: Array) -> Dictionary:
 
 
 static func all_boxes_opened(boxes: Array) -> bool:
-	if boxes.is_empty():
-		return false
+	# 상자 이벤트가 인게임 전리품 페이즈로 이관되어 결과화면 상자는 이제 0개다.
+	# 빈 배열 = 열 것이 없음 = 정산 스크롤 즉시 진행(과거에는 false로 막았다).
 	for box_value in boxes:
 		if not (box_value is Dictionary):
 			continue

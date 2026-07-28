@@ -196,6 +196,10 @@ func draw(
 		_draw_active_item_field(canvas, registry, shake_offset, perf_logger)
 	_perf_end(perf_logger, "29.active_item_field", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	# 승리 전리품 상자는 픽업 대상(게임플레이 크리티컬)이라 LOD 게이트를 타지 않는다.
+	_draw_victory_loot_boxes(canvas, registry, shake_offset)
+	_perf_end(perf_logger, "29b.victory_loot_boxes", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	if not decorative_lod:
 		_draw_mythic_item_field_effects(canvas, registry, shake_offset, perf_logger, draw_context)
 	_perf_end(perf_logger, "30.mythic_item_field", sample_start)
@@ -321,6 +325,14 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 func _perf_remember_context(perf_logger: Object, context: Dictionary) -> void:
 	if perf_logger != null and perf_logger.has_method("remember_context"):
 		perf_logger.remember_context(context)
+
+
+func _draw_victory_loot_boxes(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
+	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
+	if loot_state == null or not loot_state.has_method("is_active") or not bool(loot_state.is_active()):
+		return
+	if loot_state.has_method("draw"):
+		loot_state.draw(canvas, shake_offset)
 
 
 func _draw_active_item_field(

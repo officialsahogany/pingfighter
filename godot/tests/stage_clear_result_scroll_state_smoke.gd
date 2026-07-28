@@ -27,9 +27,11 @@ func _init() -> void:
 
 func _verify_direct_scroll_phase() -> void:
 	var scroll_delay: float = StageClearResultScrollState.SCROLL_DELAY
+	# 상자 이벤트가 인게임 전리품 페이즈로 이관되어 결과화면은 정산 스크롤로
+	# 바로 진행한다 — 개봉 여운 대기(구 1.10s) 대신 짧은 호흡만 허용.
 	_expect(
-		scroll_delay > StageClearResultBoxData.BOX_REWARD_EMERGE_DURATION,
-		"result scroll should wait until the final box reward has emerged"
+		scroll_delay > 0.0 and scroll_delay <= 0.5,
+		"result scroll should open almost immediately now that the box event moved in-game"
 	)
 	var result: Dictionary = StageClearResultScrollState.update_phase("hidden", 0.0, 0.1, false, false, scroll_delay, 0.95)
 	_expect(str(result.get("phase", "")) == "hidden", "scroll should stay hidden until every box opens")

@@ -363,6 +363,35 @@ class FakePerfLogger:
 		return labels.has(label)
 
 
+class FakeVictoryLootState:
+	extends RefCounted
+
+	var active := false
+	var start_result := true
+	var start_calls := 0
+	var last_player_score := -1
+	var last_boss_score := -1
+	var finish_callback: Callable = Callable()
+
+	func is_active() -> bool:
+		return active
+
+	func start(
+		_owner: Object,
+		_registry: Object,
+		player_score: int,
+		boss_score: int,
+		new_finish_callback: Callable
+	) -> bool:
+		start_calls += 1
+		last_player_score = player_score
+		last_boss_score = boss_score
+		finish_callback = new_finish_callback
+		if start_result:
+			active = true
+		return start_result
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -380,6 +409,7 @@ class FakeRegistry:
 	var defeat_continue_screen: Object = null
 	var stage_clear_result_screen: Object = null
 	var plaza_save_store: Object = null
+	var victory_loot_state: Object = null
 
 	func _init(next_context_builder: Object, next_controller: Object) -> void:
 		context_builder = next_context_builder
@@ -413,6 +443,8 @@ class FakeRegistry:
 				return defeat_continue_screen
 			"stage_clear_result_screen":
 				return stage_clear_result_screen
+			"victory_loot_phase_state":
+				return victory_loot_state
 			"plaza_save_store":
 				return plaza_save_store
 			_:
@@ -576,6 +608,38 @@ func _init() -> void:
 	_expect(stage_clear_screen.exit_callback_method == "_exit_to_character_select", "stage-clear result should exit to character select, not the main menu")
 	_expect(_reset_game_callback_calls == 0, "stage-clear result should block the full reset fallback while open")
 	registry.defeat_continue_screen = null
+	registry.stage_clear_result_screen = null
+
+	# 승리 전리품 페이즈 인터셉트: 전리품 상태가 등록돼 있으면 승리 래더는
+	# 결과화면 직행 대신 전리품 페이즈를 시작하고, 전리품 종료 콜백이 그제서야
+	# 결과화면을 연다 (상자 드랍 -> 획득 -> 정산 직행 개편의 드라이버 씰).
+	var loot_state := FakeVictoryLootState.new()
+	var loot_stage_clear_screen := FakeStageClearResultScreen.new()
+	registry.victory_loot_state = loot_state
+	registry.stage_clear_result_screen = loot_stage_clear_screen
+	_reset_game_callback_calls = 0
+	scoreboard.next_result = ScoreboardState.UPDATE_RESET_GAME
+	scoreboard.player_points = 5
+	scoreboard.boss_points = 0
+	scoreboard.win_goal = 5
+	scoreboard.last_scoring_side = "player"
+	driver.update_scoreboard(
+		registry,
+		2.0,
+		Callable(self, "_record_reset_game_callback"),
+		Callable(self, "_record_ball_reset"),
+		win_owner,
+		Callable(self, "_record_drive_reset")
+	)
+	_expect(loot_state.start_calls == 1, "match win with a registered loot state should start the victory loot phase")
+	_expect(loot_state.last_player_score == 5 and loot_state.last_boss_score == 0, "victory loot phase should receive the final scoreboard score")
+	_expect(loot_stage_clear_screen.show_calls == 0, "victory loot interception must defer the stage-clear result screen")
+	_expect(_reset_game_callback_calls == 0, "victory loot interception must not fall through to the reset callback")
+	_expect(loot_state.finish_callback.is_valid(), "victory loot phase should receive a finish callback")
+	if loot_state.finish_callback.is_valid():
+		loot_state.finish_callback.call()
+	_expect(loot_stage_clear_screen.show_calls == 1, "victory loot finish callback should open the stage-clear result screen")
+	registry.victory_loot_state = null
 	registry.stage_clear_result_screen = null
 
 	var settlement_screen := FakeDefeatSettlementScreen.new()

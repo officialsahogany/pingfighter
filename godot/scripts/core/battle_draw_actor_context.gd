@@ -174,8 +174,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var boss_result_context: Dictionary = ResultContext.get_boss_result_context(deps, current_stage)
 	var revival_beat_state = deps.get("defeat_continue_revival_beat_state", null)
 	var revival_result_context: Dictionary = revival_beat_state.get_actor_draw_context() if _should_read_actor_draw_context(revival_beat_state) else {}
+	var victory_loot_state = deps.get("victory_loot_phase_state", null)
+	var victory_loot_result_context: Dictionary = victory_loot_state.get_actor_draw_context() if _should_read_actor_draw_context(victory_loot_state) else {}
 	var combined_result_context := boss_result_context.duplicate(true)
 	combined_result_context.merge(revival_result_context, true)
+	combined_result_context.merge(victory_loot_result_context, true)
 	combined_result_context["stage1_boss_variant"] = str(context.get("stage1_boss_variant", "dalji"))
 	var result_state_active: bool = ResultContext.has_result_state(combined_result_context)
 	_perf_end(perf_logger, "context.actor.textures.base", texture_sample_start)

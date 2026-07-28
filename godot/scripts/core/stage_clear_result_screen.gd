@@ -92,7 +92,10 @@ func draw(canvas: CanvasItem, _owner: Object, _registry: Object, view_size: Vect
 
 
 func get_reward_plan() -> Dictionary:
-	return _service("_reward_plan_builder").build_reward_plan(player_score, boss_score)
+	# 상자 개봉 이벤트는 인게임 승리 전리품 페이즈(victory_loot_phase_state)로
+	# 이관됐다. 결과화면이 상자를 다시 만들면 이중 보상이므로 항상 빈 플랜을
+	# 돌려 정산 스크롤이 즉시 진행되게 한다.
+	return {"summary": "", "boxes": [], "reward_count": 0}
 
 
 func get_status() -> Dictionary:

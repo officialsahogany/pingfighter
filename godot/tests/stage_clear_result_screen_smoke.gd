@@ -362,8 +362,9 @@ func _run() -> void:
 	_verify_box_open_audio_routes_from_screen()
 	_verify_screen_ignores_boss_win()
 	_verify_stage_summary_includes_stage_inventory()
-	_verify_starpoint_choice_waits_on_result_screen()
-	_verify_mythic_box_starts_result_screen_acquisition_cinematic()
+	# (구 상자 개봉 레그 2건 — 지연 스타포인트 선택 / 신화 상자 시네마틱 — 은 상자
+	# 이벤트가 인게임 전리품 페이즈로 이관되며 제거. victory_loot_phase_state_smoke가
+	# 롤/그랜트/시네마틱 계약을 승계한다.)
 	_verify_advance_through_boxes_to_next_stage()
 	_verify_escape_ignored_while_boxes_remain()
 	_verify_exit_to_menu_from_visible_scroll()
@@ -728,22 +729,21 @@ func _verify_screen_opens_for_player_win() -> void:
 		var scene_status: Dictionary = _get_interaction_status(result_scene)
 		_expect(bool(scene_status.get("scroll_texture_loaded", false)), "result scene should load the generated cyber scroll texture")
 
+	# 상자 개봉 이벤트는 인게임 전리품 페이즈(victory_loot_phase_state)로 이관 —
+	# 결과화면 플랜은 항상 비어 있어야 한다(이중 보상 가드).
 	var plan: Dictionary = screen.get_reward_plan()
-	_expect(int(plan.get("reward_count", 0)) == 5, "5:0 reward plan should expose five stage-clear boxes")
+	_expect(int(plan.get("reward_count", 0)) == 0, "result screen reward plan must stay empty after the loot-phase migration")
 	var boxes_value: Variant = plan.get("boxes", [])
 	var boxes: Array = boxes_value if boxes_value is Array else []
-	_expect(boxes.size() == 5, "5:0 reward plan should include five box entries")
-	for box_value in boxes:
-		var box: Dictionary = box_value if box_value is Dictionary else {}
-		_expect(str(box.get("kind", "")) in ["guaranteed_mythic", "advanced", "normal"], "5:0 reward plan should roll an allowed box kind")
+	_expect(boxes.is_empty(), "result screen must not materialize reward boxes anymore")
 
 	var key_event := InputEventKey.new()
 	key_event.pressed = true
 	key_event.keycode = KEY_ENTER
 	key_event.physical_keycode = KEY_ENTER
-	_expect(screen.handle_input(key_event, owner, registry, Vector2(1920.0, 1080.0)), "Enter should be consumed by the result screen")
-	_expect(screen.is_active(), "Enter while boxes remain should keep the result screen active (advance opens boxes)")
-	_expect(sink.reset_calls == 0, "Enter during the box phase must not invoke the next-stage callback yet")
+	screen.handle_input(key_event, owner, registry, Vector2(1920.0, 1080.0))
+	_expect(screen.is_active(), "Enter before the settlement scroll is visible should keep the result screen active")
+	_expect(sink.reset_calls == 0, "Enter before the settlement scroll is visible must not invoke the next-stage callback")
 	_cleanup_result_screen(screen, owner)
 
 
@@ -764,8 +764,10 @@ func _verify_box_open_audio_routes_from_screen() -> void:
 	var result_scene := owner.get_child(0)
 	var scene_status: Dictionary = _get_interaction_status(result_scene)
 	_expect(bool(scene_status.get("box_open_audio_ready", false)), "result screen should pass game audio into the result scene")
+	# 상자 개봉이 인게임 전리품 페이즈로 이관된 뒤 결과화면 Enter는 상자를 열지
+	# 않으므로 개봉 SFX가 나면 회귀다(전리품 페이즈가 개봉 SFX를 소유).
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	_expect(audio.result_box_open_calls == 1, "opening a result box should play the routed box-open SFX")
+	_expect(audio.result_box_open_calls == 0, "result screen must not play the box-open SFX anymore (loot phase owns it)")
 	_cleanup_result_screen(screen, owner)
 
 
@@ -844,128 +846,6 @@ func _verify_stage_summary_includes_stage_inventory() -> void:
 	_cleanup_result_screen(screen, owner)
 
 
-func _verify_starpoint_choice_waits_on_result_screen() -> void:
-	var score_state := FakeScoreState.new()
-	score_state.boss_score = 4
-	var runtime_state := FakeRuntimePerkState.new()
-	var runtime_catalog := FakeRuntimePerkCatalog.new()
-	var audio := FakeGameAudio.new()
-	var registry := FakeRegistry.new(score_state, runtime_state, runtime_catalog, audio)
-	var owner := FakeOwner.new()
-	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var sink := CallbackSink.new()
-	var screen: Object = _make_result_screen()
-	var reward_resolver := FakeRewardResolver.new()
-	screen.set_reward_resolver_for_test(reward_resolver)
-
-	_expect(
-		screen.show_from_scoreboard(owner, registry, Callable(sink, "reset_game")),
-		"result screen should open for deferred starpoint choice smoke"
-	)
-	_ensure_result_scene_spawned(screen, owner)
-	var result_scene := owner.get_child(0)
-	_expect(result_scene != null and result_scene.visible, "result scene should start visible")
-
-	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	for _i in range(14):
-		screen.update(0.05)
-
-	_expect(reward_resolver.grant_calls == 1, "starpoint reward should still grant when the box opens")
-	_expect(runtime_state.collect_calls == 1, "starpoint grant should reach runtime perk state")
-	_expect(runtime_state.last_defer_choice_open, "result-screen starpoint grant should defer opening the perk choice")
-	_expect(not runtime_state.choice_active, "perk choice should not open during the star rise")
-	_expect(audio.runtime_perk_choice_open_calls == 0, "perk-choice open SFX should wait for the deferred modal")
-	_expect(result_scene.visible, "result scene should remain visible while the starpoint choice is delayed")
-	var scene_status: Dictionary = _get_interaction_status(result_scene)
-	_expect(bool(scene_status.get("starpoint_choice_gate_active", false)), "result scene should gate box/scroll input while waiting to open the choice")
-	var screen_status: Dictionary = screen.get_status()
-	var pending_delay: float = float(screen_status.get("pending_starpoint_choice_delay", -1.0))
-	_expect(
-		StageClearResultScreen.STARPOINT_CHOICE_REWARD_DELAY < 1.0,
-		"result-screen starpoint choices should open quickly after the reward reveal"
-	)
-	_expect(pending_delay > 0.0, "deferred starpoint choice should expose remaining delay")
-
-	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	_expect(sink.reset_calls == 0, "Enter during delayed starpoint choice must not advance stages")
-
-	screen.update(max(0.0, pending_delay - 0.05))
-	_expect(not runtime_state.choice_active, "perk choice should wait until the faster starpoint reveal delay finishes")
-
-	screen.update(0.10)
-	_expect(runtime_state.choice_active, "perk choice should open after the delayed starpoint animation")
-	_expect(runtime_state.open_calls == 1, "deferred starpoint should open one perk-choice modal")
-	_expect(str(runtime_state.last_choice_context.get("source", "")) == "result_box_starpoint_choice", "result-screen starpoint choices should carry their box source context")
-	_expect(bool(runtime_state.last_choice_context.get("defer_instant_dimension_gate_until_spawn_intro_end", false)), "result-screen starpoint choices should defer instant dimension gate until the next spawn intro ends")
-	_expect(bool(runtime_state.last_choice_context.get("defer_instant_full_gauge_until_spawn_intro_end", false)), "result-screen starpoint choices should defer instant full gauge until the next spawn intro ends")
-	_expect(audio.runtime_perk_choice_open_calls == 1, "deferred result-screen perk choice should play its open SFX once")
-	_expect(result_scene.visible, "result scene should remain visible behind the perk choice")
-	scene_status = _get_interaction_status(result_scene)
-	_expect(bool(scene_status.get("runtime_perk_choice_active", false)), "result scene should expose the active perk choice overlay state")
-	_expect(not bool(scene_status.get("starpoint_choice_gate_active", true)), "starpoint gate should clear once the perk choice opens")
-
-	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	_expect(runtime_state.choose_calls == 1, "result-scene perk overlay input should choose the selected perk")
-	_expect(not runtime_state.choice_active, "choosing a result-scene perk should close the perk overlay")
-	_expect(sink.reset_calls == 0, "choosing a perk must not also advance to the next stage")
-	scene_status = _get_interaction_status(result_scene)
-	_expect(int(scene_status.get("starpoint_total", -1)) == 0, "resolved box starpoints should no longer appear as perk choice tickets")
-	_expect(int(scene_status.get("perk_reward_count", 0)) == 1, "resolved box starpoints should appear as the selected perk")
-	var perk_source_counts: Dictionary = scene_status.get("perk_reward_source_counts", {}) if scene_status.get("perk_reward_source_counts", {}) is Dictionary else {}
-	_expect(int(perk_source_counts.get("box", 0)) == 1, "selected result-screen perks should keep the box reward source")
-	var perk_info: Dictionary = scene_status.get("perk_info", {}) if scene_status.get("perk_info", {}) is Dictionary else {}
-	_expect(str(perk_info.get("kind", "")) == "perk", "result perk info should describe the selected perk after a box starpoint choice")
-	_cleanup_result_screen(screen, owner)
-
-
-func _verify_mythic_box_starts_result_screen_acquisition_cinematic() -> void:
-	var score_state := FakeScoreState.new()
-	score_state.boss_score = 4
-	var mythic_runtime := FakeMythicItemRuntime.new()
-	var registry := FakeRegistry.new(score_state, null, null, null, mythic_runtime)
-	var owner := FakeOwner.new()
-	owner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var screen: Object = _make_result_screen()
-	var reward_resolver := FakeRewardResolver.new()
-	reward_resolver.reward_type = "mythic"
-	screen.set_reward_resolver_for_test(reward_resolver)
-
-	_expect(
-		screen.show_from_scoreboard(owner, registry, Callable()),
-		"result screen should open for result-screen mythic cinematic smoke"
-	)
-	_ensure_result_scene_spawned(screen, owner)
-	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	for _i in range(14):
-		screen.update(0.05)
-
-	_expect(reward_resolver.grant_calls == 1, "mythic reward should grant immediately when the result box opens")
-	_expect(not reward_resolver.granted_rewards.is_empty(), "mythic immediate grant should pass the reward payload")
-	var granted_reward: Dictionary = reward_resolver.granted_rewards[0] if reward_resolver.granted_rewards[0] is Dictionary else {}
-	_expect(bool(granted_reward.get("show_acquisition_cinematic", false)), "result mythic grant should request the field acquisition cinematic")
-	_expect(granted_reward.get("pickup_position", null) is Vector2, "result mythic grant should pass the opened box position to the cinematic")
-	_expect(granted_reward.get("target_player_center", null) is Vector2, "result mythic grant should pass the result Live2D target to the cinematic")
-	if granted_reward.get("pickup_position", null) is Vector2 and granted_reward.get("target_player_center", null) is Vector2:
-		var pickup_position: Vector2 = granted_reward.get("pickup_position")
-		var target_player_center: Vector2 = granted_reward.get("target_player_center")
-		_expect(target_player_center.x > pickup_position.x, "result mythic absorb target should sit on the right-side Live2D panel")
-	_expect(mythic_runtime.acquisition_active, "result mythic grant should activate the acquisition cinematic")
-
-	screen.update(0.05)
-	_expect(mythic_runtime.update_calls > 0, "result screen should update an active mythic acquisition cinematic")
-	var result_scene := owner.get_child(0)
-	var click_event := InputEventMouseButton.new()
-	click_event.button_index = MOUSE_BUTTON_LEFT
-	click_event.pressed = true
-	_expect(_handle_result_input(result_scene, click_event), "result-scene GUI input should be consumed during mythic acquisition")
-	_expect(mythic_runtime.input_calls == 1, "result-scene GUI mouse input should route to the mythic acquisition cinematic")
-	_expect(not mythic_runtime.acquisition_active, "mythic acquisition click should start the absorb/finish path instead of opening result UI")
-	mythic_runtime.acquisition_active = true
-	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-	_expect(mythic_runtime.input_calls == 2, "result screen should route controller input to the mythic acquisition cinematic first")
-	_cleanup_result_screen(screen, owner)
-
-
 func _verify_advance_through_boxes_to_next_stage() -> void:
 	var score_state := FakeScoreState.new()
 	var registry := FakeRegistry.new(score_state)
@@ -986,29 +866,22 @@ func _verify_advance_through_boxes_to_next_stage() -> void:
 	)
 	_ensure_result_scene_spawned(screen, owner)
 
+	# 상자 이벤트 이관 후: 결과화면은 상자 없이 정산 스크롤로 바로 진행하고,
+	# 박스 보상 롤/그랜트를 한 번도 수행하지 않아야 한다(이중 보상 가드).
 	var box_count: int = int(screen.get_reward_plan().get("reward_count", 0))
-	_expect(box_count > 0, "5:0 plan must expose at least one box for advance smoke")
-	for _i in range(box_count):
-		screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
-		# 오픈 직렬화 가드(단일 슬롯 보상 게이트): 열리는 중에는 다음 오픈이
-		# 소비-무시되므로, 각 오픈이 완료된 뒤에 다음 입력을 보낸다.
-		for _j in range(30):
-			screen.update(0.05)
+	_expect(box_count == 0, "result screen must not expose reward boxes after the loot-phase migration")
 	for _i in range(80):
 		screen.update(0.05)
 	_expect(screen.is_active(), "result screen should still be active until next-stage Enter")
-	_expect(reward_resolver.grant_calls == box_count, "starpoint box rewards should grant immediately as boxes open")
+	_expect(reward_resolver.roll_calls == 0, "result screen must not roll box rewards anymore (loot phase owns rolling)")
+	_expect(reward_resolver.grant_calls == 0, "result screen must not grant box rewards anymore (double-reward guard)")
 
 	screen.handle_input(_make_key_event(KEY_ENTER), owner, registry, Vector2(1920.0, 1080.0))
 	_expect(not screen.is_active(), "Enter on visible scroll should close the result screen")
 	_expect(sink.reset_calls == 1, "Enter on visible scroll must invoke the next-stage callback exactly once")
 	_expect(sink.exit_calls == 0, "Enter on visible scroll must not invoke the exit callback")
-	_expect(reward_resolver.roll_calls == box_count, "result screen should roll one reward per opened box")
-	_expect(reward_resolver.grant_calls == box_count, "next-stage confirmation should not re-grant immediately handled starpoints")
-	var status: Dictionary = screen.get_status()
-	var grant_summary: Dictionary = status.get("last_grant_summary", {}) if status.get("last_grant_summary", {}) is Dictionary else {}
-	_expect(bool(status.get("rewards_granted", false)), "next-stage confirmation should mark rewards granted")
-	_expect(int(grant_summary.get("attempted", 0)) == box_count, "grant summary should include all opened box rewards")
+	_expect(reward_resolver.roll_calls == 0, "next-stage confirmation must not roll any box rewards either")
+	_expect(reward_resolver.grant_calls == 0, "next-stage confirmation must not re-grant box rewards")
 	_cleanup_result_screen(screen, owner)
 
 

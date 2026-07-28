@@ -54,6 +54,9 @@ func is_item_spawn_blocked(owner: Object) -> bool:
 		return true
 	if bool(BattleSceneOwnerReader.get_value(owner, "arena_mode_enabled", false)):
 		return true
+	if bool(BattleSceneOwnerReader.get_value(owner, "victory_loot_phase_active", false)):
+		# 승리 전리품 페이즈 중에는 새 필드 아이템 스폰을 막는다(상자 픽업과 경합 방지).
+		return true
 	return false
 
 

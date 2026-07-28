@@ -108,8 +108,9 @@ func _verify_f9_forces_player_stage_clear() -> void:
 	var result_status: Dictionary = registry.result_screen.get_status()
 	_expect(bool(result_status.get("spawn_pending", false)), "F9 result screen should stage the heavy result scene instead of blocking input")
 
+	# 상자 이벤트 이관 후 결과화면 플랜은 항상 비어 있다(전리품 페이즈가 소유).
 	var box_count: int = int(registry.result_screen.get_reward_plan().get("reward_count", 0))
-	_expect(box_count > 0, "F9 5:0 plan should include at least one reward box")
+	_expect(box_count == 0, "F9 result screen plan must stay empty after the loot-phase migration")
 	_finish_result_screen(StageClearResultFinishFlowHandler.ACTION_NEXT_STAGE)
 	_expect(reset_calls == 1, "F9 result screen should keep the provided reset callback")
 	event = null
@@ -141,8 +142,9 @@ func _verify_f9_exit_to_menu_from_visible_scroll() -> void:
 			"exit_to_menu_after_stage_clear": Callable(self, "_exit_to_menu"),
 		}
 	)
+	# 상자 이벤트 이관 후 결과화면 플랜은 항상 비어 있다(전리품 페이즈가 소유).
 	var box_count: int = int(registry.result_screen.get_reward_plan().get("reward_count", 0))
-	_expect(box_count > 0, "F9 5:0 plan should include at least one reward box before exit")
+	_expect(box_count == 0, "F9 result screen plan must stay empty after the loot-phase migration")
 	_finish_result_screen(StageClearResultFinishFlowHandler.ACTION_EXIT_TO_MENU)
 	_expect(exit_calls == 1, "F9 result screen should keep the provided exit callback")
 	_expect(reset_calls == 0, "F9 exit callback path must not reset the game")

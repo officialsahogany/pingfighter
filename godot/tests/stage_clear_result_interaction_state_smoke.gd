@@ -148,7 +148,9 @@ func _verify_box_state_counts() -> void:
 	var counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(boxes)
 	_expect(int(counts.get("opened_count", -1)) == 1, "box counts should count opened boxes")
 	_expect(int(counts.get("opening_count", -1)) == 1, "box counts should count opening boxes")
-	_expect(not StageClearResultInteractionState.all_boxes_opened([]), "empty boxes should not count as all opened")
+	# 상자 이벤트가 인게임 전리품 페이즈로 이관된 뒤 결과화면 상자는 항상 0개 —
+	# 빈 배열은 "열 것 없음"으로 정산 스크롤을 즉시 진행시켜야 한다.
+	_expect(StageClearResultInteractionState.all_boxes_opened([]), "empty boxes should count as all opened (loot-phase migration: scroll starts immediately)")
 	_expect(not StageClearResultInteractionState.all_boxes_opened(boxes), "mixed boxes should not count as all opened")
 	_expect(StageClearResultInteractionState.all_boxes_opened([{"state": "opened"}, {"state": "opened"}]), "opened boxes should count as all opened")
 

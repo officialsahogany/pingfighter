@@ -185,6 +185,10 @@ const MODULES := {
 		"path": "res://scripts/core/battle_frame_flow_controller.gd",
 		"label": "battle frame flow controller",
 	},
+	"victory_loot_phase_state": {
+		"path": "res://scripts/core/victory_loot_phase_state.gd",
+		"label": "victory loot phase state",
+	},
 	"battle_frame_flow_deps_builder": {
 		"path": "res://scripts/core/battle_frame_flow_deps_builder.gd",
 		"label": "battle frame flow deps builder",
