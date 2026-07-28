@@ -198,23 +198,18 @@ func _verify_slot_classifier_and_count() -> void:
 	var unlock_plasma := catalog.get_perk_data("unlock_plasma")
 	var instant := catalog.get_perk_data("instant_gauge_full")
 	var gold := catalog.get_perk_data("convert_to_gold")
-	var chip := catalog.get_perk_data("lingpet_affinity_chip")
-	var ring_core := catalog.get_perk_data("lingpet_ring_core_upgrade")
 
 	_expect(RuntimePerkCatalog.is_slot_consuming_perk(star_detector), "converted regular perks should consume one perk slot")
 	_expect(RuntimePerkCatalog.is_slot_consuming_perk(odins_eye), "converted mythic perks should consume one perk slot")
 	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(unlock_plasma), "unlock_* active-skill cards should not consume the perk-slot budget")
 	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(instant), "instant cards should not consume the perk-slot budget")
 	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(gold), "gold conversion should not consume the perk-slot budget")
-	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(chip), "lingpet affinity chips should not consume the perk-slot budget")
-	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(ring_core), "lingpet ring-core upgrades should not consume the perk-slot budget")
 
 	var mixed_levels := _full_slot_levels()
 	mixed_levels["unlock_plasma"] = 1
 	mixed_levels["instant_gauge_full"] = 1
 	mixed_levels["convert_to_gold"] = 1
-	mixed_levels["lingpet_affinity_chip"] = 1
-	_expect_eq(catalog.count_owned_slot_perks(mixed_levels), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "slot count should ignore unlock/instant/lingpet/gold levels")
+	_expect_eq(catalog.count_owned_slot_perks(mixed_levels), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "slot count should ignore unlock/instant/gold levels")
 
 
 func _verify_offer_budget_at_five_slots() -> void:
@@ -238,7 +233,6 @@ func _verify_non_consuming_choices_survive_full_slots() -> void:
 	var runtime := LingpetEggRuntime.new()
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
-	runtime._affinity_state.set_run_ring_core_tier(1)
 	var registry := FakeRegistry.new({"lingpet_egg_runtime": runtime})
 	var full_levels := _full_slot_levels()
 
@@ -248,8 +242,6 @@ func _verify_non_consuming_choices_survive_full_slots() -> void:
 
 	var choices_without_instant: Array = catalog.get_choices("smasher", full_levels, true, OFFER_SCAN_COUNT, owner, registry)
 	_expect(_has_choice_id(choices_without_instant, "unlock_plasma"), "full slots should not suppress unlock_* active-skill choices")
-	_expect(_has_choice_id(choices_without_instant, "lingpet_affinity_chip"), "full slots should not suppress lingpet affinity chip choices")
-	_expect(_has_choice_id(choices_without_instant, "lingpet_ring_core_upgrade"), "full slots should not suppress lingpet ring-core upgrade choices")
 	owner.free()
 
 

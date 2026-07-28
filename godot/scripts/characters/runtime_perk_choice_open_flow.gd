@@ -6,7 +6,6 @@ const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime
 
 const CALLBACK_GET_INSTANCE := "get_instance"
 const CALLBACK_APPLY_CHOICE_OPENING_UPDATE := "apply_choice_opening_update"
-const CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN := "tick_lingpet_ring_core_offer_cooldown"
 const CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE := "pause_skill_cooldowns_for_choice"
 const CALLBACK_BUILD_PARTICLES := "build_particles"
 const DEFAULT_BASE_PERK_CHOICE_COUNT := 3
@@ -23,10 +22,6 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE: RuntimePerkRuntimeStateAccess.build_callable(
 			runtime_state,
 			"_apply_choice_opening_update"
-		),
-		CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN: RuntimePerkRuntimeStateAccess.build_callable(
-			runtime_state,
-			"_tick_lingpet_ring_core_offer_cooldown"
 		),
 		CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE: RuntimePerkRuntimeStateAccess.build_callable(
 			runtime_state,
@@ -162,8 +157,6 @@ func open_mythic_perk_choice(
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 		[choice_opening.build_ready_state_update(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices").size())]
 	)
-	if bool(ready_result.get("tick_lingpet_ring_core_offer_cooldown", false)):
-		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
 	if bool(ready_result.get("pause_skill_cooldowns", false)):
 		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
 	if bool(ready_result.get("build_particles", false)):
@@ -294,8 +287,6 @@ func open_next_choice(
 		CALLBACK_APPLY_CHOICE_OPENING_UPDATE,
 		[choice_opening.build_ready_state_update(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices").size())]
 	)
-	if bool(ready_result.get("tick_lingpet_ring_core_offer_cooldown", false)):
-		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_TICK_LINGPET_RING_CORE_OFFER_COOLDOWN, [registry])
 	if bool(ready_result.get("pause_skill_cooldowns", false)):
 		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE, [owner, registry])
 	if bool(ready_result.get("build_particles", false)):

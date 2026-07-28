@@ -59,7 +59,7 @@ func _verify_explicit_protection_markers() -> void:
 		_protected_choice("jackpot", "mythic"),
 		_protected_choice("dash_amplification", "reserved"),
 		_protected_choice("already_owned", "owned"),
-		_protected_choice("lingpet_ring_core_upgrade", "ring"),
+		_protected_choice("lingpet_guardian_enhance", "guardian_enhance_reserved"),
 		_protected_choice("dowsing_bonus", "dowsing"),
 		_protected_choice("convert_to_gold", "gold"),
 	]

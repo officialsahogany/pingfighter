@@ -32,31 +32,16 @@ func _init() -> void:
 
 func _verify_path_selection() -> void:
 	var helper := RuntimePerkDebugGrants.new()
-	_expect_path(helper.build_path("", {"name": "Blank"}, "ring_core"), RuntimePerkDebugGrants.PATH_INVALID, false, "blank id should reject")
-	_expect_path(helper.build_path("missing", {}, "ring_core"), RuntimePerkDebugGrants.PATH_INVALID, false, "empty perk data should reject")
-	_expect_path(helper.build_path("ring_core", {"name": "Ring"}, "ring_core"), RuntimePerkDebugGrants.PATH_RING_CORE, true, "ring-core id should select ring-core path")
-	_expect_path(helper.build_path("instant_debug", {"is_instant": true}, "ring_core"), RuntimePerkDebugGrants.PATH_INSTANT, true, "instant flag should select instant path")
-	_expect_path(helper.build_path("convert_to_gold", {"name": "Gold"}, "ring_core"), RuntimePerkDebugGrants.PATH_INSTANT, true, "gold conversion should select instant/debug apply path")
-	_expect_path(helper.build_path("zero_level", {"max_level": 0}, "ring_core"), RuntimePerkDebugGrants.PATH_INSTANT, true, "zero max-level card should select instant path")
-	_expect_path(helper.build_path("unlock_plasma", {"unlocks_skill": "plasma"}, "ring_core"), RuntimePerkDebugGrants.PATH_UNLOCK, true, "unlock data should select unlock path")
-	_expect_path(helper.build_path("common_bulk_up", {"max_level": 5}, "ring_core"), RuntimePerkDebugGrants.PATH_LEVEL, true, "ordinary data should select level path")
+	_expect_path(helper.build_path("", {"name": "Blank"}), RuntimePerkDebugGrants.PATH_INVALID, false, "blank id should reject")
+	_expect_path(helper.build_path("missing", {}), RuntimePerkDebugGrants.PATH_INVALID, false, "empty perk data should reject")
+	_expect_path(helper.build_path("instant_debug", {"is_instant": true}), RuntimePerkDebugGrants.PATH_INSTANT, true, "instant flag should select instant path")
+	_expect_path(helper.build_path("convert_to_gold", {"name": "Gold"}), RuntimePerkDebugGrants.PATH_INSTANT, true, "gold conversion should select instant path")
+	_expect_path(helper.build_path("unlock_plasma", {"unlocks_skill": "plasma"}), RuntimePerkDebugGrants.PATH_UNLOCK, true, "unlock data should select unlock path")
+	_expect_path(helper.build_path("common_bulk_up", {"max_level": 5}), RuntimePerkDebugGrants.PATH_LEVEL, true, "ordinary data should select level path")
 
 
 func _verify_choice_data_patches() -> void:
 	var helper := RuntimePerkDebugGrants.new()
-	var ring_patch: Dictionary = helper.build_choice_data_patch(
-		RuntimePerkDebugGrants.PATH_RING_CORE,
-		{"accepted": true, "next_tier": 3},
-		5
-	)
-	_expect(int(_patch(ring_patch).get("next_tier", 0)) == 3, "ring-core patch should expose next tier")
-	var ring_fallback: Dictionary = helper.build_choice_data_patch(
-		RuntimePerkDebugGrants.PATH_RING_CORE,
-		{"accepted": true},
-		5
-	)
-	_expect(int(_patch(ring_fallback).get("next_tier", 0)) == 5, "ring-core patch should preserve fallback tier")
-
 	var instant_patch: Dictionary = helper.build_choice_data_patch(
 		RuntimePerkDebugGrants.PATH_INSTANT,
 		{"accepted": true, "current_level": 0, "next_level": 0}
@@ -178,7 +163,6 @@ func _verify_debug_grant_orchestration() -> void:
 		registry,
 		level_catalog,
 		levels,
-		"lingpet_ring_core_upgrade",
 		1.1,
 		_grant_callbacks()
 	)
@@ -202,7 +186,6 @@ func _verify_debug_grant_orchestration() -> void:
 		registry,
 		instant_catalog,
 		levels,
-		"lingpet_ring_core_upgrade",
 		1.1,
 		_grant_callbacks()
 	)
@@ -224,7 +207,6 @@ func _verify_debug_grant_orchestration() -> void:
 		registry,
 		unlock_catalog,
 		levels,
-		"lingpet_ring_core_upgrade",
 		1.1,
 		_grant_callbacks()
 	)
@@ -234,30 +216,6 @@ func _verify_debug_grant_orchestration() -> void:
 	_expect(int(_last_choice_data.get("next_level", -1)) == 2, "debug grant orchestration should patch unlock display level")
 
 	_reset_grant_calls()
-	var ring_catalog := FakeCatalog.new({
-		"lingpet_ring_core_upgrade": {"name": "Ring", "max_level": 6},
-	})
-	var ring_result: Dictionary = helper.apply_debug_grant(
-		state,
-		"lingpet_ring_core_upgrade",
-		5,
-		owner,
-		registry,
-		ring_catalog,
-		levels,
-		"lingpet_ring_core_upgrade",
-		1.1,
-		_grant_callbacks()
-	)
-	_expect(bool(ring_result.get("accepted", false)), "debug grant orchestration should accept ring-core grants")
-	_expect(str(ring_result.get("path", "")) == RuntimePerkDebugGrants.PATH_RING_CORE, "debug grant orchestration should report the ring-core path")
-	_expect(_apply_choice_calls == 1, "debug grant orchestration should route ring-core grants through apply_choice")
-	_expect(int(_last_choice_data.get("next_tier", 0)) == 5, "debug grant orchestration should patch ring-core target tier")
-	_expect(not bool(helper.apply_debug_grant(state, "", 1, owner, registry, ring_catalog, levels, "lingpet_ring_core_upgrade", 1.1, _grant_callbacks()).get("accepted", true)), "debug grant orchestration should reject blank ids")
-	_expect(not bool(helper.apply_debug_grant(state, "missing", 1, owner, registry, ring_catalog, levels, "lingpet_ring_core_upgrade", 1.1, _grant_callbacks()).get("accepted", true)), "debug grant orchestration should reject missing catalog data")
-	_expect(not bool(helper.apply_debug_grant(state, "common_bulk_up", 1, owner, registry, level_catalog, levels, "lingpet_ring_core_upgrade", 1.1, {}).get("accepted", true)), "debug grant orchestration should fail closed without callbacks")
-
-
 func _verify_runtime_state_facade_owns_deps_and_defaults() -> void:
 	var helper := RuntimePerkDebugGrants.new()
 	var state := FakeRuntimeState.new()
@@ -267,7 +225,6 @@ func _verify_runtime_state_facade_owns_deps_and_defaults() -> void:
 		"common_bulk_up": {"name": "Bulk", "max_level": 5},
 		"instant_debug": {"name": "Instant", "is_instant": true},
 		"unlock_plasma": {"name": "Plasma", "max_level": 2, "unlocks_skill": "plasma"},
-		"lingpet_ring_core_upgrade": {"name": "Ring", "max_level": 6},
 	})
 
 	var level_result: Dictionary = helper.apply_debug_grant_from_runtime_state(
@@ -316,19 +273,6 @@ func _verify_runtime_state_facade_owns_deps_and_defaults() -> void:
 	_expect(int(state.last_choice_data.get("next_level", -1)) == 2, "debug facade should patch unlock display levels")
 
 	state.reset_calls()
-	var ring_result: Dictionary = helper.apply_debug_grant_from_runtime_state(
-		state,
-		"lingpet_ring_core_upgrade",
-		5,
-		owner,
-		registry,
-		catalog
-	)
-	_expect(bool(ring_result.get("accepted", false)), "debug facade should accept default ring-core id grants")
-	_expect(state.apply_choice_calls == 1, "debug facade should route ring-core grants through state apply_choice")
-	_expect(int(state.last_choice_data.get("next_tier", 0)) == 5, "debug facade should use helper-owned ring-core default")
-
-
 func _verify_state_source_contract() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_debug_grants.gd")
@@ -348,7 +292,7 @@ func _verify_state_source_contract() -> void:
 	_expect(debug_body.find("_lingpet_rewards") < 0, "debug setter should not pass Lingpet helper inline")
 	_expect(debug_body.find("build_grant_callbacks") < 0, "debug setter should not build callback maps inline")
 	_expect(facade_body.find("_get_runtime_state_dict(runtime_state, \"runtime_skill_levels\")") >= 0, "debug facade should own runtime-level lookup")
-	_expect(facade_body.find("DEFAULT_RING_CORE_CHOICE_ID") >= 0, "debug facade should own ring-core default")
+	_expect(facade_body.find("DEFAULT_RING_CORE_CHOICE_ID") < 0, "debug facade should omit the retired ring-core default")
 	_expect(facade_body.find("_get_level_feedback_timer") >= 0, "debug facade should own feedback timer lookup")
 	_expect(facade_body.find("build_grant_callbacks_from_runtime_state(runtime_state)") >= 0, "debug facade should build callbacks internally")
 	_expect(debug_body.find("_debug_grants.build_path") < 0, "debug setter should not consume debug path payloads directly")
@@ -408,7 +352,6 @@ func _reset_grant_calls() -> void:
 
 func _grant_callbacks() -> Dictionary:
 	return {
-		RuntimePerkDebugGrants.CALLBACK_BUILD_RING_CORE_UPDATE: Callable(self, "_build_ring_core_update"),
 		RuntimePerkDebugGrants.CALLBACK_BUILD_INSTANT_UPDATE: Callable(self, "_build_instant_update"),
 		RuntimePerkDebugGrants.CALLBACK_BUILD_UNLOCK_UPDATE: Callable(self, "_build_unlock_update"),
 		RuntimePerkDebugGrants.CALLBACK_BUILD_LEVEL_UPDATE: Callable(self, "_build_level_update"),
@@ -417,13 +360,6 @@ func _grant_callbacks() -> Dictionary:
 		RuntimePerkDebugGrants.CALLBACK_APPLY_LEVEL_SIDE_EFFECT: Callable(self, "_apply_level_side_effect"),
 		RuntimePerkDebugGrants.CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT: Callable(self, "_apply_choice_feedback_result"),
 		RuntimePerkDebugGrants.CALLBACK_SYNC_OWNER: Callable(self, "_sync_owner"),
-	}
-
-
-func _build_ring_core_update(perk_id: String, target_level: int, _data: Dictionary) -> Dictionary:
-	return {
-		"accepted": perk_id != "",
-		"next_tier": target_level,
 	}
 
 
@@ -485,7 +421,6 @@ class FakeRuntimeState:
 	var runtime_skill_levels: Dictionary = {}
 	var _level_side_effects: Object = FakeFacadeLevelSideEffects.new()
 	var _instant_rewards: Object = FakeFacadeInstantRewards.new()
-	var _lingpet_rewards: Object = FakeFacadeLingpetRewards.new()
 	var apply_choice_calls := 0
 	var apply_unlock_choice_calls := 0
 	var apply_level_side_effect_calls := 0
@@ -524,16 +459,6 @@ class FakeRuntimeState:
 
 	func _sync_owner(_owner: Object) -> void:
 		sync_owner_calls += 1
-
-
-class FakeFacadeLingpetRewards:
-	extends RefCounted
-
-	func build_debug_ring_core_upgrade_update(perk_id: String, target_level: int, _data: Dictionary) -> Dictionary:
-		return {
-			"accepted": perk_id != "",
-			"next_tier": target_level,
-		}
 
 
 class FakeFacadeInstantRewards:

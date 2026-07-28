@@ -10,7 +10,6 @@ const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_inf
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
@@ -410,7 +409,6 @@ func _run() -> void:
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(nekuring_panel_snapshot), "Nekuring character-info panel should request redraws while its panel Live2D is visible")
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
-	_verify_affinity_values_reach_panel_through_schema_gated_owner()
 	_verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner()
 	_verify_second_active_affinity_level_reaches_panel_through_schema_gated_owner()
 	_verify_second_slot_rows_reach_lingpet_tab()
@@ -459,120 +457,6 @@ func _verify_defense_override_reaches_panel_through_schema_gated_owner() -> void
 	)
 
 
-func _verify_affinity_values_reach_panel_through_schema_gated_owner() -> void:
-	for key in [
-		"lingpet_affinity_level",
-		"ringpet_affinity_level",
-		"lingpet_affinity_points",
-		"ringpet_affinity_points",
-		"lingpet_affinity_next_requirement",
-		"ringpet_affinity_next_requirement",
-		"lingpet_affinity_next_label",
-		"ringpet_affinity_next_label",
-		"lingpet_ring_core_tier",
-		"ringpet_ring_core_tier",
-		"lingpet_affinity_chip_count",
-		"ringpet_affinity_chip_count",
-	]:
-		_expect(BattleSceneState.DEFAULT_VALUES.has(key), "BattleSceneState should declare %s for TAB affinity sync" % key)
-	var fallback_owner := FakeOwner.new({
-		"lingpet_id": "maribo",
-		"lingpet_state": "companion",
-	})
-	var fallback_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(fallback_owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	_expect(str(fallback_snapshot.get("subtitle", "")) == "동행 중", "TAB companion subtitle should be the plain 동행 중 status after R3b permanent-title removal")
-	_expect(str(fallback_snapshot.get("subtitle", "")).find("친밀도") < 0, "companion subtitle should not show the removed permanent 친밀도 title residue")
-
-	var owner := SchemaGatedOwner.new()
-	var registry := NullRegistry.new()
-	var runtime: Object = LingpetEggRuntime.new()
-	runtime._affinity_state.set_run_ring_core_tier(3)
-	_expect(
-		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
-		"schema-gated owner should accept a Maribo debug grant for affinity panel sync"
-	)
-	runtime.update(0.0, owner, registry)
-	var before_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	var before_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(before_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	_expect(int(before_snapshot.get("ring_core_tier", 0)) == 3, "TAB panel snapshot should read ring-core tier through the schema-gated owner")
-	_expect(int(before_snapshot.get("affinity_chip_count", -1)) == 0, "TAB panel snapshot should start with zero affinity chips")
-	_expect(str(before_snapshot.get("subtitle", "")) == "동행 중", "companion panel subtitle should stay the plain 동행 중 status after R3b")
-	for _i in range(20):
-		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	runtime.update(0.0, owner, registry)
-	var after_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	var after_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(after_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	_expect(int(after_snapshot.get("affinity_level", 0)) == 2, "TAB panel snapshot should read affinity Lv.2 through the schema-gated owner after a live level-up")
-	# 주의: 백업(7/9) 계약은 +3 커브(21발→2.0/56.0)였으나 현행 런타임은
-	# 재구축 flat 50 — 커브 복원은 친밀도 트랙 후속. 여기선 현행 계약 유지.
-	_expect(is_equal_approx(float(after_snapshot.get("affinity_points", -1.0)), 0.0), "TAB panel snapshot should read post-level-up affinity points")
-	_expect(is_equal_approx(float(after_snapshot.get("affinity_next_requirement", 0.0)), 50.0), "TAB panel snapshot should read the Lv.2 next requirement (flat 50)")
-	_expect(str(after_snapshot.get("affinity_next_label", "")) != "", "TAB panel snapshot should read the next affinity reward label")
-	_expect(after_hash != before_hash, "lingpet stat cache hash should change when affinity level changes")
-	runtime.add_enhancement_chip(owner, registry)
-	runtime.update(0.0, owner, registry)
-	var chip_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	var chip_hash := CharacterInfoOverlayLingpetPresenter.get_stats_cache_hash(chip_snapshot, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	_expect(int(chip_snapshot.get("affinity_chip_count", 0)) == 1, "TAB panel snapshot should read affinity chip count through the schema-gated owner")
-	_expect(chip_hash != after_hash, "lingpet stat cache hash should change when affinity chip count changes")
-	var presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
-	var texture_loader_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
-	var layout_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_layout.gd")
-	_expect(presenter_source.find("_draw_lingpet_ring_core_slot") >= 0, "TAB lingpet panel should draw a dedicated ring-core slot instead of an inline text band")
-	_expect(presenter_source.find("_draw_lingpet_ring_core_row") >= 0, "TAB lingpet panel should draw ring-core in a dedicated row separate from the affinity band")
-	_expect(presenter_source.find("_draw_vertical_affinity_chip_pips") >= 0, "TAB lingpet panel should draw affinity chips as vertical pips beside the ring-core slot")
-	_expect(presenter_source.find("_draw_horizontal_affinity_chip_pips") < 0, "TAB lingpet panel should not keep the rejected horizontal chip row")
-	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 50.0") >= 0, "TAB lingpet affinity band should reserve the expanded satiety strip space")
-	_expect(presenter_source.find("max(24.0, affinity_band_h - 10.0)") >= 0, "TAB lingpet affinity band should leave the 42px unlock-choice gate drawable after adding the satiety strip")
-	_expect(presenter_source.find("const RING_CORE_ROW_HEIGHT := 64.0") >= 0, "TAB lingpet panel should reserve a dedicated ring-core row")
-	_expect(presenter_source.find("clampf(rect.size.y - 6.0, 42.0, 58.0)") >= 0, "TAB lingpet ring-core row should keep the enlarged 58px slot cap")
-	_expect(presenter_source.find("var ring_core_row_rect := Rect2") >= 0, "TAB lingpet ring-core slot should live in its own row, not inside the affinity band")
-	_expect(presenter_source.find("draw_affinity_status(canvas, font, affinity_rect") >= 0, "TAB lingpet affinity text should use the full affinity band width")
-	_expect(presenter_source.find("affinity_text_rect") < 0, "TAB lingpet affinity band should not keep the old ring-core inset")
-	_expect(layout_source.find("content_width * 0.30") >= 0 and layout_source.find("200.0, 380.0") >= 0, "TAB layout should give the lingpet panel its own full-height right column (2026-07-08 redesign)")
-	_expect(presenter_source.find("_draw_ring_core_and_chip_status") < 0, "TAB lingpet panel should not keep the old inline ring-core/chip band renderer")
-	_expect(presenter_source.find("var tier_text := \"T%d\" % tier if tier > 0 else") >= 0, "TAB lingpet ring-core row should keep the tier label inside the dedicated row")
-	_expect(presenter_source.find("skill_specs.size() + 1") < 0, "TAB lingpet skill rail should stay skill-only after ring-core moves into its own row")
-	_expect(texture_loader_source.find("get_ring_core_icon_texture") >= 0, "TAB lingpet texture loader should expose ring-core tier icon loading")
-	_expect(texture_loader_source.find("RuntimePerkIconRenderer.PERK_ICON_PATHS") >= 0, "TAB lingpet ring-core icon loading should reuse the perk-card tier art family")
-	_expect(texture_loader_source.find("LingpetRingCoreRules.MAX_RING_CORE_TIER + 1") >= 0, "TAB lingpet prewarm should iterate every ring-core tier art")
-	# Behavioral seal for the whole-row hover. The icon-only (~50px) and pips-only (~15px)
-	# hit rects were tiny on a ~200px row, so hovering the large "링코어 / 미장착 / 강화칩"
-	# LABEL text showed no tooltip. _ring_core_row_hover_target is pure (no draw context), so
-	# the hover decision is exercised directly: the whole row resolves to ring_core except the
-	# narrow chip-pips column, which resolves to chip.
-	_expect(presenter_source.find("_ring_core_row_hover_target(rect, chip_pips_hover_rect, mouse_pos)") >= 0, "TAB lingpet ring-core row should resolve hover through the whole-row helper, not an icon-only rect")
-	var hover_row_rect := Rect2(40.0, 200.0, 200.0, 64.0)
-	var hover_pips_rect := Rect2(95.0, 200.0, 16.0, 64.0)
-	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(180.0, 230.0))) == "ring_core", "hovering the ring-core row LABEL area should show the ring-core tooltip (whole-row hover), not nothing")
-	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(55.0, 225.0))) == "ring_core", "hovering the ring-core icon should show the ring-core tooltip")
-	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(102.0, 230.0))) == "chip", "hovering the chip pips column should show the chip-income tooltip")
-	_expect(str(CharacterInfoOverlayLingpetPresenter._ring_core_row_hover_target(hover_row_rect, hover_pips_rect, Vector2(400.0, 230.0))) == "", "hovering outside the ring-core row should show no tooltip")
-	var ring_core_icon_cache := {}
-	for tier in range(1, LingpetRingCoreRules.MAX_RING_CORE_TIER + 1):
-		var tier_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(tier, ring_core_icon_cache)
-		_expect(tier_texture != null, "TAB lingpet ring-core slot should resolve tier %d icon art" % tier)
-	# The ring-core icon must be centered in its square slot and fill it generously.
-	# draw_contained centers on the rect, so an asymmetric inset would shift it left and
-	# shrink it. Reverse guard: the old Rect2(pos+(5,5),(size-17,size-10)) is 3.5px left of
-	# center and size-17 wide, so it fails both asserts below.
-	var ring_core_slot_cell := Rect2(40.0, 200.0, 50.0, 50.0)
-	var ring_core_icon_rect := CharacterInfoOverlayLingpetPresenter._ring_core_icon_rect(ring_core_slot_cell)
-	_expect(ring_core_icon_rect.get_center().is_equal_approx(ring_core_slot_cell.get_center()), "ring-core icon rect must stay concentric with its square slot (no left shift)")
-	_expect(ring_core_icon_rect.size.x >= ring_core_slot_cell.size.x - 10.0, "ring-core icon should fill the slot generously, not the old size-17 shrink")
-	_expect(ring_core_icon_rect.size.x <= ring_core_slot_cell.size.x and ring_core_icon_rect.size.y <= ring_core_slot_cell.size.y, "ring-core icon rect should stay within the slot cell")
-	_expect(CharacterInfoOverlayLingpetTextureLoader.get_ring_core_icon_texture(0, ring_core_icon_cache) == null, "TAB lingpet ring-core slot should keep tier 0 as an empty placeholder")
-	var overlay: Object = CharacterInfoOverlay.new()
-	var rows: Array = overlay._build_lingpet_stats(owner)
-	var affinity_row: Dictionary = _find_stat(rows, "교감")
-	_expect(str(affinity_row.get("value", "")) == "Lv.2", "TAB lingpet stats should include a text-only 교감 Lv.N row")
-	_expect(rows.size() >= 6, "TAB lingpet stats should keep six companion rows visible in the data model")
-	var vertical_stack_rect := Rect2(Vector2.ZERO, Vector2(560.0, 360.0))
-	var vertical_lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(vertical_stack_rect)
-	var visible_capacity := CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(vertical_lingpet_rect, rows.size())
-	_expect(visible_capacity >= 6, "vertical stacked TAB layout should have draw-time room for the sixth 교감 row")
-
-
 func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> void:
 	# 교감 reward stacks (기동/게이지 강화) boost the runtime stats through
 	# lingpet_current_profile.get_stat, and the per-frame sync mirrors the
@@ -583,7 +467,6 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	_expect(
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
@@ -633,7 +516,6 @@ func _verify_second_active_affinity_level_reaches_panel_through_schema_gated_own
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	runtime._affinity_state.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	# Auto loadout (empty skill ids) so the second-active unlock reconciles into
 	# slot 1; an explicit loadout would set skip_unlock_reconcile and never fill it.
 	_expect(

@@ -12,8 +12,6 @@ class FakeAffinityState:
 	var points := 17.5
 	var next_requirement := 50.0
 	var next_reward: Dictionary = {"label": "다음 카드"}
-	var ring_core_tier := 3
-	var chip_count := 4
 
 	func get_level(_pet_id: String) -> int:
 		return level
@@ -26,12 +24,6 @@ class FakeAffinityState:
 
 	func get_next_reward(_pet_id: String) -> Dictionary:
 		return next_reward.duplicate(true)
-
-	func get_run_ring_core_tier() -> int:
-		return ring_core_tier
-
-	func get_enhancement_chips() -> int:
-		return chip_count
 
 
 class FakeContextCoordinator:
@@ -111,8 +103,8 @@ func _verify_snapshot_shape_and_title_fallback() -> void:
 	_expect_float(float(snapshot.get("points", 0.0)), 17.5, "companion snapshot should expose affinity points")
 	_expect_float(float(snapshot.get("next_requirement", 0.0)), 50.0, "companion snapshot should expose the next requirement")
 	_expect_str(str(snapshot.get("next_label", "")), "다음 카드", "companion snapshot should expose the next reward label")
-	_expect_eq(int(snapshot.get("ring_core_tier", 0)), 3, "companion snapshot should expose this-run ring-core tier")
-	_expect_eq(int(snapshot.get("chip_count", 0)), 4, "companion snapshot should expose enhancement chips")
+	_expect(not snapshot.has("ring_core_tier"), "companion snapshot should omit the retired ring-core tier")
+	_expect(not snapshot.has("chip_count"), "companion snapshot should omit retired enhancement chips")
 	_expect(not snapshot.has("bond_points"), "v5 owner surface should not expose the removed permanent bond axis")
 	_expect(not snapshot.has("bond_title"), "v5 owner surface should not expose the removed permanent bond title")
 	_expect_eq(context.configure_count, 1, "snapshot build should configure reward context exactly once")
@@ -154,7 +146,7 @@ func _verify_stable_key_gating_and_owner_rebase() -> void:
 	var owner_b := RefCounted.new()
 
 	_expect(surface.sync_owner_if_changed(owner_a, builder, "companion", "companion", "maribo", affinity_state, context, profile, null), "first owner sync should build the affinity surface")
-	_expect_eq(builder.calls.size(), 6, "one affinity surface build should push the six live affinity compatibility pairs")
+	_expect_eq(builder.calls.size(), 4, "one affinity surface build should push the four live affinity compatibility pairs")
 	_expect_eq(surface.get_build_count_for_tests(), 1, "first owner sync should increment the build counter")
 	_expect_eq(context.configure_count, 1, "first owner sync should build one snapshot")
 	_expect_eq(int(builder.values.get("lingpet_affinity_level", 0)), 2, "lingpet affinity level key should receive the snapshot value")
@@ -165,7 +157,7 @@ func _verify_stable_key_gating_and_owner_rebase() -> void:
 	_expect(not builder.values.has("ringpet_bond_title"), "R3b owner surface should not write removed ringpet_bond_title")
 
 	_expect(not surface.sync_owner_if_changed(owner_a, builder, "companion", "companion", "maribo", affinity_state, context, profile, null), "stable same-owner sync should skip the affinity surface")
-	_expect_eq(builder.calls.size(), 6, "stable skip should not issue more owner-pair pushes")
+	_expect_eq(builder.calls.size(), 4, "stable skip should not issue more owner-pair pushes")
 	_expect_eq(surface.get_build_count_for_tests(), 1, "stable skip should not increment the build counter")
 	_expect_eq(context.configure_count, 1, "stable skip should avoid rebuilding the snapshot")
 

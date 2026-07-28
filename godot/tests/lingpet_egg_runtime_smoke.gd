@@ -37,7 +37,6 @@ const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_tex
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetAffinityStore := preload("res://scripts/lingpet/lingpet_affinity_store.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetTutorialBootstrap := preload("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd")
 const LingpetUnlockLoadoutReconciler := preload("res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd")
 const LingpetNoneOwnerSyncState := preload("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
@@ -109,10 +108,6 @@ class FakeOwner:
 	var ringpet_affinity_next_requirement := 0.0
 	var lingpet_affinity_next_label := ""
 	var ringpet_affinity_next_label := ""
-	var lingpet_ring_core_tier := 0
-	var ringpet_ring_core_tier := 0
-	var lingpet_affinity_chip_count := 0
-	var ringpet_affinity_chip_count := 0
 	var lingpet_companion_defense_intercept_active := false
 	var ringpet_companion_defense_intercept_active := false
 	var lingpet_companion_defense_intercept_target_x := 0.0
@@ -596,8 +591,6 @@ func _init() -> void:
 	_verify_item_egg_hatch_rolls_loadout()
 	_verify_lingpet_catalog_random_hatch_scaffold()
 	_verify_junior_mika_spawn_syncs_character_info_keys()
-	_verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch()
-	_verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility()
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_egg_color_rolls_once_and_restores()
 	_verify_bare_egg_roll_physics_and_renderer()
@@ -676,7 +669,6 @@ func _init() -> void:
 	_verify_affinity_click_start_edge_and_visibility_gate()
 	_verify_companion_interact_key_reaction()
 	_verify_affinity_score_event_and_battle_reset()
-	_verify_ring_core_upgrade_grants_affinity_to_all_owned_pets()
 	_verify_affinity_reward_application()
 	_verify_second_active_slot_runtime_foundation()
 	_verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change()
@@ -685,7 +677,6 @@ func _init() -> void:
 	_verify_affinity_point_gain_popup()
 	_verify_lingpet_guard_label_feedback()
 	_verify_affinity_store_v5_meta_only()
-	_verify_ring_core_cap_run_state_source()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	ProjectResourceLoader.clear_caches()
@@ -1553,12 +1544,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(save_restore_applier_source.find("_mark_current_pet_owned") < 0, "save-restore applier should not depend on the old runtime-owned-pet private hook")
 	_expect(runtime_source.find("lingpet_tutorial_bootstrap.gd") >= 0, "egg runtime should delegate Junior Mika first-egg tutorial ring-core policy to a focused bootstrap helper")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd"), "lingpet tutorial bootstrap helper should exist")
-	_expect(runtime_source.find("func _grant_tutorial_standard_ring_core_if_needed") < 0, "egg runtime should not keep the tutorial ring-core grant policy after bootstrap delegation")
 	_expect(runtime_source.find("func _is_tutorial_first_lingpet_egg") < 0, "egg runtime should not keep the tutorial first-egg eligibility policy after bootstrap delegation")
-	_expect(runtime_source.find("_tutorial_bootstrap.grant_standard_ring_core_if_needed") >= 0, "egg runtime should call the tutorial bootstrap helper before spawning an automatic egg")
-	_expect(int(LingpetTutorialBootstrap.STANDARD_RING_CORE_TIER) == 1, "tutorial bootstrap standard tier constant should stay at the shipped tutorial tier")
-	_expect(tutorial_bootstrap_source.find("STANDARD_RING_CORE_TIER := 1") >= 0, "tutorial bootstrap should own the standard ring-core tutorial tier")
-	_expect(tutorial_bootstrap_source.find("is_first_lingpet_egg_eligible") >= 0 and tutorial_bootstrap_source.find("upgrade_run_ring_core_tier") >= 0, "tutorial bootstrap should own first-egg eligibility and run-state ring-core upgrade")
+	_expect(tutorial_bootstrap_source.find("is_first_lingpet_egg_eligible") >= 0, "tutorial bootstrap should retain first-egg eligibility ownership")
 	_expect(runtime_source.find("lingpet_current_profile.gd") >= 0, "egg runtime should delegate current pet catalog lookups to the current-profile helper")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_profile_runtime_surface.gd"), "profile runtime surface should exist for guarded companion stat/passive reads")
 	_expect(runtime_source.find("lingpet_profile_runtime_surface.gd") >= 0 and runtime_source.find("_profile_runtime_surface") >= 0, "egg runtime should ask the profile runtime surface for repeated companion profile values")
@@ -1988,63 +1975,6 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 	_expect(str(panel.get("state", "")) == "egg", "character-info ringpet panel should read the shared egg state")
 	_expect(str(panel.get("subtitle", "")).find("0 / 1") >= 0, "character-info panel should show hatch progress")
 	_expect(str(owner.lingpet_effect_text).find("미확인 알") >= 0, "egg effect text should describe an unidentified egg without spoiling the lingpet")
-
-
-func _verify_junior_mika_tutorial_grants_standard_ring_core_before_hatch() -> void:
-	# R3 / v5: store is no longer a live module; the tutorial grant is run-state.
-	var owner := FakeOwner.new()
-	var runtime: Object = LingpetEggRuntime.new()
-	var host := FakeCutinHost.new()
-	host.done_after = 99
-	var registry := FakeRegistry.new({"lingpet_acquire_cutin_overlay_host": host})
-
-	_expect(runtime.update(0.0, owner, registry), "Junior Mika tutorial should spawn the first egg with a registry that has no affinity store")
-	_expect(str(owner.lingpet_state) == "egg", "tutorial ring-core grant should happen while the first lingpet is still an egg")
-	_expect_eq(int(runtime._affinity_state.get_run_ring_core_tier()), 1, "Junior Mika first egg should grant this-run standard ring-core before hatch")
-	_expect_eq(int(runtime._affinity_state.get_run_ring_core_cap()), 5, "standard tutorial ring-core should expose run cap 5 before hatch affinity resolves")
-
-	var egg_pos: Vector2 = owner.lingpet_egg_pos
-	owner.ball_active = true
-	_register_hit(runtime, owner, egg_pos, 1, registry)
-	var hatched_id := str(owner.active_lingpet_id)
-	_expect(hatched_id != "", "tutorial ring-core hatch should reveal a concrete pet")
-	for _i in range(200):
-		runtime.debug_add_affinity_points_for_tests(hatched_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-	_expect_eq(runtime.get_affinity_level(hatched_id), 5, "tutorial standard ring-core should cap first-pet affinity at Lv5")
-	_expect_float(runtime.get_affinity_points(hatched_id), 50.0, "tutorial standard ring-core should clamp overflow at the Lv5->Lv6 requirement (50)")
-	_expect_eq(int(owner.lingpet_ring_core_tier), 1, "owner/TAB ring-core tier should display the tutorial run tier, not the store tier")
-
-	var storeless_owner := FakeOwner.new()
-	var storeless_runtime: Object = LingpetEggRuntime.new()
-	_expect(storeless_runtime.update(0.0, storeless_owner), "Junior Mika tutorial should spawn and grant a run ring-core without an affinity store")
-	_expect(str(storeless_owner.lingpet_state) == "egg", "storeless tutorial fixture should reach egg state")
-	_expect_eq(int(storeless_runtime._affinity_state.get_run_ring_core_tier()), 1, "storeless tutorial grant should set this-run tier 1")
-	_expect_eq(int(storeless_runtime._affinity_state.get_run_ring_core_cap()), 5, "storeless tutorial grant should expose run cap 5")
-
-
-func _verify_tutorial_ring_core_grant_does_not_lower_or_bypass_eligibility() -> void:
-	# R3 / v5: store no longer persists ring-core; seed the run tier directly below.
-	var higher_owner := FakeOwner.new()
-	var higher_runtime: Object = LingpetEggRuntime.new()
-	higher_runtime._affinity_state.set_run_ring_core_tier(2)
-	_expect(higher_runtime.update(0.0, higher_owner, FakeRegistry.new({})), "higher-tier Junior Mika should still spawn the tutorial egg without an affinity store module")
-	_expect_eq(int(higher_runtime._affinity_state.get_run_ring_core_tier()), 2, "tutorial grant should not lower an existing run ring-core tier")
-
-	# R3 / v5: store no longer persists ring-core. Junior starter-egg characters
-	# (smasher/commando/viper) DO get the standard grant; other characters do not.
-	var optimus_owner := FakeOwner.new()
-	optimus_owner.selected_character_type = "optimus"
-	var optimus_runtime: Object = LingpetEggRuntime.new()
-	_expect(not optimus_runtime.update(0.0, optimus_owner, FakeRegistry.new({})), "Junior non-starter character should not spawn the first tutorial egg")
-	_expect_eq(int(optimus_runtime._affinity_state.get_run_ring_core_tier()), 0, "ineligible non-starter owner should keep this-run ring-core at tier 0")
-
-	# Commando/Viper now share the Smasher starter grant in the test (Junior) league.
-	for starter_character in ["viper", "soldier"]:
-		var starter_owner := FakeOwner.new()
-		starter_owner.selected_character_type = str(starter_character)
-		var starter_runtime: Object = LingpetEggRuntime.new()
-		_expect(starter_runtime.update(0.0, starter_owner, FakeRegistry.new({})), "Junior %s should spawn the first starter egg like Smasher" % starter_character)
-		_expect_eq(int(starter_runtime._affinity_state.get_run_ring_core_tier()), 1, "Junior %s starter egg should grant the standard run ring-core tier 1" % starter_character)
 
 
 func _verify_egg_player_contact_nudges_and_wobbles() -> void:
@@ -6446,42 +6376,6 @@ func _verify_companion_interact_key_reaction() -> void:
 	_expect(lingpet_input_source.find("try_begin_companion_interact_reaction(registry)") >= 0, "lingpet input router should hand the registry to the interact wrapper so the per-pet voice can play")
 
 
-func _verify_ring_core_upgrade_grants_affinity_to_all_owned_pets() -> void:
-	var registry := FakeRegistry.new({})
-	var owner := FakeOwner.new()
-	owner.lingpet_owned_pet_ids = ["maribo", "lunabi"]  # lunabi is NEVER a companion this run
-	owner.lingpet_slots = ["maribo", "", ""]
-	var runtime: Object = LingpetEggRuntime.new()
-	_expect(runtime.debug_grant_and_activate_pet("maribo", owner), "ring-core grant fixture should activate Maribo")
-	_expect_eq(runtime.get_affinity_level("maribo"), 0, "fixture should start the active pet at affinity Lv0")
-	_expect_eq(runtime.get_affinity_level("lunabi"), 0, "never-engaged owned pet should start at Lv0")
-
-	# Tier 0 -> 1 (cap 5). Every OWNED pet must receive the flat +50 (= Lv1), incl. lunabi, which
-	# has never been a companion this run (its context is built from the catalog on first grant).
-	var result: Dictionary = runtime.upgrade_run_ring_core_tier(1, owner, registry)
-	_expect(bool(result.get("accepted", false)), "ring-core tier 0->1 upgrade should be accepted")
-	_expect_eq(int(result.get("affinity_granted_pets", 0)), 2, "ring-core upgrade should grant affinity to both owned pets")
-	_expect_eq(runtime.get_affinity_level("maribo"), 1, "active owned pet should gain ~1 level from the +50 ring-core grant")
-	_expect_eq(runtime.get_affinity_level("lunabi"), 1, "never-engaged owned pet should also receive the +50 ring-core grant")
-
-	# Per-upgrade (not once-per-run): a second tier rise pays another +50 to the whole roster.
-	var second: Dictionary = runtime.upgrade_run_ring_core_tier(2, owner, registry)
-	_expect(bool(second.get("accepted", false)), "second ring-core upgrade should be accepted")
-	_expect_eq(runtime.get_affinity_level("maribo"), 2, "a second ring-core upgrade should grant another +50 (per-upgrade)")
-	_expect_eq(runtime.get_affinity_level("lunabi"), 2, "a second ring-core upgrade should also re-grant the never-engaged pet")
-
-	# Chip-exempt: 5 enhancement chips keep the grant a flat +50 (Lv1), not +100 (Lv2).
-	var chip_owner := FakeOwner.new()
-	chip_owner.lingpet_owned_pet_ids = ["maribo"]
-	chip_owner.lingpet_slots = ["maribo", "", ""]
-	var chip_runtime: Object = LingpetEggRuntime.new()
-	_expect(chip_runtime.debug_grant_and_activate_pet("maribo", chip_owner), "chip-exempt fixture should activate Maribo")
-	for _i in range(5):
-		chip_runtime._affinity_state.add_enhancement_chip()
-	chip_runtime.upgrade_run_ring_core_tier(1, chip_owner, registry)
-	_expect_eq(chip_runtime.get_affinity_level("maribo"), 1, "ring-core +50 grant should be chip-exempt (flat 50 = Lv1, not 100 = Lv2)")
-
-
 func _verify_affinity_score_event_and_battle_reset() -> void:
 	var inactive_runtime: Object = LingpetEggRuntime.new()
 	inactive_runtime.handle_score_event("player", {"match_finished": true}, {})
@@ -6495,10 +6389,9 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	runtime.handle_score_event("player", {"match_finished": false}, {})
 	_expect_float(runtime.get_affinity_points("maribo"), 5.0, "a player-scored commit should pay one +5 round award")
 	runtime.handle_score_event("player", {"match_finished": true}, {})
-	# Match finish pays round-completion (+5), victory (+20) and stage clear (+50) = +75, but this
-	# fixture runs at ring-core tier 0 (cap 0), so banked points clamp at the 50 next-level
-	# requirement. The duplicate self-seal checks below are the real proof both bonuses were paid.
-	_expect_float(runtime.get_affinity_points("maribo"), 50.0, "player match finish income (5+20+50) clamps to the 50 cap-0 next-level requirement")
+	# Match finish pays round-completion (+5), victory (+20) and stage clear (+50) = +75.
+	# Together with the earlier +5 this reaches Lv1 and leaves 30 points on the fixed Lv30 track.
+	_expect_float(runtime.get_affinity_points("maribo"), 30.0, "player match finish income should level once and retain the 30-point remainder")
 	var duplicate_victory: Dictionary = runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_VICTORY)
 	_expect_float(float(duplicate_victory.get("granted_points", 0.0)), 0.0, "victory payout should self-seal inside one battle")
 	_expect_str(str(duplicate_victory.get("blocked_reason", "")), "victory_already_paid", "duplicate victory should report the battle seal")
@@ -6539,7 +6432,6 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 
 	var defeat_registry := FakeRegistry.new({})
 	var defeat_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(defeat_runtime)
 	_expect(defeat_runtime.debug_grant_and_activate_pet("maribo", FakeOwner.new()), "bond defeat fixture should activate Maribo")
 	_grant_affinity_round_commits(defeat_runtime, "maribo", 10)
 	defeat_runtime.handle_score_event("boss", {"match_finished": true}, {"registry": defeat_registry})
@@ -6547,7 +6439,6 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 	_expect_eq(int((defeat_settlement.get("discarded", {}) as Dictionary).get("maribo", 0)), 1, "boss match-finish should discard pending bond level-ups")
 
 	var short_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(short_runtime)
 	_expect(short_runtime.debug_grant_and_activate_pet("maribo", FakeOwner.new()), "bond short-run fixture should activate Maribo")
 	_grant_affinity_round_commits(short_runtime, "maribo", 10)
 	short_runtime.reset_affinity_for_new_battle()
@@ -6555,7 +6446,6 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 
 	var gated_registry := FakeRegistry.new({})
 	var gated_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(gated_runtime)
 	var gated_owner := FakeOwner.new()
 	_expect(gated_runtime.debug_grant_and_activate_pet("maribo", gated_owner), "bond 50-percent fixture should activate Maribo")
 	_grant_affinity_round_commits(gated_runtime, "maribo", 10)
@@ -6570,7 +6460,6 @@ func _verify_affinity_score_event_and_battle_reset() -> void:
 
 	var swap_registry := FakeRegistry.new({})
 	var swap_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(swap_runtime)
 	var swap_owner := FakeOwner.new()
 	_expect(swap_runtime.debug_grant_and_activate_pet("maribo", swap_owner), "bond swap fixture should activate Maribo")
 	_grant_affinity_round_commits(swap_runtime, "maribo", 11)
@@ -6633,7 +6522,6 @@ func _verify_affinity_reward_application() -> void:
 	skill_owner.lingpet_owned_pet_ids = ["maribo"]
 	skill_owner.lingpet_slots = ["maribo", "", ""]
 	var skill_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(skill_runtime)
 	var skill_registry := FakeRegistry.new({})
 	skill_runtime.set_affinity_reward_seed_for_tests("maribo", 4)
 	_expect(skill_runtime.debug_grant_and_activate_pet("maribo", skill_owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", skill_registry, 1, 1), "skill synthesis fixture should activate Maribo with base Lv.1 skills")
@@ -6680,7 +6568,6 @@ func _verify_affinity_reward_application() -> void:
 	var boosted_owner := FakeOwner.new()
 	boosted_owner.lingpet_owned_pet_ids = ["maribo"]
 	var boosted_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(boosted_runtime)
 	var boosted_registry := FakeRegistry.new({})
 	boosted_runtime.set_affinity_reward_seed_for_tests("maribo", 4)
 	boosted_runtime.update(0.0, boosted_owner, boosted_registry)
@@ -6724,7 +6611,6 @@ func _verify_affinity_reward_application() -> void:
 	var far_owner := FakeOwner.new()
 	far_owner.lingpet_owned_pet_ids = ["maribo"]
 	var far_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(far_runtime)
 	far_runtime.set_affinity_reward_seed_for_tests("maribo", 78912611)
 	far_runtime.update(0.0, far_owner)
 	_grant_affinity_round_commits(far_runtime, "maribo", 245)
@@ -6741,7 +6627,6 @@ func _verify_affinity_reward_application() -> void:
 	flight_owner.lingpet_owned_pet_ids = ["rabi"]
 	flight_owner.lingpet_slots = ["rabi", "", ""]
 	var flight_runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(flight_runtime)
 	var flight_registry := FakeRegistry.new({})
 	flight_runtime.set_affinity_reward_seed_for_tests("rabi", 305686070)
 	_expect(flight_runtime.debug_grant_and_activate_pet("rabi", flight_owner, false, "rabi_soul_clone", "lingpet_resonance_boost", flight_registry, 1, 1), "flight reward fixture should activate Rabi")
@@ -6778,7 +6663,6 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	owner.ball_vel = Vector2(0.0, -12.0)
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(runtime)
 	runtime.set_affinity_reward_seed_for_tests("red_dragon", 1)
 	_expect(
 		runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "", "", registry, 1, 1),
@@ -6946,7 +6830,6 @@ func _verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change() -> v
 	owner.ball_vel = Vector2(0.0, -12.0)
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(
 		runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "", registry, 1, 1),
 		"explicit debug active fixture should activate Maribo"
@@ -7207,7 +7090,6 @@ func _verify_affinity_level_up_feedback_and_income_log() -> void:
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	owner.lingpet_slots = ["maribo", "", ""]
 	var runtime: Object = LingpetEggRuntime.new()
-	_set_run_ring_core_tier_for_smoke(runtime)
 	var perf_logger := FakePerfLogger.new()
 	var registry := FakeRegistry.new({"battle_perf_logger": perf_logger})
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1), "affinity feedback fixture should activate Maribo")
@@ -7346,13 +7228,11 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	# ([best_levels]/[bond_points]/[ring_core]/[resolved_unlock_choices]) are
 	# ignored on load and never re-persisted; affinity lives in run-state only.
 	var store_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_store.gd")
-	var ring_core_rules_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(store_source.find("SAVE_SCHEMA_VERSION := 5") >= 0, "affinity store should stamp the v5 meta-only schema")
 	_expect(store_source.find("bytes.slice(3)") >= 0, "affinity store should still strip UTF-8 BOM before parsing")
 	for store_residue_needle in ["MAX_BEST_LEVEL", "MAX_AFFINITY_LEVEL", "MAX_RING_CORE_TIER", "func get_ring_core_cap_for_tier", "var _best_levels", "var _bond_points", "var _ring_core_tier", "var _resolved_unlock_choices", "func _load_best_levels", "func _load_bond_points", "func _load_ring_core", "func _load_resolved_unlock_choices"]:
 		_expect(store_source.find(store_residue_needle) < 0, "v5 affinity store should not keep legacy backing residue (%s)" % store_residue_needle)
-	_expect(ring_core_rules_source.find("MAX_RING_CORE_TIER := 6") >= 0 and ring_core_rules_source.find("get_ring_core_cap_for_tier") >= 0, "ring-core tier constants/cap helper should live in the dedicated rules helper")
 	_verify_affinity_store_not_production_dependency()
 	for store_api_needle in ["func get_best_level", "func get_best_levels", "func set_best_level", "func merge_best_levels", "func get_bond_points", "func get_bond_points_map", "func add_bond_levels", "func get_resolved_unlock_choices", "func get_all_resolved_unlock_choices", "func set_resolved_unlock_choice", "func clear_resolved_unlock_choice", "func has_ring_core_tier", "func get_ring_core_tier", "func get_ring_core_cap(", "func set_ring_core_tier", "func upgrade_ring_core_tier"]:
 		_expect(store_source.find(store_api_needle) < 0, "v5 affinity store should not expose legacy progression API (%s)" % store_api_needle)
@@ -7438,7 +7318,6 @@ func _verify_affinity_store_v5_meta_only() -> void:
 	var hatched_pet_id := str(owner.active_lingpet_id)
 	_expect(hatched_pet_id != "", "v5 headstart fixture should hatch a concrete pet")
 	_expect_eq(runtime.get_affinity_level(hatched_pet_id), 0, "legacy store best=30 must NOT headstart a v5 run (affinity starts at Lv0)")
-	_expect(int(owner.lingpet_ring_core_tier) != 6, "owner/TAB ring-core tier should ignore the legacy store tier 6 (run-state, not store)")
 
 	_remove_user_file(legacy_path)
 	_remove_user_file(legacy_backup)
@@ -7457,10 +7336,6 @@ func _grant_affinity_round_commits_until_reward(runtime: Object, pet_id: String,
 		if bool(rewards.get(reward_key, false)):
 			return
 		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
-
-
-func _set_run_ring_core_tier_for_smoke(runtime: Object, tier: int = LingpetRingCoreRules.MAX_RING_CORE_TIER) -> void:
-	runtime._affinity_state.set_run_ring_core_tier(tier)
 
 
 func _deck_type_sequence(deck: Array) -> String:
@@ -7521,77 +7396,6 @@ func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
-
-
-func _verify_ring_core_cap_run_state_source() -> void:
-	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(runtime_source.find("store.get_ring_core_tier") < 0, "runtime cap/display should not read the permanent ring-core tier store in R2")
-	_expect(runtime_source.find("store.get_ring_core_cap") < 0, "runtime cap should not read the permanent ring-core cap store in R2")
-	_expect(runtime_source.find("store.has_ring_core_tier") < 0, "runtime cap should not branch on permanent ring-core store presence in R2")
-
-	var ignored_store_path := _smoke_save_path("ring_core_store_ignored")
-	var standard_path := _smoke_save_path("ring_core_run_standard")
-	var missing_path := _smoke_save_path("ring_core_missing")
-	_remove_user_file(ignored_store_path)
-	_remove_user_file(standard_path)
-	_remove_user_file(missing_path)
-
-	# R3 / v5: store no longer persists best/ring-core and is not a live module.
-	var no_core_runtime: Object = LingpetEggRuntime.new()
-	var no_core_owner := FakeOwner.new()
-	var no_core_registry := FakeRegistry.new({})
-	_expect(no_core_runtime.debug_grant_and_activate_pet("maribo", no_core_owner, false, "", "", no_core_registry), "run-tier fixture should activate Maribo")
-	no_core_runtime.update(0.0, no_core_owner, no_core_registry)
-	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "legacy store T6 should not open this-run ring-core cap")
-	_expect_eq(int(no_core_owner.lingpet_ring_core_tier), 0, "owner/TAB ring-core tier should use run tier 0 (no store fallback)")
-	for _i in range(20):
-		no_core_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, no_core_registry)
-	_expect_eq(no_core_runtime.get_affinity_level("maribo"), 0, "run tier 0 should keep affinity at Lv0")
-	_expect_float(no_core_runtime.get_affinity_points("maribo"), 50.0, "run tier 0 should clamp banked points at the Lv1 requirement (50/50), not overshoot")
-
-	# R3 / v5: store no longer persists ring-core; the run tier is seeded directly.
-	var standard_runtime: Object = LingpetEggRuntime.new()
-	var standard_owner := FakeOwner.new()
-	var standard_registry := FakeRegistry.new({})
-	standard_runtime._affinity_state.set_run_ring_core_tier(1)
-	_expect(standard_runtime.debug_grant_and_activate_pet("maribo", standard_owner, false, "", "", standard_registry), "standard fixture should activate Maribo")
-	standard_runtime.update(0.0, standard_owner, standard_registry)
-	for _i in range(200):
-		standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
-	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "this-run standard ring-core should cap affinity at Lv5")
-	_expect_eq(int(standard_owner.lingpet_ring_core_tier), 1, "owner/TAB ring-core tier should show this-run tier 1")
-	var banked_points: float = standard_runtime.get_affinity_points("maribo")
-	_expect_float(banked_points, 50.0, "this-run standard ring-core cap should clamp overflow at the next-level requirement (Lv5->Lv6 = 50)")
-	standard_runtime.update(0.0, standard_owner, standard_registry)
-	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
-	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "owner snapshot sync should not reset ring-core cap to fail-open MAX")
-	standard_runtime._loadout_state.invalidate_runtime_and_snapshot_cache(standard_runtime._snapshot_builder)
-	standard_runtime._apply_current_loadout(standard_owner, true, false)
-	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
-	_expect_eq(standard_runtime.get_affinity_level("maribo"), 5, "loadout apply without registry should preserve the this-run ring-core cap")
-	_expect(standard_runtime._affinity_state.upgrade_run_ring_core_tier(2), "run-state ring-core upgrade should move the cap to tier 2")
-	standard_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, standard_registry)
-	_expect_eq(standard_runtime.get_affinity_level("maribo"), 6, "upgrading this-run ring-core cap should release only the clamped ceiling (bounded head start), not a banked level burst")
-	_expect(not FileAccess.file_exists(standard_path), "run-state cap upgrades must not write the permanent ring-core store")
-
-	# R3 / v5: store no longer persists best levels and is not a live module.
-	var missing_runtime: Object = LingpetEggRuntime.new()
-	var missing_owner := FakeOwner.new()
-	var missing_registry := FakeRegistry.new({})
-	_expect(missing_runtime.debug_grant_and_activate_pet("maribo", missing_owner, false, "", "", missing_registry), "missing-tier fixture should activate Maribo")
-	missing_runtime.update(0.0, missing_owner, missing_registry)
-	_expect_eq(missing_runtime.get_affinity_level("maribo"), 0, "missing store ring-core data should not fail open beyond this-run tier 0")
-	for _i in range(20):
-		missing_runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, missing_registry)
-	_expect_eq(missing_runtime.get_affinity_level("maribo"), 0, "missing store ring-core data should keep T0 affinity capped at Lv0")
-	_expect_float(missing_runtime.get_affinity_points("maribo"), 50.0, "missing store ring-core data should clamp T0 overflow at the Lv1 requirement (50/50)")
-
-	_remove_user_file(ignored_store_path)
-	_remove_user_file(standard_path)
-	_remove_user_file(missing_path)
-	_remove_user_file(ignored_store_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(standard_path.trim_suffix(".cfg") + ".last_good.cfg")
-	_remove_user_file(missing_path.trim_suffix(".cfg") + ".last_good.cfg")
 
 
 func _verify_ineligible_conditions_do_not_spawn() -> void:

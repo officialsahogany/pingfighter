@@ -134,27 +134,6 @@ func _verify_feedback_callback_actions() -> void:
 	_expect_feedback(treasure, RuntimePerkChoiceActionRunner.TIMER_TREASURE_HUNT, "treasure", "Treasure Hunt")
 	_expect(str(_calls.back().get("key", "")) == "treasure", "Treasure Hunt should call the treasure callback")
 
-	var chip: Dictionary = runner.run(
-		RuntimePerkChoiceDispatch.ACTION_LINGPET_AFFINITY_CHIP,
-		{"id": "lingpet_affinity_chip", "name": "Chip"},
-		owner,
-		registry,
-		_callbacks()
-	)
-	_expect_feedback(chip, RuntimePerkChoiceActionRunner.TIMER_LINGPET, "Chip", "Lingpet affinity chip")
-	_expect(str(_calls.back().get("key", "")) == "chip", "Lingpet affinity chip should call the chip callback")
-
-	var ring: Dictionary = runner.run(
-		RuntimePerkChoiceDispatch.ACTION_LINGPET_RING_CORE_UPGRADE,
-		{"id": "lingpet_ring_core_upgrade", "name": "Ring", "next_tier": 3},
-		owner,
-		registry,
-		_callbacks()
-	)
-	_expect_feedback(ring, RuntimePerkChoiceActionRunner.TIMER_LINGPET, "Ring 3", "Lingpet ring-core upgrade")
-	_expect(str(_calls.back().get("key", "")) == "ring" and int(_calls.back().get("tier", 0)) == 3, "ring-core callback should receive the target tier")
-
-
 func _verify_missing_callback_and_standard_action() -> void:
 	var runner := RuntimePerkChoiceActionRunner.new()
 	var missing: Dictionary = runner.run(
@@ -229,7 +208,7 @@ func _verify_callback_builder() -> void:
 	_expect(runner.build_state_action_callbacks(null).is_empty(), "callback builder should tolerate a null state")
 	var provider := CallbackProvider.new()
 	var callbacks: Dictionary = runner.build_state_action_callbacks(provider)
-	_expect(callbacks.size() == 9, "callback builder should expose every explicit action callback")
+	_expect(callbacks.size() == 7, "callback builder should expose every explicit action callback")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_CONVERT_TO_GOLD), "callback builder should wire gold conversion")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_FULL_GAUGE_DEFERRED), "callback builder should wire deferred full gauge")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_FULL_GAUGE), "callback builder should wire immediate full gauge")
@@ -237,8 +216,6 @@ func _verify_callback_builder() -> void:
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE), "callback builder should wire immediate Dimension Gate")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_MONKEY_BLESSING), "callback builder should wire Monkey Blessing")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_TREASURE_HUNT), "callback builder should wire Treasure Hunt")
-	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_LINGPET_AFFINITY_CHIP), "callback builder should wire Lingpet affinity chip")
-	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_LINGPET_RING_CORE_UPGRADE), "callback builder should wire Lingpet ring-core upgrade")
 
 
 func _verify_state_source_contract() -> void:
@@ -259,10 +236,8 @@ func _verify_state_source_contract() -> void:
 	_expect(apply_body.find("action_result.get(\"fallback_timer\"") < 0, "apply_choice should not read action fallback timer inline")
 	_expect(apply_body.find("_apply_full_gauge_choice(owner, registry)") < 0, "apply_choice should not call full-gauge action inline")
 	_expect(apply_body.find("_apply_dimension_gate_choice(registry)") < 0, "apply_choice should not call Dimension Gate action inline")
-	_expect(apply_body.find("_apply_lingpet_affinity_chip(owner") < 0, "apply_choice should not call Lingpet affinity action inline")
 	_expect(runner_source.find("func run_dispatch(dispatch: Dictionary") >= 0, "runner should own dispatch action extraction")
 	_expect(runner_source.find("func build_state_action_callbacks(state: Object)") >= 0, "runner should own state action callback map assembly")
-	_expect(runner_source.find("CALLBACK_LINGPET_RING_CORE_UPGRADE") >= 0, "runner should own ring-core callback routing")
 	_expect(runner_source.find("TIMER_TREASURE_HUNT := 1.6") >= 0, "runner should own Treasure Hunt fallback timer")
 
 
@@ -275,8 +250,6 @@ func _callbacks() -> Dictionary:
 		RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE: Callable(self, "_dimension_gate"),
 		RuntimePerkChoiceActionRunner.CALLBACK_MONKEY_BLESSING: Callable(self, "_monkey"),
 		RuntimePerkChoiceActionRunner.CALLBACK_TREASURE_HUNT: Callable(self, "_treasure"),
-		RuntimePerkChoiceActionRunner.CALLBACK_LINGPET_AFFINITY_CHIP: Callable(self, "_chip"),
-		RuntimePerkChoiceActionRunner.CALLBACK_LINGPET_RING_CORE_UPGRADE: Callable(self, "_ring"),
 	}
 
 
@@ -313,16 +286,6 @@ func _monkey(_owner: Object, _registry: Object, choice_name: String) -> Dictiona
 func _treasure(_owner: Object, _registry: Object) -> Dictionary:
 	_calls.append({"key": "treasure"})
 	return {"accepted": true, "feedback_text": "treasure"}
-
-
-func _chip(_owner: Object, _registry: Object, choice_name: String) -> Dictionary:
-	_calls.append({"key": "chip", "name": choice_name})
-	return {"accepted": true, "feedback_text": choice_name}
-
-
-func _ring(_owner: Object, _registry: Object, tier: int, choice_name: String) -> Dictionary:
-	_calls.append({"key": "ring", "tier": tier, "name": choice_name})
-	return {"accepted": true, "feedback_text": "%s %d" % [choice_name, tier]}
 
 
 func _apply_feedback(result: Dictionary, choice: Dictionary, fallback_timer: float) -> bool:
@@ -399,10 +362,4 @@ class CallbackProvider:
 		return {"accepted": true}
 
 	func _apply_treasure_hunt_choice(_owner: Object, _registry: Object) -> Dictionary:
-		return {"accepted": true}
-
-	func _apply_lingpet_affinity_chip(_owner: Object, _registry: Object, _choice_name: String) -> Dictionary:
-		return {"accepted": true}
-
-	func _apply_lingpet_ring_core_upgrade(_owner: Object, _registry: Object, _tier: int, _choice_name: String) -> Dictionary:
 		return {"accepted": true}

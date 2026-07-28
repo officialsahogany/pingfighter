@@ -1,9 +1,7 @@
 extends RefCounted
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
-const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 
 const PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID := {
 	"lunabi": "click_reaction_anim",
@@ -130,17 +128,6 @@ static func get_skill_icon_texture(texture_id: String, cache: Dictionary) -> Tex
 	return texture
 
 
-static func get_ring_core_icon_texture(tier: int, cache: Dictionary) -> Texture2D:
-	var clamped_tier := clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	if clamped_tier <= 0:
-		return null
-	var icon_id := "lingpet_ring_core_upgrade_tier_%d" % clamped_tier
-	var path := str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get(icon_id, ""))
-	if path == "":
-		return null
-	return get_skill_icon_texture(path, cache)
-
-
 static func prewarm_art_assets(cache: Dictionary, pet_ids: Variant = null) -> void:
 	var resolved_pet_ids := _resolve_prewarm_pet_ids(pet_ids)
 	if resolved_pet_ids.is_empty():
@@ -198,8 +185,6 @@ static func prewarm_skill_icon_assets(cache: Dictionary, pet_ids: Variant = null
 				continue
 			_touch_texture(get_skill_icon_texture(str(passive.get("icon_texture_path", "")), cache))
 		_touch_texture(get_skill_icon_texture(LingpetCatalog.get_passive_icon_path(pet_id, "gauge_gain_bonus"), cache))
-	for tier in range(1, LingpetRingCoreRules.MAX_RING_CORE_TIER + 1):
-		_touch_texture(get_ring_core_icon_texture(tier, cache))
 
 
 static func prewarm_skill_icon_assets_step(cache: Dictionary, pet_ids: Variant = null) -> bool:
@@ -249,9 +234,6 @@ static func _build_skill_icon_prewarm_paths(pet_ids: Variant = null) -> Array[St
 				continue
 			_append_unique_path(paths, str(passive.get("icon_texture_path", "")))
 		_append_unique_path(paths, LingpetCatalog.get_passive_icon_path(str(pet_id), "gauge_gain_bonus"))
-	for tier in range(1, LingpetRingCoreRules.MAX_RING_CORE_TIER + 1):
-		var icon_id := "lingpet_ring_core_upgrade_tier_%d" % tier
-		_append_unique_path(paths, str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get(icon_id, "")))
 	return paths
 
 

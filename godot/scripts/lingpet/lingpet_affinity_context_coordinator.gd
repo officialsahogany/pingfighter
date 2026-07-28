@@ -31,11 +31,6 @@ func configure(
 	var passive_present_id := str(context_loadout.get("passive_skill_id", "")).strip_edges()
 	var motion_style := _resolve_motion_style(normalized_pet_id, current_pet_id, current_profile)
 	var reward_seed := _get_or_create_reward_seed(normalized_pet_id, affinity_state)
-	var ring_core_cap := clampi(
-		int(affinity_state.get_run_ring_core_cap()),
-		0,
-		LingpetAffinityState.MAX_LEVEL
-	)
 	affinity_state.configure_reward_context(
 		normalized_pet_id,
 		motion_style,
@@ -43,7 +38,6 @@ func configure(
 		passive_base_level,
 		reward_seed,
 		false,
-		ring_core_cap,
 		active_present_id,
 		passive_present_id
 	)
@@ -55,7 +49,6 @@ func configure(
 		"active_present_id": active_present_id,
 		"passive_present_id": passive_present_id,
 		"reward_seed": reward_seed,
-		"ring_core_cap": ring_core_cap,
 	}
 
 

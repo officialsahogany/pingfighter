@@ -210,7 +210,7 @@ func _verify_unlock_gate_survives_expanded_band() -> void:
 	var unlock_band_h: float = clamp(CONTENT_RECT.size.y * 0.18, CharacterInfoOverlayLingpetPresenter.UNLOCK_CHOICE_BAND_MIN_HEIGHT, CharacterInfoOverlayLingpetPresenter.UNLOCK_CHOICE_BAND_MAX_HEIGHT)
 	var art_rect: Rect2 = CharacterInfoOverlayLingpetPresenter.companion_art_rect(
 		CONTENT_RECT,
-		skill_row_h + unlock_band_h + CharacterInfoOverlayLingpetPresenter.RING_CORE_ROW_HEIGHT,
+		skill_row_h + unlock_band_h,
 		CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT
 	)
 	var affinity_rect := Rect2(
@@ -219,18 +219,12 @@ func _verify_unlock_gate_survives_expanded_band() -> void:
 		art_rect.size.x,
 		max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)
 	)
-	var ring_core_row_rect := Rect2(
-		affinity_rect.position.x,
-		affinity_rect.end.y + 4.0,
-		affinity_rect.size.x,
-		CharacterInfoOverlayLingpetPresenter.RING_CORE_ROW_HEIGHT
-	)
 	var icon_count := 2
 	var icon_gap := 9.0
 	var icon_size: float = clamp((CONTENT_RECT.size.x - 24.0 - icon_gap * float(icon_count - 1)) / float(icon_count), 38.0, 58.0)
 	var icon_y: float = CONTENT_RECT.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
-	var unlock_height: float = max(0.0, icon_y - ring_core_row_rect.end.y - 8.0)
-	_expect(unlock_height >= 42.0, "expanded affinity band should still leave at least the 42px unlock-choice gate")
+	var unlock_height: float = max(0.0, icon_y - affinity_rect.end.y - 8.0)
+	_expect(unlock_height >= 42.0, "retiring the ring-core row should still leave at least the 42px unlock-choice gate")
 
 
 func _finish() -> void:

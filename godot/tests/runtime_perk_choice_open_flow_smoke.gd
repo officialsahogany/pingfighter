@@ -89,7 +89,6 @@ func _verify_ready_path_generates_choices_and_runs_side_effects() -> void:
 	_expect(feedback.dowsing_calls == 1, "ready path should apply Dowsing feedback for bonus choices")
 	_expect(state.choice_active, "ready path should activate the choice modal")
 	_expect(state.selected_index == 1, "ready path should select center card for multiple choices")
-	_expect(state.lingpet_tick_calls == 1, "ready path should tick Lingpet offer cooldown")
 	_expect(state.pause_cooldown_calls == 1, "ready path should pause skill cooldowns")
 	_expect(state.build_particles_calls == 1, "ready path should rebuild choice particles")
 	_expect(bool(_get_dict(state.current_choices[2]).get("is_dowsing_goggles_bonus", false)), "ready path should preserve Dowsing bonus mark")
@@ -245,7 +244,6 @@ class FakeRuntimeState:
 	var _choice_opening: Object = null
 	var _choice_offer_modifiers: Object = null
 	var _choice_feedback: Object = null
-	var lingpet_tick_calls := 0
 	var pause_cooldown_calls := 0
 	var build_particles_calls := 0
 
@@ -278,7 +276,6 @@ class FakeRuntimeState:
 		return {
 			"accepted": true,
 			"open_next_choice": bool(update.get("open_next_choice", false)),
-			"tick_lingpet_ring_core_offer_cooldown": bool(update.get("tick_lingpet_ring_core_offer_cooldown", false)),
 			"pause_skill_cooldowns": bool(update.get("pause_skill_cooldowns", false)),
 			"build_particles": bool(update.get("build_particles", false)),
 		}
@@ -287,9 +284,6 @@ class FakeRuntimeState:
 		if registry != null and registry.has_method("get_instance"):
 			return registry.get_instance(key)
 		return null
-
-	func _tick_lingpet_ring_core_offer_cooldown(_registry: Object) -> void:
-		lingpet_tick_calls += 1
 
 	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
 		pause_cooldown_calls += 1
@@ -344,7 +338,6 @@ class FakeChoiceOpening:
 			"selected_index": min(1, choice_count - 1),
 			"gamepad_choice_horizontal_latch": 0,
 			"animation_time": 0.0,
-			"tick_lingpet_ring_core_offer_cooldown": true,
 			"pause_skill_cooldowns": true,
 			"build_particles": true,
 		}

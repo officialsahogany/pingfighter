@@ -10,8 +10,6 @@ const CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT := "apply_choice_feedback_result"
 const CALLBACK_APPLY_UNLOCK_CHOICE := "apply_unlock_choice"
 const CALLBACK_APPLY_LEVEL_SIDE_EFFECT := "apply_level_side_effect"
 const DEFAULT_STARPOINT_PER_SKILL_CHOICE := 1
-const DEFAULT_LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
-const DEFAULT_LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 
 
 func build_state_callbacks(runtime_state: Object) -> Dictionary:
@@ -47,8 +45,6 @@ func apply_choice_from_runtime_state(
 		_get_runtime_state_object(runtime_state, "_instant_rewards"),
 		_get_runtime_state_object(runtime_state, "_level_side_effects"),
 		DEFAULT_STARPOINT_PER_SKILL_CHOICE,
-		DEFAULT_LINGPET_AFFINITY_CHIP_CHOICE_ID,
-		DEFAULT_LINGPET_RING_CORE_UPGRADE_CHOICE_ID,
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
@@ -68,8 +64,6 @@ func apply_choice(
 	instant_rewards: Object,
 	level_side_effects: Object,
 	starpoint_per_skill_choice: int,
-	lingpet_affinity_chip_choice_id: String,
-	lingpet_ring_core_upgrade_choice_id: String,
 	callbacks: Dictionary,
 	perf_logger: Object = null
 ) -> Dictionary:
@@ -78,9 +72,7 @@ func apply_choice(
 	var dispatch: Dictionary = choice_dispatch.build_dispatch(
 		choice,
 		_call_bool(callbacks, CALLBACK_SHOULD_DEFER_FULL_GAUGE, [], false),
-		_call_bool(callbacks, CALLBACK_SHOULD_DEFER_DIMENSION_GATE, [], false),
-		lingpet_affinity_chip_choice_id,
-		lingpet_ring_core_upgrade_choice_id
+		_call_bool(callbacks, CALLBACK_SHOULD_DEFER_DIMENSION_GATE, [], false)
 	)
 	if not bool(dispatch.get("accepted", false)):
 		return dispatch

@@ -17,7 +17,6 @@ const RuntimePerkDeferredInstants := preload("res://scripts/characters/runtime_p
 const RuntimePerkInstantRewards := preload("res://scripts/characters/runtime_perk_instant_rewards.gd")
 const RuntimePerkInstantChoiceFlow := preload("res://scripts/characters/runtime_perk_instant_choice_flow.gd")
 const RuntimePerkLevelSideEffects := preload("res://scripts/characters/runtime_perk_level_side_effects.gd")
-const RuntimePerkLingpetRewards := preload("res://scripts/characters/runtime_perk_lingpet_rewards.gd")
 const RuntimePerkOwnerEffectSync := preload("res://scripts/characters/runtime_perk_owner_effect_sync.gd")
 const RuntimePerkOwnerSyncFlow := preload("res://scripts/characters/runtime_perk_owner_sync_flow.gd")
 const RuntimePerkResumeSafety := preload("res://scripts/characters/runtime_perk_resume_safety.gd")
@@ -81,8 +80,6 @@ const TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TR
 const TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL
 const TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL
 const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := RuntimePerkEffectiveLevels.PERK_POLISH_AMPLIFIABLE_BONUS_IDS
-const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
-const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := RuntimePerkEffectiveLevels.VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS
 
 var runtime_skill_levels: Dictionary = {}
@@ -137,7 +134,6 @@ var _effective_levels: Object = RuntimePerkEffectiveLevels.new()
 var _instant_rewards: Object = RuntimePerkInstantRewards.new()
 var _instant_choice_flow: Object = RuntimePerkInstantChoiceFlow.new()
 var _level_side_effects: Object = RuntimePerkLevelSideEffects.new()
-var _lingpet_rewards: Object = RuntimePerkLingpetRewards.new()
 var _owner_effect_sync: Object = RuntimePerkOwnerEffectSync.new()
 var _owner_sync_flow: Object = RuntimePerkOwnerSyncFlow.new()
 var _resume_safety: Object = RuntimePerkResumeSafety.new()
@@ -2195,19 +2191,6 @@ func _apply_treasure_hunt_choice(owner: Object, registry: Object) -> Dictionary:
 	return _instant_choice_flow.apply_treasure_hunt_choice_from_runtime_state(self, owner, registry)
 
 
-func _apply_lingpet_affinity_chip(owner: Object, registry: Object, choice_name: String = "") -> Dictionary:
-	return _lingpet_rewards.apply_affinity_chip_from_runtime_state(self, owner, registry, choice_name)
-
-
-func _apply_lingpet_ring_core_upgrade(
-	owner: Object,
-	registry: Object,
-	requested_tier: int = 0,
-	choice_name: String = ""
-) -> Dictionary:
-	return _lingpet_rewards.apply_ring_core_upgrade_from_runtime_state(self, owner, registry, requested_tier, choice_name)
-
-
 func _capture_resume_pre_choice_velocity(owner: Object) -> void:
 	_resume_safety.capture_pre_choice_velocity_from_runtime_state(self, owner)
 
@@ -2234,10 +2217,6 @@ func _pause_skill_cooldowns_for_choice(owner: Object, registry: Object) -> void:
 
 func _resume_skill_cooldowns_for_choice() -> void:
 	_skill_cooldown_pause.resume_from_runtime_state(self)
-
-
-func _tick_lingpet_ring_core_offer_cooldown(registry: Object) -> void:
-	_lingpet_rewards.tick_ring_core_offer_cooldown_from_runtime_state(self, registry)
 
 
 func _sync_runtime_perk_owner_effects(owner: Object, registry: Object, perf_logger: Object = null) -> void:

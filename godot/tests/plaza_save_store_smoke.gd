@@ -20,7 +20,6 @@ func _run() -> void:
 	_verify_shop_wallet_transactions_and_ap_consumption()
 	_verify_gacha_payment_and_ap_consumption()
 	_verify_lingpet_egg_payment_and_ap_consumption()
-	_verify_lingpet_ring_core_payment_and_ap_consumption()
 	_verify_blacksmith_payment_and_ap_consumption()
 	_verify_academy_payment_and_ap_consumption()
 	_verify_tavern_quest_state_and_ap_consumption()
@@ -255,36 +254,6 @@ func _verify_lingpet_egg_payment_and_ap_consumption() -> void:
 	_expect(str(expensive_summary.get("reason", "")) == "not_enough_gold", "insufficient lingpet egg payment should report not_enough_gold")
 	_expect(int(expensive_summary.get("ap_spent", 0)) == 0, "failed lingpet egg payment should not spend AP")
 	_expect(int(expensive_summary.get("plaza_gold", 0)) == 100, "failed lingpet egg payment should leave wallet unchanged")
-	_cleanup(path)
-
-
-func _verify_lingpet_ring_core_payment_and_ap_consumption() -> void:
-	var path := _test_path("lingpet_ring_core_payment")
-	_cleanup(path)
-	var store := PlazaSaveStore.new()
-	store.set_save_path(path)
-	store.apply_stage_clear_progress(1, 600, true)
-	var payment_summary: Dictionary = store.perform_lingpet_ring_core_payment(150, true)
-	_expect(bool(payment_summary.get("changed", false)), "lingpet ring-core payment should change the wallet")
-	_expect(str(payment_summary.get("action", "")) == "ring_core", "lingpet ring-core payment should report the ring_core action")
-	_expect(int(payment_summary.get("delta_gold", 0)) == -150, "lingpet ring-core payment should subtract the tier cost")
-	_expect(int(payment_summary.get("ap_spent", 0)) == 1, "first lingpet ring-core purchase should spend AP")
-	_expect(int(payment_summary.get("plaza_gold", 0)) == 450, "lingpet ring-core payment should preserve remaining gold")
-	_expect(int(payment_summary.get("ap_current", 0)) == PlazaSaveStore.BASE_AP, "lingpet ring-core AP spend should preserve current-minus-one semantics")
-
-	var refund_summary: Dictionary = store.refund_lingpet_ring_core_payment(150, 1)
-	_expect(bool(refund_summary.get("changed", false)), "lingpet ring-core refund should change the wallet")
-	_expect(str(refund_summary.get("action", "")) == "ring_core", "lingpet ring-core refund should keep the ring_core action")
-	_expect(int(refund_summary.get("delta_gold", 0)) == 150, "lingpet ring-core refund should restore the tier cost")
-	_expect(int(refund_summary.get("ap_spent", 0)) == 1, "lingpet ring-core refund should report restored AP")
-	_expect(int(refund_summary.get("plaza_gold", 0)) == 600, "lingpet ring-core refund should restore wallet gold")
-	_expect(int(refund_summary.get("ap_current", 0)) == PlazaSaveStore.BASE_AP + 1, "lingpet ring-core refund should restore AP")
-
-	var expensive_summary: Dictionary = store.perform_lingpet_ring_core_payment(9999, true)
-	_expect(not bool(expensive_summary.get("changed", true)), "lingpet ring-core payment should fail when gold is insufficient")
-	_expect(str(expensive_summary.get("reason", "")) == "not_enough_gold", "insufficient lingpet ring-core payment should report not_enough_gold")
-	_expect(int(expensive_summary.get("ap_spent", 0)) == 0, "failed lingpet ring-core payment should not spend AP")
-	_expect(int(expensive_summary.get("plaza_gold", 0)) == 600, "failed lingpet ring-core payment should leave wallet unchanged")
 	_cleanup(path)
 
 

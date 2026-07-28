@@ -1,18 +1,7 @@
 extends RefCounted
 
-const STANDARD_RING_CORE_TIER := 1
 const TUTORIAL_LEAGUE_MODE := "junior"
 const TUTORIAL_CHARACTER_TYPE := "smasher"
-
-
-func grant_standard_ring_core_if_needed(owner: Object, collection_state: Object, affinity_state: Object) -> bool:
-	if not is_first_lingpet_egg_eligible(owner, collection_state):
-		return false
-	if affinity_state == null:
-		return false
-	if int(affinity_state.get_run_ring_core_tier()) >= STANDARD_RING_CORE_TIER:
-		return false
-	return bool(affinity_state.upgrade_run_ring_core_tier(STANDARD_RING_CORE_TIER))
 
 
 func is_first_lingpet_egg_eligible(owner: Object, collection_state: Object) -> bool:

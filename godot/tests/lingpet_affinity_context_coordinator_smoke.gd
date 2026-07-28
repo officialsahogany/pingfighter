@@ -28,7 +28,6 @@ class FakeLoadoutState:
 class CaptureAffinityState:
 	extends RefCounted
 
-	var run_ring_core_cap := 5
 	var level := 3
 	var configured: Array[Dictionary] = []
 	var forced_seed_pet_id := ""
@@ -40,9 +39,6 @@ class CaptureAffinityState:
 		rewards["active_skill_bonus"] = 2
 		rewards["signature"] = "2|0|0|0|0|0"
 
-	func get_run_ring_core_cap() -> int:
-		return run_ring_core_cap
-
 	func configure_reward_context(
 		pet_id: String,
 		motion_style: String,
@@ -50,7 +46,6 @@ class CaptureAffinityState:
 		passive_base_level: int,
 		reward_seed: int,
 		force_rebuild: bool,
-		ring_core_cap: int,
 		active_present_id: String = "",
 		passive_present_id: String = ""
 	) -> void:
@@ -63,7 +58,6 @@ class CaptureAffinityState:
 			"passive_present_id": passive_present_id,
 			"reward_seed": reward_seed,
 			"force_rebuild": force_rebuild,
-			"ring_core_cap": ring_core_cap,
 		})
 
 	func set_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
@@ -123,7 +117,6 @@ func _verify_context_composition_and_sticky_seed() -> void:
 	_expect_eq(int(inactive_context.get("active_base_level", 0)), 4, "empty context loadout should read the stored active base level")
 	_expect_eq(int(inactive_context.get("passive_base_level", 0)), 2, "empty context loadout should read the stored passive base level")
 	_expect_eq(int(inactive_context.get("reward_seed", 0)), 777, "context should use the injected run-local reward seed")
-	_expect_eq(int(inactive_context.get("ring_core_cap", 0)), 5, "context should apply the this-run ring-core cap")
 	_expect(not bool(inactive_context.get("force_rebuild", true)), "ordinary context configuration should not force a deck rebuild")
 	_expect_str(affinity_state.forced_seed_pet_id, "rabi", "seed injection should force the requested pet deck")
 	_expect_eq(affinity_state.forced_seed, 777, "seed injection should preserve the caller seed for affinity_state normalization")
@@ -146,10 +139,6 @@ func _verify_context_composition_and_sticky_seed() -> void:
 	_expect_str(str(explicit_context.get("active_present_id", "")), "rabi_ghost_summon", "explicit loadout should pass the present active id for conditional unlocks")
 	_expect_str(str(explicit_context.get("passive_present_id", "")), "lingpet_resonance_boost", "explicit loadout should pass the present passive id for conditional unlocks")
 	_expect_eq(int(explicit_context.get("reward_seed", 0)), 777, "repeated configuration should retain the pet's sticky run-local seed")
-
-	affinity_state.run_ring_core_cap = 99
-	var clamped_context := coordinator.configure("rabi", "maribo", current_profile, loadout_state, affinity_state)
-	_expect_eq(int(clamped_context.get("ring_core_cap", 0)), LingpetAffinityState.MAX_LEVEL, "context should clamp fail-open ring-core caps to affinity max level")
 
 
 func _verify_current_profile_projection_and_reset() -> void:

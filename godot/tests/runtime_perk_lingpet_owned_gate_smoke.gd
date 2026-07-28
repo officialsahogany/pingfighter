@@ -74,18 +74,18 @@ func _verify_lingpet_gated_choices_filter_on_owned_state() -> void:
 	var empty_owner := FakeOwner.new()
 	var choices := _build_lingpet_gate_probe_choices()
 	var filtered_empty: Array = catalog._filter_lingpet_owned_gate(choices, empty_owner)
-	_expect(_choice_ids(filtered_empty) == ["dash_module_control"], "owned-empty owner should suppress ring-core and chip choices")
+	_expect(_choice_ids(filtered_empty) == ["dash_module_control"], "owned-empty owner should suppress guardian enhancement choices")
 
 	var owned_owner := FakeOwner.new()
 	owned_owner.lingpet_owned_pet_ids = ["maribo"]
 	var filtered_owned: Array = catalog._filter_lingpet_owned_gate(choices, owned_owner)
-	_expect(_choice_ids(filtered_owned) == ["lingpet_ring_core_upgrade", "dash_module_control", "lingpet_affinity_chip"], "owned lingpet owner should keep ring-core and chip choices")
+	_expect(_choice_ids(filtered_owned) == ["lingpet_guardian_enhance", "dash_module_control"], "owned lingpet owner should keep guardian enhancement choices")
 
 	var companion_owner := FakeOwner.new()
 	companion_owner.lingpet_state = "companion"
 	companion_owner.lingpet_id = "maribo"
 	var filtered_companion: Array = catalog._filter_lingpet_owned_gate(choices, companion_owner)
-	_expect(_choice_ids(filtered_companion) == ["lingpet_ring_core_upgrade", "dash_module_control", "lingpet_affinity_chip"], "active companion state should use the same owned predicate as tutorial egg gating")
+	_expect(_choice_ids(filtered_companion) == ["lingpet_guardian_enhance", "dash_module_control"], "active companion state should use the same owned predicate as tutorial egg gating")
 
 
 func _verify_runtime_choice_modal_threads_owner_and_registry() -> void:
@@ -103,12 +103,12 @@ func _verify_runtime_choice_modal_threads_owner_and_registry() -> void:
 func _verify_gate_is_before_shuffle_and_academy_preview_threads_owner() -> void:
 	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
 	var filter_index := catalog_source.find("choices = _filter_lingpet_owned_gate(choices, owner)")
-	var reserve_index := catalog_source.find("_extract_lingpet_ring_core_reserved_choices", filter_index)
+	var reserve_index := catalog_source.find("_extract_guardian_enhance_reserved_choice", filter_index)
 	var shuffle_index := catalog_source.find("choices.shuffle()", filter_index)
 	var truncate_index := catalog_source.find("for choice in choices:", filter_index)
 	_expect(filter_index >= 0, "runtime perk catalog should filter lingpet-gated choices")
-	_expect(reserve_index > filter_index, "ring-core early reservation should run after the lingpet owned gate")
-	_expect(shuffle_index > reserve_index, "ring-core early reservation should split force-included cards before shuffle")
+	_expect(reserve_index > filter_index, "guardian enhancement reservation should run after the lingpet owned gate")
+	_expect(shuffle_index > reserve_index, "guardian enhancement reservation should split force-included cards before shuffle")
 	_expect(shuffle_index > filter_index, "lingpet owned gate should run before choice shuffle")
 	_expect(truncate_index > shuffle_index, "choice truncation should happen after lingpet owned gate, reservation, and shuffle")
 
@@ -136,9 +136,8 @@ func _verify_gate_is_before_shuffle_and_academy_preview_threads_owner() -> void:
 
 func _build_lingpet_gate_probe_choices() -> Array:
 	return [
-		{"id": "lingpet_ring_core_upgrade"},
+		{"id": "lingpet_guardian_enhance"},
 		{"id": "dash_module_control"},
-		{"id": "lingpet_affinity_chip"},
 	]
 
 

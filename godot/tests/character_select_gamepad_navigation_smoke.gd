@@ -46,7 +46,7 @@ func _init() -> void:
 	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_Y, -0.88))
 	_expect(screen.selected_index == 2, "held vertical left-stick tilt should not repeat character selection")
 	screen.free()
-	_verify_ring_core_display_source_contract()
+	_verify_ring_core_retirement_source_contract()
 
 	if _failures.is_empty():
 		print("character_select_gamepad_navigation_smoke: ok")
@@ -64,23 +64,9 @@ func _axis(axis: JoyAxis, value: float) -> InputEventJoypadMotion:
 	return event
 
 
-func _verify_ring_core_display_source_contract() -> void:
+func _verify_ring_core_retirement_source_contract() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/ui/character_select_screen.gd")
-	_expect(source.find("const CHARACTER_SELECT_RING_CORE_TIER := 0") >= 0, "character select should not carry per-run ring-core tier into the pre-run screen")
-	_expect(source.find("_lingpet_affinity_store") < 0, "character select should not instantiate a lingpet affinity store cache")
-	_expect(source.find("_cached_lingpet_ring_core_tier") < 0, "character select should not cache the legacy permanent ring-core tier")
-	_expect(source.find("_refresh_lingpet_ring_core_cache") < 0, "character select should not refresh ring-core tier from the permanent store")
-	_expect(source.find("get_ring_core_tier") < 0, "character select should not read legacy permanent ring-core tier")
-	_expect(source.find("lingpet_ring_core_upgrade_tier_%d") >= 0, "character select should reuse the shared ring-core tier icon family")
-	_expect(source.find("func _lingpet_ring_core_label") >= 0 and source.find("Ring Core") >= 0, "character select ring-core label should have a non-Korean fallback")
-	var process_start := source.find("func _process")
-	var process_end := source.find("func _update_entry_background_prewarm")
-	var draw_start := source.find("func _draw_info_panel")
-	var layout_start := source.find("func _build_info_panel_layout")
-	var process_block := source.substr(process_start, process_end - process_start) if process_start >= 0 and process_end > process_start else ""
-	var draw_block := source.substr(draw_start, layout_start - draw_start) if draw_start >= 0 and layout_start > draw_start else ""
-	_expect(process_block.find(".load()") < 0, "character select should not load the affinity store from _process")
-	_expect(draw_block.find(".load()") < 0, "character select should not load the affinity store from _draw_info_panel")
+	_expect(source.find("ring_core") < 0, "character select must not retain ring-core state, labels, prewarm, or draw paths")
 
 
 func _expect(condition: bool, message: String) -> void:

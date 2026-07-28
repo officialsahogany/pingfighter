@@ -136,7 +136,7 @@ func _verify_ready_state_update() -> void:
 	_expect(state.gamepad_choice_horizontal_latch == 0, "ready update should reset gamepad horizontal latch")
 	_expect(is_equal_approx(state.animation_time, 0.0), "ready update should reset animation time")
 	_expect(state.choice_active, "ready update should activate the choice modal")
-	_expect(bool(result.get("tick_lingpet_ring_core_offer_cooldown", false)), "ready update should request Lingpet cooldown tick")
+	_expect(not result.has("tick_lingpet_ring_core_offer_cooldown"), "ready update should omit the retired Lingpet offer cooldown tick")
 	_expect(bool(result.get("pause_skill_cooldowns", false)), "ready update should request skill cooldown pause")
 	_expect(bool(result.get("build_particles", false)), "ready update should request particle rebuild")
 

@@ -206,13 +206,6 @@ func _prewarm_visible_item_icons(owner: Object, registry: Object, module_getter:
 func _prewarm_passive_inventory_assets(owner: Object, registry: Object, module_getter: Callable) -> void:
 	CharacterInfoOverlayPassiveItemPresenter.prewarm_overlay_inventory_assets(self, owner, registry, module_getter, _passive_inventory_icon_prewarm_items_hash, _passive_inventory_icon_prewarm_item_count, _active_item_icon_renderer)
 
-func _prewarm_pendulum_interior(owner: Object, registry: Object) -> void:
-	if _pendulum_interior == null or not _pendulum_interior.has_method("prewarm_for_snapshot"):
-		return
-	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS)
-	if CharacterInfoOverlayPendulumInterior.can_open_snapshot(snapshot):
-		_pendulum_interior.prewarm_for_snapshot(snapshot, registry)
-
 func _get_passive_inventory_count_text_width(font: Font, count_text: String, size: int) -> float:
 	return CharacterInfoOverlayTextWidthCache.get_overlay_single_width(self, "_passive_inventory_count_text_width_cache", font, count_text, size, Callable(self, "_text_size"), _passive_inventory_count_text_width_cache)
 
@@ -297,36 +290,6 @@ func _try_handle_lingpet_slot_tab_click(mouse_pos: Vector2, owner: Object, regis
 		# true and consumes the click / triggers the panel redraw.
 		return bool(runtime.switch_lingpet_slot(int(entry.get("slot_index", -1)), owner, registry))
 	return false
-
-func _is_pendulum_interior_active() -> bool:
-	return _pendulum_interior != null and _pendulum_interior.has_method("is_active") and bool(_pendulum_interior.is_active())
-
-func _close_pendulum_interior() -> void:
-	if _pendulum_interior != null and _pendulum_interior.has_method("reset"):
-		_pendulum_interior.reset()
-	call("_reset_hover_and_request_redraw", true)
-
-func _try_handle_lingpet_pendulum_open_click(mouse_pos: Vector2, owner: Object, registry: Object) -> bool:
-	for rect in _last_lingpet_ring_core_rects:
-		if not rect.has_point(mouse_pos):
-			continue
-		var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), LINGPET_HATCH_REQUIRED_HITS)
-		if not CharacterInfoOverlayPendulumInterior.can_open_snapshot(snapshot):
-			return false
-		if _pendulum_interior == null or not _pendulum_interior.has_method("open"):
-			return false
-		return bool(_pendulum_interior.open(snapshot, owner, registry))
-	return false
-
-func _handle_pendulum_mouse_button(mouse_pos: Vector2, button_index: int) -> bool:
-	if not _is_pendulum_interior_active():
-		return false
-	if _pendulum_interior == null or not _pendulum_interior.has_method("handle_mouse_button"):
-		return true
-	var action: StringName = _pendulum_interior.handle_mouse_button(mouse_pos, button_index)
-	if action != &"":
-		call("_reset_hover_and_request_redraw", true)
-	return true
 
 func _prepare_passive_inventory_draw_cache(inventory_items: Array) -> Dictionary:
 	return CharacterInfoOverlayPassiveItemPresenter.prepare_overlay_inventory_draw_cache(self, inventory_items, _passive_inventory_draw_cache_items_hash, _passive_inventory_draw_cache_item_count, _passive_inventory_item_cache, _passive_inventory_draw_color_cache, _passive_inventory_border_color_cache, _passive_inventory_active_border_color_cache, _passive_inventory_equipped_cache, _passive_inventory_summary, _passive_inventory_summary_count, _passive_inventory_summary_equipped, Callable(CharacterInfoOverlayPassiveItemPresenter, "cached_frame_color").bind(_passive_item_frame_color_cache, PASSIVE_FRAME_COLOR_CACHE_LIMIT))

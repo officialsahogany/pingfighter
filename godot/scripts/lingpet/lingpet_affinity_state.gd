@@ -1,6 +1,5 @@
 extends RefCounted
 
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetDurationState := preload("res://scripts/lingpet/lingpet_duration_state.gd")
 const LingpetEnhancementBuffStore := preload(
@@ -13,7 +12,6 @@ const SOURCE_CLICK := "click"
 const SOURCE_HATCH := "hatch"
 const SOURCE_VICTORY := "victory"
 const SOURCE_STAGE_CLEAR := "stage_clear"
-const SOURCE_RING_CORE_UPGRADE := "ring_core_upgrade"
 
 const REWARD_TYPE_ACTIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK
 const REWARD_TYPE_PASSIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK
@@ -31,15 +29,11 @@ const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FLIGHT := "flight"
 
 const MAX_LEVEL := 30
-const MAX_ENHANCEMENT_CHIPS := 5
-const ENHANCEMENT_CHIP_BONUS := 0.20
 const SKILL_LEVEL_MAX := LingpetEnhancementBuffStore.SKILL_LEVEL_MAX
-const RING_CORE_CAP_UNCHANGED := -1
 const MAX_MOBILITY_STACKS := LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS
 const MAX_DEFENSE_STACKS := LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS
 const MAX_GAUGE_STACKS := LingpetEnhancementBuffStore.MAX_GAUGE_STACKS
-const RING_CORE_OFFER_COOLDOWN_SCREENS := 3
-const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title"]
+const LEGACY_PET_RUN_STATE_KEYS := ["best_level", "bond_points", "bond_title", "ring_core_cap"]
 const SATIETY_KEY := LingpetDurationState.SAVE_VALUE_KEY
 const SATIETY_MIN := LingpetDurationState.DURATION_MIN
 const SATIETY_MAX := LingpetDurationState.DURATION_MAX
@@ -151,7 +145,6 @@ const GAIN_TABLE := {
 	SOURCE_HATCH: {"points": 25.0},
 	SOURCE_VICTORY: {"points": 20.0},
 	SOURCE_STAGE_CLEAR: {"points": 50.0},
-	SOURCE_RING_CORE_UPGRADE: {"points": 50.0},
 }
 
 # Flight-style companions get fewer ball-hit / click opportunities than patrol pets
@@ -177,9 +170,6 @@ const BATTLE_CAP_BOND_LEVEL_UPS_BY_PET := "bond_level_ups_by_pet"
 var _pets: Dictionary = {}
 var _round_caps: Dictionary = {}
 var _battle_caps: Dictionary = {}
-var _enhancement_chips := 0
-var _run_ring_core_tier := 0
-var _ring_core_offer_cooldown_screens := 0
 var _dirty := false
 var _duration_state := LingpetDurationState.new()
 
@@ -193,9 +183,6 @@ func _init() -> void:
 func reset_all() -> void:
 	_pets.clear()
 	_duration_state.reset_run()
-	_enhancement_chips = 0
-	_run_ring_core_tier = 0
-	_ring_core_offer_cooldown_screens = 0
 	reset_battle_caps()
 	_dirty = false
 
@@ -217,12 +204,7 @@ func export_run_state() -> Dictionary:
 		var pet_data: Variant = _pets[raw_pet_id]
 		if pet_data is Dictionary:
 			pets_copy[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
-	var run_state := {
-		"pets": pets_copy,
-		"enhancement_chips": _enhancement_chips,
-		"run_ring_core_tier": _run_ring_core_tier,
-		"ring_core_offer_cooldown_screens": _ring_core_offer_cooldown_screens,
-	}
+	var run_state := {"pets": pets_copy}
 	run_state.merge(_duration_state.export_run_state(), true)
 	return run_state
 
@@ -237,9 +219,6 @@ func import_run_state(data: Dictionary) -> void:
 		if pet_data is Dictionary:
 			_pets[str(raw_pet_id)] = _sanitize_pet_run_state(pet_data as Dictionary)
 	_duration_state.import_run_state(data)
-	_enhancement_chips = clampi(int(data.get("enhancement_chips", 0)), 0, MAX_ENHANCEMENT_CHIPS)
-	_run_ring_core_tier = clampi(int(data.get("run_ring_core_tier", 0)), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	_ring_core_offer_cooldown_screens = maxi(0, int(data.get("ring_core_offer_cooldown_screens", 0)))
 	_dirty = true
 
 
@@ -270,23 +249,6 @@ func is_dirty() -> bool:
 
 func clear_dirty() -> void:
 	_dirty = false
-
-
-func set_enhancement_chips(value: int) -> int:
-	_enhancement_chips = clampi(value, 0, MAX_ENHANCEMENT_CHIPS)
-	return _enhancement_chips
-
-
-func add_enhancement_chip(amount: int = 1) -> int:
-	return set_enhancement_chips(_enhancement_chips + maxi(0, amount))
-
-
-func get_enhancement_chips() -> int:
-	return clampi(_enhancement_chips, 0, MAX_ENHANCEMENT_CHIPS)
-
-
-func get_enhancement_chip_multiplier() -> float:
-	return 1.0 + float(get_enhancement_chips()) * ENHANCEMENT_CHIP_BONUS
 
 
 func get_satiety(pet_id: String) -> float:
@@ -518,40 +480,6 @@ static func get_satiety_speed_multiplier_for_value(value: float) -> float:
 	return LingpetDurationState.get_duration_speed_multiplier_for_value(value)
 
 
-func get_run_ring_core_tier() -> int:
-	return clampi(_run_ring_core_tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-
-
-func set_run_ring_core_tier(tier: int) -> void:
-	_run_ring_core_tier = clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	if _run_ring_core_tier <= 0:
-		_ring_core_offer_cooldown_screens = 0
-
-
-func upgrade_run_ring_core_tier(target_tier: int = 0) -> bool:
-	var current_tier := get_run_ring_core_tier()
-	var next_tier := target_tier if target_tier > 0 else current_tier + 1
-	next_tier = clampi(next_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	if next_tier <= current_tier:
-		return false
-	_run_ring_core_tier = next_tier
-	_ring_core_offer_cooldown_screens = RING_CORE_OFFER_COOLDOWN_SCREENS
-	return true
-
-
-func get_run_ring_core_cap() -> int:
-	return LingpetRingCoreRules.get_ring_core_cap_for_tier(get_run_ring_core_tier())
-
-
-func get_ring_core_offer_cooldown_screens() -> int:
-	return maxi(0, _ring_core_offer_cooldown_screens)
-
-
-func tick_ring_core_offer_cooldown() -> void:
-	if _ring_core_offer_cooldown_screens > 0:
-		_ring_core_offer_cooldown_screens -= 1
-
-
 func configure_reward_context(
 	pet_id: String,
 	motion_style: String = MOTION_STYLE_PATROL,
@@ -559,7 +487,6 @@ func configure_reward_context(
 	passive_skill_base_level: int = 1,
 	reward_seed: int = 0,
 	force_rebuild: bool = false,
-	ring_core_cap: int = RING_CORE_CAP_UNCHANGED,
 	active_present_id: String = "",
 	passive_present_id: String = ""
 ) -> void:
@@ -571,19 +498,15 @@ func configure_reward_context(
 	var next_motion_style := _normalize_motion_style(motion_style)
 	var next_active_base_level := clampi(active_skill_base_level, 1, SKILL_LEVEL_MAX)
 	var next_passive_base_level := clampi(passive_skill_base_level, 1, SKILL_LEVEL_MAX)
-	var current_ring_core_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
-	var next_ring_core_cap := current_ring_core_cap if ring_core_cap < 0 else clampi(ring_core_cap, 0, MAX_LEVEL)
 	var context_changed := (
 		str(pet_data.get("reward_motion_style", MOTION_STYLE_PATROL)) != next_motion_style
 		or int(pet_data.get("active_skill_base_level", 1)) != next_active_base_level
 		or int(pet_data.get("passive_skill_base_level", 1)) != next_passive_base_level
-		or int(pet_data.get("ring_core_cap", MAX_LEVEL)) != next_ring_core_cap
 	)
 	var history: Array = pet_data.get("reward_history", []) as Array
 	pet_data["reward_motion_style"] = next_motion_style
 	pet_data["active_skill_base_level"] = next_active_base_level
 	pet_data["passive_skill_base_level"] = next_passive_base_level
-	pet_data["ring_core_cap"] = next_ring_core_cap
 	if reward_seed > 0:
 		var normalized_seed := maxi(1, reward_seed % REWARD_DECK_SEED_MOD)
 		pet_data["reward_seed"] = normalized_seed
@@ -860,11 +783,6 @@ func add_points(pet_id: String, source: String, tags: Dictionary = {}) -> Dictio
 	var granted_points := float(gain_result.get("points", 0.0))
 	var bonus_points := float(gain_result.get("bonus_points", 0.0))
 	var blocked_reason := str(gain_result.get("blocked_reason", ""))
-	# The ring-core-upgrade roster grant is a deliberate flat reward, so enhancement
-	# chips do not inflate it (every other affinity source scales with chips).
-	var enhancement_multiplier := 1.0 if source == SOURCE_RING_CORE_UPGRADE else get_enhancement_chip_multiplier()
-	granted_points *= enhancement_multiplier
-	bonus_points *= enhancement_multiplier
 	if granted_points <= 0.0:
 		_pets[normalized_pet_id] = pet_data
 		return _build_result(normalized_pet_id, source, level_before, points_before, 0.0, bonus_points, [], blocked_reason)
@@ -953,11 +871,6 @@ func get_next_reward(pet_id: String) -> Dictionary:
 # so the panel never shows a bare, dead-end "보상 없음":
 #   - at Lv.MAX            -> the terminal title (하트 공명)
 #   - rewards exhausted    -> "최대 강화 완료" (genuinely nothing left to grant)
-#   - sitting at the ring  -> "링코어 강화 시 해금" (a real reward exists, but it is
-#     core cap                gated behind the next ring core tier — the user's
-#                             "upgraded the ring core but it stayed 보상 없음"
-#                             confusion came from previewing this locked reward as
-#                             if it were reachable)
 #   - otherwise            -> the next reward's own label/title.
 # Single source for both owner-surface (TAB panel) and grant-controller (level-up
 # toast) so the two paths cannot drift.
@@ -977,30 +890,11 @@ func get_next_reward_display_label(pet_id: String) -> String:
 		return str(seed_reward.get("label", ""))
 	_ensure_reward_state(normalized_pet_id, pet_data)
 	_pets[normalized_pet_id] = pet_data
-	# The immediate next card may resolve to NO_REWARD (a dry draw: maxed stats +
-	# maxed/locked skill slots) while real rewards still wait at later levels —
-	# unlock cards open new skill slots, and higher ring-core tiers expose more
-	# levels. A high starting skill level (e.g. base skill 5/5) makes this gap
-	# routine. So scan the deck forward for the next genuinely grantable reward
-	# instead of treating the first dry card as terminal.
-	var cap := clampi(int(get_run_ring_core_cap()), 0, MAX_LEVEL)
 	var next_grantable := _find_next_grantable_reward(pet_data, level)
 	if next_grantable.is_empty():
-		# The deck has nothing grantable left, BUT a second-slot unlock can still be
-		# rolled in (it is no longer a visible deck card). Distinguish three cases:
-		# at/above the ring core cap it is gated behind a ring core upgrade; below the
-		# cap a surprise unlock can still land, so show a non-spoiler placeholder
-		# instead of the terminal "최대 강화 완료"; only when no roll remains is it terminal.
 		if _has_pending_rollable_second_unlock(pet_data):
-			if level >= cap and cap < MAX_LEVEL:
-				return "링코어 강화 시 해금"
 			return "교감 보상"
-		# Nothing real remains across every future level — genuinely terminal.
 		return "최대 강화 완료"
-	if int(next_grantable.get("level", MAX_LEVEL)) > cap:
-		# A real reward exists, but only above the current ring core cap, so a
-		# ring core upgrade is the gate (the "강화했는데 보상 없음" confusion case).
-		return "링코어 강화 시 해금"
 	if next_grantable.has("title"):
 		return str(next_grantable.get("title", "하트 공명"))
 	return str(next_grantable.get("label", ""))
@@ -1135,10 +1029,8 @@ func _resolve_gain(pet_id: String, source: String, tags: Dictionary, pet_data: D
 			return _resolve_victory_gain(pet_id, tags)
 		SOURCE_STAGE_CLEAR:
 			return _resolve_stage_clear_gain(pet_id)
-		SOURCE_RING_CORE_UPGRADE:
-			# Flat roster-wide reward when this run's ring core tier rises. No cap / self-seal:
-			# the caller fires it once per pet per successful upgrade.
-			return {"points": _get_gain_value(SOURCE_RING_CORE_UPGRADE, "points")}
+		_:
+			pass
 	return {"points": 0.0, "blocked_reason": "unknown_source"}
 
 
@@ -1257,7 +1149,7 @@ func _apply_level_ups(pet_id: String, pet_data: Dictionary) -> Array[Dictionary]
 	var level := int(pet_data.get("affinity_level", 0))
 	var points := float(pet_data.get("affinity_points", 0.0))
 	_ensure_reward_state(pet_id, pet_data)
-	var level_cap := clampi(int(pet_data.get("ring_core_cap", MAX_LEVEL)), 0, MAX_LEVEL)
+	var level_cap := MAX_LEVEL
 	while level < level_cap:
 		var requirement := get_requirement_for_level(level)
 		if requirement <= 0.0 or points < requirement:
@@ -1743,7 +1635,6 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"reward_motion_style": MOTION_STYLE_PATROL,
 		"active_skill_base_level": 1,
 		"passive_skill_base_level": 1,
-		"ring_core_cap": MAX_LEVEL,
 		"reward_seed": 0,
 		"unlock_choice_seed_base": 0,
 		"reward_deck": [],
@@ -1772,8 +1663,6 @@ func _reward_counts_snapshot(pet_data: Dictionary) -> Dictionary:
 
 
 func _ensure_unlock_state(pet_id: String, pet_data: Dictionary) -> void:
-	if not pet_data.has("ring_core_cap"):
-		pet_data["ring_core_cap"] = MAX_LEVEL
 	if not pet_data.has("unlock_candidate_pool"):
 		pet_data["unlock_candidate_pool"] = {}
 	if not pet_data.has("pending_unlock_choices"):

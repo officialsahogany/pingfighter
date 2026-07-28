@@ -3,13 +3,10 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
-const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
 const BASE_CHOICE_COUNT := 3
 # 퍽 슬롯 동적 한도(flag ON): 기본 6 + 슬롯 확장 퍽(common_expansion) RAW
@@ -17,52 +14,12 @@ const BASE_CHOICE_COUNT := 3
 const BASE_PERK_SLOT_LIMIT := 6
 const MAX_PERK_SLOT_LIMIT := 10
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
-const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
-const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
-const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
-const LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1
-const LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER := [1, 1, 1, 0, 0, 0, 0]
-const LINGPET_RING_CORE_PRIORITY_KEY := "_lingpet_ring_core_reserved"
 const SOUL_SUMMON_PRIORITY_KEY := "_soul_summon_reserved"
 const GUARDIAN_ENHANCE_PRIORITY_KEY := "_guardian_enhance_reserved"
 const LINGPET_GATED_CHOICE_IDS := {
-	LINGPET_AFFINITY_CHIP_CHOICE_ID: true,
-	LINGPET_RING_CORE_UPGRADE_CHOICE_ID: true,
 	LINGPET_GUARDIAN_ENHANCE_CHOICE_ID: true,
 }
-const LINGPET_RING_CORE_UPGRADE_PERK := {
-	"name": "링코어 강화",
-	"max_level": LingpetRingCoreRules.MAX_RING_CORE_TIER,
-	"descriptions": {
-		1: "링코어를 스탠다드로 강화합니다.",
-		2: "링코어를 부스트로 강화합니다.",
-		3: "링코어를 하이퍼로 강화합니다.",
-		4: "링코어를 오버드라이브로 강화합니다.",
-		5: "링코어를 얼티밋으로 강화합니다.",
-		6: "링코어를 제니스로 강화합니다.",
-	},
-	"detail": "골드 없이 이번 런의 링코어를 다음 티어로 강화합니다. 친밀도 임시 상한이 5레벨씩 올라가며, 새 런에서 초기화됩니다.",
-	"icon_color": Color(1.0, 210.0 / 255.0, 82.0 / 255.0),
-	"tree": "lingpet",
-	"is_lingpet_ring_core_upgrade": true,
-}
-const LINGPET_AFFINITY_CHIP_PERK := {
-	"name": "강화칩",
-	"max_level": LingpetAffinityState.MAX_ENHANCEMENT_CHIPS,
-	"descriptions": {
-		1: "이번 런의 수호령 친밀도 획득량 +20%",
-		2: "이번 런의 수호령 친밀도 획득량 +40%",
-		3: "이번 런의 수호령 친밀도 획득량 +60%",
-		4: "이번 런의 수호령 친밀도 획득량 +80%",
-		5: "이번 런의 수호령 친밀도 획득량 +100%",
-	},
-	"detail": "수호령과 함께 싸우는 동안 친밀도 수입을 증폭합니다. 최대 5개까지 누적되며 새 런에서 초기화됩니다.",
-	"icon_color": Color(90.0 / 255.0, 220.0 / 255.0, 1.0),
-	"tree": "lingpet",
-	"is_lingpet_affinity_chip": true,
-}
-
 const COMMON_PERKS := {
 	"dash_lightweight": {
 		"name": "회기보",
@@ -1365,8 +1322,6 @@ func get_choices(
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
 	if PerkConversionFlags.is_enabled():
 		choices = _filter_perk_slot_budget(choices, runtime_levels, _registry)
-	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
-	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
 	_append_lingpet_guardian_enhance_choice(choices, owner, _registry)
 	if not exclude_instant:
 		_append_instant_choices(choices)
@@ -1415,12 +1370,6 @@ func get_choices(
 			)
 			owned_upgrade_reserved = owned_upgrade_reservation.get("reserved", []) as Array
 			choices = owned_upgrade_reservation.get("remaining", []) as Array
-	var ring_core_reservation: Dictionary = _extract_lingpet_ring_core_reserved_choices(
-		choices,
-		maxi(0, target_choice_count - mythic_reserved.size() - dash_token_reserved.size() - owned_upgrade_reserved.size())
-	)
-	var reserved_choices: Array = ring_core_reservation.get("reserved", []) as Array
-	choices = ring_core_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
 	for soul_choice in soul_summon_reserved:
@@ -1447,10 +1396,6 @@ func get_choices(
 			"owned_upgrade_reserved",
 			true
 		))
-	for reserved_choice in reserved_choices:
-		if result.size() >= target_choice_count:
-			break
-		result.append(reserved_choice)
 	for choice in choices:
 		if result.size() >= target_choice_count:
 			break
@@ -1524,14 +1469,6 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		# 카드 정의 단일 소스는 오퍼 플래너의 build_card — 카탈로그는 조회
 		# 해석만 담당하고 로테이션 로직은 갖지 않는다(get_choices 비등장).
 		return load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
-	if skill_id == LINGPET_AFFINITY_CHIP_CHOICE_ID:
-		var chip_choice := LINGPET_AFFINITY_CHIP_PERK.duplicate(true)
-		chip_choice["id"] = LINGPET_AFFINITY_CHIP_CHOICE_ID
-		return LanguageSettings.localize_perk_data(chip_choice)
-	if skill_id == LINGPET_RING_CORE_UPGRADE_CHOICE_ID:
-		var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-		ring_core_choice["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
-		return LanguageSettings.localize_perk_data(ring_core_choice)
 	if skill_id == LINGPET_GUARDIAN_ENHANCE_CHOICE_ID:
 		var guardian_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
 		guardian_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
@@ -1602,8 +1539,6 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	# 올림 — 가득 상태에서도 오퍼에 등장하는 탈출 밸브). OFF에서는 레거시
 	# 장신구 퍽 의미라 기존 소모 규칙을 유지한다.
 	if PerkConversionFlags.is_enabled() and perk_id == SLOT_EXPANSION_PERK_ID:
-		return false
-	if bool(perk_data.get("is_lingpet_affinity_chip", false)) or bool(perk_data.get("is_lingpet_ring_core_upgrade", false)):
 		return false
 	if bool(LINGPET_GATED_CHOICE_IDS.get(perk_id, false)):
 		return false
@@ -1701,9 +1636,6 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	var mystic_dice_choice: Dictionary = get_perk_data("mystic_dice")
 	mystic_dice_choice["debug_group"] = "instant"
 	entries.append(mystic_dice_choice)
-	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	ring_core_choice["debug_group"] = "lingpet"
-	entries.append(LanguageSettings.localize_perk_data(ring_core_choice))
 	var guardian_enhance_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
 	guardian_enhance_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
 	guardian_enhance_choice["debug_group"] = "lingpet"
@@ -1884,47 +1816,6 @@ func _append_instant_choices(output: Array) -> void:
 		output.append(LanguageSettings.localize_perk_data(choice))
 
 
-func _append_lingpet_affinity_chip_choice(output: Array, owner: Object, registry: Object) -> void:
-	if not _has_lingpet_owned_gate(owner):
-		return
-	var ring_core_tier := _get_lingpet_run_ring_core_tier(registry)
-	if ring_core_tier < LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER:
-		return
-	var chip_count := _get_lingpet_affinity_chip_count(registry)
-	var max_chips := int(LINGPET_AFFINITY_CHIP_PERK.get("max_level", LingpetAffinityState.MAX_ENHANCEMENT_CHIPS))
-	if chip_count >= max_chips:
-		return
-	var next_level := clampi(chip_count + 1, 1, max_chips)
-	var choice := _build_level_choice(
-		LINGPET_AFFINITY_CHIP_CHOICE_ID,
-		LINGPET_AFFINITY_CHIP_PERK,
-		chip_count,
-		next_level,
-		""
-	)
-	choice["is_lingpet_affinity_chip"] = true
-	choice["chip_count"] = chip_count
-	output.append(LanguageSettings.localize_perk_data(choice))
-
-
-func _append_lingpet_ring_core_upgrade_choice(output: Array, owner: Object, registry: Object) -> void:
-	if not _has_lingpet_owned_gate(owner):
-		return
-	# R5 / per-run: read THIS run's ring-core tier (run-state via egg_runtime),
-	# not the dropped permanent store.
-	var current_tier := _get_lingpet_run_ring_core_tier(registry)
-	if current_tier < 0:
-		return
-	var max_tier := LingpetRingCoreRules.MAX_RING_CORE_TIER
-	if current_tier >= max_tier:
-		return
-	var next_tier := clampi(current_tier + 1, 1, max_tier)
-	var choice := LanguageSettings.localize_perk_data(_build_lingpet_ring_core_upgrade_data(current_tier, next_tier, max_tier))
-	if _get_lingpet_ring_core_early_reserve_count(current_tier) > 0 and _get_lingpet_ring_core_offer_cooldown(registry) <= 0:
-		choice[LINGPET_RING_CORE_PRIORITY_KEY] = true
-	output.append(choice)
-
-
 func _append_lingpet_guardian_enhance_choice(
 	output: Array,
 	owner: Object,
@@ -1950,31 +1841,6 @@ func _append_lingpet_guardian_enhance_choice(
 	if bool(offer.get("reserve", false)):
 		choice[GUARDIAN_ENHANCE_PRIORITY_KEY] = true
 	output.append(choice)
-
-
-func _build_lingpet_ring_core_upgrade_data(current_tier: int, next_tier: int, max_tier: int) -> Dictionary:
-	var clamped_next := clampi(next_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	var clamped_max := clampi(max_tier, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	var tier_name := _get_lingpet_ring_core_tier_name(clamped_next)
-	var next_cap := LingpetRingCoreRules.get_ring_core_cap_for_tier(clamped_next)
-	var data: Dictionary = LINGPET_RING_CORE_UPGRADE_PERK.duplicate(true)
-	data["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
-	data["name"] = "링코어 강화: %s" % tier_name
-	data["description"] = "이번 런의 링코어를 %s로 강화합니다. 친밀도 상한 Lv.%d." % [tier_name, next_cap]
-	data["detail"] = "이번 선택으로 골드 지불 없이 이번 런의 링코어가 %s 티어로 올라갑니다. 골드샵 강화와 같은 런 강화이며, 새 런에서 초기화됩니다." % tier_name
-	data["current_level"] = clampi(current_tier, 0, clamped_max)
-	data["next_level"] = clamped_next
-	data["max_level"] = clamped_max
-	data["current_tier"] = clampi(current_tier, 0, clamped_max)
-	data["next_tier"] = clamped_next
-	data["ring_core_tier"] = clamped_next
-	data["ring_core_name"] = tier_name
-	data["next_cap"] = next_cap
-	data["level_text"] = "Tier %d" % clamped_next
-	data["long_level_text"] = "  (Tier %d -> cap Lv.%d)" % [clamped_next, next_cap]
-	data["icon_id"] = "%s%d" % [LINGPET_RING_CORE_ICON_ID_PREFIX, clamped_next]
-	data["is_lingpet_ring_core_upgrade"] = true
-	return data
 
 
 func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
@@ -2135,82 +2001,10 @@ func _has_lingpet_owned_gate(owner: Object) -> bool:
 	return not LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
 
 
-func _extract_lingpet_ring_core_reserved_choices(choices: Array, target_choice_count: int) -> Dictionary:
-	var reserved: Array = []
-	var remaining: Array = []
-	var reserve_limit: int = maxi(0, target_choice_count)
-	for value in choices:
-		if value is Dictionary:
-			var choice: Dictionary = value as Dictionary
-			var is_reserved_ring_core := str(choice.get("id", "")) == LINGPET_RING_CORE_UPGRADE_CHOICE_ID and bool(choice.get(LINGPET_RING_CORE_PRIORITY_KEY, false))
-			if is_reserved_ring_core and reserved.size() < reserve_limit:
-				var reserved_choice := choice.duplicate(true)
-				reserved_choice.erase(LINGPET_RING_CORE_PRIORITY_KEY)
-				reserved.append(reserved_choice)
-				continue
-			if choice.has(LINGPET_RING_CORE_PRIORITY_KEY):
-				var regular_choice := choice.duplicate(true)
-				regular_choice.erase(LINGPET_RING_CORE_PRIORITY_KEY)
-				remaining.append(regular_choice)
-				continue
-		remaining.append(value)
-	return {
-		"reserved": reserved,
-		"remaining": remaining,
-	}
-
-
-func _get_lingpet_ring_core_early_reserve_count(current_tier: int) -> int:
-	if current_tier < 0 or current_tier >= LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER.size():
-		return 0
-	return maxi(0, int(LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER[current_tier]))
-
-
-func _get_lingpet_run_ring_core_tier(registry: Object) -> int:
-	var runtime: Object = _get_lingpet_runtime(registry)
-	if runtime == null or not runtime.has_method("get_run_ring_core_tier"):
-		return -1
-	return clampi(int(runtime.get_run_ring_core_tier()), 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-
-
-func _get_lingpet_ring_core_offer_cooldown(registry: Object) -> int:
-	var runtime: Object = _get_lingpet_runtime(registry)
-	if runtime == null or not runtime.has_method("get_ring_core_offer_cooldown_screens"):
-		return 0
-	return maxi(0, int(runtime.get_ring_core_offer_cooldown_screens()))
-
-
-func _get_lingpet_affinity_chip_count(registry: Object) -> int:
-	var runtime: Object = _get_lingpet_runtime(registry)
-	if runtime == null or not runtime.has_method("get_enhancement_chips"):
-		return 0
-	return clampi(int(runtime.get_enhancement_chips()), 0, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
-
-
 func _get_lingpet_runtime(registry: Object) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance("lingpet_egg_runtime")
-
-
-func _get_lingpet_ring_core_tier_name(tier: int) -> String:
-	var clamped_tier := clampi(tier, 0, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
-		return PlazaLingpetStoreTransactions.get_ring_core_tier_name(clamped_tier)
-	match clamped_tier:
-		1:
-			return "Standard"
-		2:
-			return "Boost"
-		3:
-			return "Hyper"
-		4:
-			return "Overdrive"
-		5:
-			return "Ultimate"
-		6:
-			return "Zenith"
-	return ""
 
 
 func _has_choice_id(choices: Array, skill_id: String) -> bool:

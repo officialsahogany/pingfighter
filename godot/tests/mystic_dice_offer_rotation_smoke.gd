@@ -232,7 +232,7 @@ func _verify_catalog_slot_debug_and_localization_contract() -> void:
 
 	var debug_ids := _choice_ids(catalog.get_debug_perk_entries())
 	_expect("mystic_dice" in debug_ids, "debug picker catalog should display Mystic Dice for inspection")
-	var debug_path: Dictionary = RuntimePerkDebugGrants.new().build_path("mystic_dice", data, "lingpet_ring_core_upgrade")
+	var debug_path: Dictionary = RuntimePerkDebugGrants.new().build_path("mystic_dice", data)
 	_expect(not bool(debug_path.get("accepted", true)), "direct debug grant must reject the modal-only choice")
 	_expect(str(debug_path.get("blocked_reason", "")) == "modal_only_choice", "debug rejection should explain the modal-only contract")
 

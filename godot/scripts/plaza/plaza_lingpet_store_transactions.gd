@@ -1,51 +1,8 @@
 extends RefCounted
 
 const EGG_COST := 250
-const RING_CORE_TIER_COSTS := {
-	1: 150,
-	2: 300,
-	3: 600,
-	4: 1000,
-	5: 1500,
-	6: 2200,
-}
-const RING_CORE_TIER_NAMES := [
-	"",
-	"스탠다드",
-	"부스트",
-	"하이퍼",
-	"오버드라이브",
-	"얼티밋",
-	"제니스",
-]
-
-
-static func get_menu_action_labels(registry: Object = null) -> Array[String]:
-	return ["공명 알 뽑기 %dG" % EGG_COST, _build_ring_core_action_label(registry)]
-
-
-static func get_ring_core_upgrade_offer(registry: Object) -> Dictionary:
-	# R4 / per-run: read the current run tier (run-state) instead of the permanent store.
-	var current_tier := _get_run_ring_core_tier(registry)
-	if current_tier < 0:
-		return _build_ring_core_offer(0, 0, 0, false, "missing_lingpet_runtime")
-	var max_tier := RING_CORE_TIER_NAMES.size() - 1
-	if current_tier >= max_tier:
-		return _build_ring_core_offer(current_tier, 0, 0, false, "max_ring_core_tier")
-	var next_tier := clampi(current_tier + 1, 1, max_tier)
-	var cost := get_ring_core_tier_cost(next_tier)
-	if cost <= 0:
-		return _build_ring_core_offer(current_tier, next_tier, 0, false, "missing_ring_core_price")
-	return _build_ring_core_offer(current_tier, next_tier, cost, true, "ok")
-
-
-static func get_ring_core_tier_cost(tier: int) -> int:
-	return maxi(0, int(RING_CORE_TIER_COSTS.get(clampi(tier, 0, RING_CORE_TIER_NAMES.size() - 1), 0)))
-
-
-static func get_ring_core_tier_name(tier: int) -> String:
-	var clamped_tier := clampi(tier, 0, RING_CORE_TIER_NAMES.size() - 1)
-	return str(RING_CORE_TIER_NAMES[clamped_tier])
+static func get_menu_action_labels(_registry: Object = null) -> Array[String]:
+	return ["공명 알 뽑기 %dG" % EGG_COST]
 
 
 func perform_action(
@@ -57,8 +14,6 @@ func perform_action(
 ) -> Dictionary:
 	if action_index == 0:
 		return _buy_resonance_egg(save_store, owner, registry, consume_ap)
-	if action_index == 1:
-		return _buy_ring_core_upgrade(save_store, owner, registry, consume_ap)
 	return _build_summary("", 0, false, "unknown_lingpet_store_action")
 
 
@@ -99,55 +54,6 @@ func _buy_resonance_egg(save_store: Object, owner: Object, registry: Object, con
 		)
 	return _merge_wallet_summary(
 		_merge_runtime_summary(_build_summary("buy_egg", EGG_COST, true, "ok"), runtime_summary),
-		payment
-	)
-
-
-func _buy_ring_core_upgrade(save_store: Object, owner: Object, registry: Object, consume_ap: bool) -> Dictionary:
-	var offer := get_ring_core_upgrade_offer(registry)
-	var cost := int(offer.get("cost", 0))
-	var next_tier := int(offer.get("next_tier", 0))
-	if not bool(offer.get("can_upgrade", false)):
-		return _merge_ring_core_offer(
-			_build_summary("ring_core", cost, false, str(offer.get("reason", "ring_core_unavailable"))),
-			offer
-		)
-	if not _has_plaza_gold(save_store, cost):
-		return _merge_ring_core_offer(_build_summary("ring_core", cost, false, "not_enough_gold"), offer)
-	if _is_ap_blocked(save_store, consume_ap):
-		return _merge_ring_core_offer(_build_summary("ring_core", cost, false, "no_ap"), offer)
-
-	var payment := _perform_ring_core_payment(save_store, cost, consume_ap)
-	if not bool(payment.get("changed", false)):
-		return _merge_wallet_summary(
-			_merge_ring_core_offer(
-				_build_summary("ring_core", cost, false, str(payment.get("reason", "payment_failed"))),
-				offer
-			),
-			payment
-		)
-
-	var lingpet_runtime := _get_lingpet_runtime(registry)
-	if lingpet_runtime == null or not lingpet_runtime.has_method("upgrade_run_ring_core_tier"):
-		var refund := _refund_ring_core_payment(save_store, cost, int(payment.get("ap_spent", 0)))
-		return _merge_refund_summary(
-			_merge_ring_core_offer(_build_summary("ring_core", cost, false, "missing_lingpet_runtime"), offer),
-			payment,
-			refund
-		)
-	var upgrade_result: Dictionary = lingpet_runtime.upgrade_run_ring_core_tier(next_tier, owner, registry)
-	if not bool(upgrade_result.get("accepted", false)):
-		var refund := _refund_ring_core_payment(save_store, cost, int(payment.get("ap_spent", 0)))
-		return _merge_refund_summary(
-			_merge_ring_core_offer(_build_summary("ring_core", cost, false, "ring_core_upgrade_failed"), offer),
-			payment,
-			refund
-		)
-
-	offer["new_tier"] = int(upgrade_result.get("new_tier", next_tier))
-	offer["new_cap"] = int(upgrade_result.get("new_cap", 0))
-	return _merge_wallet_summary(
-		_merge_ring_core_offer(_build_summary("ring_core", cost, true, "ok"), offer),
 		payment
 	)
 
@@ -200,77 +106,10 @@ func _perform_egg_payment(save_store: Object, cost: int, consume_ap: bool) -> Di
 	return _build_wallet_summary(0, false, "invalid_wallet_result")
 
 
-func _perform_ring_core_payment(save_store: Object, cost: int, consume_ap: bool) -> Dictionary:
-	if save_store == null or not save_store.has_method("perform_lingpet_ring_core_payment"):
-		return _build_wallet_summary(0, false, "missing_plaza_save_store", "ring_core")
-	var result: Variant = save_store.perform_lingpet_ring_core_payment(cost, consume_ap)
-	if result is Dictionary:
-		return result
-	return _build_wallet_summary(0, false, "invalid_wallet_result", "ring_core")
-
-
-func _refund_ring_core_payment(save_store: Object, cost: int, ap_spent: int) -> Dictionary:
-	if save_store == null or not save_store.has_method("refund_lingpet_ring_core_payment"):
-		return _build_wallet_summary(0, false, "missing_plaza_save_store", "ring_core")
-	var result: Variant = save_store.refund_lingpet_ring_core_payment(cost, ap_spent)
-	if result is Dictionary:
-		return result
-	return _build_wallet_summary(0, false, "invalid_wallet_result", "ring_core")
-
-
 func _get_lingpet_runtime(registry: Object) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance("lingpet_egg_runtime")
-
-
-static func _get_run_ring_core_tier(registry: Object) -> int:
-	# R4 / per-run: current ring-core tier lives in the run-state (egg_runtime),
-	# not the permanent store. Returns -1 when no runtime is reachable.
-	if registry == null or not registry.has_method("get_instance"):
-		return -1
-	var lingpet_runtime: Object = registry.get_instance("lingpet_egg_runtime")
-	if lingpet_runtime == null or not lingpet_runtime.has_method("get_run_ring_core_tier"):
-		return -1
-	return clampi(int(lingpet_runtime.get_run_ring_core_tier()), 0, RING_CORE_TIER_NAMES.size() - 1)
-
-
-static func _build_ring_core_action_label(registry: Object) -> String:
-	var offer := get_ring_core_upgrade_offer(registry)
-	if bool(offer.get("can_upgrade", false)):
-		return "%s 링코어 강화 %dG" % [
-			str(offer.get("next_tier_name", "링코어")),
-			int(offer.get("cost", 0)),
-		]
-	match str(offer.get("reason", "")):
-		"max_ring_core_tier":
-			return "링코어 최대 단계"
-		"missing_lingpet_runtime":
-			return "링코어 강화 준비 중"
-		_:
-			return "링코어 강화"
-
-
-static func _build_ring_core_offer(
-	current_tier: int,
-	next_tier: int,
-	cost: int,
-	can_upgrade: bool,
-	reason: String
-) -> Dictionary:
-	var next_tier_name := get_ring_core_tier_name(next_tier)
-	return {
-		"can_upgrade": can_upgrade,
-		"reason": reason,
-		"current_tier": current_tier,
-		"next_tier": next_tier,
-		"new_tier": next_tier if can_upgrade else current_tier,
-		"cost": cost,
-		"next_tier_name": next_tier_name,
-		"ring_core_name": next_tier_name,
-		"next_cap": clampi(next_tier * 5, 0, 30),
-		"new_cap": clampi(next_tier * 5, 0, 30) if can_upgrade else clampi(current_tier * 5, 0, 30),
-	}
 
 
 func _merge_wallet_summary(summary: Dictionary, wallet_summary: Dictionary) -> Dictionary:
@@ -281,29 +120,6 @@ func _merge_wallet_summary(summary: Dictionary, wallet_summary: Dictionary) -> D
 	summary["ap_current"] = int(wallet_summary.get("ap_current", summary.get("ap_current", 0)))
 	summary["reason"] = str(wallet_summary.get("reason", summary.get("reason", "")))
 	summary["changed"] = bool(wallet_summary.get("changed", summary.get("changed", false)))
-	return summary
-
-
-func _merge_ring_core_offer(summary: Dictionary, offer: Dictionary) -> Dictionary:
-	summary["current_tier"] = int(offer.get("current_tier", summary.get("current_tier", 0)))
-	summary["next_tier"] = int(offer.get("next_tier", summary.get("next_tier", 0)))
-	summary["new_tier"] = int(offer.get("new_tier", summary.get("new_tier", summary.get("next_tier", 0))))
-	summary["next_cap"] = int(offer.get("next_cap", summary.get("next_cap", 0)))
-	summary["new_cap"] = int(offer.get("new_cap", summary.get("new_cap", summary.get("next_cap", 0))))
-	summary["ring_core_name"] = str(offer.get("ring_core_name", summary.get("ring_core_name", "")))
-	summary["next_tier_name"] = str(offer.get("next_tier_name", summary.get("next_tier_name", "")))
-	return summary
-
-
-func _merge_refund_summary(summary: Dictionary, payment: Dictionary, refund: Dictionary) -> Dictionary:
-	var wallet_summary := refund if bool(refund.get("changed", false)) else payment
-	summary["wallet_summary"] = wallet_summary.duplicate(true)
-	summary["payment_summary"] = payment.duplicate(true)
-	summary["refund_summary"] = refund.duplicate(true)
-	summary["delta_gold"] = 0 if bool(refund.get("changed", false)) else int(payment.get("delta_gold", 0))
-	summary["ap_spent"] = 0 if bool(refund.get("changed", false)) else int(payment.get("ap_spent", 0))
-	summary["plaza_gold"] = int(wallet_summary.get("plaza_gold", summary.get("plaza_gold", 0)))
-	summary["ap_current"] = int(wallet_summary.get("ap_current", summary.get("ap_current", 0)))
 	return summary
 
 
@@ -343,7 +159,7 @@ func _build_summary(action_id: String, cost: int, changed: bool, reason: String)
 	return {
 		"action": action_id,
 		"cost": cost,
-		"handled": ["buy_egg", "ring_core"].has(action_id),
+		"handled": action_id == "buy_egg",
 		"changed": changed,
 		"reason": reason,
 		"delta_gold": 0,

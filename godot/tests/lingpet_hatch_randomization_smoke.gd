@@ -143,7 +143,6 @@ func _verify_present_skill_conditions_first_unlock() -> void:
 		1,
 		777,
 		true,
-		30,
 		"maribo_hydro_sphere",
 		""
 	)
@@ -169,7 +168,7 @@ func _verify_present_skill_conditions_first_unlock() -> void:
 	_expect_eq(int(loadout.get("active_skill_level", 0)), 2, "hatch-present first active level should survive reconcile")
 
 	var no_skill_state := LingpetAffinityState.new()
-	no_skill_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	no_skill_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	_grant_round_commits(no_skill_state, "maribo", 10)
 	var no_skill_history: Array = no_skill_state.get_pet_data("maribo").get("reward_history", []) as Array
 	var no_skill_first: Dictionary = no_skill_history[0] as Dictionary

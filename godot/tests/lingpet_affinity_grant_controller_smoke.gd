@@ -96,7 +96,7 @@ func _verify_grant_lifecycle_and_ordering() -> void:
 	var audio := FakeAudio.new(feedback)
 	var registry := FakeRegistry.new(perf_logger, audio)
 	var probe := CallbackProbe.new(feedback)
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 
 	for _i in range(10):
 		controller.grant(
@@ -135,7 +135,7 @@ func _verify_blocked_and_non_current_feedback_gates() -> void:
 	var state := LingpetAffinityState.new()
 	var tracker := LingpetAffinityIncomeTracker.new()
 	var feedback := LingpetAffinityFeedbackState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 
 	var first: Dictionary = controller.grant(
 		"maribo",

@@ -1,12 +1,10 @@
 extends RefCounted
 
 const PATH_INVALID := "invalid"
-const PATH_RING_CORE := "ring_core"
 const PATH_INSTANT := "instant"
 const PATH_UNLOCK := "unlock"
 const PATH_LEVEL := "level"
 
-const CALLBACK_BUILD_RING_CORE_UPDATE := "build_ring_core_update"
 const CALLBACK_BUILD_INSTANT_UPDATE := "build_instant_update"
 const CALLBACK_BUILD_UNLOCK_UPDATE := "build_unlock_update"
 const CALLBACK_BUILD_LEVEL_UPDATE := "build_level_update"
@@ -15,19 +13,15 @@ const CALLBACK_APPLY_UNLOCK_CHOICE := "apply_unlock_choice"
 const CALLBACK_APPLY_LEVEL_SIDE_EFFECT := "apply_level_side_effect"
 const CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT := "apply_choice_feedback_result"
 const CALLBACK_SYNC_OWNER := "sync_owner"
-const DEFAULT_RING_CORE_CHOICE_ID := "lingpet_ring_core_upgrade"
 const DEFAULT_LEVEL_FEEDBACK_TIMER := 1.1
 
 
 func build_grant_callbacks(
 	runtime_state: Object,
 	level_side_effects: Object,
-	instant_rewards: Object,
-	lingpet_rewards: Object
+	instant_rewards: Object
 ) -> Dictionary:
 	var callbacks: Dictionary = {}
-	if lingpet_rewards != null:
-		callbacks[CALLBACK_BUILD_RING_CORE_UPDATE] = Callable(lingpet_rewards, "build_debug_ring_core_upgrade_update")
 	if instant_rewards != null:
 		callbacks[CALLBACK_BUILD_INSTANT_UPDATE] = Callable(instant_rewards, "build_debug_instant_choice_update")
 	if level_side_effects != null:
@@ -46,12 +40,11 @@ func build_grant_callbacks_from_runtime_state(runtime_state: Object) -> Dictiona
 	return build_grant_callbacks(
 		runtime_state,
 		_get_runtime_state_object(runtime_state, "_level_side_effects"),
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
-		_get_runtime_state_object(runtime_state, "_lingpet_rewards")
+		_get_runtime_state_object(runtime_state, "_instant_rewards")
 	)
 
 
-func build_path(perk_id: String, perk_data: Dictionary, ring_core_choice_id: String) -> Dictionary:
+func build_path(perk_id: String, perk_data: Dictionary) -> Dictionary:
 	var clean_id: String = perk_id.strip_edges()
 	if clean_id == "" or perk_data.is_empty():
 		return {
@@ -59,8 +52,6 @@ func build_path(perk_id: String, perk_data: Dictionary, ring_core_choice_id: Str
 			"path": PATH_INVALID,
 			"choice_id": clean_id,
 		}
-	if clean_id == ring_core_choice_id:
-		return _accepted_path(clean_id, PATH_RING_CORE)
 	# 신비의 주사위: 굴림·커밋은 모달(D1~D3)이 소유한다 — 디버그 직접 부여는
 	# 굴림 없는 스탯 위조가 되므로 명시 사유와 함께 거부한다.
 	if clean_id == "mystic_dice" or bool(perk_data.get("is_mystic_dice", false)):
@@ -82,8 +73,6 @@ func build_choice_data_patch(path: String, update: Dictionary, fallback_level: i
 		return {"accepted": false}
 	var patch: Dictionary = {}
 	match path:
-		PATH_RING_CORE:
-			patch["next_tier"] = int(update.get("next_tier", fallback_level))
 		PATH_INSTANT:
 			patch["current_level"] = int(update.get("current_level", 0))
 			patch["next_level"] = int(update.get("next_level", 0))
@@ -204,7 +193,6 @@ func apply_debug_grant_from_runtime_state(
 		registry,
 		catalog,
 		_get_runtime_state_dict(runtime_state, "runtime_skill_levels"),
-		DEFAULT_RING_CORE_CHOICE_ID,
 		_get_level_feedback_timer(_get_runtime_state_object(runtime_state, "_level_side_effects")),
 		build_grant_callbacks_from_runtime_state(runtime_state)
 	)
@@ -218,7 +206,6 @@ func apply_debug_grant(
 	registry: Object,
 	catalog: Object,
 	runtime_skill_levels: Dictionary,
-	ring_core_choice_id: String,
 	level_feedback_timer: float,
 	callbacks: Dictionary
 ) -> Dictionary:
@@ -230,7 +217,7 @@ func apply_debug_grant(
 		return {"accepted": false, "blocked_reason": "missing_perk_data", "choice_id": clean_id}
 	data["id"] = clean_id
 
-	var path_payload: Dictionary = build_path(clean_id, data, ring_core_choice_id)
+	var path_payload: Dictionary = build_path(clean_id, data)
 	if not bool(path_payload.get("accepted", false)):
 		return path_payload
 	var debug_path: String = str(path_payload.get("path", PATH_INVALID))
@@ -251,18 +238,6 @@ func apply_debug_grant(
 				"unchanged": true,
 			}
 	match debug_path:
-		PATH_RING_CORE:
-			return _apply_choice_debug_grant(
-				runtime_state,
-				clean_id,
-				data,
-				debug_path,
-				_call_update(callbacks, CALLBACK_BUILD_RING_CORE_UPDATE, [clean_id, target_level, data]),
-				target_level,
-				owner,
-				registry,
-				callbacks
-			)
 		PATH_INSTANT:
 			return _apply_choice_debug_grant(
 				runtime_state,

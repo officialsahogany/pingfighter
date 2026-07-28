@@ -25,8 +25,6 @@ const CANDIDATE_CLASSES := {
 const SYSTEM_CHOICE_IDS := {
 	"common_expansion": true,
 	"dash_amplification": true,
-	"lingpet_affinity_chip": true,
-	"lingpet_ring_core_upgrade": true,
 }
 
 const CHARACTER_NUMERIC_TREES := {
@@ -202,8 +200,6 @@ func _resolve_fusion_class(
 	if (
 		explicit_class == CLASS_SYSTEM_CHOICE
 		or bool(SYSTEM_CHOICE_IDS.get(perk_id, false))
-		or bool(perk_data.get("is_lingpet_affinity_chip", false))
-		or bool(perk_data.get("is_lingpet_ring_core_upgrade", false))
 		or tree == "lingpet"
 		or _has_non_unit_slot_cost(runtime_catalog, slot_cost)
 	):

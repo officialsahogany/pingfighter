@@ -26,8 +26,6 @@ func build_snapshot(
 	var points := 0.0
 	var next_requirement := 0.0
 	var next_label := ""
-	var ring_core_tier := 0
-	var chip_count := 0
 	if state == companion_state and affinity_state != null:
 		if context_coordinator != null:
 			context_coordinator.configure(
@@ -41,15 +39,11 @@ func build_snapshot(
 		points = float(affinity_state.get_points(pet_id))
 		next_requirement = float(affinity_state.get_next_requirement(pet_id))
 		next_label = _get_next_reward_label(affinity_state, pet_id)
-		ring_core_tier = int(affinity_state.get_run_ring_core_tier())
-		chip_count = int(affinity_state.get_enhancement_chips())
 	return {
 		"level": level,
 		"points": points,
 		"next_requirement": next_requirement,
 		"next_label": next_label,
-		"ring_core_tier": ring_core_tier,
-		"chip_count": chip_count,
 	}
 
 
@@ -82,8 +76,6 @@ func sync_owner_if_changed(
 	snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_points", "ringpet_affinity_points", float(snapshot.get("points", 0.0)))
 	snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_requirement", "ringpet_affinity_next_requirement", float(snapshot.get("next_requirement", 0.0)))
 	snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_next_label", "ringpet_affinity_next_label", str(snapshot.get("next_label", "")))
-	snapshot_builder.set_owner_pair_gated(owner, "lingpet_ring_core_tier", "ringpet_ring_core_tier", int(snapshot.get("ring_core_tier", 0)))
-	snapshot_builder.set_owner_pair_gated(owner, "lingpet_affinity_chip_count", "ringpet_affinity_chip_count", int(snapshot.get("chip_count", 0)))
 	return true
 
 
@@ -95,7 +87,7 @@ func _build_surface_key(
 	current_profile: Object
 ) -> Array:
 	if state != companion_state or affinity_state == null:
-		return [state, "", 0, 0.0, 0, 0, 0, 0, ""]
+		return [state, "", 0, 0.0, ""]
 	var reward_signature := ""
 	if current_profile != null:
 		reward_signature = str(current_profile.affinity_reward_signature)
@@ -104,9 +96,6 @@ func _build_surface_key(
 		pet_id,
 		int(affinity_state.get_level(pet_id)),
 		float(affinity_state.get_points(pet_id)),
-		int(affinity_state.get_enhancement_chips()),
-		int(affinity_state.get_run_ring_core_tier()),
-		0,
 		reward_signature,
 	]
 

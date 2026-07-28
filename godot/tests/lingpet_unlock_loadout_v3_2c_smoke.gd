@@ -1,7 +1,6 @@
 extends SceneTree
 
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
@@ -543,7 +542,6 @@ func _verify_debug_forced_skill_reconcile_stays_sticky() -> void:
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
-	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(
 		runtime.debug_grant_and_activate_pet("lumion", owner, false, "lumion_thunder_orb", "", registry, 1, 1),
 		"debug forced Thunder Orb grant should activate Lumion"
@@ -731,7 +729,6 @@ func _activate_pet(pet_id: String) -> Dictionary:
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(runtime)
-	_set_run_ring_core_tier_for_smoke(runtime)
 	_expect(runtime.debug_grant_and_activate_pet(pet_id, owner, false, "", "", registry), "%s fixture should activate" % pet_id)
 	return {"runtime": runtime, "owner": owner, "registry": registry}
 
@@ -746,10 +743,6 @@ func _cleanup_runtimes() -> void:
 func _grant_round_commits(runtime: Object, pet_id: String, count: int, registry: Object = null) -> void:
 	for _i in range(count):
 		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-
-
-func _set_run_ring_core_tier_for_smoke(runtime: Object, tier: int = LingpetRingCoreRules.MAX_RING_CORE_TIER) -> void:
-	runtime._affinity_state.set_run_ring_core_tier(tier)
 
 
 func _skill_state_for_runtime_slot(runtime: Object, slot_index: int) -> Object:

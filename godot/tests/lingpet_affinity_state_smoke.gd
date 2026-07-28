@@ -1,14 +1,12 @@
 extends SceneTree
 
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	_verify_requirement_curve_and_30_level_track()
-	_verify_ring_core_cap_clamps_overflow()
 	_verify_unlock_cards_and_choice_state()
 	_verify_reward_deck_determinism_and_bands()
 	_verify_skill_level_up_cards_require_unlocks()
@@ -23,14 +21,10 @@ func _init() -> void:
 	_verify_hatch_bonus_is_per_pet_once()
 	_verify_store_headstart_residue_is_removed()
 	_verify_reset_lifecycle()
-	_verify_enhancement_chip_multiplier_lifecycle()
 	_verify_dirty_flag()
 	_verify_scalar_getters_do_not_create_entries()
 	_verify_bond_pending_ledger_and_settlement()
-	_verify_run_ring_core_tier_api()
-	_verify_ring_core_offer_cooldown_lifecycle()
 	_verify_smart_fallback_fills_levels()
-	_verify_next_reward_display_label()
 	_verify_second_unlock_requires_pet_pool_depth()
 	_verify_second_unlock_probability_gate()
 
@@ -51,7 +45,7 @@ func _verify_requirement_curve_and_30_level_track() -> void:
 	_expect_float(_requirement_sum_to_max(), 1500.0, "flat 50 over 30 levels should sum to 1,500")
 
 	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	_grant_round_commits(state, "maribo", 835)
 	_expect_eq(state.get_level("maribo"), 30, "4,175 points should reach V3 max Lv30")
 	_expect_float(state.get_points("maribo"), 0.0, "absolute max Lv30 should discard overflow and keep points at zero")
@@ -73,41 +67,9 @@ func _verify_requirement_curve_and_30_level_track() -> void:
 	_expect_float(state.get_points("maribo"), 0.0, "max-level blocked grant should preserve zero points")
 
 
-func _verify_ring_core_cap_clamps_overflow() -> void:
-	# No ring-core (T0 = cap 0): the bar must read 50/50, not overshoot to 1054/50.
-	# Affinity earned beyond the next-level requirement is intentionally wasted so the
-	# ring-core stays the investment that makes affinity count.
-	var no_core := LingpetAffinityState.new()
-	no_core.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 0)
-	_grant_round_commits(no_core, "maribo", 200)
-	_expect_eq(no_core.get_level("maribo"), 0, "ring-core cap Lv0 should keep the pet at Lv0")
-	_expect_float(no_core.get_points("maribo"), 50.0, "cap Lv0 should clamp banked points at the Lv1 requirement (50/50), never overshoot")
-
-	var capped := LingpetAffinityState.new()
-	capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 5)
-	_grant_round_commits(capped, "maribo", 200)
-	_expect_eq(capped.get_level("maribo"), 5, "ring-core cap Lv5 should stop level-ups at Lv5")
-	_expect_float(capped.get_points("maribo"), 50.0, "temporary cap should clamp overflow at the next-level requirement (Lv5->Lv6 = 50), not bank it unbounded")
-	var capped_data: Dictionary = capped.get_pet_data("maribo")
-	_expect_eq((capped_data.get("reward_history", []) as Array).size(), 5, "temporary cap should award only up to the capped level")
-
-	capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, false, 10)
-	capped.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_eq(capped.get_level("maribo"), 6, "raising the cap should release only the clamped ceiling (bounded head start), not a banked level burst")
-	_expect_float(capped.get_points("maribo"), 5.0, "cap release should retain only the post-level-up remainder of the clamped ceiling")
-	var released_data: Dictionary = capped.get_pet_data("maribo")
-	_expect_eq((released_data.get("reward_history", []) as Array).size(), 6, "cap release should fill reward history only through the bounded head-start level")
-
-	var maxed := LingpetAffinityState.new()
-	maxed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	_grant_round_commits(maxed, "maribo", 900)
-	_expect_eq(maxed.get_level("maribo"), 30, "cap 30 fixture should reach max")
-	_expect_float(maxed.get_points("maribo"), 0.0, "absolute max should discard overflow entirely")
-
-
 func _verify_unlock_cards_and_choice_state() -> void:
 	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	state.set_unlock_choice_candidates("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, ["hydro", "bubble"])
 	_grant_round_commits(state, "maribo", 10)
 	_expect_eq(state.get_level("maribo"), 1, "ten round commits should reach Lv1")
@@ -137,14 +99,14 @@ func _verify_unlock_cards_and_choice_state() -> void:
 	_expect_str(str(repeat_active.get("selected", "")), str(resolved_active.get("selected", "")), "repeat selection should not overwrite the automatic selected skill")
 
 	var same_seed := LingpetAffinityState.new()
-	same_seed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	same_seed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	same_seed.set_unlock_choice_candidates("maribo", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, ["hydro", "bubble"])
 	_grant_round_commits(same_seed, "maribo", 10)
 	var same_seed_active: Dictionary = same_seed.get_resolved_unlock_choices("maribo").get("active", {}) as Dictionary
 	_expect_str(str(same_seed_active.get("selected", "")), str(resolved_active.get("selected", "")), "same reward seed should auto-resolve the same active candidate")
 
 	var migration := LingpetAffinityState.new()
-	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var migrate_data: Dictionary = migration.call("_get_or_create_pet_data", "maribo") as Dictionary
 	migrate_data["pending_unlock_choices"] = {
 		"active": {
@@ -155,7 +117,7 @@ func _verify_unlock_cards_and_choice_state() -> void:
 			"rejected": [],
 		},
 	}
-	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 0, false, 30)
+	migration.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 0, false)
 	_expect(not migration.get_pending_unlock_choices("maribo").has("active"), "seeded legacy pending active choice should migrate to automatic resolved state")
 	var migrated_active: Dictionary = migration.get_resolved_unlock_choices("maribo").get("active", {}) as Dictionary
 	_expect((migrated_active.get("candidates", []) as Array).has(str(migrated_active.get("selected", ""))), "migrated automatic choice should select one of the legacy candidates")
@@ -163,13 +125,13 @@ func _verify_unlock_cards_and_choice_state() -> void:
 
 func _verify_reward_deck_determinism_and_bands() -> void:
 	var first := LingpetAffinityState.new()
-	first.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	first.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var first_deck := first.get_reward_deck("maribo")
 	var second := LingpetAffinityState.new()
-	second.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	second.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var second_deck := second.get_reward_deck("maribo")
 	var different_seed := LingpetAffinityState.new()
-	different_seed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 778, true, 30)
+	different_seed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 778, true)
 	var different_deck := different_seed.get_reward_deck("maribo")
 	_expect_str(_reward_type_sequence(first_deck), _reward_type_sequence(second_deck), "seeded reward decks should be deterministic")
 	_expect(_reward_type_sequence(first_deck) != _reward_type_sequence(different_deck), "different reward seeds should change shuffled non-fixed card order")
@@ -187,10 +149,10 @@ func _verify_reward_deck_determinism_and_bands() -> void:
 		_expect_eq(_reward_band_size(first_deck, int(band_start), int(band_start) + 5), 5, "each ring-core-aligned band should contain five cards")
 	for seed in [1, 2, 777, 778, 991]:
 		var patrol := LingpetAffinityState.new()
-		patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, int(seed), true, 30)
+		patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, int(seed), true)
 		_expect_reward_deck_bands(patrol.get_reward_deck("maribo"), "patrol seed %d" % int(seed), LingpetAffinityState.REWARD_TYPE_DEFENSE, LingpetAffinityState.REWARD_TYPE_GAUGE)
 		var flight := LingpetAffinityState.new()
-		flight.configure_reward_context("rabi", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, int(seed), true, 30)
+		flight.configure_reward_context("rabi", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, int(seed), true)
 		_expect_reward_deck_bands(flight.get_reward_deck("rabi"), "flight seed %d" % int(seed), LingpetAffinityState.REWARD_TYPE_GAUGE, LingpetAffinityState.REWARD_TYPE_MOBILITY)
 
 
@@ -222,7 +184,7 @@ func _verify_skill_level_up_cards_require_unlocks() -> void:
 
 func _verify_dead_draw_does_not_block_unlocks() -> void:
 	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 5, 5, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 5, 5, 777, true)
 	_grant_round_commits(state, "maribo", 50)
 	_expect_eq(state.get_level("maribo"), 5, "dead-draw fixture should reach the first five-card band")
 	var rewards := state.get_cumulative_rewards("maribo")
@@ -357,7 +319,7 @@ func _verify_flight_opportunity_multiplier() -> void:
 	# Same pet id, two states differing ONLY by configured motion style, so the doubling is
 	# proven motion-style-driven (not pet-driven). Patrol = base GAIN_TABLE values.
 	var patrol := LingpetAffinityState.new()
-	patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true, 30)
+	patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true)
 	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT).get("granted_points", 0.0)), 8.0, "patrol ball-hit stays at the base 8 (no flight multiplier)")
 	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_CLICK).get("granted_points", 0.0)), 20.0, "patrol click stays at the base 20")
 	_expect_float(float(patrol.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT).get("granted_points", 0.0)), 5.0, "patrol round commit stays at the base 5")
@@ -365,7 +327,7 @@ func _verify_flight_opportunity_multiplier() -> void:
 	# Flight: the opportunity sources (ball hit, click) double; the style-agnostic floor
 	# (round commit) stays flat.
 	var flight := LingpetAffinityState.new()
-	flight.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true, 30)
+	flight.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true)
 	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT).get("granted_points", 0.0)), 16.0, "flight ball-hit should double to 16")
 	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_CLICK).get("granted_points", 0.0)), 30.0, "flight click should pay the explicit flight value 30 (not the ball-hit 2x)")
 	_expect_float(float(flight.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT).get("granted_points", 0.0)), 5.0, "flight round commit should stay flat (style-agnostic floor)")
@@ -387,13 +349,13 @@ func _verify_flight_opportunity_multiplier() -> void:
 	# bonus -> 8*2 + 5 = 21. Pins the policy against both the over-pay ((8+5)*2 = 26) and the
 	# under-pay (multiplier fully disabled when tagged -> 8+5 = 13) regressions.
 	var flight_guard := LingpetAffinityState.new()
-	flight_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true, 30)
+	flight_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true)
 	var flight_guard_hit: Dictionary = flight_guard.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT, {"ring_dash_block": true})
 	_expect_float(float(flight_guard_hit.get("granted_points", 0.0)), 21.0, "flight ring-dash guard hit should double only the base (8*2) and keep the flat +5 guard bonus")
 
 	# Patrol guard hit baseline: base 8 + guard bonus 5 = 13, unchanged (patrol gets no multiplier).
 	var patrol_guard := LingpetAffinityState.new()
-	patrol_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true, 30)
+	patrol_guard.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 555, true)
 	var patrol_guard_hit: Dictionary = patrol_guard.add_points("maribo", LingpetAffinityState.SOURCE_BALL_HIT, {"defense_intercept": true})
 	_expect_float(float(patrol_guard_hit.get("granted_points", 0.0)), 13.0, "patrol guard hit stays at base 8 + guard bonus 5 = 13")
 
@@ -411,7 +373,7 @@ func _verify_stage_clear_award() -> void:
 
 	# Flight pets get the SAME 50 floor (no opportunity multiplier on stage clear).
 	var flight := LingpetAffinityState.new()
-	flight.configure_reward_context("lunabi", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true, 30)
+	flight.configure_reward_context("lunabi", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 555, true)
 	flight.add_points("lunabi", LingpetAffinityState.SOURCE_ROUND_COMMIT)
 	_expect_float(float(flight.add_points("lunabi", LingpetAffinityState.SOURCE_STAGE_CLEAR).get("granted_points", 0.0)), 50.0, "flight stage clear stays at the style-agnostic +50 floor")
 
@@ -491,38 +453,6 @@ func _verify_reset_lifecycle() -> void:
 	_expect_float(float(fresh_hatch.get("granted_points", 0.0)), 25.0, "run reset should allow fresh hatch bonus")
 
 
-func _verify_enhancement_chip_multiplier_lifecycle() -> void:
-	var base_state := LingpetAffinityState.new()
-	var base_gain: Dictionary = base_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_eq(base_state.get_enhancement_chips(), 0, "new run should start with zero enhancement chips")
-	_expect_float(base_state.get_enhancement_chip_multiplier(), 1.0, "zero chips should keep the affinity multiplier at 1.0")
-	_expect_float(float(base_gain.get("granted_points", 0.0)), 5.0, "zero chips should keep round commit gain at 5")
-
-	var boosted_state := LingpetAffinityState.new()
-	for _i in range(5):
-		boosted_state.add_enhancement_chip()
-	_expect_eq(boosted_state.get_enhancement_chips(), 5, "enhancement chips should stack up to five")
-	_expect_eq(boosted_state.add_enhancement_chip(), 5, "enhancement chips should clamp above five")
-	_expect_float(boosted_state.get_enhancement_chip_multiplier(), 2.0, "five chips should double affinity income")
-	var boosted_gain: Dictionary = boosted_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_float(float(boosted_gain.get("granted_points", 0.0)), 10.0, "five chips should double round commit gain")
-	_expect(not boosted_state.get_pet_data("maribo").has("enhancement_chips"), "enhancement chips should stay run-scoped, not per-pet data")
-
-	var reset_state := LingpetAffinityState.new()
-	reset_state.set_enhancement_chips(3)
-	reset_state.reset_for_new_battle()
-	_expect_eq(reset_state.get_enhancement_chips(), 3, "new battle should preserve run-scoped enhancement chips")
-	reset_state.reset_for_new_run()
-	_expect_eq(reset_state.get_enhancement_chips(), 0, "new run should clear enhancement chips")
-
-	var max_state := LingpetAffinityState.new()
-	max_state.set_enhancement_chips(5)
-	max_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	_grant_round_commits(max_state, "maribo", 900)
-	var blocked_max: Dictionary = max_state.add_points("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT)
-	_expect_float(float(blocked_max.get("granted_points", 0.0)), 0.0, "max-level grants should stay blocked even with enhancement chips")
-
-
 func _verify_dirty_flag() -> void:
 	var state := LingpetAffinityState.new()
 	_expect(not state.is_dirty(), "new affinity state should start clean")
@@ -599,13 +529,13 @@ func _grant_round_commits(state: Object, pet_id: String, count: int) -> void:
 # (pool size >= 2).
 func _verify_second_unlock_requires_pet_pool_depth() -> void:
 	var two_skill := LingpetAffinityState.new()
-	two_skill.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	two_skill.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	_grant_round_commits(two_skill, "maribo", 835)
 	var two_rewards := two_skill.get_cumulative_rewards("maribo")
 	_expect(bool(two_rewards.get("second_active_unlocked", false)), "two-active pet (maribo) should still unlock the second active slot")
 
 	var one_skill := LingpetAffinityState.new()
-	one_skill.configure_reward_context("orosha", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	one_skill.configure_reward_context("orosha", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	_grant_round_commits(one_skill, "orosha", 835)
 	var one_rewards := one_skill.get_cumulative_rewards("orosha")
 	_expect(bool(one_rewards.get("active_unlocked", false)), "single-active pet (orosha) should still unlock its one active skill")
@@ -620,7 +550,7 @@ func _verify_second_unlock_requires_pet_pool_depth() -> void:
 # probabilistic-not-immediate behavior, determinism, and pet-pool gating.
 func _verify_second_unlock_probability_gate() -> void:
 	var state := LingpetAffinityState.new()
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var pet_data: Dictionary = state.call("_get_or_create_pet_data", "maribo") as Dictionary
 
 	# Below the prerequisite (base 1/1 + no bonus = sum 2): NEVER roll an unlock.
@@ -650,7 +580,7 @@ func _verify_second_unlock_probability_gate() -> void:
 
 	# Determinism: a second identical state reproduces the same first-hit level.
 	var twin := LingpetAffinityState.new()
-	twin.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	twin.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var twin_data: Dictionary = twin.call("_get_or_create_pet_data", "maribo") as Dictionary
 	twin_data["reward_counts"] = _counts_with(2, 1)
 	var twin_first_hit := 0
@@ -663,7 +593,7 @@ func _verify_second_unlock_probability_gate() -> void:
 	# Pet-pool gating: a single-active pet never rolls a second-active unlock even
 	# with the prerequisite met.
 	var single := LingpetAffinityState.new()
-	single.configure_reward_context("orosha", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	single.configure_reward_context("orosha", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var single_data: Dictionary = single.call("_get_or_create_pet_data", "orosha") as Dictionary
 	single_data["reward_counts"] = _counts_with(2, 1)
 	var single_active_rolled := false
@@ -696,7 +626,7 @@ func _expect_requirement_slice(start_level: int, end_level: int, expected: float
 
 
 func _award_custom_first_card(state: Object, card: Dictionary) -> Dictionary:
-	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var pet_data: Dictionary = state.call("_get_or_create_pet_data", "maribo") as Dictionary
 	var deck: Array[Dictionary] = []
 	for _i in range(LingpetAffinityState.MAX_LEVEL):
@@ -852,13 +782,13 @@ func _history_has_reward_type(history: Array, reward_type: String) -> bool:
 # only exposing more empty levels.
 func _verify_smart_fallback_fills_levels() -> void:
 	var patrol := LingpetAffinityState.new()
-	patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	patrol.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	_grant_round_commits(patrol, "maribo", 835)
 	_expect_eq(patrol.get_level("maribo"), 30, "smart-fallback patrol fixture should reach Lv30")
 	_expect_eq(_history_dry_count(patrol, "maribo"), 0, "base-1/1 patrol should fill all 30 levels with a real reward (no 보상 없음)")
 
 	var flight := LingpetAffinityState.new()
-	flight.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 777, true, 30)
+	flight.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_FLIGHT, 1, 1, 777, true)
 	_grant_round_commits(flight, "maribo", 835)
 	_expect_eq(flight.get_level("maribo"), 30, "smart-fallback flight fixture should reach Lv30")
 	_expect_eq(_history_dry_count(flight, "maribo"), 0, "base-1/1 flight (no defense reward) should also fill all 30 levels")
@@ -866,7 +796,7 @@ func _verify_smart_fallback_fills_levels() -> void:
 	# Focused: stats maxed but a slot-1 active-skill bonus still open -> a dead
 	# DEFENSE card recovers into a SKILL bonus, not NO_REWARD.
 	var focused := LingpetAffinityState.new()
-	focused.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
+	focused.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
 	var pet_data: Dictionary = focused.call("_get_or_create_pet_data", "maribo") as Dictionary
 	pet_data["reward_counts"] = {
 		"active_unlocked": true, "passive_unlocked": true,
@@ -899,73 +829,6 @@ func _verify_smart_fallback_fills_levels() -> void:
 
 # Player-facing "다음 보상" label: cap-aware + graceful terminal so the panel
 # never shows a dead-end "보상 없음" / previews an unreachable locked reward.
-func _verify_next_reward_display_label() -> void:
-	# At the ring core cap (more rewards exist above) -> prompt a ring core upgrade.
-	var capped := LingpetAffinityState.new()
-	capped.set_run_ring_core_tier(3)
-	capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, capped.get_run_ring_core_cap())
-	_grant_round_commits(capped, "maribo", 400)
-	_expect_eq(capped.get_level("maribo"), 15, "T3 cap should hold the pet at Lv15")
-	_expect_str(capped.get_next_reward_display_label("maribo"), "링코어 강화 시 해금", "at the ring core cap the next-reward line should prompt a ring core upgrade")
-
-	# Lv30 -> terminal title.
-	var maxed := LingpetAffinityState.new()
-	maxed.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	_grant_round_commits(maxed, "maribo", 835)
-	_expect_eq(maxed.get_level("maribo"), 30, "uncapped pet should reach Lv30")
-	_expect_str(maxed.get_next_reward_display_label("maribo"), "하트 공명", "Lv30 next-reward line should show the terminal title")
-
-	# Sub-max, uncapped, but fully enhanced -> 최대 강화 완료 (not 보상 없음).
-	var exhausted := LingpetAffinityState.new()
-	exhausted.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true, 30)
-	var ex_data: Dictionary = exhausted.call("_get_or_create_pet_data", "maribo") as Dictionary
-	ex_data["affinity_level"] = 20
-	ex_data["reward_counts"] = {
-		"active_unlocked": true, "passive_unlocked": true,
-		"second_active_unlocked": true, "second_passive_unlocked": true,
-		"active_skill_bonus": 4, "passive_skill_bonus": 4,
-		"second_active_skill_bonus": 4, "second_passive_skill_bonus": 4,
-		"mobility_stacks": LingpetAffinityState.MAX_MOBILITY_STACKS,
-		"defense_stacks": LingpetAffinityState.MAX_DEFENSE_STACKS,
-		"gauge_stacks": LingpetAffinityState.MAX_GAUGE_STACKS,
-	}
-	_expect_str(exhausted.get_next_reward_display_label("maribo"), "최대 강화 완료", "a fully-enhanced sub-max pet should read 최대 강화 완료, not 보상 없음")
-
-	# High starting skill level (base 5/5) makes the immediate next card dry
-	# (slot-1 skill bonuses have 0 capacity from the start), but real rewards —
-	# the second-skill unlocks at deck levels 17-26 — still wait ahead. The label
-	# must scan forward to them, not terminate early at 최대 강화 완료. Pre-fix this
-	# returned 최대 강화 완료 even though the pet is only Lv15/30.
-	var highbase := LingpetAffinityState.new()
-	highbase.set_run_ring_core_tier(LingpetRingCoreRules.MAX_RING_CORE_TIER)  # run cap 30: nothing is core-gated
-	highbase.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 5, 5, 777, true, 30)
-	var hb_data: Dictionary = highbase.call("_get_or_create_pet_data", "maribo") as Dictionary
-	hb_data["affinity_level"] = 15
-	hb_data["reward_counts"] = {
-		"active_unlocked": true, "passive_unlocked": true,
-		"second_active_unlocked": false, "second_passive_unlocked": false,
-		"active_skill_bonus": 0, "passive_skill_bonus": 0,
-		"second_active_skill_bonus": 0, "second_passive_skill_bonus": 0,
-		"mobility_stacks": LingpetAffinityState.MAX_MOBILITY_STACKS,
-		"defense_stacks": LingpetAffinityState.MAX_DEFENSE_STACKS,
-		"gauge_stacks": LingpetAffinityState.MAX_GAUGE_STACKS,
-	}
-	var hb_label := highbase.get_next_reward_display_label("maribo")
-	_expect(hb_label != "최대 강화 완료", "high-base (5/5) Lv15/30 still has the 2번째 해금 rewards ahead, must not read 최대 강화 완료")
-	_expect(hb_label != "링코어 강화 시 해금", "uncapped (T6) high-base pet should preview the real reward, not the ring core prompt")
-	_expect(hb_label != "", "high-base next-reward label should resolve to a real reward string")
-
-	# Same high-base pet but capped at the ring core (T3 -> cap 15, sitting at
-	# Lv15): the reachable reward sits above the cap, so prompt a ring core
-	# upgrade — NOT the premature 최대 강화 완료 from the finding's repro.
-	var highbase_capped := LingpetAffinityState.new()
-	highbase_capped.set_run_ring_core_tier(3)
-	highbase_capped.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 5, 5, 777, true, highbase_capped.get_run_ring_core_cap())
-	_grant_round_commits(highbase_capped, "maribo", 400)
-	_expect_eq(highbase_capped.get_level("maribo"), 15, "high-base T3 cap should hold the pet at Lv15")
-	_expect_str(highbase_capped.get_next_reward_display_label("maribo"), "링코어 강화 시 해금", "high-base capped pet must prompt a ring core upgrade, not 최대 강화 완료")
-
-
 func _history_dry_count(state: Object, pet_id: String) -> int:
 	var history: Array = state.get_pet_data(pet_id).get("reward_history", []) as Array
 	var dry := 0
@@ -981,71 +844,6 @@ func _history_has_replacement_for(history: Array, reward_type: String) -> bool:
 			return true
 	return false
 
-
-func _verify_run_ring_core_tier_api() -> void:
-	var state := LingpetAffinityState.new()
-	_expect_eq(state.get_run_ring_core_tier(), 0, "fresh state run ring core tier should default to 0")
-	_expect_eq(state.get_run_ring_core_cap(), 0, "fresh state run ring core cap should be 0 (T0 = cap 0)")
-
-	state.set_run_ring_core_tier(3)
-	_expect_eq(state.get_run_ring_core_tier(), 3, "set_run_ring_core_tier(3) should set tier 3")
-	_expect_eq(state.get_run_ring_core_cap(), LingpetRingCoreRules.get_ring_core_cap_for_tier(3), "run ring core cap should reuse the ring-core tier->cap map")
-
-	state.set_run_ring_core_tier(-99)
-	_expect_eq(state.get_run_ring_core_tier(), 0, "set_run_ring_core_tier(-99) should clamp to 0")
-	state.set_run_ring_core_tier(999)
-	_expect_eq(state.get_run_ring_core_tier(), LingpetRingCoreRules.MAX_RING_CORE_TIER, "set_run_ring_core_tier(999) should clamp to max tier")
-
-	var climber := LingpetAffinityState.new()
-	_expect(climber.upgrade_run_ring_core_tier(), "upgrade from tier 0 should succeed")
-	_expect_eq(climber.get_run_ring_core_tier(), 1, "first upgrade should reach tier 1")
-	_expect(climber.upgrade_run_ring_core_tier(), "upgrade from tier 1 should succeed")
-	_expect_eq(climber.get_run_ring_core_tier(), 2, "second upgrade should reach tier 2")
-	while climber.get_run_ring_core_tier() < LingpetRingCoreRules.MAX_RING_CORE_TIER:
-		_expect(climber.upgrade_run_ring_core_tier(), "upgrade below max tier should succeed")
-	_expect_eq(climber.get_run_ring_core_tier(), LingpetRingCoreRules.MAX_RING_CORE_TIER, "sequential upgrades should reach max tier")
-	_expect(not climber.upgrade_run_ring_core_tier(), "upgrade at max tier should return false")
-	_expect_eq(climber.get_run_ring_core_tier(), LingpetRingCoreRules.MAX_RING_CORE_TIER, "tier should not exceed max after a blocked upgrade")
-
-	var target_state := LingpetAffinityState.new()
-	target_state.set_run_ring_core_tier(3)
-	_expect(not target_state.upgrade_run_ring_core_tier(2), "upgrade to a lower target tier should fail (no downgrade)")
-	_expect_eq(target_state.get_run_ring_core_tier(), 3, "a rejected lower-target upgrade should keep the tier at 3")
-	_expect(not target_state.upgrade_run_ring_core_tier(3), "upgrade to the same target tier should fail (not higher)")
-	_expect_eq(target_state.get_run_ring_core_tier(), 3, "a rejected same-target upgrade should keep the tier at 3")
-	_expect(target_state.upgrade_run_ring_core_tier(4), "upgrade to a higher target tier should succeed")
-	_expect_eq(target_state.get_run_ring_core_tier(), 4, "a higher-target upgrade should reach tier 4")
-
-	var reset_state := LingpetAffinityState.new()
-	reset_state.set_run_ring_core_tier(5)
-	reset_state.reset_all()
-	_expect_eq(reset_state.get_run_ring_core_tier(), 0, "reset_all should reset run ring core tier to 0")
-	_expect_eq(reset_state.get_run_ring_core_cap(), 0, "reset_all should reset run ring core cap to 0")
-
-	_expect_eq(LingpetAffinityState.new().get_run_ring_core_tier(), 0, "a new state instance should always start at run ring core tier 0")
-
-
-func _verify_ring_core_offer_cooldown_lifecycle() -> void:
-	var cooldown := LingpetAffinityState.RING_CORE_OFFER_COOLDOWN_SCREENS
-	_expect(cooldown > 0, "ring-core offer cooldown should be a positive number of presented screens")
-
-	var state := LingpetAffinityState.new()
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), 0, "fresh state should start with no ring-core offer cooldown")
-	state.set_run_ring_core_tier(1)
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), 0, "direct tier setter should not arm the ring-core offer cooldown")
-	_expect(state.upgrade_run_ring_core_tier(2), "successful ring-core tier raise should arm the offer cooldown")
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), cooldown, "ring-core tier raise should set the full offer cooldown")
-	state.tick_ring_core_offer_cooldown()
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), cooldown - 1, "one presented screen should decrement the offer cooldown by one")
-	for _i in range(cooldown + 2):
-		state.tick_ring_core_offer_cooldown()
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), 0, "ring-core offer cooldown should floor at zero")
-	_expect(not state.upgrade_run_ring_core_tier(2), "rejected same-tier upgrade should not re-arm the offer cooldown")
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), 0, "rejected ring-core upgrade should leave the drained cooldown at zero")
-	_expect(state.upgrade_run_ring_core_tier(3), "second successful ring-core tier raise should re-arm the offer cooldown")
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), cooldown, "second tier raise should restore the full offer cooldown")
-	state.reset_all()
-	_expect_eq(state.get_ring_core_offer_cooldown_screens(), 0, "reset_all should clear the ring-core offer cooldown")
 
 
 func _expect(condition: bool, message: String) -> void:

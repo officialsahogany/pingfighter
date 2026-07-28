@@ -46,9 +46,7 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 	var dispatch := RuntimePerkChoiceDispatch.new().build_dispatch(
 		guardian_choice,
 		false,
-		false,
-		"lingpet_affinity_chip",
-		"lingpet_ring_core_upgrade"
+		false
 	)
 	_expect(str(dispatch.get("action", "")) == "lingpet_guardian_enhance", "perk dispatch must route the guardian enhance action")
 	var action := RuntimePerkChoiceActionRunner.new().run_dispatch(
@@ -82,20 +80,20 @@ func _verify_duration_owner_pet_switch_refill_and_cap() -> void:
 	var fixture := _make_runtime_fixture()
 	var runtime: Object = fixture.runtime
 	var owner: Object = fixture.owner
-	runtime.set_duration_pool_for_tests(60.0, 60.0)
+	runtime.set_duration_pool_for_tests(50.0, 50.0)
 	var duration_candidate := {"type": LingpetEnhancementBuffStore.REWARD_TYPE_DURATION}
 	for expected_count in [1, 2]:
 		var applied: Dictionary = runtime.apply_guardian_enhancement_candidate(duration_candidate, owner, fixture.registry, "maribo")
 		_expect(bool(applied.get("accepted", false)), "duration increase %d must apply" % expected_count)
 		_expect(str(applied.get("storage_owner", "")) == "lingpet_duration_state", "duration increase must bypass the per-pet store")
 		runtime.complete_guardian_enhance_roll(applied, "maribo")
-	_expect_float(runtime.get_duration_pool_max(), 70.0, "two duration increases must raise the shared max by ten seconds")
-	_expect_float(runtime.get_duration_pool_current(), 70.0, "duration increase must raise current and max together")
+	_expect_float(runtime.get_duration_pool_max(), 60.0, "two duration increases must raise the shared max by ten seconds")
+	_expect_float(runtime.get_duration_pool_current(), 60.0, "duration increase must raise current and max together")
 	_expect(runtime.switch_lingpet_slot(1, owner, fixture.registry), "fixture must switch to the second pet")
-	_expect_float(runtime.get_duration_pool_max(), 70.0, "pet switch must preserve the run-shared enhanced maximum")
-	runtime.set_duration_pool_for_tests(13.0, 70.0)
+	_expect_float(runtime.get_duration_pool_max(), 60.0, "pet switch must preserve the run-shared enhanced maximum")
+	runtime.set_duration_pool_for_tests(13.0, 60.0)
 	_expect(runtime.refill_guardian_duration_for_stage_transition(), "stage transition must report a changed refill")
-	_expect_float(runtime.get_duration_pool_current(), 70.0, "stage refill must target the enhanced maximum")
+	_expect_float(runtime.get_duration_pool_current(), 60.0, "stage refill must target the enhanced maximum")
 	var affinity: Object = runtime.get("_affinity_state") as Object
 	_expect(int(affinity.get_duration_increase_count()) == 2, "duration owner must retain the run cap counter")
 	var candidates: Array = affinity.build_guardian_enhancement_candidates("lunabi", true, true)
@@ -125,14 +123,14 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	var lunabi_counts: Dictionary = runtime.get_affinity_rewards_for_tests("lunabi")
 	_expect(int(lunabi_counts.get("active_skill_bonus", 0)) == 0, "per-pet enhancement must not leak to another guardian")
 	runtime.complete_guardian_enhance_roll(applied, "maribo")
-	runtime.set_duration_pool_for_tests(70.0, 70.0)
+	runtime.set_duration_pool_for_tests(60.0, 60.0)
 	var fallback: Dictionary = runtime.apply_guardian_enhance_duration_fallback(owner, fixture.registry)
 	_expect(bool(fallback.get("accepted", false)), "all-invalid fallback must always apply at a full pool")
-	_expect_float(runtime.get_duration_pool_current(), 85.0, "fallback must add fifteen seconds without a current-value cap")
-	_expect_float(runtime.get_duration_pool_max(), 70.0, "fallback must leave pool_max unchanged")
+	_expect_float(runtime.get_duration_pool_current(), 75.0, "fallback must add fifteen seconds without a current-value cap")
+	_expect_float(runtime.get_duration_pool_max(), 60.0, "fallback must leave pool_max unchanged")
 	_expect(not bool(fallback.get("pool_max_changed", true)), "fallback result must explicitly report max preservation")
 	var run_state: Dictionary = (runtime.get("_affinity_state") as Object).export_run_state()
-	_expect_float(float(run_state.get("duration_pool", 0.0)), 85.0, "uncapped fallback current must survive owner export")
+	_expect_float(float(run_state.get("duration_pool", 0.0)), 75.0, "uncapped fallback current must survive owner export")
 	_cleanup_runtime(runtime)
 
 

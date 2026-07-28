@@ -935,8 +935,6 @@ const MYTHIC_DESCRIPTION_RU := {
 
 const PERK_NAME_EN := {
 	"mystic_dice": "Mystic Dice",
-	"lingpet_affinity_chip": "Affinity Chip",
-	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Return-Breath Step",
 	"dash_module_control": "Posture-Recovery Art",
 	"dash_jump": "Sky-Soaring Step",
@@ -1040,8 +1038,6 @@ const PERK_NAME_EN := {
 
 const PERK_NAME_ZH := {
 	"mystic_dice": "神秘骰子",
-	"lingpet_affinity_chip": "Affinity Chip",
-	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "回气步",
 	"dash_module_control": "收势诀",
 	"dash_jump": "飞天步",
@@ -1145,8 +1141,6 @@ const PERK_NAME_ZH := {
 
 const PERK_NAME_JA := {
 	"mystic_dice": "神秘のダイス",
-	"lingpet_affinity_chip": "Affinity Chip",
-	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "回気歩",
 	"dash_module_control": "収勢訣",
 	"dash_jump": "飛天歩",
@@ -1250,8 +1244,6 @@ const PERK_NAME_JA := {
 
 const PERK_NAME_ES := {
 	"mystic_dice": "Dado Místico",
-	"lingpet_affinity_chip": "Chip de Afinidad",
-	"lingpet_ring_core_upgrade": "Mejora de Ring Core",
 	"dash_lightweight": "Paso de Aliento Retornado",
 	"dash_module_control": "Arte de Recuperación de Postura",
 	"dash_jump": "Paso de Vuelo Celestial",
@@ -1355,8 +1347,6 @@ const PERK_NAME_ES := {
 
 const PERK_NAME_PT_BR := {
 	"mystic_dice": "Dado Místico",
-	"lingpet_affinity_chip": "Chip de Afinidade",
-	"lingpet_ring_core_upgrade": "Melhoria de Ring Core",
 	"dash_lightweight": "Passo do Retorno do Fôlego",
 	"dash_module_control": "Arte de Recuperação da Postura",
 	"dash_jump": "Passo de Voo Celestial",
@@ -1460,8 +1450,6 @@ const PERK_NAME_PT_BR := {
 
 const PERK_NAME_RU := {
 	"mystic_dice": "Таинственный кубик",
-	"lingpet_affinity_chip": "Affinity Chip",
-	"lingpet_ring_core_upgrade": "Ring Core Upgrade",
 	"dash_lightweight": "Шаг Возвращённого Дыхания",
 	"dash_module_control": "Искусство Возврата Стойки",
 	"dash_jump": "Небесный Летящий Шаг",
@@ -1565,8 +1553,6 @@ const PERK_NAME_RU := {
 
 const PERK_SUMMARY_EN := {
 	"mystic_dice": "Give up the perk and roll the dice to permanently adjust seven stats. Two rerolls.",
-	"lingpet_affinity_chip": "Increases guardian spirit affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Return-Breath Step restores spent glide charges faster.",
 	"dash_module_control": "Posture-Recovery Art shortens recovery after a glide.",
 	"dash_jump": "Sky-Soaring Step increases glide distance.",
@@ -1670,8 +1656,6 @@ const PERK_SUMMARY_EN := {
 
 const PERK_SUMMARY_ZH := {
 	"mystic_dice": "放弃该福利，掷骰子永久调整7项能力值。可重掷2次。",
-	"lingpet_affinity_chip": "Increases guardian spirit affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "回气步使消耗的滑步次数恢复得更快。",
 	"dash_module_control": "收势诀缩短滑步后的硬直。",
 	"dash_jump": "飞天步增加滑步距离。",
@@ -1775,8 +1759,6 @@ const PERK_SUMMARY_ZH := {
 
 const PERK_SUMMARY_JA := {
 	"mystic_dice": "パークを諦めてダイスを振り、7つの能力値を永久に調整します。振り直し2回。",
-	"lingpet_affinity_chip": "Increases guardian spirit affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "回気歩は消費した滑走回数の回復を早めます。",
 	"dash_module_control": "収勢訣は滑走後の硬直を短縮します。",
 	"dash_jump": "飛天歩は滑走距離を伸ばします。",
@@ -1880,8 +1862,6 @@ const PERK_SUMMARY_JA := {
 
 const PERK_SUMMARY_ES := {
 	"mystic_dice": "Renuncia al beneficio y lanza el dado para ajustar permanentemente siete atributos. Dos relanzamientos.",
-	"lingpet_affinity_chip": "Aumenta la afinidad del espíritu guardián ganada en esta partida. Se acumula hasta 5.",
-	"lingpet_ring_core_upgrade": "Mejora el Ring Core de esta partida en un nivel sin gastar oro. Se reinicia cada partida.",
 	"dash_lightweight": "Paso de Aliento Retornado recupera más rápido las cargas de deslizamiento gastadas.",
 	"dash_module_control": "Arte de Recuperación de Postura reduce la recuperación tras un deslizamiento.",
 	"dash_jump": "Paso de Vuelo Celestial aumenta la distancia de deslizamiento.",
@@ -1985,8 +1965,6 @@ const PERK_SUMMARY_ES := {
 
 const PERK_SUMMARY_PT_BR := {
 	"mystic_dice": "Abra mão do benefício e role o dado para ajustar permanentemente sete atributos. Duas rerrolagens.",
-	"lingpet_affinity_chip": "Aumenta a afinidade do espírito guardião recebida nesta run. Acumula até 5.",
-	"lingpet_ring_core_upgrade": "Melhora o Ring Core desta partida em um tier sem gastar ouro. Reinicia a cada partida.",
 	"dash_lightweight": "O Passo do Retorno do Fôlego recupera mais rápido as cargas de deslize gastas.",
 	"dash_module_control": "A Arte de Recuperação da Postura reduz a recuperação após um deslize.",
 	"dash_jump": "O Passo de Voo Celestial aumenta a distância do deslize.",
@@ -2090,8 +2068,6 @@ const PERK_SUMMARY_PT_BR := {
 
 const PERK_SUMMARY_RU := {
 	"mystic_dice": "Откажитесь от перка и бросьте кубик, чтобы навсегда изменить семь характеристик. Два переброса.",
-	"lingpet_affinity_chip": "Increases guardian spirit affinity gained this run. Stacks up to 5.",
-	"lingpet_ring_core_upgrade": "Upgrades this run's Ring Core by one tier without spending gold. Resets each run.",
 	"dash_lightweight": "Шаг Возвращённого Дыхания ускоряет восстановление потраченных зарядов скольжения.",
 	"dash_module_control": "Искусство Возврата Стойки сокращает задержку после скольжения.",
 	"dash_jump": "Небесный Летящий Шаг увеличивает дальность скольжения.",
@@ -5596,12 +5572,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "작은 원을",
 		"lingpet.language.generic.neutral.1.token.walk": "걷고 있어.",
 		"lingpet.language.generic.neutral.1.token.dot": "점",
-		"lingpet.pendulum.title": "펜듈럼 내부",
-		"lingpet.pendulum.close": "닫기",
-		"lingpet.pendulum.language_label": "수호령어",
-		"lingpet.pendulum.esc_hint": "ESC로 돌아가기",
-		"lingpet.pendulum.next_hint": "클릭하면 다음 말",
-		"lingpet.pendulum.decoder_caption": "링코어 T%d · 해석 %d%%",
 		"app.title": "디스크하츠 - 링피아",
 		"pause.title": "일시정지",
 		"pause.continue": "계속",
@@ -5787,12 +5757,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "in small circles",
 		"lingpet.language.generic.neutral.1.token.walk": "walking.",
 		"lingpet.language.generic.neutral.1.token.dot": "dot",
-		"lingpet.pendulum.title": "Pendulum Interior",
-		"lingpet.pendulum.close": "Close",
-		"lingpet.pendulum.language_label": "Guardian Spirit Tongue",
-		"lingpet.pendulum.esc_hint": "Press ESC to return",
-		"lingpet.pendulum.next_hint": "Click for next line",
-		"lingpet.pendulum.decoder_caption": "Ring Core T%d · Decode %d%%",
 		"app.title": "DiskHearts - Lingpia",
 		"pause.title": "Paused",
 		"pause.continue": "Continue",
@@ -5965,12 +5929,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "小圈里",
 		"lingpet.language.generic.neutral.1.token.walk": "走着.",
 		"lingpet.language.generic.neutral.1.token.dot": "点",
-		"lingpet.pendulum.title": "怀表内部",
-		"lingpet.pendulum.close": "关闭",
-		"lingpet.pendulum.language_label": "守护灵语",
-		"lingpet.pendulum.esc_hint": "按 ESC 返回",
-		"lingpet.pendulum.next_hint": "点击看下一句",
-		"lingpet.pendulum.decoder_caption": "环核 T%d · 解读 %d%%",
 		# Plaza shop transaction messages — plaza_scene._format_shop_transaction_message (i18n slice)
 		"plaza.msg.shop.no_ap": "钥匙不足。",
 		"plaza.msg.shop.not_enough_gold": "金币不足。",
@@ -6156,12 +6114,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "小さな輪を",
 		"lingpet.language.generic.neutral.1.token.walk": "歩いている.",
 		"lingpet.language.generic.neutral.1.token.dot": "点",
-		"lingpet.pendulum.title": "ペンデュラム内部",
-		"lingpet.pendulum.close": "閉じる",
-		"lingpet.pendulum.language_label": "守護霊語",
-		"lingpet.pendulum.esc_hint": "ESCで戻る",
-		"lingpet.pendulum.next_hint": "クリックで次の言葉",
-		"lingpet.pendulum.decoder_caption": "リングコア T%d · 解読 %d%%",
 		# Plaza shop transaction messages — plaza_scene._format_shop_transaction_message (i18n slice)
 		"plaza.msg.shop.no_ap": "鍵が足りません。",
 		"plaza.msg.shop.not_enough_gold": "ゴールドが足りません。",
@@ -6347,12 +6299,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "en círculos",
 		"lingpet.language.generic.neutral.1.token.walk": "caminando.",
 		"lingpet.language.generic.neutral.1.token.dot": "punto",
-		"lingpet.pendulum.title": "Interior del Péndulo",
-		"lingpet.pendulum.close": "Cerrar",
-		"lingpet.pendulum.language_label": "Lengua del espíritu guardián",
-		"lingpet.pendulum.esc_hint": "ESC para volver",
-		"lingpet.pendulum.next_hint": "Clic: siguiente",
-		"lingpet.pendulum.decoder_caption": "Ring Core T%d · Descifr. %d%%",
 		# Plaza shop transaction messages — plaza_scene._format_shop_transaction_message (i18n slice)
 		"plaza.msg.shop.no_ap": "No tienes suficientes Llaves.",
 		"plaza.msg.shop.not_enough_gold": "No tienes suficiente Oro.",
@@ -6538,12 +6484,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "in small circles",
 		"lingpet.language.generic.neutral.1.token.walk": "walking.",
 		"lingpet.language.generic.neutral.1.token.dot": "dot",
-		"lingpet.pendulum.title": "Pendulum Interior",
-		"lingpet.pendulum.close": "Close",
-		"lingpet.pendulum.language_label": "Língua do espírito guardião",
-		"lingpet.pendulum.esc_hint": "Press ESC to return",
-		"lingpet.pendulum.next_hint": "Click for next line",
-		"lingpet.pendulum.decoder_caption": "Ring Core T%d · Decode %d%%",
 		# Plaza shop transaction messages — English fallback (PT-BR intentionally partial)
 		"plaza.msg.shop.no_ap": "Not enough Keys.",
 		"plaza.msg.shop.not_enough_gold": "Not enough Gold.",
@@ -6729,12 +6669,6 @@ const TEXT := {
 		"lingpet.language.generic.neutral.1.token.small_circle": "in small circles",
 		"lingpet.language.generic.neutral.1.token.walk": "walking.",
 		"lingpet.language.generic.neutral.1.token.dot": "dot",
-		"lingpet.pendulum.title": "Pendulum Interior",
-		"lingpet.pendulum.close": "Close",
-		"lingpet.pendulum.language_label": "Язык духа-хранителя",
-		"lingpet.pendulum.esc_hint": "Press ESC to return",
-		"lingpet.pendulum.next_hint": "Click for next line",
-		"lingpet.pendulum.decoder_caption": "Ring Core T%d · Decode %d%%",
 		# Plaza shop transaction messages — English fallback (RU intentionally partial)
 		"plaza.msg.shop.no_ap": "Not enough Keys.",
 		"plaza.msg.shop.not_enough_gold": "Not enough Gold.",

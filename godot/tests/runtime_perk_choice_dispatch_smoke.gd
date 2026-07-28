@@ -20,19 +20,18 @@ func _init() -> void:
 
 func _verify_dispatch_actions() -> void:
 	var helper := RuntimePerkChoiceDispatch.new()
-	_expect_action(helper.build_dispatch({}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_INVALID, false, "empty id should be invalid")
-	_expect_action(helper.build_dispatch({"id": "convert_to_gold"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_CONVERT_TO_GOLD, true, "gold conversion should route to gold action")
-	_expect_action(helper.build_dispatch({"id": "instant_gauge_full"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE, true, "full gauge should route to immediate action")
-	_expect_action(helper.build_dispatch({"id": "instant_gauge_full"}, true, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE_DEFERRED, true, "full gauge should route to deferred action when requested")
-	_expect_action(helper.build_dispatch({"id": "instant_dimension_gate"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE, true, "Dimension Gate should route to immediate action")
-	_expect_action(helper.build_dispatch({"id": "instant_dimension_gate"}, false, true, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE_DEFERRED, true, "Dimension Gate should route to deferred action when requested")
-	_expect_action(helper.build_dispatch({"id": "instant_monkey_blessing"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_MONKEY_BLESSING, true, "Monkey Blessing should route to its action")
-	_expect_action(helper.build_dispatch({"id": "instant_treasure_hunt"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_TREASURE_HUNT, true, "Treasure Hunt should route to its action")
-	_expect_action(helper.build_dispatch({"id": "chip"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_LINGPET_AFFINITY_CHIP, true, "Lingpet affinity chip should route to its action")
-	_expect_action(helper.build_dispatch({"id": "ring"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_LINGPET_RING_CORE_UPGRADE, true, "Lingpet ring-core upgrade should route to its action")
-	_expect_action(helper.build_dispatch({"id": "common_refresh", "is_instant": true}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "generic instant bookkeeping should stay on the standard path")
-	_expect_action(helper.build_dispatch({"id": "unlock_plasma", "unlocks_skill": "plasma"}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "unlock choices should stay on the standard path after explicit dispatch")
-	_expect_action(helper.build_dispatch({"id": " common_swiftness "}, false, false, "chip", "ring"), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "ordinary level choices should stay on the standard path")
+	_expect_action(helper.build_dispatch({}, false, false), RuntimePerkChoiceDispatch.ACTION_INVALID, false, "empty id should be invalid")
+	_expect_action(helper.build_dispatch({"id": "convert_to_gold"}, false, false), RuntimePerkChoiceDispatch.ACTION_CONVERT_TO_GOLD, true, "gold conversion should route to gold action")
+	_expect_action(helper.build_dispatch({"id": "instant_gauge_full"}, false, false), RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE, true, "full gauge should route to immediate action")
+	_expect_action(helper.build_dispatch({"id": "instant_gauge_full"}, true, false), RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE_DEFERRED, true, "full gauge should route to deferred action when requested")
+	_expect_action(helper.build_dispatch({"id": "instant_dimension_gate"}, false, false), RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE, true, "Dimension Gate should route to immediate action")
+	_expect_action(helper.build_dispatch({"id": "instant_dimension_gate"}, false, true), RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE_DEFERRED, true, "Dimension Gate should route to deferred action when requested")
+	_expect_action(helper.build_dispatch({"id": "instant_monkey_blessing"}, false, false), RuntimePerkChoiceDispatch.ACTION_MONKEY_BLESSING, true, "Monkey Blessing should route to its action")
+	_expect_action(helper.build_dispatch({"id": "instant_treasure_hunt"}, false, false), RuntimePerkChoiceDispatch.ACTION_TREASURE_HUNT, true, "Treasure Hunt should route to its action")
+	_expect_action(helper.build_dispatch({"id": "lingpet_guardian_enhance"}, false, false), RuntimePerkChoiceDispatch.ACTION_LINGPET_GUARDIAN_ENHANCE, true, "guardian enhancement should route to its action")
+	_expect_action(helper.build_dispatch({"id": "common_refresh", "is_instant": true}, false, false), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "generic instant bookkeeping should stay on the standard path")
+	_expect_action(helper.build_dispatch({"id": "unlock_plasma", "unlocks_skill": "plasma"}, false, false), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "unlock choices should stay on the standard path after explicit dispatch")
+	_expect_action(helper.build_dispatch({"id": " common_swiftness "}, false, false), RuntimePerkChoiceDispatch.ACTION_STANDARD, true, "ordinary level choices should stay on the standard path")
 
 
 func _verify_source_contract() -> void:

@@ -12,13 +12,10 @@ const CALLBACK_DIMENSION_GATE_DEFERRED := "queue_dimension_gate_deferred"
 const CALLBACK_DIMENSION_GATE := "apply_dimension_gate"
 const CALLBACK_MONKEY_BLESSING := "apply_monkey_blessing"
 const CALLBACK_TREASURE_HUNT := "apply_treasure_hunt"
-const CALLBACK_LINGPET_AFFINITY_CHIP := "apply_lingpet_affinity_chip"
-const CALLBACK_LINGPET_RING_CORE_UPGRADE := "apply_lingpet_ring_core_upgrade"
 
 const TIMER_IMMEDIATE := 1.2
 const TIMER_MONKEY_BLESSING := 1.1
 const TIMER_TREASURE_HUNT := 1.6
-const TIMER_LINGPET := 1.1
 
 
 func build_state_action_callbacks(state: Object) -> Dictionary:
@@ -32,8 +29,6 @@ func build_state_action_callbacks(state: Object) -> Dictionary:
 		CALLBACK_DIMENSION_GATE: Callable(state, "_apply_dimension_gate_choice"),
 		CALLBACK_MONKEY_BLESSING: Callable(state, "_apply_monkey_blessing_choice"),
 		CALLBACK_TREASURE_HUNT: Callable(state, "_apply_treasure_hunt_choice"),
-		CALLBACK_LINGPET_AFFINITY_CHIP: Callable(state, "_apply_lingpet_affinity_chip"),
-		CALLBACK_LINGPET_RING_CORE_UPGRADE: Callable(state, "_apply_lingpet_ring_core_upgrade"),
 	}
 
 
@@ -67,15 +62,6 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 			return _call_feedback(callbacks, CALLBACK_MONKEY_BLESSING, [owner, registry, choice_name], TIMER_MONKEY_BLESSING)
 		RuntimePerkChoiceDispatch.ACTION_TREASURE_HUNT:
 			return _call_feedback(callbacks, CALLBACK_TREASURE_HUNT, [owner, registry], TIMER_TREASURE_HUNT)
-		RuntimePerkChoiceDispatch.ACTION_LINGPET_AFFINITY_CHIP:
-			return _call_feedback(callbacks, CALLBACK_LINGPET_AFFINITY_CHIP, [owner, registry, choice_name], TIMER_LINGPET)
-		RuntimePerkChoiceDispatch.ACTION_LINGPET_RING_CORE_UPGRADE:
-			return _call_feedback(
-				callbacks,
-				CALLBACK_LINGPET_RING_CORE_UPGRADE,
-				[owner, registry, int(choice.get("next_tier", 0)), choice_name],
-				TIMER_LINGPET
-			)
 		RuntimePerkChoiceDispatch.ACTION_LINGPET_GUARDIAN_ENHANCE:
 			var begin_result := LingpetGuardianEnhanceApplier.begin(choice, owner, registry)
 			return {

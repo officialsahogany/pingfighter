@@ -39,9 +39,6 @@ static func _handle_key(target: Object, event: InputEvent) -> bool:
 			target.call("_drag_cancel")
 			target.call("_reset_hover_and_request_redraw", true)
 			return true
-		if bool(target.call("_is_pendulum_interior_active")):
-			target.call("_close_pendulum_interior")
-			return true
 		target.call("close", true)
 	return true
 
@@ -53,8 +50,6 @@ static func _handle_mouse_button(target: Object, event: InputEvent, owner: Objec
 		if bool(target.call("_handle_discard_confirm_mouse_button", mouse_event.position, mouse_event.button_index, owner, registry)):
 			target.call("_reset_hover_and_request_redraw", true)
 		return true
-	if bool(target.call("_is_pendulum_interior_active")):
-		return bool(target.call("_handle_pendulum_mouse_button", mouse_event.position, mouse_event.button_index))
 	# Inventory / equipment / active-item drag-and-drop + click-to-pick.
 	if mouse_event.button_index == MOUSE_BUTTON_LEFT:
 		if mouse_event.pressed:
@@ -72,9 +67,6 @@ static func _handle_mouse_button(target: Object, event: InputEvent, owner: Objec
 		return true
 	if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 		if bool(target.call("_try_handle_lingpet_slot_tab_click", mouse_event.position, owner, registry)):
-			target.call("_reset_hover_and_request_redraw", true)
-			return true
-		if bool(target.call("_try_handle_lingpet_pendulum_open_click", mouse_event.position, owner, registry)):
 			target.call("_reset_hover_and_request_redraw", true)
 			return true
 		if bool(target.call("_try_handle_lingpet_unlock_pick_click", mouse_event.position, owner, registry)):

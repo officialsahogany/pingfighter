@@ -62,7 +62,6 @@ func build_ready_state_update(choice_count: int) -> Dictionary:
 		"gamepad_choice_horizontal_latch": 0,
 		"animation_time": 0.0,
 		"choice_active": true,
-		"tick_lingpet_ring_core_offer_cooldown": true,
 		"pause_skill_cooldowns": true,
 		"build_particles": true,
 	}
@@ -121,7 +120,6 @@ func apply_state_update(runtime_state: Object, update: Dictionary) -> Dictionary
 		"choice_active": bool(runtime_state.get("choice_active")),
 		"open_next_choice": bool(update.get("open_next_choice", false)),
 		"resume_skill_cooldowns": bool(update.get("resume_skill_cooldowns", false)),
-		"tick_lingpet_ring_core_offer_cooldown": bool(update.get("tick_lingpet_ring_core_offer_cooldown", false)),
 		"pause_skill_cooldowns": bool(update.get("pause_skill_cooldowns", false)),
 		"build_particles": bool(update.get("build_particles", false)),
 		"update_particles": bool(update.get("update_particles", false)),

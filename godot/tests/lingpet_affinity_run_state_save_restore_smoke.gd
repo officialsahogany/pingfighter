@@ -1,11 +1,11 @@
 extends SceneTree
 # Seals the lingpet save/restore round trip preserving the RUN-SCOPED affinity
-# progression (per-pet affinity level/points + run-global ring core tier + chips + feed).
+# progression (per-pet affinity level/points, reward seed/deck, and run-local feed state).
 #
 # Regression: apply_save_snapshot() calls reset_for_tests() -> reset_for_new_run()
 # which wipes _affinity_state. Before the fix, get_save_snapshot() carried no affinity
 # data, so any in-run save/restore (plaza egg-buy rollback, in-run restore) reset every
-# pet to Lv.0 AND lost the run-global ring core tier. The fix carries the run state in
+# pet to Lv.0 and lost the reward deck. The fix carries the run state in
 # the snapshot ("affinity_run_state") and re-imports it on restore.
 #
 # Built-in reverse verification: a snapshot with affinity_run_state STRIPPED must NOT
@@ -46,8 +46,7 @@ func _seed_runtime() -> Dictionary:
 	var registry = Smoke.FakeRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner, registry)                       # adopt maribo
-	runtime.upgrade_run_ring_core_tier(2, owner, registry)     # run-global ring core T2 (cap 10)
-	runtime.update(0.0, owner, registry)                       # propagate cap to pet_data
+	runtime.update(0.0, owner, registry)                       # project affinity to owner state
 	for _i in range(12):
 		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
 	var aff = runtime.get("_affinity_state")
@@ -57,8 +56,6 @@ func _seed_runtime() -> Dictionary:
 		"registry": registry,
 		"level": int(aff.get_level("maribo")),
 		"points": float(aff.get_points("maribo")),
-		"tier": int(runtime.get_run_ring_core_tier()),
-		"cooldown": int(runtime.get_ring_core_offer_cooldown_screens()),
 		"seed": int(aff.get_reward_seed("maribo")),
 		"deck": _deck_types(aff.get_reward_deck("maribo")),
 	}
@@ -77,8 +74,6 @@ func _init() -> void:
 	var seed_data := _seed_runtime()
 	_expect(int(seed_data["level"]) >= 1, "fixture should level maribo to at least Lv.1")
 	_expect(float(seed_data["points"]) > 0.0, "fixture should bank maribo affinity points")
-	_expect(int(seed_data["tier"]) == 2, "fixture should set run ring core tier to 2")
-	_expect(int(seed_data["cooldown"]) == LingpetAffinityState.RING_CORE_OFFER_COOLDOWN_SCREENS, "fixture should arm the ring-core offer cooldown")
 
 	# 1) Same-instance save -> restore preserves run state.
 	var runtime_a: Object = seed_data["runtime"]
@@ -91,8 +86,6 @@ func _init() -> void:
 	var aff_a = runtime_a.get("_affinity_state")
 	_expect(int(aff_a.get_level("maribo")) == int(seed_data["level"]), "same-instance restore should preserve per-pet affinity level")
 	_expect(is_equal_approx(float(aff_a.get_points("maribo")), float(seed_data["points"])), "same-instance restore should preserve per-pet affinity points")
-	_expect(int(runtime_a.get_run_ring_core_tier()) == int(seed_data["tier"]), "same-instance restore should preserve the run-global ring core tier")
-	_expect(int(runtime_a.get_ring_core_offer_cooldown_screens()) == int(seed_data["cooldown"]), "same-instance restore should preserve the ring-core offer cooldown")
 	# P1: the reward seed (and thus the deterministic reward deck / unlock-choice shuffle)
 	# must survive restore. reset_for_tests clears the coordinator seed cache, so without the
 	# coordinator adopting the restored pet seed it would re-randomize here.
@@ -108,8 +101,6 @@ func _init() -> void:
 	runtime_b2.apply_save_snapshot(snap_b, owner_b2, registry_b2)
 	var aff_b2 = runtime_b2.get("_affinity_state")
 	_expect(int(aff_b2.get_level("maribo")) == int(seed_b["level"]), "fresh-instance restore should preserve per-pet affinity level")
-	_expect(int(runtime_b2.get_run_ring_core_tier()) == int(seed_b["tier"]), "fresh-instance restore should preserve the run-global ring core tier")
-	_expect(int(runtime_b2.get_ring_core_offer_cooldown_screens()) == int(seed_b["cooldown"]), "fresh-instance restore should preserve the ring-core offer cooldown")
 	_expect(int(aff_b2.get_reward_seed("maribo")) == int(seed_b["seed"]), "fresh-instance restore should preserve the reward seed (no re-randomization)")
 	_expect(_deck_types(aff_b2.get_reward_deck("maribo")) == (seed_b["deck"] as Array), "fresh-instance restore should preserve the reward deck order")
 
@@ -124,25 +115,6 @@ func _init() -> void:
 	runtime_c2.apply_save_snapshot(snap_c, owner_c2, registry_c2)
 	var aff_c2 = runtime_c2.get("_affinity_state")
 	_expect(int(aff_c2.get_level("maribo")) == 0, "stripped snapshot must NOT restore affinity level (reverse check)")
-	_expect(int(runtime_c2.get_run_ring_core_tier()) == 0, "stripped snapshot must NOT restore ring core tier (reverse check)")
-	_expect(int(runtime_c2.get_ring_core_offer_cooldown_screens()) == 0, "stripped snapshot must NOT restore ring-core offer cooldown (reverse check)")
-
-	# 3b) REVERSE VERIFICATION: strip only the cooldown field -> affinity/tier restore,
-	#     but the spacing cooldown does NOT. Proves this new key is load-bearing.
-	var seed_d := _seed_runtime()
-	var snap_d: Dictionary = (seed_d["runtime"] as Object).get_save_snapshot()
-	var affinity_run_state_d: Dictionary = snap_d.get("affinity_run_state", {}) as Dictionary
-	_expect(affinity_run_state_d.has("ring_core_offer_cooldown_screens"), "affinity_run_state should carry ring_core_offer_cooldown_screens")
-	affinity_run_state_d.erase("ring_core_offer_cooldown_screens")
-	snap_d["affinity_run_state"] = affinity_run_state_d
-	var owner_d2 := _make_owner()
-	var registry_d2 = Smoke.FakeRegistry.new()
-	var runtime_d2: Object = LingpetEggRuntime.new()
-	runtime_d2.apply_save_snapshot(snap_d, owner_d2, registry_d2)
-	var aff_d2 = runtime_d2.get("_affinity_state")
-	_expect(int(aff_d2.get_level("maribo")) == int(seed_d["level"]), "cooldown-stripped snapshot should still restore affinity level")
-	_expect(int(runtime_d2.get_run_ring_core_tier()) == int(seed_d["tier"]), "cooldown-stripped snapshot should still restore ring core tier")
-	_expect(int(runtime_d2.get_ring_core_offer_cooldown_screens()) == 0, "cooldown-stripped snapshot must NOT restore ring-core offer cooldown")
 
 	# 4) Per-run-restart invariant: a volatile (active-run) snapshot is NOT written to
 	#    disk -- the store clears the file -- so a game restart still resets the run even
@@ -157,13 +129,12 @@ func _init() -> void:
 	store.clear_snapshot("test_cleanup")
 
 	# 5) P3 user-flow regression: the actual in-battle slot switch (a -> b -> a) must keep
-	#    per-pet affinity DISTINCT and PRESERVED, and the run-global ring core held across both
+	#    per-pet affinity DISTINCT and PRESERVED across both
 	#    switches. This is the exact path the TAB lingpet tabs drive (switch_lingpet_slot).
 	var owner_s := _make_owner()
 	var registry_s = Smoke.FakeRegistry.new()
 	var runtime_s: Object = LingpetEggRuntime.new()
 	runtime_s.update(0.0, owner_s, registry_s)                 # adopt maribo (slot 0)
-	runtime_s.upgrade_run_ring_core_tier(3, owner_s, registry_s)
 	runtime_s.update(0.0, owner_s, registry_s)
 	for _i in range(12):
 		runtime_s.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry_s)
@@ -174,23 +145,18 @@ func _init() -> void:
 	for _i in range(4):
 		runtime_s.debug_add_affinity_points_for_tests("lunabi", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry_s)
 	var lunabi_points: float = float(aff_s.get_points("lunabi"))
-	_expect(int(runtime_s.get_run_ring_core_tier()) == 3, "ring core tier should stay run-global while lunabi is active")
 	# switch back to maribo (slot 0)
 	_expect(runtime_s.switch_lingpet_slot(0, owner_s, registry_s), "switch back to maribo slot should succeed")
 	runtime_s.update(0.0, owner_s, registry_s)
 	_expect(int(aff_s.get_level("maribo")) == maribo_level, "maribo affinity must be preserved after a/b/a switch")
 	_expect(int(owner_s.lingpet_affinity_level) == maribo_level, "owner display must show maribo's affinity after switch back")
 	_expect(is_equal_approx(float(aff_s.get_points("lunabi")), lunabi_points), "lunabi affinity must stay per-pet distinct, untouched by maribo")
-	_expect(int(runtime_s.get_run_ring_core_tier()) == 3, "ring core tier must stay run-global (kept across the a/b/a switch)")
-	_expect(int(owner_s.lingpet_ring_core_tier) == 3, "owner display must show the run-global ring core after switch back")
 
 	_cleanup_runtime(seed_data.get("runtime", null) as Object)
 	_cleanup_runtime(seed_b.get("runtime", null) as Object)
 	_cleanup_runtime(runtime_b2)
 	_cleanup_runtime(seed_c.get("runtime", null) as Object)
 	_cleanup_runtime(runtime_c2)
-	_cleanup_runtime(seed_d.get("runtime", null) as Object)
-	_cleanup_runtime(runtime_d2)
 	_cleanup_runtime(runtime_s)
 	ProjectResourceLoader.clear_caches()
 

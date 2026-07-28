@@ -33,8 +33,6 @@ func _run_cases(scene: Object) -> void:
 		{"facility": "shop", "method": "_format_shop_transaction_message", "summary": {"changed": true, "action": "purchase", "item_name": "gauge_charge", "display_name": "에너지드링크", "delta_gold": -150}, "expected": "에너지드링크을(를) 구매했습니다. -150G"},
 		{"facility": "gacha", "method": "_format_gacha_transaction_message", "summary": {"changed": false, "reason": "empty_gacha_pool"}, "expected": "뽑기 캡슐이 비어 있습니다."},
 		{"facility": "gacha", "method": "_format_gacha_transaction_message", "summary": {"changed": true, "display_name": "시험 아이템", "delta_gold": -300}, "expected": "시험 아이템을(를) 뽑았습니다. -300G"},
-		{"facility": "lingpet_store", "method": "_format_lingpet_store_transaction_message", "summary": {"changed": false, "action": "ring_core", "reason": "perk_slots_full"}, "expected": "퍽 슬롯이 가득 차 링코어를 강화할 수 없습니다."},
-		{"facility": "lingpet_store", "method": "_format_lingpet_store_transaction_message", "summary": {"changed": true, "action": "ring_core", "ring_core_name": "공명", "new_cap": 4, "delta_gold": -700}, "expected": "공명 링코어가 친밀도 Lv.4까지 열렸습니다. -700G"},
 		{"facility": "lingpet_store", "method": "_format_lingpet_store_transaction_message", "summary": {"changed": true, "action": "egg", "delta_gold": -500}, "expected": "공명 알이 전투에 나타났습니다. -500G"},
 		{"facility": "blacksmith", "method": "_format_blacksmith_transaction_message", "summary": {"changed": false, "reason": "max_level", "display_name": "천둥망치"}, "expected": "천둥망치은(는) 이미 최대 강화입니다."},
 		{"facility": "blacksmith", "method": "_format_blacksmith_transaction_message", "summary": {"changed": true, "result": "success", "display_name": "천둥망치", "new_level": 3, "delta_gold": -240}, "expected": "천둥망치 +3 강화 성공! -240G"},

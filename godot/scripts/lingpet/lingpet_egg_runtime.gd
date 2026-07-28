@@ -41,12 +41,10 @@ const LingpetSatietyRuntimeState := preload(
 const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
 const LingpetAffinityGrantController := preload("res://scripts/lingpet/lingpet_affinity_grant_controller.gd")
 const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
-const LingpetAffinityRunUpgradeController := preload("res://scripts/lingpet/lingpet_affinity_run_upgrade_controller.gd")
 const LingpetAffinityBattleLifecycle := preload("res://scripts/lingpet/lingpet_affinity_battle_lifecycle.gd")
 const LingpetAffinityOwnerSurface := preload("res://scripts/lingpet/lingpet_affinity_owner_surface.gd")
 const LingpetAffinityFeedbackState := preload("res://scripts/lingpet/lingpet_affinity_feedback_state.gd")
 const LingpetAffinityIncomeTracker := preload("res://scripts/lingpet/lingpet_affinity_income_tracker.gd")
-const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
 const LingpetAudioDispatcher := preload("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCurrentLoadoutApplier := preload("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
@@ -247,7 +245,6 @@ var _affinity_state: Object = LingpetAffinityState.new()
 var _affinity_context_coordinator: Object = LingpetAffinityContextCoordinator.new()
 var _affinity_grant_controller: Object = LingpetAffinityGrantController.new()
 var _affinity_hit_tag_resolver: Object = LingpetAffinityHitTagResolver.new()
-var _affinity_run_upgrade_controller: Object = LingpetAffinityRunUpgradeController.new()
 var _affinity_battle_lifecycle: Object = LingpetAffinityBattleLifecycle.new()
 var _affinity_owner_surface: Object = LingpetAffinityOwnerSurface.new()
 var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
@@ -2399,7 +2396,6 @@ func _apply_companion_position_surface(position_surface: Dictionary) -> void:
 
 
 func _spawn_egg(owner: Object, registry: Object = null) -> void:
-	_tutorial_bootstrap.grant_standard_ring_core_if_needed(owner, _collection_state, _affinity_state)
 	_state = STATE_EGG
 	_reset_hatch_break_sequence()
 	_set_current_pet_id(_collection_state.pick_hatch_pet_id(owner))
@@ -3234,69 +3230,6 @@ func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: D
 
 func add_affinity_points(source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
 	return _add_affinity_points(_pet_id, source, tags, registry)
-
-
-func add_enhancement_chip(_owner: Object = null, _registry: Object = null) -> Dictionary:
-	_invalidate_runtime_snapshot_cache()
-	return _affinity_run_upgrade_controller.add_enhancement_chip(_affinity_state, LingpetAffinityState.MAX_ENHANCEMENT_CHIPS)
-
-
-func upgrade_run_ring_core_tier(target_tier: int = 0, owner: Object = null, registry: Object = null) -> Dictionary:
-	# R4 / per-run: plaza + perk ring-core upgrades target this run's tier, not the
-	# permanent store. Mirrors add_enhancement_chip (run-state, owner surfaces on the
-	# next battle sync). accepted=false on no-higher/max so callers can refund.
-	var result: Dictionary = _affinity_run_upgrade_controller.upgrade_run_ring_core_tier(_affinity_state, target_tier, LingpetRingCoreRules.MAX_RING_CORE_TIER)
-	if bool(result.get("accepted", false)):
-		_invalidate_runtime_snapshot_cache()
-		result["affinity_granted_pets"] = _grant_ring_core_upgrade_affinity_to_owned_pets(owner, registry)
-	return result
-
-
-func _grant_ring_core_upgrade_affinity_to_owned_pets(owner: Object, registry: Object) -> int:
-	# A ring-core upgrade raises this run's affinity cap for the WHOLE roster, so every owned
-	# lingpet gets a flat +50 affinity. Granted AFTER the tier rises so each pet's context
-	# re-resolves to the new (higher) cap (via _add_affinity_points -> context coordinator) and
-	# the +50 actually counts instead of clamping at the old ceiling. Includes pets never used
-	# this run; their reward context / motion style is built from the catalog on first grant.
-	var pet_ids: Array[String] = []
-	var owned: Array = (
-		_collection_state.get_owned_pet_ids_from_owner(owner) if owner != null
-		else _collection_state.get_owned_pet_ids()
-	)
-	for raw_id in owned:
-		var pet_id: String = _current_profile.normalize_pet_id(str(raw_id))
-		if pet_id != "" and not pet_ids.has(pet_id):
-			pet_ids.append(pet_id)
-	# Union with run-tracked pets so anything with run affinity is covered even if the cached
-	# collection is stale (the plaza upgrade path passes owner = null).
-	for raw_id in _affinity_state.get_tracked_pet_ids():
-		var pet_id: String = _current_profile.normalize_pet_id(str(raw_id))
-		if pet_id != "" and not pet_ids.has(pet_id):
-			pet_ids.append(pet_id)
-	for pet_id in pet_ids:
-		_add_affinity_points(pet_id, LingpetAffinityState.SOURCE_RING_CORE_UPGRADE, {}, registry)
-	return pet_ids.size()
-
-
-func get_run_ring_core_tier() -> int:
-	return _affinity_state.get_run_ring_core_tier()
-
-
-func get_ring_core_offer_cooldown_screens() -> int:
-	return _affinity_state.get_ring_core_offer_cooldown_screens()
-
-
-func tick_ring_core_offer_cooldown() -> void:
-	_invalidate_runtime_snapshot_cache()
-	_affinity_state.tick_ring_core_offer_cooldown()
-
-
-func get_enhancement_chips() -> int:
-	return _affinity_state.get_enhancement_chips()
-
-
-func get_enhancement_chip_multiplier() -> float:
-	return _affinity_state.get_enhancement_chip_multiplier()
 
 
 func reset_affinity_for_new_battle() -> void:
