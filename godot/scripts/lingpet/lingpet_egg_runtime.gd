@@ -2076,6 +2076,12 @@ func build_save_snapshot() -> Dictionary:
 	return get_save_snapshot()
 
 
+func export_affinity_run_state() -> Dictionary:
+	var run_state: Dictionary = _affinity_state.export_run_state()
+	run_state.merge(_spirit_water_drop_state.export_run_state(), true)
+	return run_state
+
+
 # Restore the run-scoped affinity progression carried in a save snapshot. The
 # save/restore applier calls this right after reset_for_tests() (which wipes the run
 # state) so a pet swap / plaza round trip / in-run restore keeps per-pet affinity AND

@@ -75,6 +75,7 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 	if _is_volatile_run_snapshot(snapshot):
 		clear_snapshot("cleared_run_state_on_entry")
 		var reset_result: Dictionary = runtime.apply_save_snapshot({
+			"reset_lingpet_run_state": true,
 			"pet_id": LingpetCatalog.get_default_pet_id(),
 			"state": "egg",
 			"hatch_hits": 0,

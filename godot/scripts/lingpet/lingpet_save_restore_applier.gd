@@ -24,6 +24,18 @@ func apply(
 			"restored": false,
 			"reason": "missing_host",
 		}
+	# Some in-run restore callers still send a projection snapshot without the
+	# newer affinity_run_state payload. Capture the live run owner before the
+	# legacy full reset so an ordinary round/plaza restore cannot silently turn
+	# into a fresh-run duration roll. New-run callers opt out explicitly.
+	var affinity_run_state: Variant = snapshot.get("affinity_run_state", {})
+	if (
+		not snapshot.is_empty()
+		and not bool(snapshot.get("reset_lingpet_run_state", false))
+		and (not (affinity_run_state is Dictionary) or (affinity_run_state as Dictionary).is_empty())
+		and host.has_method("export_affinity_run_state")
+	):
+		affinity_run_state = host.call("export_affinity_run_state")
 	if host.has_method("reset_for_tests"):
 		host.call("reset_for_tests")
 	if snapshot.is_empty():
@@ -38,7 +50,6 @@ func apply(
 	# and owner sync surface the restored per-pet affinity + run-global ring core tier.
 	# Absent on minimal/legacy snapshots (e.g. the volatile-reset egg snapshot) -> stays
 	# a fresh run, which is the intended per-run reset.
-	var affinity_run_state: Variant = snapshot.get("affinity_run_state", {})
 	if affinity_run_state is Dictionary and not (affinity_run_state as Dictionary).is_empty() and host.has_method("import_affinity_run_state"):
 		host.call("import_affinity_run_state", affinity_run_state)
 
