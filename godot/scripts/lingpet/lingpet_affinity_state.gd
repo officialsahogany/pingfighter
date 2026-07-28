@@ -389,6 +389,88 @@ func get_duration_pool_pct() -> int:
 	return _duration_state.get_pool_pct()
 
 
+func get_duration_increase_count() -> int:
+	return _duration_state.get_duration_increase_count()
+
+
+func build_guardian_enhancement_candidates(
+	pet_id: String,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> Array[Dictionary]:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return []
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	return LingpetEnhancementBuffStore.build_guardian_enhancement_candidates(
+		pet_data,
+		get_duration_increase_count(),
+		has_second_active_skill,
+		has_second_passive_skill
+	)
+
+
+func can_apply_guardian_enhancement(
+	pet_id: String,
+	candidate: Dictionary,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> bool:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return false
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	return LingpetEnhancementBuffStore.can_apply_guardian_enhancement(
+		pet_data,
+		candidate,
+		get_duration_increase_count(),
+		has_second_active_skill,
+		has_second_passive_skill
+	)
+
+
+func apply_guardian_enhancement(
+	pet_id: String,
+	candidate: Dictionary,
+	has_second_active_skill: bool = true,
+	has_second_passive_skill: bool = true
+) -> Dictionary:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {"accepted": false, "blocked_reason": "missing_pet_id"}
+	if not can_apply_guardian_enhancement(
+		normalized_pet_id,
+		candidate,
+		has_second_active_skill,
+		has_second_passive_skill
+	):
+		return {"accepted": false, "blocked_reason": "candidate_no_longer_applicable"}
+	if str(candidate.get("type", "")) == LingpetEnhancementBuffStore.REWARD_TYPE_DURATION:
+		var duration_result := _duration_state.apply_duration_increase()
+		if bool(duration_result.get("accepted", false)):
+			_dirty = true
+		return duration_result
+	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	var result := LingpetEnhancementBuffStore.apply_guardian_enhancement_to_pet(
+		pet_data,
+		candidate,
+		has_second_active_skill,
+		has_second_passive_skill
+	)
+	if bool(result.get("accepted", false)):
+		_pets[normalized_pet_id] = pet_data
+		_dirty = true
+		result["pet_id"] = normalized_pet_id
+	return result
+
+
+func apply_guardian_enhance_duration_fallback() -> Dictionary:
+	var result := _duration_state.apply_revalidation_fallback()
+	if bool(result.get("accepted", false)):
+		_dirty = true
+	return result
+
+
 func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
 	_duration_state.set_pool_for_tests(current, maximum)
 	_dirty = true

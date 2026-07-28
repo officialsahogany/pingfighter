@@ -130,7 +130,10 @@ func _move(runtime: Object, delta_index: int) -> bool:
 
 func _confirm(runtime: Object, owner: Object, registry: Object) -> bool:
 	if runtime.has_method("confirm_guardian_enhance_choice"):
-		return bool(runtime.confirm_guardian_enhance_choice(owner, registry))
+		var result: Variant = runtime.confirm_guardian_enhance_choice(owner, registry)
+		if result is Dictionary:
+			return bool((result as Dictionary).get("accepted", false))
+		return bool(result)
 	return false
 
 

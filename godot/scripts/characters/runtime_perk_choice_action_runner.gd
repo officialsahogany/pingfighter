@@ -1,6 +1,9 @@
 extends RefCounted
 
 const RuntimePerkChoiceDispatch := preload("res://scripts/characters/runtime_perk_choice_dispatch.gd")
+const LingpetGuardianEnhanceApplier := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
+)
 
 const CALLBACK_CONVERT_TO_GOLD := "apply_convert_to_gold"
 const CALLBACK_FULL_GAUGE_DEFERRED := "queue_full_gauge_deferred"
@@ -73,6 +76,14 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 				[owner, registry, int(choice.get("next_tier", 0)), choice_name],
 				TIMER_LINGPET
 			)
+		RuntimePerkChoiceDispatch.ACTION_LINGPET_GUARDIAN_ENHANCE:
+			var begin_result := LingpetGuardianEnhanceApplier.begin(choice, owner, registry)
+			return {
+				"handled": true,
+				"accepted": bool(begin_result.get("accepted", false)),
+				"uses_feedback": false,
+				"begin_result": begin_result,
+			}
 	return {"handled": false}
 
 

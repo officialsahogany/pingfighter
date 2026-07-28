@@ -10,6 +10,7 @@ const ACTION_MONKEY_BLESSING := "monkey_blessing"
 const ACTION_TREASURE_HUNT := "treasure_hunt"
 const ACTION_LINGPET_AFFINITY_CHIP := "lingpet_affinity_chip"
 const ACTION_LINGPET_RING_CORE_UPGRADE := "lingpet_ring_core_upgrade"
+const ACTION_LINGPET_GUARDIAN_ENHANCE := "lingpet_guardian_enhance"
 const ACTION_STANDARD := "standard"
 
 
@@ -63,4 +64,6 @@ func _resolve_action(
 		return ACTION_LINGPET_AFFINITY_CHIP
 	if choice_id == lingpet_ring_core_upgrade_id:
 		return ACTION_LINGPET_RING_CORE_UPGRADE
+	if choice_id == ACTION_LINGPET_GUARDIAN_ENHANCE:
+		return ACTION_LINGPET_GUARDIAN_ENHANCE
 	return ACTION_STANDARD

@@ -20,6 +20,16 @@ const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lin
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetGuardianEnhanceOfferEngine := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
+)
+const LingpetGuardianEnhanceChoiceState := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_choice_state.gd"
+)
+const LingpetGuardianEnhanceApplier := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
+)
 const LingpetSatietyRuntimeState := preload(
 	"res://scripts/lingpet/lingpet_satiety_runtime_state.gd"
 )
@@ -243,6 +253,10 @@ var _soul_summon_offer_guarantee_count := 0
 var _soul_summon_offer_cooldown_screens := 0
 var _soul_summon_offer_pending_choice := false
 var _soul_summon_overflow_available_for_tests := true
+var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.new()
+var _guardian_enhance_choice_state: Object = LingpetGuardianEnhanceChoiceState.new()
+var _guardian_enhance_offer_rng_for_tests: RandomNumberGenerator = null
+var _guardian_enhance_last_result: Dictionary = {}
 var _guardian_active_elapsed := 0.0
 var _duration_warning_stage := 0
 var _duration_roll_rng_for_tests: RandomNumberGenerator = null
@@ -573,6 +587,178 @@ func get_soul_summon_offer_state_for_tests() -> Dictionary:
 		"cooldown_screens": _soul_summon_offer_cooldown_screens,
 		"pending_choice": _soul_summon_offer_pending_choice,
 	}
+
+
+func build_guardian_enhance_offer(owner: Object) -> Dictionary:
+	var pet_id := _resolve_guardian_enhance_pet_id(owner)
+	if pet_id == "":
+		return {
+			"offer_allowed": false,
+			"reserve": false,
+			"blocked_reason": "no_owned_guardian",
+			"candidates": [],
+		}
+	_affinity_context_coordinator.configure(
+		pet_id,
+		_pet_id,
+		_current_profile,
+		_loadout_state,
+		_affinity_state
+	)
+	var has_second_active := LingpetCatalog.get_active_skill_pool(pet_id).size() > 1
+	var has_second_passive := LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+	var result: Dictionary = _guardian_enhance_offer_engine.build_offer(
+		owner,
+		_affinity_state.get_pet_data(pet_id),
+		_affinity_state.get_duration_increase_count(),
+		has_second_active,
+		has_second_passive,
+		_guardian_enhance_offer_rng_for_tests
+	)
+	result["pet_id"] = pet_id
+	return result
+
+
+func start_guardian_enhance_choice(
+	candidates: Array,
+	owner: Object = null,
+	_registry: Object = null
+) -> bool:
+	var pet_id := _resolve_guardian_enhance_pet_id(owner)
+	if pet_id == "" or is_guardian_enhance_choice_active():
+		return false
+	return bool(_guardian_enhance_choice_state.start(pet_id, candidates))
+
+
+func is_guardian_enhance_choice_active() -> bool:
+	return bool(_guardian_enhance_choice_state.active)
+
+
+func get_guardian_enhance_choice_snapshot() -> Dictionary:
+	return _guardian_enhance_choice_state.get_snapshot()
+
+
+func advance_guardian_enhance_choice(delta: float) -> void:
+	_guardian_enhance_choice_state.advance(delta)
+
+
+func move_guardian_enhance_choice(delta_index: int) -> int:
+	return int(_guardian_enhance_choice_state.move_selection(delta_index))
+
+
+func move_guardian_enhance_choice_selection(delta_index: int) -> int:
+	return move_guardian_enhance_choice(delta_index)
+
+
+func select_guardian_enhance_choice(index: int) -> bool:
+	return bool(_guardian_enhance_choice_state.select_index(index))
+
+
+func select_guardian_enhance_choice_index(index: int) -> bool:
+	return select_guardian_enhance_choice(index)
+
+
+func confirm_guardian_enhance_choice(
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	if not _guardian_enhance_choice_state.can_confirm():
+		return {"accepted": false, "modal_should_close": false, "blocked_reason": "input_guard"}
+	return LingpetGuardianEnhanceApplier.confirm_from_runtime(self, owner, registry)
+
+
+func can_apply_guardian_enhancement_candidate(candidate: Dictionary) -> bool:
+	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
+	var pet_id := str(snapshot.get("pet_id", ""))
+	return _affinity_state.can_apply_guardian_enhancement(
+		pet_id,
+		candidate,
+		LingpetCatalog.get_active_skill_pool(pet_id).size() > 1,
+		LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+	)
+
+
+func apply_guardian_enhancement_candidate(
+	candidate: Dictionary,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var snapshot: Dictionary = get_guardian_enhance_choice_snapshot()
+	var pet_id := str(snapshot.get("pet_id", ""))
+	var result: Dictionary = _affinity_state.apply_guardian_enhancement(
+		pet_id,
+		candidate,
+		LingpetCatalog.get_active_skill_pool(pet_id).size() > 1,
+		LingpetCatalog.get_passive_skill_pool(pet_id).size() > 1
+	)
+	if bool(result.get("accepted", false)):
+		_affinity_context_coordinator.handle_level_gain(
+			pet_id,
+			registry,
+			_pet_id,
+			_current_profile,
+			_loadout_state,
+			_affinity_state,
+			_snapshot_builder
+		)
+		_invalidate_runtime_snapshot_cache()
+		_sync_owner(owner, registry)
+	return result
+
+
+func apply_guardian_enhance_duration_fallback(
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var result: Dictionary = _affinity_state.apply_guardian_enhance_duration_fallback()
+	if bool(result.get("accepted", false)):
+		_invalidate_runtime_snapshot_cache()
+		_sync_owner(owner, registry)
+	return result
+
+
+func complete_guardian_enhance_choice(result: Dictionary, _registry: Object = null) -> void:
+	_guardian_enhance_last_result = result.duplicate(true)
+	_guardian_enhance_choice_state.close()
+	if bool(result.get("accepted", false)):
+		_guardian_enhance_offer_engine.mark_applied()
+
+
+func cancel_guardian_enhance_choice() -> bool:
+	if not is_guardian_enhance_choice_active():
+		return false
+	# The reward modal itself is non-cancellable. ESC is consumed so neither the
+	# battle pause menu nor the underlying perk modal can steal focus.
+	return true
+
+
+func set_guardian_enhance_offer_rng_for_tests(rng: RandomNumberGenerator) -> void:
+	_guardian_enhance_offer_rng_for_tests = rng
+
+
+func get_guardian_enhance_offer_state_for_tests() -> Dictionary:
+	return _guardian_enhance_offer_engine.get_state_for_tests()
+
+
+func get_guardian_enhance_last_result_for_tests() -> Dictionary:
+	return _guardian_enhance_last_result.duplicate(true)
+
+
+func _resolve_guardian_enhance_pet_id(owner: Object) -> String:
+	_collection_state.sync_from_owner(owner)
+	var owned: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
+	if owned.is_empty():
+		return ""
+	var normalized_current: String = _current_profile.normalize_pet_id(_pet_id)
+	if normalized_current != "" and owned.has(normalized_current):
+		return normalized_current
+	var slots: Array[String] = _collection_state.get_battle_slots_from_owner(owner)
+	var active_index: int = _collection_state.get_active_slot_index_from_owner(owner)
+	if active_index >= 0 and active_index < slots.size():
+		var slot_pet: String = _current_profile.normalize_pet_id(str(slots[active_index]))
+		if slot_pet != "":
+			return slot_pet
+	return _current_profile.normalize_pet_id(str(owned[0]))
 
 
 func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
@@ -1908,6 +2094,7 @@ func import_affinity_run_state(run_state: Dictionary) -> void:
 func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
 	_invalidate_runtime_snapshot_cache()
 	_overflow_choice_state.reset()
+	_guardian_enhance_choice_state.reset()
 	_reset_hatch_break_sequence()
 	var result: Dictionary = _save_restore_applier.apply(
 		snapshot,
@@ -1960,6 +2147,10 @@ func reset_for_tests() -> void:
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_duration_roll_rng_for_tests = null
+	_guardian_enhance_offer_engine.reset()
+	_guardian_enhance_choice_state.reset()
+	_guardian_enhance_offer_rng_for_tests = null
+	_guardian_enhance_last_result.clear()
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO

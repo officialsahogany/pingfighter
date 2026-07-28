@@ -5,6 +5,9 @@ const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catal
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetRingCoreRules := preload("res://scripts/lingpet/lingpet_ring_core_rules.gd")
+const LingpetGuardianEnhanceOfferEngine := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
+)
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 
@@ -16,14 +19,17 @@ const MAX_PERK_SLOT_LIMIT := 10
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const LINGPET_AFFINITY_CHIP_CHOICE_ID := "lingpet_affinity_chip"
 const LINGPET_RING_CORE_UPGRADE_CHOICE_ID := "lingpet_ring_core_upgrade"
+const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
 const LINGPET_RING_CORE_ICON_ID_PREFIX := "lingpet_ring_core_upgrade_tier_"
 const LINGPET_AFFINITY_CHIP_MIN_RING_CORE_TIER := 1
 const LINGPET_RING_CORE_EARLY_RESERVE_BY_TIER := [1, 1, 1, 0, 0, 0, 0]
 const LINGPET_RING_CORE_PRIORITY_KEY := "_lingpet_ring_core_reserved"
 const SOUL_SUMMON_PRIORITY_KEY := "_soul_summon_reserved"
+const GUARDIAN_ENHANCE_PRIORITY_KEY := "_guardian_enhance_reserved"
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_AFFINITY_CHIP_CHOICE_ID: true,
 	LINGPET_RING_CORE_UPGRADE_CHOICE_ID: true,
+	LINGPET_GUARDIAN_ENHANCE_CHOICE_ID: true,
 }
 const LINGPET_RING_CORE_UPGRADE_PERK := {
 	"name": "링코어 강화",
@@ -1361,6 +1367,7 @@ func get_choices(
 		choices = _filter_perk_slot_budget(choices, runtime_levels, _registry)
 	_append_lingpet_affinity_chip_choice(choices, owner, _registry)
 	_append_lingpet_ring_core_upgrade_choice(choices, owner, _registry)
+	_append_lingpet_guardian_enhance_choice(choices, owner, _registry)
 	if not exclude_instant:
 		_append_instant_choices(choices)
 
@@ -1368,6 +1375,9 @@ func get_choices(
 	var soul_summon_reservation: Dictionary = _extract_soul_summon_reserved_choice(choices)
 	var soul_summon_reserved: Array = soul_summon_reservation.get("reserved", []) as Array
 	choices = soul_summon_reservation.get("remaining", []) as Array
+	var guardian_enhance_reservation := _extract_guardian_enhance_reserved_choice(choices)
+	var guardian_enhance_reserved: Array = guardian_enhance_reservation.get("reserved", []) as Array
+	choices = guardian_enhance_reservation.get("remaining", []) as Array
 	var mythic_reserved: Array = []
 	var mythic_count := 0
 	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels, _registry):
@@ -1417,6 +1427,10 @@ func get_choices(
 		if result.size() >= target_choice_count:
 			break
 		result.append(_with_offer_metadata(soul_choice, "soul_summon_reserved", true))
+	for guardian_choice in guardian_enhance_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(guardian_choice, "guardian_enhance_reserved", true))
 	for mythic_choice in mythic_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1465,6 +1479,7 @@ func get_all_perk_data() -> Dictionary:
 	var data: Dictionary = {}
 	data.merge(COMMON_PERKS, true)
 	data[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data()
+	data[LINGPET_GUARDIAN_ENHANCE_CHOICE_ID] = LingpetGuardianEnhanceOfferEngine.get_perk_data()
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
 	data.merge(SOLDIER_PERKS, true)
@@ -1517,6 +1532,10 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 		ring_core_choice["id"] = LINGPET_RING_CORE_UPGRADE_CHOICE_ID
 		return LanguageSettings.localize_perk_data(ring_core_choice)
+	if skill_id == LINGPET_GUARDIAN_ENHANCE_CHOICE_ID:
+		var guardian_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
+		guardian_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
+		return guardian_choice
 	return {}
 
 
@@ -1685,6 +1704,10 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	var ring_core_choice := _build_lingpet_ring_core_upgrade_data(0, 1, LingpetRingCoreRules.MAX_RING_CORE_TIER)
 	ring_core_choice["debug_group"] = "lingpet"
 	entries.append(LanguageSettings.localize_perk_data(ring_core_choice))
+	var guardian_enhance_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
+	guardian_enhance_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
+	guardian_enhance_choice["debug_group"] = "lingpet"
+	entries.append(guardian_enhance_choice)
 	entries.sort_custom(func(a, b): return _debug_sort_key(a) < _debug_sort_key(b))
 	return entries
 
@@ -1747,6 +1770,29 @@ func _extract_soul_summon_reserved_choice(choices: Array) -> Dictionary:
 			if choice.has(SOUL_SUMMON_PRIORITY_KEY):
 				var regular_choice := choice.duplicate(true)
 				regular_choice.erase(SOUL_SUMMON_PRIORITY_KEY)
+				remaining.append(regular_choice)
+				continue
+		remaining.append(value)
+	return {
+		"reserved": reserved,
+		"remaining": remaining,
+	}
+
+
+func _extract_guardian_enhance_reserved_choice(choices: Array) -> Dictionary:
+	var reserved: Array = []
+	var remaining: Array = []
+	for value in choices:
+		if value is Dictionary:
+			var choice := value as Dictionary
+			if bool(choice.get(GUARDIAN_ENHANCE_PRIORITY_KEY, false)):
+				var reserved_choice := choice.duplicate(true)
+				reserved_choice.erase(GUARDIAN_ENHANCE_PRIORITY_KEY)
+				reserved.append(reserved_choice)
+				continue
+			if choice.has(GUARDIAN_ENHANCE_PRIORITY_KEY):
+				var regular_choice := choice.duplicate(true)
+				regular_choice.erase(GUARDIAN_ENHANCE_PRIORITY_KEY)
 				remaining.append(regular_choice)
 				continue
 		remaining.append(value)
@@ -1876,6 +1922,33 @@ func _append_lingpet_ring_core_upgrade_choice(output: Array, owner: Object, regi
 	var choice := LanguageSettings.localize_perk_data(_build_lingpet_ring_core_upgrade_data(current_tier, next_tier, max_tier))
 	if _get_lingpet_ring_core_early_reserve_count(current_tier) > 0 and _get_lingpet_ring_core_offer_cooldown(registry) <= 0:
 		choice[LINGPET_RING_CORE_PRIORITY_KEY] = true
+	output.append(choice)
+
+
+func _append_lingpet_guardian_enhance_choice(
+	output: Array,
+	owner: Object,
+	registry: Object
+) -> void:
+	if not _has_lingpet_owned_gate(owner):
+		return
+	var runtime := _get_lingpet_runtime(registry)
+	if runtime == null or not runtime.has_method("build_guardian_enhance_offer"):
+		return
+	var offer_value: Variant = runtime.build_guardian_enhance_offer(owner)
+	if not (offer_value is Dictionary):
+		return
+	var offer := offer_value as Dictionary
+	if not bool(offer.get("offer_allowed", false)):
+		return
+	var choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
+	choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
+	choice["current_level"] = 0
+	choice["next_level"] = 1
+	choice["guardian_enhance_candidates"] = (offer.get("candidates", []) as Array).duplicate(true)
+	choice["guardian_enhance_pet_id"] = str(offer.get("pet_id", ""))
+	if bool(offer.get("reserve", false)):
+		choice[GUARDIAN_ENHANCE_PRIORITY_KEY] = true
 	output.append(choice)
 
 

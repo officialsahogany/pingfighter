@@ -110,6 +110,7 @@ const MODULE_GROUPS := {
 		"smasher_skill_orb_renderer",
 		"skill_cutin_overlay_host",
 		"lingpet_acquire_cutin_overlay_host",
+		"lingpet_guardian_enhance_choice_overlay_host",
 		"scoreboard_renderer",
 		"serve_wait_indicator_renderer",
 		"battle_feedback_state",

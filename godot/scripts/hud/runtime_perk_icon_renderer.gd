@@ -261,6 +261,9 @@ func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float =
 		if _needs_unlock_badge(skill_id):
 			_draw_unlock_badge(canvas, rect, alpha)
 		return true
+	if skill_id == "lingpet_guardian_enhance":
+		_draw_guardian_enhance_placeholder_icon(canvas, rect, alpha, active)
+		return true
 	# 융합 재료쌍: 조회 전용 캐시 소비+소유 절차 폴백 — 캐시 미스 프레임도
 	# 융합 아이콘으로 렌더되고, 합성은 프리웜(엔트리 빌드/씬 구성) 소유라
 	# 드로우 핫패스 재합성이 없다.
@@ -287,6 +290,8 @@ func draw_icon(canvas: CanvasItem, skill_id: String, rect: Rect2, alpha: float =
 
 func has_icon(skill_id: String) -> bool:
 	if skill_id in ["soul_summon_art", "unlock_soul_summon_art"]:
+		return true
+	if skill_id == "lingpet_guardian_enhance":
 		return true
 	# 융합 재료쌍 키는 파싱만 유효하면 항상 렌더 가능하다(합성 텍스처 미스
 	# 프레임도 소유 절차 폴백이 담당) — 캐시 상태에 따라 has/hasn't가
@@ -330,6 +335,33 @@ func _draw_soul_summon_art_icon(
 		var spark_center: Vector2 = center + (offset as Vector2) * radius
 		canvas.draw_line(spark_center - Vector2(radius * 0.07, 0.0), spark_center + Vector2(radius * 0.07, 0.0), cyan, maxf(1.0, radius * 0.045), true)
 		canvas.draw_line(spark_center - Vector2(0.0, radius * 0.07), spark_center + Vector2(0.0, radius * 0.07), cyan, maxf(1.0, radius * 0.045), true)
+
+
+func _draw_guardian_enhance_placeholder_icon(
+	canvas: CanvasItem,
+	rect: Rect2,
+	alpha: float,
+	active: bool
+) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.5
+	var brightness := 1.0 if active else 0.5
+	var jade := Color(0.28 * brightness, 0.92 * brightness, 0.68 * brightness, alpha)
+	var gold := Color(1.0 * brightness, 0.80 * brightness, 0.30 * brightness, alpha)
+	var ink := Color(0.03 * brightness, 0.14 * brightness, 0.12 * brightness, alpha)
+	canvas.draw_circle(center, radius * 0.40, Color(jade.r, jade.g, jade.b, alpha * 0.25))
+	canvas.draw_circle(center, radius * 0.26, Color(jade.r, jade.g, jade.b, alpha * 0.92))
+	canvas.draw_arc(center, radius * 0.28, 0.0, TAU, 32, ink, maxf(1.2, radius * 0.05), true)
+	var arrow := PackedVector2Array([
+		center + Vector2(0.0, -radius * 0.42),
+		center + Vector2(radius * 0.17, -radius * 0.19),
+		center + Vector2(radius * 0.07, -radius * 0.19),
+		center + Vector2(radius * 0.07, radius * 0.12),
+		center + Vector2(-radius * 0.07, radius * 0.12),
+		center + Vector2(-radius * 0.07, -radius * 0.19),
+		center + Vector2(-radius * 0.17, -radius * 0.19),
+	])
+	canvas.draw_colored_polygon(arrow, gold)
 
 
 # 애니메이션(시트) 아이콘 여부. 융합 재료쌍 합성은 항상 정적 경로 — 시트
