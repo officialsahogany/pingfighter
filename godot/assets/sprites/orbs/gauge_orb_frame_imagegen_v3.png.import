@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cbu7dohkto8hh"
-path="res://.godot/imported/gauge_orb_frame_imagegen_v2.png-9a9d38beb7a5296107f1185b689e5952.ctex"
+uid="uid://dxp7og71thn0c"
+path="res://.godot/imported/gauge_orb_frame_imagegen_v3.png-b01985d2f9c94c22b2de2cbeb294b31b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/orbs/gauge_orb_frame_imagegen_v2.png"
-dest_files=["res://.godot/imported/gauge_orb_frame_imagegen_v2.png-9a9d38beb7a5296107f1185b689e5952.ctex"]
+source_file="res://assets/sprites/orbs/gauge_orb_frame_imagegen_v3.png"
+dest_files=["res://.godot/imported/gauge_orb_frame_imagegen_v3.png-b01985d2f9c94c22b2de2cbeb294b31b.ctex"]
 
 [params]
 

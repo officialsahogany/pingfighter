@@ -9,7 +9,8 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	var frame_path := BattleCoreTexturePaths.GAUGE_ORB_FRAME_TEXTURE_PATH
-	_expect(frame_path.ends_with("gauge_orb_frame_imagegen_v2.png"), "ki orb must use the accepted Korean-fantasy v2 frame")
+	_expect(frame_path.ends_with("gauge_orb_frame_imagegen_v3.png"), "ki orb must use the count-neutral Korean-fantasy v3 frame")
+	_expect(frame_path != BattleCoreTexturePaths.DASH_TOKEN_FRAME_TEXTURE_PATH, "ki and dash frames must keep separate hole geometry despite sharing ornament language")
 	_expect(FileAccess.file_exists(frame_path), "ki-orb frame PNG must exist")
 	_expect(FileAccess.file_exists(frame_path + ".import"), "ki-orb frame PNG must ship with its import sidecar")
 
@@ -17,15 +18,16 @@ func _init() -> void:
 	_expect(image != null and image.get_size() == Vector2i(240, 240), "ki-orb frame must preserve the 240x240 runtime contract")
 	if image != null:
 		var alpha_bbox := _alpha_bbox(image, 16.0 / 255.0)
-		_expect(alpha_bbox.size.x >= 196 and alpha_bbox.size.x <= 198, "ki-orb frame outer alpha width must match the v1 socket")
+		_expect(alpha_bbox.size.x >= 197 and alpha_bbox.size.x <= 199, "ki-orb frame outer alpha width must match the v1 socket")
 		_expect(alpha_bbox.size.y >= 197 and alpha_bbox.size.y <= 199, "ki-orb frame outer alpha height must match the v1 socket")
 		var hole_width := _transparent_center_run_x(image, 16.0 / 255.0)
 		var hole_height := _transparent_center_run_y(image, 16.0 / 255.0)
-		_expect(hole_width >= 128 and hole_width <= 132, "ki-orb frame horizontal hole must preserve the v1 orb fit")
+		_expect(hole_width >= 127 and hole_width <= 131, "ki-orb frame horizontal hole must preserve the v1 orb fit")
 		_expect(hole_height >= 129 and hole_height <= 133, "ki-orb frame vertical hole must preserve the v1 orb fit")
 		_expect(image.get_pixel(120, 120).a <= 0.01, "ki-orb frame center must stay transparent")
 		_expect(image.get_pixel(0, 0).a <= 0.01, "ki-orb frame corners must stay transparent")
 		_expect(_opaque_magenta_count(image) == 0, "ki-orb frame must not retain opaque magenta chroma pixels")
+		_expect(_luminous_blue_pixel_count(image) == 0, "ki-orb frame must not restore fixed blue jewel nodes")
 
 	var texture_image := Image.create(4, 4, false, Image.FORMAT_RGBA8)
 	texture_image.fill(Color.WHITE)
@@ -42,7 +44,7 @@ func _init() -> void:
 		var spec: Dictionary = spec_value
 		if str(spec.get("path", "")) == frame_path and "gauge_orb_frame_texture" in spec.get("keys", []):
 			frame_spec_count += 1
-	_expect(frame_spec_count == 1, "ki-orb v2 frame must join core staged prewarm exactly once")
+	_expect(frame_spec_count == 1, "ki-orb v3 frame must join core staged prewarm exactly once")
 
 	var gauge_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_gauge_orb_renderer.gd")
 	var glass_index := gauge_source.find("pillar_drawer.draw_pillar_orb_glass(canvas")
@@ -104,6 +106,16 @@ func _opaque_magenta_count(image: Image) -> int:
 		for x in range(image.get_width()):
 			var color := image.get_pixel(x, y)
 			if color.a > 16.0 / 255.0 and color.r > 0.86 and color.b > 0.70 and color.g < 0.32:
+				count += 1
+	return count
+
+
+func _luminous_blue_pixel_count(image: Image) -> int:
+	var count := 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var color := image.get_pixel(x, y)
+			if color.a > 0.50 and color.b > 0.59 and color.g > 0.27 and color.r < 0.25 and color.b > color.g * 1.15:
 				count += 1
 	return count
 
