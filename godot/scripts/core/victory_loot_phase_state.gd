@@ -8,7 +8,6 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
-const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -34,10 +33,20 @@ const BOX_SHEET_PATHS := {
 	BOX_KIND_GUARANTEED_MYTHIC: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
 }
 
+# 인트로: 스코어보드의 파워로스 진동이 끝난 뒤, 보스가 힘을 잃고 패배 라투디를
+# 0프레임부터 재생하는 구간. 상자 드랍은 이 구간이 끝난 뒤에 시작한다.
+const INTRO_DEFEAT_SEC := 1.6
+
 # 낙하/안착/개봉 물리 상수. px/frame 계열은 fps_scale(delta * 60) 곱으로 적분한다.
+# 드랍은 보스 몸에서 살짝 위로 떠올랐다가(팝업) 포물선으로 떨어지고, 바닥에서
+# 짧게 튕긴 뒤 완전히 안착해야 픽업(개봉)이 가능하다.
 const DROP_INTERVAL_SEC := 0.55
 const DROP_GRAVITY_PX_PER_FRAME2 := 0.42
 const DROP_MAX_FALL_SPEED_PX_PER_FRAME := 11.0
+const DROP_POP_SPEED_PX_PER_FRAME := 5.4
+const DROP_BOUNCE_RESTITUTION := 0.38
+const DROP_BOUNCE_MIN_SPEED_PX_PER_FRAME := 2.6
+const DROP_MAX_BOUNCES := 2
 const DROP_SWAY_SPEED := 3.4
 const DROP_SWAY_AMOUNT_PX := 10.0
 const DROP_X_SPREAD_PX := 96.0
@@ -50,8 +59,9 @@ const OPEN_DURATION_SEC := 0.60
 const OPEN_GRANT_PROGRESS := 0.55
 const FINISH_LINGER_SEC := 0.75
 
-# 보스 defeat 프레임 클럭: battle_draw_actor_result_context의 스코어보드 구간
-# 상수를 미러링해 스코어보드 -> 전리품 페이즈 전환 시 프레임이 이어져 보인다.
+# 보스 defeat 프레임 클럭: battle_draw_actor_result_context의 defeat 시트 상수
+# 미러. 최종 승리 스코어보드는 파워로스 진동만 틀므로, 슬럼프는 전리품 인트로
+# 에서 0프레임부터 재생된다.
 const BOSS_RESULT_FRAME_SPEED := 0.18
 const BOSS_RESULT_FRAME_COUNT := 8
 const BOSS_STAGE2_DEFEAT_FRAME_SPEED := 0.025
@@ -65,10 +75,9 @@ const BOX_PHASE_DONE := "done"
 
 var active: bool = false
 var elapsed_sec: float = 0.0
-# 보스 defeat 프레임 클럭 오프셋: 전리품 페이즈는 스코어보드(1.75s)가 끝난 뒤
-# 시작되므로, 0에서 다시 세면 스코어보드가 홀드 중이던 마지막 defeat 프레임에서
-# 0프레임으로 되감긴다. 스코어보드 총 길이를 시드해 프레임이 이어지게 한다.
-var boss_anim_offset_sec: float = 0.0
+# 보스 defeat 클럭: 최종 승리 스코어보드는 defeat 대신 파워로스 진동을 재생하므로
+# (battle_draw_actor_result_context의 pending_game_reset 분기), 패배 라투디는
+# 전리품 인트로에서 elapsed_sec 기준 0프레임부터 새로 재생하는 것이 설계 의도다.
 var boxes: Array = []
 var collected_rewards: Array = []
 var finish_callback: Callable = Callable()
@@ -108,7 +117,6 @@ func start(
 	_finish_timer = -1.0
 	_finish_fired = false
 	elapsed_sec = 0.0
-	boss_anim_offset_sec = ScoreboardState.SCOREBOARD_TOTAL_DURATION
 	active = true
 	_write_owner_state(owner)
 	return true
@@ -117,7 +125,6 @@ func start(
 func reset(owner: Object = null) -> void:
 	active = false
 	elapsed_sec = 0.0
-	boss_anim_offset_sec = 0.0
 	boxes = []
 	collected_rewards = []
 	finish_callback = Callable()
@@ -173,12 +180,12 @@ func has_actor_draw_context() -> bool:
 func get_actor_draw_context() -> Dictionary:
 	if not active:
 		return {}
-	# 스코어보드 구간에서 이어지는 단일 defeat 클럭(되감김 금지).
-	var boss_anim_sec: float = elapsed_sec + boss_anim_offset_sec
-	var frame: int = mini(BOSS_RESULT_FRAME_COUNT - 1, int(floor(boss_anim_sec / BOSS_RESULT_FRAME_SPEED)))
+	# 스코어보드 파워로스 진동 직후, 힘을 잃는 슬럼프를 0프레임부터 재생하고
+	# 마지막 프레임에서 홀드한다(인트로 -> 드랍 구간 내내 쓰러진 채 유지).
+	var frame: int = mini(BOSS_RESULT_FRAME_COUNT - 1, int(floor(elapsed_sec / BOSS_RESULT_FRAME_SPEED)))
 	var stage2_defeat_frame: int = mini(
 		BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
-		int(floor(boss_anim_sec / BOSS_STAGE2_DEFEAT_FRAME_SPEED))
+		int(floor(elapsed_sec / BOSS_STAGE2_DEFEAT_FRAME_SPEED))
 	)
 	return {
 		"boss_defeat_active": true,
@@ -249,9 +256,10 @@ func _build_boxes(plan_boxes: Array, owner: Object) -> Array:
 			"kind": kind,
 			"pos": Vector2(origin.x, origin.y),
 			"base_x": rest_x,
-			"fall_speed": 0.0,
+			"fall_speed": -DROP_POP_SPEED_PX_PER_FRAME,
+			"bounce_count": 0,
 			"phase": BOX_PHASE_PENDING,
-			"drop_at_sec": float(index) * DROP_INTERVAL_SEC,
+			"drop_at_sec": INTRO_DEFEAT_SEC + float(index) * DROP_INTERVAL_SEC,
 			"sway_phase": float(index) * 1.7,
 			"open_progress": 0.0,
 			"reward_granted": false,
@@ -271,10 +279,18 @@ func _advance_drop(box: Dictionary, fps_scale: float) -> void:
 	var base_x: float = float(box.get("base_x", pos.x))
 	var height_ratio: float = clampf(1.0 - (next_y / maxf(1.0, REST_Y)), 0.0, 1.0)
 	var sway: float = sin(elapsed_sec * DROP_SWAY_SPEED + float(box.get("sway_phase", 0.0))) * DROP_SWAY_AMOUNT_PX * height_ratio
-	var origin_x: float = float(_get_vector2(box.get("pos", Vector2.ZERO), Vector2.ZERO).x)
+	var origin_x: float = pos.x
 	var settle: float = clampf(next_y / maxf(1.0, REST_Y), 0.0, 1.0)
 	var next_x: float = lerpf(origin_x, base_x + sway, minf(1.0, settle * 1.6))
-	if next_y >= REST_Y:
+	if next_y >= REST_Y and fall_speed > 0.0:
+		# 바닥 접촉: 남은 낙하 에너지가 있으면 짧게 튕기고, 다 소진되면 완전
+		# 안착(REST) — 픽업(개봉)은 안착 후에만 가능하다.
+		var bounce_count: int = int(box.get("bounce_count", 0))
+		if fall_speed >= DROP_BOUNCE_MIN_SPEED_PX_PER_FRAME and bounce_count < DROP_MAX_BOUNCES:
+			box["bounce_count"] = bounce_count + 1
+			box["fall_speed"] = -fall_speed * DROP_BOUNCE_RESTITUTION
+			box["pos"] = Vector2(next_x, REST_Y)
+			return
 		box["phase"] = BOX_PHASE_REST
 		box["pos"] = Vector2(base_x, REST_Y)
 		return

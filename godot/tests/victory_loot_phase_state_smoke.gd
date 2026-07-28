@@ -13,6 +13,7 @@ const MatchStateDepsBuilder := preload("res://scripts/core/battle_update_match_s
 const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
+const BattleDrawActorResultContext := preload("res://scripts/core/battle_draw_actor_result_context.gd")
 
 var _failures: Array[String] = []
 var _finish_calls: int = 0
@@ -188,6 +189,7 @@ func _run() -> void:
 	_verify_spawn_scheduler_blocks_during_loot()
 	_verify_match_reset_clears_loot()
 	_verify_real_runtime_effect_gate_forces_starpoint_fallback_premise()
+	_verify_final_win_scoreboard_plays_power_loss_vibration()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -238,27 +240,66 @@ func _verify_start_guards_and_plan() -> void:
 func _verify_drop_physics_and_stagger() -> void:
 	var loot := VictoryLootPhaseState.new()
 	var owner := SchemaGatedOwner.new()
-	# 픽업 판정을 피하도록 플레이어를 왼쪽 끝으로 치워 낙하만 관찰한다.
 	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
 	_expect(loot.start(owner, registry, 5, 0, Callable()), "drop physics leg should start the loot phase")
 
-	loot.update(1.0 / 60.0)
-	var first_box: Dictionary = loot.boxes[0]
-	var second_box: Dictionary = loot.boxes[1]
-	_expect(str(first_box.get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP, "first box should start dropping immediately")
-	_expect(str(second_box.get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_PENDING, "second box should stay pending until its stagger delay")
-
-	var origin_y: float = (first_box.get("pos") as Vector2).y
+	var origin_y: float = ((loot.boxes[0] as Dictionary).get("pos") as Vector2).y
 	_expect(origin_y < 100.0, "boxes should spawn from the boss body band at the top")
+
+	# 인트로(패배 라투디 0프레임 재생) 동안은 어떤 상자도 드랍되지 않는다.
+	for _i in range(30):
+		loot.update(1.0 / 60.0)
+	_expect(
+		str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_PENDING,
+		"boxes must stay pending during the defeat-latudi intro"
+	)
+
+	# 인트로 종료 후 첫 상자만 드랍 시작(스태거), 나머지는 대기.
 	for _i in range(600):
 		loot.update(1.0 / 60.0)
-		if str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+		if str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP:
 			break
-	first_box = loot.boxes[0]
-	_expect(str(first_box.get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST, "dropped box should settle to rest on the floor band")
-	_expect(is_equal_approx((first_box.get("pos") as Vector2).y, VictoryLootPhaseState.REST_Y), "rested box should sit exactly on the rest line")
+	_expect(
+		str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP,
+		"first box should start dropping after the intro"
+	)
+	_expect(
+		str((loot.boxes[1] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_PENDING,
+		"second box should stay pending until its stagger delay"
+	)
+
+	# 플레이어를 착지 x에 미리 세워두고: 팝업(위로 떠오름) -> 낙하 -> 바닥 바운스
+	# -> 완전 안착(REST) 후에만 개봉되는지 프레임 단위로 관찰한다.
+	var base_x: float = float((loot.boxes[0] as Dictionary).get("base_x", 380.0))
+	owner.scene_state.set_value("player_pos", Vector2(base_x - 77.5, 700.0))
+	var min_y: float = origin_y
+	var floor_touched: bool = false
+	var bounce_seen: bool = false
+	var opened_from_phase: String = ""
+	var prev_phase: String = str((loot.boxes[0] as Dictionary).get("phase", ""))
+	for _i in range(900):
+		loot.update(1.0 / 60.0)
+		var box: Dictionary = loot.boxes[0]
+		var cur_phase: String = str(box.get("phase", ""))
+		var y: float = (box.get("pos") as Vector2).y
+		min_y = minf(min_y, y)
+		if cur_phase == VictoryLootPhaseState.BOX_PHASE_DROP:
+			if y >= VictoryLootPhaseState.REST_Y - 0.5:
+				floor_touched = true
+			elif floor_touched and y < VictoryLootPhaseState.REST_Y - 2.0:
+				bounce_seen = true
+		if cur_phase == VictoryLootPhaseState.BOX_PHASE_OPENING:
+			opened_from_phase = prev_phase
+			break
+		prev_phase = cur_phase
+	_expect(min_y < origin_y - 15.0, "box must pop upward from the boss body before falling")
+	_expect(bounce_seen, "box must bounce at least once on floor contact before settling")
+	_expect(
+		opened_from_phase == VictoryLootPhaseState.BOX_PHASE_REST,
+		"box must only open after fully settling (REST) even with the paddle waiting under it"
+	)
 	_expect(_finish_calls == 0, "loot phase must not finish while boxes are unopened")
 
 
@@ -462,12 +503,11 @@ func _verify_actor_draw_context() -> void:
 	_expect(loot.start(owner, registry, 5, 0, Callable()), "actor context leg should start the loot phase")
 	var context: Dictionary = loot.get_actor_draw_context()
 	_expect(bool(context.get("boss_defeat_active", false)), "active loot phase should keep the boss defeat sheet playing")
-	# 연속성 계약: 전리품 페이즈는 스코어보드(1.75s)가 홀드하던 마지막 defeat
-	# 프레임에서 이어져야 한다(0프레임 되감김 금지). 1.75s > 8f x 0.18s 이므로
-	# 일반 보스는 시작 즉시 마지막 프레임 홀드 상태다.
+	# 신규 연출 계약: 최종 승리 스코어보드는 defeat 대신 파워로스 진동을 틀므로,
+	# 패배 라투디(슬럼프)는 전리품 인트로에서 0프레임부터 새로 재생해야 한다.
 	_expect(
-		int(context.get("boss_result_frame", -1)) == VictoryLootPhaseState.BOSS_RESULT_FRAME_COUNT - 1,
-		"loot phase must continue the defeat clock from the scoreboard hold (no frame-zero rewind)"
+		int(context.get("boss_result_frame", -1)) == 0,
+		"loot intro must start the defeat slump from frame zero (vibration beat precedes it)"
 	)
 	loot.update(10.0)
 	context = loot.get_actor_draw_context()
@@ -486,8 +526,14 @@ func _verify_actor_draw_context() -> void:
 	_expect(stage2_loot.start(stage2_owner, registry, 5, 0, Callable()), "stage2 actor context leg should start the loot phase")
 	var stage2_context: Dictionary = stage2_loot.get_actor_draw_context()
 	_expect(
+		int(stage2_context.get("boss_defeat_frame", -1)) == 0,
+		"stage2 loot intro must also start its 64f defeat slump from frame zero"
+	)
+	stage2_loot.update(VictoryLootPhaseState.INTRO_DEFEAT_SEC)
+	stage2_context = stage2_loot.get_actor_draw_context()
+	_expect(
 		int(stage2_context.get("boss_defeat_frame", -1)) == VictoryLootPhaseState.BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
-		"stage2 loot phase must continue the 64f defeat clock from the scoreboard hold"
+		"stage2 defeat slump should reach its held final frame within the intro window"
 	)
 
 
@@ -607,6 +653,68 @@ func _verify_real_runtime_effect_gate_forces_starpoint_fallback_premise() -> voi
 	var failed_value: Variant = summary.get("failed", [])
 	var failed: Array = failed_value if failed_value is Array else []
 	_expect(not failed.is_empty(), "real resolver should list the effect-gated reward as failed")
+
+
+class FakeScoreboardStateForResultContext:
+	extends RefCounted
+
+	var pending_game_reset := true
+	var timer := 1.0
+
+	func is_active() -> bool:
+		return true
+
+	func get_last_scoring_side() -> String:
+		return "player"
+
+	func get_player_points() -> int:
+		return 5
+
+	func get_boss_points() -> int:
+		return 0
+
+	func get_timer() -> float:
+		return timer
+
+	func has_pending_game_reset() -> bool:
+		return pending_game_reset
+
+
+func _verify_final_win_scoreboard_plays_power_loss_vibration() -> void:
+	# 최종 승리 스코어보드는 보스를 defeat로 눕히지 않고 고속 진동(파워로스)을
+	# 재생한다 — 패배 라투디는 전리품 인트로가 이어받는다. 라운드 승리(비종료)
+	# 스코어보드는 기존 defeat 반응을 유지해야 한다.
+	var scoreboard := FakeScoreboardStateForResultContext.new()
+	var deps := {"scoreboard_state": scoreboard}
+	var context: Dictionary = BattleDrawActorResultContext.get_boss_result_context(deps, 1)
+	_expect(not bool(context.get("boss_defeat_active", false)), "final-win scoreboard must not slump the boss yet (vibration beat owns this window)")
+	_expect(bool(context.get("boss_power_loss_shake_active", false)), "final-win scoreboard should emit the power-loss vibration context")
+	var offset_value: Variant = context.get("boss_power_loss_shake_offset", Vector2.ZERO)
+	var offset: Vector2 = offset_value if offset_value is Vector2 else Vector2.ZERO
+	_expect(offset.length() > 0.5, "vibration should visibly displace the boss mid-window")
+	_expect(bool(context.get("player_victory_active", false)), "player victory pose should keep playing during the vibration beat")
+
+	# 구간 말미에는 진동이 잦아들어 슬럼프로 자연 연결된다.
+	scoreboard.timer = 1.75
+	var end_context: Dictionary = BattleDrawActorResultContext.get_boss_result_context(deps, 1)
+	var end_offset_value: Variant = end_context.get("boss_power_loss_shake_offset", Vector2.ZERO)
+	var end_offset: Vector2 = end_offset_value if end_offset_value is Vector2 else Vector2.ZERO
+	_expect(end_offset.length() < 0.05, "vibration must settle to zero by the end of the scoreboard window")
+
+	# 라운드 승리(매치 미종료)는 기존 defeat 반응 유지.
+	scoreboard.pending_game_reset = false
+	scoreboard.timer = 1.0
+	var round_context: Dictionary = BattleDrawActorResultContext.get_boss_result_context(deps, 1)
+	_expect(bool(round_context.get("boss_defeat_active", false)), "round-win scoreboard must keep the per-round boss defeat reaction")
+	_expect(not round_context.has("boss_power_loss_shake_active"), "round-win scoreboard must not vibrate the boss")
+
+	# 배선 씰(구조): actor context가 진동 오프셋을 보스 렌더 위치에 더한다.
+	var actor_context_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_draw_actor_context.gd")
+	_expect(
+		actor_context_source.find("boss_power_loss_shake_offset") >= 0
+			and actor_context_source.find("boss_draw_pos += ") >= 0,
+		"actor context should apply the power-loss shake offset to the boss render position"
+	)
 
 
 func _record_finish() -> void:

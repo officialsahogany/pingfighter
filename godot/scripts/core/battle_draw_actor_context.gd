@@ -179,6 +179,9 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	var combined_result_context := boss_result_context.duplicate(true)
 	combined_result_context.merge(revival_result_context, true)
 	combined_result_context.merge(victory_loot_result_context, true)
+	# 최종 승리 파워로스 비트: 보스 렌더 위치에 진동 오프셋을 컨텍스트 레벨에서
+	# 일괄 적용한다(스테이지 렌더러 무관).
+	boss_draw_pos += _get_vector2(combined_result_context, "boss_power_loss_shake_offset", Vector2.ZERO)
 	combined_result_context["stage1_boss_variant"] = str(context.get("stage1_boss_variant", "dalji"))
 	var result_state_active: bool = ResultContext.has_result_state(combined_result_context)
 	_perf_end(perf_logger, "context.actor.textures.base", texture_sample_start)
