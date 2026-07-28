@@ -84,6 +84,12 @@ func restore_current(pet_id: String, skill_states: Array) -> bool:
 
 
 func advance_stored_cooldowns(delta: float, active_pet_id: String, companion_active: bool, slot_count: int) -> void:
+	# Guardian cooldown time only exists while a guardian is actually summoned.
+	# A stowed guardian must not tick the active pet OR the per-pet snapshots;
+	# otherwise switching pets after resummoning launders elapsed stow time into
+	# a lower cooldown.
+	if not companion_active:
+		return
 	var safe_delta := maxf(0.0, delta)
 	if safe_delta <= 0.0 or state_by_pet_id.is_empty():
 		return
@@ -105,7 +111,9 @@ func advance_stored_cooldowns(delta: float, active_pet_id: String, companion_act
 		state_by_pet_id[raw_pet_id] = updated
 
 
-func advance_states(delta: float, skill_states: Array) -> void:
+func advance_states(delta: float, skill_states: Array, companion_active: bool = true) -> void:
+	if not companion_active:
+		return
 	shared_cooldown = maxf(0.0, shared_cooldown - maxf(0.0, delta))
 	for state in skill_states:
 		if state != null and state.has_method("advance"):

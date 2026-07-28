@@ -320,17 +320,20 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			delta,
 			_vector_resolver.get_owner_player_paddle_center(owner, _item_egg_state.pos)
 		)
-	_companion_body_hit_state.advance(delta)
-	_companion_skill_persistence.advance_states(delta, _companion_skill_states)
+	var guardian_summoned := _is_guardian_summoned()
+	if guardian_summoned:
+		_companion_body_hit_state.advance(delta)
+	_companion_skill_persistence.advance_states(delta, _companion_skill_states, guardian_summoned)
 	_companion_skill_persistence.advance_stored_cooldowns(
 		delta,
 		_pet_id,
-		_state == STATE_COMPANION,
+		guardian_summoned,
 		_companion_skill_states.size()
 	)
-	_companion_sprite_animator.advance(delta)
-	_companion_click_reaction_state.advance(delta)
-	_affinity_feedback_state.advance(delta)
+	if guardian_summoned:
+		_companion_sprite_animator.advance(delta)
+		_companion_click_reaction_state.advance(delta)
+		_affinity_feedback_state.advance(delta)
 	_perf_probe.end(perf_logger, "physics.lingpet.advance", sample_start)
 
 	# Incubator-egg reveal cut-in has dismissed: restore the companion + absorb the new pet
@@ -406,7 +409,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		# 탈진(포만도 소진) 중엔 위치-스크립팅 패시브를 억제한다(WIP 파괴 후 복원).
 		# companion_active에 fold — 패시브 모듈은 탈진을 모른 채 _is_enabled false로
 		# 받아 reset이 자가치유 티어다운. KO 중 별빛추적 순간이동/전달 방지.
-		_starlight_tracking_state.advance(delta, starlight_passive_skill, _state == STATE_COMPANION and not is_companion_exhausted(), _companion_pos)
+		_starlight_tracking_state.advance(delta, starlight_passive_skill, guardian_summoned, _companion_pos)
 		if _feed_controller.is_active():
 			var feed_step: Dictionary = _feed_controller.advance(
 				delta,
@@ -444,7 +447,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_perf_probe.end(perf_logger, "physics.lingpet.vfx_states", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		var affinity_hit_tags: Dictionary = _affinity_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
-		_update_companion_motion(delta, owner, registry)
+		if guardian_summoned:
+			_update_companion_motion(delta, owner, registry)
+		else:
+			_companion_body_hit_state.ball_was_inside = false
 		_perf_probe.end(perf_logger, "physics.lingpet.companion_motion", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		affinity_hit_tags = _affinity_hit_tag_resolver.merge(
@@ -452,11 +458,11 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			_affinity_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
 		)
 		_ghost_blink_vfx.sync_visibility(
-			_state == STATE_COMPANION and _profile_runtime_surface.get_motion_style(_current_profile) == "free_flight",
+			guardian_summoned and _profile_runtime_surface.get_motion_style(_current_profile) == "free_flight",
 			bool(_companion_motion_state.motion_visible),
 			_companion_pos
 		)
-		if _is_companion_exhausted_for_owner(owner):
+		if not guardian_summoned:
 			_companion_sprite_animator.reset_latch()
 		else:
 			_companion_strike_anticipator.maybe_arm_from_sources(
@@ -476,7 +482,8 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			)
 		_perf_probe.end(perf_logger, "physics.lingpet.strike_arm", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_resolve_companion_ball_hit(owner, registry, affinity_hit_tags)
+		if guardian_summoned:
+			_resolve_companion_ball_hit(owner, registry, affinity_hit_tags)
 		# Stream the NEW pet's heavy acquire cut-in sheets into the cache DURING incubation
 		# (the companion's _pet_id would otherwise prewarm the wrong pet), so the reveal opens
 		# already animated instead of holding on the static fallback.
@@ -501,13 +508,15 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			_audio_dispatcher.play_lingpet_acquire_cutin(registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.ball_hit", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_afterglow_leak_state.advance(delta, owner, registry, _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetAfterglowLeakState.PASSIVE_ID), _state == STATE_COMPANION)
+		_afterglow_leak_state.advance(delta, owner, registry, _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetAfterglowLeakState.PASSIVE_ID), guardian_summoned)
 		_perf_probe.end(perf_logger, "physics.lingpet.afterglow", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_update_companion_skill_effects(delta, owner, registry)
+		if guardian_summoned:
+			_update_companion_skill_effects(delta, owner, registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.skill_effects", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_advance_companion_draw_anim(delta)
+		if guardian_summoned:
+			_advance_companion_draw_anim(delta)
 		_perf_probe.end(perf_logger, "physics.lingpet.draw_anim", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		_sync_owner(owner, registry)
@@ -611,42 +620,43 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 	if canvas == null:
 		return
 	if _state == STATE_COMPANION:
-		# Star Coil BIND: the orosha coil body wraps the boss, so render it in this post-actor
-		# FRONT pass (over the boss) instead of the behind-actors pass — body first, then the
-		# skill's own sparks/VFX on top.
-		var body_skill_id: String = _skill_runtime_surface.get_body_skill_id(
-			_current_profile,
-			_active_skill_slot_resolver,
-			_companion_skill_visual_resolver,
-			_skill_runtime_host,
-			_companion_pos
-		)
-		if _companion_body_presence_resolver.is_front_pass_body_active(
-			_state,
-			STATE_COMPANION,
-			_skill_runtime_surface,
-			_skill_runtime_host,
-			body_skill_id
-		):
-			_draw_companion(canvas, _companion_pos + shake_offset)
-		_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))
-		_afterglow_leak_state.draw(canvas, shake_offset)
+		if _is_guardian_summoned():
+			# Star Coil BIND: the orosha coil body wraps the boss, so render it in this post-actor
+			# FRONT pass (over the boss) instead of the behind-actors pass — body first, then the
+			# skill's own sparks/VFX on top.
+			var body_skill_id: String = _skill_runtime_surface.get_body_skill_id(
+				_current_profile,
+				_active_skill_slot_resolver,
+				_companion_skill_visual_resolver,
+				_skill_runtime_host,
+				_companion_pos
+			)
+			if _companion_body_presence_resolver.is_front_pass_body_active(
+				_state,
+				STATE_COMPANION,
+				_skill_runtime_surface,
+				_skill_runtime_host,
+				body_skill_id
+			):
+				_draw_companion(canvas, _companion_pos + shake_offset)
+			_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))
+			_afterglow_leak_state.draw(canvas, shake_offset)
 		# The lingpet BODY (egg sprite / companion sprite) is intentionally NOT drawn
 		# here. It renders earlier, BEHIND the player, via draw_lingpet_body_behind_actors()
 		# (invoked from the shared player actor renderer). Keeping it out of this
 		# post-actor front pass is what makes an overlapping player render in front of the
 		# lingpet. Only the companion's emanating VFX stay in front (ring dash / ghost
 		# blink / affinity feedback) plus the hatch flash.
-		if _ring_dash_vfx.has_visible_effects():
+		if _is_guardian_summoned() and _ring_dash_vfx.has_visible_effects():
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
 			_ghost_blink_vfx.draw(canvas, shake_offset)
-		if _affinity_feedback_state.has_visible_effects(_state == STATE_COMPANION):
+		if _affinity_feedback_state.has_visible_effects(_is_guardian_summoned()):
 			_companion_renderer.draw_affinity_feedback(
 				canvas,
 				_companion_pos + shake_offset,
 				_companion_draw_context_builder.build_affinity_feedback_config({
-					"companion_active": _state == STATE_COMPANION,
+					"companion_active": _is_guardian_summoned(),
 					"radius": COMPANION_RADIUS,
 					"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
 					"affinity_feedback_state": _affinity_feedback_state,
@@ -717,6 +727,11 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 			_item_egg_state.egg_color_index,
 			_item_egg_state.roll_angle
 		)
+	var switch_transition_active: bool = bool(
+		_switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0
+	)
+	if not _is_guardian_summoned() and not switch_transition_active:
+		return
 	if _feed_controller.has_visible_effects():
 		_feed_controller.draw(canvas, shake_offset)
 	var body_skill_id: String = _skill_runtime_surface.get_body_skill_id(
@@ -766,14 +781,15 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 func has_visible_effects() -> bool:
 	return (
 		_state == STATE_EGG
-		or _state == STATE_COMPANION
+		or _is_guardian_summoned()
+		or _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0
 		or bool(_egg_state.has_hatch_flash())
 		or _acquire_cutin_state.active
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
 		or _feed_controller.has_visible_effects()
-		or _affinity_feedback_state.has_visible_effects(_state == STATE_COMPANION)
+		or _affinity_feedback_state.has_visible_effects(_is_guardian_summoned())
 		or _skill_runtime_host.has_visible_effects()
 		or _item_egg_lifecycle_state.is_active()
 		or _item_egg_absorb_vfx.has_visible_effects()
@@ -781,11 +797,13 @@ func has_visible_effects() -> bool:
 
 
 func get_boss_ai_context() -> Dictionary:
-	return _skill_runtime_surface.get_boss_ai_context(_state, STATE_COMPANION, _skill_runtime_host)
+	var runtime_state := STATE_COMPANION if _is_guardian_summoned() else STATE_NONE
+	return _skill_runtime_surface.get_boss_ai_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
 
 
 func get_ball_collision_context() -> Dictionary:
-	return _skill_runtime_surface.get_ball_collision_context(_state, STATE_COMPANION, _skill_runtime_host)
+	var runtime_state := STATE_COMPANION if _is_guardian_summoned() else STATE_NONE
+	return _skill_runtime_surface.get_ball_collision_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
 
 
 func notify_lingpet_bone_barrier_hit(
@@ -1372,13 +1390,13 @@ func configure_companion_sortie_hidden_for_tests(test_pos: Vector2, test_seed: i
 func get_gauge_gain_per_hit(base_gain: float) -> float:
 	var gain: float = maxf(0.0, base_gain)
 	var bonus_pct: float = _profile_runtime_surface.get_gauge_gain_bonus_pct(_current_profile, 0.0)
-	if _state != STATE_COMPANION or bonus_pct <= 0.0:
+	if not _is_guardian_summoned() or bonus_pct <= 0.0:
 		return gain
 	return floor(gain * (1.0 + bonus_pct / 100.0))
 
 
 func get_player_speed_multiplier() -> float:
-	if _state != STATE_COMPANION:
+	if not _is_guardian_summoned():
 		return 1.0
 	var bonus_pct: float = _profile_runtime_surface.get_player_speed_bonus_pct(_current_profile, 0.0)
 	if bonus_pct <= 0.0:
@@ -1387,7 +1405,10 @@ func get_player_speed_multiplier() -> float:
 
 
 func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_seconds: float, context: Dictionary = {}) -> Dictionary:
-	if drop.is_empty() or _state != STATE_COMPANION:
+	if drop.is_empty():
+		return {}
+	if not _is_guardian_summoned():
+		_starlight_tracking_state.end_for_stow(drop)
 		return {}
 	if _feed_controller.is_active():
 		return {}
@@ -1417,7 +1438,7 @@ func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_second
 		maxf(0.0, delta_seconds),
 		drop,
 		passive_skill,
-		_state == STATE_COMPANION and not is_companion_exhausted(),
+		_is_guardian_summoned(),
 		_companion_pos,
 		_vector_resolver.get_starlight_tracking_delivery_pos(context),
 		_profile_runtime_surface.get_motion_style(_current_profile),
@@ -1675,7 +1696,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
 	snapshot.merge(_feed_controller.get_snapshot(), true)
-	snapshot["companion_appearance_rate"] = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _state == STATE_COMPANION else 0.0
+	snapshot["companion_appearance_rate"] = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _is_guardian_summoned() else 0.0
 	var affinity_snapshot: Dictionary = _affinity_owner_surface.build_snapshot(
 		_state,
 		STATE_COMPANION,
@@ -1699,7 +1720,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot["satiety_speed_scale"] = _get_satiety_speed_scale()
 	snapshot["companion_exhausted"] = is_companion_exhausted()
 	snapshot["satiety_exhaustion_ratio"] = get_satiety_exhaustion_ratio_for_tests()
-	snapshot.merge(_affinity_feedback_state.get_snapshot(_state == STATE_COMPANION), true)
+	snapshot.merge(_affinity_feedback_state.get_snapshot(_is_guardian_summoned()), true)
 	snapshot["item_egg_active"] = _item_egg_lifecycle_state.is_active()
 	snapshot["item_egg_pet_id"] = _item_egg_lifecycle_state.get_pet_id()
 	snapshot["item_egg_hatch_hits"] = _item_egg_state.hatch_hits
@@ -2299,7 +2320,7 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	# through the snapshot builder; the panel reads owner.lingpet_companion_appearance_rate.
 	# Route through the builder's gated setters so these stable-most-ticks keys
 	# share the change-gated last-pushed cache (F-lingpet-1).
-	var appearance_rate: float = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _state == STATE_COMPANION else 0.0
+	var appearance_rate: float = _debug_stat_overrides.get_appearance_rate(_current_profile, 0.0) if _is_guardian_summoned() else 0.0
 	_snapshot_builder.set_owner_pair_gated(owner, "lingpet_companion_appearance_rate", "ringpet_companion_appearance_rate", appearance_rate)
 	_snapshot_builder.set_owner_pair_gated(
 		owner,
@@ -2395,7 +2416,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	# 탈진 판정 호이스트(WIP 파괴 후 복원): 링크포트(ring_dash) advance가 이 아래에서
 	# 탈진 판정보다 먼저 돌며 companion_active만 받아 KO 중 순간이동+VFX+사운드를
 	# 냈다. companion_active에 fold하기 위해 여기서 미리 판정한다.
-	var companion_exhausted: bool = _is_companion_exhausted_for_owner(owner)
+	var companion_active := _is_guardian_summoned()
 	var skill_position_override: Dictionary = _skill_runtime_surface.get_active_position_owner(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -2410,7 +2431,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	_mount_state.advance(
 		owner,
 		_companion_pos,
-		_state == STATE_COMPANION and not has_skill_position_override,
+		companion_active and not has_skill_position_override,
 		_is_right_click_claimed_by_player_skill(registry),
 		delta
 	)
@@ -2434,7 +2455,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 			delta,
 			owner,
 			passive_skill,
-			_state == STATE_COMPANION and not companion_exhausted,
+			companion_active,
 			_companion_pos,
 			_profile_runtime_surface.get_catch_width(_current_profile, COMPANION_HIT_HALF_WIDTH * 2.0),
 			_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
@@ -2488,8 +2509,8 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	_companion_motion_state.update(
 		delta,
 		owner,
-		_companion_skill_persistence.is_any_winding_up(_companion_skill_states) or companion_exhausted,
-		0.0 if companion_exhausted else _debug_stat_overrides.get_defense_rate(_current_profile, COMPANION_DEFENSE_RATE),
+		_companion_skill_persistence.is_any_winding_up(_companion_skill_states) or not companion_active,
+		_debug_stat_overrides.get_defense_rate(_current_profile, COMPANION_DEFENSE_RATE) if companion_active else 0.0,
 		_companion_skill_persistence.get_trigger_count(),
 		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_default", COMPANION_PATROL_SPEED),
 		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
@@ -2497,7 +2518,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_profile_runtime_surface.get_motion_style(_current_profile),
 		_debug_stat_overrides.get_appearance_rate(_current_profile, 0.0),
 		satiety_speed_scale,
-		companion_exhausted
+		not companion_active
 	)
 	_companion_pos = _companion_motion_state.pos
 	_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
@@ -2585,7 +2606,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	if not bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false)):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
-	if _is_companion_exhausted_for_owner(owner):
+	if not _is_guardian_summoned():
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 	# 탑승 중엔 수비 정지 (parked != disabled trap: the suppression must be
@@ -2645,7 +2666,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 		_profile_runtime_surface.get_catch_width(_current_profile, COMPANION_HIT_HALF_WIDTH * 2.0),
 		_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
 		_profile_runtime_surface.get_hit_gauge_gain(_current_profile, COMPANION_HIT_GAUGE_GAIN),
-		_state == STATE_COMPANION,
+		_is_guardian_summoned(),
 		_companion_sprite_animator.strike_active
 	)
 	if not bool(hit_result.get("hit", false)):
@@ -2662,7 +2683,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	# strike entering at the thrust apex so the spear still snaps on contact.
 	if bool(hit_result.get("should_begin_strike", false)):
 		_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_IMPACT_FRAME)
-	_afterglow_leak_state.spawn_from_hit(_companion_body_hit_state.last_contact_pos, _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetAfterglowLeakState.PASSIVE_ID), _state == STATE_COMPANION)
+	_afterglow_leak_state.spawn_from_hit(_companion_body_hit_state.last_contact_pos, _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetAfterglowLeakState.PASSIVE_ID), _is_guardian_summoned())
 	# Guard against a boss skill that owns the ball each frame (e.g. Dalji's
 	# 상모돌리기 whip forces the ball downward via update_ball_motion). Notify it
 	# like a player-paddle guard so it stops controlling the ball; otherwise the
@@ -2681,7 +2702,7 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 		_companion_motion_state.motion_visible,
 		_companion_pos,
 		_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
-		_is_companion_exhausted_for_owner(owner),
+		not _is_guardian_summoned(),
 		self
 	)
 	_companion_motion_state.pos = _companion_pos
@@ -2788,7 +2809,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		_companion_pos,
 		COMPANION_SKILL_WINDUP_SECONDS
 	)
-	var companion_exhausted := _is_companion_exhausted_for_owner(null)
+	var companion_exhausted := not _is_guardian_summoned()
 	var draw_motion_speed_ratio: float = _companion_body_presence_resolver.get_draw_motion_speed_ratio_from_surface(
 		visual_surface,
 		_current_profile,
@@ -2802,7 +2823,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	if companion_exhausted:
 		draw_motion_speed_ratio = 0.0
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
-		"companion_active": _state == STATE_COMPANION,
+		"companion_active": _is_guardian_summoned(),
 		"radius": COMPANION_RADIUS,
 		"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
 		"body_hit_state": _companion_body_hit_state,
@@ -2818,7 +2839,9 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
 		"motion_speed_ratio": draw_motion_speed_ratio,
-		"companion_exhausted": companion_exhausted,
+		# Exhaustion visuals were replaced by vanish-on-stow. The transitional
+		# exhausted getter remains for old non-visual consumers until §9-4.
+		"companion_exhausted": false,
 		"satiety_exhaustion_ratio": get_satiety_exhaustion_ratio_for_tests(),
 		"companion_roll_angle": _companion_distance_roll_state.get_draw_angle(_current_profile, LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x),
 		"defense_guard_active": _companion_motion_state.defense_intercept_active,
@@ -2847,7 +2870,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 # coordinates (caller converts the viewport click via the layout render_scale /
 # game_offset). Returns true when the click was consumed by the companion.
 func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object = null) -> bool:
-	if _state != STATE_COMPANION:
+	if not _is_guardian_summoned():
 		return false
 	if _companion_pos == Vector2.ZERO:
 		return false
@@ -2860,7 +2883,7 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 		return false
 	_companion_click_reaction_state.start()
 	if (
-		not _is_companion_exhausted_for_owner(null)
+		_is_guardian_summoned()
 		and _companion_body_presence_resolver.can_grant_click_affinity(_companion_motion_state, _ring_dash_state)
 	):
 		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_CLICK, {}, registry)
@@ -2872,7 +2895,7 @@ func try_begin_companion_interact_reaction(registry: Object = null) -> bool:
 	# Non-mouse bond entry (keyboard/gamepad): self-target the companion's own
 	# position so the click body (tap-zone check, texture-ready gate, exhaustion /
 	# body-presence affinity gate, SOURCE_CLICK caps, audio) is reused verbatim.
-	if _state != STATE_COMPANION:
+	if not _is_guardian_summoned():
 		return false
 	return try_begin_companion_click_reaction(_companion_pos, registry)
 
@@ -3246,12 +3269,13 @@ func _get_satiety_speed_scale(owner: Object = null) -> float:
 	)
 
 
-func _is_companion_exhausted_for_owner(owner: Object = null) -> bool:
+func _is_companion_exhausted_for_owner(_owner: Object = null) -> bool:
 	if _state != STATE_COMPANION:
 		return false
-	if _satiety_runtime_state.is_penalty_exempt(owner, _collection_state, _affinity_state):
-		return false
-	return _guardian_stowed and _affinity_state.is_duration_resummon_locked()
+	# Transitional compatibility name through §9-4: every old exhaustion fold
+	# now means "guardian not summoned". Manual stow must gate the same combat
+	# surfaces as a duration-expiry stow, regardless of the >10s resummon lock.
+	return _guardian_stowed
 
 
 func _ensure_duration_pool_roll() -> Dictionary:
@@ -3271,6 +3295,7 @@ func _set_guardian_stowed(
 	_guardian_stowed = stowed
 	_guardian_active_elapsed = 0.0
 	if stowed:
+		_end_guardian_runtime_for_stow(owner, registry)
 		_switch_transition_state.begin(
 			_pet_id,
 			"",
@@ -3288,6 +3313,30 @@ func _set_guardian_stowed(
 	if owner != null:
 		_sync_owner(owner, registry)
 	return true
+
+
+func _end_guardian_runtime_for_stow(owner: Object, registry: Object) -> void:
+	# Stop preparation without touching the preserved cooldown values.
+	_companion_skill_persistence.cancel_windups(_companion_skill_states)
+	# Every launched skill owns its own projectile/residue arrays, CC restoration,
+	# and loop audio cancellation. This host boundary intentionally does not own
+	# the skill-state cooldowns.
+	_skill_runtime_host.end_for_stow(owner, registry)
+	# Non-active-skill companion effects need the same explicit teardown. Do not
+	# call broad companion resets here: those reset defense decision timers and
+	# per-opportunity roll locks, enabling stow/resummon reroll farming.
+	_afterglow_leak_state.reset_round_transients()
+	_starlight_tracking_state.end_for_stow()
+	_ring_dash_state.end_for_stow()
+	_ring_dash_vfx.reset()
+	_feed_controller.reset_all()
+	_mount_state.reset()
+	_companion_motion_state.clear_defense_intercept()
+	_companion_body_hit_state.ball_was_inside = false
+	_companion_body_hit_state.reset_round_transients()
+	_companion_sprite_animator.reset_latch()
+	_companion_click_reaction_state.reset()
+	_affinity_feedback_state.reset_transients()
 
 
 func _is_guardian_summoned() -> bool:

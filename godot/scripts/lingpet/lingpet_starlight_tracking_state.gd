@@ -194,6 +194,18 @@ func reset_round_transients() -> void:
 	_companion_pos = Vector2.ZERO
 
 
+# The tracked drop is owned by the stage event, not by this state object. When
+# stow removes the guardian, release those materialized claim flags as well as
+# the local position override so the drop cannot remain invisibly reserved.
+func end_for_stow(drop: Dictionary = {}) -> void:
+	reset_round_transients()
+	if drop.is_empty():
+		return
+	drop[DROP_ACTIVE_KEY] = false
+	drop[DROP_CARRYING_KEY] = false
+	drop[DROP_HOLD_REMAINING_KEY] = 0.0
+
+
 func get_snapshot() -> Dictionary:
 	return {
 		"starlight_tracking_active": _active,

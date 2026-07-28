@@ -106,6 +106,13 @@ func reset_round_transients() -> void:
 	_rolled_this_descent = false
 
 
+# Stow ends an in-flight Linkport immediately, but intentionally preserves the
+# remaining cooldown and the per-descent roll lock. Clearing either here would
+# let Ctrl/R3 stow-resummon reroll the same defensive opportunity.
+func end_for_stow() -> void:
+	_cancel_dash()
+
+
 func get_snapshot() -> Dictionary:
 	return {
 		"ring_dash_active": _active,

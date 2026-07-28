@@ -6914,7 +6914,10 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 		"last_gain": 1.0,
 		"origin": Vector2(12.0, 34.0),
 	}
-	legacy_persistence.advance_stored_cooldowns(3.0, "", false, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
+	# Stored cooldown migration/advance now runs only while a guardian is
+	# summoned; an unmatched active id keeps this fixture focused on the legacy
+	# snapshot shape rather than the stow freeze contract.
+	legacy_persistence.advance_stored_cooldowns(3.0, "", true, LingpetCatalog.MAX_ACTIVE_SLOT_COUNT)
 	var legacy_stored: Dictionary = legacy_persistence.state_by_pet_id.get("red_dragon", {}) as Dictionary
 	var legacy_slot0: Dictionary = legacy_stored.get("slot_0", {}) as Dictionary
 	var legacy_slot1: Dictionary = legacy_stored.get("slot_1", {}) as Dictionary

@@ -104,6 +104,14 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_sand_prison_skill, owner, registry)
 
 
+# Stow is a gameplay cancellation boundary, not a persistence reset. Skill
+# runtime modules own launched projectiles, CC restoration, residual arrays,
+# and loop-audio teardown through cancel()/reset(); the companion skill-state
+# cooldowns live outside this host and are deliberately untouched here.
+func end_for_stow(owner: Object = null, registry: Object = null) -> void:
+	reset(owner, registry)
+
+
 func clear_for_tests(owner: Object = null, registry: Object = null) -> void:
 	reset(owner, registry)
 	_hydro_sphere_skill = null
