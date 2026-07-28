@@ -167,8 +167,12 @@
    남은 실행 = 기능 묶음 단위 헝크 분리 커밋. 이 리포는 stash/reset 금지.
    ⚠️ `lingpet_egg_runtime.gd` WIP가 이미 2단계(satiety→`LingpetSatietyRuntimeState`
    추출)의 선행분 — 구현 시 중복 재작업 금지.
-2. **레일 추출**: 지속시간 상태 + 버프 저장소를 새 owner 모듈로 추출·리네임
-   (씰 동반 이식). affinity god-module(1997줄)은 아직 삭제하지 않는다.
+2. **레일 추출**: ✅ 완료 (2026-07-28, Codex 구현 + Claude 검수 승인).
+   `lingpet_duration_state.gd`(2f1df620a) + `lingpet_enhancement_buff_store.gd`
+   (fd1e7e4a1). affinity_state 1997→1461줄 위임 래퍼화, 세이브 키 문자열·owner
+   스키마·수치 불변, 씰 7종 독립 재실행 GREEN + card_specs 기준선 RED 동일.
+   잔여: 신규 씰 2종 focused/CI 등재 + ownership ledger 갱신 (CI 파일 외래
+   dirty 정산 후 별도 자기완결 커밋으로).
    - **착수 기준 (2026-07-28 고정, 트리거 = 사용자의 "§9-2 착수" 명시):**
      - 기준 HEAD: `897da5df7` (정산 커밋 7건 완료 상태).
      - `430a3a539`의 satiety→`LingpetSatietyRuntimeState` 추출을 출발점으로
