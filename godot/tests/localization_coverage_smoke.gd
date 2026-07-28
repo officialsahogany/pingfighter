@@ -17,11 +17,16 @@ const ACTIVE_ITEM_EXTRAS := [
 	"ammo_box",
 	"doping_potion",
 	"elixir_of_mastery",
-	"lingpet_special_feed",
 	"milk_bottle",
 	"cheddar_cheese",
 	"camembert_cheese",
 	"emmental_cheese",
+]
+const LEGACY_DISABLED_ACTIVE_ITEM_IDS := [
+	"lingpet_feed",
+	"lingpet_apple_feed",
+	"lingpet_melon_feed",
+	"lingpet_special_feed",
 ]
 const LINGPET_PENDULUM_CHROME_KEYS := [
 	"lingpet.pendulum.title",
@@ -311,6 +316,9 @@ func _verify_lingpet_panel_surface(language: String) -> void:
 
 func _verify_active_item_catalog(language: String) -> void:
 	var catalog := ActiveItemCatalog.new()
+	for item_id in LEGACY_DISABLED_ACTIVE_ITEM_IDS:
+		_expect(ActiveItemCatalog.is_acquisition_disabled(item_id), "legacy active item %s should remain explicitly acquisition-disabled for %s" % [item_id, language])
+		_expect(catalog.build_item_by_name(item_id).is_empty(), "legacy active item %s should stay blocked for %s" % [item_id, language])
 	var item_ids: Array = ActiveItemCatalog.FIELD_SPAWN_ORDER.duplicate()
 	for item_id in ACTIVE_ITEM_EXTRAS:
 		if not item_ids.has(item_id):
