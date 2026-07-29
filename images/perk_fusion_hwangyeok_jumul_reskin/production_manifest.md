@@ -215,6 +215,129 @@ or numbers.
   중앙 화로보다 먼저 읽히지 않고, 추가 기물이나 알파 재조정 없이 목표 게이트를
   충족했다.
 
+## §11 전면 회화 모달 셸 (Codex built-in imagegen)
+
+### 기준 목업과 생성 모드
+
+- 기준 목업: `reference/fusion_confirm_mockup_v1.png`, 1295x1214,
+  SHA-256 `2693874f8cbc3084ef7548baa6e450620414249fa77ec4c973c2548b4326d798`.
+- 생성 모드: built-in imagegen `stylized-concept`. 목업은 구도·재질·톤
+  reference로 사용하고, 런타임 랜덤 퍽 이름과 설명문은 베이크하지 않았다.
+- 원본 목업의 비율은 1.067이며 720x690 패널의 1.043과 약 2.2% 차이가 난다.
+  최종 백드롭을 1440x1380으로 직접 정규화해 런타임 1콜 매핑에서 이 차이를
+  제거했다.
+
+### 생성 이력과 최종 프롬프트
+
+백드롭 생성 결과:
+
+- 위젯 외곽선이 함께 생성되어 기각:
+  `exec-cb15030d-e6a4-4266-87d3-eb5fc43ec27b.png`
+- 위젯 없는 회화 셸:
+  `exec-2633798d-13ac-45e2-afce-9e8ec47930e3.png`
+- 문구 위치 편집 체인:
+  `exec-792ee6b6-164e-4ae0-91f8-34b5e7623df5.png` →
+  `exec-6c4034c5-b0d5-4585-9081-b532bef867fa.png` →
+  최종 `exec-d1bc4b56-b1f0-4f65-8753-5bc2cfa4a4f3.png`.
+
+백드롭 기본 생성 프롬프트:
+
+```text
+Use case: stylized-concept. Create one complete front-facing Korean
+mythic-martial fusion modal backplane in the composition and material language
+of the supplied mockup: aged warm hanji, muted sepia and soot, ink-wash
+mountains concentrated along the lower edge, a dark pine branch entering from
+upper left, a small brass-and-lacquer crest at top center, thin ink-and-aged-
+brass perimeter frame with corner brackets, and slender tassel ornaments at
+the far sides. Keep the title band, two upper-middle scroll zones, three lower
+medallion zones, warning lane, and bottom button corners low contrast and
+empty. Do not draw scroll cards, medallions, buttons, UI labels, perk names,
+numbers, watermark, or other widgets. The central ink vortex must remain
+subordinate to runtime text and objects. Edge-to-edge opaque panel art.
+```
+
+최종 문구 위치 편집 프롬프트:
+
+```text
+Edit the accepted plain backplane without changing its camera, border,
+ornaments, palette, or empty UI-safe zones. Add exactly two restrained
+background calligraphy phrases and no other readable text: place the exact
+vertical phrase 積善之家必有餘慶 in the upper-right background at low contrast;
+place the exact vertical phrase 萬法歸一 in the narrow central lane between
+the two future scroll cards, below the runtime title and subtitle clear span.
+The phrases are decorative background ink, not foreground labels. Do not add
+cards, scrolls, medallions, buttons, seals, numbers, or watermark.
+```
+
+투명 에셋 공통 제약:
+
+```text
+Front-facing isolated premium Korean martial-fantasy game UI asset. Dark
+lacquer, aged polished brass, muted cinnabar, deep teal dancheong, warm hanji,
+fine black ink outlines. Perfectly flat solid #ff00ff background with generous
+removal margin. No readable text, letters, numbers, characters, scene,
+watermark, cast shadow outside the object, or #ff00ff inside the art.
+```
+
+개별 최종 프롬프트:
+
+```text
+SCROLL LEFT: One horizontal ceremonial scroll frame for the left material
+slot, warm blank aged-hanji field, compact rolled spindle and brass finials,
+subtle low-contrast ink mountain corners, broad empty interior for a runtime
+icon, name, level, and option lines. Formal, flat, uncropped. The right asset
+must be a deterministic horizontal mirror, not a second generation.
+
+MEDALLION STABLE: One round jade-teal and aged-brass tier medallion with two
+interlocking abstract arcs as a non-text emblem, calm balanced silhouette,
+premium engraved rim, readable at 110 px.
+
+MEDALLION SIDE: The same round tier-medallion language in muted cinnabar and
+dark lacquer, with one fractured wedge/crack abstract emblem, tense but not
+glowing, readable at 110 px.
+
+MEDALLION BYPRODUCT: The same round tier-medallion language in amber gold and
+dark lacquer, with three abstract ingot-like facets orbiting a small dot,
+prosperous but restrained, readable at 110 px.
+
+BUTTON PLATE: One wide secondary action plate, blank warm hanji face in an
+aged-brass and dark-lacquer rectangular bezel, compact side knots and very
+short tassels, ample empty label field, designed for 200x54 runtime use.
+
+BUTTON PRIMARY: One wide primary action plate matching the secondary geometry,
+deep desaturated teal lacquer face, aged-brass bezel and restrained cinnabar
+accent, blank label field, designed for 200x54 runtime use.
+```
+
+생성 결과는 각각
+`exec-0b912e0e-8e53-41b6-93ee-e8fd9980ff71.png`,
+`exec-4b121001-9536-4bcb-aced-d8dab9fbe609.png`,
+`exec-67246815-f897-45dc-9116-c7c0b3733967.png`,
+`exec-fe2e3f02-3eb0-425c-b652-667cc86084ab.png`,
+`exec-e1c79d52-59ff-40b9-ba21-7a8ef4001ff7.png`,
+`exec-6f6dfab9-0151-44cb-a27d-095d8edbe381.png`이다.
+
+### 후처리와 런타임 배선
+
+- 백드롭은 결정론적 Lanczos로 1440x1380 정규화했다.
+- 나머지 6개 생성물은 설치된 `remove_chroma_key.py`를
+  `--auto-key border --soft-matte --transparent-threshold 12
+  --opaque-threshold 220 --despill`로 적용했다. 좌 족자를 수평 미러해 우 족자를
+  만들고, 버튼의 생성 부산물인 긴 술은 400x108 안전 프레임 밖에서 제거했다.
+- 최종 크기: 백드롭 1440x1380, 족자 460x340 2종, 메달리온 220x220 3종,
+  버튼 400x108 2종. 투명 에셋의 alpha bbox는 각각
+  `(7,4,452,336)`, `(8,4,453,336)`, `(4,16,216,204)`,
+  `(4,11,216,209)`, `(4,13,216,206)`, `(4,5,396,102)`,
+  `(5,4,394,104)`로 제거 여백을 보존한다.
+- `perk_fusion_overlay_renderer.gd`의 이산 8키 manifest를 production
+  `runtime_perk_overlay_renderer.gd::prewarm_assets()` 콜사이트가 호출한다.
+  텍스처 존재 시 셸/confirm 족자/버튼의 절차 fill과 border는 억제되고,
+  강제 텍스처 부재 캡처에서는 기존 절차 폴백이 유지된다.
+- 420x560에서는 probability rect에 맞춰 족자 높이, 메달리온 지름과 세 행 y를
+  비례 축소한다. 760x750의 720x690 패널에서는 170px 족자와 200x54 버튼을
+  유지한다.
+- 정지 프레임 재채점: **모달 크롬 9/10**.
+
 ## SHA-256
 
 Runtime/processed files:
@@ -241,6 +364,30 @@ f56ff47aa7daae242de9b82e169a9004e4c7f2f34debac540a6c53bd439d7e8d  cold_boot_modu
 2490b4dd2510af30a30ecc3f2c42ee83272c038e33c77ba8a7d8203252693467  premium_upgrade_tier_matrix.png
 ```
 
+§11 runtime/processed 8종:
+
+```text
+191a5085b1021c703f86a6404b8f4088426763307b88bfb27ad664ccf52043a8  fusion_modal_backdrop.png
+b078502a7e75f8f04e0f3716620474bff6b319a90c918173c9dbe227541f253f  fusion_modal_scroll_left.png
+cf6eb6138001d50e49bf40e0fb6bfa366e43ab3e0263952127dbe3d383366621  fusion_modal_scroll_right.png
+0f6f981c5656110913530a294045c5ab2a649b852e2d4242771d7fb018036124  fusion_modal_medallion_stable.png
+ce48fc543ddace98762b7c92e78981e06b9dd888228f90f598913bb594a17fdf  fusion_modal_medallion_side.png
+26dce66d4e75ac4520c341ca617124fcb577050038e2385dbccb5898f5d58d0f  fusion_modal_medallion_byproduct.png
+ca8ce0e119c3796338c5523f9350478ae17b60f845290cd86d87bf0a5546c255  fusion_modal_button_plate.png
+3edd6cc226b83f43b567207177ad4da6154faa61a98c44ad6097f7afed46e362  fusion_modal_button_primary.png
+```
+
+§11 reference/QA:
+
+```text
+2693874f8cbc3084ef7548baa6e450620414249fa77ec4c973c2548b4326d798  fusion_confirm_mockup_v1.png
+b1b5d6c0165223ef0cce1230cfe3531eeb998230dec88581dd206c864c2fa44a  fusion_modal_assets_v1_contact_sheet.png
+f21be3d08e35af29c7790122a9a4a0bb8d4b1df4ca2b49af46cb2cd0187aea20  fusion_modal_runtime_confirm_420.png
+af76d88c1d8d787330af3380ec200a33a8708717a2e2eef84ef3f640b31380e7  fusion_modal_runtime_confirm_760.png
+8e3bd49a5dff7f7bc8825ef91b8e92545f8e1ec52d2240bb77f17857bf4c3a93  fusion_modal_runtime_fallback_760.png
+889c6c3b36a92b445273f07d4cebf500cf8b59180379d15a78d9f7c9267f52af  fusion_modal_runtime_v1_contact_sheet.png
+```
+
 AutoSprite committed source bundle:
 
 ```text
@@ -265,11 +412,19 @@ repo의 `*.mp4` ignore 정책을 따라 로컬 진단 부산물로만 보존한�
 - `qa/premium_upgrade_before_after.png`
 - `qa/premium_upgrade_locale_matrix.png`
 - `qa/premium_upgrade_tier_matrix.png`
+- `qa/fusion_modal_assets_v1_contact_sheet.png`
+- `qa/fusion_modal_runtime_confirm_760.png`
+- `qa/fusion_modal_runtime_confirm_420.png`
+- `qa/fusion_modal_runtime_fallback_760.png`
+- `qa/fusion_modal_runtime_v1_contact_sheet.png`
 - 최종 실렌더 22장과 fail-closed summary:
   `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_6697449_50564_0c49fedcfd4d/`
 - §10 업그레이드 실렌더 50장(기존 22 + 4페이즈 x 7언어)과 fail-closed
   summary:
   `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_7613709_21328_79789b7ed94c/`
+- §11 전면 회화 셸 실렌더 50장과 fail-closed summary(핵심 구현 커밋
+  `e28173a25d3e` 귀속):
+  `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_6859361_51292_e28173a25d3e/`
 
 실렌더는 선택/확인/연출/리빌, success/stable/side_effect/byproduct,
 무호스트 절차 폴백, B5 핸드오프, 즉시 스킵, 모듈 1/2/3개 전개와 스테일
