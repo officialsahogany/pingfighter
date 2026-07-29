@@ -35,8 +35,8 @@ var _duration_increase_count := 0
 
 
 func bind_pet_store(_pet_store: Dictionary, _get_or_create_pet_data: Callable = Callable()) -> void:
-	# §9-2 injected this owner into the per-pet affinity dictionary. The shared
-	# pool deliberately owns no reference to that dictionary after the schema swap.
+	# Compatibility signature retained for callers that still bind the per-pet
+	# enhancement dictionary. The shared pool deliberately owns no reference to it.
 	pass
 
 

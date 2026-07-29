@@ -1,6 +1,6 @@
 extends RefCounted
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetLoadoutCacheKeyBuilder := preload("res://scripts/lingpet/lingpet_loadout_cache_key_builder.gd")
 
 var _loadout_cache_key_builder: Object = LingpetLoadoutCacheKeyBuilder.new()
@@ -13,10 +13,10 @@ func apply(
 	randomize_missing: bool,
 	current_profile: Object,
 	loadout_state: Object,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	unlock_loadout_reconciler: Object,
 	hatch_stat_roll_state: Object,
-	affinity_context_coordinator: Object,
+	guardian_run_context_coordinator: Object,
 	skill_runtime_host: Object,
 	active_skill_slot_resolver: Object,
 	snapshot_builder: Object
@@ -24,18 +24,18 @@ func apply(
 	if pet_id == "":
 		loadout_state.set_skip_unlock_reconcile(false)
 		if loadout_state.has_applied_runtime_cache():
-			current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
+			current_profile.set_enhancement_rewards(LingpetGuardianRunState.get_empty_reward_counts())
 			current_profile.set_hatch_stat_roll(0.0, 0.0)
 			current_profile.set_loadout("", "")
 			loadout_state.invalidate_runtime_and_snapshot_cache(snapshot_builder)
 		return
 	var reconciled_unlocks := false
-	if not loadout_state.should_skip_unlock_reconcile() and unlock_loadout_reconciler.has_work(affinity_state, pet_id):
+	if not loadout_state.should_skip_unlock_reconcile() and unlock_loadout_reconciler.has_work(guardian_run_state, pet_id):
 		reconciled_unlocks = unlock_loadout_reconciler.reconcile_for_runtime(
 			owner,
 			pet_id,
 			current_profile,
-			affinity_state,
+			guardian_run_state,
 			loadout_state,
 			skill_runtime_host,
 			snapshot_builder
@@ -51,30 +51,30 @@ func apply(
 		hatch_stat_roll_state.ensure_roll(
 			pet_id,
 			current_profile,
-			LingpetAffinityState.MOTION_STYLE_PATROL
+			LingpetGuardianRunState.MOTION_STYLE_PATROL
 		)
-	affinity_context_coordinator.configure(
+	guardian_run_context_coordinator.configure(
 		pet_id,
 		pet_id,
 		current_profile,
 		loadout_state,
-		affinity_state,
+		guardian_run_state,
 		loadout
 	)
 	var loadout_key: String = _loadout_cache_key_builder.build_key(
 		pet_id,
 		loadout,
-		affinity_state.get_reward_signature(pet_id)
+		guardian_run_state.get_reward_signature(pet_id)
 	)
 	if not randomize_missing and loadout_key == loadout_state.get_applied_runtime_cache_key():
 		return
 	current_profile.set_loadout_from_data(loadout)
-	affinity_context_coordinator.sync_current_profile(
+	guardian_run_context_coordinator.sync_current_profile(
 		pet_id,
 		pet_id,
 		current_profile,
 		loadout_state,
-		affinity_state,
+		guardian_run_state,
 		loadout,
 		hatch_stat_roll_state
 	)

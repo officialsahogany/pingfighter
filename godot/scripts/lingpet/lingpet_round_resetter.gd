@@ -4,8 +4,8 @@ extends RefCounted
 func reset_round(
 	owner: Object,
 	registry: Object,
-	affinity_state: Object,
-	affinity_feedback_state: Object,
+	guardian_run_state: Object,
+	guard_feedback_state: Object,
 	companion_motion_state: Object,
 	switch_transition_state: Object,
 	companion_skill_persistence: Object,
@@ -16,8 +16,7 @@ func reset_round(
 	ring_dash_state: Object,
 	ring_dash_vfx: Object,
 	ghost_blink_vfx: Object,
-	starlight_tracking_state: Object,
-	feed_controller: Object
+	starlight_tracking_state: Object
 ) -> void:
 	companion_skill_persistence.reset_runtime_transients(
 		companion_skill_states,
@@ -26,8 +25,8 @@ func reset_round(
 		registry,
 		true
 	)
-	affinity_state.reset_round_caps()
-	affinity_feedback_state.reset_round_transients()
+	guardian_run_state.reset_round_caps()
+	guard_feedback_state.reset_round_transients()
 	companion_motion_state.reset_defense()
 	switch_transition_state.reset()
 	companion_skill_persistence.reset_round_transients(companion_skill_states)
@@ -37,5 +36,3 @@ func reset_round(
 	ring_dash_vfx.reset()
 	ghost_blink_vfx.reset()
 	starlight_tracking_state.reset_round_transients()
-	if feed_controller != null:
-		feed_controller.reset_all()

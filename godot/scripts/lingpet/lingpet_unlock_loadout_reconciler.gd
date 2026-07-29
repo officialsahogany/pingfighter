@@ -1,15 +1,15 @@
 extends RefCounted
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 
 const DEFAULT_SKILL_LEVEL := 1
 
 
-func has_work(affinity_state: Object, pet_id: String) -> bool:
-	if affinity_state == null or pet_id == "":
+func has_work(guardian_run_state: Object, pet_id: String) -> bool:
+	if guardian_run_state == null or pet_id == "":
 		return false
-	var rewards: Dictionary = affinity_state.get_cumulative_rewards(pet_id)
+	var rewards: Dictionary = guardian_run_state.get_cumulative_rewards(pet_id)
 	return (
 		bool(rewards.get("active_unlocked", false))
 		or bool(rewards.get("passive_unlocked", false))
@@ -22,7 +22,7 @@ func reconcile_for_runtime(
 	owner: Object,
 	pet_id: String,
 	current_profile: Object,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	loadout_state: Object,
 	skill_runtime_host: Object,
 	snapshot_builder: Object = null
@@ -33,7 +33,7 @@ func reconcile_for_runtime(
 	var changed: bool = reconcile(
 		owner,
 		normalized_pet_id,
-		affinity_state,
+		guardian_run_state,
 		loadout_state,
 		skill_runtime_host
 	)
@@ -45,15 +45,15 @@ func reconcile_for_runtime(
 func reconcile(
 	owner: Object,
 	pet_id: String,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	loadout_state: Object,
 	skill_runtime_host: Object
 ) -> bool:
-	if pet_id == "" or affinity_state == null or loadout_state == null:
+	if pet_id == "" or guardian_run_state == null or loadout_state == null:
 		return false
-	_seed_unlock_choice_candidates(pet_id, affinity_state)
-	_auto_resolve_unlock_choices(pet_id, affinity_state)
-	var resolved: Dictionary = affinity_state.get_resolved_unlock_choices(pet_id)
+	_seed_unlock_choice_candidates(pet_id, guardian_run_state)
+	_auto_resolve_unlock_choices(pet_id, guardian_run_state)
+	var resolved: Dictionary = guardian_run_state.get_resolved_unlock_choices(pet_id)
 	var active_id := _get_resolved_unlock_id(resolved, "active")
 	var passive_id := _get_resolved_unlock_id(resolved, "passive")
 	var second_active_id := _get_reconciled_second_active_id(
@@ -145,36 +145,36 @@ func loadout_matches(
 	return true
 
 
-func _seed_unlock_choice_candidates(pet_id: String, affinity_state: Object) -> void:
-	var rewards: Dictionary = affinity_state.get_cumulative_rewards(pet_id)
+func _seed_unlock_choice_candidates(pet_id: String, guardian_run_state: Object) -> void:
+	var rewards: Dictionary = guardian_run_state.get_cumulative_rewards(pet_id)
 	if bool(rewards.get("active_unlocked", false)):
 		_seed_unlock_candidates_for_type(
 			pet_id,
-			LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+			LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 			get_active_unlock_candidate_ids(pet_id),
-			affinity_state
+			guardian_run_state
 		)
 	if bool(rewards.get("passive_unlocked", false)):
 		_seed_unlock_candidates_for_type(
 			pet_id,
-			LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK,
+			LingpetGuardianRunState.REWARD_TYPE_PASSIVE_UNLOCK,
 			_get_first_passive_unlock_candidate_ids(pet_id),
-			affinity_state
+			guardian_run_state
 		)
-	_auto_resolve_unlock_choices(pet_id, affinity_state, ["active", "passive"])
+	_auto_resolve_unlock_choices(pet_id, guardian_run_state, ["active", "passive"])
 	if bool(rewards.get("second_active_unlocked", false)):
 		_seed_unlock_candidates_for_type(
 			pet_id,
-			LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
-			_get_second_active_unlock_candidate_ids(pet_id, affinity_state),
-			affinity_state
+			LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
+			_get_second_active_unlock_candidate_ids(pet_id, guardian_run_state),
+			guardian_run_state
 		)
 	if bool(rewards.get("second_passive_unlocked", false)):
 		_seed_unlock_candidates_for_type(
 			pet_id,
-			LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
-			_get_second_passive_unlock_candidate_ids(pet_id, affinity_state),
-			affinity_state
+			LingpetGuardianRunState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
+			_get_second_passive_unlock_candidate_ids(pet_id, guardian_run_state),
+			guardian_run_state
 		)
 
 
@@ -182,28 +182,28 @@ func _seed_unlock_candidates_for_type(
 	pet_id: String,
 	reward_type: String,
 	candidate_ids: Array[String],
-	affinity_state: Object
+	guardian_run_state: Object
 ) -> void:
 	var choice_key := _unlock_choice_key_for_reward_type(reward_type)
 	if choice_key == "":
 		return
-	if affinity_state.get_resolved_unlock_choices(pet_id).has(choice_key):
+	if guardian_run_state.get_resolved_unlock_choices(pet_id).has(choice_key):
 		return
 	if candidate_ids.size() == 1:
-		affinity_state.resolve_single_unlock(pet_id, reward_type, candidate_ids[0])
+		guardian_run_state.resolve_single_unlock(pet_id, reward_type, candidate_ids[0])
 	elif candidate_ids.size() >= 2:
-		affinity_state.set_unlock_choice_candidates(pet_id, reward_type, candidate_ids)
+		guardian_run_state.set_unlock_choice_candidates(pet_id, reward_type, candidate_ids)
 
 
 func _auto_resolve_unlock_choices(
 	pet_id: String,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	choice_keys: Array[String] = []
 ) -> void:
 	var keys := choice_keys
 	if keys.is_empty():
 		keys = ["active", "passive", "second_active", "second_passive"]
-	var pending: Dictionary = affinity_state.get_pending_unlock_choices(pet_id)
+	var pending: Dictionary = guardian_run_state.get_pending_unlock_choices(pet_id)
 	for choice_key in keys:
 		if not pending.has(choice_key):
 			continue
@@ -211,7 +211,7 @@ func _auto_resolve_unlock_choices(
 		var candidates: Array = choice.get("candidates", []) as Array
 		if candidates.is_empty():
 			continue
-		affinity_state.resolve_random_unlock(pet_id, str(choice.get("type", "")))
+		guardian_run_state.resolve_random_unlock(pet_id, str(choice.get("type", "")))
 
 
 func _get_first_passive_unlock_candidate_ids(pet_id: String) -> Array[String]:
@@ -221,8 +221,8 @@ func _get_first_passive_unlock_candidate_ids(pet_id: String) -> Array[String]:
 	return _first_seeded_candidates(ids, _candidate_seed_for_pet(pet_id, 17), 2)
 
 
-func _get_second_active_unlock_candidate_ids(pet_id: String, affinity_state: Object) -> Array[String]:
-	var resolved: Dictionary = affinity_state.get_resolved_unlock_choices(pet_id)
+func _get_second_active_unlock_candidate_ids(pet_id: String, guardian_run_state: Object) -> Array[String]:
+	var resolved: Dictionary = guardian_run_state.get_resolved_unlock_choices(pet_id)
 	var primary_id := _get_resolved_unlock_id(resolved, "active")
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
@@ -232,8 +232,8 @@ func _get_second_active_unlock_candidate_ids(pet_id: String, affinity_state: Obj
 	return _first_seeded_candidates(ids, _candidate_seed_for_pet(pet_id, 31), 2)
 
 
-func _get_second_passive_unlock_candidate_ids(pet_id: String, affinity_state: Object) -> Array[String]:
-	var resolved: Dictionary = affinity_state.get_resolved_unlock_choices(pet_id)
+func _get_second_passive_unlock_candidate_ids(pet_id: String, guardian_run_state: Object) -> Array[String]:
+	var resolved: Dictionary = guardian_run_state.get_resolved_unlock_choices(pet_id)
 	var primary_id := _get_resolved_unlock_id(resolved, "passive")
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
@@ -254,9 +254,9 @@ func _skill_ids_from_pool(pool: Array[Dictionary]) -> Array[String]:
 
 func _first_seeded_candidates(ids: Array[String], seed_value: int, count: int) -> Array[String]:
 	var shuffled: Array[String] = ids.duplicate()
-	var state := maxi(1, seed_value % LingpetAffinityState.REWARD_DECK_SEED_MOD)
+	var state := maxi(1, seed_value % LingpetGuardianRunState.REWARD_DECK_SEED_MOD)
 	for i in range(shuffled.size() - 1, 0, -1):
-		state = int((int(state) * 1103515245 + 12345) % LingpetAffinityState.REWARD_DECK_SEED_MOD)
+		state = int((int(state) * 1103515245 + 12345) % LingpetGuardianRunState.REWARD_DECK_SEED_MOD)
 		var j := state % (i + 1)
 		var temporary: String = shuffled[i]
 		shuffled[i] = shuffled[j]
@@ -271,7 +271,7 @@ func _first_seeded_candidates(ids: Array[String], seed_value: int, count: int) -
 
 func _candidate_seed_for_pet(pet_id: String, salt: int) -> int:
 	var seed_value := int(hash(pet_id)) ^ int(salt * 1103)
-	return maxi(1, abs(seed_value) % LingpetAffinityState.REWARD_DECK_SEED_MOD)
+	return maxi(1, abs(seed_value) % LingpetGuardianRunState.REWARD_DECK_SEED_MOD)
 
 
 func _get_resolved_unlock_id(resolved: Dictionary, choice_key: String) -> String:
@@ -314,19 +314,19 @@ func _get_loadout_skill_level(
 	return clampi(
 		int(levels.get(skill_id, loadout.get(fallback_level_key, DEFAULT_SKILL_LEVEL))),
 		1,
-		LingpetAffinityState.SKILL_LEVEL_MAX
+		LingpetGuardianRunState.SKILL_LEVEL_MAX
 	)
 
 
 func _unlock_choice_key_for_reward_type(reward_type: String) -> String:
 	match reward_type:
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK:
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK:
 			return "active"
-		LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK:
+		LingpetGuardianRunState.REWARD_TYPE_PASSIVE_UNLOCK:
 			return "passive"
-		LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+		LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
 			return "second_active"
-		LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+		LingpetGuardianRunState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
 			return "second_passive"
 	return ""
 

@@ -1,8 +1,7 @@
 extends RefCounted
 
-# Compatibility owner name retained until §9-4. The former affinity flash,
-# level-up label, and point-popup channels are retired; only the cosmetic guard
-# contact label remains.
+# The former affinity flash, level-up label, and point-popup channels are
+# retired; this focused owner keeps only the cosmetic guard contact label.
 const GUARD_LABEL_SECONDS := 0.8
 const GUARD_LABEL_TEXT := "방어"
 
@@ -47,4 +46,4 @@ func has_visible_effects(companion_active: bool = true) -> bool:
 
 
 func get_snapshot(companion_active: bool = true) -> Dictionary:
-	return {"affinity_guard_label": get_guard_label(companion_active)}
+	return {"guardian_guard_label": get_guard_label(companion_active)}

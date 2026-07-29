@@ -1,6 +1,6 @@
 extends SceneTree
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetHatchStatRollState := preload("res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd")
 
@@ -11,6 +11,7 @@ func _init() -> void:
 	_verify_one_roll_per_pet()
 	_verify_new_schema_round_trip()
 	_verify_legacy_affinity_absorb()
+	_verify_guardian_motion_style_contract()
 
 	if _failures.is_empty():
 		print("lingpet_hatch_stat_roll_owner_smoke: ok")
@@ -70,12 +71,27 @@ func _verify_legacy_affinity_absorb() -> void:
 	_expect_float(float(absorbed.get("mobility", 0.0)), 0.35, "legacy mobility should survive absorption")
 	_expect_float(float(absorbed.get("defense", 0.0)), 0.8, "legacy defense should survive absorption")
 
-	var affinity := LingpetAffinityState.new()
+	var affinity := LingpetGuardianRunState.new()
 	affinity.import_run_state(legacy)
 	var cleaned: Dictionary = affinity.export_run_state()
 	_expect(not str(cleaned).contains(LingpetHatchStatRollState.LEGACY_MOBILITY_KEY), "affinity export should discard absorbed mobility keys")
 	_expect(not str(cleaned).contains(LingpetHatchStatRollState.LEGACY_DEFENSE_KEY), "affinity export should discard absorbed defense keys")
 	_expect(not str(cleaned).contains(LingpetHatchStatRollState.LEGACY_SET_KEY), "affinity export should discard absorbed set flags")
+
+
+func _verify_guardian_motion_style_contract() -> void:
+	var source := FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd"
+	)
+	_expect(
+		source.contains('has_method("get_guardian_motion_style")')
+		and source.contains("current_profile.get_guardian_motion_style()"),
+		"hatch owner must probe and call the same guardian motion-style contract"
+	)
+	_expect(
+		not source.contains('has_method("get_affinity_motion_style")'),
+		"retired affinity motion-style probe must not silently zero patrol defense rolls"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -1,6 +1,6 @@
 extends SceneTree
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
@@ -293,66 +293,6 @@ func _verify_existing_saved_active_skill_loadout_restores_without_reroll() -> vo
 	_expect_str(str((restored_loadout.get("active_skill_ids", []) as Array)[0]), "lumion_solar_bolt", "restored active_skill_ids[0] should be the saved skill, not the catalog default")
 
 
-func _verify_primary_unlock_reconcile() -> void:
-	var fixture := _activate_pet("lumion")
-	var runtime: Object = fixture.get("runtime")
-	var owner: FakeOwner = fixture.get("owner")
-	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "lumion", 10, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("lumion"), 1, "ten round commits should reach Lv.1")
-	var active_resolved := _resolved_choice(runtime, "lumion", "active")
-	var lumion_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("lumion"))
-	_expect(lumion_active_ids.has(str(active_resolved.get("selected", ""))), "temporary auto-choice should pick one Lumion active candidate")
-	_expect(_string_arrays_equal(active_resolved.get("candidates", []) as Array, lumion_active_ids), "active unlock candidates should be the real Lumion active pool")
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(active_resolved.get("selected", "")), "active unlock reconcile should equip the auto-selected slot 0")
-	_expect_str(str(owner.value_of("lingpet_second_active_skill_id")), "", "active unlock reconcile should leave slot 1 active empty")
-	_verify_primary_unlock_active_can_arm_and_launch(runtime, owner, registry, str(active_resolved.get("selected", "")))
-
-	_grant_round_commits(runtime, "lumion", 15, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("lumion"), 2, "twenty-five round commits should reach Lv.2")
-	var passive_resolved := _resolved_choice(runtime, "lumion", "passive")
-	var passive_candidates: Array = passive_resolved.get("candidates", []) as Array
-	_expect_eq(passive_candidates.size(), 2, "passive unlock should seed two deterministic common-passive candidates")
-	_expect(passive_candidates.has(str(passive_resolved.get("selected", ""))), "temporary passive auto-choice should pick one passive candidate")
-	_expect(_all_ids_in_pool(passive_candidates, _skill_ids(LingpetCatalog.get_passive_skill_pool("lumion"))), "passive candidates should come from the common passive pool")
-	_expect_str(str(owner.value_of("lingpet_passive_skill_id")), str(passive_resolved.get("selected", "")), "passive unlock reconcile should equip the auto-selected slot 0")
-	_expect_str(str(owner.value_of("lingpet_second_passive_skill_id")), "", "passive unlock reconcile should leave slot 1 passive empty")
-
-	var repeat_fixture := _activate_pet("lumion")
-	var repeat_runtime: Object = repeat_fixture.get("runtime")
-	var repeat_owner: FakeOwner = repeat_fixture.get("owner")
-	var repeat_registry: Object = repeat_fixture.get("registry")
-	_grant_round_commits(repeat_runtime, "lumion", 25, repeat_registry)
-	repeat_runtime.update(0.0, repeat_owner, repeat_registry)
-	var repeat_passive := _resolved_choice(repeat_runtime, "lumion", "passive")
-	_expect(_string_arrays_equal(passive_candidates, repeat_passive.get("candidates", []) as Array), "passive candidate seeding should be deterministic for the same pet")
-	_expect(passive_candidates.has(str(repeat_passive.get("selected", ""))), "repeat passive auto-select should still pick one seeded passive candidate")
-
-
-func _verify_primary_unlock_active_can_arm_and_launch(runtime: Object, owner: FakeOwner, registry: Object, selected_id: String) -> void:
-	_expect(selected_id != "", "S2 cast fixture should have a selected active skill id")
-	owner.values["ball_active"] = true
-	owner.values["ball_pos"] = Vector2(40.0, 520.0)
-	owner.values["ball_vel"] = Vector2(0.0, 180.0)
-	runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 13, 0.0, true)
-	runtime.update(0.05, owner, registry)
-	var slot0_state: Object = _skill_state_for_runtime_slot(runtime, 0)
-	_expect(bool(slot0_state.windup_active), "S2 active unlock should arm the reconciled slot-0 skill windup")
-	_expect_eq(int(owner.value_of("lingpet_skill_trigger_count")), 0, "S2 active unlock should not launch before windup completes")
-	_expect(bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "S2 active unlock snapshot should expose the armed windup")
-
-	var windup_seconds := float(runtime.get_snapshot().get("companion_skill_windup_seconds", LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS))
-	runtime.update(windup_seconds + 0.05, owner, registry)
-	var launch_snapshot: Dictionary = runtime.get_snapshot()
-	_expect_eq(int(owner.value_of("lingpet_skill_trigger_count")), 1, "S2 active unlock should dispatch through the skill runtime host after windup")
-	_expect(float(owner.value_of("lingpet_skill_cooldown")) > 0.0, "S2 active unlock should spend cooldown after launch")
-	_expect(not bool(launch_snapshot.get("companion_skill_winding_up", true)), "S2 active unlock windup should clear after launch")
-	if selected_id == "lumion_thunder_orb":
-		_expect(bool(launch_snapshot.get("thunder_orb_projectile_active", false)), "S2 Lumion Thunder Orb should launch a live projectile")
-
-
 func _verify_lazy_applied_key_reconcile_runs_before_cache_return() -> void:
 	var fixture := _activate_pet("lumion")
 	var runtime: Object = fixture.get("runtime")
@@ -380,9 +320,9 @@ func _verify_milkring_two_entry_pool_direct_resolve() -> void:
 	_expect(milkring_active_ids.has("milkring_milk_production"), "Milkring active pool should keep Milk Production")
 	_expect(milkring_active_ids.has("milkring_milk_shot"), "Milkring active pool should add Milk Shot")
 	_expect_eq(milkring_active_ids.size(), 2, "Milkring active pool should now expose two active candidates")
-	var direct: Dictionary = runtime._affinity_state.resolve_single_unlock(
+	var direct: Dictionary = runtime._guardian_run_state.resolve_single_unlock(
 		"milkring",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		str(milkring_active_ids[0])
 	)
 	_expect(bool(direct.get("accepted", false)), "Milkring direct active resolve should succeed")
@@ -394,8 +334,8 @@ func _verify_milkring_two_entry_pool_direct_resolve() -> void:
 	_expect_eq(candidates.size(), 1, "direct Milkring resolve should record one explicitly selected skill")
 	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(resolved.get("selected", "")), "Milkring direct resolve should equip the selected slot 0")
 
-	var state := LingpetAffinityState.new()
-	var nekuring_direct := state.resolve_single_unlock("nekuring", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "nekuring_bone_barrier")
+	var state := LingpetGuardianRunState.new()
+	var nekuring_direct := state.resolve_single_unlock("nekuring", LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK, "nekuring_bone_barrier")
 	_expect(bool(nekuring_direct.get("accepted", false)), "resolve_single_unlock should accept a valid Nekuring active skill")
 	var direct_resolved: Dictionary = state.get_resolved_unlock_choices("nekuring").get("active", {}) as Dictionary
 	_expect_str(str(direct_resolved.get("selected", "")), "nekuring_bone_barrier", "direct single resolve should persist selected id")
@@ -409,9 +349,9 @@ func _verify_single_entry_direct_resolve() -> void:
 	var registry: Object = fixture.get("registry")
 	var orosha_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("orosha"))
 	_expect(_string_arrays_equal(orosha_active_ids, ["orosha_star_coil"]), "Orosha fixture should keep a one-entry active skill pool")
-	var direct: Dictionary = runtime._affinity_state.resolve_single_unlock(
+	var direct: Dictionary = runtime._guardian_run_state.resolve_single_unlock(
 		"orosha",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		"orosha_star_coil"
 	)
 	_expect(bool(direct.get("accepted", false)), "one-entry active direct resolve should succeed")
@@ -421,7 +361,7 @@ func _verify_single_entry_direct_resolve() -> void:
 	var resolved := _resolved_choice(runtime, "orosha", "active")
 	_expect_eq((resolved.get("candidates", []) as Array).size(), 1, "one-entry active unlock should record exactly one candidate")
 	_expect_str(str(resolved.get("selected", "")), "orosha_star_coil", "one-entry active unlock should select the only Orosha active")
-	_expect(runtime._affinity_state.get_pending_unlock_choices("orosha").is_empty(), "one-entry active unlock should not leave a pending TAB choice")
+	_expect(runtime._guardian_run_state.get_pending_unlock_choices("orosha").is_empty(), "one-entry active unlock should not leave a pending TAB choice")
 	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "orosha_star_coil", "one-entry active unlock should equip the only active skill")
 
 
@@ -430,9 +370,9 @@ func _verify_resolved_unlocks_stay_pet_scoped_until_switch() -> void:
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
 	var registry: Object = fixture.get("registry")
-	runtime._affinity_state.resolve_single_unlock(
+	runtime._guardian_run_state.resolve_single_unlock(
 		"maribo",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		"maribo_hydro_sphere"
 	)
 	runtime.update(0.0, owner, registry)
@@ -447,9 +387,9 @@ func _verify_resolved_unlocks_stay_pet_scoped_until_switch() -> void:
 func _verify_volatile_restore_rederives_loadout_from_guardian_run_state() -> void:
 	var source_runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(source_runtime)
-	source_runtime._affinity_state.resolve_single_unlock(
+	source_runtime._guardian_run_state.resolve_single_unlock(
 		"lumion",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		"lumion_solar_bolt"
 	)
 	var restore_snapshot := {
@@ -465,7 +405,7 @@ func _verify_volatile_restore_rederives_loadout_from_guardian_run_state() -> voi
 		"lingpet_slots": ["lumion", "", ""],
 		"active_slot_index": 0,
 		"active_pet_id": "lumion",
-		"affinity_run_state": source_runtime._affinity_state.export_run_state(),
+		"guardian_run_state": source_runtime._guardian_run_state.export_run_state(),
 	}
 	_expect(not restore_snapshot.has("lingpet_loadouts"), "volatile restore fixture should intentionally omit saved loadouts")
 	var restored_runtime: Object = LingpetEggRuntime.new()
@@ -485,24 +425,24 @@ func _verify_second_unlock_flags_fill_slot_one() -> void:
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
 	var registry: Object = fixture.get("registry")
-	runtime._affinity_state.resolve_single_unlock(
+	runtime._guardian_run_state.resolve_single_unlock(
 		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		"red_dragon_dragon_breath"
 	)
-	runtime._affinity_state.resolve_single_unlock(
+	runtime._guardian_run_state.resolve_single_unlock(
 		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_PASSIVE_UNLOCK,
 		"lingpet_resonance_boost"
 	)
 	var second_active_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK},
+		{"type": LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK},
 		owner,
 		registry,
 		"red_dragon"
 	)
 	var second_passive_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK},
+		{"type": LingpetGuardianRunState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK},
 		owner,
 		registry,
 		"red_dragon"
@@ -512,7 +452,7 @@ func _verify_second_unlock_flags_fill_slot_one() -> void:
 	runtime._loadout_state.set_skip_unlock_reconcile(false)
 	runtime._loadout_state.invalidate_runtime_cache()
 	runtime.update(0.0, owner, registry)
-	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
+	var rewards: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("red_dragon")
 	_expect(bool(rewards.get("second_active_unlocked", false)), "fixture should include explicit second active unlock")
 	_expect(bool(rewards.get("second_passive_unlocked", false)), "fixture should include explicit second passive unlock")
 	var loadout: Dictionary = runtime._loadout_state.get_loadout("red_dragon")
@@ -558,70 +498,6 @@ func _verify_debug_forced_skill_reconcile_stays_sticky() -> void:
 	_expect_str(str(runtime.get_snapshot().get("companion_skill_id", "")), "lumion_thunder_orb", "debug forced active skill should stay in the snapshot while forced reconcile is protected")
 
 
-func _verify_run_state_lv1_rederives_primary_unlock() -> void:
-	# R3 / per-run: no store headstart. Two fresh run-state Lv.1 fixtures should
-	# each auto-resolve a valid primary active unlock, and an explicitly seeded
-	# pair should deterministically rederive the same automatic active unlock.
-	var lumion_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("lumion"))
-
-	var fixture_a := _activate_pet("lumion")
-	var runtime_a: Object = fixture_a.get("runtime")
-	var owner_a: FakeOwner = fixture_a.get("owner")
-	var registry_a: Object = fixture_a.get("registry")
-	_grant_round_commits(runtime_a, "lumion", 10, registry_a)
-	runtime_a.update(0.0, owner_a, registry_a)
-	_expect_eq(runtime_a.get_affinity_level("lumion"), 1, "ten run-state commits should reach Lv.1")
-	var active_a := _resolved_choice(runtime_a, "lumion", "active")
-	_expect_str(str(owner_a.value_of("lingpet_active_skill_id")), str(active_a.get("selected", "")), "run-state Lv.1 A should equip the automatic primary active unlock")
-	_expect(lumion_active_ids.has(str(active_a.get("selected", ""))), "run-state Lv.1 A should auto-select a valid Lumion active unlock")
-
-	var fixture_b := _activate_pet("lumion")
-	var runtime_b: Object = fixture_b.get("runtime")
-	var owner_b: FakeOwner = fixture_b.get("owner")
-	var registry_b: Object = fixture_b.get("registry")
-	_grant_round_commits(runtime_b, "lumion", 10, registry_b)
-	runtime_b.update(0.0, owner_b, registry_b)
-	_expect_eq(runtime_b.get_affinity_level("lumion"), 1, "ten run-state commits should reach Lv.1 on a fresh runtime")
-	var active_b := _resolved_choice(runtime_b, "lumion", "active")
-	_expect_str(str(owner_b.value_of("lingpet_active_skill_id")), str(active_b.get("selected", "")), "run-state Lv.1 B should equip the automatic primary active unlock")
-	_expect(lumion_active_ids.has(str(active_b.get("selected", ""))), "run-state Lv.1 B should auto-select a valid Lumion active unlock")
-
-	var seed_value := 24680
-	var seeded_a := _activate_pet("lumion")
-	var seeded_runtime_a: Object = seeded_a.get("runtime")
-	var seeded_owner_a: FakeOwner = seeded_a.get("owner")
-	var seeded_registry_a: Object = seeded_a.get("registry")
-	seeded_runtime_a.set_affinity_reward_seed_for_tests("lumion", seed_value)
-	_grant_round_commits(seeded_runtime_a, "lumion", 10, seeded_registry_a)
-	seeded_runtime_a.update(0.0, seeded_owner_a, seeded_registry_a)
-	var seeded_active_a := _resolved_choice(seeded_runtime_a, "lumion", "active")
-
-	var seeded_b := _activate_pet("lumion")
-	var seeded_runtime_b: Object = seeded_b.get("runtime")
-	var seeded_owner_b: FakeOwner = seeded_b.get("owner")
-	var seeded_registry_b: Object = seeded_b.get("registry")
-	seeded_runtime_b.set_affinity_reward_seed_for_tests("lumion", seed_value)
-	_grant_round_commits(seeded_runtime_b, "lumion", 10, seeded_registry_b)
-	seeded_runtime_b.update(0.0, seeded_owner_b, seeded_registry_b)
-	var seeded_active_b := _resolved_choice(seeded_runtime_b, "lumion", "active")
-	_expect_str(str(seeded_active_b.get("selected", "")), str(seeded_active_a.get("selected", "")), "explicitly seeded fresh run-state Lv.1 fixtures should deterministically rederive the same automatic active unlock")
-
-
-func _verify_maribo_lv1_rederives_starter_unlock() -> void:
-	# R3 / per-run: run-state Lv.1 (no store headstart). Maribo's Lv.1 should
-	# auto-resolve the active unlock while leaving the Lv.2 passive unlock gated.
-	var fixture := _activate_pet("maribo")
-	var runtime: Object = fixture.get("runtime")
-	var owner: FakeOwner = fixture.get("owner")
-	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "maribo", 10, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("maribo"), 1, "ten run-state commits should reach Maribo Lv.1")
-	var resolved := _resolved_choice(runtime, "maribo", "active")
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(resolved.get("selected", "")), "Maribo Lv.1 should equip the automatic active unlock")
-	_expect_str(str(owner.value_of("lingpet_passive_skill_id")), "", "Maribo Lv.1 should not bypass the Lv.2 passive unlock")
-
-
 func _verify_active_unlock_options_use_raw_first_two_cap() -> void:
 	var reconciler := LingpetUnlockLoadoutReconciler.new()
 	var three_ids: Array[String] = ["alpha", "beta", "gamma"]
@@ -638,17 +514,17 @@ func _verify_active_unlock_options_use_raw_first_two_cap() -> void:
 
 func _verify_shared_runtime_module_rejection_owner() -> void:
 	var owner := FakeOwner.new()
-	var affinity_state := LingpetAffinityState.new()
+	var affinity_state := LingpetGuardianRunState.new()
 	var loadout_state := LingpetLoadoutState.new()
 	var reconciler := LingpetUnlockLoadoutReconciler.new()
 	affinity_state.resolve_single_unlock(
 		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
 		"red_dragon_dragon_breath"
 	)
 	affinity_state.resolve_single_unlock(
 		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
+		LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
 		"red_dragon_dragon_wing"
 	)
 	_expect(
@@ -672,62 +548,6 @@ func _verify_shared_runtime_module_rejection_owner() -> void:
 		"",
 		"shared-module rejection should suppress the conflicting second active skill"
 	)
-
-
-func _verify_tab_unlock_options_sequential_queue_count() -> void:
-	# R3 / per-run: run-state Lv.2 (no store headstart).
-	var fixture := _activate_pet("lumion")
-	var runtime: Object = fixture.get("runtime")
-	var owner: FakeOwner = fixture.get("owner")
-	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "lumion", 25, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("lumion"), 2, "twenty-five run-state commits should reach Lv.2")
-	var options: Array = runtime.get_unlock_choice_options("lumion", registry)
-	_expect(options.is_empty(), "TAB picker should stay hidden because unlock choices auto-resolve")
-	_expect_eq(CharacterInfoOverlayLingpetPresenter._count_open_unlock_options(options), 0, "TAB picker waiting indicator should not count auto-resolved choices")
-	_expect(CharacterInfoOverlayLingpetPresenter._first_open_unlock_option(options).is_empty(), "TAB picker should have no first open option after auto-resolve")
-
-
-func _verify_tab_unlock_options_and_commit_lock() -> void:
-	# R3 / per-run: run-state Lv.1 (no store headstart). The TAB picker stays
-	# closed under auto-resolve, so every player commit must be rejected and the
-	# auto-resolved loadout must survive every rejection.
-	var fixture := _activate_pet("lumion")
-	var runtime: Object = fixture.get("runtime")
-	var owner: FakeOwner = fixture.get("owner")
-	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "lumion", 10, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("lumion"), 1, "ten run-state commits should reach Lv.1")
-
-	var lumion_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("lumion"))
-	var active_option := _find_unlock_option(runtime.get_unlock_choice_options("lumion", registry), "active")
-	_expect(active_option.is_empty(), "TAB picker should not expose an open active choice after automatic unlock selection")
-
-	var auto_resolved := _resolved_choice(runtime, "lumion", "active")
-	_expect(not bool(runtime.commit_unlock_pick("lumion", "active", str(lumion_active_ids[1]), owner, registry)), "TAB picker commit should reject because the picker surface is closed")
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(auto_resolved.get("selected", "")), "rejected commit should not reapply the loadout")
-	var locked_option := _find_unlock_option(runtime.get_unlock_choice_options("lumion", registry), "active")
-	_expect(locked_option.is_empty(), "closed TAB picker should not expose locked choices either")
-	_expect(not bool(runtime.commit_unlock_pick("lumion", "active", str(lumion_active_ids[0]), owner, registry)), "TAB picker should reject all player commits while auto-resolve is active")
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(auto_resolved.get("selected", "")), "auto-resolved active should remain after every rejected commit")
-
-
-func _verify_tab_unlock_options_hide_auto_resolved_milkring_choice() -> void:
-	# R3 / per-run: run-state Lv.1 (no store headstart).
-	var fixture := _activate_pet("milkring")
-	var runtime: Object = fixture.get("runtime")
-	var owner: FakeOwner = fixture.get("owner")
-	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "milkring", 10, registry)
-	runtime.update(0.0, owner, registry)
-	_expect_eq(runtime.get_affinity_level("milkring"), 1, "ten run-state commits should reach Milkring Lv.1")
-	var milkring_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("milkring"))
-	_expect(_find_unlock_option(runtime.get_unlock_choice_options("milkring", registry), "active").is_empty(), "TAB picker should hide Milkring's auto-resolved active choice")
-	for skill_id in milkring_active_ids:
-		_expect(not bool(runtime.commit_unlock_pick("milkring", "active", skill_id, owner, registry)), "TAB picker commit should reject Milkring's auto-resolved active choice %s" % skill_id)
-	_expect(not _resolved_choice(runtime, "milkring", "active").is_empty(), "Milkring auto-resolve should be recorded in run-state, not as a stored player pick")
 
 
 func _activate_pet(pet_id: String) -> Dictionary:
@@ -772,7 +592,7 @@ func _register_hit(runtime: Object, owner: FakeOwner, registry: Object, egg_pos:
 
 
 func _resolved_choice(runtime: Object, pet_id: String, choice_key: String) -> Dictionary:
-	var resolved: Dictionary = runtime._affinity_state.get_resolved_unlock_choices(pet_id)
+	var resolved: Dictionary = runtime._guardian_run_state.get_resolved_unlock_choices(pet_id)
 	return resolved.get(choice_key, {}) as Dictionary
 
 

@@ -34,7 +34,7 @@ func import_run_state(data: Dictionary) -> void:
 				_rolls[pet_id] = _sanitize_roll(raw_roll as Dictionary)
 
 	# Compatibility reader for saves written while hatch individuality lived in
-	# affinity_state's per-pet dictionary. New exports never write these fields.
+	# the retired progression owner's per-pet dictionary. New exports never write them.
 	var legacy_pets: Variant = data.get("pets", {})
 	if legacy_pets is Dictionary:
 		for raw_pet_id in (legacy_pets as Dictionary).keys():
@@ -130,7 +130,7 @@ func ensure_roll(
 	var mobility_headstart: float = rng.randf()
 	var defense_headstart: float = rng.randf()
 	var motion_style := ""
-	if current_profile.has_method("get_affinity_motion_style"):
+	if current_profile.has_method("get_guardian_motion_style"):
 		motion_style = str(current_profile.get_guardian_motion_style())
 	if motion_style != patrol_motion_style:
 		defense_headstart = 0.0

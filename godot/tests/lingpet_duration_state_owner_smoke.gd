@@ -1,6 +1,6 @@
 extends SceneTree
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetDurationState := preload("res://scripts/lingpet/lingpet_duration_state.gd")
 
 var _failures: Array[String] = []
@@ -44,12 +44,12 @@ func _verify_epsilon_snap_and_resummon_gate() -> void:
 
 
 func _verify_affinity_delegation_surface() -> void:
-	var affinity := LingpetAffinityState.new()
+	var affinity := LingpetGuardianRunState.new()
 	affinity.ensure_duration_pool_roll(null, 45)
 	var result: Dictionary = affinity.advance_duration_pool(2.0, true, 0.5)
 	_expect(bool(result.get("changed", false)), "affinity compatibility owner should forward shared-pool changes")
 	_expect_float(affinity.get_duration_pool_current(), 44.0, "duration runtime multiplier should reach the shared pool")
-	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
+	var affinity_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 	_expect(affinity_source.contains("_duration_state.advance_pool("), "affinity owner should delegate directly to the duration pool")
 	var legacy_term := "sati" + "ety"
 	_expect(not affinity_source.contains("func get_" + legacy_term), "retired fullness getter must not remain")

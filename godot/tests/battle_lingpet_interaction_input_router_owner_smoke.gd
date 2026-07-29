@@ -211,17 +211,19 @@ func _verify_source_ownership() -> void:
 	var input_source := FileAccess.get_file_as_string(
 		"res://scripts/core/battle_scene_input_controller.gd"
 	)
+	var retired_interact_constant := "LINGPET_" + "INTERACT"
+	var retired_runtime_handoff := "try_begin_companion_" + "interact_reaction"
 	_expect(router_source.contains("try_begin_companion_click_reaction(playfield_pos, registry)"), "lingpet router must own click coordinate handoff")
 	_expect(router_source.contains("cycle_lingpet_slot(cycle_direction, owner, registry)"), "lingpet router must own slot cycling")
-	_expect(not router_source.contains("LINGPET_INTERACT"), "retired E/RT interact constants must not remain in the lingpet router")
-	_expect(not router_source.contains("try_begin_companion_interact_reaction"), "retired E/RT runtime handoff must not remain in the lingpet router")
+	_expect(not router_source.contains(retired_interact_constant), "retired E/RT interact constants must not remain in the lingpet router")
+	_expect(not router_source.contains(retired_runtime_handoff), "retired E/RT runtime handoff must not remain in the lingpet router")
 	_expect(input_source.contains("BattleLingpetInteractionInputRouter.new()"), "scene input controller must compose lingpet router")
 	_expect(input_source.contains("_lingpet_input_router.handle_priority_cutin_input("), "scene input controller must delegate priority cut-in input")
 	_expect(input_source.contains("_lingpet_input_router.handle_companion_input("), "scene input controller must delegate companion input")
 	_expect(input_source.find("_lingpet_input_router.handle_priority_cutin_input(") < input_source.find("_terminal_input_router.handle_input("), "acquisition cut-in must stay before defeat overlays")
 	_expect(input_source.find("_handle_active_item_hud_input(") < input_source.find("_lingpet_input_router.handle_companion_input("), "companion input must stay after active-item HUD input")
 	_expect(not input_source.contains("func _get_lingpet_cycle_direction"), "scene input controller must not retain slot-cycle policy")
-	_expect(not input_source.contains("LINGPET_INTERACT"), "scene input controller must not re-expose retired E/RT constants")
+	_expect(not input_source.contains(retired_interact_constant), "scene input controller must not re-expose retired E/RT constants")
 
 
 func _build_fixture() -> Dictionary:

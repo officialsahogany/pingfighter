@@ -61,10 +61,10 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
 
 
-func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
+func draw_guard_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
-	_draw_guard_label(canvas, config.get("affinity_guard_label", {}), _get_vector2(config.get("shake_offset", Vector2.ZERO), Vector2.ZERO))
+	_draw_guard_label(canvas, config.get("guardian_guard_label", {}), _get_vector2(config.get("shake_offset", Vector2.ZERO), Vector2.ZERO))
 
 
 func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0, heart_tint: bool = false, guard_aura_ratio: float = 0.0) -> void:

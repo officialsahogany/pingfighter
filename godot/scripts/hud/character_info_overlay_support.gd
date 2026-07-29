@@ -230,7 +230,7 @@ func _build_acquired_perks_cached(levels: Dictionary, catalog: Object, runtime_s
 #
 # ⚠️ The run ring-core tier must NOT be injected here. Ring core is slot-FREE in the
 # landed contract (`RuntimePerkCatalog.is_slot_consuming_perk` exempts it twice and
-# `count_owned_slot_perks` cannot even see it -- the tier lives in LingpetAffinityState,
+# `count_owned_slot_perks` cannot even see it -- the tier lives in LingpetGuardianRunState,
 # not `runtime_skill_levels`), so tier cells appended into this budget list drew past
 # the "슬롯 N/M" header the same function reports (6 perks + tier 2 = 8 cells under
 # 6/6) and cannibalised empty slots below the limit. The tier already has its own

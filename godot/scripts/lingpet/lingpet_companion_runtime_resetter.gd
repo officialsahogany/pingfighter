@@ -21,7 +21,6 @@ func reset_to_egg_wait(context: Dictionary) -> Dictionary:
 		context.get("ring_dash_vfx", null) as Object,
 		context.get("ghost_blink_vfx", null) as Object,
 		context.get("starlight_tracking_state", null) as Object,
-		context.get("feed_controller", null) as Object,
 		context.get("companion_skill_persistence", null) as Object,
 		context.get("companion_skill_states", []) as Array,
 		context.get("companion_motion_state", null) as Object,
@@ -80,7 +79,6 @@ func reset_to_none(context: Dictionary) -> Dictionary:
 		context.get("ring_dash_vfx", null) as Object,
 		context.get("ghost_blink_vfx", null) as Object,
 		context.get("starlight_tracking_state", null) as Object,
-		context.get("feed_controller", null) as Object,
 		context.get("companion_skill_persistence", null) as Object,
 		context.get("companion_skill_states", []) as Array,
 		context.get("companion_motion_state", null) as Object,
@@ -129,9 +127,6 @@ func clear_field_state(context: Dictionary) -> Dictionary:
 	var starlight_tracking_state: Object = context.get("starlight_tracking_state", null) as Object
 	if starlight_tracking_state != null:
 		starlight_tracking_state.reset_all()
-	var feed_controller: Object = context.get("feed_controller", null) as Object
-	if feed_controller != null:
-		feed_controller.reset_all()
 	var overflow_choice_state: Object = context.get("overflow_choice_state", null) as Object
 	if overflow_choice_state != null:
 		overflow_choice_state.reset()
@@ -244,7 +239,6 @@ func prepare_companion_activation(context: Dictionary) -> Dictionary:
 		context.get("ring_dash_vfx", null) as Object,
 		context.get("ghost_blink_vfx", null) as Object,
 		context.get("starlight_tracking_state", null) as Object,
-		context.get("feed_controller", null) as Object,
 		context.get("companion_skill_persistence", null) as Object,
 		context.get("companion_skill_states", []) as Array,
 		context.get("companion_motion_state", null) as Object,
@@ -292,7 +286,6 @@ func reset_state(
 	ring_dash_vfx: Object,
 	ghost_blink_vfx: Object,
 	starlight_tracking_state: Object,
-	feed_controller: Object,
 	companion_skill_persistence: Object,
 	companion_skill_states: Array,
 	companion_motion_state: Object,
@@ -308,8 +301,6 @@ func reset_state(
 	ring_dash_vfx.reset()
 	ghost_blink_vfx.reset()
 	starlight_tracking_state.reset_all()
-	if feed_controller != null:
-		feed_controller.reset_all()
 	companion_skill_persistence.reset_states(companion_skill_states)
 	if reset_defense:
 		companion_motion_state.reset_defense()

@@ -9,7 +9,7 @@ const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
@@ -472,10 +472,10 @@ func _verify_enhancement_stat_boosts_reach_panel_through_schema_gated_owner() ->
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
 	)
 	var mobility_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_MOBILITY}, owner, registry, "maribo"
+		{"type": LingpetGuardianRunState.REWARD_TYPE_MOBILITY}, owner, registry, "maribo"
 	)
 	var gauge_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_GAUGE}, owner, registry, "maribo"
+		{"type": LingpetGuardianRunState.REWARD_TYPE_GAUGE}, owner, registry, "maribo"
 	)
 	_expect(bool(mobility_result.get("accepted", false)), "Guardian Enhance should apply the movement fixture stack")
 	_expect(bool(gauge_result.get("accepted", false)), "Guardian Enhance should apply the vigor fixture stack")
@@ -483,9 +483,9 @@ func _verify_enhancement_stat_boosts_reach_panel_through_schema_gated_owner() ->
 	var base_gauge := float(LingpetCatalog.get_stat("maribo", "hit_gauge_gain", 40.0))
 	var base_speed := float(LingpetCatalog.get_stat("maribo", "patrol_speed_default", 0.0))
 	_expect(base_speed > 0.0, "Maribo should expose a catalog patrol speed for the divergence fixture")
-	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
-	var gauge_stacks := mini(int(rewards.get("gauge_stacks", 0)), LingpetAffinityState.MAX_GAUGE_STACKS)
-	var mobility_stacks := mini(int(rewards.get("mobility_stacks", 0)), LingpetAffinityState.MAX_MOBILITY_STACKS)
+	var rewards: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
+	var gauge_stacks := mini(int(rewards.get("gauge_stacks", 0)), LingpetGuardianRunState.MAX_GAUGE_STACKS)
+	var mobility_stacks := mini(int(rewards.get("mobility_stacks", 0)), LingpetGuardianRunState.MAX_MOBILITY_STACKS)
 	var expected_gauge := base_gauge + float(gauge_stacks) * 5.0
 	var expected_speed := base_speed * (1.0 + minf(float(mobility_stacks) * 5.0, 30.0) / 100.0)
 	_expect(gauge_stacks > 0, "stat-boost fixture should earn gauge stacks before checking panel sync")
@@ -523,17 +523,17 @@ func _verify_second_active_enhancement_level_reaches_panel_through_schema_gated_
 		"schema-gated owner should accept a Red Dragon primary skill for the 2nd-active case"
 	)
 	var unlock_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK}, owner, registry, "red_dragon"
+		{"type": LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK}, owner, registry, "red_dragon"
 	)
 	_expect(bool(unlock_result.get("accepted", false)), "Guardian Enhance should unlock the second active slot")
 	runtime.update(0.0, owner, registry)
 	var skill_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, "skill_slot": 2}, owner, registry, "red_dragon"
+		{"type": LingpetGuardianRunState.REWARD_TYPE_ACTIVE_SKILL, "skill_slot": 2}, owner, registry, "red_dragon"
 	)
 	_expect(bool(skill_result.get("accepted", false)), "Guardian Enhance should raise the second active skill level")
 	runtime.update(0.0, owner, registry)
 
-	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
+	var rewards: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("red_dragon")
 	_expect(bool(rewards.get("second_active_unlocked", false)), "2nd-active fixture should retain the Guardian Enhance unlock")
 	var second_bonus := int(rewards.get("second_active_skill_bonus", 0))
 	_expect(second_bonus > 0, "2nd-active fixture should earn a second_active_skill_bonus so the base-vs-boosted divergence is real (a base==boosted case passes even with the bug)")

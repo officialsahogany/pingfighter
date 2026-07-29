@@ -12,20 +12,20 @@ func reset() -> void:
 	_drain_exempt = false
 
 
-func advance_inactive(affinity_state: Object = null) -> void:
+func advance_inactive(guardian_run_state: Object = null) -> void:
 	_drain_exempt = false
-	if affinity_state != null and affinity_state.has_method("clear_duration_drain_exempt_latch"):
-		affinity_state.clear_duration_drain_exempt_latch()
+	if guardian_run_state != null and guardian_run_state.has_method("clear_duration_drain_exempt_latch"):
+		guardian_run_state.clear_duration_drain_exempt_latch()
 
 
 func latch_drain_exempt(
 	owner: Object,
 	collection_state: Object,
-	affinity_state: Object = null
+	guardian_run_state: Object = null
 ) -> bool:
-	if affinity_state != null and affinity_state.has_method("latch_duration_drain_exempt"):
+	if guardian_run_state != null and guardian_run_state.has_method("latch_duration_drain_exempt"):
 		_drain_exempt = bool(
-			affinity_state.latch_duration_drain_exempt(owner, collection_state)
+			guardian_run_state.latch_duration_drain_exempt(owner, collection_state)
 		)
 	else:
 		_drain_exempt = is_drain_exempt(owner, collection_state)
@@ -34,15 +34,15 @@ func latch_drain_exempt(
 
 func advance_duration(
 	delta: float,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	owner: Object,
 	collection_state: Object,
 	passive_skills: Array,
 	summoned: bool
 ) -> Dictionary:
 	var drain_multiplier := get_duration_drain_multiplier(passive_skills)
-	var exempt := is_drain_exempt(owner, collection_state, affinity_state)
-	var result: Dictionary = affinity_state.advance_duration_pool(
+	var exempt := is_drain_exempt(owner, collection_state, guardian_run_state)
+	var result: Dictionary = guardian_run_state.advance_duration_pool(
 		delta,
 		summoned,
 		drain_multiplier,
@@ -53,20 +53,20 @@ func advance_duration(
 	return result
 
 
-func get_active_duration_pct(has_guardian: bool, affinity_state: Object) -> int:
-	if not has_guardian or affinity_state == null:
+func get_active_duration_pct(has_guardian: bool, guardian_run_state: Object) -> int:
+	if not has_guardian or guardian_run_state == null:
 		return 0
-	return int(affinity_state.get_duration_pool_pct())
+	return int(guardian_run_state.get_duration_pool_pct())
 
 
 func is_drain_exempt(
 	owner: Object,
 	collection_state: Object,
-	affinity_state: Object = null
+	guardian_run_state: Object = null
 ) -> bool:
-	if affinity_state != null and affinity_state.has_method("is_duration_drain_exempt_latched"):
+	if guardian_run_state != null and guardian_run_state.has_method("is_duration_drain_exempt_latched"):
 		if owner == null:
-			return bool(affinity_state.is_duration_drain_exempt_latched())
+			return bool(guardian_run_state.is_duration_drain_exempt_latched())
 	if owner == null:
 		return _drain_exempt
 	return (

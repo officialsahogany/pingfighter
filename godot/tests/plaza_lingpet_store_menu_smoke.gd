@@ -58,10 +58,6 @@ class FakeOwner:
 	var ringpet_companion_defense_rate := 0.0
 	var lingpet_companion_appearance_rate := 0.0
 	var ringpet_companion_appearance_rate := 0.0
-	var lingpet_affinity_level := 0
-	var ringpet_affinity_level := 0
-	var lingpet_affinity_points := 0.0
-	var ringpet_affinity_points := 0.0
 	var lingpet_affinity_next_requirement := 0.0
 	var ringpet_affinity_next_requirement := 0.0
 	var lingpet_affinity_next_label := ""
@@ -203,8 +199,10 @@ func _cleanup_scene_nodes() -> void:
 func _verify_lingpet_store_runtime_only_sources() -> void:
 	var transaction_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 	var message_formatter_source := FileAccess.get_file_as_string("res://scripts/plaza/plaza_transaction_message_formatter.gd")
-	_expect(transaction_source.find("lingpet_affinity_store") < 0, "plaza lingpet store transactions should not request the removed affinity store module key")
-	_expect(transaction_source.find("LingpetAffinityStore") < 0, "plaza lingpet store transactions should not preload or use the meta-only affinity store")
+	var retired_store_key := "lingpet_affinity_" + "store"
+	var retired_store_class := "LingpetAffinity" + "Store"
+	_expect(transaction_source.find(retired_store_key) < 0, "plaza lingpet store transactions should not request the removed progression store module key")
+	_expect(transaction_source.find(retired_store_class) < 0, "plaza lingpet store transactions should not preload or use the removed progression store")
 	_expect(transaction_source.find("upgrade_run_ring_core_tier") < 0, "plaza transactions should not expose the retired ring-core purchase path")
 	_expect(message_formatter_source.find("ring_core") < 0, "plaza formatter should not expose retired ring-core outcomes")
 

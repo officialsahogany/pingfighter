@@ -5,15 +5,12 @@ func is_available_for_hit(
 	ring_dash_override_active: bool,
 	ring_dash_visual_hidden: bool,
 	active_skill_override_active: bool,
-	feed_override_active: bool,
 	starlight_override_active: bool,
 	motion_visible: bool
 ) -> bool:
 	if ring_dash_override_active:
 		return not ring_dash_visual_hidden
 	if active_skill_override_active:
-		return true
-	if feed_override_active:
 		return true
 	if starlight_override_active:
 		return true
@@ -23,7 +20,6 @@ func is_available_for_hit(
 func is_available_for_hit_from_surface(
 	visual_surface: Dictionary,
 	ring_dash_state: Object,
-	feed_controller: Object,
 	starlight_tracking_state: Object,
 	motion_state: Object
 ) -> bool:
@@ -31,7 +27,6 @@ func is_available_for_hit_from_surface(
 		_has_companion_position_override(ring_dash_state),
 		_is_ring_dash_visual_hidden(ring_dash_state),
 		bool(visual_surface.get("has_active_position_override", false)),
-		_has_companion_position_override(feed_controller),
 		_has_companion_position_override(starlight_tracking_state),
 		_get_motion_visible(motion_state)
 	)
@@ -42,7 +37,6 @@ func is_visible_for_draw(
 	motion_visible: bool,
 	active_skill_override_active: bool,
 	ring_dash_override_active: bool,
-	feed_override_active: bool,
 	starlight_override_active: bool
 ) -> bool:
 	if ring_dash_visual_hidden:
@@ -51,7 +45,6 @@ func is_visible_for_draw(
 		motion_visible
 		or active_skill_override_active
 		or ring_dash_override_active
-		or feed_override_active
 		or starlight_override_active
 	)
 
@@ -59,7 +52,6 @@ func is_visible_for_draw(
 func is_visible_for_draw_from_surface(
 	visual_surface: Dictionary,
 	ring_dash_state: Object,
-	feed_controller: Object,
 	starlight_tracking_state: Object,
 	motion_state: Object
 ) -> bool:
@@ -68,12 +60,11 @@ func is_visible_for_draw_from_surface(
 		_get_motion_visible(motion_state),
 		bool(visual_surface.get("has_active_position_override", false)),
 		_has_companion_position_override(ring_dash_state),
-		_has_companion_position_override(feed_controller),
 		_has_companion_position_override(starlight_tracking_state)
 	)
 
 
-func can_grant_click_affinity(motion_state: Object, ring_dash_state: Object) -> bool:
+func can_begin_click_reaction(motion_state: Object, ring_dash_state: Object) -> bool:
 	return _get_motion_visible(motion_state) and not _is_ring_dash_visual_hidden(ring_dash_state)
 
 
@@ -110,7 +101,6 @@ func get_draw_motion_speed_ratio_from_sources(
 	skill_runtime_host: Object,
 	skill_visual_resolver: Object,
 	ring_dash_state: Object,
-	feed_controller: Object,
 	starlight_tracking_state: Object,
 	motion_visible: bool,
 	motion_style: String,
@@ -141,7 +131,6 @@ func get_draw_motion_speed_ratio_from_sources(
 	return get_draw_motion_speed_ratio(
 		active_skill_override_active,
 		_has_companion_position_override(ring_dash_state),
-		_has_companion_position_override(feed_controller),
 		_has_companion_position_override(starlight_tracking_state),
 		motion_visible,
 		motion_style,
@@ -158,7 +147,6 @@ func get_draw_motion_speed_ratio_from_runtime(
 	skill_runtime_host: Object,
 	skill_visual_resolver: Object,
 	ring_dash_state: Object,
-	feed_controller: Object,
 	starlight_tracking_state: Object,
 	motion_state: Object,
 	distance_roll_state: Object,
@@ -170,7 +158,6 @@ func get_draw_motion_speed_ratio_from_runtime(
 		skill_runtime_host,
 		skill_visual_resolver,
 		ring_dash_state,
-		feed_controller,
 		starlight_tracking_state,
 		_get_motion_visible(motion_state),
 		_get_motion_style(profile),
@@ -184,7 +171,6 @@ func get_draw_motion_speed_ratio_from_surface(
 	visual_surface: Dictionary,
 	profile: Object,
 	ring_dash_state: Object,
-	feed_controller: Object,
 	starlight_tracking_state: Object,
 	motion_state: Object,
 	distance_roll_state: Object,
@@ -193,7 +179,6 @@ func get_draw_motion_speed_ratio_from_surface(
 	return get_draw_motion_speed_ratio(
 		bool(visual_surface.get("has_active_position_override", false)),
 		_has_companion_position_override(ring_dash_state),
-		_has_companion_position_override(feed_controller),
 		_has_companion_position_override(starlight_tracking_state),
 		_get_motion_visible(motion_state),
 		_get_motion_style(profile),
@@ -206,7 +191,6 @@ func get_draw_motion_speed_ratio_from_surface(
 func get_draw_motion_speed_ratio(
 	active_skill_override_active: bool,
 	ring_dash_override_active: bool,
-	feed_override_active: bool,
 	starlight_override_active: bool,
 	motion_visible: bool,
 	motion_style: String,
@@ -218,8 +202,6 @@ func get_draw_motion_speed_ratio(
 		return override_move_ratio
 	if ring_dash_override_active:
 		return 0.0
-	if feed_override_active:
-		return override_move_ratio
 	if starlight_override_active:
 		return override_move_ratio
 	if not motion_visible:

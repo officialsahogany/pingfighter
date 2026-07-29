@@ -1,7 +1,7 @@
 extends RefCounted
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetEnhancementBuffStore := preload(
 	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
 )
@@ -276,8 +276,8 @@ func get_motion_style() -> String:
 
 func get_guardian_motion_style() -> String:
 	if _is_patrol_motion_style():
-		return LingpetAffinityState.MOTION_STYLE_PATROL
-	return LingpetAffinityState.MOTION_STYLE_FLIGHT
+		return LingpetGuardianRunState.MOTION_STYLE_PATROL
+	return LingpetGuardianRunState.MOTION_STYLE_FLIGHT
 
 
 func get_skill_id(slot_index: int = 0) -> String:

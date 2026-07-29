@@ -1,6 +1,6 @@
 extends SceneTree
 
-const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
+const LingpetGuardHitTagResolver := preload("res://scripts/lingpet/lingpet_guard_hit_tag_resolver.gd")
 
 var _failures: Array[String] = []
 
@@ -23,10 +23,10 @@ class FakeRingDashState:
 func _init() -> void:
 	_verify_capture_contract()
 	_verify_merge_and_defense_contract()
-	_verify_runtime_delegates_affinity_hit_tags()
+	_verify_runtime_delegates_guard_hit_tags()
 
 	if _failures.is_empty():
-		print("lingpet_affinity_hit_tag_resolver_smoke: ok")
+		print("lingpet_guard_hit_tag_resolver_smoke: ok")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -35,7 +35,7 @@ func _init() -> void:
 
 
 func _verify_capture_contract() -> void:
-	var resolver := LingpetAffinityHitTagResolver.new()
+	var resolver := LingpetGuardHitTagResolver.new()
 	var motion := FakeMotionState.new()
 	var ring_dash := FakeRingDashState.new()
 
@@ -56,7 +56,7 @@ func _verify_capture_contract() -> void:
 
 
 func _verify_merge_and_defense_contract() -> void:
-	var resolver := LingpetAffinityHitTagResolver.new()
+	var resolver := LingpetGuardHitTagResolver.new()
 	var defense_only := {
 		"defense_intercept": true,
 		"ring_dash_block": false,
@@ -76,14 +76,14 @@ func _verify_merge_and_defense_contract() -> void:
 	_expect(not resolver.has_defense_tag(no_tags), "missing tags should not trigger defense feedback")
 
 
-func _verify_runtime_delegates_affinity_hit_tags() -> void:
+func _verify_runtime_delegates_guard_hit_tags() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var resolver_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
-	_expect(runtime_source.find("LingpetAffinityHitTagResolver") >= 0, "egg runtime should preload the affinity hit-tag resolver")
-	_expect(runtime_source.find("_affinity_hit_tag_resolver.capture") >= 0, "runtime capture wrapper should delegate")
-	_expect(runtime_source.find("_affinity_hit_tag_resolver.merge") >= 0, "runtime merge wrapper should delegate")
-	_expect(runtime_source.find("_affinity_hit_tag_resolver.has_defense_tag") >= 0, "runtime defense-tag wrapper should delegate")
-	_expect(resolver_source.find("TAG_DEFENSE_INTERCEPT") >= 0 and resolver_source.find("TAG_RING_DASH_BLOCK") >= 0, "resolver should own the affinity hit-tag keys")
+	var resolver_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_guard_hit_tag_resolver.gd")
+	_expect(runtime_source.find("LingpetGuardHitTagResolver") >= 0, "egg runtime should preload the guard hit-tag resolver")
+	_expect(runtime_source.find("_guard_hit_tag_resolver.capture") >= 0, "runtime capture wrapper should delegate")
+	_expect(runtime_source.find("_guard_hit_tag_resolver.merge") >= 0, "runtime merge wrapper should delegate")
+	_expect(runtime_source.find("_guard_hit_tag_resolver.has_defense_tag") >= 0, "runtime defense-tag wrapper should delegate")
+	_expect(resolver_source.find("TAG_DEFENSE_INTERCEPT") >= 0 and resolver_source.find("TAG_RING_DASH_BLOCK") >= 0, "resolver should own the guard hit-tag keys")
 
 
 func _expect(condition: bool, message: String) -> void:

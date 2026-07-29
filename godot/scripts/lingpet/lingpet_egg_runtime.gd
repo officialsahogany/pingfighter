@@ -22,7 +22,7 @@ const LingpetCompanionClickReactionVisualPrewarmState := preload("res://scripts/
 const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
@@ -38,9 +38,9 @@ const LingpetGuardianEnhanceCutinOverlayHostResolver := preload(
 const LingpetDurationRuntimeState := preload(
 	"res://scripts/lingpet/lingpet_duration_runtime_state.gd"
 )
-const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
-const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
-const LingpetAffinityFeedbackState := preload("res://scripts/lingpet/lingpet_affinity_feedback_state.gd")
+const LingpetGuardianRunContextCoordinator := preload("res://scripts/lingpet/lingpet_guardian_run_context_coordinator.gd")
+const LingpetGuardHitTagResolver := preload("res://scripts/lingpet/lingpet_guard_hit_tag_resolver.gd")
+const LingpetGuardFeedbackState := preload("res://scripts/lingpet/lingpet_guard_feedback_state.gd")
 const LingpetAudioDispatcher := preload("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCurrentLoadoutApplier := preload("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
@@ -181,7 +181,7 @@ var _debug_stat_overrides: Object = LingpetDebugStatOverrideState.new()
 # F7 debug-only appearance-rate override (flight-style only). Same contract as the
 # defense override: < 0 = use catalog/profile, >= 0 forces the value.
 # F7 debug-only move-speed override. < 0 = use catalog/profile speed; >= 0 is a
-# MULTIPLIER applied on top of the final (affinity/passive-included) patrol speed.
+# MULTIPLIER applied on top of the final enhancement/passive patrol speed.
 # Unlike defense/appearance this has NO motion-style gate — it scales every
 # patrol_speed_* read so it reaches movement for any pet (caveat: flight pets use
 # hardcoded sortie/ghost speeds so the felt effect is small). Only the F7 picker writes it.
@@ -236,10 +236,10 @@ var _perf_probe: Object = LingpetPerfProbe.new()
 var _round_resetter: Object = LingpetRoundResetter.new()
 var _tutorial_bootstrap: Object = LingpetTutorialBootstrap.new()
 var _unlock_loadout_reconciler: Object = LingpetUnlockLoadoutReconciler.new()
-var _affinity_state: Object = LingpetAffinityState.new()
-var _affinity_context_coordinator: Object = LingpetAffinityContextCoordinator.new()
-var _affinity_hit_tag_resolver: Object = LingpetAffinityHitTagResolver.new()
-var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
+var _guardian_run_state: Object = LingpetGuardianRunState.new()
+var _guardian_run_context_coordinator: Object = LingpetGuardianRunContextCoordinator.new()
+var _guard_hit_tag_resolver: Object = LingpetGuardHitTagResolver.new()
+var _guard_feedback_state: Object = LingpetGuardFeedbackState.new()
 var _duration_runtime_state: Object = LingpetDurationRuntimeState.new()
 var _guardian_stowed := false
 var _soul_summon_offer_guarantee_count := 0
@@ -351,7 +351,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	if guardian_summoned:
 		_companion_sprite_animator.advance(delta)
 		_companion_click_reaction_state.advance(delta)
-		_affinity_feedback_state.advance(delta)
+		_guard_feedback_state.advance(delta)
 	_perf_probe.end(perf_logger, "physics.lingpet.advance", sample_start)
 
 	# Incubator-egg reveal cut-in has dismissed: restore the companion + absorb the new pet
@@ -430,16 +430,16 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_ghost_blink_vfx.advance(delta)
 		_perf_probe.end(perf_logger, "physics.lingpet.vfx_states", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		var affinity_hit_tags: Dictionary = _affinity_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
+		var guard_hit_tags: Dictionary = _guard_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
 		if guardian_summoned:
 			_update_companion_motion(delta, owner, registry)
 		else:
 			_companion_body_hit_state.ball_was_inside = false
 		_perf_probe.end(perf_logger, "physics.lingpet.companion_motion", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		affinity_hit_tags = _affinity_hit_tag_resolver.merge(
-			affinity_hit_tags,
-			_affinity_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
+		guard_hit_tags = _guard_hit_tag_resolver.merge(
+			guard_hit_tags,
+			_guard_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
 		)
 		_ghost_blink_vfx.sync_visibility(
 			guardian_summoned and _profile_runtime_surface.get_motion_style(_current_profile) == "free_flight",
@@ -467,7 +467,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		_perf_probe.end(perf_logger, "physics.lingpet.strike_arm", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		if guardian_summoned:
-			_resolve_companion_ball_hit(owner, registry, affinity_hit_tags)
+			_resolve_companion_ball_hit(owner, registry, guard_hit_tags)
 		# Stream the NEW pet's heavy acquire cut-in sheets into the cache DURING incubation
 		# (the companion's _pet_id would otherwise prewarm the wrong pet), so the reveal opens
 		# already animated instead of holding on the static fallback.
@@ -557,20 +557,20 @@ func build_guardian_enhance_offer(owner: Object) -> Dictionary:
 			"blocked_reason": "no_owned_guardian",
 			"candidates": [],
 		}
-	_affinity_context_coordinator.configure(
+	_guardian_run_context_coordinator.configure(
 		pet_id,
 		_pet_id,
 		_current_profile,
 		_loadout_state,
-		_affinity_state
+		_guardian_run_state
 	)
 	var skill_availability: Dictionary = (
-		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
 	)
 	var result: Dictionary = _guardian_enhance_offer_engine.build_offer(
 		owner,
-		_affinity_state.get_pet_data(pet_id),
-		_affinity_state.get_duration_increase_count(),
+		_guardian_run_state.get_pet_data(pet_id),
+		_guardian_run_state.get_duration_increase_count(),
 		bool(skill_availability.get("has_second_active", false)),
 		bool(skill_availability.get("has_second_passive", false))
 	)
@@ -599,9 +599,9 @@ func apply_guardian_enhance_random_roll(
 
 func can_apply_guardian_enhancement_candidate(candidate: Dictionary, pet_id: String) -> bool:
 	var skill_availability: Dictionary = (
-		_affinity_state.get_guardian_enhancement_skill_availability(pet_id)
+		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
 	)
-	return _affinity_state.can_apply_guardian_enhancement(
+	return _guardian_run_state.can_apply_guardian_enhancement(
 		pet_id,
 		candidate,
 		bool(skill_availability.get("has_second_active", false)),
@@ -619,22 +619,22 @@ func apply_guardian_enhancement_candidate(
 	if target_pet_id == "":
 		target_pet_id = _resolve_guardian_enhance_pet_id(owner)
 	var skill_availability: Dictionary = (
-		_affinity_state.get_guardian_enhancement_skill_availability(target_pet_id)
+		_guardian_run_state.get_guardian_enhancement_skill_availability(target_pet_id)
 	)
-	var result: Dictionary = _affinity_state.apply_guardian_enhancement(
+	var result: Dictionary = _guardian_run_state.apply_guardian_enhancement(
 		target_pet_id,
 		candidate,
 		bool(skill_availability.get("has_second_active", false)),
 		bool(skill_availability.get("has_second_passive", false))
 	)
 	if bool(result.get("accepted", false)):
-		_affinity_context_coordinator.handle_enhancement_gain(
+		_guardian_run_context_coordinator.handle_enhancement_gain(
 			target_pet_id,
 			registry,
 			_pet_id,
 			_current_profile,
 			_loadout_state,
-			_affinity_state,
+			_guardian_run_state,
 			_snapshot_builder
 		)
 		_invalidate_runtime_snapshot_cache()
@@ -646,7 +646,7 @@ func apply_guardian_enhance_duration_fallback(
 	owner: Object = null,
 	registry: Object = null
 ) -> Dictionary:
-	var result: Dictionary = _affinity_state.apply_guardian_enhance_duration_fallback()
+	var result: Dictionary = _guardian_run_state.apply_guardian_enhance_duration_fallback()
 	if bool(result.get("accepted", false)):
 		_invalidate_runtime_snapshot_cache()
 		_sync_owner(owner, registry)
@@ -773,7 +773,7 @@ func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
 
 # Pro/Mythic active-item deploy of a random unowned pet's egg. Two cases:
 #   * NO companion yet (STATE_NONE): the egg hatches into the companion (first acquisition),
-#     mirroring _spawn_egg minus the junior-only tutorial ring-core grant.
+#     mirroring _spawn_egg minus the junior-only tutorial auto-present branch.
 #   * companion ALREADY on field (STATE_COMPANION): a SEPARATE coexisting egg incubates
 #     alongside it (the companion is untouched) and the new pet is absorbed into a free
 #     collection slot after the lifecycle helper finishes the reveal transition.
@@ -916,22 +916,22 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 		# (invoked from the shared player actor renderer). Keeping it out of this
 		# post-actor front pass is what makes an overlapping player render in front of the
 		# lingpet. Only the companion's emanating VFX stay in front (ring dash / ghost
-		# blink / affinity feedback) plus the hatch flash.
+		# blink / guard feedback) plus the hatch flash.
 		if _is_guardian_summoned() and _ring_dash_vfx.has_visible_effects():
 			_ring_dash_vfx.draw(canvas, shake_offset)
 		if _ghost_blink_vfx.has_visible_effects():
 			_ghost_blink_vfx.draw(canvas, shake_offset)
 		if _guardian_transition_state.is_active():
 			_guardian_transition_state.draw(canvas, shake_offset)
-		if _affinity_feedback_state.has_visible_effects(_is_guardian_summoned()):
-			_companion_renderer.draw_affinity_feedback(
+		if _guard_feedback_state.has_visible_effects(_is_guardian_summoned()):
+			_companion_renderer.draw_guard_feedback(
 				canvas,
 				_companion_pos + shake_offset,
-				_companion_draw_context_builder.build_affinity_feedback_config({
+				_companion_draw_context_builder.build_guard_feedback_config({
 					"companion_active": _is_guardian_summoned(),
 					"radius": COMPANION_RADIUS,
 					"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
-					"affinity_feedback_state": _affinity_feedback_state,
+					"guard_feedback_state": _guard_feedback_state,
 					"shake_offset": shake_offset,
 				})
 			)
@@ -953,7 +953,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 # renderer invokes this (through a hook the battle scene drawer injects into the actor
 # context) right before it draws the player sprite -- after the opaque stage background,
 # before the player -- so an overlapping player renders in front of the lingpet. Skill
-# VFX, ring-dash / ghost / affinity feedback, and the hatch flash stay in draw() (the
+# VFX, ring-dash / ghost / guard feedback, and the hatch flash stay in draw() (the
 # post-actor front pass). Mirrors the body-draw branches that used to live inside draw().
 func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
@@ -1067,7 +1067,7 @@ func has_visible_effects() -> bool:
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
 		or _guardian_transition_state.is_active()
-		or _affinity_feedback_state.has_visible_effects(_is_guardian_summoned())
+		or _guard_feedback_state.has_visible_effects(_is_guardian_summoned())
 		or _skill_runtime_host.has_visible_effects()
 		or _item_egg_lifecycle_state.is_active()
 		or _item_egg_absorb_vfx.has_visible_effects()
@@ -1490,12 +1490,12 @@ func _set_current_pet_id(value: String) -> void:
 		_pet_id,
 		PET_ID,
 		_current_profile,
-		_affinity_context_coordinator,
+		_guardian_run_context_coordinator,
 		_loadout_state,
-		_affinity_state,
+		_guardian_run_state,
 		_hatch_stat_roll_state,
 		_companion_distance_roll_state,
-		_affinity_feedback_state,
+		_guard_feedback_state,
 		_companion_click_reaction_visual_prewarm_state,
 		_acquire_cutin_asset_prewarm_state,
 		_snapshot_builder
@@ -1572,14 +1572,14 @@ func get_ring_dash_trigger_count_for_tests() -> int:
 	return _ring_dash_state.get_trigger_count_for_tests()
 
 
-func set_affinity_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
-	var current_profile_changed: bool = bool(_affinity_context_coordinator.set_reward_seed_for_tests(
+func set_guardian_enhancement_reward_seed_for_tests(pet_id: String, reward_seed: int) -> void:
+	var current_profile_changed: bool = bool(_guardian_run_context_coordinator.set_reward_seed_for_tests(
 		pet_id,
 		reward_seed,
 		_pet_id,
 		_current_profile,
 		_loadout_state,
-		_affinity_state
+		_guardian_run_state
 	))
 	if current_profile_changed:
 		_invalidate_runtime_snapshot_cache()
@@ -1606,7 +1606,6 @@ func get_companion_draw_motion_speed_ratio_for_tests() -> float:
 		_skill_runtime_host,
 		_companion_skill_visual_resolver,
 		_ring_dash_state,
-		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -1998,10 +1997,10 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot["companion_appearance_rate"] = appearance_rate if _is_guardian_summoned() else 0.0
 	snapshot["character_info_display_snapshot"] = character_info_display_snapshot
 	snapshot["duration_pool_pct"] = _get_active_duration_pct()
-	snapshot["duration_pool"] = _affinity_state.get_duration_pool_current()
-	snapshot["duration_pool_max"] = _affinity_state.get_duration_pool_max()
+	snapshot["duration_pool"] = _guardian_run_state.get_duration_pool_current()
+	snapshot["duration_pool_max"] = _guardian_run_state.get_duration_pool_max()
 	snapshot["guardian_stowed"] = _guardian_stowed
-	snapshot.merge(_affinity_feedback_state.get_snapshot(_is_guardian_summoned()), true)
+	snapshot.merge(_guard_feedback_state.get_snapshot(_is_guardian_summoned()), true)
 	snapshot["item_egg_active"] = _item_egg_lifecycle_state.is_active()
 	snapshot["item_egg_pet_id"] = _item_egg_lifecycle_state.get_pet_id()
 	snapshot["item_egg_hatch_hits"] = _item_egg_state.hatch_hits
@@ -2056,9 +2055,9 @@ func is_item_egg_absorbing() -> bool:
 
 
 func get_save_snapshot() -> Dictionary:
-	var affinity_run_state: Dictionary = _affinity_state.export_run_state()
-	affinity_run_state.merge(_hatch_stat_roll_state.export_run_state(), true)
-	affinity_run_state.merge(_spirit_water_drop_state.export_run_state(), true)
+	var guardian_run_state: Dictionary = _guardian_run_state.export_run_state()
+	guardian_run_state.merge(_hatch_stat_roll_state.export_run_state(), true)
+	guardian_run_state.merge(_spirit_water_drop_state.export_run_state(), true)
 	var snapshot: Dictionary = _snapshot_builder.build_save_snapshot(
 		SAVE_SNAPSHOT_VERSION,
 		_pet_id,
@@ -2074,7 +2073,7 @@ func get_save_snapshot() -> Dictionary:
 		_profile_runtime_surface.get_gauge_gain_bonus_pct(_current_profile, 0.0),
 		_companion_motion_state,
 		_loadout_state.get_loadouts(),
-		affinity_run_state
+		guardian_run_state
 	)
 	snapshot["guardian_stowed"] = _guardian_stowed
 	return snapshot
@@ -2084,24 +2083,22 @@ func build_save_snapshot() -> Dictionary:
 	return get_save_snapshot()
 
 
-func export_affinity_run_state() -> Dictionary:
-	var run_state: Dictionary = _affinity_state.export_run_state()
+func export_guardian_run_state() -> Dictionary:
+	var run_state: Dictionary = _guardian_run_state.export_run_state()
 	run_state.merge(_hatch_stat_roll_state.export_run_state(), true)
 	run_state.merge(_spirit_water_drop_state.export_run_state(), true)
 	return run_state
 
 
-# Restore the run-scoped affinity progression carried in a save snapshot. The
-# save/restore applier calls this right after reset_for_tests() (which wipes the run
-# state) so a pet swap / plaza round trip / in-run restore keeps per-pet affinity AND
-# the run-global ring core tier. Called before pet_id/state/loadout restore so the
-# downstream profile/owner sync reads the restored affinity + ring-core cap.
-func import_affinity_run_state(run_state: Dictionary) -> void:
+# Restore the run-scoped duration, enhancement buffs, hatch traits, and spirit-
+# water latch carried in a save snapshot. The applier calls this after its reset
+# and before pet/profile projection so an in-run restore preserves one run owner.
+func import_guardian_run_state(run_state: Dictionary) -> void:
 	if run_state.is_empty():
 		return
 	_invalidate_runtime_snapshot_cache()
 	_hatch_stat_roll_state.import_run_state(run_state)
-	_affinity_state.import_run_state(run_state)
+	_guardian_run_state.import_run_state(run_state)
 	_spirit_water_drop_state.import_run_state(run_state)
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
 
@@ -2132,7 +2129,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: O
 		_state == STATE_COMPANION
 		and bool(snapshot.get(
 			"guardian_stowed",
-			_affinity_state.is_duration_resummon_locked()
+			_guardian_run_state.is_duration_resummon_locked()
 		))
 	)
 	_guardian_active_elapsed = 0.0
@@ -2149,13 +2146,13 @@ func reset_for_tests() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
-	_current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
+	_current_profile.set_enhancement_rewards(LingpetGuardianRunState.get_empty_reward_counts())
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
-	_affinity_state.reset_for_new_run()
+	_guardian_run_state.reset_for_new_run()
 	_hatch_stat_roll_state.reset_for_new_run()
 	_spirit_water_drop_state.reset_run()
-	_affinity_context_coordinator.reset_for_new_run()
-	_affinity_feedback_state.reset_all()
+	_guardian_run_context_coordinator.reset_for_new_run()
+	_guard_feedback_state.reset_all()
 	_duration_runtime_state.reset()
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
@@ -2205,8 +2202,8 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_round_resetter.reset_round(
 		owner,
 		registry,
-		_affinity_state,
-		_affinity_feedback_state,
+		_guardian_run_state,
+		_guard_feedback_state,
 		_companion_motion_state,
 		_switch_transition_state,
 		_companion_skill_persistence,
@@ -2217,8 +2214,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 		_ring_dash_state,
 		_ring_dash_vfx,
 		_ghost_blink_vfx,
-		_starlight_tracking_state,
-		null
+		_starlight_tracking_state
 	)
 
 
@@ -2236,7 +2232,7 @@ func _clear_lingpet_field_state() -> void:
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
-	_affinity_feedback_state.reset_all()
+	_guard_feedback_state.reset_all()
 	_apply_companion_position_surface(_companion_runtime_resetter.clear_field_state(
 		_build_field_cleanup_context()
 	))
@@ -2253,7 +2249,6 @@ func _reset_companion_runtime_state(reset_defense: bool = true, owner: Object = 
 		_ring_dash_vfx,
 		_ghost_blink_vfx,
 		_starlight_tracking_state,
-		null,
 		_companion_skill_persistence,
 		_companion_skill_states,
 		_companion_motion_state,
@@ -2680,10 +2675,10 @@ func _apply_current_loadout(owner: Object, ensure: bool, randomize_missing: bool
 		randomize_missing,
 		_current_profile,
 		_loadout_state,
-		_affinity_state,
+		_guardian_run_state,
 		_unlock_loadout_reconciler,
 		_hatch_stat_roll_state,
-		_affinity_context_coordinator,
+		_guardian_run_context_coordinator,
 		_skill_runtime_host,
 		_active_skill_slot_resolver,
 		_snapshot_builder
@@ -2880,7 +2875,7 @@ func _reset_companion_patrol() -> void:
 	))
 
 
-func _resolve_companion_ball_hit(owner: Object, registry: Object = null, captured_affinity_hit_tags: Dictionary = {}) -> bool:
+func _resolve_companion_ball_hit(owner: Object, registry: Object = null, captured_guard_hit_tags: Dictionary = {}) -> bool:
 	if not bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false)):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
@@ -2914,7 +2909,6 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	if not _companion_body_presence_resolver.is_available_for_hit_from_surface(
 		visual_surface,
 		_ring_dash_state,
-		null,
 		_starlight_tracking_state,
 		_companion_motion_state
 	):
@@ -2933,9 +2927,9 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 
-	var affinity_hit_tags: Dictionary = _affinity_hit_tag_resolver.merge(
-		captured_affinity_hit_tags,
-		_affinity_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
+	var guard_hit_tags: Dictionary = _guard_hit_tag_resolver.merge(
+		captured_guard_hit_tags,
+		_guard_hit_tag_resolver.capture(_companion_motion_state, _ring_dash_state)
 	)
 	var hit_result: Dictionary = _companion_body_hit_state.resolve_ball_hit(
 		owner,
@@ -2949,9 +2943,9 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	)
 	if not bool(hit_result.get("hit", false)):
 		return false
-	if _affinity_hit_tag_resolver.has_defense_tag(affinity_hit_tags):
-		_affinity_feedback_state.trigger_guard_label(_companion_body_hit_state.last_contact_pos)
-	if bool(affinity_hit_tags.get("defense_intercept", false)):
+	if _guard_hit_tag_resolver.has_defense_tag(guard_hit_tags):
+		_guard_feedback_state.trigger_guard_label(_companion_body_hit_state.last_contact_pos)
+	if bool(guard_hit_tags.get("defense_intercept", false)):
 		_companion_motion_state.clear_defense_intercept()
 
 	# If the anticipatory predictor already started the swing for this approach,
@@ -3067,7 +3061,6 @@ func _advance_companion_draw_anim(delta: float) -> void:
 		_skill_runtime_host,
 		_companion_skill_visual_resolver,
 		_ring_dash_state,
-		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -3095,7 +3088,6 @@ func _draw_companion(
 		visual_surface,
 		_current_profile,
 		_ring_dash_state,
-		null,
 		_starlight_tracking_state,
 		_companion_motion_state,
 		_companion_distance_roll_state,
@@ -3126,7 +3118,6 @@ func _draw_companion(
 		"companion_visible": _companion_body_presence_resolver.is_visible_for_draw_from_surface(
 			visual_surface,
 			_ring_dash_state,
-			null,
 			_starlight_tracking_state,
 			_companion_motion_state
 		),
@@ -3135,7 +3126,7 @@ func _draw_companion(
 		# non-ghost pets (motion state leaves ghost_alpha at 1.0 for them).
 		"companion_alpha": _companion_motion_state.ghost_alpha * clampf(transition_alpha, 0.0, 1.0),
 		"windup_seconds": float(visual_surface.get("windup_seconds", 0.0)),
-		"affinity_feedback_state": _affinity_feedback_state,
+		"guard_feedback_state": _guard_feedback_state,
 		"mount_carry_active": _mount_state.is_mounted(),
 	}))
 
@@ -3148,6 +3139,11 @@ func _draw_companion(
 # game_offset). Returns true when the click was consumed by the companion.
 func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object = null) -> bool:
 	if not _is_guardian_summoned():
+		return false
+	if not _companion_body_presence_resolver.can_begin_click_reaction(
+		_companion_motion_state,
+		_ring_dash_state
+	):
 		return false
 	if _companion_pos == Vector2.ZERO:
 		return false
@@ -3170,7 +3166,7 @@ func is_companion_click_reaction_active() -> bool:
 func refill_guardian_duration_for_stage_transition() -> bool:
 	# Fixed order: refill first, then rearm. The full-pool eligibility gate keeps
 	# spirit water out of the candidate pool until duration is spent again.
-	var changed: bool = bool(_affinity_state.refill_duration_pool_for_stage_transition())
+	var changed: bool = bool(_guardian_run_state.refill_duration_pool_for_stage_transition())
 	_spirit_water_drop_state.rearm_for_stage_transition()
 	_duration_warning_stage = 0
 	if changed:
@@ -3182,8 +3178,8 @@ func can_offer_spirit_water_drop(owner: Object = null) -> bool:
 	var owned_pet_ids: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
 	return _spirit_water_drop_state.can_offer(
 		not owned_pet_ids.is_empty(),
-		_affinity_state.get_duration_pool_current(),
-		_affinity_state.get_duration_pool_max()
+		_guardian_run_state.get_duration_pool_current(),
+		_guardian_run_state.get_duration_pool_max()
 	)
 
 
@@ -3203,7 +3199,7 @@ func use_spirit_water(owner: Object = null, registry: Object = null) -> Dictiona
 	var owned_pet_ids: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
 	if owned_pet_ids.is_empty():
 		return {"accepted": false, "blocked_reason": "missing_guardian"}
-	var result: Dictionary = _affinity_state.restore_duration_pool_to_full_preserving_overfill()
+	var result: Dictionary = _guardian_run_state.restore_duration_pool_to_full_preserving_overfill()
 	if not bool(result.get("accepted", false)):
 		return result
 	_invalidate_runtime_snapshot_cache()
@@ -3217,19 +3213,19 @@ func get_spirit_water_drop_snapshot_for_tests() -> Dictionary:
 
 
 func get_duration_pool_current() -> float:
-	return _affinity_state.get_duration_pool_current()
+	return _guardian_run_state.get_duration_pool_current()
 
 
 func get_duration_pool_max() -> float:
-	return _affinity_state.get_duration_pool_max()
+	return _guardian_run_state.get_duration_pool_max()
 
 
 func get_duration_pool_pct() -> int:
-	return _affinity_state.get_duration_pool_pct()
+	return _guardian_run_state.get_duration_pool_pct()
 
 
 func can_resummon_guardian() -> bool:
-	return _affinity_state.can_resummon_guardian()
+	return _guardian_run_state.can_resummon_guardian()
 
 
 func is_guardian_stowed() -> bool:
@@ -3251,7 +3247,7 @@ func try_toggle_guardian_stow(
 	if _guardian_stowed:
 		# Consume the dedicated toggle even while recovery has not crossed the
 		# strict >10s gate, so R3/Ctrl cannot leak into downstream battle input.
-		if not _affinity_state.can_resummon_guardian():
+		if not _guardian_run_state.can_resummon_guardian():
 			return true
 		_set_guardian_stowed(false, owner, registry)
 		return true
@@ -3278,7 +3274,7 @@ func get_guardian_active_elapsed_for_tests() -> float:
 
 
 func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
-	_affinity_state.set_duration_pool_for_tests(current, maximum)
+	_guardian_run_state.set_duration_pool_for_tests(current, maximum)
 	_guardian_stowed = current <= 0.0
 	_duration_warning_stage = _get_duration_warning_stage()
 	_invalidate_runtime_snapshot_cache()
@@ -3288,9 +3284,9 @@ func set_duration_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
 	_duration_roll_rng_for_tests = rng
 
 
-func get_affinity_rewards_for_tests(pet_id: String = "") -> Dictionary:
+func get_guardian_enhancement_rewards_for_tests(pet_id: String = "") -> Dictionary:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_cumulative_rewards(normalized_pet_id if normalized_pet_id != "" else _pet_id)
+	return _guardian_run_state.get_cumulative_rewards(normalized_pet_id if normalized_pet_id != "" else _pet_id)
 
 
 func _advance_duration_pool(
@@ -3299,14 +3295,14 @@ func _advance_duration_pool(
 	registry: Object = null
 ) -> void:
 	if _state != STATE_COMPANION:
-		_duration_runtime_state.advance_inactive(_affinity_state)
+		_duration_runtime_state.advance_inactive(_guardian_run_state)
 		return
 	if _is_guardian_duration_draining():
 		_guardian_active_elapsed += maxf(0.0, delta)
-	_duration_runtime_state.latch_drain_exempt(owner, _collection_state, _affinity_state)
+	_duration_runtime_state.latch_drain_exempt(owner, _collection_state, _guardian_run_state)
 	var result: Dictionary = _duration_runtime_state.advance_duration(
 		delta,
-		_affinity_state,
+		_guardian_run_state,
 		owner,
 		_collection_state,
 		_profile_runtime_surface.get_passive_skills(_current_profile),
@@ -3325,12 +3321,12 @@ func _advance_duration_pool(
 func _get_active_duration_pct() -> int:
 	return _duration_runtime_state.get_active_duration_pct(
 		_state == STATE_COMPANION,
-		_affinity_state
+		_guardian_run_state
 	)
 
 
 func _ensure_duration_pool_roll() -> Dictionary:
-	return _affinity_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
+	return _guardian_run_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
 
 
 func _set_guardian_stowed(
@@ -3418,7 +3414,7 @@ func _end_guardian_runtime_for_stow(owner: Object, registry: Object) -> void:
 	_companion_body_hit_state.reset_round_transients()
 	_companion_sprite_animator.reset_latch()
 	_companion_click_reaction_state.reset()
-	_affinity_feedback_state.reset_transients()
+	_guard_feedback_state.reset_transients()
 
 
 func _is_guardian_summoned() -> bool:
@@ -3426,7 +3422,7 @@ func _is_guardian_summoned() -> bool:
 
 
 func _get_duration_warning_stage() -> int:
-	var current: float = float(_affinity_state.get_duration_pool_current())
+	var current: float = float(_guardian_run_state.get_duration_pool_current())
 	if current <= 0.0 or current > 10.0:
 		return 0 if current > 10.0 else DURATION_WARNING_STAGE_COUNT
 	var stage_width := 10.0 / float(DURATION_WARNING_STAGE_COUNT)

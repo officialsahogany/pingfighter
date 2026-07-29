@@ -1,6 +1,6 @@
 extends SceneTree
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetProfileRuntimeSurface := preload("res://scripts/lingpet/lingpet_profile_runtime_surface.gd")
 
@@ -122,7 +122,7 @@ func _verify_real_profile_second_passive_surface_and_effect_level() -> void:
 		},
 		2
 	)
-	var rewards := LingpetAffinityState.get_empty_reward_counts()
+	var rewards := LingpetGuardianRunState.get_empty_reward_counts()
 	rewards["passive_skill_bonus"] = 1
 	rewards["second_passive_skill_bonus"] = 2
 	rewards["signature"] = "passive-slot-surface"
@@ -157,7 +157,7 @@ func _verify_real_profile_second_passive_surface_and_effect_level() -> void:
 		},
 		2
 	)
-	var second_effect_rewards := LingpetAffinityState.get_empty_reward_counts()
+	var second_effect_rewards := LingpetGuardianRunState.get_empty_reward_counts()
 	second_effect_rewards["second_passive_skill_bonus"] = 2
 	second_effect_rewards["signature"] = "second-passive-effect"
 	second_effect_profile.set_enhancement_rewards(second_effect_rewards)

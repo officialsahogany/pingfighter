@@ -33,7 +33,7 @@ func get_owner_static_surface_build_count_for_tests() -> int:
 
 
 # Public gated setters for owner keys that the egg runtime computes itself
-# (appearance rate, affinity, bond) and syncs right after sync_owner in the
+# (appearance rate and guardian runtime projections) and syncs after sync_owner in the
 # same tick — they share the same change-gated last-pushed cache so they are
 # also skipped on stable ticks.
 func set_owner_value_gated(owner: Object, key: String, value: Variant) -> void:
@@ -300,7 +300,7 @@ func build_save_snapshot(
 	gauge_gain_bonus_pct: float,
 	motion_state: Object,
 	loadouts_by_pet_id: Dictionary = {},
-	affinity_run_state: Dictionary = {}
+	guardian_run_state: Dictionary = {}
 ) -> Dictionary:
 	var companion_active: bool = state == STATE_COMPANION
 	var snapshot := {
@@ -320,9 +320,9 @@ func build_save_snapshot(
 		"active_slot_index": active_slot_index,
 		"active_pet_id": pet_id if companion_active else "",
 		"gauge_gain_bonus_pct": gauge_gain_bonus_pct if companion_active else 0.0,
-		# Run-scoped affinity progression (per-pet affinity + run-global ring core tier
-		# + chips + feed). Carried so an in-run save/restore round trip does not wipe it.
-		"affinity_run_state": affinity_run_state.duplicate(true),
+		# Run-scoped duration, per-pet enhancement buffs, hatch traits, and spirit-
+		# water latch. Carried so an in-run save/restore round trip preserves the run.
+		"guardian_run_state": guardian_run_state.duplicate(true),
 	}
 	if motion_state != null:
 		snapshot.merge(motion_state.get_save_snapshot(), true)

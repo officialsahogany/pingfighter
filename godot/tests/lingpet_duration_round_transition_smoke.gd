@@ -60,6 +60,7 @@ func _init() -> void:
 	_verify_real_score_to_round_reset_preserves_overfill_and_roll()
 	_verify_real_round_reset_preserves_expiry_lock()
 	_verify_projection_snapshot_restore_preserves_live_run_owner()
+	_verify_legacy_run_key_is_read_only_compatible()
 
 	if _failures.is_empty():
 		print("lingpet_duration_round_transition_smoke: ok")
@@ -74,7 +75,7 @@ func _verify_real_score_to_round_reset_preserves_overfill_and_roll() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.set_duration_pool_for_tests(44.0, 45.0)
 	runtime.apply_guardian_enhance_duration_fallback()
-	var before: Dictionary = runtime.export_affinity_run_state()
+	var before: Dictionary = runtime.export_guardian_run_state()
 	var round_state := FakeRoundState.new()
 	var scoreboard_state := FakeScoreboardState.new()
 	var flow: Object = MatchFlowController.new()
@@ -89,7 +90,7 @@ func _verify_real_score_to_round_reset_preserves_overfill_and_roll() -> void:
 		"reset_ball": Callable(self, "_reset_actual_ball_round").bind(runtime),
 	})
 
-	var after: Dictionary = runtime.export_affinity_run_state()
+	var after: Dictionary = runtime.export_guardian_run_state()
 	_expect(scoreboard_state.start_calls == 1, "score event must enter the real scoreboard flow")
 	_expect(round_state.scoreboard_wait_calls == 1, "score event must enter the real round-wait state")
 	_expect_float(float(before.get("duration_pool", -1.0)), 59.0, "fixture must carry +15s overfill")
@@ -101,9 +102,9 @@ func _verify_real_score_to_round_reset_preserves_overfill_and_roll() -> void:
 func _verify_real_round_reset_preserves_expiry_lock() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.set_duration_pool_for_tests(0.0, 45.0)
-	var before: Dictionary = runtime.export_affinity_run_state()
+	var before: Dictionary = runtime.export_guardian_run_state()
 	_reset_actual_ball_round(runtime)
-	var after: Dictionary = runtime.export_affinity_run_state()
+	var after: Dictionary = runtime.export_guardian_run_state()
 	_expect_float(float(after.get("duration_pool", -1.0)), 0.0, "round reset must not refill an expired pool")
 	_expect_float(float(after.get("duration_pool_max", -1.0)), 45.0, "expired pool must retain its max")
 	_expect_float(float(after.get("duration_resummon_lock_remaining", -1.0)), float(before.get("duration_resummon_lock_remaining", -2.0)), "round reset must preserve the resummon threshold remainder")
@@ -114,10 +115,27 @@ func _verify_projection_snapshot_restore_preserves_live_run_owner() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.set_duration_pool_for_tests(17.0, 45.0)
 	var projection_snapshot: Dictionary = runtime.get_save_snapshot()
-	projection_snapshot.erase("affinity_run_state")
+	projection_snapshot.erase("guardian_run_state")
 	runtime.apply_save_snapshot(projection_snapshot)
-	_expect_float(runtime.get_duration_pool_current(), 17.0, "in-run projection restore must preserve current when affinity payload is absent")
-	_expect_float(runtime.get_duration_pool_max(), 45.0, "in-run projection restore must preserve max when affinity payload is absent")
+	_expect_float(runtime.get_duration_pool_current(), 17.0, "in-run projection restore must preserve current when guardian payload is absent")
+	_expect_float(runtime.get_duration_pool_max(), 45.0, "in-run projection restore must preserve max when guardian payload is absent")
+
+
+func _verify_legacy_run_key_is_read_only_compatible() -> void:
+	var source: Object = LingpetEggRuntime.new()
+	source.set_duration_pool_for_tests(23.0, 45.0)
+	var legacy_snapshot: Dictionary = source.get_save_snapshot()
+	var run_payload: Dictionary = legacy_snapshot.get("guardian_run_state", {}) as Dictionary
+	legacy_snapshot.erase("guardian_run_state")
+	legacy_snapshot["affinity_run_state"] = run_payload
+
+	var restored: Object = LingpetEggRuntime.new()
+	restored.apply_save_snapshot(legacy_snapshot)
+	_expect_float(restored.get_duration_pool_current(), 23.0, "retired run key must still restore current duration")
+	_expect_float(restored.get_duration_pool_max(), 45.0, "retired run key must still restore max duration")
+	var new_snapshot: Dictionary = restored.get_save_snapshot()
+	_expect(new_snapshot.has("guardian_run_state"), "new saves must write the guardian run owner key")
+	_expect(not new_snapshot.has("affinity_run_state"), "new saves must never rewrite the retired run key")
 
 
 func _reset_actual_ball_round(runtime: Object) -> void:

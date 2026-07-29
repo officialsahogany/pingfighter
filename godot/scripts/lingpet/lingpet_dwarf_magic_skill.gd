@@ -8,7 +8,7 @@ extends RefCounted
 #
 # As a player-side lingpet skill the projectile flies UP at the BOSS paddle and,
 # on hit, shrinks the boss paddle (collision + render, centered) AND slows boss
-# movement for a level-scaled duration. Higher affinity level = stronger shrink,
+# movement for a level-scaled duration. Higher effective skill level = stronger shrink,
 # longer hold, and stronger slow (per the design owner). Strength/duration come
 # from the launch context (catalog *_by_level), falling back to the tables below.
 #
@@ -36,7 +36,7 @@ const SLOW_ACTIVE_KEY := "lingpet_dwarf_magic_boss_slow_active"
 const SLOW_MULTIPLIER_KEY := "lingpet_dwarf_magic_boss_slow_multiplier"
 
 # Projectile: original 10 px/frame upward -> 600 px/s. Speed AND homing strength
-# now scale by level (faster + harder-to-dodge at higher affinity). The Lv.3
+# now scale by level (faster + harder-to-dodge at higher skill level). The Lv.3
 # values match the previous flat constants so mid-level feel is unchanged.
 # PROJ_HIT_PAD mirrors the original ±15px paddle overlap window.
 const PROJ_SPEED := 528.0          # Lv.3 baseline / fallback

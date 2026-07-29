@@ -2,7 +2,7 @@ extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -233,35 +233,27 @@ func _verify_runtime_surfaces_have_no_hangul(language: String) -> void:
 
 
 func _verify_lingpet_panel_surface(language: String) -> void:
-	# Lingpet TAB panel + 교감 (affinity) overlay surface. Reward labels and
-	# bond titles are pulled from the runtime constants so a new reward type
-	# or bond title cannot ship Korean-only, and the composed labels exercise
-	# the translate-then-format / known-patterns paths the presenters use.
+	# Guardian TAB and enhancement surfaces. Reward labels come from the runtime
+	# constants so a new enhancement type cannot ship Korean-only.
 	var surface_texts: Array[String] = [
-		"링펫", "링펫 알", "링펫 없음", "링펫 알 없음", "미해금", "미획득",
-		"동행 중", "하트 공명", "포만도", "탈진", "액티브 스킬", "패시브 스킬", "다음 보상 준비 중",
-		"최대 강화 완료", "링코어 강화 시 해금", "2번째 액티브 스킬 +1", "2번째 패시브 스킬 +1",
+		"수호령", "수호령 알", "수호령 없음", "수호령 알 없음", "미해금", "미획득",
+		"동행 중", "하트 공명", "액티브 스킬", "패시브 스킬",
+		"2번째 액티브 스킬 +1", "2번째 패시브 스킬 +1",
 		"방어", "방어율", "출현율", "액티브 쿨타임", "받아치기", "이동", "추적", "전이",
-		"링코어", "강화칩 %d / %d", "미장착",
-		"공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
-		"테스트 난이도에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
-		"링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다.",
-		"링펫에게 배정된 패시브 스킬입니다.",
-		"이번 판 동안 링펫과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.",
-		"링펫의 포만도입니다. 시간이 지나면 서서히 줄고, 낮아지면 순찰이 느려지며 0이 되면 탈진합니다. 먹이를 주면 회복됩니다.",
+		"미장착",
+		"공에 맞을 때마다 금이 가고, 가득 차면 수호령이 깨어납니다.",
+		"수련 난이도에서 한미량으로 플레이하면 첫 수호령 알이 나타납니다.",
+		"수호령이 전투 중 자동으로 사용하는 액티브 스킬입니다.",
+		"수호령에게 배정된 패시브 스킬입니다.",
 	]
-	for reward_label in LingpetAffinityState.LABEL_BY_REWARD_TYPE.values():
+	for reward_label in LingpetGuardianRunState.LABEL_BY_REWARD_TYPE.values():
 		surface_texts.append(str(reward_label))
 	for korean_text in surface_texts:
 		_expect_no_hangul(LanguageSettings.translate_text(korean_text), "LINGPET_SURFACE[%s] %s" % [language, korean_text])
-	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.15!"), "LINGPET_SURFACE[%s] affinity flash label" % language)
-	_expect_no_hangul(LanguageSettings.translate_text("교감 Lv.%d") % 3, "LINGPET_SURFACE[%s] affinity row label" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("공 충돌 %s") % "1 / 3", "LINGPET_SURFACE[%s] egg subtitle" % language)
-	_expect_no_hangul(LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text("기동 강화"), "LINGPET_SURFACE[%s] next reward line" % language)
-	_expect_no_hangul(LanguageSettings.translate_text("강화칩 %d / %d") % [3, 5], "LINGPET_SURFACE[%s] ring core chip count line" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("액티브 · %s쿨타임 %s") % ["Lv.2 · ", LanguageSettings.translate_text("18초")], "LINGPET_SURFACE[%s] active skill subtitle" % language)
 	_expect_no_hangul(LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % "X", "LINGPET_SURFACE[%s] cooldown tooltip" % language)
-	for picker_text in ["액티브 선택", "패시브 선택", "2nd 액티브 선택", "2nd 패시브 선택", "스킬 선택", "액티브 후보", "패시브 후보", "2nd 액티브 후보", "2nd 패시브 후보", "후보", "+%d 대기", "선택하면 이 스킬이 링펫 슬롯에 고정됩니다."]:
+	for picker_text in ["액티브 선택", "패시브 선택", "2nd 액티브 선택", "2nd 패시브 선택", "스킬 선택", "액티브 후보", "패시브 후보", "2nd 액티브 후보", "2nd 패시브 후보", "후보", "+%d 대기", "선택하면 이 스킬이 수호령 슬롯에 고정됩니다."]:
 		_expect_no_hangul(LanguageSettings.translate_text(picker_text), "LINGPET_PICKER_SURFACE[%s] %s" % [language, picker_text])
 	for skill_name in _lingpet_picker_candidate_names():
 		_expect_no_hangul(LanguageSettings.translate_text(skill_name), "LINGPET_PICKER_SKILL_NAME[%s] %s" % [language, skill_name])

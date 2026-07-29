@@ -42,8 +42,8 @@ func maybe_reset_runtime_transients_for_stage(
 ) -> bool:
 	# Persistent lingpet skill deployments survive round boundaries through
 	# reset_round(), but a stage transition must wipe them so they do not carry
-	# into the next stage. Cooldowns, affinity, feed state, and companion state
-	# are untouched; only deployed skill runtime entities are cleared.
+	# into the next stage. Cooldowns, enhancement buffs, duration, and companion
+	# state are untouched; only deployed skill runtime entities are cleared.
 	if stage == _last_seen_stage:
 		return false
 	var had_previous_stage := _last_seen_stage >= 0

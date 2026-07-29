@@ -65,10 +65,6 @@ class FakeOwner:
 	var ringpet_companion_defense_rate := 0.0
 	var lingpet_companion_appearance_rate := 0.0
 	var ringpet_companion_appearance_rate := 0.0
-	var lingpet_affinity_level := 0
-	var ringpet_affinity_level := 0
-	var lingpet_affinity_points := 0.0
-	var ringpet_affinity_points := 0.0
 	var lingpet_affinity_next_requirement := 0.0
 	var ringpet_affinity_next_requirement := 0.0
 	var lingpet_affinity_next_label := ""

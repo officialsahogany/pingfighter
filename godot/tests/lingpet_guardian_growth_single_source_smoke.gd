@@ -1,7 +1,7 @@
 extends SceneTree
 
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 
 class FakeOwner:
 	extends Node
@@ -39,9 +39,9 @@ func _verify_ball_hits_are_growth_neutral() -> void:
 	runtime._pet_id = "maribo"
 	runtime._current_profile.set_pet_id("maribo")
 	runtime._current_profile.set_loadout("maribo_hydro_sphere", "lingpet_ring_dash", 1, 1)
-	runtime._affinity_state.configure_reward_context(
+	runtime._guardian_run_state.configure_reward_context(
 		"maribo",
-		LingpetAffinityState.MOTION_STYLE_PATROL,
+		LingpetGuardianRunState.MOTION_STYLE_PATROL,
 		1,
 		1,
 		0,
@@ -50,29 +50,29 @@ func _verify_ball_hits_are_growth_neutral() -> void:
 		"lingpet_ring_dash"
 	)
 	runtime.configure_companion_motion_for_tests(Vector2(320.0, 320.0), 7, 0.0, true)
-	var before: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	var before: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
 	for _index in range(20):
 		runtime._companion_body_hit_state.cooldown = 0.0
 		runtime._companion_body_hit_state.ball_was_inside = false
 		owner.ball_pos = Vector2(320.0, 314.0)
 		owner.ball_vel = Vector2(0.0, 14.0)
 		_expect(bool(runtime._resolve_companion_ball_hit(owner)), "real companion body-hit path should register every fixture hit")
-	var after_hits: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	var after_hits: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
 	_expect(after_hits == before, "twenty real companion ball hits must not mutate guardian growth")
 	var result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, "skill_slot": 1},
+		{"type": LingpetGuardianRunState.REWARD_TYPE_ACTIVE_SKILL, "skill_slot": 1},
 		owner,
 		null,
 		"maribo"
 	)
-	var after_enhance: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	var after_enhance: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
 	_expect(bool(result.get("accepted", false)), "Guardian Enhance must remain the live growth trigger")
 	_expect(int(after_enhance.get("active_skill_bonus", 0)) == int(before.get("active_skill_bonus", 0)) + 1, "Guardian Enhance should apply exactly one active-skill growth stack")
 	owner.queue_free()
 
 
 func _verify_retired_save_keys_are_read_and_discarded() -> void:
-	var state: Object = LingpetAffinityState.new()
+	var state: Object = LingpetGuardianRunState.new()
 	var legacy_value_key := "sati" + "ety"
 	state.import_run_state({
 		"duration_pool": 44.0,
@@ -95,13 +95,13 @@ func _verify_retired_save_keys_are_read_and_discarded() -> void:
 	var maribo: Dictionary = pets.get("maribo", {}) as Dictionary
 	_expect(is_equal_approx(float(exported.get("duration_pool", 0.0)), 44.0), "new run-shared duration state must survive legacy-key import")
 	_expect(int((maribo.get("reward_counts", {}) as Dictionary).get("active_skill_bonus", 0)) == 2, "enhancement buff store must survive legacy-key import")
-	for retired_key in LingpetAffinityState.RETIRED_RUN_STATE_KEYS + [legacy_value_key, legacy_value_key + "_exhausted", legacy_value_key + "_exhaustion_timer"]:
+	for retired_key in LingpetGuardianRunState.RETIRED_RUN_STATE_KEYS + [legacy_value_key, legacy_value_key + "_exhausted", legacy_value_key + "_exhaustion_timer"]:
 		_expect(not maribo.has(retired_key), "legacy save key must be read-and-discarded: %s" % retired_key)
 
 
 func _verify_retired_pipeline_is_absent() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var owner_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_affinity_state.gd")
+	var owner_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 	var panel_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 	var schema_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_state.gd")
 	for needle in ["func add_affinity_points(", "func get_affinity_points(", "func handle_score_event(", "LingpetAffinityGrantController", "LingpetAffinityBattleLifecycle"]:

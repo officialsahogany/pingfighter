@@ -1,6 +1,6 @@
 extends RefCounted
 
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 
 var _context_profile: Object = LingpetCurrentProfile.new()
@@ -15,11 +15,11 @@ func configure(
 	current_pet_id: String,
 	current_profile: Object,
 	loadout_state: Object,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	loadout: Dictionary = {}
 ) -> Dictionary:
 	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
-	if normalized_pet_id == "" or affinity_state == null:
+	if normalized_pet_id == "" or guardian_run_state == null:
 		return {}
 	var context_loadout := loadout
 	if context_loadout.is_empty() and loadout_state != null:
@@ -29,7 +29,7 @@ func configure(
 	var active_present_id := str(context_loadout.get("active_skill_id", "")).strip_edges()
 	var passive_present_id := str(context_loadout.get("passive_skill_id", "")).strip_edges()
 	var motion_style := _resolve_motion_style(normalized_pet_id, current_pet_id, current_profile)
-	affinity_state.configure_reward_context(
+	guardian_run_state.configure_reward_context(
 		normalized_pet_id,
 		motion_style,
 		active_base_level,
@@ -54,14 +54,14 @@ func sync_current_profile(
 	current_pet_id: String,
 	current_profile: Object,
 	loadout_state: Object,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	loadout: Dictionary = {},
 	hatch_stat_roll_state: Object = null
 ) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
 	if normalized_pet_id == "":
 		if current_profile != null:
-			current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
+			current_profile.set_enhancement_rewards(LingpetGuardianRunState.get_empty_reward_counts())
 			if current_profile.has_method("set_hatch_stat_roll"):
 				current_profile.set_hatch_stat_roll(0.0, 0.0)
 		return
@@ -70,11 +70,11 @@ func sync_current_profile(
 		current_pet_id,
 		current_profile,
 		loadout_state,
-		affinity_state,
+		guardian_run_state,
 		loadout
 	)
 	current_profile.set_enhancement_rewards(
-		affinity_state.get_cumulative_rewards(normalized_pet_id)
+		guardian_run_state.get_cumulative_rewards(normalized_pet_id)
 	)
 	if (
 		hatch_stat_roll_state != null
@@ -94,7 +94,7 @@ func handle_enhancement_gain(
 	current_pet_id: String,
 	current_profile: Object,
 	loadout_state: Object,
-	affinity_state: Object,
+	guardian_run_state: Object,
 	snapshot_builder: Object = null
 ) -> void:
 	sync_current_profile(
@@ -102,7 +102,7 @@ func handle_enhancement_gain(
 		current_pet_id,
 		current_profile,
 		loadout_state,
-		affinity_state
+		guardian_run_state
 	)
 	if loadout_state != null and loadout_state.has_method("invalidate_runtime_cache"):
 		loadout_state.invalidate_runtime_cache()

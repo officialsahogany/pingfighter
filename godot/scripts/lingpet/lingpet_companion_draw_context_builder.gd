@@ -104,20 +104,20 @@ func build_config(params: Dictionary) -> Dictionary:
 	}
 
 
-func build_affinity_feedback_config(params: Dictionary) -> Dictionary:
+func build_guard_feedback_config(params: Dictionary) -> Dictionary:
 	var companion_active := bool(params.get("companion_active", false))
-	var affinity_feedback_state: Object = params.get("affinity_feedback_state", null) as Object
+	var guard_feedback_state: Object = params.get("guard_feedback_state", null) as Object
 	return {
 		"radius": float(params.get("radius", 16.0)),
-		"affinity_guard_label": _get_affinity_guard_label(affinity_feedback_state, companion_active),
+		"guardian_guard_label": _get_guard_label(guard_feedback_state, companion_active),
 		"shake_offset": params.get("shake_offset", Vector2.ZERO),
 	}
 
 
-func _get_affinity_guard_label(affinity_feedback_state: Object, companion_active: bool) -> Dictionary:
-	if affinity_feedback_state == null or not affinity_feedback_state.has_method("get_guard_label"):
+func _get_guard_label(guard_feedback_state: Object, companion_active: bool) -> Dictionary:
+	if guard_feedback_state == null or not guard_feedback_state.has_method("get_guard_label"):
 		return {}
-	return affinity_feedback_state.get_guard_label(companion_active)
+	return guard_feedback_state.get_guard_label(companion_active)
 
 
 func _get_hit_flash_ratio(body_hit_state: Object, companion_active: bool) -> float:

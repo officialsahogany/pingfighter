@@ -154,7 +154,7 @@ func _verify_serialization_owner() -> void:
 
 func _verify_owner_wiring() -> void:
 	var affinity_source := FileAccess.get_file_as_string(
-		"res://scripts/lingpet/lingpet_affinity_state.gd"
+		"res://scripts/lingpet/lingpet_guardian_run_state.gd"
 	)
 	var profile_source := FileAccess.get_file_as_string(
 		"res://scripts/lingpet/lingpet_current_profile.gd"

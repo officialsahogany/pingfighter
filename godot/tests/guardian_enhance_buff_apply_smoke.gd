@@ -65,7 +65,7 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 		"res://scripts/lingpet/lingpet_egg_runtime.gd"
 	)
 	var affinity_source := FileAccess.get_file_as_string(
-		"res://scripts/lingpet/lingpet_affinity_state.gd"
+		"res://scripts/lingpet/lingpet_guardian_run_state.gd"
 	)
 	_expect(runtime_source.find("var _guardian_enhancement_buff_store") < 0, "runtime must not create a parallel enhancement store")
 	_expect(
@@ -94,7 +94,7 @@ func _verify_duration_owner_pet_switch_refill_and_cap() -> void:
 	runtime.set_duration_pool_for_tests(13.0, 60.0)
 	_expect(runtime.refill_guardian_duration_for_stage_transition(), "stage transition must report a changed refill")
 	_expect_float(runtime.get_duration_pool_current(), 60.0, "stage refill must target the enhanced maximum")
-	var affinity: Object = runtime.get("_affinity_state") as Object
+	var affinity: Object = runtime.get("_guardian_run_state") as Object
 	_expect(int(affinity.get_duration_increase_count()) == 2, "duration owner must retain the run cap counter")
 	var candidates: Array = affinity.build_guardian_enhancement_candidates("lunabi", true, true)
 	_expect(not _has_candidate_type(candidates, LingpetEnhancementBuffStore.REWARD_TYPE_DURATION), "third duration increase must be removed by the pre-roll filter")
@@ -117,10 +117,10 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	)
 	_expect(bool(applied.get("accepted", false)), "active-skill +1 must traverse the live buff store")
 	_expect(str(applied.get("storage_owner", "")) == "lingpet_enhancement_buff_store", "non-duration buff must report the unique per-pet owner")
-	var maribo_counts: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
+	var maribo_counts: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
 	_expect(int(maribo_counts.get("active_skill_bonus", 0)) == 1, "owner snapshot must match the applied target-pet buff")
 	_expect((applied.get("reward_counts", {}) as Dictionary) == maribo_counts, "apply result and buff-store owner snapshot must be identical")
-	var lunabi_counts: Dictionary = runtime.get_affinity_rewards_for_tests("lunabi")
+	var lunabi_counts: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("lunabi")
 	_expect(int(lunabi_counts.get("active_skill_bonus", 0)) == 0, "per-pet enhancement must not leak to another guardian")
 	runtime.complete_guardian_enhance_roll(applied, "maribo")
 	runtime.set_duration_pool_for_tests(60.0, 60.0)
@@ -129,7 +129,7 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	_expect_float(runtime.get_duration_pool_current(), 75.0, "fallback must add fifteen seconds without a current-value cap")
 	_expect_float(runtime.get_duration_pool_max(), 60.0, "fallback must leave pool_max unchanged")
 	_expect(not bool(fallback.get("pool_max_changed", true)), "fallback result must explicitly report max preservation")
-	var run_state: Dictionary = (runtime.get("_affinity_state") as Object).export_run_state()
+	var run_state: Dictionary = (runtime.get("_guardian_run_state") as Object).export_run_state()
 	_expect_float(float(run_state.get("duration_pool", 0.0)), 75.0, "uncapped fallback current must survive owner export")
 	_cleanup_runtime(runtime)
 

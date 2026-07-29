@@ -163,10 +163,10 @@ func _verify_save_restore_keeps_consumed_latch() -> void:
 	runtime.mark_spirit_water_drop_pending()
 	runtime.mark_spirit_water_field_drop_succeeded()
 	var save_snapshot: Dictionary = runtime.get_save_snapshot()
-	var run_state: Dictionary = save_snapshot.get("affinity_run_state", {}) as Dictionary
+	var run_state: Dictionary = save_snapshot.get("guardian_run_state", {}) as Dictionary
 	_expect(bool(run_state.get("spirit_water_dropped_this_stage", false)), "save snapshot must carry the consumed stage latch")
 	var restored: Object = LingpetEggRuntime.new()
-	restored.import_affinity_run_state(run_state)
+	restored.import_guardian_run_state(run_state)
 	_expect(not restored.can_offer_spirit_water_drop(owner), "restore must not duplicate a consumed same-stage drop")
 	runtime.reset_for_tests()
 	restored.reset_for_tests()

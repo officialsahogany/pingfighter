@@ -1,7 +1,7 @@
 extends SceneTree
 
-const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunContextCoordinator := preload("res://scripts/lingpet/lingpet_guardian_run_context_coordinator.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetHatchStatRollState := preload("res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd")
@@ -133,11 +133,11 @@ func _verify_hatch_passive_id_covers_full_pool() -> void:
 
 
 func _verify_hatch_stat_roll_projection_and_caps() -> void:
-	var affinity_state := LingpetAffinityState.new()
+	var affinity_state := LingpetGuardianRunState.new()
 	var hatch_stat_roll_state := LingpetHatchStatRollState.new()
 	hatch_stat_roll_state.set_hatch_stat_roll("maribo", 0.5, 0.5)
 	_expect(bool(hatch_stat_roll_state.has_hatch_stat_roll("maribo")), "hatch stat roll should be tracked per pet")
-	var coordinator := LingpetAffinityContextCoordinator.new()
+	var coordinator := LingpetGuardianRunContextCoordinator.new()
 	var profile := LingpetCurrentProfile.new()
 	profile.set_pet_id("maribo")
 	coordinator.sync_current_profile(
@@ -154,9 +154,9 @@ func _verify_hatch_stat_roll_projection_and_caps() -> void:
 	_expect_float(profile.get_stat("patrol_speed_default", 0.0), base_speed * 1.15, "hatch mobility headstart should raise patrol speed by its share of the +30 percent cap")
 	_expect_float(profile.get_stat("defense_rate", 0.0), base_defense + 0.04, "hatch defense headstart should raise patrol defense by its share of the +0.08 cap")
 
-	var capped_rewards := LingpetAffinityState.get_empty_reward_counts()
-	capped_rewards["mobility_stacks"] = LingpetAffinityState.MAX_MOBILITY_STACKS
-	capped_rewards["defense_stacks"] = LingpetAffinityState.MAX_DEFENSE_STACKS
+	var capped_rewards := LingpetGuardianRunState.get_empty_reward_counts()
+	capped_rewards["mobility_stacks"] = LingpetGuardianRunState.MAX_MOBILITY_STACKS
+	capped_rewards["defense_stacks"] = LingpetGuardianRunState.MAX_DEFENSE_STACKS
 	capped_rewards["signature"] = "hatch-cap-fixture"
 	profile.set_enhancement_rewards(capped_rewards)
 	_expect_float(profile.get_stat("patrol_speed_default", 0.0), base_speed * 1.30, "hatch mobility plus enhancement mobility should share the +30 percent cap")

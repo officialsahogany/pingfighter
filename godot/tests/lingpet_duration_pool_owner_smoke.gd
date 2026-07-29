@@ -3,8 +3,8 @@ extends SceneTree
 const LingpetDurationState := preload(
 	"res://scripts/lingpet/lingpet_duration_state.gd"
 )
-const LingpetAffinityState := preload(
-	"res://scripts/lingpet/lingpet_affinity_state.gd"
+const LingpetGuardianRunState := preload(
+	"res://scripts/lingpet/lingpet_guardian_run_state.gd"
 )
 const BattleSceneState := preload(
 	"res://scripts/core/battle_scene_state.gd"

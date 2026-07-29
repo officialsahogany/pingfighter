@@ -15,7 +15,7 @@ extends SceneTree
 # now also scans the gated _set_single/_set_pair helpers.
 
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
+const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -177,7 +177,7 @@ func _verify_static_surface_resyncs_after_enhancement_change() -> void:
 	_expect(base_speed > 0.0, "resync fixture should start with a published companion patrol speed")
 	runtime._snapshot_builder.reset_owner_sync_build_counters_for_tests()
 	var result: Dictionary = runtime.apply_guardian_enhancement_candidate(
-		{"type": LingpetAffinityState.REWARD_TYPE_MOBILITY},
+		{"type": LingpetGuardianRunState.REWARD_TYPE_MOBILITY},
 		owner,
 		setup["registry"],
 		"maribo"
@@ -339,7 +339,7 @@ func _force_second_active_runtime_profile(runtime: Object, pet_id: String, first
 		levels[first_skill_id] = 1
 	if second_skill_id != "":
 		levels[second_skill_id] = 1
-	var rewards := LingpetAffinityState.get_empty_reward_counts()
+	var rewards := LingpetGuardianRunState.get_empty_reward_counts()
 	rewards["second_active_unlocked"] = true
 	rewards["signature"] = "snapshot-sync-second-active-%s-%s" % [first_skill_id, second_skill_id]
 	runtime._current_profile.set_pet_id(pet_id)

@@ -6,16 +6,6 @@ const LingpetEnhancementBuffStore := preload(
 	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
 )
 
-# Compatibility vocabulary retained while callers migrate off the historical owner
-# name. There is no point-grant API or level/reward-deck executor in this owner.
-const SOURCE_ROUND_COMMIT := "round_commit"
-const SOURCE_BALL_HIT := "ball_hit"
-const SOURCE_CLICK := "click"
-const SOURCE_HATCH := "hatch"
-const SOURCE_VICTORY := "victory"
-const SOURCE_STAGE_CLEAR := "stage_clear"
-const MAX_LEVEL := 30
-
 const REWARD_TYPE_ACTIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK
 const REWARD_TYPE_PASSIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK
 const REWARD_TYPE_SECOND_ACTIVE_UNLOCK := LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_ACTIVE_UNLOCK
@@ -35,8 +25,7 @@ const MAX_DEFENSE_STACKS := LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS
 const MAX_GAUGE_STACKS := LingpetEnhancementBuffStore.MAX_GAUGE_STACKS
 const REWARD_DECK_SEED_MOD := 2147483647
 
-# Localization coverage still scans this compatibility label map. It describes the
-# enhancement store only; no affinity-level deck consumes it.
+# Localization coverage scans this label map for the enhancement store.
 const LABEL_BY_REWARD_TYPE := {
 	REWARD_TYPE_ACTIVE_UNLOCK: "액티브 스킬 해금",
 	REWARD_TYPE_PASSIVE_UNLOCK: "패시브 스킬 해금",
@@ -112,7 +101,8 @@ func import_run_state(data: Dictionary) -> void:
 
 
 func reset_round_caps() -> void:
-	# Retained as a no-op compatibility seam until the owner is renamed in §9-4.
+	# Round-scoped enhancement caps no longer exist; the reset fanout keeps this
+	# no-op seam while the duration and buff owners remain independently resettable.
 	pass
 
 

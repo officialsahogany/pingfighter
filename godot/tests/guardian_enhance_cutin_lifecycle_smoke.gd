@@ -91,7 +91,7 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	_expect(bool(result.get("accepted", false)), "automatic roll must apply its only valid candidate")
 	_expect(not bool(result.get("modal_started", true)), "automatic roll must not open the retired choice modal")
 	_expect(runtime.is_guardian_enhance_cutin_active(), "applied reward must start the compact presentation")
-	_expect(int((runtime.get_affinity_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "buff owner must already contain the reward before the first presentation tick")
+	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "buff owner must already contain the reward before the first presentation tick")
 	runtime.advance_guardian_enhance_cutin(0.59, fixture.registry)
 	var reaction_snapshot: Dictionary = runtime.get_guardian_enhance_cutin_snapshot()
 	_expect(bool(reaction_snapshot.get("reaction_active", false)), "roll phase completion must start one click reaction")
@@ -100,7 +100,7 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	runtime.advance_guardian_enhance_cutin(0.02, fixture.registry)
 	_expect(not runtime.is_guardian_enhance_cutin_active(), "reaction completion hook must auto-close the compact panel")
 	_expect(int(fixture.audio.stop_calls) == 1, "automatic close must stop enhancement presentation audio")
-	_expect(int((runtime.get_affinity_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "presentation close must never roll back the pre-applied reward")
+	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "presentation close must never roll back the pre-applied reward")
 	_cleanup_runtime(runtime)
 
 
