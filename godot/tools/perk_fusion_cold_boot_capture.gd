@@ -158,7 +158,7 @@ func _run() -> void:
 		# s13(progress 0.78) 차분은 타이밍 불일치로 오염).
 		["s18_success_early_baseline", _success_rolls(), false, true, [0.016, 2.05], false, 0],
 	]
-	# §10.3 헤딩 크롬 4페이즈 x 7언어 실렌더. 언어별 실제 fallback font와
+	# §11.8 회화 셸 헤딩 4페이즈 x 7언어 실렌더. 언어별 실제 fallback font와
 	# 번역 문자열을 관통하며, reveal은 부산물 타이틀(긴 편)을 대표로 쓴다.
 	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
 		var locale_slug := locale.to_lower().replace("-", "_")
@@ -264,23 +264,13 @@ func _verify_heading_geometry_all_languages() -> void:
 			var title := PerkFusionLocalization.text(title_key)
 			var layout: Dictionary = renderer._heading_layout(panel_rect, title)
 			var title_rect: Rect2 = layout.get("title_rect", Rect2())
-			var stamp_rect: Rect2 = layout.get("stamp_rect", Rect2())
-			var stamp_visible := bool(layout.get("stamp_visible", false))
-			var left_outer := float(layout.get("left_rule_outer_x", 0.0))
-			var left_inner := float(layout.get("left_rule_inner_x", 0.0))
-			var right_inner := float(layout.get("right_rule_inner_x", 0.0))
-			var right_outer := float(layout.get("right_rule_outer_x", 0.0))
-			_check(stamp_visible, "%s/%s: 낙관 배치 여백 존재" % [locale, title_key])
-			_check(not title_rect.intersects(stamp_rect), "%s/%s: 타이틀-낙관 비중첩" % [locale, title_key])
-			_check(left_inner <= title_rect.position.x, "%s/%s: 좌 괘선이 타이틀 밖에서 시작" % [locale, title_key])
-			_check(right_inner >= stamp_rect.end.x, "%s/%s: 우 괘선이 낙관 밖에서 시작" % [locale, title_key])
+			var title_max_width := float(layout.get("title_max_width", 0.0))
+			var title_center_y_frac := (title_rect.get_center().y - panel_rect.position.y) / panel_rect.size.y
+			_check(title_rect.size.x <= title_max_width + 0.01, "%s/%s: 회화 안전폭 내 헤딩 피트" % [locale, title_key])
+			_check(panel_rect.encloses(title_rect), "%s/%s: 헤딩 패널 내포" % [locale, title_key])
 			_check(
-				left_inner - left_outer >= PerkFusionOverlayRenderer.HEADING_RULE_MIN_LENGTH,
-				"%s/%s: 좌 괘선 최소 길이" % [locale, title_key]
-			)
-			_check(
-				right_outer - right_inner >= PerkFusionOverlayRenderer.HEADING_RULE_MIN_LENGTH,
-				"%s/%s: 우 괘선 최소 길이" % [locale, title_key]
+				title_center_y_frac >= 0.10 and title_center_y_frac <= 0.12,
+				"%s/%s: 목업 타이틀 y 밴드" % [locale, title_key]
 			)
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 
@@ -456,7 +446,7 @@ func _analyze(captures: Dictionary) -> void:
 		var image: Image = captures.get(shot_name) as Image
 		var border_pixels := _count_panel_border_pixels(image)
 		var title_pixels := _count_title_pixels(image)
-		_check(border_pixels > 40, "%s: 모달 패널 테두리 sentinel(%d px)" % [shot_name, border_pixels])
+		_check(border_pixels > 300, "%s: 회화 모달 외곽 프레임 sentinel(%d px)" % [shot_name, border_pixels])
 		_check(title_pixels > 30, "%s: 모달 제목 sentinel(%d px)" % [shot_name, title_pixels])
 
 	var immediate_in_degraded := _scan_immediate_fallback_jade(captures.get("s0_degraded_b2_immediate") as Image)
@@ -496,15 +486,15 @@ func _analyze(captures: Dictionary) -> void:
 	var handoff: Image = captures.get("s7_handoff_reveal") as Image
 	var handoff_gauge := _scan_gauge_cyan(handoff)
 	_check(handoff_gauge < 20, "핸드오프 프레임: 호스트 게이지 소멸(%d px) — 리빌 패널로 인계" % handoff_gauge)
-	var reveal_icon := _scan_region_band(handoff, 340, 420, 120, 200, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
+	var reveal_icon := _scan_region_band(handoff, 340, 420, 180, 260, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
 	_check(reveal_icon > 30, "핸드오프 프레임: 리빌 융합 아이콘 렌더(%d px)" % reveal_icon)
-	var reveal_log_gold := _scan_region_band(handoff, 200, 560, 258, 302, 0.78, 1.01, 0.52, 0.90, 0.00, 0.48)
+	var reveal_log_gold := _scan_region_band(handoff, 180, 580, 295, 350, 0.78, 1.01, 0.52, 0.90, 0.00, 0.48)
 	_check(reveal_log_gold > 15, "핸드오프 프레임: 부산물 골드 로그 렌더(%d px)" % reveal_log_gold)
-	var reveal_hint := _scan_region_band(handoff, 545, 748, 662, 706, 0.70, 1.01, 0.70, 1.01, 0.70, 1.01)
+	var reveal_hint := _scan_region_band(handoff, 540, 748, 620, 680, 0.70, 1.01, 0.70, 1.01, 0.70, 1.01)
 	_check(reveal_hint > 12, "핸드오프 프레임: 계속 힌트 렌더(%d px)" % reveal_hint)
 	var skipped: Image = captures.get("s19_skip_to_reveal") as Image
 	var skipped_gauge := _scan_gauge_cyan(skipped)
-	var skipped_icon := _scan_region_band(skipped, 340, 420, 120, 200, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
+	var skipped_icon := _scan_region_band(skipped, 340, 420, 180, 260, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
 	_check(skipped_gauge < 20, "즉시 스킵: 시네마틱 게이지 소멸(%d px)" % skipped_gauge)
 	_check(skipped_icon > 30, "즉시 스킵: 동일 프레임 리빌 아이콘 렌더(%d px)" % skipped_icon)
 
@@ -777,14 +767,16 @@ func _scan_gauge_cyan(image: Image) -> int:
 
 
 func _count_panel_border_pixels(image: Image) -> int:
-	# 주물 의식 패널의 황동-금박 테두리(상단 y≈20~45 대역 가로선).
+	# §11 회화 셸의 불투명 먹선/옻칠 상단 외곽 프레임. 구 procedural
+	# 황동 임계값은 배경 텍스처 도입 뒤 더는 권위가 아니므로, 패널 밖 dim보다
+	# 충분히 밝고 한지 계열(r>=g>=b)인 실제 프레임 대역을 센다.
 	if image == null:
 		return -1
 	var count := 0
-	for y in range(20, 46):
-		for x in range(0, image.get_width(), 2):
+	for y in range(30, 51):
+		for x in range(20, mini(741, image.get_width()), 2):
 			var pixel: Color = image.get_pixel(x, y)
-			if pixel.r >= 0.62 and pixel.g >= 0.42 and pixel.g < 0.88 and pixel.b >= 0.08 and pixel.b < 0.52:
+			if pixel.v > 0.18 and pixel.r >= pixel.g and pixel.g >= pixel.b:
 				count += 1
 	return count
 

@@ -5,6 +5,7 @@ const PerkFusionLocalization := preload("res://scripts/characters/perk_fusion_lo
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 const PerkFusionOutcomeRules := preload("res://scripts/characters/perk_fusion_outcome_rules.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const KOREAN_UI_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
 const PHASE_MATERIALS := "materials"
@@ -17,6 +18,18 @@ const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_
 const DEFAULT_ANIMATION_DURATION := PerkFusionColdBootTimelineState.TOTAL_ANIMATION_DURATION
 const MAX_RESULT_LINES := 8
 const MAX_LINE_CHARS := 48
+
+const ASSET_DIR := "res://assets/ui/perk_fusion_modal/"
+const TEXTURE_MANIFEST := {
+	"backdrop": ASSET_DIR + "fusion_modal_backdrop.png",
+	"scroll_left": ASSET_DIR + "fusion_modal_scroll_left.png",
+	"scroll_right": ASSET_DIR + "fusion_modal_scroll_right.png",
+	"medallion_stable": ASSET_DIR + "fusion_modal_medallion_stable.png",
+	"medallion_side": ASSET_DIR + "fusion_modal_medallion_side.png",
+	"medallion_byproduct": ASSET_DIR + "fusion_modal_medallion_byproduct.png",
+	"button_plate": ASSET_DIR + "fusion_modal_button_plate.png",
+	"button_primary": ASSET_DIR + "fusion_modal_button_primary.png",
+}
 
 const BACKDROP_COLOR := Color(0.022, 0.014, 0.009, 0.78)
 const PANEL_COLOR := Color(0.085, 0.062, 0.042, 0.985)
@@ -36,14 +49,36 @@ const HEADING_RULE_MIN_LENGTH := 18.0
 const HEADING_RULE_ALPHAS := [0.62, 0.36, 0.16]
 const HEADING_STAMP_SIZE := 18.0
 const HEADING_STAMP_GAP := 9.0
+const HEADING_TITLE_CENTER_Y := 76.0
+const HEADING_SUBTITLE_CENTER_Y := 126.0
+const HEADING_TITLE_CENTER_Y_FRAC := 0.110
+const HEADING_SUBTITLE_CENTER_Y_FRAC := 0.183
+const HEADING_CLEAR_WIDTH_FRAC := 0.66
+const PROBABILITY_MEDALLION_SPAN := 110.0
+const PROBABILITY_COLUMN_FRACS := [0.225, 0.5, 0.775]
 
 var _layout_helper: Object = PerkFusionModalLayout.new()
 var _fallback_font: Font = null
+var _assets_prewarmed := false
+var _textures: Dictionary = {}
 
 
 func prewarm_assets() -> void:
-	# The Korean UI font is statically preloaded. Draw-time work stays resource-free.
-	pass
+	if _assets_prewarmed:
+		return
+	for texture_key: String in TEXTURE_MANIFEST.keys():
+		var path := str(TEXTURE_MANIFEST[texture_key])
+		if not FileAccess.file_exists(path) and not ResourceLoader.exists(path):
+			continue
+		var texture: Variant = ProjectResourceLoader.load_imported_texture(path)
+		if texture is Texture2D:
+			_textures[texture_key] = texture
+	_assets_prewarmed = true
+
+
+func _texture(texture_key: String) -> Texture2D:
+	var value: Variant = _textures.get(texture_key)
+	return value if value is Texture2D else null
 
 
 func reset() -> void:
@@ -78,6 +113,10 @@ func draw(
 func _draw_shell(canvas: CanvasItem, layout: Dictionary, view_size: Vector2) -> void:
 	var panel_rect: Rect2 = _as_rect2(layout.get("panel_rect", Rect2()))
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKDROP_COLOR, true)
+	var backdrop_texture: Texture2D = _texture("backdrop")
+	if backdrop_texture != null:
+		canvas.draw_texture_rect(backdrop_texture, panel_rect, false)
+		return
 	canvas.draw_rect(panel_rect, PANEL_COLOR, true)
 	canvas.draw_rect(panel_rect.grow(4.0), Color(0.55, 0.32, 0.12, 0.24), false, 3.0)
 	canvas.draw_rect(panel_rect, PANEL_BORDER_COLOR, false, 2.0)
@@ -155,14 +194,18 @@ func _draw_confirm(
 			pair_index,
 			catalog,
 			icon_renderer,
-			_find_source_preview(source_previews, source_id)
+			_find_source_preview(source_previews, source_id),
+			"scroll_left" if pair_index == 0 else "scroll_right"
 		)
 	var probability_rect: Rect2 = _as_rect2(layout.get("probability_rect", Rect2()))
 	_draw_probabilities(canvas, probability_rect, snapshot)
 	_draw_text_centered(
 		canvas,
 		PerkFusionLocalization.text("irreversible"),
-		Vector2(probability_rect.get_center().x, probability_rect.end.y - 13.0),
+		Vector2(
+			probability_rect.get_center().x,
+			_as_rect2(layout.get("back_rect", Rect2())).position.y - 24.0
+		),
 		13,
 		Color(0.90, 0.32, 0.22, 1.0)
 	)
@@ -174,6 +217,10 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 	var probabilities: Dictionary = _get_probabilities(snapshot)
 	var preview: Dictionary = _as_dict(snapshot.get("outcome_preview", {}))
 	var core_stabilize_armed := bool(preview.get("core_stabilize_armed", false))
+	var medallion_span := _probability_medallion_span(rect)
+	var label_y := rect.position.y + minf(18.0, rect.size.y * 0.10)
+	var medallion_center_y := rect.position.y + rect.size.y * 0.46
+	var percent_y := rect.end.y - minf(22.0, rect.size.y * 0.10)
 	var labels: Array[String] = [
 		PerkFusionLocalization.text("prob_success"),
 		PerkFusionLocalization.text("prob_core_stable" if core_stabilize_armed else "prob_side"),
@@ -182,12 +229,46 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 	var keys: Array[String] = ["success", "side_effect", "byproduct"]
 	var side_color := Color(0.52, 0.92, 0.82) if core_stabilize_armed else Color(0.90, 0.32, 0.22)
 	var colors: Array[Color] = [Color(0.34, 0.86, 0.70), side_color, GOLD_COLOR]
-	var column_width: float = rect.size.x / 3.0
+	var texture_keys: Array[String] = [
+		"medallion_stable",
+		"medallion_stable" if core_stabilize_armed else "medallion_side",
+		"medallion_byproduct",
+	]
 	for column in range(3):
 		var percent: float = _as_percent(float(probabilities.get(keys[column], 0.0)))
-		var center := Vector2(rect.position.x + column_width * (float(column) + 0.5), rect.position.y + 30.0)
-		_draw_text_centered(canvas, labels[column], center, 14, colors[column])
-		_draw_text_centered(canvas, "%d%%" % int(round(percent)), center + Vector2(0.0, 27.0), 22, Color.WHITE)
+		var center_x: float = rect.position.x + rect.size.x * float(PROBABILITY_COLUMN_FRACS[column])
+		_draw_text_centered(canvas, labels[column], Vector2(center_x, label_y), 14, colors[column])
+		var medallion_rect := Rect2(
+			Vector2(center_x, medallion_center_y) - Vector2.ONE * medallion_span * 0.5,
+			Vector2.ONE * medallion_span
+		)
+		var medallion_texture: Texture2D = _texture(texture_keys[column])
+		if medallion_texture != null:
+			canvas.draw_texture_rect(medallion_texture, medallion_rect, false)
+		else:
+			_draw_probability_medallion_fallback(canvas, medallion_rect, colors[column])
+		_draw_text_centered(
+			canvas,
+			"%d%%" % int(round(percent)),
+			Vector2(center_x, percent_y),
+			22,
+			Color.WHITE
+		)
+
+
+func _probability_medallion_span(rect: Rect2) -> float:
+	return minf(
+		PROBABILITY_MEDALLION_SPAN,
+		minf(rect.size.y * 0.58, rect.size.x * 0.25)
+	)
+
+
+func _draw_probability_medallion_fallback(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.42
+	canvas.draw_circle(center, radius, Color(0.035, 0.023, 0.015, 0.92))
+	canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(color, 0.82), 2.4)
+	canvas.draw_arc(center, radius * 0.68, 0.0, TAU, 40, Color(color, 0.48), 1.4)
 
 
 # CB3 degraded 폴백 계약: 콜드부트 호스트가 트리에서 부팅 중이면 비주얼은
@@ -315,19 +396,33 @@ func _draw_candidate_card(
 	selected_order: int,
 	catalog: Object,
 	icon_renderer: Object,
-	preview: Dictionary = {}
+	preview: Dictionary = {},
+	frame_texture_key: String = ""
 ) -> void:
 	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
 	var selected: bool = selected_order >= 0
 	var border_color: Color = GOLD_COLOR if selected else (ACCENT_COLOR if highlighted else Color(0.38, 0.29, 0.17, 0.9))
 	var background_color := Color(0.13, 0.09, 0.055, 0.98) if highlighted else Color(0.08, 0.052, 0.031, 0.98)
-	canvas.draw_rect(rect, background_color, true)
-	if highlighted or selected:
-		canvas.draw_rect(rect.grow(4.0), Color(border_color.r, border_color.g, border_color.b, 0.20), false, 3.0)
-	canvas.draw_rect(rect, border_color, false, 2.5 if highlighted or selected else 1.4)
+	var frame_texture: Texture2D = _texture(frame_texture_key)
+	if frame_texture != null:
+		canvas.draw_texture_rect(frame_texture, rect, false)
+		if highlighted or selected:
+			canvas.draw_rect(rect.grow(-3.0), Color(border_color, 0.72), false, 2.0)
+	else:
+		canvas.draw_rect(rect, background_color, true)
+		if highlighted or selected:
+			canvas.draw_rect(rect.grow(4.0), Color(border_color.r, border_color.g, border_color.b, 0.20), false, 3.0)
+		canvas.draw_rect(rect, border_color, false, 2.5 if highlighted or selected else 1.4)
 	if not preview.is_empty():
-		_draw_candidate_preview(canvas, perk_id, rect, preview, catalog, icon_renderer)
+		_draw_candidate_preview(
+			canvas,
+			perk_id,
+			_scroll_content_rect(rect, frame_texture_key),
+			preview,
+			catalog,
+			icon_renderer
+		)
 		return
 	var icon_size: float = clampf(minf(rect.size.y - 30.0, rect.size.x * 0.34), 24.0, 60.0)
 	var icon_rect := Rect2(rect.position + Vector2(12.0, maxf(8.0, (rect.size.y - icon_size) * 0.5)), Vector2(icon_size, icon_size))
@@ -342,6 +437,14 @@ func _draw_candidate_card(
 		var badge_center := rect.position + Vector2(rect.size.x - 17.0, 17.0)
 		canvas.draw_circle(badge_center, 12.0, GOLD_COLOR)
 		_draw_text_centered(canvas, str(selected_order + 1), badge_center + Vector2(0.0, -1.0), 13, Color(0.10, 0.08, 0.02, 1.0))
+
+
+func _scroll_content_rect(rect: Rect2, frame_texture_key: String) -> Rect2:
+	if frame_texture_key == "scroll_left":
+		return Rect2(rect.position + Vector2(39.0, 12.0), rect.size - Vector2(51.0, 24.0))
+	if frame_texture_key == "scroll_right":
+		return Rect2(rect.position + Vector2(12.0, 12.0), rect.size - Vector2(51.0, 24.0))
+	return rect
 
 
 func _draw_candidate_preview(
@@ -407,41 +510,67 @@ func _draw_button(canvas: CanvasItem, rect: Rect2, label: String, enabled: bool,
 	if primary:
 		fill = Color(0.12, 0.22, 0.18, 0.98) if enabled else Color(0.075, 0.05, 0.035, 0.96)
 		border = ACCENT_COLOR if enabled else Color(0.34, 0.27, 0.18, 0.7)
-	canvas.draw_rect(rect, fill, true)
-	canvas.draw_rect(rect, border, false, 2.0)
-	_draw_text_centered(canvas, label, rect.get_center(), 14, Color.WHITE if enabled or not primary else MUTED_COLOR)
+	var button_texture: Texture2D = _texture("button_primary" if primary else "button_plate")
+	if button_texture != null:
+		var modulate := Color.WHITE if enabled or not primary else Color(0.46, 0.42, 0.35, 0.80)
+		canvas.draw_texture_rect(button_texture, rect, false, modulate)
+	else:
+		canvas.draw_rect(rect, fill, true)
+		canvas.draw_rect(rect, border, false, 2.0)
+	_draw_text_fitted_centered(
+		canvas,
+		label,
+		rect.get_center(),
+		14,
+		Color.WHITE if enabled or not primary else MUTED_COLOR,
+		maxf(20.0, rect.size.x - 30.0),
+		10
+	)
 
 
 func _draw_heading(canvas: CanvasItem, panel_rect: Rect2, title: String, subtitle: String) -> void:
 	var layout := _heading_layout(panel_rect, title)
 	var title_center: Vector2 = layout.get("title_center", panel_rect.get_center()) as Vector2
-	_draw_heading_rule_segments(
+	if _texture("backdrop") == null:
+		_draw_heading_rule_segments(
+			canvas,
+			float(layout.get("left_rule_inner_x", title_center.x)),
+			float(layout.get("left_rule_outer_x", title_center.x)),
+			title_center.y
+		)
+		_draw_heading_rule_segments(
+			canvas,
+			float(layout.get("right_rule_inner_x", title_center.x)),
+			float(layout.get("right_rule_outer_x", title_center.x)),
+			title_center.y
+		)
+		if bool(layout.get("stamp_visible", false)):
+			_draw_heading_stamp(canvas, layout.get("stamp_rect", Rect2()) as Rect2)
+	var title_fit: Dictionary = layout.get("title_fit", {}) as Dictionary
+	_draw_fitted_layout_centered(canvas, title_fit, title_center + Vector2(1.5, 2.0), Color(0.018, 0.010, 0.006, 0.92))
+	_draw_fitted_layout_centered(canvas, title_fit, title_center, Color(0.94, 0.88, 0.74, 1.0))
+	_draw_text_fitted_centered(
 		canvas,
-		float(layout.get("left_rule_inner_x", title_center.x)),
-		float(layout.get("left_rule_outer_x", title_center.x)),
-		title_center.y
+		subtitle,
+		panel_rect.position + Vector2(
+			panel_rect.size.x * 0.5,
+			minf(HEADING_SUBTITLE_CENTER_Y, panel_rect.size.y * HEADING_SUBTITLE_CENTER_Y_FRAC)
+		),
+		13,
+		MUTED_COLOR,
+		panel_rect.size.x * 0.72,
+		9
 	)
-	_draw_heading_rule_segments(
-		canvas,
-		float(layout.get("right_rule_inner_x", title_center.x)),
-		float(layout.get("right_rule_outer_x", title_center.x)),
-		title_center.y
-	)
-	if bool(layout.get("stamp_visible", false)):
-		_draw_heading_stamp(canvas, layout.get("stamp_rect", Rect2()) as Rect2)
-	_draw_text_centered(canvas, title, title_center + Vector2(1.5, 2.0), HEADING_TITLE_FONT_SIZE, Color(0.018, 0.010, 0.006, 0.92))
-	_draw_text_centered(canvas, title, title_center, HEADING_TITLE_FONT_SIZE, Color(0.94, 0.88, 0.74, 1.0))
-	_draw_text_centered(canvas, subtitle, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 58.0), 13, MUTED_COLOR)
 
 
 func _heading_layout(panel_rect: Rect2, title: String) -> Dictionary:
-	var title_center := panel_rect.position + Vector2(panel_rect.size.x * 0.5, 30.0)
-	var title_size := _get_font().get_string_size(
-		title,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		HEADING_TITLE_FONT_SIZE
+	var title_center := panel_rect.position + Vector2(
+		panel_rect.size.x * 0.5,
+		minf(HEADING_TITLE_CENTER_Y, panel_rect.size.y * HEADING_TITLE_CENTER_Y_FRAC)
 	)
+	var title_max_width := panel_rect.size.x * HEADING_CLEAR_WIDTH_FRAC
+	var title_fit := _fit_text_layout(title, HEADING_TITLE_FONT_SIZE, title_max_width, 14)
+	var title_size: Vector2 = title_fit.get("size", Vector2.ZERO) as Vector2
 	var title_left := title_center.x - title_size.x * 0.5
 	var title_right := title_center.x + title_size.x * 0.5
 	var left_outer := panel_rect.position.x + HEADING_RULE_MARGIN
@@ -458,6 +587,8 @@ func _heading_layout(panel_rect: Rect2, title: String) -> Dictionary:
 	)
 	return {
 		"title_center": title_center,
+		"title_fit": title_fit,
+		"title_max_width": title_max_width,
 		"title_rect": Rect2(
 			Vector2(title_left, title_center.y - title_size.y * 0.5),
 			title_size
@@ -575,6 +706,64 @@ func _draw_perk_icon(canvas: CanvasItem, icon_renderer: Object, perk_id: String,
 	if not drew_icon:
 		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.32, Color(0.30, 0.84, 0.74, 0.86))
 		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.15, Color(0.74, 0.96, 0.86, 0.96))
+
+
+func _fit_text_layout(text: String, font_size: int, max_width: float, min_font_size: int) -> Dictionary:
+	var fitted_text := text
+	var fitted_size := font_size
+	var font := _get_font()
+	while fitted_size > min_font_size and font.get_string_size(
+		fitted_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size
+	).x > max_width:
+		fitted_size -= 1
+	if font.get_string_size(fitted_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size).x > max_width:
+		fitted_text = _ellipsize(fitted_text, fitted_size, max_width)
+	return {
+		"text": fitted_text,
+		"font_size": fitted_size,
+		"size": font.get_string_size(fitted_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size),
+	}
+
+
+func _draw_fitted_layout_centered(
+	canvas: CanvasItem,
+	fit: Dictionary,
+	center: Vector2,
+	color: Color
+) -> void:
+	var text := str(fit.get("text", ""))
+	if text.is_empty():
+		return
+	var font_size := int(fit.get("font_size", 10))
+	var size: Vector2 = fit.get("size", Vector2.ZERO) as Vector2
+	canvas.draw_string(
+		_get_font(),
+		center - Vector2(size.x * 0.5, -size.y * 0.34),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		color
+	)
+
+
+func _draw_text_fitted_centered(
+	canvas: CanvasItem,
+	text: String,
+	center: Vector2,
+	font_size: int,
+	color: Color,
+	max_width: float,
+	min_font_size: int = 10
+) -> void:
+	if text.is_empty() or max_width <= 1.0:
+		return
+	_draw_fitted_layout_centered(
+		canvas,
+		_fit_text_layout(text, font_size, max_width, min_font_size),
+		center,
+		color
+	)
 
 
 func _draw_text_fitted(

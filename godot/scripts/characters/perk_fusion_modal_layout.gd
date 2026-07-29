@@ -8,7 +8,12 @@ const MIN_CARD_WIDTH := 132.0
 const MAX_COLUMNS := 4
 const MAX_ROWS := 3
 const BUTTON_GAP := 10.0
-const BUTTON_MAX_WIDTH := 154.0
+const BUTTON_MAX_WIDTH := 200.0
+const BUTTON_MAX_HEIGHT := 54.0
+const HEADER_MAX_HEIGHT := 150.0
+const FOOTER_MAX_HEIGHT := 140.0
+const PAIR_MAX_GAP := 140.0
+const PAIR_MAX_HEIGHT := 170.0
 
 
 func build_layout(snapshot: Dictionary, view_size: Vector2) -> Dictionary:
@@ -20,8 +25,8 @@ func build_layout(snapshot: Dictionary, view_size: Vector2) -> Dictionary:
 	)
 	var panel_rect := Rect2((safe_view - panel_size) * 0.5, panel_size)
 	var inner_margin: float = minf(CONTENT_MARGIN, panel_size.x * 0.08)
-	var header_height: float = minf(86.0, panel_size.y * 0.20)
-	var footer_height: float = minf(70.0, panel_size.y * 0.18)
+	var header_height: float = minf(HEADER_MAX_HEIGHT, panel_size.y * 0.24)
+	var footer_height: float = minf(FOOTER_MAX_HEIGHT, panel_size.y * 0.22)
 	var grid_rect := Rect2(
 		panel_rect.position + Vector2(inner_margin, header_height),
 		Vector2(
@@ -64,10 +69,10 @@ func build_layout(snapshot: Dictionary, view_size: Vector2) -> Dictionary:
 		)
 		visible_candidate_indices.append(candidate_index)
 
-	var button_y: float = panel_rect.end.y - footer_height + maxf(4.0, (footer_height - 42.0) * 0.5)
+	var button_height: float = minf(BUTTON_MAX_HEIGHT, maxf(1.0, footer_height - 8.0))
+	var button_y: float = panel_rect.end.y - footer_height + maxf(4.0, (footer_height - button_height) * 0.5)
 	var button_area_width: float = maxf(1.0, panel_size.x - inner_margin * 2.0)
 	var button_width: float = minf(BUTTON_MAX_WIDTH, maxf(1.0, (button_area_width - BUTTON_GAP) * 0.5))
-	var button_height: float = minf(42.0, maxf(1.0, footer_height - 8.0))
 	var back_rect := Rect2(
 		Vector2(panel_rect.position.x + inner_margin, button_y),
 		Vector2(button_width, button_height)
@@ -77,9 +82,9 @@ func build_layout(snapshot: Dictionary, view_size: Vector2) -> Dictionary:
 		Vector2(button_width, button_height)
 	)
 
-	var pair_gap: float = minf(18.0, grid_rect.size.x * 0.04)
+	var pair_gap: float = minf(PAIR_MAX_GAP, grid_rect.size.x * 0.21)
 	var pair_width: float = minf(230.0, maxf(1.0, (grid_rect.size.x - pair_gap) * 0.5))
-	var pair_height: float = minf(166.0, maxf(1.0, grid_rect.size.y * 0.54))
+	var pair_height: float = minf(PAIR_MAX_HEIGHT, maxf(1.0, grid_rect.size.y * 0.43))
 	var pair_total_width: float = pair_width * 2.0 + pair_gap
 	var pair_start := Vector2(
 		grid_rect.get_center().x - pair_total_width * 0.5,
