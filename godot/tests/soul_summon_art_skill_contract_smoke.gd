@@ -8,6 +8,7 @@ const BlacksmithSkillConfig := preload("res://scripts/characters/blacksmith_skil
 const OptimusSkillConfig := preload("res://scripts/characters/optimus_skill_config.gd")
 const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_perk_unlock_swap_flow.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
@@ -269,6 +270,35 @@ func _verify_character_info_slot_free_contract() -> void:
 	_expect(grid.size() == baseline_count + 1, "slot-free common manual must append after six fully occupied paid cells")
 	if grid.size() == baseline_count + 1:
 		_expect(str((grid[-1] as Dictionary).get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "slot-free common manual must stay in the right-leading appended lane")
+
+	# The live TAB always receives RuntimePerkState.get_snapshot(), whose
+	# display projection is the authoritative branch. Keep this fixture on the
+	# real snapshot path so a non-projection-only fix cannot pass silently.
+	var runtime_state := RuntimePerkState.new()
+	runtime_state.runtime_skill_levels = with_soul.duplicate(true)
+	var live_snapshot: Dictionary = runtime_state.get_snapshot()
+	var live_projection: Dictionary = live_snapshot.get("perk_fusion_display_projection", {}) as Dictionary
+	_expect(not (live_projection.get("entries", []) as Array).is_empty(), "live get_snapshot fixture must enter the projection branch")
+	var live_acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		runtime_state.runtime_skill_levels,
+		catalog,
+		runtime_state,
+		live_snapshot,
+		{},
+		[CommonSkillCatalog.SOUL_SUMMON_ART_ID],
+		Color(0.3, 0.7, 1.0),
+		Color(1.0, 0.8, 0.3)
+	)
+	var live_soul_entries := live_acquired.filter(func(entry: Dictionary) -> bool:
+		return str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	)
+	_expect(live_soul_entries.size() == 1, "live projection must retain exactly one Soul Summoning Art manual")
+	if live_soul_entries.size() == 1:
+		_expect(bool((live_soul_entries[0] as Dictionary).get("_slot_free_cell", false)), "live projection manual must carry the canonical slot-free marker")
+	var live_grid := CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(live_acquired, baseline_count)
+	_expect(live_grid.size() == baseline_count + 1, "live projection must append the manual outside a full paid-slot budget")
+	if live_grid.size() == baseline_count + 1:
+		_expect(str((live_grid[-1] as Dictionary).get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "live projection manual must occupy the appended right-leading cell")
 
 
 func _verify_removal_preserves_run_owned_state() -> void:
