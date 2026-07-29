@@ -4,6 +4,7 @@ const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_conf
 const TooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 
@@ -19,6 +20,8 @@ func _init() -> void:
 	var viper_config: Object = ViperSkillConfig.new()
 	var viper_snapshot: Dictionary = viper_config.get_snapshot()
 	for skill_name in (viper_snapshot.get("skill_data", {}) as Dictionary).keys():
+		if str(skill_name) == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			continue
 		var skill_data: Dictionary = (viper_snapshot["skill_data"] as Dictionary)[skill_name]
 		var effect_type: String = str(skill_data.get("effect_type", ""))
 		_expect(
@@ -29,6 +32,8 @@ func _init() -> void:
 	var smasher_config: Object = SmasherSkillConfig.new()
 	var smasher_snapshot: Dictionary = smasher_config.get_snapshot()
 	for skill_name in (smasher_snapshot.get("skill_data", {}) as Dictionary).keys():
+		if str(skill_name) == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			continue
 		var skill_data: Dictionary = (smasher_snapshot["skill_data"] as Dictionary)[skill_name]
 		var effect_type: String = str(skill_data.get("effect_type", ""))
 		_expect(
@@ -42,6 +47,8 @@ func _init() -> void:
 	var commando_config: Object = CommandoSkillConfig.new()
 	var commando_snapshot: Dictionary = commando_config.get_snapshot()
 	for skill_name in (commando_snapshot.get("skill_data", {}) as Dictionary).keys():
+		if str(skill_name) == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			continue
 		var skill_data: Dictionary = (commando_snapshot["skill_data"] as Dictionary)[skill_name]
 		var effect_type: String = str(skill_data.get("effect_type", ""))
 		_expect(
@@ -63,6 +70,11 @@ func _init() -> void:
 		"Commando emergency supply tooltip should expose control rows"
 	)
 	_test_viper_enhancer_bonus_lines_survive_wrap(renderer, viper_config)
+	var common_effect_type := str(CommonSkillCatalog.get_skill_data().get("effect_type", ""))
+	_expect(
+		renderer._get_effect_preview_family(common_effect_type) == "fallback",
+		"shared Soul Summoning Art should use the character-neutral fallback preview family"
+	)
 
 	_expect(
 		renderer._get_effect_preview_family("unknown_preview_key") == "fallback",
