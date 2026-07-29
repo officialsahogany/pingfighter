@@ -708,6 +708,7 @@ func complete_guardian_enhance_roll(
 	if bool(result.get("accepted", false)):
 		_guardian_enhance_offer_engine.mark_applied()
 		_guardian_enhance_cutin_prewarm_state.reset()
+		_guardian_enhance_cutin_host_resolver.prewarm_result_icon(registry, result)
 		_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
 			display_pet_id,
 			registry,

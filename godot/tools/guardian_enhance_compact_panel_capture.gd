@@ -6,6 +6,7 @@ extends SceneTree
 const LingpetGuardianEnhanceCutinOverlayHost := preload(
 	"res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd"
 )
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const OUT_DIR := "D:/tmp/bosspong_guardian_enhance_qa"
 const VIEW_SIZE := Vector2i(760, 750)
 
@@ -54,26 +55,30 @@ func _run() -> void:
 		quit(1)
 		return
 	var host := LingpetGuardianEnhanceCutinOverlayHost.new()
+	host.prewarm_assets()
 	if not bool(host.prewarm_pet_assets_step("maribo", true)):
 		push_error("failed to synchronously prewarm Maribo companion reaction")
 		quit(1)
 		return
 	var contract: Dictionary = host.get_animation_contract("maribo")
+	var level_icon_path := str(LingpetCatalog.get_active_skill_pool("milkring")[1].get("icon_texture_path", ""))
+	var unlock_icon_path := str(LingpetCatalog.get_passive_skill_pool("maribo")[0].get("icon_texture_path", ""))
 	var shots := [
 		{
-			"name": "guardian_enhance_compact_roll",
+			"name": "guardian_enhance_skill_level_result",
 			"snapshot": {
 				"active": true,
-				"phase": "roll",
+				"phase": "reaction",
 				"pet_id": "maribo",
-				"roll_progress": 0.56,
-				"animation_frame": 0,
+				"roll_progress": 1.0,
+				"animation_frame": 28,
 				"animation_contract": contract,
-				"feedback_text": "액티브 스킬 +1 획득",
+				"feedback_text": "밀크 발사 Lv.2 → Lv.3",
+				"result": {"result_detail": {"kind": "skill_level", "icon_texture_path": level_icon_path}},
 			},
 		},
 		{
-			"name": "guardian_enhance_compact_reaction",
+			"name": "guardian_enhance_skill_unlock_result",
 			"snapshot": {
 				"active": true,
 				"phase": "reaction",
@@ -82,7 +87,8 @@ func _run() -> void:
 				"reaction_active": true,
 				"animation_frame": 37,
 				"animation_contract": contract,
-				"feedback_text": "액티브 스킬 +1 획득",
+				"feedback_text": "공명 증폭 해금",
+				"result": {"result_detail": {"kind": "skill_unlock", "icon_texture_path": unlock_icon_path}},
 			},
 		},
 	]

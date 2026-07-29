@@ -29,6 +29,7 @@ class FakeCutinHost:
 	extends RefCounted
 
 	var prewarm_calls := 0
+	var result_icon_paths: Array[String] = []
 	var idle_fallback := false
 
 	func prewarm_pet_assets_step(
@@ -42,6 +43,10 @@ class FakeCutinHost:
 
 	func is_pet_panel_anim_ready(_pet_id: String) -> bool:
 		return true
+
+	func prewarm_result_icon_path(icon_path: String) -> bool:
+		result_icon_paths.append(icon_path)
+		return FileAccess.file_exists(icon_path)
 
 	func get_animation_contract(_pet_id: String) -> Dictionary:
 		return {
@@ -82,7 +87,11 @@ func _init() -> void:
 func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	var fixture := _make_fixture()
 	var runtime: Object = fixture.runtime
-	var candidate := {"type": LingpetEnhancementBuffStore.REWARD_TYPE_GAUGE, "weight": 1.0}
+	var candidate := {
+		"type": LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL,
+		"skill_slot": 1,
+		"weight": 1.0,
+	}
 	var result: Dictionary = runtime.apply_guardian_enhance_random_roll(
 		[candidate],
 		fixture.owner,
@@ -91,7 +100,10 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	_expect(bool(result.get("accepted", false)), "automatic roll must apply its only valid candidate")
 	_expect(not bool(result.get("modal_started", true)), "automatic roll must not open the retired choice modal")
 	_expect(runtime.is_guardian_enhance_cutin_active(), "applied reward must start the compact presentation")
-	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "buff owner must already contain the reward before the first presentation tick")
+	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("active_skill_bonus", 0)) == 1, "buff owner must already contain the reward before the first presentation tick")
+	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
+	var icon_path := str(detail.get("icon_texture_path", ""))
+	_expect(icon_path != "" and fixture.host.result_icon_paths.has(icon_path), "skill result icon must be prewarmed before the compact panel starts")
 	runtime.advance_guardian_enhance_cutin(0.59, fixture.registry)
 	var reaction_snapshot: Dictionary = runtime.get_guardian_enhance_cutin_snapshot()
 	_expect(bool(reaction_snapshot.get("reaction_active", false)), "roll phase completion must start one click reaction")
@@ -100,7 +112,7 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	runtime.advance_guardian_enhance_cutin(0.02, fixture.registry)
 	_expect(not runtime.is_guardian_enhance_cutin_active(), "reaction completion hook must auto-close the compact panel")
 	_expect(int(fixture.audio.stop_calls) == 1, "automatic close must stop enhancement presentation audio")
-	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("gauge_stacks", 0)) == 1, "presentation close must never roll back the pre-applied reward")
+	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("active_skill_bonus", 0)) == 1, "presentation close must never roll back the pre-applied reward")
 	_cleanup_runtime(runtime)
 
 
@@ -154,6 +166,18 @@ func _verify_compact_host_and_roster_contract() -> void:
 	var monkey_contract: Dictionary = host.get_animation_contract("monkeyring")
 	_expect(is_equal_approx(float(monkey_contract.get("frame_interval", 0.0)), 0.05), "compact panel must honor Monkeyring's per-pet reaction cadence override")
 	_expect(int(monkey_contract.get("cols", 0)) == 14 and int(monkey_contract.get("rows", 0)) == 7, "compact panel must resolve the current roster's 14x7 reaction grid through its overridable contract")
+	host.prewarm_assets()
+	var missing_icons: Array[String] = []
+	for pet_id in LingpetCatalog.get_pet_ids():
+		for skill in LingpetCatalog.get_active_skill_pool(pet_id):
+			var icon_path := str(skill.get("icon_texture_path", ""))
+			if icon_path == "" or not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path):
+				missing_icons.append("%s:%s" % [pet_id, str(skill.get("id", ""))])
+	for passive in LingpetCatalog.get_passive_skill_pool(LingpetCatalog.DEFAULT_PET_ID):
+		var icon_path := str(passive.get("icon_texture_path", ""))
+		if icon_path == "" or not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path):
+			missing_icons.append("common:%s" % str(passive.get("id", "")))
+	_expect(missing_icons.is_empty(), "every catalog skill result icon must exist and prewarm before draw; missing %s" % [missing_icons])
 
 
 func _make_fixture(idle_fallback: bool = false) -> Dictionary:

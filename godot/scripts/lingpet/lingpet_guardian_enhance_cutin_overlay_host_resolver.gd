@@ -33,3 +33,16 @@ func get_animation_contract(registry: Object, pet_id: String) -> Dictionary:
 		return {}
 	var value: Variant = host.get_animation_contract(pet_id)
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func prewarm_result_icon(registry: Object, result: Dictionary) -> bool:
+	var host := resolve(registry)
+	if host == null:
+		return true
+	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
+	var icon_path := str(detail.get("icon_texture_path", "")).strip_edges()
+	if icon_path == "":
+		return true
+	if not host.has_method("prewarm_result_icon_path"):
+		return false
+	return bool(host.prewarm_result_icon_path(icon_path))
