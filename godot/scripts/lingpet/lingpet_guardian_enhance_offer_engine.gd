@@ -134,11 +134,16 @@ func build_offer(
 	if _cooldown_screens > 0:
 		_cooldown_screens -= 1
 		return _blocked("offer_cooldown", applicable)
-	var reserve := not _initial_reservation_consumed
+	var is_initial_reservation := not _initial_reservation_consumed
 	_initial_reservation_consumed = true
+	# Every eligible appearance is protected from the catalog shuffle. The
+	# cooldown belongs to presentation, not acquisition, so declining the card
+	# cannot turn later appearances into a probability roll.
+	_cooldown_screens = OFFER_COOLDOWN_SCREENS
 	return {
 		"offer_allowed": true,
-		"reserve": reserve,
+		"reserve": true,
+		"is_initial_reservation": is_initial_reservation,
 		"candidates": _localize_candidates(applicable),
 		"applicable_count": applicable.size(),
 		"cooldown_screens": _cooldown_screens,
@@ -146,7 +151,9 @@ func build_offer(
 
 
 func mark_applied() -> void:
-	_cooldown_screens = OFFER_COOLDOWN_SCREENS
+	# The offer already arms the screen cooldown. Keep this idempotent for the
+	# apply path and for direct/debug grants that bypassed offer construction.
+	_cooldown_screens = maxi(_cooldown_screens, OFFER_COOLDOWN_SCREENS)
 
 
 func get_state_for_tests() -> Dictionary:

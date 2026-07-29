@@ -36,13 +36,23 @@ func _verify_owned_gate_and_offer_pacing() -> void:
 	var first := engine.build_offer(owner, pet_data, 0, true, true)
 	_expect(bool(first.get("offer_allowed", false)), "owned guardian should open the enhancement lane")
 	_expect(bool(first.get("reserve", false)), "first eligible screen after ownership must be reserved")
-	engine.mark_applied()
+	_expect(bool(first.get("is_initial_reservation", false)), "first eligible screen should identify the initial reservation")
+	# Declining the card must still arm the presentation cooldown.
 	for hidden_index in range(3):
 		var hidden := engine.build_offer(owner, pet_data, 0, true, true)
-		_expect(not bool(hidden.get("offer_allowed", false)), "applied enhancement must hide on cooldown screen %d" % (hidden_index + 1))
+		_expect(not bool(hidden.get("offer_allowed", false)), "declined enhancement must hide on cooldown screen %d" % (hidden_index + 1))
+		_expect(str(hidden.get("blocked_reason", "")) == "offer_cooldown", "hidden recurrence must report offer_cooldown")
 	var reappeared := engine.build_offer(owner, pet_data, 0, true, true)
 	_expect(bool(reappeared.get("offer_allowed", false)), "enhancement should become eligible after exactly three hidden screens")
-	_expect(not bool(reappeared.get("reserve", true)), "only the first ownership offer receives reservation priority")
+	_expect(bool(reappeared.get("reserve", false)), "every recurrence must receive reservation priority")
+	_expect(not bool(reappeared.get("is_initial_reservation", true)), "recurrence must remain distinguishable from the initial reservation")
+	engine.mark_applied()
+	for hidden_index in range(3):
+		var hidden_after_apply := engine.build_offer(owner, pet_data, 0, true, true)
+		_expect(not bool(hidden_after_apply.get("offer_allowed", false)), "selected enhancement must hide on cooldown screen %d" % (hidden_index + 1))
+	var reappeared_after_apply := engine.build_offer(owner, pet_data, 0, true, true)
+	_expect(bool(reappeared_after_apply.get("offer_allowed", false)), "selected enhancement must reappear after the same three-screen cooldown")
+	_expect(bool(reappeared_after_apply.get("reserve", false)), "selected recurrence must stay protected from shuffle truncation")
 	owner.queue_free()
 
 
