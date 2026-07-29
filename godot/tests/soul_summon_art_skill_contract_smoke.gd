@@ -15,6 +15,8 @@ const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_over
 const PerkFusionCatalog := preload("res://scripts/characters/perk_fusion_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const SOUL_SUMMON_SKILL_ICON_PATH := "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png"
+const SOUL_SUMMON_SKILL_MANIFEST_PATH := "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1_manifest.json"
 const SOUL_SUMMON_MANUAL_ICON_PATH := "res://assets/sprites/perks/soul_summon_art_manual_icon.png"
 const SOUL_SUMMON_MANUAL_MANIFEST_PATH := "res://assets/sprites/perks/soul_summon_art_manual_icon_manifest.json"
 const ICON_SIZE := Vector2i(256, 256)
@@ -162,12 +164,22 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 		_expect(CharacterInfoOverlayFormatter.perk_level_text(manual_data) == LanguageSettings.translate_text("비급"), "%s TAB entry must classify the common unlock as a manual" % language)
 		_expect(str(overlay._level_text(manual_data)) == LanguageSettings.translate_text("비급"), "%s choice card must classify the common unlock as a manual" % language)
 	var icon_renderer := RuntimePerkIconRenderer.new()
-	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must have an exact procedural icon branch")
+	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must load its dedicated imagegen PNG")
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must load its dedicated manual PNG")
 	var icon_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
+	_expect(str(RuntimePerkIconRenderer.SKILL_ICON_PATHS.get(CommonSkillCatalog.SOUL_SUMMON_ART_ID, "")) == SOUL_SUMMON_SKILL_ICON_PATH, "active Chosik must route through the canonical imagegen orb registry")
 	_expect(str(RuntimePerkIconRenderer.MANUAL_ICON_PATHS.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "")) == SOUL_SUMMON_MANUAL_ICON_PATH, "unlock card must route through the canonical manual PNG registry")
+	_expect(str(icon_renderer._get_static_path(CommonSkillCatalog.SOUL_SUMMON_ART_ID)) == SOUL_SUMMON_SKILL_ICON_PATH, "active Chosik PNG must resolve before procedural fallbacks")
 	_expect(str(icon_renderer._get_static_path(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID)) == SOUL_SUMMON_MANUAL_ICON_PATH, "manual PNG must resolve before procedural or orb fallbacks")
+	_expect(icon_source.find("func _draw_soul_summon_art_icon") < 0, "retired active-orb procedural placeholder must not remain as dead code")
 	_expect(icon_source.find("func _draw_soul_summon_art_manual_icon") < 0, "retired procedural placeholder must not remain as dead code")
+	var skill_texture: Texture2D = load(SOUL_SUMMON_SKILL_ICON_PATH) as Texture2D
+	_expect(skill_texture != null, "Soul Summoning Art Chosik PNG should import as Texture2D")
+	if skill_texture != null:
+		_expect(Vector2i(skill_texture.get_width(), skill_texture.get_height()) == ICON_SIZE, "Soul Summoning Art Chosik icon should stay 256x256")
+		var source: Dictionary = icon_renderer._get_icon_source(CommonSkillCatalog.SOUL_SUMMON_ART_ID)
+		var source_texture: Texture2D = source.get("texture", null)
+		_expect(source_texture != null and source_texture.resource_path == SOUL_SUMMON_SKILL_ICON_PATH, "active Chosik must resolve the accepted imagegen PNG")
 	var manual_texture: Texture2D = load(SOUL_SUMMON_MANUAL_ICON_PATH) as Texture2D
 	_expect(manual_texture != null, "Soul Summoning Art manual PNG should import as Texture2D")
 	if manual_texture != null:
@@ -183,6 +195,20 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 		_expect(used_rect.end.x <= 248 and used_rect.end.y <= 248, "manual alpha bounds should stay inside the shared safety inset")
 		for corner in [Vector2i(0, 0), Vector2i(255, 0), Vector2i(0, 255), Vector2i(255, 255)]:
 			_expect(is_zero_approx(manual_image.get_pixelv(corner).a), "manual corners should remain fully transparent")
+	var skill_image := Image.new()
+	_expect(skill_image.load(ProjectSettings.globalize_path(SOUL_SUMMON_SKILL_ICON_PATH)) == OK, "Soul Summoning Art Chosik PNG should load for alpha QA")
+	if not skill_image.is_empty():
+		var used_rect := skill_image.get_used_rect()
+		_expect(used_rect.position.x >= 2 and used_rect.position.y >= 2, "Chosik orb should keep transparent top-left safety padding")
+		_expect(used_rect.end.x <= 254 and used_rect.end.y <= 254, "Chosik orb alpha bounds should stay off the canvas edge")
+		for corner in [Vector2i(0, 0), Vector2i(255, 0), Vector2i(0, 255), Vector2i(255, 255)]:
+			_expect(is_zero_approx(skill_image.get_pixelv(corner).a), "Chosik orb corners should remain fully transparent")
+	var skill_manifest_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(SOUL_SUMMON_SKILL_MANIFEST_PATH))
+	_expect(skill_manifest_value is Dictionary, "Soul Summoning Art Chosik manifest should parse")
+	if skill_manifest_value is Dictionary:
+		var skill_manifest: Dictionary = skill_manifest_value
+		_expect(str(skill_manifest.get("skill_id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_ID, "Chosik manifest should preserve the runtime skill id")
+		_expect(str(skill_manifest.get("runtime_path", "")) == SOUL_SUMMON_SKILL_ICON_PATH, "Chosik manifest should record the production path")
 	var manifest_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(SOUL_SUMMON_MANUAL_MANIFEST_PATH))
 	_expect(manifest_value is Dictionary, "Soul Summoning Art manual manifest should parse")
 	if manifest_value is Dictionary:

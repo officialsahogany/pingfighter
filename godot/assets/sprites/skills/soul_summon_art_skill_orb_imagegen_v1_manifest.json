@@ -1,0 +1,38 @@
+{
+  "asset_id": "soul_summon_art_skill_orb_imagegen_v1",
+  "skill_id": "soul_summon_art",
+  "display_name_ko": "영혼소환술",
+  "runtime_path": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "reference-guided new static raster illustration",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019fa45f-c830-7261-b1f9-647d3f94e61f/exec-e0dd083d-09ab-4455-8379-9553122cd1e9.png",
+    "style_references": [
+      "res://assets/sprites/perks/soul_summon_art_manual_icon.png",
+      "res://assets/sprites/skills/smasher_hanryeongtan_skill_orb.png",
+      "res://assets/sprites/skills/smasher_recovery_skill_orb.png"
+    ],
+    "prompt_summary": "A centered jade and cold-cyan Korean-fantasy Chosik orb showing a guardian-spirit egg cracking open into a benevolent spectral guardian, optimized for 32px readability, with no text or manual book."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill"
+    ],
+    "key_color_observed": "#fa02f4",
+    "resize": "1254x1254 alpha source resized to 256x256 with ffmpeg Lanczos"
+  },
+  "qa": {
+    "rgba": true,
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [4, 3, 251, 253],
+    "sha256": "aa6904e17e18798a8952ad4a3761074672c54c06da58d5c3e98626e16f143743",
+    "file_size_bytes": 124108,
+    "render_targets": [112, 32]
+  }
+}
