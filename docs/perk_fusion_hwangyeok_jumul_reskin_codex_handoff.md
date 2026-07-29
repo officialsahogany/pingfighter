@@ -328,7 +328,7 @@ No text, no characters, no scene, no watermark. Background exactly flat
 
 ### 10.4 실행 종결 (2026-07-29 Codex)
 
-- 구현 착지: `169f428ae12b6bb1333eebfddd2fcc47e6ff30b0`.
+- 구현 착지: `85d503e06bb3f4b7670a454241ecf4885e918100`.
   `cold_boot_altar_backplate.png` 원본/후처리/임포트, prewarm 키,
   화로 전 520px 정적 드로, B0/B1 `0.22` → B2 이후 `0.32` 알파 2단,
   텍스처 부재 동심원 폴백을 함께 랜딩했다. 회전·트윈·스케일 펄스는 없다.
