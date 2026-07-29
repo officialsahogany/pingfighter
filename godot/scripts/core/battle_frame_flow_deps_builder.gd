@@ -39,6 +39,7 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"victory_loot_phase_state": _get_instance(registry, "victory_loot_phase_state"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),
+		"game_audio": _get_instance(registry, "game_audio"),
 		"serve_context": _build_serve_context(owner),
 		"skill_orb_tooltip_active": not skill_orb_tooltip_state.is_empty(),
 		"skill_orb_tooltip_key": str(skill_orb_tooltip_state.get("skill_name", "")),

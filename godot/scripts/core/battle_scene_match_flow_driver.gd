@@ -129,6 +129,9 @@ func _apply_scoreboard_update_result(
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
 	if update_result == ScoreboardState.UPDATE_RESET_GAME:
+		# 파워로스 진동 럼블(퀘이크 루프)의 종료 엣지 — 진동 창은 최종 스코어보드
+		# 와 함께 끝난다(승/패 무관 no-op 안전).
+		_stop_victory_power_loss_rumble(registry)
 		var defeat_start: int = _perf_begin(perf_logger)
 		if _resolve_match_defeat(registry, owner, reset_drive_input_callback, reset_ball_callback):
 			_perf_end(perf_logger, "physics.scoreboard_result.resolve_defeat", defeat_start)
@@ -332,6 +335,12 @@ func _show_stage_clear_result(registry: Object, reset_game_callback: Callable, o
 	# Stage-clear (win) exit returns to character select to start the next run.
 	var exit_callback := Callable(self, "_exit_to_character_select").bind(owner)
 	return bool(result_screen.show_from_scoreboard(owner, registry, reset_game_callback, exit_callback))
+
+
+func _stop_victory_power_loss_rumble(registry: Object) -> void:
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio != null and game_audio.has_method("stop_stage2_quake_loop"):
+		game_audio.stop_stage2_quake_loop()
 
 
 func _try_start_victory_loot_phase(registry: Object, owner: Object, reset_game_callback: Callable) -> bool:

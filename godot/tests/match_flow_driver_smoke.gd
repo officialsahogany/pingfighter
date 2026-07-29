@@ -363,6 +363,15 @@ class FakePerfLogger:
 		return labels.has(label)
 
 
+class FakeRumbleAudio:
+	extends RefCounted
+
+	var quake_loop_stop_calls := 0
+
+	func stop_stage2_quake_loop() -> void:
+		quake_loop_stop_calls += 1
+
+
 class FakeVictoryLootState:
 	extends RefCounted
 
@@ -615,8 +624,10 @@ func _init() -> void:
 	# 결과화면을 연다 (상자 드랍 -> 획득 -> 정산 직행 개편의 드라이버 씰).
 	var loot_state := FakeVictoryLootState.new()
 	var loot_stage_clear_screen := FakeStageClearResultScreen.new()
+	var rumble_audio := FakeRumbleAudio.new()
 	registry.victory_loot_state = loot_state
 	registry.stage_clear_result_screen = loot_stage_clear_screen
+	registry.game_audio = rumble_audio
 	_reset_game_callback_calls = 0
 	scoreboard.next_result = ScoreboardState.UPDATE_RESET_GAME
 	scoreboard.player_points = 5
@@ -632,6 +643,7 @@ func _init() -> void:
 		Callable(self, "_record_drive_reset")
 	)
 	_expect(loot_state.start_calls == 1, "match win with a registered loot state should start the victory loot phase")
+	_expect(rumble_audio.quake_loop_stop_calls >= 1, "final scoreboard dispatch must stop the power-loss rumble loop (end edge)")
 	_expect(loot_state.last_player_score == 5 and loot_state.last_boss_score == 0, "victory loot phase should receive the final scoreboard score")
 	_expect(loot_stage_clear_screen.show_calls == 0, "victory loot interception must defer the stage-clear result screen")
 	_expect(_reset_game_callback_calls == 0, "victory loot interception must not fall through to the reset callback")

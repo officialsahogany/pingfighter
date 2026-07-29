@@ -60,6 +60,16 @@ const OPEN_DURATION_SEC := 0.60
 const OPEN_GRANT_PROGRESS := 0.55
 const FINISH_LINGER_SEC := 0.75
 
+# 슬럼프 임팩트 비트: 파워로스 진동이 끝나고 보스가 무너지는 인트로 첫 순간의
+# 원-펀치(화이트 플래시 + 더스트 퍼프 + 미세 셰이크 + 붐 SFX). 절제 원칙 —
+# 임팩트 비트 하나에 집중하고 나머지는 솔렘하게 유지한다.
+const INTRO_IMPACT_FLASH_SEC := 0.15
+const INTRO_IMPACT_FLASH_ALPHA := 0.16
+const INTRO_IMPACT_DUST_SEC := 0.5
+const INTRO_IMPACT_DUST_MOTE_COUNT := 6
+const INTRO_IMPACT_SHAKE_SEC := 0.25
+const INTRO_IMPACT_SHAKE_AMPLITUDE_PX := 3.2
+
 # 상자가 보스 몸에서 튀어나오는 순간의 보스 바디 글린트(반짝임). 드랍 간격
 # (0.55s)보다 짧게 잡아 상자마다 별개의 펄스로 읽힌다. 색은 상자 등급 틴트.
 const DROP_FLASH_DURATION_SEC := 0.45
@@ -135,6 +145,8 @@ func start(
 	_drop_flash_kind = BOX_KIND_NORMAL
 	ImpactFlareTextureCache.prewarm()
 	active = true
+	# 슬럼프 임팩트 붐: 진동이 끝나고 무너지는 첫 프레임의 저역 액센트.
+	_play_slump_boom_audio()
 	_write_owner_state(owner)
 	return true
 
@@ -210,16 +222,25 @@ func get_actor_draw_context() -> Dictionary:
 		BOSS_STAGE2_DEFEAT_FRAME_COUNT - 1,
 		int(floor(elapsed_sec / BOSS_STAGE2_DEFEAT_FRAME_SPEED))
 	)
-	return {
+	var context := {
 		"boss_defeat_active": true,
 		"boss_result_frame": frame,
 		"boss_defeat_frame": stage2_defeat_frame if _current_stage == 2 else frame,
 	}
+	if elapsed_sec < INTRO_IMPACT_SHAKE_SEC:
+		# 슬럼프 착지 미세 셰이크 — actor context의 boss_draw_pos 가산 경로 재사용.
+		var shake_decay: float = 1.0 - elapsed_sec / INTRO_IMPACT_SHAKE_SEC
+		context["boss_power_loss_shake_offset"] = Vector2(
+			sin(elapsed_sec * 88.0) * INTRO_IMPACT_SHAKE_AMPLITUDE_PX * shake_decay,
+			cos(elapsed_sec * 115.0) * INTRO_IMPACT_SHAKE_AMPLITUDE_PX * 0.5 * shake_decay
+		)
+	return context
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null or not active:
 		return
+	_draw_intro_impact(canvas, shake_offset)
 	_draw_boss_drop_flash(canvas, shake_offset)
 	for box_value in boxes:
 		if not (box_value is Dictionary):
@@ -237,6 +258,7 @@ func get_status_for_tests() -> Dictionary:
 		"elapsed": elapsed_sec,
 		"drop_flash_timer": _drop_flash_timer,
 		"drop_flash_kind": _drop_flash_kind,
+		"intro_impact_active": elapsed_sec < INTRO_IMPACT_DUST_SEC,
 		"box_count": boxes.size(),
 		"box_phases": boxes.map(func(box): return str((box as Dictionary).get("phase", "")) if box is Dictionary else ""),
 		"collected_reward_count": collected_rewards.size(),
@@ -316,9 +338,11 @@ func _advance_drop(box: Dictionary, fps_scale: float) -> void:
 			box["bounce_count"] = bounce_count + 1
 			box["fall_speed"] = -fall_speed * DROP_BOUNCE_RESTITUTION
 			box["pos"] = Vector2(next_x, REST_Y)
+			_play_box_land_audio()
 			return
 		box["phase"] = BOX_PHASE_REST
 		box["pos"] = Vector2(base_x, REST_Y)
+		_play_box_land_audio()
 		return
 	box["pos"] = Vector2(next_x, next_y)
 
@@ -608,6 +632,54 @@ func _get_player_rect(owner: Object) -> Rect2:
 	var width: float = float(_get_owner_value(owner, "player_paddle_width", 155.0))
 	var height: float = float(_get_owner_value(owner, "player_paddle_height", 50.0))
 	return Rect2(player_pos, Vector2(maxf(1.0, width), maxf(1.0, height)))
+
+
+func _draw_intro_impact(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if elapsed_sec >= INTRO_IMPACT_DUST_SEC:
+		return
+	var boss_pos: Vector2 = _get_vector2(_get_owner_value(_owner, "boss_pos", Vector2(330.0, 25.0)), Vector2(330.0, 25.0))
+	var boss_size: Vector2 = _get_vector2(_get_owner_value(_owner, "boss_paddle_size", Vector2(100.0, 40.0)), Vector2(100.0, 40.0))
+	var ground_center: Vector2 = boss_pos + Vector2(boss_size.x * 0.5, boss_size.y) + shake_offset
+	# 화이트 플래시(플레이필드 전면, 급감쇠) — 무너지는 순간의 원-펀치.
+	if elapsed_sec < INTRO_IMPACT_FLASH_SEC:
+		var flash_alpha: float = INTRO_IMPACT_FLASH_ALPHA * (1.0 - elapsed_sec / INTRO_IMPACT_FLASH_SEC)
+		canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(1.0, 0.98, 0.92, flash_alpha))
+	# 더스트 퍼프: 보스 발치에서 옆으로 퍼지며 살짝 떠오르는 흙빛 모트(결정적).
+	var dust_ratio: float = clampf(1.0 - elapsed_sec / INTRO_IMPACT_DUST_SEC, 0.0, 1.0)
+	var spread: float = 1.0 - dust_ratio
+	ImpactFlareTextureCache.draw_glow(
+		canvas,
+		ground_center,
+		34.0 + 44.0 * spread,
+		Color(0.72, 0.65, 0.52),
+		0.22 * dust_ratio
+	)
+	for mote_index in range(INTRO_IMPACT_DUST_MOTE_COUNT):
+		var side: float = -1.0 if mote_index % 2 == 0 else 1.0
+		var lane: float = (float(mote_index >> 1) + 1.0) / (float(INTRO_IMPACT_DUST_MOTE_COUNT) * 0.5)
+		var mote_pos: Vector2 = ground_center + Vector2(
+			side * (14.0 + 52.0 * spread * lane),
+			-4.0 - 14.0 * spread * lane
+		)
+		ImpactFlareTextureCache.draw_sparkle(
+			canvas,
+			mote_pos,
+			7.0 + 4.0 * lane,
+			Color(0.78, 0.71, 0.58),
+			0.30 * dust_ratio
+		)
+
+
+func _play_slump_boom_audio() -> void:
+	var game_audio: Object = _get_registry_instance("game_audio")
+	if game_audio != null and game_audio.has_method("play_ragnarok_boom"):
+		game_audio.play_ragnarok_boom()
+
+
+func _play_box_land_audio() -> void:
+	var game_audio: Object = _get_registry_instance("game_audio")
+	if game_audio != null and game_audio.has_method("play_stage3_chest_land"):
+		game_audio.play_stage3_chest_land()
 
 
 func _play_box_open_audio() -> void:

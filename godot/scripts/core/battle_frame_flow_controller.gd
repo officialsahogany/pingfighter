@@ -11,6 +11,7 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 			_call(callbacks, "resume_skill_cooldowns")
 		_call(callbacks, "hide_skill_orb_tooltip_overlay")
 		_clear_skill_orb_tooltip_pause()
+		_sync_victory_power_loss_rumble(deps, scoreboard_state)
 		_call_delta(callbacks, "update_effects", delta)
 		return
 
@@ -186,6 +187,24 @@ func _is_stage3_psychoball_hitstop_active(deps: Dictionary) -> bool:
 		and stage3_boss_skill_state.has_method("is_psychoball_hitstop_active")
 		and bool(stage3_boss_skill_state.is_psychoball_hitstop_active())
 	)
+
+
+func _sync_victory_power_loss_rumble(deps: Dictionary, scoreboard_state: Object) -> void:
+	# 최종 승리 파워로스 진동 럼블: stage2 quake 루프를 재사용한다(이미
+	# gameplay_loop_audio_cleanup STOP_METHODS 등재 = 모달 트랩 안전). 이 창에서
+	# 매 물리 프레임 play(이미 재생 중이면 no-op)하고, 종료 엣지는 스코어보드
+	# 완료 디스패치(battle_scene_match_flow_driver의 stop)가 소유한다.
+	var game_audio: Object = deps.get("game_audio", null)
+	if game_audio == null or not game_audio.has_method("play_stage2_quake_loop"):
+		return
+	if not (
+		scoreboard_state.has_method("has_pending_game_reset")
+		and bool(scoreboard_state.has_pending_game_reset())
+		and scoreboard_state.has_method("get_last_scoring_side")
+		and str(scoreboard_state.get_last_scoring_side()) == "player"
+	):
+		return
+	game_audio.play_stage2_quake_loop()
 
 
 func _clear_skill_orb_tooltip_pause() -> void:

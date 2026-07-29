@@ -103,6 +103,9 @@ func _reset_victory_loot_phase(
 		loot_state = _get_instance(registry, "victory_loot_phase_state")
 	if loot_state != null and loot_state.has_method("reset"):
 		loot_state.reset(owner)
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio != null and game_audio.has_method("stop_stage2_quake_loop"):
+		game_audio.stop_stage2_quake_loop()
 
 
 func _force_player_stage_clear_score(

@@ -57,9 +57,25 @@ class FakeGameAudio:
 	extends RefCounted
 
 	var result_box_open_calls := 0
+	var ragnarok_boom_calls := 0
+	var chest_land_calls := 0
+	var quake_loop_play_calls := 0
+	var quake_loop_stop_calls := 0
 
 	func play_result_box_open() -> void:
 		result_box_open_calls += 1
+
+	func play_ragnarok_boom() -> void:
+		ragnarok_boom_calls += 1
+
+	func play_stage3_chest_land() -> void:
+		chest_land_calls += 1
+
+	func play_stage2_quake_loop() -> void:
+		quake_loop_play_calls += 1
+
+	func stop_stage2_quake_loop() -> void:
+		quake_loop_stop_calls += 1
 
 
 class FakeActiveItemRuntime:
@@ -227,6 +243,8 @@ func _run() -> void:
 	_verify_loot_defeat_reaches_renderer_facing_actor_context()
 	_verify_boss_body_flash_on_each_drop()
 	_verify_finish_waits_for_pending_perk_choice()
+	_verify_slump_impact_beat_and_landing_audio()
+	_verify_power_loss_rumble_sync()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -898,6 +916,63 @@ func _verify_finish_waits_for_pending_perk_choice() -> void:
 		if _finish_calls > 0:
 			break
 	_expect(_finish_calls == 1, "loot finish should fire once after the perk choice is consumed")
+
+
+func _verify_slump_impact_beat_and_landing_audio() -> void:
+	# 슬럼프 임팩트 비트(붐 1회 + 인트로 첫 구간 미세 셰이크 키)와 상자
+	# 바운스/안착 착지음(2바운스+안착=3회)을 봉인한다.
+	_finish_calls = 0
+	var loot := VictoryLootPhaseState.new()
+	var owner := SchemaGatedOwner.new()
+	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var registry := FakeRegistry.new()
+	var audio := FakeGameAudio.new()
+	registry.game_audio = audio
+	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
+	_expect(
+		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		"slump impact leg should start a one-box loot phase"
+	)
+	_expect(audio.ragnarok_boom_calls == 1, "loot intro must play the slump boom exactly once at start")
+	loot.update(0.05)
+	var impact_context: Dictionary = loot.get_actor_draw_context()
+	_expect(
+		impact_context.has("boss_power_loss_shake_offset"),
+		"loot intro impact window should emit the micro landing shake on the boss render offset"
+	)
+	_expect(bool(loot.get_status_for_tests().get("intro_impact_active", false)), "intro impact envelope should be active right after start")
+	loot.update(0.6)
+	var settled_context: Dictionary = loot.get_actor_draw_context()
+	_expect(
+		not settled_context.has("boss_power_loss_shake_offset"),
+		"micro landing shake must settle after the impact window"
+	)
+	_expect(not bool(loot.get_status_for_tests().get("intro_impact_active", true)), "intro impact envelope should end after the dust window")
+
+	# 낙하 → 2회 바운스 → 안착: 착지음 3회.
+	for _i in range(600):
+		loot.update(1.0 / 60.0)
+		if str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+			break
+	_expect(
+		str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST,
+		"slump impact leg box should settle to rest"
+	)
+	_expect(audio.chest_land_calls == 3, "box should thud on each bounce and on final settle (2 bounces + settle)")
+
+
+func _verify_power_loss_rumble_sync() -> void:
+	# 최종 승리 스코어보드 창에서 프레임플로우 스코어보드 분기가 퀘이크 루프를
+	# 매 프레임 sync(true)하고, 라운드 승리에서는 울리지 않아야 한다.
+	var controller := BattleFrameFlowController.new()
+	var audio := FakeGameAudio.new()
+	var scoreboard := FakeScoreboardStateForResultContext.new()
+	var deps := {"scoreboard_state": scoreboard, "game_audio": audio}
+	controller.update(1.0 / 60.0, deps, {})
+	_expect(audio.quake_loop_play_calls == 1, "final-win scoreboard frames should drive the power-loss rumble loop")
+	scoreboard.pending_game_reset = false
+	controller.update(1.0 / 60.0, deps, {})
+	_expect(audio.quake_loop_play_calls == 1, "round-win scoreboard frames must not drive the rumble loop")
 
 
 func _record_finish() -> void:
