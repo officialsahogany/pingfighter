@@ -3,6 +3,10 @@ extends RefCounted
 const SmasherSkillOrbCooldownRenderer := preload("res://scripts/hud/smasher_skill_orb_cooldown_renderer.gd")
 const SmasherSkillOrbSocketRenderer := preload("res://scripts/hud/smasher_skill_orb_socket_renderer.gd")
 const SmasherSkillOrbSymbolRenderer := preload("res://scripts/hud/smasher_skill_orb_symbol_renderer.gd")
+const SOUL_SUMMON_ART_ID := "soul_summon_art"
+const SOUL_SUMMON_ART_ICON: Texture2D = preload(
+	"res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png"
+)
 
 const TEXTURE_ORB_EDGE_FILL_EXTRA := 2.0
 const TEXTURE_ORB_Y_NUDGE := -1.0
@@ -78,17 +82,16 @@ func draw(
 		if is_active and not is_on_cooldown and not static_hud_lod:
 			socket_renderer.draw_ready_ring(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, t, float(i) * 0.6, skill_color)
 
-		var icon_texture: Variant = skill_icons.get(skill_name, null)
+		var icon_texture: Texture2D = _resolve_skill_icon_texture(skill_name, skill_icons)
 		var icon_size: float = icon_radius * 2.0 + 2.0 * scale_factor
-		if icon_texture is Texture2D:
+		if icon_texture != null:
 			var modulate: Color = Color.WHITE if is_active else Color(0.45, 0.45, 0.45, 0.78)
-			var texture: Texture2D = icon_texture
 			var texture_size: float = icon_size + TEXTURE_ORB_EDGE_FILL_EXTRA * scale_factor
 			var texture_rect := Rect2(
 				slot_pos - Vector2(texture_size, texture_size) * 0.5 + Vector2(0.0, TEXTURE_ORB_Y_NUDGE * scale_factor),
 				Vector2(texture_size, texture_size)
 			)
-			canvas.draw_texture_rect(texture, texture_rect, false, modulate)
+			canvas.draw_texture_rect(icon_texture, texture_rect, false, modulate)
 		else:
 			symbol_renderer.draw(canvas, slot_pos, icon_radius, skill_name, skill_color, is_active)
 
@@ -101,6 +104,18 @@ func draw(
 				pillar_drawer,
 				static_hud_lod
 			)
+
+
+func _resolve_skill_icon_texture(skill_name: String, skill_icons: Dictionary) -> Texture2D:
+	var mapped_texture: Variant = skill_icons.get(skill_name, null)
+	if mapped_texture is Texture2D:
+		return mapped_texture as Texture2D
+	# Soul Summoning Art is shared by all five characters, while Optimus and
+	# Blacksmith intentionally have no character-specific battle icon map.
+	# Keep the accepted PNG ahead of the procedural symbol for those live HUDs.
+	if skill_name == SOUL_SUMMON_ART_ID:
+		return SOUL_SUMMON_ART_ICON
+	return null
 
 
 func _get_cooldown_remaining(

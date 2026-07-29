@@ -10,6 +10,8 @@ const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_per
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const SmasherSkillOrbSlotRenderer := preload("res://scripts/hud/smasher_skill_orb_slot_renderer.gd")
+const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
@@ -193,6 +195,28 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	var icon_renderer := RuntimePerkIconRenderer.new()
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must load its dedicated imagegen PNG")
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must load its dedicated manual PNG")
+	for icon_paths in [
+		BattleSkillIconPaths.SMASHER_SKILL_ICON_PATHS,
+		BattleSkillIconPaths.VIPER_SKILL_ICON_PATHS,
+		BattleSkillIconPaths.COMMANDO_SKILL_ICON_PATHS,
+	]:
+		_expect(
+			str((icon_paths as Dictionary).get(CommonSkillCatalog.SOUL_SUMMON_ART_ID, "")) == SOUL_SUMMON_SKILL_ICON_PATH,
+			"every character battle icon map must route Soul Summoning Art to the accepted PNG"
+		)
+	var battle_orb_renderer := SmasherSkillOrbSlotRenderer.new()
+	var battle_orb_texture: Texture2D = battle_orb_renderer._resolve_skill_icon_texture(
+		CommonSkillCatalog.SOUL_SUMMON_ART_ID,
+		{}
+	)
+	_expect(
+		battle_orb_texture != null and battle_orb_texture.resource_path == SOUL_SUMMON_SKILL_ICON_PATH,
+		"live battle orb must use the accepted PNG even for characters without a dedicated texture map"
+	)
+	_expect(
+		battle_orb_renderer._resolve_skill_icon_texture("missing_skill", {}) == null,
+		"unknown battle skills must retain the procedural fallback contract"
+	)
 	var icon_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
 	_expect(str(RuntimePerkIconRenderer.SKILL_ICON_PATHS.get(CommonSkillCatalog.SOUL_SUMMON_ART_ID, "")) == SOUL_SUMMON_SKILL_ICON_PATH, "active Chosik must route through the canonical imagegen orb registry")
 	_expect(str(RuntimePerkIconRenderer.MANUAL_ICON_PATHS.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "")) == SOUL_SUMMON_MANUAL_ICON_PATH, "unlock card must route through the canonical manual PNG registry")
