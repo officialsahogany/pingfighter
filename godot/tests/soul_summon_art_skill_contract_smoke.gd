@@ -13,6 +13,7 @@ const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_re
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const SmasherSkillOrbTooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 const PerkFusionCatalog := preload("res://scripts/characters/perk_fusion_catalog.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -140,6 +141,15 @@ func _verify_full_unlock_budget_keeps_reserved_offer() -> void:
 
 func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	var languages := ["ko", "en", "zh", "ja", "es", "pt-BR", "ru"]
+	var expected_how_to_use := {
+		"ko": "Ctrl 또는 R3를 눌러 수호령 소환·수납을 전환합니다.",
+		"en": "Press Ctrl or R3 to switch between summoning and stowing the guardian.",
+		"zh": "按 Ctrl 或 R3 切换守护灵的召唤与收纳。",
+		"ja": "Ctrl または R3 を押して守護霊の召喚・収納を切り替えます。",
+		"es": "Pulsa Ctrl o R3 para alternar entre invocar y guardar al guardián.",
+		"pt-BR": "Pressione Ctrl ou R3 para alternar entre invocar e guardar o guardião.",
+		"ru": "Нажмите Ctrl или R3, чтобы призвать или убрать хранителя.",
+	}
 	var expected_manual_names := {
 		"ko": "영혼소환술 비급",
 		"en": "Soul Summoning Art Manual",
@@ -156,7 +166,9 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 		var manual_data := CommonSkillCatalog.get_unlock_perk_data()
 		_expect(str(data.get("korean", "")).strip_edges() != "", "%s should provide a display name" % language)
 		_expect(str(data.get("description", "")).split("\n").size() <= 3, "%s description must stay within three lines" % language)
-		_expect(str(data.get("how_to_use", "")).find("\n") < 0, "%s how_to_use must be one sentence" % language)
+		var how_to_use := str(data.get("how_to_use", ""))
+		_expect(how_to_use == str(expected_how_to_use.get(language, "")), "%s how_to_use must use the synchronized one-sentence copy" % language)
+		_expect(not how_to_use.is_empty() and how_to_use.find("\n") < 0, "%s how_to_use must be one non-empty line" % language)
 		_expect(not bool(data.get("show_cooldown", true)), "%s tooltip must suppress cooldown" % language)
 		_expect(int(data.get("fixed_level", 0)) == 1, "%s should expose fixed level one" % language)
 		_expect(not bool(data.get("cooldown_reduction_eligible", true)), "%s must opt out of cooldown reduction" % language)
@@ -164,6 +176,20 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 		_expect(str(manual_data.get("name", "")) == str(expected_manual_names.get(language, "")), "%s unlock must use the localized manual title" % language)
 		_expect(CharacterInfoOverlayFormatter.perk_level_text(manual_data) == LanguageSettings.translate_text("비급"), "%s TAB entry must classify the common unlock as a manual" % language)
 		_expect(str(overlay._level_text(manual_data)) == LanguageSettings.translate_text("비급"), "%s choice card must classify the common unlock as a manual" % language)
+	var tooltip_renderer := SmasherSkillOrbTooltipRenderer.new()
+	for character_type in ["smasher", "viper", "soldier", "blacksmith", "optimus"]:
+		var rows: Array = tooltip_renderer._get_control_rows(CommonSkillCatalog.SOUL_SUMMON_ART_ID, character_type)
+		_expect(rows.size() == 1, "%s Soul Summoning Art tooltip must expose one shared control row" % character_type)
+		if rows.size() != 1:
+			continue
+		var row: Array = rows[0] as Array
+		_expect(row.size() == 5, "%s shared control row must keep the compact five-token shape" % character_type)
+		if row.size() == 5:
+			_expect(row[0] == ["key", "Ctrl"], "%s shared control row must begin with the Ctrl keycap" % character_type)
+			_expect(row[1] == ["slash", "/"], "%s shared control row must separate keyboard and gamepad inputs" % character_type)
+			_expect(row[2] == ["key", "R3"], "%s shared control row must expose the R3 gamepad keycap" % character_type)
+			_expect(row[3] == ["text", "소환·수납 전환"], "%s shared control row must state the toggle action" % character_type)
+			_expect(row[-1] == ["accent", "발동"], "%s shared control row must end with the activation accent" % character_type)
 	var icon_renderer := RuntimePerkIconRenderer.new()
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_ID), "active orb id must load its dedicated imagegen PNG")
 	_expect(icon_renderer.has_icon(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "unlock card id must load its dedicated manual PNG")

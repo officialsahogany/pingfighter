@@ -3080,6 +3080,7 @@ const EXACT_TEXT_EN := {
 	"이펙트 미리보기": "Effect Preview",
 	"준비": "Prep",
 	"발동": "Activate",
+	"소환·수납 전환": "Summon / Stow",
 	"또는": "or",
 	"슈퍼아머": "Super Armor",
 	"분신 독 슬래시": "Clone Venom Slash",
@@ -3667,6 +3668,7 @@ const EXACT_TEXT_ZH := {
 	"이펙트 미리보기": "效果预览",
 	"준비": "准备",
 	"발동": "发动",
+	"소환·수납 전환": "召唤／收纳切换",
 	"또는": "或",
 	"슈퍼아머": "霸体",
 	"분신 독 슬래시": "分身毒斩",
@@ -4254,6 +4256,7 @@ const EXACT_TEXT_JA := {
 	"이펙트 미리보기": "エフェクトプレビュー",
 	"준비": "準備",
 	"발동": "発動",
+	"소환·수납 전환": "召喚・収納切替",
 	"또는": "または",
 	"슈퍼아머": "スーパーアーマー",
 	"분신 독 슬래시": "分身毒スラッシュ",
@@ -4841,6 +4844,7 @@ const EXACT_TEXT_ES := {
 	"이펙트 미리보기": "Vista de efecto",
 	"준비": "Preparación",
 	"발동": "Activar",
+	"소환·수납 전환": "Alternar invocar / guardar",
 	"또는": "o",
 	"슈퍼아머": "Súper armadura",
 	"분신 독 슬래시": "Corte venenoso del clon",
@@ -5058,6 +5062,7 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"소환·수납 전환": "Alternar invocar / guardar",
 	"리커버리 스킬": "Passo Leve",
 	"천운삼괘": "Três Presságios Celestiais",
 	"삼재개문 발동!": "Três Portões do Destino ativados!",
@@ -5240,6 +5245,7 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"소환·수납 전환": "Призвать / убрать",
 	"리커버리 스킬": "Лёгкий шаг",
 	"천운삼괘": "Три Небесных Знамения",
 	"삼재개문 발동!": "Трое Врат Судьбы открыты!",

@@ -12,6 +12,11 @@ const EFFECT_PREVIEW_HEIGHT := 100.0
 const PADDING := 12.0
 const CONTROL_ROW_HEIGHT := 20.0
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
+const COMMON_CONTROL_ROWS := {
+	"soul_summon_art": [
+		[["key", "Ctrl"], ["slash", "/"], ["key", "R3"], ["text", "소환·수납 전환"], ["accent", "발동"]],
+	],
+}
 const CONTROL_ROWS := {
 	"plasma": [
 		[["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "홀드 후 손 떼면 발동"]],
@@ -1285,6 +1290,10 @@ func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_colo
 
 
 func _get_control_rows(skill_name: String, character_type: String = "smasher") -> Array:
+	if COMMON_CONTROL_ROWS.has(skill_name):
+		var common_rows: Variant = COMMON_CONTROL_ROWS.get(skill_name, [])
+		if common_rows is Array:
+			return common_rows
 	if ODINS_EYE_CONTROL_ROWS.has(skill_name):
 		var odins_rows: Variant = ODINS_EYE_CONTROL_ROWS.get(skill_name, [])
 		if odins_rows is Array:
