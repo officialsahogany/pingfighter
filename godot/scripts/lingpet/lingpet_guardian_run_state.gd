@@ -24,6 +24,8 @@ const MAX_MOBILITY_STACKS := LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS
 const MAX_DEFENSE_STACKS := LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS
 const MAX_GAUGE_STACKS := LingpetEnhancementBuffStore.MAX_GAUGE_STACKS
 const REWARD_DECK_SEED_MOD := 2147483647
+const LOADOUT_SEEDED_UNLOCKS_KEY := "loadout_seeded_unlocks"
+const ENHANCEMENT_EARNED_UNLOCKS_KEY := "enhancement_earned_unlocks"
 
 # Localization coverage scans this label map for the enhancement store.
 const LABEL_BY_REWARD_TYPE := {
@@ -261,6 +263,7 @@ func apply_guardian_enhancement(
 		has_second_passive_skill
 	)
 	if bool(result.get("accepted", false)):
+		_mark_enhancement_earned_unlock(pet_data, str(candidate.get("type", "")))
 		_pets[normalized_pet_id] = pet_data
 		_dirty = true
 		result["pet_id"] = normalized_pet_id
@@ -436,14 +439,32 @@ func apply_resolved_unlock_choice(
 func _seed_present_skill(pet_data: Dictionary, reward_type: String, present_id: String) -> void:
 	var selected := present_id.strip_edges()
 	var choice_key := _unlock_choice_key(reward_type)
-	if selected.is_empty() or choice_key.is_empty():
+	if choice_key.is_empty():
 		return
 	var counts := LingpetEnhancementBuffStore.reward_counts_snapshot(pet_data)
+	var seeded: Dictionary = pet_data.get(LOADOUT_SEEDED_UNLOCKS_KEY, {}) as Dictionary
+	var earned: Dictionary = pet_data.get(ENHANCEMENT_EARNED_UNLOCKS_KEY, {}) as Dictionary
+	if selected.is_empty():
+		if bool(seeded.get(choice_key, false)) and not bool(earned.get(choice_key, false)):
+			_set_unlock_count(counts, reward_type, false)
+			var resolved_for_empty: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
+			var seeded_choice: Dictionary = resolved_for_empty.get(choice_key, {}) as Dictionary
+			if str(seeded_choice.get("source", "")) == "loadout":
+				resolved_for_empty.erase(choice_key)
+				pet_data["resolved_unlock_choices"] = resolved_for_empty
+		seeded[choice_key] = false
+		counts["signature"] = LingpetEnhancementBuffStore.build_reward_signature(counts)
+		pet_data[LingpetEnhancementBuffStore.REWARD_COUNTS_KEY] = counts
+		pet_data[LOADOUT_SEEDED_UNLOCKS_KEY] = seeded
+		return
 	LingpetEnhancementBuffStore.apply_reward_type_to_counts(counts, reward_type)
 	counts["signature"] = LingpetEnhancementBuffStore.build_reward_signature(counts)
 	pet_data[LingpetEnhancementBuffStore.REWARD_COUNTS_KEY] = counts
+	seeded[choice_key] = true
+	pet_data[LOADOUT_SEEDED_UNLOCKS_KEY] = seeded
 	var resolved: Dictionary = pet_data.get("resolved_unlock_choices", {}) as Dictionary
-	if not resolved.has(choice_key):
+	var previous_choice: Dictionary = resolved.get(choice_key, {}) as Dictionary
+	if not resolved.has(choice_key) or str(previous_choice.get("source", "")) == "loadout":
 		resolved[choice_key] = {
 			"type": reward_type,
 			"choice_key": choice_key,
@@ -452,8 +473,30 @@ func _seed_present_skill(pet_data: Dictionary, reward_type: String, present_id: 
 			"candidates": [selected],
 			"auto": true,
 			"random": false,
+			"source": "loadout",
 		}
 		pet_data["resolved_unlock_choices"] = resolved
+
+
+func _mark_enhancement_earned_unlock(pet_data: Dictionary, reward_type: String) -> void:
+	var choice_key := _unlock_choice_key(reward_type)
+	if choice_key.is_empty():
+		return
+	var earned: Dictionary = pet_data.get(ENHANCEMENT_EARNED_UNLOCKS_KEY, {}) as Dictionary
+	earned[choice_key] = true
+	pet_data[ENHANCEMENT_EARNED_UNLOCKS_KEY] = earned
+
+
+static func _set_unlock_count(counts: Dictionary, reward_type: String, value: bool) -> void:
+	match reward_type:
+		REWARD_TYPE_ACTIVE_UNLOCK:
+			counts["active_unlocked"] = value
+		REWARD_TYPE_PASSIVE_UNLOCK:
+			counts["passive_unlocked"] = value
+		REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+			counts["second_active_unlocked"] = value
+		REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+			counts["second_passive_unlocked"] = value
 
 
 func _get_or_create_pet_data(pet_id: String) -> Dictionary:
@@ -468,6 +511,8 @@ func _get_or_create_pet_data(pet_id: String) -> Dictionary:
 		"unlock_candidate_pool": {},
 		"pending_unlock_choices": {},
 		"resolved_unlock_choices": {},
+		LOADOUT_SEEDED_UNLOCKS_KEY: {},
+		ENHANCEMENT_EARNED_UNLOCKS_KEY: {},
 	}
 	_duration_state.initialize_pet_state(pet_data)
 	LingpetEnhancementBuffStore.initialize_pet_state(pet_data)

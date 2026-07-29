@@ -6,6 +6,9 @@ const LingpetEnhancementBuffStore := preload(
 const GuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
+const LingpetGuardianRunState := preload(
+	"res://scripts/lingpet/lingpet_guardian_run_state.gd"
+)
 const PerkFusionCatalog := preload("res://scripts/characters/perk_fusion_catalog.gd")
 
 var _failures := 0
@@ -19,6 +22,7 @@ class DynamicOwner:
 func _init() -> void:
 	_verify_owned_gate_and_offer_pacing()
 	_verify_prefilter_axes_and_cardinality()
+	_verify_loadout_seeded_unlocks_follow_real_channels()
 	_verify_perk_metadata_and_fusion_exclusion()
 	if _failures == 0:
 		print("guardian_enhance_offer_engine_smoke: ok")
@@ -134,6 +138,35 @@ func _verify_perk_metadata_and_fusion_exclusion() -> void:
 		0
 	)
 	_expect(not bool(classification.get("is_candidate_class", true)), "fusion classifier must honor the explicit exclusion")
+
+
+func _verify_loadout_seeded_unlocks_follow_real_channels() -> void:
+	var run_state := LingpetGuardianRunState.new()
+	run_state.configure_reward_context("maribo", "patrol", 1, 1, 0, false, "milk_shot", "resonance_amp")
+	var seeded_candidates := run_state.build_guardian_enhancement_candidates("maribo", false, false)
+	_expect(_has_type(seeded_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL), "a present loadout active skill should permit its +1 candidate")
+	_expect(_has_type(seeded_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_SKILL), "a present loadout passive skill should permit its +1 candidate")
+
+	# Regression order: a default/loadout-seeding call can run before the real hatch
+	# roll publishes empty channels. Only the loadout seed may be folded back.
+	run_state.configure_reward_context("maribo", "patrol", 1, 1, 0, false, "", "")
+	var empty_candidates := run_state.build_guardian_enhancement_candidates("maribo", false, false)
+	_expect(not _has_type(empty_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL), "empty active channel must reject stale loadout-seeded +1")
+	_expect(not _has_type(empty_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_SKILL), "empty passive channel must reject stale loadout-seeded +1")
+	_expect(_has_type(empty_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK), "empty active channel must offer a real unlock")
+	_expect(_has_type(empty_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK), "empty passive channel must offer a real unlock")
+
+	var paid_unlock := run_state.apply_guardian_enhancement(
+		"maribo",
+		{"type": LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK},
+		false,
+		false
+	)
+	_expect(bool(paid_unlock.get("accepted", false)), "fixture must earn the active unlock through the enhancement apply path")
+	run_state.configure_reward_context("maribo", "patrol", 1, 1, 0, false, "", "")
+	var earned_candidates := run_state.build_guardian_enhancement_candidates("maribo", false, false)
+	_expect(_has_type(earned_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL), "enhancement-earned unlock must survive later empty loadout synchronization")
+	_expect(not _has_type(earned_candidates, LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK), "an enhancement-earned channel must not offer the same unlock twice")
 
 
 class FakeCatalog:

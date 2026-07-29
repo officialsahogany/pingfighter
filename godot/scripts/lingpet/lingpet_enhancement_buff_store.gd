@@ -140,6 +140,15 @@ static func build_guardian_enhancement_candidates(
 			) == MOTION_STYLE_FLIGHT:
 				stat_candidate["remapped_stat"] = "appearance_rate"
 			candidates.append(stat_candidate)
+	for unlock_type in [REWARD_TYPE_ACTIVE_UNLOCK, REWARD_TYPE_PASSIVE_UNLOCK]:
+		var unlock_candidate := _make_guardian_candidate(str(unlock_type))
+		if can_apply_reward_card(
+			pet_data,
+			unlock_candidate,
+			has_second_active_skill,
+			has_second_passive_skill
+		):
+			candidates.append(unlock_candidate)
 	for unlock_type in [REWARD_TYPE_SECOND_ACTIVE_UNLOCK, REWARD_TYPE_SECOND_PASSIVE_UNLOCK]:
 		var unlock_candidate := _make_guardian_candidate(str(unlock_type))
 		if can_apply_reward_card(
