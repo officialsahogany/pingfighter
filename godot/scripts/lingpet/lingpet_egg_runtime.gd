@@ -285,6 +285,7 @@ var _none_owner_sync_state: Object = LingpetNoneOwnerSyncState.new()
 var _overflow_choice_state: Object = LingpetOverflowChoiceState.new()
 var _overflow_absorb_plan: Object = LingpetOverflowAbsorbPlan.new()
 var _overflow_replace_plan: Object = LingpetOverflowReplacePlan.new()
+var _pending_absorbed_collection_owner_sync: Array[String] = []
 # Coexisting incubator egg: when the lingpet_egg active item is used while a companion
 # is ALREADY on field, a SEPARATE egg incubates alongside the companion (the companion
 # keeps accompanying the player + stays in the panel). On hatch the new pet is NOT made
@@ -324,6 +325,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	if owner == null:
 		return false
 	_invalidate_runtime_snapshot_cache()
+	_flush_pending_absorbed_collection_owner_sync(owner)
 	_companion_skill_persistence.maybe_reset_runtime_transients_for_stage(
 		int(BattleSceneOwnerReader.get_value(owner, "current_stage", _companion_skill_persistence.get_last_seen_stage())),
 		_companion_skill_states,
@@ -1381,6 +1383,8 @@ func commit_overflow_absorb(owner: Object = null, registry: Object = null) -> bo
 	_invalidate_runtime_snapshot_cache()
 	var absorbed_pet_id := str(absorb_plan.get("absorbed_pet_id", ""))
 	if absorbed_pet_id != "":
+		if owner == null and not _pending_absorbed_collection_owner_sync.has(absorbed_pet_id):
+			_pending_absorbed_collection_owner_sync.append(absorbed_pet_id)
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, absorbed_pet_id, _snapshot_builder)
 		_guardian_run_state.forget_pet_data(absorbed_pet_id)
 		_companion_skill_persistence.forget_pet(absorbed_pet_id)
@@ -1393,6 +1397,14 @@ func commit_overflow_absorb(owner: Object = null, registry: Object = null) -> bo
 			_sync_owner(owner, registry)
 	var enhancement_result := trigger_guardian_enhancement_from_absorption(owner, registry)
 	return bool(enhancement_result.get("accepted", false))
+
+
+func _flush_pending_absorbed_collection_owner_sync(owner: Object) -> void:
+	if owner == null or _pending_absorbed_collection_owner_sync.is_empty():
+		return
+	for pet_id in _pending_absorbed_collection_owner_sync:
+		_collection_state.record_collected_pet(owner, pet_id)
+	_pending_absorbed_collection_owner_sync.clear()
 
 
 func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry: Object) -> bool:
@@ -2249,6 +2261,7 @@ func reset_for_tests() -> void:
 	_guardian_enhance_last_result.clear()
 	_guardian_enhance_cutin_state.reset()
 	_guardian_enhance_cutin_prewarm_state.reset()
+	_pending_absorbed_collection_owner_sync.clear()
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
 	_companion_pos = Vector2.ZERO

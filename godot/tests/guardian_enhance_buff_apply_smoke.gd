@@ -93,12 +93,65 @@ func _verify_duration_owner_pet_replace_refill_and_cap() -> void:
 		runtime.complete_guardian_enhance_roll(applied, "maribo")
 	_expect_float(runtime.get_duration_pool_max(), 60.0, "two duration increases must raise the shared max by ten seconds")
 	_expect_float(runtime.get_duration_pool_current(), 60.0, "duration increase must raise current and max together")
+	var per_pet_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{
+			"type": LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_SKILL,
+			"skill_slot": 1,
+		},
+		owner,
+		fixture.registry,
+		"maribo"
+	)
+	_expect(bool(per_pet_result.get("accepted", false)), "fixture must seed a per-pet reward before replacement")
+	_expect(
+		int(runtime.get_guardian_enhancement_rewards_for_tests("maribo").get("active_skill_bonus", 0)) == 1,
+		"outgoing guardian must carry the seeded per-pet reward"
+	)
+	# +15-second fallback may legitimately overfill pool_current above pool_max. Build
+	# that state through the production owner instead of the capped test setter.
+	var overfill_result: Dictionary = runtime.apply_guardian_enhance_duration_fallback(owner, fixture.registry)
+	_expect(bool(overfill_result.get("accepted", false)), "production fallback must create the overfill fixture")
+	_expect_float(runtime.get_duration_pool_current(), 75.0, "production fallback must overfill current without changing max")
 	var overflow_state: Object = runtime.get("_overflow_choice_state") as Object
 	overflow_state.begin_main_egg("maribo")
 	overflow_state.begin_main_overflow("volty", false)
 	overflow_state.activate_after_cutin()
 	_expect(runtime.commit_overflow_replace(0, owner, fixture.registry), "fixture must replace the one live guardian")
+	_expect_float(runtime.get_duration_pool_current(), 75.0, "pet replacement must preserve overfilled run-shared current")
 	_expect_float(runtime.get_duration_pool_max(), 60.0, "pet replacement must preserve the run-shared enhanced maximum")
+	var incoming_rewards: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("volty")
+	var outgoing_rewards: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
+	_expect(
+		_has_no_paid_enhancement_counts(incoming_rewards),
+		"incoming guardian must start without inherited per-pet enhancement stacks: %s" % str(incoming_rewards)
+	)
+	var run_state: Object = runtime.get("_guardian_run_state") as Object
+	var incoming_pet_data: Dictionary = run_state.get_pet_data("volty")
+	_expect(
+		(incoming_pet_data.get("enhancement_earned_unlocks", {}) as Dictionary).is_empty(),
+		"incoming guardian may seed its rolled loadout but must not inherit paid unlock markers"
+	)
+	_expect(
+		outgoing_rewards == LingpetEnhancementBuffStore.get_empty_reward_counts(),
+		"replacement must retire the outgoing guardian's live per-pet rewards: %s" % str(outgoing_rewards)
+	)
+	# Saturating the run-owned duration cap removes duration from the absorption
+	# roll. This isolates the roster operation and proves Absorb itself does not
+	# reset, clamp, or refill the shared pool.
+	var absorb_pool_current: float = float(runtime.get_duration_pool_current())
+	var absorb_pool_max: float = float(runtime.get_duration_pool_max())
+	overflow_state.begin_main_egg("volty")
+	overflow_state.begin_main_overflow("lunabi", false)
+	overflow_state.activate_after_cutin()
+	_expect(runtime.commit_overflow_absorb(owner, fixture.registry), "fixture must absorb a second incoming guardian")
+	var absorb_result: Dictionary = runtime.get_guardian_enhance_last_result_for_tests()
+	var absorb_candidate: Dictionary = absorb_result.get("applied_candidate", {}) as Dictionary
+	_expect(bool(absorb_result.get("accepted", false)), "absorption must still grant its shared Guardian Enhancement")
+	_expect(str(absorb_result.get("trigger_source", "")) == "absorb", "absorption result must retain its shared source tag")
+	_expect(not bool(absorb_result.get("fallback_used", true)), "saturated-duration fixture must keep a valid non-duration absorption reward")
+	_expect(str(absorb_candidate.get("type", "")) != LingpetEnhancementBuffStore.REWARD_TYPE_DURATION, "duration-cap fixture must exclude duration from the absorption roll")
+	_expect_float(runtime.get_duration_pool_current(), absorb_pool_current, "absorption roster resolution must preserve overfilled current")
+	_expect_float(runtime.get_duration_pool_max(), absorb_pool_max, "absorption roster resolution must preserve shared maximum")
 	runtime.set_duration_pool_for_tests(13.0, 60.0)
 	_expect(runtime.refill_guardian_duration_for_stage_transition(), "stage transition must report a changed refill")
 	_expect_float(runtime.get_duration_pool_current(), 60.0, "stage refill must target the enhanced maximum")
@@ -107,6 +160,22 @@ func _verify_duration_owner_pet_replace_refill_and_cap() -> void:
 	var candidates: Array = affinity.build_guardian_enhancement_candidates("volty", true, true)
 	_expect(not _has_candidate_type(candidates, LingpetEnhancementBuffStore.REWARD_TYPE_DURATION), "third duration increase must be removed by the pre-roll filter")
 	_cleanup_runtime(runtime)
+
+
+func _has_no_paid_enhancement_counts(counts: Dictionary) -> bool:
+	for key in [
+		"active_skill_bonus",
+		"passive_skill_bonus",
+		"second_active_skill_bonus",
+		"second_passive_skill_bonus",
+		"mobility_stacks",
+		"defense_stacks",
+		"gauge_stacks",
+		"support_stacks",
+	]:
+		if int(counts.get(key, 0)) != 0:
+			return false
+	return not bool(counts.get("title_unlocked", false))
 
 
 func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
