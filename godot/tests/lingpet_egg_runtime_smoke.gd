@@ -665,7 +665,6 @@ func _init() -> void:
 	_verify_skeleton_archer_resets_on_stage_transition()
 	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
-	_verify_companion_interact_key_reaction()
 	_verify_second_active_resource_conflict_mediation()
 	_verify_lingpet_guard_label_feedback()
 	_verify_ineligible_conditions_do_not_spawn()
@@ -6312,46 +6311,6 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 	var before_hidden_click: float = dash_runtime.get_affinity_points("maribo")
 	dash_runtime.try_begin_companion_click_reaction(dash_owner.lingpet_companion_pos, registry)
 	_expect_float(dash_runtime.get_affinity_points("maribo"), before_hidden_click, "Ring Dash visual-hidden click should not grant affinity")
-
-
-func _verify_companion_interact_key_reaction() -> void:
-	# Non-mouse bond entry (E key / future pad button): the wrapper must
-	# self-target _companion_pos so the click body is reused verbatim --
-	# same cosmetic reaction and voice path, with no growth side effect.
-	var owner := FakeOwner.new()
-	owner.lingpet_owned_pet_ids = ["maribo"]
-	owner.lingpet_slots = ["maribo", "", ""]
-	var runtime: Object = LingpetEggRuntime.new()
-	runtime.update(0.0, owner)
-	# Park the companion far from the origin: a broken self-target (passing
-	# Vector2.ZERO instead of _companion_pos) would miss the tap zone here.
-	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
-	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact key should start the reaction by self-targeting the companion position")
-	_expect(bool(runtime.is_companion_click_reaction_active()), "interact-started reaction should report active")
-	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact during an active reaction should still be consumed (audio replay branch)")
-
-	runtime.update(5.0, owner)
-	_expect(bool(runtime.try_begin_companion_interact_reaction()), "second interact start edge in the same round should be allowed")
-	runtime.update(5.0, owner)
-	_expect(bool(runtime.try_begin_companion_interact_reaction()), "third same-round interact should still consume the reaction")
-
-	var eggless_runtime: Object = LingpetEggRuntime.new()
-	_expect(not bool(eggless_runtime.try_begin_companion_interact_reaction()), "interact without an accompanying companion should refuse (input falls through)")
-
-	var hidden_owner := FakeOwner.new()
-	var hidden_runtime: Object = LingpetEggRuntime.new()
-	_expect(hidden_runtime.debug_grant_and_activate_pet("lunabi", hidden_owner), "hidden interact fixture should activate Lunabi")
-	hidden_runtime.configure_companion_sortie_hidden_for_tests(Vector2(250.0, 245.0), 2, 8.0)
-	_expect(bool(hidden_runtime.try_begin_companion_interact_reaction()), "hidden sortie interact may still consume the reaction")
-
-	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	var interact_body := _function_body(runtime_source, "func try_begin_companion_interact_reaction")
-	_expect(interact_body.find("try_begin_companion_click_reaction(_companion_pos") >= 0, "interact wrapper should self-target _companion_pos through the click body instead of forking a second grant path")
-	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
-	var lingpet_input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_interaction_input_router.gd")
-	_expect(input_source.find("BattleLingpetInteractionInputRouter") >= 0, "battle input should compose the focused lingpet interaction router")
-	_expect(lingpet_input_source.find("LINGPET_INTERACT_KEY := KEY_E") >= 0, "lingpet input router should bind the non-mouse bond interact key to E")
-	_expect(lingpet_input_source.find("try_begin_companion_interact_reaction(registry)") >= 0, "lingpet input router should hand the registry to the interact wrapper so the per-pet voice can play")
 
 
 func _verify_affinity_score_event_and_battle_reset() -> void:

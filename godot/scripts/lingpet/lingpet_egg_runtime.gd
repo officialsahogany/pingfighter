@@ -3177,14 +3177,6 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 	return true
 
 
-func try_begin_companion_interact_reaction(registry: Object = null) -> bool:
-	# Compatibility entry for the retiring interact action: self-target the
-	# companion so only the cosmetic click reaction and audio are reused.
-	if not _is_guardian_summoned():
-		return false
-	return try_begin_companion_click_reaction(_companion_pos, registry)
-
-
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
 

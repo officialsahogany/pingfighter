@@ -1,19 +1,12 @@
 extends RefCounted
 
-const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
-
 const GAME_WIDTH := 760.0
 const GAME_HEIGHT := 750.0
 const LINGPET_CYCLE_KEY := KEY_L
-const LINGPET_INTERACT_KEY := KEY_E
-const LINGPET_INTERACT_TRIGGER_AXIS := JOY_AXIS_TRIGGER_RIGHT
-const LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD := 0.60
-const LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD := 0.35
 const GUARDIAN_TOGGLE_ACTION := &"guardian_toggle"
 const GUARDIAN_TOGGLE_KEY := KEY_CTRL
 const GUARDIAN_TOGGLE_BUTTON := JOY_BUTTON_RIGHT_STICK
 
-var _lingpet_interact_trigger_latched := false
 var _guardian_toggle_button_latched := false
 
 
@@ -49,8 +42,6 @@ func handle_companion_input(
 	if _handle_guardian_toggle(event, owner, registry, module_getter):
 		return true
 	if _handle_companion_click(event, owner, registry, module_getter):
-		return true
-	if _handle_companion_interact(event, owner, registry, module_getter):
 		return true
 	return _handle_slot_switch(event, owner, registry, module_getter)
 
@@ -102,32 +93,6 @@ func _handle_companion_click(
 	return true
 
 
-func _handle_companion_interact(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable
-) -> bool:
-	# E and gamepad RT self-target the current companion. If the runtime refuses
-	# the interaction, leave the input available to downstream handlers.
-	GamepadInput.update_primary_action_trigger_suppression_from_event(event)
-	var trigger_edge := false
-	if not _is_lingpet_interact_key_event(event):
-		trigger_edge = _consume_lingpet_interact_trigger_edge(event)
-		if not trigger_edge:
-			return false
-	var runtime: Object = _get_lingpet_runtime(registry, module_getter)
-	if runtime == null or not runtime.has_method("try_begin_companion_interact_reaction"):
-		return false
-	if not bool(runtime.try_begin_companion_interact_reaction(registry)):
-		return false
-	if trigger_edge:
-		GamepadInput.suppress_primary_action_trigger_until_release()
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
 func _handle_slot_switch(
 	event: InputEvent,
 	owner: Object,
@@ -144,32 +109,6 @@ func _handle_slot_switch(
 		return false
 	_queue_redraw(owner)
 	_mark_handled(owner)
-	return true
-
-
-func _is_lingpet_interact_key_event(event: InputEvent) -> bool:
-	if not (event is InputEventKey):
-		return false
-	var key_event: InputEventKey = event
-	if not key_event.pressed or key_event.echo:
-		return false
-	return key_event.keycode == LINGPET_INTERACT_KEY or key_event.physical_keycode == LINGPET_INTERACT_KEY
-
-
-func _consume_lingpet_interact_trigger_edge(event: InputEvent) -> bool:
-	if not (event is InputEventJoypadMotion):
-		return false
-	var motion_event: InputEventJoypadMotion = event
-	if motion_event.axis != LINGPET_INTERACT_TRIGGER_AXIS:
-		return false
-	if motion_event.axis_value <= LINGPET_INTERACT_TRIGGER_RELEASE_THRESHOLD:
-		_lingpet_interact_trigger_latched = false
-		return false
-	if motion_event.axis_value < LINGPET_INTERACT_TRIGGER_PRESS_THRESHOLD:
-		return false
-	if _lingpet_interact_trigger_latched:
-		return false
-	_lingpet_interact_trigger_latched = true
 	return true
 
 
