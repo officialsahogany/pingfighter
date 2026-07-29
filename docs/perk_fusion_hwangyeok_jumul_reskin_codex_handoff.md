@@ -233,6 +233,7 @@ exactly flat #ff00ff, no gradient. Do not use #ff00ff inside the art.
   폴백 강제 1회(임시 리네임) — 절차 폴백도 환격전 팔레트인지 ④ 스킵 경로
   ⑤ 같은 화면의 기확정 환격전 HUD(활주방울 다이얼·초식 소켓)와 재질 언어
   통일 읽기 확인. 교체 전/후 비교 스크린샷 1세트 아카이브.
+- §10 업그레이드 슬라이스 실행 시 §10.3 QA 항목을 위 목록에 병합.
 
 ## 9. 명시적 비스코프 (후속 트랙)
 
@@ -244,3 +245,83 @@ exactly flat #ff00ff, no gradient. Do not use #ff00ff inside the art.
 3. **리빌 패널 텍스처 프레임화**: 절차 유지가 이번 기본. 이후 필요 시
    ui-hud-generation 트랙.
 4. **융합 아이콘 스타일**: 대각 합성 계약(`prepare_fusion_pair_icon`) 무접촉.
+
+## 10. 프리미엄 업그레이드 슬라이스 (2026-07-29 사용자 승인 — "8점" 목표)
+
+배경: 기본 리스킨(§1~§8, Codex 랜딩 `deb6e31cc`)은 재질·정체성·팔레트 축을
+회수한다. 정지 프레임 채점에서 남은 감점 축 = **구도 여백**(빈 패널에 기물
+하나 — 설계된 여백이 아님)과 **타이포/헤딩**(장식 없는 시스템 다이얼로그급
+텍스트). 이 섹션이 그 두 축을 올린다. 목표 = 연출 화면 8/10, 모달 크롬 7/10.
+기물 추가·다층 발광으로 채우는 방향은 금지 — 두 항목 모두 "조용한 바탕"이
+원칙이다.
+
+### 10.1 제단 바닥 진법 백플레이트 (신규 에셋 1종 + 배선)
+
+- 파일: `godot/assets/sprites/effects/perk_fusion_cold_boot/cold_boot_altar_backplate.png`
+  — **이 트랙에서 유일하게 새 배선이 생기는 항목** (§5의 9종은 동일 경로
+  교체였음).
+- 내용: 화로 뒤에 깔리는 대형 저채도 진법 원판 — 먹선 동심원 2~3중 +
+  전서풍 창작 인장 문양 밴드(실존 한자 금지) + 8방위 방사 괘선, 옻칠 흑갈
+  바탕. 화로 스팬(284px)의 ~1.8배인 **~520px**로 그려 "기물 하나 떠 있는
+  빈 판"을 "설계된 제단"으로 바꾼다.
+- **톤 규율 (합격 기준)**: 저채도·저대비 필수 — 중앙 기물(화로·무공패·융합
+  아이콘)보다 시각 무게가 커지면 실패. 런타임 알파 0.22~0.35 밴드.
+- 생성: imagegen 소스 1024, 마젠타 크로마, §5.3 후처리 공통 동일. 프롬프트
+  골격:
+
+```text
+Create a large circular Korean mythic ritual formation floor plate
+(altar backplate) for a game cinematic, viewed straight from the front,
+on a perfectly flat solid #ff00ff chroma-key background.
+
+Very dark lacquered brown-black disc with subdued thin brass concentric
+rings, a faint band of invented seal-script talisman glyphs (dark
+recessed ink lines, NOT real Chinese text), and eight thin radial rule
+lines toward the cardinal and intercardinal points. Low saturation, low
+contrast, quiet and flat — this sits BEHIND a brighter crucible
+centerpiece and must never compete with it. No bright highlights, no
+glow, no metallic shine.
+
+No text, no characters, no scene, no watermark. Background exactly flat
+#ff00ff. Do not use #ff00ff inside the art.
+```
+
+- 배선 (`perk_fusion_cold_boot_cinematic.gd`):
+  - prewarm manifest에 `altar_backplate` 키 추가 — 기존 file_exists 게이트
+    패턴 그대로 (부재 시 해당 조각 미표시, per-frame re-stat 없음).
+  - `_draw_chassis` 직전에 정적 `draw_texture_rect` 1콜. **회전·스케일
+    펄스·elapsed 트윈 금지** — CB4c-3에서 실측한 차분 검출기 베이스라인
+    오염(잔광이 s12 SNAP 차분 46→276px 오염) 재발 방지. 시각 변화는 비트
+    스냅샷 기반 알파 2단만 허용: 꺼짐(B0~B1) 0.22 → 점등(B2~) 0.32.
+  - 절차 폴백: 텍스처 부재 시 먹선 동심원 `draw_arc` 2~3콜 (§4 팔레트 상수).
+- 씰: cinematic 스모크에 backplate 유/무 양쪽 draw 무크래시 + 점등 전/후
+  알파 2단 레그. 아트+배선+씰 같은 슬라이스 (경로 선배선 커밋 금지).
+
+### 10.2 헤딩 장식 + 타이포 위계 (overlay renderer 절차 드로만, 신규 텍스처 없음)
+
+`_draw_heading` 업그레이드 — 4페이즈 공통 적용:
+
+1. **좌우 괘선**: 타이틀 양옆 놋쇠 헤어라인(중앙→바깥 알파 페이드, draw_line
+   세그먼트 2~3개씩). 배치는 하드코딩 오프셋 금지 —
+   `font.get_string_size` **실측 타이틀 폭 기준**으로 좌우 시작점을 잡는다
+   (7언어 최장 타이틀에서 겹침 없어야 함).
+2. **낙관(落款) 스탬프**: 타이틀 우측 소형 주사 적 방형 인장 — draw_rect
+   프레임 + 내부 추상 획 2~3개 절차 드로. 실존 한자 금지, **유니코드 장식
+   문자(✦류) 금지** — 한국어 폰트 스택 tofu 트랩 (CLAUDE.md 기재 실패 사례).
+3. **타이틀 이중 드로 그림자**: 어두운 오프셋 1회 + 본 드로(§4 한지 백금
+   톤). 발광/글로우 다층화 금지.
+
+- 부제(subtitle)는 현행 유지 (크기·MUTED 톤).
+- 예산: 추가 드로 콜 +15 이내. 모달 한정 화면이지만 §6 과설계 금지 규율 준수.
+- 씰: `perk_fusion_overlay_renderer_smoke`의 기존 draw 관통 레그 무크래시
+  유지. 시각 판정은 픽셀 QA 소유.
+
+### 10.3 QA 추가 (§8 픽셀 QA 목록에 병합)
+
+- ⑥ 백플레이트: 4티어 연출 + 스킵 + 폴백 강제에서 팝인/깜빡임 없음, 중앙
+  기물 대비 시각 무게 열위 유지 (백플레이트가 먼저 눈에 들어오면 실패).
+- ⑦ 헤딩 장식: 4페이즈 × 7언어 중 최장 타이틀(독일어권 주의)에서 괘선·낙관
+  겹침 없음.
+- ⑧ 재채점 게이트: 업그레이드 후 정지 프레임 재채점 — 연출 화면 8/10·모달
+  크롬 7/10 미달 시 §10.1 알파/스팬·§10.2 장식 밀도부터 재조정 (기물 추가로
+  채우지 말 것).
