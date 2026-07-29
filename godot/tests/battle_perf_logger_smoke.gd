@@ -271,6 +271,13 @@ func _verify_live_owner_header_context() -> void:
 	owner.selected_character_type = "viper"
 	owner.weather_type = "storm"
 	logger.set_scene_owner(owner)
+	# remember_context 는 매 프레임 핫 경로라 계측이 꺼져 있으면 no-op 이어야 한다.
+	# (배포 빌드가 프레임마다 draw 컨텍스트를 복사하지 않게 하는 게이트)
+	logger.log_checked = true
+	logger.log_enabled = false
+	logger.remember_context({"current_stage": 1, "selected_character_type": "smasher"})
+	_expect(logger.last_context.is_empty(), "disabled perf logging must not retain per-frame draw context")
+	logger.log_enabled = true
 	logger.remember_context({
 		"current_stage": 1,
 		"selected_character_type": "smasher",
@@ -412,6 +419,8 @@ func _verify_physics_monitor_summary() -> void:
 
 func _verify_jetpack_state_label() -> void:
 	var logger := BattlePerfLogger.new()
+	logger.log_checked = true
+	logger.log_enabled = true
 	_expect(logger._build_jetpack_label() == "", "jetpack label should be empty before any frames are observed")
 	logger.remember_context({"selected_character_type": "smasher", "viper_jetpack_active": true})
 	_expect(logger._build_jetpack_label() == "", "non-viper frames should not contribute to the jetpack label")
@@ -430,6 +439,8 @@ func _verify_jetpack_state_label() -> void:
 
 func _verify_air_strike_counters() -> void:
 	var logger := BattlePerfLogger.new()
+	logger.log_checked = true
+	logger.log_enabled = true
 	logger.remember_context({"selected_character_type": "viper", "viper_jetpack_active": true, "viper_jetpack_airborne": true, "viper_air_strike_flash_timer": 0.0})
 	logger.remember_context({"selected_character_type": "viper", "viper_jetpack_active": true, "viper_jetpack_airborne": true, "viper_air_strike_flash_timer": 18.0})
 	logger.remember_context({"selected_character_type": "viper", "viper_jetpack_active": false, "viper_jetpack_airborne": true, "viper_air_strike_flash_timer": 15.0})

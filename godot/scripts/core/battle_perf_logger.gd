@@ -81,10 +81,18 @@ func set_scene_owner(owner: Node) -> void:
 	scene_owner = owner
 
 
+# 매 프레임(플레이필드 드로우 말미)에 호출되는 핫 경로다. 두 가지를 지킨다:
+# - 계측이 꺼져 있으면 아무 것도 하지 않는다. `begin_sample()`과 같은 게이트를
+#   여기에도 둬야 배포 빌드가 프레임마다 컨텍스트를 복사하지 않는다.
+# - 복사는 얕게 한다. `last_context` 소비자는 `_build_header_context`(스테이지 /
+#   캐릭터 / 날씨)와 `_build_display_summary`의 `BattleRenderQuality.effect_scale`
+#   뿐이고 둘 다 최상위 스칼라 키만 읽는다. 반면 draw 컨텍스트는 링펫 스냅샷 /
+#   퍽 프로젝션 / 액터 소스 같은 중첩 구조를 잔뜩 물고 있어서 `duplicate(true)`의
+#   재귀 복사가 매 프레임 비용의 본체였다.
 func remember_context(context: Dictionary = {}) -> void:
-	if context.is_empty():
+	if not _is_enabled() or context.is_empty():
 		return
-	last_context = context.duplicate(true)
+	last_context = context.duplicate()
 	_accumulate_jetpack_state(context)
 
 
