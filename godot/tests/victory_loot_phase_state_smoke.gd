@@ -87,6 +87,8 @@ class FakeRegistry:
 
 	var game_audio: Object = null
 	var active_item_runtime: Object = null
+	var runtime_perk_state: Object = null
+	var runtime_perk_catalog: Object = null
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -94,8 +96,39 @@ class FakeRegistry:
 				return game_audio
 			"active_item_runtime":
 				return active_item_runtime
+			"runtime_perk_state":
+				return runtime_perk_state
+			"runtime_perk_catalog":
+				return runtime_perk_catalog
 			_:
 				return null
+
+
+class FakePerkChoiceState:
+	extends RefCounted
+
+	var choice_active := false
+	var pending_skill_choices := 0
+	var open_calls := 0
+
+	func is_choice_active() -> bool:
+		return choice_active
+
+	func is_angel_blessing_modal_active() -> bool:
+		return false
+
+	func open_next_choice(
+		_character_type: String,
+		_catalog: Object,
+		_exclude_instant: bool = false,
+		_owner: Object = null,
+		_registry: Object = null,
+		_perf_logger: Object = null,
+		_choice_context: Dictionary = {}
+	) -> void:
+		open_calls += 1
+		if pending_skill_choices > 0:
+			choice_active = true
 
 
 class FakeRewardResolver:
@@ -193,6 +226,7 @@ func _run() -> void:
 	_verify_final_win_scoreboard_plays_power_loss_vibration()
 	_verify_loot_defeat_reaches_renderer_facing_actor_context()
 	_verify_boss_body_flash_on_each_drop()
+	_verify_finish_waits_for_pending_perk_choice()
 
 	if _failures.is_empty():
 		print("victory_loot_phase_state_smoke: ok")
@@ -822,6 +856,48 @@ func _verify_boss_body_flash_on_each_drop() -> void:
 			and str((loot.boxes[1] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_DROP,
 		"every box popping out must retrigger the boss glint"
 	)
+
+
+func _verify_finish_waits_for_pending_perk_choice() -> void:
+	# 회귀(라이브): 상자 보상 스타포인트가 연 퍽 선택이 소비되기 전에 전리품
+	# 종료가 결과화면을 열어 선택창이 묻히거나 스킵됐다. 종료 게이트는 퍽 선택
+	# 활성/대기 상태를 확인하고, 대기 중인데 닫혀 있으면 재오픈(자기치유)한다.
+	_finish_calls = 0
+	var loot := VictoryLootPhaseState.new()
+	var owner := SchemaGatedOwner.new()
+	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
+	var registry := FakeRegistry.new()
+	var perk_state := FakePerkChoiceState.new()
+	registry.runtime_perk_state = perk_state
+	registry.runtime_perk_catalog = RefCounted.new()
+	var resolver := FakeRewardResolver.new()
+	resolver.reward_type = "starpoint"
+	loot.set_reward_resolver_for_test(resolver)
+	_expect(
+		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		"perk-choice finish gate leg should start a one-box loot phase"
+	)
+	# 수집된 스타포인트가 선택 1개를 대기시켰지만 아직 열려있지 않은 상태를 재현.
+	perk_state.pending_skill_choices = 1
+	for _i in range(600):
+		loot.update(1.0 / 60.0)
+		if str((loot.boxes[0] as Dictionary).get("phase", "")) == VictoryLootPhaseState.BOX_PHASE_REST:
+			break
+	var rest_pos: Vector2 = (loot.boxes[0] as Dictionary).get("pos")
+	owner.scene_state.set_value("player_pos", rest_pos - Vector2(77.5, 25.0))
+	for _i in range(240):
+		loot.update(1.0 / 60.0)
+	_expect(_finish_calls == 0, "loot finish must wait while a perk choice is pending or active (no result screen over the choice)")
+	_expect(perk_state.open_calls >= 1, "loot finish gate should self-heal by reopening a pending-but-closed perk choice")
+	_expect(perk_state.is_choice_active(), "self-healing reopen should leave the perk choice active")
+	# 선택 소비 후에는 정상적으로 종료된다.
+	perk_state.choice_active = false
+	perk_state.pending_skill_choices = 0
+	for _i in range(120):
+		loot.update(1.0 / 60.0)
+		if _finish_calls > 0:
+			break
+	_expect(_finish_calls == 1, "loot finish should fire once after the perk choice is consumed")
 
 
 func _record_finish() -> void:

@@ -434,6 +434,14 @@ func _update_finish(safe_delta: float) -> void:
 	if not _all_boxes_done():
 		_finish_timer = -1.0
 		return
+	if _is_perk_choice_pending_or_active():
+		# 보상이 연 퍽 선택(스타포인트/신화퍽)이 소비되기 전에 결과화면을 열면
+		# 선택창이 결과화면(z=1200) 아래에 묻히거나 스킵된다 — 선택이 끝날 때
+		# 까지 종료를 보류한다. 대기 중인데 열려 있지 않으면 재오픈을 시도한다
+		# (열린 선택이 소비 없이 닫힌 경우의 자기치유).
+		_try_reopen_pending_perk_choice()
+		_finish_timer = -1.0
+		return
 	if _finish_timer < 0.0:
 		_finish_timer = FINISH_LINGER_SEC
 		return
@@ -448,6 +456,51 @@ func _update_finish(safe_delta: float) -> void:
 	if callback.is_valid():
 		callback.call()
 
+
+func _is_perk_choice_pending_or_active() -> bool:
+	var runtime_perk_state: Object = _get_registry_instance("runtime_perk_state")
+	if runtime_perk_state == null:
+		return false
+	if runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		return true
+	if (
+		runtime_perk_state.has_method("is_angel_blessing_modal_active")
+		and bool(runtime_perk_state.is_angel_blessing_modal_active())
+	):
+		return true
+	return int(_get_object_value(runtime_perk_state, "pending_skill_choices", 0)) > 0
+
+
+func _try_reopen_pending_perk_choice() -> void:
+	var runtime_perk_state: Object = _get_registry_instance("runtime_perk_state")
+	if runtime_perk_state == null or not runtime_perk_state.has_method("open_next_choice"):
+		return
+	if runtime_perk_state.has_method("is_choice_active") and bool(runtime_perk_state.is_choice_active()):
+		return
+	if int(_get_object_value(runtime_perk_state, "pending_skill_choices", 0)) <= 0:
+		return
+	var runtime_perk_catalog: Object = _get_registry_instance("runtime_perk_catalog")
+	if runtime_perk_catalog == null:
+		return
+	var character_type: String = str(_get_owner_value(_owner, "selected_character_type", "smasher"))
+	runtime_perk_state.open_next_choice(
+		character_type,
+		runtime_perk_catalog,
+		false,
+		_owner,
+		_registry,
+		null,
+		{"source": "battle_starpoint"}
+	)
+
+
+func _get_object_value(target: Object, key: String, fallback: Variant) -> Variant:
+	if target == null:
+		return fallback
+	var value: Variant = target.get(key)
+	if value == null:
+		return fallback
+	return value
 
 func _all_boxes_done() -> bool:
 	if boxes.is_empty():

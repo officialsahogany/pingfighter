@@ -32,6 +32,11 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == PlayerCharacterRuntime.SMASHER else null,
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
+		# 프레임플로우의 _is_runtime_perk_pause_active 재확인(신화 획득이 같은
+		# 프레임에 후속 퍽 선택을 여는 엣지)과 전리품 분기의 모달 일시정지가
+		# 실제로 작동하려면 이 키가 있어야 한다 — 빠지면 두 체크 모두 조용히
+		# 항상 false(공허)다.
+		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"victory_loot_phase_state": _get_instance(registry, "victory_loot_phase_state"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),
 		"serve_context": _build_serve_context(owner),
