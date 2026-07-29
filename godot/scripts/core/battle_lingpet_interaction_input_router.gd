@@ -2,7 +2,6 @@ extends RefCounted
 
 const GAME_WIDTH := 760.0
 const GAME_HEIGHT := 750.0
-const LINGPET_CYCLE_KEY := KEY_L
 const GUARDIAN_TOGGLE_ACTION := &"guardian_toggle"
 const GUARDIAN_TOGGLE_KEY := KEY_CTRL
 const GUARDIAN_TOGGLE_BUTTON := JOY_BUTTON_RIGHT_STICK
@@ -43,7 +42,7 @@ func handle_companion_input(
 		return true
 	if _handle_companion_click(event, owner, registry, module_getter):
 		return true
-	return _handle_slot_switch(event, owner, registry, module_getter)
+	return false
 
 
 func _handle_guardian_toggle(
@@ -93,25 +92,6 @@ func _handle_companion_click(
 	return true
 
 
-func _handle_slot_switch(
-	event: InputEvent,
-	owner: Object,
-	registry: Object,
-	module_getter: Callable
-) -> bool:
-	var cycle_direction := _get_lingpet_cycle_direction(event)
-	if cycle_direction == 0:
-		return false
-	var runtime: Object = _get_lingpet_runtime(registry, module_getter)
-	if runtime == null or not runtime.has_method("cycle_lingpet_slot"):
-		return false
-	if not bool(runtime.cycle_lingpet_slot(cycle_direction, owner, registry)):
-		return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
-
-
 func _consume_guardian_toggle_edge(event: InputEvent) -> bool:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
@@ -134,17 +114,6 @@ func _consume_guardian_toggle_edge(event: InputEvent) -> bool:
 		_guardian_toggle_button_latched = true
 		return true
 	return false
-
-
-func _get_lingpet_cycle_direction(event: InputEvent) -> int:
-	if not (event is InputEventKey):
-		return 0
-	var key_event: InputEventKey = event
-	if not key_event.pressed or key_event.echo:
-		return 0
-	if key_event.keycode == LINGPET_CYCLE_KEY or key_event.physical_keycode == LINGPET_CYCLE_KEY:
-		return -1 if key_event.shift_pressed else 1
-	return 0
 
 
 func _get_lingpet_runtime(registry: Object, module_getter: Callable) -> Object:

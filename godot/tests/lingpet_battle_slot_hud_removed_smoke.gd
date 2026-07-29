@@ -21,19 +21,13 @@ class FakeRuntime:
 	extends RefCounted
 
 	var switched_slots: Array[int] = []
-	var cycled_directions: Array[int] = []
 	var companion_click_positions: Array[Vector2] = []
 	var switch_result := true
-	var cycle_result := true
 	var companion_click_result := false
 
 	func switch_lingpet_slot(slot_index: int, _owner: Object = null, _registry: Object = null) -> bool:
 		switched_slots.append(slot_index)
 		return switch_result
-
-	func cycle_lingpet_slot(direction: int = 1, _owner: Object = null, _registry: Object = null) -> bool:
-		cycled_directions.append(direction)
-		return cycle_result
 
 	func try_begin_companion_click_reaction(playfield_pos: Vector2, _registry: Object = null) -> bool:
 		companion_click_positions.append(playfield_pos)
@@ -69,7 +63,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_lingpet_cycle_key_avoids_item_number_keys()
+	_verify_retired_lingpet_cycle_keys_fall_through()
 	_verify_lingpet_slot_click_hud_is_removed()
 	_verify_lingpet_companion_click_uses_playfield_coordinates()
 	_verify_renderer_and_input_hide_battle_slot_hud()
@@ -82,7 +76,7 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
+func _verify_retired_lingpet_cycle_keys_fall_through() -> void:
 	var owner := FakeOwner.new()
 	var runtime := FakeRuntime.new()
 	var registry := _make_registry(runtime)
@@ -95,7 +89,6 @@ func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
 	_expect(runtime.switched_slots.is_empty(), "KEY_8 should stay reserved for future active-item slots")
-	_expect(runtime.cycled_directions.is_empty(), "KEY_8 should not cycle lingpet slots")
 	_expect(owner.redraws == 0, "ignored item number key should not request redraw")
 
 	input.handle_unhandled_input(
@@ -105,9 +98,8 @@ func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 		Callable(registry, "get_instance"),
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
-	_expect(runtime.cycled_directions == [1], "KEY_L should cycle to the next occupied lingpet battle slot")
-	_expect(runtime.switched_slots.is_empty(), "KEY_L should use runtime cycle logic instead of direct numeric slot switching")
-	_expect(owner.redraws == 1, "successful lingpet cycle key should request redraw")
+	_expect(runtime.switched_slots.is_empty(), "KEY_L must not switch the one-guardian roster")
+	_expect(owner.redraws == 0, "retired KEY_L shortcut must fall through without redraw")
 
 	input.handle_unhandled_input(
 		_key_event(KEY_L, true),
@@ -116,9 +108,8 @@ func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 		Callable(registry, "get_instance"),
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
-	_expect(runtime.cycled_directions == [1, -1], "Shift+L should cycle to the previous occupied lingpet battle slot")
-	_expect(runtime.switched_slots.is_empty(), "Shift+L should also use cycle logic instead of direct numeric slot switching")
-	_expect(owner.redraws == 2, "successful reverse lingpet cycle key should request redraw")
+	_expect(runtime.switched_slots.is_empty(), "Shift+L must not switch the one-guardian roster")
+	_expect(owner.redraws == 0, "retired Shift+L shortcut must fall through without redraw")
 
 
 func _verify_lingpet_slot_click_hud_is_removed() -> void:
@@ -167,8 +158,8 @@ func _verify_renderer_and_input_hide_battle_slot_hud() -> void:
 	_expect(not FileAccess.file_exists("res://scripts/hud/lingpet_battle_slot_hud.gd"), "lingpet battle slot HUD helper should be removed from the battle UI")
 	_expect(input_source.find("lingpet_battle_slot_hud.gd") < 0, "battle input should not depend on the removed lingpet battle slot HUD helper")
 	_expect(input_source.find("BattleLingpetInteractionInputRouter") >= 0, "battle input should delegate lingpet interactions to the focused router")
-	_expect(lingpet_input_source.find("_get_lingpet_cycle_direction") >= 0, "lingpet input router should keep the non-number-key lingpet cycle shortcut")
-	_expect(lingpet_input_source.find("cycle_lingpet_slot") >= 0, "lingpet input router should cycle lingpets instead of consuming active-item number keys")
+	_expect(lingpet_input_source.find("_get_lingpet_cycle_direction") < 0, "one-guardian input router should retire slot-cycle policy")
+	_expect(lingpet_input_source.find("cycle_lingpet_slot") < 0, "one-guardian input router should retire slot-cycle runtime calls")
 	_expect(input_source.find("get_slot_index_at_position") < 0, "battle input should not keep hidden mouse hit-areas for the removed slot HUD")
 
 

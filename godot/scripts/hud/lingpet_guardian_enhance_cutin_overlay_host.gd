@@ -207,6 +207,17 @@ func _draw_companion(
 func _draw_copy(canvas: CanvasItem, panel: Rect2, snapshot: Dictionary) -> void:
 	var title := "수호령강화"
 	_draw_centered_text(canvas, title, panel.position.y + 42.0, panel, 27, Color(0.72, 1.0, 0.88))
+	var result: Dictionary = snapshot.get("result", {}) as Dictionary
+	var source_label := str(result.get("trigger_source_label", "")).strip_edges()
+	if source_label != "":
+		_draw_centered_text(
+			canvas,
+			source_label,
+			panel.position.y + 66.0,
+			panel,
+			14,
+			Color(0.72, 0.90, 0.86)
+		)
 	var phase := str(snapshot.get("phase", "roll"))
 	if phase == "roll":
 		var dots := ".".repeat(1 + int(floor(float(Time.get_ticks_msec()) * 0.005)) % 3)
@@ -215,7 +226,6 @@ func _draw_copy(canvas: CanvasItem, panel: Rect2, snapshot: Dictionary) -> void:
 	var banner := Rect2(panel.position + Vector2(34.0, panel.size.y - 78.0), Vector2(panel.size.x - 68.0, 48.0))
 	canvas.draw_rect(banner, Color(0.015, 0.16, 0.12, 0.96), true)
 	canvas.draw_rect(banner, Color(0.54, 1.0, 0.78, 0.92), false, 2.0)
-	var result: Dictionary = snapshot.get("result", {}) as Dictionary
 	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
 	var icon_rect := Rect2(banner.position + Vector2(9.0, 7.0), Vector2(34.0, 34.0))
 	var has_icon := _draw_result_icon(canvas, icon_rect, detail)

@@ -14,19 +14,33 @@ func build_plan(
 ) -> Dictionary:
 	if collection_state == null:
 		return _make_plan(STATE_NONE, current_pet_id)
-	collection_state.set_owned_pet_ids(snapshot.get("owned_pet_ids", []))
+	var legacy_owned: Variant = snapshot.get("owned_pet_ids", [])
+	if collection_state.has_method("set_collected_pet_ids"):
+		collection_state.set_collected_pet_ids(snapshot.get("collected_pet_ids", legacy_owned))
 	collection_state.set_battle_slots(snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", [])))
-	collection_state.set_active_slot_index(int(snapshot.get("active_slot_index", 0)))
+	collection_state.set_active_slot_index(0)
 	var active_pet_id := _normalize_pet_id(collection_state, str(snapshot.get("active_pet_id", "")))
+	var first_slot_pet_id := ""
+	var normalized_slots: Array = collection_state.get_battle_slots()
+	if not normalized_slots.is_empty():
+		first_slot_pet_id = _normalize_pet_id(collection_state, str(normalized_slots[0]))
+	var first_legacy_owned := ""
+	if legacy_owned is Array:
+		for raw_id in (legacy_owned as Array):
+			first_legacy_owned = _normalize_pet_id(collection_state, str(raw_id))
+			if first_legacy_owned != "":
+				break
+	var live_pet_id := active_pet_id
+	if live_pet_id == "":
+		live_pet_id = first_slot_pet_id
+	if live_pet_id == "":
+		live_pet_id = first_legacy_owned
+	collection_state.set_owned_pet_ids([live_pet_id] if live_pet_id != "" else [])
+	collection_state.set_battle_slots([live_pet_id] if live_pet_id != "" else [""])
 	if active_pet_id != "":
 		collection_state.add_pet(null, active_pet_id)
-		var battle_slots: Array = collection_state.get_battle_slots()
-		var active_slot_index := int(collection_state.get_active_slot_index())
-		if active_slot_index >= 0 and active_slot_index < battle_slots.size() and str(battle_slots[active_slot_index]) == "":
-			collection_state.set_battle_slots([active_pet_id, "", ""])
-			collection_state.set_active_slot_index(0)
 
-	var owned_pet_id := str(collection_state.find_active_slot_pet_id(owner))
+	var owned_pet_id := live_pet_id
 	var owned_pet_ids: Array = collection_state.get_owned_pet_ids()
 	if restored_state == STATE_COMPANION or owned_pet_ids.has(current_pet_id) or active_pet_id != "" or owned_pet_id != "":
 		var companion_pet_id := current_pet_id

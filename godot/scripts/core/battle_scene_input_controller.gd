@@ -24,7 +24,6 @@ const BGM_TOGGLE_KEY := BattleSystemShortcutInputRouter.BGM_TOGGLE_KEY
 const FORCE_STAGE_CLEAR_KEY := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_KEY
 const FORCE_STAGE_CLEAR_PLAYER_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_PLAYER_SCORE
 const FORCE_STAGE_CLEAR_BOSS_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_BOSS_SCORE
-const LINGPET_CYCLE_KEY := BattleLingpetInteractionInputRouter.LINGPET_CYCLE_KEY
 const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := BattleSystemShortcutInputRouter.RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
 
 var _system_shortcut_input_router := BattleSystemShortcutInputRouter.new()

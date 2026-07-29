@@ -21,7 +21,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_live_dispatch_and_unique_owner()
-	_verify_duration_owner_pet_switch_refill_and_cap()
+	_verify_duration_owner_pet_replace_refill_and_cap()
 	_verify_per_pet_buff_isolation_and_uncapped_fallback()
 	_verify_unlock_payload_identifies_the_final_skill()
 	if _failures.is_empty():
@@ -80,7 +80,7 @@ func _verify_live_dispatch_and_unique_owner() -> void:
 	_cleanup_runtime(runtime)
 
 
-func _verify_duration_owner_pet_switch_refill_and_cap() -> void:
+func _verify_duration_owner_pet_replace_refill_and_cap() -> void:
 	var fixture := _make_runtime_fixture()
 	var runtime: Object = fixture.runtime
 	var owner: Object = fixture.owner
@@ -93,14 +93,18 @@ func _verify_duration_owner_pet_switch_refill_and_cap() -> void:
 		runtime.complete_guardian_enhance_roll(applied, "maribo")
 	_expect_float(runtime.get_duration_pool_max(), 60.0, "two duration increases must raise the shared max by ten seconds")
 	_expect_float(runtime.get_duration_pool_current(), 60.0, "duration increase must raise current and max together")
-	_expect(runtime.switch_lingpet_slot(1, owner, fixture.registry), "fixture must switch to the second pet")
-	_expect_float(runtime.get_duration_pool_max(), 60.0, "pet switch must preserve the run-shared enhanced maximum")
+	var overflow_state: Object = runtime.get("_overflow_choice_state") as Object
+	overflow_state.begin_main_egg("maribo")
+	overflow_state.begin_main_overflow("volty", false)
+	overflow_state.activate_after_cutin()
+	_expect(runtime.commit_overflow_replace(0, owner, fixture.registry), "fixture must replace the one live guardian")
+	_expect_float(runtime.get_duration_pool_max(), 60.0, "pet replacement must preserve the run-shared enhanced maximum")
 	runtime.set_duration_pool_for_tests(13.0, 60.0)
 	_expect(runtime.refill_guardian_duration_for_stage_transition(), "stage transition must report a changed refill")
 	_expect_float(runtime.get_duration_pool_current(), 60.0, "stage refill must target the enhanced maximum")
 	var affinity: Object = runtime.get("_guardian_run_state") as Object
 	_expect(int(affinity.get_duration_increase_count()) == 2, "duration owner must retain the run cap counter")
-	var candidates: Array = affinity.build_guardian_enhancement_candidates("lunabi", true, true)
+	var candidates: Array = affinity.build_guardian_enhancement_candidates("volty", true, true)
 	_expect(not _has_candidate_type(candidates, LingpetEnhancementBuffStore.REWARD_TYPE_DURATION), "third duration increase must be removed by the pre-roll filter")
 	_cleanup_runtime(runtime)
 
@@ -201,7 +205,7 @@ func _verify_unlock_payload_identifies_the_final_skill() -> void:
 
 func _make_runtime_fixture() -> Dictionary:
 	var owner := Smoke.FakeOwner.new()
-	_seed_roster(owner, ["maribo", "lunabi"])
+	_seed_roster(owner, ["maribo"])
 	var runtime: Object = LingpetEggRuntime.new()
 	var registry := Smoke.FakeRegistry.new({"lingpet_egg_runtime": runtime})
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_spear_throw", "maribo_hydro_resonance", registry), "fixture must activate maribo")
@@ -220,7 +224,7 @@ func _seed_roster(owner: Object, pet_ids: Array) -> void:
 	owner.ringpet_collection = collection.duplicate(true)
 	owner.owned_lingpets = collection.duplicate(true)
 	owner.owned_ringpets = collection.duplicate(true)
-	owner.lingpet_slots = [ids[0], ids[1], ""]
+	owner.lingpet_slots = [ids[0]]
 	owner.ringpet_slots = owner.lingpet_slots.duplicate()
 	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
 	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()

@@ -17,6 +17,14 @@ func reset_store() -> void:
 	reset_stage_observer()
 
 
+func forget_pet(pet_id: String) -> bool:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	if normalized_pet_id == "" or not state_by_pet_id.has(normalized_pet_id):
+		return false
+	state_by_pet_id.erase(normalized_pet_id)
+	return true
+
+
 func get_trigger_count() -> int:
 	return trigger_count
 

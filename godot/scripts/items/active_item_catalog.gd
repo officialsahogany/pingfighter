@@ -243,8 +243,9 @@ func _build_lingpet_egg() -> Dictionary:
 	# Pro (champion) / Mythic only — gated in active_item_field_spawn_pool via
 	# can_offer_egg_item. On use it places an egg (deploy_egg_from_item): with NO companion
 	# the egg hatches into the companion; with a companion ALREADY on field a SEPARATE egg
-	# incubates alongside it (the companion keeps accompanying the player) and the new pet is
-	# absorbed into a free collection slot on hatch. Only one egg incubates at a time
+	# incubates alongside it (the companion keeps accompanying the player), then opens the
+	# shared Replace / Absorb decision. Absorb grants one Guardian Enhancement through the
+	# same reward path as the perk. Only one egg incubates at a time
 	# (can_offer_egg_item blocks while _state == STATE_EGG or an incubator is active). Junior
 	# never sees this item (its lingpet is auto-present).
 	return {

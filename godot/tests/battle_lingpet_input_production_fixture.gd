@@ -26,7 +26,6 @@ class FakeLingpetRuntime:
 	var acquire_active := false
 	var hatch_break_active := false
 	var click_positions: Array[Vector2] = []
-	var cycle_directions: Array[int] = []
 
 	func is_acquire_cutin_active() -> bool:
 		return acquire_active
@@ -40,15 +39,6 @@ class FakeLingpetRuntime:
 	) -> bool:
 		click_positions.append(playfield_pos)
 		return true
-
-	func cycle_lingpet_slot(
-		direction: int,
-		_owner: Object,
-		_registry: Object
-	) -> bool:
-		cycle_directions.append(direction)
-		return true
-
 
 class FakeOverlayInput:
 	extends RefCounted

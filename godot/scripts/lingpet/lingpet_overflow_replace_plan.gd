@@ -12,6 +12,8 @@ func consume(
 ) -> Dictionary:
 	if overflow_choice_state == null or not overflow_choice_state.is_active_with_pending_pet():
 		return _empty_plan()
+	if overflow_choice_state.has_method("is_absorb_only") and bool(overflow_choice_state.is_absorb_only()):
+		return _empty_plan()
 	var pending_pet_id := str(overflow_choice_state.get_pending_pet_id())
 	if pending_pet_id == "":
 		return _empty_plan()

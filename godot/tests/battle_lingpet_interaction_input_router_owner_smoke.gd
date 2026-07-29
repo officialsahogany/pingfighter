@@ -26,9 +26,7 @@ class FakeLingpetRuntime:
 	var acquire_active := false
 	var hatch_break_active := false
 	var click_accept := true
-	var cycle_accept := true
 	var click_positions: Array[Vector2] = []
-	var cycle_directions: Array[int] = []
 
 	func is_acquire_cutin_active() -> bool:
 		return acquire_active
@@ -42,15 +40,6 @@ class FakeLingpetRuntime:
 	) -> bool:
 		click_positions.append(playfield_pos)
 		return click_accept
-
-	func cycle_lingpet_slot(
-		direction: int,
-		_owner: Object,
-		_registry: Object
-	) -> bool:
-		cycle_directions.append(direction)
-		return cycle_accept
-
 
 class FakeOverlayInput:
 	extends RefCounted
@@ -107,7 +96,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_hatch_break_and_acquire_priority()
 	_verify_companion_click_coordinates_and_priority()
-	_verify_slot_cycle_directions()
+	_verify_retired_slot_cycle_falls_through()
 	_verify_source_ownership()
 	call_deferred("_finish")
 
@@ -186,21 +175,18 @@ func _verify_companion_click_coordinates_and_priority() -> void:
 		"accepted companion click must be consumed"
 	)
 	_expect(runtime.click_positions == [Vector2(250.0, 245.0)], "screen click must convert to playfield coordinates")
-	_expect(runtime.cycle_directions.is_empty(), "mouse click must not enter slot cycling")
 	_expect(owner.redraw_count == 1, "accepted companion click must redraw once")
 	_clear_fixture(fixture)
 
 
-func _verify_slot_cycle_directions() -> void:
+func _verify_retired_slot_cycle_falls_through() -> void:
 	var fixture := _build_fixture()
 	var holder: ModuleHolder = fixture["holder"]
 	var registry: FakeRegistry = fixture["registry"]
-	var runtime: FakeLingpetRuntime = fixture["runtime"]
 	var owner := FakeOwner.new()
 	var router := BattleLingpetInteractionInputRouter.new()
-	_expect(router.handle_companion_input(_key_event(KEY_L), owner, registry, Callable(holder, "get_module")), "L must cycle forward")
-	_expect(router.handle_companion_input(_key_event(KEY_L, true), owner, registry, Callable(holder, "get_module")), "Shift+L must cycle backward")
-	_expect(runtime.cycle_directions == [1, -1], "slot cycle directions must preserve L/Shift+L policy")
+	_expect(not router.handle_companion_input(_key_event(KEY_L), owner, registry, Callable(holder, "get_module")), "L must fall through after one-pet roster retirement")
+	_expect(not router.handle_companion_input(_key_event(KEY_L, true), owner, registry, Callable(holder, "get_module")), "Shift+L must fall through after one-pet roster retirement")
 	_clear_fixture(fixture)
 
 
@@ -214,7 +200,8 @@ func _verify_source_ownership() -> void:
 	var retired_interact_constant := "LINGPET_" + "INTERACT"
 	var retired_runtime_handoff := "try_begin_companion_" + "interact_reaction"
 	_expect(router_source.contains("try_begin_companion_click_reaction(playfield_pos, registry)"), "lingpet router must own click coordinate handoff")
-	_expect(router_source.contains("cycle_lingpet_slot(cycle_direction, owner, registry)"), "lingpet router must own slot cycling")
+	_expect(not router_source.contains("cycle_lingpet_slot"), "one-pet router must not retain slot cycling")
+	_expect(not router_source.contains("LINGPET_CYCLE_KEY"), "one-pet router must not retain the L cycle key")
 	_expect(not router_source.contains(retired_interact_constant), "retired E/RT interact constants must not remain in the lingpet router")
 	_expect(not router_source.contains(retired_runtime_handoff), "retired E/RT runtime handoff must not remain in the lingpet router")
 	_expect(input_source.contains("BattleLingpetInteractionInputRouter.new()"), "scene input controller must compose lingpet router")

@@ -304,6 +304,17 @@ func get_pet_data(pet_id: String) -> Dictionary:
 	return _get_existing_pet_data(_normalize_pet_id(pet_id)).duplicate(true)
 
 
+# Replacement starts the incoming guardian with fresh per-pet enhancement state.
+# The shared duration owner intentionally lives outside _pets and is untouched.
+func forget_pet_data(pet_id: String) -> bool:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "" or not _pets.has(normalized_pet_id):
+		return false
+	_pets.erase(normalized_pet_id)
+	_dirty = true
+	return true
+
+
 func get_cumulative_rewards(pet_id: String) -> Dictionary:
 	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
 	if pet_data.is_empty():

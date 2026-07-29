@@ -2,7 +2,7 @@ extends RefCounted
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const STATE_COMPANION := "companion"
-const MAX_BATTLE_SLOTS := 3
+const MAX_BATTLE_SLOTS := 1
 const MAX_OWNED := MAX_BATTLE_SLOTS
 
 # 테스트(주니어) 난이도에서 시작 수호령 알을 스매셔와 동일하게 지급받는 캐릭터들.
@@ -36,13 +36,15 @@ const OWNER_ACTIVE_SLOT_KEYS := [
 ]
 
 var owned_pet_ids: Array[String] = []
-var battle_slot_pet_ids: Array[String] = ["", "", ""]
+var collected_pet_ids: Array[String] = []
+var battle_slot_pet_ids: Array[String] = [""]
 var active_slot_index := 0
 
 
 func reset() -> void:
 	owned_pet_ids.clear()
-	battle_slot_pet_ids = ["", "", ""]
+	collected_pet_ids.clear()
+	battle_slot_pet_ids = [""]
 	active_slot_index = 0
 
 
@@ -54,10 +56,24 @@ func get_owned_pet_ids() -> Array[String]:
 	return owned_pet_ids.duplicate()
 
 
+func set_collected_pet_ids(value: Variant) -> void:
+	collected_pet_ids = normalize_collected_pet_id_array(value)
+
+
+func get_collected_pet_ids() -> Array[String]:
+	return collected_pet_ids.duplicate()
+
+
 func sync_from_owner(owner: Object) -> void:
-	owned_pet_ids = get_owned_pet_ids_from_owner(owner)
 	battle_slot_pet_ids = get_battle_slots_from_owner(owner)
-	active_slot_index = get_active_slot_index_from_owner(owner)
+	owned_pet_ids = get_owned_pet_ids_from_owner(owner)
+	if not battle_slot_pet_ids.is_empty() and battle_slot_pet_ids[0] != "":
+		owned_pet_ids = [battle_slot_pet_ids[0]]
+	collected_pet_ids = get_collected_pet_ids_from_owner(owner)
+	for pet_id in owned_pet_ids:
+		if not collected_pet_ids.has(pet_id):
+			collected_pet_ids.append(pet_id)
+	active_slot_index = 0
 
 
 func set_battle_slots(value: Variant) -> void:
@@ -85,6 +101,8 @@ func add_pet(owner: Object, pet_id: String) -> String:
 		if owned_pet_ids.size() >= MAX_OWNED:
 			return ""
 		owned_pet_ids.append(normalized_pet_id)
+	if not collected_pet_ids.has(normalized_pet_id):
+		collected_pet_ids.append(normalized_pet_id)
 	_ensure_pet_in_battle_slots(normalized_pet_id)
 	if owner != null:
 		_sync_owner_collections(owner)
@@ -101,6 +119,8 @@ func add_pet_to_next_empty_slot(owner: Object, pet_id: String) -> String:
 		if owned_pet_ids.size() >= MAX_OWNED:
 			return ""
 		owned_pet_ids.append(normalized_pet_id)
+	if not collected_pet_ids.has(normalized_pet_id):
+		collected_pet_ids.append(normalized_pet_id)
 	var slots: Array[String] = battle_slot_pet_ids.duplicate()
 	var slot_index := slots.find(normalized_pet_id)
 	if slot_index < 0:
@@ -131,6 +151,8 @@ func add_pet_to_collection_keep_active(owner: Object, pet_id: String) -> String:
 		if owned_pet_ids.size() >= MAX_OWNED:
 			return ""
 		owned_pet_ids.append(normalized_pet_id)
+	if not collected_pet_ids.has(normalized_pet_id):
+		collected_pet_ids.append(normalized_pet_id)
 	var slots: Array[String] = battle_slot_pet_ids.duplicate()
 	var slot_index := slots.find(normalized_pet_id)
 	if slot_index < 0:
@@ -170,6 +192,19 @@ func release_pet(owner: Object, pet_id: String) -> bool:
 	return changed
 
 
+func record_collected_pet(owner: Object, pet_id: String) -> bool:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return false
+	collected_pet_ids = get_collected_pet_ids_from_owner(owner)
+	var changed := not collected_pet_ids.has(normalized_pet_id)
+	if changed:
+		collected_pet_ids.append(normalized_pet_id)
+	if owner != null:
+		_sync_owner_collections(owner)
+	return changed
+
+
 func replace_slot(owner: Object, slot_index: int, new_pet_id: String) -> Dictionary:
 	var normalized_pet_id := normalize_pet_id(new_pet_id)
 	if normalized_pet_id == "":
@@ -185,6 +220,8 @@ func replace_slot(owner: Object, slot_index: int, new_pet_id: String) -> Diction
 		if owned_pet_ids.size() >= MAX_OWNED:
 			return {}
 		owned_pet_ids.append(normalized_pet_id)
+	if not collected_pet_ids.has(normalized_pet_id):
+		collected_pet_ids.append(normalized_pet_id)
 	for i in range(battle_slot_pet_ids.size()):
 		if battle_slot_pet_ids[i] == normalized_pet_id:
 			battle_slot_pet_ids[i] = ""
@@ -209,7 +246,7 @@ func is_full(owner: Object = null) -> bool:
 
 
 func has_unowned_pet_candidates(owner: Object) -> bool:
-	var owned_ids: Array[String] = get_owned_pet_ids_from_owner(owner)
+	var owned_ids: Array[String] = get_collected_pet_ids_from_owner(owner)
 	for pet_id in LingpetCatalog.get_pet_ids():
 		if pet_id != "" and not owned_ids.has(pet_id):
 			return true
@@ -229,7 +266,14 @@ func get_pet_display_name(pet_id: String) -> String:
 
 
 func get_owned_pet_ids_from_owner(owner: Object) -> Array[String]:
-	var result: Array[String] = owned_pet_ids.duplicate()
+	var result: Array[String] = []
+	for key in OWNER_SLOT_KEYS:
+		var slot_value: Variant = _get_owner_value(owner, str(key), null)
+		if slot_value is Array:
+			var slots := normalize_slot_array(slot_value)
+			if not slots.is_empty() and slots[0] != "":
+				result.append(slots[0])
+				break
 	for key in OWNER_ARRAY_KEYS:
 		var ids: Variant = _get_owner_value(owner, str(key), [])
 		if ids is Array:
@@ -237,6 +281,17 @@ func get_owned_pet_ids_from_owner(owner: Object) -> Array[String]:
 				var pet_id := normalize_pet_id(str(raw_id))
 				if pet_id != "" and not result.has(pet_id):
 					result.append(pet_id)
+	var state: String = str(_get_owner_value(owner, "lingpet_state", ""))
+	var id := normalize_pet_id(str(_get_owner_value(owner, "lingpet_id", "")))
+	if id != "" and _is_companion_state(state) and not result.has(id):
+		result.append(id)
+	if result.is_empty():
+		result = owned_pet_ids.duplicate()
+	return _cap_owned_pet_ids(result)
+
+
+func get_collected_pet_ids_from_owner(owner: Object) -> Array[String]:
+	var result: Array[String] = collected_pet_ids.duplicate()
 	for key in OWNER_COLLECTION_KEYS:
 		var collection: Variant = _get_owner_value(owner, str(key), {})
 		if collection is Dictionary:
@@ -244,11 +299,17 @@ func get_owned_pet_ids_from_owner(owner: Object) -> Array[String]:
 				var pet_id := normalize_pet_id(str(raw_id))
 				if pet_id != "" and bool((collection as Dictionary).get(raw_id, false)) and not result.has(pet_id):
 					result.append(pet_id)
-	var state: String = str(_get_owner_value(owner, "lingpet_state", ""))
-	var id := normalize_pet_id(str(_get_owner_value(owner, "lingpet_id", "")))
-	if id != "" and _is_companion_state(state) and not result.has(id):
-		result.append(id)
-	return _cap_owned_pet_ids(result)
+	# Legacy three-slot snapshots had no separate collection-history field. Preserve
+	# every valid legacy id as collection history while the live roster adopts only
+	# its first valid companion.
+	for key in OWNER_ARRAY_KEYS:
+		var ids: Variant = _get_owner_value(owner, str(key), [])
+		if ids is Array:
+			for raw_id in (ids as Array):
+				var pet_id := normalize_pet_id(str(raw_id))
+				if pet_id != "" and not result.has(pet_id):
+					result.append(pet_id)
+	return result
 
 
 func find_first_owned_pet_id(owner: Object) -> String:
@@ -345,11 +406,27 @@ func get_active_slot_index_from_owner(owner: Object) -> int:
 
 
 func should_spawn_egg(owner: Object) -> bool:
-	return not LingpetCatalog.get_hatch_candidates(get_hatch_context(owner), get_owned_pet_ids_from_owner(owner)).is_empty()
+	var context := get_hatch_context(owner)
+	if not LingpetCatalog.get_hatch_candidates(context, get_collected_pet_ids_from_owner(owner)).is_empty():
+		return true
+	# Once the collection is complete, eggs remain useful as absorb-only rolls.
+	return not LingpetCatalog.get_hatch_candidates(context, []).is_empty()
 
 
 func pick_hatch_pet_id(owner: Object) -> String:
-	return LingpetCatalog.pick_hatch_pet_id(get_hatch_context(owner), get_owned_pet_ids_from_owner(owner))
+	var context := get_hatch_context(owner)
+	var pet_id := LingpetCatalog.pick_hatch_pet_id(
+		context,
+		get_collected_pet_ids_from_owner(owner)
+	)
+	if pet_id == "":
+		pet_id = LingpetCatalog.pick_hatch_pet_id(context, [])
+	return pet_id
+
+
+func is_absorb_only_candidate(owner: Object, pet_id: String) -> bool:
+	var normalized_pet_id := normalize_pet_id(pet_id)
+	return normalized_pet_id != "" and get_collected_pet_ids_from_owner(owner).has(normalized_pet_id)
 
 
 func is_auto_present_league(owner: Object) -> bool:
@@ -371,7 +448,7 @@ func pick_random_any_pet_id(rng: RandomNumberGenerator = null) -> String:
 
 
 func pick_random_unowned_pet_id(owner: Object, rng: RandomNumberGenerator = null) -> String:
-	var owned_ids: Array[String] = get_owned_pet_ids_from_owner(owner)
+	var owned_ids: Array[String] = get_collected_pet_ids_from_owner(owner)
 	var candidates: Array[String] = []
 	for pet_id in LingpetCatalog.get_pet_ids():
 		if pet_id != "" and not owned_ids.has(pet_id):
@@ -416,6 +493,17 @@ func normalize_pet_id_array(value: Variant) -> Array[String]:
 	return normalized
 
 
+func normalize_collected_pet_id_array(value: Variant) -> Array[String]:
+	var normalized: Array[String] = []
+	if not (value is Array):
+		return normalized
+	for item in value:
+		var pet_id: String = normalize_pet_id(str(item))
+		if pet_id != "" and not normalized.has(pet_id):
+			normalized.append(pet_id)
+	return normalized
+
+
 func normalize_slot_array(value: Variant) -> Array[String]:
 	var normalized: Array[String] = []
 	for _i in range(MAX_BATTLE_SLOTS):
@@ -423,15 +511,12 @@ func normalize_slot_array(value: Variant) -> Array[String]:
 	if not (value is Array):
 		return normalized
 	var seen := {}
-	var index := 0
 	for item in (value as Array):
-		if index >= MAX_BATTLE_SLOTS:
-			break
 		var pet_id: String = normalize_pet_id(str(item))
 		if pet_id != "" and not bool(seen.get(pet_id, false)):
-			normalized[index] = pet_id
+			normalized[0] = pet_id
 			seen[pet_id] = true
-		index += 1
+			break
 	return normalized
 
 
@@ -461,8 +546,11 @@ func _sync_owner_collections(owner: Object) -> void:
 	owned_pet_ids = ids
 	for key in OWNER_ARRAY_KEYS:
 		owner.set(str(key), ids.duplicate())
-	var collection: Dictionary = {}
 	for pet_id in ids:
+		if not collected_pet_ids.has(pet_id):
+			collected_pet_ids.append(pet_id)
+	var collection: Dictionary = {}
+	for pet_id in collected_pet_ids:
 		collection[pet_id] = true
 	for key in OWNER_COLLECTION_KEYS:
 		owner.set(str(key), collection.duplicate(true))

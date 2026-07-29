@@ -76,7 +76,7 @@ const LingpetHatchStatRollState := preload("res://scripts/lingpet/lingpet_hatch_
 const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
 const LingpetNoneOwnerSyncState := preload("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
 const LingpetOverflowChoiceState := preload("res://scripts/lingpet/lingpet_overflow_choice_state.gd")
-const LingpetOverflowReleasePlan := preload("res://scripts/lingpet/lingpet_overflow_release_plan.gd")
+const LingpetOverflowAbsorbPlan := preload("res://scripts/lingpet/lingpet_overflow_absorb_plan.gd")
 const LingpetOverflowReplacePlan := preload("res://scripts/lingpet/lingpet_overflow_replace_plan.gd")
 const LingpetPlazaResonanceEggSummaryBuilder := preload("res://scripts/lingpet/lingpet_plaza_resonance_egg_summary_builder.gd")
 const LingpetPerfProbe := preload("res://scripts/lingpet/lingpet_perf_probe.gd")
@@ -99,7 +99,7 @@ const STATE_EGG := "egg"
 const STATE_COMPANION := "companion"
 const REQUIRED_HITS := 1
 const BALL_RADIUS_FALLBACK := 14.3
-const SAVE_SNAPSHOT_VERSION := 2
+const SAVE_SNAPSHOT_VERSION := 3
 const COMPANION_RADIUS := 16.0
 const DEFAULT_SKILL_LEVEL := 1
 # Anticipatory strike helper mirrors player/boss _maybe_trigger_anticipated_hit:
@@ -283,7 +283,7 @@ var _current_pet_transition: Object = LingpetCurrentPetTransition.new()
 var _companion_distance_roll_state: Object = LingpetCompanionDistanceRollState.new()
 var _none_owner_sync_state: Object = LingpetNoneOwnerSyncState.new()
 var _overflow_choice_state: Object = LingpetOverflowChoiceState.new()
-var _overflow_release_plan: Object = LingpetOverflowReleasePlan.new()
+var _overflow_absorb_plan: Object = LingpetOverflowAbsorbPlan.new()
 var _overflow_replace_plan: Object = LingpetOverflowReplacePlan.new()
 # Coexisting incubator egg: when the lingpet_egg active item is used while a companion
 # is ALREADY on field, a SEPARATE egg incubates alongside the companion (the companion
@@ -587,7 +587,8 @@ func build_guardian_enhance_offer(owner: Object) -> Dictionary:
 func apply_guardian_enhance_random_roll(
 	candidates: Array,
 	owner: Object = null,
-	registry: Object = null
+	registry: Object = null,
+	trigger_source: String = "perk"
 ) -> Dictionary:
 	var pet_id := _resolve_guardian_enhance_pet_id(owner)
 	if pet_id == "":
@@ -599,8 +600,36 @@ func apply_guardian_enhance_random_roll(
 		Callable(self, "apply_guardian_enhance_duration_fallback").bind(owner, registry),
 		_guardian_enhance_roll_rng_for_tests
 	)
-	complete_guardian_enhance_roll(result, pet_id, registry)
+	complete_guardian_enhance_roll(result, pet_id, registry, trigger_source)
 	return result
+
+
+func trigger_guardian_enhancement_from_absorption(
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var pet_id := _resolve_guardian_enhance_pet_id(owner)
+	if pet_id == "":
+		return {"accepted": false, "blocked_reason": "no_owned_guardian"}
+	_guardian_run_context_coordinator.configure(
+		pet_id,
+		_pet_id,
+		_current_profile,
+		_loadout_state,
+		_guardian_run_state
+	)
+	var skill_availability: Dictionary = (
+		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
+	)
+	var raw_candidates: Array[Dictionary] = _guardian_run_state.build_guardian_enhancement_candidates(
+		pet_id,
+		bool(skill_availability.get("has_second_active", false)),
+		bool(skill_availability.get("has_second_passive", false))
+	)
+	var candidates: Array = []
+	for candidate in raw_candidates:
+		candidates.append(_guardian_enhance_offer_engine.localize_candidate(candidate))
+	return apply_guardian_enhance_random_roll(candidates, owner, registry, "absorb")
 
 
 func can_apply_guardian_enhancement_candidate(candidate: Dictionary, pet_id: String) -> bool:
@@ -700,13 +729,22 @@ static func _copy_guardian_enhance_detail_fields(result: Dictionary, detail: Dic
 func complete_guardian_enhance_roll(
 	result: Dictionary,
 	display_pet_id: String,
-	registry: Object = null
+	registry: Object = null,
+	trigger_source: String = "perk"
 ) -> void:
 	if display_pet_id.strip_edges() == "":
 		display_pet_id = _pet_id
+	var normalized_source := trigger_source.strip_edges().to_lower()
+	if normalized_source == "":
+		normalized_source = "perk"
+	result["trigger_source"] = normalized_source
+	result["trigger_source_label"] = _guardian_enhance_offer_engine.get_trigger_source_label(
+		normalized_source
+	)
 	_guardian_enhance_last_result = result.duplicate(true)
 	if bool(result.get("accepted", false)):
-		_guardian_enhance_offer_engine.mark_applied()
+		if normalized_source == "perk":
+			_guardian_enhance_offer_engine.mark_applied()
 		_guardian_enhance_cutin_prewarm_state.reset()
 		_guardian_enhance_cutin_host_resolver.prewarm_result_icon(registry, result)
 		_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
@@ -813,15 +851,15 @@ func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
 		return false
 	if _collection_state.is_auto_present_league(owner):
 		return false
-	return _collection_state.has_unowned_pet_candidates(owner)
+	return _collection_state.pick_random_any_pet_id() != ""
 
 
-# Pro/Mythic active-item deploy of a random unowned pet's egg. Two cases:
+# Pro/Mythic active-item deploy of a random pet egg. Uncollected identities are
+# preferred; a complete collection falls back to an absorb-only identity. Two cases:
 #   * NO companion yet (STATE_NONE): the egg hatches into the companion (first acquisition),
 #     mirroring _spawn_egg minus the junior-only tutorial auto-present branch.
 #   * companion ALREADY on field (STATE_COMPANION): a SEPARATE coexisting egg incubates
-#     alongside it (the companion is untouched) and the new pet is absorbed into a free
-#     collection slot after the lifecycle helper finishes the reveal transition.
+#     alongside it (the companion is untouched) and opens Replace / Absorb after reveal.
 # Returns false (so the slot controller does NOT consume the item or start its cooldown —
 # see active_item_slot_controller._try_use_slot) when an egg is already incubating, no pet
 # can be picked, or the league auto-presents its lingpet.
@@ -852,6 +890,8 @@ func deploy_egg_from_item(
 		return false
 	_collection_state.sync_from_owner(owner)
 	var pet_id: String = str(_collection_state.pick_random_unowned_pet_id(owner))
+	if pet_id == "":
+		pet_id = str(_collection_state.pick_random_any_pet_id())
 	if pet_id == "":
 		return false
 	_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
@@ -905,8 +945,6 @@ func deploy_soul_summon_egg(owner: Object, registry: Object = null) -> Dictionar
 		)
 	):
 		return {"dropped": false, "skipped_reason": "overflow_unavailable"}
-	if not _collection_state.has_unowned_pet_candidates(owner):
-		return {"dropped": false, "skipped_reason": "no_unowned_pet_candidates"}
 	var dropped := deploy_egg_from_item(owner, registry, true)
 	return {
 		"dropped": dropped,
@@ -1324,30 +1362,37 @@ func commit_overflow_replace(slot_index: int, owner: Object = null, registry: Ob
 	var old_pet_id := str(replace_plan.get("old_pet_id", ""))
 	if old_pet_id != "" and old_pet_id != pending_pet_id:
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
+		_guardian_run_state.forget_pet_data(old_pet_id)
+		_companion_skill_persistence.forget_pet(old_pet_id)
+	_guardian_run_state.forget_pet_data(pending_pet_id)
+	_companion_skill_persistence.forget_pet(pending_pet_id)
 	_finish_overflow_hatch_commit(owner, registry)
 	return true
 
 
-func commit_overflow_release(owner: Object = null, registry: Object = null) -> bool:
-	var release_plan: Dictionary = _overflow_release_plan.consume(
+func commit_overflow_absorb(owner: Object = null, registry: Object = null) -> bool:
+	var absorb_plan: Dictionary = _overflow_absorb_plan.consume(
 		owner,
 		_overflow_choice_state,
 		_collection_state
 	)
-	if not bool(release_plan.get("handled", false)):
+	if not bool(absorb_plan.get("handled", false)):
 		return false
 	_invalidate_runtime_snapshot_cache()
-	var released_pet_id := str(release_plan.get("released_pet_id", ""))
-	if released_pet_id != "":
-		_loadout_state.forget_pet_loadout_and_invalidate(owner, released_pet_id, _snapshot_builder)
-	match str(release_plan.get("action", "")):
-		LingpetOverflowReleasePlan.ACTION_RESTORE_COMPANION:
-			_adopt_owned_pet(owner, str(release_plan.get("restore_pet_id", "")), registry)
-		LingpetOverflowReleasePlan.ACTION_CLEAR_PENDING:
+	var absorbed_pet_id := str(absorb_plan.get("absorbed_pet_id", ""))
+	if absorbed_pet_id != "":
+		_loadout_state.forget_pet_loadout_and_invalidate(owner, absorbed_pet_id, _snapshot_builder)
+		_guardian_run_state.forget_pet_data(absorbed_pet_id)
+		_companion_skill_persistence.forget_pet(absorbed_pet_id)
+	match str(absorb_plan.get("action", "")):
+		LingpetOverflowAbsorbPlan.ACTION_RESTORE_COMPANION:
+			_adopt_owned_pet(owner, str(absorb_plan.get("restore_pet_id", "")), registry)
+		LingpetOverflowAbsorbPlan.ACTION_CLEAR_PENDING:
 			_clear_pending_egg_without_collection_reset(owner, registry)
 		_:
 			_sync_owner(owner, registry)
-	return true
+	var enhancement_result := trigger_guardian_enhancement_from_absorption(owner, registry)
+	return bool(enhancement_result.get("accepted", false))
 
 
 func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry: Object) -> bool:
@@ -1367,6 +1412,10 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 	var old_pet_id := str(replace_result.get("old_pet_id", ""))
 	if old_pet_id != "" and old_pet_id != new_pet:
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
+		_guardian_run_state.forget_pet_data(old_pet_id)
+		_companion_skill_persistence.forget_pet(old_pet_id)
+	_guardian_run_state.forget_pet_data(new_pet)
+	_companion_skill_persistence.forget_pet(new_pet)
 	_ensure_duration_pool_roll()
 	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile())
 	_overflow_choice_state.reset()
@@ -1571,15 +1620,6 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object
 	)
 	_sync_owner(owner, registry)
 	return true
-
-
-func cycle_lingpet_slot(direction: int = 1, owner: Object = null, registry: Object = null) -> bool:
-	var next_slot_index: int = _collection_state.find_next_occupied_slot_index(direction, owner)
-	if next_slot_index < 0:
-		return false
-	if next_slot_index == _collection_state.get_active_slot_index_from_owner(owner):
-		return false
-	return switch_lingpet_slot(next_slot_index, owner, registry)
 
 
 # Test-only accessors: the strike state is transient visual state that is
@@ -2113,6 +2153,7 @@ func get_save_snapshot() -> Dictionary:
 		_egg_state.egg_color_index,
 		_companion_pos,
 		_collection_state.get_owned_pet_ids(),
+		_collection_state.get_collected_pet_ids(),
 		_collection_state.get_battle_slots(),
 		_collection_state.get_active_slot_index(),
 		_profile_runtime_surface.get_gauge_gain_bonus_pct(_current_profile, 0.0),
@@ -2243,7 +2284,11 @@ func reset_round(deps: Dictionary = {}) -> void:
 	var registry: Object = deps.get("registry", null) as Object
 	cancel_guardian_enhance_cutin(registry)
 	if _overflow_choice_state.has_pending_or_active():
-		commit_overflow_release(owner, registry)
+		commit_overflow_absorb(owner, registry)
+		# Round teardown may settle an unanswered hatch by absorption, but the
+		# shared enhancement path must not reopen its compact presentation while
+		# the battle shell is leaving the round.
+		cancel_guardian_enhance_cutin(registry)
 	_round_resetter.reset_round(
 		owner,
 		registry,
@@ -2511,8 +2556,11 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 	_overflow_choice_state.reset()
 
 
-func _begin_overflow_hatch(_owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
-	_overflow_choice_state.begin_main_overflow(_pet_id)
+func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
+	_overflow_choice_state.begin_main_overflow(
+		_pet_id,
+		_collection_state.is_absorb_only_candidate(owner, _pet_id)
+	)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
 	_companion_runtime_resetter.start_hatch_reveal_effects(_build_hatch_reveal_context(
 		registry,
@@ -2544,8 +2592,8 @@ func _finish_overflow_hatch_commit(owner: Object, registry: Object = null) -> vo
 # Runs on the first update(owner) after the incubator-egg reveal cut-in dismisses. The
 # companion was never suspended (the reveal used a separate display identity), so there is
 # nothing to restore: just clear the reveal identity, play the digital absorb VFX, and
-# register the new pet into a free collection slot (or open the slot-replace choice when the
-# roster is full) -- all while the companion keeps accompanying the player.
+# open the shared Replace / Absorb choice -- all while the companion keeps
+# accompanying the player until the player decides.
 func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 	_invalidate_runtime_snapshot_cache()
 	var absorb_context: Dictionary = _item_egg_lifecycle_state.consume_ready_absorb()
@@ -2571,7 +2619,8 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 	if bool(absorb_route.get("opened_overflow", false)):
 		_sync_owner(owner, registry)
 		return
-	# Free slot: register the new pet WITHOUT stealing the active companion.
+	# The only free-slot case is the first live guardian; later eggs always opened
+	# Replace / Absorb above because the live roster cap is one.
 	var registered := str(absorb_route.get("registered_pet_id", ""))
 	if registered != "":
 		_ensure_duration_pool_roll()

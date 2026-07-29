@@ -3,7 +3,7 @@ extends RefCounted
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const SAVE_PATH := "user://lingpet_save.cfg"
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
 const META_SECTION := "meta"
 const LINGPET_SECTION := "lingpet"
 const SNAPSHOT_KEY := "snapshot"
@@ -84,7 +84,8 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 			"required_hits": 0,
 			"egg_color_index": -1,
 			"owned_pet_ids": [],
-			"battle_slot_pet_ids": ["", "", ""],
+			"collected_pet_ids": [],
+			"battle_slot_pet_ids": [""],
 			"active_slot_index": 0,
 		}, owner, registry)
 		reset_result["loaded_from_file"] = true

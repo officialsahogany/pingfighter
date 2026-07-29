@@ -29,6 +29,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "{label} 획득",
 		"result_fallback": "모든 후보가 무효가 되어 지속시간 현재치 +15초로 대체되었습니다.",
+		"source_absorb": "수호령 흡수",
 		"unit_seconds": "초",
 		"unit_points": "",
 	},
@@ -49,6 +50,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "Gained {label}",
 		"result_fallback": "All candidates became invalid. Restored +15 sec to the current duration.",
+		"source_absorb": "Guardian Absorption",
 		"unit_seconds": " sec",
 		"unit_points": "",
 	},
@@ -69,6 +71,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "获得{label}",
 		"result_fallback": "所有候选均已失效，当前持续时间恢复+15秒。",
+		"source_absorb": "守护灵吸收",
 		"unit_seconds": "秒",
 		"unit_points": "",
 	},
@@ -89,6 +92,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "{label} 獲得",
 		"result_fallback": "すべての候補が無効になったため、現在の持続時間を+15秒回復しました。",
+		"source_absorb": "守護霊吸収",
 		"unit_seconds": "秒",
 		"unit_points": "",
 	},
@@ -109,6 +113,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "Obtuviste {label}",
 		"result_fallback": "Todos los candidatos quedaron inválidos. Se restauraron +15 s a la duración actual.",
+		"source_absorb": "Absorción del Guardián",
 		"unit_seconds": " s",
 		"unit_points": "",
 	},
@@ -129,6 +134,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "Obteve {label}",
 		"result_fallback": "Todos os candidatos ficaram inválidos. A duração atual recebeu +15 s.",
+		"source_absorb": "Absorção do Guardião",
 		"unit_seconds": " s",
 		"unit_points": "",
 	},
@@ -149,6 +155,7 @@ const _COPY_BY_LANGUAGE := {
 		"result_amount": "{label} +{amount}{unit}",
 		"result_acquired": "Получено: {label}",
 		"result_fallback": "Все варианты стали недоступны. Текущая длительность восстановлена на +15 сек.",
+		"source_absorb": "Поглощение хранителя",
 		"unit_seconds": " сек.",
 		"unit_points": "",
 	},
@@ -285,6 +292,12 @@ static func get_result_copy_for_tests() -> Dictionary:
 static func get_result_copy_for_language_for_tests(language: String) -> Dictionary:
 	var value: Variant = _COPY_BY_LANGUAGE.get(language, {})
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+static func get_trigger_source_label(trigger_source: String) -> String:
+	if trigger_source.strip_edges().to_lower() == "absorb":
+		return str(_get_copy().get("source_absorb", "Guardian Absorption"))
+	return ""
 
 
 static func _localize_candidates(candidates: Array[Dictionary]) -> Array[Dictionary]:

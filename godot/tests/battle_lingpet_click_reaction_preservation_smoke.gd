@@ -15,7 +15,6 @@ func _init() -> void:
 		runtime.click_positions == [Vector2(250.0, 245.0)],
 		"production input must convert the click and start one guardian reaction"
 	)
-	_expect(runtime.cycle_directions.is_empty(), "guardian click must not enter slot cycling")
 	_expect(owner.redraw_count == 1, "accepted guardian click must request one redraw")
 	_finish()
 

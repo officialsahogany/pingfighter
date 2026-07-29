@@ -21,6 +21,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_ball_hits_are_growth_neutral()
+	_verify_only_approved_growth_entrypoints_remain()
 	_verify_retired_save_keys_are_read_and_discarded()
 	_verify_retired_pipeline_is_absent()
 	if _failures.is_empty():
@@ -71,6 +72,19 @@ func _verify_ball_hits_are_growth_neutral() -> void:
 	owner.queue_free()
 
 
+func _verify_only_approved_growth_entrypoints_remain() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var absorption_body := _function_body(
+		runtime_source,
+		"func trigger_guardian_enhancement_from_absorption"
+	)
+	_expect(absorption_body.find("apply_guardian_enhance_random_roll") >= 0, "absorption must enter the exact shared Guardian Enhancement roll path")
+	_expect(absorption_body.find("build_guardian_enhancement_candidates") >= 0, "absorption must keep the shared pre-filter contract")
+	var absorb_commit_body := _function_body(runtime_source, "func commit_overflow_absorb")
+	_expect(absorb_commit_body.find("trigger_guardian_enhancement_from_absorption") >= 0, "roster absorption must trigger one approved growth application")
+	_expect(absorb_commit_body.find("apply_guardian_enhancement_candidate") < 0, "roster absorption must not maintain a parallel direct-apply path")
+
+
 func _verify_retired_save_keys_are_read_and_discarded() -> void:
 	var state: Object = LingpetGuardianRunState.new()
 	var legacy_value_key := "sati" + "ety"
@@ -115,3 +129,11 @@ func _verify_retired_pipeline_is_absent() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\nfunc ", start + signature.length())
+	return source.substr(start) if next < 0 else source.substr(start, next - start)

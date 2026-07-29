@@ -1,10 +1,13 @@
 extends RefCounted
 
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+
 var pending := false
 var active := false
 var pending_pet_id := ""
 var suspended_companion_pet_id := ""
 var from_item_egg := false
+var absorb_only := false
 
 
 func reset() -> void:
@@ -13,6 +16,7 @@ func reset() -> void:
 	pending_pet_id = ""
 	suspended_companion_pet_id = ""
 	from_item_egg = false
+	absorb_only = false
 
 
 func has_pending_or_active() -> bool:
@@ -31,6 +35,10 @@ func is_item_egg_source() -> bool:
 	return bool(from_item_egg)
 
 
+func is_absorb_only() -> bool:
+	return bool(absorb_only)
+
+
 func get_pending_pet_id() -> String:
 	return str(pending_pet_id)
 
@@ -41,11 +49,12 @@ func consume_commit_pet_id() -> String:
 	return pet_id
 
 
-func consume_release_context() -> Dictionary:
+func consume_absorb_context() -> Dictionary:
 	var context := {
 		"pending_pet_id": str(pending_pet_id),
 		"suspended_companion_pet_id": str(suspended_companion_pet_id),
 		"from_item_egg": bool(from_item_egg),
+		"absorb_only": bool(absorb_only),
 	}
 	reset()
 	return context
@@ -68,12 +77,21 @@ func build_snapshot(collection_state: Object) -> Dictionary:
 					"active": i == active_slot_index,
 				})
 	var pending_id := str(pending_pet_id)
+	var preview_loadout := LingpetCatalog.build_default_loadout(pending_id)
+	var preview_skill := LingpetCatalog.get_active_skill(
+		pending_id,
+		str(preview_loadout.get("active_skill_id", "")),
+		maxi(1, int(preview_loadout.get("active_skill_level", 1)))
+	)
 	return {
 		"active": bool(active),
 		"pending_pet_id": pending_id,
 		"pending_display_name": _get_pet_display_name(collection_state, pending_id),
 		"slots": slot_entries,
 		"active_slot_index": active_slot_index,
+		"absorb_only": bool(absorb_only),
+		"replacement_skill_name": str(preview_skill.get("name", "")),
+		"replacement_skill_icon_path": str(preview_skill.get("icon_texture_path", "")),
 	}
 
 
@@ -82,19 +100,25 @@ func begin_main_egg(suspended_pet_id: String) -> void:
 	suspended_companion_pet_id = suspended_pet_id
 
 
-func begin_main_overflow(pet_id: String) -> void:
+func begin_main_overflow(pet_id: String, only_absorb: bool = false) -> void:
 	pending = true
 	active = false
 	pending_pet_id = pet_id
 	from_item_egg = false
+	absorb_only = only_absorb
 
 
-func begin_item_egg_overflow(pet_id: String) -> void:
+func begin_item_egg_overflow(
+	pet_id: String,
+	suspended_pet_id: String = "",
+	only_absorb: bool = false
+) -> void:
 	pending = true
 	active = true
 	pending_pet_id = pet_id
-	suspended_companion_pet_id = ""
+	suspended_companion_pet_id = suspended_pet_id
 	from_item_egg = true
+	absorb_only = only_absorb
 
 
 func activate_after_cutin() -> bool:

@@ -16,7 +16,22 @@ func route_absorbed_pet(
 		collection_state.call("sync_from_owner", owner)
 	if collection_state.has_method("is_full") and bool(collection_state.call("is_full", owner)):
 		if overflow_choice_state != null and overflow_choice_state.has_method("begin_item_egg_overflow"):
-			overflow_choice_state.call("begin_item_egg_overflow", normalized_pet_id)
+			var current_pet_id := ""
+			if collection_state.has_method("find_active_slot_pet_id"):
+				current_pet_id = str(collection_state.call("find_active_slot_pet_id", owner))
+			var only_absorb := false
+			if collection_state.has_method("is_absorb_only_candidate"):
+				only_absorb = bool(collection_state.call(
+					"is_absorb_only_candidate",
+					owner,
+					normalized_pet_id
+				))
+			overflow_choice_state.call(
+				"begin_item_egg_overflow",
+				normalized_pet_id,
+				current_pet_id,
+				only_absorb
+			)
 		return {
 			"handled": true,
 			"opened_overflow": true,

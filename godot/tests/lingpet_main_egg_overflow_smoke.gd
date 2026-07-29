@@ -188,7 +188,8 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_main_egg_full_roster_hatch_routes_to_overflow()
+	_verify_main_egg_replace_keeps_one_live_guardian()
+	_verify_main_egg_absorb_uses_shared_enhancement()
 
 	if _failures.is_empty():
 		print("lingpet_main_egg_overflow_smoke: ok")
@@ -199,55 +200,72 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_main_egg_full_roster_hatch_routes_to_overflow() -> void:
-	# A full 3-slot roster does NOT block the resonance-egg purchase: the gate is
-	# should_spawn_egg (the 12-pet junior/smasher pool still has 9 unowned candidates),
-	# NOT is_full. Roster-full is resolved at HATCH time by the overflow-replace choice
-	# instead of silently exceeding the MAX_OWNED == 3 cap.
-	var full_roster: Array[String] = ["maribo", "lunabi", "milkring"]
+func _verify_main_egg_replace_keeps_one_live_guardian() -> void:
 	var owner := FakeOwner.new()
-	_seed_lingpet_roster(owner, full_roster, 0)
+	_seed_lingpet_roster(owner, ["maribo"], 0)
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
+	runtime._guardian_run_state.set_duration_pool_for_tests(31.0, 42.0)
+	_open_main_egg_choice(runtime, owner, registry)
+	_expect((owner.lingpet_owned_pet_ids as Array).size() == 1, "pending hatch must not exceed the one-guardian live cap")
+	var snapshot: Dictionary = runtime.get_overflow_choice_snapshot()
+	var pending_pet := str(snapshot.get("pending_pet_id", ""))
+	_expect(pending_pet != "" and pending_pet != "maribo", "replace choice should carry a new pending guardian")
+	_expect(not (owner.lingpet_owned_pet_ids as Array).has(pending_pet), "the pending pet must not be owned before the choice commits")
+	_expect(bool(runtime.commit_overflow_replace(0, owner, registry)), "replace should commit through live slot zero")
+	_expect(not bool(runtime.is_overflow_choice_active()), "committing the replace should close the overflow choice")
+	_expect((owner.lingpet_owned_pet_ids as Array).size() == 1, "replace must leave exactly one live guardian")
+	_expect((owner.lingpet_owned_pet_ids as Array).has(pending_pet), "the replaced-in pet should now be owned")
+	_expect(bool(owner.lingpet_collection.get("maribo", false)), "replace must preserve the old guardian in permanent collection history")
+	_expect(bool(owner.lingpet_collection.get(pending_pet, false)), "replace must record the incoming guardian in permanent collection history")
+	_expect(is_equal_approx(runtime._guardian_run_state.get_duration_pool_current(), 31.0), "replace must preserve the run-owned duration current value")
+	_expect(is_equal_approx(runtime._guardian_run_state.get_duration_pool_max(), 42.0), "replace must preserve the run-owned duration maximum")
 
+
+func _verify_main_egg_absorb_uses_shared_enhancement() -> void:
+	var owner := FakeOwner.new()
+	_seed_lingpet_roster(owner, ["maribo"], 0)
+	var registry := FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	_open_main_egg_choice(runtime, owner, registry)
+	var snapshot: Dictionary = runtime.get_overflow_choice_snapshot()
+	var pending_pet := str(snapshot.get("pending_pet_id", ""))
+	_expect(bool(runtime.commit_overflow_absorb(owner, registry)), "absorb should resolve through the shared enhancement path")
+	_expect(not bool(runtime.is_overflow_choice_active()), "absorb should close the roster choice")
+	_expect((owner.lingpet_owned_pet_ids as Array) == ["maribo"], "absorb must keep the current live guardian")
+	_expect(bool(owner.lingpet_collection.get(pending_pet, false)), "absorbed guardian must remain in permanent collection history")
+	var result: Dictionary = runtime.get_guardian_enhance_last_result_for_tests()
+	_expect(bool(result.get("accepted", false)), "absorb must apply exactly one accepted Guardian Enhancement result")
+	_expect(str(result.get("trigger_source", "")) == "absorb", "absorb result must identify its source without a parallel reward UI")
+	_expect(str(result.get("trigger_source_label", "")).strip_edges() != "", "absorb result must carry localized source copy")
+	_expect(bool(runtime.is_guardian_enhance_cutin_active()), "absorb must reuse the compact Guardian Enhancement panel")
+
+
+func _open_main_egg_choice(runtime: Object, owner: FakeOwner, registry: FakeRegistry) -> void:
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)),
+		"fixture must activate the current one-slot guardian before opening another egg"
+	)
 	var spawn_result: Dictionary = runtime.spawn_plaza_resonance_egg(owner, registry)
-	_expect(bool(spawn_result.get("changed", false)), "full roster should still spawn a plaza resonance egg")
-	_expect(str(owner.lingpet_state) == "egg", "plaza egg purchase at full roster should enter the egg state")
-
+	_expect(bool(spawn_result.get("changed", false)), "one occupied live slot must not block a new resonance egg")
 	owner.ball_active = true
 	owner.ball_serve_origin = "boss"
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	var required_hits := maxi(1, int(owner.lingpet_hatch_required_hits))
-	for hit_index in range(required_hits):
-		_register_hit(runtime, owner, egg_pos, hit_index + 1, registry)
-	# The final counted hit no longer opens the cut-in on the same frame: the
-	# shell-break cinematic (roll / staged cracks / burst hold) runs first while
-	# the modal gate holds battle physics, and only its deferred commit opens
-	# the acquire cut-in.
-	_expect(bool(runtime.is_hatch_break_active()), "the final counted hit should start the shell-break sequence, not the cut-in")
-	_expect(not bool(runtime.is_acquire_cutin_active()), "the acquire cut-in must not open before the shell-break sequence commits")
-	_expect(not bool(runtime.is_overflow_choice_active()), "the overflow choice must stay closed until the deferred hatch commits")
+	# Keep this seal about the real final-hit path, not about random 2-4 hit fixture
+	# timing: arm the production egg state one count below its own rolled threshold.
+	runtime._egg_state.hatch_hits = required_hits - 1
+	runtime._egg_state.hit_cooldown = 0.0
+	runtime._egg_state.ball_was_inside = false
+	_register_hit(runtime, owner, egg_pos, 1, registry)
+	_expect(bool(runtime.is_hatch_break_active()), "final hit should start the shell-break sequence")
 	var pump_guard := 0
 	while bool(runtime.is_hatch_break_active()) and pump_guard < 300:
 		runtime.advance_hatch_break(1.0 / 60.0, owner, registry)
 		pump_guard += 1
-	_expect(not bool(runtime.is_hatch_break_active()), "the shell-break sequence should complete within its time budget")
-	_expect(bool(runtime.is_acquire_cutin_active()), "the shell-break commit should open the acquire cut-in")
-	# The full-roster hatch starts the acquire cut-in with the overflow choice pending;
-	# resolving the cut-in activates the overflow choice.
+	_expect(bool(runtime.is_acquire_cutin_active()), "shell-break commit should open the acquisition cut-in")
 	runtime.dismiss_acquire_cutin()
-
-	_expect(bool(runtime.is_overflow_choice_active()), "a full-roster MAIN-egg hatch should open the overflow-replace choice")
-	_expect((owner.lingpet_owned_pet_ids as Array).size() == 3, "the main-egg overflow hatch must not exceed the 3-pet cap before the player chooses")
-	var snapshot: Dictionary = runtime.get_overflow_choice_snapshot()
-	var pending_pet := str(snapshot.get("pending_pet_id", ""))
-	_expect(pending_pet != "", "the overflow choice should carry the newly hatched pending pet")
-	_expect(not (owner.lingpet_owned_pet_ids as Array).has(pending_pet), "the pending pet must not be owned before the choice commits")
-
-	_expect(bool(runtime.commit_overflow_replace(0, owner, registry)), "committing a main-egg overflow replace should succeed")
-	_expect(not bool(runtime.is_overflow_choice_active()), "committing the replace should close the overflow choice")
-	_expect((owner.lingpet_owned_pet_ids as Array).size() == 3, "after the replace the roster should still hold exactly 3 pets")
-	_expect((owner.lingpet_owned_pet_ids as Array).has(pending_pet), "the replaced-in pet should now be owned")
+	_expect(bool(runtime.is_overflow_choice_active()), "additional hatch should open Replace / Absorb choice")
 
 
 func _register_hit(runtime: Object, owner: FakeOwner, egg_pos: Vector2, index: int, registry: Object = null) -> void:
