@@ -325,3 +325,20 @@ No text, no characters, no scene, no watermark. Background exactly flat
 - ⑧ 재채점 게이트: 업그레이드 후 정지 프레임 재채점 — 연출 화면 8/10·모달
   크롬 7/10 미달 시 §10.1 알파/스팬·§10.2 장식 밀도부터 재조정 (기물 추가로
   채우지 말 것).
+
+### 10.4 실행 종결 (2026-07-29 Codex)
+
+- 구현 착지: `169f428ae12b6bb1333eebfddd2fcc47e6ff30b0`.
+  `cold_boot_altar_backplate.png` 원본/후처리/임포트, prewarm 키,
+  화로 전 520px 정적 드로, B0/B1 `0.22` → B2 이후 `0.32` 알파 2단,
+  텍스처 부재 동심원 폴백을 함께 랜딩했다. 회전·트윈·스케일 펄스는 없다.
+- 헤딩은 실측 타이틀 폭 기반 좌우 3세그먼트 괘선, 절차 낙관, 단일 그림자를
+  `+11` 드로 콜로 추가했다. 7언어 x 8개 실제 제목 변형의 기하 비중첩과
+  4페이즈 x 7언어 실렌더를 fail-closed 하니스에 편입했다.
+- 검증: 관련 스모크 8종 GREEN, repo-local headless load PASS, touched GDScript
+  경고 스캔 PASS. 전수 경고 스캔은 외래 Guardian Spirit WIP 테스트의 제거된
+  링펫 상수 참조에서 중단되어 이번 경로와 분리 보고한다.
+- 픽셀 QA 50장과 요약은
+  `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_7613709_21328_79789b7ed94c/`,
+  repo 비교판은 `images/perk_fusion_hwangyeok_jumul_reskin/qa/premium_upgrade_*.png`.
+  재채점은 **연출 화면 8/10·모달 크롬 7/10**으로 목표 게이트를 충족했다.
