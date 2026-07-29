@@ -339,6 +339,6 @@ No text, no characters, no scene, no watermark. Background exactly flat
   경고 스캔 PASS. 전수 경고 스캔은 외래 Guardian Spirit WIP 테스트의 제거된
   링펫 상수 참조에서 중단되어 이번 경로와 분리 보고한다.
 - 픽셀 QA 50장과 요약은
-  `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_7613709_21328_79789b7ed94c/`,
+  `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_8366653_30388_bd91f9f02fa8/`,
   repo 비교판은 `images/perk_fusion_hwangyeok_jumul_reskin/qa/premium_upgrade_*.png`.
   재채점은 **연출 화면 8/10·모달 크롬 7/10**으로 목표 게이트를 충족했다.
