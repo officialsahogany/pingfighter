@@ -3,6 +3,9 @@ extends SceneTree
 const GuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
 )
+const GuardianEnhanceOfferEngine := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
+)
 
 var _failures := 0
 var _valid_by_type: Dictionary = {}
@@ -15,6 +18,7 @@ func _init() -> void:
 	_verify_seeded_roll_is_deterministic_and_modal_free()
 	_verify_injected_failure_rerolls_remaining_pool()
 	_verify_all_invalid_uses_uncapped_duration_fallback()
+	_verify_result_copy_has_all_seven_languages()
 	if _failures == 0:
 		print("guardian_enhance_choice_revalidate_smoke: ok")
 	quit(_failures)
@@ -62,6 +66,8 @@ func _verify_injected_failure_rerolls_remaining_pool() -> void:
 	_expect(bool(result.get("rerolled", false)), "invalid first roll must report a reroll")
 	_expect(not bool(result.get("fallback_used", true)), "a valid replacement must prevent fallback")
 	_expect(not bool(result.get("modal_started", true)), "reroll must remain modal-free")
+	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
+	_expect(str(detail.get("reward_type", "")) == str(_apply_trace[0]), "presentation payload must describe the final rerolled apply result, not the rejected first roll")
 
 
 func _verify_all_invalid_uses_uncapped_duration_fallback() -> void:
@@ -80,6 +86,13 @@ func _verify_all_invalid_uses_uncapped_duration_fallback() -> void:
 	_expect(bool(result.get("fallback_used", false)), "all-invalid chain must identify the fallback path")
 	_expect(bool(result.get("accepted", false)), "guaranteed fallback must preserve the perk reward")
 	_expect(not bool(result.get("modal_started", true)), "fallback path must remain modal-free")
+
+
+func _verify_result_copy_has_all_seven_languages() -> void:
+	for language in ["ko", "en", "zh", "ja", "es", "pt-BR", "ru"]:
+		var copy := GuardianEnhanceOfferEngine.get_result_copy_for_language_for_tests(language)
+		for key in ["result_level", "result_unlock", "result_amount", "result_acquired", "result_fallback", "unit_seconds"]:
+			_expect(str(copy.get(key, "")).strip_edges() != "", "%s result copy must define %s" % [language, key])
 
 
 func _candidates() -> Array:
@@ -105,7 +118,16 @@ func _can_apply(candidate: Dictionary) -> bool:
 func _apply(candidate: Dictionary) -> Dictionary:
 	var reward_type := str(candidate.get("type", ""))
 	_apply_trace.append(reward_type)
-	return {"accepted": true, "type": reward_type}
+	return {
+		"accepted": true,
+		"type": reward_type,
+		"result_detail": {
+			"kind": "stat",
+			"reward_type": reward_type,
+			"stat_amount": 5.0,
+			"stat_unit": "points",
+		},
+	}
 
 
 func _fallback() -> Dictionary:
@@ -115,6 +137,12 @@ func _fallback() -> Dictionary:
 		"type": "duration_current_restore",
 		"amount": 15.0,
 		"pool_max_changed": false,
+		"result_detail": {
+			"kind": "stat",
+			"reward_type": "duration_fallback",
+			"stat_amount": 15.0,
+			"stat_unit": "seconds",
+		},
 	}
 
 

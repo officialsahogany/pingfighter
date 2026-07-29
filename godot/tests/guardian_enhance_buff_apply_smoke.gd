@@ -5,6 +5,9 @@ const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd
 const LingpetEnhancementBuffStore := preload(
 	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
 )
+const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetDurationState := preload("res://scripts/lingpet/lingpet_duration_state.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkChoiceDispatch := preload(
 	"res://scripts/characters/runtime_perk_choice_dispatch.gd"
@@ -20,6 +23,7 @@ func _init() -> void:
 	_verify_live_dispatch_and_unique_owner()
 	_verify_duration_owner_pet_switch_refill_and_cap()
 	_verify_per_pet_buff_isolation_and_uncapped_fallback()
+	_verify_unlock_payload_identifies_the_final_skill()
 	if _failures.is_empty():
 		print("guardian_enhance_buff_apply_smoke: ok")
 		quit(0)
@@ -120,6 +124,13 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	var maribo_counts: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("maribo")
 	_expect(int(maribo_counts.get("active_skill_bonus", 0)) == 1, "owner snapshot must match the applied target-pet buff")
 	_expect((applied.get("reward_counts", {}) as Dictionary) == maribo_counts, "apply result and buff-store owner snapshot must be identical")
+	var level_detail: Dictionary = applied.get("result_detail", {}) as Dictionary
+	_expect(str(level_detail.get("kind", "")) == "skill_level", "live skill +1 result must expose a level-up detail payload")
+	_expect(str(level_detail.get("skill_id", "")) != "", "live skill +1 result must identify its final target skill")
+	_expect(str(level_detail.get("skill_display_name", "")) != "", "live skill +1 result must expose the target display name")
+	_expect(int(level_detail.get("new_level", 0)) == int(level_detail.get("previous_level", 0)) + 1, "live skill +1 result must expose the exact previous-to-new level transition")
+	var icon_path := str(level_detail.get("icon_texture_path", ""))
+	_expect(icon_path != "" and FileAccess.file_exists(icon_path), "live skill +1 result icon must resolve to an existing catalog asset")
 	var lunabi_counts: Dictionary = runtime.get_guardian_enhancement_rewards_for_tests("lunabi")
 	_expect(int(lunabi_counts.get("active_skill_bonus", 0)) == 0, "per-pet enhancement must not leak to another guardian")
 	runtime.complete_guardian_enhance_roll(applied, "maribo")
@@ -131,6 +142,60 @@ func _verify_per_pet_buff_isolation_and_uncapped_fallback() -> void:
 	_expect(not bool(fallback.get("pool_max_changed", true)), "fallback result must explicitly report max preservation")
 	var run_state: Dictionary = (runtime.get("_guardian_run_state") as Object).export_run_state()
 	_expect_float(float(run_state.get("duration_pool", 0.0)), 75.0, "uncapped fallback current must survive owner export")
+	var fallback_detail: Dictionary = fallback.get("result_detail", {}) as Dictionary
+	_expect_float(float(fallback_detail.get("stat_amount", 0.0)), LingpetDurationState.REVALIDATION_FALLBACK_SECONDS, "fallback detail must read the +15 amount from the duration owner constant")
+
+	var defense_detail: Dictionary = _build_result_detail_for_candidate(runtime, owner, fixture.registry, {
+		"type": LingpetEnhancementBuffStore.REWARD_TYPE_DEFENSE,
+	})
+	_expect_float(float(defense_detail.get("stat_amount", 0.0)), LingpetCurrentProfile.ENHANCEMENT_PATROL_DEFENSE_BONUS * 100.0, "defense result amount must track the live profile constant")
+	_cleanup_runtime(runtime)
+
+
+func _build_result_detail_for_candidate(
+	runtime: Object,
+	owner: Object,
+	registry: Object,
+	candidate: Dictionary
+) -> Dictionary:
+	var result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		candidate,
+		owner,
+		registry,
+		"maribo"
+	)
+	_expect(bool(result.get("accepted", false)), "result-detail fixture candidate must apply")
+	return result.get("result_detail", {}) as Dictionary
+
+
+func _verify_unlock_payload_identifies_the_final_skill() -> void:
+	var fixture := _make_runtime_fixture()
+	var runtime: Object = fixture.runtime
+	var owner: Object = fixture.owner
+	var empty_loadout := LingpetCatalog.build_empty_loadout("maribo")
+	var empty_by_pet := {"maribo": empty_loadout}
+	for key in ["lingpet_loadouts", "ringpet_loadouts", "owned_lingpet_loadouts", "owned_ringpet_loadouts"]:
+		owner.set(key, empty_by_pet.duplicate(true))
+	var loadout_state: Object = runtime.get("_loadout_state") as Object
+	loadout_state.set_loadouts(empty_by_pet)
+	loadout_state.invalidate_runtime_cache()
+	loadout_state.set_skip_unlock_reconcile(false)
+	var run_state: Object = runtime.get("_guardian_run_state") as Object
+	run_state.configure_reward_context("maribo", "patrol", 1, 1, 0, false, "", "")
+	var result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK},
+		owner,
+		fixture.registry,
+		"maribo"
+	)
+	_expect(bool(result.get("accepted", false)), "empty active channel must accept its unlock enhancement")
+	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
+	_expect(str(detail.get("kind", "")) == "skill_unlock", "unlock result must carry the unlock presentation kind")
+	_expect(str(detail.get("skill_id", "")) != "", "unlock result must identify the skill selected by final reconciliation")
+	_expect(str(detail.get("skill_display_name", "")) != "", "unlock result must carry the selected skill display name")
+	_expect(int(detail.get("previous_level", -1)) == 0 and int(detail.get("new_level", 0)) >= 1, "unlock result must expose the 0-to-unlocked level transition")
+	var icon_path := str(detail.get("icon_texture_path", ""))
+	_expect(icon_path != "" and FileAccess.file_exists(icon_path), "unlock result must carry an existing selected-skill icon")
 	_cleanup_runtime(runtime)
 
 

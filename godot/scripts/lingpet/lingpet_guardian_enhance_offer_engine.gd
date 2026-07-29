@@ -24,6 +24,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "등장률 증가",
 		"second_active_unlock": "액티브 스킬 추가 해금",
 		"second_passive_unlock": "패시브 스킬 추가 해금",
+		"result_level": "{name} Lv.{before} → Lv.{after}",
+		"result_unlock": "{name} 해금",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "{label} 획득",
+		"result_fallback": "모든 후보가 무효가 되어 지속시간 현재치 +15초로 대체되었습니다.",
+		"unit_seconds": "초",
+		"unit_points": "",
 	},
 	"en": {
 		"name": "Guardian Enhancement",
@@ -37,6 +44,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "Appearance Rate Up",
 		"second_active_unlock": "Unlock Extra Active Skill",
 		"second_passive_unlock": "Unlock Extra Passive Skill",
+		"result_level": "{name} Lv.{before} → Lv.{after}",
+		"result_unlock": "Unlocked {name}",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "Gained {label}",
+		"result_fallback": "All candidates became invalid. Restored +15 sec to the current duration.",
+		"unit_seconds": " sec",
+		"unit_points": "",
 	},
 	"zh": {
 		"name": "守护灵强化",
@@ -50,6 +64,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "出现率提升",
 		"second_active_unlock": "解锁额外主动技能",
 		"second_passive_unlock": "解锁额外被动技能",
+		"result_level": "{name} Lv.{before} → Lv.{after}",
+		"result_unlock": "解锁{name}",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "获得{label}",
+		"result_fallback": "所有候选均已失效，当前持续时间恢复+15秒。",
+		"unit_seconds": "秒",
+		"unit_points": "",
 	},
 	"ja": {
 		"name": "守護霊強化",
@@ -63,6 +84,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "出現率上昇",
 		"second_active_unlock": "追加アクティブスキル解放",
 		"second_passive_unlock": "追加パッシブスキル解放",
+		"result_level": "{name} Lv.{before} → Lv.{after}",
+		"result_unlock": "{name} 解放",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "{label} 獲得",
+		"result_fallback": "すべての候補が無効になったため、現在の持続時間を+15秒回復しました。",
+		"unit_seconds": "秒",
+		"unit_points": "",
 	},
 	"es": {
 		"name": "Mejora del Guardián",
@@ -76,6 +104,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "Frecuencia de aparición aumentada",
 		"second_active_unlock": "Desbloquear activa adicional",
 		"second_passive_unlock": "Desbloquear pasiva adicional",
+		"result_level": "{name} Nv.{before} → Nv.{after}",
+		"result_unlock": "{name} desbloqueada",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "Obtuviste {label}",
+		"result_fallback": "Todos los candidatos quedaron inválidos. Se restauraron +15 s a la duración actual.",
+		"unit_seconds": " s",
+		"unit_points": "",
 	},
 	"pt-BR": {
 		"name": "Aprimoramento do Guardião",
@@ -89,6 +124,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "Taxa de aparição aumentada",
 		"second_active_unlock": "Desbloquear ativa adicional",
 		"second_passive_unlock": "Desbloquear passiva adicional",
+		"result_level": "{name} Nv.{before} → Nv.{after}",
+		"result_unlock": "{name} desbloqueada",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "Obteve {label}",
+		"result_fallback": "Todos os candidatos ficaram inválidos. A duração atual recebeu +15 s.",
+		"unit_seconds": " s",
+		"unit_points": "",
 	},
 	"ru": {
 		"name": "Усиление хранителя",
@@ -102,6 +144,13 @@ const _COPY_BY_LANGUAGE := {
 		"mobility_flight": "Повышение частоты появления",
 		"second_active_unlock": "Открыть доп. активный навык",
 		"second_passive_unlock": "Открыть доп. пассивный навык",
+		"result_level": "{name} Ур.{before} → Ур.{after}",
+		"result_unlock": "Открыто: {name}",
+		"result_amount": "{label} +{amount}{unit}",
+		"result_acquired": "Получено: {label}",
+		"result_fallback": "Все варианты стали недоступны. Текущая длительность восстановлена на +15 сек.",
+		"unit_seconds": " сек.",
+		"unit_points": "",
 	},
 }
 
@@ -200,6 +249,44 @@ static func localize_candidate(candidate: Dictionary) -> Dictionary:
 	return result
 
 
+static func format_result_feedback(
+	candidate: Dictionary,
+	detail: Dictionary,
+	fallback_used: bool = false
+) -> String:
+	var copy := _get_copy()
+	if fallback_used:
+		return str(copy.get("result_fallback", "Duration +15 sec"))
+	var localized := localize_candidate(candidate)
+	var label := str(localized.get("label", copy.get("name", "Guardian Enhancement")))
+	var kind := str(detail.get("kind", ""))
+	var skill_name := str(detail.get("skill_display_name", "")).strip_edges()
+	if kind == "skill_level" and skill_name != "":
+		return str(copy.get("result_level", "{name} Lv.{before} → Lv.{after}")).format({
+			"name": skill_name,
+			"before": int(detail.get("previous_level", 0)),
+			"after": int(detail.get("new_level", 0)),
+		})
+	if kind == "skill_unlock" and skill_name != "":
+		return str(copy.get("result_unlock", "Unlocked {name}")).format({"name": skill_name})
+	if kind == "stat" and float(detail.get("stat_amount", 0.0)) > 0.0:
+		return str(copy.get("result_amount", "{label} +{amount}{unit}")).format({
+			"label": label,
+			"amount": _format_amount(float(detail.get("stat_amount", 0.0))),
+			"unit": _result_unit(str(detail.get("stat_unit", "")), copy),
+		})
+	return str(copy.get("result_acquired", "Gained {label}")).format({"label": label})
+
+
+static func get_result_copy_for_tests() -> Dictionary:
+	return _get_copy()
+
+
+static func get_result_copy_for_language_for_tests(language: String) -> Dictionary:
+	var value: Variant = _COPY_BY_LANGUAGE.get(language, {})
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
 static func _localize_candidates(candidates: Array[Dictionary]) -> Array[Dictionary]:
 	var localized: Array[Dictionary] = []
 	for candidate in candidates:
@@ -211,6 +298,21 @@ static func _get_copy() -> Dictionary:
 	var language := LanguageSettings.get_language()
 	var value: Variant = _COPY_BY_LANGUAGE.get(language, _COPY_BY_LANGUAGE["en"])
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+static func _format_amount(value: float) -> String:
+	return str(int(round(value))) if is_equal_approx(value, round(value)) else "%.1f" % value
+
+
+static func _result_unit(unit: String, copy: Dictionary) -> String:
+	match unit:
+		"percent":
+			return "%"
+		"seconds":
+			return str(copy.get("unit_seconds", " sec"))
+		"points":
+			return str(copy.get("unit_points", ""))
+	return ""
 
 
 static func _blocked(reason: String, candidates: Array[Dictionary] = []) -> Dictionary:

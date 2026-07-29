@@ -23,11 +23,17 @@ const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lin
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
+const LingpetEnhancementBuffStore := preload(
+	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
+)
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
 const LingpetGuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
+)
+const LingpetGuardianEnhanceResultDetail := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_result_detail.gd"
 )
 const LingpetGuardianEnhanceCutinState := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd"
@@ -618,6 +624,8 @@ func apply_guardian_enhancement_candidate(
 	var target_pet_id := pet_id.strip_edges().to_lower()
 	if target_pet_id == "":
 		target_pet_id = _resolve_guardian_enhance_pet_id(owner)
+	var before_pet_data: Dictionary = _guardian_run_state.get_pet_data(target_pet_id)
+	var before_loadout: Dictionary = _loadout_state.get_stored_loadout(target_pet_id)
 	var skill_availability: Dictionary = (
 		_guardian_run_state.get_guardian_enhancement_skill_availability(target_pet_id)
 	)
@@ -637,6 +645,25 @@ func apply_guardian_enhancement_candidate(
 			_guardian_run_state,
 			_snapshot_builder
 		)
+		if str(candidate.get("type", "")) in [
+			LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK,
+			LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK,
+			LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
+			LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
+		]:
+			_apply_current_loadout(owner, true, false, registry)
+		var after_pet_data: Dictionary = _guardian_run_state.get_pet_data(target_pet_id)
+		var after_loadout: Dictionary = _loadout_state.get_stored_loadout(target_pet_id)
+		var detail := LingpetGuardianEnhanceResultDetail.build(
+			candidate,
+			target_pet_id,
+			before_pet_data,
+			after_pet_data,
+			before_loadout,
+			after_loadout
+		)
+		result["result_detail"] = detail
+		_copy_guardian_enhance_detail_fields(result, detail)
 		_invalidate_runtime_snapshot_cache()
 		_sync_owner(owner, registry)
 	return result
@@ -648,9 +675,26 @@ func apply_guardian_enhance_duration_fallback(
 ) -> Dictionary:
 	var result: Dictionary = _guardian_run_state.apply_guardian_enhance_duration_fallback()
 	if bool(result.get("accepted", false)):
+		var detail := LingpetGuardianEnhanceResultDetail.build_fallback()
+		result["result_detail"] = detail
+		_copy_guardian_enhance_detail_fields(result, detail)
 		_invalidate_runtime_snapshot_cache()
 		_sync_owner(owner, registry)
 	return result
+
+
+static func _copy_guardian_enhance_detail_fields(result: Dictionary, detail: Dictionary) -> void:
+	for key in [
+		"skill_id",
+		"skill_display_name",
+		"previous_level",
+		"new_level",
+		"icon_texture_path",
+		"stat_amount",
+		"stat_unit",
+	]:
+		if detail.has(key):
+			result[key] = detail.get(key)
 
 
 func complete_guardian_enhance_roll(

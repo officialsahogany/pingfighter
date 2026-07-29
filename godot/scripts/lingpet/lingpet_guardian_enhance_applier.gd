@@ -62,7 +62,8 @@ static func resolve_random_roll(
 			"fallback_used": false,
 			"roll_order": roll_order.duplicate(),
 			"rejected_indices": rejected_indices.duplicate(),
-			"feedback_text": _build_feedback(candidate, false),
+			"feedback_text": _build_feedback(candidate, false, apply_result),
+			"result_detail": (apply_result.get("result_detail", {}) as Dictionary).duplicate(true),
 			"apply_result": apply_result,
 		}
 	var fallback_result := _call_result(apply_fallback, [])
@@ -75,7 +76,8 @@ static func resolve_random_roll(
 		"fallback_used": true,
 		"roll_order": roll_order.duplicate(),
 		"rejected_indices": rejected_indices.duplicate(),
-		"feedback_text": _build_feedback({}, true),
+		"feedback_text": _build_feedback({}, true, fallback_result),
+		"result_detail": (fallback_result.get("result_detail", {}) as Dictionary).duplicate(true),
 		"apply_result": fallback_result,
 	}
 
@@ -103,12 +105,16 @@ static func _candidate_weight(candidate: Dictionary) -> float:
 	)))
 
 
-static func _build_feedback(candidate: Dictionary, fallback_used: bool) -> String:
-	if fallback_used:
-		return "모든 후보가 무효가 되어 지속시간 현재치 +15초로 대체되었습니다."
-	var localized := LingpetGuardianEnhanceOfferEngine.localize_candidate(candidate)
-	var label := str(localized.get("label", "수호령강화"))
-	return "%s 획득" % label
+static func _build_feedback(
+	candidate: Dictionary,
+	fallback_used: bool,
+	apply_result: Dictionary = {}
+) -> String:
+	return LingpetGuardianEnhanceOfferEngine.format_result_feedback(
+		candidate,
+		apply_result.get("result_detail", {}) as Dictionary,
+		fallback_used
+	)
 
 
 static func _call_result(callback: Callable, args: Array) -> Dictionary:

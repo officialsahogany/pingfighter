@@ -256,6 +256,7 @@ func apply_guardian_enhancement(
 		_dirty = _dirty or bool(duration_result.get("accepted", false))
 		return duration_result
 	var pet_data := _get_or_create_pet_data(normalized_pet_id)
+	var previous_counts := LingpetEnhancementBuffStore.reward_counts_snapshot(pet_data)
 	var result: Dictionary = LingpetEnhancementBuffStore.apply_guardian_enhancement_to_pet(
 		pet_data,
 		candidate,
@@ -263,6 +264,7 @@ func apply_guardian_enhancement(
 		has_second_passive_skill
 	)
 	if bool(result.get("accepted", false)):
+		result["previous_reward_counts"] = previous_counts
 		_mark_enhancement_earned_unlock(pet_data, str(candidate.get("type", "")))
 		_pets[normalized_pet_id] = pet_data
 		_dirty = true
