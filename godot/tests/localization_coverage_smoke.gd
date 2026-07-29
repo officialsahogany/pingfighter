@@ -21,10 +21,6 @@ const ACTIVE_ITEM_EXTRAS := [
 	"emmental_cheese",
 ]
 const LEGACY_DISABLED_ACTIVE_ITEM_IDS := [
-	"lingpet_feed",
-	"lingpet_apple_feed",
-	"lingpet_melon_feed",
-	"lingpet_special_feed",
 ]
 var _failures: Array[String] = []
 var _language_settings_snapshot: Dictionary = {}

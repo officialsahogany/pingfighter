@@ -125,11 +125,11 @@ const COMMON_PASSIVE_SKILL_POOL := [
 	},
 	{
 		"id": "lingpet_light_eater",
-		"name": "소식 체질",
-		"description": "포만도 소모 속도가 느려집니다.",
+		"name": "오래 머무는 숨결",
+		"description": "수호령 소환 중 지속시간 소모 속도가 느려집니다.",
 		"icon_texture_path": "res://assets/sprites/lingpet/lingpet_light_eater_passive_icon.png",
-		"category": "포만도 효율",
-		"satiety_drain_reduction_pct_by_level": [10.0, 17.0, 24.0, 31.0, 38.0],
+		"category": "지속시간 효율",
+		"duration_drain_reduction_pct_by_level": [10.0, 17.0, 24.0, 31.0, 38.0],
 	},
 ]
 

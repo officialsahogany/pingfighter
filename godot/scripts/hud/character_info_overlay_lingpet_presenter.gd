@@ -45,9 +45,7 @@ const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"rahoset": 1.0 / 16.0,
 }
 const DURATION_BAND_HEIGHT := 28.0
-const SATIETY_METER_HEIGHT := 8.0
-const SATIETY_WARNING_THRESHOLD := 50
-const SATIETY_CRITICAL_THRESHOLD := 20
+const DURATION_METER_HEIGHT := 8.0
 const UNLOCK_CHOICE_BAND_MIN_HEIGHT := 54.0
 const UNLOCK_CHOICE_BAND_MAX_HEIGHT := 76.0
 
@@ -380,18 +378,12 @@ static func merge_runtime_display_snapshot(panel_snapshot: Dictionary, runtime_s
 	return CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot(panel_snapshot, runtime_snapshot)
 
 
-static func merge_runtime_satiety_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
-	# Transitional compatibility alias retained through the §9-4 deletion slice.
-	return merge_runtime_display_snapshot(panel_snapshot, runtime_snapshot)
-
-
-static func get_satiety_strip_state(snapshot: Dictionary) -> Dictionary:
-	# Transitional API name; strip state comes from the shared duration pool.
+static func get_duration_strip_state(snapshot: Dictionary) -> Dictionary:
 	return CharacterInfoOverlayLingpetVitalityProjection.get_strip_state(snapshot)
 
 
-static func get_satiety_strip_layout_for_tests(font: Font, rect: Rect2, snapshot: Dictionary, ui_text_scale: float) -> Dictionary:
-	return _get_satiety_strip_layout(font, rect, get_satiety_strip_state(snapshot), ui_text_scale)
+static func get_duration_strip_layout_for_tests(font: Font, rect: Rect2, snapshot: Dictionary, ui_text_scale: float) -> Dictionary:
+	return _get_duration_strip_layout(font, rect, get_duration_strip_state(snapshot), ui_text_scale)
 
 
 static func lingpet_progress_meter_width(rect: Rect2) -> float:
@@ -399,20 +391,20 @@ static func lingpet_progress_meter_width(rect: Rect2) -> float:
 	return clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 
 
-static func _get_satiety_strip_layout(font: Font, rect: Rect2, satiety_state: Dictionary, ui_text_scale: float) -> Dictionary:
-	if not bool(satiety_state.get("visible", false)):
+static func _get_duration_strip_layout(font: Font, rect: Rect2, duration_state: Dictionary, ui_text_scale: float) -> Dictionary:
+	if not bool(duration_state.get("visible", false)):
 		return {}
-	var label_text := str(satiety_state.get("label", ""))
+	var label_text := str(duration_state.get("label", ""))
 	var strip_y: float = rect.position.y + 4.0
 	var baseline_y: float = strip_y + 8.0
 	var meter_w: float = lingpet_progress_meter_width(rect)
-	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
+	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, DURATION_METER_HEIGHT)
 	var annot_x: float = meter_rect.end.x + 8.0
 	var label_w: float = _text_size(font, label_text, 9, ui_text_scale).x
-	var label_rect := Rect2(annot_x, strip_y - 1.0, label_w, SATIETY_METER_HEIGHT + 3.0)
+	var label_rect := Rect2(annot_x, strip_y - 1.0, label_w, DURATION_METER_HEIGHT + 3.0)
 	var value_x: float = label_rect.end.x + 5.0 * ui_text_scale
 	var value_w: float = maxf(10.0, rect.end.x - value_x)
-	var value_rect := Rect2(value_x, strip_y - 1.0, value_w, SATIETY_METER_HEIGHT + 3.0)
+	var value_rect := Rect2(value_x, strip_y - 1.0, value_w, DURATION_METER_HEIGHT + 3.0)
 	return {
 		"label_rect": label_rect,
 		"meter_rect": meter_rect,
@@ -421,8 +413,8 @@ static func _get_satiety_strip_layout(font: Font, rect: Rect2, satiety_state: Di
 	}
 
 
-static func _satiety_strip_color(satiety_state: Dictionary, stat_buff_color: Color) -> Color:
-	match str(satiety_state.get("color_key", "normal")):
+static func _duration_strip_color(duration_state: Dictionary, stat_buff_color: Color) -> Color:
+	match str(duration_state.get("color_key", "normal")):
 		"critical":
 			return Color(1.0, 64.0 / 255.0, 82.0 / 255.0, 0.94)
 		"warning":
@@ -430,7 +422,7 @@ static func _satiety_strip_color(satiety_state: Dictionary, stat_buff_color: Col
 	return Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88)
 
 
-static func satiety_bar_hover_rect(rect: Rect2) -> Rect2:
+static func duration_bar_hover_rect(rect: Rect2) -> Rect2:
 	return rect
 
 
@@ -445,35 +437,32 @@ static func draw_duration_status(
 	mouse_pos: Vector2 = Vector2.INF,
 	hover_data: Dictionary = {}
 ) -> Dictionary:
-	var satiety_state := get_satiety_strip_state(snapshot)
-	var satiety_layout := _get_satiety_strip_layout(font, rect, satiety_state, ui_text_scale)
-	if not satiety_layout.is_empty():
-		var satiety_color := _satiety_strip_color(satiety_state, stat_buff_color)
-		var satiety_meter_rect: Rect2 = satiety_layout.get("meter_rect", Rect2())
-		var satiety_progress := clampf(float(satiety_state.get("pct", 0)) / 100.0, 0.0, 1.0)
-		var exhaustion_ratio := clampf(float(satiety_state.get("ratio", 0.0)), 0.0, 1.0)
-		canvas.draw_rect(satiety_meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
-		canvas.draw_rect(Rect2(satiety_meter_rect.position, Vector2(satiety_meter_rect.size.x * satiety_progress, satiety_meter_rect.size.y)), satiety_color)
-		if exhaustion_ratio > 0.0:
-			canvas.draw_rect(satiety_meter_rect.grow(1.0), Color(1.0, 64.0 / 255.0, 82.0 / 255.0, 0.18 + 0.20 * exhaustion_ratio), false, 1.0)
-		canvas.draw_rect(satiety_meter_rect, satiety_color, false, 1.0)
-		var label_rect: Rect2 = satiety_layout.get("label_rect", Rect2())
-		var value_rect: Rect2 = satiety_layout.get("value_rect", Rect2())
-		var baseline_y: float = float(satiety_layout.get("baseline_y", satiety_meter_rect.end.y))
+	var duration_state := get_duration_strip_state(snapshot)
+	var duration_layout := _get_duration_strip_layout(font, rect, duration_state, ui_text_scale)
+	if not duration_layout.is_empty():
+		var duration_color := _duration_strip_color(duration_state, stat_buff_color)
+		var duration_meter_rect: Rect2 = duration_layout.get("meter_rect", Rect2())
+		var duration_progress := clampf(float(duration_state.get("pct", 0)) / 100.0, 0.0, 1.0)
+		canvas.draw_rect(duration_meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
+		canvas.draw_rect(Rect2(duration_meter_rect.position, Vector2(duration_meter_rect.size.x * duration_progress, duration_meter_rect.size.y)), duration_color)
+		canvas.draw_rect(duration_meter_rect, duration_color, false, 1.0)
+		var label_rect: Rect2 = duration_layout.get("label_rect", Rect2())
+		var value_rect: Rect2 = duration_layout.get("value_rect", Rect2())
+		var baseline_y: float = float(duration_layout.get("baseline_y", duration_meter_rect.end.y))
 		if label_rect.size.x > 1.0:
-			_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("label", "")), 9, label_rect.size.x, ui_text_scale), label_rect.position.x, baseline_y, 9, empty_text_color, ui_text_scale)
-		_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("value", "")), 9, value_rect.size.x, ui_text_scale), value_rect.position.x, baseline_y, 9, satiety_color, ui_text_scale)
+			_draw_text_xy(canvas, font, _fit_text_to_width(font, str(duration_state.get("label", "")), 9, label_rect.size.x, ui_text_scale), label_rect.position.x, baseline_y, 9, empty_text_color, ui_text_scale)
+		_draw_text_xy(canvas, font, _fit_text_to_width(font, str(duration_state.get("value", "")), 9, value_rect.size.x, ui_text_scale), value_rect.position.x, baseline_y, 9, duration_color, ui_text_scale)
 
-	if not satiety_layout.is_empty():
-		var satiety_hover_rect := satiety_bar_hover_rect(rect)
-		if satiety_hover_rect.has_point(mouse_pos):
+	if not duration_layout.is_empty():
+		var duration_hover_rect := duration_bar_hover_rect(rect)
+		if duration_hover_rect.has_point(mouse_pos):
 			_fill_hover_data(
 				hover_data,
 				LanguageSettings.translate_text("지속시간"),
-				str(satiety_state.get("value", "")),
+				str(duration_state.get("value", "")),
 				LanguageSettings.translate_text("수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다."),
-				_satiety_strip_color(satiety_state, stat_buff_color),
-				satiety_hover_rect
+				_duration_strip_color(duration_state, stat_buff_color),
+				duration_hover_rect
 			)
 	return hover_data
 

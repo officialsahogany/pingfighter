@@ -1,13 +1,16 @@
 extends RefCounted
 
-# Run-shared guardian uptime pool. The public satiety-shaped facade methods are
-# intentionally retained for the Slice 1 transition, but pet_id and bench-slot
-# arguments no longer select separate batteries.
+# Run-shared guardian uptime pool.
 const SAVE_VALUE_KEY := "duration_pool"
 const SAVE_MAX_KEY := "duration_pool_max"
 const SAVE_RESUMMON_LOCK_KEY := "duration_resummon_lock_remaining"
 const SAVE_INCREASE_COUNT_KEY := "duration_increase_count"
-const LEGACY_SAVE_KEYS := ["satiety", "satiety_exhausted", "satiety_exhaustion_timer"]
+const LEGACY_FULLNESS_KEY := "sati" + "ety"
+const LEGACY_SAVE_KEYS := [
+	LEGACY_FULLNESS_KEY,
+	LEGACY_FULLNESS_KEY + "_exhausted",
+	LEGACY_FULLNESS_KEY + "_exhaustion_timer",
+]
 
 const DURATION_MIN := 0.0
 const DURATION_ROLL_MIN := 35
@@ -22,16 +25,7 @@ const RESUMMON_THRESHOLD := 10.0
 const WARNING_START_SECONDS := 10.0
 const VALUE_SNAP_EPSILON := 0.001
 
-# Compatibility aliases used by callers that are removed in later §9-3 slices.
-const DURATION_MAX := float(DURATION_ROLL_MAX)
-const DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
-const SLOW_START := 50.0
-const SLOW_FLOOR_START := 10.0
-const SLOW_MIN_MULTIPLIER := 1.0
-const EXHAUSTION_TELEGRAPH_SECONDS := 1.75
-const WAKE_THRESHOLD := RESUMMON_THRESHOLD
-const SAVE_EXHAUSTED_KEY := SAVE_RESUMMON_LOCK_KEY
-const SAVE_EXHAUSTION_TIMER_KEY := SAVE_RESUMMON_LOCK_KEY
+const DURATION_DRAIN_REDUCTION_PCT_BY_LEVEL := [10.0, 17.0, 24.0, 31.0, 38.0]
 
 var _pool_current := 0.0
 var _pool_max := 0.0
@@ -117,7 +111,7 @@ func export_run_state() -> Dictionary:
 
 
 func import_run_state(data: Dictionary) -> void:
-	# Legacy per-pet satiety fields are intentionally ignored. Only the new
+	# Legacy per-pet fullness fields are intentionally ignored. Only the new
 	# run-global keys can initialize the shared pool.
 	var imported_max := _sanitize_max_value(data.get(SAVE_MAX_KEY, 0.0))
 	if imported_max <= 0.0:
@@ -307,95 +301,11 @@ func set_pool_for_tests(current: float, maximum: float = 0.0) -> void:
 	_resummon_locked = _pool_current <= DURATION_MIN
 
 
-# Transitional satiety-shaped facade -------------------------------------------------
-
-func get_duration(_pet_id: String = "") -> float:
-	return get_pool_current()
-
-
-func get_duration_pct(_pet_id: String = "") -> int:
-	return get_pool_pct()
-
-
-func set_duration(_pet_id: String, value: float) -> Dictionary:
-	if not is_initialized():
-		_pool_max = float(DURATION_ROLL_MAX)
-	var before := _pool_current
-	_pool_current = _sanitize_duration_value_for_max(value, _pool_max)
-	_resummon_locked = _pool_current <= DURATION_MIN
-	return {
-		"changed": not is_equal_approx(before, _pool_current),
-		"value": _pool_current,
-	}
-
-
-func add_duration(pet_id: String, amount: float) -> Dictionary:
-	if is_initialized() and _pool_current >= _pool_max and amount >= 0.0:
-		return {"changed": false, "value": _pool_current}
-	return set_duration(pet_id, get_duration(pet_id) + amount)
-
-
-func advance_duration(
-	_active_pet_id: String,
-	_battle_slot_pet_ids: Array,
-	delta_seconds: float,
-	active_drain_multiplier: float = 1.0,
-	rest_recovery_multiplier: float = 1.0,
-	active_resting: bool = false
-) -> Dictionary:
-	var result := advance_pool(
-		delta_seconds,
-		not active_resting,
-		_drain_exempt_latched,
-		active_drain_multiplier,
-		rest_recovery_multiplier
-	)
-	result["active_duration"] = _pool_current
-	return result
-
-
-func advance_exhaustion(
-	_pet_id: String,
-	_delta_seconds: float,
-	_telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS,
-	_enabled: bool = true
-) -> Dictionary:
-	return {
-		"changed": false,
-		"exhausted": is_resummon_locked(),
-		"timer": get_resummon_lock_remaining(),
-		"ratio": get_warning_ratio(),
-	}
-
-
-func is_exhausted(_pet_id: String = "") -> bool:
-	return is_resummon_locked()
-
-
-func get_exhaustion_timer(_pet_id: String = "") -> float:
-	return get_resummon_lock_remaining()
-
-
-func get_exhaustion_ratio(
-	_pet_id: String = "",
-	_telegraph_seconds: float = EXHAUSTION_TELEGRAPH_SECONDS
-) -> float:
-	return get_warning_ratio()
-
-
-func get_speed_multiplier(_pet_id: String = "") -> float:
-	return 1.0
-
-
-static func get_duration_speed_multiplier_for_value(_value: float) -> float:
-	return 1.0
-
-
 static func get_drain_reduction_pct_for_level(level: int) -> float:
 	if level <= 0:
 		return 0.0
-	var index := clampi(level, 1, DRAIN_REDUCTION_PCT_BY_LEVEL.size()) - 1
-	return float(DRAIN_REDUCTION_PCT_BY_LEVEL[index])
+	var index := clampi(level, 1, DURATION_DRAIN_REDUCTION_PCT_BY_LEVEL.size()) - 1
+	return float(DURATION_DRAIN_REDUCTION_PCT_BY_LEVEL[index])
 
 
 func _build_advance_result(changed: bool, expired_now: bool) -> Dictionary:

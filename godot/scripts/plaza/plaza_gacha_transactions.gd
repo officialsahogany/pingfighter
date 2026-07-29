@@ -3,9 +3,7 @@ extends RefCounted
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const PULL_COST := 150
-const EXTRA_GACHA_ACTIVE_ITEM_NAMES := [
-	"lingpet_special_feed",
-]
+const EXTRA_GACHA_ACTIVE_ITEM_NAMES: Array[String] = []
 
 var _catalog: Object = ActiveItemCatalog.new()
 var _rng := RandomNumberGenerator.new()

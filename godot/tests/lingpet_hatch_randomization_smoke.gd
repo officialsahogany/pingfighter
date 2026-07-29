@@ -55,8 +55,8 @@ func _verify_catalog_hatch_skill_roll_distribution() -> void:
 	var light_eater_skill := LingpetCatalog.get_passive_skill("maribo", "lingpet_light_eater", 5)
 	_expect(not light_eater_skill.is_empty(), "light-eater passive should build from the common passive pool")
 	_expect_float(
-		float(light_eater_skill.get("satiety_drain_reduction_pct", 0.0)),
-		LingpetAffinityState.get_satiety_drain_reduction_pct_for_level(5),
+		float(light_eater_skill.get("duration_drain_reduction_pct", 0.0)),
+		38.0,
 		"light-eater passive should materialize the shared Lv.5 drain reduction"
 	)
 

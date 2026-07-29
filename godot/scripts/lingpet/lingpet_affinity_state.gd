@@ -35,16 +35,6 @@ const MAX_DEFENSE_STACKS := LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS
 const MAX_GAUGE_STACKS := LingpetEnhancementBuffStore.MAX_GAUGE_STACKS
 const REWARD_DECK_SEED_MOD := 2147483647
 
-const SATIETY_KEY := LingpetDurationState.SAVE_VALUE_KEY
-const SATIETY_MIN := LingpetDurationState.DURATION_MIN
-const SATIETY_MAX := LingpetDurationState.DURATION_MAX
-const SATIETY_DRAIN_PER_SECOND := LingpetDurationState.DRAIN_PER_SECOND
-const SATIETY_REST_RECOVERY_RATIO := LingpetDurationState.REST_RECOVERY_RATIO
-const SATIETY_DRAIN_REDUCTION_PCT_BY_LEVEL := LingpetDurationState.DRAIN_REDUCTION_PCT_BY_LEVEL
-const SATIETY_EXHAUSTED_KEY := LingpetDurationState.SAVE_EXHAUSTED_KEY
-const SATIETY_EXHAUSTION_TIMER_KEY := LingpetDurationState.SAVE_EXHAUSTION_TIMER_KEY
-const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetDurationState.EXHAUSTION_TELEGRAPH_SECONDS
-
 # Localization coverage still scans this compatibility label map. It describes the
 # enhancement store only; no affinity-level deck consumes it.
 const LABEL_BY_REWARD_TYPE := {
@@ -134,88 +124,6 @@ func clear_dirty() -> void:
 	_dirty = false
 
 
-func get_satiety(pet_id: String) -> float:
-	return _duration_state.get_duration(pet_id)
-
-
-func get_satiety_pct(pet_id: String) -> int:
-	return _duration_state.get_duration_pct(pet_id)
-
-
-func set_satiety(pet_id: String, value: float) -> float:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id.is_empty():
-		return SATIETY_MAX
-	_get_or_create_pet_data(normalized_pet_id)
-	var result: Dictionary = _duration_state.set_duration(normalized_pet_id, value)
-	if bool(result.get("changed", false)):
-		_dirty = true
-	return float(result.get("value", SATIETY_MAX))
-
-
-func add_satiety(pet_id: String, amount: float) -> float:
-	return set_satiety(pet_id, get_satiety(pet_id) + amount)
-
-
-func advance_satiety(
-	active_pet_id: String,
-	battle_slot_pet_ids: Array,
-	delta_seconds: float,
-	active_drain_multiplier: float = 1.0,
-	rest_recovery_multiplier: float = 1.0,
-	active_resting: bool = false
-) -> Dictionary:
-	var result: Dictionary = _duration_state.advance_duration(
-		active_pet_id,
-		battle_slot_pet_ids,
-		delta_seconds,
-		active_drain_multiplier,
-		rest_recovery_multiplier,
-		active_resting
-	)
-	if bool(result.get("changed", false)):
-		_dirty = true
-	var facade_result := result.duplicate(true)
-	facade_result["active_satiety"] = float(result.get("active_duration", SATIETY_MAX))
-	return facade_result
-
-
-func advance_satiety_exhaustion(
-	pet_id: String,
-	delta_seconds: float,
-	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS,
-	enabled: bool = true
-) -> Dictionary:
-	var result: Dictionary = _duration_state.advance_exhaustion(
-		pet_id,
-		delta_seconds,
-		telegraph_seconds,
-		enabled
-	)
-	if bool(result.get("changed", false)):
-		_dirty = true
-	return result
-
-
-func get_satiety_exhaustion_ratio(
-	pet_id: String,
-	telegraph_seconds: float = SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
-) -> float:
-	return _duration_state.get_exhaustion_ratio(pet_id, telegraph_seconds)
-
-
-func is_satiety_exhausted(pet_id: String) -> bool:
-	return _duration_state.is_exhausted(pet_id)
-
-
-func get_satiety_exhaustion_timer(pet_id: String) -> float:
-	return _duration_state.get_exhaustion_timer(pet_id)
-
-
-func get_satiety_speed_multiplier(pet_id: String) -> float:
-	return _duration_state.get_speed_multiplier(pet_id)
-
-
 func ensure_duration_pool_roll(
 	rng: RandomNumberGenerator = null,
 	forced_roll: int = 0
@@ -236,6 +144,24 @@ func get_duration_pool_max() -> float:
 
 func get_duration_pool_pct() -> int:
 	return _duration_state.get_pool_pct()
+
+
+func advance_duration_pool(
+	delta_seconds: float,
+	summoned: bool,
+	active_drain_multiplier: float = 1.0,
+	rest_recovery_multiplier: float = 1.0
+) -> Dictionary:
+	var result: Dictionary = _duration_state.advance_pool(
+		delta_seconds,
+		summoned,
+		_duration_state.is_drain_exempt_latched(),
+		active_drain_multiplier,
+		rest_recovery_multiplier
+	)
+	if bool(result.get("changed", false)):
+		_dirty = true
+	return result
 
 
 func get_duration_increase_count() -> int:
@@ -281,14 +207,6 @@ func clear_duration_drain_exempt_latch() -> void:
 
 func is_duration_drain_exempt_latched() -> bool:
 	return _duration_state.is_drain_exempt_latched()
-
-
-static func get_satiety_speed_multiplier_for_value(value: float) -> float:
-	return LingpetDurationState.get_duration_speed_multiplier_for_value(value)
-
-
-static func get_satiety_drain_reduction_pct_for_level(level: int) -> float:
-	return LingpetDurationState.get_drain_reduction_pct_for_level(level)
 
 
 func build_guardian_enhancement_candidates(

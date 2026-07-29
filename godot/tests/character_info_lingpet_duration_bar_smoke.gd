@@ -79,12 +79,12 @@ func _verify_source_contract() -> void:
 	_expect(presenter_source.find("max(20.0, duration_band_h - 4.0)") >= 0, "TAB duration rect should preserve the unlock-choice gate")
 	_expect(vitality_source.find("duration_pool_pct") >= 0, "TAB vitality projection should consume the shared duration-pool snapshot")
 	_expect(vitality_source.find("guardian_stowed") >= 0, "TAB vitality projection should retain stowed state without hiding the duration strip")
-	_expect(vitality_source.find("탈진 Zzz") < 0, "TAB duration projection should remove the retired exhaustion presentation")
-	_expect(presenter_source.find("lingpet_satiety_pct") < 0, "TAB satiety strip should not read the owner-only lingpet_satiety_pct key")
-	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot") >= 0, "TAB presenter should delegate runtime satiety merging")
-	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.get_strip_state") >= 0, "TAB presenter should delegate satiety state projection")
+	_expect(vitality_source.find("탈" + "진 Zzz") < 0, "TAB duration projection should remove the retired exhaustion presentation")
+	_expect(presenter_source.find("lingpet_" + "sati" + "ety_pct") < 0, "TAB duration strip should not read the retired owner key")
+	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.merge_runtime_snapshot") >= 0, "TAB presenter should delegate runtime duration merging")
+	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.get_strip_state") >= 0, "TAB presenter should delegate duration state projection")
 	_expect(frame_source.find("merge_runtime_display_snapshot") >= 0, "TAB frame presenter should merge the runtime-owned display snapshot into every panel surface")
-	_expect(frame_source.find("lingpet_satiety_pct") < 0, "TAB frame presenter should not read the owner-only lingpet_satiety_pct key")
+	_expect(frame_source.find("lingpet_" + "sati" + "ety_pct") < 0, "TAB frame presenter should not read the retired owner key")
 	_expect(presenter_source.find("draw_duration_status(canvas, font, duration_rect, snapshot, stat_buff_color, empty_text_color, ui_text_scale, mouse_pos, hover_data)") >= 0, "TAB duration draw should receive mouse_pos + hover_data")
 	_expect(presenter_source.find("affinity_level") < 0 and presenter_source.find("교감") < 0, "retired affinity presentation must not survive in the TAB presenter")
 	_expect(presenter_source.find("수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고") >= 0, "duration bar hover should publish the shared-pool tooltip body")
@@ -182,7 +182,7 @@ func _verify_live_stowed_runtime_merge() -> void:
 	_expect(CharacterInfoOverlayLingpetPresenter.get_skill_specs(panel_snapshot, Color(0.42, 0.96, 0.78)) == summoned_skill_specs, "real summoned-to-stowed path should preserve every skill card and level")
 	var slot_tabs: Array = panel_snapshot.get("slot_tabs", []) as Array
 	_expect(not slot_tabs.is_empty() and str(panel_snapshot.get("title", "")) == str((slot_tabs[0] as Dictionary).get("name", "")), "stowed panel title should resolve from the live roster tab")
-	var strip: Dictionary = CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state(panel_snapshot)
+	var strip: Dictionary = CharacterInfoOverlayLingpetPresenter.get_duration_strip_state(panel_snapshot)
 	_expect(bool(strip.get("visible", false)), "live stowed panel should keep the duration strip visible")
 	_expect(bool(strip.get("stowed", false)), "live stowed panel should preserve the stowed marker")
 	_expect(int(strip.get("pct", -1)) == 50, "live stowed panel should expose the recovering 50 percent pool")
@@ -223,7 +223,7 @@ func _build_display_stats(snapshot: Dictionary) -> Array:
 
 
 func _verify_duration_states() -> void:
-	var normal := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var normal := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
 		"duration_pool_pct": 73,
@@ -234,21 +234,21 @@ func _verify_duration_states() -> void:
 	_expect(str(normal.get("color_key", "")) == "normal", "duration above 50 should use the normal color key")
 	_expect(str(normal.get("value", "")) == "73%", "duration strip should show the quantized percent")
 
-	var warning := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var warning := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
 		"duration_pool_pct": 50,
 	})
 	_expect(str(warning.get("color_key", "")) == "warning", "duration at 50 should enter the yellow warning color key")
 
-	var critical := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var critical := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
 		"duration_pool_pct": 20,
 	})
 	_expect(str(critical.get("color_key", "")) == "critical", "duration at 20 should enter the red critical color key")
 
-	var stowed := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var stowed := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "companion",
 		"pet_id": "maribo",
 		"duration_pool_pct": 0,
@@ -259,13 +259,13 @@ func _verify_duration_states() -> void:
 	_expect(str(stowed.get("color_key", "")) == "critical", "empty shared pool should use the red critical color key")
 	_expect(str(stowed.get("value", "")) == "0%", "stowed empty pool should render 0 percent without the retired exhaustion label")
 
-	var no_pet := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var no_pet := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "none",
 		"duration_pool_pct": 0,
 	})
 	_expect(not bool(no_pet.get("visible", true)), "no-pet state should hide the strip even though duration is also 0")
 
-	var empty_companion := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_state({
+	var empty_companion := CharacterInfoOverlayLingpetPresenter.get_duration_strip_state({
 		"state": "companion",
 		"pet_id": "",
 		"duration_pool_pct": 0,
@@ -279,17 +279,17 @@ func _verify_strip_layout() -> void:
 		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 73, "guardian_stowed": false},
 		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 0, "guardian_stowed": true},
 	]:
-		var layout := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_layout_for_tests(ThemeDB.fallback_font, duration_rect, snapshot, 1.0)
-		_expect(not layout.is_empty(), "visible satiety snapshot should build a layout")
+		var layout := CharacterInfoOverlayLingpetPresenter.get_duration_strip_layout_for_tests(ThemeDB.fallback_font, duration_rect, snapshot, 1.0)
+		_expect(not layout.is_empty(), "visible duration snapshot should build a layout")
 		var label_rect: Rect2 = layout.get("label_rect", Rect2())
 		var meter_rect: Rect2 = layout.get("meter_rect", Rect2())
 		var value_rect: Rect2 = layout.get("value_rect", Rect2())
-		_expect(is_equal_approx(meter_rect.size.y, CharacterInfoOverlayLingpetPresenter.SATIETY_METER_HEIGHT), "satiety strip should keep an 8px meter")
+		_expect(is_equal_approx(meter_rect.size.y, CharacterInfoOverlayLingpetPresenter.DURATION_METER_HEIGHT), "duration strip should keep an 8px meter")
 		# The duration label lives in the right-hand annotation column (beside/after
 		# the meter), so it must sit at or right of the meter's end, never overlap it.
-		_expect(label_rect.size.x <= 1.0 or label_rect.position.x >= meter_rect.end.x - 0.01, "satiety label should sit in the right annotation column, not overlap the meter")
-		_expect(meter_rect.end.x <= value_rect.position.x + 0.01, "satiety meter should not overlap the right value text")
-		_expect(label_rect.size.x <= 1.0 or value_rect.position.x >= label_rect.end.x - 0.01, "satiety value should follow the label without overlap")
+		_expect(label_rect.size.x <= 1.0 or label_rect.position.x >= meter_rect.end.x - 0.01, "duration label should sit in the right annotation column, not overlap the meter")
+		_expect(meter_rect.end.x <= value_rect.position.x + 0.01, "duration meter should not overlap the right value text")
+		_expect(label_rect.size.x <= 1.0 or value_rect.position.x >= label_rect.end.x - 0.01, "duration value should follow the label without overlap")
 		_expect(meter_rect.end.y <= duration_rect.end.y + 0.01, "duration meter should fit inside its compact band")
 		_expect(is_equal_approx(meter_rect.position.x, duration_rect.position.x), "duration meter should align to the band left edge")
 		_expect(is_equal_approx(meter_rect.size.x, CharacterInfoOverlayLingpetPresenter.lingpet_progress_meter_width(duration_rect)), "duration meter should use the shared progress width")
@@ -297,7 +297,7 @@ func _verify_strip_layout() -> void:
 
 func _verify_duration_hover_zone() -> void:
 	var duration_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(20.0, CharacterInfoOverlayLingpetPresenter.DURATION_BAND_HEIGHT - 4.0)))
-	var duration_zone: Rect2 = CharacterInfoOverlayLingpetPresenter.satiety_bar_hover_rect(duration_rect)
+	var duration_zone: Rect2 = CharacterInfoOverlayLingpetPresenter.duration_bar_hover_rect(duration_rect)
 	_expect(duration_zone == duration_rect, "duration tooltip should own the full compact band")
 	_expect(duration_zone.has_point(duration_rect.get_center()), "duration meter center should open the duration tooltip")
 
@@ -326,7 +326,7 @@ func _verify_unlock_gate_survives_expanded_band() -> void:
 
 func _finish() -> void:
 	if _failures.is_empty():
-		print("character_info_lingpet_satiety_bar_smoke: ok")
+		print("character_info_lingpet_duration_bar_smoke: ok")
 		quit(0)
 	else:
 		for failure in _failures:

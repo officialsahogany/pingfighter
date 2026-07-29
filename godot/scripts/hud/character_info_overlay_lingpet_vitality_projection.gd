@@ -3,17 +3,14 @@ extends RefCounted
 const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const SATIETY_METER_HEIGHT := 8.0
-const SATIETY_WARNING_THRESHOLD := 50
-const SATIETY_CRITICAL_THRESHOLD := 20
+const DURATION_METER_HEIGHT := 8.0
+const DURATION_WARNING_THRESHOLD := 50
+const DURATION_CRITICAL_THRESHOLD := 20
 
 
 static func merge_runtime_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
 	if runtime_snapshot.has("duration_pool_pct"):
 		panel_snapshot["duration_pool_pct"] = clampi(int(runtime_snapshot.get("duration_pool_pct", 0)), 0, 100)
-	elif runtime_snapshot.has("satiety_pct"):
-		# Transitional fallback for snapshots produced before the shared-pool swap.
-		panel_snapshot["duration_pool_pct"] = clampi(int(runtime_snapshot.get("satiety_pct", 0)), 0, 100)
 	if runtime_snapshot.has("guardian_stowed"):
 		panel_snapshot["guardian_stowed"] = bool(runtime_snapshot.get("guardian_stowed", false))
 	var runtime_pet_id := str(runtime_snapshot.get("pet_id", "")).strip_edges().to_lower()
@@ -70,11 +67,11 @@ static func get_strip_state(snapshot: Dictionary) -> Dictionary:
 			"value": "",
 			"color_key": "hidden",
 		}
-	var pct := clampi(int(snapshot.get("duration_pool_pct", snapshot.get("satiety_pct", 0))), 0, 100)
+	var pct := clampi(int(snapshot.get("duration_pool_pct", 0)), 0, 100)
 	var color_key := "normal"
-	if pct <= SATIETY_CRITICAL_THRESHOLD:
+	if pct <= DURATION_CRITICAL_THRESHOLD:
 		color_key = "critical"
-	elif pct <= SATIETY_WARNING_THRESHOLD:
+	elif pct <= DURATION_WARNING_THRESHOLD:
 		color_key = "warning"
 	return {
 		"visible": true,
@@ -88,20 +85,20 @@ static func get_strip_state(snapshot: Dictionary) -> Dictionary:
 	}
 
 
-static func get_strip_layout(font: Font, rect: Rect2, satiety_state: Dictionary, ui_text_scale: float) -> Dictionary:
-	if not bool(satiety_state.get("visible", false)):
+static func get_strip_layout(font: Font, rect: Rect2, duration_state: Dictionary, ui_text_scale: float) -> Dictionary:
+	if not bool(duration_state.get("visible", false)):
 		return {}
-	var label_text := str(satiety_state.get("label", ""))
+	var label_text := str(duration_state.get("label", ""))
 	var strip_y: float = rect.position.y + 4.0
 	var baseline_y: float = strip_y + 8.0
 	var meter_w := progress_meter_width(rect)
-	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
+	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, DURATION_METER_HEIGHT)
 	var annot_x: float = meter_rect.end.x + 8.0
 	var label_w: float = _text_size(font, label_text, 9, ui_text_scale).x
-	var label_rect := Rect2(annot_x, strip_y - 1.0, label_w, SATIETY_METER_HEIGHT + 3.0)
+	var label_rect := Rect2(annot_x, strip_y - 1.0, label_w, DURATION_METER_HEIGHT + 3.0)
 	var value_x: float = label_rect.end.x + 5.0 * ui_text_scale
 	var value_w: float = maxf(10.0, rect.end.x - value_x)
-	var value_rect := Rect2(value_x, strip_y - 1.0, value_w, SATIETY_METER_HEIGHT + 3.0)
+	var value_rect := Rect2(value_x, strip_y - 1.0, value_w, DURATION_METER_HEIGHT + 3.0)
 	return {
 		"label_rect": label_rect,
 		"meter_rect": meter_rect,
@@ -114,8 +111,8 @@ static func progress_meter_width(rect: Rect2) -> float:
 	return clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 
 
-static func strip_color(satiety_state: Dictionary, stat_buff_color: Color) -> Color:
-	match str(satiety_state.get("color_key", "normal")):
+static func strip_color(duration_state: Dictionary, stat_buff_color: Color) -> Color:
+	match str(duration_state.get("color_key", "normal")):
 		"critical":
 			return Color(1.0, 64.0 / 255.0, 82.0 / 255.0, 0.94)
 		"warning":
@@ -123,7 +120,7 @@ static func strip_color(satiety_state: Dictionary, stat_buff_color: Color) -> Co
 	return Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88)
 
 
-static func satiety_hover_rect(rect: Rect2) -> Rect2:
+static func duration_hover_rect(rect: Rect2) -> Rect2:
 	return rect
 
 

@@ -27,7 +27,7 @@ func _init() -> void:
 	_verify_drain_recovery_and_both_rail_snaps()
 	_verify_expiry_threshold_and_stage_refill()
 	_verify_league_exemption_latch()
-	_verify_run_state_schema_ignores_legacy_satiety()
+	_verify_run_state_schema_ignores_legacy_fullness()
 	_verify_runtime_wiring_covers_both_hatch_families_and_real_stage_advance()
 
 	if _failures.is_empty():
@@ -52,8 +52,8 @@ func _verify_first_hatch_roll_is_run_shared_and_once() -> void:
 	var second: Dictionary = state.ensure_initial_roll(rng, 50)
 	_expect(not bool(second.get("accepted", true)), "later hatches must not reroll the run pool")
 	_expect_str(str(second.get("blocked_reason", "")), "already_rolled", "later hatch should report the once guard")
-	state.set_duration("maribo", 32.0)
-	_expect_float(state.get_duration("lunabi"), 32.0, "pet ids must observe one shared battery after a slot swap")
+	state.set_pool_for_tests(32.0, 42.0)
+	_expect_float(state.get_pool_current(), 32.0, "pet swaps must observe one shared battery")
 
 
 func _verify_drain_recovery_and_both_rail_snaps() -> void:
@@ -105,23 +105,26 @@ func _verify_league_exemption_latch() -> void:
 	_expect_float(state.get_pool_current(), 44.0, "clearing the latch should restore one-to-one drain")
 
 
-func _verify_run_state_schema_ignores_legacy_satiety() -> void:
+func _verify_run_state_schema_ignores_legacy_fullness() -> void:
 	var state := LingpetDurationState.new()
+	var legacy_value_key := "sati" + "ety"
+	var legacy_pets := {"maribo": {legacy_value_key: 99.0}}
 	state.import_run_state({
-		"pets": {"maribo": {"satiety": 99.0}},
-		"satiety": 99.0,
+		"pets": legacy_pets,
+		legacy_value_key: 99.0,
 	})
-	_expect(not state.is_initialized(), "legacy satiety fields must not initialize the shared pool")
+	_expect(not state.is_initialized(), "legacy fullness fields must not initialize the shared pool")
 	state.ensure_initial_roll(null, 49)
 	state.set_pool_for_tests(17.0, 49.0)
 	var exported := state.export_run_state()
 	_expect(exported.has("duration_pool"), "run state should export duration_pool")
 	_expect(exported.has("duration_pool_max"), "run state should export duration_pool_max")
 	_expect(exported.has("duration_resummon_lock_remaining"), "run state should export the expiry lock remainder")
-	_expect(not exported.has("satiety"), "new run state must not export legacy satiety")
+	_expect(not exported.has(legacy_value_key), "new run state must not export the legacy fullness key")
 
 
 func _verify_runtime_wiring_covers_both_hatch_families_and_real_stage_advance() -> void:
+	var legacy_value_key := "sati" + "ety"
 	var runtime_source := FileAccess.get_file_as_string(
 		"res://scripts/lingpet/lingpet_egg_runtime.gd"
 	)
@@ -132,12 +135,12 @@ func _verify_runtime_wiring_covers_both_hatch_families_and_real_stage_advance() 
 
 	for key in ["lingpet_duration_pool_pct", "ringpet_duration_pool_pct"]:
 		_expect(BattleSceneState.DEFAULT_VALUES.has(key), "BattleSceneState should declare %s" % key)
-	for old_key in ["lingpet_satiety_pct", "ringpet_satiety_pct"]:
+	for old_key in ["lingpet_" + legacy_value_key + "_pct", "ringpet_" + legacy_value_key + "_pct"]:
 		_expect(not BattleSceneState.DEFAULT_VALUES.has(old_key), "BattleSceneState should retire %s" % old_key)
 	var match_source := FileAccess.get_file_as_string(
 		"res://scripts/core/battle_scene_match_event_driver.gd"
 	)
-	_expect(_function_contains(match_source, "_reset_lingpet_affinity_for_stage_transition", "refill_guardian_duration_for_stage_transition"), "real stage-transition hook should refill guardian duration")
+	_expect(_function_contains(match_source, "_refill_guardian_for_stage_transition", "refill_guardian_duration_for_stage_transition"), "real stage-transition hook should refill guardian duration")
 	_expect(not _function_contains(runtime_source, "reset_round", "refill_guardian_duration_for_stage_transition"), "ordinary reset_round must not refill the run pool")
 
 

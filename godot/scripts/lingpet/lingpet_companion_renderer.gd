@@ -32,33 +32,17 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	# reappear. 1.0 for non-ghost pets. Applied to the aura + sprite so the whole
 	# companion fades coherently instead of hard-popping.
 	var ghost_alpha: float = clampf(float(config.get("companion_alpha", 1.0)), 0.0, 1.0)
-	var companion_exhausted := bool(config.get("companion_exhausted", false))
-	var exhaustion_ratio := clampf(float(config.get("satiety_exhaustion_ratio", 0.0)), 0.0, 1.0)
 	var now_ms: float = float(Time.get_ticks_msec())
-	var bob: float = sin(now_ms * 0.0048) * (0.8 if companion_exhausted else 2.6)
+	var bob: float = sin(now_ms * 0.0048) * 2.6
 	var draw_center: Vector2 = center + Vector2(0.0, bob)
-	if companion_exhausted:
-		draw_center += Vector2(0.0, 9.0)
-	elif exhaustion_ratio > 0.0:
-		var warn_shake := minf(1.0, exhaustion_ratio)
-		draw_center += Vector2(
-			sin(now_ms * 0.031) * 3.2 * warn_shake,
-			sin(now_ms * 0.019 + 1.1) * 1.4 * warn_shake
-		)
 	var guard_aura_ratio: float = clampf(float(config.get("defense_guard_aura_ratio", 0.0)), 0.0, 1.0)
 	# Soft "barely-there" ambient aura -- replaces the old hard draw_circle disc.
 	# See the _SOFT_GLOW_TEX_SIZE notes at the top of the file.
 	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, false, guard_aura_ratio)
-	if companion_exhausted:
-		_draw_exhausted_rest_ground(canvas, draw_center, radius, ghost_alpha)
-	elif exhaustion_ratio > 0.0:
-		_draw_satiety_exhaustion_telegraph(canvas, draw_center, radius, exhaustion_ratio, now_ms, ghost_alpha)
 	if switch_transition > 0.0:
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
 	var sprite_alpha: float = (1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)) * ghost_alpha
 	_draw_companion_sprite(canvas, draw_center, config, sprite_alpha)
-	if companion_exhausted:
-		_draw_exhausted_sleep_marker(canvas, draw_center, radius, now_ms, ghost_alpha)
 	if switch_transition > 0.0:
 		_draw_switch_label(canvas, draw_center, str(config.get("display_name", "")), switch_transition)
 	if gauge_flash > 0.0:
@@ -142,46 +126,6 @@ func _resolve_aura_color(base: Color, guard: Color, guard_ratio: float) -> Color
 	return base.lerp(guard, guard_ratio)
 
 
-func _draw_satiety_exhaustion_telegraph(canvas: CanvasItem, center: Vector2, radius: float, ratio: float, now_ms: float, alpha_mult: float) -> void:
-	var alpha := clampf(ratio, 0.0, 1.0) * clampf(alpha_mult, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	var pulse := 0.5 + 0.5 * sin(now_ms * 0.015)
-	var ring_radius := radius + lerpf(24.0, 33.0, pulse)
-	canvas.draw_circle(center, ring_radius, Color(1.0, 0.30, 0.12, 0.075 * alpha))
-	canvas.draw_arc(center, ring_radius, -PI * 0.55, PI * 1.35, 34, Color(1.0, 0.56, 0.28, 0.42 * alpha), 2.0, true)
-	canvas.draw_arc(center, ring_radius * 0.70, PI * 0.16, PI * 1.52, 28, Color(1.0, 0.88, 0.58, 0.24 * alpha), 1.4, true)
-
-
-func _draw_exhausted_rest_ground(canvas: CanvasItem, center: Vector2, radius: float, alpha_mult: float) -> void:
-	var alpha := clampf(alpha_mult, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	var ground_rect := Rect2(center + Vector2(-radius - 18.0, 18.0), Vector2((radius + 18.0) * 2.0, 8.0))
-	canvas.draw_rect(ground_rect, Color(0.04, 0.10, 0.12, 0.22 * alpha))
-	canvas.draw_arc(center + Vector2(0.0, 15.0), radius + 24.0, PI * 0.06, PI * 0.94, 24, Color(0.62, 0.82, 0.92, 0.26 * alpha), 1.6, true)
-
-
-func _draw_exhausted_sleep_marker(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float) -> void:
-	var alpha := clampf(alpha_mult, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var phase := 0.5 + 0.5 * sin(now_ms * 0.0042)
-	var marker_alpha := lerpf(0.58, 0.92, phase) * alpha
-	var bubble_center := center + Vector2(radius + 20.0, -radius - 22.0 - 2.0 * phase)
-	canvas.draw_circle(bubble_center + Vector2(-10.0, 11.0), 2.1, Color(0.88, 0.96, 1.0, 0.34 * marker_alpha))
-	canvas.draw_circle(bubble_center + Vector2(-4.0, 5.0), 3.2, Color(0.88, 0.96, 1.0, 0.42 * marker_alpha))
-	var text := "Z"
-	var font_size := 13
-	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
-	var pos := bubble_center + Vector2(-width * 0.5, 4.0)
-	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.54 * marker_alpha))
-	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.84, 0.94, 1.0, 0.96 * marker_alpha))
-
-
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
@@ -211,8 +155,7 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	var bind_sheet := bool(sprite_state.get("bind_sheet", false))
 	if tex == null:
 		return
-	var exhausted := bool(config.get("companion_exhausted", false))
-	var modulate := Color(0.72, 0.82, 0.88, clampf(alpha, 0.0, 1.0) * 0.86) if exhausted else Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
+	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
 	var draw_size_override: Vector2 = _get_draw_size_override(config, mode)
 	if bind_sheet:
 		_draw_bind_sheet_region(
@@ -255,9 +198,6 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		return
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
-	if exhausted:
-		_draw_exhausted_lying_sprite(canvas, tex, source_rect, dest_rect, modulate, should_flip_sprite)
-		return
 	# Dedicated movement sheets render as-authored. Legacy sheets mirror through
 	# UVs for left-facing walk / strike / cast fallbacks. Passing a negative Rect2
 	# width to
@@ -275,38 +215,8 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 # _draw paths (identity-reset trap), so build the rotated quad vertices
 # directly and map the sheet cell through NORMALIZED UVs (raw pixel UVs
 # silently clamp — draw_polygon UV trap).
-func _draw_exhausted_lying_sprite(canvas: CanvasItem, tex: Texture2D, source_rect: Rect2, dest_rect: Rect2, modulate: Color, flip: bool) -> void:
-	if tex == null or dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
-		return
-	var half_w := dest_rect.size.x * 0.5
-	var half_h := dest_rect.size.y * 0.5
-	# Rest the lying body on the standing sprite's feet line; the rotated body's
-	# on-screen half-height is the original half-WIDTH.
-	var ground_y := dest_rect.end.y
-	var center := Vector2(dest_rect.get_center().x, ground_y - half_w)
 	# 90° rotation: screen-space axes for the sprite's local +x (right) and +y (down).
 	# head_dir picks which side the head falls toward, following the facing flip.
-	var head_dir := -1.0 if flip else 1.0
-	var local_right := Vector2(0.0, head_dir)
-	var local_down := Vector2(-head_dir, 0.0)
-	var tl := center - local_right * half_w - local_down * half_h
-	var tr := center + local_right * half_w - local_down * half_h
-	var br := center + local_right * half_w + local_down * half_h
-	var bl := center - local_right * half_w + local_down * half_h
-	var tex_size: Vector2 = tex.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
-		return
-	var uv0 := source_rect.position / tex_size
-	var uv1 := source_rect.end / tex_size
-	var points := PackedVector2Array([tl, tr, br, bl])
-	var uvs := PackedVector2Array([
-		Vector2(uv0.x, uv0.y),
-		Vector2(uv1.x, uv0.y),
-		Vector2(uv1.x, uv1.y),
-		Vector2(uv0.x, uv1.y),
-	])
-	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
-	canvas.draw_polygon(points, colors, uvs, tex)
 
 
 func resolve_companion_sprite_state_for_tests(config: Dictionary) -> Dictionary:

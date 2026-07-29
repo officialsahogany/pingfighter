@@ -35,8 +35,8 @@ const LingpetGuardianEnhanceCutinState := preload(
 const LingpetGuardianEnhanceCutinOverlayHostResolver := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_overlay_host_resolver.gd"
 )
-const LingpetSatietyRuntimeState := preload(
-	"res://scripts/lingpet/lingpet_satiety_runtime_state.gd"
+const LingpetDurationRuntimeState := preload(
+	"res://scripts/lingpet/lingpet_duration_runtime_state.gd"
 )
 const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
 const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
@@ -133,7 +133,6 @@ const COMPANION_SKILL_BURST_PARTICLES := 8
 const COMPANION_SWITCH_TRANSITION_SECONDS := 0.62
 const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
 const COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO := 0.12
-const SATIETY_EXHAUSTION_TELEGRAPH_SECONDS := LingpetAffinityState.SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
 const DURATION_WARNING_STAGE_COUNT := 3
 const GUARDIAN_MIN_SUMMON_SECONDS := 6.0
 # Runs from live companion physics, so it must not inherit the loading-screen
@@ -241,7 +240,7 @@ var _affinity_state: Object = LingpetAffinityState.new()
 var _affinity_context_coordinator: Object = LingpetAffinityContextCoordinator.new()
 var _affinity_hit_tag_resolver: Object = LingpetAffinityHitTagResolver.new()
 var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
-var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
+var _duration_runtime_state: Object = LingpetDurationRuntimeState.new()
 var _guardian_stowed := false
 var _soul_summon_offer_guarantee_count := 0
 var _soul_summon_offer_cooldown_screens := 0
@@ -420,13 +419,12 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			_apply_current_loadout(owner, true, false, registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.prewarm_step", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
-		_advance_satiety(delta, owner, registry)
-		_perf_probe.end(perf_logger, "physics.lingpet.satiety", sample_start)
+		_advance_duration_pool(delta, owner, registry)
+		_perf_probe.end(perf_logger, "physics.lingpet.duration", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		var starlight_passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
-		# 탈진(포만도 소진) 중엔 위치-스크립팅 패시브를 억제한다(WIP 파괴 후 복원).
-		# companion_active에 fold — 패시브 모듈은 탈진을 모른 채 _is_enabled false로
-		# 받아 reset이 자가치유 티어다운. KO 중 별빛추적 순간이동/전달 방지.
+		# A stowed guardian folds companion_active false so position-owning
+		# passives self-reset without learning duration policy.
 		_starlight_tracking_state.advance(delta, starlight_passive_skill, guardian_summoned, _companion_pos)
 		_ring_dash_vfx.advance(delta)
 		_ghost_blink_vfx.advance(delta)
@@ -1705,8 +1703,8 @@ func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_second
 		_initialize_companion_patrol(owner, true)
 	var previous_pos := _companion_pos
 	var passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetStarlightTrackingState.PASSIVE_ID)
-	# 탈진 중엔 별빛추적 스타포인트 전달을 억제(WIP 파괴 후 복원). companion_active에
-	# fold — 탈진 시 is_companion false로 update_drop이 자가 reset/티어다운.
+	# Stowed guardians publish is_companion false so the delivery owner resets
+	# its chase/drop state instead of moving while inactive.
 	var result: Dictionary = _starlight_tracking_state.update_drop(
 		maxf(0.0, delta_seconds),
 		drop,
@@ -1999,16 +1997,10 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
 	snapshot["companion_appearance_rate"] = appearance_rate if _is_guardian_summoned() else 0.0
 	snapshot["character_info_display_snapshot"] = character_info_display_snapshot
-	snapshot["duration_pool_pct"] = _get_active_satiety_pct()
+	snapshot["duration_pool_pct"] = _get_active_duration_pct()
 	snapshot["duration_pool"] = _affinity_state.get_duration_pool_current()
 	snapshot["duration_pool_max"] = _affinity_state.get_duration_pool_max()
 	snapshot["guardian_stowed"] = _guardian_stowed
-	# Transitional aliases remain until the §9-4 deletion slice.
-	snapshot["satiety_pct"] = int(snapshot["duration_pool_pct"])
-	snapshot["satiety"] = float(snapshot["duration_pool"])
-	snapshot["satiety_speed_scale"] = _get_satiety_speed_scale()
-	snapshot["companion_exhausted"] = is_companion_exhausted()
-	snapshot["satiety_exhaustion_ratio"] = get_satiety_exhaustion_ratio_for_tests()
 	snapshot.merge(_affinity_feedback_state.get_snapshot(_is_guardian_summoned()), true)
 	snapshot["item_egg_active"] = _item_egg_lifecycle_state.is_active()
 	snapshot["item_egg_pet_id"] = _item_egg_lifecycle_state.get_pet_id()
@@ -2164,7 +2156,7 @@ func reset_for_tests() -> void:
 	_spirit_water_drop_state.reset_run()
 	_affinity_context_coordinator.reset_for_new_run()
 	_affinity_feedback_state.reset_all()
-	_satiety_runtime_state.reset()
+	_duration_runtime_state.reset()
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
@@ -2237,7 +2229,7 @@ func _clear_lingpet_field_state() -> void:
 	_guardian_transition_state.reset()
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
-	_satiety_runtime_state.reset()
+	_duration_runtime_state.reset()
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
@@ -2634,7 +2626,7 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		owner,
 		"lingpet_duration_pool_pct",
 		"ringpet_duration_pool_pct",
-		_get_active_satiety_pct()
+		_get_active_duration_pct()
 	)
 	if should_sync_loadouts:
 		_loadout_state.mark_owner_loadouts_synced_for_runtime()
@@ -2710,9 +2702,8 @@ func commit_unlock_pick(_pet_id_arg: String, _choice_key: String, _candidate_id:
 
 func _update_companion_motion(delta: float, owner: Object, registry: Object = null) -> void:
 	var prev_pos: Vector2 = _companion_pos
-	# 탈진 판정 호이스트(WIP 파괴 후 복원): 링크포트(ring_dash) advance가 이 아래에서
-	# 탈진 판정보다 먼저 돌며 companion_active만 받아 KO 중 순간이동+VFX+사운드를
-	# 냈다. companion_active에 fold하기 위해 여기서 미리 판정한다.
+	# Resolve summoned state before position-owning passives so a manual or
+	# duration-forced stow cannot launch movement, VFX, or audio.
 	var companion_active := _is_guardian_summoned()
 	var skill_position_override: Dictionary = _skill_runtime_surface.get_active_position_owner(
 		_current_profile,
@@ -2793,7 +2784,6 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		)
 		return
 	_companion_motion_state.pos = _companion_pos
-	var satiety_speed_scale := _get_satiety_speed_scale(owner)
 	_companion_motion_state.update(
 		delta,
 		owner,
@@ -2805,7 +2795,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
 		_profile_runtime_surface.get_motion_style(_current_profile),
 		_debug_stat_overrides.get_appearance_rate(_current_profile, 0.0),
-		satiety_speed_scale,
+		1.0,
 		not companion_active
 	)
 	_companion_pos = _companion_motion_state.pos
@@ -3100,7 +3090,7 @@ func _draw_companion(
 		_companion_pos,
 		COMPANION_SKILL_WINDUP_SECONDS
 	)
-	var companion_exhausted := not _is_guardian_summoned()
+	var guardian_inactive := not _is_guardian_summoned()
 	var draw_motion_speed_ratio: float = _companion_body_presence_resolver.get_draw_motion_speed_ratio_from_surface(
 		visual_surface,
 		_current_profile,
@@ -3111,7 +3101,7 @@ func _draw_companion(
 		_companion_distance_roll_state,
 		COMPANION_SORTIE_FLAP_MIN_SPEED_RATIO
 	)
-	if companion_exhausted:
+	if guardian_inactive:
 		draw_motion_speed_ratio = 0.0
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
 		"companion_active": _is_guardian_summoned() or transition_alpha < 1.0,
@@ -3130,10 +3120,6 @@ func _draw_companion(
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"face_left": _companion_facing_left,
 		"motion_speed_ratio": draw_motion_speed_ratio,
-		# Exhaustion visuals were replaced by vanish-on-stow. The transitional
-		# exhausted getter remains for old non-visual consumers until §9-4.
-		"companion_exhausted": false,
-		"satiety_exhaustion_ratio": get_satiety_exhaustion_ratio_for_tests(),
 		"companion_roll_angle": _companion_distance_roll_state.get_draw_angle(_current_profile, LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x),
 		"defense_guard_active": _companion_motion_state.defense_intercept_active,
 		"defense_guard_aura_ratio": _companion_motion_state.defense_guard_aura_ratio,
@@ -3230,16 +3216,6 @@ func get_spirit_water_drop_snapshot_for_tests() -> Dictionary:
 	return _spirit_water_drop_state.get_snapshot()
 
 
-func get_satiety(pet_id: String = "") -> float:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_satiety(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
-func get_satiety_pct(pet_id: String = "") -> int:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_satiety_pct(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
 func get_duration_pool_current() -> float:
 	return _affinity_state.get_duration_pool_current()
 
@@ -3312,60 +3288,23 @@ func set_duration_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
 	_duration_roll_rng_for_tests = rng
 
 
-func set_satiety_for_tests(pet_id: String, value: float) -> float:
-	_invalidate_runtime_snapshot_cache()
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	var next_value: float = float(_affinity_state.set_satiety(
-		normalized_pet_id if normalized_pet_id != "" else _pet_id,
-		value
-	))
-	_guardian_stowed = next_value <= 0.0
-	_duration_warning_stage = _get_duration_warning_stage()
-	return next_value
-
-
-func is_companion_exhausted() -> bool:
-	return _is_companion_exhausted_for_owner(null)
-
-
-func is_companion_exhausted_for_tests(owner: Object = null) -> bool:
-	return _is_companion_exhausted_for_owner(owner)
-
-
-func get_satiety_speed_scale_for_tests(owner: Object = null) -> float:
-	return _get_satiety_speed_scale(owner)
-
-
-func get_satiety_exhaustion_ratio_for_tests(owner: Object = null) -> float:
-	return _satiety_runtime_state.get_exhaustion_ratio(
-		_state == STATE_COMPANION,
-		_pet_id,
-		_affinity_state,
-		owner,
-		_collection_state,
-		SATIETY_EXHAUSTION_TELEGRAPH_SECONDS
-	)
-
-
 func get_affinity_rewards_for_tests(pet_id: String = "") -> Dictionary:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
 	return _affinity_state.get_cumulative_rewards(normalized_pet_id if normalized_pet_id != "" else _pet_id)
 
 
-func _advance_satiety(
+func _advance_duration_pool(
 	delta: float,
 	owner: Object = null,
 	registry: Object = null
 ) -> void:
 	if _state != STATE_COMPANION:
-		_satiety_runtime_state.advance_inactive(_affinity_state)
+		_duration_runtime_state.advance_inactive(_affinity_state)
 		return
 	if _is_guardian_duration_draining():
 		_guardian_active_elapsed += maxf(0.0, delta)
-	_satiety_runtime_state.latch_penalty_exempt(owner, _collection_state, _affinity_state)
-	var result: Dictionary = _satiety_runtime_state.advance_duration(
-		_pet_id,
-		_collection_state.get_battle_slots(),
+	_duration_runtime_state.latch_drain_exempt(owner, _collection_state, _affinity_state)
+	var result: Dictionary = _duration_runtime_state.advance_duration(
 		delta,
 		_affinity_state,
 		owner,
@@ -3383,31 +3322,11 @@ func _advance_satiety(
 		_invalidate_runtime_snapshot_cache()
 
 
-func _get_active_satiety_pct() -> int:
-	return _satiety_runtime_state.get_active_satiety_pct(
+func _get_active_duration_pct() -> int:
+	return _duration_runtime_state.get_active_duration_pct(
 		_state == STATE_COMPANION,
-		_pet_id,
 		_affinity_state
 	)
-
-
-func _get_satiety_speed_scale(owner: Object = null) -> float:
-	return _satiety_runtime_state.get_speed_scale(
-		_state == STATE_COMPANION,
-		_pet_id,
-		_affinity_state,
-		owner,
-		_collection_state
-	)
-
-
-func _is_companion_exhausted_for_owner(_owner: Object = null) -> bool:
-	if _state != STATE_COMPANION:
-		return false
-	# Transitional compatibility name through §9-4: every old exhaustion fold
-	# now means "guardian not summoned". Manual stow must gate the same combat
-	# surfaces as a duration-expiry stow, regardless of the >10s resummon lock.
-	return _guardian_stowed
 
 
 func _ensure_duration_pool_roll() -> Dictionary:

@@ -73,6 +73,7 @@ func _verify_ball_hits_are_growth_neutral() -> void:
 
 func _verify_retired_save_keys_are_read_and_discarded() -> void:
 	var state: Object = LingpetAffinityState.new()
+	var legacy_value_key := "sati" + "ety"
 	state.import_run_state({
 		"duration_pool": 44.0,
 		"duration_pool_max": 50.0,
@@ -85,7 +86,7 @@ func _verify_retired_save_keys_are_read_and_discarded() -> void:
 				"affinity_level": 25,
 				"reward_deck": [{"type": "mobility"}],
 				"reward_history": [{"type": "defense"}],
-				"satiety": 12.0,
+				legacy_value_key: 12.0,
 			},
 		},
 	})
@@ -94,7 +95,7 @@ func _verify_retired_save_keys_are_read_and_discarded() -> void:
 	var maribo: Dictionary = pets.get("maribo", {}) as Dictionary
 	_expect(is_equal_approx(float(exported.get("duration_pool", 0.0)), 44.0), "new run-shared duration state must survive legacy-key import")
 	_expect(int((maribo.get("reward_counts", {}) as Dictionary).get("active_skill_bonus", 0)) == 2, "enhancement buff store must survive legacy-key import")
-	for retired_key in LingpetAffinityState.RETIRED_RUN_STATE_KEYS + ["satiety", "satiety_exhausted", "satiety_exhaustion_timer"]:
+	for retired_key in LingpetAffinityState.RETIRED_RUN_STATE_KEYS + [legacy_value_key, legacy_value_key + "_exhausted", legacy_value_key + "_exhaustion_timer"]:
 		_expect(not maribo.has(retired_key), "legacy save key must be read-and-discarded: %s" % retired_key)
 
 

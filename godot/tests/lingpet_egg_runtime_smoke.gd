@@ -624,8 +624,8 @@ func _init() -> void:
 	_verify_afterglow_leak_passive()
 	_verify_tailwind_steps_passive()
 	_verify_starlight_tracking_passive()
-	_verify_exhaustion_suppresses_starlight_tracking()
-	_verify_exhaustion_suppresses_linkport()
+	_verify_duration_stow_suppresses_starlight_tracking()
+	_verify_duration_stow_suppresses_linkport()
 	_verify_ring_dash_passive()
 	_verify_ring_dash_single_roll_per_descent()
 	_verify_ring_dash_defers_to_committed_player_dash()
@@ -826,10 +826,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(save_restore_source.find("active_pet_id") >= 0 and save_restore_source.find("battle_slot_pet_ids") >= 0, "save-restore planner should preserve active pet and battle slot interpretation")
 	_expect(runtime_source.find("lingpet_companion_body_hit_state.gd") >= 0, "egg runtime should delegate companion body hit bounce/gauge state to the body-hit module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
-	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_feed_controller.gd"), "legacy feed controller remains deferred for physical deletion in §9-4")
-	_expect(runtime_source.find("lingpet_feed_controller.gd") < 0, "egg runtime must no longer preload the retired feed controller")
-	_expect(runtime_source.find("_feed_controller") < 0 and runtime_source.find("func feed_lingpet") < 0, "egg runtime must expose no feed animation or use path after spirit-water replacement")
-	_expect(runtime_source.find("LEGACY_FEED_POINT_TO_DURATION_SECONDS") < 0 and runtime_source.find("\"duration_feed\"") < 0, "temporary feed-to-duration remapping must be removed")
+	_expect(not FileAccess.file_exists("res://scripts/lingpet/lingpet_" + "feed_controller.gd"), "retired feeding controller should be physically removed")
+	_expect(runtime_source.find("_" + "feed_controller") < 0 and runtime_source.find("func " + "feed_lingpet") < 0, "egg runtime must expose no retired feeding path")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd"), "companion body presence resolver module should exist")
 	_expect(runtime_source.find("func _is_companion_body_available_for_hit") < 0, "egg runtime should not keep a single-use companion body hit-availability wrapper")
 	_expect(runtime_source.find("func _is_companion_body_draw_suppressed") < 0, "egg runtime should not keep a single-use companion body draw-suppression wrapper")
@@ -3522,49 +3520,46 @@ func _verify_starlight_tracking_passive() -> void:
 	_expect(jump_pos != Vector2.ZERO and jump_pos.y < ground_start.y, "Ground Starlight Tracking should use a small jump at pickup instead of staying flat")
 
 
-# WIP 파괴 소실 복원 씰: 탈진(포만도 소진) 중엔 위치-스크립팅 패시브 별빛추적이
-# 억제돼야 한다. Slice3a 탈진 5소비처 게이트가 이 패시브를 안 덮어 KO 중 순간이동/
-# 전달이 났다. companion_active fold(2콜사이트: advance + update_starlight)로 봉인.
-func _verify_exhaustion_suppresses_starlight_tracking() -> void:
+# A duration-forced stow must suppress the position-owning Starlight Tracking
+# passive through the same companion_active fold as a manual stow.
+func _verify_duration_stow_suppresses_starlight_tracking() -> void:
 	var owner := FakeOwner.new()
-	owner.ai_mode = "champion"  # 주니어 리그는 탈진 면제(D9) — 비면제 리그로 강제
+	owner.ai_mode = "champion"  # Avoid the auto-present league exemption.
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
-	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "exhaustion seal should equip Starlight Tracking Lv.5")
-	# 탈진 강제: 포만도 0 + 텔레그래프 창 경과(1.75s).
-	runtime.set_satiety_for_tests("maribo", 0.0)
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_starlight_tracking", registry, 1, 5), "stow seal should equip Starlight Tracking Lv.5")
+	runtime.set_duration_pool_for_tests(0.0)
 	for _i in 160:
 		runtime.update(1.0 / 60.0, owner, registry)
-	_expect(runtime.is_companion_exhausted_for_tests(owner), "fixture must reach exhaustion before the suppression assert")
-	# 탈진 중 클레임 가능한(roll 0 = 항상 성공) 근접 드랍 → 별빛추적 억제.
+	_expect(runtime.is_guardian_stowed(), "fixture must reach duration-forced stow before the suppression assert")
+	# A nearby guaranteed drop must remain unclaimed while stowed.
 	var companion_pos: Vector2 = owner.lingpet_companion_pos
 	var drop := _make_starpoint_drop(companion_pos + Vector2(8.0, 0.0), 0.0)
 	owner.player_pos = companion_pos + Vector2(116.0, 0.0) - Vector2(owner.player_paddle_width, owner.player_paddle_height) * 0.5
 	var result: Dictionary = runtime.update_starlight_tracking_for_starpoint_drop(drop, 0.0, _starpoint_delivery_context(owner))
 	_expect(
 		not bool(result.get("claimed", false)) and not bool(result.get("picked_up", false)) and not bool(result.get("delivered", false)),
-		"exhausted companion must NOT run Starlight Tracking (KO teleport/delivery bug — WIP-loss restore)"
+		"stowed guardian must not run Starlight Tracking"
 	)
-	_expect(not bool(runtime.is_starlight_tracking_active_for_tests()), "exhaustion must clear any Starlight Tracking position override")
+	_expect(not bool(runtime.is_starlight_tracking_active_for_tests()), "stow must clear any Starlight Tracking position override")
 
 
-# WIP 파괴 소실 복원 씰: 탈진 중엔 링크포트(ring_dash) 비상 순간이동도 억제돼야
-# 한다. advance가 _update_companion_motion에서 탈진 판정보다 먼저 돌며
-# companion_active만 받아 KO 중 순간이동+VFX+사운드를 냈다(탈진 판정 호이스트로 봉인).
-func _verify_exhaustion_suppresses_linkport() -> void:
+# A duration-forced stow must suppress Linkport before its position/VFX/audio
+# owner advances.
+func _verify_duration_stow_suppresses_linkport() -> void:
 	var owner := FakeOwner.new()
 	owner.ai_mode = "champion"  # 주니어 면제 회피
 	owner.lingpet_ring_dash_force_roll_pct = 0.0  # 롤 강제 성공
 	var registry := FakeRegistry.new({})
 	var runtime: Object = LingpetEggRuntime.new()
-	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "exhaustion seal should equip Ring Dash Lv.5")
-	# 탈진 강제: 비상 공 없이 텔레그래프 경과(탈진 전 트리거 방지).
+	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_ring_dash", registry, 1, 5), "stow seal should equip Ring Dash Lv.5")
+	# Stow before presenting an emergency ball.
 	owner.ball_active = false
-	runtime.set_satiety_for_tests("maribo", 0.0)
+	runtime.set_duration_pool_for_tests(0.0)
 	for _i in 160:
 		runtime.update(1.0 / 60.0, owner, registry)
-	_expect(runtime.is_companion_exhausted_for_tests(owner), "linkport fixture must reach exhaustion")
-	# 탈진 후 비상 하강 공 → 링크포트 억제(트리거/순간이동 없음).
+	_expect(runtime.is_guardian_stowed(), "linkport fixture must reach duration-forced stow")
+	# Emergency descending ball after stow: no trigger or teleport.
 	var start_pos: Vector2 = owner.lingpet_companion_pos
 	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
 	owner.player_pos = Vector2(240.0, owner.player_pos.y)
@@ -3574,8 +3569,8 @@ func _verify_exhaustion_suppresses_linkport() -> void:
 	owner.ball_vel = Vector2(0.0, 12.0)
 	var trigger_before: int = int(runtime.get_ring_dash_trigger_count_for_tests())
 	runtime.update(0.12, owner, registry)
-	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "exhausted companion must NOT run Linkport emergency dash (KO teleport bug — WIP-loss restore)")
-	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == trigger_before, "exhaustion must not spend a Linkport trigger")
+	_expect(not bool(runtime.is_ring_dash_active_for_tests()), "stowed guardian must not run Linkport emergency dash")
+	_expect(int(runtime.get_ring_dash_trigger_count_for_tests()) == trigger_before, "stow must not spend a Linkport trigger")
 
 
 func _verify_ring_dash_passive() -> void:

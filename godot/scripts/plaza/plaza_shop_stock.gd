@@ -10,12 +10,7 @@ const MAX_STOCK_COUNT := 12
 const LEGENDARY_ROLL_CHANCE := 0.05
 const FEATURED_DISCOUNT_RATE := 0.20
 const FEATURED_COUNT := 2
-const GUARANTEED_ACTIVE_ITEM_NAMES := [
-	"lingpet_feed",
-	"lingpet_apple_feed",
-	"lingpet_melon_feed",
-	"lingpet_special_feed",
-]
+const GUARANTEED_ACTIVE_ITEM_NAMES: Array[String] = []
 
 
 func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0) -> Array:

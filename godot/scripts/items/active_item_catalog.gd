@@ -3,7 +3,7 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_COOLDOWN_MSEC := 7000
-const LINGPET_FEED_COOLDOWN_MSEC := 1500
+const LINGPET_SPIRIT_WATER_COOLDOWN_MSEC := 1500
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 
@@ -40,22 +40,10 @@ const MILK_BOTTLE_FIELD_ICON_PATH := "res://assets/sprites/items/milk_bottle_fie
 const CHEDDAR_CHEESE_ICON_PATH := "res://assets/sprites/items/cheddar_cheese_icon_imagegen_v1.png"
 const CAMEMBERT_CHEESE_ICON_PATH := "res://assets/sprites/items/camembert_cheese_icon_imagegen_v1.png"
 const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_icon_imagegen_v1.png"
-const LINGPET_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_feed_icon.png"
-const LINGPET_APPLE_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_apple_feed_icon.png"
-const LINGPET_MELON_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_melon_feed_icon.png"
-const LINGPET_SPECIAL_FEED_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
-const LINGPET_SPIRIT_WATER_ICON_PATH := LINGPET_SPECIAL_FEED_ICON_PATH
+const LINGPET_SPIRIT_WATER_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
 const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
 
-# Plaza stock/pricing still references these legacy entries in an externally
-# dirty campaign. Keep their definitions and assets until §9-4, but make the
-# public catalog refuse every acquisition surface in the meantime.
-const LEGACY_DISABLED_ACQUISITION_NAMES := {
-	"lingpet_feed": true,
-	"lingpet_apple_feed": true,
-	"lingpet_melon_feed": true,
-	"lingpet_special_feed": true,
-}
+const LEGACY_DISABLED_ACQUISITION_NAMES := {}
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
@@ -96,14 +84,6 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_gauge_charge()
 		"lingpet_spirit_water":
 			item_data = _build_lingpet_spirit_water()
-		"lingpet_feed":
-			item_data = _build_lingpet_feed()
-		"lingpet_apple_feed":
-			item_data = _build_lingpet_apple_feed()
-		"lingpet_melon_feed":
-			item_data = _build_lingpet_melon_feed()
-		"lingpet_special_feed":
-			item_data = _build_lingpet_special_feed()
 		"lingpet_egg":
 			item_data = _build_lingpet_egg()
 		"life_elixir":
@@ -239,25 +219,6 @@ func _build_gauge_charge() -> Dictionary:
 	}
 
 
-func _build_lingpet_feed() -> Dictionary:
-	return {
-		"name": "lingpet_feed",
-		"display_name": "귤",
-		"type": "active",
-		"effect": "lingpet_feed",
-		"chance": 0.010,
-		"duration": 0,
-		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
-		"feed_amount": 40.0,
-		"description": "수호령의 지속시간을 20초 회복합니다. 지속시간이 가득 찬 상태에서는 사용할 수 없습니다.",
-		"icon_path": LINGPET_FEED_ICON_PATH,
-		"color": Color(1.0, 0.58, 0.16),
-		"no_global_cooldown": true,
-		"shop_guaranteed": true,
-		"consumable": true,
-	}
-
-
 func _build_lingpet_spirit_water() -> Dictionary:
 	return {
 		"name": "lingpet_spirit_water",
@@ -268,72 +229,13 @@ func _build_lingpet_spirit_water() -> Dictionary:
 		# remains an explicit §10 approval item.
 		"chance": 0.010,
 		"duration": 0,
-		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
+		"cooldown_msec": LINGPET_SPIRIT_WATER_COOLDOWN_MSEC,
 		"description": "수호령 지속시간을 전량 회복합니다. 남은 시간이 최대치를 넘었다면 그대로 보존합니다.",
 		"icon_path": LINGPET_SPIRIT_WATER_ICON_PATH,
 		"color": Color(0.30, 0.90, 0.84),
 		"no_global_cooldown": true,
 		"consumable": true,
 		"tuning_pending": true,
-	}
-
-
-func _build_lingpet_apple_feed() -> Dictionary:
-	return {
-		"name": "lingpet_apple_feed",
-		"display_name": "사과",
-		"type": "active",
-		"effect": "lingpet_feed",
-		"chance": 0.008,
-		"duration": 0,
-		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
-		"feed_amount": 30.0,
-		"description": "수호령의 지속시간을 15초 회복합니다. 지속시간이 가득 찬 상태에서는 사용할 수 없습니다.",
-		"icon_path": LINGPET_APPLE_FEED_ICON_PATH,
-		"color": Color(0.88, 0.18, 0.20),
-		"no_global_cooldown": true,
-		"shop_guaranteed": true,
-		"consumable": true,
-	}
-
-
-func _build_lingpet_melon_feed() -> Dictionary:
-	return {
-		"name": "lingpet_melon_feed",
-		"display_name": "멜론",
-		"type": "active",
-		"effect": "lingpet_feed",
-		"chance": 0.006,
-		"duration": 0,
-		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
-		"feed_amount": 50.0,
-		"description": "수호령의 지속시간을 25초 회복합니다. 지속시간이 가득 찬 상태에서는 사용할 수 없습니다.",
-		"icon_path": LINGPET_MELON_FEED_ICON_PATH,
-		"color": Color(0.48, 0.84, 0.34),
-		"no_global_cooldown": true,
-		"shop_guaranteed": true,
-		"consumable": true,
-	}
-
-
-func _build_lingpet_special_feed() -> Dictionary:
-	return {
-		"name": "lingpet_special_feed",
-		"display_name": "특제 사료",
-		"type": "active",
-		"effect": "lingpet_feed",
-		"rarity": "rare",
-		"chance": 0.004,
-		"duration": 0,
-		"cooldown_msec": LINGPET_FEED_COOLDOWN_MSEC,
-		"feed_amount": 100.0,
-		"description": "수호령의 지속시간을 50초 회복합니다. 지속시간이 가득 찬 상태에서는 사용할 수 없습니다.",
-		"icon_path": LINGPET_SPECIAL_FEED_ICON_PATH,
-		"color": Color(0.96, 0.76, 0.28),
-		"no_global_cooldown": true,
-		"shop_guaranteed": true,
-		"reward_only": true,
-		"consumable": true,
 	}
 
 

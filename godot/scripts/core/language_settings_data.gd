@@ -19,10 +19,6 @@ const LANGUAGE_NATIVE_NAMES := {
 
 const ITEM_DISPLAY_EN := {
 	"lingpet_spirit_water": "Spirit Water",
-	"lingpet_feed": "Tangerine",
-	"lingpet_apple_feed": "Apple",
-	"lingpet_melon_feed": "Melon",
-	"lingpet_special_feed": "Special Feed",
 	"lingpet_egg": "Guardian Spirit Egg",
 	"gauge_charge": "Herbal Decoction",
 	"life_elixir": "Five-Color Springwater",
@@ -108,10 +104,6 @@ const ITEM_DISPLAY_EN := {
 
 const ITEM_DISPLAY_ZH := {
 	"lingpet_spirit_water": "灵水",
-	"lingpet_feed": "橘子",
-	"lingpet_apple_feed": "苹果",
-	"lingpet_melon_feed": "甜瓜",
-	"lingpet_special_feed": "特制饲料",
 	"lingpet_egg": "守护灵蛋",
 	"gauge_charge": "汤药",
 	"life_elixir": "五色药泉",
@@ -197,10 +189,6 @@ const ITEM_DISPLAY_ZH := {
 
 const ITEM_DISPLAY_JA := {
 	"lingpet_spirit_water": "霊水",
-	"lingpet_feed": "みかん",
-	"lingpet_apple_feed": "りんご",
-	"lingpet_melon_feed": "メロン",
-	"lingpet_special_feed": "特製フード",
 	"lingpet_egg": "守護霊の卵",
 	"gauge_charge": "湯薬",
 	"life_elixir": "五色の薬水",
@@ -286,10 +274,6 @@ const ITEM_DISPLAY_JA := {
 
 const ITEM_DISPLAY_ES := {
 	"lingpet_spirit_water": "Agua espiritual",
-	"lingpet_feed": "Mandarina",
-	"lingpet_apple_feed": "Manzana",
-	"lingpet_melon_feed": "Melón",
-	"lingpet_special_feed": "Comida especial",
 	"lingpet_egg": "Huevo de espíritu guardián",
 	"gauge_charge": "Decocción herbal",
 	"life_elixir": "Agua medicinal de cinco colores",
@@ -375,10 +359,6 @@ const ITEM_DISPLAY_ES := {
 
 const ITEM_DISPLAY_PT_BR := {
 	"lingpet_spirit_water": "Água espiritual",
-	"lingpet_feed": "Tangerina",
-	"lingpet_apple_feed": "Maçã",
-	"lingpet_melon_feed": "Melão",
-	"lingpet_special_feed": "Ração especial",
 	"lingpet_egg": "Ovo de espírito guardião",
 	"gauge_charge": "Decocção Herbal",
 	"life_elixir": "Água Medicinal das Cinco Cores",
@@ -464,10 +444,6 @@ const ITEM_DISPLAY_PT_BR := {
 
 const ITEM_DISPLAY_RU := {
 	"lingpet_spirit_water": "Духовная вода",
-	"lingpet_feed": "Мандарин",
-	"lingpet_apple_feed": "Яблоко",
-	"lingpet_melon_feed": "Дыня",
-	"lingpet_special_feed": "Особый корм",
 	"lingpet_egg": "Яйцо духа-хранителя",
 	"gauge_charge": "Травяной отвар",
 	"life_elixir": "Пятицветная целебная вода",
@@ -553,10 +529,6 @@ const ITEM_DISPLAY_RU := {
 
 const ACTIVE_ITEM_DESCRIPTION_EN := {
 	"lingpet_spirit_water": "Fully restores guardian spirit duration without reducing any overfill above the maximum.",
-	"lingpet_feed": "Restores 20 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
-	"lingpet_apple_feed": "Restores 15 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
-	"lingpet_melon_feed": "Restores 25 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
-	"lingpet_special_feed": "Restores 50 seconds to your guardian spirit's duration. Cannot be used while duration is full.",
 	"lingpet_egg": "Places a guardian spirit egg on the field. Hit it with the ball to hatch a random guardian spirit that fights alongside you.",
 	"gauge_charge": "Drink a herbal decoction to charge 220 gauge.",
 	"life_elixir": "Drink five-color springwater to fully charge the gauge.",
@@ -2723,9 +2695,7 @@ const EXACT_TEXT_EN := {
 	"동행 중": "Companion",
 	"친밀도 상한 Lv.%d": "Affinity cap Lv.%d",
 	"친밀도 획득량 +%d%%": "Affinity gain +%d%%",
-	"포만도": "Satiety",
 	"지속시간": "Duration",
-	"탈진": "Exhausted",
 	"수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다.": "Your guardian spirit's remaining summon duration. It decreases while summoned and slowly recovers while stowed. At 0, the guardian spirit is stowed automatically.",
 	"하트 공명": "Heart Resonance",
 	"액티브 스킬": "Active Skill",
@@ -3311,9 +3281,7 @@ const EXACT_TEXT_ZH := {
 	"동행 중": "同行中",
 	"친밀도 상한 Lv.%d": "亲密度上限 Lv.%d",
 	"친밀도 획득량 +%d%%": "亲密度获取 +%d%%",
-	"포만도": "饱腹度",
 	"지속시간": "持续时间",
-	"탈진": "精疲力尽",
 	"수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다.": "守护灵剩余的召唤持续时间。召唤时会减少，收纳时会缓慢恢复。归零后会自动收纳。",
 	"하트 공명": "心之共鸣",
 	"액티브 스킬": "主动技能",
@@ -3899,9 +3867,7 @@ const EXACT_TEXT_JA := {
 	"동행 중": "同行中",
 	"친밀도 상한 Lv.%d": "親密度上限 Lv.%d",
 	"친밀도 획득량 +%d%%": "親密度獲得 +%d%%",
-	"포만도": "満腹度",
 	"지속시간": "持続時間",
-	"탈진": "疲労",
 	"수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다.": "守護霊の残り召喚持続時間です。召喚中は減少し、収納中はゆっくり回復します。0になると自動的に収納されます。",
 	"하트 공명": "ハート共鳴",
 	"액티브 스킬": "アクティブスキル",
@@ -4487,9 +4453,7 @@ const EXACT_TEXT_ES := {
 	"동행 중": "Acompañando",
 	"친밀도 상한 Lv.%d": "Límite de afinidad Lv.%d",
 	"친밀도 획득량 +%d%%": "Ganancia de afinidad +%d%%",
-	"포만도": "Saciedad",
 	"지속시간": "Duración",
-	"탈진": "Agotado",
 	"수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다.": "La duración restante de invocación de tu espíritu guardián. Disminuye mientras está invocado y se recupera lentamente mientras está guardado. Al llegar a 0, se guarda automáticamente.",
 	"하트 공명": "Resonancia de corazón",
 	"액티브 스킬": "Habilidad activa",
