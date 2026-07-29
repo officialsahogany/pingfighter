@@ -30,12 +30,12 @@ const IGNITION_SHEET_COLS := 4
 const IGNITION_SHEET_ROWS := 4
 const IGNITION_SHEET_FRAMES := 16
 
-# 카트리지 페이스 플레이트(에셋 실측 frac): 좌 x=0.442(우는 미러 1-x),
-# y=0.510, 아이콘 스팬 32px — 커밋된 재료 퍽 아이콘을 B0~B3 내내
+# 무공패 페이스 플레이트(주물 의식 에셋 실측 frac): x=0.500,
+# y=0.587, 아이콘 스팬 32px — 커밋된 재료 퍽 아이콘을 B0~B3 내내
 # 플레이트에 합성한다(카트리지 정체성 연속 계약, 소멸은 B4 코어 합체만).
 const CARTRIDGE_DRAW_HEIGHT := 96.0
-const CARTRIDGE_PLATE_CENTER_X_FRAC := 0.442
-const CARTRIDGE_PLATE_CENTER_Y_FRAC := 0.510
+const CARTRIDGE_PLATE_CENTER_X_FRAC := 0.500
+const CARTRIDGE_PLATE_CENTER_Y_FRAC := 0.587
 const CARTRIDGE_PLATE_ICON_SPAN := 32.0
 # B4 코어 페이스 대각 합성 융합 아이콘(§3 B4 계약 — prepare_fusion_pair_icon
 # 재사용): 합성은 부트 진입 프리웜이 소유하고 draw는 캐시 소비만 한다.
@@ -50,12 +50,12 @@ const MODULE_DEPLOY_SPECS := [
 	{"key": "module_gem_plate", "angle": PI / 6.0, "width": 66.0, "rotation": PI / 6.0 + PI * 0.5},
 ]
 
-# 플랜 §2 팔레트 — 결과 신호 문법(시안=동기화/골드=각성/적=과부하).
-const ACCENT_COLOR := Color(0.32, 0.86, 1.0)
+# 환격전 주물 의식 팔레트 — 결과 신호 문법(청염=동기화/금박=각성/주사=과부하).
+const ACCENT_COLOR := Color(0.30, 0.84, 0.74)
 const GOLD_COLOR := Color(1.0, 0.79, 0.27)
-const FAULT_COLOR := Color(1.0, 0.48, 0.48)
-const CORE_STABLE_COLOR := Color(0.45, 0.90, 1.0)
-const CHASSIS_COLOR := Color(0.01, 0.015, 0.035)
+const FAULT_COLOR := Color(0.90, 0.32, 0.22)
+const CORE_STABLE_COLOR := Color(0.52, 0.92, 0.82)
+const CHASSIS_COLOR := Color(0.022, 0.014, 0.009)
 
 const HOST_Z_INDEX := 110
 const GAUGE_SEGMENTS := 16
@@ -529,7 +529,7 @@ func _draw_core_face_icon(center: Vector2, progress: float) -> void:
 		Vector2(CORE_FACE_ICON_SPAN, CORE_FACE_ICON_SPAN)
 	)
 	var face_alpha: float = clampf(0.55 + 0.45 * progress, 0.0, 1.0)
-	draw_rect(icon_rect.grow(5.0), Color(0.02, 0.03, 0.06, 0.92 * face_alpha))
+	draw_rect(icon_rect.grow(5.0), Color(0.045, 0.028, 0.018, 0.92 * face_alpha))
 	draw_rect(icon_rect.grow(5.0), Color(GOLD_COLOR, 0.8 * face_alpha), false, 1.5)
 	_icon_renderer.draw_icon(self, _prepared_pair_icon_id, icon_rect, face_alpha)
 

@@ -91,6 +91,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_prewarm_rides_overlay_prewarm_path()
 	_verify_asset_manifest_prewarms_textures()
+	_verify_cartridge_plate_measurement_contract()
 	_verify_ignition_sheet_cell_content_seal()
 	_verify_committed_icon_prepare_on_boot_entry()
 	_verify_spark_particle_contract()
@@ -194,6 +195,58 @@ func _verify_asset_manifest_prewarms_textures() -> void:
 			and PerkFusionColdBootCinematic.IGNITION_SHEET_ROWS == 4
 			and PerkFusionColdBootCinematic.IGNITION_SHEET_FRAMES == 16,
 		"the AutoSprite ignition sheet must declare its 4x4=16 atlas grid authority"
+	)
+
+
+# 주물 의식 무공패 실측 씰: 최종 좌/우 에셋의 크기와 암판 안전영역을
+# 함께 봉인한다. 아트가 다시 바뀌면 이 레그가 RED가 되어 frac을 재실측해야
+# 하며, 32px 재료 아이콘은 96px 드로 높이에서 암판 밖으로 넘지 않아야 한다.
+func _verify_cartridge_plate_measurement_contract() -> void:
+	var left_image := Image.load_from_file(
+		ProjectSettings.globalize_path(PerkFusionColdBootCinematic.CARTRIDGE_LEFT_TEXTURE_PATH)
+	)
+	var right_image := Image.load_from_file(
+		ProjectSettings.globalize_path(PerkFusionColdBootCinematic.CARTRIDGE_RIGHT_TEXTURE_PATH)
+	)
+	_expect(left_image != null and not left_image.is_empty(), "the left mugong tablet source must load")
+	_expect(right_image != null and not right_image.is_empty(), "the right mugong tablet source must load")
+	if left_image == null or left_image.is_empty() or right_image == null or right_image.is_empty():
+		return
+	_expect(
+		left_image.get_size() == Vector2i(742, 1024)
+			and right_image.get_size() == left_image.get_size(),
+		"the measured mugong-tablet pair must stay at the accepted mirrored 742x1024 source geometry"
+	)
+	_expect(
+		is_equal_approx(PerkFusionColdBootCinematic.CARTRIDGE_PLATE_CENTER_X_FRAC, 0.500)
+			and is_equal_approx(PerkFusionColdBootCinematic.CARTRIDGE_PLATE_CENTER_Y_FRAC, 0.587),
+		"the runtime face center must match the accepted mugong-tablet plate measurement"
+	)
+	var draw_size := Vector2(
+		PerkFusionColdBootCinematic.CARTRIDGE_DRAW_HEIGHT
+			* float(left_image.get_width()) / float(left_image.get_height()),
+		PerkFusionColdBootCinematic.CARTRIDGE_DRAW_HEIGHT
+	)
+	var measured_plate_safe_rect := Rect2(
+		Vector2(draw_size.x * 0.247, draw_size.y * 0.323),
+		Vector2(draw_size.x * 0.506, draw_size.y * 0.503)
+	)
+	var left_center := Vector2(
+		draw_size.x * PerkFusionColdBootCinematic.CARTRIDGE_PLATE_CENTER_X_FRAC,
+		draw_size.y * PerkFusionColdBootCinematic.CARTRIDGE_PLATE_CENTER_Y_FRAC
+	)
+	var icon_size := Vector2.ONE * PerkFusionColdBootCinematic.CARTRIDGE_PLATE_ICON_SPAN
+	var left_icon_rect := Rect2(left_center - icon_size * 0.5, icon_size)
+	var right_center := Vector2(
+		draw_size.x * (1.0 - PerkFusionColdBootCinematic.CARTRIDGE_PLATE_CENTER_X_FRAC),
+		left_center.y
+	)
+	var right_icon_rect := Rect2(right_center - icon_size * 0.5, icon_size)
+	_expect(
+		measured_plate_safe_rect.encloses(left_icon_rect)
+			and measured_plate_safe_rect.encloses(right_icon_rect),
+		"the 32px material icons must stay inside the measured mugong-tablet face plate (%s / %s in %s)"
+			% [str(left_icon_rect), str(right_icon_rect), str(measured_plate_safe_rect)]
 	)
 
 

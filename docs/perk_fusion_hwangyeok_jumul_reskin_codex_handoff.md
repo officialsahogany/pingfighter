@@ -207,6 +207,17 @@ exactly flat #ff00ff, no gradient. Do not use #ff00ff inside the art.
   `run_smoke_tests.ps1` 관통), **헝크분리 커밋**(외래 WIP 다수 — 이 슬라이스
   파일만).
 
+### 7.1 무공패 face plate 최종 실측 (2026-07-29 Codex 실행)
+
+- 최종 좌/우 소스: `742x1024`, 동일 원본의 셀 단위 수평 미러 쌍.
+- 무지 암판 안전영역 frac: `Rect2(0.247, 0.323, 0.506, 0.503)`.
+- 적용 상수: `CARTRIDGE_PLATE_CENTER_X_FRAC = 0.500`,
+  `CARTRIDGE_PLATE_CENTER_Y_FRAC = 0.587`, `CARTRIDGE_PLATE_ICON_SPAN = 32.0`.
+- `CARTRIDGE_DRAW_HEIGHT = 96.0`에서 32px 아이콘 rect가 좌/우 모두 위
+  안전영역 안에 들어감을 `perk_fusion_cold_boot_cinematic_smoke.gd`가 봉인한다.
+- 실측 오버레이 아카이브:
+  `images/perk_fusion_hwangyeok_jumul_reskin/qa/cartridge_plate_probe.png`.
+
 ## 8. 검증 / 씰
 
 - 기존 스모크 GREEN 유지: `perk_fusion_cold_boot_cinematic_smoke`,

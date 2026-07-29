@@ -18,12 +18,12 @@ const DEFAULT_ANIMATION_DURATION := PerkFusionColdBootTimelineState.TOTAL_ANIMAT
 const MAX_RESULT_LINES := 8
 const MAX_LINE_CHARS := 48
 
-const BACKDROP_COLOR := Color(0.01, 0.015, 0.035, 0.78)
-const PANEL_COLOR := Color(0.055, 0.07, 0.12, 0.985)
-const PANEL_BORDER_COLOR := Color(0.36, 0.73, 1.0, 0.88)
-const ACCENT_COLOR := Color(0.32, 0.86, 1.0, 1.0)
+const BACKDROP_COLOR := Color(0.022, 0.014, 0.009, 0.78)
+const PANEL_COLOR := Color(0.085, 0.062, 0.042, 0.985)
+const PANEL_BORDER_COLOR := Color(0.80, 0.63, 0.31, 0.88)
+const ACCENT_COLOR := Color(0.30, 0.84, 0.74, 1.0)
 const GOLD_COLOR := Color(1.0, 0.79, 0.27, 1.0)
-const MUTED_COLOR := Color(0.68, 0.76, 0.88, 1.0)
+const MUTED_COLOR := Color(0.84, 0.78, 0.66, 1.0)
 
 var _layout_helper: Object = PerkFusionModalLayout.new()
 var _fallback_font: Font = null
@@ -67,7 +67,7 @@ func _draw_shell(canvas: CanvasItem, layout: Dictionary, view_size: Vector2) -> 
 	var panel_rect: Rect2 = _as_rect2(layout.get("panel_rect", Rect2()))
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKDROP_COLOR, true)
 	canvas.draw_rect(panel_rect, PANEL_COLOR, true)
-	canvas.draw_rect(panel_rect.grow(4.0), Color(0.12, 0.34, 0.62, 0.22), false, 3.0)
+	canvas.draw_rect(panel_rect.grow(4.0), Color(0.55, 0.32, 0.12, 0.24), false, 3.0)
 	canvas.draw_rect(panel_rect, PANEL_BORDER_COLOR, false, 2.0)
 
 
@@ -152,7 +152,7 @@ func _draw_confirm(
 		PerkFusionLocalization.text("irreversible"),
 		Vector2(probability_rect.get_center().x, probability_rect.end.y - 13.0),
 		13,
-		Color(1.0, 0.58, 0.55, 1.0)
+		Color(0.90, 0.32, 0.22, 1.0)
 	)
 	_draw_button(canvas, _as_rect2(layout.get("back_rect", Rect2())), PerkFusionLocalization.text("reselect"), true, false)
 	_draw_button(canvas, _as_rect2(layout.get("confirm_rect", Rect2())), PerkFusionLocalization.text("commit"), true, true)
@@ -168,8 +168,8 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 		PerkFusionLocalization.text("prob_byproduct"),
 	]
 	var keys: Array[String] = ["success", "side_effect", "byproduct"]
-	var side_color := Color(0.45, 0.90, 1.0) if core_stabilize_armed else Color(1.0, 0.48, 0.48)
-	var colors: Array[Color] = [Color(0.39, 0.92, 0.73), side_color, GOLD_COLOR]
+	var side_color := Color(0.52, 0.92, 0.82) if core_stabilize_armed else Color(0.90, 0.32, 0.22)
+	var colors: Array[Color] = [Color(0.34, 0.86, 0.70), side_color, GOLD_COLOR]
 	var column_width: float = rect.size.x / 3.0
 	for column in range(3):
 		var percent: float = _as_percent(float(probabilities.get(keys[column], 0.0)))
@@ -201,9 +201,9 @@ func _draw_animation(
 	var left_center := center + Vector2(-orbit_radius, 0.0)
 	var right_center := center + Vector2(orbit_radius, 0.0)
 	var pulse: float = 0.5 + 0.5 * sin(progress * TAU * 4.0)
-	canvas.draw_line(left_center, right_center, Color(0.32, 0.80, 1.0, 0.35 + 0.35 * progress), 3.0)
-	canvas.draw_circle(left_center, 28.0 + 5.0 * pulse, Color(0.25, 0.73, 1.0, 0.75))
-	canvas.draw_circle(right_center, 28.0 + 5.0 * (1.0 - pulse), Color(1.0, 0.64, 0.30, 0.75))
+	canvas.draw_line(left_center, right_center, Color(0.30, 0.84, 0.74, 0.35 + 0.35 * progress), 3.0)
+	canvas.draw_circle(left_center, 28.0 + 5.0 * pulse, Color(0.30, 0.84, 0.74, 0.75))
+	canvas.draw_circle(right_center, 28.0 + 5.0 * (1.0 - pulse), Color(1.0, 0.79, 0.27, 0.75))
 	for ring_index in range(3):
 		var ring_radius: float = 42.0 + float(ring_index) * 22.0 + progress * 24.0
 		canvas.draw_arc(
@@ -212,13 +212,13 @@ func _draw_animation(
 			-progress * TAU * (1.0 + float(ring_index) * 0.25),
 			-progress * TAU * (1.0 + float(ring_index) * 0.25) + PI * 1.35,
 			28,
-			Color(0.34 + 0.16 * float(ring_index), 0.78, 1.0, 0.68 - float(ring_index) * 0.12),
+			Color(0.30 + 0.08 * float(ring_index), 0.84, 0.74, 0.68 - float(ring_index) * 0.12),
 			2.0
 		)
 	for spark_index in range(8):
 		var angle: float = TAU * float(spark_index) / 8.0 + progress * TAU * 1.7
 		var spark_pos: Vector2 = center + Vector2.from_angle(angle) * (62.0 + 26.0 * pulse)
-		canvas.draw_circle(spark_pos, 2.0 + float(spark_index % 3), Color(0.76, 0.94, 1.0, 0.86))
+		canvas.draw_circle(spark_pos, 2.0 + float(spark_index % 3), Color(0.74, 0.96, 0.86, 0.86))
 	_draw_text_centered(canvas, left_name, center + Vector2(-145.0, 118.0), 14, MUTED_COLOR)
 	_draw_text_centered(canvas, right_name, center + Vector2(145.0, 118.0), 14, MUTED_COLOR)
 	_draw_text_centered(canvas, "%d%%" % int(round(progress * 100.0)), center + Vector2(0.0, 154.0), 18, Color.WHITE)
@@ -258,7 +258,7 @@ func _draw_reveal(
 		Vector2(result_rect.get_center().x - icon_size * 0.5, result_rect.position.y + 10.0),
 		Vector2(icon_size, icon_size)
 	)
-	canvas.draw_rect(icon_rect.grow(4.0), Color(0.025, 0.035, 0.07, 0.96), true)
+	canvas.draw_rect(icon_rect.grow(4.0), Color(0.045, 0.028, 0.018, 0.96), true)
 	canvas.draw_rect(icon_rect.grow(4.0), GOLD_COLOR, false, 2.0)
 	_draw_perk_icon(
 		canvas,
@@ -291,7 +291,7 @@ func _draw_reveal(
 		PerkFusionLocalization.text("continue"),
 		_as_rect2(layout.get("confirm_rect", Rect2())).get_center(),
 		14,
-		Color(0.86, 0.96, 1.0, 1.0)
+		Color(0.94, 0.88, 0.74, 1.0)
 	)
 
 
@@ -308,8 +308,8 @@ func _draw_candidate_card(
 	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
 	var selected: bool = selected_order >= 0
-	var border_color: Color = GOLD_COLOR if selected else (ACCENT_COLOR if highlighted else Color(0.29, 0.38, 0.55, 0.9))
-	var background_color := Color(0.11, 0.15, 0.24, 0.98) if highlighted else Color(0.075, 0.095, 0.16, 0.98)
+	var border_color: Color = GOLD_COLOR if selected else (ACCENT_COLOR if highlighted else Color(0.38, 0.29, 0.17, 0.9))
+	var background_color := Color(0.13, 0.09, 0.055, 0.98) if highlighted else Color(0.08, 0.052, 0.031, 0.98)
 	canvas.draw_rect(rect, background_color, true)
 	if highlighted or selected:
 		canvas.draw_rect(rect.grow(4.0), Color(border_color.r, border_color.g, border_color.b, 0.20), false, 3.0)
@@ -319,8 +319,8 @@ func _draw_candidate_card(
 		return
 	var icon_size: float = clampf(minf(rect.size.y - 30.0, rect.size.x * 0.34), 24.0, 60.0)
 	var icon_rect := Rect2(rect.position + Vector2(12.0, maxf(8.0, (rect.size.y - icon_size) * 0.5)), Vector2(icon_size, icon_size))
-	canvas.draw_rect(icon_rect, Color(0.025, 0.035, 0.07, 0.96), true)
-	canvas.draw_rect(icon_rect, Color(0.35, 0.72, 1.0, 0.65), false, 1.5)
+	canvas.draw_rect(icon_rect, Color(0.045, 0.028, 0.018, 0.96), true)
+	canvas.draw_rect(icon_rect, Color(0.30, 0.84, 0.74, 0.65), false, 1.5)
 	_draw_perk_icon(canvas, icon_renderer, perk_id, icon_rect.grow(-4.0))
 	var name_x: float = icon_rect.end.x + 10.0
 	var max_name_width: float = maxf(8.0, rect.end.x - name_x - 10.0)
@@ -342,7 +342,7 @@ func _draw_candidate_preview(
 ) -> void:
 	var icon_size := clampf(rect.size.y * 0.27, 32.0, 46.0)
 	var icon_rect := Rect2(rect.position + Vector2(12.0, 10.0), Vector2(icon_size, icon_size))
-	canvas.draw_rect(icon_rect, Color(0.025, 0.035, 0.07, 0.96), true)
+	canvas.draw_rect(icon_rect, Color(0.045, 0.028, 0.018, 0.96), true)
 	_draw_perk_icon(canvas, icon_renderer, perk_id, icon_rect.grow(-3.0))
 	var name_x := icon_rect.end.x + 8.0
 	_draw_text_fitted(canvas, _perk_name(catalog, perk_id), Vector2(name_x, rect.position.y + 28.0), 15, Color.WHITE, rect.end.x - name_x - 10.0, 9)
@@ -390,18 +390,18 @@ func _find_source_preview(previews: Array, source_id: String) -> Dictionary:
 func _draw_button(canvas: CanvasItem, rect: Rect2, label: String, enabled: bool, primary: bool) -> void:
 	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
-	var fill: Color = Color(0.10, 0.18, 0.30, 0.98)
-	var border: Color = Color(0.42, 0.58, 0.76, 0.82)
+	var fill: Color = Color(0.11, 0.075, 0.045, 0.98)
+	var border: Color = Color(0.56, 0.43, 0.23, 0.82)
 	if primary:
-		fill = Color(0.08, 0.31, 0.48, 0.98) if enabled else Color(0.09, 0.12, 0.18, 0.96)
-		border = ACCENT_COLOR if enabled else Color(0.30, 0.36, 0.46, 0.7)
+		fill = Color(0.12, 0.22, 0.18, 0.98) if enabled else Color(0.075, 0.05, 0.035, 0.96)
+		border = ACCENT_COLOR if enabled else Color(0.34, 0.27, 0.18, 0.7)
 	canvas.draw_rect(rect, fill, true)
 	canvas.draw_rect(rect, border, false, 2.0)
 	_draw_text_centered(canvas, label, rect.get_center(), 14, Color.WHITE if enabled or not primary else MUTED_COLOR)
 
 
 func _draw_heading(canvas: CanvasItem, panel_rect: Rect2, title: String, subtitle: String) -> void:
-	_draw_text_centered(canvas, title, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 30.0), 24, Color(0.88, 0.97, 1.0, 1.0))
+	_draw_text_centered(canvas, title, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 30.0), 24, Color(0.94, 0.88, 0.74, 1.0))
 	_draw_text_centered(canvas, subtitle, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 58.0), 13, MUTED_COLOR)
 
 
@@ -484,8 +484,8 @@ func _draw_perk_icon(canvas: CanvasItem, icon_renderer: Object, perk_id: String,
 	if icon_renderer != null and icon_renderer.has_method("draw_icon"):
 		drew_icon = bool(icon_renderer.draw_icon(canvas, perk_id, rect, 1.0, true))
 	if not drew_icon:
-		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.32, Color(0.32, 0.78, 1.0, 0.86))
-		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.15, Color(0.82, 0.96, 1.0, 0.96))
+		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.32, Color(0.30, 0.84, 0.74, 0.86))
+		canvas.draw_circle(rect.get_center(), minf(rect.size.x, rect.size.y) * 0.15, Color(0.74, 0.96, 0.86, 0.96))
 
 
 func _draw_text_fitted(

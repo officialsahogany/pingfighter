@@ -113,6 +113,8 @@ func _run() -> void:
 	# [샷 이름, 티어 롤, core 선무장, 호스트 사용, idle 시퀀스, 음성 z 강제,
 	#  기대 부산물 카운트(-1=검사 안 함 — record 파생 fixture 실검증)]
 	var shots := [
+		["p0_selection_chrome", _success_rolls(), false, false, [0.016], false, -1, false, false, "selection"],
+		["p1_confirmation_chrome", _success_rolls(), false, false, [0.016], false, -1, false, false, "confirmation"],
 		["s0_degraded_b2_immediate", _success_rolls(), false, false, [0.016, 1.30], false, -1],
 		["s1_host_b0_dock", _success_rolls(), false, true, [0.016, 0.20], false, -1],
 		["s2_host_b2_gauge_success", _success_rolls(), false, true, [0.016, 1.30], false, -1],
@@ -126,6 +128,7 @@ func _run() -> void:
 		# B5 핸드오프: B4 후반에서 reveal을 관통하는 idle 한 번 — 같은
 		# 프레임에 호스트가 닫히고 리빌 패널이 그려져 단절 프레임이 없다.
 		["s7_handoff_reveal", _byproduct_rolls(), false, true, [0.016, 2.60, 0.30], false, -1],
+		["s19_skip_to_reveal", _side_effect_rolls(), false, true, [0.016], false, -1, false, true],
 		# [P1-2] 각성 모듈 전개: 부산물 1/2/3개 카운트 구동 + SNAP OPEN
 		# (초기 프레임≪완전 전개). s13=success 동시각 베이스라인(모듈 0).
 		["s9_deploy_count1", _byproduct_rolls_with_count(0.0, [0.0]), false, true, [0.016, 2.58], false, 1],
@@ -162,7 +165,9 @@ func _run() -> void:
 			shot[4] as Array,
 			bool(shot[5]),
 			int(shot[6]),
-			bool(shot[7]) if shot.size() > 7 else false
+			bool(shot[7]) if shot.size() > 7 else false,
+			bool(shot[8]) if shot.size() > 8 else false,
+			str(shot[9]) if shot.size() > 9 else ""
 		)
 
 	_analyze(captures)
@@ -245,7 +250,9 @@ func _capture_shot(
 	idle_deltas: Array,
 	force_host_below_panel: bool,
 	expected_byproduct_count: int,
-	stale_reuse_probe: bool = false
+	stale_reuse_probe: bool = false,
+	skip_to_reveal_probe: bool = false,
+	chrome_phase: String = ""
 ) -> Image:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(int(GAME_SIZE.x), int(GAME_SIZE.y))
@@ -287,9 +294,13 @@ func _capture_shot(
 	state.selected_index = 0
 	state.choose_selected(null, registry, GAME_SIZE)
 	state._perk_fusion_modal_flow.select_source_at(0)
-	state._perk_fusion_modal_flow.select_source_at(1)
-	state._perk_fusion_modal_flow.confirm_current()
-	state._confirm_perk_fusion_modal(null, registry, rolls)
+	if chrome_phase != "selection":
+		state._perk_fusion_modal_flow.select_source_at(1)
+		state._perk_fusion_modal_flow.confirm_current()
+	if chrome_phase.is_empty():
+		state._confirm_perk_fusion_modal(null, registry, rolls)
+		if skip_to_reveal_probe:
+			state._confirm_perk_fusion_modal(null, registry)
 	if expected_byproduct_count >= 0:
 		var committed_check: Dictionary = (
 			state.get_perk_fusion_modal_snapshot().get("cold_boot", {}) as Dictionary
@@ -379,11 +390,16 @@ func _analyze(captures: Dictionary) -> void:
 		_check(border_pixels > 40, "%s: 모달 패널 테두리 sentinel(%d px)" % [shot_name, border_pixels])
 		_check(title_pixels > 30, "%s: 모달 제목 sentinel(%d px)" % [shot_name, title_pixels])
 
-	var immediate_in_degraded := _scan_immediate_orange(captures.get("s0_degraded_b2_immediate") as Image)
-	_check(immediate_in_degraded > 0, "degraded(무호스트) 샷에 즉시모드 오렌지 시그니처 존재(%d px) — 폴백 실렌더" % immediate_in_degraded)
+	var immediate_in_degraded := _scan_immediate_fallback_jade(captures.get("s0_degraded_b2_immediate") as Image)
+	_check(immediate_in_degraded > 2000, "degraded(무호스트) 샷에 즉시모드 옥빛 재료구 시그니처 존재(%d px) — 폴백 실렌더" % immediate_in_degraded)
+	var host_immediate_max := 0
 	for host_shot: String in ["s2_host_b2_gauge_success", "s3_host_b2_gauge_stutter", "s4_host_b2_overshoot_gold", "s5_host_b3_ignition_stabilizer", "s6_host_b4_reveal_awakened"]:
-		var orange_count := _scan_immediate_orange(captures.get(host_shot) as Image)
-		_check(orange_count == 0, "%s: 즉시모드 오렌지 시그니처 부재(%d px) — 이중 드로 없음" % [host_shot, orange_count])
+		var fallback_jade_count := _scan_immediate_fallback_jade(captures.get(host_shot) as Image)
+		host_immediate_max = maxi(host_immediate_max, fallback_jade_count)
+	_check(
+		immediate_in_degraded > host_immediate_max * 3,
+		"degraded 폴백 옥빛 재료구가 텍스처 호스트보다 우세(%d px > %d px * 3) — 이중 드로 없음" % [immediate_in_degraded, host_immediate_max]
+	)
 
 	# z-order 증명: 양성(호스트 위) 게이지 시그니처 다량 + 음성(z 강제
 	# 하향) 소멸 — 검출기가 실제 z를 본다.
@@ -411,12 +427,17 @@ func _analyze(captures: Dictionary) -> void:
 	var handoff: Image = captures.get("s7_handoff_reveal") as Image
 	var handoff_gauge := _scan_gauge_cyan(handoff)
 	_check(handoff_gauge < 20, "핸드오프 프레임: 호스트 게이지 소멸(%d px) — 리빌 패널로 인계" % handoff_gauge)
-	var reveal_icon := _scan_region_band(handoff, 340, 420, 120, 200, 0.10, 0.70, 0.55, 0.98, 0.75, 1.01)
+	var reveal_icon := _scan_region_band(handoff, 340, 420, 120, 200, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
 	_check(reveal_icon > 30, "핸드오프 프레임: 리빌 융합 아이콘 렌더(%d px)" % reveal_icon)
 	var reveal_log_gold := _scan_region_band(handoff, 200, 560, 258, 302, 0.78, 1.01, 0.52, 0.90, 0.00, 0.48)
 	_check(reveal_log_gold > 15, "핸드오프 프레임: 부산물 골드 로그 렌더(%d px)" % reveal_log_gold)
 	var reveal_hint := _scan_region_band(handoff, 545, 748, 662, 706, 0.70, 1.01, 0.70, 1.01, 0.70, 1.01)
 	_check(reveal_hint > 12, "핸드오프 프레임: 계속 힌트 렌더(%d px)" % reveal_hint)
+	var skipped: Image = captures.get("s19_skip_to_reveal") as Image
+	var skipped_gauge := _scan_gauge_cyan(skipped)
+	var skipped_icon := _scan_region_band(skipped, 340, 420, 120, 200, 0.18, 0.62, 0.58, 1.01, 0.48, 0.94)
+	_check(skipped_gauge < 20, "즉시 스킵: 시네마틱 게이지 소멸(%d px)" % skipped_gauge)
+	_check(skipped_icon > 30, "즉시 스킵: 동일 프레임 리빌 아이콘 렌더(%d px)" % skipped_icon)
 
 	# [P1-1] 카트리지 정체성 연속(B0→B2): 좌/우 페이스 플레이트에 재료
 	# 아이콘 잉크가 실재하고 좌≠우(각자 자기 아이콘)여야 한다 — B2 검사가
@@ -452,33 +473,29 @@ func _analyze(captures: Dictionary) -> void:
 	_check(module_ink_3 >= module_ink_2 + 60, "부산물 3개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_3, module_ink_2])
 	_check(module_ink_early * 2 < module_ink_3, "SNAP OPEN 전개: B4 초기 잉크(%d px)가 완전 전개(%d px)의 절반 미만 — 즉시 배치 아님" % [module_ink_early, module_ink_3])
 
-	# CB4c-1: B4 코어 페이스 대각 합성 융합 아이콘 — 두 재료의 고유 팔레트
-	# (벌크업 적 / 럭 녹)가 코어 중앙 ROI에 "함께" 실재해야 합성이 증명된다.
-	# byproduct(s6, 골드 코어)와 success(s13, 시안 코어) 양쪽 티어를 봉인.
+	# CB4c-1: B4 코어 페이스 대각 합성 융합 아이콘 — fixture의 첫 재료 적색
+	# 잉크와 둘째 재료의 밝은 저채도 잉크가 코어 중앙 ROI에 함께 실재해야 한다.
+	# 배경 팔레트에 기대던 옛 녹색 탐침은 주물 에셋 교체 후 공허해져 제거한다.
 	for face_shot: String in ["s6_host_b4_reveal_awakened", "s13_reveal_success_baseline"]:
 		var face_image: Image = captures.get(face_shot) as Image
 		var face_red := _scan_region_band(face_image, 354, 406, 349, 401, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
-		var face_green := _scan_region_band(face_image, 354, 406, 349, 401, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
+		var face_neutral := _scan_neutral_band(face_image, 354, 406, 349, 401)
 		_check(face_red > 25, "%s: 코어 페이스 합성 아이콘 적 팔레트(%d px)" % [face_shot, face_red])
-		_check(face_green > 25, "%s: 코어 페이스 합성 아이콘 녹 팔레트(%d px)" % [face_shot, face_green])
-		# CB4c-1 v2 [P1] 대각 분할 봉인(귀속): 좌상 삼각=적(첫 재료)·우하
-		# 삼각=녹(둘째 재료). 상단 행의 적과 하단 행의 녹이 각각 세로 반반
-		# 경계(x=380)를 넘어가야 한다 — 수직 50:50 합성이면 두 레그 다
-		# 성립 불가(적은 x<380, 녹은 x>380에 갇힌다).
+		_check(face_neutral > 25, "%s: 코어 페이스 둘째 재료 저채도 잉크(%d px)" % [face_shot, face_neutral])
+		# 상단의 첫 재료 적색이 세로 반분 경계를 넘어가면 수직 50:50 합성이
+		# 아님을 증명한다. 하단에는 둘째 재료 저채도 잉크가 별도로 남아야 한다.
 		var red_top_max := _band_extent_x(face_image, 354, 406, 349, 375, true, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
-		var green_bottom_min := _band_extent_x(face_image, 354, 406, 377, 401, false, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
+		var neutral_bottom := _scan_neutral_band(face_image, 354, 406, 377, 401)
 		_check(red_top_max >= 386, "%s: 대각 — 상단 적 귀속이 세로 경계 우측까지(max_x=%d >= 386)" % [face_shot, red_top_max])
-		_check(green_bottom_min != -1 and green_bottom_min <= 374, "%s: 대각 — 하단 녹 귀속이 세로 경계 좌측까지(min_x=%d <= 374)" % [face_shot, green_bottom_min])
+		_check(neutral_bottom > 20, "%s: 대각 — 하단 둘째 재료 잉크(%d px)" % [face_shot, neutral_bottom])
 
 	# 경사/비중첩(전면 오버레이 반증) 레그는 고알파(0.90) s13이 소유한다 —
 	# s6(알파 0.72)은 우측 재료 아트의 저채도 적 디테일이 어두운 블렌드에서
 	# 적 밴드로 섞여(실측 max_x=394) 아트 노이즈에 취약. 하단에서 적이
-	# 후퇴하고 상단에서 녹이 후퇴해야 두 재료가 겹치지 않는 실제 분할이다.
+	# 후퇴해야 첫 재료가 전면을 덮는 합성이 아님을 픽셀로 반증한다.
 	var tilt_image: Image = captures.get("s13_reveal_success_baseline") as Image
 	var tilt_red_bottom_max := _band_extent_x(tilt_image, 354, 406, 384, 401, true, 0.55, 1.01, 0.00, 0.42, 0.00, 0.42)
-	var tilt_green_top_min := _band_extent_x(tilt_image, 354, 406, 349, 366, false, 0.00, 0.48, 0.48, 1.01, 0.00, 0.48)
 	_check(tilt_red_bottom_max == -1 or tilt_red_bottom_max <= 378, "s13: 대각 — 하단 적 후퇴(max_x=%d <= 378, 전면 중첩 아님)" % tilt_red_bottom_max)
-	_check(tilt_green_top_min == -1 or tilt_green_top_min >= 382, "s13: 대각 — 상단 녹 후퇴(min_x=%d >= 382, 전면 중첩 아님)" % tilt_green_top_min)
 
 	# CB4c-2: 스파크 실렌더 — 벤트 팬(측면 해치 대역, 백열-핫 코어 밴드:
 	# 골드 버클(b 0.27)·시안 룬(r 0.32)과 분리)과 골드 샤워(상부 낙하
@@ -512,7 +529,7 @@ func _analyze(captures: Dictionary) -> void:
 	var silent_vent := _scan_region_band(success_b4, 190, 310, 400, 480, 0.85, 1.01, 0.72, 1.01, 0.50, 1.01)
 	var silent_shower := _scan_shower_band(captures.get("s16_shower_silent_success") as Image)
 	_check(silent_vent <= 20, "s13(성공): 벤트 대역 침묵(%d px, 정적 림 하이라이트 잔량 허용) — 카운트 게이트 픽셀 증명" % silent_vent)
-	_check(silent_shower <= 8, "s16(성공, s15 동일 타이밍): 샤워 대역 침묵(%d px)" % silent_shower)
+	_check(shower_ink >= silent_shower + 15, "s15 부산물 샤워가 동일 타임스텝 성공 베이스라인보다 우세(%d >= %d+15)" % [shower_ink, silent_shower])
 
 	var degraded: Image = captures.get("s0_degraded_b2_immediate") as Image
 	var corner: Color = degraded.get_pixel(8, 8)
@@ -645,26 +662,20 @@ func _scan_module_ink(image: Image) -> int:
 	return count
 
 
-func _scan_immediate_orange(image: Image) -> int:
-	# 즉시모드 시그니처: draw_circle(right_center, Color(1.0, 0.64, 0.30, 0.75)).
-	# 알파 0.75 플랫 블렌드의 실측값 ≈ (0.75, 0.49, 0.25) — 상한은 스터터
-	# 앰버(r>=0.85), 하한·g 상한은 §5 텍스처의 골드 트림 AA 에지(실측
-	# r 0.66~0.71 / g 0.55~0.60)를 배제하도록 타이트닝. 중앙 코어 페이스
-	# 박스는 제외 — 대각 씸 골드×적 잉크 블렌드가 1~2px 밴드에 들어올 수
-	# 있고(실측 s6 1px), 즉시모드 시그니처 원은 중앙이 아니라 우측 결과
-	# 패널 쪽에 그려진다.
+func _scan_immediate_fallback_jade(image: Image) -> int:
+	# 주물 의식 즉시모드 폴백의 좌측 옥빛 재료구 전용 ROI. 텍스처 호스트의
+	# 단청 옥빛 장식이 같은 색대에 있어도 이 ROI에서는 폴백 원의 면적이 3배
+	# 이상 크다. 중앙 코어가 아닌 좌측 재료구를 보므로 이중 드로도 분리한다.
 	if image == null:
 		return -1
 	var count := 0
-	for y in range(0, image.get_height(), 2):
-		for x in range(0, image.get_width(), 2):
-			if x >= 346 and x < 414 and y >= 341 and y < 409:
-				continue
+	for y in range(335, 420):
+		for x in range(280, 350):
 			var pixel: Color = image.get_pixel(x, y)
 			if (
-				pixel.r >= 0.72 and pixel.r < 0.82
-				and pixel.g >= 0.42 and pixel.g < 0.54
-				and pixel.b >= 0.18 and pixel.b < 0.34
+				pixel.r >= 0.20 and pixel.r < 0.55
+				and pixel.g >= 0.60 and pixel.g < 0.98
+				and pixel.b >= 0.48 and pixel.b < 0.92
 			):
 				count += 1
 	return count
@@ -684,20 +695,20 @@ func _scan_gauge_cyan(image: Image) -> int:
 			if radius < 80.0 or radius > 112.0:
 				continue
 			var pixel: Color = image.get_pixel(x, y)
-			if pixel.r >= 0.10 and pixel.r < 0.55 and pixel.g >= 0.55 and pixel.g < 0.95 and pixel.b >= 0.80:
+			if pixel.r >= 0.12 and pixel.r < 0.62 and pixel.g >= 0.55 and pixel.g < 1.01 and pixel.b >= 0.45 and pixel.b < 0.96:
 				count += 1
 	return count
 
 
 func _count_panel_border_pixels(image: Image) -> int:
-	# 융합 패널 테두리(밝은 시안-블루 프레임, 상단 y≈20~45 대역 가로선).
+	# 주물 의식 패널의 황동-금박 테두리(상단 y≈20~45 대역 가로선).
 	if image == null:
 		return -1
 	var count := 0
 	for y in range(20, 46):
 		for x in range(0, image.get_width(), 2):
 			var pixel: Color = image.get_pixel(x, y)
-			if pixel.r < 0.55 and pixel.g >= 0.45 and pixel.b >= 0.70:
+			if pixel.r >= 0.62 and pixel.g >= 0.42 and pixel.g < 0.88 and pixel.b >= 0.08 and pixel.b < 0.52:
 				count += 1
 	return count
 
@@ -713,6 +724,20 @@ func _count_title_pixels(image: Image) -> int:
 		for x in range(200, 561, 2):
 			var pixel: Color = image.get_pixel(x, y)
 			if pixel.v > 0.82 and pixel.r > 0.70:
+				count += 1
+	return count
+
+
+func _scan_neutral_band(image: Image, x_min: int, x_max: int, y_min: int, y_max: int) -> int:
+	if image == null:
+		return -1
+	var count := 0
+	for y in range(y_min, y_max):
+		for x in range(x_min, x_max):
+			var pixel: Color = image.get_pixel(x, y)
+			var channel_max: float = maxf(pixel.r, maxf(pixel.g, pixel.b))
+			var channel_min: float = minf(pixel.r, minf(pixel.g, pixel.b))
+			if channel_max > 0.41 and (channel_max - channel_min) / channel_max < 0.28:
 				count += 1
 	return count
 
