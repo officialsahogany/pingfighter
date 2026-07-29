@@ -50,7 +50,6 @@ func apply(
 	if randomize_missing:
 		hatch_stat_roll_state.ensure_roll(
 			pet_id,
-			affinity_state,
 			current_profile,
 			LingpetAffinityState.MOTION_STYLE_PATROL
 		)
@@ -76,7 +75,8 @@ func apply(
 		current_profile,
 		loadout_state,
 		affinity_state,
-		loadout
+		loadout,
+		hatch_stat_roll_state
 	)
 	loadout_state.mark_runtime_cache_applied(loadout_key)
 	skill_runtime_host.prewarm_many(

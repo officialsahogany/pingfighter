@@ -72,6 +72,9 @@ const RETIRED_RUN_STATE_KEYS := [
 	"unlock_choice_seed_base",
 	"reward_deck",
 	"reward_history",
+	"hatch_mobility_headstart",
+	"hatch_defense_headstart",
+	"hatch_stat_roll_set",
 ]
 
 var _pets: Dictionary = {}
@@ -382,38 +385,6 @@ func configure_reward_context(
 	_seed_present_skill(pet_data, REWARD_TYPE_ACTIVE_UNLOCK, active_present_id)
 	_seed_present_skill(pet_data, REWARD_TYPE_PASSIVE_UNLOCK, passive_present_id)
 	_pets[normalized_pet_id] = pet_data
-
-
-func set_hatch_stat_roll(pet_id: String, mobility_headstart: float, defense_headstart: float) -> Dictionary:
-	var normalized_pet_id := _normalize_pet_id(pet_id)
-	if normalized_pet_id.is_empty():
-		return get_empty_hatch_stat_roll()
-	var pet_data := _get_or_create_pet_data(normalized_pet_id)
-	pet_data["hatch_mobility_headstart"] = clampf(mobility_headstart, 0.0, 1.0)
-	pet_data["hatch_defense_headstart"] = clampf(defense_headstart, 0.0, 1.0)
-	pet_data["hatch_stat_roll_set"] = true
-	_pets[normalized_pet_id] = pet_data
-	_dirty = true
-	return get_hatch_stat_roll(normalized_pet_id)
-
-
-func has_hatch_stat_roll(pet_id: String) -> bool:
-	return bool(get_hatch_stat_roll(pet_id).get("has_roll", false))
-
-
-func get_hatch_stat_roll(pet_id: String) -> Dictionary:
-	var pet_data := _get_existing_pet_data(_normalize_pet_id(pet_id))
-	if pet_data.is_empty():
-		return get_empty_hatch_stat_roll()
-	return {
-		"mobility": clampf(float(pet_data.get("hatch_mobility_headstart", 0.0)), 0.0, 1.0),
-		"defense": clampf(float(pet_data.get("hatch_defense_headstart", 0.0)), 0.0, 1.0),
-		"has_roll": bool(pet_data.get("hatch_stat_roll_set", false)),
-	}
-
-
-static func get_empty_hatch_stat_roll() -> Dictionary:
-	return {"mobility": 0.0, "defense": 0.0, "has_roll": false}
 
 
 func get_pet_data(pet_id: String) -> Dictionary:

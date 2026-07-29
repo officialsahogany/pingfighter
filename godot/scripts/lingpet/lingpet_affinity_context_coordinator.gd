@@ -55,7 +55,8 @@ func sync_current_profile(
 	current_profile: Object,
 	loadout_state: Object,
 	affinity_state: Object,
-	loadout: Dictionary = {}
+	loadout: Dictionary = {},
+	hatch_stat_roll_state: Object = null
 ) -> void:
 	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
 	if normalized_pet_id == "":
@@ -75,8 +76,12 @@ func sync_current_profile(
 	current_profile.set_enhancement_rewards(
 		affinity_state.get_cumulative_rewards(normalized_pet_id)
 	)
-	if current_profile.has_method("set_hatch_stat_roll") and affinity_state.has_method("get_hatch_stat_roll"):
-		var hatch_roll: Dictionary = affinity_state.get_hatch_stat_roll(normalized_pet_id)
+	if (
+		hatch_stat_roll_state != null
+		and current_profile.has_method("set_hatch_stat_roll")
+		and hatch_stat_roll_state.has_method("get_hatch_stat_roll")
+	):
+		var hatch_roll: Dictionary = hatch_stat_roll_state.get_hatch_stat_roll(normalized_pet_id)
 		current_profile.set_hatch_stat_roll(
 			float(hatch_roll.get("mobility", 0.0)),
 			float(hatch_roll.get("defense", 0.0))

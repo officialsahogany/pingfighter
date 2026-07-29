@@ -4,6 +4,7 @@ const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpe
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetHatchStatRollState := preload("res://scripts/lingpet/lingpet_hatch_stat_roll_state.gd")
 
 var _failures: Array[String] = []
 
@@ -133,12 +134,21 @@ func _verify_hatch_passive_id_covers_full_pool() -> void:
 
 func _verify_hatch_stat_roll_projection_and_caps() -> void:
 	var affinity_state := LingpetAffinityState.new()
-	affinity_state.set_hatch_stat_roll("maribo", 0.5, 0.5)
-	_expect(bool(affinity_state.has_hatch_stat_roll("maribo")), "hatch stat roll should be tracked per pet")
+	var hatch_stat_roll_state := LingpetHatchStatRollState.new()
+	hatch_stat_roll_state.set_hatch_stat_roll("maribo", 0.5, 0.5)
+	_expect(bool(hatch_stat_roll_state.has_hatch_stat_roll("maribo")), "hatch stat roll should be tracked per pet")
 	var coordinator := LingpetAffinityContextCoordinator.new()
 	var profile := LingpetCurrentProfile.new()
 	profile.set_pet_id("maribo")
-	coordinator.sync_current_profile("maribo", "maribo", profile, EmptyLoadoutState.new(), affinity_state)
+	coordinator.sync_current_profile(
+		"maribo",
+		"maribo",
+		profile,
+		EmptyLoadoutState.new(),
+		affinity_state,
+		{},
+		hatch_stat_roll_state
+	)
 	var base_speed := LingpetCatalog.get_stat("maribo", "patrol_speed_default", 120.0)
 	var base_defense := LingpetCatalog.get_stat("maribo", "defense_rate", 0.0)
 	_expect_float(profile.get_stat("patrol_speed_default", 0.0), base_speed * 1.15, "hatch mobility headstart should raise patrol speed by its share of the +30 percent cap")
@@ -160,8 +170,8 @@ func _verify_hatch_stat_roll_projection_and_caps() -> void:
 	_expect_float(flight_profile.get_stat("appearance_rate", 0.0), base_appearance + 0.30, "flight mobility headstart plus enhancement mobility should share the +0.30 appearance bonus cap")
 	_expect_float(flight_profile.get_stat("defense_rate", 0.0), 0.0, "flight hatch defense headstart should stay a dead-stat no-op")
 
-	affinity_state.reset_for_new_run()
-	_expect(not bool(affinity_state.has_hatch_stat_roll("maribo")), "new run reset should clear hatch stat rolls")
+	hatch_stat_roll_state.reset_for_new_run()
+	_expect(not bool(hatch_stat_roll_state.has_hatch_stat_roll("maribo")), "new run reset should clear hatch stat rolls")
 
 
 func _verify_hatch_candidate_pool_exhaustion() -> void:

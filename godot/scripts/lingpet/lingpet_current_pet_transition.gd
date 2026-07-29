@@ -9,6 +9,7 @@ func apply(
 	affinity_context_coordinator: Object,
 	loadout_state: Object,
 	affinity_state: Object,
+	hatch_stat_roll_state: Object,
 	companion_distance_roll_state: Object,
 	affinity_feedback_state: Object,
 	companion_click_reaction_visual_prewarm_state: Object,
@@ -21,7 +22,9 @@ func apply(
 		next_pet_id,
 		current_profile,
 		loadout_state,
-		affinity_state
+		affinity_state,
+		{},
+		hatch_stat_roll_state
 	)
 	if next_pet_id != previous_pet_id:
 		loadout_state.set_skip_unlock_reconcile(false)

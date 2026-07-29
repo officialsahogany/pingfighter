@@ -1325,7 +1325,7 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 	if old_pet_id != "" and old_pet_id != new_pet:
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
 	_ensure_duration_pool_roll()
-	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
+	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile())
 	_overflow_choice_state.reset()
 	if bool(replace_result.get("replaced_active_companion", false)):
 		# Player chose to swap out the active companion: the new pet takes over.
@@ -1495,6 +1495,7 @@ func _set_current_pet_id(value: String) -> void:
 		_affinity_context_coordinator,
 		_loadout_state,
 		_affinity_state,
+		_hatch_stat_roll_state,
 		_companion_distance_roll_state,
 		_affinity_feedback_state,
 		_companion_click_reaction_visual_prewarm_state,
@@ -2064,6 +2065,7 @@ func is_item_egg_absorbing() -> bool:
 
 func get_save_snapshot() -> Dictionary:
 	var affinity_run_state: Dictionary = _affinity_state.export_run_state()
+	affinity_run_state.merge(_hatch_stat_roll_state.export_run_state(), true)
 	affinity_run_state.merge(_spirit_water_drop_state.export_run_state(), true)
 	var snapshot: Dictionary = _snapshot_builder.build_save_snapshot(
 		SAVE_SNAPSHOT_VERSION,
@@ -2092,6 +2094,7 @@ func build_save_snapshot() -> Dictionary:
 
 func export_affinity_run_state() -> Dictionary:
 	var run_state: Dictionary = _affinity_state.export_run_state()
+	run_state.merge(_hatch_stat_roll_state.export_run_state(), true)
 	run_state.merge(_spirit_water_drop_state.export_run_state(), true)
 	return run_state
 
@@ -2105,6 +2108,7 @@ func import_affinity_run_state(run_state: Dictionary) -> void:
 	if run_state.is_empty():
 		return
 	_invalidate_runtime_snapshot_cache()
+	_hatch_stat_roll_state.import_run_state(run_state)
 	_affinity_state.import_run_state(run_state)
 	_spirit_water_drop_state.import_run_state(run_state)
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
@@ -2156,6 +2160,7 @@ func reset_for_tests() -> void:
 	_current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
 	_affinity_state.reset_for_new_run()
+	_hatch_stat_roll_state.reset_for_new_run()
 	_spirit_water_drop_state.reset_run()
 	_affinity_context_coordinator.reset_for_new_run()
 	_affinity_feedback_state.reset_all()
@@ -2538,7 +2543,7 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 	var registered := str(absorb_route.get("registered_pet_id", ""))
 	if registered != "":
 		_ensure_duration_pool_roll()
-		_hatch_stat_roll_state.roll_item_egg_hatch_traits(registered, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
+		_hatch_stat_roll_state.roll_item_egg_hatch_traits(registered, _loadout_state, _item_egg_lifecycle_state.get_profile())
 	_sync_owner(owner, registry)
 
 
