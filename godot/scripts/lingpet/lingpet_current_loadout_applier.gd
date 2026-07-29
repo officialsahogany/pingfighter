@@ -24,7 +24,7 @@ func apply(
 	if pet_id == "":
 		loadout_state.set_skip_unlock_reconcile(false)
 		if loadout_state.has_applied_runtime_cache():
-			current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+			current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
 			current_profile.set_hatch_stat_roll(0.0, 0.0)
 			current_profile.set_loadout("", "")
 			loadout_state.invalidate_runtime_and_snapshot_cache(snapshot_builder)

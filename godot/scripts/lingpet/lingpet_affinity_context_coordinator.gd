@@ -4,11 +4,10 @@ const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_st
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 
 var _context_profile: Object = LingpetCurrentProfile.new()
-var _reward_seeds_by_pet_id: Dictionary = {}
 
 
 func reset_for_new_run() -> void:
-	_reward_seeds_by_pet_id.clear()
+	pass
 
 
 func configure(
@@ -30,13 +29,12 @@ func configure(
 	var active_present_id := str(context_loadout.get("active_skill_id", "")).strip_edges()
 	var passive_present_id := str(context_loadout.get("passive_skill_id", "")).strip_edges()
 	var motion_style := _resolve_motion_style(normalized_pet_id, current_pet_id, current_profile)
-	var reward_seed := _get_or_create_reward_seed(normalized_pet_id, affinity_state)
 	affinity_state.configure_reward_context(
 		normalized_pet_id,
 		motion_style,
 		active_base_level,
 		passive_base_level,
-		reward_seed,
+		0,
 		false,
 		active_present_id,
 		passive_present_id
@@ -48,7 +46,6 @@ func configure(
 		"passive_base_level": passive_base_level,
 		"active_present_id": active_present_id,
 		"passive_present_id": passive_present_id,
-		"reward_seed": reward_seed,
 	}
 
 
@@ -63,7 +60,7 @@ func sync_current_profile(
 	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
 	if normalized_pet_id == "":
 		if current_profile != null:
-			current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+			current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
 			if current_profile.has_method("set_hatch_stat_roll"):
 				current_profile.set_hatch_stat_roll(0.0, 0.0)
 		return
@@ -75,8 +72,7 @@ func sync_current_profile(
 		affinity_state,
 		loadout
 	)
-	current_profile.set_affinity_state(
-		affinity_state.get_level(normalized_pet_id),
+	current_profile.set_enhancement_rewards(
 		affinity_state.get_cumulative_rewards(normalized_pet_id)
 	)
 	if current_profile.has_method("set_hatch_stat_roll") and affinity_state.has_method("get_hatch_stat_roll"):
@@ -87,7 +83,7 @@ func sync_current_profile(
 		)
 
 
-func handle_level_gain(
+func handle_enhancement_gain(
 	pet_id: String,
 	_registry: Object,
 	current_pet_id: String,
@@ -109,64 +105,11 @@ func handle_level_gain(
 		snapshot_builder.invalidate_sync_cache()
 
 
-func set_reward_seed_for_tests(
-	pet_id: String,
-	reward_seed: int,
-	current_pet_id: String,
-	current_profile: Object,
-	loadout_state: Object,
-	affinity_state: Object
-) -> bool:
-	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
-	if normalized_pet_id == "" or affinity_state == null:
-		return false
-	_reward_seeds_by_pet_id[normalized_pet_id] = _normalize_reward_seed(reward_seed)
-	configure(
-		normalized_pet_id,
-		current_pet_id,
-		current_profile,
-		loadout_state,
-		affinity_state
-	)
-	affinity_state.set_reward_seed_for_tests(normalized_pet_id, reward_seed)
-	if normalized_pet_id == current_pet_id:
-		sync_current_profile(
-			normalized_pet_id,
-			current_pet_id,
-			current_profile,
-			loadout_state,
-			affinity_state
-		)
-		return true
-	return false
-
-
-func get_reward_seed_for_tests(pet_id: String, current_profile: Object) -> int:
-	var normalized_pet_id := _normalize_pet_id(pet_id, current_profile)
-	return int(_reward_seeds_by_pet_id.get(normalized_pet_id, 0))
-
-
 func _resolve_motion_style(pet_id: String, current_pet_id: String, current_profile: Object) -> String:
 	if current_profile != null and pet_id == current_pet_id:
-		return str(current_profile.get_affinity_motion_style())
+		return str(current_profile.get_guardian_motion_style())
 	_context_profile.set_pet_id(pet_id)
-	return str(_context_profile.get_affinity_motion_style())
-
-
-func _get_or_create_reward_seed(pet_id: String, affinity_state: Object = null) -> int:
-	if not _reward_seeds_by_pet_id.has(pet_id):
-		# Adopt a restored pet's existing seed (e.g. after a save/restore round trip that
-		# cleared this cache via reset_for_new_run but re-imported the pet's run state) so
-		# the reward deck / unlock-choice shuffle stays deterministic. Only mint a fresh
-		# random seed when the pet genuinely has none.
-		var restored_seed := 0
-		if affinity_state != null and affinity_state.has_method("get_reward_seed"):
-			restored_seed = int(affinity_state.get_reward_seed(pet_id))
-		if restored_seed > 0:
-			_reward_seeds_by_pet_id[pet_id] = _normalize_reward_seed(restored_seed)
-		else:
-			_reward_seeds_by_pet_id[pet_id] = int(randi() % (LingpetAffinityState.REWARD_DECK_SEED_MOD - 1)) + 1
-	return int(_reward_seeds_by_pet_id.get(pet_id, 0))
+	return str(_context_profile.get_guardian_motion_style())
 
 
 func _get_stored_loadout(loadout_state: Object, pet_id: String) -> Dictionary:
@@ -177,10 +120,6 @@ func _get_stored_loadout(loadout_state: Object, pet_id: String) -> Dictionary:
 	if loadout_state.has_method("get_loadout"):
 		return loadout_state.get_loadout(pet_id)
 	return {}
-
-
-func _normalize_reward_seed(reward_seed: int) -> int:
-	return maxi(1, reward_seed % LingpetAffinityState.REWARD_DECK_SEED_MOD)
 
 
 func _normalize_pet_id(pet_id: String, current_profile: Object) -> String:

@@ -150,7 +150,6 @@ const LINGPET_STAR_COIL_BIND_SOUND_PATH := "res://assets/sounds/lingpet/orosha_s
 # travel and stopped on bind / idle / retire / cancel by the skill.
 const LINGPET_STAR_COIL_MOVE_SOUND_PATH := "res://assets/sounds/starmoving.wav"
 const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
-const LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH := "res://assets/sounds/lingpet/affinity_level_up_chime.wav"
 const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
 const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
 const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
@@ -180,7 +179,6 @@ const LINGPET_WILD_ROAR_GAIN_DB := -4.0
 const LINGPET_STAR_COIL_BIND_GAIN_DB := -2.0
 const LINGPET_STAR_COIL_MOVE_GAIN_DB := -6.0
 const LINGPET_RING_DASH_GAIN_DB := -5.0
-const LINGPET_AFFINITY_LEVEL_UP_GAIN_DB := -4.0
 # 링펫알(공명 알)이 공에 맞을 때 재생하는 뼈 부러지는 임팩트 SFX 2종. 매 히트마다
 # 둘 중 하나를 랜덤으로 재생(피치 지터)해 연속 히트가 똑같이 들리지 않게 한다.
 # mini_spark 패턴과 동일하게 단일 플레이어 + 후보 스트림 배열로 로드한다.
@@ -543,7 +541,6 @@ var lingpet_wild_roar_sfx: AudioStreamPlayer
 var lingpet_star_coil_bind_sfx: AudioStreamPlayer
 var lingpet_star_coil_move_sfx: AudioStreamPlayer
 var lingpet_ring_dash_sfx: AudioStreamPlayer
-var lingpet_affinity_level_up_sfx: AudioStreamPlayer
 var lingpet_egg_hit_sfx: AudioStreamPlayer
 var lingpet_egg_hit_streams: Array[AudioStream] = []
 var lingpet_gatling_transform_sfx: AudioStreamPlayer
@@ -898,7 +895,6 @@ func _setup_item_command_sfx() -> void:
 	lingpet_star_coil_move_sfx = player_factory.create(owner_node, "LingpetStarCoilMoveSfx", LINGPET_STAR_COIL_MOVE_SOUND_PATH, LINGPET_STAR_COIL_MOVE_GAIN_DB)
 	_enable_loop(lingpet_star_coil_move_sfx)
 	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
-	lingpet_affinity_level_up_sfx = player_factory.create(owner_node, "LingpetAffinityLevelUpSfx", LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH, LINGPET_AFFINITY_LEVEL_UP_GAIN_DB)
 	lingpet_egg_hit_sfx = player_factory.create(owner_node, "LingpetEggHitSfx", str(LINGPET_EGG_HIT_SOUND_PATHS[0]), LINGPET_EGG_HIT_GAIN_DB)
 	lingpet_egg_hit_streams = _load_audio_stream_candidates(LINGPET_EGG_HIT_SOUND_PATHS)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
@@ -1246,7 +1242,6 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				LINGPET_WILD_ROAR_SOUND_PATH,
 				LINGPET_STAR_COIL_BIND_SOUND_PATH,
 				LINGPET_RING_DASH_SOUND_PATH,
-				LINGPET_AFFINITY_LEVEL_UP_SOUND_PATH,
 				str(LINGPET_EGG_HIT_SOUND_PATHS[0]),
 				str(LINGPET_EGG_HIT_SOUND_PATHS[1]),
 				LEGENDARY_AFTER_SOUND_PATH,
@@ -2254,11 +2249,6 @@ func play_lingpet_gravity_accel_cast() -> void:
 func play_lingpet_ring_dash() -> void:
 	if not _play_with_pitch(lingpet_ring_dash_sfx, randf_range(0.97, 1.03)):
 		play_active_item()
-
-
-func play_lingpet_affinity_level_up() -> void:
-	if not _play_with_pitch(lingpet_affinity_level_up_sfx, randf_range(0.99, 1.01)):
-		play_item_get()
 
 
 func play_lingpet_egg_hit() -> void:
@@ -3937,7 +3927,6 @@ func _get_sfx_players() -> Array:
 		lingpet_star_coil_bind_sfx,
 		lingpet_star_coil_move_sfx,
 		lingpet_ring_dash_sfx,
-		lingpet_affinity_level_up_sfx,
 		lingpet_egg_hit_sfx,
 		lingpet_gatling_transform_sfx,
 		lingpet_gatling_loop_sfx,

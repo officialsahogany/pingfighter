@@ -45,9 +45,6 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_queue_perk_fusion_round_boundary(scoring_side, deps, score_result)
 	_perf_end(perf_logger, "physics.score_event.perk_fusion_round_boundary", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_apply_lingpet_affinity_score_event(scoring_side, score_result, deps)
-	_perf_end(perf_logger, "physics.score_event.lingpet_affinity", sample_start)
-	sample_start = _perf_begin(perf_logger)
 	_queue_pandora_legacy_selection(scoring_side, deps)
 	_perf_end(perf_logger, "physics.score_event.mythic.pandora_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -470,16 +467,6 @@ func _apply_stage4_score_reaction(scoring_side: String, score_result: Dictionary
 	var stage4_map_state: Object = deps.get("stage4_map_state", null)
 	if stage4_map_state != null and stage4_map_state.has_method("handle_score_event"):
 		stage4_map_state.handle_score_event(scoring_side, score_result, deps)
-
-
-func _apply_lingpet_affinity_score_event(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
-	var lingpet_runtime: Object = deps.get("lingpet_egg_runtime", null)
-	if lingpet_runtime == null:
-		var registry: Object = deps.get("registry", null)
-		if registry != null and registry.has_method("get_instance"):
-			lingpet_runtime = registry.get_instance("lingpet_egg_runtime")
-	if lingpet_runtime != null and lingpet_runtime.has_method("handle_score_event"):
-		lingpet_runtime.handle_score_event(scoring_side, score_result, deps)
 
 
 func _clear_stage4_round_boundary_fx(deps: Dictionary) -> void:

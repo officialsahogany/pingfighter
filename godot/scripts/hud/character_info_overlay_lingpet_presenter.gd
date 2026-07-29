@@ -44,15 +44,8 @@ const PANEL_LIVE2D_FRAME_INTERVAL_BY_PET_ID := {
 	"orosha": 1.0 / 16.0,
 	"rahoset": 1.0 / 16.0,
 }
-const AFFINITY_BAND_HEIGHT := 50.0
-const AFFINITY_METER_HEIGHT := 8.0
-# Vertical split of the affinity band into the two hover zones: the top slice
-# (label + affinity meter + "다음:" row) belongs to the 교감 tooltip, everything
-# below to the 지속시간 strip tooltip. The duration strip starts at +30 (see
-# _get_satiety_strip_layout), so 28 keeps the two hover rects from overlapping.
-const AFFINITY_HOVER_BAND_HEIGHT := 28.0
+const DURATION_BAND_HEIGHT := 28.0
 const SATIETY_METER_HEIGHT := 8.0
-const SATIETY_METER_GAP := 4.0
 const SATIETY_WARNING_THRESHOLD := 50
 const SATIETY_CRITICAL_THRESHOLD := 20
 const UNLOCK_CHOICE_BAND_MIN_HEIGHT := 54.0
@@ -246,7 +239,7 @@ static func draw_companion_panel(
 	var pet_id := str(snapshot.get("pet_id", "")).strip_edges().to_lower()
 	var skill_specs: Array = get_skill_specs(snapshot, stat_buff_color)
 	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
-	var affinity_band_h: float = AFFINITY_BAND_HEIGHT
+	var duration_band_h: float = DURATION_BAND_HEIGHT
 	var open_unlock_option := _first_open_unlock_option(unlock_options)
 	var open_unlock_count := _count_open_unlock_options(unlock_options)
 	var unlock_band_h: float = 0.0
@@ -256,7 +249,7 @@ static func draw_companion_panel(
 	_draw_centered_text(canvas, font, title, content_rect.get_center().x, title_y, 18, Color.WHITE, ui_text_scale)
 	_draw_centered_text(canvas, font, subtitle, content_rect.get_center().x, title_y + 23.0, 12, stat_buff_color, ui_text_scale)
 
-	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h, affinity_band_h)
+	var art_rect: Rect2 = companion_art_rect(content_rect, skill_row_h + unlock_band_h, duration_band_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
 	var aurora_texture: Texture2D = CharacterInfoOverlayLingpetTextureLoader.get_cached_panel_aurora_texture(art_texture_cache)
 	if aurora_texture != null:
@@ -274,8 +267,8 @@ static func draw_companion_panel(
 		else:
 			draw_egg_icon(canvas, Rect2(art_rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0, stat_buff_color, empty_text_color, ring_segments, ui_text_scale)
 
-	var affinity_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(24.0, affinity_band_h - 10.0))
-	hover_data = draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale, mouse_pos, hover_data)
+	var duration_rect := Rect2(art_rect.position.x, art_rect.end.y + 4.0, art_rect.size.x, max(20.0, duration_band_h - 4.0))
+	hover_data = draw_duration_status(canvas, font, duration_rect, snapshot, stat_buff_color, empty_text_color, ui_text_scale, mouse_pos, hover_data)
 	var icon_count: int = max(1, skill_specs.size())
 	var icon_gap: float = 9.0
 	var icon_size: float = clamp((content_rect.size.x - 24.0 - icon_gap * float(icon_count - 1)) / float(icon_count), 38.0, 58.0)
@@ -283,7 +276,7 @@ static func draw_companion_panel(
 	var icon_x: float = content_rect.get_center().x - icon_total_w * 0.5
 	var icon_y: float = content_rect.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
 	if not open_unlock_option.is_empty():
-		var unlock_rect := Rect2(art_rect.position.x, affinity_rect.end.y + 4.0, art_rect.size.x, max(0.0, icon_y - affinity_rect.end.y - 8.0))
+		var unlock_rect := Rect2(art_rect.position.x, duration_rect.end.y + 4.0, art_rect.size.x, max(0.0, icon_y - duration_rect.end.y - 8.0))
 		if unlock_rect.size.y >= 42.0:
 			hover_data = draw_unlock_choice_band(canvas, font, unlock_rect, pet_id, open_unlock_option, maxi(0, open_unlock_count - 1), mouse_pos, hover_data, skill_icon_rects, unlock_card_rects, skill_icon_texture_cache, stat_buff_color, accent_blue, slot_fill, ring_segments, ui_text_scale)
 	for i in range(skill_specs.size()):
@@ -379,8 +372,8 @@ static func draw_unlock_candidate_card(
 	return hover_data
 
 
-static func companion_art_rect(content_rect: Rect2, skill_row_h: float, affinity_band_h: float = 0.0) -> Rect2:
-	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0 - maxf(0.0, affinity_band_h)))
+static func companion_art_rect(content_rect: Rect2, skill_row_h: float, duration_band_h: float = 0.0) -> Rect2:
+	return Rect2(content_rect.position.x + 10.0, content_rect.position.y + 44.0, content_rect.size.x - 20.0, max(82.0, content_rect.size.y - skill_row_h - 54.0 - maxf(0.0, duration_band_h)))
 
 
 static func merge_runtime_display_snapshot(panel_snapshot: Dictionary, runtime_snapshot: Dictionary) -> Dictionary:
@@ -402,11 +395,7 @@ static func get_satiety_strip_layout_for_tests(font: Font, rect: Rect2, snapshot
 
 
 static func lingpet_progress_meter_width(rect: Rect2) -> float:
-	# Single source of truth for the 교감 and duration meter length. Both bars use
-	# this so they share an identical left edge + width and read as one tidy
-	# stack; their right-side annotations ("다음: …" / "지속시간 …") then line up in
-	# the same column too. Changing the affinity meter span here keeps duration
-	# in lockstep automatically.
+	# Single source of truth for the duration meter and its right annotation.
 	return clampf(rect.size.x * 0.50, 78.0, maxf(78.0, rect.size.x - 118.0))
 
 
@@ -414,11 +403,8 @@ static func _get_satiety_strip_layout(font: Font, rect: Rect2, satiety_state: Di
 	if not bool(satiety_state.get("visible", false)):
 		return {}
 	var label_text := str(satiety_state.get("label", ""))
-	var strip_y: float = rect.position.y + 18.0 + AFFINITY_METER_HEIGHT + SATIETY_METER_GAP
+	var strip_y: float = rect.position.y + 4.0
 	var baseline_y: float = strip_y + 8.0
-	# Align the duration meter to the exact span of the 교감 meter above it, then place
-	# the "지속시간" label + value in the same right-hand annotation column the 교감
-	# "다음:" text uses, so the two bars stack cleanly instead of staggering.
 	var meter_w: float = lingpet_progress_meter_width(rect)
 	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
 	var annot_x: float = meter_rect.end.x + 8.0
@@ -444,57 +430,21 @@ static func _satiety_strip_color(satiety_state: Dictionary, stat_buff_color: Col
 	return Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88)
 
 
-# Single source for the two bar hover zones inside the affinity band, so the
-# draw path and the regression smoke agree. The 교감 zone is the top slice; the
-# duration zone is everything below it. They abut at AFFINITY_HOVER_BAND_HEIGHT
-# and never overlap (has_point is half-open, so the seam belongs to duration).
-static func affinity_bar_hover_rect(rect: Rect2) -> Rect2:
-	return Rect2(rect.position.x, rect.position.y, rect.size.x, AFFINITY_HOVER_BAND_HEIGHT)
-
-
 static func satiety_bar_hover_rect(rect: Rect2) -> Rect2:
-	return Rect2(rect.position.x, rect.position.y + AFFINITY_HOVER_BAND_HEIGHT, rect.size.x, maxf(12.0, rect.size.y - AFFINITY_HOVER_BAND_HEIGHT))
+	return rect
 
 
-static func draw_affinity_status(
+static func draw_duration_status(
 	canvas: CanvasItem,
 	font: Font,
 	rect: Rect2,
 	snapshot: Dictionary,
 	stat_buff_color: Color,
 	empty_text_color: Color,
-	accent_blue: Color,
 	ui_text_scale: float,
 	mouse_pos: Vector2 = Vector2.INF,
 	hover_data: Dictionary = {}
 ) -> Dictionary:
-	var level := int(snapshot.get("affinity_level", 0))
-	var points := maxf(0.0, float(snapshot.get("affinity_points", 0.0)))
-	var requirement := maxf(0.0, float(snapshot.get("affinity_next_requirement", 0.0)))
-	var next_label := str(snapshot.get("affinity_next_label", "")).strip_edges()
-	var maxed := requirement <= 0.0 and level > 0
-	var progress: float = 1.0 if maxed else clampf(points / maxf(1.0, requirement), 0.0, 1.0)
-	# Composed/measured strings are translated here (not only inside
-	# _draw_text_xy) so exact-map lookups still match and the right-aligned
-	# width is measured on the same text that gets drawn.
-	var level_text := LanguageSettings.translate_text("교감 Lv.%d") % level
-	var value_text := LanguageSettings.translate_text(next_label) if maxed and next_label != "" else "%d / %d" % [int(round(points)), int(round(requirement))]
-	var value_w := _text_size(font, value_text, 11, ui_text_scale).x
-	_draw_text_xy(canvas, font, level_text, rect.position.x, rect.position.y + 11.0, 11, Color.WHITE, ui_text_scale)
-	_draw_text_xy(canvas, font, value_text, rect.end.x - value_w, rect.position.y + 11.0, 11, stat_buff_color if maxed else empty_text_color, ui_text_scale)
-
-	var meter_w: float = lingpet_progress_meter_width(rect)
-	var meter_rect := Rect2(rect.position.x, rect.position.y + 18.0, meter_w, AFFINITY_METER_HEIGHT)
-	canvas.draw_rect(meter_rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
-	canvas.draw_rect(Rect2(meter_rect.position, Vector2(meter_rect.size.x * progress, meter_rect.size.y)), Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.82))
-	canvas.draw_rect(meter_rect, Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 0.86), false, 1.0)
-	var next_text := LanguageSettings.translate_text(next_label) if maxed else LanguageSettings.translate_text("다음: %s") % LanguageSettings.translate_text(next_label)
-	if next_label == "":
-		next_text = LanguageSettings.translate_text("다음 보상 준비 중")
-	var next_x := meter_rect.end.x + 8.0
-	var next_w := maxf(10.0, rect.end.x - next_x)
-	_draw_text_xy(canvas, font, _fit_text_to_width(font, next_text, 10, next_w, ui_text_scale), next_x, rect.position.y + 26.0, 10, accent_blue if maxed else empty_text_color, ui_text_scale)
-
 	var satiety_state := get_satiety_strip_state(snapshot)
 	var satiety_layout := _get_satiety_strip_layout(font, rect, satiety_state, ui_text_scale)
 	if not satiety_layout.is_empty():
@@ -514,21 +464,6 @@ static func draw_affinity_status(
 			_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("label", "")), 9, label_rect.size.x, ui_text_scale), label_rect.position.x, baseline_y, 9, empty_text_color, ui_text_scale)
 		_draw_text_xy(canvas, font, _fit_text_to_width(font, str(satiety_state.get("value", "")), 9, value_rect.size.x, ui_text_scale), value_rect.position.x, baseline_y, 9, satiety_color, ui_text_scale)
 
-	# Hover tooltips for the two bars, mirroring the stat-row / ring-core hover
-	# contract (_fill_hover_data clears + sets, so the last matching rect wins).
-	# The 교감 band is the top slice (label + meter + "다음:" row); the duration band
-	# is the strip below it. The two rects never overlap, so at most one fills.
-	var affinity_hover_rect := affinity_bar_hover_rect(rect)
-	if affinity_hover_rect.has_point(mouse_pos):
-		_fill_hover_data(
-			hover_data,
-			level_text,
-			value_text,
-			LanguageSettings.translate_text("이번 판 동안 수호령과 쌓은 교감 수치입니다. 요구치를 채우면 교감 레벨이 오르고 다음 보상이 해금됩니다.")
-				+ " " + LanguageSettings.translate_text("수호령을 클릭하거나 E 키(패드 RT)로 교감할 수 있습니다."),
-			Color(1.0, 112.0 / 255.0, 188.0 / 255.0, 1.0),
-			affinity_hover_rect
-		)
 	if not satiety_layout.is_empty():
 		var satiety_hover_rect := satiety_bar_hover_rect(rect)
 		if satiety_hover_rect.has_point(mouse_pos):
@@ -1005,10 +940,9 @@ static func _build_stats_legacy(
 	if skill_id != "":
 		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % skill_name))
 	if second_skill_id != "":
-		var projected_count_with_affinity := rows.size() + 2
-		if _lingpet_row_budget_can_fit(row_budget_rect, projected_count_with_affinity):
+		var projected_count := rows.size() + 1
+		if _lingpet_row_budget_can_fit(row_budget_rect, projected_count):
 			rows.insert(mini(4, rows.size()), make_display_stat_row("2nd 액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(second_active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % second_skill_name))
-	rows.append(make_display_stat_row("교감", "Lv.%d" % int(snapshot.get("affinity_level", 0)), stat_buff_color))
 	return rows
 
 
@@ -1098,10 +1032,6 @@ static func _get_stats_cache_hash_legacy(snapshot: Dictionary, hatch_required_hi
 		str(snapshot.get("companion_passive_skill_name_1", "")).strip_edges(),
 		float(snapshot.get("companion_defense_rate", 0.0)),
 		float(snapshot.get("companion_appearance_rate", 0.0)),
-		int(snapshot.get("affinity_level", 0)),
-		float(snapshot.get("affinity_points", 0.0)),
-		float(snapshot.get("affinity_next_requirement", 0.0)),
-		str(snapshot.get("affinity_next_label", "")).strip_edges(),
 	])
 
 

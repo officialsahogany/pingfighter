@@ -218,7 +218,7 @@ func _reset_current_match(owner: Object, registry: Object) -> void:
 
 
 func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
-	_reset_lingpet_affinity_for_stage_transition(registry)
+	_refill_guardian_for_stage_transition(registry)
 	var match_flow_driver: Object = _get_match_flow_driver(registry)
 	if match_flow_driver == null:
 		return
@@ -240,12 +240,10 @@ func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
 		)
 
 
-func _reset_lingpet_affinity_for_stage_transition(registry: Object) -> void:
+func _refill_guardian_for_stage_transition(registry: Object) -> void:
 	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime == null:
 		return
-	if runtime.has_method("reset_affinity_for_new_battle"):
-		runtime.reset_affinity_for_new_battle()
 	# Real stage advance only: ordinary round reset never calls this driver hook.
 	if runtime.has_method("refill_guardian_duration_for_stage_transition"):
 		runtime.refill_guardian_duration_for_stage_transition()

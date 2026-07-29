@@ -185,21 +185,9 @@ const DEFAULT_VALUES: Dictionary = {
 	# missing here -> set_value() no-ops the sync and the panel can't show it.
 	"lingpet_companion_appearance_rate": 0.0,
 	"ringpet_companion_appearance_rate": 0.0,
-	# Run-scoped affinity ("교감" in HUD strings). These are synced from the
-	# lingpet runtime so the TAB panel never falls back to stale catalog data.
-	"lingpet_affinity_level": 0,
-	"ringpet_affinity_level": 0,
-	"lingpet_affinity_points": 0.0,
-	"ringpet_affinity_points": 0.0,
-	"lingpet_affinity_next_requirement": 0.0,
-	"ringpet_affinity_next_requirement": 0.0,
-	"lingpet_affinity_next_label": "",
-	"ringpet_affinity_next_label": "",
 	"lingpet_duration_pool_pct": 0,
 	"ringpet_duration_pool_pct": 0,
-	# Permanent bond title ("친밀도" in collection/panel strings). Kept separate
-	# from run-scoped affinity so the TAB panel can show the residue title without
-	# adding another stat row.
+	# Cosmetic contact state for reaction playback; it is not a growth channel.
 	"lingpet_companion_contact_count": 0,
 	"ringpet_companion_contact_count": 0,
 	"lingpet_companion_last_contact_pos": Vector2.ZERO,
@@ -209,7 +197,7 @@ const DEFAULT_VALUES: Dictionary = {
 	# Per-frame lingpet runtime -> TAB panel stat mirrors. Every key the
 	# snapshot sync writes MUST be declared here (owner-field schema trap):
 	# a missing key makes owner.set() silently no-op and the panel falls back
-	# to the catalog BASE, hiding 교감 reward stacks and passive stat boosts.
+	# to the catalog BASE, hiding enhancement buffs and passive stat boosts.
 	# Sealed by character_info_live_stats_smoke
 	# _verify_snapshot_sync_keys_are_schema_declared.
 	"lingpet_companion_hit_gauge_gain": 0.0,

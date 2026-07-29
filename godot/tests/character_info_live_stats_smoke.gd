@@ -114,7 +114,7 @@ class BluetoothRingMythicStub:
 		return base_gain * 1.2
 
 
-# 실전 대시 재충전 산식(대시 부스트 배율) 배선 씰용 액티브 스텁.
+# 실전 대시 재충전 산식(축지부 배율) 배선 씰용 액티브 스텁.
 class DashBoostActiveStub:
 	extends RefCounted
 
@@ -172,7 +172,7 @@ func _run() -> void:
 	var stats: Array = overlay._build_stats(owner, registry)
 	_expect(stats.size() >= 9, "TAB stats should keep the live combat stat rows plus active-item slot count")
 	_expect(_find_stat(stats, "게이지").is_empty(), "TAB stats should omit current gauge summary")
-	_expect(_find_stat(stats, "대시 토큰").is_empty(), "TAB stats should omit dash token summary")
+	_expect(_find_stat(stats, "활주 횟수").is_empty(), "TAB stats should omit the raw glide-charge summary")
 	_expect(
 		str(_find_stat(stats, "액티브 아이템 슬롯").get("value", "")) == "0 / 3",
 		"TAB stats should show current active-item slots and base capacity"
@@ -197,46 +197,46 @@ func _run() -> void:
 	# 능력치 툴팁 소스별 증감 내역 (2026-07-11): 어떤 퍽·아이템·상태이상이 스탯을
 	# 바꿨는지 툴팁 본문에 원인 줄("· 라벨: ±N%")이 떠야 한다. 퍽 스텝은 구동
 	# 퍽 이름으로, 액티브 아이템은 soft-contract를 통해 아이템 표시명으로 특정.
-	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "신속")
+	var speed_perk_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "유운보")
 	_expect(not speed_perk_entry.is_empty(), "move-speed breakdown should attribute the common_swiftness perk by display name")
 	_expect(abs(float(speed_perk_entry.get("ratio", 0.0)) - 1.12) < 0.005, "swiftness Lv.2 should read as a +12% move-speed contribution")
-	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "비타민드링크")
+	var speed_item_entry: Dictionary = _stat_breakdown_entry(stats, "이동 속도", "경신단")
 	_expect(abs(float(speed_item_entry.get("ratio", 0.0)) - 1.5) < 0.005, "vitamin pill should read as a +50% move-speed contribution under its ITEM display name")
-	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "숙련")
+	var cooldown_perk_entry: Dictionary = _stat_breakdown_entry(stats, "아이템 재충전", "순환결")
 	_expect(
 		not cooldown_perk_entry.is_empty() and float(cooldown_perk_entry.get("ratio", 1.0)) < 1.0,
 		"item-cooldown breakdown should attribute the mastery perk as a reduction"
 	)
-	_expect(not _find_stat(stats, "최대 게이지").has("breakdown"), "base-value max-gauge row should not carry breakdown lines")
+	_expect(not _find_stat(stats, "최대 기력").has("breakdown"), "base-value max-vigor row should not carry breakdown lines")
 	# 증감 내역은 구조화 행(_player_stat_breakdown_rows_cache)으로 이동 —
 	# 각 행은 {text, icon_id}. 툴팁 드로어가 아이콘 + 텍스트로 그린다.
 	var speed_rows: Array = _stat_breakdown_rows(stats, "이동 속도")
-	_expect(not _breakdown_row(speed_rows, "신속: +12%").is_empty(), "move-speed breakdown row should carry the swiftness attribution")
-	_expect(not _breakdown_row(speed_rows, "비타민드링크: +50%").is_empty(), "move-speed breakdown row should name the vitamin drink as the active-item cause")
-	_expect(not _breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련: -13%").is_empty(), "item-cooldown breakdown row should carry the mastery reduction")
+	_expect(not _breakdown_row(speed_rows, "유운보: +12%").is_empty(), "move-speed breakdown row should carry the Yuunbo attribution")
+	_expect(not _breakdown_row(speed_rows, "경신단: +50%").is_empty(), "move-speed breakdown row should name Gyeongsindan as the active-item cause")
+	_expect(not _breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "순환결: -13%").is_empty(), "item-cooldown breakdown row should carry the Circulation Art reduction")
 
 	# 편의 아이콘 (2026-07-12): 원인 행에 퍽/아이템 아이콘 id가 붙어야 한다.
-	_expect(str(_breakdown_row(speed_rows, "신속: +12%").get("icon_id", "")) == "common_swiftness", "swiftness breakdown row should carry the common_swiftness perk icon id")
-	_expect(str(_breakdown_row(speed_rows, "비타민드링크: +50%").get("icon_id", "")) == "vitamin_pill", "vitamin drink breakdown row should carry its item icon id")
-	_expect(str(_breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "숙련: -13%").get("icon_id", "")) == "item_cooldown_mastery", "mastery breakdown row should carry the item_cooldown_mastery perk icon id")
+	_expect(str(_breakdown_row(speed_rows, "유운보: +12%").get("icon_id", "")) == "common_swiftness", "Yuunbo breakdown row should carry the common_swiftness perk icon id")
+	_expect(str(_breakdown_row(speed_rows, "경신단: +50%").get("icon_id", "")) == "vitamin_pill", "Gyeongsindan breakdown row should carry the vitamin item's icon id")
+	_expect(str(_breakdown_row(_stat_breakdown_rows(stats, "아이템 재충전"), "순환결: -13%").get("icon_id", "")) == "item_cooldown_mastery", "Circulation Art breakdown row should carry the item_cooldown_mastery perk icon id")
 
 	# 대시 거리는 스피릿 레이저 상수식(15×40×0.7=420)이 아니라 실전 감속 커브
 	# 적분(210px)을 표시해야 한다 (2026-07-11 리뷰 P1: 실산식 일치).
-	_expect(str(_find_stat(stats, "대시 거리").get("value", "")) == "210px", "TAB dash distance should show the real decel-curve traversal (210px), not the laser-length formula (420px)")
+	_expect(str(_find_stat(stats, "활주 거리").get("value", "")) == "210px", "TAB glide distance should show the real decel-curve traversal (210px), not the laser-length formula (420px)")
 
 	# 실전 산식 배선 씰: 게이지=히트 라우터 체인(블루투스링), 대시 재충전=대시
-	# 상태 체인(대시 부스트 배율). HUD가 산식을 재구축하면 이 두 소스가 빠진다.
+	# 상태 체인(축지부 배율). HUD가 산식을 재구축하면 이 두 소스가 빠진다.
 	var real_math_registry := FakeRegistry.new(RuntimePerkState.new(), DashBoostActiveStub.new(), BluetoothRingMythicStub.new())
 	var real_math_stats: Array = overlay._build_stats(owner, real_math_registry)
-	_expect(str(_find_stat(real_math_stats, "게이지 획득량").get("value", "")) == "60pt", "TAB gauge gain should route through the real hit chain (bluetooth ring 50→60)")
-	var ring_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "게이지 획득량", "블루투스링")
+	_expect(str(_find_stat(real_math_stats, "기력 획득량").get("value", "")) == "60pt", "TAB vigor gain should route through the real hit chain (bluetooth ring 50→60)")
+	var ring_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "기력 획득량", "블루투스링")
 	_expect(abs(float(ring_entry.get("ratio", 0.0)) - 1.2) < 0.005, "gauge breakdown should name the bluetooth ring as a +20% source")
-	_expect(str(_find_stat(real_math_stats, "대시 재충전").get("value", "")) == "2.50초", "TAB dash recharge should include the active dash-boost cooldown multiplier (300f×0.5)")
-	var dash_boost_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "대시 재충전", "대시 부스트")
+	_expect(str(_find_stat(real_math_stats, "활주 재충전").get("value", "")) == "2.50초", "TAB glide recharge should include the active dash-boost cooldown multiplier (300f×0.5)")
+	var dash_boost_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "활주 재충전", "축지부")
 	_expect(abs(float(dash_boost_entry.get("ratio", 0.0)) - 0.5) < 0.005, "dash-recharge breakdown should name the dash boost as a -50% source")
 
 	# 오귀속 씰 (2026-07-11 리뷰 P1): 신비의 주사위만 적용된 상태에서 주사위
-	# 배율이 퍽 이름("신속")이나 범주("퍽 효과")로 흡수되지 않고 자기 이름으로
+	# 배율이 무공 이름("유운보")이나 범주("무공 효과")로 흡수되지 않고 자기 이름으로
 	# 표시되어야 한다. 신비의 주사위는 별도 세션 WIP라 아직 미배선일 수 있어
 	# has_method로 게이트한다 (미배선이면 오귀속할 대상 자체가 없다).
 	if RuntimePerkState.new().has_method("commit_mystic_dice_roll"):
@@ -254,8 +254,8 @@ func _run() -> void:
 		var dice_stats: Array = overlay._build_stats(owner, dice_registry)
 		var dice_entry: Dictionary = _stat_breakdown_entry(dice_stats, "이동 속도", "신비의 주사위")
 		_expect(abs(float(dice_entry.get("ratio", 0.0)) - 1.10) < 0.005, "dice-only move-speed boost should surface as its own 신비의 주사위 line")
-		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "신속").is_empty(), "dice-only boost must NOT be misattributed to the swiftness perk")
-		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "퍽 효과").is_empty(), "dice-only boost must NOT fall back to the generic perk-effect label")
+		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "유운보").is_empty(), "dice-only boost must NOT be misattributed to Yuunbo")
+		_expect(_stat_breakdown_entry(dice_stats, "이동 속도", "무공 효과").is_empty(), "dice-only boost must NOT fall back to the generic martial-art-effect label")
 	stats = overlay._build_stats(owner, registry)
 
 	var lingpet_boosted_speed: float = CharacterInfoOverlayStatsPresenter.effective_move_speed(
@@ -333,7 +333,7 @@ func _run() -> void:
 	_expect(str(_find_stat(lingpet_stats, "이동 속도").get("value", "")) == "2.00", "Maribo move speed should use a slower single player-style speed value")
 	_expect(not _find_stat(lingpet_stats, "몸집크기").is_empty(), "Maribo catch range should be labeled as body size")
 	_expect(_find_stat(lingpet_stats, "캐치 범위").is_empty(), "Maribo stats should not expose the old catch-range label")
-	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")) == "40pt", "Maribo direct-hit gauge gain should be shown as the ringpet common stat")
+	_expect(str(_find_stat(lingpet_stats, "기력 획득량").get("value", "")) == "40pt", "Maribo direct-hit vigor gain should be shown as the ringpet common stat")
 	_expect(str(_find_stat(lingpet_stats, "액티브 쿨타임").get("value", "")) == "40초", "Maribo stats should show Hydro Sphere cooldown")
 	_expect(_find_stat(lingpet_stats, "공명 충전 쿨타임").is_empty(), "Maribo stats should not expose the removed resonance-charge cooldown")
 	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
@@ -409,8 +409,8 @@ func _run() -> void:
 	_expect(CharacterInfoOverlayLingpetPresenter.should_redraw_panel_live2d(nekuring_panel_snapshot), "Nekuring character-info panel should request redraws while its panel Live2D is visible")
 
 	_verify_defense_override_reaches_panel_through_schema_gated_owner()
-	_verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner()
-	_verify_second_active_affinity_level_reaches_panel_through_schema_gated_owner()
+	_verify_enhancement_stat_boosts_reach_panel_through_schema_gated_owner()
+	_verify_second_active_enhancement_level_reaches_panel_through_schema_gated_owner()
 	_verify_second_slot_rows_reach_lingpet_tab()
 	_verify_snapshot_sync_keys_are_schema_declared()
 
@@ -457,8 +457,8 @@ func _verify_defense_override_reaches_panel_through_schema_gated_owner() -> void
 	)
 
 
-func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> void:
-	# 교감 reward stacks (기동/게이지 강화) boost the runtime stats through
+func _verify_enhancement_stat_boosts_reach_panel_through_schema_gated_owner() -> void:
+	# Guardian Enhance stacks (기동/게이지 강화) boost the runtime stats through
 	# lingpet_current_profile.get_stat, and the per-frame sync mirrors the
 	# BOOSTED values onto the owner. If the owner keys are missing from
 	# BattleSceneState.DEFAULT_VALUES, owner.set() silently no-ops and the
@@ -471,11 +471,14 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_hydro_sphere", "lingpet_resonance_boost", registry, 1, 1)),
 		"schema-gated owner should accept a Maribo debug grant for the stat-boost case"
 	)
-	var commit_guard := 0
-	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 1000:
-		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-		commit_guard += 1
-	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "stat-boost fixture should reach affinity max level via round commits")
+	var mobility_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_MOBILITY}, owner, registry, "maribo"
+	)
+	var gauge_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_GAUGE}, owner, registry, "maribo"
+	)
+	_expect(bool(mobility_result.get("accepted", false)), "Guardian Enhance should apply the movement fixture stack")
+	_expect(bool(gauge_result.get("accepted", false)), "Guardian Enhance should apply the vigor fixture stack")
 	runtime.update(0.0, owner, registry)
 	var base_gauge := float(LingpetCatalog.get_stat("maribo", "hit_gauge_gain", 40.0))
 	var base_speed := float(LingpetCatalog.get_stat("maribo", "patrol_speed_default", 0.0))
@@ -488,11 +491,10 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	_expect(gauge_stacks > 0, "stat-boost fixture should earn gauge stacks before checking panel sync")
 	_expect(mobility_stacks > 0, "stat-boost fixture should earn mobility stacks before checking panel sync")
 	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
-	# V3 may reshuffle / replace dead stat cards, so the panel expectation is
-	# derived from the live reward counts instead of a frozen V2 stack count.
+	# Derive the panel expectation from the live enhancement store.
 	_expect(
 		is_equal_approx(float(snapshot.get("companion_hit_gauge_gain", 0.0)), expected_gauge),
-		"게이지 강화 stacks should reach the panel gauge-gain row instead of the catalog base"
+		"기력 강화 stacks should reach the panel vigor-gain row instead of the catalog base"
 	)
 	_expect(
 		is_equal_approx(float(snapshot.get("companion_patrol_speed_default", 0.0)), expected_speed),
@@ -500,15 +502,15 @@ func _verify_affinity_stat_boosts_reach_panel_through_schema_gated_owner() -> vo
 	)
 
 
-func _verify_second_active_affinity_level_reaches_panel_through_schema_gated_owner() -> void:
-	# 교감 raises the SECOND active skill's effective level via
+func _verify_second_active_enhancement_level_reaches_panel_through_schema_gated_owner() -> void:
+	# Guardian Enhance raises the SECOND active skill's effective level via
 	# second_active_skill_bonus, folded into the profile's slot-1 level and the LIVE
 	# runtime snapshot. But the TAB panel reads the slot-1 level from the owner key
 	# lingpet_second_active_skill_level, which _sync_second_skill_static_owner must
 	# write with the BOOSTED level (mirroring its primary sibling that writes
 	# lingpet_active_skill_level). If that write is omitted, the owner key stays at
 	# the loadout BASE level (1) and the TAB 2nd-active card is pinned at Lv.1 while
-	# 교감 leveling raises the real level everywhere else — Owner-Field Schema Trap.
+	# enhancement raises the real level everywhere else — Owner-Field Schema Trap.
 	# The manual-owner.set panel test above (_verify_second_slot_rows) can't catch
 	# this because it never exercises the runtime SYNC write; this fixture drives the
 	# real LingpetEggRuntime.update owner sync. Reverse-verified: removing the
@@ -516,23 +518,23 @@ func _verify_second_active_affinity_level_reaches_panel_through_schema_gated_own
 	var owner := SchemaGatedOwner.new()
 	var registry := NullRegistry.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	# Auto loadout (empty skill ids) so the second-active unlock reconciles into
-	# slot 1; an explicit loadout would set skip_unlock_reconcile and never fill it.
 	_expect(
-		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry, 1, 1)),
-		"schema-gated owner should accept a Maribo auto-loadout debug grant for the 2nd-active case"
+		bool(runtime.debug_grant_and_activate_pet("red_dragon", owner, false, "red_dragon_dragon_breath", "", registry, 1, 1)),
+		"schema-gated owner should accept a Red Dragon primary skill for the 2nd-active case"
 	)
-	# Fixed reward seed -> deterministic second-active unlock + skill-bonus grants.
-	runtime.set_affinity_reward_seed_for_tests("maribo", 12345)
-	var commit_guard := 0
-	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 2000:
-		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
-		commit_guard += 1
-	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "2nd-active fixture should reach affinity max level via round commits")
+	var unlock_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK}, owner, registry, "red_dragon"
+	)
+	_expect(bool(unlock_result.get("accepted", false)), "Guardian Enhance should unlock the second active slot")
+	runtime.update(0.0, owner, registry)
+	var skill_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_ACTIVE_SKILL, "skill_slot": 2}, owner, registry, "red_dragon"
+	)
+	_expect(bool(skill_result.get("accepted", false)), "Guardian Enhance should raise the second active skill level")
 	runtime.update(0.0, owner, registry)
 
-	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("maribo")
-	_expect(bool(rewards.get("second_active_unlocked", false)), "2nd-active fixture (seed 12345) should unlock the second active by max level")
+	var rewards: Dictionary = runtime.get_affinity_rewards_for_tests("red_dragon")
+	_expect(bool(rewards.get("second_active_unlocked", false)), "2nd-active fixture should retain the Guardian Enhance unlock")
 	var second_bonus := int(rewards.get("second_active_skill_bonus", 0))
 	_expect(second_bonus > 0, "2nd-active fixture should earn a second_active_skill_bonus so the base-vs-boosted divergence is real (a base==boosted case passes even with the bug)")
 	var expected_second_level := LingpetCatalog.clamp_skill_level(LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL + second_bonus)
@@ -541,13 +543,13 @@ func _verify_second_active_affinity_level_reaches_panel_through_schema_gated_own
 	# The owner key the TAB panel reads must carry the BOOSTED level, not base 1.
 	_expect(
 		int(owner.get("lingpet_second_active_skill_level")) == expected_second_level,
-		"교감-boosted 2nd active level should reach the lingpet_second_active_skill_level owner key, not the loadout base"
+		"enhancement-boosted 2nd active level should reach the lingpet_second_active_skill_level owner key, not the loadout base"
 	)
 	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(snapshot.get("companion_skill_id_1", "")) != "", "2nd-active fixture should fill the slot-1 active card")
 	_expect(
 		int(snapshot.get("companion_skill_level_1", 0)) == expected_second_level,
-		"교감-boosted 2nd active level should reach the TAB panel companion_skill_level_1 (Owner-Field Schema Trap: _sync_second_skill_static_owner must write the level)"
+		"enhancement-boosted 2nd active level should reach the TAB panel companion_skill_level_1 (Owner-Field Schema Trap: _sync_second_skill_static_owner must write the level)"
 	)
 
 	# Ordering contract: lingpet_loadout_state.sync_owner writes the loadout BASE
@@ -606,7 +608,6 @@ func _verify_second_slot_rows_reach_lingpet_tab() -> void:
 	owner.set("lingpet_second_active_skill_level", 3)
 	owner.set("lingpet_second_passive_skill_id", "lingpet_tailwind_steps")
 	owner.set("lingpet_second_passive_skill_level", 4)
-	owner.set("lingpet_affinity_level", 25)
 
 	var snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(owner, Callable(CharacterInfoOverlayValueUtils, "safe_owner_get"), CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS)
 	_expect(str(snapshot.get("companion_skill_id_1", "")) == "red_dragon_dragon_wing", "TAB snapshot should read slot-1 active id from the raw owner key")
@@ -637,15 +638,16 @@ func _verify_second_slot_rows_reach_lingpet_tab() -> void:
 	var tight_rows: Array = _build_lingpet_rows_from_snapshot(snapshot, tight_rect)
 	var tight_lingpet_rect := CharacterInfoOverlayStatsPresenter.lingpet_stat_rect_for_sections(tight_rect)
 	var tight_visible_capacity := CharacterInfoOverlayStatsPresenter.lingpet_stat_rows_visible_capacity(tight_lingpet_rect, tight_rows.size())
-	_expect(_find_stat_label_contains(tight_rows, "2nd").is_empty(), "TAB lingpet stats should yield the slot-1 cooldown row at the seven-row budget cliff")
-	_expect(not _find_stat(tight_rows, "교감").is_empty(), "TAB lingpet stats should keep the affinity row when slot-1 cooldown yields")
+	_expect(not _find_stat_label_contains(tight_rows, "2nd").is_empty(), "retiring affinity should free the tight-budget row for the slot-1 cooldown")
+	_expect(_find_stat(tight_rows, "교감").is_empty(), "TAB lingpet stats must not retain the retired affinity row")
 	_expect(tight_visible_capacity >= tight_rows.size(), "TAB lingpet stat row budget should keep every emitted row drawable")
 
 	var cache := {}
 	var spacious_cache: Dictionary = CharacterInfoOverlayLingpetPresenter.build_stats_cached(snapshot, cache, Color.WHITE, Color.WHITE, Color.WHITE, CharacterInfoOverlay.STAT_BUFF_COLOR, 60.0, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS, "", spacious_rect)
 	var tight_cache: Dictionary = CharacterInfoOverlayLingpetPresenter.build_stats_cached(snapshot, spacious_cache, Color.WHITE, Color.WHITE, Color.WHITE, CharacterInfoOverlay.STAT_BUFF_COLOR, 60.0, CharacterInfoOverlay.LINGPET_HATCH_REQUIRED_HITS, "", tight_rect)
 	_expect(not _find_stat_label_contains(CharacterInfoOverlayValueUtils.get_array(spacious_cache.get("rows", [])), "2nd").is_empty(), "spacious cached TAB rows should keep the slot-1 active cooldown")
-	_expect(_find_stat_label_contains(CharacterInfoOverlayValueUtils.get_array(tight_cache.get("rows", [])), "2nd").is_empty(), "row budget rect should participate in the TAB stats cache hash")
+	_expect(not _find_stat_label_contains(CharacterInfoOverlayValueUtils.get_array(tight_cache.get("rows", [])), "2nd").is_empty(), "tight cached TAB rows should retain the freed slot-1 cooldown row")
+	_expect(int(spacious_cache.get("hash", 0)) != int(tight_cache.get("hash", 0)), "row budget rect should participate in the TAB stats cache hash")
 
 	var locked_owner := SchemaGatedOwner.new()
 	locked_owner.set("lingpet_id", "red_dragon")

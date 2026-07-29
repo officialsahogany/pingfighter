@@ -602,7 +602,6 @@ func _init() -> void:
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
 	_verify_one_ball_hit_hatches_unidentified_egg()
-	_verify_affinity_hatch_bonus_hook()
 	_verify_acquire_cutin_triggers_on_hatch()
 	_verify_hatch_break_sequence_defers_cutin()
 	_verify_acquire_cutin_assets_prewarm_during_egg_phase()
@@ -666,17 +665,9 @@ func _init() -> void:
 	_verify_skeleton_archer_resets_on_stage_transition()
 	_verify_loadout_apply_prewarms_active_skill_runtime()
 	_verify_companion_click_reaction()
-	_verify_affinity_click_start_edge_and_visibility_gate()
 	_verify_companion_interact_key_reaction()
-	_verify_affinity_score_event_and_battle_reset()
-	_verify_affinity_reward_application()
-	_verify_second_active_slot_runtime_foundation()
-	_verify_debug_grant_unlock_reconcile_skip_is_sticky_until_pet_change()
 	_verify_second_active_resource_conflict_mediation()
-	_verify_affinity_level_up_feedback_and_income_log()
-	_verify_affinity_point_gain_popup()
 	_verify_lingpet_guard_label_feedback()
-	_verify_affinity_store_v5_meta_only()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	ProjectResourceLoader.clear_caches()
@@ -2987,7 +2978,6 @@ func _verify_lingpet_egg_overflow_replace_release_choice() -> void:
 	# The companion is preserved -> it stays active, NOT the newly placed pet.
 	_expect(str(replace_owner.active_lingpet_id) == "maribo", "replace must keep the companion active, not the absorbed pet")
 	_expect(not bool(replace_runtime.is_overflow_choice_active()), "replace commit should close the overflow modal")
-	_expect(float(replace_runtime.get_affinity_points(pending_replace_id)) > 0.0, "kept overflow hatch should receive the hatch affinity grant")
 	# REGRESSION (Codex Medium): the full-roster overflow-REPLACE commit must ROLL + persist the
 	# hatch loadout for the kept new pet, exactly like the free-slot absorb path
 	# (_verify_item_egg_hatch_rolls_loadout). _commit_item_egg_overflow_replace rolls via
@@ -3018,7 +3008,6 @@ func _verify_lingpet_egg_overflow_replace_release_choice() -> void:
 	_expect(not (release_owner.lingpet_owned_pet_ids as Array).has(pending_release_id), "released new hatch should not enter ownership")
 	_expect((release_owner.lingpet_slots as Array) == full_roster, "release should preserve the original battle slots")
 	_expect(str(release_owner.active_lingpet_id) == "maribo", "release should keep the companion active untouched")
-	_expect(float(release_runtime.get_affinity_points(pending_release_id)) <= 0.0, "released overflow hatch should not receive hatch affinity")
 
 
 # Trap 5 / safety-critical: an unresolved overflow choice modal must be force-resolved as
@@ -3226,7 +3215,6 @@ func _verify_companion_ball_collision_soft_bounce() -> void:
 	runtime.update(0.01, owner)
 	_expect(owner.ball_vel.y < 0.0, "Maribo body collision should softly bounce a downward ball upward")
 	_expect(int(owner.lingpet_companion_contact_count) == 1, "Maribo body collision should publish a contact count")
-	_expect_float(runtime.get_affinity_points("maribo"), 8.0, "Maribo body collision should grant one direct-hit affinity award")
 	_expect(owner.lingpet_companion_hit_cooldown > 0.0, "Maribo body collision should arm an internal cooldown")
 	_expect(owner.lingpet_companion_last_contact_pos is Vector2 and owner.lingpet_companion_last_contact_pos != Vector2.ZERO, "Maribo body collision should publish the last contact position")
 	var count_after_first_hit: int = int(owner.lingpet_companion_contact_count)
@@ -3681,7 +3669,6 @@ func _verify_ring_dash_passive() -> void:
 	var flight_visible_dash: Dictionary = runtime3.get_snapshot()
 	_expect(int(flight_visible_dash.get("companion_contact_count", 0)) == 1, "Linkport should hit after the flight companion has reappeared")
 	_expect(float(owner3.ball_vel.y) < 0.0, "Linkport hit should bounce the descending ball upward after reappearing")
-	_expect_float(runtime3.get_affinity_points("lunabi"), 21.0, "Linkport flight guard hit should double only the base (8*2) and keep the flat +5 guard bonus = 21")
 	runtime3.update(0.05, owner3, registry)
 	var flight_resume: Dictionary = runtime3.get_snapshot()
 	_expect(not bool(flight_resume.get("ring_dash_active", false)), "Linkport should clear once the guarded ball has bounced away")
@@ -4405,13 +4392,12 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 
 	var overlay := CharacterInfoOverlay.new()
 	var lingpet_stats: Array = overlay._build_lingpet_stats(owner)
-	_expect(lingpet_stats.size() == 6, "character-info lingpet stats should show implemented Maribo companion rows plus the affinity row")
+	_expect(lingpet_stats.size() == 5, "character-info lingpet stats should show the five implemented Maribo companion rows")
 	_expect(_stat_values_have_exact(lingpet_stats, "2.00"), "character-info lingpet stats should show Maribo speed as a slower single player-style value")
 	_expect(_stat_values_have_fragment(lingpet_stats, "100x44"), "character-info lingpet stats should show the body-size footprint")
 	_expect(_stat_values_have_exact(lingpet_stats, "40pt"), "character-info lingpet stats should show the direct hit gauge gain as a common stat")
 	_expect(_stat_values_have_exact(lingpet_stats, CharacterInfoOverlayFormatter.format_seconds_text(40.0)), "character-info lingpet stats should show Hydro Sphere cooldown")
 	_expect(_stat_values_have_exact(lingpet_stats, "30%"), "character-info lingpet stats should show the real defense rate")
-	_expect(_stat_values_have_exact(lingpet_stats, "Lv.0"), "character-info lingpet stats should show the text-only affinity level row")
 
 	var overlay_gain: float = CharacterInfoOverlayStatsPresenter.effective_gauge_gain_per_hit(null, null, runtime)
 	_expect(is_equal_approx(overlay_gain, 52.0), "character-info gauge-gain stat should read the Lv.1 Resonance Boost passive bonus")
@@ -4548,7 +4534,6 @@ func _verify_maribo_defense_actually_blocks_reachable_ball() -> void:
 		ball_y += step_drop
 	_expect(blocked, "an armed local guard should actually intercept-and-bounce the near ball at the real descent rate, not just lean toward it")
 	_expect(float(owner.ball_vel.y) < 0.0, "a guarded ball should be bounced upward (ball_vel.y < 0)")
-	_expect_float(runtime.get_affinity_points("maribo"), 13.0, "defense intercept should grant direct-hit affinity plus one defense bonus captured before resolve")
 	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "defense guard aura should clear immediately after the guarded hit")
 	_expect_float(float(runtime.get_player_speed_multiplier()), 1.0, "defense guard should leave the player movement speed at the passive-only baseline after the guarded hit")
 	_expect((runtime.get_snapshot().get("affinity_guard_label", {}) as Dictionary).get("text", "") == "방어", "defense intercept should spawn the guard label at the hit moment")
@@ -6332,7 +6317,7 @@ func _verify_affinity_click_start_edge_and_visibility_gate() -> void:
 func _verify_companion_interact_key_reaction() -> void:
 	# Non-mouse bond entry (E key / future pad button): the wrapper must
 	# self-target _companion_pos so the click body is reused verbatim --
-	# same reaction, same SOURCE_CLICK grant, same round cap, no new lever.
+	# same cosmetic reaction and voice path, with no growth side effect.
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	owner.lingpet_slots = ["maribo", "", ""]
@@ -6343,18 +6328,12 @@ func _verify_companion_interact_key_reaction() -> void:
 	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
 	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact key should start the reaction by self-targeting the companion position")
 	_expect(bool(runtime.is_companion_click_reaction_active()), "interact-started reaction should report active")
-	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "interact start edge should grant the same SOURCE_CLICK affinity (+20)")
 	_expect(bool(runtime.try_begin_companion_interact_reaction()), "interact during an active reaction should still be consumed (audio replay branch)")
-	_expect_float(runtime.get_affinity_points("maribo"), 20.0, "interact replay branch should not double-grant affinity")
 
 	runtime.update(5.0, owner)
 	_expect(bool(runtime.try_begin_companion_interact_reaction()), "second interact start edge in the same round should be allowed")
-	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "second interact should consume the remaining round click budget (2x20)")
 	runtime.update(5.0, owner)
 	_expect(bool(runtime.try_begin_companion_interact_reaction()), "third same-round interact should still consume the reaction")
-	_expect_float(runtime.get_affinity_points("maribo"), 40.0, "third same-round interact should be blocked by the shared SOURCE_CLICK round cap")
-	var capped_interact: Dictionary = runtime.get_last_affinity_result_for_tests()
-	_expect_str(str(capped_interact.get("blocked_reason", "")), "round_cap", "capped interact should report the same affinity round cap as clicks")
 
 	var eggless_runtime: Object = LingpetEggRuntime.new()
 	_expect(not bool(eggless_runtime.try_begin_companion_interact_reaction()), "interact without an accompanying companion should refuse (input falls through)")
@@ -6364,7 +6343,6 @@ func _verify_companion_interact_key_reaction() -> void:
 	_expect(hidden_runtime.debug_grant_and_activate_pet("lunabi", hidden_owner), "hidden interact fixture should activate Lunabi")
 	hidden_runtime.configure_companion_sortie_hidden_for_tests(Vector2(250.0, 245.0), 2, 8.0)
 	_expect(bool(hidden_runtime.try_begin_companion_interact_reaction()), "hidden sortie interact may still consume the reaction")
-	_expect_float(hidden_runtime.get_affinity_points("lunabi"), 0.0, "hidden sortie interact should inherit the body-presence affinity gate (no grant)")
 
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var interact_body := _function_body(runtime_source, "func try_begin_companion_interact_reaction")
@@ -6486,7 +6464,7 @@ func _verify_affinity_reward_application() -> void:
 	profile_rewards["active_skill_bonus"] = 1
 	profile_rewards["passive_skill_bonus"] = 1
 	profile_rewards["signature"] = "1|1|0|0|0|0"
-	profile.set_affinity_state(2, profile_rewards)
+	profile.set_enhancement_rewards(profile_rewards)
 	_expect_eq(int(profile.get_active_skill().get("level", 0)), 2, "profile should synthesize active skill level from base loadout plus affinity reward")
 	var profile_passive: Dictionary = profile.get_passive_skill()
 	_expect_eq(int(profile_passive.get("level", 0)), 2, "profile should synthesize passive skill level from base loadout plus affinity reward")
@@ -6743,7 +6721,7 @@ func _verify_second_active_slot_runtime_foundation() -> void:
 	same_kind_runtime._current_profile.active_skill_ids = same_kind_active_ids
 	same_kind_runtime._current_profile.active_skill_levels = {"red_dragon_dragon_breath": 1}
 	same_kind_runtime._current_profile.active_slot_count = 2
-	same_kind_runtime._current_profile.set_affinity_state(22, same_kind_rewards)
+	same_kind_runtime._current_profile.set_enhancement_rewards(same_kind_rewards)
 	_expect_eq(active_slot_resolver.get_active_slot_count(same_kind_runtime._current_profile, same_kind_runtime._skill_runtime_host), 1, "same-kind active slots should collapse to slot 0 to avoid shared state")
 	same_kind_runtime.configure_companion_motion_for_tests(Vector2(380.0, 260.0), 8, 0.0, true)
 	same_kind_runtime.update(0.05, same_kind_owner, registry)
@@ -7212,7 +7190,6 @@ func _verify_lingpet_guard_label_feedback() -> void:
 	_expect(not label.is_empty(), "third defense-tagged guard should still expose a guard label after the two-bonus cap is exhausted")
 	_expect_str(str(label.get("text", "")), "방어", "guard label should use the localized exact-text key")
 	_expect(_get_vector2(label.get("position", Vector2.ZERO), Vector2.ZERO).distance_to(owner.lingpet_companion_last_contact_pos) <= 0.01, "guard label should anchor at the hit position, not at the moving companion")
-	_expect_float(runtime.get_affinity_points("maribo"), 34.0, "third guard should be past the two-bonus cap while still showing the defense label")
 	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "guard hit should clear the intercept flag immediately after contact")
 
 	owner.ball_active = false
@@ -7370,7 +7347,7 @@ func _force_second_active_runtime_profile(runtime: Object, pet_id: String, first
 	runtime._current_profile.active_slot_count = 2
 	runtime._current_profile.active_skill_id = first_skill_id
 	runtime._current_profile.active_skill_level = 1 if first_skill_id != "" else 0
-	runtime._current_profile.set_affinity_state(22, rewards)
+	runtime._current_profile.set_enhancement_rewards(rewards)
 
 
 func _prepare_maribo_guard_after_windup(runtime: Object, owner: FakeOwner, registry: Object) -> void:

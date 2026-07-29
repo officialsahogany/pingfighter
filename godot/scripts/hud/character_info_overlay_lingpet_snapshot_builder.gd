@@ -2,7 +2,6 @@ extends RefCounted
 
 const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info_overlay_formatter.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
-const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 static func _get_display_name(lingpet_id: String) -> String:
@@ -15,12 +14,6 @@ static func _get_display_name(lingpet_id: String) -> String:
 			return "수호령"
 		_:
 			return lingpet_id
-
-
-static func _default_affinity_next_label(level: int) -> String:
-	if level >= LingpetAffinityState.MAX_LEVEL:
-		return "하트 공명"
-	return ""
 
 
 # Up to 3 acquired-lingpet tabs in acquisition (battle-slot) order for the
@@ -164,11 +157,6 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 			var catalog_second_passive_name := str(catalog_second_passive.get("name", "")) if catalog_second_passive_enabled else ""
 			var catalog_second_passive_description := str(catalog_second_passive.get("description", "")) if catalog_second_passive_enabled else ""
 			var catalog_second_passive_icon_path := str(catalog_second_passive.get("icon_texture_path", "")) if catalog_second_passive_enabled else ""
-			var affinity_level := int(safe_owner_get.call(owner, "lingpet_affinity_level", safe_owner_get.call(owner, "ringpet_affinity_level", 0)))
-			var affinity_points := float(safe_owner_get.call(owner, "lingpet_affinity_points", safe_owner_get.call(owner, "ringpet_affinity_points", 0.0)))
-			var affinity_next_requirement := float(safe_owner_get.call(owner, "lingpet_affinity_next_requirement", safe_owner_get.call(owner, "ringpet_affinity_next_requirement", LingpetAffinityState.get_requirement_for_level(affinity_level))))
-			var affinity_next_label := str(safe_owner_get.call(owner, "lingpet_affinity_next_label", safe_owner_get.call(owner, "ringpet_affinity_next_label", _default_affinity_next_label(affinity_level))))
-			# R3b / per-run: permanent bond points + chinmildo title residue removed.
 			return {
 				"state": "companion",
 				"slot_tabs": slot_tabs,
@@ -217,10 +205,6 @@ static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_
 				"companion_catch_height": float(safe_owner_get.call(owner, "lingpet_companion_catch_height", safe_owner_get.call(owner, "ringpet_companion_catch_height", LingpetCatalog.get_stat(lingpet_id, "catch_height", 44.0)))),
 				"companion_defense_rate": float(safe_owner_get.call(owner, "lingpet_companion_defense_rate", safe_owner_get.call(owner, "ringpet_companion_defense_rate", LingpetCatalog.get_stat(lingpet_id, "defense_rate", 0.0)))),
 				"companion_appearance_rate": float(safe_owner_get.call(owner, "lingpet_companion_appearance_rate", safe_owner_get.call(owner, "ringpet_companion_appearance_rate", LingpetCatalog.get_stat(lingpet_id, "appearance_rate", 0.0)))),
-				"affinity_level": affinity_level,
-				"affinity_points": affinity_points,
-				"affinity_next_requirement": affinity_next_requirement,
-				"affinity_next_label": affinity_next_label,
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}

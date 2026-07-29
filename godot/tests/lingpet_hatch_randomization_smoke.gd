@@ -4,8 +4,6 @@ const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpe
 const LingpetAffinityState := preload("res://scripts/lingpet/lingpet_affinity_state.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
-const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
-const LingpetUnlockLoadoutReconciler := preload("res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd")
 
 var _failures: Array[String] = []
 
@@ -20,7 +18,6 @@ class EmptyLoadoutState:
 func _init() -> void:
 	_verify_catalog_hatch_skill_roll_distribution()
 	_verify_hatch_passive_id_covers_full_pool()
-	_verify_present_skill_conditions_first_unlock()
 	_verify_hatch_stat_roll_projection_and_caps()
 	_verify_hatch_candidate_pool_exhaustion()
 
@@ -134,47 +131,6 @@ func _verify_hatch_passive_id_covers_full_pool() -> void:
 	_expect_eq(seen.size(), pool_ids.size(), "direct hatch passive id roll should reach every common-pool index (full uniform range)")
 
 
-func _verify_present_skill_conditions_first_unlock() -> void:
-	var state := LingpetAffinityState.new()
-	state.configure_reward_context(
-		"maribo",
-		LingpetAffinityState.MOTION_STYLE_PATROL,
-		2,
-		1,
-		777,
-		true,
-		"maribo_hydro_sphere",
-		""
-	)
-	var pre_rewards := state.get_cumulative_rewards("maribo")
-	_expect(bool(pre_rewards.get("active_unlocked", false)), "present active skill should pre-resolve the first active unlock flag")
-	var resolved: Dictionary = state.get_resolved_unlock_choices("maribo")
-	var active_choice: Dictionary = resolved.get("active", {}) as Dictionary
-	_expect_str(str(active_choice.get("selected", "")), "maribo_hydro_sphere", "present active skill should be recorded as the resolved first active choice")
-
-	_grant_round_commits(state, "maribo", 10)
-	var history: Array = state.get_pet_data("maribo").get("reward_history", []) as Array
-	var first_reward: Dictionary = history[0] as Dictionary
-	_expect_str(str(first_reward.get("replaced_type", "")), LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "Lv1 active unlock should dead-draw when the hatch skill is already present")
-	_expect(str(first_reward.get("type", "")) != LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "present active skill should not award a duplicate first unlock card")
-
-	var loadout_state := LingpetLoadoutState.new()
-	loadout_state.set_pet_loadout(null, "maribo", "maribo_hydro_sphere", "", 2, 0)
-	var reconciler := LingpetUnlockLoadoutReconciler.new()
-	var changed := reconciler.reconcile(null, "maribo", state, loadout_state, null)
-	var loadout := loadout_state.get_loadout("maribo")
-	_expect(not changed, "reconciler should not rewrite a hatch-present first active skill")
-	_expect_str(str(loadout.get("active_skill_id", "")), "maribo_hydro_sphere", "hatch-present first active id should survive reconcile")
-	_expect_eq(int(loadout.get("active_skill_level", 0)), 2, "hatch-present first active level should survive reconcile")
-
-	var no_skill_state := LingpetAffinityState.new()
-	no_skill_state.configure_reward_context("maribo", LingpetAffinityState.MOTION_STYLE_PATROL, 1, 1, 777, true)
-	_grant_round_commits(no_skill_state, "maribo", 10)
-	var no_skill_history: Array = no_skill_state.get_pet_data("maribo").get("reward_history", []) as Array
-	var no_skill_first: Dictionary = no_skill_history[0] as Dictionary
-	_expect_str(str(no_skill_first.get("type", "")), LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "no-skill hatch should still receive the Lv1 active unlock safety net")
-
-
 func _verify_hatch_stat_roll_projection_and_caps() -> void:
 	var affinity_state := LingpetAffinityState.new()
 	affinity_state.set_hatch_stat_roll("maribo", 0.5, 0.5)
@@ -192,16 +148,16 @@ func _verify_hatch_stat_roll_projection_and_caps() -> void:
 	capped_rewards["mobility_stacks"] = LingpetAffinityState.MAX_MOBILITY_STACKS
 	capped_rewards["defense_stacks"] = LingpetAffinityState.MAX_DEFENSE_STACKS
 	capped_rewards["signature"] = "hatch-cap-fixture"
-	profile.set_affinity_state(0, capped_rewards)
-	_expect_float(profile.get_stat("patrol_speed_default", 0.0), base_speed * 1.30, "hatch mobility plus affinity mobility should share the +30 percent cap")
-	_expect_float(profile.get_stat("defense_rate", 0.0), base_defense + 0.08, "hatch defense plus affinity defense should share the +0.08 cap")
+	profile.set_enhancement_rewards(capped_rewards)
+	_expect_float(profile.get_stat("patrol_speed_default", 0.0), base_speed * 1.30, "hatch mobility plus enhancement mobility should share the +30 percent cap")
+	_expect_float(profile.get_stat("defense_rate", 0.0), base_defense + 0.08, "hatch defense plus enhancement defense should share the +0.08 cap")
 
 	var flight_profile := LingpetCurrentProfile.new()
 	flight_profile.set_pet_id("rabi")
 	flight_profile.set_hatch_stat_roll(0.5, 1.0)
-	flight_profile.set_affinity_state(0, capped_rewards)
+	flight_profile.set_enhancement_rewards(capped_rewards)
 	var base_appearance := LingpetCatalog.get_stat("rabi", "appearance_rate", 0.0)
-	_expect_float(flight_profile.get_stat("appearance_rate", 0.0), base_appearance + 0.30, "flight mobility headstart plus affinity mobility should share the +0.30 appearance bonus cap")
+	_expect_float(flight_profile.get_stat("appearance_rate", 0.0), base_appearance + 0.30, "flight mobility headstart plus enhancement mobility should share the +0.30 appearance bonus cap")
 	_expect_float(flight_profile.get_stat("defense_rate", 0.0), 0.0, "flight hatch defense headstart should stay a dead-stat no-op")
 
 	affinity_state.reset_for_new_run()
@@ -260,11 +216,6 @@ func _expect_hatch_skill_shape(loadout: Dictionary, active: bool) -> void:
 		_expect_eq(slot_count, 1, "%s present hatch roll should open exactly one slot" % prefix)
 		_expect_eq(ids.size(), 1, "%s present hatch roll should expose exactly one id" % prefix)
 		_expect_eq(int(levels.get(skill_id, 0)), level, "%s present hatch roll should mirror its level map" % prefix)
-
-
-func _grant_round_commits(state: Object, pet_id: String, count: int) -> void:
-	for _i in range(count):
-		state.add_points(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT)
 
 
 func _loadout_signature(loadout: Dictionary) -> String:

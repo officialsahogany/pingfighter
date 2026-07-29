@@ -3,10 +3,7 @@ extends RefCounted
 const CharacterInfoOverlayTextLineCache := preload("res://scripts/hud/character_info_overlay_text_line_cache.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const AFFINITY_METER_HEIGHT := 8.0
-const AFFINITY_HOVER_BAND_HEIGHT := 28.0
 const SATIETY_METER_HEIGHT := 8.0
-const SATIETY_METER_GAP := 4.0
 const SATIETY_WARNING_THRESHOLD := 50
 const SATIETY_CRITICAL_THRESHOLD := 20
 
@@ -95,7 +92,7 @@ static func get_strip_layout(font: Font, rect: Rect2, satiety_state: Dictionary,
 	if not bool(satiety_state.get("visible", false)):
 		return {}
 	var label_text := str(satiety_state.get("label", ""))
-	var strip_y: float = rect.position.y + 18.0 + AFFINITY_METER_HEIGHT + SATIETY_METER_GAP
+	var strip_y: float = rect.position.y + 4.0
 	var baseline_y: float = strip_y + 8.0
 	var meter_w := progress_meter_width(rect)
 	var meter_rect := Rect2(rect.position.x, strip_y, meter_w, SATIETY_METER_HEIGHT)
@@ -126,12 +123,8 @@ static func strip_color(satiety_state: Dictionary, stat_buff_color: Color) -> Co
 	return Color(stat_buff_color.r, stat_buff_color.g, stat_buff_color.b, 0.88)
 
 
-static func affinity_hover_rect(rect: Rect2) -> Rect2:
-	return Rect2(rect.position.x, rect.position.y, rect.size.x, AFFINITY_HOVER_BAND_HEIGHT)
-
-
 static func satiety_hover_rect(rect: Rect2) -> Rect2:
-	return Rect2(rect.position.x, rect.position.y + AFFINITY_HOVER_BAND_HEIGHT, rect.size.x, maxf(12.0, rect.size.y - AFFINITY_HOVER_BAND_HEIGHT))
+	return rect
 
 
 static func _text_size(font: Font, text: String, size: int, ui_text_scale: float) -> Vector2:

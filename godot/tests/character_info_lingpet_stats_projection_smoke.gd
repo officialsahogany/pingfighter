@@ -38,10 +38,10 @@ func _verify_companion_rows_and_budget() -> void:
 	_expect(_has_label(spacious_rows, "이동 속도"), "companion rows should include movement speed")
 	_expect(_has_label(spacious_rows, "방어율"), "patrol companion should include defense rate")
 	_expect(_has_label(spacious_rows, "2nd 액티브"), "spacious row budget should include second active cooldown")
-	_expect(_has_label(spacious_rows, "교감"), "companion rows should always end with affinity")
+	_expect(not _has_label(spacious_rows, "교감"), "retired affinity must not occupy a companion row")
 	var tight_rows := _build(snapshot, Rect2(Vector2.ZERO, Vector2(560.0, 340.0)))
-	_expect(not _has_label(tight_rows, "2nd 액티브"), "tight row budget should yield the second active cooldown")
-	_expect(_has_label(tight_rows, "교감"), "tight row budget should retain affinity")
+	_expect(_has_label(tight_rows, "2nd 액티브"), "retiring affinity should free the tight-budget row for the second active cooldown")
+	_expect(not _has_label(tight_rows, "교감"), "tight row budget must not restore retired affinity")
 	var flight_snapshot := snapshot.duplicate(true)
 	flight_snapshot["companion_defense_rate"] = 0.0
 	flight_snapshot["companion_appearance_rate"] = 0.35
@@ -52,7 +52,7 @@ func _verify_companion_rows_and_budget() -> void:
 func _verify_cache_invalidation_surface() -> void:
 	var snapshot := _full_snapshot()
 	var base_hash := CharacterInfoOverlayLingpetStatsProjection.get_stats_cache_hash(snapshot, HATCH_REQUIRED_HITS)
-	for key in ["companion_skill_id_1", "companion_passive_skill_id_1", "ring_core_tier", "affinity_chip_count", "affinity_points"]:
+	for key in ["companion_skill_id_1", "companion_passive_skill_id_1", "companion_defense_rate", "companion_appearance_rate"]:
 		var changed := snapshot.duplicate(true)
 		changed[key] = str(changed.get(key, "")) + "_changed" if key.ends_with("id_1") else float(changed.get(key, 0.0)) + 1.0
 		_expect(CharacterInfoOverlayLingpetStatsProjection.get_stats_cache_hash(changed, HATCH_REQUIRED_HITS) != base_hash, "stats hash should invalidate on %s" % key)
@@ -68,6 +68,7 @@ func _verify_presenter_boundary_contract() -> void:
 	_expect(_function_body(presenter_source, "static func build_stats_cached(").find("CharacterInfoOverlayLingpetStatsProjection.build_stats_cached") >= 0, "presenter cached-stats facade should delegate")
 	_expect(_function_body(presenter_source, "static func get_stats_cache_hash(").find("CharacterInfoOverlayLingpetStatsProjection.get_stats_cache_hash") >= 0, "presenter stats-hash facade should delegate")
 	_expect(projection_source.find("CanvasItem") < 0 and projection_source.find("FileAccess") < 0, "stats projection should remain draw- and I/O-free")
+	_expect(projection_source.find("affinity_") < 0 and projection_source.find("교감") < 0, "stats projection must not retain retired affinity presentation")
 	var expected_rows := CharacterInfoOverlayLingpetStatsProjection.build_stats(_full_snapshot(), Color.WHITE, Color.WHITE, Color.WHITE, STAT_COLOR, 60.0, HATCH_REQUIRED_HITS, "")
 	_expect(CharacterInfoOverlayLingpetPresenter.build_stats(_full_snapshot(), Color.WHITE, Color.WHITE, Color.WHITE, STAT_COLOR, 60.0, HATCH_REQUIRED_HITS, "") == expected_rows, "presenter facade should preserve exact projected rows")
 
@@ -92,12 +93,6 @@ func _full_snapshot() -> Dictionary:
 		"companion_passive_skill_name_1": "순풍",
 		"companion_defense_rate": 0.25,
 		"companion_appearance_rate": 0.0,
-		"affinity_level": 25,
-		"affinity_points": 15.0,
-		"affinity_next_requirement": 50.0,
-		"affinity_next_label": "보상",
-		"ring_core_tier": 3,
-		"affinity_chip_count": 4,
 	}
 
 

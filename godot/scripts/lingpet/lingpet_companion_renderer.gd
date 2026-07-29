@@ -48,7 +48,7 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	var guard_aura_ratio: float = clampf(float(config.get("defense_guard_aura_ratio", 0.0)), 0.0, 1.0)
 	# Soft "barely-there" ambient aura -- replaces the old hard draw_circle disc.
 	# See the _SOFT_GLOW_TEX_SIZE notes at the top of the file.
-	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, bool(config.get("affinity_heart_tint", false)), guard_aura_ratio)
+	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, false, guard_aura_ratio)
 	if companion_exhausted:
 		_draw_exhausted_rest_ground(canvas, draw_center, radius, ghost_alpha)
 	elif exhaustion_ratio > 0.0:
@@ -80,28 +80,7 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 func draw_affinity_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
-	# Point popups render independently of the level-up flash, so they must
-	# draw before the flash early-returns below.
-	_draw_point_popups(canvas, center, config.get("affinity_point_popups", []) as Array)
 	_draw_guard_label(canvas, config.get("affinity_guard_label", {}), _get_vector2(config.get("shake_offset", Vector2.ZERO), Vector2.ZERO))
-	var flash_ratio := clampf(float(config.get("affinity_flash", 0.0)), 0.0, 1.0)
-	if flash_ratio <= 0.0:
-		return
-	var label := str(config.get("affinity_label", "")).strip_edges()
-	if label == "":
-		return
-	var radius: float = float(config.get("radius", 16.0))
-	var now_ms: float = float(Time.get_ticks_msec())
-	var draw_center := center + Vector2(0.0, sin(now_ms * 0.0048) * 2.6)
-	var progress := 1.0 - flash_ratio
-	var pulse := sin(progress * PI)
-	var ring_radius := lerpf(radius + 20.0, radius + 56.0, progress)
-	var ring_alpha := clampf(0.30 * flash_ratio + 0.16 * pulse, 0.0, 0.72)
-	canvas.draw_circle(draw_center, ring_radius, Color(1.0, 0.22, 0.56, 0.12 * flash_ratio))
-	canvas.draw_arc(draw_center, ring_radius * 0.86, -PI * 0.45 + progress * TAU, PI * 1.45 + progress * TAU, 42, Color(1.0, 0.54, 0.78, ring_alpha), 2.5, true)
-	canvas.draw_arc(draw_center, ring_radius * 0.58, PI * 0.25 - progress * TAU, PI * 1.60 - progress * TAU, 34, Color(0.92, 1.0, 1.0, 0.34 * flash_ratio), 1.7, true)
-	_draw_burst(canvas, draw_center, flash_ratio, int(config.get("burst_particles", 8)), int(config.get("affinity_trigger_count", 0)), Color(1.0, 0.46, 0.72, 1.0), false)
-	_draw_affinity_label(canvas, draw_center, label, str(config.get("affinity_title", "")), progress, flash_ratio)
 
 
 func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms: float, alpha_mult: float = 1.0, heart_tint: bool = false, guard_aura_ratio: float = 0.0) -> void:
@@ -711,35 +690,6 @@ func _draw_switch_label(canvas: CanvasItem, center: Vector2, display_name: Strin
 	canvas.draw_string(font, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.78, 1.0, 0.95, 0.96 * alpha))
 
 
-func _draw_point_popups(canvas: CanvasItem, center: Vector2, popups: Array) -> void:
-	if popups == null or popups.is_empty():
-		return
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var font_size := 12
-	for index in range(popups.size()):
-		if not popups[index] is Dictionary:
-			continue
-		var popup: Dictionary = popups[index]
-		var amount := float(popup.get("amount", 0.0))
-		if amount <= 0.0:
-			continue
-		var ratio := clampf(float(popup.get("ratio", 0.0)), 0.0, 1.0)
-		var eased := 1.0 - pow(1.0 - ratio, 2.0)
-		var alpha := clampf(1.25 * (1.0 - ratio), 0.0, 1.0)
-		var text := "+%d" % int(round(amount)) if is_equal_approx(amount, round(amount)) else "+%.1f" % amount
-		var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
-		# Anchored to the pet's upper-right so a same-frame level-up flash
-		# label (centered above the head) cannot overlap the rising number.
-		var pos := Vector2(
-			center.x + 24.0 - text_width * 0.5 + float(index) * 3.0,
-			center.y - 40.0 - 30.0 * eased
-		)
-		canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.55 * alpha))
-		canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.74, 0.88, 0.95 * alpha))
-
-
 func _draw_guard_label(canvas: CanvasItem, popup: Variant, shake_offset: Vector2) -> void:
 	if not popup is Dictionary:
 		return
@@ -764,37 +714,3 @@ func _draw_guard_label(canvas: CanvasItem, popup: Variant, shake_offset: Vector2
 	var draw_pos := pos + shake_offset + Vector2(-width * 0.5, -18.0 - 16.0 * eased)
 	canvas.draw_string(font, draw_pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.60 * alpha))
 	canvas.draw_string(font, draw_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.42, 0.20, 0.96 * alpha))
-
-
-func _draw_affinity_label(canvas: CanvasItem, center: Vector2, text: String, title: String, progress: float, flash_ratio: float) -> void:
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	# This overlay draws raw (no _draw_text_xy), so translate at this boundary:
-	# the composed "교감 Lv.N!" resolves via the known-patterns branch and the
-	# bond/max titles via the exact map.
-	var main_text := LanguageSettings.translate_text(text.strip_edges())
-	if main_text == "":
-		return
-	var title_text := LanguageSettings.translate_text(title.strip_edges())
-	var alpha := clampf(sin(progress * PI) * 1.45 + flash_ratio * 0.18, 0.0, 1.0)
-	if alpha <= 0.01:
-		return
-	var main_size := 14
-	var title_size := 11
-	var main_width := font.get_string_size(main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size).x
-	var title_width := font.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size).x if title_text != "" else 0.0
-	var width := maxf(main_width, title_width)
-	var baseline_y := center.y - 70.0 - 8.0 * sin(progress * PI)
-	var title_h := float(title_size + 4) if title_text != "" else 0.0
-	var bg_rect := Rect2(Vector2(center.x - width * 0.5 - 9.0, baseline_y - float(main_size) - 7.0), Vector2(width + 18.0, float(main_size) + title_h + 13.0))
-	canvas.draw_rect(bg_rect, Color(0.045, 0.018, 0.040, 0.62 * alpha))
-	canvas.draw_rect(bg_rect, Color(1.0, 0.52, 0.78, 0.72 * alpha), false, 1.4)
-	var main_pos := Vector2(center.x - main_width * 0.5, baseline_y)
-	canvas.draw_string(font, main_pos + Vector2(1.0, 1.0), main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size, Color(0.0, 0.0, 0.0, 0.62 * alpha))
-	canvas.draw_string(font, main_pos, main_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, main_size, Color(1.0, 0.88, 0.96, 0.98 * alpha))
-	if title_text == "":
-		return
-	var title_pos := Vector2(center.x - title_width * 0.5, baseline_y + float(title_size) + 2.0)
-	canvas.draw_string(font, title_pos + Vector2(1.0, 1.0), title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, Color(0.0, 0.0, 0.0, 0.54 * alpha))
-	canvas.draw_string(font, title_pos, title_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, Color(0.95, 1.0, 1.0, 0.92 * alpha))

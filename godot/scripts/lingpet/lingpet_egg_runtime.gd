@@ -39,12 +39,8 @@ const LingpetSatietyRuntimeState := preload(
 	"res://scripts/lingpet/lingpet_satiety_runtime_state.gd"
 )
 const LingpetAffinityContextCoordinator := preload("res://scripts/lingpet/lingpet_affinity_context_coordinator.gd")
-const LingpetAffinityGrantController := preload("res://scripts/lingpet/lingpet_affinity_grant_controller.gd")
 const LingpetAffinityHitTagResolver := preload("res://scripts/lingpet/lingpet_affinity_hit_tag_resolver.gd")
-const LingpetAffinityBattleLifecycle := preload("res://scripts/lingpet/lingpet_affinity_battle_lifecycle.gd")
-const LingpetAffinityOwnerSurface := preload("res://scripts/lingpet/lingpet_affinity_owner_surface.gd")
 const LingpetAffinityFeedbackState := preload("res://scripts/lingpet/lingpet_affinity_feedback_state.gd")
-const LingpetAffinityIncomeTracker := preload("res://scripts/lingpet/lingpet_affinity_income_tracker.gd")
 const LingpetAudioDispatcher := preload("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCurrentLoadoutApplier := preload("res://scripts/lingpet/lingpet_current_loadout_applier.gd")
@@ -243,12 +239,8 @@ var _tutorial_bootstrap: Object = LingpetTutorialBootstrap.new()
 var _unlock_loadout_reconciler: Object = LingpetUnlockLoadoutReconciler.new()
 var _affinity_state: Object = LingpetAffinityState.new()
 var _affinity_context_coordinator: Object = LingpetAffinityContextCoordinator.new()
-var _affinity_grant_controller: Object = LingpetAffinityGrantController.new()
 var _affinity_hit_tag_resolver: Object = LingpetAffinityHitTagResolver.new()
-var _affinity_battle_lifecycle: Object = LingpetAffinityBattleLifecycle.new()
-var _affinity_owner_surface: Object = LingpetAffinityOwnerSurface.new()
 var _affinity_feedback_state: Object = LingpetAffinityFeedbackState.new()
-var _affinity_income_tracker: Object = LingpetAffinityIncomeTracker.new()
 var _satiety_runtime_state: Object = LingpetSatietyRuntimeState.new()
 var _guardian_stowed := false
 var _soul_summon_offer_guarantee_count := 0
@@ -638,7 +630,7 @@ func apply_guardian_enhancement_candidate(
 		bool(skill_availability.get("has_second_passive", false))
 	)
 	if bool(result.get("accepted", false)):
-		_affinity_context_coordinator.handle_level_gain(
+		_affinity_context_coordinator.handle_enhancement_gain(
 			target_pet_id,
 			registry,
 			_pet_id,
@@ -1126,14 +1118,6 @@ func get_skill_effect_runtime_update_count_for_tests() -> int:
 	return int(_companion_skill_controller.get_effect_runtime_update_count_for_tests())
 
 
-func reset_owner_affinity_surface_counters_for_tests() -> void:
-	_affinity_owner_surface.reset_build_counter_for_tests()
-
-
-func get_owner_affinity_surface_build_count_for_tests() -> int:
-	return int(_affinity_owner_surface.get_build_count_for_tests())
-
-
 func set_headbutt_force_mega_roll_for_tests(value: float) -> void:
 	_skill_runtime_host.set_headbutt_force_mega_roll_for_tests(value)
 
@@ -1342,7 +1326,6 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
 	_ensure_duration_pool_roll()
 	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
-	_add_affinity_points(new_pet, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_overflow_choice_state.reset()
 	if bool(replace_result.get("replaced_active_companion", false)):
 		# Player chose to swap out the active companion: the new pet takes over.
@@ -1516,8 +1499,7 @@ func _set_current_pet_id(value: String) -> void:
 		_affinity_feedback_state,
 		_companion_click_reaction_visual_prewarm_state,
 		_acquire_cutin_asset_prewarm_state,
-		_snapshot_builder,
-		LingpetAffinityState.MAX_LEVEL
+		_snapshot_builder
 	)
 	_mount_state.reset()
 	_mount_state.set_pet_id(_pet_id)
@@ -2015,24 +1997,6 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 	snapshot.merge(_ring_dash_state.get_snapshot(), true)
 	snapshot.merge(_starlight_tracking_state.get_snapshot(), true)
 	snapshot["companion_appearance_rate"] = appearance_rate if _is_guardian_summoned() else 0.0
-	var affinity_snapshot: Dictionary = _affinity_owner_surface.build_snapshot(
-		_state,
-		STATE_COMPANION,
-		_pet_id,
-		_affinity_state,
-		_affinity_context_coordinator,
-		_current_profile,
-		_loadout_state
-	)
-	snapshot["affinity_level"] = int(affinity_snapshot.get("level", 0))
-	snapshot["affinity_points"] = float(affinity_snapshot.get("points", 0.0))
-	snapshot["affinity_next_requirement"] = float(affinity_snapshot.get("next_requirement", 0.0))
-	snapshot["affinity_next_label"] = str(affinity_snapshot.get("next_label", ""))
-	if not character_info_display_snapshot.is_empty():
-		character_info_display_snapshot["affinity_level"] = int(snapshot["affinity_level"])
-		character_info_display_snapshot["affinity_points"] = float(snapshot["affinity_points"])
-		character_info_display_snapshot["affinity_next_requirement"] = float(snapshot["affinity_next_requirement"])
-		character_info_display_snapshot["affinity_next_label"] = str(snapshot["affinity_next_label"])
 	snapshot["character_info_display_snapshot"] = character_info_display_snapshot
 	snapshot["duration_pool_pct"] = _get_active_satiety_pct()
 	snapshot["duration_pool"] = _affinity_state.get_duration_pool_current()
@@ -2189,15 +2153,12 @@ func reset_for_tests() -> void:
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
 	_companion_skill_persistence.reset_stage_observer()
-	_current_profile.set_affinity_state(0, LingpetAffinityState.get_empty_reward_counts())
+	_current_profile.set_enhancement_rewards(LingpetAffinityState.get_empty_reward_counts())
 	_loadout_state.invalidate_runtime_and_snapshot_cache(_snapshot_builder)
 	_affinity_state.reset_for_new_run()
 	_spirit_water_drop_state.reset_run()
 	_affinity_context_coordinator.reset_for_new_run()
 	_affinity_feedback_state.reset_all()
-	_affinity_income_tracker.reset_all()
-	_affinity_battle_lifecycle.reset_all()
-	_affinity_grant_controller.clear_last_result()
 	_satiety_runtime_state.reset()
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
@@ -2496,7 +2457,6 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_apply_current_loadout(owner, true, true, registry)
-	_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
 	_initialize_companion_patrol(owner, false)
 	_reset_companion_runtime_state(false, owner, registry)
@@ -2537,7 +2497,6 @@ func _finish_overflow_hatch_commit(owner: Object, registry: Object = null) -> vo
 	_duration_warning_stage = 0
 	_set_current_pet_id(kept_pet_id)
 	_apply_current_loadout(owner, true, true, registry)
-	_add_affinity_points(kept_pet_id, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
 	_initialize_companion_patrol(owner, false)
 	_reset_companion_runtime_state(false, owner, registry)
@@ -2575,13 +2534,11 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 	if bool(absorb_route.get("opened_overflow", false)):
 		_sync_owner(owner, registry)
 		return
-	# Free slot: register the new pet WITHOUT stealing the active companion + grant the same
-	# hatch affinity a normal hatch grants.
+	# Free slot: register the new pet WITHOUT stealing the active companion.
 	var registered := str(absorb_route.get("registered_pet_id", ""))
 	if registered != "":
 		_ensure_duration_pool_roll()
 		_hatch_stat_roll_state.roll_item_egg_hatch_traits(registered, _loadout_state, _item_egg_lifecycle_state.get_profile(), _affinity_state)
-		_add_affinity_points(registered, LingpetAffinityState.SOURCE_HATCH, {}, registry)
 	_sync_owner(owner, registry)
 
 
@@ -2673,17 +2630,6 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 		"lingpet_duration_pool_pct",
 		"ringpet_duration_pool_pct",
 		_get_active_satiety_pct()
-	)
-	_affinity_owner_surface.sync_owner_if_changed(
-		owner,
-		_snapshot_builder,
-		_state,
-		STATE_COMPANION,
-		_pet_id,
-		_affinity_state,
-		_affinity_context_coordinator,
-		_current_profile,
-		_loadout_state
 	)
 	if should_sync_loadouts:
 		_loadout_state.mark_owner_loadouts_synced_for_runtime()
@@ -3012,7 +2958,6 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 		_affinity_feedback_state.trigger_guard_label(_companion_body_hit_state.last_contact_pos)
 	if bool(affinity_hit_tags.get("defense_intercept", false)):
 		_companion_motion_state.clear_defense_intercept()
-	_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_BALL_HIT, affinity_hit_tags, registry)
 
 	# If the anticipatory predictor already started the swing for this approach,
 	# leave it running (do NOT restart -- mirrors boss trigger_hit's hit_active
@@ -3223,19 +3168,13 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object
 	if _companion_click_reaction_state.get_ready_texture(_current_profile) == null:
 		return false
 	_companion_click_reaction_state.start()
-	if (
-		_is_guardian_summoned()
-		and _companion_body_presence_resolver.can_grant_click_affinity(_companion_motion_state, _ring_dash_state)
-	):
-		_add_affinity_points(_pet_id, LingpetAffinityState.SOURCE_CLICK, {}, registry)
 	_audio_dispatcher.play_lingpet_click_reaction(registry, _pet_id)
 	return true
 
 
 func try_begin_companion_interact_reaction(registry: Object = null) -> bool:
-	# Non-mouse bond entry (keyboard/gamepad): self-target the companion's own
-	# position so the click body (tap-zone check, texture-ready gate, exhaustion /
-	# body-presence affinity gate, SOURCE_CLICK caps, audio) is reused verbatim.
+	# Compatibility entry for the retiring interact action: self-target the
+	# companion so only the cosmetic click reaction and audio are reused.
 	if not _is_guardian_summoned():
 		return false
 	return try_begin_companion_click_reaction(_companion_pos, registry)
@@ -3243,32 +3182,6 @@ func try_begin_companion_interact_reaction(registry: Object = null) -> bool:
 
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
-
-
-func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
-	_invalidate_runtime_snapshot_cache()
-	var registry: Object = _deps.get("registry", null) as Object
-	var affinity_pet_id := ""
-	if _state == STATE_COMPANION:
-		affinity_pet_id = _current_profile.normalize_pet_id(_pet_id)
-	_affinity_battle_lifecycle.handle_score_event(
-		scoring_side,
-		score_result,
-		registry,
-		affinity_pet_id,
-		_affinity_state,
-		Callable(self, "_add_affinity_points")
-	)
-
-
-func add_affinity_points(source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
-	return _add_affinity_points(_pet_id, source, tags, registry)
-
-
-func reset_affinity_for_new_battle() -> void:
-	_invalidate_runtime_snapshot_cache()
-	_affinity_battle_lifecycle.reset_for_new_battle(_affinity_income_tracker, _affinity_state)
-	_affinity_grant_controller.clear_last_result()
 
 
 func refill_guardian_duration_for_stage_transition() -> bool:
@@ -3318,21 +3231,6 @@ func use_spirit_water(owner: Object = null, registry: Object = null) -> Dictiona
 
 func get_spirit_water_drop_snapshot_for_tests() -> Dictionary:
 	return _spirit_water_drop_state.get_snapshot()
-
-
-func get_affinity_data(pet_id: String = "") -> Dictionary:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_pet_data(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
-func get_affinity_level(pet_id: String = "") -> int:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_level(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
-func get_affinity_points(pet_id: String = "") -> float:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_points(normalized_pet_id if normalized_pet_id != "" else _pet_id)
 
 
 func get_satiety(pet_id: String = "") -> float:
@@ -3452,69 +3350,9 @@ func get_satiety_exhaustion_ratio_for_tests(owner: Object = null) -> float:
 	)
 
 
-func get_last_affinity_result_for_tests() -> Dictionary:
-	return _affinity_grant_controller.get_last_result()
-
-
-func get_last_affinity_bond_settlement_for_tests() -> Dictionary:
-	return _affinity_battle_lifecycle.get_last_bond_settlement()
-
-
-func get_affinity_tracked_pet_ids_for_tests() -> Array[String]:
-	return _affinity_state.get_tracked_pet_ids()
-
-
-func debug_add_affinity_points_for_tests(pet_id: String, source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _add_affinity_points(normalized_pet_id, source, tags, registry)
-
-
-func get_affinity_income_summary_for_tests() -> Dictionary:
-	return _affinity_income_tracker.get_summary()
-
-
-func get_affinity_reward_deck_for_tests(pet_id: String = "") -> Array[Dictionary]:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	return _affinity_state.get_reward_deck(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
 func get_affinity_rewards_for_tests(pet_id: String = "") -> Dictionary:
 	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
 	return _affinity_state.get_cumulative_rewards(normalized_pet_id if normalized_pet_id != "" else _pet_id)
-
-
-func _add_affinity_points(pet_id: String, source: String, tags: Dictionary = {}, registry: Object = null) -> Dictionary:
-	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
-	if normalized_pet_id == "":
-		_affinity_grant_controller.clear_last_result()
-		return {}
-	_invalidate_runtime_snapshot_cache()
-	_affinity_context_coordinator.configure(
-		normalized_pet_id,
-		_pet_id,
-		_current_profile,
-		_loadout_state,
-		_affinity_state
-	)
-	var result: Dictionary = _affinity_grant_controller.grant(
-		normalized_pet_id,
-		source,
-		tags,
-		registry,
-		_affinity_state,
-		_affinity_income_tracker,
-		_affinity_feedback_state,
-		normalized_pet_id == _pet_id,
-		_state == STATE_COMPANION,
-		Callable(_affinity_context_coordinator, "handle_level_gain").bind(
-			_pet_id,
-			_current_profile,
-			_loadout_state,
-			_affinity_state,
-			_snapshot_builder
-		)
-	)
-	return result
 
 
 func _advance_satiety(

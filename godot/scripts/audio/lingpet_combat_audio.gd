@@ -15,7 +15,6 @@ const ITEM_PLAYER_IDS := [
 	"star_coil_bind",
 	"star_coil_move",
 	"ring_dash",
-	"affinity_level_up",
 	"egg_hit",
 ]
 const PROJECTILE_PLAYER_IDS := [
@@ -49,7 +48,6 @@ const ITEM_PREWARM_IDS := [
 	"wild_roar",
 	"star_coil_bind",
 	"ring_dash",
-	"affinity_level_up",
 ]
 const EGG_HIT_STREAM_PATHS := [
 	"res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav",
@@ -102,11 +100,6 @@ const PLAYER_SPECS := {
 		"player_name": "LingpetRingDashSfx",
 		"path": "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav",
 		"gain_db": -5.0,
-	},
-	"affinity_level_up": {
-		"player_name": "LingpetAffinityLevelUpSfx",
-		"path": "res://assets/sounds/lingpet/affinity_level_up_chime.wav",
-		"gain_db": -4.0,
 	},
 	"egg_hit": {
 		# One player swaps between the two bone-break candidates on each hit.

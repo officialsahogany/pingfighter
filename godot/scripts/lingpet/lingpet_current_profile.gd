@@ -8,14 +8,14 @@ const LingpetEnhancementBuffStore := preload(
 const LingpetVisualTextureCache := preload("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 
 const DEFAULT_PET_ID := LingpetCatalog.DEFAULT_PET_ID
-const AFFINITY_MOBILITY_SPEED_BONUS_PCT := 5.0
-const AFFINITY_MOBILITY_SPEED_CAP_PCT := 30.0
-const AFFINITY_FLIGHT_APPEARANCE_BONUS := 0.05
-const AFFINITY_FLIGHT_APPEARANCE_CAP := 0.30
-const AFFINITY_PATROL_DEFENSE_BONUS := 0.04
-const AFFINITY_PATROL_DEFENSE_STACK_CAP := 0.08
-const AFFINITY_PATROL_DEFENSE_CAP := 0.80
-const AFFINITY_HIT_GAUGE_CARD_BONUS := 5.0
+const ENHANCEMENT_MOBILITY_SPEED_BONUS_PCT := 5.0
+const ENHANCEMENT_MOBILITY_SPEED_CAP_PCT := 30.0
+const ENHANCEMENT_FLIGHT_APPEARANCE_BONUS := 0.05
+const ENHANCEMENT_FLIGHT_APPEARANCE_CAP := 0.30
+const ENHANCEMENT_PATROL_DEFENSE_BONUS := 0.04
+const ENHANCEMENT_PATROL_DEFENSE_STACK_CAP := 0.08
+const ENHANCEMENT_PATROL_DEFENSE_CAP := 0.80
+const ENHANCEMENT_HIT_GAUGE_CARD_BONUS := 5.0
 
 var pet_id := DEFAULT_PET_ID
 var active_skill_id := ""
@@ -28,9 +28,8 @@ var passive_skill_levels: Dictionary = {}
 var passive_slot_count := LingpetCatalog.DEFAULT_PASSIVE_SLOT_COUNT
 var active_skill_level := LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL
 var passive_skill_level := LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL
-var affinity_level := 0
-var affinity_rewards: Dictionary = LingpetEnhancementBuffStore.get_empty_reward_counts()
-var affinity_reward_signature := "0|0|0|0|0|0"
+var enhancement_rewards: Dictionary = LingpetEnhancementBuffStore.get_empty_reward_counts()
+var enhancement_reward_signature := "0|0|0|0|0|0"
 var _hatch_mobility_headstart := 0.0
 var _hatch_defense_headstart := 0.0
 var _visual_texture_cache: Object = LingpetVisualTextureCache.new()
@@ -79,9 +78,9 @@ func get_stat(stat_name: String, fallback: float) -> float:
 		"patrol_speed_default", "patrol_speed_min", "patrol_speed_max":
 			var speed_bonus_pct := _get_passive_effect_value("patrol_speed_bonus_pct")
 			if _is_patrol_motion_style():
-				var mobility_stacks := mini(_get_affinity_reward_count("mobility_stacks"), LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS)
-				var hatch_speed_bonus_pct := _hatch_mobility_headstart * AFFINITY_MOBILITY_SPEED_CAP_PCT
-				speed_bonus_pct += minf(hatch_speed_bonus_pct + float(mobility_stacks) * AFFINITY_MOBILITY_SPEED_BONUS_PCT, AFFINITY_MOBILITY_SPEED_CAP_PCT)
+				var mobility_stacks := mini(_get_enhancement_reward_count("mobility_stacks"), LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS)
+				var hatch_speed_bonus_pct := _hatch_mobility_headstart * ENHANCEMENT_MOBILITY_SPEED_CAP_PCT
+				speed_bonus_pct += minf(hatch_speed_bonus_pct + float(mobility_stacks) * ENHANCEMENT_MOBILITY_SPEED_BONUS_PCT, ENHANCEMENT_MOBILITY_SPEED_CAP_PCT)
 			return base_value * (1.0 + speed_bonus_pct / 100.0)
 		"catch_width":
 			return base_value * (1.0 + (_get_passive_effect_value("catch_size_bonus_pct") + _get_passive_effect_value("catch_width_bonus_pct")) / 100.0)
@@ -90,21 +89,21 @@ func get_stat(stat_name: String, fallback: float) -> float:
 		"defense_rate":
 			var defense_bonus := _get_passive_effect_value("defense_rate_bonus")
 			if _is_patrol_motion_style():
-				var defense_stacks := mini(_get_affinity_reward_count("defense_stacks"), LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS)
-				var hatch_defense_bonus := _hatch_defense_headstart * AFFINITY_PATROL_DEFENSE_STACK_CAP
-				defense_bonus += minf(hatch_defense_bonus + float(defense_stacks) * AFFINITY_PATROL_DEFENSE_BONUS, AFFINITY_PATROL_DEFENSE_STACK_CAP)
-			return clampf(base_value + defense_bonus, 0.0, AFFINITY_PATROL_DEFENSE_CAP)
+				var defense_stacks := mini(_get_enhancement_reward_count("defense_stacks"), LingpetEnhancementBuffStore.MAX_DEFENSE_STACKS)
+				var hatch_defense_bonus := _hatch_defense_headstart * ENHANCEMENT_PATROL_DEFENSE_STACK_CAP
+				defense_bonus += minf(hatch_defense_bonus + float(defense_stacks) * ENHANCEMENT_PATROL_DEFENSE_BONUS, ENHANCEMENT_PATROL_DEFENSE_STACK_CAP)
+			return clampf(base_value + defense_bonus, 0.0, ENHANCEMENT_PATROL_DEFENSE_CAP)
 		"hit_gauge_gain":
 			var gauge_bonus := _get_passive_effect_value("hit_gauge_gain_bonus")
-			var gauge_stacks := mini(_get_affinity_reward_count("gauge_stacks"), LingpetEnhancementBuffStore.MAX_GAUGE_STACKS)
-			gauge_bonus += float(gauge_stacks) * AFFINITY_HIT_GAUGE_CARD_BONUS
+			var gauge_stacks := mini(_get_enhancement_reward_count("gauge_stacks"), LingpetEnhancementBuffStore.MAX_GAUGE_STACKS)
+			gauge_bonus += float(gauge_stacks) * ENHANCEMENT_HIT_GAUGE_CARD_BONUS
 			return maxf(0.0, base_value + gauge_bonus)
 		"appearance_rate":
 			var appearance_bonus := 0.0
 			if _is_flight_motion_style():
-				var mobility_stacks := mini(_get_affinity_reward_count("mobility_stacks"), LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS)
-				var hatch_appearance_bonus := _hatch_mobility_headstart * AFFINITY_FLIGHT_APPEARANCE_CAP
-				appearance_bonus += minf(hatch_appearance_bonus + float(mobility_stacks) * AFFINITY_FLIGHT_APPEARANCE_BONUS, AFFINITY_FLIGHT_APPEARANCE_CAP)
+				var mobility_stacks := mini(_get_enhancement_reward_count("mobility_stacks"), LingpetEnhancementBuffStore.MAX_MOBILITY_STACKS)
+				var hatch_appearance_bonus := _hatch_mobility_headstart * ENHANCEMENT_FLIGHT_APPEARANCE_CAP
+				appearance_bonus += minf(hatch_appearance_bonus + float(mobility_stacks) * ENHANCEMENT_FLIGHT_APPEARANCE_BONUS, ENHANCEMENT_FLIGHT_APPEARANCE_CAP)
 			return clampf(base_value + appearance_bonus, 0.0, 1.0)
 		"gauge_gain_bonus_pct":
 			if not passive_skill_ids.is_empty():
@@ -200,31 +199,18 @@ func set_loadout_from_data(loadout: Dictionary) -> void:
 	)
 
 
-func set_affinity_level(level: int) -> void:
-	var next_level := clampi(level, 0, LingpetAffinityState.MAX_LEVEL)
-	if next_level == affinity_level:
-		return
-	affinity_level = next_level
-	_invalidate_metadata_cache()
-
-
-func set_affinity_rewards(rewards: Dictionary) -> void:
+func set_enhancement_rewards(rewards: Dictionary) -> void:
 	var next_rewards := LingpetEnhancementBuffStore.get_empty_reward_counts()
 	for key in next_rewards.keys():
 		if rewards.has(key):
 			next_rewards[key] = rewards.get(key)
 	next_rewards["signature"] = str(rewards.get("signature", next_rewards.get("signature", "")))
 	var next_signature := str(next_rewards.get("signature", "0|0|0|0|0|0"))
-	if next_signature == affinity_reward_signature:
+	if next_signature == enhancement_reward_signature:
 		return
-	affinity_reward_signature = next_signature
-	affinity_rewards = next_rewards
+	enhancement_reward_signature = next_signature
+	enhancement_rewards = next_rewards
 	_invalidate_metadata_cache()
-
-
-func set_affinity_state(level: int, rewards: Dictionary) -> void:
-	set_affinity_level(level)
-	set_affinity_rewards(rewards)
 
 
 func set_hatch_stat_roll(mobility_headstart: float, defense_headstart: float) -> void:
@@ -288,7 +274,7 @@ func get_motion_style() -> String:
 	return LingpetCatalog.get_motion_style(pet_id)
 
 
-func get_affinity_motion_style() -> String:
+func get_guardian_motion_style() -> String:
 	if _is_patrol_motion_style():
 		return LingpetAffinityState.MOTION_STYLE_PATROL
 	return LingpetAffinityState.MOTION_STYLE_FLIGHT
@@ -331,7 +317,7 @@ func get_passive_slot_count() -> int:
 
 
 func is_second_active_unlocked() -> bool:
-	return bool(_get_affinity_rewards().get("second_active_unlocked", false))
+	return bool(_get_enhancement_rewards().get("second_active_unlocked", false))
 
 
 func get_skill_windup_seconds(fallback: float, slot_index: int = 0) -> float:
@@ -355,8 +341,7 @@ func get_runtime_surface_cache_key() -> Array:
 		passive_slot_count,
 		passive_skill_ids.duplicate(),
 		passive_skill_levels.duplicate(true),
-		affinity_level,
-		affinity_reward_signature,
+		enhancement_reward_signature,
 		_hatch_mobility_headstart,
 		_hatch_defense_headstart,
 	]
@@ -457,7 +442,7 @@ func _get_effective_active_skill_level(slot_index: int = 0) -> int:
 	var bonus_key := "second_active_skill_bonus" if slot_index == 1 else "active_skill_bonus"
 	return LingpetEnhancementBuffStore.get_effective_skill_level(
 		get_active_skill_level_for_slot(slot_index),
-		_get_affinity_rewards(),
+		_get_enhancement_rewards(),
 		bonus_key
 	)
 
@@ -466,17 +451,17 @@ func _get_effective_passive_skill_level(slot_index: int = 0) -> int:
 	var bonus_key := "second_passive_skill_bonus" if slot_index == 1 else "passive_skill_bonus"
 	return LingpetEnhancementBuffStore.get_effective_skill_level(
 		get_passive_skill_level_for_slot(slot_index),
-		_get_affinity_rewards(),
+		_get_enhancement_rewards(),
 		bonus_key
 	)
 
 
-func _get_affinity_reward_count(key: String) -> int:
-	return LingpetEnhancementBuffStore.get_reward_count(_get_affinity_rewards(), key)
+func _get_enhancement_reward_count(key: String) -> int:
+	return LingpetEnhancementBuffStore.get_reward_count(_get_enhancement_rewards(), key)
 
 
-func _get_affinity_rewards() -> Dictionary:
-	return affinity_rewards
+func _get_enhancement_rewards() -> Dictionary:
+	return enhancement_rewards
 
 
 func _is_patrol_motion_style() -> bool:
@@ -507,7 +492,7 @@ func _build_active_skill_cache_key(slot_index: int = 0) -> String:
 		get_skill_id(slot_index),
 		get_active_skill_level_for_slot(slot_index),
 		_build_passive_slot_signature(),
-		affinity_reward_signature,
+		enhancement_reward_signature,
 	]
 
 
@@ -587,7 +572,7 @@ func _build_passive_skill_cache_key(slot_index: int = 0) -> String:
 		slot_index,
 		get_passive_skill_id_for_slot(slot_index),
 		get_passive_skill_level_for_slot(slot_index),
-		affinity_reward_signature,
+		enhancement_reward_signature,
 	]
 
 
@@ -595,7 +580,7 @@ func _build_passive_effect_cache_key() -> String:
 	return "%s|%s|%s" % [
 		pet_id,
 		_build_passive_slot_signature(),
-		affinity_reward_signature,
+		enhancement_reward_signature,
 	]
 
 

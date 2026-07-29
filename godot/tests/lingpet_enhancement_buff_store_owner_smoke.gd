@@ -126,7 +126,7 @@ func _verify_effective_skill_level_channel() -> void:
 	)
 	var profile := LingpetCurrentProfile.new()
 	profile.set_pet_id("maribo")
-	profile.set_affinity_rewards(rewards)
+	profile.set_enhancement_rewards(rewards)
 	var active_base := profile.get_active_skill_level_for_slot(0)
 	var active_effective := int(profile.call("_get_effective_active_skill_level", 0))
 	_expect_eq(active_base, 1, "profile fixture should keep the catalog base active level")
@@ -160,9 +160,11 @@ func _verify_owner_wiring() -> void:
 		"res://scripts/lingpet/lingpet_current_profile.gd"
 	)
 	_expect(
-		affinity_source.find("LingpetEnhancementBuffStore.resolve_effective_reward_card(") >= 0,
-		"affinity facade should delegate reward applicability and replacement"
+		affinity_source.find("LingpetEnhancementBuffStore.apply_guardian_enhancement_to_pet(") >= 0,
+		"guardian facade should delegate enhancement application to the unique buff store"
 	)
+	_expect(affinity_source.find("func add_points(") < 0, "retired affinity point grants must not survive in the guardian facade")
+	_expect(affinity_source.find("func _build_reward_deck(") < 0, "retired affinity reward decks must not survive in the guardian facade")
 	_expect(
 		affinity_source.find("func _can_apply_skill_bonus(") < 0,
 		"affinity facade should not retain buff applicability internals"

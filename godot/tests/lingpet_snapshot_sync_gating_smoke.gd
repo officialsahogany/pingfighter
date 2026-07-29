@@ -79,7 +79,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_stable_ticks_stay_within_volatile_write_budget()
 	_verify_runtime_snapshot_reuses_same_frame_cache()
-	_verify_static_and_affinity_surfaces_resync_after_input_change()
+	_verify_static_surface_resyncs_after_enhancement_change()
 	_verify_skill_effects_skip_idle_runtime_updates()
 	_verify_pet_switch_converges_static_keys()
 	_verify_level_change_updates_display_keys()
@@ -113,17 +113,14 @@ func _verify_stable_ticks_stay_within_volatile_write_budget() -> void:
 	var owner: SchemaGatedCountingOwner = setup["owner"]
 	var runtime: Object = setup["runtime"]
 	runtime._snapshot_builder.reset_owner_sync_build_counters_for_tests()
-	runtime.reset_owner_affinity_surface_counters_for_tests()
 	var sets_before: int = owner.set_attempts
 	owner.set_counts_by_key = {}
 	for _i in range(100):
 		runtime.update(1.0 / 72.0, owner, setup["registry"])
 	var sets: int = owner.set_attempts - sets_before
 	var static_builds: int = int(runtime._snapshot_builder.get_owner_static_surface_build_count_for_tests())
-	var affinity_builds: int = int(runtime.get_owner_affinity_surface_build_count_for_tests())
 	print("lingpet_snapshot_sync_gating_smoke: stable 100-tick owner.set count = %d" % sets)
 	print("lingpet_snapshot_sync_gating_smoke: stable 100-tick owner static surface builds = %d" % static_builds)
-	print("lingpet_snapshot_sync_gating_smoke: stable 100-tick owner affinity surface builds = %d" % affinity_builds)
 	_expect(
 		sets <= 100 * 12,
 		"100 stable companion ticks should stay within the volatile write budget (got %d sets, pre-fix ~10100; top keys: %s)" % [sets, owner.top_set_keys()]
@@ -131,10 +128,6 @@ func _verify_stable_ticks_stay_within_volatile_write_budget() -> void:
 	_expect(
 		static_builds <= 2,
 		"100 stable companion ticks should skip the static owner surface build after convergence (got %d builds)" % static_builds
-	)
-	_expect(
-		affinity_builds <= 2,
-		"100 stable companion ticks should skip the affinity owner surface build after convergence (got %d builds)" % affinity_builds
 	)
 
 
@@ -174,41 +167,32 @@ func _verify_runtime_snapshot_reuses_same_frame_cache() -> void:
 	)
 
 
-func _verify_static_and_affinity_surfaces_resync_after_input_change() -> void:
+func _verify_static_surface_resyncs_after_enhancement_change() -> void:
 	var setup := _make_companion_setup()
 	var owner: SchemaGatedCountingOwner = setup["owner"]
 	var runtime: Object = setup["runtime"]
 	for _i in range(100):
 		runtime.update(1.0 / 72.0, owner, setup["registry"])
 	var base_speed := float(owner.value_of("lingpet_companion_patrol_speed_default"))
-	var base_level := int(owner.value_of("lingpet_affinity_level"))
 	_expect(base_speed > 0.0, "resync fixture should start with a published companion patrol speed")
-	_expect(base_level == 0, "resync fixture should start before affinity level changes")
 	runtime._snapshot_builder.reset_owner_sync_build_counters_for_tests()
-	runtime.reset_owner_affinity_surface_counters_for_tests()
-	var commit_guard := 0
-	while runtime.get_affinity_level("maribo") < LingpetAffinityState.MAX_LEVEL and commit_guard < 1000:
-		runtime.debug_add_affinity_points_for_tests("maribo", LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, setup["registry"])
-		commit_guard += 1
-	_expect(runtime.get_affinity_level("maribo") == LingpetAffinityState.MAX_LEVEL, "resync fixture should reach max affinity through live point grants")
-	_expect(
-		is_equal_approx(float(owner.value_of("lingpet_companion_patrol_speed_default")), base_speed),
-		"owner static stat should stay at the previous value until the next runtime sync"
+	var result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_MOBILITY},
+		owner,
+		setup["registry"],
+		"maribo"
 	)
+	_expect(bool(result.get("accepted", false)), "resync fixture should accept one Guardian Enhance mobility stack")
 	_expect(
-		int(owner.value_of("lingpet_affinity_level")) == base_level,
-		"owner affinity surface should stay at the previous value until the next runtime sync"
+		float(owner.value_of("lingpet_companion_patrol_speed_default")) > base_speed,
+		"Guardian Enhance should refresh the owner surface immediately through its apply coordinator"
 	)
 	runtime.update(1.0 / 72.0, owner, setup["registry"])
 	var static_builds: int = int(runtime._snapshot_builder.get_owner_static_surface_build_count_for_tests())
-	var affinity_builds: int = int(runtime.get_owner_affinity_surface_build_count_for_tests())
 	var synced_speed := float(owner.value_of("lingpet_companion_patrol_speed_default"))
-	var synced_level := int(owner.value_of("lingpet_affinity_level"))
-	print("lingpet_snapshot_sync_gating_smoke: changed-input static builds = %d affinity builds = %d" % [static_builds, affinity_builds])
-	_expect(static_builds == 1, "one changed-input runtime update should rebuild the static owner surface exactly once (got %d)" % static_builds)
-	_expect(affinity_builds == 1, "one changed-input runtime update should rebuild the affinity owner surface exactly once (got %d)" % affinity_builds)
-	_expect(synced_speed > base_speed, "affinity-derived patrol speed should resync to the owner after the changed-input update")
-	_expect(synced_level == LingpetAffinityState.MAX_LEVEL, "affinity level should resync to the owner after the changed-input update")
+	print("lingpet_snapshot_sync_gating_smoke: enhancement-input static builds = %d" % static_builds)
+	_expect(static_builds >= 1 and static_builds <= 2, "enhancement apply plus one runtime update should rebuild the static owner surface at most twice (got %d)" % static_builds)
+	_expect(synced_speed > base_speed, "Guardian Enhance patrol speed should resync to the owner after the changed-input update")
 
 
 func _verify_skill_effects_skip_idle_runtime_updates() -> void:
@@ -364,7 +348,7 @@ func _force_second_active_runtime_profile(runtime: Object, pet_id: String, first
 	runtime._current_profile.active_slot_count = 2
 	runtime._current_profile.active_skill_id = first_skill_id
 	runtime._current_profile.active_skill_level = 1 if first_skill_id != "" else 0
-	runtime._current_profile.set_affinity_state(22, rewards)
+	runtime._current_profile.set_enhancement_rewards(rewards)
 
 
 func _expect(condition: bool, message: String) -> void:

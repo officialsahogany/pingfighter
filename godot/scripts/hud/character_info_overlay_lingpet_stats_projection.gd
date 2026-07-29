@@ -60,10 +60,9 @@ static func build_stats(
 	if not skill_id.is_empty():
 		rows.insert(3, make_display_stat_row("액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(active_cooldown), Color.WHITE, LanguageSettings.translate_text("%s을(를) 다시 사용할 수 있게 되는 시간입니다.") % skill_name))
 	if not second_skill_id.is_empty():
-		var projected_count_with_affinity := rows.size() + 2
-		if row_budget_can_fit(row_budget_rect, projected_count_with_affinity):
+		var projected_count := rows.size() + 1
+		if row_budget_can_fit(row_budget_rect, projected_count):
 			rows.insert(mini(4, rows.size()), make_display_stat_row("2nd 액티브 쿨타임", CharacterInfoOverlayFormatter.format_seconds_text(second_active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % second_skill_name))
-	rows.append(make_display_stat_row("교감", "Lv.%d" % int(snapshot.get("affinity_level", 0)), stat_buff_color))
 	return rows
 
 
@@ -118,10 +117,6 @@ static func get_stats_cache_hash(snapshot: Dictionary, hatch_required_hits: int)
 		str(snapshot.get("companion_passive_skill_name_1", "")).strip_edges(),
 		float(snapshot.get("companion_defense_rate", 0.0)),
 		float(snapshot.get("companion_appearance_rate", 0.0)),
-		int(snapshot.get("affinity_level", 0)),
-		float(snapshot.get("affinity_points", 0.0)),
-		float(snapshot.get("affinity_next_requirement", 0.0)),
-		str(snapshot.get("affinity_next_label", "")).strip_edges(),
 	])
 
 

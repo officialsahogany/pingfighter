@@ -51,10 +51,6 @@ const STOW_DISPLAY_INVARIANT_KEYS := [
 	"companion_catch_height",
 	"companion_defense_rate",
 	"companion_appearance_rate",
-	"affinity_level",
-	"affinity_points",
-	"affinity_next_requirement",
-	"affinity_next_label",
 ]
 
 var _failures: Array[String] = []
@@ -70,7 +66,7 @@ func _run() -> void:
 	_verify_live_stowed_runtime_merge()
 	_verify_duration_states()
 	_verify_strip_layout()
-	_verify_bar_hover_zones()
+	_verify_duration_hover_zone()
 	_verify_unlock_gate_survives_expanded_band()
 	call_deferred("_finish")
 
@@ -79,8 +75,8 @@ func _verify_source_contract() -> void:
 	var presenter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_presenter.gd")
 	var vitality_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_lingpet_vitality_projection.gd")
 	var frame_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_frame_presenter.gd")
-	_expect(presenter_source.find("const AFFINITY_BAND_HEIGHT := 50.0") >= 0, "TAB lingpet affinity band should be expanded for the satiety strip")
-	_expect(presenter_source.find("max(24.0, affinity_band_h - 10.0)") >= 0, "TAB lingpet affinity rect should keep the 42px unlock-choice gate after the expanded band")
+	_expect(presenter_source.find("const DURATION_BAND_HEIGHT := 28.0") >= 0, "TAB guardian panel should reserve one compact duration band")
+	_expect(presenter_source.find("max(20.0, duration_band_h - 4.0)") >= 0, "TAB duration rect should preserve the unlock-choice gate")
 	_expect(vitality_source.find("duration_pool_pct") >= 0, "TAB vitality projection should consume the shared duration-pool snapshot")
 	_expect(vitality_source.find("guardian_stowed") >= 0, "TAB vitality projection should retain stowed state without hiding the duration strip")
 	_expect(vitality_source.find("탈진 Zzz") < 0, "TAB duration projection should remove the retired exhaustion presentation")
@@ -89,10 +85,8 @@ func _verify_source_contract() -> void:
 	_expect(presenter_source.find("CharacterInfoOverlayLingpetVitalityProjection.get_strip_state") >= 0, "TAB presenter should delegate satiety state projection")
 	_expect(frame_source.find("merge_runtime_display_snapshot") >= 0, "TAB frame presenter should merge the runtime-owned display snapshot into every panel surface")
 	_expect(frame_source.find("lingpet_satiety_pct") < 0, "TAB frame presenter should not read the owner-only lingpet_satiety_pct key")
-	# Bar hover tooltips: the caller must thread mouse/hover into draw_affinity_status
-	# and the drawer must publish both bar tooltip bodies through _fill_hover_data.
-	_expect(presenter_source.find("draw_affinity_status(canvas, font, affinity_rect, snapshot, stat_buff_color, empty_text_color, accent_blue, ui_text_scale, mouse_pos, hover_data)") >= 0, "TAB affinity/satiety draw should receive mouse_pos + hover_data for bar tooltips")
-	_expect(presenter_source.find("이번 판 동안 수호령과 쌓은 교감 수치입니다") >= 0, "교감 bar hover should publish an affinity tooltip body")
+	_expect(presenter_source.find("draw_duration_status(canvas, font, duration_rect, snapshot, stat_buff_color, empty_text_color, ui_text_scale, mouse_pos, hover_data)") >= 0, "TAB duration draw should receive mouse_pos + hover_data")
+	_expect(presenter_source.find("affinity_level") < 0 and presenter_source.find("교감") < 0, "retired affinity presentation must not survive in the TAB presenter")
 	_expect(presenter_source.find("수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고") >= 0, "duration bar hover should publish the shared-pool tooltip body")
 	var tooltip_key := "수호령의 남은 소환 지속시간입니다. 소환 중에는 줄고 수납 중에는 천천히 회복됩니다. 0이 되면 자동으로 수납됩니다."
 	_expect(LanguageSettingsData.EXACT_TEXT_EN.has(tooltip_key), "English exact text should localize the duration tooltip")
@@ -146,7 +140,6 @@ func _verify_live_stowed_runtime_merge() -> void:
 		2,
 		5
 	), "live TAB fixture should activate Maribo with explicit active and passive levels")
-	runtime.add_affinity_points("hatch", {}, registry)
 	runtime.update(6.1, owner, registry)
 	runtime.set_duration_pool_for_tests(30.0, 60.0)
 	var summoned_panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(
@@ -166,7 +159,6 @@ func _verify_live_stowed_runtime_merge() -> void:
 	_expect(int(summoned_panel_snapshot.get("companion_passive_skill_level_1", 0)) == 5, "summoned TAB fixture should expose the real second passive level")
 	_expect(is_equal_approx(float(summoned_panel_snapshot.get("companion_defense_rate", 0.0)), 0.30), "summoned TAB fixture should expose Maribo's real defense rate")
 	_expect(is_equal_approx(float(summoned_panel_snapshot.get("companion_hit_gauge_gain", 0.0)), 40.0), "summoned TAB fixture should expose the real hit gauge gain")
-	_expect(float(summoned_panel_snapshot.get("affinity_next_requirement", 0.0)) > 0.0, "summoned TAB fixture should carry a real affinity requirement")
 	_expect(runtime.try_toggle_guardian_stow(owner, registry), "live TAB fixture should consume the stow toggle")
 	_expect(runtime.is_guardian_stowed(), "live TAB fixture should enter stow")
 	var panel_snapshot: Dictionary = CharacterInfoOverlayLingpetPresenter.build_panel_snapshot(
@@ -203,7 +195,7 @@ func _verify_live_stowed_runtime_merge() -> void:
 	suppressed_runtime_counterproof.erase("character_info_display_snapshot")
 	CharacterInfoOverlayLingpetPresenter.merge_runtime_display_snapshot(owner_only_counterproof, suppressed_runtime_counterproof)
 	_expect(_capture_display_values(owner_only_counterproof) != summoned_display_values, "counterproof: reconnecting TAB to stow-suppressed keys must lose display values")
-	print("stowed TAB invariant surfaces: affinity, movement/body, defense/appearance, gauge bonuses, active/passive slots and levels")
+	print("stowed TAB invariant surfaces: duration, movement/body, defense/appearance, gauge bonuses, active/passive slots and levels")
 	if runtime.has_method("reset_for_tests"):
 		runtime.reset_for_tests()
 	registry.instances.clear()
@@ -282,44 +274,32 @@ func _verify_duration_states() -> void:
 
 
 func _verify_strip_layout() -> void:
-	var affinity_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)))
+	var duration_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(20.0, CharacterInfoOverlayLingpetPresenter.DURATION_BAND_HEIGHT - 4.0)))
 	for snapshot in [
 		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 73, "guardian_stowed": false},
 		{"state": "companion", "pet_id": "maribo", "duration_pool_pct": 0, "guardian_stowed": true},
 	]:
-		var layout := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_layout_for_tests(ThemeDB.fallback_font, affinity_rect, snapshot, 1.0)
+		var layout := CharacterInfoOverlayLingpetPresenter.get_satiety_strip_layout_for_tests(ThemeDB.fallback_font, duration_rect, snapshot, 1.0)
 		_expect(not layout.is_empty(), "visible satiety snapshot should build a layout")
 		var label_rect: Rect2 = layout.get("label_rect", Rect2())
 		var meter_rect: Rect2 = layout.get("meter_rect", Rect2())
 		var value_rect: Rect2 = layout.get("value_rect", Rect2())
 		_expect(is_equal_approx(meter_rect.size.y, CharacterInfoOverlayLingpetPresenter.SATIETY_METER_HEIGHT), "satiety strip should keep an 8px meter")
-		# The 포만 label now lives in the right-hand annotation column (beside/after
+		# The duration label lives in the right-hand annotation column (beside/after
 		# the meter), so it must sit at or right of the meter's end, never overlap it.
 		_expect(label_rect.size.x <= 1.0 or label_rect.position.x >= meter_rect.end.x - 0.01, "satiety label should sit in the right annotation column, not overlap the meter")
 		_expect(meter_rect.end.x <= value_rect.position.x + 0.01, "satiety meter should not overlap the right value text")
 		_expect(label_rect.size.x <= 1.0 or value_rect.position.x >= label_rect.end.x - 0.01, "satiety value should follow the label without overlap")
-		_expect(meter_rect.end.y <= affinity_rect.end.y + 0.01, "satiety meter should fit inside the expanded affinity band")
-		# Alignment seal: the 포만 meter must share the 교감 meter's exact left edge
-		# and width so the two bars read as one clean stack (the reported ragged look).
-		_expect(is_equal_approx(meter_rect.position.x, affinity_rect.position.x), "satiety meter should share the affinity meter's left edge")
-		_expect(is_equal_approx(meter_rect.size.x, CharacterInfoOverlayLingpetPresenter.lingpet_progress_meter_width(affinity_rect)), "satiety meter should share the affinity meter width")
+		_expect(meter_rect.end.y <= duration_rect.end.y + 0.01, "duration meter should fit inside its compact band")
+		_expect(is_equal_approx(meter_rect.position.x, duration_rect.position.x), "duration meter should align to the band left edge")
+		_expect(is_equal_approx(meter_rect.size.x, CharacterInfoOverlayLingpetPresenter.lingpet_progress_meter_width(duration_rect)), "duration meter should use the shared progress width")
 
 
-func _verify_bar_hover_zones() -> void:
-	var affinity_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)))
-	var affinity_zone: Rect2 = CharacterInfoOverlayLingpetPresenter.affinity_bar_hover_rect(affinity_rect)
-	var satiety_zone: Rect2 = CharacterInfoOverlayLingpetPresenter.satiety_bar_hover_rect(affinity_rect)
-	# Both zones span the full band width and start at its left edge.
-	_expect(is_equal_approx(affinity_zone.position.x, affinity_rect.position.x) and is_equal_approx(affinity_zone.size.x, affinity_rect.size.x), "교감 hover zone should span the full band width")
-	_expect(is_equal_approx(satiety_zone.position.x, affinity_rect.position.x) and is_equal_approx(satiety_zone.size.x, affinity_rect.size.x), "포만도 hover zone should span the full band width")
-	# The two zones must not overlap: 교감 ends exactly where 포만도 begins.
-	_expect(affinity_zone.end.y <= satiety_zone.position.y + 0.01, "교감 and 포만도 hover zones must not overlap")
-	# The affinity meter (y+18..+26) lands in the 교감 zone; the satiety meter
-	# (strip_y = y+30 .. +38) lands in the 포만도 zone — cross-check both.
-	var affinity_meter_probe := Vector2(affinity_rect.get_center().x, affinity_rect.position.y + 22.0)
-	var satiety_meter_probe := Vector2(affinity_rect.get_center().x, affinity_rect.position.y + 34.0)
-	_expect(affinity_zone.has_point(affinity_meter_probe) and not satiety_zone.has_point(affinity_meter_probe), "affinity meter point should hit only the 교감 hover zone")
-	_expect(satiety_zone.has_point(satiety_meter_probe) and not affinity_zone.has_point(satiety_meter_probe), "satiety meter point should hit only the 포만도 hover zone")
+func _verify_duration_hover_zone() -> void:
+	var duration_rect := Rect2(Vector2(16.0, 12.0), Vector2(230.0, max(20.0, CharacterInfoOverlayLingpetPresenter.DURATION_BAND_HEIGHT - 4.0)))
+	var duration_zone: Rect2 = CharacterInfoOverlayLingpetPresenter.satiety_bar_hover_rect(duration_rect)
+	_expect(duration_zone == duration_rect, "duration tooltip should own the full compact band")
+	_expect(duration_zone.has_point(duration_rect.get_center()), "duration meter center should open the duration tooltip")
 
 
 func _verify_unlock_gate_survives_expanded_band() -> void:
@@ -328,19 +308,19 @@ func _verify_unlock_gate_survives_expanded_band() -> void:
 	var art_rect: Rect2 = CharacterInfoOverlayLingpetPresenter.companion_art_rect(
 		CONTENT_RECT,
 		skill_row_h + unlock_band_h,
-		CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT
+		CharacterInfoOverlayLingpetPresenter.DURATION_BAND_HEIGHT
 	)
-	var affinity_rect := Rect2(
+	var duration_rect := Rect2(
 		art_rect.position.x,
 		art_rect.end.y + 4.0,
 		art_rect.size.x,
-		max(24.0, CharacterInfoOverlayLingpetPresenter.AFFINITY_BAND_HEIGHT - 10.0)
+		max(20.0, CharacterInfoOverlayLingpetPresenter.DURATION_BAND_HEIGHT - 4.0)
 	)
 	var icon_count := 2
 	var icon_gap := 9.0
 	var icon_size: float = clamp((CONTENT_RECT.size.x - 24.0 - icon_gap * float(icon_count - 1)) / float(icon_count), 38.0, 58.0)
 	var icon_y: float = CONTENT_RECT.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
-	var unlock_height: float = max(0.0, icon_y - affinity_rect.end.y - 8.0)
+	var unlock_height: float = max(0.0, icon_y - duration_rect.end.y - 8.0)
 	_expect(unlock_height >= 42.0, "retiring the ring-core row should still leave at least the 42px unlock-choice gate")
 
 

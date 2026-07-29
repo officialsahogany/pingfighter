@@ -53,7 +53,7 @@ func ensure_roll(
 	var defense_headstart: float = rng.randf()
 	var motion_style := ""
 	if current_profile.has_method("get_affinity_motion_style"):
-		motion_style = str(current_profile.get_affinity_motion_style())
+		motion_style = str(current_profile.get_guardian_motion_style())
 	if motion_style != patrol_motion_style:
 		defense_headstart = 0.0
 	var result: Dictionary = {}

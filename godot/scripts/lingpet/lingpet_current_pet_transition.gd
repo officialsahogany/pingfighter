@@ -13,8 +13,7 @@ func apply(
 	affinity_feedback_state: Object,
 	companion_click_reaction_visual_prewarm_state: Object,
 	acquire_cutin_asset_prewarm_state: Object,
-	snapshot_builder: Object,
-	max_affinity_level: int
+	snapshot_builder: Object
 ) -> String:
 	var next_pet_id := str(current_profile.set_pet_id(value, default_pet_id))
 	affinity_context_coordinator.sync_current_profile(
@@ -31,5 +30,4 @@ func apply(
 		loadout_state.invalidate_runtime_and_snapshot_cache(snapshot_builder)
 		companion_click_reaction_visual_prewarm_state.reset()
 		acquire_cutin_asset_prewarm_state.reset()
-	affinity_feedback_state.sync_for_level(affinity_state.get_level(next_pet_id), max_affinity_level)
 	return next_pet_id

@@ -126,7 +126,7 @@ func _verify_real_profile_second_passive_surface_and_effect_level() -> void:
 	rewards["passive_skill_bonus"] = 1
 	rewards["second_passive_skill_bonus"] = 2
 	rewards["signature"] = "passive-slot-surface"
-	profile.set_affinity_state(9, rewards)
+	profile.set_enhancement_rewards(rewards)
 
 	var primary := surface.get_passive_skill(profile)
 	var second := surface.get_passive_skill(profile, 1)
@@ -160,7 +160,7 @@ func _verify_real_profile_second_passive_surface_and_effect_level() -> void:
 	var second_effect_rewards := LingpetAffinityState.get_empty_reward_counts()
 	second_effect_rewards["second_passive_skill_bonus"] = 2
 	second_effect_rewards["signature"] = "second-passive-effect"
-	second_effect_profile.set_affinity_state(6, second_effect_rewards)
+	second_effect_profile.set_enhancement_rewards(second_effect_rewards)
 	_expect_float(
 		second_effect_profile.get_gauge_gain_bonus_pct(0.0),
 		13.0,

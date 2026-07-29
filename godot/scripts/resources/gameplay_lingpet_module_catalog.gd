@@ -73,10 +73,6 @@ const MODULES := {
 		"path": "res://scripts/lingpet/lingpet_afterglow_leak_payload_factory.gd",
 		"label": "lingpet Afterglow Leak payload factory",
 	},
-	"lingpet_affinity_feedback_payload_factory": {
-		"path": "res://scripts/lingpet/lingpet_affinity_feedback_payload_factory.gd",
-		"label": "lingpet affinity feedback payload factory",
-	},
 }
 
 

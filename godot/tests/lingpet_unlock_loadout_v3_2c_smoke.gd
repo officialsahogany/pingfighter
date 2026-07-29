@@ -118,21 +118,14 @@ func _init() -> void:
 	_verify_empty_primary_set_does_not_reinject_defaults()
 	_verify_legacy_one_slot_loadout_survives_v3_2c_normalization()
 	_verify_existing_saved_active_skill_loadout_restores_without_reroll()
-	_verify_primary_unlock_reconcile()
-	_verify_lazy_applied_key_reconcile_runs_before_cache_return()
-	_verify_milkring_two_entry_pool_resolve()
-	_verify_single_entry_unlock_resolves_without_pending_choice()
+	_verify_milkring_two_entry_pool_direct_resolve()
+	_verify_single_entry_direct_resolve()
 	_verify_resolved_unlocks_stay_pet_scoped_until_switch()
-	_verify_volatile_restore_rederives_loadout_from_affinity_run_state()
+	_verify_volatile_restore_rederives_loadout_from_guardian_run_state()
 	_verify_second_unlock_flags_fill_slot_one()
 	_verify_debug_forced_skill_reconcile_stays_sticky()
-	_verify_run_state_lv1_rederives_primary_unlock()
-	_verify_maribo_lv1_rederives_starter_unlock()
 	_verify_active_unlock_options_use_raw_first_two_cap()
 	_verify_shared_runtime_module_rejection_owner()
-	_verify_tab_unlock_options_sequential_queue_count()
-	_verify_tab_unlock_options_and_commit_lock()
-	_verify_tab_unlock_options_hide_auto_resolved_milkring_choice()
 	_cleanup_runtimes()
 	ProjectResourceLoader.clear_caches()
 
@@ -378,44 +371,54 @@ func _verify_lazy_applied_key_reconcile_runs_before_cache_return() -> void:
 	_expect_str(str(runtime.get_snapshot().get("companion_skill_id", "")), selected_id, "snapshot should refresh after cached-loadout unlock reconcile")
 
 
-func _verify_milkring_two_entry_pool_resolve() -> void:
+func _verify_milkring_two_entry_pool_direct_resolve() -> void:
 	var fixture := _activate_pet("milkring")
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
 	var registry: Object = fixture.get("registry")
-	_grant_round_commits(runtime, "milkring", 10, registry)
-	runtime.update(0.0, owner, registry)
-	var resolved := _resolved_choice(runtime, "milkring", "active")
 	var milkring_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("milkring"))
 	_expect(milkring_active_ids.has("milkring_milk_production"), "Milkring active pool should keep Milk Production")
 	_expect(milkring_active_ids.has("milkring_milk_shot"), "Milkring active pool should add Milk Shot")
 	_expect_eq(milkring_active_ids.size(), 2, "Milkring active pool should now expose two active candidates")
+	var direct: Dictionary = runtime._affinity_state.resolve_single_unlock(
+		"milkring",
+		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		str(milkring_active_ids[0])
+	)
+	_expect(bool(direct.get("accepted", false)), "Milkring direct active resolve should succeed")
+	runtime._loadout_state.set_skip_unlock_reconcile(false)
+	runtime._loadout_state.invalidate_runtime_cache()
+	runtime.update(0.0, owner, registry)
+	var resolved := _resolved_choice(runtime, "milkring", "active")
 	var candidates: Array = resolved.get("candidates", []) as Array
-	_expect(_string_arrays_equal(candidates, milkring_active_ids), "Milkring active resolve should record the full two-skill pool")
-	_expect(candidates.has(str(resolved.get("selected", ""))), "Milkring active resolve should auto-select one of the two active skills")
-	_expect(bool(resolved.get("random", false)), "Milkring two-entry active resolve should be marked as random")
-	_expect(not bool(resolved.get("single", false)), "Milkring two-entry active resolve should not use single-candidate semantics")
-	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(resolved.get("selected", "")), "Milkring active auto-resolve should equip the selected slot 0")
+	_expect_eq(candidates.size(), 1, "direct Milkring resolve should record one explicitly selected skill")
+	_expect_str(str(owner.value_of("lingpet_active_skill_id")), str(resolved.get("selected", "")), "Milkring direct resolve should equip the selected slot 0")
 
 	var state := LingpetAffinityState.new()
-	var direct := state.resolve_single_unlock("nekuring", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "nekuring_bone_barrier")
-	_expect(bool(direct.get("accepted", false)), "resolve_single_unlock should accept a valid Nekuring active skill")
+	var nekuring_direct := state.resolve_single_unlock("nekuring", LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK, "nekuring_bone_barrier")
+	_expect(bool(nekuring_direct.get("accepted", false)), "resolve_single_unlock should accept a valid Nekuring active skill")
 	var direct_resolved: Dictionary = state.get_resolved_unlock_choices("nekuring").get("active", {}) as Dictionary
 	_expect_str(str(direct_resolved.get("selected", "")), "nekuring_bone_barrier", "direct single resolve should persist selected id")
 	_expect_eq((direct_resolved.get("candidates", []) as Array).size(), 1, "direct single resolve should persist a one-id candidate list")
 
 
-func _verify_single_entry_unlock_resolves_without_pending_choice() -> void:
+func _verify_single_entry_direct_resolve() -> void:
 	var fixture := _activate_pet("orosha")
 	var runtime: Object = fixture.get("runtime")
 	var owner: FakeOwner = fixture.get("owner")
 	var registry: Object = fixture.get("registry")
 	var orosha_active_ids := _skill_ids(LingpetCatalog.get_active_skill_pool("orosha"))
 	_expect(_string_arrays_equal(orosha_active_ids, ["orosha_star_coil"]), "Orosha fixture should keep a one-entry active skill pool")
-	_grant_round_commits(runtime, "orosha", 10, registry)
+	var direct: Dictionary = runtime._affinity_state.resolve_single_unlock(
+		"orosha",
+		LingpetAffinityState.REWARD_TYPE_ACTIVE_UNLOCK,
+		"orosha_star_coil"
+	)
+	_expect(bool(direct.get("accepted", false)), "one-entry active direct resolve should succeed")
+	runtime._loadout_state.set_skip_unlock_reconcile(false)
+	runtime._loadout_state.invalidate_runtime_cache()
 	runtime.update(0.0, owner, registry)
 	var resolved := _resolved_choice(runtime, "orosha", "active")
-	_expect(bool(resolved.get("single", false)), "one-entry active unlock should resolve through single-candidate semantics")
 	_expect_eq((resolved.get("candidates", []) as Array).size(), 1, "one-entry active unlock should record exactly one candidate")
 	_expect_str(str(resolved.get("selected", "")), "orosha_star_coil", "one-entry active unlock should select the only Orosha active")
 	_expect(runtime._affinity_state.get_pending_unlock_choices("orosha").is_empty(), "one-entry active unlock should not leave a pending TAB choice")
@@ -441,7 +444,7 @@ func _verify_resolved_unlocks_stay_pet_scoped_until_switch() -> void:
 	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "maribo_hydro_sphere", "Maribo resolved unlock should apply only after Maribo becomes the active pet")
 
 
-func _verify_volatile_restore_rederives_loadout_from_affinity_run_state() -> void:
+func _verify_volatile_restore_rederives_loadout_from_guardian_run_state() -> void:
 	var source_runtime: Object = LingpetEggRuntime.new()
 	_runtime_refs.append(source_runtime)
 	source_runtime._affinity_state.resolve_single_unlock(
@@ -470,11 +473,11 @@ func _verify_volatile_restore_rederives_loadout_from_affinity_run_state() -> voi
 	var restored_owner := FakeOwner.new()
 	var restored_registry := FakeRegistry.new({})
 	var restore_result: Dictionary = restored_runtime.apply_save_snapshot(restore_snapshot, restored_owner, restored_registry)
-	_expect(bool(restore_result.get("restored", false)), "affinity-run-state restore should succeed without persisted loadouts")
-	_expect_str(str(restored_owner.value_of("active_lingpet_id")), "lumion", "affinity-run-state restore should reactivate the saved pet")
-	_expect_str(str(restored_owner.value_of("lingpet_active_skill_id")), "lumion_solar_bolt", "restore should rederive active loadout from resolved affinity choice")
+	_expect(bool(restore_result.get("restored", false)), "guardian run-state restore should succeed without persisted loadouts")
+	_expect_str(str(restored_owner.value_of("active_lingpet_id")), "lumion", "guardian run-state restore should reactivate the saved pet")
+	_expect_str(str(restored_owner.value_of("lingpet_active_skill_id")), "lumion_solar_bolt", "restore should rederive active loadout from resolved guardian choice")
 	var restored_loadout: Dictionary = restored_runtime._loadout_state.get_loadout("lumion")
-	_expect_str(str(restored_loadout.get("active_skill_id", "")), "lumion_solar_bolt", "restore should rebuild loadout_state from affinity choices instead of requiring saved loadouts")
+	_expect_str(str(restored_loadout.get("active_skill_id", "")), "lumion_solar_bolt", "restore should rebuild loadout_state from guardian choices instead of requiring saved loadouts")
 
 
 func _verify_second_unlock_flags_fill_slot_one() -> void:
@@ -492,16 +495,20 @@ func _verify_second_unlock_flags_fill_slot_one() -> void:
 		LingpetAffinityState.REWARD_TYPE_PASSIVE_UNLOCK,
 		"lingpet_resonance_boost"
 	)
-	runtime._affinity_state.resolve_single_unlock(
-		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
-		"red_dragon_dragon_wing"
+	var second_active_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK},
+		owner,
+		registry,
+		"red_dragon"
 	)
-	runtime._affinity_state.resolve_single_unlock(
-		"red_dragon",
-		LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
-		"lingpet_afterglow_leak"
+	var second_passive_result: Dictionary = runtime.apply_guardian_enhancement_candidate(
+		{"type": LingpetAffinityState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK},
+		owner,
+		registry,
+		"red_dragon"
 	)
+	_expect(bool(second_active_result.get("accepted", false)), "Guardian Enhance should own the second-active unlock")
+	_expect(bool(second_passive_result.get("accepted", false)), "Guardian Enhance should own the second-passive unlock")
 	runtime._loadout_state.set_skip_unlock_reconcile(false)
 	runtime._loadout_state.invalidate_runtime_cache()
 	runtime.update(0.0, owner, registry)
@@ -546,7 +553,6 @@ func _verify_debug_forced_skill_reconcile_stays_sticky() -> void:
 		runtime.debug_grant_and_activate_pet("lumion", owner, false, "lumion_thunder_orb", "", registry, 1, 1),
 		"debug forced Thunder Orb grant should activate Lumion"
 	)
-	_grant_round_commits(runtime, "lumion", 10, registry)
 	runtime.update(0.0, owner, registry)
 	_expect_str(str(owner.value_of("lingpet_active_skill_id")), "lumion_thunder_orb", "debug forced active skill should stay sticky while same-pet reconcile is protected")
 	_expect_str(str(runtime.get_snapshot().get("companion_skill_id", "")), "lumion_thunder_orb", "debug forced active skill should stay in the snapshot while forced reconcile is protected")
@@ -740,9 +746,8 @@ func _cleanup_runtimes() -> void:
 	_runtime_refs.clear()
 
 
-func _grant_round_commits(runtime: Object, pet_id: String, count: int, registry: Object = null) -> void:
-	for _i in range(count):
-		runtime.debug_add_affinity_points_for_tests(pet_id, LingpetAffinityState.SOURCE_ROUND_COMMIT, {}, registry)
+func _grant_round_commits(_runtime: Object, _pet_id: String, _count: int, _registry: Object = null) -> void:
+	_failures.append("retired affinity round-commit fixture must not be re-enabled")
 
 
 func _skill_state_for_runtime_slot(runtime: Object, slot_index: int) -> Object:
