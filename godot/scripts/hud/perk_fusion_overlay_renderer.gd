@@ -23,7 +23,19 @@ const PANEL_COLOR := Color(0.085, 0.062, 0.042, 0.985)
 const PANEL_BORDER_COLOR := Color(0.80, 0.63, 0.31, 0.88)
 const ACCENT_COLOR := Color(0.30, 0.84, 0.74, 1.0)
 const GOLD_COLOR := Color(1.0, 0.79, 0.27, 1.0)
+const FAULT_COLOR := Color(0.90, 0.32, 0.22, 1.0)
 const MUTED_COLOR := Color(0.84, 0.78, 0.66, 1.0)
+
+# §10.2 헤딩 위계: 타이틀 실측 폭에서 시작하는 좌우 놋쇠 괘선, 추상
+# 주사 낙관, 단일 그림자. 기존 본문/부제 레이아웃은 유지한다.
+const HEADING_TITLE_FONT_SIZE := 24
+const HEADING_RULE_SEGMENTS := 3
+const HEADING_RULE_MARGIN := 24.0
+const HEADING_RULE_GAP := 14.0
+const HEADING_RULE_MIN_LENGTH := 18.0
+const HEADING_RULE_ALPHAS := [0.62, 0.36, 0.16]
+const HEADING_STAMP_SIZE := 18.0
+const HEADING_STAMP_GAP := 9.0
 
 var _layout_helper: Object = PerkFusionModalLayout.new()
 var _fallback_font: Font = null
@@ -401,8 +413,85 @@ func _draw_button(canvas: CanvasItem, rect: Rect2, label: String, enabled: bool,
 
 
 func _draw_heading(canvas: CanvasItem, panel_rect: Rect2, title: String, subtitle: String) -> void:
-	_draw_text_centered(canvas, title, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 30.0), 24, Color(0.94, 0.88, 0.74, 1.0))
+	var layout := _heading_layout(panel_rect, title)
+	var title_center: Vector2 = layout.get("title_center", panel_rect.get_center()) as Vector2
+	_draw_heading_rule_segments(
+		canvas,
+		float(layout.get("left_rule_inner_x", title_center.x)),
+		float(layout.get("left_rule_outer_x", title_center.x)),
+		title_center.y
+	)
+	_draw_heading_rule_segments(
+		canvas,
+		float(layout.get("right_rule_inner_x", title_center.x)),
+		float(layout.get("right_rule_outer_x", title_center.x)),
+		title_center.y
+	)
+	if bool(layout.get("stamp_visible", false)):
+		_draw_heading_stamp(canvas, layout.get("stamp_rect", Rect2()) as Rect2)
+	_draw_text_centered(canvas, title, title_center + Vector2(1.5, 2.0), HEADING_TITLE_FONT_SIZE, Color(0.018, 0.010, 0.006, 0.92))
+	_draw_text_centered(canvas, title, title_center, HEADING_TITLE_FONT_SIZE, Color(0.94, 0.88, 0.74, 1.0))
 	_draw_text_centered(canvas, subtitle, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 58.0), 13, MUTED_COLOR)
+
+
+func _heading_layout(panel_rect: Rect2, title: String) -> Dictionary:
+	var title_center := panel_rect.position + Vector2(panel_rect.size.x * 0.5, 30.0)
+	var title_size := _get_font().get_string_size(
+		title,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		HEADING_TITLE_FONT_SIZE
+	)
+	var title_left := title_center.x - title_size.x * 0.5
+	var title_right := title_center.x + title_size.x * 0.5
+	var left_outer := panel_rect.position.x + HEADING_RULE_MARGIN
+	var right_outer := panel_rect.end.x - HEADING_RULE_MARGIN
+	var stamp_rect := Rect2(
+		Vector2(title_right + HEADING_STAMP_GAP, title_center.y - HEADING_STAMP_SIZE * 0.5),
+		Vector2.ONE * HEADING_STAMP_SIZE
+	)
+	var stamp_visible := stamp_rect.end.x + HEADING_RULE_GAP <= right_outer
+	var right_inner := (
+		stamp_rect.end.x + HEADING_RULE_GAP
+		if stamp_visible
+		else title_right + HEADING_RULE_GAP
+	)
+	return {
+		"title_center": title_center,
+		"title_rect": Rect2(
+			Vector2(title_left, title_center.y - title_size.y * 0.5),
+			title_size
+		),
+		"left_rule_outer_x": left_outer,
+		"left_rule_inner_x": title_left - HEADING_RULE_GAP,
+		"right_rule_inner_x": right_inner,
+		"right_rule_outer_x": right_outer,
+		"stamp_rect": stamp_rect,
+		"stamp_visible": stamp_visible,
+	}
+
+
+func _draw_heading_rule_segments(canvas: CanvasItem, inner_x: float, outer_x: float, y: float) -> void:
+	if absf(outer_x - inner_x) < HEADING_RULE_MIN_LENGTH:
+		return
+	for segment_index in range(HEADING_RULE_SEGMENTS):
+		var t0 := float(segment_index) / float(HEADING_RULE_SEGMENTS)
+		var t1 := float(segment_index + 1) / float(HEADING_RULE_SEGMENTS)
+		var segment_alpha := float(HEADING_RULE_ALPHAS[segment_index])
+		canvas.draw_line(
+			Vector2(lerpf(inner_x, outer_x, t0), y),
+			Vector2(lerpf(inner_x, outer_x, t1), y),
+			Color(GOLD_COLOR, segment_alpha),
+			1.25
+		)
+
+
+func _draw_heading_stamp(canvas: CanvasItem, stamp_rect: Rect2) -> void:
+	var ink := Color(FAULT_COLOR, 0.90)
+	canvas.draw_rect(stamp_rect, ink, false, 1.4)
+	canvas.draw_line(stamp_rect.position + Vector2(5.0, 4.0), stamp_rect.position + Vector2(6.0, 14.0), ink, 1.2)
+	canvas.draw_line(stamp_rect.position + Vector2(4.0, 6.0), stamp_rect.position + Vector2(14.0, 10.0), ink, 1.2)
+	canvas.draw_line(stamp_rect.position + Vector2(7.0, 13.0), stamp_rect.position + Vector2(14.0, 13.0), ink, 1.2)
 
 
 func _get_probabilities(snapshot: Dictionary) -> Dictionary:

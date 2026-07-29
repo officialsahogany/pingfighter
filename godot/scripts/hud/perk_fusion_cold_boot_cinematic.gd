@@ -24,11 +24,19 @@ const MODULE_COLLAR_RING_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_collar_ri
 const MODULE_GEM_PLATE_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_gem_plate.png"
 const IGNITION_SHEET_TEXTURE_PATH := ASSET_DIR + "cold_boot_ignition_ring_sheet.png"
 const SPARK_SHARD_TEXTURE_PATH := ASSET_DIR + "cold_boot_spark_shard.png"
+const ALTAR_BACKPLATE_TEXTURE_PATH := ASSET_DIR + "cold_boot_altar_backplate.png"
 # 아틀라스 그리드 권위: AutoSprite 4x4 = 16프레임(잘못된 그리드는 조용히
 # 엉뚱한 셀을 자른다 — atlas grid authority 트랩).
 const IGNITION_SHEET_COLS := 4
 const IGNITION_SHEET_ROWS := 4
 const IGNITION_SHEET_FRAMES := 16
+
+# §10.1 제단 바닥 진법: 화로보다 넓되 조용한 정적 백플레이트. 비트 스냅샷
+# 기반 2단 알파만 허용하며, elapsed/회전/스케일 펄스로 차분 베이스라인을
+# 오염시키지 않는다.
+const ALTAR_BACKPLATE_DRAW_SPAN := 520.0
+const ALTAR_BACKPLATE_ALPHA_UNLIT := 0.22
+const ALTAR_BACKPLATE_ALPHA_LIT := 0.32
 
 # 무공패 페이스 플레이트(주물 의식 에셋 실측 frac): x=0.500,
 # y=0.587, 아이콘 스팬 32px — 커밋된 재료 퍽 아이콘을 B0~B3 내내
@@ -95,6 +103,7 @@ static func prewarm_assets() -> void:
 		"module_gem_plate": MODULE_GEM_PLATE_TEXTURE_PATH,
 		"ignition_sheet": IGNITION_SHEET_TEXTURE_PATH,
 		"spark_shard": SPARK_SHARD_TEXTURE_PATH,
+		"altar_backplate": ALTAR_BACKPLATE_TEXTURE_PATH,
 	}
 	for texture_key: String in manifest.keys():
 		var path := str(manifest[texture_key])
@@ -335,6 +344,7 @@ func _draw() -> void:
 	var beat := str(_boot_snapshot.get("beat", ""))
 	var progress: float = clampf(float(_boot_snapshot.get("beat_progress", 0.0)), 0.0, 1.0)
 	var plan: Dictionary = _boot_snapshot.get("presentation", {}) as Dictionary
+	_draw_altar_backplate(center)
 	_draw_chassis(center)
 	match beat:
 		PerkFusionColdBootTimelineState.BEAT_DOCK_IN:
@@ -355,6 +365,36 @@ func _draw() -> void:
 	if _event_pulse > 0.0:
 		# 전이 순간 촉감 펄스(하드웨어 래치 CHNK 시각 앵커).
 		draw_arc(center, CHASSIS_RADIUS + 18.0, 0.0, TAU, 48, Color(ACCENT_COLOR, 0.55 * _event_pulse), 3.0)
+
+
+static func _altar_backplate_alpha_for_beat(beat: String) -> float:
+	if beat in [
+		PerkFusionColdBootTimelineState.BEAT_BOOT_POST,
+		PerkFusionColdBootTimelineState.BEAT_IGNITION_CREST,
+		PerkFusionColdBootTimelineState.BEAT_REVEAL,
+	]:
+		return ALTAR_BACKPLATE_ALPHA_LIT
+	return ALTAR_BACKPLATE_ALPHA_UNLIT
+
+
+func _draw_altar_backplate(center: Vector2) -> void:
+	var beat := str(_boot_snapshot.get("beat", ""))
+	var alpha := _altar_backplate_alpha_for_beat(beat)
+	var altar_texture: Texture2D = _texture("altar_backplate")
+	if altar_texture != null:
+		var size := Vector2.ONE * ALTAR_BACKPLATE_DRAW_SPAN
+		draw_texture_rect(
+			altar_texture,
+			Rect2(center - size * 0.5, size),
+			false,
+			Color(1.0, 1.0, 1.0, alpha)
+		)
+		return
+	# 텍스처 부재 degraded 폴백: 같은 저채도 주물 팔레트의 정적 먹선
+	# 동심원만 남긴다. 회전/트윈 없이 3콜로 제한한다.
+	draw_arc(center, ALTAR_BACKPLATE_DRAW_SPAN * 0.45, 0.0, TAU, 96, Color(GOLD_COLOR, alpha * 0.34), 2.0)
+	draw_arc(center, ALTAR_BACKPLATE_DRAW_SPAN * 0.34, 0.0, TAU, 72, Color(GOLD_COLOR, alpha * 0.24), 1.5)
+	draw_arc(center, ALTAR_BACKPLATE_DRAW_SPAN * 0.22, 0.0, TAU, 56, Color(CHASSIS_COLOR, alpha * 0.92), 2.0)
 
 
 func _draw_chassis(center: Vector2) -> void:

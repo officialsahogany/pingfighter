@@ -19,6 +19,10 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const BattleSceneOverlayFrameController := preload("res://scripts/core/battle_scene_overlay_frame_controller.gd")
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
+const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
+const PerkFusionModalLayout := preload("res://scripts/characters/perk_fusion_modal_layout.gd")
+const PerkFusionLocalization := preload("res://scripts/characters/perk_fusion_localization.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
 const OUT_ROOT := "C:/Users/woduq/bosspong_backups/qa_evidence"
@@ -154,6 +158,27 @@ func _run() -> void:
 		# s13(progress 0.78) 차분은 타이밍 불일치로 오염).
 		["s18_success_early_baseline", _success_rolls(), false, true, [0.016, 2.05], false, 0],
 	]
+	# §10.3 헤딩 크롬 4페이즈 x 7언어 실렌더. 언어별 실제 fallback font와
+	# 번역 문자열을 관통하며, reveal은 부산물 타이틀(긴 편)을 대표로 쓴다.
+	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		var locale_slug := locale.to_lower().replace("-", "_")
+		shots.append([
+			"l_%s_materials" % locale_slug,
+			_success_rolls(), false, false, [0.016], false, -1, false, false, "selection", locale,
+		])
+		shots.append([
+			"l_%s_confirm" % locale_slug,
+			_success_rolls(), false, false, [0.016], false, -1, false, false, "confirmation", locale,
+		])
+		shots.append([
+			"l_%s_animation" % locale_slug,
+			_success_rolls(), false, true, [0.016, 1.30], false, -1, false, false, "", locale,
+		])
+		shots.append([
+			"l_%s_reveal" % locale_slug,
+			_byproduct_rolls(), false, true, [0.016], false, -1, false, true, "", locale,
+		])
+	_verify_heading_geometry_all_languages()
 	var captures: Dictionary = {}
 	for shot_value: Variant in shots:
 		var shot: Array = shot_value as Array
@@ -167,7 +192,8 @@ func _run() -> void:
 			int(shot[6]),
 			bool(shot[7]) if shot.size() > 7 else false,
 			bool(shot[8]) if shot.size() > 8 else false,
-			str(shot[9]) if shot.size() > 9 else ""
+			str(shot[9]) if shot.size() > 9 else "",
+			str(shot[10]) if shot.size() > 10 else LanguageSettings.LANGUAGE_KOREAN
 		)
 
 	_analyze(captures)
@@ -215,7 +241,48 @@ func _run() -> void:
 			push_error("[ColdBootQA] summary readback mismatch: %s" % line)
 			failed = true
 	print("[ColdBootQA] evidence: %s" % _out_dir)
+	LanguageSettings.set_test_locale_override("")
 	quit(1 if failed else 0)
+
+
+func _verify_heading_geometry_all_languages() -> void:
+	var renderer := PerkFusionOverlayRenderer.new()
+	var panel_rect: Rect2 = PerkFusionModalLayout.new().build_layout({}, GAME_SIZE).get("panel_rect", Rect2())
+	var title_keys: Array[String] = [
+		"materials_title",
+		"confirm_title",
+		"animation_title",
+		"outcome_stable",
+		"outcome_success",
+		"outcome_side",
+		"outcome_byproduct",
+		"outcome_complete",
+	]
+	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		for title_key: String in title_keys:
+			var title := PerkFusionLocalization.text(title_key)
+			var layout: Dictionary = renderer._heading_layout(panel_rect, title)
+			var title_rect: Rect2 = layout.get("title_rect", Rect2())
+			var stamp_rect: Rect2 = layout.get("stamp_rect", Rect2())
+			var stamp_visible := bool(layout.get("stamp_visible", false))
+			var left_outer := float(layout.get("left_rule_outer_x", 0.0))
+			var left_inner := float(layout.get("left_rule_inner_x", 0.0))
+			var right_inner := float(layout.get("right_rule_inner_x", 0.0))
+			var right_outer := float(layout.get("right_rule_outer_x", 0.0))
+			_check(stamp_visible, "%s/%s: 낙관 배치 여백 존재" % [locale, title_key])
+			_check(not title_rect.intersects(stamp_rect), "%s/%s: 타이틀-낙관 비중첩" % [locale, title_key])
+			_check(left_inner <= title_rect.position.x, "%s/%s: 좌 괘선이 타이틀 밖에서 시작" % [locale, title_key])
+			_check(right_inner >= stamp_rect.end.x, "%s/%s: 우 괘선이 낙관 밖에서 시작" % [locale, title_key])
+			_check(
+				left_inner - left_outer >= PerkFusionOverlayRenderer.HEADING_RULE_MIN_LENGTH,
+				"%s/%s: 좌 괘선 최소 길이" % [locale, title_key]
+			)
+			_check(
+				right_outer - right_inner >= PerkFusionOverlayRenderer.HEADING_RULE_MIN_LENGTH,
+				"%s/%s: 우 괘선 최소 길이" % [locale, title_key]
+			)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 
 
 # git 질의(P3 보강): 종료코드를 결과와 분리해 "실패"와 "clean 빈 출력"이
@@ -252,8 +319,10 @@ func _capture_shot(
 	expected_byproduct_count: int,
 	stale_reuse_probe: bool = false,
 	skip_to_reveal_probe: bool = false,
-	chrome_phase: String = ""
+	chrome_phase: String = "",
+	locale: String = LanguageSettings.LANGUAGE_KOREAN
 ) -> Image:
+	LanguageSettings.set_test_locale_override(locale)
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(int(GAME_SIZE.x), int(GAME_SIZE.y))
 	viewport.transparent_bg = false
@@ -459,18 +528,18 @@ func _analyze(captures: Dictionary) -> void:
 		var palette_distance: float = (left_stats["mean"] as Vector3).distance_to(right_stats["mean"] as Vector3)
 		_check(palette_distance > 0.10, "%s: 좌≠우 아이콘 팔레트(dist=%.3f) — 각 페이스가 자기 재료 아이콘" % [plate_shot, palette_distance])
 
-	# [P1-2] 각성 모듈: success 동시각 베이스라인 차감 잉크가 부산물
+	# [P1-2] 각성 모듈: success 동시각 베이스라인과의 픽셀 차분이 부산물
 	# 카운트(1<2<3)로 단조 증가하고, B4 초기 프레임은 완전 전개 대비
 	# 절반 미만이다(즉시 배치 반증 가드 — SNAP OPEN 전개 실렌더).
-	var module_baseline := _scan_module_ink(captures.get("s13_reveal_success_baseline") as Image)
-	var module_ink_1: int = _scan_module_ink(captures.get("s9_deploy_count1") as Image) - module_baseline
-	var module_ink_2: int = _scan_module_ink(captures.get("s10_deploy_count2") as Image) - module_baseline
-	var module_ink_3: int = _scan_module_ink(captures.get("s11_deploy_count3") as Image) - module_baseline
-	var module_early_baseline := _scan_module_ink(captures.get("s18_success_early_baseline") as Image)
-	var module_ink_early: int = maxi(0, _scan_module_ink(captures.get("s12_deploy_early_snap") as Image) - module_early_baseline)
-	_check(module_ink_1 > 60, "부산물 1개: 모듈 하드웨어 잉크 전개(%d px)" % module_ink_1)
-	_check(module_ink_2 >= module_ink_1 + 60, "부산물 2개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_2, module_ink_1])
-	_check(module_ink_3 >= module_ink_2 + 60, "부산물 3개: 모듈 잉크 단조 증가(%d >= %d+60)" % [module_ink_3, module_ink_2])
+	var module_baseline := captures.get("s13_reveal_success_baseline") as Image
+	var module_ink_1: int = _scan_module_delta(captures.get("s9_deploy_count1") as Image, module_baseline)
+	var module_ink_2: int = _scan_module_delta(captures.get("s10_deploy_count2") as Image, module_baseline)
+	var module_ink_3: int = _scan_module_delta(captures.get("s11_deploy_count3") as Image, module_baseline)
+	var module_early_baseline := captures.get("s18_success_early_baseline") as Image
+	var module_ink_early: int = _scan_module_delta(captures.get("s12_deploy_early_snap") as Image, module_early_baseline)
+	_check(module_ink_1 > 600, "부산물 1개: 동시각 베이스라인 대비 모듈 픽셀 전개(%d px)" % module_ink_1)
+	_check(module_ink_2 >= module_ink_1 + 250, "부산물 2개: 모듈 차분 단조 증가(%d >= %d+250)" % [module_ink_2, module_ink_1])
+	_check(module_ink_3 >= module_ink_2 + 500, "부산물 3개: 모듈 차분 단조 증가(%d >= %d+500)" % [module_ink_3, module_ink_2])
 	_check(module_ink_early * 2 < module_ink_3, "SNAP OPEN 전개: B4 초기 잉크(%d px)가 완전 전개(%d px)의 절반 미만 — 즉시 배치 아님" % [module_ink_early, module_ink_3])
 
 	# CB4c-1: B4 코어 페이스 대각 합성 융합 아이콘 — fixture의 첫 재료 적색
@@ -643,11 +712,12 @@ func _scan_shower_band(image: Image) -> int:
 	return count
 
 
-# B4 각성 모듈 잉크: 섀시 림 annulus(r 104~170) 안의 밝은 비-시안 픽셀
-# — 시안 계열(전이 펄스 링/섀시 인레이) 제외로 모듈 하드웨어(골드/스틸)
-# 만 계수한다. success 동시각 샷과의 차분이 모듈 순수 기여분.
-func _scan_module_ink(image: Image) -> int:
-	if image == null:
+# B4 각성 모듈: 동일 비트/알파의 success 베이스라인과 픽셀별 RGB 차이를
+# 직접 계수한다. §10.1 정적 백플레이트처럼 모듈 뒤에 새 바탕이 추가되면
+# `색상 밴드 총량 - 베이스라인 총량`은 모듈이 가린 바탕까지 음수 기여로
+# 섞지만, 동일 좌표 차분은 그 가림 자체를 전개 실렌더로 보존한다.
+func _scan_module_delta(image: Image, baseline: Image) -> int:
+	if image == null or baseline == null:
 		return -1
 	var center := Vector2(760.0, 750.0) * 0.5
 	var count := 0
@@ -657,7 +727,13 @@ func _scan_module_ink(image: Image) -> int:
 			if radius < 104.0 or radius > 170.0:
 				continue
 			var pixel: Color = image.get_pixel(x, y)
-			if pixel.v > 0.26 and (pixel.b - pixel.r) < 0.22:
+			var base_pixel: Color = baseline.get_pixel(x, y)
+			var rgb_delta := Vector3(
+				pixel.r - base_pixel.r,
+				pixel.g - base_pixel.g,
+				pixel.b - base_pixel.b
+			).length()
+			if rgb_delta > 0.12:
 				count += 1
 	return count
 

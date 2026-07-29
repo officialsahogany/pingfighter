@@ -4,7 +4,9 @@
 
 런타임 착지: `godot/assets/sprites/effects/perk_fusion_cold_boot/`
 
-구조 계약: 기존 9개 `res://` 경로와 4x4 ignition atlas를 유지한다. 새 런타임 배선은 없다.
+구조 계약: 기본 리스킨의 기존 9개 `res://` 경로와 4x4 ignition atlas를
+유지한다. §10 프리미엄 업그레이드는 정적 제단 백플레이트 경로 1개만 새로
+배선하고, 헤딩 장식은 절차 드로만 사용한다.
 
 ## 생성기와 참조
 
@@ -145,6 +147,74 @@ Final atlas: 1024x1024, 4x4, transparent center and transparent cell edges.
 Measured tablet face plate safe rect is `Rect2(0.247, 0.323, 0.506, 0.503)`.
 Runtime constants are X `0.500`, Y `0.587`, icon span `32.0`, draw height `96.0`.
 
+## §10 프리미엄 업그레이드 (Codex built-in imagegen)
+
+### 제단 바닥 진법 백플레이트
+
+- raw: `imagegen_raw/cold_boot_altar_backplate_raw_magenta.png`
+- processed/runtime:
+  `processed/cold_boot_altar_backplate.png` =
+  `godot/assets/sprites/effects/perk_fusion_cold_boot/cold_boot_altar_backplate.png`
+- built-in imagegen 결과:
+  `C:/Users/woduq/.codex/generated_images/019fac9e-5784-7e02-ae84-8227d1de10bf/exec-3a4a304c-b82e-49dc-9c83-23069cf475bd.png`
+- 생성 원본 1254px을 결정론적 Lanczos로 1024px 제한한 뒤, 설치된
+  `remove_chroma_key.py`를 `--auto-key border --soft-matte
+  --transparent-threshold 12 --opaque-threshold 220 --despill`로 적용했다.
+  최종 알파 통계는 투명 422,573px / 부분 투명 3,031px이며 네 모서리와
+  외곽 여백은 완전 투명이다.
+
+최종 정규화 프롬프트:
+
+```text
+Use case: stylized-concept
+Asset type: transparent-ready 2D game cinematic altar backplate texture,
+square 1024 source
+Primary request: one large circular Korean mythic ritual formation floor
+plate viewed perfectly straight from the front, designed to sit quietly
+behind a much brighter central crucible and two metal martial-art tablets.
+Scene/backdrop: perfectly flat solid #ff00ff chroma-key background, one
+uniform color with no shadows, gradients, texture, reflections, floor plane,
+or lighting variation.
+Subject: one centered, fully visible circular lacquered brown-black ritual
+disc; two or three thin concentric ink rings; a faint continuous band of
+invented seal-script talisman glyphs that do not form real Chinese characters
+or readable writing; eight thin radial trigram-like rule motifs pointing to
+the cardinal and intercardinal directions.
+Style/medium: premium hand-painted Korean martial-fantasy game UI texture,
+restrained flat orthographic asset, crisp clean silhouette.
+Composition/framing: perfectly centered circular disc, generous magenta
+padding, symmetric front-on presentation, no perspective tilt, no cropping.
+Lighting/mood: low saturation, low contrast, quiet, ceremonial, subordinate to
+the brighter crucible placed over its center.
+Color/materials: very dark lacquered brown-black, recessed black ink, muted
+antique brass only; subtle lacquer and aged ink; brass marks thin and dull.
+Constraints: no real Chinese or Korean text, no readable symbols, characters,
+extra objects, scene, bright highlights, glow, metallic shine, cast/contact
+shadow, reflection, or watermark; background exactly flat #ff00ff; do not use
+#ff00ff inside the disc; crisp edges and generous removal padding.
+Avoid: bright gold, orange fire, turquoise, jade, cyan, red seals, thick
+outlines, high contrast, embossed 3D medallion look, extra ornaments, letters,
+or numbers.
+```
+
+런타임은 `altar_backplate` 키를 이산 prewarm 매니페스트에 추가하고 화로보다
+먼저 520px 정적 1콜로 그린다. 비트 스냅샷 알파는 B0/B1 `0.22`, B2 이후
+`0.32`의 두 단계뿐이다. 회전·트윈·스케일 펄스는 없으며, 텍스처 부재 시
+저채도 동심원 3콜로 폴백한다.
+
+### 헤딩 장식과 재채점
+
+- 타이틀 실측 폭에서 시작하는 좌우 3세그먼트 놋쇠 괘선 6콜.
+- 주사 낙관은 방형 프레임 1콜 + 추상 획 3콜; 실존 문자와 유니코드 장식
+  글리프를 사용하지 않는다.
+- 타이틀 그림자 1콜이 추가되어 총 추가 드로 콜은 `+11`이다(`+15` 예산 이내).
+- 7언어 x 8개 실제 제목 변형(재료·확인·연출 + 리빌 5종)을 실측해 타이틀,
+  낙관, 좌우 괘선의 비중첩과 최소 길이를 봉인했다. 별도 실렌더는
+  4페이즈 x 7언어 = 28장이다.
+- 정지 프레임 재채점: **연출 화면 8/10, 모달 크롬 7/10**. 백플레이트는
+  중앙 화로보다 먼저 읽히지 않고, 추가 기물이나 알파 재조정 없이 목표 게이트를
+  충족했다.
+
 ## SHA-256
 
 Runtime/processed files:
@@ -159,6 +229,16 @@ ff236a1cbc5456e778ce846d59ad462425fca0b01216acdcfd2d01cb144dd733  cold_boot_cart
 f56ff47aa7daae242de9b82e169a9004e4c7f2f34debac540a6c53bd439d7e8d  cold_boot_module_gem_plate.png
 20ea616e6aab39546125facd07b164b0d6618000491645d59d5cf21670386793  cold_boot_module_shoulder_pod.png
 72e6ef08bb607e59aa097ef056fcb081bd8f784b97ad5729ebe73888076332da  cold_boot_spark_shard.png
+27561521f47d82f0fc238add9b4b5ba177fcd12306a7ece1fd34806693d0621e  cold_boot_altar_backplate.png
+```
+
+§10 생성 원본/QA:
+
+```text
+73f5bb1241c9dee047405e4fd3d43be6f349f038a657524b180db647ee6d6a3c  cold_boot_altar_backplate_raw_magenta.png
+646d3de5acb6eec495ae5a0630ed52a5224a5700b32f8c6a61662d8219f2a5cb  premium_upgrade_before_after.png
+757b822aebb6c131a355ed83e9d39177282bfd6636901dfe151aa316eed82f1f  premium_upgrade_locale_matrix.png
+2490b4dd2510af30a30ecc3f2c42ee83272c038e33c77ba8a7d8203252693467  premium_upgrade_tier_matrix.png
 ```
 
 AutoSprite committed source bundle:
@@ -182,8 +262,14 @@ repo의 `*.mp4` ignore 정책을 따라 로컬 진단 부산물로만 보존한�
 - `qa/before_after_runtime_comparison.png`
 - `qa/cartridge_plate_probe.png`
 - `qa/ignition_keyframes_dark.png`
+- `qa/premium_upgrade_before_after.png`
+- `qa/premium_upgrade_locale_matrix.png`
+- `qa/premium_upgrade_tier_matrix.png`
 - 최종 실렌더 22장과 fail-closed summary:
   `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_6697449_50564_0c49fedcfd4d/`
+- §10 업그레이드 실렌더 50장(기존 22 + 4페이즈 x 7언어)과 fail-closed
+  summary:
+  `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_7613709_21328_79789b7ed94c/`
 
 실렌더는 선택/확인/연출/리빌, success/stable/side_effect/byproduct,
 무호스트 절차 폴백, B5 핸드오프, 즉시 스킵, 모듈 1/2/3개 전개와 스테일

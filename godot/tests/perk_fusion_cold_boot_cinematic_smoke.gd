@@ -7,6 +7,7 @@ const BattleSceneOverlayFrameController := preload("res://scripts/core/battle_sc
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
+const PerkFusionColdBootTimelineState := preload("res://scripts/characters/perk_fusion_cold_boot_timeline_state.gd")
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 const PerkFusionColdBootParticleFactory := preload("res://scripts/hud/perk_fusion_cold_boot_particle_factory.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
@@ -91,6 +92,8 @@ func _init() -> void:
 func _run() -> void:
 	_verify_prewarm_rides_overlay_prewarm_path()
 	_verify_asset_manifest_prewarms_textures()
+	_verify_altar_backplate_asset_contract()
+	await _verify_altar_backplate_draw_branches()
 	_verify_cartridge_plate_measurement_contract()
 	_verify_ignition_sheet_cell_content_seal()
 	_verify_committed_icon_prepare_on_boot_entry()
@@ -174,7 +177,7 @@ func _verify_prewarm_rides_overlay_prewarm_path() -> void:
 	_expect(PerkFusionColdBootCinematic.is_prewarmed(), "the overlay prewarm path should statically prewarm the cold-boot host assets")
 
 
-# CB4b: §5 에셋 매니페스트 프리움 씰 — repo에 랜딩된 8종 텍스처가
+# CB4b/§10.1: 에셋 매니페스트 프리움 씰 — repo에 랜딩된 텍스처가
 # 이산 시점 프리움으로 캐시에 올라야 하고(부재시 절차 폴백은 degraded
 # 계약), 아틀라스 그리드 권위 상수(4x4=16)도 봉인한다.
 func _verify_asset_manifest_prewarms_textures() -> void:
@@ -188,6 +191,8 @@ func _verify_asset_manifest_prewarms_textures() -> void:
 		"module_collar_ring",
 		"module_gem_plate",
 		"ignition_sheet",
+		"spark_shard",
+		"altar_backplate",
 	]:
 		_expect(PerkFusionColdBootCinematic._texture(texture_key) != null, "prewarm should cache the %s texture from the landed manifest" % texture_key)
 	_expect(
@@ -196,6 +201,86 @@ func _verify_asset_manifest_prewarms_textures() -> void:
 			and PerkFusionColdBootCinematic.IGNITION_SHEET_FRAMES == 16,
 		"the AutoSprite ignition sheet must declare its 4x4=16 atlas grid authority"
 	)
+
+
+# §10.1 원판 소스/알파 씰: 1024 마젠타 후처리본의 투명 여백과 런타임
+# 520px·2단 알파 계약을 함께 봉인한다.
+func _verify_altar_backplate_asset_contract() -> void:
+	var altar_image := Image.load_from_file(
+		ProjectSettings.globalize_path(PerkFusionColdBootCinematic.ALTAR_BACKPLATE_TEXTURE_PATH)
+	)
+	_expect(altar_image != null and not altar_image.is_empty(), "the premium altar backplate source must load")
+	if altar_image == null or altar_image.is_empty():
+		return
+	_expect(altar_image.get_size() == Vector2i(1024, 1024), "the altar backplate must keep its accepted 1024px source geometry")
+	for corner: Vector2i in [Vector2i.ZERO, Vector2i(1023, 0), Vector2i(0, 1023), Vector2i(1023, 1023)]:
+		_expect(altar_image.get_pixelv(corner).a == 0.0, "the altar backplate corner %s must remain transparent" % str(corner))
+	var used_rect := altar_image.get_used_rect()
+	_expect(
+		used_rect.position.x >= 2
+			and used_rect.position.y >= 2
+			and used_rect.end.x <= altar_image.get_width() - 2
+			and used_rect.end.y <= altar_image.get_height() - 2,
+		"the altar backplate alpha bounds must not touch the source edge (%s)" % str(used_rect)
+	)
+	_expect(
+		is_equal_approx(PerkFusionColdBootCinematic.ALTAR_BACKPLATE_DRAW_SPAN, 520.0),
+		"the altar backplate runtime span must stay at the approved 520px"
+	)
+	_expect(
+		is_equal_approx(
+			PerkFusionColdBootCinematic._altar_backplate_alpha_for_beat(PerkFusionColdBootTimelineState.BEAT_DOCK_IN),
+			0.22
+		)
+			and is_equal_approx(
+				PerkFusionColdBootCinematic._altar_backplate_alpha_for_beat(PerkFusionColdBootTimelineState.BEAT_TWIST_LOCK),
+				0.22
+			)
+			and is_equal_approx(
+				PerkFusionColdBootCinematic._altar_backplate_alpha_for_beat(PerkFusionColdBootTimelineState.BEAT_BOOT_POST),
+				0.32
+			)
+			and is_equal_approx(
+				PerkFusionColdBootCinematic._altar_backplate_alpha_for_beat(PerkFusionColdBootTimelineState.BEAT_IGNITION_CREST),
+				0.32
+			),
+		"the altar backplate must use only the approved unlit/lit alpha steps"
+	)
+
+
+# 텍스처 유/무 양쪽을 실제 CanvasItem 드로로 관통한다. 두 분기가 모두
+# draw flush를 무크래시로 통과해야 한다. 픽셀 실렌더는
+# 비헤드리스 캡처 하니스가 소유한다(RenderingServer.frame_post_draw는 headless
+# 러너에서 발화하지 않아 여기서 기다리면 교착한다).
+func _verify_altar_backplate_draw_branches() -> void:
+	var cached_texture: Texture2D = PerkFusionColdBootCinematic._texture("altar_backplate")
+	await _draw_altar_backplate_branch()
+	PerkFusionColdBootCinematic._textures.erase("altar_backplate")
+	await _draw_altar_backplate_branch()
+	if cached_texture != null:
+		PerkFusionColdBootCinematic._textures["altar_backplate"] = cached_texture
+	_expect(cached_texture != null, "the textured altar branch must start from a prewarmed production texture")
+
+
+func _draw_altar_backplate_branch() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(760, 750)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(viewport)
+	var host: Node2D = PerkFusionColdBootCinematic.new()
+	viewport.add_child(host)
+	await process_frame
+	host.sync_boot({
+		"beat": PerkFusionColdBootTimelineState.BEAT_DOCK_IN,
+		"beat_progress": 0.25,
+		"presentation": {},
+	}, [], 0.0)
+	for _settle: int in range(3):
+		await process_frame
+	root.remove_child(viewport)
+	viewport.queue_free()
+	await process_frame
 
 
 # 주물 의식 무공패 실측 씰: 최종 좌/우 에셋의 크기와 암판 안전영역을
