@@ -46,12 +46,16 @@ class DashSpiritLaserProbe:
 	extends Node2D
 
 	var state: Object = null
+	var particle_state: Object = null
 	var draw_count := 0
 
 	func _draw() -> void:
 		draw_count += 1
 		if state != null:
 			state.draw(self, Vector2.ZERO)
+		# 증발 파티클 드로우 경로도 같은 `_draw()`로 관통시킨다.
+		if particle_state != null:
+			particle_state.draw(self, Vector2.ZERO)
 
 
 func _init() -> void:
@@ -73,9 +77,14 @@ func _init() -> void:
 		_finish()
 		return
 
+	_verify_half_dash_never_spawns()
+	_verify_length_matches_dash_frames()
+	var particle_state: RefCounted = _verify_evaporation_particles()
+
 	_probe = DashSpiritLaserProbe.new()
 	_probe.name = "DashSpiritLaserProbe"
 	_probe.state = base_state
+	_probe.particle_state = particle_state
 	get_root().add_child(_probe)
 	_probe.queue_redraw()
 
@@ -145,6 +154,118 @@ func _process(_delta: float) -> bool:
 	_expect(_probe != null and _probe.draw_count > 0, "트리 부착 CanvasItem._draw()로 실제 렌더러가 관통돼야 한다")
 	_finish()
 	return true
+
+
+# 원본은 하프대쉬 경로에 `create_dash_spirit_laser` 호출 자체가 없다.
+# Godot은 공통 `_start_dash`에서 생성하므로 상태 쪽에서 끊어야 한다.
+func _verify_half_dash_never_spawns() -> void:
+	var state: RefCounted = SmasherDashSpiritState.new()
+	var spawned: bool = state.try_spawn_from_dash(
+		1.0,
+		true,
+		Vector2(302.5, 700.0),
+		Vector2(155.0, 50.0),
+		{"runtime_perk_state": GuaranteedDashSpiritPerkState.new()},
+		11.0,
+		1.0
+	)
+	_expect(not spawned, "하프대쉬는 확률 100%여도 잔영호법을 생성하지 않아야 한다 (원본에 호출 없음)")
+	_expect(state.lasers.is_empty(), "하프대쉬 후 레이저 리스트가 비어 있어야 한다 (got %d)" % state.lasers.size())
+
+
+# 원본은 `int(rolling_timer)`으로 지속프레임을 먼저 정수화한 뒤 `× 14`를 쓴다.
+# Godot 지속프레임은 실수(비천보 Lv.5 = 15 × 1.35 = 20.25)라 정수화를 빠뜨리면
+# 원본보다 1~3px 길어진다.
+func _verify_length_matches_dash_frames() -> void:
+	for leg: Array in [
+		["기본 15f", 15.0, 210.0],
+		["비천보 Lv.1 16.05f", 16.05, 224.0],
+		["비천보 Lv.5 20.25f", 20.25, 280.0],
+	]:
+		var state: RefCounted = SmasherDashSpiritState.new()
+		var spawned: bool = state.try_spawn_from_dash(
+			1.0,
+			false,
+			Vector2(302.5, 700.0),
+			Vector2(155.0, 50.0),
+			{"runtime_perk_state": GuaranteedDashSpiritPerkState.new()},
+			float(leg[1]),
+			1.0
+		)
+		if not spawned or state.lasers.is_empty():
+			_expect(false, "[%s] 풀대쉬 레이저가 생성돼야 한다" % str(leg[0]))
+			continue
+		var laser: Dictionary = state.lasers[0] as Dictionary
+		var length: float = absf((laser.get("end", Vector2.ZERO) as Vector2).x - (laser.get("start", Vector2.ZERO) as Vector2).x)
+		_expect(
+			is_equal_approx(length, float(leg[2])),
+			"[%s] 레이저 길이는 원본 `int(frames) × 14` = %.0fpx여야 한다 (got %.1f)" % [str(leg[0]), float(leg[2]), length]
+		)
+
+
+# 원본 수량 `min(60, max(30, length // 5))`과 3겹 원 렌더 계약.
+func _verify_evaporation_particles() -> RefCounted:
+	var first_state: RefCounted = null
+	for leg: Array in [
+		["210px 레이저", 15.0, 42],
+		["154px 레이저", 11.0, 30],
+	]:
+		var state: RefCounted = SmasherDashSpiritState.new()
+		state.try_spawn_from_dash(
+			1.0,
+			false,
+			Vector2(302.5, 700.0),
+			Vector2(155.0, 50.0),
+			{"runtime_perk_state": GuaranteedDashSpiritPerkState.new()},
+			float(leg[1]),
+			1.0
+		)
+		if state.lasers.is_empty():
+			_expect(false, "[%s] 파티클 검증용 레이저가 생성돼야 한다" % str(leg[0]))
+			continue
+		# 무적 프레임(10)을 지나야 충돌이 성립한다.
+		state.update_effects(11.0)
+		var laser: Dictionary = state.lasers[0] as Dictionary
+		var laser_start: Vector2 = laser.get("start", Vector2.ZERO) as Vector2
+		var laser_end: Vector2 = laser.get("end", Vector2.ZERO) as Vector2
+		var hit_pos: Vector2 = (laser_start + laser_end) * 0.5
+		var result: Dictionary = state.resolve_ball_collision(
+			{"ball_pos": hit_pos, "ball_vel": Vector2(3.0, 6.0)},
+			{"ball_size": 28.6, "player_pos": Vector2(302.5, 700.0), "player_paddle_size": Vector2(155.0, 50.0)},
+			{}
+		)
+		_expect(bool(result.get("dash_spirit_blocked", false)), "[%s] 레이저 중앙 충돌은 차단으로 성립해야 한다" % str(leg[0]))
+		_expect(
+			state.evaporation_particles.size() == int(leg[2]),
+			"[%s] 증발 파티클은 원본 수량 %d개여야 한다 (got %d)" % [str(leg[0]), int(leg[2]), state.evaporation_particles.size()]
+		)
+		_expect(
+			int(leg[2]) <= SmasherDashSpiritState.MAX_EVAPORATION_PARTICLES,
+			"[%s] 상한(%d)이 1회 버스트(%d)를 잘라내면 안 된다" % [str(leg[0]), SmasherDashSpiritState.MAX_EVAPORATION_PARTICLES, int(leg[2])]
+		)
+		if first_state == null:
+			first_state = state
+
+	# 3겹 원 계약: 별 스파클 1장으로 되돌리면 깨진다.
+	var renderer: RefCounted = SmasherDashSpiritRenderer.new()
+	var layers: Array[Dictionary] = renderer.build_particle_layers(6.0, 0.6)
+	_expect(layers.size() == 3, "증발 파티클은 원본과 같이 원 3겹이어야 한다 (got %d)" % layers.size())
+	if layers.size() != 3:
+		return first_state
+	for index in range(3):
+		_expect(
+			is_equal_approx(float(layers[index].get("radius", 0.0)), 6.0 - float(index) * 2.0),
+			"파티클 레이어 %d 반경은 `size - i*size/3` = %.1f여야 한다 (got %.1f)" % [index, 6.0 - float(index) * 2.0, float(layers[index].get("radius", 0.0))]
+		)
+		_expect(
+			is_equal_approx(float(layers[index].get("alpha", 0.0)), 0.6 / float(index + 1)),
+			"파티클 레이어 %d 알파는 `alpha/(i+1)` = %.3f여야 한다 (got %.3f)" % [index, 0.6 / float(index + 1), float(layers[index].get("alpha", 0.0))]
+		)
+	_expect(
+		SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES >= 60,
+		"렌더 상한이 원본 1회 최대 버스트(60)를 자르면 안 된다 (got %d)" % SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES
+	)
+	return first_state
 
 
 func _verify_ellipse_layer_contract(half_length: float) -> void:

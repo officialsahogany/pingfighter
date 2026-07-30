@@ -18,7 +18,12 @@ const CORE_END_INSET := 10.0
 const GLOW_LAYER_COUNT := 5
 const ELLIPSE_SEGMENTS := 48
 const SPARK_COUNT := 3
-const MAX_RENDERED_EVAPORATION_PARTICLES := 28
+# 증발 파티클: 원본 `draw_laser_evaporation_particles()`는 반경 s / 2s/3 / s/3,
+# 알파 a / a/2 / a/3 짜리 원 3겹을 겹쳐 수증기(기포) 느낌을 만든다. 별 모양
+# 스파클 텍스처는 같은 자리에서 반짝이로 읽히므로 쓰지 않는다.
+const PARTICLE_LAYER_COUNT := 3
+const PARTICLE_ELLIPSE_SEGMENTS := 16
+const MAX_RENDERED_EVAPORATION_PARTICLES := 80
 
 var _unit_ellipse_points_cache: Dictionary = {}
 
@@ -120,14 +125,47 @@ func _draw_evaporation_particle(canvas: CanvasItem, particle: Dictionary, shake_
 	)
 	var base_color: Color = _as_color(particle.get("color", MAIN_BLUE), MAIN_BLUE)
 	var draw_color: Color = base_color.lerp(CORE_WHITE, 1.0 - life_ratio)
-	ImpactFlareTextureCache.draw_sparkle(canvas, pos, max(2.4, size * 1.35), draw_color, alpha * 0.72)
+	for layer in build_particle_layers(size, alpha):
+		var radius: float = float(layer.get("radius", 0.0))
+		_draw_ellipse(
+			canvas,
+			pos,
+			radius,
+			radius,
+			Color(draw_color.r, draw_color.g, draw_color.b, float(layer.get("alpha", 0.0))),
+			PARTICLE_ELLIPSE_SEGMENTS
+		)
 
 
-func _draw_ellipse(canvas: CanvasItem, center: Vector2, half_width: float, half_height: float, color: Color) -> void:
+# 증발 파티클 1개가 그리는 원 레이어(바깥 -> 안). 원본과 동일하게 반경은
+# `size - i * size/3`, 알파는 `alpha / (i + 1)`이다.
+func build_particle_layers(size: float, alpha: float) -> Array[Dictionary]:
+	var layers: Array[Dictionary] = []
+	if size <= 0.0 or alpha <= 0.0:
+		return layers
+	for index in range(PARTICLE_LAYER_COUNT):
+		var radius: float = size - float(index) * (size / float(PARTICLE_LAYER_COUNT))
+		if radius <= 0.0:
+			continue
+		layers.append({
+			"radius": radius,
+			"alpha": alpha / float(index + 1),
+		})
+	return layers
+
+
+func _draw_ellipse(
+	canvas: CanvasItem,
+	center: Vector2,
+	half_width: float,
+	half_height: float,
+	color: Color,
+	segments: int = ELLIPSE_SEGMENTS
+) -> void:
 	if half_width <= 0.0 or half_height <= 0.0:
 		return
 	var points := PackedVector2Array()
-	for point in _get_unit_ellipse_points(ELLIPSE_SEGMENTS):
+	for point in _get_unit_ellipse_points(segments):
 		points.append(center + Vector2(point.x * half_width, point.y * half_height))
 	canvas.draw_colored_polygon(points, color)
 

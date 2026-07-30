@@ -745,6 +745,16 @@ proc 직후 `scene["special_gauge"]=context.get(...)`). 이펙트-패스/void-�
 **패들 하단 기준으로 앵커**하고(`player_pos.y + size.y − 19`) 씰에 확대 패들 레그를
 넣어라. Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot 포팅 파리티 판정 트랩 (수식이 같아도 "그 경로에서 호출되는가"가 다르다)
+
+공식 비교만으로 파리티를 선언하지 마라 — 원본 호출 사이트를 전부 grep해 포팅이
+그걸 공통 경로로 올렸는지 본다(잔영호법: 원본은 **풀대쉬에서만** 생성하는데 Godot은
+`is_half` 무관 생성 → 없던 하프대쉬 레이저). ⚠️미실행 경로에 수식을 대입한 값을
+파리티 근거로 인용 금지. 형제 결함: 원본의 **정수화 시점**(`int(rolling_timer)` 후
+곱셈)을 빠뜨리면 실수 입력에서 어긋나고(283 vs 280), 수량 상수를 복원해도 **총량
+상한/렌더 컷오프**를 같이 안 올리면 같은 버스트가 잘린다. 씰은 미발동 경로 + 버프
+상태를 각각 레그로. Full rule: `docs/godot_runtime_traps.md`.
+
 ## Godot `draw_line`에는 라인 캡이 없다 (pygame ellipse 실루엣 포팅)
 
 `draw_line`/`draw_polyline`은 캡 옵션이 없어 **무조건 직각(버트) 캡**이고

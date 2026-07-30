@@ -7,11 +7,16 @@ const LASER_DURATION_FRAMES := 360.0
 const LASER_WIDTH := 8.0
 const INVINCIBLE_FRAMES := 10.0
 const FULL_DASH_FRAMES := 15.0
-const HALF_DASH_FRAMES := 11.0
 const DASH_FRAME_SPEED := 40.0
 const DASH_DISTANCE_SCALE := 0.7
 const LASER_DISTANCE_RATIO := 0.5
-const MAX_EVAPORATION_PARTICLES := 32
+# 원본 수량 공식은 `min(60, max(30, laser_length // 5))`이라 한 번의 차단이
+# 30~60개를 한꺼번에 띄운다. 상한이 60 미만이면 `pop_front`가 같은 버스트의
+# 앞부분을 즉시 지워버리므로 1회 최대치 + 연속 차단 여유로 잡는다.
+const EVAPORATION_PARTICLES_PER_PIXEL := 5.0
+const EVAPORATION_PARTICLES_MIN := 30
+const EVAPORATION_PARTICLES_MAX := 60
+const MAX_EVAPORATION_PARTICLES := 80
 const BALL_DEFAULT_SIZE := 28.6
 const PLAYER_DEFAULT_SIZE := Vector2(155.0, 50.0)
 # 레이저 Y는 패들 "중심"이 아니라 패들 "하단" 기준이다.
@@ -52,6 +57,12 @@ func try_spawn_from_dash(
 	dash_frames: float = 0.0,
 	dash_distance_multiplier: float = 1.0
 ) -> bool:
+	# 원본은 하프대쉬 경로에 잔영호법 생성 호출 자체가 없다 — 굴림도 돌지 않는다.
+	# (풀대쉬 5개 사이트에만 `create_dash_spirit_laser`가 있고, 하프대쉬 발동
+	# 블록은 `rolling_timer`만 세팅한다.) 굴림 앞에서 끊어야 확률 소비까지 동일.
+	if is_half:
+		return false
+
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	var chance: float = _get_dash_spirit_chance(runtime_perk_state)
 	if chance <= 0.0 or randf() >= chance:
@@ -62,9 +73,12 @@ func try_spawn_from_dash(
 		max(1.0, player_size.x),
 		max(1.0, player_size.y)
 	)
-	var frames: float = dash_frames
+	# 원본은 `set_roll("rolling_timer", int(skill_distance_boost))`으로 지속
+	# 프레임을 먼저 정수화한 뒤 거리 공식에 넣는다. Godot 지속프레임은 실수라
+	# (비천보 Lv.5 = 20.25) 그대로 곱하면 원본보다 1~3px 길어진다.
+	var frames: float = floor(maxf(0.0, dash_frames))
 	if frames <= 0.0:
-		frames = HALF_DASH_FRAMES if is_half else FULL_DASH_FRAMES
+		frames = FULL_DASH_FRAMES
 	# 충돌 레이저 길이는 실 대쉬 거리와 함께 스케일해야 한다 — 신비의 주사위
 	# dash_distance 배율이 실 이동만 늘리고 레이저가 base에 남으면 판정이
 	# 시각 이동보다 짧아진다.
@@ -193,7 +207,9 @@ func _update_evaporation_particles(fps_scale: float) -> void:
 		var pos: Vector2 = _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var velocity: Vector2 = _as_vector2(particle.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		pos += velocity * fps_scale
-		velocity.x = velocity.x * pow(0.98, fps_scale) + sin((pos.x + lifetime) * 0.07) * 0.045 * fps_scale
+		# 원본 `particle['vx'] += random.uniform(-0.1, 0.1)` — 결정론적 사인파는
+		# 진폭이 절반 이하라 수증기 특유의 흐트러짐이 죽는다.
+		velocity.x = velocity.x * pow(0.98, fps_scale) + randf_range(-0.1, 0.1) * fps_scale
 		velocity.y *= pow(0.99, fps_scale)
 		var life_ratio: float = clamp(lifetime / max_lifetime, 0.0, 1.0)
 		if life_ratio > 0.7:
@@ -240,7 +256,11 @@ func _create_laser_evaporation_effect(laser: Dictionary) -> void:
 	var start: Vector2 = _as_vector2(laser.get("start", Vector2.ZERO), Vector2.ZERO)
 	var end: Vector2 = _as_vector2(laser.get("end", Vector2.ZERO), Vector2.ZERO)
 	var laser_length: float = abs(end.x - start.x)
-	var particle_count: int = clampi(int(floor(laser_length / 17.0)), 6, 12)
+	# 원본 `min(60, max(30, laser_length // 5))` — 210px면 42개, 154px면 30개다.
+	var particle_count: int = mini(
+		EVAPORATION_PARTICLES_MAX,
+		maxi(EVAPORATION_PARTICLES_MIN, int(floor(laser_length / EVAPORATION_PARTICLES_PER_PIXEL)))
+	)
 	for _i in range(particle_count):
 		var t: float = randf()
 		var spawn_pos := Vector2(
