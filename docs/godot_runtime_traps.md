@@ -2328,10 +2328,15 @@ gold-warm이 무거운 모듈을 module_getter로 요청 0회 + 골드 캐시가
 
 **표준 규칙.**
 - **`has_visible_effects()`(그릴 게 있나)와 "업데이트가 더 필요한가"는 다른 질문이다.**
-  게이트는 둘 다 봐야 한다. 게이트는 이제 호스트의 **스킬별 생존 맵**
-  `is_launch_blocked(skill_id)`도 함께 조회한다("아직 재시전을 막고 있다 = 아직 돌고
-  있다"). 새 스킬은 `is_launch_blocked`의 kind 분기에 자기 생존 술어를 등록하면
-  자동으로 안전하다.
+  게이트는 둘 다 봐야 한다. 게이트는 호스트의 **스킬별 생존 술어**
+  `needs_runtime_update_for_skill(skill_id)`를 함께 조회한다. 새 스킬은 **거기에**
+  자기 생존 술어를 등록해야 자동으로 안전하다.
+- ⚠️ **`is_launch_blocked()`를 생존 소스로 재사용하지 마라.** 그것은 "재시전을 막고
+  있나"라는 **재시전 정책** 질문이고, nest-allowed 스킬(skeleton_archer /
+  bone_barrier — 스폰된 엔티티가 아직 살아 있어도 재시전은 허용)에서 **의도적으로
+  false를 반환**한다. 거기에 등재하면 게이트는 그대로 `update()`를 끊는데 **에러가
+  나지 않으므로** 조용히 죽는다. shipped 게이트 코드 주석이 이 재사용을 명시적으로
+  금지하고 있다(`lingpet_companion_skill_effect_update_gate.gd`).
 - 그럼에도 **스킬 자신의 `has_visible_effects()`에 비-시각 라이브 상태를 접는 형제
   관용구는 유지**하라(방어 이중화): dwarf_magic `_needs_owner_sync`, sand_prison
   `_owns_clamp`, star_coil `_needs_owner_slow_sync`, banana_slice `_slip_timer`.
