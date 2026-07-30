@@ -29,6 +29,10 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 
 const MOUNT_PROXIMITY_PX := 78.0
 const MOUNT_SUPPORTED_PET_IDS := ["onimaru"]
+# Fallback only. `player_paddle_width` is the DECLARED owner key -- see
+# _get_player_center_x for why the old `player_paddle_size` read was a silent
+# schema miss.
+const DEFAULT_PLAYER_PADDLE_WIDTH := 155.0
 # Rider Y-lift for the shoulder-ride (목말) composition: low enough that the
 # rider's board/seat hides BEHIND the mount's head (the companion draws in
 # front of the rider while mounted), leaving her upper body above his head.
@@ -182,7 +186,19 @@ func get_companion_position_override(owner: Object, current: Vector2) -> Vector2
 	return Vector2(_get_player_center_x(owner), current.y)
 
 
+# `player_paddle_size` is NOT declared in BattleSceneState.DEFAULT_VALUES (only
+# `player_paddle_width` / `player_paddle_height` are), so reading it yielded the
+# hardcoded fallback FOREVER -- owner-field schema trap. An expanded paddle (220)
+# therefore pushed this anchor 32.5px left of the visual center, mis-aiming BOTH
+# the mount proximity window and the mounted follow override (the rider and the
+# companion visibly separate). Read the declared width key.
 func _get_player_center_x(owner: Object) -> float:
 	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2.ZERO)
-	var paddle_size: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_paddle_size", Vector2(155.0, 50.0))
-	return player_pos.x + paddle_size.x * 0.5
+	var paddle_width: float = float(BattleSceneOwnerReader.get_value(
+		owner,
+		"player_paddle_width",
+		DEFAULT_PLAYER_PADDLE_WIDTH
+	))
+	if paddle_width <= 0.0:
+		paddle_width = DEFAULT_PLAYER_PADDLE_WIDTH
+	return player_pos.x + paddle_width * 0.5

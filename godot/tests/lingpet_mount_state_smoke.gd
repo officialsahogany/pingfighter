@@ -23,8 +23,12 @@ class FakeInputProbe extends RefCounted:
 
 
 class FakeOwner extends RefCounted:
+	# DECLARED owner keys only. `player_paddle_size` is NOT in
+	# BattleSceneState.DEFAULT_VALUES, and the old fixture offered it -- which
+	# masked the schema miss this seal now catches.
 	var player_pos := Vector2(300.0, 700.0)
-	var player_paddle_size := Vector2(155.0, 50.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
 
 
 class FakeLingpetRuntime extends RefCounted:
@@ -51,6 +55,7 @@ func _init() -> void:
 	_verify_overdrive_chord_is_reserved()
 	_verify_rmb_dismounts()
 	_verify_position_override_keeps_lane_y()
+	_verify_expanded_paddle_uses_declared_width_key()
 	_verify_unsupported_pet_and_pet_switch_dismount()
 	_verify_inactive_companion_forces_dismount()
 	_verify_reset_clears_mount()
@@ -75,7 +80,26 @@ func _make_state(probe: FakeInputProbe) -> Object:
 
 
 func _player_center(owner: FakeOwner) -> float:
-	return owner.player_pos.x + owner.player_paddle_size.x * 0.5
+	return owner.player_pos.x + owner.player_paddle_width * 0.5
+
+
+func _verify_expanded_paddle_uses_declared_width_key() -> void:
+	var probe := FakeInputProbe.new()
+	var owner := FakeOwner.new()
+	# NON-DEFAULT width: the anchor read the undeclared `player_paddle_size` and
+	# always resolved to 155, parking the anchor 32.5px left of the real center.
+	owner.player_paddle_width = 220.0
+	var state := _make_state(probe)
+	var center: float = _player_center(owner)
+	_expect(is_equal_approx(center, 410.0), "fixture sanity: expanded paddle center should be 410")
+	# 70px from the TRUE center is inside the 78px window, but 102.5px from the
+	# stale 155-based anchor -- so a schema miss cannot mount here.
+	var near_pos := Vector2(center + 70.0, 655.0)
+	probe.rmb = true
+	var result: Dictionary = state.advance(owner, near_pos, true)
+	_expect(bool(result.get("mounted", false)), "expanded paddle must mount from the TRUE visual center (declared width key)")
+	var follow: Vector2 = state.get_companion_position_override(owner, near_pos)
+	_expect(is_equal_approx(follow.x, center), "mounted follow must anchor to the expanded center, not the 155 fallback")
 
 
 func _verify_proximity_rmb_mounts() -> void:

@@ -454,7 +454,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			bool(_companion_motion_state.motion_visible),
 			_companion_pos
 		)
-		if not guardian_summoned:
+		# One switch must gate BOTH the body hit and the anticipatory strike. The
+		# mount already suppresses `_resolve_companion_ball_hit`, so arming here
+		# would animate a swing that can never connect (허공 스트라이크).
+		if not guardian_summoned or _mount_state.is_mounted():
 			_companion_sprite_animator.reset_latch()
 		else:
 			_companion_strike_anticipator.maybe_arm_from_sources(
@@ -2826,6 +2829,12 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		delta
 	)
 	if _mount_state.has_companion_position_override() and not has_skill_position_override:
+		# This branch skips `_companion_motion_state.update()`, which is the only
+		# thing that retires a defense intercept -- and the mounted collision path
+		# returns BEFORE its own clear. So an intercept that happened to be live on
+		# the mounting frame would stay latched for the whole ride (붉은 오라 상시 +
+		# 하차 후 첫 히트가 "방어!"로 오표기). Retire it explicitly on entry.
+		_companion_motion_state.clear_defense_intercept()
 		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
 		_companion_motion_state.pos = _companion_pos
 		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
@@ -3246,6 +3255,11 @@ func _draw_companion(
 # game_offset). Returns true when the click was consumed by the companion.
 func try_begin_companion_click_reaction(playfield_pos: Vector2, registry: Object = null) -> bool:
 	if not _is_guardian_summoned():
+		return false
+	# 탑승 중엔 클릭 교감 금지: the click zone overlaps the paddle while mounted, and
+	# the reaction sheet REPLACES the carry composite -- the rider would hang in the
+	# air while the mount swaps to a full-size reaction still.
+	if _mount_state.is_mounted():
 		return false
 	if not _companion_body_presence_resolver.can_begin_click_reaction(
 		_companion_motion_state,
