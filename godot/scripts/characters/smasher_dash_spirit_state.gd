@@ -14,13 +14,17 @@ const LASER_DISTANCE_RATIO := 0.5
 const MAX_EVAPORATION_PARTICLES := 32
 const BALL_DEFAULT_SIZE := 28.6
 const PLAYER_DEFAULT_SIZE := Vector2(155.0, 50.0)
-# 원본은 `PLAYER.centery + 30`이지만, 원본 패들 바닥선은
-# `HEIGHT(750) - PLAYER_FLOOR_OFFSET(40) + 리그보너스(챔피언 16) = 726`이라
-# 바닥에서 24px 떠 있다. Godot 패들은 `height - paddle_height`로 바닥(750)에
-# 딱 붙으므로(floor offset 미포팅), +30을 그대로 쓰면 레이저가 바닥선 아래
-# 755로 깔린다. 24px 차이를 상수에서 흡수해 절대 위치를 원본과 일치시킨다
-# (원본 `756 - H/2` == Godot `750 + 6 - H/2`, 패들 높이 변동까지 동일).
-const PLAYER_BACK_LASER_Y_OFFSET := 6.0
+# 레이저 Y는 패들 "중심"이 아니라 패들 "하단" 기준이다.
+# 원본은 `PLAYER.centery + 30`인데, 원본 바닥선
+# `_compute_player_floor_bottom()`이 확대 시 `PLAYER_VISUAL_OVERHANG(25) *
+# (scale-1)`만큼 같이 내려간다. 오버행 25 == 기본 패들 반높이라 centery가
+# 스케일과 무관하게 701로 고정되고, 결과적으로 원본 레이저는 챔피언 기준
+# 화면 절대 y=731 = 바닥(750) - 19 에 항상 놓인다.
+# Godot 패들은 크기가 바뀔 때마다 `player_pos.y = 750 - height`로 하단을
+# 750에 재앵커하므로(오버행 개념 미포팅), 중심 기준 오프셋을 쓰면 확대 패들에서
+# 레이저가 위로 뜬다(주니어 1.5배 -14px / 벌크업 1.2배 -5px). 하단에서
+# 19px 위로 앵커해 모든 스케일에서 원본 절대 위치를 재현한다.
+const PLAYER_BACK_LASER_FLOOR_INSET := 19.0
 const REFLECT_X_MULT := 0.8
 const UPWARD_ALREADY_MOVING_MULT := 1.2
 const REFLECT_SPEED_BOOST := 1.3
@@ -66,16 +70,24 @@ func try_spawn_from_dash(
 	# 시각 이동보다 짧아진다.
 	var dash_distance: float = floor(frames * DASH_FRAME_SPEED * DASH_DISTANCE_SCALE * LASER_DISTANCE_RATIO * maxf(0.0, dash_distance_multiplier))
 	var player_center: Vector2 = player_pos + safe_player_size * 0.5
-	create_laser(player_center, normalized_direction, dash_distance, safe_player_size.x)
+	create_laser(player_center, normalized_direction, dash_distance, safe_player_size.x, safe_player_size.y)
 	return true
 
 
-func create_laser(player_center: Vector2, direction: float, dash_distance: float, paddle_width: float = PLAYER_DEFAULT_SIZE.x) -> Dictionary:
+func create_laser(
+	player_center: Vector2,
+	direction: float,
+	dash_distance: float,
+	paddle_width: float = PLAYER_DEFAULT_SIZE.x,
+	paddle_height: float = PLAYER_DEFAULT_SIZE.y
+) -> Dictionary:
 	var normalized_direction: float = -1.0 if direction < 0.0 else 1.0
 	var half_width: float = floor(max(1.0, paddle_width) * 0.5)
 	var start_x: float = player_center.x + half_width if normalized_direction < 0.0 else player_center.x - half_width
 	var end_x: float = start_x + normalized_direction * max(0.0, dash_distance)
-	var y: float = player_center.y + PLAYER_BACK_LASER_Y_OFFSET
+	# 확대 패들에서도 원본 절대 위치를 유지하려면 중심이 아니라 하단 기준이어야 한다.
+	var paddle_bottom: float = player_center.y + max(1.0, paddle_height) * 0.5
+	var y: float = paddle_bottom - PLAYER_BACK_LASER_FLOOR_INSET
 	var laser: Dictionary = {
 		"start": Vector2(start_x, y),
 		"end": Vector2(end_x, y),

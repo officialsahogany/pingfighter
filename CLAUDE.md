@@ -738,11 +738,12 @@ proc 직후 `scene["special_gauge"]=context.get(...)`). 이펙트-패스/void-�
 
 원본 패들 바닥선은 `HEIGHT(750) − PLAYER_FLOOR_OFFSET(40) + 리그보너스(챔피언
 16) = 726`이라 **바닥에서 24px 떠 있고**, Godot 패들은 `height − paddle_height`로
-바닥(750)에 **딱 붙는다**(floor offset 미포팅, grep 0건). 그래서 `PLAYER.centery`
-기준 오프셋을 리터럴로 옮기면 그 이펙트만 24px 내려가 바닥선 아래로 깔린다
-(잔영호법 레이저 731→755). 포팅 시 **바닥선 대비 절대 Y**를 먼저 계산하고 상수로
-24px을 흡수하라. 씰은 결과 단언(`y + 최외곽 글로우 반높이 <= HEIGHT`).
-Full rule: `docs/godot_runtime_traps.md`.
+바닥(750)에 **딱 붙는다**(floor offset 미포팅). `PLAYER.centery` 기준 오프셋을
+리터럴로 옮기면 그 이펙트만 24px 내려가 바닥선 아래로 깔린다(잔영호법 731→755).
+⚠️**중심 기준으로 24px 흡수하면 2차 회귀** — 원본은 확대 시 오버행(25)만큼 바닥선도
+내려 centery가 701로 고정되지만 Godot은 하단만 재앵커한다(주니어 1.5배 -14px).
+**패들 하단 기준으로 앵커**하고(`player_pos.y + size.y − 19`) 씰에 확대 패들 레그를
+넣어라. Full rule: `docs/godot_runtime_traps.md`.
 
 ## Godot `draw_line`에는 라인 캡이 없다 (pygame ellipse 실루엣 포팅)
 

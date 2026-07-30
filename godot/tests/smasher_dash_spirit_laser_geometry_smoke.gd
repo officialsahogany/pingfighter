@@ -23,6 +23,13 @@ const ORIGIN_CORE_HALF_HEIGHT := 3.0
 const ORIGIN_CORE_END_INSET := 10.0
 const ORIGIN_MAX_GLOW_HALF_HEIGHT := 15.0  # ellipse_height(5) + i(5) * 2
 
+# 원본 절대 Y(챔피언). `_compute_player_floor_bottom()`이 확대 시
+# `PLAYER_VISUAL_OVERHANG(25) * (scale-1)`만큼 바닥선을 같이 내리고 오버행 25가
+# 기본 패들 반높이와 같아서 `PLAYER.centery`가 701로 고정된다 → 레이저는
+# `701 + 30 = 731`, 즉 플레이필드 바닥(750)에서 19px 위에 스케일 불변으로 놓인다.
+const ORIGIN_ABSOLUTE_LASER_Y := 731.0
+const ORIGIN_FLOOR_INSET := 19.0
+
 var _failures: Array[String] = []
 var _probe: DashSpiritLaserProbe = null
 var _frame_count := 0
@@ -49,33 +56,68 @@ class DashSpiritLaserProbe:
 
 func _init() -> void:
 	get_root().size = VIEW_SIZE
+	# 패들 스케일 레그. 원본 바닥선이 오버행만큼 같이 내려가 centery가 701로
+	# 고정되므로, 원본 레이저 절대 Y는 스케일과 무관하게 챔피언 기준 731이다.
+	# 중심 기준 오프셋으로 앵커하면 확대 패들에서만 위로 뜬다(주니어 -14px /
+	# 벌크업 -5px) — 기본 155x50 레그만으로는 못 잡으므로 3레그로 봉인한다.
+	var base_state: RefCounted = null
+	for leg: Array in [
+		["챔피언 기본 1.0배", 1.0],
+		["주니어 리그 1.5배", 1.5],
+		["벌크업 1.2배", 1.2],
+	]:
+		var state: RefCounted = _verify_laser_anchor(str(leg[0]), float(leg[1]))
+		if base_state == null:
+			base_state = state
+	if base_state == null:
+		_finish()
+		return
+
+	_probe = DashSpiritLaserProbe.new()
+	_probe.name = "DashSpiritLaserProbe"
+	_probe.state = base_state
+	get_root().add_child(_probe)
+	_probe.queue_redraw()
+
+
+func _verify_laser_anchor(leg_name: String, paddle_scale: float) -> RefCounted:
 	var state: RefCounted = SmasherDashSpiritState.new()
-	var paddle_size := Vector2(BattleSceneConfig.PADDLE_WIDTH, BattleSceneConfig.PADDLE_HEIGHT)
-	# 실제 배틀 부트스트랩 기하: `player_y = height - paddle_height` (= 700).
+	var paddle_size := Vector2(
+		BattleSceneConfig.PADDLE_WIDTH * paddle_scale,
+		BattleSceneConfig.PADDLE_HEIGHT * paddle_scale
+	)
+	# 실제 런타임 기하: 패들 크기가 바뀔 때마다 `player_pos.y = 750 - height`로
+	# 하단이 바닥에 재앵커된다 (battle_scene_bootstrap / player_control_config_builder).
 	var player_pos := Vector2(
 		BattleSceneConfig.WIDTH * 0.5 - paddle_size.x * 0.5,
 		BattleSceneConfig.HEIGHT - paddle_size.y
 	)
 	_expect(
 		state.try_spawn_from_dash(1.0, false, player_pos, paddle_size, {"runtime_perk_state": GuaranteedDashSpiritPerkState.new()}, 15.0, 1.0),
-		"확률 100% 픽스처에서 잔영호법 레이저가 생성돼야 한다"
+		"[%s] 확률 100%% 픽스처에서 잔영호법 레이저가 생성돼야 한다" % leg_name
 	)
 	if state.lasers.is_empty():
-		_finish()
-		return
+		return null
 
 	var laser: Dictionary = state.lasers[0] as Dictionary
 	var start: Vector2 = laser.get("start", Vector2.ZERO) as Vector2
 	var end: Vector2 = laser.get("end", Vector2.ZERO) as Vector2
 	var half_length: float = absf(end.x - start.x) * 0.5
-	_expect(is_equal_approx(start.y, end.y), "레이저는 수평이어야 한다 (start.y == end.y)")
-	_expect(is_equal_approx(half_length * 2.0, 210.0), "기본 풀대쉬 레이저 길이는 210px여야 한다 (got %.1f)" % (half_length * 2.0))
-
-	# 원본 절대 위치 파리티: Python `PLAYER.centery + 30` = `756 - H/2`.
-	var expected_y: float = BattleSceneConfig.HEIGHT + 6.0 - paddle_size.y * 0.5
+	_expect(is_equal_approx(start.y, end.y), "[%s] 레이저는 수평이어야 한다 (start.y == end.y)" % leg_name)
 	_expect(
-		is_equal_approx(start.y, expected_y),
-		"레이저 Y는 원본 절대 위치(%.1f)와 일치해야 한다 (got %.1f)" % [expected_y, start.y]
+		is_equal_approx(half_length * 2.0, 210.0),
+		"[%s] 풀대쉬 레이저 길이는 패들 크기와 무관하게 210px여야 한다 (got %.1f)" % [leg_name, half_length * 2.0]
+	)
+
+	# 원본 절대 위치 파리티(챔피언 기준): 바닥선 750 - 19 = 731. 스케일 불변.
+	_expect(
+		is_equal_approx(start.y, ORIGIN_ABSOLUTE_LASER_Y),
+		"[%s] 레이저 Y는 원본 절대 위치(%.1f)와 일치해야 한다 (got %.1f)" % [leg_name, ORIGIN_ABSOLUTE_LASER_Y, start.y]
+	)
+	# 패들 하단 기준 앵커임을 직접 못박는다(중심 기준으로 되돌리면 확대 레그에서 깨짐).
+	_expect(
+		is_equal_approx(start.y, player_pos.y + paddle_size.y - ORIGIN_FLOOR_INSET),
+		"[%s] 레이저는 패들 하단에서 %.0fpx 위에 앵커돼야 한다 (got %.1f)" % [leg_name, ORIGIN_FLOOR_INSET, start.y]
 	)
 
 	# 아래는 사용자가 신고한 실제 증상(바닥 아래로 깔림)을 결과로 단언한다.
@@ -85,20 +127,15 @@ func _init() -> void:
 		max_half_height = maxf(max_half_height, float(layer.get("half_height", 0.0)))
 	_expect(
 		start.y + max_half_height <= BattleSceneConfig.HEIGHT,
-		"레이저 최외곽 글로우까지 플레이필드 바닥선(%.0f) 위에 있어야 한다 (bottom=%.1f)" % [BattleSceneConfig.HEIGHT, start.y + max_half_height]
+		"[%s] 레이저 최외곽 글로우까지 플레이필드 바닥선(%.0f) 위에 있어야 한다 (bottom=%.1f)" % [leg_name, BattleSceneConfig.HEIGHT, start.y + max_half_height]
 	)
 	_expect(
 		start.y > player_pos.y,
-		"레이저는 패들 상단보다 아래(패들 뒤쪽)에 있어야 한다"
+		"[%s] 레이저는 패들 상단보다 아래(패들 뒤쪽)에 있어야 한다" % leg_name
 	)
 
 	_verify_ellipse_layer_contract(half_length)
-
-	_probe = DashSpiritLaserProbe.new()
-	_probe.name = "DashSpiritLaserProbe"
-	_probe.state = state
-	get_root().add_child(_probe)
-	_probe.queue_redraw()
+	return state
 
 
 func _process(_delta: float) -> bool:
