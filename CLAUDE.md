@@ -734,6 +734,26 @@ proc 직후 `scene["special_gauge"]=context.get(...)`). 이펙트-패스/void-�
 전달 후 직후 단언)는 공허-GREEN — 실제 `scene→apply_snapshot` 왕복 씰 필수
 (부동갑주 넉백 커버 달/부채 환불 사례). Full rule: `docs/godot_runtime_traps.md`.
 
+## Godot 패들-상대 오프셋 상수 1:1 포팅 트랩 (원본 패들은 바닥에서 24px 떠 있다)
+
+원본 패들 바닥선은 `HEIGHT(750) − PLAYER_FLOOR_OFFSET(40) + 리그보너스(챔피언
+16) = 726`이라 **바닥에서 24px 떠 있고**, Godot 패들은 `height − paddle_height`로
+바닥(750)에 **딱 붙는다**(floor offset 미포팅, grep 0건). 그래서 `PLAYER.centery`
+기준 오프셋을 리터럴로 옮기면 그 이펙트만 24px 내려가 바닥선 아래로 깔린다
+(잔영호법 레이저 731→755). 포팅 시 **바닥선 대비 절대 Y**를 먼저 계산하고 상수로
+24px을 흡수하라. 씰은 결과 단언(`y + 최외곽 글로우 반높이 <= HEIGHT`).
+Full rule: `docs/godot_runtime_traps.md`.
+
+## Godot `draw_line`에는 라인 캡이 없다 (pygame ellipse 실루엣 포팅)
+
+`draw_line`/`draw_polyline`은 캡 옵션이 없어 **무조건 직각(버트) 캡**이고
+`antialiased=true`도 끝을 둥글게 만들지 않는다 — pygame `draw.ellipse` 기반
+실루엣을 같은 두께의 라인으로 옮기면 "사각 막대"로 읽힌다. 채워진 타원 폴리곤을
+겹쳐 그려라(`draw_colored_polygon` + 단위 타원 점 캐시). 동반 확인: 글로우 겹수
+축소, 코어 끝단 인셋 소실, **원본이 계산만 하고 안 그리는 필드**(전기 세그먼트)를
+포팅이 렌더하는 경우. 씰=레이어 계약(기대값은 원본 리터럴) + 끝단 확대 픽셀 캡처.
+Full rule: `docs/godot_runtime_traps.md`.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
