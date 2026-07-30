@@ -11,12 +11,16 @@ const HALF_DASH_FRAMES := 11.0
 const DASH_FRAME_SPEED := 40.0
 const DASH_DISTANCE_SCALE := 0.7
 const LASER_DISTANCE_RATIO := 0.5
-const ELECTRIC_SEGMENT_COUNT := 5
-const ELECTRIC_REFRESH_FRAMES := 5.0
 const MAX_EVAPORATION_PARTICLES := 32
 const BALL_DEFAULT_SIZE := 28.6
 const PLAYER_DEFAULT_SIZE := Vector2(155.0, 50.0)
-const PLAYER_BACK_LASER_Y_OFFSET := 30.0
+# 원본은 `PLAYER.centery + 30`이지만, 원본 패들 바닥선은
+# `HEIGHT(750) - PLAYER_FLOOR_OFFSET(40) + 리그보너스(챔피언 16) = 726`이라
+# 바닥에서 24px 떠 있다. Godot 패들은 `height - paddle_height`로 바닥(750)에
+# 딱 붙으므로(floor offset 미포팅), +30을 그대로 쓰면 레이저가 바닥선 아래
+# 755로 깔린다. 24px 차이를 상수에서 흡수해 절대 위치를 원본과 일치시킨다
+# (원본 `756 - H/2` == Godot `750 + 6 - H/2`, 패들 높이 변동까지 동일).
+const PLAYER_BACK_LASER_Y_OFFSET := 6.0
 const REFLECT_X_MULT := 0.8
 const UPWARD_ALREADY_MOVING_MULT := 1.2
 const REFLECT_SPEED_BOOST := 1.3
@@ -79,8 +83,6 @@ func create_laser(player_center: Vector2, direction: float, dash_distance: float
 		"duration": LASER_DURATION_FRAMES,
 		"direction": normalized_direction,
 		"alpha": 255.0,
-		"electric_timer": 0.0,
-		"electric_segments": _build_electric_segments(Vector2(start_x, y), Vector2(end_x, y), 3.0),
 		"invincible_time": INVINCIBLE_FRAMES,
 	}
 	lasers.append(laser)
@@ -159,12 +161,8 @@ func _update_lasers(fps_scale: float) -> void:
 		var laser: Dictionary = lasers[read_index]
 		var remaining: float = float(laser.get("remaining_time", 0.0)) - fps_scale
 		laser["remaining_time"] = remaining
-		laser["electric_timer"] = float(laser.get("electric_timer", 0.0)) + fps_scale
 		laser["invincible_time"] = max(0.0, float(laser.get("invincible_time", 0.0)) - fps_scale)
 		laser["alpha"] = 255.0 * clamp(remaining / LASER_DURATION_FRAMES, 0.0, 1.0)
-		if float(laser.get("electric_timer", 0.0)) >= ELECTRIC_REFRESH_FRAMES:
-			laser["electric_timer"] = fmod(float(laser.get("electric_timer", 0.0)), ELECTRIC_REFRESH_FRAMES)
-			_refresh_electric_segments(laser)
 		if remaining > 0.0:
 			lasers[write_index] = laser
 			write_index += 1
@@ -200,24 +198,6 @@ func _update_evaporation_particles(fps_scale: float) -> void:
 		write_index += 1
 	if write_index < evaporation_particles.size():
 		evaporation_particles.resize(write_index)
-
-
-func _build_electric_segments(start: Vector2, end: Vector2, offset_range: float) -> Array[Dictionary]:
-	var segments: Array[Dictionary] = []
-	for index in range(ELECTRIC_SEGMENT_COUNT + 1):
-		var t: float = float(index) / float(ELECTRIC_SEGMENT_COUNT)
-		segments.append({
-			"base": start.lerp(end, t),
-			"offset": Vector2(randf_range(-offset_range, offset_range), randf_range(-offset_range, offset_range)),
-		})
-	return segments
-
-
-func _refresh_electric_segments(laser: Dictionary) -> void:
-	var segments: Array = _as_array(laser.get("electric_segments", []))
-	for segment in segments:
-		if segment is Dictionary:
-			segment["offset"] = Vector2(randf_range(-4.0, 4.0), randf_range(-4.0, 4.0))
 
 
 func _distance_to_laser(point: Vector2, laser: Dictionary) -> float:
@@ -297,9 +277,3 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
-
-
-func _as_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
