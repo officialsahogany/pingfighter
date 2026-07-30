@@ -623,6 +623,23 @@ panel exactly flat #ff00ff.
   fusion_modal_runtime_v1_contact_sheet.png`에 묶었다. 정지 프레임 재채점은
   **모달 크롬 9/10**으로 §11.8 게이트를 충족한다.
 
+### 11.11 족자 가독성 후속 수정 (Codex — 2026-07-31)
+
+- 사용자 실화면에서 `산화수` 아래 옵션 3줄이 밝은 한지와 비슷한 명도의
+  `MUTED_COLOR`로 그려져 흐려졌고, confirm 족자 둘레에는 materials 선택 상태의
+  골드 보더가 남아 노란 사각형으로 보였다.
+- 핵심 수정 커밋 `e2cdee593`: 텍스처 족자 전용 진갈색 잉크 팔레트
+  (제목/레벨/옵션)를 추가하고 옵션은 12px·17px 행간으로 조정했다. confirm
+  pair는 읽기 전용이므로 candidate state border만 명시적으로 끈다. materials
+  카드의 선택/하이라이트와 텍스처 부재 절차 폴백은 그대로 유지한다.
+- 실화면과 같은 `잔영호법 / 산화수` 및 산화수 옵션 3줄 fixture로 Vulkan
+  캡처를 재생성했다. 확대 증적은
+  `images/perk_fusion_hwangyeok_jumul_reskin/qa/
+  fusion_modal_scroll_readability_qa.png`이다.
+- 관련 스모크 7종, repo headless load, 변경 GDScript 3종 focused warning scan이
+  전부 GREEN이다. 신규 씰은 confirm 보더 OFF/materials 보더 ON과 한지용
+  제목·레벨·옵션 색의 luminance/alpha 계약을 함께 봉인한다.
+
 ---
 
 ## 12. §11 랜딩 검수 — 콘텐츠 레이어 미추종 (Claude 리뷰 2026-07-29)

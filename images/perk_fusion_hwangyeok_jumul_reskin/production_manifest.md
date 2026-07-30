@@ -338,6 +338,15 @@ accent, blank label field, designed for 200x54 runtime use.
   유지한다.
 - 정지 프레임 재채점: **모달 크롬 9/10**.
 
+### §11 족자 가독성 후속 수정 (2026-07-31)
+
+- 에셋 재생성 없이 렌더 팔레트만 수정했다. 밝은 한지 위의 제목/레벨/옵션은
+  전용 진갈색 잉크 색을 사용하며, 옵션은 12px·17px 행간이다.
+- confirm pair는 이미 선택이 끝난 읽기 전용 표시이므로 candidate state border를
+  끈다. materials 선택 카드와 강제 절차 폴백의 상태 문법은 유지한다.
+- 사용자 실화면과 같은 `잔영호법 / 산화수` 및 옵션 3줄 fixture를 실제 Vulkan
+  렌더로 확인했다. 핵심 수정 커밋은 `e2cdee593`이다.
+
 ## SHA-256
 
 Runtime/processed files:
@@ -382,10 +391,11 @@ ca8ce0e119c3796338c5523f9350478ae17b60f845290cd86d87bf0a5546c255  fusion_modal_b
 ```text
 2693874f8cbc3084ef7548baa6e450620414249fa77ec4c973c2548b4326d798  fusion_confirm_mockup_v1.png
 b1b5d6c0165223ef0cce1230cfe3531eeb998230dec88581dd206c864c2fa44a  fusion_modal_assets_v1_contact_sheet.png
-f21be3d08e35af29c7790122a9a4a0bb8d4b1df4ca2b49af46cb2cd0187aea20  fusion_modal_runtime_confirm_420.png
-af76d88c1d8d787330af3380ec200a33a8708717a2e2eef84ef3f640b31380e7  fusion_modal_runtime_confirm_760.png
-8e3bd49a5dff7f7bc8825ef91b8e92545f8e1ec52d2240bb77f17857bf4c3a93  fusion_modal_runtime_fallback_760.png
-889c6c3b36a92b445273f07d4cebf500cf8b59180379d15a78d9f7c9267f52af  fusion_modal_runtime_v1_contact_sheet.png
+7f7a3000b977952497d4077ae5afc3a4bd8f8ddd65009564bec8c51067f62521  fusion_modal_runtime_confirm_420.png
+97b8b40d8af0f033eb50b0a8bbea91d3a8d3f7cfcce116ff853b497aa8a19526  fusion_modal_runtime_confirm_760.png
+f298d9089c33a02f494866c28927872b570a7f7a77883bcd24dfd101435c0631  fusion_modal_runtime_fallback_760.png
+8ba361504fe6bda8c54c093149197d7d04dfbde9c73bf2d120eef7f34f1efa03  fusion_modal_runtime_v1_contact_sheet.png
+05236d3fafa77c3fa2e1dcc746313e0e9fca69914beef2120836b10a97090fa6  fusion_modal_scroll_readability_qa.png
 ```
 
 AutoSprite committed source bundle:
@@ -417,6 +427,7 @@ repo의 `*.mp4` ignore 정책을 따라 로컬 진단 부산물로만 보존한�
 - `qa/fusion_modal_runtime_confirm_420.png`
 - `qa/fusion_modal_runtime_fallback_760.png`
 - `qa/fusion_modal_runtime_v1_contact_sheet.png`
+- `qa/fusion_modal_scroll_readability_qa.png`
 - 최종 실렌더 22장과 fail-closed summary:
   `C:/Users/woduq/bosspong_backups/qa_evidence/perk_fusion_cold_boot_6697449_50564_0c49fedcfd4d/`
 - §10 업그레이드 실렌더 50장(기존 22 + 4페이즈 x 7언어)과 fail-closed
