@@ -81,7 +81,8 @@ func _init() -> void:
 func _run() -> void:
 	_verify_mount_blocks_strike_arm()
 	_verify_mount_retires_defense_intercept()
-	_verify_mount_blocks_click_reaction()
+	_verify_mount_transition_retires_live_click_reaction()
+	_verify_mounted_state_refuses_new_click()
 
 	if _failures.is_empty():
 		print("lingpet_mount_runtime_gate_smoke: ok")
@@ -112,6 +113,16 @@ func _mount(runtime: Object, owner: Object) -> bool:
 	runtime._mount_state.set_input_probe(probe)
 	probe.rmb = true
 	runtime._mount_state.advance(owner, runtime._companion_pos, true)
+	return bool(runtime._mount_state.is_mounted())
+
+
+# 런타임 경로를 통해 탑승한다. 직접 `_mount_state.advance()`를 부르면 전이 시
+# 은퇴/정리 코드를 전부 건너뛰므로, 전이 계약을 검사하는 레그는 이 헬퍼를 써야 한다.
+func _mount_via_runtime(runtime: Object, owner: Object, registry: Object) -> bool:
+	var probe := FakeInputProbe.new()
+	runtime._mount_state.set_input_probe(probe)
+	probe.rmb = true
+	runtime._update_companion_motion(0.016, owner, registry)
 	return bool(runtime._mount_state.is_mounted())
 
 
@@ -150,7 +161,37 @@ func _verify_mount_retires_defense_intercept() -> void:
 	)
 
 
-func _verify_mount_blocks_click_reaction() -> void:
+func _verify_mount_transition_retires_live_click_reaction() -> void:
+	# 경로 1: 교감이 이미 재생 중인 상태에서 탑승 전이가 일어나면 반응이 끝나야 한다.
+	# 탑승 게이트는 NEW 클릭만 막으므로 이 전이를 따로 단언해야 구멍이 드러난다.
+	# 마운트는 반드시 런타임 경로(`_update_companion_motion`)를 통해 걸어야 한다 --
+	# `_mount_state.advance()`를 직접 부르면 은퇴 코드를 건너뛰어 공허 GREEN이 된다.
+	var owner := FakeOwner.new()
+	var registry := NullRegistry.new()
+
+	var ridden: Object = _make_summoned_runtime()
+	ridden._companion_click_reaction_state.active = true
+	ridden._companion_click_reaction_state.timer = 0.2
+	_expect(_mount_via_runtime(ridden, owner, registry), "fixture sanity: runtime transition should mount onimaru")
+	_expect(
+		not bool(ridden.is_companion_click_reaction_active()),
+		"탑승 전이는 진행 중인 클릭 교감을 은퇴시켜야 한다 (안 그러면 탈것이 반응 시트로 교체돼 라이더만 공중에 남는다)"
+	)
+
+	# 대조군: 탑승하지 않으면 같은 프레임 구동이 반응을 죽이지 않는다 (은퇴가
+	# 탑승 전이에만 묶여 있음을 보장 -- 없으면 "그냥 항상 죽는다"와 구별 불가).
+	var loose: Object = _make_summoned_runtime()
+	loose._companion_click_reaction_state.active = true
+	loose._companion_click_reaction_state.timer = 0.2
+	loose._update_companion_motion(0.016, owner, registry)
+	_expect(
+		bool(loose.is_companion_click_reaction_active()),
+		"control: an unmounted companion must keep its in-flight click reaction"
+	)
+
+
+func _verify_mounted_state_refuses_new_click() -> void:
+	# 경로 2: 이미 탑승한 상태에서 들어온 신규 교감 클릭은 거부되고 계속 비활성.
 	var owner := FakeOwner.new()
 	var registry := NullRegistry.new()
 	var click_at := Vector2(_player_center(), LANE_Y)
@@ -165,11 +206,14 @@ func _verify_mount_blocks_click_reaction() -> void:
 	)
 
 	var ridden: Object = _make_summoned_runtime()
-	ridden._companion_click_reaction_state.active = true
-	_expect(_mount(ridden, owner), "fixture sanity: onimaru should mount at the player center")
+	_expect(_mount_via_runtime(ridden, owner, registry), "fixture sanity: runtime transition should mount onimaru")
 	_expect(
 		not bool(ridden.try_begin_companion_click_reaction(click_at, registry)),
-		"탑승 중에는 클릭 교감이 시작되지 않아야 한다 (리액션 시트가 carry 합성을 대체)"
+		"탑승 중에는 새 클릭 교감이 시작되지 않아야 한다"
+	)
+	_expect(
+		not bool(ridden.is_companion_click_reaction_active()),
+		"거부된 클릭이 반응을 켜서도 안 된다"
 	)
 
 

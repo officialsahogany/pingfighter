@@ -2835,6 +2835,12 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		# the mounting frame would stay latched for the whole ride (붉은 오라 상시 +
 		# 하차 후 첫 히트가 "방어!"로 오표기). Retire it explicitly on entry.
 		_companion_motion_state.clear_defense_intercept()
+		# 같은 원리로 진행 중인 클릭 교감도 은퇴시킨다. 탑승 게이트는 NEW 클릭만
+		# 막으므로, 좌클릭 교감 → 4초 이내 RMB 탑승 순서에서는 기존 반응이
+		# `_companion_click_reaction_state.advance()`로 계속 살아 있고, 그리기 경로가
+		# `is_active()`만 보므로 carry 대신 반응 시트를 골라 라이더만 공중에 남는다.
+		# 탑승 중에는 새 반응이 시작될 수 없으니 매 프레임 호출은 자기치유로만 동작한다.
+		_companion_click_reaction_state.reset()
 		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
 		_companion_motion_state.pos = _companion_pos
 		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
