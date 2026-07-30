@@ -1,0 +1,54 @@
+{
+  "asset_family": "baekrin_mokrin_transform_autosprite_v2",
+  "lingpet": "baekrin",
+  "player_facing_name": "백린 / 묵린",
+  "internal_id": "mokrin",
+  "runtime_usage": "mokrin_transform_5s_visual (S1 미배선 — 카탈로그 엔트리는 S1에서)",
+  "grid": {
+    "cols": 6,
+    "rows": 2,
+    "frame_count": 12,
+    "cell": [512, 512],
+    "sheet": [3072, 1024],
+    "read_order": "row-major",
+    "playback": "f1 -> f12 then hold f12 (루프 아님)"
+  },
+  "autosprite": {
+    "tier": "precise",
+    "spritesheet_id": "cms80nlen00ado0kqdl9bvg8a",
+    "job_id": "wf_a6181437-c5d2-43a4-a638-d0734330cb03",
+    "method": "동일 캐릭터 pose 경로 + 고정 변환 + 결정론적 재패킹",
+    "accepted_sha256": "2BCEEEF6124E0936F43E9DA6DADE9D2F7EEA3745F9C030001422BD5B23B858DF",
+    "accepted_bytes": 983868
+  },
+  "acceptance": {
+    "criteria_source": "docs/lingpet_baekrin_mokrin_slice_plan.md D13 (개정 2026-07-31)",
+    "verified_independently": true,
+    "cell_edge_alpha_outer_1px": 0,
+    "cell_edge_alpha_band_2px": 0,
+    "magenta_residue": 0,
+    "adjacent_centroid_max_dx_px": 0.071,
+    "adjacent_centroid_max_dy_px": 0.204,
+    "adjacent_centroid_max_at_92px": 0.037,
+    "adjacent_iou_min": 0.98643,
+    "adjacent_iou_min_pair": "f6->f7",
+    "f6_f7_dx_px": -0.024,
+    "f6_f7_dy_px": -0.155,
+    "f12_hold_pixel_delta": 0,
+    "production_renderer_path": "lingpet_companion_renderer.draw_companion()",
+    "production_render_log_errors": 0,
+    "note": "계측 지표는 alpha>0 이진 마스크 기준. 소프트매트 프린지가 합집합을 키워 IoU가 보수적으로 낮게 나온다(보고값 0.99358 대비)."
+  },
+  "rejected_or_unused_candidates": [
+    {
+      "purpose": "autosprite_precise_v1",
+      "reason": "후면에서 측면·정면으로 회전하고 몸체를 재설계함 — 동일 카메라/중심 기준 위반"
+    },
+    {
+      "purpose": "원본 컨셉 시트 백린_목린_변신_18프레임 (a06)",
+      "source_sha256": "54680E0BE7FBD472369563E5F4DE5A911AD652B4D5C58BBE8BBC06216E9862B3",
+      "reason": "고정 앵커 불연속 — f6→f7 알파 중심 X가 +22.56px 점프(운영 92px에서 약 5.4px 팝). 색상·형태 참고용으로만 보존하며 런타임 승격 금지",
+      "retracted_claims": "초기에 적었던 '행3 꼬리 소실 / 비균일 그리드 / 스케일락 위반'은 6×3 오슬라이스 산물이라 철회됨. 실제 규격은 상단 1536×768의 6×2(셀 256×384)이고 12프레임 전부 가장자리 접촉 0"
+    }
+  ]
+}
