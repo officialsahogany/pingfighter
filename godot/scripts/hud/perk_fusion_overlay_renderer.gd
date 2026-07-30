@@ -38,6 +38,9 @@ const ACCENT_COLOR := Color(0.30, 0.84, 0.74, 1.0)
 const GOLD_COLOR := Color(1.0, 0.79, 0.27, 1.0)
 const FAULT_COLOR := Color(0.90, 0.32, 0.22, 1.0)
 const MUTED_COLOR := Color(0.84, 0.78, 0.66, 1.0)
+const SCROLL_TITLE_INK_COLOR := Color(0.17, 0.10, 0.055, 1.0)
+const SCROLL_DETAIL_INK_COLOR := Color(0.29, 0.18, 0.10, 0.96)
+const SCROLL_OPTION_INK_COLOR := Color(0.21, 0.125, 0.065, 1.0)
 
 # §10.2 헤딩 위계: 타이틀 실측 폭에서 시작하는 좌우 놋쇠 괘선, 추상
 # 주사 낙관, 단일 그림자. 기존 본문/부제 레이아웃은 유지한다.
@@ -195,7 +198,8 @@ func _draw_confirm(
 			catalog,
 			icon_renderer,
 			_find_source_preview(source_previews, source_id),
-			"scroll_left" if pair_index == 0 else "scroll_right"
+			"scroll_left" if pair_index == 0 else "scroll_right",
+			false
 		)
 	var probability_rect: Rect2 = _as_rect2(layout.get("probability_rect", Rect2()))
 	_draw_probabilities(canvas, probability_rect, snapshot)
@@ -397,23 +401,26 @@ func _draw_candidate_card(
 	catalog: Object,
 	icon_renderer: Object,
 	preview: Dictionary = {},
-	frame_texture_key: String = ""
+	frame_texture_key: String = "",
+	show_state_border: bool = true
 ) -> void:
 	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
 		return
 	var selected: bool = selected_order >= 0
-	var border_color: Color = GOLD_COLOR if selected else (ACCENT_COLOR if highlighted else Color(0.38, 0.29, 0.17, 0.9))
-	var background_color := Color(0.13, 0.09, 0.055, 0.98) if highlighted else Color(0.08, 0.052, 0.031, 0.98)
+	var decorated_selected := selected and show_state_border
+	var decorated_highlighted := highlighted and show_state_border
+	var border_color: Color = GOLD_COLOR if decorated_selected else (ACCENT_COLOR if decorated_highlighted else Color(0.38, 0.29, 0.17, 0.9))
+	var background_color := Color(0.13, 0.09, 0.055, 0.98) if decorated_highlighted else Color(0.08, 0.052, 0.031, 0.98)
 	var frame_texture: Texture2D = _texture(frame_texture_key)
 	if frame_texture != null:
 		canvas.draw_texture_rect(frame_texture, rect, false)
-		if highlighted or selected:
+		if _candidate_state_border_visible(highlighted, selected_order, show_state_border):
 			canvas.draw_rect(rect.grow(-3.0), Color(border_color, 0.72), false, 2.0)
 	else:
 		canvas.draw_rect(rect, background_color, true)
-		if highlighted or selected:
+		if _candidate_state_border_visible(highlighted, selected_order, show_state_border):
 			canvas.draw_rect(rect.grow(4.0), Color(border_color.r, border_color.g, border_color.b, 0.20), false, 3.0)
-		canvas.draw_rect(rect, border_color, false, 2.5 if highlighted or selected else 1.4)
+		canvas.draw_rect(rect, border_color, false, 2.5 if decorated_highlighted or decorated_selected else 1.4)
 	if not preview.is_empty():
 		_draw_candidate_preview(
 			canvas,
@@ -421,7 +428,8 @@ func _draw_candidate_card(
 			_scroll_content_rect(rect, frame_texture_key),
 			preview,
 			catalog,
-			icon_renderer
+			icon_renderer,
+			frame_texture != null
 		)
 		return
 	var icon_size: float = clampf(minf(rect.size.y - 30.0, rect.size.x * 0.34), 24.0, 60.0)
@@ -439,6 +447,10 @@ func _draw_candidate_card(
 		_draw_text_centered(canvas, str(selected_order + 1), badge_center + Vector2(0.0, -1.0), 13, Color(0.10, 0.08, 0.02, 1.0))
 
 
+func _candidate_state_border_visible(highlighted: bool, selected_order: int, enabled: bool) -> bool:
+	return enabled and (highlighted or selected_order >= 0)
+
+
 func _scroll_content_rect(rect: Rect2, frame_texture_key: String) -> Rect2:
 	if frame_texture_key == "scroll_left":
 		return Rect2(rect.position + Vector2(39.0, 12.0), rect.size - Vector2(51.0, 24.0))
@@ -453,20 +465,22 @@ func _draw_candidate_preview(
 	rect: Rect2,
 	preview: Dictionary,
 	catalog: Object,
-	icon_renderer: Object
+	icon_renderer: Object,
+	painted_scroll: bool = false
 ) -> void:
+	var colors := _candidate_preview_colors(painted_scroll)
 	var icon_size := clampf(rect.size.y * 0.27, 32.0, 46.0)
 	var icon_rect := Rect2(rect.position + Vector2(12.0, 10.0), Vector2(icon_size, icon_size))
 	canvas.draw_rect(icon_rect, Color(0.045, 0.028, 0.018, 0.96), true)
 	_draw_perk_icon(canvas, icon_renderer, perk_id, icon_rect.grow(-3.0))
 	var name_x := icon_rect.end.x + 8.0
-	_draw_text_fitted(canvas, _perk_name(catalog, perk_id), Vector2(name_x, rect.position.y + 28.0), 15, Color.WHITE, rect.end.x - name_x - 10.0, 9)
+	_draw_text_fitted(canvas, _perk_name(catalog, perk_id), Vector2(name_x, rect.position.y + 28.0), 15, colors["title"], rect.end.x - name_x - 10.0, 9)
 	var base_level := int(preview.get("base_level", 0))
 	var effective_level := int(preview.get("effective_level", base_level))
 	var level_label := "Lv.%d" % base_level
 	if effective_level != base_level:
 		level_label += " → %d" % effective_level
-	_draw_text_fitted(canvas, level_label, Vector2(name_x, rect.position.y + 48.0), 11, MUTED_COLOR, rect.end.x - name_x - 10.0, 8)
+	_draw_text_fitted(canvas, level_label, Vector2(name_x, rect.position.y + 48.0), 11, colors["detail"], rect.end.x - name_x - 10.0, 8)
 
 	var option_lines: Array[String] = []
 	for option_value: Variant in _as_array(preview.get("options", [])):
@@ -481,17 +495,33 @@ func _draw_candidate_preview(
 		if not description.is_empty():
 			option_lines.append(description)
 	var line_y := rect.position.y + 76.0
-	var max_lines := maxi(1, int(floor((rect.end.y - line_y - 8.0) / 16.0)))
+	var option_step := 17.0 if painted_scroll else 16.0
+	var option_font_size := 12 if painted_scroll else 11
+	var max_lines := maxi(1, int(floor((rect.end.y - line_y - 8.0) / option_step)))
 	for line_index in range(mini(max_lines, option_lines.size())):
 		_draw_text_fitted(
 			canvas,
 			option_lines[line_index],
-			Vector2(rect.position.x + 12.0, line_y + float(line_index) * 16.0),
-			11,
-			MUTED_COLOR,
+			Vector2(rect.position.x + 12.0, line_y + float(line_index) * option_step),
+			option_font_size,
+			colors["option"],
 			rect.size.x - 24.0,
 			8
 		)
+
+
+func _candidate_preview_colors(painted_scroll: bool) -> Dictionary:
+	if painted_scroll:
+		return {
+			"title": SCROLL_TITLE_INK_COLOR,
+			"detail": SCROLL_DETAIL_INK_COLOR,
+			"option": SCROLL_OPTION_INK_COLOR,
+		}
+	return {
+		"title": Color.WHITE,
+		"detail": MUTED_COLOR,
+		"option": MUTED_COLOR,
+	}
 
 
 func _find_source_preview(previews: Array, source_id: String) -> Dictionary:

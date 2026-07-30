@@ -28,6 +28,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_layout_contract()
 	_verify_asset_and_prewarm_contract()
+	_verify_painted_scroll_readability_contract()
 	_verify_heading_fit_all_languages()
 	_verify_source_branch_contract()
 	await _verify_textured_and_fallback_draw_branches()
@@ -98,6 +99,18 @@ func _verify_asset_and_prewarm_contract() -> void:
 			_expect(Vector2i(texture.get_width(), texture.get_height()) == expected_sizes[texture_key], "%s should retain its authored 2x dimensions" % texture_key)
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 	_expect(runtime_source.contains("_perk_fusion_overlay_renderer.prewarm_assets()"), "production overlay prewarm should call the painted-shell renderer")
+
+
+func _verify_painted_scroll_readability_contract() -> void:
+	_expect(not _renderer._candidate_state_border_visible(true, 0, false), "confirm scrolls should suppress the yellow selection rectangle")
+	_expect(_renderer._candidate_state_border_visible(true, 0, true), "materials cards should retain their selection-state border")
+	var painted_colors: Dictionary = _renderer._candidate_preview_colors(true)
+	for color_key: String in ["title", "detail", "option"]:
+		var color: Color = painted_colors.get(color_key, Color.WHITE)
+		_expect(color.get_luminance() < 0.30, "painted scroll %s should use dark ink on bright hanji" % color_key)
+		_expect(color.a >= 0.95, "painted scroll %s should remain opaque enough to read" % color_key)
+	var source := FileAccess.get_file_as_string("res://scripts/hud/perk_fusion_overlay_renderer.gd")
+	_expect(source.contains("\"scroll_left\" if pair_index == 0 else \"scroll_right\",\n\t\t\tfalse"), "confirm pair should opt out of candidate state borders")
 
 
 func _verify_heading_fit_all_languages() -> void:
@@ -172,7 +185,16 @@ func _confirm_snapshot() -> Dictionary:
 		"phase": "confirm",
 		"selected_source_ids": ["alpha", "beta"],
 		"source_previews": [
-			{"perk_id": "alpha", "base_level": 5, "effective_level": 5, "options": []},
+			{
+				"perk_id": "alpha",
+				"base_level": 5,
+				"effective_level": 5,
+				"options": [
+					{"key": "damage", "value": 18.8, "polarity": "forward"},
+					{"key": "cooldown", "value": 4.8, "polarity": "forward"},
+					{"key": "duration", "value": 9.0, "polarity": "forward"},
+				],
+			},
 			{"perk_id": "beta", "base_level": 5, "effective_level": 5, "options": []},
 		],
 		"outcome_preview": {

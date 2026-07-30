@@ -11,6 +11,10 @@ class CatalogStub:
 	extends RefCounted
 
 	func get_perk_data(perk_id: String) -> Dictionary:
+		if perk_id == "iron_body_art":
+			return {"name": "잔영호법"}
+		if perk_id == "gravity_sword_art":
+			return {"name": "산화수"}
 		return {"name": perk_id.replace("_", " ").capitalize()}
 
 
@@ -92,7 +96,16 @@ func _confirm_snapshot() -> Dictionary:
 		"selected_source_ids": ["iron_body_art", "gravity_sword_art"],
 		"source_previews": [
 			{"perk_id": "iron_body_art", "base_level": 5, "effective_level": 5, "options": []},
-			{"perk_id": "gravity_sword_art", "base_level": 5, "effective_level": 5, "options": []},
+			{
+				"perk_id": "gravity_sword_art",
+				"base_level": 5,
+				"effective_level": 5,
+				"options": [
+					{"key": "damage", "value": 18.8, "polarity": "forward"},
+					{"key": "cooldown", "value": 4.8, "polarity": "forward"},
+					{"key": "duration", "value": 9.0, "polarity": "forward"},
+				],
+			},
 		],
 		"outcome_preview": {
 			"weights": {"success": 0.55, "side_effect": 0.25, "byproduct": 0.20},
