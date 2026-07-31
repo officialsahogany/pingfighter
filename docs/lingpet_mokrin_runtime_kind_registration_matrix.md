@@ -23,7 +23,8 @@
 | A1 | `SKILL_KIND_MOKRIN_TRANSFORM` 상수 신설 | **필수** | 모든 match의 키 |
 | A2 | `SUPPORTED_SKILL_KINDS`에 `true` 등재 | **필수** | 누락 시 `get_skill_kind`가 카탈로그 kind를 받고도 **`SKILL_KIND_NONE`으로 강등**(:88 `is_supported_kind` 게이트) → 전 경로 조용한 무동작 |
 | A3 | `get_skill_kind()` 하드코딩 match 폴백 | **자동** | 카탈로그 `get_active_skill_runtime_kind()`가 우선(:86). 카탈로그에 `runtime_kind`를 넣으면 폴백 불요 — **단 A2가 있어야 유효** |
-| A4 | `would_share_module` / 배타 자원 분류(:248~252) | **N/A → 재확인** | 묵린은 투사체·소환체 자원을 안 쓴다. 단 **오라/잔상 렌더 자원이 기존 스킬과 겹치면** 재분류. §D 참조 |
+| A4 | `would_share_module`(:238~242) | **자동** *(확정 2026-07-31)* | 본문이 `first_kind == get_skill_kind(second)` **순수 kind 비교**다. 별도 선언 지점이 없고 **A1/A2에 고유 kind를 등재하면 다른 kind와 자동으로 false**가 된다. ⚠️ 다만 안장(permit)과 kind가 겹치면 슬롯이 조용히 2→1 붕괴하므로 **고유 kind 유지가 전제** |
+| A6 | `get_exclusive_resource_classes`(:245~257) | **N/A 확정** *(2026-07-31)* | 클래스가 `BALL_OWNER` / `POS_OVERRIDE` 둘뿐이고 **링펫 kind끼리만** 매칭한다. 묵린은 둘 다 안 쓴다. ⚠️ **§5-8 해결 수단이 아니다** — 이 게이트는 **외부 신령환도, host 밖 permit 안장도 볼 수 없다.** `player_control` 클래스를 새로 추가해도 마찬가지다. §5-8(안장+묵린변신 중첩)과 신령환 동시 낭비는 **서로 다른 항목**이며 둘 다 여기서 해결되지 않는다 |
 | A5 | 카탈로그 스킬 정의에 `runtime_kind` 필드 | **필수** | `lingpet_catalog.gd`. ⚠️ WIP 중첩 있음(§F) |
 
 ## B. 호스트 — 생명주기 (`lingpet_skill_runtime_host.gd`)
@@ -67,16 +68,17 @@
 | D1 | `draw(:228)` fanout | **N/A** | 변신 몸체는 컴패니언 렌더러가 텍스처 교체로 그린다(위 선례) |
 | D2 | `has_visible_effects(:255)` or-fanout | **N/A** | D1과 동반 |
 | D3 | `has_visible_effects_for_skill(:284)` match | **N/A** | D1과 동반 |
-| D4 | `suppresses_companion_body_draw(:572)` | **N/A** | **같은 렌더러 안에서 텍스처를 교체**하므로 원본과 중복 자체가 없다 |
-| D5 | `should_show_cast_windup(:584)` / `get_companion_cast_pose_progress(:588)` | **N/A(잠정)** | 묵린은 즉시 발동 사양. 시전 포즈를 넣기로 하면 재분류 |
+| D4 | `suppresses_companion_body_draw(:572)` | **N/A 확정 — `false` 유지** *(2026-07-31)* | **같은 렌더러 안에서 텍스처를 교체**하므로 원본과 중복 자체가 없다. ⚠️ host가 변신체를 직접 그리고 기본 몸체를 억제하면 **z-order가 틀어진다** — host `draw()`는 전면 VFX 패스인데 컴패니언 몸체는 `lingpet_egg_runtime:1039`의 **플레이어 뒤 패스**다(주석에 "intended to run BEHIND the player actor" 명시) |
+| D5 | `should_show_cast_windup(:584)` / `get_companion_cast_pose_progress(:588)` | **필수** *(확정 2026-07-31)* | ⚠️ **N/A(잠정)에서 승격.** 변신 시트를 그릴 **가장 좁은 경로가 기존 `companion_cast` 경로**다 — 6×2·12f 시트를 그 키에 연결하고 `get_companion_cast_pose_progress()`로 **재생 진행도와 f12 hold를 투영**한다. 신규 렌더 분기·신규 body override가 불필요해진다 |
+| D7 | `lingpet_skill_companion_surface_router.gd` 등재 | **필수** *(신설 2026-07-31)* | D5를 실제로 태우는 라우터. host의 `_companion_surface_router`가 kind→모듈 표면을 중계하므로 **여기 미등재면 D5가 조용히 빈값**이 된다. ⚠️ WIP 지도(§F)에도 추가됨 |
 | D6 | `get_companion_bind_sheet_state(:1148)` | **N/A — 재사용 금지** | ⚠️ 이 훅은 **Star Coil 전용**(:1145)이고 **몸체를 보스 앞 front-pass로 옮기는 의미까지 결합**돼 있다. 묵린 6×2 변신 시트는 **별도의 companion body override / snapshot 표면**을 둔다. 잔상·오라도 gameplay state가 직접 그리지 말고 전용 presentation renderer 또는 companion renderer 하위 레이어가 snapshot을 소비하는 구조로 |
 
 ## E. 호스트 — 부가 표면
 
 | # | 지점 | 분류 | 근거 / 주의 |
 |---|---|---|---|
-| E1 | `trigger_launch_feedback(:594)` | **필수 판정 필요** | `_launch_feedback_router.trigger()` 위임 → **라우터 쪽 등재**가 실제 작업. 발동 SFX/플래시가 있으면 필수(D14-2: 단발 발동음은 취소하지 않음 → 발동음 존재 전제) |
-| E2 | `get_snapshot(:607)` `_merge_skill_snapshot` | **필수** *(정정 2026-07-29)* | ⚠️ **초판 오분류 정정.** 필드 순회가 아니라 **`_merge_skill_snapshot`을 24회 명시 나열**한 수동 fanout이다(:609~632 실측). B1 필드 선언만으로는 **포함되지 않는다** — 한 줄 추가 필수 |
+| E1 | `trigger_launch_feedback(:594)` | **필수 — 단 범위 분리** *(2026-07-31)* | `_launch_feedback_router.trigger()` 위임 → **라우터 쪽 등재**가 실제 작업. ⚠️ **발동 단발음만 여기 소유**한다. **가드 단계 SFX는 §E' X4대로 모듈 소유** — 섞으면 D14-2("단발 발동음은 되감지 않음")와 "가드마다 단계 상승"이 한 채널에 엉킨다 |
+| E2 | `get_snapshot(:607)` `_merge_skill_snapshot` | **필수 (재확정 2026-07-31)** | ⚠️ **초판 오분류 정정.** 필드 순회가 아니라 **`_merge_skill_snapshot`을 24회 명시 나열**한 수동 fanout이다(:609~632 실측). B1 필드 선언만으로는 **포함되지 않는다** — 한 줄 추가 필수. **"production 소비자 없음 → N/A" 제안은 철회됨**: 살아있는 사슬 = `egg_runtime.get_snapshot()` → `_build_runtime_snapshot_uncached()` → `lingpet_runtime_snapshot_builder:189` → `skill_runtime_host.get_snapshot()`. 추가로 `character_info_overlay_frame_presenter:154`가 집계본을 직접 읽어 패널에 병합한다. **레일 주 경로(per-skill `get_snapshot_for_skill_id`)와 대체 관계가 아니라 공존**이며, 집계본은 레일 fallback + 다른 HUD 소비자용이다 |
 | E3 | `get_snapshot_for_skill_id(:636)` / `get_snapshot_for_kind(:640)` | **자동** | B7/B8 경유 |
 | E4 | `get_launch_origin(:532)` | **N/A** | 투사체 없음 |
 | E5 | `has_companion_position_override(:536)` / `get_companion_position_override(:542)` / `get_active_position_override_owner(:548)` | **N/A** | 묵린은 **플레이어 패들**을 자동조작하지 펫 위치를 스크립팅하지 않는다(D15) |
@@ -85,6 +87,18 @@
 | E8 | `get_boss_ai_context(:598)` | **N/A** | banana_slice 전용 하드코딩. 묵린은 보스 AI 컨텍스트를 발행하지 않음 |
 | E9 | `get_ball_collision_context(:802)` / `notify_*_hit` | **N/A** | 공 충돌 계약 없음 |
 | E10 | `*_for_tests()` 계열 | **선택** | 씰이 내부 카운터를 필요로 할 때만 |
+
+## E'. 외부 — 운영 가드 접촉 통지 (신설 2026-07-31)
+
+D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영 플레이어 패들 접촉에서
+런타임에 통지**해야 한다. 현재본에 이 경로가 통째로 빠져 있었다.
+
+| # | 지점 | 분류 | 근거 / 주의 |
+|---|---|---|---|
+| X1 | `paddle_bounce_event_router.register_player_hit(:29)` → egg runtime → host/module 통지 | **필수** | 이게 없으면 가드 횟수·연출 단계가 **영원히 0**이다 |
+| X2 | **신령환 조기 반환 앞에 배치** | **필수** | ⚠️ `register_player_hit`의 신령환 분기가 `apply_aipill_guard_drain` + `_trigger_player_hit_anim` 후 **`return updated_gauge`로 조기 반환**한다(:46 부근, 확인). 동시 활성에서도 묵린 가드를 셀 정책이라면 **통지는 반드시 그 반환 앞**이어야 한다 |
+| X3 | 오검출 필터 | **필수** | 방패 · 대체 인터셉트 · 컴패니언 몸통 가드를 **일반 패들 가드로 잘못 세면 안 된다.** 무엇을 "묵린 가드 1회"로 셀지 술어를 명시 |
+| X4 | 가드 단계 SFX 소유 | **모듈 소유** | E1(launch feedback router)은 **발동 단발음**만. **가드 단계 SFX는 X1 통지를 받은 모듈이 소유**한다 — 두 개를 한 라우터에 섞지 말 것 |
 
 ## F. WIP 중첩 지도 (2026-07-29 실측)
 
@@ -96,6 +110,8 @@ S1 구현 대상 4파일이 **전부 dirty**다. 구현 전 소유권 판단 필
 | `smasher_player_controller.gd` | 15줄 | 소규모. 성격 확인 후 헝크 분리 가능성 높음 |
 | `battle_update_player_control_deps_builder.gd` | **1줄** | 거의 클린 |
 | `lingpet_catalog.gd` | 2줄 | 소규모 |
+| `lingpet_skill_companion_surface_router.gd` | **0 (클린)** | *(추가 2026-07-31)* D7 대상. 선행 WIP 없음 |
+| `paddle_bounce_event_router.gd` | **0 (클린)** | *(추가 2026-07-31)* §E' X1~X3 대상. 선행 WIP 없음 |
 
 ### ✅ 브리지 경로 확정 (2026-07-29, 코드 조사 완료)
 
