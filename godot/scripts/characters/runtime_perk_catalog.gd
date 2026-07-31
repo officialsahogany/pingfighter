@@ -1160,8 +1160,8 @@ const CONVERTED_MYTHIC_PERKS := {
 	"odins_eye": {
 		"name": "윤회천안",
 		"max_level": 1,
-		"descriptions": {1: "실점 무효 부활 35%"},
-		"detail": "실점 시 천안이 확률로 그 점수를 무효화하고 윤회시킵니다.",
+		"descriptions": {1: "실점 무효·악귀 부활 35%"},
+		"detail": "실점 시 일정 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 되살아난 뒤에는 이동과 활주가 둔해지고, 다시 실점하면 패배합니다.",
 		"icon_color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
 		"tree": "mythic",
 		"rarity": "mythic",

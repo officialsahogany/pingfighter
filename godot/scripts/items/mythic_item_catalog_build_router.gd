@@ -511,7 +511,7 @@ func _build_odins_eye(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "오딘의 눈",
 		"korean_name": "오딘의 눈",
-		"description": "실점 시 롤 확률로 그 실점을 무효화하고 부활합니다. 부활 후에는 이동과 대시에 페널티를 받으며, 다시 실점하면 패배합니다.",
+		"description": "실점 시 롤 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 되살아난 뒤에는 이동과 활주에 페널티를 받으며, 다시 실점하면 패배합니다.",
 		"color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
 	}, "odins_eye", "belt", true)
 
