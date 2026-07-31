@@ -257,6 +257,36 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 ✅ **확정 (rev10). 실제 후면 산출물은 `idle` + `L` + `R` + `strike` 4종이다** —
 `walk`와 `cast`는 별도 PNG가 필요 없다.
 
+### 후면 계열 생성 규율 (rev11 신설)
+
+⚠️ **"같은 prompt family면 정합이 보장된다"는 과한 표현이다 — 낮춘다.** 독립 생성
+사이에는 **앵커·크기 드리프트가 여전히 가능**하다. 따라서:
+
+1. **승인된 idle 프레임을 후면 계열의 canonical pose로 고정**하고
+   **source job / pose ID · 원본 프레임 번호 · SHA**를 manifest에 기록한다.
+2. 가능하면 **같은 rear character ID와 idle pose ID를 L/R/strike에 재사용**한다.
+3. **프레임별·시트별 재중앙 금지.** idle에서 확정한 **scale / baseline을 가족 전체에
+   동일 적용**한다.
+4. **순차 승인**: idle 승인 전에 L을 생성하지 않는다. **L 승인 후 동일 prompt에서
+   방향·해부학 조항만 바꿔 R을 생성**한다.
+
+> idle 산출 경로는 **(a) 짧은 AutoSprite 시트에서 1프레임을 결정론적으로 추출**이다.
+> AutoSprite-derived 시트의 결정론적 축소는 허용된 후처리다.
+
+### ⚠️ strike 프레임 예산 계약 (rev11 — **크레딧 사용 전 필독**)
+
+런타임에서 **실제 보이는 범위는 index 18~24(f19~f25)뿐**이고 **index 22(f23)가
+impact**다(`sprite_animator:67~70` `begin_strike`가 `clampi(start_frame,
+STRIKE_START_FRAME=18, SHEET_FRAME_COUNT-1=24)`, 재생은 `strike_start_frame` →
+`last_frame`). **25프레임 전체에 동작을 균등 배분하면 안 된다.**
+
+| 프레임 | 역할 |
+|---|---|
+| f1~f18 | **사용되지 않는** 안전한 중립 / 선행 프레임 |
+| f19~f22 | 준비 → 접촉 직전 |
+| **f23** | **명확한 충돌 정점(impact)** |
+| f24~f25 | 후속 · 정착 |
+
 | 키 | 그리드·프레임 | 계약 |
 |---|---|---|
 | `companion_idle` | **1×1 · 1f (정적)** | S1에서는 정적 1장. ⚠️ **새 AutoSprite rear-idle 포즈에서 만든 production export여야 하며 변신 f1 크롭 재사용은 금지.** 실제 idle 순환과 renderer 확장은 **후속 슬라이스로 분리**(현재 `IDLE_FRAME := 12` 고정이라 저프레임 idle은 루프가 아니라 마지막 프레임 정지가 된다 — `sprite_animator:10,106~110`) |
