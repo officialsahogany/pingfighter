@@ -11,12 +11,16 @@ const DASH_FRAME_SPEED := 40.0
 const DASH_DISTANCE_SCALE := 0.7
 const LASER_DISTANCE_RATIO := 0.5
 # 원본 수량 공식은 `min(60, max(30, laser_length // 5))`이라 한 번의 차단이
-# 30~60개를 한꺼번에 띄운다. 상한이 60 미만이면 `pop_front`가 같은 버스트의
-# 앞부분을 즉시 지워버리므로 1회 최대치 + 연속 차단 여유로 잡는다.
+# 30~60개를 한꺼번에 띄운다. 원본 리스트에는 총량 상한이 아예 없다 —
+# 상한을 1회 최대 버스트 근처로 잡으면 레이저 2개를 연달아 막았을 때
+# `pop_front`가 앞 버스트를 산 채로 지운다(80이면 60+60 중 40개 소실).
+# 파티클 수명이 60~120프레임이라 실제 동시 생존은 소수 버스트로 자연히 묶이고
+# 드로우도 파티클당 1콜이라, 도달 불가능한 위치(최대 버스트 5회분)에 안전
+# 가드만 둔다. 원본과의 유일한 차이이며 실플레이에서는 걸리지 않는다.
 const EVAPORATION_PARTICLES_PER_PIXEL := 5.0
 const EVAPORATION_PARTICLES_MIN := 30
 const EVAPORATION_PARTICLES_MAX := 60
-const MAX_EVAPORATION_PARTICLES := 80
+const MAX_EVAPORATION_PARTICLES := 300
 const BALL_DEFAULT_SIZE := 28.6
 const PLAYER_DEFAULT_SIZE := Vector2(155.0, 50.0)
 # 레이저 Y는 패들 "중심"이 아니라 패들 "하단" 기준이다.

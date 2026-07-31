@@ -2,6 +2,7 @@ extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
+const VaporParticleTextureCache := preload("res://scripts/effects/vapor_particle_texture_cache.gd")
 
 const SKY_BLUE := Color(100.0 / 255.0, 200.0 / 255.0, 1.0)
 const MAIN_BLUE := Color(200.0 / 255.0, 230.0 / 255.0, 1.0)
@@ -18,12 +19,12 @@ const CORE_END_INSET := 10.0
 const GLOW_LAYER_COUNT := 5
 const ELLIPSE_SEGMENTS := 48
 const SPARK_COUNT := 3
-# 증발 파티클: 원본 `draw_laser_evaporation_particles()`는 반경 s / 2s/3 / s/3,
-# 알파 a / a/2 / a/3 짜리 원 3겹을 겹쳐 수증기(기포) 느낌을 만든다. 별 모양
-# 스파클 텍스처는 같은 자리에서 반짝이로 읽히므로 쓰지 않는다.
-const PARTICLE_LAYER_COUNT := 3
-const PARTICLE_ELLIPSE_SEGMENTS := 16
-const MAX_RENDERED_EVAPORATION_PARTICLES := 80
+# 증발 파티클은 사전-합성 밴드 텍스처 한 장으로 그린다. 원본은 알파 블렌딩이
+# 없는 `pygame.draw.circle` 덮어쓰기라 최종 알파가 바깥 a / 중간 a/2 / 중심 a/3
+# (가운데가 옅은 속 빈 기포)인데, 캔버스에 원 3겹을 겹쳐 그리면 source-over로
+# 중심이 ~0.854까지 차오른 밝은 구체가 된다. 자세한 근거는
+# `vapor_particle_texture_cache.gd` 헤더 참조.
+const MAX_RENDERED_EVAPORATION_PARTICLES := 300
 
 var _unit_ellipse_points_cache: Dictionary = {}
 
@@ -31,6 +32,7 @@ var _unit_ellipse_points_cache: Dictionary = {}
 func _init() -> void:
 	ImpactFlareTextureCache.prewarm()
 	ImpactShockwaveTextureCache.prewarm()
+	VaporParticleTextureCache.prewarm()
 
 
 func draw(canvas: CanvasItem, lasers: Array, particles: Array, shake_offset: Vector2) -> void:
@@ -125,47 +127,14 @@ func _draw_evaporation_particle(canvas: CanvasItem, particle: Dictionary, shake_
 	)
 	var base_color: Color = _as_color(particle.get("color", MAIN_BLUE), MAIN_BLUE)
 	var draw_color: Color = base_color.lerp(CORE_WHITE, 1.0 - life_ratio)
-	for layer in build_particle_layers(size, alpha):
-		var radius: float = float(layer.get("radius", 0.0))
-		_draw_ellipse(
-			canvas,
-			pos,
-			radius,
-			radius,
-			Color(draw_color.r, draw_color.g, draw_color.b, float(layer.get("alpha", 0.0))),
-			PARTICLE_ELLIPSE_SEGMENTS
-		)
+	VaporParticleTextureCache.draw_vapor(canvas, pos, size, draw_color, alpha)
 
 
-# 증발 파티클 1개가 그리는 원 레이어(바깥 -> 안). 원본과 동일하게 반경은
-# `size - i * size/3`, 알파는 `alpha / (i + 1)`이다.
-func build_particle_layers(size: float, alpha: float) -> Array[Dictionary]:
-	var layers: Array[Dictionary] = []
-	if size <= 0.0 or alpha <= 0.0:
-		return layers
-	for index in range(PARTICLE_LAYER_COUNT):
-		var radius: float = size - float(index) * (size / float(PARTICLE_LAYER_COUNT))
-		if radius <= 0.0:
-			continue
-		layers.append({
-			"radius": radius,
-			"alpha": alpha / float(index + 1),
-		})
-	return layers
-
-
-func _draw_ellipse(
-	canvas: CanvasItem,
-	center: Vector2,
-	half_width: float,
-	half_height: float,
-	color: Color,
-	segments: int = ELLIPSE_SEGMENTS
-) -> void:
+func _draw_ellipse(canvas: CanvasItem, center: Vector2, half_width: float, half_height: float, color: Color) -> void:
 	if half_width <= 0.0 or half_height <= 0.0:
 		return
 	var points := PackedVector2Array()
-	for point in _get_unit_ellipse_points(segments):
+	for point in _get_unit_ellipse_points(ELLIPSE_SEGMENTS):
 		points.append(center + Vector2(point.x * half_width, point.y * half_height))
 	canvas.draw_colored_polygon(points, color)
 

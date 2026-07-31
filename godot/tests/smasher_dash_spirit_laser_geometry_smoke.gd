@@ -11,6 +11,7 @@ extends SceneTree
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
 const SmasherDashSpiritRenderer := preload("res://scripts/characters/smasher_dash_spirit_renderer.gd")
+const VaporParticleTextureCache := preload("res://scripts/effects/vapor_particle_texture_cache.gd")
 
 const VIEW_SIZE := Vector2i(760, 750)
 
@@ -86,6 +87,9 @@ func _init() -> void:
 	_probe.state = base_state
 	_probe.particle_state = particle_state
 	get_root().add_child(_probe)
+	# 렌더러가 실제로 밴드 텍스처를 소비하는지 봉인한다. 알파 프로파일만 보면
+	# 렌더러가 그 텍스처를 안 쓰고 원 3겹으로 되돌아가도 GREEN이 된다.
+	VaporParticleTextureCache.reset_for_test()
 	_probe.queue_redraw()
 
 
@@ -152,6 +156,10 @@ func _process(_delta: float) -> bool:
 	if _frame_count < 3:
 		return false
 	_expect(_probe != null and _probe.draw_count > 0, "트리 부착 CanvasItem._draw()로 실제 렌더러가 관통돼야 한다")
+	_expect(
+		VaporParticleTextureCache.is_built(),
+		"실 드로우 경로가 사전-합성 밴드 텍스처를 소비해야 한다 (원 3겹 누적 합성으로 되돌아가면 미소비)"
+	)
 	_finish()
 	return true
 
@@ -246,26 +254,78 @@ func _verify_evaporation_particles() -> RefCounted:
 		if first_state == null:
 			first_state = state
 
-	# 3겹 원 계약: 별 스파클 1장으로 되돌리면 깨진다.
-	var renderer: RefCounted = SmasherDashSpiritRenderer.new()
-	var layers: Array[Dictionary] = renderer.build_particle_layers(6.0, 0.6)
-	_expect(layers.size() == 3, "증발 파티클은 원본과 같이 원 3겹이어야 한다 (got %d)" % layers.size())
-	if layers.size() != 3:
-		return first_state
-	for index in range(3):
-		_expect(
-			is_equal_approx(float(layers[index].get("radius", 0.0)), 6.0 - float(index) * 2.0),
-			"파티클 레이어 %d 반경은 `size - i*size/3` = %.1f여야 한다 (got %.1f)" % [index, 6.0 - float(index) * 2.0, float(layers[index].get("radius", 0.0))]
-		)
-		_expect(
-			is_equal_approx(float(layers[index].get("alpha", 0.0)), 0.6 / float(index + 1)),
-			"파티클 레이어 %d 알파는 `alpha/(i+1)` = %.3f여야 한다 (got %.3f)" % [index, 0.6 / float(index + 1), float(layers[index].get("alpha", 0.0))]
-		)
-	_expect(
-		SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES >= 60,
-		"렌더 상한이 원본 1회 최대 버스트(60)를 자르면 안 된다 (got %d)" % SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES
-	)
+	_verify_particle_alpha_profile()
+	_verify_particle_capacity()
 	return first_state
+
+
+# P1 봉인: 원본은 알파 블렌딩 없는 `pygame.draw.circle` 덮어쓰기라 최종 알파가
+# 바깥 a / 중간 a/2 / 중심 a/3 (가운데가 옅은 속 빈 기포)이다. 캔버스에 원
+# 3겹을 겹쳐 그리면 source-over로 중심이 ~0.854까지 차오르므로, 밴드를 미리
+# 구운 텍스처 1장으로 그린다. 여기서는 그 구워진 알파 프로파일을 직접 읽는다.
+func _verify_particle_alpha_profile() -> void:
+	var texture: ImageTexture = VaporParticleTextureCache.get_texture()
+	if texture == null:
+		_expect(false, "증발 파티클 밴드 텍스처가 생성돼야 한다")
+		return
+	var image: Image = texture.get_image()
+	var size: int = image.get_width()
+	var center: float = (float(size) - 1.0) * 0.5
+	# 정규화 거리 -> 원본 밴드 알파(파티클 알파 대비 상대값).
+	for probe: Array in [
+		[0.00, 1.0 / 3.0, "중심"],
+		[0.20, 1.0 / 3.0, "중심 밴드 안쪽"],
+		[0.50, 0.5, "중간 밴드"],
+		[0.85, 1.0, "바깥 밴드"],
+	]:
+		var normalized: float = float(probe[0])
+		var expected: float = float(probe[1])
+		var pixel_x: int = int(round(center + normalized * center))
+		var actual: float = image.get_pixel(pixel_x, int(round(center))).a
+		_expect(
+			absf(actual - expected) <= 0.02,
+			"%s 알파는 원본 밴드 %.3f여야 한다 (got %.3f)" % [str(probe[2]), expected, actual]
+		)
+	# 방향성까지 못박는다: 중심이 바깥보다 진해지면(=source-over 누적) 실패.
+	var center_alpha: float = image.get_pixel(int(round(center)), int(round(center))).a
+	var rim_alpha: float = image.get_pixel(int(round(center + 0.85 * center)), int(round(center))).a
+	_expect(
+		center_alpha < rim_alpha,
+		"기포는 가운데가 더 옅어야 한다 — 중심 %.3f >= 바깥 %.3f 이면 원 3겹 누적 합성 회귀" % [center_alpha, rim_alpha]
+	)
+
+
+# P2 봉인: 원본 리스트에는 총량 상한이 없다. 도달 가능한 최대 버스트(60)와
+# 연속 2버스트(120)가 잘리지 않아야 한다.
+func _verify_particle_capacity() -> void:
+	var state: RefCounted = SmasherDashSpiritState.new()
+	var deps := {"runtime_perk_state": GuaranteedDashSpiritPerkState.new()}
+	var burst_sizes: Array[int] = []
+	# 22프레임 = 308px 레이저 -> 원본 수량 상한 60개 버스트.
+	for _round_index in range(2):
+		state.try_spawn_from_dash(1.0, false, Vector2(302.5, 700.0), Vector2(155.0, 50.0), deps, 22.0, 1.0)
+		if state.lasers.is_empty():
+			_expect(false, "최대 버스트 검증용 레이저가 생성돼야 한다")
+			return
+		state.update_effects(11.0)
+		var laser: Dictionary = state.lasers[0] as Dictionary
+		var before: int = state.evaporation_particles.size()
+		var hit_pos: Vector2 = ((laser.get("start", Vector2.ZERO) as Vector2) + (laser.get("end", Vector2.ZERO) as Vector2)) * 0.5
+		state.resolve_ball_collision(
+			{"ball_pos": hit_pos, "ball_vel": Vector2(3.0, 6.0)},
+			{"ball_size": 28.6, "player_pos": Vector2(302.5, 700.0), "player_paddle_size": Vector2(155.0, 50.0)},
+			{}
+		)
+		burst_sizes.append(state.evaporation_particles.size() - before)
+	_expect(burst_sizes.size() == 2 and burst_sizes[0] == 60, "308px 레이저는 원본 상한 60개를 띄워야 한다 (got %s)" % [burst_sizes])
+	_expect(
+		state.evaporation_particles.size() == 120,
+		"연속 2버스트(60+60)가 상한에 잘리면 안 된다 (got %d)" % state.evaporation_particles.size()
+	)
+	_expect(
+		SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES >= 120,
+		"렌더 상한도 연속 2버스트를 자르면 안 된다 (got %d)" % SmasherDashSpiritRenderer.MAX_RENDERED_EVAPORATION_PARTICLES
+	)
 
 
 func _verify_ellipse_layer_contract(half_length: float) -> void:
