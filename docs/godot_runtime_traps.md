@@ -1084,6 +1084,54 @@ Standing rules:
   constants is NOT enough — verify the effective per-frame advancement under
   the real dual-path frame flow.
 
+### Variant: player-control-ONLY window (ball path frozen, stale `ball_active` still open)
+
+`battle_frame_flow_controller` has a window that runs `update_player_control`
+but NOT `update_ball`: the **victory loot phase** (보스 패배 → 상자 드랍;
+"공/보스 AI/서브 흐름은 동결하고 플레이어 조작·아이템·이펙트만 태운다"). The
+hazard is that **the ball gate does not close by itself there**: a match-ending
+score never runs `reset_ball` (`match_scoreboard_flow_controller` calls it only
+on `update_start_serve`; the win ladder goes RESET_GAME → loot phase → result
+screen), so `owner.ball_active` stays `true` from the final rally all the way
+through the loot phase. Every player skill gated on `config["ball_active"]` is
+therefore still activatable in a window where its ball-path advance never runs.
+
+Reference failure (2026-08-01): Smasher 회천비륜 (`shield_kiting`). Its
+projectile advances ONLY in `update_and_collide()` (ball path), and
+`is_movement_locked()` is true for the whole `STATE_WIND_UP`. Pressing the skill
+during the chest drop created the wind-up projectile, nothing ever advanced it,
+`smasher_player_controller` took its `movement_locked` early return
+(`player_speed = 0`, x pinned to `locked_player_x`) forever — "발사가 안 되고
+캐릭터가 정지". Worse than cosmetic: the frozen player cannot walk into a box,
+so `_all_boxes_done()` never becomes true and the loot phase never finishes =
+hard softlock.
+
+Standing rules:
+- The ball gate for player skills is closed at the SHARED source:
+  `battle_scene_player_control_config_builder` ANDs `owner.ball_active` with
+  `not owner.victory_loot_phase_active`. Any NEW frame-flow window that keeps
+  `update_player_control` alive while freezing `update_ball` must extend that
+  same expression — do not add a per-skill phase check.
+- A skill state that (a) can be activated from the player-control path and
+  (b) only advances on the ball path must be able to **self-heal**: on a frame
+  where its ball gate reads closed, release/clear the live projectile and report
+  `movement_locked = false`. The activation gate alone is not enough — a skill
+  already winding up when the final point lands carries the lock into the phase.
+  Reference: `SmasherShieldKitingState._release_stalled_projectile` (also stops
+  the wind-up loop SFX, which is in `gameplay_loop_audio_cleanup.STOP_METHODS`
+  and would otherwise drone through the whole phase).
+- Movement-locking skills are the softlock class; audit them first when adding a
+  new player-control-only phase. Ranking test: "if this lock never releases, can
+  the phase still reach its exit condition?"
+- Seal shape (`smasher_shield_kiting_victory_loot_freeze_smoke.gd`): build the
+  config through the REAL `build_config` with a fake owner whose
+  `ball_active = true` AND `victory_loot_phase_active = true` (asserting the
+  stale-true precondition explicitly, since a fixture that sets
+  `ball_active = false` proves nothing), then drive the real double-tap edge
+  through `update_input`. Needs a live-rally control leg, or the "no activation"
+  assertion passes vacuously. Reverse-verified: reverting either the config gate
+  or the release turns its own leg RED.
+
 ## Godot Lazy Applied-Key Re-Apply Trap
 
 A lazy apply gate that early-returns on "already applied" BEFORE recomputing

@@ -140,6 +140,13 @@ func update_input(
 		last_action_edge_msec = -100000
 		return result
 	if not bool(config.get("ball_active", false)):
+		# 투사체는 update_and_collide(볼 패스 전용)로만 전진한다. 공 게이트가 닫힌
+		# 창(승리 전리품 페이즈 · 서브 대기 등)은 볼 패스가 아예 돌지 않으므로
+		# 살아있는 WIND_UP 투사체는 영원히 발사되지 않고 이동잠금만 남는다.
+		# 여기서 해제해 잠금이 페이즈를 넘겨 살아남지 못하게 한다.
+		_release_stalled_projectile(deps)
+		result["movement_locked"] = false
+		result["locked_player_x"] = locked_player_x
 		return result
 	if _has_live_projectile():
 		result["movement_locked"] = is_movement_locked()
@@ -812,6 +819,14 @@ func _is_power_motion_locked(deps: Dictionary) -> bool:
 
 func _has_live_projectile() -> bool:
 	return not projectile.is_empty() and bool(projectile.get("active", false))
+
+
+func _release_stalled_projectile(deps: Dictionary) -> void:
+	if projectile.is_empty():
+		return
+	projectile.clear()
+	launch_sound_pending = false
+	_stop_wind_up_sound(deps)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

@@ -57,7 +57,16 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	var paddle_height: float = float(_get_owner_value(owner, "player_paddle_height", 50.0))
 	config["paddle_height"] = max(1.0, paddle_height)
 	config["special_gauge"] = float(_get_owner_value(owner, "special_gauge", 0.0))
-	config["ball_active"] = bool(_get_owner_value(owner, "ball_active", false))
+	# 승리 전리품 페이즈는 update_player_control만 돌고 update_ball은 동결한다
+	# (battle_frame_flow_controller의 loot 분기). 매치 종료 득점은 reset_ball을
+	# 거치지 않으므로 마지막 랠리의 ball_active=true가 그대로 살아 있고, 그 창에서
+	# 공-패스로만 전진하는 플레이어 스킬이 발동하면 영원히 진행되지 않는다
+	# (회천비륜 WIND_UP 이동잠금 -> 상자 픽업 불가 = 전리품 페이즈 소프트락).
+	# 공 게이트를 페이즈 플래그와 함께 닫아 공-의존 스킬의 신규 발동을 차단한다.
+	config["ball_active"] = (
+		bool(_get_owner_value(owner, "ball_active", false))
+		and not bool(_get_owner_value(owner, "victory_loot_phase_active", false))
+	)
 	config["ball_pos"] = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
 	config["ball_vel"] = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
 	config["ball_impact_boost"] = float(_get_owner_value(owner, "ball_impact_boost", 1.0))

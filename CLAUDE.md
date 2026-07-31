@@ -441,7 +441,12 @@ contexts for the two calls (a shared dict masks the bug). Inverse variant:
 a state module ticking `_tick_timers` from BOTH `update_input` and
 `update_effects` runs at DOUBLE speed (normal frames call both paths) —
 tick on exactly one path and seal with a dual-path frame-drive smoke
-(Thor Shield 0.7s→0.35s case). Full rules: `docs/godot_runtime_traps.md`.
+(Thor Shield 0.7s→0.35s case). ⚠️세 번째 변종: **플레이어-컨트롤만 도는 창**
+(승리 전리품 페이즈)은 매치 종료 득점이 `reset_ball`을 안 거쳐 `ball_active`가
+true로 남으므로, 볼-패스로만 전진하는 스킬이 발동돼 영구 정지한다(회천비륜
+WIND_UP 이동잠금 = 상자 픽업 불가 소프트락) — 게이트는 config 빌더 한 곳에서
+`victory_loot_phase_active`와 함께 닫고, 스킬은 닫힌 프레임에 자기해제까지.
+Full rules: `docs/godot_runtime_traps.md`.
 
 ## Godot Shared Stateful Input-Reader Edge-Eating Trap (extra get_snapshot() consumer)
 
