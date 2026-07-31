@@ -15,7 +15,6 @@ const BASE_PERK_SLOT_LIMIT := 6
 const MAX_PERK_SLOT_LIMIT := 10
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
-const SOUL_SUMMON_PRIORITY_KEY := "_soul_summon_reserved"
 const GUARDIAN_ENHANCE_PRIORITY_KEY := "_guardian_enhance_reserved"
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_GUARDIAN_ENHANCE_CHOICE_ID: true,
@@ -1306,7 +1305,7 @@ func get_choices(
 	var target_choice_count: int = max(0, int(base_choice_count))
 	var choices: Array = []
 	_append_pool_choices(choices, COMMON_PERKS, runtime_levels, "")
-	_append_soul_summon_choice(choices, runtime_levels, _registry)
+	_append_soul_summon_choice(choices, runtime_levels)
 
 	var normalized: String = _normalize_character(character_type)
 	if normalized == "smasher":
@@ -1327,9 +1326,6 @@ func get_choices(
 		_append_instant_choices(choices)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
-	var soul_summon_reservation: Dictionary = _extract_soul_summon_reserved_choice(choices)
-	var soul_summon_reserved: Array = soul_summon_reservation.get("reserved", []) as Array
-	choices = soul_summon_reservation.get("remaining", []) as Array
 	var guardian_enhance_reservation := _extract_guardian_enhance_reserved_choice(choices)
 	var guardian_enhance_reserved: Array = guardian_enhance_reservation.get("reserved", []) as Array
 	choices = guardian_enhance_reservation.get("remaining", []) as Array
@@ -1372,10 +1368,6 @@ func get_choices(
 			choices = owned_upgrade_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
-	for soul_choice in soul_summon_reserved:
-		if result.size() >= target_choice_count:
-			break
-		result.append(_with_offer_metadata(soul_choice, "soul_summon_reserved", true))
 	for guardian_choice in guardian_enhance_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1658,23 +1650,11 @@ func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dicti
 
 func _append_soul_summon_choice(
 	output: Array,
-	runtime_levels: Dictionary,
-	registry: Object
+	runtime_levels: Dictionary
 ) -> void:
 	if int(runtime_levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, 0)) > 0:
 		return
 	if int(runtime_levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_ID, 0)) > 0:
-		return
-	var reservation := {
-		"offer_allowed": true,
-		"reserve": true,
-	}
-	var runtime: Object = _get_lingpet_runtime(registry)
-	if runtime != null and runtime.has_method("begin_soul_summon_offer_screen"):
-		var runtime_result: Variant = runtime.begin_soul_summon_offer_screen(false)
-		if runtime_result is Dictionary:
-			reservation = (runtime_result as Dictionary).duplicate(true)
-	if not bool(reservation.get("offer_allowed", false)):
 		return
 	var choice: Dictionary = _build_level_choice(
 		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID,
@@ -1683,32 +1663,7 @@ func _append_soul_summon_choice(
 		1,
 		""
 	)
-	if bool(reservation.get("reserve", false)):
-		choice[SOUL_SUMMON_PRIORITY_KEY] = true
 	output.append(choice)
-
-
-func _extract_soul_summon_reserved_choice(choices: Array) -> Dictionary:
-	var reserved: Array = []
-	var remaining: Array = []
-	for value in choices:
-		if value is Dictionary:
-			var choice: Dictionary = value as Dictionary
-			if bool(choice.get(SOUL_SUMMON_PRIORITY_KEY, false)):
-				var reserved_choice := choice.duplicate(true)
-				reserved_choice.erase(SOUL_SUMMON_PRIORITY_KEY)
-				reserved.append(reserved_choice)
-				continue
-			if choice.has(SOUL_SUMMON_PRIORITY_KEY):
-				var regular_choice := choice.duplicate(true)
-				regular_choice.erase(SOUL_SUMMON_PRIORITY_KEY)
-				remaining.append(regular_choice)
-				continue
-		remaining.append(value)
-	return {
-		"reserved": reserved,
-		"remaining": remaining,
-	}
 
 
 func _extract_guardian_enhance_reserved_choice(choices: Array) -> Dictionary:

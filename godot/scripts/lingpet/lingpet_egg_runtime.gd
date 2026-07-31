@@ -248,9 +248,6 @@ var _guard_hit_tag_resolver: Object = LingpetGuardHitTagResolver.new()
 var _guard_feedback_state: Object = LingpetGuardFeedbackState.new()
 var _duration_runtime_state: Object = LingpetDurationRuntimeState.new()
 var _guardian_stowed := false
-var _soul_summon_offer_guarantee_count := 0
-var _soul_summon_offer_cooldown_screens := 0
-var _soul_summon_offer_pending_choice := false
 var _soul_summon_overflow_available_for_tests := true
 var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.new()
 var _guardian_enhance_roll_rng_for_tests: RandomNumberGenerator = null
@@ -525,40 +522,6 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 # incubator egg can collect another pet). Blocked only while an egg is mid-incubation
 # (STATE_EGG main egg or active coexist egg) so two eggs never incubate at once.
 # Junior never offers the item (its lingpet is auto-present).
-func begin_soul_summon_offer_screen(already_owned: bool) -> Dictionary:
-	if already_owned:
-		mark_soul_summon_art_acquired()
-		return {"offer_allowed": false, "reserve": false}
-	if _soul_summon_offer_pending_choice:
-		_soul_summon_offer_pending_choice = false
-		if _soul_summon_offer_guarantee_count >= 2:
-			_soul_summon_offer_cooldown_screens = 3
-	if _soul_summon_offer_cooldown_screens > 0:
-		_soul_summon_offer_cooldown_screens -= 1
-		return {"offer_allowed": false, "reserve": false}
-	if _soul_summon_offer_guarantee_count < 2:
-		_soul_summon_offer_guarantee_count += 1
-	_soul_summon_offer_pending_choice = true
-	return {
-		"offer_allowed": true,
-		"reserve": true,
-		"guarantee_index": _soul_summon_offer_guarantee_count,
-	}
-
-
-func mark_soul_summon_art_acquired() -> void:
-	_soul_summon_offer_pending_choice = false
-	_soul_summon_offer_cooldown_screens = 0
-
-
-func get_soul_summon_offer_state_for_tests() -> Dictionary:
-	return {
-		"guarantee_count": _soul_summon_offer_guarantee_count,
-		"cooldown_screens": _soul_summon_offer_cooldown_screens,
-		"pending_choice": _soul_summon_offer_pending_choice,
-	}
-
-
 func build_guardian_enhance_offer(owner: Object) -> Dictionary:
 	var pet_id := _resolve_guardian_enhance_pet_id(owner)
 	if pet_id == "":
@@ -1500,9 +1463,6 @@ func debug_grant_and_activate_pet(
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
-	_soul_summon_offer_guarantee_count = 0
-	_soul_summon_offer_cooldown_screens = 0
-	_soul_summon_offer_pending_choice = false
 	_soul_summon_overflow_available_for_tests = true
 	_set_current_pet_id(normalized_pet_id)
 	_loadout_state.set_skip_unlock_reconcile(has_explicit_loadout)

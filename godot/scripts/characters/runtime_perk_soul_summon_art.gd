@@ -7,8 +7,6 @@ static func apply_acquired(owner: Object, registry: Object) -> Dictionary:
 	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime == null:
 		return {"dropped": false, "skipped_reason": "missing_lingpet_runtime"}
-	if runtime.has_method("mark_soul_summon_art_acquired"):
-		runtime.mark_soul_summon_art_acquired()
 	if not runtime.has_method("deploy_soul_summon_egg"):
 		return {"dropped": false, "skipped_reason": "missing_drop_surface"}
 	var result: Variant = runtime.deploy_soul_summon_egg(owner, registry)

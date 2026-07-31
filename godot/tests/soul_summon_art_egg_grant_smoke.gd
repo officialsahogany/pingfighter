@@ -56,8 +56,17 @@ class FakeNoCandidateCollection:
 	func is_full(_owner: Object) -> bool:
 		return false
 
+	func is_auto_present_league(_owner: Object) -> bool:
+		return false
+
 	func has_unowned_pet_candidates(_owner: Object) -> bool:
 		return false
+
+	func pick_random_unowned_pet_id(_owner: Object) -> String:
+		return ""
+
+	func pick_random_any_pet_id() -> String:
+		return ""
 
 
 class FakeRegistry:
@@ -78,7 +87,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_offer_reservation_and_three_screen_cooldown()
+	_verify_offer_uses_normal_random_pool()
 	_verify_immediate_drop_and_three_skip_branches()
 	_verify_swap_cancel_cannot_reach_drop_helper()
 	if _failures.is_empty():
@@ -90,36 +99,61 @@ func _init() -> void:
 	quit(1)
 
 
-func _verify_offer_reservation_and_three_screen_cooldown() -> void:
-	var runtime := LingpetEggRuntime.new()
-	var registry := FakeRegistry.new(runtime)
+func _verify_offer_uses_normal_random_pool() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var offers: Array = []
-	catalog._append_soul_summon_choice(offers, {}, registry)
-	_expect(_is_reserved(offers), "first unowned martial-art screen must reserve Soul Summoning Art")
-	offers.clear()
-	catalog._append_soul_summon_choice(offers, {}, registry)
-	_expect(_is_reserved(offers), "second unowned martial-art screen must reserve Soul Summoning Art")
-	for cooldown_screen in range(3):
-		offers.clear()
-		catalog._append_soul_summon_choice(offers, {}, registry)
-		_expect(offers.is_empty(), "skipping both guarantees should hide the offer on cooldown screen %d" % (cooldown_screen + 1))
-	offers.clear()
-	catalog._append_soul_summon_choice(offers, {}, registry)
-	_expect(_is_reserved(offers), "offer must return as a protected reservation after exactly three screens")
-	offers.clear()
-	catalog._append_soul_summon_choice(offers, {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 1}, registry)
-	_expect(offers.is_empty(), "owned Soul Summoning Art must never reappear")
+	catalog._append_soul_summon_choice(offers, {})
+	_expect(offers.size() == 1, "unowned Soul Summoning Art must enter the ordinary candidate pool")
+	if offers.size() == 1:
+		var raw_offer: Dictionary = offers[0] as Dictionary
+		_expect(str(raw_offer.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "ordinary candidate must keep the canonical unlock id")
+		_expect(not raw_offer.has("_soul_summon_reserved"), "ordinary candidate must not carry the retired reservation marker")
 
+	offers.clear()
+	catalog._append_soul_summon_choice(offers, {CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID: 1})
+	_expect(offers.is_empty(), "owned unlock perk must exclude Soul Summoning Art immediately")
+	offers.clear()
+	catalog._append_soul_summon_choice(offers, {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 1})
+	_expect(offers.is_empty(), "owned active skill must exclude Soul Summoning Art immediately")
 
-func _is_reserved(offers: Array) -> bool:
-	if offers.size() != 1 or not (offers[0] is Dictionary):
-		return false
-	var offer: Dictionary = offers[0] as Dictionary
-	return (
-		str(offer.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
-		and bool(offer.get(RuntimePerkCatalog.SOUL_SUMMON_PRIORITY_KEY, false))
-	)
+	# The production chooser must be able to include and omit the art under one
+	# deterministic random sequence. This seals ordinary shuffle competition,
+	# not just raw candidate construction.
+	seed(0x51A71)
+	var present_count := 0
+	var absent_count := 0
+	for _screen in range(128):
+		var screen_choices: Array = catalog.get_choices("smasher", {}, true, 3, null, null)
+		var found := false
+		for choice_value in screen_choices:
+			if not choice_value is Dictionary:
+				continue
+			var choice: Dictionary = choice_value as Dictionary
+			if str(choice.get("id", "")) != CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
+				continue
+			found = true
+			_expect(str(choice.get("offer_lane", "")) == "replaceable", "Soul Summoning Art must use the ordinary replaceable lane")
+			_expect(not bool(choice.get("offer_protected", true)), "Soul Summoning Art must not be protected from shuffle replacement")
+			_expect(not choice.has("_soul_summon_reserved"), "production offer must not revive the retired reservation marker")
+		if found:
+			present_count += 1
+		else:
+			absent_count += 1
+	_expect(present_count > 0, "deterministic production screens must include Soul Summoning Art at least once")
+	_expect(absent_count > 0, "deterministic production screens must also omit Soul Summoning Art")
+
+	var catalog_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	for retired_symbol in [
+		"SOUL_SUMMON_PRIORITY_KEY",
+		"_extract_soul_summon_reserved_choice",
+		"begin_soul_summon_offer_screen",
+		"_soul_summon_offer_guarantee_count",
+		"_soul_summon_offer_cooldown_screens",
+		"_soul_summon_offer_pending_choice",
+		"get_soul_summon_offer_state_for_tests",
+	]:
+		_expect(catalog_source.find(retired_symbol) < 0 and runtime_source.find(retired_symbol) < 0, "retired offer state must be fully removed: %s" % retired_symbol)
 
 
 func _verify_immediate_drop_and_three_skip_branches() -> void:
@@ -145,7 +179,7 @@ func _verify_immediate_drop_and_three_skip_branches() -> void:
 	var complete_owner := DynamicOwner.new()
 	complete_runtime.set("_collection_state", FakeNoCandidateCollection.new())
 	var complete_result := complete_runtime.deploy_soul_summon_egg(complete_owner, FakeRegistry.new(complete_runtime))
-	_expect(str(complete_result.get("skipped_reason", "")) == "no_unowned_pet_candidates", "complete collection must skip the drop")
+	_expect(str(complete_result.get("skipped_reason", "")) == "deploy_rejected", "complete collection must skip when the central deploy path has no pet candidate")
 	complete_owner.free()
 
 
