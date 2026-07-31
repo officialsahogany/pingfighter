@@ -74,6 +74,7 @@
 | D5 | `get_companion_cast_pose_progress(:588)` | **필수** *(rev4 정정)* | 변신 시트를 그릴 **가장 좁은 경로**. ⚠️ **rev3의 "`companion_cast`에 연결"은 오슬라이스를 낳는다 — 철회.** `skill_cast_pose_active`가 켜지면 draw context가 **`companion_puppet_control`을 먼저 선택**하고(`draw_context_builder:22~24`), 텍스처만 `companion_cast`로 폴백돼도 렌더러는 **`companion_puppet_control_{cols,rows,frame_count}`**(:100~102)를 조회한다. 메타가 없으면 애니메이터 기본값 **`SHEET_COLS 5 / SHEET_ROWS 5 / SHEET_FRAME_COUNT 25`**(`sprite_animator:7~9`)로 **6×2·12f 시트를 5×5·25f로 잘못 자른다** |
 | D5a | 시각 키 = **`companion_puppet_control`** + `companion_puppet_control_cols=6` / `_rows=2` / `_frame_count=12` / `_draw_size=92` | **필수** *(rev4 신설)* | 위 오슬라이스를 막는 실제 계약. 네 값을 **함께** 지정해야 한다 |
 | D5b | `should_show_cast_windup(:584)` | **자동** *(rev4 정정)* | A2 등재로 라우터가 자동 처리. **실제 필수 분기는 D5(`get_companion_cast_pose_progress`) 쪽**이다 |
+| D5c | **모드 전환 Y 오프셋 계약** — per-profile `companion_puppet_control_y_offset` | **필수** *(rev5 신설)* | ⚠️ **정상 몸체 ↔ 변신 시트 경계에 6px 수직 팝이 있다.** 정상 몸체는 `MODE_WALK` → `WALK_Y_OFFSET := -6.0`, D5a 변신은 `MODE_CAST` → `CAST_Y_OFFSET := -12.0`(`sprite_animator:14,25` / `companion_renderer._get_y_offset_for_mode:414~421`). **둘 다 92px이고 앵커가 같아도 발동 순간 6px 위로 뜬다.** ⚠️ **아트 내부 위치로 보상하지 말 것** — 재생성마다 계약이 숨는다. 일반 오프셋 값으로 노출한다 |
 | D7 | `lingpet_skill_companion_surface_router.gd` 등재 | **필수** *(신설 2026-07-31)* | D5를 실제로 태우는 라우터. host의 `_companion_surface_router`가 kind→모듈 표면을 중계하므로 **여기 미등재면 D5가 조용히 빈값**이 된다. ⚠️ WIP 지도(§F)에도 추가됨 |
 | D6 | `get_companion_bind_sheet_state(:1148)` | **N/A — 재사용 금지** *(rev4 재기술)* | ⚠️ 이 훅은 **Star Coil 전용**(:1145)이고 **몸체를 보스 앞 front-pass로 옮기는 의미까지 결합**돼 있다. ⚠️ **rev3의 "별도 body override/snapshot 표면을 둔다"는 철회** — D5a의 `companion_puppet_control` 경로로 해결되므로 **신규 override가 불필요**하다. 잔상·오라만 gameplay state가 직접 그리지 말고 전용 presentation renderer 또는 companion renderer 하위 레이어가 snapshot을 소비하는 구조로 |
 
@@ -81,7 +82,7 @@
 
 | # | 지점 | 분류 | 근거 / 주의 |
 |---|---|---|---|
-| E1 | `trigger_launch_feedback(:594)` | **필수 — 단 범위 분리** *(2026-07-31)* | `_launch_feedback_router.trigger()` 위임 → **라우터 쪽 등재**가 실제 작업. ⚠️ **발동 단발음만 여기 소유**한다. **가드 단계 SFX는 §E' X4대로 모듈 소유** — 섞으면 D14-2("단발 발동음은 되감지 않음")와 "가드마다 단계 상승"이 한 채널에 엉킨다 |
+| E1 | `trigger_launch_feedback(:594)` | **조건부** *(rev5 정정)* | ⚠️ **"무조건 필수"는 틀렸다** — 발동음 존재 여부가 H-2 ㉯에서 아직 미결이다. **발동음/플래시 채택 시 필수**(`_launch_feedback_router` 등재), **무음이면 N/A**. 채택 시에만 라우터가 WIP 지도 대상이 된다. ⚠️ 어느 쪽이든 **발동 단발음만 여기 소유**하고 **가드 단계 SFX는 §E' X4대로 모듈 소유** — 섞으면 D14-2("단발 발동음은 되감지 않음")와 "가드마다 단계 상승"이 한 채널에 엉킨다 |
 | E2 | `get_snapshot(:607)` `_merge_skill_snapshot` | **필수 (재확정 2026-07-31)** | ⚠️ **초판 오분류 정정.** 필드 순회가 아니라 **`_merge_skill_snapshot`을 24회 명시 나열**한 수동 fanout이다(:609~632 실측). B1 필드 선언만으로는 **포함되지 않는다** — 한 줄 추가 필수. **"production 소비자 없음 → N/A" 제안은 철회됨**: 살아있는 사슬 = `egg_runtime.get_snapshot()` → `_build_runtime_snapshot_uncached()` → `lingpet_runtime_snapshot_builder:189` → `skill_runtime_host.get_snapshot()`. 추가로 `character_info_overlay_frame_presenter:154`가 집계본을 직접 읽어 패널에 병합한다. **레일 주 경로(per-skill `get_snapshot_for_skill_id`)와 대체 관계가 아니라 공존**이며, 집계본은 레일 fallback + 다른 HUD 소비자용이다 |
 | E3 | `get_snapshot_for_skill_id(:636)` / `get_snapshot_for_kind(:640)` | **자동** | B7/B8 경유 |
 | E4 | `get_launch_origin(:532)` | **N/A** | 투사체 없음 |
@@ -114,8 +115,13 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 | `smasher_player_controller.gd` | **+9/−6** | 소규모. 헝크 분리 가능 |
 | `battle_update_player_control_deps_builder.gd` | **+1/−0** | 거의 클린 |
 | `lingpet_catalog.gd` | **+1/−1** | 소규모 |
-| `lingpet_skill_companion_surface_router.gd` | **0 (클린)** | *(추가 2026-07-31)* D7 대상. 선행 WIP 없음 |
-| `paddle_bounce_event_router.gd` | **0 (클린)** | *(추가 2026-07-31)* §E' X1~X3 대상. 선행 WIP 없음 |
+| `lingpet_skill_companion_surface_router.gd` | **클린** | D7 대상 |
+| `paddle_bounce_event_router.gd` | **클린** | §E' X1~X3 대상 |
+| `lingpet_skill_runtime_host.gd` | **클린** | *(rev5 추가)* B·C·D·E 대부분 |
+| `lingpet_skill_dispatcher.gd` | **클린** | *(rev5 추가)* A 전체 |
+| `lingpet_egg_runtime.gd` | **클린** | *(rev5 추가 — 누락이었다)* **D15 predicate** 노출 + **§E' X1 통지 전달** |
+| `lingpet_skill_launch_feedback_router.gd` | **클린 (조건부 대상)** | *(rev5 추가)* **E1 발동음 채택 시에만** 대상 |
+| `game_audio.gd` | ⚠️ **+1807/−2055** | *(rev5 추가 — 범위 경보)* **㉯에서 신규 전용 SFX를 고르면 여기까지 범위가 확대**된다. 대형 외래 WIP라 헝크 분리가 어렵다 — **기존 SFX 재사용이면 접촉 0건** |
 
 ### ✅ 브리지 경로 확정 (2026-07-29, 코드 조사 완료)
 
@@ -139,8 +145,13 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 항상 우선해야 한다면 **바이퍼 조기 반환 픽스처를 씰에 포함**할 것.
 (이것도 frame_controller 접촉 사유는 아니다.)
 
-나머지 3파일(smasher_player_controller 15줄 / deps_builder 1줄 /
-lingpet_catalog 2줄)은 헝크 분리로 진행 가능.
+나머지 3파일(*(rev5 실측 갱신)* `smasher_player_controller` **+9/−6** /
+`deps_builder` **+1/−0** / `lingpet_catalog` **+1/−1**)은 헝크 분리로 진행 가능.
+
+⚠️ *(rev5 정정)* **"S1 전체 착수면이 클린"이 아니다.** 정확히는
+**1차 registration 착수면 4파일(host · dispatcher · surface router · event router)이
+클린**이고, 브리지·카탈로그·통지 배선은 소규모 dirty 파일과 공유하며,
+㉯ 선택에 따라 `game_audio.gd`(대형 WIP)까지 범위가 열릴 수 있다.
 
 ## G. 씰 계획 — 활성화 경계 (코덱스 권고 반영)
 
@@ -172,13 +183,14 @@ lingpet_catalog 2줄)은 헝크 분리로 진행 가능.
 
 - ~~D1/D4/D6 렌더 소유권~~ → ✅ §D 코드 선례 조사(D1~D4·D6 N/A, D5·D5a·D7 필수).
 - ~~F 브리지 경로~~ → ✅ §F, `battle_scene_frame_controller` 접촉 0건 확정.
-- ~~E1 발동 피드백~~ → ✅ **범위 분리로 해소**: 발동 단발음은 라우터 소유, 가드 단계
-  SFX는 모듈 소유(§E' X4). **"발동음이 실제로 있는가"는 에셋/연출 결정이라 H-2로 이관.**
+- **E1 발동 피드백 → 부분 해소**: 소유권 분리는 확정(발동 단발음=라우터 / 가드 단계
+  SFX=모듈, §E' X4). ⚠️ 단 **분류 자체는 조건부로 남는다** — 발동음 채택 시 필수,
+  무음이면 N/A. **"발동음이 실제로 있는가"는 H-2 ㉯에서 결정**한다.
 - ~~E6 변신 중 펫 피격~~ → ✅ **N/A 확정, `false` 유지**: 묵린변신은 **무력화 창이
   아니다**(D14가 은퇴시키는 것은 자동조작·연출뿐이고 펫을 무적으로 만들지 않는다).
   D4와 같은 판정이며 둘 다 `false`.
 
-⇒ **전수표 자체는 더 이상 S1을 막지 않는다.**
+⇒ **전수표는 E1 조건부 1건만 남기고 닫혔다** — 그 1건도 H-2 ㉯가 정해지면 자동 결정된다.
 
 ### H-2. 에셋 · 연출 결정 범위 — **4건 미결 (S1 실질 차단)**
 
@@ -186,8 +198,19 @@ lingpet_catalog 2줄)은 헝크 분리로 진행 가능.
 |---|---|---|
 | ㉮ | **12프레임 재생시간과 5초 창의 관계** | 12f를 5초에 어떻게 배분할지(등속 2.4fps? 앞부분 가속 후 f12 hold?) |
 | ㉯ | **가드 연출 단계 임계값 · SFX 발생 규칙** | §E' X1 통지를 받은 뒤 몇 회에서 단계가 오르는지. **발동 단발음 유무도 여기서 확정**(E1에서 이관) |
-| ㉰ | **S1 카드 범위** | **묵린변신 카드 1장만 runtime 필수.** 안장 카드는 S7 전 노출 금지라 **미배선 자산**일 뿐 |
+| ㉰ | **S1 카드 범위** — *(rev5)* **권고안 있음, 사용자 확인만 남음** | **묵린변신 카드 1장만 runtime 필수.** 안장 카드는 S7 전 노출 금지라 **미배선 자산**일 뿐. 이대로 확정하면 미결은 3건으로 줄어든다 |
 | ㉱ | **정상 백린 몸체용 runtime 시트** | ⚠️ **변신 해제 후 돌아갈 승인된 기본 몸체가 없다.** 현재 승격된 백린 자산은 변신 PNG·manifest·import뿐이고 walk/idle 계열이 전무하다 |
+
+**㉱ 수락 기준 (rev5 추가 — D13 QA가 못 잡은 경계)**
+
+D13 QA는 **변신 시트 내부 인접 프레임만** 검증했다. 다음 두 경계는 봉인되지 않았다:
+
+- **normal → f1** 운영 렌더 무팝
+- **f12 → normal** 운영 렌더 무팝
+
+⚠️ 여기에 **D5c의 6px 모드 오프셋 차이**(WALK −6 vs CAST −12)가 그대로 실린다.
+**아트로 보상하지 말고 D5c 오프셋 계약으로 흡수**한 뒤, **실제 운영 렌더로** 두 경계를
+검증한다.
 
 > ⚠️ **㉱ 하나만 풀면 끝나는 범위가 아니다.** enabled 카탈로그 엔트리까지 S1 범위라면
 > 정상 몸체 외에 `cutin_anim` / `cutin_dismiss_anim` / `click_reaction_anim`도
