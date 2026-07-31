@@ -74,7 +74,7 @@
 | D5 | `get_companion_cast_pose_progress(:588)` | **필수** *(rev4 정정)* | 변신 시트를 그릴 **가장 좁은 경로**. ⚠️ **rev3의 "`companion_cast`에 연결"은 오슬라이스를 낳는다 — 철회.** `skill_cast_pose_active`가 켜지면 draw context가 **`companion_puppet_control`을 먼저 선택**하고(`draw_context_builder:22~24`), 텍스처만 `companion_cast`로 폴백돼도 렌더러는 **`companion_puppet_control_{cols,rows,frame_count}`**(:100~102)를 조회한다. 메타가 없으면 애니메이터 기본값 **`SHEET_COLS 5 / SHEET_ROWS 5 / SHEET_FRAME_COUNT 25`**(`sprite_animator:7~9`)로 **6×2·12f 시트를 5×5·25f로 잘못 자른다** |
 | D5a | 시각 키 = **`companion_puppet_control`** + `companion_puppet_control_cols=6` / `_rows=2` / `_frame_count=12` / `_draw_size=92` | **필수** *(rev4 신설)* | 위 오슬라이스를 막는 실제 계약. 네 값을 **함께** 지정해야 한다 |
 | D5b | `should_show_cast_windup(:584)` | **자동** *(rev4 정정)* | A2 등재로 라우터가 자동 처리. **실제 필수 분기는 D5(`get_companion_cast_pose_progress`) 쪽**이다 |
-| D5c | **모드 전환 Y 오프셋 계약** — per-profile `companion_puppet_control_y_offset` | **필수** *(rev5 신설)* | ⚠️ **정상 몸체 ↔ 변신 시트 경계에 6px 수직 팝이 있다.** 정상 몸체는 `MODE_WALK` → `WALK_Y_OFFSET := -6.0`, D5a 변신은 `MODE_CAST` → `CAST_Y_OFFSET := -12.0`(`sprite_animator:14,25` / `companion_renderer._get_y_offset_for_mode:414~421`). **둘 다 92px이고 앵커가 같아도 발동 순간 6px 위로 뜬다.** ⚠️ **아트 내부 위치로 보상하지 말 것** — 재생성마다 계약이 숨는다. 일반 오프셋 값으로 노출한다 |
+| D5c | **모드 전환 Y 오프셋 계약** — per-profile **`companion_puppet_control_y_offset_delta = +6.0`** | **필수** *(rev7 정정)* | ⚠️ **정상 몸체 ↔ 변신 시트 경계에 6px 수직 팝.** 정상 몸체 `MODE_WALK` → `WALK_Y_OFFSET := -6.0`, D5a 변신 `MODE_CAST` → `CAST_Y_OFFSET := -12.0`. **둘 다 92px·동일 앵커여도 발동 순간 6px 위로 뜬다.**<br>⚠️ **rev5의 절대 오프셋 계약은 작동 불가 — 철회.** ① 실제 −12px는 **`animator:149` 내부에서 이미 적용**된다(`build_draw_rects`의 `dest`가 `get_y_offset(mode)`를 직접 가산) ② draw-context layout getter가 **음수를 0으로 절단**한다(`draw_context_builder:172` `maxf(0.0, …)`) → `-6`은 **전달조차 안 된다**.<br>**계약 = delta(양수라 절단 통과)**: draw-context가 delta를 config로 전달 → **`companion_renderer:186`의 `build_draw_rects()` 직후, `visual_key == "companion_puppet_control"`일 때만** `dest_rect.position.y += delta` → **키 없음 = 0**이라 기존 펫 완전 보존 → **animator 수정 불필요**.<br>⚠️ **아트 내부 위치로 보상 금지**(재생성마다 계약이 숨는다).<br>**씰 3레그**: ① 키 없음 = 기존 −12 유지 ② delta +6 = −6 ③ 실제 `normal→f1` / `f12→normal` 무팝 |
 | D7 | `lingpet_skill_companion_surface_router.gd` 등재 | **필수** *(신설 2026-07-31)* | D5를 실제로 태우는 라우터. host의 `_companion_surface_router`가 kind→모듈 표면을 중계하므로 **여기 미등재면 D5가 조용히 빈값**이 된다. ⚠️ WIP 지도(§F)에도 추가됨 |
 | D6 | `get_companion_bind_sheet_state(:1148)` | **N/A — 재사용 금지** *(rev4 재기술)* | ⚠️ 이 훅은 **Star Coil 전용**(:1145)이고 **몸체를 보스 앞 front-pass로 옮기는 의미까지 결합**돼 있다. ⚠️ **rev3의 "별도 body override/snapshot 표면을 둔다"는 철회** — D5a의 `companion_puppet_control` 경로로 해결되므로 **신규 override가 불필요**하다. 잔상·오라만 gameplay state가 직접 그리지 말고 전용 presentation renderer 또는 companion renderer 하위 레이어가 snapshot을 소비하는 구조로 |
 
@@ -82,7 +82,7 @@
 
 | # | 지점 | 분류 | 근거 / 주의 |
 |---|---|---|---|
-| E1 | `trigger_launch_feedback(:594)` | **필수 확정** *(rev6 — 사용자 확정 2026-07-31)* | **발동 SFX·플래시 채택 확정** → `_launch_feedback_router` 등재 필수. 계약: **실제 발동 성공 edge에만** 짧은 **먹빛 플래시 + 단발 SFX 1회** / **차단된 재발동·실패 launch에는 재생 안 함**(C2 `is_launch_blocked` true 경로) / **루프형 SFX 미생성** / 수납·교체·리셋 시 **이미 재생된 단발음은 취소하지 않음**(D14-2) / 공용 `trigger_launch_feedback` 라우터 관통. ⚠️ **발동 단발음만 여기 소유**하고 **가드 단계 SFX는 §E' X4대로 모듈 소유** — 섞으면 D14-2와 "가드마다 단계 상승"이 한 채널에 엉킨다 |
+| E1 | `trigger_launch_feedback(:594)` | **필수 유지** *(rev6 사용자 확정 · rev7 소유권 분리)* | 발동 SFX·플래시 채택은 **확정값 그대로 유지**한다(rev7의 "무음" 제안은 철회). ⚠️ **rev6은 SFX와 플래시 소유권을 섞었다 — 라우터 등재만으로는 "먹빛 플래시"가 구현되지 않는다.** `lingpet_skill_launch_feedback_router.gd:8` docstring이 **"launch cue selection and fallback priority only"** 이고 `trigger()`는 `_play_first(registry, &"play_*")` **오디오만** 호출한다. 반면 발동 플래시는 `lingpet_companion_skill_controller:227` `skill_state.complete_launch(origin, cooldown_seconds, flash_seconds)` **공용 경로**가 타이머를 시작하고, `companion_renderer:53~57`이 **청록**(`Color(0.24, 0.92, 1.0, …)`)으로 그린다.<br>**⇒ 3분리:**<br>**① 단발 SFX** — launch feedback router 소유. **E1 필수**<br>**② 플래시 타이머** — **기존 성공-launch 공용 경로 재사용**(신규 배선 없음)<br>**③ 먹빛 팔레트** — **renderer / config 소유**로 명시하고 **별도 씰** 추가(현재 하드코딩 청록을 스킬별로 바꾸는 작업)<br>공통 계약: 실제 발동 성공 edge에만 1회 / 차단·실패 launch에는 재생 안 함(C2) / 루프형 SFX 미생성 / 이미 재생된 단발음은 취소 안 함(D14-2). ⚠️ **가드 단계 SFX는 §E' X4대로 모듈 소유** |
 | E2 | `get_snapshot(:607)` `_merge_skill_snapshot` | **필수 (재확정 2026-07-31)** | ⚠️ **초판 오분류 정정.** 필드 순회가 아니라 **`_merge_skill_snapshot`을 24회 명시 나열**한 수동 fanout이다(:609~632 실측). B1 필드 선언만으로는 **포함되지 않는다** — 한 줄 추가 필수. **"production 소비자 없음 → N/A" 제안은 철회됨**: 살아있는 사슬 = `egg_runtime.get_snapshot()` → `_build_runtime_snapshot_uncached()` → `lingpet_runtime_snapshot_builder:189` → `skill_runtime_host.get_snapshot()`. 추가로 `character_info_overlay_frame_presenter:154`가 집계본을 직접 읽어 패널에 병합한다. **레일 주 경로(per-skill `get_snapshot_for_skill_id`)와 대체 관계가 아니라 공존**이며, 집계본은 레일 fallback + 다른 HUD 소비자용이다 |
 | E3 | `get_snapshot_for_skill_id(:636)` / `get_snapshot_for_kind(:640)` | **자동** | B7/B8 경유 |
 | E4 | `get_launch_origin(:532)` | **N/A** | 투사체 없음 |
@@ -107,7 +107,9 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 ## F. WIP 중첩 지도 (2026-07-29 실측)
 
-*(rev4 갱신 — 실측 2026-07-31)* **8파일 중 dirty 4 / 클린 4.** 구현 착수면은 **전부 클린**이다:
+*(rev7 갱신)* ⚠️ **고정 개수 표현을 쓰지 않는다** — 항목이 계속 늘어 "8파일"이 표(11행)와
+어긋났다. **1차 registration 착수면(host · dispatcher · surface router · event router)은
+전부 클린**이고, 브리지·카탈로그·통지·렌더 경로는 아래 목록을 개별 확인한다:
 
 | 파일 | dirty 규모 | 성격 / 주의 |
 |---|---|---|
@@ -121,7 +123,9 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 | `lingpet_skill_dispatcher.gd` | **클린** | *(rev5 추가)* A 전체 |
 | `lingpet_egg_runtime.gd` | **클린** | *(rev5 추가 — 누락이었다)* **D15 predicate** 노출 + **§E' X1 통지 전달** |
 | `lingpet_skill_launch_feedback_router.gd` | **클린 (확정 대상)** | *(rev6)* E1 발동음 **채택 확정**으로 조건부 → **확정 대상** |
-| `game_audio.gd` | ⚠️ **+1807/−2055** | *(rev5 추가 — 범위 경보)* **㉯에서 신규 전용 SFX를 고르면 여기까지 범위가 확대**된다. 대형 외래 WIP라 헝크 분리가 어렵다 — **기존 SFX 재사용이면 접촉 0건** |
+| `lingpet_companion_draw_context_builder.gd` | **클린** | *(rev7 추가 — D5c 소유자)* **delta를 config로 전달**하는 지점. `_get_visual_layout_value:172`가 음수를 절단하므로 **양수 delta로 실어야** 한다 |
+| `lingpet_companion_renderer.gd` | **클린** | *(rev7 추가 — D5c 소유자)* **`:186` `build_draw_rects()` 직후** `visual_key == "companion_puppet_control"`일 때만 `dest_rect.position.y += delta`. ⚠️ E1-③ **먹빛 팔레트**(현재 `:53~57` 청록 하드코딩)도 이 파일 소유 |
+| `game_audio.gd` | ⚠️ **+1807/−2055** | *(rev5)* **신규 전용 SFX를 고르면 여기까지 범위가 확대**된다. 대형 외래 WIP라 헝크 분리가 어렵다 — **기존 SFX 재사용이면 접촉 0건**(E1-① 권고) |
 
 ### ✅ 브리지 경로 확정 (2026-07-29, 코드 조사 완료)
 
@@ -185,7 +189,7 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 *(rev4 재편 — 범위를 둘로 분리한다. 섞여 있어서 "④만 차단"처럼 잘못 요약됐다.)*
 
-### H-1. runtime_kind 전수표 범위 — **전부 해소**
+### H-1. runtime_kind 전수표 범위 — **E1-③ 1건 남음** *(rev7 정정)*
 
 - ~~D1/D4/D6 렌더 소유권~~ → ✅ §D 코드 선례 조사(D1~D4·D6 N/A, D5·D5a·D7 필수).
 - ~~F 브리지 경로~~ → ✅ §F, `battle_scene_frame_controller` 접촉 0건 확정.
@@ -200,15 +204,15 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
   불변 / 미등재. 근거 = 자동조작에 비피격까지 붙으면 **P0 예산 초과**
   (D6 "추가 전투 보너스 없음"과 일치). D4와 같은 판정이며 둘 다 `false`.
 
-⇒ **H-1(전수표 범위)은 전부 닫혔다.** 남은 차단은 H-2 에셋·연출 결정뿐이다.
+⇒ ⚠️ *(rev7 정정)* **"H-1 완전 종결"은 아직 이르다** — E1의 소유권 3분리 중 **③ 먹빛 팔레트(renderer/config 소유 + 별도 씰)** 가 미확정이다. ①단발 SFX·②플래시 타이머는 닫혔다.
 
 ### H-2. 에셋 · 연출 결정 범위 — **4건 미결 (S1 실질 차단)**
 
 | # | 결정 | 비고 |
 |---|---|---|
-| ㉮ | **12프레임 재생시간과 5초 창의 관계** | 12f를 5초에 어떻게 배분할지(등속 2.4fps? 앞부분 가속 후 f12 hold?) |
-| ㉯ | **가드 연출 단계 임계값** *(rev6 축소)* | §E' X1 통지를 받은 뒤 몇 회에서 단계가 오르는지. ⚠️ **발동 단발음 유무는 H-1에서 확정(채택)되어 이 항목에서 빠졌다** — 여기 남는 것은 가드 단계 규칙뿐 |
-| ㉰ | **S1 카드 범위** — *(rev5)* **권고안 있음, 사용자 확인만 남음** | **묵린변신 카드 1장만 runtime 필수.** 안장 카드는 S7 전 노출 금지라 **미배선 자산**일 뿐. 이대로 확정하면 미결은 3건으로 줄어든다 |
+| ~~㉮~~ | ✅ **확정 (rev7)** — **변신 재생** | **0.60초 동안 progress를 0→1로 진행**하고 **이후 f12를 유지**한다. 만료 시 **역재생 없이** 정상 몸체로 복귀. **자동 가드는 발동 즉시 시작**하며 연출 완료를 기다리지 않는다.<br>⚠️ **"나머지 정확히 4.40초"라고 쓰지 말 것** — 프레임 식이 `clampi(int(progress * frame_count), 0, max_frame)`(`sprite_animator:91`)이라 f12(index 11)는 progress ≥ 11/12 = 0.9167, 즉 **약 0.55초부터** 시작한다. 실제 동작과 어긋난다 |
+| ~~㉯~~ | ✅ **확정 (rev7)** — **가드 단계** | `stage = min(guard_count, 3)`, 임계값 **1 / 2 / 3회**, 비율 `stage / 3.0`. **각 단계 최초 진입에만 SFX 1회**, **같은 카운트에서 재발동 금지**. ⚠️ rev7 초안의 "발동음 무음 → E1 N/A"는 **철회** — E1은 rev6 사용자 확정값 **필수**를 유지한다 |
+| ~~㉰~~ | ✅ **확정 (rev7)** — **카드 범위** | **묵린변신 카드 1장만** S1 runtime에 제작·배선. **안장 카드는 S7까지 제작·프리웜·획득 노출 모두 보류** |
 | ㉱ | **정상 백린 몸체용 runtime 시트** | ⚠️ **변신 해제 후 돌아갈 승인된 기본 몸체가 없다.** 현재 승격된 백린 자산은 변신 PNG·manifest·import뿐이고 walk/idle 계열이 전무하다 |
 
 **㉱ 수락 기준 (rev5 추가 — D13 QA가 못 잡은 경계)**
