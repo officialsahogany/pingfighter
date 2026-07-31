@@ -1,8 +1,8 @@
 extends SceneTree
 
 # Windowed Vulkan proof for the production TAB snapshot/projection path.
-# Renders a fully occupied six-cell Mugong budget plus Soul Summoning Art and
-# fails unless the manual is the seventh, slot-free, right-leading cell.
+# Equips Soul Summoning Art as Chosik with no paid Mugong and fails unless the
+# Chosik slot remains visible while the Mugong section renders an empty 0/6.
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
@@ -12,7 +12,7 @@ const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_conf
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 
 const VIEW_SIZE := Vector2i(1264, 964)
-const OUT_PATH := "D:/tmp/bosspong_guardian_transition_qa/soul_summon_slot_free_live.png"
+const OUT_PATH := "D:/tmp/bosspong_guardian_transition_qa/soul_summon_mugong_hidden_live.png"
 
 
 class PermissiveOwner:
@@ -79,12 +79,6 @@ func _run() -> void:
 
 	var runtime_state := RuntimePerkState.new()
 	runtime_state.runtime_skill_levels = {
-		"dash_lightweight": 1,
-		"dash_module_control": 1,
-		"dash_jump": 1,
-		"dash_acceleration": 1,
-		"item_luck": 1,
-		"common_swiftness": 1,
 		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID: 1,
 		CommonSkillCatalog.SOUL_SUMMON_ART_ID: 1,
 	}
@@ -129,25 +123,23 @@ func _run() -> void:
 	await RenderingServer.frame_post_draw
 
 	var entries: Array = overlay._perk_display_entries_cache
-	var paid_count := 0
-	var soul_index := -1
-	for index in range(entries.size()):
-		var entry: Dictionary = entries[index] if entries[index] is Dictionary else {}
-		if bool(entry.get("_empty_slot", false)):
-			push_error("full-budget fixture unexpectedly contains an empty paid slot")
-			quit(1)
-			return
-		if bool(entry.get("_slot_free_cell", false)):
-			if str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
-				soul_index = index
-		else:
-			paid_count += 1
-	if paid_count != RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT:
-		push_error("expected six paid cells, got %d" % paid_count)
+	if entries.size() != RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT:
+		push_error("expected the standard six-cell Mugong grid, got %d" % entries.size())
 		quit(1)
 		return
-	if entries.size() != RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT + 1 or soul_index != entries.size() - 1:
-		push_error("Soul Summoning Art must be the seventh appended slot-free cell")
+	for entry_value in entries:
+		var entry: Dictionary = entry_value if entry_value is Dictionary else {}
+		if not bool(entry.get("_empty_slot", false)):
+			push_error("Soul-only equipped fixture must render six empty Mugong cells")
+			quit(1)
+			return
+		if str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID or bool(entry.get("_slot_free_cell", false)):
+			push_error("equipped Soul Summoning Art leaked into the Mugong section")
+			quit(1)
+			return
+	var skill_ids: Array = overlay._skill_slot_id_cache
+	if not skill_ids.has(CommonSkillCatalog.SOUL_SUMMON_ART_ID):
+		push_error("Soul Summoning Art disappeared from the equipped Chosik section")
 		quit(1)
 		return
 
@@ -156,5 +148,5 @@ func _run() -> void:
 		push_error("failed to save live TAB capture")
 		quit(1)
 		return
-	print("[SoulSummonSlotFreeCapture] paid=%d total=%d soul_index=%d path=%s" % [paid_count, entries.size(), soul_index, OUT_PATH])
+	print("[SoulSummonMugongHiddenCapture] mugong_empty=%d chosik_present=true path=%s" % [entries.size(), OUT_PATH])
 	quit(0)

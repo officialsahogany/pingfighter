@@ -43,9 +43,9 @@ class FakeRuntimeCatalog:
 func _init() -> void:
 	_verify_single_owner_and_five_config_surfaces()
 	_verify_full_slot_swap_and_cancel_noop()
-	_verify_full_unlock_budget_keeps_reserved_offer()
+	_verify_full_unlock_budget_keeps_random_candidate()
 	_verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion()
-	_verify_character_info_slot_free_contract()
+	_verify_character_info_equipped_duplicate_suppression()
 	_verify_removal_preserves_run_owned_state()
 	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
@@ -125,7 +125,7 @@ func _fill_shared_slots(config: Object) -> void:
 		equipped.append("fixture_skill_%d" % index)
 
 
-func _verify_full_unlock_budget_keeps_reserved_offer() -> void:
+func _verify_full_unlock_budget_keeps_random_candidate() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var levels := {
 		"unlock_magnum_grip": 1,
@@ -134,7 +134,7 @@ func _verify_full_unlock_budget_keeps_reserved_offer() -> void:
 	}
 	var source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
 	var filter_body := _function_body(source, "func _filter_unlock_slot_budget")
-	_expect(filter_body.find("CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID") >= 0, "full character unlock budget must explicitly preserve the common art reservation")
+	_expect(filter_body.find("CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID") >= 0, "full character unlock budget must explicitly preserve the common art candidate")
 	var choice := CommonSkillCatalog.get_unlock_perk_data()
 	choice["id"] = CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 	var filtered: Array = catalog._filter_unlock_slot_budget([choice], "smasher", levels)
@@ -278,12 +278,17 @@ func _verify_fixed_level_tooltip_locales_icon_and_fusion_exclusion() -> void:
 	_expect(not bool(classification.get("is_candidate_class", true)), "excluded unlock perk must never be a fusion candidate")
 
 
-func _verify_character_info_slot_free_contract() -> void:
+func _verify_character_info_equipped_duplicate_suppression() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var soul_data: Dictionary = catalog.get_perk_data(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID)
-	_expect(bool(soul_data.get("character_info_slot_free", false)), "common manual must declare the TAB-only slot-free presentation contract")
-	_expect(RuntimePerkCatalog.get_slot_cost_for_level(soul_data, 1) == 0, "Soul Summoning Art must consume zero Mugong budget in character info")
+	_expect(bool(soul_data.get("character_info_slot_free", false)), "unequipped common manual must retain the TAB-only slot-free presentation contract")
+	_expect(RuntimePerkCatalog.get_slot_cost_for_level(soul_data, 1) == 0, "Soul Summoning Art must consume zero Mugong budget")
 	_expect(str(CommonSkillCatalog.get_skill_data().get("slot_occupancy", "")) == "active_orb", "combat Chosik orb must still occupy one of the five battle slots")
+	var equipped_lookup := CharacterInfoOverlayPerkPresenter.build_equipped_skill_lookup([CommonSkillCatalog.SOUL_SUMMON_ART_ID])
+	_expect(CharacterInfoOverlayPerkPresenter.should_hide_equipped_unlock_perk(soul_data, equipped_lookup), "equipped Soul Summoning Art manual must use the shared duplicate-suppression path")
+	var generic_unlock := {"unlocks_skill": "fixture_chosik"}
+	_expect(CharacterInfoOverlayPerkPresenter.should_hide_equipped_unlock_perk(generic_unlock, {"fixture_chosik": true}), "other equipped unlock manuals must keep their duplicate suppression")
+	_expect(not CharacterInfoOverlayPerkPresenter.should_hide_equipped_unlock_perk(generic_unlock, {}), "unequipped unlock manuals must remain visible")
 
 	var full_levels := {
 		"dash_lightweight": 1,
@@ -298,7 +303,7 @@ func _verify_character_info_slot_free_contract() -> void:
 	with_soul[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = 1
 	with_soul[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 1
 	_expect(baseline_count == RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "fixture must fill the entire Mugong budget before adding the common manual")
-	_expect(catalog.count_owned_slot_perks(with_soul) == baseline_count, "Soul Summoning Art must leave the full-budget counter unchanged")
+	_expect(catalog.count_owned_slot_perks(with_soul) == baseline_count, "Soul Summoning Art must leave the full-budget counter unchanged even when its duplicate cell is hidden")
 
 	var acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
 		with_soul,
@@ -313,13 +318,10 @@ func _verify_character_info_slot_free_contract() -> void:
 	var soul_entries := acquired.filter(func(entry: Dictionary) -> bool:
 		return str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 	)
-	_expect(soul_entries.size() == 1, "equipped common art must remain visible as one TAB collection entry")
-	if soul_entries.size() == 1:
-		_expect(bool((soul_entries[0] as Dictionary).get("_slot_free_cell", false)), "TAB Soul Summoning Art entry must use the canonical _slot_free_cell marker")
+	_expect(soul_entries.is_empty(), "equipped Soul Summoning Art must not duplicate its Chosik entry in the TAB Mugong section")
 	var grid := CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(acquired, baseline_count)
-	_expect(grid.size() == baseline_count + 1, "slot-free common manual must append after six fully occupied paid cells")
-	if grid.size() == baseline_count + 1:
-		_expect(str((grid[-1] as Dictionary).get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "slot-free common manual must stay in the right-leading appended lane")
+	_expect(grid.size() == baseline_count, "hiding the equipped duplicate must not change the six-cell Mugong grid")
+	_expect(grid.all(func(entry: Dictionary) -> bool: return str(entry.get("id", "")) != CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "normal branch Mugong grid must contain no equipped Soul Summoning Art manual")
 
 	# The live TAB always receives RuntimePerkState.get_snapshot(), whose
 	# display projection is the authoritative branch. Keep this fixture on the
@@ -342,13 +344,54 @@ func _verify_character_info_slot_free_contract() -> void:
 	var live_soul_entries := live_acquired.filter(func(entry: Dictionary) -> bool:
 		return str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 	)
-	_expect(live_soul_entries.size() == 1, "live projection must retain exactly one Soul Summoning Art manual")
-	if live_soul_entries.size() == 1:
-		_expect(bool((live_soul_entries[0] as Dictionary).get("_slot_free_cell", false)), "live projection manual must carry the canonical slot-free marker")
+	_expect(live_soul_entries.is_empty(), "live projection must suppress the equipped Soul Summoning Art manual")
 	var live_grid := CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(live_acquired, baseline_count)
-	_expect(live_grid.size() == baseline_count + 1, "live projection must append the manual outside a full paid-slot budget")
-	if live_grid.size() == baseline_count + 1:
-		_expect(str((live_grid[-1] as Dictionary).get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, "live projection manual must occupy the appended right-leading cell")
+	_expect(live_grid.size() == baseline_count, "live projection must keep the Mugong grid at the paid-slot count")
+	_expect(live_grid.all(func(entry: Dictionary) -> bool: return str(entry.get("id", "")) != CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID), "live projection Mugong grid must contain no equipped duplicate")
+
+	# With Soul Summoning Art as the only acquired entry and equipped as Chosik,
+	# the live TAB must show an empty 0/6 Mugong grid. This is the exact player
+	# report and prevents a full-budget fixture from hiding a duplicate regression.
+	var soul_only_levels := {
+		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID: 1,
+		CommonSkillCatalog.SOUL_SUMMON_ART_ID: 1,
+	}
+	var soul_only_state := RuntimePerkState.new()
+	soul_only_state.runtime_skill_levels = soul_only_levels.duplicate(true)
+	var soul_only_snapshot: Dictionary = soul_only_state.get_snapshot()
+	var soul_only_acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		soul_only_state.runtime_skill_levels,
+		catalog,
+		soul_only_state,
+		soul_only_snapshot,
+		{},
+		[CommonSkillCatalog.SOUL_SUMMON_ART_ID],
+		Color(0.3, 0.7, 1.0),
+		Color(1.0, 0.8, 0.3)
+	)
+	_expect(soul_only_acquired.is_empty(), "Soul-only live projection must expose no Mugong entry while the Chosik is equipped")
+	var soul_only_grid := CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(soul_only_acquired, RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT)
+	_expect(soul_only_grid.size() == RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "Soul-only live projection must still render the standard six Mugong cells")
+	_expect(soul_only_grid.all(func(entry: Dictionary) -> bool: return bool(entry.get("_empty_slot", false))), "Soul-only equipped fixture must render 0/6 as six empty Mugong cells")
+
+	# The slot-free lane is still live for a learned manual that is not currently
+	# equipped, so the shared marker and grid machinery must not be deleted.
+	var unequipped_acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks(
+		soul_only_levels,
+		catalog,
+		null,
+		null,
+		{},
+		[],
+		Color(0.3, 0.7, 1.0),
+		Color(1.0, 0.8, 0.3)
+	)
+	var unequipped_soul_entries := unequipped_acquired.filter(func(entry: Dictionary) -> bool:
+		return str(entry.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	)
+	_expect(unequipped_soul_entries.size() == 1, "unequipped Soul Summoning Art manual must remain visible in the Mugong section")
+	if unequipped_soul_entries.size() == 1:
+		_expect(bool((unequipped_soul_entries[0] as Dictionary).get("_slot_free_cell", false)), "unequipped manual must retain the canonical slot-free marker")
 
 
 func _verify_removal_preserves_run_owned_state() -> void:

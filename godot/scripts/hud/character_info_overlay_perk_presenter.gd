@@ -146,11 +146,6 @@ static func acquired_perk_runtime_cache_hash(levels: Dictionary, catalog_id: int
 
 
 static func should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_skill_lookup: Dictionary) -> bool:
-	# Soul Summoning Art keeps a visible, slot-free record in the TAB Mugong
-	# collection even while its combat Chosik orb is equipped. Other manuals
-	# retain the duplicate-suppression behavior below.
-	if bool(perk_data.get("character_info_slot_free", false)):
-		return false
 	if equipped_skill_lookup.is_empty():
 		return false
 	var unlocked_skill: String = str(perk_data.get("unlocks_skill", ""))
