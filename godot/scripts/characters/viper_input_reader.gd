@@ -5,6 +5,8 @@ const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.g
 
 var _last_action_pressed := false
 var _last_mouse_left_pressed := false
+var _last_secondary_action_pressed := false
+var _suppress_primary_pointer_until_release := false
 var _same_frame_snapshot: Dictionary = {}
 var _same_frame_snapshot_key := -1
 
@@ -32,21 +34,29 @@ func get_snapshot() -> Dictionary:
 		primary_pointer_pressed = MobileTouchControls.is_touch_accept_pressed()
 	else:
 		primary_pointer_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	var jetpack_pressed: bool = Input.is_key_pressed(KEY_SPACE) or primary_pointer_pressed or GamepadInput.is_primary_action_pressed()
+	if _suppress_primary_pointer_until_release and not primary_pointer_pressed:
+		_suppress_primary_pointer_until_release = false
+	var effective_primary_pointer_pressed := primary_pointer_pressed and not _suppress_primary_pointer_until_release
+	var jetpack_pressed: bool = Input.is_key_pressed(KEY_SPACE) or effective_primary_pointer_pressed or GamepadInput.is_primary_action_pressed()
 	var action_pressed: bool = (
 		Input.is_action_pressed("ui_accept")
 		or Input.is_key_pressed(KEY_SPACE)
 		or Input.is_key_pressed(KEY_X)
-		or primary_pointer_pressed
+		or effective_primary_pointer_pressed
 		or GamepadInput.is_primary_action_pressed()
 	)
 	var action_just_pressed: bool = action_pressed and not _last_action_pressed
 	var action_just_released: bool = not action_pressed and _last_action_pressed
 	_last_action_pressed = action_pressed
 	# 좌클릭 채널(다크 스웜프 시전 에지의 소비 지점)도 같은 primary-pointer.
-	var mouse_left_pressed: bool = primary_pointer_pressed
+	var mouse_left_pressed: bool = effective_primary_pointer_pressed
 	var mouse_left_just_pressed: bool = mouse_left_pressed and not _last_mouse_left_pressed
 	_last_mouse_left_pressed = mouse_left_pressed
+	# Desktop RMB is a separate skill command channel. Mobile/gamepad alternatives are
+	# intentionally unresolved until a dedicated UX binding is approved.
+	var secondary_action_pressed := not _is_mobile_runtime() and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var secondary_action_just_pressed := secondary_action_pressed and not _last_secondary_action_pressed
+	_last_secondary_action_pressed = secondary_action_pressed
 	var direction := 0.0
 	if left_pressed:
 		direction -= 1.0
@@ -64,11 +74,19 @@ func get_snapshot() -> Dictionary:
 		"mouse_left_pressed": mouse_left_pressed,
 		"mouse_left_just_pressed": mouse_left_just_pressed,
 		"jetpack_pressed": jetpack_pressed,
+		"secondary_action_pressed": secondary_action_pressed,
+		"secondary_action_just_pressed": secondary_action_just_pressed,
 		"direction": direction,
 		"power_smash_direction": _get_exclusive_horizontal_direction(left_pressed, right_pressed),
 	}
 	_same_frame_snapshot_key = frame_key
 	return _same_frame_snapshot.duplicate(true)
+
+
+func suppress_primary_pointer_until_release() -> void:
+	_suppress_primary_pointer_until_release = true
+	_last_mouse_left_pressed = false
+	_same_frame_snapshot_key = -1
 
 
 func _get_snapshot_frame_key() -> int:

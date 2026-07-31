@@ -37,7 +37,8 @@ func advance(
 	catch_width: float,
 	catch_height: float,
 	motion_style: String = MOTION_STYLE_PATROL,
-	player_dash: Dictionary = {}
+	player_dash: Dictionary = {},
+	player_guard_available: bool = true
 ) -> Dictionary:
 	var safe_delta := maxf(0.0, delta)
 	_cooldown = maxf(0.0, _cooldown - safe_delta)
@@ -54,7 +55,7 @@ func advance(
 	if _cooldown > 0.0:
 		return {}
 	var is_ground_pet := motion_style.strip_edges().to_lower() == MOTION_STYLE_PATROL
-	var target_data := _build_target_data(owner, passive_skill, current_companion_pos, catch_width, catch_height, true, is_ground_pet, player_dash)
+	var target_data := _build_target_data(owner, passive_skill, current_companion_pos, catch_width, catch_height, true, is_ground_pet, player_dash, player_guard_available)
 	if target_data.is_empty():
 		return {}
 	if _rolled_this_descent:
@@ -169,7 +170,8 @@ func _build_target_data(
 	catch_height: float,
 	require_emergency: bool,
 	is_ground_pet: bool,
-	player_dash: Dictionary = {}
+	player_dash: Dictionary = {},
+	player_guard_available: bool = true
 ) -> Dictionary:
 	if not bool(BattleSceneOwnerReader.get_value(owner, "ball_active", false)):
 		return {}
@@ -197,10 +199,11 @@ func _build_target_data(
 	var half_width := maxf(1.0, catch_width * 0.5)
 	var target_x := clampf(future_ball_x, half_width + ball_radius, FIELD_WIDTH - half_width - ball_radius)
 	if require_emergency:
-		if _player_can_block(owner, target_x, ball_radius):
-			return {}
-		if _player_dash_projects_block(owner, player_dash, target_x, ball_radius, frames_to_contact):
-			return {}
+		if player_guard_available:
+			if _player_can_block(owner, target_x, ball_radius):
+				return {}
+			if _player_dash_projects_block(owner, player_dash, target_x, ball_radius, frames_to_contact):
+				return {}
 		var min_distance := maxf(0.0, float(passive_skill.get("ring_dash_min_distance", DEFAULT_MIN_DISTANCE)))
 		if absf(target_x - current_companion_pos.x) < min_distance:
 			return {}

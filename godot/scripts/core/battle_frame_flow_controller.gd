@@ -51,6 +51,8 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call(callbacks, "queue_redraw")
 		return
 
+	_call(callbacks, "observe_viper_wall_leap_ball_availability")
+
 	var stage7_akamu_state = deps.get("stage7_akamu_state", null)
 	if (
 		int(deps.get("current_stage", 1)) == 7
@@ -103,6 +105,7 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 	_call_delta(callbacks, "update_runtime_perk_resume", delta)
 	_call_delta(callbacks, "update_active_items", delta)
 	_call_delta(callbacks, "update_boss_ai", delta)
+	_call(callbacks, "observe_viper_wall_leap_ball_availability")
 
 	var round_state = deps.get("round_state", null)
 	if round_state != null and round_state.is_waiting_for_serve():

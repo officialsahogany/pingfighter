@@ -143,7 +143,18 @@ $focusedSmoke = @(
     "res://tests/lingpet_mount_state_smoke.gd",
     "res://tests/perk_resume_player_bounce_speed_restore_smoke.gd",
     "res://tests/soul_burst_dash_boost_free_dash_smoke.gd",
-    "res://tests/smasher_dash_spirit_laser_geometry_smoke.gd"
+    "res://tests/smasher_dash_spirit_laser_geometry_smoke.gd",
+    "res://tests/wall_leap_entry_gate_smoke.gd",
+    "res://tests/wall_leap_mount_arbitration_smoke.gd",
+    "res://tests/wall_leap_ball_passthrough_smoke.gd",
+    "res://tests/wall_leap_ball_speed_scope_smoke.gd",
+    "res://tests/wall_leap_slash_facing_smoke.gd",
+    "res://tests/wall_leap_blast_status_smoke.gd",
+    "res://tests/wall_leap_forced_return_smoke.gd",
+    "res://tests/wall_leap_reset_paths_smoke.gd",
+    "res://tests/wall_leap_modal_pause_smoke.gd",
+    "res://tests/wall_leap_perk_acquisition_smoke.gd",
+    "res://tests/wall_leap_floor_save_scope_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

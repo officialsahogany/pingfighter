@@ -40,12 +40,14 @@ const ViperSkillScaling := preload("res://scripts/characters/viper_skill_scaling
 const ViperSkillTimerGaugeRenderer := preload("res://scripts/characters/viper_skill_timer_gauge_renderer.gd")
 const ViperSkillTransientEffectRuntime := preload("res://scripts/characters/viper_skill_transient_effect_runtime.gd")
 const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill_visibility_query.gd")
+const ViperSkillWallLeapRuntime := preload("res://scripts/characters/viper_skill_wall_leap_runtime.gd")
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
 const ViperPhantomKickCutinState := preload("res://scripts/characters/viper_phantom_kick_cutin_state.gd")
 const CHAOS_FX_DISK_HEIGHT := 220.0
 const SHADOW_STEP := "shadow_step"; const MARSHAL_KICK := "marshal_kick"; const PHANTOM_KICK := "phantom_kick"; const DOUBLE_MARSHAL_KICK := "double_marshal_kick"
 const BLADE_RUSH := "blade_rush"; const DARK_BLADE := "dark_blade"; const NERVE_STRIKE := "nerve_strike"; const CHAOS_SPEAR := "chaos_spear"; const CORE_FLIP := "core_flip"
 const DIVE_STRIKE := "dive_strike"; const DUAL_GLITCH := "dual_glitch"; const IGNITION_AURA := "ignition_aura"
+const WALL_LEAP_RAID := "wall_leap_raid"
 const SHADOW_STEP_DASH_GRACE_FRAMES := 36.0; const SHADOW_STEP_READY_FRAMES := 60.0
 const MARSHAL_KICK_READY_FRAMES := 90.0; const MARSHAL_KICK_JUMP_FRAMES := 24.72; const MARSHAL_KICK_CLING_FRAMES := 15.0; const MARSHAL_KICK_CHARGE_FRAMES := 23.4
 const MARSHAL_KICK_RECLIMB_FRAMES := 10.8; const MARSHAL_KICK_RETURN_FRAMES := 21.0; const MARSHAL_KICK_HIT_RADIUS := 90.0; const MARSHAL_KICK_RECLIMB_THRESHOLD := 120.0
@@ -150,6 +152,7 @@ var fx_host_controller: Object = ViperSkillFxHostController.new(); var kick_effe
 var runtime_action_router: Object = ViperSkillRuntimeActionRouter.new(); var shadow_effect_renderer: Object = ViperSkillShadowEffectRenderer.new(); var snapshot_builder: Object = ViperSkillSnapshotBuilder.new()
 var skill_scaling: Object = ViperSkillScaling.new(); var timer_gauge_renderer: Object = ViperSkillTimerGaugeRenderer.new(); var visibility_query: Object = ViperSkillVisibilityQuery.new()
 var cutin_state: Object = ViperPhantomKickCutinState.new()
+var wall_leap_state: Object = ViperSkillWallLeapRuntime.new()
 var dash_origin_pos := Vector2.ZERO; var dash_origin_valid := false; var dash_grace_frames := 0.0
 var shadow_step_ready_frames := 0.0; var shadow_step_activation_msec := -100000
 var shadow_hologram_active := false; var shadow_hologram_frames := 0.0; var shadow_hologram_origin := Vector2.ZERO; var shadow_hologram_target := Vector2.ZERO
@@ -276,18 +279,36 @@ func observe_after_movement(delta: float, before_player_pos: Vector2, _after_pla
 		if dash_grace_frames <= 0.0:
 			dash_origin_valid = false
 	previous_dash_active = dash_active; previous_dash_recovering = dash_recovering
-func get_snapshot() -> Dictionary: return snapshot_builder.build(self)
+func get_snapshot() -> Dictionary:
+	var snapshot: Dictionary = snapshot_builder.build(self)
+	snapshot.merge(wall_leap_state.get_snapshot(), true)
+	return snapshot
 func is_air_blade_dash_window_open(deps: Dictionary = {}) -> bool: return (blade_motion_active and blade_motion_phase == 2) and not blade_dark_mode and blade_motion_frames >= BLADE_DASH_RELEASE_DELAY_FRAMES and not visibility_query.is_control_locked(deps)
 func is_dark_blade_rising_contact_active() -> bool: return blade_motion_active and blade_dark_mode and blade_motion_phase == 2 and blade_motion_frames <= BLADE_DARK_RISE_FRAMES
 func sync_blade_motion_position(player_pos: Vector2) -> void:
 	if blade_motion_active:
 		blade_motion_pos = player_pos
-func get_actor_draw_context() -> Dictionary: return context_builder.build_actor_draw_context(self)
-func get_ball_collision_context() -> Dictionary: return context_builder.build_ball_collision_context(self)
+func get_actor_draw_context() -> Dictionary:
+	var context: Dictionary = context_builder.build_actor_draw_context(self)
+	context.merge(wall_leap_state.get_actor_draw_context(), true)
+	return context
+func get_ball_collision_context() -> Dictionary:
+	var context: Dictionary = context_builder.build_ball_collision_context(self)
+	context.merge(wall_leap_state.get_ball_collision_context(), true)
+	return context
 func get_blade_hit_speed_cap() -> float: return max(0.0, blade_hit_speed_cap_active)
 func clear_blade_hit_speed_cap() -> void: blade_hit_speed_cap_active = 0.0
 func is_phantom_kick_speed_limit_disabled() -> bool: return phantom_kick_speed_limit_disabled
-func get_boss_ai_context() -> Dictionary: return context_builder.build_boss_ai_context(self)
+func get_boss_ai_context() -> Dictionary:
+	var context: Dictionary = context_builder.build_boss_ai_context(self)
+	context.merge(wall_leap_state.get_boss_ai_context(), true)
+	return context
+
+func is_command_armable(owner: Object, registry: Object) -> bool: return wall_leap_state.is_command_armable_from_owner(owner, registry)
+func is_wall_leap_input_owned() -> bool: return wall_leap_state.is_input_owned()
+func is_player_guard_available() -> bool: return not wall_leap_state.is_active()
+func observe_wall_leap_ball_availability(context: Dictionary, deps: Dictionary) -> bool: return wall_leap_state.observe_ball_availability(context, deps)
+func observe_wall_leap_ball_availability_from_owner(owner: Object, registry: Object) -> bool: return wall_leap_state.observe_ball_availability_from_owner(owner, registry)
 func get_emp_shockwave_progress() -> float: return ViperSkillGeometry.emp_strike_shockwave_progress(dive_shockwave_timer, dive_shockwave_pos, DIVE_SHOCKWAVE_FRAMES)
 func get_emp_shockwave_radius() -> float: return ViperSkillGeometry.emp_strike_shockwave_radius(dive_shockwave_timer, dive_shockwave_pos, DIVE_SHOCKWAVE_FRAMES, DIVE_SHOCKWAVE_START_RADIUS, dive_shockwave_max_radius)
 func is_kick_skill_knockback_ball_active() -> bool: return visibility_query.is_kick_skill_knockback_ball_active(self)

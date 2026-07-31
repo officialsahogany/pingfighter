@@ -67,6 +67,11 @@ func build_context(owner: Object, registry: Object) -> Dictionary:
 	_merge_shared_context(context, registry, character_type)
 	_merge_stage_context(context, registry, current_stage)
 	_merge_character_context(context, registry, character_type)
+	var prediction_motion_multiplier := float(context.get("ball_motion_step_multiplier", 1.0))
+	if not is_equal_approx(prediction_motion_multiplier, 1.0):
+		var prediction_velocity: Variant = context.get("ball_vel", Vector2.ZERO)
+		context["ball_vel"] = (prediction_velocity as Vector2) * prediction_motion_multiplier if prediction_velocity is Vector2 else Vector2.ZERO
+		context["wall_leap_prediction_motion_multiplier"] = prediction_motion_multiplier
 	return context
 
 

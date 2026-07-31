@@ -1,0 +1,62 @@
+extends SceneTree
+
+const Support := preload("res://tests/wall_leap_test_support.gd")
+const BallRoundCleanup := preload("res://scripts/ball/ball_round_cleanup.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
+
+class StageResetBridge:
+	extends RefCounted
+	var runtime: Object
+	func _init(next_runtime: Object) -> void: runtime = next_runtime
+	func reset_ball() -> void:
+		BallRoundCleanup.new().reset_for_ball_reset({"viper_skill_runtime": runtime})
+
+var _support := Support.new()
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	var round_fixture: Dictionary = _active_fixture()
+	BallRoundCleanup.new().reset_for_ball_reset({"viper_skill_runtime": round_fixture["runtime"]})
+	_assert_normalized(round_fixture["runtime"], "round end")
+
+	var result_fixture: Dictionary = _active_fixture()
+	MatchResetController.new().reset_game({"skill_runtimes": [result_fixture["runtime"]]}, {})
+	_assert_normalized(result_fixture["runtime"], "result/game end")
+
+	var stage_fixture: Dictionary = _active_fixture()
+	var bridge := StageResetBridge.new(stage_fixture["runtime"])
+	MatchResetController.new().reset_for_stage_transition({}, {"reset_ball": Callable(bridge, "reset_ball")})
+	_assert_normalized(stage_fixture["runtime"], "stage exit")
+	_finish()
+
+
+func _active_fixture() -> Dictionary:
+	var fixture: Dictionary = _support.make_fixture()
+	_support.enter(fixture)
+	_support.advance_to_infiltrating(fixture)
+	_support.advance_frames(fixture, 16)
+	_support.route_once(fixture, {"secondary_action_pressed": true, "secondary_action_just_pressed": true})
+	return fixture
+
+
+func _assert_normalized(runtime: Object, label: String) -> void:
+	var snapshot: Dictionary = runtime.get_snapshot()
+	_expect(str(snapshot.get("wall_leap_raid_state", "")) == "idle", "%s must clear active state" % label)
+	_expect(not bool(snapshot.get("wall_leap_raid_active", true)), "%s must clear active flag" % label)
+	_expect(snapshot.get("wall_leap_raid_entry_pos", Vector2.ONE) == Vector2.ZERO, "%s must clear saved entry position" % label)
+	_expect(bool(runtime.get_ball_collision_context().get("player_guard_available", false)), "%s must restore player guard" % label)
+	_expect(is_equal_approx(float(runtime.get_ball_collision_context().get("ball_motion_step_multiplier", 0.0)), 1.0), "%s must clear ball multiplier" % label)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition: _failures.append(message)
+
+
+func _finish() -> void:
+	if _failures.is_empty():
+		print("wall_leap_reset_paths_smoke: ok")
+		quit(0)
+		return
+	for failure in _failures: push_error(failure)
+	quit(1)

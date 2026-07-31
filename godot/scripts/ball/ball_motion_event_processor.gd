@@ -32,7 +32,7 @@ func step_motion(
 
 	var step_result: Dictionary = motion_stepper.step(
 		_get_vector2(scene, "ball_pos", Vector2.ZERO),
-		_get_vector2(scene, "ball_vel", Vector2.ZERO) * float(scene.get("ball_impact_boost", 1.0)) * fps_scale,
+		_get_vector2(scene, "ball_vel", Vector2.ZERO) * float(scene.get("ball_impact_boost", 1.0)) * fps_scale * float(context.get("ball_motion_step_multiplier", 1.0)),
 		_get_vector2(scene, "ball_vel", Vector2.ZERO),
 		_build_step_context(context, scene, deps)
 	)
@@ -111,6 +111,7 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 		"warp_gate_active": bool(context.get("warp_gate_active", false)),
 		"player_paddle_mirror_offset_x": float(context.get("player_paddle_mirror_offset_x", 0.0)),
 		"player_collision_cooldown": float(scene.get("player_collision_cooldown", 0.0)),
+		"player_guard_available": bool(context.get("player_guard_available", true)),
 		"boss_collision_cooldown": float(scene.get("boss_collision_cooldown", 0.0)),
 		"stopwatch_score_blocking": bool(context.get("stopwatch_score_blocking", false)),
 		"stopwatch_recovery_active": bool(context.get("stopwatch_recovery_active", false)),
@@ -126,6 +127,8 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 	var lingpet_egg_runtime: Object = deps.get("lingpet_egg_runtime", null)
 	if lingpet_egg_runtime != null and lingpet_egg_runtime.has_method("get_ball_collision_context"):
 		step_context.merge(lingpet_egg_runtime.get_ball_collision_context(), true)
+	if context.has("player_guard_available"):
+		step_context["player_guard_available"] = bool(context.get("player_guard_available", true))
 	if context.has("viper_dual_glitch_state"):
 		step_context["viper_dual_glitch_state"] = str(context.get("viper_dual_glitch_state", "idle"))
 	if context.has("viper_dual_glitch_clone_rects"):
@@ -138,6 +141,8 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 		and viper_skill_runtime.has_method("get_ball_collision_context")
 	):
 		var viper_collision_context: Dictionary = viper_skill_runtime.get_ball_collision_context()
+		if viper_collision_context.has("player_guard_available"):
+			step_context["player_guard_available"] = bool(viper_collision_context.get("player_guard_available", true))
 		if viper_collision_context.has("viper_dual_glitch_state"):
 			step_context["viper_dual_glitch_state"] = str(viper_collision_context.get("viper_dual_glitch_state", "idle"))
 		if viper_collision_context.has("viper_dual_glitch_clone_rects"):

@@ -56,6 +56,11 @@ const CONTROL_ROWS := {
 }
 
 const VIPER_CONTROL_ROWS := {
+	"wall_leap_raid": [
+		[["mouse_right", ""], ["text", "잠입"], ["dim", "기력 160 필요 · 100 소모"]],
+		[["mouse_left", ""], ["text", "참격"], ["dim", "60 소모 · 둔화 5초"]],
+		[["mouse_right", ""], ["text", "폭발"], ["dim", "150 소모 · 기절 3초"]],
+	],
 	"shadow_step": [
 		[["text", "대쉬 중/직후"], ["key", "S"], ["accent", "발동"]],
 	],

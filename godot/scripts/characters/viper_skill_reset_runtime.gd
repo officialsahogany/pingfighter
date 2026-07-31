@@ -2,6 +2,7 @@ extends RefCounted
 
 
 static func reset_round(runtime: Object, deps: Dictionary, constants: Dictionary) -> void:
+	runtime.wall_leap_state.reset()
 	var preserve_ignition_aura: bool = bool(deps.get("preserve_ignition_aura", true)) and bool(runtime.ignition_active) and float(runtime.ignition_remaining_frames) > 0.0
 	var preserve_dual_glitch: bool = bool(deps.get("preserve_dual_glitch", true)) and runtime.dual_glitch_state in ["spawn", "active"] and runtime.visibility_query.has_living_dual_glitch_clone(runtime.dual_glitch_clones)
 	runtime.previous_down_pressed = false; runtime.previous_left_pressed = false; runtime.previous_up_pressed = false; runtime.previous_right_pressed = false; runtime.input_sequence_frame = 0; runtime.core_flip_left_press_frame = int(constants.get("core_flip_input_frame_unset", -100000)); runtime.core_flip_right_press_frame = int(constants.get("core_flip_input_frame_unset", -100000))

@@ -424,6 +424,16 @@ const SMASHER_PERKS := {
 }
 
 const VIPER_PERKS := {
+	"unlock_wall_leap_raid": {
+		"name": "월담야습 비급",
+		"max_level": 1,
+		"descriptions": {1: "월담야습 초식 비급"},
+		"detail": "우클릭으로 적진에 잠입한 뒤 참격 또는 폭발을 선택하고 진입 위치로 귀환하는 월담야습을 익힙니다.",
+		"icon_color": Color(0.30, 0.82, 0.92),
+		"tree": "viper_unlock",
+		"character_restriction": "viper",
+		"unlocks_skill": "wall_leap_raid",
+	},
 	"unlock_nerve_strike": {
 		"name": "독영절맥 비급",
 		"max_level": 1,

@@ -72,6 +72,9 @@ func _build_common_update_deps(registry) -> Dictionary:
 		"movement_state": _get_instance(registry, "player_movement_state"),
 		"round_state": _get_instance(registry, "round_flow_state"),
 		"dash_state": _get_instance(registry, "smasher_dash_state"),
+		# Shared freeze owner: Viper still needs the live power-freeze state even
+		# though the character-specific power attack dependency is disabled.
+		"ball_power_freeze_state": _get_instance(registry, "smasher_power_smash_state"),
 		"orb_hud_state": _get_instance(registry, "orb_hud_state"),
 		"impact_effects": _get_instance(registry, "impact_effects"),
 		"audio": _get_instance(registry, "game_audio"),

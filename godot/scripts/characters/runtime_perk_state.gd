@@ -1414,6 +1414,26 @@ func get_snapshot() -> Dictionary:
 	return _snapshot_builder.build_from_runtime_state(self)
 
 
+# Run-save surface for acquired perk levels. Active-skill equipped slots and
+# cooldown clocks remain owned by each character's skill config/state codec.
+func build_unlock_save_snapshot() -> Dictionary:
+	# Keep this save codec distinct from the owner-projection contract below.
+	# The local name also prevents source-contract checks from mistaking the
+	# persisted snapshot for an inline owner sync payload.
+	var saved_levels: Dictionary = runtime_skill_levels.duplicate(true)
+	return {"version": 1, "runtime_skill_levels": saved_levels}
+
+
+func apply_unlock_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
+	if snapshot.is_empty() or not (snapshot.get("runtime_skill_levels", null) is Dictionary):
+		return {"restored": false, "reason": "invalid_snapshot"}
+	runtime_skill_levels = (snapshot.get("runtime_skill_levels", {}) as Dictionary).duplicate(true)
+	if owner != null:
+		_sync_runtime_perk_owner_effects(owner, registry)
+	var restored_levels: Dictionary = runtime_skill_levels.duplicate(true)
+	return {"restored": true, "runtime_skill_levels": restored_levels}
+
+
 func get_runtime_skill_level(skill_id: String) -> int:
 	return _effective_stat_queries.get_runtime_skill_level_from_runtime_state(self, skill_id)
 

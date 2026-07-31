@@ -15,6 +15,7 @@ const SMASHER_EFFECT_PREVIEW_TYPES := {
 	"wheel_spin": true,
 }
 const VIPER_EFFECT_PREVIEW_TYPES := {
+	"wall_leap_raid": true,
 	"shadow_teleport": true,
 	"slash_purple": true,
 	"stun_purple": true,
@@ -41,6 +42,7 @@ const COMMANDO_EFFECT_PREVIEW_TYPES := {
 	"firearm_drone": true,
 }
 const VIPER_EFFECT_INPUT_OVERLAY := {
+	"wall_leap_raid": ["sequence", "RMB,LMB,RMB"],
 	"shadow_teleport": ["combo", "S"],
 	"slash_purple": ["hold", "W"],
 	"stun_purple": ["combo", "W"],
@@ -132,6 +134,8 @@ func _draw_viper_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: St
 			_draw_viper_glitch_clone_preview(canvas, rect, color)
 		"ignition_burst":
 			_draw_viper_ignition_preview(canvas, rect, color)
+		"wall_leap_raid":
+			_draw_viper_wall_leap_raid_preview(canvas, rect, color)
 		_:
 			_draw_viper_shadow_teleport_preview(canvas, rect, color)
 	_draw_viper_input_overlay(canvas, rect, effect_type, color, Time.get_ticks_msec())
@@ -1221,6 +1225,31 @@ func _draw_viper_ignition_preview(canvas: CanvasItem, rect: Rect2, _color: Color
 		var ray_angle: float = float(ray_idx) / 6.0 * TAU + local_progress * PI * 0.4
 		var ray_len: float = 14.0 + float(ray_idx) * 2.0
 		canvas.draw_line(aura_center, aura_center + Vector2(cos(ray_angle) * ray_len, sin(ray_angle) * ray_len * 0.7), _draw_primitives.color8(255, 204, 122, 70), 2.0)
+
+
+func _draw_viper_wall_leap_raid_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var progress := float(Time.get_ticks_msec() % 2800) / 2800.0
+	var left := float(metrics["left"]) + 24.0
+	var right := float(metrics["right"]) - 24.0
+	var top := float(metrics["top"]) + 12.0
+	var bottom := float(metrics["bottom"]) - 7.0
+	var entry := Vector2(left, bottom)
+	var enemy := Vector2(right, top + 8.0)
+	var travel := progress * 2.0 if progress < 0.5 else (1.0 - progress) * 2.0
+	var infiltrator := entry.lerp(enemy, travel) + Vector2(0.0, -sin(PI * travel) * 24.0)
+	var arc_points := PackedVector2Array()
+	for index in range(20):
+		var t := float(index) / 19.0
+		arc_points.append(entry.lerp(enemy, t) + Vector2(0.0, -sin(PI * t) * 24.0))
+	canvas.draw_polyline(arc_points, Color(color.r, color.g, color.b, 0.55), 2.0)
+	_draw_preview_paddle(canvas, entry, _draw_primitives.color8(90, 120, 155))
+	_draw_preview_paddle(canvas, enemy, _draw_primitives.color8(235, 90, 105))
+	_draw_viper_mini_character(canvas, infiltrator.x, infiltrator.y, {"alpha": 0.58, "tint": color, "direction": 1 if progress < 0.5 else -1})
+	var fuse_center := enemy + Vector2(-10.0, 20.0)
+	var fuse_ratio := fposmod(progress * 4.0, 1.0)
+	canvas.draw_arc(fuse_center, 8.0 + fuse_ratio * 18.0, 0.0, TAU, 28, Color(1.0, 0.55, 0.22, 0.75 * (1.0 - fuse_ratio)), 2.0)
+	canvas.draw_line(enemy + Vector2(-26.0, 8.0), enemy + Vector2(12.0, -8.0), Color(0.72, 0.95, 1.0, 0.78), 3.0)
 
 
 func _draw_viper_input_overlay(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, time_ms: int) -> void:

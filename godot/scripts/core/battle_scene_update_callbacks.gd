@@ -27,6 +27,7 @@ func build_frame_callbacks(owner: Object, registry: Object) -> Dictionary:
 		"update_mythic_items": Callable(self, "_update_mythic_items").bind(owner, registry),
 		"update_active_items": Callable(self, "_update_active_items").bind(owner, registry),
 		"update_boss_ai": Callable(self, "_update_boss_ai").bind(owner, registry),
+		"observe_viper_wall_leap_ball_availability": Callable(self, "_observe_viper_wall_leap_ball_availability").bind(owner, registry),
 		"update_lingpet": Callable(self, "_update_lingpet").bind(owner, registry),
 		"serve_ball": Callable(self, "_serve_ball").bind(owner, registry),
 		"queue_redraw": _build_queue_redraw_callable(owner),
@@ -126,6 +127,12 @@ func _update_boss_ai(delta: float, owner: Object, registry: Object) -> void:
 	if actor_driver != null:
 		actor_driver.update_boss_ai(owner, registry, delta)
 	_perf_end(perf_logger, "physics.callback.boss_ai", sample_start)
+
+
+func _observe_viper_wall_leap_ball_availability(owner: Object, registry: Object) -> void:
+	var runtime: Object = _get_instance(registry, "viper_skill_runtime")
+	if runtime != null and runtime.has_method("observe_wall_leap_ball_availability_from_owner"):
+		runtime.observe_wall_leap_ball_availability_from_owner(owner, registry)
 
 
 func _update_lingpet(delta: float, owner: Object, registry: Object) -> void:

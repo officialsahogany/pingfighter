@@ -906,6 +906,7 @@ const MYTHIC_DESCRIPTION_RU := {
 }
 
 const PERK_NAME_EN := {
+	"viper_unlock_wall_leap_raid": "Wall-Leap Night Raid Manual",
 	"mystic_dice": "Mystic Dice",
 	"dash_lightweight": "Return-Breath Step",
 	"dash_module_control": "Posture-Recovery Art",
@@ -1009,6 +1010,7 @@ const PERK_NAME_EN := {
 }
 
 const PERK_NAME_ZH := {
+	"viper_unlock_wall_leap_raid": "越墙夜袭秘笈",
 	"mystic_dice": "神秘骰子",
 	"dash_lightweight": "回气步",
 	"dash_module_control": "收势诀",
@@ -1112,6 +1114,7 @@ const PERK_NAME_ZH := {
 }
 
 const PERK_NAME_JA := {
+	"viper_unlock_wall_leap_raid": "壁越え夜襲の秘伝書",
 	"mystic_dice": "神秘のダイス",
 	"dash_lightweight": "回気歩",
 	"dash_module_control": "収勢訣",
@@ -1215,6 +1218,7 @@ const PERK_NAME_JA := {
 }
 
 const PERK_NAME_ES := {
+	"viper_unlock_wall_leap_raid": "Manual de incursión nocturna sobre el muro",
 	"mystic_dice": "Dado Místico",
 	"dash_lightweight": "Paso de Aliento Retornado",
 	"dash_module_control": "Arte de Recuperación de Postura",
@@ -1318,6 +1322,7 @@ const PERK_NAME_ES := {
 }
 
 const PERK_NAME_PT_BR := {
+	"viper_unlock_wall_leap_raid": "Manual da incursão noturna sobre o muro",
 	"mystic_dice": "Dado Místico",
 	"dash_lightweight": "Passo do Retorno do Fôlego",
 	"dash_module_control": "Arte de Recuperação da Postura",
@@ -1421,6 +1426,7 @@ const PERK_NAME_PT_BR := {
 }
 
 const PERK_NAME_RU := {
+	"viper_unlock_wall_leap_raid": "Руководство по ночному рейду через стену",
 	"mystic_dice": "Таинственный кубик",
 	"dash_lightweight": "Шаг Возвращённого Дыхания",
 	"dash_module_control": "Искусство Возврата Стойки",
@@ -1524,6 +1530,7 @@ const PERK_NAME_RU := {
 }
 
 const PERK_SUMMARY_EN := {
+	"viper_unlock_wall_leap_raid": "Learn Wall-Leap Night Raid: infiltrate with RMB, then slash or blast before returning.",
 	"mystic_dice": "Give up the perk and roll the dice to permanently adjust seven stats. Two rerolls.",
 	"dash_lightweight": "Return-Breath Step restores spent glide charges faster.",
 	"dash_module_control": "Posture-Recovery Art shortens recovery after a glide.",
@@ -1627,6 +1634,7 @@ const PERK_SUMMARY_EN := {
 }
 
 const PERK_SUMMARY_ZH := {
+	"viper_unlock_wall_leap_raid": "习得越墙夜袭：右键潜入，随后斩击或爆破并返回。",
 	"mystic_dice": "放弃该福利，掷骰子永久调整7项能力值。可重掷2次。",
 	"dash_lightweight": "回气步使消耗的滑步次数恢复得更快。",
 	"dash_module_control": "收势诀缩短滑步后的硬直。",
@@ -1730,6 +1738,7 @@ const PERK_SUMMARY_ZH := {
 }
 
 const PERK_SUMMARY_JA := {
+	"viper_unlock_wall_leap_raid": "右クリックで潜入し、斬撃か爆破の後に帰還する壁越え夜襲を習得します。",
 	"mystic_dice": "パークを諦めてダイスを振り、7つの能力値を永久に調整します。振り直し2回。",
 	"dash_lightweight": "回気歩は消費した滑走回数の回復を早めます。",
 	"dash_module_control": "収勢訣は滑走後の硬直を短縮します。",
@@ -1833,6 +1842,7 @@ const PERK_SUMMARY_JA := {
 }
 
 const PERK_SUMMARY_ES := {
+	"viper_unlock_wall_leap_raid": "Aprende la incursión nocturna: infíltrate con RMB, ataca y regresa.",
 	"mystic_dice": "Renuncia al beneficio y lanza el dado para ajustar permanentemente siete atributos. Dos relanzamientos.",
 	"dash_lightweight": "Paso de Aliento Retornado recupera más rápido las cargas de deslizamiento gastadas.",
 	"dash_module_control": "Arte de Recuperación de Postura reduce la recuperación tras un deslizamiento.",
@@ -1936,6 +1946,7 @@ const PERK_SUMMARY_ES := {
 }
 
 const PERK_SUMMARY_PT_BR := {
+	"viper_unlock_wall_leap_raid": "Aprenda a incursão noturna: infiltre com RMB, ataque e retorne.",
 	"mystic_dice": "Abra mão do benefício e role o dado para ajustar permanentemente sete atributos. Duas rerrolagens.",
 	"dash_lightweight": "O Passo do Retorno do Fôlego recupera mais rápido as cargas de deslize gastas.",
 	"dash_module_control": "A Arte de Recuperação da Postura reduz a recuperação após um deslize.",
@@ -2039,6 +2050,7 @@ const PERK_SUMMARY_PT_BR := {
 }
 
 const PERK_SUMMARY_RU := {
+	"viper_unlock_wall_leap_raid": "Освойте ночной рейд: проникните по ПКМ, атакуйте и вернитесь.",
 	"mystic_dice": "Откажитесь от перка и бросьте кубик, чтобы навсегда изменить семь характеристик. Два переброса.",
 	"dash_lightweight": "Шаг Возвращённого Дыхания ускоряет восстановление потраченных зарядов скольжения.",
 	"dash_module_control": "Искусство Возврата Стойки сокращает задержку после скольжения.",
@@ -2142,6 +2154,7 @@ const PERK_SUMMARY_RU := {
 }
 
 const PERK_LOCALIZATION_ALIASES := {
+	"unlock_wall_leap_raid": "viper_unlock_wall_leap_raid",
 	"item_caffeine": "active_duration_boost",
 	"item_polish": "passive_polish",
 	"item_recycle": "alchemy",
@@ -2510,6 +2523,7 @@ const CHARACTER_RU := {
 }
 
 const SKILL_DATA_ZH := {
+	"wall_leap_raid": {"korean": "越墙夜袭", "description": "越墙潜入敌阵。潜入期间可左右移动，寻找斩击位置。斩击或爆破后立即撤离。", "how_to_use": "右键潜入 · 左键斩击 · 右键爆破", "motion_hint": "沿抛物线越墙并返回原X坐标"},
 	"plasma": {"korean": "寒灵弹", "description": "向前发射寒灵弹。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射寒灵弹"},
 	"recovery": {"korean": "轻身步", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
 	"cleanse": {"korean": "清心诀", "description": "立即解除眩晕、减速等异常状态，并短时间获得免疫。", "how_to_use": "受到异常状态时按W", "motion_hint": "金色清心光解除异常状态"},
@@ -2544,6 +2558,7 @@ const SKILL_DATA_ZH := {
 }
 
 const SKILL_DATA_JA := {
+	"wall_leap_raid": {"korean": "壁越え夜襲", "description": "壁を越えて敵陣へ潜入します。潜入中は左右に動き、斬る位置を見極めます。斬撃か爆破の後、すぐに離脱します。", "how_to_use": "右クリック潜入・左クリック斬撃・右クリック爆破", "motion_hint": "放物線で壁を越え、同じXへ帰還"},
 	"plasma": {"korean": "寒霊弾", "description": "前方へ寒霊弾を放ちます。触れた敵は減速し、溜めるほど減速効果が強くなります。", "how_to_use": "W/上を押し続けて離す", "motion_hint": "前方へ寒霊弾を放つ"},
 	"recovery": {"korean": "軽身歩", "description": "ダッシュ後隙を即座にキャンセルし、短時間50%の移動速度ボーナスを得ます。", "how_to_use": "ダッシュ後隙中にW/上", "motion_hint": "緑の光で後隙を消し加速"},
 	"cleanse": {"korean": "清心訣", "description": "スタンや減速などの状態異常を即座に解除し、短時間免疫を得ます。", "how_to_use": "状態異常中にW", "motion_hint": "金色の清心光で状態異常を解除"},
@@ -2578,6 +2593,7 @@ const SKILL_DATA_JA := {
 }
 
 const SKILL_DATA_ES := {
+	"wall_leap_raid": {"korean": "Incursión nocturna sobre el muro", "description": "Salta el muro e infíltrate en territorio enemigo. Muévete de lado para elegir dónde atacar. Corta o explota y retírate de inmediato.", "how_to_use": "RMB infiltra · LMB tajo · RMB explosión", "motion_hint": "Salta el muro en arco y vuelve a la misma X"},
 	"plasma": {"korean": "Orbe de espíritu gélido", "description": "Dispara un orbe de espíritu gélido hacia delante. Los enemigos que lo toquen se ralentizan; cuanto más cargues, mayor será la ralentización.", "how_to_use": "Mantén W/Arriba y suelta", "motion_hint": "Dispara un orbe de espíritu gélido hacia delante"},
 	"recovery": {"korean": "Paso Ligero", "description": "Cancela al instante la recuperación del dash y otorga brevemente +50% de velocidad de movimiento.", "how_to_use": "Pulsa W/Arriba durante la recuperación del dash", "motion_hint": "Luz verde que cancela la recuperación y acelera"},
 	"cleanse": {"korean": "Fórmula del Corazón Sereno", "description": "Elimina al instante estados como aturdimiento o ralentización y otorga inmunidad temporal.", "how_to_use": "Pulsa W mientras sufres un estado alterado", "motion_hint": "Luz dorada serena que limpia estados"},
@@ -2612,6 +2628,7 @@ const SKILL_DATA_ES := {
 }
 
 const SKILL_DATA_PT_BR := {
+	"wall_leap_raid": {"korean": "Incursão noturna sobre o muro", "description": "Salte o muro e infiltre-se no território inimigo. Mova-se para os lados e escolha onde atacar. Corte ou exploda e recue imediatamente.", "how_to_use": "RMB infiltra · LMB corta · RMB explode", "motion_hint": "Salta o muro em arco e volta ao mesmo X"},
 	"plasma": {"korean": "Orbe do espírito gélido", "description": "Dispara um orbe do espírito gélido para a frente. Inimigos que o tocam ficam lentos; quanto mais carregar, maior a lentidão.", "how_to_use": "Segure W/Cima e solte", "motion_hint": "Dispara um orbe do espírito gélido para a frente"},
 	"recovery": {"korean": "Passo Leve", "description": "Cancela instantaneamente a recuperação do dash e concede brevemente +50% de velocidade de movimento.", "how_to_use": "Pressione W/Cima durante a recuperação do dash", "motion_hint": "Luz verde cancela a recuperação e acelera"},
 	"cleanse": {"korean": "Fórmula do Coração Sereno", "description": "Remove instantaneamente estados como atordoamento ou lentidão e concede imunidade temporária.", "how_to_use": "Pressione W enquanto estiver sob estado alterado", "motion_hint": "Luz dourada serena remove estados"},
@@ -2646,6 +2663,7 @@ const SKILL_DATA_PT_BR := {
 }
 
 const SKILL_DATA_RU := {
+	"wall_leap_raid": {"korean": "Ночной рейд через стену", "description": "Перепрыгните стену и проникните на сторону врага. Двигайтесь в стороны, выбирая место удара. Рубите или взрывайте и сразу отходите.", "how_to_use": "ПКМ проникнуть · ЛКМ удар · ПКМ взрыв", "motion_hint": "Перепрыгните стену по дуге и вернитесь на ту же X"},
 	"plasma": {"korean": "Сфера холодного духа", "description": "Выпускает вперед сферу холодного духа. Враги при касании замедляются; чем дольше заряд, тем сильнее замедление.", "how_to_use": "Зажмите W/Вверх и отпустите", "motion_hint": "Выпускает вперед сферу холодного духа"},
 	"recovery": {"korean": "Лёгкий шаг", "description": "Мгновенно отменяет восстановление после рывка и ненадолго дает +50% скорости движения.", "how_to_use": "Нажмите W/Вверх во время восстановления рывка", "motion_hint": "Зеленый свет отменяет восстановление и ускоряет"},
 	"cleanse": {"korean": "Формула ясного сердца", "description": "Мгновенно снимает состояния вроде оглушения или замедления и дает временный иммунитет.", "how_to_use": "Нажмите W, пока на вас действует негативное состояние", "motion_hint": "Золотой свет ясного сердца снимает состояния"},
@@ -2680,6 +2698,12 @@ const SKILL_DATA_RU := {
 }
 
 const EXACT_TEXT_EN := {
+	"잠입": "Infiltrate",
+	"참격": "Slash",
+	"폭발": "Blast",
+	"기력 160 필요 · 100 소모": "Requires 160 Energy · Costs 100",
+	"60 소모 · 둔화 5초": "Costs 60 · Slow 5s",
+	"150 소모 · 기절 3초": "Costs 150 · Stun 3s",
 	"보유 퍽 강화만": "Owned upgrades only",
 	"강화·비소모 퍽만": "Upgrades & non-slot perks only",
 	"난쟁이마술": "Dwarf Magic",
@@ -3265,6 +3289,12 @@ const EXACT_TEXT_EN := {
 }
 
 const EXACT_TEXT_ZH := {
+	"잠입": "潜入",
+	"참격": "斩击",
+	"폭발": "爆破",
+	"기력 160 필요 · 100 소모": "需要160能量 · 消耗100",
+	"60 소모 · 둔화 5초": "消耗60 · 减速5秒",
+	"150 소모 · 기절 3초": "消耗150 · 眩晕3秒",
 	"보유 퍽 강화만": "仅可强化已有天赋",
 	"강화·비소모 퍽만": "仅强化与不占位天赋",
 	"난쟁이마술": "矮人魔法",
@@ -3850,6 +3880,12 @@ const EXACT_TEXT_ZH := {
 }
 
 const EXACT_TEXT_JA := {
+	"잠입": "潜入",
+	"참격": "斬撃",
+	"폭발": "爆破",
+	"기력 160 필요 · 100 소모": "気力160必要・100消費",
+	"60 소모 · 둔화 5초": "60消費・鈍化5秒",
+	"150 소모 · 기절 3초": "150消費・気絶3秒",
 	"보유 퍽 강화만": "所持パークの強化のみ",
 	"강화·비소모 퍽만": "強化・非消費パークのみ",
 	"난쟁이마술": "小人の魔法",
@@ -4435,6 +4471,12 @@ const EXACT_TEXT_JA := {
 }
 
 const EXACT_TEXT_ES := {
+	"잠입": "Infiltrar",
+	"참격": "Tajo",
+	"폭발": "Explosión",
+	"기력 160 필요 · 100 소모": "Requiere 160 de energía · Cuesta 100",
+	"60 소모 · 둔화 5초": "Cuesta 60 · Ralentiza 5 s",
+	"150 소모 · 기절 3초": "Cuesta 150 · Aturde 3 s",
 	"보유 퍽 강화만": "Solo mejoras de pericias",
 	"강화·비소모 퍽만": "Solo mejoras y pericias sin espacio",
 	"난쟁이마술": "Magia de enano",
@@ -5022,6 +5064,12 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"잠입": "Infiltrar",
+	"참격": "Corte",
+	"폭발": "Explosão",
+	"기력 160 필요 · 100 소모": "Requer 160 de energia · Custa 100",
+	"60 소모 · 둔화 5초": "Custa 60 · Lentidão 5 s",
+	"150 소모 · 기절 3초": "Custa 150 · Atordoamento 3 s",
 	"소환·수납 전환": "Alternar invocar / guardar",
 	"리커버리 스킬": "Passo Leve",
 	"천운삼괘": "Três Presságios Celestiais",
@@ -5205,6 +5253,12 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"잠입": "Проникновение",
+	"참격": "Удар",
+	"폭발": "Взрыв",
+	"기력 160 필요 · 100 소모": "Требуется 160 энергии · Стоимость 100",
+	"60 소모 · 둔화 5초": "Стоимость 60 · Замедление 5 с",
+	"150 소모 · 기절 3초": "Стоимость 150 · Оглушение 3 с",
 	"소환·수납 전환": "Призвать / убрать",
 	"리커버리 스킬": "Лёгкий шаг",
 	"천운삼괘": "Три Небесных Знамения",

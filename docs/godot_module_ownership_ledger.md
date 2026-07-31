@@ -8397,3 +8397,14 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/core/boot_flow_scene.gd` retains character-select prewarm and
   navigation ownership. Both delegate their visible loading presentation to
   the shared cameo modules.
+
+## 2026-08-01 Viper Wall-Leap Night Raid
+
+- `scripts/characters/viper_skill_wall_leap_runtime.gd` owns Wall-Leap Night
+  Raid state, costs, tween/return geometry, status commits, and reset.
+- `scripts/characters/viper_skill_runtime.gd` remains the character facade for
+  activation, draw, collision, boss-prediction, armability, and unavailable-
+  state observation contracts.
+- `scripts/ball/ball_update_controller.gd` owns observations A/B;
+  `scripts/ball/ball_motion_event_processor.gd` owns the 0.7 displacement-only
+  multiplier; `scripts/ball/ball_motion_collision_detector.gd` owns the base-

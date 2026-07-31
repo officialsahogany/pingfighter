@@ -118,7 +118,7 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 func _resolve_player_collision_result(base_rect: Rect2, ball_rect: Rect2, context: Dictionary) -> Dictionary:
 	var hitbox_padding: float = float(context.get("hitbox_padding", 5.0))
 	var base_hit_rect: Rect2 = _resolve_player_collision_rect(base_rect, ball_rect, context)
-	if base_hit_rect.intersects(ball_rect):
+	if bool(context.get("player_guard_available", true)) and base_hit_rect.intersects(ball_rect):
 		return {
 			"hit": true,
 			"rect": base_hit_rect,

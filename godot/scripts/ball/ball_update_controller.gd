@@ -30,6 +30,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 		frame_deps["combo_state"] = null
 		frame_deps["power_state"] = null
 	var power_state: Object = frame_deps.get("power_state", null)
+	_observe_viper_wall_leap_ball_availability(frame_context, frame_deps)
 
 	if _is_stage3_psychoball_hitstop_active(frame_context, frame_deps):
 		return _snapshot_result(scene)
@@ -70,6 +71,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_viper_practice_hold(scene, frame_context, frame_deps)
 	frame_motion_controller.apply_stage1_gaksital_fan_wind(scene, fps_scale, frame_context, frame_deps)
 	if bool(scene.get("skip_ball_motion_step", false)):
+		var skip_observation_context: Dictionary = frame_context.duplicate()
+		skip_observation_context.merge(scene, true)
+		_observe_viper_wall_leap_ball_availability(skip_observation_context, frame_deps)
 		var stage5_hongryun_guarded: bool = _try_release_stage5_hongryun_player_paddle_hit(scene, frame_context, frame_deps, callbacks)
 		if not stage5_hongryun_guarded:
 			stage5_hongryun_guarded = _try_release_stage5_hongryun_holy_barrier(scene, frame_context, frame_deps)
@@ -85,6 +89,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 				frame_context.merge(scene, true)
 		frame_context.merge(scene, true)
 		if bool(scene.get("skip_ball_motion_step", false)):
+			var retained_skip_observation_context: Dictionary = frame_context.duplicate()
+			retained_skip_observation_context.merge(scene, true)
+			_observe_viper_wall_leap_ball_availability(retained_skip_observation_context, frame_deps)
 			_tick_shield_kiting_during_motion_skip(scene, fps_scale, frame_context, frame_deps)
 			_update_ball_effects(scene, fps_scale, frame_context, frame_deps)
 			return _snapshot_result(scene)
@@ -97,6 +104,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_weather_motion(scene, fps_scale, frame_deps)
 	_perf_end(perf_logger, "ball.update.motion_apply", motion_apply_start)
 	if bool(scene.get("skip_ball_motion_step", false)):
+		var applied_skip_observation_context: Dictionary = frame_context.duplicate()
+		applied_skip_observation_context.merge(scene, true)
+		_observe_viper_wall_leap_ball_availability(applied_skip_observation_context, frame_deps)
 		_tick_shield_kiting_during_motion_skip(scene, fps_scale, frame_context, frame_deps)
 		_update_ball_effects(scene, fps_scale, frame_context, frame_deps)
 		return _snapshot_result(scene)
@@ -116,6 +126,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	scene["previous_ball_pos"] = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	var motion_step_start: int = _perf_begin(perf_logger)
 	var score_event: String = motion_event_processor.step_motion(scene, fps_scale, frame_context, frame_deps, callbacks)
+	var post_step_observation_context: Dictionary = frame_context.duplicate()
+	post_step_observation_context.merge(scene, true)
+	_observe_viper_wall_leap_ball_availability(post_step_observation_context, frame_deps)
 	_perf_end(perf_logger, "ball.update.motion_step", motion_step_start)
 	if score_event == "rematch":
 		return _snapshot_result(scene, {"round_restart_event": "rematch"})
@@ -174,6 +187,12 @@ func _is_stage3_psychoball_hitstop_active(context: Dictionary, deps: Dictionary)
 		and stage3_boss_skill_state.has_method("is_psychoball_hitstop_active")
 		and bool(stage3_boss_skill_state.is_psychoball_hitstop_active())
 	)
+
+
+func _observe_viper_wall_leap_ball_availability(context: Dictionary, deps: Dictionary) -> void:
+	var viper_skill_runtime: Object = deps.get("viper_skill_runtime", null)
+	if viper_skill_runtime != null and viper_skill_runtime.has_method("observe_wall_leap_ball_availability"):
+		viper_skill_runtime.observe_wall_leap_ball_availability(context, deps)
 
 
 func _apply_stage5_ball_motion_hijack(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:

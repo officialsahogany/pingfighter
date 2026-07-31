@@ -2785,7 +2785,7 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		owner,
 		_companion_pos,
 		companion_active and not has_skill_position_override,
-		_is_right_click_claimed_by_player_skill(registry),
+		_is_right_click_claimed_by_player_skill(owner, registry),
 		delta
 	)
 	if _mount_state.has_companion_position_override() and not has_skill_position_override:
@@ -2825,7 +2825,8 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 			_profile_runtime_surface.get_catch_width(_current_profile, COMPANION_HIT_HALF_WIDTH * 2.0),
 			_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
 			motion_style,
-			_resolve_player_dash_state(registry)
+			_resolve_player_dash_state(registry),
+			_is_player_guard_available(registry)
 		)
 		if _ring_dash_state.has_companion_position_override():
 			_companion_pos = _ring_dash_state.get_companion_position_override(_companion_pos)
@@ -2890,16 +2891,36 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 # 가져간다. 그래서 랠리 밖에서는 탑승이 100% 종전대로 동작한다.
 # ⚠️peek 전용(`get_cached_instance`) — 매 컴패니언 프레임 경로라 콜드
 # 인스턴스화가 끼면 첫 호출이 히치가 된다(Hot-Path Lazy Init Trap).
-func _is_right_click_claimed_by_player_skill(registry: Object) -> bool:
+func _is_right_click_claimed_by_player_skill(owner: Object, registry: Object = null) -> bool:
+	# Older focused fixtures called this helper with the registry as the only
+	# argument. Preserve that test surface without cold-instantiating Viper.
+	if registry == null:
+		registry = owner
+		owner = null
 	if registry == null or not registry.has_method("get_cached_instance"):
 		return false
 	var cached: Variant = registry.get_cached_instance("smasher_overdrive_state")
-	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
+	if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+		var overdrive_state: Object = cached as Object
+		if overdrive_state.has_method("is_active") and bool(overdrive_state.is_active()):
+			return true
+		if overdrive_state.has_method("is_armed") and bool(overdrive_state.is_armed()):
+			return true
+	var viper_cached: Variant = registry.get_cached_instance("viper_skill_runtime")
+	if typeof(viper_cached) != TYPE_OBJECT or not is_instance_valid(viper_cached):
 		return false
-	var overdrive_state: Object = cached as Object
-	if overdrive_state.has_method("is_active") and bool(overdrive_state.is_active()):
+	var viper_runtime: Object = viper_cached as Object
+	return viper_runtime.has_method("is_command_armable") and bool(viper_runtime.is_command_armable(owner, registry))
+
+
+func _is_player_guard_available(registry: Object) -> bool:
+	if registry == null or not registry.has_method("get_cached_instance"):
 		return true
-	return overdrive_state.has_method("is_armed") and bool(overdrive_state.is_armed())
+	var cached: Variant = registry.get_cached_instance("viper_skill_runtime")
+	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
+		return true
+	var viper_runtime: Object = cached as Object
+	return not viper_runtime.has_method("is_player_guard_available") or bool(viper_runtime.is_player_guard_available())
 
 
 # 링크포트(ring_dash) 이중수비 게이트용 플레이어 대쉬 스냅샷.
@@ -3005,7 +3026,7 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	# True when the player paddle can reach the ball at its current X, in which case the
 	# companion must NOT bounce it (the player takes priority). Mirrors the defense /
 	# ring-dash player-block gates, so raw proximity body-hit is consistent with them.
-	if _companion_player_block_resolver.can_player_block(owner, BALL_RADIUS_FALLBACK, 155.0):
+	if _is_player_guard_available(registry) and _companion_player_block_resolver.can_player_block(owner, BALL_RADIUS_FALLBACK, 155.0):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SAVE_SNAPSHOT_VERSION := 1
+
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -18,6 +20,7 @@ const SKILL_COSTS := {
 	"core_flip": 120.0,
 	"dual_glitch": 220.0,
 	"ignition_aura": 230.0,
+	"wall_leap_raid": 160.0,
 }
 const SKILL_COLORS := {
 	"shadow_step": Color(100.0 / 255.0, 0.0, 180.0 / 255.0),
@@ -31,6 +34,7 @@ const SKILL_COLORS := {
 	"core_flip": Color(1.0, 110.0 / 255.0, 200.0 / 255.0),
 	"dual_glitch": Color(60.0 / 255.0, 220.0 / 255.0, 150.0 / 255.0),
 	"ignition_aura": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
+	"wall_leap_raid": Color(0.30, 0.82, 0.92),
 }
 const COOLDOWN_SECONDS := {
 	"shadow_step": 15.0,
@@ -44,6 +48,7 @@ const COOLDOWN_SECONDS := {
 	"core_flip": 25.0,
 	"dual_glitch": 40.0,
 	"ignition_aura": 70.0,
+	"wall_leap_raid": 40.0,
 }
 const SKILL_DATA := {
 	"shadow_step": {
@@ -167,6 +172,17 @@ const SKILL_DATA := {
 		"motion_hint": "화염 경맥을 열어 기운 분출",
 		"effect_type": "ignition_burst",
 	},
+	"wall_leap_raid": {
+		"name": "wall_leap_raid",
+		"korean": "월담야습",
+		"cost": 160.0,
+		"color": Color(0.30, 0.82, 0.92),
+		"cooldown": 40.0,
+		"description": "담을 넘어 상대 진영으로 잠입합니다.\n잠입 중 좌우로 움직이며 벨 자리를 고릅니다.\n베거나 터뜨린 뒤 즉시 빠져나옵니다.",
+		"how_to_use": "지상에서 우클릭 잠입 · 좌클릭 참격 · 우클릭 폭발",
+		"motion_hint": "담을 넘는 포물선으로 잠입하고 같은 X로 귀환",
+		"effect_type": "wall_leap_raid",
+	},
 }
 
 var equipped_skills: Array = EQUIPPED_SKILLS.duplicate()
@@ -216,6 +232,55 @@ func get_snapshot() -> Dictionary:
 	_snapshot_cache_slot_bonus = item_skill_slot_bonus
 	_snapshot_cache_language = language
 	return _snapshot_cache
+
+
+func get_save_snapshot() -> Dictionary:
+	return {
+		"version": SAVE_SNAPSHOT_VERSION,
+		"equipped_skills": equipped_skills.duplicate(),
+		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
+		"item_cooldown_multiplier": item_cooldown_multiplier,
+		"item_skill_slot_bonus": item_skill_slot_bonus,
+	}
+
+
+func build_save_snapshot() -> Dictionary:
+	return get_save_snapshot()
+
+
+func apply_save_snapshot(snapshot: Dictionary) -> Dictionary:
+	reset_runtime_skills()
+	if snapshot.is_empty():
+		return {"restored": false, "reason": "empty_snapshot"}
+	runtime_cooldown_multiplier = maxf(0.0, float(snapshot.get("runtime_cooldown_multiplier", 1.0)))
+	item_cooldown_multiplier = maxf(0.0, float(snapshot.get("item_cooldown_multiplier", 1.0)))
+	item_skill_slot_bonus = maxi(0, int(snapshot.get("item_skill_slot_bonus", 0)))
+	var dropped_ids: Array = []
+	var restored: Array = []
+	var saved_equipped: Variant = snapshot.get("equipped_skills", [])
+	if saved_equipped is Array:
+		for skill_value: Variant in saved_equipped:
+			var skill_id := str(skill_value).strip_edges()
+			if skill_id == "" or restored.has(skill_id):
+				continue
+			if not SKILL_DATA.has(skill_id) and skill_id != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+				dropped_ids.append(skill_id)
+				continue
+			restored.append(skill_id)
+	equipped_skills = restored
+	var trimmed_ids: Array = _trim_equipped_skills_to_max()
+	dropped_ids.append_array(trimmed_ids)
+	return {
+		"restored": true,
+		"equipped_skills": equipped_skills.duplicate(),
+		"dropped_ids": dropped_ids,
+		"trimmed_ids": trimmed_ids,
+		"max_slots": get_max_skill_slots(),
+	}
+
+
+func restore_save_snapshot(snapshot: Dictionary) -> Dictionary:
+	return apply_save_snapshot(snapshot)
 
 
 func get_max_skill_slots() -> int:
@@ -382,6 +447,11 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["description"] = "Amplify internal fire energy. All perk levels increase for a duration, and gold bonuses increase too."
 			data["how_to_use"] = "Hold W or Up for 0.5s on the ground"
 			data["motion_hint"] = "Open the flame meridians and release power"
+		"wall_leap_raid":
+			data["korean"] = "Wall-Leap Night Raid"
+			data["description"] = "Vault over the wall into enemy territory. Move laterally while infiltrating to choose your strike. Slash or blast, then withdraw immediately."
+			data["how_to_use"] = "RMB to infiltrate · LMB slash · RMB blast"
+			data["motion_hint"] = "Vault in a parabolic arc and return to the same X"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

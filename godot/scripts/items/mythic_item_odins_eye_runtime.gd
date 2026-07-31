@@ -516,7 +516,13 @@ func _update_dark_swamp_runtime(runtime: Object, fps_scale: float, owner: Object
 		var input_reader: Object = _peek_registry_instance(registry, input_reader_key)
 		if input_reader != null and input_reader.has_method("get_snapshot"):
 			var input_snapshot: Dictionary = input_reader.get_snapshot()
-			if bool(input_snapshot.get("mouse_left_just_pressed", false)):
+			var viper_runtime: Object = _peek_registry_instance(registry, "viper_skill_runtime")
+			var wall_leap_owns_input := (
+				viper_runtime != null
+				and viper_runtime.has_method("is_wall_leap_input_owned")
+				and bool(viper_runtime.is_wall_leap_input_owned())
+			)
+			if not wall_leap_owns_input and bool(input_snapshot.get("mouse_left_just_pressed", false)):
 				try_activate_dark_swamp(runtime, owner, registry)
 
 	if paused or not swamp.has_runtime_update_work():

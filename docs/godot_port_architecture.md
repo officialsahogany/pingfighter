@@ -885,3 +885,14 @@ animation frame projection, layered glow, and literal English loading copy.
 `battle_loading_screen_renderer.gd` retains warmup snapshots, completion hold,
 stage-transition reuse, and the Stage 7 Akamu video exemption. Neither caller
 may load or reroll cameo assets from a draw hot path.
+
+## 2026-08-01 Viper Wall-Leap Night Raid boundary
+
+`scripts/characters/viper_skill_wall_leap_runtime.gd` owns the complete
+IDLE/infiltrate/fuse/return state machine, branch costs, tween position,
+combat-center checks, shared status commits, and normalized reset. The Viper
+runtime facade only routes input and publishes actor/ball/AI contexts. Ball
+motion owns displacement-only slowdown and the two live unavailable-state
+observations; collision detection gates only the base player paddle. Lingpet
+RMB arbitration and guardian availability consume the cached facade contract
+without instantiating Viper modules from their hot paths.

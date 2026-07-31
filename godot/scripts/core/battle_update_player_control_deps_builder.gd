@@ -68,6 +68,9 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"commando_supply_drop_state": _get_instance(registry, "commando_supply_drop_state") if is_commando else null,
 		"blacksmith_thor_shield_state": _get_instance(registry, "blacksmith_thor_shield_state") if is_blacksmith else null,
 		"power_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_power_smash_state"),
+		# 월담야습의 공통 ball_unavailable 게이트는 캐릭터별 공격 소유권과
+		# 무관하게 라이브 공 프리즈를 관측해야 한다.
+		"ball_power_freeze_state": _get_instance(registry, "smasher_power_smash_state"),
 		"smasher_plasma_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_plasma_state"),
 		"smasher_recovery_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_recovery_state"),
 		"smasher_cleanse_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_cleanse_state"),

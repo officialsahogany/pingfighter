@@ -118,6 +118,7 @@ const PERK_SHEET_PATHS := {
 }
 
 const SKILL_ICON_PATHS := {
+	"wall_leap_raid": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
 	"power_smashing": "res://assets/sprites/skills/smasher_power_smashing_skill_orb.png",
@@ -167,6 +168,7 @@ const MANUAL_ICON_PATHS := {
 }
 
 const UNLOCK_ALIASES := {
+	"unlock_wall_leap_raid": "wall_leap_raid",
 	"unlock_plasma": "plasma",
 	"unlock_recovery_skill": "recovery",
 	"unlock_cleanse": "cleanse",

@@ -13,6 +13,11 @@ static func try_activate_before_movement(runtime: Object, delta: float, player_p
 	var input_reader: Object = deps.get("input_reader", null)
 	var input_snapshot: Dictionary = input_reader.get_snapshot() if input_reader != null else {}
 	var now_msec: int = Time.get_ticks_msec()
+	var wall_leap_result: Dictionary = runtime.wall_leap_state.try_update_or_activate(
+		runtime, delta, player_pos, special_gauge, config, deps, input_snapshot, now_msec
+	)
+	if not wall_leap_result.is_empty():
+		return wall_leap_result
 	var command_skill_config: Object = runtime.visibility_query.get_viper_skill_config(deps)
 	var input_state: Dictionary = runtime.command_tracker.update_before_movement(runtime, input_snapshot, command_skill_config, deps, now_msec, _command_tracker_constants(constants))
 	var down_pressed: bool = bool(input_state.get("down_pressed", false))
