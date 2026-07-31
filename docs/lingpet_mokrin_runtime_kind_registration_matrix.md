@@ -254,11 +254,16 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 **후면 계열**
 
-| 키 | 그리드·프레임 | ⚠️ 확정 필요 |
+✅ **확정 (rev10). 실제 후면 산출물은 `idle` + `L` + `R` + `strike` 4종이다** —
+`walk`와 `cast`는 별도 PNG가 필요 없다.
+
+| 키 | 그리드·프레임 | 계약 |
 |---|---|---|
-| `companion_idle` | **미정** | ⚠️ **`IDLE_FRAME := 12` 고정 함정.** 정지 시 `get_walk_frame`이 `clampi(IDLE_FRAME, 0, frame_count-1)`을 반환한다(`sprite_animator:10,106~110`). **8f idle이면 f8에서 멈출 뿐 idle 루프가 아니다.** ⇒ **"정적 f13 유지"인지 "실제 idle 순환 구현"인지 먼저 정할 것** |
-| `companion_move_left` / `_move_right` | **미정** | 정확한 `cols` / `rows` / `frame_count` 메타 필요 |
-| `companion_walk` / `_strike` / `_cast` | **별칭 확정 필요** | `REQUIRED_VISUAL_KEYS`(`catalog:19`) 필수 키다. 라비 선례처럼 **한 시트를 재사용**할지, 별도로 뽑을지 명시. ⚠️ **`_cast`는 D5a에서 `companion_puppet_control`로 대체되므로 충돌 여부 확인** |
+| `companion_idle` | **1×1 · 1f (정적)** | S1에서는 정적 1장. ⚠️ **새 AutoSprite rear-idle 포즈에서 만든 production export여야 하며 변신 f1 크롭 재사용은 금지.** 실제 idle 순환과 renderer 확장은 **후속 슬라이스로 분리**(현재 `IDLE_FRAME := 12` 고정이라 저프레임 idle은 루프가 아니라 마지막 프레임 정지가 된다 — `sprite_animator:10,106~110`) |
+| `companion_move_left` / `_move_right` | **각각 4×2 · 8f** (`cols=4` / `rows=2` / `frame_count=8`), draw **92** | **네이티브 L/R 별도 생성**(미러 아님), **같은 prompt family** 사용 |
+| `companion_walk` | **`companion_move_right` 별칭** + 4×2·8f 메타 | 별도 PNG 없음 |
+| `companion_strike` | **별도 5×5 · 25f 생성** | ⚠️ **별칭 불가.** `get_strike_frame()`은 **`sheet_meta`를 받지 않고** `STRIKE_START_FRAME := 18` ~ `SHEET_FRAME_COUNT - 1`(=24)을 **하드코딩**한다(`sprite_animator:15,77~82`). 8f 별칭이면 **상시 마지막 프레임 클램프**가 된다 |
+| `companion_cast` | **`companion_idle` 별칭** + 1×1·1f 메타 | 묵린변신 중에는 `companion_puppet_control`이 **먼저 선택**되므로 충돌하지 않는다(`draw_context_builder:21~24`) |
 
 **정면 계열**
 
@@ -266,8 +271,8 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 |---|---|---|
 | `cutin_art` | 정지 1장 | `REQUIRED_VISUAL_KEYS` 필수 |
 | `cutin_anim` | **8×4 · 32f** | 획득 오버레이 기본값(`acquire_cutin_overlay_host:29~32`). 다르면 **펫별 override 등재 필수** |
-| `cutin_dismiss_anim` | **5×5 · 25f**(기본) | ⚠️ **click 98f로 재사용한다면 획득 오버레이의 펫별 override를 반드시 추가** |
-| `click_reaction_anim` | 풀사이즈 | 패널/획득용 |
+| `cutin_dismiss_anim` | **권고: `click_reaction_anim` 98f 재사용 + Y2 override** | *(rev10)* 별도 25f 생성을 줄이고 **긴 dismiss에서 저프레임 재생을 피한다**. ⚠️ **별도 5×5·25f를 유지한다면 dismiss 지속시간과 유효 FPS를 함께 확정**해야 한다 |
+| `click_reaction_anim` | **14×7 · 98f** (풀사이즈) | *(rev10 명시)* 패널 / 획득용. 이 시트가 `companion_click_reaction_anim` 축소본의 원본이다 |
 | **`companion_click_reaction_anim`** | **14×7 · 128px 셀 · 98f** | ⚠️ **별도 키다.** 전투 중 교감은 이 축소본을 요구하고, **텍스처가 없으면 `try_begin_companion_click_reaction`이 조용히 false**를 반환한다(`click_reaction_state:9~12`, `egg_runtime:3262` 부근). 풀 시트에서 **결정론적으로 축소**해 만든다 |
 | **묵린변신 스킬카드 ×1** | — | ㉰. **없으면 프리웜 계약이 닫히지 않는다** |
 
