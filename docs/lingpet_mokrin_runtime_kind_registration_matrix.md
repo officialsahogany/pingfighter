@@ -123,6 +123,8 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 | `lingpet_skill_dispatcher.gd` | **클린** | *(rev5 추가)* A 전체 |
 | `lingpet_egg_runtime.gd` | **클린** | *(rev5 추가 — 누락이었다)* **D15 predicate** 노출 + **§E' X1 통지 전달** |
 | `lingpet_skill_launch_feedback_router.gd` | **클린 (확정 대상)** | *(rev6)* E1 발동음 **채택 확정**으로 조건부 → **확정 대상** |
+| `character_info_overlay_lingpet_texture_loader.gd` | **클린** | *(rev9 추가 — Y1 필수)* `PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID`에 백린 미등재 → 패널이 정적 아트로 폴백 |
+| `lingpet_acquire_cutin_overlay_host.gd` | **클린** | *(rev9 추가 — Y2 조건부)* cutin/dismiss가 기본 규격과 다를 때만 override 등재 |
 | `lingpet_companion_draw_context_builder.gd` | **클린** | *(rev7 추가 — D5c 소유자)* **delta를 config로 전달**하는 지점. `_get_visual_layout_value:172`가 음수를 절단하므로 **양수 delta로 실어야** 한다 |
 | `lingpet_companion_renderer.gd` | **클린** | *(rev7 추가 — D5c 소유자)* **`:186` `build_draw_rects()` 직후** `visual_key == "companion_puppet_control"`일 때만 `dest_rect.position.y += delta`. ⚠️ E1-③ **먹빛 팔레트**(현재 `:53~57` 청록 하드코딩)도 이 파일 소유 |
 | `game_audio.gd` | ⚠️ **+1807/−2055** | *(rev5)* **신규 전용 SFX를 고르면 여기까지 범위가 확대**된다. 대형 외래 WIP라 헝크 분리가 어렵다 — **기존 SFX 재사용이면 접촉 0건**(E1-① 권고) |
@@ -190,7 +192,7 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 *(rev4 재편 — 범위를 둘로 분리한다. 섞여 있어서 "④만 차단"처럼 잘못 요약됐다.)*
 
-### H-1. runtime_kind 전수표 범위 — **E1-③ 1건 남음** *(rev7 정정)*
+### H-1. runtime_kind 전수표 범위 — ✅ **종결** *(rev9 정정 — rev7 잔재 제거)*
 
 - ~~D1/D4/D6 렌더 소유권~~ → ✅ §D 코드 선례 조사(D1~D4·D6 N/A, D5·D5a·D7 필수).
 - ~~F 브리지 경로~~ → ✅ §F, `battle_scene_frame_controller` 접촉 0건 확정.
@@ -242,8 +244,39 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 | 계열 | 앵커 | 산출물 |
 |---|---|---|
-| **후면 runtime 몸체** | **승인 변신 시트의 f1** | `companion_idle` + `companion_move_left` / `companion_move_right` |
-| **정면 획득·클릭** | **원본 `백린_변신전` 정면 3/4**(별도 베이스 포즈) | `cutin_anim` · `cutin_dismiss_anim` · `click_reaction_anim` — **셋이 같은 AutoSprite `first_frame_pose_id`를 공유** |
+| **후면 runtime 몸체** | **승인 변신 시트의 f1** | `companion_idle` + `companion_move_left` / `companion_move_right` (+ `companion_walk` / `_strike` / `_cast` 별칭) |
+| **정면 획득·클릭** | **원본 `백린_변신전` 정면 3/4**(별도 베이스 포즈) | `cutin_art` · `cutin_anim` · `cutin_dismiss_anim` · `click_reaction_anim` · **`companion_click_reaction_anim`** — 애니 계열은 **같은 AutoSprite `first_frame_pose_id` 공유** |
+
+### 생성 전 확정 필수 — 규격표 (rev9)
+
+⚠️ **아래가 확정되기 전에는 AutoSprite 크레딧을 쓰지 않는다.** 그리드/프레임 수를
+모른 채 뽑으면 무효 산출이 된다(변신 시트에서 이미 겪었다).
+
+**후면 계열**
+
+| 키 | 그리드·프레임 | ⚠️ 확정 필요 |
+|---|---|---|
+| `companion_idle` | **미정** | ⚠️ **`IDLE_FRAME := 12` 고정 함정.** 정지 시 `get_walk_frame`이 `clampi(IDLE_FRAME, 0, frame_count-1)`을 반환한다(`sprite_animator:10,106~110`). **8f idle이면 f8에서 멈출 뿐 idle 루프가 아니다.** ⇒ **"정적 f13 유지"인지 "실제 idle 순환 구현"인지 먼저 정할 것** |
+| `companion_move_left` / `_move_right` | **미정** | 정확한 `cols` / `rows` / `frame_count` 메타 필요 |
+| `companion_walk` / `_strike` / `_cast` | **별칭 확정 필요** | `REQUIRED_VISUAL_KEYS`(`catalog:19`) 필수 키다. 라비 선례처럼 **한 시트를 재사용**할지, 별도로 뽑을지 명시. ⚠️ **`_cast`는 D5a에서 `companion_puppet_control`로 대체되므로 충돌 여부 확인** |
+
+**정면 계열**
+
+| 키 | 그리드·프레임 | 비고 |
+|---|---|---|
+| `cutin_art` | 정지 1장 | `REQUIRED_VISUAL_KEYS` 필수 |
+| `cutin_anim` | **8×4 · 32f** | 획득 오버레이 기본값(`acquire_cutin_overlay_host:29~32`). 다르면 **펫별 override 등재 필수** |
+| `cutin_dismiss_anim` | **5×5 · 25f**(기본) | ⚠️ **click 98f로 재사용한다면 획득 오버레이의 펫별 override를 반드시 추가** |
+| `click_reaction_anim` | 풀사이즈 | 패널/획득용 |
+| **`companion_click_reaction_anim`** | **14×7 · 128px 셀 · 98f** | ⚠️ **별도 키다.** 전투 중 교감은 이 축소본을 요구하고, **텍스처가 없으면 `try_begin_companion_click_reaction`이 조용히 false**를 반환한다(`click_reaction_state:9~12`, `egg_runtime:3262` 부근). 풀 시트에서 **결정론적으로 축소**해 만든다 |
+| **묵린변신 스킬카드 ×1** | — | ㉰. **없으면 프리웜 계약이 닫히지 않는다** |
+
+**추가 fanout (rev9 신설)**
+
+| # | 지점 | 분류 | 비고 |
+|---|---|---|---|
+| Y1 | `character_info_overlay_lingpet_texture_loader.gd:6` `PANEL_LIVE2D_VISUAL_KEYS_BY_PET_ID` | **필수** | 현재 6펫만 등재돼 있고 **백린이 없다** → 그대로면 패널이 `click_reaction_anim` 대신 **정적 아트로 폴백**한다 |
+| Y2 | `lingpet_acquire_cutin_overlay_host.gd` `CUTIN_ANIM_*_OVERRIDES` | **조건부** | cutin/dismiss가 기본 규격(8×4·32f / 5×5·25f)과 다르면 등재 |
 
 렌더러는 **전용 idle / L / R 시트를 이미 지원**한다(`companion_renderer:259`
 `_get_movement_texture_state(config, facing_left)`), 즉 후면 3종은 신규 렌더 분기 없이 얹힌다.
