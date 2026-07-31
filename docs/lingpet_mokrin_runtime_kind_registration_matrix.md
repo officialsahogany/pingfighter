@@ -63,15 +63,19 @@
 `companion_carry`로 교체하며 `lingpet_companion_renderer:21`이 그린다.
 뿔딸기·오딘도 상태 런타임이 몸을 직접 그리지 않고
 `stage1_player_actor_renderer:581`의 전용 presentation renderer가 교체한다.
-**묵린도 이 패턴을 따르므로 D 블록 전부 N/A.**
+**묵린도 이 패턴을 따른다 — 즉 host가 몸체를 직접 그리지 않는다(D1~D4·D6 = N/A).**
+⚠️ *(rev4 정정)* 다만 **"D 블록 전부 N/A"는 틀렸다.** 몸체를 그리는 주체는 렌더러여도,
+**어느 시각 키를 어떤 그리드로 그릴지 지시하는 표면(D5·D7)은 필수**다.
 
 | D1 | `draw(:228)` fanout | **N/A** | 변신 몸체는 컴패니언 렌더러가 텍스처 교체로 그린다(위 선례) |
 | D2 | `has_visible_effects(:255)` or-fanout | **N/A** | D1과 동반 |
 | D3 | `has_visible_effects_for_skill(:284)` match | **N/A** | D1과 동반 |
 | D4 | `suppresses_companion_body_draw(:572)` | **N/A 확정 — `false` 유지** *(2026-07-31)* | **같은 렌더러 안에서 텍스처를 교체**하므로 원본과 중복 자체가 없다. ⚠️ host가 변신체를 직접 그리고 기본 몸체를 억제하면 **z-order가 틀어진다** — host `draw()`는 전면 VFX 패스인데 컴패니언 몸체는 `lingpet_egg_runtime:1039`의 **플레이어 뒤 패스**다(주석에 "intended to run BEHIND the player actor" 명시) |
-| D5 | `should_show_cast_windup(:584)` / `get_companion_cast_pose_progress(:588)` | **필수** *(확정 2026-07-31)* | ⚠️ **N/A(잠정)에서 승격.** 변신 시트를 그릴 **가장 좁은 경로가 기존 `companion_cast` 경로**다 — 6×2·12f 시트를 그 키에 연결하고 `get_companion_cast_pose_progress()`로 **재생 진행도와 f12 hold를 투영**한다. 신규 렌더 분기·신규 body override가 불필요해진다 |
+| D5 | `get_companion_cast_pose_progress(:588)` | **필수** *(rev4 정정)* | 변신 시트를 그릴 **가장 좁은 경로**. ⚠️ **rev3의 "`companion_cast`에 연결"은 오슬라이스를 낳는다 — 철회.** `skill_cast_pose_active`가 켜지면 draw context가 **`companion_puppet_control`을 먼저 선택**하고(`draw_context_builder:22~24`), 텍스처만 `companion_cast`로 폴백돼도 렌더러는 **`companion_puppet_control_{cols,rows,frame_count}`**(:100~102)를 조회한다. 메타가 없으면 애니메이터 기본값 **`SHEET_COLS 5 / SHEET_ROWS 5 / SHEET_FRAME_COUNT 25`**(`sprite_animator:7~9`)로 **6×2·12f 시트를 5×5·25f로 잘못 자른다** |
+| D5a | 시각 키 = **`companion_puppet_control`** + `companion_puppet_control_cols=6` / `_rows=2` / `_frame_count=12` / `_draw_size=92` | **필수** *(rev4 신설)* | 위 오슬라이스를 막는 실제 계약. 네 값을 **함께** 지정해야 한다 |
+| D5b | `should_show_cast_windup(:584)` | **자동** *(rev4 정정)* | A2 등재로 라우터가 자동 처리. **실제 필수 분기는 D5(`get_companion_cast_pose_progress`) 쪽**이다 |
 | D7 | `lingpet_skill_companion_surface_router.gd` 등재 | **필수** *(신설 2026-07-31)* | D5를 실제로 태우는 라우터. host의 `_companion_surface_router`가 kind→모듈 표면을 중계하므로 **여기 미등재면 D5가 조용히 빈값**이 된다. ⚠️ WIP 지도(§F)에도 추가됨 |
-| D6 | `get_companion_bind_sheet_state(:1148)` | **N/A — 재사용 금지** | ⚠️ 이 훅은 **Star Coil 전용**(:1145)이고 **몸체를 보스 앞 front-pass로 옮기는 의미까지 결합**돼 있다. 묵린 6×2 변신 시트는 **별도의 companion body override / snapshot 표면**을 둔다. 잔상·오라도 gameplay state가 직접 그리지 말고 전용 presentation renderer 또는 companion renderer 하위 레이어가 snapshot을 소비하는 구조로 |
+| D6 | `get_companion_bind_sheet_state(:1148)` | **N/A — 재사용 금지** *(rev4 재기술)* | ⚠️ 이 훅은 **Star Coil 전용**(:1145)이고 **몸체를 보스 앞 front-pass로 옮기는 의미까지 결합**돼 있다. ⚠️ **rev3의 "별도 body override/snapshot 표면을 둔다"는 철회** — D5a의 `companion_puppet_control` 경로로 해결되므로 **신규 override가 불필요**하다. 잔상·오라만 gameplay state가 직접 그리지 말고 전용 presentation renderer 또는 companion renderer 하위 레이어가 snapshot을 소비하는 구조로 |
 
 ## E. 호스트 — 부가 표면
 
@@ -82,7 +86,7 @@
 | E3 | `get_snapshot_for_skill_id(:636)` / `get_snapshot_for_kind(:640)` | **자동** | B7/B8 경유 |
 | E4 | `get_launch_origin(:532)` | **N/A** | 투사체 없음 |
 | E5 | `has_companion_position_override(:536)` / `get_companion_position_override(:542)` / `get_active_position_override_owner(:548)` | **N/A** | 묵린은 **플레이어 패들**을 자동조작하지 펫 위치를 스크립팅하지 않는다(D15) |
-| E6 | `suppresses_companion_body_hit(:566)` | **N/A(잠정)** | 무력화 창이 아님. 변신 중 펫이 무적/비피격이 되는 사양이면 재분류 |
+| E6 | `suppresses_companion_body_hit(:566)` | **N/A 확정 — `false` 유지** *(rev4)* | 묵린변신은 **무력화 창이 아니다** — D14가 은퇴시키는 것은 자동조작·연출뿐이고 펫을 무적으로 만들지 않는다. D4와 동일 판정 |
 | E7 | `consume_companion_strike_request(:578)` | **N/A** | 스트라이크 요청 없음 |
 | E8 | `get_boss_ai_context(:598)` | **N/A** | banana_slice 전용 하드코딩. 묵린은 보스 AI 컨텍스트를 발행하지 않음 |
 | E9 | `get_ball_collision_context(:802)` / `notify_*_hit` | **N/A** | 공 충돌 계약 없음 |
@@ -102,14 +106,14 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 ## F. WIP 중첩 지도 (2026-07-29 실측)
 
-S1 구현 대상 4파일이 **전부 dirty**다. 구현 전 소유권 판단 필요:
+*(rev4 갱신 — 실측 2026-07-31)* **8파일 중 dirty 4 / 클린 4.** 구현 착수면은 **전부 클린**이다:
 
 | 파일 | dirty 규모 | 성격 / 주의 |
 |---|---|---|
-| `battle_scene_frame_controller.gd` | **+195/−771 (948줄)** | ⚠️ **대형 외래 리팩터**(프레임 컨트롤러 모듈 분해 캠페인, 정산 보류 13건 목록에 등재). 여기에 묵린 브리지 헝크를 얹으면 헝크 분리가 사실상 불가능 |
-| `smasher_player_controller.gd` | 15줄 | 소규모. 성격 확인 후 헝크 분리 가능성 높음 |
-| `battle_update_player_control_deps_builder.gd` | **1줄** | 거의 클린 |
-| `lingpet_catalog.gd` | 2줄 | 소규모 |
+| `battle_scene_frame_controller.gd` | **+184/−764** | ⚠️ **대형 외래 리팩터**(프레임 컨트롤러 모듈 분해 캠페인, 정산 보류 13건 목록에 등재). 여기에 묵린 브리지 헝크를 얹으면 헝크 분리가 사실상 불가능 |
+| `smasher_player_controller.gd` | **+9/−6** | 소규모. 헝크 분리 가능 |
+| `battle_update_player_control_deps_builder.gd` | **+1/−0** | 거의 클린 |
+| `lingpet_catalog.gd` | **+1/−1** | 소규모 |
 | `lingpet_skill_companion_surface_router.gd` | **0 (클린)** | *(추가 2026-07-31)* D7 대상. 선행 WIP 없음 |
 | `paddle_bounce_event_router.gd` | **0 (클린)** | *(추가 2026-07-31)* §E' X1~X3 대상. 선행 WIP 없음 |
 
@@ -162,12 +166,36 @@ lingpet_catalog 2줄)은 헝크 분리로 진행 가능.
 
 ## H. 검토 상태
 
-- ~~1. D1/D4/D6 렌더 소유권~~ → ✅ **해소**(§D 코드 선례 조사, 전부 N/A).
-- ~~3. F 브리지 경로~~ → ✅ **해소**(§F, frame_controller 접촉 0건 확정).
-- **남은 사용자 판단 2건 — 이 둘이 정해질 때까지 S1 구현 착수 보류:**
-  1. **E1 발동 피드백** — 발동 SFX/플래시 유무(D14-2가 "이미 재생된 단발
-     발동음은 취소하지 않는다"고 하여 존재를 전제하는 듯하나 명시 확인 필요).
-  2. **E6** — 변신 중 펫 피격 판정 유지 여부.
+*(rev4 재편 — 범위를 둘로 분리한다. 섞여 있어서 "④만 차단"처럼 잘못 요약됐다.)*
+
+### H-1. runtime_kind 전수표 범위 — **전부 해소**
+
+- ~~D1/D4/D6 렌더 소유권~~ → ✅ §D 코드 선례 조사(D1~D4·D6 N/A, D5·D5a·D7 필수).
+- ~~F 브리지 경로~~ → ✅ §F, `battle_scene_frame_controller` 접촉 0건 확정.
+- ~~E1 발동 피드백~~ → ✅ **범위 분리로 해소**: 발동 단발음은 라우터 소유, 가드 단계
+  SFX는 모듈 소유(§E' X4). **"발동음이 실제로 있는가"는 에셋/연출 결정이라 H-2로 이관.**
+- ~~E6 변신 중 펫 피격~~ → ✅ **N/A 확정, `false` 유지**: 묵린변신은 **무력화 창이
+  아니다**(D14가 은퇴시키는 것은 자동조작·연출뿐이고 펫을 무적으로 만들지 않는다).
+  D4와 같은 판정이며 둘 다 `false`.
+
+⇒ **전수표 자체는 더 이상 S1을 막지 않는다.**
+
+### H-2. 에셋 · 연출 결정 범위 — **4건 미결 (S1 실질 차단)**
+
+| # | 결정 | 비고 |
+|---|---|---|
+| ㉮ | **12프레임 재생시간과 5초 창의 관계** | 12f를 5초에 어떻게 배분할지(등속 2.4fps? 앞부분 가속 후 f12 hold?) |
+| ㉯ | **가드 연출 단계 임계값 · SFX 발생 규칙** | §E' X1 통지를 받은 뒤 몇 회에서 단계가 오르는지. **발동 단발음 유무도 여기서 확정**(E1에서 이관) |
+| ㉰ | **S1 카드 범위** | **묵린변신 카드 1장만 runtime 필수.** 안장 카드는 S7 전 노출 금지라 **미배선 자산**일 뿐 |
+| ㉱ | **정상 백린 몸체용 runtime 시트** | ⚠️ **변신 해제 후 돌아갈 승인된 기본 몸체가 없다.** 현재 승격된 백린 자산은 변신 PNG·manifest·import뿐이고 walk/idle 계열이 전무하다 |
+
+> ⚠️ **㉱ 하나만 풀면 끝나는 범위가 아니다.** enabled 카탈로그 엔트리까지 S1 범위라면
+> 정상 몸체 외에 `cutin_anim` / `cutin_dismiss_anim` / `click_reaction_anim`도
+> 필요하다(`REQUIRED_VISUAL_KEYS`).
+>
+> ⚠️ **f1 정적 크롭을 최종 몸체로 쓰지 말 것.** 승인된 f1은 **정체성 앵커**로 삼고
+> 정상 백린 **rear idle / walk 시트**를 만드는 것이 생산용 S1의 품질선이다.
+> f1 1×1 파생본은 **debug-only 임시 몸체**로만 허용.
 
 ## 개정 이력
 
