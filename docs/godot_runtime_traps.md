@@ -1123,14 +1123,20 @@ Standing rules:
 - Movement-locking skills are the softlock class; audit them first when adding a
   new player-control-only phase. Ranking test: "if this lock never releases, can
   the phase still reach its exit condition?"
-- Seal shape (`smasher_shield_kiting_victory_loot_freeze_smoke.gd`): build the
-  config through the REAL `build_config` with a fake owner whose
-  `ball_active = true` AND `victory_loot_phase_active = true` (asserting the
-  stale-true precondition explicitly, since a fixture that sets
-  `ball_active = false` proves nothing), then drive the real double-tap edge
-  through `update_input`. Needs a live-rally control leg, or the "no activation"
-  assertion passes vacuously. Reverse-verified: reverting either the config gate
-  or the release turns its own leg RED.
+- Seal shape (`smasher_shield_kiting_victory_loot_freeze_smoke.gd`): unit legs
+  (`build_config` / `update_input` called directly) are NOT enough — they stay
+  GREEN if the frame-flow wiring itself breaks. The seal must drive the REAL
+  chain one frame at a time: `battle_frame_flow_controller.update` (loot branch)
+  → `battle_scene_update_callbacks` → `battle_scene_actor_update_driver`
+  → real config builder → real `smasher_player_controller` → the skill state.
+  Fixture must set `ball_active = true` AND `victory_loot_phase_active = true`
+  (assert the stale-true precondition explicitly; a fixture with
+  `ball_active = false` proves nothing), hold a movement direction, and assert
+  the paddle **actually moved** — a "projectile is empty" assertion alone passes
+  vacuously when nothing ran. Needs a live-rally control leg (skill DOES arm and
+  DOES pin the paddle) to prove the harness reaches the skill at all.
+  Reverse-verified: reverting either the config gate or the release turns the
+  integration leg RED, including the "paddle must move" softlock assertion.
 
 ## Godot Lazy Applied-Key Re-Apply Trap
 
@@ -1796,6 +1802,18 @@ phases). Run windowed: `godot --path godot -s
 res://tools/angel_dice_overlay_capture.gd`.
 
 ## Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
+
+**⚠️ 자매 함정 (2026-08-01): 임시 RefCounted에 만든 `Callable`은 즉시 죽는다.**
+`Callable(self, "_update_player_control")`는 대상 객체를 **약참조**한다. 통합
+스모크에서 콜백 테이블을 `BattleSceneUpdateCallbacks.new().build_frame_callbacks(...)`
+처럼 **임시 객체로** 만들면 그 줄이 끝나는 순간 빌더가 해제되고, 반환된 Callable이
+전부 `is_valid() == false`가 된다. `battle_frame_flow_controller._call_delta`는
+invalid Callable을 **조용히 건너뛰므로** 프레임 흐름이 통째로 no-op이 되고,
+"투사체가 비어 있다" 같은 부재-단언은 전부 공허 통과한다(실측: 8프레임을 돌렸는데
+입력 리더 호출 0회). 규칙 = 콜백 빌더를 **살아 있는 지역/멤버 변수로 보관**하고,
+통합 레그에는 (a) `is_valid()` 단언과 (b) "무언가 실제로 일어났다"는 **양성 대조군**
+(예: 패들이 실제로 이동, 스킬이 실제로 발동)을 반드시 함께 둔다. 부재-단언만 있는
+통합 씰은 배선이 죽어도 GREEN이다.
 
 **⚠️ 자매 함정 (2026-07-27): 스윕 하네스 자체가 거짓말한다.** 표준 러너
 `run_smoke_tests.ps1`은 **첫 실패에서 throw**하므로, 더티 트리(병행 WIP 다수)에서

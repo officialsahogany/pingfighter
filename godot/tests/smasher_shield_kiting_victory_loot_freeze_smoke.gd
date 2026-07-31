@@ -22,6 +22,18 @@ extends SceneTree
 const PlayerControlConfigBuilder := preload("res://scripts/core/battle_scene_player_control_config_builder.gd")
 const SmasherShieldKitingState := preload("res://scripts/characters/smasher_shield_kiting_state.gd")
 
+# 통합 레그(실전 프레임 경로) 구성품 — 모두 실물이다.
+const BattleFrameFlowController := preload("res://scripts/core/battle_frame_flow_controller.gd")
+const BattleSceneUpdateCallbacks := preload("res://scripts/core/battle_scene_update_callbacks.gd")
+const BattleSceneActorUpdateDriver := preload("res://scripts/core/battle_scene_actor_update_driver.gd")
+const BattleSceneActorUpdateResultApplier := preload("res://scripts/core/battle_scene_actor_update_result_applier.gd")
+const BattleUpdateActorContext := preload("res://scripts/core/battle_update_actor_context.gd")
+const SmasherPlayerController := preload("res://scripts/characters/smasher_player_controller.gd")
+const PlayerMovementState := preload("res://scripts/characters/player_movement_state.gd")
+const VictoryLootPhaseState := preload("res://scripts/core/victory_loot_phase_state.gd")
+
+const FRAME_DELTA := 1.0 / 60.0
+
 var _failures: Array[String] = []
 
 
@@ -49,6 +61,24 @@ class FakeRegistry:
 
 	func get_instance(_key: String) -> Object:
 		return null
+
+
+class MapRegistry:
+	extends RefCounted
+
+	var instances: Dictionary = {}
+
+	func get_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+
+class FakeInputReader:
+	extends RefCounted
+
+	var snapshot: Dictionary = {}
+
+	func get_snapshot() -> Dictionary:
+		return snapshot.duplicate(true)
 
 
 class FakeContextBuilder:
@@ -115,6 +145,7 @@ func _run() -> void:
 	_verify_loot_phase_closes_ball_gate()
 	_verify_loot_phase_blocks_new_activation()
 	_verify_live_windup_releases_when_ball_gate_closes()
+	_verify_real_victory_loot_frame_flow_keeps_player_mobile()
 
 	if _failures.is_empty():
 		print("smasher_shield_kiting_victory_loot_freeze_smoke: ok")
@@ -248,6 +279,111 @@ func _verify_live_windup_releases_when_ball_gate_closes() -> void:
 	_expect(
 		audio.stop_calls >= 1 and not audio.wind_up_playing,
 		"stalled Shield Kiting release must stop the wind-up loop SFX"
+	)
+
+
+func _verify_real_victory_loot_frame_flow_keeps_player_mobile() -> void:
+	# 실전 배선 관통 레그. 유닛 레그(config 빌더 / update_input 직접 호출)는 배선이
+	# 끊겨도 GREEN이 되므로, 여기서는 실제 프레임 흐름
+	#   battle_frame_flow_controller.update (전리품 분기)
+	#     -> battle_scene_update_callbacks "update_player_control"
+	#       -> battle_scene_actor_update_driver.update_player_control
+	#         -> battle_scene_player_control_config_builder.build_config
+	#           -> smasher_player_controller.update
+	#             -> smasher_shield_kiting_state.update_input
+	# 을 한 프레임씩 그대로 돌린다. 실물이 아닌 것은 입력 리더 / 스킬 장착 정보 /
+	# 오디오뿐이다.
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(400.0, 700.0)
+	# 매치 종료 득점은 reset_ball을 거치지 않는다 = 마지막 랠리의 stale true.
+	owner.ball_active = true
+
+	var shield_state := SmasherShieldKitingState.new()
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot = {
+		"action_pressed": true,
+		"left_pressed": true,
+		"right_pressed": false,
+		"down_pressed": false,
+		"direction": -1.0,
+	}
+	var registry := MapRegistry.new()
+	registry.instances = {
+		"battle_update_context": BattleUpdateActorContext.new(),
+		"battle_scene_actor_update_driver": BattleSceneActorUpdateDriver.new(),
+		"battle_scene_player_control_config_builder": PlayerControlConfigBuilder.new(),
+		"battle_scene_actor_update_result_applier": BattleSceneActorUpdateResultApplier.new(),
+		"smasher_player_controller": SmasherPlayerController.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": PlayerMovementState.new(),
+		"smasher_skill_config": FakeSkillConfig.new(),
+		"smasher_skill_state": FakeSkillState.new(),
+		"smasher_shield_kiting_state": shield_state,
+		"game_audio": FakeAudio.new(),
+	}
+
+	var loot_state := VictoryLootPhaseState.new()
+	var flow := BattleFrameFlowController.new()
+	# ⚠️ 콜백 빌더는 RefCounted고 Callable(self, ...)은 약참조다 — 임시 객체로 만들면
+	# 즉시 해제돼 모든 콜백이 is_valid()==false가 되고, frame flow가 조용히 아무것도
+	# 하지 않는 공허-GREEN이 된다. 반드시 살려 둔다.
+	var callback_builder := BattleSceneUpdateCallbacks.new()
+	var callbacks: Dictionary = callback_builder.build_frame_callbacks(owner, registry)
+	_expect(
+		(callbacks.get("update_player_control", Callable()) as Callable).is_valid(),
+		"harness: the real update_player_control callback must be live (invalid callables no-op silently)"
+	)
+	var deps: Dictionary = {"victory_loot_phase_state": loot_state}
+	var start_x: float = owner.player_pos.x
+
+	# --- 대조군: 살아있는 랠리 프레임 ---------------------------------------
+	# 하네스가 실제로 회천비륜을 관통한다는 증거. 여기서 발동/잠금이 관측되지
+	# 않으면 아래 "정지하지 않는다" 단언은 공허하다.
+	shield_state.last_action_edge_msec = Time.get_ticks_msec() - 120
+	for _rally_frame in range(8):
+		flow.update(FRAME_DELTA, deps, callbacks)
+
+	_expect(
+		str(shield_state.projectile.get("state", "")) == SmasherShieldKitingState.STATE_WIND_UP,
+		"control leg: the real frame flow must reach Shield Kiting and arm its wind-up on a live rally frame"
+	)
+	_expect(
+		shield_state.is_movement_locked(),
+		"control leg: a live-rally wind-up should lock movement through the real controller"
+	)
+	_expect(
+		is_equal_approx(owner.player_pos.x, start_x),
+		"control leg: the wind-up lock should pin the paddle even while left is held"
+	)
+
+	# --- 매치 종료 -> 승리 전리품 페이즈 진입 -------------------------------
+	# 감기던 투사체를 그대로 들고 페이즈에 들어간다(실제 버그 재현 순서).
+	var started: bool = loot_state.start(owner, registry, 7, 0, Callable())
+	_expect(started, "victory loot phase should start on a 7-0 win")
+	_expect(loot_state.is_active(), "victory loot phase should report active")
+	_expect(
+		owner.ball_active,
+		"repro precondition: the match-ending score must leave owner.ball_active true"
+	)
+
+	for _loot_frame in range(12):
+		flow.update(FRAME_DELTA, deps, callbacks)
+
+	_expect(
+		shield_state.projectile.is_empty(),
+		"loot phase: the stalled Shield Kiting projectile must be cleared through the real frame flow"
+	)
+	_expect(
+		not shield_state.is_movement_locked(),
+		"loot phase: Shield Kiting must not hold the movement lock through the real frame flow"
+	)
+	_expect(
+		owner.player_pos.x < start_x - 1.0,
+		"loot phase: the paddle must actually move (loot phase softlock = player cannot reach a box)"
+	)
+	_expect(
+		loot_state.is_active(),
+		"loot phase should still be running (no box was reachable in this window)"
 	)
 
 
