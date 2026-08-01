@@ -107,6 +107,8 @@ static func apply_hit(runtime: Object, hit_center: Vector2, hit_size: Vector2, c
 		runtime._spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(0.72, 0.0, 1.0, 1.0), particle_intensity, energy_scale, energy_intensity)
 	runtime._mark_kick_skill_knockback_pending(deps)
 	runtime._mark_kick_guard_speed_reduction_pending()
+	# 이 킥에 대한 보스 읽기 판정을 1회 발행(쉐도우 백스텝은 연계의 시작이라 chained=false).
+	runtime.mark_kick_read_event(false)
 	runtime.shadow_starburst_active = true
 	runtime.shadow_starburst_pos = ball_pos
 	runtime.shadow_starburst_frame = 0

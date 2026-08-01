@@ -35,6 +35,16 @@ const LIMIT_BOSS_MISTAKE_CHANCE: float = 0.07
 const LIMIT_BOSS_MISTAKE_ERROR_MIN: float = 40.0
 const LIMIT_BOSS_MISTAKE_ERROR_MAX: float = 80.0
 const LIMIT_BOSS_MISTAKE_SPEED_SCALE: float = 4.5
+# 킥 읽기 실패: 쉐도우 백스텝 / 마샬 킥이 공을 맞힌 1회에 대해서만 굴리는 별도
+# 판정이다. 극한(limit) 40~80px / 초월(mythic) 0~20px 오차는 보스 패들 반폭 +
+# 여유(72.8 / 76.8px)를 못 넘어 사실상 전부 막히므로, 두 무공만 '완전히 비켜나는'
+# 실수를 따로 준다. 일반 실수율(BOSS_MISTAKE_CHANCE 계열)은 건드리지 않는다 —
+# 그쪽을 올리면 다른 캐릭터의 평범한 공까지 같이 쉬워진다.
+# 스테이지가 올라가도 감소시키지 않는다(초월 일반 실수율과 다른 점).
+const LIMIT_BOSS_KICK_READ_FAILURE_CHANCE: float = 0.12
+const MYTHIC_BOSS_KICK_READ_FAILURE_CHANCE: float = 0.08
+# 쉐도우 백스텝에서 곧바로 이어진 마샬 킥은 보스가 한 번 더 읽어야 해서 가산.
+const BOSS_KICK_READ_FAILURE_CHAIN_BONUS: float = 0.04
 const BASE_BOSS_ACCEL: float = 0.798
 const BASE_BOSS_DECEL: float = 0.798
 const BASE_BOSS_MAX_SPEED: float = 6.3175
@@ -111,6 +121,8 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_mistake_error_min": boss_mistake_profile["boss_mistake_error_min"],
 		"boss_mistake_error_max": boss_mistake_profile["boss_mistake_error_max"],
 		"boss_mistake_speed_scale": boss_mistake_profile["boss_mistake_speed_scale"],
+		"boss_kick_read_failure_chance": boss_mistake_profile["boss_kick_read_failure_chance"],
+		"boss_kick_read_failure_chain_bonus": boss_mistake_profile["boss_kick_read_failure_chain_bonus"],
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"lingpet_puppet_grab_active": bool(_get_owner_value(owner, "lingpet_puppet_grab_active", false)),
 		"lingpet_sand_prison_clamp_active": bool(_get_owner_value(owner, "lingpet_sand_prison_clamp_active", false)),
@@ -252,6 +264,8 @@ func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Diction
 			"boss_mistake_error_min": MYTHIC_BOSS_MISTAKE_ERROR_MIN,
 			"boss_mistake_error_max": MYTHIC_BOSS_MISTAKE_ERROR_MAX,
 			"boss_mistake_speed_scale": MYTHIC_BOSS_MISTAKE_SPEED_SCALE,
+			"boss_kick_read_failure_chance": MYTHIC_BOSS_KICK_READ_FAILURE_CHANCE,
+			"boss_kick_read_failure_chain_bonus": BOSS_KICK_READ_FAILURE_CHAIN_BONUS,
 		}
 	if normalized_mode == "limit":
 		return {
@@ -259,12 +273,18 @@ func _build_boss_mistake_profile(current_stage: int, ai_mode: String) -> Diction
 			"boss_mistake_error_min": LIMIT_BOSS_MISTAKE_ERROR_MIN,
 			"boss_mistake_error_max": LIMIT_BOSS_MISTAKE_ERROR_MAX,
 			"boss_mistake_speed_scale": LIMIT_BOSS_MISTAKE_SPEED_SCALE,
+			"boss_kick_read_failure_chance": LIMIT_BOSS_KICK_READ_FAILURE_CHANCE,
+			"boss_kick_read_failure_chain_bonus": BOSS_KICK_READ_FAILURE_CHAIN_BONUS,
 		}
+	# 주니어 / 챔피언은 일반 실수율(15~20% / 7~10%)과 오차폭(78~140px)이 이미
+	# 미스 임계를 넘겨서 킥이 통한다 — 별도 판정 없음(0.0).
 	return {
 		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage, ai_mode),
 		"boss_mistake_error_min": DEFAULT_BOSS_MISTAKE_ERROR_MIN,
 		"boss_mistake_error_max": DEFAULT_BOSS_MISTAKE_ERROR_MAX,
 		"boss_mistake_speed_scale": DEFAULT_BOSS_MISTAKE_SPEED_SCALE,
+		"boss_kick_read_failure_chance": 0.0,
+		"boss_kick_read_failure_chain_bonus": 0.0,
 	}
 
 

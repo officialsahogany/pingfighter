@@ -40,3 +40,4 @@ static func reset_round(runtime: Object, deps: Dictionary, constants: Dictionary
 	runtime._reset_dive_runtime(true)
 	runtime._reset_marshal_runtime_fields()
 	runtime.marshal_particles.clear(); runtime.phantom_hit_particles.clear()
+	runtime.kick_read_event_id = 0; runtime.kick_read_event_chained = false

@@ -209,6 +209,10 @@ var marshal_start_pos := Vector2.ZERO; var marshal_visual_pos := Vector2.ZERO; v
 var marshal_wall_side := 0  # +1 if wall is to viewer-right of start, -1 to viewer-left, 0 inactive
 var marshal_reclimb_start_pos := Vector2.ZERO; var marshal_charge_start_pos := Vector2.ZERO; var marshal_return_start_pos := Vector2.ZERO
 var marshal_ball_hit := false; var marshal_activation_msec := -100000; var marshal_hit_msec := -100000
+# 킥 읽기 실패 이벤트: 쉐도우 백스텝 / 마샬 킥 계열이 공을 실제로 때린 순간마다
+# 1씩 올라간다. 보스 AI 예측이 id 변화를 보고 '이 킥 1회분'의 읽기 판정을 굴린다
+# (프레임마다 재굴림 금지 = per-opportunity 계약). 라운드 리셋에서 0으로 돌아온다.
+var kick_read_event_id: int = 0; var kick_read_event_chained := false
 var marshal_last_hit_pos := Vector2.ZERO; var marshal_charge_target_pos := Vector2.ZERO; var marshal_web_lines: Array = []; var marshal_particles: Array = []; var phantom_hit_particles: Array = []
 var chaos_cmd_buffer: Array = []; var chaos_state := "idle"; var chaos_phase_frames := 0.0
 var chaos_origin := Vector2.ZERO; var chaos_target := Vector2.ZERO; var chaos_current := Vector2.ZERO
@@ -306,6 +310,12 @@ func get_boss_ai_context() -> Dictionary:
 	var context: Dictionary = context_builder.build_boss_ai_context(self)
 	context.merge(wall_leap_state.get_boss_ai_context(), true)
 	return context
+
+# 킥이 공을 실제로 때린 프레임에만 호출한다(발동/모션 시작이 아니라 적중).
+# chained = 쉐도우 백스텝에서 곧바로 이어진 연계 킥인지.
+func mark_kick_read_event(chained: bool) -> void:
+	kick_read_event_id += 1
+	kick_read_event_chained = chained
 
 func is_command_armable(owner: Object, registry: Object) -> bool: return wall_leap_state.is_command_armable_from_owner(owner, registry)
 func is_wall_leap_input_owned() -> bool: return wall_leap_state.is_input_owned()

@@ -87,6 +87,12 @@ var boss_dash_stun_timer_frames := 0.0
 var boss_dash_stun_total_frames := 0.0
 # 매 프레임 HUD가 읽는 대쉬 토큰 스냅샷 재사용 버퍼 (get_dash_token_snapshot 참조).
 var _dash_token_snapshot: Dictionary = {}
+# 킥 읽기 실패가 확정된 직후의 '흠칫' 창. 반응 가속/최대속도만 잠깐 죽여서
+# 억지 RNG가 아니라 보스가 한 박자 늦게 반응한 것처럼 보이게 한다.
+# 렌더러 계약을 늘리지 않으려고 스프라이트가 아니라 이동으로 표현한다.
+const KICK_READ_FLINCH_FRAMES: float = 9.0
+const KICK_READ_FLINCH_REACTION_MULT: float = 0.4
+var _kick_read_flinch_frames := 0.0
 
 
 func reset() -> void:
@@ -96,6 +102,7 @@ func reset() -> void:
 	paddle_hit_knockback_vel = 0.0
 	paddle_hit_knockback_timer = 0.0
 	paddle_hit_knockback_decay_per_frame = PADDLE_HIT_KNOCKBACK_DECAY_PER_FRAME
+	_kick_read_flinch_frames = 0.0
 	_reset_serve_feint()
 	_reset_boss_dash()
 
@@ -350,6 +357,9 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 	var stage2_status_immune: bool = _is_stage2_speed_defense_status_immune(context)
 
 	_update_boss_dash_recharge(fps_scale, context)
+	# 조기 return 분기(스톱워치 / 꼭두각시 / 스턴 등)보다 위에서 단일 지점 틱 —
+	# 두 경로에서 각각 깎으면 배속으로 흐른다(two-update-path 트랩).
+	_kick_read_flinch_frames = max(0.0, _kick_read_flinch_frames - fps_scale)
 
 	if bool(context.get("active_item_stopwatch_freeze_active", false)):
 		return {
@@ -608,6 +618,9 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			boss_paddle_width,
 			context
 		)
+		# 굴림과 같은 프레임에 소비한다(아래 대쉬 분기가 early-return해도 신호가 남지 않게).
+		if prediction_state.consume_kick_read_failure_flinch():
+			_kick_read_flinch_frames = KICK_READ_FLINCH_FRAMES
 	else:
 		_reset_serve_feint()
 		prediction_state.reset()
@@ -617,6 +630,8 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 		return _update_boss_dash_motion(boss_pos, context, fps_scale)
 
 	var reaction_multiplier: float = _get_power_smash_reaction_multiplier(context)
+	if _kick_read_flinch_frames > 0.0:
+		reaction_multiplier *= KICK_READ_FLINCH_REACTION_MULT
 	var decel_multiplier := 1.0
 	if bool(context.get("stage2_speed_defense_active", false)):
 		var speed_multiplier: float = max(1.0, float(context.get("stage2_speed_defense_speed_multiplier", 1.0)))

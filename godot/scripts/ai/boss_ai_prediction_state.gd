@@ -19,14 +19,36 @@ const BOSS_MEDIUM_PREDICT_FRAMES: float = 12.0
 const BOSS_SLOW_PREDICT_FRAMES: float = 20.0
 const WALL_REFLECTION_LIMIT: int = 4
 const PREDICTION_SIMULATION_MAX_FRAMES: int = 120
+# 킥 읽기 실패(쉐도우 백스텝 / 마샬 킥 적중 1회당 1굴림)가 당첨됐을 때, 보스가
+# 확실히 비켜나도록 미스 임계(패들 반폭 + hitbox padding + 공 반폭)에 더 얹는 여유.
+# 임계 그대로면 경계 케이스에서 그대로 막히므로 최소 마진을 둔다.
+const KICK_READ_FAILURE_MISS_MARGIN_MIN: float = 6.0
+const KICK_READ_FAILURE_MISS_MARGIN_MAX: float = 10.0
 
 var approach_decision_active := false
 var approach_mistake_active := false
 var boss_fail_error_offset: float = 0.0
+# 마지막으로 관측한 바이퍼 킥 적중 이벤트 id. 이벤트는 단조 증가하며 라운드
+# 리셋 시 0으로 돌아온다 — 0은 "이벤트 없음"이라 굴리지 않는다.
+# ⚠️reset()에서 지우지 않는다. 지우면 남아있는 non-zero 소유자 id가 다음
+# 프레임에 곧바로 '새 이벤트'로 오인돼 무관한 랠리에서 읽기 실패가 터진다.
+var kick_read_event_id: int = 0
+var kick_read_failure_active := false
+var kick_read_failure_offset: float = 0.0
+var kick_read_failure_flinch_pending := false
 
 
 func reset() -> void:
 	_reset_approach_decision()
+
+
+# 이번 상승 구간에서 킥 읽기 실패가 새로 확정됐는지 1회성으로 소비한다.
+# 보스 흠칫(반응 둔화) 연출 트리거 전용.
+func consume_kick_read_failure_flinch() -> bool:
+	if not kick_read_failure_flinch_pending:
+		return false
+	kick_read_failure_flinch_pending = false
+	return true
 
 
 func predict_future_x(
@@ -52,6 +74,9 @@ func predict_future_x(
 	if ball_vel.y >= -0.001:
 		_reset_approach_decision()
 		return clamp(future_x, min_center, max_center)
+	_observe_kick_read_event(context, boss_paddle_width)
+	if kick_read_failure_active:
+		return _apply_kick_read_failure(future_x, min_center, max_center)
 	if not approach_decision_active:
 		_roll_approach_decision(effective_ball_vel, context)
 	future_x = _apply_approach_prediction_error(future_x)
@@ -87,6 +112,58 @@ func _apply_approach_prediction_error(future_x: float) -> float:
 	return future_x
 
 
+# 쉐도우 백스텝 / 마샬 킥이 공을 때린 '그 1회'에 대해서만 도는 읽기 판정.
+#
+# 왜 별도 굴림인가: 일반 실수 굴림(_roll_approach_decision)은 상승 접근이 시작될
+# 때 딱 한 번만 돌고, 극한/초월 리그의 오차 상한(80px / 20px)은 보스 패들 반폭 +
+# 여유(72.8px / 76.8px)보다 작거나 비슷해서 사실상 전부 막힌다. 킥 계열 무공이
+# 킥강화 없이는 무의미해지는 원인이라, 두 무공에만 '완전히 비켜나는' 판정을 준다.
+#
+# 두 번째 역할: 킥은 이미 상승 중인 공의 궤도를 새로 쓴다(쉐도우 → 마샬 연계,
+# 마샬 → 더블마샬). 그런데 approach_decision_active가 이미 true라 기존 코드는
+# 새 궤도에 대해 아무 판정도 다시 하지 않았다 — 이벤트가 오면 접근 판정 자체를
+# 무효화해서 리그 공통으로 '킥마다 새로 읽는다'가 되게 한다.
+func _observe_kick_read_event(context: Dictionary, boss_paddle_width: float) -> void:
+	var event_id: int = int(context.get("viper_kick_read_event_id", 0))
+	if event_id == kick_read_event_id:
+		return
+	kick_read_event_id = event_id
+	if event_id == 0:
+		return
+	_reset_approach_decision()
+	var chance: float = clamp(float(context.get("boss_kick_read_failure_chance", 0.0)), 0.0, 1.0)
+	if bool(context.get("viper_kick_read_event_chained", false)):
+		chance = clamp(chance + max(0.0, float(context.get("boss_kick_read_failure_chain_bonus", 0.0))), 0.0, 1.0)
+	if chance <= 0.0 or randf() >= chance:
+		return
+	# 이 킥의 판정은 확정 — 같은 상승 구간에서 일반 실수 굴림이 덮어쓰지 못하게 잠근다.
+	approach_decision_active = true
+	kick_read_failure_active = true
+	kick_read_failure_flinch_pending = true
+	var miss_threshold: float = (
+		boss_paddle_width * 0.5
+		+ float(context.get("hitbox_padding", 5.0))
+		+ float(context.get("ball_size", 28.6)) * 0.5
+	)
+	var magnitude: float = miss_threshold + randf_range(KICK_READ_FAILURE_MISS_MARGIN_MIN, KICK_READ_FAILURE_MISS_MARGIN_MAX)
+	kick_read_failure_offset = magnitude * (-1.0 if randf() < 0.5 else 1.0)
+
+
+# 굴림 시점에 정한 방향이 벽 쪽이라 목표 클램프에 먹히면(도착 x가 벽에 가까울 때)
+# 오프셋이 통째로 사라져 보스가 그대로 막는다 — 클램프 후 실제 분리 거리를 보고
+# 반대 방향으로 뒤집는다. 양쪽 다 먹히면 더 멀어지는 쪽을 쓴다(최선 노력).
+func _apply_kick_read_failure(future_x: float, min_center: float, max_center: float) -> float:
+	var magnitude: float = absf(kick_read_failure_offset)
+	var preferred_dir: float = -1.0 if kick_read_failure_offset < 0.0 else 1.0
+	var preferred: float = clamp(future_x + preferred_dir * magnitude, min_center, max_center)
+	if absf(preferred - future_x) >= magnitude - 0.001:
+		return preferred
+	var opposite: float = clamp(future_x - preferred_dir * magnitude, min_center, max_center)
+	if absf(opposite - future_x) > absf(preferred - future_x):
+		return opposite
+	return preferred
+
+
 func _roll_approach_decision(ball_vel: Vector2, context: Dictionary) -> void:
 	approach_decision_active = true
 	approach_mistake_active = false
@@ -120,6 +197,11 @@ func _reset_approach_decision() -> void:
 	approach_decision_active = false
 	approach_mistake_active = false
 	boss_fail_error_offset = 0.0
+	# 읽기 실패는 '그 상승 구간 1회'짜리다. 하강 전환 / 라운드 리셋에서 함께 풀린다.
+	# 대기 중인 흠칫 신호는 여기서 지우지 않는다 — 소비는 boss_ai_state가 같은
+	# 프레임에 하고, 굴림 성공 프레임에 곧바로 이 함수가 다시 불릴 일은 없다.
+	kick_read_failure_active = false
+	kick_read_failure_offset = 0.0
 
 
 func _get_predict_frames(ball_vel: Vector2) -> float:

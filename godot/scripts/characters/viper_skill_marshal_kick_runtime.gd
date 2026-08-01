@@ -265,6 +265,12 @@ static func _update_charge_phase(runtime: Object, config: Dictionary, deps: Dict
 
 static func _apply_charge_hit(runtime: Object, next_pos: Vector2, ball_pos: Vector2, config: Dictionary, deps: Dictionary, result: Dictionary, constants: Dictionary) -> void:
 	runtime.marshal_ball_hit = true
+	# 보스 읽기 판정 이벤트는 '타격 확정' 시점에 발행한다. 아래쪽에서
+	# _clear_phantom_kick_chain_window()가 marshal_from_shadow_step_chain을 지우므로
+	# 뒤에서 읽으면 연계 가산이 조용히 사라진다. 더블 마샬(팬텀 킥)도 같은 경로라
+	# 연계 두 번째 타격이 새 이벤트를 받는다 — 이미 상승 중인 공이라 예측이
+	# 재판정하지 않던 구멍이 여기서 닫힌다.
+	runtime.mark_kick_read_event(runtime.marshal_from_shadow_step_chain)
 	runtime.marshal_hit_msec = Time.get_ticks_msec()
 	runtime.marshal_last_hit_pos = ball_pos
 	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
