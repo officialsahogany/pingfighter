@@ -16,6 +16,8 @@ const MAX_PERK_SLOT_LIMIT := 10
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
 const GUARDIAN_ENHANCE_PRIORITY_KEY := "_guardian_enhance_reserved"
+const FULL_CHOSIK_SWAP_PRIORITY_KEY := "_full_chosik_swap_reserved"
+const FULL_CHOSIK_SWAP_OFFER_CHANCE := 0.15
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_GUARDIAN_ENHANCE_CHOICE_ID: true,
 }
@@ -1302,6 +1304,7 @@ var mythic_jackpot_offer_chance := 0.05
 # 소유 업그레이드 partial 예약 확률.
 var dash_token_boost_chances: Array = [0.25, 0.10, 0.05]
 var owned_upgrade_partial_chance := 0.5
+var _full_chosik_swap_offer_roll_for_tests: Callable = Callable()
 
 
 func get_choices(
@@ -1336,6 +1339,9 @@ func get_choices(
 		_append_instant_choices(choices)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
+	var full_chosik_swap_reservation := _extract_full_chosik_swap_reserved_choice(choices)
+	var full_chosik_swap_reserved: Array = full_chosik_swap_reservation.get("reserved", []) as Array
+	choices = full_chosik_swap_reservation.get("remaining", []) as Array
 	var guardian_enhance_reservation := _extract_guardian_enhance_reserved_choice(choices)
 	var guardian_enhance_reserved: Array = guardian_enhance_reservation.get("reserved", []) as Array
 	choices = guardian_enhance_reservation.get("remaining", []) as Array
@@ -1382,6 +1388,10 @@ func get_choices(
 		if result.size() >= target_choice_count:
 			break
 		result.append(_with_offer_metadata(guardian_choice, "guardian_enhance_reserved", true))
+	for swap_choice in full_chosik_swap_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(swap_choice, "full_chosik_swap_reserved", true))
 	for mythic_choice in mythic_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1699,6 +1709,24 @@ func _extract_guardian_enhance_reserved_choice(choices: Array) -> Dictionary:
 	}
 
 
+func _extract_full_chosik_swap_reserved_choice(choices: Array) -> Dictionary:
+	var reserved: Array = []
+	var remaining: Array = []
+	for value in choices:
+		if value is Dictionary:
+			var choice: Dictionary = value as Dictionary
+			if bool(choice.get(FULL_CHOSIK_SWAP_PRIORITY_KEY, false)):
+				var reserved_choice := choice.duplicate(true)
+				reserved_choice.erase(FULL_CHOSIK_SWAP_PRIORITY_KEY)
+				reserved.append(reserved_choice)
+				continue
+		remaining.append(value)
+	return {
+		"reserved": reserved,
+		"remaining": remaining,
+	}
+
+
 func _append_converted_perk_choices(output: Array, runtime_levels: Dictionary, character_type: String) -> void:
 	for skill_id in CONVERTED_PERKS.keys():
 		var skill_data: Dictionary = CONVERTED_PERKS[skill_id]
@@ -1868,13 +1896,35 @@ func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_
 		return choices
 
 	var filtered: Array = []
+	var swap_candidates: Array = []
 	for choice in choices:
 		if str(choice.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
 			filtered.append(choice)
 			continue
 		if str(choice.get("unlocks_skill", "")) == "":
 			filtered.append(choice)
+		else:
+			swap_candidates.append(choice)
+	if not swap_candidates.is_empty() and _roll_full_chosik_swap_offer():
+		swap_candidates.shuffle()
+		var reserved_choice: Dictionary = (swap_candidates[0] as Dictionary).duplicate(true)
+		reserved_choice[FULL_CHOSIK_SWAP_PRIORITY_KEY] = true
+		filtered.append(reserved_choice)
 	return filtered
+
+
+func set_full_chosik_swap_offer_roll_for_tests(roll_callable: Callable) -> void:
+	_full_chosik_swap_offer_roll_for_tests = roll_callable
+
+
+func clear_full_chosik_swap_offer_roll_for_tests() -> void:
+	_full_chosik_swap_offer_roll_for_tests = Callable()
+
+
+func _roll_full_chosik_swap_offer() -> bool:
+	if _full_chosik_swap_offer_roll_for_tests.is_valid():
+		return float(_full_chosik_swap_offer_roll_for_tests.call()) < FULL_CHOSIK_SWAP_OFFER_CHANCE
+	return randf() < FULL_CHOSIK_SWAP_OFFER_CHANCE
 
 
 func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_context: Object = null) -> Array:
