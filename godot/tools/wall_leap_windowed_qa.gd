@@ -80,7 +80,7 @@ class QACanvas:
 		var barrier_rect := Rect2(Vector2(20.0, 745.0), Vector2(760.0, 20.0))
 		draw_rect(barrier_rect, Color(0.95, 0.84, 0.36, 0.72), true)
 		var font := ThemeDB.fallback_font
-		draw_string(font, Vector2(38.0, 48.0), "RMB fuse -> blast -> return under captured ball X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
+		draw_string(font, Vector2(38.0, 48.0), "RMB fuse -> blast -> return at predicted ball-arrival X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
 		draw_string(font, Vector2(38.0, 72.0), "body pass-through: %s | floor save: %s" % [str(body_passthrough), str(floor_save_live)], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.82, 0.92, 1.0))
 		var hover_context := {
 			"scale_factor": 1.0,
@@ -238,6 +238,7 @@ func _run() -> void:
 	fixture["special_gauge"] = 500.0
 	fixture["player_pos"] = Vector2(300.0, 680.0)
 	fixture["context"]["ball_pos"] = Vector2(590.0, 360.0)
+	fixture["context"]["ball_vel"] = Vector2(-6.0, 10.0)
 	await _set_mouse(MOUSE_BUTTON_RIGHT, true)
 	_step_controller(fixture, controller)
 	await _set_mouse(MOUSE_BUTTON_RIGHT, false)
@@ -304,7 +305,7 @@ func _run() -> void:
 		_step_controller(fixture, controller)
 	var ball_return_snapshot: Dictionary = fixture["runtime"].get_snapshot()
 	_expect(str(ball_return_snapshot.get("wall_leap_raid_state", "")) == "idle", "physical blast return must land after the capture")
-	_expect(is_equal_approx((fixture["player_pos"] as Vector2).x, 512.5), "physical blast return must keep the ball X captured at RETURN start")
+	_expect(absf((fixture["player_pos"] as Vector2).x - 332.08) <= 0.02, "physical blast return must land at the ball's captured player-line arrival X")
 	_finish()
 
 

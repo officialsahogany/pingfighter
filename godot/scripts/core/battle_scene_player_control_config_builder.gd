@@ -69,6 +69,7 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	)
 	config["ball_pos"] = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
 	config["ball_vel"] = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
+	config["ball_size"] = max(1.0, float(_get_owner_value(owner, "ball_size", 28.6)))
 	config["ball_impact_boost"] = float(_get_owner_value(owner, "ball_impact_boost", 1.0))
 	config["boss_pos"] = _get_owner_vector2(owner, "boss_pos", Vector2.ZERO)
 	config["boss_paddle_width"] = max(1.0, float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH)))

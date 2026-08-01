@@ -180,7 +180,7 @@ const SKILL_DATA := {
 		"cooldown": 40.0,
 		"description": "담을 넘어 적진에 잠입합니다.\n좌우로 방향을 잡고 검기나 폭발을 씁니다.\n검기가 사라지거나 폭발하면 귀환합니다.",
 		"how_to_use": "지상에서 우클릭 잠입 · 좌클릭 검기 · 우클릭 폭발",
-		"motion_hint": "담을 넘는 포물선으로 잠입하고 같은 X로 귀환",
+		"motion_hint": "담을 넘는 포물선으로 잠입하고 공의 도달 예상 X로 귀환",
 		"effect_type": "wall_leap_raid",
 	},
 }
@@ -451,7 +451,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["korean"] = "Wall-Leap Night Raid"
 			data["description"] = "Vault over the wall into enemy territory. Face left or right, then launch a blade wave or blast. Return when the blade vanishes or the blast resolves."
 			data["how_to_use"] = "RMB to infiltrate · LMB blade wave · RMB blast"
-			data["motion_hint"] = "Vault in a parabolic arc and return to the same X"
+			data["motion_hint"] = "Vault in a parabolic arc and return to the ball's predicted arrival X"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

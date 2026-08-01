@@ -336,6 +336,7 @@ func get_snapshot() -> Dictionary:
 		"wall_leap_raid_ball_motion_step_multiplier": BALL_MOTION_MULTIPLIER if _uses_infiltration_ball_slow() else 1.0,
 		"wall_leap_raid_entry_pos": entry_pos,
 		"wall_leap_raid_current_pos": current_pos,
+		"wall_leap_raid_return_target_pos": tween_target_pos if state == STATE_RETURN else entry_pos,
 		"wall_leap_raid_facing_dir": facing_dir,
 		"wall_leap_raid_lateral_motion_dir": lateral_motion_dir,
 		"wall_leap_raid_slash_frame": _get_slash_animation_frame(),
@@ -528,7 +529,7 @@ func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false
 	elapsed_seconds = 0.0
 	lateral_motion_dir = 0
 	tween_start_pos = current_pos
-	tween_target_pos = _ball_aligned_return_pos(ball_return_config) if not ball_return_config.is_empty() else entry_pos
+	tween_target_pos = _ball_arrival_return_pos(ball_return_config) if not ball_return_config.is_empty() else entry_pos
 	_landing_cooldown_pending = true
 	_return_sound_pending = not _play_return_sound(deps)
 
@@ -871,14 +872,44 @@ func _combat_centers(config: Dictionary) -> Dictionary:
 	return {"player": current_pos + player_size * 0.5, "boss": boss_pos + boss_size * 0.5}
 
 
-func _ball_aligned_return_pos(config: Dictionary) -> Vector2:
+func _ball_arrival_return_pos(config: Dictionary) -> Vector2:
 	if not config.has("ball_pos") or not (config.get("ball_pos") is Vector2):
 		return entry_pos
 	var ball_center: Vector2 = config.get("ball_pos", Vector2.ZERO)
 	var paddle_width := maxf(1.0, float(config.get("paddle_width", config.get("player_paddle_width", 155.0))))
 	var width := maxf(paddle_width, float(config.get("width", 760.0)))
-	var target_x := clampf(ball_center.x - paddle_width * 0.5, 0.0, width - paddle_width)
+	var play_left := clampf(float(config.get("play_left", 0.0)), 0.0, width - paddle_width)
+	var play_right := clampf(float(config.get("play_right", width)), play_left + paddle_width, width)
+	var predicted_center_x := ball_center.x
+	var ball_velocity_value: Variant = config.get("ball_vel", null)
+	if ball_velocity_value is Vector2:
+		var ball_velocity: Vector2 = ball_velocity_value
+		var ball_radius := maxf(0.5, float(config.get("ball_size", 28.6)) * 0.5)
+		var hitbox_padding := maxf(0.0, float(config.get("hitbox_padding", 5.0)))
+		var player_intercept_y := entry_pos.y - hitbox_padding - ball_radius
+		if ball_velocity.y > 0.001 and ball_center.y < player_intercept_y:
+			# Wall-Leap slow and impact boost scale both velocity axes equally, so
+			# they cancel from dx/dy. Predict geometrically to avoid double-slowing.
+			var vertical_distance := player_intercept_y - ball_center.y
+			var total_dx := ball_velocity.x * (vertical_distance / ball_velocity.y)
+			predicted_center_x = _reflect_ball_center_x(
+				ball_center.x,
+				total_dx,
+				play_left + ball_radius,
+				play_right - ball_radius
+			)
+	var target_x := clampf(predicted_center_x - paddle_width * 0.5, play_left, play_right - paddle_width)
 	return Vector2(target_x, entry_pos.y)
+
+
+func _reflect_ball_center_x(x: float, total_dx: float, left: float, right: float) -> float:
+	var span := right - left
+	if span <= 0.001:
+		return (left + right) * 0.5
+	var phase := fposmod(clampf(x, left, right) - left + total_dx, span * 2.0)
+	if phase <= span:
+		return left + phase
+	return right - (phase - span)
 
 
 func _handled_result(special_gauge: float, activated: bool, collision_cooldown: float = -1.0) -> Dictionary:

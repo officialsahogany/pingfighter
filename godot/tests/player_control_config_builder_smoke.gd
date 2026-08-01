@@ -24,6 +24,7 @@ class FakeOwner:
 	var ball_active := true
 	var ball_pos := Vector2(315.0, 410.0)
 	var ball_vel := Vector2(3.0, -4.0)
+	var ball_size := 36.0
 	var ball_impact_boost := 1.4
 	var boss_pos := Vector2(345.0, 80.0)
 
@@ -173,6 +174,7 @@ func _verify_direct_config_builder() -> void:
 	_expect(bool(config.get("ball_active", false)), "config builder should copy ball active flag")
 	_expect(config.get("ball_pos", Vector2.ZERO) == Vector2(315.0, 410.0), "config builder should copy ball position")
 	_expect(config.get("ball_vel", Vector2.ZERO) == Vector2(3.0, -4.0), "config builder should copy ball velocity")
+	_expect_close(float(config.get("ball_size", 0.0)), 36.0, "config builder should copy live ball size for trajectory prediction")
 	_expect(abs(float(config.get("ball_impact_boost", 0.0)) - 1.4) <= 0.001, "config builder should copy impact boost")
 	_expect(config.get("boss_pos", Vector2.ZERO) == Vector2(345.0, 80.0), "config builder should copy boss position")
 	_expect_close(float(config.get("boss_paddle_width", 0.0)), 100.0, "config builder should expose boss paddle width")

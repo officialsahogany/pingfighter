@@ -207,6 +207,7 @@ func base_context() -> Dictionary:
 		"height": 750.0,
 		"paddle_width": 155.0,
 		"paddle_height": 50.0,
+		"ball_size": 28.6,
 		"player_paddle_size": Vector2(155.0, 50.0),
 		"paddle_speed": 4.0,
 		"boss_pos": Vector2(327.5, 25.0),
