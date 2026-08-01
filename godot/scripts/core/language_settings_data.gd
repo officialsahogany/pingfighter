@@ -2523,7 +2523,7 @@ const CHARACTER_RU := {
 }
 
 const SKILL_DATA_ZH := {
-	"wall_leap_raid": {"korean": "越墙夜袭", "description": "越墙潜入敌阵。潜入期间可左右移动，寻找斩击位置。斩击或爆破后立即撤离。", "how_to_use": "右键潜入 · 左键斩击 · 右键爆破", "motion_hint": "沿抛物线越墙并返回原X坐标"},
+	"wall_leap_raid": {"korean": "越墙夜袭", "description": "越墙潜入敌阵。左右移动确定朝向，再发射剑气或引爆。剑气消失或爆破完成后返回原位。", "how_to_use": "右键潜入 · 左键剑气 · 右键爆破", "motion_hint": "沿抛物线越墙并返回原X坐标"},
 	"plasma": {"korean": "寒灵弹", "description": "向前发射寒灵弹。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射寒灵弹"},
 	"recovery": {"korean": "轻身步", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
 	"cleanse": {"korean": "清心诀", "description": "立即解除眩晕、减速等异常状态，并短时间获得免疫。", "how_to_use": "受到异常状态时按W", "motion_hint": "金色清心光解除异常状态"},
@@ -2558,7 +2558,7 @@ const SKILL_DATA_ZH := {
 }
 
 const SKILL_DATA_JA := {
-	"wall_leap_raid": {"korean": "壁越え夜襲", "description": "壁を越えて敵陣へ潜入します。潜入中は左右に動き、斬る位置を見極めます。斬撃か爆破の後、すぐに離脱します。", "how_to_use": "右クリック潜入・左クリック斬撃・右クリック爆破", "motion_hint": "放物線で壁を越え、同じXへ帰還"},
+	"wall_leap_raid": {"korean": "壁越え夜襲", "description": "壁を越えて敵陣へ潜入します。左右で向きを定め、剣気か爆破を放ちます。剣気の消滅または爆破完了後に元の位置へ戻ります。", "how_to_use": "右クリック潜入・左クリック剣気・右クリック爆破", "motion_hint": "放物線で壁を越え、同じXへ帰還"},
 	"plasma": {"korean": "寒霊弾", "description": "前方へ寒霊弾を放ちます。触れた敵は減速し、溜めるほど減速効果が強くなります。", "how_to_use": "W/上を押し続けて離す", "motion_hint": "前方へ寒霊弾を放つ"},
 	"recovery": {"korean": "軽身歩", "description": "ダッシュ後隙を即座にキャンセルし、短時間50%の移動速度ボーナスを得ます。", "how_to_use": "ダッシュ後隙中にW/上", "motion_hint": "緑の光で後隙を消し加速"},
 	"cleanse": {"korean": "清心訣", "description": "スタンや減速などの状態異常を即座に解除し、短時間免疫を得ます。", "how_to_use": "状態異常中にW", "motion_hint": "金色の清心光で状態異常を解除"},
@@ -2593,7 +2593,7 @@ const SKILL_DATA_JA := {
 }
 
 const SKILL_DATA_ES := {
-	"wall_leap_raid": {"korean": "Incursión nocturna sobre el muro", "description": "Salta el muro e infíltrate en territorio enemigo. Muévete de lado para elegir dónde atacar. Corta o explota y retírate de inmediato.", "how_to_use": "RMB infiltra · LMB tajo · RMB explosión", "motion_hint": "Salta el muro en arco y vuelve a la misma X"},
+	"wall_leap_raid": {"korean": "Incursión nocturna sobre el muro", "description": "Salta el muro e infíltrate en territorio enemigo. Mira a izquierda o derecha y lanza una onda cortante o una explosión. Regresa cuando la onda desaparece o la explosión termina.", "how_to_use": "RMB infiltra · LMB onda cortante · RMB explosión", "motion_hint": "Salta el muro en arco y vuelve a la misma X"},
 	"plasma": {"korean": "Orbe de espíritu gélido", "description": "Dispara un orbe de espíritu gélido hacia delante. Los enemigos que lo toquen se ralentizan; cuanto más cargues, mayor será la ralentización.", "how_to_use": "Mantén W/Arriba y suelta", "motion_hint": "Dispara un orbe de espíritu gélido hacia delante"},
 	"recovery": {"korean": "Paso Ligero", "description": "Cancela al instante la recuperación del dash y otorga brevemente +50% de velocidad de movimiento.", "how_to_use": "Pulsa W/Arriba durante la recuperación del dash", "motion_hint": "Luz verde que cancela la recuperación y acelera"},
 	"cleanse": {"korean": "Fórmula del Corazón Sereno", "description": "Elimina al instante estados como aturdimiento o ralentización y otorga inmunidad temporal.", "how_to_use": "Pulsa W mientras sufres un estado alterado", "motion_hint": "Luz dorada serena que limpia estados"},
@@ -2628,7 +2628,7 @@ const SKILL_DATA_ES := {
 }
 
 const SKILL_DATA_PT_BR := {
-	"wall_leap_raid": {"korean": "Incursão noturna sobre o muro", "description": "Salte o muro e infiltre-se no território inimigo. Mova-se para os lados e escolha onde atacar. Corte ou exploda e recue imediatamente.", "how_to_use": "RMB infiltra · LMB corta · RMB explode", "motion_hint": "Salta o muro em arco e volta ao mesmo X"},
+	"wall_leap_raid": {"korean": "Incursão noturna sobre o muro", "description": "Salte o muro e infiltre-se no território inimigo. Vire para a esquerda ou direita e lance uma lâmina de ar ou explosão. Retorne quando o golpe sumir ou a explosão terminar.", "how_to_use": "RMB infiltra · LMB lâmina de ar · RMB explode", "motion_hint": "Salta o muro em arco e volta ao mesmo X"},
 	"plasma": {"korean": "Orbe do espírito gélido", "description": "Dispara um orbe do espírito gélido para a frente. Inimigos que o tocam ficam lentos; quanto mais carregar, maior a lentidão.", "how_to_use": "Segure W/Cima e solte", "motion_hint": "Dispara um orbe do espírito gélido para a frente"},
 	"recovery": {"korean": "Passo Leve", "description": "Cancela instantaneamente a recuperação do dash e concede brevemente +50% de velocidade de movimento.", "how_to_use": "Pressione W/Cima durante a recuperação do dash", "motion_hint": "Luz verde cancela a recuperação e acelera"},
 	"cleanse": {"korean": "Fórmula do Coração Sereno", "description": "Remove instantaneamente estados como atordoamento ou lentidão e concede imunidade temporária.", "how_to_use": "Pressione W enquanto estiver sob estado alterado", "motion_hint": "Luz dourada serena remove estados"},
@@ -2663,7 +2663,7 @@ const SKILL_DATA_PT_BR := {
 }
 
 const SKILL_DATA_RU := {
-	"wall_leap_raid": {"korean": "Ночной рейд через стену", "description": "Перепрыгните стену и проникните на сторону врага. Двигайтесь в стороны, выбирая место удара. Рубите или взрывайте и сразу отходите.", "how_to_use": "ПКМ проникнуть · ЛКМ удар · ПКМ взрыв", "motion_hint": "Перепрыгните стену по дуге и вернитесь на ту же X"},
+	"wall_leap_raid": {"korean": "Ночной рейд через стену", "description": "Перепрыгните стену и проникните на сторону врага. Выберите направление и выпустите волну клинка или взрыв. Вернитесь после исчезновения волны или завершения взрыва.", "how_to_use": "ПКМ проникнуть · ЛКМ волна клинка · ПКМ взрыв", "motion_hint": "Перепрыгните стену по дуге и вернитесь на ту же X"},
 	"plasma": {"korean": "Сфера холодного духа", "description": "Выпускает вперед сферу холодного духа. Враги при касании замедляются; чем дольше заряд, тем сильнее замедление.", "how_to_use": "Зажмите W/Вверх и отпустите", "motion_hint": "Выпускает вперед сферу холодного духа"},
 	"recovery": {"korean": "Лёгкий шаг", "description": "Мгновенно отменяет восстановление после рывка и ненадолго дает +50% скорости движения.", "how_to_use": "Нажмите W/Вверх во время восстановления рывка", "motion_hint": "Зеленый свет отменяет восстановление и ускоряет"},
 	"cleanse": {"korean": "Формула ясного сердца", "description": "Мгновенно снимает состояния вроде оглушения или замедления и дает временный иммунитет.", "how_to_use": "Нажмите W, пока на вас действует негативное состояние", "motion_hint": "Золотой свет ясного сердца снимает состояния"},

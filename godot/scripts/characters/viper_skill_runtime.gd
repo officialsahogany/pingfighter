@@ -244,6 +244,9 @@ func prewarm_assets_step() -> bool:
 		4:
 			if not bool(particle_drawer.prewarm_ignition_aura_assets(self, IGNITION_AURA_EFFECT_SHEET_PATH)):
 				return false
+		5:
+			if not bool(wall_leap_state.prewarm_assets_step()):
+				return false
 		_:
 			_asset_prewarm_step_index = 0
 			return true

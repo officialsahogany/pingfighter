@@ -1,11 +1,15 @@
 extends RefCounted
 
 const BossSlowTiers := preload("res://scripts/status/boss_slow_tiers.gd")
+const BattleViperSpritePaths := preload("res://scripts/resources/battle_viper_sprite_paths.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const SKILL_ID := "wall_leap_raid"
 const STATE_IDLE := "idle"
 const STATE_INFILTRATE_IN := "infiltrate_in"
 const STATE_INFILTRATING := "infiltrating"
+const STATE_SLASH := "slash"
+const STATE_BLADE_FLIGHT := "blade_flight"
 const STATE_FUSE := "fuse"
 const STATE_RETURN := "return"
 
@@ -18,7 +22,20 @@ const TWEEN_ARC_HEIGHT := 48.0
 const FUSE_SECONDS := 0.70
 const RMB_INPUT_LOCK_SECONDS := 0.25
 const BALL_MOTION_MULTIPLIER := 0.50
-const SLASH_RANGE_X := 110.0
+const SLASH_FRAME_SECONDS := 0.032
+const SLASH_FRAME_COUNT := 8
+const SLASH_IMPACT_FRAME := 3
+const SLASH_ANIMATION_SECONDS := SLASH_FRAME_SECONDS * SLASH_FRAME_COUNT
+const BLADE_SPEED_PER_FRAME := 14.0
+const BLADE_MAX_RANGE_X := 360.0
+const BLADE_SPAWN_FORWARD_OFFSET := 52.0
+const BLADE_SPAWN_VERTICAL_OFFSET := 77.0
+const INFILTRATION_VISUAL_MIN_Y := 118.0
+const BLADE_BURST_SECONDS := 0.12
+const BLADE_TRAIL_DRAW_SIZE := Vector2(176.0, 56.0)
+const BLADE_BURST_DRAW_SIZE := Vector2(126.0, 96.0)
+const BLADE_TRAIL_SOURCE_RECT := Rect2(0.0, 264.0, 954.0, 301.0)
+const BLADE_BURST_SOURCE_RECT := Rect2(14.0, 96.0, 1007.0, 767.0)
 const BLAST_RANGE_X := 50.0
 const SLOW_FRAMES := 300.0
 const SLOW_MULTIPLIER := BossSlowTiers.MEDIUM
@@ -28,6 +45,17 @@ const KNOCKBACK_FRAMES := 18.0
 const KNOCKBACK_DECAY := 0.88
 const RETURN_COLLISION_COOLDOWN := 6.0
 
+const ATTACK_LEFT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_ATTACK_LEFT_SHEET_PATH
+const ATTACK_RIGHT_SHEET_PATH := BattleViperSpritePaths.VIPER_PLAYER_ATTACK_RIGHT_SHEET_PATH
+const BLADE_TRAIL_TEXTURE_PATH := "res://assets/sprites/characters/viper/air_blade/viper_air_blade_trail_imagegen_v1.png"
+const BLADE_BURST_TEXTURE_PATH := "res://assets/sprites/characters/viper/air_blade/viper_air_blade_slash_burst_imagegen_v1.png"
+const PREWARM_PATHS := [
+	ATTACK_LEFT_SHEET_PATH,
+	ATTACK_RIGHT_SHEET_PATH,
+	BLADE_TRAIL_TEXTURE_PATH,
+	BLADE_BURST_TEXTURE_PATH,
+]
+
 var state := STATE_IDLE
 var elapsed_seconds := 0.0
 var entry_pos := Vector2.ZERO
@@ -35,12 +63,27 @@ var current_pos := Vector2.ZERO
 var tween_start_pos := Vector2.ZERO
 var tween_target_pos := Vector2.ZERO
 var facing_dir := 1
+var lateral_motion_dir := 0
+var slash_animation_elapsed_seconds := 0.0
+var slash_presentation_active := false
+var blade_active := false
+var blade_pos := Vector2.ZERO
+var blade_previous_pos := Vector2.ZERO
+var blade_origin_player_center_x := 0.0
+var blade_direction := 1
+var blade_burst_active := false
+var blade_burst_elapsed_seconds := 0.0
+var blade_burst_pos := Vector2.ZERO
+var blade_burst_direction := 1
 var forced_return_reason := ""
 var last_action := ""
 var last_action_hit := false
 var last_committed_cost := 0.0
 var _landing_cooldown_pending := false
 var _return_sound_pending := false
+var _asset_prewarm_step_index := 0
+var _blade_trail_texture: Texture2D
+var _blade_burst_texture: Texture2D
 
 
 func try_update_or_activate(
@@ -70,6 +113,25 @@ func is_active() -> bool:
 
 func is_input_owned() -> bool:
 	return state != STATE_IDLE
+
+
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _asset_prewarm_step_index >= PREWARM_PATHS.size():
+		_asset_prewarm_step_index = 0
+		return true
+	var path: String = str(PREWARM_PATHS[_asset_prewarm_step_index])
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
+	if path == BLADE_TRAIL_TEXTURE_PATH:
+		_blade_trail_texture = texture
+	elif path == BLADE_BURST_TEXTURE_PATH:
+		_blade_burst_texture = texture
+	_asset_prewarm_step_index += 1
+	return false
 
 
 func is_command_armable_from_owner(owner: Object, registry: Object) -> bool:
@@ -189,13 +251,31 @@ func is_ball_unavailable_from_owner(owner: Object, registry: Object) -> bool:
 func get_actor_draw_context() -> Dictionary:
 	if not is_active():
 		return {}
-	return {
+	var context := {
 		"player_pos": current_pos,
+		"player_speed": float(lateral_motion_dir),
 		"player_sprite_modulate": Color(0.76, 0.90, 1.0, 0.56),
 		"player_walk_direction": facing_dir,
+		"viper_wall_leap_raid_visual_y_offset": maxf(0.0, INFILTRATION_VISUAL_MIN_Y - current_pos.y),
 		"viper_wall_leap_raid_active": true,
 		"viper_wall_leap_raid_state": state,
 	}
+	if _is_slash_animation_visible():
+		context.merge({
+			"player_hit_active": true,
+			"player_hit_center": false,
+			"player_hit_side": facing_dir,
+			"player_hit_frame": _get_slash_animation_frame(),
+			"player_hit_frame_count": SLASH_FRAME_COUNT,
+			"player_hit_timer": maxf(0.0, SLASH_ANIMATION_SECONDS - slash_animation_elapsed_seconds),
+			"player_hit_anim_duration": SLASH_ANIMATION_SECONDS,
+			"player_hit_effective_anim_duration": SLASH_ANIMATION_SECONDS,
+			"player_hit_lunge_x": 0.0,
+			"player_hit_lunge_y": 0.0,
+			"player_hit_scale_x": 0.0,
+			"player_hit_scale_y": 0.0,
+		}, true)
+	return context
 
 
 func get_ball_collision_context() -> Dictionary:
@@ -203,7 +283,7 @@ func get_ball_collision_context() -> Dictionary:
 		return {"player_guard_available": true, "ball_motion_step_multiplier": 1.0}
 	return {
 		"player_guard_available": false,
-		"ball_motion_step_multiplier": BALL_MOTION_MULTIPLIER if state in [STATE_INFILTRATING, STATE_FUSE] else 1.0,
+		"ball_motion_step_multiplier": BALL_MOTION_MULTIPLIER if _uses_infiltration_ball_slow() else 1.0,
 		"viper_wall_leap_raid_active": true,
 		"viper_wall_leap_raid_state": state,
 	}
@@ -221,10 +301,21 @@ func get_snapshot() -> Dictionary:
 		"wall_leap_raid_active": is_active(),
 		"wall_leap_raid_input_owned": is_input_owned(),
 		"wall_leap_raid_player_guard_available": not is_active(),
-		"wall_leap_raid_ball_motion_step_multiplier": BALL_MOTION_MULTIPLIER if state in [STATE_INFILTRATING, STATE_FUSE] else 1.0,
+		"wall_leap_raid_ball_motion_step_multiplier": BALL_MOTION_MULTIPLIER if _uses_infiltration_ball_slow() else 1.0,
 		"wall_leap_raid_entry_pos": entry_pos,
 		"wall_leap_raid_current_pos": current_pos,
 		"wall_leap_raid_facing_dir": facing_dir,
+		"wall_leap_raid_lateral_motion_dir": lateral_motion_dir,
+		"wall_leap_raid_slash_frame": _get_slash_animation_frame(),
+		"wall_leap_raid_slash_elapsed_seconds": slash_animation_elapsed_seconds,
+		"wall_leap_raid_slash_presentation_active": slash_presentation_active,
+		"wall_leap_raid_blade_active": blade_active,
+		"wall_leap_raid_blade_pos": blade_pos,
+		"wall_leap_raid_blade_previous_pos": blade_previous_pos,
+		"wall_leap_raid_blade_origin_player_center_x": blade_origin_player_center_x,
+		"wall_leap_raid_blade_direction": blade_direction,
+		"wall_leap_raid_blade_burst_active": blade_burst_active,
+		"wall_leap_raid_blade_burst_pos": blade_burst_pos,
 		"wall_leap_raid_elapsed_seconds": elapsed_seconds,
 		"wall_leap_raid_forced_return_reason": forced_return_reason,
 		"wall_leap_raid_last_action": last_action,
@@ -241,6 +332,18 @@ func reset() -> void:
 	tween_start_pos = Vector2.ZERO
 	tween_target_pos = Vector2.ZERO
 	facing_dir = 1
+	lateral_motion_dir = 0
+	slash_animation_elapsed_seconds = 0.0
+	slash_presentation_active = false
+	blade_active = false
+	blade_pos = Vector2.ZERO
+	blade_previous_pos = Vector2.ZERO
+	blade_origin_player_center_x = 0.0
+	blade_direction = 1
+	blade_burst_active = false
+	blade_burst_elapsed_seconds = 0.0
+	blade_burst_pos = Vector2.ZERO
+	blade_burst_direction = 1
 	forced_return_reason = ""
 	last_action = ""
 	last_action_hit = false
@@ -279,6 +382,9 @@ func _begin_entry(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> 
 	var player_width := maxf(1.0, float(config.get("paddle_width", config.get("player_paddle_width", 155.0))))
 	var boss_width := maxf(1.0, float(config.get("boss_paddle_width", 100.0)))
 	facing_dir = 1 if boss_pos.x + boss_width * 0.5 >= player_pos.x + player_width * 0.5 else -1
+	lateral_motion_dir = 0
+	_clear_blade_action_state()
+	_clear_blade_burst()
 	forced_return_reason = ""
 	last_action = "entry"
 	last_action_hit = false
@@ -289,12 +395,14 @@ func _begin_entry(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> 
 
 func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, input_snapshot: Dictionary, now_msec: int) -> Dictionary:
 	var safe_delta := maxf(0.0, delta)
+	_update_blade_burst(safe_delta)
 	if _return_sound_pending and _play_return_sound(deps):
 		_return_sound_pending = false
 	if state != STATE_RETURN and is_ball_unavailable(config, deps):
 		force_return("player_update_ball_unavailable", deps)
 	match state:
 		STATE_INFILTRATE_IN:
+			lateral_motion_dir = 0
 			elapsed_seconds += safe_delta
 			current_pos = _arc_position(tween_start_pos, tween_target_pos, elapsed_seconds / TWEEN_SECONDS)
 			if elapsed_seconds >= TWEEN_SECONDS:
@@ -308,12 +416,15 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 				if special_gauge < SLASH_COST:
 					_trigger_gauge_flash(deps)
 				else:
-					var slash_hit := _commit_slash(config, deps)
+					state = STATE_SLASH
+					elapsed_seconds = 0.0
+					slash_animation_elapsed_seconds = 0.0
+					slash_presentation_active = true
+					lateral_motion_dir = 0
+					blade_direction = facing_dir
 					last_action = "slash"
-					last_action_hit = slash_hit
+					last_action_hit = false
 					last_committed_cost = SLASH_COST
-					_begin_return(deps)
-					_play_slash_sound(deps)
 					return _handled_result(special_gauge - SLASH_COST, false)
 			if bool(input_snapshot.get("secondary_action_just_pressed", false)) and elapsed_seconds >= RMB_INPUT_LOCK_SECONDS:
 				if special_gauge < BLAST_COST:
@@ -333,7 +444,23 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 				last_action_hit = _commit_blast(config, deps)
 				_play_blast_sound(deps)
 				_begin_return(deps)
+		STATE_SLASH:
+			lateral_motion_dir = 0
+			elapsed_seconds += safe_delta
+			slash_animation_elapsed_seconds += safe_delta
+			if slash_animation_elapsed_seconds >= SLASH_FRAME_SECONDS * float(SLASH_IMPACT_FRAME):
+				_spawn_blade(config, deps)
+		STATE_BLADE_FLIGHT:
+			lateral_motion_dir = 0
+			elapsed_seconds += safe_delta
+			slash_animation_elapsed_seconds = minf(SLASH_ANIMATION_SECONDS, slash_animation_elapsed_seconds + safe_delta)
+			_update_blade_flight(safe_delta, config, deps)
 		STATE_RETURN:
+			lateral_motion_dir = 0
+			if slash_presentation_active:
+				slash_animation_elapsed_seconds = minf(SLASH_ANIMATION_SECONDS, slash_animation_elapsed_seconds + safe_delta)
+				if slash_animation_elapsed_seconds >= SLASH_ANIMATION_SECONDS:
+					slash_presentation_active = false
 			_suppress_primary_pointer_until_release(deps)
 			elapsed_seconds += safe_delta
 			current_pos = _arc_position(tween_start_pos, tween_target_pos, elapsed_seconds / TWEEN_SECONDS)
@@ -349,11 +476,13 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 	return _handled_result(special_gauge, false)
 
 
-func _begin_return(deps: Dictionary = {}) -> void:
+func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false) -> void:
 	if state == STATE_RETURN:
 		return
+	_clear_blade_action_state(not preserve_slash_animation)
 	state = STATE_RETURN
 	elapsed_seconds = 0.0
+	lateral_motion_dir = 0
 	tween_start_pos = current_pos
 	tween_target_pos = entry_pos
 	_landing_cooldown_pending = true
@@ -363,25 +492,214 @@ func _begin_return(deps: Dictionary = {}) -> void:
 func _update_lateral_position(delta: float, config: Dictionary, input_snapshot: Dictionary) -> void:
 	var direction := clampf(float(input_snapshot.get("direction", 0.0)), -1.0, 1.0)
 	if absf(direction) <= 0.01:
+		lateral_motion_dir = 0
 		return
 	facing_dir = 1 if direction > 0.0 else -1
+	lateral_motion_dir = facing_dir
 	var speed := maxf(0.0, float(config.get("paddle_speed", 4.0))) * 60.0
 	var width := maxf(1.0, float(config.get("width", 760.0)))
 	var paddle_width := maxf(1.0, float(config.get("paddle_width", config.get("player_paddle_width", 155.0))))
 	current_pos.x = clampf(current_pos.x + direction * speed * delta, 0.0, maxf(0.0, width - paddle_width))
 
 
-func _commit_slash(config: Dictionary, deps: Dictionary) -> bool:
+func _spawn_blade(config: Dictionary, deps: Dictionary) -> void:
+	if state != STATE_SLASH:
+		return
 	var centers := _combat_centers(config)
 	var player_center: Vector2 = centers.get("player", current_pos)
+	blade_origin_player_center_x = player_center.x
+	blade_direction = facing_dir
+	blade_previous_pos = player_center
+	blade_pos = Vector2(
+		player_center.x + float(blade_direction) * BLADE_SPAWN_FORWARD_OFFSET,
+		player_center.y + BLADE_SPAWN_VERTICAL_OFFSET
+	)
+	blade_active = true
+	state = STATE_BLADE_FLIGHT
+	elapsed_seconds = 0.0
+	_start_blade_burst(blade_pos, blade_direction)
+	_play_slash_sound(deps)
+	if _blade_segment_hits_boss(player_center.x, blade_pos.x, config):
+		_commit_blade_hit(config, deps)
+
+
+func _update_blade_flight(delta: float, config: Dictionary, deps: Dictionary) -> void:
+	if state != STATE_BLADE_FLIGHT or not blade_active:
+		return
+	var width := maxf(1.0, float(config.get("width", 760.0)))
+	var range_limit_x := blade_origin_player_center_x + float(blade_direction) * BLADE_MAX_RANGE_X
+	var wall_limit_x := width if blade_direction > 0 else 0.0
+	var intended_x := blade_pos.x + float(blade_direction) * BLADE_SPEED_PER_FRAME * delta * 60.0
+	var next_x: float
+	if blade_direction > 0:
+		next_x = minf(intended_x, minf(range_limit_x, wall_limit_x))
+	else:
+		next_x = maxf(intended_x, maxf(range_limit_x, wall_limit_x))
+	blade_previous_pos = blade_pos
+	blade_pos.x = next_x
+	if _blade_segment_hits_boss(blade_previous_pos.x, blade_pos.x, config):
+		_commit_blade_hit(config, deps)
+		return
+	if is_equal_approx(blade_pos.x, range_limit_x) or is_equal_approx(blade_pos.x, wall_limit_x):
+		_finish_blade_flight(false, deps)
+
+
+func _blade_segment_hits_boss(from_x: float, to_x: float, config: Dictionary) -> bool:
+	var centers := _combat_centers(config)
 	var boss_center: Vector2 = centers.get("boss", Vector2.ZERO)
-	var offset_x := boss_center.x - player_center.x
-	if absf(offset_x) > SLASH_RANGE_X or signf(offset_x) != float(facing_dir):
+	var offset_from_origin := boss_center.x - blade_origin_player_center_x
+	if signf(offset_from_origin) != float(blade_direction) or absf(offset_from_origin) > BLADE_MAX_RANGE_X:
 		return false
+	var segment_min := minf(from_x, to_x)
+	var segment_max := maxf(from_x, to_x)
+	return boss_center.x >= segment_min and boss_center.x <= segment_max
+
+
+func _commit_blade_hit(config: Dictionary, deps: Dictionary) -> void:
+	if not blade_active:
+		return
+	var centers := _combat_centers(config)
+	var boss_center: Vector2 = centers.get("boss", blade_pos)
 	var status_effect_state: Object = deps.get("status_effect_state", null)
 	if status_effect_state != null and status_effect_state.has_method("apply_status"):
 		status_effect_state.apply_status("boss", "slow", SLOW_FRAMES, {"multiplier": SLOW_MULTIPLIER, "cleansable": true}, SKILL_ID)
-	return true
+	last_action_hit = true
+	blade_pos.x = boss_center.x
+	_finish_blade_flight(true, deps)
+
+
+func _finish_blade_flight(hit: bool, deps: Dictionary) -> void:
+	if not blade_active:
+		return
+	var impact_pos := blade_pos
+	var impact_direction := blade_direction
+	blade_active = false
+	_begin_return(deps, true)
+	_start_blade_burst(impact_pos, impact_direction)
+	if not hit:
+		last_action_hit = false
+
+
+func draw_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	if canvas == null:
+		return
+	if blade_active and _blade_trail_texture != null:
+		var tip := blade_pos + shake_offset
+		var trail_rect := _blade_tip_rect(tip, blade_direction, BLADE_TRAIL_DRAW_SIZE)
+		var glow_rect := trail_rect.grow(5.0)
+		_draw_directional_texture_region(
+			canvas,
+			_blade_trail_texture,
+			BLADE_TRAIL_SOURCE_RECT,
+			glow_rect,
+			blade_direction,
+			Color(0.35, 0.72, 1.0, 0.28)
+		)
+		_draw_directional_texture_region(
+			canvas,
+			_blade_trail_texture,
+			BLADE_TRAIL_SOURCE_RECT,
+			trail_rect,
+			blade_direction,
+			Color(0.82, 0.95, 1.0, 0.96)
+		)
+	if blade_burst_active and _blade_burst_texture != null:
+		var ratio := clampf(blade_burst_elapsed_seconds / BLADE_BURST_SECONDS, 0.0, 1.0)
+		var scale := lerpf(0.72, 1.12, ratio)
+		var burst_size := BLADE_BURST_DRAW_SIZE * scale
+		var burst_rect := Rect2(blade_burst_pos + shake_offset - burst_size * 0.5, burst_size)
+		_draw_directional_texture_region(
+			canvas,
+			_blade_burst_texture,
+			BLADE_BURST_SOURCE_RECT,
+			burst_rect,
+			blade_burst_direction,
+			Color(0.72, 0.91, 1.0, (1.0 - ratio) * 0.92)
+		)
+
+
+func _update_blade_burst(delta: float) -> void:
+	if not blade_burst_active:
+		return
+	blade_burst_elapsed_seconds += delta
+	if blade_burst_elapsed_seconds >= BLADE_BURST_SECONDS:
+		_clear_blade_burst()
+
+
+func _start_blade_burst(position: Vector2, direction: int) -> void:
+	blade_burst_active = true
+	blade_burst_elapsed_seconds = 0.0
+	blade_burst_pos = position
+	blade_burst_direction = -1 if direction < 0 else 1
+
+
+func _clear_blade_burst() -> void:
+	blade_burst_active = false
+	blade_burst_elapsed_seconds = 0.0
+	blade_burst_pos = Vector2.ZERO
+	blade_burst_direction = 1
+
+
+func _clear_blade_action_state(clear_slash_clock: bool = true) -> void:
+	if clear_slash_clock:
+		slash_animation_elapsed_seconds = 0.0
+		slash_presentation_active = false
+	blade_active = false
+	blade_pos = Vector2.ZERO
+	blade_previous_pos = Vector2.ZERO
+	blade_origin_player_center_x = 0.0
+	blade_direction = 1
+
+
+func _is_slash_animation_visible() -> bool:
+	return (
+		state in [STATE_SLASH, STATE_BLADE_FLIGHT, STATE_RETURN]
+		and slash_presentation_active
+		and slash_animation_elapsed_seconds < SLASH_ANIMATION_SECONDS
+	)
+
+
+func _get_slash_animation_frame() -> int:
+	return clampi(int(floor(slash_animation_elapsed_seconds / SLASH_FRAME_SECONDS)), 0, SLASH_FRAME_COUNT - 1)
+
+
+func _uses_infiltration_ball_slow() -> bool:
+	return state in [STATE_INFILTRATING, STATE_FUSE, STATE_SLASH, STATE_BLADE_FLIGHT]
+
+
+func _blade_tip_rect(tip: Vector2, direction: int, size: Vector2) -> Rect2:
+	var x := tip.x - size.x if direction > 0 else tip.x
+	return Rect2(Vector2(x, tip.y - size.y * 0.5), size)
+
+
+func _draw_directional_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	target_rect: Rect2,
+	direction: int,
+	modulate: Color
+) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var points := PackedVector2Array([
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	])
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var flip_h := direction < 0
+	var uvs := PackedVector2Array([
+		Vector2(uv_max.x, uv_min.y) if flip_h else Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_min.x, uv_min.y) if flip_h else Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_min.x, uv_max.y) if flip_h else Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_max.x, uv_max.y) if flip_h else Vector2(uv_min.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _commit_blast(config: Dictionary, deps: Dictionary) -> bool:

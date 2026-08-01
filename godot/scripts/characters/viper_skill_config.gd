@@ -178,8 +178,8 @@ const SKILL_DATA := {
 		"cost": 160.0,
 		"color": Color(0.30, 0.82, 0.92),
 		"cooldown": 40.0,
-		"description": "담을 넘어 상대 진영으로 잠입합니다.\n잠입 중 좌우로 움직이며 벨 자리를 고릅니다.\n베거나 터뜨린 뒤 즉시 빠져나옵니다.",
-		"how_to_use": "지상에서 우클릭 잠입 · 좌클릭 참격 · 우클릭 폭발",
+		"description": "담을 넘어 적진에 잠입합니다.\n좌우로 방향을 잡고 검기나 폭발을 씁니다.\n검기가 사라지거나 폭발하면 귀환합니다.",
+		"how_to_use": "지상에서 우클릭 잠입 · 좌클릭 검기 · 우클릭 폭발",
 		"motion_hint": "담을 넘는 포물선으로 잠입하고 같은 X로 귀환",
 		"effect_type": "wall_leap_raid",
 	},
@@ -449,8 +449,8 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["motion_hint"] = "Open the flame meridians and release power"
 		"wall_leap_raid":
 			data["korean"] = "Wall-Leap Night Raid"
-			data["description"] = "Vault over the wall into enemy territory. Move laterally while infiltrating to choose your strike. Slash or blast, then withdraw immediately."
-			data["how_to_use"] = "RMB to infiltrate · LMB slash · RMB blast"
+			data["description"] = "Vault over the wall into enemy territory. Face left or right, then launch a blade wave or blast. Return when the blade vanishes or the blast resolves."
+			data["how_to_use"] = "RMB to infiltrate · LMB blade wave · RMB blast"
 			data["motion_hint"] = "Vault in a parabolic arc and return to the same X"
 
 

@@ -428,6 +428,10 @@ func draw(
 			player_draw_size.y *= 1.0 + breath_wave * _get_player_idle_breath_scale_y(context)
 
 	var player_visual_y_offset: float = -hover_offset - move_bob - (breath_wave * _get_player_idle_breath_y(context))
+	# Wall-Leap Night Raid moves the physics paddle into the top boss lane. Keep
+	# the authored 160px walk/attack body inside the playfield without moving its
+	# collision rect; the runtime fades this offset smoothly during RETURN.
+	player_visual_y_offset += float(context.get("viper_wall_leap_raid_visual_y_offset", 0.0))
 	# 수호령 탑승: lift the whole rider sprite stack (body + socket glow +
 	# perk parts follow automatically -- they anchor to this rect) onto the
 	# mount's back. Visual only; the physics paddle stays grounded.

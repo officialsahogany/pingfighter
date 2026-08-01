@@ -23,8 +23,23 @@ func _init() -> void:
 	var active_hit: Dictionary = detector.check_paddles(Vector2(377.5, 700.0), Vector2(0.0, 9.0), 28.6, active_context)
 	_expect(active_hit.is_empty(), "infiltrating body paddle must be pass-through")
 	var slash_result: Dictionary = support.route_once(fixture, {"mouse_left_pressed": true, "mouse_left_just_pressed": true})
-	_expect(str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", "")) == "return", "slash route must begin return")
-	var landing: Dictionary = support.advance_frames(fixture, 14)
+	_expect(str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", "")) == "slash", "slash route must begin windup before blade flight")
+	var landing: Dictionary = {}
+	var blade_seen := false
+	var return_seen := false
+	for _index in range(80):
+		landing = support.route_once(fixture)
+		var state: String = str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", ""))
+		if state == "blade_flight":
+			blade_seen = true
+			var blade_context: Dictionary = base.duplicate(true)
+			blade_context.merge(fixture["runtime"].get_ball_collision_context(), true)
+			_expect(detector.check_paddles(Vector2(377.5, 700.0), Vector2(0.0, 9.0), 28.6, blade_context).is_empty(), "live blade flight must keep the body paddle pass-through")
+		return_seen = return_seen or state == "return"
+		if state == "idle":
+			break
+	_expect(blade_seen, "slash route must keep body pass-through while the blade is in flight")
+	_expect(return_seen, "blade disappearance must begin return before landing")
 	_expect(str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", "")) == "idle", "return landing must restore idle")
 	_expect(is_equal_approx(float(landing.get("player_collision_cooldown", -1.0)), 6.0), "landing must rearm six-frame collision cooldown")
 	var restored_context: Dictionary = base.duplicate(true)
