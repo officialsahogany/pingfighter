@@ -103,6 +103,9 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		# 예측이 '보스가 지금 어디 있는가'를 알아야 하는 판정(킥 읽기 실패의 회피
 		# 방향 / 도달 가능성)에 쓴다. boss_pos는 패들 좌상단이라 중심으로 환산.
 		"boss_center_x": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO).x + _get_boss_paddle_width(owner, ai_mode) * 0.5,
+		# ⚠️속도까지 있어야 도달 판정이 성립한다. 회피 방향과 반대로 달리는 중이면
+		# 보스는 먼저 감속·역전해야 하고, 정지 가정은 그 비용을 통째로 빼먹는다.
+		"boss_vel_x": float(_get_owner_value(owner, "boss_vel", 0.0)),
 		"boss_stage_speed_multiplier": boss_movement_profile["boss_stage_speed_multiplier"],
 		"boss_league_movement_multiplier": boss_movement_profile["boss_league_movement_multiplier"],
 		"boss_max_speed": boss_movement_profile["boss_max_speed"],

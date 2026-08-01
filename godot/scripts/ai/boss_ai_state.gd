@@ -599,7 +599,7 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 	var waiting_for_serve: bool = bool(context.get("waiting_for_serve", true))
 	var player_serves: bool = bool(context.get("player_serves", true))
 	if waiting_for_serve and not player_serves:
-		prediction_state.reset()
+		prediction_state.reset(context)
 		future_x = _update_serve_feint_target(boss_pos, context)
 	elif bool(context.get("ball_active", false)) and not waiting_for_serve:
 		_reset_serve_feint()
@@ -623,7 +623,9 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			_kick_read_flinch_frames = BossAiPredictionState.KICK_READ_FLINCH_FRAMES
 	else:
 		_reset_serve_feint()
-		prediction_state.reset()
+		# 컨텍스트를 넘겨야 만료된 킥 이벤트가 여기서 폐기된다(다음 평범한 공에
+		# 지난 킥의 읽기 실패가 적용되는 것을 막는 지점).
+		prediction_state.reset(context)
 		future_x = width * 0.5
 
 	if _try_start_boss_dash(boss_pos, context, future_x):

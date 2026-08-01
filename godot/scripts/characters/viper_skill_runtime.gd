@@ -213,7 +213,7 @@ var marshal_ball_hit := false; var marshal_activation_msec := -100000; var marsh
 # 올라가는 **단조 serial**(라운드/매치 리셋에도 되감지 않는다 — 되감으면 ABA로
 # 다음 라운드 첫 킥의 판정이 생략된다). 보스 AI 예측은 id 차이를 보고 '못 본 사이
 # 들어온 킥 수'만큼 굴린다(프레임 재굴림 금지 = per-opportunity 계약).
-var kick_read_event_id: int = 0; var kick_read_event_chained := false
+var kick_read_event_id: int = 0; var kick_read_chained_event_id: int = 0
 var marshal_last_hit_pos := Vector2.ZERO; var marshal_charge_target_pos := Vector2.ZERO; var marshal_web_lines: Array = []; var marshal_particles: Array = []; var phantom_hit_particles: Array = []
 var chaos_cmd_buffer: Array = []; var chaos_state := "idle"; var chaos_phase_frames := 0.0
 var chaos_origin := Vector2.ZERO; var chaos_target := Vector2.ZERO; var chaos_current := Vector2.ZERO
@@ -318,7 +318,12 @@ func get_boss_ai_context() -> Dictionary:
 # chained = 쉐도우 백스텝에서 곧바로 이어진 연계 킥인지.
 func mark_kick_read_event(chained: bool) -> void:
 	kick_read_event_id += 1
-	kick_read_event_chained = chained
+	# 연계 이벤트도 별도 단조 serial로 센다 — 소비자가 밀린 이벤트를 몰아 굴릴 때
+	# 연계 가산을 '연계였던 굴림'에만 붙이려면 최신 플래그 하나로는 부족하다
+	# (하나면 쉐도우 12% + 마샬 16%가 16% 두 번으로 부푼다). 불리언은 두 번째
+	# 진실 소스가 되므로 두지 않는다.
+	if chained:
+		kick_read_chained_event_id += 1
 
 func is_command_armable(owner: Object, registry: Object) -> bool: return wall_leap_state.is_command_armable_from_owner(owner, registry)
 func is_wall_leap_input_owned() -> bool: return wall_leap_state.is_input_owned()

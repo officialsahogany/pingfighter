@@ -143,5 +143,5 @@ func build_boss_ai_context(runtime: Object) -> Dictionary:
 		"viper_emp_slip_runtime": runtime,
 		"viper_emp_slip_vel": runtime.dive_slip_vel,
 		"viper_kick_read_event_id": runtime.kick_read_event_id,
-		"viper_kick_read_event_chained": runtime.kick_read_event_chained,
+		"viper_kick_read_chained_event_id": runtime.kick_read_chained_event_id,
 	}

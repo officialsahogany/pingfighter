@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+const BossAiTurnInertiaResolver := preload("res://scripts/ai/boss_ai_turn_inertia_resolver.gd")
 
 const BOSS_ACCURACY: float = 1.0
 const BOSS_ACCURACY_ERROR: float = 60.0
@@ -27,6 +28,9 @@ const KICK_READ_FAILURE_MISS_MARGIN_MAX: float = 10.0
 # 조기 return(대쉬 / 스턴 / 프리즈) 뒤에 밀린 킥 이벤트를 몰아서 굴릴 때의 상한.
 const KICK_READ_MAX_PENDING_ROLLS: int = 4
 const KICK_READ_REACH_SIM_MAX_FRAMES: int = 240
+# 도달 시뮬레이션이 요구하는 여유. 리졸버의 정착 잔진동(pp ~1.8px)과 부동소수
+# 오차 위로 올려 두어 "간신히 임계선"을 통과시키지 않는다.
+const KICK_READ_SIM_CLEARANCE_EPSILON: float = 2.5
 # 읽기 실패 확정 직후 보스의 '흠칫' 창(boss_ai_state가 소비). 도달 가능성 게이트가
 # 이 비용을 알아야 하므로 값의 정본은 여기다 — 흠칫은 회피를 ~4.5프레임 늦춘다.
 const KICK_READ_FLINCH_FRAMES: float = 9.0
@@ -40,13 +44,29 @@ var boss_fail_error_offset: float = 0.0
 # ⚠️reset()에서 지우지 않는다. 지우면 남아있는 non-zero 소유자 id가 다음
 # 프레임에 곧바로 '새 이벤트'로 오인돼 무관한 랠리에서 읽기 실패가 터진다.
 var kick_read_event_id: int = 0
+# 연계 킥만 따로 세는 두 번째 단조 serial. 밀린 이벤트를 몰아 굴릴 때 연계 가산을
+# 연계였던 굴림에만 붙이기 위해 필요하다.
+var kick_read_chained_event_id: int = 0
 var kick_read_failure_active := false
 var kick_read_failure_offset: float = 0.0
 var kick_read_failure_flinch_pending := false
+var _turn_inertia_resolver: Object = null
 
 
-func reset() -> void:
+func reset(context: Dictionary = {}) -> void:
 	_reset_approach_decision()
+	acknowledge_kick_read_events(context)
+
+
+# 킥 이벤트의 '기회'는 그 킥이 만든 상승 구간 하나다. 보스가 대쉬/스턴 조기
+# return에 걸려 그 구간을 통째로 못 봤다면 기회는 그냥 끝난 것이다 — 만료된
+# pending을 들고 있다가 **다음 평범한 공에 읽기 실패를 적용하면 안 된다**.
+# 하강 전환 / 서브 대기 / 라운드 리셋에서 최신 serial을 '굴림 없이 확인 처리'한다.
+func acknowledge_kick_read_events(context: Dictionary) -> void:
+	if context.is_empty():
+		return
+	kick_read_event_id = maxi(kick_read_event_id, int(context.get("viper_kick_read_event_id", kick_read_event_id)))
+	kick_read_chained_event_id = maxi(kick_read_chained_event_id, int(context.get("viper_kick_read_chained_event_id", kick_read_chained_event_id)))
 
 
 # 이번 상승 구간에서 킥 읽기 실패가 새로 확정됐는지 1회성으로 소비한다.
@@ -80,6 +100,8 @@ func predict_future_x(
 	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context, fps_scale)
 	if ball_vel.y >= -0.001:
 		_reset_approach_decision()
+		# 하강 = 이 랠리의 상승 기회 종료. 못 본 이벤트는 여기서 만료시킨다.
+		acknowledge_kick_read_events(context)
 		return clamp(future_x, min_center, max_center)
 	_observe_kick_read_event(context, boss_paddle_width, ball_pos, ball_vel, fps_scale, future_x)
 	if kick_read_failure_active:
@@ -149,42 +171,49 @@ func _observe_kick_read_event(
 	if event_id <= 0 or pending <= 0:
 		# pending <= 0 = 생산자가 새로 만들어진 경우. 재동기화만 하고 굴리지 않는다.
 		return
-	var chance: float = clamp(float(context.get("boss_kick_read_failure_chance", 0.0)), 0.0, 1.0)
-	if bool(context.get("viper_kick_read_event_chained", false)):
-		chance = clamp(chance + max(0.0, float(context.get("boss_kick_read_failure_chain_bonus", 0.0))), 0.0, 1.0)
+	# 연계 여부의 정본은 **연계 serial의 차이**다(단일 불리언은 밀린 이벤트를 몰아
+	# 굴릴 때 어느 굴림이 연계였는지 구분하지 못한다). 여기서는 상한 확률만 구하고,
+	# 굴림별 적용은 _roll_pending_kick_reads가 serial 차이로 결정한다.
+	var chance: float = clamp(
+		clamp(float(context.get("boss_kick_read_failure_chance", 0.0)), 0.0, 1.0)
+		+ max(0.0, float(context.get("boss_kick_read_failure_chain_bonus", 0.0))),
+		0.0,
+		1.0
+	)
 	if chance <= 0.0:
 		# 별도 판정이 없는 리그(주니어 / 챔피언)에서는 완전 no-op이어야 한다.
 		# 여기서 접근 판정을 건드리면 일반 실수 굴림이 킥마다 추가로 돌아
 		# "전역 실수율은 건드리지 않는다"는 계약이 깨진다.
 		return
-	# 새 타격은 궤도를 새로 쓴다 — 이전 킥의 읽기 실패 래치는 무효.
-	kick_read_failure_active = false
-	kick_read_failure_offset = 0.0
 	var miss_threshold: float = (
 		boss_paddle_width * 0.5
 		+ float(context.get("hitbox_padding", 5.0))
 		+ float(context.get("ball_size", 28.6)) * 0.5
 	)
 	# ⚠️도달 가능성 게이트. 목표만 어긋나게 잡는 것으로는 미스가 보장되지 않는다 —
-	# 보스가 이미 정답 위치에 있고 접촉까지 남은 프레임이 짧으면, 잘못된 목표를
-	# 향해 움직여도 히트박스를 벗어나기 전에 공이 닿는다(실측: 리드 6프레임에서
-	# 100% 차단). 그런 킥은 애초에 '읽기 기회'가 아니므로 굴림을 소비하지 않는다.
-	# 이 게이트가 있어야 표시 확률 = 실제 미스 확률이 된다.
-	if not _can_kick_read_failure_clear_the_boss(context, ball_pos, ball_vel, fps_scale, miss_threshold):
-		return
-	var rolled_failure := false
-	for _roll_index in range(mini(pending, KICK_READ_MAX_PENDING_ROLLS)):
-		if randf() < chance:
-			rolled_failure = true
-			break
-	if not rolled_failure:
-		return
-	# 이 킥의 판정은 확정 — 같은 상승 구간에서 일반 실수 굴림이 덮어쓰지 못하게 잠근다.
-	approach_decision_active = true
-	kick_read_failure_active = true
-	kick_read_failure_flinch_pending = true
+	# 보스가 이미 정답 위치에 있거나 회피 방향과 반대로 달리는 중이면, 잘못된 목표를
+	# 향해 움직여도 히트박스를 벗어나기 전에 공이 닿는다(실측: 리드 6프레임 100%
+	# 차단 / 역주행 중 전속이면 리드가 넉넉해도 차단). 그런 킥은 애초에 '읽기
+	# 기회'가 아니므로 굴림을 소비하지 않는다. 이 게이트가 있어야 표시 확률 =
+	# 실제 미스 확률이 된다.
 	var magnitude: float = miss_threshold + randf_range(KICK_READ_FAILURE_MISS_MARGIN_MIN, KICK_READ_FAILURE_MISS_MARGIN_MAX)
-	kick_read_failure_offset = magnitude * _pick_kick_read_evasion_dir(context, arrival_x)
+	var evasion_dir: float = _pick_kick_read_evasion_dir(context, arrival_x)
+	var reachable: bool = _simulated_evasion_clears_the_ball(context, ball_pos, ball_vel, fps_scale, boss_paddle_width, arrival_x, evasion_dir, magnitude, miss_threshold)
+	# ⚠️이미 보스를 속인 상태라면 연계로 다시 때렸다고 그 우위를 잃어선 안 된다.
+	# 새 이벤트가 기존 래치를 지우면 '연계할수록 나빠지는' 역설이 되고, 풀연계
+	# 확률도 두 기회의 합집합(26.1%)이 아니라 마지막 굴림 하나(16%)로 접힌다.
+	# 궤도가 바뀌었으니 회피 기하만 새 궤도에 맞춰 다시 잡고 굴림은 건너뛴다.
+	if kick_read_failure_active:
+		_roll_pending_kick_reads(context, 0, chance)
+		if reachable:
+			kick_read_failure_offset = magnitude * evasion_dir
+		return
+	if not reachable:
+		_roll_pending_kick_reads(context, 0, chance)
+		return
+	if not _roll_pending_kick_reads(context, pending, chance):
+		return
+	_arm_kick_read_failure(magnitude * evasion_dir)
 
 
 # 회피 방향은 무작위가 아니라 **보스의 현 위치에서 멀어지는 쪽**이다. 무작위로
@@ -199,21 +228,29 @@ func _pick_kick_read_evasion_dir(context: Dictionary, arrival_x: float) -> float
 	return -1.0 if randf() < 0.5 else 1.0
 
 
-# 접촉까지 남은 프레임 동안 보스가 '정답 위치에서 히트박스를 완전히 벗어날 만큼'
-# 움직일 수 있는가. 흠칫 창(반응 0.4배)까지 포함해 적분한다 — 흠칫은 회피를
-# 늦추므로 게이트가 그 비용을 모르면 게이트가 거짓말을 한다.
-func _can_kick_read_failure_clear_the_boss(
-	context: Dictionary,
-	ball_pos: Vector2,
-	ball_vel: Vector2,
-	fps_scale: float,
-	miss_threshold: float
-) -> bool:
-	var frames_to_contact: float = _get_frames_to_boss_line(context, ball_pos, ball_vel)
-	if frames_to_contact <= 0.0:
-		return false
-	var required: float = miss_threshold + KICK_READ_FAILURE_MISS_MARGIN_MAX
-	return _get_boss_reachable_distance(context, frames_to_contact, fps_scale) >= required
+func _roll_pending_kick_reads(context: Dictionary, pending: int, chained_chance: float) -> bool:
+	# 밀린 이벤트를 몰아 굴릴 때, 연계 가산은 **연계였던 이벤트에만** 붙어야 한다.
+	# 최신 chained 값을 모든 굴림에 재사용하면 (쉐도우 12% + 마샬 16%)가 (16% x 2)로
+	# 부풀거나 반대로 깎인다. 생산자가 연계 이벤트도 별도 단조 serial로 세어주므로
+	# 그 차이만큼만 가산 확률로 굴린다.
+	var chained_serial: int = int(context.get("viper_kick_read_chained_event_id", 0))
+	var pending_chained: int = clampi(chained_serial - kick_read_chained_event_id, 0, pending)
+	kick_read_chained_event_id = chained_serial
+	var plain_chance: float = clamp(float(context.get("boss_kick_read_failure_chance", 0.0)), 0.0, 1.0)
+	var budget: int = mini(pending, KICK_READ_MAX_PENDING_ROLLS)
+	for roll_index in range(budget):
+		var chance: float = chained_chance if roll_index < pending_chained else plain_chance
+		if randf() < chance:
+			return true
+	return false
+
+
+func _arm_kick_read_failure(offset: float) -> void:
+	# 이 킥의 판정은 확정 — 같은 상승 구간에서 일반 실수 굴림이 덮어쓰지 못하게 잠근다.
+	approach_decision_active = true
+	kick_read_failure_active = true
+	kick_read_failure_flinch_pending = true
+	kick_read_failure_offset = offset
 
 
 # ball_vel은 60fps 프레임당 px라 이 몫이 곧 60fps 프레임 수다(fps_scale 곱 금지).
@@ -224,19 +261,82 @@ func _get_frames_to_boss_line(context: Dictionary, ball_pos: Vector2, ball_vel: 
 	return (ball_pos.y - _get_boss_intercept_y(context)) / descent_speed
 
 
-func _get_boss_reachable_distance(context: Dictionary, frames: float, fps_scale: float) -> float:
-	var accel: float = max(0.0001, float(context.get("boss_movement_accel", 1.2)))
-	var max_speed: float = max(0.0001, float(context.get("boss_movement_max_speed", 9.5)))
-	var whole_frames: int = mini(KICK_READ_REACH_SIM_MAX_FRAMES, int(floorf(frames / max(0.01, fps_scale))))
-	var distance := 0.0
-	var speed := 0.0
+# 도달 판정은 근사 적분이 아니라 **실제 이동 리졸버로 미래를 돌려보고** 판단한다.
+# 근사(정지에서 출발하는 거리 적분)는 보스의 현재 진행 방향과 역전 제동 비용을
+# 통째로 빼먹어서, 회피 반대쪽으로 전속 주행 중인 보스를 "즉시 비켜난다"고
+# 오판한다(실측 재현: y=505.5 / vy=-26 / 보스 +11.15px·f 역주행 → armed 후 차단).
+#
+# 공이 보스 히트박스 밴드를 통과하는 **전 구간**에서 분리 거리를 유지해야 한다 —
+# 진입 프레임만 보면 느린 공이 밴드 안에 머무는 동안 보스가 되돌아올 수 있다.
+func _simulated_evasion_clears_the_ball(
+	context: Dictionary,
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	fps_scale: float,
+	boss_paddle_width: float,
+	arrival_x: float,
+	evasion_dir: float,
+	magnitude: float,
+	miss_threshold: float
+) -> bool:
+	var entry_frames: float = _get_frames_to_boss_line(context, ball_pos, ball_vel)
+	if entry_frames <= 0.0:
+		return false
+	var descent_speed: float = absf(ball_vel.y) * max(0.01, float(context.get("ball_impact_boost", 1.0)))
+	var band_height: float = (
+		float(context.get("boss_hitbox_height", 40.0))
+		+ float(context.get("hitbox_padding", 5.0)) * 2.0
+		+ float(context.get("ball_size", 28.6))
+	)
+	var band_frames: float = band_height / max(0.01, descent_speed)
+	var step: float = max(0.01, fps_scale)
+	var entry_step: int = int(floorf(entry_frames / step))
+	var total_steps: int = mini(KICK_READ_REACH_SIM_MAX_FRAMES, int(ceilf((entry_frames + band_frames) / step)))
+	if entry_step >= total_steps:
+		entry_step = maxi(0, total_steps - 1)
+
+	var play_left: float = float(context.get("play_left", 0.0))
+	var play_right: float = float(context.get("play_right", 760.0))
+	var min_center: float = play_left + boss_paddle_width * 0.5
+	var max_center: float = play_right - boss_paddle_width * 0.5
+	var center: float = clamp(float(context.get("boss_center_x", arrival_x)), min_center, max_center)
+	var vel: float = float(context.get("boss_vel_x", 0.0))
 	var elapsed := 0.0
-	for _frame_index in range(whole_frames):
-		var mult: float = KICK_READ_FLINCH_REACTION_MULT if elapsed < KICK_READ_FLINCH_FRAMES else 1.0
-		speed = minf(speed + accel * mult * fps_scale, max_speed * mult)
-		distance += speed * fps_scale
+	for step_index in range(total_steps):
+		var reaction: float = KICK_READ_FLINCH_REACTION_MULT if elapsed < KICK_READ_FLINCH_FRAMES else 1.0
+		var target: float = _resolve_kick_read_target(arrival_x, min_center, max_center, center, evasion_dir, magnitude)
+		vel = _get_turn_inertia_resolver().update_velocity(target, center, vel, fps_scale, true, reaction, 1.0, context)
+		center = clamp(center + vel * fps_scale, min_center, max_center)
 		elapsed += fps_scale
-	return distance
+		if step_index >= entry_step and absf(center - arrival_x) < miss_threshold + KICK_READ_SIM_CLEARANCE_EPSILON:
+			return false
+	return true
+
+
+func _get_turn_inertia_resolver() -> Object:
+	if _turn_inertia_resolver == null:
+		_turn_inertia_resolver = BossAiTurnInertiaResolver.new()
+	return _turn_inertia_resolver
+
+
+# 목표 산출은 실경로(_apply_kick_read_failure)와 같은 규칙을 써야 시뮬레이션이
+# 의미가 있다 — 안쪽 끌어당김 금지 + 클램프 방향 뒤집기까지 동일.
+func _resolve_kick_read_target(
+	arrival_x: float,
+	min_center: float,
+	max_center: float,
+	boss_center_x: float,
+	evasion_dir: float,
+	magnitude: float
+) -> float:
+	var effective: float = maxf(magnitude, (boss_center_x - arrival_x) * evasion_dir)
+	var preferred: float = clamp(arrival_x + evasion_dir * effective, min_center, max_center)
+	if absf(preferred - arrival_x) >= effective - 0.001:
+		return preferred
+	var opposite: float = clamp(arrival_x - evasion_dir * effective, min_center, max_center)
+	if absf(opposite - arrival_x) > absf(preferred - arrival_x):
+		return opposite
+	return preferred
 
 
 # 굴림 시점에 정한 방향이 벽 쪽이라 목표 클램프에 먹히면(도착 x가 벽에 가까울 때)
@@ -249,16 +349,10 @@ func _apply_kick_read_failure(future_x: float, min_center: float, max_center: fl
 	# 보다 멀리 있는 보스에게 고정 오프셋 목표를 주면 보스가 공 쪽으로 되돌아오고,
 	# 도착 프레임에 임계선(72.8px)에 0.1px 차이로 걸쳐 그대로 막는 사례가 나온다
 	# (실측 21/756). 매 프레임 현재 위치로 재평가해 '나가는 방향'으로만 작동시킨다.
-	var boss_center_x: float = float(context.get("boss_center_x", INF))
-	if is_finite(boss_center_x):
-		magnitude = maxf(magnitude, (boss_center_x - future_x) * preferred_dir)
-	var preferred: float = clamp(future_x + preferred_dir * magnitude, min_center, max_center)
-	if absf(preferred - future_x) >= magnitude - 0.001:
-		return preferred
-	var opposite: float = clamp(future_x - preferred_dir * magnitude, min_center, max_center)
-	if absf(opposite - future_x) > absf(preferred - future_x):
-		return opposite
-	return preferred
+	var boss_center_x: float = float(context.get("boss_center_x", future_x))
+	if not is_finite(boss_center_x):
+		boss_center_x = future_x
+	return _resolve_kick_read_target(future_x, min_center, max_center, boss_center_x, preferred_dir, magnitude)
 
 
 func _roll_approach_decision(ball_vel: Vector2, context: Dictionary) -> void:

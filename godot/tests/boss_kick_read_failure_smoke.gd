@@ -38,6 +38,7 @@ class FakeOwner:
 	var ball_pos := Vector2(380.0, 700.0)
 	var ball_vel := Vector2(0.0, -20.0)
 	var boss_pos := Vector2(326.5, 25.0)
+	var boss_vel := 0.0
 	var selected_character_type := "viper"
 
 
@@ -161,6 +162,9 @@ func _run() -> void:
 	_test_new_kick_rerolls_mid_ascent()
 	_test_chain_bonus_only_applies_to_chained_kicks()
 	_test_pending_events_are_not_coalesced_into_one_roll()
+	_test_expired_pending_never_lands_on_a_later_ordinary_ball()
+	_test_chained_kick_keeps_an_already_won_read_failure()
+	_test_full_chain_probability_matches_the_designed_union()
 	# --- 리그 프로파일 ---
 	_test_league_profile_chances()
 	# --- 이벤트 발행 계약 ---
@@ -192,22 +196,29 @@ func _test_armed_failure_actually_lets_the_ball_through() -> void:
 	for geometry in [
 		{"y": 700.0, "v": 20.0},
 		{"y": 600.0, "v": 26.0},
+		{"y": 505.5, "v": 26.0},
 		{"y": 500.0, "v": 20.0},
+		{"y": 460.0, "v": 26.0},
 		{"y": 420.0, "v": 14.0},
+		{"y": 380.0, "v": 20.0},
 	]:
-		for boss_offset in [-320.0, -150.0, -60.0, 0.0, 60.0, 150.0, 320.0]:
+		for boss_offset in [-320.0, -150.0, -60.0, -2.0, 0.0, 60.0, 150.0, 320.0]:
 			for ball_x in [60.0, 380.0, 700.0]:
 				for dash in [false, true]:
-					var outcome: Dictionary = _simulate_rally(float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, dash, 1.0)
-					if not bool(outcome["armed"]):
-						continue
-					armed += 1
-					if is_equal_approx(float(geometry["y"]), 700.0):
-						realistic_armed += 1
-					if bool(outcome["blocked"]):
-						_expect(false, "armed read failure was still blocked (y=%.0f v=%.0f boss_off=%.0f ball_x=%.0f dash=%s)" % [
-							float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, str(dash)])
-						return
+					# ⚠️보스 초기 속도 축이 없으면 "정지 상태에서 즉시 회피"만 검사하게
+					# 된다. 회피 방향과 반대로 전속 주행 중이면 보스는 먼저 감속·역전
+					# 해야 하고, 그 비용을 무시한 도달 판정은 거짓말을 한다.
+					for boss_vel in [0.0, 11.1497, -11.1497, 5.5]:
+						var outcome: Dictionary = _simulate_rally(float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, dash, 1.0, boss_vel)
+						if not bool(outcome["armed"]):
+							continue
+						armed += 1
+						if is_equal_approx(float(geometry["y"]), 700.0) and is_zero_approx(boss_vel):
+							realistic_armed += 1
+						if bool(outcome["blocked"]):
+							_expect(false, "armed read failure was still blocked (y=%.0f v=%.0f boss_off=%.0f ball_x=%.0f dash=%s boss_vel=%.2f)" % [
+								float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, str(dash), boss_vel])
+							return
 	_expect(realistic_armed >= 40, "a realistic kick (y=700) should always be a valid read-failure opportunity (armed %d/42)" % realistic_armed)
 	_expect(armed >= 80, "the sweep should exercise a broad set of armed opportunities (got %d)" % armed)
 
@@ -245,9 +256,10 @@ func _simulate_rally(
 	boss_offset: float,
 	ball_x: float,
 	dash_enabled: bool,
-	chance: float
+	chance: float,
+	start_boss_vel: float = 0.0
 ) -> Dictionary:
-	seed(int(start_y) * 977 + int(speed) * 131 + int(boss_offset) + int(ball_x) * 7 + (1 if dash_enabled else 0))
+	seed(int(start_y) * 977 + int(speed) * 131 + int(boss_offset) + int(ball_x) * 7 + (1 if dash_enabled else 0) + int(start_boss_vel * 10.0))
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new()
 	var builder: Object = BossAiContextBuilder.new()
@@ -258,13 +270,14 @@ func _simulate_rally(
 	var ball_vel := Vector2(0.0, -speed)
 	var boss_center: float = clamp(ball_x + boss_offset, LIMIT_BOSS_PADDLE_WIDTH * 0.5, 760.0 - LIMIT_BOSS_PADDLE_WIDTH * 0.5)
 	var boss_pos := Vector2(boss_center - LIMIT_BOSS_PADDLE_WIDTH * 0.5, 25.0)
-	var boss_vel := 0.0
+	var boss_vel := start_boss_vel
 	var armed := false
 
 	for _frame in range(400):
 		owner.ball_pos = ball_pos
 		owner.ball_vel = ball_vel
 		owner.boss_pos = boss_pos
+		owner.boss_vel = boss_vel
 		var context: Dictionary = builder.build_context(owner, registry)
 		context["boss_pos"] = boss_pos
 		context["boss_paddle_width"] = LIMIT_BOSS_PADDLE_WIDTH
@@ -383,7 +396,7 @@ func _test_chain_bonus_only_applies_to_chained_kicks() -> void:
 		"boss_center_x": 380.0,
 	}
 	var chained: Dictionary = overrides.duplicate(true)
-	chained["viper_kick_read_event_chained"] = true
+	chained["viper_kick_read_chained_event_id"] = 1
 	seed(7)
 	var chained_state: Object = BossAiPredictionState.new()
 	_expect(
@@ -391,7 +404,7 @@ func _test_chain_bonus_only_applies_to_chained_kicks() -> void:
 		"shadow-step chained kick should add the chain bonus to the read-failure chance"
 	)
 	var plain: Dictionary = overrides.duplicate(true)
-	plain["viper_kick_read_event_chained"] = false
+	plain["viper_kick_read_chained_event_id"] = 0
 	seed(7)
 	var plain_state: Object = BossAiPredictionState.new()
 	_expect(
@@ -410,6 +423,88 @@ func _test_pending_events_are_not_coalesced_into_one_roll() -> void:
 	_expect(
 		triple > single + 60,
 		"three pending kicks must compound (1-0.7^3 = 0.657), not collapse to one roll (single %d vs triple %d)" % [single, triple]
+	)
+
+
+# 킥이 보스 대쉬/스턴 조기 return 중에 들어오면 그 상승 구간을 통째로 못 본다.
+# 그 기회는 끝난 것이므로, 다음 평범한 공(킥 아님)이 올라올 때 지난 pending을
+# 뒤늦게 승인해 읽기 실패를 걸면 안 된다.
+func _test_expired_pending_never_lands_on_a_later_ordinary_ball() -> void:
+	# 만료 경로는 둘이다(하강 전환 / 서브·비활성 리셋). 하나만 검사하면 다른 쪽
+	# 구멍이 그대로 살아남으므로 각각 따로 돌린다.
+	for expire_via_reset in [false, true]:
+		for seed_value in range(20):
+			seed(seed_value)
+			var state: Object = BossAiPredictionState.new()
+			var kicked: Dictionary = _base_context({
+				"boss_mistake_chance": 0.0,
+				"boss_kick_read_failure_chance": 1.0,
+				"viper_kick_read_event_id": 1,
+				"boss_center_x": 380.0,
+			})
+			# 상승 구간을 통째로 건너뛴다(= 보스가 대쉬 중이라 예측이 안 돌았다).
+			if expire_via_reset:
+				state.reset(kicked)
+			else:
+				state.predict_future_x(Vector2(380.0, 200.0), Vector2(0.0, 8.0), 1.0, 0.0, 760.0, LIMIT_BOSS_PADDLE_WIDTH, kicked)
+			# 다음 랠리의 평범한 상승 공 — 새 킥 이벤트는 없다.
+			var target: float = _run_prediction(state, 380.0, kicked.duplicate(true))
+			if absf(target - 380.0) > 0.001:
+				_expect(false, "an expired kick event must not apply a read failure to a later ordinary ball (expire_via_reset=%s, %.2f)" % [str(expire_via_reset), target])
+				return
+
+
+# 연계로 다시 때렸다고 이미 얻은 우위를 잃으면 '연계할수록 나빠지는' 역설이 된다.
+func _test_chained_kick_keeps_an_already_won_read_failure() -> void:
+	seed(9)
+	var state: Object = BossAiPredictionState.new()
+	var opener: Dictionary = _base_context({
+		"boss_mistake_chance": 0.0,
+		"boss_kick_read_failure_chance": 1.0,
+		"viper_kick_read_event_id": 1,
+		"boss_center_x": 380.0,
+	})
+	_expect(absf(_run_prediction(state, 380.0, opener) - 380.0) >= MISS_THRESHOLD, "fixture: opener kick should win the read")
+	# 후속 마샬의 굴림은 사실상 실패하지만(확률 0.0001), **확률 0이면 안 된다** —
+	# 0이면 "판정 없는 리그" 조기 return으로 빠져 래치 유지 분기를 안 밟는다(변별력 0).
+	var follow_up: Dictionary = opener.duplicate(true)
+	follow_up["viper_kick_read_event_id"] = 2
+	follow_up["boss_kick_read_failure_chance"] = 0.0001
+	follow_up["boss_kick_read_failure_chain_bonus"] = 0.0
+	_expect(
+		absf(_run_prediction(state, 380.0, follow_up) - 380.0) >= MISS_THRESHOLD,
+		"a follow-up kick must not cancel a read failure the player already won"
+	)
+
+
+# 승인된 계약 = 두 기회의 합집합. 극한 1-(1-0.12)(1-0.16) = 0.261.
+# 최신 chained 플래그를 모든 굴림에 재사용하면 0.16 두 번(0.294)이 되고,
+# 새 이벤트가 기존 래치를 지우면 마지막 굴림 하나(0.16)로 접힌다.
+func _test_full_chain_probability_matches_the_designed_union() -> void:
+	var trials := 3000
+	var armed := 0
+	for seed_value in range(trials):
+		seed(seed_value)
+		var state: Object = BossAiPredictionState.new()
+		var shadow: Dictionary = _base_context({
+			"boss_mistake_chance": 0.0,
+			"boss_kick_read_failure_chance": BossAiContextBuilder.LIMIT_BOSS_KICK_READ_FAILURE_CHANCE,
+			"boss_kick_read_failure_chain_bonus": BossAiContextBuilder.BOSS_KICK_READ_FAILURE_CHAIN_BONUS,
+			"viper_kick_read_event_id": 1,
+			"viper_kick_read_chained_event_id": 0,
+			"boss_center_x": 380.0,
+		})
+		_run_prediction(state, 380.0, shadow)
+		var marshal: Dictionary = shadow.duplicate(true)
+		marshal["viper_kick_read_event_id"] = 2
+		marshal["viper_kick_read_chained_event_id"] = 1
+		_run_prediction(state, 380.0, marshal)
+		if state.kick_read_failure_active:
+			armed += 1
+	var rate: float = float(armed) / float(trials)
+	_expect(
+		rate > 0.235 and rate < 0.288,
+		"full shadow->marshal chain should land near the designed 0.261 union (measured %.3f)" % rate
 	)
 
 
@@ -498,11 +593,11 @@ func _test_shadow_step_hit_publishes_event() -> void:
 	var hit: Dictionary = runtime.apply_shadow_step_ball_motion(1.0, scene, motion_context, deps)
 	_expect(hit.has("ball_vel"), "fixture: shadow step wave should hit the ball")
 	_expect(int(runtime.kick_read_event_id) == 1, "shadow step ball hit should publish exactly one kick-read event")
-	_expect(not bool(runtime.kick_read_event_chained), "shadow step opens the chain, so its own event is not chained")
+	_expect(int(runtime.kick_read_chained_event_id) == 0, "shadow step opens the chain, so its own event is not chained")
 
 	var published: Dictionary = runtime.get_boss_ai_context()
 	_expect(int(published.get("viper_kick_read_event_id", -1)) == 1, "boss AI context should carry the kick-read event id")
-	_expect(published.has("viper_kick_read_event_chained"), "boss AI context should carry the chained flag")
+	_expect(int(published.get("viper_kick_read_chained_event_id", -1)) == 0, "boss AI context should carry the chained serial")
 
 
 func _test_normal_marshal_publishes_chained_event() -> void:
@@ -512,7 +607,7 @@ func _test_normal_marshal_publishes_chained_event() -> void:
 	runtime._update_marshal_charge_phase(_viper_config(Vector2(400.0, 300.0)), deps, result)
 	_expect(bool(runtime.marshal_ball_hit), "fixture: marshal charge should have connected with the ball")
 	_expect(int(runtime.kick_read_event_id) == 1, "marshal charge hit should publish exactly one kick-read event")
-	_expect(bool(runtime.kick_read_event_chained), "a marshal kick chained from shadow step should flag the chain bonus")
+	_expect(int(runtime.kick_read_chained_event_id) == 1, "a marshal kick chained from shadow step should bump the chained serial")
 
 
 # 팬텀 킥(더블 마샬)은 같은 _apply_charge_hit을 지나지만 새 기회가 아니다.
