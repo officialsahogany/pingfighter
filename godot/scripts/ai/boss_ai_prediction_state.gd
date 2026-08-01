@@ -320,15 +320,34 @@ func _simulated_evasion_clears_the_ball(
 	var center: float = clamp(float(context.get("boss_center_x", arrival_x)), min_center, max_center)
 	var vel: float = float(context.get("boss_vel_x", 0.0))
 	var power_smash_reaction: float = BossAiTurnInertiaResolver.get_power_smash_reaction_multiplier(context)
+	var soap_slip: bool = BossAiTurnInertiaResolver.is_soap_slip_active(context)
+	var half_width: float = boss_paddle_width * 0.5
 	var elapsed := 0.0
 	for step_index in range(total_steps):
 		var reaction: float = power_smash_reaction * (KICK_READ_FLINCH_REACTION_MULT if elapsed < flinch_frames else 1.0)
 		var target: float = _resolve_kick_read_target(arrival_x, min_center, max_center, center, evasion_dir, magnitude)
+		var entry_center: float = center
+		var entry_vel: float = vel
 		vel = _get_turn_inertia_resolver().update_velocity(target, center, vel, fps_scale, true, reaction, 1.0, context)
 		# 실경로와 같은 후처리(채찍 제한 + 감속 배율)를 통과시켜야 한다 — 빼먹으면
 		# 감속 디버프가 걸린 보스를 "충분히 비켜난다"고 오판한다.
 		vel = BossAiTurnInertiaResolver.apply_movement_post_processing(vel, context)
 		center = clamp(center + vel * fps_scale, min_center, max_center)
+		if soap_slip:
+			# 비누 미끄러짐은 실경로의 마지막 후처리다(AI 결과에 blend 비율만 섞는다).
+			var blended: Vector2 = BossAiTurnInertiaResolver.apply_soap_slip_blend(
+				entry_center - half_width,
+				entry_vel,
+				center - half_width,
+				vel,
+				context,
+				fps_scale,
+				play_left,
+				play_right,
+				boss_paddle_width
+			)
+			center = blended.x + half_width
+			vel = blended.y
 		elapsed += fps_scale
 		if step_index >= entry_step and absf(center - arrival_x) < miss_threshold + clearance_epsilon:
 			return false

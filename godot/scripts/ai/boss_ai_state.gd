@@ -608,6 +608,8 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 	var waiting_for_serve: bool = bool(context.get("waiting_for_serve", true))
 	var player_serves: bool = bool(context.get("player_serves", true))
 	if waiting_for_serve and not player_serves:
+		# 컨텍스트를 넘겨야 만료된 킥 이벤트가 여기서 폐기된다(다음 평범한 공에
+		# 지난 킥의 읽기 실패가 적용되는 것을 막는 지점).
 		prediction_state.reset(context)
 		future_x = _update_serve_feint_target(boss_pos, context)
 	elif bool(context.get("ball_active", false)) and not waiting_for_serve:
@@ -625,8 +627,6 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			float(context.get("prediction_play_left", play_left)),
 			float(context.get("prediction_play_right", play_right)),
 			boss_paddle_width,
-		# 컨텍스트를 넘겨야 만료된 킥 이벤트가 여기서 폐기된다(다음 평범한 공에
-		# 지난 킥의 읽기 실패가 적용되는 것을 막는 지점).
 			context
 		)
 	else:
@@ -1277,26 +1277,23 @@ func _apply_soap_slip_blend(
 	context: Dictionary,
 	fps_scale: float
 ) -> Dictionary:
-	var play_left: float = float(context.get("play_left", 0.0))
-	var play_right: float = float(context.get("play_right", float(context.get("width", 760.0))))
-	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
-	var blend: float = clamp(float(context.get("active_item_soap_slip_blend", 0.18)), 0.0, 1.0)
-	var friction: float = clamp(float(context.get("active_item_soap_slip_friction", 0.985)), 0.0, 1.0)
+	# 정본은 BossAiTurnInertiaResolver다 — 예측의 도달 가능성 시뮬레이션이 같은
+	# 후처리를 통과해야 "당첨 = 실제 미스"가 성립한다. 재구현 금지.
 	var ai_pos: Vector2 = _as_vector2(ai_result.get("boss_pos", original_boss_pos), original_boss_pos)
-	var ai_vel: float = float(ai_result.get("boss_vel", original_boss_vel))
-	var momentum_x: float = original_boss_pos.x + original_boss_vel * fps_scale
-	var next_vel: float = (original_boss_vel + (ai_vel - original_boss_vel) * blend) * friction
-	var next_pos: Vector2 = ai_pos
-	next_pos.x = momentum_x + (ai_pos.x - momentum_x) * blend
-	if next_pos.x < play_left:
-		next_pos.x = play_left
-		next_vel = abs(next_vel) * 0.3
-	elif next_pos.x > play_right - boss_paddle_width:
-		next_pos.x = play_right - boss_paddle_width
-		next_vel = -abs(next_vel) * 0.3
+	var blended: Vector2 = BossAiTurnInertiaResolver.apply_soap_slip_blend(
+		original_boss_pos.x,
+		original_boss_vel,
+		ai_pos.x,
+		float(ai_result.get("boss_vel", original_boss_vel)),
+		context,
+		fps_scale,
+		float(context.get("play_left", 0.0)),
+		float(context.get("play_right", float(context.get("width", 760.0)))),
+		float(context.get("boss_paddle_width", 100.0))
+	)
 	return {
-		"boss_pos": next_pos,
-		"boss_vel": next_vel,
+		"boss_pos": Vector2(blended.x, ai_pos.y),
+		"boss_vel": blended.y,
 	}
 
 
@@ -1342,6 +1339,8 @@ func _update_whip_deactivation_velocity(
 	return move_toward(boss_vel, desired_vel, accel_step)
 
 
+# 정본은 BossAiTurnInertiaResolver다 — 예측의 도달 가능성 시뮬레이션이 같은
+# 후처리를 써야 해서 그쪽으로 옮겼다. 여기서 다시 구현하지 마라.
 func _get_active_item_slow_multiplier(context: Dictionary) -> float:
 	return BossAiTurnInertiaResolver.get_movement_slow_multiplier(context)
 
@@ -1352,8 +1351,6 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return fallback
 
 
+# 정본은 BossAiTurnInertiaResolver다(예측 시뮬레이션과 공유). 재구현 금지.
 func _get_power_smash_reaction_multiplier(context: Dictionary) -> float:
 	return BossAiTurnInertiaResolver.get_power_smash_reaction_multiplier(context)
-# 정본은 BossAiTurnInertiaResolver다 — 예측의 도달 가능성 시뮬레이션이 같은
-# 후처리를 써야 해서 그쪽으로 옮겼다. 여기서 다시 구현하지 마라.
-# 정본은 BossAiTurnInertiaResolver다(예측 시뮬레이션과 공유). 재구현 금지.

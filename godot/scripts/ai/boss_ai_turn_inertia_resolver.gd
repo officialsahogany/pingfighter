@@ -23,6 +23,39 @@ static func apply_movement_post_processing(boss_vel: float, context: Dictionary)
 	return boss_vel * get_movement_slow_multiplier(context)
 
 
+static func is_soap_slip_active(context: Dictionary) -> bool:
+	return bool(context.get("active_item_soap_slip_active", false))
+
+
+# 비누 미끄러짐: AI 의도로 직행하지 않고 관성 위치/속도에 blend 비율만 섞는다.
+# ⚠️실경로의 **마지막** 이동 후처리다 — 도달 시뮬레이션이 이걸 빼면 미끄러지는
+# 보스를 "제때 비켜난다"고 오판한다(극한 y=600 v20 기본 배율에서 armed 후 차단).
+# 반환값은 (pos_x, vel) 쌍이다.
+static func apply_soap_slip_blend(
+	original_pos_x: float,
+	original_vel: float,
+	ai_pos_x: float,
+	ai_vel: float,
+	context: Dictionary,
+	fps_scale: float,
+	play_left: float,
+	play_right: float,
+	boss_paddle_width: float
+) -> Vector2:
+	var blend: float = clamp(float(context.get("active_item_soap_slip_blend", 0.18)), 0.0, 1.0)
+	var friction: float = clamp(float(context.get("active_item_soap_slip_friction", 0.985)), 0.0, 1.0)
+	var momentum_x: float = original_pos_x + original_vel * fps_scale
+	var next_vel: float = (original_vel + (ai_vel - original_vel) * blend) * friction
+	var next_pos_x: float = momentum_x + (ai_pos_x - momentum_x) * blend
+	if next_pos_x < play_left:
+		next_pos_x = play_left
+		next_vel = abs(next_vel) * 0.3
+	elif next_pos_x > play_right - boss_paddle_width:
+		next_pos_x = play_right - boss_paddle_width
+		next_vel = -abs(next_vel) * 0.3
+	return Vector2(next_pos_x, next_vel)
+
+
 const POWER_SMASH_BOSS_REACT_PER_COMBO: float = 0.05
 const POWER_SMASH_BOSS_REACT_CAP: float = 0.30
 

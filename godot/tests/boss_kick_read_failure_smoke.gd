@@ -575,17 +575,32 @@ func _simulate_follow_up_rally(follow_up_y: float, follow_up_v: float) -> Dictio
 	return {"armed_at_contact": armed_at_contact, "blocked": false}
 
 
-# 리졸버 출력 뒤에 붙는 감속 배율을 시뮬레이션이 빼먹으면 게이트가 거짓말을 한다.
+# 리졸버 출력 **뒤에** 붙는 이동 후처리를 시뮬레이션이 빼먹으면 게이트가 거짓말을
+# 한다. 후처리는 하나가 아니다 — 감속 배율 계열과 비누 미끄러짐(마지막 단계)을
+# 각각 축으로 돌려야 한 쪽만 미러링한 상태가 통과하지 않는다.
 func _test_movement_slow_debuffs_are_respected_by_the_gate() -> void:
-	for start_y in [400.0, 500.0, 600.0]:
+	var post_processing_cases: Array = [
+		{"label": "spider mine 0.2", "ctx": {"active_item_spider_mine_slow_active": true, "active_item_spider_mine_slow_factor": 0.2}},
+		{"label": "spider mine 0.4", "ctx": {"active_item_spider_mine_slow_active": true, "active_item_spider_mine_slow_factor": 0.4}},
+		{"label": "spider mine 0.7", "ctx": {"active_item_spider_mine_slow_active": true, "active_item_spider_mine_slow_factor": 0.7}},
+		{"label": "soap slip (default)", "ctx": {"active_item_soap_slip_active": true}},
+		{"label": "soap slip (sticky)", "ctx": {"active_item_soap_slip_active": true, "active_item_soap_slip_blend": 0.08, "active_item_soap_slip_friction": 0.97}},
+		{"label": "soap + spider mine", "ctx": {"active_item_soap_slip_active": true, "active_item_spider_mine_slow_active": true, "active_item_spider_mine_slow_factor": 0.4}},
+		{"label": "dalji whip clamp", "ctx": {"stage1_dalji_whip_active": true}},
+		{"label": "molotov slow", "ctx": {"active_item_molotov_slow_active": true, "active_item_molotov_slow_factor": 0.35}},
+		{"label": "lingpet dwarf slow", "ctx": {"lingpet_dwarf_magic_boss_slow_active": true, "lingpet_dwarf_magic_boss_slow_multiplier": 0.3}},
+		# 아래 둘은 리졸버 인자(반응/감속 배율)를 바꾸는 분기다. 보스를 더 빠르게
+		# 만드는 방향이라 시뮬레이션이 이를 무시해도 '거짓 약속'은 안 나야 하는데,
+		# 그 추론을 가정으로 두지 않고 축으로 돌려 확인한다.
+		{"label": "stage2 speed defense", "ctx": {"stage2_speed_defense_active": true, "stage2_speed_defense_speed_multiplier": 1.8, "stage2_speed_defense_turn_multiplier": 1.6, "stage2_speed_defense_initial_speed_ratio": 0.5}},
+		{"label": "whip deactivation drive", "ctx": {"stage1_dalji_whip_deactivation_active": true, "stage1_dalji_whip_deactivation_progress": 0.5}},
+	]
+	for start_y in [400.0, 500.0, 600.0, 700.0]:
 		for speed in [14.0, 20.0, 26.0]:
-			for slow_factor in [0.2, 0.4, 0.7]:
-				var outcome: Dictionary = _simulate_rally(start_y, speed, 0.0, 380.0, false, 1.0, 0.0, {
-					"active_item_spider_mine_slow_active": true,
-					"active_item_spider_mine_slow_factor": slow_factor,
-				})
+			for entry in post_processing_cases:
+				var outcome: Dictionary = _simulate_rally(start_y, speed, 0.0, 380.0, false, 1.0, 0.0, entry["ctx"])
 				if bool(outcome["armed"]) and bool(outcome["blocked"]):
-					_expect(false, "slowed boss (y=%.0f v=%.0f slow=%.1f) armed a read failure it could not deliver" % [start_y, speed, slow_factor])
+					_expect(false, "post-processed boss (y=%.0f v=%.0f, %s) armed a read failure it could not deliver" % [start_y, speed, str(entry["label"])])
 					return
 
 
