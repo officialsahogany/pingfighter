@@ -90,8 +90,8 @@ var _dash_token_snapshot: Dictionary = {}
 # 킥 읽기 실패가 확정된 직후의 '흠칫' 창. 반응 가속/최대속도만 잠깐 죽여서
 # 억지 RNG가 아니라 보스가 한 박자 늦게 반응한 것처럼 보이게 한다.
 # 렌더러 계약을 늘리지 않으려고 스프라이트가 아니라 이동으로 표현한다.
-const KICK_READ_FLINCH_FRAMES: float = 9.0
-const KICK_READ_FLINCH_REACTION_MULT: float = 0.4
+# ⚠️값의 정본은 BossAiPredictionState다 — 그쪽 도달 가능성 게이트가 이 지연
+# 비용을 적분해야 "당첨 = 실제 미스"가 성립한다. 여기서 따로 정의하지 마라.
 var _kick_read_flinch_frames := 0.0
 
 
@@ -620,7 +620,7 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 		)
 		# 굴림과 같은 프레임에 소비한다(아래 대쉬 분기가 early-return해도 신호가 남지 않게).
 		if prediction_state.consume_kick_read_failure_flinch():
-			_kick_read_flinch_frames = KICK_READ_FLINCH_FRAMES
+			_kick_read_flinch_frames = BossAiPredictionState.KICK_READ_FLINCH_FRAMES
 	else:
 		_reset_serve_feint()
 		prediction_state.reset()
@@ -631,7 +631,7 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 
 	var reaction_multiplier: float = _get_power_smash_reaction_multiplier(context)
 	if _kick_read_flinch_frames > 0.0:
-		reaction_multiplier *= KICK_READ_FLINCH_REACTION_MULT
+		reaction_multiplier *= BossAiPredictionState.KICK_READ_FLINCH_REACTION_MULT
 	var decel_multiplier := 1.0
 	if bool(context.get("stage2_speed_defense_active", false)):
 		var speed_multiplier: float = max(1.0, float(context.get("stage2_speed_defense_speed_multiplier", 1.0)))

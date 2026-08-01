@@ -6,13 +6,16 @@ extends SceneTree
 # 오차 상한(80px / 20px)이 보스 미스 임계(패들 반폭 + hitbox padding + 공 반폭)
 # 보다 작아서, 실수가 나도 보스가 그대로 막았다.
 #
-# 이 씰이 지키는 계약 3개:
-#   1) 당첨 시 목표가 '실제 도착 x'에서 미스 임계를 넘겨 벌어진다(벽 근처 포함).
-#   2) 굴림은 킥 적중 1회당 1번이다(프레임마다 재굴림 금지).
-#   3) 이벤트 발행은 실제 타격 경로에서 일어난다(쉐도우 백스텝 / 마샬 차지 히트).
+# ⚠️이 씰의 핵심은 '목표 x가 얼마나 떨어졌나'가 아니라 **실제로 공이 통과했나**다.
+# 목표만 어긋나게 잡는 것으로는 미스가 보장되지 않는다(보스는 이후 이동하고,
+# 대쉬는 도착점을 관통하며, 이미 바깥에 있던 보스는 오히려 안쪽으로 끌려온다).
+# 그래서 outcome 레그는 실제 BossAiState.update() → BallMotionCollisionDetector
+# 왕복을 관통한다. 목표 분리 거리만 재는 단언은 이 결함들을 전부 통과시킨다.
 
 const BossAiPredictionState := preload("res://scripts/ai/boss_ai_prediction_state.gd")
+const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const BossAiContextBuilder := preload("res://scripts/core/battle_update_boss_ai_context_builder.gd")
+const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
 
 # 극한 리그 실측: 패들 100 * 1.07 = 107 → 53.5 + 5(padding) + 14.3(공 반폭) = 72.8
@@ -20,6 +23,7 @@ const LIMIT_BOSS_PADDLE_WIDTH: float = 107.0
 const HITBOX_PADDING: float = 5.0
 const BALL_SIZE: float = 28.6
 const MISS_THRESHOLD: float = LIMIT_BOSS_PADDLE_WIDTH * 0.5 + HITBOX_PADDING + BALL_SIZE * 0.5
+const BOSS_LINE_Y: float = 84.3
 
 var _failures: Array[String] = []
 
@@ -31,8 +35,9 @@ class FakeOwner:
 	var ai_mode := "limit"
 	var ball_active := true
 	var player_pos := Vector2(200.0, 690.0)
-	var ball_pos := Vector2(320.0, 410.0)
-	var ball_vel := Vector2(0.0, -8.0)
+	var ball_pos := Vector2(380.0, 700.0)
+	var ball_vel := Vector2(0.0, -20.0)
+	var boss_pos := Vector2(326.5, 25.0)
 	var selected_character_type := "viper"
 
 
@@ -109,6 +114,9 @@ class FakeAudio:
 	func play_viper_marshal_kick() -> void:
 		pass
 
+	func play_viper_phantom_hit() -> void:
+		pass
+
 	func play_dash_start(_is_half: bool) -> void:
 		pass
 
@@ -142,16 +150,24 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_test_zero_chance_league_keeps_exact_prediction()
-	_test_forced_failure_clears_the_boss_paddle()
-	_test_failure_survives_wall_clamp()
-	_test_chain_bonus_only_applies_to_chained_kicks()
+	# --- 결과(실제 미스) 계약 ---
+	_test_armed_failure_actually_lets_the_ball_through()
+	_test_control_no_failure_is_blocked()
+	_test_late_contact_never_arms()
+	# --- 굴림 계약 ---
+	_test_zero_chance_league_is_a_strict_no_op()
+	_test_offset_band_and_wall_clamp()
 	_test_single_roll_per_kick_event()
 	_test_new_kick_rerolls_mid_ascent()
-	_test_flinch_signal_is_one_shot()
+	_test_chain_bonus_only_applies_to_chained_kicks()
+	_test_pending_events_are_not_coalesced_into_one_roll()
+	# --- 리그 프로파일 ---
 	_test_league_profile_chances()
+	# --- 이벤트 발행 계약 ---
 	_test_shadow_step_hit_publishes_event()
-	_test_marshal_charge_hit_publishes_chained_event()
+	_test_normal_marshal_publishes_chained_event()
+	_test_double_marshal_does_not_publish_a_third_event()
+	_test_round_reset_keeps_the_serial_monotonic()
 
 	if _failures.is_empty():
 		print("boss_kick_read_failure_smoke: ok")
@@ -162,82 +178,165 @@ func _run() -> void:
 		quit(1)
 
 
-# --- 예측 계약 -------------------------------------------------------------
+# --- 결과 계약 ---------------------------------------------------------------
 
 
-# 주니어 / 챔피언은 별도 판정을 받지 않는다(확률 0). 킥 이벤트가 와도 예측이
-# 흔들리면 안 된다 — 전역 실수율을 건드리지 않는다는 계약의 봉인.
-func _test_zero_chance_league_keeps_exact_prediction() -> void:
-	for seed_value in range(24):
-		var target: float = _predict(380.0, seed_value, {
-			"boss_mistake_chance": 0.0,
+# 당첨된 읽기 실패는 '목표가 멀어진다'가 아니라 '공이 실제로 통과한다'여야 한다.
+# 보스 시작 위치(정답 위 / 좌우 / 반대편), 공 x(벽쪽 포함), 대쉬 on/off를 모두 돈다.
+func _test_armed_failure_actually_lets_the_ball_through() -> void:
+	var armed := 0
+	var realistic_armed := 0
+	# ⚠️(y, 속도) 조합을 넓게 돌아야 한다. y=700/v=20만 돌면 보스가 목표까지
+	# 여유 있게 도착해버려서, '이미 바깥에 있던 보스를 안쪽으로 끌어당기는' 결함이
+	# 임계선 0.1px 차이로 살아남는다(그 결함은 리드가 빠듯한 조합에서만 드러난다).
+	for geometry in [
+		{"y": 700.0, "v": 20.0},
+		{"y": 600.0, "v": 26.0},
+		{"y": 500.0, "v": 20.0},
+		{"y": 420.0, "v": 14.0},
+	]:
+		for boss_offset in [-320.0, -150.0, -60.0, 0.0, 60.0, 150.0, 320.0]:
+			for ball_x in [60.0, 380.0, 700.0]:
+				for dash in [false, true]:
+					var outcome: Dictionary = _simulate_rally(float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, dash, 1.0)
+					if not bool(outcome["armed"]):
+						continue
+					armed += 1
+					if is_equal_approx(float(geometry["y"]), 700.0):
+						realistic_armed += 1
+					if bool(outcome["blocked"]):
+						_expect(false, "armed read failure was still blocked (y=%.0f v=%.0f boss_off=%.0f ball_x=%.0f dash=%s)" % [
+							float(geometry["y"]), float(geometry["v"]), boss_offset, ball_x, str(dash)])
+						return
+	_expect(realistic_armed >= 40, "a realistic kick (y=700) should always be a valid read-failure opportunity (armed %d/42)" % realistic_armed)
+	_expect(armed >= 80, "the sweep should exercise a broad set of armed opportunities (got %d)" % armed)
+
+
+# 대조군: 확률 0이면 같은 지오메트리에서 보스가 정상적으로 막는다. 이게 없으면
+# 위 레그가 "원래 안 막히는 자리였다"로도 통과하는 공허-GREEN이 된다.
+func _test_control_no_failure_is_blocked() -> void:
+	var blocked := 0
+	var trials := 0
+	for boss_offset in [-60.0, 0.0, 60.0]:
+		for ball_x in [380.0, 700.0]:
+			trials += 1
+			var outcome: Dictionary = _simulate_rally(700.0, 20.0, boss_offset, ball_x, false, 0.0)
+			_expect(not bool(outcome["armed"]), "0% chance must never arm a read failure")
+			if bool(outcome["blocked"]):
+				blocked += 1
+	_expect(blocked == trials, "control: without a read failure the boss should block every one of these (%d/%d)" % [blocked, trials])
+
+
+# 보스 코앞에서 맞은 킥은 목표를 어긋나게 잡아도 히트박스를 못 벗어난다.
+# 그런 킥은 '기회'가 아니므로 굴림을 소비해선 안 된다 — 이게 표시 확률과 실제
+# 미스 확률을 같게 유지하는 계약이다.
+func _test_late_contact_never_arms() -> void:
+	for start_y in [110.0, 150.0, 200.0]:
+		var outcome: Dictionary = _simulate_rally(start_y, 20.0, 0.0, 380.0, false, 1.0)
+		_expect(
+			not bool(outcome["armed"]),
+			"contact at y=%.0f is unreachable, so it must not consume a read-failure roll" % start_y
+		)
+
+
+func _simulate_rally(
+	start_y: float,
+	speed: float,
+	boss_offset: float,
+	ball_x: float,
+	dash_enabled: bool,
+	chance: float
+) -> Dictionary:
+	seed(int(start_y) * 977 + int(speed) * 131 + int(boss_offset) + int(ball_x) * 7 + (1 if dash_enabled else 0))
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var builder: Object = BossAiContextBuilder.new()
+	var ai: Object = BossAiState.new()
+	var detector: Object = BallMotionCollisionDetector.new()
+
+	var ball_pos := Vector2(ball_x, start_y)
+	var ball_vel := Vector2(0.0, -speed)
+	var boss_center: float = clamp(ball_x + boss_offset, LIMIT_BOSS_PADDLE_WIDTH * 0.5, 760.0 - LIMIT_BOSS_PADDLE_WIDTH * 0.5)
+	var boss_pos := Vector2(boss_center - LIMIT_BOSS_PADDLE_WIDTH * 0.5, 25.0)
+	var boss_vel := 0.0
+	var armed := false
+
+	for _frame in range(400):
+		owner.ball_pos = ball_pos
+		owner.ball_vel = ball_vel
+		owner.boss_pos = boss_pos
+		var context: Dictionary = builder.build_context(owner, registry)
+		context["boss_pos"] = boss_pos
+		context["boss_paddle_width"] = LIMIT_BOSS_PADDLE_WIDTH
+		context["boss_paddle_size"] = Vector2(LIMIT_BOSS_PADDLE_WIDTH, 40.0)
+		context["boss_kick_read_failure_chance"] = chance
+		context["viper_kick_read_event_id"] = 1
+		context["boss_dash_enabled"] = dash_enabled
+		context["boss_collision_cooldown"] = 0.0
+
+		var result: Dictionary = ai.update(1.0 / 60.0, boss_pos, boss_vel, context)
+		boss_pos = result.get("boss_pos", boss_pos)
+		boss_vel = float(result.get("boss_vel", boss_vel))
+		if ai.prediction_state.kick_read_failure_active:
+			armed = true
+
+		ball_pos += ball_vel
+		context["boss_pos"] = boss_pos
+		var hit: Dictionary = detector.check_paddles(ball_pos, ball_vel, BALL_SIZE, context)
+		if str(hit.get("event", "")) == "boss_paddle":
+			return {"armed": armed, "blocked": true}
+		if ball_pos.y < BOSS_LINE_Y - 40.0:
+			return {"armed": armed, "blocked": false}
+	return {"armed": armed, "blocked": false}
+
+
+# --- 굴림 계약 ---------------------------------------------------------------
+
+
+# 주니어 / 챔피언은 별도 판정이 없다. 킥 이벤트가 와도 **일반 실수 굴림까지
+# 포함해** 아무것도 달라지면 안 된다 — 접근 판정을 리셋하면 킥마다 전역 실수
+# 기회가 하나씩 더 생겨 "전역 실수율은 건드리지 않는다"는 계약이 깨진다.
+func _test_zero_chance_league_is_a_strict_no_op() -> void:
+	for seed_value in range(20):
+		seed(seed_value)
+		var state: Object = BossAiPredictionState.new()
+		var context: Dictionary = _base_context({
+			"boss_mistake_chance": 1.0,
 			"boss_kick_read_failure_chance": 0.0,
-			"viper_kick_read_event_id": 1,
+			"viper_kick_read_event_id": 0,
 		})
-		if absf(target - 380.0) > 0.001:
-			_expect(false, "0% kick-read chance should leave the prediction untouched (got %.2f)" % target)
+		var before: float = _run_prediction(state, 380.0, context)
+		var kicked: Dictionary = context.duplicate(true)
+		kicked["viper_kick_read_event_id"] = 1
+		var after: float = _run_prediction(state, 380.0, kicked)
+		if absf(after - before) > 0.001:
+			_expect(false, "zero kick-read chance must not re-roll the generic mistake on a kick (%.2f -> %.2f)" % [before, after])
 			return
 
 
-func _test_forced_failure_clears_the_boss_paddle() -> void:
-	for seed_value in range(40):
-		var target: float = _predict(380.0, seed_value, {
-			"boss_mistake_chance": 0.0,
-			"boss_kick_read_failure_chance": 1.0,
-			"viper_kick_read_event_id": 1,
-		})
-		var separation: float = absf(target - 380.0)
-		if separation < MISS_THRESHOLD + BossAiPredictionState.KICK_READ_FAILURE_MISS_MARGIN_MIN - 0.001:
-			_expect(false, "forced kick-read failure must clear the boss hitbox (%.2fpx <= %.2fpx threshold)" % [separation, MISS_THRESHOLD])
-			return
-		if separation > MISS_THRESHOLD + BossAiPredictionState.KICK_READ_FAILURE_MISS_MARGIN_MAX + 0.001:
-			_expect(false, "kick-read failure offset should stay inside the configured margin band (got %.2fpx)" % separation)
-			return
-
-
-# 도착 x가 벽에 붙어 있으면 굴림 방향에 따라 목표 클램프가 오프셋을 통째로
-# 먹는다 — 그 케이스에서 방향을 뒤집지 않으면 보스는 그대로 막는다.
-func _test_failure_survives_wall_clamp() -> void:
-	for arrival_x in [18.0, 742.0]:
+func _test_offset_band_and_wall_clamp() -> void:
+	for arrival_x in [380.0, 18.0, 742.0]:
 		for seed_value in range(40):
-			var target: float = _predict(arrival_x, seed_value, {
+			var context: Dictionary = _base_context({
 				"boss_mistake_chance": 0.0,
 				"boss_kick_read_failure_chance": 1.0,
 				"viper_kick_read_event_id": 1,
+				# 보스가 도착점에 정확히 주차된 최악 케이스 = 클램프 뒤집기를 밟는다.
+				"boss_center_x": arrival_x,
 			})
+			seed(seed_value)
+			var state: Object = BossAiPredictionState.new()
+			var target: float = _run_prediction(state, arrival_x, context)
 			var separation: float = absf(target - arrival_x)
 			if separation < MISS_THRESHOLD + BossAiPredictionState.KICK_READ_FAILURE_MISS_MARGIN_MIN - 0.001:
-				_expect(false, "wall-side arrival %.0f: clamped kick-read failure still covers the ball (%.2fpx)" % [arrival_x, separation])
+				_expect(false, "arrival %.0f: read-failure target still covers the ball (%.2fpx <= %.2fpx)" % [arrival_x, separation, MISS_THRESHOLD])
+				return
+			if separation > MISS_THRESHOLD + BossAiPredictionState.KICK_READ_FAILURE_MISS_MARGIN_MAX + 0.001:
+				_expect(false, "arrival %.0f: offset escaped the configured margin band (%.2fpx)" % [arrival_x, separation])
 				return
 
 
-func _test_chain_bonus_only_applies_to_chained_kicks() -> void:
-	var chained: float = _predict(380.0, 7, {
-		"boss_mistake_chance": 0.0,
-		"boss_kick_read_failure_chance": 0.0,
-		"boss_kick_read_failure_chain_bonus": 1.0,
-		"viper_kick_read_event_id": 1,
-		"viper_kick_read_event_chained": true,
-	})
-	_expect(
-		absf(chained - 380.0) >= MISS_THRESHOLD,
-		"shadow-step chained kick should add the chain bonus to the read-failure chance"
-	)
-	var unchained: float = _predict(380.0, 7, {
-		"boss_mistake_chance": 0.0,
-		"boss_kick_read_failure_chance": 0.0,
-		"boss_kick_read_failure_chain_bonus": 1.0,
-		"viper_kick_read_event_id": 1,
-		"viper_kick_read_event_chained": false,
-	})
-	_expect(
-		absf(unchained - 380.0) <= 0.001,
-		"non-chained kick must not consume the chain bonus (got %.2f)" % unchained
-	)
-
-
-# per-opportunity 계약: 같은 이벤트 id로 프레임이 계속 흘러도 재굴림하지 않는다.
-# (매 프레임 굴리면 확률이 사실상 100%로 붙고 리그 스케일링이 죽는다.)
+# per-opportunity 계약: 같은 이벤트 id로 프레임이 흘러도 재굴림하지 않는다.
 func _test_single_roll_per_kick_event() -> void:
 	seed(11)
 	var state: Object = BossAiPredictionState.new()
@@ -245,11 +344,11 @@ func _test_single_roll_per_kick_event() -> void:
 		"boss_mistake_chance": 0.0,
 		"boss_kick_read_failure_chance": 0.5,
 		"viper_kick_read_event_id": 1,
+		"boss_center_x": 380.0,
 	})
 	var first: float = _run_prediction(state, 380.0, context)
 	for _frame in range(30):
-		var later: float = _run_prediction(state, 380.0, context)
-		if absf(later - first) > 0.001:
+		if absf(_run_prediction(state, 380.0, context) - first) > 0.001:
 			_expect(false, "kick-read failure must be rolled once per kick, not per frame")
 			return
 
@@ -259,42 +358,79 @@ func _test_single_roll_per_kick_event() -> void:
 func _test_new_kick_rerolls_mid_ascent() -> void:
 	seed(3)
 	var state: Object = BossAiPredictionState.new()
-	var opener_context: Dictionary = _base_context({
+	var opener: Dictionary = _base_context({
 		"boss_mistake_chance": 0.0,
 		"boss_kick_read_failure_chance": 1.0,
 		"viper_kick_read_event_id": 0,
+		"boss_center_x": 380.0,
 	})
-	var opener: float = _run_prediction(state, 380.0, opener_context)
-	_expect(absf(opener - 380.0) <= 0.001, "control leg: no kick event yet, prediction should be exact")
-	var holdover: float = _run_prediction(state, 380.0, opener_context)
-	_expect(absf(holdover - 380.0) <= 0.001, "control leg: the same ascent must not spontaneously start missing")
-
-	var chain_context: Dictionary = _base_context({
-		"boss_mistake_chance": 0.0,
-		"boss_kick_read_failure_chance": 1.0,
-		"viper_kick_read_event_id": 1,
-	})
-	var chained: float = _run_prediction(state, 380.0, chain_context)
+	_expect(absf(_run_prediction(state, 380.0, opener) - 380.0) <= 0.001, "control: no kick event yet, prediction should be exact")
+	_expect(absf(_run_prediction(state, 380.0, opener) - 380.0) <= 0.001, "control: the same ascent must not spontaneously start missing")
+	var chained: Dictionary = opener.duplicate(true)
+	chained["viper_kick_read_event_id"] = 1
 	_expect(
-		absf(chained - 380.0) >= MISS_THRESHOLD,
-		"a kick landing mid-ascent must re-open the read judgement (got %.2f)" % chained
+		absf(_run_prediction(state, 380.0, chained) - 380.0) >= MISS_THRESHOLD,
+		"a kick landing mid-ascent must re-open the read judgement"
 	)
 
 
-func _test_flinch_signal_is_one_shot() -> void:
-	seed(5)
-	var state: Object = BossAiPredictionState.new()
-	var context: Dictionary = _base_context({
+func _test_chain_bonus_only_applies_to_chained_kicks() -> void:
+	var overrides := {
 		"boss_mistake_chance": 0.0,
-		"boss_kick_read_failure_chance": 1.0,
+		"boss_kick_read_failure_chance": 0.0,
+		"boss_kick_read_failure_chain_bonus": 1.0,
 		"viper_kick_read_event_id": 1,
-	})
-	_run_prediction(state, 380.0, context)
-	_expect(bool(state.consume_kick_read_failure_flinch()), "a confirmed read failure should arm the boss flinch once")
-	_expect(not bool(state.consume_kick_read_failure_flinch()), "the flinch signal must not re-fire on later frames")
+		"boss_center_x": 380.0,
+	}
+	var chained: Dictionary = overrides.duplicate(true)
+	chained["viper_kick_read_event_chained"] = true
+	seed(7)
+	var chained_state: Object = BossAiPredictionState.new()
+	_expect(
+		absf(_run_prediction(chained_state, 380.0, _base_context(chained)) - 380.0) >= MISS_THRESHOLD,
+		"shadow-step chained kick should add the chain bonus to the read-failure chance"
+	)
+	var plain: Dictionary = overrides.duplicate(true)
+	plain["viper_kick_read_event_chained"] = false
+	seed(7)
+	var plain_state: Object = BossAiPredictionState.new()
+	_expect(
+		absf(_run_prediction(plain_state, 380.0, _base_context(plain)) - 380.0) <= 0.001,
+		"non-chained kick must not consume the chain bonus"
+	)
 
 
-# --- 리그 프로파일 ---------------------------------------------------------
+# 보스가 대쉬 / 스턴 / 프리즈 조기 return에 걸려 있는 동안 들어온 킥들은 관측이
+# 밀린다. id 차이만큼 굴려야 "킥 적중마다 1회"가 지켜진다 — 하나로 합치면
+# 연계 도중 대쉬가 끼는 순간 판정이 통째로 사라진다.
+func _test_pending_events_are_not_coalesced_into_one_roll() -> void:
+	var single := _count_arms_over_seeds(1, 0.3, 400)
+	var triple := _count_arms_over_seeds(3, 0.3, 400)
+	_expect(single > 80 and single < 165, "sanity: a single pending kick at 0.30 should arm roughly 120/400 (got %d)" % single)
+	_expect(
+		triple > single + 60,
+		"three pending kicks must compound (1-0.7^3 = 0.657), not collapse to one roll (single %d vs triple %d)" % [single, triple]
+	)
+
+
+func _count_arms_over_seeds(pending: int, chance: float, trials: int) -> int:
+	var arms := 0
+	for seed_value in range(trials):
+		seed(seed_value)
+		var state: Object = BossAiPredictionState.new()
+		var context: Dictionary = _base_context({
+			"boss_mistake_chance": 0.0,
+			"boss_kick_read_failure_chance": chance,
+			"viper_kick_read_event_id": pending,
+			"boss_center_x": 380.0,
+		})
+		_run_prediction(state, 380.0, context)
+		if state.kick_read_failure_active:
+			arms += 1
+	return arms
+
+
+# --- 리그 프로파일 -----------------------------------------------------------
 
 
 func _test_league_profile_chances() -> void:
@@ -311,6 +447,10 @@ func _test_league_profile_chances() -> void:
 	_expect(
 		absf(float(limit_context.get("boss_kick_read_failure_chain_bonus", -1.0)) - BossAiContextBuilder.BOSS_KICK_READ_FAILURE_CHAIN_BONUS) <= 0.0001,
 		"limit league boss context should publish the chain bonus"
+	)
+	_expect(
+		absf(float(limit_context.get("boss_center_x", -1.0)) - (limit_owner.boss_pos.x + LIMIT_BOSS_PADDLE_WIDTH * 0.5)) <= 0.01,
+		"boss context must publish boss_center_x for the evasion-direction / reachability checks"
 	)
 
 	var mythic_owner := FakeOwner.new()
@@ -332,26 +472,13 @@ func _test_league_profile_chances() -> void:
 		)
 
 
-# --- 실제 타격 경로에서의 이벤트 발행 --------------------------------------
+# --- 이벤트 발행 계약 --------------------------------------------------------
 
 
 func _test_shadow_step_hit_publishes_event() -> void:
 	var runtime: Object = ViperSkillRuntime.new()
 	var deps: Dictionary = _build_viper_deps()
-	var config := {
-		"selected_character_type": "viper",
-		"ball_active": true,
-		"width": 760.0,
-		"height": 750.0,
-		"play_left": 0.0,
-		"play_right": 760.0,
-		"paddle_width": 155.0,
-		"paddle_height": 50.0,
-		"ball_size": 28.6,
-		"boss_pos": Vector2(380.0, 45.0),
-		"ball_pos": Vector2(472.5, 705.0),
-		"ball_vel": Vector2(0.0, -8.0),
-	}
+	var config := _viper_config(Vector2(472.5, 705.0))
 	runtime.dash_origin_pos = Vector2(120.0, 680.0)
 	runtime.dash_origin_valid = true
 	runtime.dash_grace_frames = 36.0
@@ -378,11 +505,87 @@ func _test_shadow_step_hit_publishes_event() -> void:
 	_expect(published.has("viper_kick_read_event_chained"), "boss AI context should carry the chained flag")
 
 
-func _test_marshal_charge_hit_publishes_chained_event() -> void:
-	var runtime: Object = ViperSkillRuntime.new()
+func _test_normal_marshal_publishes_chained_event() -> void:
+	var runtime: Object = _make_marshal_charge_runtime(false)
 	var deps: Dictionary = _build_viper_deps()
+	var result: Dictionary = {}
+	runtime._update_marshal_charge_phase(_viper_config(Vector2(400.0, 300.0)), deps, result)
+	_expect(bool(runtime.marshal_ball_hit), "fixture: marshal charge should have connected with the ball")
+	_expect(int(runtime.kick_read_event_id) == 1, "marshal charge hit should publish exactly one kick-read event")
+	_expect(bool(runtime.kick_read_event_chained), "a marshal kick chained from shadow step should flag the chain bonus")
+
+
+# 팬텀 킥(더블 마샬)은 같은 _apply_charge_hit을 지나지만 새 기회가 아니다.
+# 발행하면 풀연계가 2회가 아니라 3회 판정을 받아 극한 26% -> 37.9%로 부푼다.
+func _test_double_marshal_does_not_publish_a_third_event() -> void:
+	var runtime: Object = _make_marshal_charge_runtime(true)
+	var deps: Dictionary = _build_viper_deps()
+	var result: Dictionary = {}
+	runtime._update_marshal_charge_phase(_viper_config(Vector2(400.0, 300.0)), deps, result)
+	_expect(bool(runtime.marshal_ball_hit), "fixture: double marshal charge should have connected with the ball")
+	_expect(
+		int(runtime.kick_read_event_id) == 0,
+		"double marshal (phantom kick) is the second half of the marshal opportunity, not a third roll"
+	)
+
+
+# 단조 serial 계약. 라운드 리셋이 id를 0으로 되감으면 ABA가 난다 — 소비자는
+# 하강 프레임에서 관측 전에 조기 return하므로 되감김을 못 보고, 다음 라운드
+# 첫 킥이 같은 id가 되어 "이미 본 이벤트"로 오인돼 판정이 통째로 생략된다.
+func _test_round_reset_keeps_the_serial_monotonic() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	runtime.mark_kick_read_event(true)
+	runtime.mark_kick_read_event(false)
+	var before: int = int(runtime.kick_read_event_id)
+	runtime.reset_round(_build_viper_deps())
+	_expect(
+		int(runtime.kick_read_event_id) >= before,
+		"round reset must NOT rewind the kick-read serial (%d -> %d)" % [before, int(runtime.kick_read_event_id)]
+	)
+
+	# 소비자 쪽 재현: 라운드 A 킥 -> 하강(관측 전 조기 return) -> 라운드 B 첫 킥.
+	seed(4)
+	var state: Object = BossAiPredictionState.new()
+	var round_a: Dictionary = _base_context({
+		"boss_mistake_chance": 0.0,
+		"boss_kick_read_failure_chance": 1.0,
+		"viper_kick_read_event_id": 1,
+		"boss_center_x": 380.0,
+	})
+	_expect(absf(_run_prediction(state, 380.0, round_a) - 380.0) >= MISS_THRESHOLD, "round A kick should roll")
+	var descending: Dictionary = round_a.duplicate(true)
+	for _frame in range(20):
+		state.predict_future_x(Vector2(380.0, 200.0), Vector2(0.0, 8.0), 1.0, 0.0, 760.0, LIMIT_BOSS_PADDLE_WIDTH, descending)
+	var round_b: Dictionary = round_a.duplicate(true)
+	round_b["viper_kick_read_event_id"] = 2
+	_expect(
+		absf(_run_prediction(state, 380.0, round_b) - 380.0) >= MISS_THRESHOLD,
+		"the first kick of the next round must still get a read judgement"
+	)
+
+
+# --- helpers -----------------------------------------------------------------
+
+
+func _make_marshal_charge_runtime(is_double: bool) -> Object:
+	var runtime: Object = ViperSkillRuntime.new()
 	var ball_pos := Vector2(400.0, 300.0)
-	var config := {
+	runtime.marshal_active = true
+	runtime.marshal_phase = 2
+	runtime.marshal_phase_frames = 0.0
+	runtime.marshal_ball_hit = false
+	runtime.marshal_is_double = is_double
+	runtime.marshal_phantom_allowed = false
+	runtime.marshal_wall_side = -1
+	runtime.marshal_wall_pos = Vector2(0.0, 400.0)
+	# 차지 시작점을 목표(공 중심)에 두면 진행도와 무관하게 hit_radius 안이다.
+	runtime.marshal_charge_start_pos = ball_pos - Vector2(155.0, 50.0) * 0.5
+	runtime.marshal_from_shadow_step_chain = true
+	return runtime
+
+
+func _viper_config(ball_pos: Vector2) -> Dictionary:
+	return {
 		"selected_character_type": "viper",
 		"ball_active": true,
 		"width": 760.0,
@@ -391,33 +594,13 @@ func _test_marshal_charge_hit_publishes_chained_event() -> void:
 		"play_right": 760.0,
 		"paddle_width": 155.0,
 		"paddle_height": 50.0,
-		"ball_size": 28.6,
+		"ball_size": BALL_SIZE,
 		"boss_pos": Vector2(380.0, 45.0),
 		"ball_pos": ball_pos,
 		"ball_vel": Vector2(0.0, -8.0),
 		"ball_impact_boost": 1.0,
 		"player_collision_cooldown": 0.0,
 	}
-	# 차지 시작점을 목표(공 중심)에 두면 진행도와 무관하게 hit_radius 안이다.
-	runtime.marshal_active = true
-	runtime.marshal_phase = 2
-	runtime.marshal_phase_frames = 0.0
-	runtime.marshal_ball_hit = false
-	runtime.marshal_is_double = false
-	runtime.marshal_phantom_allowed = false
-	runtime.marshal_wall_side = -1
-	runtime.marshal_wall_pos = Vector2(0.0, 400.0)
-	runtime.marshal_charge_start_pos = ball_pos - Vector2(155.0, 50.0) * 0.5
-	runtime.marshal_from_shadow_step_chain = true
-
-	var result: Dictionary = {}
-	runtime._update_marshal_charge_phase(config, deps, result)
-	_expect(bool(runtime.marshal_ball_hit), "fixture: marshal charge should have connected with the ball")
-	_expect(int(runtime.kick_read_event_id) == 1, "marshal charge hit should publish exactly one kick-read event")
-	_expect(bool(runtime.kick_read_event_chained), "a marshal kick chained from shadow step should flag the chain bonus")
-
-
-# --- helpers ---------------------------------------------------------------
 
 
 func _build_viper_deps() -> Dictionary:
@@ -442,21 +625,19 @@ func _base_context(overrides: Dictionary) -> Dictionary:
 		"ball_size": BALL_SIZE,
 		"boss_y": 25.0,
 		"boss_hitbox_height": 40.0,
+		# 극한 스테이지3 실측 이동 파라미터 — 도달 가능성 게이트가 이걸 읽는다.
+		"boss_movement_accel": 1.4082,
+		"boss_movement_max_speed": 11.1497,
 	}
 	context.merge(overrides, true)
 	return context
 
 
-func _predict(arrival_x: float, seed_value: int, overrides: Dictionary) -> float:
-	seed(seed_value)
-	var state: Object = BossAiPredictionState.new()
-	return _run_prediction(state, arrival_x, _base_context(overrides))
-
-
 # 수직 상승(vx = 0)이라 도착 x == 현재 x — 목표와 도착점의 분리 거리를 그대로 잰다.
+# y=700은 실제 킥 접점(플레이어 패들 부근)이라 도달 가능성 게이트를 통과한다.
 func _run_prediction(state: Object, arrival_x: float, context: Dictionary) -> float:
 	return float(state.predict_future_x(
-		Vector2(arrival_x, 500.0),
+		Vector2(arrival_x, 700.0),
 		Vector2(0.0, -8.0),
 		1.0,
 		0.0,

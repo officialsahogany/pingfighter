@@ -209,9 +209,10 @@ var marshal_start_pos := Vector2.ZERO; var marshal_visual_pos := Vector2.ZERO; v
 var marshal_wall_side := 0  # +1 if wall is to viewer-right of start, -1 to viewer-left, 0 inactive
 var marshal_reclimb_start_pos := Vector2.ZERO; var marshal_charge_start_pos := Vector2.ZERO; var marshal_return_start_pos := Vector2.ZERO
 var marshal_ball_hit := false; var marshal_activation_msec := -100000; var marshal_hit_msec := -100000
-# 킥 읽기 실패 이벤트: 쉐도우 백스텝 / 마샬 킥 계열이 공을 실제로 때린 순간마다
-# 1씩 올라간다. 보스 AI 예측이 id 변화를 보고 '이 킥 1회분'의 읽기 판정을 굴린다
-# (프레임마다 재굴림 금지 = per-opportunity 계약). 라운드 리셋에서 0으로 돌아온다.
+# 킥 읽기 실패 이벤트: 쉐도우 백스텝 / 마샬 킥이 공을 실제로 때린 순간마다 1씩
+# 올라가는 **단조 serial**(라운드/매치 리셋에도 되감지 않는다 — 되감으면 ABA로
+# 다음 라운드 첫 킥의 판정이 생략된다). 보스 AI 예측은 id 차이를 보고 '못 본 사이
+# 들어온 킥 수'만큼 굴린다(프레임 재굴림 금지 = per-opportunity 계약).
 var kick_read_event_id: int = 0; var kick_read_event_chained := false
 var marshal_last_hit_pos := Vector2.ZERO; var marshal_charge_target_pos := Vector2.ZERO; var marshal_web_lines: Array = []; var marshal_particles: Array = []; var phantom_hit_particles: Array = []
 var chaos_cmd_buffer: Array = []; var chaos_state := "idle"; var chaos_phase_frames := 0.0

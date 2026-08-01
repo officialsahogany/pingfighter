@@ -40,4 +40,7 @@ static func reset_round(runtime: Object, deps: Dictionary, constants: Dictionary
 	runtime._reset_dive_runtime(true)
 	runtime._reset_marshal_runtime_fields()
 	runtime.marshal_particles.clear(); runtime.phantom_hit_particles.clear()
-	runtime.kick_read_event_id = 0; runtime.kick_read_event_chained = false
+	# ⚠️kick_read_event_id는 여기서 리셋하지 않는다 — 단조 serial 계약.
+	# 0으로 되감으면 ABA가 난다: 소비자(보스 예측)는 하강 프레임에서 관측 전에
+	# 조기 return하므로 되감김을 못 보고, 다음 라운드 첫 킥이 다시 같은 id가 돼
+	# "이미 본 이벤트"로 오인돼 판정이 통째로 생략된다(보스 서브 라운드에서 재현).

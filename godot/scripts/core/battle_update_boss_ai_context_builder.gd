@@ -100,6 +100,9 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"ai_mode": ai_mode,
 		"boss_paddle_width": _get_boss_paddle_width(owner, ai_mode),
+		# 예측이 '보스가 지금 어디 있는가'를 알아야 하는 판정(킥 읽기 실패의 회피
+		# 방향 / 도달 가능성)에 쓴다. boss_pos는 패들 좌상단이라 중심으로 환산.
+		"boss_center_x": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO).x + _get_boss_paddle_width(owner, ai_mode) * 0.5,
 		"boss_stage_speed_multiplier": boss_movement_profile["boss_stage_speed_multiplier"],
 		"boss_league_movement_multiplier": boss_movement_profile["boss_league_movement_multiplier"],
 		"boss_max_speed": boss_movement_profile["boss_max_speed"],

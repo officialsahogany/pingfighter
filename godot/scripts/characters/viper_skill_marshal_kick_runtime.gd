@@ -267,10 +267,12 @@ static func _apply_charge_hit(runtime: Object, next_pos: Vector2, ball_pos: Vect
 	runtime.marshal_ball_hit = true
 	# 보스 읽기 판정 이벤트는 '타격 확정' 시점에 발행한다. 아래쪽에서
 	# _clear_phantom_kick_chain_window()가 marshal_from_shadow_step_chain을 지우므로
-	# 뒤에서 읽으면 연계 가산이 조용히 사라진다. 더블 마샬(팬텀 킥)도 같은 경로라
-	# 연계 두 번째 타격이 새 이벤트를 받는다 — 이미 상승 중인 공이라 예측이
-	# 재판정하지 않던 구멍이 여기서 닫힌다.
-	runtime.mark_kick_read_event(runtime.marshal_from_shadow_step_chain)
+	# 뒤에서 읽으면 연계 가산이 조용히 사라진다.
+	# ⚠️더블 마샬(팬텀 킥)은 제외한다. 같은 함수를 지나지만 그건 이 마샬 킥
+	# 기회의 후반부이지 새 기회가 아니다 — 발행하면 풀연계가 2회가 아니라 3회
+	# 판정을 받아 극한 26%가 37.9%로 부푼다(승인된 계약은 2회다).
+	if not runtime.marshal_is_double:
+		runtime.mark_kick_read_event(runtime.marshal_from_shadow_step_chain)
 	runtime.marshal_hit_msec = Time.get_ticks_msec()
 	runtime.marshal_last_hit_pos = ball_pos
 	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
