@@ -23,7 +23,7 @@ static func draw(runtime: Object, canvas: CanvasItem, shake_offset: Vector2, nod
 	runtime.blade_effect_renderer.draw_blade_effects(canvas, shake_offset, runtime, runtime.blade_effect_renderer.get_draw_constants(float(constants.get("blade_base_width", 350.0)), float(constants.get("blade_hitbox_height", 55.0)), float(constants.get("blade_dark_hitbox_height", 83.0)), float(constants.get("blade_fadeout_frames", 30.0)), float(constants.get("blade_rest_frames", 66.0)), float(constants.get("blade_dark_rest_frames", 90.0))))
 	_perf_end(perf_logger, "viper.skill.blade", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	runtime.wall_leap_state.draw_effects(canvas, shake_offset)
+	runtime.wall_leap_state.draw_effects(canvas, shake_offset, node_fx_layout)
 	_perf_end(perf_logger, "viper.skill.wall_leap_raid", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	runtime.particle_drawer.draw_nerve_strike_runtime_effects(canvas, shake_offset, runtime, float(constants.get("nerve_dash_frames", 30.0)), float(constants.get("nerve_return_hit_frames", 15.0)), float(constants.get("nerve_return_miss_frames", 9.0)), float(constants.get("nerve_slash_vfx_frames", 30.0)), float(constants.get("dual_glitch_nerve_stagger_frames", 12.0)), float(constants.get("dual_glitch_nerve_slash_frames", 12.0)))

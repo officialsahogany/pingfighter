@@ -256,7 +256,9 @@ func prewarm_assets_step() -> bool:
 			return true
 	_asset_prewarm_step_index += 1
 	return false
-func prewarm_runtime_nodes(owner: Object = null) -> void: fx_host_controller.prewarm_viper_fx_hosts(self, owner)
+func prewarm_runtime_nodes(owner: Object = null) -> void:
+	fx_host_controller.prewarm_viper_fx_hosts(self, owner)
+	wall_leap_state.prewarm_runtime_nodes(owner)
 func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
 	prewarm_runtime_nodes(owner)
 	return true

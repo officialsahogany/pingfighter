@@ -73,14 +73,15 @@ class QACanvas:
 		var move_active := absf(float(player_actor_context.get("player_speed", 0.0))) > 0.2
 		player_sprite_renderer.draw(self, player_actor_context, player_visual_rect, move_active, infiltrating_pos, player_rect.size, Vector2.ZERO)
 		if wall_leap_state != null:
-			draw_set_transform(Vector2(20.0, 20.0))
-			wall_leap_state.draw_effects(self, Vector2.ZERO)
-			draw_set_transform(Vector2.ZERO)
+			wall_leap_state.draw_effects(self, Vector2.ZERO, {
+				"game_offset": Vector2(20.0, 20.0),
+				"render_scale": 1.0,
+			})
 		draw_rect(player_rect, Color(0.75, 0.96, 1.0), false, 2.0)
 		var barrier_rect := Rect2(Vector2(20.0, 745.0), Vector2(760.0, 20.0))
 		draw_rect(barrier_rect, Color(0.95, 0.84, 0.36, 0.72), true)
 		var font := ThemeDB.fallback_font
-		draw_string(font, Vector2(38.0, 48.0), "RMB fuse -> blast -> return at predicted ball-arrival X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
+		draw_string(font, Vector2(38.0, 48.0), "RMB burning fuse -> ink blast -> predicted ball-arrival X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
 		draw_string(font, Vector2(38.0, 72.0), "body pass-through: %s | floor save: %s" % [str(body_passthrough), str(floor_save_live)], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.82, 0.92, 1.0))
 		var hover_context := {
 			"scale_factor": 1.0,
@@ -287,6 +288,7 @@ func _run() -> void:
 	canvas.floor_save_live = floor_save_live
 	canvas.wall_leap_state = fixture["runtime"].wall_leap_state
 	viewport.add_child(canvas)
+	fixture["runtime"].wall_leap_state.prewarm_runtime_nodes(canvas)
 	canvas.queue_redraw()
 	for _index in range(4):
 		await process_frame
@@ -297,7 +299,7 @@ func _run() -> void:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_PATH.get_base_dir()))
 		_expect(image.save_png(ProjectSettings.globalize_path(OUT_PATH)) == OK, "windowed QA capture must save")
 		_expect(_count_non_background_pixels(image) > 12000, "windowed QA capture must contain the playfield and production tooltip")
-		_expect(_count_blast_pixels(image, blast_snapshot.get("wall_leap_raid_blast_vfx_origin", Vector2.ZERO) + Vector2(20.0, 20.0)) > 900, "windowed capture must contain a substantial cyan-white RMB blast footprint")
+		_expect(_count_blast_pixels(image, blast_snapshot.get("wall_leap_raid_blast_vfx_origin", Vector2.ZERO) + Vector2(20.0, 20.0)) > 1500, "windowed capture must contain a substantial warm-core and ink-smoke RMB blast footprint")
 	viewport.queue_free()
 	await process_frame
 	for _index in range(14):
@@ -360,7 +362,9 @@ func _count_blast_pixels(image: Image, center: Vector2) -> int:
 	for y in range(min_y, max_y):
 		for x in range(min_x, max_x):
 			var color := image.get_pixel(x, y)
-			if color.b > 0.42 and color.g > 0.30 and color.r > 0.18:
+			var warm_core := color.r > 0.44 and color.g > 0.14 and color.r > color.b * 1.18
+			var ink_smoke := color.b > color.r * 1.08 and color.b > 0.10 and color.r < 0.34
+			if warm_core or ink_smoke:
 				count += 1
 	return count
 

@@ -3,8 +3,8 @@ extends RefCounted
 const BossSlowTiers := preload("res://scripts/status/boss_slow_tiers.gd")
 const BattleViperSpritePaths := preload("res://scripts/resources/battle_viper_sprite_paths.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
-const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ViperWallLeapBlastFxHost := preload("res://scripts/characters/viper_wall_leap_blast_fx_host.gd")
 
 const SKILL_ID := "wall_leap_raid"
 const STATE_IDLE := "idle"
@@ -40,12 +40,21 @@ const BLADE_TRAIL_SOURCE_RECT := Rect2(0.0, 264.0, 954.0, 301.0)
 const BLADE_BURST_SOURCE_RECT := Rect2(14.0, 96.0, 1007.0, 767.0)
 const BLAST_RANGE_X := 50.0
 const BLAST_VFX_SECONDS := 0.46
-const BLAST_CORE_SECONDS := 0.09
-const BLAST_RAY_COUNT := 12
-const BLAST_SPARKLE_COUNT := 8
 const BLAST_SHAKE_AMOUNT := 0.12
 const BLAST_SHAKE_HIT_INTENSITY := 7.0
 const BLAST_SHAKE_MISS_INTENSITY := 5.2
+const FUSE_WICK_POINTS: Array[Vector2] = [
+	Vector2(-68.0, 25.0),
+	Vector2(-59.0, 13.0),
+	Vector2(-48.0, 5.0),
+	Vector2(-36.0, 7.0),
+	Vector2(-24.0, 16.0),
+	Vector2(-11.0, 17.0),
+	Vector2(2.0, 10.0),
+	Vector2(13.0, -2.0),
+	Vector2(24.0, -11.0),
+	Vector2(37.0, -13.0),
+]
 const SLOW_FRAMES := 300.0
 const SLOW_MULTIPLIER := BossSlowTiers.MEDIUM
 const STUN_FRAMES := 180.0
@@ -99,6 +108,8 @@ var _return_sound_pending := false
 var _asset_prewarm_step_index := 0
 var _blade_trail_texture: Texture2D
 var _blade_burst_texture: Texture2D
+var _blast_fx_host: Node = null
+var _blast_fx_host_add_pending := false
 
 
 func try_update_or_activate(
@@ -156,7 +167,7 @@ func prewarm_assets_step() -> bool:
 		_asset_prewarm_step_index += 1
 		return false
 	if _asset_prewarm_step_index == PREWARM_PATHS.size() + 1:
-		if not ImpactShockwaveTextureCache.prewarm_step():
+		if not ViperWallLeapBlastFxHost.prewarm_assets_step():
 			return false
 		_asset_prewarm_step_index += 1
 		return false
@@ -164,6 +175,26 @@ func prewarm_assets_step() -> bool:
 		_asset_prewarm_step_index = 0
 		return true
 	return false
+
+
+func prewarm_runtime_nodes(owner: Object = null) -> void:
+	ViperWallLeapBlastFxHost.prewarm_assets()
+	if not (owner is Node):
+		return
+	var parent := owner as Node
+	var host := _get_or_create_blast_fx_host_for_prewarm(parent)
+	if host != null and host.has_method("prewarm_runtime_nodes"):
+		host.prewarm_runtime_nodes()
+
+
+func get_blast_vfx_pipeline_status() -> Dictionary:
+	return ViperWallLeapBlastFxHost.build_pipeline_status()
+
+
+func get_blast_vfx_host_status() -> Dictionary:
+	if _is_valid_blast_fx_host() and _blast_fx_host.has_method("get_layer_status"):
+		return _blast_fx_host.get_layer_status()
+	return {}
 
 
 func is_command_armable_from_owner(owner: Object, registry: Object) -> bool:
@@ -625,11 +656,12 @@ func _finish_blade_flight(hit: bool, config: Dictionary, deps: Dictionary) -> vo
 		last_action_hit = false
 
 
-func draw_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func draw_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, node_fx_layout: Dictionary = {}) -> void:
 	if canvas == null:
 		return
 	_draw_fuse_telegraph(canvas, shake_offset)
-	_draw_blast_vfx(canvas, shake_offset)
+	if not _sync_blast_fx_host(canvas, shake_offset, node_fx_layout):
+		_draw_blast_vfx_fallback(canvas, shake_offset)
 	if blade_active and _blade_trail_texture != null:
 		var tip := blade_pos + shake_offset
 		var trail_rect := _blade_tip_rect(tip, blade_direction, BLADE_TRAIL_DRAW_SIZE)
@@ -686,54 +718,160 @@ func _draw_fuse_telegraph(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if state != STATE_FUSE or fuse_visual_center == Vector2.ZERO:
 		return
 	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0)
-	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 4.0)
 	var center := fuse_visual_center + shake_offset
-	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(30.0, 52.0, ratio), Color(0.24, 0.86, 1.0), 0.18 + ratio * 0.24)
-	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(68.0, 29.0, ratio), Color(0.54, 0.94, 1.0), 0.34 + pulse * 0.20)
-	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(43.0, 20.0, ratio), Color(0.72, 0.38, 1.0), 0.18 + ratio * 0.28)
-	for index in range(4):
-		var angle := TAU * float(index) / 4.0 - ratio * TAU * 1.5
-		var orbit_pos := center + Vector2.from_angle(angle) * lerpf(52.0, 23.0, ratio)
-		ImpactFlareTextureCache.draw_sparkle(canvas, orbit_pos, 7.0 + pulse * 3.0, Color(0.76, 0.94, 1.0), 0.42 + ratio * 0.36)
+	var wick := _build_remaining_wick(center, ratio)
+	if wick.size() >= 2:
+		canvas.draw_polyline(wick, Color(0.045, 0.035, 0.035, 0.98), 8.0, true)
+		canvas.draw_polyline(wick, Color(0.39, 0.18, 0.065, 0.96), 3.5, true)
+	var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
+	var ember_pos: Vector2 = wick[0] if not wick.is_empty() else center + charge_offset
+	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 7.0)
+	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, 17.0 + pulse * 5.0, Color(1.0, 0.30, 0.035), 0.40 + ratio * 0.32)
+	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos, 7.5 + pulse * 2.6, Color(1.0, 0.88, 0.42), 0.80 + ratio * 0.18)
+	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + Vector2(-7.0, -9.0 - pulse * 4.0), 2.8, Color(1.0, 0.42, 0.10), 0.48)
+	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + Vector2(8.0, -4.0 + pulse * 3.0), 2.2, Color(0.82, 0.22, 0.74), 0.34)
+	var charge_center := center + charge_offset
+	var powder_bundle := PackedVector2Array([
+		charge_center + Vector2(-10.0, -7.0),
+		charge_center + Vector2(5.0, -9.0),
+		charge_center + Vector2(12.0, -2.0),
+		charge_center + Vector2(8.0, 9.0),
+		charge_center + Vector2(-8.0, 8.0),
+	])
+	canvas.draw_colored_polygon(powder_bundle, Color(0.07, 0.055, 0.07, 0.96))
+	var powder_outline := powder_bundle.duplicate()
+	powder_outline.append(powder_bundle[0])
+	canvas.draw_polyline(powder_outline, Color(0.64, 0.30, 0.09, 0.78), 2.2, true)
+	canvas.draw_line(charge_center + Vector2(-6.0, -5.0), charge_center + Vector2(6.0, 6.0), Color(0.48, 0.18, 0.12, 0.72), 1.6, true)
 
 
-func _draw_blast_vfx(canvas: CanvasItem, shake_offset: Vector2) -> void:
+func get_fuse_visual_snapshot() -> Dictionary:
+	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0) if state == STATE_FUSE else 0.0
+	var authored_length := _get_fuse_wick_total_length()
+	return {
+		"burn_progress": ratio,
+		"remaining_ratio": 1.0 - ratio,
+		"authored_length": authored_length,
+		"remaining_length": authored_length * (1.0 - ratio),
+	}
+
+
+func _get_fuse_wick_total_length() -> float:
+	var total_length := 0.0
+	for index in range(FUSE_WICK_POINTS.size() - 1):
+		total_length += FUSE_WICK_POINTS[index].distance_to(FUSE_WICK_POINTS[index + 1])
+	return total_length
+
+
+func _build_remaining_wick(center: Vector2, burn_ratio: float) -> PackedVector2Array:
+	var authored_points := PackedVector2Array()
+	for point in FUSE_WICK_POINTS:
+		authored_points.append(center + point)
+	if authored_points.size() < 2:
+		return authored_points
+	var segment_lengths := PackedFloat32Array()
+	var total_length := 0.0
+	for index in range(authored_points.size() - 1):
+		var length := authored_points[index].distance_to(authored_points[index + 1])
+		segment_lengths.append(length)
+		total_length += length
+	var burn_distance := total_length * clampf(burn_ratio, 0.0, 1.0)
+	var traversed := 0.0
+	var remaining := PackedVector2Array()
+	for index in range(segment_lengths.size()):
+		var segment_length := float(segment_lengths[index])
+		if traversed + segment_length < burn_distance:
+			traversed += segment_length
+			continue
+		if remaining.is_empty():
+			var segment_ratio := clampf((burn_distance - traversed) / maxf(0.001, segment_length), 0.0, 1.0)
+			remaining.append(authored_points[index].lerp(authored_points[index + 1], segment_ratio))
+		remaining.append(authored_points[index + 1])
+		traversed += segment_length
+	return remaining
+
+
+func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layout: Dictionary) -> bool:
+	if not blast_vfx_active:
+		_hide_blast_fx_host()
+		return true
+	var host := _get_or_create_blast_fx_host(canvas)
+	if host == null or not host.has_method("sync_state"):
+		return false
+	var render_scale := maxf(0.01, float(node_fx_layout.get("render_scale", 1.0)))
+	var game_offset: Vector2 = node_fx_layout.get("game_offset", Vector2.ZERO)
+	var origin_screen := game_offset + (blast_vfx_origin + shake_offset) * render_scale
+	var hit_screen := game_offset + (blast_vfx_hit_pos + shake_offset) * render_scale
+	host.sync_state({
+		"active": true,
+		"progress": clampf(blast_vfx_elapsed_seconds / BLAST_VFX_SECONDS, 0.0, 1.0),
+		"origin_screen": origin_screen,
+		"hit_screen": hit_screen,
+		"playfield_origin_screen": game_offset,
+		"playfield_size_screen": Vector2(760.0, 750.0) * render_scale,
+		"hit": blast_vfx_hit,
+		"render_scale": render_scale,
+	}, true)
+	return host.is_inside_tree()
+
+
+func _get_or_create_blast_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_blast_fx_host():
+		return _blast_fx_host
+	_blast_fx_host = null
+	_blast_fx_host_add_pending = false
+	if not (canvas is Node):
+		return null
+	var parent := canvas as Node
+	var existing := parent.get_node_or_null("ViperWallLeapBlastFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_blast_fx_host = existing
+		_blast_fx_host_add_pending = false
+		return _blast_fx_host
+	_blast_fx_host = ViperWallLeapBlastFxHost.new()
+	_blast_fx_host.name = "ViperWallLeapBlastFxHost"
+	_blast_fx_host.visible = false
+	if not _blast_fx_host_add_pending:
+		_blast_fx_host_add_pending = true
+		parent.call_deferred("add_child", _blast_fx_host)
+	return _blast_fx_host
+
+
+func _get_or_create_blast_fx_host_for_prewarm(parent: Node) -> Node:
+	if _is_valid_blast_fx_host():
+		return _blast_fx_host
+	_blast_fx_host = null
+	_blast_fx_host_add_pending = false
+	var existing := parent.get_node_or_null("ViperWallLeapBlastFxHost")
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_blast_fx_host = existing
+		_blast_fx_host_add_pending = false
+		return _blast_fx_host
+	_blast_fx_host = ViperWallLeapBlastFxHost.new()
+	_blast_fx_host.name = "ViperWallLeapBlastFxHost"
+	_blast_fx_host.visible = false
+	parent.add_child(_blast_fx_host)
+	_blast_fx_host_add_pending = false
+	return _blast_fx_host
+
+
+func _hide_blast_fx_host() -> void:
+	if _is_valid_blast_fx_host() and _blast_fx_host.has_method("set_active"):
+		_blast_fx_host.set_active(false)
+
+
+func _is_valid_blast_fx_host() -> bool:
+	return _blast_fx_host != null and is_instance_valid(_blast_fx_host) and not _blast_fx_host.is_queued_for_deletion()
+
+
+func _draw_blast_vfx_fallback(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if not blast_vfx_active:
 		return
 	var ratio := clampf(blast_vfx_elapsed_seconds / BLAST_VFX_SECONDS, 0.0, 1.0)
-	var core_ratio := clampf(blast_vfx_elapsed_seconds / BLAST_CORE_SECONDS, 0.0, 1.0)
-	var fade := pow(1.0 - ratio, 1.35)
-	var flash := pow(1.0 - core_ratio, 2.2)
+	var fade := pow(1.0 - ratio, 0.92)
 	var center := blast_vfx_origin + shake_offset
-	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(54.0, 126.0, ratio), Color(0.20, 0.86, 1.0), fade * 0.72)
-	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(28.0, 74.0, ratio), Color(0.72, 0.32, 1.0), fade * 0.54)
-	ImpactFlareTextureCache.draw_burst(canvas, center, lerpf(58.0, 148.0, ratio), Color(0.58, 0.94, 1.0), fade * 0.92)
-	if flash > 0.0:
-		canvas.draw_circle(center, lerpf(25.0, 10.0, core_ratio), Color(0.95, 1.0, 1.0, flash * 0.96))
-	_draw_blast_ring(canvas, center, ratio, 0.0, Color(0.52, 0.96, 1.0), 36.0, 142.0)
-	_draw_blast_ring(canvas, center, ratio, 0.16, Color(0.72, 0.34, 1.0), 28.0, 112.0)
-	for index in range(BLAST_RAY_COUNT):
-		var angle := TAU * float(index) / float(BLAST_RAY_COUNT) + 0.17
-		var ray_scale := 0.78 + 0.22 * sin(float(index) * 1.91)
-		var direction := Vector2.from_angle(angle)
-		var inner := center + direction * lerpf(16.0, 46.0, ratio)
-		var outer := center + direction * lerpf(72.0, 168.0 * ray_scale, ratio)
-		canvas.draw_line(inner, outer, Color(0.68, 0.94, 1.0, fade * 0.72), lerpf(4.2, 1.0, ratio), true)
-	for index in range(BLAST_SPARKLE_COUNT):
-		var sparkle_angle := TAU * float(index) / float(BLAST_SPARKLE_COUNT) - 0.31
-		var sparkle_pos := center + Vector2.from_angle(sparkle_angle) * lerpf(42.0, 154.0, ratio)
-		ImpactFlareTextureCache.draw_sparkle(canvas, sparkle_pos, lerpf(15.0, 6.0, ratio), Color(0.84, 0.98, 1.0), fade * 0.88)
-	if blast_vfx_hit:
-		var hit_center := blast_vfx_hit_pos + shake_offset
-		ImpactFlareTextureCache.draw_glow(canvas, hit_center, lerpf(34.0, 74.0, ratio), Color(0.82, 0.38, 1.0), fade * 0.60)
-		ImpactFlareTextureCache.draw_burst(canvas, hit_center, lerpf(30.0, 82.0, ratio), Color(0.96, 0.98, 1.0), fade * 0.74)
-
-
-func _draw_blast_ring(canvas: CanvasItem, center: Vector2, ratio: float, delay: float, color: Color, from_radius: float, to_radius: float) -> void:
-	var phase := clampf((ratio - delay) / maxf(0.001, 1.0 - delay), 0.0, 1.0)
-	if ratio < delay or phase >= 1.0:
-		return
-	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(from_radius, to_radius, phase), color, pow(1.0 - phase, 1.4) * 0.92)
+	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(58.0, 132.0, ratio), Color(1.0, 0.32, 0.06), fade * 0.72)
+	ImpactFlareTextureCache.draw_burst(canvas, center, lerpf(46.0, 118.0, ratio), Color(1.0, 0.84, 0.34), fade * 0.82)
 
 
 func _start_blade_burst(position: Vector2, direction: int) -> void:
@@ -764,6 +902,7 @@ func _clear_blast_vfx() -> void:
 	blast_vfx_origin = Vector2.ZERO
 	blast_vfx_hit = false
 	blast_vfx_hit_pos = Vector2.ZERO
+	_hide_blast_fx_host()
 
 
 func _clear_blade_action_state(clear_slash_clock: bool = true) -> void:
