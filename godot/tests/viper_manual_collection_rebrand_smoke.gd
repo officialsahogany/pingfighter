@@ -17,6 +17,7 @@ const MANUAL_IDS := [
 	"double_marshal_kick",
 	"core_flip",
 	"dark_blade",
+	"unlock_wall_leap_raid",
 ]
 const MANUAL_SPECS := {
 	"unlock_nerve_strike": {"skill_id": "nerve_strike", "path": "res://assets/sprites/perks/viper_dokyeong_jeolmaek_manual_icon.png", "ko_name": "독영절맥 비급"},
@@ -27,24 +28,25 @@ const MANUAL_SPECS := {
 	"double_marshal_kick": {"skill_id": "phantom_kick", "path": "res://assets/sprites/perks/viper_hwanyeong_yeongak_manual_icon.png", "ko_name": "환영연각 비급"},
 	"core_flip": {"skill_id": "core_flip", "path": "res://assets/sprites/perks/viper_hwarang_bicheongak_manual_icon.png", "ko_name": "화랑비천각 비급"},
 	"dark_blade": {"skill_id": "dark_blade", "path": "res://assets/sprites/perks/viper_hyeolyeong_cham_manual_icon.png", "ko_name": "혈영참 비급"},
+	"unlock_wall_leap_raid": {"skill_id": "wall_leap_raid", "path": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png", "ko_name": "월담야습 비급"},
 }
 const EXPECTED_LOCALIZED_NAMES := {
-	"ko": ["독영절맥 비급", "천뢰진각 비급", "혼천흑창 비급", "쌍영분신 비급", "염화개맥 비급", "환영연각 비급", "화랑비천각 비급", "혈영참 비급"],
-	"en": ["Poison-Shadow Meridian Sever Manual", "Heavenly Thunder Quaking Kick Manual", "Chaos-Heaven Black Spear Manual", "Twin-Shadow Doppelganger Manual", "Flame Meridian Opening Manual", "Phantom Chain Kick Manual", "Hwarang Sky-Flying Kick Manual", "Blood-Shadow Slash Manual"],
-	"zh": ["毒影截脉秘笈", "天雷震脚秘笈", "混天黑枪秘笈", "双影分身秘笈", "炎火开脉秘笈", "幻影连脚秘笈", "花郎飞天脚秘笈", "血影斩秘笈"],
-	"ja": ["毒影截脈秘伝書", "天雷震脚秘伝書", "混天黒槍秘伝書", "双影分身秘伝書", "炎火開脈秘伝書", "幻影連脚秘伝書", "花郎飛天脚秘伝書", "血影斬秘伝書"],
-	"es": ["Manual de Corte del meridiano de sombra venenosa", "Manual de Patada sísmica del trueno celestial", "Manual de Lanza negra del cielo caótico", "Manual de Doble de sombras gemelas", "Manual de Apertura de meridianos de fuego", "Manual de Patada encadenada fantasma", "Manual de Patada celeste Hwarang", "Manual de Tajo de sombra sangrienta"],
-	"pt-BR": ["Manual de Corte do meridiano da sombra venenosa", "Manual de Chute sísmico do trovão celestial", "Manual de Lança negra do céu caótico", "Manual de Duplo das sombras gêmeas", "Manual de Abertura dos meridianos de fogo", "Manual de Chute encadeado fantasma", "Manual de Chute celeste Hwarang", "Manual de Corte da sombra sangrenta"],
-	"ru": ["Тайный свиток Рассечения ядовитой тени", "Тайный свиток Громовой сотрясающей стопы", "Тайный свиток Черного копья хаоса", "Тайный свиток Двойника парных теней", "Тайный свиток Открытия огненных меридианов", "Тайный свиток Цепного призрачного удара", "Тайный свиток Небесного удара Hwarang", "Тайный свиток Кроваво-теневого разреза"],
+	"ko": ["독영절맥 비급", "천뢰진각 비급", "혼천흑창 비급", "쌍영분신 비급", "염화개맥 비급", "환영연각 비급", "화랑비천각 비급", "혈영참 비급", "월담야습 비급"],
+	"en": ["Poison-Shadow Meridian Sever Manual", "Heavenly Thunder Quaking Kick Manual", "Chaos-Heaven Black Spear Manual", "Twin-Shadow Doppelganger Manual", "Flame Meridian Opening Manual", "Phantom Chain Kick Manual", "Hwarang Sky-Flying Kick Manual", "Blood-Shadow Slash Manual", "Wall-Leap Night Raid Manual"],
+	"zh": ["毒影截脉秘笈", "天雷震脚秘笈", "混天黑枪秘笈", "双影分身秘笈", "炎火开脉秘笈", "幻影连脚秘笈", "花郎飞天脚秘笈", "血影斩秘笈", "越墙夜袭秘笈"],
+	"ja": ["毒影截脈秘伝書", "天雷震脚秘伝書", "混天黒槍秘伝書", "双影分身秘伝書", "炎火開脈秘伝書", "幻影連脚秘伝書", "花郎飛天脚秘伝書", "血影斬秘伝書", "壁越え夜襲の秘伝書"],
+	"es": ["Manual de Corte del meridiano de sombra venenosa", "Manual de Patada sísmica del trueno celestial", "Manual de Lanza negra del cielo caótico", "Manual de Doble de sombras gemelas", "Manual de Apertura de meridianos de fuego", "Manual de Patada encadenada fantasma", "Manual de Patada celeste Hwarang", "Manual de Tajo de sombra sangrienta", "Manual de incursión nocturna sobre el muro"],
+	"pt-BR": ["Manual de Corte do meridiano da sombra venenosa", "Manual de Chute sísmico do trovão celestial", "Manual de Lança negra do céu caótico", "Manual de Duplo das sombras gêmeas", "Manual de Abertura dos meridianos de fogo", "Manual de Chute encadeado fantasma", "Manual de Chute celeste Hwarang", "Manual de Corte da sombra sangrenta", "Manual da incursão noturna sobre o muro"],
+	"ru": ["Тайный свиток Рассечения ядовитой тени", "Тайный свиток Громовой сотрясающей стопы", "Тайный свиток Черного копья хаоса", "Тайный свиток Двойника парных теней", "Тайный свиток Открытия огненных меридианов", "Тайный свиток Цепного призрачного удара", "Тайный свиток Небесного удара Hwarang", "Тайный свиток Кроваво-теневого разреза", "Руководство по ночному рейду через стену"],
 }
 const EXPECTED_LOCALIZED_SKILL_NAMES := {
-	"ko": ["독영절맥", "천뢰진각", "혼천흑창", "쌍영분신", "염화개맥", "환영연각", "화랑비천각", "혈영참"],
-	"en": ["Poison-Shadow Meridian Sever", "Heavenly Thunder Quaking Kick", "Chaos-Heaven Black Spear", "Twin-Shadow Doppelganger", "Flame Meridian Opening", "Phantom Chain Kick", "Hwarang Sky-Flying Kick", "Blood-Shadow Slash"],
-	"zh": ["毒影截脉", "天雷震脚", "混天黑枪", "双影分身", "炎火开脉", "幻影连脚", "花郎飞天脚", "血影斩"],
-	"ja": ["毒影截脈", "天雷震脚", "混天黒槍", "双影分身", "炎火開脈", "幻影連脚", "花郎飛天脚", "血影斬"],
-	"es": ["Corte del meridiano de sombra venenosa", "Patada sísmica del trueno celestial", "Lanza negra del cielo caótico", "Doble de sombras gemelas", "Apertura de meridianos de fuego", "Patada encadenada fantasma", "Patada celeste Hwarang", "Tajo de sombra sangrienta"],
-	"pt-BR": ["Corte do meridiano da sombra venenosa", "Chute sísmico do trovão celestial", "Lança negra do céu caótico", "Duplo das sombras gêmeas", "Abertura dos meridianos de fogo", "Chute encadeado fantasma", "Chute celeste Hwarang", "Corte da sombra sangrenta"],
-	"ru": ["Рассечение меридианов ядовитой тенью", "Громовая сотрясающая стопа", "Черное копье хаоса", "Двойник парных теней", "Открытие огненных меридианов", "Цепной призрачный удар", "Небесный удар Hwarang", "Кроваво-теневой разрез"],
+	"ko": ["독영절맥", "천뢰진각", "혼천흑창", "쌍영분신", "염화개맥", "환영연각", "화랑비천각", "혈영참", "월담야습"],
+	"en": ["Poison-Shadow Meridian Sever", "Heavenly Thunder Quaking Kick", "Chaos-Heaven Black Spear", "Twin-Shadow Doppelganger", "Flame Meridian Opening", "Phantom Chain Kick", "Hwarang Sky-Flying Kick", "Blood-Shadow Slash", "Wall-Leap Night Raid"],
+	"zh": ["毒影截脉", "天雷震脚", "混天黑枪", "双影分身", "炎火开脉", "幻影连脚", "花郎飞天脚", "血影斩", "越墙夜袭"],
+	"ja": ["毒影截脈", "天雷震脚", "混天黒槍", "双影分身", "炎火開脈", "幻影連脚", "花郎飛天脚", "血影斬", "壁越え夜襲"],
+	"es": ["Corte del meridiano de sombra venenosa", "Patada sísmica del trueno celestial", "Lanza negra del cielo caótico", "Doble de sombras gemelas", "Apertura de meridianos de fuego", "Patada encadenada fantasma", "Patada celeste Hwarang", "Tajo de sombra sangrienta", "Incursión nocturna sobre el muro"],
+	"pt-BR": ["Corte do meridiano da sombra venenosa", "Chute sísmico do trovão celestial", "Lança negra do céu caótico", "Duplo das sombras gêmeas", "Abertura dos meridianos de fogo", "Chute encadeado fantasma", "Chute celeste Hwarang", "Corte da sombra sangrenta", "Incursão noturna sobre o muro"],
+	"ru": ["Рассечение меридианов ядовитой тенью", "Громовая сотрясающая стопа", "Черное копье хаоса", "Двойник парных теней", "Открытие огненных меридианов", "Цепной призрачный удар", "Небесный удар Hwarang", "Кроваво-теневой разрез", "Ночной рейд через стену"],
 }
 const RUNTIME_CONSUMER_TERMS := [
 	{"path": "res://scripts/characters/viper_emp_strike_fx_host.gd", "required": "천뢰진각", "forbidden": "EMP 스트라이크"},
@@ -68,7 +70,7 @@ class ManualRenderProbe:
 	func _draw() -> void:
 		draw_count += 1
 		draw_results.clear()
-		draw_rect(Rect2(Vector2.ZERO, Vector2(420.0, 184.0)), Color(6.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0))
+		draw_rect(Rect2(Vector2.ZERO, Vector2(420.0, 268.0)), Color(6.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0))
 		for i in range(ids.size()):
 			var perk_id := str(ids[i])
 			var col := i % 4
@@ -94,7 +96,7 @@ func _init() -> void:
 	_test_runtime_consumer_terms()
 	_test_manifest_contract()
 	LanguageSettings.set_test_locale_override("")
-	get_root().size = Vector2i(420, 184)
+	get_root().size = Vector2i(420, 268)
 	_probe = ManualRenderProbe.new()
 	_probe.ids = MANUAL_IDS.duplicate()
 	_probe.name = "ViperManualRenderProbe"
@@ -193,7 +195,7 @@ func _test_manifest_contract() -> void:
 	if not parsed is Dictionary:
 		return
 	var manifest: Dictionary = parsed
-	_expect(str(manifest.get("source_provenance", "")) == "not recorded in workspace", "unknown source provenance should stay explicit instead of being invented")
+	_expect(str(manifest.get("source_provenance", "")) == "mixed: legacy sources not recorded; wall_leap uses a standalone imagegen manifest", "mixed source provenance should distinguish legacy unknowns from the new recorded wall-leap volume")
 	var entries: Array = manifest.get("entries", []) as Array
 	_expect(entries.size() == MANUAL_SPECS.size(), "Viper manual manifest should record every acquisition volume")
 	var seen_ids: Dictionary = {}

@@ -6,6 +6,14 @@ const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.g
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const ViperSkillState := preload("res://scripts/characters/viper_skill_state.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+
+const SKILL_ICON_PATH := "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1.png"
+const SKILL_ICON_MANIFEST_PATH := "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1_manifest.json"
+const MANUAL_ICON_PATH := "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png"
+const MANUAL_ICON_MANIFEST_PATH := "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1_manifest.json"
+const ICON_SIZE := Vector2i(256, 256)
 
 var _failures: Array[String] = []
 
@@ -59,8 +67,56 @@ func _init() -> void:
 	_expect(restored_config.is_skill_equipped("wall_leap_raid"), "load must restore equipped wall leap")
 	_expect(restored_state.get_configured_cooldown_remaining("wall_leap_raid", Time.get_ticks_msec(), restored_config) > 0.0, "load must restore live cooldown")
 	_expect(int(restored_perks.runtime_skill_levels.get("unlock_wall_leap_raid", 0)) == 1, "load must restore unlock flag")
+	_verify_icon_contract()
 	_verify_localization(catalog, restored_config)
 	_finish()
+
+
+func _verify_icon_contract() -> void:
+	_expect(str(BattleSkillIconPaths.VIPER_SKILL_ICON_PATHS.get("wall_leap_raid", "")) == SKILL_ICON_PATH, "battle HUD must prewarm and draw the dedicated wall-leap orb")
+	_expect(str(RuntimePerkIconRenderer.SKILL_ICON_PATHS.get("wall_leap_raid", "")) == SKILL_ICON_PATH, "runtime perk renderer must replace the shadow-step placeholder orb")
+	_expect(str(RuntimePerkIconRenderer.MANUAL_ICON_PATHS.get("unlock_wall_leap_raid", "")) == MANUAL_ICON_PATH, "unlock card must use the dedicated wall-leap secret manual")
+	_expect(str(RuntimePerkIconRenderer.UNLOCK_ALIASES.get("unlock_wall_leap_raid", "")) == "wall_leap_raid", "manual must preserve the unlock-to-equipped-skill alias")
+	var renderer := RuntimePerkIconRenderer.new()
+	_expect(str(renderer._get_static_path("wall_leap_raid")) == SKILL_ICON_PATH, "equipped Chosik must resolve the dedicated orb before fallback art")
+	_expect(str(renderer._get_static_path("unlock_wall_leap_raid")) == MANUAL_ICON_PATH, "acquisition card must resolve the manual before the orb alias")
+	_expect(SKILL_ICON_PATH != MANUAL_ICON_PATH, "combat orb and acquisition manual must remain distinct assets")
+	_verify_icon_png(SKILL_ICON_PATH, "wall-leap orb", false)
+	_verify_icon_png(MANUAL_ICON_PATH, "wall-leap manual", true)
+	_verify_icon_manifest(SKILL_ICON_MANIFEST_PATH, "skill_id", "wall_leap_raid", SKILL_ICON_PATH)
+	_verify_icon_manifest(MANUAL_ICON_MANIFEST_PATH, "perk_id", "unlock_wall_leap_raid", MANUAL_ICON_PATH)
+
+
+func _verify_icon_png(path: String, label: String, manual: bool) -> void:
+	var texture: Texture2D = load(path) as Texture2D
+	_expect(texture != null, "%s must import as Texture2D" % label)
+	if texture != null:
+		_expect(Vector2i(texture.get_width(), texture.get_height()) == ICON_SIZE, "%s must stay 256x256" % label)
+	var image := Image.new()
+	_expect(image.load(ProjectSettings.globalize_path(path)) == OK, "%s must load for alpha QA" % label)
+	if image.is_empty():
+		return
+	var used_rect := image.get_used_rect()
+	if manual:
+		_expect(used_rect.position.x >= 12 and used_rect.position.y >= 12, "%s must keep the shared manual top-left safety inset" % label)
+		_expect(used_rect.end.x <= 244 and used_rect.end.y <= 244, "%s must keep the shared manual edge safety inset" % label)
+	else:
+		_expect(used_rect.position.x >= 3 and used_rect.position.y >= 3, "%s must keep transparent breathing room around the orb rim" % label)
+		_expect(used_rect.end.x <= 253 and used_rect.end.y <= 253, "%s must not press the orb rim into the canvas edge" % label)
+	for corner in [Vector2i(0, 0), Vector2i(255, 0), Vector2i(0, 255), Vector2i(255, 255)]:
+		_expect(is_zero_approx(image.get_pixelv(corner).a), "%s corners must stay fully transparent" % label)
+
+
+func _verify_icon_manifest(path: String, id_key: String, expected_id: String, expected_runtime_path: String) -> void:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	_expect(parsed is Dictionary, "%s must parse" % path)
+	if not parsed is Dictionary:
+		return
+	var manifest: Dictionary = parsed
+	var qa: Dictionary = manifest.get("qa", {}) as Dictionary
+	_expect(str(manifest.get(id_key, "")) == expected_id, "%s must preserve %s" % [path, id_key])
+	_expect(str(manifest.get("runtime_path", "")) == expected_runtime_path, "%s must record the production path" % path)
+	_expect(str(qa.get("sha256", "")) == FileAccess.get_sha256(expected_runtime_path), "%s hash must match the accepted PNG" % path)
 
 
 func _verify_localization(catalog: Object, config: Object) -> void:

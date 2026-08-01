@@ -17,6 +17,7 @@ const SMASHER_SKILL_ICON_PATHS := {
 const VIPER_SKILL_ICON_PATHS := {
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"shadow_step": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
+	"wall_leap_raid": "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1.png",
 	"blade_rush": "res://assets/sprites/skills/viper_blade_rush_skill_orb.png",
 	"nerve_strike": "res://assets/sprites/skills/viper_nerve_strike_skill_orb.png",
 	"dive_strike": "res://assets/sprites/skills/viper_emp_strike_skill_orb.png",

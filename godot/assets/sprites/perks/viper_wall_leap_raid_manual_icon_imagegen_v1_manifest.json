@@ -1,0 +1,39 @@
+{
+  "asset_id": "viper_wall_leap_raid_manual_icon_imagegen_v1",
+  "perk_id": "unlock_wall_leap_raid",
+  "skill_id": "wall_leap_raid",
+  "display_name_ko": "월담야습 비급",
+  "runtime_path": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "reference-guided new static raster illustration",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019fb6fc-c06c-7623-b160-945eeb3ef7fb/exec-c3bf1a15-6895-4c74-b131-824bd9986504.png",
+    "style_references": [
+      "res://assets/sprites/perks/viper_ssangyeong_bunsin_manual_icon.png"
+    ],
+    "prompt_summary": "A navy side-stitched Serin secret manual with a blank parchment title strip and an embossed wall-vault seal combining a cyan infiltration arc, hooded bandit shadow, tiled wall, burning fuse spark, and sparse violet blade shards."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "key_color_observed": "#03fa02",
+    "resize": "1254x1254 alpha source resized to 248x248 with ffmpeg Lanczos and centered on a 256x256 transparent canvas"
+  },
+  "qa": {
+    "rgba": true,
+    "corner_alpha": [0, 0, 0, 0],
+    "alpha_bbox": [34, 12, 238, 241],
+    "sha256": "25452fa9a5b7246b924bce4a38635f4e4f036cf06381f99714c00d8ef1f515c3",
+    "file_size_bytes": 79853,
+    "rendered_sizes": [96, 32],
+    "notes": "The acquisition card uses the dedicated book cover; the equipped combat Chosik uses the separate circular wall-leap orb."
+  }
+}

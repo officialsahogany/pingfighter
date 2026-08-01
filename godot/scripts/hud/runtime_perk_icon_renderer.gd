@@ -118,7 +118,7 @@ const PERK_SHEET_PATHS := {
 }
 
 const SKILL_ICON_PATHS := {
-	"wall_leap_raid": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
+	"wall_leap_raid": "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1.png",
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
 	"power_smashing": "res://assets/sprites/skills/smasher_power_smashing_skill_orb.png",
@@ -157,6 +157,7 @@ const SKILL_ICON_PATHS := {
 # 책 표지를 쓴다. 전용 표지가 없으면 UNLOCK_ALIASES의 초식 인장으로 폴백한다.
 const MANUAL_ICON_PATHS := {
 	"unlock_soul_summon_art": "res://assets/sprites/perks/soul_summon_art_manual_icon.png",
+	"unlock_wall_leap_raid": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png",
 	"unlock_nerve_strike": "res://assets/sprites/perks/viper_dokyeong_jeolmaek_manual_icon.png",
 	"unlock_dive_strike": "res://assets/sprites/perks/viper_cheonroe_jingak_manual_icon.png",
 	"unlock_chaos_spear": "res://assets/sprites/perks/viper_honcheon_heukchang_manual_icon.png",

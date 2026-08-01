@@ -1,6 +1,6 @@
 {
   "asset_family": "viper_hwangyeokjeon_secret_manuals",
-  "source_provenance": "not recorded in workspace",
+  "source_provenance": "mixed: legacy sources not recorded; wall_leap uses a standalone imagegen manifest",
   "runtime_contract": "Dedicated acquisition-card cover only; equipped skills keep their existing runtime skill IDs and orb/icon routes.",
   "entries": [
     {
@@ -58,6 +58,14 @@
       "display_name_ko": "혈영참 비급",
       "runtime_path": "res://assets/sprites/perks/viper_hyeolyeong_cham_manual_icon.png",
       "sha256": "d915b408b41593400d1c5b6cfd99a868458eaeda933234ac9b768dd958621ce8"
+    },
+    {
+      "perk_id": "unlock_wall_leap_raid",
+      "skill_id": "wall_leap_raid",
+      "display_name_ko": "월담야습 비급",
+      "runtime_path": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png",
+      "sha256": "25452fa9a5b7246b924bce4a38635f4e4f036cf06381f99714c00d8ef1f515c3",
+      "source_manifest": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1_manifest.json"
     }
   ]
 }
