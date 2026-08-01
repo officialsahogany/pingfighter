@@ -40,9 +40,14 @@ const BLADE_TRAIL_SOURCE_RECT := Rect2(0.0, 264.0, 954.0, 301.0)
 const BLADE_BURST_SOURCE_RECT := Rect2(14.0, 96.0, 1007.0, 767.0)
 const BLAST_RANGE_X := 50.0
 const BLAST_VFX_SECONDS := 0.46
+const BLAST_SHARDS_TAIL_SECONDS := 0.78
 const BLAST_SHAKE_AMOUNT := 0.12
 const BLAST_SHAKE_HIT_INTENSITY := 7.0
 const BLAST_SHAKE_MISS_INTENSITY := 5.2
+const FUSE_WICK_GLOW_WIDTH := 14.0
+const FUSE_WICK_OUTLINE_WIDTH := 10.0
+const FUSE_WICK_CORE_WIDTH := 5.2
+const FUSE_EMBER_VISUAL_SCALE := 1.0
 const FUSE_WICK_POINTS: Array[Vector2] = [
 	Vector2(-68.0, 25.0),
 	Vector2(-59.0, 13.0),
@@ -188,7 +193,11 @@ func prewarm_runtime_nodes(owner: Object = null) -> void:
 
 
 func get_blast_vfx_pipeline_status() -> Dictionary:
-	return ViperWallLeapBlastFxHost.build_pipeline_status()
+	var status := ViperWallLeapBlastFxHost.build_pipeline_status()
+	status["wall_leap_blast_core_seconds"] = BLAST_VFX_SECONDS
+	status["wall_leap_blast_shards_tail_seconds"] = BLAST_SHARDS_TAIL_SECONDS
+	status["wall_leap_fuse_ember_visual_scale"] = FUSE_EMBER_VISUAL_SCALE
+	return status
 
 
 func get_blast_vfx_host_status() -> Dictionary:
@@ -710,7 +719,7 @@ func _update_presentation_effects(delta: float) -> void:
 	if not blast_vfx_active:
 		return
 	blast_vfx_elapsed_seconds += delta
-	if blast_vfx_elapsed_seconds >= BLAST_VFX_SECONDS:
+	if blast_vfx_elapsed_seconds >= BLAST_SHARDS_TAIL_SECONDS:
 		_clear_blast_vfx()
 
 
@@ -721,38 +730,44 @@ func _draw_fuse_telegraph(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	var center := fuse_visual_center + shake_offset
 	var wick := _build_remaining_wick(center, ratio)
 	if wick.size() >= 2:
-		canvas.draw_polyline(wick, Color(0.045, 0.035, 0.035, 0.98), 8.0, true)
-		canvas.draw_polyline(wick, Color(0.39, 0.18, 0.065, 0.96), 3.5, true)
+		canvas.draw_polyline(wick, Color(1.0, 0.24, 0.035, 0.20), FUSE_WICK_GLOW_WIDTH, true)
+		canvas.draw_polyline(wick, Color(0.035, 0.025, 0.030, 0.99), FUSE_WICK_OUTLINE_WIDTH, true)
+		canvas.draw_polyline(wick, Color(0.92, 0.34, 0.055, 0.99), FUSE_WICK_CORE_WIDTH, true)
+		canvas.draw_polyline(wick, Color(1.0, 0.72, 0.24, 0.82), 1.8, true)
 	var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
 	var ember_pos: Vector2 = wick[0] if not wick.is_empty() else center + charge_offset
 	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 7.0)
-	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, 17.0 + pulse * 5.0, Color(1.0, 0.30, 0.035), 0.40 + ratio * 0.32)
-	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos, 7.5 + pulse * 2.6, Color(1.0, 0.88, 0.42), 0.80 + ratio * 0.18)
-	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + Vector2(-7.0, -9.0 - pulse * 4.0), 2.8, Color(1.0, 0.42, 0.10), 0.48)
-	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + Vector2(8.0, -4.0 + pulse * 3.0), 2.2, Color(0.82, 0.22, 0.74), 0.34)
-	var charge_center := center + charge_offset
-	var powder_bundle := PackedVector2Array([
-		charge_center + Vector2(-10.0, -7.0),
-		charge_center + Vector2(5.0, -9.0),
-		charge_center + Vector2(12.0, -2.0),
-		charge_center + Vector2(8.0, 9.0),
-		charge_center + Vector2(-8.0, 8.0),
-	])
-	canvas.draw_colored_polygon(powder_bundle, Color(0.07, 0.055, 0.07, 0.96))
-	var powder_outline := powder_bundle.duplicate()
-	powder_outline.append(powder_bundle[0])
-	canvas.draw_polyline(powder_outline, Color(0.64, 0.30, 0.09, 0.78), 2.2, true)
-	canvas.draw_line(charge_center + Vector2(-6.0, -5.0), charge_center + Vector2(6.0, 6.0), Color(0.48, 0.18, 0.12, 0.72), 1.6, true)
+	var ember_scale := FUSE_EMBER_VISUAL_SCALE
+	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, (25.0 + pulse * 6.0) * ember_scale, Color(1.0, 0.25, 0.025), 0.78 + ratio * 0.16)
+	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, (12.0 + pulse * 3.0) * ember_scale, Color(1.0, 0.68, 0.16), 0.94)
+	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos, (11.5 + pulse * 3.5) * ember_scale, Color(1.0, 0.96, 0.78), 0.98)
+	var trailing_sparks: Array[Vector2] = [
+		Vector2(-8.0, -11.0 - pulse * 4.0),
+		Vector2(9.0, -7.0 + pulse * 2.0),
+		Vector2(-15.0, -3.0 + pulse * 3.0),
+		Vector2(4.0, -18.0 - pulse * 2.0),
+	]
+	for index in range(trailing_sparks.size()):
+		var spark_radius := (4.5 - float(index) * 0.55) * ember_scale
+		var spark_color := Color(1.0, 0.46, 0.08) if index < 3 else Color(0.82, 0.22, 0.74)
+		ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + trailing_sparks[index], spark_radius, spark_color, 0.72 - float(index) * 0.09)
 
 
 func get_fuse_visual_snapshot() -> Dictionary:
 	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0) if state == STATE_FUSE else 0.0
 	var authored_length := _get_fuse_wick_total_length()
+	var center := fuse_visual_center
+	var wick := _build_remaining_wick(center, ratio)
+	var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
+	var ember_position: Vector2 = wick[0] if not wick.is_empty() else center + charge_offset
 	return {
 		"burn_progress": ratio,
 		"remaining_ratio": 1.0 - ratio,
 		"authored_length": authored_length,
 		"remaining_length": authored_length * (1.0 - ratio),
+		"ember_position": ember_position,
+		"wick_leading_position": ember_position,
+		"powder_charge_position": center + charge_offset,
 	}
 
 
@@ -792,7 +807,8 @@ func _build_remaining_wick(center: Vector2, burn_ratio: float) -> PackedVector2A
 
 
 func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layout: Dictionary) -> bool:
-	if not blast_vfx_active:
+	var fuse_active := state == STATE_FUSE and fuse_visual_center != Vector2.ZERO
+	if not fuse_active and not blast_vfx_active:
 		_hide_blast_fx_host()
 		return true
 	var host := _get_or_create_blast_fx_host(canvas)
@@ -800,11 +816,27 @@ func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layo
 		return false
 	var render_scale := maxf(0.01, float(node_fx_layout.get("render_scale", 1.0)))
 	var game_offset: Vector2 = node_fx_layout.get("game_offset", Vector2.ZERO)
+	if fuse_active:
+		var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
+		var charge_screen := game_offset + (fuse_visual_center + shake_offset + charge_offset) * render_scale
+		host.sync_state({
+			"active": true,
+			"phase": STATE_FUSE,
+			"progress": clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0),
+			"origin_screen": charge_screen,
+			"powder_charge_screen": charge_screen,
+			"playfield_origin_screen": game_offset,
+			"playfield_size_screen": Vector2(760.0, 750.0) * render_scale,
+			"render_scale": render_scale,
+		}, true)
+		return host.is_inside_tree()
 	var origin_screen := game_offset + (blast_vfx_origin + shake_offset) * render_scale
 	var hit_screen := game_offset + (blast_vfx_hit_pos + shake_offset) * render_scale
 	host.sync_state({
 		"active": true,
+		"phase": "blast",
 		"progress": clampf(blast_vfx_elapsed_seconds / BLAST_VFX_SECONDS, 0.0, 1.0),
+		"shards_tail_progress": clampf(blast_vfx_elapsed_seconds / BLAST_SHARDS_TAIL_SECONDS, 0.0, 1.0),
 		"origin_screen": origin_screen,
 		"hit_screen": hit_screen,
 		"playfield_origin_screen": game_offset,
