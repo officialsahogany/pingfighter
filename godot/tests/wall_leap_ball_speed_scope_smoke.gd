@@ -26,8 +26,8 @@ func _init() -> void:
 	var scene := {"ball_pos": Vector2(377.5, 65.0), "ball_vel": Vector2(6.0, -8.0), "ball_impact_boost": 1.0}
 	var deps := {"motion_stepper": motion, "paddle_bounce_controller": BounceProbe.new()}
 	for _index in range(3):
-		processor.step_motion(scene, 1.0, {"ball_motion_step_multiplier": 0.70, "boss_pos": Vector2(327.5, 25.0), "boss_hitbox_height": 40.0, "ball_size": 28.6}, deps, {})
-		_expect(is_equal_approx(motion.displacement.length(), 7.0), "infiltration must slow each movement step to 70 percent")
+		processor.step_motion(scene, 1.0, {"ball_motion_step_multiplier": 0.50, "boss_pos": Vector2(327.5, 25.0), "boss_hitbox_height": 40.0, "ball_size": 28.6}, deps, {})
+		_expect(is_equal_approx(motion.displacement.length(), 5.0), "infiltration must slow each movement step to 50 percent")
 		_expect(is_equal_approx((scene["ball_vel"] as Vector2).length(), 10.0), "boss reflection must preserve canonical rally magnitude")
 	processor.step_motion(scene, 1.0, {"ball_motion_step_multiplier": 1.0}, deps, {})
 	_expect(is_equal_approx(motion.displacement.length(), 10.0), "return scope must remove movement multiplier")
@@ -40,7 +40,7 @@ func _init() -> void:
 	fixture["owner"].values["ai_mode"] = "champion"
 	fixture["owner"].values["ball_vel"] = Vector2(6.0, -8.0)
 	var ai_context: Dictionary = BossContextBuilder.new().build_context(fixture["owner"], fixture["registry"])
-	_expect(is_equal_approx((ai_context.get("ball_vel", Vector2.ZERO) as Vector2).length(), 7.0), "boss prediction must consume the same 0.7 motion multiplier")
+	_expect(is_equal_approx((ai_context.get("ball_vel", Vector2.ZERO) as Vector2).length(), 5.0), "boss prediction must consume the same 0.5 motion multiplier")
 	_expect(is_equal_approx((fixture["owner"].values["ball_vel"] as Vector2).length(), 10.0), "prediction must not mutate owner ball velocity")
 	fixture["runtime"].wall_leap_state.force_return("seal", fixture["deps"])
 	var return_context: Dictionary = BossContextBuilder.new().build_context(fixture["owner"], fixture["registry"])
