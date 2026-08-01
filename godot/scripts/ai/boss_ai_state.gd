@@ -87,12 +87,9 @@ var boss_dash_stun_timer_frames := 0.0
 var boss_dash_stun_total_frames := 0.0
 # 매 프레임 HUD가 읽는 대쉬 토큰 스냅샷 재사용 버퍼 (get_dash_token_snapshot 참조).
 var _dash_token_snapshot: Dictionary = {}
-# 킥 읽기 실패가 확정된 직후의 '흠칫' 창. 반응 가속/최대속도만 잠깐 죽여서
-# 억지 RNG가 아니라 보스가 한 박자 늦게 반응한 것처럼 보이게 한다.
-# 렌더러 계약을 늘리지 않으려고 스프라이트가 아니라 이동으로 표현한다.
-# ⚠️값의 정본은 BossAiPredictionState다 — 그쪽 도달 가능성 게이트가 이 지연
-# 비용을 적분해야 "당첨 = 실제 미스"가 성립한다. 여기서 따로 정의하지 마라.
-var _kick_read_flinch_frames := 0.0
+# 킥 읽기 실패 직후의 '흠칫' 창(반응 둔화)은 **BossAiPredictionState가 소유**한다 —
+# 그쪽 도달 가능성 시뮬레이션이 '남은 흠칫'까지 알아야 살아 있는 래치를 잘못
+# 해제하지 않는다. 여기에 별도 타이머를 두지 마라.
 
 
 func reset() -> void:
@@ -102,7 +99,7 @@ func reset() -> void:
 	paddle_hit_knockback_vel = 0.0
 	paddle_hit_knockback_timer = 0.0
 	paddle_hit_knockback_decay_per_frame = PADDLE_HIT_KNOCKBACK_DECAY_PER_FRAME
-	_kick_read_flinch_frames = 0.0
+	prediction_state.kick_read_flinch_frames = 0.0
 	_reset_serve_feint()
 	_reset_boss_dash()
 
@@ -359,7 +356,19 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 	_update_boss_dash_recharge(fps_scale, context)
 	# 조기 return 분기(스톱워치 / 꼭두각시 / 스턴 등)보다 위에서 단일 지점 틱 —
 	# 두 경로에서 각각 깎으면 배속으로 흐른다(two-update-path 트랩).
-	_kick_read_flinch_frames = max(0.0, _kick_read_flinch_frames - fps_scale)
+	prediction_state.tick_kick_read_flinch(fps_scale)
+	# ⚠️킥 이벤트 만료도 조기 return 전부보다 **위**에서 처리해야 한다. 예측 경로
+	# 안쪽에서만 확인하면 스톱워치 동결 / 스테이지2 이동잠금 / 꼭두각시 / 대쉬 /
+	# 스턴 프레임에 들어온 이벤트가 그대로 살아남아, 상태가 풀린 뒤 **다음 평범한
+	# 공**에 지난 킥의 읽기 실패가 걸린다(실측 stale_armed=true).
+	# 조건 = "이 프레임에 상승 랠리가 없다" — 그러면 그 기회는 이미 끝난 것이다.
+	var motion_ball_vel: Vector2 = _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	if (
+		motion_ball_vel.y >= 0.0
+		or not bool(context.get("ball_active", false))
+		or bool(context.get("waiting_for_serve", true))
+	):
+		prediction_state.acknowledge_kick_read_events(context)
 
 	if bool(context.get("active_item_stopwatch_freeze_active", false)):
 		return {
@@ -616,15 +625,12 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 			float(context.get("prediction_play_left", play_left)),
 			float(context.get("prediction_play_right", play_right)),
 			boss_paddle_width,
-			context
-		)
-		# 굴림과 같은 프레임에 소비한다(아래 대쉬 분기가 early-return해도 신호가 남지 않게).
-		if prediction_state.consume_kick_read_failure_flinch():
-			_kick_read_flinch_frames = BossAiPredictionState.KICK_READ_FLINCH_FRAMES
-	else:
-		_reset_serve_feint()
 		# 컨텍스트를 넘겨야 만료된 킥 이벤트가 여기서 폐기된다(다음 평범한 공에
 		# 지난 킥의 읽기 실패가 적용되는 것을 막는 지점).
+			context
+		)
+	else:
+		_reset_serve_feint()
 		prediction_state.reset(context)
 		future_x = width * 0.5
 
@@ -632,8 +638,7 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 		return _update_boss_dash_motion(boss_pos, context, fps_scale)
 
 	var reaction_multiplier: float = _get_power_smash_reaction_multiplier(context)
-	if _kick_read_flinch_frames > 0.0:
-		reaction_multiplier *= BossAiPredictionState.KICK_READ_FLINCH_REACTION_MULT
+	reaction_multiplier *= prediction_state.get_kick_read_flinch_reaction_multiplier()
 	var decel_multiplier := 1.0
 	if bool(context.get("stage2_speed_defense_active", false)):
 		var speed_multiplier: float = max(1.0, float(context.get("stage2_speed_defense_speed_multiplier", 1.0)))
@@ -656,9 +661,7 @@ func _update_motion(delta: float, boss_pos: Vector2, boss_vel: float, context: D
 		decel_multiplier,
 		context
 	)
-	if bool(context.get("stage1_dalji_whip_active", false)):
-		boss_vel = clamp(boss_vel, -1.5, 1.5) * 0.3
-	boss_vel *= _get_active_item_slow_multiplier(context)
+	boss_vel = BossAiTurnInertiaResolver.apply_movement_post_processing(boss_vel, context)
 	boss_pos.x += boss_vel * fps_scale
 	boss_pos.x = clamp(boss_pos.x, play_left, play_right - boss_paddle_width)
 
@@ -1340,25 +1343,7 @@ func _update_whip_deactivation_velocity(
 
 
 func _get_active_item_slow_multiplier(context: Dictionary) -> float:
-	var multiplier := 1.0
-	if bool(context.get("active_item_spider_mine_slow_active", false)):
-		multiplier *= clamp(float(context.get("active_item_spider_mine_slow_factor", 0.4)), 0.05, 1.0)
-	if bool(context.get("smasher_plasma_boss_slow_active", false)):
-		multiplier *= clamp(float(context.get("smasher_plasma_boss_slow_multiplier", 1.0)), 0.05, 1.0)
-	if bool(context.get("venom_mist_boss_slow_active", false)):
-		multiplier *= clamp(float(context.get("venom_mist_boss_slow_multiplier", 0.3)), 0.05, 1.0)
-	if bool(context.get("baal_boots_boss_slow_active", false)):
-		multiplier *= clamp(float(context.get("baal_boots_boss_slow_multiplier", 0.7)), 0.05, 1.0)
-	if bool(context.get("lingpet_star_coil_boss_slow_active", false)):
-		multiplier *= clamp(float(context.get("lingpet_star_coil_boss_slow_multiplier", 0.4)), 0.05, 1.0)
-	if bool(context.get("lingpet_dwarf_magic_boss_slow_active", false)):
-		multiplier *= clamp(float(context.get("lingpet_dwarf_magic_boss_slow_multiplier", 0.55)), 0.05, 1.0)
-	# Molotov fire already owns hard movement obstruction through the post-AI
-	# barrier above. Keep its lingering fire slow as a standalone smooth-return
-	# feel, but do not stack it on top of dedicated boss-slow debuffs.
-	if is_equal_approx(multiplier, 1.0) and bool(context.get("active_item_molotov_slow_active", false)):
-		multiplier *= clamp(float(context.get("active_item_molotov_slow_factor", 1.0)), 0.05, 1.0)
-	return clamp(multiplier, 0.05, 1.0)
+	return BossAiTurnInertiaResolver.get_movement_slow_multiplier(context)
 
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
@@ -1368,12 +1353,7 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 
 
 func _get_power_smash_reaction_multiplier(context: Dictionary) -> float:
-	if not bool(context.get("power_smashing_parabola_active", false)):
-		return 1.0
-	var combo_consumed: int = int(context.get("power_smashing_combo_consumed", 0))
-	if combo_consumed < 2:
-		return 1.0
-	return 1.0 + min(
-		float(combo_consumed) * POWER_SMASH_BOSS_REACT_PER_COMBO,
-		POWER_SMASH_BOSS_REACT_CAP
-	)
+	return BossAiTurnInertiaResolver.get_power_smash_reaction_multiplier(context)
+# 정본은 BossAiTurnInertiaResolver다 — 예측의 도달 가능성 시뮬레이션이 같은
+# 후처리를 써야 해서 그쪽으로 옮겼다. 여기서 다시 구현하지 마라.
+# 정본은 BossAiTurnInertiaResolver다(예측 시뮬레이션과 공유). 재구현 금지.

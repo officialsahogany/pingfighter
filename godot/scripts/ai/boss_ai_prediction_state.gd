@@ -31,6 +31,9 @@ const KICK_READ_REACH_SIM_MAX_FRAMES: int = 240
 # 도달 시뮬레이션이 요구하는 여유. 리졸버의 정착 잔진동(pp ~1.8px)과 부동소수
 # 오차 위로 올려 두어 "간신히 임계선"을 통과시키지 않는다.
 const KICK_READ_SIM_CLEARANCE_EPSILON: float = 2.5
+# 유지 재검증은 무장보다 완화된 여유를 쓴다(hysteresis) — 같은 임계면 정착
+# 잔진동에서 래치가 프레임마다 깜빡인다.
+const KICK_READ_SIM_MAINTAIN_EPSILON: float = 0.5
 # 읽기 실패 확정 직후 보스의 '흠칫' 창(boss_ai_state가 소비). 도달 가능성 게이트가
 # 이 비용을 알아야 하므로 값의 정본은 여기다 — 흠칫은 회피를 ~4.5프레임 늦춘다.
 const KICK_READ_FLINCH_FRAMES: float = 9.0
@@ -49,7 +52,10 @@ var kick_read_event_id: int = 0
 var kick_read_chained_event_id: int = 0
 var kick_read_failure_active := false
 var kick_read_failure_offset: float = 0.0
-var kick_read_failure_flinch_pending := false
+# 흠칫 창은 여기서 소유한다. boss_ai_state가 별도 타이머를 들면 도달 가능성
+# 시뮬레이션이 '남은 흠칫'을 모르고 매번 full 9프레임을 가정해, 이미 흠칫을
+# 절반 소화한 프레임에서 살아 있는 래치를 잘못 해제한다.
+var kick_read_flinch_frames: float = 0.0
 var _turn_inertia_resolver: Object = null
 
 
@@ -69,13 +75,14 @@ func acknowledge_kick_read_events(context: Dictionary) -> void:
 	kick_read_chained_event_id = maxi(kick_read_chained_event_id, int(context.get("viper_kick_read_chained_event_id", kick_read_chained_event_id)))
 
 
-# 이번 상승 구간에서 킥 읽기 실패가 새로 확정됐는지 1회성으로 소비한다.
-# 보스 흠칫(반응 둔화) 연출 트리거 전용.
-func consume_kick_read_failure_flinch() -> bool:
-	if not kick_read_failure_flinch_pending:
-		return false
-	kick_read_failure_flinch_pending = false
-	return true
+# 흠칫 창은 물리 프레임당 정확히 한 번만 깎여야 한다(two-update-path 트랩).
+# boss_ai_state가 조기 return 전부보다 위에서 단일 호출한다.
+func tick_kick_read_flinch(fps_scale: float) -> void:
+	kick_read_flinch_frames = max(0.0, kick_read_flinch_frames - fps_scale)
+
+
+func get_kick_read_flinch_reaction_multiplier() -> float:
+	return KICK_READ_FLINCH_REACTION_MULT if kick_read_flinch_frames > 0.0 else 1.0
 
 
 func predict_future_x(
@@ -105,7 +112,14 @@ func predict_future_x(
 		return clamp(future_x, min_center, max_center)
 	_observe_kick_read_event(context, boss_paddle_width, ball_pos, ball_vel, fps_scale, future_x)
 	if kick_read_failure_active:
-		return _apply_kick_read_failure(future_x, min_center, max_center, context)
+		# ⚠️매 프레임 재검증. 래치는 '무는 순간'의 궤도로 검증됐지만 궤도는 이벤트
+		# 없이도 다시 쓰인다(팬텀 킥, 다른 무공, 벽 반사). 재검증이 없으면
+		# 도달 불가로 바뀐 궤도에서도 armed로 남아 실제로는 그대로 막힌다.
+		if not _kick_read_failure_still_holds(context, boss_paddle_width, ball_pos, ball_vel, fps_scale, future_x):
+			kick_read_failure_active = false
+			kick_read_failure_offset = 0.0
+		else:
+			return _apply_kick_read_failure(future_x, min_center, max_center, context)
 	if not approach_decision_active:
 		_roll_approach_decision(effective_ball_vel, context)
 	future_x = _apply_approach_prediction_error(future_x)
@@ -207,6 +221,8 @@ func _observe_kick_read_event(
 		_roll_pending_kick_reads(context, 0, chance)
 		if reachable:
 			kick_read_failure_offset = magnitude * evasion_dir
+		# 도달 불가로 바뀌었으면 래치는 위쪽 매 프레임 재검증이 해제한다 —
+		# 여기서 유지해봤자 armed인 채로 막히는 거짓 약속이 된다.
 		return
 	if not reachable:
 		_roll_pending_kick_reads(context, 0, chance)
@@ -249,8 +265,8 @@ func _arm_kick_read_failure(offset: float) -> void:
 	# 이 킥의 판정은 확정 — 같은 상승 구간에서 일반 실수 굴림이 덮어쓰지 못하게 잠근다.
 	approach_decision_active = true
 	kick_read_failure_active = true
-	kick_read_failure_flinch_pending = true
 	kick_read_failure_offset = offset
+	kick_read_flinch_frames = KICK_READ_FLINCH_FRAMES
 
 
 # ball_vel은 60fps 프레임당 px라 이 몫이 곧 60fps 프레임 수다(fps_scale 곱 금지).
@@ -277,7 +293,9 @@ func _simulated_evasion_clears_the_ball(
 	arrival_x: float,
 	evasion_dir: float,
 	magnitude: float,
-	miss_threshold: float
+	miss_threshold: float,
+	clearance_epsilon: float = KICK_READ_SIM_CLEARANCE_EPSILON,
+	flinch_frames: float = KICK_READ_FLINCH_FRAMES
 ) -> bool:
 	var entry_frames: float = _get_frames_to_boss_line(context, ball_pos, ball_vel)
 	if entry_frames <= 0.0:
@@ -301,16 +319,63 @@ func _simulated_evasion_clears_the_ball(
 	var max_center: float = play_right - boss_paddle_width * 0.5
 	var center: float = clamp(float(context.get("boss_center_x", arrival_x)), min_center, max_center)
 	var vel: float = float(context.get("boss_vel_x", 0.0))
+	var power_smash_reaction: float = BossAiTurnInertiaResolver.get_power_smash_reaction_multiplier(context)
 	var elapsed := 0.0
 	for step_index in range(total_steps):
-		var reaction: float = KICK_READ_FLINCH_REACTION_MULT if elapsed < KICK_READ_FLINCH_FRAMES else 1.0
+		var reaction: float = power_smash_reaction * (KICK_READ_FLINCH_REACTION_MULT if elapsed < flinch_frames else 1.0)
 		var target: float = _resolve_kick_read_target(arrival_x, min_center, max_center, center, evasion_dir, magnitude)
 		vel = _get_turn_inertia_resolver().update_velocity(target, center, vel, fps_scale, true, reaction, 1.0, context)
+		# 실경로와 같은 후처리(채찍 제한 + 감속 배율)를 통과시켜야 한다 — 빼먹으면
+		# 감속 디버프가 걸린 보스를 "충분히 비켜난다"고 오판한다.
+		vel = BossAiTurnInertiaResolver.apply_movement_post_processing(vel, context)
 		center = clamp(center + vel * fps_scale, min_center, max_center)
 		elapsed += fps_scale
-		if step_index >= entry_step and absf(center - arrival_x) < miss_threshold + KICK_READ_SIM_CLEARANCE_EPSILON:
+		if step_index >= entry_step and absf(center - arrival_x) < miss_threshold + clearance_epsilon:
 			return false
 	return true
+
+
+# 살아 있는 래치가 지금 궤도에서도 여전히 미스를 만들 수 있는가.
+# 무장 시점보다 완화된 여유(hysteresis)를 쓴다 — 같은 임계로 매 프레임 재판정하면
+# 정착 잔진동에서 래치가 깜빡인다.
+func _kick_read_failure_still_holds(
+	context: Dictionary,
+	boss_paddle_width: float,
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	fps_scale: float,
+	arrival_x: float
+) -> bool:
+	var miss_threshold: float = (
+		boss_paddle_width * 0.5
+		+ float(context.get("hitbox_padding", 5.0))
+		+ float(context.get("ball_size", 28.6)) * 0.5
+	)
+	# ⚠️접촉 직전(남은 리드 0)에는 시뮬레이션할 미래가 없다. 무장 게이트는 그때
+	# "기회 아님"으로 거절해야 맞지만, 유지 검증이 같은 규칙을 쓰면 **모든 성공
+	# 케이스가 마지막 한 프레임에서 해제**되어 접촉 시점 armed가 항상 false가 된다.
+	# 이 지점의 올바른 질문은 "지금 비켜나 있는가"다.
+	var entry_frames: float = _get_frames_to_boss_line(context, ball_pos, ball_vel)
+	if entry_frames <= 0.0:
+		var live_center: float = float(context.get("boss_center_x", arrival_x))
+		if not is_finite(live_center):
+			live_center = arrival_x
+		return absf(live_center - arrival_x) >= miss_threshold + KICK_READ_SIM_MAINTAIN_EPSILON
+	var magnitude: float = absf(kick_read_failure_offset)
+	var evasion_dir: float = -1.0 if kick_read_failure_offset < 0.0 else 1.0
+	return _simulated_evasion_clears_the_ball(
+		context,
+		ball_pos,
+		ball_vel,
+		fps_scale,
+		boss_paddle_width,
+		arrival_x,
+		evasion_dir,
+		magnitude,
+		miss_threshold,
+		KICK_READ_SIM_MAINTAIN_EPSILON,
+		kick_read_flinch_frames
+	)
 
 
 func _get_turn_inertia_resolver() -> Object:

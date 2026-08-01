@@ -163,7 +163,10 @@ func _run() -> void:
 	_test_chain_bonus_only_applies_to_chained_kicks()
 	_test_pending_events_are_not_coalesced_into_one_roll()
 	_test_expired_pending_never_lands_on_a_later_ordinary_ball()
+	_test_producer_early_returns_still_expire_the_opportunity()
 	_test_chained_kick_keeps_an_already_won_read_failure()
+	_test_unreachable_follow_up_drops_the_latch()
+	_test_movement_slow_debuffs_are_respected_by_the_gate()
 	_test_full_chain_probability_matches_the_designed_union()
 	# --- 리그 프로파일 ---
 	_test_league_profile_chances()
@@ -257,7 +260,8 @@ func _simulate_rally(
 	ball_x: float,
 	dash_enabled: bool,
 	chance: float,
-	start_boss_vel: float = 0.0
+	start_boss_vel: float = 0.0,
+	extra_context: Dictionary = {}
 ) -> Dictionary:
 	seed(int(start_y) * 977 + int(speed) * 131 + int(boss_offset) + int(ball_x) * 7 + (1 if dash_enabled else 0) + int(start_boss_vel * 10.0))
 	var owner := FakeOwner.new()
@@ -286,10 +290,17 @@ func _simulate_rally(
 		context["viper_kick_read_event_id"] = 1
 		context["boss_dash_enabled"] = dash_enabled
 		context["boss_collision_cooldown"] = 0.0
+		context.merge(extra_context, true)
 
 		var result: Dictionary = ai.update(1.0 / 60.0, boss_pos, boss_vel, context)
 		boss_pos = result.get("boss_pos", boss_pos)
 		boss_vel = float(result.get("boss_vel", boss_vel))
+		# ⚠️이 스윕은 궤도가 **한 번도 다시 쓰이지 않는** 단일 킥 랠리다. 따라서
+		# 계약은 강한 쪽 — "한 번이라도 armed면 반드시 통과한다"이다. 여기서
+		# '접촉 시점 armed'로 재면 마지막 프레임 해제가 안전망으로 작동해 단언이
+		# 거의 항상 참이 되고, 감속 배율 누락 같은 결함이 그대로 통과한다(실측).
+		# 궤도가 다시 쓰이는 케이스는 _test_unreachable_follow_up_drops_the_latch가
+		# 따로 '접촉 시점' 기준으로 본다.
 		if ai.prediction_state.kick_read_failure_active:
 			armed = true
 
@@ -452,6 +463,130 @@ func _test_expired_pending_never_lands_on_a_later_ordinary_ball() -> void:
 			if absf(target - 380.0) > 0.001:
 				_expect(false, "an expired kick event must not apply a read failure to a later ordinary ball (expire_via_reset=%s, %.2f)" % [str(expire_via_reset), target])
 				return
+
+
+# ⚠️예측기를 직접 부르는 만료 레그는 **생산 조기 return을 우회한다**. 스톱워치
+# 동결 / 스테이지2 이동잠금은 예측 호출 자체에 도달하지 않으므로, 실제
+# BossAiState.update()를 관통해야만 이 구멍이 잡힌다.
+func _test_producer_early_returns_still_expire_the_opportunity() -> void:
+	for blocker in ["active_item_stopwatch_freeze_active", "stage2_boss_movement_locked", "lingpet_puppet_grab_active"]:
+		var stale: bool = _run_early_return_expiry_probe(blocker)
+		_expect(
+			not stale,
+			"a kick landing during '%s' must not arm a read failure on the next ordinary ball" % blocker
+		)
+
+
+func _run_early_return_expiry_probe(blocker: String) -> bool:
+	seed(17)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var builder: Object = BossAiContextBuilder.new()
+	var ai: Object = BossAiState.new()
+	var boss_pos := Vector2(380.0 - LIMIT_BOSS_PADDLE_WIDTH * 0.5, 25.0)
+
+	# 1) 조기 return 상태에서 킥 이벤트가 들어온다(공은 아직 상승 중).
+	for _frame in range(6):
+		var blocked_context: Dictionary = _make_probe_context(builder, owner, registry, boss_pos, Vector2(380.0, 400.0), Vector2(0.0, -20.0), 1)
+		blocked_context[blocker] = true
+		ai.update(1.0 / 60.0, boss_pos, 0.0, blocked_context)
+	# 2) 같은 조기 return 상태에서 공이 하강으로 전환된다 = 기회 종료.
+	for _frame in range(6):
+		var descend_context: Dictionary = _make_probe_context(builder, owner, registry, boss_pos, Vector2(380.0, 300.0), Vector2(0.0, 20.0), 1)
+		descend_context[blocker] = true
+		ai.update(1.0 / 60.0, boss_pos, 0.0, descend_context)
+	# 3) 상태가 풀리고 다음 평범한 상승 공이 온다(새 킥 이벤트 없음).
+	var ordinary: Dictionary = _make_probe_context(builder, owner, registry, boss_pos, Vector2(380.0, 700.0), Vector2(0.0, -20.0), 1)
+	ai.update(1.0 / 60.0, boss_pos, 0.0, ordinary)
+	return bool(ai.prediction_state.kick_read_failure_active)
+
+
+func _make_probe_context(
+	builder: Object,
+	owner: Object,
+	registry: Object,
+	boss_pos: Vector2,
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	event_id: int
+) -> Dictionary:
+	owner.ball_pos = ball_pos
+	owner.ball_vel = ball_vel
+	owner.boss_pos = boss_pos
+	var context: Dictionary = builder.build_context(owner, registry)
+	context["boss_pos"] = boss_pos
+	context["boss_paddle_width"] = LIMIT_BOSS_PADDLE_WIDTH
+	context["boss_paddle_size"] = Vector2(LIMIT_BOSS_PADDLE_WIDTH, 40.0)
+	context["boss_kick_read_failure_chance"] = 1.0
+	context["viper_kick_read_event_id"] = event_id
+	context["boss_dash_enabled"] = false
+	context["boss_collision_cooldown"] = 0.0
+	return context
+
+
+# 후속 킥이 공을 보스 코앞으로 다시 보내면 그 궤도에서는 회피가 불가능하다.
+# 그때도 래치를 들고 있으면 armed인 채로 막히는 거짓 약속이 된다.
+func _test_unreachable_follow_up_drops_the_latch() -> void:
+	for follow_up_y in [260.0, 220.0, 180.0, 150.0]:
+		for follow_up_v in [20.0, 26.0, 32.0]:
+			var outcome: Dictionary = _simulate_follow_up_rally(follow_up_y, follow_up_v)
+			if bool(outcome["armed_at_contact"]) and bool(outcome["blocked"]):
+				_expect(false, "unreachable follow-up (y=%.0f v=%.0f) kept the latch and was blocked" % [follow_up_y, follow_up_v])
+				return
+
+
+func _simulate_follow_up_rally(follow_up_y: float, follow_up_v: float) -> Dictionary:
+	seed(int(follow_up_y) * 31 + int(follow_up_v))
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var builder: Object = BossAiContextBuilder.new()
+	var ai: Object = BossAiState.new()
+	var detector: Object = BallMotionCollisionDetector.new()
+	var boss_pos := Vector2(380.0 - LIMIT_BOSS_PADDLE_WIDTH * 0.5, 25.0)
+	var boss_vel := 0.0
+
+	# 오프너: 여유 있는 궤도에서 읽기 실패를 확정시킨다.
+	var ball_pos := Vector2(380.0, 700.0)
+	var ball_vel := Vector2(0.0, -20.0)
+	for _frame in range(6):
+		var context: Dictionary = _make_probe_context(builder, owner, registry, boss_pos, ball_pos, ball_vel, 1)
+		var result: Dictionary = ai.update(1.0 / 60.0, boss_pos, boss_vel, context)
+		boss_pos = result.get("boss_pos", boss_pos)
+		boss_vel = float(result.get("boss_vel", boss_vel))
+		ball_pos += ball_vel
+
+	# 후속 킥: 궤도를 보스 코앞으로 다시 쓴다.
+	ball_pos = Vector2(boss_pos.x + LIMIT_BOSS_PADDLE_WIDTH * 0.5, follow_up_y)
+	ball_vel = Vector2(0.0, -follow_up_v)
+	var armed_at_contact := false
+	for _frame in range(400):
+		var context: Dictionary = _make_probe_context(builder, owner, registry, boss_pos, ball_pos, ball_vel, 2)
+		var result: Dictionary = ai.update(1.0 / 60.0, boss_pos, boss_vel, context)
+		boss_pos = result.get("boss_pos", boss_pos)
+		boss_vel = float(result.get("boss_vel", boss_vel))
+		armed_at_contact = bool(ai.prediction_state.kick_read_failure_active)
+		ball_pos += ball_vel
+		context["boss_pos"] = boss_pos
+		var hit: Dictionary = detector.check_paddles(ball_pos, ball_vel, BALL_SIZE, context)
+		if str(hit.get("event", "")) == "boss_paddle":
+			return {"armed_at_contact": armed_at_contact, "blocked": true}
+		if ball_pos.y < BOSS_LINE_Y - 40.0:
+			return {"armed_at_contact": armed_at_contact, "blocked": false}
+	return {"armed_at_contact": armed_at_contact, "blocked": false}
+
+
+# 리졸버 출력 뒤에 붙는 감속 배율을 시뮬레이션이 빼먹으면 게이트가 거짓말을 한다.
+func _test_movement_slow_debuffs_are_respected_by_the_gate() -> void:
+	for start_y in [400.0, 500.0, 600.0]:
+		for speed in [14.0, 20.0, 26.0]:
+			for slow_factor in [0.2, 0.4, 0.7]:
+				var outcome: Dictionary = _simulate_rally(start_y, speed, 0.0, 380.0, false, 1.0, 0.0, {
+					"active_item_spider_mine_slow_active": true,
+					"active_item_spider_mine_slow_factor": slow_factor,
+				})
+				if bool(outcome["armed"]) and bool(outcome["blocked"]):
+					_expect(false, "slowed boss (y=%.0f v=%.0f slow=%.1f) armed a read failure it could not deliver" % [start_y, speed, slow_factor])
+					return
 
 
 # 연계로 다시 때렸다고 이미 얻은 우위를 잃으면 '연계할수록 나빠지는' 역설이 된다.

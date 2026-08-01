@@ -8,6 +8,56 @@ const TURN_SLIDE_BRAKE_MULT: float = 0.48
 const TURN_APPROACH_SLIDE_BRAKE_MULT: float = 0.82
 const TURN_RELEASE_ACCEL_MULT: float = 0.18
 const TURN_RELEASE_MIN_RATIO: float = 0.03
+# 도착 정착 데드존의 하한(px). 실제 데드존은 '정지 상태에서 한 프레임 가속했을
+# 때의 변위'(accel × fps_scale²)로, 이 값은 accel≈0 같은 퇴화 케이스 보호용이다.
+const SETTLE_DEADZONE_MIN_PX: float = 0.05
+
+
+# 리졸버 출력 뒤에 붙는 이동 후처리(채찍 제한 + 각종 감속 배율)의 단일 정본.
+# ⚠️실경로(boss_ai_state._update_motion)와 예측의 도달 가능성 시뮬레이션이 **같은
+# 함수**를 써야 한다. 시뮬레이션만 후처리를 빼먹으면 감속 디버프가 걸린 보스를
+# "충분히 비켜난다"고 오판한다(거미지뢰 감속 스윕에서 45건 중 37건 재현).
+static func apply_movement_post_processing(boss_vel: float, context: Dictionary) -> float:
+	if bool(context.get("stage1_dalji_whip_active", false)):
+		boss_vel = clamp(boss_vel, -1.5, 1.5) * 0.3
+	return boss_vel * get_movement_slow_multiplier(context)
+
+
+const POWER_SMASH_BOSS_REACT_PER_COMBO: float = 0.05
+const POWER_SMASH_BOSS_REACT_CAP: float = 0.30
+
+
+# 반응 배율의 단일 정본. 도달 가능성 시뮬레이션도 같은 값을 써야 실경로와 어긋나지
+# 않는다(파워스매싱 집중 중이면 보스가 더 빨리 반응한다).
+static func get_power_smash_reaction_multiplier(context: Dictionary) -> float:
+	if not bool(context.get("power_smashing_parabola_active", false)):
+		return 1.0
+	var combo_consumed: int = int(context.get("power_smashing_combo_consumed", 0))
+	if combo_consumed < 2:
+		return 1.0
+	return 1.0 + min(float(combo_consumed) * POWER_SMASH_BOSS_REACT_PER_COMBO, POWER_SMASH_BOSS_REACT_CAP)
+
+
+static func get_movement_slow_multiplier(context: Dictionary) -> float:
+	var multiplier := 1.0
+	if bool(context.get("active_item_spider_mine_slow_active", false)):
+		multiplier *= clamp(float(context.get("active_item_spider_mine_slow_factor", 0.4)), 0.05, 1.0)
+	if bool(context.get("smasher_plasma_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("smasher_plasma_boss_slow_multiplier", 1.0)), 0.05, 1.0)
+	if bool(context.get("venom_mist_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("venom_mist_boss_slow_multiplier", 0.3)), 0.05, 1.0)
+	if bool(context.get("baal_boots_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("baal_boots_boss_slow_multiplier", 0.7)), 0.05, 1.0)
+	if bool(context.get("lingpet_star_coil_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("lingpet_star_coil_boss_slow_multiplier", 0.4)), 0.05, 1.0)
+	if bool(context.get("lingpet_dwarf_magic_boss_slow_active", false)):
+		multiplier *= clamp(float(context.get("lingpet_dwarf_magic_boss_slow_multiplier", 0.55)), 0.05, 1.0)
+	# Molotov fire already owns hard movement obstruction through the post-AI
+	# barrier in boss_ai_state. Keep its lingering fire slow as a standalone
+	# smooth-return feel, but do not stack it on top of dedicated boss-slow debuffs.
+	if is_equal_approx(multiplier, 1.0) and bool(context.get("active_item_molotov_slow_active", false)):
+		multiplier *= clamp(float(context.get("active_item_molotov_slow_factor", 1.0)), 0.05, 1.0)
+	return clamp(multiplier, 0.05, 1.0)
 
 
 func update_velocity(
@@ -26,7 +76,10 @@ func update_velocity(
 	var accel: float = base_accel * max(0.0, reaction_multiplier)
 	var max_speed: float = base_max_speed * max(0.0, reaction_multiplier)
 	var decel: float = base_decel * max(0.0, decel_multiplier)
-	var target_dir: int = _get_target_direction(future_x, boss_center)
+	# 한 프레임 가속으로 만들어지는 변위보다 목표 오차가 작으면 '도착'으로 본다.
+	# 아래 _get_target_direction 주석의 한계 순환을 끊는 유일한 지점이다.
+	var settle_deadzone: float = max(SETTLE_DEADZONE_MIN_PX, accel * fps_scale * fps_scale)
+	var target_dir: int = _get_target_direction(future_x, boss_center, settle_deadzone)
 	var reversing: bool = _is_reversing(target_dir, boss_vel)
 	if reversing:
 		return _sanitize_velocity(
@@ -113,10 +166,23 @@ func _decelerate_to_stop(boss_vel: float, fps_scale: float, decel: float) -> flo
 	return move_toward(boss_vel, 0.0, decel * fps_scale)
 
 
-func _get_target_direction(future_x: float, boss_center: float) -> int:
-	if future_x < boss_center:
+# ⚠️데드존 없이 부호만 보면 보스는 목표를 사이에 두고
+# [가속 → 오버슛 → 역전제동 → 재가속]을 매 프레임 반복하는 한계 순환에 빠져
+# 제자리에서 떨린다(실측 peak-to-peak 1.83px, 목표 오차 0.05px에서도 동일).
+# 예측 브레이크(_approach_target)는 '큰 변위'의 오버슛만 잡는다 — 남은 오차가
+# 한 스텝 변위보다 작으면 정지 상태의 브레이크 거리(v²/2decel)가 0이라 언제나
+# 가속 분기로 들어가기 때문이다.
+# 평소엔 공이 금방 도착해 순환이 짧게 끝나지만, 허공환영처럼 공이 느리게
+# 올라와 보스가 목표에 오래 주차돼 있으면 그대로 눈에 보인다.
+# 데드존 크기는 공(28.6px)·보스 패들(100px)·미스 임계(69.3px) 대비 작아
+# 방어 정확도에 미치는 영향은 실질적으로 무시 가능한 범위다.
+func _get_target_direction(future_x: float, boss_center: float, settle_deadzone: float = 0.0) -> int:
+	var distance: float = future_x - boss_center
+	if absf(distance) <= settle_deadzone:
+		return 0
+	if distance < 0.0:
 		return -1
-	if future_x > boss_center:
+	if distance > 0.0:
 		return 1
 	return 0
 
