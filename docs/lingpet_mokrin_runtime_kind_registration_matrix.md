@@ -244,7 +244,7 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 | 계열 | 앵커 | 산출물 |
 |---|---|---|
-| **후면 runtime 몸체** | **승인 변신 시트의 f1** | `companion_idle` + `companion_move_left` / `companion_move_right` (+ `companion_walk` / `_strike` / `_cast` 별칭) |
+| **후면 runtime 몸체** | **팔레트 = 업로드 원화**(AutoSprite pose `Original`) / **형상·실루엣 = 변신 시트 f1** | **S1 산출물은 `companion_idle` PNG 1종뿐**이고 `move_left` / `move_right` / `walk` / `strike` / `cast`는 **전부 그 idle에 별칭**(각 1×1·1f 메타) |
 | **정면 획득·클릭** | **원본 `백린_변신전` 정면 3/4**(별도 베이스 포즈) | `cutin_art` · `cutin_anim` · `cutin_dismiss_anim` · `click_reaction_anim` · **`companion_click_reaction_anim`** — 애니 계열은 **같은 AutoSprite `first_frame_pose_id` 공유** |
 
 ### 생성 전 확정 필수 — 규격표 (rev9)
@@ -254,8 +254,13 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 
 **후면 계열**
 
-✅ **확정 (rev10). 실제 후면 산출물은 `idle` + `L` + `R` + `strike` 4종이다** —
-`walk`와 `cast`는 별도 PNG가 필요 없다.
+✅ **S1 확정 (rev12). 실제 후면 산출물은 `idle` PNG 단 1종이다.**
+`move_left` / `move_right` / `walk` / `strike` / `cast`는 **전부 그 idle PNG에 별칭**하고
+각 키마다 **1×1·1f 메타**를 명시한다 — 즉 S1 후면 계열은 **정적 폴백**이다.
+
+⚠️ 이전 rev10의 "`idle` + `L` + `R` + `strike` 4종"은 **폐기**한다. 이동 시트 생성이
+3회 연속 실패했고(아래 실패 기록), strike는 25프레임이라 QA 면적이 더 커서 같은
+위험에 노출된다. **실제 locomotion 시트와 5×5·25f strike는 후속 슬라이스로 이월**한다.
 
 ### 후면 계열 생성 규율 (rev11 신설)
 
@@ -267,8 +272,14 @@ D10(가드 카운트 기반 잔상·오라·SFX 단계)을 올리려면 **운영
 2. 가능하면 **같은 rear character ID와 idle pose ID를 L/R/strike에 재사용**한다.
 3. **프레임별·시트별 재중앙 금지.** idle에서 확정한 **scale / baseline을 가족 전체에
    동일 적용**한다.
-4. **순차 승인**: idle 승인 전에 L을 생성하지 않는다. **L 승인 후 동일 prompt에서
-   방향·해부학 조항만 바꿔 R을 생성**한다.
+4. **순차 승인 + 생성 순서**: idle 승인 전에 이동 시트를 생성하지 않는다. 이동은
+   **`_move_right`만 네이티브 생성**하고 **`_move_left`는 승인된 right의 per-cell
+   수평 반전으로 파생**한다(2026-08-01 확정). ⚠️ rev11까지 적혀 있던 "L 생성 → L
+   승인 후 R 생성"은 **폐기** — 방향이 반대이고, L을 따로 생성하면 결정적 미러가
+   막아주는 장식 오염 위험에 다시 노출된다.
+5. **프롬프트는 동작만 지정한다.** 장식·보석·색을 **어떤 형태로도** 언급하지 않는다
+   — 색 명시(v2 353px) · **부정문**(v5 384~406px) · **닫힌 열거**(v6 2016px) 세 전략이
+   전부 없던 대형 청록 장식을 키웠다. 형상 서술(꼬리 구조 등)은 유효하다.
 
 > idle 산출 경로는 **(a) 짧은 AutoSprite 시트에서 1프레임을 결정론적으로 추출**이다.
 > AutoSprite-derived 시트의 결정론적 축소는 허용된 후처리다.
@@ -290,9 +301,8 @@ STRIKE_START_FRAME=18, SHEET_FRAME_COUNT-1=24)`, 재생은 `strike_start_frame` 
 | 키 | 그리드·프레임 | 계약 |
 |---|---|---|
 | `companion_idle` | **1×1 · 1f (정적)** | S1에서는 정적 1장. ⚠️ **새 AutoSprite rear-idle 포즈에서 만든 production export여야 하며 변신 f1 크롭 재사용은 금지.** 실제 idle 순환과 renderer 확장은 **후속 슬라이스로 분리**(현재 `IDLE_FRAME := 12` 고정이라 저프레임 idle은 루프가 아니라 마지막 프레임 정지가 된다 — `sprite_animator:10,106~110`) |
-| `companion_move_left` / `_move_right` | **각각 4×2 · 8f** (`cols=4` / `rows=2` / `frame_count=8`), draw **92** | **네이티브 L/R 별도 생성**(미러 아님), **같은 prompt family** 사용 |
-| `companion_walk` | **`companion_move_right` 별칭** + 4×2·8f 메타 | 별도 PNG 없음 |
-| `companion_strike` | **별도 5×5 · 25f 생성** | ⚠️ **별칭 불가.** `get_strike_frame()`은 **`sheet_meta`를 받지 않고** `STRIKE_START_FRAME := 18` ~ `SHEET_FRAME_COUNT - 1`(=24)을 **하드코딩**한다(`sprite_animator:15,77~82`). 8f 별칭이면 **상시 마지막 프레임 클램프**가 된다 |
+| `companion_move_left` / `_move_right` / `companion_walk` | **S1 한정: 각각 1×1 · 1f** (`cols=1` / `rows=1` / `frame_count=1`), draw **92** | ⚠️**S1 한정 정적 활주 폴백이며 "이동 애니메이션 완성"이 아니다.** 세 키 모두 **승인된 `companion_idle` PNG에 별칭**하고 **각 키마다 1×1·1f 메타를 명시**한다(경로 별칭만 하고 메타를 빠뜨리면 25f 기본값으로 슬라이스돼 깨진다). 실제 locomotion은 **후속 슬라이스**로 남긴다.<br>런타임 안전성 확인: `_resolve_frame_count`가 `clampi(raw, 1, cols*rows)`이라 1×1이면 frame_count가 1로 클램프(`sprite_animator:185~190`); 걷기 프레임 3경로 전부 0으로 수렴(`clampi(IDLE_FRAME,0,0)=0`, `int(walk_phase)%1=0`, `int(elapsed*fps)%1=0` — `:110~116`); 텍스처 캐시가 **경로 키**라 세 별칭이 중복 로드되지 않음(`lingpet_visual_texture_cache:54`). 선례: 루나비 `companion_cast` → `lunabi_companion_strike.png`.<br>**후속 locomotion 슬라이스가 지켜야 할 계약**(2026-08-01 확정, 폐기 아님): `_move_right`만 **네이티브 생성**하고 `_move_left`는 **승인된 right의 per-cell 수평 반전**으로 파생한다. 근거 ① 백린 꼬리는 중앙에서 나온 유연한 동작 부속이라 해부학적 고정 좌우 소품이 아니다 ② 코요라·빠나몽·오니마루 현행 3쌍 전부 per-cell 미러 RGBA 완전 일치 ③ **결정적 미러는 장식을 추가할 수 없다**. ⚠️**전체 시트 flip 금지** — 다행 시트는 행 내 열 순서가 뒤집혀 걸음이 `3,2,1,0,7,6,5,4`로 깨지며 알파·임포트·헤드리스 검사를 전부 조용히 통과한다(`sprite-generation` §13.1.1). 검증 = `left[i] == hflip(right[i])` RGBA 동일 **AND** 전체-flip 가설 불일치, 둘 다 단언.<br>**이동 시트 생성 실패 기록**(재시도 전 필독): `iso_walk_northeast` R1 = 얼굴 8/8 노출·사족보행체·가슴 보석 471~740px / `iso_walk_up` R2 = 가슴 보석 1011~1153px 전 프레임 / `iso_walk_up` + `first_frame_pose_id` ④ = 가슴 보석은 제거됐으나(1011~1153px → 대부분 0) **팔레트 8/8 초과**(body ΔE 6.60~8.45 · gate 1.5, gold 3.37~6.55 · gate 2.5) + **f3~f6 strict-rear 회전**(rearLock 진단 86/146/49/57, f4가 최악) + **f4 꼬리고리 폭 게이트 실패** + **f6 신규 비부착 장식 + 토크 높이 실패** + **f3·f6 세 번째 뿔캡**(추가 금색 블롭 421px·490px, 정상 2개). 포즈 고정 유무가 **펜던트 ↔ 그레이딩** 교환으로 관측되나 kind·프롬프트가 함께 달라 **동일 조건 대조가 아니므로 기전 미확정** — ④가 통과하지 못했으므로 "시작 프레임 재해석이 원인"이라는 해석도 성립하지 않는다.<br>⚠️**rearLock 수치는 진단 전용**이다. 깨끗한 이동 **양성** 대조군이 없어 임계값을 세울 수 없다(음성 모집단만으로 임계를 정하면 순환 검증). 기록: v1 idle 9~20 / 변신 f1~f7 18~32 / R1 93~498 / R2 23~130 / ④ 34~146. 후속 슬라이스에서 깨끗한 이동 시트가 나오면 **그 시트를 양성 대조군으로 삼아 사전에** 임계를 고정하고, 그 임계로 같은 시트를 소급 승인하지 않는다 |
+| `companion_strike` | **S1 한정: 1×1 · 1f** (`companion_strike_cols/rows/frame_count = 1/1/1`, `companion_strike_draw_size = 92`) | ⚠️**S1 한정 정적 타격 폴백.** 승인된 `companion_idle` PNG에 별칭한다. **1f에서는 안전하다** — `get_strike_frame()`이 18~24를 반환해도 `get_source_rect()`의 `safe_frame = clampi(frame, 0, frame_count-1)`이 **전부 0으로 클램프**하고 `col=0 % 1=0` / `row=floori(0/1)=0`이 되어 전체 텍스처를 가리킨다(`sprite_animator:169~174`). 즉 rev11의 "별칭 불가 / 8f면 상시 마지막 프레임 클램프"는 **1×1·1f에는 해당하지 않는다**(8f 별칭에서만 성립).<br>**타격 신호**: `WALK_Y_OFFSET=-6.0` → `STRIKE_Y_OFFSET=-12.0`(`:14,23`) 차이로 타격 중 **6px 위로 뜨는 홉**이 생긴다. 지속은 `play_frames × STRIKE_FRAME_TIME(0.036) + STRIKE_FOLLOW_HOLD(0.12)`, `play_frames = max(0, 24 − start)`이고 실전 start 18~22이므로 **0.192~0.336초**. 이 홉을 **S1의 의도된 최소 타격 신호로 승인**한다 — 신규 렌더 코드도 추가 크레딧도 필요 없다.<br>**후속 슬라이스**: 실제 5×5·25f strike는 locomotion과 함께 이월한다. 그때는 오니마루·라호세트 선례대로 **AutoSprite 25f 원본에서 동작 프레임을 골라 runtime 18~24에 재배치**하고 **impact를 22에 정렬**한다(위 프레임 예산 계약 표 참조) |
 | `companion_cast` | **`companion_idle` 별칭** + 1×1·1f 메타 | 묵린변신 중에는 `companion_puppet_control`이 **먼저 선택**되므로 충돌하지 않는다(`draw_context_builder:21~24`) |
 
 **정면 계열**
