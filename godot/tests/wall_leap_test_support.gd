@@ -85,8 +85,11 @@ class OrbProbe:
 class FeedbackProbe:
 	extends RefCounted
 	var flashes := 0
+	var shakes: Array[Vector2] = []
 	func trigger_gauge_flash() -> void:
 		flashes += 1
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		shakes.append(Vector2(amount, intensity))
 
 
 class RegistryProbe:

@@ -2,6 +2,8 @@ extends RefCounted
 
 const BossSlowTiers := preload("res://scripts/status/boss_slow_tiers.gd")
 const BattleViperSpritePaths := preload("res://scripts/resources/battle_viper_sprite_paths.gd")
+const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const SKILL_ID := "wall_leap_raid"
@@ -37,6 +39,13 @@ const BLADE_BURST_DRAW_SIZE := Vector2(126.0, 96.0)
 const BLADE_TRAIL_SOURCE_RECT := Rect2(0.0, 264.0, 954.0, 301.0)
 const BLADE_BURST_SOURCE_RECT := Rect2(14.0, 96.0, 1007.0, 767.0)
 const BLAST_RANGE_X := 50.0
+const BLAST_VFX_SECONDS := 0.46
+const BLAST_CORE_SECONDS := 0.09
+const BLAST_RAY_COUNT := 12
+const BLAST_SPARKLE_COUNT := 8
+const BLAST_SHAKE_AMOUNT := 0.12
+const BLAST_SHAKE_HIT_INTENSITY := 7.0
+const BLAST_SHAKE_MISS_INTENSITY := 5.2
 const SLOW_FRAMES := 300.0
 const SLOW_MULTIPLIER := BossSlowTiers.MEDIUM
 const STUN_FRAMES := 180.0
@@ -75,6 +84,12 @@ var blade_burst_active := false
 var blade_burst_elapsed_seconds := 0.0
 var blade_burst_pos := Vector2.ZERO
 var blade_burst_direction := 1
+var fuse_visual_center := Vector2.ZERO
+var blast_vfx_active := false
+var blast_vfx_elapsed_seconds := 0.0
+var blast_vfx_origin := Vector2.ZERO
+var blast_vfx_hit := false
+var blast_vfx_hit_pos := Vector2.ZERO
 var forced_return_reason := ""
 var last_action := ""
 var last_action_hit := false
@@ -96,6 +111,7 @@ func try_update_or_activate(
 	input_snapshot: Dictionary,
 	now_msec: int
 ) -> Dictionary:
+	_update_presentation_effects(maxf(0.0, delta))
 	if state != STATE_IDLE:
 		return _update_active(runtime, delta, player_pos, special_gauge, config, deps, input_snapshot, now_msec)
 	if not bool(input_snapshot.get("secondary_action_just_pressed", false)):
@@ -111,6 +127,10 @@ func is_active() -> bool:
 	return state != STATE_IDLE
 
 
+func has_visible_effects() -> bool:
+	return is_active() or blade_burst_active or blast_vfx_active
+
+
 func is_input_owned() -> bool:
 	return state != STATE_IDLE
 
@@ -121,16 +141,28 @@ func prewarm_assets() -> void:
 
 
 func prewarm_assets_step() -> bool:
-	if _asset_prewarm_step_index >= PREWARM_PATHS.size():
+	if _asset_prewarm_step_index < PREWARM_PATHS.size():
+		var path: String = str(PREWARM_PATHS[_asset_prewarm_step_index])
+		var texture: Texture2D = ProjectResourceLoader.load_texture(path)
+		if path == BLADE_TRAIL_TEXTURE_PATH:
+			_blade_trail_texture = texture
+		elif path == BLADE_BURST_TEXTURE_PATH:
+			_blade_burst_texture = texture
+		_asset_prewarm_step_index += 1
+		return false
+	if _asset_prewarm_step_index == PREWARM_PATHS.size():
+		if not ImpactFlareTextureCache.prewarm_step():
+			return false
+		_asset_prewarm_step_index += 1
+		return false
+	if _asset_prewarm_step_index == PREWARM_PATHS.size() + 1:
+		if not ImpactShockwaveTextureCache.prewarm_step():
+			return false
+		_asset_prewarm_step_index += 1
+		return false
+	if _asset_prewarm_step_index >= PREWARM_PATHS.size() + 2:
 		_asset_prewarm_step_index = 0
 		return true
-	var path: String = str(PREWARM_PATHS[_asset_prewarm_step_index])
-	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
-	if path == BLADE_TRAIL_TEXTURE_PATH:
-		_blade_trail_texture = texture
-	elif path == BLADE_BURST_TEXTURE_PATH:
-		_blade_burst_texture = texture
-	_asset_prewarm_step_index += 1
 	return false
 
 
@@ -316,6 +348,12 @@ func get_snapshot() -> Dictionary:
 		"wall_leap_raid_blade_direction": blade_direction,
 		"wall_leap_raid_blade_burst_active": blade_burst_active,
 		"wall_leap_raid_blade_burst_pos": blade_burst_pos,
+		"wall_leap_raid_fuse_visual_center": fuse_visual_center,
+		"wall_leap_raid_blast_vfx_active": blast_vfx_active,
+		"wall_leap_raid_blast_vfx_elapsed_seconds": blast_vfx_elapsed_seconds,
+		"wall_leap_raid_blast_vfx_origin": blast_vfx_origin,
+		"wall_leap_raid_blast_vfx_hit": blast_vfx_hit,
+		"wall_leap_raid_blast_vfx_hit_pos": blast_vfx_hit_pos,
 		"wall_leap_raid_elapsed_seconds": elapsed_seconds,
 		"wall_leap_raid_forced_return_reason": forced_return_reason,
 		"wall_leap_raid_last_action": last_action,
@@ -344,6 +382,8 @@ func reset() -> void:
 	blade_burst_elapsed_seconds = 0.0
 	blade_burst_pos = Vector2.ZERO
 	blade_burst_direction = 1
+	fuse_visual_center = Vector2.ZERO
+	_clear_blast_vfx()
 	forced_return_reason = ""
 	last_action = ""
 	last_action_hit = false
@@ -385,6 +425,8 @@ func _begin_entry(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> 
 	lateral_motion_dir = 0
 	_clear_blade_action_state()
 	_clear_blade_burst()
+	_clear_blast_vfx()
+	fuse_visual_center = Vector2.ZERO
 	forced_return_reason = ""
 	last_action = "entry"
 	last_action_hit = false
@@ -395,7 +437,6 @@ func _begin_entry(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> 
 
 func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, input_snapshot: Dictionary, now_msec: int) -> Dictionary:
 	var safe_delta := maxf(0.0, delta)
-	_update_blade_burst(safe_delta)
 	if _return_sound_pending and _play_return_sound(deps):
 		_return_sound_pending = false
 	if state != STATE_RETURN and is_ball_unavailable(config, deps):
@@ -432,6 +473,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 				else:
 					state = STATE_FUSE
 					elapsed_seconds = 0.0
+					fuse_visual_center = _combat_centers(config).get("player", current_pos)
 					last_action = "fuse"
 					last_action_hit = false
 					last_committed_cost = BLAST_COST
@@ -439,6 +481,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 		STATE_FUSE:
 			elapsed_seconds += safe_delta
 			_update_lateral_position(safe_delta, config, input_snapshot)
+			fuse_visual_center = _combat_centers(config).get("player", current_pos)
 			if elapsed_seconds >= FUSE_SECONDS:
 				last_action = "blast"
 				last_action_hit = _commit_blast(config, deps)
@@ -480,6 +523,7 @@ func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false
 	if state == STATE_RETURN:
 		return
 	_clear_blade_action_state(not preserve_slash_animation)
+	fuse_visual_center = Vector2.ZERO
 	state = STATE_RETURN
 	elapsed_seconds = 0.0
 	lateral_motion_dir = 0
@@ -583,6 +627,8 @@ func _finish_blade_flight(hit: bool, deps: Dictionary) -> void:
 func draw_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
+	_draw_fuse_telegraph(canvas, shake_offset)
+	_draw_blast_vfx(canvas, shake_offset)
 	if blade_active and _blade_trail_texture != null:
 		var tip := blade_pos + shake_offset
 		var trail_rect := _blade_tip_rect(tip, blade_direction, BLADE_TRAIL_DRAW_SIZE)
@@ -626,6 +672,69 @@ func _update_blade_burst(delta: float) -> void:
 		_clear_blade_burst()
 
 
+func _update_presentation_effects(delta: float) -> void:
+	_update_blade_burst(delta)
+	if not blast_vfx_active:
+		return
+	blast_vfx_elapsed_seconds += delta
+	if blast_vfx_elapsed_seconds >= BLAST_VFX_SECONDS:
+		_clear_blast_vfx()
+
+
+func _draw_fuse_telegraph(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if state != STATE_FUSE or fuse_visual_center == Vector2.ZERO:
+		return
+	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 4.0)
+	var center := fuse_visual_center + shake_offset
+	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(30.0, 52.0, ratio), Color(0.24, 0.86, 1.0), 0.18 + ratio * 0.24)
+	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(68.0, 29.0, ratio), Color(0.54, 0.94, 1.0), 0.34 + pulse * 0.20)
+	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(43.0, 20.0, ratio), Color(0.72, 0.38, 1.0), 0.18 + ratio * 0.28)
+	for index in range(4):
+		var angle := TAU * float(index) / 4.0 - ratio * TAU * 1.5
+		var orbit_pos := center + Vector2.from_angle(angle) * lerpf(52.0, 23.0, ratio)
+		ImpactFlareTextureCache.draw_sparkle(canvas, orbit_pos, 7.0 + pulse * 3.0, Color(0.76, 0.94, 1.0), 0.42 + ratio * 0.36)
+
+
+func _draw_blast_vfx(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	if not blast_vfx_active:
+		return
+	var ratio := clampf(blast_vfx_elapsed_seconds / BLAST_VFX_SECONDS, 0.0, 1.0)
+	var core_ratio := clampf(blast_vfx_elapsed_seconds / BLAST_CORE_SECONDS, 0.0, 1.0)
+	var fade := pow(1.0 - ratio, 1.35)
+	var flash := pow(1.0 - core_ratio, 2.2)
+	var center := blast_vfx_origin + shake_offset
+	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(54.0, 126.0, ratio), Color(0.20, 0.86, 1.0), fade * 0.72)
+	ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(28.0, 74.0, ratio), Color(0.72, 0.32, 1.0), fade * 0.54)
+	ImpactFlareTextureCache.draw_burst(canvas, center, lerpf(58.0, 148.0, ratio), Color(0.58, 0.94, 1.0), fade * 0.92)
+	if flash > 0.0:
+		canvas.draw_circle(center, lerpf(25.0, 10.0, core_ratio), Color(0.95, 1.0, 1.0, flash * 0.96))
+	_draw_blast_ring(canvas, center, ratio, 0.0, Color(0.52, 0.96, 1.0), 36.0, 142.0)
+	_draw_blast_ring(canvas, center, ratio, 0.16, Color(0.72, 0.34, 1.0), 28.0, 112.0)
+	for index in range(BLAST_RAY_COUNT):
+		var angle := TAU * float(index) / float(BLAST_RAY_COUNT) + 0.17
+		var ray_scale := 0.78 + 0.22 * sin(float(index) * 1.91)
+		var direction := Vector2.from_angle(angle)
+		var inner := center + direction * lerpf(16.0, 46.0, ratio)
+		var outer := center + direction * lerpf(72.0, 168.0 * ray_scale, ratio)
+		canvas.draw_line(inner, outer, Color(0.68, 0.94, 1.0, fade * 0.72), lerpf(4.2, 1.0, ratio), true)
+	for index in range(BLAST_SPARKLE_COUNT):
+		var sparkle_angle := TAU * float(index) / float(BLAST_SPARKLE_COUNT) - 0.31
+		var sparkle_pos := center + Vector2.from_angle(sparkle_angle) * lerpf(42.0, 154.0, ratio)
+		ImpactFlareTextureCache.draw_sparkle(canvas, sparkle_pos, lerpf(15.0, 6.0, ratio), Color(0.84, 0.98, 1.0), fade * 0.88)
+	if blast_vfx_hit:
+		var hit_center := blast_vfx_hit_pos + shake_offset
+		ImpactFlareTextureCache.draw_glow(canvas, hit_center, lerpf(34.0, 74.0, ratio), Color(0.82, 0.38, 1.0), fade * 0.60)
+		ImpactFlareTextureCache.draw_burst(canvas, hit_center, lerpf(30.0, 82.0, ratio), Color(0.96, 0.98, 1.0), fade * 0.74)
+
+
+func _draw_blast_ring(canvas: CanvasItem, center: Vector2, ratio: float, delay: float, color: Color, from_radius: float, to_radius: float) -> void:
+	var phase := clampf((ratio - delay) / maxf(0.001, 1.0 - delay), 0.0, 1.0)
+	if ratio < delay or phase >= 1.0:
+		return
+	ImpactShockwaveTextureCache.draw_full_ring(canvas, center, lerpf(from_radius, to_radius, phase), color, pow(1.0 - phase, 1.4) * 0.92)
+
+
 func _start_blade_burst(position: Vector2, direction: int) -> void:
 	blade_burst_active = true
 	blade_burst_elapsed_seconds = 0.0
@@ -638,6 +747,22 @@ func _clear_blade_burst() -> void:
 	blade_burst_elapsed_seconds = 0.0
 	blade_burst_pos = Vector2.ZERO
 	blade_burst_direction = 1
+
+
+func _start_blast_vfx(origin: Vector2, hit_pos: Vector2, hit: bool) -> void:
+	blast_vfx_active = true
+	blast_vfx_elapsed_seconds = 0.0
+	blast_vfx_origin = origin
+	blast_vfx_hit = hit
+	blast_vfx_hit_pos = hit_pos if hit else origin
+
+
+func _clear_blast_vfx() -> void:
+	blast_vfx_active = false
+	blast_vfx_elapsed_seconds = 0.0
+	blast_vfx_origin = Vector2.ZERO
+	blast_vfx_hit = false
+	blast_vfx_hit_pos = Vector2.ZERO
 
 
 func _clear_blade_action_state(clear_slash_clock: bool = true) -> void:
@@ -706,7 +831,10 @@ func _commit_blast(config: Dictionary, deps: Dictionary) -> bool:
 	var centers := _combat_centers(config)
 	var player_center: Vector2 = centers.get("player", current_pos)
 	var boss_center: Vector2 = centers.get("boss", Vector2.ZERO)
-	if absf(boss_center.x - player_center.x) > BLAST_RANGE_X:
+	var hit := absf(boss_center.x - player_center.x) <= BLAST_RANGE_X
+	_start_blast_vfx(player_center, boss_center, hit)
+	_trigger_blast_feedback(deps, hit)
+	if not hit:
 		return false
 	var knockback_dir := signf(boss_center.x - player_center.x)
 	if is_zero_approx(knockback_dir):
@@ -723,6 +851,17 @@ func _commit_blast(config: Dictionary, deps: Dictionary) -> bool:
 			"cleansable": true,
 		}, SKILL_ID)
 	return true
+
+
+func _trigger_blast_feedback(deps: Dictionary, hit: bool) -> void:
+	var feedback: Object = deps.get("feedback", null)
+	if feedback == null:
+		return
+	var intensity := BLAST_SHAKE_HIT_INTENSITY if hit else BLAST_SHAKE_MISS_INTENSITY
+	if feedback.has_method("max_screen_shake"):
+		feedback.max_screen_shake(BLAST_SHAKE_AMOUNT, intensity)
+	elif feedback.has_method("set_screen_shake"):
+		feedback.set_screen_shake(BLAST_SHAKE_AMOUNT, intensity)
 
 
 func _combat_centers(config: Dictionary) -> Dictionary:

@@ -41,6 +41,8 @@ func _active_fixture() -> Dictionary:
 	var snapshot: Dictionary = fixture["runtime"].get_snapshot()
 	_expect(str(snapshot.get("wall_leap_raid_state", "")) == "blade_flight", "reset fixture must own a live blade")
 	_expect(bool(snapshot.get("wall_leap_raid_blade_active", false)), "reset fixture must start with projectile state to avoid vacuous GREEN")
+	fixture["runtime"].wall_leap_state._start_blast_vfx(Vector2(377.5, 50.0), Vector2(377.5, 45.0), true)
+	_expect(bool(fixture["runtime"].get_snapshot().get("wall_leap_raid_blast_vfx_active", false)), "reset fixture must also own a live detached blast tail")
 	return fixture
 
 
@@ -56,6 +58,8 @@ func _assert_normalized(runtime: Object, label: String) -> void:
 	_expect(not bool(snapshot.get("wall_leap_raid_blade_active", true)), "%s must destroy the blade projectile" % label)
 	_expect(snapshot.get("wall_leap_raid_blade_pos", Vector2.ONE) == Vector2.ZERO, "%s must clear blade position" % label)
 	_expect(not bool(snapshot.get("wall_leap_raid_blade_burst_active", true)), "%s must clear blade burst presentation" % label)
+	_expect(not bool(snapshot.get("wall_leap_raid_blast_vfx_active", true)), "%s must clear detached blast presentation" % label)
+	_expect(snapshot.get("wall_leap_raid_blast_vfx_origin", Vector2.ONE) == Vector2.ZERO, "%s must clear blast presentation coordinates" % label)
 	_expect(bool(runtime.get_ball_collision_context().get("player_guard_available", false)), "%s must restore player guard" % label)
 	_expect(is_equal_approx(float(runtime.get_ball_collision_context().get("ball_motion_step_multiplier", 0.0)), 1.0), "%s must clear ball multiplier" % label)
 

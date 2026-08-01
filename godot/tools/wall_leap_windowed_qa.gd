@@ -8,7 +8,6 @@ const Support := preload("res://tests/wall_leap_test_support.gd")
 const ViperInputReader := preload("res://scripts/characters/viper_input_reader.gd")
 const ViperPlayerController := preload("res://scripts/characters/viper_player_controller.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
-const ViperSkillWallLeapRuntime := preload("res://scripts/characters/viper_skill_wall_leap_runtime.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
 const SmasherSkillOrbTooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
@@ -81,7 +80,7 @@ class QACanvas:
 		var barrier_rect := Rect2(Vector2(20.0, 745.0), Vector2(760.0, 20.0))
 		draw_rect(barrier_rect, Color(0.95, 0.84, 0.36, 0.72), true)
 		var font := ThemeDB.fallback_font
-		draw_string(font, Vector2(38.0, 48.0), "RMB entry -> left-facing sword swing -> blade -> return", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
+		draw_string(font, Vector2(38.0, 48.0), "RMB fuse -> white core -> cyan shockwaves / rays -> return", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
 		draw_string(font, Vector2(38.0, 72.0), "body pass-through: %s | floor save: %s" % [str(body_passthrough), str(floor_save_live)], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.82, 0.92, 1.0))
 		var hover_context := {
 			"scale_factor": 1.0,
@@ -212,17 +211,6 @@ func _run() -> void:
 		"player_directional_attack_grid_cols": 4,
 		"player_directional_attack_grid_rows": 2,
 	}, true)
-	var blade_presentation := ViperSkillWallLeapRuntime.new()
-	blade_presentation.prewarm_assets()
-	blade_presentation.state = ViperSkillWallLeapRuntime.STATE_BLADE_FLIGHT
-	blade_presentation.current_pos = slash_origin_pos
-	blade_presentation.facing_dir = -1
-	blade_presentation.slash_animation_elapsed_seconds = float(blade_snapshot.get("wall_leap_raid_slash_elapsed_seconds", 0.10))
-	blade_presentation.blade_active = true
-	blade_presentation.blade_pos = blade_snapshot.get("wall_leap_raid_blade_pos", Vector2.ZERO)
-	blade_presentation.blade_previous_pos = blade_snapshot.get("wall_leap_raid_blade_previous_pos", Vector2.ZERO)
-	blade_presentation.blade_origin_player_center_x = float(blade_snapshot.get("wall_leap_raid_blade_origin_player_center_x", 0.0))
-	blade_presentation.blade_direction = -1
 	_expect(str(blade_snapshot.get("wall_leap_raid_state", "")) == "blade_flight", "windowed impact frame must enter BLADE_FLIGHT")
 	_expect(bool(blade_snapshot.get("wall_leap_raid_blade_active", false)), "windowed blade must remain visible before range expiry")
 	_expect(int(blade_snapshot.get("wall_leap_raid_blade_direction", 0)) == -1, "left-facing sword sheet and blade must share direction")
@@ -268,9 +256,17 @@ func _run() -> void:
 		if str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", "")) == "return":
 			break
 	var blast_snapshot: Dictionary = fixture["runtime"].get_snapshot()
+	var blast_actor_context: Dictionary = fixture["runtime"].get_actor_draw_context()
+	blast_actor_context.merge({
+		"player_walk_left_texture": load("res://assets/sprites/characters/viper/viper_subculture_left_walk_sheet.png"),
+		"player_walk_right_texture": load("res://assets/sprites/characters/viper/viper_subculture_right_walk_sheet.png"),
+	}, true)
+	var blast_display_pos: Vector2 = blast_snapshot.get("wall_leap_raid_current_pos", infiltrating_pos)
 	_expect(str(blast_snapshot.get("wall_leap_raid_last_action", "")) == "blast", "FUSE must commit blast")
 	_expect(bool(blast_snapshot.get("wall_leap_raid_last_action_hit", false)), "aligned blast must hit")
+	_expect(bool(blast_snapshot.get("wall_leap_raid_blast_vfx_active", false)), "physical RMB blast must own the layered impact presentation")
 	_expect(fixture["status"].calls.any(func(call: Dictionary) -> bool: return str(call.get("status_id", "")) == "stun" and is_equal_approx(float(call.get("duration_frames", 0.0)), 180.0)), "blast must apply the production three-second stun")
+	fixture["runtime"].wall_leap_state.prewarm_assets()
 
 	var viewport := SubViewport.new()
 	viewport.size = VIEW_SIZE
@@ -281,12 +277,12 @@ func _run() -> void:
 	canvas.tooltip_renderer = SmasherSkillOrbTooltipRenderer.new()
 	canvas.player_sprite_renderer = Stage1PlayerSpriteRenderer.new()
 	canvas.skill_data = ViperSkillConfig.new().get_skill_data("wall_leap_raid")
-	canvas.player_actor_context = blade_actor_context
+	canvas.player_actor_context = blast_actor_context
 	canvas.arc_points = arc_points
-	canvas.infiltrating_pos = slash_origin_pos
+	canvas.infiltrating_pos = blast_display_pos
 	canvas.body_passthrough = body_passthrough
 	canvas.floor_save_live = floor_save_live
-	canvas.wall_leap_state = blade_presentation
+	canvas.wall_leap_state = fixture["runtime"].wall_leap_state
 	viewport.add_child(canvas)
 	canvas.queue_redraw()
 	for _index in range(4):
@@ -298,8 +294,7 @@ func _run() -> void:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_PATH.get_base_dir()))
 		_expect(image.save_png(ProjectSettings.globalize_path(OUT_PATH)) == OK, "windowed QA capture must save")
 		_expect(_count_non_background_pixels(image) > 12000, "windowed QA capture must contain the playfield and production tooltip")
-		var actor_sample := image.get_pixel(int(slash_origin_pos.x) + 97, int(slash_origin_pos.y) + 55)
-		_expect(actor_sample.r > 0.35, "production player renderer pixel must preserve the boss color beneath the translucent infiltrator")
+		_expect(_count_blast_pixels(image, blast_snapshot.get("wall_leap_raid_blast_vfx_origin", Vector2.ZERO) + Vector2(20.0, 20.0)) > 900, "windowed capture must contain a substantial cyan-white RMB blast footprint")
 	viewport.queue_free()
 	await process_frame
 	_finish()
@@ -343,6 +338,20 @@ func _count_non_background_pixels(image: Image) -> int:
 			var color := image.get_pixel(x, y)
 			var color_delta := absf(color.r - background.r) + absf(color.g - background.g) + absf(color.b - background.b)
 			if color_delta > 0.08:
+				count += 1
+	return count
+
+
+func _count_blast_pixels(image: Image, center: Vector2) -> int:
+	var count := 0
+	var min_x := maxi(0, int(center.x - 175.0))
+	var max_x := mini(image.get_width(), int(center.x + 175.0))
+	var min_y := maxi(0, int(center.y - 175.0))
+	var max_y := mini(image.get_height(), int(center.y + 175.0))
+	for y in range(min_y, max_y):
+		for x in range(min_x, max_x):
+			var color := image.get_pixel(x, y)
+			if color.b > 0.42 and color.g > 0.30 and color.r > 0.18:
 				count += 1
 	return count
 

@@ -3,7 +3,7 @@ extends RefCounted
 
 func has_visible_effects(runtime: Object) -> bool:
 	return (
-		runtime.wall_leap_state.is_active()
+		runtime.wall_leap_state.has_visible_effects()
 		or has_shadow_step_visuals(runtime)
 		or has_blade_visuals(runtime)
 		or has_nerve_strike_visuals(runtime)
