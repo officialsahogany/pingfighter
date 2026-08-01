@@ -486,7 +486,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 				last_action = "blast"
 				last_action_hit = _commit_blast(config, deps)
 				_play_blast_sound(deps)
-				_begin_return(deps)
+				_begin_return(deps, false, config)
 		STATE_SLASH:
 			lateral_motion_dir = 0
 			elapsed_seconds += safe_delta
@@ -508,7 +508,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 			elapsed_seconds += safe_delta
 			current_pos = _arc_position(tween_start_pos, tween_target_pos, elapsed_seconds / TWEEN_SECONDS)
 			if elapsed_seconds >= TWEEN_SECONDS:
-				current_pos = entry_pos
+				current_pos = tween_target_pos
 				if _landing_cooldown_pending:
 					runtime._trigger_configured_skill_cooldown(SKILL_ID, runtime.visibility_query.get_viper_skill_config(deps), deps, now_msec)
 					runtime._trigger_orb_gauge_spin(deps, now_msec)
@@ -519,7 +519,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 	return _handled_result(special_gauge, false)
 
 
-func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false) -> void:
+func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false, ball_return_config: Dictionary = {}) -> void:
 	if state == STATE_RETURN:
 		return
 	_clear_blade_action_state(not preserve_slash_animation)
@@ -528,7 +528,7 @@ func _begin_return(deps: Dictionary = {}, preserve_slash_animation: bool = false
 	elapsed_seconds = 0.0
 	lateral_motion_dir = 0
 	tween_start_pos = current_pos
-	tween_target_pos = entry_pos
+	tween_target_pos = _ball_aligned_return_pos(ball_return_config) if not ball_return_config.is_empty() else entry_pos
 	_landing_cooldown_pending = true
 	_return_sound_pending = not _play_return_sound(deps)
 
@@ -585,7 +585,7 @@ func _update_blade_flight(delta: float, config: Dictionary, deps: Dictionary) ->
 		_commit_blade_hit(config, deps)
 		return
 	if is_equal_approx(blade_pos.x, range_limit_x) or is_equal_approx(blade_pos.x, wall_limit_x):
-		_finish_blade_flight(false, deps)
+		_finish_blade_flight(false, config, deps)
 
 
 func _blade_segment_hits_boss(from_x: float, to_x: float, config: Dictionary) -> bool:
@@ -609,16 +609,16 @@ func _commit_blade_hit(config: Dictionary, deps: Dictionary) -> void:
 		status_effect_state.apply_status("boss", "slow", SLOW_FRAMES, {"multiplier": SLOW_MULTIPLIER, "cleansable": true}, SKILL_ID)
 	last_action_hit = true
 	blade_pos.x = boss_center.x
-	_finish_blade_flight(true, deps)
+	_finish_blade_flight(true, config, deps)
 
 
-func _finish_blade_flight(hit: bool, deps: Dictionary) -> void:
+func _finish_blade_flight(hit: bool, config: Dictionary, deps: Dictionary) -> void:
 	if not blade_active:
 		return
 	var impact_pos := blade_pos
 	var impact_direction := blade_direction
 	blade_active = false
-	_begin_return(deps, true)
+	_begin_return(deps, true, config)
 	_start_blade_burst(impact_pos, impact_direction)
 	if not hit:
 		last_action_hit = false
@@ -869,6 +869,16 @@ func _combat_centers(config: Dictionary) -> Dictionary:
 	var boss_pos := _vector2(config.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
 	var boss_size := _vector2(config.get("boss_paddle_size", Vector2(float(config.get("boss_paddle_width", 100.0)), float(config.get("boss_hitbox_height", 40.0)))), Vector2(100.0, 40.0))
 	return {"player": current_pos + player_size * 0.5, "boss": boss_pos + boss_size * 0.5}
+
+
+func _ball_aligned_return_pos(config: Dictionary) -> Vector2:
+	if not config.has("ball_pos") or not (config.get("ball_pos") is Vector2):
+		return entry_pos
+	var ball_center: Vector2 = config.get("ball_pos", Vector2.ZERO)
+	var paddle_width := maxf(1.0, float(config.get("paddle_width", config.get("player_paddle_width", 155.0))))
+	var width := maxf(paddle_width, float(config.get("width", 760.0)))
+	var target_x := clampf(ball_center.x - paddle_width * 0.5, 0.0, width - paddle_width)
+	return Vector2(target_x, entry_pos.y)
 
 
 func _handled_result(special_gauge: float, activated: bool, collision_cooldown: float = -1.0) -> Dictionary:
