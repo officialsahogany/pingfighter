@@ -16,6 +16,9 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const VIEW_SIZE := Vector2i(1200, 800)
 const OUT_PATH := "res://.godot/codex_logs/wall_leap_windowed_qa.png"
+const BODY_HEAT_OUT_PATH := "res://.godot/codex_logs/wall_leap_body_heat_full_windowed.png"
+const BODY_HEAT_CROP_OUT_PATH := "res://.godot/codex_logs/wall_leap_body_heat_crop_windowed.png"
+const BODY_WHITE_HOT_CROP_OUT_PATH := "res://.godot/codex_logs/wall_leap_body_white_hot_crop_windowed.png"
 
 var _support := Support.new()
 var _failures: Array[String] = []
@@ -81,8 +84,8 @@ class QACanvas:
 		var barrier_rect := Rect2(Vector2(20.0, 745.0), Vector2(760.0, 20.0))
 		draw_rect(barrier_rect, Color(0.95, 0.84, 0.36, 0.72), true)
 		var font := ThemeDB.fallback_font
-		draw_string(font, Vector2(38.0, 48.0), "RMB burning fuse -> ink blast -> predicted ball-arrival X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
-		draw_string(font, Vector2(38.0, 72.0), "body pass-through: %s | floor save: %s" % [str(body_passthrough), str(floor_save_live)], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.82, 0.92, 1.0))
+		draw_string(font, Vector2(38.0, 188.0), "RMB Serin body heat -> body detonation -> predicted ball-arrival X", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color.WHITE)
+		draw_string(font, Vector2(38.0, 212.0), "body pass-through: %s | floor save: %s" % [str(body_passthrough), str(floor_save_live)], HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.82, 0.92, 1.0))
 		var hover_context := {
 			"scale_factor": 1.0,
 			"view_size": Vector2(VIEW_SIZE),
@@ -253,7 +256,78 @@ func _run() -> void:
 	_expect(is_equal_approx(float(fuse_result.get("special_gauge", -1.0)), 250.0), "FUSE commit must spend 150 gauge")
 	await _set_mouse(MOUSE_BUTTON_RIGHT, false)
 	_step_controller(fixture, controller)
-	for _index in range(50):
+	for _index in range(21):
+		await physics_frame
+		_step_controller(fixture, controller)
+	var fuse_snapshot: Dictionary = fixture["runtime"].get_snapshot()
+	var fuse_actor_context: Dictionary = fixture["runtime"].get_actor_draw_context()
+	fuse_actor_context.merge({
+		"player_walk_left_texture": load("res://assets/sprites/characters/viper/viper_subculture_left_walk_sheet.png"),
+		"player_walk_right_texture": load("res://assets/sprites/characters/viper/viper_subculture_right_walk_sheet.png"),
+		"player_speed": -1.0,
+		"player_walk_direction": -1,
+	}, true)
+	_expect(str(fuse_snapshot.get("wall_leap_raid_state", "")) == "fuse", "mid-FUSE production capture must keep Serin in the body-heat state")
+	_expect(float(fuse_actor_context.get("viper_wall_leap_raid_body_heat_ratio", 0.0)) > 0.45, "mid-FUSE production actor context must heat Serin's body")
+	var fuse_viewport := SubViewport.new()
+	fuse_viewport.size = VIEW_SIZE
+	fuse_viewport.transparent_bg = false
+	fuse_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(fuse_viewport)
+	var fuse_canvas := QACanvas.new()
+	fuse_canvas.tooltip_renderer = SmasherSkillOrbTooltipRenderer.new()
+	fuse_canvas.player_sprite_renderer = Stage1PlayerSpriteRenderer.new()
+	fuse_canvas.skill_data = ViperSkillConfig.new().get_skill_data("wall_leap_raid")
+	fuse_canvas.player_actor_context = fuse_actor_context
+	fuse_canvas.arc_points = arc_points
+	fuse_canvas.infiltrating_pos = fuse_snapshot.get("wall_leap_raid_current_pos", infiltrating_pos)
+	fuse_canvas.body_passthrough = body_passthrough
+	fuse_canvas.floor_save_live = floor_save_live
+	fuse_canvas.wall_leap_state = fixture["runtime"].wall_leap_state
+	fuse_viewport.add_child(fuse_canvas)
+	fixture["runtime"].wall_leap_state.prewarm_runtime_nodes(fuse_canvas)
+	fuse_canvas.queue_redraw()
+	for _index in range(4):
+		await process_frame
+	await RenderingServer.frame_post_draw
+	var fuse_image: Image = fuse_viewport.get_texture().get_image()
+	_expect(fuse_image != null and not fuse_image.is_empty(), "body-heat production capture must render")
+	if fuse_image != null and not fuse_image.is_empty():
+		_expect(fuse_image.save_png(ProjectSettings.globalize_path(BODY_HEAT_OUT_PATH)) == OK, "body-heat production capture must save")
+		var fuse_center: Vector2 = fuse_snapshot.get("wall_leap_raid_fuse_visual_center", Vector2.ZERO) + Vector2(20.0, 20.0)
+		_expect(_count_body_heat_pixels(fuse_image, fuse_center) > 1800, "production renderer must show a substantial red Serin body and attached heat aura")
+		var crop_rect := Rect2i(Vector2i(fuse_center) - Vector2i(100, 100), Vector2i(200, 200))
+		var body_heat_crop := fuse_image.get_region(crop_rect)
+		_expect(body_heat_crop.save_png(ProjectSettings.globalize_path(BODY_HEAT_CROP_OUT_PATH)) == OK, "body-heat production crop must save for close visual review")
+	for _index in range(18):
+		await physics_frame
+		_step_controller(fixture, controller)
+	var white_hot_snapshot: Dictionary = fixture["runtime"].get_snapshot()
+	var white_hot_actor_context: Dictionary = fixture["runtime"].get_actor_draw_context()
+	white_hot_actor_context.merge({
+		"player_walk_left_texture": load("res://assets/sprites/characters/viper/viper_subculture_left_walk_sheet.png"),
+		"player_walk_right_texture": load("res://assets/sprites/characters/viper/viper_subculture_right_walk_sheet.png"),
+		"player_speed": -1.0,
+		"player_walk_direction": -1,
+	}, true)
+	_expect(str(white_hot_snapshot.get("wall_leap_raid_state", "")) == "fuse", "late production capture must precede the blast commit")
+	_expect(float(white_hot_actor_context.get("viper_wall_leap_raid_body_heat_ratio", 0.0)) > 0.96, "late production capture must reach Serin's white-hot body phase")
+	fuse_canvas.player_actor_context = white_hot_actor_context
+	fuse_canvas.infiltrating_pos = white_hot_snapshot.get("wall_leap_raid_current_pos", infiltrating_pos)
+	fuse_canvas.queue_redraw()
+	for _index in range(4):
+		await process_frame
+	await RenderingServer.frame_post_draw
+	var white_hot_image: Image = fuse_viewport.get_texture().get_image()
+	_expect(white_hot_image != null and not white_hot_image.is_empty(), "white-hot production capture must render")
+	if white_hot_image != null and not white_hot_image.is_empty():
+		var white_hot_center: Vector2 = white_hot_snapshot.get("wall_leap_raid_fuse_visual_center", Vector2.ZERO) + Vector2(20.0, 20.0)
+		var white_hot_rect := Rect2i(Vector2i(white_hot_center) - Vector2i(100, 100), Vector2i(200, 200))
+		var white_hot_crop := white_hot_image.get_region(white_hot_rect)
+		_expect(white_hot_crop.save_png(ProjectSettings.globalize_path(BODY_WHITE_HOT_CROP_OUT_PATH)) == OK, "white-hot production crop must save for close visual review")
+	fuse_viewport.queue_free()
+	await process_frame
+	for _index in range(11):
 		await physics_frame
 		_step_controller(fixture, controller)
 		if str(fixture["runtime"].get_snapshot().get("wall_leap_raid_state", "")) == "return":
@@ -365,6 +439,23 @@ func _count_blast_pixels(image: Image, center: Vector2) -> int:
 			var warm_core := color.r > 0.44 and color.g > 0.14 and color.r > color.b * 1.18
 			var ink_smoke := color.b > color.r * 1.08 and color.b > 0.10 and color.r < 0.34
 			if warm_core or ink_smoke:
+				count += 1
+	return count
+
+
+func _count_body_heat_pixels(image: Image, center: Vector2) -> int:
+	var count := 0
+	var radius_squared := 95.0 * 95.0
+	var min_x := maxi(0, int(center.x - 95.0))
+	var max_x := mini(image.get_width(), int(center.x + 95.0))
+	var min_y := maxi(0, int(center.y - 95.0))
+	var max_y := mini(image.get_height(), int(center.y + 95.0))
+	for y in range(min_y, max_y):
+		for x in range(min_x, max_x):
+			if Vector2(float(x), float(y)).distance_squared_to(center) > radius_squared:
+				continue
+			var color := image.get_pixel(x, y)
+			if color.r > 0.18 and color.r > color.g * 1.35 and color.r > color.b * 1.12:
 				count += 1
 	return count
 

@@ -1,24 +1,21 @@
 extends Node2D
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ViperWallLeapBodyCoreFx := preload("res://scripts/characters/viper_wall_leap_body_core_fx.gd")
 
 const SMOKE_BLOOM_TEXTURE_PATH := "res://assets/sprites/characters/viper/wall_leap_raid/serin_blast_smoke_bloom_imagegen_v1.png"
 const BLADE_SHARDS_TEXTURE_PATH := "res://assets/sprites/characters/viper/wall_leap_raid/serin_blast_blade_shards_imagegen_v1.png"
 const SHOCK_RING_TEXTURE_PATH := "res://assets/sprites/characters/viper/wall_leap_raid/serin_blast_shock_ring_imagegen_v1.png"
-const POWDER_CHARGE_TEXTURE_PATH := "res://assets/sprites/characters/viper/wall_leap_raid/serin_blast_powder_charge_imagegen_v1.png"
 
 const SMOKE_DIAMETER := 334.0
 const SHARDS_DIAMETER := 286.0
 const SHOCK_RING_DIAMETER := 390.0
-const POWDER_CHARGE_DIAMETER := 104.0
 const SMOKE_BLEND_MODE := CanvasItemMaterial.BLEND_MODE_MIX
 const LIGHT_BLEND_MODE := CanvasItemMaterial.BLEND_MODE_ADD
-const PHASE_FUSE := "fuse"
 
 static var _smoke_bloom_texture: Texture2D = null
 static var _blade_shards_texture: Texture2D = null
 static var _shock_ring_texture: Texture2D = null
-static var _powder_charge_texture: Texture2D = null
 static var _prewarm_step_index := 0
 static var _prewarmed := false
 
@@ -27,7 +24,7 @@ var _playfield_clip: Control = null
 var _smoke_sprite: Sprite2D = null
 var _blade_shards_sprite: Sprite2D = null
 var _shock_ring_sprite: Sprite2D = null
-var _powder_charge_sprite: Sprite2D = null
+var _body_core_fx = null
 var _mix_material: CanvasItemMaterial = null
 var _additive_material: CanvasItemMaterial = null
 
@@ -47,8 +44,6 @@ static func prewarm_assets_step() -> bool:
 			_blade_shards_texture = ProjectResourceLoader.load_texture(BLADE_SHARDS_TEXTURE_PATH)
 		2:
 			_shock_ring_texture = ProjectResourceLoader.load_texture(SHOCK_RING_TEXTURE_PATH)
-		3:
-			_powder_charge_texture = ProjectResourceLoader.load_texture(POWDER_CHARGE_TEXTURE_PATH)
 		_:
 			_prewarmed = true
 			_prewarm_step_index = 0
@@ -61,16 +56,13 @@ static func build_pipeline_status() -> Dictionary:
 	prewarm_assets()
 	return {
 		"wall_leap_blast_texture_layer_count": 3,
-		"wall_leap_fx_texture_layer_count": 4,
+		"wall_leap_fx_texture_layer_count": 3,
 		"wall_leap_blast_smoke_blend_mode": "mix" if SMOKE_BLEND_MODE == CanvasItemMaterial.BLEND_MODE_MIX else "not_mix",
 		"wall_leap_blast_blade_shards_blend_mode": "add" if LIGHT_BLEND_MODE == CanvasItemMaterial.BLEND_MODE_ADD else "not_add",
 		"wall_leap_blast_shock_ring_blend_mode": "add" if LIGHT_BLEND_MODE == CanvasItemMaterial.BLEND_MODE_ADD else "not_add",
-		"wall_leap_fuse_powder_charge_blend_mode": "mix" if SMOKE_BLEND_MODE == CanvasItemMaterial.BLEND_MODE_MIX else "not_mix",
 		"wall_leap_blast_smoke_texture_path": SMOKE_BLOOM_TEXTURE_PATH,
 		"wall_leap_blast_blade_shards_texture_path": BLADE_SHARDS_TEXTURE_PATH,
 		"wall_leap_blast_shock_ring_texture_path": SHOCK_RING_TEXTURE_PATH,
-		"wall_leap_fuse_powder_charge_texture_path": POWDER_CHARGE_TEXTURE_PATH,
-		"wall_leap_fuse_powder_charge_texture_ready": _is_png_texture_ready(POWDER_CHARGE_TEXTURE_PATH, _powder_charge_texture),
 		"wall_leap_blast_texture_pieces_ready": (
 			_is_png_texture_ready(SMOKE_BLOOM_TEXTURE_PATH, _smoke_bloom_texture)
 			and _is_png_texture_ready(BLADE_SHARDS_TEXTURE_PATH, _blade_shards_texture)
@@ -80,7 +72,6 @@ static func build_pipeline_status() -> Dictionary:
 			_is_png_texture_ready(SMOKE_BLOOM_TEXTURE_PATH, _smoke_bloom_texture)
 			and _is_png_texture_ready(BLADE_SHARDS_TEXTURE_PATH, _blade_shards_texture)
 			and _is_png_texture_ready(SHOCK_RING_TEXTURE_PATH, _shock_ring_texture)
-			and _is_png_texture_ready(POWDER_CHARGE_TEXTURE_PATH, _powder_charge_texture)
 		),
 	}
 
@@ -138,17 +129,16 @@ func can_handle_state(next_state: Dictionary) -> bool:
 
 func get_layer_status() -> Dictionary:
 	return {
-		"layer_count": 4,
+		"layer_count": 3,
 		"blast_layer_count": 3,
 		"playfield_clip_active": _playfield_clip != null and _playfield_clip.clip_contents,
 		"smoke_visible": _smoke_sprite != null and _smoke_sprite.visible,
 		"blade_shards_visible": _blade_shards_sprite != null and _blade_shards_sprite.visible,
 		"shock_ring_visible": _shock_ring_sprite != null and _shock_ring_sprite.visible,
-		"powder_charge_visible": _powder_charge_sprite != null and _powder_charge_sprite.visible,
+		"body_core_visible": _body_core_fx != null and _body_core_fx.visible,
 		"smoke_blend_mode": _material_blend_mode(_smoke_sprite),
 		"blade_shards_blend_mode": _material_blend_mode(_blade_shards_sprite),
 		"shock_ring_blend_mode": _material_blend_mode(_shock_ring_sprite),
-		"powder_charge_blend_mode": _material_blend_mode(_powder_charge_sprite),
 	}
 
 
@@ -171,8 +161,12 @@ func _build_children() -> void:
 		_shock_ring_sprite = _make_sprite("SerinBlastShockRing", _shock_ring_texture, _additive_material, 1)
 	if _blade_shards_sprite == null:
 		_blade_shards_sprite = _make_sprite("SerinBlastBladeShards", _blade_shards_texture, _additive_material, 2)
-	if _powder_charge_sprite == null:
-		_powder_charge_sprite = _make_sprite("SerinFusePowderCharge", _powder_charge_texture, _mix_material, 3)
+	if _body_core_fx == null:
+		_body_core_fx = ViperWallLeapBodyCoreFx.new()
+		_body_core_fx.name = "SerinBodyDetonationCore"
+		_body_core_fx.z_index = 3
+		_body_core_fx.visible = false
+		_playfield_clip.add_child(_body_core_fx)
 
 
 func _make_sprite(sprite_name: String, texture: Texture2D, material: Material, layer_z: int) -> Sprite2D:
@@ -200,25 +194,14 @@ func _apply_state() -> void:
 	_playfield_clip.visible = true
 	var origin_local := origin - playfield_origin
 	var hit_origin_local := hit_origin - playfield_origin
-	_powder_charge_sprite.visible = false
-	if str(_state.get("phase", "blast")) == PHASE_FUSE:
-		_smoke_sprite.visible = false
-		_shock_ring_sprite.visible = false
-		_blade_shards_sprite.visible = false
-		var powder_charge_screen: Vector2 = _state.get("powder_charge_screen", origin)
-		_powder_charge_sprite.visible = _powder_charge_sprite.texture != null
-		_powder_charge_sprite.position = powder_charge_screen - playfield_origin
-		_powder_charge_sprite.rotation = 0.0
-		_set_sprite_diameter(_powder_charge_sprite, POWDER_CHARGE_DIAMETER * render_scale)
-		_powder_charge_sprite.modulate = Color.WHITE
-		return
-
+	_body_core_fx.position = origin_local
+	_body_core_fx.sync_progress(float(_state.get("body_core_progress", 1.0)))
 	var expansion := 1.0 - pow(1.0 - ratio, 3.0)
 	var smoke_fade := pow(1.0 - ratio, 0.62)
 	_smoke_sprite.visible = _smoke_sprite.texture != null and smoke_fade > 0.01
 	_smoke_sprite.position = origin_local + Vector2(lerpf(-7.0, 12.0, ratio), lerpf(8.0, -25.0, ratio)) * render_scale
 	_smoke_sprite.rotation = lerpf(-0.055, 0.035, ratio)
-	_set_sprite_diameter(_smoke_sprite, lerpf(224.0, SMOKE_DIAMETER, expansion) * render_scale)
+	_set_sprite_diameter(_smoke_sprite, lerpf(92.0, SMOKE_DIAMETER, expansion) * render_scale)
 	_smoke_sprite.modulate = Color(0.94, 0.97, 1.0, 0.96 * smoke_fade)
 
 	var ring_ratio := clampf(ratio / 0.62, 0.0, 1.0)
@@ -226,7 +209,7 @@ func _apply_state() -> void:
 	_shock_ring_sprite.visible = _shock_ring_sprite.texture != null and ring_ratio < 1.0
 	_shock_ring_sprite.position = ring_origin
 	_shock_ring_sprite.rotation = lerpf(-0.10, 0.09, ring_ratio)
-	_set_sprite_diameter(_shock_ring_sprite, lerpf(102.0, SHOCK_RING_DIAMETER, 1.0 - pow(1.0 - ring_ratio, 2.6)) * render_scale)
+	_set_sprite_diameter(_shock_ring_sprite, lerpf(46.0, SHOCK_RING_DIAMETER, 1.0 - pow(1.0 - ring_ratio, 2.6)) * render_scale)
 	_shock_ring_sprite.modulate = Color(1.0, 0.94, 0.86, pow(1.0 - ring_ratio, 1.22))
 
 	var shards_ratio := clampf(ratio / 0.78, 0.0, 1.0)
@@ -235,16 +218,18 @@ func _apply_state() -> void:
 	_blade_shards_sprite.visible = _blade_shards_sprite.texture != null and shards_fade > 0.01
 	_blade_shards_sprite.position = origin_local + Vector2(lerpf(-5.0, 18.0, shards_ratio), lerpf(3.0, -16.0, shards_ratio)) * render_scale
 	_blade_shards_sprite.rotation = lerpf(-0.075, 0.085, shards_ratio)
-	_set_sprite_diameter(_blade_shards_sprite, lerpf(112.0, SHARDS_DIAMETER, 1.0 - pow(1.0 - shards_ratio, 2.2)) * render_scale)
+	_set_sprite_diameter(_blade_shards_sprite, lerpf(64.0, SHARDS_DIAMETER, 1.0 - pow(1.0 - shards_ratio, 2.2)) * render_scale)
 	_blade_shards_sprite.modulate = Color(1.0, 0.90, 0.97, shards_fade)
 
 
 func _hide_layers() -> void:
 	if _playfield_clip != null:
 		_playfield_clip.visible = false
-	for sprite in [_smoke_sprite, _blade_shards_sprite, _shock_ring_sprite, _powder_charge_sprite]:
+	for sprite in [_smoke_sprite, _blade_shards_sprite, _shock_ring_sprite]:
 		if sprite != null:
 			sprite.visible = false
+	if _body_core_fx != null:
+		_body_core_fx.set_active(false)
 
 
 func _set_sprite_diameter(sprite: Sprite2D, diameter: float) -> void:

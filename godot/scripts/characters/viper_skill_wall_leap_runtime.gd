@@ -44,22 +44,15 @@ const BLAST_SHARDS_TAIL_SECONDS := 0.78
 const BLAST_SHAKE_AMOUNT := 0.12
 const BLAST_SHAKE_HIT_INTENSITY := 7.0
 const BLAST_SHAKE_MISS_INTENSITY := 5.2
-const FUSE_WICK_GLOW_WIDTH := 14.0
-const FUSE_WICK_OUTLINE_WIDTH := 10.0
-const FUSE_WICK_CORE_WIDTH := 5.2
-const FUSE_EMBER_VISUAL_SCALE := 1.0
-const FUSE_WICK_POINTS: Array[Vector2] = [
-	Vector2(-68.0, 25.0),
-	Vector2(-59.0, 13.0),
-	Vector2(-48.0, 5.0),
-	Vector2(-36.0, 7.0),
-	Vector2(-24.0, 16.0),
-	Vector2(-11.0, 17.0),
-	Vector2(2.0, 10.0),
-	Vector2(13.0, -2.0),
-	Vector2(24.0, -11.0),
-	Vector2(37.0, -13.0),
-]
+const INFILTRATION_SPRITE_MODULATE := Color(0.76, 0.90, 1.0, 0.56)
+const FUSE_BODY_RED_MODULATE := Color(1.72, 0.24, 0.10, 0.92)
+const FUSE_BODY_WHITE_HOT_MODULATE := Color(2.05, 1.08, 0.48, 1.0)
+const FUSE_BODY_WHITE_HOT_START_RATIO := 0.78
+const FUSE_BODY_AURA_MIN_DIAMETER := 68.0
+const FUSE_BODY_AURA_MAX_DIAMETER := 148.0
+const BLAST_BODY_CORE_SECONDS := 0.16
+const BLAST_BODY_VANISH_SECONDS := 0.075
+const BLAST_BODY_REMATERIALIZE_SECONDS := 0.18
 const SLOW_FRAMES := 300.0
 const SLOW_MULTIPLIER := BossSlowTiers.MEDIUM
 const STUN_FRAMES := 180.0
@@ -196,7 +189,8 @@ func get_blast_vfx_pipeline_status() -> Dictionary:
 	var status := ViperWallLeapBlastFxHost.build_pipeline_status()
 	status["wall_leap_blast_core_seconds"] = BLAST_VFX_SECONDS
 	status["wall_leap_blast_shards_tail_seconds"] = BLAST_SHARDS_TAIL_SECONDS
-	status["wall_leap_fuse_ember_visual_scale"] = FUSE_EMBER_VISUAL_SCALE
+	status["wall_leap_fuse_body_heat_seconds"] = FUSE_SECONDS
+	status["wall_leap_blast_body_core_seconds"] = BLAST_BODY_CORE_SECONDS
 	return status
 
 
@@ -323,14 +317,17 @@ func is_ball_unavailable_from_owner(owner: Object, registry: Object) -> bool:
 func get_actor_draw_context() -> Dictionary:
 	if not is_active():
 		return {}
+	var body_heat_ratio := _get_body_heat_ratio()
 	var context := {
 		"player_pos": current_pos,
 		"player_speed": float(lateral_motion_dir),
-		"player_sprite_modulate": Color(0.76, 0.90, 1.0, 0.56),
+		"player_sprite_modulate": _get_actor_sprite_modulate(body_heat_ratio),
 		"player_walk_direction": facing_dir,
 		"viper_wall_leap_raid_visual_y_offset": maxf(0.0, INFILTRATION_VISUAL_MIN_Y - current_pos.y),
 		"viper_wall_leap_raid_active": true,
 		"viper_wall_leap_raid_state": state,
+		"viper_wall_leap_raid_body_heat_active": state == STATE_FUSE,
+		"viper_wall_leap_raid_body_heat_ratio": body_heat_ratio,
 	}
 	if _is_slash_animation_visible():
 		context.merge({
@@ -514,7 +511,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 				else:
 					state = STATE_FUSE
 					elapsed_seconds = 0.0
-					fuse_visual_center = _combat_centers(config).get("player", current_pos)
+					fuse_visual_center = _presentation_body_center(config)
 					last_action = "fuse"
 					last_action_hit = false
 					last_committed_cost = BLAST_COST
@@ -522,7 +519,7 @@ func _update_active(runtime: Object, delta: float, player_pos: Vector2, special_
 		STATE_FUSE:
 			elapsed_seconds += safe_delta
 			_update_lateral_position(safe_delta, config, input_snapshot)
-			fuse_visual_center = _combat_centers(config).get("player", current_pos)
+			fuse_visual_center = _presentation_body_center(config)
 			if elapsed_seconds >= FUSE_SECONDS:
 				last_action = "blast"
 				last_action_hit = _commit_blast(config, deps)
@@ -668,7 +665,7 @@ func _finish_blade_flight(hit: bool, config: Dictionary, deps: Dictionary) -> vo
 func draw_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, node_fx_layout: Dictionary = {}) -> void:
 	if canvas == null:
 		return
-	_draw_fuse_telegraph(canvas, shake_offset)
+	_draw_body_heat_telegraph(canvas, shake_offset)
 	if not _sync_blast_fx_host(canvas, shake_offset, node_fx_layout):
 		_draw_blast_vfx_fallback(canvas, shake_offset)
 	if blade_active and _blade_trail_texture != null:
@@ -723,92 +720,43 @@ func _update_presentation_effects(delta: float) -> void:
 		_clear_blast_vfx()
 
 
-func _draw_fuse_telegraph(canvas: CanvasItem, shake_offset: Vector2) -> void:
+func _draw_body_heat_telegraph(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if state != STATE_FUSE or fuse_visual_center == Vector2.ZERO:
 		return
 	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0)
+	var heat_ratio := _smoothstep(ratio)
 	var center := fuse_visual_center + shake_offset
-	var wick := _build_remaining_wick(center, ratio)
-	if wick.size() >= 2:
-		canvas.draw_polyline(wick, Color(1.0, 0.24, 0.035, 0.20), FUSE_WICK_GLOW_WIDTH, true)
-		canvas.draw_polyline(wick, Color(0.035, 0.025, 0.030, 0.99), FUSE_WICK_OUTLINE_WIDTH, true)
-		canvas.draw_polyline(wick, Color(0.92, 0.34, 0.055, 0.99), FUSE_WICK_CORE_WIDTH, true)
-		canvas.draw_polyline(wick, Color(1.0, 0.72, 0.24, 0.82), 1.8, true)
-	var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
-	var ember_pos: Vector2 = wick[0] if not wick.is_empty() else center + charge_offset
-	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 7.0)
-	var ember_scale := FUSE_EMBER_VISUAL_SCALE
-	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, (25.0 + pulse * 6.0) * ember_scale, Color(1.0, 0.25, 0.025), 0.78 + ratio * 0.16)
-	ImpactFlareTextureCache.draw_glow(canvas, ember_pos, (12.0 + pulse * 3.0) * ember_scale, Color(1.0, 0.68, 0.16), 0.94)
-	ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos, (11.5 + pulse * 3.5) * ember_scale, Color(1.0, 0.96, 0.78), 0.98)
-	var trailing_sparks: Array[Vector2] = [
-		Vector2(-8.0, -11.0 - pulse * 4.0),
-		Vector2(9.0, -7.0 + pulse * 2.0),
-		Vector2(-15.0, -3.0 + pulse * 3.0),
-		Vector2(4.0, -18.0 - pulse * 2.0),
-	]
-	for index in range(trailing_sparks.size()):
-		var spark_radius := (4.5 - float(index) * 0.55) * ember_scale
-		var spark_color := Color(1.0, 0.46, 0.08) if index < 3 else Color(0.82, 0.22, 0.74)
-		ImpactFlareTextureCache.draw_sparkle(canvas, ember_pos + trailing_sparks[index], spark_radius, spark_color, 0.72 - float(index) * 0.09)
+	var pulse := 0.5 + 0.5 * sin(ratio * TAU * 6.0)
+	var aura_diameter := lerpf(FUSE_BODY_AURA_MIN_DIAMETER, FUSE_BODY_AURA_MAX_DIAMETER, heat_ratio)
+	ImpactFlareTextureCache.draw_glow(canvas, center, aura_diameter * (1.04 + pulse * 0.08), Color(0.88, 0.015, 0.008), 0.18 + heat_ratio * 0.42)
+	ImpactFlareTextureCache.draw_glow(canvas, center, aura_diameter * 0.58, Color(1.0, 0.12, 0.018), 0.22 + heat_ratio * 0.52)
+	if ratio >= FUSE_BODY_WHITE_HOT_START_RATIO:
+		var white_hot_ratio := clampf((ratio - FUSE_BODY_WHITE_HOT_START_RATIO) / (1.0 - FUSE_BODY_WHITE_HOT_START_RATIO), 0.0, 1.0)
+		ImpactFlareTextureCache.draw_glow(canvas, center, lerpf(28.0, 64.0, white_hot_ratio), Color(1.0, 0.68, 0.22), 0.34 + white_hot_ratio * 0.50)
+		ImpactFlareTextureCache.draw_sparkle(canvas, center, lerpf(9.0, 21.0, white_hot_ratio), Color(1.0, 0.96, 0.76), 0.45 + white_hot_ratio * 0.48)
+	var spark_count := int(floor(heat_ratio * 6.0))
+	for index in range(spark_count):
+		var angle := -1.91 + float(index) * 1.17 + ratio * 0.38
+		var distance := lerpf(31.0, 53.0, heat_ratio) + float(index % 2) * 8.0
+		var spark_pos := center + Vector2.from_angle(angle) * distance
+		var spark_color := Color(1.0, 0.20, 0.035) if index < 4 else Color(0.83, 0.15, 0.58)
+		ImpactFlareTextureCache.draw_sparkle(canvas, spark_pos, 4.0 + heat_ratio * 3.0, spark_color, 0.30 + heat_ratio * 0.52)
 
 
 func get_fuse_visual_snapshot() -> Dictionary:
 	var ratio := clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0) if state == STATE_FUSE else 0.0
-	var authored_length := _get_fuse_wick_total_length()
-	var center := fuse_visual_center
-	var wick := _build_remaining_wick(center, ratio)
-	var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
-	var ember_position: Vector2 = wick[0] if not wick.is_empty() else center + charge_offset
+	var heat_ratio := _smoothstep(ratio)
 	return {
-		"burn_progress": ratio,
-		"remaining_ratio": 1.0 - ratio,
-		"authored_length": authored_length,
-		"remaining_length": authored_length * (1.0 - ratio),
-		"ember_position": ember_position,
-		"wick_leading_position": ember_position,
-		"powder_charge_position": center + charge_offset,
+		"heat_progress": ratio,
+		"body_heat_ratio": heat_ratio,
+		"body_center": fuse_visual_center,
+		"body_modulate": _get_actor_sprite_modulate(heat_ratio),
+		"aura_diameter": lerpf(FUSE_BODY_AURA_MIN_DIAMETER, FUSE_BODY_AURA_MAX_DIAMETER, heat_ratio),
 	}
 
 
-func _get_fuse_wick_total_length() -> float:
-	var total_length := 0.0
-	for index in range(FUSE_WICK_POINTS.size() - 1):
-		total_length += FUSE_WICK_POINTS[index].distance_to(FUSE_WICK_POINTS[index + 1])
-	return total_length
-
-
-func _build_remaining_wick(center: Vector2, burn_ratio: float) -> PackedVector2Array:
-	var authored_points := PackedVector2Array()
-	for point in FUSE_WICK_POINTS:
-		authored_points.append(center + point)
-	if authored_points.size() < 2:
-		return authored_points
-	var segment_lengths := PackedFloat32Array()
-	var total_length := 0.0
-	for index in range(authored_points.size() - 1):
-		var length := authored_points[index].distance_to(authored_points[index + 1])
-		segment_lengths.append(length)
-		total_length += length
-	var burn_distance := total_length * clampf(burn_ratio, 0.0, 1.0)
-	var traversed := 0.0
-	var remaining := PackedVector2Array()
-	for index in range(segment_lengths.size()):
-		var segment_length := float(segment_lengths[index])
-		if traversed + segment_length < burn_distance:
-			traversed += segment_length
-			continue
-		if remaining.is_empty():
-			var segment_ratio := clampf((burn_distance - traversed) / maxf(0.001, segment_length), 0.0, 1.0)
-			remaining.append(authored_points[index].lerp(authored_points[index + 1], segment_ratio))
-		remaining.append(authored_points[index + 1])
-		traversed += segment_length
-	return remaining
-
-
 func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layout: Dictionary) -> bool:
-	var fuse_active := state == STATE_FUSE and fuse_visual_center != Vector2.ZERO
-	if not fuse_active and not blast_vfx_active:
+	if not blast_vfx_active:
 		_hide_blast_fx_host()
 		return true
 	var host := _get_or_create_blast_fx_host(canvas)
@@ -816,26 +764,13 @@ func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layo
 		return false
 	var render_scale := maxf(0.01, float(node_fx_layout.get("render_scale", 1.0)))
 	var game_offset: Vector2 = node_fx_layout.get("game_offset", Vector2.ZERO)
-	if fuse_active:
-		var charge_offset: Vector2 = FUSE_WICK_POINTS[FUSE_WICK_POINTS.size() - 1]
-		var charge_screen := game_offset + (fuse_visual_center + shake_offset + charge_offset) * render_scale
-		host.sync_state({
-			"active": true,
-			"phase": STATE_FUSE,
-			"progress": clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0),
-			"origin_screen": charge_screen,
-			"powder_charge_screen": charge_screen,
-			"playfield_origin_screen": game_offset,
-			"playfield_size_screen": Vector2(760.0, 750.0) * render_scale,
-			"render_scale": render_scale,
-		}, true)
-		return host.is_inside_tree()
 	var origin_screen := game_offset + (blast_vfx_origin + shake_offset) * render_scale
 	var hit_screen := game_offset + (blast_vfx_hit_pos + shake_offset) * render_scale
 	host.sync_state({
 		"active": true,
 		"phase": "blast",
 		"progress": clampf(blast_vfx_elapsed_seconds / BLAST_VFX_SECONDS, 0.0, 1.0),
+		"body_core_progress": clampf(blast_vfx_elapsed_seconds / BLAST_BODY_CORE_SECONDS, 0.0, 1.0),
 		"shards_tail_progress": clampf(blast_vfx_elapsed_seconds / BLAST_SHARDS_TAIL_SECONDS, 0.0, 1.0),
 		"origin_screen": origin_screen,
 		"hit_screen": hit_screen,
@@ -845,6 +780,36 @@ func _sync_blast_fx_host(canvas: CanvasItem, shake_offset: Vector2, node_fx_layo
 		"render_scale": render_scale,
 	}, true)
 	return host.is_inside_tree()
+
+
+func _get_body_heat_ratio() -> float:
+	if state != STATE_FUSE:
+		return 0.0
+	return _smoothstep(clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0))
+
+
+func _get_actor_sprite_modulate(body_heat_ratio: float) -> Color:
+	if state == STATE_FUSE:
+		var red_ratio := clampf(body_heat_ratio / FUSE_BODY_WHITE_HOT_START_RATIO, 0.0, 1.0)
+		var result := INFILTRATION_SPRITE_MODULATE.lerp(FUSE_BODY_RED_MODULATE, red_ratio)
+		if body_heat_ratio > FUSE_BODY_WHITE_HOT_START_RATIO:
+			var white_hot_ratio := clampf((body_heat_ratio - FUSE_BODY_WHITE_HOT_START_RATIO) / (1.0 - FUSE_BODY_WHITE_HOT_START_RATIO), 0.0, 1.0)
+			result = result.lerp(FUSE_BODY_WHITE_HOT_MODULATE, white_hot_ratio)
+		var pulse := 0.5 + 0.5 * sin(clampf(elapsed_seconds / FUSE_SECONDS, 0.0, 1.0) * TAU * 6.0)
+		result.r += body_heat_ratio * pulse * 0.18
+		return result
+	if state == STATE_RETURN and last_action == "blast" and blast_vfx_active:
+		if blast_vfx_elapsed_seconds <= BLAST_BODY_VANISH_SECONDS:
+			return Color(2.05, 0.28, 0.08, 0.035)
+		if blast_vfx_elapsed_seconds < BLAST_BODY_REMATERIALIZE_SECONDS:
+			var rematerialize_ratio := (blast_vfx_elapsed_seconds - BLAST_BODY_VANISH_SECONDS) / (BLAST_BODY_REMATERIALIZE_SECONDS - BLAST_BODY_VANISH_SECONDS)
+			return Color(1.62, 0.18, 0.07, 0.08).lerp(INFILTRATION_SPRITE_MODULATE, _smoothstep(rematerialize_ratio))
+	return INFILTRATION_SPRITE_MODULATE
+
+
+func _smoothstep(value: float) -> float:
+	var clamped := clampf(value, 0.0, 1.0)
+	return clamped * clamped * (3.0 - 2.0 * clamped)
 
 
 func _get_or_create_blast_fx_host(canvas: CanvasItem) -> Node:
@@ -1004,7 +969,7 @@ func _commit_blast(config: Dictionary, deps: Dictionary) -> bool:
 	var player_center: Vector2 = centers.get("player", current_pos)
 	var boss_center: Vector2 = centers.get("boss", Vector2.ZERO)
 	var hit := absf(boss_center.x - player_center.x) <= BLAST_RANGE_X
-	_start_blast_vfx(player_center, boss_center, hit)
+	_start_blast_vfx(_presentation_body_center(config), boss_center, hit)
 	_trigger_blast_feedback(deps, hit)
 	if not hit:
 		return false
@@ -1041,6 +1006,11 @@ func _combat_centers(config: Dictionary) -> Dictionary:
 	var boss_pos := _vector2(config.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
 	var boss_size := _vector2(config.get("boss_paddle_size", Vector2(float(config.get("boss_paddle_width", 100.0)), float(config.get("boss_hitbox_height", 40.0)))), Vector2(100.0, 40.0))
 	return {"player": current_pos + player_size * 0.5, "boss": boss_pos + boss_size * 0.5}
+
+
+func _presentation_body_center(config: Dictionary) -> Vector2:
+	var gameplay_center: Vector2 = _combat_centers(config).get("player", current_pos)
+	return gameplay_center + Vector2(0.0, maxf(0.0, INFILTRATION_VISUAL_MIN_Y - current_pos.y))
 
 
 func _ball_arrival_return_pos(config: Dictionary) -> Vector2:

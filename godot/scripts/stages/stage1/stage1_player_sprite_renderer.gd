@@ -5,6 +5,7 @@ const PlayerCustomizationOverlayRenderer := preload("res://scripts/characters/pl
 const PlayerSocketGlowRenderer := preload("res://scripts/characters/player_socket_glow_renderer.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
 const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
+const ViperWallLeapBodyHeatShader := preload("res://shaders/viper_wall_leap_body_heat.gdshader")
 
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
@@ -30,6 +31,7 @@ var customization_overlay_renderer: Object = PlayerCustomizationOverlayRenderer.
 var socket_glow_renderer: Object = PlayerSocketGlowRenderer.new()
 var _wheel_spin_prewarmed_texture: Texture2D
 var _silhouette_rim_material: ShaderMaterial
+var _viper_wall_leap_body_heat_material: ShaderMaterial
 # resolve-only 훅: 현재 컨텍스트가 그릴 base 스프라이트의 (texture, region, flip)을
 # 그리지 않고 회수한다(듀얼 글리치 분신 글리치 슬라이스 디졸브용).
 var _resolve_only := false
@@ -42,10 +44,11 @@ static func prewarm_assets() -> void:
 
 func prewarm_runtime_assets() -> void:
 	_prewarm_shared_assets()
+	_get_viper_wall_leap_body_heat_material()
 
 
 static func _prewarm_shared_assets() -> void:
-	_character_rim_shader_ready = CharacterTopdownRimShader is Shader
+	_character_rim_shader_ready = CharacterTopdownRimShader is Shader and ViperWallLeapBodyHeatShader is Shader
 
 
 func clear_transient_canvas_items() -> void:
@@ -1169,6 +1172,9 @@ func _draw_texture_region(
 	var sprite_modulate: Color = _get_player_sprite_modulate(context)
 	var angle_degrees: float = float(context.get("player_sprite_rotation_degrees", 0.0))
 	if abs(angle_degrees) <= 0.01:
+		if not flip_h and _viper_wall_leap_body_heat_should_apply(context):
+			_draw_with_viper_wall_leap_body_heat(canvas, texture, dest_rect, source_rect, context, sprite_modulate)
+			return
 		if flip_h:
 			_draw_flipped_texture_region(canvas, texture, source_rect, dest_rect, sprite_modulate)
 		else:
@@ -1178,6 +1184,41 @@ func _draw_texture_region(
 				canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
 		return
 	_draw_rotated_texture_region(canvas, texture, source_rect, dest_rect.get_center(), dest_rect.size, angle_degrees, sprite_modulate, flip_h)
+
+
+func _viper_wall_leap_body_heat_should_apply(context: Dictionary) -> bool:
+	return (
+		bool(context.get("viper_wall_leap_raid_body_heat_active", false))
+		and float(context.get("viper_wall_leap_raid_body_heat_ratio", 0.0)) > 0.001
+	)
+
+
+func _draw_with_viper_wall_leap_body_heat(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	dest_rect: Rect2,
+	source_rect: Rect2,
+	context: Dictionary,
+	sprite_modulate: Color
+) -> void:
+	var material := _get_viper_wall_leap_body_heat_material()
+	if material == null:
+		canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
+		return
+	material.set_shader_parameter("body_heat_ratio", clampf(float(context.get("viper_wall_leap_raid_body_heat_ratio", 0.0)), 0.0, 1.0))
+	var previous_material: Material = canvas.material
+	canvas.material = material
+	canvas.draw_texture_rect_region(texture, dest_rect, source_rect, Color(1.0, 1.0, 1.0, sprite_modulate.a), false, true)
+	canvas.material = previous_material
+
+
+func _get_viper_wall_leap_body_heat_material() -> ShaderMaterial:
+	if _viper_wall_leap_body_heat_material != null:
+		return _viper_wall_leap_body_heat_material
+	var material := ShaderMaterial.new()
+	material.shader = ViperWallLeapBodyHeatShader
+	_viper_wall_leap_body_heat_material = material
+	return _viper_wall_leap_body_heat_material
 
 
 func _silhouette_rim_should_apply(context: Dictionary, texture: Texture2D, dest_rect: Rect2) -> bool:
