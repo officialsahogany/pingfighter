@@ -316,6 +316,28 @@ STRIKE_START_FRAME=18, SHEET_FRAME_COUNT-1=24)`, 재생은 `strike_start_frame` 
 | **`companion_click_reaction_anim`** | **14×7 · 128px 셀 · 98f** | ⚠️ **별도 키다.** 전투 중 교감은 이 축소본을 요구하고, **텍스처가 없으면 `try_begin_companion_click_reaction`이 조용히 false**를 반환한다(`click_reaction_state:9~12`, `egg_runtime:3262` 부근). 풀 시트에서 **결정론적으로 축소**해 만든다 |
 | **묵린변신 스킬카드 ×1** | — | ㉰. **없으면 프리웜 계약이 닫히지 않는다** |
 
+**정면 canonical 확정 (2026-08-04)**: 원화 = `백린_변신전_magenta.png`(a07, 1323×1189,
+SHA `9E8F6BA2AB7FBF3421CE6ED68194FCE9896FEDD19EAC4279E05437ECE6E62BB6`). AutoSprite
+정면 캐릭터 = `cmsdkmnpe002rwf12lzzjd0js`(Baekrin Front Cutin Anchor 20260804 v1,
+업로드 소스는 후면과 동일 규격 512×512 마젠타·최대변 384px 중앙 배치), 공유
+`first_frame_pose_id` = **`cmsdkmnqc002twf12klkrd56r`**(`Original`, sourceType upload).
+`cutin_art`는 초기 평가본 ck_a07이 **하드알파(semi 0%)+마젠타 프린지 371px**로 출하
+관례(마리보·루미온 소프트매트 ~7%)에 미달 — a07에서 소프트매트 재누끼 필요(승격 시점 작업).
+
+**정면 cutin_anim 32f probe 실패 기록 (2026-08-04, R1 — 재시도 전 필독)**:
+32f·512셀·custom kind·pro 티어·removeBg ultra·포즈락 첫/끝=`Original`·모션 전용
+프롬프트("고정" 명시 포함)로 1회 생성(`cmsdkqxok001s1xudosof9r80`). 기계 레그는 전부
+통과(가장자리 접촉 0/32 · 첫/끝 심 중심 Δ0.33/0.16px · 셀 내 프레이밍 유지)했으나
+**콘텐츠 3중 실패**: ① **f15~f27 몸체 완전 회전**(측면→후면→복귀 턴테이블 — 포즈락은
+첫/끝만 구속하고 중간 방향은 자유) ② 팔레트 그레이딩 드리프트(512 소스 기준 body dE00
+f1부터 9.70·전 구간 3.3~9.9 / gold 최대 8.2·게이트 1.5/2.5 — 후면 ④와 동일 기전:
+body가 녹황 틴트 a +1.7→−4.8, b +3.9→+10.4) ③ 질감 단순화(비늘·필리그리 → 양털형 컬,
+꼬리 사슬이 분홍 구슬로 변형). ⚠️jade 블롭 카운트는 청록 눈이 지배해 눈감김 프레임에서
+0이 된다 — 펜던트 검사로 쓰지 말 것. 교훈: **후면과 동일하게 idle-kind만 깨끗했던 패턴**
+(v1 iso_idle_up 유일 청정 vs custom 계열 전멸)이 정면에서도 재현될 가능성 — 다음 시도
+후보는 ① kind=`idle`(+포즈락) ② 모션 축소("호흡만") ③ 실패 시 팔레트만 결정적 colormatch
+복원(76c3f3c12 선례, 단 회전은 색보정으로 못 고침). 크레딧: 10 소모, 350 잔여.
+
 **추가 fanout (rev9 신설)**
 
 | # | 지점 | 분류 | 비고 |
