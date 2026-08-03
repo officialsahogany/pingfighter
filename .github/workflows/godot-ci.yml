@@ -161,6 +161,7 @@ env:
     res://tests/wall_leap_facing_smoke.gd
     res://tests/wall_leap_blast_vfx_smoke.gd
     res://tests/wall_leap_ball_return_target_smoke.gd
+    res://tests/lingpet_mokrin_transform_registration_smoke.gd
 
 jobs:
   godot-ci:

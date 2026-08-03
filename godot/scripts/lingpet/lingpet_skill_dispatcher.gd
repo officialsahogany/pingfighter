@@ -27,6 +27,7 @@ const SKILL_KIND_STAR_COIL := "star_coil"
 const SKILL_KIND_GRAVITY_ACCEL := "gravity_accel"
 const SKILL_KIND_DWARF_MAGIC := "dwarf_magic"
 const SKILL_KIND_SAND_PRISON := "sand_prison"
+const SKILL_KIND_MOKRIN_TRANSFORM := "mokrin_transform"
 const RESOURCE_CLASS_BALL_OWNER := "ball_owner"
 const RESOURCE_CLASS_POS_OVERRIDE := "pos_override"
 const HYDRO_SPHERE_SKILL_ID := "maribo_hydro_sphere"
@@ -51,6 +52,7 @@ const BANANA_SLICE_SKILL_ID := "monkeyring_banana_slice"
 const WILD_ROAR_SKILL_ID := "monkeyring_wild_roar"
 const STAR_COIL_SKILL_ID := "orosha_star_coil"
 const SAND_PRISON_SKILL_ID := "rahoset_sand_prison"
+const MOKRIN_TRANSFORM_SKILL_ID := "baekrin_mokrin_transform"
 const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_HYDRO_SPHERE: true,
 	SKILL_KIND_HEADBUTT: true,
@@ -76,6 +78,7 @@ const SUPPORTED_SKILL_KINDS := {
 	SKILL_KIND_GRAVITY_ACCEL: true,
 	SKILL_KIND_DWARF_MAGIC: true,
 	SKILL_KIND_SAND_PRISON: true,
+	SKILL_KIND_MOKRIN_TRANSFORM: true,
 }
 
 
@@ -131,6 +134,8 @@ static func get_skill_kind(skill_id: String) -> String:
 			return SKILL_KIND_STAR_COIL
 		SAND_PRISON_SKILL_ID:
 			return SKILL_KIND_SAND_PRISON
+		MOKRIN_TRANSFORM_SKILL_ID:
+			return SKILL_KIND_MOKRIN_TRANSFORM
 		_:
 			return SKILL_KIND_NONE
 
@@ -229,6 +234,10 @@ static func is_dwarf_magic(skill_id: String) -> bool:
 
 static func is_sand_prison(skill_id: String) -> bool:
 	return get_skill_kind(skill_id) == SKILL_KIND_SAND_PRISON
+
+
+static func is_mokrin_transform(skill_id: String) -> bool:
+	return get_skill_kind(skill_id) == SKILL_KIND_MOKRIN_TRANSFORM
 
 
 static func has_supported_runtime(skill_id: String) -> bool:

@@ -1130,6 +1130,17 @@ func get_boss_ai_context() -> Dictionary:
 	return _skill_runtime_surface.get_boss_ai_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
 
 
+# D15 bridge — the ONLY surface the player-control path may read for 묵린변신.
+# The deps builder wraps exactly this method in a fail-closed Callable (never the
+# egg runtime object itself), and smasher_player_controller reuses the AIPill
+# tracking math while it returns true. Peek-only all the way down: the host reads
+# the module field without instantiating, so this is hot-path safe.
+# Stow / pet-swap / round boundaries clear the module through the host fanout,
+# so module state alone is authoritative — no companion-state re-check needed.
+func is_mokrin_transform_active() -> bool:
+	return bool(_skill_runtime_host.is_mokrin_transform_active())
+
+
 func get_ball_collision_context() -> Dictionary:
 	var runtime_state := STATE_COMPANION if _is_guardian_summoned() else STATE_NONE
 	return _skill_runtime_surface.get_ball_collision_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
@@ -1169,6 +1180,23 @@ func get_skill_effect_runtime_update_count_for_tests() -> int:
 
 func set_headbutt_force_mega_roll_for_tests(value: float) -> void:
 	_skill_runtime_host.set_headbutt_force_mega_roll_for_tests(value)
+
+
+# D15 seal hook: drives the INTERNAL host through its production launch entry
+# (never a state-flag injection) so the narrow predicate can be sealed true/false
+# against a real egg runtime. The full frame-flow activation seal (운영 launch가
+# update_lingpet에서 성립 → 다음 update_player_control이 소비) needs a
+# catalog-enabled baekrin profile and lands with S1b.
+func launch_mokrin_transform_for_tests() -> bool:
+	# Literal skill id on purpose: the delegation contract bans ANY skill-kind
+	# dispatcher reference inside the egg runtime (lingpet_egg_runtime_smoke pins
+	# the dispatcher class name to zero occurrences in this file, comments included).
+	return bool(_skill_runtime_host.launch(
+		"baekrin_mokrin_transform",
+		Vector2.ZERO,
+		null,
+		{}
+	))
 
 
 func is_acquire_cutin_active() -> bool:

@@ -28,6 +28,7 @@ const STAR_COIL_SKILL_PATH := "res://scripts/lingpet/lingpet_star_coil_skill.gd"
 const GRAVITY_ACCEL_SKILL_PATH := "res://scripts/lingpet/lingpet_gravity_accel_skill.gd"
 const DWARF_MAGIC_SKILL_PATH := "res://scripts/lingpet/lingpet_dwarf_magic_skill.gd"
 const SAND_PRISON_SKILL_PATH := "res://scripts/lingpet/lingpet_sand_prison_skill.gd"
+const MOKRIN_TRANSFORM_SKILL_PATH := "res://scripts/lingpet/lingpet_mokrin_transform_skill.gd"
 
 const SKELETON_ARCHER_DRAW_COUNTERS := [
 	{"counter_name": "lingpet.skeleton_archer.archers", "snapshot_key": "skeleton_archer_archer_count"},
@@ -73,6 +74,7 @@ var _star_coil_skill: Object = null
 var _gravity_accel_skill: Object = null
 var _dwarf_magic_skill: Object = null
 var _sand_prison_skill: Object = null
+var _mokrin_transform_skill: Object = null
 var _launch_feedback_router := LingpetSkillLaunchFeedbackRouter.new()
 var _companion_surface_router := LingpetSkillCompanionSurfaceRouter.new()
 
@@ -102,6 +104,7 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_gravity_accel_skill, owner, registry)
 	_reset_skill(_dwarf_magic_skill, owner, registry)
 	_reset_skill(_sand_prison_skill, owner, registry)
+	_reset_skill(_mokrin_transform_skill, owner, registry)
 
 
 # Stow is a gameplay cancellation boundary, not a persistence reset. Skill
@@ -138,6 +141,7 @@ func clear_for_tests(owner: Object = null, registry: Object = null) -> void:
 	_gravity_accel_skill = null
 	_dwarf_magic_skill = null
 	_sand_prison_skill = null
+	_mokrin_transform_skill = null
 
 
 # Per-round reset. Skills that implement reset_round() persist their state
@@ -168,6 +172,7 @@ func reset_round(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill_round(_gravity_accel_skill, owner, registry)
 	_reset_skill_round(_dwarf_magic_skill, owner, registry)
 	_reset_skill_round(_sand_prison_skill, owner, registry)
+	_reset_skill_round(_mokrin_transform_skill, owner, registry)
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "", launch_context: Dictionary = {}) -> void:
@@ -221,6 +226,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_dwarf_magic_skill().update(safe_delta, owner, registry, launch_context)
 		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
 			_get_sand_prison_skill().update(safe_delta, owner, registry, launch_context)
+		LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
+			_get_mokrin_transform_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
 
@@ -441,6 +448,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _dwarf_magic_skill != null and bool(_dwarf_magic_skill.is_active())
 		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
 			return _sand_prison_skill != null and bool(_sand_prison_skill.is_active())
+		LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
+			return _mokrin_transform_skill != null and bool(_mokrin_transform_skill.is_active())
 		_:
 			return false
 
@@ -525,6 +534,8 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null, launch_cont
 			return bool(_get_dwarf_magic_skill().launch(origin, owner, launch_context))
 		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
 			return bool(_get_sand_prison_skill().launch(origin, owner, launch_context))
+		LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
+			return bool(_get_mokrin_transform_skill().launch(origin, owner, launch_context))
 		_:
 			return false
 
@@ -630,6 +641,7 @@ func get_snapshot() -> Dictionary:
 	_merge_skill_snapshot(snapshot, _gravity_accel_skill)
 	_merge_skill_snapshot(snapshot, _dwarf_magic_skill)
 	_merge_skill_snapshot(snapshot, _sand_prison_skill)
+	_merge_skill_snapshot(snapshot, _mokrin_transform_skill)
 	return snapshot
 
 
@@ -920,6 +932,8 @@ func _get_skill_for_kind(skill_kind: String) -> Object:
 			return _get_dwarf_magic_skill()
 		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
 			return _get_sand_prison_skill()
+		LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
+			return _get_mokrin_transform_skill()
 		_:
 			return null
 
@@ -974,6 +988,8 @@ func _peek_skill_for_kind(skill_kind: String) -> Object:
 			return _dwarf_magic_skill
 		LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
 			return _sand_prison_skill
+		LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
+			return _mokrin_transform_skill
 		_:
 			return null
 
@@ -1120,6 +1136,22 @@ func _get_sand_prison_skill() -> Object:
 	if _sand_prison_skill == null:
 		_sand_prison_skill = _new_skill(SAND_PRISON_SKILL_PATH)
 	return _sand_prison_skill
+
+
+func _get_mokrin_transform_skill() -> Object:
+	if _mokrin_transform_skill == null:
+		_mokrin_transform_skill = _new_skill(MOKRIN_TRANSFORM_SKILL_PATH)
+	return _mokrin_transform_skill
+
+
+# D15 bridge peek: the player-control path reads this every frame through the
+# egg runtime's narrow predicate. Peek-only — never instantiates (hot path).
+func is_mokrin_transform_active() -> bool:
+	return (
+		_mokrin_transform_skill != null
+		and _mokrin_transform_skill.has_method("is_transform_active")
+		and bool(_mokrin_transform_skill.is_transform_active())
+	)
 
 
 func get_dwarf_magic_hit_count_for_tests() -> int:

@@ -86,6 +86,7 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"orb_hud_state": _get_instance(registry, "orb_hud_state"),
 		"active_item_runtime": _get_instance(registry, "active_item_runtime"),
 		"mythic_item_runtime": mythic_item_runtime,
+		"mokrin_transform_active": _build_mokrin_transform_predicate(registry),
 		"player_skill_input_locked": _is_player_skill_locked(mythic_item_runtime),
 		"status_effect_state": status_effect_state,
 		"stage3_boss_skill_state": stage3_boss_skill_state,
@@ -163,6 +164,23 @@ func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 	):
 		return true
 	return false
+
+
+# D15 bridge (묵린변신): expose ONLY the narrow predicate as a Callable — never
+# the egg runtime object. Fail-closed: no runtime / no method -> unbound Callable,
+# and consumers must treat an unbound Callable as false. Peek-only lookup
+# (get_cached_instance) so this per-tick path can never cold-instantiate the
+# lingpet runtime; before the runtime exists there is no companion, hence no
+# transform, hence false is the correct answer.
+func _build_mokrin_transform_predicate(registry: Object) -> Callable:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return Callable()
+	var egg_runtime: Variant = registry.get_cached_instance("lingpet_egg_runtime")
+	if typeof(egg_runtime) != TYPE_OBJECT or not is_instance_valid(egg_runtime):
+		return Callable()
+	if not (egg_runtime as Object).has_method("is_mokrin_transform_active"):
+		return Callable()
+	return Callable(egg_runtime, "is_mokrin_transform_active")
 
 
 func _get_instance(registry: Object, key: String) -> Object:

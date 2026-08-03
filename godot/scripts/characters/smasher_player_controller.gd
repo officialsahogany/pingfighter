@@ -1,8 +1,14 @@
 extends RefCounted
 
 const SmasherPlayerDashController := preload("res://scripts/characters/smasher_player_dash_controller.gd")
+const ActiveItemAipillBehavior := preload("res://scripts/items/active_item_aipill_behavior.gd")
 
 var dash_controller: Object = SmasherPlayerDashController.new()
+# 묵린변신 (D15): the transform reuses the AIPill guard-tracking math verbatim.
+# The behavior class is stateless, so the controller owns one instance and calls
+# apply_player_control(true, ...) directly — the AIPill item does not need to be
+# active, and no cost/gauge semantics from the item path are inherited.
+var _mokrin_autopilot_behavior: Object = ActiveItemAipillBehavior.new()
 
 
 func update(
@@ -69,6 +75,29 @@ func update(
 					"player_speed": next_speed,
 					"special_gauge": float(aipill_final.get("special_gauge", next_special_gauge)),
 				}
+
+	# 묵린변신 자동조작 (D15 bridge). Sits AFTER the AIPill block so the paid item
+	# keeps first-wins precedence (both run the identical tracking calc, so the
+	# order only matters for that precedence). The predicate is the fail-closed
+	# Callable built by the deps builder — unbound Callable == false.
+	if is_mokrin_transform_engaged(deps):
+		var mokrin_drive_state: Object = deps.get("drive_input_state", null)
+		if mokrin_drive_state != null and mokrin_drive_state.has_method("update_cooldowns"):
+			mokrin_drive_state.update_cooldowns(fps_scale)
+		var mokrin_motion_config: Dictionary = _build_warp_motion_config(config, warp_gate_state)
+		var mokrin_result: Dictionary = _mokrin_autopilot_behavior.apply_player_control(true, next_pos, mokrin_motion_config, delta)
+		if bool(mokrin_result.get("handled", false)):
+			var mokrin_pos: Variant = mokrin_result.get("player_pos", next_pos)
+			if mokrin_pos is Vector2:
+				next_pos = mokrin_pos
+			next_speed = float(mokrin_result.get("player_speed", 0.0))
+			var mokrin_final: Dictionary = _finalize_warp_gate_position(next_pos, next_special_gauge, config, deps)
+			return {
+				"frame_counter": next_frame_counter,
+				"player_pos": mokrin_final.get("player_pos", next_pos),
+				"player_speed": next_speed,
+				"special_gauge": float(mokrin_final.get("special_gauge", next_special_gauge)),
+			}
 
 	var input_reader: Object = deps.get("input_reader", null)
 	var input_snapshot: Dictionary = input_reader.get_snapshot() if input_reader != null else {}
@@ -331,6 +360,19 @@ func _apply_smasher_skill_result_fields(
 		result["activated"] = true
 		result["activated_skill"] = fusion_skill_edge
 	return result
+
+
+# Shared D15 predicate read (smasher block above + viper's early-return gate).
+# Public and static-shaped on purpose: viper_player_controller must consult the
+# SAME definition, or the two controllers drift on what "engaged" means.
+static func is_mokrin_transform_engaged(deps: Dictionary) -> bool:
+	var predicate: Variant = deps.get("mokrin_transform_active", null)
+	if not (predicate is Callable):
+		return false
+	var callable: Callable = predicate
+	if not callable.is_valid():
+		return false
+	return bool(callable.call())
 
 
 func _read_dash_down_pressed(deps: Dictionary, input_reader: Object, input_snapshot: Dictionary) -> bool:

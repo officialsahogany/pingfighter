@@ -26,8 +26,13 @@ func update(
 		and active_item_runtime.has_method("is_aipill_active")
 		and bool(active_item_runtime.is_aipill_active())
 	)
+	# 묵린변신 (D15): like the AIPill autopilot, the transform must win over viper
+	# skill early-returns — otherwise a viper-owned skill frame preempts the shared
+	# controller and the automation never runs. Same predicate definition as the
+	# smasher block (single source; drift here = "viper만 자동조작 무시" 회귀).
+	var mokrin_transform_active: bool = SmasherPlayerController.is_mokrin_transform_engaged(deps)
 	var skill_runtime: Object = deps.get("viper_skill_runtime", null)
-	if not aipill_active and skill_runtime != null and skill_runtime.has_method("try_activate_before_movement"):
+	if not aipill_active and not mokrin_transform_active and skill_runtime != null and skill_runtime.has_method("try_activate_before_movement"):
 		var skill_result: Dictionary = skill_runtime.try_activate_before_movement(
 			delta,
 			player_pos,
