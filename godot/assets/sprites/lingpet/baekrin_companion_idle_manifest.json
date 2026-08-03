@@ -1,0 +1,33 @@
+{
+  "asset_family": "baekrin_companion_idle_autosprite_v1f1",
+  "lingpet": "baekrin",
+  "player_facing_name": "백린",
+  "runtime_usage": "companion_idle (이 커밋 시점 카탈로그 비활성 — S1b-b 카탈로그 A5에서 배선). S1 계약(matrix rev12): companion_move_left / _move_right / companion_walk / companion_strike / companion_cast 5키가 이 PNG에 별칭되며 각 키마다 1×1·1f 메타를 명시해야 한다(메타 누락 시 기본 25f로 오슬라이스)",
+  "grid": {
+    "cols": 1,
+    "rows": 1,
+    "frame_count": 1,
+    "cell": [512, 512],
+    "sheet": [512, 512],
+    "planned_draw_size": 92,
+    "read_order": "정적 1프레임"
+  },
+  "autosprite": {
+    "tier": "precise",
+    "character_id": "cms80imsj00iesyaggqt2qwjf (Baekrin Rear Transform Anchor 20260731 v1)",
+    "spritesheet_id": "cms8pxhf8005y21agub3vnlgw",
+    "spritesheet_kind": "iso_idle_up (8f, 3col, 512 cell, 2026-07-31 v1 — 후면 idle 총 6회 생성 중 유일하게 깨끗)",
+    "remove_bg": "default (소프트매트 유지)",
+    "extraction": "v1 시트 f1(셀 인덱스 0, 3×3 그리드 좌상단) PIL exact crop — 재샘플·재합성·재중앙 0. byte-identity 재검증 2026-08-04 (원시트 크롭과 4채널 전부 diff 0)",
+    "accepted_sha256": "AA368C37E1623BE4BD4771DC5BA1C15F241CAF1519E0312C0CC56E808A516EF0",
+    "unmatte_variant": "companion_idle_baekrin_v1f1_512_unmatte.png은 평가 후 미채택(스크래치패드 전용) — 승격본은 removeBg default 소프트매트를 그대로 유지한 원본 크롭"
+  },
+  "acceptance": {
+    "approved_by_user": "2026-08-01 'v1 f1 승격 승인' — companion_idle 1×1·1f canonical 확정",
+    "palette_authority": "업로드 원화(변신 시트는 그레이딩 파생물이라 팔레트 앵커 금지 — 변신 시트 쪽이 colormatch v3로 원화에 복원됨, 76c3f3c12)",
+    "alpha_bbox": [152, 85, 354, 439],
+    "cell_edge_alpha_touch": 0,
+    "seam_vs_transform_f1": "colormatch v3 이후 body dE00 1.36 / gold 1.66 (baekrin_mokrin_transform_6x2_12f_manifest.json no_pop_seam 항목)",
+    "rejected_history": "후면 idle v2~v6 및 이동 시트 3종 전부 기각(장식 추가·얼굴 노출·팔레트 그레이딩 — kind·프롬프트·포즈고정 전반에서 재현). 상세 = docs/lingpet_mokrin_runtime_kind_registration_matrix.md rev12 §S1"
+  }
+}
