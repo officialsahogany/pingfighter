@@ -41,6 +41,23 @@ func register_player_hit(
 	if combo_state != null and (power_state == null or not power_state.is_freeze_active()):
 		combo_state.register_hit(ball_pos)
 
+	# 묵린변신 가드 통지 (E' X1~X3). MUST sit BEFORE the AIPill early return below
+	# (X2) — with both autopilots co-active the transform still counts its guards.
+	# X3 filter: only BASE-paddle bounces count. Thor-shield and dual-glitch-clone
+	# bounces flow through this same is_player path with their marker flags, and a
+	# guard credited to them would inflate the stage ladder. Companion body guards
+	# and defense intercepts never reach register_player_hit at all.
+	if (
+		not bool(context.get("blacksmith_thor_shield_hit", false))
+		and not bool(context.get("viper_dual_glitch_clone_hit", false))
+	):
+		var mokrin_egg_runtime: Object = deps.get("lingpet_egg_runtime", null)
+		if (
+			mokrin_egg_runtime != null
+			and mokrin_egg_runtime.has_method("notify_mokrin_transform_player_guard")
+		):
+			mokrin_egg_runtime.notify_mokrin_transform_player_guard(deps.get("registry", null))
+
 	var updated_gauge: float = special_gauge
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if (

@@ -100,6 +100,16 @@ func build_config(params: Dictionary) -> Dictionary:
 		"companion_puppet_control_cols": _get_visual_layout_value(current_profile, "companion_puppet_control_cols"),
 		"companion_puppet_control_rows": _get_visual_layout_value(current_profile, "companion_puppet_control_rows"),
 		"companion_puppet_control_frame_count": _get_visual_layout_value(current_profile, "companion_puppet_control_frame_count"),
+		# D5c (묵린변신): mode-switch Y-offset absorption. WALK renders at -6 while
+		# CAST renders at -12 inside the animator, so a transform sheet pops 6px up
+		# on activation. The delta is POSITIVE by contract — _get_visual_layout_value
+		# floors negatives to 0, so a negative delta would be silently dropped.
+		# No key on a pet = 0 = existing pets fully preserved.
+		"companion_puppet_control_y_offset_delta": _get_visual_layout_value(current_profile, "companion_puppet_control_y_offset_delta"),
+		# E1-③ (묵린변신): flash palette style STRING. Deliberately a params
+		# pass-through, NOT a visual_layout read — get_visual_layout_value is
+		# float-only and would silently turn any string into 0.0.
+		"companion_skill_flash_style": str(params.get("companion_skill_flash_style", "")),
 		"motion_speed_ratio": _resolve_motion_speed_ratio(current_profile, params.get("motion_speed_ratio", 0.0)),
 	}
 

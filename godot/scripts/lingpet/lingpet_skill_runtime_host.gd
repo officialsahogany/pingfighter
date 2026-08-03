@@ -1154,6 +1154,15 @@ func is_mokrin_transform_active() -> bool:
 	)
 
 
+# E' X1 guard notify: forwarded from the paddle-bounce event router through the
+# egg runtime. Peek-only — an inactive/uninstantiated module means no transform
+# window is open, so there is nothing to count.
+func notify_mokrin_transform_player_guard(registry: Object = null) -> void:
+	if _mokrin_transform_skill == null or not _mokrin_transform_skill.has_method("notify_player_guard"):
+		return
+	_mokrin_transform_skill.notify_player_guard(registry)
+
+
 func get_dwarf_magic_hit_count_for_tests() -> int:
 	return int(_get_dwarf_magic_skill().get_hit_count_for_tests())
 

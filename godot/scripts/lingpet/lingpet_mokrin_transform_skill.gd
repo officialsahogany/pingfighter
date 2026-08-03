@@ -30,10 +30,16 @@ extends RefCounted
 const TRANSFORM_DURATION_SECONDS := 5.0
 # ㉮ (rev7): the transform sheet plays 0 -> 1 over 0.60s, then holds f12.
 const TRANSFORM_PROGRESS_SECONDS := 0.60
+# ㉯ (rev8): guard stage = min(guard_count, 3); each stage fires its entry SFX
+# exactly once (the confirmed cue is the shared play_active_item — no new audio
+# source, zero game_audio.gd contact).
+const GUARD_STAGE_MAX := 3
 
 var _active := false
 var _elapsed := 0.0
 var _duration_seconds := TRANSFORM_DURATION_SECONDS
+var _guard_count := 0
+var _last_guard_stage_fired := 0
 
 
 func prewarm() -> void:
@@ -46,6 +52,8 @@ func reset() -> void:
 	_active = false
 	_elapsed = 0.0
 	_duration_seconds = TRANSFORM_DURATION_SECONDS
+	_guard_count = 0
+	_last_guard_stage_fired = 0
 
 
 func cancel(_owner: Object = null, _registry: Object = null) -> void:
@@ -98,6 +106,55 @@ func get_transform_progress() -> float:
 	return clampf(_elapsed / TRANSFORM_PROGRESS_SECONDS, 0.0, 1.0)
 
 
+func get_companion_cast_pose_progress() -> float:
+	# D5 duck-typed surface consumed by the companion surface router: -1 while
+	# inactive (cast pose off -> normal body), else the held 0..1 sheet progress.
+	if not _active:
+		return -1.0
+	return get_transform_progress()
+
+
+func notify_player_guard(registry: Object = null) -> void:
+	# E' X1: called from the paddle-bounce event router (BEFORE the AIPill early
+	# return, base-paddle hits only — thor shield / dual-glitch clone bounces are
+	# filtered at the call site, X3). Counts a guard and fires each stage's entry
+	# SFX exactly once (㉯: stages 1/2/3, no re-fire at the same count).
+	if not _active:
+		return
+	_guard_count += 1
+	var stage: int = mini(_guard_count, GUARD_STAGE_MAX)
+	if stage <= _last_guard_stage_fired:
+		return
+	_last_guard_stage_fired = stage
+	_play_guard_stage_sfx(registry)
+
+
+func get_guard_count() -> int:
+	return _guard_count
+
+
+func get_guard_stage() -> int:
+	if not _active:
+		return 0
+	return mini(_guard_count, GUARD_STAGE_MAX)
+
+
+func _play_guard_stage_sfx(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance("game_audio")
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			audio = cached as Object
+	if audio == null and registry.has_method("get_instance"):
+		var value: Variant = registry.get_instance("game_audio")
+		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+			audio = value as Object
+	if audio != null and audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
 func get_remaining_seconds() -> float:
 	if not _active:
 		return 0.0
@@ -109,4 +166,6 @@ func get_snapshot() -> Dictionary:
 		"mokrin_transform_active": _active,
 		"mokrin_transform_progress": get_transform_progress(),
 		"mokrin_transform_remaining_seconds": get_remaining_seconds(),
+		"mokrin_transform_guard_count": _guard_count,
+		"mokrin_transform_guard_stage": get_guard_stage(),
 	}

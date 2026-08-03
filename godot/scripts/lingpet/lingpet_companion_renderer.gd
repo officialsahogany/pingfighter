@@ -52,9 +52,13 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		_draw_burst(canvas, draw_center, gauge_flash, int(config.get("burst_particles", 8)), int(config.get("gauge_trigger_count", 0)), Color(1.0, 0.88, 0.24, 1.0), true)
 	if skill_flash > 0.0:
 		var skill_radius: float = lerpf(radius + 18.0, radius + 54.0, 1.0 - skill_flash)
-		canvas.draw_circle(draw_center, skill_radius, Color(0.24, 0.92, 1.0, 0.18 * skill_flash))
-		canvas.draw_arc(draw_center, skill_radius * 0.82, 0.0, TAU, 40, Color(0.72, 1.0, 1.0, 0.72 * skill_flash), 2.6, true)
-		_draw_burst(canvas, draw_center, skill_flash, int(config.get("burst_particles", 8)), int(config.get("skill_trigger_count", 0)), Color(0.54, 1.0, 1.0, 1.0), false)
+		var flash_palette: Dictionary = resolve_skill_flash_palette(str(config.get("companion_skill_flash_style", "")))
+		var flash_fill: Color = flash_palette.get("fill", Color(0.24, 0.92, 1.0))
+		var flash_arc: Color = flash_palette.get("arc", Color(0.72, 1.0, 1.0))
+		var flash_burst: Color = flash_palette.get("burst", Color(0.54, 1.0, 1.0))
+		canvas.draw_circle(draw_center, skill_radius, Color(flash_fill.r, flash_fill.g, flash_fill.b, 0.18 * skill_flash))
+		canvas.draw_arc(draw_center, skill_radius * 0.82, 0.0, TAU, 40, Color(flash_arc.r, flash_arc.g, flash_arc.b, 0.72 * skill_flash), 2.6, true)
+		_draw_burst(canvas, draw_center, skill_flash, int(config.get("burst_particles", 8)), int(config.get("skill_trigger_count", 0)), Color(flash_burst.r, flash_burst.g, flash_burst.b, 1.0), false)
 	if hit_flash > 0.0:
 		var flash_radius: float = lerpf(radius + 8.0, radius + 34.0, 1.0 - hit_flash)
 		canvas.draw_circle(draw_center, flash_radius, Color(0.70, 1.0, 0.92, 0.22 * hit_flash))
@@ -196,7 +200,11 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 	)
 	if rects.is_empty():
 		return
-	var dest_rect: Rect2 = rects.get("dest", Rect2())
+	var dest_rect: Rect2 = apply_puppet_control_y_offset_delta(
+		rects.get("dest", Rect2()),
+		visual_key,
+		config
+	)
 	var source_rect: Rect2 = rects.get("source", Rect2())
 	# Dedicated movement sheets render as-authored. Legacy sheets mirror through
 	# UVs for left-facing walk / strike / cast fallbacks. Passing a negative Rect2
@@ -217,6 +225,39 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 # silently clamp — draw_polygon UV trap).
 	# 90° rotation: screen-space axes for the sprite's local +x (right) and +y (down).
 	# head_dir picks which side the head falls toward, following the facing flip.
+
+
+# E1-③ (묵린변신): launch-flash palette by style STRING. The empty / unknown
+# style returns EXACTLY the shipped cyan trio, so every existing pet is
+# pixel-identical; "mokrin_ink" swaps to the dark ink family. Single resolver
+# on purpose — palette values must never fork per call site.
+static func resolve_skill_flash_palette(style: String) -> Dictionary:
+	if style == "mokrin_ink":
+		return {
+			"fill": Color(0.13, 0.12, 0.17),
+			"arc": Color(0.42, 0.37, 0.52),
+			"burst": Color(0.30, 0.26, 0.40),
+		}
+	return {
+		"fill": Color(0.24, 0.92, 1.0),
+		"arc": Color(0.72, 1.0, 1.0),
+		"burst": Color(0.54, 1.0, 1.0),
+	}
+
+
+# D5c (묵린변신): absorb the WALK(-6) -> CAST(-12) animator Y-offset gap so the
+# transform sheet does not pop 6px up on activation. Applies ONLY to the
+# companion_puppet_control visual key with a POSITIVE per-profile delta
+# (no key = 0 = every existing pet renders exactly as before). Public and
+# static so the seal can drive the same function the draw path uses.
+static func apply_puppet_control_y_offset_delta(dest_rect: Rect2, visual_key: String, config: Dictionary) -> Rect2:
+	if visual_key != "companion_puppet_control":
+		return dest_rect
+	var delta: float = float(config.get("companion_puppet_control_y_offset_delta", 0.0))
+	if delta <= 0.0:
+		return dest_rect
+	dest_rect.position.y += delta
+	return dest_rect
 
 
 func resolve_companion_sprite_state_for_tests(config: Dictionary) -> Dictionary:

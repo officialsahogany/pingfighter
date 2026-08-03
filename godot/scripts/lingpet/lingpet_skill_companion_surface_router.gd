@@ -92,7 +92,7 @@ func _supports_position_override(skill_kind: String) -> bool:
 
 func _supports_cast_pose(skill_kind: String) -> bool:
 	match skill_kind:
-		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB, LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE, LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE, LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR, LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON:
+		LingpetSkillDispatcher.SKILL_KIND_PUPPET_GRAB, LingpetSkillDispatcher.SKILL_KIND_DOLL_CURSE, LingpetSkillDispatcher.SKILL_KIND_BANANA_SLICE, LingpetSkillDispatcher.SKILL_KIND_WILD_ROAR, LingpetSkillDispatcher.SKILL_KIND_SAND_PRISON, LingpetSkillDispatcher.SKILL_KIND_MOKRIN_TRANSFORM:
 			return true
 		_:
 			return false

@@ -1141,6 +1141,14 @@ func is_mokrin_transform_active() -> bool:
 	return bool(_skill_runtime_host.is_mokrin_transform_active())
 
 
+# E' X1: base-paddle guard notification from the paddle-bounce event router.
+# The X3 false-positive filter (thor shield / dual-glitch clone bounces) lives
+# at the router call site; companion body guards and defense intercepts never
+# route through register_player_hit, so they are structurally excluded.
+func notify_mokrin_transform_player_guard(registry: Object = null) -> void:
+	_skill_runtime_host.notify_mokrin_transform_player_guard(registry)
+
+
 func get_ball_collision_context() -> Dictionary:
 	var runtime_state := STATE_COMPANION if _is_guardian_summoned() else STATE_NONE
 	return _skill_runtime_surface.get_ball_collision_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
@@ -3226,7 +3234,15 @@ func _draw_companion(
 	)
 	if guardian_inactive:
 		draw_motion_speed_ratio = 0.0
+	# E1-③ (묵린변신): the flash palette style rides the active-skill DATA as a
+	# string and must reach the draw config through this params channel — the
+	# visual_layout path is float-only and would silently zero it.
+	var active_skill_visual: Dictionary = {}
+	var active_skill_value: Variant = visual_surface.get("active_skill", {})
+	if active_skill_value is Dictionary:
+		active_skill_visual = active_skill_value
 	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
+		"companion_skill_flash_style": str(active_skill_visual.get("companion_skill_flash_style", "")),
 		"companion_active": _is_guardian_summoned() or transition_alpha < 1.0,
 		"radius": COMPANION_RADIUS,
 		"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
