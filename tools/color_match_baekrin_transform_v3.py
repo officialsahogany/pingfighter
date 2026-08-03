@@ -114,11 +114,16 @@ def sha256(path):
 
 
 def main(src, dst):
+    # HARD seal: this tool reproduces exactly ONE approved transformation. A different
+    # input is a hard failure, not a warning — an "unverified input" success path would
+    # let a stale or wrong sheet masquerade as the approved output.
     in_sha = sha256(src)
     if in_sha != SHA_INPUT_PREFIX:
-        print(f"WARNING: input sha {in_sha}")
-        print(f"         expected  {SHA_INPUT_PREFIX} (pre-fix sheet, commit 5dfc7f9e0)")
-        print("         proceeding, but the output-sha assertion below will fail on a different input.")
+        print(f"FAIL: input sha {in_sha}")
+        print(f"      expected  {SHA_INPUT_PREFIX} (pre-fix sheet, commit 5dfc7f9e0)")
+        print("      recover it with: git show 5dfc7f9e0:godot/assets/sprites/lingpet/"
+              "baekrin_mokrin_transform_6x2_12f.png | git lfs smudge")
+        return 1
 
     img = Image.open(src)
     if img.mode != "RGBA":
@@ -136,10 +141,10 @@ def main(src, dst):
         return 1
     out_sha = sha256(dst)
     print(f"output sha {out_sha}")
-    if in_sha == SHA_INPUT_PREFIX and out_sha != SHA_OUTPUT:
+    if out_sha != SHA_OUTPUT:
         print(f"FAIL: expected {SHA_OUTPUT}")
         return 1
-    print("OK" + ("" if in_sha == SHA_INPUT_PREFIX else " (unverified input)"))
+    print("OK")
     return 0
 
 
