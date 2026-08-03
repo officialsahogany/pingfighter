@@ -5,6 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
+Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot headless load check"
+
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
 $godotPath = Resolve-GodotConsolePath -GodotExe $GodotExe
 
