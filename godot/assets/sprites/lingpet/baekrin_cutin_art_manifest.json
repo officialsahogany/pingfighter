@@ -1,0 +1,21 @@
+{
+  "asset_family": "baekrin_front_static_presentation",
+  "lingpet": "baekrin",
+  "player_facing_name": "백린",
+  "runtime_usage": "cutin_art — S1 정적 정면 프레젠테이션(front_presentation_model=\"static\")의 유일 정면 자산. 획득 등장(_draw_art_static)·획득 퇴장(정적 원화 페이드 분기)·정보창(Live2D 맵 미등재 시 자연 폴백) 전부 이 원화를 쓴다. 동적 cutin/click 완성이 아니다 — 정면 동적 계열은 후속 슬라이스로 이월(2026-08-04)",
+  "size": [1119, 1077],
+  "source": {
+    "canonical_original": "백린_변신전_magenta.png (a07, 1323×1189)",
+    "canonical_sha256": "9E8F6BA2AB7FBF3421CE6ED68194FCE9896FEDD19EAC4279E05437ECE6E62BB6",
+    "method": "네이티브 해상도 강화 키(순수 마젠타 색거리<150) + 스펙클 제거(60px 미만 성분) + 경계 밴드(팽창2−침식3) dom=min(R,B)−G 물리 알파 역산 + full unmix(bg=#FF00FF) + 밴드 마일드 despill + bbox 트림(여백 8px). 재샘플·형상 수정 0",
+    "why_not_removebg": "원화 자체가 마젠타 위에 안티에일리어싱돼 있어 불투명 경계 픽셀에 마젠타가 구워져 있었음(초기 하드키 후보 잔여 2,219px) — dom 역산 unmix가 이를 소프트매트로 환원"
+  },
+  "acceptance": {
+    "approved_scope": "2026-08-04 사용자 'S1 정적 정면 폴백 채택 + A5 활성 진행' — 진행 순서 1단계(a07 소프트매트 재누끼)",
+    "accepted_sha256": "E97D54B6299834CD7274CEC00643D9139A3C35C5F439F0C36CEA7347BD6E290E",
+    "strong_magenta_residue_px": 0,
+    "semi_alpha_pct": 2.96,
+    "corners_alpha": 0,
+    "visual_qa": "어두운(24,24,30) 배경 프리뷰에서 프린지 무검출 (qa_cutin_art_dark.png)"
+  }
+}
