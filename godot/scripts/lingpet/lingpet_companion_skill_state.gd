@@ -1,6 +1,9 @@
 extends RefCounted
 
 var cooldown := 0.0
+# S2 permit: interaction_permit 슬롯은 공유 쿨다운을 전달받지 않는다 (수신 면역).
+# egg runtime이 프로필 경유로 매 프레임 동기화한다 — 장착 교체를 따라간다.
+var shared_cooldown_immune := false
 var flash_timer := 0.0
 var trigger_count := 0
 var last_gain := 0.0

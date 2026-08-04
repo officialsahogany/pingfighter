@@ -10,10 +10,10 @@ const LingpetVisualTextureCache := preload("res://scripts/lingpet/lingpet_visual
 const DEFAULT_PET_ID := LingpetCatalog.DEFAULT_PET_ID
 const ENHANCEMENT_MOBILITY_SPEED_BONUS_PCT := 5.0
 const ENHANCEMENT_MOBILITY_SPEED_CAP_PCT := 30.0
-const ENHANCEMENT_FLIGHT_APPEARANCE_BONUS := 0.05
-const ENHANCEMENT_FLIGHT_APPEARANCE_CAP := 0.30
-const ENHANCEMENT_PATROL_DEFENSE_BONUS := 0.04
-const ENHANCEMENT_PATROL_DEFENSE_STACK_CAP := 0.08
+const ENHANCEMENT_FLIGHT_APPEARANCE_BONUS := 0.08
+const ENHANCEMENT_FLIGHT_APPEARANCE_CAP := 0.48
+const ENHANCEMENT_PATROL_DEFENSE_BONUS := 0.08
+const ENHANCEMENT_PATROL_DEFENSE_STACK_CAP := 0.48
 const ENHANCEMENT_PATROL_DEFENSE_CAP := 0.80
 const ENHANCEMENT_HIT_GAUGE_CARD_BONUS := 5.0
 
@@ -145,6 +145,18 @@ func get_active_skill(slot_index: int = 0) -> Dictionary:
 
 func get_active_skill_pool() -> Array[Dictionary]:
 	return LingpetCatalog.get_active_skill_pool(pet_id)
+
+
+# 획득 노출용 (S2): 해금/오퍼 후보 빌더는 이쪽을 써야 한다 — acquisition_locked
+# 스킬(S7 전 안장)은 후보에서 제외되지만 명시 장착 정규화는 전체 풀을 유지한다.
+func get_acquirable_active_skill_pool() -> Array[Dictionary]:
+	return LingpetCatalog.get_acquirable_active_skill_pool(pet_id)
+
+
+# S2: 슬롯의 장착 스킬이 interaction_permit인지 — egg의 공유 쿨다운 면역 동기화용
+# (egg는 카탈로그 직조회 금지라 프로필이 대리한다). O(1) 인덱스 판정.
+func is_interaction_permit_for_slot(slot_index: int) -> bool:
+	return LingpetCatalog.is_interaction_permit_skill_id(get_skill_id(slot_index))
 
 
 func set_loadout(

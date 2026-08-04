@@ -667,7 +667,7 @@ func _get_skill_pool(pet_id: String, active_skill: bool) -> Array:
 		if cached is Array:
 			return cached as Array
 	var pool: Array = (
-		LingpetCatalog.get_active_skill_pool(normalized)
+		LingpetCatalog.get_acquirable_active_skill_pool(normalized)
 		if active_skill
 		else LingpetCatalog.get_passive_skill_pool(normalized)
 	)

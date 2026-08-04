@@ -29,7 +29,7 @@ func _verify_armable_claims_without_mount() -> void:
 	var claimed: bool = egg._is_right_click_claimed_by_player_skill(fixture["owner"], fixture["registry"])
 	var mount := _new_mount()
 	var companion_x: float = float(fixture["owner"].values["player_pos"].x) + 77.5
-	var result: Dictionary = mount.advance(fixture["owner"], Vector2(companion_x, 670.0), true, claimed, 1.0 / 60.0)
+	var result: Dictionary = mount.advance(fixture["owner"], Vector2(companion_x, 670.0), true, claimed, 1.0 / 60.0, LingpetMountState.is_mount_permitted("onimaru", []))
 	_expect(claimed, "armable wall leap must claim RMB")
 	_expect(not bool(result.get("toggled", false)) and not mount.is_mounted(), "claimed RMB must not toggle mount")
 	_expect(int(fixture["registry"].cold_reads) == 0, "mount arbitration must use cached peek only")
@@ -42,7 +42,7 @@ func _verify_denials_preserve_mount(label: String, configure: Callable) -> void:
 	var claimed: bool = egg._is_right_click_claimed_by_player_skill(fixture["owner"], fixture["registry"])
 	var mount := _new_mount()
 	var companion_x: float = float(fixture["owner"].values["player_pos"].x) + 77.5
-	var result: Dictionary = mount.advance(fixture["owner"], Vector2(companion_x, 670.0), true, claimed, 1.0 / 60.0)
+	var result: Dictionary = mount.advance(fixture["owner"], Vector2(companion_x, 670.0), true, claimed, 1.0 / 60.0, LingpetMountState.is_mount_permitted("onimaru", []))
 	_expect(not claimed, "%s denial must release RMB to mount" % label)
 	_expect(bool(result.get("toggled", false)) and mount.is_mounted(), "%s denial must preserve normal mount toggle" % label)
 	_expect(int(fixture["registry"].cold_reads) == 0, "%s arbitration must not cold instantiate" % label)

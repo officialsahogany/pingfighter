@@ -58,6 +58,20 @@ const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"cooldown",
 	"card_texture_path",
 ]
+# S2 permit 분류 (2026-08-05, D1): 액티브 스킬의 발동 모델을 선언적 필드로 구분한다
+# (암묵 분기 금지 — slice_plan §2-3). "launch"(기본) = 기존 자동 발동 스킬.
+# "interaction_permit" = 장착 자체가 자격인 스킬(안장): 쿨다운 없음(>0이면 검증
+# 실패), 자동 무장·launch·skill-host update 대상 아님(runtime_kind가 디스패처
+# 미지원 값이라 arm_windup의 has_supported_runtime 게이트에서도 자연 차단),
+# 공유 쿨다운을 시작하지도 전달받지도 않는다. 카드는 노출 시점(S7)에 랜딩하므로
+# 검증에서 card_texture_path 요구를 면제한다.
+const ACTIVATION_MODEL_KEY := "activation_model"
+const ACTIVATION_MODEL_LAUNCH := "launch"
+const ACTIVATION_MODEL_INTERACTION_PERMIT := "interaction_permit"
+# S7 전 노출 차단 (2026-08-05): true면 부화 롤·기본 로드아웃·후보/교체 오퍼·디버그
+# 일반 후보에서 제외된다. 명시 장착(normalize_active_skill_id)은 여전히 통과한다 —
+# "카탈로그 정의"와 "획득 노출"의 분리. 풀 순서에 기대지 말 것.
+const ACQUISITION_LOCKED_KEY := "acquisition_locked"
 const REQUIRED_PASSIVE_SKILL_KEYS := [
 	"id",
 	"name",
@@ -707,16 +721,36 @@ const PETS := {
 			# D5c: 변신 시트 y 오프셋 델타 — CAST(-12)와 WALK(-6) 기준선 6px 팝 흡수
 			"companion_puppet_control_y_offset_delta": 6.0,
 		},
-		"active_skill": {
-			"id": "baekrin_mokrin_transform",
-			"runtime_kind": "mokrin_transform",
-			"name": "묵린변신",
-			"description": "백린이 5초 동안 먹빛의 묵린으로 변신해 플레이어 패들을 자동으로 조종하며 공을 받아냅니다. 변신 중 공 속도 보너스는 없으며, 가드에 성공할 때마다 먹빛 기운이 고조됩니다.",
-			"cooldown": 40.0,
-			"transform_duration": 5.0,
-			"companion_skill_flash_style": "mokrin_ink",
-			"card_texture_path": "res://assets/sprites/lingpet/baekrin_mokrin_transform_skillcard_imagegen_v1.png",
-		},
+		"active_skill_pool": [
+			# 첫 항목 = 묵린변신: 기본 로드아웃·부화 롤의 기본값이 안장이 되지
+			# 않도록 순서를 유지한다 (단, 노출 차단의 근거는 순서가 아니라
+			# acquisition_locked다 — S2 수락 조건).
+			{
+				"id": "baekrin_mokrin_transform",
+				"runtime_kind": "mokrin_transform",
+				"name": "묵린변신",
+				"description": "백린이 5초 동안 먹빛의 묵린으로 변신해 플레이어 패들을 자동으로 조종하며 공을 받아냅니다. 변신 중 공 속도 보너스는 없으며, 가드에 성공할 때마다 먹빛 기운이 고조됩니다.",
+				"cooldown": 40.0,
+				"transform_duration": 5.0,
+				"companion_skill_flash_style": "mokrin_ink",
+				"card_texture_path": "res://assets/sprites/lingpet/baekrin_mokrin_transform_skillcard_imagegen_v1.png",
+			},
+			# 백린의안장 (S2 카탈로그 정의 — S7 전 획득 미노출): 장착 자체가 탑승
+			# 자격인 interaction_permit. 쿨다운 없음(검증이 >0을 금지), 자동 무장·
+			# launch·공유 쿨다운 무관, 카드/아이콘은 노출 시점(S7)에 랜딩.
+			# 실 슬롯 체인(loadout→profile→resolver)이 카탈로그 검증을 내장하므로
+			# 이 정의가 없으면 permit 게이트의 양성 판별 자체가 불가능하다.
+			{
+				"id": "baekrin_saddle",
+				"runtime_kind": "interaction_permit",
+				"activation_model": "interaction_permit",
+				"acquisition_locked": true,
+				"name": "백린의안장",
+				"description": "백린의 등에 올라탈 수 있게 하는 안장입니다. 장착되어 있는 동안 우클릭으로 자유롭게 타고 내립니다.",
+				"cooldown": 0.0,
+				"card_texture_path": "",
+			},
+		],
 		"effect_text": "공을 직접 받아치면 기력 +40 / 획득 시 묵린변신을 액티브 스킬로 얻습니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/baekrin_cutin_art.png",
 		"note": "Baekrin ships with the S1 static front presentation (front_presentation_model=static): acquisition entry/dismiss and the info panel all use the static cutin_art; the dynamic 8x4/32f cut-in and 14x7/98f click Live2D are deferred to a follow-up slice (every generation path was rejected 2026-08-04 — see the registration matrix). Rear SD companion rendering uses the approved single-frame idle aliased across move/walk/strike/cast with explicit 1x1/1f grid meta; real locomotion sheets are a follow-up slice. The mount active (백린의안장) is intentionally absent until the mount-gate slices (S2~S7) land.",
@@ -1605,6 +1639,34 @@ static func _roll_hatch_passive_id(rng: RandomNumberGenerator) -> String:
 	return str((COMMON_PASSIVE_SKILL_POOL[index] as Dictionary).get("id", "")).strip_edges()
 
 
+static func is_interaction_permit_skill_data(skill_data: Dictionary) -> bool:
+	return str(skill_data.get(ACTIVATION_MODEL_KEY, ACTIVATION_MODEL_LAUNCH)).strip_edges() == ACTIVATION_MODEL_INTERACTION_PERMIT
+
+
+# per-frame 소비자용 O(1) 판정 (공유 쿨다운 면역 동기화 등) — 인덱스 참조를
+# 읽기만 하고 딥카피하지 않는다 (per-frame catalog lookup trap).
+static func is_interaction_permit_skill_id(skill_id: String) -> bool:
+	var normalized := _normalize_skill_id(skill_id)
+	if normalized == "":
+		return false
+	var skill: Variant = _get_active_skill_id_index().get(normalized, null)
+	if skill is Dictionary:
+		return is_interaction_permit_skill_data(skill as Dictionary)
+	return false
+
+
+# 획득 노출용 풀: 부화 롤·기본 로드아웃·후보/교체 오퍼·디버그 일반 후보는 이
+# 헬퍼를 써야 한다. acquisition_locked 스킬(S7 전 안장)은 제외되지만, 명시 장착
+# 정규화(normalize_active_skill_id)는 전체 풀을 계속 본다 — 정의와 노출의 분리.
+static func get_acquirable_active_skill_pool(pet_id: String) -> Array[Dictionary]:
+	var acquirable: Array[Dictionary] = []
+	for skill in get_active_skill_pool(pet_id):
+		if bool(skill.get(ACQUISITION_LOCKED_KEY, false)):
+			continue
+		acquirable.append(skill)
+	return acquirable
+
+
 static func normalize_active_skill_id(pet_id: String, skill_id: String) -> String:
 	var normalized := _normalize_skill_id(skill_id)
 	if normalized == "":
@@ -1747,10 +1809,21 @@ static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Ar
 
 
 static func _validate_active_skill_data(pet_id: String, label: String, skill_data: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
+	var activation_model := str(skill_data.get(ACTIVATION_MODEL_KEY, ACTIVATION_MODEL_LAUNCH)).strip_edges()
+	if activation_model != ACTIVATION_MODEL_LAUNCH and activation_model != ACTIVATION_MODEL_INTERACTION_PERMIT:
+		issues.append("%s: %s has unknown activation_model '%s'" % [pet_id, label, activation_model])
+	var is_permit := activation_model == ACTIVATION_MODEL_INTERACTION_PERMIT
 	for key in REQUIRED_ACTIVE_SKILL_KEYS:
+		if is_permit and (str(key) == "cooldown" or str(key) == "card_texture_path"):
+			continue
 		if str(skill_data.get(key, "")).strip_edges() == "":
 			issues.append("%s: missing %s.%s" % [pet_id, label, str(key)])
-	if float(skill_data.get("cooldown", 0.0)) <= 0.0:
+	if is_permit:
+		# permit은 쿨다운 개념이 없다 — 값이 있으면 레일/툴팁이 거짓 쿨타임을
+		# 그리게 되므로 검증 실패로 막는다 (slice_plan §2-3).
+		if float(skill_data.get("cooldown", 0.0)) > 0.0:
+			issues.append("%s: %s is an interaction_permit and must not declare cooldown > 0" % [pet_id, label])
+	elif float(skill_data.get("cooldown", 0.0)) <= 0.0:
 		issues.append("%s: %s.cooldown must be > 0" % [pet_id, label])
 	if skill_data.has("windup_seconds") and float(skill_data.get("windup_seconds", 0.0)) < 0.0:
 		issues.append("%s: %s.windup_seconds must be >= 0" % [pet_id, label])

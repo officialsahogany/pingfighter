@@ -105,6 +105,10 @@ func _make_summoned_runtime() -> Object:
 	runtime._companion_motion_state.pos = runtime._companion_pos
 	runtime._companion_motion_state.motion_visible = true
 	runtime._mount_state.set_pet_id("onimaru")
+	# S2 안장 게이트: egg 쪽 permit 계산이 runtime._pet_id로 장착 슬롯을 조회하므로
+	# mount state에만 펫을 넣으면 permit이 빈 펫 id로 계산돼 강제 하차된다 —
+	# 픽스처도 실제 런타임 펫 id를 채운다 (기본값 우회 금지, 2026-08-05 리뷰 P2).
+	runtime._pet_id = "onimaru"
 	return runtime
 
 
@@ -112,7 +116,14 @@ func _mount(runtime: Object, owner: Object) -> bool:
 	var probe := FakeInputProbe.new()
 	runtime._mount_state.set_input_probe(probe)
 	probe.rmb = true
-	runtime._mount_state.advance(owner, runtime._companion_pos, true)
+	runtime._mount_state.advance(
+		owner,
+		runtime._companion_pos,
+		true,
+		false,
+		0.0,
+		runtime._mount_state.is_mount_permitted("onimaru", [])
+	)
 	return bool(runtime._mount_state.is_mounted())
 
 

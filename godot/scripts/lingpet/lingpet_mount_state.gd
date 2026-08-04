@@ -28,7 +28,20 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
 const MOUNT_PROXIMITY_PX := 78.0
-const MOUNT_SUPPORTED_PET_IDS := ["onimaru"]
+# D1 안장 게이트 (S2, 2026-08-05): 탑승 자격의 기준은 펫 화이트리스트가 아니라
+# "현재 액티브 슬롯에 그 펫의 안장 스킬(interaction_permit)이 장착"이다 — 보유가
+# 아니라 장착. 지원 펫 = 이 맵의 키 ∪ 유예 목록. egg runtime이 장착 슬롯을 조회해
+# is_mount_permitted()로 불리언 하나를 만들어 advance()에 전달하고, 철회 전이
+# (탑승 중 permit 상실 → 같은 프레임 강제 하차) 처리는 이 모듈이 단독 소유한다.
+const MOUNT_SADDLE_SKILL_IDS := {
+	"baekrin": "baekrin_saddle",
+	"onimaru": "onimaru_saddle",
+}
+# 온이마루 유예 (D2): `오니마루의안장` 스킬이 아직 제작되지 않아(S8 예정) 장착
+# 게이트를 그대로 적용하면 현행 탑승이 회귀로 죽는다. 유예 = 장착 없이 항상
+# permitted. S8에서 onimaru_saddle이 랜딩되면 이 목록에서 제거한다 — 조용한
+# 예외 금지 계약이라 S2 씰이 이 유예를 명시적으로 봉인한다.
+const MOUNT_UNGATED_LEGACY_PET_IDS := ["onimaru"]
 # Fallback only. `player_paddle_width` is the DECLARED owner key -- see
 # _get_player_center_x for why the old `player_paddle_size` read was a silent
 # schema miss.
@@ -91,9 +104,25 @@ func reset() -> void:
 	_last_delta = 0.0
 
 
+static func is_supported_pet(pet_id: String) -> bool:
+	return MOUNT_SADDLE_SKILL_IDS.has(pet_id) or MOUNT_UNGATED_LEGACY_PET_IDS.has(pet_id)
+
+
+# 장착 게이트 판정 (S2). equipped_active_skill_ids = 현재 액티브 슬롯에 장착된
+# 스킬 id들(egg runtime이 _skill_runtime_surface.get_active_skill_ids로 조회).
+# 유예 펫은 장착 없이 true, 맵에 없는 펫은 false(fail-closed).
+static func is_mount_permitted(pet_id: String, equipped_active_skill_ids: Array) -> bool:
+	if MOUNT_UNGATED_LEGACY_PET_IDS.has(pet_id):
+		return true
+	var saddle_id := str(MOUNT_SADDLE_SKILL_IDS.get(pet_id, ""))
+	if saddle_id == "":
+		return false
+	return equipped_active_skill_ids.has(saddle_id)
+
+
 func set_pet_id(pet_id: String) -> void:
 	_pet_id = pet_id
-	if not MOUNT_SUPPORTED_PET_IDS.has(_pet_id):
+	if not is_supported_pet(_pet_id):
 		_mounted = false
 
 
@@ -123,7 +152,7 @@ func _get_ride_bounce_px() -> float:
 # Ticks the toggle + ride motion clocks. Call once per companion update frame
 # while the companion is in its active (non-egg) state; pass
 # companion_active=false to force a dismount (pet incapacitated / despawned).
-func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool = false, delta: float = 0.0) -> Dictionary:
+func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool, delta: float, mount_permitted: bool) -> Dictionary:
 	var result := {"toggled": false, "mounted": _mounted}
 	_last_delta = maxf(delta, 0.0)
 	if _mounted:
@@ -132,7 +161,10 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 		_riding_moving = absf(float(BattleSceneOwnerReader.get_value(owner, "player_speed", 0.0))) > RIDE_MOVE_SPEED_EPSILON
 	else:
 		_dismount_t = minf(1.0, _dismount_t + _last_delta / DISMOUNT_SECONDS)
-	if not MOUNT_SUPPORTED_PET_IDS.has(_pet_id) or not companion_active:
+	# mount_permitted(S2 장착 게이트)는 진입 게이트이자 철회 전이다: 탑승 중에
+	# 안장 슬롯이 제거·교체돼 permit이 떨어지면 미지원 펫/컴패니언 비활성과 같은
+	# 조건으로 이 프레임에 강제 하차한다(입력 엣지 처리보다 먼저).
+	if not is_supported_pet(_pet_id) or not companion_active or not mount_permitted:
 		if _mounted:
 			_dismount()
 			result["toggled"] = true

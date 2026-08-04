@@ -346,6 +346,11 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	var guardian_summoned := _is_guardian_summoned()
 	if guardian_summoned:
 		_companion_body_hit_state.advance(delta)
+	# S2 permit 수신 면역 동기화: 장착 교체를 따라가도록 매 프레임 프로필 경유로
+	# 갱신한다 (O(1) 인덱스 판정 — 딥카피 없음).
+	for slot_index in range(_companion_skill_states.size()):
+		if _companion_skill_states[slot_index] != null:
+			_companion_skill_states[slot_index].shared_cooldown_immune = bool(_current_profile.is_interaction_permit_for_slot(slot_index))
 	_companion_skill_persistence.advance_states(delta, _companion_skill_states, guardian_summoned)
 	_companion_skill_persistence.advance_stored_cooldowns(
 		delta,
@@ -1984,6 +1989,9 @@ func _empty_rail_card_skill_state_snapshot(suffix: String) -> Dictionary:
 		"companion_skill_flash_ratio%s" % suffix: 0.0,
 		"companion_skill_winding_up%s" % suffix: false,
 		"companion_skill_origin%s" % suffix: Vector2.ZERO,
+		"companion_skill_activation_model%s" % suffix: "launch",
+		"companion_skill_interaction_available%s" % suffix: false,
+		"companion_skill_interaction_active%s" % suffix: false,
 	}
 
 
@@ -2066,6 +2074,17 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		_profile_runtime_surface.get_passive_skill_pool(_current_profile)
 	)
+	# S2 permit 스냅샷 투영 (양 슬롯 동일 계약): 장착·비탑승 available=T/active=F,
+	# 장착·탑승 T/T, 미장착·철회 직후 F/F. activation_model은 소비자(레일 S2-c)가
+	# 암묵 분기 없이 읽도록 문자열로 싣는다. 프로필 경유 O(1) 판정 — egg는
+	# 카탈로그 직조회 금지.
+	for permit_slot_index in range(2):
+		var permit_suffix: String = "" if permit_slot_index == 0 else "_1"
+		var slot_is_permit: bool = bool(_current_profile.is_interaction_permit_for_slot(permit_slot_index))
+		snapshot["companion_skill_activation_model%s" % permit_suffix] = "interaction_permit" if slot_is_permit else "launch"
+		snapshot["companion_skill_interaction_available%s" % permit_suffix] = slot_is_permit
+		snapshot["companion_skill_interaction_active%s" % permit_suffix] = slot_is_permit and bool(_mount_state.is_mounted())
+
 	var character_info_display_snapshot: Dictionary = _snapshot_builder.build_character_info_display_snapshot(
 		_pet_id,
 		_state,
@@ -2817,13 +2836,24 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 	# 수호령 탑승: toggle + follow. Skill position overrides (sortie strikes
 	# etc.) win over the mount while active; the mount wins over feed /
 	# starlight loitering below.
-	_mount_state.advance(
+	# S2 안장 게이트: 장착 슬롯을 조회해 불리언 하나만 만들어 넘긴다 — 맵·유예
+	# 해석과 철회 전이 처리는 mount_state가 단독 소유(§2-4). "해금" = 현재 액티브
+	# 슬롯에 장착이지 보유가 아니다.
+	var mount_permitted: bool = _mount_state.is_mount_permitted(
+		_pet_id,
+		_skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host)
+	)
+	var mount_advance_result: Dictionary = _mount_state.advance(
 		owner,
 		_companion_pos,
 		companion_active and not has_skill_position_override,
 		_is_right_click_claimed_by_player_skill(owner, registry),
-		delta
+		delta,
+		mount_permitted
 	)
+	if bool(mount_advance_result.get("toggled", false)):
+		# 탑승/하차 프레임의 interaction_active 스냅샷 정합 (프레임 키드 캐시 무효화).
+		_invalidate_runtime_snapshot_cache()
 	if _mount_state.has_companion_position_override() and not has_skill_position_override:
 		# This branch skips `_companion_motion_state.update()`, which is the only
 		# thing that retires a defense intercept -- and the mounted collision path

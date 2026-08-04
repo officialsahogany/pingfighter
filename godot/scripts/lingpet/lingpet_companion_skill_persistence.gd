@@ -253,8 +253,14 @@ func _apply_shared_cooldown_to_current(skill_states: Array) -> void:
 	if shared_cooldown <= 0.0:
 		return
 	for state in skill_states:
-		if state != null:
-			state.cooldown = maxf(float(state.cooldown), shared_cooldown)
+		if state == null:
+			continue
+		# S2 permit 수신 면역: interaction_permit 슬롯(안장)은 공유 쿨다운의 역전파를
+		# 받지 않는다 — 받으면 "자유롭게 타고 내림"이 다른 스킬 발동마다 10초씩
+		# 잠긴다 (slice_plan §2-3).
+		if bool(state.get("shared_cooldown_immune")):
+			continue
+		state.cooldown = maxf(float(state.cooldown), shared_cooldown)
 
 
 func _apply_shared_cooldown_to_store(slot_count: int) -> void:

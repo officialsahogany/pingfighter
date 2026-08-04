@@ -340,7 +340,9 @@ static func get_reward_for_level(_level: int) -> Dictionary:
 
 func get_guardian_enhancement_skill_availability(pet_id: String) -> Dictionary:
 	return {
-		"has_second_active": LingpetCatalog.get_active_skill_pool(pet_id).size() >= 2,
+		# S2 노출 차단: 가용성도 획득가능 풀 기준 — 안장만 있는 2번째 항목으로
+		# 2차 액티브 해금 보상이 열리면 안 된다.
+		"has_second_active": LingpetCatalog.get_acquirable_active_skill_pool(pet_id).size() >= 2,
 		"has_second_passive": LingpetCatalog.get_passive_skill_pool(pet_id).size() >= 2,
 	}
 

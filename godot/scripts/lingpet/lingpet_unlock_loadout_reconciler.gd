@@ -92,7 +92,8 @@ func reconcile(
 func get_active_unlock_candidate_ids(pet_id: String) -> Array[String]:
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
-	var ids := _skill_ids_from_pool(profile.get_active_skill_pool())
+	# S2 노출 차단: 해금 후보는 acquisition_locked(안장)를 제외한 풀에서만 뽑는다.
+	var ids := _skill_ids_from_pool(profile.get_acquirable_active_skill_pool())
 	return first_raw_candidates(ids, 2)
 
 
@@ -226,7 +227,8 @@ func _get_second_active_unlock_candidate_ids(pet_id: String, guardian_run_state:
 	var primary_id := _get_resolved_unlock_id(resolved, "active")
 	var profile: Object = LingpetCurrentProfile.new()
 	profile.set_pet_id(pet_id)
-	var ids := _skill_ids_from_pool(profile.get_active_skill_pool())
+	# S2 노출 차단: 2번째 액티브 후보에서도 acquisition_locked(안장) 제외.
+	var ids := _skill_ids_from_pool(profile.get_acquirable_active_skill_pool())
 	if primary_id != "":
 		ids.erase(primary_id)
 	return _first_seeded_candidates(ids, _candidate_seed_for_pet(pet_id, 31), 2)
