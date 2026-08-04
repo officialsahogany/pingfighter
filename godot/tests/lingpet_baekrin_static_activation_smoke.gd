@@ -259,6 +259,7 @@ func _run() -> void:
 	_test_launch_roundtrip()
 	_test_p1_production_frame_flow()
 	await _test_p2_static_ready_gates_on_art()
+	_test_real_hatch_path_reaches_baekrin()
 	ProjectResourceLoader.clear_caches()
 	if _failed:
 		printerr("lingpet_baekrin_static_activation_smoke: FAILED")
@@ -467,3 +468,50 @@ func _test_p2_static_ready_gates_on_art() -> void:
 		print("SKIP: baekrin cutin_art 임포트 산출물 부재(스파스 환경) — P2 수렴 레그는 풀 저장소에서만")
 		_expect("P2: 콜드 판정 false (게이트 자체는 스파스에서도 증명)", not cold_ready)
 	ProjectResourceLoader.clear_caches()
+
+
+func _test_real_hatch_path_reaches_baekrin() -> void:
+	# 라이브 QA가 F7 디버그 획득으로 우회했던 유일 관문 — 실제 알 충돌 →
+	# 껍질 파괴 → _commit_pending_hatch() — 를 실 기계로 관통한다 (2026-08-04
+	# 리뷰 잔여). 부화 룰렛에는 고정 훅이 없으므로 두 층으로 봉인:
+	#   결정층 = baekrin이 junior/smasher 실 부화 풀에 등재
+	#   관통층 = 반복 추첨으로 baekrin 실부화 도달 — (14/15)^300 ≈ 1e-9라
+	#            통계적 RED는 사실상 불가
+	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates({
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}, [])
+	_expect("실 부화 풀에 baekrin 등재 (결정층)", candidates.has("baekrin"))
+
+	var hatched_baekrin := false
+	var attempts := 0
+	var mechanics_ok := true
+	for i in range(300):
+		attempts += 1
+		var owner := FakeOwner.new()
+		var egg := LingpetEggRuntime.new()
+		egg.update(0.0, owner)
+		var egg_pos: Vector2 = owner.lingpet_egg_pos
+		owner.ball_active = true
+		owner.ball_pos = egg_pos + Vector2(0.0, -8.0)
+		owner.ball_vel = Vector2(0.0, 12.0)
+		egg.update(0.0, owner)
+		var guard := 0
+		while bool(egg.is_hatch_break_active()) and guard < 300:
+			egg.advance_hatch_break(1.0 / 60.0, owner, null)
+			guard += 1
+		if str(owner.lingpet_state) != "companion":
+			mechanics_ok = false
+			break
+		if str(owner.active_lingpet_id) == "baekrin":
+			hatched_baekrin = true
+			_expect("실 부화(baekrin): 소유 목록 등재", owner.lingpet_owned_pet_ids.has("baekrin"))
+			_expect("실 부화(baekrin): 슬롯 0 활성", str((owner.lingpet_slots as Array)[0]) == "baekrin")
+			_expect(
+				"실 부화(baekrin): 획득 컷인 활성 (_commit_pending_hatch 경유)",
+				bool(egg.is_acquire_cutin_active())
+			)
+			egg.advance_acquire_cutin(10.0, null)
+			break
+	_expect("모든 추첨에서 실 부화 기계가 companion까지 도달", mechanics_ok)
+	_expect("실 부화 경로로 baekrin 도달 (%d회 추첨)" % attempts, hatched_baekrin)
