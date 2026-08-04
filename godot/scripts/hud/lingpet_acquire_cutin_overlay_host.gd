@@ -443,9 +443,13 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 		var dismiss_progress: float = 0.0
 		if runtime.has_method("get_acquire_cutin_dismiss_progress"):
 			dismiss_progress = clampf(float(runtime.get_acquire_cutin_dismiss_progress()), 0.0, 1.0)
-		if _cutin_dismiss_sheet == null:
+		if _cutin_dismiss_sheet == null and not LingpetCatalog.is_front_presentation_static(pet_id):
 			# If the player clicks before threaded prewarm finishes, resolve the
 			# imported sheet here so the click Live2D action never disappears.
+			# 정적 정면 모델(front_presentation_model="static")은 이 폴백을 타면
+			# 안 된다 — _get_fallback_visual_path가 마리보 시트를 돌려줘 다른 펫의
+			# 퇴장 컷이 재생된다. 정적 펫은 시트를 null로 두고 아래
+			# _draw_dismiss_action의 정적 원화 분기가 그린다.
 			_cutin_dismiss_sheet = _load_catalog_texture(pet_id, "cutin_dismiss_anim")
 		_draw_dismiss_action(canvas, view_size, dismiss_progress)
 		return
@@ -934,6 +938,23 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 			# (Removed) The old turquoise mouth/spear-tip water spray read as an
 			# awkward "water cannon from the mouth". The dismiss is now a spear
 			# swing flourish (sheet motion only), so no procedural spray overlay.
+	elif _cutin_art != null and _cutin_art.get_width() > 1:
+		# S1 정적 정면 모델: 퇴장 시트가 없는 펫은 같은 정적 원화가 기존 축소
+		# (close_scale)·페이드(out_fade) 엔벨로프를 타고 마지막까지 함께 사라진다.
+		# 시트 없음 = 캐릭터가 퇴장 시작 프레임에 급소멸하던 기존 공백을 막는
+		# 계약 분기 (2026-08-04 사용자 확정). 배경 크롬은 위에서 이미 그려졌으므로
+		# 여기서는 원화만 — 리스타일 테마 상수(WIP)에 결합하지 않는다.
+		var art_size: Vector2 = _cutin_art.get_size()
+		if art_size.x > 1.0 and art_size.y > 1.0:
+			var art_target_h: float = view_size.y * _get_cutin_dismiss_view_h_ratio()
+			var art_scale: float = art_target_h / art_size.y
+			var art_max_w: float = view_size.x * 0.98
+			if art_size.x * art_scale > art_max_w:
+				art_scale = art_max_w / art_size.x
+			var close_scale_static: float = lerpf(1.0, 0.86, _ease_out_cubic(action_t))
+			var art_draw: Vector2 = art_size * art_scale * close_scale_static
+			var art_pos := Vector2(center.x - art_draw.x * 0.5, center.y - art_draw.y * 0.5)
+			canvas.draw_texture_rect(_cutin_art, Rect2(art_pos, art_draw), false, Color(1.0, 1.0, 1.0, out_fade))
 
 	# Keep the title under the action, fading out with the overlay.
 	_draw_dismiss_title(canvas, view_size, out_fade)

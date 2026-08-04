@@ -28,6 +28,28 @@ const REQUIRED_VISUAL_KEYS := [
 	"cutin_dismiss_anim",
 	"click_reaction_anim",
 ]
+# S1 정적 정면 프레젠테이션 모델 (2026-08-04 사용자 확정 — 동적 cutin/click "완성"이
+# 아니라 정적 폴백이다). "static"이면 동적 정면 3키(cutin_anim / cutin_dismiss_anim /
+# click_reaction_anim)를 요구하지 않는 대신, 그 키(+companion_click_reaction_anim)를
+# 정의하는 것 자체가 검증 실패다: 소비자들이 8×4·32f / 5×5·25f / 14×7·98f 그리드를
+# 하드코딩하므로(acquire_cutin_overlay_host / companion_click_reaction_state) 정지화를
+# 그 키에 꽂으면 조각난 프레임으로 그려진다 — 별칭 위장 금지. cutin_art는 계속 필수
+# (획득 등장·퇴장·정보창이 전부 이 정적 원화로 폴백). 기존 펫(dynamic, 기본값)의
+# 검증은 불변.
+const FRONT_PRESENTATION_MODEL_KEY := "front_presentation_model"
+const FRONT_PRESENTATION_DYNAMIC := "dynamic"
+const FRONT_PRESENTATION_STATIC := "static"
+const DYNAMIC_FRONT_VISUAL_KEYS := [
+	"cutin_anim",
+	"cutin_dismiss_anim",
+	"click_reaction_anim",
+]
+const STATIC_FRONT_FORBIDDEN_VISUAL_KEYS := [
+	"cutin_anim",
+	"cutin_dismiss_anim",
+	"click_reaction_anim",
+	"companion_click_reaction_anim",
+]
 const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"id",
 	"runtime_kind",
@@ -1263,6 +1285,12 @@ static func _get_entry_ref(pet_id: String) -> Dictionary:
 	return PETS[DEFAULT_PET_ID] as Dictionary
 
 
+static func is_front_presentation_static(pet_id: String) -> bool:
+	# S1 정적 정면 모델 여부. 획득 오버레이의 per-frame draw 경로에서 호출되므로
+	# 딥카피 없는 _get_entry_ref를 쓴다 (per-frame catalog lookup trap).
+	return str(_get_entry_ref(pet_id).get(FRONT_PRESENTATION_MODEL_KEY, FRONT_PRESENTATION_DYNAMIC)) == FRONT_PRESENTATION_STATIC
+
+
 static func get_display_name(pet_id: String) -> String:
 	return str(_get_entry_ref(pet_id).get("display_name", _normalize_pet_id(pet_id)))
 
@@ -1595,12 +1623,23 @@ static func _validate_required_visuals(pet_id: String, entry: Dictionary, issues
 		issues.append("%s: visuals must be a Dictionary" % pet_id)
 		return
 	var visuals_data: Dictionary = visuals as Dictionary
+	var front_model := str(entry.get(FRONT_PRESENTATION_MODEL_KEY, FRONT_PRESENTATION_DYNAMIC)).strip_edges()
+	if front_model != FRONT_PRESENTATION_DYNAMIC and front_model != FRONT_PRESENTATION_STATIC:
+		issues.append("%s: unknown %s '%s'" % [pet_id, FRONT_PRESENTATION_MODEL_KEY, front_model])
+	var static_front := front_model == FRONT_PRESENTATION_STATIC
 	for key in REQUIRED_VISUAL_KEYS:
+		if static_front and DYNAMIC_FRONT_VISUAL_KEYS.has(key):
+			continue
 		var path := str(visuals_data.get(key, "")).strip_edges()
 		if path == "":
 			issues.append("%s: missing visuals.%s" % [pet_id, str(key)])
 		elif require_existing_files and not _texture_resource_exists(path):
 			issues.append("%s: missing visual file %s" % [pet_id, path])
+	if static_front:
+		# 정적 모델 fail-closed: 동적 그리드 소비자용 키를 정의하면 위장이므로 실패.
+		for key in STATIC_FRONT_FORBIDDEN_VISUAL_KEYS:
+			if str(visuals_data.get(key, "")).strip_edges() != "":
+				issues.append("%s: static front model must not define visuals.%s (하드코딩 그리드 소비자 오슬라이스 위장 금지)" % [pet_id, str(key)])
 
 
 static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
