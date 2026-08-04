@@ -62,17 +62,22 @@ func _run() -> void:
 	probe.host = host
 	viewport.add_child(probe)
 
-	var mid := await _count_green(viewport, probe, 0.5)
-	var fading := await _count_green(viewport, probe, 0.85)
-	var ended := await _count_green(viewport, probe, 0.995)
-	_expect("퇴장 중반(0.5): 정적 원화 가시 (>200px, 실측 %d)" % mid, mid > 200)
-	_expect("페이드 구간(0.85): 잔존 (>0px, 실측 %d)" % fading, fading > 0)
-	_expect("페이드 구간: 중반보다 약함 (%d < %d)" % [fading, mid], fading < mid)
-	_expect("종단(0.995): 완전 페이드 (0px, 실측 %d)" % ended, ended == 0)
+	var mid := await _measure_green(viewport, probe, 0.5)
+	var fading := await _measure_green(viewport, probe, 0.85)
+	var ended := await _measure_green(viewport, probe, 0.995)
+	_expect("퇴장 중반(0.5): 정적 원화 가시 (>200px, 실측 %d)" % mid[0], mid[0] > 200)
+	_expect("페이드 구간(0.85): 잔존 (>0px, 실측 %d)" % fading[0], fading[0] > 0)
+	# 페이드는 픽셀 '개수'가 아니라 '강도'로 재야 한다 — 알파 0.5여도 임계 위면
+	# 개수는 그대로다(1차 실측에서 확인된 계측 설계 정정).
+	_expect(
+		"페이드 구간: 녹색 에너지가 중반보다 감쇠 (%.0f < %.0f)" % [fading[1], mid[1]],
+		fading[1] < mid[1] * 0.75
+	)
+	_expect("종단(0.995): 완전 페이드 (0px, 실측 %d)" % ended[0], ended[0] == 0)
 
 	host._cutin_art = null
-	var control := await _count_green(viewport, probe, 0.5)
-	_expect("대조군(원화 null): 녹색 0px (실측 %d)" % control, control == 0)
+	var control := await _measure_green(viewport, probe, 0.5)
+	_expect("대조군(원화 null): 녹색 0px (실측 %d)" % control[0], control[0] == 0)
 
 	viewport.queue_free()
 	await process_frame
@@ -85,7 +90,9 @@ func _run() -> void:
 	quit(0)
 
 
-func _count_green(viewport: SubViewport, probe: DismissProbe, progress: float) -> int:
+func _measure_green(viewport: SubViewport, probe: DismissProbe, progress: float) -> Array:
+	# 반환 [count, energy]: count = 임계 초과 픽셀 수, energy = 녹색 초과분 합
+	# (강도 지표 — 페이드 감쇠는 energy로만 판정 가능).
 	probe.progress = progress
 	probe.queue_redraw()
 	await process_frame
@@ -94,11 +101,14 @@ func _count_green(viewport: SubViewport, probe: DismissProbe, progress: float) -
 	if image == null:
 		_failed = true
 		printerr("FAIL: viewport capture null (헤드리스 실행? 비헤드리스로 실행할 것)")
-		return -1
+		return [-1, -1.0]
 	var count := 0
+	var energy := 0.0
 	for y in range(0, image.get_height(), 2):
 		for x in range(0, image.get_width(), 2):
 			var c := image.get_pixel(x, y)
-			if c.g > 0.39 and c.r < 0.31 and c.b < 0.31:
-				count += 1
-	return count
+			if c.g > 0.2 and c.r < 0.31 and c.b < 0.31:
+				energy += c.g - maxf(c.r, c.b)
+				if c.g > 0.39:
+					count += 1
+	return [count, energy]
