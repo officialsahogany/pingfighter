@@ -100,7 +100,10 @@ permit 계약 (S2에 전부 포함):
 - **현재 액티브 슬롯에 장착된 라이브 permit이 있을 때만** 탑승 허용
 - 자동 무장 / launch / skill-host update 대상에서 **명시적으로 제외**
 - 탑승 상태와 전이 정리는 계속 `lingpet_mount_state`가 **단독 소유**
-- egg runtime이 장착 id와 온이마루 유예를 해석해 **`mount_permitted` 하나만** 전달
+- egg runtime은 장착 슬롯을 조회해 **`mount_permitted` 불리언 하나만** 전달 —
+  맵·유예 **해석**과 철회 전이 처리는 `lingpet_mount_state`가 소유한다
+  *(2026-08-05 S2-a 구현 정합 정정: 초판의 "egg가 유예를 해석" 표현은 소유권
+  계약과 어긋나 폐기)*
 - `needs_runtime_update_for_skill()`에는 탑승을 **넣지 않는다**
 
 > ⚠️ **"해금"의 정의 = 현재 액티브 슬롯에 장착.** 단순 획득/보유가 아니다.
