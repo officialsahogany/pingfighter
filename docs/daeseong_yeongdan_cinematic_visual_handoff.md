@@ -181,3 +181,127 @@ before/after 캡처 픽셀 대조 + 전 배선 코드 직독 + 신규 스모크
 
 잔여: 라이브 인게임 1판 QA(발동 프레임 히치 무확인), 공유 파일 WIP 분리 후
 헝크 커밋.
+
+---
+
+## 7. 후속 슬라이스 핸드오프 — 극성 도달 (REVEAL/CELEBRATION) (2026-08-05)
+
+작성: Claude. 분업 경계는 §0과 동일(아트 디렉션·프롬프트·수용 판정 = Claude,
+생성·반입·배선·씰 = Codex). 슬라이스 1(BUILDUP)이 프리미엄으로 올라가면서
+직후에 나오는 이 화면과의 품질 낙차가 전보다 커졌다 — 같은 방법론으로 정렬한다.
+
+### 7.1 현행 구조와 확정 결함
+
+극성 도달 연출 흐름: REVEAL 1.5초(플래시 감쇠 + 결과 페이드인, 스파클 80) →
+CELEBRATION(확인 대기, 쇼크웨이브 3호 + 폭죽 50/버스트 + 콘페티 140 + 배너 +
+극성 배지). 렌더는 전부
+`elixir_of_mastery_cinematic_draw.gd`의 `_draw_result` 이하 절차 드로우.
+
+| # | 결함 | 근거 |
+|---|------|------|
+| C1 | 방사광선 12줄이 `draw_line` 버트 캡 균일 방사 = 반려된 "별표" 클래스. 빌드업 부적 링 직후라 대비가 가장 큼 | `_draw_radial_rays` |
+| C2 | 극성 배지가 플랫 노란 원 + 텍스트 → 디버그 배지 인상, 아이콘 프레임 우측과 어정쩡하게 겹침(cx+95 고정 앵커) | `_draw_level5_badge` |
+| C3 | 콘페티 140개가 플랫 사각형 → 78% 암전 위에서 축하 꽃가루가 아니라 깨진 픽셀/노이즈로 오독(라이브 스크린샷 확인) | `_draw_confetti` |
+| C4 | 아이콘 프레임이 사각 rect 3겹 외곽선 + 하드엣지 원 글로우 = placeholder급 | `_draw_result` 프레임/글로우 블록 |
+| C5 | (보조) 폭죽이 원 2겹 점 — C1~C4 해소 후 재평가, 이번 슬라이스 교체 대상 아님 | `_draw_fireworks` |
+
+유지(정상 판정): 배너 "극성 도달!" 스테이징·카피, "N성 → 극성" 전환 텍스트,
+공용 무공 아이콘 연동(TAB/카드 정체성 일치 — 절대 훼손 금지), 쇼크웨이브
+draw_arc 확산(순간 이펙트라 절차 유지 가능), 플래시, Space/Click 안내.
+
+### 7.2 신규 3피스 + 재사용 2종
+
+에셋 폴더·네이밍·마스터 보존(`_source`/`_alpha`)·해상도 규칙은 §2와 동일.
+
+**N1. 방사광선 버스트 텍스처 1장** (C1 해소)
+- `daeseong_glory_rays_imagegen_v1.png` — 중심에서 뻗는 금빛 광선 부챗살.
+  길이·폭 불균일(수작업 후광 느낌), 중심부는 투명(아이콘 프레임 자리),
+  끝단은 부드러운 페이드. 소스 1024², 런타임 512².
+- 런타임: 현행 `rays_rotation`(42°/s) 재사용해 통째 회전, 알파는 셀레브레이션
+  진입 페이드인. 필요 시 같은 텍스처를 역방향 저알파로 한 장 더 겹쳐 깊이.
+- 프롬프트 초안:
+
+  > Radiant golden glory rays bursting outward from an empty transparent
+  > center, uneven hand-painted ray lengths and widths, warm gold
+  > (#ED9C1F to #FFD138) fading softly at the tips, subtle crimson
+  > (#D6290F) accent rays interleaved, flat 2D game VFX asset, fully
+  > transparent background and center hole, generous margin, symmetrical
+  > enough to rotate seamlessly.
+
+**N2. 아이콘 인장 프레임 1장** (C4 해소)
+- `daeseong_icon_seal_frame_imagegen_v1.png` — 무공 아이콘(82px)을 감싸는
+  금장 장식 프레임. 사각 기반 + 모서리 여의두/운문 장식, 프레임 뒤 은은한
+  발광 포함. 소스 1024², 런타임 256².
+- 현행 rect 3겹 + 하드엣지 원 글로우를 대체. 아이콘은 프레임 위에 현행
+  그대로 draw(공용 렌더러 경로 불변).
+- `mythic_icon_backdrop` (`effects/mythic_acquisition/`) 선례 참고 — 단
+  대성영단 금+단사 팔레트로 차별화.
+
+**N3. 극성 인장 배지 1장** (C2 해소)
+- `daeseong_geukseong_seal_imagegen_v1.png` — 붉은 전각 낙관(도장) 스타일
+  인장. 문양만 아트로, "극성" 글자는 런타임 텍스트 유지(다국어 대응 —
+  `format_mugong_level` 경로 불변). 소스 1024², 런타임 128².
+- **배치 재설계 포함**: 현행 cx+95 고정 앵커가 프레임과 겹침 — 프레임
+  우상단 모서리에 도장 찍힌 구도(프레임 rect 기준 상대 앵커)로 이동,
+  `level5_impact_scale` 임팩트 스케일은 유지.
+- 프롬프트 초안:
+
+  > A traditional East-Asian red seal stamp (낙관) impression, square
+  > carved-relief border with an ornate abstract martial emblem inside,
+  > deep crimson (#B8140A) ink with slightly rough stamped edges, flat 2D
+  > game UI badge asset, fully transparent background, generous margin.
+
+**재사용 R1. 콘페티 → 금빛 불티/꽃잎** (C3 해소)
+- 신규 대형 텍스처 대신 **소형 조각 텍스처 1장**(금박 조각 3~4개가 한 시트에
+  들어간 미니 아틀라스, 소스 512² → 런타임 128²)으로
+  `daeseong_confetti_flakes_imagegen_v1.png` 생성. 런타임은 현행 콘페티
+  물리(중력·드래그·140개)를 유지하고 draw만 사각형 → 조각 텍스처 회전
+  draw로 교체. 색은 금·단사 2계열로 제한(현행 무채색 혼입 제거).
+- 140개 x 텍스처 draw는 즉시 드로우 예산 내(빌드업 입자 60개와 동급 규모,
+  프레임당 1회). 성능 씰은 기존 오버레이 성능 스모크 재실행으로 갈음.
+
+**재사용 R2. 대성진 링 + 글로우 백플레이트 저알파 배경**
+- 셀레브레이션 배경에 슬라이스 1의 `daeseong_rune_ring_outer`를 저알파
+  (~0.16) 저속 회전으로 깔아 의식의 연속성 부여. 추가 에셋 0장.
+- **§6 P2 글로우 웜 톤 v2를 이 슬라이스에 편입**: 글로우 백플레이트만
+  청색 채널 상향(코어 앵커 `#FFED8F`, B=143 계열)으로 재생성해 빌드업·
+  셀레브레이션 양쪽에서 교체. 에셋 라운드를 한 번으로 합친다.
+
+### 7.3 배선 지시 (Codex)
+
+- 텍스처 스펙: `BUILDUP_TEXTURE_SPECS`와 같은 형태로 신규 키를 스펙
+  테이블에 추가(별도 `RESULT_*` 테이블로 나누든 통합하든 프리웜 스텝이
+  자동 확장되는 쪽으로). 준비 게이트는 **결과 화면 세트 별도**
+  (`is_textured_result_ready()` 류) — 부분 세트면 해당 화면만 절차 폴백,
+  빌드업 게이트와 독립.
+- 레이어 순서 (아래→위): 암전 → 대성진 링 저알파(R2) → 쇼크웨이브(절차
+  유지) → 방사광선 N1(회전) → 아이콘 발광(글로우 v2 재사용) → 인장 프레임
+  N2 → 무공 아이콘(공용 렌더러, 불변) → 극성 인장 N3+텍스트 → 폭죽(절차
+  유지) → 콘페티 R1 → 배너 → 안내 텍스트 → 플래시.
+- §3의 트랩 목록 전부 동일 적용(재-stat 금지·프리웜 이산 시점·imported
+  폴백·IDENTITY 복원·material 스왑 금지). 추가 1건: 콘페티 조각 draw가
+  개별 `draw_set_transform` 회전을 쓰면 **루프 종료 후 IDENTITY 복원 1회**
+  가 아니라 다음 드로우 전 복원이 보장되는 구조로.
+- 스모크 확장: `daeseong_yeongdan_cinematic_visual_smoke.gd`의
+  `expected_keys` 목록에 신규 키 추가(스펙 검증 루프는 자동 커버), 결과
+  화면 textured/폴백 draw 레그 추가, `_verify_hot_path_source_contract`의
+  대상 슬라이스에 `_draw_result` 구간 포함.
+- 캡처 도구는 이미 `daeseong_yeongdan_peak_result.png`를 찍는다 —
+  before를 백업한 뒤 after와 픽셀 대조.
+
+### 7.4 수용 게이트
+
+1. peak_result 캡처 before/after — 강한 임계 픽셀 판정: 방사광선 대역
+   (프레임 밖 반경 80~240px) lit 카운트 상승, 배지 영역 적색 채도 카운트.
+2. 콘페티: 무채색(회색 계열) 조각 픽셀 0 확인(금·단사 2계열 제한 검증).
+3. 스모크(확장분 포함) 표준 러너 GREEN + 기존 63종 회귀 GREEN.
+4. 오버레이 성능 스모크 재실행(콘페티 텍스처화 비용 확인).
+5. Claude 아트 재검수: 별표 인상 소멸 / 배지가 도장으로 읽힘 / 콘페티가
+   축하로 읽힘 / 프레임-배지 겹침 해소 / 아이콘 정체성 불변 / 환격전 톤
+   (글로우 v2 웜 톤 포함).
+
+### 7.5 스코프 아웃
+
+- 폭죽 절차 드로우(C5) — C1~C4 반영 후 재평가.
+- 타이틀 폰트 결 — 별건 백로그 유지.
+- REVEAL 플래시·쇼크웨이브 — 현행 유지.
