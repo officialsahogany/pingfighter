@@ -1,0 +1,18 @@
+{
+  "asset_family": "baekrin_front_static_presentation",
+  "lingpet": "baekrin",
+  "skill": "baekrin_mokrin_transform (묵린변신)",
+  "runtime_usage": "active_skill.card_texture_path — 획득 리빌·스킬 카드 UI. 규격 1720×541 (스킬카드 가족 공통)",
+  "source": {
+    "generator": "Gemini imagegen (gemini-generate-image, 21:9 2K) — 카드는 자유 일러스트 계열이라 AutoSprite 요건(런타임 시트) 비적용, 기존 *_skillcard_imagegen_v1 가족과 동일 경로",
+    "identity_reference": "정면 canonical a07(백린_변신전) 상세 기술 프롬프트 — 뿔캡2·청록눈·금 수염·금 목걸이+jade 펜던트·다리 커프·꼬리 고리·비늘 패턴 전부 판독 확인",
+    "concept": "먹빛 변신: 백린(좌) → 수묵 소용돌이(중앙) → 묵린(우, 먹빛+청록 림라이트). 환격전 한국 신화 수묵 무드",
+    "raw_output": "image-1785832335475.jpeg (3168×1344)",
+    "crop": "발 접지 앵커 밴드 y142~1138 (스파클 제외 실측 후 결정) → 1720×541 Lanczos"
+  },
+  "acceptance": {
+    "accepted_sha256": "060638F5060FD7946C4227DBAF2F1FE107485EF53E16B48DD01BC69F91117253",
+    "visual_qa": "뿔·꼬리·정체성 마커 온전, 프레임 필러 좌우 유지, 발 하단 접지(코요라 카드와 동일 구도 관례)",
+    "note": "icon_texture_path(스킬 아이콘)는 S1 미생성 — 검증 선택 항목이라 카탈로그 활성 비차단. 후속 슬라이스"
+  }
+}
