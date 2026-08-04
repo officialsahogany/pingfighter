@@ -530,7 +530,18 @@ func is_pet_cutin_anim_ready(pet_id: String) -> bool:
 		normalized = DEFAULT_PET_ID
 	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
 	if anim_path == "":
-		return true
+		# S1 정적 정면 모델: 리빌이 잠글 시각 자산은 cutin_art 정적 원화다. 원화가
+		# 캐시에 오르기 전 ready=true를 돌려주면 리빌 클록이 진행돼 콜드 스타트
+		# 몇 프레임 동안 배경만 보인다(콜드 실측 ready=true/cached=false, 46ms 뒤
+		# 준비 — 2026-08-04 리뷰 P2). 같은 프리웜 스텝 경로로 원화 캐시를 게이트
+		# 한다. 원화 키마저 없으면 게이트 대상이 없으므로 true.
+		var art_path := LingpetCatalog.get_visual_path(normalized, "cutin_art")
+		if art_path == "":
+			return true
+		if ProjectResourceLoader.get_cached_texture(art_path) != null:
+			return true
+		prewarm_pet_assets_step(normalized, false)
+		return ProjectResourceLoader.get_cached_texture(art_path) != null
 	if ProjectResourceLoader.get_cached_texture(anim_path) != null:
 		return true
 	prewarm_pet_assets_step(normalized, false)

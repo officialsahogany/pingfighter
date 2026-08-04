@@ -23,6 +23,8 @@ const AcquireCutinOverlayHost := preload("res://scripts/hud/lingpet_acquire_cuti
 const PanelTextureLoader := preload("res://scripts/hud/character_info_overlay_lingpet_texture_loader.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const BattleUpdatePlayerControlDepsBuilder := preload("res://scripts/core/battle_update_player_control_deps_builder.gd")
+const SmasherPlayerController := preload("res://scripts/characters/smasher_player_controller.gd")
 
 var _failed := false
 
@@ -69,14 +71,169 @@ class SpyRegistry:
 	extends RefCounted
 
 	var audio: SpyAudio = SpyAudio.new()
+	var instances: Dictionary = {}
 
 	func get_cached_instance(key: String) -> Variant:
 		if key == "game_audio":
 			return audio
-		return null
+		return instances.get(key, null)
 
 	func get_instance(key: String) -> Variant:
 		return get_cached_instance(key)
+
+
+# egg.update()를 운영 형태로 구동하기 위한 owner 픽스처 — lingpet_egg_runtime_smoke의
+# FakeOwner와 동일 형태(그 스모크가 운영 update 관통의 선례).
+class FakeOwner:
+	extends RefCounted
+
+	var ai_mode := "junior league"
+	var current_stage := 1
+	var selected_character_type := "smasher"
+	var player_pos := Vector2(263.75, 675.0)
+	var player_paddle_width := 232.5
+	var player_paddle_height := 75.0
+	var boss_pos := Vector2(330.0, 25.0)
+	var boss_vel := 0.0
+	var boss_paddle_width := 100.0
+	var boss_hitbox_height := 40.0
+	var lingpet_puppet_grab_active := false
+	var lingpet_star_coil_boss_slow_active := false
+	var lingpet_star_coil_boss_slow_multiplier := 1.0
+	var lingpet_star_coil_block_boss_dash := false
+	var lingpet_star_coil_freeze_boss_skill_cd := false
+	var ball_active := false
+	var ball_pos := Vector2.ZERO
+	var ball_pos_prev := Vector2.ZERO
+	var ball_vel := Vector2.ZERO
+	var ball_serve_origin := ""
+	var ball_size := 28.6
+	var rally_speed_cap_bonus := 0.0
+	var special_gauge := 100.0
+	var special_gauge_max := 500.0
+	var lingpet_id := ""
+	var active_lingpet_id := ""
+	var current_lingpet_id := ""
+	var lingpet_state := "none"
+	var ringpet_state := "none"
+	var lingpet_hatch_hits := 0
+	var ringpet_hatch_hits := 0
+	var lingpet_hatch_required_hits := 3
+	var ringpet_hatch_required_hits := 3
+	var lingpet_egg_pos := Vector2.ZERO
+	var lingpet_companion_pos := Vector2.ZERO
+	var ringpet_companion_pos := Vector2.ZERO
+	var lingpet_companion_patrol_speed_default := 120.0
+	var ringpet_companion_patrol_speed_default := 120.0
+	var lingpet_companion_patrol_speed_min := 70.0
+	var ringpet_companion_patrol_speed_min := 70.0
+	var lingpet_companion_patrol_speed_max := 135.0
+	var ringpet_companion_patrol_speed_max := 135.0
+	var lingpet_companion_catch_width := 100.0
+	var ringpet_companion_catch_width := 100.0
+	var lingpet_companion_catch_height := 44.0
+	var ringpet_companion_catch_height := 44.0
+	var lingpet_companion_defense_rate := 0.0
+	var ringpet_companion_defense_rate := 0.0
+	var lingpet_companion_appearance_rate := 0.0
+	var ringpet_companion_appearance_rate := 0.0
+	var lingpet_companion_defense_intercept_active := false
+	var ringpet_companion_defense_intercept_active := false
+	var lingpet_companion_defense_intercept_target_x := 0.0
+	var ringpet_companion_defense_intercept_target_x := 0.0
+	var lingpet_companion_contact_count := 0
+	var ringpet_companion_contact_count := 0
+	var lingpet_companion_last_contact_pos := Vector2.ZERO
+	var ringpet_companion_last_contact_pos := Vector2.ZERO
+	var lingpet_companion_hit_cooldown := 0.0
+	var ringpet_companion_hit_cooldown := 0.0
+	var lingpet_companion_hit_gauge_gain := 0.0
+	var ringpet_companion_hit_gauge_gain := 0.0
+	var lingpet_companion_hit_gauge_last_gain := 0.0
+	var ringpet_companion_hit_gauge_last_gain := 0.0
+	var lingpet_companion_hit_gauge_trigger_count := 0
+	var ringpet_companion_hit_gauge_trigger_count := 0
+	var lingpet_skill_id := ""
+	var ringpet_skill_id := ""
+	var lingpet_active_skill_id := ""
+	var ringpet_active_skill_id := ""
+	var lingpet_active_skill_level := 0
+	var ringpet_active_skill_level := 0
+	var lingpet_second_active_skill_id := ""
+	var ringpet_second_active_skill_id := ""
+	var lingpet_second_active_skill_level := 0
+	var ringpet_second_active_skill_level := 0
+	var lingpet_active_skill_max_level := 0
+	var ringpet_active_skill_max_level := 0
+	var lingpet_skill_name := ""
+	var ringpet_skill_name := ""
+	var lingpet_skill_cooldown := 0.0
+	var ringpet_skill_cooldown := 0.0
+	var lingpet_skill_cooldown_duration := 40.0
+	var ringpet_skill_cooldown_duration := 40.0
+	var lingpet_skill_ready := false
+	var ringpet_skill_ready := false
+	var lingpet_skill_last_gain := 0.0
+	var ringpet_skill_last_gain := 0.0
+	var lingpet_skill_trigger_count := 0
+	var ringpet_skill_trigger_count := 0
+	var lingpet_second_skill_id := ""
+	var ringpet_second_skill_id := ""
+	var lingpet_second_skill_name := ""
+	var ringpet_second_skill_name := ""
+	var lingpet_second_skill_max_level := 0
+	var ringpet_second_skill_max_level := 0
+	var lingpet_second_skill_cooldown := 0.0
+	var ringpet_second_skill_cooldown := 0.0
+	var lingpet_second_skill_cooldown_duration := 0.0
+	var ringpet_second_skill_cooldown_duration := 0.0
+	var lingpet_second_skill_ready := false
+	var ringpet_second_skill_ready := false
+	var lingpet_second_skill_winding_up := false
+	var ringpet_second_skill_winding_up := false
+	var lingpet_second_skill_windup_ratio := 0.0
+	var ringpet_second_skill_windup_ratio := 0.0
+	var lingpet_skill_icon_path := ""
+	var ringpet_skill_icon_path := ""
+	var lingpet_passive_skill_id := ""
+	var ringpet_passive_skill_id := ""
+	var lingpet_passive_skill_level := 0
+	var ringpet_passive_skill_level := 0
+	var lingpet_passive_skill_max_level := 0
+	var ringpet_passive_skill_max_level := 0
+	var lingpet_passive_skill_name := ""
+	var ringpet_passive_skill_name := ""
+	var lingpet_passive_skill_description := ""
+	var ringpet_passive_skill_description := ""
+	var lingpet_passive_skill_icon_path := ""
+	var ringpet_passive_skill_icon_path := ""
+	var lingpet_gauge_gain_bonus_pct := 0.0
+	var ringpet_gauge_gain_bonus_pct := 0.0
+	var lingpet_player_speed_bonus_pct := 0.0
+	var ringpet_player_speed_bonus_pct := 0.0
+	var lingpet_starpoint_tracking_chance_pct := 0.0
+	var ringpet_starpoint_tracking_chance_pct := 0.0
+	var lingpet_ring_dash_chance_pct := 0.0
+	var ringpet_ring_dash_chance_pct := 0.0
+	var lingpet_ring_dash_force_roll_pct := -1.0
+	var lingpet_effect_text := ""
+	var lingpet_owned_pet_ids: Array = []
+	var owned_lingpet_ids: Array = []
+	var owned_ringpet_ids: Array = []
+	var lingpet_collection: Dictionary = {}
+	var ringpet_collection: Dictionary = {}
+	var owned_lingpets: Dictionary = {}
+	var owned_ringpets: Dictionary = {}
+	var lingpet_loadouts: Dictionary = {}
+	var ringpet_loadouts: Dictionary = {}
+	var owned_lingpet_loadouts: Dictionary = {}
+	var owned_ringpet_loadouts: Dictionary = {}
+	var lingpet_slots: Array = ["", "", ""]
+	var ringpet_slots: Array = ["", "", ""]
+	var lingpet_slot_pet_ids: Array = ["", "", ""]
+	var ringpet_slot_pet_ids: Array = ["", "", ""]
+	var lingpet_active_slot_index := 0
+	var ringpet_active_slot_index := 0
 
 
 func _init() -> void:
@@ -100,6 +257,9 @@ func _run() -> void:
 	await _test_host_dismiss_load_gate()
 	_test_click_sealed_silent()
 	_test_launch_roundtrip()
+	_test_p1_production_frame_flow()
+	await _test_p2_static_ready_gates_on_art()
+	ProjectResourceLoader.clear_caches()
 	if _failed:
 		printerr("lingpet_baekrin_static_activation_smoke: FAILED")
 		quit(1)
@@ -225,3 +385,85 @@ func _test_launch_roundtrip() -> void:
 	var launched: bool = egg.launch_mokrin_transform_for_tests()
 	_expect("백린 활성 상태에서 묵린변신 launch 성공", launched)
 	_expect("D15: is_mokrin_transform_active true", egg.is_mokrin_transform_active())
+
+
+func _test_p1_production_frame_flow() -> void:
+	# P1 씰 (2026-08-04 리뷰): 테스트 훅 없이 운영 경로만으로 —
+	# ① update_player_control: 발동 전 무동작 (비활성 대조군)
+	# ② 실제 입력(하강 공)을 넣은 egg.update()가 컨트롤러 ARM/LAUNCH를 발동
+	# ③ 다음 update_player_control이 자동조작을 최초 소비.
+	var egg := LingpetEggRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := SpyRegistry.new()
+	registry.instances["lingpet_egg_runtime"] = egg
+	# 디버그 grant는 액티브 스킬을 자동 장착하지 않는다(companion_skill_id="") —
+	# 운영 arm 경로를 열려면 명시 장착이 필요.
+	egg.debug_grant_and_activate_pet("baekrin", owner, false, "baekrin_mokrin_transform")
+	owner.ball_active = true
+	owner.ball_pos = Vector2(380.0, 300.0)
+	owner.ball_pos_prev = Vector2(380.0, 290.0)
+	owner.ball_vel = Vector2(0.0, 10.0)
+
+	var deps: Dictionary = BattleUpdatePlayerControlDepsBuilder.new().build_deps(registry)
+	var controller: Object = SmasherPlayerController.new()
+	var config := {
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"paddle_speed": 6.0,
+		"paddle_max_speed": 6.0,
+		"paddle_accel": 0.5,
+		"paddle_decel": 0.5,
+		"paddle_turn_decel": 1.0,
+		"special_gauge": 0.0,
+		"ball_pos": Vector2(380.0, 375.0),
+		"selected_character_type": "smasher",
+	}
+	var start := Vector2(100.0, 675.0)
+
+	var before: Dictionary = controller.update(0.016, 0, start, 0.0, config, deps)
+	var before_pos: Vector2 = before.get("player_pos", start)
+	_expect("P1①: 발동 전 update_player_control 무동작 (대조군)", is_equal_approx(before_pos.x, start.x))
+
+	var became := false
+	var frames := 0
+	for i in range(600):
+		egg.update(0.016, owner, registry)
+		frames += 1
+		if egg.is_mokrin_transform_active():
+			became = true
+			break
+	_expect("P1②: 운영 egg.update()만으로 ARM/LAUNCH 발동 (%d프레임)" % frames, became)
+
+	var after: Dictionary = controller.update(0.016, 0, start, 0.0, config, deps)
+	var after_pos: Vector2 = after.get("player_pos", start)
+	_expect("P1③: 다음 update_player_control이 자동조작 최초 소비 (Δx=%.2f)" % (after_pos.x - start.x),
+		after_pos.x > start.x + 0.5)
+
+
+func _test_p2_static_ready_gates_on_art() -> void:
+	# P2 씰 (2026-08-04 리뷰): 정적 모델의 리빌 준비 판정은 cutin_art 캐시를
+	# 게이트한다 — 콜드 상태에서 ready=false, 프리웜 스텝 후 true.
+	var host := AcquireCutinOverlayHost.new()
+	ProjectResourceLoader.clear_caches()
+	var art_path := LingpetCatalog.get_visual_path("baekrin", "cutin_art")
+	_expect("P2 전제: baekrin cutin_art 경로 등재", art_path != "")
+	var cold_ready: bool = host.is_pet_cutin_anim_ready("baekrin")
+	# 준비 판정 자체가 프리웜 스텝을 밟지만 로드는 스레드 기반이라 프레임 대기가
+	# 필요하다. 임포트 캐시가 있는 환경에서는 수 프레임 안에 true로 수렴해야 하고,
+	# 첫 콜드 호출은 false여야 한다. 임포트 산출물이 없는 스파스 검증 환경에서는
+	# 영원히 준비되지 않으므로 명시 SKIP.
+	var became_ready := cold_ready
+	for i in range(120):
+		if became_ready:
+			break
+		await process_frame
+		became_ready = host.is_pet_cutin_anim_ready("baekrin")
+	if became_ready:
+		_expect("P2: 콜드 첫 판정은 false (원화 캐시 게이트)", not cold_ready)
+		_expect("P2: 프리웜 스텝 경유 후 ready=true 수렴", became_ready)
+	else:
+		print("SKIP: baekrin cutin_art 임포트 산출물 부재(스파스 환경) — P2 수렴 레그는 풀 저장소에서만")
+		_expect("P2: 콜드 판정 false (게이트 자체는 스파스에서도 증명)", not cold_ready)
+	ProjectResourceLoader.clear_caches()
