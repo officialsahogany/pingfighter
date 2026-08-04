@@ -630,6 +630,97 @@ const PETS := {
 		"companion_sd_source_path": "res://assets/sprites/lingpet/red_dragon_companion_sd_back.png",
 		"note": "Red Dragon has a dedicated rear-three-quarter SD wing-flap sheet for sortie_flight movement, acquisition cut-in/dismiss sheets, a dedicated click_reaction_anim, and Dragon Breath / Dragon Wing active runtimes ported from the original Ignis hero skill kit.",
 	},
+	"baekrin": {
+		"id": "baekrin",
+		"display_name": "백린",
+		"enabled": true,
+		"hatch_weight": 1.0,
+		"required_hits": 1,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		# S1 정적 정면 프레젠테이션 (2026-08-04 사용자 확정): 동적 cutin/click 완성이
+		# 아니다. 획득 등장·퇴장·정보창은 전부 cutin_art 정적 원화 폴백. 정면 동적
+		# 계열(cutin_anim 8×4·32f / click 98f)은 후속 슬라이스로 이월(생성 경로 전
+		# 기각 — docs/lingpet_mokrin_runtime_kind_registration_matrix.md 2026-08-04).
+		"front_presentation_model": "static",
+		"stats": {
+			# S1 보수 기준선 = 코요라(지상 순찰 펫) 미러 — 기획 확정 수치 부재.
+			# P0 "추가 전투 보너스 없음"에 맞춘 베이스라인이며 밸런스 튜닝은 후속.
+			"patrol_speed_default": 168.0,
+			"patrol_speed_min": 108.0,
+			"patrol_speed_max": 222.0,
+			"catch_width": 88.0,
+			"catch_height": 52.0,
+			"defense_rate": 0.16,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": SHARED_GUARDIAN_SPIRIT_EGG_PATH,
+			"egg_crack_1": SHARED_GUARDIAN_SPIRIT_EGG_CRACK_1_PATH,
+			"egg_crack_2": SHARED_GUARDIAN_SPIRIT_EGG_CRACK_2_PATH,
+			# S1 후면 = 승인 idle 1장(v1 f1 exact crop) + 정적 별칭 5키. 실제
+			# locomotion/strike 시트는 후속 슬라이스 (matrix rev12 §S1 계약:
+			# _move_right 네이티브 생성 → _move_left per-cell 미러).
+			"companion_idle": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_move_left": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_move_right": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_walk": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_strike": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_cast": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
+			"companion_puppet_control": "res://assets/sprites/lingpet/baekrin_mokrin_transform_6x2_12f.png",
+			"cutin_art": "res://assets/sprites/lingpet/baekrin_cutin_art.png",
+			# 동적 정면 3키 + companion_click_reaction_anim은 정의 금지(static 모델
+			# 검증이 fail-closed로 막는다) — 소비자 그리드 하드코딩 오슬라이스 방지.
+		},
+		"visual_layout": {
+			# 별칭 5키 + idle 전부 1×1·1f 메타 명시 — 메타 누락 시 기본 그리드로
+			# 오슬라이스된다 (matrix rev12 §S1).
+			"companion_idle_cols": 1.0,
+			"companion_idle_rows": 1.0,
+			"companion_idle_frame_count": 1.0,
+			"companion_move_left_cols": 1.0,
+			"companion_move_left_rows": 1.0,
+			"companion_move_left_frame_count": 1.0,
+			"companion_move_right_cols": 1.0,
+			"companion_move_right_rows": 1.0,
+			"companion_move_right_frame_count": 1.0,
+			"companion_walk_cols": 1.0,
+			"companion_walk_rows": 1.0,
+			"companion_walk_frame_count": 1.0,
+			"companion_strike_cols": 1.0,
+			"companion_strike_rows": 1.0,
+			"companion_strike_frame_count": 1.0,
+			"companion_cast_cols": 1.0,
+			"companion_cast_rows": 1.0,
+			"companion_cast_frame_count": 1.0,
+			"companion_walk_draw_size": 92.0,
+			"companion_strike_draw_size": 92.0,
+			"companion_cast_draw_size": 92.0,
+			# D5a: 묵린변신 시트 그리드 (6×2·12f, 512셀 — f1→f12 0.60초 진행 후 f12 홀드)
+			"companion_puppet_control_cols": 6.0,
+			"companion_puppet_control_rows": 2.0,
+			"companion_puppet_control_frame_count": 12.0,
+			"companion_puppet_control_draw_size": 92.0,
+			# D5c: 변신 시트 y 오프셋 델타 — CAST(-12)와 WALK(-6) 기준선 6px 팝 흡수
+			"companion_puppet_control_y_offset_delta": 6.0,
+		},
+		"active_skill": {
+			"id": "baekrin_mokrin_transform",
+			"runtime_kind": "mokrin_transform",
+			"name": "묵린변신",
+			"description": "백린이 5초 동안 먹빛의 묵린으로 변신해 플레이어 패들을 자동으로 조종하며 공을 받아냅니다. 변신 중 공 속도 보너스는 없으며, 가드에 성공할 때마다 먹빛 기운이 고조됩니다.",
+			"cooldown": 40.0,
+			"transform_duration": 5.0,
+			"companion_skill_flash_style": "mokrin_ink",
+			"card_texture_path": "res://assets/sprites/lingpet/baekrin_mokrin_transform_skillcard_imagegen_v1.png",
+		},
+		"effect_text": "공을 직접 받아치면 기력 +40 / 획득 시 묵린변신을 액티브 스킬로 얻습니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
+		"concept_art_path": "res://assets/sprites/lingpet/baekrin_cutin_art.png",
+		"note": "Baekrin ships with the S1 static front presentation (front_presentation_model=static): acquisition entry/dismiss and the info panel all use the static cutin_art; the dynamic 8x4/32f cut-in and 14x7/98f click Live2D are deferred to a follow-up slice (every generation path was rejected 2026-08-04 — see the registration matrix). Rear SD companion rendering uses the approved single-frame idle aliased across move/walk/strike/cast with explicit 1x1/1f grid meta; real locomotion sheets are a follow-up slice. The mount active (백린의안장) is intentionally absent until the mount-gate slices (S2~S7) land.",
+	},
 	"koyora": {
 		"id": "koyora",
 		"display_name": "살각시",

@@ -46,6 +46,10 @@ const FLOAT_PAYLOAD_DEFAULTS := {
 	"self_stun_seconds": -1.0,
 	"disable_moving_miss": 0.0,
 	"ground_slam": 0.0,
+	# 묵린변신 (baekrin_mokrin_transform): 카탈로그 변신 지속시간. 화이트리스트에
+	# 없으면 카탈로그 값이 조용히 미전달되고 모듈 내부 기본(5.0초)만 쓰인다 —
+	# 지금은 값이 같아 무증상이지만 튜닝 시 침묵 발산하는 함정이라 명시 등재.
+	"transform_duration": -1.0,
 }
 
 
