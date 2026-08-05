@@ -678,6 +678,15 @@ Important current behavior:
   context already use real `combo_consumed`, so velocity and feedback
   lanes now agree. Sealed by
   `junior_power_smash_tuning_smoke._verify_power_smash_combo_gate_uses_real_combo_for_launch_cap`.
+  **2026-08-05 amendment (user-approved 콤보 상향 design decision):**
+  the combo final speed bonus is applied BEFORE `set_target_speed`, so
+  it raises the cruise (post-burst) speed as well as the launch burst,
+  and the combo launch ceiling additionally scales by
+  `(1 + base combo bonus)` (the combo-amplifier chip keeps its own
+  `(1 + amp)` ceiling relaxation on top). The no-combo neutralization
+  above is UNCHANGED. Additional seal:
+  `smasher_power_smash_combo_cruise_bonus_smoke.gd` (combo 5 vs 0
+  driven through the real activation controller).
 
 ### 3.3. Viper Godot audit points
 

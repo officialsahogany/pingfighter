@@ -83,7 +83,17 @@ func _verify_power_smash_combo_gate_uses_real_combo_for_launch_cap() -> void:
 	var no_combo_speed: float = _resolve_power_smash_launch_speed_with_combo("champion", 0, 30.0)
 	var combo_speed: float = _resolve_power_smash_launch_speed_with_combo("champion", 3, 30.0)
 	var expected_no_combo_cap: float = BallPhysics.BALL_BASE_SPEED * SmasherPowerSmashHitVelocityResolver.POWER_SMASH_MAX_LAUNCH_SPEED_MULT
-	var expected_combo_cap: float = BallPhysics.BALL_BASE_SPEED * SmasherPowerSmashHitVelocityResolver.POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT
+	# 2026-08-05 콤보 상향 설계 결정(체크리스트 §3.2 개정): 콤보 발사 천장은
+	# base 콤보 보너스만큼 완화된다. 콤보 3 → min(3×PER, CAP).
+	var combo_base_bonus: float = min(
+		3.0 * SmasherPowerSmashHitVelocityResolver.POWER_SMASH_COMBO_SPEED_PER_COUNT,
+		SmasherPowerSmashHitVelocityResolver.POWER_SMASH_COMBO_SPEED_CAP
+	)
+	var expected_combo_cap: float = (
+		BallPhysics.BALL_BASE_SPEED
+		* SmasherPowerSmashHitVelocityResolver.POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT
+		* (1.0 + combo_base_bonus)
+	)
 	_expect(
 		is_equal_approx(no_combo_speed, expected_no_combo_cap),
 		"no-combo power-smash should clamp to the non-combo launch cap"
