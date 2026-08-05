@@ -3305,6 +3305,12 @@ func _draw_companion(
 		"windup_seconds": float(visual_surface.get("windup_seconds", 0.0)),
 		"guard_feedback_state": _guard_feedback_state,
 		"mount_carry_active": _mount_state.is_mounted(),
+		# SD 캐릭터 좌측 세로 지속시간 게이지. companion_active 와 같은 술어를 쓴다
+		# (소환 / 수납 트랜지션 중에도 본체가 페이드로 그려지므로 게이지도 같이 페이드).
+		"duration_gauge_enabled": _is_guardian_summoned() or transition_alpha < 1.0,
+		"duration_pool_current": _guardian_run_state.get_duration_pool_current(),
+		"duration_pool_max": _guardian_run_state.get_duration_pool_max(),
+		"duration_drain_exempt": _guardian_run_state.is_duration_drain_exempt_latched(),
 	}))
 
 

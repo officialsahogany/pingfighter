@@ -2,6 +2,7 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
+const LingpetDurationFieldGaugeRenderer := preload("res://scripts/lingpet/lingpet_duration_field_gauge_renderer.gd")
 const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 
 # Soft ambient aura tuning. The persistent companion glow (Lunabi / Maribo) is a
@@ -13,14 +14,24 @@ const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 # sharp on purpose -- those are gameplay feedback, not the ambient aura.
 const _SOFT_GLOW_TEX_SIZE := 64
 
+# 직전 프레임에 실제로 그린 지속시간 게이지 레이아웃(안 그렸으면 visible=false).
+# 매 draw_companion 진입마다 리셋하므로 스테일 값이 남지 않는다 -- 씰이
+# draw_companion 공개 경로를 관통해 게이지 랜딩을 관측하는 채널이다.
+var _last_duration_gauge_layout: Dictionary = {}
+
 
 func prewarm_assets() -> void:
 	_get_or_create_soft_glow_texture()
 
 
+func get_last_duration_gauge_layout_for_tests() -> Dictionary:
+	return _last_duration_gauge_layout
+
+
 func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
+	_last_duration_gauge_layout = {}
 	if not bool(config.get("companion_visible", true)):
 		return
 	var radius: float = float(config.get("radius", 16.0))
@@ -63,6 +74,15 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		var flash_radius: float = lerpf(radius + 8.0, radius + 34.0, 1.0 - hit_flash)
 		canvas.draw_circle(draw_center, flash_radius, Color(0.70, 1.0, 0.92, 0.22 * hit_flash))
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
+	# 지속시간 게이지는 마지막에 그려 플래시 링 / 전환 파티클 위에 남는다. 앵커는
+	# 흔들리는 draw_center 가 아니라 center -- 게이지가 몸통 bob 을 따라 출렁이면
+	# 읽는 UI 가 아니라 장식으로 읽힌다.
+	_last_duration_gauge_layout = LingpetDurationFieldGaugeRenderer.draw_gauge(
+		canvas,
+		center,
+		config,
+		sprite_alpha
+	)
 
 
 func draw_guard_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
