@@ -64,6 +64,8 @@ func _run() -> void:
 	_test_runtime_slot_lookup_pierced()
 	_test_exposure_lockout_both_sides()
 	_test_shared_cooldown_immunity()
+	_test_shared_cooldown_store_immunity()
+	_test_shared_cooldown_identity_mismatch()
 	_test_snapshot_interaction_projection()
 	if _failed:
 		printerr("lingpet_mount_saddle_gate_smoke: FAILED")
@@ -332,3 +334,70 @@ func _test_snapshot_interaction_projection() -> void:
 	_expect("스냅샷 철회: 모델 launch 복귀", str(revoked_snap.get("companion_skill_activation_model", "")) == "launch")
 	_expect("스냅샷 철회: available=false", not bool(revoked_snap.get("companion_skill_interaction_available", true)))
 	_expect("스냅샷 철회: active=false", not bool(revoked_snap.get("companion_skill_interaction_active", true)))
+
+func _test_shared_cooldown_store_immunity() -> void:
+	# 저장 경로 수신 면역 (2026-08-05 리뷰 P1) — 면역 정본은 저장 bool이 아니라
+	# 저장된 skill_id에서 파생한다 (슬롯 정체성 함정 방지).
+	var persistence := LingpetCompanionSkillPersistence.new()
+	persistence.save_current(
+		"baekrin",
+		[LingpetCompanionSkillState.new(), LingpetCompanionSkillState.new()],
+		["baekrin_saddle", "baekrin_mokrin_transform"]
+	)
+
+	# 다른 펫의 일반 스킬이 공유 쿨다운 시작 → 저장소 전체 전파
+	persistence.start_shared_cooldown(10.0, [LingpetCompanionSkillState.new(), LingpetCompanionSkillState.new()])
+	var stored: Dictionary = persistence.state_by_pet_id.get("baekrin", {})
+	var saddle_slot: Dictionary = stored.get("slot_0", {}) as Dictionary
+	var normal_slot: Dictionary = stored.get("slot_1", {}) as Dictionary
+	_expect("저장 면역: 안장 슬롯(저장 id 파생) 0 유지", float(saddle_slot.get("cooldown", -1.0)) <= 0.0)
+	_expect("저장 대조군: 일반 슬롯 10초 수신", is_equal_approx(float(normal_slot.get("cooldown", 0.0)), 10.0))
+
+	# 저장 틱 갱신(advance의 shared 바닥 재고정 경로) 후에도 0
+	persistence.advance_stored_cooldowns(0.5, "maribo", true, 2)
+	stored = persistence.state_by_pet_id.get("baekrin", {})
+	saddle_slot = stored.get("slot_0", {}) as Dictionary
+	_expect("저장 면역: 틱 갱신 후에도 안장 슬롯 0", float(saddle_slot.get("cooldown", -1.0)) <= 0.0)
+
+	# 동일 로드아웃 복원: 면역 재계산 true + 0 유지 / 일반 슬롯은 수신
+	var restored_saddle := LingpetCompanionSkillState.new()
+	var restored_second := LingpetCompanionSkillState.new()
+	persistence.restore_current("baekrin", [restored_saddle, restored_second], ["baekrin_saddle", "baekrin_mokrin_transform"])
+	_expect("복원: 안장 슬롯 0 유지", float(restored_saddle.cooldown) <= 0.0)
+	_expect("복원: 면역 재계산 true", bool(restored_saddle.shared_cooldown_immune))
+	_expect("복원 대조군: 일반 슬롯은 공유 쿨다운 수신", float(restored_second.cooldown) > 0.0)
+
+
+func _test_shared_cooldown_identity_mismatch() -> void:
+	# 로드아웃 교체 불일치 (2026-08-06 리뷰 최종 P1): 슬롯 상태는 skill_id
+	# 정체성에 귀속 — 두 방향 모두 start_shared_cooldown() "실 라이터 관통"으로
+	# 봉인한다 (shared_cooldown 직접 대입은 저장 라이터를 우회하는 공허 GREEN).
+	# A: permit 저장 → 일반 스킬로 교체 복원 → 면역 false + 공유 쿨다운 적용
+	var pa := LingpetCompanionSkillPersistence.new()
+	pa.save_current("baekrin", [LingpetCompanionSkillState.new()], ["baekrin_saddle"])
+	pa.start_shared_cooldown(10.0, [LingpetCompanionSkillState.new()])
+	var swapped_to_normal := LingpetCompanionSkillState.new()
+	pa.restore_current("baekrin", [swapped_to_normal], ["baekrin_mokrin_transform"])
+	_expect("불일치A: permit→일반 교체 복원 면역 false", not bool(swapped_to_normal.shared_cooldown_immune))
+	_expect(
+		"불일치A: 진행 중 공유 쿨다운 적용(10초, 실측 %.2f)" % float(swapped_to_normal.cooldown),
+		is_equal_approx(float(swapped_to_normal.cooldown), 10.0)
+	)
+
+	# B: 일반 저장 → 공유 쿨다운 시작(저장 스냅샷 10초 오염) → permit으로 교체
+	#    복원 → 저장된 10초는 이전 스킬 소유물이라 폐기 + 면역 true + 0 유지
+	var pb := LingpetCompanionSkillPersistence.new()
+	pb.save_current("baekrin", [LingpetCompanionSkillState.new()], ["baekrin_mokrin_transform"])
+	pb.start_shared_cooldown(10.0, [LingpetCompanionSkillState.new()])
+	var stored_before: Dictionary = pb.state_by_pet_id.get("baekrin", {})
+	_expect(
+		"불일치B 사전: 저장 스냅샷이 실제로 10초 오염됨 (라이터 관통 증명)",
+		is_equal_approx(float((stored_before.get("slot_0", {}) as Dictionary).get("cooldown", 0.0)), 10.0)
+	)
+	var swapped_to_permit := LingpetCompanionSkillState.new()
+	pb.restore_current("baekrin", [swapped_to_permit], ["baekrin_saddle"])
+	_expect("불일치B: 일반→permit 교체 복원 면역 true", bool(swapped_to_permit.shared_cooldown_immune))
+	_expect(
+		"불일치B: 저장 10초 폐기 + 공유 쿨다운 미적용(0초, 실측 %.2f)" % float(swapped_to_permit.cooldown),
+		float(swapped_to_permit.cooldown) <= 0.0
+	)

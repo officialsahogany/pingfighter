@@ -250,7 +250,8 @@ func prepare_companion_activation(context: Dictionary) -> Dictionary:
 	if bool(context.get("restore_current_skill_state", true)) and companion_skill_persistence != null:
 		companion_skill_persistence.restore_current(
 			str(context.get("pet_id", "")),
-			context.get("companion_skill_states", []) as Array
+			context.get("companion_skill_states", []) as Array,
+			context.get("companion_skill_ids", []) as Array
 		)
 	if bool(context.get("reset_switch_transition", false)):
 		var switch_transition_state: Object = context.get("switch_transition_state", null) as Object

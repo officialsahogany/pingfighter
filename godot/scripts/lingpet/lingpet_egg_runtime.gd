@@ -1474,7 +1474,7 @@ func debug_grant_and_activate_pet(
 	if normalized_pet_id == "":
 		return false
 	_invalidate_runtime_snapshot_cache()
-	_companion_skill_persistence.save_current(_pet_id, _companion_skill_states)
+	_companion_skill_persistence.save_current(_pet_id, _companion_skill_states, _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host))
 	var has_explicit_loadout := (
 		active_skill_id.strip_edges() != ""
 		or passive_skill_id.strip_edges() != ""
@@ -1557,7 +1557,7 @@ func spawn_plaza_resonance_egg(owner: Object, registry: Object = null) -> Dictio
 		)
 
 	if _state == STATE_COMPANION:
-		_companion_skill_persistence.save_current(_pet_id, _companion_skill_states)
+		_companion_skill_persistence.save_current(_pet_id, _companion_skill_states, _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host))
 		_overflow_choice_state.begin_main_egg(_pet_id)
 	else:
 		_overflow_choice_state.begin_main_egg("")
@@ -1615,7 +1615,7 @@ func _set_current_pet_id(value: String) -> void:
 
 
 func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
-	_companion_skill_persistence.save_current(_pet_id, _companion_skill_states)
+	_companion_skill_persistence.save_current(_pet_id, _companion_skill_states, _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host))
 	var next_pet_id: String = _collection_state.select_active_slot(slot_index, owner)
 	if next_pet_id == "":
 		return false
@@ -2401,6 +2401,9 @@ func _build_companion_runtime_reset_context(
 		"starlight_tracking_state": _starlight_tracking_state,
 		"companion_skill_persistence": _companion_skill_persistence,
 		"companion_skill_states": _companion_skill_states,
+		# S2 permit: 복원 시 면역을 "현재 장착"에서 재계산하기 위한 정체성 전달
+		# (저장 bool 정본 금지 — 로드아웃 교체 시 낡은 권한 함정).
+		"companion_skill_ids": _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host),
 		"companion_motion_state": _companion_motion_state,
 		"skill_runtime_host": _skill_runtime_host,
 		"acquire_cutin_state": _acquire_cutin_state,

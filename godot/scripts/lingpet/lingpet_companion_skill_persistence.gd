@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+
 var state_by_pet_id: Dictionary = {}
 var trigger_count := 0
 var shared_cooldown := 0.0
@@ -62,29 +64,44 @@ func maybe_reset_runtime_transients_for_stage(
 	return true
 
 
-func save_current(pet_id: String, skill_states: Array) -> void:
+func save_current(pet_id: String, skill_states: Array, skill_ids: Array) -> void:
 	var normalized_pet_id := pet_id.strip_edges().to_lower()
 	if normalized_pet_id == "":
 		return
-	state_by_pet_id[normalized_pet_id] = build_persistent_snapshot(skill_states)
+	state_by_pet_id[normalized_pet_id] = build_persistent_snapshot(skill_states, skill_ids)
 
 
-func restore_current(pet_id: String, skill_states: Array) -> bool:
+func restore_current(pet_id: String, skill_states: Array, current_skill_ids: Array) -> bool:
 	var normalized_pet_id := pet_id.strip_edges().to_lower()
 	if normalized_pet_id == "" or not state_by_pet_id.has(normalized_pet_id):
 		reset_states(skill_states)
+		_sync_shared_cooldown_immunity(skill_states, current_skill_ids)
 		_apply_shared_cooldown_to_current(skill_states)
 		return false
 	var snapshot: Variant = state_by_pet_id.get(normalized_pet_id, {})
 	if not (snapshot is Dictionary):
 		reset_states(skill_states)
+		_sync_shared_cooldown_immunity(skill_states, current_skill_ids)
 		_apply_shared_cooldown_to_current(skill_states)
 		return false
 	var normalized := normalize_persistent_snapshot(snapshot as Dictionary, skill_states.size())
 	for slot in range(skill_states.size()):
 		var state: Object = skill_states[slot]
-		if state != null and state.has_method("apply_persistent_snapshot"):
-			state.apply_persistent_snapshot(normalized.get(slot_key(slot), {}) as Dictionary)
+		if state == null:
+			continue
+		var slot_snapshot: Dictionary = normalized.get(slot_key(slot), {}) as Dictionary
+		var stored_id := str(slot_snapshot.get("skill_id", ""))
+		var current_id := str(current_skill_ids[slot]) if slot < current_skill_ids.size() else ""
+		# S2 permit: 슬롯 상태는 skill_id 정체성에 귀속된다 — 로드아웃이 교체된
+		# 슬롯의 저장 상태(쿨다운 포함)는 이전 스킬의 소유물이라 물려주지 않는다.
+		# (permit→일반: 초기화 후 아래 공유 바닥이 정상 적용 / 일반→permit:
+		#  저장된 공유 쿨다운 10초를 폐기하고 면역으로 0 유지)
+		if stored_id != "" and current_id != "" and stored_id != current_id:
+			state.reset_all()
+		elif state.has_method("apply_persistent_snapshot"):
+			state.apply_persistent_snapshot(slot_snapshot)
+	# 면역은 저장 값이 아니라 "현재 장착"에서 재계산 — 공유 바닥 적용보다 먼저.
+	_sync_shared_cooldown_immunity(skill_states, current_skill_ids)
 	_apply_shared_cooldown_to_current(skill_states)
 	trigger_count = maxi(0, int(normalized.get("trigger_count", 0)))
 	sync_shared_trigger_count(skill_states)
@@ -114,7 +131,12 @@ func advance_stored_cooldowns(delta: float, active_pet_id: String, companion_act
 			var key := slot_key(slot)
 			var slot_snapshot: Dictionary = updated.get(key, {}) as Dictionary
 			var cooldown: float = maxf(0.0, float(slot_snapshot.get("cooldown", 0.0)) - safe_delta)
-			slot_snapshot["cooldown"] = maxf(cooldown, shared_cooldown)
+			# S2 permit 수신 면역 (저장 경로): 저장된 permit 슬롯에도 공유 쿨다운
+			# 바닥을 깔지 않는다 — 틱다운만 적용.
+			if LingpetCatalog.is_interaction_permit_skill_id(str(slot_snapshot.get("skill_id", ""))):
+				slot_snapshot["cooldown"] = cooldown
+			else:
+				slot_snapshot["cooldown"] = maxf(cooldown, shared_cooldown)
 			updated[key] = slot_snapshot
 		state_by_pet_id[raw_pet_id] = updated
 
@@ -170,13 +192,19 @@ func reset_states(skill_states: Array) -> void:
 	sync_shared_trigger_count(skill_states)
 
 
-func build_persistent_snapshot(skill_states: Array) -> Dictionary:
+func build_persistent_snapshot(skill_states: Array, skill_ids: Array) -> Dictionary:
 	var snapshot := {
 		"trigger_count": trigger_count,
 	}
 	for slot in range(skill_states.size()):
 		var state: Object = skill_states[slot]
-		snapshot[slot_key(slot)] = state.get_persistent_snapshot() if state != null and state.has_method("get_persistent_snapshot") else empty_state_snapshot()
+		var slot_snapshot: Dictionary = state.get_persistent_snapshot() if state != null and state.has_method("get_persistent_snapshot") else empty_state_snapshot()
+		# S2 permit: 저장 쿨다운의 소유 스킬 정체성을 함께 기록한다 — 저장 경로의
+		# 공유 쿨다운 면역은 이 id에서 파생한다(저장된 bool 정본 금지: 로드아웃
+		# 교체 시 낡은 권한이 되는 슬롯 정체성 함정).
+		if slot < skill_ids.size():
+			slot_snapshot["skill_id"] = str(skill_ids[slot])
+		snapshot[slot_key(slot)] = slot_snapshot
 	return snapshot
 
 
@@ -249,6 +277,17 @@ func is_any_winding_up(skill_states: Array) -> bool:
 	return false
 
 
+func _sync_shared_cooldown_immunity(skill_states: Array, current_skill_ids: Array) -> void:
+	# 빈/짧은 id 배열에서도 조기 반환하지 않는다 — 누락 슬롯은 면역 false로
+	# 명시 동기화해 호출 누락이 낡은 true를 조용히 남기지 못하게 한다.
+	for slot in range(skill_states.size()):
+		var state: Object = skill_states[slot]
+		if state == null:
+			continue
+		var skill_id := str(current_skill_ids[slot]) if slot < current_skill_ids.size() else ""
+		state.shared_cooldown_immune = LingpetCatalog.is_interaction_permit_skill_id(skill_id)
+
+
 func _apply_shared_cooldown_to_current(skill_states: Array) -> void:
 	if shared_cooldown <= 0.0:
 		return
@@ -274,6 +313,9 @@ func _apply_shared_cooldown_to_store(slot_count: int) -> void:
 		for slot in range(slot_count):
 			var key := slot_key(slot)
 			var slot_snapshot: Dictionary = updated.get(key, {}) as Dictionary
-			slot_snapshot["cooldown"] = maxf(float(slot_snapshot.get("cooldown", 0.0)), shared_cooldown)
+			# S2 permit 수신 면역 (저장 경로): 다른 펫/스킬이 시작한 공유 쿨다운이
+			# 저장된 안장 슬롯으로 전파되면 복원 시 10초를 물려받는다 — 스킵.
+			if not LingpetCatalog.is_interaction_permit_skill_id(str(slot_snapshot.get("skill_id", ""))):
+				slot_snapshot["cooldown"] = maxf(float(slot_snapshot.get("cooldown", 0.0)), shared_cooldown)
 			updated[key] = slot_snapshot
 		state_by_pet_id[raw_pet_id] = updated

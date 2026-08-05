@@ -753,7 +753,7 @@ const PETS := {
 		],
 		"effect_text": "공을 직접 받아치면 기력 +40 / 획득 시 묵린변신을 액티브 스킬로 얻습니다. 패시브 효과는 획득 시 공용 풀에서 결정됩니다.",
 		"concept_art_path": "res://assets/sprites/lingpet/baekrin_cutin_art.png",
-		"note": "Baekrin ships with the S1 static front presentation (front_presentation_model=static): acquisition entry/dismiss and the info panel all use the static cutin_art; the dynamic 8x4/32f cut-in and 14x7/98f click Live2D are deferred to a follow-up slice (every generation path was rejected 2026-08-04 — see the registration matrix). Rear SD companion rendering uses the approved single-frame idle aliased across move/walk/strike/cast with explicit 1x1/1f grid meta; real locomotion sheets are a follow-up slice. The mount active (백린의안장) is intentionally absent until the mount-gate slices (S2~S7) land.",
+		"note": "Baekrin ships with the S1 static front presentation (front_presentation_model=static): acquisition entry/dismiss and the info panel all use the static cutin_art; the dynamic 8x4/32f cut-in and 14x7/98f click Live2D are deferred to a follow-up slice (every generation path was rejected 2026-08-04 — see the registration matrix). Rear SD companion rendering uses the approved single-frame idle aliased across move/walk/strike/cast with explicit 1x1/1f grid meta; real locomotion sheets are a follow-up slice. The mount active (백린의안장) is defined as an interaction_permit in the active skill pool but acquisition-locked until S7 (hatch rolls, default loadouts, unlock offers, and debug candidates all exclude it; explicit equip normalization still works for the mount-gate seals).",
 	},
 	"koyora": {
 		"id": "koyora",

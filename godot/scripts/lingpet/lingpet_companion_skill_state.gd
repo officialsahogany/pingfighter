@@ -79,6 +79,9 @@ func apply_persistent_snapshot(snapshot: Dictionary) -> void:
 	last_gain = maxf(0.0, float(snapshot.get("last_gain", 0.0)))
 	var origin_value: Variant = snapshot.get("origin", Vector2.ZERO)
 	origin = origin_value if origin_value is Vector2 else Vector2.ZERO
+	# shared_cooldown_immune는 여기서 복원하지 않는다 — 저장된 bool을 정본으로
+	# 쓰면 로드아웃 교체 시 낡은 권한이 된다(슬롯 정체성 함정). 정본 = 현재 슬롯
+	# skill_id에서 재계산 (persistence.restore_current / egg 프레임 동기화).
 
 
 func get_flash_ratio(flash_seconds: float) -> float:

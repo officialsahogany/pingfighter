@@ -31,17 +31,17 @@ func _verify_save_restore_and_shared_trigger_count() -> void:
 	states[1].complete_launch(Vector2(30.0, 40.0), 25.0, 0.45)
 	persistence.record_launch(1, states)
 	_expect_eq(persistence.get_trigger_count(), 2, "slot 1 launch should share the same trigger sequence")
-	persistence.save_current("Maribo", states)
+	persistence.save_current("Maribo", states, ["skill_a", "skill_b"])
 
 	persistence.reset_states(states)
 	_expect_eq(states[0].trigger_count, 0, "reset should clear slot 0 trigger count")
 	_expect_eq(states[1].trigger_count, 0, "reset should clear slot 1 trigger count")
-	_expect(persistence.restore_current("maribo", states), "restore should find the normalized pet id")
+	_expect(persistence.restore_current("maribo", states, ["skill_a", "skill_b"]), "restore should find the normalized pet id")
 	_expect_float(states[0].cooldown, 40.0, "restore should recover slot 0 cooldown")
 	_expect_float(states[1].cooldown, 25.0, "restore should recover slot 1 cooldown")
 	_expect_eq(states[0].trigger_count, 2, "restore should sync shared trigger count into slot 0")
 	_expect_eq(states[1].trigger_count, 2, "restore should sync shared trigger count into slot 1")
-	_expect(not persistence.restore_current("lunabi", states), "missing pet restore should reset states and return false")
+	_expect(not persistence.restore_current("lunabi", states, ["skill_a", "skill_b"]), "missing pet restore should reset states and return false")
 	_expect_eq(states[0].trigger_count, 0, "missing pet restore should reset slot 0")
 	_expect_eq(persistence.get_trigger_count(), 0, "missing pet restore should clear shared trigger count")
 
@@ -56,7 +56,7 @@ func _verify_shared_cooldown_blocks_fresh_restore_and_stored_slots() -> void:
 	_expect_float(states[0].cooldown, 40.0, "shared cooldown should not shorten the launched skill cooldown")
 	_expect_float(states[1].cooldown, 10.0, "shared cooldown should lock the other active skill slot")
 
-	persistence.save_current("maribo", states)
+	persistence.save_current("maribo", states, ["skill_a", "skill_b"])
 	persistence.advance_states(4.0, states)
 	persistence.advance_stored_cooldowns(4.0, "lunabi", true, 2)
 	var stored: Dictionary = persistence.state_by_pet_id.get("maribo", {}) as Dictionary
@@ -64,7 +64,7 @@ func _verify_shared_cooldown_blocks_fresh_restore_and_stored_slots() -> void:
 	_expect_float(float((stored.get("slot_1", {}) as Dictionary).get("cooldown", 0.0)), 6.0, "stored non-launched slot should preserve the shared cooldown floor")
 
 	var fresh_states: Array = [LingpetCompanionSkillState.new(), LingpetCompanionSkillState.new()]
-	_expect(not persistence.restore_current("lunabi", fresh_states), "fresh pet restore should miss stored state")
+	_expect(not persistence.restore_current("lunabi", fresh_states, ["skill_a", "skill_b"]), "fresh pet restore should miss stored state")
 	_expect_float(fresh_states[0].cooldown, 6.0, "fresh pet restore should inherit the remaining shared cooldown")
 	_expect_float(fresh_states[1].cooldown, 6.0, "fresh pet second slot should inherit the remaining shared cooldown")
 	persistence.advance_states(6.1, fresh_states)
