@@ -5,9 +5,16 @@ const PowerSmashHitDirectionResolver := preload("res://scripts/characters/smashe
 const POWER_SMASH_EFFECT_MULT := 1.0
 const POWER_SMASH_SPEED_BOOST_RATE := 0.3161088 * POWER_SMASH_EFFECT_MULT
 const POWER_SMASH_MIN_BOOST_MULT := 1.0426496 * POWER_SMASH_EFFECT_MULT
-const POWER_SMASH_NO_COMBO_BOOST_MULT := 1.0
+# 무콤보 페널티 — 콤보 유무의 순항(target_speed) 차이는 이 항 하나로만 갈라진다.
+# (콤보 보너스/발사 캡 차이는 set_target_speed 이후의 버스트에만 작용하고, 통상
+# 속도에선 양쪽 다 캡에 포화해 0.5초 버스트 외 체감차가 0이 된다.) 1.0으로
+# 평탄화하면 "콤보를 쌓아야 본래 성능 도달" 계약이 통째로 사라지므로 금지.
+const POWER_SMASH_NO_COMBO_BOOST_MULT := 0.75
 const POWER_SMASH_INITIAL_STRAIGHT_MULT := 1.0 + ((1.197568 - 1.0) * POWER_SMASH_EFFECT_MULT)
 const POWER_SMASH_INITIAL_SIDE_MULT := 1.0 + ((1.263424 - 1.0) * POWER_SMASH_EFFECT_MULT)
+# 원본의 무콤보 버스트 페널티(x0.78)는 복원하지 않는다: 리밸런스된 초기 부스트
+# (1.1976/1.2634)에 곱하면 1.0 미만이 되어 버스트가 감속으로 뒤집힌다. 무콤보
+# 버스트 차이는 위 BOOST 페널티가 target을 낮추면서 자연히 발생한다.
 const POWER_SMASH_NO_COMBO_INITIAL_MULT := 1.0
 const POWER_SMASH_COMBO_SPEED_PER_COUNT := 0.01448832 * POWER_SMASH_EFFECT_MULT
 const POWER_SMASH_COMBO_SPEED_CAP := 0.065856 * POWER_SMASH_EFFECT_MULT

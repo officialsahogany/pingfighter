@@ -51,7 +51,10 @@ func _verify_junior_power_smash_speed_cap_multiplier() -> void:
 
 
 func _resolve_power_smash_launch_speed(ai_mode: String) -> float:
-	return _resolve_power_smash_launch_speed_with_combo(ai_mode, 0, 8.0)
+	# 콤보 발사(3)로 측정: 무콤보는 페널티(POWER_SMASH_NO_COMBO_BOOST_MULT)로
+	# 주니어 쪽만 발사 캡에 미달해 감쇠 비선형 때문에 비율이 1.30 밑으로 흐려진다.
+	# 콤보 경로는 양쪽 모두 캡에 포화하므로 주니어 배율 계약이 정확히 1.30으로 남는다.
+	return _resolve_power_smash_launch_speed_with_combo(ai_mode, 3, 8.0)
 
 
 func _resolve_power_smash_launch_speed_with_combo(ai_mode: String, combo_consumed: int, incoming_speed: float) -> float:
