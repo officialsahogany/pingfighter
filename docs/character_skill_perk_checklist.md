@@ -379,6 +379,18 @@ Current Godot-first rule:
       ring-core), none of which write. Regression: 새로고침
       (`common_refresh`) showed up in the character-info perk list. Sealed
       by `runtime_perk_instant_perk_no_collect_smoke.gd`.
+- [ ] **A new in-match instant REWARD perk must also be decided against the
+      victory-loot chest lane.** Boss-drop chests roll their perk offer through
+      the same `RuntimePerkCatalog.get_choices()` while the match is already
+      over (no ball, no rally), so an instant whose payoff is consumed during
+      play burns a chest reward card. Add it to
+      `VICTORY_LOOT_EXCLUDED_INSTANT_IDS` unless its effect survives into the
+      next stage. The gate reads the owner schema flag
+      `victory_loot_phase_active`, so it covers the first open, the 새로고침
+      reroll, and the loot-phase self-healing reopen from one place.
+      `common_refresh` stays offered on purpose — the exclusion is targeted,
+      NOT the blunt `exclude_instant` flag. Sealed by
+      `victory_loot_instant_perk_exclusion_smoke.gd`.
 - [ ] The current recalculation / load-sync path must mirror any special
       behavior. In legacy Python this was `recalculate_skill_effects()`.
       that can be reached via debug level edits, load-time sync, or

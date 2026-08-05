@@ -1270,6 +1270,18 @@ const INSTANT_PERKS := {
 	},
 }
 
+# 승리 전리품 페이즈(보스 격파 후 상자 드랍) 오퍼에서 빼는 즉시형 보상 퍽.
+# 이 시점에는 매치가 이미 끝나 공/랠리가 없으므로 인게임 즉발 효과를 쓸 곳이
+# 없다 — 아이템 스폰 강화(차원개방), 기력·활주·쿨 완충(풀게이징), 빈 액티브
+# 슬롯 보급(원숭이은혜)이 전부 사장된 카드로 상자 보상 한 장을 소모한다.
+# `common_refresh`(새로고침)는 선택지 재굴림 유틸이라 상자 오퍼에서도 유효하므로
+# 의도적으로 남긴다 — INSTANT_PERKS 전체 제외(`exclude_instant`)와는 다른 계약.
+const VICTORY_LOOT_EXCLUDED_INSTANT_IDS := {
+	"instant_gauge_full": true,
+	"instant_dimension_gate": true,
+	"instant_monkey_blessing": true,
+}
+
 const GOLD_CHOICE := {
 	"id": "convert_to_gold",
 	"name": "골드변환",
@@ -1336,7 +1348,7 @@ func get_choices(
 		choices = _filter_perk_slot_budget(choices, runtime_levels, _registry)
 	_append_lingpet_guardian_enhance_choice(choices, owner, _registry)
 	if not exclude_instant:
-		_append_instant_choices(choices)
+		_append_instant_choices(choices, owner)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
 	var full_chosik_swap_reservation := _extract_full_chosik_swap_reserved_choice(choices)
@@ -1417,7 +1429,7 @@ func get_choices(
 
 	if not exclude_instant and result.size() < target_choice_count:
 		var filler: Array = []
-		_append_instant_choices(filler)
+		_append_instant_choices(filler, owner)
 		filler = _filter_lingpet_owned_gate(filler, owner)
 		filler.shuffle()
 		for instant_choice in filler:
@@ -1797,8 +1809,13 @@ func _is_perk_allowed_for_character(skill_data: Dictionary, character_type: Stri
 	return restriction == character_type
 
 
-func _append_instant_choices(output: Array) -> void:
+func _append_instant_choices(output: Array, owner: Object = null) -> void:
+	# 상자 오퍼 게이트는 조립 지점 한 곳에서 닫는다 — 본 append와 부족분 filler
+	# 양쪽이 같은 헬퍼를 타므로 새로고침 재굴림/자기치유 재오픈까지 동일 계약이다.
+	var victory_loot_phase: bool = _is_victory_loot_phase(owner)
 	for skill_id in INSTANT_PERKS.keys():
+		if victory_loot_phase and VICTORY_LOOT_EXCLUDED_INSTANT_IDS.has(skill_id):
+			continue
 		var data: Dictionary = INSTANT_PERKS[skill_id]
 		var choice: Dictionary = data.duplicate(true)
 		choice["id"] = skill_id
@@ -2014,6 +2031,17 @@ func _filter_lingpet_owned_gate(choices: Array, owner: Object) -> Array:
 
 func _has_lingpet_owned_gate(owner: Object) -> bool:
 	return not LingpetCollectionState.new().get_owned_pet_ids_from_owner(owner).is_empty()
+
+
+func _is_victory_loot_phase(owner: Object) -> bool:
+	# victory_loot_phase_state가 상자 페이즈 동안 owner에 써 두는 스키마 선언 키.
+	# (BattleSceneState.DEFAULT_VALUES 등재 — 미선언이면 set이 조용히 no-op다.)
+	if owner == null:
+		return false
+	var value: Variant = owner.get("victory_loot_phase_active")
+	if value == null:
+		return false
+	return bool(value)
 
 
 func _get_lingpet_runtime(registry: Object) -> Object:
