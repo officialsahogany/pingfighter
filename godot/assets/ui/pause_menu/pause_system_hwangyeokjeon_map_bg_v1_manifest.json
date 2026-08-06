@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "asset": "pause_system_hwangyeokjeon_map_bg_v1.png",
+  "purpose": "Phase 3 Hwangyeokjeon pause-menu fullscreen background plate: a dark Joseon bangyeodo map with a quiet left-side text field.",
+  "source": "OpenAI built-in imagegen",
+  "generated": "2026-08-06",
+  "source_canvas": [
+    1672,
+    941
+  ],
+  "runtime_canvas": [
+    1920,
+    1080
+  ],
+  "runtime_path": "res://assets/ui/pause_menu/pause_system_hwangyeokjeon_map_bg_v1.png",
+  "sha256": "47B57E92A9AA0974C8A13FF460C3D6CE176214506DC95B49E344B91E82343712",
+  "prompt_summary": "Very dark Joseon antique geographic map on aged charcoal hanji, with subtle ink coastlines, rivers, mountain ridges, sparse roads, distant sumi-e mountains and mist; keep the left third clean and dark, reserve upper-right negative space, use only microscopic aged-brass flecks, and bake no text, seals, compass, UI chrome, buildings, people, neon, or modern cartography.",
+  "postprocess": "High-quality bicubic resample from the generated opaque RGB source to the exact 1920x1080 runtime contract.",
+  "supersedes": "pause_system_editorial_map_bg_cyberpunk_v2.png",
+  "rollback_asset_preserved": true
+}

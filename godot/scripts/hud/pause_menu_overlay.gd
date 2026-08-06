@@ -5,11 +5,13 @@ const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PauseMenuDisplaySettingsState := preload("res://scripts/hud/pause_menu_display_settings_state.gd")
 const PauseMenuMainRenderer := preload("res://scripts/hud/pause_menu_main_renderer.gd")
+const PauseMenuOverlayLayout := preload("res://scripts/hud/pause_menu_overlay_layout.gd")
 const PauseMenuOptionsNavigationPolicy := preload("res://scripts/hud/pause_menu_options_navigation_policy.gd")
 const PauseMenuOptionsNavigationState := preload("res://scripts/hud/pause_menu_options_navigation_state.gd")
 const PauseMenuSelectionFeedbackState := preload("res://scripts/hud/pause_menu_selection_feedback_state.gd")
 const PauseMenuSessionState := preload("res://scripts/hud/pause_menu_session_state.gd")
 const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
+const RuntimePerkTraditionalChrome := preload("res://scripts/hud/runtime_perk_traditional_chrome.gd")
 const FONT_BODY: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 const FONT_TECH: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
 
@@ -54,8 +56,6 @@ const MAIN_SELECTED_BAR_HEIGHT := 88.0
 const MAIN_DIAL_ROTATIONS_PER_SECOND := PauseMenuMainRenderer.MAIN_DIAL_ROTATIONS_PER_SECOND
 const MAIN_TITLE_LEFT_MARGIN := 10.0
 const MAIN_LIST_ANCHOR_RATIO := 0.25
-const MAIN_SELECTED_BAR_SKEW := PauseMenuMainRenderer.MAIN_SELECTED_BAR_SKEW
-const MAIN_BAR_EN_LEFT_PAD := 270.0
 const OPEN_BG_FADE_SECONDS := PauseMenuMainRenderer.OPEN_BG_FADE_SECONDS
 const OPEN_CHROME_FADE_SECONDS := PauseMenuMainRenderer.OPEN_CHROME_FADE_SECONDS
 const OPEN_BAR_SWEEP_SECONDS := PauseMenuMainRenderer.OPEN_BAR_SWEEP_SECONDS
@@ -78,15 +78,15 @@ const CONTROLS_JOYPAD_FOCUS_COUNT := PauseMenuOptionsNavigationPolicy.CONTROLS_J
 const LANGUAGE_FOCUS_COUNT := PauseMenuOptionsNavigationPolicy.LANGUAGE_FOCUS_COUNT
 const SELECTION_SCOPE_MAIN := "main"
 
-const PANEL_COLOR := Color(0.04, 0.06, 0.10, 0.92)
+const PANEL_COLOR := Color(0.070, 0.055, 0.045, 0.92)
 const PANEL_BORDER := Color(0.36, 0.78, 0.98, 0.90)
-const HEADER_COLOR := Color(0.06, 0.10, 0.16, 0.94)
-const SECTION_COLOR := Color(0.02, 0.04, 0.08, 0.55)
-const BUTTON_COLOR := Color(0.06, 0.10, 0.16, 0.90)
+const HEADER_COLOR := Color(0.090, 0.070, 0.045, 0.94)
+const SECTION_COLOR := Color(0.045, 0.036, 0.030, 0.55)
+const BUTTON_COLOR := Color(0.080, 0.062, 0.044, 0.90)
 const BUTTON_HOVER := Color(0.10, 0.18, 0.28, 0.96)
 const BUTTON_SELECTED := Color(0.14, 0.24, 0.36, 1.0)
 const BUTTON_BORDER := Color(0.36, 0.78, 0.98, 0.55)
-const SLIDER_BACK := Color(0.06, 0.10, 0.16, 1.0)
+const SLIDER_BACK := Color(0.055, 0.044, 0.036, 1.0)
 const TEXT_DIM := Color(0.62, 0.72, 0.84)
 const ACCENT_BLUE := Color(0.36, 0.78, 0.98)
 const ACCENT_GREEN := Color(0.0, 1.0, 0.47)
@@ -97,9 +97,8 @@ const RESONANCE_MAG := Color(0.72, 0.50, 1.00)
 const NEON_GREEN := Color(0.00, 1.00, 0.47)
 const WARM_GOLD := Color(1.00, 0.80, 0.20)
 const TEXT_WARM := Color(0.94, 0.99, 1.00)
-# Editorial pause menu tokens — CYBERPUNK DARK recolor (Slice E). Names kept from the
-# earlier bright pass to avoid churn: PAPER_BG now holds the DARK navy bg, INK holds the
-# LIGHT text. Deep navy + neon cyan = the game's existing cyberpunk identity.
+# Editorial pause menu tokens — Hwangyeokjeon ink-and-gilt palette, Slice 1.
+# Compatibility names stay in place while the later shape slices land.
 const PAPER_BG := PauseMenuMainRenderer.PAPER_BG
 const INK := PauseMenuMainRenderer.INK
 const INK_DIM := Color(0.55, 0.66, 0.80)
@@ -109,12 +108,16 @@ const GRAPHIC_INK := PauseMenuMainRenderer.GRAPHIC_INK
 const TITLE_ON_GRAPHIC_INK := PauseMenuMainRenderer.TITLE_ON_GRAPHIC_INK
 const DIAMOND_GRAY := PauseMenuMainRenderer.DIAMOND_GRAY
 const SPINE_LINE := PauseMenuMainRenderer.SPINE_LINE
-const OPT_PANEL := Color(0.06, 0.09, 0.15, 0.92)
-const OPT_HEADER := Color(0.08, 0.12, 0.19, 0.94)
-const OPT_CARD := Color(0.09, 0.13, 0.21, 0.95)
-const OPT_CARD_HOVER := Color(0.14, 0.20, 0.31, 0.98)
-const OPT_BORDER := Color(0.36, 0.78, 0.98, 0.30)
-const OPT_TRACK := Color(0.10, 0.14, 0.21)
+const SEAL_RED := PauseMenuMainRenderer.SEAL_RED
+const SPIRIT_BLUE := PauseMenuMainRenderer.SPIRIT_BLUE
+const OPT_SLIDER_BGM_FILL := SPIRIT_BLUE
+const OPT_SLIDER_SFX_FILL := RuntimePerkTraditionalChrome.JADE
+const OPT_PANEL := PANEL_COLOR
+const OPT_HEADER := HEADER_COLOR
+const OPT_CARD := Color(0.082, 0.064, 0.046, 0.95)
+const OPT_CARD_HOVER := Color(0.100, 0.078, 0.054, 0.98)
+const OPT_BORDER := Color(0.62, 0.52, 0.30, 0.34)
+const OPT_TRACK := SLIDER_BACK
 const OPT_CHECK_ON := Color(0.0, 0.82, 0.46)
 
 var _display_settings_state := PauseMenuDisplaySettingsState.new()
@@ -208,6 +211,7 @@ func open() -> void:
 
 func prewarm_assets() -> void:
 	_main_renderer.prewarm_assets()
+	_main_renderer.get_main_brush_font(FONT_BODY)
 
 
 func close() -> void:
@@ -1250,7 +1254,7 @@ func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_po
 	_main_renderer.draw_menu(
 		canvas,
 		font,
-		_get_ui_font(true),
+		font,
 		panel_rect,
 		mouse_pos,
 		entries,
@@ -1270,12 +1274,16 @@ func _draw_main_editorial_base(canvas: CanvasItem, panel_rect: Rect2, alpha: flo
 	_main_renderer.draw_editorial_base(canvas, panel_rect, alpha)
 
 
+func _get_main_background_cover_region(panel_rect: Rect2) -> Rect2:
+	return _main_renderer.get_background_cover_region(_main_editorial_bg_texture, panel_rect)
+
+
 func _draw_main_map_texture(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
 	_main_renderer.draw_map_texture(canvas, panel_rect, alpha)
 
 
-func _draw_main_editorial_header(canvas: CanvasItem, _font: Font, panel_rect: Rect2, alpha: float = 1.0) -> void:
-	_main_renderer.draw_editorial_header(canvas, _get_ui_font(true), panel_rect, alpha)
+func _draw_main_editorial_header(canvas: CanvasItem, font: Font, panel_rect: Rect2, alpha: float = 1.0) -> void:
+	_main_renderer.draw_editorial_header(canvas, font, panel_rect, alpha)
 
 
 func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
@@ -1284,6 +1292,14 @@ func _draw_main_editorial_spine(canvas: CanvasItem, panel_rect: Rect2, alpha: fl
 
 func _draw_main_editorial_dial(canvas: CanvasItem, panel_rect: Rect2, alpha: float = 1.0) -> void:
 	_main_renderer.draw_editorial_dial(canvas, panel_rect, _main_dial_time, alpha)
+
+
+func _get_main_yundo_center(panel_rect: Rect2) -> Vector2:
+	return _main_renderer.get_yundo_center(panel_rect)
+
+
+func _get_main_yundo_radius(panel_rect: Rect2) -> float:
+	return _main_renderer.get_yundo_radius(panel_rect)
 
 
 func _draw_main_selected_bar(
@@ -1298,7 +1314,7 @@ func _draw_main_selected_bar(
 	_main_renderer.draw_selected_bar(
 		canvas,
 		font,
-		_get_ui_font(true),
+		font,
 		selection_rect,
 		entry,
 		open_ratio,
@@ -1309,7 +1325,7 @@ func _draw_main_selected_bar(
 
 func _draw_main_unselected_entry(
 	canvas: CanvasItem,
-	_font: Font,
+	font: Font,
 	panel_rect: Rect2,
 	entry: Dictionary,
 	index: int,
@@ -1318,7 +1334,7 @@ func _draw_main_unselected_entry(
 ) -> void:
 	_main_renderer.draw_unselected_entry(
 		canvas,
-		_get_ui_font(true),
+		font,
 		panel_rect,
 		entry,
 		index,
@@ -1329,7 +1345,7 @@ func _draw_main_unselected_entry(
 
 
 func _draw_main_sparkle(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
-	_main_renderer.draw_sparkle(canvas, center, radius, color)
+	_main_renderer.draw_knot_marker(canvas, center, radius, color)
 
 
 func _get_main_pop_projection() -> Dictionary:
@@ -1355,8 +1371,8 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	elif options_tab == OPTIONS_TAB_LANGUAGE:
 		_draw_language_tab(canvas, font, panel_rect, mouse_pos)
 	else:
-		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, _text("sound.bgm_volume"), _get_bgm_volume(registry), ACCENT_BLUE, options_focus == 0, mouse_pos, panel_rect)
-		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, _text("sound.sfx_volume"), _get_sfx_volume(registry), ACCENT_GREEN, options_focus == 1, mouse_pos, panel_rect)
+		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, _text("sound.bgm_volume"), _get_bgm_volume(registry), OPT_SLIDER_BGM_FILL, options_focus == 0, mouse_pos, panel_rect)
+		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, _text("sound.sfx_volume"), _get_sfx_volume(registry), OPT_SLIDER_SFX_FILL, options_focus == 1, mouse_pos, panel_rect)
 
 	if options_tab == OPTIONS_TAB_SOUND:
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
@@ -2251,13 +2267,11 @@ func _get_main_unselected_text_x(panel_rect: Rect2) -> float:
 
 
 func _get_main_selected_en_x(bar_rect: Rect2, text_width: float, local_left_x: float = -1.0) -> float:
-	var min_x := bar_rect.position.x + minf(72.0, maxf(0.0, bar_rect.size.x - text_width))
-	var max_x := bar_rect.end.x - text_width - 54.0
-	if local_left_x >= 0.0:
-		max_x = minf(max_x, local_left_x - text_width - 20.0)
-	if max_x < min_x:
-		return maxf(bar_rect.position.x + 8.0, max_x)
-	return clampf(bar_rect.position.x + MAIN_BAR_EN_LEFT_PAD, min_x, max_x)
+	return PauseMenuOverlayLayout.get_main_selected_en_x(bar_rect, text_width, local_left_x)
+
+
+func _get_main_scroll_cap_half_width(bar_rect: Rect2) -> float:
+	return PauseMenuOverlayLayout.get_main_scroll_cap_half_width(bar_rect)
 
 
 func _get_main_selected_local_x(bar_rect: Rect2, text_width: float) -> float:
@@ -2265,7 +2279,11 @@ func _get_main_selected_local_x(bar_rect: Rect2, text_width: float) -> float:
 
 
 func _get_main_title_font_size(panel_rect: Rect2) -> int:
-	return int(clampf(panel_rect.size.x * 0.060, 42.0, 66.0))
+	return _main_renderer.get_title_font_size(FONT_BODY, _get_main_title_text(), panel_rect)
+
+
+func _get_main_title_max_width(panel_rect: Rect2) -> float:
+	return _main_renderer.get_title_max_width(panel_rect)
 
 
 func _get_main_subtitle_font_size(panel_rect: Rect2) -> int:
@@ -2286,6 +2304,35 @@ func _get_main_entry_idle_font_size(panel_rect: Rect2) -> int:
 
 func _should_show_main_local_label() -> bool:
 	return _main_renderer.should_show_local_label()
+
+
+func _get_main_brush_font() -> Font:
+	return _main_renderer.get_main_brush_font(FONT_BODY)
+
+
+func _get_main_primary_label_text(entry: Dictionary) -> String:
+	return _main_renderer.get_primary_label_text(entry)
+
+
+func _get_main_text_draw_font(text: String) -> Font:
+	return _main_renderer.get_main_text_draw_font(FONT_BODY, text)
+
+
+func _get_main_selected_primary_font_size(text: String, bar_rect: Rect2) -> int:
+	return _main_renderer.get_selected_primary_font_size(FONT_BODY, text, bar_rect)
+
+
+func _get_main_selected_helper_font_size(text: String, bar_rect: Rect2) -> int:
+	var draw_font := _get_text_draw_font(FONT_BODY, text)
+	return _main_renderer.get_selected_helper_font_size(draw_font, text, bar_rect)
+
+
+func _get_main_unselected_primary_font_size(text: String, panel_rect: Rect2) -> int:
+	return _main_renderer.get_unselected_primary_font_size(FONT_BODY, text, panel_rect)
+
+
+func _get_main_title_text() -> String:
+	return _main_renderer.get_title_text()
 
 
 func _get_main_selected_local_text(entry: Dictionary) -> String:

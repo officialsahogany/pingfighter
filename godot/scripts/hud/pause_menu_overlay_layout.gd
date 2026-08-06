@@ -16,7 +16,11 @@ const MAIN_LEFT_MARGIN := 92.0
 const MAIN_SELECTED_BAR_HEIGHT := 88.0
 const MAIN_TITLE_LEFT_MARGIN := 10.0
 const MAIN_LIST_ANCHOR_RATIO := 0.25
-const MAIN_BAR_EN_LEFT_PAD := 270.0
+const MAIN_SCROLL_PRIMARY_CENTER_RATIO := 0.18
+const MAIN_SCROLL_PRIMARY_CENTER_MAX := 230.0
+const MAIN_SCROLL_CAP_MIN_HALF_WIDTH := 4.0
+const MAIN_SCROLL_CAP_MAX_HALF_WIDTH := 18.0
+const MAIN_SCROLL_CAP_TEXT_GAP := 12.0
 const SLIDER_HEIGHT := 10.0
 const SLIDER_HIT_HEIGHT := 34.0
 
@@ -85,14 +89,37 @@ static func get_main_unselected_text_x(panel_rect: Rect2) -> float:
 	return get_main_diamond_center_x(panel_rect) + 18.0
 
 
+static func get_main_scroll_cap_half_width(bar_rect: Rect2) -> float:
+	return clampf(
+		minf(bar_rect.size.y * 0.18, bar_rect.size.x * 0.026),
+		MAIN_SCROLL_CAP_MIN_HALF_WIDTH,
+		MAIN_SCROLL_CAP_MAX_HALF_WIDTH
+	)
+
+
+static func get_main_scroll_text_side_inset(bar_rect: Rect2) -> float:
+	return get_main_scroll_cap_half_width(bar_rect) * 2.0 + MAIN_SCROLL_CAP_TEXT_GAP
+
+
 static func get_main_selected_en_x(bar_rect: Rect2, text_width: float, local_left_x: float = -1.0) -> float:
-	var min_x := bar_rect.position.x + minf(72.0, maxf(0.0, bar_rect.size.x - text_width))
-	var max_x := bar_rect.end.x - text_width - 54.0
+	var side_inset := get_main_scroll_text_side_inset(bar_rect)
+	var min_x := bar_rect.position.x + minf(side_inset, maxf(0.0, bar_rect.size.x - text_width))
+	var max_x := bar_rect.end.x - text_width - side_inset
 	if local_left_x >= 0.0:
-		max_x = minf(max_x, local_left_x - text_width - 20.0)
+		var inline_max_x := local_left_x - text_width - 20.0
+		# An impossible inline helper stacks below; it must not pull the primary
+		# label back underneath the compact scroll's left axis cap.
+		if inline_max_x >= min_x:
+			max_x = minf(max_x, inline_max_x)
 	if max_x < min_x:
 		return maxf(bar_rect.position.x + 8.0, max_x)
-	return clampf(bar_rect.position.x + MAIN_BAR_EN_LEFT_PAD, min_x, max_x)
+	var center_offset := clampf(
+		bar_rect.size.x * MAIN_SCROLL_PRIMARY_CENTER_RATIO,
+		side_inset + text_width * 0.5,
+		minf(MAIN_SCROLL_PRIMARY_CENTER_MAX, bar_rect.size.x - side_inset - text_width * 0.5)
+	)
+	var measured_width_x := bar_rect.position.x + center_offset - text_width * 0.5
+	return clampf(measured_width_x, min_x, max_x)
 
 
 static func get_main_selected_local_x(bar_rect: Rect2, text_width: float) -> float:

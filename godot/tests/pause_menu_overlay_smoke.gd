@@ -5,7 +5,9 @@ const BattleSceneOverlayInputController := preload("res://scripts/core/battle_sc
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LanguageSettingsData := preload("res://scripts/core/language_settings_data.gd")
+const PauseMenuMainRenderer := preload("res://scripts/hud/pause_menu_main_renderer.gd")
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
+const RuntimePerkTraditionalChrome := preload("res://scripts/hud/runtime_perk_traditional_chrome.gd")
 
 
 class FakeOwner:
@@ -242,34 +244,90 @@ func _init() -> void:
 	_expect(registry.modal_gate.should_block_battle_physics(Callable(self, "_get_module")), "pause menu should block battle physics")
 	var main_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(owner.get_viewport_rect().size)
 	_expect(main_panel_rect.position == Vector2.ZERO and main_panel_rect.size == owner.get_viewport_rect().size, "bright pause menu should use the full view as the main surface")
-	_expect(registry.pause_menu.PAPER_BG.r < 0.2 and registry.pause_menu.INK.r > 0.7, "cyberpunk pause menu should use dark navy bg and light text tokens")
-	_expect(registry.pause_menu.TITLE_ON_GRAPHIC_INK.r > registry.pause_menu.GRAPHIC_INK.r + 0.70, "bright pause SYSTEM title should stay readable on the black editorial wedge")
+	_expect(
+		registry.pause_menu.PAPER_BG.is_equal_approx(Color(0.055, 0.050, 0.042))
+		and registry.pause_menu.INK.is_equal_approx(Color(0.92, 0.89, 0.82))
+		and registry.pause_menu.SELECT_BLUE.is_equal_approx(Color(0.62, 0.52, 0.30))
+		and registry.pause_menu.SELECT_SUBINK.is_equal_approx(Color(0.14, 0.10, 0.06))
+		and registry.pause_menu.GRAPHIC_INK.is_equal_approx(Color(0.03, 0.028, 0.024))
+		and registry.pause_menu.TITLE_ON_GRAPHIC_INK.is_equal_approx(Color(0.90, 0.86, 0.78))
+		and registry.pause_menu.DIAMOND_GRAY.is_equal_approx(Color(0.72, 0.60, 0.36))
+		and registry.pause_menu.SPINE_LINE.is_equal_approx(Color(0.03, 0.028, 0.024, 0.28))
+		and registry.pause_menu.SEAL_RED.is_equal_approx(Color(139.0 / 255.0, 44.0 / 255.0, 33.0 / 255.0))
+		and registry.pause_menu.SPIRIT_BLUE.is_equal_approx(Color(0.42, 0.66, 0.86)),
+		"pause menu should seal the Hwangyeokjeon ink, ivory, and aged-gilt main palette"
+	)
+	_expect(registry.pause_menu.SEAL_RED.is_equal_approx(RuntimePerkTraditionalChrome.SEAL_RED), "phase 4 pause needle should reuse the canonical Hwangyeokjeon seal red")
+	_expect(registry.pause_menu.OPT_SLIDER_BGM_FILL.is_equal_approx(registry.pause_menu.SPIRIT_BLUE), "phase 6 BGM slider should reuse the pause yundo spirit blue")
+	_expect(registry.pause_menu.OPT_SLIDER_SFX_FILL.is_equal_approx(RuntimePerkTraditionalChrome.JADE), "phase 6 SFX slider should link directly to the canonical Hwangyeokjeon jade")
+	_expect(registry.pause_menu.PAPER_BG.r < 0.2 and registry.pause_menu.INK.r > 0.7, "Hwangyeokjeon pause menu should keep a dark ink ground and light ivory text")
+	_expect(registry.pause_menu.TITLE_ON_GRAPHIC_INK.r > registry.pause_menu.GRAPHIC_INK.r + 0.70, "pause title should stay readable on the dark editorial wedge")
+	_expect(
+		registry.pause_menu.MAIN_EDITORIAL_BG_PATH == "res://assets/ui/pause_menu/pause_system_hwangyeokjeon_map_bg_v1.png",
+		"phase 3 pause menu should route the fullscreen plate to the Hwangyeokjeon map asset"
+	)
 	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH), "D2 pause menu should ship the editorial map background PNG")
 	_expect(FileAccess.file_exists(registry.pause_menu.MAIN_EDITORIAL_BG_PATH + ".import"), "D2 pause menu should ship the export-safe editorial map background import file")
 	_expect(registry.pause_menu._main_editorial_bg_texture != null, "D2 pause menu should prewarm the editorial background texture when opened")
+	_expect(
+		registry.pause_menu._main_editorial_bg_texture.get_width() == 1920
+		and registry.pause_menu._main_editorial_bg_texture.get_height() == 1080,
+		"phase 3 Hwangyeokjeon pause background should keep the sealed 1920x1080 fullscreen budget"
+	)
+	var default_cover_region: Rect2 = registry.pause_menu._get_main_background_cover_region(main_panel_rect)
+	var expected_default_cover_width := 1080.0 * main_panel_rect.size.aspect()
+	_expect(
+		default_cover_region.position.is_equal_approx(Vector2.ZERO)
+		and is_equal_approx(default_cover_region.size.x, expected_default_cover_width)
+		and is_equal_approx(default_cover_region.size.y, 1080.0),
+		"phase 4 default cover-fit should crop only the map plate's right edge and preserve the quiet left text field"
+	)
+	var ultrawide_panel_rect := Rect2(Vector2.ZERO, Vector2(2560.0, 1080.0))
+	var ultrawide_cover_region: Rect2 = registry.pause_menu._get_main_background_cover_region(ultrawide_panel_rect)
+	_expect(
+		is_equal_approx(ultrawide_cover_region.position.x, 0.0)
+		and is_equal_approx(ultrawide_cover_region.position.y, 135.0)
+		and ultrawide_cover_region.size.is_equal_approx(Vector2(1920.0, 810.0)),
+		"phase 4 21:9 cover-fit should center-crop the plate vertically instead of stretching its mountains"
+	)
 	var entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(entries[0].get("en", "")) == "RESUME" and str(entries[1].get("en", "")) == "STATUS" and str(entries[2].get("en", "")) == "SETTINGS", "bright pause menu should expose editorial English menu labels")
 	_expect(entries.size() == 4 and str(entries[3].get("en", "")) == "EXIT" and str(entries[3].get("action", "")) == "exit_to_main", "pause menu should expose the EXIT entry as the fourth item")
 	_verify_pause_description_localization_keys()
+	_expect(
+		str(entries[0].get("label", "")) == "계속"
+		and str(entries[1].get("label", "")) == "캐릭터정보"
+		and str(entries[2].get("label", "")) == "옵션"
+		and str(entries[3].get("label", "")) == "나가기",
+		"phase 2 should promote the existing Korean pause labels without rewriting their approved copy"
+	)
 	_expect(str(entries[0].get("desc", "")) == "게임으로 돌아가기" and str(entries[1].get("desc", "")) == "캐릭터 정보 확인" and str(entries[2].get("desc", "")) == "게임 설정 변경", "D3 pause menu should use Korean descriptive local labels")
 	_expect(str(entries[3].get("label", "")) == "나가기" and str(entries[3].get("desc", "")) == "메인 메뉴로 돌아가기", "EXIT entry should use the Korean label and main-menu description")
+	var main_brush_font: Font = registry.pause_menu._get_main_brush_font()
+	_expect(main_brush_font is SystemFont, "phase 2 pause main labels should resolve through the shared Gungsuh/GungSeo/Batang SystemFont route")
+	_expect(registry.pause_menu._get_main_primary_label_text(entries[0]) == "계속", "phase 2 Korean pause menu should promote the localized label to the primary line")
+	_expect(registry.pause_menu._get_main_title_text() == "일시정지", "phase 2 Korean pause title should reuse the existing pause.title copy")
+	_expect(registry.pause_menu._get_main_text_draw_font("계속") == main_brush_font, "phase 2 Korean primary label should use the prewarmed brush SystemFont")
 	_expect(registry.pause_menu._should_show_main_local_label(), "Korean pause menu should keep the small local label")
 	var main_selection_rect: Rect2 = registry.pause_menu._get_selection_feedback_rect(main_panel_rect, "main", 0)
 	_expect(main_selection_rect.position.x == 0.0 and main_selection_rect.size.x >= owner.get_viewport_rect().size.x * 0.55, "main selection hit zone should be the left-edge editorial band")
 	_expect(registry.pause_menu._get_button_rect(main_panel_rect, 0, entries.size()) == main_selection_rect, "main button hit zone should match the selection feedback band")
 	var selected_bar_rect: Rect2 = registry.pause_menu._get_main_selection_bar_rect(main_selection_rect)
-	var selected_en_font: Font = registry.pause_menu._get_ui_font(true)
-	var selected_en_size: int = registry.pause_menu._get_main_entry_selected_font_size(selected_bar_rect)
-	var selected_en_width: float = selected_en_font.get_string_size(str(entries[0].get("en", "")), HORIZONTAL_ALIGNMENT_LEFT, -1.0, selected_en_size).x
+	var selected_primary_text: String = registry.pause_menu._get_main_primary_label_text(entries[0])
+	var selected_primary_font: Font = registry.pause_menu._get_main_text_draw_font(selected_primary_text)
+	var selected_primary_size: int = registry.pause_menu._get_main_entry_selected_font_size(selected_bar_rect)
+	var selected_primary_width: float = selected_primary_font.get_string_size(selected_primary_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, selected_primary_size).x
 	var selected_local_text := registry.pause_menu._get_main_selected_local_text(entries[0])
-	var selected_local_font: Font = registry.pause_menu._get_text_draw_font(selected_en_font, selected_local_text)
+	var selected_local_font: Font = registry.pause_menu._get_text_draw_font(registry.pause_menu._get_ui_font(), selected_local_text)
 	var selected_local_size: int = registry.pause_menu._get_main_entry_local_font_size(selected_bar_rect)
 	var selected_local_width: float = selected_local_font.get_string_size(selected_local_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, selected_local_size).x
 	var selected_local_x: float = registry.pause_menu._get_main_selected_local_x(selected_bar_rect, selected_local_width)
-	var selected_en_x: float = registry.pause_menu._get_main_selected_en_x(selected_bar_rect, selected_en_width, selected_local_x)
-	_expect(is_equal_approx(selected_en_x, selected_bar_rect.position.x + registry.pause_menu.MAIN_BAR_EN_LEFT_PAD), "D3 pause menu should anchor selected EN text from the bar left padding")
-	_expect(selected_en_x < selected_bar_rect.get_center().x, "D3 pause menu selected EN text should sit left of the bar center")
-	_expect(selected_local_text == "게임으로 돌아가기" and selected_local_x > selected_en_x + selected_en_width + 20.0, "D3 pause menu Korean description should draw as the selected bar helper label without overlapping EN")
+	var selected_primary_x: float = registry.pause_menu._get_main_selected_en_x(selected_bar_rect, selected_primary_width, selected_local_x)
+	var wider_primary_x: float = registry.pause_menu._get_main_selected_en_x(selected_bar_rect, selected_primary_width * 1.8, selected_local_x)
+	_expect(selected_primary_x < selected_bar_rect.position.x + 270.0, "phase 5 scroll should retire the oversized fixed 270px selected-label padding")
+	_expect(wider_primary_x < selected_primary_x, "phase 5 scroll should place the selected primary label from its measured width rather than a fixed left pad")
+	_expect(selected_primary_x < selected_bar_rect.get_center().x, "phase 2 selected primary label should sit left of the bar center")
+	_expect(selected_local_text == "게임으로 돌아가기" and selected_local_x > selected_primary_x + selected_primary_width + 20.0, "phase 2 Korean description should remain the small right-aligned helper without overlapping the primary label")
 	registry.pause_menu.animation_time = 0.0
 	_expect(is_zero_approx(registry.pause_menu._get_open_bg_alpha()) and is_zero_approx(registry.pause_menu._get_main_open_bar_ratio()), "pause menu opening should start with hidden background and swept-out selection bar")
 	_expect(is_zero_approx(registry.pause_menu._get_open_text_alpha()), "pause menu opening should delay selected text until the bar has started sweeping in")
@@ -281,45 +339,213 @@ func _init() -> void:
 	var english_entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(english_entries[0].get("desc", "")) == "Return to game", "D3 pause menu should keep English desc keys populated for missing-key coverage")
 	_expect(not registry.pause_menu._should_show_main_local_label() and registry.pause_menu._get_main_selected_local_text(english_entries[0]).is_empty(), "D3 pause menu should keep helper descriptions hidden in English")
+	_expect(registry.pause_menu._get_main_primary_label_text(english_entries[0]) == "RESUME" and registry.pause_menu._get_main_title_text() == "Paused", "phase 2 English pause menu should preserve the editorial EN label while reusing pause.title and hiding the helper")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_CHINESE)
 	var chinese_entries: Array = registry.pause_menu._get_main_entries()
 	_expect(str(chinese_entries[0].get("desc", "")) == "返回游戏" and registry.pause_menu._get_main_selected_local_text(chinese_entries[0]) == "返回游戏", "D3 pause menu should show the desc key for non-English locales")
+	var chinese_primary_text: String = registry.pause_menu._get_main_primary_label_text(chinese_entries[0])
+	_expect(chinese_primary_text == "继续" and registry.pause_menu._get_main_title_text() == "暂停", "phase 2 Chinese pause menu should promote the localized label and reuse pause.title")
+	_expect(registry.pause_menu._get_main_text_draw_font(chinese_primary_text) != main_brush_font, "phase 2 Chinese primary label should take the production CJK fallback-font route before brush resolution")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	var japanese_entries: Array = registry.pause_menu._get_main_entries()
+	var japanese_primary_text: String = registry.pause_menu._get_main_primary_label_text(japanese_entries[0])
+	_expect(japanese_primary_text == "続ける" and registry.pause_menu._get_main_title_text() == "一時停止", "phase 2 Japanese pause menu should promote the localized label and reuse pause.title")
+	_expect(registry.pause_menu._get_main_text_draw_font(japanese_primary_text) != main_brush_font, "phase 2 Japanese primary label should take the production CJK fallback-font route before brush resolution")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	var spanish_entries: Array = registry.pause_menu._get_main_entries()
+	_expect(registry.pause_menu._should_show_main_local_label() and registry.pause_menu._get_main_primary_label_text(spanish_entries[0]) == "Continuar" and registry.pause_menu._get_main_title_text() == "Pausa", "phase 2 Spanish pause menu should follow the same non-English label and pause.title contract")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	var portuguese_entries: Array = registry.pause_menu._get_main_entries()
+	_expect(registry.pause_menu._should_show_main_local_label() and registry.pause_menu._get_main_primary_label_text(portuguese_entries[0]) == "Continuar" and registry.pause_menu._get_main_title_text() == "Pausa", "phase 2 Brazilian Portuguese pause menu should follow the same non-English label and pause.title contract")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	var russian_entries: Array = registry.pause_menu._get_main_entries()
+	_expect(registry.pause_menu._should_show_main_local_label() and registry.pause_menu._get_main_primary_label_text(russian_entries[0]) == "Продолжить" and registry.pause_menu._get_main_title_text() == "Пауза", "phase 2 Russian pause menu should follow the same non-English label and pause.title contract")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_expect(registry.pause_menu._get_main_title_left_margin(main_panel_rect) <= 16.0, "bright pause title should sit near the top-left reference edge")
 	_expect(registry.pause_menu._get_main_diamond_center_x(main_panel_rect) >= owner.get_viewport_rect().size.x * 0.18, "bright pause menu list spine should live inside the editorial list, not on the old left card margin")
 	registry.pause_menu.update(0.20)
 	_expect(registry.pause_menu._main_dial_time > 0.0, "bright pause menu dial timer should advance while paused")
+	_expect(is_equal_approx(registry.pause_menu.MAIN_DIAL_ROTATIONS_PER_SECOND, 0.075), "phase 4 yundo should preserve the approved 0.075 rotations-per-second cadence")
 	var compact_panel_rect: Rect2 = registry.pause_menu._get_main_panel_rect(Vector2(360.0, 640.0))
 	_expect(compact_panel_rect.position == Vector2.ZERO and compact_panel_rect.size == Vector2(360.0, 640.0), "narrow pause menu should stay on the full-view editorial surface")
+	var compact_yundo_center: Vector2 = registry.pause_menu._get_main_yundo_center(compact_panel_rect)
+	var compact_yundo_radius: float = registry.pause_menu._get_main_yundo_radius(compact_panel_rect)
+	var compact_yundo_outer_radius := compact_yundo_radius * PauseMenuMainRenderer.YUNDO_SPIRIT_ARC_RADIUS_SCALE
+	_expect(
+		compact_yundo_center.x - compact_yundo_outer_radius >= compact_panel_rect.position.x
+		and compact_yundo_center.x + compact_yundo_outer_radius <= compact_panel_rect.end.x
+		and compact_yundo_center.y - compact_yundo_outer_radius >= compact_panel_rect.position.y
+		and compact_yundo_center.y + compact_yundo_outer_radius <= compact_panel_rect.end.y,
+		"phase 5 yundo seal should cover the true outer spirit-arc radius in the 360x640 viewport"
+	)
+	var compact_entries: Array = registry.pause_menu._get_main_entries()
+	var compact_character_selection_rect: Rect2 = registry.pause_menu._get_selection_feedback_rect(compact_panel_rect, "main", 1)
+	var compact_character_bar_rect: Rect2 = registry.pause_menu._get_main_selection_bar_rect(compact_character_selection_rect)
+	var default_scroll_cap_half_width: float = registry.pause_menu._get_main_scroll_cap_half_width(selected_bar_rect)
+	var compact_scroll_cap_half_width: float = registry.pause_menu._get_main_scroll_cap_half_width(compact_character_bar_rect)
+	_expect(compact_scroll_cap_half_width < default_scroll_cap_half_width, "phase 5 scroll axis caps should scale down with the 360x640 bar width")
+	var compact_character_text: String = registry.pause_menu._get_main_primary_label_text(compact_entries[1])
+	var compact_character_font: Font = registry.pause_menu._get_main_text_draw_font(compact_character_text)
+	var compact_preferred_character_size: int = registry.pause_menu._get_main_entry_selected_font_size(compact_character_bar_rect)
+	var compact_preferred_character_width: float = compact_character_font.get_string_size(compact_character_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, compact_preferred_character_size).x
+	var compact_character_size: int = registry.pause_menu._get_main_selected_primary_font_size(compact_character_text, compact_character_bar_rect)
+	var compact_character_width: float = compact_character_font.get_string_size(compact_character_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, compact_character_size).x
+	var compact_character_helper: String = registry.pause_menu._get_main_selected_local_text(compact_entries[1])
+	var compact_helper_font: Font = registry.pause_menu._get_text_draw_font(registry.pause_menu._get_ui_font(), compact_character_helper)
+	var compact_helper_size: int = registry.pause_menu._get_main_entry_local_font_size(compact_character_bar_rect)
+	var compact_helper_width: float = compact_helper_font.get_string_size(compact_character_helper, HORIZONTAL_ALIGNMENT_LEFT, -1.0, compact_helper_size).x
+	var compact_helper_x: float = registry.pause_menu._get_main_selected_local_x(compact_character_bar_rect, compact_helper_width)
+	var compact_scroll_side_inset := compact_scroll_cap_half_width * 2.0 + 12.0
+	var compact_min_x := compact_character_bar_rect.position.x + minf(compact_scroll_side_inset, maxf(0.0, compact_character_bar_rect.size.x - compact_preferred_character_width))
+	var compact_max_x := compact_character_bar_rect.end.x - compact_preferred_character_width - compact_scroll_side_inset
+	var compact_preferred_character_x: float = registry.pause_menu._get_main_selected_en_x(compact_character_bar_rect, compact_preferred_character_width, compact_helper_x)
+	var compact_character_x: float = registry.pause_menu._get_main_selected_en_x(compact_character_bar_rect, compact_character_width, compact_helper_x)
+	_expect(compact_max_x < compact_min_x, "phase 2 360x640 Korean 캐릭터정보 should exercise the selected-text max/min inversion branch")
+	_expect(is_equal_approx(compact_preferred_character_x, compact_character_bar_rect.position.x + 8.0), "phase 2 compact unfitted-label fixture should keep the max/min inversion fallback sealed")
+	_expect(
+		compact_character_x >= compact_character_bar_rect.position.x + compact_scroll_cap_half_width * 2.0 + 12.0,
+		"phase 5 fitted compact selected text should clear the scaled scroll axis cap"
+	)
+	var compact_language_specs := [
+		{"language": LanguageSettings.LANGUAGE_KOREAN, "primary": "캐릭터정보"},
+		{"language": LanguageSettings.LANGUAGE_ENGLISH, "primary": "STATUS"},
+		{"language": LanguageSettings.LANGUAGE_CHINESE, "primary": "角色信息"},
+		{"language": LanguageSettings.LANGUAGE_JAPANESE, "primary": "キャラクター情報"},
+		{"language": LanguageSettings.LANGUAGE_SPANISH, "primary": "Info de personaje"},
+		{"language": LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL, "primary": "Info do personagem"},
+		{"language": LanguageSettings.LANGUAGE_RUSSIAN, "primary": "Персонаж"},
+	]
+	for compact_language_spec in compact_language_specs:
+		LanguageSettings.set_language(str(compact_language_spec["language"]))
+		var localized_compact_entries: Array = registry.pause_menu._get_main_entries()
+		var localized_primary_text: String = registry.pause_menu._get_main_primary_label_text(localized_compact_entries[1])
+		_expect(localized_primary_text == str(compact_language_spec["primary"]), "phase 2 compact primary-label fixture should match the active locale")
+		var localized_primary_font: Font = registry.pause_menu._get_main_text_draw_font(localized_primary_text)
+		var localized_primary_size: int = registry.pause_menu._get_main_selected_primary_font_size(localized_primary_text, compact_character_bar_rect)
+		var localized_primary_width: float = localized_primary_font.get_string_size(localized_primary_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, localized_primary_size).x
+		_expect(localized_primary_width <= compact_character_bar_rect.size.x - 16.0, "phase 2 compact primary label should fit inside the selected bar for %s" % compact_language_spec["language"])
+		var localized_helper_text: String = registry.pause_menu._get_main_selected_local_text(localized_compact_entries[1])
+		if not localized_helper_text.is_empty():
+			var localized_helper_font: Font = registry.pause_menu._get_text_draw_font(registry.pause_menu._get_ui_font(), localized_helper_text)
+			var localized_helper_size: int = registry.pause_menu._get_main_selected_helper_font_size(localized_helper_text, compact_character_bar_rect)
+			var localized_helper_width: float = localized_helper_font.get_string_size(localized_helper_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, localized_helper_size).x
+			_expect(localized_helper_width <= compact_character_bar_rect.size.x - 16.0, "phase 2 compact helper should fit inside the selected bar for %s" % compact_language_spec["language"])
+		var compact_unselected_x: float = registry.pause_menu._get_main_unselected_text_x(compact_panel_rect)
+		for localized_entry in localized_compact_entries:
+			var localized_unselected_text: String = registry.pause_menu._get_main_primary_label_text(localized_entry)
+			var localized_unselected_font: Font = registry.pause_menu._get_main_text_draw_font(localized_unselected_text)
+			var localized_unselected_size: int = registry.pause_menu._get_main_unselected_primary_font_size(localized_unselected_text, compact_panel_rect)
+			var localized_unselected_width: float = localized_unselected_font.get_string_size(localized_unselected_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, localized_unselected_size).x
+			_expect(localized_unselected_width <= compact_panel_rect.end.x - compact_unselected_x - 8.0, "phase 2 compact unselected label should fit inside the view for %s" % compact_language_spec["language"])
+	var title_language_specs := [
+		LanguageSettings.LANGUAGE_KOREAN,
+		LanguageSettings.LANGUAGE_ENGLISH,
+		LanguageSettings.LANGUAGE_CHINESE,
+		LanguageSettings.LANGUAGE_JAPANESE,
+		LanguageSettings.LANGUAGE_SPANISH,
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL,
+		LanguageSettings.LANGUAGE_RUSSIAN,
+	]
+	for title_panel_rect in [main_panel_rect, compact_panel_rect]:
+		for title_language in title_language_specs:
+			LanguageSettings.set_language(title_language)
+			var localized_title: String = registry.pause_menu._get_main_title_text()
+			var localized_title_font: Font = registry.pause_menu._get_main_text_draw_font(localized_title)
+			var localized_title_size: int = registry.pause_menu._get_main_title_font_size(title_panel_rect)
+			var localized_title_width: float = localized_title_font.get_string_size(localized_title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, localized_title_size).x
+			_expect(
+				localized_title_width <= registry.pause_menu._get_main_title_max_width(title_panel_rect),
+				"phase 3 pause title should fit inside the soft ink-wash header for %s at %s" % [title_language, title_panel_rect.size]
+			)
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var pause_source := FileAccess.get_file_as_string("res://scripts/hud/pause_menu_overlay.gd")
 	var main_renderer_source := FileAccess.get_file_as_string("res://scripts/hud/pause_menu_main_renderer.gd")
 	_expect(pause_source.find("const PauseMenuMainRenderer") >= 0 and pause_source.find("_main_renderer.draw_menu(") >= 0, "pause overlay should delegate the editorial main surface to its renderer owner")
 	_expect(main_renderer_source.find("draw_set_transform") < 0, "bright pause menu dial should avoid texture-quad transform rotation")
 	_expect(pause_source.find("_draw_ringcore_crystal") < 0, "bright pause main should not draw the preserved ringcore crystal asset")
-	_expect(main_renderer_source.find("MAIN_SELECTED_BAR_SKEW") >= 0 and main_renderer_source.find("draw_colored_polygon(bar_points") >= 0, "bright pause main should use a skewed editorial selection bar instead of the old rounded button")
+	_expect(main_renderer_source.find("MAIN_SELECTED_BAR_SKEW") < 0 and main_renderer_source.find("draw_scroll_banner") >= 0, "phase 5 pause main should retire the skewed cyberpunk bar for a procedural scroll banner")
+	_expect(main_renderer_source.find("draw_scroll_axis_cap") >= 0 and main_renderer_source.find("draw_hanji_edge") >= 0, "phase 5 scroll should keep scaled axis caps and irregular hanji edges as named shape contracts")
+	_expect(main_renderer_source.find("draw_knot_marker") >= 0 and main_renderer_source.find("draw_title_seal") >= 0, "phase 5 pause chrome should replace sparkle diamonds with knots and keep only the approved title seal")
 	_expect(main_renderer_source.find("OPEN_BAR_SWEEP_SECONDS") >= 0 and main_renderer_source.find("OPEN_ITEM_STAGGER_SECONDS") >= 0, "pause menu should keep explicit opening animation timing constants")
 	_expect(main_renderer_source.find("ProjectResourceLoader.load_texture(\n\t\tMAIN_EDITORIAL_BG_PATH") >= 0, "D2 pause renderer should load the editorial background through the project resource loader")
+	var editorial_base_body := _source_function_body(main_renderer_source, "func draw_editorial_base")
+	_expect(editorial_base_body.find("draw_texture_rect_region") >= 0 and editorial_base_body.find("draw_texture_rect(background_texture") < 0, "phase 4 pause background should use a source-region cover fit instead of aspect-distorting stretch")
+	var cover_region_body := _source_function_body(main_renderer_source, "func get_background_cover_region")
+	_expect(cover_region_body.find("destination_aspect > source_aspect") >= 0 and cover_region_body.find("Rect2(0.0, 0.0, cropped_width") >= 0, "phase 4 cover fit should center vertical crops and left-align horizontal crops")
 	var background_body := _source_function_body(main_renderer_source, "func draw_editorial_background")
 	_expect(background_body.find("draw_editorial_base(canvas, panel_rect, base_alpha)") >= 0, "D2 pause renderer should draw the editorial background art as the first main-menu layer")
+	_expect(background_body.find("draw_ink_wash_header(canvas, panel_rect, chrome_alpha)") >= 0, "phase 3 pause chrome should replace the sharp cyberpunk wedge with the ink-wash header")
+	_expect(background_body.find("wedge_width") < 0, "phase 3 pause chrome should retire the hard straight-edged wedge")
 	_expect(background_body.find("_draw_main_map_texture") < 0, "D2 pause menu should not draw the old procedural map texture in the normal background path")
 	_expect(background_body.find("panel_rect.size.y * 1.06") < 0, "D2 pause menu should remove the duplicate procedural sweeping arc over the background art")
-	_expect(main_renderer_source.find("star_blades") >= 0, "bright pause main should keep the solid multi-blade compass-star dial motif")
+	var ink_wash_body := _source_function_body(main_renderer_source, "func draw_ink_wash_header")
+	_expect(ink_wash_body.find("ink_wash_curve") >= 0 and ink_wash_body.find("draw_colored_polygon") >= 0, "phase 3 ink-wash header should keep a curved procedural silhouette without adding another texture")
+	var editorial_dial_body := _source_function_body(main_renderer_source, "func draw_editorial_dial")
+	_expect(main_renderer_source.find("star_blades") < 0, "phase 4 yundo should retire the cyberpunk four-blade compass star")
+	_expect(editorial_dial_body.find("yundo_rings") >= 0 and editorial_dial_body.find("needle_blades") >= 0, "phase 4 yundo should draw concentric rings and a two-blade needle procedurally")
+	_expect(editorial_dial_body.find("SPIRIT_BLUE") >= 0 and editorial_dial_body.find("SEAL_RED") >= 0, "phase 4 yundo should make the reserved spirit-blue and seal-red tokens visible on the normal draw path")
+	_expect(PauseMenuMainRenderer.YUNDO_RING_RADII.size() >= 3 and PauseMenuMainRenderer.YUNDO_RING_RADII.size() <= 4, "phase 4 yundo should keep the approved three-to-four concentric-ring silhouette")
+	_expect(PauseMenuMainRenderer.YUNDO_OUTER_TICK_COUNT + PauseMenuMainRenderer.YUNDO_INNER_TICK_COUNT <= 36, "phase 4 yundo should cap its procedural tick budget")
+	_expect(is_equal_approx(PauseMenuMainRenderer.SCROLL_SPIRIT_HAIRLINE_ALPHA, 0.58), "phase 5 scroll should keep the selected subtle spirit-blue hairline from the Forward+ A/B review")
 	var main_menu_body := _source_function_body(main_renderer_source, "func draw_menu")
 	_expect(main_menu_body.find("get_main_open_bar_ratio(animation_time)") >= 0 and main_menu_body.find("get_main_open_entry_ratio(animation_time, index)") >= 0, "pause menu opening should feed bar sweep and entry cascade ratios into the main renderer")
 	var selected_bar_body := _source_function_body(main_renderer_source, "func draw_selected_bar")
 	_expect(selected_bar_body.find("final_bar_rect.size.x * clampf(open_ratio") >= 0 and selected_bar_body.find("_with_alpha(Color.WHITE, draw_text_alpha)") >= 0, "pause menu selected bar should sweep in before fading its text")
+	_expect(selected_bar_body.find("draw_scroll_banner(canvas, bar_rect") >= 0, "phase 5 selected-bar sweep should feed the live swept rect to the scroll and its moving end cap")
+	_expect(selected_bar_body.find("final_bar_rect.end.y - STACKED_HELPER_BOTTOM_INSET") >= 0 and main_renderer_source.find("STACKED_HELPER_BOTTOM_INSET := 14.0") >= 0, "phase 5 compact stacked helper should keep 14px clear of the scroll's lower edge")
+	var scroll_banner_body := _source_function_body(main_renderer_source, "func draw_scroll_banner")
+	_expect(scroll_banner_body.find("left_axis_x := bar_rect.position.x + cap_half_width") >= 0, "phase 5 left scroll axis should stay one cap-half-width inside the unchanged x=0 hit rect")
+	_expect(scroll_banner_body.find("right_axis_x := bar_rect.end.x - cap_half_width") >= 0, "phase 5 scroll right axis should follow the live swept bar end")
+	_expect(scroll_banner_body.find("SCROLL_SPIRIT_HAIRLINE_ALPHA") >= 0, "phase 5 scroll should keep the reviewed spirit-blue hairline as an explicit A/B decision")
+	var hanji_fibers_body := _source_function_body(main_renderer_source, "func draw_hanji_fibers")
+	_expect(main_renderer_source.find("HANJI_FIBER_COUNT := 3") >= 0, "phase 5 hanji correction should not increase the existing three-line draw budget")
+	_expect(hanji_fibers_body.find("fiber_x") >= 0 and hanji_fibers_body.find("Vector2(fiber_x, fiber_top)") >= 0 and hanji_fibers_body.find("fiber_specs") < 0, "phase 5 hanji fibers should run vertically and evenly across the scroll instead of crossing text baselines")
+	_expect(selected_bar_body.find("get_primary_label_text(entry)") >= 0 and selected_bar_body.find("entry.get(\"en\"") < 0, "phase 2 selected bar should draw the locale-aware primary label instead of reading EN directly")
+	_expect(selected_bar_body.find("helper_fits_inline") >= 0 and selected_bar_body.find("stacked_helper_pos") >= 0, "phase 2 narrow pause menu should stack the helper inside the selected bar instead of dropping it")
+	var primary_label_body := _source_function_body(main_renderer_source, "func get_primary_label_text")
+	_expect(primary_label_body.find("should_show_local_label()") >= 0 and primary_label_body.find("LanguageSettings.get_language()") < 0, "phase 2 primary-label routing should reuse the sealed English-vs-all-other-languages predicate")
+	var title_text_body := _source_function_body(main_renderer_source, "func get_title_text")
+	_expect(title_text_body.find("LanguageSettings.translate(\"pause.title\"") >= 0 and title_text_body.find("match LanguageSettings") < 0, "phase 2 pause title should reuse the complete seven-language pause.title key without a local language list")
+	var title_size_body := _source_function_body(main_renderer_source, "func get_title_font_size")
+	_expect(title_size_body.find("_get_fitted_font_size") >= 0 and title_size_body.find("get_title_max_width") >= 0, "phase 3 pause title should reuse the fitted-font path instead of crossing the ink-wash edge")
+	var text_font_body := _source_function_body(main_renderer_source, "func _get_text_draw_font")
+	_expect(text_font_body.find("_needs_cjk_fallback_font(text)") < text_font_body.find("get_main_brush_font(font)"), "phase 2 main text font routing should resolve CJK fallback before selecting the brush SystemFont")
 	var unselected_entry_body := _source_function_body(main_renderer_source, "func draw_unselected_entry")
 	_expect(unselected_entry_body.find("OPEN_ITEM_SLIDE_X") >= 0 and unselected_entry_body.find("_with_alpha(color, open_ratio)") >= 0, "pause menu unselected entries should slide/fade in during opening")
-	# --- D-options bright editorial re-skin seals ---
-	_expect(registry.pause_menu.OPT_PANEL.r < 0.2 and registry.pause_menu.OPT_CARD.r < 0.25 and registry.pause_menu.OPT_TRACK.r < 0.25, "D-options should use dark cyberpunk surface tokens")
+	_expect(unselected_entry_body.find("get_primary_label_text(entry)") >= 0 and unselected_entry_body.find("entry.get(\"en\"") < 0, "phase 2 unselected entries should draw the locale-aware primary label instead of reading EN directly")
+	_expect(selected_bar_body.find("draw_title_seal") < 0 and unselected_entry_body.find("draw_title_seal") < 0, "phase 5 should keep the approved title-only seal instead of stamping every menu item")
+	# --- Phase 6 Hwangyeokjeon options surface seals ---
+	_expect(registry.pause_menu.PANEL_COLOR.is_equal_approx(Color(0.070, 0.055, 0.045, 0.92)), "phase 6 compatibility panel should use the warm lacquer surface")
+	_expect(registry.pause_menu.HEADER_COLOR.is_equal_approx(Color(0.090, 0.070, 0.045, 0.94)), "phase 6 compatibility header should use the warm ink-brown surface")
+	_expect(registry.pause_menu.SECTION_COLOR.is_equal_approx(Color(0.045, 0.036, 0.030, 0.55)), "phase 6 compatibility section should use the warm deepest surface")
+	_expect(registry.pause_menu.BUTTON_COLOR.is_equal_approx(Color(0.080, 0.062, 0.044, 0.90)), "phase 6 compatibility button should use the warm dark-wood surface")
+	_expect(registry.pause_menu.SLIDER_BACK.is_equal_approx(Color(0.055, 0.044, 0.036)), "phase 6 compatibility slider track should use warm near-black ink")
+	_expect(registry.pause_menu.OPT_PANEL == registry.pause_menu.PANEL_COLOR, "phase 6 live options panel should link to the warm compatibility panel token")
+	_expect(registry.pause_menu.OPT_HEADER == registry.pause_menu.HEADER_COLOR, "phase 6 live options header should link to the warm compatibility header token")
+	_expect(registry.pause_menu.OPT_CARD.is_equal_approx(Color(0.082, 0.064, 0.046, 0.95)), "phase 6 option cards should use a warm dark-wood surface")
+	_expect(registry.pause_menu.OPT_CARD_HOVER.is_equal_approx(Color(0.100, 0.078, 0.054, 0.98)), "phase 6 hovered option cards should keep a restrained warm lift")
+	_expect(registry.pause_menu.OPT_TRACK == registry.pause_menu.SLIDER_BACK, "phase 6 live option track should link to the warm compatibility slider token")
+	_expect(registry.pause_menu.OPT_BORDER.is_equal_approx(Color(0.62, 0.52, 0.30, 0.34)), "phase 6 option borders should use the approved translucent aged-gilt token")
+	var warm_option_surfaces: Array[Color] = [
+		registry.pause_menu.OPT_PANEL,
+		registry.pause_menu.OPT_HEADER,
+		registry.pause_menu.OPT_CARD,
+		registry.pause_menu.OPT_CARD_HOVER,
+		registry.pause_menu.OPT_TRACK,
+	]
+	for warm_surface in warm_option_surfaces:
+		_expect(warm_surface.r > warm_surface.b and warm_surface.r <= 0.1001, "phase 6 option surfaces should stay warm and dark instead of returning to navy")
 	var draw_body := _source_function_body(pause_source, "func draw(")
 	_expect(draw_body.find("_draw_main_editorial_base(canvas, Rect2(Vector2.ZERO, view_size), _get_open_bg_alpha())") >= 0, "D-options should draw the shared bright editorial base instead of the dark dim panel")
 	_expect(draw_body.find("0.0, 0.0, 0.0, 0.58") < 0, "D-options should not draw the old black dim behind the options panel")
-	_expect(draw_body.find("OPT_PANEL") >= 0, "D-options should draw the light content panel token")
+	_expect(draw_body.find("OPT_PANEL") >= 0, "phase 6 options should draw the warm content panel token")
 	_expect(draw_body.find("OPEN_OPTIONS_SLIDE_Y") >= 0 and draw_body.find("_get_options_open_ratio()") >= 0, "D-options should share the opening fade/slide timing")
 	_expect(draw_body.find("_with_alpha(OPT_PANEL") < 0 and draw_body.find("_with_alpha(OPT_BORDER") < 0, "options panel must slide in solid — alpha-fading only the shell desyncs it from its full-alpha tab/slider content")
 	var options_window_body := _source_function_body(pause_source, "func _draw_options_window")
 	_expect(options_window_body.find("_draw_scanlines") < 0, "D-options should drop the dark HUD scanlines")
+	_expect(options_window_body.find("OPT_SLIDER_BGM_FILL") >= 0 and options_window_body.find("OPT_SLIDER_SFX_FILL") >= 0, "phase 6 shared options window should route both sound sliders through Hwangyeokjeon fill tokens")
+	_expect(options_window_body.find("ACCENT_BLUE") < 0 and options_window_body.find("ACCENT_GREEN") < 0, "phase 6 sound sliders should retire the cyan and fluorescent-green fill routes")
+	_expect(pause_source.find("const OPT_SLIDER_BGM_FILL := SPIRIT_BLUE") >= 0 and pause_source.find("const OPT_SLIDER_SFX_FILL := RuntimePerkTraditionalChrome.JADE") >= 0, "phase 6 slider palette should stay linked to the live spirit-blue and canonical jade owners")
 	var opt_button_body := _source_function_body(pause_source, "func _draw_button")
 	_expect(opt_button_body.find("OPT_CARD") >= 0 and opt_button_body.find("SELECT_BLUE") >= 0 and opt_button_body.find("BUTTON_COLOR") < 0, "D-options buttons should use bright tokens, not the dark button fill")
 	var opt_tab_body := _source_function_body(pause_source, "func _draw_tab(")
