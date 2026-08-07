@@ -67,6 +67,7 @@ func _run() -> void:
 	_test_shared_cooldown_store_immunity()
 	_test_shared_cooldown_identity_mismatch()
 	_test_snapshot_interaction_projection()
+	_test_rail_card_surface_interaction_projection()
 	if _failed:
 		printerr("lingpet_mount_saddle_gate_smoke: FAILED")
 		quit(1)
@@ -334,6 +335,60 @@ func _test_snapshot_interaction_projection() -> void:
 	_expect("스냅샷 철회: 모델 launch 복귀", str(revoked_snap.get("companion_skill_activation_model", "")) == "launch")
 	_expect("스냅샷 철회: available=false", not bool(revoked_snap.get("companion_skill_interaction_available", true)))
 	_expect("스냅샷 철회: active=false", not bool(revoked_snap.get("companion_skill_interaction_active", true)))
+
+func _test_rail_card_surface_interaction_projection() -> void:
+	# S2-c (리뷰 P2): 레일은 get_rail_card_surface()를 get_snapshot()보다 먼저
+	# 읽는다 — 투영이 스냅샷 경로에만 있으면 씰만 GREEN이고 실전 레일에서 죽는다
+	# (projection-분기 후처리 탈락 트랩). 두 표면은 같은 정본 헬퍼를 써야 한다.
+	var owner := RuntimeOwner.new()
+	var registry := NullRegistry.new()
+	var saddled: Object = _make_summoned_runtime("baekrin", "baekrin_saddle", owner)
+	saddled.update(0.016, owner, registry)
+
+	var permit_keys: Array = [
+		"companion_skill_activation_model",
+		"companion_skill_interaction_available",
+		"companion_skill_interaction_active",
+	]
+	var surface: Dictionary = saddled.get_rail_card_surface()
+	var snapshot: Dictionary = saddled.get_snapshot()
+	_expect("레일 표면: 모델 = interaction_permit", str(surface.get("companion_skill_activation_model", "")) == "interaction_permit")
+	_expect("레일 표면 비탑승: available=true", bool(surface.get("companion_skill_interaction_available", false)))
+	_expect("레일 표면 비탑승: active=false", not bool(surface.get("companion_skill_interaction_active", true)))
+	for permit_key in permit_keys:
+		for suffix in ["", "_1"]:
+			var key := "%s%s" % [str(permit_key), str(suffix)]
+			_expect(
+				"레일 표면 == 스냅샷 (정본 하나): %s" % key,
+				surface.has(key) and snapshot.has(key) and surface[key] == snapshot[key]
+			)
+
+	# 캐시 정체성: 같은 프레임 재조회는 캐시 히트, 탑승 토글은 정적 표면까지
+	# 재빌드해야 한다 (정적 키에 permit 3키가 없으면 낡은 표면이 서빙된다).
+	saddled.reset_runtime_snapshot_cache_counters_for_tests()
+	saddled.get_rail_card_surface()
+	var static_builds_before: int = int(saddled.get_rail_card_static_surface_build_count_for_tests())
+	saddled.get_rail_card_surface()
+	_expect(
+		"레일 캐시: 같은 프레임 재조회는 정적 표면 재빌드 없음 (대조군)",
+		int(saddled.get_rail_card_static_surface_build_count_for_tests()) == static_builds_before
+	)
+	_expect("레일 캐시 사전: 탑승 성립", _mount_via_runtime(saddled, owner, registry))
+	var mounted_surface: Dictionary = saddled.get_rail_card_surface()
+	_expect("레일 표면 탑승: active=true", bool(mounted_surface.get("companion_skill_interaction_active", false)))
+	_expect(
+		"레일 캐시 정체성: 탑승 토글이 정적 표면을 재빌드 (permit 3키가 키에 포함)",
+		int(saddled.get_rail_card_static_surface_build_count_for_tests()) > static_builds_before
+	)
+
+	# 대조군: 안장 미장착 백린은 레일 표면도 launch / F / F
+	var bare: Object = _make_summoned_runtime("baekrin", "baekrin_mokrin_transform", owner)
+	bare.update(0.016, owner, registry)
+	var bare_surface: Dictionary = bare.get_rail_card_surface()
+	_expect("레일 표면 대조군: 미장착 모델 launch", str(bare_surface.get("companion_skill_activation_model", "")) == "launch")
+	_expect("레일 표면 대조군: available=false", not bool(bare_surface.get("companion_skill_interaction_available", true)))
+	_expect("레일 표면 대조군: active=false", not bool(bare_surface.get("companion_skill_interaction_active", true)))
+
 
 func _test_shared_cooldown_store_immunity() -> void:
 	# 저장 경로 수신 면역 (2026-08-05 리뷰 P1) — 면역 정본은 저장 bool이 아니라

@@ -20,6 +20,12 @@ const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dis
 
 const SKILL_ID := "maribo_hydro_sphere"
 const SKILL_NAME := "하이드로 스피어"
+# S2-c 상호작용 권한형(안장 토글) 분기. 카탈로그 `activation_model`이 그대로
+# 스냅샷/레일 표면으로 투영되며, 라벨·진행도·상태·쿨다운·툴팁이 전부 이 한
+# 값에서 갈린다 (경로별 임시 판정 금지).
+const ACTIVATION_MODEL_LAUNCH := "launch"
+const ACTIVATION_MODEL_PERMIT := "interaction_permit"
+const TRIGGER_TYPE_INTERACTION := "interaction"
 const TEXTURE_PATH := "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"
 const ACCENT := Color(0.333, 0.855, 1.0)
 const COOLDOWN_SECONDS := 40.0
@@ -214,6 +220,9 @@ static func _build_entry_from_snapshot(snapshot: Dictionary, suffix: String) -> 
 	var skill_id: String = str(snapshot.get("companion_skill_id%s" % suffix, ""))
 	if skill_id == "":
 		return {}
+	var activation_model: String = str(snapshot.get("companion_skill_activation_model%s" % suffix, ACTIVATION_MODEL_LAUNCH))
+	if activation_model == ACTIVATION_MODEL_PERMIT:
+		return _build_permit_entry_from_snapshot(snapshot, suffix, skill_id)
 	var duration: float = maxf(1.0, float(snapshot.get("companion_skill_cooldown_duration%s" % suffix, COOLDOWN_SECONDS)))
 	var cooldown_remaining: float = maxf(0.0, float(snapshot.get("companion_skill_cooldown%s" % suffix, 0.0)))
 	var progress: float = clampf(1.0 - cooldown_remaining / duration, 0.0, 1.0)
@@ -238,6 +247,40 @@ static func _build_entry_from_snapshot(snapshot: Dictionary, suffix: String) -> 
 		"accent_color": ACCENT,
 		"card_texture_path": str(snapshot.get("companion_skill_card_path%s" % suffix, TEXTURE_PATH)),
 		"description": str(snapshot.get("companion_skill_description%s" % suffix, "")),
+		"activation_model": activation_model,
+	}
+
+
+# 상호작용 권한형 카드(백린의안장). 이 계열은 발동형이 아니라 "장착돼 있으면
+# 언제든 우클릭 토글"이라 충전 개념이 없다 — 게이지는 항상 가득 차고, 카드가
+# 표현해야 하는 상태는 "탑승 중 / 사용 가능 / 권한 없음" 세 가지다. 쿨다운을
+# 0으로 흘리면 툴팁이 "쿨타임 0초"를 찍으므로 총량도 0으로 두고 툴팁 쪽에서
+# 쿨다운 슬롯 자체를 비운다(tooltip_info).
+static func _build_permit_entry_from_snapshot(snapshot: Dictionary, suffix: String, skill_id: String) -> Dictionary:
+	var available: bool = bool(snapshot.get("companion_skill_interaction_available%s" % suffix, false))
+	var active: bool = bool(snapshot.get("companion_skill_interaction_active%s" % suffix, false))
+	var status: String = "casting" if active else ("ready" if available else "used")
+	return {
+		"id": skill_id,
+		"label": str(snapshot.get("companion_skill_name%s" % suffix, SKILL_NAME)),
+		"trigger_type": TRIGGER_TYPE_INTERACTION,
+		"trigger_label": localized_permit_trigger_label(),
+		"progress": 1.0 if available else 0.0,
+		"ready": available and not active,
+		"used": not available,
+		"status": status,
+		"cooldown_remaining": 0.0,
+		"cooldown_total": 0.0,
+		"sort_remaining": 0.0,
+		"flash": clampf(float(snapshot.get("companion_skill_flash_ratio%s" % suffix, 0.0)), 0.0, 1.0),
+		"color": ACCENT,
+		"is_lingpet": true,
+		"accent_color": ACCENT,
+		"card_texture_path": str(snapshot.get("companion_skill_card_path%s" % suffix, TEXTURE_PATH)),
+		"description": str(snapshot.get("companion_skill_description%s" % suffix, "")),
+		"activation_model": ACTIVATION_MODEL_PERMIT,
+		"interaction_available": available,
+		"interaction_active": active,
 	}
 
 
@@ -310,12 +353,19 @@ static func tooltip_info(skill: Dictionary = {}) -> Dictionary:
 	var skill_name := str(skill.get("label", skill.get("name", SKILL_NAME))).strip_edges()
 	if skill_name == "":
 		skill_name = SKILL_NAME
+	# 권한형은 카드 엔트리와 같은 값(activation_model)으로 갈린다 — 툴팁만 따로
+	# 판정하면 카드는 "토글", 툴팁은 "자동발동 · 쿨타임 40초"로 어긋난다.
+	var is_permit := str(skill.get("activation_model", "")) == ACTIVATION_MODEL_PERMIT
 	var trigger_label := str(skill.get("trigger_label", skill.get("trigger", ""))).strip_edges()
 	if trigger_label == "":
-		trigger_label = "자동발동"
-	var cooldown_seconds := float(skill.get("cooldown_total", skill.get("cooldown_seconds", COOLDOWN_SECONDS)))
-	if cooldown_seconds <= 0.0:
-		cooldown_seconds = COOLDOWN_SECONDS
+		trigger_label = localized_permit_trigger_label() if is_permit else "자동발동"
+	# 권한형엔 쿨다운이 없다. 0초를 그대로 흘리면 스테이지 툴팁이 "쿨타임 0초"를
+	# 찍으므로 초와 문자열을 함께 비워 메타라인이 트리거만 남기게 한다.
+	var cooldown_seconds := 0.0
+	if not is_permit:
+		cooldown_seconds = float(skill.get("cooldown_total", skill.get("cooldown_seconds", COOLDOWN_SECONDS)))
+		if cooldown_seconds <= 0.0:
+			cooldown_seconds = COOLDOWN_SECONDS
 	var description := str(skill.get("description", "")).strip_edges()
 	if description == "":
 		description = SKILL_NAME
@@ -323,12 +373,33 @@ static func tooltip_info(skill: Dictionary = {}) -> Dictionary:
 		"name": skill_name,
 		"trigger": "자동발동",
 		"cooldown_seconds": cooldown_seconds,
-		"cooldown": _localized_cooldown_text(cooldown_seconds),
+		"cooldown": "" if is_permit else _localized_cooldown_text(cooldown_seconds),
 		"description": "마리보가 물의 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
 	}
 	info["trigger"] = trigger_label
 	info["description"] = description
+	info["activation_model"] = ACTIVATION_MODEL_PERMIT if is_permit else ACTIVATION_MODEL_LAUNCH
 	return info
+
+
+# 트리거 라벨은 형제 헬퍼(_localized_cooldown_text)와 같은 방식으로 이 파일이
+# 직접 7언어를 소유한다. 공용 스펙이 반환값에 translate_text()를 한 번 더
+# 태우지만 이미 번역된 문자열은 그대로 통과한다(무해한 no-op).
+static func localized_permit_trigger_label() -> String:
+	var language: String = LanguageSettings.get_language()
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Toggle"
+	if language == LanguageSettings.LANGUAGE_SPANISH:
+		return "Alternar"
+	if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+		return "Alternar"
+	if language == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Переключение"
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return "切换"
+	if language == LanguageSettings.LANGUAGE_JAPANESE:
+		return "切り替え"
+	return "토글"
 
 
 static func _localized_cooldown_text(cooldown_seconds: float = COOLDOWN_SECONDS) -> String:

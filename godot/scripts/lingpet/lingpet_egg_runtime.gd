@@ -1884,7 +1884,12 @@ func _build_rail_card_surface_uncached() -> Dictionary:
 		COMPANION_SKILL_WINDUP_SECONDS,
 		active_slot_count
 	)
-	var surface: Dictionary = _get_rail_card_static_surface(primary_skill_surface, second_skill_surface, active_slot_count)
+	# S2-c: permit 3키는 레일이 실제로 읽는 표면에도 실려야 한다. 레일은
+	# get_rail_card_surface()를 get_snapshot()보다 우선하므로, 투영이 스냅샷
+	# 경로에만 있으면 씰만 GREEN이고 실전 레일에서 죽는다(projection-분기
+	# 후처리 탈락 트랩). 정본은 _build_interaction_permit_projection() 하나.
+	var permit_projection: Dictionary = _build_interaction_permit_projection()
+	var surface: Dictionary = _get_rail_card_static_surface(primary_skill_surface, second_skill_surface, active_slot_count, permit_projection)
 	var primary_active := _is_rail_card_slot_active(primary_skill_surface, active_slot_count, 0)
 	var second_active := _is_rail_card_slot_active(second_skill_surface, active_slot_count, 1)
 	_merge_rail_card_slot_dynamic(surface, primary_skill_surface, "", primary_active)
@@ -1893,17 +1898,37 @@ func _build_rail_card_surface_uncached() -> Dictionary:
 	var second_skill_id := str(second_skill_surface.get("skill_id", "")) if second_active else ""
 	if second_skill_id != "" and second_skill_id != str(primary_skill_surface.get("skill_id", "")):
 		_merge_rail_card_skill_runtime_snapshot(surface, second_skill_id)
+	# 빈 슬롯 기본값(_empty_rail_card_skill_state_snapshot)이 투영을 덮지 못하도록
+	# 동적 병합 "뒤"에 실는다.
+	surface.merge(permit_projection, true)
 	return surface
 
 
-func _get_rail_card_static_surface(primary_skill_surface: Dictionary, second_skill_surface: Dictionary, active_slot_count: int) -> Dictionary:
+# S2 permit 투영 계약의 단일 정본 (양 슬롯 동일 계약): 장착·비탑승
+# available=T/active=F, 장착·탑승 T/T, 미장착·철회 직후 F/F. activation_model은
+# 소비자(레일)가 암묵 분기 없이 읽도록 문자열로 싣는다. 프로필 경유 O(1) 판정 —
+# egg는 카탈로그 직조회 금지. get_snapshot()과 get_rail_card_surface()가 같은
+# 헬퍼를 쓰므로 두 표면이 드리프트할 수 없다.
+func _build_interaction_permit_projection() -> Dictionary:
+	var projection: Dictionary = {}
+	var mounted: bool = bool(_mount_state.is_mounted())
+	for permit_slot_index in range(2):
+		var permit_suffix: String = "" if permit_slot_index == 0 else "_1"
+		var slot_is_permit: bool = bool(_current_profile.is_interaction_permit_for_slot(permit_slot_index))
+		projection["companion_skill_activation_model%s" % permit_suffix] = "interaction_permit" if slot_is_permit else "launch"
+		projection["companion_skill_interaction_available%s" % permit_suffix] = slot_is_permit
+		projection["companion_skill_interaction_active%s" % permit_suffix] = slot_is_permit and mounted
+	return projection
+
+
+func _get_rail_card_static_surface(primary_skill_surface: Dictionary, second_skill_surface: Dictionary, active_slot_count: int, permit_projection: Dictionary) -> Dictionary:
 	var primary_active := _is_rail_card_slot_active(primary_skill_surface, active_slot_count, 0)
 	var second_active := _is_rail_card_slot_active(second_skill_surface, active_slot_count, 1)
 	var static_key := [
 		_state,
 		active_slot_count,
-		_build_rail_card_slot_static_key(primary_skill_surface, primary_active),
-		_build_rail_card_slot_static_key(second_skill_surface, second_active),
+		_build_rail_card_slot_static_key(primary_skill_surface, primary_active, permit_projection, ""),
+		_build_rail_card_slot_static_key(second_skill_surface, second_active, permit_projection, "_1"),
 	]
 	if not _rail_card_static_surface_key.is_empty() and _rail_card_static_surface_key == static_key:
 		return _rail_card_static_surface_cache.duplicate()
@@ -1916,7 +1941,7 @@ func _get_rail_card_static_surface(primary_skill_surface: Dictionary, second_ski
 	return surface.duplicate()
 
 
-func _build_rail_card_slot_static_key(skill_surface: Dictionary, active: bool) -> Array:
+func _build_rail_card_slot_static_key(skill_surface: Dictionary, active: bool, permit_projection: Dictionary, suffix: String) -> Array:
 	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
 	return [
 		active,
@@ -1925,6 +1950,12 @@ func _build_rail_card_slot_static_key(skill_surface: Dictionary, active: bool) -
 		str(active_skill.get("description", "")) if active else "",
 		float(active_skill.get("cooldown", 0.0)) if active else 0.0,
 		str(active_skill.get("card_texture_path", "")) if active else "",
+		# S2-c: permit 3키를 캐시 정체성에 직접 포함한다. 정적 표면은 프레임을
+		# 가로질러 재사용되므로, 탑승 토글이나 로드아웃 permit 전환이 키에 없으면
+		# 낡은 표면이 그대로 서빙될 수 있다(프레임 키드 캐시 무효화에만 의존 금지).
+		str(permit_projection.get("companion_skill_activation_model%s" % suffix, "launch")),
+		bool(permit_projection.get("companion_skill_interaction_available%s" % suffix, false)),
+		bool(permit_projection.get("companion_skill_interaction_active%s" % suffix, false)),
 	]
 
 
@@ -2074,16 +2105,7 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		_profile_runtime_surface.get_passive_skill_pool(_current_profile)
 	)
-	# S2 permit 스냅샷 투영 (양 슬롯 동일 계약): 장착·비탑승 available=T/active=F,
-	# 장착·탑승 T/T, 미장착·철회 직후 F/F. activation_model은 소비자(레일 S2-c)가
-	# 암묵 분기 없이 읽도록 문자열로 싣는다. 프로필 경유 O(1) 판정 — egg는
-	# 카탈로그 직조회 금지.
-	for permit_slot_index in range(2):
-		var permit_suffix: String = "" if permit_slot_index == 0 else "_1"
-		var slot_is_permit: bool = bool(_current_profile.is_interaction_permit_for_slot(permit_slot_index))
-		snapshot["companion_skill_activation_model%s" % permit_suffix] = "interaction_permit" if slot_is_permit else "launch"
-		snapshot["companion_skill_interaction_available%s" % permit_suffix] = slot_is_permit
-		snapshot["companion_skill_interaction_active%s" % permit_suffix] = slot_is_permit and bool(_mount_state.is_mounted())
+	snapshot.merge(_build_interaction_permit_projection(), true)
 
 	var character_info_display_snapshot: Dictionary = _snapshot_builder.build_character_info_display_snapshot(
 		_pet_id,

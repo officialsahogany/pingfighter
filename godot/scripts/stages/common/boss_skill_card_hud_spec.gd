@@ -415,6 +415,13 @@ static func _format_seconds(value: float) -> String:
 	return "%.1f초" % value
 
 
+# 공개 래퍼: 자체 툴팁을 그리는 스테이지(스테이지1·5)도 같은 규칙을 쓰게 한다.
+# 쿨다운이 없는 카드(상호작용 권한형 링펫 카드 등)는 "트리거 · " 꼬리표나
+# "쿨타임 0초"가 아니라 트리거만 남아야 한다.
+static func build_meta_line(trigger_text: String, cooldown_text: String, separator: String) -> String:
+	return _build_meta_text(trigger_text, cooldown_text, separator)
+
+
 static func _build_meta_text(trigger_text: String, cooldown_text: String, separator: String) -> String:
 	if trigger_text.is_empty():
 		return cooldown_text

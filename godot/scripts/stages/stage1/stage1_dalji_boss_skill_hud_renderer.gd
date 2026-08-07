@@ -240,8 +240,11 @@ func _draw_skill_tooltip(
 	var status_text: String = _get_tooltip_status_text(skill)
 	var cooldown_seconds := float(info.get("cooldown_seconds", 0.0))
 	var cooldown_language := LanguageSettings.get_language()
+	# 쿨다운이 없는 카드(상호작용 권한형 링펫 카드)는 "쿨타임 0초"를 찍으면 안 된다.
 	var cooldown_text: String = "Cooldown %.0fs" % cooldown_seconds
-	if cooldown_language == LanguageSettings.LANGUAGE_SPANISH:
+	if cooldown_seconds <= 0.0:
+		cooldown_text = str(info.get("cooldown", ""))
+	elif cooldown_language == LanguageSettings.LANGUAGE_SPANISH:
 		cooldown_text = "Recarga %.0fs" % cooldown_seconds
 	elif cooldown_language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		cooldown_text = "Recarga %.0fs" % cooldown_seconds
@@ -285,7 +288,7 @@ func _draw_skill_tooltip(
 		_get_status_color(skill)
 	)
 	cursor_y += title_h
-	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), "%s · %s" % [trigger_text, cooldown_text], small_size, Color(0.86, 0.76, 0.60, 1.0))
+	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), BossSkillCardHudSpec.build_meta_line(trigger_text, cooldown_text, " · "), small_size, Color(0.86, 0.76, 0.60, 1.0))
 	cursor_y += meta_h
 	for line in desc_lines:
 		_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), line, normal_size, Color(0.88, 0.86, 0.80, 1.0))

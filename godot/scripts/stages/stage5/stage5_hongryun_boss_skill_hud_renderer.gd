@@ -465,7 +465,9 @@ func _draw_skill_tooltip(
 		_get_status_color(skill)
 	)
 	cursor_y += title_h
-	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), "%s / %s" % [trigger_text, cooldown_text], small_size, Color(0.90, 0.76, 0.58, 1.0))
+	# 쿨다운이 없는 카드(상호작용 권한형 링펫 카드)는 " / " 꼬리표가 남지 않게
+	# 공용 메타라인 규칙을 통과시킨다.
+	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), BossSkillCardHudSpec.build_meta_line(trigger_text, cooldown_text, " / "), small_size, Color(0.90, 0.76, 0.58, 1.0))
 	cursor_y += meta_h
 	for line in desc_lines:
 		_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), line, normal_size, Color(0.90, 0.86, 0.78, 1.0))
