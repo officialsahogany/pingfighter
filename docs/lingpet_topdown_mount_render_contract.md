@@ -1,13 +1,14 @@
 # 수호령 탑다운 탑승 렌더 계약 (S3-a)
 
-작성 2026-08-07 · **rev2 2026-08-07**(리뷰 P1 2건 반영 + 결정 8건 확정).
+작성 2026-08-07 · rev2(리뷰 P1 2건) · **rev3 2026-08-07**(리뷰 P1 3건 + P2 1건 + 문서 잔재 2건).
 상태: **계약 확정 / 에셋 0장 · 코드는 인메모리 픽스처 골격부터 착수 가능**.
 선행 = `docs/lingpet_baekrin_mokrin_slice_plan.md` §3(D3) · §4(S3 행) ·
 `docs/sprite_socket_composition_contract.md` 레인 C(M+N 표준).
 
 이 문서의 목적은 **에셋 크레딧을 쓰기 전에 좌표·키·드로우순서 계약을 닫는 것**이다.
-아래 §1은 실측 사실(파일:라인), §2~§6은 제안, §7은 사용자 결정 대기 항목이다.
-제안은 승인 전까지 코드로 옮기지 않는다.
+§1은 실측 사실(파일:라인), §2~§6은 확정 계약, §7은 프로토타입 수락 기준,
+§8은 결정 이력(전 항목 확정), §9는 착수 순서다.
+에셋 생성은 §9-2 이전까지 금지한다.
 
 ---
 
@@ -86,7 +87,7 @@ sprite_renderer.draw(플레이어 본체 + 소켓 글로우 + 퍽 파츠)
 
 | 키 | 용도 | 필수성 |
 |---|---|---|
-| `companion_mount_base` | 탑다운 빈안장 베이스(라이더 없음) | **옵셔널**. 이 키 보유 = 탑다운 탑승 지원 선언 |
+| `companion_mount_base` | 탑다운 빈안장 베이스(라이더 없음) | **옵셔널**. 단 지원 선언은 이 키가 아니라 `mount_presentation_model`이 한다(아래) |
 
 - `REQUIRED_VISUAL_KEYS`에 **넣지 않는다**. 넣으면 기존 14펫이 즉시 validate RED가 된다(§1-4). `companion_carry` 선례와 동일한 옵셔널 계약.
 - **조건부 검증의 기준은 게이트 맵이 아니라 렌더 모델이다** (rev2 정정, 리뷰 P1):
@@ -193,9 +194,21 @@ mount_rect   := saddle_screen == seat_point 가 되도록 역산 배치
 # actor_context 주입 (battle_playfield_scene_drawer)
 actor_context["lingpet_mount_base_draw"] = func(c: CanvasItem, final_rider_rect: Rect2) -> void: ...
 
-# 호출 지점: stage1_player_actor_renderer.gd :555 직후
-#            (최종 rect 확정 완료 · 본체 변신 if/elif 사슬 :641 이전)
+# 호출 지점(rev3 정정): stage1_player_actor_renderer.gd
+#   :626 `return`(홀로그램 플리커 숨김) **뒤**, :627 상태 글로우 **앞**
 ```
+
+⚠️ **rev2의 지점(:555 직후)도 여전히 너무 일렀다** (rev3 정정, 리뷰 P1):
+`:615-626`의 `paddle_hologram_plan.flicker_hidden` 분기가 **`:626`에서 return**한다.
+:555 직후에 M을 그리면 그 플리커 프레임에 **M만 그려지고 N(플레이어 본체)은 사라지는
+고아 프레임**이 생긴다. 따라서 콜백은 플리커 return 뒤로 내린다.
+→ 숨김 계약은 **2경로가 아니라 3경로**다(§C-3).
+
+### B-3b. shake 재가산 금지
+
+`final_rider_rect`는 `:534-535`에서 이미 `shake_offset`을 **포함**해 조립된다.
+M 배치식에서 `shake_offset`을 다시 더하면 흔들림이 2배가 되고 안장-라이더 정렬이
+매 프레임 어긋난다. 콜백은 넘겨받은 rect만 쓰고 shake를 다시 만지지 않는다.
 - 컴패니언의 X-SNAP / lane-Y 로직은 탑다운 분기에서 **사용하지 않는다**(목말 전용 계약).
 - 기존 `lingpet_body_draw(canvas)` early hook과 목말 deferred 호출은 **시그니처·호출 위치 모두 불변**(§C-1).
 
@@ -249,21 +262,59 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 | **신규** | `lingpet_mount_base_draw(canvas, final_rider_rect)` | `:555` 직후 | 탑다운 M 베이스 |
 
 - 탑다운 탑승 중에는 **early hook의 컴패니언 본체 draw가 자기 억제**해야 한다. 억제하지 않으면 lane 위치의 컴패니언과 안장 위치의 M이 **이중으로 그려진다**. 억제 지점은 egg runtime의 body draw(현행 `draw_lingpet_body_behind_actors`) 안이며, 판정은 "탑다운 모델 × 탑승 중" 하나다.
+- ⚠️ **메서드 전체 return 금지** (rev3, 리뷰 P2): 같은 메서드가 **공존 인큐베이터 알**을 먼저 그린다(`lingpet_egg_runtime.gd:1079` `_item_egg_lifecycle_state.is_active()` 분기). 통째로 반환하면 탑승 중 아이템 알이 사라진다. 억제 대상은 **메인 컴패니언 본체 표현 하나**로 한정한다.
+- ⚠️ **지속시간 게이지를 함께 이관**: 현행은 "어느 본체 표현을 그렸든 게이지는 공통 패스 한 곳에서만" 나간다(`:1155` `_draw_companion_duration_gauge`, 주석 명시). 본체를 M 콜백으로 옮기면 게이지만 끊긴다 — **신규 M 콜백이 같은 알파 정본(`body_alpha`)으로 게이지까지 이어받는다.** 씰에서 탑다운 탑승 중 게이지 draw 1회를 단언한다.
 
-### C-3. 플레이어 숨김 얼리리턴 — 탑다운은 **합성 전체 숨김** (rev2 신설)
+### C-3. 플레이어 숨김 경로 — 탑다운은 **합성 전체 숨김** (rev3: 3경로)
 
-`paddle_hologram_should_draw == false`(`:308-311`)와
-`ghost_possession_paddle_hidden`(`:316-319`)에서 플레이어 본체가 그려지지 않는다.
+플레이어 본체가 그려지지 않는 경로는 **셋**이다:
 
-| 구도 | 계약 |
+| # | 경로 | 위치 | 목말(온이마루) 현행 | 탑다운 계약 |
+|---|---|---|---|---|
+| 1 | `paddle_hologram_should_draw == false` | `:308-311` | deferred 호출 실행 → **마운트 유지** | M+N 전부 미출력 |
+| 2 | `ghost_possession_paddle_hidden` | `:316-319` | deferred 호출 실행 → **마운트 유지** | M+N 전부 미출력 |
+| 3 | `paddle_hologram_plan.flicker_hidden` | `:622-626` | deferred 호출 **없음** → 마운트도 미출력 | M+N 전부 미출력 |
+
+- 경로 3은 원본 pygame 헬퍼가 그 프레임에 빈 서페이스를 돌려주는 계약(주석 `:619-621`)이라 **온이마루도 현행 0회**다. 대조군 기대값이 경로 1·2(1회)와 다르므로 씰에서 구분해 단언한다.
+- 신규 콜백이 경로 3의 return **뒤**에 있으므로 M은 세 경로 모두에서 자연히 빠진다.
+- 다만 §C-2의 early-hook 자기 억제가 **세 경로에서 모두 유지**돼야 lane 위치의 컴패니언이 되살아나지 않는다 — 조합을 씰로 봉인한다(탑다운 = 컴패니언 본체 draw 0회 / 온이마루 = 경로 1·2에서 1회, 경로 3에서 0회).
+
+### C-3b. N(라이더) 렌더 소비 계약 (rev3 신설, 리뷰 P1)
+
+카탈로그를 만들어도 **소비 지점이 없으면 M 위에 기존 걷기·타격 포즈가 그려진다.**
+두 곳을 함께 배선해야 계약이 성립한다:
+
+1. **draw_size 채택** — `stage1_player_actor_renderer.gd:430-431`에서 `player_paddle_scale`이
+   곱해지기 **전**의 `player_draw_size`를 라이더 카탈로그 값으로 교체한다. 배율 곱은
+   그대로 뒤에 적용돼 확대 패들에서도 정렬이 유지된다(§7 P6).
+2. **착석 시트 우선 분기** — `stage1_player_sprite_renderer.gd`의 이른-return 체인
+   **상단**에 탑다운 착석 분기를 넣어, 기존 walk/idle/attack/스킬 시트보다 먼저
+   선택되게 한다. 넣지 않으면 안장 위에 걷기 포즈가 재생된다.
+
+⚠️ **파츠·글로우 이월(명시)**: 착석 시트를 `_draw_texture_region()`으로 직접 그리면
+장착 파츠·소켓 글로우가 사라진다(funnel은 `_draw_texture_with_customization_overlays()`
+`:1174-1207`). 소켓 카탈로그에는 `mount_rider` 모션이 저작돼 있지 않으므로,
+**S3에서는 파츠·글로우 미적용을 명시 이월**하고(착석 프레임 한정) 후속 슬라이스에서
+`tools/author_player_sprite_sockets.py`로 `mount_rider` 모션을 저작한 뒤 funnel을
+관통시킨다. S3 씰은 "착석 중 파츠·글로우 0건"을 **의도된 계약으로** 단언한다.
+
+### C-3c. 변신 몸체와의 우선순위 — **강제 하차** (rev3 확정, 리뷰 P1)
+
+오딘의 눈(`:642`)과 뿔딸기(`:656`)는 `sprite_renderer.draw()`를 **우회**해 자기
+몸체를 그린다. N 분기만 추가하면 화면에 **M(안장) + 변신체** 조합이 남는다.
+
+셋 중 **강제 하차**를 계약으로 확정한다:
+
+| 후보 | 판정 |
 |---|---|
-| 목말(온이마루) | **현행 불변** — deferred 호출이 얼리리턴 안에서도 실행돼 마운트가 사라지지 않는다 |
-| 탑다운 | **M+N 전체 숨김** — 라이더가 없는데 안장만 남는 고아 프레임을 만들지 않는다 |
+| 탑다운 N 우선(변신체 위에 착석 포즈) | ✗ 변신체는 실루엣 자체가 바뀌는 급이라 소켓 합성 계약이 **합성 대상에서 이미 배제**(`sprite_socket_composition_contract.md:21-23`) |
+| M 숨김(변신체만) | ✗ 탑승 상태는 살아 있는데 마운트만 사라져 하차 입력이 필요한 유령 상태가 된다 |
+| **강제 하차** | ✔ `_mount_state.advance`가 이미 강제 하차 3조건(미지원 펫 / `companion_active=false` / permit 상실)을 소유하고, 스킬 위치 오버라이드가 탑승을 이기는 선례와 같은 축이다. 변신 = 라이더 정체성 소멸이므로 의미도 맞는다 |
 
-구현상 신규 콜백이 `:555` 직후(= 얼리리턴 **뒤**)에 있으므로 M은 자연히 그려지지
-않는다. 다만 §C-2의 early-hook 자기 억제가 **그 경로에서도 유지**돼야 lane 위치의
-컴패니언이 되살아나지 않는다 — 이 조합을 씰로 봉인한다(숨김 2경로 × 탑다운 =
-컴패니언 draw 0회, 온이마루 대조군은 draw 1회).
+구현: `advance()`의 강제 하차 조건에 **변신 활성**을 추가한다(오딘 몸체 스와프 ·
+뿔딸기 변신). 씰 = 변신 활성 프레임에 `is_mounted()` false + M 콜백 0회 + 대조군
+(비변신)에서 정상 탑승.
+⚠️ 게임플레이 동작 변경이므로 설계상 이의가 있으면 되돌릴 수 있게 단일 지점으로 둔다.
 
 ### C-4. 컴패니언 bob 이중 채널 정리
 
@@ -295,12 +346,15 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 | 4 | `lingpet_visual_texture_cache.gd:6-15` | `companion_mount_base` **및 `companion_carry`** 프리웜 등재(8-8) |
 | 5 | `lingpet_companion_draw_context_builder.gd:61-108` | 텍스처 1줄 + 메타 패스스루 3~4줄(**손으로 나열하는 구조**) |
 | 6 | `lingpet_companion_renderer.gd:292-368` | `_resolve_companion_sprite_state` 분기에 케이스 추가(여기서 정한 visual_key가 곧 `_get_sheet_meta` 접두사) |
-| 7 | egg runtime body draw | 탑다운 탑승 중 컴패니언 본체 **자기 억제**(§C-2 이중 드로우 방지) |
+| 7 | egg runtime body draw `:1045~` | 탑다운 탑승 중 **메인 본체만** 자기 억제(§C-2, 알 분기 보존) + **게이지 이관** |
 | 8 | `player_mount_rider_sprite_catalog.gd` (신규) + `battle_resources.gd` | N-세트 경로·규격·로드(8-1) |
 | 9 | `battle_draw_actor_context.gd` | N-세트 발행 + `player_mount_body_over_rider` |
 | 10 | `battle_playfield_scene_drawer.gd:96-100` | `lingpet_mount_base_draw` 콜백 주입(§B-3) |
-| 11 | `stage1_player_actor_renderer.gd:285-292` / `:555` | defer 스위치 근거 교체 + 신규 콜백 호출 지점 |
-| 12 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
+| 11 | `stage1_player_actor_renderer.gd:285-292` / **`:626` 직후** | defer 스위치 근거 교체 + 신규 콜백 호출 지점(§B-3 rev3) |
+| 12 | `stage1_player_actor_renderer.gd:430-431` | 탑다운 시 `player_draw_size`를 라이더 카탈로그 값으로 채택(**배율 곱 이전**, §C-3b) |
+| 13 | `stage1_player_sprite_renderer.gd` | 착석 시트 **우선 분기**를 이른-return 체인 상단에(§C-3b) |
+| 14 | `lingpet_mount_state.gd` `advance()` | 강제 하차 조건에 **변신 활성** 추가(§C-3c) |
+| 15 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
 
 **별건으로 분리 권고**: 광장·F7 피커의 5×5 하드코딩(§1-4 선재 구멍)은 S3 범위 밖이지만,
 탑다운 펫이 광장에 서면 같은 방식으로 깨진다. 별도 슬라이스로 티켓만 세운다.
@@ -320,8 +374,14 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 | P5 | 좌우 이동 | 미러 없음(8-4) — 좌/우 이동에서 M·N 모두 뒤집히지 않음 |
 | P6 | 확대 패들 | `player_paddle_scale` 상향(220폭 등)에서 정렬 유지 — 기존 씰이 155 고정으로 결함을 가린 전례 있음 |
 | P7 | 바닥 경계 | 무클램프로 필드 안(§B-4 1안). 불가 시 M·N **동일 오프셋**이 적용됐고 상대 정렬 불변임을 단언 |
-| P8 | 숨김 2경로 | 탑다운은 M+N 전부 미출력, **온이마루 대조군은 마운트 유지**(§C-3, 8-9) |
-| P9 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
+| P8 | 숨김 **3경로** | 탑다운은 M+N 전부 미출력. 온이마루 대조군은 경로 1·2에서 **마운트 유지**, 경로 3(플리커)에서는 **현행대로 0회**(§C-3, 8-9) |
+| P9 | 이중 드로우 | 탑다운 탑승 중 컴패니언 본체 draw **1회**(lane+안장 2회 아님), 공존 아이템 알은 **보존**, 지속시간 게이지 **1회**(§C-2) |
+| P10 | 변신 충돌 | 오딘/뿔딸기 활성 프레임에 `is_mounted()` false + M 콜백 0회, 비변신 대조군은 정상 탑승(§C-3c) |
+| P11 | 라이더 시트 | 탑다운 활성 시 착석 시트가 walk/idle/attack보다 **먼저** 선택되고 draw_size가 카탈로그 값(배율 곱 이전)임 |
+| P12 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
+
+⚠️ S3 한정 의도적 미적용(씰이 계약으로 단언): 착석 프레임의 **장착 파츠·소켓 글로우
+0건**(§C-3b 이월).
 
 씰 설계: 상태 씰은 `lingpet_mount_state_smoke`에 레그 추가, 정렬·순서는
 `*_visual_qa.gd` 하네스로 캡처 후 수치 판정(S2-c에서 쓴 방식 — 카드 rect 크롭 + 픽셀 통계).
@@ -349,6 +409,6 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 
 1. **지금 착수 가능** — 에셋 없이 **인메모리 1×1 픽스처**로 코드 골격 + draw-order 씰부터. 대상: `mount_presentation_model` 판정 · 라이더 카탈로그 조회 · 신규 콜백 배선 · defer 스위치 근거 교체 · early-hook 자기 억제 · 숨김 2경로 계약.
 2. 그 골격이 씰로 GREEN이 된 뒤 **M 1장(백린)** 생성 → 스매셔 프로토타입 픽셀 QA(§7).
-3. §7 8레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
+3. §7 12레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
 
 **여전한 금지선**: §7 프로토타입 통과 전 N-세트 5종 일괄 생성 금지 · 온이마루 경로 무접촉 · M 단독 바닥 클램프 금지(§B-4).
