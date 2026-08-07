@@ -1,6 +1,7 @@
 # 수호령 탑다운 탑승 렌더 계약 (S3-a)
 
-작성 2026-08-07. 상태: **조사 완료 / 계약안 제출 · 코드 0줄 · 에셋 0장**.
+작성 2026-08-07 · **rev2 2026-08-07**(리뷰 P1 2건 반영 + 결정 8건 확정).
+상태: **계약 확정 / 에셋 0장 · 코드는 인메모리 픽스처 골격부터 착수 가능**.
 선행 = `docs/lingpet_baekrin_mokrin_slice_plan.md` §3(D3) · §4(S3 행) ·
 `docs/sprite_socket_composition_contract.md` 레인 C(M+N 표준).
 
@@ -88,7 +89,21 @@ sprite_renderer.draw(플레이어 본체 + 소켓 글로우 + 퍽 파츠)
 | `companion_mount_base` | 탑다운 빈안장 베이스(라이더 없음) | **옵셔널**. 이 키 보유 = 탑다운 탑승 지원 선언 |
 
 - `REQUIRED_VISUAL_KEYS`에 **넣지 않는다**. 넣으면 기존 14펫이 즉시 validate RED가 된다(§1-4). `companion_carry` 선례와 동일한 옵셔널 계약.
-- 대신 **조건부 검증**을 신설한다: `MOUNT_SADDLE_SKILL_IDS`에 등재된 펫은 `companion_mount_base` + 그 그리드 메타 4값이 **반드시** 있어야 한다(없으면 validate 이슈). 안장 스킬이 있는데 베이스가 없으면 탑승이 무가시로 죽기 때문이다.
+- **조건부 검증의 기준은 게이트 맵이 아니라 렌더 모델이다** (rev2 정정, 리뷰 P1):
+
+  ```gdscript
+  # 펫 카탈로그 엔트리
+  "mount_presentation_model": "topdown",   # 미선언 = 렌더 분기 없음(현행 유지)
+  ```
+  `mount_presentation_model == "topdown"`인 펫만 `companion_mount_base` + 그리드 메타 4값 + 안장 소켓 2값을 **필수**로 검증한다.
+
+  ⚠️ **rev1의 오류**: 기준을 `MOUNT_SADDLE_SKILL_IDS`로 잡았는데, 그 맵에는
+  `"onimaru": "onimaru_saddle"`가 **이미 들어 있다**(`lingpet_mount_state.gd:36-39`).
+  즉 rev1 규칙대로면 탑다운 키가 없는 온이마루가 즉시 validate RED가 되어,
+  같은 문서 §D의 "온이마루 무접촉"과 정면으로 모순됐다.
+  **게이트 자격(안장 장착)과 렌더 구도(목말/탑다운)는 서로 독립 축이다** —
+  섞으면 S8에서 `onimaru_saddle`이 랜딩될 때 또 한 번 충돌한다.
+- 값 후보는 `"topdown"` 하나로 시작하고, 미선언(=현행 목말/일반)은 문자열을 강요하지 않는다. 알 수 없는 값은 validate 이슈로 거부한다(`front_presentation_model` 선례와 동일).
 - 메타는 `visual_layout`에 `companion_mount_base_cols/_rows/_frame_count/_draw_size` **4값 전부 명시**(누락 시 5×5/25 오슬라이스 — §1-4).
 
 ### A-2. N(캐릭터 착석 라이더 ×5)은 펫 카탈로그가 소유하지 **않는다**
@@ -99,18 +114,26 @@ sprite_renderer.draw(플레이어 본체 + 소켓 글로우 + 퍽 파츠)
 캐릭터 키를 넣으면 **데이터가 M×N으로 불어난다**(마운트 가능 펫이 늘 때마다 5줄씩
 복제) — 소켓 계약이 금지한 바로 그 회귀다.
 
-제안: 플레이어 스프라이트 경로 레지스트리에 신규 모듈 1개를 신설한다.
+제안(rev2 확정): **경로만 담는 paths 파일이 아니라 카탈로그 모듈**을 신설한다.
+캐릭터마다 셀·그리드·draw_size가 다르므로(§1-1: 발토르 128 vs 160), 경로와 규격이
+따로 살면 둘이 어긋났을 때 조용히 오슬라이스된다.
 
 ```
-godot/scripts/resources/player_mount_rider_sprite_paths.gd
-  SMASHER_SEATED   := "res://assets/sprites/characters/smasher/smasher_mount_seated_topdown_*.png"
-  VIPER_SEATED     := ...
-  COMMANDO_SEATED  := ...   # 내부 id "soldier"
-  BLACKSMITH_SEATED:= ...
-  OPTIMUS_SEATED   := ...
+godot/scripts/resources/player_mount_rider_sprite_catalog.gd
+
+const RIDERS := {
+    "smasher":    {"path": "...", "cols": 1, "rows": 1, "frame_count": 1, "draw_size": Vector2(160, 160)},
+    "viper":      {...},
+    "soldier":    {...},   # 코만도의 내부 id
+    "blacksmith": {...},   # draw_size 128 계열
+    "optimus":    {...},
+}
+static func get_rider(character_id: String) -> Dictionary   # 미등재 = 빈 dict (fail-closed)
 ```
-- 로드는 기존 `battle_resources.gd`의 `_texture_spec(...)` 경로를 그대로 탄다(캐릭터 시트와 동일 취급).
-- 그리드/셀/draw_size는 **`battle_draw_actor_context.gd`가 발행**한다(코만도·발토르 그리드와 같은 자리). 이렇게 하면 캐릭터별 규격 차이(발토르 128 vs 나머지 160)를 기존 방식 그대로 흡수한다.
+- **path·cols·rows·frame_count·draw_size를 한 엔트리가 함께 소유**한다. 시트를 갈아끼울 때 규격이 같은 자리에서 갱신된다.
+- id 키는 `PlayerCharacterRuntime.normalize()` 결과와 **동일 문자열**을 쓴다(`soldier`/`blacksmith`/`optimus`). 별칭(`commando`/`baltor`/`io`)을 키로 쓰지 않는다.
+- 텍스처 로드는 기존 `battle_resources.gd`의 `_texture_spec(...)` 경로를 그대로 탄다(캐릭터 시트와 동일 취급, optional=true).
+- `battle_draw_actor_context.gd`는 이 카탈로그를 조회해 컨텍스트에 발행만 한다(그리드 상수를 다시 적지 않는다).
 - 결과: 에셋 = M(펫당 1장) + N(캐릭터당 1장), 조합 0장. 데이터 선언도 M+N.
 
 ### A-3. 백린 static 모델과의 충돌 없음
@@ -147,24 +170,47 @@ companion_mount_base_saddle_x   # 셀 로컬 px
 companion_mount_base_saddle_y   # 셀 로컬 px
 ```
 
-### B-3. 배치식
+### B-3. 배치식 — **최종 rect를 인자로 받아야 성립한다** (rev2 정정, 리뷰 P1)
 
 라이더의 **착석 기준점**(seat point)은 라이더 draw rect의 하단 중앙으로 고정한다
 (N 시트를 그 기준으로 저작하면 캐릭터별 추가 상수가 필요 없다):
 
 ```
-seat_point   = Vector2(rider_rect.position.x + rider_rect.size.x * 0.5, rider_rect.end.y)
-saddle_screen= mount_rect.position + saddle_local / cell_size * mount_rect.size
-mount_rect  := saddle_screen == seat_point 가 되도록 역산 배치
+seat_point    = Vector2(rider_rect.position.x + rider_rect.size.x * 0.5, rider_rect.end.y)
+saddle_screen = mount_rect.position + saddle_local / cell_size * mount_rect.size
+mount_rect   := saddle_screen == seat_point 가 되도록 역산 배치
 ```
-즉 M 베이스의 위치는 라이더에서 파생되며, 컴패니언의 X-SNAP/lane-Y 로직은
-탑다운 분기에서 **사용하지 않는다**(P1의 lane Y 보존은 목말 전용 계약).
 
-⚠️ 검증 필요: lane Y(기본 725) 대신 라이더 발밑(패들 하단 ≈ 750)에 붙으면 M 베이스가
-플레이필드 하단 경계를 넘을 수 있다. **바닥밀착 클램프**(`min(anchor, FIELD_BOTTOM − h/2)`
-트랩)를 탑다운 베이스에도 적용할지 프로토타입에서 픽셀로 판정한다.
+⚠️ **rev1의 구현 불가 지점**: 이 역산은 `rider_rect`가 **최종값**일 때만 성립한다.
+그런데 현행 lingpet hook은 `stage1_player_actor_renderer.gd:291`에서 호출되고
+인자도 `canvas` 하나뿐이며, 최종 rect는 그보다 한참 뒤인 **:555**에서야
+확정된다(:533-538 조립 → :541 듀얼글리치 흔들림 → :546-554 wall-slide·회전 AABB
+클램프 → :555 `last_player_visual_rect`). 즉 현 구조로는 역산 자체가 불가능하다.
 
-### B-4. 리프트는 0이 기본이다
+**계약**: 탑다운 전용 콜백을 신설하고 최종 rect를 넘긴다.
+
+```gdscript
+# actor_context 주입 (battle_playfield_scene_drawer)
+actor_context["lingpet_mount_base_draw"] = func(c: CanvasItem, final_rider_rect: Rect2) -> void: ...
+
+# 호출 지점: stage1_player_actor_renderer.gd :555 직후
+#            (최종 rect 확정 완료 · 본체 변신 if/elif 사슬 :641 이전)
+```
+- 컴패니언의 X-SNAP / lane-Y 로직은 탑다운 분기에서 **사용하지 않는다**(목말 전용 계약).
+- 기존 `lingpet_body_draw(canvas)` early hook과 목말 deferred 호출은 **시그니처·호출 위치 모두 불변**(§C-1).
+
+### B-4. 바닥 클램프 — M 단독 클램프 **금지**
+
+라이더 발밑(패들 하단 ≈ 750)에 붙는 M 베이스는 플레이필드 하단을 넘을 수 있다.
+그렇다고 **M만 클램프하면 안장 소켓 ↔ seat point 정렬이 그 프레임에 깨진다**
+(정렬 계약이 클램프에 의해 조용히 파괴됨).
+
+우선순위:
+1. **에셋·소켓 조정으로 무클램프 수용** — M 시트의 여백/`draw_size`/`saddle_y`를 조정해 클램프 없이 필드 안에 들어오게 한다. (기본안)
+2. 1이 불가능할 때만 **M과 N 전체에 동일한 합성 오프셋**을 적용한다 — 둘을 같은 값으로 함께 올려 상대 정렬을 보존한다.
+3. **M 단독 클램프는 어떤 경우에도 금지.** 씰로 봉인한다(하단 초과 픽스처에서 M·N의 상대 오프셋 불변 단언).
+
+### B-5. 리프트는 0이 기본이다
 
 목말은 어깨에 올라타므로 14px 리프트가 필요했지만, 탑다운 착석은 라이더가
 안장 위에 **앉은 포즈로 저작**되므로 스프라이트가 이미 그 높이를 포함한다.
@@ -184,17 +230,42 @@ mount_rect  := saddle_screen == seat_point 가 되도록 역산 배치
 | 목말(P1, 온이마루) | **마운트가 라이더 위**(머리·올린 손이 하반신을 가림) | `defer_lingpet_body = lift > 0` → 지연 |
 | 탑다운(신규) | **라이더가 안장 위** | 지연하면 안 됨 |
 
-따라서 `defer_lingpet_body`의 판정 근거를 **리프트 값**에서 **탑승 구도**로 바꾼다:
+따라서 `defer_lingpet_body`의 판정 근거를 **리프트 값**에서 **탑승 구도 모델**로 바꾼다:
 
 ```gdscript
-# 제안
+# 현행: var defer_lingpet_body := float(context.get("player_mount_rider_lift_px", 0.0)) > 0.0
+# 제안:
 var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false))
 ```
-- 목말 경로는 이 키를 true로 실어 **현행 픽셀 그대로** 유지(회귀 0).
-- 탑다운 경로는 false → lingpet body가 기존 behind-player Z 슬롯에서 그려지고, 라이더가 그 위에 얹힌다. **신규 Z 슬롯을 만들 필요가 없다.**
-- 플레이어 숨김 얼리리턴 2곳의 지연 호출 보존 로직은 그대로 둔다(§1-3).
+- 목말 경로는 이 키를 true로 실어 **현행 픽셀 그대로** 유지(회귀 0). 근거를 리프트에서 떼어내야 §B-5(탑다운 lift=0)와 충돌하지 않는다.
+- 탑다운은 이 키가 false이고, M은 §B-3의 전용 콜백이 그린다.
 
-### C-2. 컴패니언 bob 이중 채널 정리
+### C-2. 콜백 3종의 역할 분리 (rev2)
+
+| 콜백 | 시그니처 | 호출 지점 | 대상 |
+|---|---|---|---|
+| 기존 early hook | `lingpet_body_draw(canvas)` | `:291` (본체 앞) | 일반 컴패니언 · 알 — **불변** |
+| 기존 deferred 호출 | 같은 Callable | `:712-715` + 숨김 얼리리턴 `:309-310`, `:317-318` | 목말(온이마루) — **불변** |
+| **신규** | `lingpet_mount_base_draw(canvas, final_rider_rect)` | `:555` 직후 | 탑다운 M 베이스 |
+
+- 탑다운 탑승 중에는 **early hook의 컴패니언 본체 draw가 자기 억제**해야 한다. 억제하지 않으면 lane 위치의 컴패니언과 안장 위치의 M이 **이중으로 그려진다**. 억제 지점은 egg runtime의 body draw(현행 `draw_lingpet_body_behind_actors`) 안이며, 판정은 "탑다운 모델 × 탑승 중" 하나다.
+
+### C-3. 플레이어 숨김 얼리리턴 — 탑다운은 **합성 전체 숨김** (rev2 신설)
+
+`paddle_hologram_should_draw == false`(`:308-311`)와
+`ghost_possession_paddle_hidden`(`:316-319`)에서 플레이어 본체가 그려지지 않는다.
+
+| 구도 | 계약 |
+|---|---|
+| 목말(온이마루) | **현행 불변** — deferred 호출이 얼리리턴 안에서도 실행돼 마운트가 사라지지 않는다 |
+| 탑다운 | **M+N 전체 숨김** — 라이더가 없는데 안장만 남는 고아 프레임을 만들지 않는다 |
+
+구현상 신규 콜백이 `:555` 직후(= 얼리리턴 **뒤**)에 있으므로 M은 자연히 그려지지
+않는다. 다만 §C-2의 early-hook 자기 억제가 **그 경로에서도 유지**돼야 lane 위치의
+컴패니언이 되살아나지 않는다 — 이 조합을 씰로 봉인한다(숨김 2경로 × 탑다운 =
+컴패니언 draw 0회, 온이마루 대조군은 draw 1회).
+
+### C-4. 컴패니언 bob 이중 채널 정리
 
 컴패니언 본체에는 항상 `±2.6px` bob이 걸린다(§1-2). 탑다운에서 라이더는
 패들 앵커라 bob이 없으므로 **안장만 흔들리고 라이더는 고정**되는 어긋남이 생긴다.
@@ -205,9 +276,10 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 
 ## 5. 계약안 §D — 온이마루 현행 carry 보존 (미결 5-6 대기)
 
-- 신규 분기의 진입 조건은 **`companion_mount_base` 키 보유 여부** 하나다. 온이마루는 이 키가 없으므로 코드 경로가 바뀌지 않는다.
-- 현행 fail-closed(`companion_carry` 미저작 펫은 기존 시트 유지, `lingpet_companion_draw_context_builder.gd:174-179`)는 **계약으로 승격**해 씰링한다: "탑다운 키 없는 펫은 탑다운 분기에 진입하지 않는다" + 온이마루 대조군.
-- 미결 5-6이 "재제작"으로 닫히기 전까지 `companion_carry` / `ONIMARU_SADDLE_LIFT_PX` / 목말 draw order는 **무접촉**이다.
+- 신규 분기의 진입 조건은 **`mount_presentation_model == "topdown"`** 하나다(rev2). 온이마루는 이 필드를 선언하지 않으므로 코드 경로가 바뀌지 않는다 — **안장 스킬 맵 등재 여부와 무관**하며, S8에서 `onimaru_saddle`이 랜딩돼도 그대로다.
+- 현행 fail-closed(`companion_carry` 미저작 펫은 기존 시트 유지, `lingpet_companion_draw_context_builder.gd:174-179`)는 **계약으로 승격**해 씰링한다: "모델 미선언 펫은 탑다운 분기에 진입하지 않는다" + 온이마루 대조군.
+- 미결 5-6이 "재제작"으로 닫히기 전까지 `companion_carry` / `ONIMARU_SADDLE_LIFT_PX` / 목말 draw order / 숨김 얼리리턴의 deferred 호출은 **무접촉**이다.
+- 단 8-8은 예외다: `companion_carry` **프리웜 등재**는 렌더 픽셀을 바꾸지 않는 로드 타이밍 수정이므로 이번 슬라이스에서 함께 처리한다.
 
 ---
 
@@ -217,16 +289,18 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 
 | # | 위치 | 내용 |
 |---|---|---|
-| 1 | `lingpet_catalog.gd` `visuals` | `companion_mount_base` 경로 |
+| 1 | `lingpet_catalog.gd` 엔트리 | `mount_presentation_model: "topdown"` + `visuals.companion_mount_base` |
 | 2 | `lingpet_catalog.gd` `visual_layout` | `_cols/_rows/_frame_count/_draw_size` + `_saddle_x/_saddle_y` |
-| 3 | `lingpet_catalog.gd` 검증 | 조건부 필수 규칙(A-1) — 안장 스킬 보유 펫 한정 |
-| 4 | `lingpet_visual_texture_cache.gd:6-15` | `DEFAULT_PREWARM_KEYS` 등재(미등재 시 draw 중 콜드 로드) |
+| 3 | `lingpet_catalog.gd` 검증 | **모델 기반** 조건부 필수 + 미지의 모델 문자열 거부(§A-1) |
+| 4 | `lingpet_visual_texture_cache.gd:6-15` | `companion_mount_base` **및 `companion_carry`** 프리웜 등재(8-8) |
 | 5 | `lingpet_companion_draw_context_builder.gd:61-108` | 텍스처 1줄 + 메타 패스스루 3~4줄(**손으로 나열하는 구조**) |
 | 6 | `lingpet_companion_renderer.gd:292-368` | `_resolve_companion_sprite_state` 분기에 케이스 추가(여기서 정한 visual_key가 곧 `_get_sheet_meta` 접두사) |
-| 7 | `player_mount_rider_sprite_paths.gd` (신규) + `battle_resources.gd` | N-세트 경로·로드 |
-| 8 | `battle_draw_actor_context.gd` | N-세트 텍스처/그리드/draw_size 발행 + `player_mount_body_over_rider` |
-| 9 | `stage1_player_actor_renderer.gd:285-292` | draw order 스위치 근거 교체(§C-1) |
-| 10 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
+| 7 | egg runtime body draw | 탑다운 탑승 중 컴패니언 본체 **자기 억제**(§C-2 이중 드로우 방지) |
+| 8 | `player_mount_rider_sprite_catalog.gd` (신규) + `battle_resources.gd` | N-세트 경로·규격·로드(8-1) |
+| 9 | `battle_draw_actor_context.gd` | N-세트 발행 + `player_mount_body_over_rider` |
+| 10 | `battle_playfield_scene_drawer.gd:96-100` | `lingpet_mount_base_draw` 콜백 주입(§B-3) |
+| 11 | `stage1_player_actor_renderer.gd:285-292` / `:555` | defer 스위치 근거 교체 + 신규 콜백 호출 지점 |
+| 12 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
 
 **별건으로 분리 권고**: 광장·F7 피커의 5×5 하드코딩(§1-4 선재 구멍)은 S3 범위 밖이지만,
 탑다운 펫이 광장에 서면 같은 방식으로 깨진다. 별도 슬라이스로 티켓만 세운다.
@@ -243,10 +317,11 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 | P2 | mount | 안장 소켓 ↔ 라이더 seat point 정렬 오차 **≤2px**(캡처 좌표 실측) |
 | P3 | mount | 라이더가 안장 **위**(z 순서) — 안장 픽셀이 라이더를 가리지 않음 |
 | P4 | dismount | 해제 프레임 이후 컴패니언이 lane Y 복귀, 라이더 rect 원복 |
-| P5 | 좌우 이동 | facing/미러 계약 일치(§1-2 현행은 미러 없음 — 탑다운은 결정 필요, §8-4) |
+| P5 | 좌우 이동 | 미러 없음(8-4) — 좌/우 이동에서 M·N 모두 뒤집히지 않음 |
 | P6 | 확대 패들 | `player_paddle_scale` 상향(220폭 등)에서 정렬 유지 — 기존 씰이 155 고정으로 결함을 가린 전례 있음 |
-| P7 | 바닥 경계 | 안장 베이스가 플레이필드 하단을 넘지 않음(§B-3) |
-| P8 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
+| P7 | 바닥 경계 | 무클램프로 필드 안(§B-4 1안). 불가 시 M·N **동일 오프셋**이 적용됐고 상대 정렬 불변임을 단언 |
+| P8 | 숨김 2경로 | 탑다운은 M+N 전부 미출력, **온이마루 대조군은 마운트 유지**(§C-3, 8-9) |
+| P9 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
 
 씰 설계: 상태 씰은 `lingpet_mount_state_smoke`에 레그 추가, 정렬·순서는
 `*_visual_qa.gd` 하네스로 캡처 후 수치 판정(S2-c에서 쓴 방식 — 카드 rect 크롭 + 픽셀 통계).
@@ -254,23 +329,26 @@ var defer_lingpet_body := bool(context.get("player_mount_body_over_rider", false
 
 ---
 
-## 8. 사용자 결정 대기 항목
+## 8. 결정 — **전 항목 확정** (2026-08-07 리뷰)
 
-| # | 질문 | 제안(기본값) | 영향 |
-|---|---|---|---|
-| 8-1 | N-세트를 캐릭터 자산으로 둘 것인가(§A-2) | **예** — `player_mount_rider_sprite_paths.gd` 신설 | 아니오면 펫 카탈로그에 5키/펫 → 데이터 M×N |
-| 8-2 | 탑다운 키를 조건부 필수로 검증할 것인가(§A-1) | **예** — 안장 스킬 보유 펫 한정 | 아니오면 무가시 실패가 스모크를 통과 |
-| 8-3 | 라이더 리프트 0 + draw order 스위치 근거 교체(§B-4, §C-1) | **예** | 아니오면 탑다운에서 안장이 라이더를 덮음 |
-| 8-4 | 탑다운 좌우 이동 표현 | **미러 금지 · 좌/우 시트 2장** vs **1장 미러** | 제작량 M×2 여부. 탑다운 안장은 좌우 비대칭이 적어 미러가 유력하나 아트 판단 필요 |
-| 8-5 | 묵린 별도 M 베이스 제작 여부 | 백린 1장 + 리컬러는 **현재 불가**(렌더러 modulate가 `Color(1,1,1,a)`) → 별도 1장 권고 | 제작량 +1 |
-| 8-6 | 미결 5-6(온이마루 carry 탑다운 재제작) | **보류 유지** — S3는 무접촉 | 닫히면 별도 슬라이스 |
-| 8-7 | 옵티머스 N 시트 | 본체 walk 시트조차 없음(§1-1). 착석 시트만 먼저 만들지, 캐릭터 시트 결손을 별건으로 볼지 | 5종 완주 가능 여부 |
-| 8-8 | `companion_mount_base` 프리웜 등재(§6-4) + 현행 `companion_carry` 미등재 결함 | 신규는 **등재**, 기존 carry는 별건 | 첫 탑승 프레임 히치 |
+| # | 결정 | 내용 |
+|---|---|---|
+| 8-1 | **승인(수정)** | N은 캐릭터 소유. 단 paths 파일이 아니라 **`player_mount_rider_sprite_catalog.gd`**가 path·grid·frame_count·draw_size를 함께 소유(§A-2) |
+| 8-2 | **승인(수정)** | 조건부 필수 검증. 단 기준은 saddle 맵이 아니라 **`mount_presentation_model == "topdown"`**(§A-1) |
+| 8-3 | **승인(조건부)** | lift=0 + 모델 기반 draw order. **최종 rect 콜백 추가가 필수 조건**(§B-3, §C-2) |
+| 8-4 | **확정** | S3는 **1×1·1f 정적 포즈, 미러 없음**. 방향 애니메이션은 후속 locomotion 슬라이스로 이월 |
+| 8-5 | **확정** | 스매셔 프로토타입은 **백린 M만**. S3 최종 전까지 「묵린 별도 M」 **또는** 「5-8 동시활성 금지」 중 하나를 확정할 것 |
+| 8-6 | **보류 유지** | 온이마루 carry 무접촉(미결 5-6 그대로) |
+| 8-7 | **확정** | 옵티머스 착석 시트는 **idle 정체성 기준으로 별도 제작 가능**. walk 시트 결손은 **비차단 별건** |
+| 8-8 | **확정(확장)** | 신규 `companion_mount_base` **와 기존 `companion_carry`를 함께** 프리웜 등재 — 첫 탑승 동기 로드는 S3 렌더 수명주기의 일부다 |
+| 8-9 | **신설·확정** | 플레이어 숨김 얼리리턴 2경로: 탑다운은 **M+N 전체 숨김**, 온이마루는 **현행 불변**(§C-3) |
 
 ---
 
-## 9. 착수 금지선
+## 9. 착수 순서 (rev2)
 
-- 위 8항목이 닫히기 전 **AutoSprite 크레딧 소모 금지**(M 1장이라도).
-- 코드도 8-1~8-3이 닫힌 뒤에 착수한다(키 이름·소유 위치·드로우 순서가 전부 바뀌는 항목).
-- 프로토타입은 **1종(스매셔)** 통과 후에만 나머지 4종으로 확장한다.
+1. **지금 착수 가능** — 에셋 없이 **인메모리 1×1 픽스처**로 코드 골격 + draw-order 씰부터. 대상: `mount_presentation_model` 판정 · 라이더 카탈로그 조회 · 신규 콜백 배선 · defer 스위치 근거 교체 · early-hook 자기 억제 · 숨김 2경로 계약.
+2. 그 골격이 씰로 GREEN이 된 뒤 **M 1장(백린)** 생성 → 스매셔 프로토타입 픽셀 QA(§7).
+3. §7 8레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
+
+**여전한 금지선**: §7 프로토타입 통과 전 N-세트 5종 일괄 생성 금지 · 온이마루 경로 무접촉 · M 단독 바닥 클램프 금지(§B-4).
