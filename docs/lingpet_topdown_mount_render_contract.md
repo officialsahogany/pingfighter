@@ -1,6 +1,6 @@
 # 수호령 탑다운 탑승 렌더 계약 (S3-a)
 
-작성 2026-08-07 · rev2 · rev3 · rev4 · **rev5 2026-08-08**(준비도 cache-only · 오라/플래시 이관 · 게이지 렌더러 등재 · P12 정밀화 · 체크리스트 14행 · 백린 활성화 보류).
+작성 2026-08-07 · rev2~rev5 · **rev6 2026-08-08**(P1: N 준비도 정본 캐시 분리 · 오라/플래시 4레이어 전수 봉인 / P2: 반경 공식 확정 · switch 레이어 · P16 실경로 관통).
 상태: **계약 확정 / 에셋 0장 · 코드는 인메모리 픽스처 골격부터 착수 가능**.
 선행 = `docs/lingpet_baekrin_mokrin_slice_plan.md` §3(D3) · §4(S3 행) ·
 `docs/sprite_socket_composition_contract.md` 레인 C(M+N 표준).
@@ -154,14 +154,34 @@ mount_topdown_ready := (M 텍스처 로드됨) and (현재 character_id의 N 엔
 - ⚠️ **cache-only 조회로 제한한다** (rev5, 리뷰): 준비도 판정은 매 프레임 탑승
   게이트에서 돈다. 여기서 로드를 트리거하면 **§1-2에서 지적한 첫 탑승 동기 로드
   히치를 게이트 자체가 되살린다**(그것도 매 프레임 후보로). 판정은 비-인스턴스화
-  peek만 쓴다:
-  - `LingpetVisualTextureCache.get_cached_texture(pet_id, key, null)` (`:74`)
-  - `ProjectResourceLoader.get_cached_texture(path)` (`:134`)
-  - `get_texture()` / `load_texture()` / `load_imported_*` 계열 **호출 금지**.
+  peek만 쓴다 — `get_texture()` / `load_texture()` / `load_imported_*` 계열 **호출 금지**.
   준비는 **프리웜(8-8)이 책임지고**, 게이트는 "이미 준비됐나"만 본다.
+
+#### A-4a. M과 N은 **정본 캐시가 다르다** (rev6 정정, 리뷰 P1)
+
+리포에 텍스처 캐시가 **둘** 있고 서로 별개다:
+
+| 캐시 | 성격 | 소비자 |
+|---|---|---|
+| `ProjectResourceLoader._texture_cache` | **static 전역** (`:134` `get_cached_texture`) | 링펫 visual 캐시 등 |
+| `BattleTextureSpecStore._resource_cache` | **인스턴스 dict** (`battle_texture_spec_store.gd:5`) | **actor context의 `textures`** (`battle_resources.gd:318-319` → `battle_draw_actor_context.gd:103`) |
+
+⚠️ 전역 캐시로 N 준비도를 판정하면 **불일치 2방향**이 생긴다:
+- 전역에는 있으나 아직 actor context에 발행되지 않음 → **게이트 GREEN인데 화면은 기존 걷기 포즈**(정확히 §C-3b가 막으려던 그림)
+- 전역만 비워졌으나 렌더러에는 N이 남음 → 불필요한 철회
+
+**계약**:
+- **N 준비도의 정본 = `battle_resources`가 실제 렌더에 발행할 `Texture2D`**다. 게이트와 draw context가 **같은 객체**를 소비해야 한다.
+- **M 준비도는 현행 profile 경유 cache-only 조회**(`LingpetVisualTextureCache.get_cached_texture(pet_id, "companion_mount_base", null)`)를 그대로 쓴다 — M의 소비자가 애초에 그 캐시다.
+- 즉 **키 하나에 캐시 하나**: 소비자가 읽는 캐시로 판정한다. 이 원칙을 어기면 게이트와 화면이 갈린다.
+- 씰(P16)에 **객체 동일성 단언**을 넣는다: `ready 판정에 쓴 N Texture2D === renderer에 전달된 N Texture2D`. 값 비교(`!= null`)로는 이 결함을 못 잡는다.
+
 - 씰: ① M 없음 / N 없음 / 둘 다 없음 3레그 × (진입 차단 · 탑승 중 철회) + 정상
-  대조군 ② **판정 경로에서 로더 호출 0회**(스파이 로더로 `get_texture`/`load_texture`
-  호출 수 == 0 단언) — 이게 없으면 cache-only 계약이 조용히 무너진다.
+  대조군 ② **판정 경로에서 로더 호출 0회** ③ **N 텍스처 객체 동일성**(A-4a).
+  ⚠️ ②·③은 **가짜 헬퍼가 아니라 실제 경로 관통**이어야 한다(rev6, 리뷰 P2):
+  egg 갱신 → 준비도 resolver → 게이트까지 도는 픽스처로 검증한다. 정적 로더
+  호출을 직접 스파이하기 어려우면 **cache-peek adapter를 좁게 주입**해(판정
+  모듈이 읽는 단 하나의 함수만 대체) 호출 수를 센다.
 
 ### A-3. 백린 static 모델과의 충돌 없음
 
@@ -266,15 +286,34 @@ bob만 0으로 눌러도 **−6px가 그대로 남아** §7 P2의 "정렬 오차
 
 **계약 = 이관(억제 아님)**:
 
-| 레이어 | 탑다운 계약 | 이유 |
-|---|---|---|
-| `gauge_flash` · `skill_flash` | **이관** — M의 exact center 기준으로 그린다 | 게이지 충전·스킬 발동 **게임플레이 피드백**이다. 조용히 사라지면 결함(무증상) |
-| `hit_flash` | **이관** | 피격 피드백. 탑승 중 본체 피격은 억제되지만(§1-2) 다른 경로의 플래시까지 죽이지 않는다 |
-| 상시 앰비언트 오라 | **이관** | 탑승 중 "수호령이 여기 있다"의 시각 정체성. 안장 중심으로 따라간다 |
+| # | 레이어 | 그리는 곳 | 탑다운 계약 | 이유 |
+|---|---|---|---|---|
+| L1 | 상시 앰비언트 오라 | `_draw_soft_aura` `:66` | **이관** | 탑승 중 "수호령이 여기 있다"의 시각 정체성. 안장 중심으로 따라간다 |
+| L2 | `gauge_flash` 버스트 | `:73-77` | **이관** | 게이지 충전 **게임플레이 피드백**. 조용히 사라지면 무증상 결함 |
+| L3 | `skill_flash` | `:78~` | **이관** | 스킬 발동 피드백 |
+| L4 | `hit_flash` | `:52` 소비 | **이관** | 피격 피드백. 탑승 중 본체 피격은 억제되지만(§1-2) 다른 경로의 플래시까지 죽이지 않는다 |
+| L5 | `switch_transition` 파티클 | `:67-68` | **이관 대상 아님** — 공존 불가를 씰로 증명 | 펫 전환은 `_set_current_pet_id`가 `_mount_state.reset()`을 부르므로(§1-2 리셋 4지점) 탑승과 공존할 수 없다 |
+| L6 | `switch_label` | `:71-72` | 위와 동일 | 위와 동일 |
 
-- 중심은 **M의 exact center**, 반경은 **M의 draw_size에서 파생**한다(walk 상수 미사용, §C-2 게이지와 같은 원칙).
-- **bob은 넣지 않는다** — exact-dest 계약과 일관되게 오라·플래시도 bob 무가산이다(본체만 고정되고 오라만 흔들리는 어긋남 방지).
-- 씰: 탑다운 탑승 + `skill_flash > 0` 프레임에 플래시 draw **1회** + 그 중심이 **M 중심과 일치**. 억제로 오해해 0회가 되면 RED.
+- 중심은 **M의 exact center**, **bob 무가산**(본체만 고정되고 오라만 흔들리는 어긋남 방지).
+- ⚠️ **L5·L6은 "안 그린다"가 아니라 "그럴 상태가 안 나온다"로 닫는다.** 상태 씰이
+  깨지면(전환 중 탑승이 가능해지면) 그 레이어는 **lane 중심에 뜬다** — 그 순간
+  즉시 B-3d 이관 대상으로 편입한다.
+
+**반경 공식 확정** (rev6, 리뷰 P2): 현행 `radius`는 컨텍스트 값이고 기본 16.0
+(`companion_renderer.gd:51`, `COMPANION_RADIUS = 16.0`), 기본 walk draw는 82px
+(`sprite_animator WALK_DRAW_SIZE`)다. 안장이 훨씬 넓은데 16을 고정하면 헤일로가
+본체와 분리돼 보인다. **베이스 반경만 비례**시키고 플래시의 가산항은 그대로 둔다:
+
+```
+radius_topdown = 16.0 * (mount_draw_size.x / 82.0)
+gauge_radius   = lerpf(radius_topdown + 14.0, radius_topdown + 42.0, 1.0 - gauge_flash)   # 가산항 불변
+skill_radius   = lerpf(radius_topdown + 18.0, radius_topdown + 54.0, 1.0 - skill_flash)   # 가산항 불변
+```
+이렇게 하면 P15 기대값이 `mount_draw_size`의 **순수 함수**가 되어 계산 가능하다.
+
+- 씰(P15): **L1~L4 각각**에 대해 ① draw **1회** ② 중심 == **M 중심** ③ **lane 중심 0회**.
+  ⚠️ skill_flash 하나만 보면 나머지 세 층을 누락한 구현도 GREEN이 된다.
 
 ### B-3b. shake 재가산 금지
 
@@ -453,6 +492,7 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | 13 | `stage1_player_sprite_renderer.gd` | 착석 시트 **우선 분기**를 이른-return 체인 상단에(§C-3b) |
 | 14 | `lingpet_mount_state.gd` `advance()` | **필수 인자**로 받은 `body_presentation_incompatible` 철회 전이만 처리(판정은 egg runtime, §C-3c rev4) |
 | 14b | `lingpet_duration_field_gauge_renderer.gd:30-37` | 탑다운 경로에서 **`GAUGE_Y_OFFSET` 0 · 기하는 M의 draw_size/중심**(walk 상수 미사용, §C-2) |
+| 14c | `battle_resources.gd:318-319` / `battle_texture_spec_store.gd:5` | **N 준비도 정본** — 게이트와 draw context가 같은 Texture2D를 소비하도록 조회 지점 통일(§A-4a) |
 | 15 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
 
 **별건으로 분리 권고**: 광장·F7 피커의 5×5 하드코딩(§1-4 선재 구멍)은 S3 범위 밖이지만,
@@ -480,9 +520,10 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | P12 | M 기하 | **실제 animator/renderer 관통**: `source_rect`는 animator 슬라이싱 규칙과 일치하고, **최종 `dest_rect`는 renderer exact-dest 값**과 일치(−6 오프셋·bob 미가산, §B-3c) |
 | P13 | 게이지 기하 | 탑다운 게이지 draw 1회 + 중심이 **M 중심**과 일치(walk 상수 미사용, §C-2) |
 | P14 | 준비도 | M·N 결손 3조합에서 진입 차단 / 탑승 중이면 같은 프레임 철회, 정상 대조군(§A-4) |
-| P15 | 오라·플래시 | 탑다운 + `skill_flash>0`에 플래시 draw **1회** + 중심 == M 중심(억제 아님, §B-3d) |
-| P16 | 준비도 비용 | 준비도 판정 경로에서 **로더 호출 0회**(cache-only, §A-4) |
-| P17 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
+| P15 | 오라·플래시 | **L1~L4 각각**(앰비언트·gauge·skill·hit) draw **1회** + 중심 == **M 중심** + **lane 중심 0회**. 반경은 `16*(mount_draw.x/82)` 파생값과 일치(§B-3d) |
+| P16 | 준비도 비용·정본 | **실제 egg 갱신 → resolver → 게이트 관통**으로 ① 로더 호출 **0회**(cache-peek adapter 주입) ② **ready에 쓴 N Texture2D === renderer에 전달된 N Texture2D**(객체 동일성, §A-4a) |
+| P17 | 전환 공존 불가 | 펫 전환(`switch_transition>0`) 프레임에 `is_mounted()` **false**(= L5·L6이 lane 중심에 뜨는 상태가 성립 불가, §B-3d) |
+| P18 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
 
 ⚠️ S3 한정 의도적 미적용(씰이 계약으로 단언): 착석 프레임의 **장착 파츠·소켓 글로우
 0건**(§C-3b 이월).
@@ -514,6 +555,6 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 
 1. **지금 착수 가능** — 에셋 없이 **인메모리 1×1 픽스처**로 코드 골격 + draw-order 씰부터. 대상: `mount_presentation_model` 판정 · 라이더 카탈로그 조회 · **준비도 fail-closed**(§A-4) · 신규 콜백 배선(`:626` 뒤) · **M 전용 exact-dest 경로**(§B-3c) · defer 스위치 근거 교체 · early-hook 본체만 자기 억제 + **게이지 기하 이관**(§C-2) · **숨김 3경로** · **body-presentation 비호환 철회**(§C-3c).
 2. 그 골격이 씰로 GREEN이 된 뒤 **M 1장(백린)** 생성 → 스매셔 프로토타입 픽셀 QA(§7).
-3. §7 17레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
+3. §7 18레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
 
 **여전한 금지선**: §7 프로토타입 통과 전 N-세트 5종 일괄 생성 금지 · 온이마루 경로 무접촉 · M 단독 바닥 클램프 금지(§B-4).
