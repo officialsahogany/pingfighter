@@ -63,6 +63,7 @@ func _build_common_update_deps(registry) -> Dictionary:
 		"ball_spin_state": _get_instance(registry, "ball_spin_state"),
 		"ball_effects": _get_instance(registry, "ball_effects"),
 		"ball_intensity": _get_instance(registry, "ball_intensity"),
+		"victory_highlight_recorder": _get_instance(registry, "victory_highlight_recorder"),
 		"motion_stepper": _get_instance(registry, "ball_motion_stepper"),
 		"wall_bounce_controller": _get_instance(registry, "wall_bounce_controller"),
 		"paddle_bounce_state": _get_instance(registry, "paddle_bounce_state"),

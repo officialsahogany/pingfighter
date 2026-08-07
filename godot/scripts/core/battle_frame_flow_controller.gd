@@ -15,6 +15,16 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call_delta(callbacks, "update_effects", delta)
 		return
 
+	var victory_highlight_state = deps.get("victory_highlight_playback_state", null)
+	if (
+		victory_highlight_state != null
+		and victory_highlight_state.has_method("is_active")
+		and bool(victory_highlight_state.is_active())
+	):
+		victory_highlight_state.update(delta)
+		_call(callbacks, "queue_redraw")
+		return
+
 	if bool(deps.get("skill_orb_tooltip_active", false)):
 		var tooltip_key := str(deps.get("skill_orb_tooltip_key", ""))
 		if not _skill_orb_tooltip_pause_active:

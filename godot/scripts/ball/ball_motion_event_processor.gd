@@ -182,6 +182,7 @@ func _process_wall(step_result: Dictionary, scene: Dictionary, context: Dictiona
 	)
 	scene.merge(result, true)
 	if not bool(result.get("rematch_requested", false)):
+		_record_highlight_wall_hit(impact_pos, deps)
 		_notify_power_smash_wall_bounce(step_result, deps)
 		_apply_chargebag_wall_gauge(scene, context, deps)
 	return bool(result.get("rematch_requested", false))
@@ -392,11 +393,58 @@ func _process_paddle(
 	if result.is_empty():
 		return false
 	if bool(step_result.get("is_player", false)):
+		_record_highlight_paddle_hit(true, step_result, result, context, deps)
 		return true
 	if not bool(result.get("normal_boss_bounce_committed", false)):
 		return false
+	_record_highlight_paddle_hit(false, step_result, result, context, deps)
 	_notify_stage7_boss_paddle_hit(scene, context, deps)
 	return true
+
+
+func _record_highlight_wall_hit(impact_pos: Vector2, deps: Dictionary) -> void:
+	var recorder: Object = deps.get("victory_highlight_recorder", null)
+	if recorder != null and recorder.has_method("record_wall_hit"):
+		recorder.record_wall_hit(impact_pos)
+
+
+func _record_highlight_paddle_hit(
+	is_player: bool,
+	step_result: Dictionary,
+	result: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> void:
+	var recorder: Object = deps.get("victory_highlight_recorder", null)
+	if recorder == null:
+		return
+	var impact_pos: Vector2 = _get_vector2(step_result, "impact_pos", Vector2.ZERO)
+	var skill_tag: String = _resolve_highlight_skill_tag(step_result, result, context) if is_player else ""
+	if is_player and recorder.has_method("record_player_hit"):
+		recorder.record_player_hit(impact_pos, skill_tag)
+	elif not is_player and recorder.has_method("record_boss_hit"):
+		recorder.record_boss_hit(impact_pos, skill_tag)
+
+
+func _resolve_highlight_skill_tag(
+	step_result: Dictionary,
+	result: Dictionary,
+	context: Dictionary
+) -> String:
+	var explicit_tag: String = str(result.get("skill_tag", context.get("last_player_skill_tag", "")))
+	if not explicit_tag.is_empty():
+		return explicit_tag
+	if bool(result.get("smasher_wheel_hit", false)):
+		return "smasher_wheel"
+	if bool(step_result.get("viper_dual_glitch_clone_hit", false)):
+		return "viper_dual_glitch"
+	if bool(result.get("commando_bowling_trap_guard_hit", false)):
+		return "commando_bowling_trap"
+	if bool(step_result.get("blacksmith_thor_shield_hit", false)):
+		return "blacksmith_thor_shield"
+	if bool(context.get("dash_active", false)):
+		return "dash"
+	return ""
 
 
 func _is_stage7_boss_ball_intangible(context: Dictionary, deps: Dictionary) -> bool:

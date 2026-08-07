@@ -37,6 +37,7 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 		# 실제로 작동하려면 이 키가 있어야 한다 — 빠지면 두 체크 모두 조용히
 		# 항상 false(공허)다.
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+		"victory_highlight_playback_state": _get_instance(registry, "victory_highlight_playback_state"),
 		"victory_loot_phase_state": _get_instance(registry, "victory_loot_phase_state"),
 		"serve_flow_controller": _get_instance(registry, "serve_flow_controller"),
 		"game_audio": _get_instance(registry, "game_audio"),

@@ -5522,6 +5522,11 @@ const QUALITY_PREFIXES_RU := {
 
 const TEXT := {
 	LANGUAGE_KOREAN: {
+		"victory_highlight_title": "승리의 순간",
+		"victory_highlight_finisher": "승부를 가른 결정타",
+		"victory_highlight_long_rally": "불꽃 튀는 공방",
+		"victory_highlight_clutch": "절체절명의 반격",
+		"victory_highlight_skip_hint": "클릭 또는 아무 키로 건너뛰기",
 		# Plaza shop transaction messages — plaza_scene._format_shop_transaction_message (i18n slice)
 		"plaza.msg.shop.no_ap": "열쇠가 부족합니다.",
 		"plaza.msg.shop.not_enough_gold": "골드가 부족합니다.",
@@ -5708,6 +5713,11 @@ const TEXT := {
 	},
 	LANGUAGE_ENGLISH: {
 		# Plaza shop transaction messages — plaza_scene._format_shop_transaction_message (i18n slice)
+		"victory_highlight_title": "Moments of Victory",
+		"victory_highlight_finisher": "Match-Ending Strike",
+		"victory_highlight_long_rally": "Fierce Rally",
+		"victory_highlight_clutch": "Clutch Counter",
+		"victory_highlight_skip_hint": "Click or press any key to skip",
 		"plaza.msg.shop.no_ap": "Not enough Keys.",
 		"plaza.msg.shop.not_enough_gold": "Not enough Gold.",
 		"plaza.msg.shop.active_slots_full": "Active slots are full.",
@@ -5893,6 +5903,11 @@ const TEXT := {
 	},
 	LANGUAGE_CHINESE: {
 		"lingpet.language.generic.warm.1.token.with_you": "与你一起",
+		"victory_highlight_title": "胜利瞬间",
+		"victory_highlight_finisher": "制胜一击",
+		"victory_highlight_long_rally": "激烈攻防",
+		"victory_highlight_clutch": "绝境反击",
+		"victory_highlight_skip_hint": "点击或按任意键跳过",
 		"lingpet.language.generic.warm.1.token.when_here": "在这里",
 		"lingpet.language.generic.warm.1.token.core": "我的核心",
 		"lingpet.language.generic.warm.1.token.warm": "变暖",
@@ -6078,6 +6093,11 @@ const TEXT := {
 	},
 	LANGUAGE_JAPANESE: {
 		"lingpet.language.generic.warm.1.token.with_you": "あなたと共に",
+		"victory_highlight_title": "勝利の瞬間",
+		"victory_highlight_finisher": "勝負を決めた一撃",
+		"victory_highlight_long_rally": "白熱のラリー",
+		"victory_highlight_clutch": "土壇場の反撃",
+		"victory_highlight_skip_hint": "クリックまたは任意のキーでスキップ",
 		"lingpet.language.generic.warm.1.token.when_here": "ここにいると",
 		"lingpet.language.generic.warm.1.token.core": "私のコア",
 		"lingpet.language.generic.warm.1.token.warm": "温まる",
@@ -6263,6 +6283,11 @@ const TEXT := {
 	},
 	LANGUAGE_SPANISH: {
 		"lingpet.language.generic.warm.1.token.with_you": "contigo",
+		"victory_highlight_title": "Momentos de victoria",
+		"victory_highlight_finisher": "Gol decisivo",
+		"victory_highlight_long_rally": "Intercambio feroz",
+		"victory_highlight_clutch": "Contraataque al límite",
+		"victory_highlight_skip_hint": "Haz clic o pulsa cualquier tecla para omitir",
 		"lingpet.language.generic.warm.1.token.when_here": "aquí",
 		"lingpet.language.generic.warm.1.token.core": "mi núcleo",
 		"lingpet.language.generic.warm.1.token.warm": "se calienta",
@@ -6448,6 +6473,11 @@ const TEXT := {
 	},
 	LANGUAGE_PORTUGUESE_BRAZIL: {
 		"lingpet.language.generic.warm.1.token.with_you": "with you",
+		"victory_highlight_title": "Momentos da vitória",
+		"victory_highlight_finisher": "Gol decisivo",
+		"victory_highlight_long_rally": "Troca intensa",
+		"victory_highlight_clutch": "Contra-ataque decisivo",
+		"victory_highlight_skip_hint": "Clique ou pressione qualquer tecla para pular",
 		"lingpet.language.generic.warm.1.token.when_here": "here",
 		"lingpet.language.generic.warm.1.token.core": "my core",
 		"lingpet.language.generic.warm.1.token.warm": "is warm",
@@ -6633,6 +6663,11 @@ const TEXT := {
 	},
 	LANGUAGE_RUSSIAN: {
 		"lingpet.language.generic.warm.1.token.with_you": "with you",
+		"victory_highlight_title": "Моменты победы",
+		"victory_highlight_finisher": "Решающий удар",
+		"victory_highlight_long_rally": "Жаркий розыгрыш",
+		"victory_highlight_clutch": "Контратака на грани",
+		"victory_highlight_skip_hint": "Щёлкните или нажмите любую клавишу, чтобы пропустить",
 		"lingpet.language.generic.warm.1.token.when_here": "here",
 		"lingpet.language.generic.warm.1.token.core": "my core",
 		"lingpet.language.generic.warm.1.token.warm": "is warm",

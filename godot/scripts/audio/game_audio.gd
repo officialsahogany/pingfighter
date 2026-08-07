@@ -3295,6 +3295,17 @@ func play_ui_confirm() -> void:
 	_play_with_pitch(ui_confirm_sfx, 1.0)
 
 
+func play_victory_highlight_transition() -> void:
+	# Replay-only semantic cue. Do not re-fire captured paddle/wall sounds.
+	_play_with_pitch(ui_move_sfx, 1.08)
+
+
+func play_victory_highlight_impact() -> void:
+	# A single presentation impact at the stored goal marker, independent of
+	# the original live score-event audio.
+	_play_with_pitch(power_smash_sfx, 1.0)
+
+
 func play_ui_back() -> void:
 	_play_with_pitch(ui_back_sfx, 1.0)
 

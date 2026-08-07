@@ -189,6 +189,22 @@ const MODULES := {
 		"path": "res://scripts/core/victory_loot_phase_state.gd",
 		"label": "victory loot phase state",
 	},
+	"victory_highlight_recorder": {
+		"path": "res://scripts/core/victory_highlight_recorder.gd",
+		"label": "victory highlight recorder",
+	},
+	"victory_highlight_actor_resolver": {
+		"path": "res://scripts/core/victory_highlight_actor_resolver.gd",
+		"label": "victory highlight actor resolver",
+	},
+	"victory_highlight_playback_state": {
+		"path": "res://scripts/core/victory_highlight_playback_state.gd",
+		"label": "victory highlight playback state",
+	},
+	"victory_highlight_renderer": {
+		"path": "res://scripts/core/victory_highlight_renderer.gd",
+		"label": "victory highlight renderer",
+	},
 	"battle_frame_flow_deps_builder": {
 		"path": "res://scripts/core/battle_frame_flow_deps_builder.gd",
 		"label": "battle frame flow deps builder",

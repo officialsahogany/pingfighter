@@ -42,6 +42,7 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	var score_result: Dictionary = score_state.score_for(scoring_side)
 	_perf_end(perf_logger, "physics.score_event.score_state.score_for", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_record_victory_highlight_score(scoring_side, score_result, deps)
 	_queue_perk_fusion_round_boundary(scoring_side, deps, score_result)
 	_perf_end(perf_logger, "physics.score_event.perk_fusion_round_boundary", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -89,6 +90,30 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	sample_start = _perf_begin(perf_logger)
 	_play_score_audio(deps)
 	_perf_end(perf_logger, "physics.score_event.audio.total", sample_start)
+
+
+func _record_victory_highlight_score(
+	scoring_side: String,
+	score_result: Dictionary,
+	deps: Dictionary
+) -> void:
+	var recorder: Object = deps.get("victory_highlight_recorder", null)
+	if recorder == null or not recorder.has_method("record_score_event"):
+		return
+	var ball_intensity: Object = deps.get("ball_intensity", null)
+	var rally_count := 0
+	var last_hit_by := ""
+	if ball_intensity != null:
+		if ball_intensity.has_method("get_rally_count"):
+			rally_count = int(ball_intensity.get_rally_count())
+		if ball_intensity.has_method("get_last_hit_by"):
+			last_hit_by = str(ball_intensity.get_last_hit_by())
+	recorder.record_score_event(
+		scoring_side,
+		score_result,
+		rally_count,
+		last_hit_by
+	)
 
 
 func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary) -> void:

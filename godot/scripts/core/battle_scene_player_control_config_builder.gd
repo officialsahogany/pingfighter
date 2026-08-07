@@ -66,6 +66,7 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	config["ball_active"] = (
 		bool(_get_owner_value(owner, "ball_active", false))
 		and not bool(_get_owner_value(owner, "victory_loot_phase_active", false))
+		and not bool(_get_owner_value(owner, "victory_highlight_active", false))
 	)
 	config["ball_pos"] = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
 	config["ball_vel"] = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)

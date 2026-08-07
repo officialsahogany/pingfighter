@@ -34,6 +34,8 @@ const DEFAULT_VALUES: Dictionary = {
 	# 승리 전리품 페이즈(victory_loot_phase_state) 진행 중 플래그 — 필드 아이템
 	# 스폰 차단 등 외부 소비자용 미러.
 	"victory_loot_phase_active": false,
+	# 승리 하이라이트 재생 중에는 전투 입력과 물리 진행을 모두 동결한다.
+	"victory_highlight_active": false,
 	"boost_charging_active": false,
 	"poisoned_ball_overlay_active": false,
 	"viper_knockback_overlay_active": false,

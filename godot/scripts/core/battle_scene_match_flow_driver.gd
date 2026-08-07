@@ -90,7 +90,7 @@ func update_scoreboard(
 				reset_drive_input_callback,
 				reset_ball_callback
 			),
-			"try_start_victory_loot": Callable(self, "_try_start_victory_loot_phase").bind(registry, owner, reset_game_callback),
+			"try_start_victory_presentation": Callable(self, "_try_start_victory_presentation").bind(registry, owner, reset_game_callback),
 			"show_stage_clear_result": Callable(self, "_show_stage_clear_result").bind(registry, reset_game_callback, owner),
 		},
 		{
@@ -138,12 +138,12 @@ func _apply_scoreboard_update_result(
 			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
 		_perf_end(perf_logger, "physics.scoreboard_result.resolve_defeat", defeat_start)
-		var victory_loot_start: int = _perf_begin(perf_logger)
-		if _try_start_victory_loot_phase(registry, owner, reset_game_callback):
-			_perf_end(perf_logger, "physics.scoreboard_result.victory_loot", victory_loot_start)
+		var victory_presentation_start: int = _perf_begin(perf_logger)
+		if _try_start_victory_presentation(registry, owner, reset_game_callback):
+			_perf_end(perf_logger, "physics.scoreboard_result.victory_presentation", victory_presentation_start)
 			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
-		_perf_end(perf_logger, "physics.scoreboard_result.victory_loot", victory_loot_start)
+		_perf_end(perf_logger, "physics.scoreboard_result.victory_presentation", victory_presentation_start)
 		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
@@ -341,6 +341,46 @@ func _stop_victory_power_loss_rumble(registry: Object) -> void:
 	var game_audio: Object = _get_instance(registry, "game_audio")
 	if game_audio != null and game_audio.has_method("stop_stage2_quake_loop"):
 		game_audio.stop_stage2_quake_loop()
+
+
+func _try_start_victory_presentation(
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable
+) -> bool:
+	var recorder: Object = _get_instance(registry, "victory_highlight_recorder")
+	var playback: Object = _get_instance(registry, "victory_highlight_playback_state")
+	if (
+		recorder != null
+		and recorder.has_method("get_selected_victory_clips")
+		and playback != null
+		and playback.has_method("start")
+		and (not playback.has_method("is_active") or not bool(playback.is_active()))
+	):
+		var clips: Array[Dictionary] = recorder.get_selected_victory_clips()
+		if not clips.is_empty():
+			var finish_callback := Callable(self, "_finish_victory_highlight").bind(
+				registry,
+				reset_game_callback,
+				owner
+			)
+			if bool(playback.start(owner, registry, clips, finish_callback)):
+				return true
+	if recorder != null and recorder.has_method("release_match_clips"):
+		recorder.release_match_clips()
+	return _try_start_victory_loot_phase(registry, owner, reset_game_callback)
+
+
+func _finish_victory_highlight(
+	registry: Object,
+	reset_game_callback: Callable,
+	owner: Object
+) -> void:
+	if _try_start_victory_loot_phase(registry, owner, reset_game_callback):
+		return
+	if _show_stage_clear_result(registry, reset_game_callback, owner):
+		return
+	_call_callback(reset_game_callback)
 
 
 func _try_start_victory_loot_phase(registry: Object, owner: Object, reset_game_callback: Callable) -> bool:

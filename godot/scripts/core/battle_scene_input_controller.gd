@@ -43,6 +43,8 @@ func handle_unhandled_input(
 ) -> void:
 	if _system_shortcut_input_router.handle_input(event, owner, module_getter):
 		return
+	if _handle_victory_highlight_input(event, owner, module_getter):
+		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
 		_mark_handled(owner)
@@ -86,6 +88,28 @@ func handle_unhandled_input(
 		return
 	if _combat_shortcut_input_router.handle_input(event, owner, registry, module_getter):
 		return
+
+
+func _handle_victory_highlight_input(
+	event: InputEvent,
+	owner: Object,
+	module_getter: Callable
+) -> bool:
+	var playback: Object = _get_module(module_getter, "victory_highlight_playback_state")
+	if (
+		playback == null
+		or not playback.has_method("is_active")
+		or not bool(playback.is_active())
+	):
+		return false
+	if event is InputEventKey:
+		var key_event: InputEventKey = event
+		if key_event.keycode == KEY_F9 or key_event.physical_keycode == KEY_F9:
+			return false
+	if playback.has_method("handle_input") and bool(playback.handle_input(event)):
+		_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
 
 
 func _handle_mobile_touch_input(event: InputEvent, owner: Object, module_getter: Callable, scene_ready: bool) -> bool:

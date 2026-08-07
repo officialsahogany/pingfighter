@@ -1,7 +1,11 @@
 extends RefCounted
 
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
+
 const FORCE_STAGE_CLEAR_KEY := KEY_F9
-const FORCE_STAGE_CLEAR_PLAYER_SCORE := 5
+# 파생값이다. 리터럴로 굳히면 승리 점수를 올리는 순간 F9 강제 클리어가
+# 매치를 끝내지 못하는 어중간한 점수(구 5:0)를 주입한다.
+const FORCE_STAGE_CLEAR_PLAYER_SCORE := MatchScoreState.WIN_GOAL
 const FORCE_STAGE_CLEAR_BOSS_SCORE := 0
 
 
@@ -41,6 +45,7 @@ func _handle_force_stage_clear_shortcut(
 		return true
 
 	_reset_victory_loot_phase(owner, registry, module_getter)
+	_reset_victory_highlight(owner, registry, module_getter)
 	_force_player_stage_clear_score(registry, module_getter)
 	_start_debug_scoreboard_snapshot(registry, module_getter)
 	if result_screen != null and result_screen.has_method("show_from_scoreboard"):
@@ -106,6 +111,23 @@ func _reset_victory_loot_phase(
 	var game_audio: Object = _get_instance(registry, "game_audio")
 	if game_audio != null and game_audio.has_method("stop_stage2_quake_loop"):
 		game_audio.stop_stage2_quake_loop()
+
+
+func _reset_victory_highlight(
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> void:
+	var playback: Object = _get_module(module_getter, "victory_highlight_playback_state")
+	if playback == null:
+		playback = _get_instance(registry, "victory_highlight_playback_state")
+	if playback != null and playback.has_method("reset"):
+		playback.reset(owner)
+	var recorder: Object = _get_module(module_getter, "victory_highlight_recorder")
+	if recorder == null:
+		recorder = _get_instance(registry, "victory_highlight_recorder")
+	if recorder != null and recorder.has_method("release_match_clips"):
+		recorder.release_match_clips()
 
 
 func _force_player_stage_clear_score(

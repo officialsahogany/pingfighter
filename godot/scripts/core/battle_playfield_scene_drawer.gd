@@ -69,6 +69,13 @@ func draw(
 		_perf_end(perf_logger, "context.actor", context_step_start)
 		_perf_end(perf_logger, "context.build_all", context_start)
 
+	var highlight_recorder: Object = _get_instance(registry, "victory_highlight_recorder")
+	if highlight_recorder != null and highlight_recorder.has_method("capture_visual"):
+		highlight_recorder.capture_visual(actor_context, draw_context)
+	var highlight_playback: Object = _get_instance(registry, "victory_highlight_playback_state")
+	if highlight_playback != null and highlight_playback.has_method("sync_host_layout"):
+		highlight_playback.sync_host_layout(draw_context)
+
 	# Decorative LOD gating was hiding the entire Stage 2 pillar HUD (skill / gauge /
 	# dash orbs) and field background elements during the 0.25s scoreboard fade-in
 	# window after a score, because the overlay reports `is_active()=true` before

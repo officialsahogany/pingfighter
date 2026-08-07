@@ -12,7 +12,7 @@ func update_scoreboard(delta: float, deps: Dictionary, callbacks: Dictionary, co
 			return
 		# 승리 시 결과화면 직행 전에 보스 드랍 전리품 페이즈를 먼저 시도한다
 		# (driver의 _apply_scoreboard_update_result 래더와 동일 순서).
-		if _call_callback_bool(callbacks, "try_start_victory_loot"):
+		if _call_callback_bool(callbacks, "try_start_victory_presentation"):
 			return
 		if _call_callback_bool(callbacks, "show_stage_clear_result"):
 			return
