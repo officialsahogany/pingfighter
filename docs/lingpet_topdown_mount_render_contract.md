@@ -1,6 +1,6 @@
 # 수호령 탑다운 탑승 렌더 계약 (S3-a)
 
-작성 2026-08-07 · rev2(P1 2건) · rev3(P1 3건+P2 1건) · **rev4 2026-08-08**(P1 2건: 철회 범위·M 기하 / P2 2건: 게이지 기하·런타임 fail-closed / 잔재 3건).
+작성 2026-08-07 · rev2 · rev3 · rev4 · **rev5 2026-08-08**(준비도 cache-only · 오라/플래시 이관 · 게이지 렌더러 등재 · P12 정밀화 · 체크리스트 14행 · 백린 활성화 보류).
 상태: **계약 확정 / 에셋 0장 · 코드는 인메모리 픽스처 골격부터 착수 가능**.
 선행 = `docs/lingpet_baekrin_mokrin_slice_plan.md` §3(D3) · §4(S3 행) ·
 `docs/sprite_socket_composition_contract.md` 레인 C(M+N 표준).
@@ -151,7 +151,17 @@ mount_topdown_ready := (M 텍스처 로드됨) and (현재 character_id의 N 엔
 - **미준비면 탑다운 진입 차단**(비탑승 유지). 이미 탑승 중 미준비로 떨어지면 **같은 프레임 강제 하차**(permit 철회와 동일 전이 재사용).
 - "M만 빠진 채 일반 포즈로 계속 그리기"는 **금지**한다. 무증상 결함이라 라이브에서만 드러난다.
 - 준비도는 `has_method`/`null` 체크가 아니라 **실제 텍스처 유효성**으로 판정한다(경로 문자열 존재만으로는 부족 — 로더가 null을 돌려줄 수 있다).
-- 씰: M 없음 / N 없음 / 둘 다 없음 3레그 × (진입 차단 · 탑승 중 철회) + 정상 대조군.
+- ⚠️ **cache-only 조회로 제한한다** (rev5, 리뷰): 준비도 판정은 매 프레임 탑승
+  게이트에서 돈다. 여기서 로드를 트리거하면 **§1-2에서 지적한 첫 탑승 동기 로드
+  히치를 게이트 자체가 되살린다**(그것도 매 프레임 후보로). 판정은 비-인스턴스화
+  peek만 쓴다:
+  - `LingpetVisualTextureCache.get_cached_texture(pet_id, key, null)` (`:74`)
+  - `ProjectResourceLoader.get_cached_texture(path)` (`:134`)
+  - `get_texture()` / `load_texture()` / `load_imported_*` 계열 **호출 금지**.
+  준비는 **프리웜(8-8)이 책임지고**, 게이트는 "이미 준비됐나"만 본다.
+- 씰: ① M 없음 / N 없음 / 둘 다 없음 3레그 × (진입 차단 · 탑승 중 철회) + 정상
+  대조군 ② **판정 경로에서 로더 호출 0회**(스파이 로더로 `get_texture`/`load_texture`
+  호출 수 == 0 단언) — 이게 없으면 cache-only 계약이 조용히 무너진다.
 
 ### A-3. 백린 static 모델과의 충돌 없음
 
@@ -242,6 +252,29 @@ bob만 0으로 눌러도 **−6px가 그대로 남아** §7 P2의 "정렬 오차
 ⚠️ **씰 요건**: 배치 헬퍼의 반환값만 단언하면 이 결함을 통과시킨다(헬퍼는 맞고
 렌더 경로가 어긋나는 형태). 씰은 **실제 animator/renderer까지 관통**해 최종
 `dest_rect`를 확인해야 한다.
+
+**역할 분리(정밀)**: `source_rect` **슬라이싱은 animator가 계속 소유**하고
+(`_get_sheet_meta` 규칙 재사용 — 그리드 계약을 두 벌로 만들지 않는다),
+**최종 배치(dest)만 renderer의 exact-dest 경로가 소유**한다.
+
+### B-3d. 오라·플래시 레이어 이관 (rev5 신설, 리뷰)
+
+컴패니언 렌더러는 본체 말고도 `draw_center` 기준으로 **4개 레이어**를 항상/조건부로
+그린다 — 상시 앰비언트 오라(`_draw_soft_aura`, `:66`), `hit_flash`, `gauge_flash`
+버스트(`:73-77`), `skill_flash`(`:78~`). exact-dest 경로로 본체만 옮기면 이 레이어들의
+거취가 미정으로 남는다.
+
+**계약 = 이관(억제 아님)**:
+
+| 레이어 | 탑다운 계약 | 이유 |
+|---|---|---|
+| `gauge_flash` · `skill_flash` | **이관** — M의 exact center 기준으로 그린다 | 게이지 충전·스킬 발동 **게임플레이 피드백**이다. 조용히 사라지면 결함(무증상) |
+| `hit_flash` | **이관** | 피격 피드백. 탑승 중 본체 피격은 억제되지만(§1-2) 다른 경로의 플래시까지 죽이지 않는다 |
+| 상시 앰비언트 오라 | **이관** | 탑승 중 "수호령이 여기 있다"의 시각 정체성. 안장 중심으로 따라간다 |
+
+- 중심은 **M의 exact center**, 반경은 **M의 draw_size에서 파생**한다(walk 상수 미사용, §C-2 게이지와 같은 원칙).
+- **bob은 넣지 않는다** — exact-dest 계약과 일관되게 오라·플래시도 bob 무가산이다(본체만 고정되고 오라만 흔들리는 어긋남 방지).
+- 씰: 탑다운 탑승 + `skill_flash > 0` 프레임에 플래시 draw **1회** + 그 중심이 **M 중심과 일치**. 억제로 오해해 0회가 되면 RED.
 
 ### B-3b. shake 재가산 금지
 
@@ -418,7 +451,8 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | 11 | `stage1_player_actor_renderer.gd:285-292` / **`:626` 직후** | defer 스위치 근거 교체 + 신규 콜백 호출 지점(§B-3 rev3) |
 | 12 | `stage1_player_actor_renderer.gd:430-431` | 탑다운 시 `player_draw_size`를 라이더 카탈로그 값으로 채택(**배율 곱 이전**, §C-3b) |
 | 13 | `stage1_player_sprite_renderer.gd` | 착석 시트 **우선 분기**를 이른-return 체인 상단에(§C-3b) |
-| 14 | `lingpet_mount_state.gd` `advance()` | 강제 하차 조건에 **변신 활성** 추가(§C-3c) |
+| 14 | `lingpet_mount_state.gd` `advance()` | **필수 인자**로 받은 `body_presentation_incompatible` 철회 전이만 처리(판정은 egg runtime, §C-3c rev4) |
+| 14b | `lingpet_duration_field_gauge_renderer.gd:30-37` | 탑다운 경로에서 **`GAUGE_Y_OFFSET` 0 · 기하는 M의 draw_size/중심**(walk 상수 미사용, §C-2) |
 | 15 | 씰 + `run_pre_push_checks.ps1` + `.github/workflows/godot-ci.yml` | 락스텝 등재(두 목록 동시) |
 
 **별건으로 분리 권고**: 광장·F7 피커의 5×5 하드코딩(§1-4 선재 구멍)은 S3 범위 밖이지만,
@@ -443,10 +477,12 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | P9 | 이중 드로우 | 탑다운 탑승 중 컴패니언 본체 draw **1회**(lane+안장 2회 아님), 공존 아이템 알은 **보존**, 지속시간 게이지 **1회**(§C-2) |
 | P10 | 변신 충돌 | **5조건 각각**(오딘 transformed/revival/death · 뿔딸기 transformed/event) → `is_mounted()` false + M 콜백 0회 · 비변신 대조군 정상 탑승 · **온이마루×변신 대조군은 탑승 유지**(§C-3c) |
 | P11 | 라이더 시트 | 탑다운 활성 시 착석 시트가 walk/idle/attack보다 **먼저** 선택되고 draw_size가 카탈로그 값(배율 곱 이전)임 |
-| P12 | M 기하 | **실제 animator/renderer 관통** 최종 dest_rect가 배치식과 일치(−6 오프셋·bob 미가산, §B-3c) |
+| P12 | M 기하 | **실제 animator/renderer 관통**: `source_rect`는 animator 슬라이싱 규칙과 일치하고, **최종 `dest_rect`는 renderer exact-dest 값**과 일치(−6 오프셋·bob 미가산, §B-3c) |
 | P13 | 게이지 기하 | 탑다운 게이지 draw 1회 + 중심이 **M 중심**과 일치(walk 상수 미사용, §C-2) |
 | P14 | 준비도 | M·N 결손 3조합에서 진입 차단 / 탑승 중이면 같은 프레임 철회, 정상 대조군(§A-4) |
-| P15 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
+| P15 | 오라·플래시 | 탑다운 + `skill_flash>0`에 플래시 draw **1회** + 중심 == M 중심(억제 아님, §B-3d) |
+| P16 | 준비도 비용 | 준비도 판정 경로에서 **로더 호출 0회**(cache-only, §A-4) |
+| P17 | 대조군 | **온이마루** 목말 캡처가 커밋 전후 **픽셀 동일** |
 
 ⚠️ S3 한정 의도적 미적용(씰이 계약으로 단언): 착석 프레임의 **장착 파츠·소켓 글로우
 0건**(§C-3b 이월).
@@ -469,6 +505,7 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | 8-6 | **보류 유지** | 온이마루 carry 무접촉(미결 5-6 그대로) |
 | 8-7 | **확정** | 옵티머스 착석 시트는 **idle 정체성 기준으로 별도 제작 가능**. walk 시트 결손은 **비차단 별건** |
 | 8-8 | **확정(확장)** | 신규 `companion_mount_base` **와 기존 `companion_carry`를 함께** 프리웜 등재 — 첫 탑승 동기 로드는 S3 렌더 수명주기의 일부다 |
+| 8-10 | **신설·확정(rev5)** | **N 5종이 완비될 때까지 백린의 shipped 카탈로그에 `mount_presentation_model: "topdown"`을 넣지 않는다.** 스매셔 N만 있는 상태로 활성화하면 나머지 4캐릭터가 준비도 게이트에 걸려 **조용히 탑승 불가**가 된다(fail-closed는 정상 동작이지만 플레이어에겐 무증상 결함). 골격·프로토타입 단계에서는 **인메모리 픽스처 / 디버그 경로로만** 모델을 켠다 |
 | 8-9 | **신설·확정** | 플레이어 숨김 **3경로**: 탑다운은 **M+N 전체 숨김**. 온이마루는 경로 1·2 마운트 유지 / 경로 3(플리커)은 현행대로 0회(§C-3) |
 
 ---
@@ -477,6 +514,6 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 
 1. **지금 착수 가능** — 에셋 없이 **인메모리 1×1 픽스처**로 코드 골격 + draw-order 씰부터. 대상: `mount_presentation_model` 판정 · 라이더 카탈로그 조회 · **준비도 fail-closed**(§A-4) · 신규 콜백 배선(`:626` 뒤) · **M 전용 exact-dest 경로**(§B-3c) · defer 스위치 근거 교체 · early-hook 본체만 자기 억제 + **게이지 기하 이관**(§C-2) · **숨김 3경로** · **body-presentation 비호환 철회**(§C-3c).
 2. 그 골격이 씰로 GREEN이 된 뒤 **M 1장(백린)** 생성 → 스매셔 프로토타입 픽셀 QA(§7).
-3. §7 15레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
+3. §7 17레그 통과 후에만 나머지 캐릭터 4종 N 시트로 확장한다.
 
 **여전한 금지선**: §7 프로토타입 통과 전 N-세트 5종 일괄 생성 금지 · 온이마루 경로 무접촉 · M 단독 바닥 클램프 금지(§B-4).
