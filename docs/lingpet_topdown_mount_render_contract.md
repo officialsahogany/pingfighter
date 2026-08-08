@@ -1,6 +1,6 @@
 # 수호령 탑다운 탑승 렌더 계약 (S3-a)
 
-작성 2026-08-07 · rev2~rev6 · **rev7 2026-08-08**(리뷰 APPROVE + 씰 해석 3건 고정 §6-b).
+작성 2026-08-07 · rev2~rev7 · **rev8 2026-08-08**(P1: pause 게이트가 update_lingpet 앞에서 반환 → 좁은 pre-pause reconcile 계약 §C-3d · 호출부별 개별 씰 레그).
 **상태: 계약 승인 완료(2026-08-08) — 에셋 0장 유지 · §9-1 인메모리 골격 착수 가능.**
 선행 = `docs/lingpet_baekrin_mokrin_slice_plan.md` §3(D3) · §4(S3 행) ·
 `docs/sprite_socket_composition_contract.md` 레인 C(M+N 표준).
@@ -453,6 +453,45 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 씰: ① 탑다운 × 5조건 각각 → `is_mounted()` false + M 콜백 0회 ② 탑다운 × 비변신
 대조군 → 정상 탑승 ③ **온이마루 × 변신 대조군 → 탑승 유지**(무접촉 증명).
 
+### C-3d. 철회는 `advance()`만으로 성립하지 않는다 — pause 게이트가 먼저 반환한다 (rev8 신설, 리뷰 P1)
+
+⚠️ §C-3c의 철회를 `_update_companion_motion()` 안의 `mount_state.advance()`에만
+넣으면 **뿔딸기 이벤트 프레임에는 철회 코드가 한 번도 실행되지 않는다.**
+
+프레임 순서(실측):
+
+| # | 지점 | 근거 |
+|---|---|---|
+| 1 | `update_mythic_items` — 뿔딸기 상태 갱신 + owner 투영 동기화 | `battle_frame_flow_controller.gd:105`(일반) / `:51`(승리 전리품) |
+| 2 | **pause 재검사에서 `horn_strawberry_mask_runtime.is_event_playing()`이 걸려 `return`** | `mythic_item_pause_gate.gd:9`, 반환은 `:109-112` / `:52-55` |
+| 3 | `update_lingpet` — 여기까지 **도달하지 못한다** | `:136` |
+
+즉 이벤트 시작 프레임과 진행 중 프레임 전부에서 `advance()`가 호출되지 않는다.
+**egg를 직접 굴리는 P10 씰은 이 구멍을 그대로 통과하는 공허 GREEN이다.**
+
+**rev8 계약**:
+
+1. **좁은 reconcile 표면** — egg runtime에 `reconcile_topdown_mount_body_presentation(owner)`를 둔다. 시계·입력·위치를 **전진시키지 않는다**(순수 판정 + 철회).
+2. **멱등 철회 API** — mount state는 `_dismount()`만 수행하는 별도 API를 노출한다. ⚠️ `advance(delta = 0)` 재사용 **금지** — RMB 에지와 홉 시계까지 건드린다.
+3. **호출부 2곳** — `update_mythic_items` **직후, pause 재검사 앞**. 일반 경로와 **승리 전리품 경로 둘 다**(한쪽만 하면 전리품 페이즈에서 같은 구멍이 남는다).
+4. **cache-only** — 콜백은 `get_cached_instance("lingpet_egg_runtime")`만 쓴다(새 인스턴스 생성 금지).
+5. **스냅샷 무효화** — 철회 시 같은 프레임에 런타임 스냅샷 캐시를 무효화한다(레일/HUD가 stale `interaction_active`를 읽지 않도록).
+6. **정상 경로 불변** — 비-일시정지 경로의 `advance(..., body_presentation_incompatible)` **필수 인자는 그대로 유지**한다. reconcile은 pause 경로를 메우는 보강이지 대체가 아니다.
+
+**씰(P10 확장) — 호출부별 개별 레그**:
+
+| 레그 | 내용 |
+|---|---|
+| L-일반 | 실 `BattleFrameFlowController.update()` → `update_mythic_items`가 `event_playing=true` + owner 동기화 → pre-pause reconcile이 철회 → pause 반환 → **`update_lingpet` 호출 0회** → 그럼에도 같은 프레임 `is_mounted() == false` |
+| L-전리품 | 승리 전리품 경로에서 동일 시퀀스 |
+| 반증 ① | **일반 호출부 한 줄만** 토글 제거 → **L-일반만 RED** |
+| 반증 ② | **전리품 호출부 한 줄만** 토글 제거 → **L-전리품만 RED** |
+| 반증 ③ | 공용 reconcile **구현 자체** 제거 → **두 레그 모두 RED** |
+
+⚠️ P10의 "키 누락 + `penalty_active`" 레그는 실 `BattleSceneState`에 
+`odins_eye_transformed`가 **항상 선언**되므로(A-0 이후에도 불변) 운영 주 레그가
+아니라 **레거시 호환 레그**로 라벨링한다.
+
 ### C-4. 컴패니언 bob 이중 채널 정리
 
 컴패니언 본체에는 항상 `±2.6px` bob이 걸린다(§1-2). 탑다운에서 라이더는
@@ -488,6 +527,8 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | 9 | `battle_draw_actor_context.gd` | N-세트 발행 + `player_mount_body_over_rider` |
 | 10 | `battle_playfield_scene_drawer.gd:96-100` | `lingpet_mount_base_draw` 콜백 주입(§B-3) |
 | 11 | `stage1_player_actor_renderer.gd:285-292` / **`:626` 직후** | defer 스위치 근거 교체 + 신규 콜백 호출 지점(§B-3 rev3) |
+| 11b | `battle_frame_flow_controller.gd:105`·**`:51`** + `battle_scene_update_callbacks.gd` | pre-pause reconcile 콜백 **2 호출부**(§C-3d rev8) |
+| 11c | `lingpet_mount_state.gd` | `_dismount()` 전용 **멱등 철회 API**(advance(delta=0) 재사용 금지, §C-3d) |
 | 12 | `stage1_player_actor_renderer.gd:430-431` | 탑다운 시 `player_draw_size`를 라이더 카탈로그 값으로 채택(**배율 곱 이전**, §C-3b) |
 | 13 | `stage1_player_sprite_renderer.gd` | 착석 시트 **우선 분기**를 이른-return 체인 상단에(§C-3b) |
 | 14 | `lingpet_mount_state.gd` `advance()` | **필수 인자**로 받은 `body_presentation_incompatible` 철회 전이만 처리(판정은 egg runtime, §C-3c rev4) |
