@@ -9,6 +9,9 @@ const LingpetEnhancementBuffStore := preload(
 const LingpetGuardianEnhanceCutinOverlayHost := preload(
 	"res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd"
 )
+const LingpetGuardianEnhanceCutinState := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd"
+)
 const BattleSceneModalGateController := preload(
 	"res://scripts/core/battle_scene_modal_gate_controller.gd"
 )
@@ -104,41 +107,84 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	var detail: Dictionary = result.get("result_detail", {}) as Dictionary
 	var icon_path := str(detail.get("icon_texture_path", ""))
 	_expect(icon_path != "" and fixture.host.result_icon_paths.has(icon_path), "skill result icon must be prewarmed before the compact panel starts")
-	runtime.advance_guardian_enhance_cutin(0.59, fixture.registry)
+	_expect(
+		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
+		== LingpetGuardianEnhanceCutinState.PHASE_INTRO,
+		"presentation must begin in INTRO"
+	)
+	runtime.advance_guardian_enhance_cutin(0.14, fixture.registry)
+	_expect(
+		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
+		== LingpetGuardianEnhanceCutinState.PHASE_ROLL,
+		"INTRO boundary must enter ROLL"
+	)
+	runtime.advance_guardian_enhance_cutin(0.75, fixture.registry)
+	_expect(
+		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
+		== LingpetGuardianEnhanceCutinState.PHASE_STAMP,
+		"ROLL boundary must enter STAMP before the pet reacts"
+	)
+	runtime.advance_guardian_enhance_cutin(0.22, fixture.registry)
 	var reaction_snapshot: Dictionary = runtime.get_guardian_enhance_cutin_snapshot()
-	_expect(bool(reaction_snapshot.get("reaction_active", false)), "roll phase completion must start one click reaction")
+	_expect(bool(reaction_snapshot.get("reaction_active", false)), "STAMP completion must start one click reaction")
 	runtime.advance_guardian_enhance_cutin(0.19, fixture.registry)
 	_expect(runtime.is_guardian_enhance_cutin_active(), "reaction must remain visible before its one-loop duration completes")
-	runtime.advance_guardian_enhance_cutin(0.02, fixture.registry)
-	_expect(not runtime.is_guardian_enhance_cutin_active(), "reaction completion hook must auto-close the compact panel")
+	runtime.advance_guardian_enhance_cutin(0.01, fixture.registry)
+	_expect(
+		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
+		== LingpetGuardianEnhanceCutinState.PHASE_OUTRO,
+		"one reaction loop must enter OUTRO instead of closing on the result frame"
+	)
+	runtime.advance_guardian_enhance_cutin(0.159, fixture.registry)
+	_expect(runtime.is_guardian_enhance_cutin_active(), "OUTRO must retain the compact panel until 0.16s")
+	runtime.advance_guardian_enhance_cutin(0.001, fixture.registry)
+	_expect(not runtime.is_guardian_enhance_cutin_active(), "OUTRO completion hook must auto-close the compact panel")
 	_expect(int(fixture.audio.stop_calls) == 1, "automatic close must stop enhancement presentation audio")
 	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("active_skill_bonus", 0)) == 1, "presentation close must never roll back the pre-applied reward")
 	_cleanup_runtime(runtime)
 
 
 func _verify_skip_and_round_transition_cleanup() -> void:
-	var fixture := _make_fixture()
-	var runtime: Object = fixture.runtime
 	var visual_result := {"accepted": true, "feedback_text": "기력 획득량 증가 획득"}
-	runtime.complete_guardian_enhance_roll(visual_result, "maribo", fixture.registry)
-	_expect(runtime.cancel_guardian_enhance_cutin(fixture.registry), "click/ESC-equivalent skip must close immediately during roll or reaction")
-	_expect(not runtime.is_guardian_enhance_cutin_active(), "skip must clear all compact presentation state")
-	_expect(int(fixture.audio.stop_calls) == 1, "skip must stop enhancement presentation audio")
-	runtime.complete_guardian_enhance_roll(visual_result, "maribo", fixture.registry)
-	runtime.reset_round({"owner": fixture.owner, "registry": fixture.registry})
-	_expect(not runtime.is_guardian_enhance_cutin_active(), "round transition must synchronously clear the compact panel")
-	_expect(int(fixture.audio.stop_calls) == 2, "round transition cleanup must stop enhancement presentation audio")
+	for phase in [
+		LingpetGuardianEnhanceCutinState.PHASE_INTRO,
+		LingpetGuardianEnhanceCutinState.PHASE_ROLL,
+		LingpetGuardianEnhanceCutinState.PHASE_STAMP,
+		LingpetGuardianEnhanceCutinState.PHASE_REACTION,
+		LingpetGuardianEnhanceCutinState.PHASE_OUTRO,
+	]:
+		var fixture := _make_fixture()
+		var runtime: Object = fixture.runtime
+		runtime.complete_guardian_enhance_roll(visual_result, "maribo", fixture.registry)
+		_advance_runtime_to_phase(runtime, fixture.registry, phase)
+		_expect(
+			str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", "")) == phase,
+			"skip fixture must reach %s" % phase
+		)
+		_expect(runtime.cancel_guardian_enhance_cutin(fixture.registry), "click/ESC-equivalent skip must close immediately during %s" % phase)
+		_expect(not runtime.is_guardian_enhance_cutin_active(), "skip must clear all compact presentation state during %s" % phase)
+		_expect(int(fixture.audio.stop_calls) == 1, "skip must stop enhancement presentation audio during %s" % phase)
+		_cleanup_runtime(runtime)
+
+	var round_fixture := _make_fixture()
+	var round_runtime: Object = round_fixture.runtime
+	round_runtime.complete_guardian_enhance_roll(visual_result, "maribo", round_fixture.registry)
+	round_runtime.reset_round({"owner": round_fixture.owner, "registry": round_fixture.registry})
+	_expect(not round_runtime.is_guardian_enhance_cutin_active(), "round transition must synchronously clear the compact panel")
+	_expect(int(round_fixture.audio.stop_calls) == 1, "round transition cleanup must stop enhancement presentation audio")
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_lingpet_priority_input_router.gd")
 	_expect(input_source.find("is_guardian_enhance_cutin_awaiting_dismiss") < 0, "input routing must not retain the old confirm-button wait state")
 	_expect(input_source.find("_is_confirm_event(event) and runtime.has_method(\"cancel_guardian_enhance_cutin\")") >= 0, "click/confirm must route to immediate compact-panel skip")
-	_cleanup_runtime(runtime)
+	_cleanup_runtime(round_runtime)
 
 
 func _verify_idle_fallback_and_modal_gate() -> void:
 	var fixture := _make_fixture(true)
 	var runtime: Object = fixture.runtime
 	runtime.complete_guardian_enhance_roll({"accepted": true, "feedback_text": "강화 획득"}, "maribo", fixture.registry)
-	runtime.advance_guardian_enhance_cutin(0.59, fixture.registry)
+	runtime.advance_guardian_enhance_cutin(0.14, fixture.registry)
+	runtime.advance_guardian_enhance_cutin(0.75, fixture.registry)
+	runtime.advance_guardian_enhance_cutin(0.22, fixture.registry)
 	var snapshot: Dictionary = runtime.get_guardian_enhance_cutin_snapshot()
 	_expect(bool(snapshot.get("idle_fallback", false)), "missing click-reaction fixture must enter the idle one-loop fallback")
 	var modules := FakeModules.new()
@@ -147,7 +193,9 @@ func _verify_idle_fallback_and_modal_gate() -> void:
 	var gate := BattleSceneModalGateController.new()
 	_expect(gate.is_lingpet_guardian_enhance_cutin_active(getter), "modal gate must expose the compact enhancement panel")
 	_expect(gate.should_block_battle_physics(getter), "active compact enhancement panel must pause battle physics")
-	runtime.advance_guardian_enhance_cutin(0.21, fixture.registry)
+	runtime.advance_guardian_enhance_cutin(0.20, fixture.registry)
+	_expect(runtime.is_guardian_enhance_cutin_active(), "idle fallback must retain the panel for OUTRO")
+	runtime.advance_guardian_enhance_cutin(0.16, fixture.registry)
 	_expect(not runtime.is_guardian_enhance_cutin_active(), "idle fallback must also auto-close after exactly one loop")
 	_cleanup_runtime(runtime)
 
@@ -157,6 +205,7 @@ func _verify_compact_host_and_roster_contract() -> void:
 	var host_source := FileAccess.get_file_as_string("res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd")
 	_expect(host_source.find("extends \"res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd\"") < 0, "enhancement host must no longer inherit the full-screen acquisition cutin")
 	_expect(host_source.find("PANEL_MAX_SIZE") >= 0 and host_source.find("companion_click_reaction_anim") >= 0, "enhancement host must own a bounded compact panel and companion reaction visual")
+	_expect(host_source.find("Time.get_ticks_msec()") < 0, "compact panel motion must be derived from deterministic phase time")
 	var fallback_pets: Array[String] = []
 	for pet_id in LingpetCatalog.get_pet_ids():
 		var contract: Dictionary = host.get_animation_contract(pet_id)
@@ -194,6 +243,21 @@ func _make_fixture(idle_fallback: bool = false) -> Dictionary:
 	})
 	_expect(runtime.debug_grant_and_activate_pet("maribo", owner, false, "maribo_spear_throw", "maribo_hydro_resonance", registry), "fixture must activate maribo")
 	return {"owner": owner, "runtime": runtime, "registry": registry, "audio": audio, "host": host}
+
+
+func _advance_runtime_to_phase(runtime: Object, registry: Object, target_phase: String) -> void:
+	if target_phase == LingpetGuardianEnhanceCutinState.PHASE_INTRO:
+		return
+	runtime.advance_guardian_enhance_cutin(0.14, registry)
+	if target_phase == LingpetGuardianEnhanceCutinState.PHASE_ROLL:
+		return
+	runtime.advance_guardian_enhance_cutin(0.75, registry)
+	if target_phase == LingpetGuardianEnhanceCutinState.PHASE_STAMP:
+		return
+	runtime.advance_guardian_enhance_cutin(0.22, registry)
+	if target_phase == LingpetGuardianEnhanceCutinState.PHASE_REACTION:
+		return
+	runtime.advance_guardian_enhance_cutin(0.20, registry)
 
 
 func _seed_owner(owner: Object) -> void:

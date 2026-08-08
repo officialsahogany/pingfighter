@@ -185,7 +185,7 @@ func _draw_backdrop(canvas: CanvasItem, view_size: Vector2, panel: Rect2) -> voi
 func _draw_roll_glow(canvas: CanvasItem, panel: Rect2, snapshot: Dictionary) -> void:
 	var phase := str(snapshot.get("phase", "roll"))
 	var progress := float(snapshot.get("roll_progress", 0.0))
-	var t := float(Time.get_ticks_msec()) * 0.001
+	var t := float(snapshot.get("phase_elapsed", 0.0))
 	var center := panel.position + panel.size * ENSO_CENTER_NORMALIZED
 	var energy := 1.0 - progress * 0.38 if phase == "roll" else 0.48
 	for ring_index in range(3):
@@ -245,8 +245,9 @@ func _draw_copy(canvas: CanvasItem, panel: Rect2, snapshot: Dictionary) -> void:
 			Color(0.72, 0.90, 0.86)
 		)
 	var phase := str(snapshot.get("phase", "roll"))
-	if phase == "roll":
-		var dots := ".".repeat(1 + int(floor(float(Time.get_ticks_msec()) * 0.005)) % 3)
+	if phase == "intro" or phase == "roll":
+		var roll_progress := float(snapshot.get("roll_progress", 0.0))
+		var dots := ".".repeat(1 + mini(2, int(floor(roll_progress * 6.0))))
 		_draw_centered_text(canvas, "강화 공명 중%s" % dots, panel.end.y - 54.0, panel, 18, Color(0.70, 0.92, 0.88))
 		return
 	var banner := Rect2(panel.position + Vector2(34.0, panel.size.y - 78.0), Vector2(panel.size.x - 68.0, 48.0))
