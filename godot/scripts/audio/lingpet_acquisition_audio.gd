@@ -5,7 +5,14 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
-const CUE_IDS := ["cutin", "click_deep_bass", "click_crackle_sweep"]
+const CUE_IDS := [
+	"cutin",
+	"click_deep_bass",
+	"click_crackle_sweep",
+	"guardian_enhance_roll_loop",
+	"guardian_enhance_stamp",
+	"guardian_enhance_result_tail",
+]
 const CUE_SPECS := {
 	"cutin": {
 		"player_name": "LingpetAcquireCutinSfx",
@@ -21,6 +28,21 @@ const CUE_SPECS := {
 		"player_name": "LingpetAcquireClickCrackleSweepSfx",
 		"path": "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav",
 		"gain_db": -5.0,
+	},
+	"guardian_enhance_roll_loop": {
+		"player_name": "LingpetGuardianEnhanceRollLoopSfx",
+		"path": "res://assets/sounds/lingpet/guardian_enhance_roll_loop.wav",
+		"gain_db": -8.0,
+	},
+	"guardian_enhance_stamp": {
+		"player_name": "LingpetGuardianEnhanceStampSfx",
+		"path": "res://assets/sounds/lingpet/guardian_enhance_stamp.wav",
+		"gain_db": -2.0,
+	},
+	"guardian_enhance_result_tail": {
+		"player_name": "LingpetGuardianEnhanceResultTailSfx",
+		"path": "res://assets/sounds/lingpet/guardian_enhance_result_tail.wav",
+		"gain_db": -6.0,
 	},
 }
 
