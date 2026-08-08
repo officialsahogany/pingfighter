@@ -897,6 +897,24 @@ observations; collision detection gates only the base player paddle. Lingpet
 RMB arbitration and guardian availability consume the cached facade contract
 without instantiating Viper modules from their hot paths.
 
+## 2026-08-07 Victory highlight replay boundary
+
+`victory_highlight_recorder.gd` owns the allocation-free 120Hz-capped visual
+ring, the independent physics-event ring, time eviction, goal clip promotion,
+and finisher/long-rally/clutch selection. It may consume only the final
+renderer-facing `BattleDrawActorContext.build()` dictionary. The
+`victory_highlight_actor_resolver.gd` normalizes that dictionary into flat,
+reusable snapshot slots; stages whose private renderer textures are not in the
+shared actor context intentionally fall back to silhouettes in slice 1.
+
+`victory_highlight_playback_state.gd` owns the 2.8-3.2 second timeline,
+0.12-second crossfade, skip guard, loop-audio cleanup, full-760x750 clipped FX
+host, and direct finish/F9/reset teardown. Its host never processes itself.
+`victory_highlight_renderer.gd` is a pure snapshot consumer and must not read
+the registry or live battle state. `battle_scene_match_flow_driver.gd` remains
+the sequence authority for highlight -> victory loot -> result -> reset, while
+the frame-flow and input controllers own the gameplay freeze and routed skip.
+
 ## 2026-08-08 Online 1v1 Han Miryang MVP boundary
 
 `scripts/network/online_match_session.gd` is the sole online-match activity,

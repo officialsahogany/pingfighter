@@ -8409,6 +8409,18 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/ball/ball_motion_event_processor.gd` owns the 0.7 displacement-only
   multiplier; `scripts/ball/ball_motion_collision_detector.gd` owns the base-
 
+## 2026-08-07 Victory Highlight Replay
+
+- `scripts/core/victory_highlight_recorder.gd` owns visual/event history,
+  time-based eviction, goal promotion, and dramatic clip selection.
+- `scripts/core/victory_highlight_actor_resolver.gd` owns the flat replay actor
+  snapshot contract and the slice-1 silhouette fallback.
+- `scripts/core/victory_highlight_playback_state.gd` owns timeline, input skip,
+  clipped host lifecycle, replay-only audio, and cleanup.
+- `scripts/core/victory_highlight_renderer.gd` owns snapshot-only replay
+  drawing. Match-flow, frame-flow, and input controllers retain orchestration,
+  freeze, and routing authority respectively.
+
 ## 2026-08-08 Online 1v1 Han Miryang MVP
 
 - `scripts/network/online_match_session.gd` owns the online activity flag,
