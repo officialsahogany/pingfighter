@@ -5,6 +5,13 @@ extends RefCounted
 # result panel and the small companion reaction sheet drawn inside that panel.
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetCompanionClickReactionDrawSizeResolver := preload(
+	"res://scripts/lingpet/lingpet_companion_click_reaction_draw_size_resolver.gd"
+)
+const LingpetCompanionSpriteAnimator := preload(
+	"res://scripts/lingpet/lingpet_companion_sprite_animator.gd"
+)
+const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetVisualTextureCache := preload(
 	"res://scripts/lingpet/lingpet_visual_texture_cache.gd"
 )
@@ -23,9 +30,18 @@ const DEFAULT_IDLE_ROWS := 5
 const DEFAULT_IDLE_FRAMES := 25
 const DEFAULT_IDLE_INTERVAL := 0.10
 const PANEL_MAX_SIZE := Vector2(468.0, 342.0)
+const COMPANION_DRAW_SCALE := 1.18
+const COMPANION_MAX_PANEL_HEIGHT_RATIO := 0.30
+# Measured from the 1485x1059 v2 panel PNG, independently of the handoff estimate:
+# a 9 px luminance strip scan plus trimmed annular-contrast fit converges at
+# center (743, 499), with the authored primary ink stroke at radius 254 px.
+const ENSO_CENTER_NORMALIZED := Vector2(743.0 / 1485.0, 499.0 / 1059.0)
+const ENSO_STROKE_RADIUS_HEIGHT_RATIO := 254.0 / 1059.0
 
 var _visual_cache: Object = LingpetVisualTextureCache.new()
 var _result_icon_cache: Dictionary = {}
+var _reaction_draw_size_resolver: Object = LingpetCompanionClickReactionDrawSizeResolver.new()
+var _reaction_draw_size_profile: Object = LingpetCurrentProfile.new()
 
 
 func prewarm_assets() -> void:
@@ -83,6 +99,13 @@ func is_pet_cutin_anim_ready(pet_id: String) -> bool:
 	return is_pet_panel_anim_ready(pet_id)
 
 
+static func resolve_panel_companion_draw_height(authored_height: float, panel_height: float) -> float:
+	return minf(
+		maxf(0.0, authored_height),
+		maxf(0.0, panel_height) * COMPANION_MAX_PANEL_HEIGHT_RATIO
+	)
+
+
 func get_animation_contract(pet_id: String) -> Dictionary:
 	var normalized := pet_id.strip_edges().to_lower()
 	var visual_key := REACTION_VISUAL_KEY
@@ -109,10 +132,10 @@ func get_animation_contract(pet_id: String) -> Dictionary:
 	var frame_interval := maxf(0.001, LingpetCatalog.get_visual_layout_value(
 		normalized, "%s_frame_interval" % layout_prefix, interval_default
 	))
-	var base_draw_size := LingpetCatalog.get_visual_layout_value(
-		normalized,
-		"click_reaction_draw_size" if not idle_fallback else "companion_walk_draw_size",
-		96.0
+	_reaction_draw_size_profile.set_pet_id(normalized)
+	var base_draw_size: Vector2 = _reaction_draw_size_resolver.resolve(
+		_reaction_draw_size_profile,
+		float(LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.y)
 	)
 	return {
 		"visual_key": visual_key,
@@ -121,7 +144,7 @@ func get_animation_contract(pet_id: String) -> Dictionary:
 		"rows": rows,
 		"frame_count": frame_count,
 		"frame_interval": frame_interval,
-		"draw_size": clampf(base_draw_size * 1.18, 90.0, 128.0),
+		"draw_size": base_draw_size.y * COMPANION_DRAW_SCALE,
 	}
 
 
@@ -163,7 +186,7 @@ func _draw_roll_glow(canvas: CanvasItem, panel: Rect2, snapshot: Dictionary) -> 
 	var phase := str(snapshot.get("phase", "roll"))
 	var progress := float(snapshot.get("roll_progress", 0.0))
 	var t := float(Time.get_ticks_msec()) * 0.001
-	var center := panel.position + Vector2(panel.size.x * 0.5, panel.size.y * 0.48)
+	var center := panel.position + panel.size * ENSO_CENTER_NORMALIZED
 	var energy := 1.0 - progress * 0.38 if phase == "roll" else 0.48
 	for ring_index in range(3):
 		var radius := 50.0 + float(ring_index) * 19.0 + sin(t * 6.0 + ring_index) * 4.0
@@ -196,10 +219,13 @@ func _draw_companion(
 	var frame := clampi(int(snapshot.get("animation_frame", 0)), 0, frame_count - 1)
 	var cell_size := Vector2(float(texture.get_width()) / float(cols), float(texture.get_height()) / float(rows))
 	var source := Rect2(Vector2(float(frame % cols), float(frame / cols)) * cell_size, cell_size)
-	var draw_h := float(contract.get("draw_size", 108.0))
+	var draw_h := resolve_panel_companion_draw_height(
+		float(contract.get("draw_size", 108.0)),
+		panel.size.y
+	)
 	var aspect := cell_size.x / maxf(1.0, cell_size.y)
 	var target_size := Vector2(draw_h * aspect, draw_h)
-	var center := panel.position + Vector2(panel.size.x * 0.5, panel.size.y * 0.48)
+	var center := panel.position + panel.size * ENSO_CENTER_NORMALIZED
 	var dest := Rect2(center - target_size * 0.5, target_size)
 	canvas.draw_texture_rect_region(texture, dest, source, Color.WHITE)
 
