@@ -1724,6 +1724,25 @@ func _has_angel_blessing_post_choice_blocker() -> bool:
 	return false
 
 
+func _has_runtime_perk_post_choice_blocker(registry: Object = null) -> bool:
+	if _has_angel_blessing_post_choice_blocker():
+		return true
+	if registry == null:
+		return false
+	var lingpet_runtime: Object = null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance("lingpet_egg_runtime")
+		if typeof(cached) == TYPE_OBJECT and cached != null and is_instance_valid(cached):
+			lingpet_runtime = cached as Object
+	elif registry.has_method("get_instance"):
+		lingpet_runtime = registry.get_instance("lingpet_egg_runtime")
+	return (
+		lingpet_runtime != null
+		and lingpet_runtime.has_method("is_guardian_enhance_cutin_active")
+		and bool(lingpet_runtime.is_guardian_enhance_cutin_active())
+	)
+
+
 func _has_current_stage_angel_blessing_work() -> bool:
 	if is_angel_blessing_modal_active() or _angel_blessing_modal_flow.has_pending_reveals():
 		return true

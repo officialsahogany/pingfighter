@@ -255,6 +255,8 @@ var _guardian_enhance_last_result: Dictionary = {}
 var _guardian_enhance_cutin_state: Object = LingpetGuardianEnhanceCutinState.new()
 var _guardian_enhance_cutin_prewarm_state: Object = LingpetAcquireCutinAssetPrewarmState.new()
 var _guardian_enhance_cutin_host_resolver: Object = LingpetGuardianEnhanceCutinOverlayHostResolver.new()
+var _guardian_enhance_cutin_modal_owner: Object = null
+var _guardian_enhance_cutin_modal_registry: Object = null
 var _guardian_active_elapsed := 0.0
 var _duration_warning_stage := 0
 var _duration_roll_rng_for_tests: RandomNumberGenerator = null
@@ -573,7 +575,7 @@ func apply_guardian_enhance_random_roll(
 		Callable(self, "apply_guardian_enhance_duration_fallback").bind(owner, registry),
 		_guardian_enhance_roll_rng_for_tests
 	)
-	complete_guardian_enhance_roll(result, pet_id, registry, trigger_source)
+	complete_guardian_enhance_roll(result, pet_id, registry, trigger_source, owner)
 	return result
 
 
@@ -703,7 +705,8 @@ func complete_guardian_enhance_roll(
 	result: Dictionary,
 	display_pet_id: String,
 	registry: Object = null,
-	trigger_source: String = "perk"
+	trigger_source: String = "perk",
+	owner: Object = null
 ) -> void:
 	if display_pet_id.strip_edges() == "":
 		display_pet_id = _pet_id
@@ -725,7 +728,8 @@ func complete_guardian_enhance_roll(
 			registry,
 			_guardian_enhance_cutin_host_resolver
 		)
-		_guardian_enhance_cutin_state.start(display_pet_id, result)
+		if _guardian_enhance_cutin_state.start(display_pet_id, result):
+			_begin_guardian_enhance_cutin_modal_time(owner, registry)
 
 
 func is_guardian_enhance_cutin_active() -> bool:
@@ -763,13 +767,55 @@ func advance_guardian_enhance_cutin(delta: float, registry: Object = null) -> vo
 	))
 	if closed:
 		_stop_guardian_enhance_cutin_audio(registry)
+		_finish_guardian_enhance_cutin_modal_time(registry)
 
 
 func cancel_guardian_enhance_cutin(registry: Object = null) -> bool:
 	var cancelled := bool(_guardian_enhance_cutin_state.cancel_immediate())
 	if cancelled:
 		_stop_guardian_enhance_cutin_audio(registry)
+		_finish_guardian_enhance_cutin_modal_time(registry)
 	return cancelled
+
+
+func _begin_guardian_enhance_cutin_modal_time(owner: Object, registry: Object) -> void:
+	_guardian_enhance_cutin_modal_owner = owner
+	_guardian_enhance_cutin_modal_registry = registry
+	var runtime_perk_state := _get_guardian_enhance_runtime_perk_state(registry)
+	if (
+		runtime_perk_state != null
+		and runtime_perk_state.has_method("_pause_skill_cooldowns_for_choice")
+	):
+		runtime_perk_state.call("_pause_skill_cooldowns_for_choice", owner, registry)
+
+
+func _finish_guardian_enhance_cutin_modal_time(registry: Object = null) -> void:
+	var modal_owner: Object = _guardian_enhance_cutin_modal_owner
+	var modal_registry: Object = registry
+	if modal_registry == null:
+		modal_registry = _guardian_enhance_cutin_modal_registry
+	_guardian_enhance_cutin_modal_owner = null
+	_guardian_enhance_cutin_modal_registry = null
+	var runtime_perk_state := _get_guardian_enhance_runtime_perk_state(modal_registry)
+	if runtime_perk_state == null:
+		return
+	if runtime_perk_state.has_method("_resume_skill_cooldowns_for_choice"):
+		runtime_perk_state.call("_resume_skill_cooldowns_for_choice")
+	if runtime_perk_state.has_method("_try_arm_resume_safety"):
+		runtime_perk_state.call("_try_arm_resume_safety", modal_owner, modal_registry)
+
+
+static func _get_guardian_enhance_runtime_perk_state(registry: Object) -> Object:
+	if registry == null:
+		return null
+	var value: Variant = null
+	if registry.has_method("get_cached_instance"):
+		value = registry.get_cached_instance("runtime_perk_state")
+	if (typeof(value) != TYPE_OBJECT or value == null) and registry.has_method("get_instance"):
+		value = registry.get_instance("runtime_perk_state")
+	if typeof(value) == TYPE_OBJECT and value != null and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func _stop_guardian_enhance_cutin_audio(registry: Object) -> void:
@@ -2280,6 +2326,7 @@ func restore_save_snapshot(snapshot: Dictionary, owner: Object = null, registry:
 
 
 func reset_for_tests() -> void:
+	cancel_guardian_enhance_cutin(_guardian_enhance_cutin_modal_registry)
 	_invalidate_runtime_snapshot_cache()
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)

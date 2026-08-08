@@ -65,7 +65,7 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 		),
 		CALLBACK_HAS_POST_CHOICE_BLOCKER: RuntimePerkRuntimeStateAccess.build_callable(
 			runtime_state,
-			"_has_angel_blessing_post_choice_blocker"
+			"_has_runtime_perk_post_choice_blocker"
 		),
 		CALLBACK_CONTINUE_AFTER_CHOICE: RuntimePerkRuntimeStateAccess.build_callable(
 			runtime_state,
@@ -159,7 +159,12 @@ func finish_successful_choice(
 	var close_plan: Dictionary = choice_completion.build_modal_close_plan(
 		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "choice_active"),
 		RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_HAS_PENDING_UNLOCK_SWAP, [], false),
-		RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_HAS_POST_CHOICE_BLOCKER, [], false)
+		RuntimePerkCallbackMap.call_bool(
+			callbacks,
+			CALLBACK_HAS_POST_CHOICE_BLOCKER,
+			[registry],
+			false
+		)
 	)
 	for close_step_value in choice_completion.build_modal_close_steps(close_plan):
 		var close_step: Dictionary = RuntimePerkPayloadAccess.as_dict(close_step_value)
