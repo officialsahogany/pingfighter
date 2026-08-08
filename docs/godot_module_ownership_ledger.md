@@ -8408,3 +8408,27 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ball/ball_update_controller.gd` owns observations A/B;
   `scripts/ball/ball_motion_event_processor.gd` owns the 0.7 displacement-only
   multiplier; `scripts/ball/ball_motion_collision_detector.gd` owns the base-
+
+## 2026-08-08 Online 1v1 Han Miryang MVP
+
+- `scripts/network/online_match_session.gd` owns the online activity flag,
+  host/client role, handshake/readiness/phase flow, RTT, prediction history,
+  reconciliation, interpolation, presentation-only client Y mirror, and the
+  fixed 60Hz simulation-tick lock lifecycle.
+- `scripts/network/online_enet_transport.gd` owns raw ENet peer lifecycle and
+  channels; `online_match_protocol.gd` owns sanitized compact binary packets.
+- `scripts/network/online_match_simulation.gd` owns host-authoritative ball,
+  collision, serve, and match outcomes by composing existing score/round/ball
+  owners plus the production paddle-bounce resolver group and public rally-cap
+  progression API. `online_paddle_state.gd` owns the symmetric 155px
+  player-rule state.
+- `scripts/network/online_match_runtime.gd` owns the battle-shell takeover,
+  central single-player feature bypass, compatibility projection, audio-event
+  bridge, online draw/input routing, and fail-closed startup error when a
+  required online owner is unavailable.
+- `scripts/network/online_match_input_collector.gd` owns one idempotent local
+  InputFrame snapshot per physics frame; `online_match_renderer.gd` owns the
+  role-projected technical battle presentation only.
+- `scripts/core/battle_scene_input_controller.gd` retains input orchestration
+  ownership and consumes active-online events before all legacy feature routes;
+  ESC stops the online runtime and exits through the existing match-flow owner.

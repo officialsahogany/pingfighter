@@ -8,6 +8,7 @@ const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
 var _drive_cutin_fx_host: Node = null
 var _drive_cutin_fx_host_add_pending := false
 var _modal_active_item_cooldown_pause_active := false
+var _online_match_runtime: Object = null
 
 
 func process_idle(
@@ -19,6 +20,11 @@ func process_idle(
 ) -> void:
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
+	var online_runtime := _get_online_match_runtime(module_getter)
+	if online_runtime != null and bool(online_runtime.process_idle(delta, owner, registry, module_getter, callbacks)):
+		_perf_end(perf_logger, "process.frame.online_match", total_start)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
 	var sample_start: int = _perf_begin(perf_logger)
 	_call(callbacks, "sync_mobile_touch_controls_enabled")
 	_perf_end(perf_logger, "process.frame.sync_mobile_touch", sample_start)
@@ -227,6 +233,11 @@ func process_physics(
 	var total_start: int = Time.get_ticks_usec()
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
 	_perf_end(perf_logger, "physics.frame.perf_logger_lookup", total_start)
+	var online_runtime := _get_online_match_runtime(module_getter)
+	if online_runtime != null and bool(online_runtime.process_physics(delta, owner, registry, module_getter, callbacks)):
+		_perf_end(perf_logger, "physics.frame.online_match", total_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
 	var sample_start: int = _perf_begin(perf_logger)
 	if _is_logo_intro_active(module_getter):
 		_perf_end(perf_logger, "physics.frame.gate.logo_intro", sample_start)
@@ -334,6 +345,11 @@ func draw(
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
 	var view_size: Vector2 = _get_view_size(owner)
+	var online_runtime := _get_online_match_runtime(module_getter)
+	if online_runtime != null and bool(online_runtime.draw(canvas, registry, view_size, callbacks)):
+		_perf_end(perf_logger, "draw.frame.online_match", total_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		return
 	var match_event_driver: Object = _get_match_event_driver(module_getter)
 	if _is_stage_transition_loading_active(match_event_driver):
 		if match_event_driver.has_method("draw_stage_transition_loading"):
@@ -988,6 +1004,30 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
+
+
+func _get_online_match_runtime(module_getter: Callable) -> Object:
+	if _online_match_runtime != null and is_instance_valid(_online_match_runtime):
+		return _online_match_runtime
+	if not _has_pending_online_match_request():
+		return null
+	_online_match_runtime = _get_module(module_getter, "online_match_runtime")
+	return _online_match_runtime
+
+
+func _has_pending_online_match_request() -> bool:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if not main_loop is SceneTree:
+		return false
+	var root: Window = (main_loop as SceneTree).root
+	if root == null:
+		return false
+	var selection_state: Node = root.get_node_or_null("GameSelectionState")
+	return (
+		selection_state != null
+		and selection_state.has_method("has_pending_online_match_request")
+		and bool(selection_state.has_pending_online_match_request())
+	)
 
 
 func _call(callbacks: Dictionary, key: String) -> void:

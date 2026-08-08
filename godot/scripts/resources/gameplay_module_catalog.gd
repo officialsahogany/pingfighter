@@ -10,6 +10,7 @@ const LingpetCatalog := preload("res://scripts/resources/gameplay_lingpet_module
 const StatusCatalog := preload("res://scripts/resources/gameplay_status_module_catalog.gd")
 const EffectAudioCatalog := preload("res://scripts/resources/gameplay_effect_audio_module_catalog.gd")
 const ResourceCatalog := preload("res://scripts/resources/gameplay_resource_module_catalog.gd")
+const NetworkCatalog := preload("res://scripts/resources/gameplay_network_module_catalog.gd")
 
 var catalogs: Array = [
 	CoreCatalog.new(),
@@ -22,6 +23,7 @@ var catalogs: Array = [
 	StatusCatalog.new(),
 	EffectAudioCatalog.new(),
 	ResourceCatalog.new(),
+	NetworkCatalog.new(),
 ]
 
 

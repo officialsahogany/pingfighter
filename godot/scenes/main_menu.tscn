@@ -239,6 +239,32 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_quit_pressed")
 theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
 text = "QUIT"
 
+[node name="OnlineButton" type="Button" parent="."]
+custom_minimum_size = Vector2(220, 54)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -98.0
+offset_right = -40.0
+offset_bottom = -44.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.86, 0.97, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("3_main_menu_font")
+theme_override_font_sizes/font_size = 22
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_btn_focus")
+text = "온라인 1대1  [O / Y]"
+
 [node name="QuitConfirmOverlay" type="Control" parent="."]
 visible = false
 layout_mode = 1

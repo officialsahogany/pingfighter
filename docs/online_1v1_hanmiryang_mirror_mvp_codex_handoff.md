@@ -1,6 +1,8 @@
 # 온라인 1v1 한미량 미러전 MVP — Codex 배선 핸드오프 (rev1, 2026-08-08)
 
-상태: **스펙 확정 · 구현 미착수.** 이 문서가 온라인전 MVP의 정본이다.
+상태: **2차 재리뷰 필수 수정 및 로컬 재검증 완료 · LAN/Tailscale 실기 미검증.** 이 문서가
+온라인전 MVP의 정본이다. 구현 및 실행 절차는
+`docs/online_1v1_hanmiryang_mirror_mvp_runbook.md`를 따른다.
 조사·리뷰 경위: Claude 4방향 조사 → Codex 읽기 전용 리뷰(조건부 승인, P0 2건
 정정) → 사용자 결정 확정. 정정 전 조사 초안의 결론(72Hz 고정 틱, 레거시 위치
 릴레이 재사용, "코어 상태 전부 BattleSceneState")은 **폐기**되었으므로 이 문서와
@@ -152,9 +154,9 @@ MatchSnapshot {
 
 ## 5. 싱글플레이 전제 기능 차단 게이트
 
-`online_match_active` 플래그를 config 빌더 한 곳에서 닫는다 (CLAUDE.md
-"Two-Update-Path Context-Flag Trap"의 `victory_loot_phase_active` 선례 준수 —
-게이트를 각 기능에 흩뿌리지 말 것). 차단 대상: 필드 아이템 스폰, 수호령 소환·
+`online_match_active` 플래그를 세션 한 곳에서 소유하고, 전투 프레임의 온라인
+runtime 선점과 입력 컨트롤러의 캐시 조회라는 두 중앙 경계에서 닫는다. 개별 기능에
+플래그를 흩뿌리지 않는다. 차단 대상: 필드 아이템 스폰, 수호령 소환·
 교감, 퍽 선택 모달, 신화 획득 시네마틱, 승리 전리품 페이즈, 하이라이트
 리플레이, 스테이지 보스 이벤트류. 로컬 전용 pause 분기
 (`battle_frame_flow_controller.gd`의 update_effects-only 분기들)가 온라인 중
@@ -196,3 +198,29 @@ Tailscale은 직접 연결 실패 시 릴레이(DERP) 폴백으로 지연이 변
 
 레거시는 "도달 가능한 프로토타입"이지 검증된 구현이 아니다(온라인 E2E 증거
 없음). 코드 이식이 아니라 설계 아이디어 재사용만 한다.
+
+## 8. 2026-08-08 Codex 구현 상태
+
+- `scripts/network/online_match_session.gd`가 `online_match_active`, 역할,
+  핸드셰이크/준비/카운트다운/서브/랠리/종료, 입력 이력, 보정과 보간을 소유한다.
+- `online_enet_transport.gd`와 `online_match_protocol.gd`가 ENet 전송과 고정 순서
+  바이너리 패킷을 소유한다. 클라이언트 입력은 허용 필드만 정규화되며 위치·공·
+  점수·판정 필드는 폐기된다.
+- `online_match_simulation.gd`와 `online_paddle_state.gd`가 호스트 권위 공/충돌/
+  점수/서브 및 역할 중립 155px 한미량 패들을 소유한다. 기존
+  `MatchScoreState`, `RoundFlowState`, `BallPhysics`, `BallUpdateStaticConfig`,
+  `PaddleBounceFrameState`, `PaddleBounceState` 리졸버군과 공개 랠리 캡
+  progression API를 조합한다. 상단 패들은 하단 로컬 좌표계로 Y 미러링해 같은
+  production resolver를 통과하므로 좌우 타구 의미가 역할과 무관하게 같다.
+- `online_match_runtime.gd`가 활성 온라인전에서 기존 싱글플레이 물리·렌더 경로를
+  한 곳에서 우회하고, `online_match_session.gd`가 `BattleViewLayout`의 60Hz
+  잠금을 획득/반납한다.
+- 메인 메뉴의 `온라인 1대1`에서 호스트/참가 로비로 진입할 수 있고, CLI로도
+  동일 생산 전투 씬을 직접 실행할 수 있다.
+
+완료 증거: localhost 실제 ENet 양방향 패킷, 두 세션의 핸드셰이크→준비→
+카운트다운→원격 입력→수동 서브→랠리, 프로토콜/스냅샷/듀스/Y반전/고정 틱/
+보정 한도/기능 게이트/상하단 바운스 대칭/각도 가속 감쇠 스모크, 생산
+`main.tscn` Vulkan 캡처. 아직 최종 합격으로
+간주하지 않는 항목: 서로 다른 PC 동일 LAN, 서로 다른 회선+Tailscale,
+20/50/100ms+손실·지터 체감 매트릭스.

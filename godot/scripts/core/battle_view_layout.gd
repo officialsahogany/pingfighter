@@ -55,6 +55,8 @@ const RENDER_FPS_CAP_OPTIONS: Array[int] = [
 var _display_settings_codec: DisplaySettingsConfigCodec = DisplaySettingsConfigCodec.new()
 var _last_windowed_size := Vector2i.ZERO
 var _last_windowed_position := Vector2i.ZERO
+static var _online_simulation_tick_locked := false
+static var _online_simulation_ticks_per_second := 60
 static var _runtime_render_fps_cap := RENDER_FPS_CAP_DEFAULT
 static var _runtime_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
 static var _project_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
@@ -262,6 +264,23 @@ static func get_runtime_render_fps_cap() -> int:
 
 static func get_runtime_physics_ticks_per_second() -> int:
 	return _runtime_physics_ticks_per_second
+
+
+func set_online_simulation_tick_lock(active: bool, ticks_per_second: int = 60) -> int:
+	_online_simulation_tick_locked = active
+	_online_simulation_ticks_per_second = clampi(ticks_per_second, PHYSICS_TICKS_SYNC_MIN, PHYSICS_TICKS_SYNC_MAX)
+	if active:
+		Engine.physics_ticks_per_second = _online_simulation_ticks_per_second
+		_runtime_physics_ticks_per_second = _online_simulation_ticks_per_second
+		return _online_simulation_ticks_per_second
+	return _apply_physics_ticks_for_render_cap(
+		_runtime_render_fps_cap,
+		int(Engine.get("max_fps"))
+	)
+
+
+func is_online_simulation_tick_locked() -> bool:
+	return _online_simulation_tick_locked
 
 
 static func get_configure_window_summary() -> String:
@@ -493,6 +512,10 @@ func _resolve_render_fps_cap(window: Window, cap: int, _vsync_mode: int = VSYNC_
 
 
 func _apply_physics_ticks_for_render_cap(cap: int, engine_cap: int) -> int:
+	if _online_simulation_tick_locked:
+		Engine.physics_ticks_per_second = _online_simulation_ticks_per_second
+		_runtime_physics_ticks_per_second = _online_simulation_ticks_per_second
+		return _online_simulation_ticks_per_second
 	var physics_ticks: int = _resolve_physics_ticks_per_second(cap, engine_cap)
 	Engine.physics_ticks_per_second = physics_ticks
 	_runtime_physics_ticks_per_second = physics_ticks

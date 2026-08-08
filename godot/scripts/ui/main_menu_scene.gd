@@ -21,8 +21,10 @@ const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_CHARACTER_SELECT_SCENE_PATH := "res://scenes/character_select.tscn"
+const ONLINE_LOBBY_SCENE_PATH := "res://scenes/online_lobby.tscn"
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu_bg_logo.png"
 const BGM_TOGGLE_KEY := KEY_B
+const ONLINE_SHORTCUT_KEY := KEY_O
 const START_TRANSITION_DURATION_SEC := 1.0
 const START_TRANSITION_BUTTON_FADE_SEC := 0.18
 const START_TRANSITION_BGM_DUCK_DB := 7.0
@@ -36,6 +38,7 @@ const START_TRANSITION_BEAM_STRIP_MAX := 96
 @onready var start_button: Button = $ButtonStack/StartButton
 @onready var settings_button: Button = $ButtonStack/SettingsButton
 @onready var quit_button: Button = $ButtonStack/QuitButton
+@onready var online_button: Button = $OnlineButton
 @onready var quit_confirm_overlay: Control = $QuitConfirmOverlay
 @onready var quit_confirm_prompt_label: Label = $QuitConfirmOverlay/DialogPanel/DialogMargin/DialogVBox/PromptLabel
 @onready var quit_confirm_yes_button: Button = $QuitConfirmOverlay/DialogPanel/DialogMargin/DialogVBox/ButtonRow/YesButton
@@ -97,6 +100,8 @@ func _ready() -> void:
 		settings_button.pressed.connect(_on_settings_pressed)
 	if quit_button != null:
 		quit_button.pressed.connect(_on_quit_pressed)
+	if online_button != null:
+		online_button.pressed.connect(_on_online_pressed)
 	if quit_confirm_yes_button != null:
 		quit_confirm_yes_button.pressed.connect(_on_quit_confirmed)
 	if quit_confirm_no_button != null:
@@ -187,6 +192,8 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if _handle_bgm_toggle_input(event):
 		return
+	if _handle_online_shortcut_input(event):
+		return
 	if _is_settings_overlay_active():
 		_handle_settings_overlay_input(event)
 		return
@@ -238,6 +245,23 @@ func _handle_main_menu_gamepad_input(event: InputEvent) -> bool:
 		_mark_input_as_handled()
 		return true
 	return false
+
+
+func _handle_online_shortcut_input(event: InputEvent) -> bool:
+	if transitioning or intro_reveal_active or _is_settings_overlay_active() or _is_quit_confirmation_open():
+		return false
+	var opens_online := _is_key_pressed(event, ONLINE_SHORTCUT_KEY)
+	if event is InputEventJoypadButton:
+		var button_event: InputEventJoypadButton = event
+		opens_online = opens_online or (
+			button_event.pressed
+			and button_event.button_index == JOY_BUTTON_Y
+		)
+	if not opens_online:
+		return false
+	_on_online_pressed()
+	_mark_input_as_handled()
+	return true
 
 
 func _mark_input_as_handled() -> void:
@@ -310,6 +334,20 @@ func _on_settings_pressed() -> void:
 	if intro_reveal_active:
 		return
 	_open_main_menu_settings()
+
+
+func _on_online_pressed() -> void:
+	if transitioning or intro_reveal_active or _is_settings_overlay_active():
+		return
+	transitioning = true
+	var tree := get_tree()
+	if tree == null:
+		transitioning = false
+		return
+	var error := tree.change_scene_to_file(ONLINE_LOBBY_SCENE_PATH)
+	if error != OK:
+		transitioning = false
+		push_warning("Failed to change scene to %s (error %d)" % [ONLINE_LOBBY_SCENE_PATH, error])
 
 
 func _change_to_character_select() -> void:
@@ -877,7 +915,12 @@ func _is_focus_on_menu_button() -> bool:
 	if viewport == null:
 		return false
 	var focused: Control = viewport.gui_get_focus_owner()
-	return focused == start_button or focused == settings_button or focused == quit_button
+	return (
+		focused == start_button
+		or focused == settings_button
+		or focused == quit_button
+		or focused == online_button
+	)
 
 
 func _start_main_menu_bgm() -> void:

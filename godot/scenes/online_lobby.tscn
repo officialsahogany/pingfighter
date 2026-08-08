@@ -1,0 +1,171 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/online_lobby_scene.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StylePanel"]
+bg_color = Color(0.025, 0.045, 0.075, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.34, 0.78, 0.96, 0.82)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleButton"]
+content_margin_left = 18.0
+content_margin_top = 10.0
+content_margin_right = 18.0
+content_margin_bottom = 10.0
+bg_color = Color(0.07, 0.15, 0.23, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.42, 0.84, 1, 0.85)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[node name="OnlineLobby" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.008, 0.014, 0.028, 1)
+
+[node name="TitleGlow" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 190.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.08, 0.34, 0.48, 0.22)
+
+[node name="CenterPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -310.0
+offset_top = -265.0
+offset_right = 310.0
+offset_bottom = 265.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StylePanel")
+
+[node name="Margin" type="MarginContainer" parent="CenterPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 42
+theme_override_constants/margin_top = 34
+theme_override_constants/margin_right = 42
+theme_override_constants/margin_bottom = 34
+
+[node name="VBox" type="VBoxContainer" parent="CenterPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.94, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "온라인 1대1 · 한미량 미러전"
+horizontal_alignment = 1
+
+[node name="RuleLabel" type="Label" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.79, 0.87, 1)
+theme_override_font_sizes/font_size = 16
+text = "양측 155px · 7점제/듀스 · 이동/대시/수동 서브\n스킬·아이템·수호령·퍽 비활성"
+horizontal_alignment = 1
+
+[node name="Separator" type="HSeparator" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="AddressLabel" type="Label" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "접속할 호스트 IP (LAN 또는 Tailscale)"
+
+[node name="AddressInput" type="LineEdit" parent="CenterPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "127.0.0.1"
+placeholder_text = "예: 100.x.x.x"
+select_all_on_focus = true
+
+[node name="PortRow" type="HBoxContainer" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="PortLabel" type="Label" parent="CenterPanel/Margin/VBox/PortRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "UDP 포트"
+vertical_alignment = 1
+
+[node name="PortInput" type="SpinBox" parent="CenterPanel/Margin/VBox/PortRow"]
+custom_minimum_size = Vector2(190, 42)
+layout_mode = 2
+min_value = 1.0
+max_value = 65535.0
+value = 24777.0
+allow_greater = false
+allow_lesser = false
+
+[node name="ActionRow" type="HBoxContainer" parent="CenterPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="HostButton" type="Button" parent="CenterPanel/Margin/VBox/ActionRow"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleButton")
+text = "방 만들기"
+
+[node name="JoinButton" type="Button" parent="CenterPanel/Margin/VBox/ActionRow"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleButton")
+text = "IP로 참가"
+
+[node name="StatusLabel" type="Label" parent="CenterPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "호스트는 UDP 24777을 열고, 상대는 호스트 IP로 참가하세요."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BackButton" type="Button" parent="CenterPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleButton")
+text = "돌아가기"

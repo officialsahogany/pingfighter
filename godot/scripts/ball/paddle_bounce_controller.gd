@@ -179,8 +179,12 @@ func bounce(
 		# 후처리 훅(스테이지7 아카무 등)이 "정상 보스 반사가 확정된 결과"만
 		# 소비하도록 하는 표식 — 빈/미확정 결과에는 실리지 않는다.
 		result["normal_boss_bounce_committed"] = true
-	_apply_rally_speed_cap_progression(result, context)
+	apply_rally_speed_cap_progression(result, context)
 	return result
+
+
+func apply_rally_speed_cap_progression(result: Dictionary, context: Dictionary) -> void:
+	_apply_rally_speed_cap_progression(result, context)
 
 
 func _apply_rally_speed_cap_progression(result: Dictionary, context: Dictionary) -> void:

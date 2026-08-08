@@ -43,6 +43,8 @@ func handle_unhandled_input(
 ) -> void:
 	if _system_shortcut_input_router.handle_input(event, owner, module_getter):
 		return
+	if _handle_online_match_input(event, owner, registry, module_getter):
+		return
 	if _handle_victory_highlight_input(event, owner, module_getter):
 		return
 	if _is_stage_transition_loading_active(module_getter):
@@ -88,6 +90,54 @@ func handle_unhandled_input(
 		return
 	if _combat_shortcut_input_router.handle_input(event, owner, registry, module_getter):
 		return
+
+
+func _handle_online_match_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var session: Object = _get_cached_module(registry, "online_match_session")
+	var session_active := (
+		session != null
+		and session.has_method("is_active")
+		and bool(session.is_active())
+	)
+	var runtime: Object = _get_cached_module(registry, "online_match_runtime")
+	var runtime_active := (
+		runtime != null
+		and runtime.has_method("is_active")
+		and bool(runtime.is_active())
+	)
+	if not session_active and not runtime_active:
+		return false
+	# Input singleton state is still collected once by OnlineMatchInputCollector
+	# during the physics tick. Consuming the event here prevents every legacy
+	# item, Lingpet, perk/modal, debug-combat, and pause route from mutating state.
+	if event is InputEventKey:
+		var key_event: InputEventKey = event
+		if (
+			key_event.pressed
+			and not key_event.echo
+			and (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE)
+		):
+			if runtime != null and runtime.has_method("stop"):
+				runtime.stop()
+			var match_flow: Object = _get_module(module_getter, "battle_scene_match_flow_driver")
+			if match_flow != null and match_flow.has_method("exit_to_main_menu"):
+				match_flow.exit_to_main_menu(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _get_cached_module(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func _handle_victory_highlight_input(

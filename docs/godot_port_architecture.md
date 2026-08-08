@@ -896,3 +896,30 @@ motion owns displacement-only slowdown and the two live unavailable-state
 observations; collision detection gates only the base player paddle. Lingpet
 RMB arbitration and guardian availability consume the cached facade contract
 without instantiating Viper modules from their hot paths.
+
+## 2026-08-08 Online 1v1 Han Miryang MVP boundary
+
+`scripts/network/online_match_session.gd` is the sole online-match activity,
+role, handshake, phase, snapshot interpolation, and client reconciliation
+owner. `online_enet_transport.gd` and `online_match_protocol.gd` own transport
+and wire-format concerns only; neither may decide gameplay results.
+`online_match_simulation.gd` composes the existing score, round-flow, ball
+physics, `BallUpdateStaticConfig`, `PaddleBounceFrameState`, `PaddleBounceState`
+resolver group, and the public
+`PaddleBounceController.apply_rally_speed_cap_progression` owner into
+the host-authoritative simulation. It must not copy bounce-angle, hit-speed,
+vertical-stall, substep, or rally-cap policy literals. `online_paddle_state.gd`
+supplies two role-neutral 155px player-rule paddles.
+
+`online_match_runtime.gd` is the battle-shell bridge and central feature gate:
+after activation it bypasses the normal single-player update/draw route and
+uses only the online renderer/input/session stack. A pending online request
+with any required owner missing enters a visible fail-closed error instead of
+falling through to single-player. `online_match_session.gd`
+acquires and symmetrically releases the view layout's fixed 60Hz simulation-tick
+lock. The normal battle modules remain unchanged
+and regain control after teardown. `battle_scene_input_controller.gd` consumes
+online events before legacy item/Lingpet/perk/modal/combat routes, while leaving
+the Input singleton state available to the one-per-tick online collector.
+Y-axis mirroring belongs only to session presentation projection; simulation
+and snapshots stay in host coordinates.

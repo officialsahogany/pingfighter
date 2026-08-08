@@ -7,6 +7,10 @@ const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.g
 
 
 func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
+	if registry != null and registry.has_method("get_cached_instance"):
+		var online_runtime: Variant = registry.get_cached_instance("online_match_runtime")
+		if typeof(online_runtime) == TYPE_OBJECT and online_runtime != null and online_runtime.has_method("stop"):
+			online_runtime.stop()
 	var logo_intro: Object = _get_module(cached_module_getter, "penguin_logo_intro")
 	if logo_intro != null and logo_intro.has_method("cleanup"):
 		logo_intro.cleanup()
