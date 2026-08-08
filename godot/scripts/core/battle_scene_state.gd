@@ -124,6 +124,22 @@ const DEFAULT_VALUES: Dictionary = {
 	"odins_eye_effect_active": false,
 	"odins_eye_revival_chance_pct": 35.0,
 	"odins_eye_context": {},
+	# 뿔딸기 마스크 6키 — 형제인 오딘 계열과 달리 **선언이 통째로 빠져 있었다.**
+	# mythic_item_owner_syncer 는 이 값들을 이미 만들어 owner 에 쓰고 있지만
+	# (`:476-479`, `:520-524`), BattleSceneShell._set() 이 미선언 키를 거부하므로
+	# (`battle_scene_shell.gd:136-138`) 그 write 가 조용히 버려졌다 — owner-field
+	# 스키마 트랩. 리더는 폴백만 돌려주니 소비자는 영원히 "변신 안 함"으로 읽는다.
+	# ⚠️ config builder 는 현재 런타임을 직접 조회하지만
+	#    (`battle_scene_player_control_config_builder.gd:204-208`), 그 경로는
+	#    `_ensure_helpers_ready()` → `prewarm_initialization_step()` 동기 초기화를
+	#    유발할 수 있으므로 **탑승 hot gate 에는 복제하지 않는다.** 게이트는 이 투영을
+	#    읽는다.
+	"horn_strawberry_mask_equipped": false,
+	"horn_strawberry_transformed": false,
+	"horn_strawberry_event_playing": false,
+	"horn_strawberry_skills_locked": false,
+	"horn_strawberry_control_locked": false,
+	"horn_strawberry_context": {},
 	"odins_eye_move_speed_multiplier": 1.0,
 	"odins_eye_dash_token_limit": null,
 	"odins_eye_dash_cooldown_multiplier": 1.0,
