@@ -575,8 +575,42 @@ func apply_guardian_enhance_random_roll(
 		Callable(self, "apply_guardian_enhance_duration_fallback").bind(owner, registry),
 		_guardian_enhance_roll_rng_for_tests
 	)
+	result["display_candidate_icons"] = _build_guardian_enhance_display_candidate_icons(
+		candidates,
+		result,
+		registry
+	)
 	complete_guardian_enhance_roll(result, pet_id, registry, trigger_source, owner)
 	return result
+
+
+func _build_guardian_enhance_display_candidate_icons(
+	candidates: Array,
+	result: Dictionary,
+	registry: Object
+) -> Array[String]:
+	var display_icons: Array[String] = []
+	var applied_index := int(result.get("applied_index", -1))
+	var result_detail: Dictionary = result.get("result_detail", {}) as Dictionary
+	var result_icon_path := str(result_detail.get("icon_texture_path", "")).strip_edges()
+	for candidate_index in range(candidates.size()):
+		if display_icons.size() >= 8:
+			break
+		var value: Variant = candidates[candidate_index]
+		if not (value is Dictionary):
+			continue
+		var candidate: Dictionary = value as Dictionary
+		var icon_path := str(candidate.get("icon_texture_path", "")).strip_edges()
+		if candidate_index == applied_index and result_icon_path != "":
+			icon_path = result_icon_path
+		if icon_path == "":
+			# Stat, duration, and unlock candidates deliberately use the host's
+			# procedural neutral glyph instead of triggering a runtime file lookup.
+			display_icons.append("")
+			continue
+		if _guardian_enhance_cutin_host_resolver.has_cached_result_icon(registry, icon_path):
+			display_icons.append(icon_path)
+	return display_icons
 
 
 func trigger_guardian_enhancement_from_absorption(

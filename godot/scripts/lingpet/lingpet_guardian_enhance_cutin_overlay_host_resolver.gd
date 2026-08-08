@@ -46,3 +46,15 @@ func prewarm_result_icon(registry: Object, result: Dictionary) -> bool:
 	if not host.has_method("prewarm_result_icon_path"):
 		return false
 	return bool(host.prewarm_result_icon_path(icon_path))
+
+
+func has_cached_result_icon(registry: Object, icon_path: String) -> bool:
+	var normalized := icon_path.strip_edges()
+	if normalized == "":
+		return false
+	var host := resolve(registry)
+	return (
+		host != null
+		and host.has_method("has_cached_result_icon")
+		and bool(host.has_cached_result_icon(normalized))
+	)

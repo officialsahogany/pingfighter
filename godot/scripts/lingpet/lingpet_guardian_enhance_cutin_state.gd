@@ -134,6 +134,11 @@ func get_animation_frame() -> int:
 
 
 func get_snapshot() -> Dictionary:
+	var display_candidate_icons: Array[String] = []
+	var raw_candidate_icons: Variant = result.get("display_candidate_icons", [])
+	if raw_candidate_icons is Array:
+		for raw_icon_path in raw_candidate_icons as Array:
+			display_candidate_icons.append(str(raw_icon_path))
 	return {
 		"active": active,
 		"phase": phase,
@@ -147,6 +152,7 @@ func get_snapshot() -> Dictionary:
 		"animation_contract": _animation_contract.duplicate(true),
 		"idle_fallback": bool(_animation_contract.get("idle_fallback", false)),
 		"asset_gate_hold_elapsed": _asset_gate_hold_elapsed,
+		"display_candidate_icons": display_candidate_icons,
 		"result": result.duplicate(true),
 		"feedback_text": str(result.get("feedback_text", "강화 획득")),
 	}
