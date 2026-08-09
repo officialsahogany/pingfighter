@@ -29,10 +29,10 @@ func get_sage_ring_count(runtime: Object) -> int:
 
 func get_sage_ring_perk_level_bonus(runtime: Object) -> int:
 	if PerkConversionFlags.is_enabled():
-		var level := _get_raw_converted_perk_level(runtime, ITEM_SAGE_RING)
-		if level <= 0:
-			return 0
-		return max(0, int(round(PerkConversionValues.get_value(ITEM_SAGE_RING, "perk_level_bonus", level, runtime.runtime_perk_state_ref))))
+		var runtime_perk_state: Object = runtime.runtime_perk_state_ref
+		if runtime_perk_state != null and runtime_perk_state.has_method("get_hyeonmun_charyeok_level_bonus"):
+			return max(0, int(runtime_perk_state.get_hyeonmun_charyeok_level_bonus()))
+		return 0
 	if not is_sage_ring_equipped(runtime):
 		return 0
 	return get_sage_ring_count(runtime) * SAGE_RING_PERK_LEVEL_BONUS
@@ -40,14 +40,7 @@ func get_sage_ring_perk_level_bonus(runtime: Object) -> int:
 
 func get_sage_ring_speed_penalty_pct(runtime: Object) -> float:
 	if PerkConversionFlags.is_enabled():
-		var level := _get_raw_converted_perk_level(runtime, ITEM_SAGE_RING)
-		if level <= 0:
-			return 0.0
-		return clamp(
-			PerkConversionValues.get_value(ITEM_SAGE_RING, "sage_speed_penalty_pct", level, runtime.runtime_perk_state_ref),
-			0.0,
-			SAGE_RING_MAX_SPEED_PENALTY_PCT
-		)
+		return 0.0
 	if not is_sage_ring_equipped(runtime):
 		return 0.0
 	return clamp(
@@ -59,14 +52,7 @@ func get_sage_ring_speed_penalty_pct(runtime: Object) -> float:
 
 func get_sage_ring_body_penalty_pct(runtime: Object) -> float:
 	if PerkConversionFlags.is_enabled():
-		var level := _get_raw_converted_perk_level(runtime, ITEM_SAGE_RING)
-		if level <= 0:
-			return 0.0
-		return clamp(
-			PerkConversionValues.get_value(ITEM_SAGE_RING, "sage_body_penalty_pct", level, runtime.runtime_perk_state_ref),
-			0.0,
-			SAGE_RING_MAX_BODY_PENALTY_PCT
-		)
+		return 0.0
 	if not is_sage_ring_equipped(runtime):
 		return 0.0
 	return clamp(

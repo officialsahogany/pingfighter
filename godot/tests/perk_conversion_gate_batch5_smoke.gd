@@ -229,10 +229,16 @@ func _verify_crown_bonus_source_and_exemptions() -> void:
 	var stack_runtime: Object = stack_env["runtime"]
 	stack_runtime.refresh_runtime_perk_scaling(stack_env["owner"], stack_env["registry"])
 	var stack_state: Object = stack_env["state"]
-	_expect(int(stack_runtime.get_sage_ring_perk_level_bonus()) == 3, "ON Sage Contract should use its raw Lv.3 bonus source")
-	_expect(int(stack_state.get_item_perk_level_bonus()) == 5, "ON Crown fixed source should stack with Sage Contract")
-	_expect(int(stack_state.get_converted_perk_effect_level("star_detector")) == 7, "ON Crown + Sage Contract should both feed regular converted perks")
-	_expect(int(stack_state.get_converted_perk_effect_level("sage_ring")) == 3, "ON Sage Contract should not raise itself")
+	_expect(int(stack_runtime.get_sage_ring_perk_level_bonus()) == 0, "ON Hyeonmun should stay dormant before a hit proc")
+	_expect(int(stack_state.get_item_perk_level_bonus()) == 2, "ON Crown should be the only pre-proc level source")
+	stack_state.try_proc_hyeonmun_charyeok(
+		{"hyeonmun_charyeok_roll_unit": 0.0},
+		{"mythic_item_runtime": stack_runtime, "registry": stack_env["registry"]}
+	)
+	_expect(int(stack_runtime.get_sage_ring_perk_level_bonus()) == 2, "ON Hyeonmun Lv.3 should expose temporary +2 after proc")
+	_expect(int(stack_state.get_item_perk_level_bonus()) == 4, "ON Crown fixed source should stack with active Hyeonmun")
+	_expect(int(stack_state.get_converted_perk_effect_level("star_detector")) == 6, "ON Crown + active Hyeonmun should both feed regular converted perks")
+	_expect(int(stack_state.get_converted_perk_effect_level("sage_ring")) == 3, "ON Hyeonmun Charyeok should not raise itself")
 
 
 func _verify_horn_used_state_and_stage_boundary() -> void:

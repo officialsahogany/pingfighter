@@ -34,6 +34,8 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 		runtime_perk_state.on_angel_blessing_round_boundary()
 	if runtime_perk_state != null and runtime_perk_state.has_method("reset_perk_fusion_round_byproducts"):
 		runtime_perk_state.reset_perk_fusion_round_byproducts()
+	if runtime_perk_state != null and runtime_perk_state.has_method("reset_hyeonmun_charyeok_round"):
+		runtime_perk_state.reset_hyeonmun_charyeok_round(deps.get("registry", null))
 
 	var active_item_runtime = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("reset_round"):

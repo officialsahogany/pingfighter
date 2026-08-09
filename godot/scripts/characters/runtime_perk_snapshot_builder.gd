@@ -26,6 +26,7 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		"viper_ignition_aura_active": bool(state.get("viper_ignition_aura_active")),
 		"viper_ignition_aura_level_bonus": RuntimePerkRuntimeStateAccess.call_int(state, "get_viper_ignition_aura_level_bonus"),
 		"viper_ignition_aura_gold_bonus": RuntimePerkRuntimeStateAccess.call_int(state, "get_viper_ignition_aura_gold_bonus"),
+		"hyeonmun_charyeok": RuntimePerkRuntimeStateAccess.call_dict(state, "get_hyeonmun_charyeok_snapshot"),
 		"pending_unlock_swap": RuntimePerkPayloadAccess.copy_dict(state.get("pending_unlock_swap")),
 		"unlock_swap_selected_index": int(state.get("unlock_swap_selected_index")),
 		"choice_flight_effect": RuntimePerkPayloadAccess.copy_dict(state.get("choice_flight_effect")),

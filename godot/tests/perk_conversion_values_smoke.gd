@@ -138,10 +138,16 @@ func _verify_star_endpoints() -> void:
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 1), 40.0, "dowsing_goggles chance Lv1")
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 3), 100.0, "dowsing_goggles chance Lv3")
 
-	_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", 1), 1.0, "sage_ring level bonus Lv1")
-	_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", 3), 3.0, "sage_ring level bonus Lv3")
-	_expect_close(PerkConversionValues.get_value("sage_ring", "sage_speed_penalty_pct", 3), 24.0, "sage_ring speed penalty Lv3")
-	_expect_close(PerkConversionValues.get_value("sage_ring", "sage_body_penalty_pct", 3), 18.0, "sage_ring body penalty Lv3")
+	for level in range(1, 6):
+		_expect_close(PerkConversionValues.get_value("sage_ring", "trigger_chance_pct", level), 5.0, "hyeonmun trigger chance Lv%d" % level)
+	var expected_hyeonmun_bonuses: Array[float] = [1.0, 1.0, 2.0, 2.0, 3.0]
+	var expected_hyeonmun_durations: Array[float] = [6.0, 7.0, 8.0, 9.0, 10.0]
+	for index in range(5):
+		var level := index + 1
+		_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", level), expected_hyeonmun_bonuses[index], "hyeonmun level bonus Lv%d" % level)
+		_expect_close(PerkConversionValues.get_value("sage_ring", "duration_sec", level), expected_hyeonmun_durations[index], "hyeonmun duration Lv%d" % level)
+	_expect(not PerkConversionValues.get_value_keys("sage_ring").has("sage_speed_penalty_pct"), "Hyeonmun should remove converted speed penalty lane")
+	_expect(not PerkConversionValues.get_value_keys("sage_ring").has("sage_body_penalty_pct"), "Hyeonmun should remove converted body penalty lane")
 
 
 func _verify_mythic_values_and_exempt() -> void:

@@ -60,6 +60,7 @@ func apply(
 	var boss_result: Dictionary = {}
 	var rainbow_glove_result: Dictionary = {}
 	var shrapnel_armor_result: Dictionary = {}
+	var hyeonmun_charyeok_result: Dictionary = {}
 	var blacksmith_shield_result: Dictionary = {}
 	var runtime_perk_gold: int = -1
 	var pre_player_hit_combo_count: int = _get_smasher_gold_combo_count(context, deps) if is_player else 0
@@ -250,6 +251,9 @@ func apply(
 				context,
 				deps
 			)
+		var hyeonmun_perk_state: Object = deps.get("runtime_perk_state", null)
+		if hyeonmun_perk_state != null and hyeonmun_perk_state.has_method("try_proc_hyeonmun_charyeok"):
+			hyeonmun_charyeok_result = hyeonmun_perk_state.try_proc_hyeonmun_charyeok(context, deps)
 		if (
 			aipill_active_on_contact
 			and aipill_runtime != null
@@ -407,6 +411,10 @@ func apply(
 		result["shrapnel_armor_activated"] = true
 		result["shrapnel_armor_shard_count"] = int(shrapnel_armor_result.get("shard_count", 0))
 		result["shrapnel_armor_gauge_cost"] = float(shrapnel_armor_result.get("gauge_cost", 0.0))
+	if bool(hyeonmun_charyeok_result.get("activated", false)):
+		result["hyeonmun_charyeok_activated"] = true
+		result["hyeonmun_charyeok_level_bonus"] = int(hyeonmun_charyeok_result.get("level_bonus", 0))
+		result["hyeonmun_charyeok_duration_sec"] = float(hyeonmun_charyeok_result.get("total_duration_sec", 0.0))
 	if not blacksmith_shield_result.is_empty():
 		for key in [
 			"blacksmith_thor_shield_hit",

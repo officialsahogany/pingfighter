@@ -104,30 +104,30 @@ func _verify_catalog_and_value_contract() -> void:
 	var sage_data: Dictionary = catalog.get_perk_data("sage_ring")
 	var dowsing_data: Dictionary = catalog.get_perk_data("dowsing_goggles")
 	var laurel_data: Dictionary = catalog.get_perk_data("sacred_laurel")
-	_expect(not sage_data.is_empty(), "sage_ring should resolve as Sage Contract")
+	_expect(not sage_data.is_empty(), "sage_ring should resolve as Hyeonmun Charyeok")
 	_expect(not dowsing_data.is_empty(), "dowsing_goggles should resolve as Insight")
 	_expect(not laurel_data.is_empty(), "sacred_laurel should resolve as Great Laurel")
-	_expect(str(sage_data.get("tree", "")) == "common", "Sage Contract should be a normal common perk")
-	_expect(int(sage_data.get("max_level", 0)) == 3, "Sage Contract should be max Lv.3")
-	_expect(bool(sage_data.get("effective_level_exempt", false)), "Sage Contract catalog entry should be effective-level exempt")
+	_expect(str(sage_data.get("tree", "")) == "common", "Hyeonmun Charyeok should be a normal common perk")
+	_expect(int(sage_data.get("max_level", 0)) == 5, "Hyeonmun Charyeok should be max Lv.5")
+	_expect(bool(sage_data.get("effective_level_exempt", false)), "Hyeonmun Charyeok catalog entry should be effective-level exempt")
 	_expect(str(dowsing_data.get("tree", "")) == "item", "Insight should stay in the item perk family")
 	_expect(int(dowsing_data.get("max_level", 0)) == 3, "Insight should be max Lv.3")
 	_expect(str(laurel_data.get("rarity", "")) == "mythic", "Great Laurel should be a mythic perk")
 	_expect(int(laurel_data.get("max_level", 0)) == 1, "Great Laurel should be max Lv.1")
 	_expect(bool(laurel_data.get("effective_level_exempt", false)), "Great Laurel should be effective-level exempt")
-	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get("sage_ring", "") == "sage_ring", "Sage Ring should map to Sage Contract")
+	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get("sage_ring", "") == "sage_ring", "Sage Ring should map to Hyeonmun Charyeok")
 	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get("dowsing_goggles", "") == "dowsing_goggles", "Dowsing Goggles should map to Insight")
 	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get("sacred_laurel", "") == "sacred_laurel", "Sacred Laurel should map to Great Laurel")
 	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("gold_bar"), "Gold Bar should have no conversion mapping")
-	_expect(PerkConversionValues.get_effective_converted_perk_level("sage_ring", 3, 99) == 3, "Sage Contract value helper should ignore effective-level bonuses")
+	_expect(PerkConversionValues.get_effective_converted_perk_level("sage_ring", 5, 99) == 5, "Hyeonmun proc spec should follow invested level only")
 	_expect(PerkConversionValues.get_effective_converted_perk_level("sacred_laurel", 1, 99) == 1, "Great Laurel should ignore effective-level bonuses")
 
 	PerkConversionFlags.debug_set_enabled(true)
 	var choices: Array = catalog.get_choices("smasher", {}, true, 300)
-	_expect(_has_choice_id(choices, "sage_ring"), "flag-ON normal offers should include Sage Contract")
+	_expect(_has_choice_id(choices, "sage_ring"), "flag-ON normal offers should include Hyeonmun Charyeok")
 	_expect(_has_choice_id(choices, "dowsing_goggles"), "flag-ON normal offers should include Insight")
 	_expect(not _has_choice_id(choices, "sacred_laurel"), "flag-ON normal offers should not include Great Laurel")
-	_expect(catalog.is_slot_consuming_perk(sage_data), "Sage Contract should consume one perk slot")
+	_expect(catalog.is_slot_consuming_perk(sage_data), "Hyeonmun Charyeok should consume one perk slot")
 	_expect(catalog.is_slot_consuming_perk(dowsing_data), "Insight should consume one perk slot")
 	_expect(catalog.is_slot_consuming_perk(laurel_data), "Great Laurel should consume one perk slot")
 	_expect(
@@ -138,35 +138,55 @@ func _verify_catalog_and_value_contract() -> void:
 
 func _verify_sage_contract_raw_level_and_exemptions() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
-	for level in [1, 2, 3]:
+	var expected_bonuses := [1, 1, 2, 2, 3]
+	var expected_durations := [6.0, 7.0, 8.0, 9.0, 10.0]
+	for level in [1, 2, 3, 4, 5]:
 		var env := _make_env({"sage_ring": level})
 		var runtime: Object = env["runtime"]
 		var owner: Object = env["owner"]
 		var registry: Object = env["registry"]
 		runtime.refresh_runtime_perk_scaling(owner, registry)
-		_expect(int(runtime.get_sage_ring_count()) == level, "Sage Contract Lv.%d should expose raw count %d" % [level, level])
-		_expect(int(runtime.get_sage_ring_perk_level_bonus()) == level, "Sage Contract Lv.%d should grant raw +%d perk bonus" % [level, level])
-		_expect_close(runtime.get_sage_ring_speed_penalty_pct(), float(level * 8), "Sage Contract speed penalty Lv.%d" % level)
-		_expect_close(runtime.get_sage_ring_body_penalty_pct(), float(level * 6), "Sage Contract body penalty Lv.%d" % level)
+		_expect(int(runtime.get_sage_ring_count()) == level, "Hyeonmun Lv.%d should expose raw invested level" % level)
+		_expect(int(runtime.get_sage_ring_perk_level_bonus()) == 0, "Hyeonmun should grant no level bonus before its hit proc")
+		_expect_close(runtime.get_sage_ring_speed_penalty_pct(), 0.0, "Hyeonmun should remove converted speed penalty")
+		_expect_close(runtime.get_sage_ring_body_penalty_pct(), 0.0, "Hyeonmun should remove converted body penalty")
+		var proc: Dictionary = env["state"].try_proc_hyeonmun_charyeok(
+			{"hyeonmun_charyeok_roll_unit": 0.0},
+			{"mythic_item_runtime": runtime, "registry": registry}
+		)
+		_expect(bool(proc.get("activated", false)), "Hyeonmun Lv.%d should proc on a forced successful roll" % level)
+		_expect(int(proc.get("level_bonus", 0)) == int(expected_bonuses[level - 1]), "Hyeonmun Lv.%d bonus tier" % level)
+		_expect_close(float(proc.get("total_duration_sec", 0.0)), float(expected_durations[level - 1]), "Hyeonmun Lv.%d duration" % level)
+		_expect(int(runtime.get_sage_ring_perk_level_bonus()) == int(expected_bonuses[level - 1]), "active Hyeonmun should expose its temporary bonus")
 
 	var regular_env := _make_env({"sage_ring": 3, "star_detector": 1})
 	var regular_runtime: Object = regular_env["runtime"]
 	regular_runtime.refresh_runtime_perk_scaling(regular_env["owner"], regular_env["registry"])
 	var regular_state: Object = regular_env["state"]
-	_expect(int(regular_state.get_item_perk_level_bonus()) == 3, "Sage Contract Lv.3 should sync +3 as the bonus source")
-	_expect(int(regular_state.get_converted_perk_effect_level("star_detector")) == 4, "Sage Contract should raise other regular converted perks")
-	_expect(int(regular_state.get_runtime_skill_level("sage_ring")) == 3, "Sage Contract should be excluded from runtime level bonuses")
-	_expect(int(regular_state.get_converted_perk_effect_level("sage_ring")) == 3, "Sage Contract should not raise itself")
+	_expect(int(regular_state.get_item_perk_level_bonus()) == 0, "Hyeonmun should stay dormant before a hit proc")
+	regular_state.try_proc_hyeonmun_charyeok(
+		{"hyeonmun_charyeok_roll_unit": 0.0},
+		{"mythic_item_runtime": regular_runtime, "registry": regular_env["registry"]}
+	)
+	_expect(int(regular_state.get_item_perk_level_bonus()) == 2, "Hyeonmun Lv.3 should sync temporary +2 after proc")
+	_expect(int(regular_state.get_converted_perk_effect_level("star_detector")) == 3, "active Hyeonmun should raise other regular converted perks")
+	_expect(int(regular_state.get_runtime_skill_level("sage_ring")) == 3, "Hyeonmun Charyeok should be excluded from runtime level bonuses")
+	_expect(int(regular_state.get_converted_perk_effect_level("sage_ring")) == 3, "Hyeonmun Charyeok should not raise itself")
 
-	var crown_env := _make_env({"sage_ring": 3, "transcendent_crown": 1, "star_detector": 1, "odins_eye": 1})
+	var crown_env := _make_env({"sage_ring": 5, "transcendent_crown": 1, "star_detector": 1, "odins_eye": 1})
 	var crown_runtime: Object = crown_env["runtime"]
 	crown_runtime.refresh_runtime_perk_scaling(crown_env["owner"], crown_env["registry"])
 	var crown_state: Object = crown_env["state"]
-	_expect(int(crown_state.get_item_perk_level_bonus()) == 5, "Sage Contract + Crown should stack as a source for other regular perks")
-	_expect(int(crown_state.get_converted_perk_effect_level("star_detector")) == 6, "Sage Contract + Crown should raise a regular converted perk")
-	_expect(int(crown_state.get_converted_perk_effect_level("sage_ring")) == 3, "Crown should not buff Sage Contract")
-	_expect(int(crown_state.get_converted_perk_effect_level("transcendent_crown")) == 1, "Sage Contract should not buff Crown")
-	_expect(int(crown_state.get_converted_perk_effect_level("odins_eye")) == 1, "Sage Contract should not buff mythic perks")
+	_expect(int(crown_state.get_item_perk_level_bonus()) == 2, "Crown should remain the only source before Hyeonmun procs")
+	crown_state.try_proc_hyeonmun_charyeok(
+		{"hyeonmun_charyeok_roll_unit": 0.0},
+		{"mythic_item_runtime": crown_runtime, "registry": crown_env["registry"]}
+	)
+	_expect(int(crown_state.get_item_perk_level_bonus()) == 5, "active Hyeonmun Lv.5 + Crown should stack for other regular perks")
+	_expect(int(crown_state.get_converted_perk_effect_level("star_detector")) == 6, "Hyeonmun Charyeok + Crown should raise a regular converted perk")
+	_expect(int(crown_state.get_converted_perk_effect_level("sage_ring")) == 5, "Crown should not buff Hyeonmun itself")
+	_expect(int(crown_state.get_converted_perk_effect_level("transcendent_crown")) == 1, "Hyeonmun Charyeok should not buff Crown")
+	_expect(int(crown_state.get_converted_perk_effect_level("odins_eye")) == 1, "Hyeonmun Charyeok should not buff mythic perks")
 
 
 func _verify_sacred_laurel_mythic_channel_and_runtime_value() -> void:

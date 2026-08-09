@@ -323,6 +323,20 @@ func draw_viper_skill_effects(
 		)
 
 
+func draw_runtime_perk_timer_effects(canvas: CanvasItem, registry: Object) -> void:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if (
+		runtime_perk_state != null
+		and runtime_perk_state.has_method("is_hyeonmun_charyeok_active")
+		and bool(runtime_perk_state.is_hyeonmun_charyeok_active())
+		and runtime_perk_state.has_method("draw_hyeonmun_charyeok_timer")
+	):
+		runtime_perk_state.draw_hyeonmun_charyeok_timer(
+			canvas,
+			_get_instance(registry, "horizontal_timer_gauge_stack")
+		)
+
+
 func draw_commando_supply_drop_effects(
 	canvas: CanvasItem,
 	registry: Object,

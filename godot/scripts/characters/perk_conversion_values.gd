@@ -159,9 +159,9 @@ const CONVERTED_PERK_VALUES := {
 		"speedgear_turn_decel_multiplier": [2.5],
 	},
 	"sage_ring": {
-		"perk_level_bonus": [1.0, 2.0, 3.0],
-		"sage_speed_penalty_pct": [8.0, 16.0, 24.0],
-		"sage_body_penalty_pct": [6.0, 12.0, 18.0],
+		"trigger_chance_pct": [5.0, 5.0, 5.0, 5.0, 5.0],
+		"perk_level_bonus": [1.0, 1.0, 2.0, 2.0, 3.0],
+		"duration_sec": [6.0, 7.0, 8.0, 9.0, 10.0],
 	},
 }
 
@@ -249,7 +249,8 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 # scaling. Balance-motivated caps do NOT
 # belong here — per CLAUDE.md the overflow default is "keep scaling", and any
 # intentional hard cap must be declared in catalog wording too.
-# sage_ring is effective_level_exempt, so its lanes never reach overflow.
+# sage_ring is effective_level_exempt, so its proc spec always follows the
+# invested Lv.1-5 table and never extrapolates from another level-buff source.
 const OVERFLOW_VALUE_BOUNDS := {
 	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
 	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},

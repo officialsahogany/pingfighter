@@ -15,6 +15,11 @@ func update_runtime_perk_resume(owner: Object, registry: Object, delta: float) -
 	# 드라이버가 소유해 오버레이 없이도 만료된다.
 	if runtime_perk_state != null and runtime_perk_state.has_method("update_perk_fusion_byproducts"):
 		runtime_perk_state.update_perk_fusion_byproducts(delta)
+	# 현문차력은 일반 무공 런타임 상태가 소유하는 전투시간 버프다. 이
+	# physics-side 브리지는 시계만 진행하고 통합 redraw를 요청한다.
+	if runtime_perk_state != null and runtime_perk_state.has_method("update_hyeonmun_charyeok"):
+		if bool(runtime_perk_state.update_hyeonmun_charyeok(delta, owner, registry)):
+			_request_battle_redraw(owner)
 	var laurel_leaf_shield_state: Object = _get_instance(registry, "laurel_leaf_shield_state")
 	if laurel_leaf_shield_state != null and laurel_leaf_shield_state.has_method("update_from_runtime"):
 		laurel_leaf_shield_state.update_from_runtime(owner, registry, delta)

@@ -70,8 +70,8 @@ func _test_classification_and_candidates() -> void:
 
 	_expect(_fusion_catalog.is_candidate("kick_enhance", 5, _catalog), "maxed kick_enhance should be a candidate")
 	_expect(not _fusion_catalog.is_candidate("kick_enhance", 4, _catalog), "non-maxed base level must be rejected")
-	_expect(_fusion_catalog.is_candidate("sage_ring", 3, _catalog), "maxed sage_ring should remain a candidate")
-	_expect(not _fusion_catalog.is_candidate("sage_ring", 2, _catalog), "effective bonus must not replace the base max-level gate")
+	_expect(_fusion_catalog.is_candidate("sage_ring", 5, _catalog), "maxed Hyeonmun Charyeok should remain a candidate")
+	_expect(not _fusion_catalog.is_candidate("sage_ring", 4, _catalog), "effective bonus must not replace the base max-level gate")
 	_expect(not _fusion_catalog.is_candidate("core_flip", 1, _catalog), "unlock perks must not be candidates")
 	_expect(not _fusion_catalog.is_candidate("dash_amplification", 3, _catalog), "multi-slot dash amplification must not be a candidate")
 
