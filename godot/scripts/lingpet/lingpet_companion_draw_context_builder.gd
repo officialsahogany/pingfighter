@@ -111,12 +111,6 @@ func build_config(params: Dictionary) -> Dictionary:
 		# float-only and would silently turn any string into 0.0.
 		"companion_skill_flash_style": str(params.get("companion_skill_flash_style", "")),
 		"motion_speed_ratio": _resolve_motion_speed_ratio(current_profile, params.get("motion_speed_ratio", 0.0)),
-		# SD 캐릭터 좌측 세로 지속시간 게이지. fail-closed: enabled 를 실어주지 않는
-		# 호출자(광장 / 컷인 등 전투 밖 표시면)는 게이지가 아예 그려지지 않는다.
-		"duration_gauge_enabled": bool(params.get("duration_gauge_enabled", false)),
-		"duration_pool_current": maxf(0.0, float(params.get("duration_pool_current", 0.0))),
-		"duration_pool_max": maxf(0.0, float(params.get("duration_pool_max", 0.0))),
-		"duration_drain_exempt": bool(params.get("duration_drain_exempt", false)),
 	}
 
 

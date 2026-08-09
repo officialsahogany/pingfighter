@@ -72,6 +72,7 @@ env:
     res://tests/online_enet_loopback_smoke.gd
     res://tests/online_session_loopback_smoke.gd
     res://tests/battle_scene_overlay_frame_perf_smoke.gd
+    res://tests/lingpet_duration_field_gauge_smoke.gd
     res://tests/weather_event_render_budget_smoke.gd
     res://tests/limit_league_tier_smoke.gd
     res://tests/stage7_akamu_prebattle_video_smoke.gd

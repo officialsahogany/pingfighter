@@ -20,6 +20,7 @@ const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingp
 const LingpetCompanionClickReactionDrawSizeResolver := preload("res://scripts/lingpet/lingpet_companion_click_reaction_draw_size_resolver.gd")
 const LingpetCompanionClickReactionVisualPrewarmState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_visual_prewarm_state.gd")
 const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
+const LingpetDurationFieldGaugeRenderer := preload("res://scripts/lingpet/lingpet_duration_field_gauge_renderer.gd")
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
@@ -249,6 +250,10 @@ var _guardian_run_context_coordinator: Object = LingpetGuardianRunContextCoordin
 var _guard_hit_tag_resolver: Object = LingpetGuardHitTagResolver.new()
 var _guard_feedback_state: Object = LingpetGuardFeedbackState.new()
 var _duration_runtime_state: Object = LingpetDurationRuntimeState.new()
+# 직전 프레임에 실제로 그린 지속시간 게이지 레이아웃(안 그렸으면 visible=false).
+# 공통 게이지 패스가 매번 덮어쓰므로 스테일 값이 남지 않는다 -- 씰이 실제 draw
+# 경로를 관통해 게이지 랜딩을 관측하는 채널이다.
+var _last_duration_gauge_layout: Dictionary = {}
 var _guardian_stowed := false
 var _soul_summon_overflow_available_for_tests := true
 var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.new()
@@ -1048,7 +1053,12 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 				_skill_runtime_host,
 				body_skill_id
 			):
-				_draw_companion(canvas, _companion_pos + shake_offset)
+				var front_body_alpha: float = _draw_companion(canvas, _companion_pos + shake_offset)
+				_draw_companion_duration_gauge(
+					canvas,
+					_companion_pos + shake_offset,
+					front_body_alpha
+				)
 			_afterglow_leak_state.draw(canvas, shake_offset)
 		if _is_guardian_summoned() or _skill_runtime_host.has_visible_effects():
 			_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))
@@ -1179,11 +1189,18 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 		click_reaction_texture,
 		_ring_dash_state
 	)
+	# 게이지가 따라갈 알파는 "본체 표현이 이번 프레임에 실제로 사용한 알파"다.
+	# 상수 1.0 을 가정하면 교체 전환(본체 0.42 바닥) / 클릭 교감 진입·종료 페이드
+	# (본체 0 에서 시작) 구간에서 게이지만 단독으로 진하게 뜬다.
+	var body_alpha: float = 0.0
 	if not click_reaction_visible or guardian_transition_body_active:
-		_draw_companion(
+		var transition_alpha: float = 1.0
+		if guardian_transition_body_active:
+			transition_alpha = float(_guardian_transition_state.get_companion_alpha())
+		body_alpha = _draw_companion(
 			canvas,
 			_companion_pos + shake_offset,
-			float(_guardian_transition_state.get_companion_alpha()) if guardian_transition_body_active else 1.0
+			transition_alpha
 		)
 	else:
 		_companion_click_reaction_state.draw(
@@ -1195,6 +1212,16 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 				float(LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x)
 			)
 		)
+		# 클릭 교감 반응 시트도 엄연히 "본체가 보이는" 표현이다. 이 분기가 게이지를
+		# 안 태우면 교감하는 동안 게이지만 끊긴다. 알파는 반응 시트가 draw 게이트로
+		# 쓰는 것과 같은 정본(get_alpha)을 읽어 진입 / 종료 페이드를 함께 탄다.
+		body_alpha = clampf(float(_companion_click_reaction_state.get_alpha()), 0.0, 1.0)
+	# 어느 본체 표현을 그렸든 게이지는 여기 공통 패스 한 곳에서만 나간다.
+	_draw_companion_duration_gauge(
+		canvas,
+		_companion_pos + shake_offset,
+		body_alpha
+	)
 
 
 func has_visible_effects() -> bool:
@@ -3385,7 +3412,7 @@ func _draw_companion(
 	canvas: CanvasItem,
 	center: Vector2,
 	transition_alpha: float = 1.0
-) -> void:
+) -> float:
 	var visual_surface: Dictionary = _skill_runtime_surface.get_visual_surface(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -3415,7 +3442,7 @@ func _draw_companion(
 	var active_skill_value: Variant = visual_surface.get("active_skill", {})
 	if active_skill_value is Dictionary:
 		active_skill_visual = active_skill_value
-	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
+	var draw_config: Dictionary = _companion_draw_context_builder.build_config({
 		"companion_skill_flash_style": str(active_skill_visual.get("companion_skill_flash_style", "")),
 		"companion_active": _is_guardian_summoned() or transition_alpha < 1.0,
 		"radius": COMPANION_RADIUS,
@@ -3449,13 +3476,51 @@ func _draw_companion(
 		"windup_seconds": float(visual_surface.get("windup_seconds", 0.0)),
 		"guard_feedback_state": _guard_feedback_state,
 		"mount_carry_active": _mount_state.is_mounted(),
-		# SD 캐릭터 좌측 세로 지속시간 게이지. companion_active 와 같은 술어를 쓴다
-		# (소환 / 수납 트랜지션 중에도 본체가 페이드로 그려지므로 게이지도 같이 페이드).
-		"duration_gauge_enabled": _is_guardian_summoned() or transition_alpha < 1.0,
-		"duration_pool_current": _guardian_run_state.get_duration_pool_current(),
-		"duration_pool_max": _guardian_run_state.get_duration_pool_max(),
-		"duration_drain_exempt": _guardian_run_state.is_duration_drain_exempt_latched(),
-	}))
+	})
+	_companion_renderer.draw_companion(canvas, center, draw_config)
+	# 렌더러가 스프라이트에 실제로 먹인 알파와 같은 정본을 읽는다.
+	return LingpetCompanionRenderer.resolve_body_draw_alpha(draw_config)
+
+
+# SD 캐릭터 좌측 세로 지속시간 게이지. 본체 표현이 여러 갈래(일반 SD / 클릭 교감
+# 반응 시트 / 스타코일 바인드)라서 게이지는 각 분기가 아니라 분기 "뒤" 공통 패스인
+# 여기 한 곳에서만 나간다 -- 분기마다 호출을 흩뿌리면 새 본체 표현이 추가될 때
+# 게이지만 조용히 끊긴다(클릭 교감 중 게이지 소실이 그 사례였다).
+#
+# body_alpha = 본체 표현이 이번 프레임에 실제로 사용한 최종 알파. 여기서 다시
+# 계산하지 않고 그대로 받아 쓴다(ghost / 교체 전환 / 클릭 페이드가 이미 반영돼
+# 있으므로 재계산은 이중 적용이거나 불일치가 된다). 0 이면 본체가 안 나온
+# 프레임이므로 게이지도 없다.
+func _draw_companion_duration_gauge(
+	canvas: CanvasItem,
+	center: Vector2,
+	body_alpha: float
+) -> void:
+	var alpha: float = clampf(body_alpha, 0.0, 1.0)
+	_last_duration_gauge_layout = LingpetDurationFieldGaugeRenderer.draw_gauge(
+		canvas,
+		center,
+		{
+			"duration_gauge_enabled": alpha > 0.0 and (
+				_is_guardian_summoned() or _guardian_transition_state.is_active()
+			),
+			"duration_pool_current": _guardian_run_state.get_duration_pool_current(),
+			"duration_pool_max": _guardian_run_state.get_duration_pool_max(),
+			"duration_drain_exempt": _guardian_run_state.is_duration_drain_exempt_latched(),
+			"walk_draw_size": _get_companion_walk_draw_size(),
+		},
+		alpha
+	)
+
+
+func _get_companion_walk_draw_size() -> float:
+	if _current_profile == null or not _current_profile.has_method("get_visual_layout_value"):
+		return 0.0
+	return maxf(0.0, float(_current_profile.get_visual_layout_value("companion_walk_draw_size", 0.0)))
+
+
+func get_last_duration_gauge_layout_for_tests() -> Dictionary:
+	return _last_duration_gauge_layout
 
 
 # Begin the in-battle click-reaction playback if the click landed on the

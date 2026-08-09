@@ -2,7 +2,6 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
-const LingpetDurationFieldGaugeRenderer := preload("res://scripts/lingpet/lingpet_duration_field_gauge_renderer.gd")
 const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 
 # Soft ambient aura tuning. The persistent companion glow (Lunabi / Maribo) is a
@@ -14,24 +13,39 @@ const SoftGlowTexture := preload("res://scripts/effects/soft_glow_texture.gd")
 # sharp on purpose -- those are gameplay feedback, not the ambient aura.
 const _SOFT_GLOW_TEX_SIZE := 64
 
-# 직전 프레임에 실제로 그린 지속시간 게이지 레이아웃(안 그렸으면 visible=false).
-# 매 draw_companion 진입마다 리셋하므로 스테일 값이 남지 않는다 -- 씰이
-# draw_companion 공개 경로를 관통해 게이지 랜딩을 관측하는 채널이다.
-var _last_duration_gauge_layout: Dictionary = {}
+# 교체 전환 중 본체 스프라이트가 내려가는 알파 바닥.
+const SWITCH_TRANSITION_MIN_ALPHA := 0.42
+
+
+# 본체 스프라이트가 실제로 사용하는 최종 알파(안 그리면 0.0). 지속시간 게이지
+# 공통 패스가 "본체가 이번 프레임에 쓴 알파"를 그대로 따라가야 본체와 게이지가
+# 같은 페이드를 타므로, 값 정본을 여기 static 으로 노출한다. 호출자가 알파를
+# 자체 계산하면(예: 무조건 1.0) 교체 전환에서 본체 0.42 / 게이지 1.0 처럼
+# 어긋난다.
+static func resolve_body_draw_alpha(config: Dictionary) -> float:
+	if not bool(config.get("companion_visible", true)):
+		return 0.0
+	var switch_transition: float = clampf(float(config.get("switch_transition", 0.0)), 0.0, 1.0)
+	var ghost_alpha: float = clampf(float(config.get("companion_alpha", 1.0)), 0.0, 1.0)
+	var switch_alpha: float = (
+		1.0
+		if switch_transition <= 0.0
+		else lerpf(SWITCH_TRANSITION_MIN_ALPHA, 1.0, 1.0 - switch_transition)
+	)
+	return clampf(switch_alpha * ghost_alpha, 0.0, 1.0)
 
 
 func prewarm_assets() -> void:
 	_get_or_create_soft_glow_texture()
 
 
-func get_last_duration_gauge_layout_for_tests() -> Dictionary:
-	return _last_duration_gauge_layout
-
-
+# 수호령 지속시간 게이지는 여기서 그리지 않는다. 본체 표현이 여러 갈래(일반 SD /
+# 클릭 교감 반응 시트 / 스타코일 바인드)이고 이 렌더러는 그중 하나만 담당하므로,
+# 게이지를 여기 넣으면 다른 표현이 선택된 프레임에 게이지가 통째로 끊긴다.
+# 게이지는 호스트(lingpet_egg_runtime)의 본체 분기 "뒤" 공통 패스가 소유한다.
 func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
-	_last_duration_gauge_layout = {}
 	if not bool(config.get("companion_visible", true)):
 		return
 	var radius: float = float(config.get("radius", 16.0))
@@ -52,7 +66,7 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, false, guard_aura_ratio)
 	if switch_transition > 0.0:
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
-	var sprite_alpha: float = (1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)) * ghost_alpha
+	var sprite_alpha: float = resolve_body_draw_alpha(config)
 	_draw_companion_sprite(canvas, draw_center, config, sprite_alpha)
 	if switch_transition > 0.0:
 		_draw_switch_label(canvas, draw_center, str(config.get("display_name", "")), switch_transition)
@@ -74,15 +88,6 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		var flash_radius: float = lerpf(radius + 8.0, radius + 34.0, 1.0 - hit_flash)
 		canvas.draw_circle(draw_center, flash_radius, Color(0.70, 1.0, 0.92, 0.22 * hit_flash))
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
-	# 지속시간 게이지는 마지막에 그려 플래시 링 / 전환 파티클 위에 남는다. 앵커는
-	# 흔들리는 draw_center 가 아니라 center -- 게이지가 몸통 bob 을 따라 출렁이면
-	# 읽는 UI 가 아니라 장식으로 읽힌다.
-	_last_duration_gauge_layout = LingpetDurationFieldGaugeRenderer.draw_gauge(
-		canvas,
-		center,
-		config,
-		sprite_alpha
-	)
 
 
 func draw_guard_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
