@@ -216,6 +216,64 @@ func _verify_debug_grant_orchestration() -> void:
 	_expect(int(_last_choice_data.get("next_level", -1)) == 2, "debug grant orchestration should patch unlock display level")
 
 	_reset_grant_calls()
+	var guardian_catalog := FakeCatalog.new({
+		"lingpet_guardian_enhance": {
+			"name": "수호령강화",
+			"max_level": 1,
+			"is_lingpet_guardian_enhance": true,
+			"tree": "lingpet",
+		},
+	})
+	var guardian_registry := FakeLingpetRegistry.new()
+	var guardian_result: Dictionary = helper.apply_debug_grant(
+		state,
+		"lingpet_guardian_enhance",
+		1,
+		owner,
+		guardian_registry,
+		guardian_catalog,
+		levels,
+		1.1,
+		_grant_callbacks()
+	)
+	_expect(bool(guardian_result.get("accepted", false)), "guardian-enhance debug grant should be accepted")
+	_expect(
+		str(guardian_result.get("path", "")) == RuntimePerkDebugGrants.PATH_GUARDIAN_ENHANCE,
+		"guardian-enhance debug grant should report the guardian path"
+	)
+	_expect(_apply_choice_calls == 1, "guardian-enhance debug grant should route through apply_choice")
+	_expect(
+		guardian_registry.lingpet_runtime.candidate_build_calls == 1,
+		"guardian-enhance debug grant should build live candidates from the lingpet runtime"
+	)
+	var injected_candidates: Array = _last_choice_data.get("guardian_enhance_candidates", []) as Array
+	_expect(injected_candidates.size() == 1, "guardian-enhance debug grant should inject live candidates into the choice data")
+	_expect(not levels.has("lingpet_guardian_enhance"), "guardian-enhance debug grant should not write runtime skill levels")
+	_expect(_apply_level_side_effect_calls == 0, "guardian-enhance debug grant should not run level side effects")
+
+	_reset_grant_calls()
+	var guardian_missing_runtime_result: Dictionary = helper.apply_debug_grant(
+		state,
+		"lingpet_guardian_enhance",
+		1,
+		owner,
+		registry,
+		guardian_catalog,
+		levels,
+		1.1,
+		_grant_callbacks()
+	)
+	_expect(
+		not bool(guardian_missing_runtime_result.get("accepted", true)),
+		"guardian-enhance debug grant should reject without a lingpet runtime"
+	)
+	_expect(
+		str(guardian_missing_runtime_result.get("blocked_reason", "")) == "missing_lingpet_runtime",
+		"guardian-enhance rejection should name the missing runtime"
+	)
+	_expect(_apply_choice_calls == 0, "guardian-enhance rejection should not reach apply_choice")
+
+	_reset_grant_calls()
 func _verify_runtime_state_facade_owns_deps_and_defaults() -> void:
 	var helper := RuntimePerkDebugGrants.new()
 	var state := FakeRuntimeState.new()
@@ -271,6 +329,33 @@ func _verify_runtime_state_facade_owns_deps_and_defaults() -> void:
 	_expect(bool(unlock_result.get("accepted", false)), "debug facade should accept unlock grants")
 	_expect(state.apply_unlock_choice_calls == 1, "debug facade should route unlock grants through state unlock callback")
 	_expect(int(state.last_choice_data.get("next_level", -1)) == 2, "debug facade should patch unlock display levels")
+
+	state.reset_calls()
+	var guardian_facade_registry := FakeLingpetRegistry.new()
+	var guardian_facade_result: Dictionary = helper.apply_debug_grant_from_runtime_state(
+		state,
+		"lingpet_guardian_enhance",
+		1,
+		owner,
+		guardian_facade_registry,
+		FakeCatalog.new({
+			"lingpet_guardian_enhance": {
+				"name": "수호령강화",
+				"max_level": 1,
+				"is_lingpet_guardian_enhance": true,
+			},
+		})
+	)
+	_expect(bool(guardian_facade_result.get("accepted", false)), "debug facade should accept guardian-enhance grants")
+	_expect(state.apply_choice_calls == 1, "debug facade should route guardian-enhance grants through state apply_choice")
+	_expect(
+		(state.last_choice_data.get("guardian_enhance_candidates", []) as Array).size() == 1,
+		"debug facade should inject live candidates for guardian-enhance grants"
+	)
+	_expect(
+		not state.runtime_skill_levels.has("lingpet_guardian_enhance"),
+		"debug facade should not write runtime levels for guardian-enhance grants"
+	)
 
 	state.reset_calls()
 func _verify_state_source_contract() -> void:
@@ -502,6 +587,27 @@ class FakeOwner:
 
 class FakeRegistry:
 	extends RefCounted
+
+
+class FakeLingpetRuntime:
+	extends RefCounted
+
+	var candidate_build_calls := 0
+
+	func build_guardian_enhance_live_candidates(_owner: Object) -> Array:
+		candidate_build_calls += 1
+		return [{"type": "duration", "label": "지속시간 +5초"}]
+
+
+class FakeLingpetRegistry:
+	extends RefCounted
+
+	var lingpet_runtime := FakeLingpetRuntime.new()
+
+	func get_cached_instance(key: String) -> Object:
+		if key == "lingpet_egg_runtime":
+			return lingpet_runtime
+		return null
 
 
 class FakeCatalog:

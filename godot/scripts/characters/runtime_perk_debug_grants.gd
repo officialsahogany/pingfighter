@@ -4,6 +4,10 @@ const PATH_INVALID := "invalid"
 const PATH_INSTANT := "instant"
 const PATH_UNLOCK := "unlock"
 const PATH_LEVEL := "level"
+const PATH_GUARDIAN_ENHANCE := "lingpet_guardian_enhance"
+
+const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := "lingpet_guardian_enhance"
+const LINGPET_RUNTIME_KEY := "lingpet_egg_runtime"
 
 const CALLBACK_BUILD_INSTANT_UPDATE := "build_instant_update"
 const CALLBACK_BUILD_UNLOCK_UPDATE := "build_unlock_update"
@@ -217,6 +221,12 @@ func apply_debug_grant(
 		return {"accepted": false, "blocked_reason": "missing_perk_data", "choice_id": clean_id}
 	data["id"] = clean_id
 
+	# 수호령강화는 레벨 스탯이 아니라 choice-경로 전용 랜덤 강화 롤이다. 레벨
+	# 경로로 보내면 runtime_skill_levels에 유령 레벨만 남고 롤·컷인 UI가 아예
+	# 돌지 않는다 — 라이브 후보를 실어 정상 choice 디스패치를 그대로 관통시킨다.
+	if clean_id == LINGPET_GUARDIAN_ENHANCE_CHOICE_ID or bool(data.get("is_lingpet_guardian_enhance", false)):
+		return _apply_guardian_enhance_debug_grant(runtime_state, clean_id, data, owner, registry, callbacks)
+
 	var path_payload: Dictionary = build_path(clean_id, data)
 	if not bool(path_payload.get("accepted", false)):
 		return path_payload
@@ -286,6 +296,45 @@ func apply_debug_grant(
 				callbacks
 			)
 	return {"accepted": false, "blocked_reason": "invalid_debug_path", "choice_id": clean_id}
+
+
+func _apply_guardian_enhance_debug_grant(
+	runtime_state: Object,
+	clean_id: String,
+	data: Dictionary,
+	owner: Object,
+	registry: Object,
+	callbacks: Dictionary
+) -> Dictionary:
+	var lingpet_runtime := _get_registry_instance(registry, LINGPET_RUNTIME_KEY)
+	if lingpet_runtime == null or not lingpet_runtime.has_method("build_guardian_enhance_live_candidates"):
+		return {"accepted": false, "blocked_reason": "missing_lingpet_runtime", "choice_id": clean_id}
+	var candidates_value: Variant = lingpet_runtime.build_guardian_enhance_live_candidates(owner)
+	# 빈 후보도 그대로 통과시킨다: 수호령이 없으면 런타임 롤이 no_owned_guardian
+	# 으로 거부하고, 수호령은 있는데 적용 가능한 후보가 없으면 정식 폴백
+	# (+15초 지속시간)이 컷인과 함께 적용된다.
+	data["current_level"] = 0
+	data["next_level"] = 1
+	data["guardian_enhance_candidates"] = candidates_value if candidates_value is Array else []
+	var apply_result: Dictionary = _call_bool(callbacks, CALLBACK_APPLY_CHOICE, [data, owner, registry])
+	if not bool(apply_result.get("accepted", false)):
+		return apply_result
+	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, _get_callback(callbacks, CALLBACK_SYNC_OWNER)):
+		return {"accepted": false, "blocked_reason": "post_apply_failed", "choice_id": clean_id}
+	return {"accepted": true, "choice_id": clean_id, "path": PATH_GUARDIAN_ENHANCE}
+
+
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	var value: Variant = null
+	if registry.has_method("get_cached_instance"):
+		value = registry.get_cached_instance(key)
+	if (typeof(value) != TYPE_OBJECT or value == null) and registry.has_method("get_instance"):
+		value = registry.get_instance(key)
+	if typeof(value) == TYPE_OBJECT and value != null and is_instance_valid(value):
+		return value as Object
+	return null
 
 
 func _accepted_path(choice_id: String, path: String) -> Dictionary:

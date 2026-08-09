@@ -622,6 +622,33 @@ func _build_guardian_enhance_display_candidate_icons(
 	return display_icons
 
 
+func build_guardian_enhance_live_candidates(owner: Object = null) -> Array:
+	var pet_id := _resolve_guardian_enhance_pet_id(owner)
+	if pet_id == "":
+		return []
+	_guardian_run_context_coordinator.configure(
+		pet_id,
+		_pet_id,
+		_current_profile,
+		_loadout_state,
+		_guardian_run_state
+	)
+	var skill_availability: Dictionary = (
+		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
+	)
+	var raw_candidates: Array[Dictionary] = (
+		_guardian_run_state.build_guardian_enhancement_candidates(
+			pet_id,
+			bool(skill_availability.get("has_second_active", false)),
+			bool(skill_availability.get("has_second_passive", false))
+		)
+	)
+	var candidates: Array = []
+	for candidate in raw_candidates:
+		candidates.append(_guardian_enhance_offer_engine.localize_candidate(candidate))
+	return candidates
+
+
 func trigger_guardian_enhancement_from_absorption(
 	owner: Object = null,
 	registry: Object = null
