@@ -2,6 +2,7 @@ extends SceneTree
 
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const EggRuntimeSmoke := preload("res://tests/lingpet_egg_runtime_smoke.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
@@ -48,12 +49,29 @@ func _verify_item_egg_hatch_rolls_loadout() -> void:
 		var runtime: Object = fixture.runtime
 		var owner: Object = fixture.owner
 		var pending_pet_id := _open_item_egg_choice(runtime, owner, fixture.registry)
+		var preview_snapshot: Dictionary = runtime.get_overflow_choice_snapshot()
+		var preview_guardian: Dictionary = preview_snapshot.get("replacement_guardian", {}) as Dictionary
+		var preview_loadout: Dictionary = runtime._loadout_state.get_stored_loadout(pending_pet_id)
+		var active_level := int(preview_loadout.get("active_skill_level", -1))
+		var passive_level := int(preview_loadout.get("passive_skill_level", -1))
+		var active_id := str(preview_loadout.get("active_skill_id", ""))
+		var passive_id := str(preview_loadout.get("passive_skill_id", ""))
+		var expected_active_icon := ""
+		if active_id != "":
+			expected_active_icon = str(LingpetCatalog.get_active_skill(pending_pet_id, active_id, active_level).get("icon_texture_path", ""))
+		var expected_passive_icon := ""
+		if passive_id != "":
+			expected_passive_icon = str(LingpetCatalog.get_passive_skill(pending_pet_id, passive_id, passive_level).get("icon_texture_path", ""))
+		_expect(str(preview_guardian.get("active_skill_icon_path", "")) == expected_active_icon, "item-egg preview must mirror the rolled active icon path")
+		_expect(str(preview_guardian.get("passive_skill_icon_path", "")) == expected_passive_icon, "item-egg preview must mirror the rolled passive icon path")
 		_expect(runtime.commit_overflow_replace(0, owner, fixture.registry), "item-egg Replace must commit through live slot zero")
 		var loadouts: Dictionary = owner.lingpet_loadouts as Dictionary
 		_expect(loadouts.has(pending_pet_id), "item-egg Replace must persist the incoming guardian loadout")
 		var loadout: Dictionary = loadouts.get(pending_pet_id, {}) as Dictionary
-		var active_level := int(loadout.get("active_skill_level", -1))
-		var passive_level := int(loadout.get("passive_skill_level", -1))
+		_expect(str(loadout.get("active_skill_id", "")) == str(preview_loadout.get("active_skill_id", "")), "item-egg confirmation must keep the previewed active skill")
+		_expect(str(loadout.get("passive_skill_id", "")) == str(preview_loadout.get("passive_skill_id", "")), "item-egg confirmation must keep the previewed passive skill")
+		active_level = int(loadout.get("active_skill_level", -1))
+		passive_level = int(loadout.get("passive_skill_level", -1))
 		_expect(active_level >= 0 and active_level <= 3, "item-egg active level must come from the 0..3 hatch roll")
 		_expect(passive_level >= 0 and passive_level <= 3, "item-egg passive level must come from the 0..3 hatch roll")
 		saw_level_two_or_more = saw_level_two_or_more or active_level >= 2 or passive_level >= 2
@@ -70,9 +88,14 @@ func _verify_item_egg_replace_absorb_choice() -> void:
 		replace_fixture.owner,
 		replace_fixture.registry
 	)
+	# Same duration contract as the main-egg route: a new guardian arrives at 100%.
+	replace_fixture.runtime._guardian_run_state.set_duration_pool_for_tests(11.0, 44.0)
 	_expect(replace_fixture.runtime.commit_overflow_replace(0, replace_fixture.owner, replace_fixture.registry), "item-egg Replace choice must succeed")
 	_expect((replace_fixture.owner.lingpet_owned_pet_ids as Array) == [replace_pending], "item-egg Replace must leave exactly the incoming live guardian")
 	_expect(bool(replace_fixture.owner.lingpet_collection.get("maribo", false)), "item-egg Replace must preserve the outgoing guardian in collection history")
+	_expect(is_equal_approx(replace_fixture.runtime.get_duration_pool_current(), 44.0), "item-egg Replace must refill the run-shared duration pool to its maximum")
+	_expect(is_equal_approx(replace_fixture.runtime.get_duration_pool_max(), 44.0), "item-egg Replace must preserve the once-per-run duration maximum")
+	_expect(replace_fixture.runtime.get_duration_pool_pct() == 100, "item-egg Replace must publish a full duration pool to the HUD")
 	_cleanup(replace_fixture.runtime)
 
 	var absorb_fixture := _make_fixture()

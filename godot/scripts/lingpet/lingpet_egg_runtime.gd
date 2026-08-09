@@ -77,6 +77,7 @@ const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_stat
 const LingpetNoneOwnerSyncState := preload("res://scripts/lingpet/lingpet_none_owner_sync_state.gd")
 const LingpetOverflowChoiceState := preload("res://scripts/lingpet/lingpet_overflow_choice_state.gd")
 const LingpetOverflowAbsorbPlan := preload("res://scripts/lingpet/lingpet_overflow_absorb_plan.gd")
+const LingpetOverflowGuardianSnapshotBuilder := preload("res://scripts/lingpet/lingpet_overflow_guardian_snapshot_builder.gd")
 const LingpetOverflowReplacePlan := preload("res://scripts/lingpet/lingpet_overflow_replace_plan.gd")
 const LingpetPlazaResonanceEggSummaryBuilder := preload("res://scripts/lingpet/lingpet_plaza_resonance_egg_summary_builder.gd")
 const LingpetPerfProbe := preload("res://scripts/lingpet/lingpet_perf_probe.gd")
@@ -179,6 +180,7 @@ var _companion_runtime_resetter: Object = LingpetCompanionRuntimeResetter.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _spirit_water_drop_state: Object = LingpetSpiritWaterDropState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
+var _overflow_guardian_snapshot_builder: Object = LingpetOverflowGuardianSnapshotBuilder.new()
 # F7 debug-only stat overrides live in LingpetDebugStatOverrideState.
 var _debug_stat_overrides: Object = LingpetDebugStatOverrideState.new()
 # F7 debug-only defense-rate override. < 0 means "use the pet's catalog/profile
@@ -1432,7 +1434,15 @@ func is_overflow_choice_active() -> bool:
 
 
 func get_overflow_choice_snapshot() -> Dictionary:
-	return _overflow_choice_state.build_snapshot(_collection_state)
+	var snapshot: Dictionary = _overflow_choice_state.build_snapshot(_collection_state)
+	return _overflow_guardian_snapshot_builder.enrich_choice_snapshot(
+		snapshot,
+		_overflow_choice_state.get_pending_pet_id(),
+		_collection_state,
+		_loadout_state,
+		_guardian_run_state,
+		_hatch_stat_roll_state
+	)
 
 
 func commit_overflow_replace(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
@@ -1516,7 +1526,13 @@ func _commit_item_egg_overflow_replace(slot_index: int, owner: Object, registry:
 	_guardian_run_state.forget_pet_data(new_pet)
 	_companion_skill_persistence.forget_pet(new_pet)
 	_ensure_duration_pool_roll()
-	_hatch_stat_roll_state.roll_item_egg_hatch_traits(new_pet, _loadout_state, _item_egg_lifecycle_state.get_profile())
+	_refill_duration_pool_for_guardian_replacement()
+	_hatch_stat_roll_state.roll_item_egg_hatch_traits(
+		new_pet,
+		_loadout_state,
+		_item_egg_lifecycle_state.get_profile(),
+		true
+	)
 	_overflow_choice_state.reset()
 	if bool(replace_result.get("replaced_active_companion", false)):
 		# Player chose to swap out the active companion: the new pet takes over.
@@ -2694,6 +2710,7 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 
 
 func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
+	_prepare_overflow_preview_loadout(_pet_id)
 	_overflow_choice_state.begin_main_overflow(
 		_pet_id,
 		_collection_state.is_absorb_only_candidate(owner, _pet_id)
@@ -2710,9 +2727,23 @@ func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: 
 	))
 
 
+func _prepare_overflow_preview_loadout(pet_id: String) -> Dictionary:
+	var normalized_pet_id: String = _loadout_state.normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return {}
+	var stored_loadout: Dictionary = _loadout_state.get_stored_loadout(normalized_pet_id)
+	if not stored_loadout.is_empty():
+		return stored_loadout
+	var rolled_loadout: Dictionary = _loadout_state.roll_and_store_pet_loadout_unsynced(normalized_pet_id, null)
+	_loadout_state.invalidate_owner_loadout_sync_for_runtime()
+	_overflow_guardian_snapshot_builder.invalidate_replacement()
+	return rolled_loadout
+
+
 func _finish_overflow_hatch_commit(owner: Object, registry: Object = null) -> void:
 	var kept_pet_id := str(_overflow_choice_state.consume_commit_pet_id())
 	_ensure_duration_pool_roll()
+	_refill_duration_pool_for_guardian_replacement()
 	_state = STATE_COMPANION
 	_guardian_stowed = false
 	_guardian_active_elapsed = 0.0
@@ -2754,6 +2785,7 @@ func _perform_item_egg_absorb(owner: Object, registry: Object = null) -> void:
 		_overflow_choice_state
 	)
 	if bool(absorb_route.get("opened_overflow", false)):
+		_prepare_overflow_preview_loadout(absorb_pet)
 		_sync_owner(owner, registry)
 		return
 	# The only free-slot case is the first live guardian; later eggs always opened
@@ -3637,6 +3669,14 @@ func _get_active_duration_pct() -> int:
 
 func _ensure_duration_pool_roll() -> Dictionary:
 	return _guardian_run_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
+
+
+# A replacement guardian arrives at full uptime. Preserve the once-per-run
+# maximum, including Guardian Enhancement overfill, and refill only current.
+func _refill_duration_pool_for_guardian_replacement() -> Dictionary:
+	var result: Dictionary = _guardian_run_state.restore_duration_pool_to_full_preserving_overfill()
+	_duration_warning_stage = 0
+	return result
 
 
 func _set_guardian_stowed(

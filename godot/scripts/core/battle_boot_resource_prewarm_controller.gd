@@ -398,6 +398,9 @@ func _run_stage_runtime_prewarm_step(
 			var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
 			if lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets"):
 				lingpet_runtime.prewarm_assets()
+			var overflow_choice_host: Object = _get_module(module_getter, "lingpet_overflow_choice_overlay_host")
+			if overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets"):
+				overflow_choice_host.prewarm_assets()
 		10:
 			# Lingpet rail card art (the hatched companion's skill card rides every
 			# stage's boss skill rail, so warm it once here rather than lazy-loading

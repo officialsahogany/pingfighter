@@ -86,7 +86,8 @@ static func get_empty_hatch_stat_roll() -> Dictionary:
 func roll_item_egg_hatch_traits(
 	pet_id: String,
 	loadout_state: Object,
-	item_egg_profile: Object
+	item_egg_profile: Object,
+	preserve_existing_loadout: bool = false
 ) -> bool:
 	# Item-egg hatches (a coexisting egg absorbed while a companion stays active, or an overflow
 	# slot-replace) must roll the SAME hatch loadout + stat headstart that regular hatches roll.
@@ -95,7 +96,9 @@ func roll_item_egg_hatch_traits(
 	# active companion's published skill level.
 	if pet_id == "" or loadout_state == null or item_egg_profile == null:
 		return false
-	loadout_state.roll_and_store_pet_loadout_unsynced(pet_id, null)
+	var stored_loadout: Dictionary = loadout_state.get_stored_loadout(pet_id)
+	if not preserve_existing_loadout or stored_loadout.is_empty():
+		loadout_state.roll_and_store_pet_loadout_unsynced(pet_id, null)
 	if loadout_state.has_method("invalidate_owner_loadout_sync_for_runtime"):
 		loadout_state.invalidate_owner_loadout_sync_for_runtime()
 	item_egg_profile.set_pet_id(pet_id)

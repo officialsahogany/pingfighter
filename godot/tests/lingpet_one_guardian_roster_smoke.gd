@@ -37,6 +37,7 @@ class FakeChoiceRuntime:
 	var snapshot := {
 		"active": true,
 		"absorb_only": false,
+		"pending_pet_id": "rahoset",
 	}
 	var replace_count := 0
 	var absorb_count := 0
@@ -61,6 +62,8 @@ func _init() -> void:
 	_verify_legacy_three_slot_restore_takes_first_valid_only()
 	_verify_collection_complete_eggs_become_absorb_only()
 	_verify_two_choice_and_absorb_source_localization()
+	_verify_new_guardian_portrait_and_tooltip_payload()
+	_verify_production_overflow_icon_prewarm_wiring()
 	_verify_two_choice_input_routes()
 	_verify_retired_cycle_source_is_absent()
 	_verify_round_reset_closes_absorb_presentation()
@@ -140,8 +143,56 @@ func _verify_two_choice_and_absorb_source_localization() -> void:
 		_expect(str(choice_copy.get("replace", "")).strip_edges() != "", "%s must localize Replace" % language)
 		_expect(str(choice_copy.get("absorb", "")).strip_edges() != "", "%s must localize Absorb" % language)
 		_expect(str(choice_copy.get("absorb_desc", "")).strip_edges() != "", "%s must explain the enhancement reward" % language)
+		_expect(str(choice_copy.get("base_note", "")).strip_edges() != "", "%s must explain when individual bonuses are rolled" % language)
+		_expect(str(choice_copy.get("passive_note", "")).strip_edges() != "", "%s must explain the shared passive roll" % language)
+		_expect(str(choice_copy.get("passive_pending_title", "")).strip_edges() != "", "%s must label the pending passive slot" % language)
+		_expect(str(choice_copy.get("compare_title", "")).strip_edges() != "", "%s must localize the comparison title" % language)
+		_expect(str(choice_copy.get("current_guardian", "")).strip_edges() != "", "%s must label the current guardian" % language)
+		_expect(str(choice_copy.get("replacement_guardian", "")).strip_edges() != "", "%s must label the replacement guardian" % language)
+		_expect(str(choice_copy.get("cancel_action", "")).strip_edges() != "", "%s must localize the comparison cancel button" % language)
+		_expect(str(choice_copy.get("confirm_question", "")).find("%s") >= 0, "%s replacement confirmation must include the incoming guardian name" % language)
 		var result_copy := LingpetGuardianEnhanceOfferEngine.get_result_copy_for_language_for_tests(language)
 		_expect(str(result_copy.get("source_absorb", "")).strip_edges() != "", "%s must localize the absorption result source" % language)
+
+
+func _verify_new_guardian_portrait_and_tooltip_payload() -> void:
+	var owner := FakeOwner.new()
+	var collection_state := LingpetCollectionState.new()
+	collection_state.sync_from_owner(owner)
+	var choice := LingpetOverflowChoiceState.new()
+	choice.begin_main_overflow("rahoset")
+	choice.activate_after_cutin()
+	var snapshot: Dictionary = choice.build_snapshot(collection_state)
+	var expected_art_path := LingpetCatalog.get_visual_path("rahoset", "cutin_art")
+	_expect(str(snapshot.get("pending_art_path", "")) == expected_art_path, "overflow snapshot must expose the acquired guardian portrait path")
+	_expect(FileAccess.file_exists(expected_art_path), "overflow guardian portrait path must point to a real source asset")
+	var stats: Dictionary = snapshot.get("pending_stats", {}) as Dictionary
+	_expect(is_equal_approx(float(stats.get("appearance_rate", 0.0)), 0.30), "overflow tooltip payload must expose Rahoset's appearance rate")
+	_expect(is_equal_approx(float(stats.get("hit_gauge_gain", 0.0)), 40.0), "overflow tooltip payload must expose guardian vigor gain")
+	_expect(str(snapshot.get("replacement_skill_name", "")) == "모래감옥", "overflow tooltip payload must expose the acquired guardian's active skill")
+	_expect(str(snapshot.get("replacement_skill_description", "")).find("보스 주위") >= 0, "overflow tooltip payload must include the active skill description")
+	_expect(is_equal_approx(float(snapshot.get("replacement_skill_cooldown", 0.0)), 30.0), "overflow tooltip payload must expose the active cooldown")
+	var info := LingpetOverflowChoiceOverlayHost.build_guardian_info_for_tests(snapshot, "ko")
+	_expect(str(info.get("title", "")) == "라호세트", "guardian art tooltip must use the acquired guardian name")
+	_expect((info.get("stat_rows", []) as Array).size() >= 4, "guardian art tooltip must present the base stat rows")
+	_expect(str(info.get("skill_title", "")).find("모래감옥") >= 0, "guardian art tooltip must present the active skill name")
+	_expect(str(info.get("skill_icon_path", "")) == str(snapshot.get("replacement_skill_icon_path", "")), "guardian art tooltip must preserve the active skill icon")
+	_expect(str(info.get("skill_description", "")).find("감옥") >= 0, "guardian art tooltip must present the active skill details")
+	_expect(str(info.get("passive_title", "")).strip_edges() != "", "guardian art tooltip must visibly label the pending passive slot")
+	_expect(str(info.get("passive_note", "")).find("공용 패시브") >= 0, "guardian art tooltip must explain the random passive")
+	var art_rect := LingpetOverflowChoiceOverlayHost.new().get_new_pet_art_rect_for_tests(Vector2(760.0, 750.0))
+	_expect(art_rect.size.x >= 96.0 and art_rect.size.y >= 90.0, "new guardian portrait must have a clearly visible hover target")
+
+
+func _verify_production_overflow_icon_prewarm_wiring() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+	var step_start := source.find("func _run_stage_runtime_prewarm_step(")
+	var step_end := source.find("\nfunc ", step_start + 1)
+	var step_body := source.substr(step_start, step_end - step_start)
+	var host_lookup := step_body.find('"lingpet_overflow_choice_overlay_host"')
+	var host_prewarm := step_body.find("overflow_choice_host.prewarm_assets()", host_lookup)
+	_expect(host_lookup >= 0, "battle boot prewarm must instantiate the production overflow choice host")
+	_expect(host_prewarm > host_lookup, "battle boot prewarm must warm overflow active/passive skill icons before draw")
 
 
 func _verify_two_choice_input_routes() -> void:
@@ -152,12 +203,69 @@ func _verify_two_choice_input_routes() -> void:
 	key_one.pressed = true
 	key_one.keycode = KEY_1
 	_expect(host.handle_input(key_one, runtime, owner, null, Vector2(760.0, 750.0)), "Replace shortcut must be consumed")
-	_expect(runtime.replace_count == 1 and runtime.absorb_count == 0, "normal Replace shortcut must use production replace commit")
+	_expect(host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_COMPARE, "first Replace action must open the comparison screen")
+	_expect(runtime.replace_count == 0 and runtime.absorb_count == 0, "opening replacement comparison must not mutate the roster")
 	var escape := InputEventKey.new()
 	escape.pressed = true
 	escape.keycode = KEY_ESCAPE
 	_expect(host.handle_input(escape, runtime, owner, null, Vector2(760.0, 750.0)), "escape must be consumed")
-	_expect(runtime.absorb_count == 1, "escape must safely choose production absorption")
+	_expect(host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CHOICE, "comparison escape must return to the initial choice")
+	_expect(runtime.replace_count == 0 and runtime.absorb_count == 0, "comparison cancellation must be a complete no-op")
+	_expect(host.handle_input(key_one, runtime, owner, null, Vector2(760.0, 750.0)), "comparison reopen must be consumed")
+	var enter := InputEventKey.new()
+	enter.pressed = true
+	enter.keycode = KEY_ENTER
+	_expect(host.handle_input(enter, runtime, owner, null, Vector2(760.0, 750.0)), "comparison Replace button must be consumed")
+	_expect(host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CONFIRM, "comparison Replace must open the second confirmation")
+	_expect(runtime.replace_count == 0, "second confirmation must appear before the roster commit")
+	_expect(host.handle_input(escape, runtime, owner, null, Vector2(760.0, 750.0)), "confirmation escape must be consumed")
+	_expect(host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_COMPARE, "confirmation escape must return to comparison")
+	_expect(runtime.replace_count == 0 and runtime.absorb_count == 0, "confirmation cancellation must be a complete no-op")
+	_expect(host.handle_input(enter, runtime, owner, null, Vector2(760.0, 750.0)), "comparison Replace retry must be consumed")
+	_expect(host.handle_input(enter, runtime, owner, null, Vector2(760.0, 750.0)), "final confirmation must be consumed")
+	_expect(runtime.replace_count == 1 and runtime.absorb_count == 0, "only final confirmation may call production replacement")
+	var mouse_runtime := FakeChoiceRuntime.new()
+	var mouse_host := LingpetOverflowChoiceOverlayHost.new()
+	_expect(mouse_host.handle_input(key_one, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "mouse cancellation fixture must open comparison")
+	var compare_layout := mouse_host.get_compare_layout_for_tests(Vector2(760.0, 750.0))
+	var cancel_click := InputEventMouseButton.new()
+	cancel_click.pressed = true
+	cancel_click.button_index = MOUSE_BUTTON_LEFT
+	cancel_click.position = (compare_layout.get("secondary_button", Rect2()) as Rect2).get_center()
+	_expect(mouse_host.handle_input(cancel_click, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "comparison cancel button must be consumed")
+	_expect(mouse_host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CHOICE, "comparison cancel button must return to the initial choice")
+	_expect(mouse_runtime.replace_count == 0 and mouse_runtime.absorb_count == 0, "comparison cancel button must not mutate the roster")
+	var mouse_runtime := FakeChoiceRuntime.new()
+	var mouse_host := LingpetOverflowChoiceOverlayHost.new()
+	_expect(mouse_host.handle_input(key_one, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "mouse cancellation fixture must open comparison")
+	var compare_layout := mouse_host.get_compare_layout_for_tests(Vector2(760.0, 750.0))
+	var cancel_click := InputEventMouseButton.new()
+	cancel_click.pressed = true
+	cancel_click.button_index = MOUSE_BUTTON_LEFT
+	cancel_click.position = (compare_layout.get("secondary_button", Rect2()) as Rect2).get_center()
+	_expect(mouse_host.handle_input(cancel_click, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "comparison cancel button must be consumed")
+	_expect(mouse_host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CHOICE, "comparison cancel button must return to the initial choice")
+	_expect(mouse_runtime.replace_count == 0 and mouse_runtime.absorb_count == 0, "comparison cancel button must not mutate the roster")
+	_expect(mouse_host.handle_input(key_one, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "mouse confirmation fixture must reopen comparison")
+	var replace_click := InputEventMouseButton.new()
+	replace_click.pressed = true
+	replace_click.button_index = MOUSE_BUTTON_LEFT
+	replace_click.position = (compare_layout.get("primary_button", Rect2()) as Rect2).get_center()
+	_expect(mouse_host.handle_input(replace_click, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "comparison Replace button click must be consumed")
+	_expect(mouse_host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CONFIRM, "comparison Replace button click must open confirmation")
+	_expect(mouse_runtime.replace_count == 0, "comparison Replace button click must not commit early")
+	var confirm_layout := mouse_host.get_confirm_layout_for_tests(Vector2(760.0, 750.0))
+	var confirm_cancel_click := InputEventMouseButton.new()
+	confirm_cancel_click.pressed = true
+	confirm_cancel_click.button_index = MOUSE_BUTTON_LEFT
+	confirm_cancel_click.position = (confirm_layout.get("secondary_button", Rect2()) as Rect2).get_center()
+	_expect(mouse_host.handle_input(confirm_cancel_click, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "confirmation cancel button must be consumed")
+	_expect(mouse_host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_COMPARE, "confirmation cancel button must return to comparison")
+	_expect(mouse_runtime.replace_count == 0 and mouse_runtime.absorb_count == 0, "confirmation cancel button must be a complete no-op")
+	var escape_runtime := FakeChoiceRuntime.new()
+	var escape_host := LingpetOverflowChoiceOverlayHost.new()
+	_expect(escape_host.handle_input(escape, escape_runtime, owner, null, Vector2(760.0, 750.0)), "initial escape must be consumed")
+	_expect(escape_runtime.absorb_count == 1, "initial escape must preserve the production absorption shortcut")
 	var absorb_only_runtime := FakeChoiceRuntime.new()
 	absorb_only_runtime.snapshot["absorb_only"] = true
 	var absorb_only_host := LingpetOverflowChoiceOverlayHost.new()

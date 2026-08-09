@@ -83,15 +83,46 @@ func build_snapshot(collection_state: Object) -> Dictionary:
 		str(preview_loadout.get("active_skill_id", "")),
 		maxi(1, int(preview_loadout.get("active_skill_level", 1)))
 	)
+	var pending_stats := {
+		"patrol_speed_default": LingpetCatalog.get_stat(pending_id, "patrol_speed_default", 0.0),
+		"patrol_speed_min": LingpetCatalog.get_stat(pending_id, "patrol_speed_min", 0.0),
+		"patrol_speed_max": LingpetCatalog.get_stat(pending_id, "patrol_speed_max", 0.0),
+		"catch_width": LingpetCatalog.get_stat(pending_id, "catch_width", 0.0),
+		"catch_height": LingpetCatalog.get_stat(pending_id, "catch_height", 0.0),
+		"defense_rate": LingpetCatalog.get_stat(pending_id, "defense_rate", 0.0),
+		"appearance_rate": LingpetCatalog.get_stat(pending_id, "appearance_rate", 0.0),
+		"hit_gauge_gain": LingpetCatalog.get_stat(pending_id, "hit_gauge_gain", 0.0),
+	}
+	var replacement_guardian := {
+		"pet_id": pending_id,
+		"display_name": _get_pet_display_name(collection_state, pending_id),
+		"art_path": LingpetCatalog.get_visual_path(pending_id, "cutin_art"),
+		"stats": pending_stats.duplicate(true),
+		"active_skill_name": str(preview_skill.get("name", "")),
+		"active_skill_description": str(preview_skill.get("description", "")),
+		"active_skill_cooldown": float(preview_skill.get("cooldown", 0.0)),
+		"active_skill_icon_path": str(preview_skill.get("icon_texture_path", "")),
+		"active_skill_level": maxi(1, int(preview_loadout.get("active_skill_level", 1))),
+		"passive_skill_name": "",
+		"passive_skill_description": "",
+		"passive_skill_icon_path": "",
+		"passive_skill_level": 0,
+		"pending_roll": not bool(absorb_only),
+	}
 	return {
 		"active": bool(active),
 		"pending_pet_id": pending_id,
 		"pending_display_name": _get_pet_display_name(collection_state, pending_id),
+		"pending_art_path": LingpetCatalog.get_visual_path(pending_id, "cutin_art"),
+		"pending_stats": pending_stats,
 		"slots": slot_entries,
 		"active_slot_index": active_slot_index,
 		"absorb_only": bool(absorb_only),
 		"replacement_skill_name": str(preview_skill.get("name", "")),
+		"replacement_skill_description": str(preview_skill.get("description", "")),
+		"replacement_skill_cooldown": float(preview_skill.get("cooldown", 0.0)),
 		"replacement_skill_icon_path": str(preview_skill.get("icon_texture_path", "")),
+		"replacement_guardian": replacement_guardian,
 	}
 
 
