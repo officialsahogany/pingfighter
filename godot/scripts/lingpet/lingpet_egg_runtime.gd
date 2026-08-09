@@ -1049,6 +1049,8 @@ func set_soul_summon_overflow_available_for_tests(available: bool) -> void:
 
 
 func prewarm_assets() -> void:
+	if _prewarm_assets_complete:
+		return
 	_egg_renderer.prewarm()
 	_afterglow_leak_state.prewarm()
 	_guardian_transition_state.prewarm()
@@ -1056,6 +1058,67 @@ func prewarm_assets() -> void:
 		_companion_renderer.prewarm_assets()
 	_item_egg_absorb_vfx.prewarm()
 	_skill_runtime_host.prewarm_many(_skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host))
+	_prewarm_assets_complete = true
+
+
+var _prewarm_assets_step_index := 0
+var _prewarm_skill_index := 0
+var _prewarm_skill_ids: Array[String] = []
+var _prewarm_assets_complete := false
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_assets_complete:
+		return true
+	match _prewarm_assets_step_index:
+		0:
+			if _egg_renderer != null and _egg_renderer.has_method("prewarm_step"):
+				if not bool(_egg_renderer.prewarm_step()):
+					return false
+			else:
+				_egg_renderer.prewarm()
+		1:
+			if _afterglow_leak_state != null and _afterglow_leak_state.has_method("prewarm_step"):
+				if not bool(_afterglow_leak_state.prewarm_step()):
+					return false
+			else:
+				_afterglow_leak_state.prewarm()
+		2:
+			_guardian_transition_state.prewarm()
+		3:
+			if _companion_renderer != null:
+				_companion_renderer.prewarm_assets()
+		4:
+			_item_egg_absorb_vfx.prewarm()
+		5:
+			if _prewarm_skill_ids.is_empty() and _prewarm_skill_index == 0:
+				for skill_id_value in _skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host):
+					var skill_id := str(skill_id_value)
+					if skill_id != "":
+						_prewarm_skill_ids.append(skill_id)
+			if _prewarm_skill_index < _prewarm_skill_ids.size():
+				_skill_runtime_host.prewarm(_prewarm_skill_ids[_prewarm_skill_index])
+				_prewarm_skill_index += 1
+				return false
+		_:
+			_prewarm_assets_step_index = 0
+			_prewarm_skill_index = 0
+			_prewarm_skill_ids.clear()
+			_prewarm_assets_complete = true
+			return true
+	_prewarm_assets_step_index += 1
+	return false
+
+
+func get_prewarm_assets_debug_label() -> String:
+	return str({
+		0: "egg_textures",
+		1: "afterglow_textures",
+		2: "guardian_transition",
+		3: "companion_renderer",
+		4: "item_egg_absorb",
+		5: "active_skill_%02d" % _prewarm_skill_index,
+	}.get(_prewarm_assets_step_index, "done"))
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_context: Dictionary = {}) -> void:

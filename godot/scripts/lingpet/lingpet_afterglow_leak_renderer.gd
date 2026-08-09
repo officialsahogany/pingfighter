@@ -29,6 +29,15 @@ func prewarm() -> void:
 	_prewarmed = true
 
 
+func prewarm_step() -> bool:
+	if _prewarmed:
+		return true
+	if not AfterglowFluidTextureCache.prewarm_step():
+		return false
+	_prewarmed = true
+	return true
+
+
 func draw_afterglow(
 	canvas: CanvasItem,
 	shake_offset: Vector2,

@@ -396,10 +396,16 @@ func _run_stage_runtime_prewarm_step(
 			mark_stage_clear_result_shell_deferred()
 		9:
 			var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
-			if lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets"):
+			if lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets_step"):
+				if not bool(lingpet_runtime.prewarm_assets_step()):
+					return false
+			elif lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets"):
 				lingpet_runtime.prewarm_assets()
 			var overflow_choice_host: Object = _get_module(module_getter, "lingpet_overflow_choice_overlay_host")
-			if overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets"):
+			if overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets_step"):
+				if not bool(overflow_choice_host.prewarm_assets_step()):
+					return false
+			elif overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets"):
 				overflow_choice_host.prewarm_assets()
 		10:
 			# Lingpet rail card art (the hatched companion's skill card rides every

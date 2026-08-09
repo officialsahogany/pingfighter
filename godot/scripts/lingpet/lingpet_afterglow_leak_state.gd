@@ -155,6 +155,13 @@ func prewarm() -> void:
 	_renderer.prewarm()
 
 
+func prewarm_step() -> bool:
+	if _renderer != null and _renderer.has_method("prewarm_step"):
+		return bool(_renderer.prewarm_step())
+	prewarm()
+	return true
+
+
 func get_snapshot() -> Dictionary:
 	var first_pos := Vector2.ZERO
 	var first_remaining := 0.0

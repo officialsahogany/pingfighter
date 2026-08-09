@@ -3,6 +3,7 @@ extends SceneTree
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 const BattleBootWarmupPlan := preload("res://scripts/core/battle_boot_warmup_plan.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -735,6 +736,7 @@ func _run() -> void:
 	_verify_viper_runtime_node_prewarm()
 	_verify_boot_warmup_detail_label_names_selected_character_module()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
+	_verify_lingpet_staged_prewarm_is_idempotent()
 	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
 	_verify_full_boot_warmup_finishes_without_stalling()
 	_verify_budgeted_boot_warmup_batches_steps_per_frame()
@@ -1196,6 +1198,14 @@ func _verify_boot_warmup_detail_label_names_selected_character_module() -> void:
 	)
 
 
+func _verify_lingpet_staged_prewarm_is_idempotent() -> void:
+	var lingpet_runtime: Object = LingpetEggRuntime.new()
+	lingpet_runtime.set("_prewarm_assets_step_index", 6)
+	_expect(bool(lingpet_runtime.prewarm_assets_step()), "lingpet runtime prewarm should complete after its final staged step")
+	_expect(bool(lingpet_runtime.get("_prewarm_assets_complete")), "lingpet runtime prewarm should retain completion after resetting its cursor")
+	_expect(bool(lingpet_runtime.prewarm_assets_step()), "a later overflow-icon yield must not restart the lingpet runtime prewarm")
+
+
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
 	var resource_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
@@ -1219,7 +1229,9 @@ func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 		"boot resource prewarm should stage lingpet rail-card loading"
 	)
 	_expect(
-		resource_source.find("\"lingpet_runtime\"") >= 0 and resource_source.find("lingpet_runtime.prewarm_assets()") >= 0,
+		resource_source.find("\"lingpet_runtime\"") >= 0
+			and resource_source.find("lingpet_runtime.prewarm_assets_step()") >= 0
+			and resource_source.find("lingpet_runtime.prewarm_assets()") >= 0,
 		"boot resource prewarm should warm lingpet runtime passive VFX assets before the first passive hit"
 	)
 	_expect(

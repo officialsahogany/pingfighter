@@ -44,6 +44,28 @@ static func prewarm() -> void:
 	get_streak_texture()
 
 
+static func prewarm_step() -> bool:
+	if _glow_texture == null:
+		get_glow_texture()
+		return false
+	if _body_texture == null:
+		get_body_texture()
+		return false
+	if _caustic_texture == null:
+		get_caustic_texture()
+		return false
+	if _rim_texture == null:
+		get_rim_texture()
+		return false
+	if _droplet_texture == null:
+		get_droplet_texture()
+		return false
+	if _streak_texture == null:
+		get_streak_texture()
+		return false
+	return true
+
+
 static func get_glow_texture() -> ImageTexture:
 	if _glow_texture == null:
 		_glow_texture = _build_glow_texture()

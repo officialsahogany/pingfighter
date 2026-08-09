@@ -54,6 +54,7 @@ const EGG_CRACK_STAGE_TEXTURE_PATHS := [
 
 var _variant_textures: Array = []
 var _crack_stage_textures: Array = []
+var _prewarm_texture_index := 0
 
 
 func prewarm() -> void:
@@ -63,6 +64,34 @@ func prewarm() -> void:
 	_crack_stage_textures.clear()
 	for crack_path: String in EGG_CRACK_STAGE_TEXTURE_PATHS:
 		_crack_stage_textures.append(_load_egg_texture(crack_path))
+
+
+func prewarm_step() -> bool:
+	var all_paths: Array = EGG_BARE_VARIANT_PATHS + EGG_CRACK_STAGE_TEXTURE_PATHS
+	if _prewarm_texture_index == 0:
+		_variant_textures.clear()
+		_crack_stage_textures.clear()
+	if _prewarm_texture_index >= all_paths.size():
+		_prewarm_texture_index = 0
+		return true
+	var result := ProjectResourceLoader.prewarm_texture_threaded_step(
+		str(all_paths[_prewarm_texture_index]),
+		"",
+		"",
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+		false,
+		true
+	)
+	if not bool(result.get("done", false)):
+		return false
+	var texture := result.get("texture", null) as Texture2D
+	if _prewarm_texture_index < EGG_BARE_VARIANT_PATHS.size():
+		_variant_textures.append(texture)
+	else:
+		_crack_stage_textures.append(texture)
+	_prewarm_texture_index += 1
+	return false
 
 
 func get_variant_count() -> int:
