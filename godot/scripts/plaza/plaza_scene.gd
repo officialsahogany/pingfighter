@@ -14,6 +14,8 @@ const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
 const PlazaInteriorView := preload("res://scripts/plaza/plaza_interior_view.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 const PlazaCharacterInfoOverlayHost := preload("res://scripts/plaza/plaza_character_info_overlay_host.gd")
+const PlazaFlowGatePolicy := preload("res://scripts/plaza/plaza_flow_gate_policy.gd")
+const PlazaStatusSnapshotBuilder := preload("res://scripts/plaza/plaza_status_snapshot_builder.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
@@ -157,6 +159,7 @@ var _plaza_academy_transactions: Object = PlazaAcademyTransactions.new()
 var _plaza_tavern_transactions: Object = PlazaTavernTransactions.new()
 var _runtime_perk_overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
 var _runtime_perk_icon_renderer: Object = RuntimePerkIconRenderer.new()
+var _status_snapshot_builder: Object = PlazaStatusSnapshotBuilder.new()
 var _plaza_save_snapshot: Dictionary = {}
 var _shop_inventory: Array = []
 var _runtime_owner: Object = null
@@ -380,33 +383,33 @@ func handle_plaza_input(event: InputEvent) -> bool:
 
 
 func get_status() -> Dictionary:
+	return _status_snapshot_builder.build(_build_status_snapshot_context())
+
+
+func _build_status_snapshot_context() -> Dictionary:
 	var active_building := _get_interactable_building()
 	var warp_fx_status := _get_warp_pillar_fx_status()
 	var character_info_status := _get_character_info_overlay_status()
 	var interior_status := _get_interior_view_status()
 	return {
+		"flow_gate": _get_flow_gate(),
 		"current_stage": current_stage,
-		"theme_id": str(plaza_theme.get("id", "")),
-		"side_scroll": true,
+		"plaza_theme": plaza_theme,
 		"player_pos": _player_pos,
-		"player_collision_rect": PlazaPlayerController.get_collision_rect(_player_pos),
+		"player_textures": _player_textures,
 		"camera_x": _camera_x,
-		"camera_y": 0.0,
 		"ground_y": GROUND_Y,
 		"world_size": MAP_SIZE,
 		"map_seed": _map_seed,
 		"full_layout_for_test": _full_layout_for_test,
 		"selected_character_type": _selected_character_type,
-		"player_sprite_loaded": bool(_player_textures.get("has_sprite", false)),
-		"player_sprite_mode": "sheet" if bool(_player_textures.get("has_sprite", false)) else "neutral_placeholder",
 		"player_sprite_frame": _get_player_sprite_frame(),
 		"lingpet_companion_visible": _is_lingpet_companion_visible(),
 		"lingpet_companion_pet_id": _lingpet_companion_pet_id,
 		"lingpet_follower_pos": _lingpet_follower_pos,
 		"building_count": _building_specs.size(),
-		"collision_rect_count": 0,
 		"hovered_building_type": _hovered_building_type,
-		"interactable_building_type": str(active_building.get("type", "")),
+		"active_building": active_building,
 		"dialog_text": _dialog_text if _dialog_timer > 0.0 else "",
 		"menu_open": _menu_open,
 		"building_transition_active": _building_transition_active,
@@ -415,11 +418,8 @@ func get_status() -> Dictionary:
 		"plaza_warp_active": _plaza_warp_active,
 		"plaza_warp_phase": _plaza_warp_phase,
 		"plaza_warp_progress": _get_plaza_warp_progress(),
-		"warp_pillar_fx_active": bool(warp_fx_status.get("active", false)),
-		"warp_pillar_fx_actor_count": int(warp_fx_status.get("actor_count", 0)),
-		"character_info_overlay_active": bool(character_info_status.get("active", false)),
-		"character_info_overlay_visible": bool(character_info_status.get("visible", false)),
-		"character_info_overlay_status": character_info_status.duplicate(true),
+		"warp_fx_status": warp_fx_status,
+		"character_info_status": character_info_status,
 		"active_menu_type": _active_menu_type,
 		"active_menu_title": _active_menu_title,
 		"active_menu_subtitle": _active_menu_subtitle,
@@ -427,32 +427,21 @@ func get_status() -> Dictionary:
 		"active_menu_last_message": _active_menu_last_message,
 		"active_menu_visit_ap_consumed": _active_menu_visit_ap_consumed,
 		"interior_view_active": _is_interior_view_active(),
-		"interior_view_status": interior_status.duplicate(true),
-		"interior_room_replaces_plaza": bool(interior_status.get("room_replaces_plaza", false)),
-		"interior_panel_open": bool(interior_status.get("panel_open", false)),
-		"interior_trade_ui_open": bool(interior_status.get("trade_ui_open", false)),
-		"interior_shop_click_animation_active": bool(interior_status.get("shop_click_animation_active", false)),
-		"interior_hovered_object_id": str(interior_status.get("hovered_object_id", "")),
-		"interior_selected_object_id": str(interior_status.get("selected_object_id", "")),
+		"interior_status": interior_status,
 		"interior_npc_texture_loaded": _get_interior_npc_texture(_active_menu_type) != null,
 		"interior_room_texture_loaded": _get_interior_room_texture(_active_menu_type) != null,
-		"interior_object_texture_count": int(interior_status.get("object_texture_count", 0)),
-		"interior_player_inventory_count": int(interior_status.get("player_inventory_count", 0)),
-		"interior_shop_inventory_count": int(interior_status.get("shop_inventory_count", 0)),
-		"last_bank_transaction_summary": _last_bank_transaction_summary.duplicate(true),
-		"last_shop_transaction_summary": _last_shop_transaction_summary.duplicate(true),
-		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary.duplicate(true),
-		"last_gacha_transaction_summary": _last_gacha_transaction_summary.duplicate(true),
-		"last_lingpet_store_transaction_summary": _last_lingpet_store_transaction_summary.duplicate(true),
-		"last_academy_transaction_summary": _last_academy_transaction_summary.duplicate(true),
-		"last_tavern_transaction_summary": _last_tavern_transaction_summary.duplicate(true),
+		"last_bank_transaction_summary": _last_bank_transaction_summary,
+		"last_shop_transaction_summary": _last_shop_transaction_summary,
+		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary,
+		"last_gacha_transaction_summary": _last_gacha_transaction_summary,
+		"last_lingpet_store_transaction_summary": _last_lingpet_store_transaction_summary,
+		"last_academy_transaction_summary": _last_academy_transaction_summary,
+		"last_tavern_transaction_summary": _last_tavern_transaction_summary,
 		"runtime_perk_choice_active": _is_runtime_perk_overlay_active(),
 		"runtime_perk_choice_count": _get_runtime_perk_choice_count(),
 		"runtime_perk_selected_index": _get_runtime_perk_selected_index(),
-		"plaza_gold": int(_plaza_save_snapshot.get("plaza_gold", 0)),
+		"save_snapshot": _plaza_save_snapshot,
 		"shop_inventory_count": _shop_inventory.size(),
-		"ap_current": int(_plaza_save_snapshot.get("ap_current", 0)),
-		"bank_deposit_gold": int(_plaza_save_snapshot.get("bank_deposit_gold", 0)),
 		"tavern_active_quest": _get_tavern_active_quest_summary(),
 		"active_item_slot_count": _get_active_item_slot_count(),
 		"owned_lingpet_count": _get_owned_lingpet_count(),
@@ -461,6 +450,16 @@ func get_status() -> Dictionary:
 		"minimap_state": _build_minimap_state(),
 		"game_rect": get_global_rect(),
 	}
+
+
+func _get_flow_gate() -> StringName:
+	return PlazaFlowGatePolicy.resolve(
+		_is_runtime_perk_overlay_active(),
+		_is_character_info_overlay_active(),
+		_plaza_warp_active,
+		_building_transition_active,
+		_menu_open
+	)
 
 
 func set_plaza_save_path_for_test(path: String) -> void:
