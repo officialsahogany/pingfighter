@@ -315,6 +315,29 @@ func get_player_speed_multiplier() -> float:
 	return clamp(float(player_slow.get("multiplier", 1.0)), 0.0, 1.0)
 
 
+func get_player_stat_breakdown(stat_key: String, _base_value: float = 0.0) -> Array:
+	if stat_key != "player_speed":
+		return []
+	var player_slow: Dictionary = get_status(TARGET_PLAYER, STATUS_SLOW)
+	if player_slow.is_empty():
+		return []
+	return [{
+		"label": _get_player_slow_display_label(player_slow),
+		"icon_id": str(player_slow.get("icon_id", "")),
+		"ratio": clamp(float(player_slow.get("multiplier", 1.0)), 0.0, 1.0),
+	}]
+
+
+func _get_player_slow_display_label(entry: Dictionary) -> String:
+	var explicit_label := str(entry.get("label", "")).strip_edges()
+	if explicit_label != "":
+		return explicit_label
+	match str(entry.get("source", "")):
+		"stage4_magnetic_projectile":
+			return "굴절 자기장"
+	return "둔화"
+
+
 func is_player_reverse_active() -> bool:
 	return has_status(TARGET_PLAYER, STATUS_REVERSE)
 

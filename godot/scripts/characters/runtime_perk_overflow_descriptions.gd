@@ -81,7 +81,7 @@ const CONVERTED_TEMPLATES := {
 		"format": "벽돌 길이 +%s%%, 아이템 쿨타임 %s%% 감소, 벽돌 스폰 +%s%%",
 		"keys": ["wall_length_pct", "item_cooldown_pct", "wall_spawn_bonus_pct"],
 	},
-	"gold_digger": {"format": "골드 획득 +%s%%", "keys": ["gold_bonus_pct"]},
+	"gold_digger": {"format": "골드·일부 기력 획득 +%s%%", "keys": ["gold_bonus_pct"]},
 	"lucky_coin": {"format": "아이템 더블스폰 확률 %s%%", "keys": ["double_spawn_pct"]},
 	"shrapnel_armor": {
 		"format": "발동 %s%%, 파편 %s개, 넉백 Lv.%s, 게이지 %s 소모",

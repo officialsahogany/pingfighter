@@ -1906,6 +1906,46 @@ func get_player_speed_multiplier() -> float:
 	return 1.0 + bonus_pct / 100.0
 
 
+# Character-info stat tooltip soft contract. Passive bonuses are additive in
+# LingpetCurrentProfile, so each row advances the cumulative ratio rather than
+# multiplying independent 1 + pct values (which would overstate two slots).
+func get_player_stat_breakdown(stat_key: String, base_value: float = 0.0) -> Array:
+	if not _is_guardian_summoned():
+		return []
+	var effect_key := ""
+	match stat_key:
+		"player_speed":
+			effect_key = "player_speed_bonus_pct"
+		"gauge_gain":
+			effect_key = "gauge_gain_bonus_pct"
+		_:
+			return []
+	var entries: Array = []
+	var cumulative_pct := 0.0
+	var current_value := maxf(0.0, base_value) if stat_key == "gauge_gain" and base_value > 0.0 else 1.0
+	var source_base := current_value
+	for passive: Dictionary in _profile_runtime_surface.get_passive_skills(_current_profile):
+		var bonus_pct := maxf(0.0, float(passive.get(effect_key, 0.0)))
+		if bonus_pct <= 0.0:
+			continue
+		var before := current_value
+		cumulative_pct += bonus_pct
+		if stat_key == "gauge_gain" and base_value > 0.0:
+			current_value = floor(source_base * (1.0 + cumulative_pct / 100.0))
+		else:
+			current_value = 1.0 + cumulative_pct / 100.0
+		if is_equal_approx(before, current_value):
+			continue
+		entries.append({
+			"label": str(passive.get("name", "수호령 버프")),
+			"icon_id": str(passive.get("id", "")),
+			"before": before,
+			"after": current_value,
+			"ratio": current_value / before if absf(before) > 0.0001 else 1.0,
+		})
+	return entries
+
+
 func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_seconds: float, context: Dictionary = {}) -> Dictionary:
 	if drop.is_empty():
 		return {}

@@ -9,6 +9,7 @@ const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
+const PerkFusionLocalization := preload("res://scripts/characters/perk_fusion_localization.gd")
 const RuntimePerkAngelBlessingProjection := preload("res://scripts/characters/runtime_perk_angel_blessing_projection.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const SmasherDashActiveMotionResolver := preload("res://scripts/characters/smasher_dash_active_motion_resolver.gd")
@@ -17,9 +18,9 @@ const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.g
 # 능력치 툴팁 소스별 증감 내역(breakdown) 상수.
 # 0.5% 미만 기여는 표시하지 않는다 (반올림 시 0%가 되는 줄 방지).
 const BREAKDOWN_MIN_RATIO_DELTA := 0.005
-# stat_sources 기본 배열([퍽, 액티브, 신화, 링펫]) 순서와 짝을 이루는 폴백 라벨.
+# stat_sources 기본 배열([무공, 액티브, 신화, 수호령]) 순서와 짝을 이루는 폴백 라벨.
 # override 소스 배열이 다른 구성이면 측정값은 유지되고 인덱스 라벨로 떨어진다.
-const CHAIN_SOURCE_FALLBACK_LABELS: Array[String] = ["퍽 효과", "액티브 아이템", "신화 아이템", "링펫 버프"]
+const CHAIN_SOURCE_FALLBACK_LABELS: Array[String] = ["무공 효과", "액티브 아이템", "신화 아이템", "수호령 버프"]
 # 체인 스탯별 runtime_perk_state 스텝의 실제 합성 성분
 # (runtime_perk_effective_stat_query_surface 참조):
 # 구동 퍽(1±bonus) × 신비의 주사위(stat_key) × 천사의 축복(buff) 순.
@@ -48,7 +49,7 @@ const CHAIN_ANGEL_KIND_BY_METHOD := {
 # 아이템 소스(블루투스링·골드디거)는 아이템 표시명 로컬라이즈 경로를 쓴다.
 const GAUGE_SOURCE_LABELS := {
 	"combo": "콤보 보너스",
-	"lingpet": "링펫 버프",
+	"lingpet": "수호령 버프",
 	"horn_strawberry": "뿔딸기 변신",
 }
 
@@ -159,27 +160,27 @@ static func build_player_stat_rows(
 		),
 		with_breakdown(
 			delta_stat_row("게이지 획득량", "%dpt" % int(round(gauge_gain)), base_gauge_gain_value, gauge_gain, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_gain", "tooltip_body": "공을 쳐낼 때마다 차오르는 스페셜 게이지의 1회 획득량입니다. 높을수록 스킬 게이지가 빨리 모입니다."}),
-			gauge_breakdown_from_steps(gauge_steps),
+			gauge_breakdown_from_steps(gauge_steps, mythic_item_runtime, lingpet_runtime),
 			include_breakdown
 		),
 		with_breakdown(
 			delta_stat_row("최대 게이지", "%dpt" % int(round(max_gauge)), base_max_gauge_value, max_gauge, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_max", "tooltip_body": "스페셜 게이지의 최대치입니다. 게이지가 가득 차면 강력한 스킬을 사용할 수 있습니다."}),
-			max_gauge_breakdown(runtime_state) if include_breakdown else [],
+			max_gauge_breakdown(runtime_state, mythic_item_runtime, base_max_gauge_value) if include_breakdown else [],
 			include_breakdown
 		),
 		with_breakdown(
 			delta_stat_row("대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "대시 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
-			dash_distance_breakdown(dash_duration_steps, runtime_state, dash_distance_multiplier) if include_breakdown else [],
+			dash_distance_breakdown(dash_duration_steps, runtime_state, mythic_item_runtime, dash_distance_multiplier) if include_breakdown else [],
 			include_breakdown
 		),
 		with_breakdown(
 			delta_stat_row("대시 후딜 시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds_value, dash_recovery_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "delay", "tooltip_body": "대시가 끝난 뒤 다음 행동까지 굳는 시간입니다. 짧을수록 연속 대응이 빨라집니다."}),
-			dash_frames_breakdown_from_steps(dash_recovery_steps, runtime_state, "get_dash_recovery_frames"),
+			dash_frames_breakdown_from_steps(dash_recovery_steps, runtime_state, mythic_item_runtime, "get_dash_recovery_frames"),
 			include_breakdown
 		),
 		with_breakdown(
 			delta_stat_row("대시 재충전", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds_value, dash_cooldown_seconds, false, stat_buff_color, stat_debuff_color).merged({"icon": "recharge", "tooltip_body": "소모한 대시 토큰 1개가 다시 차오르는 데 걸리는 시간입니다. 짧을수록 대시를 자주 쓸 수 있습니다."}),
-			dash_frames_breakdown_from_steps(dash_recharge_steps, runtime_state, "get_dash_recharge_frames"),
+			dash_frames_breakdown_from_steps(dash_recharge_steps, runtime_state, mythic_item_runtime, "get_dash_recharge_frames"),
 			include_breakdown
 		),
 		with_breakdown(
@@ -275,7 +276,12 @@ static func _perk_source_label(runtime_state: Object, perk_id: String) -> String
 			# 퍽 아이콘이 소스가 퍽임을 이미 보여주므로 "(퍽)" 접미사는 중복 —
 			# 아이템 줄(접미사 없음)과 맞춰 퍽 이름만 표기한다.
 			return perk_name
-	return "퍽 효과"
+	return "무공 효과"
+
+
+static func _catalog_perk_label(perk_id: String, fallback: String) -> String:
+	var perk_name := RuntimePerkCatalog.get_perk_display_name(perk_id)
+	return fallback if perk_name == "" else perk_name
 
 
 # 구동 퍽 하나가 만드는 배율 (query surface의 1±bonus 항과 동일 산식).
@@ -330,7 +336,7 @@ static func _append_runtime_perk_chain_entries(entries: Array, runtime_state: Ob
 		_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, dice_key), "mystic_dice")
 	var angel_kind: String = str(CHAIN_ANGEL_KIND_BY_METHOD.get(method_name, ""))
 	if angel_kind != "":
-		_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, angel_kind), "angel_blessing")
+		_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, angel_kind), "angel_blessing")
 
 
 static func _chain_source_label(source: Object, index: int, active_item_runtime: Object, mythic_item_runtime: Object, lingpet_runtime: Object) -> String:
@@ -339,7 +345,7 @@ static func _chain_source_label(source: Object, index: int, active_item_runtime:
 	if source == mythic_item_runtime:
 		return "신화 아이템"
 	if source == lingpet_runtime:
-		return "링펫 버프"
+		return "수호령 버프"
 	if index >= 0 and index < CHAIN_SOURCE_FALLBACK_LABELS.size():
 		return CHAIN_SOURCE_FALLBACK_LABELS[index]
 	return "기타 효과"
@@ -364,6 +370,10 @@ static func stat_chain_breakdown(base_value: float, sources: Array, method_name:
 		var next_value: float = float(result)
 		if source == runtime_state:
 			_append_runtime_perk_chain_entries(entries, runtime_state, method_name)
+		elif source == mythic_item_runtime and source.has_method("get_player_stat_breakdown"):
+			var detailed: Variant = source.get_player_stat_breakdown("item_cooldown", current)
+			if not _append_detailed_breakdown_entries(entries, detailed, "신화 아이템") and absf(current) > 0.0001:
+				_append_ratio_entry(entries, "신화 아이템", next_value / current)
 		elif absf(current) > 0.0001:
 			_append_ratio_entry(entries, _chain_source_label(source, i, active_item_runtime, mythic_item_runtime, lingpet_runtime), next_value / current)
 		current = next_value
@@ -375,13 +385,26 @@ static func stat_chain_breakdown(base_value: float, sources: Array, method_name:
 static func _append_source_multiplier_entries(entries: Array, source: Object, stat_key: String, category_label: String, measured_ratio: float) -> void:
 	if source != null and source.has_method("get_player_stat_breakdown"):
 		var detailed: Variant = source.get_player_stat_breakdown(stat_key)
-		if detailed is Array and not (detailed as Array).is_empty():
-			for entry_value in (detailed as Array):
-				if entry_value is Dictionary:
-					var entry: Dictionary = entry_value
-					_append_ratio_entry(entries, str(entry.get("label", category_label)), maxf(0.0, float(entry.get("ratio", 1.0))), str(entry.get("icon_id", "")))
+		if _append_detailed_breakdown_entries(entries, detailed, category_label):
 			return
 	_append_ratio_entry(entries, category_label, measured_ratio)
+
+
+static func _append_detailed_breakdown_entries(entries: Array, detailed: Variant, category_label: String) -> bool:
+	if not (detailed is Array) or (detailed as Array).is_empty():
+		return false
+	var found_entry := false
+	for entry_value in (detailed as Array):
+		if not (entry_value is Dictionary):
+			continue
+		var entry: Dictionary = entry_value
+		var ratio := maxf(0.0, float(entry.get("ratio", 1.0)))
+		var before := float(entry.get("before", 0.0))
+		if entry.has("after") and absf(before) > 0.0001:
+			ratio = maxf(0.0, float(entry.get("after", before)) / before)
+		_append_ratio_entry(entries, str(entry.get("label", category_label)), ratio, str(entry.get("icon_id", "")))
+		found_entry = true
+	return found_entry
 
 
 # effective_move_speed와 동일한 소스 집합을 실제 합성 성분으로 분해한다
@@ -405,19 +428,19 @@ static func move_speed_breakdown(
 		var base_speed: float = base_move_speed(character_type, character_runtime)
 		var horn_speed: Variant = mythic_item_runtime.get_horn_strawberry_move_speed()
 		if horn_speed != null and base_speed > 0.0001:
-			_append_ratio_entry(entries, "뿔딸기 변신", maxf(0.0, float(horn_speed)) / base_speed)
+			_append_ratio_entry(entries, _catalog_perk_label("horn_strawberry_mask", "혼딸기강신"), maxf(0.0, float(horn_speed)) / base_speed, "horn_strawberry_mask")
 	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_swiftness"), _perk_bonus_ratio(runtime_state, "common_swiftness", false), _perk_icon_id(runtime_state, "common_swiftness"))
 	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "player_speed"), "mystic_dice")
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "move_speed"), "angel_blessing")
+	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "move_speed"), "angel_blessing")
 	if runtime_state != null and runtime_state.has_method("get_perk_fusion_move_speed_multiplier"):
-		_append_ratio_entry(entries, "퍽 융합", maxf(0.0, float(runtime_state.get_perk_fusion_move_speed_multiplier())))
+		_append_ratio_entry(entries, PerkFusionLocalization.byproduct_name("reverb"), maxf(0.0, float(runtime_state.get_perk_fusion_move_speed_multiplier())))
 	if character_type == "smasher" and not transformed:
-		_append_ratio_entry(entries, "리커버리 스킬", float(call_numeric_multiplier.call(smasher_recovery_state, "get_player_speed_multiplier")))
-	_append_ratio_entry(entries, "날씨 이벤트", float(call_numeric_multiplier.call(weather_event_state, "get_player_speed_multiplier")))
-	_append_ratio_entry(entries, "상태이상", float(call_numeric_multiplier.call(status_effect_state, "get_player_speed_multiplier")))
+		_append_ratio_entry(entries, LanguageSettings.translate_text("리커버리 스킬"), float(call_numeric_multiplier.call(smasher_recovery_state, "get_player_speed_multiplier")))
+	_append_source_multiplier_entries(entries, weather_event_state, "player_speed", "날씨 이벤트", float(call_numeric_multiplier.call(weather_event_state, "get_player_speed_multiplier")))
+	_append_source_multiplier_entries(entries, status_effect_state, "player_speed", "상태이상", float(call_numeric_multiplier.call(status_effect_state, "get_player_speed_multiplier")))
 	_append_source_multiplier_entries(entries, active_item_runtime, "player_speed", "액티브 아이템", float(call_numeric_multiplier.call(active_item_runtime, "get_player_speed_multiplier")))
-	_append_ratio_entry(entries, "신화 아이템", float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_speed_multiplier")))
-	_append_ratio_entry(entries, "링펫 버프", float(call_numeric_multiplier.call(lingpet_runtime, "get_player_speed_multiplier")))
+	_append_source_multiplier_entries(entries, mythic_item_runtime, "player_speed", "신화 아이템", float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_speed_multiplier")))
+	_append_source_multiplier_entries(entries, lingpet_runtime, "player_speed", "수호령 버프", float(call_numeric_multiplier.call(lingpet_runtime, "get_player_speed_multiplier")))
 	return entries
 
 
@@ -432,10 +455,10 @@ static func paddle_width_breakdown(
 	var entries: Array = []
 	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_bulk_up"), _perk_bonus_ratio(runtime_state, "common_bulk_up", false), _perk_icon_id(runtime_state, "common_bulk_up"))
 	_append_ratio_entry(entries, "신비의 주사위", _mystic_dice_ratio(runtime_state, "paddle_size"), "mystic_dice")
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "paddle_size"), "angel_blessing")
+	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "paddle_size"), "angel_blessing")
 	var runtime_scale: float = runtime_paddle_scale(runtime_scale_fallback, runtime_state)
 	var mythic_scale: float = float(call_numeric_multiplier.call(mythic_item_runtime, "get_player_paddle_scale"))
-	_append_ratio_entry(entries, "신화 아이템", mythic_scale)
+	_append_source_multiplier_entries(entries, mythic_item_runtime, "paddle_size", "신화 아이템", mythic_scale)
 	var scaled_base_width: float = base_paddle_width * runtime_scale * mythic_scale
 	if active_item_runtime != null and active_item_runtime.has_method("get_player_paddle_width") and scaled_base_width > 0.0001:
 		_append_source_multiplier_entries(
@@ -450,7 +473,7 @@ static func paddle_width_breakdown(
 
 # 실전 게이지 산식 collector 스텝 → 내역 줄 (라벨은 소스 키 매핑;
 # 아이템 소스는 표시명 로컬라이즈).
-static func gauge_breakdown_from_steps(steps: Array) -> Array:
+static func gauge_breakdown_from_steps(steps: Array, _mythic_item_runtime: Object, lingpet_runtime: Object) -> Array:
 	var entries: Array = []
 	for step_value in steps:
 		if not (step_value is Dictionary):
@@ -460,6 +483,10 @@ static func gauge_breakdown_from_steps(steps: Array) -> Array:
 		if absf(before) <= 0.0001:
 			continue
 		var gauge_source: String = str(step.get("source", ""))
+		if gauge_source == "lingpet" and lingpet_runtime != null and lingpet_runtime.has_method("get_player_stat_breakdown"):
+			var detailed: Variant = lingpet_runtime.get_player_stat_breakdown("gauge_gain", before)
+			if _append_detailed_breakdown_entries(entries, detailed, "수호령 버프"):
+				continue
 		_append_ratio_entry(entries, _gauge_step_label(gauge_source), float(step.get("after", 0.0)) / before, _gauge_step_icon_id(gauge_source))
 	return entries
 
@@ -467,9 +494,11 @@ static func gauge_breakdown_from_steps(steps: Array) -> Array:
 static func _gauge_step_label(source: String) -> String:
 	match source:
 		"bluetooth_ring":
-			return LanguageSettings.localize_item_display_name("bluetooth_ring", "블루투스링")
+			return _catalog_perk_label("bluetooth_ring", LanguageSettings.localize_item_display_name("bluetooth_ring", "블루투스링"))
 		"gold_digger":
-			return LanguageSettings.localize_item_display_name("gold_digger", "골드디거")
+			return _catalog_perk_label("gold_digger", LanguageSettings.localize_item_display_name("gold_digger", "골드디거"))
+		"horn_strawberry":
+			return _catalog_perk_label("horn_strawberry_mask", "혼딸기강신")
 	return str(GAUGE_SOURCE_LABELS.get(source, "기타 효과"))
 
 
@@ -483,7 +512,7 @@ static func _gauge_step_icon_id(source: String) -> String:
 
 # 대시 거리: 지속시간 스텝을 실거리 적분(compute_total_dash_distance)으로
 # 환산해 비율화한다 (감속 커브 탓에 지속시간 비율 ≠ 거리 비율).
-static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object, dice_multiplier: float) -> Array:
+static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object, mythic_item_runtime: Object, dice_multiplier: float) -> Array:
 	var entries: Array = []
 	for step_value in duration_steps:
 		if not (step_value is Dictionary):
@@ -494,6 +523,19 @@ static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object
 			continue
 		var after_distance: float = SmasherDashActiveMotionResolver.compute_total_dash_distance(float(step.get("after", 0.0)))
 		var dist_source: String = str(step.get("source", ""))
+		if dist_source == "mythic_item" and mythic_item_runtime != null and mythic_item_runtime.has_method("get_player_stat_breakdown"):
+			var detailed: Variant = mythic_item_runtime.get_player_stat_breakdown("dash_duration", float(step.get("before", 0.0)))
+			if detailed is Array and not (detailed as Array).is_empty():
+				for entry_value in (detailed as Array):
+					if not (entry_value is Dictionary):
+						continue
+					var entry: Dictionary = entry_value
+					var detail_before_distance := SmasherDashActiveMotionResolver.compute_total_dash_distance(float(entry.get("before", 0.0)))
+					if detail_before_distance <= 0.0001:
+						continue
+					var detail_after_distance := SmasherDashActiveMotionResolver.compute_total_dash_distance(float(entry.get("after", 0.0)))
+					_append_ratio_entry(entries, str(entry.get("label", "신화 아이템")), detail_after_distance / detail_before_distance, str(entry.get("icon_id", "")))
+				continue
 		var is_perk_step: bool = dist_source == "perk"
 		var label: String = _perk_source_label(runtime_state, "dash_jump") if is_perk_step else _dash_step_label(dist_source)
 		var icon_id: String = _perk_icon_id(runtime_state, "dash_jump") if is_perk_step else _dash_step_icon_id(dist_source)
@@ -505,7 +547,7 @@ static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object
 # 대시 후딜/재충전: 실전 체인 collector 스텝을 내역 줄로 바꾼다.
 # 퍽 스텝은 성분 분해(구동 퍽 × 주사위 × 천사의 축복), 액티브 스텝은
 # 대시 부스트 아이템 표시명으로 특정한다.
-static func dash_frames_breakdown_from_steps(steps: Array, runtime_state: Object, method_name: String) -> Array:
+static func dash_frames_breakdown_from_steps(steps: Array, runtime_state: Object, mythic_item_runtime: Object, method_name: String) -> Array:
 	var entries: Array = []
 	for step_value in steps:
 		if not (step_value is Dictionary):
@@ -518,6 +560,11 @@ static func dash_frames_breakdown_from_steps(steps: Array, runtime_state: Object
 		var before: float = float(step.get("before", 0.0))
 		if absf(before) <= 0.0001:
 			continue
+		if source == "mythic_item" and mythic_item_runtime != null and mythic_item_runtime.has_method("get_player_stat_breakdown"):
+			var stat_key := "dash_recovery" if method_name == "get_dash_recovery_frames" else "dash_recharge"
+			var detailed: Variant = mythic_item_runtime.get_player_stat_breakdown(stat_key, before)
+			if _append_detailed_breakdown_entries(entries, detailed, "신화 아이템"):
+				continue
 		_append_ratio_entry(entries, _dash_step_label(source), float(step.get("after", 0.0)) / before, _dash_step_icon_id(source))
 	return entries
 
@@ -541,9 +588,11 @@ static func _dash_step_label(source: String) -> String:
 
 # 최대 게이지: 소유자 필드를 여러 주체가 직접 기록하므로 완전 분해는 불가.
 # 직접 측정 가능한 천사의 축복만 특정하고 나머지는 잔여("기타 효과")로 남긴다.
-static func max_gauge_breakdown(runtime_state: Object) -> Array:
+static func max_gauge_breakdown(runtime_state: Object, mythic_item_runtime: Object, base_max_gauge: float) -> Array:
 	var entries: Array = []
-	_append_ratio_entry(entries, "천사의 축복", _angel_ratio(runtime_state, "gauge_max"), "angel_blessing")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_player_stat_breakdown"):
+		_append_detailed_breakdown_entries(entries, mythic_item_runtime.get_player_stat_breakdown("max_gauge", base_max_gauge), "신화 아이템")
+	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "gauge_max"), "angel_blessing")
 	return entries
 
 

@@ -592,6 +592,16 @@ func get_player_speed_multiplier() -> float:
 	return RAIN_SPEED_MULTIPLIER if is_rain_active() else 1.0
 
 
+func get_player_stat_breakdown(stat_key: String, _base_value: float = 0.0) -> Array:
+	if stat_key != "player_speed" or not is_rain_active():
+		return []
+	return [{
+		"label": "비",
+		"icon_id": "",
+		"ratio": RAIN_SPEED_MULTIPLIER,
+	}]
+
+
 func get_fire_base_speed_multiplier() -> float:
 	return FIRE_BASE_SPEED_BOOST if is_fire_active() else 1.0
 

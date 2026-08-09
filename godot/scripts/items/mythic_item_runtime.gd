@@ -1,6 +1,9 @@
 extends RefCounted
 
 const HelperRegistry := preload("res://scripts/items/mythic_item_helper_registry.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimeConstants := preload("res://scripts/items/mythic_item_runtime_constants.gd")
 const ITEM_MEGINGJORD := RuntimeConstants.ITEM_MEGINGJORD
 const BASE_SPECIAL_GAUGE_MAX := RuntimeConstants.BASE_SPECIAL_GAUGE_MAX
@@ -728,6 +731,83 @@ func get_player_paddle_width(base_width: float = PLAYER_BASE_PADDLE_WIDTH) -> fl
 func get_player_paddle_height(base_height: float = PLAYER_BASE_PADDLE_HEIGHT) -> float:
 	_ensure_helpers_ready()
 	return stat_bonus_runtime.get_player_paddle_height(self, base_height)
+
+
+# Character-info stat tooltips use the same soft contract as active items.
+# Converted martial arts intentionally keep their legacy item-runtime owner,
+# so return the actual effect id/name and the exact before -> after step instead
+# of forcing the presenter to infer a source from the owning module.
+func get_player_stat_breakdown(stat_key: String, base_value: float = 0.0) -> Array:
+	_ensure_helpers_ready()
+	var entries: Array = []
+	match stat_key:
+		"player_speed":
+			_append_stat_ratio(entries, "speedboots", "스피드부츠", 1.0 + get_speedboots_speed_bonus_pct() / 100.0)
+			_append_stat_ratio(entries, "hermes_shoes", "헤르메스의 신발", get_hermes_shoes_speed_multiplier())
+			_append_stat_ratio(entries, "gold_bar", "금괴", get_gold_bar_speed_multiplier())
+			_append_stat_ratio(entries, "sage_ring", "현자의 반지", get_sage_ring_speed_multiplier())
+			_append_stat_ratio(entries, "baal_boots", "바알의 부츠", baal_boots_runtime.get_player_speed_multiplier(self, BAAL_BOOTS_CONSTANTS))
+			_append_stat_ratio(entries, "odins_eye", "오딘의 눈", get_odins_eye_move_speed_multiplier())
+		"paddle_size":
+			var paddle_ratio := 1.0
+			var next_paddle_ratio := maxf(0.1, paddle_ratio + get_bulkup_body_size_pct() / 100.0)
+			_append_stat_step(entries, "bulkup", "벌크업슈트", paddle_ratio, next_paddle_ratio)
+			paddle_ratio = next_paddle_ratio
+			next_paddle_ratio = maxf(0.1, paddle_ratio - get_sage_ring_body_penalty_pct() / 100.0)
+			_append_stat_step(entries, "sage_ring", "현자의 반지", paddle_ratio, next_paddle_ratio)
+			paddle_ratio = next_paddle_ratio
+			next_paddle_ratio = paddle_ratio * (1.0 + maxf(0.0, get_horn_strawberry_paddle_size_bonus_pct()))
+			_append_stat_step(entries, "horn_strawberry_mask", "뿔딸기 변신가면", paddle_ratio, next_paddle_ratio)
+		"dash_duration":
+			var duration_frames := maxf(1.0, base_value)
+			var next_duration_frames: float = float(stat_bonus_runtime.get_dash_duration_frames(self, duration_frames))
+			_append_stat_step(entries, "dashgear", "활주기어", duration_frames, next_duration_frames)
+		"dash_recovery":
+			var recovery_frames := maxf(1.0, base_value)
+			var next_recovery_frames: float = float(defense_gear_runtime.get_dash_recovery_frames(self, recovery_frames))
+			_append_stat_step(entries, "spikeboots", "스파이크부츠", recovery_frames, next_recovery_frames)
+		"dash_recharge":
+			var recharge_frames := maxf(1.0, base_value)
+			var next_recharge_frames: float = float(defense_gear_runtime.get_dash_recharge_frames(self, recharge_frames))
+			_append_stat_step(entries, "spikeboots", "스파이크부츠", recharge_frames, next_recharge_frames)
+			recharge_frames = next_recharge_frames
+			next_recharge_frames = recharge_frames * get_odins_eye_dash_cooldown_multiplier()
+			_append_stat_step(entries, "odins_eye", "오딘의 눈", recharge_frames, next_recharge_frames)
+		"item_cooldown":
+			var cooldown_msec := maxf(0.0, base_value)
+			var next_cooldown_msec := cooldown_msec * maxf(0.0, 1.0 - get_master_item_cooldown_reduction_pct() / 100.0)
+			_append_stat_step(entries, "master", "수리공망치", cooldown_msec, next_cooldown_msec)
+			cooldown_msec = next_cooldown_msec
+			next_cooldown_msec = cooldown_msec * maxf(0.0, 1.0 - get_cooltime_active_item_cooldown_reduction_pct() / 100.0)
+			_append_stat_step(entries, "cooltime", "쿨링볼", cooldown_msec, next_cooldown_msec)
+		"max_gauge":
+			var gauge_max := maxf(1.0, base_value if base_value > 0.0 else BASE_SPECIAL_GAUGE_MAX)
+			_append_stat_step(entries, "fuel_pouch", "연료주머니", gauge_max, gauge_max + get_fuel_pouch_gauge_bonus())
+	return entries
+
+
+func _append_stat_ratio(entries: Array, source_id: String, item_korean_name: String, ratio: float) -> void:
+	_append_stat_step(entries, source_id, item_korean_name, 1.0, maxf(0.0, ratio))
+
+
+func _append_stat_step(entries: Array, source_id: String, item_korean_name: String, before: float, after: float) -> void:
+	if is_equal_approx(before, after):
+		return
+	entries.append({
+		"label": _stat_source_display_name(source_id, item_korean_name),
+		"icon_id": source_id,
+		"before": before,
+		"after": after,
+		"ratio": after / before if absf(before) > 0.0001 else 1.0,
+	})
+
+
+func _stat_source_display_name(source_id: String, item_korean_name: String) -> String:
+	if PerkConversionFlags.is_enabled():
+		var perk_name := RuntimePerkCatalog.get_perk_display_name(source_id)
+		if perk_name != "":
+			return perk_name
+	return LanguageSettings.localize_item_display_name(source_id, item_korean_name)
 
 
 func is_spikeboots_equipped() -> bool:

@@ -226,11 +226,14 @@ func _run() -> void:
 
 	# 실전 산식 배선 씰: 게이지=히트 라우터 체인(블루투스링), 대시 재충전=대시
 	# 상태 체인(축지부 배율). HUD가 산식을 재구축하면 이 두 소스가 빠진다.
+	var real_math_conversion_was_enabled := PerkConversionFlags.is_enabled()
+	PerkConversionFlags.debug_set_enabled(true)
 	var real_math_registry := FakeRegistry.new(RuntimePerkState.new(), DashBoostActiveStub.new(), BluetoothRingMythicStub.new())
 	var real_math_stats: Array = overlay._build_stats(owner, real_math_registry)
+	PerkConversionFlags.debug_set_enabled(real_math_conversion_was_enabled)
 	_expect(str(_find_stat(real_math_stats, "기력 획득량").get("value", "")) == "60pt", "TAB vigor gain should route through the real hit chain (bluetooth ring 50→60)")
 	var ring_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "기력 획득량", "블루투스링")
-	_expect(abs(float(ring_entry.get("ratio", 0.0)) - 1.2) < 0.005, "gauge breakdown should name the bluetooth ring as a +20% source")
+	_expect(abs(float(ring_entry.get("ratio", 0.0)) - 1.2) < 0.005, "gauge breakdown should name the converted Bluetooth source as 격기심법 at +20%")
 	_expect(str(_find_stat(real_math_stats, "활주 재충전").get("value", "")) == "2.50초", "TAB glide recharge should include the active dash-boost cooldown multiplier (300f×0.5)")
 	var dash_boost_entry: Dictionary = _stat_breakdown_entry(real_math_stats, "활주 재충전", "축지부")
 	_expect(abs(float(dash_boost_entry.get("ratio", 0.0)) - 0.5) < 0.005, "dash-recharge breakdown should name the dash boost as a -50% source")

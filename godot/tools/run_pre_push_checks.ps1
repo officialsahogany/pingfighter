@@ -48,6 +48,8 @@ if ($Mode -notin @("full", "all", "light", "load")) {
 # add/remove a focused smoke, edit BOTH.
 $focusedSmoke = @(
     "res://tests/character_info_passive_ui_retire_smoke.gd",
+    "res://tests/character_info_chukjisin_haeng_attribution_smoke.gd",
+    "res://tests/character_info_stat_source_attribution_smoke.gd",
     "res://tests/perk_tooltip_dual_panel_smoke.gd",
     "res://tests/perk_status_owned_tooltip_smoke.gd",
     "res://tests/perk_choice_per_card_description_smoke.gd",
