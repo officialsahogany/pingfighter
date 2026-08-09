@@ -63,8 +63,6 @@ env:
     res://tests/perk_status_panel_render_capture_smoke.gd
     res://tests/mythic_reveal_backdrop_smoke.gd
     res://tests/mythic_reveal_render_capture_smoke.gd
-    res://tests/runtime_perk_lingpet_ring_core_upgrade_smoke.gd
-    res://tests/runtime_perk_lingpet_affinity_chip_smoke.gd
     res://tests/perk_conversion_overflow_scaling_smoke.gd
     res://tests/runtime_perk_overflow_description_smoke.gd
     res://tests/perk_polish_amplify_smoke.gd
@@ -100,7 +98,6 @@ env:
     res://tests/stage_debug_picker_runtime_reset_smoke.gd
     res://tests/battle_playfield_effects_drawer_character_gate_smoke.gd
     res://tests/perk_slot_limit_smoke.gd
-    res://tests/active_item_hologram_disk_smoke.gd
     res://tests/mobile_touch_accept_channel_smoke.gd
     res://tests/perk_fusion_state_smoke.gd
     res://tests/perk_fusion_outcome_rules_smoke.gd
@@ -146,7 +143,26 @@ env:
     res://tests/smasher_plasma_playfield_clip_smoke.gd
     res://tests/smasher_plasma_clip_letterbox_pixel_smoke.gd
     res://tests/smasher_plasma_cooldown_tooltip_text_smoke.gd
+    res://tests/pause_menu_audio_controller_owner_smoke.gd
+    res://tests/pause_menu_content_catalog_owner_smoke.gd
+    res://tests/pause_menu_controls_settings_controller_owner_smoke.gd
+    res://tests/pause_menu_display_settings_controller_owner_smoke.gd
+    res://tests/pause_menu_input_command_router_smoke.gd
+    res://tests/pause_menu_language_settings_controller_owner_smoke.gd
+    res://tests/pause_menu_options_renderer_owner_smoke.gd
+    res://tests/pause_menu_overlay_layout_owner_smoke.gd
+    res://tests/pause_menu_pointer_command_router_smoke.gd
+    res://tests/pause_menu_selection_feedback_renderer_owner_smoke.gd
+    res://tests/plaza_status_snapshot_builder_owner_smoke.gd
+    res://tests/lingpet_overflow_guardian_snapshot_builder_owner_smoke.gd
+    res://tests/lingpet_rail_card_surface_builder_owner_smoke.gd
     res://tests/lingpet_egg_runtime_smoke.gd
+    res://tests/lingpet_acquisition_lifecycle_coordinator_owner_smoke.gd
+    res://tests/lingpet_companion_motion_coordinator_refactor_smoke.gd
+    res://tests/lingpet_companion_player_runtime_resolver_smoke.gd
+    res://tests/lingpet_guardian_duration_lifecycle_coordinator_owner_smoke.gd
+    res://tests/lingpet_guardian_enhance_flow_coordinator_owner_smoke.gd
+    res://tests/lingpet_guardian_enhance_presentation_coordinator_owner_smoke.gd
     res://tests/lingpet_egg_crack_capture_smoke.gd
     res://tests/player_socket_glow_smoke.gd
     res://tests/player_socket_part_overlay_smoke.gd
