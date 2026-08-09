@@ -107,12 +107,40 @@ func reset(owner: Object = null, registry: Object = null) -> void:
 	_reset_skill(_mokrin_transform_skill, owner, registry)
 
 
-# Stow is a gameplay cancellation boundary, not a persistence reset. Skill
-# runtime modules own launched projectiles, CC restoration, residual arrays,
-# and loop-audio teardown through cancel()/reset(); the companion skill-state
-# cooldowns live outside this host and are deliberately untouched here.
-func end_for_stow(owner: Object = null, registry: Object = null) -> void:
-	reset(owner, registry)
+# Stow is normally a gameplay cancellation boundary, not a persistence reset.
+# When Nekuring exhausts its duration pool, already-deployed archers and bone
+# barriers become independent field actors and must outlive the companion body.
+# Manual stow and every full reset still clear them through reset().
+func end_for_stow(
+	owner: Object = null,
+	registry: Object = null,
+	preserve_nekuring_deployments: bool = false
+) -> void:
+	if not preserve_nekuring_deployments:
+		reset(owner, registry)
+		return
+	_reset_skill(_hydro_sphere_skill, owner, registry)
+	_reset_skill(_headbutt_skill, owner, registry)
+	_reset_skill(_moon_orbit_skill, owner, registry)
+	_reset_skill(_bubble_trap_skill, owner, registry)
+	_reset_skill(_milk_production_skill, owner, registry)
+	_reset_skill(_milk_shot_skill, owner, registry)
+	_reset_skill(_thunder_orb_skill, owner, registry)
+	_reset_skill(_solar_bolt_skill, owner, registry)
+	_reset_skill(_bomb_surprise_skill, owner, registry)
+	_reset_skill(_gatling_burst_skill, owner, registry)
+	_reset_skill(_dragon_breath_skill, owner, registry)
+	_reset_skill(_dragon_wing_skill, owner, registry)
+	_reset_skill(_ghost_summon_skill, owner, registry)
+	_reset_skill(_soul_clone_skill, owner, registry)
+	_reset_skill(_puppet_grab_skill, owner, registry)
+	_reset_skill(_doll_curse_skill, owner, registry)
+	_reset_skill(_banana_slice_skill, owner, registry)
+	_reset_skill(_wild_roar_skill, owner, registry)
+	_reset_skill(_star_coil_skill, owner, registry)
+	_reset_skill(_gravity_accel_skill, owner, registry)
+	_reset_skill(_dwarf_magic_skill, owner, registry)
+	_reset_skill(_sand_prison_skill, owner, registry)
 
 
 func clear_for_tests(owner: Object = null, registry: Object = null) -> void:
@@ -230,6 +258,28 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_get_mokrin_transform_skill().update(safe_delta, owner, registry, launch_context)
 		_:
 			pass
+
+
+# Duration-expired Nekuring deployments no longer have an active companion
+# skill slot driving them, so keep their own motion/build/combat lifecycles
+# advancing directly until they are destroyed or a full reset occurs.
+func update_persistent_deployments(
+	delta: float,
+	owner: Object,
+	registry: Object = null
+) -> void:
+	var safe_delta := maxf(0.0, delta)
+	if _skeleton_archer_skill != null:
+		_skeleton_archer_skill.update(safe_delta, owner, registry, {})
+	if _bone_barrier_skill != null:
+		_bone_barrier_skill.update(safe_delta, owner, registry, {})
+
+
+func has_persistent_deployments() -> bool:
+	return (
+		_skill_has_visible_effects(_skeleton_archer_skill)
+		or _skill_has_visible_effects(_bone_barrier_skill)
+	)
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger: Object = null) -> void:

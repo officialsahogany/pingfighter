@@ -24,6 +24,7 @@ class FakeAudio:
 
 func _init() -> void:
 	_verify_stow_freezes_progress_and_ends_residuals()
+	_verify_duration_expiry_keeps_nekuring_deployments()
 	_verify_fold_ownership_surface()
 
 	if _failures.is_empty():
@@ -141,6 +142,52 @@ func _verify_stow_freezes_progress_and_ends_residuals() -> void:
 	registry.instances.clear()
 
 
+func _verify_duration_expiry_keeps_nekuring_deployments() -> void:
+	var owner := _make_nekuring_runtime_owner()
+	var registry := Smoke.FakeRegistry.new({})
+	var runtime: Object = LingpetEggRuntime.new()
+	registry.instances["lingpet_egg_runtime"] = runtime
+	_expect(runtime.debug_grant_and_activate_pet("nekuring", owner, false, "", "", registry), "fixture should activate Nekuring")
+	runtime.set_duration_pool_for_tests(0.05, 60.0)
+	var host: Object = runtime.get("_skill_runtime_host") as Object
+	_expect(host.launch("nekuring_skeleton_archer", Vector2(380.0, 680.0), owner, {
+		"registry": registry,
+		"spawn_x": 380.0,
+		"spawn_y": 650.0,
+		"arrow_cooldown": 0.0,
+	}), "fixture should launch a duration-expiry archer")
+	_expect(host.launch("nekuring_bone_barrier", Vector2(380.0, 680.0), owner, {
+		"registry": registry,
+		"barrier_x": 320.0,
+	}), "fixture should launch a duration-expiry bone barrier")
+	host.update(1.21, owner, registry, "nekuring_skeleton_archer", {})
+	var archer_before: Vector2 = (host.get_skeleton_archer_snapshot_for_tests().get("skeleton_archer_archer_positions", []) as Array)[0]
+
+	runtime.update(0.1, owner, registry)
+	_expect(runtime.is_guardian_stowed(), "duration exhaustion should remove Nekuring from the field")
+	_expect(host.get_skeleton_archer_archer_count_for_tests() == 1, "duration exhaustion must preserve Nekuring's summoned archer")
+	_expect(host.get_bone_barrier_barrier_count_for_tests() == 1, "duration exhaustion must preserve Nekuring's installed bone barrier")
+	_expect(host.has_persistent_deployments(), "preserved Nekuring deployments should remain live after duration exhaustion")
+
+	runtime.update(3.1, owner, registry)
+	var archer_snapshot: Dictionary = host.get_skeleton_archer_snapshot_for_tests()
+	var archer_after: Vector2 = (archer_snapshot.get("skeleton_archer_archer_positions", []) as Array)[0]
+	_expect(not archer_after.is_equal_approx(archer_before), "a preserved archer should keep patrolling after Nekuring disappears")
+	_expect(int(archer_snapshot.get("skeleton_archer_arrow_fire_count", 0)) > 0, "a preserved archer should keep firing after Nekuring disappears")
+	var barrier_snapshot: Dictionary = host.get_bone_barrier_snapshot_for_tests()
+	_expect(int(barrier_snapshot.get("bone_barrier_built_count", 0)) == 1, "a preserved bone barrier should finish building after Nekuring disappears")
+	var collision_context: Dictionary = runtime.get_ball_collision_context()
+	_expect(bool(collision_context.get("lingpet_bone_barrier_active", false)), "a preserved bone barrier should remain in the production ball-collision context")
+	var barriers: Array = collision_context.get("lingpet_bone_barrier_barriers", []) as Array
+	_expect(barriers.size() == 1, "post-expiry collision context should expose the preserved bone barrier")
+	if not barriers.is_empty():
+		var barrier: Dictionary = barriers[0] as Dictionary
+		_expect(runtime.notify_lingpet_bone_barrier_hit(int(barrier.get("id", 0)), Vector2(380.0, 738.0), Vector2(0.0, -600.0), true, registry), "the preserved bone barrier should still accept a production collision notification")
+		_expect(host.get_bone_barrier_barrier_count_for_tests() == 0, "a preserved bone barrier should disappear normally when consumed")
+	_cleanup_runtime(runtime)
+	registry.instances.clear()
+
+
 func _verify_fold_ownership_surface() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(source.find("if guardian_summoned:\n\t\t\t_resolve_companion_ball_hit") >= 0, "body-hit callsite should use the summoned fold")
@@ -158,6 +205,21 @@ func _make_runtime_owner() -> Object:
 	owner.owned_lingpet_ids = ["maribo"]
 	owner.owned_ringpet_ids = ["maribo"]
 	owner.lingpet_slots = ["maribo", "", ""]
+	owner.ringpet_slots = owner.lingpet_slots.duplicate()
+	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.lingpet_active_slot_index = 0
+	owner.ringpet_active_slot_index = 0
+	return owner
+
+
+func _make_nekuring_runtime_owner() -> Object:
+	var owner := Smoke.FakeOwner.new()
+	owner.ai_mode = "champion"
+	owner.lingpet_owned_pet_ids = ["nekuring"]
+	owner.owned_lingpet_ids = ["nekuring"]
+	owner.owned_ringpet_ids = ["nekuring"]
+	owner.lingpet_slots = ["nekuring", "", ""]
 	owner.ringpet_slots = owner.lingpet_slots.duplicate()
 	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
 	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()

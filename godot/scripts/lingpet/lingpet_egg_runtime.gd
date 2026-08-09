@@ -514,6 +514,8 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		sample_start = _perf_probe.begin(perf_logger)
 		if guardian_summoned:
 			_update_companion_skill_effects(delta, owner, registry)
+		else:
+			_skill_runtime_host.update_persistent_deployments(delta, owner, registry)
 		_perf_probe.end(perf_logger, "physics.lingpet.skill_effects", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		if guardian_summoned:
@@ -1047,8 +1049,9 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 				body_skill_id
 			):
 				_draw_companion(canvas, _companion_pos + shake_offset)
-			_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))
 			_afterglow_leak_state.draw(canvas, shake_offset)
+		if _is_guardian_summoned() or _skill_runtime_host.has_visible_effects():
+			_skill_runtime_host.draw(canvas, shake_offset, _perf_probe.get_draw_logger(_draw_context))
 		# The lingpet BODY (egg sprite / companion sprite) is intentionally NOT drawn
 		# here. It renders earlier, BEHIND the player, via draw_lingpet_body_behind_actors()
 		# (invoked from the shared player actor renderer). Keeping it out of this
@@ -1237,7 +1240,10 @@ func notify_mokrin_transform_player_guard(registry: Object = null) -> void:
 
 
 func get_ball_collision_context() -> Dictionary:
-	var runtime_state := STATE_COMPANION if _is_guardian_summoned() else STATE_NONE
+	var runtime_state := STATE_COMPANION if (
+		_is_guardian_summoned()
+		or _skill_runtime_host.has_persistent_deployments()
+	) else STATE_NONE
 	return _skill_runtime_surface.get_ball_collision_context(runtime_state, STATE_COMPANION, _skill_runtime_host)
 
 
@@ -3651,7 +3657,7 @@ func _advance_duration_pool(
 		_is_guardian_duration_draining()
 	)
 	if bool(result.get("expired", false)):
-		_set_guardian_stowed(true, owner, registry, true)
+		_set_guardian_stowed(true, owner, registry, true, _pet_id == "nekuring")
 	var warning_stage := _get_duration_warning_stage()
 	if warning_stage > _duration_warning_stage:
 		_audio_dispatcher.play_lingpet_duration_warning(registry, warning_stage)
@@ -3683,7 +3689,8 @@ func _set_guardian_stowed(
 	stowed: bool,
 	owner: Object,
 	registry: Object,
-	forced: bool = false
+	forced: bool = false,
+	preserve_nekuring_deployments: bool = false
 ) -> bool:
 	if forced:
 		var interrupted_transition: bool = bool(_guardian_transition_state.is_active())
@@ -3693,7 +3700,7 @@ func _set_guardian_stowed(
 		_guardian_stowed = stowed
 		_guardian_active_elapsed = 0.0
 		if stowed:
-			_end_guardian_runtime_for_stow(owner, registry)
+			_end_guardian_runtime_for_stow(owner, registry, preserve_nekuring_deployments)
 			_ghost_blink_vfx.trigger_vanish(_companion_pos)
 		else:
 			_ghost_blink_vfx.trigger_appear(_companion_pos)
@@ -3744,13 +3751,17 @@ func _is_guardian_duration_draining() -> bool:
 	return _is_guardian_summoned() or _guardian_transition_state.is_summoning()
 
 
-func _end_guardian_runtime_for_stow(owner: Object, registry: Object) -> void:
+func _end_guardian_runtime_for_stow(
+	owner: Object,
+	registry: Object,
+	preserve_nekuring_deployments: bool = false
+) -> void:
 	# Stop preparation without touching the preserved cooldown values.
 	_companion_skill_persistence.cancel_windups(_companion_skill_states)
 	# Every launched skill owns its own projectile/residue arrays, CC restoration,
 	# and loop audio cancellation. This host boundary intentionally does not own
 	# the skill-state cooldowns.
-	_skill_runtime_host.end_for_stow(owner, registry)
+	_skill_runtime_host.end_for_stow(owner, registry, preserve_nekuring_deployments)
 	# Non-active-skill companion effects need the same explicit teardown. Do not
 	# call broad companion resets here: those reset defense decision timers and
 	# per-opportunity roll locks, enabling stow/resummon reroll farming.
