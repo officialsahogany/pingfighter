@@ -2,6 +2,7 @@ extends SceneTree
 
 const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetProfileRuntimeSurface := preload("res://scripts/lingpet/lingpet_profile_runtime_surface.gd")
 
 var _failures: Array[String] = []
@@ -53,11 +54,39 @@ class NoMethodProfile:
 	extends RefCounted
 
 
+class ProjectionProfile:
+	extends RefCounted
+
+	func get_gauge_gain_bonus_pct(_fallback: float) -> float:
+		return 25.0
+
+	func get_player_speed_bonus_pct(_fallback: float) -> float:
+		return 15.0
+
+	func get_passive_skills() -> Array[Dictionary]:
+		return [
+			{
+				"id": "speed_and_gauge_a",
+				"name": "첫 번째 수호령 버프",
+				"player_speed_bonus_pct": 10.0,
+				"gauge_gain_bonus_pct": 10.0,
+			},
+			{
+				"id": "speed_and_gauge_b",
+				"name": "두 번째 수호령 버프",
+				"player_speed_bonus_pct": 5.0,
+				"gauge_gain_bonus_pct": 5.0,
+			},
+		]
+
+
 func _init() -> void:
 	_verify_profile_runtime_surface_forwards_profile_values()
 	_verify_profile_runtime_surface_fallbacks()
 	_verify_real_profile_second_passive_surface_and_effect_level()
 	_verify_runtime_surface_cache_reuses_stable_profile()
+	_verify_derived_player_stat_projection()
+	_verify_runtime_derived_stat_facades()
 
 	if _failures.is_empty():
 		print("lingpet_profile_runtime_surface_smoke: ok")
@@ -183,6 +212,114 @@ func _verify_runtime_surface_cache_reuses_stable_profile() -> void:
 	profile.set_loadout("maribo_hydro_sphere", "lingpet_resonance_boost", 1, 2)
 	surface.build_runtime_surface(profile, 1, 100.0, 44.0, 40.0)
 	_expect_eq(surface.get_runtime_surface_build_count_for_tests(), 2, "profile metadata changes should invalidate the runtime surface cache")
+
+
+func _verify_derived_player_stat_projection() -> void:
+	var surface := LingpetProfileRuntimeSurface.new()
+	var profile := ProjectionProfile.new()
+	_expect_float(
+		surface.apply_gauge_gain_per_hit(profile, true, 50.0),
+		62.0,
+		"active guardian gauge projection should floor the profile-wide bonus"
+	)
+	_expect_float(
+		surface.apply_gauge_gain_per_hit(profile, false, 50.0),
+		50.0,
+		"inactive guardian should not change gauge gain"
+	)
+	_expect_float(
+		surface.get_player_speed_multiplier(profile, true),
+		1.15,
+		"active guardian speed projection should expose the profile-wide multiplier"
+	)
+	_expect_float(
+		surface.get_player_speed_multiplier(profile, false),
+		1.0,
+		"inactive guardian should not change player speed"
+	)
+	var speed_entries: Array = surface.build_player_stat_breakdown(
+		profile,
+		true,
+		"player_speed"
+	)
+	_expect_eq(speed_entries.size(), 2, "speed breakdown should retain both contributing passives")
+	_expect_float(float((speed_entries[0] as Dictionary).get("before", 0.0)), 1.0, "speed breakdown should start at the neutral multiplier")
+	_expect_float(float((speed_entries[0] as Dictionary).get("after", 0.0)), 1.1, "first speed row should add ten percent")
+	_expect_float(float((speed_entries[1] as Dictionary).get("after", 0.0)), 1.15, "second speed row should use the cumulative fifteen percent")
+	var gauge_entries: Array = surface.build_player_stat_breakdown(
+		profile,
+		true,
+		"gauge_gain",
+		50.0
+	)
+	_expect_eq(gauge_entries.size(), 2, "gauge breakdown should retain both contributing passives")
+	_expect_float(float((gauge_entries[0] as Dictionary).get("after", 0.0)), 55.0, "first gauge row should floor from the original base")
+	_expect_float(float((gauge_entries[1] as Dictionary).get("after", 0.0)), 57.0, "second gauge row should keep cumulative floor semantics")
+	_expect(
+		surface.build_player_stat_breakdown(profile, false, "player_speed").is_empty(),
+		"inactive guardian breakdown should stay empty"
+	)
+	_expect(
+		surface.build_player_stat_breakdown(profile, true, "unsupported").is_empty(),
+		"unsupported stat breakdown should stay empty"
+	)
+
+
+func _verify_runtime_derived_stat_facades() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var surface_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_profile_runtime_surface.gd")
+	_expect(runtime_source.find("_profile_runtime_surface.apply_gauge_gain_per_hit(") >= 0, "gauge facade should delegate derived math")
+	_expect(runtime_source.find("_profile_runtime_surface.get_player_speed_multiplier(") >= 0, "speed facade should delegate derived math")
+	_expect(runtime_source.find("_profile_runtime_surface.build_player_stat_breakdown(") >= 0, "stat-breakdown facade should delegate projection")
+	_expect(runtime_source.find("for passive: Dictionary in _profile_runtime_surface.get_passive_skills") == -1, "egg runtime should not retain passive breakdown assembly")
+	_expect(surface_source.find("func apply_gauge_gain_per_hit") >= 0, "profile surface should own gauge derivation")
+	_expect(surface_source.find("func get_player_speed_multiplier") >= 0, "profile surface should own speed derivation")
+	_expect(surface_source.find("func build_player_stat_breakdown") >= 0, "profile surface should own stat breakdown projection")
+
+	var inactive_runtime := LingpetEggRuntime.new()
+	_expect_float(inactive_runtime.get_gauge_gain_per_hit(50.0), 50.0, "inactive runtime gauge facade should keep the base")
+	_expect_float(inactive_runtime.get_player_speed_multiplier(), 1.0, "inactive runtime speed facade should stay neutral")
+	_expect(inactive_runtime.get_player_stat_breakdown("player_speed").is_empty(), "inactive runtime breakdown should stay empty")
+
+	var tailwind_runtime := LingpetEggRuntime.new()
+	_expect(
+		tailwind_runtime.debug_grant_and_activate_pet(
+			"maribo",
+			null,
+			false,
+			"maribo_hydro_sphere",
+			"lingpet_tailwind_steps",
+			null,
+			1,
+			3
+		),
+		"runtime facade fixture should activate a Lv.3 Tailwind guardian"
+	)
+	_expect_float(tailwind_runtime.get_player_speed_multiplier(), 1.10, "runtime speed facade should preserve Lv.3 Tailwind scaling")
+	var tailwind_entries: Array = tailwind_runtime.get_player_stat_breakdown("player_speed")
+	_expect_eq(tailwind_entries.size(), 1, "runtime speed breakdown should expose the equipped passive")
+	if not tailwind_entries.is_empty():
+		_expect_eq(str((tailwind_entries[0] as Dictionary).get("label", "")), "순풍 발산", "runtime speed breakdown should keep the catalog label")
+
+	var resonance_runtime := LingpetEggRuntime.new()
+	_expect(
+		resonance_runtime.debug_grant_and_activate_pet(
+			"maribo",
+			null,
+			false,
+			"maribo_hydro_sphere",
+			"lingpet_resonance_boost",
+			null,
+			1,
+			3
+		),
+		"runtime facade fixture should activate a Lv.3 Resonance guardian"
+	)
+	_expect_float(resonance_runtime.get_gauge_gain_per_hit(50.0), 55.0, "runtime gauge facade should preserve Lv.3 Resonance flooring")
+	var resonance_entries: Array = resonance_runtime.get_player_stat_breakdown("gauge_gain", 50.0)
+	_expect_eq(resonance_entries.size(), 1, "runtime gauge breakdown should expose the equipped passive")
+	if not resonance_entries.is_empty():
+		_expect_float(float((resonance_entries[0] as Dictionary).get("after", 0.0)), 55.0, "runtime gauge breakdown should match effective gain")
 
 
 func _expect(condition: bool, message: String) -> void:

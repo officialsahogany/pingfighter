@@ -716,6 +716,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/resonance_egg_base_crack_2.png"), "legacy neutral second-crack resonance egg should stay on disk for rollback/reference")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "legacy Maribo egg art should stay on disk for reference even after the shared resonance egg repoint")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var enhance_flow_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_guardian_enhance_flow_coordinator.gd")
+	var motion_coordinator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_coordinator.gd")
 	var round_resetter_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_round_resetter.gd")
 	_expect(runtime_source.find("LINGPET_EGG_TEXTURE") < 0, "field egg rendering should not hard-preload the shared egg PNGs")
 	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
@@ -776,7 +778,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("LingpetEffectTextResolver.resolve") >= 0, "egg runtime should delegate owner-facing effect text selection to the effect-text resolver")
 	_expect(runtime_source.find("func _get_effect_text") < 0, "egg runtime should not keep a single-use effect-text wrapper")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_guardian_run_context_coordinator.gd"), "lingpet affinity context coordinator module should exist")
-	_expect(runtime_source.find("_guardian_run_context_coordinator.configure") >= 0, "egg runtime should call the affinity coordinator directly for reward-context composition")
+	_expect(runtime_source.find("_guardian_enhance_flow.configure") >= 0, "egg runtime should configure the Guardian Enhancement flow owner once")
+	_expect(enhance_flow_source.find("_guardian_run_context_coordinator.configure") >= 0, "Guardian Enhancement flow owner should compose its reward context through the affinity coordinator")
 	_expect(current_pet_transition_source.find("sync_current_profile") >= 0 and current_loadout_applier_source.find("sync_current_profile") >= 0, "current-pet transition and current-loadout applier should own current-profile affinity projection")
 	_expect(runtime_source.find("func _configure_affinity_reward_context") < 0, "egg runtime should not keep a reward-context configuration pass-through wrapper")
 	_expect(runtime_source.find("func _sync_current_profile_affinity") < 0, "egg runtime should not keep a current-profile affinity sync pass-through wrapper")
@@ -806,6 +809,11 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(save_restore_source.find("active_pet_id") >= 0 and save_restore_source.find("battle_slot_pet_ids") >= 0, "save-restore planner should preserve active pet and battle slot interpretation")
 	_expect(runtime_source.find("lingpet_companion_body_hit_state.gd") >= 0, "egg runtime should delegate companion body hit bounce/gauge state to the body-hit module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_player_runtime_resolver.gd"), "cached player-runtime resolver should exist")
+	var player_runtime_resolver_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_player_runtime_resolver.gd")
+	_expect(runtime_source.find("LingpetCompanionPlayerRuntimeResolver") >= 0 and runtime_source.find("_companion_player_runtime_resolver") >= 0, "egg runtime should construct the player-runtime resolver once")
+	_expect(player_runtime_resolver_source.find("get_cached_instance") >= 0 and player_runtime_resolver_source.find("get_instance(") < 0, "player-runtime resolver should preserve cached-only hot-path lookup")
+	_expect(player_runtime_resolver_source.find("smasher_overdrive_state") >= 0 and player_runtime_resolver_source.find("smasher_dash_state") >= 0 and player_runtime_resolver_source.find("viper_skill_runtime") >= 0, "player-runtime resolver should own mount, dash, and guard arbitration keys")
 	_expect(not FileAccess.file_exists("res://scripts/lingpet/lingpet_" + "feed_controller.gd"), "retired feeding controller should be physically removed")
 	_expect(runtime_source.find("_" + "feed_controller") < 0 and runtime_source.find("func " + "feed_lingpet") < 0, "egg runtime must expose no retired feeding path")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd"), "companion body presence resolver module should exist")
@@ -822,7 +830,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("lingpet_ring_dash_state.gd") >= 0, "egg runtime should delegate the Ring Dash emergency guard passive to a focused state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_ring_dash_state.gd"), "Ring Dash passive state module should exist")
 	_expect(runtime_source.find("func _play_ring_dash_audio") < 0, "egg runtime should not keep a single-use Ring Dash audio wrapper")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "egg runtime should dispatch Ring Dash audio directly from the dash-start event")
+	_expect(runtime_source.find("lingpet_companion_motion_coordinator.gd") >= 0, "egg runtime should delegate cross-feature companion motion priority to the motion coordinator")
+	_expect(motion_coordinator_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "motion coordinator should dispatch Ring Dash audio directly from the dash-start event")
 	_expect(runtime_source.find("lingpet_companion_motion_state.gd") >= 0, "egg runtime should delegate companion patrol/defense motion to the motion-state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_motion_state.gd"), "companion motion-state module should exist")
 	_expect(runtime_source.find("func _reset_companion_defense") < 0, "egg runtime should not keep a single-use companion defense reset wrapper")
@@ -860,23 +869,25 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_source.find("CUTIN_ANIM_ROWS := 4") >= 0, "cut-in host should default to the 8x4 / 32-frame acquisition Live2D sheet contract")
 	_expect(cutin_host_source.find("CUTIN_ANIM_FRAMES := 32") >= 0, "cut-in host should default to the 32-frame acquisition Live2D sheet contract")
 	_expect(
-		cutin_host_source.find("\"maribo\": 4") >= 0
-		and cutin_host_source.find("\"maribo\": 16") >= 0,
-		"Maribo's legacy 4x4 / 16-frame acquisition cut-in should stay protected by an explicit override"
+		cutin_host_source.find("\"maribo\": 7") >= 0
+		and cutin_host_source.find("\"maribo\": 49") >= 0
+		and cutin_host_source.find("\"maribo\": 24.0") >= 0,
+		"Maribo's Hwangyeokjeon acquisition cut-in should use the shared 7x7 / 49-frame / 24fps roster contract"
 	)
 	_expect(cutin_host_source.find("CUTIN_ANIM_SHEET") >= 0, "cut-in host should reference the Live2D-style animation sheet")
 	_expect(cutin_host_source.find("draw_texture_rect_region") >= 0, "cut-in host should frame-step the animation sheet")
-	_expect(cutin_host_source.find("RESTORE_VOXEL_COLS") >= 0, "cut-in host should assemble Maribo from a virtual data-fragment grid")
-	_expect(cutin_host_source.find("_draw_voxel_assembly") >= 0, "cut-in host should fly code-data shards into the final Live2D cut-in")
-	_expect(cutin_host_source.find("_draw_holo_ghost") >= 0, "cut-in host should densify a chromatic hologram as the data shards assemble")
-	_expect(cutin_host_source.find("_draw_scanline_print") >= 0, "cut-in host should solidify the restored art with a scan-printer sweep")
-	# The shards/bevels must build only over Maribo's baked silhouette (not the
+	_expect(cutin_host_source.find("RESTORE_VOXEL_COLS") >= 0, "cut-in host should assemble Maribo from a bounded talisman-fragment grid")
+	_expect(cutin_host_source.find("_draw_paper_fragment_assembly") >= 0, "cut-in host should fly talisman-paper scraps into the final Live2D cut-in")
+	_expect(cutin_host_source.find("_draw_spirit_ink_ghost") >= 0, "cut-in host should condense a jade ink-spirit silhouette as the scraps assemble")
+	_expect(cutin_host_source.find("_draw_brush_seal_reveal") >= 0, "cut-in host should solidify the restored art with a warm brush-seal sweep")
+	# The scraps/edges must build only over Maribo's baked silhouette (not the
 	# transparent frame padding), gated by the manifest occupancy mask.
 	_expect(cutin_host_source.find("reconstruction_frame0") >= 0, "cut-in host should read the baked frame-0 alpha occupancy (silhouette, not a box)")
-	_expect(cutin_host_source.find("_cell_visible") >= 0, "cut-in host should skip empty silhouette cells when assembling the data shards")
+	_expect(cutin_host_source.find("_cell_visible") >= 0, "cut-in host should skip empty silhouette cells when assembling the talisman scraps")
 	var cutin_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json")
 	_expect(cutin_manifest_source.find("reconstruction_frame0") >= 0, "cut-in manifest should bake the per-cell frame-0 occupancy + alpha bbox the reconstruction reads")
-	_expect(cutin_host_source.find("_draw_data_restore_stream") >= 0, "cut-in host should draw loose coding-data bits before the cut-in fully restores")
+	_expect(cutin_host_source.find("_draw_talisman_fragment_stream") >= 0, "cut-in host should draw loose talisman-paper fragments before the cut-in fully restores")
+	_expect(cutin_host_source.find("_draw_code_glyph_stream") < 0, "cut-in host should not retain the old binary/hex glyph stream")
 	_expect(cutin_host_source.find("_draw_restoring_texture") >= 0, "cut-in host should gate the final texture through the restoration reveal")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"), "Maribo acquisition cut-in should record its AutoSprite + Real-ESRGAN provenance")
 	_expect(cutin_host_source.find("_draw_art_static") >= 0, "cut-in host should keep the smooth static-art primary path")
@@ -884,8 +895,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_source.find("_draw_dismiss_action") >= 0, "cut-in host should draw the click-triggered exit action")
 	_expect(cutin_host_source.find("CUTIN_DISMISS_SHEET") >= 0, "cut-in host should play the spear-raise + water-spray exit sheet")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png"), "Maribo cut-in should ship the exit-action (spear-raise + water-spray) sheet")
-	_expect(cutin_host_source.find("func _draw_portal_quad") >= 0 and cutin_host_source.find("draw_colored_polygon") >= 0, "cut-in host should rotate the painted resonance portal with textured quads")
-	_expect(cutin_host_source.find("_draw_resonance_bg") < cutin_host_source.find("func _draw_portal_quad"), "cut-in host should keep the portal-quad helper near the resonance background draw path")
+	_expect(cutin_host_source.find("func _draw_portal_quad") >= 0 and cutin_host_source.find("draw_colored_polygon") >= 0, "cut-in host should rotate the painted Hwangyeok ritual seal with textured quads")
+	_expect(cutin_host_source.find("_draw_resonance_bg") < cutin_host_source.find("func _draw_portal_quad"), "cut-in host should keep the portal-quad helper near the ritual background draw path")
 	_expect(runtime_source.find("is_acquire_cutin_active") >= 0, "lingpet runtime should expose the acquisition cut-in active flag")
 	_expect(runtime_source.find("lingpet_acquire_cutin_state.gd") >= 0, "lingpet runtime should delegate cut-in timing state to the acquire-cutin state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_acquire_cutin_state.gd"), "lingpet acquire cut-in state module should exist")
@@ -896,10 +907,14 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("begin_acquire_cutin_dismiss") >= 0, "lingpet runtime should start the click-triggered exit action")
 	_expect(runtime_source.find("func _get_current_acquire_cutin_dismiss_seconds") < 0, "lingpet runtime should not reintroduce the single-use acquisition dismiss-duration wrapper")
 	_expect(runtime_source.find("var _acquire_cutin_pet_id") < 0, "lingpet runtime should not keep raw acquire-cutin display identity state")
-	_expect(runtime_source.find("_acquire_cutin_state.get_display_pet_id") >= 0 and runtime_source.find("_acquire_cutin_state.has_display_override") >= 0, "lingpet runtime should ask acquire-cutin state for display identity")
+	var acquisition_lifecycle_source: String = FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd"
+	)
+	_expect(runtime_source.find("LingpetAcquisitionLifecycleCoordinator") >= 0 and runtime_source.find("_acquisition_lifecycle.configure") >= 0, "lingpet runtime should configure the acquisition lifecycle owner")
+	_expect(acquisition_lifecycle_source.find("_acquire_cutin_state.get_display_pet_id") >= 0 and acquisition_lifecycle_source.find("_acquire_cutin_state.has_display_override") >= 0, "acquisition lifecycle owner should resolve cut-in display identity")
 	for cutin_identity_wrapper in ["func _get_cutin_pet_id", "func _get_cutin_profile"]:
 		_expect(runtime_source.find(cutin_identity_wrapper) < 0, "lingpet runtime should resolve acquire-cutin display identity at the call site instead of keeping private wrappers (%s)" % cutin_identity_wrapper)
-	_expect(runtime_source.find("cutin_dismiss_seconds") >= 0 and runtime_source.find("LingpetAcquireCutinState.DISMISS_SECONDS") >= 0, "lingpet runtime should allow pet-specific acquisition click-dismiss duration tuning")
+	_expect(acquisition_lifecycle_source.find("cutin_dismiss_seconds") >= 0 and acquisition_lifecycle_source.find("LingpetAcquireCutinState.DISMISS_SECONDS") >= 0, "acquisition lifecycle owner should allow pet-specific click-dismiss duration tuning")
 	_expect(runtime_source.find("is_acquire_cutin_dismissing") >= 0, "lingpet runtime should expose the exit-action (dismissing) state")
 	_expect(runtime_source.find("get_acquire_cutin_dismiss_progress") >= 0, "lingpet runtime should expose the exit-action progress for the host")
 	var acquire_cutin_state_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
@@ -938,8 +953,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	var cutin_host_dynamic_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 	_expect(cutin_host_dynamic_source.find("LingpetCatalog.get_visual_path") >= 0, "lingpet acquisition cut-in host should resolve art through the hatched pet catalog entry")
 	_expect(cutin_host_dynamic_source.find("_get_runtime_pet_id") >= 0, "lingpet acquisition cut-in host should read the hatched pet id from runtime instead of staying Maribo-only")
-	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FRAMES_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 32") >= 0, "Red Dragon acquisition cut-in should use its 32-frame per-pet playback override")
-	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FPS_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 16.0") >= 0, "Red Dragon acquisition cut-in should keep a 2-second loop with 32 frames at 16fps")
+	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FRAMES_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 49") >= 0, "Red Dragon acquisition cut-in should use the shared 49-frame Hwangyeokjeon playback override")
+	_expect(cutin_host_dynamic_source.find("CUTIN_ANIM_FPS_OVERRIDES") >= 0 and cutin_host_dynamic_source.find("\"red_dragon\": 24.0") >= 0, "Red Dragon acquisition cut-in should use the shared 24fps Hwangyeokjeon loop")
 	_expect(cutin_host_dynamic_source.find("cutin_anim_view_h_ratio") >= 0 and cutin_host_dynamic_source.find("cutin_dismiss_view_h_ratio") >= 0, "Red Dragon acquisition cut-in should support per-pet visual-size matching through catalog layout ratios")
 	_expect(
 		cutin_host_dynamic_source.find("cutin_dismiss_action_portion") >= 0
@@ -950,7 +965,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
 	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
 	_expect(cutin_host_dynamic_source.find("Boot warmup must stay lightweight") >= 0, "boot prewarm should avoid decoding every lingpet cut-in texture at Stage 1 loading")
-	_expect(runtime_source.find("_acquire_cutin_asset_prewarm_state.prewarm_registry_step") >= 0, "lingpet runtime should delegate acquire cut-in registry host resolution to the asset-prewarm owner")
+	_expect(runtime_source.find("_acquisition_lifecycle.prewarm_registry_step") >= 0, "lingpet runtime should delegate acquire cut-in prewarm ticking to the acquisition lifecycle owner")
+	_expect(acquisition_lifecycle_source.find("_asset_prewarm_state.prewarm_registry_step") >= 0, "acquisition lifecycle owner should delegate registry host resolution to the asset-prewarm owner")
 	for prewarm_wrapper in ["func _prewarm_acquire_cutin_assets_step", "func _prewarm_item_egg_cutin_assets_step"]:
 		_expect(runtime_source.find(prewarm_wrapper) < 0, "lingpet runtime should not keep private acquire cut-in asset-prewarm wrappers (%s)" % prewarm_wrapper)
 	var boot_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_assets_step")
@@ -982,10 +998,10 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(acquisition_audio_source.find("LingpetAcquireCutinSfx") >= 0, "acquisition audio owner should create a dedicated player for the lingpet acquisition cut-in sound")
 	_expect(acquisition_audio_source.find("func ensure_player") >= 0, "acquisition audio owner should lazily recover the lingpet acquisition SFX player if setup did not create it")
 	_expect(game_audio_source.find("play_lingpet_acquire_cutin") >= 0, "GameAudio should expose a lingpet acquisition cut-in play method")
-	_expect(runtime_source.find("play_lingpet_acquire_cutin") >= 0, "lingpet runtime should request the acquisition cut-in sound when the screen starts")
+	_expect(acquisition_lifecycle_source.find("play_lingpet_acquire_cutin") >= 0, "acquisition lifecycle owner should request the cut-in sound when the screen starts")
 	_expect(runtime_source.find("func _play_acquire_cutin_audio") < 0, "lingpet runtime should not keep a single-use acquisition cut-in audio wrapper")
 	_expect(runtime_source.find("func _start_acquire_cutin") < 0, "lingpet runtime should not keep a single-use acquisition cut-in start wrapper")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "lingpet runtime should dispatch acquisition cut-in audio directly from the cut-in start event")
+	_expect(acquisition_lifecycle_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "acquisition lifecycle owner should dispatch cut-in audio directly from the start event")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"), "lingpet acquisition click Live2D should ship the deep bass doom backing SFX in the lingpet sound asset folder")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"), "lingpet acquisition click Live2D should ship the magic crackle sweep backing SFX in the lingpet sound asset folder")
 	var acquire_click_bass_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav")
@@ -997,9 +1013,9 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(acquisition_audio_source.find("LingpetAcquireClickDeepBassSfx") >= 0, "acquisition audio owner should create a dedicated player for the acquisition click deep bass backing")
 	_expect(acquisition_audio_source.find("LingpetAcquireClickCrackleSweepSfx") >= 0, "acquisition audio owner should create a dedicated player for the acquisition click crackle sweep backing")
 	_expect(game_audio_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "GameAudio should expose a dedicated acquisition-click backing play method")
-	_expect(runtime_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should request the backing SFX only when the acquisition click Live2D starts")
+	_expect(acquisition_lifecycle_source.find("play_lingpet_acquire_click_reaction_backing") >= 0, "acquisition lifecycle owner should request backing SFX only when the acquisition click Live2D starts")
 	_expect(runtime_source.find("func _play_acquire_click_reaction_backing_audio") < 0, "lingpet runtime should not keep a single-use acquisition-click backing audio wrapper")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "lingpet runtime should dispatch acquisition-click backing audio directly from the dismiss-start event")
+	_expect(acquisition_lifecycle_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "acquisition lifecycle owner should dispatch acquisition-click backing audio directly from dismiss start")
 	_expect(FileAccess.file_exists("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"), "Lunabi should ship its dedicated click-reaction voice in the lingpet sound asset folder")
 	var lunabi_click_voice_stream: AudioStream = ProjectResourceLoader.load_audio_stream("res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3")
 	_expect(lunabi_click_voice_stream != null and lunabi_click_voice_stream.get_length() > 0.1, "Lunabi click-reaction voice should load as a playable Godot AudioStream")
@@ -1219,10 +1235,10 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_display_name("rabi") == "모락모랑", "catalog should expose Morakmorang as the visible name for the rabi runtime id")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("guardian_spirit_egg_traditional_variant_0_v1.png"), "catalog should own the current shared traditional guardian-spirit egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("guardian_spirit_egg_traditional_variant_0_v1.png"), "Lunabi should hatch from the same shared traditional guardian-spirit egg visual path")
-	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
-	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_walk")).ends_with("milkring_companion_walk.png"), "catalog should own Milkring's true leg-walk companion visual path")
-	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_strike")).ends_with("milkring_companion_strike.png"), "catalog should own Milkring companion strike visual path")
-	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_cast")).ends_with("milkring_milk_production_autosprite_25f.png"), "catalog should route Milkring's cast visual to the milk-production AutoSprite sheet")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("hwangyeokjeon_roster_v1/maribo/maribo_companion_25f.png"), "catalog should route Maribo's live companion visual through the Hwangyeokjeon roster")
+	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_walk")).ends_with("hwangyeokjeon_roster_v1/milkring/milkring_companion_25f.png"), "catalog should route Milkring's live walk visual through the Hwangyeokjeon roster")
+	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_strike")) == str(LingpetCatalog.get_visual_path("milkring", "companion_walk")), "Milkring's normalized roster companion sheet should own both walk and strike slots")
+	_expect(str(LingpetCatalog.get_visual_path("milkring", "companion_cast")) == str(LingpetCatalog.get_visual_path("milkring", "companion_walk")), "Milkring's normalized roster companion sheet should own the cast slot")
 	var milkring_walk_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/milkring_companion_walk.png")
 	_expect(milkring_walk_texture != null and milkring_walk_texture.get_width() == 1280 and milkring_walk_texture.get_height() == 1280, "Milkring companion walk sheet should load as a 5x5 256-cell AutoSprite sheet")
 	var milkring_walk_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/milkring_companion_walk_manifest.json")
@@ -1244,77 +1260,104 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var milkring_cutin_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/milkring_cutin_anim_manifest.json")
 	_expect(milkring_cutin_manifest_source.find("reconstruction_frame0") >= 0 and milkring_cutin_manifest_source.find("milkring_cutin_dismiss_anim.png") >= 0, "Milkring cut-in manifest should keep the reconstruction mask and dismiss-sheet contract")
 	_expect(milkring_cutin_manifest_source.find("\"cell_fill_h_pct\": 61.951") >= 0 and milkring_cutin_manifest_source.find("slightly larger than the click/dismiss") >= 0, "Milkring acquisition Live2D should stay slightly larger than its click Live2D after size matching")
-	_expect(str(LingpetCatalog.get_visual_path("volty", "companion_walk")).ends_with("volty_companion_walk.png"), "catalog should own Volty companion walk visual path")
-	_expect(str(LingpetCatalog.get_visual_path("volty", "companion_strike")).ends_with("volty_companion_strike.png"), "catalog should own Volty companion strike visual path")
-	_expect(str(LingpetCatalog.get_visual_path("volty", "cutin_dismiss_anim")).ends_with("volty_cutin_dismiss_anim.png"), "catalog should route Volty's click-dismiss cut-in to the dedicated 5x5 sheet")
+	_expect(str(LingpetCatalog.get_visual_path("volty", "companion_walk")).ends_with("hwangyeokjeon_roster_v1/volty/volty_companion_25f.png"), "catalog should route Volty's live companion visual through the Hwangyeokjeon roster")
+	_expect(str(LingpetCatalog.get_visual_path("volty", "companion_strike")) == str(LingpetCatalog.get_visual_path("volty", "companion_walk")), "Volty's normalized roster companion sheet should own both walk and strike slots")
+	_expect(str(LingpetCatalog.get_visual_path("volty", "cutin_dismiss_anim")).ends_with("hwangyeokjeon_roster_v1/volty/volty_cutin_dismiss_anim.png"), "catalog should route Volty's click-dismiss cut-in through the Hwangyeokjeon roster")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/volty_cutin_dismiss_anim.png"), "Volty cut-in should ship a dedicated click-dismiss action sheet")
 	var volty_dismiss_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/volty_cutin_dismiss_anim_manifest.json")
 	_expect(volty_dismiss_manifest_source.find("\"cols\": 5") >= 0 and volty_dismiss_manifest_source.find("\"frame_count\": 25") >= 0, "Volty click-dismiss manifest should pin the 5x5/25 runtime grid")
-	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("orbi_companion_walk.png"), "catalog should own Serabi companion walk visual path")
-	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")).ends_with("orbi_companion_strike.png"), "catalog should own Serabi companion strike visual path")
-	# Decoupled (2026-06-24): koyora / nekuring / monkeyring / orosha use dedicated
-	# 14x7/98 dismiss sheets at 512px cells. Panel click Live2D sheets that are
-	# not reused by fullscreen dismiss may ship as 4096px VRAM-compressed imports;
-	# koyora stays uncapped until explicitly moved.
-	for _dc_entry in [
-		{"pet": "nekuring", "click": "nekuring_click_live2d_pingpong_98f"},
-		{"pet": "koyora", "click": "koyora_click_live2d_pingpong_98f"},
-		{"pet": "monkeyring", "click": "monkeyring_click_live2d_pingpong_98f"},
-		{"pet": "orosha", "click": "orosha_click_rolling_autosprite_98f"},
-	]:
-		var _dc_pet: String = str(_dc_entry["pet"])
-		var _dc_click: String = str(_dc_entry["click"])
-		_expect(str(LingpetCatalog.get_visual_path(_dc_pet, "cutin_dismiss_anim")).ends_with("%s_cutin_dismiss_anim.png" % _dc_pet), "catalog should route %s's hatch click-dismiss to a dedicated sheet (decoupled from the full-res click sheet so the hatch prewarm stays small)" % _dc_pet)
-		_expect(FileAccess.file_exists("res://assets/sprites/lingpet/%s_cutin_dismiss_anim.png" % _dc_pet), "%s should ship a dedicated click-dismiss sheet separate from the full-res click Live2D" % _dc_pet)
-		var _dc_dismiss_tex: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/%s_cutin_dismiss_anim.png" % _dc_pet)
-		var _dc_w: int = _dc_dismiss_tex.get_width() if _dc_dismiss_tex != null else 0
-		var _dc_h: int = _dc_dismiss_tex.get_height() if _dc_dismiss_tex != null else 0
-		_expect(_dc_dismiss_tex != null and _dc_w == 7168 and _dc_h == 3584, "%s dismiss must be a dedicated 14x7 / 98-frame 512-cell sheet, not the old 5x5/25 low-fps sheet nor the full-res click sheet" % _dc_pet)
-		var _dc_dismiss_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s_cutin_dismiss_anim.png.import" % _dc_pet)
-		_expect(_dc_dismiss_import.find("process/size_limit=0") >= 0, "%s dedicated dismiss import should not be downscaled after the 512-cell repack" % _dc_pet)
-		_expect(_dc_dismiss_import.find("compress/mode=2") >= 0 and _dc_dismiss_import.find("\"vram_texture\": true") >= 0, "%s dedicated 98-frame dismiss sheet should be VRAM-compressed for hatch prewarm" % _dc_pet)
-		_expect(str(LingpetCatalog.get_visual_path(_dc_pet, "click_reaction_anim")).ends_with("%s.png" % _dc_click), "catalog should keep %s's panel click on the full-res click sheet" % _dc_pet)
-		var _dc_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _dc_click)
-		if _dc_pet in ["nekuring", "monkeyring", "orosha"]:
-			_expect(_dc_click_import.find("process/size_limit=4096") >= 0, "%s panel click Live2D import should use the 4096px cap after fullscreen dismiss was decoupled" % _dc_pet)
-			_expect(_dc_click_import.find("compress/mode=2") >= 0 and _dc_click_import.find("\"vram_texture\": true") >= 0, "%s panel click Live2D import should be VRAM-compressed after the 4096px cap policy" % _dc_pet)
-		else:
-			_expect(_dc_click_import.find("process/size_limit=0") >= 0, "%s full click Live2D import should stay uncapped until its panel policy is explicitly moved" % _dc_pet)
-		var _dc_seconds: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_seconds", 3.35))
-		var _dc_action_portion: float = float(LingpetCatalog.get_visual_layout_value(_dc_pet, "cutin_dismiss_action_portion", 0.74))
-		var _dc_effective_fps: float = 98.0 / maxf(0.01, _dc_seconds * _dc_action_portion)
-		_expect(_dc_effective_fps >= 22.0, "%s dismiss should have enough source frames for the long action window (effective fps %.2f)" % [_dc_pet, _dc_effective_fps])
-	var _lunabi_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/lunabi_click_live2d_pingpong_98f.png.import")
+	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_walk")).ends_with("hwangyeokjeon_roster_v1/orbi/orbi_companion_25f.png"), "catalog should route Serabi's live companion visual through the Hwangyeokjeon roster")
+	_expect(str(LingpetCatalog.get_visual_path("orbi", "companion_strike")) == str(LingpetCatalog.get_visual_path("orbi", "companion_walk")), "Serabi's normalized roster companion sheet should own both walk and strike slots")
+	# The Hwangyeokjeon roster aliases long 98-frame fullscreen dismiss playback
+	# to the same display-matched click sheet, avoiding a second large GPU upload.
+	# Nekuring is intentionally excluded from that roster and keeps its dedicated
+	# legacy 512-cell dismiss plus the separate display-fit panel click sheet.
+	for _alias_pet_id in ["koyora", "monkeyring", "orosha"]:
+		var _alias_dismiss_path := str(LingpetCatalog.get_visual_path(_alias_pet_id, "cutin_dismiss_anim"))
+		var _alias_click_path := str(LingpetCatalog.get_visual_path(_alias_pet_id, "click_reaction_anim"))
+		_expect(
+			_alias_dismiss_path == _alias_click_path
+			and _alias_click_path.begins_with("res://assets/sprites/lingpet/hwangyeokjeon_roster_v1/%s/" % _alias_pet_id),
+			"%s should alias fullscreen dismiss to its Hwangyeokjeon roster click sheet" % _alias_pet_id
+		)
+		_expect(FileAccess.file_exists(_alias_click_path), "%s Hwangyeokjeon roster click/dismiss sheet should exist" % _alias_pet_id)
+		var _alias_click_import := FileAccess.get_file_as_string("%s.import" % _alias_click_path)
+		_expect(
+			_alias_click_import.find("process/size_limit=10752") >= 0
+			and _alias_click_import.find("compress/mode=2") >= 0
+			and _alias_click_import.find("\"vram_texture\": true") >= 0,
+			"%s roster click/dismiss sheet should keep the display-matched 768px-cell VRAM import" % _alias_pet_id
+		)
+		var _alias_seconds: float = float(LingpetCatalog.get_visual_layout_value(_alias_pet_id, "cutin_dismiss_seconds", 3.35))
+		var _alias_action_portion: float = float(LingpetCatalog.get_visual_layout_value(_alias_pet_id, "cutin_dismiss_action_portion", 0.74))
+		var _alias_effective_fps: float = 98.0 / maxf(0.01, _alias_seconds * _alias_action_portion)
+		_expect(_alias_effective_fps >= 22.0, "%s dismiss should have enough source frames for the long action window (effective fps %.2f)" % [_alias_pet_id, _alias_effective_fps])
+	var _nekuring_dismiss_path := str(LingpetCatalog.get_visual_path("nekuring", "cutin_dismiss_anim"))
+	_expect(_nekuring_dismiss_path.ends_with("nekuring_cutin_dismiss_anim.png"), "Nekuring should retain its excluded-roster dedicated fullscreen dismiss sheet")
+	var _nekuring_dismiss_tex: Texture2D = ProjectResourceLoader.load_texture(_nekuring_dismiss_path)
+	_expect(
+		_nekuring_dismiss_tex != null
+		and _nekuring_dismiss_tex.get_size() == Vector2(7168.0, 3584.0),
+		"Nekuring dedicated dismiss should remain a 14x7 / 98-frame 512-cell sheet"
+	)
+	var _nekuring_dismiss_import := FileAccess.get_file_as_string("%s.import" % _nekuring_dismiss_path)
+	_expect(
+		_nekuring_dismiss_import.find("process/size_limit=0") >= 0
+		and _nekuring_dismiss_import.find("compress/mode=2") >= 0
+		and _nekuring_dismiss_import.find("\"vram_texture\": true") >= 0,
+		"Nekuring dedicated dismiss should remain uncapped and VRAM-compressed after its 512-cell repack"
+	)
+	ProjectResourceLoader.clear_caches()
+	var _nekuring_imported_dismiss_tex: Texture2D = ProjectResourceLoader.load_imported_texture(_nekuring_dismiss_path)
+	_expect(
+		_nekuring_imported_dismiss_tex != null
+		and _nekuring_imported_dismiss_tex.get_size() == Vector2(7168.0, 3584.0),
+		"Nekuring imported fullscreen dismiss should preserve the uncapped 14x7 / 98-frame 512-cell grid"
+	)
+	var _nekuring_click_path := str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim"))
+	var _nekuring_click_import := FileAccess.get_file_as_string("%s.import" % _nekuring_click_path)
+	_expect(_nekuring_click_path.ends_with("nekuring_click_live2d_pingpong_98f.png"), "Nekuring should retain its separate full panel click sheet")
+	_expect(
+		_nekuring_click_import.find("process/size_limit=12544") >= 0
+		and _nekuring_click_import.find("compress/mode=2") >= 0
+		and _nekuring_click_import.find("\"vram_texture\": true") >= 0,
+		"Nekuring panel click should preserve display-fit 896px cells with VRAM compression"
+	)
 	var _lunabi_dismiss_path := str(LingpetCatalog.get_visual_path("lunabi", "cutin_dismiss_anim"))
 	var _lunabi_click_path := str(LingpetCatalog.get_visual_path("lunabi", "click_reaction_anim"))
+	var _lunabi_dismiss_import := FileAccess.get_file_as_string("%s.import" % _lunabi_dismiss_path)
+	var _lunabi_click_import := FileAccess.get_file_as_string("%s.import" % _lunabi_click_path)
 	_expect(_lunabi_dismiss_path.ends_with("lunabi_cutin_dismiss_anim.png") and _lunabi_dismiss_path != _lunabi_click_path, "Lunabi fullscreen dismiss should stay decoupled from the panel click Live2D sheet")
-	_expect(FileAccess.file_exists(_lunabi_dismiss_path), "Lunabi should ship the dedicated fullscreen dismiss sheet used by the decoupled catalog path")
-	_expect(_lunabi_click_import.find("process/size_limit=4096") >= 0, "Lunabi panel click Live2D import should keep the 4096px cap because fullscreen dismiss is decoupled")
+	_expect(_lunabi_dismiss_path.begins_with("res://assets/sprites/lingpet/hwangyeokjeon_roster_v1/lunabi/") and FileAccess.file_exists(_lunabi_dismiss_path), "Lunabi should ship its dedicated Hwangyeokjeon roster fullscreen dismiss sheet")
+	_expect(_lunabi_dismiss_import.find("process/size_limit=3840") >= 0, "Lunabi roster dismiss should import as a 5x5 grid with display-matched 768px cells")
+	_expect(_lunabi_click_import.find("process/size_limit=10752") >= 0, "Lunabi roster panel click should import as a 14x7 grid with display-matched 768px cells")
 	_expect(_lunabi_click_import.find("compress/mode=2") >= 0 and _lunabi_click_import.find("\"vram_texture\": true") >= 0, "Lunabi panel click Live2D import should be VRAM-compressed for stage-entry prewarm")
-	for _alias_pet in [
-		{"pet": "onimaru", "click": "onimaru_click_live2d_autosprite_98f_amber_gripfix"},
-		{"pet": "rahoset", "click": "rahoset_click_ritual_linked_v2_autosprite_98f"},
-	]:
-		var _alias_pet_id: String = str(_alias_pet["pet"])
-		var _alias_click: String = str(_alias_pet["click"])
-		_expect(str(LingpetCatalog.get_visual_path(_alias_pet_id, "cutin_dismiss_anim")).ends_with("%s.png" % _alias_click), "%s should still document the click-sheet fullscreen dismiss alias" % _alias_pet_id)
-		var _alias_click_import := FileAccess.get_file_as_string("res://assets/sprites/lingpet/%s.png.import" % _alias_click)
-		_expect(_alias_click_import.find("process/size_limit=0") >= 0, "%s click sheet should stay uncapped while fullscreen dismiss still aliases it" % _alias_pet_id)
-		if _alias_pet_id == "rahoset":
-			_expect(_alias_click_import.find("compress/mode=2") >= 0 and _alias_click_import.find("\"vram_texture\": true") >= 0, "Rahoset aliased full-res click/dismiss sheet should stay uncapped but VRAM-compressed")
-		else:
-			_expect(_alias_click_import.find("compress/mode=0") >= 0 and _alias_click_import.find("\"vram_texture\": false") >= 0, "Onimaru aliased full-res click/dismiss sheet should stay uncapped and lossless until dismiss decouples")
-	# These four dedicated sheets are 14x7/98, so they must carry the same grid override
-	# as the backlog 98-frame dismiss pets. A stale default would slice them as 5x5/25.
+	for _alias_pet_id in ["onimaru", "rahoset"]:
+		var _alias_dismiss_path := str(LingpetCatalog.get_visual_path(_alias_pet_id, "cutin_dismiss_anim"))
+		var _alias_click_path := str(LingpetCatalog.get_visual_path(_alias_pet_id, "click_reaction_anim"))
+		_expect(
+			_alias_dismiss_path == _alias_click_path
+			and _alias_click_path.begins_with("res://assets/sprites/lingpet/hwangyeokjeon_roster_v1/%s/" % _alias_pet_id),
+			"%s should alias fullscreen dismiss to its Hwangyeokjeon roster click sheet" % _alias_pet_id
+		)
+		var _alias_click_import := FileAccess.get_file_as_string("%s.import" % _alias_click_path)
+		_expect(
+			_alias_click_import.find("process/size_limit=10752") >= 0
+			and _alias_click_import.find("compress/mode=2") >= 0
+			and _alias_click_import.find("\"vram_texture\": true") >= 0,
+			"%s roster click/dismiss sheet should keep the display-matched 768px-cell VRAM import" % _alias_pet_id
+		)
+	# Every 98-frame dismiss path, whether aliased or dedicated, must carry the
+	# explicit 14x7/98 host override. A stale default would slice it as 5x5/25.
 	var _dismiss_host_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 	for _dc_98_pet in ["koyora", "nekuring", "monkeyring", "orosha"]:
-		_expect(_dismiss_host_source.find("\"%s\": 14" % _dc_98_pet) >= 0 and _dismiss_host_source.find("\"%s\": 98" % _dc_98_pet) >= 0, "%s must carry the 14x7/98 dismiss override for its dedicated 98-frame sheet" % _dc_98_pet)
+		_expect(_dismiss_host_source.find("\"%s\": 14" % _dc_98_pet) >= 0 and _dismiss_host_source.find("\"%s\": 98" % _dc_98_pet) >= 0, "%s must carry the 14x7/98 dismiss override for its current 98-frame sheet" % _dc_98_pet)
 	_expect(_dismiss_host_source.find("\"rabi\": 14") >= 0 and _dismiss_host_source.find("\"rabi\": 98") >= 0, "rabi (still reusing its 14x7/98 click sheet as the dismiss) should keep the 14x7/98 override")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "click_reaction_anim")).ends_with("nekuring_click_live2d_pingpong_98f.png"), "catalog should route Nekuring's panel click Live2D to the full 98-frame click sheet")
 	_expect(str(LingpetCatalog.get_visual_path("nekuring", "companion_click_reaction_anim")).ends_with("nekuring_companion_click_reaction_98f.png"), "catalog should route Nekuring's in-battle companion click to the downscaled 98-frame sheet")
 	ProjectResourceLoader.clear_caches()
 	var nekuring_imported_click_texture: Texture2D = ProjectResourceLoader.load_imported_texture("res://assets/sprites/lingpet/nekuring_click_live2d_pingpong_98f.png")
-	_expect(nekuring_imported_click_texture != null and nekuring_imported_click_texture.get_width() <= 4096 and nekuring_imported_click_texture.get_width() >= 4000 and is_equal_approx(float(nekuring_imported_click_texture.get_width()) / float(maxi(1, nekuring_imported_click_texture.get_height())), 2.0), "Nekuring imported panel click Live2D should load through the 4096px / 14x7 runtime cap")
+	_expect(nekuring_imported_click_texture != null and nekuring_imported_click_texture.get_size() == Vector2(12544.0, 6272.0), "Nekuring imported panel click Live2D should load as a 14x7 grid with display-fit 896px cells")
 	ProjectResourceLoader.clear_caches()
 	var nekuring_companion_click_texture: Texture2D = ProjectResourceLoader.load_texture("res://assets/sprites/lingpet/nekuring_companion_click_reaction_98f.png")
 	_expect(nekuring_companion_click_texture != null and nekuring_companion_click_texture.get_width() == 1792 and nekuring_companion_click_texture.get_height() == 896, "Nekuring companion click Live2D should load as a 14x7 / 98-frame 128-cell sheet")
@@ -1410,6 +1453,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var distance_roll_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_distance_roll_state.gd")
 	var body_presence_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 	var companion_motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+	var motion_coordinator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_coordinator.gd")
 	var collection_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_collection_state.gd")
 	var save_restore_applier_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_save_restore_applier.gd")
 	var tutorial_bootstrap_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_tutorial_bootstrap.gd")
@@ -1456,7 +1500,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(overflow_choice_source.find("func resolve_after_acquire_cutin") >= 0 and overflow_choice_source.find("mark_absorb_ready_if_awaiting") >= 0, "overflow choice helper should own acquire-cutin close routing between item-egg absorb and pending overflow activation")
 	_expect(runtime_source.find("func _begin_item_egg_overflow") < 0, "egg runtime should not keep a single-use item-egg overflow setup wrapper")
 	_expect(runtime_source.find("func _activate_overflow_choice_after_cutin") < 0, "egg runtime should not keep a private acquire-cutin completion router")
-	_expect(runtime_source.find("_overflow_choice_state.resolve_after_acquire_cutin") >= 0, "egg runtime should ask the overflow choice owner to resolve acquire-cutin completion")
+	var acquisition_lifecycle_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd")
+	_expect(acquisition_lifecycle_source.find("_overflow_choice_state.resolve_after_acquire_cutin") >= 0, "acquisition lifecycle owner should ask the overflow choice owner to resolve cut-in completion")
 	_expect(overflow_choice_source.find("func build_snapshot") >= 0 and overflow_choice_source.find("pending_display_name") >= 0, "overflow choice helper should own modal snapshot payload assembly")
 	_expect(overflow_choice_source.find("func consume_absorb_context") >= 0 and overflow_choice_source.find("func consume_commit_pet_id") >= 0, "overflow choice helper should own capture-before-reset absorb/commit context")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_overflow_absorb_plan.gd"), "overflow absorb plan helper should exist")
@@ -1548,7 +1593,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(runtime_source.find("_debug_stat_overrides.get_appearance_rate") >= 0, "egg runtime should ask debug stat owner directly for profile-aware appearance rate")
 	_expect(companion_motion_source.find("func resume_sortie_loiter_from_current") >= 0, "companion motion state should own sortie-loiter resume after Ring Dash")
 	_expect(runtime_source.find("func _resume_companion_motion_after_ring_dash") < 0, "egg runtime should not keep a private ring-dash resume pass-through wrapper")
-	_expect(runtime_source.find("_companion_motion_state.resume_sortie_loiter_from_current") >= 0, "egg runtime should call the motion-state owner directly when Ring Dash releases position control")
+	_expect(motion_coordinator_source.find("_motion_state.resume_sortie_loiter_from_current") >= 0, "motion coordinator should call the motion-state owner directly when Ring Dash releases position control")
 	var current_profile := LingpetCurrentProfile.new()
 	_expect(str(current_profile.set_pet_id("unknown_pet")) == "maribo", "current-profile helper should fall back to the default pet for unknown ids")
 	_expect(is_equal_approx(current_profile.get_visual_layout_value("companion_walk_draw_size", 0.0), 104.0), "current-profile helper should expose current pet visual-layout overrides")
@@ -1582,7 +1627,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_persistence_source.find("var state_by_pet_id") >= 0, "companion skill persistence should own the stored per-pet skill-state dictionary")
 	_expect(runtime_source.find("var _companion_skill_state_by_pet_id") < 0, "egg runtime should not expose a raw stored skill-state dictionary alias")
 	_expect(runtime_source.find("func _is_any_companion_skill_winding_up") < 0, "egg runtime should not keep a single-use companion skill windup predicate wrapper")
-	_expect(runtime_source.find("_companion_skill_persistence.is_any_winding_up") >= 0, "egg runtime should ask skill persistence directly when motion needs the windup gate")
+	_expect(motion_coordinator_source.find("_skill_persistence.is_any_winding_up") >= 0, "motion coordinator should ask skill persistence directly when motion needs the windup gate")
 	_expect(runtime_source.find("func _get_companion_skill_state_for_slot") < 0, "egg runtime should not keep a private companion skill slot accessor wrapper")
 	_expect(runtime_source.find("_companion_skill_persistence.get_state_for_slot") < 0, "egg runtime should ask the skill-runtime surface for clamped skill-state slot lookup")
 	_expect(runtime_source.find("func _cancel_companion_skill_windups") < 0, "egg runtime should not keep a single-use companion skill windup-cancel wrapper")
@@ -1620,7 +1665,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var adopt_owned_body := _function_body(runtime_source, "func _adopt_owned_pet")
 	for companion_activation_body in [debug_grant_activation_body, slot_switch_body, adopt_owned_body]:
 		_expect(companion_activation_body.find("_companion_runtime_resetter.prepare_companion_activation") >= 0, "companion activation transitions should ask the resetter for activation fanout")
-		_expect(companion_activation_body.find("_reset_companion_runtime_state") < 0 and companion_activation_body.find("_companion_skill_persistence.restore_current") < 0 and companion_activation_body.find("_collection_state.ensure_pet_active_slot") < 0 and companion_activation_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "companion activation transitions should not inline reset/restore/active-slot/prewarm fanout")
+		_expect(companion_activation_body.find("_reset_companion_runtime_state") < 0 and companion_activation_body.find("_companion_skill_persistence.restore_current") < 0 and companion_activation_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "companion activation transitions should not inline reset/restore/prewarm fanout")
+	_expect(debug_grant_activation_body.find("_collection_state.sync_from_owner") >= 0 and debug_grant_activation_body.find("_collection_state.replace_slot") >= 0, "debug grant should explicitly project the forced pet into the real owner slot before resetter-owned runtime activation")
 	var clear_pending_body := _function_body(runtime_source, "func _clear_pending_egg_without_collection_reset")
 	_expect(clear_pending_body.find("_companion_runtime_resetter.reset_to_none") >= 0, "clear-pending none-return should ask the resetter for cleanup fanout")
 	_expect(clear_pending_body.find("_egg_state.reset_all") < 0 and clear_pending_body.find("_item_egg_lifecycle_state.clear_runtime_state") < 0 and clear_pending_body.find("_reset_companion_runtime_state") < 0 and clear_pending_body.find("_reset_companion_patrol") < 0 and clear_pending_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0, "clear-pending none-return should not inline cleanup/reset/prewarm fanout")
@@ -2530,9 +2576,22 @@ func _verify_hatch_break_sequence_defers_cutin() -> void:
 
 	# Structural seals: the pause / pump / input wiring mirrors the acquire cut-in.
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var acquisition_lifecycle_source: String = FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd"
+	)
 	var resolve_body: String = _function_body(runtime_source, "func _resolve_ball_hit")
-	_expect(resolve_body.find("_egg_state.trigger_hatch_break()") >= 0, "the hatched branch must defer through the shell-break trigger")
+	_expect(resolve_body.find("_acquisition_lifecycle.begin_hatch_break") >= 0, "the hatched branch must defer through the acquisition lifecycle owner")
 	_expect(resolve_body.find("_finish_regular_hatch(") < 0 and resolve_body.find("_begin_overflow_hatch(") < 0, "the hatched branch must not commit the hatch on the hit frame")
+	for lifecycle_behavior in [
+		"_egg_state.trigger_hatch_break()",
+		"func advance_hatch_break",
+		"_egg_state.trigger_hatch_flash",
+		"func _commit_pending_hatch",
+		"_finish_regular_hatch",
+		"_begin_overflow_hatch",
+		"WeakRef",
+	]:
+		_expect(acquisition_lifecycle_source.find(lifecycle_behavior) >= 0, "acquisition lifecycle owner must retain %s" % lifecycle_behavior)
 	var modal_gate_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_modal_gate_controller.gd")
 	_expect(modal_gate_source.find("physics.modal_gate.lingpet_hatch_break") >= 0 and modal_gate_source.find("is_hatch_break_active") >= 0, "the modal gate must hold battle physics through the shell-break window")
 	var frame_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
@@ -4134,12 +4193,16 @@ func _verify_lingpet_body_draws_behind_player() -> void:
 	var behind_fn_body: String = runtime_src.substr(behind_fn_start, behind_fn_end - behind_fn_start)
 	_expect(behind_fn_body.find("_draw_companion(") >= 0, "draw_lingpet_body_behind_actors() should draw the companion body")
 	_expect(behind_fn_body.find("_egg_renderer.draw_egg(") >= 0, "draw_lingpet_body_behind_actors() should draw the egg body")
-	# The shared player actor renderer must invoke the hook BEFORE the player sprite.
+	# The shared player actor renderer invokes the hook before the ordinary player
+	# sprite. Mount mode deliberately defers the same hook until after the rider so
+	# the shoulder-ride companion appears in front of the rider's lower body.
 	var player_src: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
-	var hook_idx: int = player_src.find("lingpet_body_draw")
-	var first_sprite_draw_idx: int = player_src.find("sprite_renderer.draw(")
-	_expect(hook_idx >= 0, "shared player actor renderer should invoke the lingpet body hook")
-	_expect(first_sprite_draw_idx < 0 or hook_idx < first_sprite_draw_idx, "lingpet body hook must run before the player sprite is drawn")
+	var player_draw_body := _function_body(player_src, "func draw(")
+	var normal_hook_idx: int = player_draw_body.find("if lingpet_body_hook_valid and not defer_lingpet_body:")
+	var first_sprite_draw_idx: int = player_draw_body.find("\n\t\tsprite_renderer.draw(")
+	var deferred_hook_idx: int = player_draw_body.find("# Deferred shoulder-ride companion pass:")
+	_expect(normal_hook_idx >= 0 and first_sprite_draw_idx >= 0 and normal_hook_idx < first_sprite_draw_idx, "ordinary lingpet body hook must run before the player sprite")
+	_expect(deferred_hook_idx > first_sprite_draw_idx and player_draw_body.find("if lingpet_body_hook_valid and defer_lingpet_body:", deferred_hook_idx) >= 0, "mounted lingpet body hook should defer until after the rider sprite")
 	# The scene drawer must inject the hook into the actor context.
 	var scene_src: String = FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
 	_expect(scene_src.find("\"lingpet_body_draw\"") >= 0, "scene drawer should inject the lingpet body draw hook into the actor context")
@@ -4604,8 +4667,8 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(str(LingpetCatalog.get_motion_style("lunabi")) == "sortie_flight", "Lunabi should use the offscreen sortie-flight companion motion style")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_wing_flap.png"), "Lunabi companion move wing-flap sheet should exist")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_strike.png"), "Lunabi companion strike sheet should exist")
-	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")).ends_with("lunabi_companion_wing_flap.png"), "Lunabi runtime walk slot should resolve to the move wing-flap sheet")
-	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_strike")).ends_with("lunabi_companion_strike.png"), "Lunabi runtime strike slot should resolve to the ball-swoop sheet")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")).ends_with("hwangyeokjeon_roster_v1/lunabi/lunabi_companion_25f.png"), "Lunabi runtime walk slot should resolve to the normalized Hwangyeokjeon companion sheet")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_strike")) == str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")), "Lunabi's normalized roster companion sheet should own both walk and strike slots")
 
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["lunabi"]
@@ -5086,27 +5149,17 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	_expect(skill_host_src.find("get_companion_cast_pose_progress") >= 0, "skill runtime host should expose active skill companion-cast pose progress")
 	_expect(draw_context_src.find("companion_puppet_control") >= 0 and draw_context_src.find("skill_cast_pose_active") >= 0, "companion draw context should swap to Koyora's Puppet Control sheet during active puppet phases")
 	_expect(visual_cache_src.find("companion_puppet_control") >= 0, "lingpet visual prewarm should include Koyora's active Puppet Control sheet key")
-	_expect(LingpetCatalog.get_visual_path("koyora", "companion_puppet_control") == "res://assets/sprites/lingpet/koyora_puppet_control_cast.png", "Koyora catalog should own the Puppet Control active companion sheet path")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/koyora_puppet_control_cast.png"), "Koyora Puppet Control active companion sheet should exist")
-	var puppet_control_sheet: Texture2D = load("res://assets/sprites/lingpet/koyora_puppet_control_cast.png") as Texture2D
+	var puppet_control_path := str(LingpetCatalog.get_visual_path("koyora", "companion_puppet_control"))
+	_expect(puppet_control_path.ends_with("hwangyeokjeon_roster_v1/koyora/koyora_companion_25f.png"), "Koyora Puppet Control pose should resolve through the normalized Hwangyeokjeon companion sheet")
+	_expect(FileAccess.file_exists(puppet_control_path), "Koyora Puppet Control companion sheet should exist")
+	var puppet_control_sheet: Texture2D = load(puppet_control_path) as Texture2D
 	_expect(puppet_control_sheet != null, "Koyora Puppet Control active companion sheet should load as a Texture2D")
 	if puppet_control_sheet != null:
-		_expect(puppet_control_sheet.get_width() == 1280 and puppet_control_sheet.get_height() == 1280, "Koyora Puppet Control sheet should be the normalized 1280px 5x5 runtime sheet")
+		_expect(puppet_control_sheet.get_width() == puppet_control_sheet.get_height(), "Koyora Puppet Control roster sheet should remain square")
 		_expect(puppet_control_sheet.get_width() % 5 == 0 and puppet_control_sheet.get_height() % 5 == 0, "Koyora Puppet Control sheet should divide evenly into the companion 5x5 grid")
-	var puppet_control_manifest: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/koyora_puppet_control_cast_manifest.json")
 	_expect(
-		puppet_control_manifest.find("koyora_puppet_control_cast_original_idle_big_two_arm_v3") >= 0
-			and puppet_control_manifest.find("koyora_companion_idle.png") >= 0
-			and puppet_control_manifest.find("\"new_attack_strings_drawn\": false") >= 0
-			and puppet_control_manifest.find("visible_motion_tuning") >= 0
-			and puppet_control_manifest.find("\"edge_alpha_max\": 0") >= 0
-			and puppet_control_manifest.find("\"edge_touch_frames\": []") >= 0,
-		"Koyora Puppet Control manifest should pin the original-idle-derived sheet provenance and clean-edge QA"
-	)
-	_expect(
-		_sheet_frame_motion_score("res://assets/sprites/lingpet/koyora_puppet_control_cast.png", 0, 14, 112) > 900.0
-			and _sheet_frame_motion_score("res://assets/sprites/lingpet/koyora_puppet_control_cast.png", 14, 24, 112) > 900.0,
-		"Koyora Puppet Control sheet should have visible frame-to-frame sleeve motion at runtime draw size"
+		puppet_control_path == str(LingpetCatalog.get_visual_path("koyora", "companion_walk")),
+		"Koyora Puppet Control should reuse the roster-owned normalized companion sheet instead of a retired legacy action asset"
 	)
 
 	# Boss-side plumbing: the grab only works if the freeze wiring is present,

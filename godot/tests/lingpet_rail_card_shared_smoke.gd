@@ -191,15 +191,17 @@ func _verify_catalog_active_skill_index() -> void:
 
 func _verify_rail_card_surface_matches_snapshot() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var surface_builder_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_rail_card_surface_builder.gd")
 	var host_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 	var rail_source := FileAccess.get_file_as_string("res://scripts/stages/common/lingpet_rail_card.gd")
 	var rail_build_body := _function_body(rail_source, "static func build_entries(")
-	var surface_body := _function_body(runtime_source, "func _build_rail_card_surface_uncached(")
+	var surface_body := _function_body(surface_builder_source, "func _build_surface_uncached(")
 	_expect(rail_build_body.find("get_rail_card_surface") >= 0, "rail card builder should prefer the narrow rail-card surface")
 	_expect(rail_build_body.find("get_snapshot") >= 0, "rail card builder should keep get_snapshot as a fallback for test doubles / legacy runtimes")
+	_expect(runtime_source.find("_rail_card_surface_builder.get_surface(") >= 0, "egg runtime should preserve the narrow rail-card facade")
 	_expect(surface_body.find("_snapshot_builder.build_runtime_snapshot") < 0, "rail-card surface must not build the full runtime snapshot")
 	_expect(surface_body.find("_build_runtime_snapshot_uncached") < 0, "rail-card surface must not call the full snapshot builder")
-	_expect(surface_body.find("_merge_rail_card_skill_runtime_snapshot") >= 0, "rail-card surface should merge only mounted skill runtime snapshots")
+	_expect(surface_body.find("_merge_skill_runtime_snapshot") >= 0, "rail-card surface should merge only mounted skill runtime snapshots")
 	_expect(host_source.find("func get_snapshot_for_skill_id") >= 0 and host_source.find("func _peek_skill_for_kind") >= 0, "skill runtime host should support non-instantiating per-skill snapshot lookup")
 
 	var cases := [

@@ -4,6 +4,9 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const LingpetAcquireCutinAssetPrewarmState := preload("res://scripts/lingpet/lingpet_acquire_cutin_asset_prewarm_state.gd")
 const LingpetAcquireCutinOverlayHostResolver := preload("res://scripts/lingpet/lingpet_acquire_cutin_overlay_host_resolver.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
+const LingpetAcquisitionLifecycleCoordinator := preload(
+	"res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd"
+)
 const LingpetAfterglowLeakState := preload("res://scripts/lingpet/lingpet_afterglow_leak_state.gd")
 const LingpetRingDashState := preload("res://scripts/lingpet/lingpet_ring_dash_state.gd")
 const LingpetRingDashVfx := preload("res://scripts/lingpet/lingpet_ring_dash_vfx.gd")
@@ -22,28 +25,23 @@ const LingpetCompanionClickReactionVisualPrewarmState := preload("res://scripts/
 const LingpetCompanionBodyPresenceResolver := preload("res://scripts/lingpet/lingpet_companion_body_presence_resolver.gd")
 const LingpetDurationFieldGaugeRenderer := preload("res://scripts/lingpet/lingpet_duration_field_gauge_renderer.gd")
 const LingpetCompanionPlayerBlockResolver := preload("res://scripts/lingpet/lingpet_companion_player_block_resolver.gd")
+const LingpetCompanionPlayerRuntimeResolver := preload("res://scripts/lingpet/lingpet_companion_player_runtime_resolver.gd")
 const LingpetCompanionRuntimeResetter := preload("res://scripts/lingpet/lingpet_companion_runtime_resetter.gd")
 const LingpetGuardianRunState := preload("res://scripts/lingpet/lingpet_guardian_run_state.gd")
-const LingpetEnhancementBuffStore := preload(
-	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
-)
 const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
-const LingpetGuardianEnhanceApplier := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
+const LingpetGuardianEnhanceFlowCoordinator := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_flow_coordinator.gd"
 )
-const LingpetGuardianEnhanceResultDetail := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_result_detail.gd"
-)
-const LingpetGuardianEnhanceCutinState := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd"
-)
-const LingpetGuardianEnhanceCutinOverlayHostResolver := preload(
-	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_overlay_host_resolver.gd"
+const LingpetGuardianEnhancePresentationCoordinator := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_presentation_coordinator.gd"
 )
 const LingpetDurationRuntimeState := preload(
 	"res://scripts/lingpet/lingpet_duration_runtime_state.gd"
+)
+const LingpetGuardianDurationLifecycleCoordinator := preload(
+	"res://scripts/lingpet/lingpet_guardian_duration_lifecycle_coordinator.gd"
 )
 const LingpetGuardianRunContextCoordinator := preload("res://scripts/lingpet/lingpet_guardian_run_context_coordinator.gd")
 const LingpetGuardHitTagResolver := preload("res://scripts/lingpet/lingpet_guard_hit_tag_resolver.gd")
@@ -56,6 +54,7 @@ const LingpetCurrentVisualPrewarmCoordinator := preload("res://scripts/lingpet/l
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCompanionDistanceRollState := preload("res://scripts/lingpet/lingpet_companion_distance_roll_state.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+const LingpetCompanionMotionCoordinator := preload("res://scripts/lingpet/lingpet_companion_motion_coordinator.gd")
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const LingpetActiveSkillSlotResolver := preload("res://scripts/lingpet/lingpet_active_skill_slot_resolver.gd")
@@ -82,6 +81,7 @@ const LingpetOverflowGuardianSnapshotBuilder := preload("res://scripts/lingpet/l
 const LingpetOverflowReplacePlan := preload("res://scripts/lingpet/lingpet_overflow_replace_plan.gd")
 const LingpetPlazaResonanceEggSummaryBuilder := preload("res://scripts/lingpet/lingpet_plaza_resonance_egg_summary_builder.gd")
 const LingpetPerfProbe := preload("res://scripts/lingpet/lingpet_perf_probe.gd")
+const LingpetRailCardSurfaceBuilder := preload("res://scripts/lingpet/lingpet_rail_card_surface_builder.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetRuntimeVectorResolver := preload("res://scripts/lingpet/lingpet_runtime_vector_resolver.gd")
 const LingpetProfileRuntimeSurface := preload("res://scripts/lingpet/lingpet_profile_runtime_surface.gd")
@@ -158,14 +158,23 @@ var _state := STATE_NONE
 var _pet_id := PET_ID
 var _egg_state: Object = LingpetEggFieldState.new()
 var _egg_renderer: Object = LingpetEggFieldRenderer.new()
-var _companion_pos := Vector2.ZERO
+var _companion_motion_state: Object = LingpetCompanionMotionState.new()
+var _companion_motion_coordinator: Object = LingpetCompanionMotionCoordinator.new()
+var _companion_pos: Vector2:
+	get:
+		return _companion_motion_coordinator.get_position()
+	set(value):
+		_companion_motion_coordinator.set_position(value)
 # Latched horizontal facing for the walk-sheet mirror. Normal motion updates it
 # from actual horizontal travel (see _update_companion_motion), not raw patrol_dir:
 # patrol_dir toggles during pauses / reverse-and-pause decisions, which made the
 # held spear snap sides while Maribo stood still. First spawn/restore is seeded
 # from patrol_dir because the zero-to-spawn placement jump is not real travel.
-var _companion_facing_left := false
-var _companion_motion_state: Object = LingpetCompanionMotionState.new()
+var _companion_facing_left: bool:
+	get:
+		return _companion_motion_coordinator.is_facing_left()
+	set(value):
+		_companion_motion_coordinator.set_facing_left(value)
 var _afterglow_leak_state: Object = LingpetAfterglowLeakState.new()
 var _ring_dash_state: Object = LingpetRingDashState.new()
 var _ring_dash_vfx: Object = LingpetRingDashVfx.new()
@@ -177,6 +186,7 @@ var _mount_state: Object = preload("res://scripts/lingpet/lingpet_mount_state.gd
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _companion_body_presence_resolver: Object = LingpetCompanionBodyPresenceResolver.new()
 var _companion_player_block_resolver: Object = LingpetCompanionPlayerBlockResolver.new()
+var _companion_player_runtime_resolver: Object = LingpetCompanionPlayerRuntimeResolver.new()
 var _companion_runtime_resetter: Object = LingpetCompanionRuntimeResetter.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _spirit_water_drop_state: Object = LingpetSpiritWaterDropState.new()
@@ -211,6 +221,7 @@ var _companion_skill_launch_payload_builder: Object = LingpetCompanionSkillLaunc
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _skill_runtime_surface: Object = LingpetSkillRuntimeSurface.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
+var _rail_card_surface_builder: Object = LingpetRailCardSurfaceBuilder.new()
 var _runtime_snapshot_cache: Dictionary = {}
 var _runtime_snapshot_cache_valid := false
 var _runtime_snapshot_cache_revision := -1
@@ -218,14 +229,6 @@ var _runtime_snapshot_cache_process_frame := -1
 var _runtime_snapshot_cache_physics_frame := -1
 var _runtime_snapshot_revision := 0
 var _runtime_snapshot_build_count_for_tests := 0
-var _rail_card_surface_cache: Dictionary = {}
-var _rail_card_surface_cache_valid := false
-var _rail_card_surface_cache_process_frame := -1
-var _rail_card_surface_cache_physics_frame := -1
-var _rail_card_surface_build_count_for_tests := 0
-var _rail_card_static_surface_cache: Dictionary = {}
-var _rail_card_static_surface_key: Array = []
-var _rail_card_static_surface_build_count_for_tests := 0
 var _vector_resolver: Object = LingpetRuntimeVectorResolver.new()
 var _profile_runtime_surface: Object = LingpetProfileRuntimeSurface.new()
 var _save_restore_applier: Object = LingpetSaveRestoreApplier.new()
@@ -233,6 +236,7 @@ var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
 var _acquire_cutin_asset_prewarm_state: Object = LingpetAcquireCutinAssetPrewarmState.new()
 var _acquire_cutin_overlay_host_resolver: Object = LingpetAcquireCutinOverlayHostResolver.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
+var _acquisition_lifecycle: Object = LingpetAcquisitionLifecycleCoordinator.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState.new()
 var _companion_click_reaction_draw_size_resolver: Object = LingpetCompanionClickReactionDrawSizeResolver.new()
@@ -250,38 +254,40 @@ var _guardian_run_context_coordinator: Object = LingpetGuardianRunContextCoordin
 var _guard_hit_tag_resolver: Object = LingpetGuardHitTagResolver.new()
 var _guard_feedback_state: Object = LingpetGuardFeedbackState.new()
 var _duration_runtime_state: Object = LingpetDurationRuntimeState.new()
+var _guardian_duration_lifecycle: Object = LingpetGuardianDurationLifecycleCoordinator.new()
 # 직전 프레임에 실제로 그린 지속시간 게이지 레이아웃(안 그렸으면 visible=false).
 # 공통 게이지 패스가 매번 덮어쓰므로 스테일 값이 남지 않는다 -- 씰이 실제 draw
 # 경로를 관통해 게이지 랜딩을 관측하는 채널이다.
 var _last_duration_gauge_layout: Dictionary = {}
-var _guardian_stowed := false
+var _guardian_stowed: bool:
+	get:
+		return bool(_guardian_duration_lifecycle.is_stowed_state())
+	set(value):
+		_guardian_duration_lifecycle.set_stowed_state(value)
 var _soul_summon_overflow_available_for_tests := true
 var _guardian_enhance_offer_engine: Object = LingpetGuardianEnhanceOfferEngine.new()
-var _guardian_enhance_roll_rng_for_tests: RandomNumberGenerator = null
-var _guardian_enhance_last_result: Dictionary = {}
-var _guardian_enhance_cutin_state: Object = LingpetGuardianEnhanceCutinState.new()
-var _guardian_enhance_cutin_prewarm_state: Object = LingpetAcquireCutinAssetPrewarmState.new()
-var _guardian_enhance_cutin_host_resolver: Object = LingpetGuardianEnhanceCutinOverlayHostResolver.new()
-var _guardian_enhance_cutin_modal_owner: Object = null
-var _guardian_enhance_cutin_modal_registry: Object = null
-var _guardian_active_elapsed := 0.0
-var _duration_warning_stage := 0
-var _duration_roll_rng_for_tests: RandomNumberGenerator = null
+var _guardian_enhance_presentation: Object = LingpetGuardianEnhancePresentationCoordinator.new()
+var _guardian_enhance_flow: Object = LingpetGuardianEnhanceFlowCoordinator.new()
+var _guardian_active_elapsed: float:
+	get:
+		return float(_guardian_duration_lifecycle.get_active_elapsed())
+	set(value):
+		_guardian_duration_lifecycle.set_active_elapsed(value)
+var _duration_warning_stage: int:
+	get:
+		return int(_guardian_duration_lifecycle.get_warning_stage_state())
+	set(value):
+		_guardian_duration_lifecycle.set_warning_stage_state(value)
+var _duration_roll_rng_for_tests: RandomNumberGenerator:
+	get:
+		return _guardian_duration_lifecycle.get_duration_roll_rng_for_tests() as RandomNumberGenerator
+	set(value):
+		_guardian_duration_lifecycle.set_duration_roll_rng_for_tests(value)
 var _hatch_stat_roll_state: Object = LingpetHatchStatRollState.new()
 # Shell-break cinematic sequencer: the final counted egg hit no longer opens the
 # acquire cut-in on the same frame. Instead the egg runs the 1.5s scripted
-# shell-break (roll / staged cracks / light leak, state-owned motion), the shell
-# bursts (hatch flash + shard burst), holds briefly so the burst reads, and only
-# THEN commits the deferred hatch (_finish_regular_hatch / _begin_overflow_hatch)
-# which opens the cut-in. Battle physics is paused for the whole window via the
-# modal gate (is_hatch_break_active), so the clock advances from the frame
-# controller's ungated idle pump via advance_hatch_break() -- mirrors the
-# acquire cut-in's own pump contract.
-const HATCH_BREAK_BURST_HOLD_SECONDS := 0.45
-const HATCH_PENDING_KIND_REGULAR := "regular"
-const HATCH_PENDING_KIND_OVERFLOW := "overflow"
-var _hatch_break_pending_kind := ""
-var _hatch_break_burst_hold := 0.0
+# shell-break (roll / staged cracks / light leak), burst hold, deferred commit,
+# and acquire-cutin lifecycle now live in LingpetAcquisitionLifecycleCoordinator.
 var _audio_dispatcher: Object = LingpetAudioDispatcher.new()
 var _current_pet_transition: Object = LingpetCurrentPetTransition.new()
 # Distance-roll state owns frame-to-frame drawn-position movement so override-held
@@ -311,6 +317,58 @@ var _item_egg_absorb_vfx: Object = LingpetItemEggAbsorbVfx.new()
 func _init() -> void:
 	_companion_skill_states = [_companion_skill_state, _companion_second_skill_state]
 	_companion_skill_persistence.sync_shared_trigger_count(_companion_skill_states)
+	_guardian_enhance_presentation.configure(_guardian_enhance_offer_engine)
+	_guardian_enhance_flow.configure(
+		_guardian_enhance_offer_engine,
+		_guardian_enhance_presentation,
+		_guardian_run_context_coordinator,
+		_guardian_run_state,
+		_collection_state,
+		_current_profile,
+		_loadout_state,
+		_snapshot_builder,
+		self
+	)
+	_acquisition_lifecycle.configure(
+		_acquire_cutin_state,
+		_acquire_cutin_asset_prewarm_state,
+		_acquire_cutin_overlay_host_resolver,
+		_egg_state,
+		_overflow_choice_state,
+		_item_egg_lifecycle_state,
+		_current_profile,
+		_audio_dispatcher,
+		self,
+		LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
+	)
+	_guardian_duration_lifecycle.configure(
+		_guardian_run_state,
+		_duration_runtime_state,
+		_guardian_transition_state,
+		_collection_state,
+		_current_profile,
+		_profile_runtime_surface,
+		_spirit_water_drop_state,
+		_audio_dispatcher,
+		_ghost_blink_vfx,
+		_vector_resolver,
+		_companion_skill_persistence,
+		_companion_skill_states,
+		_skill_runtime_host,
+		_afterglow_leak_state,
+		_starlight_tracking_state,
+		_ring_dash_state,
+		_ring_dash_vfx,
+		_mount_state,
+		_companion_motion_state,
+		_companion_body_hit_state,
+		_companion_sprite_animator,
+		_companion_click_reaction_state,
+		_guard_feedback_state,
+		self,
+		GUARDIAN_MIN_SUMMON_SECONDS,
+		DURATION_WARNING_STAGE_COUNT
+	)
 	_companion_skill_controller.configure(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -321,6 +379,33 @@ func _init() -> void:
 		_skill_runtime_surface,
 		COMPANION_SKILL_WINDUP_SECONDS,
 		COMPANION_RADIUS
+	)
+	_companion_motion_coordinator.configure(
+		_current_profile,
+		_active_skill_slot_resolver,
+		_companion_skill_visual_resolver,
+		_skill_runtime_host,
+		_skill_runtime_surface,
+		_mount_state,
+		_companion_motion_state,
+		_companion_click_reaction_state,
+		_ring_dash_state,
+		_ring_dash_vfx,
+		_starlight_tracking_state,
+		_profile_runtime_surface,
+		_companion_skill_persistence,
+		_companion_skill_states,
+		_debug_stat_overrides,
+		_companion_sprite_animator,
+		_audio_dispatcher,
+		_companion_player_runtime_resolver,
+		self,
+		COMPANION_HIT_HALF_WIDTH,
+		COMPANION_HIT_HALF_HEIGHT,
+		COMPANION_DEFENSE_RATE,
+		COMPANION_PATROL_SPEED,
+		COMPANION_PATROL_SPEED_MIN,
+		COMPANION_PATROL_SPEED_MAX
 	)
 
 
@@ -407,10 +492,9 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		# always finish in time and the cut-in falls back to the static 원화 still. A
 		# head start here lets the cut-in open already showing the Live2D animation.
 		egg_phase_part_start = _perf_probe.begin(perf_logger)
-		_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
+		_acquisition_lifecycle.prewarm_registry_step(
 			_acquire_cutin_state.get_display_pet_id(_pet_id),
 			registry,
-			_acquire_cutin_overlay_host_resolver,
 			perf_logger,
 			"physics.lingpet.egg_phase.cutin_prewarm"
 		)
@@ -495,10 +579,9 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 		# already animated instead of holding on the static fallback.
 		var item_egg_pet_id := str(_item_egg_lifecycle_state.get_pet_id())
 		if _item_egg_lifecycle_state.is_active() and item_egg_pet_id != "":
-			_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
+			_acquisition_lifecycle.prewarm_registry_step(
 				item_egg_pet_id,
-				registry,
-				_acquire_cutin_overlay_host_resolver
+				registry
 			)
 		var hatched_item_egg_pet_id := str(_item_egg_lifecycle_state.advance_incubation_for_reveal(
 			delta,
@@ -510,8 +593,10 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			func() -> void: _audio_dispatcher.play_lingpet_egg_hit(registry)
 		))
 		if hatched_item_egg_pet_id != "":
-			_acquire_cutin_state.start(hatched_item_egg_pet_id)
-			_audio_dispatcher.play_lingpet_acquire_cutin(registry)
+			_acquisition_lifecycle.start_acquire_cutin(
+				hatched_item_egg_pet_id,
+				registry
+			)
 		_perf_probe.end(perf_logger, "physics.lingpet.ball_hit", sample_start)
 		sample_start = _perf_probe.begin(perf_logger)
 		_afterglow_leak_state.advance(delta, owner, registry, _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetAfterglowLeakState.PASSIVE_ID), guardian_summoned)
@@ -539,33 +624,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 # (STATE_EGG main egg or active coexist egg) so two eggs never incubate at once.
 # Junior never offers the item (its lingpet is auto-present).
 func build_guardian_enhance_offer(owner: Object) -> Dictionary:
-	var pet_id := _resolve_guardian_enhance_pet_id(owner)
-	if pet_id == "":
-		return {
-			"offer_allowed": false,
-			"reserve": false,
-			"blocked_reason": "no_owned_guardian",
-			"candidates": [],
-		}
-	_guardian_run_context_coordinator.configure(
-		pet_id,
-		_pet_id,
-		_current_profile,
-		_loadout_state,
-		_guardian_run_state
-	)
-	var skill_availability: Dictionary = (
-		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
-	)
-	var result: Dictionary = _guardian_enhance_offer_engine.build_offer(
-		owner,
-		_guardian_run_state.get_pet_data(pet_id),
-		_guardian_run_state.get_duration_increase_count(),
-		bool(skill_availability.get("has_second_active", false)),
-		bool(skill_availability.get("has_second_passive", false))
-	)
-	result["pet_id"] = pet_id
-	return result
+	return _guardian_enhance_flow.build_offer(owner, _pet_id)
 
 
 func apply_guardian_enhance_random_roll(
@@ -574,119 +633,28 @@ func apply_guardian_enhance_random_roll(
 	registry: Object = null,
 	trigger_source: String = "perk"
 ) -> Dictionary:
-	var pet_id := _resolve_guardian_enhance_pet_id(owner)
-	if pet_id == "":
-		return {"accepted": false, "modal_started": false, "blocked_reason": "no_owned_guardian"}
-	var result := LingpetGuardianEnhanceApplier.resolve_random_roll(
+	return _guardian_enhance_flow.apply_random_roll(
 		candidates,
-		Callable(self, "can_apply_guardian_enhancement_candidate").bind(pet_id),
-		Callable(self, "apply_guardian_enhancement_candidate").bind(owner, registry, pet_id),
-		Callable(self, "apply_guardian_enhance_duration_fallback").bind(owner, registry),
-		_guardian_enhance_roll_rng_for_tests
+		owner,
+		registry,
+		trigger_source,
+		_pet_id
 	)
-	result["display_candidate_icons"] = _build_guardian_enhance_display_candidate_icons(
-		candidates,
-		result,
-		registry
-	)
-	complete_guardian_enhance_roll(result, pet_id, registry, trigger_source, owner)
-	return result
-
-
-func _build_guardian_enhance_display_candidate_icons(
-	candidates: Array,
-	result: Dictionary,
-	registry: Object
-) -> Array[String]:
-	var display_icons: Array[String] = []
-	var applied_index := int(result.get("applied_index", -1))
-	var result_detail: Dictionary = result.get("result_detail", {}) as Dictionary
-	var result_icon_path := str(result_detail.get("icon_texture_path", "")).strip_edges()
-	for candidate_index in range(candidates.size()):
-		if display_icons.size() >= 8:
-			break
-		var value: Variant = candidates[candidate_index]
-		if not (value is Dictionary):
-			continue
-		var candidate: Dictionary = value as Dictionary
-		var icon_path := str(candidate.get("icon_texture_path", "")).strip_edges()
-		if candidate_index == applied_index and result_icon_path != "":
-			icon_path = result_icon_path
-		if icon_path == "":
-			# Stat, duration, and unlock candidates deliberately use the host's
-			# procedural neutral glyph instead of triggering a runtime file lookup.
-			display_icons.append("")
-			continue
-		if _guardian_enhance_cutin_host_resolver.has_cached_result_icon(registry, icon_path):
-			display_icons.append(icon_path)
-	return display_icons
 
 
 func build_guardian_enhance_live_candidates(owner: Object = null) -> Array:
-	var pet_id := _resolve_guardian_enhance_pet_id(owner)
-	if pet_id == "":
-		return []
-	_guardian_run_context_coordinator.configure(
-		pet_id,
-		_pet_id,
-		_current_profile,
-		_loadout_state,
-		_guardian_run_state
-	)
-	var skill_availability: Dictionary = (
-		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
-	)
-	var raw_candidates: Array[Dictionary] = (
-		_guardian_run_state.build_guardian_enhancement_candidates(
-			pet_id,
-			bool(skill_availability.get("has_second_active", false)),
-			bool(skill_availability.get("has_second_passive", false))
-		)
-	)
-	var candidates: Array = []
-	for candidate in raw_candidates:
-		candidates.append(_guardian_enhance_offer_engine.localize_candidate(candidate))
-	return candidates
+	return _guardian_enhance_flow.build_live_candidates(owner, _pet_id)
 
 
 func trigger_guardian_enhancement_from_absorption(
 	owner: Object = null,
 	registry: Object = null
 ) -> Dictionary:
-	var pet_id := _resolve_guardian_enhance_pet_id(owner)
-	if pet_id == "":
-		return {"accepted": false, "blocked_reason": "no_owned_guardian"}
-	_guardian_run_context_coordinator.configure(
-		pet_id,
-		_pet_id,
-		_current_profile,
-		_loadout_state,
-		_guardian_run_state
-	)
-	var skill_availability: Dictionary = (
-		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
-	)
-	var raw_candidates: Array[Dictionary] = _guardian_run_state.build_guardian_enhancement_candidates(
-		pet_id,
-		bool(skill_availability.get("has_second_active", false)),
-		bool(skill_availability.get("has_second_passive", false))
-	)
-	var candidates: Array = []
-	for candidate in raw_candidates:
-		candidates.append(_guardian_enhance_offer_engine.localize_candidate(candidate))
-	return apply_guardian_enhance_random_roll(candidates, owner, registry, "absorb")
+	return _guardian_enhance_flow.trigger_from_absorption(owner, registry, _pet_id)
 
 
 func can_apply_guardian_enhancement_candidate(candidate: Dictionary, pet_id: String) -> bool:
-	var skill_availability: Dictionary = (
-		_guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
-	)
-	return _guardian_run_state.can_apply_guardian_enhancement(
-		pet_id,
-		candidate,
-		bool(skill_availability.get("has_second_active", false)),
-		bool(skill_availability.get("has_second_passive", false))
-	)
+	return bool(_guardian_enhance_flow.can_apply_candidate(candidate, pet_id))
 
 
 func apply_guardian_enhancement_candidate(
@@ -695,80 +663,20 @@ func apply_guardian_enhancement_candidate(
 	registry: Object = null,
 	pet_id: String = ""
 ) -> Dictionary:
-	var target_pet_id := pet_id.strip_edges().to_lower()
-	if target_pet_id == "":
-		target_pet_id = _resolve_guardian_enhance_pet_id(owner)
-	var before_pet_data: Dictionary = _guardian_run_state.get_pet_data(target_pet_id)
-	var before_loadout: Dictionary = _loadout_state.get_stored_loadout(target_pet_id)
-	var skill_availability: Dictionary = (
-		_guardian_run_state.get_guardian_enhancement_skill_availability(target_pet_id)
-	)
-	var result: Dictionary = _guardian_run_state.apply_guardian_enhancement(
-		target_pet_id,
+	return _guardian_enhance_flow.apply_candidate(
 		candidate,
-		bool(skill_availability.get("has_second_active", false)),
-		bool(skill_availability.get("has_second_passive", false))
+		owner,
+		registry,
+		pet_id,
+		_pet_id
 	)
-	if bool(result.get("accepted", false)):
-		_guardian_run_context_coordinator.handle_enhancement_gain(
-			target_pet_id,
-			registry,
-			_pet_id,
-			_current_profile,
-			_loadout_state,
-			_guardian_run_state,
-			_snapshot_builder
-		)
-		if str(candidate.get("type", "")) in [
-			LingpetEnhancementBuffStore.REWARD_TYPE_ACTIVE_UNLOCK,
-			LingpetEnhancementBuffStore.REWARD_TYPE_PASSIVE_UNLOCK,
-			LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
-			LingpetEnhancementBuffStore.REWARD_TYPE_SECOND_PASSIVE_UNLOCK,
-		]:
-			_apply_current_loadout(owner, true, false, registry)
-		var after_pet_data: Dictionary = _guardian_run_state.get_pet_data(target_pet_id)
-		var after_loadout: Dictionary = _loadout_state.get_stored_loadout(target_pet_id)
-		var detail := LingpetGuardianEnhanceResultDetail.build(
-			candidate,
-			target_pet_id,
-			before_pet_data,
-			after_pet_data,
-			before_loadout,
-			after_loadout
-		)
-		result["result_detail"] = detail
-		_copy_guardian_enhance_detail_fields(result, detail)
-		_invalidate_runtime_snapshot_cache()
-		_sync_owner(owner, registry)
-	return result
 
 
 func apply_guardian_enhance_duration_fallback(
 	owner: Object = null,
 	registry: Object = null
 ) -> Dictionary:
-	var result: Dictionary = _guardian_run_state.apply_guardian_enhance_duration_fallback()
-	if bool(result.get("accepted", false)):
-		var detail := LingpetGuardianEnhanceResultDetail.build_fallback()
-		result["result_detail"] = detail
-		_copy_guardian_enhance_detail_fields(result, detail)
-		_invalidate_runtime_snapshot_cache()
-		_sync_owner(owner, registry)
-	return result
-
-
-static func _copy_guardian_enhance_detail_fields(result: Dictionary, detail: Dictionary) -> void:
-	for key in [
-		"skill_id",
-		"skill_display_name",
-		"previous_level",
-		"new_level",
-		"icon_texture_path",
-		"stat_amount",
-		"stat_unit",
-	]:
-		if detail.has(key):
-			result[key] = detail.get(key)
+	return _guardian_enhance_flow.apply_duration_fallback(owner, registry)
 
 
 func complete_guardian_enhance_roll(
@@ -778,155 +686,42 @@ func complete_guardian_enhance_roll(
 	trigger_source: String = "perk",
 	owner: Object = null
 ) -> void:
-	if display_pet_id.strip_edges() == "":
-		display_pet_id = _pet_id
-	var normalized_source := trigger_source.strip_edges().to_lower()
-	if normalized_source == "":
-		normalized_source = "perk"
-	result["trigger_source"] = normalized_source
-	result["trigger_source_label"] = _guardian_enhance_offer_engine.get_trigger_source_label(
-		normalized_source
+	_guardian_enhance_presentation.complete_roll(
+		result,
+		display_pet_id,
+		_pet_id,
+		registry,
+		trigger_source,
+		owner
 	)
-	_guardian_enhance_last_result = result.duplicate(true)
-	if bool(result.get("accepted", false)):
-		if normalized_source == "perk":
-			_guardian_enhance_offer_engine.mark_applied()
-		_guardian_enhance_cutin_prewarm_state.reset()
-		_guardian_enhance_cutin_host_resolver.prewarm_result_icon(registry, result)
-		_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
-			display_pet_id,
-			registry,
-			_guardian_enhance_cutin_host_resolver
-		)
-		if _guardian_enhance_cutin_state.start(display_pet_id, result):
-			_begin_guardian_enhance_cutin_modal_time(owner, registry)
 
 
 func is_guardian_enhance_cutin_active() -> bool:
-	return bool(_guardian_enhance_cutin_state.active)
+	return bool(_guardian_enhance_presentation.is_active())
 
 
 func get_guardian_enhance_cutin_snapshot() -> Dictionary:
-	return _guardian_enhance_cutin_state.get_snapshot()
+	return _guardian_enhance_presentation.get_snapshot()
 
 
 func advance_guardian_enhance_cutin(delta: float, registry: Object = null) -> void:
-	if not is_guardian_enhance_cutin_active():
-		return
-	var snapshot: Dictionary = _guardian_enhance_cutin_state.get_snapshot()
-	var display_pet_id := str(snapshot.get("pet_id", _pet_id))
-	_guardian_enhance_cutin_prewarm_state.prewarm_registry_step(
-		display_pet_id,
-		registry,
-		_guardian_enhance_cutin_host_resolver
-	)
-	var assets_ready: bool = bool(_guardian_enhance_cutin_host_resolver.is_anim_ready(
-		registry,
-		display_pet_id
-	))
-	var animation_contract: Dictionary = (
-		_guardian_enhance_cutin_host_resolver.get_animation_contract(
-			registry,
-			display_pet_id
-		)
-	)
-	var closed := bool(_guardian_enhance_cutin_state.advance(
-		delta,
-		assets_ready,
-		animation_contract
-	))
-	if closed:
-		_stop_guardian_enhance_cutin_audio(registry)
-		_finish_guardian_enhance_cutin_modal_time(registry)
+	_guardian_enhance_presentation.advance(delta, registry, _pet_id)
 
 
 func cancel_guardian_enhance_cutin(registry: Object = null) -> bool:
-	var cancelled := bool(_guardian_enhance_cutin_state.cancel_immediate())
-	if cancelled:
-		_stop_guardian_enhance_cutin_audio(registry)
-		_finish_guardian_enhance_cutin_modal_time(registry)
-	return cancelled
-
-
-func _begin_guardian_enhance_cutin_modal_time(owner: Object, registry: Object) -> void:
-	_guardian_enhance_cutin_modal_owner = owner
-	_guardian_enhance_cutin_modal_registry = registry
-	var runtime_perk_state := _get_guardian_enhance_runtime_perk_state(registry)
-	if (
-		runtime_perk_state != null
-		and runtime_perk_state.has_method("_pause_skill_cooldowns_for_choice")
-	):
-		runtime_perk_state.call("_pause_skill_cooldowns_for_choice", owner, registry)
-
-
-func _finish_guardian_enhance_cutin_modal_time(registry: Object = null) -> void:
-	var modal_owner: Object = _guardian_enhance_cutin_modal_owner
-	var modal_registry: Object = registry
-	if modal_registry == null:
-		modal_registry = _guardian_enhance_cutin_modal_registry
-	_guardian_enhance_cutin_modal_owner = null
-	_guardian_enhance_cutin_modal_registry = null
-	var runtime_perk_state := _get_guardian_enhance_runtime_perk_state(modal_registry)
-	if runtime_perk_state == null:
-		return
-	if runtime_perk_state.has_method("_resume_skill_cooldowns_for_choice"):
-		runtime_perk_state.call("_resume_skill_cooldowns_for_choice")
-	if runtime_perk_state.has_method("_try_arm_resume_safety"):
-		runtime_perk_state.call("_try_arm_resume_safety", modal_owner, modal_registry)
-
-
-static func _get_guardian_enhance_runtime_perk_state(registry: Object) -> Object:
-	if registry == null:
-		return null
-	var value: Variant = null
-	if registry.has_method("get_cached_instance"):
-		value = registry.get_cached_instance("runtime_perk_state")
-	if (typeof(value) != TYPE_OBJECT or value == null) and registry.has_method("get_instance"):
-		value = registry.get_instance("runtime_perk_state")
-	if typeof(value) == TYPE_OBJECT and value != null and is_instance_valid(value):
-		return value as Object
-	return null
-
-
-func _stop_guardian_enhance_cutin_audio(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Variant = null
-	if registry.has_method("get_cached_instance"):
-		audio = registry.get_cached_instance("game_audio")
-	if (typeof(audio) != TYPE_OBJECT or audio == null) and registry.has_method("get_instance"):
-		audio = registry.get_instance("game_audio")
-	if typeof(audio) == TYPE_OBJECT and audio != null and audio.has_method("stop_lingpet_guardian_enhance_cutin_loop"):
-		audio.stop_lingpet_guardian_enhance_cutin_loop()
+	return bool(_guardian_enhance_presentation.cancel(registry))
 
 
 func set_guardian_enhance_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
-	_guardian_enhance_roll_rng_for_tests = rng
+	_guardian_enhance_flow.set_roll_rng_for_tests(rng)
 
 
 func get_guardian_enhance_offer_state_for_tests() -> Dictionary:
-	return _guardian_enhance_offer_engine.get_state_for_tests()
+	return _guardian_enhance_flow.get_offer_state_for_tests()
 
 
 func get_guardian_enhance_last_result_for_tests() -> Dictionary:
-	return _guardian_enhance_last_result.duplicate(true)
-
-
-func _resolve_guardian_enhance_pet_id(owner: Object) -> String:
-	_collection_state.sync_from_owner(owner)
-	var owned: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
-	if owned.is_empty():
-		return ""
-	var normalized_current: String = _current_profile.normalize_pet_id(_pet_id)
-	if normalized_current != "" and owned.has(normalized_current):
-		return normalized_current
-	var slots: Array[String] = _collection_state.get_battle_slots_from_owner(owner)
-	var active_index: int = _collection_state.get_active_slot_index_from_owner(owner)
-	if active_index >= 0 and active_index < slots.size():
-		var slot_pet: String = _current_profile.normalize_pet_id(str(slots[active_index]))
-		if slot_pet != "":
-			return slot_pet
-	return _current_profile.normalize_pet_id(str(owned[0]))
+	return _guardian_enhance_presentation.get_last_result_for_tests()
 
 
 func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
@@ -936,7 +731,7 @@ func can_offer_egg_item(owner: Object, registry: Object = null) -> bool:
 		return false
 	if _state == STATE_EGG or _item_egg_lifecycle_state.has_blocking_incubation():
 		return false
-	if _acquire_cutin_state.active or _overflow_choice_state.has_pending_or_active():
+	if _acquisition_lifecycle.is_acquire_cutin_active() or _overflow_choice_state.has_pending_or_active():
 		return false
 	if _collection_state.is_auto_present_league(owner):
 		return false
@@ -973,7 +768,7 @@ func deploy_egg_from_item(
 	# Block while an incubator egg is mid-reveal (cut-in) OR in the gap between the cut-in
 	# closing and the deferred absorb running (awaiting/ready) — otherwise a new egg could be
 	# deployed before the previous one is absorbed.
-	if _acquire_cutin_state.active or _overflow_choice_state.has_pending_or_active():
+	if _acquisition_lifecycle.is_acquire_cutin_active() or _overflow_choice_state.has_pending_or_active():
 		return false
 	if _item_egg_lifecycle_state.has_pending_absorb():
 		return false
@@ -983,10 +778,9 @@ func deploy_egg_from_item(
 		pet_id = str(_collection_state.pick_random_any_pet_id())
 	if pet_id == "":
 		return false
-	_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
+	_acquisition_lifecycle.prewarm_registry_step(
 		pet_id,
-		registry,
-		_acquire_cutin_overlay_host_resolver
+		registry
 	)
 	# A companion is ALREADY on field: incubate a SEPARATE coexisting egg next to it. The
 	# companion keeps accompanying the player and stays in the character-info panel
@@ -1020,7 +814,7 @@ func deploy_soul_summon_egg(owner: Object, registry: Object = null) -> Dictionar
 		_state == STATE_EGG
 		or _item_egg_lifecycle_state.has_blocking_incubation()
 		or _item_egg_lifecycle_state.has_pending_absorb()
-		or _acquire_cutin_state.active
+		or _acquisition_lifecycle.is_acquire_cutin_active()
 		or _overflow_choice_state.has_pending_or_active()
 	):
 		return {"dropped": false, "skipped_reason": "egg_already_present"}
@@ -1210,7 +1004,7 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 				_egg_state.roll_angle
 			)
 			return
-		if _hatch_break_burst_hold > 0.0:
+		if _acquisition_lifecycle.get_hatch_break_burst_hold() > 0.0:
 			# Shell just burst: the body is gone; the shard burst + flash render
 			# in the front pass until the deferred hatch commits.
 			return
@@ -1320,7 +1114,7 @@ func has_visible_effects() -> bool:
 		or _is_guardian_summoned()
 		or _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0
 		or bool(_egg_state.has_hatch_flash())
-		or _acquire_cutin_state.active
+		or _acquisition_lifecycle.is_acquire_cutin_active()
 		or _afterglow_leak_state.has_visible_effects()
 		or _ring_dash_vfx.has_visible_effects()
 		or _ghost_blink_vfx.has_visible_effects()
@@ -1418,14 +1212,14 @@ func launch_mokrin_transform_for_tests() -> bool:
 
 
 func is_acquire_cutin_active() -> bool:
-	return _acquire_cutin_state.active
+	return bool(_acquisition_lifecycle.is_acquire_cutin_active())
 
 
 # True through the whole shell-break window: the state-scripted break motion
 # PLUS the post-burst hold before the deferred hatch commit opens the cut-in.
 # The modal gate reads this to hold battle physics (mirrors the cut-in).
 func is_hatch_break_active() -> bool:
-	return _egg_state.is_hatch_break_active() or _hatch_break_burst_hold > 0.0
+	return bool(_acquisition_lifecycle.is_hatch_break_active())
 
 
 # Pumped from the frame controller's ungated idle path while the modal gate
@@ -1433,53 +1227,16 @@ func is_hatch_break_active() -> bool:
 # shell-break motion, bursts the shell on completion, then runs a short hold so
 # the shard burst reads before the acquire cut-in covers it.
 func advance_hatch_break(delta: float, owner: Object = null, registry: Object = null) -> void:
-	if not is_hatch_break_active():
-		return
-	# Keep streaming the heavy cut-in sheets through the break window too, so the
-	# reveal opens on the Live2D animation instead of the static fallback.
-	_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
-		_acquire_cutin_state.get_display_pet_id(_pet_id),
+	_acquisition_lifecycle.advance_hatch_break(
+		delta,
+		owner,
 		registry,
-		_acquire_cutin_overlay_host_resolver
+		_pet_id
 	)
-	if _egg_state.is_hatch_break_active():
-		if _egg_state.advance_hatch_break(delta):
-			# Shell burst: destroy the shell visual now; the cut-in waits out the hold.
-			_egg_state.trigger_hatch_flash(LingpetEggFieldRenderer.HATCH_FLASH_SECONDS)
-			_hatch_break_burst_hold = HATCH_BREAK_BURST_HOLD_SECONDS
-			if _hatch_break_burst_hold <= 0.0:
-				# A zero-tuned hold must still commit -- otherwise the pump's own
-				# is_hatch_break_active() gate would never re-enter and the hatch
-				# would strand behind a permanently-held modal gate.
-				_commit_pending_hatch(owner, registry)
-		return
-	# Burst hold: tick the flash while physics is paused, then commit the hatch.
-	_egg_state.advance(delta)
-	_hatch_break_burst_hold = maxf(0.0, _hatch_break_burst_hold - maxf(0.0, delta))
-	if _hatch_break_burst_hold <= 0.0:
-		_commit_pending_hatch(owner, registry)
-
-
-func _commit_pending_hatch(owner: Object, registry: Object = null) -> void:
-	var pending_kind := _hatch_break_pending_kind
-	_hatch_break_pending_kind = ""
-	_hatch_break_burst_hold = 0.0
-	if pending_kind == HATCH_PENDING_KIND_OVERFLOW:
-		_begin_overflow_hatch(owner, registry)
-	elif pending_kind == HATCH_PENDING_KIND_REGULAR:
-		_finish_regular_hatch(owner, registry)
-	else:
-		return
-	# The commit runs from the ungated idle pump, and the gated update tick that
-	# used to sync the owner right after the hatch is held by the modal gate for
-	# the whole upcoming cut-in -- publish the companion state keys here instead.
-	if owner != null:
-		_sync_owner(owner, registry)
 
 
 func _reset_hatch_break_sequence() -> void:
-	_hatch_break_pending_kind = ""
-	_hatch_break_burst_hold = 0.0
+	_acquisition_lifecycle.reset_hatch_break_sequence()
 
 
 # Advanced from the ungated idle pump (process_idle), so the reveal AND the exit
@@ -1490,23 +1247,11 @@ func _reset_hatch_break_sequence() -> void:
 # the gate releases as soon as the sheet is ready, covering paths that skipped (or had
 # too few) STATE_EGG calm frames.
 func advance_acquire_cutin(delta: float, registry: Object = null) -> void:
-	_invalidate_runtime_snapshot_cache()
-	var cutin_pet_id: String = str(_acquire_cutin_state.get_display_pet_id(_pet_id))
-	var anim_ready: bool = _acquire_cutin_overlay_host_resolver.is_anim_ready(registry, cutin_pet_id)
-	if not anim_ready and registry != null:
-		_acquire_cutin_asset_prewarm_state.prewarm_registry_step(
-			cutin_pet_id,
-			registry,
-			_acquire_cutin_overlay_host_resolver
-		)
-	var was_active := bool(_acquire_cutin_state.active)
-	_acquire_cutin_state.advance(delta, anim_ready)
-	if was_active and not bool(_acquire_cutin_state.active):
-		_overflow_choice_state.resolve_after_acquire_cutin(_item_egg_lifecycle_state)
+	_acquisition_lifecycle.advance_acquire_cutin(delta, registry, _pet_id)
 
 
 func get_acquire_cutin_progress() -> float:
-	return _acquire_cutin_state.get_progress()
+	return float(_acquisition_lifecycle.get_acquire_cutin_progress())
 
 
 # The reveal has finished playing and the cut-in is holding for a click/confirm.
@@ -1514,42 +1259,30 @@ func get_acquire_cutin_progress() -> float:
 # it has started. Input is swallowed before this point so an early click cannot
 # skip the reveal or leak into gameplay.
 func is_acquire_cutin_awaiting_dismiss() -> bool:
-	return _acquire_cutin_state.is_awaiting_dismiss()
+	return bool(_acquisition_lifecycle.is_acquire_cutin_awaiting_dismiss())
 
 
 # Begin the animated exit action (does NOT close immediately). The cut-in stays
 # active (gameplay paused) until advance_acquire_cutin finishes the action+fade.
 func begin_acquire_cutin_dismiss(registry: Object = null) -> bool:
-	var cutin_pet_id: String = str(_acquire_cutin_state.get_display_pet_id(_pet_id))
-	var cutin_profile: Object = _item_egg_lifecycle_state.get_profile() if _acquire_cutin_state.has_display_override() else _current_profile
-	var dismiss_seconds: float = maxf(
-		0.1,
-		float(cutin_profile.get_visual_layout_value("cutin_dismiss_seconds", LingpetAcquireCutinState.DISMISS_SECONDS))
-	)
-	if not _acquire_cutin_state.begin_dismiss(dismiss_seconds):
-		return false
-	_invalidate_runtime_snapshot_cache()
-	_audio_dispatcher.play_lingpet_acquire_click_reaction_backing(registry)
-	_audio_dispatcher.play_lingpet_click_reaction(registry, cutin_pet_id)
-	return true
+	return bool(_acquisition_lifecycle.begin_acquire_cutin_dismiss(
+		registry,
+		_pet_id
+	))
 
 
 func is_acquire_cutin_dismissing() -> bool:
-	return _acquire_cutin_state.is_dismissing()
+	return bool(_acquisition_lifecycle.is_acquire_cutin_dismissing())
 
 
 func get_acquire_cutin_dismiss_progress() -> float:
-	return _acquire_cutin_state.get_dismiss_progress()
+	return float(_acquisition_lifecycle.get_acquire_cutin_dismiss_progress())
 
 
 # Immediate hard close (cleanup / state-reset paths). The click handler uses
 # begin_acquire_cutin_dismiss() instead so players see the exit action.
 func dismiss_acquire_cutin() -> bool:
-	var dismissed := bool(_acquire_cutin_state.dismiss_immediate())
-	if dismissed:
-		_invalidate_runtime_snapshot_cache()
-		_overflow_choice_state.resolve_after_acquire_cutin(_item_egg_lifecycle_state)
-	return dismissed
+	return bool(_acquisition_lifecycle.dismiss_acquire_cutin())
 
 
 func is_overflow_choice_active() -> bool:
@@ -1566,6 +1299,8 @@ func get_overflow_choice_snapshot() -> Dictionary:
 		_guardian_run_state,
 		_hatch_stat_roll_state
 	)
+
+
 
 
 func commit_overflow_replace(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
@@ -1728,9 +1463,16 @@ func debug_grant_and_activate_pet(
 	_loadout_state.set_skip_unlock_reconcile(has_explicit_loadout)
 	_apply_current_loadout(owner, true, false, registry)
 	if owner != null:
-		var owner_slots: Array[String] = _collection_state.get_battle_slots_from_owner(owner)
-		_collection_state.set_battle_slots(owner_slots)
-		_collection_state.set_active_slot_index(_collection_state.get_active_slot_index_from_owner(owner))
+		_collection_state.sync_from_owner(owner)
+		var owner_slots: Array[String] = _collection_state.get_battle_slots()
+		if owner_slots.is_empty():
+			_collection_state.ensure_pet_active_slot(owner, normalized_pet_id)
+		else:
+			_collection_state.replace_slot(
+				owner,
+				_collection_state.get_active_slot_index(),
+				normalized_pet_id
+			)
 	# Keep the unlock-reconcile skip sticky for debug-forced loadouts so later
 	# same-pet unlock reconcile cannot overwrite an F7-selected skill.
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_companion_activation(
@@ -1738,8 +1480,7 @@ func debug_grant_and_activate_pet(
 	))
 	_initialize_companion_patrol(owner, true)
 	if show_acquire_cutin:
-		_acquire_cutin_state.start()
-		_audio_dispatcher.play_lingpet_acquire_cutin(registry)
+		_acquisition_lifecycle.start_acquire_cutin("", registry)
 	_sync_owner(owner, registry)
 	return true
 
@@ -1750,7 +1491,7 @@ func get_plaza_resonance_egg_offer(owner: Object) -> Dictionary:
 		_state,
 		owner != null
 			and _state != STATE_EGG
-			and not _acquire_cutin_state.active
+			and not _acquisition_lifecycle.is_acquire_cutin_active()
 			and not _overflow_choice_state.has_pending_or_active()
 			and _collection_state.should_spawn_egg(owner),
 		_egg_state.hatch_hits,
@@ -1980,60 +1721,30 @@ func configure_companion_sortie_hidden_for_tests(test_pos: Vector2, test_seed: i
 
 
 func get_gauge_gain_per_hit(base_gain: float) -> float:
-	var gain: float = maxf(0.0, base_gain)
-	var bonus_pct: float = _profile_runtime_surface.get_gauge_gain_bonus_pct(_current_profile, 0.0)
-	if not _is_guardian_summoned() or bonus_pct <= 0.0:
-		return gain
-	return floor(gain * (1.0 + bonus_pct / 100.0))
+	return float(_profile_runtime_surface.apply_gauge_gain_per_hit(
+		_current_profile,
+		_is_guardian_summoned(),
+		base_gain
+	))
 
 
 func get_player_speed_multiplier() -> float:
-	if not _is_guardian_summoned():
-		return 1.0
-	var bonus_pct: float = _profile_runtime_surface.get_player_speed_bonus_pct(_current_profile, 0.0)
-	if bonus_pct <= 0.0:
-		return 1.0
-	return 1.0 + bonus_pct / 100.0
+	return float(_profile_runtime_surface.get_player_speed_multiplier(
+		_current_profile,
+		_is_guardian_summoned()
+	))
 
 
 # Character-info stat tooltip soft contract. Passive bonuses are additive in
 # LingpetCurrentProfile, so each row advances the cumulative ratio rather than
 # multiplying independent 1 + pct values (which would overstate two slots).
 func get_player_stat_breakdown(stat_key: String, base_value: float = 0.0) -> Array:
-	if not _is_guardian_summoned():
-		return []
-	var effect_key := ""
-	match stat_key:
-		"player_speed":
-			effect_key = "player_speed_bonus_pct"
-		"gauge_gain":
-			effect_key = "gauge_gain_bonus_pct"
-		_:
-			return []
-	var entries: Array = []
-	var cumulative_pct := 0.0
-	var current_value := maxf(0.0, base_value) if stat_key == "gauge_gain" and base_value > 0.0 else 1.0
-	var source_base := current_value
-	for passive: Dictionary in _profile_runtime_surface.get_passive_skills(_current_profile):
-		var bonus_pct := maxf(0.0, float(passive.get(effect_key, 0.0)))
-		if bonus_pct <= 0.0:
-			continue
-		var before := current_value
-		cumulative_pct += bonus_pct
-		if stat_key == "gauge_gain" and base_value > 0.0:
-			current_value = floor(source_base * (1.0 + cumulative_pct / 100.0))
-		else:
-			current_value = 1.0 + cumulative_pct / 100.0
-		if is_equal_approx(before, current_value):
-			continue
-		entries.append({
-			"label": str(passive.get("name", "수호령 버프")),
-			"icon_id": str(passive.get("id", "")),
-			"before": before,
-			"after": current_value,
-			"ratio": current_value / before if absf(before) > 0.0001 else 1.0,
-		})
-	return entries
+	return _profile_runtime_surface.build_player_stat_breakdown(
+		_current_profile,
+		_is_guardian_summoned(),
+		stat_key,
+		base_value
+	)
 
 
 func update_starlight_tracking_for_starpoint_drop(drop: Dictionary, delta_seconds: float, context: Dictionary = {}) -> Dictionary:
@@ -2106,189 +1817,21 @@ func get_snapshot() -> Dictionary:
 
 
 func get_rail_card_surface() -> Dictionary:
-	var process_frame: int = int(Engine.get_process_frames())
-	var physics_frame: int = int(Engine.get_physics_frames())
-	if (
-		_rail_card_surface_cache_valid
-		and _rail_card_surface_cache_process_frame == process_frame
-		and _rail_card_surface_cache_physics_frame == physics_frame
-	):
-		return _rail_card_surface_cache
-	_rail_card_surface_cache = _build_rail_card_surface_uncached()
-	_rail_card_surface_cache_valid = true
-	_rail_card_surface_cache_process_frame = process_frame
-	_rail_card_surface_cache_physics_frame = physics_frame
-	return _rail_card_surface_cache
-
-
-func _build_rail_card_surface_uncached() -> Dictionary:
-	_rail_card_surface_build_count_for_tests += 1
-	var active_slot_count: int = _skill_runtime_surface.get_active_slot_count(_current_profile, _active_skill_slot_resolver, _skill_runtime_host)
-	var primary_skill_surface: Dictionary = _skill_runtime_surface.get_active_surface_for_slot(
-		_current_profile,
-		_active_skill_slot_resolver,
-		_companion_skill_persistence,
-		_companion_skill_states,
-		_skill_runtime_host,
-		COMPANION_SKILL_WINDUP_SECONDS,
-		0,
-		active_slot_count
-	)
-	var second_skill_surface: Dictionary = _skill_runtime_surface.get_second_active_surface(
-		_current_profile,
-		_active_skill_slot_resolver,
-		_companion_skill_persistence,
-		_companion_skill_states,
-		_skill_runtime_host,
-		COMPANION_SKILL_WINDUP_SECONDS,
-		active_slot_count
-	)
-	# S2-c: permit 3키는 레일이 실제로 읽는 표면에도 실려야 한다. 레일은
-	# get_rail_card_surface()를 get_snapshot()보다 우선하므로, 투영이 스냅샷
-	# 경로에만 있으면 씰만 GREEN이고 실전 레일에서 죽는다(projection-분기
-	# 후처리 탈락 트랩). 정본은 _build_interaction_permit_projection() 하나.
-	var permit_projection: Dictionary = _build_interaction_permit_projection()
-	var surface: Dictionary = _get_rail_card_static_surface(primary_skill_surface, second_skill_surface, active_slot_count, permit_projection)
-	var primary_active := _is_rail_card_slot_active(primary_skill_surface, active_slot_count, 0)
-	var second_active := _is_rail_card_slot_active(second_skill_surface, active_slot_count, 1)
-	_merge_rail_card_slot_dynamic(surface, primary_skill_surface, "", primary_active)
-	_merge_rail_card_slot_dynamic(surface, second_skill_surface, "_1", second_active)
-	_merge_rail_card_skill_runtime_snapshot(surface, str(primary_skill_surface.get("skill_id", "")) if primary_active else "")
-	var second_skill_id := str(second_skill_surface.get("skill_id", "")) if second_active else ""
-	if second_skill_id != "" and second_skill_id != str(primary_skill_surface.get("skill_id", "")):
-		_merge_rail_card_skill_runtime_snapshot(surface, second_skill_id)
-	# 빈 슬롯 기본값(_empty_rail_card_skill_state_snapshot)이 투영을 덮지 못하도록
-	# 동적 병합 "뒤"에 실는다.
-	surface.merge(permit_projection, true)
-	return surface
-
-
-# S2 permit 투영 계약의 단일 정본 (양 슬롯 동일 계약): 장착·비탑승
-# available=T/active=F, 장착·탑승 T/T, 미장착·철회 직후 F/F. activation_model은
-# 소비자(레일)가 암묵 분기 없이 읽도록 문자열로 싣는다. 프로필 경유 O(1) 판정 —
-# egg는 카탈로그 직조회 금지. get_snapshot()과 get_rail_card_surface()가 같은
-# 헬퍼를 쓰므로 두 표면이 드리프트할 수 없다.
-func _build_interaction_permit_projection() -> Dictionary:
-	var projection: Dictionary = {}
-	var mounted: bool = bool(_mount_state.is_mounted())
-	for permit_slot_index in range(2):
-		var permit_suffix: String = "" if permit_slot_index == 0 else "_1"
-		var slot_is_permit: bool = bool(_current_profile.is_interaction_permit_for_slot(permit_slot_index))
-		projection["companion_skill_activation_model%s" % permit_suffix] = "interaction_permit" if slot_is_permit else "launch"
-		projection["companion_skill_interaction_available%s" % permit_suffix] = slot_is_permit
-		projection["companion_skill_interaction_active%s" % permit_suffix] = slot_is_permit and mounted
-	return projection
-
-
-func _get_rail_card_static_surface(primary_skill_surface: Dictionary, second_skill_surface: Dictionary, active_slot_count: int, permit_projection: Dictionary) -> Dictionary:
-	var primary_active := _is_rail_card_slot_active(primary_skill_surface, active_slot_count, 0)
-	var second_active := _is_rail_card_slot_active(second_skill_surface, active_slot_count, 1)
-	var static_key := [
+	return _rail_card_surface_builder.get_surface(
 		_state,
-		active_slot_count,
-		_build_rail_card_slot_static_key(primary_skill_surface, primary_active, permit_projection, ""),
-		_build_rail_card_slot_static_key(second_skill_surface, second_active, permit_projection, "_1"),
-	]
-	if not _rail_card_static_surface_key.is_empty() and _rail_card_static_surface_key == static_key:
-		return _rail_card_static_surface_cache.duplicate()
-	var surface: Dictionary = {}
-	_merge_rail_card_slot_static(surface, primary_skill_surface, "", primary_active)
-	_merge_rail_card_slot_static(surface, second_skill_surface, "_1", second_active)
-	_rail_card_static_surface_key = static_key.duplicate(true)
-	_rail_card_static_surface_cache = surface
-	_rail_card_static_surface_build_count_for_tests += 1
-	return surface.duplicate()
+		_is_guardian_summoned(),
+		_current_profile,
+		_mount_state,
+		_active_skill_slot_resolver,
+		_companion_skill_persistence,
+		_companion_skill_states,
+		_skill_runtime_host,
+		_skill_runtime_surface,
+		COMPANION_SKILL_WINDUP_SECONDS,
+		COMPANION_SKILL_FLASH_SECONDS
+	)
 
 
-func _build_rail_card_slot_static_key(skill_surface: Dictionary, active: bool, permit_projection: Dictionary, suffix: String) -> Array:
-	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
-	return [
-		active,
-		str(active_skill.get("id", "")) if active else "",
-		str(active_skill.get("name", "")) if active else "",
-		str(active_skill.get("description", "")) if active else "",
-		float(active_skill.get("cooldown", 0.0)) if active else 0.0,
-		str(active_skill.get("card_texture_path", "")) if active else "",
-		# S2-c: permit 3키를 캐시 정체성에 직접 포함한다. 정적 표면은 프레임을
-		# 가로질러 재사용되므로, 탑승 토글이나 로드아웃 permit 전환이 키에 없으면
-		# 낡은 표면이 그대로 서빙될 수 있다(프레임 키드 캐시 무효화에만 의존 금지).
-		str(permit_projection.get("companion_skill_activation_model%s" % suffix, "launch")),
-		bool(permit_projection.get("companion_skill_interaction_available%s" % suffix, false)),
-		bool(permit_projection.get("companion_skill_interaction_active%s" % suffix, false)),
-	]
-
-
-func _merge_rail_card_slot_static(surface: Dictionary, skill_surface: Dictionary, suffix: String, active: bool) -> void:
-	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
-	surface["companion_skill_id%s" % suffix] = str(active_skill.get("id", "")) if active else ""
-	surface["companion_skill_name%s" % suffix] = str(active_skill.get("name", "")) if active else ""
-	surface["companion_skill_description%s" % suffix] = str(active_skill.get("description", "")) if active else ""
-	surface["companion_skill_card_path%s" % suffix] = str(active_skill.get("card_texture_path", "")) if active else ""
-	surface["companion_skill_cooldown_duration%s" % suffix] = float(active_skill.get("cooldown", 0.0)) if active else 0.0
-
-
-func _merge_rail_card_slot_dynamic(surface: Dictionary, skill_surface: Dictionary, suffix: String, active: bool) -> void:
-	var skill_state: Object = skill_surface.get("skill_state", null) as Object
-	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
-	var skill_id := str(active_skill.get("id", "")) if active else ""
-	var cooldown_duration := float(active_skill.get("cooldown", 0.0)) if active else 0.0
-	var windup_seconds := float(skill_surface.get("windup_seconds", 0.0)) if active else 0.0
-	if skill_state != null and skill_state.has_method("get_snapshot"):
-		var raw_snapshot: Variant = skill_state.get_snapshot(
-			active,
-			skill_id,
-			cooldown_duration,
-			windup_seconds,
-			COMPANION_SKILL_FLASH_SECONDS,
-			suffix
-		)
-		if raw_snapshot is Dictionary:
-			surface.merge(raw_snapshot as Dictionary, true)
-			return
-	surface.merge(_empty_rail_card_skill_state_snapshot(suffix), true)
-
-
-func _merge_rail_card_skill_runtime_snapshot(surface: Dictionary, skill_id: String) -> void:
-	var normalized := skill_id.strip_edges()
-	if normalized == "":
-		return
-	if _skill_runtime_host == null or not _skill_runtime_host.has_method("get_snapshot_for_skill_id"):
-		return
-	var raw_snapshot: Variant = _skill_runtime_host.get_snapshot_for_skill_id(normalized)
-	if raw_snapshot is Dictionary:
-		surface.merge(raw_snapshot as Dictionary, true)
-
-
-func _is_rail_card_slot_active(skill_surface: Dictionary, active_slot_count: int, slot_index: int) -> bool:
-	if not _is_guardian_summoned() or slot_index >= active_slot_count:
-		return false
-	var active_skill: Dictionary = _as_dictionary(skill_surface.get("active_skill", {}))
-	return str(active_skill.get("id", "")) != "" and bool(active_skill.get("enabled", true))
-
-
-func _empty_rail_card_skill_state_snapshot(suffix: String) -> Dictionary:
-	return {
-		"companion_skill_cooldown%s" % suffix: 0.0,
-		"companion_skill_cooldown_duration%s" % suffix: 0.0,
-		"companion_skill_windup_seconds%s" % suffix: 0.0,
-		"companion_skill_windup_ratio%s" % suffix: 0.0,
-		"companion_skill_ready%s" % suffix: false,
-		"companion_skill_last_gain%s" % suffix: 0.0,
-		"companion_skill_trigger_count%s" % suffix: 0,
-		"companion_skill_flash_timer%s" % suffix: 0.0,
-		"companion_skill_flash_ratio%s" % suffix: 0.0,
-		"companion_skill_winding_up%s" % suffix: false,
-		"companion_skill_origin%s" % suffix: Vector2.ZERO,
-		"companion_skill_activation_model%s" % suffix: "launch",
-		"companion_skill_interaction_available%s" % suffix: false,
-		"companion_skill_interaction_active%s" % suffix: false,
-	}
-
-
-func _as_dictionary(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value as Dictionary
-	return {}
 
 
 func _build_runtime_snapshot_uncached() -> Dictionary:
@@ -2364,8 +1907,13 @@ func _build_runtime_snapshot_uncached() -> Dictionary:
 		profile_surface.get("passive_skill", {}) as Dictionary,
 		_profile_runtime_surface.get_passive_skill_pool(_current_profile)
 	)
-	snapshot.merge(_build_interaction_permit_projection(), true)
-
+	snapshot.merge(
+		_rail_card_surface_builder.build_interaction_permit_projection(
+			_current_profile,
+			_mount_state
+		),
+		true
+	)
 	var character_info_display_snapshot: Dictionary = _snapshot_builder.build_character_info_display_snapshot(
 		_pet_id,
 		_state,
@@ -2412,14 +1960,12 @@ func _invalidate_runtime_snapshot_cache() -> void:
 	_runtime_snapshot_revision += 1
 	_runtime_snapshot_cache_valid = false
 	_runtime_snapshot_cache = {}
-	_rail_card_surface_cache_valid = false
-	_rail_card_surface_cache = {}
+	_rail_card_surface_builder.invalidate_frame_cache()
 
 
 func reset_runtime_snapshot_cache_counters_for_tests() -> void:
 	_runtime_snapshot_build_count_for_tests = 0
-	_rail_card_surface_build_count_for_tests = 0
-	_rail_card_static_surface_build_count_for_tests = 0
+	_rail_card_surface_builder.reset_build_counters_for_tests()
 	_invalidate_runtime_snapshot_cache()
 
 
@@ -2428,11 +1974,11 @@ func get_runtime_snapshot_build_count_for_tests() -> int:
 
 
 func get_rail_card_surface_build_count_for_tests() -> int:
-	return _rail_card_surface_build_count_for_tests
+	return int(_rail_card_surface_builder.get_surface_build_count_for_tests())
 
 
 func get_rail_card_static_surface_build_count_for_tests() -> int:
-	return _rail_card_static_surface_build_count_for_tests
+	return int(_rail_card_surface_builder.get_static_surface_build_count_for_tests())
 
 
 # Public accessors for the coexist incubator egg (deployed via the lingpet_egg item while
@@ -2539,7 +2085,7 @@ func restore_save_snapshot(snapshot: Dictionary, owner: Object = null, registry:
 
 
 func reset_for_tests() -> void:
-	cancel_guardian_enhance_cutin(_guardian_enhance_cutin_modal_registry)
+	_guardian_enhance_flow.reset_for_tests()
 	_invalidate_runtime_snapshot_cache()
 	_state = STATE_NONE
 	_set_current_pet_id(PET_ID)
@@ -2556,11 +2102,6 @@ func reset_for_tests() -> void:
 	_guardian_active_elapsed = 0.0
 	_duration_warning_stage = 0
 	_duration_roll_rng_for_tests = null
-	_guardian_enhance_offer_engine.reset()
-	_guardian_enhance_roll_rng_for_tests = null
-	_guardian_enhance_last_result.clear()
-	_guardian_enhance_cutin_state.reset()
-	_guardian_enhance_cutin_prewarm_state.reset()
 	_pending_absorbed_collection_owner_sync.clear()
 	_egg_state.reset_all()
 	_reset_hatch_break_sequence()
@@ -2623,8 +2164,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 
 func _clear_lingpet_field_state() -> void:
 	_invalidate_runtime_snapshot_cache()
-	_guardian_enhance_cutin_state.reset()
-	_guardian_enhance_cutin_prewarm_state.reset()
+	_guardian_enhance_presentation.reset_presentation_state()
 	_guardian_transition_state.reset()
 	_state = STATE_NONE
 	_reset_hatch_break_sequence()
@@ -2838,12 +2378,9 @@ func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Obje
 		# then advance_hatch_break() runs the break + burst hold and finally opens
 		# the acquire cut-in via _commit_pending_hatch().
 		hatch_resolve_part_start = _perf_probe.begin(perf_logger)
-		_hatch_break_pending_kind = (
-			HATCH_PENDING_KIND_OVERFLOW if _collection_state.is_full(owner)
-			else HATCH_PENDING_KIND_REGULAR
+		_acquisition_lifecycle.begin_hatch_break(
+			_collection_state.is_full(owner)
 		)
-		_hatch_break_burst_hold = 0.0
-		_egg_state.trigger_hatch_break()
 		_perf_probe.end(perf_logger, "physics.lingpet.egg_phase.hatch_resolve.begin_hatch_break", hatch_resolve_part_start)
 	return true
 
@@ -3121,133 +2658,17 @@ func commit_unlock_pick(_pet_id_arg: String, _choice_key: String, _candidate_id:
 	return false
 
 
+func _get_companion_position_for_guardian_duration() -> Vector2:
+	return _companion_pos
+
+
 func _update_companion_motion(delta: float, owner: Object, registry: Object = null) -> void:
-	var prev_pos: Vector2 = _companion_pos
-	# Resolve summoned state before position-owning passives so a manual or
-	# duration-forced stow cannot launch movement, VFX, or audio.
-	var companion_active := _is_guardian_summoned()
-	var skill_position_override: Dictionary = _skill_runtime_surface.get_active_position_owner(
-		_current_profile,
-		_active_skill_slot_resolver,
-		_companion_skill_visual_resolver,
-		_skill_runtime_host,
-		_companion_pos
-	)
-	var has_skill_position_override: bool = _skill_runtime_surface.has_active_position_override(_companion_skill_visual_resolver, skill_position_override)
-	# 수호령 탑승: toggle + follow. Skill position overrides (sortie strikes
-	# etc.) win over the mount while active; the mount wins over feed /
-	# starlight loitering below.
-	# S2 안장 게이트: 장착 슬롯을 조회해 불리언 하나만 만들어 넘긴다 — 맵·유예
-	# 해석과 철회 전이 처리는 mount_state가 단독 소유(§2-4). "해금" = 현재 액티브
-	# 슬롯에 장착이지 보유가 아니다.
-	var mount_permitted: bool = _mount_state.is_mount_permitted(
+	_companion_motion_coordinator.update(
+		delta,
+		owner,
+		registry,
 		_pet_id,
-		_skill_runtime_surface.get_active_skill_ids(_current_profile, _active_skill_slot_resolver, _skill_runtime_host)
-	)
-	var mount_advance_result: Dictionary = _mount_state.advance(
-		owner,
-		_companion_pos,
-		companion_active and not has_skill_position_override,
-		_is_right_click_claimed_by_player_skill(owner, registry),
-		delta,
-		mount_permitted
-	)
-	if bool(mount_advance_result.get("toggled", false)):
-		# 탑승/하차 프레임의 interaction_active 스냅샷 정합 (프레임 키드 캐시 무효화).
-		_invalidate_runtime_snapshot_cache()
-	if _mount_state.has_companion_position_override() and not has_skill_position_override:
-		# This branch skips `_companion_motion_state.update()`, which is the only
-		# thing that retires a defense intercept -- and the mounted collision path
-		# returns BEFORE its own clear. So an intercept that happened to be live on
-		# the mounting frame would stay latched for the whole ride (붉은 오라 상시 +
-		# 하차 후 첫 히트가 "방어!"로 오표기). Retire it explicitly on entry.
-		_companion_motion_state.clear_defense_intercept()
-		# 같은 원리로 진행 중인 클릭 교감도 은퇴시킨다. 탑승 게이트는 NEW 클릭만
-		# 막으므로, 좌클릭 교감 → 4초 이내 RMB 탑승 순서에서는 기존 반응이
-		# `_companion_click_reaction_state.advance()`로 계속 살아 있고, 그리기 경로가
-		# `is_active()`만 보므로 carry 대신 반응 시트를 골라 라이더만 공중에 남는다.
-		# 탑승 중에는 새 반응이 시작될 수 없으니 매 프레임 호출은 자기치유로만 동작한다.
-		_companion_click_reaction_state.reset()
-		_companion_pos = _mount_state.get_companion_position_override(owner, _companion_pos)
-		_companion_motion_state.pos = _companion_pos
-		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
-			prev_pos,
-			_companion_pos,
-			_companion_facing_left
-		)
-		return
-	if has_skill_position_override:
-		_ring_dash_state.reset_round_transients()
-		_ring_dash_vfx.reset()
-	else:
-		var ring_dash_was_active: bool = _ring_dash_state.has_companion_position_override()
-		var passive_skill: Dictionary = _profile_runtime_surface.get_passive_skill_by_id(_current_profile, LingpetRingDashState.PASSIVE_ID)
-		var motion_style: String = _profile_runtime_surface.get_motion_style(_current_profile)
-		var ring_dash_result: Dictionary = _ring_dash_state.advance(
-			delta,
-			owner,
-			passive_skill,
-			companion_active,
-			_companion_pos,
-			_profile_runtime_surface.get_catch_width(_current_profile, COMPANION_HIT_HALF_WIDTH * 2.0),
-			_profile_runtime_surface.get_catch_height(_current_profile, COMPANION_HIT_HALF_HEIGHT * 2.0),
-			motion_style,
-			_resolve_player_dash_state(registry),
-			_is_player_guard_available(registry)
-		)
-		if _ring_dash_state.has_companion_position_override():
-			_companion_pos = _ring_dash_state.get_companion_position_override(_companion_pos)
-			_companion_motion_state.pos = _companion_pos
-			_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
-				prev_pos,
-				_companion_pos,
-				_companion_facing_left
-			)
-			if bool(ring_dash_result.get("started", false)):
-				# prev_pos is the pre-teleport spot (departure collapse); _companion_pos
-				# is the snapped intercept point (arrival burst).
-				_ring_dash_vfx.trigger(prev_pos, _companion_pos)
-				_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
-				_audio_dispatcher.play_lingpet_ring_dash(registry)
-			return
-		if ring_dash_was_active:
-			if _companion_motion_state.resume_sortie_loiter_from_current(
-				owner,
-				_companion_skill_persistence.get_trigger_count(),
-				_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-				_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
-				motion_style
-			):
-				_companion_pos = _companion_motion_state.pos
-	if _starlight_tracking_state.has_companion_position_override() and not has_skill_position_override:
-		_companion_pos = _starlight_tracking_state.get_companion_position_override(_companion_pos)
-		_companion_motion_state.pos = _companion_pos
-		_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
-			prev_pos,
-			_companion_pos,
-			_companion_facing_left
-		)
-		return
-	_companion_motion_state.pos = _companion_pos
-	_companion_motion_state.update(
-		delta,
-		owner,
-		_companion_skill_persistence.is_any_winding_up(_companion_skill_states) or not companion_active,
-		_debug_stat_overrides.get_defense_rate(_current_profile, COMPANION_DEFENSE_RATE) if companion_active else 0.0,
-		_companion_skill_persistence.get_trigger_count(),
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_default", COMPANION_PATROL_SPEED),
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-		_debug_stat_overrides.get_patrol_speed(_current_profile, "patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
-		_profile_runtime_surface.get_motion_style(_current_profile),
-		_debug_stat_overrides.get_appearance_rate(_current_profile, 0.0),
-		1.0,
-		not companion_active
-	)
-	_companion_pos = _companion_motion_state.pos
-	_companion_facing_left = _companion_motion_state.resolve_facing_left_after_motion(
-		prev_pos,
-		_companion_pos,
-		_companion_facing_left
+		_is_guardian_summoned()
 	)
 
 
@@ -3264,30 +2685,14 @@ func _is_right_click_claimed_by_player_skill(owner: Object, registry: Object = n
 	if registry == null:
 		registry = owner
 		owner = null
-	if registry == null or not registry.has_method("get_cached_instance"):
-		return false
-	var cached: Variant = registry.get_cached_instance("smasher_overdrive_state")
-	if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
-		var overdrive_state: Object = cached as Object
-		if overdrive_state.has_method("is_active") and bool(overdrive_state.is_active()):
-			return true
-		if overdrive_state.has_method("is_armed") and bool(overdrive_state.is_armed()):
-			return true
-	var viper_cached: Variant = registry.get_cached_instance("viper_skill_runtime")
-	if typeof(viper_cached) != TYPE_OBJECT or not is_instance_valid(viper_cached):
-		return false
-	var viper_runtime: Object = viper_cached as Object
-	return viper_runtime.has_method("is_command_armable") and bool(viper_runtime.is_command_armable(owner, registry))
+	return bool(_companion_player_runtime_resolver.is_right_click_claimed_by_player_skill(
+		owner,
+		registry
+	))
 
 
 func _is_player_guard_available(registry: Object) -> bool:
-	if registry == null or not registry.has_method("get_cached_instance"):
-		return true
-	var cached: Variant = registry.get_cached_instance("viper_skill_runtime")
-	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
-		return true
-	var viper_runtime: Object = cached as Object
-	return not viper_runtime.has_method("is_player_guard_available") or bool(viper_runtime.is_player_guard_available())
+	return bool(_companion_player_runtime_resolver.is_player_guard_available(registry))
 
 
 # 링크포트(ring_dash) 이중수비 게이트용 플레이어 대쉬 스냅샷.
@@ -3298,18 +2703,7 @@ func _is_player_guard_available(registry: Object) -> bool:
 # 미캐시(=대쉬 시스템 미가동)면 빈 dict로 정적 패들 게이트만 남는다.
 # 스냅샷 dict 생성도 대쉬 중일 때만 — 비대쉬 프레임은 bool 한 번으로 끝난다.
 func _resolve_player_dash_state(registry: Object) -> Dictionary:
-	if registry == null or not registry.has_method("get_cached_instance"):
-		return {}
-	var cached: Variant = registry.get_cached_instance("smasher_dash_state")
-	if typeof(cached) != TYPE_OBJECT or not is_instance_valid(cached):
-		return {}
-	var dash_state: Object = cached as Object
-	if not dash_state.has_method("is_active") or not bool(dash_state.is_active()):
-		return {}
-	if not dash_state.has_method("get_snapshot"):
-		return {}
-	var snapshot: Variant = dash_state.get_snapshot()
-	return snapshot if snapshot is Dictionary else {}
+	return _companion_player_runtime_resolver.resolve_player_dash_state(registry)
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -3393,7 +2787,14 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null, capture
 	# True when the player paddle can reach the ball at its current X, in which case the
 	# companion must NOT bounce it (the player takes priority). Mirrors the defense /
 	# ring-dash player-block gates, so raw proximity body-hit is consistent with them.
-	if _is_player_guard_available(registry) and _companion_player_block_resolver.can_player_block(owner, BALL_RADIUS_FALLBACK, 155.0):
+	if (
+		_companion_player_runtime_resolver.is_player_guard_available(registry)
+		and _companion_player_block_resolver.can_player_block(
+			owner,
+			BALL_RADIUS_FALLBACK,
+			155.0
+		)
+	):
 		_companion_body_hit_state.ball_was_inside = false
 		return false
 
@@ -3538,6 +2939,9 @@ func _advance_companion_draw_anim(delta: float) -> void:
 	))
 
 
+# 본체 스프라이트가 이번 프레임에 실제로 사용한 최종 알파를 반환한다(안 그렸으면
+# 0.0). 게이지 공통 패스가 이 값을 그대로 받아 써야 본체와 게이지가 같은 페이드를
+# 탄다 -- 호출부가 1.0 을 가정하면 교체 전환에서 본체만 흐려진다.
 func _draw_companion(
 	canvas: CanvasItem,
 	center: Vector2,
@@ -3572,6 +2976,12 @@ func _draw_companion(
 	var active_skill_value: Variant = visual_surface.get("active_skill", {})
 	if active_skill_value is Dictionary:
 		active_skill_visual = active_skill_value
+	var companion_visible: bool = _companion_body_presence_resolver.is_visible_for_draw_from_surface(
+		visual_surface,
+		_ring_dash_state,
+		_starlight_tracking_state,
+		_companion_motion_state
+	)
 	var draw_config: Dictionary = _companion_draw_context_builder.build_config({
 		"companion_skill_flash_style": str(active_skill_visual.get("companion_skill_flash_style", "")),
 		"companion_active": _is_guardian_summoned() or transition_alpha < 1.0,
@@ -3593,12 +3003,7 @@ func _draw_companion(
 		"companion_roll_angle": _companion_distance_roll_state.get_draw_angle(_current_profile, LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x),
 		"defense_guard_active": _companion_motion_state.defense_intercept_active,
 		"defense_guard_aura_ratio": _companion_motion_state.defense_guard_aura_ratio,
-		"companion_visible": _companion_body_presence_resolver.is_visible_for_draw_from_surface(
-			visual_surface,
-			_ring_dash_state,
-			_starlight_tracking_state,
-			_companion_motion_state
-		),
+		"companion_visible": companion_visible,
 		# Ghost (free_flight) fade alpha, 0..1. The renderer multiplies the companion
 		# sprite + aura by this so rabi fades out/in instead of hard-popping. 1.0 for
 		# non-ghost pets (motion state leaves ghost_alpha at 1.0 for them).
@@ -3691,14 +3096,7 @@ func is_companion_click_reaction_active() -> bool:
 
 
 func refill_guardian_duration_for_stage_transition() -> bool:
-	# Fixed order: refill first, then rearm. The full-pool eligibility gate keeps
-	# spirit water out of the candidate pool until duration is spent again.
-	var changed: bool = bool(_guardian_run_state.refill_duration_pool_for_stage_transition())
-	_spirit_water_drop_state.rearm_for_stage_transition()
-	_duration_warning_stage = 0
-	if changed:
-		_invalidate_runtime_snapshot_cache()
-	return changed
+	return bool(_guardian_duration_lifecycle.refill_for_stage_transition())
 
 
 # The natural field drop is a STRICT SUPERSET of the direct item reward gate: it
@@ -3772,7 +3170,7 @@ func can_resummon_guardian() -> bool:
 
 
 func is_guardian_stowed() -> bool:
-	return _state == STATE_COMPANION and _guardian_stowed
+	return bool(_guardian_duration_lifecycle.is_stowed(_state, STATE_COMPANION))
 
 
 func try_toggle_guardian_stow(
@@ -3783,21 +3181,13 @@ func try_toggle_guardian_stow(
 		return false
 	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
 		return false
-	# The dedicated edge is consumed while either presentation is active. This
-	# prevents key-repeat from reversing or double-committing the state machine.
-	if _guardian_transition_state.is_active():
-		return true
-	if _guardian_stowed:
-		# Consume the dedicated toggle even while recovery has not crossed the
-		# strict >10s gate, so R3/Ctrl cannot leak into downstream battle input.
-		if not _guardian_run_state.can_resummon_guardian():
-			return true
-		_set_guardian_stowed(false, owner, registry)
-		return true
-	if _guardian_active_elapsed < GUARDIAN_MIN_SUMMON_SECONDS:
-		return true
-	_set_guardian_stowed(true, owner, registry)
-	return true
+	return bool(_guardian_duration_lifecycle.try_toggle(
+		_state,
+		STATE_COMPANION,
+		_pet_id,
+		owner,
+		registry
+	))
 
 
 func on_soul_summon_art_removed(owner: Object, registry: Object = null) -> Dictionary:
@@ -3813,18 +3203,15 @@ func on_soul_summon_art_removed(owner: Object, registry: Object = null) -> Dicti
 
 
 func get_guardian_active_elapsed_for_tests() -> float:
-	return _guardian_active_elapsed
+	return float(_guardian_duration_lifecycle.get_active_elapsed())
 
 
 func set_duration_pool_for_tests(current: float, maximum: float = 0.0) -> void:
-	_guardian_run_state.set_duration_pool_for_tests(current, maximum)
-	_guardian_stowed = current <= 0.0
-	_duration_warning_stage = _get_duration_warning_stage()
-	_invalidate_runtime_snapshot_cache()
+	_guardian_duration_lifecycle.set_duration_pool_for_tests(current, maximum)
 
 
 func set_duration_roll_rng_for_tests(rng: RandomNumberGenerator) -> void:
-	_duration_roll_rng_for_tests = rng
+	_guardian_duration_lifecycle.set_duration_roll_rng_for_tests(rng)
 
 
 func get_guardian_enhancement_rewards_for_tests(pet_id: String = "") -> Dictionary:
@@ -3837,47 +3224,36 @@ func _advance_duration_pool(
 	owner: Object = null,
 	registry: Object = null
 ) -> void:
-	if _state != STATE_COMPANION:
-		_duration_runtime_state.advance_inactive(_guardian_run_state)
-		return
-	if _is_guardian_duration_draining():
-		_guardian_active_elapsed += maxf(0.0, delta)
-	_duration_runtime_state.latch_drain_exempt(owner, _collection_state, _guardian_run_state)
-	var result: Dictionary = _duration_runtime_state.advance_duration(
+	_guardian_duration_lifecycle.advance(
 		delta,
-		_guardian_run_state,
 		owner,
-		_collection_state,
-		_profile_runtime_surface.get_passive_skills(_current_profile),
-		_is_guardian_duration_draining()
+		registry,
+		_state,
+		STATE_COMPANION,
+		_pet_id
 	)
-	if bool(result.get("expired", false)):
-		_set_guardian_stowed(true, owner, registry, true, _pet_id == "nekuring")
-	var warning_stage := _get_duration_warning_stage()
-	if warning_stage > _duration_warning_stage:
-		_audio_dispatcher.play_lingpet_duration_warning(registry, warning_stage)
-	_duration_warning_stage = warning_stage
-	if bool(result.get("changed", false)):
-		_invalidate_runtime_snapshot_cache()
 
 
 func _get_active_duration_pct() -> int:
-	return _duration_runtime_state.get_active_duration_pct(
-		_state == STATE_COMPANION,
-		_guardian_run_state
-	)
+	return int(_guardian_duration_lifecycle.get_active_duration_pct(
+		_state,
+		STATE_COMPANION
+	))
 
 
 func _ensure_duration_pool_roll() -> Dictionary:
-	return _guardian_run_state.ensure_duration_pool_roll(_duration_roll_rng_for_tests)
+	return _guardian_duration_lifecycle.ensure_duration_pool_roll()
 
 
-# A replacement guardian arrives at full uptime. Preserve the once-per-run
-# maximum, including Guardian Enhancement overfill, and refill only current.
+# A replacement guardian arrives at full uptime: breaking a new egg and swapping out the
+# live guardian restores the run-shared duration pool to 100%. The roll itself is
+# once-per-run (ensure_initial_roll returns "already_rolled"), so pool_max -- including
+# every Guardian Enhancement duration increase -- is preserved and only the current value
+# is restored. Overfill above the maximum (spirit water / revalidation fallback) survives,
+# and the expiry resummon lock clears with the refill. Absorption is NOT a replacement and
+# deliberately keeps the pool where it stands.
 func _refill_duration_pool_for_guardian_replacement() -> Dictionary:
-	var result: Dictionary = _guardian_run_state.restore_duration_pool_to_full_preserving_overfill()
-	_duration_warning_stage = 0
-	return result
+	return _guardian_duration_lifecycle.refill_for_guardian_replacement()
 
 
 func _set_guardian_stowed(
@@ -3887,63 +3263,31 @@ func _set_guardian_stowed(
 	forced: bool = false,
 	preserve_nekuring_deployments: bool = false
 ) -> bool:
-	if forced:
-		var interrupted_transition: bool = bool(_guardian_transition_state.is_active())
-		_guardian_transition_state.reset()
-		if _guardian_stowed == stowed:
-			return interrupted_transition
-		_guardian_stowed = stowed
-		_guardian_active_elapsed = 0.0
-		if stowed:
-			_end_guardian_runtime_for_stow(owner, registry, preserve_nekuring_deployments)
-			_ghost_blink_vfx.trigger_vanish(_companion_pos)
-		else:
-			_ghost_blink_vfx.trigger_appear(_companion_pos)
-		_invalidate_runtime_snapshot_cache()
-		if owner != null:
-			_sync_owner(owner, registry)
-		return true
-	if _guardian_transition_state.is_active() or _guardian_stowed == stowed:
-		return false
-	if stowed and not forced and _guardian_active_elapsed < GUARDIAN_MIN_SUMMON_SECONDS:
-		return false
-	if stowed:
-		_guardian_stowed = true
-		_guardian_active_elapsed = 0.0
-		_end_guardian_runtime_for_stow(owner, registry)
-		_guardian_transition_state.begin_stow(
-			_companion_pos,
-			_vector_resolver.get_owner_player_paddle_center(owner, _companion_pos)
-		)
-		_ghost_blink_vfx.trigger_vanish(_companion_pos)
-		_audio_dispatcher.play_lingpet_guardian_stow_transition(registry)
-	else:
-		if _companion_pos == Vector2.ZERO:
-			_initialize_companion_patrol(owner, true)
-		_guardian_active_elapsed = 0.0
-		_guardian_transition_state.begin_summon(
-			_vector_resolver.get_owner_player_paddle_center(owner, _companion_pos),
-			_companion_pos
-		)
-		_audio_dispatcher.play_lingpet_guardian_summon_transition(registry)
-	_invalidate_runtime_snapshot_cache()
-	if owner != null:
-		_sync_owner(owner, registry)
-	return true
+	return bool(_guardian_duration_lifecycle.set_stowed(
+		_state,
+		STATE_COMPANION,
+		stowed,
+		owner,
+		registry,
+		forced,
+		preserve_nekuring_deployments
+	))
 
 
 func _complete_guardian_summon_transition(owner: Object, registry: Object) -> void:
-	if _state != STATE_COMPANION or not _guardian_stowed:
-		return
-	_guardian_stowed = false
-	_ghost_blink_vfx.trigger_appear(_companion_pos)
-	_invalidate_runtime_snapshot_cache()
-	if owner != null:
-		_sync_owner(owner, registry)
+	_guardian_duration_lifecycle.complete_summon_transition(
+		_state,
+		STATE_COMPANION,
+		owner,
+		registry
+	)
 
 
 func _is_guardian_duration_draining() -> bool:
-	return _is_guardian_summoned() or _guardian_transition_state.is_summoning()
+	return bool(_guardian_duration_lifecycle.is_duration_draining(
+		_state,
+		STATE_COMPANION
+	))
 
 
 func _end_guardian_runtime_for_stow(
@@ -3951,39 +3295,16 @@ func _end_guardian_runtime_for_stow(
 	registry: Object,
 	preserve_nekuring_deployments: bool = false
 ) -> void:
-	# Stop preparation without touching the preserved cooldown values.
-	_companion_skill_persistence.cancel_windups(_companion_skill_states)
-	# Every launched skill owns its own projectile/residue arrays, CC restoration,
-	# and loop audio cancellation. This host boundary intentionally does not own
-	# the skill-state cooldowns.
-	_skill_runtime_host.end_for_stow(owner, registry, preserve_nekuring_deployments)
-	# Non-active-skill companion effects need the same explicit teardown. Do not
-	# call broad companion resets here: those reset defense decision timers and
-	# per-opportunity roll locks, enabling stow/resummon reroll farming.
-	_afterglow_leak_state.reset_round_transients()
-	_starlight_tracking_state.end_for_stow()
-	_ring_dash_state.end_for_stow()
-	_ring_dash_vfx.reset()
-	_mount_state.reset()
-	_companion_motion_state.clear_defense_intercept()
-	_companion_body_hit_state.ball_was_inside = false
-	_companion_body_hit_state.reset_round_transients()
-	_companion_sprite_animator.reset_latch()
-	_companion_click_reaction_state.reset()
-	_guard_feedback_state.reset_transients()
+	_guardian_duration_lifecycle.end_runtime_for_stow(
+		owner,
+		registry,
+		preserve_nekuring_deployments
+	)
 
 
 func _is_guardian_summoned() -> bool:
-	return _state == STATE_COMPANION and not _guardian_stowed
+	return bool(_guardian_duration_lifecycle.is_summoned(_state, STATE_COMPANION))
 
 
 func _get_duration_warning_stage() -> int:
-	var current: float = float(_guardian_run_state.get_duration_pool_current())
-	if current <= 0.0 or current > 10.0:
-		return 0 if current > 10.0 else DURATION_WARNING_STAGE_COUNT
-	var stage_width := 10.0 / float(DURATION_WARNING_STAGE_COUNT)
-	return clampi(
-		DURATION_WARNING_STAGE_COUNT - int(ceil(current / stage_width)) + 1,
-		1,
-		DURATION_WARNING_STAGE_COUNT
-	)
+	return int(_guardian_duration_lifecycle.get_duration_warning_stage())

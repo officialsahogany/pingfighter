@@ -6,7 +6,9 @@ const GuardianEnhanceHost := preload(
 const GuardianEnhanceState := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd"
 )
-const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const GuardianEnhancePresentationCoordinator := preload(
+	"res://scripts/lingpet/lingpet_guardian_enhance_presentation_coordinator.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -95,8 +97,8 @@ func _verify_reel_stops_on_applied_result() -> void:
 
 
 func _verify_reel_candidate_projection() -> void:
-	var runtime := LingpetEggRuntime.new()
-	runtime._guardian_enhance_cutin_host_resolver = CachedIconResolver.new()
+	var presentation := GuardianEnhancePresentationCoordinator.new()
+	presentation._host_resolver = CachedIconResolver.new()
 	var candidates: Array = [
 		{"icon_texture_path": "cached_first"},
 		{"icon_texture_path": "missing_selected"},
@@ -108,7 +110,7 @@ func _verify_reel_candidate_projection() -> void:
 		"applied_index": 1,
 		"result_detail": {"icon_texture_path": "cached_result"},
 	}
-	var projected: Array[String] = runtime._build_guardian_enhance_display_candidate_icons(
+	var projected: Array[String] = presentation.build_display_candidate_icons(
 		candidates,
 		result,
 		null
@@ -139,8 +141,11 @@ func _verify_mix_only_ink_and_stamp_contract() -> void:
 	var host_source := FileAccess.get_file_as_string(
 		"res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd"
 	)
+	# 리일 투영은 facade 가 아니라 presentation owner 소유다. 소유권이 옮겨가면
+	# 이 소스 계약도 같이 옮겨야 한다 -- 파일 경로에 결합된 씰이라 owner 이동만으로
+	# 행동이 멀쩡한데도 RED 가 된다.
 	var runtime_source := FileAccess.get_file_as_string(
-		"res://scripts/lingpet/lingpet_egg_runtime.gd"
+		"res://scripts/lingpet/lingpet_guardian_enhance_presentation_coordinator.gd"
 	)
 	_expect(host_source.find("canvas.material") < 0, "immediate draw must not claim a no-op material swap")
 	_expect(host_source.find("blend_mode") < 0, "MIX-only host must not expose a false ADD blend contract")

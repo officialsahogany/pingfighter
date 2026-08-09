@@ -328,7 +328,7 @@ func _verify_owner_array_mutation_cannot_poison_cache() -> void:
 		)
 		_expect(
 			(refreshed as Array).has("rabi"),
-			"the refreshed slots array should contain the newly granted pet"
+			"the refreshed slots array should contain the newly granted pet (got %s)" % str(refreshed)
 		)
 
 

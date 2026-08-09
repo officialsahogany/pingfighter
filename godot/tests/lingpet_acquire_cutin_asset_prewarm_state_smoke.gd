@@ -90,9 +90,12 @@ func _verify_registry_host_resolution() -> void:
 func _verify_runtime_delegates_acquire_cutin_asset_prewarm_state() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var owner_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquire_cutin_asset_prewarm_state.gd")
+	var lifecycle_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd")
 	var transition_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_pet_transition.gd")
 	_expect(runtime_source.find("LingpetAcquireCutinAssetPrewarmState") >= 0, "egg runtime should preload the acquire cut-in asset prewarm owner")
-	_expect(runtime_source.find("_acquire_cutin_asset_prewarm_state.prewarm_registry_step") >= 0, "egg runtime should delegate acquire cut-in asset prewarm ticking with registry host resolution")
+	_expect(runtime_source.find("LingpetAcquisitionLifecycleCoordinator") >= 0 and runtime_source.find("_acquisition_lifecycle.configure") >= 0, "egg runtime should configure the acquisition lifecycle owner")
+	_expect(runtime_source.find("_acquisition_lifecycle.prewarm_registry_step") >= 0, "egg runtime should delegate acquire cut-in prewarm ticking to the acquisition lifecycle owner")
+	_expect(lifecycle_source.find("_asset_prewarm_state.prewarm_registry_step") >= 0, "acquisition lifecycle owner should delegate registry host resolution to the asset-prewarm state")
 	_expect(runtime_source.find("func _prewarm_acquire_cutin_assets_step") < 0, "runtime should not keep a private acquire cut-in asset-prewarm wrapper")
 	_expect(runtime_source.find("func _prewarm_item_egg_cutin_assets_step") < 0, "runtime should not keep a private incubator-egg cut-in asset-prewarm wrapper")
 	_expect(runtime_source.find("LingpetCurrentPetTransition") >= 0, "egg runtime should delegate pet-id transition cleanup to the current-pet transition owner")

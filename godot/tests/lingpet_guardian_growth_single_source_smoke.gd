@@ -74,12 +74,22 @@ func _verify_ball_hits_are_growth_neutral() -> void:
 
 func _verify_only_approved_growth_entrypoints_remain() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var flow_source := FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_guardian_enhance_flow_coordinator.gd"
+	)
 	var absorption_body := _function_body(
 		runtime_source,
 		"func trigger_guardian_enhancement_from_absorption"
 	)
-	_expect(absorption_body.find("apply_guardian_enhance_random_roll") >= 0, "absorption must enter the exact shared Guardian Enhancement roll path")
-	_expect(absorption_body.find("build_guardian_enhancement_candidates") >= 0, "absorption must keep the shared pre-filter contract")
+	_expect(absorption_body.find("_guardian_enhance_flow.trigger_from_absorption") >= 0, "absorption facade must enter the single Guardian Enhancement flow owner")
+	var owned_absorption_body := _function_body(flow_source, "func trigger_from_absorption")
+	_expect(owned_absorption_body.find("apply_random_roll") >= 0, "flow owner absorption must enter the exact shared Guardian Enhancement roll path")
+	_expect(owned_absorption_body.find("build_live_candidates") >= 0, "flow owner absorption must build candidates through the shared live-candidate builder")
+	var live_candidates_body := _function_body(
+		flow_source,
+		"func build_live_candidates"
+	)
+	_expect(live_candidates_body.find("build_guardian_enhancement_candidates") >= 0, "the shared live-candidate builder must keep the shared pre-filter contract")
 	var absorb_commit_body := _function_body(runtime_source, "func commit_overflow_absorb")
 	_expect(absorb_commit_body.find("trigger_guardian_enhancement_from_absorption") >= 0, "roster absorption must trigger one approved growth application")
 	_expect(absorb_commit_body.find("apply_guardian_enhancement_candidate") < 0, "roster absorption must not maintain a parallel direct-apply path")

@@ -82,12 +82,18 @@ func _verify_dispatch_methods_call_game_audio() -> void:
 func _verify_runtime_delegates_lingpet_audio_dispatch() -> void:
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var dispatcher_source := FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_audio_dispatcher.gd")
+	var acquisition_lifecycle_source := FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd"
+	)
+	var companion_motion_source := FileAccess.get_file_as_string(
+		"res://scripts/lingpet/lingpet_companion_motion_coordinator.gd"
+	)
 	_expect(runtime_source.find("LingpetAudioDispatcher") >= 0, "egg runtime should preload the lingpet audio dispatcher")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "acquisition cut-in wrapper should delegate to the audio dispatcher")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "ring dash wrapper should delegate to the audio dispatcher")
+	_expect(acquisition_lifecycle_source.find("_audio_dispatcher.play_lingpet_acquire_cutin") >= 0, "acquisition lifecycle should delegate cut-in audio to the dispatcher")
+	_expect(companion_motion_source.find("_audio_dispatcher.play_lingpet_ring_dash") >= 0, "companion motion owner should delegate ring dash audio to the dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_egg_hit") >= 0, "egg-hit wrapper should delegate to the audio dispatcher")
 	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_click_reaction") >= 0, "click-reaction wrapper should delegate to the audio dispatcher")
-	_expect(runtime_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "acquisition click backing wrapper should delegate to the audio dispatcher")
+	_expect(acquisition_lifecycle_source.find("_audio_dispatcher.play_lingpet_acquire_click_reaction_backing") >= 0, "acquisition lifecycle should delegate click backing audio to the dispatcher")
 	_expect(runtime_source.find("get_instance(\"game_audio\")") < 0, "egg runtime should not directly resolve GameAudio after dispatcher extraction")
 	_expect(dispatcher_source.find("get_instance(GAME_AUDIO_KEY)") >= 0, "audio dispatcher should own GameAudio registry lookup")
 	_expect(dispatcher_source.find("callv(method_name, args)") >= 0, "audio dispatcher should own guarded GameAudio method invocation")

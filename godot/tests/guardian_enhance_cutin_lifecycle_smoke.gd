@@ -206,12 +206,30 @@ func _verify_compact_host_and_roster_contract() -> void:
 	_expect(host_source.find("extends \"res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd\"") < 0, "enhancement host must no longer inherit the full-screen acquisition cutin")
 	_expect(host_source.find("PANEL_MAX_SIZE") >= 0 and host_source.find("companion_click_reaction_anim") >= 0, "enhancement host must own a bounded compact panel and companion reaction visual")
 	_expect(host_source.find("Time.get_ticks_msec()") < 0, "compact panel motion must be derived from deterministic phase time")
+	_expect(
+		FileAccess.file_exists(
+			"res://assets/sprites/lingpet/effects/guardian_enhance/guardian_enhance_hanji_ritual_panel_imagegen_v2.png"
+		),
+		"compact enhancement panel must ship its hanji-and-ink background"
+	)
+	_expect(
+		host_source.find("guardian_enhance_hanji_ritual_panel_imagegen_v2.png") >= 0
+		and host_source.find("NanumBrushScript-Regular.ttf") >= 0,
+		"compact enhancement panel must compose the hanji background with a brush title"
+	)
+	_expect(
+		host_source.find("Color(0.035, 0.105, 0.105, 0.97)") < 0,
+		"retired teal rectangle chrome must not return over the hanji panel"
+	)
 	var fallback_pets: Array[String] = []
 	for pet_id in LingpetCatalog.get_pet_ids():
 		var contract: Dictionary = host.get_animation_contract(pet_id)
 		if bool(contract.get("idle_fallback", false)):
 			fallback_pets.append(pet_id)
-	_expect(fallback_pets.is_empty(), "all current guardians must have dedicated companion click-reaction sheets; got %s" % [fallback_pets])
+	_expect(
+		fallback_pets == ["baekrin"],
+		"only the intentionally static Baekrin presentation should use the compact-panel idle fallback; got %s" % [fallback_pets]
+	)
 	var monkey_contract: Dictionary = host.get_animation_contract("monkeyring")
 	_expect(is_equal_approx(float(monkey_contract.get("frame_interval", 0.0)), 0.05), "compact panel must honor Monkeyring's per-pet reaction cadence override")
 	_expect(int(monkey_contract.get("cols", 0)) == 14 and int(monkey_contract.get("rows", 0)) == 7, "compact panel must resolve the current roster's 14x7 reaction grid through its overridable contract")
@@ -220,13 +238,15 @@ func _verify_compact_host_and_roster_contract() -> void:
 	for pet_id in LingpetCatalog.get_pet_ids():
 		for skill in LingpetCatalog.get_active_skill_pool(pet_id):
 			var icon_path := str(skill.get("icon_texture_path", ""))
-			if icon_path == "" or not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path):
+			# Empty icon paths intentionally use the compact host's procedural
+			# neutral glyph (for example Baekrin's static presentation/permit).
+			if icon_path != "" and (not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path)):
 				missing_icons.append("%s:%s" % [pet_id, str(skill.get("id", ""))])
 	for passive in LingpetCatalog.get_passive_skill_pool(LingpetCatalog.DEFAULT_PET_ID):
 		var icon_path := str(passive.get("icon_texture_path", ""))
-		if icon_path == "" or not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path):
+		if icon_path != "" and (not FileAccess.file_exists(icon_path) or not host.has_cached_result_icon(icon_path)):
 			missing_icons.append("common:%s" % str(passive.get("id", "")))
-	_expect(missing_icons.is_empty(), "every catalog skill result icon must exist and prewarm before draw; missing %s" % [missing_icons])
+	_expect(missing_icons.is_empty(), "every non-empty catalog skill result icon must exist and prewarm before draw; missing %s" % [missing_icons])
 
 
 func _make_fixture(idle_fallback: bool = false) -> Dictionary:
