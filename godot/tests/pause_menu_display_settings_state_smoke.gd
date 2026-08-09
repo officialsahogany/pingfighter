@@ -64,8 +64,8 @@ func _verify_overlay_transition_owner_contract() -> void:
 		"_display_settings_state.select_display_mode(mode)",
 		"_display_settings_state.toggle_remember_display_mode()",
 		"_display_settings_state.toggle_auto_refresh_rate()",
-		"_display_settings_state.cycle_render_fps_cap(options, direction)",
-		"_display_settings_state.cycle_vsync_mode(options, direction)",
+		"_display_settings_controller.cycle_render_fps_cap(direction, owner, registry)",
+		"_display_settings_controller.cycle_vsync_mode(direction, owner, registry)",
 		"PauseMenuDisplaySettingsState.normalize_display_mode(mode)",
 	]:
 		_expect(source.find(delegation) >= 0, "overlay should delegate display transition: %s" % delegation)
