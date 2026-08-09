@@ -494,10 +494,12 @@ func _should_skip_active_spawn_candidate(item_data: Dictionary, registry: Object
 		return _should_skip_lingpet_egg_spawn(registry, owner)
 	if item_name == LINGPET_SPIRIT_WATER_ITEM_NAME:
 		var runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
+		# registry is required: can_offer_spirit_water_drop resolves Soul Summoning
+		# Art access through it. Dropping the arg silently reopens the no-art leak.
 		return (
 			runtime == null
 			or not runtime.has_method("can_offer_spirit_water_drop")
-			or not bool(runtime.can_offer_spirit_water_drop(owner))
+			or not bool(runtime.can_offer_spirit_water_drop(owner, registry))
 		)
 	return false
 

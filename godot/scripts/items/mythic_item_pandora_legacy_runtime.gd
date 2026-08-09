@@ -137,11 +137,11 @@ func cancel_selection(runtime: Object, owner: Object, registry: Object = null) -
 func generate_selection_choices(
 	runtime: Object,
 	owner: Object = null,
-	_registry: Object = null
+	registry: Object = null
 ) -> Array:
 	var quality_bonus: float = get_selection_quality(runtime) / 100.0
 	return runtime.pandora_legacy_choice_builder.generate_choices(
-		runtime.pandora_legacy_pool_builder.build_active_pool(owner),
+		runtime.pandora_legacy_pool_builder.build_active_pool(owner, registry),
 		runtime.pandora_legacy_pool_builder.build_passive_pool(runtime.catalog, owner),
 		runtime.pandora_legacy_pool_builder.build_mythic_pool(runtime.catalog),
 		quality_bonus,

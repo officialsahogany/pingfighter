@@ -3,6 +3,8 @@ extends SceneTree
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const PlazaScenePacked := preload("res://scenes/plaza.tscn")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const PlazaGachaTransactions := preload("res://scripts/plaza/plaza_gacha_transactions.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -25,6 +27,45 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class GuardianOwner:
+	extends Node2D
+
+	var active_item_slots: Array = []
+	var lingpet_owned_pet_ids: Array = []
+	var owned_lingpet_ids: Array = []
+	var lingpet_slots: Array = ["", "", ""]
+	var ai_mode := "champion"
+
+
+class FakeRuntimePerkState:
+	extends RefCounted
+
+	var runtime_skill_levels: Dictionary = {}
+
+	func _init(has_art: bool) -> void:
+		if has_art:
+			runtime_skill_levels[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 1
+			runtime_skill_levels[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = 1
+
+	func get_runtime_skill_level(skill_id: String) -> int:
+		return int(runtime_skill_levels.get(skill_id, 0))
+
+
+class CachedRegistry:
+	extends RefCounted
+
+	var instances: Dictionary = {}
+
+	func _init(next_instances: Dictionary) -> void:
+		instances = next_instances
+
+	func get_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+
 func _init() -> void:
 	_run()
 
@@ -32,6 +73,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_gacha_pull_transactions()
 	_verify_failed_gacha_actions_do_not_spend_ap()
+	_verify_guardian_items_filtered_at_candidate_time()
 
 	if _failures.is_empty():
 		print("plaza_gacha_menu_smoke: ok")
@@ -152,6 +194,65 @@ func _verify_failed_gacha_actions_do_not_spend_ap() -> void:
 	full_viewport.queue_free()
 	full_owner.queue_free()
 	_cleanup(full_path)
+
+
+# Guardian Spirit actives must be filtered when the CANDIDATE list is built, not
+# discovered at grant time. Rolling one the player has no access to used to fail
+# inside grant_item_to_slot, which the caller reports as "active_slots_full" — the
+# pull was lost AND the reason was wrong. Filtering at candidate time keeps both
+# the pull and the failure reasons truthful.
+func _verify_guardian_items_filtered_at_candidate_time() -> void:
+	var gated_names := ["lingpet_egg", "lingpet_spirit_water"]
+	var owner := GuardianOwner.new()
+	root.add_child(owner)
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.owned_lingpet_ids = ["maribo"]
+	owner.lingpet_slots = ["maribo", "", ""]
+
+	var no_art_registry := CachedRegistry.new({"runtime_perk_state": FakeRuntimePerkState.new(false)})
+	var art_registry := CachedRegistry.new({"runtime_perk_state": FakeRuntimePerkState.new(true)})
+	var transactions := PlazaGachaTransactions.new()
+
+	# Forced pulls, not sampled rolls. Both Guardian Spirit items carry very low
+	# capsule weights (spirit water 0.010), so a "roll N times and expect it to show
+	# up" control leg fails probabilistically. Forcing the candidate makes each
+	# direction a single deterministic assertion.
+	for gated_name in gated_names:
+		# The filter predicate itself, both directions.
+		_expect(
+			bool(transactions.call("_is_offerable_gacha_item", {"name": gated_name, "type": "active"}, owner, art_registry)),
+			"%s must pass the capsule candidate filter once Soul Summoning Art is owned" % gated_name
+		)
+		_expect(
+			not bool(transactions.call("_is_offerable_gacha_item", {"name": gated_name, "type": "active"}, owner, no_art_registry)),
+			"%s must fail the capsule candidate filter without Soul Summoning Art" % gated_name
+		)
+
+		# With the art owned the forced pull must return EXACTLY that item. This is
+		# what proves the negative leg below is caused by the access gate rather than
+		# by the item being unreachable from the capsule pool at all.
+		transactions.force_next_item_for_test(gated_name)
+		var allowed: Dictionary = transactions.call("_pick_active_item", owner, art_registry)
+		_expect(
+			str(allowed.get("name", "")) == gated_name,
+			"a forced %s must be granted verbatim when the art is owned" % gated_name
+		)
+
+		# Without it the same forced pull must be filtered at candidate time AND still
+		# resolve to a real item — an empty result is what the caller mis-reports as
+		# active_slots_full, losing the pull.
+		transactions.force_next_item_for_test(gated_name)
+		var blocked: Dictionary = transactions.call("_pick_active_item", owner, no_art_registry)
+		_expect(
+			str(blocked.get("name", "")) != gated_name,
+			"a forced %s must be filtered out when Soul Summoning Art is missing" % gated_name
+		)
+		_expect(
+			str(blocked.get("name", "")) != "",
+			"the filtered %s pull must fall back to a real capsule item, not a failed pull" % gated_name
+		)
+
+	owner.queue_free()
 
 
 func _build_viewport() -> SubViewport:

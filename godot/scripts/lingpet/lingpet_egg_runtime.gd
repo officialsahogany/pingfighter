@@ -3468,13 +3468,29 @@ func refill_guardian_duration_for_stage_transition() -> bool:
 	return changed
 
 
-func can_offer_spirit_water_drop(owner: Object = null) -> bool:
-	var owned_pet_ids: Array[String] = _collection_state.get_owned_pet_ids_from_owner(owner)
+# The natural field drop is a STRICT SUPERSET of the direct item reward gate: it
+# must first satisfy the same Soul Summoning Art access + owned-guardian check
+# (can_offer_spirit_water_item), then add the natural-drop-only conditions
+# (unconsumed per-stage latch, drained duration pool).
+#
+# The access check is not redundant with the pool condition. Owned pet ids persist
+# across runs in the collection save, and a restored save can carry a drained
+# duration pool into a run WITHOUT the art — pool_current < pool_max then passes
+# and the drop would offer spirit water the player can never use.
+func can_offer_spirit_water_drop(owner: Object = null, registry: Object = null) -> bool:
+	if not can_offer_spirit_water_item(owner, registry):
+		return false
 	return _spirit_water_drop_state.can_offer(
-		not owned_pet_ids.is_empty(),
+		true,
 		_guardian_run_state.get_duration_pool_current(),
 		_guardian_run_state.get_duration_pool_max()
 	)
+
+
+func can_offer_spirit_water_item(owner: Object = null, registry: Object = null) -> bool:
+	if not GuardianEggAccessPolicy.has_egg_access(owner, registry):
+		return false
+	return not _collection_state.get_owned_pet_ids_from_owner(owner).is_empty()
 
 
 func mark_spirit_water_drop_pending() -> bool:

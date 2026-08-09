@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const LingpetItemOfferPolicy := preload("res://scripts/lingpet/lingpet_item_offer_policy.gd")
 
 const PULL_COST := 150
 const EXTRA_GACHA_ACTIVE_ITEM_NAMES: Array[String] = []
@@ -45,7 +46,7 @@ func _pull_active_capsule(save_store: Object, owner: Object, registry: Object, c
 	if owner == null:
 		return _build_summary("pull", "", "", PULL_COST, false, "missing_owner")
 
-	var pulled_item := _pick_active_item()
+	var pulled_item := _pick_active_item(owner, registry)
 	var item_name := str(pulled_item.get("name", ""))
 	var display_name := str(pulled_item.get("display_name", item_name))
 	if item_name == "":
@@ -66,17 +67,22 @@ func _pull_active_capsule(save_store: Object, owner: Object, registry: Object, c
 	)
 
 
-func _pick_active_item() -> Dictionary:
+# owner / registry are required for the offer-policy filter. Without it the capsule
+# can roll a Guardian Spirit item the player has no access to; the grant then fails
+# at the slot controller and the pull is reported as "active_slots_full" — a wrong
+# reason for a pull that should never have rolled that item. Filter at CANDIDATE
+# time so the failure reasons downstream stay truthful.
+func _pick_active_item(owner: Object = null, registry: Object = null) -> Dictionary:
 	if _forced_item_for_test != "":
 		var forced_item: Dictionary = _catalog.build_item_by_name(_forced_item_for_test)
 		_forced_item_for_test = ""
-		if _is_valid_gacha_item(forced_item):
+		if _is_offerable_gacha_item(forced_item, owner, registry):
 			return forced_item
 	var candidates: Array[Dictionary] = []
 	for item_name_value in _get_gacha_item_names():
 		var item_name := str(item_name_value)
 		var candidate: Dictionary = _catalog.build_item_by_name(item_name)
-		if _is_valid_gacha_item(candidate):
+		if _is_offerable_gacha_item(candidate, owner, registry):
 			candidates.append(candidate)
 	if candidates.is_empty():
 		return {}
@@ -106,6 +112,12 @@ func _is_valid_gacha_item(item_data: Dictionary) -> bool:
 		and str(item_data.get("name", "")) != ""
 		and str(item_data.get("type", "")) == "active"
 	)
+
+
+func _is_offerable_gacha_item(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	if not _is_valid_gacha_item(item_data):
+		return false
+	return LingpetItemOfferPolicy.can_offer_item(str(item_data.get("name", "")), owner, registry)
 
 
 func _has_plaza_gold(save_store: Object, amount: int) -> bool:

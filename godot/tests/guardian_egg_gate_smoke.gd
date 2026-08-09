@@ -6,6 +6,7 @@ const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_acc
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
+const PandoraLegacyPoolBuilder := preload("res://scripts/items/pandora_legacy_pool_builder.gd")
 
 var _failures: Array[String] = []
 
@@ -67,8 +68,8 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_four_gates_lock_without_art()
-	_verify_four_gates_open_with_art()
+	_verify_all_gates_lock_without_art()
+	_verify_all_gates_open_with_art()
 	_verify_junior_exemption_and_immediate_trigger_bypass()
 	if _failures.is_empty():
 		print("guardian_egg_gate_smoke: ok")
@@ -79,7 +80,7 @@ func _init() -> void:
 	quit(1)
 
 
-func _verify_four_gates_lock_without_art() -> void:
+func _verify_all_gates_lock_without_art() -> void:
 	var runtime := LingpetEggRuntime.new()
 	var registry := FakeRegistry.new(runtime, false)
 	var owner := DynamicOwner.new()
@@ -90,17 +91,45 @@ func _verify_four_gates_lock_without_art() -> void:
 	_expect(slots._is_lingpet_egg_pickup_redundant([], registry, owner), "pickup gate must reject without the art")
 	_expect(not slots.append_item_data(owner, _egg_item(), registry), "direct-grant gate must reject without the art")
 	_expect(not runtime.deploy_egg_from_item(owner, registry), "use-site gate must reject without the art")
-	_expect(registry.lazy_calls == 0, "four ordinary gates must use non-instantiating cached peeks only")
+	_expect(
+		not _pool_has_item(PandoraLegacyPoolBuilder.new().build_active_pool(owner, registry), "lingpet_egg"),
+		"Pandora must not offer the Guardian Spirit egg without Soul Summoning Art"
+	)
+	var stale_guardian_owner := DynamicOwner.new()
+	_set_owned_guardian(stale_guardian_owner)
+	_expect(
+		not runtime.can_offer_spirit_water_item(stale_guardian_owner, registry),
+		"Spirit Water access must stay locked without Soul Summoning Art even if stale guardian ownership exists"
+	)
+	_expect(
+		not _pool_has_item(PandoraLegacyPoolBuilder.new().build_active_pool(stale_guardian_owner, registry), "lingpet_spirit_water"),
+		"Pandora must not offer Spirit Water without Soul Summoning Art"
+	)
+	stale_guardian_owner.free()
+	_expect(registry.lazy_calls == 0, "ordinary egg gates must use non-instantiating cached peeks only")
 	_expect(registry.cached_calls > 0, "gate fixture must actually exercise cached registry reads")
 	owner.free()
 
 
-func _verify_four_gates_open_with_art() -> void:
+func _verify_all_gates_open_with_art() -> void:
 	var offer_runtime := LingpetEggRuntime.new()
 	var offer_registry := FakeRegistry.new(offer_runtime, true)
 	var offer_owner := DynamicOwner.new()
+	_set_owned_guardian(offer_owner)
 	_expect(offer_runtime.can_offer_egg_item(offer_owner, offer_registry), "offer gate should open with the art")
 	_expect(not ActiveItemFieldSpawnPool.new()._should_skip_lingpet_egg_spawn(offer_registry, offer_owner), "field-spawn gate should open with the art")
+	_expect(
+		_pool_has_item(PandoraLegacyPoolBuilder.new().build_active_pool(offer_owner, offer_registry), "lingpet_egg"),
+		"Pandora should keep the Guardian Spirit egg eligible with Soul Summoning Art"
+	)
+	_expect(
+		offer_runtime.can_offer_spirit_water_item(offer_owner, offer_registry),
+		"Spirit Water access should open with the art and an owned Guardian Spirit"
+	)
+	_expect(
+		_pool_has_item(PandoraLegacyPoolBuilder.new().build_active_pool(offer_owner, offer_registry), "lingpet_spirit_water"),
+		"Pandora should keep Spirit Water eligible with Soul Summoning Art and an owned Guardian Spirit"
+	)
 	offer_owner.free()
 
 	var pickup_runtime := LingpetEggRuntime.new()
@@ -150,6 +179,23 @@ func _egg_item() -> Dictionary:
 		"rarity": "pro",
 		"consumable": true,
 	}
+
+
+func _set_owned_guardian(owner: Object) -> void:
+	owner.set("lingpet_owned_pet_ids", ["maribo"])
+	owner.set("owned_lingpet_ids", ["maribo"])
+	owner.set("owned_ringpet_ids", ["maribo"])
+	owner.set("lingpet_slots", ["maribo", "", ""])
+	owner.set("ringpet_slots", ["maribo", "", ""])
+	owner.set("lingpet_slot_pet_ids", ["maribo", "", ""])
+	owner.set("ringpet_slot_pet_ids", ["maribo", "", ""])
+
+
+func _pool_has_item(pool: Array, item_name: String) -> bool:
+	for item_value in pool:
+		if item_value is Dictionary and str((item_value as Dictionary).get("name", "")) == item_name:
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

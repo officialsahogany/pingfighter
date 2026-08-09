@@ -1138,12 +1138,27 @@ Current Godot-first rule:
       reward pool that grants via that path — Pandora active grant
       (`pandora_legacy_grant_router`), plaza gacha (`plaza_gacha_transactions`),
       stage-clear active reward, debug grant — can drop a `lingpet_egg` into a slot
-      ungated. The stage-clear box is only safe because it filters the egg out at ROLL
-      time (its candidates come from `active_item_field_spawn_pool.build_spawn_candidates`,
-      which runs `_should_skip_lingpet_egg_spawn`); Pandora and plaza gacha build their
-      pools WITHOUT that gate, so they leak the egg — into JUNIOR slots too, where the
-      auto-present tutorial invariant must hold. Therefore the league guard MUST also live
-      at the USE site: `deploy_egg_from_item` early-returns when
+      ungated. **Every independent candidate pool must therefore ask
+      `lingpet_item_offer_policy.can_offer_item(item_name, owner, registry)` — the single
+      canonical Guardian-Spirit offer gate** (it prefers the live runtime's own
+      `can_offer_egg_item` / `can_offer_spirit_water_item`, which add transient
+      incubation / overflow / cut-in conditions, and falls back to
+      `GuardianEggAccessPolicy` when the lingpet runtime is not instantiated yet).
+      Current consumers: `pandora_legacy_pool_builder.build_active_pool(owner, registry)`,
+      `plaza_gacha_transactions._pick_active_item(owner, registry)`, and — through
+      `can_offer_spirit_water_drop` / `can_offer_egg_item` —
+      `active_item_field_spawn_pool` (field drops + the stage-clear box, which shares
+      `build_spawn_candidates`). The gate must run at CANDIDATE time, not at grant time:
+      a rolled-then-rejected item is a lost pull AND a wrong failure reason (plaza gacha
+      reported `active_slots_full` for an egg the slot controller refused). Passing
+      `registry` is mandatory — the access check resolves Soul Summoning Art through it,
+      so dropping the argument silently reopens the leak. Note the two items differ on
+      the junior auto-present league: the egg is EXCLUDED there (redundant — the guardian
+      is already granted) while spirit water stays ALLOWED (that guardian still spends
+      duration). Fixtures default to a junior-league owner, so any regression leg for the
+      art gate must move the owner out of junior and assert it did.
+      Beyond candidate filtering, the league guard
+      MUST also live at the USE site: `deploy_egg_from_item` early-returns when
       `_collection_state.is_auto_present_league(owner)`. This single use-site seal blocks
       the junior break from EVERY current and future grant path, regardless of how the egg
       reached the slot, while keeping the egg obtainable as a Pro/Mythic reward. Audit
@@ -2198,6 +2213,23 @@ this pattern.
   unconsumed per-stage latch, and `pool_current < pool_max`. Queueing a drop
   does not consume the latch; only successful field materialization does.
   A missed or despawned materialized drop stays spent for that stage.
+- Pandora Legacy must use `can_offer_spirit_water_item` through
+  `pandora_legacy_pool_builder.build_active_pool(owner, registry)`; this direct,
+  slot-stored reward requires Soul Summoning Art access (or the auto-present junior
+  exception) plus an owned Guardian Spirit, but deliberately does not consume or
+  inherit the natural-drop stage latch and drained-pool conditions. Building its
+  selection cards directly from
+  `ActiveItemCatalog.FIELD_SPAWN_ORDER` bypasses that access gate and can offer
+  unusable spirit water.
+- **`can_offer_spirit_water_drop(owner, registry)` is a STRICT SUPERSET of
+  `can_offer_spirit_water_item`, not a sibling.** The natural-drop conditions
+  (unconsumed per-stage latch + drained pool) do NOT imply access: owned pet ids live
+  in the persistent collection save and a restored run state carries a drained
+  duration pool, so a save loaded into a run WITHOUT Soul Summoning Art satisfies both
+  drop conditions and used to offer spirit water the player can never use. Any new
+  spirit-water offer path must call the drop gate WITH the registry. A regression leg
+  must hold the drained restored pool fixed and flip ONLY the art, because a
+  synthetic full-pool fixture passes with or without the access check.
 - A real stage advance must refill the duration pool first and then re-arm
   the spirit-water latch. `reset_round` must do neither. This ordering keeps
   the freshly refilled pool ineligible until it drains, and a mid-stage first

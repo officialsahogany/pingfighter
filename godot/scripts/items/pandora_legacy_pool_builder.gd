@@ -2,6 +2,7 @@ extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const LingpetItemOfferPolicy := preload("res://scripts/lingpet/lingpet_item_offer_policy.gd")
 
 const PANDORA_LEGACY := "pandora_legacy"
 
@@ -73,7 +74,7 @@ const VIPER_ONLY_PASSIVE_NAMES := {
 }
 
 
-func build_active_pool(owner: Object = null) -> Array:
+func build_active_pool(owner: Object = null, registry: Object = null) -> Array:
 	var result: Array = []
 	var active_catalog: Object = ActiveItemCatalog.new()
 	var character_type: String = _get_selected_character_type(owner)
@@ -82,6 +83,8 @@ func build_active_pool(owner: Object = null) -> Array:
 		if EXCLUDED_ACTIVE_ITEM_NAMES.has(item_name):
 			continue
 		if BLACKSMITH_ONLY_ACTIVE_NAMES.has(item_name) and character_type != "blacksmith":
+			continue
+		if not LingpetItemOfferPolicy.can_offer_item(item_name, owner, registry):
 			continue
 		var item_data: Dictionary = active_catalog.build_item_by_name(item_name)
 		if item_data.is_empty() or float(item_data.get("chance", 0.0)) <= 0.0:
