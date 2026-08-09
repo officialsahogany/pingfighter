@@ -25,6 +25,14 @@ const MODULES := {
 		"path": "res://scripts/stages/common/starpoint_payload_factory.gd",
 		"label": "common starpoint payload factory",
 	},
+	"stage1_han_miryang_prologue_presentation": {
+		"path": "res://scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd",
+		"label": "stage1 Han Miryang Araul prologue presentation",
+	},
+	"stage1_han_miryang_prologue_overlay_host": {
+		"path": "res://scripts/stages/stage1/stage1_han_miryang_prologue_overlay_host.gd",
+		"label": "stage1 Han Miryang Araul prologue overlay host",
+	},
 	"stage1_fallback_pillar_renderer": {
 		"path": "res://scripts/stages/stage1/stage1_fallback_pillar_renderer.gd",
 		"label": "stage1 fallback pillar renderer",

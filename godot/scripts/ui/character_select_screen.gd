@@ -762,6 +762,8 @@ func _store_selection(character: Dictionary) -> void:
 	var state: Node = get_node_or_null("/root/GameSelectionState")
 	if state != null and state.has_method("set_character"):
 		state.set_character(character)
+	if state != null and state.has_method("request_character_prologue_entry"):
+		state.request_character_prologue_entry()
 	if state != null and state.has_method("set_league_mode"):
 		state.set_league_mode(selected_league_mode)
 

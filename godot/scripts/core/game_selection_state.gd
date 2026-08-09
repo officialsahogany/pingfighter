@@ -22,6 +22,7 @@ var stage_id: int = 1
 var stage1_boss_variant: String = STAGE1_BOSS_VARIANT_DALJI
 var stage1_boss_variant_explicit: bool = false
 var skip_battle_logo_once: bool = false
+var _character_prologue_entry_requested: bool = false
 var _pending_online_match_request: Dictionary = {}
 var _online_match_skip_logo_armed := false
 
@@ -114,6 +115,20 @@ func set_league_mode(mode: String) -> void:
 
 func request_skip_battle_logo_once() -> void:
 	skip_battle_logo_once = true
+
+
+func request_character_prologue_entry() -> void:
+	_character_prologue_entry_requested = true
+
+
+func peek_character_prologue_entry_request() -> bool:
+	return _character_prologue_entry_requested
+
+
+func consume_character_prologue_entry_request() -> bool:
+	var requested := _character_prologue_entry_requested
+	_character_prologue_entry_requested = false
+	return requested
 
 
 func consume_skip_battle_logo_once() -> bool:

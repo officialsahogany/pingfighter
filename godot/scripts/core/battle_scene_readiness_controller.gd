@@ -11,6 +11,7 @@ func is_intro_or_warmup_blocking(
 		or not battle_initialized
 		or not is_boot_warmup_finished(module_getter)
 		or not stage_landing_intro_started
+		or is_stage1_han_miryang_prologue_pending(module_getter)
 	)
 
 
@@ -27,6 +28,7 @@ func is_mobile_touch_scene_ready(
 		and not is_stage_landing_intro_active(module_getter)
 		and not is_ball_spawn_intro_active(module_getter)
 		and not is_stage_transition_loading_active(module_getter)
+		and not is_stage1_han_miryang_prologue_pending(module_getter)
 		and not is_stage7_prebattle_pending(module_getter)
 	)
 
@@ -55,6 +57,11 @@ func is_ball_spawn_intro_active(module_getter: Callable) -> bool:
 
 func is_stage7_prebattle_pending(module_getter: Callable) -> bool:
 	var presentation: Object = _get_module(module_getter, "stage7_akamu_prebattle_presentation")
+	return _is_module_active(presentation)
+
+
+func is_stage1_han_miryang_prologue_pending(module_getter: Callable) -> bool:
+	var presentation: Object = _get_module(module_getter, "stage1_han_miryang_prologue_presentation")
 	return _is_module_active(presentation)
 
 

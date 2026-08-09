@@ -37,7 +37,29 @@ func process_idle(
 		if not _is_boot_warmup_finished(module_getter):
 			_queue_redraw(owner)
 			return true
-	if not _call_bool(callbacks, "is_stage_landing_intro_started") and _should_hold_loading_completion(owner, module_getter):
+	# Stage 1 한미량 서막이 재생 중이면 begin_stage_landing_intro를 다시
+	# 부르지 않고 시네마틱만 전진시킨다. 이 검사는 로딩 완료 hold보다
+	# 먼저 와야 한다. 서막 draw가 로딩 호스트를 숨기며 로딩 가시성 타이머를
+	# 초기화하므로, hold를 먼저 물으면 매 프레임 타이머가 다시 시작돼 0초
+	# 서막 화면에서 영구 정지한다.
+	var han_miryang_prologue: Object = _get_module(module_getter, "stage1_han_miryang_prologue_presentation")
+	var han_miryang_prologue_completed_this_frame := false
+	if _is_active(han_miryang_prologue):
+		if han_miryang_prologue.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			han_miryang_prologue.update(delta, owner, registry)
+			_perf_end(perf_logger, "process.intro.stage1_han_miryang_prologue_update", sample_start)
+		if _is_active(han_miryang_prologue):
+			_queue_redraw(owner)
+			return true
+		han_miryang_prologue_completed_this_frame = true
+	# 완료 프레임에는 로딩 hold를 다시 열지 않고 곧바로 아래 정상 랜딩
+	# 경로로 이어져 로딩 화면이 한 프레임도 재출현하지 않게 한다.
+	if (
+		not han_miryang_prologue_completed_this_frame
+		and not _call_bool(callbacks, "is_stage_landing_intro_started")
+		and _should_hold_loading_completion(owner, module_getter)
+	):
 		_queue_redraw(owner)
 		return true
 	# 스테이지 7 프리배틀 영상이 재생 중이면 begin_stage_landing_intro를 다시
@@ -112,6 +134,13 @@ func draw_intro_or_boot(
 		_hide_loading_screen(module_getter, owner)
 		if landing_intro.has_method("draw"):
 			landing_intro.draw(canvas, owner, registry, view_size)
+		return true
+	# 한미량 서막 호스트는 viewport-space Control로 전체 화면을 직접
+	# 렌더한다. 배틀 캔버스는 검게 유지해 호스트 아래 전투 장면이 새지 않는다.
+	var han_miryang_prologue: Object = _get_module(module_getter, "stage1_han_miryang_prologue_presentation")
+	if _is_active(han_miryang_prologue):
+		_hide_loading_screen(module_getter, owner)
+		_draw_black(canvas, view_size)
 		return true
 	# 프리배틀 영상 재생 중에는 로딩 화면 대신 검정 레터박스를 깐다 — 영상
 	# 호스트(Control 자식)가 그 위에 렌더되고, 플레이필드 밖 밴드는 검정 유지.

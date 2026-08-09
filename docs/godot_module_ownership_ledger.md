@@ -3365,6 +3365,18 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_playfield_bounds.gd`; Stage 3 Menhera tail and Stage 4 bird event
   call the common helper directly for starpoint spawn clamps and drop motion
   bounds.
+- `scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd` /
+  `stage1_han_miryang_prologue_overlay_host.gd` /
+  `stage1_han_miryang_prologue_text.gd`
+  Own Han Miryang's character-select Stage 1 prologue: transient entry
+  eligibility, completion history, the controller-driven viewport overlay,
+  three-plate timeline, first-view versus repeat-view skip lock, skip fade, and
+  seven-locale story copy. Each character-select confirmation replays the
+  prologue; completion history controls only the skip lock, while retry/debug
+  direct entry stays skipped. Lore semantics and open decisions live in
+  `docs/araul_foundation_prologue_canon.md`.
+  Battle intro flow retains BGM and landing orchestration, while the boot
+  prewarmer owns staged texture upload timing.
 - `scripts/stages/stage1/stage1_pillar_background.gd`
   Owns the layered Stage 1 pillar background port: base hanji texture,
   texture loading, draw composition, and delegation to focused Stage 1

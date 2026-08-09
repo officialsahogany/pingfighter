@@ -28,6 +28,7 @@ const SkillCutinDriveRenderer := preload("res://scripts/hud/skill_cutin_drive_re
 const MythicAcquisitionCinematicV2 := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const StageLandingIntro := preload("res://scripts/core/stage_landing_intro.gd")
+const HanMiryangPrologue := preload("res://scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd")
 
 # Opt-in long bounds: menu idle prefers keeping a slow giant sheet threaded
 # over a synchronous main-thread fallback hitching the menu. Do NOT copy these
@@ -161,6 +162,10 @@ func _get_stage_runtime_threaded_paths(character_type: String, stage_id: int) ->
 		paths.append(SkillCutinOverlayHost.DRIVE_ARC_PATH)
 		paths.append(SkillCutinOverlayHost.DRIVE_CHARACTER_PATH)
 		paths.append(SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH)
+		if stage_id == 1:
+			# 캐릭터 선택에서 한미량을 확정할 때마다 재생되므로 감상 이력과
+			# 무관하게 세 플레이트를 메뉴 유휴 시간에 선행 프리웜한다.
+			paths.append_array(HanMiryangPrologue.get_texture_paths())
 	return paths
 
 

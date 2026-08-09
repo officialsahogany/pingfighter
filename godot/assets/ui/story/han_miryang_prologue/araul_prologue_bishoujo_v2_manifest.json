@@ -1,0 +1,42 @@
+{
+  "asset_set_id": "han_miryang_araul_prologue_bishoujo_v2",
+  "status": "runtime",
+  "style_direction": "Japanese bishoujo game CG, clean anime lineart, 2D cel shading, soft facial expression, large expressive eyes, simple hair rendering, visual novel illustration, appealing anime proportions, production-quality anime artwork, minimal texture detail, clear silhouette, hand-drawn feeling, light pastel palette",
+  "generation_mode": "built-in imagegen image edit from the two approved v1 key-art compositions",
+  "runtime_assets": [
+    "res://assets/ui/story/han_miryang_prologue/araul_coronation_keyart_bishoujo_v2.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_ball_strike_no_tablet_keyart_bishoujo_v2.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_missing_beat_keyart_bishoujo_v2.png"
+  ],
+  "source_resolution": [1672, 941],
+  "runtime_resolution": [3344, 1882],
+  "upscale": {
+    "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+    "model": "realesr-animevideov3",
+    "scale": 2,
+    "batch_policy": "all three accepted source plates processed together"
+  },
+  "plate_2b_policy": {
+    "method": "deterministic local masked composite from the final styled missing-beat plate",
+    "removed": "central memorial tablet, teal spirit-flame column, and immediate cast-light region",
+    "preserved": "queen and Han Miryang composition, ball, ball trail, candles, architecture, exposure outside the reveal mask",
+    "reason": "the image-edit-only removal candidate drifted globally and failed the stable cross-fade gate"
+  },
+  "plate_2b_source_qa": {
+    "resolution": [1672, 941],
+    "changed_bbox": [698, 0, 1111, 599],
+    "changed_pixels_outside_central_box": 0,
+    "changed_pixels_in_ball_band_y600_plus": 0,
+    "changed_pixels_in_han_region_x1150_plus": 0,
+    "central_cyan_pixels_before": 47314,
+    "central_cyan_pixels_after": 1213,
+    "mean_luminance_before": 54.88,
+    "mean_luminance_after": 48.725
+  },
+  "import_policy": {
+    "compress_mode": 2,
+    "high_quality": true,
+    "mipmaps": true,
+    "reason": "three fullscreen 3344x1882 plates are prewarmed and downsampled at 1080p and 1440p"
+  }
+}

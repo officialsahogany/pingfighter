@@ -414,6 +414,7 @@ var wall_sound_cooldown := 0.0
 var current_bgm_name := ""
 var primed_bgm_volumes: Dictionary = {}
 var bgm_volume := DEFAULT_BGM_VOLUME
+var _story_cinematic_bgm_gain_db := 0.0
 var sfx_volume := DEFAULT_SFX_VOLUME
 var audio_bus_volumes_adopted := false
 var bgm_muted := false
@@ -2811,6 +2812,18 @@ func play_stage1_balloon_machine() -> void:
 	_play_with_pitch(stage1_balloon_machine_sfx, randf_range(0.98, 1.02))
 
 
+# 한미량 서막의 '빈 한 박'은 짧고 맑은 기존 금속 차임을 고정 피치로
+# 재사용한다. 재생 진입은 스토리 presentation이 소유하되 실제 플레이어와
+# SFX 버스 라우팅은 GameAudio에 남긴다.
+func play_han_miryang_prologue_missing_beat() -> void:
+	_play_with_pitch(stage2_speed_defense_block_sfx, 1.0)
+
+
+func stop_han_miryang_prologue_missing_beat() -> void:
+	if stage2_speed_defense_block_sfx != null and stage2_speed_defense_block_sfx.playing:
+		stage2_speed_defense_block_sfx.stop()
+
+
 func play_starpoint_collect() -> void:
 	_play_with_pitch(star_collect_sfx, randf_range(0.98, 1.04))
 
@@ -3214,6 +3227,7 @@ func stop_bgm() -> void:
 		primed_bgm_volumes.erase(current_bgm_name)
 	current_bgm_name = ""
 	muted_bgm_name = ""
+	clear_story_cinematic_bgm_gain()
 
 
 func toggle_bgm() -> bool:
@@ -3275,6 +3289,23 @@ func set_bgm_volume(value: float) -> float:
 	bgm_volume = clampf(value, 0.0, 1.0)
 	_apply_bgm_bus_volume()
 	return bgm_volume
+
+
+func set_story_cinematic_bgm_gain_db(value: float) -> float:
+	_story_cinematic_bgm_gain_db = clampf(value, -80.0, 0.0)
+	_apply_bgm_bus_volume()
+	return _story_cinematic_bgm_gain_db
+
+
+func clear_story_cinematic_bgm_gain() -> void:
+	if is_zero_approx(_story_cinematic_bgm_gain_db):
+		return
+	_story_cinematic_bgm_gain_db = 0.0
+	_apply_bgm_bus_volume()
+
+
+func get_story_cinematic_bgm_gain_db() -> float:
+	return _story_cinematic_bgm_gain_db
 
 
 func get_sfx_volume() -> float:
@@ -3794,7 +3825,10 @@ func _configure_sfx_player(player: AudioStreamPlayer) -> AudioStreamPlayer:
 func _apply_bgm_bus_volume() -> void:
 	var bus_index: int = _ensure_audio_bus(BGM_BUS_NAME)
 	if bus_index >= 0:
-		AudioServer.set_bus_volume_db(bus_index, _volume_to_db(bgm_volume))
+		AudioServer.set_bus_volume_db(
+			bus_index,
+			maxf(-80.0, _volume_to_db(bgm_volume) + _story_cinematic_bgm_gain_db)
+		)
 
 
 func _apply_sfx_bus_volume() -> void:

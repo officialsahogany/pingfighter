@@ -16,9 +16,40 @@ func handle_input(
 	module_getter: Callable,
 	context: Dictionary
 ) -> bool:
+	if _handle_han_miryang_prologue_input(event, owner, registry, module_getter):
+		return true
 	if _handle_force_stage_clear_shortcut(event, owner, registry, module_getter, context):
 		return true
 	return _handle_stage7_prebattle_input(event, owner, registry, module_getter)
+
+
+func _handle_han_miryang_prologue_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var presentation: Object = _get_module(
+		module_getter,
+		"stage1_han_miryang_prologue_presentation"
+	)
+	if presentation == null:
+		presentation = _get_instance(
+			registry,
+			"stage1_han_miryang_prologue_presentation"
+		)
+	if (
+		presentation == null
+		or not presentation.has_method("is_active")
+		or not bool(presentation.is_active())
+	):
+		return false
+	# 서막이 열린 동안 모든 로컬 입력을 소비한다. 스킵이 아닌 키도 전투
+	# 이동/액티브 입력으로 새면 첫 랠리가 눌린 상태에서 시작할 수 있다.
+	if presentation.has_method("handle_input") and bool(presentation.handle_input(event, owner, registry)):
+		_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
 
 
 func _handle_force_stage_clear_shortcut(

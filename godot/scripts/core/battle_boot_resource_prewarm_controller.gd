@@ -425,7 +425,7 @@ func _run_stage_runtime_prewarm_step(
 func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stage: int) -> int:
 	match current_stage:
 		1:
-			return 6
+			return 7
 		2:
 			return STAGE2_RUNTIME_PREWARM_LABELS.size()
 		3:
@@ -472,16 +472,18 @@ func _get_stage_runtime_prewarm_step_label(owner: Object, current_stage: int, st
 func _get_stage1_runtime_prewarm_step_label(stage_step: int) -> String:
 	match stage_step:
 		0:
-			return "stage1_pillar_background"
+			return "stage1_han_miryang_prologue"
 		1:
-			return "stage1_pillar_scene"
+			return "stage1_pillar_background"
 		2:
-			return "stage1_balloon"
+			return "stage1_pillar_scene"
 		3:
-			return "stage1_skill_hud"
+			return "stage1_balloon"
 		4:
-			return "stage1_commando"
+			return "stage1_skill_hud"
 		5:
+			return "stage1_commando"
+		6:
 			return "stage1_actor_renderer"
 	return "stage1_step%d" % stage_step
 
@@ -556,8 +558,12 @@ func _run_stage_specific_runtime_prewarm_step(
 func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			return prewarm_stage1_pillar_background_step(module_getter)
+			var prologue: Object = _get_module(module_getter, "stage1_han_miryang_prologue_presentation")
+			if prologue != null and prologue.has_method("prewarm_stage_entry_step"):
+				return bool(prologue.prewarm_stage_entry_step(owner))
 		1:
+			return prewarm_stage1_pillar_background_step(module_getter)
+		2:
 			var pillar_scene_drawer: Object = _get_module(module_getter, "stage1_pillar_scene_drawer")
 			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets_step"):
 				return bool(pillar_scene_drawer.prewarm_assets_step(
@@ -571,13 +577,13 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 					_get_selected_character_type(owner),
 					_get_stage1_boss_variant(owner)
 				)
-		2:
+		3:
 			var balloon_event: Object = _get_module(module_getter, "stage1_balloon_event")
 			if balloon_event != null and balloon_event.has_method("prewarm_assets_step"):
 				return bool(balloon_event.prewarm_assets_step())
 			if balloon_event != null and balloon_event.has_method("prewarm_assets"):
 				balloon_event.prewarm_assets()
-		3:
+		4:
 			var skill_hud_key := _get_stage1_boss_skill_hud_key(_get_stage1_boss_variant(owner))
 			if skill_hud_key == "":
 				return true
@@ -586,7 +592,7 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 				return bool(skill_hud.prewarm_assets_step())
 			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
 				skill_hud.prewarm_assets()
-		4:
+		5:
 			if _get_selected_character_type(owner) != "soldier":
 				return true
 			var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
@@ -595,7 +601,7 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 					return false
 			elif firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
 				firearm_selector.prewarm_assets()
-		5:
+		6:
 			var actor_renderer: Object = _get_module(module_getter, "stage1_actor_renderer")
 			if actor_renderer != null and actor_renderer.has_method("prewarm_assets_step"):
 				if not bool(actor_renderer.prewarm_assets_step()):

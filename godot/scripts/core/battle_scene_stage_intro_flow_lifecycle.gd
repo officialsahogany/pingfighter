@@ -16,6 +16,19 @@ func begin_stage_landing_intro(
 	if logo_intro != null and logo_intro.has_method("is_audio_playing") and bool(logo_intro.is_audio_playing()):
 		_queue_redraw(owner)
 		return
+	# 한미량 Stage 1 서막은 부트 로딩이 끝난 뒤, 랜딩/공 소환 인트로보다
+	# 먼저 재생한다. character-select transient request가 있는 한미량 Stage 1
+	# 진입만 재생하며, 감상 이력은 재생 차단이 아니라 스킵 락 분기에만 쓴다.
+	var han_miryang_prologue: Object = _get_module(module_getter, "stage1_han_miryang_prologue_presentation")
+	if (
+		han_miryang_prologue != null
+		and han_miryang_prologue.has_method("begin")
+		and bool(han_miryang_prologue.begin(owner, registry))
+	):
+		# Stage 1 제례 BGM을 서막에서 시작해 랜딩/전투까지 끊김 없이 잇는다.
+		start_battle_bgm(flow, owner, module_getter)
+		_queue_redraw(owner)
+		return
 	# 스테이지 7 프리배틀 영상 게이트: 랜딩 BGM 시작 전에 아카무 인트로
 	# 시네마틱을 먼저 재생한다. begin_video가 true면(영상 무장 성공) 랜딩을
 	# 시작하지 않고 반환 — 인트로 프레임 컨트롤러가 영상을 구동하고, 완료 후
