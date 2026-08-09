@@ -9,8 +9,7 @@ const RuntimePerkAngelBlessingStageLifecycle := preload("res://scripts/character
 const RuntimePerkAngelBlessingModalFlow := preload("res://scripts/characters/runtime_perk_angel_blessing_modal_flow.gd")
 const RuntimePerkAngelBlessingAcquisitionLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_acquisition_lifecycle.gd")
 const RuntimePerkAngelBlessingLocalization := preload("res://scripts/characters/runtime_perk_angel_blessing_localization.gd")
-const RuntimePerkHyeonmunCharyeokState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_state.gd")
-const RuntimePerkHyeonmunCharyeokRenderer := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_renderer.gd")
+const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkChoiceLayout := preload("res://scripts/characters/runtime_perk_choice_layout.gd")
 const RuntimePerkActiveUnlockFlight := preload("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
@@ -152,8 +151,17 @@ var _angel_blessing_cooldown_capability: Object = RuntimePerkAngelBlessingCooldo
 var _angel_blessing_stage_lifecycle: Object = RuntimePerkAngelBlessingStageLifecycle.new()
 var _angel_blessing_modal_flow: Object = RuntimePerkAngelBlessingModalFlow.new()
 var _angel_blessing_acquisition_lifecycle: Object = RuntimePerkAngelBlessingAcquisitionLifecycle.new()
-var _hyeonmun_charyeok_state: Object = RuntimePerkHyeonmunCharyeokState.new()
-var _hyeonmun_charyeok_renderer: Object = RuntimePerkHyeonmunCharyeokRenderer.new()
+var _hyeonmun_charyeok_runtime_state: Object = RuntimePerkHyeonmunCharyeokRuntimeState.new()
+var _hyeonmun_charyeok_state: Object:
+	get:
+		return _hyeonmun_charyeok_runtime_state.get_state()
+	set(value):
+		_hyeonmun_charyeok_runtime_state.set_state(value)
+var _hyeonmun_charyeok_renderer: Object:
+	get:
+		return _hyeonmun_charyeok_runtime_state.get_renderer()
+	set(value):
+		_hyeonmun_charyeok_runtime_state.set_renderer(value)
 var _choice_audio: Object = RuntimePerkChoiceAudio.new()
 var _choice_feedback: Object = RuntimePerkChoiceFeedback.new()
 var _choice_offer_modifiers: Object = RuntimePerkChoiceOfferModifiers.new()
@@ -981,7 +989,7 @@ func reset() -> void:
 		_perk_fusion_state.reset()
 	if _perk_fusion_byproduct_runtime != null:
 		_perk_fusion_byproduct_runtime.reset()
-	_hyeonmun_charyeok_state.reset()
+	_hyeonmun_charyeok_runtime_state.reset_state()
 	_perk_fusion_projection_cache_ready = false
 	_perk_fusion_modal_preview_cache = {}
 	_perk_fusion_modal_preview_cache_key = 0
@@ -1445,73 +1453,44 @@ func get_runtime_skill_level(skill_id: String) -> int:
 
 
 func try_proc_hyeonmun_charyeok(context: Dictionary = {}, deps: Dictionary = {}) -> Dictionary:
-	if not PerkConversionFlags.is_enabled():
-		return {"activated": false, "reason": "conversion_disabled"}
-	var invested_level := maxi(0, _get_raw_runtime_perk_level(RuntimePerkHyeonmunCharyeokState.PERK_ID))
-	var roll_unit := float(context.get(RuntimePerkHyeonmunCharyeokState.ROLL_OVERRIDE_KEY, -1.0))
-	var result: Dictionary = _hyeonmun_charyeok_state.try_proc(invested_level, roll_unit)
-	if bool(result.get("activated", false)):
-		_sync_hyeonmun_charyeok_effective_level_bonus(
-			int(result.get("previous_level_bonus", 0)),
-			deps
-		)
-		result["item_perk_level_bonus"] = item_perk_level_bonus
-	return result
+	return _hyeonmun_charyeok_runtime_state.try_proc_from_runtime_state(
+		self,
+		context,
+		deps
+	)
 
 
 func update_hyeonmun_charyeok(delta: float, owner: Object = null, registry: Object = null) -> bool:
-	var update_result: Dictionary = _hyeonmun_charyeok_state.update(delta)
-	if bool(update_result.get("expired", false)):
-		_sync_hyeonmun_charyeok_effective_level_bonus(
-			int(update_result.get("previous_level_bonus", 0)),
-			{"owner": owner, "registry": registry}
-		)
-	return bool(update_result.get("was_active", false))
+	return _hyeonmun_charyeok_runtime_state.update_from_runtime_state(
+		self,
+		delta,
+		owner,
+		registry
+	)
 
 
 func reset_hyeonmun_charyeok_round(registry: Object = null, owner: Object = null) -> bool:
-	var reset_result: Dictionary = _hyeonmun_charyeok_state.reset()
-	if not bool(reset_result.get("changed", false)):
-		return false
-	_sync_hyeonmun_charyeok_effective_level_bonus(
-		int(reset_result.get("previous_level_bonus", 0)),
-		{"owner": owner, "registry": registry}
+	return _hyeonmun_charyeok_runtime_state.reset_round_from_runtime_state(
+		self,
+		registry,
+		owner
 	)
-	return true
 
 
 func is_hyeonmun_charyeok_active() -> bool:
-	return _hyeonmun_charyeok_state.is_active()
+	return _hyeonmun_charyeok_runtime_state.is_active()
 
 
 func get_hyeonmun_charyeok_level_bonus() -> int:
-	return _hyeonmun_charyeok_state.get_level_bonus()
+	return _hyeonmun_charyeok_runtime_state.get_level_bonus()
 
 
 func get_hyeonmun_charyeok_snapshot() -> Dictionary:
-	return _hyeonmun_charyeok_state.get_snapshot()
+	return _hyeonmun_charyeok_runtime_state.get_snapshot()
 
 
 func draw_hyeonmun_charyeok_timer(canvas: CanvasItem, timer_stack: Object = null) -> void:
-	_hyeonmun_charyeok_renderer.draw(canvas, timer_stack, get_hyeonmun_charyeok_snapshot())
-
-
-func _sync_hyeonmun_charyeok_effective_level_bonus(previous_bonus: int, deps: Dictionary) -> void:
-	var registry: Object = deps.get("registry", null)
-	var owner: Object = deps.get("owner", null)
-	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
-	if mythic_item_runtime == null and registry != null and registry.has_method("get_instance"):
-		mythic_item_runtime = registry.get_instance("mythic_item_runtime")
-	var next_total := maxi(0, item_perk_level_bonus - maxi(0, previous_bonus) + get_hyeonmun_charyeok_level_bonus())
-	if PerkConversionFlags.is_enabled() and mythic_item_runtime != null:
-		var crown_bonus := 0
-		if mythic_item_runtime.has_method("get_transcendent_crown_skill_bonus"):
-			crown_bonus = maxi(0, int(mythic_item_runtime.get_transcendent_crown_skill_bonus()))
-		next_total = crown_bonus + get_hyeonmun_charyeok_level_bonus()
-	elif mythic_item_runtime != null and mythic_item_runtime.has_method("get_total_item_perk_level_bonus"):
-		next_total = maxi(0, int(mythic_item_runtime.get_total_item_perk_level_bonus()))
-	if set_item_perk_level_bonus(next_total):
-		refresh_item_perk_level_bonus_dynamic_effects(registry, owner)
+	_hyeonmun_charyeok_runtime_state.draw_timer(canvas, timer_stack)
 
 
 # apply_choice의 소스 계약(모듈분리 씰)은 본문에 raw 레벨 딕셔너리 직접 접근을
