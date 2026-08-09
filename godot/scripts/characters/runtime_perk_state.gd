@@ -10,6 +10,7 @@ const RuntimePerkAngelBlessingModalFlow := preload("res://scripts/characters/run
 const RuntimePerkAngelBlessingAcquisitionLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_acquisition_lifecycle.gd")
 const RuntimePerkAngelBlessingLocalization := preload("res://scripts/characters/runtime_perk_angel_blessing_localization.gd")
 const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
+const RuntimePerkFusionRuntimeState := preload("res://scripts/characters/runtime_perk_fusion_runtime_state.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkChoiceLayout := preload("res://scripts/characters/runtime_perk_choice_layout.gd")
 const RuntimePerkActiveUnlockFlight := preload("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
@@ -99,9 +100,7 @@ var gold_from_perks := 0
 # ---- 퍽 융합 위임 계층 ----
 # 코어(records/커밋/오버레이/한계돌파)는 PerkFusionState가 소유하고, 이
 # 래퍼는 central getter·projection·부산물 런타임을 잇는 접착만 담당한다.
-var _perk_fusion_state: Object = null
-var _perk_fusion_byproduct_runtime: Object = null
-var _perk_fusion_offer_planner: Object = null
+var _fusion_runtime_state: Object = RuntimePerkFusionRuntimeState.new()
 var _perk_fusion_display_projector: Object = null
 var _perk_fusion_display_catalog: Object = null
 var _perk_fusion_projection_cache: Dictionary = {}
@@ -186,93 +185,62 @@ var _unlock_choice_apply: Object = RuntimePerkUnlockChoiceApply.new()
 var _dynamic_effects: Object = RuntimePerkDynamicEffects.new()
 
 
-func _get_perk_fusion_state() -> Object:
-	if _perk_fusion_state == null:
-		_perk_fusion_state = load("res://scripts/characters/perk_fusion_state.gd").new()
-	return _perk_fusion_state
-
-
-func _get_perk_fusion_byproduct_runtime() -> Object:
-	if _perk_fusion_byproduct_runtime == null:
-		_perk_fusion_byproduct_runtime = load("res://scripts/characters/perk_fusion_byproduct_runtime.gd").new()
-	return _perk_fusion_byproduct_runtime
-
-
 func get_perk_fusion_state() -> Object:
-	return _get_perk_fusion_state()
+	return _fusion_runtime_state.get_fusion_state()
 
 
 # 커밋: 코어가 record를 소유하고 revision을 올린다 — projection 캐시 키에
 # revision이 들어가므로 커밋은 자동으로 캐시를 무효화한다.
 func commit_perk_fusion(source_ids: Array, outcome_data: Dictionary, catalog: Object) -> Dictionary:
-	return _get_perk_fusion_state().commit_fusion(source_ids, outcome_data, catalog, runtime_skill_levels)
+	return _fusion_runtime_state.commit_fusion(source_ids, outcome_data, catalog, runtime_skill_levels)
 
 
 func restore_perk_fusion_snapshot(snapshot: Dictionary, catalog: Object) -> Dictionary:
-	return _get_perk_fusion_state().restore_snapshot(snapshot, catalog, runtime_skill_levels)
+	return _fusion_runtime_state.restore_snapshot(snapshot, catalog, runtime_skill_levels)
 
 
 func apply_perk_fusion_option_value(perk_id: String, option_key: String, base_value: float) -> float:
-	return float(_get_perk_fusion_state().apply_option_value(perk_id, option_key, base_value))
+	return _fusion_runtime_state.apply_option_value(perk_id, option_key, base_value)
 
 
 func get_perk_fusion_snapshot() -> Dictionary:
-	return _get_perk_fusion_state().get_snapshot()
+	return _fusion_runtime_state.get_snapshot()
 
 
 func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
-	return int(_get_perk_fusion_state().get_effective_level_bonus(perk_id))
+	return _fusion_runtime_state.get_effective_level_bonus(perk_id)
 
 
 func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
-	return _get_perk_fusion_state().get_owned_byproduct_ids()
+	return _fusion_runtime_state.get_owned_byproduct_ids()
 
 
 func get_perk_fusion_slot_reduction() -> int:
-	return int(_get_perk_fusion_state().get_slot_reduction())
+	return _fusion_runtime_state.get_slot_reduction()
 
 
 # 황금 궤적: 부산물 런타임이 라운드 40 실골드 캡을 소유한다. 골드 배수
 # (아이템 배수·점화 오라)는 클램프 "이전"에 적용해, 배수로 부풀린 지급이
 # 실 저장 골드 기준 캡을 넘지 못하게 한다.
 func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary) -> int:
-	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
-	var offer: int = int(byproduct_runtime.get_wall_bounce_gold_offer(get_perk_fusion_owned_byproduct_ids()))
-	if offer <= 0:
-		return 0
-	var modified := float(offer) * maxf(0.0, item_gold_gain_multiplier)
-	if viper_ignition_aura_active:
-		modified *= 2.0
-	var remaining: int = int(byproduct_runtime.get_remaining_wall_bounce_gold())
-	var actual: int = mini(int(round(modified)), remaining)
+	var actual: int = int(_fusion_runtime_state.consume_wall_bounce_gold_award(
+		item_gold_gain_multiplier,
+		viper_ignition_aura_active
+	))
 	if actual <= 0:
 		return 0
-	byproduct_runtime.record_wall_bounce_gold(actual)
 	gold_from_perks += actual
 	return actual
 
 
 func get_perk_fusion_round_golden_trajectory_gold() -> int:
-	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
-	return int(byproduct_runtime.GOLDEN_TRAJECTORY_ROUND_CAP) - int(byproduct_runtime.get_remaining_wall_bounce_gold())
+	return _fusion_runtime_state.get_round_golden_trajectory_gold()
 
 
 # 융합 결과 컨텍스트(모달/부산물 payload 후보): 한계돌파 자격은 "base 레벨이
 # 저작 테이블 최대"인 소스 — 자격 판정은 catalog의 max_level과 비교한다.
 func _build_perk_fusion_result_context(source_ids: Array, catalog: Object) -> Dictionary:
-	var eligible: Array[String] = []
-	for source_value: Variant in source_ids:
-		var perk_id := str(source_value).strip_edges()
-		if perk_id.is_empty():
-			continue
-		var base_level := int(runtime_skill_levels.get(perk_id, 0))
-		var max_level := 5
-		if catalog != null and catalog.has_method("get_perk_data"):
-			var data: Dictionary = catalog.get_perk_data(perk_id)
-			max_level = int(data.get("max_level", 5)) if not data.is_empty() else 5
-		if base_level > 0 and base_level >= max_level:
-			eligible.append(perk_id)
-	return {"limit_break_eligible_sources": eligible}
+	return _fusion_runtime_state.build_result_context(source_ids, catalog, runtime_skill_levels)
 
 
 # TAB/모달이 매 프레임 읽는 표시 projection의 캐시 래퍼. 키=레벨 해시 ×
@@ -287,7 +255,7 @@ func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
 		catalog = _perk_fusion_display_catalog
 	var cache_key: int = hash([
 		runtime_skill_levels.hash(),
-		_get_perk_fusion_state().get_revision(),
+		_fusion_runtime_state.get_revision(),
 		# 주사위 리비전: 합성 채널이 주사위 synthetic 엔트리를 함께 실으므로
 		# 주사위 커밋/리셋도 표시 캐시를 무효화해야 한다.
 		get_mystic_dice_revision(),
@@ -339,7 +307,7 @@ func _get_perk_fusion_display_locale() -> String:
 func _build_perk_fusion_live_source_options() -> Dictionary:
 	var live: Dictionary = {}
 	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
-	for record: Dictionary in _get_perk_fusion_state().get_all_records():
+	for record: Dictionary in _fusion_runtime_state.get_fusion_state().get_all_records():
 		var penalties: Dictionary = record.get("option_penalties", {}) as Dictionary
 		var snapshots: Dictionary = record.get("commit_value_snapshots", {}) as Dictionary
 		var deleted: Dictionary = record.get("deleted_options", {}) as Dictionary
@@ -475,42 +443,25 @@ func _try_inject_mystic_dice_offer(roll_unit: float = -1.0) -> Dictionary:
 # open 1회에서만 소비된다(부적격 fail-closed 경로는 소비하지 않음).
 # user:// 등 어디에도 저장되지 않으며 reset()이 해제한다.
 func set_test_perk_fusion_offer_roll_override(appearance_roll_unit: float, replacement_roll_unit: float) -> void:
-	_test_perk_fusion_offer_roll_override = [appearance_roll_unit, replacement_roll_unit]
+	_fusion_runtime_state.set_test_offer_roll_override(appearance_roll_unit, replacement_roll_unit)
 
 
-var _test_perk_fusion_offer_roll_override: Array = []
+var _test_perk_fusion_offer_roll_override: Array:
+	get:
+		return _fusion_runtime_state.get_test_offer_roll_override()
+	set(value):
+		_fusion_runtime_state.set_test_offer_roll_override_values(value)
 
 
 func _try_inject_perk_fusion_offer(catalog: Object, appearance_roll_unit: float = -1.0, replacement_roll_unit: float = -1.0) -> Dictionary:
 	if not choice_active:
 		return {"rolled": false}
-	if _perk_fusion_offer_planner == null:
-		_perk_fusion_offer_planner = load("res://scripts/characters/perk_fusion_offer_planner.gd").new()
-	var offer_source := str(current_choice_context.get("source", ""))
-	# 재료 후보=융합 카탈로그 자격(레벨·이미 융합됨 제외) — 플래너/모달과
-	# 같은 판정 소스를 공유한다.
-	var eligible_sources: Array = _build_perk_fusion_candidate_ids(catalog)
-	# 주사위와 동일한 RNG 무소비 계약: 부적격(비허용 source/재료 2종 미만/
-	# 교체 가능 lane 부재 — all-protected 오퍼 포함) 경로는 난수를 한 번도
-	# 뽑지 않는다. 자격 판별은 플래너 can_roll 단일 소스.
-	if not bool(_perk_fusion_offer_planner.can_roll(current_choices, eligible_sources, offer_source)):
-		return {"rolled": false}
-	if appearance_roll_unit < 0.0 and replacement_roll_unit < 0.0 and not _test_perk_fusion_offer_roll_override.is_empty():
-		appearance_roll_unit = float(_test_perk_fusion_offer_roll_override[0])
-		replacement_roll_unit = float(_test_perk_fusion_offer_roll_override[1])
-		_test_perk_fusion_offer_roll_override = []
-	var appearance_unit: float = appearance_roll_unit if appearance_roll_unit >= 0.0 else randf()
-	var replacement_unit: float = replacement_roll_unit if replacement_roll_unit >= 0.0 else randf()
-	var result: Dictionary = _perk_fusion_offer_planner.plan_offer(
-		current_choices,
-		eligible_sources,
-		offer_source,
-		appearance_unit,
-		replacement_unit
+	return _fusion_runtime_state.try_inject_offer_from_runtime_state(
+		self,
+		catalog,
+		appearance_roll_unit,
+		replacement_roll_unit
 	)
-	if bool(result.get("appeared", false)):
-		current_choices = result.get("choices", current_choices) as Array
-	return result
 
 
 func is_mystic_dice_modal_active() -> bool:
@@ -667,11 +618,23 @@ func reset_mystic_dice_state() -> void:
 # runtime·penalty lane builder)은 각자 소유 파일에 살고, 이 파사드는
 # 배선·트랜잭션 경계·리셋만 소유한다.
 
-var _perk_fusion_modal_flow: Object = null
-var _perk_fusion_modal_input: Object = null
+var _perk_fusion_modal_flow: Object:
+	get:
+		return _fusion_runtime_state.peek_modal_flow()
+	set(value):
+		_fusion_runtime_state.set_modal_flow(value)
+var _perk_fusion_modal_input: Object:
+	get:
+		return _fusion_runtime_state.peek_modal_input()
+	set(value):
+		_fusion_runtime_state.set_modal_input(value)
 # 모달 수명 동안의 자격 판정 카탈로그(시작 시 보존): 프리뷰의 한계돌파
 # 자격/가중치가 실 커밋(레지스트리 카탈로그)과 같은 max_level을 봐야 한다.
-var _perk_fusion_modal_catalog: Object = null
+var _perk_fusion_modal_catalog: Object:
+	get:
+		return _fusion_runtime_state.get_modal_catalog()
+	set(value):
+		_fusion_runtime_state.set_modal_catalog(value)
 # CB3: 콜드부트 시네마틱 Node2D 호스트(래퍼가 생성/정리 — freed 가드 필수).
 var _cold_boot_cinematic_host: Object = null
 var _perk_fusion_modal_preview_cache: Dictionary = {}
@@ -689,109 +652,82 @@ func _reset_perk_fusion_modal_preview_cache() -> void:
 
 
 func _get_perk_fusion_modal_flow() -> Object:
-	if _perk_fusion_modal_flow == null:
-		_perk_fusion_modal_flow = load("res://scripts/characters/perk_fusion_modal_flow.gd").new()
-	return _perk_fusion_modal_flow
+	return _fusion_runtime_state.get_modal_flow()
 
 
 func _get_perk_fusion_modal_input() -> Object:
-	if _perk_fusion_modal_input == null:
-		_perk_fusion_modal_input = load("res://scripts/characters/perk_fusion_modal_input.gd").new()
-	return _perk_fusion_modal_input
+	return _fusion_runtime_state.get_modal_input()
 
 
 func get_perk_fusion_revision() -> int:
-	return int(_get_perk_fusion_state().get_revision())
+	return _fusion_runtime_state.get_revision()
 
 
 func get_perk_fusion_token_snapshot() -> Dictionary:
-	return _get_perk_fusion_state().get_next_fusion_token_snapshot()
+	return _fusion_runtime_state.get_next_token_snapshot()
 
 
 # ── 부산물 게임플레이 파사드 ──
 func consume_perk_fusion_paddle_bounce_speed_multiplier() -> float:
-	return float(_get_perk_fusion_byproduct_runtime().consume_player_paddle_bounce_speed_multiplier())
+	return _fusion_runtime_state.consume_paddle_bounce_speed_multiplier()
 
 
 func notify_perk_fusion_player_dash() -> void:
-	_get_perk_fusion_byproduct_runtime().on_player_dash(get_perk_fusion_owned_byproduct_ids())
+	_fusion_runtime_state.notify_player_dash()
 
 
 func notify_perk_fusion_skill_used() -> void:
-	_get_perk_fusion_byproduct_runtime().on_skill_used(get_perk_fusion_owned_byproduct_ids())
+	_fusion_runtime_state.notify_skill_used()
 
 
 func get_perk_fusion_move_speed_multiplier() -> float:
-	return float(_get_perk_fusion_byproduct_runtime().get_player_move_speed_multiplier())
+	return _fusion_runtime_state.get_move_speed_multiplier()
 
 
 # 게임플레이 시간 부산물 시계(잔향 만료 등) — 항상 도는 update 드라이버가
 # 소유한다(오버레이 없는 만료).
 func update_perk_fusion_byproducts(delta: float) -> void:
-	_get_perk_fusion_byproduct_runtime().update(delta)
+	_fusion_runtime_state.update_byproducts(delta)
 
 
 func reset_perk_fusion_round_byproducts() -> void:
-	_get_perk_fusion_byproduct_runtime().reset_round()
+	_fusion_runtime_state.reset_round_byproducts()
 
 
 # 종결 득점(match_finished)은 부산물 기회를 만들지 않는다 — pending이
 # 스테이지 전환을 넘어 다음 스테이지 첫 라운드에 발동하는 이월을 차단.
 func queue_perk_fusion_player_point_lost(match_finished: bool = false) -> Dictionary:
-	var byproduct_runtime: Object = _get_perk_fusion_byproduct_runtime()
 	if match_finished:
-		byproduct_runtime.consume_pending_point_loss_effects()
-		return {}
-	return byproduct_runtime.queue_player_point_lost(get_perk_fusion_owned_byproduct_ids(), randf())
+		return _fusion_runtime_state.queue_player_point_lost(true, 0.0)
+	return _fusion_runtime_state.queue_player_point_lost(false, randf())
 
 
 func consume_pending_perk_fusion_point_loss_effects() -> Dictionary:
-	return _get_perk_fusion_byproduct_runtime().consume_pending_point_loss_effects()
+	return _fusion_runtime_state.consume_pending_point_loss_effects()
 
 
 # ── 융합 모달 S0(가로채기)~S4(finish) ──
 func is_perk_fusion_modal_active() -> bool:
-	return _perk_fusion_modal_flow != null and bool(_perk_fusion_modal_flow.is_active())
+	return _fusion_runtime_state.is_modal_active()
 
 
 func _begin_perk_fusion_modal(selected_choice: Dictionary, registry: Object, entered_via_rt: bool = false) -> bool:
-	var catalog: Object = _get_catalog(registry)
-	var candidate_ids: Array = selected_choice.get("eligible_sources", []) as Array
-	if candidate_ids.is_empty():
-		candidate_ids = _build_perk_fusion_candidate_ids(catalog)
-	var flow: Object = _get_perk_fusion_modal_flow()
-	if not bool(flow.start(selected_choice, current_choices.duplicate(true), candidate_ids)):
-		return false
-	_perk_fusion_modal_catalog = catalog
-	_reset_perk_fusion_modal_preview_cache()
-	_get_perk_fusion_modal_input().reset()
-	if entered_via_rt:
-		_get_perk_fusion_modal_input().suppress_confirm_until_release()
-	_play_perk_select_audio(registry)
-	return true
+	return _fusion_runtime_state.begin_modal_from_runtime_state(
+		self,
+		selected_choice,
+		registry,
+		entered_via_rt
+	)
 
 
 func _build_perk_fusion_candidate_ids(catalog: Object) -> Array:
-	var fused_lookup: Dictionary = _get_perk_fusion_state().get_fused_source_lookup()
-	var candidates: Array = []
-	var fusion_catalog: Object = load("res://scripts/characters/perk_fusion_catalog.gd").new()
-	for skill_id_value: Variant in runtime_skill_levels.keys():
-		var skill_id := str(skill_id_value)
-		var base_level: int = int(runtime_skill_levels[skill_id_value])
-		if base_level <= 0:
-			continue
-		if bool(fusion_catalog.is_candidate(skill_id, base_level, catalog, fused_lookup)):
-			candidates.append(skill_id)
-	return candidates
+	return _fusion_runtime_state.build_candidate_ids_from_runtime_state(self, catalog)
 
 
 # 콜드부트: 애니메이션 비트 구간 판별(update 드라이버의 호스트 lifecycle
 # 게이트) — 모달 활성 + flow가 PHASE_ANIMATION일 때만 호스트가 산다.
 func is_perk_fusion_boot_animation_active() -> bool:
-	return (
-		is_perk_fusion_modal_active()
-		and str(_perk_fusion_modal_flow.get_phase()) == "animation"
-	)
+	return _fusion_runtime_state.is_boot_animation_active()
 
 
 # 콜드부트 호스트 생존 판별(렌더러 degraded 폴백 게이트): 호스트가 트리에
@@ -804,9 +740,7 @@ func is_perk_fusion_cold_boot_host_live() -> bool:
 
 # 콜드부트 1회성 전이 이벤트 드레인 파사드(CB3 시네마틱 호스트 소비 지점).
 func consume_perk_fusion_cold_boot_events() -> Array:
-	if _perk_fusion_modal_flow == null:
-		return []
-	return _perk_fusion_modal_flow.consume_cold_boot_events()
+	return _fusion_runtime_state.consume_cold_boot_events()
 
 
 func get_perk_fusion_modal_snapshot() -> Dictionary:
@@ -873,128 +807,61 @@ func _build_perk_fusion_modal_preview(snapshot: Dictionary) -> Dictionary:
 
 
 func _handle_perk_fusion_modal_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
-	var resolution: Dictionary = _get_perk_fusion_modal_input().resolve(
+	return _fusion_runtime_state.handle_modal_input_from_runtime_state(
+		self,
 		event,
-		get_perk_fusion_modal_snapshot(),
+		owner,
+		registry,
 		view_size
 	)
-	var flow: Object = _get_perk_fusion_modal_flow()
-	if resolution.has("move"):
-		flow.move_highlight(int(resolution.get("move", 0)))
-	if resolution.has("highlight_index") and int(resolution.get("highlight_index", -1)) >= 0:
-		flow.set_highlight(int(resolution.get("highlight_index", -1)))
-	if resolution.has("select_index"):
-		flow.select_source_at(int(resolution.get("select_index", -1)))
-	if bool(resolution.get("cancel", false)):
-		_cancel_perk_fusion_modal()
-	if bool(resolution.get("confirm", false)):
-		_confirm_perk_fusion_modal(owner, registry)
-	return bool(resolution.get("consumed", true))
 
 
 # S1 취소=frozen 오퍼 복원(완전 no-op) / S2 취소=S1 복귀 / S3·S4 취소=
 # 소비만(no-op). 원 오퍼는 flow가 스냅샷을 소유한다.
 func _cancel_perk_fusion_modal() -> Dictionary:
-	var flow: Object = _get_perk_fusion_modal_flow()
-	var result: Dictionary = flow.cancel_current()
-	if bool(result.get("cancel_to_choices", false)):
-		current_choices = (result.get("origin_choices", current_choices) as Array).duplicate(true)
-		_get_perk_fusion_modal_input().reset()
-		_perk_fusion_modal_catalog = null
-		_reset_perk_fusion_modal_preview_cache()
-	return result
+	return _fusion_runtime_state.cancel_modal_from_runtime_state(self)
 
 
 # S2 원자 커밋: 롤 주입(테스트) 또는 실 랜덤 → 중앙 result builder →
 # 코어 record 커밋(리비전+1) → 애니메이션 진입. raw choice 트랜잭션
 # (pending/sequence/frozen 오퍼)은 S4 finish까지 동결된다.
 func _confirm_perk_fusion_modal(owner: Object, registry: Object, rolls: Dictionary = {}) -> Dictionary:
-	var flow: Object = _get_perk_fusion_modal_flow()
-	var action: Dictionary = flow.confirm_current()
-	if bool(action.get("commit_requested", false)):
-		# 커밋 권위 카탈로그 = 모달 시작 시 보존본(프리뷰와 구조적 동일) —
-		# 커밋 시점 registry 교체/누락이 프리뷰-커밋 가중치를 가를 수 없다.
-		var catalog: Object = _perk_fusion_modal_catalog if _perk_fusion_modal_catalog != null else _get_catalog(registry)
-		var source_ids: Array = action.get("source_ids", []) as Array
-		var result: Dictionary = _build_perk_fusion_commit_result(source_ids, catalog, rolls)
-		var record: Dictionary = commit_perk_fusion(source_ids, result, catalog)
-		if record.is_empty():
-			return {"accepted": false, "blocked_reason": "invalid_sources"}
-		flow.begin_committed_result(record)
-		return {"accepted": true, "record": record}
-	if bool(action.get("finish_requested", false)):
-		return _finish_perk_fusion_modal(owner, registry, action.get("record", {}) as Dictionary)
-	return action
+	return _fusion_runtime_state.confirm_modal_from_runtime_state(
+		self,
+		owner,
+		registry,
+		rolls
+	)
 
 
 func _build_perk_fusion_commit_result(source_ids: Array, catalog: Object, rolls: Dictionary) -> Dictionary:
-	var result_builder: Object = load("res://scripts/characters/perk_fusion_result_builder.gd")
-	var lane_builder: Object = load("res://scripts/characters/perk_fusion_penalty_lane_builder.gd").new()
-	var byproduct_catalog: Object = load("res://scripts/characters/perk_fusion_byproduct_catalog.gd").new()
-	var tokens: Dictionary = get_perk_fusion_token_snapshot()
-	var context: Dictionary = _build_perk_fusion_result_context(source_ids, catalog)
-	context["source_ids"] = source_ids.duplicate()
-	context["owned_byproducts"] = get_perk_fusion_owned_byproduct_ids()
-	context["available_byproducts"] = byproduct_catalog.get_contextual_pool(
-		context["owned_byproducts"],
-		context.get("limit_break_eligible_sources", []) as Array
+	return _fusion_runtime_state.build_commit_result_from_runtime_state(
+		self,
+		source_ids,
+		catalog,
+		rolls
 	)
-	context["core_stabilize_armed"] = bool(tokens.get("core_stabilize_armed", false))
-	context["dual_catalyst_armed"] = bool(tokens.get("dual_catalyst_armed", false))
-	context["penalty_lanes"] = lane_builder.build(source_ids, self, catalog)
-	var effective_rolls: Dictionary = rolls
-	if effective_rolls.is_empty():
-		effective_rolls = {
-			"outcome": randf(),
-			"magnitude": [randf(), randf()],
-			"lane_selection": [randf(), randf()],
-			"delete": randf(),
-			"byproduct_count": randf(),
-			"byproduct_selection": [randf(), randf()],
-		}
-	return result_builder.build_result(context, effective_rolls)
 
 
 # S4 finish: 표준 finish 위임 — 시퀀스/다음 모달/마지막 close·ramp는
 # 기존 choice finish 흐름이 소유한다. 같은 record의 중복 finish는
 # 리비전 가드로 no-op.
 func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictionary) -> Dictionary:
-	var committed_choice: Dictionary = {
-		"id": "perk_fusion",
-		"type": "fusion",
-		"fusion_record": record.duplicate(true),
-		"fusion_revision": get_perk_fusion_revision(),
-	}
-	var finish: Dictionary = _finish_successful_choice("perk_fusion", owner, registry, null, committed_choice)
-	_get_perk_fusion_modal_flow().reset()
-	_get_perk_fusion_modal_input().reset()
-	_perk_fusion_modal_catalog = null
-	_reset_perk_fusion_modal_preview_cache()
-	# 같은 프레임 스킵→확정(연속 confirm)은 choice_active=false가 된 뒤라
-	# 다음 idle이 조기 반환해 호스트 정리 sync에 도달하지 못한다 — finish가
-	# detached 풀스크린 호스트를 직접 닫는다.
-	if (
-		_cold_boot_cinematic_host != null
-		and is_instance_valid(_cold_boot_cinematic_host)
-		and bool(_cold_boot_cinematic_host.is_boot_active())
-	):
-		_cold_boot_cinematic_host.finish_boot()
-	var merged: Dictionary = {"accepted": true, "record": record.duplicate(true)}
-	merged["finish"] = finish
-	return merged
+	return _fusion_runtime_state.finish_modal_from_runtime_state(
+		self,
+		owner,
+		registry,
+		record
+	)
 
 
 func reset() -> void:
-	if _perk_fusion_state != null:
-		_perk_fusion_state.reset()
-	if _perk_fusion_byproduct_runtime != null:
-		_perk_fusion_byproduct_runtime.reset()
+	_fusion_runtime_state.reset()
 	_hyeonmun_charyeok_runtime_state.reset_state()
 	_perk_fusion_projection_cache_ready = false
 	_perk_fusion_modal_preview_cache = {}
 	_perk_fusion_modal_preview_cache_key = 0
 	_perk_fusion_modal_catalog = null
-	_test_perk_fusion_offer_roll_override = []
 	_reset_state.reset_from_runtime_state(self)
 
 
