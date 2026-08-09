@@ -879,3 +879,87 @@ content conflict가 발생했다.
 §18.6의 “커밋/스테이징 미수행”은 당시에는 정확했지만 현재는 Pause 한 묶음만
 커밋 완료로 바뀌었다. 다른 세 도메인, CI/pre-push, architecture/status 문서,
 character-info 별도 WIP는 아직 스테이징하거나 커밋하지 않았다.
+
+## 20. 2026-08-10 최종 안전 체크포인트
+
+§19 이후 allowlist 재구성과 의존성 폐쇄 검사를 계속해, 선재 WIP를 끌어들이지
+않고 독립 가능한 Plaza와 Lingpet도 체크포인트로 고정했다. 따라서 §19.2와
+§19.3은 당시 중간 상태의 기록이며, 현재 상태는 이 절이 우선한다.
+
+### 20.1 완료된 커밋
+
+이번 정리에서 리팩터링과 직접 연결된 최종 커밋은 다음과 같다.
+
+- `418165578` `refactor(pause): extract pause menu policy and rendering owners`
+- `769e7e1cd` `refactor(lingpet): extract lifecycle and presentation owners`
+- `577084cb3` `refactor(plaza): extract explicit status snapshot owner`
+- `68b1d6cf5` `test(godot): register committed refactor owner seals`
+
+위 커밋 전에 필요한 독립 수정도 다음 커밋들로 분리됐다.
+
+- `5c58f2d2b` Guardian enhance brush font 누락 복구
+- `c7a2d1889` Plaza shop click payload 계약 복구
+- `b64f40274` Guardian item offer candidate gate
+- `b4e68e52d` Guardian replacement preview 완성
+- `91ec50118` Nekuring expiry 뒤 deployment 보존
+- `8273b3a2e` Lingpet duration gauge 위치 정렬
+- `242eb29ea` character stat runtime-source 귀속
+- `ee80a5284` debug Guardian enhance live-choice 경로 연결
+- `d7d2239df` Lingpet battle asset prewarm
+
+각 리팩터링 커밋은 alternate index 후보 tree와 실제 commit tree의 hash를 대조했고,
+대상 preload 의존성 폐쇄 누락 0 및 `git diff --cached --check` GREEN을 확인했다.
+
+### 20.2 체크포인트에 포함된 owner와 seal
+
+- Pause Menu: owner 9개, seal 10개
+- Plaza status snapshot: owner 1개, seal 1개
+- Lingpet lifecycle/presentation: owner 7개와 기존 overflow builder를 합쳐 seal 8개
+- CI/pre-push에 최종 등록된 이번 체크포인트 seal: 19개
+
+Plaza는 HEAD의 공개 status 75키를 모두 보존하고 `flow_gate`를 더한 76키를
+투영한다. facade가 명시 구성하는 context 57키와 builder의 required context
+57키는 누락·초과 없이 일치하며, `scene.get(...)`/`callv(...)` 반사는 남지 않았다.
+
+CI와 pre-push 목록은 최종 142/142로 순서가 같고, 중복 0, 존재하지 않는 파일 0이다.
+이미 파일이 은퇴한 두 Runtime Perk seal과 이번에 함께 은퇴시킨
+`active_item_hologram_disk_smoke.gd` 항목은 양쪽 목록에서 제거했다.
+
+### 20.3 Runtime Perk owner 3개는 별도 보류
+
+아래 신규 owner/seal 3묶음은 working tree에 보존했으며 이번 체크포인트에
+포함하지 않았다.
+
+- fusion runtime state
+- Hyeonmun Charyeok runtime state
+- Physique Training runtime state
+
+현재 `runtime_perk_state.gd`를 함께 커밋하려면 HEAD에 없는 preload 9개와 수정된
+tracked dependency 13개가 동시에 필요하다. 그중 Physique/Hyeonmun 기반 파일 5개는
+별도 기능 WIP이고, Physique 트랙은 최종 승인·검증 경계도 닫히지 않았다. owner만
+커밋하면 dead code가 되고 facade 전체를 커밋하면 미승인 WIP가 섞이므로, 이 세
+묶음은 기반 트랙이 먼저 고정되거나 명시적으로 범위가 승인될 때 처리한다.
+
+### 20.4 검증 경계
+
+커밋 직전 같은 working tree에서 확인한 실행 근거는 §18의 결과다.
+
+- headless load GREEN
+- Stage 7 asset tool regression GREEN
+- warning scan 3,494 scripts / warning 0
+- focused 176: 163 PASS / 리팩터링 무관 13 FAIL
+- 당시 신규 owner seal 22/22 GREEN
+- 리팩터링 기인 회귀 0건
+
+최종 커밋 뒤에는 기존 Godot editor가 라이브 실행 중이어서 공식 wrapper를 중복
+기동하지 않았다. 따라서 위 실행 결과를 “최종 commit tree 재실행”으로 과장하지
+않는다. 최종 commit tree에서는 path allowlist, tree hash, preload closure,
+CI/pre-push 동기화, 중복·누락 검사와 diff whitespace 검사를 정적으로 통과했다.
+
+### 20.5 종결 판단
+
+Pause·Plaza·Lingpet 리팩터링의 안전 체크포인트와 19개 gate 등록은 완료됐다.
+Runtime Perk 3개는 결함 때문에 실패한 것이 아니라 승인되지 않은 선행 WIP와의
+결합을 피하려고 의도적으로 보류했다. 전체 focused gate는 별도 WIP 13건 때문에
+여전히 GREEN이 아니므로 “전체 테스트 완료” 또는 “저장소 전체 완료”라고 표현하면
+안 된다.
