@@ -9,6 +9,23 @@ $secretPath = Join-Path $tempRoot "synthetic.env"
 
 try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    $utf8TrackedPathProbe = "docs/" + (-join @(
+        [char]0xD551, [char]0xD30C, [char]0xC774, [char]0xD130,
+        [char]0x005F,
+        [char]0xAE30, [char]0xBCF8, [char]0xAC00, [char]0xC774, [char]0xB4DC
+    )) + ".html"
+    $previousOutputEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(437)
+        & $scanner `
+            -RepoRoot $repoRoot `
+            -TrackedOnly `
+            -EnumerationProbePath $utf8TrackedPathProbe
+    }
+    finally {
+        [Console]::OutputEncoding = $previousOutputEncoding
+    }
+
     [System.IO.File]::WriteAllText(
         $cleanPath,
         'token = "${CONTEXT7_API_KEY}"' + "`n" +

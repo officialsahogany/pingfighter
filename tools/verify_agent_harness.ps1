@@ -839,6 +839,14 @@ foreach ($secretRuleId in @("context7", "autosprite", "google_ai", "literal_bear
         $failures.Add("project secret scanner is missing rule: $secretRuleId")
     }
 }
+if ($secretScannerText -notmatch '(?m)^\s*\$startInfo\.Arguments\s*=\s*''-c core\.quotepath=false ls-files --cached -z''\s*$' -or
+    $secretScannerText -notmatch '(?m)^\s*\$startInfo\.StandardOutputEncoding\s*=\s*\[System\.Text\.UTF8Encoding\]::new\(\$false\)\s*$') {
+    $failures.Add("project secret scanner does not use NUL-delimited UTF-8 tracked-path enumeration")
+}
+if ($secretScannerVerifierText -notmatch '(?m)^\s*\[Console\]::OutputEncoding\s*=\s*\[System\.Text\.Encoding\]::GetEncoding\(437\)\s*$' -or
+    $secretScannerVerifierText -notmatch '(?m)^\s*-EnumerationProbePath\s+\$utf8TrackedPathProbe\s*$') {
+    $failures.Add("project secret scanner regression does not exercise UTF-8 paths under a non-UTF-8 console")
+}
 if ($secretScannerVerifierText -notmatch '(?m)^Write-Host "project secret scanner regression: ok"\s*$') {
     $failures.Add("project secret scanner regression is missing its terminal marker")
 }

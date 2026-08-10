@@ -1,7 +1,8 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [switch]$TrackedOnly,
-    [string[]]$Paths = @()
+    [string[]]$Paths = @(),
+    [string]$EnumerationProbePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +48,38 @@ function Test-TextCandidate {
     return $textExtensions.Contains([System.IO.Path]::GetExtension($Path))
 }
 
+function Get-TrackedProjectPaths {
+    $git = Get-Command git -ErrorAction Stop
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $git.Source
+    $startInfo.WorkingDirectory = $repo
+    $startInfo.Arguments = '-c core.quotepath=false ls-files --cached -z'
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+
+    $process = [System.Diagnostics.Process]::new()
+    try {
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw "Unable to start Git tracked-file enumeration"
+        }
+        $stdout = $process.StandardOutput.ReadToEnd()
+        $stderr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "Unable to enumerate tracked project files (git exit $($process.ExitCode))"
+        }
+        return @($stdout.Split([char]0, [System.StringSplitOptions]::RemoveEmptyEntries))
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
 $scanPaths = [System.Collections.Generic.List[string]]::new()
 if ($Paths.Count -gt 0) {
     foreach ($path in $Paths) {
@@ -60,9 +93,14 @@ if ($Paths.Count -gt 0) {
         }
     }
 } else {
-    $tracked = @(& git -c core.quotepath=false -C $repo ls-files --cached)
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to enumerate tracked project files"
+    $tracked = @(Get-TrackedProjectPaths)
+    if (-not [string]::IsNullOrWhiteSpace($EnumerationProbePath)) {
+        $normalizedProbe = $EnumerationProbePath.Replace('\', '/')
+        if ($normalizedProbe -notin $tracked) {
+            throw "Tracked-file UTF-8 enumeration lost the requested probe path"
+        }
+        Write-Host "tracked-file UTF-8 enumeration: ok ($($tracked.Count) paths)"
+        return
     }
     foreach ($relative in $tracked) {
         $absolute = [System.IO.Path]::GetFullPath((Join-Path $repo $relative))
