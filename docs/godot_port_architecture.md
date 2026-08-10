@@ -803,16 +803,18 @@ append long bug histories or per-feature playbooks here.
 
 ## Known Smoke Baselines
 
-Non-fatal warnings that the smoke runner does NOT count as failures, but
-that should be recognized so future refactors do not chase them as
-regressions. The smoke runner at `godot/tools/run_smoke_tests.ps1` rejects
+Non-fatal warnings that the Godot wrappers do NOT count as failures, but that
+should be recognized so future refactors do not chase them as regressions.
+`godot/tools/godot_output_classifier.ps1` owns the shared line classifier used
+by smoke, headless-load, warning-scan, and focused QA wrappers. It rejects
 line-start severity markers `SCRIPT ERROR`, `ERROR:`, and `FATAL:`. Diagnostic
 words such as `Parse Error`, `Invalid call`, or `GDScript backtrace` in ordinary
 output are not standalone failure markers; real engine failures still surface
 through a severity line, nonzero exit, or missing smoke `ok` marker. The sole
 ignored severity line is the exact Windows headless environment message
 `ERROR: Failed to read the root certificate store.`; merely containing that
-phrase does not exempt another error.
+phrase does not exempt another error. Leak-sensitive QA remains a separate
+predicate so the certificate exception cannot suppress ObjectDB/RID leaks.
 
 ### `character_selection_viper_start_smoke.gd` ObjectDB leak (4 RefCounted)
 

@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot smoke tests"
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+. (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
 
 function Get-SmokeTests {
     if ($Tests.Count -gt 0) {
@@ -58,8 +59,7 @@ function Invoke-GodotSmoke {
     $outputText = ($output | Out-String)
     $seriousErrorLines = @($output | Where-Object {
         $line = $_.ToString()
-        ($line -notmatch "^\s*ERROR: Failed to read the root certificate store\.\s*$") -and
-            ($line -match "^\s*(SCRIPT ERROR|ERROR:|FATAL:)")
+        Test-GodotSeriousErrorLine -Line $line
     })
     $testName = [System.IO.Path]::GetFileNameWithoutExtension($SmokePath)
     $hasOkMarker = $outputText -match [regex]::Escape("${testName}: ok")
@@ -94,9 +94,35 @@ Write-Host "Godot: $godotPath"
 Write-Host "Project: $ProjectPath"
 Write-Host "Smoke count: $($smokeTests.Count)"
 
+$passedCount = 0
+$failures = [System.Collections.Generic.List[object]]::new()
 foreach ($smokeTest in $smokeTests) {
-    Invoke-GodotSmoke -GodotPath $godotPath -SmokePath $smokeTest
+    try {
+        Invoke-GodotSmoke -GodotPath $godotPath -SmokePath $smokeTest
+        $passedCount += 1
+    }
+    catch {
+        $message = $_.Exception.Message
+        $null = $failures.Add([pscustomobject]@{
+            Path = $smokeTest
+            Message = $message
+        })
+        Write-Host ""
+        Write-Host "FAILED: $smokeTest"
+        Write-Host "  $message"
+    }
 }
 
 Write-Host ""
+Write-Host ("Smoke summary: PASS={0} FAIL={1} TOTAL={2}" -f `
+    $passedCount, $failures.Count, $smokeTests.Count)
+if ($failures.Count -gt 0) {
+    Write-Host "Failed smoke tests:"
+    foreach ($failure in $failures) {
+        Write-Host ("  - {0}: {1}" -f $failure.Path, $failure.Message)
+    }
+    throw ("Godot smoke suite failed: {0} of {1} tests failed" -f `
+        $failures.Count, $smokeTests.Count)
+}
+
 Write-Host "All Godot smoke tests passed."

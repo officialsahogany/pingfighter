@@ -6,9 +6,10 @@
 .DESCRIPTION
     Runs the same checks as .github/workflows/godot-ci.yml so regressions are
     caught locally instead of waiting on (or paying LFS quota for) GitHub
-    Actions: headless load check, GDScript warning scan, smoke-runner classifier
-    regression, and the focused smoke set. Reuses the existing tools/run_*.ps1
-    scripts and resolves the Godot binary once so every step shares it.
+    Actions: redacted project-secret scan, headless load check, GDScript warning
+    scan, smoke-runner classifier regression, and the focused smoke set. Reuses
+    the existing tools/run_*.ps1 scripts and resolves the Godot binary once so
+    every step shares it.
 
     Invoked automatically by .git/hooks/pre-push (only when the pushed commits
     touch godot/). Can also be run on demand:
@@ -35,6 +36,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $tools = $PSScriptRoot
+$repoRoot = Split-Path (Split-Path $tools -Parent) -Parent
 
 if ([string]::IsNullOrWhiteSpace($Mode)) { $Mode = $env:GODOT_PREPUSH_MODE }
 if ([string]::IsNullOrWhiteSpace($Mode)) { $Mode = "full" }
@@ -218,7 +220,6 @@ try {
     Invoke-Step "stage7 asset tool regression (python, 13 cases)" {
         # 코덱스 2026-07-14: 수동 게이트였던 자산 도구 봉인(스테이징 검증·
         # 정책 씰·승격/QA 우회 진입점 가드·E2E 라이브 센티널)을 프리푸시에 등재.
-        $repoRoot = Split-Path (Split-Path $tools -Parent) -Parent
         $python = "C:\Users\woduq\AppData\Local\Programs\Python\Python312\python.exe"
         if (-not (Test-Path -LiteralPath $python)) { $python = "python" }
         & $python (Join-Path $repoRoot "tools\test_prepare_stage7_akamu_promotion.py")
@@ -249,6 +250,13 @@ try {
 
     if ($Mode -eq "all") {
         Invoke-Step "full smoke suite (all *_smoke.gd)" {
+    Invoke-Step "project secret scanner regression" {
+        & (Join-Path $repoRoot "tools\verify_project_secret_scanner.ps1")
+    }
+    Invoke-Step "redacted project secret scan" {
+        & (Join-Path $repoRoot "tools\verify_no_project_secrets.ps1") -RepoRoot $repoRoot
+    }
+
             # No -Tests -> run_smoke_tests.ps1 globs every tests/*_smoke.gd.
             & (Join-Path $tools "run_smoke_tests.ps1") -GodotExe $godot
         }

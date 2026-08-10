@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+. (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
 
 $expectedBytes = 2183964
 $expectedSha256 = "c44aadcd843bcf7b42445e8770e855a8b5bd2fad7277308a80c6e8fe38356982"
@@ -104,13 +105,8 @@ function Invoke-WindowedSmoke {
     $outputText = $output | Out-String
     $seriousLines = @($output | Where-Object {
         $line = $_.ToString()
-        ($line -notmatch "Failed to read the root certificate store") -and
-        (
-            ($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-            ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)") -or
-            ($line -match "ObjectDB instances leaked at exit") -or
-            ($line -match "RID allocations.*leaked")
-        )
+        (Test-GodotSeriousErrorLine -Line $line) -or
+            (Test-GodotLeakDiagnosticLine -Line $line)
     })
     if (($exitCode -ne 0) -or ($seriousLines.Count -gt 0) -or
         ($outputText -notmatch "stage7_akamu_prebattle_video_smoke: ok") -or
@@ -188,13 +184,8 @@ function Invoke-HeadlessSmoke {
     $outputText = $output | Out-String
     $seriousLines = @($output | Where-Object {
         $line = $_.ToString()
-        ($line -notmatch "Failed to read the root certificate store") -and
-        (
-            ($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-            ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)") -or
-            ($line -match "ObjectDB instances leaked at exit") -or
-            ($line -match "RID allocations.*leaked")
-        )
+        (Test-GodotSeriousErrorLine -Line $line) -or
+            (Test-GodotLeakDiagnosticLine -Line $line)
     })
     $passed = ($exitCode -eq 0) -and ($seriousLines.Count -eq 0) -and
         ($outputText -match [regex]::Escape($OkMarker))

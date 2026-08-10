@@ -55,9 +55,23 @@ $trapRulesText = Read-Utf8Text ".claude/rules/godot-runtime-traps.md"
 $projectText = Read-Utf8Text "godot/project.godot"
 $workflowText = Read-Utf8Text ".github/workflows/godot-ci.yml"
 $harnessWorkflowText = Read-Utf8Text ".github/workflows/agent-harness-ci.yml"
+$secretWorkflowText = Read-Utf8Text ".github/workflows/project-secret-scan.yml"
 $prePushText = Read-Utf8Text "godot/tools/run_pre_push_checks.ps1"
 $smokeRunnerText = Read-Utf8Text "godot/tools/run_smoke_tests.ps1"
 $smokeClassifierText = Read-Utf8Text "godot/tools/verify_smoke_runner_classifier.ps1"
+$outputClassifierText = Read-Utf8Text "godot/tools/godot_output_classifier.ps1"
+$headlessRunnerText = Read-Utf8Text "godot/tools/run_headless_load_check.ps1"
+$warningScanText = Read-Utf8Text "godot/tools/run_warning_scan.ps1"
+$stage7QaText = Read-Utf8Text "godot/tools/run_stage7_akamu_video_qa.ps1"
+$victoryReplayQaText = Read-Utf8Text "godot/tools/run_victory_highlight_replay_clip_pixel_qa.ps1"
+$victoryGpuQaPath = Join-Path $RepoRoot "godot/tools/run_victory_highlight_gpu_capture_probe_qa.ps1"
+$victoryGpuQaText = if (Test-Path -LiteralPath $victoryGpuQaPath -PathType Leaf) {
+    [System.IO.File]::ReadAllText($victoryGpuQaPath, [System.Text.UTF8Encoding]::new($false))
+} else {
+    ""
+}
+$secretScannerText = Read-Utf8Text "tools/verify_no_project_secrets.ps1"
+$secretScannerVerifierText = Read-Utf8Text "tools/verify_project_secret_scanner.ps1"
 $nightlySmokeText = Read-Utf8Text "godot/tools/run_nightly_smoke.ps1"
 $nightlyStatusPolicyText = Read-Utf8Text "godot/tools/nightly_smoke_result_policy.ps1"
 $nightlyStatusVerifierText = Read-Utf8Text "godot/tools/verify_nightly_smoke_status.ps1"
@@ -414,6 +428,10 @@ if (-not $architectureText.Contains("line-start severity markers") -or
     $architectureText.Contains("Parse Error | Compile Error | Failed to load script | Invalid call")) {
     $failures.Add("architecture guide still documents the retired smoke-error classifier")
 }
+if (-not $architectureText.Contains("godot/tools/godot_output_classifier.ps1") -or
+    -not $architectureText.Contains("Leak-sensitive QA remains a separate")) {
+    $failures.Add("architecture guide does not document the shared error/leak classifier boundary")
+}
 if ($architectureText -notmatch 'sole\s+ignored severity line' -or
     -not $architectureText.Contains("ERROR: Failed to read the root certificate store.")) {
     $failures.Add("architecture guide does not document the exact certificate-error exception")
@@ -767,11 +785,80 @@ if (-not $nightlyStatusVerifierText.Contains('Get-NightlyCombinedExitCode') -or
     -not $nightlyStatusVerifierText.Contains('nightly smoke status policy: ok')) {
     $failures.Add("nightly aggregate-status regression is missing its policy route or terminal marker")
 }
-if (-not $smokeRunnerText.Contains('($line -match "^\s*(SCRIPT ERROR|ERROR:|FATAL:)")')) {
-    $failures.Add("smoke runner is missing the anchored severity-only classifier")
+foreach ($classifierFunction in @(
+    "function Test-GodotBenignCertificateErrorLine",
+    "function Test-GodotSeriousErrorLine",
+    "function Test-GodotLeakDiagnosticLine"
+)) {
+    $classifierFunctionPattern = '(?m)^' + [regex]::Escape($classifierFunction) + '\s*\{\s*$'
+    if ($outputClassifierText -notmatch $classifierFunctionPattern) {
+        $failures.Add("shared Godot output classifier is missing: $classifierFunction")
+    }
 }
-if (-not $smokeRunnerText.Contains('($line -notmatch "^\s*ERROR: Failed to read the root certificate store\.\s*$")')) {
-    $failures.Add("smoke runner certificate exception is not anchored to the exact environment line")
+if (-not $outputClassifierText.Contains("^\s*ERROR: Failed to read the root certificate store\.\s*$")) {
+    $failures.Add("shared Godot output classifier certificate exception is not exact-line anchored")
+}
+if (-not $outputClassifierText.Contains("^\s*(SCRIPT ERROR|ERROR:|FATAL:)")) {
+    $failures.Add("shared Godot output classifier severity predicate is not line-start anchored")
+}
+$sharedClassifierImportPattern = '(?m)^\s*\.\s+\(Join-Path\s+\$PSScriptRoot\s+"godot_output_classifier\.ps1"\)\s*$'
+$sharedSeriousCallPattern = '(?m)^\s*\(?Test-GodotSeriousErrorLine\s+-Line\s+\$line\)?'
+$sharedLeakCallPattern = '(?m)^\s*\(?Test-GodotLeakDiagnosticLine\s+-Line\s+\$line\)?'
+foreach ($classifierConsumer in @(
+    @{ Name = "smoke runner"; Text = $smokeRunnerText; NeedsLeak = $false },
+    @{ Name = "headless runner"; Text = $headlessRunnerText; NeedsLeak = $false },
+    @{ Name = "warning scan"; Text = $warningScanText; NeedsLeak = $false },
+    @{ Name = "Stage 7 QA"; Text = $stage7QaText; NeedsLeak = $true },
+    @{ Name = "victory replay QA"; Text = $victoryReplayQaText; NeedsLeak = $false }
+)) {
+    if ($classifierConsumer.Text -notmatch $sharedClassifierImportPattern -or
+        $classifierConsumer.Text -notmatch $sharedSeriousCallPattern) {
+        $failures.Add("$($classifierConsumer.Name) does not use the shared Godot output classifier")
+    }
+    if ($classifierConsumer.NeedsLeak -and
+        $classifierConsumer.Text -notmatch $sharedLeakCallPattern) {
+        $failures.Add("$($classifierConsumer.Name) does not preserve the leak diagnostic gate")
+    }
+}
+if (-not [string]::IsNullOrEmpty($victoryGpuQaText)) {
+    if ($victoryGpuQaText -notmatch $sharedClassifierImportPattern -or
+        $victoryGpuQaText -notmatch $sharedSeriousCallPattern -or
+        $victoryGpuQaText -notmatch $sharedLeakCallPattern) {
+        $failures.Add("victory GPU QA does not use the shared error and leak classifiers")
+    }
+}
+if (-not $smokeRunnerText.Contains("Smoke summary: PASS={0} FAIL={1} TOTAL={2}") -or
+    -not $smokeRunnerText.Contains("Godot smoke suite failed: {0} of {1} tests failed")) {
+    $failures.Add("smoke runner is missing continue-and-aggregate terminal reporting")
+}
+if ($smokeClassifierText -notmatch '(?m)^Assert-SmokeRunnerContinuesAfterFailure\s*$') {
+    $failures.Add("smoke classifier verifier is missing the active continue-after-failure regression")
+}
+foreach ($secretRuleId in @("context7", "autosprite", "google_ai", "literal_bearer", "signed_url")) {
+    if ($secretScannerText -notmatch ('(?m)^\s*' + [regex]::Escape($secretRuleId) + '\s*=')) {
+        $failures.Add("project secret scanner is missing rule: $secretRuleId")
+    }
+}
+if ($secretScannerVerifierText -notmatch '(?m)^Write-Host "project secret scanner regression: ok"\s*$') {
+    $failures.Add("project secret scanner regression is missing its terminal marker")
+}
+$prePushSecretVerifierPattern = '(?m)^\s*&\s+\(Join-Path\s+\$repoRoot\s+"tools\\verify_project_secret_scanner\.ps1"\)\s*$'
+$prePushSecretScanPattern = '(?m)^\s*&\s+\(Join-Path\s+\$repoRoot\s+"tools\\verify_no_project_secrets\.ps1"\)\s+-RepoRoot\s+\$repoRoot\s*$'
+if ($prePushText -notmatch $prePushSecretVerifierPattern -or
+    $prePushText -notmatch $prePushSecretScanPattern) {
+    $failures.Add("pre-push does not execute the project secret regression and local scan")
+}
+if ($secretWorkflowText -match '(?m)^\s+paths:\s*$') {
+    $failures.Add("project secret workflow is path-filtered and can miss credentials")
+}
+foreach ($secretWorkflowCall in @(
+    'run: .\tools\verify_project_secret_scanner.ps1',
+    'run: .\tools\verify_no_project_secrets.ps1 -TrackedOnly'
+)) {
+    $secretWorkflowCallPattern = '(?m)^\s*' + [regex]::Escape($secretWorkflowCall) + '\s*$'
+    if ($secretWorkflowText -notmatch $secretWorkflowCallPattern) {
+        $failures.Add("project secret workflow is missing active call: $secretWorkflowCall")
+    }
 }
 if ($spriteSkillText.Contains('turn sheet, or item icon')) {
     $failures.Add("sprite skill still claims the item-icon trigger owned by item-generation")
@@ -841,6 +928,7 @@ foreach ($requiredHarnessPath in @(
     '"AGENTS.md"',
     '"CLAUDE.md"',
     '".github/copilot-instructions.md"',
+    '".github/workflows/project-secret-scan.yml"',
     '".claude/rules/**"',
     '".claude/skills/**"',
     '".agents/skills/**"',
@@ -849,10 +937,13 @@ foreach ($requiredHarnessPath in @(
     '"godot/tools/run_nightly_smoke.ps1"',
     '"godot/tools/nightly_smoke_result_policy.ps1"',
     '"godot/tools/run_smoke_tests.ps1"',
+    '"godot/tools/godot_output_classifier.ps1"',
     '"godot/tools/verify_nightly_smoke_status.ps1"',
     '"godot/tools/verify_smoke_runner_classifier.ps1"',
     '"godot/tests/fixtures/**"',
     '"tools/verify_agent_harness.ps1"'
+    '"tools/verify_no_project_secrets.ps1"',
+    '"tools/verify_project_secret_scanner.ps1"'
 )) {
     if (-not $harnessWorkflowText.Contains($requiredHarnessPath)) {
         $failures.Add("agent-harness workflow is missing trigger input: $requiredHarnessPath")

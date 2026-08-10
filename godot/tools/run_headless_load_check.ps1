@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot headless load check"
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+. (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
 $godotPath = Resolve-GodotConsolePath -GodotExe $GodotExe
 
 Write-Host "Godot: $godotPath"
@@ -48,9 +49,7 @@ $output | ForEach-Object { Write-Host $_ }
 $outputText = ($output | Out-String)
 $seriousErrorLines = @($output | Where-Object {
     $line = $_.ToString()
-    ($line -notmatch "Failed to read the root certificate store") -and
-        (($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-            ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)"))
+    Test-GodotSeriousErrorLine -Line $line
 })
 
 if ($exitCode -ne 0) {

@@ -23,16 +23,46 @@ function Assert-RejectedBySmokeRunner {
         [string]$Label
     )
 
+    $captured = [System.Collections.Generic.List[string]]::new()
     $failure = ""
     try {
-        & $runnerPath -GodotExe $godotPath -ProjectPath $ProjectPath -Tests @($Fixture)
+        & $runnerPath -GodotExe $godotPath -ProjectPath $ProjectPath -Tests @($Fixture) 6>&1 |
+            ForEach-Object { $captured.Add($_.ToString()) }
     }
     catch {
         $failure = $_.Exception.Message
     }
 
-    if ($failure -notmatch "emitted a Godot error despite exit code 0") {
+    $capturedText = $captured -join "`n"
+    if ($failure -notmatch "Godot smoke suite failed: 1 of 1 tests failed" -or
+        $capturedText -notmatch "emitted a Godot error despite exit code 0") {
         throw "Smoke runner failed to reject the $Label fixture"
+    }
+}
+
+function Assert-SmokeRunnerContinuesAfterFailure {
+    $captured = [System.Collections.Generic.List[string]]::new()
+    $failure = ""
+    try {
+        & $runnerPath `
+            -GodotExe $godotPath `
+            -ProjectPath $ProjectPath `
+            -Tests @($errorFixture, $benignTextFixture) 6>&1 |
+            ForEach-Object { $captured.Add($_.ToString()) }
+    }
+    catch {
+        $failure = $_.Exception.Message
+    }
+
+    $capturedText = $captured -join "`n"
+    if ($capturedText -notmatch "runner_benign_diagnostic_text_fixture: ok") {
+        throw "Smoke runner stopped after the first failing fixture"
+    }
+    if ($capturedText -notmatch "Smoke summary: PASS=1 FAIL=1 TOTAL=2") {
+        throw "Smoke runner did not print the expected aggregate summary"
+    }
+    if ($failure -notmatch "Godot smoke suite failed: 1 of 2 tests failed") {
+        throw "Smoke runner did not return the expected aggregate failure"
     }
 }
 
@@ -54,5 +84,6 @@ Assert-RejectedBySmokeRunner -Fixture $errorFixture -Label "error-backtrace"
 Assert-RejectedBySmokeRunner -Fixture $scriptErrorFixture -Label "SCRIPT ERROR"
 Assert-RejectedBySmokeRunner -Fixture $fatalFixture -Label "FATAL"
 Assert-RejectedBySmokeRunner -Fixture $certificateSubstringFixture -Label "certificate-substring ERROR"
+Assert-SmokeRunnerContinuesAfterFailure
 
 Write-Host "smoke runner classifier: ok"

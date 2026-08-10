@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot warning scan"
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+. (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
 $godotPath = Resolve-GodotConsolePath -GodotExe $GodotExe
 
 Write-Host "Godot: $godotPath"
@@ -71,9 +72,7 @@ function Assert-WarningScanOutput {
     # as certificate-store reads. Keep those from masking real script warnings.
     $seriousErrorLines = @($Output | Where-Object {
         $line = $_.ToString()
-        ($line -notmatch "Failed to read the root certificate store") -and
-            (($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-                ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)"))
+        Test-GodotSeriousErrorLine -Line $line
     })
     $hasGdscriptWarning = $outputText -match "(?s)WARNING:.*?at:\s+GDScript::reload"
 

@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Victory highlight non-headless pixel QA"
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+. (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
 $godot = Resolve-GodotConsolePath -GodotExe $GodotExe
 $qaPath = "res://tests/victory_highlight_replay_clip_pixel_qa.gd"
 $logDir = Join-Path $ProjectPath ".godot\codex_logs"
@@ -37,9 +38,7 @@ $outputText = ($output | Out-String)
 $okMarker = "victory_highlight_replay_clip_pixel_qa: ok"
 $seriousErrors = @($output | Where-Object {
     $line = $_.ToString()
-    ($line -notmatch "Failed to read the root certificate store") -and
-        (($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-            ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)"))
+    Test-GodotSeriousErrorLine -Line $line
 })
 
 if ($exitCode -ne 0) {

@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/agent-harness-ci.yml"
       - ".github/workflows/godot-ci.yml"
+      - ".github/workflows/project-secret-scan.yml"
       - ".github/copilot-instructions.md"
       - ".gitignore"
       - "*.md"
@@ -21,14 +22,18 @@ on:
       - "godot/tools/run_nightly_smoke.ps1"
       - "godot/tools/nightly_smoke_result_policy.ps1"
       - "godot/tools/run_smoke_tests.ps1"
+      - "godot/tools/godot_output_classifier.ps1"
       - "godot/tools/verify_nightly_smoke_status.ps1"
       - "godot/tools/verify_smoke_runner_classifier.ps1"
       - "godot/tests/fixtures/**"
       - "tools/verify_agent_harness.ps1"
+      - "tools/verify_no_project_secrets.ps1"
+      - "tools/verify_project_secret_scanner.ps1"
   push:
     paths:
       - ".github/workflows/agent-harness-ci.yml"
       - ".github/workflows/godot-ci.yml"
+      - ".github/workflows/project-secret-scan.yml"
       - ".github/copilot-instructions.md"
       - ".gitignore"
       - "*.md"
@@ -45,10 +50,13 @@ on:
       - "godot/tools/run_nightly_smoke.ps1"
       - "godot/tools/nightly_smoke_result_policy.ps1"
       - "godot/tools/run_smoke_tests.ps1"
+      - "godot/tools/godot_output_classifier.ps1"
       - "godot/tools/verify_nightly_smoke_status.ps1"
       - "godot/tools/verify_smoke_runner_classifier.ps1"
       - "godot/tests/fixtures/**"
       - "tools/verify_agent_harness.ps1"
+      - "tools/verify_no_project_secrets.ps1"
+      - "tools/verify_project_secret_scanner.ps1"
   workflow_dispatch:
 
 permissions:
