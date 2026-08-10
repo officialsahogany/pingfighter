@@ -3,6 +3,7 @@ extends SceneTree
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const GameSelectionStateScript := preload("res://scripts/core/game_selection_state.gd")
 const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const OnlineEnetTransport := preload("res://scripts/network/online_enet_transport.gd")
@@ -14,6 +15,8 @@ const OnlineMatchSession := preload("res://scripts/network/online_match_session.
 const OnlineMatchSimulation := preload("res://scripts/network/online_match_simulation.gd")
 const OnlinePaddleState := preload("res://scripts/network/online_paddle_state.gd")
 const RoundFlowState := preload("res://scripts/core/round_flow_state.gd")
+const AUDIO_TEST_PADDLE_SOURCE_X := 120.0
+const AUDIO_TEST_WALL_SOURCE_X := 640.0
 
 var _failures: Array[String] = []
 
@@ -75,6 +78,117 @@ class FakeActiveSession:
 		return true
 
 
+class FakeOnlineAudioSession:
+	extends RefCounted
+
+	var role := "host"
+	var physics_calls := 0
+	var pending_events: Array[Dictionary] = []
+
+
+	func _init(session_role: String) -> void:
+		role = session_role
+		queue_hit_events()
+
+
+	func queue_hit_events() -> void:
+		pending_events = [
+			{"kind": "paddle", "source_x": AUDIO_TEST_PADDLE_SOURCE_X},
+			{"kind": "wall", "speed": 10.0, "source_x": AUDIO_TEST_WALL_SOURCE_X},
+		]
+
+
+	func is_active() -> bool:
+		return true
+
+
+	func poll_transport() -> void:
+		pass
+
+
+	func next_input_tick() -> int:
+		return physics_calls + 1
+
+
+	func process_simulation_tick(_delta: float, _local_input: Dictionary) -> void:
+		physics_calls += 1
+
+
+	func drain_local_events() -> Array[Dictionary]:
+		var events := pending_events.duplicate(true)
+		pending_events.clear()
+		return events
+
+
+class FakeOnlineAudioInputCollector:
+	extends RefCounted
+
+
+	func collect(tick: int) -> Dictionary:
+		return {"tick": tick}
+
+
+class OnlineCooldownGameAudioProbe:
+	extends GameAudio
+
+	var calls: Array[String] = []
+	var update_calls := 0
+	var last_delta := 0.0
+	var paddle_play_calls := 0
+	var wall_play_calls := 0
+
+
+	func _ensure_hit_pan_buses() -> void:
+		pass
+
+
+	func update(delta: float) -> void:
+		calls.append("update")
+		update_calls += 1
+		last_delta = delta
+		super.update(delta)
+
+
+	func _play_with_pitch_at(
+		_player: AudioStreamPlayer,
+		_pitch: float,
+		source_x: float,
+		_panner: AudioEffectPanner
+	) -> bool:
+		if is_equal_approx(source_x, AUDIO_TEST_PADDLE_SOURCE_X):
+			calls.append("paddle")
+			paddle_play_calls += 1
+		elif is_equal_approx(source_x, AUDIO_TEST_WALL_SOURCE_X):
+			calls.append("wall")
+			wall_play_calls += 1
+		return true
+
+
+class CoreMatchFeedbackRngAudio:
+	extends GameAudio
+
+	var played_pitches: Array[float] = []
+
+
+	func _ensure_hit_pan_buses() -> void:
+		pass
+
+
+	func _play_with_pitch(_player: AudioStreamPlayer, pitch: float) -> bool:
+		played_pitches.append(pitch)
+		return false
+
+
+	func _play_with_pitch_at(
+		_player: AudioStreamPlayer,
+		pitch: float,
+		_source_x: float,
+		_panner: AudioEffectPanner
+	) -> bool:
+		played_pitches.append(pitch)
+		return false
+
+
 class FakeModuleMap:
 	extends RefCounted
 
@@ -102,6 +216,10 @@ class FakeRegistry:
 	func get_cached_instance(key: String) -> Object:
 		var value: Variant = modules.get(key)
 		return value as Object if typeof(value) == TYPE_OBJECT else null
+
+
+	func get_instance(key: String) -> Object:
+		return get_cached_instance(key)
 
 
 class FakeTransport:
@@ -216,6 +334,7 @@ func _run() -> void:
 	_verify_role_neutral_paddle_geometry()
 	_verify_canonical_rally_physics_parity()
 	_verify_canonical_bounce_side_symmetry_and_angle_reducer()
+	_verify_core_match_feedback_rng_isolated_from_global_stream()
 	_verify_client_reconciliation_step_is_bounded()
 	_verify_snapshot_rate_is_independent_from_simulation_tick()
 	_verify_remote_input_clock_offset_is_legal()
@@ -223,6 +342,7 @@ func _run() -> void:
 	_verify_rejoining_peer_resets_remote_state()
 	_verify_input_collector_is_same_frame_idempotent()
 	_verify_online_runtime_bypasses_normal_physics()
+	_verify_online_runtime_advances_audio_cooldowns()
 	_verify_online_input_gate_consumes_legacy_routes()
 	_verify_all_runtime_scripts_construct()
 	_verify_online_lobby_scene_constructs()
@@ -507,6 +627,26 @@ func _verify_canonical_bounce_side_symmetry_and_angle_reducer() -> void:
 	simulation.paddle_bounce_state.velocity_resolver.speed_multiplier_resolver = production_speed_resolver
 
 
+func _verify_core_match_feedback_rng_isolated_from_global_stream() -> void:
+	var audio := CoreMatchFeedbackRngAudio.new()
+	seed(97531)
+	var expected_first := randf()
+	var expected_second := randf()
+	seed(97531)
+	var actual_first := randf()
+	audio.play_paddle_hit()
+	audio.play_serve()
+	audio.play_dash_start(false)
+	audio.play_wall_hit(10.0)
+	var actual_second := randf()
+	_expect(is_equal_approx(actual_first, expected_first), "audio differential must begin from the control global RNG value")
+	_expect(
+		is_equal_approx(actual_second, expected_second),
+		"core match feedback pitch rolls must not advance the authoritative global RNG stream"
+	)
+	_expect(audio.played_pitches.size() == 4, "all four randomized online match cues must use the isolated feedback RNG")
+
+
 func _verify_client_reconciliation_step_is_bounded() -> void:
 	var score := MatchScoreState.new()
 	var round_flow := RoundFlowState.new()
@@ -696,6 +836,79 @@ func _verify_online_runtime_bypasses_normal_physics() -> void:
 	_expect(offline_driver.item_spawn_calls == 1, "offline leg must retain normal item update routing")
 	_expect(offline_driver.perk_modal_calls == 1, "offline leg must retain normal perk update routing")
 	_expect(offline_driver.lingpet_calls == 1, "offline leg must retain normal Lingpet update routing")
+
+
+func _verify_online_runtime_advances_audio_cooldowns() -> void:
+	var delta := 1.0 / float(OnlineMatchSession.SIMULATION_HZ)
+	for role: String in ["host", "client"]:
+		var runtime := OnlineMatchRuntime.new()
+		var session := FakeOnlineAudioSession.new(role)
+		var audio := OnlineCooldownGameAudioProbe.new()
+		var registry := FakeRegistry.new()
+		registry.modules["game_audio"] = audio
+		runtime._started = true
+		runtime._startup_checked = true
+		runtime._session = session
+		runtime._input_collector = FakeOnlineAudioInputCollector.new()
+		var handled := runtime.process_physics(
+			delta,
+			null,
+			registry,
+			Callable(),
+			{"is_battle_initialized": Callable(self, "_return_true")}
+		)
+		var label := "online %s audio" % role
+		_expect(handled, "%s frame should be handled" % label)
+		_expect(audio.calls == ["paddle", "wall", "update"], "%s must play events before its cooldown tick" % label)
+		_expect(
+			is_equal_approx(
+				audio.paddle_sound_cooldown,
+				maxf(0.0, GameAudio.PADDLE_HIT_SOUND_COOLDOWN - delta)
+			),
+			"%s must use the production paddle cooldown and decrement it on the hit tick" % label
+		)
+		_expect(
+			is_equal_approx(
+				audio.wall_sound_cooldown,
+				maxf(0.0, GameAudio.WALL_HIT_SOUND_COOLDOWN - delta)
+			),
+			"%s must use the production wall cooldown and decrement it on the hit tick" % label
+		)
+		var empty_tick_count := ceili(
+			maxf(audio.paddle_sound_cooldown, audio.wall_sound_cooldown) / delta
+		)
+		for _empty_tick in range(empty_tick_count):
+			handled = runtime.process_physics(
+				delta,
+				null,
+				registry,
+				Callable(),
+				{"is_battle_initialized": Callable(self, "_return_true")}
+			)
+			_expect(handled, "%s empty cooldown frame should remain handled" % label)
+		_expect(is_zero_approx(audio.paddle_sound_cooldown), "%s must clear paddle cooldown on empty physics ticks" % label)
+		_expect(is_zero_approx(audio.wall_sound_cooldown), "%s must clear wall cooldown on empty physics ticks" % label)
+		session.queue_hit_events()
+		handled = runtime.process_physics(
+			delta,
+			null,
+			registry,
+			Callable(),
+			{"is_battle_initialized": Callable(self, "_return_true")}
+		)
+		_expect(handled, "%s second-hit frame should be handled" % label)
+		var expected_physics_calls := empty_tick_count + 2
+		_expect(
+			session.physics_calls == expected_physics_calls,
+			"%s should simulate all event and empty cooldown ticks" % label
+		)
+		_expect(
+			audio.update_calls == expected_physics_calls,
+			"%s must tick GameAudio exactly once per physics frame" % label
+		)
+		_expect(audio.paddle_play_calls == 2, "%s must replay paddle SFX after cooldown" % label)
+		_expect(audio.wall_play_calls == 2, "%s must replay wall SFX after cooldown" % label)
+		_expect(is_equal_approx(audio.last_delta, delta), "%s must forward the physics delta" % label)
 
 
 func _inject_fake_physics_gate_if_supported(controller: Object) -> void:

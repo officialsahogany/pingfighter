@@ -54,7 +54,7 @@ func process_physics(
 	var input_frame: Dictionary = _input_collector.collect(_session.next_input_tick())
 	_session.process_simulation_tick(delta, input_frame)
 	_sync_battle_compatibility_projection(owner)
-	_play_pending_events(registry)
+	_process_online_audio(delta, registry)
 	_request_redraw(owner)
 	return true
 
@@ -180,7 +180,7 @@ func _sync_battle_compatibility_projection(owner: Object) -> void:
 	owner.set("player_paddle_height", 50.0)
 
 
-func _play_pending_events(registry: Object) -> void:
+func _process_online_audio(delta: float, registry: Object) -> void:
 	if _session == null:
 		return
 	var audio: Object = registry.get_instance("game_audio") if registry != null and registry.has_method("get_instance") else null
@@ -209,6 +209,8 @@ func _play_pending_events(registry: Object) -> void:
 					audio.play_round_victory()
 				elif audio.has_method("play_round_defeat"):
 					audio.play_round_defeat()
+	if audio != null and audio.has_method("update"):
+		audio.update(delta)
 
 
 func _ensure_online_takeover_cleanup(owner: Object, module_getter: Callable) -> void:

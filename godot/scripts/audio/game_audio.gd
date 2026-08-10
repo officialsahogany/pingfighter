@@ -1,5 +1,9 @@
 extends RefCounted
 
+# Core match feedback must not advance gameplay's global RNG stream.
+var _core_match_feedback_rng := RandomNumberGenerator.new()
+var _core_match_feedback_rng_ready := false
+
 const GameAudioPlayerFactory := preload("res://scripts/audio/game_audio_player_factory.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -2668,11 +2672,18 @@ func play_power_smash_launch() -> void:
 	_play_with_pitch(power_smash_launch_sfx, randf_range(0.98, 1.02))
 
 
+func _core_match_feedback_randf_range(minimum: float, maximum: float) -> float:
+	if not _core_match_feedback_rng_ready:
+		_core_match_feedback_rng.randomize()
+		_core_match_feedback_rng_ready = true
+	return _core_match_feedback_rng.randf_range(minimum, maximum)
+
+
 func play_paddle_hit(source_x: float = PLAYFIELD_CENTER_X) -> void:
 	if paddle_sound_cooldown > 0.0:
 		return
 	_ensure_hit_pan_buses()
-	if _play_with_pitch_at(paddle_hit_sfx, randf_range(0.98, 1.02), source_x, paddle_hit_panner):
+	if _play_with_pitch_at(paddle_hit_sfx, _core_match_feedback_randf_range(0.98, 1.02), source_x, paddle_hit_panner):
 		paddle_sound_cooldown = PADDLE_HIT_SOUND_COOLDOWN
 
 
@@ -2687,12 +2698,12 @@ func play_serve(ball_visual_type: String = "") -> void:
 	var player: AudioStreamPlayer = serve_sfx
 	if ball_visual_type == "pingpong" and pingpong_serve_sfx != null and pingpong_serve_sfx.stream != null:
 		player = pingpong_serve_sfx
-	_play_with_pitch(player, randf_range(0.98, 1.02))
+	_play_with_pitch(player, _core_match_feedback_randf_range(0.98, 1.02))
 
 
 func play_dash_start(is_half: bool) -> void:
 	var player: AudioStreamPlayer = half_dash_sfx if is_half else dash_sfx
-	_play_with_pitch(player, randf_range(0.98, 1.02))
+	_play_with_pitch(player, _core_match_feedback_randf_range(0.98, 1.02))
 
 
 func play_burst_up_dash() -> void:
@@ -2742,7 +2753,7 @@ func stop_dash_delay() -> void:
 func play_wall_hit(impact_speed: float = 0.0, source_x: float = PLAYFIELD_CENTER_X) -> void:
 	if wall_sound_cooldown > 0.0:
 		return
-	var pitch: float = clamp(0.94 + impact_speed / 90.0, 0.94, 1.22) * randf_range(0.98, 1.02)
+	var pitch: float = clamp(0.94 + impact_speed / 90.0, 0.94, 1.22) * _core_match_feedback_randf_range(0.98, 1.02)
 	_ensure_hit_pan_buses()
 	if _play_with_pitch_at(wall_hit_sfx, pitch, source_x, wall_hit_panner):
 		wall_sound_cooldown = WALL_HIT_SOUND_COOLDOWN
