@@ -37,12 +37,8 @@ func _verify_typed_interior_collaborators() -> void:
 		"_object_hover_state": "PlazaInteriorObjectHoverState",
 		"_object_selection_state": "PlazaInteriorObjectSelectionState",
 		"_shop_click_animation": "PlazaShopClickAnimationState",
-		"_trade_hover_state": "PlazaTradeHoverState",
-		"_trade_scroll_state": "PlazaTradeScrollState",
-		"_trade_drag_state": "PlazaTradeDragState",
-		"_trade_sell_confirm_state": "PlazaTradeSellConfirmState",
+		"_trade_interaction_controller": "PlazaTradeInteractionController",
 		"_trade_feedback_state": "PlazaTradeFeedbackState",
-		"_trade_action_dispatcher": "PlazaTradeActionDispatcher",
 		"_trade_item_icon_cache": "PlazaTradeItemIconCache",
 	}
 	for field_name in owners:
@@ -51,6 +47,10 @@ func _verify_typed_interior_collaborators() -> void:
 			source.find("var %s: %s = %s.new()" % [field_name, type_name, type_name]) >= 0,
 			"%s should retain its concrete owner type" % field_name
 		)
+	_expect(
+		source.find("var _coin_trade_fx_host: PlazaCoinTradeFxRuntimeHost = null") >= 0,
+		"coin trade FX should retain its concrete runtime host type"
+	)
 
 
 func _verify_interior_owner_and_recovery() -> void:

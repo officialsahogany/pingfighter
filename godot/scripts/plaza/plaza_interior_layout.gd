@@ -3,6 +3,12 @@ extends RefCounted
 # Pure layout/spec owner shared by PlazaInteriorView drawing, hover, click,
 # scroll, and drag/drop paths.
 
+const GAME_SIZE := Vector2(760.0, 750.0)
+const NPC_RECT := Rect2(Vector2(26.0, 118.0), Vector2(236.0, 500.0))
+const SHOP_TOPVIEW_NPC_RECT := Rect2(Vector2(28.0, 40.0), Vector2(250.0, 520.0))
+const TITLE_RECT := Rect2(Vector2(24.0, 20.0), Vector2(330.0, 76.0))
+const GOLD_RECT := Rect2(Vector2(610.0, 22.0), Vector2(126.0, 34.0))
+const EXIT_RECT := Rect2(Vector2(24.0, 700.0), Vector2(88.0, 30.0))
 const SHOP_TRADE_MODAL_RECT := Rect2(Vector2(70.0, 165.0), Vector2(620.0, 420.0))
 const SHOP_TRADE_LEFT_PANEL := Rect2(Vector2(90.0, 215.0), Vector2(280.0, 320.0))
 const SHOP_TRADE_RIGHT_PANEL := Rect2(Vector2(390.0, 215.0), Vector2(280.0, 320.0))
@@ -11,6 +17,12 @@ const SHOP_TRADE_CELL_GAP := 6.0
 const SHOP_TRADE_CELL_START_OFFSET := Vector2(14.0, 38.0)
 const SHOP_TRADE_VISIBLE_CELLS := 30
 const SHOP_TRADE_COLUMNS := 5
+const SHOP_TRADE_CONFIRM_RECT := Rect2(Vector2(224.0, 296.0), Vector2(312.0, 146.0))
+const SHOP_TRADE_CONFIRM_SELL_RECT := Rect2(Vector2(258.0, 390.0), Vector2(108.0, 32.0))
+const SHOP_TRADE_CONFIRM_CANCEL_RECT := Rect2(Vector2(394.0, 390.0), Vector2(108.0, 32.0))
+const PANEL_RECT := Rect2(Vector2(516.0, 456.0), Vector2(212.0, 186.0))
+const PANEL_CONFIRM_RECT := Rect2(Vector2(540.0, 588.0), Vector2(80.0, 32.0))
+const PANEL_CANCEL_RECT := Rect2(Vector2(632.0, 588.0), Vector2(70.0, 32.0))
 
 
 static func get_trade_panel_at_pos(game_pos: Vector2) -> String:

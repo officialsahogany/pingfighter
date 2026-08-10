@@ -71,6 +71,25 @@ static func get_display_name(item_data: Dictionary) -> String:
 	return ""
 
 
+static func get_color(item_data: Dictionary, fallback: Color) -> Color:
+	var color_value: Variant = item_data.get("quality_color", item_data.get("color", fallback))
+	return color_value if color_value is Color else fallback
+
+
+static func is_equipped(item_data: Dictionary) -> bool:
+	return bool(item_data.get("equipped", false)) or str(item_data.get("_equipped_slot", "")) != ""
+
+
+static func get_price_for_panel(panel: String, item_data: Dictionary) -> int:
+	if item_data.is_empty():
+		return 0
+	if panel == "player":
+		return maxi(0, int(item_data.get("shop_sell_price", item_data.get("sell_price", 0))))
+	if panel == "shop":
+		return maxi(0, int(item_data.get("shop_price", item_data.get("price", 0))))
+	return 0
+
+
 static func project_inventory(items: Variant, catalog: Object = null, include_sell_price: bool = false) -> Array:
 	var result: Array = []
 	if not (items is Array):

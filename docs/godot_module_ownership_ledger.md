@@ -42,6 +42,139 @@ This section is intentionally long; use search to find the nearest owner.
   progress helper, and delays the existing next-stage reset callback until the
   plaza exits; plaza-local movement, interaction, and save-ledger state stay
   under `scripts/plaza/`.
+- `scripts/plaza/plaza_transaction_message_formatter.gd`
+  Owns player-facing success and failure copy for bank, shop, gacha, Lingpet
+  Store, blacksmith, academy, and tavern transaction summaries, including shop
+  item-name localization. `plaza_scene.gd` retains only compatibility facades
+  that delegate each facility summary to this formatter.
+- `scripts/plaza/plaza_transition_state.gd`
+  Owns building enter/return and plaza arrival/exit warp phase, timer, target,
+  actor-anchor snapshots, clamped progress, and actor fade/lift envelopes.
+  `plaza_scene.gd` retains transition orchestration only: opening a completed
+  building target, syncing the warp FX host, and firing the exit callback.
+- `scripts/plaza/plaza_building_menu_session_state.gd`
+  Owns the active building-menu identity, title/subtitle/actions, last feedback
+  message, and per-visit AP-consumed state. The scene reads this owner for
+  presentation/input and must route state changes through its methods.
+- `scripts/plaza/plaza_transaction_summary_store.gd`
+  Owns deep-copied last-transaction summaries for all seven plaza facilities
+  and the close-vs-new-visit clearing policy. `plaza_scene.gd` applies every
+  facility result through one finalizer that records the summary, commits the
+  menu visit AP edge, refreshes the save snapshot, and queues presentation.
+- `scripts/plaza/plaza_building_menu_catalog.gd`
+  Owns the seven building-menu title/subtitle/default-action specs and NPC
+  display names. The scene may override runtime-dependent action lists, but it
+  must obtain the base open-state projection and NPC names from this catalog.
+- `scripts/plaza/plaza_minimap_projection.gd` and `plaza_minimap_renderer.gd`
+  Own minimap geometry/state projection and all panel, track, marker, badge,
+  and facility-emblem draw calls. `plaza_scene.gd` retains only live input
+  assembly, a one-line draw facade, and a color compatibility facade used by
+  building-menu accents.
+- `scripts/plaza/plaza_actor_visual_projection.gd`, `plaza_actor_renderer.gd`,
+  and `plaza_building_renderer.gd`
+  Own plaza actor walking/facing/frame projection, Lingpet follow/draw geometry,
+  player/Lingpet sprite and contact-shadow rendering, and building world-rect,
+  culling, deterministic flicker, shadow, and immediate draw recipe.
+  `plaza_scene.gd` supplies live state through narrow compatibility facades.
+- `scripts/plaza/plaza_background_projection.gd` and
+  `plaza_background_renderer.gd`
+  Own plaza parallax/tile/flicker/VR-strata projection plus the complete sky,
+  far-sky fallback, midground wall, ground strip, emissive decoration,
+  underground, and exit-zone draw recipe. `plaza_scene.gd` invokes the recipe
+  using its live state and frame tick.
+- `scripts/plaza/plaza_flow_gate_policy.gd` and `plaza_world_geometry.gd`
+  Own plaza update/input priority plus street-blocking policy, and pure fitted-
+  canvas/player/camera/coordinate/building-hit geometry, respectively.
+  `plaza_scene.gd` dispatches the selected flow and supplies live state through
+  narrow geometry facades without retaining parallel condition chains or math.
+- `scripts/plaza/plaza_status_snapshot_builder.gd`
+  Owns the complete public Plaza status dictionary, including nested overlay/
+  interior snapshots, transition/menu state, facility summaries, runtime-perk
+  choice metadata, progression counters, minimap state, and scene geometry.
+  `plaza_scene.gd::get_status()` is a narrow compatibility facade that supplies
+  one required-key live context assembled by direct field/method references.
+  The builder validates that context and must not reflect scene-private names
+  through string `get()` / `callv()` lookups.
+- `scripts/plaza/plaza_interior_view.gd`
+  Is the sole visible building-interior menu and input owner. `plaza_scene.gd`
+  opens, synchronizes, recovers, and frees exactly one view while retaining
+  transaction orchestration; the unreachable scene-local menu/NPC renderer and
+  keyboard/mouse fallback were removed.
+- `scripts/plaza/plaza_interior_object_hover_state.gd`,
+  `plaza_interior_object_selection_state.gd`, and
+  `plaza_shop_click_animation_state.gd`
+  Own interior object and click-animation state without mirrored fields in
+  `plaza_interior_view.gd`. The shop-click owner deep-copies the pending object
+  spec, transfers it atomically to a one-shot completed slot, and clears both on
+  reset so the view never mirrors or reconstructs the completion payload.
+- `scripts/plaza/plaza_trade_interaction_controller.gd`
+  Owns the live trade hover/scroll/drag/sale-confirm states and composes
+  `plaza_trade_drop_decision.gd` plus `plaza_trade_action_dispatcher.gd` for
+  click, cross-panel trade, same-panel reorder, equipped-sale confirmation,
+  cancel, and callback dispatch. The view supplies coordinates/current
+  inventories and handles redraw/reclamp only. `plaza_trade_item_icon_cache.gd`
+  owns texture caching, and
+  `plaza_trade_item_presentation.gd` owns shared item projection/formatting.
+- `scripts/plaza/plaza_interior_view_data.gd` and `plaza_interior_layout.gd`
+  Own copied/normalized interior payload state and pure interior/trade geometry,
+  respectively. `plaza_interior_view.gd` consumes the typed data owner and
+  delegates cell draw geometry, hit tests, drop indexes, and object specs to the
+  layout owner without retaining mutable payload mirrors or literal grid math.
+- `scripts/plaza/plaza_shop_strewn_visual_spec.gd`
+  Owns interior strewn-item texture sizes, semantic colors, animation metadata,
+  and sprite-sheet frame projection. `plaza_interior_view.gd` keeps only thin
+  query facades and the actual draw calls.
+- `scripts/plaza/plaza_interior_chrome_projection.gd` and
+  `plaza_interior_chrome_renderer.gd`
+  Own non-trade title/gold/exit, normal/top-view NPC, shopkeeper speech-bubble,
+  and selected-object panel snapshots plus their concrete `CanvasItem` drawing.
+  The view supplies live texture/data inputs and preserves layer order without
+  retaining the prior per-surface draw helpers.
+- `scripts/plaza/plaza_interior_room_renderer.gd`
+  Owns backdrop cover-cropping and the full procedural room fallback including
+  bands, floor, building-specific neon text, wall props, floor clutter, and the
+  no-backdrop table/clutter layer. `plaza_interior_view.gd` supplies live inputs
+  through one draw call and retains no parallel room draw helpers or sign map.
+- `scripts/plaza/plaza_interior_object_renderer.gd`,
+  `plaza_coin_trade_aura_renderer.gd`, and
+  `plaza_shop_click_fx_renderer.gd`
+  Own standard/featured/strewn object drawing, texture and procedural fallbacks,
+  coin aura/burst material drawing with caller-material restoration, and click
+  ring/sparkle/sprite-sheet frames. The view retains live interaction clocks,
+  texture resolution, and action/trade orchestration only.
+- `scripts/plaza/plaza_interior_input_policy.gd`
+  Owns semantic key/mouse classification and priority across trade confirmation,
+  trade UI, object panels, shortcuts, hover, click, scroll, and drag. The live
+  view supplies coordinate containment and executes the returned action.
+- `scripts/plaza/plaza_coin_trade_fx_state.gd`
+  Owns coin-trade pulse/burst scalar state, particle defaults/snapshots,
+  visibility gating, aura layer projection, and deterministic envelope reset.
+- `scripts/plaza/plaza_coin_trade_fx_runtime_host.gd`
+  Owns coin-trade asset prewarm, additive/Writhe material caches, the sparkle
+  `GPUParticles2D` and process material, pulse/burst Tweens, controller-driven
+  particle sync, and idempotent tree-exit teardown. `plaza_interior_view.gd`
+  supplies live hover/flare inputs and consumes the host's draw resources.
+- `scripts/plaza/plaza_trade_ui_projection.gd`
+  Owns scaled trade-modal/panel/cell/scrollbar geometry, tooltip placement and
+  copy projection, drag ghost, feedback, and sale-confirm snapshots. It composes
+  `plaza_trade_item_presentation.gd` for color, equipped state, prices, names,
+  descriptions, rolls, and formatted gold.
+- `scripts/plaza/plaza_trade_ui_presenter.gd`,
+  `plaza_trade_ui_renderer.gd`, and `plaza_interior_draw_primitives.gd`
+  The presenter owns live trade snapshot assembly, fixed layer order, tooltip
+  coordinate conversion, and confirmation suppression of tooltip/drag layers.
+  Concrete trade `CanvasItem` drawing and shared interior shadow-text,
+  wrapping, and button primitives remain with the renderer and primitive owner,
+  respectively. The renderer consumes the typed item-icon cache directly;
+  `plaza_interior_view.gd` supplies live inputs through one presenter call.
+- `scripts/plaza/plaza_shop_inventory_state.gd`,
+  `plaza_shop_transactions.gd`, and `plaza_shop_trade_summary.gd`
+  Own mutable shop stock, purchase/sale/reorder transaction policy, and summary
+  construction respectively. The transaction owner routes passive versus
+  active grants, commits wallet/AP changes, rolls provisional grants back when
+  payment fails, relists successful sales, and syncs reordered player inventory.
+  `plaza_scene.gd` retains the building/action gate, visit-AP input, trade audio,
+  shared facility finalization, menu refresh, and copied snapshot exposure.
 - `scripts/characters/blacksmith_thor_shield_state.gd`
   Owns Kohaku / Baltor's first Godot combat slice for Thor Shield:
   shield open / retract timers, swing timing, movement slowdown, shield

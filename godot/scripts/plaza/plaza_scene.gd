@@ -7,123 +7,45 @@ const PlazaGachaTransactions := preload("res://scripts/plaza/plaza_gacha_transac
 const PlazaLingpetStoreTransactions := preload("res://scripts/plaza/plaza_lingpet_store_transactions.gd")
 const PlazaPlayerController := preload("res://scripts/plaza/plaza_player_controller.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
-const PlazaShopPricing := preload("res://scripts/plaza/plaza_shop_pricing.gd")
+const PlazaShopInventoryState := preload("res://scripts/plaza/plaza_shop_inventory_state.gd")
 const PlazaShopStock := preload("res://scripts/plaza/plaza_shop_stock.gd")
+const PlazaShopTransactions := preload("res://scripts/plaza/plaza_shop_transactions.gd")
 const PlazaTavernTransactions := preload("res://scripts/plaza/plaza_tavern_transactions.gd")
 const PlazaThemeCatalog := preload("res://scripts/plaza/plaza_theme_catalog.gd")
 const PlazaInteriorView := preload("res://scripts/plaza/plaza_interior_view.gd")
 const PlazaWarpPillarFxHost := preload("res://scripts/plaza/plaza_warp_pillar_fx_host.gd")
 const PlazaCharacterInfoOverlayHost := preload("res://scripts/plaza/plaza_character_info_overlay_host.gd")
-const PlazaFlowGatePolicy := preload("res://scripts/plaza/plaza_flow_gate_policy.gd")
-const PlazaStatusSnapshotBuilder := preload("res://scripts/plaza/plaza_status_snapshot_builder.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
-const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PlazaTransactionMessageFormatter := preload("res://scripts/plaza/plaza_transaction_message_formatter.gd")
+const PlazaTransitionState := preload("res://scripts/plaza/plaza_transition_state.gd")
+const PlazaBuildingMenuSessionState := preload("res://scripts/plaza/plaza_building_menu_session_state.gd")
+const PlazaTransactionSummaryStore := preload("res://scripts/plaza/plaza_transaction_summary_store.gd")
+const PlazaBuildingMenuCatalog := preload("res://scripts/plaza/plaza_building_menu_catalog.gd")
+const PlazaMinimapProjection := preload("res://scripts/plaza/plaza_minimap_projection.gd")
+const PlazaMinimapRenderer := preload("res://scripts/plaza/plaza_minimap_renderer.gd")
+const PlazaActorVisualProjection := preload("res://scripts/plaza/plaza_actor_visual_projection.gd")
+const PlazaActorRenderer := preload("res://scripts/plaza/plaza_actor_renderer.gd")
+const PlazaBuildingRenderer := preload("res://scripts/plaza/plaza_building_renderer.gd")
+const PlazaBackgroundProjection := preload("res://scripts/plaza/plaza_background_projection.gd")
+const PlazaBackgroundRenderer := preload("res://scripts/plaza/plaza_background_renderer.gd")
+const PlazaFlowGatePolicy := preload("res://scripts/plaza/plaza_flow_gate_policy.gd")
+const PlazaTradeItemPresentation := preload("res://scripts/plaza/plaza_trade_item_presentation.gd")
+const PlazaWorldGeometry := preload("res://scripts/plaza/plaza_world_geometry.gd")
+const PlazaStatusSnapshotBuilder := preload("res://scripts/plaza/plaza_status_snapshot_builder.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
 const MAP_SIZE := Vector2(1900.0, 750.0)
 const CAMERA_SMOOTHING := 0.08
 const CAMERA_LEAD_X := 100.0
-const FLOOR_REPEAT := 380.0
-const GROUND_STRIP_REPEAT := 1140.0
-const GROUND_STRIP_HEIGHT := 154.0
-const MIDGROUND_WALL_REPEAT := 960.0
-const MIDGROUND_WALL_TOP := 388.0
-const MIDGROUND_WALL_HEIGHT := 180.0
-const MIDGROUND_WALL_ALPHA := 0.90
-const MIDGROUND_WALL_TOP_FADE_HEIGHT := 38.0
-const MIDGROUND_WALL_TOP_FADE_SLICE := 4.0
-const FAR_SKY_WIDTH := 1520.0
-const FAR_SKY_HEIGHT := 430.0
 const GROUND_Y := 666.0
 const BUILDING_BASELINE_Y := 640.0
 const SIDEWALK_TOP := 596.0
-const SIDEWALK_HEIGHT := 92.0
-const UNDERGROUND_TOP := 688.0
 const EXIT_ZONE := Rect2(Vector2(MAP_SIZE.x - 150.0, SIDEWALK_TOP), Vector2(120.0, 92.0))
 const DIALOG_DURATION := 2.25
-const INTERIOR_NPC_RECT := Rect2(Vector2(46.0, 126.0), Vector2(244.0, 420.0))
-const INTERIOR_SPEECH_RECT := Rect2(Vector2(40.0, 584.0), Vector2(280.0, 82.0))
-const MENU_PANEL_RECT := Rect2(Vector2(326.0, 132.0), Vector2(390.0, 488.0))
-const MENU_CLOSE_RECT := Rect2(Vector2(630.0, 148.0), Vector2(58.0, 32.0))
-const MENU_ACTION_ROW_START_Y := 124.0
-const MENU_ACTION_ROW_HEIGHT := 48.0
-const MENU_ACTION_ROW_STEP := 56.0
 const BANK_ACTION_IDS := ["deposit", "withdraw", "interest"]
-const MINIMAP_PANEL_RECT := Rect2(Vector2(486.0, 18.0), Vector2(238.0, 58.0))
-const MINIMAP_TRACK_INSET := Vector2(18.0, 41.0)
-const MINIMAP_TRACK_SIZE := Vector2(202.0, 5.0)
-const MINIMAP_ICON_SIZE := 15.0
-const MINIMAP_ICON_MIN_GAP := 17.0
-const PLAYER_SPRITE_DRAW_SIZE := Vector2(148.0, 148.0)
-const PLAYER_SPRITE_FOOT_OFFSET := Vector2(0.0, 8.0)
-const LINGPET_FOLLOW_OFFSET_X := 58.0
-const LINGPET_FOLLOW_OFFSET_Y := -20.0
-const LINGPET_COMPANION_GRID_COLS := 5
-const LINGPET_COMPANION_GRID_ROWS := 5
-const LINGPET_COMPANION_FRAME_COUNT := 25
-const BUILDING_ENTRY_DURATION := 1.0
-const PLAZA_WARP_DURATION := 1.0
-
-const INTERIOR_NPC_NAMES := {
-	"shop": "상점주인 모라",
-	"bank": "은행원 도윤",
-	"gacha": "가챠 오퍼레이터 루미",
-	"lingpet_store": "링펫 사육사 링링",
-	"blacksmith": "대장장이 강철",
-	"tavern": "선술집 주인 하랑",
-	"academy": "아카데미 교관 서율",
-}
-
-const INTERIOR_GREETING_LINES := {
-	"shop": "어서오세요!|필요한 장비를 골라볼까요?",
-	"bank": "금고는 안전합니다.|맡기거나 찾아가세요.",
-	"gacha": "캡슐이 돌 준비를|마쳤어요.",
-	"lingpet_store": "공명 알이 오늘도|반짝이고 있어요.",
-	"blacksmith": "좋은 장비는|망치질을 버팁니다.",
-	"tavern": "의뢰서를|확인해 보시겠습니까?",
-	"academy": "새 기술을 익힐|준비가 됐나요?",
-}
-
-const BUILDING_MENU_SPECS := {
-	"shop": {
-		"title": "상점",
-		"subtitle": "골드로 아이템을 사고파는 곳",
-		"actions": [],
-	},
-	"bank": {
-		"title": "은행",
-		"subtitle": "골드를 맡기고 찾는 금고",
-		"actions": ["예금 100G", "출금 100G", "이자 정산"],
-	},
-	"gacha": {
-		"title": "가챠샵",
-		"subtitle": "아이템 뽑기 장치",
-		"actions": ["액티브 캡슐 뽑기 150G"],
-	},
-	"lingpet_store": {
-		"title": "링펫스토어",
-		"subtitle": "링펫 알과 링펫 관련 상점",
-		"actions": ["공명 알 뽑기 250G", "링펫 관리"],
-	},
-	"blacksmith": {
-		"title": "대장간",
-		"subtitle": "아이템을 강화하는 공방",
-		"actions": ["마지막 아이템 강화"],
-	},
-	"tavern": {
-		"title": "선술집",
-		"subtitle": "퀘스트를 받는 의뢰소",
-		"actions": ["퀘스트 받기"],
-	},
-	"academy": {
-		"title": "아카데미",
-		"subtitle": "액티브 스킬을 얻고 교환하는 곳",
-		"actions": ["스킬 획득", "스킬 교환"],
-	},
-}
 
 var current_stage: int = 1
 var plaza_theme: Dictionary = {}
@@ -136,20 +58,8 @@ var _player_pos := Vector2(120.0, GROUND_Y)
 var _camera_x := 0.0
 var _dialog_text := ""
 var _dialog_timer := 0.0
-var _menu_open := false
-var _active_menu_type := ""
-var _active_menu_title := ""
-var _active_menu_subtitle := ""
-var _active_menu_actions: Array[String] = []
-var _active_menu_last_message := ""
-var _active_menu_visit_ap_consumed := false
-var _last_bank_transaction_summary: Dictionary = {}
-var _last_shop_transaction_summary: Dictionary = {}
-var _last_blacksmith_transaction_summary: Dictionary = {}
-var _last_gacha_transaction_summary: Dictionary = {}
-var _last_lingpet_store_transaction_summary: Dictionary = {}
-var _last_academy_transaction_summary: Dictionary = {}
-var _last_tavern_transaction_summary: Dictionary = {}
+var _menu_session: PlazaBuildingMenuSessionState = PlazaBuildingMenuSessionState.new()
+var _transaction_summaries: PlazaTransactionSummaryStore = PlazaTransactionSummaryStore.new()
 var _plaza_save_store: Object = PlazaSaveStore.new()
 var _plaza_shop_stock: Object = PlazaShopStock.new()
 var _plaza_blacksmith_transactions: Object = PlazaBlacksmithTransactions.new()
@@ -161,7 +71,8 @@ var _runtime_perk_overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
 var _runtime_perk_icon_renderer: Object = RuntimePerkIconRenderer.new()
 var _status_snapshot_builder: Object = PlazaStatusSnapshotBuilder.new()
 var _plaza_save_snapshot: Dictionary = {}
-var _shop_inventory: Array = []
+var _shop_inventory_state: PlazaShopInventoryState = PlazaShopInventoryState.new()
+var _plaza_shop_transactions: Object = PlazaShopTransactions.new()
 var _runtime_owner: Object = null
 var _runtime_registry: Object = null
 var _hovered_building_type := ""
@@ -177,15 +88,7 @@ var _lingpet_companion_pet_id := ""
 var _lingpet_companion_draw_size := 92.0
 var _lingpet_follower_pos := Vector2.ZERO
 var _lingpet_follower_initialized := false
-var _building_transition_active := false
-var _building_transition_phase := ""
-var _building_transition_timer := 0.0
-var _building_transition_target: Dictionary = {}
-var _building_transition_player_pos := Vector2.ZERO
-var _building_transition_lingpet_pos := Vector2.ZERO
-var _plaza_warp_active := false
-var _plaza_warp_phase := ""
-var _plaza_warp_timer := 0.0
+var _transition_state: PlazaTransitionState = PlazaTransitionState.new()
 var _warp_pillar_fx_host: Node = null
 var _character_info_overlay_host: Control = null
 var _interior_view: Control = null
@@ -274,6 +177,7 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_update_lingpet_follower(0.0)
 	_camera_x = _get_target_camera_x()
 	_close_building_menu(false)
+	_transaction_summaries.clear_all()
 	_close_character_info_overlay(false)
 	_clear_building_transition()
 	_clear_plaza_warp_transition()
@@ -288,31 +192,22 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 
 func update_plaza(delta: float) -> void:
 	_sync_game_rect()
-	if _is_runtime_perk_overlay_active():
-		_update_runtime_perk_overlay(delta)
-		_dialog_timer = 0.0
-		_update_hovered_building()
-		queue_redraw()
-		return
-	if _is_character_info_overlay_active():
-		_update_character_info_overlay(delta)
-		_dialog_timer = 0.0
-		_update_hovered_building()
-		queue_redraw()
-		return
-	if _plaza_warp_active:
-		_update_plaza_warp_transition(delta)
-		_dialog_timer = 0.0
-		_update_hovered_building()
-		queue_redraw()
-		return
-	if _building_transition_active:
-		_update_building_transition(delta)
-		_dialog_timer = 0.0
-		_update_hovered_building()
-		queue_redraw()
-		return
-	if _menu_open:
+	var flow_gate := _get_flow_gate()
+	match flow_gate:
+		PlazaFlowGatePolicy.RUNTIME_PERK:
+			_update_runtime_perk_overlay(delta)
+		PlazaFlowGatePolicy.CHARACTER_INFO:
+			_update_character_info_overlay(delta)
+		PlazaFlowGatePolicy.PLAZA_WARP:
+			_update_plaza_warp_transition(delta)
+		PlazaFlowGatePolicy.BUILDING_TRANSITION:
+			_update_building_transition(delta)
+		PlazaFlowGatePolicy.INTERIOR_MENU:
+			_ensure_interior_view()
+			_sync_interior_view_state()
+		PlazaFlowGatePolicy.STREET:
+			pass
+	if PlazaFlowGatePolicy.blocks_street_update(flow_gate):
 		_dialog_timer = 0.0
 		_update_hovered_building()
 		queue_redraw()
@@ -339,21 +234,20 @@ func update_plaza(delta: float) -> void:
 
 
 func handle_plaza_input(event: InputEvent) -> bool:
-	if _is_runtime_perk_overlay_active():
-		return _handle_runtime_perk_overlay_input(event)
-	if _is_character_info_overlay_active():
-		return _handle_character_info_overlay_input(event)
-	if _plaza_warp_active:
-		return true
-	if _building_transition_active:
-		return true
-	if _menu_open:
-		if _is_character_info_tab_event(event):
-			_open_character_info_overlay()
+	match _get_flow_gate():
+		PlazaFlowGatePolicy.RUNTIME_PERK:
+			return _handle_runtime_perk_overlay_input(event)
+		PlazaFlowGatePolicy.CHARACTER_INFO:
+			return _handle_character_info_overlay_input(event)
+		PlazaFlowGatePolicy.PLAZA_WARP, PlazaFlowGatePolicy.BUILDING_TRANSITION:
 			return true
-		if _is_interior_view_active():
-			return _interior_view.handle_input(_localize_interior_event(event))
-		return _handle_menu_input(event)
+		PlazaFlowGatePolicy.INTERIOR_MENU:
+			if _is_character_info_tab_event(event):
+				_open_character_info_overlay()
+				return true
+			if _ensure_interior_view():
+				return _interior_view.handle_input(_localize_interior_event(event))
+			return true
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
@@ -391,6 +285,7 @@ func _build_status_snapshot_context() -> Dictionary:
 	var warp_fx_status := _get_warp_pillar_fx_status()
 	var character_info_status := _get_character_info_overlay_status()
 	var interior_status := _get_interior_view_status()
+	var active_menu_type := _menu_session.building_type
 	return {
 		"flow_gate": _get_flow_gate(),
 		"current_stage": current_stage,
@@ -411,37 +306,37 @@ func _build_status_snapshot_context() -> Dictionary:
 		"hovered_building_type": _hovered_building_type,
 		"active_building": active_building,
 		"dialog_text": _dialog_text if _dialog_timer > 0.0 else "",
-		"menu_open": _menu_open,
-		"building_transition_active": _building_transition_active,
-		"building_transition_phase": _building_transition_phase,
+		"menu_open": _menu_session.is_open,
+		"building_transition_active": _transition_state.building_active,
+		"building_transition_phase": _transition_state.building_phase,
 		"building_transition_progress": _get_building_transition_progress(),
-		"plaza_warp_active": _plaza_warp_active,
-		"plaza_warp_phase": _plaza_warp_phase,
+		"plaza_warp_active": _transition_state.warp_active,
+		"plaza_warp_phase": _transition_state.warp_phase,
 		"plaza_warp_progress": _get_plaza_warp_progress(),
 		"warp_fx_status": warp_fx_status,
 		"character_info_status": character_info_status,
-		"active_menu_type": _active_menu_type,
-		"active_menu_title": _active_menu_title,
-		"active_menu_subtitle": _active_menu_subtitle,
-		"active_menu_actions": _active_menu_actions.duplicate(),
-		"active_menu_last_message": _active_menu_last_message,
-		"active_menu_visit_ap_consumed": _active_menu_visit_ap_consumed,
+		"active_menu_type": active_menu_type,
+		"active_menu_title": _menu_session.title,
+		"active_menu_subtitle": _menu_session.subtitle,
+		"active_menu_actions": _menu_session.actions,
+		"active_menu_last_message": _menu_session.last_message,
+		"active_menu_visit_ap_consumed": _menu_session.visit_ap_consumed,
 		"interior_view_active": _is_interior_view_active(),
 		"interior_status": interior_status,
-		"interior_npc_texture_loaded": _get_interior_npc_texture(_active_menu_type) != null,
-		"interior_room_texture_loaded": _get_interior_room_texture(_active_menu_type) != null,
-		"last_bank_transaction_summary": _last_bank_transaction_summary,
-		"last_shop_transaction_summary": _last_shop_transaction_summary,
-		"last_blacksmith_transaction_summary": _last_blacksmith_transaction_summary,
-		"last_gacha_transaction_summary": _last_gacha_transaction_summary,
-		"last_lingpet_store_transaction_summary": _last_lingpet_store_transaction_summary,
-		"last_academy_transaction_summary": _last_academy_transaction_summary,
-		"last_tavern_transaction_summary": _last_tavern_transaction_summary,
+		"interior_npc_texture_loaded": _get_interior_npc_texture(active_menu_type) != null,
+		"interior_room_texture_loaded": _get_interior_room_texture(active_menu_type) != null,
+		"last_bank_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.BANK),
+		"last_shop_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.SHOP),
+		"last_blacksmith_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.BLACKSMITH),
+		"last_gacha_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.GACHA),
+		"last_lingpet_store_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.LINGPET_STORE),
+		"last_academy_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.ACADEMY),
+		"last_tavern_transaction_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.TAVERN),
 		"runtime_perk_choice_active": _is_runtime_perk_overlay_active(),
 		"runtime_perk_choice_count": _get_runtime_perk_choice_count(),
 		"runtime_perk_selected_index": _get_runtime_perk_selected_index(),
 		"save_snapshot": _plaza_save_snapshot,
-		"shop_inventory_count": _shop_inventory.size(),
+		"shop_inventory_count": _shop_inventory_state.size(),
 		"tavern_active_quest": _get_tavern_active_quest_summary(),
 		"active_item_slot_count": _get_active_item_slot_count(),
 		"owned_lingpet_count": _get_owned_lingpet_count(),
@@ -456,9 +351,9 @@ func _get_flow_gate() -> StringName:
 	return PlazaFlowGatePolicy.resolve(
 		_is_runtime_perk_overlay_active(),
 		_is_character_info_overlay_active(),
-		_plaza_warp_active,
-		_building_transition_active,
-		_menu_open
+		_transition_state.warp_active,
+		_transition_state.building_active,
+		_menu_session.is_open
 	)
 
 
@@ -499,14 +394,14 @@ func get_building_at_world_pos_for_test(world_pos: Vector2) -> Dictionary:
 func click_world_pos_for_test(world_pos: Vector2) -> bool:
 	# Mirrors the left-click branch of handle_plaza_input: pick a building at the
 	# world position and open its menu. Returns true if a building menu opened.
-	if _menu_open or _building_transition_active or _plaza_warp_active:
+	if _menu_session.is_open or _transition_state.building_active or _transition_state.warp_active:
 		return false
 	var building := _get_building_at_world_pos(world_pos)
 	if building.is_empty():
 		return false
 	_show_building_dialog(building)
 	_complete_building_transition_for_test()
-	return _menu_open
+	return _menu_session.is_open
 
 
 func close_menu_for_test(complete_transition: bool = true) -> void:
@@ -576,7 +471,7 @@ func advance_interior_view_for_test(delta: float) -> Dictionary:
 
 
 func trade_interior_item_for_test(panel: String, index: int) -> Dictionary:
-	if _active_menu_type != "shop":
+	if _menu_session.building_type != "shop":
 		return get_status()
 	_trigger_interior_action({
 		"type": "shop_trade",
@@ -594,8 +489,12 @@ func get_interior_trade_item_price_for_test(panel: String, index: int) -> int:
 	return -1
 
 
+func get_shop_inventory_snapshot_for_test() -> Array:
+	return _shop_inventory_state.snapshot()
+
+
 func reorder_interior_trade_item_for_test(panel: String, from_index: int, to_index: int) -> Dictionary:
-	if _active_menu_type != "shop":
+	if _menu_session.building_type != "shop":
 		return get_status()
 	_trigger_interior_action({
 		"type": "shop_trade_reorder",
@@ -607,13 +506,14 @@ func reorder_interior_trade_item_for_test(panel: String, from_index: int, to_ind
 
 
 func get_flicker_samples_for_test() -> Dictionary:
+	var ticks_msec := Time.get_ticks_msec()
 	return {
-		"ground_0": _discrete_flicker("ground:0"),
-		"ground_1": _discrete_flicker("ground:1140"),
-		"accent_0": _discrete_flicker("accent:250"),
-		"accent_1": _discrete_flicker("accent:980"),
-		"medallion_0": _discrete_flicker("medallion:560"),
-		"medallion_1": _discrete_flicker("medallion:1320"),
+		"ground_0": PlazaBackgroundProjection.discrete_flicker("ground:0", ticks_msec),
+		"ground_1": PlazaBackgroundProjection.discrete_flicker("ground:1140", ticks_msec),
+		"accent_0": PlazaBackgroundProjection.discrete_flicker("accent:250", ticks_msec),
+		"accent_1": PlazaBackgroundProjection.discrete_flicker("accent:980", ticks_msec),
+		"medallion_0": PlazaBackgroundProjection.discrete_flicker("medallion:560", ticks_msec),
+		"medallion_1": PlazaBackgroundProjection.discrete_flicker("medallion:1320", ticks_msec),
 	}
 
 
@@ -647,9 +547,17 @@ func _draw() -> void:
 		return
 	var scale := _get_game_scale()
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.012, 0.014, 0.022, 1.0))
-	_draw_parallax_background(scale)
-	_draw_ground_strip(scale)
-	_draw_exit_zone(scale)
+	PlazaBackgroundRenderer.draw(
+		self,
+		_floor_textures,
+		_camera_x,
+		EXIT_ZONE,
+		GAME_SIZE,
+		size,
+		SIDEWALK_TOP,
+		scale,
+		Time.get_ticks_msec()
+	)
 	_draw_world_objects(scale)
 	_draw_overlay_ui(scale)
 	_draw_runtime_perk_overlay()
@@ -664,9 +572,9 @@ func _sync_game_rect() -> void:
 	var view_size := viewport.get_visible_rect().size
 	if view_size == Vector2.ZERO:
 		return
-	var scale: float = min(view_size.x / GAME_SIZE.x, view_size.y / GAME_SIZE.y)
-	size = GAME_SIZE * scale
-	position = (view_size - size) * 0.5
+	var fitted_rect := PlazaWorldGeometry.fit_game_rect(view_size, GAME_SIZE)
+	size = fitted_rect.size
+	position = fitted_rect.position
 	if _is_interior_view_active():
 		_interior_view.position = Vector2.ZERO
 		_interior_view.size = size
@@ -674,11 +582,11 @@ func _sync_game_rect() -> void:
 
 
 func _get_game_scale() -> float:
-	return size.x / GAME_SIZE.x if GAME_SIZE.x > 0.0 else 1.0
+	return PlazaWorldGeometry.get_game_scale(size, GAME_SIZE)
 
 
 func _get_target_camera_x() -> float:
-	return clampf(_player_pos.x - GAME_SIZE.x * 0.5 + CAMERA_LEAD_X, 0.0, MAP_SIZE.x - GAME_SIZE.x)
+	return PlazaWorldGeometry.get_target_camera_x(_player_pos.x, GAME_SIZE.x, MAP_SIZE.x, CAMERA_LEAD_X)
 
 
 func _get_input_dir() -> Vector2:
@@ -690,34 +598,6 @@ func _get_input_dir() -> Vector2:
 	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
 		dir_x += 1.0
 	return Vector2(signf(dir_x), 0.0)
-
-
-func _handle_menu_input(event: InputEvent) -> bool:
-	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		if not key_event.pressed or key_event.echo:
-			return true
-		if key_event.keycode == KEY_ESCAPE:
-			_close_building_menu()
-			return true
-		if key_event.keycode >= KEY_1 and key_event.keycode <= KEY_9:
-			_trigger_menu_action(int(key_event.keycode - KEY_1))
-			return true
-		return true
-	if event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
-			return true
-		var local_pos := _screen_to_local_game(mouse_event.position)
-		if MENU_CLOSE_RECT.has_point(local_pos):
-			_close_building_menu()
-			return true
-		var clicked_action := _get_menu_action_index_at(local_pos)
-		if clicked_action >= 0:
-			_trigger_menu_action(clicked_action)
-			return true
-		return true
-	return true
 
 
 func _is_character_info_tab_event(event: InputEvent) -> bool:
@@ -842,9 +722,11 @@ func _get_runtime_perk_selected_index() -> int:
 
 
 func _normalize_player_pos(pos: Vector2) -> Vector2:
-	return Vector2(
-		clampf(pos.x, PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5, MAP_SIZE.x - PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5),
-		GROUND_Y
+	return PlazaWorldGeometry.normalize_player_position(
+		pos,
+		MAP_SIZE,
+		GROUND_Y,
+		PlazaPlayerController.PLAYER_COLLISION_SIZE
 	)
 
 
@@ -858,34 +740,36 @@ func _get_runtime_owner_selected_character_type() -> String:
 
 
 func _is_player_walking() -> bool:
-	if _test_input_active:
-		return absf(_test_input_dir.x) > 0.01
-	return absf(_get_input_dir().x) > 0.01
+	var live_input_dir := Vector2.ZERO if _test_input_active else _get_input_dir()
+	return PlazaActorVisualProjection.is_player_walking(
+		_test_input_active,
+		_test_input_dir,
+		live_input_dir
+	)
 
 
 func _get_player_facing_direction() -> int:
-	return -1 if _last_input_dir.x < -0.01 else 1
+	return PlazaActorVisualProjection.get_facing_direction(_last_input_dir)
 
 
 func _get_player_sprite_frame() -> int:
 	var frame_count: int = max(1, int(_player_textures.get("frame_count", 8)))
-	var duration_msec: int = 760 if _is_player_walking() else 1040
-	return int(floor(float(Time.get_ticks_msec() % duration_msec) / float(duration_msec) * float(frame_count))) % frame_count
+	return PlazaActorVisualProjection.get_player_sprite_frame(
+		Time.get_ticks_msec(),
+		_is_player_walking(),
+		frame_count
+	)
 
 
 func _get_sheet_frame_rect(texture: Texture2D, frame: int, grid_cols: int, grid_rows: int) -> Rect2:
 	if texture == null:
 		return Rect2()
-	var safe_cols: int = max(1, grid_cols)
-	var safe_rows: int = max(1, grid_rows)
-	var max_frame: int = max(0, safe_cols * safe_rows - 1)
-	var safe_frame: int = clampi(frame, 0, max_frame)
-	var texture_size: Vector2 = texture.get_size()
-	var cell_size := Vector2(texture_size.x / float(safe_cols), texture_size.y / float(safe_rows))
-	var col: int = safe_frame % safe_cols
-	@warning_ignore("integer_division")
-	var row: int = int(safe_frame / safe_cols)
-	return Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
+	return PlazaActorVisualProjection.get_sheet_frame_rect(
+		texture.get_size(),
+		frame,
+		grid_cols,
+		grid_rows
+	)
 
 
 func _refresh_lingpet_companion_visual() -> void:
@@ -927,214 +811,26 @@ func _is_lingpet_companion_visible() -> bool:
 func _update_lingpet_follower(delta: float) -> void:
 	if not _is_lingpet_companion_visible():
 		return
-	var facing := _get_player_facing_direction()
-	var target_x := clampf(
-		_player_pos.x - float(facing) * LINGPET_FOLLOW_OFFSET_X,
-		PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5,
-		MAP_SIZE.x - PlazaPlayerController.PLAYER_COLLISION_SIZE.x * 0.5
+	var target_pos := PlazaActorVisualProjection.get_lingpet_follow_target(
+		_player_pos,
+		_get_player_facing_direction(),
+		MAP_SIZE.x,
+		PlazaPlayerController.PLAYER_COLLISION_SIZE.x,
+		GROUND_Y
 	)
-	var target_pos := Vector2(target_x, GROUND_Y + LINGPET_FOLLOW_OFFSET_Y)
-	if not _lingpet_follower_initialized:
-		_lingpet_follower_pos = target_pos
-		_lingpet_follower_initialized = true
-		return
-	var blend := clampf(max(0.0, delta) * 60.0 * 0.12, 0.0, 1.0)
-	_lingpet_follower_pos = _lingpet_follower_pos.lerp(target_pos, blend)
-
-
-func _draw_parallax_background(scale: float) -> void:
-	_draw_sky_gradient(scale)
-	if not _draw_far_sky_asset(scale):
-		_draw_moon(scale)
-		_draw_cloud_band(scale, 0.16, 92.0, Color(0.40, 0.66, 0.70, 0.58))
-		_draw_cloud_band(scale, 0.28, 152.0, Color(0.15, 0.31, 0.45, 0.64))
-	_draw_midground_wall(scale)
-
-
-func _draw_sky_gradient(scale: float) -> void:
-	var bands := 10
-	for idx in range(bands):
-		var t := float(idx) / float(max(1, bands - 1))
-		var color := Color(0.025 + t * 0.035, 0.045 + t * 0.04, 0.105 + t * 0.07, 1.0)
-		draw_rect(Rect2(Vector2(0.0, GAME_SIZE.y * t * 0.62) * scale, Vector2(GAME_SIZE.x, GAME_SIZE.y * 0.07) * scale), color, true)
-
-
-func _draw_far_sky_asset(scale: float) -> bool:
-	var sky_texture: Texture2D = _floor_textures.get("far_sky", null)
-	if sky_texture == null:
-		return false
-	var x := -clampf(_camera_x * 0.04, 0.0, FAR_SKY_WIDTH - GAME_SIZE.x)
-	draw_texture_rect(
-		sky_texture,
-		Rect2(Vector2(x, 0.0) * scale, Vector2(FAR_SKY_WIDTH, FAR_SKY_HEIGHT) * scale),
-		false,
-		Color(1.0, 1.0, 1.0, 0.96)
+	_lingpet_follower_pos = PlazaActorVisualProjection.project_lingpet_follower_position(
+		_lingpet_follower_pos,
+		_lingpet_follower_initialized,
+		target_pos,
+		delta
 	)
-	return true
-
-
-func _draw_moon(scale: float) -> void:
-	var moon_center := Vector2(645.0 - _camera_x * 0.04, 116.0) * scale
-	draw_circle(moon_center, 78.0 * scale, Color(0.78, 0.94, 0.73, 0.88))
-	draw_circle(moon_center + Vector2(-26.0, 14.0) * scale, 12.0 * scale, Color(0.55, 0.75, 0.58, 0.22))
-	draw_circle(moon_center + Vector2(22.0, -16.0) * scale, 18.0 * scale, Color(0.50, 0.70, 0.58, 0.18))
-
-
-func _draw_cloud_band(scale: float, parallax: float, y: float, color: Color) -> void:
-	var tile_width := 420.0
-	var offset := fposmod(-_camera_x * parallax, tile_width) - tile_width
-	for idx in range(5):
-		var x := offset + float(idx) * tile_width
-		draw_circle(Vector2(x + 70.0, y) * scale, 42.0 * scale, color)
-		draw_circle(Vector2(x + 132.0, y - 18.0) * scale, 58.0 * scale, color)
-		draw_circle(Vector2(x + 210.0, y + 4.0) * scale, 46.0 * scale, color)
-		draw_rect(Rect2(Vector2(x + 62.0, y - 6.0) * scale, Vector2(188.0, 38.0) * scale), color, true)
-
-
-func _draw_midground_wall(scale: float) -> void:
-	var wall_texture: Texture2D = _floor_textures.get("midground_wall", null)
-	if wall_texture != null:
-		var texture_offset := fposmod(-_camera_x * 0.48, MIDGROUND_WALL_REPEAT) - MIDGROUND_WALL_REPEAT
-		for idx in range(4):
-			var texture_x := texture_offset + float(idx) * MIDGROUND_WALL_REPEAT
-			_draw_midground_wall_asset_tile(wall_texture, texture_x, scale)
-		return
-	var parallax := 0.48
-	var tile_width := 320.0
-	var offset := fposmod(-_camera_x * parallax, tile_width) - tile_width
-	var wall_y := 458.0
-	for idx in range(8):
-		var x := offset + float(idx) * tile_width
-		var wall_rect := Rect2(Vector2(x, wall_y) * scale, Vector2(260.0, 98.0) * scale)
-		draw_rect(wall_rect, Color(0.045, 0.075, 0.105, 0.88), true)
-		draw_rect(wall_rect, Color(0.0, 0.72, 0.86, 0.20), false, max(1.0, 1.0 * scale))
-		for post_idx in range(4):
-			var post_x := x + 28.0 + float(post_idx) * 68.0
-			draw_rect(Rect2(Vector2(post_x, wall_y - 24.0) * scale, Vector2(10.0, 122.0) * scale), Color(0.11, 0.095, 0.065, 0.95), true)
-			draw_circle(Vector2(post_x + 5.0, wall_y - 28.0) * scale, 9.0 * scale, Color(0.98, 0.72, 0.26, 0.68))
-
-
-func _draw_midground_wall_asset_tile(wall_texture: Texture2D, texture_x: float, scale: float) -> void:
-	var texture_size := wall_texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
-	var fade_height := minf(MIDGROUND_WALL_TOP_FADE_HEIGHT, MIDGROUND_WALL_HEIGHT)
-	var y := 0.0
-	while y < fade_height:
-		var slice_height := minf(MIDGROUND_WALL_TOP_FADE_SLICE, fade_height - y)
-		var fade_t := (y + slice_height * 0.5) / maxf(1.0, fade_height)
-		_draw_midground_wall_asset_region(wall_texture, texture_size, texture_x, y, slice_height, _smooth_unit(fade_t) * MIDGROUND_WALL_ALPHA, scale)
-		y += slice_height
-	if fade_height < MIDGROUND_WALL_HEIGHT:
-		_draw_midground_wall_asset_region(
-			wall_texture,
-			texture_size,
-			texture_x,
-			fade_height,
-			MIDGROUND_WALL_HEIGHT - fade_height,
-			MIDGROUND_WALL_ALPHA,
-			scale
-		)
-
-
-func _draw_midground_wall_asset_region(
-	wall_texture: Texture2D,
-	texture_size: Vector2,
-	texture_x: float,
-	region_y: float,
-	region_height: float,
-	alpha: float,
-	scale: float
-) -> void:
-	var source_y := region_y / MIDGROUND_WALL_HEIGHT * texture_size.y
-	var source_height := region_height / MIDGROUND_WALL_HEIGHT * texture_size.y
-	draw_texture_rect_region(
-		wall_texture,
-		Rect2(Vector2(texture_x, MIDGROUND_WALL_TOP + region_y) * scale, Vector2(MIDGROUND_WALL_REPEAT, region_height) * scale),
-		Rect2(Vector2(0.0, source_y), Vector2(texture_size.x, source_height)),
-		Color(1.0, 1.0, 1.0, alpha)
-	)
-
-
-func _draw_ground_strip(scale: float) -> void:
-	var ground_strip: Texture2D = _floor_textures.get("ground_strip", null)
-	var ground_strip_emissive: Texture2D = _floor_textures.get("ground_strip_emissive", null)
-	var base_01: Texture2D = _floor_textures.get("base_01", null)
-	var base_02: Texture2D = _floor_textures.get("base_02", null)
-	var border: Texture2D = _floor_textures.get("border", null)
-	var border_emissive: Texture2D = _floor_textures.get("border_emissive", null)
-	var medallion: Texture2D = _floor_textures.get("medallion", null)
-	var medallion_emissive: Texture2D = _floor_textures.get("medallion_emissive", null)
-	var accent: Texture2D = _floor_textures.get("accent", null)
-	var accent_emissive: Texture2D = _floor_textures.get("accent_emissive", null)
-	var use_side_cutouts := ground_strip != null
-	if use_side_cutouts:
-		medallion = _floor_textures.get("medallion_cutout", medallion)
-		medallion_emissive = _floor_textures.get("medallion_cutout_emissive", medallion_emissive)
-		accent = _floor_textures.get("accent_cutout", accent)
-		accent_emissive = _floor_textures.get("accent_cutout_emissive", accent_emissive)
-	var first_x: int
-	if ground_strip != null:
-		first_x = int(floor(_camera_x / GROUND_STRIP_REPEAT)) * int(GROUND_STRIP_REPEAT)
-		for world_x in range(first_x - int(GROUND_STRIP_REPEAT), int(_camera_x + GAME_SIZE.x + GROUND_STRIP_REPEAT), int(GROUND_STRIP_REPEAT)):
-			var strip_rect := Rect2(Vector2(world_x, SIDEWALK_TOP), Vector2(GROUND_STRIP_REPEAT, GROUND_STRIP_HEIGHT))
-			_draw_texture_world(ground_strip, strip_rect, scale)
-			var strip_alpha := _flicker_alpha("ground:%d" % world_x, 0.48, 0.18)
-			_draw_texture_world(ground_strip_emissive, strip_rect, scale, Color(1.0, 1.0, 1.0, strip_alpha))
-	else:
-		first_x = int(floor(_camera_x / FLOOR_REPEAT)) * int(FLOOR_REPEAT)
-		for world_x in range(first_x - int(FLOOR_REPEAT), int(_camera_x + GAME_SIZE.x + FLOOR_REPEAT), int(FLOOR_REPEAT)):
-			var tile_x := int(world_x / int(FLOOR_REPEAT))
-			var texture := base_01 if tile_x % 2 == 0 else base_02
-			_draw_texture_world(texture, Rect2(Vector2(world_x, SIDEWALK_TOP), Vector2(FLOOR_REPEAT, SIDEWALK_HEIGHT)), scale)
-		draw_rect(Rect2(Vector2(0.0, UNDERGROUND_TOP) * scale, Vector2(GAME_SIZE.x, GAME_SIZE.y - UNDERGROUND_TOP) * scale), Color(0.006, 0.011, 0.026, 1.0), true)
-		_draw_vr_strata(scale)
-		draw_line(Vector2(0.0, UNDERGROUND_TOP) * scale, Vector2(GAME_SIZE.x, UNDERGROUND_TOP) * scale, Color(1.0, 0.32, 0.92, 0.54), max(1.0, 2.0 * scale))
-	if use_side_cutouts:
-		var border_alpha := _flicker_alpha("border:%d" % first_x, 0.12, 0.14)
-		_draw_texture_world(border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, SIDEWALK_TOP + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), scale, Color(1.0, 1.0, 1.0, border_alpha))
-	else:
-		_draw_texture_world(border, Rect2(Vector2(first_x - FLOOR_REPEAT, SIDEWALK_TOP + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), scale, Color(1.0, 1.0, 1.0, 0.92))
-		_draw_texture_world(border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, SIDEWALK_TOP + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), scale, Color(1.0, 1.0, 1.0, 0.50))
-	for pos_x in [560.0, 1320.0, 2080.0, 2840.0]:
-		_draw_texture_world(medallion, Rect2(Vector2(pos_x, SIDEWALK_TOP + 20.0), Vector2(118.0, 118.0)), scale)
-		var medallion_alpha := _flicker_alpha("medallion:%d" % int(pos_x), 0.34, 0.18)
-		_draw_texture_world(medallion_emissive, Rect2(Vector2(pos_x, SIDEWALK_TOP + 20.0), Vector2(118.0, 118.0)), scale, Color(1.0, 1.0, 1.0, medallion_alpha))
-	for pos_x in [250.0, 980.0, 1750.0, 2460.0]:
-		_draw_texture_world(accent, Rect2(Vector2(pos_x, SIDEWALK_TOP + 28.0), Vector2(96.0, 96.0)), scale)
-		var accent_alpha := _flicker_alpha("accent:%d" % int(pos_x), 0.40, 0.18)
-		_draw_texture_world(accent_emissive, Rect2(Vector2(pos_x, SIDEWALK_TOP + 28.0), Vector2(96.0, 96.0)), scale, Color(1.0, 1.0, 1.0, accent_alpha))
-	draw_line(Vector2(0.0, SIDEWALK_TOP) * scale, Vector2(GAME_SIZE.x, SIDEWALK_TOP) * scale, Color(0.0, 0.9, 1.0, 0.28), max(1.0, 1.5 * scale))
-
-
-func _draw_vr_strata(scale: float) -> void:
-	for layer_idx in range(4):
-		var y := UNDERGROUND_TOP + 10.0 + float(layer_idx) * 15.0
-		var layer_alpha := _flicker_alpha("strata-line:%d" % layer_idx, 0.14, 0.10)
-		var color := Color(0.0, 0.56 + float(layer_idx) * 0.08, 0.86, layer_alpha)
-		draw_line(Vector2(0.0, y) * scale, Vector2(GAME_SIZE.x, y + 6.0) * scale, color, max(1.0, 1.0 * scale))
-	for idx in range(18):
-		var world_x := float(idx) * 180.0 + 40.0
-		var local_x := fposmod(world_x - _camera_x * 1.18, GAME_SIZE.x + 180.0) - 90.0
-		var h := 8.0 + float((idx * 17) % 19)
-		var block_alpha := _flicker_alpha("strata-block:%d" % idx, 0.10, 0.16)
-		var color := Color(0.0, 0.92, 1.0, block_alpha)
-		draw_rect(Rect2(Vector2(local_x, UNDERGROUND_TOP + 18.0 + float((idx * 13) % 42)) * scale, Vector2(54.0, h) * scale), color, true)
-
-
-func _draw_exit_zone(scale: float) -> void:
-	var rect := _world_rect_to_local(EXIT_ZONE, scale)
-	draw_rect(rect, Color(0.0, 0.9, 1.0, 0.12), true)
-	draw_rect(rect, Color(0.0, 0.9, 1.0, 0.42), false, max(1.0, 2.0 * scale))
-	var font := ThemeDB.fallback_font
-	if font != null:
-		draw_string(font, rect.position + Vector2(25.0, 55.0) * scale, "나가기", HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(22.0 * scale), Color(0.78, 1.0, 1.0, 0.92))
+	_lingpet_follower_initialized = true
 
 
 func _draw_world_objects(scale: float) -> void:
 	for spec in _building_specs:
 		_draw_building(spec, scale)
-	if _plaza_warp_active:
+	if _transition_state.warp_active:
 		var plaza_warp_progress := _get_plaza_warp_progress()
 		var plaza_actor_alpha := _get_plaza_warp_actor_alpha(plaza_warp_progress)
 		if plaza_actor_alpha > 0.01:
@@ -1142,160 +838,80 @@ func _draw_world_objects(scale: float) -> void:
 			_draw_lingpet_follower(scale, plaza_actor_alpha, _lingpet_follower_pos + Vector2(0.0, plaza_actor_lift * 0.72))
 			_draw_player(scale, plaza_actor_alpha, _player_pos + Vector2(0.0, plaza_actor_lift))
 		return
-	if _building_transition_active:
+	if _transition_state.building_active:
 		var transition_progress := _get_building_transition_progress()
 		var actor_alpha := _get_building_transition_actor_alpha(transition_progress)
 		if actor_alpha > 0.01:
 			var actor_lift := _get_building_transition_actor_lift(transition_progress)
-			_draw_lingpet_follower(scale, actor_alpha, _building_transition_lingpet_pos + Vector2(0.0, actor_lift * 0.72))
-			_draw_player(scale, actor_alpha, _building_transition_player_pos + Vector2(0.0, actor_lift))
+			_draw_lingpet_follower(scale, actor_alpha, _transition_state.building_lingpet_pos + Vector2(0.0, actor_lift * 0.72))
+			_draw_player(scale, actor_alpha, _transition_state.building_player_pos + Vector2(0.0, actor_lift))
 		return
 	_draw_lingpet_follower(scale)
 	_draw_player(scale)
 
 
 func _draw_building(spec: Dictionary, scale: float) -> void:
-	var base_texture: Texture2D = spec.get("base_texture", null)
-	if base_texture == null:
-		return
-	var world_rect: Rect2 = spec.get("visual_rect", Rect2())
-	if world_rect.size == Vector2.ZERO:
-		var source_size: Vector2 = spec.get("source_size", Vector2.ONE)
-		var origin_pivot: Vector2 = spec.get("origin_pivot", source_size * 0.5)
-		var display_scale: float = float(spec.get("display_scale", 1.0))
-		var pivot_pos: Vector2 = spec.get("pivot_pos", Vector2.ZERO)
-		world_rect = Rect2(pivot_pos - origin_pivot * display_scale, source_size * display_scale)
-	var local_rect := _world_rect_to_local(world_rect, scale)
-	if local_rect.position.x > size.x + 80.0 or local_rect.end.x < -80.0:
-		return
-	var shadow_rect := Rect2(Vector2(local_rect.position.x + local_rect.size.x * 0.12, BUILDING_BASELINE_Y * scale), Vector2(local_rect.size.x * 0.76, 18.0 * scale))
-	draw_rect(shadow_rect, Color(0.0, 0.0, 0.0, 0.22), true)
-	draw_texture_rect(base_texture, local_rect, false)
-	var sign_texture: Texture2D = spec.get("sign_texture", null)
-	var window_texture: Texture2D = spec.get("window_texture", null)
-	var pivot_pos: Vector2 = spec.get("pivot_pos", Vector2.ZERO)
-	var flicker_seed := "%s:%d" % [str(spec.get("type", "")), int(round(pivot_pos.x))]
-	var pulse: float = _discrete_flicker(flicker_seed)
-	if sign_texture != null:
-		draw_texture_rect(sign_texture, local_rect, false, Color(1.0, 1.0, 1.0, 0.72 + pulse * 0.22))
-	if window_texture != null:
-		draw_texture_rect(window_texture, local_rect, false, Color(1.0, 0.93, 0.78, 0.56 + pulse * 0.12))
+	PlazaBuildingRenderer.draw(
+		self,
+		spec,
+		_camera_x,
+		size.x,
+		BUILDING_BASELINE_Y,
+		scale,
+		Time.get_ticks_msec()
+	)
 
 
 func _draw_player(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
 	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
-	if _draw_player_sheet(scale, alpha, draw_world_pos):
-		return
-	_draw_player_placeholder(scale, alpha, draw_world_pos)
-
-
-func _draw_player_sheet(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> bool:
-	if not bool(_player_textures.get("has_sprite", false)):
-		return false
-	var safe_alpha := clampf(alpha, 0.0, 1.0)
-	if safe_alpha <= 0.01:
-		return true
 	var moving := _is_player_walking()
-	var direction := _get_player_facing_direction()
-	var texture: Texture2D = null
-	if moving:
-		var key := "walk_left" if direction < 0 else "walk_right"
-		texture = _player_textures.get(key, null)
-	if texture == null:
-		texture = _player_textures.get("idle", null)
-	if texture == null:
-		texture = _player_textures.get("walk_left", null) if direction < 0 else _player_textures.get("walk_right", null)
-	if texture == null:
-		return false
-	var src_rect := _get_sheet_frame_rect(texture, _get_player_sprite_frame(), int(_player_textures.get("grid_cols", 4)), int(_player_textures.get("grid_rows", 2)))
-	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
-	var local := _world_to_local(draw_world_pos, scale)
-	var draw_size := PLAYER_SPRITE_DRAW_SIZE * scale
-	var draw_rect := Rect2(
-		local + (PLAYER_SPRITE_FOOT_OFFSET - Vector2(PLAYER_SPRITE_DRAW_SIZE.x * 0.5, PLAYER_SPRITE_DRAW_SIZE.y)) * scale,
-		draw_size
+	PlazaActorRenderer.draw_player(
+		self,
+		_player_textures,
+		draw_world_pos,
+		_camera_x,
+		scale,
+		alpha,
+		moving,
+		_get_player_facing_direction(),
+		PlazaActorVisualProjection.get_player_sprite_frame(
+			Time.get_ticks_msec(),
+			moving,
+			max(1, int(_player_textures.get("frame_count", 8)))
+		)
 	)
-	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, 24.0 * scale, 8.5 * scale, safe_alpha)
-	draw_texture_rect_region(texture, draw_rect, src_rect, Color(1.0, 1.0, 1.0, safe_alpha))
-	return true
-
-
-func _draw_player_placeholder(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
-	var safe_alpha := clampf(alpha, 0.0, 1.0)
-	if safe_alpha <= 0.01:
-		return
-	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
-	var local := _world_to_local(draw_world_pos, scale)
-	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, 23.0 * scale, 8.0 * scale, safe_alpha)
-	draw_rect(Rect2(local + Vector2(-15.0, -56.0) * scale, Vector2(30.0, 52.0) * scale), Color(0.30, 0.34, 0.38, 0.96 * safe_alpha), true)
-	draw_rect(Rect2(local + Vector2(-17.0, -58.0) * scale, Vector2(34.0, 56.0) * scale), Color(0.74, 0.82, 0.88, 0.55 * safe_alpha), false, max(1.0, 2.0 * scale))
-	draw_circle(local + Vector2(0.0, -74.0) * scale, 15.0 * scale, Color(0.68, 0.70, 0.72, safe_alpha))
-	draw_line(local + Vector2(-9.0, -6.0) * scale, local + Vector2(-16.0, 12.0) * scale, Color(0.66, 0.74, 0.78, 0.9 * safe_alpha), max(1.0, 3.0 * scale))
-	draw_line(local + Vector2(9.0, -6.0) * scale, local + Vector2(16.0, 12.0) * scale, Color(0.66, 0.74, 0.78, 0.9 * safe_alpha), max(1.0, 3.0 * scale))
 
 
 func _draw_lingpet_follower(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
 	if not _is_lingpet_companion_visible():
 		return
-	var safe_alpha := clampf(alpha, 0.0, 1.0)
-	if safe_alpha <= 0.01:
-		return
 	var draw_world_pos := _lingpet_follower_pos if world_pos == Vector2.INF else world_pos
-	var local := _world_to_local(draw_world_pos, scale)
-	var draw_size := Vector2(_lingpet_companion_draw_size, _lingpet_companion_draw_size) * scale
-	var draw_rect := Rect2(local + Vector2(-draw_size.x * 0.5, -draw_size.y + 8.0 * scale), draw_size)
-	_draw_ground_shadow(local + Vector2(0.0, 6.0) * scale, max(14.0, _lingpet_companion_draw_size * 0.26) * scale, max(5.0, _lingpet_companion_draw_size * 0.095) * scale, safe_alpha * 0.9)
-	var frame := int(floor(float(Time.get_ticks_msec() % 2000) / 2000.0 * float(LINGPET_COMPANION_FRAME_COUNT)))
-	var src_rect := _get_sheet_frame_rect(_lingpet_companion_texture, frame, LINGPET_COMPANION_GRID_COLS, LINGPET_COMPANION_GRID_ROWS)
-	draw_texture_rect_region(_lingpet_companion_texture, draw_rect, src_rect, Color(1.0, 1.0, 1.0, safe_alpha))
-
-
-# Soft flattened ground contact shadow. Drawn as 3 concentric ellipses (no
-# transform -- avoids the draw_set_transform trap) so the edge fades instead of
-# reading as a flat gray disc, and the wide/short ratio matches the slight
-# top-down plaza view. `intensity` scales with the actor alpha so the shadow
-# dissolves together with the warp.
-func _draw_ground_shadow(center: Vector2, radius_x: float, radius_y: float, intensity: float) -> void:
-	if intensity <= 0.01 or radius_x <= 0.5 or radius_y <= 0.5:
-		return
-	for layer in [[1.0, 0.06], [0.66, 0.08], [0.36, 0.10]]:
-		var s := float(layer[0])
-		var a := float(layer[1]) * intensity
-		if a <= 0.003:
-			continue
-		var pts := PackedVector2Array()
-		for i in range(24):
-			var ang := TAU * float(i) / 24.0
-			pts.append(center + Vector2(cos(ang) * radius_x * s, sin(ang) * radius_y * s))
-		draw_colored_polygon(pts, Color(0.0, 0.0, 0.0, a))
+	PlazaActorRenderer.draw_lingpet(
+		self,
+		_lingpet_companion_texture,
+		_lingpet_companion_draw_size,
+		draw_world_pos,
+		_camera_x,
+		scale,
+		alpha,
+		Time.get_ticks_msec()
+	)
 
 
 func _get_building_transition_actor_alpha(progress: float) -> float:
-	var eased := _smooth_unit(progress)
-	if _building_transition_phase == "return":
-		return eased
-	return 1.0 - eased
+	return _transition_state.get_building_actor_alpha(progress)
 
 
 func _get_building_transition_actor_lift(progress: float) -> float:
-	var eased := _smooth_unit(progress)
-	if _building_transition_phase == "return":
-		return -34.0 * (1.0 - eased)
-	return -42.0 * eased
+	return _transition_state.get_building_actor_lift(progress)
 
 
 func _get_plaza_warp_actor_alpha(progress: float) -> float:
-	var eased := _smooth_unit(progress)
-	if _plaza_warp_phase == "arrive":
-		return eased
-	return 1.0 - eased
+	return _transition_state.get_warp_actor_alpha(progress)
 
 
 func _get_plaza_warp_actor_lift(progress: float) -> float:
-	var eased := _smooth_unit(progress)
-	if _plaza_warp_phase == "arrive":
-		return -42.0 * (1.0 - eased)
-	return -48.0 * eased
+	return _transition_state.get_warp_actor_lift(progress)
 
 
 func _ensure_character_info_overlay_host() -> void:
@@ -1373,7 +989,7 @@ func _sync_warp_pillar_fx_host() -> void:
 	_ensure_warp_pillar_fx_host()
 	if _warp_pillar_fx_host == null or not _warp_pillar_fx_host.has_method("sync_state"):
 		return
-	if not _plaza_warp_active:
+	if not _transition_state.warp_active:
 		_warp_pillar_fx_host.sync_state([], false)
 		return
 	var scale := _get_game_scale()
@@ -1382,14 +998,14 @@ func _sync_warp_pillar_fx_host() -> void:
 	actor_states.append({
 		"screen_pos": _world_to_local(_player_pos, scale),
 		"progress": progress,
-		"phase": _plaza_warp_phase,
+		"phase": _transition_state.warp_phase,
 		"strength": 1.0,
 	})
 	if _is_lingpet_companion_visible():
 		actor_states.append({
 			"screen_pos": _world_to_local(_lingpet_follower_pos, scale),
 			"progress": progress,
-			"phase": _plaza_warp_phase,
+			"phase": _transition_state.warp_phase,
 			"strength": 0.66,
 		})
 	_warp_pillar_fx_host.sync_state(actor_states, true)
@@ -1412,14 +1028,11 @@ func _draw_overlay_ui(scale: float) -> void:
 	if font == null:
 		return
 	_draw_minimap(scale)
-	if _plaza_warp_active:
+	if _transition_state.warp_active:
 		return
-	if _building_transition_active:
+	if _transition_state.building_active:
 		return
-	if _menu_open:
-		if _is_interior_view_active():
-			return
-		_draw_building_menu(font, scale)
+	if _menu_session.is_open:
 		return
 	var active_building := _get_interactable_building()
 	if not active_building.is_empty():
@@ -1433,201 +1046,6 @@ func _draw_overlay_ui(scale: float) -> void:
 		draw_rect(dialog, Color(0.02, 0.018, 0.05, 0.88), true)
 		draw_rect(dialog, Color(1.0, 0.32, 0.92, 0.72), false, max(1.0, 2.0 * scale))
 		draw_string(font, dialog.position + Vector2(22.0, 39.0) * scale, _dialog_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, int(22.0 * scale), Color(1.0, 0.94, 1.0, 1.0))
-
-
-func _draw_building_menu(font: Font, scale: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.54), true)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.18, 0.26, 0.12), true)
-	_draw_interior_npc_panel(font, scale)
-	_draw_interior_speech_panel(font, scale)
-	var panel := Rect2(MENU_PANEL_RECT.position * scale, MENU_PANEL_RECT.size * scale)
-	var menu_color := _get_minimap_building_color(_active_menu_type)
-	draw_rect(panel, Color(0.014, 0.020, 0.038, 0.97), true)
-	draw_rect(panel, Color(menu_color.r * 0.12, menu_color.g * 0.12, menu_color.b * 0.12, 0.52), true)
-	draw_rect(panel, Color(0.0, 0.86, 1.0, 0.42), false, max(1.0, 2.0 * scale))
-	draw_line(
-		panel.position + Vector2(18.0, 18.0) * scale,
-		panel.position + Vector2(MENU_PANEL_RECT.size.x - 18.0, 18.0) * scale,
-		menu_color,
-		max(1.0, 1.5 * scale)
-	)
-	draw_line(
-		panel.position + Vector2(0.0, 70.0) * scale,
-		panel.position + Vector2(MENU_PANEL_RECT.size.x, 70.0) * scale,
-		Color(1.0, 0.32, 0.92, 0.46),
-		max(1.0, 1.5 * scale)
-	)
-	_draw_text_shadow(font, panel.position + Vector2(30.0, 45.0) * scale, _active_menu_title, int(28.0 * scale), Color(1.0, 0.94, 0.76, 1.0))
-	if _active_menu_subtitle != "":
-		_draw_text_shadow(font, panel.position + Vector2(30.0, 70.0) * scale, _active_menu_subtitle, int(15.0 * scale), Color(0.78, 0.90, 0.96, 0.82))
-	var close_rect := Rect2(MENU_CLOSE_RECT.position * scale, MENU_CLOSE_RECT.size * scale)
-	draw_rect(close_rect, Color(0.06, 0.10, 0.15, 0.86), true)
-	draw_rect(close_rect, Color(0.0, 0.88, 1.0, 0.55), false, max(1.0, 1.2 * scale))
-	_draw_text_shadow(font, close_rect.position + Vector2(18.0, 23.0) * scale, "닫기", int(16.0 * scale), Color(0.88, 1.0, 1.0, 0.96))
-	var row_y := MENU_PANEL_RECT.position.y + MENU_ACTION_ROW_START_Y
-	for idx in range(_active_menu_actions.size()):
-		_draw_menu_action_row(font, scale, idx, row_y + float(idx) * MENU_ACTION_ROW_STEP, _active_menu_actions[idx])
-	var note_y := MENU_PANEL_RECT.end.y - 38.0
-	if _active_menu_type == "bank":
-		var ledger_text := "보유 %dG  |  예금 %dG  |  열쇠 %d" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("bank_deposit_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var message := _active_menu_last_message if _active_menu_last_message != "" else "첫 은행 처리 때 열쇠 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "shop":
-		var shop_ledger_text := "보유 %dG  |  열쇠 %d  |  액티브 %d개" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			_get_active_item_slot_count(),
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, shop_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var shop_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 거래 때 열쇠 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, shop_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "gacha":
-		var gacha_ledger_text := "보유 %dG  |  열쇠 %d  |  액티브 %d개  |  1회 %dG" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			_get_active_item_slot_count(),
-			PlazaGachaTransactions.PULL_COST,
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, gacha_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var gacha_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 뽑기 때 열쇠 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, gacha_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "lingpet_store":
-		var lingpet_ledger_text := "보유 %dG  |  열쇠 %d  |  링펫 %d종  |  알 %dG" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			_get_owned_lingpet_count(),
-			PlazaLingpetStoreTransactions.EGG_COST,
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, lingpet_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var lingpet_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 알 뽑기 때 열쇠 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, lingpet_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "tavern":
-		var active_quest := _get_tavern_active_quest_summary()
-		var offered_quest := PlazaTavernTransactions.get_stage_offer(current_stage)
-		var visible_quest := active_quest if not active_quest.is_empty() else offered_quest
-		var quest_state := "진행 중" if not active_quest.is_empty() else "제안"
-		var tavern_ledger_text := "보유 %dG  |  행동력 %d  |  %s: %s +%dG" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			quest_state,
-			str(visible_quest.get("name", "의뢰")),
-			int(visible_quest.get("reward_gold", 0)),
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, tavern_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var tavern_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 의뢰 처리 때 행동력 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, tavern_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "academy":
-		var academy_ledger_text := "보유 %dG  |  행동력 %d  |  수업료 %dG" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			PlazaAcademyTransactions.LESSON_COST,
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, academy_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var academy_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 수업 처리 때 행동력 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, academy_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	elif _active_menu_type == "blacksmith":
-		var target_summary := _get_blacksmith_target_summary()
-		var target_text := "대상 없음"
-		if bool(target_summary.get("has_target", false)):
-			target_text = "%s +%d" % [
-				str(target_summary.get("display_name", "아이템")),
-				int(target_summary.get("level", 0)),
-			]
-		var blacksmith_ledger_text := "보유 %dG  |  열쇠 %d  |  %s  |  비용 %dG" % [
-			int(_plaza_save_snapshot.get("plaza_gold", 0)),
-			int(_plaza_save_snapshot.get("ap_current", 0)),
-			target_text,
-			int(target_summary.get("cost", 0)),
-		]
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y - 22.0) * scale, blacksmith_ledger_text, int(15.0 * scale), Color(0.78, 1.0, 0.94, 0.88))
-		var blacksmith_message := _active_menu_last_message if _active_menu_last_message != "" else "첫 강화 시도 때 열쇠 1개를 사용합니다."
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, blacksmith_message, int(15.0 * scale), Color(1.0, 0.82, 0.56, 0.92))
-	else:
-		_draw_text_shadow(font, Vector2(MENU_PANEL_RECT.position.x + 30.0, note_y) * scale, "준비 중", int(16.0 * scale), Color(1.0, 0.72, 0.94, 0.88))
-
-
-func _draw_interior_npc_panel(font: Font, scale: float) -> void:
-	var npc_rect := Rect2(INTERIOR_NPC_RECT.position * scale, INTERIOR_NPC_RECT.size * scale)
-	var accent := _get_minimap_building_color(_active_menu_type)
-	draw_rect(npc_rect, Color(0.018, 0.025, 0.038, 0.95), true)
-	draw_rect(npc_rect, Color(accent.r * 0.10, accent.g * 0.10, accent.b * 0.10, 0.48), true)
-	draw_rect(npc_rect, accent, false, max(1.0, 2.0 * scale))
-	for idx in range(6):
-		var y := INTERIOR_NPC_RECT.position.y + 54.0 + float(idx) * 52.0
-		draw_line(
-			Vector2(INTERIOR_NPC_RECT.position.x + 14.0, y) * scale,
-			Vector2(INTERIOR_NPC_RECT.end.x - 14.0, y - 36.0) * scale,
-			Color(accent.r, accent.g, accent.b, 0.11),
-			max(1.0, 1.0 * scale)
-		)
-	var npc_texture := _get_interior_npc_texture(_active_menu_type)
-	if npc_texture != null:
-		_draw_interior_npc_texture(npc_texture, scale)
-	else:
-		_draw_interior_npc_placeholder(accent, scale)
-	var name_text := str(INTERIOR_NPC_NAMES.get(_active_menu_type, "광장 안내원"))
-	_draw_text_shadow(font, (INTERIOR_NPC_RECT.position + Vector2(22.0, INTERIOR_NPC_RECT.size.y - 18.0)) * scale, name_text, int(17.0 * scale), Color(0.94, 0.98, 1.0, 0.96))
-
-
-func _draw_interior_npc_texture(texture: Texture2D, scale: float) -> void:
-	var texture_size: Vector2 = texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
-	var fit_rect := Rect2(
-		(INTERIOR_NPC_RECT.position + Vector2(8.0, 8.0)) * scale,
-		(INTERIOR_NPC_RECT.size - Vector2(16.0, 42.0)) * scale
-	)
-	var fit_scale: float = min(fit_rect.size.x / texture_size.x, fit_rect.size.y / texture_size.y)
-	var draw_size: Vector2 = texture_size * fit_scale
-	var draw_pos: Vector2 = Vector2(fit_rect.get_center().x - draw_size.x * 0.5, fit_rect.end.y - draw_size.y)
-	draw_texture_rect(texture, Rect2(draw_pos, draw_size), false)
-
-
-func _draw_interior_npc_placeholder(accent: Color, scale: float) -> void:
-	var badge_center := INTERIOR_NPC_RECT.position + Vector2(44.0, 44.0)
-	draw_circle(badge_center * scale, 23.0 * scale, Color(0.0, 0.0, 0.0, 0.34))
-	draw_circle(badge_center * scale, 20.0 * scale, Color(0.018, 0.032, 0.050, 0.94))
-	draw_arc(badge_center * scale, 20.0 * scale, 0.0, TAU, 30, accent, max(1.0, 2.0 * scale), true)
-	draw_circle(badge_center * scale, 5.8 * scale, accent)
-	var center_x := INTERIOR_NPC_RECT.position.x + INTERIOR_NPC_RECT.size.x * 0.52
-	var foot_y := INTERIOR_NPC_RECT.end.y - 38.0
-	var head_center := Vector2(center_x, foot_y - 248.0)
-	draw_circle(head_center * scale, 38.0 * scale, Color(0.78, 0.84, 0.88, 0.94))
-	draw_circle((head_center + Vector2(-11.0, -5.0)) * scale, 10.0 * scale, Color(accent.r, accent.g, accent.b, 0.64))
-	draw_circle((head_center + Vector2(13.0, -8.0)) * scale, 8.0 * scale, Color(accent.r, accent.g, accent.b, 0.48))
-	draw_rect(Rect2((head_center + Vector2(-8.0, 33.0)) * scale, Vector2(16.0, 30.0) * scale), Color(0.60, 0.68, 0.74, 0.92), true)
-	var body_rect := Rect2(Vector2(center_x - 48.0, foot_y - 186.0) * scale, Vector2(96.0, 138.0) * scale)
-	draw_rect(body_rect, Color(0.20, 0.24, 0.30, 0.96), true)
-	draw_rect(body_rect, Color(accent.r, accent.g, accent.b, 0.22), true)
-	draw_line(Vector2(center_x - 38.0, foot_y - 154.0) * scale, Vector2(center_x - 84.0, foot_y - 95.0) * scale, Color(0.62, 0.70, 0.76, 0.88), max(1.0, 9.0 * scale))
-	draw_line(Vector2(center_x + 38.0, foot_y - 154.0) * scale, Vector2(center_x + 82.0, foot_y - 104.0) * scale, Color(0.62, 0.70, 0.76, 0.88), max(1.0, 9.0 * scale))
-	draw_line(Vector2(center_x - 22.0, foot_y - 48.0) * scale, Vector2(center_x - 42.0, foot_y) * scale, Color(0.44, 0.52, 0.60, 0.90), max(1.0, 10.0 * scale))
-	draw_line(Vector2(center_x + 22.0, foot_y - 48.0) * scale, Vector2(center_x + 42.0, foot_y) * scale, Color(0.44, 0.52, 0.60, 0.90), max(1.0, 10.0 * scale))
-
-
-func _draw_interior_speech_panel(font: Font, scale: float) -> void:
-	var speech_rect := Rect2(INTERIOR_SPEECH_RECT.position * scale, INTERIOR_SPEECH_RECT.size * scale)
-	var accent := _get_minimap_building_color(_active_menu_type)
-	draw_rect(speech_rect, Color(0.96, 0.90, 0.82, 0.94), true)
-	draw_rect(speech_rect, Color(accent.r, accent.g, accent.b, 0.32), false, max(1.0, 2.0 * scale))
-	_draw_text_shadow(font, speech_rect.position + Vector2(16.0, 27.0) * scale, str(INTERIOR_NPC_NAMES.get(_active_menu_type, "광장 안내원")), int(15.0 * scale), Color(0.18, 0.12, 0.08, 1.0))
-	var greeting := str(INTERIOR_GREETING_LINES.get(_active_menu_type, "무엇을 도와드릴까요?"))
-	var greeting_lines := greeting.split("|", false)
-	for idx in range(min(2, greeting_lines.size())):
-		draw_string(
-			font,
-			speech_rect.position + Vector2(16.0, 54.0 + float(idx) * 21.0) * scale,
-			str(greeting_lines[idx]),
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1.0,
-			int(16.0 * scale),
-			Color(0.10, 0.08, 0.07, 0.96)
-		)
 
 
 func _get_interior_npc_texture(building_type: String) -> Texture2D:
@@ -1644,278 +1062,40 @@ func _get_interior_room_texture(building_type: String) -> Texture2D:
 	return texture if texture is Texture2D else null
 
 
-func _draw_menu_action_row(font: Font, scale: float, index: int, y: float, label: String) -> void:
-	var row := Rect2(Vector2(MENU_PANEL_RECT.position.x + 30.0, y) * scale, Vector2(MENU_PANEL_RECT.size.x - 60.0, MENU_ACTION_ROW_HEIGHT) * scale)
-	draw_rect(row, Color(0.06, 0.085, 0.115, 0.76), true)
-	draw_rect(row, Color(0.0, 0.76, 0.92, 0.22), false, max(1.0, 1.0 * scale))
-	var number_text := "%02d" % (index + 1)
-	_draw_text_shadow(font, row.position + Vector2(16.0, 29.0) * scale, number_text, int(16.0 * scale), Color(0.0, 0.92, 1.0, 0.82))
-	_draw_text_shadow(font, row.position + Vector2(64.0, 30.0) * scale, label, int(20.0 * scale), Color(0.94, 0.98, 1.0, 0.96))
-	var state_text := "실행" if _is_executable_menu_type(_active_menu_type) else "준비 중"
-	var state_color := Color(0.72, 1.0, 0.86, 0.82) if _is_executable_menu_type(_active_menu_type) else Color(1.0, 0.72, 0.94, 0.70)
-	_draw_text_shadow(font, row.position + Vector2(row.size.x / scale - 86.0, 29.0) * scale, state_text, int(15.0 * scale), state_color)
-
-
 func _draw_minimap(scale: float) -> void:
-	var state := _build_minimap_state()
-	var panel_rect: Rect2 = state.get("panel_rect", MINIMAP_PANEL_RECT)
-	var track_rect: Rect2 = state.get("track_rect", _get_minimap_track_rect())
-	var camera_rect: Rect2 = state.get("camera_rect", Rect2())
-	var player_marker: Vector2 = state.get("player_marker", Vector2.ZERO)
-	var exit_marker: Vector2 = state.get("exit_marker", Vector2.ZERO)
-	var panel_px := Rect2(panel_rect.position * scale, panel_rect.size * scale)
-	var track_px := Rect2(track_rect.position * scale, track_rect.size * scale)
-	draw_rect(panel_px, Color(0.006, 0.014, 0.026, 0.82), true)
-	draw_rect(panel_px, Color(0.0, 0.82, 1.0, 0.46), false, max(1.0, 1.0 * scale))
-	draw_line(
-		(panel_rect.position + Vector2(10.0, 10.0)) * scale,
-		(panel_rect.position + Vector2(panel_rect.size.x - 10.0, 10.0)) * scale,
-		Color(0.0, 0.82, 1.0, 0.18),
-		max(1.0, 1.0 * scale)
-	)
-	draw_rect(track_px, Color(0.025, 0.050, 0.072, 0.92), true)
-	draw_rect(track_px, Color(0.0, 0.86, 1.0, 0.34), false, max(1.0, 1.0 * scale))
-	if camera_rect.size.x > 0.0:
-		draw_rect(Rect2(camera_rect.position * scale, camera_rect.size * scale), Color(0.30, 0.78, 1.0, 0.16), true)
-	var markers_value: Variant = state.get("building_markers", [])
-	if markers_value is Array:
-		for marker_value in markers_value:
-			if not (marker_value is Dictionary):
-				continue
-			var marker := marker_value as Dictionary
-			var marker_pos: Vector2 = marker.get("position", Vector2.ZERO)
-			var icon_pos: Vector2 = marker.get("icon_position", marker_pos + Vector2(0.0, -17.0))
-			var marker_color := _get_minimap_building_color(str(marker.get("type", "")))
-			draw_line(marker_pos * scale, icon_pos * scale, Color(marker_color.r, marker_color.g, marker_color.b, 0.34), max(1.0, 1.0 * scale))
-			draw_rect(Rect2((marker_pos + Vector2(-1.4, -5.0)) * scale, Vector2(2.8, 10.0) * scale), marker_color, true)
-			_draw_minimap_building_badge(marker, icon_pos, marker_color, scale)
-	draw_line(
-		(exit_marker + Vector2(0.0, -8.0)) * scale,
-		(exit_marker + Vector2(0.0, 8.0)) * scale,
-		Color(1.0, 0.80, 0.30, 0.94),
-		max(1.0, 2.0 * scale)
-	)
-	draw_line(
-		(exit_marker + Vector2(-5.0, -4.0)) * scale,
-		exit_marker * scale,
-		Color(1.0, 0.80, 0.30, 0.86),
-		max(1.0, 1.5 * scale)
-	)
-	draw_line(
-		(exit_marker + Vector2(-5.0, 4.0)) * scale,
-		exit_marker * scale,
-		Color(1.0, 0.80, 0.30, 0.86),
-		max(1.0, 1.5 * scale)
-	)
-	draw_circle(player_marker * scale, 4.6 * scale, Color(0.0, 0.96, 1.0, 0.96))
-	draw_circle(player_marker * scale, 2.0 * scale, Color(1.0, 1.0, 1.0, 0.92))
+	PlazaMinimapRenderer.draw(self, _build_minimap_state(), scale)
 
 
 func _build_minimap_state() -> Dictionary:
-	var track_rect := _get_minimap_track_rect()
-	var marker_y := track_rect.get_center().y
-	var camera_start_x := _world_x_to_minimap_x(_camera_x)
-	var camera_end_x := _world_x_to_minimap_x(_camera_x + GAME_SIZE.x)
-	var building_markers: Array[Dictionary] = []
-	for spec in _building_specs:
-		var pivot_pos: Vector2 = spec.get("pivot_pos", Vector2.ZERO)
-		if pivot_pos == Vector2.ZERO:
-			var interaction_rect: Rect2 = spec.get("interaction_rect", Rect2())
-			pivot_pos = interaction_rect.get_center()
-		var identity_emblem_value: Variant = spec.get("identity_emblem", {})
-		var identity_emblem: Dictionary = identity_emblem_value as Dictionary if identity_emblem_value is Dictionary else {}
-		building_markers.append({
-			"type": str(spec.get("type", "")),
-			"identity_emblem_id": str(identity_emblem.get("id", "")),
-			"world_x": pivot_pos.x,
-			"position": Vector2(_world_x_to_minimap_x(pivot_pos.x), marker_y),
-		})
-	building_markers = _resolve_minimap_icon_positions(building_markers, track_rect)
-	return {
-		"panel_rect": MINIMAP_PANEL_RECT,
-		"track_rect": track_rect,
-		"camera_rect": Rect2(
-			Vector2(camera_start_x, track_rect.position.y - 5.0),
-			Vector2(max(4.0, camera_end_x - camera_start_x), 15.0)
-		),
-		"player_marker": Vector2(_world_x_to_minimap_x(_player_pos.x), marker_y),
-		"exit_marker": Vector2(_world_x_to_minimap_x(EXIT_ZONE.get_center().x), marker_y),
-		"building_markers": building_markers,
-	}
-
-
-func _get_minimap_track_rect() -> Rect2:
-	return Rect2(MINIMAP_PANEL_RECT.position + MINIMAP_TRACK_INSET, MINIMAP_TRACK_SIZE)
-
-
-func _world_x_to_minimap_x(world_x: float) -> float:
-	var track_rect := _get_minimap_track_rect()
-	var ratio := clampf(world_x / max(1.0, MAP_SIZE.x), 0.0, 1.0)
-	return track_rect.position.x + ratio * track_rect.size.x
-
-
-func _resolve_minimap_icon_positions(markers: Array[Dictionary], track_rect: Rect2) -> Array[Dictionary]:
-	if markers.is_empty():
-		return markers
-	var resolved: Array[Dictionary] = markers.duplicate(true)
-	resolved.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("world_x", 0.0)) < float(b.get("world_x", 0.0)))
-	var icon_y: float = track_rect.position.y - 17.0
-	var left_limit: float = track_rect.position.x + MINIMAP_ICON_SIZE * 0.5
-	var right_limit: float = track_rect.end.x - MINIMAP_ICON_SIZE * 0.5
-	var icon_positions: Array[float] = []
-	for idx in range(resolved.size()):
-		var marker_pos: Vector2 = resolved[idx].get("position", Vector2.ZERO)
-		var icon_x := clampf(marker_pos.x, left_limit, right_limit)
-		if idx > 0:
-			icon_x = max(icon_x, icon_positions[idx - 1] + MINIMAP_ICON_MIN_GAP)
-		icon_positions.append(icon_x)
-	if not icon_positions.is_empty():
-		var overflow: float = float(icon_positions[icon_positions.size() - 1]) - right_limit
-		if overflow > 0.0:
-			for idx in range(icon_positions.size()):
-				icon_positions[idx] = float(icon_positions[idx]) - overflow
-		var underflow: float = left_limit - float(icon_positions[0])
-		if underflow > 0.0:
-			for idx in range(icon_positions.size()):
-				icon_positions[idx] = float(icon_positions[idx]) + underflow
-	for idx in range(resolved.size()):
-		resolved[idx]["icon_position"] = Vector2(float(icon_positions[idx]), icon_y)
-	return resolved
+	return PlazaMinimapProjection.build(
+		_building_specs,
+		_camera_x,
+		_player_pos.x,
+		GAME_SIZE.x,
+		MAP_SIZE.x,
+		EXIT_ZONE.get_center().x
+	)
 
 
 func _get_minimap_building_color(building_type: String) -> Color:
-	match building_type:
-		"bank":
-			return Color(1.0, 0.78, 0.32, 0.96)
-		"tavern":
-			return Color(1.0, 0.50, 0.32, 0.92)
-		"academy":
-			return Color(0.72, 0.66, 1.0, 0.92)
-		"shop":
-			return Color(0.32, 0.92, 1.0, 0.92)
-		"gacha":
-			return Color(1.0, 0.32, 0.92, 0.92)
-		"lingpet_store":
-			return Color(0.45, 1.0, 0.72, 0.92)
-		"blacksmith":
-			return Color(1.0, 0.62, 0.24, 0.92)
-		_:
-			return Color(0.88, 0.96, 1.0, 0.86)
-
-
-func _draw_minimap_building_badge(marker: Dictionary, icon_pos: Vector2, marker_color: Color, scale: float) -> void:
-	var building_type := str(marker.get("type", ""))
-	var radius := MINIMAP_ICON_SIZE * 0.52
-	draw_circle(icon_pos * scale, (radius + 1.7) * scale, Color(0.0, 0.0, 0.0, 0.42))
-	draw_circle(icon_pos * scale, radius * scale, Color(0.018, 0.032, 0.050, 0.96))
-	draw_circle(icon_pos * scale, (radius - 1.5) * scale, Color(marker_color.r * 0.16, marker_color.g * 0.16, marker_color.b * 0.16, 0.92))
-	draw_arc(icon_pos * scale, radius * scale, 0.0, TAU, 20, marker_color, max(1.0, 1.1 * scale), true)
-	match building_type:
-		"bank":
-			_draw_minimap_bank_emblem(icon_pos, marker_color, scale)
-		"shop":
-			_draw_minimap_shop_emblem(icon_pos, marker_color, scale)
-		"gacha":
-			_draw_minimap_gacha_emblem(icon_pos, marker_color, scale)
-		"lingpet_store":
-			_draw_minimap_lingpet_emblem(icon_pos, marker_color, scale)
-		"blacksmith":
-			_draw_minimap_blacksmith_emblem(icon_pos, marker_color, scale)
-		"tavern":
-			_draw_minimap_tavern_emblem(icon_pos, marker_color, scale)
-		"academy":
-			_draw_minimap_academy_emblem(icon_pos, marker_color, scale)
-		_:
-			draw_circle(icon_pos * scale, 2.6 * scale, marker_color)
-
-
-func _draw_minimap_bank_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_circle((center + Vector2(-1.5, -0.5)) * scale, 3.4 * scale, Color(1.0, 0.82, 0.34, 0.96))
-	draw_arc((center + Vector2(-1.5, -0.5)) * scale, 3.4 * scale, 0.0, TAU, 12, Color(0.16, 0.08, 0.02, 0.92), max(1.0, 0.9 * scale), true)
-	draw_line((center + Vector2(-1.5, -3.6)) * scale, (center + Vector2(-1.5, 2.8)) * scale, Color(0.16, 0.08, 0.02, 0.82), max(1.0, 0.8 * scale))
-	draw_line((center + Vector2(-4.4, -0.4)) * scale, (center + Vector2(1.4, -0.4)) * scale, Color(0.16, 0.08, 0.02, 0.82), max(1.0, 0.8 * scale))
-	draw_line((center + Vector2(2.8, 3.0)) * scale, (center + Vector2(6.0, 3.0)) * scale, color, max(1.0, 1.2 * scale))
-	draw_line((center + Vector2(3.4, 0.8)) * scale, (center + Vector2(5.6, 0.8)) * scale, color, max(1.0, 1.2 * scale))
-
-
-func _draw_minimap_shop_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_circle((center + Vector2(-3.2, -1.8)) * scale, 2.6 * scale, Color(1.0, 0.78, 0.32, 0.96))
-	draw_rect(Rect2((center + Vector2(0.0, -2.8)) * scale, Vector2(5.4, 5.4) * scale), Color(color.r, color.g, color.b, 0.92), false, max(1.0, 1.1 * scale))
-	draw_line((center + Vector2(0.0, -0.2)) * scale, (center + Vector2(5.4, -0.2)) * scale, color, max(1.0, 0.8 * scale))
-
-
-func _draw_minimap_gacha_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_circle(center * scale, 4.0 * scale, Color(1.0, 1.0, 1.0, 0.16))
-	draw_arc(center * scale, 4.0 * scale, -0.15, TAU * 0.72, 16, color, max(1.0, 1.1 * scale), true)
-	draw_line((center + Vector2(2.8, -3.4)) * scale, (center + Vector2(5.3, -1.3)) * scale, color, max(1.0, 1.0 * scale))
-	draw_line((center + Vector2(-4.0, 0.0)) * scale, (center + Vector2(4.0, 0.0)) * scale, color, max(1.0, 1.0 * scale))
-
-
-func _draw_minimap_lingpet_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_circle((center + Vector2(0.0, 0.8)) * scale, 3.4 * scale, Color(0.92, 1.0, 0.88, 0.94))
-	draw_circle((center + Vector2(0.0, -2.6)) * scale, 2.4 * scale, Color(0.92, 1.0, 0.88, 0.94))
-	draw_arc(center * scale, 5.0 * scale, -0.55, 2.55, 18, color, max(1.0, 1.0 * scale), true)
-	draw_arc(center * scale, 5.0 * scale, 2.9, 5.55, 18, color, max(1.0, 1.0 * scale), true)
-
-
-func _draw_minimap_blacksmith_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_line((center + Vector2(-4.8, -4.0)) * scale, (center + Vector2(1.6, 2.4)) * scale, color, max(1.0, 1.8 * scale))
-	draw_rect(Rect2((center + Vector2(-6.0, -5.8)) * scale, Vector2(4.6, 3.0) * scale), Color(1.0, 0.80, 0.42, 0.96), true)
-	draw_line((center + Vector2(-3.8, 4.6)) * scale, (center + Vector2(5.2, 4.6)) * scale, color, max(1.0, 1.5 * scale))
-	draw_line((center + Vector2(-1.4, 2.4)) * scale, (center + Vector2(2.8, 2.4)) * scale, color, max(1.0, 1.2 * scale))
-
-
-func _draw_minimap_tavern_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_rect(Rect2((center + Vector2(-4.4, -3.8)) * scale, Vector2(6.2, 7.0) * scale), Color(0.96, 0.84, 0.62, 0.92), true)
-	draw_line((center + Vector2(-3.2, -1.6)) * scale, (center + Vector2(0.6, -1.6)) * scale, Color(0.18, 0.10, 0.04, 0.86), max(1.0, 0.8 * scale))
-	draw_circle((center + Vector2(4.0, 1.8)) * scale, 2.3 * scale, color)
-	draw_line((center + Vector2(4.0, 4.0)) * scale, (center + Vector2(4.0, 5.8)) * scale, color, max(1.0, 0.9 * scale))
-
-
-func _draw_minimap_academy_emblem(center: Vector2, color: Color, scale: float) -> void:
-	draw_rect(Rect2((center + Vector2(-5.6, -3.2)) * scale, Vector2(5.0, 6.0) * scale), Color(0.82, 0.86, 1.0, 0.88), false, max(1.0, 1.0 * scale))
-	draw_rect(Rect2((center + Vector2(0.6, -3.2)) * scale, Vector2(5.0, 6.0) * scale), Color(0.82, 0.86, 1.0, 0.88), false, max(1.0, 1.0 * scale))
-	draw_line(center * scale, (center + Vector2(0.0, 3.4)) * scale, color, max(1.0, 0.8 * scale))
-	draw_circle((center + Vector2(0.0, -5.0)) * scale, 2.1 * scale, color)
-
-
-func _draw_text_shadow(font: Font, pos: Vector2, text: String, font_size: int, color: Color) -> void:
-	draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, min(0.84, color.a)))
-	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
-
-
-func _draw_texture_world(texture: Texture2D, world_rect: Rect2, scale: float, modulate: Color = Color.WHITE) -> void:
-	if texture == null:
-		return
-	var local_rect := _world_rect_to_local(world_rect, scale)
-	if local_rect.position.x > size.x or local_rect.end.x < 0.0 or local_rect.position.y > size.y or local_rect.end.y < 0.0:
-		return
-	draw_texture_rect(texture, local_rect, false, modulate)
+	return PlazaMinimapProjection.get_building_color(building_type)
 
 
 func _world_to_local(world_pos: Vector2, scale: float) -> Vector2:
-	return Vector2(world_pos.x - _camera_x, world_pos.y) * scale
+	return PlazaWorldGeometry.world_to_local(world_pos, _camera_x, scale)
 
 
 func _world_rect_to_local(world_rect: Rect2, scale: float) -> Rect2:
-	return Rect2(_world_to_local(world_rect.position, scale), world_rect.size * scale)
+	return PlazaWorldGeometry.world_rect_to_local(world_rect, _camera_x, scale)
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var global_rect := get_global_rect()
-	var scale := _get_game_scale()
-	if scale <= 0.0:
-		return Vector2.ZERO
-	var local_pos := screen_pos - global_rect.position
-	return Vector2(local_pos.x / scale + _camera_x, local_pos.y / scale)
-
-
-func _screen_to_local_game(screen_pos: Vector2) -> Vector2:
-	var global_rect := get_global_rect()
-	var scale := _get_game_scale()
-	if scale <= 0.0:
-		return Vector2.ZERO
-	return (screen_pos - global_rect.position) / scale
+	return PlazaWorldGeometry.screen_to_world(
+		screen_pos,
+		get_global_rect().position,
+		_camera_x,
+		_get_game_scale()
+	)
 
 
 func _get_exit_zone_screen_rect() -> Rect2:
@@ -1929,27 +1109,11 @@ func _event_position_or_player(event: InputEvent) -> Vector2:
 
 
 func _get_interactable_building() -> Dictionary:
-	for spec in _building_specs:
-		var rect: Rect2 = spec.get("interaction_rect", Rect2())
-		if rect.has_point(_player_pos):
-			return spec
-	return {}
+	return PlazaWorldGeometry.find_interactable_building(_building_specs, _player_pos)
 
 
 func _get_building_at_world_pos(world_pos: Vector2) -> Dictionary:
-	# Mouse picking hit-tests the full visible building (visual_rect) plus its
-	# ground entrance strip (interaction_rect), so clicking anywhere on the
-	# structure -- roof/walls included -- opens the menu, not just the base band.
-	# Reverse order = front-most (last-drawn) wins on overlapping/adjacent buildings.
-	for i in range(_building_specs.size() - 1, -1, -1):
-		var spec := _building_specs[i]
-		var visual_rect: Rect2 = spec.get("visual_rect", Rect2())
-		if visual_rect.size != Vector2.ZERO and visual_rect.has_point(world_pos):
-			return spec
-		var interaction_rect: Rect2 = spec.get("interaction_rect", Rect2())
-		if interaction_rect.has_point(world_pos):
-			return spec
-	return {}
+	return PlazaWorldGeometry.find_building_at_world_position(_building_specs, world_pos)
 
 
 func _update_hovered_building() -> void:
@@ -1958,7 +1122,7 @@ func _update_hovered_building() -> void:
 
 
 func _try_interact() -> bool:
-	if _menu_open or _building_transition_active or _plaza_warp_active:
+	if _menu_session.is_open or _transition_state.building_active or _transition_state.warp_active:
 		return false
 	if EXIT_ZONE.has_point(_player_pos):
 		_exit_plaza()
@@ -1976,30 +1140,27 @@ func _show_building_dialog(building: Dictionary) -> void:
 
 func _open_building_menu(building: Dictionary) -> void:
 	var building_type := str(building.get("type", ""))
-	var spec: Dictionary = BUILDING_MENU_SPECS.get(building_type, {})
+	var menu_state := PlazaBuildingMenuCatalog.build_open_state(
+		building_type,
+		str(building.get("display_name", "건물"))
+	)
 	_refresh_plaza_save_snapshot()
-	_menu_open = true
-	_active_menu_type = building_type
-	_active_menu_title = str(spec.get("title", building.get("display_name", "건물")))
-	_active_menu_subtitle = str(spec.get("subtitle", ""))
-	_active_menu_actions = _get_string_array(spec.get("actions", []))
+	var actions: Variant = menu_state.get("actions", [])
 	if building_type == "academy":
-		_active_menu_actions = PlazaAcademyTransactions.get_menu_action_labels()
+		actions = PlazaAcademyTransactions.get_menu_action_labels()
 	if building_type == "lingpet_store":
-		_active_menu_actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
+		actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
 	if building_type == "tavern":
-		_active_menu_actions = PlazaTavernTransactions.get_menu_action_labels()
+		actions = PlazaTavernTransactions.get_menu_action_labels()
+	_menu_session.open_menu(
+		building_type,
+		str(menu_state.get("title", building.get("display_name", "건물"))),
+		str(menu_state.get("subtitle", "")),
+		actions
+	)
 	if building_type == "shop":
 		_refresh_shop_inventory_for_visit()
-	_active_menu_last_message = ""
-	_active_menu_visit_ap_consumed = false
-	_last_bank_transaction_summary = {}
-	_last_shop_transaction_summary = {}
-	_last_blacksmith_transaction_summary = {}
-	_last_gacha_transaction_summary = {}
-	_last_lingpet_store_transaction_summary = {}
-	_last_academy_transaction_summary = {}
-	_last_tavern_transaction_summary = {}
+	_transaction_summaries.clear_all()
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_open_interior_view()
@@ -2021,6 +1182,14 @@ func _open_interior_view() -> void:
 		Callable(self, "_close_building_menu"),
 		Callable(self, "_trigger_interior_action")
 	)
+
+
+func _ensure_interior_view() -> bool:
+	if not _menu_session.is_open:
+		return false
+	if not _is_interior_view_active():
+		_open_interior_view()
+	return _is_interior_view_active()
 
 
 func _sync_interior_view_state() -> void:
@@ -2052,30 +1221,30 @@ func _get_interior_view_status() -> Dictionary:
 
 func _build_interior_view_data() -> Dictionary:
 	return {
-		"building_type": _active_menu_type,
-		"title": _active_menu_title,
-		"subtitle": _active_menu_subtitle,
-		"actions": _active_menu_actions.duplicate(),
-		"last_message": _active_menu_last_message,
-		"npc_name": str(INTERIOR_NPC_NAMES.get(_active_menu_type, "")),
-		"npc_texture": _get_interior_npc_texture(_active_menu_type),
-		"room_texture": _get_interior_room_texture(_active_menu_type),
+		"building_type": _menu_session.building_type,
+		"title": _menu_session.title,
+		"subtitle": _menu_session.subtitle,
+		"actions": _menu_session.actions.duplicate(),
+		"last_message": _menu_session.last_message,
+		"npc_name": PlazaBuildingMenuCatalog.get_npc_name(_menu_session.building_type),
+		"npc_texture": _get_interior_npc_texture(_menu_session.building_type),
+		"room_texture": _get_interior_room_texture(_menu_session.building_type),
 		"object_textures": _interior_object_textures.duplicate(false),
-		"accent_color": _get_minimap_building_color(_active_menu_type),
+		"accent_color": _get_minimap_building_color(_menu_session.building_type),
 		"save_snapshot": _plaza_save_snapshot.duplicate(true),
 		"player_inventory": _get_passive_inventory_snapshot(),
 		"shop_inventory": _get_shop_inventory_snapshot(),
-		"last_trade_summary": _last_shop_transaction_summary.duplicate(true),
+		"last_trade_summary": _transaction_summaries.get_summary(PlazaTransactionSummaryStore.SHOP),
 	}
 
 
 func _refresh_shop_inventory_for_visit() -> void:
 	if _plaza_shop_stock == null or not _plaza_shop_stock.has_method("build_inventory"):
-		_shop_inventory = []
+		_shop_inventory_state.clear()
 		return
 	var catalog := _get_runtime_instance("mythic_item_catalog")
 	var value: Variant = _plaza_shop_stock.build_inventory(catalog)
-	_shop_inventory = _duplicate_dictionary_array(value)
+	_shop_inventory_state.replace(value)
 
 
 func _get_passive_inventory_snapshot() -> Array:
@@ -2087,130 +1256,13 @@ func _get_passive_inventory_snapshot() -> Array:
 		var snapshot_value: Variant = mythic_item_runtime.get_snapshot()
 		if snapshot_value is Dictionary:
 			items_value = (snapshot_value as Dictionary).get("inventory_items", [])
-	return _with_shop_icon_paths(_duplicate_dictionary_array(items_value), true)
+	var catalog := _get_runtime_instance("mythic_item_catalog")
+	return PlazaTradeItemPresentation.project_inventory(items_value, catalog, true)
 
 
 func _get_shop_inventory_snapshot() -> Array:
-	return _with_shop_icon_paths(_duplicate_dictionary_array(_shop_inventory))
-
-
-func _with_shop_icon_paths(items: Array, include_sell_price: bool = false) -> Array:
 	var catalog := _get_runtime_instance("mythic_item_catalog")
-	var result: Array = []
-	for item_value in items:
-		var item_data := _get_dict(item_value).duplicate(true)
-		if item_data.is_empty():
-			continue
-		var item_name := _get_item_identity(item_data)
-		if item_name != "" and catalog != null:
-			if str(item_data.get("icon_path", "")) == "" and catalog.has_method("get_icon_path"):
-				item_data["icon_path"] = str(catalog.get_icon_path(item_name))
-			if str(item_data.get("icon_sheet_path", "")) == "" and catalog.has_method("get_icon_sheet_path"):
-				item_data["icon_sheet_path"] = str(catalog.get_icon_sheet_path(item_name))
-		if include_sell_price and item_name != "":
-			item_data["shop_base_price"] = PlazaShopPricing.get_base_price(item_name)
-			item_data["shop_sell_price"] = PlazaShopPricing.get_sell_price(item_data)
-		result.append(item_data)
-	return result
-
-
-func _get_passive_inventory_item(index: int) -> Dictionary:
-	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_inventory_item"):
-		var value: Variant = mythic_item_runtime.get_inventory_item(index)
-		if value is Dictionary:
-			return (value as Dictionary).duplicate(true)
-	var snapshot := _get_passive_inventory_snapshot()
-	if index >= 0 and index < snapshot.size():
-		return _get_dict(snapshot[index]).duplicate(true)
-	return {}
-
-
-func _relist_sold_shop_item(item_data: Dictionary) -> void:
-	var relisted := item_data.duplicate(true)
-	var item_name := _get_item_identity(relisted)
-	if item_name == "":
-		return
-	var buy_price := PlazaShopPricing.get_buy_price(relisted)
-	relisted["shop_stock_id"] = "shop_resale_%02d_%s" % [_shop_inventory.size(), item_name]
-	relisted["shop_base_price"] = PlazaShopPricing.get_base_price(item_name)
-	relisted["shop_original_price"] = buy_price
-	relisted["shop_price"] = buy_price
-	relisted["shop_sell_price"] = PlazaShopPricing.get_sell_price(relisted)
-	relisted["shop_featured"] = false
-	relisted["shop_discount_rate"] = 0.0
-	_shop_inventory.append(relisted)
-
-
-func _perform_shop_wallet_transaction(action_id: String, amount: int, consume_ap: bool) -> Dictionary:
-	if _plaza_save_store == null or not _plaza_save_store.has_method("perform_shop_wallet_transaction"):
-		return _build_shop_wallet_fallback(action_id, false, "missing_plaza_save_store")
-	var result: Variant = _plaza_save_store.perform_shop_wallet_transaction(action_id, amount, consume_ap)
-	if result is Dictionary:
-		return (result as Dictionary).duplicate(true)
-	return _build_shop_wallet_fallback(action_id, false, "invalid_wallet_result")
-
-
-func _merge_shop_trade_wallet_summary(summary: Dictionary, wallet_summary: Dictionary) -> Dictionary:
-	summary["wallet_summary"] = wallet_summary.duplicate(true)
-	summary["delta_gold"] = int(wallet_summary.get("delta_gold", summary.get("delta_gold", 0)))
-	summary["ap_spent"] = int(wallet_summary.get("ap_spent", summary.get("ap_spent", 0)))
-	summary["plaza_gold"] = int(wallet_summary.get("plaza_gold", summary.get("plaza_gold", 0)))
-	summary["ap_current"] = int(wallet_summary.get("ap_current", summary.get("ap_current", 0)))
-	summary["reason"] = str(wallet_summary.get("reason", summary.get("reason", "")))
-	summary["changed"] = bool(wallet_summary.get("changed", summary.get("changed", false)))
-	return summary
-
-
-func _build_shop_trade_summary(action_id: String, item_data: Dictionary, price: int, sell_price: int, changed: bool, reason: String) -> Dictionary:
-	var item_name := _get_item_identity(item_data)
-	return {
-		"action": action_id,
-		"item_name": item_name,
-		"display_name": _get_shop_display_name(item_data),
-		"price": price,
-		"sell_price": sell_price,
-		"handled": ["purchase", "sale"].has(action_id),
-		"changed": changed,
-		"reason": reason,
-		"delta_gold": 0,
-		"ap_spent": 0,
-	}
-
-
-func _build_shop_wallet_fallback(action_id: String, changed: bool, reason: String) -> Dictionary:
-	return {
-		"action": action_id,
-		"handled": ["purchase", "sale"].has(action_id),
-		"changed": changed,
-		"reason": reason,
-		"delta_gold": 0,
-		"ap_spent": 0,
-	}
-
-
-func _get_shop_display_name(item_data: Dictionary) -> String:
-	for key in ["qualified_display_name", "display_name", "korean_name", "name"]:
-		var value := str(item_data.get(str(key), "")).strip_edges()
-		if value != "":
-			return value
-	return ""
-
-
-func _get_item_identity(item_data: Dictionary) -> String:
-	for key in ["name", "effect", "item_name", "item_id"]:
-		var value := str(item_data.get(str(key), "")).strip_edges()
-		if value != "":
-			return value
-	return ""
-
-
-func _has_plaza_gold(amount: int) -> bool:
-	return _plaza_save_store != null and _plaza_save_store.has_method("get_plaza_gold") and int(_plaza_save_store.get_plaza_gold()) >= amount
-
-
-func _is_shop_ap_blocked(consume_ap: bool) -> bool:
-	return consume_ap and (_plaza_save_store == null or not _plaza_save_store.has_method("get_ap_current") or int(_plaza_save_store.get_ap_current()) <= 0)
+	return PlazaTradeItemPresentation.project_inventory(_shop_inventory_state.snapshot(), catalog)
 
 
 func _get_runtime_instance(key: String) -> Object:
@@ -2246,39 +1298,26 @@ func _trigger_interior_action(action_value: Variant) -> bool:
 
 
 func _start_building_enter_transition(building: Dictionary) -> void:
-	if _building_transition_active:
+	if not _transition_state.start_building("enter", building, _player_pos, _lingpet_follower_pos):
 		return
-	_building_transition_active = true
-	_building_transition_phase = "enter"
-	_building_transition_timer = 0.0
-	_building_transition_target = building.duplicate(true)
-	_building_transition_player_pos = _player_pos
-	_building_transition_lingpet_pos = _lingpet_follower_pos
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	queue_redraw()
 
 
 func _start_building_return_transition() -> void:
-	if _building_transition_active:
+	if not _transition_state.start_building("return", {}, _player_pos, _lingpet_follower_pos):
 		return
-	_building_transition_active = true
-	_building_transition_phase = "return"
-	_building_transition_timer = 0.0
-	_building_transition_target = {}
-	_building_transition_player_pos = _player_pos
-	_building_transition_lingpet_pos = _lingpet_follower_pos
 	queue_redraw()
 
 
 func _update_building_transition(delta: float) -> void:
-	if not _building_transition_active:
+	if not _transition_state.building_active:
 		return
-	_building_transition_timer = min(BUILDING_ENTRY_DURATION, _building_transition_timer + max(0.0, delta))
-	if _building_transition_timer < BUILDING_ENTRY_DURATION:
+	if not _transition_state.advance_building(delta):
 		return
-	if _building_transition_phase == "enter":
-		var target := _building_transition_target.duplicate(true)
+	if _transition_state.building_phase == "enter":
+		var target := _transition_state.building_target.duplicate(true)
 		_clear_building_transition()
 		if not target.is_empty():
 			_open_building_menu(target)
@@ -2287,32 +1326,22 @@ func _update_building_transition(delta: float) -> void:
 
 
 func _complete_building_transition_for_test() -> void:
-	if not _building_transition_active:
+	if not _transition_state.building_active:
 		return
-	_update_building_transition(BUILDING_ENTRY_DURATION)
+	_update_building_transition(PlazaTransitionState.BUILDING_DURATION)
 
 
 func _clear_building_transition() -> void:
-	_building_transition_active = false
-	_building_transition_phase = ""
-	_building_transition_timer = 0.0
-	_building_transition_target = {}
-	_building_transition_player_pos = Vector2.ZERO
-	_building_transition_lingpet_pos = Vector2.ZERO
+	_transition_state.clear_building()
 
 
 func _get_building_transition_progress() -> float:
-	if not _building_transition_active:
-		return 0.0
-	return clampf(_building_transition_timer / max(0.001, BUILDING_ENTRY_DURATION), 0.0, 1.0)
+	return _transition_state.get_building_progress()
 
 
 func _start_plaza_warp_transition(phase: String) -> void:
-	if _plaza_warp_active:
+	if not _transition_state.start_warp(phase):
 		return
-	_plaza_warp_active = true
-	_plaza_warp_phase = phase
-	_plaza_warp_timer = 0.0
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_warp_pillar_fx_host()
@@ -2320,29 +1349,25 @@ func _start_plaza_warp_transition(phase: String) -> void:
 
 
 func _update_plaza_warp_transition(delta: float) -> void:
-	if not _plaza_warp_active:
+	if not _transition_state.warp_active:
 		return
-	_plaza_warp_timer = min(PLAZA_WARP_DURATION, _plaza_warp_timer + max(0.0, delta))
+	var completed := _transition_state.advance_warp(delta)
 	_sync_warp_pillar_fx_host()
-	if _plaza_warp_timer < PLAZA_WARP_DURATION:
+	if not completed:
 		return
-	var completed_phase := _plaza_warp_phase
+	var completed_phase := _transition_state.warp_phase
 	_clear_plaza_warp_transition()
 	if completed_phase == "exit":
 		_finish_plaza_exit()
 
 
 func _clear_plaza_warp_transition() -> void:
-	_plaza_warp_active = false
-	_plaza_warp_phase = ""
-	_plaza_warp_timer = 0.0
+	_transition_state.clear_warp()
 	_sync_warp_pillar_fx_host()
 
 
 func _get_plaza_warp_progress() -> float:
-	if not _plaza_warp_active:
-		return 0.0
-	return clampf(_plaza_warp_timer / max(0.001, PLAZA_WARP_DURATION), 0.0, 1.0)
+	return _transition_state.get_warp_progress()
 
 
 func _refresh_plaza_save_snapshot() -> void:
@@ -2366,9 +1391,9 @@ func _should_force_tavern_for_current_stage() -> bool:
 
 
 func _trigger_menu_action(action_index: int) -> bool:
-	if not _menu_open:
+	if not _menu_session.is_open:
 		return false
-	match _active_menu_type:
+	match _menu_session.building_type:
 		"bank":
 			return _trigger_bank_menu_action(action_index)
 		"gacha":
@@ -2382,204 +1407,76 @@ func _trigger_menu_action(action_index: int) -> bool:
 		"tavern":
 			return _trigger_tavern_menu_action(action_index)
 		_:
-			_active_menu_last_message = "아직 준비 중입니다."
+			_menu_session.set_message("아직 준비 중입니다.")
 			queue_redraw()
 			return false
+
+
+func _apply_facility_transaction_outcome(facility: String, summary: Dictionary, message: String) -> bool:
+	_transaction_summaries.record(facility, summary)
+	if int(summary.get("ap_spent", 0)) > 0:
+		_menu_session.mark_visit_ap_consumed()
+	_menu_session.set_message(message)
+	_refresh_plaza_save_snapshot()
+	queue_redraw()
+	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
 
 
 func _trigger_bank_menu_action(action_index: int) -> bool:
 	if action_index < 0 or action_index >= BANK_ACTION_IDS.size():
 		return false
 	if _plaza_save_store == null or not _plaza_save_store.has_method("perform_bank_transaction"):
-		_active_menu_last_message = "은행 장부를 열 수 없습니다."
+		_menu_session.set_message("은행 장부를 열 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_save_store.perform_bank_transaction(
 		str(BANK_ACTION_IDS[action_index]),
 		current_stage,
 		PlazaSaveStore.BANK_TRANSACTION_AMOUNT,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_bank_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_bank_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.BANK,
+		summary,
+		_format_bank_transaction_message(summary)
+	)
 
 func _trigger_shop_trade_action(action: Dictionary) -> bool:
-	if _active_menu_type != "shop":
+	if _menu_session.building_type != "shop":
 		return false
 	var action_type := str(action.get("type", "shop_trade"))
 	if action_type == "shop_trade_reorder":
 		return _trigger_shop_trade_reorder_action(action)
 	if action_type != "shop_trade":
 		return false
-	var panel := str(action.get("panel", ""))
-	var index := int(action.get("index", -1))
-	var stock_id := str(action.get("stock_id", ""))
-	var summary := _build_shop_trade_summary("", {}, 0, 0, false, "unknown_shop_action")
-	match panel:
-		"shop":
-			if stock_id != "":
-				index = _find_shop_stock_index(stock_id)
-			summary = _buy_shop_stock_item(index)
-		"player":
-			summary = _sell_player_passive_item(index)
-		_:
-			summary = _build_shop_trade_summary("", {}, 0, 0, false, "unknown_shop_action")
-	_last_shop_transaction_summary = summary.duplicate(true)
+	var summary: Dictionary = _plaza_shop_transactions.perform_trade(
+		action,
+		_shop_inventory_state,
+		_plaza_save_store,
+		_runtime_owner,
+		_runtime_registry,
+		_menu_session.needs_visit_ap()
+	)
 	_play_shop_trade_audio(summary)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_shop_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.SHOP,
+		summary,
+		_format_shop_transaction_message(summary)
+	)
 
 
 func _trigger_shop_trade_reorder_action(action: Dictionary) -> bool:
-	var panel := str(action.get("panel", ""))
-	var from_index := int(action.get("from_index", -1))
-	var to_index := int(action.get("to_index", -1))
-	var changed := _reorder_shop_trade_item(panel, from_index, to_index)
+	var changed: bool = bool(_plaza_shop_transactions.reorder_trade(
+		action,
+		_shop_inventory_state,
+		_runtime_owner,
+		_runtime_registry
+	))
 	if changed:
-		_active_menu_last_message = "아이템 순서를 바꿨습니다."
+		_menu_session.set_message("아이템 순서를 바꿨습니다.")
 		_refresh_plaza_save_snapshot()
 		queue_redraw()
 	return changed
-
-
-func _find_shop_stock_index(stock_id: String) -> int:
-	if stock_id == "":
-		return -1
-	for idx in range(_shop_inventory.size()):
-		var item_data := _get_dict(_shop_inventory[idx])
-		if str(item_data.get("shop_stock_id", "")) == stock_id:
-			return idx
-	return -1
-
-
-func _reorder_shop_trade_item(panel: String, from_index: int, to_index: int) -> bool:
-	if panel == "shop":
-		return _move_array_item(_shop_inventory, from_index, to_index)
-	if panel == "player":
-		return _reorder_player_passive_inventory_item(from_index, to_index)
-	return false
-
-
-func _reorder_player_passive_inventory_item(from_index: int, to_index: int) -> bool:
-	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
-	if mythic_item_runtime == null:
-		return false
-	var items_value: Variant = mythic_item_runtime.get("inventory_items")
-	if not (items_value is Array):
-		return false
-	var items: Array = items_value
-	if not _move_array_item(items, from_index, to_index):
-		return false
-	if mythic_item_runtime.has_method("_sync_owner"):
-		mythic_item_runtime.call("_sync_owner", _runtime_owner, _runtime_registry)
-	return true
-
-
-func _move_array_item(items: Array, from_index: int, to_index: int) -> bool:
-	if from_index < 0 or from_index >= items.size() or items.is_empty():
-		return false
-	var insert_index := clampi(to_index, 0, items.size() - 1)
-	if from_index == insert_index:
-		return false
-	var item: Variant = items[from_index]
-	items.remove_at(from_index)
-	insert_index = clampi(insert_index, 0, items.size())
-	items.insert(insert_index, item)
-	return true
-
-
-func _buy_shop_stock_item(index: int) -> Dictionary:
-	if index < 0 or index >= _shop_inventory.size():
-		return _build_shop_trade_summary("purchase", {}, 0, 0, false, "unknown_shop_item")
-	var item_data := _get_dict(_shop_inventory[index]).duplicate(true)
-	var item_name := _get_item_identity(item_data)
-	var price := maxi(1, int(item_data.get("shop_price", PlazaShopPricing.get_buy_price(item_data))))
-	if item_name == "":
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "unknown_shop_item")
-	if not _has_plaza_gold(price):
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "not_enough_gold")
-	if _is_shop_ap_blocked(not _active_menu_visit_ap_consumed):
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "no_ap")
-	if _runtime_owner == null:
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_owner")
-	if _is_active_shop_item(item_data):
-		return _buy_active_shop_stock_item(index, item_data, item_name, price)
-	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("acquire_item"):
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_item_runtime")
-	var grant_index := int(mythic_item_runtime.acquire_item(item_name, _runtime_owner, _runtime_registry, {}, false, false, item_data))
-	if grant_index < 0:
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "inventory_full")
-	var payment := _perform_shop_wallet_transaction("purchase", price, not _active_menu_visit_ap_consumed)
-	if not bool(payment.get("changed", false)):
-		if mythic_item_runtime.has_method("discard_inventory_item"):
-			mythic_item_runtime.discard_inventory_item(grant_index, _runtime_owner, _runtime_registry)
-		return _merge_shop_trade_wallet_summary(
-			_build_shop_trade_summary("purchase", item_data, price, 0, false, str(payment.get("reason", "payment_failed"))),
-			payment
-		)
-	_shop_inventory.remove_at(index)
-	return _merge_shop_trade_wallet_summary(
-		_build_shop_trade_summary("purchase", item_data, price, 0, true, "ok"),
-		payment
-	)
-
-
-func _buy_active_shop_stock_item(index: int, item_data: Dictionary, item_name: String, price: int) -> Dictionary:
-	var active_item_runtime := _get_runtime_instance("active_item_runtime")
-	if active_item_runtime == null or not active_item_runtime.has_method("grant_item_to_slot"):
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "missing_item_runtime")
-	if not bool(active_item_runtime.grant_item_to_slot(item_name, _runtime_owner, _runtime_registry, false)):
-		return _build_shop_trade_summary("purchase", item_data, price, 0, false, "active_slots_full")
-	var payment := _perform_shop_wallet_transaction("purchase", price, not _active_menu_visit_ap_consumed)
-	if not bool(payment.get("changed", false)):
-		if active_item_runtime.has_method("debug_remove_item_from_slot"):
-			active_item_runtime.debug_remove_item_from_slot(item_name, _runtime_owner, _runtime_registry)
-		return _merge_shop_trade_wallet_summary(
-			_build_shop_trade_summary("purchase", item_data, price, 0, false, str(payment.get("reason", "payment_failed"))),
-			payment
-		)
-	_shop_inventory.remove_at(index)
-	return _merge_shop_trade_wallet_summary(
-		_build_shop_trade_summary("purchase", item_data, price, 0, true, "ok"),
-		payment
-	)
-
-
-func _is_active_shop_item(item_data: Dictionary) -> bool:
-	return str(item_data.get("type", "")).to_lower() == "active"
-
-
-func _sell_player_passive_item(index: int) -> Dictionary:
-	if _is_shop_ap_blocked(not _active_menu_visit_ap_consumed):
-		return _build_shop_trade_summary("sale", {}, 0, 0, false, "no_ap")
-	var mythic_item_runtime := _get_runtime_instance("mythic_item_runtime")
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("discard_inventory_item"):
-		return _build_shop_trade_summary("sale", {}, 0, 0, false, "missing_item_runtime")
-	if _runtime_owner == null:
-		return _build_shop_trade_summary("sale", {}, 0, 0, false, "missing_owner")
-	var item_data := _get_passive_inventory_item(index)
-	if item_data.is_empty():
-		return _build_shop_trade_summary("sale", {}, 0, 0, false, "no_passive_item")
-	var sell_price := PlazaShopPricing.get_sell_price(item_data)
-	if not bool(mythic_item_runtime.discard_inventory_item(index, _runtime_owner, _runtime_registry)):
-		return _build_shop_trade_summary("sale", item_data, 0, sell_price, false, "no_passive_item")
-	var payment := _perform_shop_wallet_transaction("sale", sell_price, not _active_menu_visit_ap_consumed)
-	if bool(payment.get("changed", false)):
-		_relist_sold_shop_item(item_data)
-	return _merge_shop_trade_wallet_summary(
-		_build_shop_trade_summary("sale", item_data, 0, sell_price, bool(payment.get("changed", false)), str(payment.get("reason", "ok"))),
-		payment
-	)
 
 
 func _play_shop_trade_audio(summary: Dictionary) -> void:
@@ -2597,7 +1494,7 @@ func _play_shop_trade_audio(summary: Dictionary) -> void:
 
 func _trigger_gacha_menu_action(action_index: int) -> bool:
 	if _plaza_gacha_transactions == null or not _plaza_gacha_transactions.has_method("perform_action"):
-		_active_menu_last_message = "가챠 장치를 찾을 수 없습니다."
+		_menu_session.set_message("가챠 장치를 찾을 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_gacha_transactions.perform_action(
@@ -2605,20 +1502,18 @@ func _trigger_gacha_menu_action(action_index: int) -> bool:
 		_plaza_save_store,
 		_runtime_owner,
 		_runtime_registry,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_gacha_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_gacha_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.GACHA,
+		summary,
+		_format_gacha_transaction_message(summary)
+	)
 
 
 func _trigger_lingpet_store_menu_action(action_index: int) -> bool:
 	if _plaza_lingpet_store_transactions == null or not _plaza_lingpet_store_transactions.has_method("perform_action"):
-		_active_menu_last_message = "링펫 장치를 찾을 수 없습니다."
+		_menu_session.set_message("수호령 장치를 찾을 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_lingpet_store_transactions.perform_action(
@@ -2626,41 +1521,37 @@ func _trigger_lingpet_store_menu_action(action_index: int) -> bool:
 		_plaza_save_store,
 		_runtime_owner,
 		_runtime_registry,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_lingpet_store_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_lingpet_store_transaction_message(summary)
-	_active_menu_actions = PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	_menu_session.set_actions(PlazaLingpetStoreTransactions.get_menu_action_labels(_runtime_registry))
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.LINGPET_STORE,
+		summary,
+		_format_lingpet_store_transaction_message(summary)
+	)
 
 
 func _trigger_blacksmith_menu_action(action_index: int) -> bool:
 	if _plaza_blacksmith_transactions == null or not _plaza_blacksmith_transactions.has_method("perform_action"):
-		_active_menu_last_message = "대장간 장부를 찾을 수 없습니다."
+		_menu_session.set_message("대장간 장부를 찾을 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_blacksmith_transactions.perform_action(
 		action_index,
 		_plaza_save_store,
 		_runtime_owner,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_blacksmith_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_blacksmith_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.BLACKSMITH,
+		summary,
+		_format_blacksmith_transaction_message(summary)
+	)
 
 
 func _trigger_academy_menu_action(action_index: int) -> bool:
 	if _plaza_academy_transactions == null or not _plaza_academy_transactions.has_method("perform_action"):
-		_active_menu_last_message = "아카데미 장치를 찾을 수 없습니다."
+		_menu_session.set_message("아카데미 장치를 찾을 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_academy_transactions.perform_action(
@@ -2668,298 +1559,77 @@ func _trigger_academy_menu_action(action_index: int) -> bool:
 		_plaza_save_store,
 		_runtime_owner,
 		_runtime_registry,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_academy_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_academy_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
+	var changed := _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.ACADEMY,
+		summary,
+		_format_academy_transaction_message(summary)
+	)
 	if bool(summary.get("choice_opened", false)):
-		var message := _active_menu_last_message
+		var message := _menu_session.last_message
 		_close_building_menu(false)
-		_last_academy_transaction_summary = summary.duplicate(true)
 		_dialog_text = message
 		_dialog_timer = DIALOG_DURATION
 		_update_runtime_perk_overlay(0.0)
-	else:
-		queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
+	return changed
 
 
 func _trigger_tavern_menu_action(action_index: int) -> bool:
 	if _plaza_tavern_transactions == null or not _plaza_tavern_transactions.has_method("perform_action"):
-		_active_menu_last_message = "선술집 의뢰 장치를 찾을 수 없습니다."
+		_menu_session.set_message("선술집 의뢰 장치를 찾을 수 없습니다.")
 		queue_redraw()
 		return false
 	var summary: Dictionary = _plaza_tavern_transactions.perform_action(
 		action_index,
 		_plaza_save_store,
 		current_stage,
-		not _active_menu_visit_ap_consumed
+		_menu_session.needs_visit_ap()
 	)
-	_last_tavern_transaction_summary = summary.duplicate(true)
-	if int(summary.get("ap_spent", 0)) > 0:
-		_active_menu_visit_ap_consumed = true
-	_active_menu_last_message = _format_tavern_transaction_message(summary)
-	_refresh_plaza_save_snapshot()
-	queue_redraw()
-	return bool(summary.get("handled", false)) and bool(summary.get("changed", false))
-
-
-func _get_menu_action_index_at(local_pos: Vector2) -> int:
-	if not _menu_open:
-		return -1
-	for idx in range(_active_menu_actions.size()):
-		var row := Rect2(
-			Vector2(MENU_PANEL_RECT.position.x + 30.0, MENU_PANEL_RECT.position.y + MENU_ACTION_ROW_START_Y + float(idx) * MENU_ACTION_ROW_STEP),
-			Vector2(MENU_PANEL_RECT.size.x - 60.0, MENU_ACTION_ROW_HEIGHT)
-		)
-		if row.has_point(local_pos):
-			return idx
-	return -1
+	return _apply_facility_transaction_outcome(
+		PlazaTransactionSummaryStore.TAVERN,
+		summary,
+		_format_tavern_transaction_message(summary)
+	)
 
 
 func _format_bank_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "열쇠가 부족합니다."
-			"no_plaza_gold":
-				return "맡길 골드가 없습니다."
-			"no_bank_deposit":
-				return "찾거나 정산할 예금이 없습니다."
-			"interest_already_claimed":
-				return "이번 스테이지 이자는 이미 정산했습니다."
-			_:
-				return "지금은 처리할 수 없습니다."
-	match str(summary.get("action", "")):
-		"deposit":
-			return "%dG를 예금했습니다." % int(summary.get("delta_deposit", 0))
-		"withdraw":
-			return "%dG를 출금했습니다." % int(summary.get("delta_gold", 0))
-		"interest":
-			return "이자 %dG를 받았습니다." % int(summary.get("interest_gold", 0))
-	return "처리했습니다."
+	return PlazaTransactionMessageFormatter.format_bank(summary)
 
 
 func _format_shop_transaction_message(summary: Dictionary) -> String:
-	# i18n: stable-key templates (TEXT["plaza.msg.shop.*"]); the item name is localized
-	# before substitution so non-Korean locales never leak the raw Korean display_name.
-	var reason := str(summary.get("reason", ""))
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return LanguageSettings.translate("plaza.msg.shop.no_ap")
-			"not_enough_gold":
-				return LanguageSettings.translate("plaza.msg.shop.not_enough_gold")
-			"active_slots_full":
-				return LanguageSettings.translate("plaza.msg.shop.active_slots_full")
-			"no_active_item":
-				return LanguageSettings.translate("plaza.msg.shop.no_active_item")
-			"no_passive_item":
-				return LanguageSettings.translate("plaza.msg.shop.no_passive_item")
-			"inventory_full":
-				return LanguageSettings.translate("plaza.msg.shop.inventory_full")
-			"missing_item_runtime", "missing_owner":
-				return LanguageSettings.translate("plaza.msg.shop.missing_item_bag")
-			_:
-				return LanguageSettings.translate("plaza.msg.shop.default_blocked")
-	var localized_name := _localize_shop_item_name(summary)
-	match str(summary.get("action", "")):
-		"purchase":
-			return LanguageSettings.translate("plaza.msg.shop.purchase") % [localized_name, int(summary.get("delta_gold", 0))]
-		"sale":
-			return LanguageSettings.translate("plaza.msg.shop.sale") % [localized_name, int(summary.get("sell_price", 0))]
-	return LanguageSettings.translate("plaza.msg.shop.traded")
-
-
-# Localizes the shop item name for the current language before it is substituted into a
-# message template. Korean keeps the stored display name; other locales resolve the base
-# name through the canonical ITEM_DISPLAY map keyed by item id (every shop item id is
-# covered there, so no raw Korean leaks). Quality-prefix localization (e.g. "전설") is a
-# follow-up: the prefix is dropped in non-Korean locales for now rather than risk a leak.
-func _localize_shop_item_name(summary: Dictionary) -> String:
-	var korean_display := str(summary.get("display_name", "")).strip_edges()
-	var item_id := str(summary.get("item_name", "")).strip_edges()
-	if korean_display == "" and item_id == "":
-		return LanguageSettings.translate("plaza.msg.shop.fallback_item")
-	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
-		return korean_display if korean_display != "" else LanguageSettings.translate("plaza.msg.shop.fallback_item")
-	var item_data := {"name": item_id}
-	if korean_display != "":
-		item_data["display_name"] = korean_display
-	var localized: Dictionary = LanguageSettings.localize_item_data(item_data)
-	var localized_name := str(localized.get("display_name", "")).strip_edges()
-	if localized_name == "":
-		localized_name = LanguageSettings.translate("plaza.msg.shop.fallback_item")
-	return localized_name
+	return PlazaTransactionMessageFormatter.format_shop(summary)
 
 
 func _format_gacha_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	var display_name := str(summary.get("display_name", summary.get("item_name", "")))
-	if display_name == "":
-		display_name = "아이템"
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "열쇠가 부족합니다."
-			"not_enough_gold":
-				return "뽑기 비용이 부족합니다."
-			"active_slots_full":
-				return "액티브 슬롯이 가득 찼습니다."
-			"missing_item_runtime", "missing_owner":
-				return "아이템 가방을 찾을 수 없습니다."
-			"empty_gacha_pool":
-				return "뽑기 캡슐이 비어 있습니다."
-			_:
-				return "지금은 뽑을 수 없습니다."
-	return "%s을(를) 뽑았습니다. %dG" % [display_name, int(summary.get("delta_gold", 0))]
+	return PlazaTransactionMessageFormatter.format_gacha(summary)
 
 
 func _format_lingpet_store_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "열쇠가 부족합니다."
-			"not_enough_gold":
-				return "알 뽑기 비용이 부족합니다."
-			"egg_already_active":
-				return "이미 깨어날 알이 기다리고 있습니다."
-			"no_hatch_candidates":
-				return "지금 뽑을 수 있는 새 링펫 알이 없습니다."
-			"missing_lingpet_runtime", "missing_owner":
-				return "링펫 장치를 찾을 수 없습니다."
-			"manage_stub":
-				return "링펫 관리는 다음 단계에서 열립니다."
-			_:
-				return "지금은 알을 뽑을 수 없습니다."
-	return "공명 알이 전투에 나타났습니다. -%dG" % abs(int(summary.get("delta_gold", 0)))
+	return PlazaTransactionMessageFormatter.format_lingpet_store(summary)
 
 
 func _format_blacksmith_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	var display_name := str(summary.get("display_name", summary.get("item_name", "")))
-	if display_name == "":
-		display_name = "아이템"
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "열쇠가 부족합니다."
-			"not_enough_gold":
-				return "강화 비용이 부족합니다."
-			"no_active_item":
-				return "강화할 액티브 아이템이 없습니다."
-			"max_level":
-				return "%s은(는) 이미 최대 강화입니다." % display_name
-			"missing_owner":
-				return "아이템 가방을 찾을 수 없습니다."
-			_:
-				return "지금은 강화할 수 없습니다."
-	match str(summary.get("result", "")):
-		"success":
-			return "%s +%d 강화 성공! -%dG" % [
-				display_name,
-				int(summary.get("new_level", 0)),
-				abs(int(summary.get("delta_gold", 0))),
-			]
-		"maintain":
-			return "%s 강화 유지. -%dG" % [display_name, abs(int(summary.get("delta_gold", 0)))]
-		"fail":
-			return "%s 강화 실패. 아이템은 유지됩니다. -%dG" % [display_name, abs(int(summary.get("delta_gold", 0)))]
-	return "강화를 시도했습니다."
+	return PlazaTransactionMessageFormatter.format_blacksmith(summary)
 
 
 func _format_academy_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "행동력이 부족합니다."
-			"not_enough_gold":
-				return "수업료가 부족합니다."
-			"missing_owner":
-				return "현재 캐릭터를 찾을 수 없습니다."
-			"missing_runtime_perk_state", "missing_runtime_perk_catalog":
-				return "스킬 수업 장치를 찾을 수 없습니다."
-			"choice_already_active":
-				return "이미 진행 중인 스킬 선택이 있습니다."
-			"no_academy_choices":
-				return "지금 배울 수 있는 스킬이 없습니다."
-			"exchange_stub":
-				return "스킬 교환은 다음 단계에서 열립니다."
-			_:
-				return "지금은 수업을 진행할 수 없습니다."
-	if bool(summary.get("choice_opened", false)):
-		return "스킬 수업을 시작합니다. -%dG" % abs(int(summary.get("delta_gold", 0)))
-	return "수업료를 냈지만 선택지를 열지 못했습니다."
+	return PlazaTransactionMessageFormatter.format_academy(summary)
 
 
 func _format_tavern_transaction_message(summary: Dictionary) -> String:
-	var reason := str(summary.get("reason", ""))
-	var quest_name := str(summary.get("quest_name", "의뢰"))
-	if quest_name == "":
-		quest_name = "의뢰"
-	if not bool(summary.get("changed", false)):
-		match reason:
-			"no_ap":
-				return "행동력이 부족합니다."
-			"quest_already_active":
-				return "이미 진행 중인 의뢰가 있습니다."
-			"stage_already_accepted":
-				return "이번 스테이지의 의뢰는 이미 받았습니다."
-			"invalid_quest":
-				return "의뢰서가 손상되었습니다."
-			"no_active_quest":
-				return "보고할 의뢰가 없습니다."
-			"quest_in_progress":
-				return "다음 전투를 마친 뒤 보고할 수 있습니다."
-			"missing_plaza_save_store":
-				return "의뢰 장부를 찾을 수 없습니다."
-			_:
-				return "지금은 의뢰를 처리할 수 없습니다."
-	match str(summary.get("action", "")):
-		"accept":
-			return "%s 의뢰를 받았습니다." % quest_name
-		"complete":
-			return "%s 보고 완료. +%dG" % [quest_name, int(summary.get("delta_gold", 0))]
-	return "의뢰를 처리했습니다."
+	return PlazaTransactionMessageFormatter.format_tavern(summary)
 
 
 func _close_building_menu(play_return_transition: bool = true) -> void:
-	var should_play_return := play_return_transition and _menu_open and not _building_transition_active
+	var should_play_return := play_return_transition and _menu_session.is_open and not _transition_state.building_active
 	_close_character_info_overlay(false)
 	_free_interior_view()
-	_menu_open = false
-	_active_menu_type = ""
-	_active_menu_title = ""
-	_active_menu_subtitle = ""
-	_active_menu_actions.clear()
-	_active_menu_last_message = ""
-	_active_menu_visit_ap_consumed = false
-	_last_shop_transaction_summary = {}
-	_last_blacksmith_transaction_summary = {}
-	_last_gacha_transaction_summary = {}
-	_last_lingpet_store_transaction_summary = {}
-	_last_tavern_transaction_summary = {}
+	_menu_session.reset()
+	_transaction_summaries.clear_on_menu_close()
 	if should_play_return:
 		_start_building_return_transition()
 	queue_redraw()
-
-
-func _is_executable_menu_type(menu_type: String) -> bool:
-	return ["bank", "shop", "gacha", "lingpet_store", "blacksmith", "academy", "tavern"].has(menu_type)
-
-
-func _get_string_array(value: Variant) -> Array[String]:
-	var result: Array[String] = []
-	if value is Array:
-		for item in value as Array:
-			result.append(str(item))
-	return result
 
 
 func _get_blacksmith_target_summary() -> Dictionary:
@@ -3015,7 +1685,7 @@ func _get_owned_lingpet_count() -> int:
 
 
 func _exit_plaza() -> void:
-	if _plaza_warp_active:
+	if _transition_state.warp_active:
 		return
 	_start_plaza_warp_transition("exit")
 
@@ -3023,22 +1693,3 @@ func _exit_plaza() -> void:
 func _finish_plaza_exit() -> void:
 	if exit_callback.is_valid():
 		exit_callback.call()
-
-
-func _discrete_flicker(seed_text: String) -> float:
-	var tick := int(floor(Time.get_ticks_msec() * 0.047))
-	var h := int(hash(seed_text)) ^ (tick * 1103515245)
-	return float(abs(h) % 1000) / 1000.0
-
-
-func _flicker_alpha(seed_text: String, base_alpha: float, amplitude: float) -> float:
-	return clampf(base_alpha + _discrete_flicker(seed_text) * amplitude, 0.0, 1.0)
-
-
-func _stable_hash_unit(seed_text: String) -> float:
-	return float(abs(int(hash(seed_text))) % 10000) / 10000.0
-
-
-func _smooth_unit(value: float) -> float:
-	var t := clampf(value, 0.0, 1.0)
-	return t * t * (3.0 - 2.0 * t)
