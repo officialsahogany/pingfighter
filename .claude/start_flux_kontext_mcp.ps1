@@ -62,10 +62,9 @@ if ([string]::IsNullOrWhiteSpace($apiKey)) {
     exit 1
 }
 
-$prefix = if ($apiKey.Length -ge 8) { $apiKey.Substring(0, 8) } else { $apiKey }
 $tracePath = Join-Path $env:TEMP "flux_kontext_mcp_wrapper_trace.log"
-Add-Content -LiteralPath $tracePath -Value ("{0} source={1} prefix={2}" -f (Get-Date).ToString("s"), $source, $prefix)
-[Console]::Error.WriteLine("WRAPPER_START source=$source prefix=$prefix")
+Add-Content -LiteralPath $tracePath -Value ("{0} source={1}" -f (Get-Date).ToString("s"), $source)
+[Console]::Error.WriteLine("WRAPPER_START source=$source")
 
 $env:BFL_API_KEY = $apiKey
 $serverPath = Join-Path $env:USERPROFILE ".claude\mcp-servers\flux-kontext-mcp\server.js"
