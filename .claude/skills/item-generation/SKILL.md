@@ -1,7 +1,7 @@
 ---
 name: item-generation
 description: |
-  Item visual generation pipeline for DiskHearts - Ringpia. Covers active item icons,
+  Item visual generation pipeline for 환격전. Covers active item icons,
   passive item icons, legendary / mythic item icons (empty_legendary
   frame rules), character paddle-part equip visuals, mood-based glow /
   border / particle rules, Claude-ready copy-paste prompts, and the
@@ -19,10 +19,10 @@ description: |
   아이템 비주얼, 아이템 프롬프트, 아이템 제작.
 ---
 
-# Item Generation Pipeline (DiskHearts - Ringpia)
+# Item Generation Pipeline (환격전)
 
 Asset-generation plays for **item icons** and **character equip visuals**.
-Current runtime target is the Godot project **디스크하츠 - 링피아** under
+Current runtime target is the Godot project **환격전** under
 `godot/`. Original Python/Pygame PingFighter item paths are legacy porting
 references only.
 Runtime integration is NOT covered here — hand off to
@@ -45,20 +45,20 @@ This skill is narrow. Stay inside it.
 Runtime character perk / skill work does NOT belong here. Use
 `docs/character_skill_perk_checklist.md` for unlock perks, player-skill /
 5-orb HUD integration, tooltip sync, skill-gold reward policy, and
-save/load/reset audits, and use `CLAUDE.md` for the companion
-`draw_skill_icon_mini()` and perk-text path invariants.
+save/load/reset audits. That checklist §4-§5 owns the companion
+`draw_skill_icon_mini()`, perk-text, tooltip, and cooldown invariants.
 
 If the report is "an invested passive should also show synergy text in
 the affected active-skill / orb tooltip," treat that as runtime
 character perk / skill integration too. It belongs in
-`docs/character_skill_perk_checklist.md` + `CLAUDE.md`, not in this
+`docs/character_skill_perk_checklist.md`, not in this
 item-asset skill.
 
 If the report is "a skill / perk icon still looks too small," "the HUD
 version and perk-card version do not match," or "the skill orb rim /
 alpha edge looks dirty in the live HUD," treat that as runtime character
 perk / skill integration, not item-asset work. The fix belongs in
-`docs/character_skill_perk_checklist.md` + `CLAUDE.md` and must audit:
+`docs/character_skill_perk_checklist.md` and must audit:
 
 - `draw_skill_icon_mini()`
 - `_draw_skill_icon_symbol()`
@@ -79,12 +79,12 @@ enough to call a runtime character perk / skill icon "done."
 | Item icon (active / passive / legendary)? | **this skill** |
 | Character paddle-part visual for an equipped item? | **this skill** |
 | Wiring the item into `items.py`, shop, gacha, reset, rolls? | **`docs/item_runtime_checklist.md`** (not here) |
-| Registering a new viper perk / skill icon? | `CLAUDE.md` (Perk Icon Rendering) — not here |
+| Registering a new viper perk / skill icon? | `docs/character_skill_perk_checklist.md` §4 — not here |
 
 Routing override:
 - Any runtime character perk / skill icon registration or size/readability
   fix should route through
-  `docs/character_skill_perk_checklist.md` + `CLAUDE.md`, not this skill.
+  `docs/character_skill_perk_checklist.md`, not this skill.
 - That review must cover mini icon rendering, orb symbol rendering, live id
   aliases, and the smallest real UI box where the icon appears.
 - If the asset was created with imagegen for a runtime perk / skill icon,
@@ -135,20 +135,20 @@ Routing override:
 - If the symptom is "after adding synergy text, the control hint or
   effect preview became hard to read," that is still runtime character
   perk / skill work. Route it to
-  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  `docs/character_skill_perk_checklist.md` and audit the
   tooltip's real rendered-height / section-layout budget, not only the
   text copy.
 - If the symptom is "the TAB character-info perk tooltip clips when the
   perk is in the first row / panel edge," that is also runtime
   character perk / skill work. Route it to
-  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  `docs/character_skill_perk_checklist.md` and audit the
   grid-hover tooltip's rect-anchored placement, wrap width, and panel /
   viewport clamp behavior.
 - If the symptom is "the tooltip string contains `\\n` but renders like
   one flattened paragraph" or "a newly appended synergy line exists in
   the list but is invisible on screen," that is still runtime character
   perk / skill work. Route it to
-  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  `docs/character_skill_perk_checklist.md` and audit the
   shared `_get_wrapped_tooltip_lines()` path plus the real rendered
   shared-budget / max-invested tooltip state.
 
@@ -164,8 +164,8 @@ Upscaling override:
 
 Legacy wording note: the Viper-specific row in the table above is
 representative only. For any runtime character perk / skill integration
-work, use `docs/character_skill_perk_checklist.md` first, with
-`CLAUDE.md` as the companion icon / UI trap reference.
+work, use `docs/character_skill_perk_checklist.md` first; its §4-§5 are the
+companion icon, tooltip, text-path, and cooldown trap reference.
 
 **Do not import boss / character sprite-sheet rules (scale lock,
 turn-sheet layout, front-biased walk, etc.) into this skill.** Item icons
@@ -648,7 +648,7 @@ Copy-paste prompt: `references/equip_visual_prompt.md`.
 
 ## 8. File naming & output paths
 
-For current DiskHearts - Ringpia work, `items/` is the legacy
+For current 환격전 work, `items/` is the legacy
 Python/Pygame path and may be used only as a staging / parity reference
 unless the user explicitly asks for original PingFighter source work.
 Accepted runtime assets must be copied into the repo-local Godot asset

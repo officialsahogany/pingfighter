@@ -1,6 +1,7 @@
 # Dual Glitch Clone Skill Replication Port Reference
 
-Current target: Godot **디스크하츠 - 링피아**.
+Current product: Godot **환격전**. The English title is undecided; legacy names
+in this port reference are compatibility/provenance identifiers.
 
 Second-iteration expansion of `four_poisons` (`사독`). Upgrades Lv.5
 from a pure numeric capstone to a gameplay breakpoint by letting
@@ -16,9 +17,8 @@ Companion references:
   parent family-perk spec
 - `docs/character_skill_perk_checklist.md`
   Character runtime perk / skill integration source of truth
-- `CLAUDE.md`
-  hidden-knowledge rules, especially the skill-gold double-pay guard
-  and the CC / cooldown HUD-sync rules
+- `docs/character_skill_perk_checklist.md`
+  reward/double-pay, hit-primitive, and cooldown HUD-sync owner rules
 
 The original anchors below were captured from the frozen Python/Pygame
 PingFighter runtime. Treat them as parity references only. For current work,
@@ -152,8 +152,8 @@ explicit second-round design pass.
 - **No extra gold.**
   Clone-originated hits do not generate rally gold, skill gold, or any
   other gold reward. Only the primary caster's hits pay gold.
-  Cross-reference the CLAUDE.md "skill gold double-pay guard" family
-  of rules.
+  Cross-reference `character_skill_perk_checklist.md` §6 and its
+  smoke-test matrix for the no-double-pay contract.
 
 ### 4.2. Effect guards — strong effects apply once per cast
 

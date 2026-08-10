@@ -1,7 +1,7 @@
 ---
 name: sprite-generation
 description: |
-  Boss/character sprite sheet creation pipeline for DiskHearts - Ringpia. Covers walk,
+  Boss/character sprite sheet creation pipeline for 환격전. Covers walk,
   attack, dash, and turn (facing transition) sheets, character identity lock
   across sheets, body scale lock (+/-5%), color palette drift prevention,
   AutoSprite-MCP-first sprite-sheet workflows (Gemini/FLUX/built-in imagegen are not final sheet generators),
@@ -11,16 +11,17 @@ description: |
   promotion (the current agent commits the final apply; previous cross-agent hand-off
   step is removed). Use this skill whenever the
   user asks to create, regenerate, reshoot, redraw, or fix a boss sprite
-  sheet, walking sheet, attack sheet, dash sheet, turn sheet, or item icon,
-  or to run background removal / nukki on a generated PNG or JPEG. 한국어
+  sheet, walking sheet, attack sheet, dash sheet, or turn sheet, or to run
+  background removal / nukki on a generated PNG or JPEG. Item icons route to
+  the item-generation skill. 한국어
   트리거 키워드 - 스프라이트, 보스 시트, 걷기 시트, 공격 시트, 대쉬 시트, 턴 시트, 누끼,
   재생성, 스프라이트 시트, 보스 이미지, 배경 제거.
 ---
 
-# Sprite Generation Pipeline (DiskHearts - Ringpia)
+# Sprite Generation Pipeline (환격전)
 
 Asset-generation plays for boss and character sprite sheets.
-Current runtime target is the Godot project **디스크하츠 - 링피아** under
+Current runtime target is the Godot project **환격전** under
 `godot/`. Original Python/Pygame PingFighter sprite/runtime paths are legacy
 porting references only.
 **Updated 2026-05-03: the implementing agent owns the full pipeline end-to-end —
@@ -177,10 +178,13 @@ final sprite sheet.
   sheet starts leaking obsolete design branches into new AutoSprite briefs,
   use it only as QA comparison, not as a motion master.
 
-Historical accepted-sheet notes elsewhere in this skill and in `CLAUDE.md`
-may mention FLUX Kontext, Gemini, or earlier non-AutoSprite routes. Those
-describe already-shipped provenance only. Future regeneration follows the
-AutoSprite MCP rule above.
+Historical accepted-sheet notes in
+`docs/sprites/legacy_accepted_sheet_archive.md` may mention FLUX Kontext,
+Gemini, or earlier non-AutoSprite routes. Those describe already-shipped
+provenance only. Future regeneration follows the AutoSprite MCP rule above.
+Likewise, `prompts/menhera_*.md` are inactive historical experiment records.
+Do not execute them for new generation; start from the generic AutoSprite
+templates and the currently accepted identity anchor.
 
 Current repo-specific note:
 - **Stage 3 Menhera turn / victory branches**: shipped sheets remain as
@@ -463,7 +467,7 @@ If a generated sheet fails this at gameplay scale, reject and regenerate
 rather than scheduling a separate "polish" pass.
 
 Frontal face readability also drives the walk design choice in Section
-7.1 (front-biased walk): for DiskHearts - Ringpia ping-pong framing, human /
+7.1 (front-biased walk): for 환격전 ping-pong framing, human /
 chibi bosses keep the face mostly readable from the front during walk
 cycles, not turned to the side.
 
@@ -527,7 +531,7 @@ identity belongs in Section 6.
 ### 4.1. Standard size reference -- Stage 3 Menhera body class
 
 **Stage 3 Menhera's in-game body class is the STANDARD size for boss
-sprites in DiskHearts - Ringpia, not just a "preferred baseline".** Every
+sprites in 환격전, not just a "preferred baseline".** Every
 new boss must land at this size class unless the boss is explicitly listed
 under "Out of scope" below. Sprite sheets ship across the codebase with
 visibly drifting body sizes when this rule is treated as a soft preference,
@@ -569,8 +573,8 @@ documented per boss):
 
 If a boss falls into one of those exceptions, record the size override
 explicitly: state the Godot canvas / scale target and the design reason
-both in the implementation / handoff note and in `CLAUDE.md` under that
-boss's per-boss policy section. Never let a size override slip in
+both in the implementation/handoff note and the focused boss runtime contract
+or asset manifest. Never let a size override slip in
 implicitly via a copied legacy class default.
 
 Runtime-side guardrails for the same rule live in `AGENTS.md`. The
@@ -634,9 +638,9 @@ Required per-cell discipline (include verbatim in prompt):
 - Keep foot/baseline position consistent across frames
 ```
 
-### 7.1. Front-biased walk for human / chibi bosses (DiskHearts default)
+### 7.1. Front-biased walk for human / chibi bosses (환격전 default)
 
-For DiskHearts - Ringpia boss gameplay, human / chibi bosses should usually keep
+For 환격전 boss gameplay, human / chibi bosses should usually keep
 a **front-biased walk** rather than a full side-facing walk. This is the
 default baseline, confirmed via the Stage 3 Menhera walk iteration.
 
@@ -778,7 +782,7 @@ frames. Express lateral movement through legs, arm swing, hair, ribbons,
 cloth, tail, and accessories -- NOT by turning the torso to the side.
 Preserve frontal combat readability: the boss should still look like it
 is facing the player and the ball in every frame, even while moving
-laterally. Full side-facing walk is NOT the default for DiskHearts - Ringpia
+laterally. Full side-facing walk is NOT the default for 환격전
 bosses.
 
 Front-facing but lively: do NOT restrict motion to limb wiggle only.
@@ -1017,7 +1021,7 @@ Normal locomotion keeps using the main walking sheet.
 
 ### 9.1.1. Core rule -- turn is not an angle-rotation chart
 
-For DiskHearts - Ringpia's front-biased / front-facing bosses, turn no longer
+For 환격전's front-biased / front-facing bosses, turn no longer
 means "rotate the body through a camera-angle chart." The walk sheet is
 already front-facing, so the direction-change sheet should stay visually
 connected to that frontal read and express the direction change through a
@@ -1514,7 +1518,7 @@ Walk sheets are now produced as a **separate left-walk + right-walk pair**
 (Section 13.1). The single-sheet + runtime-flip pattern is deprecated.
 
 `items/` paths below are asset-generation scratch / staging outputs. For
-the current DiskHearts - Ringpia runtime, accepted PNGs must be copied into
+the current 환격전 runtime, accepted PNGs must be copied into
 the repo-local Godot asset tree and wired from the owning Godot module under
 `godot/scripts/`. Legacy Python paths remain porting references only.
 
@@ -1534,7 +1538,7 @@ the repo-local Godot asset tree and wired from the owning Godot module under
 
 Keep BOTH jpeg and png -- see Section 11.3.
 
-Stage-1 Dalji exception: per `CLAUDE.md`, Dalji uses
+Stage-1 Dalji exception: per `docs/sprites/stage1_dalji.md`, Dalji uses
 `assets/dalji_boss_walk_left.png` and `assets/dalji_boss_walk_right.png`
 instead of `items/...`. The legacy `assets/dalji_boss_walk.png`
 single-sheet asset is preserved on disk only as a runtime rollback
@@ -1542,7 +1546,7 @@ reference until the loader migration completes.
 
 ### 13.1. Separate L/R walk pair model (current convention)
 
-The current DiskHearts - Ringpia walk-sheet convention is a **separate left-walk
+The current 환격전 walk-sheet convention is a **separate left-walk
 sheet + separate right-walk sheet pair**. This replaces the older
 "single combined sheet + runtime horizontal flip" pattern.
 
@@ -1646,12 +1650,12 @@ at first generation, and petite human / chibi bosses should lean on the
 Section 4.1 baseline size reference rather than reinventing size targets
 per boss. Walk templates for human / chibi bosses must also include the
 Section 7.1 front-biased walk fragment -- front-biased walk is the
-DiskHearts - Ringpia default, full side-facing walk is optional and special-case.
+환격전 default, full side-facing walk is optional and special-case.
 
-Stage mapping reminder: code `current_stage == 5` is Stage 6 Honglyeon,
-code `current_stage == 6` is Stage 5 Nemesis. Always state both the real
-stage number and the code stage number in the prompt when they might
-disagree. Full mapping lives in `CLAUDE.md`.
+Stage mapping reminder: Godot `current_stage == 5` is current Stage 5
+Hongryun/Honglyeon; Godot `current_stage == 6` is current Stage 6 Tetriser,
+ported from legacy Python Stage 7. Original Python Stage 6 Nemesis is excluded.
+`AGENTS.md` owns this mapping.
 
 ---
 
@@ -1757,7 +1761,7 @@ include it (Section 8.4.1 anticipatory contact-hit alignment applies).
 | 10+ | Skill-specific | `[name]_boss_<skill_id>.png` | Each unique boss skill (one sheet per skill) |
 
 Turn is the most-skipped optional sheet. For front-biased walk
-characters (Section 7.1, the DiskHearts default), a runtime hop-only
+characters (Section 7.1, the 환격전 default), a runtime hop-only
 fallback is acceptable instead of a real turn sheet — see Section 9.1.4.
 
 Skill-specific sheets are added per-boss. Examples from the Dalji buildout:
@@ -1891,7 +1895,7 @@ hand-off (`prompts/handoff_codex.md` template) must include:
 
 Angled walk sheets (multiple facing directions inside the walking cycle)
 and full side-facing walk sheets are treated as **interesting experiments,
-not the preferred default** for DiskHearts - Ringpia human / chibi bosses.
+not the preferred default** for 환격전 human / chibi bosses.
 
 Background: the Stage 3 Menhera iteration showed that front-biased walk
 reads better in the ping-pong boss framing than a natural side-scroller

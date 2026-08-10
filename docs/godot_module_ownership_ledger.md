@@ -1,6 +1,6 @@
 # Godot Module Ownership Ledger
 
-Current implementation target: Godot **디스크하츠 - 링피아**.
+Current implementation target: Godot **환격전**.
 
 This ledger was split out of `docs/godot_port_architecture.md` to keep the
 architecture guide readable. It records module ownership, split history, and
@@ -11,9 +11,10 @@ Read this as a ledger, not a rulebook:
 - Module entries describe who owns a behavior today and what was ported.
 - Older `Python-parity`, `legacy`, or `current` wording records why the module
   exists or what behavior it matched at the time.
-- New implementation rules belong in `AGENTS.md`,
-  `docs/godot_port_architecture.md`, `docs/godot_port_checklist.md`, or the
-  focused item / character runtime checklist.
+- New implementation detail belongs in the focused architecture, port, item,
+  character, performance, or other owner checklist; cross-cutting incidents use
+  a stable GRT entry. Root files keep only concise routing and non-negotiable
+  safety contracts.
 
 ---
 

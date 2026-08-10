@@ -1,6 +1,7 @@
 # Legacy pingfighter.py Modularization Plan (2025-09-22)
 
-Current target: Godot **디스크하츠 - 링피아**.
+Current product: Godot **환격전**. The English title is undecided; legacy names
+in this frozen plan are compatibility/provenance identifiers.
 
 This is a frozen Python/Pygame PingFighter planning document. Keep it as
 historical context only. Do not use it as a current refactor plan unless the

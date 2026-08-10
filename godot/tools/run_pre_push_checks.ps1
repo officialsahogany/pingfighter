@@ -1,14 +1,14 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Local pre-push gate for the Godot project (디스크하츠 - 링피아).
+    Local pre-push gate for the Godot project (환격전).
 
 .DESCRIPTION
     Runs the same checks as .github/workflows/godot-ci.yml so regressions are
     caught locally instead of waiting on (or paying LFS quota for) GitHub
-    Actions: headless load check, GDScript warning scan, and the focused smoke
-    set. Reuses the existing tools/run_*.ps1 scripts and resolves the Godot
-    binary once so every step shares it.
+    Actions: headless load check, GDScript warning scan, smoke-runner classifier
+    regression, and the focused smoke set. Reuses the existing tools/run_*.ps1
+    scripts and resolves the Godot binary once so every step shares it.
 
     Invoked automatically by .git/hooks/pre-push (only when the pushed commits
     touch godot/). Can also be run on demand:
@@ -232,6 +232,19 @@ try {
     } else {
         Write-Host ""
         Write-Host "--- warning scan SKIPPED (mode=$Mode) ---"
+    }
+
+    if ($Mode -ne "load") {
+        Invoke-Step "smoke runner classifier regression" {
+            & (Join-Path $tools "verify_smoke_runner_classifier.ps1") -GodotExe $godot
+        }
+        Invoke-Step "nightly smoke status regression" {
+            & (Join-Path $tools "verify_nightly_smoke_status.ps1")
+        }
+    } else {
+        Write-Host ""
+        Write-Host "--- smoke runner classifier regression SKIPPED (mode=load) ---"
+        Write-Host "--- nightly smoke status regression SKIPPED (mode=load) ---"
     }
 
     if ($Mode -eq "all") {

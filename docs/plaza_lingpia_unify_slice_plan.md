@@ -1,4 +1,4 @@
-# 광장 건물·NPC "링피아 통일" 슬라이스 플랜 — 디스크하츠 - 링피아
+# 광장 건물·NPC 환격전 이관 슬라이스 플랜 — 구 "링피아 통일" 기록
 
 작성 2026-07-02. 이 문서가 **광장 건물·NPC 링피아 통일 피벗의 단일 소스**다.
 상위 SSOT는 `docs/plaza_port_plan.md`이며, 이 피벗은 그 문서의 "스테이지별 건물/NPC
@@ -104,7 +104,8 @@ NPC는 **링피아 네이티브 VR 허브 운영자** — 한옥 복장이 아�
 
 ### 2.5 생산 문법 (현 문법 재사용)
 
-- **건물 본체 = imagegen 정적 생성**(Gemini, AutoSprite 금지 — CLAUDE.md 건물 규칙).
+- **건물 본체 = imagegen 정적 생성**(Gemini, AutoSprite 금지 —
+  [Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary)와 이 절의 정적 건물 계약).
   sign_emissive/window_glow_mask = **2-edit 발광 분리**(sign-ON / window-ON 에디트를 base와
   diff → 발광 마스크 추출, 현 §5.3 문법 그대로). 간판 그림은 imagegen에 굽되 텍스트는 굽지 않음.
 - **NPC = imagegen 포트레이트**(Gemini), 마젠타 크로마키 → chroma_key.py 누끼.

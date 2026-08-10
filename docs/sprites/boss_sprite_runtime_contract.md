@@ -1,7 +1,7 @@
 # Boss Sprite Runtime Contract
 
 This document is the shared runtime vocabulary for boss sprite sheets in
-DiskHearts - Lingpia. It exists to keep asset names, gameplay events, and
+환격전. It exists to keep asset names, gameplay events, and
 Godot renderer keys from drifting apart while porting behavior from the
 frozen Python/Pygame PingFighter reference.
 

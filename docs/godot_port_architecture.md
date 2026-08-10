@@ -1,7 +1,7 @@
 # Godot Port Architecture
 
 This document records the long-term structure for the Godot project now
-officially titled 디스크하츠 - 링피아. The Python PingFighter version is the
+officially titled 환격전. The English product title remains undecided. The Python PingFighter version is the
 behavior reference, not the
 architecture template: do not reproduce the `pingfighter.py` monolith in
 Godot.
@@ -37,10 +37,9 @@ Fast path for most tasks:
    ledger entry.
 
 Do not append long bug histories or per-feature playbooks here by default.
-Put reusable rules in the relevant checklist (`AGENTS.md`,
-`docs/item_runtime_checklist.md`, `docs/character_skill_perk_checklist.md`,
-or `docs/godot_port_checklist.md`) and keep this file focused on architecture
-ownership.
+Put reusable detail in the relevant focused checklist or stable GRT entry and
+keep this file focused on architecture ownership. Root files keep only concise
+routing and non-negotiable safety contracts.
 
 ## Core Rules
 
@@ -806,10 +805,14 @@ append long bug histories or per-feature playbooks here.
 
 Non-fatal warnings that the smoke runner does NOT count as failures, but
 that should be recognized so future refactors do not chase them as
-regressions. The smoke runner's failure pattern at
-`godot/tools/run_smoke_tests.ps1` matches `SCRIPT ERROR | ERROR: | FATAL: |
-Parse Error | Compile Error | Failed to load script | Invalid call`, which
-intentionally excludes these.
+regressions. The smoke runner at `godot/tools/run_smoke_tests.ps1` rejects
+line-start severity markers `SCRIPT ERROR`, `ERROR:`, and `FATAL:`. Diagnostic
+words such as `Parse Error`, `Invalid call`, or `GDScript backtrace` in ordinary
+output are not standalone failure markers; real engine failures still surface
+through a severity line, nonzero exit, or missing smoke `ok` marker. The sole
+ignored severity line is the exact Windows headless environment message
+`ERROR: Failed to read the root certificate store.`; merely containing that
+phrase does not exempt another error.
 
 ### `character_selection_viper_start_smoke.gd` ObjectDB leak (4 RefCounted)
 

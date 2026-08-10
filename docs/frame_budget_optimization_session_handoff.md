@@ -115,7 +115,8 @@ s4~5 잔여 더블링은 1틱 스킵 위주로 성질 변화(run1은 40~60ms 스
 - 검증: QA 합격(루틴 라운드 0.4~1.1ms, 갱신 후 실측). 스모크가 set-attempt 카운팅
   schema-gated owner로 4계약 봉인, **revert 시 254 attempts로 실패 확인**.
 - **리뷰 포커스**: 라운드 경계에서 바뀌는 owner 키가 transient 싱크에 다 포함되는지.
-  `AGENTS.md`에 "이벤트 경계 훅 풀싱크 금지" 규칙 백필됨.
+  현재 standing rule은 `godot_perf_optimization_playbook.md`의
+  `Event-Boundary Owner Sync`가 소유한다.
 
 ### `38b980583` — round-restart / reset-ball perf 계측
 - 파일: `battle_scene_match_event_driver.gd` (+14), `battle_scene_match_flow_driver.gd` (+8)
@@ -126,12 +127,13 @@ s4~5 잔여 더블링은 1틱 스킵 위주로 성질 변화(run1은 40~60ms 스
 ### `f3627a17e` — 스테이지1 진입 로딩 36초→9초 (별 워크스트림, 이 세션이 커밋만)
 - 파일: `battle_boot_warmup_controller.gd`, `battle_scene_shell.gd`,
   `project_resource_loader.gd`, `battle_resources.gd`, `character_select_screen.gd`,
-  신규 `battle_entry_background_prewarm.gd` (+157), 스모크 2종, `AGENTS.md` (+35)
+  신규 `battle_entry_background_prewarm.gd` (+157), 스모크 2종, 당시 `AGENTS.md` (+35)
 - 변경: budgeted warmup(프레임당 1스텝 → 24ms 예산 배칭) + 캐릭선택 유휴
   백그라운드 프리웜. 실측 워밍업 2,143→~205프레임.
 - **리뷰 포커스**: budgeted 루프의 yield 가드 3개(공유 스레디드 슬롯 /
   battle_resources 자체 슬롯 / PSO 노드) — 누락 시 spin-poll로 MAX_POLLS 조기
-  도달→동기 폴백 강등(실측 step02 172→7,469 스핀 사례). `AGENTS.md`에 백필됨.
+  도달→동기 폴백 강등(실측 step02 172→7,469 스핀 사례). 현재 상세 정본은
+  `godot_perf_optimization_playbook.md`의 bounded threaded prewarm / batching yield다.
   단일 소스: 메모리 `project_stage1_entry_loading_optimization.md`.
 
 ## 2. 검증 상태 요약

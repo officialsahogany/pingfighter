@@ -1,7 +1,8 @@
 # 🔄 리팩토링 체크포인트 (2024-08-21 16:40)
 
 > **레거시 동결 문서 (provenance 전용).** 2024년 `bosspong.py` 리팩토링 시대의
-> 기록입니다. 아래 "롤백 방법"의 git 명령은 현행 리포 규칙(CLAUDE.md §0 —
+> 기록입니다. 아래 "롤백 방법"의 git 명령은 현행 리포 규칙
+> ([Agent Operating Posture §1](docs/agent_operating_posture.md#1-기본-적용할-작업자세-12) —
 > dirty worktree에서 `git reset` / `git checkout` / `git stash` 복원 금지)상
 > 실행 금지이며 기록으로만 남깁니다.
 
@@ -96,7 +97,8 @@
 ## 🔄 롤백 방법 (레거시 기록 — 실행 금지)
 2024년 당시 절차의 기록입니다. 현행 리포에서 실행하지 마십시오:
 ```text
-# 실행 금지 — 레거시 기록 전용. checkout 복원은 현행 규칙상 금지 (CLAUDE.md §0).
+# 실행 금지 — 레거시 기록 전용. checkout 복원은 현행 규칙상 금지
+# (docs/agent_operating_posture.md §1).
 # 백업에서 복원
 cp bosspong_original_22275.py bosspong.py
 

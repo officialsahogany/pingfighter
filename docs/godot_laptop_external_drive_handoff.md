@@ -1,7 +1,8 @@
 # Godot Laptop / External Drive Handoff
 
 This note records the portable Godot launch setup for working on
-**디스크하츠 - 링피아** from a laptop or an external drive.
+**환격전** from a laptop or an external drive. The English product title is
+undecided; existing filesystem and export names remain compatibility IDs.
 
 ## Current Project
 

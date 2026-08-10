@@ -1,7 +1,7 @@
 # 기회의 보석(Chance Gems) + 루트 패배 / 최종 결산 설계
 
 상태: 설계 확정 단계 (구현 전). 이 문서가 본 기능의 **단일 소스**.
-대상: Godot `디스크하츠 - 링피아` (`godot/`). Python `pingfighter.py`는
+대상: Godot **환격전** (`godot/`, 영문 제품명 미정). Python `pingfighter.py`는
 `show_death_evaluation()` 결산 내용 **패리티 참고**로만 사용.
 
 분담(메모리 `feedback_design_slice_review_division`): 설계·트랩 브리프·적대적

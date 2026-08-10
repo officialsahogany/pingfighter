@@ -1,6 +1,6 @@
 # Item Runtime Integration Checklist
 
-Current development target: Godot **디스크하츠 - 링피아**.
+Current development target: Godot **환격전**.
 
 The original Python/Pygame PingFighter item system is frozen. Use the
 Python-side sections in this checklist as legacy porting references only:
@@ -32,7 +32,7 @@ enhancement). The skill wins for visual asset decisions.
 
 ## How to use this file without reviving Python development
 
-For current 디스크하츠 - 링피아 work, follow this route:
+For current 환격전 work, follow this route:
 
 1. Start at Section 0.
 2. Use the Godot integration section for the item family:
@@ -1795,7 +1795,7 @@ menu. Missing a reset causes state to leak into the next run.
 
 This table is a frozen PingFighter reference map. Use it to understand what
 legacy behavior depended on during a port, not as a default edit list for
-디스크하츠 - 링피아. For current work, map each row to the relevant Godot
+환격전. For current work, map each row to the relevant Godot
 catalog, router, owner module, renderer, save/load state, and debug menu.
 
 The table below lists every hardcoded item list we know about. When
@@ -2170,8 +2170,8 @@ Required pattern for any future absorb / consume item:
    function — for weather that is `weather_event.force_end_weather_event()`
    plus an explicit `.clear()` on every per-type particle source list
    that doesn't auto-wipe behind the active gate. For boss skills, that
-   means the same reset call the boss-end / score-loss handler uses
-   (also see `CLAUDE.md` boss-skill cleanup invariant).
+   means the same reset call the boss-end / score-loss handler uses; this
+   local owner rule is the cleanup invariant.
 3. **Persistent terrain (sand walls, ice patches, dirt mounds) must
    be zeroed on the same frame too.** A dust / ember stream rising off
    a still-standing wall reads as the absorb being a parallel effect.

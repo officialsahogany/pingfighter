@@ -1,6 +1,11 @@
-# DiskHearts - Lingpia
+# 환격전
 
-This repository now develops the repo-local Godot project **디스크하츠 - 링피아**.
+This repository develops the repo-local Godot project **환격전**. The English
+product title is undecided; do not invent one.
+
+Names such as `pingfighter`, `DiskHearts`, `Ringpia` / `Lingpia`, package IDs,
+save keys, resource paths, and export filenames remain compatibility
+identifiers and are not player-facing rebrand targets.
 
 The original Python/Pygame **PingFighter** codebase is frozen. Keep it only as
 a behavior, timing, balance, text, and asset reference when porting features
@@ -13,7 +18,10 @@ task explicitly asks for original PingFighter source work.
 - Main implementation tree: `godot/scripts/`
 - Runtime assets: `godot/assets/`
 - Current routing guide: `AGENTS.md`
-- Hidden-knowledge / asset workflow guide: `CLAUDE.md`
+- Claude Code guide: `CLAUDE.md` (imports the shared `AGENTS.md` contract)
+- Runtime trap registry / ledger: `CLAUDE.md` and
+  `docs/godot_runtime_traps.md`
+- Harness verifier: `tools/verify_agent_harness.ps1`
 - Godot architecture map: `docs/godot_port_architecture.md`
 - Godot module ownership ledger: `docs/godot_module_ownership_ledger.md`
 - Godot port checklist: `docs/godot_port_checklist.md`

@@ -1,8 +1,8 @@
 # 승리 전리품 상자 환격전풍 리디자인 — Codex 핸드오프
 
 작성 2026-07-28 (Claude 아트디렉션 → Codex 생성/후처리/배선 인계.
-분담 근거: 리포지토리 표준 분담 — Claude=미적 방향/프롬프트/QA 기준,
-Codex=생성·누끼·런타임 반영. `CLAUDE.md` §0.1)
+분담 근거: [Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary) —
+Claude=미적 방향/프롬프트/QA 기준, Codex=생성·누끼·런타임 반영.
 
 ## 1. 목적 / 사용처
 

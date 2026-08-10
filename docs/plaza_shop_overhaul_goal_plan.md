@@ -200,8 +200,9 @@ See §4 acceptance.
 9. **AP**: route all trades through the per-visit gate (`_active_menu_visit_ap_consumed`);
    never lose an item with no payout (AP-check + validate before grant/remove).
 10. **Localization + rebrand**: all new copy (panel titles, sell/buy hints, 특가, refresh
-    notice) in `language_settings_data.gd` for all locales; never "PingFighter/핑파이터" →
-    "디스크하츠 - 링피아".
+    notice) in `language_settings_data.gd` for all locales. The player-facing
+    product label is **환격전**; do not reintroduce PingFighter/핑파이터 or an
+    earlier Korean product label.
 11. **Relight re-QA**: v2 cloth is brighter/different than v1 — re-tint any dark glow/
     shadow/contact-shadow overlays drawn over it as shadows OF the lit cloth, not neutral
     black.

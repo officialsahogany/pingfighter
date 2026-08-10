@@ -194,7 +194,8 @@ op가 동일(비-LOD)했으므로, 새 A 항목은 위 이원 분리를 적용�
 - **B/C felt-gate**: 헤드리스 불가 → BattlePerf 라벨(`stage*.playfield.*`,`weather.*`)
   로 전시 노트북 실측. 스모크는 GPUParticles amount·좌표 bake식·ADD 배선만 정적 검증.
 - **반증검증 필수 (SAFE, in-place Edit 토글만)**: 각 복구 스모크가 깎인/미배선 코드에서
-  FAIL함을 in-place로 증명. **git reset/checkout/stash 금지**(WIP 파괴, CLAUDE.md §0).
+  FAIL함을 in-place로 증명. **git reset/checkout/stash 금지**(WIP 파괴,
+  [Agent Operating Posture §1](agent_operating_posture.md#1-기본-적용할-작업자세-12)).
 
 ---
 

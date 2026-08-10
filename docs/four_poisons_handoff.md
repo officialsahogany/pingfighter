@@ -1,6 +1,7 @@
 # Four Poisons Port Reference
 
-Current target: Godot **디스크하츠 - 링피아**.
+Current product: Godot **환격전**. The English title is undecided; legacy names
+in this port reference are compatibility/provenance identifiers.
 
 This document preserves the agreed design for the Viper family-perk
 `four_poisons` (`사독`). The original anchors below were captured from

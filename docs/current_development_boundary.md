@@ -1,6 +1,6 @@
 # Current Development Boundary
 
-Current implementation target: Godot **디스크하츠 - 링피아**.
+Current implementation target: Godot **환격전**.
 
 The original Python/Pygame **PingFighter** runtime is frozen. Use it only as
 a reference for behavior, timing, balance, text, assets, and parity research

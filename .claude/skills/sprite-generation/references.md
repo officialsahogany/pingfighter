@@ -10,10 +10,11 @@ depends on. When these documents disagree with this skill, they win
 
 | Document | Authority on | Key sections |
 |---|---|---|
-| [CLAUDE.md](../../../CLAUDE.md) | Claude-side project standing rules | Stage Order Reference (stage code vs real stage), screen coordinate standards, boss sprite routing, identity + scale invariants |
+| [CLAUDE.md](../../../CLAUDE.md) | Claude-side asset routing and terminology | Draw routing, visual terminology, Live2D continuity, skill-effect sheets |
 | [AGENTS.md](../../../AGENTS.md) | Runtime / code-integration rules (Codex territory) | Boss Sprite Workflow, Runtime Performance Rules, Stage Integration Checklist, Testing Guidelines |
 | [docs/sprites/boss_sprite_runtime_contract.md](../../../docs/sprites/boss_sprite_runtime_contract.md) | Shared runtime state vocabulary | Attack-vs-stun semantics, Godot texture keys, verification checklist |
 | [docs/sprites/stage1_dalji.md](../../../docs/sprites/stage1_dalji.md) | Stage 1 Dalji compact runtime contract | Accepted asset set, Python/Godot mapping, regression checks |
+| [docs/stage6_tetriser_port_plan.md](../../../docs/stage6_tetriser_port_plan.md) | Current Stage 6 mapping | Tetriser owner and legacy Python Stage 7 provenance |
 
 Rule of precedence:
 
@@ -40,22 +41,22 @@ Critical cross-document guardrail:
 
 ## Stage mapping (critical, often mis-remembered)
 
-| Code `current_stage` | Real stage | Boss | Theme |
+| Godot `current_stage` | Current stage | Boss | Theme / provenance |
 |---|---|---|---|
-| `5` | 6 | Honglyeon | Chinese fire |
-| `6` | 5 | Nemesis | Ocean / battleship |
+| `5` | 5 | Hongryun / Honglyeon | Chinese fire |
+| `6` | 6 | Tetriser | Ported from legacy Python Stage 7 |
 
-Full table in `CLAUDE.md` "Stage Order Reference". Always state both numbers
-in a prompt when they might disagree, so downstream readers do not pick
-the wrong boss.
+Original Python Stage 6 Nemesis/ocean content is excluded. `AGENTS.md` owns the
+current stage mapping; the Tetriser plan owns Stage 6 details. State both the
+Godot stage and legacy Python provenance only when they genuinely differ.
 
 ---
 
-## File paths (duplicated here and in CLAUDE.md on purpose)
+## File paths
 
-Codex reads `CLAUDE.md` and `AGENTS.md`, not this skill. So file path
-conventions are intentionally duplicated in CLAUDE.md so Codex can route
-assets without loading this skill.
+Claude receives `CLAUDE.md`, its rules, and this skill when triggered. Codex
+receives the `AGENTS.md` chain and the `.agents/skills/` loader mirror when the
+skill triggers. Runtime paths stay here and in the runtime owner contract.
 
 Use `items/` as an asset-generation scratch / staging convention only.
 Accepted runtime assets for the current project must be copied into the
@@ -79,6 +80,7 @@ original Python/Pygame sprite class paths are legacy porting references only.
 
 | Tool | Used for |
 |---|---|
-| Gemini MCP `mcp__gemini__gemini-generate-image` | Sheet generation |
+| AutoSprite MCP (repo-configured sheet generator) | Final runtime sheet generation |
+| Gemini / built-in imagegen | Still concepts or explicit approved fallback only |
 | `remove_bg.py` (this directory) | Offline JPEG->PNG nukki (`py remove_bg.py <src> <dst>`) |
 | PIL + NumPy | Runtime of `remove_bg.py` |

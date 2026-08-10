@@ -1,6 +1,7 @@
 # Legacy 코만도 화기류 시스템 개발 가이드
 
-현재 대상: Godot **디스크하츠 - 링피아**.
+현재 제품: Godot **환격전**. 영문 제품명은 미정이며, 아래 옛 이름은
+호환성/역사 식별자로만 보존한다.
 
 이 문서는 frozen Python/Pygame PingFighter의 코만도 화기류 구현
 가이드다. 아래 `pingfighter.py` / `pygame` 예시는 레거시 참고용이며,

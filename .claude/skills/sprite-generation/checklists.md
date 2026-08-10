@@ -602,7 +602,7 @@ at Godot runtime promotion time, before declaring integration done.
 | 4 | Side-by-side gameplay-size comparison vs Menhera shows matching body class: head height, face size, torso silhouette all read at the same tier | yes |
 | 5 | The new boss does NOT read materially smaller than Menhera (would have looked too small at gameplay scale) | yes |
 | 6 | The new boss does NOT read materially larger than Menhera (would have looked oversized at gameplay scale) | yes |
-| 7 | If the boss IS an explicit size-class exception (large-frame, tall vertical-silhouette, or design-led oversized / undersized), the override is documented per-boss in `CLAUDE.md` AND in the implementation / handoff note | yes |
+| 7 | If the boss IS an explicit size-class exception (large-frame, tall vertical-silhouette, or design-led oversized / undersized), the override is documented in the focused boss runtime contract or asset manifest AND in the implementation / handoff note | yes |
 | 8 | Visible body fill ratio inside the canvas matches Menhera's class (a sheet whose figure fills 60% of canvas reads smaller in-game than one filling 80%, even at the same canvas dims) | yes |
 
 Fail any row -> the integration is NOT done. Either retune the Godot

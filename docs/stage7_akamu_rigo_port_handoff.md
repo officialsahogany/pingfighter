@@ -79,7 +79,8 @@
   이 전부 그 문서에 있다.
 - 이 레포 규칙: 반증검증은 in-place Edit 토글로만, **`git reset`/`checkout`/`stash`
   금지** (`docs/agent_operating_posture.md`).
-- CLAUDE.md "Legacy Stage Order Reference" 섹션의 Stage 7 매핑 행 추가는
-  **구현 착수 시점**에 갱신 (테트리서 §13 선례 — 기획 단계에서는 미변경).
+- 구현 착수 시 `AGENTS.md`의 current stage rule,
+  `current_development_boundary.md`, 이 handoff와 Stage 7 port plan의 매핑을
+  함께 갱신한다. 삭제된 root stage-order 표는 더 이상 정본이 아니다.
 - 원본 조사에서 나온 정리 항목: 서브타이틀 "심해 : 어둠의 끝"은 잔재 — 신규 아트
   브리프에 섞지 말 것 (테마 = 닌자 저택/그림자, 기획서 §0).

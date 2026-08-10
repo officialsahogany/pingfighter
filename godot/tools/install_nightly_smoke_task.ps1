@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Register / unregister the 디스크하츠 - 링피아 nightly full-smoke Scheduled Task.
+    Register / unregister the 환격전 nightly full-smoke Scheduled Task.
 
 .DESCRIPTION
     Creates a per-user Windows Scheduled Task that runs
@@ -67,7 +67,7 @@ $principal = New-ScheduledTaskPrincipal `
 
 Register-ScheduledTask -TaskName $TaskName `
     -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
-    -Description "디스크하츠 - 링피아: nightly full smoke suite (all *_smoke.gd)" `
+    -Description "환격전: nightly full smoke suite (all *_smoke.gd)" `
     -Force | Out-Null
 
 Write-Host "Registered scheduled task '$TaskName' (daily $Time, current user, non-elevated)."

@@ -1,7 +1,7 @@
 # Stage 1 Gaksital Sprite Notes
 
 This is the compact runtime contract for the Stage 1 Gaksital / 각시탈
-variant in the current Godot project, DiskHearts - Lingpia.
+variant in the current Godot project, 환격전.
 
 Current status: asset export only. Runtime wiring is still a later slice.
 The active runtime target remains the repo-local Godot project under

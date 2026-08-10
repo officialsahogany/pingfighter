@@ -1,6 +1,7 @@
 # 카오스 스피어 비주얼 / 연출 포팅 참고 문서
 
-현재 대상: Godot **디스크하츠 - 링피아**.
+현재 제품: Godot **환격전**. 영문 제품명은 미정이며, 아래 옛 이름은
+호환성/역사 식별자로만 보존한다.
 
 이 문서는 frozen Python/Pygame PingFighter의 `chaos_spear` 구현을
 분석한 레거시 리뷰다. 아래 `pingfighter.py` 라인과 `pygame` 예시는

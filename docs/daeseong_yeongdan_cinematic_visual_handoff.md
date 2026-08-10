@@ -1,7 +1,8 @@
 # 대성영단 시네마틱 비주얼 개선 핸드오프
 
 작성일: 2026-08-04. 작성자: Claude (아트 디렉션 평가 → 실행 핸드오프).
-분업 경계는 `CLAUDE.md` §0.1: 컨셉·팔레트·레이어 레시피·프롬프트·수용 판정 = Claude,
+분업 경계는 [Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary):
+컨셉·팔레트·레이어 레시피·프롬프트·수용 판정 = Claude,
 에셋 생성(imagegen)·누끼·리포 반입·로더/프리웜 배선·런타임 합성·씰 = Codex.
 
 ## 1. 배경 — 평가 결론

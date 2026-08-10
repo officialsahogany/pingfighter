@@ -26,9 +26,9 @@ Workflow:
    the first sheet's accepted prompt family. Do NOT rebuild both
    prompts from scratch unless both fail.
 
-Stage mapping reminder: code `current_stage == 5` is real Stage 6
-Honglyeon, code `current_stage == 6` is real Stage 5 Nemesis. State both
-when they differ.
+Stage mapping reminder: Godot `current_stage == 5` is current Stage 5
+Hongryun/Honglyeon; Godot `current_stage == 6` is current Stage 6 Tetriser,
+ported from legacy Python Stage 7. Python Stage 6 Nemesis is excluded.
 
 Replace `[name]`, `[boss name]`, `[real stage number]`,
 `[code stage number]`, and the per-boss blocks in brackets.
@@ -39,7 +39,7 @@ Replace `[name]`, `[boss name]`, `[real stage number]`,
 ## anchors are right-facing)
 
 ```
-Per d:\main\bosspong\CLAUDE.md and the sprite-generation skill, generate
+Per d:\main\bosspong\AGENTS.md and the sprite-generation skill, generate
 the RIGHT-walking sprite sheet for real-stage [real stage number] boss
 [boss name] (code current_stage == [code stage number]). This is the
 RIGHT half of a separate L/R walk pair.
@@ -78,7 +78,7 @@ viewer-RIGHT):
 Size / composition rules:
 - 8-frame walking sheet, 4x2 grid, aspectRatio 16:9, imageSize 1K for
   fast-mode taste check or 2K for precise-mode promotion (read
-  CLAUDE.md §10.1 / §10.2 first; 2K hits the chat-history limit on the
+  sprite-generation `SKILL.md` §10.1 / §10.2 first; 2K hits the chat-history limit on the
   next request, so prefer 1K when iterating in the same session)
 - Pure flat white background (#FFFFFF) in every cell
 - ABSOLUTELY NO grid lines, NO borders, NO dividers, NO labels, NO
@@ -166,7 +166,7 @@ Output:
 ## passes its own §1-§9 QA)
 
 ```
-Per d:\main\bosspong\CLAUDE.md and the sprite-generation skill, generate
+Per d:\main\bosspong\AGENTS.md and the sprite-generation skill, generate
 the LEFT-walking sprite sheet for real-stage [real stage number] boss
 [boss name] (code current_stage == [code stage number]). This is the
 LEFT companion to a previously generated and accepted RIGHT-walk sheet

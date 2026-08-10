@@ -1,4 +1,9 @@
-# Copilot Instructions for DiskHearts - Ringpia
+# Copilot Instructions for 환격전
+
+- **환격전** is the current product name. Its English title is undecided; do
+  not invent one. Read `AGENTS.md` for the shared repository contract, and
+  preserve `pingfighter`, `DiskHearts`, `Ringpia` / `Lingpia`, package IDs,
+  save keys, resource paths, and export filenames as compatibility identifiers.
 
 - Treat `godot/` as the live implementation target. The legacy Python/Pygame
   code is frozen reference material unless the task explicitly asks for a

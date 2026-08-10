@@ -288,7 +288,9 @@ deps 등재 필수 — [battle_frame_flow_deps_builder.gd:40](../godot/scripts/c
 `(game_offset, render_scale)` 캔버스 transform을 쓰는 오버레이는 **반드시**
 `clip_contents = true`인 Godot Control 안에서 그려야 한다. 호출 체인 어디서든
 `draw_set_transform(IDENTITY)` 리셋이 한 번만 일어나면 이후 draw가 화면 절대
-좌표로 떨어져 레터박스 필러로 샌다. 정본 = [AGENTS.md §471](../AGENTS.md#L471).
+좌표로 떨어져 레터박스 필러로 샌다. 정본은
+[Host Coordinate Reality](skill_vfx_workflow.md#host-coordinate-reality)와
+[GRT-045](godot_runtime_traps.md#grt-045)다.
 
 레퍼런스 구현을 그대로 따를 것 — `stage_ball_spawn_intro_fx_host.gd`가
 `_playfield_clip` Control + 드로우 브리지를 소유하고, 대응하는 lifecycle 모듈은

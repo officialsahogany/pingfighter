@@ -1,5 +1,9 @@
 # Godot Port Integration Checklist
 
+Current implementation target: Godot **환격전**. Preserve established
+PingFighter / DiskHearts / Ringpia identifiers as compatibility IDs unless an
+explicit migration task owns them.
+
 ## Ball-Owning / `skip_ball_motion_step` Collision Checklist
 
 Any Godot feature that owns the ball, hides it, freezes it, teleports it, or
@@ -37,7 +41,7 @@ preservation, not only cleanup.
       post-recovery collision, chaos-spear hit release, or the touched stage /
       skill smoke.
 
-현재 실개발 대상은 Godot 버전 **디스크하츠 - 링피아**다. 원본
+현재 실개발 대상은 Godot 버전 **환격전**이다. 원본
 Python/Pygame PingFighter는 개발이 중단되었으며, 앞으로는 포팅할 때만
 참고자료로 사용한다.
 

@@ -118,7 +118,7 @@ boss_center ∈ 빔 cone  ⇔
     angle(beam_dir, boss_center - doll_origin) ≤ BEAM_HALF_ANGLE
     AND  (boss_center - doll_origin).length() ≤ BEAM_LENGTH
 ```
-- 라디알 CC 트랩(CLAUDE.md "Radial CC hit geometry must name its primitive"):
+- 라디알 CC 계약(`character_skill_perk_checklist.md` §6 hit-primitive audit):
   프리미티브를 **boss-center-in-cone**으로 못박는다. 넓은 보스를 위해 보스 사각의
   상단 양 코너까지 샘플(center + 2 corner)하는 변형은 허용하되, **그릴 때와 같은**
   cone 기하를 쓴다 (보이는 빔 ≠ 판정 어긋남 금지).

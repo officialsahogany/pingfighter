@@ -358,7 +358,7 @@ func set_force_roll_for_tests(value: float) -> void
 - [ ] **즉시 재충돌(D10):** body-hit 선례는 ball_pos+쿨다운도 씀. solar는 `player_collision_cooldown≥6`
   + D2가 패들 위에서만 발동. **봉인:** S14.
 - [ ] **defense 인터셉트 이중발동(리뷰):** D2 `_player_can_block==false`로 비위협 제외 + solar 반사가
-  인터셉트를 다음 틱 disarm. **봉인:** S15. (CLAUDE.md "두 자동 세이브" 경고)
+  인터셉트를 다음 틱 disarm. **봉인:** S15가 두 자동 차단 경로의 중복 발동을 직접 검증한다.
 - [ ] **공 소유권 귀속(D13):** register_contact("lingpet","player"). **봉인:** S13.
 - [ ] **컴패니언 walk/idle + 모달 일시정지:** 즉발 리플렉스라 park 안 함(위치 오버라이드 없음).
   스트라이크 애님 accumulator 구동. **표기:** 비해당에 가깝지만 명시.

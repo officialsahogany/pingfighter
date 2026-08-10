@@ -1,6 +1,8 @@
 # Legacy Accepted-Sheet Archive
 
-Current implementation target: Godot **디스크하츠 - 링피아**.
+Historical note: this archive was assembled while the target label was
+**디스크하츠 - 링피아**. The current Godot product is **환격전**; its English
+title is undecided, and old names remain compatibility/provenance identifiers.
 
 This is the accepted-sheet provenance archive formerly embedded in
 `CLAUDE.md`. It preserves old Menhera / Dalji art decisions, identity locks,
@@ -101,7 +103,7 @@ the current Godot asset tree, and the owning Godot stage / boss module.
   `items/[name]_boss_sheet.png` staging convention -- the Python runtime
   loader at `entities/stage1_boss_sprite.py` read everything under
   `assets/...`, so prior regenerated sheets overwrote the `assets/` paths,
-  not `items/`. For current DiskHearts - Lingpia work, use this only as
+  not `items/`. For current 환격전 work, use this only as
   provenance / parity context and promote accepted sheets into the Godot
   asset path owned by the Stage 1 boss renderer.
   v7 single-sheet rollback reference is preserved at

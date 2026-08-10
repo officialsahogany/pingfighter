@@ -1,7 +1,8 @@
 # 전환 퍽 아이콘 리드로우 코덱스 핸드오프 (아트 디렉션)
 
 발주: 2026-07-07. **Claude = 아트 디렉션/프롬프트/적대 리뷰, Codex = imagegen 생성
-+ 배선 + QA** (CLAUDE.md §0.1 워크플로 분담). 선행: 패시브→퍽 개편 C 커밋
++ 배선 + QA** ([Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary) 분담).
+선행: 패시브→퍽 개편 C 커밋
 (`08cb116e9`) 완료 — 전환 퍽 37종이 인게임에 뜨지만 **전부 절차적 폴백(색 원)**.
 대표 결정: **전량 imagegen 리페인트**(재사용 아님).
 

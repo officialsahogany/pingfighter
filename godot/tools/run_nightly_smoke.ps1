@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Nightly FULL-suite smoke runner for 디스크하츠 - 링피아 (Godot).
+    Nightly FULL-suite smoke runner for 환격전 (Godot).
 
 .DESCRIPTION
     The automatic pre-push / CI gate only runs a small focused subset. This job
@@ -40,6 +40,8 @@ param(
 $ErrorActionPreference = "Stop"
 $tools = $PSScriptRoot
 
+. (Join-Path $tools "nightly_smoke_result_policy.ps1")
+
 if ([string]::IsNullOrWhiteSpace($LogDir)) {
     $LogDir = Join-Path $env:LOCALAPPDATA "LingpiaNightlySmoke"
 }
@@ -53,7 +55,7 @@ $logPath = Join-Path $LogDir ("nightly_smoke_{0}.log" -f $stamp)
 $godot = Resolve-GodotConsolePath -GodotExe $GodotExe
 
 $started = Get-Date
-("=== 디스크하츠 - 링피아 nightly full smoke (load + all smokes): {0} ===" -f $stamp) | Tee-Object -FilePath $logPath
+("=== 환격전 nightly full smoke (load + all smokes): {0} ===" -f $stamp) | Tee-Object -FilePath $logPath
 ("Godot: {0}" -f $godot) | Tee-Object -FilePath $logPath -Append
 ("LogDir: {0}" -f $LogDir) | Tee-Object -FilePath $logPath -Append
 
@@ -84,7 +86,7 @@ $smokeResult = Invoke-Sub "full smoke suite (all *_smoke.gd)" {
     & (Join-Path $tools "run_smoke_tests.ps1") -GodotExe $godot
 }
 
-$code = if (($loadResult -eq 0) -and ($smokeResult -eq 0)) { 0 } else { 1 }
+$code = Get-NightlyCombinedExitCode -LoadOutput @($loadResult) -SmokeOutput @($smokeResult)
 $elapsed = [int]((Get-Date) - $started).TotalSeconds
 $result = if ($code -eq 0) { "PASS" } else { "FAIL" }
 $summary = ("{0} | RESULT={1} EXIT={2} ELAPSED={3}s | LOG={4}" -f $stamp, $result, $code, $elapsed, $logPath)

@@ -2,7 +2,7 @@
 
 This is a frozen Python/Pygame PingFighter handoff. Keep it as provenance
 for the old 24-frame penguin logo intro asset and as a parity reference only.
-Current DiskHearts - Lingpia logo / intro work belongs in the repo-local
+Current 환격전 logo / intro work belongs in the repo-local
 Godot project, especially `godot/scripts/core/penguin_logo_intro.gd`,
 `godot/scripts/resources/gameplay_core_module_catalog.gd`, and the relevant
 `godot/assets/ui/...` logo asset folders.

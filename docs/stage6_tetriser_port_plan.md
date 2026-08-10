@@ -421,8 +421,9 @@ Godot 광폭화 트리거가 무엇과 연결되는지(난이도/리그/디버�
   → "Stage 6=테트리서, 별도 기획에서 다룸"으로 교정 (line 17 "홍련 중복 라우팅 금지"는 유효해 유지).
 - `docs/refactor_status_brief.md` — 옛 Stage 6 부재 / 계획 전용 상태를 제거하고,
   현재는 Stage 6 Tetriser runtime present + loading/result art pending으로 브리핑 갱신.
-- `CLAUDE.md` "Legacy Stage Order Reference + Current Godot Decision" 섹션 — 차단성 문구
-  "비활성 / 선택 불가" 제거, Godot 6=Python 7(테트리서) 매핑 행 추가.
+- 역사 기록: 당시 root stage-order 표에서 차단성 문구 "비활성 / 선택 불가"를
+  제거하고 Godot 6=Python 7(테트리서) 매핑 행을 추가했다. 현재 정본은
+  `AGENTS.md`의 current stage rule과 `current_development_boundary.md`다.
 - (2026-06-04) `docs/godot_module_ownership_ledger.md` — stage6_tetriser_* 모듈 7종 + 접점
   owner 등록, 상태 "Stage 6 complete through 5c / follow-up assets pending".
 

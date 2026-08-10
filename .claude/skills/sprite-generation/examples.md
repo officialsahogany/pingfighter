@@ -4,9 +4,9 @@ Short snapshots of bosses where the pipeline ran end-to-end. Use these as
 "this is what good looks like" references when drafting prompts for new
 bosses, and as continuity anchors when regenerating sheets.
 
-For the full stage-to-code mapping, see `CLAUDE.md` "Stage Order Reference"
-(code `current_stage == 5` is real Stage 6 Honglyeon; code
-`current_stage == 6` is real Stage 5 Nemesis).
+For current mapping, see `AGENTS.md`: Godot `current_stage == 5` is current
+Stage 5 Hongryun/Honglyeon; Godot `current_stage == 6` is current Stage 6
+Tetriser, ported from legacy Python Stage 7. Python Stage 6 Nemesis is excluded.
 
 ---
 
@@ -36,7 +36,7 @@ For the full stage-to-code mapping, see `CLAUDE.md` "Stage Order Reference"
   cat tail and cat-paw gloves, nurse cap + ribbon, olive large eyes,
   chibi 2-head proportions.
 
-## Honglyeon (real Stage 6, code `current_stage == 5`)
+## Honglyeon (current Godot Stage 5, `current_stage == 5`)
 
 - Role: the boss that validated the dash sheet pattern.
 - Dash: `items/honglyeon_boss_dash.{jpeg,png}`

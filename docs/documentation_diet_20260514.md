@@ -1,6 +1,8 @@
 # Documentation Diet 2026-05-14
 
-Current implementation target: Godot **디스크하츠 - 링피아**.
+Historical note: this cleanup was written while the target label was
+**디스크하츠 - 링피아**. The current Godot product is **환격전**; its English
+title is undecided, and old names remain compatibility/provenance identifiers.
 
 This note records the documentation cleanup that moved the repository away
 from original Python/Pygame PingFighter-as-active-development wording.
@@ -78,7 +80,7 @@ checklists, skill files, and split archive / ledger files.
 As of 2026-05-15, this documentation diet is considered complete for the
 original goal:
 
-- Current active development is Godot **디스크하츠 - 링피아**.
+- Current active development is Godot **환격전** (English title undecided).
 - Original Python/Pygame PingFighter is frozen reference material.
 - Active routing docs no longer present old Python commands as default
   development workflows.

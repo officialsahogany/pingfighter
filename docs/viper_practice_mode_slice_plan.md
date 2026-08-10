@@ -73,13 +73,18 @@ COMPLETE      : 홀드 해제 + prepare_serve_after_intro → 본게임
 
 라이브 QA 미완: 홀드 위치(380,545) 쉐백 리치 실측, 마샬 타임아웃 8s 체감, 안내 겹침/가독성.
 
-## 4. 트랩 (CLAUDE.md, 필수 준수)
+## 4. 트랩 (활성 owner 문서 + 본 slice, 필수 준수)
+
+공 소유와 해제의 공통 정본은
+[`character_skill_perk_checklist.md`](character_skill_perk_checklist.md)의
+`3.1a. Combo / predecessor trigger matrix`와 `7. Persistence and lifecycle`이다.
+
 - `skip_ball_motion_step` 해제는 **모든 exit 경로**(성공/재시도/취소/라운드리셋)에서 false +
-  실제 velocity로 (`CLAUDE.md:1135`). 누락 시 정지·미히트 공 softlock.
-- 홀드 중 패들 겹침 시 명시적 bounce/release (`:1150`).
-- 소유공이 자기 바닥/점수 판정할 땐 barrier 체크 복제 (`:1163`) — 연습 홀드는 애초에 점수
+  실제 velocity로 복구한다. 누락 시 정지·미히트 공 softlock.
+- 홀드 중 패들 겹침 시 명시적 bounce/release를 수행한다.
+- 소유공이 자기 바닥/점수 판정할 땐 barrier 체크를 복제한다 — 연습 홀드는 애초에 점수
   경로를 우회하므로 홀드 중엔 무관, but 해제 후 라이브 페이즈(AWAIT_MARSHAL)에서 상실 처리(S5)가 이 경계.
-- effects-only 모달 정지창 softlock (`:1190-1235`): 자가치유 토큰 + 라운드경계 정규화
+- effects-only 모달 정지창 softlock은 자가치유 토큰 + 라운드경계 정규화
   (`ball_round_state.build_common_snapshot`가 경계마다 skip=false 강제 — 안전망) 준수.
 - 홀드는 라운드 경계를 넘어 살아남으면 안 됨(정규화가 지움) → 매프레임 재assert 설계.
 
@@ -93,5 +98,5 @@ COMPLETE      : 홀드 해제 + prepare_serve_after_intro → 본게임
 
 ## 6. 참조 관련 메모리/문서
 - `[[project_junior_tutorial_system]]` — 다캐릭터 튜토리얼 구조.
-- `[[project_viper_core_flip_hwarang_parity]]`, CLAUDE.md Viper Dark Blade 콤보 트랩 — 연계 감지 참조.
-- 공-소유 스킬 트랩: CLAUDE.md §"Godot ball-owning skills must clear skip_ball_motion_step".
+- `[[project_viper_core_flip_hwarang_parity]]`와 이 문서 §4 — 연계 감지 참조.
+- 공-소유 스킬 트랩: `character_skill_perk_checklist.md` §3.1a 및 §7.

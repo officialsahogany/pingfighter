@@ -475,12 +475,12 @@ sync_owner ──→ lingpet_affinity_level/points (+ringpet 쌍) ──→ TAB 
 수입 — 기각(AFK 수입, 행동-유대 테마 모순; 스타일 무관 바닥 수입은
 라운드 완료 +5가 담당).
 
-## 10. 구현 후 백필 후보 (CLAUDE.md 백필 정책 라우팅 예약)
+## 10. 구현 후 백필 후보 (agent harness maintenance contract)
 
 1. `_apply_current_loadout` applied-key early-return 클래스(키 내용 변경이
-   무효화 없이는 불가시) → CLAUDE.md 숨은 캐시 트랩.
-2. 링펫 스탯 패널 행 예산(16px 바닥 + 침묵 드랍) → 툴팁 공유 라인 예산
-   규칙의 자매 규칙.
+   무효화 없이는 불가시) → [GRT-020](godot_runtime_traps.md#grt-020).
+2. 링펫 스탯 패널 행 예산(16px 바닥 + 침묵 드랍) →
+   [GRT-021](godot_runtime_traps.md#grt-021)의 owner-specific 강화 후보.
 3. 클릭-그랜트 per-opportunity 잠금 + 라운드/전투 캡 패턴 → 향후 펫/동반자
    상호작용 보상의 재사용 패턴.
 
@@ -493,7 +493,8 @@ sync_owner ──→ lingpet_affinity_level/points (+ringpet 쌍) ──→ TAB 
 
 **진행 상태 (2026-06-11): v1 슬라이스 1~7 전체 구현·리뷰·봉인 완료.**
 잔여 = 인게임 QA 1건(첫 레벨업 mid-rally 히치 + 연출 육안 확인 —
-무할당 프리미티브 드로라 위험 낮음). §10 백필 3건은 CLAUDE.md에 반영
+무할당 프리미티브 드로라 위험 낮음). §10 백필은
+`agent_harness_maintenance.md` 절차에 따라 GRT/owner 문서에 반영
 완료(Lazy Applied-Key Re-Apply Trap / Stats-Panel Row Budget Trap /
 per-frame roll trap의 interaction-grant 변형 불릿). 세로 스택 6행
 가시성은 드로 타임 기하 단언으로 봉인됨

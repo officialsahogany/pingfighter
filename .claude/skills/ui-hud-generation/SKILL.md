@@ -1,7 +1,7 @@
 ---
 name: ui-hud-generation
 description: |
-  Image-generation pipeline for DiskHearts - Ringpia fullscreen / pillar HUD frame
+  Image-generation pipeline for 환격전 fullscreen / pillar HUD frame
   art. Covers bottom unified HUD frames, pillar backplates, orb collars,
   dash-token decorative frames, active-item slot trays, transparent PNG
   prep, source-anchor measurement, reject / regenerate checks, and handoff
@@ -10,10 +10,11 @@ description: |
   rather than item icons or boss / character sprites.
 ---
 
-# UI HUD Generation Pipeline (DiskHearts - Ringpia)
+# UI HUD Generation Pipeline (환격전)
 
-This skill owns generated bitmap art for large Godot **디스크하츠 - 링피아**
-HUD chrome. Original Python/Pygame PingFighter HUD art is legacy reference
+This skill owns generated bitmap art for large Godot **환격전** HUD chrome.
+The English product title is undecided; never invent one. Original
+Python/Pygame PingFighter HUD art is legacy reference
 material for porting and visual parity only.
 
 Current scope:
@@ -61,11 +62,11 @@ Upscaling override:
 
 ## 2. Lessons From The Bottom Unified HUD Pass
 
-The frame should be designed for PingFighter first, not as a Diablo clone.
-Keep the visual language clean, mechanical, readable, and game-specific:
-dark graphite / steel body, restrained gold bevels, blue energy accents,
-compact jewel details, and no skull / demon / gothic overstatement unless
-the user explicitly asks for that theme.
+The frame should be designed for 환격전 first, not as a Diablo or generic
+sci-fi clone. Default to the shipped Korean-fantasy material language: dark
+lacquer and ink, warm hanji, aged brass, jade/cinnabar accents, restrained
+gold, and readable negative space. A stage may override this palette, but
+cyberpunk/neon/VR chrome is never the global default without an explicit brief.
 
 Avoid the failed patterns:
 
@@ -90,7 +91,7 @@ HUD frame.
 
 For a bottom unified HUD frame, ask for:
 
-- one wide, clean, cohesive PingFighter sci-fi arcade HUD frame
+- one wide, clean, cohesive 환격전 Korean-fantasy HUD frame
 - left circular orb collar and right circular orb collar integrated into
   one continuous bottom bar
 - a central recessed active-item slot tray with evenly spaced square wells
@@ -105,13 +106,13 @@ For a bottom unified HUD frame, ask for:
 Suggested prompt skeleton:
 
 ```text
-Create a wide integrated bottom HUD frame for the game PingFighter on a
+Create a wide integrated bottom HUD frame for the game 환격전 on a
 perfectly flat solid #00ff00 chroma-key background for background removal.
 
-The design is clean sci-fi arcade UI chrome: dark graphite and polished
-steel frame, restrained warm gold bevel lines, crisp blue energy accents,
-small red / blue jewel nodes, high-contrast readable pixel-game styling.
-It must feel original to PingFighter, not Diablo, not gothic, not demonic.
+The design is readable Korean-fantasy UI chrome: dark lacquer and ink,
+warm hanji insets, aged-brass edges, restrained jade and cinnabar nodes,
+subtle gold highlights, and clear game-scale silhouettes. It must feel
+original to 환격전, not Diablo and not generic cyberpunk or sci-fi arcade UI.
 
 Composition: left circular orb collar, right circular orb collar, and a
 central active-item slot tray are all connected by one continuous bottom
@@ -137,16 +138,13 @@ flat screenshot-like picture.
 
 World premise:
 
-- PingFighter takes place inside a full-immersion virtual reality. Stage
-  themes may differ wildly, but every pillar background should preserve a
-  shared cyberpunk / parallel-universe signal.
-- Blend the stage-specific theme with restrained virtual-world motifs:
-  holographic seams, neon circuitry, dimensional rifts, data-glitch
-  accents, scanline light, synthetic particles, or impossible
-  parallel-world overlays.
-- The cyberpunk / parallel-universe layer should feel integrated into the
-  local theme. Do not erase the stage identity, and do not make every
-  stage read as the same generic neon city.
+- 환격전 stages may differ wildly, but shared chrome defaults to the current
+  Korean-fantasy language: ink wash, hanji, lacquer, aged brass, jade,
+  cinnabar seals, talisman/scroll geometry, and restrained spirit light.
+- Stage-specific art owns the local palette and motifs. Preserve that identity
+  instead of forcing every stage into one generic historical backdrop.
+- Neon, circuitry, scanlines, glitch, holograms, or VR motifs are allowed only
+  for an explicitly technological stage/brief; they are not a global signal.
 
 Required set:
 
@@ -181,7 +179,7 @@ Outer picture-frame borders:
 Prompt the base layer with explicit exclusions:
 
 ```text
-Create the static base layer only for a PingFighter stage pillar
+Create the static base layer only for a 환격전 stage pillar
 background. It must feel like one unified left, bottom, and right pillar
 scene around a transparent central gameplay field.
 
@@ -195,7 +193,7 @@ drawn on top.
 Prompt outer picture-frame borders like this:
 
 ```text
-Create an outer picture-frame border for a PingFighter stage pillar
+Create an outer picture-frame border for a 환격전 stage pillar
 background on a perfectly flat solid #00ff00 chroma-key background for
 background removal.
 
@@ -214,7 +212,7 @@ inside the frame.
 Prompt sprite sheets on a flat chroma-key background:
 
 ```text
-Create separate transparent-ready sprite assets for the same PingFighter
+Create separate transparent-ready sprite assets for the same 환격전
 stage pillar background on a perfectly flat solid #00ff00 chroma-key
 background. Arrange the sprites in an evenly spaced sheet with generous
 padding. No shadows, no floor plane, no text, no watermark, and do not use
@@ -328,7 +326,8 @@ Reject or regenerate if any of these are true:
 - the lower frame is mostly empty and still exposes the old pillar
   background where the user expects a filled base
 - the frame is so tall that it covers the player paddle or central action
-- the image reads as a direct Diablo copy rather than PingFighter UI
+- the image reads as Diablo, generic sci-fi/cyberpunk, or another game's UI
+  rather than 환격전
 - the source contains text, numbers, item icons, game characters, or a
   baked screenshot
 - the chroma key leaks into blue lights / greenish highlights

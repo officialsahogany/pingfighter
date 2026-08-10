@@ -1,4 +1,4 @@
-# 광장(플라자) 시스템 Godot 포팅 계획 — 디스크하츠 - 링피아
+# 광장(플라자) 시스템 Godot 포팅 계획 — 환격전
 
 작성 2026-06-13. 조사 기반: 레거시 `downtown/` 전수 분석 + Godot 씬/에셋 컨벤션 조사 +
 스테이지 테마 매트릭스 추출 + 외부 에셋 시장 조사 (5갈래 병렬 + 완전성 비평 패스).
@@ -1068,7 +1068,8 @@ headless load 통과. 정확성: step 16 디스패치 확인(`WARMUP_DRAW_STEPS=
   금지, 반드시 `_trigger_menu_action` 경유(중복 차감 방지, 스카우트 trap).
 
 ### 0.10.4 아트 디렉션 (imagegen 레시피) — Claude 디렉션 / **생성=Codex imagegen** (2026-06-16 사용자 결정)
-자산 생성은 CLAUDE.md §0.1 분담대로 **Codex의 imagegen이 최종 생성 + repo 복사 + 로더/배선**.
+자산 생성은 [Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary) 분담대로
+**Codex의 imagegen이 최종 생성 + repo 복사 + 로더/배선**.
 Claude는 아래 검증된 프롬프트/스펙/시각 타깃 제공 + 픽셀 게이트.
 
 - **타입 = 불투명 base 백드롭** (투명 홀 없음 → 크로마키/누끼 불필요; 런타임이 NPC·오브젝트·HUD를
@@ -1191,7 +1192,8 @@ Claude는 아래 검증된 프롬프트/스펙/시각 타깃 제공 + 픽셀 게
 - **AP 중복차감**: `_trigger_menu_action` 경유 강제.
 - **골드/AP 스테일**: 스냅샷 매프레임 읽기(캐시 금지).
 - **입력 순서**: sibling 호스트면 `accept_event()`+트리순서; child면 자연 차단.
-- **다국어/리브랜딩**: 모든 노출 문구 폰트+language_settings_data 동기화, "디스크하츠 - 링피아".
+- **다국어/리브랜딩**: 모든 노출 문구 폰트+language_settings_data 동기화,
+  현재 제품명 **환격전** 사용(영문 제품명 미정).
 
 ### 0.10.7 슬라이스 백본 + 스모크 씰 (Codex)
 1. `plaza_interior_view.gd` 호스트 + 컨트롤러/plaza 핸드오프(walk-in 완료→인테리어, 나가기→복귀).

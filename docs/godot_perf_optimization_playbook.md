@@ -1,4 +1,4 @@
-# Godot 성능 최적화 플레이북 (링피아)
+# Godot 성능 최적화 플레이북 (환격전)
 
 fable-5가 링피아 프레임 예산 최적화 24개 커밋에서 균일하게 적용한 6개 수정
 기법 + 그 모두를 관통하는 봉인 규율. **비용을 찾은 뒤(진단) 실제로 줄이는 방법
@@ -10,10 +10,11 @@ fable-5가 링피아 프레임 예산 최적화 24개 커밋에서 균일하게 
   모달/이벤트일회성/배치윈도우갭) + attribution 재검증. 상세는
   `docs/frame_budget_72fps_optimization_design.md` 및 에이전트 운영 자세 문서.
 - **자세(일반 엄밀성)**: `docs/agent_operating_posture.md`.
-- **개별 런타임 트랩**: `CLAUDE.md`(Hot-Path Lazy Init Trap, Owner-Field Schema
-  Trap, Lazy Applied-Key Re-Apply Trap 등), `AGENTS.md`(redraw coalescing,
-  const-catalog deepcopy, event-boundary full-sync 등). 이 문서는 그 개별
-  트랩들을 "언제 어떤 기법" 결정 카탈로그로 묶는다.
+- **개별 런타임 트랩**: `CLAUDE.md`의 registry에서 안정 ID를 찾고
+  `docs/godot_runtime_traps.md`의 full ledger를 연다. const-catalog scan/deepcopy는
+  [GRT-032](godot_runtime_traps.md#grt-032), threaded cross-path wait는
+  [GRT-005](godot_runtime_traps.md#grt-005)가 정본이다. 이 문서는 개별 트랩을
+  "언제 어떤 기법" 결정 카탈로그와 성능 standing rule로 묶는다.
 
 ---
 
@@ -43,6 +44,17 @@ fable-5가 링피아 프레임 예산 최적화 24개 커밋에서 균일하게 
    in-place 토글로 확인(`git reset` 아님 — 더러운 워크트리 보호).
 6. **co-dependent 상수/경로는 move-together.** 스키마 bump + 마이그레이션 + 미러
    상수 + 전 언어 권장문구 + 스모크를 한 커밋에.
+
+## Event-Boundary Owner Sync
+
+라운드 시작·재개·리셋 같은 이벤트 경계라는 이유만으로 owner 전체를 다시 쓰지
+않는다. 정상 경로는 local last-pushed cache와 diff해 바뀐 transient 키만 밀고,
+schema 재구축이나 명시적 recovery처럼 전체 동기화가 필요한 예외는 owner와 이유를
+문서화한다. 같은 경계에서 early branch와 말미가 각각 full sync를 호출하지 않게 한다.
+
+씰은 실제 event entry를 관통해 owner read/write 또는 set-attempt 수를 센다. 평상시
+경계는 change-gated이고, 실변경·복구 leg만 필요한 키를 갱신하며, pre-fix full sync를
+복원하면 카운트 상한이 RED가 되어야 한다.
 
 ---
 
@@ -113,8 +125,12 @@ bake는 prewarm 또는 shared per-frame USEC 예산(700us) 하에서, **첫 핫�
   harvest로 고아 슬롯 회수. *효과 26→**9s**(전체 36→9s의 진짜 쾌거).*
 - 증거: `f3627a17e`. 봉인: 예산/yield 스모크 + 하베스트/잡커버리지 스모크.
 - 상세 케이스 스터디: [[stage1-entry-loading-optimization]](Claude memory).
-- AGENTS.md에 standing rule 있음(bounded threaded prewarm + one-step-per-frame
-  batching yield 가드) — 거긴 이미 상세하니 거기로.
+- **bounded threaded prewarm**: concurrent slot 수와 프레임당 신규 요청 수를 제한하고,
+  다른 loader path가 만든 완료 작업도 harvest한다. 자세한 cross-path timeout 계약은
+  [GRT-005](godot_runtime_traps.md#grt-005)다.
+- **batching yield**: 공유 threaded slot, owner-local slot, PSO/node readiness처럼
+  다음 프레임 없이는 진전할 수 없는 대기점에서 즉시 yield한다. 시간예산이 남았다는
+  이유로 같은 poll을 반복해 MAX_POLLS와 sync fallback을 조기 소모하지 않는다.
 
 ### 6. Felt-verdict-gated budget + shallow-when-read-only
 **증상**: 지각적 목표(부드러움)인데 지표가 오염됨 / read-only 소비자에 딥카피.

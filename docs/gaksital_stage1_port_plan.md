@@ -1,6 +1,6 @@
 # 각시탈 (Gaksital) Stage 1 보스 포팅 — 설계 / 슬라이스 플랜
 
-> 단일 소스(single source of truth). 각시탈을 Godot "디스크하츠 - 링피아"
+> 단일 소스(single source of truth). 각시탈을 Godot **환격전**
 > 스테이지 1의 **두 번째 보스**로 추가하는 작업의 설계·신호계약·슬라이스·트랩
 > 브리프. 런타임 GDScript 배선은 사용자/Codex가 이 문서를 보고 수행하고,
 > Claude는 스프라이트 아트 디렉션 + 적대적 리뷰를 담당한다
@@ -503,5 +503,6 @@ Sprite Sheets" 기본 권장)을 회전/사행 모션으로 합성. 모듈러 VF
   디렉션·누끼·런타임 export) + 슬라이스 1/3/4 GDScript 적대적 리뷰.
 - **사용자 / Codex**: 슬라이스 1/3/4 GDScript 런타임 배선 + 스모크 작성 +
   반증검증 + 인게임 라이브 QA.
-- 자산 워크플로 분담(CLAUDE.md §0.1) + `feedback_design_slice_review_division`
+- 자산 워크플로 분담([Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary)) +
+  `feedback_design_slice_review_division`
   준수.

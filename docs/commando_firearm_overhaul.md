@@ -1,6 +1,7 @@
 # Commando Firearm Overhaul Port Reference
 
-Current target: Godot **디스크하츠 - 링피아**.
+Current product: Godot **환격전**. The English title is undecided; legacy names
+in this port reference are compatibility/provenance identifiers.
 
 This document preserves the agreed design for the `soldier` / Commando
 firearm-system rework. The original anchors below were captured from

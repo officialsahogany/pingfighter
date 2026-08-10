@@ -45,7 +45,9 @@
 - `FIELD_SPAWN_ORDER`에 `"lingpet_feed"` 추가 + `build_item_by_name` match arm.
 - ⚠ **item_runtime_checklist 전 위치 감사**(액티브 아이템 add): 아이콘, 이름/설명 다국어 맵, sell_price /
   샵 base_price, 개발자모드 all_items 리스트, FIELD_SPAWN_ORDER, 효과 디스패치, Pandora 제외 목록(해당 시),
-  online passive 분류(액티브라 무관). **CLAUDE.md 기본 가정: end-to-end + 아이콘 같이.**
+  online passive 분류(액티브라 무관). 런타임 end-to-end 정본은
+  [`item_runtime_checklist.md`](item_runtime_checklist.md), 아이콘 정본은
+  [item-generation skill](../.claude/skills/item-generation/SKILL.md)이며 둘을 함께 닫는다.
 
 ## §3. 사용 → 효과 (apply_lingpet_feed → egg_runtime → affinity)
 

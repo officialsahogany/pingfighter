@@ -1,0 +1,61 @@
+# Immutable GRT identity manifest. Existing ID/title rows are append-only.
+# Format: id<TAB>exact heading shared by CLAUDE registry, rule, and ledger.
+grt-001	Godot ConfigFile UTF-8 BOM Trap
+grt-002	Godot High-Refresh Pacing Trap
+grt-003	Godot Hot-Path Lazy Init Trap
+grt-004	Godot Missing Reserved-Asset Per-Frame Re-Stat Trap
+grt-005	Godot Threaded Texture Cross-Path Timeout Trap
+grt-006	Godot Animated Polygon Triangulation Trap
+grt-007	Godot Effect Drawer Static-Frame Trap
+grt-008	Godot Negative-Z Backdrop Host vs Ancestor Opaque Fill Trap
+grt-009	Godot 보스 예측 모델 트랩 ("불규칙하게 흔들면 막기 어렵다"는 거짓)
+grt-010	Godot 회복 램프 플레이어 재개입 트랩 (해제는 구조적으로 한 프레임 늦다)
+grt-011	Godot Per-Frame Probability Roll Trap
+grt-012	Godot Companion Walk/Idle Ratio Trap (treadmill in place)
+grt-013	Godot Companion Teleport/Reposition Locomotion Trap (ground pet keeps Y)
+grt-014	Godot Emergency-Assist Static-Paddle Gate Trap (committed player dash reads as "can't block")
+grt-015	Godot Lingpet Companion Incapacitation Body-Hit Trap (parked ≠ disabled)
+grt-016	Godot 링펫 스킬 idle-업데이트 게이트 "보이는 것 ≠ 살아있는 것" 트랩 (VISIBLE vs LIVE)
+grt-017	Godot Owner-Field Schema Trap (runtime stat → character-info panel)
+grt-018	Godot Two-Update-Path Context-Flag Trap (effects-path flag read on the ball path)
+grt-019	Godot Shared Stateful Input-Reader Edge-Eating Trap (extra get_snapshot() consumer)
+grt-020	Godot Lazy Applied-Key Re-Apply Trap
+grt-021	Godot Stats-Panel Row Budget Trap
+grt-022	Godot 공유 레이아웃 빌더 요소-추가 트랩 (그린 자리와 클릭 자리가 갈라진다)
+grt-023	Godot Boss Skill Card Rail Commando-Avoidance Trap
+grt-024	Godot Lingpet Second-Active-Slot HUD Parity Trap
+grt-025	Godot Boss-Paddle-Scripting Skill Trap (drag / grab / displace the boss)
+grt-026	Godot Boss-Paddle-Range-Restriction Skill Trap (clamp / cage the boss)
+grt-027	Godot Boss-Paddle-Resizing Skill Trap (shrink / grow the boss paddle)
+grt-028	Godot Shared HUD Wrapper Prep-Before-Gate Trap (build-then-discard per frame)
+grt-029	Godot 공유 파티클 배열 꼬리-윈도우 렌더 컷 × 스폰 순서 트랩
+grt-030	Godot Slot-Indexed HUD State Array-Shift Trap
+grt-031	Godot 반쪽-랜딩 슬라이스 트랩 (표시가 없는 브리지를 근거로 댄다)
+grt-032	Godot Per-Frame Catalog Lookup Trap (miss-case full scan + deep copies)
+grt-033	Godot draw_polygon Un-Normalized UV Invisible-Quad Trap
+grt-034	Godot Modal-Block Gate Skips Loop-Audio Maintenance Trap
+grt-035	Godot 공유 큐 목록 삽입 × 형제 씰 절대-인덱스 트랩 (배치가 첫 실패에서 끊긴다)
+grt-036	Godot 벤더 WAV 컨테이너 결함 트랩 (임포트는 되는데 매 로드마다 경고 → 러너 RED)
+grt-037	Godot Per-Tick Float Drain Rail-Residue Trap (is_equal_approx write-gating)
+grt-038	Godot TextureRect Min-Size Clamp Renders At Native Texture Size Trap (use Sprite2D for scaled/rotated shader sprites)
+grt-039	Godot 전역 물리 보간 오버레이 스폰-글라이드 트랩 (spawn-frame reposition glide)
+grt-040	Godot 스모크 임의 프로퍼티 대입 조용한 레그-abort 공허 GREEN 트랩
+grt-041	Godot 퍽 표시 Projection-분기 후처리 탈락 트랩 (라이브=항상 projection)
+grt-042	Godot 프리웜 경량-값-위해 무거운-모듈 콜드생성 트랩 (전환 프레임 1초+ 스톨)
+grt-043	Godot HUD 상시-가시성 승격 × 프리미엄 절차 드로우 트랩 (봉인 예산 락스텝)
+grt-044	Godot Fullscreen Screen-Read Overlay Context-Fallback Sizing Trap
+grt-045	Godot 스크린-공간 FX 호스트 플레이필드 클립 트랩 (구조 GREEN ≠ 픽셀 클립)
+grt-046	Godot Fragment-Clip 캔버스-단위 vs 프레임버퍼-픽셀 트랩
+grt-047	Godot VFX 리브랜드 발광 예산 트랩 (ADD × 어두운 아트 = 더할 빛이 없다)
+grt-048	Godot Duck-Typed `has_method`-Gated Dynamic-Call Arity Trap (caller-path seal, not direct-runtime seal)
+grt-049	Godot Ball-Path Owner-Snapshot Stat-Refund Trap (owner.set mid-collision → refunded at frame end)
+grt-050	Godot 커맨드-버퍼 스킬 활성화 게이트 트랩 (막힌 게이트는 입력을 버리지 않고 미룬다)
+grt-051	Typed 배열에 조건식 리터럴을 대입하는 draw-time 런타임 트랩
+grt-052	Godot 패들-상대 오프셋 상수 1:1 포팅 트랩 (원본 패들은 바닥에서 24px 떠 있다)
+grt-053	Godot 포팅 파리티 판정 트랩 (수식이 같아도 "그 경로에서 호출되는가"가 다르다)
+grt-054	Godot 룰 상수 파생-임계값 리터럴 트랩 (승리 점수를 올리면 보상이 조용히 전멸한다)
+grt-055	Godot `draw_line`에는 라인 캡이 없다 — pygame `draw.ellipse` 실루엣 포팅 트랩
+grt-056	Godot 바닥밀착 패들 지면 VFX 트랩 (회전한 쿼드는 클램프를 뚫는다)
+grt-057	Godot 페인티드 크롬 뒤 평면 헤일로 rect 트랩 (그림틀 투명 여백이 상자를 드러낸다)
+grt-058	Godot 물리차단 모달 개폐 계약 트랩 (새 진입점은 형제 모달의 훅을 상속하지 않는다)
+grt-059	Godot 스프라이트 셀 여백 × 패들 배율 트랩 (캐릭터가 벽에 못 닿는다)

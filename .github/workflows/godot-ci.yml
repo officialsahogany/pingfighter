@@ -9,10 +9,6 @@ on:
       - "godot/**"
       - "tools/**"
   push:
-    branches:
-      - feature/refactor-ui
-      - main
-      - master
     paths:
       - ".github/workflows/godot-ci.yml"
       - "AGENTS.md"
@@ -276,6 +272,18 @@ jobs:
         working-directory: godot
         run: |
           .\tools\run_headless_load_check.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}"
+
+      - name: Smoke runner classifier regression
+        shell: pwsh
+        working-directory: godot
+        run: |
+          .\tools\verify_smoke_runner_classifier.ps1 -GodotExe "${{ steps.godot.outputs.godot_console }}"
+
+      - name: Nightly smoke status regression
+        shell: pwsh
+        working-directory: godot
+        run: |
+          .\tools\verify_nightly_smoke_status.ps1
 
       - name: Warning scan
         shell: pwsh

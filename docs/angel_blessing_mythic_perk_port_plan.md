@@ -128,7 +128,10 @@
 
 ### 4-1. 캐릭터 능력 기반 스킬 쿨타임 후보 정책
 
-현재 정책상 Optimus 스킬은 timestamp식 별도 경로를 사용하며 일반 쿨타임 감소 대상이 아니다 (`CLAUDE.md:1839-1853`). 이 때문에 모든 캐릭터에게 6종을 그대로 굴리면 Optimus에게 `active_cooldown`이 무효 결과가 된다.
+현재 정책상 Optimus 스킬은 timestamp식 별도 경로를 사용하며 일반 쿨타임 감소 대상이 아니다. 활성 정본인
+[`character_skill_perk_checklist.md`](character_skill_perk_checklist.md)의 skill-registry matrix도
+Optimus의 `cooldown_reduction_eligible`을 `False`로 둔다. 이 때문에 모든 캐릭터에게
+6종을 그대로 굴리면 Optimus에게 `active_cooldown`이 무효 결과가 된다.
 
 선택지는 다음과 같다.
 

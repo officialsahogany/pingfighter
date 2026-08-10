@@ -1,6 +1,6 @@
 # Character Runtime Skill / Perk Integration Checklist
 
-Current development target: Godot **디스크하츠 - 링피아**.
+Current development target: Godot **환격전**.
 
 The original Python/Pygame PingFighter character skill and perk system is
 frozen. Use Python-side sections in this checklist as legacy porting
@@ -20,7 +20,7 @@ Four-way role split:
 | Document | Owns |
 |---|---|
 | **this file** | Every Godot runtime code location, legacy reference path, and verification checkpoint for character perks / skills |
-| `CLAUDE.md` | Hidden-knowledge rules: icon-render traps, seven UI text paths, final-cooldown HUD rule, routing |
+| **this file, Sections 4-5** | Icon-render traps, seven UI text paths, orb-tooltip format, and final-cooldown HUD rule |
 | `AGENTS.md` | Top-level Godot-first routing and shared runtime guardrails |
 | `docs/item_runtime_checklist.md` | Item runtime only; use it when the change is item-driven rather than perk-driven |
 
@@ -28,17 +28,13 @@ Character perk / skill runtime does not belong in asset-generation skills.
 Character perk / skill integration lives here, with `AGENTS.md` providing
 the top-level Godot-first routing.
 
-If this file and `CLAUDE.md` appear to overlap:
-
-- **This file wins** for runtime code-location coverage and end-to-end
-  verification.
-- **`CLAUDE.md` wins** for the hidden-knowledge UI traps it calls out
-  explicitly (`draw_skill_icon_mini()`, seven render paths, cooldown
-  display consistency).
+This file owns the complete runtime and UI audit. `CLAUDE.md` only routes
+asset-generation requests and shared visual terminology; it does not override
+Sections 4-5. `AGENTS.md` remains the shared safety/build/commit contract.
 
 ## How to use this file without reviving Python development
 
-For current 디스크하츠 - 링피아 work, follow this route:
+For current 환격전 work, follow this route:
 
 1. Start at Section 0.
 2. Classify and wire through the Godot path:
@@ -449,7 +445,7 @@ Current Godot-first rule:
       `description`, `how_to_use`, `motion_hint`, `effect_type`, and any
       extra flags the tooltip or renderer needs.
 - [ ] `description` is 3 lines max and follows the orb-tooltip standard
-      format (CLAUDE.md §"5-orb active-skill tooltip standard format"):
+      format (this checklist §4.3 "Orb tooltip rendering"):
       effect + brief flavor / story + optional constraint, **no input
       key recap**, **no cooldown recap**. Perk-affected numbers
       (`extension_gear`-multiplied durations etc.) must be abstracted to
@@ -1017,8 +1013,8 @@ Current Godot-first rule:
       may use freer object / symbol silhouettes. The family choice does
       not override the TAB `dash_module_control` / `모듈제어` small-cell
       size reference.
-- [ ] Treat the `CLAUDE.md` "Perk Icon Rendering" section as a
-      companion invariant while doing this work.
+- [ ] Treat this checklist §4.1-§4.2 as the icon-rendering companion
+      invariant while doing this work.
 
 ### 4.2. Polished orb-HUD icon rendering
 
@@ -1095,8 +1091,7 @@ Current Godot-first rule:
       inventing a new layout. The default format is:
       Korean skill name in the header, `ACTIVE` tag, gauge-cost line,
       cooldown line, main description body, and the standard control
-      hint block (CLAUDE.md §"5-orb active-skill tooltip standard
-      format"): structured input rows from
+      hint block (this checklist §4.3): structured input rows from
       `_get_<character>_control_hint_rows()` followed by `motion_hint`
       rendered as a dim row.
 - [ ] Verify the control hint block follows the standard contract:
@@ -1194,7 +1189,7 @@ Current Godot-first rule:
 
 ### 4.4. Perk / skill UI text audit
 
-Run the full `CLAUDE.md` text audit for every new perk / skill:
+Run the full seven-path text audit below for every new perk / skill:
 
 Godot-first note:
 - For current work, map each legacy Python UI path below to the relevant
@@ -1673,7 +1668,7 @@ Current Godot-first rule:
       restores the paddle, even with the ball still far above the player;
       reverse-verified to FAIL on the old stay-hidden behavior). NOTE: this is a
       DIFFERENT trap from the ghost-shot `skip_ball_motion_step` release trap in
-      `CLAUDE.md` — that one freezes the ball; this one freezes the player's
+      this checklist §3.2 — that one freezes the ball; this one freezes the player's
       ability to guard.
 
 For Smasher-style work, a good question is:

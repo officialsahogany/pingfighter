@@ -4,7 +4,7 @@
 > historical record with no inbound references from live routing docs. Do NOT
 > re-run any command recorded below — in particular the "Executed Isolation
 > Commands" section records a `git stash push` that is PROHIBITED under the
-> current repo rule (CLAUDE.md §0: never `git reset` / `git checkout` /
+> current repo rule ([Agent Operating Posture §1](agent_operating_posture.md#1-기본-적용할-작업자세-12): never `git reset` / `git checkout` /
 > `git stash` in this dirty-worktree repo).
 
 Current target: Godot `godot/`. Legacy Python/Pygame files are frozen
@@ -1948,7 +1948,7 @@ git diff --binary > regression-triage-20260522-workingtree.patch
 
 Legacy runtime / asset isolation (historical record of a command executed
 once on 2026-05-22 — PROHIBITED to re-run; `git stash` is banned in this
-repo, see CLAUDE.md §0):
+repo, see [Agent Operating Posture §1](agent_operating_posture.md#1-기본-적용할-작업자세-12)):
 
 ```text
 # DO NOT RE-RUN — historical record only. git stash is prohibited in this repo.

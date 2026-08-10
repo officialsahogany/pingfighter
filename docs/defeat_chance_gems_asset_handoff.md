@@ -3,7 +3,8 @@
 대상: `docs/defeat_chance_gems_settlement_plan.md` 화면 A(소프트 패배) + HUD 보석
 게이지의 **이미지 자산 생성 + 런타임 배선**.
 
-분담(CLAUDE.md §0.1): **미적 방향·프롬프트·팔레트·실루엣·QA 기준 = Claude(이 문서).
+분담([Skill VFX Tool Boundary](skill_vfx_workflow.md#tool-boundary)):
+**미적 방향·프롬프트·팔레트·실루엣·QA 기준 = Claude(이 문서).
 실제 생성·알파/누끼·`res://` 로더/캐시/프리웜 배선·인게임 검증 = Codex.** 생성 후
 최종 알파/룩 리뷰는 Claude가 한 번 더 본다("does this look right" 패스).
 

@@ -1,0 +1,71 @@
+name: Agent Harness CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/agent-harness-ci.yml"
+      - ".github/workflows/godot-ci.yml"
+      - ".github/copilot-instructions.md"
+      - ".gitignore"
+      - "*.md"
+      - "README.md"
+      - "MANUS_PROMPT_PREFIX.md"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - ".claude/rules/**"
+      - ".claude/skills/**"
+      - ".agents/skills/**"
+      - "docs/**"
+      - "godot/project.godot"
+      - "godot/tools/run_pre_push_checks.ps1"
+      - "godot/tools/run_nightly_smoke.ps1"
+      - "godot/tools/nightly_smoke_result_policy.ps1"
+      - "godot/tools/run_smoke_tests.ps1"
+      - "godot/tools/verify_nightly_smoke_status.ps1"
+      - "godot/tools/verify_smoke_runner_classifier.ps1"
+      - "godot/tests/fixtures/**"
+      - "tools/verify_agent_harness.ps1"
+  push:
+    paths:
+      - ".github/workflows/agent-harness-ci.yml"
+      - ".github/workflows/godot-ci.yml"
+      - ".github/copilot-instructions.md"
+      - ".gitignore"
+      - "*.md"
+      - "README.md"
+      - "MANUS_PROMPT_PREFIX.md"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - ".claude/rules/**"
+      - ".claude/skills/**"
+      - ".agents/skills/**"
+      - "docs/**"
+      - "godot/project.godot"
+      - "godot/tools/run_pre_push_checks.ps1"
+      - "godot/tools/run_nightly_smoke.ps1"
+      - "godot/tools/nightly_smoke_result_policy.ps1"
+      - "godot/tools/run_smoke_tests.ps1"
+      - "godot/tools/verify_nightly_smoke_status.ps1"
+      - "godot/tools/verify_smoke_runner_classifier.ps1"
+      - "godot/tests/fixtures/**"
+      - "tools/verify_agent_harness.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-harness-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify agent harness contracts
+        shell: pwsh
+        run: .\tools\verify_agent_harness.ps1

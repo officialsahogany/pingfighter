@@ -9,7 +9,8 @@ QA, 커밋. (이번엔 Claude가 직접 배선까지 진행 — 사용자 "계�
   실측: `BALL_BASE_SPEED=7.65`에서 모든 현실적 incoming(8~26)에 대해 콤보 발사가 Lv0부터
   이미 `POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT`(2.40x=18.389)에 포화 → Lv0==Lv5, 칩의
   파워스매시 속도 증폭이 라이브에서 완전히 죽어 있었음(스모크가 base=20으로 캡을 회피해 못
-  잡음 = CLAUDE.md "표시 스탯이 실제 OUTCOME을 내야 한다" 위반). Python엔 per-launch 캡이
+  잡음 = [`character_skill_perk_checklist.md` §6](character_skill_perk_checklist.md#6-actual-gameplay-effect-wiring)의
+  실제 gameplay OUTCOME 계약 위반). Python엔 per-launch 캡이
   없고(전역 60만) 칩의 +225%가 발현되므로, `_clamp_launch_speed`에서 **콤보 발사 천장을
   `×(1+smash_speed_amp)`로 완화**(combo_boosted일 때만, base 무콤보 캡 불변). 전역/파워스매시
   모션 캡(champion 35)이 상한 보장. 스모크를 **BALL_BASE_SPEED 실조건**으로 교체 + 반증검증

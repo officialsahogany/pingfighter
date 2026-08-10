@@ -58,9 +58,8 @@ function Invoke-GodotSmoke {
     $outputText = ($output | Out-String)
     $seriousErrorLines = @($output | Where-Object {
         $line = $_.ToString()
-        ($line -notmatch "Failed to read the root certificate store") -and
-            (($line -match "^(SCRIPT ERROR|ERROR:|FATAL:)") -or
-                ($line -match "(Parse Error|Compile Error|Failed to load script|Invalid call|GDScript backtrace)"))
+        ($line -notmatch "^\s*ERROR: Failed to read the root certificate store\.\s*$") -and
+            ($line -match "^\s*(SCRIPT ERROR|ERROR:|FATAL:)")
     })
     $testName = [System.IO.Path]::GetFileNameWithoutExtension($SmokePath)
     $hasOkMarker = $outputText -match [regex]::Escape("${testName}: ok")

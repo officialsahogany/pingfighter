@@ -49,8 +49,8 @@ Please integrate per AGENTS.md:
   smaller or larger. If the boss is an explicit size-class exception
   (Tauren-style large frame, Honglyeon-style tall vertical silhouette, or
   a design-led oversized / undersized concept), record the canvas /
-  stage-scale override and design reason in the per-boss policy section
-  in `CLAUDE.md` AND in this hand-off before merging. Run §10 of
+  stage-scale override and design reason in the focused boss runtime contract
+  or asset manifest AND in this hand-off before merging. Run §10 of
   `checklists.md` for the formal gate.
 - Minimize repeated runtime preprocessing; prefer lazy-load and cached
   frame data

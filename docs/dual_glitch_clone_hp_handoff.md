@@ -1,6 +1,7 @@
 # Dual Glitch Clone HP / Durability Port Reference
 
-Current target: Godot **디스크하츠 - 링피아**.
+Current product: Godot **환격전**. The English title is undecided; legacy names
+in this port reference are compatibility/provenance identifiers.
 
 Third-iteration extension of `dual_glitch` inside the `사독` family.
 Gives each `dual_glitch` clone a finite HP pool so that a focused boss
