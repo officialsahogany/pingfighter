@@ -83,6 +83,20 @@ const BUILDING_MANIFEST_PATHS := [
 	"res://assets/ui/plaza/buildings/plaza_lingpia_academy_v1_manifest.json",
 ]
 
+# R1 production set. BUILDING_MANIFEST_PATHS remains a compatibility/rollback
+# catalog for older tests and consumers; the live plaza uses this retained set.
+const HWANGYEOK_BUILDING_ASSET_SET_ID := "hwangyeok_2d_v1"
+const HWANGYEOK_MAP_WORLD_SIZE := Vector2(2400.0, 1500.0)
+const HWANGYEOK_BUILDING_MANIFEST_PATHS := [
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_manifest.json",
+	"res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_manifest.json",
+]
+
 const FLOOR_KEYS := {
 	"base_01": FLOOR_BASE_01,
 	"base_02": FLOOR_BASE_02,
@@ -199,8 +213,10 @@ const BUILDING_LAYOUT := {
 static var _prewarm_index := 0
 static var _prewarm_stage_id := -1
 static var _prewarm_status: Dictionary = {}
+static var _building_prewarm_states: Dictionary = {}
 static var _manifest_cache: Dictionary = {}
 static var _building_specs_cache: Dictionary = {}
+static var _hwangyeok_building_specs_cache: Dictionary = {}
 static var _player_texture_cache: Dictionary = {}
 static var _interior_npc_texture_cache: Dictionary = {}
 static var _interior_room_texture_cache: Dictionary = {}
@@ -211,16 +227,34 @@ static func reset_for_test() -> void:
 	_prewarm_index = 0
 	_prewarm_stage_id = -1
 	_prewarm_status.clear()
+	_building_prewarm_states.clear()
 	_manifest_cache.clear()
 	_building_specs_cache.clear()
+	_hwangyeok_building_specs_cache.clear()
 	_player_texture_cache.clear()
 	_interior_npc_texture_cache.clear()
 	_interior_room_texture_cache.clear()
 	_interior_object_texture_cache.clear()
 
 
+static func invalidate_hwangyeok_building_specs_cache() -> void:
+	# The spec cache retains Texture2D objects. A project resource-cache reset can
+	# replace their RIDs, so the GPU prewarmer must rebuild specs from the current
+	# 21-path cache before sealing the replacement identities.
+	_hwangyeok_building_specs_cache.clear()
+
+
 static func get_prewarm_status() -> Dictionary:
 	return _prewarm_status.duplicate(true)
+
+
+static func get_building_prewarm_status(prewarm_key: String = HWANGYEOK_BUILDING_ASSET_SET_ID) -> Dictionary:
+	var state_value: Variant = _building_prewarm_states.get(prewarm_key, {})
+	if not (state_value is Dictionary):
+		return {}
+	var state := state_value as Dictionary
+	var status_value: Variant = state.get("status", {})
+	return (status_value as Dictionary).duplicate(true) if status_value is Dictionary else {}
 
 
 static func prewarm_assets_step(stage_id: int = 1, use_threaded_texture_loads: bool = true) -> bool:
@@ -286,8 +320,22 @@ static func get_prewarm_texture_paths(stage_id: int = 1) -> Array[String]:
 	for path in INTERIOR_OBJECT_TEXTURE_PATHS.values():
 		if str(path) != "":
 			paths.append(str(path))
-	for manifest_path in BUILDING_MANIFEST_PATHS:
-		var manifest := load_manifest(str(manifest_path))
+	# Building layers are owned by PlazaMapWorldHost ->
+	# PlazaBuildingRenderer and are prewarmed through that production chain.
+	return paths
+
+
+static func get_hwangyeok_building_manifest_paths() -> Array[String]:
+	var paths: Array[String] = []
+	for path_value in HWANGYEOK_BUILDING_MANIFEST_PATHS:
+		paths.append(str(path_value))
+	return paths
+
+
+static func get_building_layer_texture_paths(manifest_paths: Array) -> Array[String]:
+	var paths: Array[String] = []
+	for manifest_path_value in manifest_paths:
+		var manifest := load_manifest(str(manifest_path_value))
 		var layers: Dictionary = _get_dictionary(manifest.get("layers", {}))
 		for layer_key in ["base", "sign_emissive", "window_glow_mask"]:
 			var layer: Dictionary = _get_dictionary(layers.get(layer_key, {}))
@@ -295,6 +343,83 @@ static func get_prewarm_texture_paths(stage_id: int = 1) -> Array[String]:
 			if path != "":
 				paths.append(path)
 	return paths
+
+
+static func get_hwangyeok_building_prewarm_texture_paths() -> Array[String]:
+	return get_building_layer_texture_paths(get_hwangyeok_building_manifest_paths())
+
+
+static func prewarm_building_assets_step(
+	manifest_paths: Array,
+	use_threaded_texture_loads: bool = true,
+	prewarm_key: String = HWANGYEOK_BUILDING_ASSET_SET_ID
+) -> bool:
+	var paths := get_building_layer_texture_paths(manifest_paths)
+	var expected_path_count := manifest_paths.size() * 3
+	var signature := "\n".join(PackedStringArray(paths))
+	var state_value: Variant = _building_prewarm_states.get(prewarm_key, {})
+	var state: Dictionary = state_value as Dictionary if state_value is Dictionary else {}
+	if str(state.get("signature", "")) != signature:
+		state = {
+			"signature": signature,
+			"index": 0,
+			"status": {
+				"asset_set_id": prewarm_key,
+				"complete": false,
+				"expected_path_count": expected_path_count,
+				"path_count": paths.size(),
+			},
+		}
+		_building_prewarm_states[prewarm_key] = state
+
+	var status_value: Variant = state.get("status", {})
+	var status: Dictionary = status_value as Dictionary if status_value is Dictionary else {}
+	if expected_path_count <= 0 or paths.size() != expected_path_count:
+		status["complete"] = false
+		status["invalid_manifest_set"] = true
+		state["status"] = status
+		_building_prewarm_states[prewarm_key] = state
+		return false
+	status.erase("invalid_manifest_set")
+
+	var index := int(state.get("index", 0))
+	if index >= paths.size():
+		status["complete"] = true
+		state["status"] = status
+		_building_prewarm_states[prewarm_key] = state
+		return true
+
+	var path := paths[index]
+	var result: Dictionary
+	if use_threaded_texture_loads:
+		result = ProjectResourceLoader.prewarm_texture_threaded_step(
+			path,
+			"Missing plaza building texture",
+			"Failed to load plaza building texture",
+			ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+			ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+			false,
+			true
+		)
+	else:
+		result = {"done": true, "texture": ProjectResourceLoader.load_imported_texture(path)}
+	if not bool(result.get("done", false)):
+		return false
+	var loaded := result.get("texture", null) is Texture2D
+	status[path] = loaded
+	if not loaded:
+		status["complete"] = false
+		status["failed_path"] = path
+		state["status"] = status
+		_building_prewarm_states[prewarm_key] = state
+		return false
+	status.erase("failed_path")
+	index += 1
+	state["index"] = index
+	status["complete"] = index >= paths.size()
+	state["status"] = status
+	_building_prewarm_states[prewarm_key] = state
+	return bool(status.get("complete", false))
 
 
 static func load_floor_textures(stage_id: int = 1) -> Dictionary:
@@ -484,6 +609,115 @@ static func build_building_specs(
 	_apply_building_positions(specs, normalized_stage, map_seed, max(world_width, 760.0), full_layout_for_test)
 	_building_specs_cache[cache_key] = specs.duplicate(true)
 	return specs
+
+
+# R1 production Hwangyeok building path. Its cache key uses only fixed
+# map-world inputs; viewport, safe-rect, fit scale, and window size must never
+# be added here.
+static func build_hwangyeok_building_specs(
+	stage_id: int = 1,
+	map_seed: int = 0,
+	full_layout_for_test: bool = false,
+	force_tavern: bool = false
+) -> Array[Dictionary]:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	var cache_key := "%s:%d:%d:%d:%d:%d" % [
+		HWANGYEOK_BUILDING_ASSET_SET_ID,
+		normalized_stage,
+		map_seed,
+		int(HWANGYEOK_MAP_WORLD_SIZE.x),
+		1 if full_layout_for_test else 0,
+		1 if force_tavern else 0,
+	]
+	if _hwangyeok_building_specs_cache.has(cache_key):
+		return _duplicate_spec_array(_hwangyeok_building_specs_cache[cache_key])
+
+	var selected_types := _select_building_types(normalized_stage, map_seed, full_layout_for_test, force_tavern)
+	var specs: Array[Dictionary] = []
+	for manifest_path_value in HWANGYEOK_BUILDING_MANIFEST_PATHS:
+		var manifest_path := str(manifest_path_value)
+		var manifest := load_manifest(manifest_path)
+		if manifest.is_empty():
+			continue
+		var building_type := str(manifest.get("building_type", ""))
+		if not BUILDING_LAYOUT.has(building_type) or not selected_types.has(building_type):
+			continue
+		var layout: Dictionary = _get_dictionary(BUILDING_LAYOUT[building_type])
+		var source_size := _array_to_vector2(manifest.get("source_size", []), Vector2.ONE)
+		var origin_pivot := _array_to_vector2(manifest.get("origin_pivot", []), source_size * 0.5)
+		var display_height: float = float(manifest.get("display_height", source_size.y))
+		var display_scale: float = display_height / max(1.0, source_size.y)
+		var interaction_width: float = float(layout.get("interaction_width", max(140.0, source_size.x * display_scale * 0.38)))
+		var layers: Dictionary = _get_dictionary(manifest.get("layers", {}))
+		var sign_glow_color := _manifest_color(manifest, "sign_glow_color", Color.WHITE)
+		var window_glow_color := _manifest_color(manifest, "window_glow_color", Color(1.0, 0.93, 0.78, 1.0))
+		specs.append({
+			"type": building_type,
+			"display_name": get_building_display_name(building_type),
+			"asset_set_id": HWANGYEOK_BUILDING_ASSET_SET_ID,
+			"asset_id": str(manifest.get("asset_id", "")),
+			"manifest_path": manifest_path,
+			"pivot_pos": Vector2.ZERO,
+			"source_size": source_size,
+			"runtime_texture_size": _array_to_vector2(manifest.get("runtime_texture_size", []), Vector2(512.0, 512.0)),
+			"origin_pivot": origin_pivot,
+			"display_scale": display_scale,
+			"display_height": int(round(display_height)),
+			"interaction_width": interaction_width,
+			"collision_rect": Rect2(),
+			"interaction_rect": Rect2(),
+			"visual_rect": Rect2(),
+			"y_sort_anchor": BUILDING_BASELINE_Y,
+			"base_texture": _load_layer_texture(layers, "base"),
+			"sign_texture": _load_layer_texture(layers, "sign_emissive"),
+			"window_texture": _load_layer_texture(layers, "window_glow_mask"),
+			"sign_glow_color": sign_glow_color,
+			"window_glow_color": window_glow_color,
+			"sign_glow_strength": maxf(0.0, float(manifest.get("sign_glow_strength", 1.0))),
+			"window_glow_strength": maxf(0.0, float(manifest.get("window_glow_strength", 1.0))),
+			"marker_color": window_glow_color,
+			"identity_emblem": _get_dictionary(manifest.get("identity_emblem", {})),
+			"coordinate_contract": _get_dictionary(manifest.get("coordinate_contract", {})).duplicate(true),
+			"ground_anchor_chord": _array_to_vector2_list(manifest.get("ground_anchor_chord", [])),
+			"footprint_polygon": _array_to_vector2_list(manifest.get("footprint_polygon", [])),
+			"footprint_polygon_order": str(manifest.get("footprint_polygon_order", "")),
+			"footprint_art_reference": _get_dictionary(manifest.get("footprint_art_reference", {})).duplicate(true),
+			"entrance_anchor": _array_to_vector2(manifest.get("entrance_anchor", []), origin_pivot),
+			"entrance_anchor_offset": _array_to_vector2(manifest.get("entrance_anchor_offset", []), Vector2.ZERO),
+			"entrance_normal": _array_to_vector2(manifest.get("entrance_normal", []), Vector2(-1.0, 0.5)),
+			"sort_anchor": _array_to_vector2(manifest.get("sort_anchor", []), Vector2.ZERO),
+			"label_anchor": _array_to_vector2(manifest.get("label_anchor", []), Vector2.ZERO),
+			"label_anchor_source_pixels": _array_to_vector2(manifest.get("label_anchor_source_pixels", []), Vector2.ZERO),
+			"label_rect_rule": str(manifest.get("label_rect_rule", "")),
+			"plot_class": str(manifest.get("plot_class", "")),
+			"hierarchy_rank": int(manifest.get("hierarchy_rank", 0)),
+			"approach_side": str(manifest.get("approach_side", "")),
+			"road_side_clearance": _get_dictionary(manifest.get("road_side_clearance", {})).duplicate(true),
+			"occlusion_band": (manifest.get("occlusion_band", []) as Array).duplicate(true) if manifest.get("occlusion_band", []) is Array else [],
+			"allow_rotation": bool(manifest.get("allow_rotation", false)),
+			"allow_mirror": bool(manifest.get("allow_mirror", false)),
+			"plot_tags": (manifest.get("plot_tags", []) as Array).duplicate(true) if manifest.get("plot_tags", []) is Array else [],
+			"entrance_access_corridor": _get_dictionary(manifest.get("entrance_access_corridor", {})).duplicate(true),
+		})
+	specs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return selected_types.find(str(a.get("type", ""))) < selected_types.find(str(b.get("type", ""))))
+	_apply_building_positions(specs, normalized_stage, map_seed, HWANGYEOK_MAP_WORLD_SIZE.x, full_layout_for_test)
+	_hwangyeok_building_specs_cache[cache_key] = specs.duplicate(true)
+	return specs
+
+
+# R0 compatibility alias retained for focused candidate QA and older callers.
+static func build_hwangyeok_building_specs_for_preview(
+	stage_id: int = 1,
+	map_seed: int = 0,
+	full_layout_for_test: bool = false,
+	force_tavern: bool = false
+) -> Array[Dictionary]:
+	return build_hwangyeok_building_specs(
+		stage_id,
+		map_seed,
+		full_layout_for_test,
+		force_tavern
+	)
 
 
 static func load_manifest(path: String) -> Dictionary:
@@ -750,6 +984,23 @@ static func _array_to_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Array and (value as Array).size() >= 2:
 		return Vector2(float((value as Array)[0]), float((value as Array)[1]))
 	return fallback
+
+
+static func _array_to_vector2_list(value: Variant) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if not (value is Array):
+		return result
+	for point_value in value as Array:
+		if point_value is Array and (point_value as Array).size() >= 2:
+			result.append(Vector2(float((point_value as Array)[0]), float((point_value as Array)[1])))
+	return result
+
+
+static func _manifest_color(manifest: Dictionary, key: String, fallback: Color) -> Color:
+	var value := str(manifest.get(key, "")).strip_edges()
+	if value == "":
+		return fallback
+	return Color.from_string(value, fallback)
 
 
 static func _dictionary_to_rect(value: Variant) -> Rect2:

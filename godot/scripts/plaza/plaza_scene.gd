@@ -28,16 +28,15 @@ const PlazaMinimapProjection := preload("res://scripts/plaza/plaza_minimap_proje
 const PlazaMinimapRenderer := preload("res://scripts/plaza/plaza_minimap_renderer.gd")
 const PlazaActorVisualProjection := preload("res://scripts/plaza/plaza_actor_visual_projection.gd")
 const PlazaActorRenderer := preload("res://scripts/plaza/plaza_actor_renderer.gd")
-const PlazaBuildingRenderer := preload("res://scripts/plaza/plaza_building_renderer.gd")
+const PlazaMapWorldHost := preload("res://scripts/plaza/plaza_map_world_host.gd")
 const PlazaBackgroundProjection := preload("res://scripts/plaza/plaza_background_projection.gd")
-const PlazaBackgroundRenderer := preload("res://scripts/plaza/plaza_background_renderer.gd")
 const PlazaFlowGatePolicy := preload("res://scripts/plaza/plaza_flow_gate_policy.gd")
 const PlazaTradeItemPresentation := preload("res://scripts/plaza/plaza_trade_item_presentation.gd")
 const PlazaWorldGeometry := preload("res://scripts/plaza/plaza_world_geometry.gd")
 const PlazaStatusSnapshotBuilder := preload("res://scripts/plaza/plaza_status_snapshot_builder.gd")
 
 const GAME_SIZE := Vector2(760.0, 750.0)
-const MAP_SIZE := Vector2(1900.0, 750.0)
+const MAP_SIZE := PlazaAssetLoader.HWANGYEOK_MAP_WORLD_SIZE
 const CAMERA_SMOOTHING := 0.08
 const CAMERA_LEAD_X := 100.0
 const GROUND_Y := 666.0
@@ -89,35 +88,77 @@ var _lingpet_companion_draw_size := 92.0
 var _lingpet_follower_pos := Vector2.ZERO
 var _lingpet_follower_initialized := false
 var _transition_state: PlazaTransitionState = PlazaTransitionState.new()
+var _map_world_host: Control = null
 var _warp_pillar_fx_host: Node = null
 var _character_info_overlay_host: Control = null
 var _interior_view: Control = null
 var _last_input_dir := Vector2.RIGHT
 var _test_input_active := false
 var _test_input_dir := Vector2.ZERO
+var _plaza_exit_finished := false
+var _map_world_ticks_msec_for_test := -1
+var _map_world_glow_strength_for_test := -1.0
+var _map_world_render_background_for_test := true
+var _map_world_fill_color_for_test := PlazaMapWorldHost.DEFAULT_FILL_COLOR
+
+static var _prewarm_stage_id := -1
+static var _prewarm_phase := 0
 
 
 static func prewarm_assets_step(stage_id: int = 1) -> bool:
-	PlazaWarpPillarFxHost.prewarm_assets()
-	return PlazaAssetLoader.prewarm_assets_step(stage_id, true)
+	return _prewarm_assets_with_world_host_step(stage_id, true)
 
 
 static func prewarm_assets_threaded_step(stage_id: int = 1) -> bool:
-	PlazaWarpPillarFxHost.prewarm_assets()
-	return PlazaAssetLoader.prewarm_assets_step(stage_id, true)
+	return _prewarm_assets_with_world_host_step(stage_id, true)
 
 
 static func prewarm_assets_blocking_step(stage_id: int = 1) -> bool:
-	PlazaWarpPillarFxHost.prewarm_assets()
-	return PlazaAssetLoader.prewarm_assets_step(stage_id, false)
+	return _prewarm_assets_with_world_host_step(stage_id, false)
 
 
 static func get_prewarm_asset_status() -> Dictionary:
-	return PlazaAssetLoader.get_prewarm_status()
+	var base_status := PlazaAssetLoader.get_prewarm_status()
+	var building_status := PlazaAssetLoader.get_building_prewarm_status(
+		PlazaAssetLoader.HWANGYEOK_BUILDING_ASSET_SET_ID
+	)
+	var status := base_status.duplicate(true)
+	status["stage_id"] = int(base_status.get("stage_id", _prewarm_stage_id))
+	status["base_status"] = base_status
+	status["hwangyeok_building_status"] = building_status
+	status["phase"] = _prewarm_phase
+	status["complete"] = (
+		bool(base_status.get("complete", false))
+		and bool(building_status.get("complete", false))
+	)
+	return status
 
 
 static func reset_prewarm_assets_for_test() -> void:
 	PlazaAssetLoader.reset_for_test()
+	_prewarm_stage_id = -1
+	_prewarm_phase = 0
+
+
+static func _prewarm_assets_with_world_host_step(stage_id: int, use_threaded_texture_loads: bool) -> bool:
+	var normalized_stage := PlazaThemeCatalog.normalize_stage_id(stage_id)
+	if _prewarm_stage_id != normalized_stage:
+		_prewarm_stage_id = normalized_stage
+		_prewarm_phase = 0
+	PlazaWarpPillarFxHost.prewarm_assets()
+	if _prewarm_phase == 0:
+		if not PlazaAssetLoader.prewarm_assets_step(normalized_stage, use_threaded_texture_loads):
+			return false
+		_prewarm_phase = 1
+	if _prewarm_phase == 1:
+		if not PlazaMapWorldHost.prewarm_owned_assets_step(
+			PlazaAssetLoader.get_hwangyeok_building_manifest_paths(),
+			use_threaded_texture_loads,
+			PlazaAssetLoader.HWANGYEOK_BUILDING_ASSET_SET_ID
+		):
+			return false
+		_prewarm_phase = 2
+	return true
 
 
 func _ready() -> void:
@@ -131,10 +172,14 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	clip_contents = true
 	set_process(not _driven_by_controller)
+	_ensure_map_world_host()
 	_ensure_warp_pillar_fx_host()
 	_ensure_character_info_overlay_host()
 	if plaza_theme.is_empty():
 		configure({"current_stage": current_stage}, Callable(), false)
+	else:
+		_sync_game_rect()
+		_sync_map_world_host(_sample_map_world_ticks_msec())
 	_sync_warp_pillar_fx_host()
 	_sync_character_info_overlay_host()
 	grab_focus()
@@ -146,6 +191,7 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	current_stage = PlazaThemeCatalog.normalize_stage_id(int(data.get("current_stage", current_stage)))
 	plaza_theme = PlazaThemeCatalog.get_theme(current_stage)
 	exit_callback = on_exit
+	_plaza_exit_finished = false
 	_runtime_owner = data.get("runtime_owner", null) as Object
 	_runtime_registry = data.get("runtime_registry", null) as Object
 	_selected_character_type = PlazaAssetLoader.normalize_player_character_type(data.get("selected_character_type", _get_runtime_owner_selected_character_type()))
@@ -165,10 +211,9 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 		_map_seed = _get_or_create_stage_map_seed(current_stage)
 		_refresh_plaza_save_snapshot()
 	var force_tavern := _should_force_tavern_for_current_stage()
-	_building_specs = PlazaAssetLoader.build_building_specs(
+	_building_specs = PlazaAssetLoader.build_hwangyeok_building_specs(
 		current_stage,
 		_map_seed,
-		MAP_SIZE.x,
 		_full_layout_for_test,
 		force_tavern
 	)
@@ -186,12 +231,16 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_game_rect()
+	_sync_map_world_host(_sample_map_world_ticks_msec())
 	_sync_character_info_overlay_host()
 	queue_redraw()
 
 
 func update_plaza(delta: float) -> void:
 	_sync_game_rect()
+	# The retained world is sync-driven. Sample once for this rendered frame,
+	# then pass the same tick to every owned background/building layer.
+	var frame_ticks_msec := _sample_map_world_ticks_msec()
 	var flow_gate := _get_flow_gate()
 	match flow_gate:
 		PlazaFlowGatePolicy.RUNTIME_PERK:
@@ -210,6 +259,7 @@ func update_plaza(delta: float) -> void:
 	if PlazaFlowGatePolicy.blocks_street_update(flow_gate):
 		_dialog_timer = 0.0
 		_update_hovered_building()
+		_sync_map_world_host(frame_ticks_msec)
 		queue_redraw()
 		return
 	var input_dir := _get_input_dir()
@@ -230,6 +280,7 @@ func update_plaza(delta: float) -> void:
 	_camera_x = lerpf(_camera_x, target_camera_x, blend)
 	_dialog_timer = max(0.0, _dialog_timer - max(0.0, delta))
 	_update_hovered_building()
+	_sync_map_world_host(frame_ticks_msec)
 	queue_redraw()
 
 
@@ -521,6 +572,47 @@ func get_building_specs_for_test() -> Array[Dictionary]:
 	return _building_specs.duplicate(true)
 
 
+func set_map_world_ticks_msec_for_test(ticks_msec: int) -> void:
+	# -1 restores production sampling from Time at the update_plaza owner.
+	_map_world_ticks_msec_for_test = -1 if ticks_msec < 0 else ticks_msec
+
+
+func set_map_world_glow_strength_for_test(strength: float) -> void:
+	# Negative restores manifest-authored strengths. Tests still have to call
+	# update_plaza(); they cannot bypass the production owner sync path.
+	_map_world_glow_strength_for_test = -1.0 if strength < 0.0 else strength
+
+
+func set_map_world_fill_fixture_for_test(render_background: bool, fill_color: Color) -> void:
+	_map_world_render_background_for_test = render_background
+	_map_world_fill_color_for_test = fill_color
+
+
+func get_map_world_host_status_for_test() -> Dictionary:
+	if _map_world_host == null or not is_instance_valid(_map_world_host):
+		return {"active": false, "visible": false, "attached": false}
+	if not _map_world_host.has_method("get_debug_status"):
+		return {"active": false, "visible": false, "attached": true}
+	var status_value: Variant = _map_world_host.call("get_debug_status")
+	var status: Dictionary = (status_value as Dictionary).duplicate(true) if status_value is Dictionary else {}
+	status["attached"] = _map_world_host.get_parent() == self
+	return status
+
+
+func get_map_world_layer_statuses_for_test() -> Array[Dictionary]:
+	if _map_world_host == null or not is_instance_valid(_map_world_host):
+		return []
+	if not _map_world_host.has_method("get_building_layer_statuses"):
+		return []
+	var statuses_value: Variant = _map_world_host.call("get_building_layer_statuses")
+	if statuses_value is Array:
+		var statuses: Array[Dictionary] = []
+		for status_value in statuses_value as Array:
+			statuses.append((status_value as Dictionary).duplicate(true) if status_value is Dictionary else {})
+		return statuses
+	return []
+
+
 func force_blacksmith_roll_for_test(roll_value: int) -> void:
 	if _plaza_blacksmith_transactions != null and _plaza_blacksmith_transactions.has_method("force_next_roll_for_test"):
 		_plaza_blacksmith_transactions.force_next_roll_for_test(roll_value)
@@ -544,20 +636,9 @@ func _gui_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	if size.x <= 1.0 or size.y <= 1.0:
+		_clear_map_world_host()
 		return
 	var scale := _get_game_scale()
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.012, 0.014, 0.022, 1.0))
-	PlazaBackgroundRenderer.draw(
-		self,
-		_floor_textures,
-		_camera_x,
-		EXIT_ZONE,
-		GAME_SIZE,
-		size,
-		SIDEWALK_TOP,
-		scale,
-		Time.get_ticks_msec()
-	)
 	_draw_world_objects(scale)
 	_draw_overlay_ui(scale)
 	_draw_runtime_perk_overlay()
@@ -828,8 +909,6 @@ func _update_lingpet_follower(delta: float) -> void:
 
 
 func _draw_world_objects(scale: float) -> void:
-	for spec in _building_specs:
-		_draw_building(spec, scale)
 	if _transition_state.warp_active:
 		var plaza_warp_progress := _get_plaza_warp_progress()
 		var plaza_actor_alpha := _get_plaza_warp_actor_alpha(plaza_warp_progress)
@@ -848,19 +927,6 @@ func _draw_world_objects(scale: float) -> void:
 		return
 	_draw_lingpet_follower(scale)
 	_draw_player(scale)
-
-
-func _draw_building(spec: Dictionary, scale: float) -> void:
-	PlazaBuildingRenderer.draw(
-		self,
-		spec,
-		_camera_x,
-		size.x,
-		BUILDING_BASELINE_Y,
-		scale,
-		Time.get_ticks_msec()
-	)
-
 
 func _draw_player(scale: float, alpha: float = 1.0, world_pos: Vector2 = Vector2.INF) -> void:
 	var draw_world_pos := _player_pos if world_pos == Vector2.INF else world_pos
@@ -912,6 +978,89 @@ func _get_plaza_warp_actor_alpha(progress: float) -> float:
 
 func _get_plaza_warp_actor_lift(progress: float) -> float:
 	return _transition_state.get_warp_actor_lift(progress)
+
+
+func _sample_map_world_ticks_msec() -> int:
+	if _map_world_ticks_msec_for_test >= 0:
+		return _map_world_ticks_msec_for_test
+	return Time.get_ticks_msec()
+
+
+func _ensure_map_world_host() -> void:
+	if _map_world_host != null and is_instance_valid(_map_world_host):
+		return
+	if not is_inside_tree():
+		return
+	var host := PlazaMapWorldHost.new()
+	host.name = "PlazaMapWorldHost"
+	host.position = Vector2.ZERO
+	host.size = size
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The live plaza root is z=1200. This must stay relative so -1 resolves to
+	# 1199: below root actors/UI, but above the underlying result/battle stack.
+	host.z_as_relative = true
+	host.z_index = PlazaMapWorldHost.HOST_Z_INDEX
+	host.set_process(false)
+	add_child(host)
+	_map_world_host = host
+	_map_world_host.call("set_active", false)
+
+
+func _sync_map_world_host(ticks_msec: int) -> bool:
+	if not is_inside_tree():
+		return false
+	_ensure_map_world_host()
+	if _map_world_host == null or not is_instance_valid(_map_world_host):
+		return false
+	_map_world_host.position = Vector2.ZERO
+	if size.x <= 1.0 or size.y <= 1.0 or _plaza_exit_finished or _menu_session.is_open or _is_interior_view_active():
+		_map_world_host.call("set_active", false)
+		return false
+	var state := {
+		"render_size": size,
+		"game_size": GAME_SIZE,
+		"render_scale": _get_game_scale(),
+		"render_background": _map_world_render_background_for_test,
+		"draw_opaque_fill": true,
+		"fill_color": _map_world_fill_color_for_test,
+		"floor_textures": _floor_textures,
+		"camera_x": _camera_x,
+		"exit_zone": EXIT_ZONE,
+		"sidewalk_top": SIDEWALK_TOP,
+		"building_baseline_y": BUILDING_BASELINE_Y,
+		"ticks_msec": ticks_msec,
+		"building_specs": _get_map_world_building_specs_for_sync(),
+	}
+	return bool(_map_world_host.call("sync_state", state, true))
+
+
+func _get_map_world_building_specs_for_sync() -> Array[Dictionary]:
+	if _map_world_glow_strength_for_test < 0.0:
+		return _building_specs
+	var specs: Array[Dictionary] = []
+	for source_spec in _building_specs:
+		var spec := source_spec.duplicate(true)
+		spec["sign_glow_strength"] = _map_world_glow_strength_for_test
+		spec["window_glow_strength"] = _map_world_glow_strength_for_test
+		specs.append(spec)
+	return specs
+
+
+func _clear_map_world_host() -> void:
+	if _map_world_host == null or not is_instance_valid(_map_world_host):
+		return
+	if _map_world_host.has_method("clear_transient_canvas_items"):
+		_map_world_host.call("clear_transient_canvas_items")
+	else:
+		_map_world_host.visible = false
+
+
+func clear_transient_canvas_items() -> void:
+	_clear_map_world_host()
+
+
+func _exit_tree() -> void:
+	clear_transient_canvas_items()
 
 
 func _ensure_character_info_overlay_host() -> void:
@@ -1078,6 +1227,12 @@ func _build_minimap_state() -> Dictionary:
 
 
 func _get_minimap_building_color(building_type: String) -> Color:
+	for spec in _building_specs:
+		if str(spec.get("type", "")) != building_type:
+			continue
+		var marker_color_value: Variant = spec.get("marker_color", null)
+		if marker_color_value is Color:
+			return marker_color_value as Color
 	return PlazaMinimapProjection.get_building_color(building_type)
 
 
@@ -1168,6 +1323,9 @@ func _open_building_menu(building: Dictionary) -> void:
 
 
 func _open_interior_view() -> void:
+	# Retained children survive immediate-mode early returns unless explicitly
+	# failed closed before the interior takes ownership of the canvas.
+	_clear_map_world_host()
 	_free_interior_view()
 	var view := PlazaInteriorView.new()
 	_interior_view = view
@@ -1691,5 +1849,7 @@ func _exit_plaza() -> void:
 
 
 func _finish_plaza_exit() -> void:
+	_plaza_exit_finished = true
+	clear_transient_canvas_items()
 	if exit_callback.is_valid():
 		exit_callback.call()

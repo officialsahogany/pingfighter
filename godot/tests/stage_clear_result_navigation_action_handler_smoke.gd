@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage_clear_result_navigation_action_handler.gd")
 const StageClearResultNavigationSceneHandler := preload("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
@@ -26,9 +27,20 @@ class CallbackSink:
 		exit_calls += 1
 
 
+class RetryablePlazaSink:
+	extends RefCounted
+
+	var plaza_calls := 0
+
+	func enter_plaza() -> bool:
+		plaza_calls += 1
+		return false
+
+
 func _init() -> void:
 	_verify_navigation_action_contract()
 	_verify_navigation_scene_handler_contract()
+	_verify_preparation_notice_localization()
 	_verify_scene_delegates_navigation_actions()
 
 	if _failures.is_empty():
@@ -66,8 +78,8 @@ func _verify_navigation_action_contract() -> void:
 		"next-stage button should confirm"
 	)
 	_expect(
-		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_PLAZA) == StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE,
-		"plaza button should raise the preparing notice while the plaza is disabled"
+		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_PLAZA) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
+		"plaza button should enter the active production plaza"
 	)
 	_expect(
 		StageClearResultNavigationActionHandler.get_scroll_button_action(StageClearResultInteractionState.BUTTON_EXIT) == StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU,
@@ -120,7 +132,7 @@ func _verify_navigation_action_contract() -> void:
 	var plaza_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
 		"clicked_button": StageClearResultInteractionState.BUTTON_PLAZA,
 	})
-	_expect(str(plaza_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE, "scroll-button apply helper should map plaza to the preparing notice")
+	_expect(str(plaza_apply.get("action", "")) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA, "scroll-button apply helper should map plaza to the active entry route")
 	_expect(bool(plaza_apply.get("handled", false)), "scroll-button apply helper should handle plaza clicks")
 
 	var missed_apply: Dictionary = StageClearResultNavigationActionHandler.get_scroll_button_click_apply_result({
@@ -151,6 +163,7 @@ func _verify_navigation_scene_handler_contract() -> void:
 	scene.set("_starpoint_choice_gate_active", false)
 
 	scene.enter_plaza_callback = Callable(sink, "enter_plaza")
+	scene.set("_plaza_notice_until", -1.0)
 	_expect(StageClearResultNavigationSceneHandler.apply_navigation_action_result(
 		scene,
 		{
@@ -159,6 +172,23 @@ func _verify_navigation_scene_handler_contract() -> void:
 		}
 	), "navigation scene handler should report handled plaza actions")
 	_expect(sink.plaza_calls == 1, "plaza actions should invoke the plaza callback")
+	_expect(float(scene.get("_plaza_notice_until")) < 0.0, "successful plaza entry must not arm the readiness notice")
+	_expect(not scene.enter_plaza_callback.is_valid(), "successful plaza entry should consume its callback")
+
+	var retryable_sink := RetryablePlazaSink.new()
+	scene.enter_plaza_callback = Callable(retryable_sink, "enter_plaza")
+	scene.set("timer", 5.0)
+	scene.set("_plaza_notice_until", -1.0)
+	_expect(StageClearResultNavigationSceneHandler.apply_navigation_action_result(
+		scene,
+		{
+			"action": StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
+			"handled": true,
+		}
+	), "readiness-yield plaza actions should remain handled")
+	_expect(retryable_sink.plaza_calls == 1, "readiness-yield plaza actions should invoke the callback once")
+	_expect(scene.enter_plaza_callback.is_valid(), "readiness-yield plaza actions should preserve the callback for retry")
+	_expect(float(scene.get("_plaza_notice_until")) > 5.0, "readiness-yield plaza actions should arm visible preparation feedback")
 
 	# 광장 준비중 계약: 안내 액션은 진입 콜백을 부르지 않고 만료 시각만 심는다.
 	scene.set("timer", 5.0)
@@ -184,10 +214,31 @@ func _verify_navigation_scene_handler_contract() -> void:
 	scene.free()
 
 
+func _verify_preparation_notice_localization() -> void:
+	var expected := {
+		"ko": "준비 중입니다",
+		"en": "Preparing...",
+		"zh": "准备中",
+		"ja": "準備中です",
+		"es": "Preparando...",
+		"pt-BR": "Preparando...",
+		"ru": "Подготовка...",
+	}
+	for locale in expected.keys():
+		LanguageSettings.set_test_locale_override(str(locale))
+		_expect(
+			LanguageSettings.translate_text("준비 중입니다") == str(expected[locale]),
+			"plaza preparation notice should localize for %s" % locale
+		)
+	LanguageSettings.set_test_locale_override("")
+
+
 func _verify_scene_delegates_navigation_actions() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	var input_scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_input_scene_handler.gd")
 	var scene_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
+	var draw_handler_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_draw_scene_handler.gd")
+	var static_draw_source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_static_draw_helper.gd")
 	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_advance_input") >= 0, "input scene handler should delegate advance input scene glue")
 	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_escape_input") >= 0, "input scene handler should delegate escape input scene glue")
 	_expect(input_scene_handler_source.find("StageClearResultNavigationSceneHandler.handle_button_click") >= 0, "input scene handler should delegate scroll button click scene glue")
@@ -206,6 +257,9 @@ func _verify_scene_delegates_navigation_actions() -> void:
 	_expect(scene_handler_source.find("StageClearResultBoxSceneHandler.open_next_idle_box") >= 0, "navigation scene handler should route open-box actions through the box scene handler")
 	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.confirm") >= 0, "navigation scene handler should route confirm actions through the callback scene handler")
 	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.enter_plaza") >= 0, "navigation scene handler should route plaza actions through the callback scene handler")
+	_expect(scene_handler_source.find("StageClearResultCallbackHandler.RESULT_NONE") >= 0, "navigation scene handler should distinguish explicit plaza readiness yields")
+	_expect(draw_handler_source.find("StageClearResultStaticDrawHelper.draw_plaza_notice") >= 0, "result draw handler should render armed plaza preparation feedback")
+	_expect(static_draw_source.find("LanguageSettings.translate_text(\"준비 중입니다\")") >= 0, "plaza preparation feedback should use the spaced Korean localization key")
 	_expect(scene_handler_source.find("StageClearResultCallbackSceneHandler.exit_to_menu") >= 0, "navigation scene handler should route exit actions through the callback scene handler")
 	_expect(scene_handler_source.find("StageClearResultScrollSceneHandler.apply_scroll_button_layout") >= 0, "navigation scene handler should route scroll button layout through the scroll scene handler")
 	_expect(scene_handler_source.find("StageClearResultRuntimeOverlaySceneHandler.is_interaction_blocked") >= 0, "navigation scene handler should route interaction blocking through the runtime overlay scene handler")

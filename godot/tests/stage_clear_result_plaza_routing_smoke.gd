@@ -2,9 +2,17 @@ extends SceneTree
 
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage_clear_result_navigation_action_handler.gd")
+const StageClearResultNavigationSceneHandler := preload("res://scripts/ui/stage_clear_result_navigation_scene_handler.gd")
+const StageClearResultScrollInputHandler := preload("res://scripts/ui/stage_clear_result_scroll_input_handler.gd")
+const StageClearResultViewportSceneHandler := preload("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd")
+const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultFinishFlowHandler := preload("res://scripts/core/stage_clear_result_finish_flow_handler.gd")
+const StageClearResultSceneSpawnCallbackData := preload("res://scripts/core/stage_clear_result_scene_spawn_callback_data.gd")
 const StageClearResultRuntimeContextHandler := preload("res://scripts/core/stage_clear_result_runtime_context_handler.gd")
 const StageClearResultScreen := preload("res://scripts/core/stage_clear_result_screen.gd")
+const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
+const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -15,12 +23,6 @@ class FakeOwner:
 	var current_stage := 1
 	var selected_character_type := "smasher"
 	var runtime_perk_gold := 0
-
-
-class FakeResultScene:
-	extends Control
-
-	var _boxes: Array = []
 
 
 class CallbackSink:
@@ -39,7 +41,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_three_button_action_route()
 	_verify_result_character_type_normalization()
-	_verify_plaza_delays_result_reset_callback()
+	await _verify_plaza_delays_result_reset_callback()
 	await _drain_frames(12)
 
 	if _failures.is_empty():
@@ -67,8 +69,8 @@ func _verify_three_button_action_route() -> void:
 	)
 	_expect(clicked == StageClearResultInteractionState.BUTTON_PLAZA, "clicking the middle result button should identify the plaza route")
 	_expect(
-		StageClearResultNavigationActionHandler.get_scroll_button_action(clicked) == StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE,
-		"plaza result button should map to the preparing-notice action while the plaza is disabled"
+		StageClearResultNavigationActionHandler.get_scroll_button_action(clicked) == StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA,
+		"plaza result button should map to the active production entry action"
 	)
 
 
@@ -88,6 +90,9 @@ func _verify_result_character_type_normalization() -> void:
 
 
 func _verify_plaza_delays_result_reset_callback() -> void:
+	ProjectResourceLoader.clear_caches()
+	PlazaScene.reset_prewarm_assets_for_test()
+	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
 	var owner := FakeOwner.new()
 	owner.runtime_perk_gold = 321
 	owner.selected_character_type = "viper"
@@ -97,15 +102,52 @@ func _verify_plaza_delays_result_reset_callback() -> void:
 	var save_path := _smoke_save_path("routing")
 	_cleanup_save(save_path)
 	screen.set_plaza_save_path_for_test(save_path)
-	var fake_result := FakeResultScene.new()
-	owner.add_child(fake_result)
+	var result_scene := StageClearResultScene.new()
+	result_scene.set("_driven_by_controller", true)
+	owner.add_child(result_scene)
 	screen.set("active", true)
 	screen.set("current_stage", 1)
 	screen.set("_pending_owner", owner)
 	screen.set("_pending_reset_callback", Callable(sink, "reset_game"))
-	screen.set("_scene_node", fake_result)
+	screen.set("_scene_node", result_scene)
+	result_scene.set("_scroll_phase", StageClearResultInteractionState.PHASE_VISIBLE)
+	result_scene.set("timer", 5.0)
+	result_scene.set("_plaza_notice_until", -1.0)
+	result_scene.enter_plaza_callback = StageClearResultSceneSpawnCallbackData.build_enter_plaza_callback(screen)
 
-	_enter_plaza(screen)
+	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the first click")
+	_expect(result_scene.enter_plaza_callback.is_valid(), "an incomplete first prewarm click must restore the production plaza callback")
+	_expect(screen.is_scene_ready(), "an incomplete first prewarm click must keep the result scene alive")
+	_expect(owner.get_node_or_null("PlazaScene") == null, "an incomplete first prewarm click must not spawn a cache-only plaza")
+	_expect(owner.runtime_perk_gold == 321, "an incomplete first prewarm click must not settle volatile gold early")
+	_expect(float(result_scene.get("_plaza_notice_until")) > float(result_scene.get("timer")), "an incomplete active plaza click must show preparation feedback")
+	_expect(_click_plaza_button(result_scene), "an immediate repeated plaza click should remain handled")
+	_expect(result_scene.enter_plaza_callback.is_valid(), "an immediate repeated click must keep the production callback retryable")
+	_expect(owner.runtime_perk_gold == 321, "an immediate repeated click must not settle volatile gold")
+
+	var gpu_prewarmer: Node = null
+	for _step in range(512):
+		screen.update(1.0 / 60.0)
+		await process_frame
+		gpu_prewarmer = owner.get_node_or_null(BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME)
+		if gpu_prewarmer != null:
+			break
+	_expect(gpu_prewarmer != null, "the first production button click should attach the composed GPU prewarmer")
+	_expect(_count_named_children(owner, BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME) == 1, "repeated readiness clicks must attach exactly one composed GPU prewarmer")
+	if gpu_prewarmer != null:
+		gpu_prewarmer.call("_process", 0.0)
+		var prewarmer_status: Dictionary = gpu_prewarmer.call("get_hwangyeok_instance_status")
+		_expect(bool(prewarmer_status.get("retained_draw_issued", false)), "the retry fixture should reach the real retained SubViewport draw setup")
+		_expect(int(prewarmer_status.get("in_bounds_layer_count", 0)) == 21, "the retry fixture should place all 21 layers inside the GPU target")
+		for _flush_idx in range(
+			int(prewarmer_status.get("post_draw_flush_count", 0)),
+			BattlePsoPrewarmer.POST_WARMUP_FLUSH_FRAMES
+		):
+			gpu_prewarmer.call("_on_hwangyeok_frame_post_draw")
+	await process_frame
+	_expect(BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete(), "the retry fixture should complete composed GPU readiness before its second click")
+	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the ready retry")
+	_expect(not result_scene.enter_plaza_callback.is_valid(), "the ready second click should consume the production callback")
 	_expect(screen.is_active(), "entering the plaza should keep the result screen controller active as an input gate")
 	_expect(sink.reset_calls == 0, "plaza entry must not invoke the next-stage reset callback immediately")
 	var status: Dictionary = screen.get_status()
@@ -144,14 +186,25 @@ func _drain_frames(frame_count: int) -> void:
 		await process_frame
 
 
-func _enter_plaza(screen: Object) -> void:
-	var plaza_enter_handler: Object = screen.get("_plaza_enter_flow_handler")
-	var scene_shell_handler: Object = screen.get("_scene_shell_handler")
-	plaza_enter_handler.finish_enter_plaza_from_screen(
-		screen,
-		Callable(scene_shell_handler, "free_screen_result_scene").bind(screen),
-		Callable(self, "_finish_result_screen").bind(screen, StageClearResultFinishFlowHandler.ACTION_PLAZA_CONTINUE)
+func _click_plaza_button(scene: Control) -> bool:
+	var view_size := StageClearResultViewportSceneHandler.get_current_view_size(scene)
+	var layout_scale := StageClearResultViewportSceneHandler.get_layout_scale(view_size)
+	var layout := StageClearResultScrollInputHandler.get_button_layout(
+		StageClearResultInteractionState.PHASE_VISIBLE,
+		layout_scale,
+		Vector2.ZERO
 	)
+	var plaza_rect: Rect2 = layout.get("plaza_rect", Rect2())
+	_expect(plaza_rect.has_area(), "production result layout should expose a clickable plaza rect")
+	return StageClearResultNavigationSceneHandler.handle_button_click(scene, plaza_rect.get_center())
+
+
+func _count_named_children(owner: Node, child_name: String) -> int:
+	var count := 0
+	for child in owner.get_children():
+		if str(child.name) == child_name:
+			count += 1
+	return count
 
 
 func _finish_result_screen(screen: Object, action: String) -> void:

@@ -31,8 +31,7 @@ static func get_scroll_button_action(clicked_button: String) -> String:
 	if clicked_button == StageClearResultInteractionState.BUTTON_NEXT_STAGE:
 		return ACTION_CONFIRM
 	if clicked_button == StageClearResultInteractionState.BUTTON_PLAZA:
-		# 광장 기능 준비중: 진입 대신 "준비중입니다" 안내만 띄운다.
-		return ACTION_PLAZA_NOTICE
+		return ACTION_ENTER_PLAZA
 	if clicked_button == StageClearResultInteractionState.BUTTON_EXIT:
 		return ACTION_EXIT_TO_MENU
 	return ACTION_NONE

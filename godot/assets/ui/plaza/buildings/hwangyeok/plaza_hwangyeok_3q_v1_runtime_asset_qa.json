@@ -1,0 +1,1164 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "pipeline": "hwangyeok_plaza_r1_active_runtime_asset_prep",
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  },
+  "runtime_texture_size": [
+    512,
+    512
+  ],
+  "building_count": 7,
+  "layer_count": 21,
+  "runtime_rgba_uncompressed_bytes": 22020096,
+  "runtime_png_disk_bytes": 2548525,
+  "import_sidecars_vram_policy_written": 21,
+  "imported_vram_pairs_ready": 21,
+  "import_sidecars_pending_source_scan": 0,
+  "import_policy": {
+    "plaza_hwangyeok_academy_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_building_base.png.import",
+      "uid": "uid://iqbvyu5bls34",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_building_base.png-0fb1349bf75d665f172c009ccd40bc34.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_building_base.png-0fb1349bf75d665f172c009ccd40bc34.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_academy_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://cs7j1byfagsi8",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_sign_emissive_mask.png-4d5218d142f67b6dd4137326ddda5678.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_sign_emissive_mask.png-4d5218d142f67b6dd4137326ddda5678.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_academy_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://c7sguf15kktok",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_window_glow_mask.png-b458a44cc4cfe431223203782aac68bb.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_academy_3q_v1_window_glow_mask.png-b458a44cc4cfe431223203782aac68bb.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_bank_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_building_base.png.import",
+      "uid": "uid://cy1uilfkx5re",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_building_base.png-3d3f5068c6bcf7d1e23de8fead59b780.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_building_base.png-3d3f5068c6bcf7d1e23de8fead59b780.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_bank_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://bsf12y8fl5ifu",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_sign_emissive_mask.png-4a67e59829dc8360c08a3f00379104ce.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_sign_emissive_mask.png-4a67e59829dc8360c08a3f00379104ce.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_bank_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://cliq58qxsrl2n",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_window_glow_mask.png-b4090b6055beb253d992cec4a3490ca7.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_bank_3q_v1_window_glow_mask.png-b4090b6055beb253d992cec4a3490ca7.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_blacksmith_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_building_base.png.import",
+      "uid": "uid://c87nfr5o0knm2",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_building_base.png-ae77cc0d16ba986b6f924dbe4efb1ef3.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_building_base.png-ae77cc0d16ba986b6f924dbe4efb1ef3.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_blacksmith_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://cqfc2guyn016p",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_sign_emissive_mask.png-ef8dbbd5b3d5ad8fbcf23359bb584026.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_sign_emissive_mask.png-ef8dbbd5b3d5ad8fbcf23359bb584026.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_blacksmith_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://bcudxx7tpnm6j",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_window_glow_mask.png-544d4ca195b42831a20ea0319a97cf8b.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_blacksmith_3q_v1_window_glow_mask.png-544d4ca195b42831a20ea0319a97cf8b.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_gacha_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_building_base.png.import",
+      "uid": "uid://c3sywaqff23qj",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_building_base.png-d523f1ebada72c53e15768072b7789ff.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_building_base.png-d523f1ebada72c53e15768072b7789ff.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://cmgqaglgc44lc",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png-fe35003d3e702335f5e083d7cce2152a.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png-fe35003d3e702335f5e083d7cce2152a.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://c8u2ewqnr131c",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png-5faab04c20f0966240248501a2316c10.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png-5faab04c20f0966240248501a2316c10.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_lingpet_store_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_building_base.png.import",
+      "uid": "uid://bu0oh3tvbqu7",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_building_base.png-01e3b42fd5e41dd7e86479bb315ce59a.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_building_base.png-01e3b42fd5e41dd7e86479bb315ce59a.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_lingpet_store_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://c7ks1greudkp1",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_sign_emissive_mask.png-55c073aeb6eef912790490ee35462bb0.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_sign_emissive_mask.png-55c073aeb6eef912790490ee35462bb0.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_lingpet_store_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://b6xkff3lnq2t8",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_window_glow_mask.png-714883ad95c5d89deb37421dae2848d7.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_lingpet_store_3q_v1_window_glow_mask.png-714883ad95c5d89deb37421dae2848d7.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_shop_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_building_base.png.import",
+      "uid": "uid://bf3sjf100nleq",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_building_base.png-348023b323373dd0456ab4dacfe06e91.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_building_base.png-348023b323373dd0456ab4dacfe06e91.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://cdstso6j7jcr8",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png-7f9a77e9b44021ee63e097e01d574988.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png-7f9a77e9b44021ee63e097e01d574988.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_shop_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://dnkk02r523qb4",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_window_glow_mask.png-5ba297d46f79fa4fe9fc774342c8b2be.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_shop_3q_v1_window_glow_mask.png-5ba297d46f79fa4fe9fc774342c8b2be.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_tavern_3q_v1_building_base.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_building_base.png.import",
+      "uid": "uid://deccssdmf7y8j",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_building_base.png-4a23c2121bca20ee5641d7b2748655b5.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_building_base.png-4a23c2121bca20ee5641d7b2748655b5.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_tavern_3q_v1_sign_emissive_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_sign_emissive_mask.png.import",
+      "uid": "uid://oykfpnre50ay",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_sign_emissive_mask.png-fe208c6cb77590f13b97357811e933ee.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_sign_emissive_mask.png-fe208c6cb77590f13b97357811e933ee.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    },
+    "plaza_hwangyeok_tavern_3q_v1_window_glow_mask.png": {
+      "status": "vram_policy_ready",
+      "import_path": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_window_glow_mask.png.import",
+      "uid": "uid://6fcpqtqrfw47",
+      "bptc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_window_glow_mask.png-76f48632015086a10f975bc31e4d974e.bptc.ctex",
+      "astc_path": "res://.godot/imported/plaza_hwangyeok_tavern_3q_v1_window_glow_mask.png-76f48632015086a10f975bc31e4d974e.astc.ctex",
+      "source_md5_matches_import": true,
+      "imported_pair_ready": true
+    }
+  },
+  "manifests": [
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_manifest.json",
+    "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_manifest.json"
+  ],
+  "runtime_material_edits": {
+    "bank": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "shop": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "gacha": {
+      "material_edit": true,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 1,
+      "removed_runtime_pixel_coordinates_xy": [
+        [
+          46,
+          275
+        ]
+      ],
+      "removed_pixels": [
+        {
+          "xy": [
+            46,
+            275
+          ],
+          "rgba_before": [
+            162,
+            30,
+            133,
+            25
+          ],
+          "iteration": 1
+        }
+      ],
+      "cleanup_iterations": 1,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 1,
+      "expected_removed_runtime_pixel_coordinates_xy": [
+        [
+          46,
+          275
+        ]
+      ],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "lingpet_store": {
+      "material_edit": true,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 2,
+      "removed_runtime_pixel_coordinates_xy": [
+        [
+          486,
+          287
+        ],
+        [
+          486,
+          288
+        ]
+      ],
+      "removed_pixels": [
+        {
+          "xy": [
+            486,
+            287
+          ],
+          "rgba_before": [
+            176,
+            1,
+            162,
+            253
+          ],
+          "iteration": 1
+        },
+        {
+          "xy": [
+            486,
+            288
+          ],
+          "rgba_before": [
+            223,
+            3,
+            200,
+            255
+          ],
+          "iteration": 1
+        }
+      ],
+      "cleanup_iterations": 1,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 2,
+      "expected_removed_runtime_pixel_coordinates_xy": [
+        [
+          486,
+          287
+        ],
+        [
+          486,
+          288
+        ]
+      ],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "blacksmith": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "tavern": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    },
+    "academy": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    }
+  },
+  "buildings": {
+    "bank": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_bank_3q_v1_manifest.json",
+      "manifest_sha256": "af92303a7de4e6e300e4cd700eff1a3a85d4a3aec1b295b1ae70523429562599",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              16,
+              60,
+              499,
+              452
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 136602,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": false,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 0,
+              "removed_runtime_pixel_coordinates_xy": [],
+              "removed_pixels": [],
+              "cleanup_iterations": 0,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 0,
+              "expected_removed_runtime_pixel_coordinates_xy": [],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              160,
+              152,
+              274,
+              377
+            ],
+            "visible_pixels": 12769,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              29,
+              291,
+              481,
+              445
+            ],
+            "visible_pixels": 5498,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "shop": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_manifest.json",
+      "manifest_sha256": "042616de2dffbad80abb116f403699c50a836d24aabb314284ba7030f548a13b",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              7,
+              72,
+              505,
+              470
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 133869,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": false,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 0,
+              "removed_runtime_pixel_coordinates_xy": [],
+              "removed_pixels": [],
+              "cleanup_iterations": 0,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 0,
+              "expected_removed_runtime_pixel_coordinates_xy": [],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              158,
+              169,
+              221,
+              247
+            ],
+            "visible_pixels": 2524,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              56,
+              279,
+              461,
+              383
+            ],
+            "visible_pixels": 5964,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "gacha": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_manifest.json",
+      "manifest_sha256": "9d1e225af78a40e97eb5aa5cbffe74dc171a6fdee901f4ee5c26c6d8f632a0f4",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              5,
+              86,
+              511,
+              446
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 138998,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": true,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 1,
+              "removed_runtime_pixel_coordinates_xy": [
+                [
+                  46,
+                  275
+                ]
+              ],
+              "removed_pixels": [
+                {
+                  "xy": [
+                    46,
+                    275
+                  ],
+                  "rgba_before": [
+                    162,
+                    30,
+                    133,
+                    25
+                  ],
+                  "iteration": 1
+                }
+              ],
+              "cleanup_iterations": 1,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 1,
+              "expected_removed_runtime_pixel_coordinates_xy": [
+                [
+                  46,
+                  275
+                ]
+              ],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              192,
+              108,
+              408,
+              397
+            ],
+            "visible_pixels": 12542,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              21,
+              248,
+              455,
+              333
+            ],
+            "visible_pixels": 2941,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "lingpet_store": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_lingpet_store_3q_v1_manifest.json",
+      "manifest_sha256": "042b5c3484c7b3d6a64e3731665a7a17707d45f276c8e2fed3d8eee68126dac5",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              2,
+              51,
+              511,
+              462
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 136597,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": true,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 2,
+              "removed_runtime_pixel_coordinates_xy": [
+                [
+                  486,
+                  287
+                ],
+                [
+                  486,
+                  288
+                ]
+              ],
+              "removed_pixels": [
+                {
+                  "xy": [
+                    486,
+                    287
+                  ],
+                  "rgba_before": [
+                    176,
+                    1,
+                    162,
+                    253
+                  ],
+                  "iteration": 1
+                },
+                {
+                  "xy": [
+                    486,
+                    288
+                  ],
+                  "rgba_before": [
+                    223,
+                    3,
+                    200,
+                    255
+                  ],
+                  "iteration": 1
+                }
+              ],
+              "cleanup_iterations": 1,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 2,
+              "expected_removed_runtime_pixel_coordinates_xy": [
+                [
+                  486,
+                  287
+                ],
+                [
+                  486,
+                  288
+                ]
+              ],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              153,
+              87,
+              278,
+              188
+            ],
+            "visible_pixels": 2195,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              59,
+              114,
+              458,
+              405
+            ],
+            "visible_pixels": 13210,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "blacksmith": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_blacksmith_3q_v1_manifest.json",
+      "manifest_sha256": "e2ac268a508fce0d091a3521cd29dd757aa40ad4d7368eb951637da7b29bc7fd",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              22,
+              47,
+              502,
+              476
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 138641,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": false,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 0,
+              "removed_runtime_pixel_coordinates_xy": [],
+              "removed_pixels": [],
+              "cleanup_iterations": 0,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 0,
+              "expected_removed_runtime_pixel_coordinates_xy": [],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              162,
+              171,
+              246,
+              277
+            ],
+            "visible_pixels": 3060,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              59,
+              226,
+              369,
+              397
+            ],
+            "visible_pixels": 10823,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "tavern": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_tavern_3q_v1_manifest.json",
+      "manifest_sha256": "e0994e2dfdb83f4a732e035c7507c48bfd73c39c870455e2f9e954493e22d38d",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              5,
+              48,
+              507,
+              467
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 129115,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": false,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 0,
+              "removed_runtime_pixel_coordinates_xy": [],
+              "removed_pixels": [],
+              "cleanup_iterations": 0,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 0,
+              "expected_removed_runtime_pixel_coordinates_xy": [],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              139,
+              177,
+              235,
+              266
+            ],
+            "visible_pixels": 3537,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              25,
+              139,
+              493,
+              399
+            ],
+            "visible_pixels": 15101,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    },
+    "academy": {
+      "manifest": "godot/assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_academy_3q_v1_manifest.json",
+      "manifest_sha256": "cc82d3b4e2f788a1bcf9b24198b678c5302dacb8eff174d86b662439012d3d69",
+      "runtime_qa": {
+        "all_corner_alpha_zero": true,
+        "base_alpha_bbox_clear_of_canvas_edge": true,
+        "base_hidden_rgb_payload_pixels": 0,
+        "all_masks_neutral_white": true,
+        "all_masks_inside_resized_base": true,
+        "layers": {
+          "base": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              3,
+              66,
+              508,
+              466
+            ],
+            "alpha_bbox_clear_of_canvas_edge": true,
+            "visible_pixels": 147693,
+            "hidden_rgb_payload_pixels": 0,
+            "exact_ff00ff_pixels_diagnostic": 0,
+            "exterior_chroma": {
+              "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+              "boundary_4px_near_magenta_touch_pixels": 0,
+              "exterior_connected_magenta_pixels": 0,
+              "gate_pass": true
+            },
+            "resize_exterior_chroma_cleanup": {
+              "material_edit": false,
+              "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+              "removed_pixel_count": 0,
+              "removed_runtime_pixel_coordinates_xy": [],
+              "removed_pixels": [],
+              "cleanup_iterations": 0,
+              "remaining_exterior_connected_magenta_pixels": 0,
+              "expected_removed_pixel_count": 0,
+              "expected_removed_runtime_pixel_coordinates_xy": [],
+              "expected_cleanup_snapshot_matches": true
+            }
+          },
+          "sign_emissive": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              130,
+              181,
+              216,
+              284
+            ],
+            "visible_pixels": 3165,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          },
+          "window_glow_mask": {
+            "mode": "RGBA",
+            "size": [
+              512,
+              512
+            ],
+            "corner_alpha": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alpha_bbox_exclusive": [
+              67,
+              202,
+              467,
+              367
+            ],
+            "visible_pixels": 11081,
+            "visible_nonwhite_rgb_pixels": 0,
+            "hidden_rgb_payload_pixels": 0,
+            "alpha_outside_resized_base_pixels": 0,
+            "alpha_exceeding_resized_base_pixels": 0
+          }
+        }
+      }
+    }
+  }
+}

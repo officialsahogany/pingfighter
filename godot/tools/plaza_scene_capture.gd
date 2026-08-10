@@ -1,14 +1,16 @@
 extends SceneTree
 
-# One-off visual QA harness for the S4 side-scroll plaza shell.
+# Durable visual-QA harness for the retained R1 side-scroll bridge and later
+# map-promotion comparisons. `--plaza-view=2020x1246` owns the R1-F sharpness
+# evidence surface; the default remains the earlier 1488x918 art-sweep size.
 # Renders plaza_scene onto a SubViewport at several player positions and saves
 # PNGs so the layering / parallax / building scale can be eyeballed without a
 # full battle. Run WITHOUT --headless (dummy driver returns a blank image).
-# Not a smoke test -- safe to delete.
+# This is a windowed QA tool, not a headless nightly smoke.
 
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
 
-const VIEW := Vector2i(1488, 918)
+const DEFAULT_VIEW := Vector2i(1488, 918)
 const DEFAULT_STAGE_ID := 1
 const DEFAULT_OUT_DIR := "d:/tmp/plaza_s4"
 
@@ -47,10 +49,11 @@ func _run() -> void:
 	var lingpet_id: String = _get_string_arg("--plaza-lingpet=", "")
 	var menu_type_arg: String = _get_string_arg("--plaza-menu-type=", "bank")
 	var full_layout: bool = _get_bool_arg("--plaza-full-layout=", false)
+	var capture_size: Vector2i = _get_vector2i_arg("--plaza-view=", DEFAULT_VIEW)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 
 	var viewport := SubViewport.new()
-	viewport.size = VIEW
+	viewport.size = capture_size
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
@@ -74,7 +77,7 @@ func _run() -> void:
 	plaza.configure(configure_data, Callable(), true)
 	plaza.call("_sync_game_rect")
 	plaza.call("advance_plaza_warp_transition_for_test", 0.50)
-	plaza.queue_redraw()
+	_sync_retained_world(plaza)
 	await process_frame
 	await process_frame
 	var arrive_image: Image = viewport.get_texture().get_image()
@@ -96,7 +99,7 @@ func _run() -> void:
 	}
 	for tag in shots.keys():
 		plaza.call("set_player_pos_for_test", Vector2(float(shots[tag]), 666.0))
-		plaza.queue_redraw()
+		_sync_retained_world(plaza)
 		await process_frame
 		await process_frame
 		var image: Image = viewport.get_texture().get_image()
@@ -105,7 +108,7 @@ func _run() -> void:
 		print("[PlazaCapture] %s (player_x=%s) -> %s" % [str(tag), str(shots[tag]), out_path])
 
 	plaza.call("set_player_pos_for_test", Vector2(world_width * 0.8, 666.0))
-	plaza.queue_redraw()
+	_sync_retained_world(plaza)
 	await process_frame
 	var flicker_a: Image = viewport.get_texture().get_image()
 	var flicker_a_path: String = "%s/plaza_stage%d_flicker_tick_a.png" % [out_dir, stage_id]
@@ -113,7 +116,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	await process_frame
-	plaza.queue_redraw()
+	_sync_retained_world(plaza)
 	await process_frame
 	var flicker_b: Image = viewport.get_texture().get_image()
 	var flicker_b_path: String = "%s/plaza_stage%d_flicker_tick_b.png" % [out_dir, stage_id]
@@ -127,7 +130,7 @@ func _run() -> void:
 		plaza.call("set_player_pos_for_test", Vector2(interaction_rect.get_center().x, 666.0))
 		plaza.call("trigger_interaction_for_test", false)
 		plaza.call("advance_building_transition_for_test", 0.50)
-		plaza.queue_redraw()
+		_sync_retained_world(plaza)
 		await process_frame
 		await process_frame
 		var building_enter_image: Image = viewport.get_texture().get_image()
@@ -135,7 +138,7 @@ func _run() -> void:
 		building_enter_image.save_png(building_enter_path)
 		print("[PlazaCapture] building_enter_%s_mid -> %s" % [menu_type, building_enter_path])
 		plaza.call("advance_building_transition_for_test", 0.60)
-		plaza.queue_redraw()
+		_sync_retained_world(plaza)
 		await process_frame
 		await process_frame
 		var menu_image: Image = viewport.get_texture().get_image()
@@ -161,7 +164,7 @@ func _run() -> void:
 			print("[PlazaCapture] menu_%s_trade -> %s" % [menu_type, shop_trade_path])
 		plaza.call("close_menu_for_test", false)
 		plaza.call("advance_building_transition_for_test", 0.50)
-		plaza.queue_redraw()
+		_sync_retained_world(plaza)
 		await process_frame
 		await process_frame
 		var building_return_image: Image = viewport.get_texture().get_image()
@@ -173,7 +176,7 @@ func _run() -> void:
 	plaza.call("set_player_pos_for_test", Vector2(world_width - 75.0, 666.0))
 	plaza.call("trigger_interaction_for_test", false)
 	plaza.call("advance_plaza_warp_transition_for_test", 0.50)
-	plaza.queue_redraw()
+	_sync_retained_world(plaza)
 	await process_frame
 	await process_frame
 	var exit_warp_image: Image = viewport.get_texture().get_image()
@@ -183,6 +186,13 @@ func _run() -> void:
 
 	print("[PlazaCapture] done")
 	quit(0)
+
+
+func _sync_retained_world(plaza: Control) -> void:
+	# This capture owns a controller-driven PlazaScene. Retained children only
+	# consume camera/tick changes through the same owner update used in runtime.
+	plaza.call("update_plaza", 0.0)
+	plaza.queue_redraw()
 
 
 func _get_string_arg(prefix: String, fallback: String) -> String:
@@ -202,6 +212,15 @@ func _get_int_arg(prefix: String, fallback: int) -> int:
 func _get_bool_arg(prefix: String, fallback: bool) -> bool:
 	var value := _get_string_arg(prefix, "1" if fallback else "0").to_lower()
 	return ["1", "true", "yes", "on"].has(value)
+
+
+func _get_vector2i_arg(prefix: String, fallback: Vector2i) -> Vector2i:
+	var value := _get_string_arg(prefix, "%dx%d" % [fallback.x, fallback.y]).to_lower()
+	var parts := value.split("x", false, 1)
+	if parts.size() != 2:
+		return fallback
+	var parsed := Vector2i(int(parts[0]), int(parts[1]))
+	return parsed if parsed.x > 0 and parsed.y > 0 else fallback
 
 
 func _get_capture_menu_target(plaza: Control, desired_type: String) -> Dictionary:

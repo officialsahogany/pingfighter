@@ -95,16 +95,25 @@ class FakePlazaSceneHandler:
 
 	var assets_ready: bool = true
 	var spawn_result: bool = true
+	var prewarm_step_calls: int = 0
 	var ensure_calls: int = 0
 	var build_calls: int = 0
 	var spawn_calls: int = 0
 	var seen_stage: int = 0
+	var seen_owner: Object = null
 	var seen_config: Dictionary = {}
 	var seen_finish_callback: Callable = Callable()
 
-	func ensure_assets_ready(stage_id: int) -> bool:
+	func ensure_assets_ready(stage_id: int, owner: Object = null) -> bool:
 		ensure_calls += 1
 		seen_stage = stage_id
+		seen_owner = owner
+		return assets_ready
+
+	func prewarm_assets_step(stage_id: int, owner: Object = null) -> bool:
+		prewarm_step_calls += 1
+		seen_stage = stage_id
+		seen_owner = owner
 		return assets_ready
 
 	func build_scene_config(
@@ -197,7 +206,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_inactive_flow_is_ignored()
 	_verify_successful_plaza_entry_flow()
-	_verify_asset_failure_falls_back_to_continue()
+	_verify_incomplete_prewarm_remains_retryable()
 	_verify_spawn_failure_falls_back_to_continue()
 	_verify_missing_plaza_handler_falls_back_to_continue()
 	_verify_screen_plaza_entry_adapter()
@@ -232,7 +241,7 @@ func _verify_inactive_flow_is_ignored() -> void:
 		Callable(sink, "finish_plaza_and_continue")
 	)
 	_expect(sink.grant_calls == 0, "inactive plaza entry should not grant pending rewards")
-	_expect(plaza.ensure_calls == 0, "inactive plaza entry should not prewarm plaza assets")
+	_expect(plaza.prewarm_step_calls == 0 and plaza.ensure_calls == 0, "inactive plaza entry should not prewarm plaza assets")
 
 
 func _verify_successful_plaza_entry_flow() -> void:
@@ -264,7 +273,7 @@ func _verify_successful_plaza_entry_flow() -> void:
 	_expect(starpoint.reset_calls == 1 and starpoint.seen_scene == scene, "successful plaza entry should reset starpoint choice state for the result scene")
 	_expect(sink.mark_spawn_calls == 1, "successful plaza entry should clear pending spawn state")
 	_expect(sink.free_result_calls == 1, "successful plaza entry should free the result scene before spawning plaza")
-	_expect(plaza.ensure_calls == 1 and plaza.seen_stage == 5, "successful plaza entry should blocking-prewarm the plaza stage")
+	_expect(plaza.prewarm_step_calls == 1 and plaza.ensure_calls == 0 and plaza.seen_stage == 5 and plaza.seen_owner == owner, "successful plaza entry should use the nonblocking frame-driven plaza prewarm owner")
 	_expect(plaza.build_calls == 1, "successful plaza entry should build plaza scene config")
 	_expect(plaza.spawn_calls == 1, "successful plaza entry should spawn the plaza scene")
 	_expect(plaza.seen_config.get("runtime_owner", null) == owner, "plaza entry config should preserve owner")
@@ -277,11 +286,11 @@ func _verify_successful_plaza_entry_flow() -> void:
 	scene.free()
 
 
-func _verify_asset_failure_falls_back_to_continue() -> void:
+func _verify_incomplete_prewarm_remains_retryable() -> void:
 	var sink := FlowSink.new()
 	var plaza := FakePlazaSceneHandler.new()
 	plaza.assets_ready = false
-	StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
+	var consumed := StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
 		true,
 		6,
 		FakePlazaSaveStore.new(),
@@ -297,11 +306,12 @@ func _verify_asset_failure_falls_back_to_continue() -> void:
 		Callable(sink, "free_result_scene"),
 		Callable(sink, "finish_plaza_and_continue")
 	)
-	_expect(sink.grant_calls == 1 and sink.apply_calls == 1, "asset failure should still settle rewards and stage progress")
-	_expect(sink.mark_spawn_calls == 1 and sink.free_result_calls == 1, "asset failure should still leave the result scene path")
-	_expect(plaza.ensure_calls == 1, "asset failure should attempt plaza asset readiness")
+	_expect(not consumed, "incomplete GPU prewarm should yield the entry callback for retry")
+	_expect(sink.grant_calls == 0 and sink.apply_calls == 0, "incomplete GPU prewarm should hold rewards and stage progress until plaza entry can retry")
+	_expect(sink.mark_spawn_calls == 0 and sink.free_result_calls == 0, "incomplete GPU prewarm should keep the result scene alive for a later retry")
+	_expect(plaza.prewarm_step_calls == 1 and plaza.ensure_calls == 0, "asset failure should advance one nonblocking plaza readiness step")
 	_expect(plaza.spawn_calls == 0, "asset failure should not spawn plaza scene")
-	_expect(sink.finish_continue_calls == 1, "asset failure should fall back to plaza continuation")
+	_expect(sink.finish_continue_calls == 0, "incomplete GPU prewarm must not silently skip the plaza")
 
 
 func _verify_spawn_failure_falls_back_to_continue() -> void:
@@ -324,7 +334,7 @@ func _verify_spawn_failure_falls_back_to_continue() -> void:
 		Callable(sink, "free_result_scene"),
 		Callable(sink, "finish_plaza_and_continue")
 	)
-	_expect(plaza.ensure_calls == 1 and plaza.spawn_calls == 1, "spawn failure should happen after plaza assets are ready")
+	_expect(plaza.prewarm_step_calls == 1 and plaza.ensure_calls == 0 and plaza.spawn_calls == 1, "spawn failure should happen after nonblocking plaza assets are ready")
 	_expect(sink.finish_continue_calls == 1, "spawn failure should fall back to plaza continuation")
 
 
@@ -389,7 +399,7 @@ func _verify_screen_plaza_entry_adapter() -> void:
 	_expect(starpoint.reset_calls == 1 and starpoint.seen_scene == scene, "screen plaza adapter should reset starpoint choice state")
 	_expect(screen_state.mark_spawn_calls == 1 and screen_state.seen_screen == screen and not screen._spawn_pending, "screen plaza adapter should delegate pending-spawn mutation")
 	_expect(sink.free_result_calls == 1, "screen plaza adapter should free the result scene")
-	_expect(plaza.ensure_calls == 1 and plaza.seen_stage == 6, "screen plaza adapter should ensure plaza assets for the current stage")
+	_expect(plaza.prewarm_step_calls == 1 and plaza.ensure_calls == 0 and plaza.seen_stage == 6, "screen plaza adapter should advance nonblocking plaza assets for the current stage")
 	_expect(plaza.spawn_calls == 1, "screen plaza adapter should spawn the plaza scene")
 	_expect(plaza.seen_config.get("runtime_owner", null) == owner, "screen plaza adapter should preserve owner in plaza config")
 	_expect(plaza.seen_config.get("runtime_registry", null) == registry, "screen plaza adapter should preserve registry in plaza config")
@@ -443,6 +453,7 @@ func _verify_source_boundary() -> void:
 	_expect(callback_source.find("finish_enter_plaza_from_screen") >= 0, "spawn callback data should wire result-scene plaza callbacks to the plaza adapter")
 	_expect(screen_spawn_source.find("StageClearResultSceneSpawnCallbackData.build_enter_plaza_callback") >= 0, "spawn screen data should build plaza callbacks through callback data")
 	_expect(handler_source.find("ensure_assets_ready") >= 0, "plaza enter flow handler should own plaza asset readiness timing")
+	_expect(handler_source.find("prewarm_assets_step") >= 0, "plaza enter flow handler should prefer the frame-stepped production readiness path")
 	_expect(handler_source.find("build_scene_config") >= 0, "plaza enter flow handler should own plaza config timing")
 	_expect(handler_source.find("spawn_scene") >= 0, "plaza enter flow handler should own plaza spawn timing")
 	var screen := StageClearResultScreen.new()

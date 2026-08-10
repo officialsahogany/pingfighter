@@ -1,15 +1,18 @@
 extends RefCounted
 
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
+const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 
 var _prewarm_complete: bool = false
 var _prewarm_stage: int = -1
 var _background_prewarm_enabled: bool = true
+var _last_readiness_rejection_reason: String = "not_started"
 
 
 func reset() -> void:
 	_prewarm_complete = false
 	_prewarm_stage = -1
+	_last_readiness_rejection_reason = "not_started"
 
 
 func set_background_prewarm_enabled(enabled: bool) -> void:
@@ -19,33 +22,62 @@ func set_background_prewarm_enabled(enabled: bool) -> void:
 
 
 func get_status() -> Dictionary:
-	return {
+	var gpu_status := BattlePsoPrewarmer.get_hwangyeok_gpu_prewarm_status()
+	var status := {
 		"plaza_prewarm_complete": _prewarm_complete,
 		"plaza_prewarm_stage": _prewarm_stage,
+		"plaza_readiness_rejection_reason": _last_readiness_rejection_reason,
+		"plaza_gpu_prewarm_complete": bool(gpu_status.get("complete", false)),
+		"plaza_gpu_prewarm_drawn_layer_count": int(gpu_status.get("drawn_layer_count", 0)),
+		"plaza_gpu_prewarm_expected_layer_count": int(gpu_status.get("expected_layer_count", 0)),
+		"plaza_gpu_prewarm_post_draw_flush_count": int(gpu_status.get("post_draw_flush_count", 0)),
+		"plaza_gpu_prewarm_required_post_draw_flush_count": int(gpu_status.get("required_post_draw_flush_count", 0)),
+		"plaza_gpu_prewarm_render_target_size": gpu_status.get("render_target_size", Vector2.ZERO),
+		"plaza_gpu_prewarm_in_bounds_layer_count": int(gpu_status.get("in_bounds_layer_count", 0)),
+		"plaza_gpu_prewarm_sealed_texture_count": int(gpu_status.get("sealed_texture_count", 0)),
+		"plaza_gpu_prewarm_texture_identity_match": bool(gpu_status.get("texture_identity_match", false)),
 	}
+	return status
 
 
-func prewarm_assets_step(current_stage: int) -> bool:
+func prewarm_assets_step(current_stage: int, owner: Object = null) -> bool:
 	if not _background_prewarm_enabled:
+		_last_readiness_rejection_reason = "background_prewarm_disabled"
 		return false
 	var stage_id: int = maxi(1, current_stage)
-	if _prewarm_complete and _prewarm_stage == stage_id:
-		return true
-	_prewarm_stage = stage_id
-	_prewarm_complete = bool(PlazaScene.prewarm_assets_threaded_step(stage_id))
-	return _prewarm_complete
+	if not (_prewarm_complete and _prewarm_stage == stage_id):
+		_prewarm_stage = stage_id
+		_prewarm_complete = bool(PlazaScene.prewarm_assets_threaded_step(stage_id))
+	if not _prewarm_complete:
+		_last_readiness_rejection_reason = "texture_cache_incomplete"
+		return false
+	if not BattlePsoPrewarmer.run_hwangyeok_gpu_prewarm_step(owner):
+		_last_readiness_rejection_reason = str(BattlePsoPrewarmer.get_hwangyeok_gpu_prewarm_status().get(
+			"last_rejection_reason",
+			"gpu_prewarm_incomplete"
+		))
+		return false
+	_last_readiness_rejection_reason = ""
+	return true
 
 
-func ensure_assets_ready(current_stage: int) -> bool:
+func ensure_assets_ready(current_stage: int, owner: Object = null) -> bool:
 	var stage_id: int = maxi(1, current_stage)
-	if _prewarm_complete and _prewarm_stage == stage_id:
-		return true
-	_prewarm_stage = stage_id
-	var guard := 0
-	while not bool(PlazaScene.prewarm_assets_blocking_step(stage_id)):
-		guard += 1
-		if guard > 256:
-			push_warning("Timed out while prewarming plaza assets for stage %d" % stage_id)
-			return false
-	_prewarm_complete = true
+	if not (_prewarm_complete and _prewarm_stage == stage_id):
+		_prewarm_stage = stage_id
+		var guard := 0
+		while not bool(PlazaScene.prewarm_assets_blocking_step(stage_id)):
+			guard += 1
+			if guard > 256:
+				push_warning("Timed out while prewarming plaza assets for stage %d" % stage_id)
+				_last_readiness_rejection_reason = "texture_cache_timeout"
+				return false
+		_prewarm_complete = true
+	if not BattlePsoPrewarmer.run_hwangyeok_gpu_prewarm_step(owner):
+		_last_readiness_rejection_reason = str(BattlePsoPrewarmer.get_hwangyeok_gpu_prewarm_status().get(
+			"last_rejection_reason",
+			"gpu_prewarm_incomplete"
+		))
+		return false
+	_last_readiness_rejection_reason = ""
 	return true

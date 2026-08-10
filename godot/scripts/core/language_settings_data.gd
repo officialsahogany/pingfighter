@@ -2858,6 +2858,7 @@ const EXACT_TEXT_EN := {
 	"전신 LIVE2D": "Full-body Live2D",
 	"준비중": "Preparing",
 	"준비중입니다": "Coming soon",
+	"준비 중입니다": "Preparing...",
 	"속도": "Speed",
 	"파워": "Power",
 	"방어": "Defense",
@@ -3437,6 +3438,7 @@ const EXACT_TEXT_ZH := {
 	"전신 LIVE2D": "全身LIVE2D",
 	"준비중": "准备中",
 	"준비중입니다": "敬请期待",
+	"준비 중입니다": "准备中",
 	"속도": "速度",
 	"파워": "力量",
 	"방어": "防御",
@@ -4028,6 +4030,7 @@ const EXACT_TEXT_JA := {
 	"전신 LIVE2D": "全身LIVE2D",
 	"준비중": "準備中",
 	"준비중입니다": "準備中です",
+	"준비 중입니다": "準備中です",
 	"속도": "速度",
 	"파워": "パワー",
 	"방어": "防御",
@@ -4619,6 +4622,7 @@ const EXACT_TEXT_ES := {
 	"전신 LIVE2D": "Live2D cuerpo completo",
 	"준비중": "Preparando",
 	"준비중입니다": "Próximamente",
+	"준비 중입니다": "Preparando...",
 	"속도": "Velocidad",
 	"파워": "Poder",
 	"방어": "Defensa",
@@ -5064,6 +5068,7 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"준비 중입니다": "Preparando...",
 	"잠입": "Infiltrar",
 	"참격": "Corte",
 	"폭발": "Explosão",
@@ -5253,6 +5258,7 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"준비 중입니다": "Подготовка...",
 	"잠입": "Проникновение",
 	"참격": "Удар",
 	"폭발": "Взрыв",

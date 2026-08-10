@@ -43,7 +43,7 @@ static func draw(
 	camera_x: float,
 	exit_zone: Rect2,
 	game_size: Vector2,
-	viewport_size: Vector2,
+	render_size: Vector2,
 	sidewalk_top: float,
 	scale: float,
 	ticks_msec: int
@@ -51,7 +51,7 @@ static func draw(
 	if canvas == null:
 		return
 	_draw_parallax_background(canvas, textures, camera_x, game_size, scale)
-	_draw_ground_strip(canvas, textures, camera_x, game_size, viewport_size, sidewalk_top, scale, ticks_msec)
+	_draw_ground_strip(canvas, textures, camera_x, game_size, render_size, sidewalk_top, scale, ticks_msec)
 	_draw_exit_zone(canvas, camera_x, exit_zone, scale)
 
 
@@ -180,7 +180,7 @@ static func _draw_ground_strip(
 	textures: Dictionary,
 	camera_x: float,
 	game_size: Vector2,
-	viewport_size: Vector2,
+	render_size: Vector2,
 	sidewalk_top: float,
 	scale: float,
 	ticks_msec: int
@@ -206,32 +206,32 @@ static func _draw_ground_strip(
 		first_x = PlazaBackgroundProjection.get_world_tile_start(camera_x, GROUND_STRIP_REPEAT)
 		for world_x in range(first_x - int(GROUND_STRIP_REPEAT), int(camera_x + game_size.x + GROUND_STRIP_REPEAT), int(GROUND_STRIP_REPEAT)):
 			var strip_rect := Rect2(Vector2(world_x, sidewalk_top), Vector2(GROUND_STRIP_REPEAT, GROUND_STRIP_HEIGHT))
-			_draw_texture_world(canvas, ground_strip, strip_rect, camera_x, viewport_size, scale)
+			_draw_texture_world(canvas, ground_strip, strip_rect, camera_x, render_size, scale)
 			var strip_alpha := PlazaBackgroundProjection.flicker_alpha("ground:%d" % world_x, 0.48, 0.18, ticks_msec)
-			_draw_texture_world(canvas, ground_strip_emissive, strip_rect, camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, strip_alpha))
+			_draw_texture_world(canvas, ground_strip_emissive, strip_rect, camera_x, render_size, scale, Color(1.0, 1.0, 1.0, strip_alpha))
 	else:
 		first_x = PlazaBackgroundProjection.get_world_tile_start(camera_x, FLOOR_REPEAT)
 		for world_x in range(first_x - int(FLOOR_REPEAT), int(camera_x + game_size.x + FLOOR_REPEAT), int(FLOOR_REPEAT)):
 			var tile_x := int(world_x / int(FLOOR_REPEAT))
 			var texture := base_01 if tile_x % 2 == 0 else base_02
-			_draw_texture_world(canvas, texture, Rect2(Vector2(world_x, sidewalk_top), Vector2(FLOOR_REPEAT, SIDEWALK_HEIGHT)), camera_x, viewport_size, scale)
+			_draw_texture_world(canvas, texture, Rect2(Vector2(world_x, sidewalk_top), Vector2(FLOOR_REPEAT, SIDEWALK_HEIGHT)), camera_x, render_size, scale)
 		canvas.draw_rect(Rect2(Vector2(0.0, UNDERGROUND_TOP) * scale, Vector2(game_size.x, game_size.y - UNDERGROUND_TOP) * scale), Color(0.006, 0.011, 0.026, 1.0), true)
 		_draw_vr_strata(canvas, camera_x, game_size.x, scale, ticks_msec)
 		canvas.draw_line(Vector2(0.0, UNDERGROUND_TOP) * scale, Vector2(game_size.x, UNDERGROUND_TOP) * scale, Color(1.0, 0.32, 0.92, 0.54), max(1.0, 2.0 * scale))
 	if use_side_cutouts:
 		var border_alpha := PlazaBackgroundProjection.flicker_alpha("border:%d" % first_x, 0.12, 0.14, ticks_msec)
-		_draw_texture_world(canvas, border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, border_alpha))
+		_draw_texture_world(canvas, border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, render_size, scale, Color(1.0, 1.0, 1.0, border_alpha))
 	else:
-		_draw_texture_world(canvas, border, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, 0.92))
-		_draw_texture_world(canvas, border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, 0.50))
+		_draw_texture_world(canvas, border, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, render_size, scale, Color(1.0, 1.0, 1.0, 0.92))
+		_draw_texture_world(canvas, border_emissive, Rect2(Vector2(first_x - FLOOR_REPEAT, sidewalk_top + 8.0), Vector2(FLOOR_REPEAT * 4.0, 28.0)), camera_x, render_size, scale, Color(1.0, 1.0, 1.0, 0.50))
 	for pos_x in [560.0, 1320.0, 2080.0, 2840.0]:
-		_draw_texture_world(canvas, medallion, Rect2(Vector2(pos_x, sidewalk_top + 20.0), Vector2(118.0, 118.0)), camera_x, viewport_size, scale)
+		_draw_texture_world(canvas, medallion, Rect2(Vector2(pos_x, sidewalk_top + 20.0), Vector2(118.0, 118.0)), camera_x, render_size, scale)
 		var medallion_alpha := PlazaBackgroundProjection.flicker_alpha("medallion:%d" % int(pos_x), 0.34, 0.18, ticks_msec)
-		_draw_texture_world(canvas, medallion_emissive, Rect2(Vector2(pos_x, sidewalk_top + 20.0), Vector2(118.0, 118.0)), camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, medallion_alpha))
+		_draw_texture_world(canvas, medallion_emissive, Rect2(Vector2(pos_x, sidewalk_top + 20.0), Vector2(118.0, 118.0)), camera_x, render_size, scale, Color(1.0, 1.0, 1.0, medallion_alpha))
 	for pos_x in [250.0, 980.0, 1750.0, 2460.0]:
-		_draw_texture_world(canvas, accent, Rect2(Vector2(pos_x, sidewalk_top + 28.0), Vector2(96.0, 96.0)), camera_x, viewport_size, scale)
+		_draw_texture_world(canvas, accent, Rect2(Vector2(pos_x, sidewalk_top + 28.0), Vector2(96.0, 96.0)), camera_x, render_size, scale)
 		var accent_alpha := PlazaBackgroundProjection.flicker_alpha("accent:%d" % int(pos_x), 0.40, 0.18, ticks_msec)
-		_draw_texture_world(canvas, accent_emissive, Rect2(Vector2(pos_x, sidewalk_top + 28.0), Vector2(96.0, 96.0)), camera_x, viewport_size, scale, Color(1.0, 1.0, 1.0, accent_alpha))
+		_draw_texture_world(canvas, accent_emissive, Rect2(Vector2(pos_x, sidewalk_top + 28.0), Vector2(96.0, 96.0)), camera_x, render_size, scale, Color(1.0, 1.0, 1.0, accent_alpha))
 	canvas.draw_line(Vector2(0.0, sidewalk_top) * scale, Vector2(game_size.x, sidewalk_top) * scale, Color(0.0, 0.9, 1.0, 0.28), max(1.0, 1.5 * scale))
 
 
@@ -262,13 +262,13 @@ static func _draw_texture_world(
 	texture: Texture2D,
 	world_rect: Rect2,
 	camera_x: float,
-	viewport_size: Vector2,
+	render_size: Vector2,
 	scale: float,
 	modulate: Color = Color.WHITE
 ) -> void:
 	if texture == null:
 		return
 	var local_rect := PlazaWorldGeometry.world_rect_to_local(world_rect, camera_x, scale)
-	if local_rect.position.x > viewport_size.x or local_rect.end.x < 0.0 or local_rect.position.y > viewport_size.y or local_rect.end.y < 0.0:
+	if local_rect.position.x > render_size.x or local_rect.end.x < 0.0 or local_rect.position.y > render_size.y or local_rect.end.y < 0.0:
 		return
 	canvas.draw_texture_rect(texture, local_rect, false, modulate)

@@ -750,8 +750,10 @@ sheet/destination geometry, and Lingpet follow/frame projection.
 `plaza_actor_renderer.gd` owns player/Lingpet texture selection, sprite drawing,
 placeholder drawing, and contact shadows. `plaza_building_renderer.gd` owns
 building world-rect fallback, viewport culling, deterministic flicker, baseline
-shadow drawing, and the immediate building draw recipe. `plaza_scene.gd`
-supplies live state and keeps narrow compatibility facades; do not restore
+shadow drawing, and the retained base/sign/window CanvasItem children with their
+owned MIX/ADD materials. Its immediate `draw()` entrypoint is compatibility-only;
+the production building path is owned by `plaza_map_world_host.gd`.
+`plaza_scene.gd` supplies live state and keeps narrow compatibility facades; do not restore
 actor/building draw recipes or their projection constants to the scene shell.
 
 ### Plaza background rendering boundary
@@ -760,9 +762,73 @@ actor/building draw recipes or their projection constants to the scene shell.
 VR-strata block geometry, deterministic flicker, and smoothing math.
 `plaza_background_renderer.gd` owns the full sky/far-sky fallback, cloud,
 midground wall, ground strip, emissive decoration, underground, and exit-zone
-draw recipe. `plaza_scene.gd` invokes that recipe from its live state; do not
-restore background constants, texture-world culling, or layer-specific draw
-methods to the scene shell.
+draw recipe. The production call is made by `plaza_map_world_host.gd` from the
+state supplied by `plaza_scene.gd`; do not restore background constants,
+texture-world culling, or layer-specific draw methods to the scene shell.
+
+### Plaza retained map-world host boundary
+
+`plaza_scene.gd` owns attachment and orchestration of the production retained
+world host. The outer map uses the loader-owned fixed `2400 x 1500` logical
+world, while building interiors and trade UI retain their independent
+`760 x 750` contract. On every controller-owned rendered frame, the scene
+samples one `ticks_msec` value and synchronizes the host with
+`render_size = plaza_scene.size`; engine viewport size is not a substitute.
+The scene also fails the host closed through the actual interior-open,
+plaza-exit, scene-handler free, and tree-exit routes.
+
+The outer size is an intentional R1 compatibility promotion from the previous
+`MAP_SIZE = 1900 x 750`, not a retained-renderer-only refactor. It moves the
+exit from `Rect2(1750, 596, 120, 92)` to `Rect2(2250, 596, 120, 92)` and raises
+the one-axis camera's right clamp from `1140` to `1640`. Existing
+`stage_map_seeds[stage_id]` values and the seed/save schema are preserved, but
+the legacy position applicator consumes world width, so a preserved seed gets
+one intentional coordinate-layout shift at the update boundary. Thereafter the
+fixed-width cache/input contract reproduces the same positions for the same
+stage and seed. Building-type selection remains seed-derived and does not
+consume world width. R1 still keeps `GROUND_Y = 666` and one-axis movement;
+vertical traversal of the 1500-unit map world is not active.
+
+The corresponding player-facing distance increase is accepted. A real 60 Hz
+Vulkan run through the production handler/update route with normal `ui_right`
+input first entered the new exit on frame 533 (`8.883s`), versus the old x=1750
+counterfactual on frame 408 (`6.800s`). The accepted delta is 125 frames /
+`2.083s` (about 30.64%); the probe used no direct-position test hook and
+continued through the real 60-frame exit warp callback.
+
+R1 is a retained-ownership bridge, not the final map-fit projection. The live
+outer scene still projects through its existing `GAME_SIZE = 760 x 750`
+side-scroll fit. At 2020 x 1246 this bridge displays the 360-unit bank at about
+598px, upscaling its 512px runtime texture by about 1.17x, so R1 sign-off
+requires a real Vulkan sharpness review at that resolution.
+
+`plaza_map_world_host.gd` owns the opaque map fill, background-renderer call,
+retained building children, relative `z_index = -1`, and fail-closed retained
+visibility. `plaza_asset_loader.gd` owns the active seven Hwangyeok manifests,
+fixed map size, deterministic building specs, and resource state for the 21
+retained layer textures. Production prewarm delegates directly from the scene
+through the host and building renderer to that loader state. GPU readiness is
+not inferred from resource cache state: `battle_pso_prewarmer.gd` renders the
+actual retained host and all seven-by-three layers inside an independent
+`512 x 512` `SubViewport`, then seals 21 current `Texture2D` instance IDs and
+two `RenderingServer.frame_post_draw` flushes. Identity drift invalidates the
+seal.
+
+The live result-screen `BUTTON_PLAZA` route produces `ACTION_ENTER_PLAZA`, not
+a notice action. Plaza entry composes resource and GPU readiness; an incomplete
+attempt returns explicit `false`, and callback scene glue retains the callable
+for a later click rather than consuming it. Only a completed attempt clears the
+callback and spawns the plaza. The R1 retained bridge consumes the legacy
+one-axis position applicator in production.
+
+R1 Vulkan sign-off used eight A-H captures. It recorded 148,223 nontransparent
+GPU-prewarm pixels, 34.938 ms GPU readiness, 8.432 ms spawn-call time, 20.758 ms
+from spawn return to first post-draw, 7,459 strength-pair changed pixels, and
+7,366 ADD/MIX changed pixels. A 6,144-pixel lifecycle sentinel remained at zero
+in degenerate, interior, and exit captures; the capture suite reported zero
+failures. Because Godot clamps `SubViewport` to at least `2 x 2`, the degenerate
+leg enters the live `PlazaScene` root `_draw()` fallback without calling the
+host directly.
 
 ### Plaza flow-gate and world-geometry boundary
 

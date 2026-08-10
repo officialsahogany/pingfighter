@@ -27,12 +27,16 @@ static func build(
 			pivot_pos = interaction_rect.get_center()
 		var emblem_value: Variant = spec.get("identity_emblem", {})
 		var emblem: Dictionary = emblem_value as Dictionary if emblem_value is Dictionary else {}
-		building_markers.append({
+		var marker := {
 			"type": str(spec.get("type", "")),
 			"identity_emblem_id": str(emblem.get("id", "")),
 			"world_x": pivot_pos.x,
 			"position": Vector2(world_x_to_minimap_x(pivot_pos.x, map_width), marker_y),
-		})
+		}
+		var marker_color_value: Variant = spec.get("marker_color", null)
+		if marker_color_value is Color:
+			marker["marker_color"] = marker_color_value
+		building_markers.append(marker)
 	building_markers = resolve_icon_positions(building_markers, track_rect)
 	return {
 		"panel_rect": PANEL_RECT,

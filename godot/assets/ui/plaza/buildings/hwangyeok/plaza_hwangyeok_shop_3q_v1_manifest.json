@@ -1,0 +1,300 @@
+{
+  "status": "r1_active_runtime",
+  "asset_id": "plaza_hwangyeok_shop_3q_v1",
+  "building_type": "shop",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "coordinate_contract": {
+    "source_pixel_absolute": [
+      "origin_pivot",
+      "ground_anchor_chord",
+      "footprint_art_reference",
+      "entrance_anchor",
+      "label_anchor_source_pixels"
+    ],
+    "origin_pivot_relative_source_pixel": [
+      "footprint_polygon",
+      "sort_anchor",
+      "label_anchor",
+      "occlusion_band"
+    ],
+    "fixed_map_world": [
+      "road_side_clearance"
+    ],
+    "viewport_or_fit_derived_values_forbidden": true
+  },
+  "display_height": 275,
+  "origin_pivot": [
+    720,
+    1110
+  ],
+  "ground_anchor_chord": [
+    [
+      550,
+      1110
+    ],
+    [
+      890,
+      1110
+    ]
+  ],
+  "footprint_art_reference": {
+    "method": "canonical_widest_contiguous_alpha_run_plus_manual_near_corner",
+    "alpha_threshold": 128,
+    "pivot_relative_probe_band_y": [
+      -180,
+      -60
+    ],
+    "support_span_tie_break": "maximum_pixel_count_then_smallest_y_then_smallest_x",
+    "support_span_source_pixels": [
+      [
+        80,
+        930
+      ],
+      [
+        1185,
+        930
+      ]
+    ],
+    "front_contact_source_pixels": [
+      836,
+      1144
+    ],
+    "horizontal_tolerance_pixels": 2,
+    "front_to_alpha_bottom_tolerance_pixels": 20
+  },
+  "footprint_polygon": [
+    [
+      -291,
+      -518.5
+    ],
+    [
+      465,
+      -140.5
+    ],
+    [
+      116,
+      34
+    ],
+    [
+      -640,
+      -344
+    ]
+  ],
+  "footprint_polygon_order": "rear_right_front_left",
+  "entrance_anchor": [
+    500,
+    1065
+  ],
+  "entrance_anchor_offset": [
+    -220,
+    -45
+  ],
+  "entrance_normal": [
+    -1.0,
+    0.5
+  ],
+  "sort_anchor": [
+    0,
+    0
+  ],
+  "label_anchor": [
+    400,
+    -110
+  ],
+  "label_anchor_source_pixels": [
+    1120,
+    1000
+  ],
+  "label_rect_rule": "stem_plus_rightward_half_label_width_plus_12_world_then_separate_collision_test",
+  "plot_class": "standard_market",
+  "hierarchy_rank": 3,
+  "approach_side": "lower_left",
+  "road_side_clearance": {
+    "unit": "map_world",
+    "anchor": "entrance_anchor",
+    "cross_width": 150,
+    "approach_depth": 95
+  },
+  "occlusion_band": [
+    -250,
+    45
+  ],
+  "allow_rotation": false,
+  "allow_mirror": false,
+  "sign_glow_color": "#FFC44C",
+  "window_glow_color": "#B8F15A",
+  "sign_glow_strength": 1.0,
+  "window_glow_strength": 1.0,
+  "identity_emblem": {
+    "id": "shop_coin_item_box",
+    "canonical_across_themes": true
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_building_base.png",
+      "sha256": "f58fc13c618f362d4755c8c59d471efe855f235c2694c7698c0888fee0d8fa68",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/shop/plaza_hwangyeok_shop_3q_v1_building_base.png",
+      "source_sha256": "2598ce99381d31b4f4b88d19f5ad04306b171c700147fb02b7e2d8064ebe5bd0"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png",
+      "sha256": "f6b822702ab3ce445be7fb8d4f8f9cb433baf4311d616adb8e619a02a94634c2",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/shop/plaza_hwangyeok_shop_3q_v1_sign_emissive_mask.png",
+      "source_sha256": "e6e936165a04aa7f2cee92981b85eb923b17676f71eeaa0fb4c2039ed190ae08"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_shop_3q_v1_window_glow_mask.png",
+      "sha256": "1437a359ca0559b0c925cc0174550f84d69da53eee41f5e00008344a5bb31472",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/shop/plaza_hwangyeok_shop_3q_v1_window_glow_mask.png",
+      "source_sha256": "342044ca8a75bdb71fc085ed94d26e7c4d50fb92e5f271142296301c2cd2a85f"
+    }
+  },
+  "runtime_texture_size": [
+    512,
+    512
+  ],
+  "runtime_usage": "production_active_hwangyeok_plaza_2d_retained_building_layers",
+  "runtime_import_policy": {
+    "physical_downscale": true,
+    "compress_mode": 2,
+    "compress_high_quality": true,
+    "metadata_vram_texture": true,
+    "mipmaps_generate": true,
+    "process_size_limit": 0
+  },
+  "runtime_prep_provenance": {
+    "source_manifest_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/shop/plaza_hwangyeok_shop_3q_v1_candidate_manifest.json",
+    "source_manifest_sha256": "ac430ba4cfcf2f6faf27782978d818232a42c3e22a7ef60fad025affb32068c9",
+    "prep_script_path": "godot/tools/prepare_plaza_hwangyeok_runtime_assets.py",
+    "prep_script_sha256": "92f55abbf8d34bccbaedd913ad6a63938268d518e8e9c9347ee73a5d15fa87f4",
+    "algorithm": {
+      "base": "premultiplied_srgb_rgba_lanczos_then_unpremultiply_zero_transparent_rgb_and_remove_only_exterior_connected_near_magenta_resize_ringing",
+      "masks": "lanczos_alpha_then_clamp_to_resized_base_alpha_with_visible_rgb_white_and_hidden_rgb_black",
+      "png": "Pillow_RGBA_compress_level_9_optimize_false"
+    },
+    "authoring_coordinates_remain_in_source_pixel_space": true,
+    "source_retention_policy": {
+      "source_root": "tmp/imagegen",
+      "workspace_masters_preserved": true,
+      "gitignored": true,
+      "clean_checkout_rebuild_supported": false,
+      "runtime_outputs_self_contained": true,
+      "durable_archive_requires_separate_lfs_promotion": true
+    }
+  },
+  "runtime_material_edits": {
+    "base_resize_exterior_chroma_cleanup": {
+      "material_edit": false,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 0,
+      "removed_runtime_pixel_coordinates_xy": [],
+      "removed_pixels": [],
+      "cleanup_iterations": 0,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 0,
+      "expected_removed_runtime_pixel_coordinates_xy": [],
+      "expected_cleanup_snapshot_matches": true
+    }
+  },
+  "runtime_qa": {
+    "all_corner_alpha_zero": true,
+    "base_alpha_bbox_clear_of_canvas_edge": true,
+    "base_hidden_rgb_payload_pixels": 0,
+    "all_masks_neutral_white": true,
+    "all_masks_inside_resized_base": true,
+    "layers": {
+      "base": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          7,
+          72,
+          505,
+          470
+        ],
+        "alpha_bbox_clear_of_canvas_edge": true,
+        "visible_pixels": 133869,
+        "hidden_rgb_payload_pixels": 0,
+        "exact_ff00ff_pixels_diagnostic": 0,
+        "exterior_chroma": {
+          "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+          "boundary_4px_near_magenta_touch_pixels": 0,
+          "exterior_connected_magenta_pixels": 0,
+          "gate_pass": true
+        },
+        "resize_exterior_chroma_cleanup": {
+          "material_edit": false,
+          "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+          "removed_pixel_count": 0,
+          "removed_runtime_pixel_coordinates_xy": [],
+          "removed_pixels": [],
+          "cleanup_iterations": 0,
+          "remaining_exterior_connected_magenta_pixels": 0,
+          "expected_removed_pixel_count": 0,
+          "expected_removed_runtime_pixel_coordinates_xy": [],
+          "expected_cleanup_snapshot_matches": true
+        }
+      },
+      "sign_emissive": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          158,
+          169,
+          221,
+          247
+        ],
+        "visible_pixels": 2524,
+        "visible_nonwhite_rgb_pixels": 0,
+        "hidden_rgb_payload_pixels": 0,
+        "alpha_outside_resized_base_pixels": 0,
+        "alpha_exceeding_resized_base_pixels": 0
+      },
+      "window_glow_mask": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          56,
+          279,
+          461,
+          383
+        ],
+        "visible_pixels": 5964,
+        "visible_nonwhite_rgb_pixels": 0,
+        "hidden_rgb_payload_pixels": 0,
+        "alpha_outside_resized_base_pixels": 0,
+        "alpha_exceeding_resized_base_pixels": 0
+      }
+    }
+  }
+}

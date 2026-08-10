@@ -1,6 +1,7 @@
 extends RefCounted
 
 const StageClearResultBoxSceneHandler := preload("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+const StageClearResultCallbackHandler := preload("res://scripts/ui/stage_clear_result_callback_handler.gd")
 const StageClearResultCallbackSceneHandler := preload("res://scripts/ui/stage_clear_result_callback_scene_handler.gd")
 const StageClearResultNavigationActionHandler := preload("res://scripts/ui/stage_clear_result_navigation_action_handler.gd")
 const StageClearResultRuntimeOverlaySceneHandler := preload("res://scripts/ui/stage_clear_result_runtime_overlay_scene_handler.gd")
@@ -58,7 +59,8 @@ static func apply_navigation_action(scene: Object, action: String) -> void:
 		StageClearResultNavigationActionHandler.ACTION_CONFIRM:
 			StageClearResultCallbackSceneHandler.confirm(scene)
 		StageClearResultNavigationActionHandler.ACTION_ENTER_PLAZA:
-			StageClearResultCallbackSceneHandler.enter_plaza(scene)
+			if StageClearResultCallbackSceneHandler.enter_plaza(scene) == StageClearResultCallbackHandler.RESULT_NONE:
+				_trigger_plaza_notice(scene)
 		StageClearResultNavigationActionHandler.ACTION_PLAZA_NOTICE:
 			_trigger_plaza_notice(scene)
 		StageClearResultNavigationActionHandler.ACTION_EXIT_TO_MENU:
@@ -70,6 +72,8 @@ static func _trigger_plaza_notice(scene: Object) -> void:
 		return
 	# 단조 증가하는 scene.timer 기준 만료 시각을 심어두면 draw에서 남은 시간으로 페이드를 계산한다.
 	scene.set(&"_plaza_notice_until", _get_scene_float(scene, &"timer") + PLAZA_NOTICE_DURATION)
+	if scene.has_method("queue_redraw"):
+		scene.queue_redraw()
 
 
 static func _is_result_interaction_blocked(scene: Object) -> bool:

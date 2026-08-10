@@ -15,7 +15,12 @@ static func invoke_confirm(confirmed_callback: Callable) -> String:
 
 static func invoke_enter_plaza(enter_plaza_callback: Callable) -> String:
 	if enter_plaza_callback.is_valid():
-		enter_plaza_callback.call()
+		var callback_result: Variant = enter_plaza_callback.call()
+		# Plaza entry is the only result action whose composed resource/GPU
+		# readiness can legitimately yield. An explicit false keeps the action
+		# retryable; legacy callbacks returning void still count as consumed.
+		if callback_result is bool and not bool(callback_result):
+			return RESULT_NONE
 		return RESULT_ENTER_PLAZA
 	return RESULT_NONE
 

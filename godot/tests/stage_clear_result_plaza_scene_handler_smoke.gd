@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultPlazaSceneHandler := preload("res://scripts/core/stage_clear_result_plaza_scene_handler.gd")
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
+const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 
 var _failures: Array[String] = []
 
@@ -69,7 +70,21 @@ func _verify_spawn_configures_and_frees_plaza_scene() -> void:
 	root.add_child(owner)
 	var sink := CallbackSink.new()
 	var handler := StageClearResultPlazaSceneHandler.new()
-	_expect(handler.ensure_assets_ready(1), "plaza scene handler should be able to blocking-prewarm plaza assets")
+	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
+	_expect(not handler.ensure_assets_ready(1, owner), "cache-only plaza prewarm should remain gated on the frame-driven GPU draw")
+	await process_frame
+	var gpu_prewarmer := owner.get_node_or_null(BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME)
+	_expect(gpu_prewarmer != null, "plaza readiness should attach the Hwangyeok-only GPU prewarmer to its production owner")
+	if gpu_prewarmer != null:
+		gpu_prewarmer.call("_process", 0.0)
+		var instance_status: Dictionary = gpu_prewarmer.call("get_hwangyeok_instance_status")
+		for _flush_idx in range(
+			int(instance_status.get("post_draw_flush_count", 0)),
+			BattlePsoPrewarmer.POST_WARMUP_FLUSH_FRAMES
+		):
+			gpu_prewarmer.call("_on_hwangyeok_frame_post_draw")
+	await process_frame
+	_expect(handler.ensure_assets_ready(1, owner), "plaza scene handler should report ready after the retained GPU prewarm")
 	var save_store := FakePlazaSaveStore.new()
 	save_store.save_path = _smoke_save_path("scene_handler")
 	var config: Dictionary = handler.build_scene_config(
@@ -118,6 +133,7 @@ func _verify_source_boundary() -> void:
 	_expect(prewarm_state_source.find("PlazaScene.prewarm_assets_threaded_step") >= 0, "plaza prewarm state should own threaded plaza prewarm")
 	_expect(prewarm_state_source.find("PlazaScene.prewarm_assets_blocking_step") >= 0, "plaza prewarm state should own blocking plaza prewarm")
 	_expect(prewarm_state_source.find("_background_prewarm_enabled") >= 0, "plaza prewarm state should own background prewarm toggles")
+	_expect(handler_source.find("BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete") >= 0, "plaza spawn owner should reject cache-only readiness")
 
 
 func _drain_frames(frame_count: int) -> void:

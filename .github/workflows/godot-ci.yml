@@ -151,6 +151,7 @@ env:
     res://tests/pause_menu_pointer_command_router_smoke.gd
     res://tests/pause_menu_selection_feedback_renderer_owner_smoke.gd
     res://tests/plaza_status_snapshot_builder_owner_smoke.gd
+    res://tests/plaza_hwangyeok_building_r1_production_smoke.gd
     res://tests/lingpet_overflow_guardian_snapshot_builder_owner_smoke.gd
     res://tests/lingpet_rail_card_surface_builder_owner_smoke.gd
     res://tests/lingpet_egg_runtime_smoke.gd

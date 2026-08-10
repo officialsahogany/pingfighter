@@ -44,6 +44,8 @@ const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pill
 const Stage7AkamuPillarBackground := preload("res://scripts/stages/stage7/stage7_akamu_pillar_background.gd")
 const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
 const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
+const PlazaAssetLoader := preload("res://scripts/plaza/plaza_asset_loader.gd")
+const PlazaMapWorldHost := preload("res://scripts/plaza/plaza_map_world_host.gd")
 
 const VIPER_HOVER_LEFT_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_hover_sheet.png"
 const VIPER_HOVER_RIGHT_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_hover_sheet.png"
@@ -58,6 +60,10 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 const WARMUP_DRAW_STEPS := 24
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
+const HWANGYEOK_ONLY_NODE_NAME := "HwangyeokBuildingPsoPrewarmer"
+const HWANGYEOK_LAYER_COUNT := 7 * 3
+const HWANGYEOK_RENDER_TARGET_SIZE := Vector2i(512, 512)
+const HWANGYEOK_RENDER_RECT := Rect2(16.0, 16.0, 480.0, 480.0)
 
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
@@ -87,6 +93,20 @@ var _stage4_illusion_ripple_fx_host: Node = null
 var _stage4_awaken_aura_fx_host: Node = null
 var _angel_blessing_fx_host: Node = null
 var _stage7_art_texture_draws_issued: int = 0
+var _hwangyeok_only: bool = false
+var _hwangyeok_render_viewport: SubViewport = null
+var _hwangyeok_map_world_host: Control = null
+var _hwangyeok_retained_draw_issued: bool = false
+var _hwangyeok_drawn_layer_count: int = 0
+var _hwangyeok_in_bounds_layer_count: int = 0
+var _hwangyeok_post_draw_flush_count: int = 0
+
+static var _hwangyeok_gpu_prewarm_complete: bool = false
+static var _hwangyeok_gpu_prewarm_drawn_layer_count: int = 0
+static var _hwangyeok_gpu_prewarm_post_draw_flush_count: int = 0
+static var _hwangyeok_gpu_prewarm_in_bounds_layer_count: int = 0
+static var _hwangyeok_gpu_prewarm_last_rejection_reason: String = "not_started"
+static var _hwangyeok_gpu_prewarm_texture_instance_ids: Dictionary = {}
 
 
 class PsoWeatherWarmupState:
@@ -126,6 +146,109 @@ class PsoWeatherWarmupState:
 		]
 
 
+static func run_hwangyeok_gpu_prewarm_step(owner: Object) -> bool:
+	if is_hwangyeok_gpu_prewarm_complete():
+		return true
+	if owner == null or not (owner is Node) or not (owner as Node).is_inside_tree():
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "owner_not_in_tree"
+		return false
+	var owner_node := owner as Node
+	var existing := owner_node.get_node_or_null(HWANGYEOK_ONLY_NODE_NAME)
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "draw_in_progress"
+		return false
+	var prewarmer := new()
+	prewarmer.name = HWANGYEOK_ONLY_NODE_NAME
+	prewarmer.configure_hwangyeok_only()
+	owner_node.add_child(prewarmer)
+	_hwangyeok_gpu_prewarm_last_rejection_reason = "draw_in_progress"
+	return false
+
+
+static func is_hwangyeok_gpu_prewarm_complete() -> bool:
+	if _hwangyeok_gpu_prewarm_complete and not _hwangyeok_sealed_texture_identities_match():
+		_hwangyeok_gpu_prewarm_complete = false
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "sealed_texture_identity_drift"
+	return _hwangyeok_gpu_prewarm_complete
+
+
+static func get_hwangyeok_gpu_prewarm_status() -> Dictionary:
+	var complete := is_hwangyeok_gpu_prewarm_complete()
+	var identity_match := complete and _hwangyeok_sealed_texture_identities_match()
+	return {
+		"complete": complete,
+		"drawn_layer_count": _hwangyeok_gpu_prewarm_drawn_layer_count,
+		"expected_layer_count": HWANGYEOK_LAYER_COUNT,
+		"post_draw_flush_count": _hwangyeok_gpu_prewarm_post_draw_flush_count,
+		"required_post_draw_flush_count": POST_WARMUP_FLUSH_FRAMES,
+		"render_target_size": Vector2(HWANGYEOK_RENDER_TARGET_SIZE),
+		"in_bounds_layer_count": _hwangyeok_gpu_prewarm_in_bounds_layer_count,
+		"sealed_texture_count": _hwangyeok_gpu_prewarm_texture_instance_ids.size(),
+		"texture_identity_match": identity_match,
+		"last_rejection_reason": _hwangyeok_gpu_prewarm_last_rejection_reason,
+	}
+
+
+static func reset_hwangyeok_gpu_prewarm_for_test() -> void:
+	_hwangyeok_gpu_prewarm_complete = false
+	_hwangyeok_gpu_prewarm_drawn_layer_count = 0
+	_hwangyeok_gpu_prewarm_post_draw_flush_count = 0
+	_hwangyeok_gpu_prewarm_in_bounds_layer_count = 0
+	_hwangyeok_gpu_prewarm_last_rejection_reason = "not_started"
+	_hwangyeok_gpu_prewarm_texture_instance_ids.clear()
+
+
+static func _capture_hwangyeok_texture_instance_ids() -> Dictionary:
+	var result: Dictionary = {}
+	for path in PlazaAssetLoader.get_hwangyeok_building_prewarm_texture_paths():
+		var texture := ProjectResourceLoader.get_cached_texture(path)
+		if texture == null:
+			return {}
+		result[path] = texture.get_instance_id()
+	return result
+
+
+static func _hwangyeok_sealed_texture_identities_match() -> bool:
+	var paths := PlazaAssetLoader.get_hwangyeok_building_prewarm_texture_paths()
+	if paths.size() != HWANGYEOK_LAYER_COUNT or _hwangyeok_gpu_prewarm_texture_instance_ids.size() != paths.size():
+		return false
+	for path in paths:
+		var texture := ProjectResourceLoader.get_cached_texture(path)
+		if texture == null:
+			return false
+		if int(_hwangyeok_gpu_prewarm_texture_instance_ids.get(path, 0)) != texture.get_instance_id():
+			return false
+	return true
+
+
+func configure_hwangyeok_only() -> void:
+	if is_inside_tree():
+		push_error("Hwangyeok-only PSO prewarm must be configured before attaching the node")
+		return
+	_hwangyeok_only = true
+	# A failed cache contract must not linger for the full boot prewarmer span.
+	# The stage-result owner can retry on a later frame after the cache advances.
+	_frames_remaining = POST_WARMUP_FLUSH_FRAMES + 6
+
+
+func get_hwangyeok_instance_status() -> Dictionary:
+	return {
+		"hwangyeok_only": _hwangyeok_only,
+		"retained_draw_issued": _hwangyeok_retained_draw_issued,
+		"drawn_layer_count": _hwangyeok_drawn_layer_count,
+		"in_bounds_layer_count": _hwangyeok_in_bounds_layer_count,
+		"post_draw_flush_count": _hwangyeok_post_draw_flush_count,
+		"render_target_size": Vector2(_hwangyeok_render_viewport.size) if _hwangyeok_render_viewport != null else Vector2.ZERO,
+		"map_world_host_attached": _hwangyeok_map_world_host != null and is_instance_valid(_hwangyeok_map_world_host),
+	}
+
+
+func get_hwangyeok_render_image_for_test() -> Image:
+	if _hwangyeok_render_viewport == null or not is_instance_valid(_hwangyeok_render_viewport):
+		return null
+	return _hwangyeok_render_viewport.get_texture().get_image()
+
+
 func _ready() -> void:
 	# Stack the prewarmer below every gameplay layer and lock its position
 	# off-screen. Alpha is kept slightly above zero so the driver cannot
@@ -134,6 +257,10 @@ func _ready() -> void:
 	z_as_relative = false
 	position = OFFSCREEN_POSITION
 	modulate = Color(1.0, 1.0, 1.0, 0.01)
+	if _hwangyeok_only:
+		RenderingServer.frame_post_draw.connect(_on_hwangyeok_frame_post_draw)
+		set_process(true)
+		return
 	# Attach a dedicated boost FX host as a child so its shader-material quads
 	# can be issued off-screen during the dash orb prewarm pass. The host's own
 	# Sprite2D slots inherit the prewarmer's offscreen modulate, so even if the
@@ -190,6 +317,13 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_frames_remaining -= 1
+	if _hwangyeok_only:
+		if not _hwangyeok_retained_draw_issued:
+			_run_hwangyeok_retained_draw_step()
+		if _frames_remaining <= 0:
+			_hwangyeok_gpu_prewarm_last_rejection_reason = "draw_step_timed_out"
+			queue_free()
+		return
 	if _warmup_step_index >= WARMUP_DRAW_STEPS:
 		_flush_frames_after_warmup += 1
 	if _frames_remaining <= 0 or _flush_frames_after_warmup >= POST_WARMUP_FLUSH_FRAMES:
@@ -199,6 +333,8 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
+	if _hwangyeok_only:
+		return
 	if _warmup_step_index >= WARMUP_DRAW_STEPS:
 		return
 	_prewarm_draw_step(_warmup_step_index)
@@ -255,6 +391,140 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_angel_blessing_absorb_shader_state()
 		23:
 			_prewarm_stage7_akamu_pillar_field_textures()
+func _run_hwangyeok_retained_draw_step() -> void:
+	var cache_status := PlazaAssetLoader.get_building_prewarm_status(
+		PlazaAssetLoader.HWANGYEOK_BUILDING_ASSET_SET_ID
+	)
+	if not bool(cache_status.get("complete", false)):
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "texture_cache_incomplete"
+		return
+	PlazaAssetLoader.invalidate_hwangyeok_building_specs_cache()
+	var specs := PlazaAssetLoader.build_hwangyeok_building_specs(1, 1, true)
+	if specs.size() != 7:
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "incomplete_building_roster"
+		return
+	if not _hwangyeok_specs_use_current_cached_textures(specs):
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "spec_texture_identity_mismatch"
+		return
+	var render_specs: Array[Dictionary] = []
+	for source_spec in specs:
+		var render_spec := source_spec.duplicate(true)
+		# A SubViewport owns an independent canvas, so the main prewarmer's
+		# -100000 transform cannot trigger canvas culling. Overlay the seven
+		# authored sprites inside one bounded target: every unique 3-layer texture
+		# is issued while the target stays invisible to the live window.
+		render_spec["visual_rect"] = HWANGYEOK_RENDER_RECT
+		render_specs.append(render_spec)
+	if _hwangyeok_render_viewport == null:
+		_hwangyeok_render_viewport = SubViewport.new()
+		_hwangyeok_render_viewport.name = "HwangyeokRenderTarget_pso"
+		_hwangyeok_render_viewport.size = HWANGYEOK_RENDER_TARGET_SIZE
+		_hwangyeok_render_viewport.disable_3d = true
+		_hwangyeok_render_viewport.transparent_bg = true
+		_hwangyeok_render_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+		_hwangyeok_render_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(_hwangyeok_render_viewport)
+	if _hwangyeok_map_world_host == null:
+		_hwangyeok_map_world_host = PlazaMapWorldHost.new()
+		_hwangyeok_map_world_host.name = "HwangyeokMapWorldHost_pso"
+		_hwangyeok_render_viewport.add_child(_hwangyeok_map_world_host)
+	var synced: bool = bool(_hwangyeok_map_world_host.sync_state({
+		"render_size": Vector2(HWANGYEOK_RENDER_TARGET_SIZE),
+		"game_size": Vector2(HWANGYEOK_RENDER_TARGET_SIZE),
+		"render_scale": 1.0,
+		"ticks_msec": 1000,
+		"building_specs": render_specs,
+		"camera_x": 0.0,
+		"building_baseline_y": HWANGYEOK_RENDER_RECT.end.y,
+		"draw_opaque_fill": false,
+		"render_background": false,
+	}, true))
+	if not synced:
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "retained_host_sync_rejected"
+		return
+	var statuses: Array[Dictionary] = _hwangyeok_map_world_host.get_building_layer_statuses()
+	if statuses.size() != 7:
+		_hwangyeok_gpu_prewarm_last_rejection_reason = "retained_visual_count_mismatch"
+		return
+	var drawn_layer_count := 0
+	var in_bounds_layer_count := 0
+	var render_bounds := Rect2(Vector2.ZERO, Vector2(HWANGYEOK_RENDER_TARGET_SIZE))
+	for status in statuses:
+		if (
+			not bool(status.get("base_visible", false))
+			or not bool(status.get("sign_visible", false))
+			or not bool(status.get("window_visible", false))
+			or int(status.get("base_bound_blend_mode", -1)) != CanvasItemMaterial.BLEND_MODE_MIX
+			or int(status.get("sign_bound_blend_mode", -1)) != CanvasItemMaterial.BLEND_MODE_ADD
+			or int(status.get("window_bound_blend_mode", -1)) != CanvasItemMaterial.BLEND_MODE_ADD
+		):
+			_hwangyeok_gpu_prewarm_last_rejection_reason = "retained_layer_contract_mismatch"
+			return
+		drawn_layer_count += 3
+		for rect_key in ["base_render_rect", "sign_render_rect", "window_render_rect"]:
+			var layer_rect: Rect2 = status.get(rect_key, Rect2())
+			if (
+				layer_rect.size.x > 0.0
+				and layer_rect.size.y > 0.0
+				and render_bounds.encloses(layer_rect)
+			):
+				in_bounds_layer_count += 1
+	_hwangyeok_drawn_layer_count = drawn_layer_count
+	_hwangyeok_in_bounds_layer_count = in_bounds_layer_count
+	_hwangyeok_retained_draw_issued = (
+		drawn_layer_count == HWANGYEOK_LAYER_COUNT
+		and in_bounds_layer_count == HWANGYEOK_LAYER_COUNT
+	)
+	_hwangyeok_gpu_prewarm_last_rejection_reason = (
+		"awaiting_post_draw_flush" if _hwangyeok_retained_draw_issued else "retained_layer_count_mismatch"
+	)
+
+
+func _hwangyeok_specs_use_current_cached_textures(specs: Array[Dictionary]) -> bool:
+	var bindings := [
+		["base", "base_texture"],
+		["sign_emissive", "sign_texture"],
+		["window_glow_mask", "window_texture"],
+	]
+	for spec in specs:
+		var manifest := PlazaAssetLoader.load_manifest(str(spec.get("manifest_path", "")))
+		var layers_value: Variant = manifest.get("layers", {})
+		if not (layers_value is Dictionary):
+			return false
+		var layers := layers_value as Dictionary
+		for binding in bindings:
+			var layer_value: Variant = layers.get(str(binding[0]), {})
+			if not (layer_value is Dictionary):
+				return false
+			var path := str((layer_value as Dictionary).get("res_path", ""))
+			var cached_texture := ProjectResourceLoader.get_cached_texture(path)
+			var spec_texture_value: Variant = spec.get(str(binding[1]), null)
+			if cached_texture == null or not (spec_texture_value is Texture2D):
+				return false
+			if (spec_texture_value as Texture2D).get_instance_id() != cached_texture.get_instance_id():
+				return false
+	return true
+
+
+func _on_hwangyeok_frame_post_draw() -> void:
+	if not _hwangyeok_only or not _hwangyeok_retained_draw_issued:
+		return
+	_hwangyeok_post_draw_flush_count += 1
+	if _hwangyeok_post_draw_flush_count < POST_WARMUP_FLUSH_FRAMES:
+		return
+	_hwangyeok_gpu_prewarm_drawn_layer_count = _hwangyeok_drawn_layer_count
+	_hwangyeok_gpu_prewarm_post_draw_flush_count = _hwangyeok_post_draw_flush_count
+	_hwangyeok_gpu_prewarm_in_bounds_layer_count = _hwangyeok_in_bounds_layer_count
+	_hwangyeok_gpu_prewarm_texture_instance_ids = _capture_hwangyeok_texture_instance_ids()
+	_hwangyeok_gpu_prewarm_complete = (
+		_hwangyeok_gpu_prewarm_drawn_layer_count == HWANGYEOK_LAYER_COUNT
+		and _hwangyeok_gpu_prewarm_in_bounds_layer_count == HWANGYEOK_LAYER_COUNT
+		and _hwangyeok_gpu_prewarm_post_draw_flush_count >= POST_WARMUP_FLUSH_FRAMES
+		and _hwangyeok_gpu_prewarm_texture_instance_ids.size() == HWANGYEOK_LAYER_COUNT
+		and _hwangyeok_sealed_texture_identities_match()
+	)
+	_hwangyeok_gpu_prewarm_last_rejection_reason = "" if _hwangyeok_gpu_prewarm_complete else "flush_contract_mismatch"
+	queue_free()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -351,7 +621,6 @@ func _prewarm_pillar_overlay_primitives() -> void:
 	var dash_bell_cell := _get_texture(BattleResources.DASH_TOKEN_BELL_CELL_TEXTURE_PATH)
 	var skill_frame := _get_texture(BattleResources.SKILL_ORB_FRAME_TEXTURE_PATH)
 	var skill_cluster_frame := _get_texture(BattleResources.VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH)
-
 	if skill_frame != null:
 		draw_texture_rect(skill_frame, Rect2(0.0, 150.0, 60.0, 60.0), false, Color(1.0, 1.0, 1.0, 0.90))
 	if skill_cluster_frame != null:

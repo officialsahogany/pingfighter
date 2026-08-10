@@ -33,9 +33,9 @@ class FakeResultScene:
 	var _stage5_hongryun_result_click_reaction_timer: float = 0.0
 	var _stage6_boss_defeat_click_reaction_timer: float = 0.0
 	var _stage7_boss_defeat_click_reaction_timer: float = 0.0
+	var _stage8_boss_defeat_click_reaction_timer: float = 0.0
 	var _dalji_dialogue_timer: float = 0.0
 	var _runtime_perk_state: Object = null
-	var _treasure_hunt_runtime: Object = null
 	var _mythic_item_runtime: Object = null
 	var _starpoint_choice_gate_active: bool = false
 	var _starpoint_choice_gate_box_index: int = -1
@@ -84,6 +84,7 @@ class FakePlazaSceneHandler:
 	var update_calls: int = 0
 	var prewarm_calls: int = 0
 	var prewarm_stage: int = 0
+	var prewarm_owner: Object = null
 
 	func has_scene() -> bool:
 		return has_result_scene
@@ -91,9 +92,10 @@ class FakePlazaSceneHandler:
 	func update(_delta: float) -> void:
 		update_calls += 1
 
-	func prewarm_assets_step(stage_id: int) -> bool:
+	func prewarm_assets_step(stage_id: int, owner: Object = null) -> bool:
 		prewarm_calls += 1
 		prewarm_stage = stage_id
+		prewarm_owner = owner
 		return true
 
 

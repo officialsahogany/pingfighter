@@ -1,0 +1,354 @@
+{
+  "status": "r1_active_runtime",
+  "asset_id": "plaza_hwangyeok_gacha_3q_v1",
+  "building_type": "gacha",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "coordinate_contract": {
+    "source_pixel_absolute": [
+      "origin_pivot",
+      "ground_anchor_chord",
+      "footprint_art_reference",
+      "entrance_anchor",
+      "label_anchor_source_pixels"
+    ],
+    "origin_pivot_relative_source_pixel": [
+      "footprint_polygon",
+      "sort_anchor",
+      "label_anchor",
+      "occlusion_band"
+    ],
+    "fixed_map_world": [
+      "road_side_clearance"
+    ],
+    "viewport_or_fit_derived_values_forbidden": true
+  },
+  "display_height": 295,
+  "origin_pivot": [
+    930,
+    1060
+  ],
+  "ground_anchor_chord": [
+    [
+      810,
+      1060
+    ],
+    [
+      1050,
+      1060
+    ]
+  ],
+  "footprint_art_reference": {
+    "method": "canonical_widest_contiguous_alpha_run_plus_manual_near_corner",
+    "alpha_threshold": 128,
+    "pivot_relative_probe_band_y": [
+      -180,
+      -60
+    ],
+    "support_span_tie_break": "maximum_pixel_count_then_smallest_y_then_smallest_x",
+    "support_span_source_pixels": [
+      [
+        39,
+        918
+      ],
+      [
+        1222,
+        918
+      ]
+    ],
+    "front_contact_source_pixels": [
+      1035,
+      1084
+    ],
+    "horizontal_tolerance_pixels": 2,
+    "front_to_alpha_bottom_tolerance_pixels": 20
+  },
+  "footprint_polygon": [
+    [
+      -704,
+      -567.5
+    ],
+    [
+      292,
+      -69.5
+    ],
+    [
+      105,
+      24
+    ],
+    [
+      -891,
+      -474
+    ]
+  ],
+  "footprint_polygon_order": "rear_right_front_left",
+  "entrance_anchor": [
+    210,
+    1015
+  ],
+  "entrance_anchor_offset": [
+    -720,
+    -45
+  ],
+  "entrance_normal": [
+    -1.0,
+    0.5
+  ],
+  "sort_anchor": [
+    0,
+    0
+  ],
+  "label_anchor": [
+    245,
+    -80
+  ],
+  "label_anchor_source_pixels": [
+    1175,
+    980
+  ],
+  "label_rect_rule": "stem_plus_rightward_half_label_width_plus_12_world_then_separate_collision_test",
+  "plot_class": "medium_left_access",
+  "hierarchy_rank": 2,
+  "approach_side": "lower_left",
+  "road_side_clearance": {
+    "unit": "map_world",
+    "anchor": "entrance_anchor",
+    "cross_width": 180,
+    "approach_depth": 115
+  },
+  "occlusion_band": [
+    -260,
+    45
+  ],
+  "allow_rotation": false,
+  "allow_mirror": false,
+  "sign_glow_color": "#FFC44C",
+  "window_glow_color": "#FF61C8",
+  "sign_glow_strength": 1.0,
+  "window_glow_strength": 1.0,
+  "identity_emblem": {
+    "id": "gacha_capsule_rotation",
+    "canonical_across_themes": true
+  },
+  "layers": {
+    "base": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_building_base.png",
+      "sha256": "72711b8bf25c5ee1b7d3477c35c940e6da1e804ad98b90b44fe745d0d183e022",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/gacha/plaza_hwangyeok_gacha_3q_v1_building_base.png",
+      "source_sha256": "748c87e59503492edb75c33242c0e6b733e1f5bb09897527c1b0b41f06a92886"
+    },
+    "sign_emissive": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png",
+      "sha256": "d4bfcfa51feb17f09f71144fabe20e820f6df947e7b9f36ee44c25835b08cc2b",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/gacha/plaza_hwangyeok_gacha_3q_v1_sign_emissive_mask.png",
+      "source_sha256": "4107e1544212625c6475ef338286dbe7f920d3e9b4549a33bee21799c37f0f98"
+    },
+    "window_glow_mask": {
+      "res_path": "res://assets/ui/plaza/buildings/hwangyeok/plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png",
+      "sha256": "2f1de2e0740e9d5172ba9d7a3ab0c24a55674517281923f397abf09bd87cfbf3",
+      "source_candidate_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/gacha/plaza_hwangyeok_gacha_3q_v1_window_glow_mask.png",
+      "source_sha256": "ef6b0b65a97a86bbb5c9ff426133327aacc71d67f1dd28caf25a57126af5a7f3"
+    }
+  },
+  "entrance_access_corridor": {
+    "required": true,
+    "derive_from": "plot_lower_left_boundary_to_entrance_anchor",
+    "cross_width_world": 180,
+    "pivot_centered": false
+  },
+  "runtime_texture_size": [
+    512,
+    512
+  ],
+  "runtime_usage": "production_active_hwangyeok_plaza_2d_retained_building_layers",
+  "runtime_import_policy": {
+    "physical_downscale": true,
+    "compress_mode": 2,
+    "compress_high_quality": true,
+    "metadata_vram_texture": true,
+    "mipmaps_generate": true,
+    "process_size_limit": 0
+  },
+  "runtime_prep_provenance": {
+    "source_manifest_path": "tmp/imagegen/plaza_hwangyeok_building_layers_v1/gacha/plaza_hwangyeok_gacha_3q_v1_candidate_manifest.json",
+    "source_manifest_sha256": "437735e6c7ec4867d0e08be24972a2023a8471cf12f5c034f7c9318cde96f4f6",
+    "prep_script_path": "godot/tools/prepare_plaza_hwangyeok_runtime_assets.py",
+    "prep_script_sha256": "92f55abbf8d34bccbaedd913ad6a63938268d518e8e9c9347ee73a5d15fa87f4",
+    "algorithm": {
+      "base": "premultiplied_srgb_rgba_lanczos_then_unpremultiply_zero_transparent_rgb_and_remove_only_exterior_connected_near_magenta_resize_ringing",
+      "masks": "lanczos_alpha_then_clamp_to_resized_base_alpha_with_visible_rgb_white_and_hidden_rgb_black",
+      "png": "Pillow_RGBA_compress_level_9_optimize_false"
+    },
+    "authoring_coordinates_remain_in_source_pixel_space": true,
+    "source_retention_policy": {
+      "source_root": "tmp/imagegen",
+      "workspace_masters_preserved": true,
+      "gitignored": true,
+      "clean_checkout_rebuild_supported": false,
+      "runtime_outputs_self_contained": true,
+      "durable_archive_requires_separate_lfs_promotion": true
+    }
+  },
+  "runtime_material_edits": {
+    "base_resize_exterior_chroma_cleanup": {
+      "material_edit": true,
+      "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+      "removed_pixel_count": 1,
+      "removed_runtime_pixel_coordinates_xy": [
+        [
+          46,
+          275
+        ]
+      ],
+      "removed_pixels": [
+        {
+          "xy": [
+            46,
+            275
+          ],
+          "rgba_before": [
+            162,
+            30,
+            133,
+            25
+          ],
+          "iteration": 1
+        }
+      ],
+      "cleanup_iterations": 1,
+      "remaining_exterior_connected_magenta_pixels": 0,
+      "expected_removed_pixel_count": 1,
+      "expected_removed_runtime_pixel_coordinates_xy": [
+        [
+          46,
+          275
+        ]
+      ],
+      "expected_cleanup_snapshot_matches": true
+    }
+  },
+  "runtime_qa": {
+    "all_corner_alpha_zero": true,
+    "base_alpha_bbox_clear_of_canvas_edge": true,
+    "base_hidden_rgb_payload_pixels": 0,
+    "all_masks_neutral_white": true,
+    "all_masks_inside_resized_base": true,
+    "layers": {
+      "base": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          5,
+          86,
+          511,
+          446
+        ],
+        "alpha_bbox_clear_of_canvas_edge": true,
+        "visible_pixels": 138998,
+        "hidden_rgb_payload_pixels": 0,
+        "exact_ff00ff_pixels_diagnostic": 0,
+        "exterior_chroma": {
+          "gate_method": "alpha_lt_16_canvas_edge_flood_fill_then_4px_dilation_touching_near_magenta_8_connected_components",
+          "boundary_4px_near_magenta_touch_pixels": 0,
+          "exterior_connected_magenta_pixels": 0,
+          "gate_pass": true
+        },
+        "resize_exterior_chroma_cleanup": {
+          "material_edit": true,
+          "method": "remove_only_exterior_connected_near_magenta_components_created_by_runtime_downscale",
+          "removed_pixel_count": 1,
+          "removed_runtime_pixel_coordinates_xy": [
+            [
+              46,
+              275
+            ]
+          ],
+          "removed_pixels": [
+            {
+              "xy": [
+                46,
+                275
+              ],
+              "rgba_before": [
+                162,
+                30,
+                133,
+                25
+              ],
+              "iteration": 1
+            }
+          ],
+          "cleanup_iterations": 1,
+          "remaining_exterior_connected_magenta_pixels": 0,
+          "expected_removed_pixel_count": 1,
+          "expected_removed_runtime_pixel_coordinates_xy": [
+            [
+              46,
+              275
+            ]
+          ],
+          "expected_cleanup_snapshot_matches": true
+        }
+      },
+      "sign_emissive": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          192,
+          108,
+          408,
+          397
+        ],
+        "visible_pixels": 12542,
+        "visible_nonwhite_rgb_pixels": 0,
+        "hidden_rgb_payload_pixels": 0,
+        "alpha_outside_resized_base_pixels": 0,
+        "alpha_exceeding_resized_base_pixels": 0
+      },
+      "window_glow_mask": {
+        "mode": "RGBA",
+        "size": [
+          512,
+          512
+        ],
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_bbox_exclusive": [
+          21,
+          248,
+          455,
+          333
+        ],
+        "visible_pixels": 2941,
+        "visible_nonwhite_rgb_pixels": 0,
+        "hidden_rgb_payload_pixels": 0,
+        "alpha_outside_resized_base_pixels": 0,
+        "alpha_exceeding_resized_base_pixels": 0
+      }
+    }
+  }
+}

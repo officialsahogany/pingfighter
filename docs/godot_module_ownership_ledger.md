@@ -25,7 +25,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/plaza/`
   Owns the first Godot plaza shell for the DiskHearts - Ringpia port:
   stage-theme fallback, accepted plaza floor/building asset loading and
-  prewarm, 760x750 side-scroll street rendering, S4.5 imagegen parallax
+  prewarm, fixed 2400x1500 outer map-world state projected through the plaza
+  root render rect, unchanged 760x750 interior/trade projection, S4.5 parallax
   layers, S1 sidewalk/VR-strata ground strip reuse, player X-walk/X-camera
   state, per-instance CPU emissive flicker, S5 building menu shells, S6a
   `plaza_save_store.gd` persistent gold/AP ledger, S6b-1 bank deposit/withdraw/
@@ -35,6 +36,14 @@ This section is intentionally long; use search to find the nearest owner.
   active-item capsule pulls, S6b-5 `plaza_lingpet_store_transactions.gd`
   resonance-egg purchases that call `lingpet_egg_runtime` without directly
   mutating lingpet ownership, and the EXIT-zone callback surface.
+  R1 intentionally promoted the outer `MAP_SIZE` from 1900x750 to 2400x1500:
+  the EXIT zone moved from x=1750 to x=2250 and the one-axis camera right clamp
+  from 1140 to 1640. The save-owned `stage_map_seeds` values are not rewritten;
+  because the current one-axis position applicator consumes world width, an
+  existing preserved seed receives one accepted coordinate-layout shift at the
+  update boundary and is deterministic again under the fixed 2400 input. The
+  production 60Hz normal-input route measured and accepted 533 frames / 8.883s
+  to the new exit versus 408 frames / 6.800s at the legacy threshold.
   `stage_clear_result_screen.gd` only routes into `scenes/plaza.tscn` after
   rewards are granted, delegates plaza scene spawn / prewarm / forwarding to
   the result-screen plaza scene helper, delegates volatile `runtime_perk_gold`
@@ -74,14 +83,31 @@ This section is intentionally long; use search to find the nearest owner.
   and `plaza_building_renderer.gd`
   Own plaza actor walking/facing/frame projection, Lingpet follow/draw geometry,
   player/Lingpet sprite and contact-shadow rendering, and building world-rect,
-  culling, deterministic flicker, shadow, and immediate draw recipe.
-  `plaza_scene.gd` supplies live state through narrow compatibility facades.
+  culling, flicker, shadow, retained base/sign/window children, and layer-owned
+  MIX/ADD materials. The building immediate draw API remains compatibility-only.
+- `scripts/plaza/plaza_map_world_host.gd`
+  Owns the active outer plaza's opaque fill, background-renderer call, retained
+  building-child lifecycle, relative negative-z placement, and fail-closed
+  visibility. `plaza_scene.gd` owns host attachment, one-tick-per-owner-frame
+  sync with `render_size = plaza_scene.size`, and synchronous cleanup through
+  the actual interior, plaza-exit, scene-handler free, and tree-exit routes.
+  The completed R1 bridge still uses the outer scene's `GAME_SIZE = 760x750`
+  side-scroll fit. At 2020x1246 the 360-unit bank is about 598px high, so its
+  512px texture's ~1.17x upscale remains an explicit Vulkan sharpness gate.
+- `scripts/plaza/plaza_asset_loader.gd`
+  Owns the active Hwangyeok building manifest set, fixed 2400x1500 map-world
+  size, seed-deterministic building specs, shared glow/minimap color source, and
+  resource state for the 21 retained 512x512 layer textures. Production prewarm
+  delegates from `plaza_scene.gd` through the map-world host and building
+  renderer before reporting complete. The current position applicator remains
+  one-axis and uses the fixed 2400 width in its cache key and spacing input;
+  viewport-derived sizes must never enter that cache.
 - `scripts/plaza/plaza_background_projection.gd` and
   `plaza_background_renderer.gd`
   Own plaza parallax/tile/flicker/VR-strata projection plus the complete sky,
   far-sky fallback, midground wall, ground strip, emissive decoration,
-  underground, and exit-zone draw recipe. `plaza_scene.gd` invokes the recipe
-  using its live state and frame tick.
+  underground, and exit-zone draw recipe. The active map-world host invokes the
+  recipe using the state and shared frame tick supplied by `plaza_scene.gd`.
 - `scripts/plaza/plaza_flow_gate_policy.gd` and `plaza_world_geometry.gd`
   Own plaza update/input priority plus street-blocking policy, and pure fitted-
   canvas/player/camera/coordinate/building-hit geometry, respectively.

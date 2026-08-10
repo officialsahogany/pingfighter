@@ -18,20 +18,25 @@ func finish_enter_plaza(
 	mark_spawn_not_pending: Callable,
 	free_result_scene: Callable,
 	finish_plaza_and_continue: Callable
-) -> void:
+) -> bool:
 	if not active:
-		return
+		return false
+	# The result scene owns the frame-driven Hwangyeok GPU prewarm. Keep it
+	# alive and retryable until that retained SubViewport draw has crossed its flush
+	# gate; a synchronous enter callback cannot manufacture post-draw frames. The
+	# live click must also remain nonblocking: advance the same background step
+	# once instead of draining every remaining texture on the input frame.
+	var plaza_handler_ready := _is_plaza_handler_ready(plaza_scene_handler)
+	if plaza_handler_ready and not _advance_plaza_readiness(plaza_scene_handler, current_stage, owner):
+		return false
 	_call(grant_pending_rewards)
 	_call(apply_stage_clear_progress, [true])
 	_reset_starpoint_choice(scene, starpoint_choice_handler)
 	_call(mark_spawn_not_pending)
 	_call(free_result_scene)
-	if not _is_plaza_handler_ready(plaza_scene_handler):
+	if not plaza_handler_ready:
 		_call(finish_plaza_and_continue)
-		return
-	if not bool(plaza_scene_handler.ensure_assets_ready(current_stage)):
-		_call(finish_plaza_and_continue)
-		return
+		return true
 	var plaza_config: Dictionary = plaza_scene_handler.build_scene_config(
 		current_stage,
 		plaza_save_store,
@@ -42,22 +47,23 @@ func finish_enter_plaza(
 	)
 	if not bool(plaza_scene_handler.spawn_scene(owner, plaza_config, finish_plaza_and_continue)):
 		_call(finish_plaza_and_continue)
-		return
+		return true
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
+	return true
 
 
 func finish_enter_plaza_from_screen(
 	screen: Object,
 	free_result_scene: Callable,
 	finish_plaza_and_continue: Callable
-) -> void:
+) -> bool:
 	if screen == null:
-		return
+		return false
 	var context: Dictionary = StageClearResultPlazaEnterScreenData.build_plaza_enter_context_from_screen(screen)
 	if context.is_empty():
-		return
-	finish_enter_plaza(
+		return false
+	return finish_enter_plaza(
 		bool(context.get("active", false)),
 		int(context.get("current_stage", 1)),
 		context.get("plaza_save_store", null) as Object,
@@ -87,6 +93,14 @@ func _is_plaza_handler_ready(plaza_scene_handler: Object) -> bool:
 		and plaza_scene_handler.has_method("build_scene_config")
 		and plaza_scene_handler.has_method("spawn_scene")
 	)
+
+
+func _advance_plaza_readiness(plaza_scene_handler: Object, current_stage: int, owner: Object) -> bool:
+	if plaza_scene_handler.has_method("prewarm_assets_step"):
+		return bool(plaza_scene_handler.prewarm_assets_step(current_stage, owner))
+	# Compatibility adapters predating the frame-stepped API retain their
+	# existing readiness contract.
+	return bool(plaza_scene_handler.ensure_assets_ready(current_stage, owner))
 
 
 func _call(callable_value: Callable, args: Array = []) -> Variant:

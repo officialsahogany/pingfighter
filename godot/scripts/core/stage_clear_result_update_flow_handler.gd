@@ -44,7 +44,7 @@ func update_result_flow(
 	scene.visible = true
 	StageClearResultUpdateSceneHandler.update_result_scene(scene, delta)
 	if plaza_scene_handler != null and plaza_scene_handler.has_method("prewarm_assets_step"):
-		plaza_scene_handler.prewarm_assets_step(current_stage)
+		plaza_scene_handler.prewarm_assets_step(current_stage, owner)
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	if mythic_acquisition_handler != null and mythic_acquisition_handler.has_method("update_cinematic"):
 		mythic_acquisition_handler.update_cinematic(delta, mythic_item_runtime, owner, registry)

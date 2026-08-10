@@ -24,6 +24,17 @@ class CallbackSink:
 		exit_calls += 1
 
 
+class RetryablePlazaSink:
+	extends RefCounted
+
+	var plaza_calls := 0
+	var ready := false
+
+	func enter_plaza() -> bool:
+		plaza_calls += 1
+		return ready
+
+
 func _init() -> void:
 	_verify_callback_handler_contract()
 	_verify_callback_scene_handler_contract()
@@ -58,6 +69,15 @@ func _verify_callback_handler_contract() -> void:
 	_expect(result == StageClearResultCallbackHandler.RESULT_NONE, "plaza handler should report none for invalid callbacks")
 	_expect(sink.plaza_calls == 1, "invalid plaza callback should not change call count")
 
+	var retryable_sink := RetryablePlazaSink.new()
+	result = StageClearResultCallbackHandler.invoke_enter_plaza(Callable(retryable_sink, "enter_plaza"))
+	_expect(result == StageClearResultCallbackHandler.RESULT_NONE, "explicit false plaza callbacks should yield without consuming entry")
+	_expect(retryable_sink.plaza_calls == 1, "readiness-yield callback should run exactly once per attempt")
+	retryable_sink.ready = true
+	result = StageClearResultCallbackHandler.invoke_enter_plaza(Callable(retryable_sink, "enter_plaza"))
+	_expect(result == StageClearResultCallbackHandler.RESULT_ENTER_PLAZA, "ready plaza callbacks should consume entry")
+	_expect(retryable_sink.plaza_calls == 2, "ready retry should invoke the same callback a second time")
+
 	result = StageClearResultCallbackHandler.invoke_exit_to_menu(
 		Callable(sink, "exit_to_menu"),
 		Callable(sink, "confirm")
@@ -89,6 +109,18 @@ func _verify_callback_scene_handler_contract() -> void:
 	_expect(result == StageClearResultCallbackHandler.RESULT_ENTER_PLAZA, "callback scene handler should report plaza callbacks")
 	_expect(sink.plaza_calls == 1, "callback scene handler should invoke plaza callback once")
 	_expect(not scene.enter_plaza_callback.is_valid(), "callback scene handler should clear plaza callback after enter plaza")
+
+	var retryable_sink := RetryablePlazaSink.new()
+	scene.enter_plaza_callback = Callable(retryable_sink, "enter_plaza")
+	result = StageClearResultCallbackSceneHandler.enter_plaza(scene)
+	_expect(result == StageClearResultCallbackHandler.RESULT_NONE, "callback scene handler should report readiness yields as none")
+	_expect(retryable_sink.plaza_calls == 1, "callback scene handler should invoke the first readiness attempt once")
+	_expect(scene.enter_plaza_callback.is_valid(), "readiness-yield callback must be restored for a later click")
+	retryable_sink.ready = true
+	result = StageClearResultCallbackSceneHandler.enter_plaza(scene)
+	_expect(result == StageClearResultCallbackHandler.RESULT_ENTER_PLAZA, "callback scene handler should consume the ready retry")
+	_expect(retryable_sink.plaza_calls == 2, "ready callback scene retry should invoke the same callback twice in total")
+	_expect(not scene.enter_plaza_callback.is_valid(), "successful plaza retry should consume the restored callback")
 
 	scene.confirmed_callback = Callable(sink, "confirm")
 	scene.exit_to_menu_callback = Callable(sink, "exit_to_menu")

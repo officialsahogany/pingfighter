@@ -18,8 +18,14 @@ static func enter_plaza(scene: Object) -> String:
 		return StageClearResultCallbackHandler.RESULT_NONE
 	StageClearResultAudioSceneHandler.stop_dalji_click_voice(scene)
 	var plaza_callback: Callable = _get_scene_callable(scene, &"enter_plaza_callback")
+	# Clear before invocation to keep the callback one-shot against re-entrant
+	# input. Restore only the explicit readiness-yield leg so a later click can
+	# retry the same production callback after GPU prewarm completes.
 	scene.set("enter_plaza_callback", Callable())
-	return StageClearResultCallbackHandler.invoke_enter_plaza(plaza_callback)
+	var result := StageClearResultCallbackHandler.invoke_enter_plaza(plaza_callback)
+	if result == StageClearResultCallbackHandler.RESULT_NONE and plaza_callback.is_valid():
+		scene.set("enter_plaza_callback", plaza_callback)
+	return result
 
 
 static func exit_to_menu(scene: Object) -> String:

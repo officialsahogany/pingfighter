@@ -2,6 +2,7 @@ extends RefCounted
 
 const StageClearResultPlazaProgressHandler := preload("res://scripts/core/stage_clear_result_plaza_progress_handler.gd")
 const StageClearResultPlazaScenePrewarmState := preload("res://scripts/core/stage_clear_result_plaza_scene_prewarm_state.gd")
+const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 
 const PLAZA_SCENE_PATH := "res://scenes/plaza.tscn"
 
@@ -44,12 +45,12 @@ func handle_input(event: InputEvent) -> void:
 		_plaza_node.handle_plaza_input(event)
 
 
-func prewarm_assets_step(current_stage: int) -> bool:
-	return bool(_prewarm_state.prewarm_assets_step(current_stage))
+func prewarm_assets_step(current_stage: int, owner: Object = null) -> bool:
+	return bool(_prewarm_state.prewarm_assets_step(current_stage, owner))
 
 
-func ensure_assets_ready(current_stage: int) -> bool:
-	return bool(_prewarm_state.ensure_assets_ready(current_stage))
+func ensure_assets_ready(current_stage: int, owner: Object = null) -> bool:
+	return bool(_prewarm_state.ensure_assets_ready(current_stage, owner))
 
 
 func build_scene_config(
@@ -72,6 +73,11 @@ func build_scene_config(
 
 func spawn_scene(owner: Object, config: Dictionary, finish_callback: Callable) -> bool:
 	if not (owner is Node):
+		return false
+	# Texture2D cache completion alone is not spawn readiness. The retained
+	# 7x3 MIX/ADD layers must have rendered off-screen and crossed two actual
+	# frame_post_draw flushes through BattlePsoPrewarmer first.
+	if not BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete():
 		return false
 	free_scene()
 	var packed: PackedScene = _get_plaza_scene_packed()
@@ -97,6 +103,11 @@ func spawn_scene(owner: Object, config: Dictionary, finish_callback: Callable) -
 
 func free_scene() -> void:
 	if _plaza_node != null and is_instance_valid(_plaza_node):
+		# Retained CanvasItems must be hidden synchronously. queue_free() does not
+		# flush until the frame boundary and can otherwise conceal a missing
+		# plaza-exit cleanup route in state-only tests.
+		if _plaza_node.has_method("clear_transient_canvas_items"):
+			_plaza_node.clear_transient_canvas_items()
 		_plaza_node.queue_free()
 	_plaza_node = null
 

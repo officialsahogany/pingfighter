@@ -103,7 +103,7 @@ static func draw_plaza_notice(
 	StageClearResultTextLayoutHelper.draw_centered_text(
 		canvas,
 		font,
-		LanguageSettings.translate_text("준비중입니다"),
+		LanguageSettings.translate_text("준비 중입니다"),
 		bubble,
 		int(round(22.0 * scale)),
 		Color(1.0, 0.92, 0.66, 0.98 * alpha)
