@@ -154,6 +154,7 @@ func _verify_seven_locale_copy() -> void:
 			var segment: Dictionary = segment_value if segment_value is Dictionary else {}
 			_expect(float(segment.get("end", 0.0)) > float(segment.get("start", 0.0)), "%s segment timing should advance" % locale)
 			_expect(str(segment.get("text", "")) != "", "%s dialogue should not be empty" % locale)
+			_expect(not segment.has("voice_id") or segment.get("voice_id") is String, "%s optional voice_id should remain schema-compatible" % locale)
 			_verify_cps(locale, str(segment.get("text", "")), float(segment.get("end", 0.0)) - float(segment.get("start", 0.0)), "dialogue")
 		for elapsed_value in elapsed_segments:
 			var elapsed_segment: Dictionary = elapsed_value if elapsed_value is Dictionary else {}
@@ -201,10 +202,10 @@ func _verify_runtime_integration_routes() -> void:
 	_expect(game_audio.find("set_story_cinematic_bgm_gain_db") >= 0, "story BGM gap should route through the shared audio facade")
 	_expect(game_audio.find("clear_story_cinematic_bgm_gain") >= 0, "story BGM gap should expose an explicit transient-gain reset")
 	_expect(presentation.find("set_bgm_volume") < 0, "story BGM gap must not rewrite the user's saved BGM volume")
-	_expect(ProloguePresentation.get_texture_paths().size() == 3, "startup prewarm must contain only A1/A2/A3")
-	_expect(ProloguePresentation.get_all_texture_paths().size() == 8, "the complete cinematic should declare eight plates")
+	_expect(ProloguePresentation.get_texture_paths().size() == 4, "startup prewarm must contain A1/A2/A3 plus the cropped tablet reveal")
+	_expect(ProloguePresentation.get_all_texture_paths().size() == 12, "the complete cinematic should declare eight plates plus four cropped FX layers")
 	for texture_path in ProloguePresentation.get_all_texture_paths():
-		_expect(str(texture_path).contains("/araul_prologue_v3_"), "every runtime story plate should use the accepted V3 art family: %s" % texture_path)
+		_expect(str(texture_path).contains("/araul_prologue_v3_"), "every runtime story texture should use the accepted V3 art family: %s" % texture_path)
 		_expect(not str(texture_path).contains("_v2_"), "no retired V2 plate should remain in the runtime declaration: %s" % texture_path)
 	var request_times: Array[float] = []
 	var deadlines: Array[float] = []
@@ -212,8 +213,10 @@ func _verify_runtime_integration_routes() -> void:
 		var spec: Dictionary = spec_value
 		request_times.append(float(spec.get("request_at", -1.0)))
 		deadlines.append(float(spec.get("deadline", -1.0)))
-	_expect(request_times == [0.0, 12.6, 16.2, 19.6, 23.6], "live plates should open only after the preceding residency slot is released")
-	_expect(deadlines == [12.0, 20.0, 22.0, 27.0, 30.0], "each live plate should retain its approved no-sync deadline")
+	_expect(request_times == [0.0, 12.6, 12.6, 16.2, 16.2, 19.6, 23.6, 26.25], "live bases and their FX should open only at the approved family request windows; shard waits for the orb release slot")
+	_expect(deadlines == [12.0, 20.0, 20.0, 22.0, 22.0, 27.0, 30.0, 30.0], "each live base/FX texture should retain its approved no-sync deadline")
+	_expect(is_equal_approx(ProloguePresentation.RAYS_CUE_SECONDS, 26.15), "the rays cue should move to the flash onset")
+	_expect(is_equal_approx(PrologueOverlayHost.B2_TO_C1_CUT, 26.25), "B2-to-C1 should be a hard cut under the flash peak")
 	_expect(not ProloguePresentation.LIVE_STREAM_ALLOW_SYNC_FALLBACK, "live streaming should opt out of synchronous fallback")
 	_expect(presentation.count("LIVE_STREAM_ALLOW_SYNC_FALLBACK") == 2, "the no-sync constant should be declared once and consumed by the live stream call")
 	var resource_loader := FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd")
@@ -224,23 +227,28 @@ func _verify_runtime_integration_routes() -> void:
 
 
 func _verify_asset_contract_gate() -> void:
+	_run_asset_validator(
+		"res://../tools/validate_araul_prologue_asset_contract.ps1",
+		"araul_prologue_asset_contract: PASS"
+	)
+	_run_asset_validator(
+		"res://../tools/validate_araul_prologue_rev6_fx_contract.ps1",
+		"araul_prologue_rev6_fx_contract: PASS"
+	)
+
+
+func _run_asset_validator(script_resource_path: String, completion_marker: String) -> void:
 	var output: Array = []
-	var script_path := ProjectSettings.globalize_path("res://../tools/validate_araul_prologue_asset_contract.ps1")
+	var script_path := ProjectSettings.globalize_path(script_resource_path)
 	var exit_code := OS.execute(
 		"powershell.exe",
-		[
-			"-NoProfile",
-			"-ExecutionPolicy",
-			"Bypass",
-			"-File",
-			script_path,
-		],
+		["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script_path],
 		output,
 		true
 	)
 	var joined_output := "\n".join(PackedStringArray(output))
 	_expect(exit_code == 0, "prologue asset contract validator failed: %s" % joined_output)
-	_expect(joined_output.find("araul_prologue_asset_contract: PASS") >= 0, "prologue asset validator must emit its completion marker")
+	_expect(joined_output.find(completion_marker) >= 0, "prologue asset validator must emit its completion marker: %s" % completion_marker)
 
 
 func _verify_real_audio_transient_gain_contract() -> void:
@@ -398,8 +406,9 @@ func _verify_startup_asset_failure_releases_gate() -> void:
 		PrologueOverlayHost.PLATE_A1: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A1_TEXTURE_PATH),
 		PrologueOverlayHost.PLATE_A2: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A2_TEXTURE_PATH),
 		PrologueOverlayHost.PLATE_A3: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A3_TEXTURE_PATH),
+		PrologueOverlayHost.FX_TABLET: ProjectResourceLoader.load_imported_texture(ProloguePresentation.FX_TABLET_TEXTURE_PATH),
 	}
-	_expect(startup_fixture.values().all(func(value: Variant) -> bool: return value is Texture2D), "startup failure fixture should decode the three real A-family plates")
+	_expect(startup_fixture.values().all(func(value: Variant) -> bool: return value is Texture2D), "startup failure fixture should decode the three A-family plates and tablet FX")
 	presentation.seed_startup_textures_for_test(startup_fixture)
 	_expect(presentation.prewarm_runtime_nodes_step(owner), "startup failure fixture should prebuild its fullscreen host")
 	presentation.remove_startup_texture_for_test(PrologueOverlayHost.PLATE_A2)
@@ -445,6 +454,8 @@ func _verify_repeat_skip_discards_cold_stream() -> void:
 		_expect(int(headless_status.get("stream_completed_count", 0)) == 1, "headless repeat-skip should materialize only due B1 on its first frame")
 		_expect(int(headless_status.get("resident_count", 0)) == 4, "headless first frame should own only A1/A2/A3/B1")
 		_expect(int(headless_status.get("resident_peak", 0)) == 4, "headless staged fixture should seal the four-plate logical peak")
+		_expect(int(headless_status.get("fx_resident_count", 0)) == 1, "headless first frame should retain only the tablet reveal FX")
+		_expect(int(headless_status.get("total_resident_peak", 0)) == 5, "headless first frame should own four bases plus one cropped FX layer")
 	else:
 		_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == ProloguePresentation.B1_TEXTURE_PATH, "cold repeat begin should own a threaded B1 request")
 	var skip_event := InputEventKey.new()
@@ -499,9 +510,11 @@ func _verify_delayed_stream_preserves_fallback() -> void:
 		_expect(bool(delayed_ready.get("a3", false)) and not bool(delayed_ready.get("b1", false)), "late B1 must keep A3 visible instead of producing a black frame")
 	_advance_presentation_to(presentation, 20.1, owner, null)
 	var recovered_status: Dictionary = presentation.get_asset_status()
-	_expect(int(recovered_status.get("stream_completed_count", 0)) == 4, "one catch-up update should materialize every due plate through D1")
+	_expect(int(recovered_status.get("stream_completed_count", 0)) == 6, "one catch-up update should materialize every due base/FX texture through D1")
 	_expect(int(recovered_status.get("resident_count", 0)) == 4, "late recovery should still respect the four-plate resident ceiling")
 	_expect(int(recovered_status.get("resident_peak", 0)) <= 4, "late recovery must never create a transient fifth resident plate")
+	_expect(int(recovered_status.get("fx_resident_count", 0)) == 2 and int(recovered_status.get("fx_resident_peak", 0)) <= 2, "late recovery should keep at most the orb and ray FX resident together")
+	_expect(int(recovered_status.get("total_resident_peak", 0)) <= 6, "late recovery should keep the combined base-plus-FX resident peak at six")
 	_expect((recovered_status.get("deadline_misses", {}) as Dictionary).size() == 1, "late recovery should retain only B1's diagnostic miss")
 	if delayed_host != null:
 		var recovered_ready: Dictionary = delayed_host.get_snapshot().get("plate_ready", {})
@@ -521,9 +534,21 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	ProjectResourceLoader.clear_caches()
 	for texture_path in ProloguePresentation.get_all_texture_paths():
 		var image := Image.load_from_file(ProjectSettings.globalize_path(texture_path))
-		_expect(image != null and not image.is_empty(), "prologue plate source should decode: %s" % texture_path)
+		_expect(image != null and not image.is_empty(), "prologue texture source should decode: %s" % texture_path)
 		if image != null and not image.is_empty():
-			_expect(image.get_size() == Vector2i(3344, 1882), "prologue plate should use the accepted 2x cinematic resolution: %s" % texture_path)
+			if texture_path in [
+				ProloguePresentation.A1_TEXTURE_PATH,
+				ProloguePresentation.A2_TEXTURE_PATH,
+				ProloguePresentation.A3_TEXTURE_PATH,
+				ProloguePresentation.B1_TEXTURE_PATH,
+				ProloguePresentation.B2_TEXTURE_PATH,
+				ProloguePresentation.C1_TEXTURE_PATH,
+				ProloguePresentation.D1_TEXTURE_PATH,
+				ProloguePresentation.D2_TEXTURE_PATH,
+			]:
+				_expect(image.get_size() == Vector2i(3344, 1882), "prologue plate should use the accepted 2x cinematic resolution: %s" % texture_path)
+			else:
+				_expect(image.get_width() < 3344 or image.get_height() < 1882, "rev6 FX should remain bbox-cropped instead of duplicating a fullscreen plate: %s" % texture_path)
 	var deterministic_fixture := _build_headless_texture_fixture()
 
 	var owner := FakeOwner.new()
@@ -554,12 +579,15 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(bool(plate_ready.get("a1", false)), "A1 should be bound before playback")
 		_expect(bool(plate_ready.get("a2", false)), "A2 should be bound before playback")
 		_expect(bool(plate_ready.get("a3", false)), "A3 should be bound before playback")
+		_expect(bool(plate_ready.get("fx_tablet", false)), "the cropped tablet reveal should be bound before playback")
 		_expect(bool(plate_ready.get("b1", false)), "only due B1 should materialize beside the startup family")
 		_expect(not bool(plate_ready.get("b2", false)), "future B2 must not materialize before its 12.6-second request gate")
 		_expect(not bool(start_snapshot.get("skip_allowed", true)), "first frame should hide the skip affordance during the first-view lock")
 	var start_asset_status: Dictionary = presentation.get_asset_status()
 	_expect(int(start_asset_status.get("resident_count", 0)) == 4, "playback should begin with exactly four logical resident plates")
 	_expect(int(start_asset_status.get("resident_peak", 0)) == 4, "first-frame B1 materialization should establish, not exceed, the four-plate peak")
+	_expect(int(start_asset_status.get("fx_resident_count", 0)) == 1, "playback should begin with one cropped tablet FX layer")
+	_expect(int(start_asset_status.get("total_resident_peak", 0)) == 5, "playback should begin with four bases plus one cropped FX layer")
 
 	var skip_event := InputEventKey.new()
 	skip_event.pressed = true
@@ -579,22 +607,92 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		guard += 1
 		OS.delay_msec(1)
 	_expect(presentation.begin(owner, registry), "fresh first-view fixture should restart after the input-lock leg")
+	host = presentation.get_host_for_test()
+	var a_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
+	_advance_presentation_to(presentation, 11.40, owner, registry)
+	if host != null:
+		var tablet_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(tablet_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_A1, "tablet wipe should keep A1 as its base until the reveal completes")
+		_expect(float(tablet_snapshot.get("flash_alpha", -1.0)) == 0.0, "tablet wipe should not leak the later flash state")
 	_advance_presentation_to(presentation, 12.54, owner, registry)
 	_expect(not audio.gain_values.is_empty() and audio.gain_values.min() <= -9.9, "tablet reveal should apply the first BGM duck stage")
+	_advance_presentation_to(presentation, 18.30, owner, registry)
+	if host != null:
+		var a_camera_end := float(host.get_snapshot().get("camera_source_width_ratio", 0.0))
+		_expect(absf(a_camera_end - a_camera_start) / maxf(a_camera_start, 0.001) >= 0.04, "A-family camera source width should change by at least four percent")
+	_advance_presentation_to(presentation, 19.60, owner, registry)
+	var b_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
 	_advance_presentation_to(presentation, 21.64, owner, registry)
 	_expect(audio.gain_values.min() <= -79.0, "queen's resistance should create the 21.6–23.4 full-silence window")
-	_advance_presentation_to(presentation, 27.44, owner, registry)
+	_advance_presentation_to(presentation, 26.05, owner, registry)
+	if host != null:
+		var preflash_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(preflash_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "the flash ramp should begin over B2")
+		_expect(float(preflash_snapshot.get("flash_alpha", 0.0)) > 0.0, "26.05 should be inside the flash ramp")
+		var b_camera_end := float(preflash_snapshot.get("camera_source_width_ratio", 0.0))
+		_expect(absf(b_camera_end - b_camera_start) / maxf(b_camera_start, 0.001) >= 0.04, "B-family camera source width should change by at least four percent")
+	_advance_presentation_to(presentation, 26.20, owner, registry)
+	if host != null:
+		_expect(str(host.get_snapshot().get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "26.20 should remain on B2 immediately before the hard cut")
+	_advance_presentation_to(presentation, 26.30, owner, registry)
+	var ray_growth_early := 0.0
+	var c_camera_start := 0.0
+	if host != null:
+		var cut_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(cut_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "26.30 should be on C1 immediately after the 26.25 hard cut")
+		_expect(float(cut_snapshot.get("flash_alpha", 0.0)) >= 0.8, "the hard cut should remain hidden under the flash peak")
+		ray_growth_early = float(cut_snapshot.get("ray_growth", 0.0))
+		_expect(ray_growth_early > 0.0 and float(cut_snapshot.get("ray_additive_alpha", 0.0)) > 0.0, "the ray layer should begin growing immediately after the cut")
+		c_camera_start = float(cut_snapshot.get("camera_source_width_ratio", 0.0))
+	_advance_presentation_to(presentation, 27.00, owner, registry)
+	if host != null:
+		_expect(float(host.get_snapshot().get("ray_growth", 0.0)) > ray_growth_early, "ray growth should increase monotonically through the reveal window")
 	_expect(audio.rays_calls == 1, "the eight-ray expansion should fire one separate spiritual layer")
-	_advance_presentation_to(presentation, 33.49, owner, registry)
+	_advance_presentation_to(presentation, 28.80, owner, registry)
+	if host != null:
+		var rays_handed_off: Dictionary = host.get_snapshot()
+		_expect(is_equal_approx(float(rays_handed_off.get("ray_growth", 0.0)), 1.0), "ray growth should reach one before handing off to the baked C1 rays")
+		_expect(is_zero_approx(float(rays_handed_off.get("ray_additive_alpha", -1.0))), "additive rays should be zero after the 28.6 handoff")
+	_advance_presentation_to(presentation, 29.50, owner, registry)
+	if host != null:
+		var c_camera_end := float(host.get_snapshot().get("camera_source_width_ratio", 0.0))
+		_expect(absf(c_camera_end - c_camera_start) / maxf(c_camera_start, 0.001) >= 0.04, "C1 camera pullback should change source width by at least four percent")
+	_advance_presentation_to(presentation, 30.90, owner, registry)
+	var d_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
+	var subtitle_position_before_shake: Vector2 = host.get_snapshot().get("subtitle_position", Vector2.ZERO) if host != null else Vector2.ZERO
+	_advance_presentation_to(presentation, 33.05, owner, registry)
+	if host != null:
+		var impact_snapshot: Dictionary = host.get_snapshot()
+		_expect(float(impact_snapshot.get("flash_alpha", 0.0)) > 0.0, "33.05 should render the impact flash")
+		_expect(float(impact_snapshot.get("shake_magnitude", 0.0)) > 0.0, "33.05 should drive nonzero plate shake")
+		_expect(impact_snapshot.get("subtitle_position", Vector2.ZERO) == subtitle_position_before_shake, "plate shake must not move the subtitle label")
+		_expect(int(impact_snapshot.get("additive_blend_mode", -1)) == CanvasItemMaterial.BLEND_MODE_ADD, "ray/shard/ring FX should use a dedicated additive CanvasItem")
+		_expect(bool(impact_snapshot.get("additive_interpolation_off", false)), "the additive FX child should disable physics interpolation")
+	_advance_presentation_to(presentation, 33.60, owner, registry)
 	_expect(audio.spirit_bell_calls == 1, "the first extraction should fire one fixed-pitch bell")
+	if host != null:
+		var shard_snapshot: Dictionary = host.get_snapshot()
+		_expect(float(shard_snapshot.get("shard_progress", 0.0)) > 0.0, "33.60 should be inside the shard absorption path")
+		_expect(is_zero_approx(float(shard_snapshot.get("shake_magnitude", -1.0))), "shake should decay to zero after 33.35")
 	var asset_status := presentation.get_asset_status()
 	var streamed: Dictionary = asset_status.get("stream_ready", {})
-	_expect(int(asset_status.get("stream_completed_count", 0)) == 5, "the deterministic controller fixture should materialize all five stream plates by D2")
+	_expect(int(asset_status.get("stream_completed_count", 0)) == 8, "the deterministic controller fixture should materialize five streamed bases plus three streamed FX layers by D2")
 	_expect((asset_status.get("deadline_misses", {}) as Dictionary).is_empty(), "the on-time staged fixture should meet every live plate deadline")
 	_expect(int(asset_status.get("resident_peak", 0)) == 4, "staged materialization should never exceed four logical resident plates")
 	_expect(int(asset_status.get("resident_count", 0)) == 2, "D1 and D2 alone should remain during their final blend")
+	_expect(int(asset_status.get("fx_resident_peak", 0)) <= 2 and int(asset_status.get("fx_resident_count", 0)) == 1, "only the shard FX should remain during the final blend and the FX peak must stay at two")
+	_expect(int(asset_status.get("total_resident_peak", 0)) <= 6, "combined base and cropped FX residency should peak at six textures")
 	var released_keys: Dictionary = asset_status.get("released_plate_keys", {})
 	_expect(released_keys.size() == 6 and released_keys.has(PrologueOverlayHost.PLATE_C1), "every plate through C1 should release immediately after its completed replacement blend")
+	_advance_presentation_to(presentation, 33.90, owner, registry)
+	if host != null:
+		var d_camera_end := float(host.get_snapshot().get("camera_source_width_ratio", 0.0))
+		_expect(absf(d_camera_end - d_camera_start) / maxf(d_camera_start, 0.001) >= 0.04, "D-family camera source width should change by at least four percent")
+	_advance_presentation_to(presentation, 34.50, owner, registry)
+	if host != null:
+		var settled_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(settled_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_D2, "D2 should become the settled base after the impact blend")
+		_expect(is_zero_approx(float(settled_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(settled_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(settled_snapshot.get("shake_magnitude", -1.0))), "all transient impact FX should return to zero after 34.0")
 	host = presentation.get_host_for_test()
 	if host != null:
 		var extraction_snapshot: Dictionary = host.get_snapshot()
@@ -605,13 +703,17 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(not bool(ready_after_stream.get("a3", true)), "A3 should release after the B1 blend")
 		_expect(not bool(ready_after_stream.get("b1", true)), "B1 should release after the B2 blend")
 		_expect(not bool(ready_after_stream.get("c1", true)), "C1 should release after the D1 blend")
-		_expect(bool(ready_after_stream.get("d1", false)), "D1 should remain resident for the first extraction")
+		_expect(not bool(ready_after_stream.get("d1", true)) and bool(ready_after_stream.get("d2", false)), "D2 alone should remain after the impact blend settles")
+		_expect(not bool(ready_after_stream.get("fx_shard", true)), "the cropped shard layer should release after its absorption window")
 
 	_expect(presentation.handle_input(skip_event, owner, registry), "Space should request a prologue skip after the guard")
 	presentation.update(ProloguePresentation.SKIP_FADE_SECONDS + 0.05, owner, registry)
 	_expect(not presentation.is_active(), "skip fade should complete and release the battle gate")
 	_expect(presentation.get_completion_reason() == "skip", "manual skip should retain its completion reason")
 	_expect(audio.clear_gain_calls > 0 and audio.stop_cue_calls > 0, "skip should restore the BGM bus and stop every story cue")
+	if host != null:
+		var skipped_snapshot: Dictionary = host.get_snapshot()
+		_expect(is_zero_approx(float(skipped_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("ray_additive_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shake_magnitude", -1.0))), "skip completion should zero every motion state immediately")
 	var persisted := StoryCinematicProgressStore.new()
 	persisted.set_save_path(path)
 	_expect(persisted.has_seen(ProloguePresentation.CINEMATIC_ID), "manual skip should retain completion history")

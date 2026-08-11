@@ -1,12 +1,14 @@
 param(
-    [string]$AssetDirectory = "godot/assets/ui/story/han_miryang_prologue"
+    [string]$AssetDirectory = "godot/assets/ui/story/han_miryang_prologue",
+    [string]$FilePattern = "araul_prologue_v2_*.png.import",
+    [int]$ExpectedCount = 8
 )
 
 $ErrorActionPreference = "Stop"
 $resolvedDirectory = (Resolve-Path -LiteralPath $AssetDirectory).Path
-$sidecars = Get-ChildItem -LiteralPath $resolvedDirectory -Filter "araul_prologue_v2_*.png.import" -File
-if ($sidecars.Count -ne 8) {
-    throw "Expected 8 v2 story plate sidecars, found $($sidecars.Count)"
+$sidecars = Get-ChildItem -LiteralPath $resolvedDirectory -Filter $FilePattern -File
+if ($sidecars.Count -ne $ExpectedCount) {
+    throw "Expected $ExpectedCount story texture sidecars matching '$FilePattern', found $($sidecars.Count)"
 }
 
 $utf8NoBom = [Text.UTF8Encoding]::new($false)

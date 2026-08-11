@@ -60,12 +60,18 @@ func _run() -> void:
 			"a3_spirit": 16.8,
 			"b1_resistance": 20.0,
 			"b2_orb": 24.0,
-			"c1_eight_rays": 28.0,
-			"d1_confrontation": 31.0,
-			"d2_first_strike": 34.2,
-			"elapsed_first": 39.5,
-			"chapter": 45.2,
 		}
+		if view_size == Vector2i(1920, 1080):
+			event_times["motion_flash_2615"] = 26.15
+			event_times["motion_rays_268"] = 26.8
+		event_times["c1_eight_rays"] = 28.0
+		event_times["d1_confrontation"] = 31.0
+		if view_size == Vector2i(1920, 1080):
+			event_times["motion_impact_3305"] = 33.05
+			event_times["motion_shard_335"] = 33.5
+		event_times["d2_first_strike"] = 34.2
+		event_times["elapsed_first"] = 39.5
+		event_times["chapter"] = 45.2
 		var previous_image: Image = null
 		for event_name in event_times:
 			var elapsed := float(event_times[event_name])
@@ -118,9 +124,11 @@ func _verify_threaded_presentation_preflight() -> void:
 		stream_guard += 1
 		await process_frame
 	var asset_status: Dictionary = presentation.get_asset_status()
-	_expect(stream_guard < 2400 and int(asset_status.get("stream_completed_count", 0)) == 5, "windowed production preflight should complete all five staged B/C/D requests without sync fallback")
+	_expect(stream_guard < 2400 and int(asset_status.get("stream_completed_count", 0)) == ProloguePresentation.STREAM_TEXTURE_SPECS.size(), "windowed production preflight should complete every staged base/FX request without sync fallback")
 	_expect((asset_status.get("deadline_misses", {}) as Dictionary).is_empty(), "windowed production preflight should meet every live plate deadline")
 	_expect(int(asset_status.get("resident_peak", 0)) == 4, "windowed production preflight should prove the exact four-plate runtime peak")
+	_expect(int(asset_status.get("fx_resident_peak", 0)) <= 2, "windowed production preflight should keep cropped FX residency at two or fewer")
+	_expect(int(asset_status.get("total_resident_peak", 0)) <= 6, "windowed production preflight should keep the combined resident peak at six textures")
 	for expected_path in ProloguePresentation.get_all_texture_paths():
 		_expect(observed_thread_paths.has(expected_path), "windowed production preflight should observe the real threaded owner for %s" % expected_path)
 	_expect(observed_thread_paths.size() == ProloguePresentation.get_all_texture_paths().size(), "windowed production preflight should observe exactly the declared eight threaded paths")
@@ -137,6 +145,7 @@ func _verify_threaded_presentation_preflight() -> void:
 	_expect(presentation.get_completion_reason() == "skip" and not presentation.is_active(), "windowed production preflight skip should release the battle gate")
 	var released_status: Dictionary = presentation.get_asset_status()
 	_expect(int(released_status.get("resident_count", -1)) == 0, "windowed production preflight skip should release every presentation plate reference")
+	_expect(int(released_status.get("fx_resident_count", -1)) == 0 and int(released_status.get("total_resident_count", -1)) == 0, "windowed production preflight skip should release every cropped FX reference")
 	_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == "", "windowed production preflight should leave no shared threaded texture owner")
 	for texture_path in ProloguePresentation.get_all_texture_paths():
 		_expect(not ProjectResourceLoader.is_threaded_texture_detached_for_tests(texture_path), "completed preflight path should not remain detached: %s" % texture_path)
@@ -157,9 +166,13 @@ func _verify_threaded_presentation_preflight() -> void:
 		"observed_threaded_paths": observed_path_list,
 		"first_observed_elapsed": first_observed_elapsed,
 		"resident_plate_peak": int(asset_status.get("resident_peak", 0)),
+		"resident_fx_peak": int(asset_status.get("fx_resident_peak", 0)),
+		"resident_total_peak": int(asset_status.get("total_resident_peak", 0)),
 		"stream_paths_completed": int(asset_status.get("stream_completed_count", 0)),
 		"deadline_misses": asset_status.get("deadline_misses", {}),
 		"final_presentation_resident_count": int(released_status.get("resident_count", -1)),
+		"final_fx_resident_count": int(released_status.get("fx_resident_count", -1)),
+		"final_total_resident_count": int(released_status.get("total_resident_count", -1)),
 		"shared_threaded_owner_after_cleanup": ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests(),
 	}
 	var summary_path := _out_dir.path_join("threaded_preflight_result.json")
@@ -172,7 +185,7 @@ func _verify_threaded_presentation_preflight() -> void:
 		"[HanMiryangPrologueQA] threaded_streaming: %s peak=%d observed=%d completed=%d deadline_misses=%d"
 		% [
 			"PASS" if _failures.size() == failure_count_before else "FAIL",
-			int(asset_status.get("resident_peak", 0)),
+			int(asset_status.get("total_resident_peak", 0)),
 			observed_thread_paths.size(),
 			int(asset_status.get("stream_completed_count", 0)),
 			(asset_status.get("deadline_misses", {}) as Dictionary).size(),
@@ -205,6 +218,7 @@ func _capture(name: String, view_size: Vector2i, locale: String, elapsed: float,
 		PrologueOverlayHost.PLATE_A1: textures.get(ProloguePresentation.A1_TEXTURE_PATH),
 		PrologueOverlayHost.PLATE_A2: textures.get(ProloguePresentation.A2_TEXTURE_PATH),
 		PrologueOverlayHost.PLATE_A3: textures.get(ProloguePresentation.A3_TEXTURE_PATH),
+		PrologueOverlayHost.FX_TABLET: textures.get(ProloguePresentation.FX_TABLET_TEXTURE_PATH),
 	}
 	_expect(host.begin(startup, PrologueText.get_copy(locale)), "%s host should begin" % name)
 	for stream_spec_value in ProloguePresentation.STREAM_TEXTURE_SPECS:
@@ -227,6 +241,14 @@ func _capture(name: String, view_size: Vector2i, locale: String, elapsed: float,
 	host.sync_timeline(elapsed, fade_alpha, segment, true)
 	var snapshot: Dictionary = host.get_snapshot()
 	_expect(bool(snapshot.get("visible", false)), "%s host should be visible" % name)
+	if is_equal_approx(elapsed, 26.15):
+		_expect(float(snapshot.get("flash_alpha", 0.0)) >= 0.9 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "%s should capture the flash peak over B2" % name)
+	elif is_equal_approx(elapsed, 26.8):
+		_expect(float(snapshot.get("ray_growth", 0.0)) > 0.0 and float(snapshot.get("ray_additive_alpha", 0.0)) > 0.0 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "%s should capture the growing additive rays after the hard cut" % name)
+	elif is_equal_approx(elapsed, 33.05):
+		_expect(float(snapshot.get("flash_alpha", 0.0)) > 0.0 and float(snapshot.get("shake_magnitude", 0.0)) > 0.0, "%s should capture the first-strike flash and plate shake" % name)
+	elif is_equal_approx(elapsed, 33.5):
+		_expect(float(snapshot.get("shard_progress", 0.0)) > 0.0 and float(snapshot.get("shake_magnitude", -1.0)) == 0.0, "%s should capture shard absorption after the shake settles" % name)
 	if fade_alpha > 0.0:
 		_expect(is_equal_approx(float(snapshot.get("fade_cover_alpha", -1.0)), fade_alpha), "%s should project the final fade through the screen cover" % name)
 		_expect(bool(snapshot.get("fade_cover_above_title", false)), "%s fade cover should render above localized labels" % name)

@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$CaptureDir,
 
-    [string]$OutputPath = "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_contact_sheet.png"
+    [string]$OutputPath = "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_contact_sheet.png",
+
+    [switch]$IncludeMotionFrames
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +30,15 @@ $items = @(
     @{ File = "ru_1920x1080_chapter.png"; Label = "RU / 1080p chapter" },
     @{ File = "ru_2560x1440_chapter.png"; Label = "RU / 1440p chapter" }
 )
+if ($IncludeMotionFrames) {
+    $motionItems = @(
+        @{ File = "ko_1920x1080_motion_flash_2615.png"; Label = "rev6 / 26.15 ray flash" },
+        @{ File = "ko_1920x1080_motion_rays_268.png"; Label = "rev6 / 26.80 ray growth" },
+        @{ File = "ko_1920x1080_motion_impact_3305.png"; Label = "rev6 / 33.05 impact flash" },
+        @{ File = "ko_1920x1080_motion_shard_335.png"; Label = "rev6 / 33.50 shard intake" }
+    )
+    $items = @($motionItems) + @($items)
+}
 
 $captureRoot = (Resolve-Path -LiteralPath $CaptureDir).Path
 $resolvedOutput = [IO.Path]::GetFullPath((Join-Path (Get-Location) $OutputPath))
@@ -39,7 +50,7 @@ if (-not (Test-Path -LiteralPath $outputDir)) {
 $cellWidth = 640
 $cellHeight = 360
 $columns = 5
-$rows = 4
+$rows = [Math]::Ceiling($items.Count / $columns)
 $canvas = [Drawing.Bitmap]::new(
     [int]($cellWidth * $columns),
     [int]($cellHeight * $rows),
@@ -86,4 +97,4 @@ finally {
 }
 
 Write-Output "araul_prologue_contact_sheet: PASS"
-Write-Output "output=$resolvedOutput size=3200x1440"
+Write-Output "output=$resolvedOutput size=$($cellWidth * $columns)x$($cellHeight * $rows)"

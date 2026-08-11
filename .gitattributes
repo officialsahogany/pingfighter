@@ -29,5 +29,6 @@ godot/assets/**/*.zip filter=lfs diff=lfs merge=lfs -text
 # Keep editable prologue masters and durable visual-QA evidence out of normal
 # Git blobs while leaving them outside the Godot export tree.
 art_sources/araul_prologue/**/*.png filter=lfs diff=lfs merge=lfs -text
+art_sources/araul_prologue/**/*.json text eol=lf
 docs/qa_evidence/araul_prologue_v2/**/*.png filter=lfs diff=lfs merge=lfs -text
 docs/qa_evidence/araul_prologue_v3/**/*.png filter=lfs diff=lfs merge=lfs -text

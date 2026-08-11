@@ -1,0 +1,58 @@
+{
+  "date": "2026-08-11",
+  "result": "PASS",
+  "baseline_commit": "f95270ac989639d78140d66a65694d3e76e366a6",
+  "verification_head": "0d62fc909666eb2caa4916e59980b90183ffa24c",
+  "godot": "4.6.2-stable",
+  "renderer": "Vulkan 1.4.325 Forward+",
+  "device": "NVIDIA GeForce RTX 5070",
+  "capture_resolutions": [[1920, 1080], [2560, 1440]],
+  "capture_image_count": 46,
+  "local_full_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_965457_35012",
+  "motion_frames": [
+    "ko_1920x1080_motion_flash_2615.png",
+    "ko_1920x1080_motion_rays_268.png",
+    "ko_1920x1080_motion_impact_3305.png",
+    "ko_1920x1080_motion_shard_335.png"
+  ],
+  "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v3/rev6_vulkan_contact_sheet.png",
+  "durable_contact_sheet_sha256": "3c6871486461db453742d4cd1c4e8f3caf00d7141bd68fa5ccb4f915fb8dc73f",
+  "threaded_streaming_windowed": {
+    "result": "PASS",
+    "clean_runs": 2,
+    "local_run_directories": [
+      "godot/.tmp/qa_evidence/han_miryang_prologue_v3_965457_35012",
+      "godot/.tmp/qa_evidence/han_miryang_prologue_v3_958812_33988"
+    ],
+    "durable_run_summaries": [
+      "docs/qa_evidence/araul_prologue_v3/rev6_threaded_preflight_full_capture.json",
+      "docs/qa_evidence/araul_prologue_v3/rev6_threaded_preflight_second_run.json"
+    ],
+    "observed_threaded_paths_each_run": 12,
+    "stream_paths_completed_each_run": 8,
+    "resident_base_peak_each_run": 4,
+    "resident_fx_peak_each_run": 2,
+    "resident_total_peak_each_run": 6,
+    "deadline_misses_each_run": 0,
+    "final_resident_count_each_run": 0,
+    "shared_threaded_owner_after_cleanup_each_run": "",
+    "exit_observation": "Both Vulkan processes exited 0 without ObjectDB or reference-count leak warnings."
+  },
+  "non_visual_gates": {
+    "rev6_fx_contract": "PASS",
+    "v3_asset_contract": "PASS",
+    "focused_smoke": "PASS=1 FAIL=0 with terminal All Godot smoke tests passed",
+    "headless_load": "PASS with graceful headless shutdown complete",
+    "gd_warning_scan": "PASS across 3541 scripts with done marker"
+  },
+  "coverage": [
+    "rev6 motion frames at 26.15, 26.8, 33.05, and 33.5 seconds",
+    "seven-locale subtitle renders at 1080p and 1440p",
+    "English Spanish Russian chapter cards at both resolutions",
+    "final fade cover over localized labels at both resolutions",
+    "exact twelve-path threaded observation with eight live-stream completions",
+    "four-base plus two-FX presentation residency ceiling",
+    "deadline miss zero and explicit cleanup to zero resident references"
+  ],
+  "commit_authorized": false
+}

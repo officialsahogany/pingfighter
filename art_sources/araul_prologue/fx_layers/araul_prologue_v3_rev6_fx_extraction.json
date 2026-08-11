@@ -1,0 +1,114 @@
+{
+    "schema":  "araul-prologue-v3-rev6-fx-extraction",
+    "source":  "V3 runtime 3344x1882 accepted plates",
+    "tool":  "tools/extract_araul_prologue_fx_layers.ps1",
+    "cyan_calibration":  {
+                             "channel_scale":  "8-bit 0..255",
+                             "selected_margin":  24,
+                             "v3_a1_measured_false_positive_pixels":  5956,
+                             "v3_a1_measured_false_positive_ratio":  0.000946387076763496,
+                             "rationale":  "margin 24 reduces the no-effect A1 cyan background from 152631 pixels at margin 16 to 5956 while retaining the eight C1 ray families"
+                         },
+    "layers":  [
+                   {
+                       "key":  "fx_tablet",
+                       "file":  "araul_prologue_v3_fx_tablet.png",
+                       "base_file":  "araul_prologue_v3_a1_coronation.png",
+                       "target_file":  "araul_prologue_v3_a2_tablet.png",
+                       "mode":  "opaque_ellipse",
+                       "pixel_count":  458274,
+                       "crop_offset":  [
+                                           1463,
+                                           237
+                                       ],
+                       "crop_size":  [
+                                         585,
+                                         1107
+                                     ],
+                       "full_size":  [
+                                         3344,
+                                         1882
+                                     ],
+                       "sha256":  "671b957477c6807d037360c8151b79bfc0c3d9c8f5fed22225931840ad7e58ba",
+                       "cyan_margin_8bit":  24,
+                       "base_cyan_false_positive_pixels":  0,
+                       "base_cyan_false_positive_ratio":  0,
+                       "cyan_candidate_pixels":  0
+                   },
+                   {
+                       "key":  "fx_orb",
+                       "file":  "araul_prologue_v3_fx_orb.png",
+                       "base_file":  "araul_prologue_v3_b1_resistance.png",
+                       "target_file":  "araul_prologue_v3_b2_orb_extraction.png",
+                       "mode":  "opaque_ellipse",
+                       "pixel_count":  290597,
+                       "crop_offset":  [
+                                           1530,
+                                           274
+                                       ],
+                       "crop_size":  [
+                                         652,
+                                         619
+                                     ],
+                       "full_size":  [
+                                         3344,
+                                         1882
+                                     ],
+                       "sha256":  "3e53e5ca7a1d65f912522cbc86bd879ae5e1fb03a509c4dd97a8d6353273435a",
+                       "cyan_margin_8bit":  24,
+                       "base_cyan_false_positive_pixels":  0,
+                       "base_cyan_false_positive_ratio":  0,
+                       "cyan_candidate_pixels":  0
+                   },
+                   {
+                       "key":  "fx_rays",
+                       "file":  "araul_prologue_v3_fx_rays.png",
+                       "base_file":  "araul_prologue_v3_a1_coronation.png",
+                       "target_file":  "araul_prologue_v3_c1_eight_rays.png",
+                       "mode":  "positive_cyan_full",
+                       "pixel_count":  339707,
+                       "crop_offset":  [
+                                           33,
+                                           0
+                                       ],
+                       "crop_size":  [
+                                         3288,
+                                         1361
+                                     ],
+                       "full_size":  [
+                                         3344,
+                                         1882
+                                     ],
+                       "sha256":  "03adda434bc536b1a931e0df5fc5399e1daa1792175fdb8578fb6949bf915e8a",
+                       "cyan_margin_8bit":  24,
+                       "base_cyan_false_positive_pixels":  5956,
+                       "base_cyan_false_positive_ratio":  0.000946387076763496,
+                       "cyan_candidate_pixels":  339707
+                   },
+                   {
+                       "key":  "fx_shard",
+                       "file":  "araul_prologue_v3_fx_shard.png",
+                       "base_file":  "araul_prologue_v3_d1_confrontation.png",
+                       "target_file":  "araul_prologue_v3_d2_first_strike.png",
+                       "mode":  "positive_cyan_rects",
+                       "pixel_count":  31070,
+                       "crop_offset":  [
+                                           661,
+                                           237
+                                       ],
+                       "crop_size":  [
+                                         1447,
+                                         823
+                                     ],
+                       "full_size":  [
+                                         3344,
+                                         1882
+                                     ],
+                       "sha256":  "620a790e4e7bd8110adb4f98014702aea002d1425b3073849e225335a94ac188",
+                       "cyan_margin_8bit":  24,
+                       "base_cyan_false_positive_pixels":  0,
+                       "base_cyan_false_positive_ratio":  0,
+                       "cyan_candidate_pixels":  31070
+                   }
+               ]
+}

@@ -22,7 +22,7 @@ const BGM_SILENCE_START := 21.6
 const BGM_RESTORE_START := 23.4
 const BGM_RESTORE_END := 26.5
 const BGM_SILENT_GAIN_DB := -80.0
-const RAYS_CUE_SECONDS := 27.4
+const RAYS_CUE_SECONDS := 26.15
 const SPIRIT_BELL_CUE_SECONDS := 33.4
 
 const LIVE_STREAM_MAX_MSEC := 120000
@@ -37,18 +37,28 @@ const B2_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prolo
 const C1_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_c1_eight_rays.png"
 const D1_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d1_confrontation.png"
 const D2_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d2_first_strike.png"
+const FX_TABLET_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_fx_tablet.png"
+const FX_ORB_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_fx_orb.png"
+const FX_RAYS_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_fx_rays.png"
+const FX_SHARD_TEXTURE_PATH := "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_fx_shard.png"
 
 const STARTUP_TEXTURE_SPECS := [
 	{"key": PrologueOverlayHost.PLATE_A1, "path": A1_TEXTURE_PATH},
 	{"key": PrologueOverlayHost.PLATE_A2, "path": A2_TEXTURE_PATH},
 	{"key": PrologueOverlayHost.PLATE_A3, "path": A3_TEXTURE_PATH},
+	{"key": PrologueOverlayHost.FX_TABLET, "path": FX_TABLET_TEXTURE_PATH},
 ]
 const STREAM_TEXTURE_SPECS := [
 	{"key": PrologueOverlayHost.PLATE_B1, "path": B1_TEXTURE_PATH, "request_at": 0.0, "deadline": 12.0},
 	{"key": PrologueOverlayHost.PLATE_B2, "path": B2_TEXTURE_PATH, "request_at": 12.6, "deadline": 20.0},
+	{"key": PrologueOverlayHost.FX_ORB, "path": FX_ORB_TEXTURE_PATH, "request_at": 12.6, "deadline": 20.0},
 	{"key": PrologueOverlayHost.PLATE_C1, "path": C1_TEXTURE_PATH, "request_at": 16.2, "deadline": 22.0},
+	{"key": PrologueOverlayHost.FX_RAYS, "path": FX_RAYS_TEXTURE_PATH, "request_at": 16.2, "deadline": 22.0},
 	{"key": PrologueOverlayHost.PLATE_D1, "path": D1_TEXTURE_PATH, "request_at": 19.6, "deadline": 27.0},
 	{"key": PrologueOverlayHost.PLATE_D2, "path": D2_TEXTURE_PATH, "request_at": 23.6, "deadline": 30.0},
+	# D2 itself starts at 23.6; the cropped shard waits until the orb layer has
+	# released at the 26.25 hard cut so FX residency never exceeds two.
+	{"key": PrologueOverlayHost.FX_SHARD, "path": FX_SHARD_TEXTURE_PATH, "request_at": 26.25, "deadline": 30.0},
 ]
 const PLATE_TIMELINE_SPECS := [
 	{"key": PrologueOverlayHost.PLATE_A1, "path": A1_TEXTURE_PATH, "replacement_end": 0.0},
@@ -59,6 +69,12 @@ const PLATE_TIMELINE_SPECS := [
 	{"key": PrologueOverlayHost.PLATE_C1, "path": C1_TEXTURE_PATH, "replacement_end": 27.4},
 	{"key": PrologueOverlayHost.PLATE_D1, "path": D1_TEXTURE_PATH, "replacement_end": 30.8},
 	{"key": PrologueOverlayHost.PLATE_D2, "path": D2_TEXTURE_PATH, "replacement_end": 34.0},
+]
+const FX_TIMELINE_SPECS := [
+	{"key": PrologueOverlayHost.FX_TABLET, "path": FX_TABLET_TEXTURE_PATH, "release_at": 12.6},
+	{"key": PrologueOverlayHost.FX_ORB, "path": FX_ORB_TEXTURE_PATH, "release_at": 26.25},
+	{"key": PrologueOverlayHost.FX_RAYS, "path": FX_RAYS_TEXTURE_PATH, "release_at": 29.6},
+	{"key": PrologueOverlayHost.FX_SHARD, "path": FX_SHARD_TEXTURE_PATH, "release_at": 34.0},
 ]
 
 const PHASE_IDLE := "idle"
@@ -79,6 +95,8 @@ var _stream_texture_factory_for_test: Callable
 var _stream_deadline_misses: Dictionary = {}
 var _released_plate_keys: Dictionary = {}
 var _resident_peak := 0
+var _fx_resident_peak := 0
+var _total_resident_peak := 0
 var _host: Control = null
 var _segments: Array = []
 var _elapsed_segments: Array = []
@@ -265,8 +283,12 @@ func get_asset_status() -> Dictionary:
 		"stream_completed_count": _stream_index,
 		"deadline_misses": _stream_deadline_misses.duplicate(),
 		"released_plate_keys": _released_plate_keys.duplicate(),
-		"resident_count": _get_resident_count(),
+		"resident_count": _get_resident_plate_count(),
 		"resident_peak": _resident_peak,
+		"fx_resident_count": _get_resident_fx_count(),
+		"fx_resident_peak": _fx_resident_peak,
+		"total_resident_count": _get_total_resident_count(),
+		"total_resident_peak": _total_resident_peak,
 		"a_family_released": _a_family_released,
 		"b_family_released": _b_family_released,
 		"host_ready": _host != null and is_instance_valid(_host),
@@ -329,6 +351,8 @@ func _start(owner: Object) -> bool:
 	_stream_deadline_misses.clear()
 	_released_plate_keys.clear()
 	_resident_peak = 0
+	_fx_resident_peak = 0
+	_total_resident_peak = 0
 	_opening_drum_played = false
 	_rays_cue_played = false
 	_spirit_bell_cue_played = false
@@ -415,6 +439,7 @@ func _accept_stream_texture(spec: Dictionary, texture_value: Variant) -> void:
 
 
 func _release_completed_plates() -> void:
+	_release_completed_fx()
 	# A missing intermediate plate keeps the latest available predecessor alive
 	# until a later successful plate has fully replaced that fallback. This keeps
 	# failure paths visible without letting a missing B/C/D plate inflate the
@@ -435,6 +460,16 @@ func _release_completed_plates() -> void:
 	_update_family_release_flags()
 
 
+func _release_completed_fx() -> void:
+	for spec_value in FX_TIMELINE_SPECS:
+		var spec: Dictionary = spec_value
+		if _elapsed + 0.0001 < float(spec.get("release_at", INF)):
+			continue
+		var fx_key := str(spec.get("key", ""))
+		if _has_resident_asset(fx_key):
+			_release_plate(fx_key, str(spec.get("path", "")))
+
+
 func _release_plate(plate_key: String, path: String, record_timeline_release: bool = false) -> void:
 	var was_resident := _has_resident_plate(plate_key)
 	_startup_textures.erase(plate_key)
@@ -448,18 +483,55 @@ func _release_plate(plate_key: String, path: String, record_timeline_release: bo
 
 
 func _has_resident_plate(plate_key: String) -> bool:
+	return not _is_fx_key(plate_key) and _has_resident_asset(plate_key)
+
+
+func _has_resident_asset(asset_key: String) -> bool:
 	return (
-		_startup_textures.get(plate_key, null) is Texture2D
-		or _stream_textures.get(plate_key, null) is Texture2D
+		_startup_textures.get(asset_key, null) is Texture2D
+		or _stream_textures.get(asset_key, null) is Texture2D
 	)
 
 
-func _get_resident_count() -> int:
-	return _startup_textures.size() + _stream_textures.size()
+func _get_resident_plate_count() -> int:
+	var count := 0
+	for key_value in _startup_textures:
+		if not _is_fx_key(str(key_value)) and _startup_textures[key_value] is Texture2D:
+			count += 1
+	for key_value in _stream_textures:
+		if not _is_fx_key(str(key_value)) and _stream_textures[key_value] is Texture2D:
+			count += 1
+	return count
+
+
+func _get_resident_fx_count() -> int:
+	var count := 0
+	for key_value in _startup_textures:
+		if _is_fx_key(str(key_value)) and _startup_textures[key_value] is Texture2D:
+			count += 1
+	for key_value in _stream_textures:
+		if _is_fx_key(str(key_value)) and _stream_textures[key_value] is Texture2D:
+			count += 1
+	return count
+
+
+func _get_total_resident_count() -> int:
+	return _get_resident_plate_count() + _get_resident_fx_count()
+
+
+func _is_fx_key(asset_key: String) -> bool:
+	return asset_key in [
+		PrologueOverlayHost.FX_TABLET,
+		PrologueOverlayHost.FX_ORB,
+		PrologueOverlayHost.FX_RAYS,
+		PrologueOverlayHost.FX_SHARD,
+	]
 
 
 func _record_resident_count() -> void:
-	_resident_peak = maxi(_resident_peak, _get_resident_count())
+	_resident_peak = maxi(_resident_peak, _get_resident_plate_count())
+	_fx_resident_peak = maxi(_fx_resident_peak, _get_resident_fx_count())
+	_total_resident_peak = maxi(_total_resident_peak, _get_total_resident_count())
 
 
 func _update_family_release_flags() -> void:
@@ -490,7 +562,13 @@ func _sync_host(owner: Object, fade_alpha: float) -> void:
 	var segment := PrologueText.get_segment_at(_segments, _elapsed)
 	if segment.is_empty():
 		segment = PrologueText.get_segment_at(_elapsed_segments, _elapsed)
-	_host.sync_timeline(_elapsed, fade_alpha, segment, _elapsed >= _skip_lock_seconds)
+	_host.sync_timeline(
+		_elapsed,
+		fade_alpha,
+		segment,
+		_elapsed >= _skip_lock_seconds,
+		_phase == PHASE_ACTIVE
+	)
 
 
 func _sync_story_audio(previous_elapsed: float) -> void:

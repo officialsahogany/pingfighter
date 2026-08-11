@@ -156,6 +156,9 @@ static func get_segments(locale: String) -> Array:
 			"end": timing.y,
 			"speaker": str(line.get("speaker", "")),
 			"text": str(line.get("text", "")),
+			# rev7 can bind recorded voice amplitude here without changing the
+			# segment/timeline schema. Empty IDs intentionally remain silent.
+			"voice_id": str(line.get("voice_id", "")),
 		})
 	return result
 
@@ -172,6 +175,7 @@ static func get_elapsed_segments(locale: String) -> Array:
 			"speaker": "",
 			"text": str(localized_lines[index]),
 			"elapsed_card": true,
+			"voice_id": "",
 		})
 	return result
 

@@ -1,6 +1,7 @@
 param(
     [string]$RuntimeDirectory = "godot/assets/ui/story/han_miryang_prologue",
     [string]$SourceOutputDirectory = "art_sources/araul_prologue/fx_layers",
+    [ValidateRange(0, 255)][int]$CyanMargin = 24,
     [switch]$Force
 )
 
@@ -58,13 +59,14 @@ function Export-FxLayer {
         [Parameter(Mandatory = $true)][string]$Mode,
         [object[]]$Rects = @(),
         [double[]]$Ellipse = @(),
+        [object[]]$ExcludeEllipses = @(),
         [int]$Padding = 8
     )
 
     $basePath = Join-Path $resolvedRuntimeDirectory $BaseFile
     $targetPath = Join-Path $resolvedRuntimeDirectory $TargetFile
-    $sourceOutput = Join-Path $resolvedSourceDirectory ("araul_prologue_v2_{0}.png" -f $Key)
-    $runtimeOutput = Join-Path $resolvedRuntimeDirectory ("araul_prologue_v2_{0}.png" -f $Key)
+    $sourceOutput = Join-Path $resolvedSourceDirectory ("araul_prologue_v3_{0}.png" -f $Key)
+    $runtimeOutput = Join-Path $resolvedRuntimeDirectory ("araul_prologue_v3_{0}.png" -f $Key)
     foreach ($outputPath in @($sourceOutput, $runtimeOutput)) {
         if ((Test-Path -LiteralPath $outputPath) -and -not $Force) {
             throw "Refusing to overwrite existing FX layer without -Force: $outputPath"
@@ -95,6 +97,16 @@ function Export-FxLayer {
                 }
                 $parsedRects += ,$values
             }
+            $parsedExcludeEllipses = @()
+            foreach ($ellipseValue in $ExcludeEllipses) {
+                $values = @([string]$ellipseValue -split ',' | ForEach-Object {
+                    [double]::Parse($_, [Globalization.CultureInfo]::InvariantCulture)
+                })
+                if ($values.Count -ne 4) {
+                    throw "Expected normalized exclusion ellipse cx,cy,rx,ry, got: $ellipseValue"
+                }
+                $parsedExcludeEllipses += ,$values
+            }
             $scanLeft = 0
             $scanTop = 0
             $scanRight = $width
@@ -116,6 +128,8 @@ function Export-FxLayer {
             $minY = $height
             $maxX = -1
             $maxY = -1
+            $baseCyanDominantPixels = 0
+            $cyanCandidatePixels = 0
 
             for ($y = $scanTop; $y -lt $scanBottom; $y++) {
                 $ny = ([double]$y + 0.5) / $height
@@ -147,6 +161,9 @@ function Export-FxLayer {
                     $targetBlue = [int]$targetData.Bytes[$offset]
                     $targetGreen = [int]$targetData.Bytes[$offset + 1]
                     $targetRed = [int]$targetData.Bytes[$offset + 2]
+                    if ($Mode -eq "positive_cyan_full" -and $baseBlue -gt $baseRed + $CyanMargin -and $baseGreen -gt $baseRed + $CyanMargin) {
+                        $baseCyanDominantPixels++
+                    }
                     $maxDelta = [Math]::Max(
                         [Math]::Abs($targetBlue - $baseBlue),
                         [Math]::Max([Math]::Abs($targetGreen - $baseGreen), [Math]::Abs($targetRed - $baseRed))
@@ -155,14 +172,28 @@ function Export-FxLayer {
                         continue
                     }
 
+                    $excluded = $false
+                    foreach ($excludedEllipse in $parsedExcludeEllipses) {
+                        $excludeDx = ($nx - $excludedEllipse[0]) / $excludedEllipse[2]
+                        $excludeDy = ($ny - $excludedEllipse[1]) / $excludedEllipse[3]
+                        if ($excludeDx * $excludeDx + $excludeDy * $excludeDy -le 1.0) {
+                            $excluded = $true
+                            break
+                        }
+                    }
+                    if ($excluded) {
+                        continue
+                    }
+
                     if ($Mode.StartsWith("positive_cyan")) {
                         $positiveBlue = [Math]::Max(0, $targetBlue - $baseBlue)
                         $positiveGreen = [Math]::Max(0, $targetGreen - $baseGreen)
                         $positiveRed = [Math]::Max(0, $targetRed - $baseRed)
                         $positiveMax = [Math]::Max($positiveBlue, [Math]::Max($positiveGreen, $positiveRed))
-                        if ($targetBlue -le $targetRed + 16 -or $targetGreen -le $targetRed + 16 -or $positiveMax -lt 6) {
+                        if ($targetBlue -le $targetRed + $CyanMargin -or $targetGreen -le $targetRed + $CyanMargin -or $positiveMax -lt 6) {
                             continue
                         }
+                        $cyanCandidatePixels++
                         $fullBytes[$offset] = [byte]$positiveBlue
                         $fullBytes[$offset + 1] = [byte]$positiveGreen
                         $fullBytes[$offset + 2] = [byte]$positiveRed
@@ -218,6 +249,10 @@ function Export-FxLayer {
                 crop_size = @($cropWidth, $cropHeight)
                 full_size = @($width, $height)
                 sha256 = $sha
+                cyan_margin_8bit = $CyanMargin
+                base_cyan_false_positive_pixels = $baseCyanDominantPixels
+                base_cyan_false_positive_ratio = if ($Mode -eq "positive_cyan_full") { $baseCyanDominantPixels / [double]($width * $height) } else { 0.0 }
+                cyan_candidate_pixels = $cyanCandidatePixels
             }
         }
         finally {
@@ -239,39 +274,39 @@ if (-not (Test-Path -LiteralPath $resolvedSourceDirectory)) {
 
 $results = @()
 $results += Export-FxLayer -Key "fx_tablet" `
-    -BaseFile "araul_prologue_v2_a1_coronation.png" `
-    -TargetFile "araul_prologue_v2_a2_tablet.png" `
-    -Mode "opaque_rects" `
-    -Rects @("0.40,0.00,0.68,0.66")
-$results += Export-FxLayer -Key "fx_orb" `
-    -BaseFile "araul_prologue_v2_b1_resistance.png" `
-    -TargetFile "araul_prologue_v2_b2_orb_extraction.png" `
+    -BaseFile "araul_prologue_v3_a1_coronation.png" `
+    -TargetFile "araul_prologue_v3_a2_tablet.png" `
     -Mode "opaque_ellipse" `
-    -Ellipse @(0.535, 0.30, 0.13, 0.20)
+    -Ellipse @(0.525, 0.42, 0.085, 0.29)
+$results += Export-FxLayer -Key "fx_orb" `
+    -BaseFile "araul_prologue_v3_b1_resistance.png" `
+    -TargetFile "araul_prologue_v3_b2_orb_extraction.png" `
+    -Mode "opaque_ellipse" `
+    -Ellipse @(0.555, 0.31, 0.095, 0.16)
 $results += Export-FxLayer -Key "fx_rays" `
-    -BaseFile "araul_prologue_v2_a1_coronation.png" `
-    -TargetFile "araul_prologue_v2_c1_eight_rays.png" `
-    -Mode "positive_cyan_full"
+    -BaseFile "araul_prologue_v3_a1_coronation.png" `
+    -TargetFile "araul_prologue_v3_c1_eight_rays.png" `
+    -Mode "positive_cyan_full" `
+    -ExcludeEllipses @("0.30,0.43,0.17,0.38", "0.61,0.56,0.075,0.19")
 $results += Export-FxLayer -Key "fx_shard" `
-    -BaseFile "araul_prologue_v2_d1_confrontation.png" `
-    -TargetFile "araul_prologue_v2_d2_first_strike.png" `
+    -BaseFile "araul_prologue_v3_d1_confrontation.png" `
+    -TargetFile "araul_prologue_v3_d2_first_strike.png" `
     -Mode "positive_cyan_rects" `
-    -Rects @("0.20,0.14,0.62,0.72")
-$results += Export-FxLayer -Key "fx_tendril" `
-    -BaseFile "araul_prologue_v2_a2_tablet.png" `
-    -TargetFile "araul_prologue_v2_a3_spirit.png" `
-    -Mode "opaque_rects" `
-    -Rects @(
-        "0.28,0.18,0.44,0.52",
-        "0.28,0.16,0.36,0.26",
-        "0.36,0.159,0.40,0.18"
-    )
+    -Rects @("0.20,0.12,0.68,0.72") `
+    -ExcludeEllipses @("0.295,0.255,0.065,0.115")
 
-$reportPath = Join-Path $resolvedSourceDirectory "araul_prologue_v2_rev6_fx_extraction.json"
+$reportPath = Join-Path $resolvedSourceDirectory "araul_prologue_v3_rev6_fx_extraction.json"
 $report = [ordered]@{
-    schema = "araul-prologue-v2-rev6-fx-extraction"
-    source = "runtime 3344x1882 accepted plates"
+    schema = "araul-prologue-v3-rev6-fx-extraction"
+    source = "V3 runtime 3344x1882 accepted plates"
     tool = "tools/extract_araul_prologue_fx_layers.ps1"
+    cyan_calibration = [ordered]@{
+        channel_scale = "8-bit 0..255"
+        selected_margin = $CyanMargin
+        v3_a1_measured_false_positive_pixels = ($results | Where-Object { $_.key -eq "fx_rays" } | Select-Object -First 1).base_cyan_false_positive_pixels
+        v3_a1_measured_false_positive_ratio = ($results | Where-Object { $_.key -eq "fx_rays" } | Select-Object -First 1).base_cyan_false_positive_ratio
+        rationale = "margin 24 reduces the no-effect A1 cyan background from 152631 pixels at margin 16 to 5956 while retaining the eight C1 ray families"
+    }
     layers = $results
 }
 [IO.File]::WriteAllText(

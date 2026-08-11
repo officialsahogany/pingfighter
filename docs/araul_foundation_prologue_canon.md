@@ -139,17 +139,25 @@
   장 카드는 45.0~47.5, 자연 페이드는 47.5~48.0이다.
 - 8플레이트 순서는 `A1 즉위 → A2 신주 → A3 침입 → B1 저항 → B2 구체 배출 →
   C1 여덟 줄기 → D1 최초 숙주 → D2 최초 격령`이다.
-- 시작 전에는 A1·A2·A3만 프리웜한다. B1/B2/C1/D1/D2 요청은 각각
+- B2→C1은 26.25초 플래시 피크 아래 **하드 컷**한다. 구판의 26.0~27.4초
+  크로스페이드는 폐기했다.
+- 시작 전에는 A1·A2·A3와 `fx_tablet`을 프리웜한다. B1/B2/C1/D1/D2 요청은 각각
   0.0/12.6/16.2/19.6/23.6초에 열고, 확보 마감은 12.0/20.0/22.0/27.0/30.0초다.
+  `fx_orb`/`fx_rays`/`fx_shard`는 각각 12.6/16.2/26.25초에 요청한다.
   마감 실패 시 동기 로드로 떨어지지 않고 직전 플레이트를 유지한다.
 - 시작용 A 플레이트가 없거나 깨진 경우 로딩 게이트를 무한 반복하지 않고
   `asset_unavailable`로 서막을 닫아 전투 진입을 계속한다. 스킵·종료된 비동기 요청은
   공유 슬롯에서 즉시 분리하고, 늦게 끝난 결과는 전투 셸이 비차단 수거해 캐시에 넣지 않는다.
 - 각 블렌드 종료(12.6/16.2/19.6/23.6/27.4/30.8/34.0초)에 이전 플레이트를 개별
   해제한다. 후속 장이 늦거나 실패하면 직전 장을 fallback으로 남기고, 더 뒤의 첫 성공
-  장이 완전히 전환된 뒤 연쇄 해제한다. 정상·지연 경로의 고유 플레이트 상주는 최대 4장이다.
+  장이 완전히 전환된 뒤 연쇄 해제한다. FX는 12.6/26.25/29.6/34.0초에 각각
+  tablet/orb/rays/shard를 해제한다. 정상·지연 경로의 상주는 베이스 최대 4장,
+  FX 최대 2장, 합계 최대 6장이다.
+- rev6 모션은 신주 상승 와이프, 무음 비네트, 구체 맥동, C1 플래시·광선·스파크,
+  D2 타격 플래시·충격 링·셰이크·령편 궤적과 플레이트별 카메라 줌·팬을 포함한다.
+  표시 RNG는 게임플레이 RNG와 분리되며, 셰이크는 자막 라벨에 적용하지 않는다.
 - BGM은 11.2초에 약하게 덕하고 21.6~23.4초 완전 무음, 26.5초까지 복귀한다. 0초
-  의식 타격음, 27.4초 영기 레이어, 33.4초 방울 큐는 사용자 BGM 볼륨을 덮어쓰지 않는다.
+  의식 타격음, 26.15초 영기 레이어, 33.4초 방울 큐는 사용자 BGM 볼륨을 덮어쓰지 않는다.
 - 자막은 7언어 공통 창을 쓰며 CJK 12 CPS, 라틴·키릴 22 CPS 상한을 지킨다. 9대사 +
   2경과 자막 + 장 카드의 84개 조합을 회귀 씰로 검사한다.
 - 키아트는 1672×941 소스에서 제작하고 8장을 같은 배치로
@@ -164,7 +172,8 @@
 
 - 런타임 대사·7언어: `godot/scripts/stages/stage1/stage1_han_miryang_prologue_text.gd`
 - 재생·스트리밍·음향: `godot/scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd`
-- 8플레이트 블렌드: `godot/scripts/stages/stage1/stage1_han_miryang_prologue_overlay_host.gd`
+- 8플레이트·rev6 모션 합성: `godot/scripts/stages/stage1/stage1_han_miryang_prologue_overlay_host.gd`
+- rev6 모션 계약: `docs/araul_prologue_motion_pass_rev6_codex_handoff.md`
 - 서사·타임라인 확정안: `docs/araul_prologue_v2_revision_codex_handoff.md`
 - V3.5 먹/한지 아트 재구축: `docs/araul_prologue_art_v3_rebuild_codex_handoff.md`
 - 1672 최종 소스: `art_sources/araul_prologue/final_v3/`
@@ -173,6 +182,8 @@
 - 픽셀·임포트 수용 게이트: `tools/validate_araul_prologue_asset_contract.ps1`
 - Vulkan 증거: `docs/qa_evidence/araul_prologue_v3/v3_vulkan_contact_sheet.png`
 - Vulkan 증거 메타데이터: `docs/qa_evidence/araul_prologue_v3/v3_vulkan_capture.json`
+- rev6 Vulkan 증거: `docs/qa_evidence/araul_prologue_v3/rev6_vulkan_contact_sheet.png`
+- rev6 Vulkan 메타데이터: `docs/qa_evidence/araul_prologue_v3/rev6_vulkan_capture.json`
 - 한미량 카드 정본: `godot/scripts/ui/character_select_data.gd`
 - Stage 1 출고 랜덤 풀·명시 선택: `godot/scripts/core/battle_scene_selection_startup_lifecycle.gd`
 - 보스 10종 키·도감 소개문 설계(미구현): `docs/hwangyeokjeon_codex_design.md`

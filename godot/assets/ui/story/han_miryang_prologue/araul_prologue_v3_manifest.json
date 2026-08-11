@@ -100,6 +100,112 @@
       }
     }
   ],
+  "motion_pass_rev6": {
+    "baseline_commit": "f95270ac989639d78140d66a65694d3e76e366a6",
+    "canonical_handoff": "docs/araul_prologue_motion_pass_rev6_codex_handoff.md",
+    "extractor": "tools/extract_araul_prologue_fx_layers.ps1",
+    "contract_validator": "tools/validate_araul_prologue_rev6_fx_contract.ps1",
+    "source_report": "art_sources/araul_prologue/fx_layers/araul_prologue_v3_rev6_fx_extraction.json",
+    "cyan_calibration": {
+      "channel_scale": "8-bit 0..255",
+      "selected_margin": 24,
+      "v3_a1_false_positive_pixels": 5956,
+      "v3_a1_false_positive_ratio": 0.000946387076763496,
+      "legacy_margin_16_false_positive_pixels": 152631
+    },
+    "optional_fx_tendril": "omitted; A2-to-A3 retains the accepted base crossfade and the four core cropped layers keep the FX residency ceiling at two",
+    "layers": [
+      {
+        "key": "fx_tablet",
+        "runtime_file": "araul_prologue_v3_fx_tablet.png",
+        "sha256": "671b957477c6807d037360c8151b79bfc0c3d9c8f5fed22225931840ad7e58ba",
+        "crop_offset": [1463, 237],
+        "crop_size": [585, 1107],
+        "pixel_count": 458274,
+        "base_key": "A1",
+        "target_key": "A2",
+        "roundtrip": "PASS"
+      },
+      {
+        "key": "fx_orb",
+        "runtime_file": "araul_prologue_v3_fx_orb.png",
+        "sha256": "3e53e5ca7a1d65f912522cbc86bd879ae5e1fb03a509c4dd97a8d6353273435a",
+        "crop_offset": [1530, 274],
+        "crop_size": [652, 619],
+        "pixel_count": 290597,
+        "base_key": "B1",
+        "target_key": "B2",
+        "roundtrip": "PASS"
+      },
+      {
+        "key": "fx_rays",
+        "runtime_file": "araul_prologue_v3_fx_rays.png",
+        "sha256": "03adda434bc536b1a931e0df5fc5399e1daa1792175fdb8578fb6949bf915e8a",
+        "crop_offset": [33, 0],
+        "crop_size": [3288, 1361],
+        "pixel_count": 339707,
+        "base_key": "A1",
+        "target_key": "C1",
+        "ray_center_source_pixels": [835, 350],
+        "character_ghost_pixels": 0
+      },
+      {
+        "key": "fx_shard",
+        "runtime_file": "araul_prologue_v3_fx_shard.png",
+        "sha256": "620a790e4e7bd8110adb4f98014702aea002d1425b3073849e225335a94ac188",
+        "crop_offset": [661, 237],
+        "crop_size": [1447, 823],
+        "pixel_count": 31070,
+        "base_key": "D1",
+        "target_key": "D2",
+        "official_face_ghost_pixels": 0
+      }
+    ],
+    "streaming_contract": {
+      "startup_fx": ["fx_tablet"],
+      "streamed_fx": ["fx_orb", "fx_rays", "fx_shard"],
+      "fx_request_at_seconds": {
+        "fx_orb": 12.6,
+        "fx_rays": 16.2,
+        "fx_shard": 26.25
+      },
+      "fx_release_at_seconds": {
+        "fx_tablet": 12.6,
+        "fx_orb": 26.25,
+        "fx_rays": 29.6,
+        "fx_shard": 34.0
+      },
+      "max_base_resident": 4,
+      "max_fx_resident": 2,
+      "max_total_resident": 6,
+      "sync_fallback": false
+    },
+    "timeline": {
+      "rays_audio_seconds": 26.15,
+      "b2_to_c1_hard_cut_seconds": 26.25,
+      "duration_seconds": 48.0
+    },
+    "qa": {
+      "asset_contract": "PASS",
+      "focused_smoke": "PASS",
+      "vulkan_capture": "PASS",
+      "capture_image_count": 46,
+      "local_full_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_965457_35012",
+      "local_second_preflight_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_958812_33988",
+      "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v3/rev6_vulkan_contact_sheet.png",
+      "durable_contact_sheet_sha256": "3c6871486461db453742d4cd1c4e8f3caf00d7141bd68fa5ccb4f915fb8dc73f",
+      "durable_metadata": "docs/qa_evidence/araul_prologue_v3/rev6_vulkan_capture.json",
+      "threaded_preflight_clean_runs": 2,
+      "observed_threaded_paths_each_run": 12,
+      "stream_paths_completed_each_run": 8,
+      "resident_base_peak_each_run": 4,
+      "resident_fx_peak_each_run": 2,
+      "resident_total_peak_each_run": 6,
+      "deadline_misses_each_run": 0,
+      "final_resident_count_each_run": 0,
+      "shared_threaded_owner_after_cleanup_each_run": ""
+    }
+  },
   "upscale": {
     "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
     "model": "realesr-animevideov3",
