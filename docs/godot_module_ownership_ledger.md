@@ -102,6 +102,20 @@ This section is intentionally long; use search to find the nearest owner.
   renderer before reporting complete. The current position applicator remains
   one-axis and uses the fixed 2400 width in its cache key and spacing input;
   viewport-derived sizes must never enter that cache.
+  The candidate-only R2-A owners below do not replace this production contract
+  until an atomic activation.
+- `scripts/plaza/plaza_map_projection.gd` and
+  `plaza_map_layout_generator.gd`
+  Own the production-disconnected R2-A/P1 candidate: pure fixed-world/safe-rect
+  projection plus deterministic road topology, plots, building assignment,
+  semantic decoration, blocked/walkable/portal geometry, labels, validation, and
+  the canonical layout fingerprint. Structural QA is GREEN for 56 building
+  subsets x seeds 5/6/7 (168 rosters), including mutation counterproofs. They do
+  not yet own the live `plaza_scene.gd` projection or position application. The
+  generator's `skeleton`/`plots`/`assignment`/`decor` RNG streams are its future
+  small-owner split seams; a split must preserve phase salts, fingerprint,
+  168-roster outputs, and RED counterproofs rather than merely reduce its current
+  2,745-line file size.
 - `scripts/plaza/plaza_background_projection.gd` and
   `plaza_background_renderer.gd`
   Own plaza parallax/tile/flicker/VR-strata projection plus the complete sky,

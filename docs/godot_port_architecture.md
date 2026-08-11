@@ -830,6 +830,22 @@ failures. Because Godot clamps `SubViewport` to at least `2 x 2`, the degenerate
 leg enters the live `PlazaScene` root `_draw()` fallback without calling the
 host directly.
 
+### Plaza R2-A candidate-only map boundary
+
+`plaza_map_projection.gd` owns the pure fixed-world/safe-rect projection candidate.
+`plaza_map_layout_generator.gd` owns deterministic candidate construction and
+validation for road topology, plots, buildings, semantic decoration, blocked
+geometry, walkable corridors, interaction portals, labels, and its canonical
+layout fingerprint. R2-A/P1 structural QA is GREEN across 56 building subsets
+and seeds 5/6/7 (168 rosters), including geometry and consumed-field
+counterproofs. These owners do not replace `plaza_world_geometry.gd` or the
+production one-axis applicator until the later atomic promotion.
+The generator is currently a cohesive 2,745-line pure owner, not an automatic
+size-only refactor target. Its independent `skeleton`, `plots`, `assignment`,
+and `decor` RNG streams define the future split seams. Any later owner split
+must preserve those salts, the canonical fingerprint, the 168-roster outputs,
+and the existing mutation counterproofs exactly.
+
 ### Plaza flow-gate and world-geometry boundary
 
 `plaza_flow_gate_policy.gd` owns the update/input priority between runtime-perk
