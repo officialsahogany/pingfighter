@@ -164,7 +164,8 @@ func _get_stage_runtime_threaded_paths(character_type: String, stage_id: int) ->
 		paths.append(SkillCutinDriveRenderer.SHIELD_KITING_CHARACTER_PATH)
 		if stage_id == 1:
 			# 캐릭터 선택에서 한미량을 확정할 때마다 재생되므로 감상 이력과
-			# 무관하게 세 플레이트를 메뉴 유휴 시간에 선행 프리웜한다.
+			# 무관하게 시작 A 패밀리 세 장만 메뉴 유휴 시간에 선행
+			# 프리웜한다. B/C/D는 48초 서막 재생 중 단계 스트리밍한다.
 			paths.append_array(HanMiryangPrologue.get_texture_paths())
 	return paths
 

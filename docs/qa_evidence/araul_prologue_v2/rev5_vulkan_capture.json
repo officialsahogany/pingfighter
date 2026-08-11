@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-10",
+  "godot": "4.6.2-stable",
+  "renderer": "Vulkan 1.4.325 Forward+",
+  "device": "NVIDIA GeForce RTX 5070",
+  "result": "PASS",
+  "capture_resolutions": [[1920, 1080], [2560, 1440]],
+  "capture_frame_count": 42,
+  "local_full_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v2_1125246_25144",
+  "threaded_streaming_windowed": {
+    "result": "PASS",
+    "local_preflight_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v2_957082_49956",
+    "durable_preflight_summary": "docs/qa_evidence/araul_prologue_v2/rev5_threaded_preflight.json",
+    "durable_runtime_result": "docs/qa_evidence/araul_prologue_v2/rev5_threaded_preflight_runtime_result.json",
+    "durable_terminal_log": "docs/qa_evidence/araul_prologue_v2/rev5_threaded_preflight_terminal.txt",
+    "clean_runs_after_fix": 2,
+    "observed_threaded_paths": 8,
+    "stream_paths_completed": 5,
+    "presentation_resident_plate_peak": 4,
+    "deadline_misses": 0,
+    "exit_observation": "Both post-fix Vulkan preflights exited 0 without ObjectDB warnings."
+  },
+  "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_contact_sheet.png",
+  "durable_contact_sheet_sha256": "c40d16d43aec3e5bf1b94207d0decd8bcec5d799d90493aaabd3193ae2e9e47f",
+  "runtime_plate_sha256": {
+    "C1": "dad06843b147d5999cef430aa1c754204722ab3d135446b03258ca8cf6e5ab44",
+    "D2": "2e7417162c9a47b1ec1e6fb7b5ed880d382a12441625adec7027eb0abcb28e5e"
+  },
+  "coverage": [
+    "eight visual beats",
+    "seven-locale 1080p subtitle renders including pt-BR",
+    "English Spanish Russian 1080p and 1440p chapter cards",
+    "1080p and 1440p final fade cover over the chapter label",
+    "durable D1 and D2 continuity comparison",
+    "Japanese and Chinese fallback glyph rendering",
+    "windowed production presentation A/B/C/D threaded streaming preflight",
+    "exact eight-path threaded-owner observation and four-plate residency ceiling",
+    "post-fix C1 eight-ray runtime render",
+    "post-fix D2 single-myeongdu and restored right-gauntlet runtime render"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "deadline_misses": {
+
+  },
+  "final_presentation_resident_count": 0,
+  "first_observed_elapsed": {
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a1_coronation.png": -1.0,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a2_tablet.png": -1.0,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a3_spirit.png": -1.0,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_b1_resistance.png": 0.0,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_b2_orb_extraction.png": 12.608,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_c1_eight_rays.png": 16.208,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d1_confrontation.png": 19.5999999999996,
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d2_first_strike.png": 23.5999999999992
+  },
+  "observed_threaded_paths": [
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a1_coronation.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a2_tablet.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_a3_spirit.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_b1_resistance.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_b2_orb_extraction.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_c1_eight_rays.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d1_confrontation.png",
+    "res://assets/ui/story/han_miryang_prologue/araul_prologue_v3_d2_first_strike.png"
+  ],
+  "renderer": "vulkan",
+  "resident_plate_peak": 4,
+  "result": "PASS",
+  "shared_threaded_owner_after_cleanup": "",
+  "stream_paths_completed": 5
+}

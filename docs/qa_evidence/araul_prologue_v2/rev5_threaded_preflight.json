@@ -1,0 +1,35 @@
+{
+  "date": "2026-08-10",
+  "godot": "4.6.2-stable",
+  "renderer": "Vulkan 1.4.325 Forward+",
+  "device": "NVIDIA GeForce RTX 5070",
+  "command_mode": "--threaded-preflight-only",
+  "result": "PASS",
+  "clean_runs_after_fix": 2,
+  "process_exit_code": 0,
+  "objectdb_exit_warning": false,
+  "observed_threaded_paths": 8,
+  "startup_paths_completed": 3,
+  "stream_paths_completed": 5,
+  "presentation_resident_plate_peak": 4,
+  "deadline_misses": 0,
+  "cleanup": {
+    "presentation_resident_references": 0,
+    "shared_threaded_owner": 0,
+    "detached_threaded_owners": 0,
+    "explicit_project_cache_references": 0
+  },
+  "local_evidence_runs": [
+    "godot/.tmp/qa_evidence/han_miryang_prologue_v2_1468429_43436",
+    "godot/.tmp/qa_evidence/han_miryang_prologue_v2_957082_49956"
+  ],
+  "durable_runtime_result": "docs/qa_evidence/araul_prologue_v2/rev5_threaded_preflight_runtime_result.json",
+  "durable_runtime_result_sha256": "00cdf238c3377b878e98ebd7ca9f16e6c341de385d6bae8c151ca87fc90219e5",
+  "durable_terminal_log": "docs/qa_evidence/araul_prologue_v2/rev5_threaded_preflight_terminal.txt",
+  "durable_terminal_log_sha256": "c64de9bc275428750a8a4f32aa09953f344c313f73a841ca1a5153bad17615de",
+  "counterproof": {
+    "before_fix": "FAIL peak=4 observed=8 completed=5 deadline_misses=0; D2 remained detached and process exited 1 with one ObjectDB warning",
+    "root_cause": "prewarm_texture_threaded_step accepted ResourceLoader.has_cached for its own in-flight path before terminal load_threaded_get",
+    "fix": "the current threaded owner bypasses both project and engine cache shortcuts and is harvested through terminal load_threaded_get"
+  }
+}

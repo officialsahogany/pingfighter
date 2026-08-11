@@ -1,6 +1,7 @@
 extends Node2D
 
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const BallRenderInterpolation := preload("res://scripts/ball/ball_render_interpolation.gd")
 
@@ -211,6 +212,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	ProjectResourceLoader.poll_detached_threaded_texture_results()
 	var perf_logger: Object = _get_perf_logger()
 	_record_perf_value(perf_logger, "process.shell.delta", int(delta * 1000000.0))
 	var shell_start: int = _perf_begin(perf_logger)

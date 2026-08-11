@@ -296,6 +296,8 @@ const MIKA_POWER_SMASHING_VOICE_GAIN_DB := -6.0
 const MIKA_GHOST_SMASHING_VOICE_GAIN_DB := -4.5
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
+const HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH := "res://assets/sounds/roundgong.wav"
+const HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH := "res://assets/sounds/odinspirit.wav"
 const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
 const STAGE_LANDING_ZOOM_INTRO_SOUND_PATH := "res://assets/sounds/stage_landing_zoom_doom.wav"
 const BALLOON_POP_SOUND_PATH := "res://assets/sounds/balloonboom.wav"
@@ -610,6 +612,8 @@ var mika_ghost_smashing_voice_sfx: AudioStreamPlayer
 var mika_ghost_smashing_voice_streams: Array[AudioStream] = []
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
+var han_miryang_prologue_opening_drum_sfx: AudioStreamPlayer
+var han_miryang_prologue_rays_sfx: AudioStreamPlayer
 var ball_spawn_intro_sfx: AudioStreamPlayer
 var stage_landing_zoom_intro_sfx: AudioStreamPlayer
 var balloon_pop_sfx: AudioStreamPlayer
@@ -975,6 +979,8 @@ func _setup_stage_feedback_sfx() -> void:
 	mika_ghost_smashing_voice_streams = _load_audio_stream_candidates(MIKA_GHOST_SMASHING_VOICE_PATHS)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
+	han_miryang_prologue_opening_drum_sfx = player_factory.create(owner_node, "HanMiryangPrologueOpeningDrumSfx", HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH, -4.0)
+	han_miryang_prologue_rays_sfx = player_factory.create(owner_node, "HanMiryangPrologueRaysSfx", HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH, -5.0)
 	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
 	stage_landing_zoom_intro_sfx = player_factory.create(owner_node, "StageLandingZoomIntroSfx", STAGE_LANDING_ZOOM_INTRO_SOUND_PATH, -3.0)
 	balloon_pop_sfx = player_factory.create(owner_node, "BalloonPopSfx", BALLOON_POP_SOUND_PATH, -5.0)
@@ -1297,6 +1303,8 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				POWER_SMASH_SOUND_PATH,
 				POWER_SMASH_LAUNCH_SOUND_PATH,
 				ROUND_SET_SOUND_PATH,
+				HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH,
+				HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH,
 				BALL_SPAWN_INTRO_SOUND_PATH,
 				STAGE_LANDING_ZOOM_INTRO_SOUND_PATH,
 				BALLOON_POP_SOUND_PATH,
@@ -2823,16 +2831,28 @@ func play_stage1_balloon_machine() -> void:
 	_play_with_pitch(stage1_balloon_machine_sfx, randf_range(0.98, 1.02))
 
 
-# 한미량 서막의 '빈 한 박'은 짧고 맑은 기존 금속 차임을 고정 피치로
-# 재사용한다. 재생 진입은 스토리 presentation이 소유하되 실제 플레이어와
-# SFX 버스 라우팅은 GameAudio에 남긴다.
-func play_han_miryang_prologue_missing_beat() -> void:
+# 한미량 서막은 전용 북·광선 플레이어와 기존 금속 차임을 사용한다.
+# 재생 시점은 story presentation이 소유하고 실제 버스 라우팅과 정리는
+# GameAudio에 남긴다. 전용 플레이어라 다른 전투 효과의 pitch를 오염시키지 않는다.
+func play_han_miryang_prologue_opening_drum() -> void:
+	_play_with_pitch(han_miryang_prologue_opening_drum_sfx, 0.72)
+
+
+func play_han_miryang_prologue_rays() -> void:
+	_play_with_pitch(han_miryang_prologue_rays_sfx, 0.90)
+
+
+func play_han_miryang_prologue_spirit_bell() -> void:
 	_play_with_pitch(stage2_speed_defense_block_sfx, 1.0)
 
 
-func stop_han_miryang_prologue_missing_beat() -> void:
-	if stage2_speed_defense_block_sfx != null and stage2_speed_defense_block_sfx.playing:
-		stage2_speed_defense_block_sfx.stop()
+func stop_han_miryang_prologue_cues() -> void:
+	for player: AudioStreamPlayer in [han_miryang_prologue_opening_drum_sfx, han_miryang_prologue_rays_sfx, stage2_speed_defense_block_sfx]:
+		if player == null:
+			continue
+		if player.playing:
+			player.stop()
+		player.pitch_scale = 1.0
 
 
 func play_starpoint_collect() -> void:

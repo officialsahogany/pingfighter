@@ -1,0 +1,211 @@
+{
+  "schema": "araul-prologue-art-v3-source-manifest",
+  "version": 1,
+  "date": "2026-08-11",
+  "status": "eight_source_plates_accepted_and_promoted_to_runtime",
+  "style_contract": {
+    "name": "V3.5 ink-hanji cel",
+    "proportion_target_heads": 5.5,
+    "proportion_acceptance_band": [5.25, 5.75],
+    "han_miryang_black_boots": "accepted cinematic canon",
+    "b1_memorial_tablet": "accepted and retained"
+  },
+  "anchors": [
+    {
+      "key": "A1",
+      "file": "araul_a1_v35_proportion_fix.png",
+      "sha256": "223113ebd30438becee1ce3a15254c3ad2292939713d6757de845cc16bd013a4",
+      "resolution": [1672, 941],
+      "role": "wide coronation, identity, equipment, and proportion anchor",
+      "measured_heads_tall": {
+        "queen_haewon": 5.45,
+        "han_miryang": 5.72
+      }
+    },
+    {
+      "key": "B1",
+      "file": "araul_b1_v35_serious_tone_test.png",
+      "sha256": "5cb66ffcd9fc43ebe1e94dbf9dc622579ef55de4582f543125fd6423a733893c",
+      "resolution": [1672, 941],
+      "role": "serious possession tone, close-detail density, and memorial-tablet anchor"
+    },
+    {
+      "key": "D1",
+      "file": "araul_prologue_v3_d1_confrontation.png",
+      "sha256": "6c3341f993cbcfae298cc9b9ae63db762874fe47876bbb35860e86eed06cc404",
+      "resolution": [1672, 941],
+      "role": "confrontation, guard-block, equipment-handedness, and D2 impact-axis base",
+      "measured_heads_tall": {
+        "han_miryang": 5.43,
+        "possessed_official": "not measurable in crouched lunge; visually consistent with the accepted anchor family"
+      },
+      "review_decision": "accepted",
+      "review_notes": [
+        "black possession tendrils establish the same visual language intended for A3",
+        "the spent sphere is brighter than the written dim target; preserve or lower it only to strengthen the D2 absorption contrast"
+      ]
+    }
+  ],
+  "derivative_candidates": [
+    {
+      "key": "A2",
+      "base_key": "A1",
+      "file": "araul_prologue_v3_a2_tablet.png",
+      "sha256": "b112d6012cc79ae4b12858f806623547422049bfb963e8719e5124edaa9e599c",
+      "donor_file": "../v3_rebuild_candidates/araul_prologue_v3_a2_donor_01_padded.png",
+      "donor_sha256": "43ed6f1ccef9511768113bb559528c2da1c8d7454d9834b9f2828f476b861001",
+      "composition": {
+        "method": "soft ellipse over the accepted A1 base",
+        "ellipses": [[0.525, 0.42, 0.085, 0.29]],
+        "inner_ratio": 0.82,
+        "changed_pixels": 110358,
+        "outside_mask_delta_pixels": 0
+      }
+    },
+    {
+      "key": "A3",
+      "base_key": "A2",
+      "file": "araul_prologue_v3_a3_spirit.png",
+      "sha256": "f14cde3b48b7b5d5b5ab276579b6bcda2a81be79d14c08fb4537fae0022ac6b5",
+      "donor_file": "../v3_rebuild_candidates/araul_prologue_v3_a3_donor_01_padded.png",
+      "donor_sha256": "e4e63996401e5bb61d544b5247fb11e53d855996b1aaa0724ec5cabf2c113399",
+      "composition": {
+        "method": "three chained soft ellipses over A2",
+        "ellipses": [
+          [0.525, 0.42, 0.085, 0.29, 0.82],
+          [0.45, 0.32, 0.13, 0.11, 0.78],
+          [0.335, 0.22, 0.05, 0.10, 0.80]
+        ],
+        "changed_pixels": 161196,
+        "outside_mask_delta_pixels": 0
+      }
+    },
+    {
+      "key": "B2",
+      "base_key": "B1",
+      "file": "araul_prologue_v3_b2_orb_extraction.png",
+      "sha256": "1c146b8598466ae8bec6b975c4b8ceb99efd194a9a4f4f37c9d5460d5aba9975",
+      "donor_file": "../v3_rebuild_candidates/araul_prologue_v3_b2_donor_01_padded.png",
+      "donor_sha256": "503b3cf629e5bfeae6f1a7cae3b8e4ecb302f3ba5b9ff4ee3051d7dbfe8575ef",
+      "composition": {
+        "method": "soft ellipse over the accepted B1 base",
+        "ellipses": [[0.555, 0.31, 0.095, 0.16]],
+        "inner_ratio": 0.78,
+        "changed_pixels": 69970,
+        "outside_mask_delta_pixels": 0
+      }
+    },
+    {
+      "key": "C1",
+      "base_key": "A1",
+      "file": "araul_prologue_v3_c1_eight_rays.png",
+      "sha256": "28500ed98a17d8a47342e9c9209e65653c4ab570a2f88e0fecb783d4658a2c18",
+      "donor_file": "../v3_rebuild_candidates/araul_prologue_v3_c1_donor_02_padded.png",
+      "donor_sha256": "3d0bb5da07ee387f5c0a51924d8968ec182953218e3a71c3efe7b51667582227",
+      "composition": {
+        "method": "positive cyan light composite, eight deterministic ray-core capsules, then queen and official soft masks",
+        "ray_center_pixels": [835, 350],
+        "ray_angles_degrees": [35.5, 75.5, 121.5, 158.5, 199.5, 247.5, 305.5, 356.0],
+        "ray_capsule": {
+          "radius_pixels": [24, 1050],
+          "core_half_width_pixels": [7, 18],
+          "feather_pixels": 4
+        },
+        "character_ellipses": [
+          [0.30, 0.43, 0.17, 0.38, 0.90],
+          [0.61, 0.56, 0.075, 0.19, 0.84]
+        ],
+        "negative_delta_outside_semantic_masks": 0,
+        "ray_annulus_180": [36, 76, 121, 158, 200, 246, 308, 356],
+        "ray_annulus_190": [34, 77, 122, 158, 200, 246, 308, 355]
+      },
+      "rejected_predecessors": [
+        "donor_01: nine-ray read",
+        "candidate_01 and candidate_02: cyan-edge-only transfer left dark ray cores",
+        "candidate_03: old A1 queen face remained above the exhausted queen"
+      ]
+    },
+    {
+      "key": "D2",
+      "base_key": "D1",
+      "file": "araul_prologue_v3_d2_first_strike.png",
+      "sha256": "f6a6a97ea3b449b60746e1007a481acb27b110261fe8abec8f741d4e737c1103",
+      "donor_file": "../v3_rebuild_candidates/araul_prologue_v3_d2_donor_02_padded.png",
+      "donor_sha256": "0bd1acfbd56f2ebc42c83093deb2bfd1fd988e86bc2c103f6a1037ec4eaef76f",
+      "composition": {
+        "method": "positive cyan effect composite plus official face recovery mask; Han Miryang right band restored from D1",
+        "face_ellipse": [0.295, 0.255, 0.065, 0.115, 0.84],
+        "locked_right_band": [0.68, 0.0, 1.0, 1.0],
+        "changed_pixels": 54342,
+        "negative_delta_outside_face_mask": 0,
+        "right_30_percent_delta_pixels": 0,
+        "padding_column_restoration": "Pillow exact RGBA copy of x=1671 from D1 after System.Drawing premultiplied-alpha roundtrip"
+      },
+      "rejected_predecessors": [
+        "donor_01: moved the myeongdu and Han Miryang's right hand instead of limiting the edit to energy effects"
+      ],
+      "review_decision": "accepted",
+      "review_note": "The remaining black possession tendrils are intentional because D2 depicts extraction still in progress; a later motion pass may fade them as the fragment completes its travel."
+    }
+  ],
+  "d1_candidates": [
+    {
+      "key": "D1-candidate-01",
+      "generated_source": "C:/Users/woduq/.codex/generated_images/019fe722-ecb2-73c0-ba14-fd8d80c7ee35/exec-41f029f2-1967-4eef-a81e-72fe30426308.png",
+      "raw_file": "../v3_rebuild_candidates/araul_prologue_v3_d1_candidate_01_raw_1671.png",
+      "raw_resolution": [1671, 941],
+      "raw_sha256": "0271f24cee51d743c3fed836355529f80897974eb1518d68571ab222e174d19f",
+      "review_file": "../v3_rebuild_candidates/araul_prologue_v3_d1_candidate_01_padded.png",
+      "review_resolution": [1672, 941],
+      "review_sha256": "6c3341f993cbcfae298cc9b9ae63db762874fe47876bbb35860e86eed06cc404",
+      "padding": "duplicate the raw image's final column once at x=1671",
+      "han_miryang_measurement": {
+        "hair_top_y_in_crop": 75,
+        "chin_y_in_crop": 200,
+        "boot_sole_y_in_crop": 754,
+        "heads_tall": 5.43,
+        "crop_origin_y": 120
+      },
+      "automatic_checks": {
+        "han_bare_legs_and_black_boots": true,
+        "han_left_shield_right_myeongdu": true,
+        "han_has_no_sword": true,
+        "two_guards_blocked_behind_shield": true,
+        "official_sphere_han_axis_clear": true,
+        "old_v2_donor_used": false
+      },
+      "manual_review_required": [
+        "possessed official proportion under crouched pose",
+        "family style continuity",
+        "D2 edit-space suitability"
+      ],
+      "decision": "accepted_and_promoted_as_D1_base"
+    }
+  ],
+  "review_evidence": {
+    "d1_contact_sheet": "../v3_rebuild_candidates/araul_v3_d1_review_contact_sheet.png",
+    "d1_contact_sheet_sha256": "24ee03bd1d2adb7b91560f045ec8bd122bde7e6cbcb4712fd01e7630fcc1b06c",
+    "derivative_contact_sheet": "../v3_rebuild_candidates/araul_v3_derivatives_review_contact_sheet.png",
+    "derivative_contact_sheet_sha256": "025e07162b65b49ce24cb3a7707549c040630ee97026cf99cf697dc5531c1372",
+    "derivative_contact_sheet_preview": "../v3_rebuild_candidates/araul_v3_derivatives_review_contact_sheet_preview.png",
+    "derivative_contact_sheet_preview_sha256": "74546c5819228b3b3b5852e221526d7d54af0677771677d6df6fd441622c0737",
+    "candidate_validator": "../../../tools/validate_araul_v3_derivative_candidates.ps1",
+    "candidate_validator_result": "PASS"
+  },
+  "production_rules": {
+    "all_generation_calls_reference_both_anchors": true,
+    "old_v2_donors_forbidden": true,
+    "derivatives_require_outside_mask_pixel_restoration": true,
+    "runtime_promotion_before_contact_sheet_approval": false,
+    "commit_authorized": false
+  },
+  "runtime_promotion": {
+    "runtime_manifest": "../../../godot/assets/ui/story/han_miryang_prologue/araul_prologue_v3_manifest.json",
+    "upscale_batch": "godot/.tmp/araul_v3_upscale_batch_20260811",
+    "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+    "model": "realesr-animevideov3",
+    "scale": 2,
+    "single_batch": true,
+    "runtime_resolution": [3344, 1882]
+  }
+}

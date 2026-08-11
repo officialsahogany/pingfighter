@@ -3530,8 +3530,11 @@ This section is intentionally long; use search to find the nearest owner.
   `stage1_han_miryang_prologue_text.gd`
   Own Han Miryang's character-select Stage 1 prologue: transient entry
   eligibility, completion history, the controller-driven viewport overlay,
-  three-plate timeline, first-view versus repeat-view skip lock, skip fade, and
-  seven-locale story copy. Each character-select confirmation replays the
+  eight-plate 48-second timeline, A-family startup prewarm plus B/C/D live
+  streaming with request-time gates and blend-complete per-plate release capped
+  at four resident plates, nonblocking in-flight detachment on skip/teardown,
+  first-view versus repeat-view skip lock, skip fade, and seven-locale
+  CPS-budgeted story copy. Each character-select confirmation replays the
   prologue; completion history controls only the skip lock, while retry/debug
   direct entry stays skipped. Lore semantics and open decisions live in
   `docs/araul_foundation_prologue_canon.md`.

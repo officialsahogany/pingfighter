@@ -1,5 +1,7 @@
 extends SceneTree
 
+# expect-zero-object-leaks
+
 const GameSelectionState := preload("res://scripts/core/game_selection_state.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -44,16 +46,24 @@ class FakeLivePrologue extends RefCounted:
 
 
 class FakeAudio extends RefCounted:
-	var missing_beat_calls := 0
-	var missing_beat_stop_calls := 0
+	var opening_drum_calls := 0
+	var rays_calls := 0
+	var spirit_bell_calls := 0
+	var stop_cue_calls := 0
 	var gain_values: Array[float] = []
 	var clear_gain_calls := 0
 
-	func play_han_miryang_prologue_missing_beat() -> void:
-		missing_beat_calls += 1
+	func play_han_miryang_prologue_opening_drum() -> void:
+		opening_drum_calls += 1
 
-	func stop_han_miryang_prologue_missing_beat() -> void:
-		missing_beat_stop_calls += 1
+	func play_han_miryang_prologue_rays() -> void:
+		rays_calls += 1
+
+	func play_han_miryang_prologue_spirit_bell() -> void:
+		spirit_bell_calls += 1
+
+	func stop_han_miryang_prologue_cues() -> void:
+		stop_cue_calls += 1
 
 	func set_story_cinematic_bgm_gain_db(value: float) -> float:
 		gain_values.append(value)
@@ -85,18 +95,29 @@ func _run() -> void:
 	_verify_transient_entry_request()
 	_verify_seven_locale_copy()
 	_verify_runtime_integration_routes()
+	_verify_asset_contract_gate()
 	_verify_real_audio_transient_gain_contract()
+	_verify_discarded_threaded_texture_contract()
+	_verify_threaded_owner_ignores_cache_shortcuts()
 	_verify_live_intro_frame_advances_before_loading_hold()
 	_verify_progress_roundtrip_and_bom_rewrite()
-	await _verify_character_select_replay_timeline_and_completion_history()
+	_verify_startup_asset_failure_releases_gate()
+	_verify_repeat_skip_discards_cold_stream()
+	_verify_delayed_stream_preserves_fallback()
+	_verify_character_select_replay_timeline_and_completion_history()
 
 	if _failures.is_empty():
 		print("stage1_han_miryang_prologue_smoke: ok")
-		quit(0)
+		call_deferred("_quit_after_fixture_teardown", 0)
 	else:
 		for failure in _failures:
 			push_error(failure)
-		quit(1)
+		call_deferred("_quit_after_fixture_teardown", 1)
+
+
+func _quit_after_fixture_teardown(exit_code: int) -> void:
+	# Give queued host frees one idle turn before the zero-leak exit gate runs.
+	quit(exit_code)
 
 
 func _verify_eligibility_contract() -> void:
@@ -123,14 +144,30 @@ func _verify_seven_locale_copy() -> void:
 	for locale in locales:
 		var copy := PrologueText.get_copy(locale)
 		var segments := PrologueText.get_segments(locale)
+		var elapsed_segments := PrologueText.get_elapsed_segments(locale)
 		_expect(str(copy.get("title", "")) != "", "%s title should not be empty" % locale)
 		_expect(str(copy.get("chapter", "")) != "", "%s chapter should not be empty" % locale)
 		_expect(str(copy.get("skip", "")) != "", "%s skip hint should not be empty" % locale)
 		_expect(segments.size() == 9, "%s should have the nine approved dialogue beats" % locale)
+		_expect(elapsed_segments.size() == 2, "%s should have two sequential elapsed-time cards" % locale)
 		for segment_value in segments:
 			var segment: Dictionary = segment_value if segment_value is Dictionary else {}
 			_expect(float(segment.get("end", 0.0)) > float(segment.get("start", 0.0)), "%s segment timing should advance" % locale)
 			_expect(str(segment.get("text", "")) != "", "%s dialogue should not be empty" % locale)
+			_verify_cps(locale, str(segment.get("text", "")), float(segment.get("end", 0.0)) - float(segment.get("start", 0.0)), "dialogue")
+		for elapsed_value in elapsed_segments:
+			var elapsed_segment: Dictionary = elapsed_value if elapsed_value is Dictionary else {}
+			_verify_cps(locale, str(elapsed_segment.get("text", "")), float(elapsed_segment.get("end", 0.0)) - float(elapsed_segment.get("start", 0.0)), "elapsed card")
+		_verify_cps(locale, str(copy.get("chapter", "")), 2.5, "chapter card")
+	_expect(str(PrologueText.get_copy("zh").get("chapter", "")) == "第一章 — 女王体内之物", "Chinese chapter copy should use the approved natural phrasing")
+	var zh_last: Dictionary = PrologueText.get_segments("zh")[8]
+	_expect(str(zh_last.get("text", "")).find("环击战") >= 0, "Chinese title term should use 环击战, never the generic counterattack spelling")
+
+
+func _verify_cps(locale: String, text: String, duration: float, row_name: String) -> void:
+	var limit := 12.0 if locale in ["ko", "ja", "zh"] else 22.0
+	var cps := text.length() / maxf(duration, 0.001)
+	_expect(cps <= limit + 0.001, "%s %s exceeds %.0f CPS: %.2f" % [locale, row_name, limit, cps])
 
 
 func _verify_runtime_integration_routes() -> void:
@@ -142,6 +179,7 @@ func _verify_runtime_integration_routes() -> void:
 	var boot_prewarm := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 	var entry_prewarm := FileAccess.get_file_as_string("res://scripts/ui/battle_entry_background_prewarm.gd")
 	var teardown := FileAccess.get_file_as_string("res://scripts/core/battle_scene_teardown_lifecycle.gd")
+	var battle_shell := FileAccess.get_file_as_string("res://scripts/core/battle_scene_shell.gd")
 	var game_audio := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
 	var presentation := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd")
 	_expect(catalog.find("stage1_han_miryang_prologue_presentation") >= 0, "stage module catalog should register the prologue presentation")
@@ -153,13 +191,56 @@ func _verify_runtime_integration_routes() -> void:
 	var force_clear_index := input_router.find("_handle_force_stage_clear_shortcut")
 	_expect(prologue_input_index >= 0 and force_clear_index > prologue_input_index, "prologue input gate should run before battle shortcuts")
 	_expect(boot_prewarm.find("prewarm_stage_entry_step(owner)") >= 0, "battle boot should prewarm the prologue before first display")
-	_expect(entry_prewarm.find("HanMiryangPrologue.get_texture_paths") >= 0, "character-select idle prewarm should include all three story plates on every Han Miryang Stage 1 entry")
+	_expect(entry_prewarm.find("HanMiryangPrologue.get_texture_paths") >= 0, "character-select idle prewarm should include only the three A-family plates")
 	_expect(entry_prewarm.find("has_seen(HanMiryangPrologue.CINEMATIC_ID)") < 0, "repeat-view policy should not suppress menu-idle story prewarm")
 	_expect(teardown.find("stage1_han_miryang_prologue_presentation") >= 0, "battle teardown should release the detached prologue host")
-	_expect(game_audio.find("play_han_miryang_prologue_missing_beat") >= 0, "missing-beat chime should route through GameAudio")
+	_expect(battle_shell.find("poll_detached_threaded_texture_results()") >= 0, "battle frames should nonblockingly collect detached ResourceLoader results")
+	_expect(game_audio.find("play_han_miryang_prologue_opening_drum") >= 0, "opening ritual strike should route through GameAudio")
+	_expect(game_audio.find("play_han_miryang_prologue_rays") >= 0, "eight-ray layer should route through GameAudio")
+	_expect(game_audio.find("play_han_miryang_prologue_spirit_bell") >= 0, "first spirit extraction bell should route through GameAudio")
 	_expect(game_audio.find("set_story_cinematic_bgm_gain_db") >= 0, "story BGM gap should route through the shared audio facade")
 	_expect(game_audio.find("clear_story_cinematic_bgm_gain") >= 0, "story BGM gap should expose an explicit transient-gain reset")
 	_expect(presentation.find("set_bgm_volume") < 0, "story BGM gap must not rewrite the user's saved BGM volume")
+	_expect(ProloguePresentation.get_texture_paths().size() == 3, "startup prewarm must contain only A1/A2/A3")
+	_expect(ProloguePresentation.get_all_texture_paths().size() == 8, "the complete cinematic should declare eight plates")
+	for texture_path in ProloguePresentation.get_all_texture_paths():
+		_expect(str(texture_path).contains("/araul_prologue_v3_"), "every runtime story plate should use the accepted V3 art family: %s" % texture_path)
+		_expect(not str(texture_path).contains("_v2_"), "no retired V2 plate should remain in the runtime declaration: %s" % texture_path)
+	var request_times: Array[float] = []
+	var deadlines: Array[float] = []
+	for spec_value in ProloguePresentation.STREAM_TEXTURE_SPECS:
+		var spec: Dictionary = spec_value
+		request_times.append(float(spec.get("request_at", -1.0)))
+		deadlines.append(float(spec.get("deadline", -1.0)))
+	_expect(request_times == [0.0, 12.6, 16.2, 19.6, 23.6], "live plates should open only after the preceding residency slot is released")
+	_expect(deadlines == [12.0, 20.0, 22.0, 27.0, 30.0], "each live plate should retain its approved no-sync deadline")
+	_expect(not ProloguePresentation.LIVE_STREAM_ALLOW_SYNC_FALLBACK, "live streaming should opt out of synchronous fallback")
+	_expect(presentation.count("LIVE_STREAM_ALLOW_SYNC_FALLBACK") == 2, "the no-sync constant should be declared once and consumed by the live stream call")
+	var resource_loader := FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd")
+	_expect(resource_loader.find("allow_sync_fallback") >= 0 and resource_loader.find("fallback_blocked") >= 0, "resource loader should expose a no-sync-fallback live path")
+	_expect(resource_loader.find("discard_threaded_texture_result") >= 0, "live story teardown should discard late threaded texture results")
+	_expect(presentation.find("ProjectResourceLoader.discard_threaded_texture_result(path)") >= 0, "prologue plate release should detach in-flight ownership without caching")
+	_expect(presentation.find("_startup_prewarm_index = 0") < 0, "terminal startup failures must not rewind into an infinite loading loop")
+
+
+func _verify_asset_contract_gate() -> void:
+	var output: Array = []
+	var script_path := ProjectSettings.globalize_path("res://../tools/validate_araul_prologue_asset_contract.ps1")
+	var exit_code := OS.execute(
+		"powershell.exe",
+		[
+			"-NoProfile",
+			"-ExecutionPolicy",
+			"Bypass",
+			"-File",
+			script_path,
+		],
+		output,
+		true
+	)
+	var joined_output := "\n".join(PackedStringArray(output))
+	_expect(exit_code == 0, "prologue asset contract validator failed: %s" % joined_output)
+	_expect(joined_output.find("araul_prologue_asset_contract: PASS") >= 0, "prologue asset validator must emit its completion marker")
 
 
 func _verify_real_audio_transient_gain_contract() -> void:
@@ -170,6 +251,57 @@ func _verify_real_audio_transient_gain_contract() -> void:
 	_expect(is_equal_approx(audio.get_bgm_volume(), user_volume), "story BGM gain must preserve the user's saved BGM volume")
 	audio.clear_story_cinematic_bgm_gain()
 	_expect(is_zero_approx(audio.get_story_cinematic_bgm_gain_db()), "story BGM gain reset should restore neutral gain")
+	var gong := AudioStreamPlayer.new()
+	var rays := AudioStreamPlayer.new()
+	var bell := AudioStreamPlayer.new()
+	audio.han_miryang_prologue_opening_drum_sfx = gong
+	audio.han_miryang_prologue_rays_sfx = rays
+	audio.stage2_speed_defense_block_sfx = bell
+	for player: AudioStreamPlayer in [gong, rays, bell]:
+		player.pitch_scale = 0.72
+	audio.stop_han_miryang_prologue_cues()
+	_expect(is_equal_approx(gong.pitch_scale, 1.0), "prologue cleanup should restore the dedicated opening-drum pitch")
+	_expect(is_equal_approx(rays.pitch_scale, 1.0) and is_equal_approx(bell.pitch_scale, 1.0), "prologue cleanup should restore every cue pitch")
+	for player: AudioStreamPlayer in [gong, rays, bell]:
+		player.free()
+
+
+func _verify_discarded_threaded_texture_contract() -> void:
+	var path := ProloguePresentation.B1_TEXTURE_PATH
+	ProjectResourceLoader.force_threaded_texture_prewarm_in_progress_for_tests(path)
+	ProjectResourceLoader.discard_threaded_texture_result(path)
+	_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == "", "discard must detach an in-flight live plate from the shared slot immediately")
+	_expect(ProjectResourceLoader.is_threaded_texture_detached_for_tests(path), "discarded owner should remain observable only in the nonblocking terminal-result collector")
+	_expect(ProjectResourceLoader.get_cached_texture(path) == null, "discarded live plates must leave no explicit cache reference")
+	ProjectResourceLoader.poll_detached_threaded_texture_results()
+	_expect(not ProjectResourceLoader.is_threaded_texture_detached_for_tests(path), "an invalid simulated worker should leave the detached collector without blocking")
+	ProjectResourceLoader.force_threaded_texture_prewarm_in_progress_for_tests(ProloguePresentation.C1_TEXTURE_PATH)
+	_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == ProloguePresentation.C1_TEXTURE_PATH, "the detached slot must be reusable without waiting for the abandoned worker")
+	ProjectResourceLoader.discard_threaded_texture_result(ProloguePresentation.C1_TEXTURE_PATH)
+	ProjectResourceLoader.poll_detached_threaded_texture_results()
+
+
+func _verify_threaded_owner_ignores_cache_shortcuts() -> void:
+	var path := ProloguePresentation.B2_TEXTURE_PATH
+	var cached_owner_texture := ProjectResourceLoader.load_imported_texture(path)
+	_expect(cached_owner_texture is Texture2D, "owner-cache reverse fixture should decode B2")
+	if not (cached_owner_texture is Texture2D):
+		return
+	ProjectResourceLoader.force_threaded_texture_prewarm_in_progress_for_tests(path)
+	ProjectResourceLoader.store_texture(path, cached_owner_texture)
+	ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"",
+		"",
+		5000,
+		600,
+		false,
+		true,
+		false
+	)
+	_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == "", "a current threaded owner must close its terminal slot instead of returning either cached texture shortcut")
+	ProjectResourceLoader.evict_cached_texture(path)
+	cached_owner_texture = null
 
 
 func _verify_live_intro_frame_advances_before_loading_hold() -> void:
@@ -257,38 +389,160 @@ func _verify_progress_roundtrip_and_bom_rewrite() -> void:
 	_cleanup(path)
 
 
+func _verify_startup_asset_failure_releases_gate() -> void:
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var presentation := ProloguePresentation.new()
+	presentation.set_entry_request_override_for_test(true)
+	var startup_fixture := {
+		PrologueOverlayHost.PLATE_A1: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A1_TEXTURE_PATH),
+		PrologueOverlayHost.PLATE_A2: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A2_TEXTURE_PATH),
+		PrologueOverlayHost.PLATE_A3: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A3_TEXTURE_PATH),
+	}
+	_expect(startup_fixture.values().all(func(value: Variant) -> bool: return value is Texture2D), "startup failure fixture should decode the three real A-family plates")
+	presentation.seed_startup_textures_for_test(startup_fixture)
+	_expect(presentation.prewarm_runtime_nodes_step(owner), "startup failure fixture should prebuild its fullscreen host")
+	presentation.remove_startup_texture_for_test(PrologueOverlayHost.PLATE_A2)
+	_expect(presentation.prewarm_assets_step(), "a terminal missing startup plate should finish prewarm instead of rewinding forever")
+	_expect(not presentation.begin(owner, null), "a missing startup plate should decline the prologue and release battle entry")
+	_expect(presentation.get_completion_reason() == "asset_unavailable", "startup failure should expose the asset_unavailable completion reason")
+	_expect(not presentation.is_active(), "startup asset failure must not leave a loading/input gate active")
+	_expect(presentation.get_host_for_test() == null, "startup asset failure must release its prebuilt fullscreen host")
+	_expect((presentation.get_asset_status().get("startup_ready", {}) as Dictionary).is_empty(), "startup asset failure must release every successfully loaded A-family plate")
+	for path_value in ProloguePresentation.get_texture_paths():
+		_expect(ProjectResourceLoader.get_cached_texture(str(path_value)) == null, "startup asset failure must evict its A-family project-cache references")
+	presentation.tear_down()
+	startup_fixture.clear()
+	presentation = null
+	owner.free()
+	owner = null
+
+
+func _verify_repeat_skip_discards_cold_stream() -> void:
+	var path := _test_path("cold_repeat_skip")
+	_cleanup(path)
+	ProjectResourceLoader.clear_caches()
+	var deterministic_fixture := _build_headless_texture_fixture()
+	var store := StoryCinematicProgressStore.new()
+	store.set_save_path(path)
+	_expect(store.mark_seen(ProloguePresentation.CINEMATIC_ID), "cold repeat-skip fixture should begin as previously viewed")
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var presentation := ProloguePresentation.new()
+	presentation.set_progress_path_for_test(path)
+	presentation.set_entry_request_override_for_test(true)
+	_seed_headless_texture_fixture(presentation, deterministic_fixture)
+	var guard := 0
+	while not presentation.prewarm_stage_entry_step(owner) and guard < 240:
+		guard += 1
+		OS.delay_msec(1)
+	_expect(guard < 240, "cold repeat-skip fixture should prewarm A family")
+	ProjectResourceLoader.evict_cached_texture(ProloguePresentation.B1_TEXTURE_PATH)
+	_expect(presentation.begin(owner, null), "previously viewed prologue should begin the cold repeat-skip fixture")
+	_expect(is_zero_approx(presentation.get_skip_lock_seconds()), "previously viewed prologue should allow first-frame skip")
+	if _is_headless_runtime():
+		var headless_status: Dictionary = presentation.get_asset_status()
+		_expect(int(headless_status.get("stream_completed_count", 0)) == 1, "headless repeat-skip should materialize only due B1 on its first frame")
+		_expect(int(headless_status.get("resident_count", 0)) == 4, "headless first frame should own only A1/A2/A3/B1")
+		_expect(int(headless_status.get("resident_peak", 0)) == 4, "headless staged fixture should seal the four-plate logical peak")
+	else:
+		_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == ProloguePresentation.B1_TEXTURE_PATH, "cold repeat begin should own a threaded B1 request")
+	var skip_event := InputEventKey.new()
+	skip_event.pressed = true
+	skip_event.keycode = KEY_SPACE
+	_expect(presentation.handle_input(skip_event, owner, null), "cold repeat fixture should accept first-frame Space")
+	presentation.update(ProloguePresentation.SKIP_FADE_SECONDS + 0.05, owner, null)
+	_expect(ProjectResourceLoader.get_threaded_texture_prewarm_path_for_tests() == "", "first-frame skip must leave no shared threaded owner")
+	_expect(ProjectResourceLoader.get_cached_texture(ProloguePresentation.B1_TEXTURE_PATH) == null, "skipped B1 must leave no explicit cache reference")
+	if not _is_headless_runtime():
+		_expect(ProjectResourceLoader.is_threaded_texture_detached_for_tests(ProloguePresentation.B1_TEXTURE_PATH), "first-frame skip should route B1 to the detached result collector")
+		var detached_guard := 0
+		while ProjectResourceLoader.is_threaded_texture_detached_for_tests(ProloguePresentation.B1_TEXTURE_PATH) and detached_guard < 240:
+			ProjectResourceLoader.poll_detached_threaded_texture_results()
+			detached_guard += 1
+			OS.delay_msec(1)
+		_expect(detached_guard < 240, "detached B1 should reach a terminal state without occupying the shared slot")
+	_expect(ProjectResourceLoader.get_cached_texture(ProloguePresentation.B1_TEXTURE_PATH) == null, "collected skipped B1 must not re-enter the explicit cache")
+	presentation.tear_down()
+	presentation = null
+	store = null
+	deterministic_fixture.clear()
+	owner.free()
+	owner = null
+	_cleanup(path)
+
+
+func _verify_delayed_stream_preserves_fallback() -> void:
+	if not _is_headless_runtime():
+		return
+	var path := _test_path("delayed_stream")
+	_cleanup(path)
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var fixture := _build_headless_texture_fixture()
+	var presentation := ProloguePresentation.new()
+	presentation.set_progress_path_for_test(path)
+	presentation.set_entry_request_override_for_test(true)
+	presentation.seed_startup_textures_for_test(fixture.get("startup", {}))
+	presentation.set_stream_texture_factory_for_test(Callable(self, "_make_delayed_stream_texture_for_test"))
+	_expect(presentation.prewarm_runtime_nodes_step(owner), "delayed stream fixture should prebuild its host")
+	_expect(presentation.begin(owner, null), "delayed stream fixture should begin")
+	_advance_presentation_to(presentation, 19.7, owner, null)
+	var delayed_status: Dictionary = presentation.get_asset_status()
+	var delayed_misses: Dictionary = delayed_status.get("deadline_misses", {})
+	var delayed_host := presentation.get_host_for_test()
+	_expect(delayed_misses.size() == 1 and delayed_misses.has(PrologueOverlayHost.PLATE_B1), "only delayed B1 should miss its deadline")
+	_expect(int(delayed_status.get("stream_completed_count", 0)) == 0, "a nonterminal B1 must block later sequential requests")
+	_expect(int(delayed_status.get("resident_count", 0)) == 1, "A3 should be the sole fallback after the first two blends finish")
+	if delayed_host != null:
+		var delayed_ready: Dictionary = delayed_host.get_snapshot().get("plate_ready", {})
+		_expect(bool(delayed_ready.get("a3", false)) and not bool(delayed_ready.get("b1", false)), "late B1 must keep A3 visible instead of producing a black frame")
+	_advance_presentation_to(presentation, 20.1, owner, null)
+	var recovered_status: Dictionary = presentation.get_asset_status()
+	_expect(int(recovered_status.get("stream_completed_count", 0)) == 4, "one catch-up update should materialize every due plate through D1")
+	_expect(int(recovered_status.get("resident_count", 0)) == 4, "late recovery should still respect the four-plate resident ceiling")
+	_expect(int(recovered_status.get("resident_peak", 0)) <= 4, "late recovery must never create a transient fifth resident plate")
+	_expect((recovered_status.get("deadline_misses", {}) as Dictionary).size() == 1, "late recovery should retain only B1's diagnostic miss")
+	if delayed_host != null:
+		var recovered_ready: Dictionary = delayed_host.get_snapshot().get("plate_ready", {})
+		_expect(not bool(recovered_ready.get("a3", true)) and bool(recovered_ready.get("b1", false)), "late B1 readiness should release the obsolete A3 fallback")
+	presentation.tear_down()
+	delayed_host = null
+	presentation = null
+	fixture.clear()
+	owner.free()
+	owner = null
+	_cleanup(path)
+
+
 func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	var path := _test_path("presentation")
 	_cleanup(path)
-	var first_texture := ProjectResourceLoader.load_texture(ProloguePresentation.FIRST_TEXTURE_PATH)
-	var strike_texture := ProjectResourceLoader.load_texture(ProloguePresentation.STRIKE_TEXTURE_PATH)
-	var second_texture := ProjectResourceLoader.load_texture(ProloguePresentation.SECOND_TEXTURE_PATH)
-	_expect(first_texture != null, "coronation key art should load")
-	_expect(strike_texture != null, "post-strike key art without the tablet should load")
-	_expect(second_texture != null, "missing-beat key art should load")
-	if first_texture != null:
-		_expect(first_texture.get_size() == Vector2(3344.0, 1882.0), "coronation key art should use the accepted 2x cinematic resolution")
-	if strike_texture != null:
-		_expect(strike_texture.get_size() == Vector2(3344.0, 1882.0), "post-strike key art should use the accepted 2x cinematic resolution")
-	if second_texture != null:
-		_expect(second_texture.get_size() == Vector2(3344.0, 1882.0), "missing-beat key art should use the accepted 2x cinematic resolution")
+	ProjectResourceLoader.clear_caches()
+	for texture_path in ProloguePresentation.get_all_texture_paths():
+		var image := Image.load_from_file(ProjectSettings.globalize_path(texture_path))
+		_expect(image != null and not image.is_empty(), "prologue plate source should decode: %s" % texture_path)
+		if image != null and not image.is_empty():
+			_expect(image.get_size() == Vector2i(3344, 1882), "prologue plate should use the accepted 2x cinematic resolution: %s" % texture_path)
+	var deterministic_fixture := _build_headless_texture_fixture()
 
 	var owner := FakeOwner.new()
 	root.add_child(owner)
-	await process_frame
 	var audio := FakeAudio.new()
 	var registry := FakeRegistry.new()
 	registry.audio = audio
 	var presentation := ProloguePresentation.new()
 	presentation.set_progress_path_for_test(path)
 	presentation.set_entry_request_override_for_test(true)
+	_seed_headless_texture_fixture(presentation, deterministic_fixture)
 	var guard := 0
-	while not presentation.prewarm_stage_entry_step(owner) and guard < 12:
+	while not presentation.prewarm_stage_entry_step(owner) and guard < 240:
 		guard += 1
-		await process_frame
-	_expect(guard < 12, "three prologue assets and host should prewarm within the bounded smoke loop")
+		OS.delay_msec(1)
+	_expect(guard < 240, "A-family assets and host should prewarm within the bounded smoke loop")
 	_expect(presentation.begin(owner, registry), "character-selected Han Miryang entry should begin the prologue")
 	_expect(presentation.is_active(), "begun prologue should block the battle")
+	_expect(audio.opening_drum_calls == 1, "the prologue should open with one ceremonial strike")
 	_expect(is_equal_approx(presentation.get_skip_lock_seconds(), ProloguePresentation.FIRST_VIEW_SKIP_LOCK_SECONDS), "first viewing should protect the opening input for 1.2 seconds")
 	var host := presentation.get_host_for_test()
 	_expect(host != null, "prologue should attach a viewport overlay host")
@@ -296,10 +550,16 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		var start_snapshot: Dictionary = host.get_snapshot()
 		_expect(bool(start_snapshot.get("visible", false)), "prologue host should be visible")
 		_expect(not bool(start_snapshot.get("process_enabled", true)), "prologue host should remain controller-driven")
-		_expect(bool(start_snapshot.get("first_texture_ready", false)), "first cinematic texture should be bound")
-		_expect(bool(start_snapshot.get("strike_texture_ready", false)), "post-strike cinematic texture should be bound")
-		_expect(bool(start_snapshot.get("second_texture_ready", false)), "second cinematic texture should be bound")
+		var plate_ready: Dictionary = start_snapshot.get("plate_ready", {})
+		_expect(bool(plate_ready.get("a1", false)), "A1 should be bound before playback")
+		_expect(bool(plate_ready.get("a2", false)), "A2 should be bound before playback")
+		_expect(bool(plate_ready.get("a3", false)), "A3 should be bound before playback")
+		_expect(bool(plate_ready.get("b1", false)), "only due B1 should materialize beside the startup family")
+		_expect(not bool(plate_ready.get("b2", false)), "future B2 must not materialize before its 12.6-second request gate")
 		_expect(not bool(start_snapshot.get("skip_allowed", true)), "first frame should hide the skip affordance during the first-view lock")
+	var start_asset_status: Dictionary = presentation.get_asset_status()
+	_expect(int(start_asset_status.get("resident_count", 0)) == 4, "playback should begin with exactly four logical resident plates")
+	_expect(int(start_asset_status.get("resident_peak", 0)) == 4, "first-frame B1 materialization should establish, not exceed, the four-plate peak")
 
 	var skip_event := InputEventKey.new()
 	skip_event.pressed = true
@@ -313,80 +573,183 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	presentation.set_progress_path_for_test(path)
 	_cleanup(path)
 	presentation.set_entry_request_override_for_test(true)
+	_seed_headless_texture_fixture(presentation, deterministic_fixture)
 	guard = 0
-	while not presentation.prewarm_stage_entry_step(owner) and guard < 12:
+	while not presentation.prewarm_stage_entry_step(owner) and guard < 240:
 		guard += 1
-		await process_frame
+		OS.delay_msec(1)
 	_expect(presentation.begin(owner, registry), "fresh first-view fixture should restart after the input-lock leg")
-	presentation.update(1.21, owner, registry)
-	presentation.update(14.84, owner, registry)
-	presentation.update(0.95, owner, registry)
+	_advance_presentation_to(presentation, 12.54, owner, registry)
+	_expect(not audio.gain_values.is_empty() and audio.gain_values.min() <= -9.9, "tablet reveal should apply the first BGM duck stage")
+	_advance_presentation_to(presentation, 21.64, owner, registry)
+	_expect(audio.gain_values.min() <= -79.0, "queen's resistance should create the 21.6–23.4 full-silence window")
+	_advance_presentation_to(presentation, 27.44, owner, registry)
+	_expect(audio.rays_calls == 1, "the eight-ray expansion should fire one separate spiritual layer")
+	_advance_presentation_to(presentation, 33.49, owner, registry)
+	_expect(audio.spirit_bell_calls == 1, "the first extraction should fire one fixed-pitch bell")
+	var asset_status := presentation.get_asset_status()
+	var streamed: Dictionary = asset_status.get("stream_ready", {})
+	_expect(int(asset_status.get("stream_completed_count", 0)) == 5, "the deterministic controller fixture should materialize all five stream plates by D2")
+	_expect((asset_status.get("deadline_misses", {}) as Dictionary).is_empty(), "the on-time staged fixture should meet every live plate deadline")
+	_expect(int(asset_status.get("resident_peak", 0)) == 4, "staged materialization should never exceed four logical resident plates")
+	_expect(int(asset_status.get("resident_count", 0)) == 2, "D1 and D2 alone should remain during their final blend")
+	var released_keys: Dictionary = asset_status.get("released_plate_keys", {})
+	_expect(released_keys.size() == 6 and released_keys.has(PrologueOverlayHost.PLATE_C1), "every plate through C1 should release immediately after its completed replacement blend")
 	host = presentation.get_host_for_test()
 	if host != null:
-		var missing_beat_snapshot: Dictionary = host.get_snapshot()
-		_expect(str(missing_beat_snapshot.get("speaker", "")) == "한미량", "17-second beat should show Han Miryang's missing-beat line")
-		_expect(str(missing_beat_snapshot.get("subtitle", "")).find("한 박") >= 0, "missing-beat subtitle should contain the core mystery")
-	_expect(audio.missing_beat_calls == 1, "the missing beat should fire one fixed-pitch chime through GameAudio")
-	_expect(not audio.gain_values.is_empty() and audio.gain_values.min() <= -79.0, "the missing beat should create an audible BGM gap")
+		var extraction_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(extraction_snapshot.get("speaker", "")) == "여왕 해원", "post-strike beat should return to Queen Haewon")
+		_expect(str(extraction_snapshot.get("subtitle", "")).find("사람은 남겨라") >= 0, "post-strike subtitle should state the host-saving rule")
+		var ready_after_stream: Dictionary = extraction_snapshot.get("plate_ready", {})
+		_expect(not bool(ready_after_stream.get("a1", true)), "A1 should release after the A2 blend")
+		_expect(not bool(ready_after_stream.get("a3", true)), "A3 should release after the B1 blend")
+		_expect(not bool(ready_after_stream.get("b1", true)), "B1 should release after the B2 blend")
+		_expect(not bool(ready_after_stream.get("c1", true)), "C1 should release after the D1 blend")
+		_expect(bool(ready_after_stream.get("d1", false)), "D1 should remain resident for the first extraction")
 
 	_expect(presentation.handle_input(skip_event, owner, registry), "Space should request a prologue skip after the guard")
 	presentation.update(ProloguePresentation.SKIP_FADE_SECONDS + 0.05, owner, registry)
 	_expect(not presentation.is_active(), "skip fade should complete and release the battle gate")
 	_expect(presentation.get_completion_reason() == "skip", "manual skip should retain its completion reason")
-	_expect(audio.clear_gain_calls > 0 and audio.missing_beat_stop_calls > 0, "skip should restore the BGM bus and stop the story chime")
+	_expect(audio.clear_gain_calls > 0 and audio.stop_cue_calls > 0, "skip should restore the BGM bus and stop every story cue")
 	var persisted := StoryCinematicProgressStore.new()
 	persisted.set_save_path(path)
 	_expect(persisted.has_seen(ProloguePresentation.CINEMATIC_ID), "manual skip should retain completion history")
 
-	presentation.set_entry_request_override_for_test(true)
-	_expect(presentation.begin(owner, registry), "a new character-select confirmation should replay the viewed prologue")
-	_expect(is_zero_approx(presentation.get_skip_lock_seconds()), "repeat viewing should allow an immediate skip")
-	_expect(presentation.handle_input(skip_event, owner, registry), "repeat viewing should accept Space on its first frame")
-	presentation.update(ProloguePresentation.SKIP_FADE_SECONDS + 0.05, owner, registry)
+	var replay := ProloguePresentation.new()
+	replay.set_progress_path_for_test(path)
+	replay.set_entry_request_override_for_test(true)
+	_seed_headless_texture_fixture(replay, deterministic_fixture)
+	guard = 0
+	while not replay.prewarm_stage_entry_step(owner) and guard < 240:
+		guard += 1
+		OS.delay_msec(1)
+	_expect(replay.begin(owner, registry), "a new character-select confirmation should replay the viewed prologue")
+	_expect(is_zero_approx(replay.get_skip_lock_seconds()), "repeat viewing should allow an immediate skip")
+	_expect(replay.handle_input(skip_event, owner, registry), "repeat viewing should accept Space on its first frame")
+	replay.update(ProloguePresentation.SKIP_FADE_SECONDS + 0.05, owner, registry)
 
 	var natural := ProloguePresentation.new()
 	natural.set_progress_path_for_test(path)
 	natural.set_entry_request_override_for_test(true)
+	_seed_headless_texture_fixture(natural, deterministic_fixture)
 	guard = 0
-	while not natural.prewarm_stage_entry_step(owner) and guard < 12:
+	while not natural.prewarm_stage_entry_step(owner) and guard < 240:
 		guard += 1
-		await process_frame
+		OS.delay_msec(1)
 	_expect(natural.begin(owner, registry), "viewed prologue should still support a full natural replay")
-	natural.update(35.0, owner, registry)
+	_advance_presentation_to(natural, 39.5, owner, registry)
 	var natural_host := natural.get_host_for_test()
 	if natural_host != null:
-		var chapter_snapshot: Dictionary = natural_host.get_snapshot()
-		_expect(str(chapter_snapshot.get("title", "")).find("제1장") >= 0, "35-second mark should reveal the chapter card")
-		_expect(bool(chapter_snapshot.get("title_centered", false)), "chapter card should be centered")
-		_expect(str(chapter_snapshot.get("subtitle", "")) == "", "chapter card should begin after the final dialogue ends")
-	natural.update(2.6, owner, registry)
+		var first_elapsed_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(bool(first_elapsed_snapshot.get("elapsed_card_visible", false)), "39.4-second mark should show the first elapsed-time card")
+		_expect(str(first_elapsed_snapshot.get("subtitle", "")).find("여덟 줄기") >= 0, "first elapsed-time card should state where the eight beams went")
+	_advance_presentation_to(natural, 42.3, owner, registry)
 	if natural_host != null:
-		_expect(float(natural_host.get_snapshot().get("fade_alpha", 0.0)) > 0.0, "natural completion should fade during the final half-second")
-	natural.update(0.4, owner, registry)
-	_expect(not natural.is_active() and natural.get_completion_reason() == "natural", "38-second natural completion should release the battle gate")
+		_expect(str(natural_host.get_snapshot().get("subtitle", "")).find("세 해 뒤") >= 0, "42.2-second mark should replace, not stack, the elapsed card")
+	_advance_presentation_to(natural, 45.1, owner, registry)
+	if natural_host != null:
+		var chapter_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(str(chapter_snapshot.get("title", "")).find("제1장") >= 0, "45-second mark should reveal the chapter card")
+		_expect(bool(chapter_snapshot.get("title_centered", false)), "chapter card should be centered")
+		_expect(bool(chapter_snapshot.get("title_wrap_enabled", false)), "long localized chapter cards should support two-line wrapping")
+		_expect(str(chapter_snapshot.get("subtitle", "")) == "", "chapter card should begin after both elapsed cards end")
+	_advance_presentation_to(natural, 47.7, owner, registry)
+	if natural_host != null:
+		var fade_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(float(fade_snapshot.get("fade_alpha", 0.0)) > 0.0, "natural completion should fade during the final half-second")
+		_expect(float(fade_snapshot.get("fade_cover_alpha", 0.0)) > 0.0, "natural fade should use the screen-level cover")
+		_expect(bool(fade_snapshot.get("fade_cover_above_title", false)), "natural fade cover should sit above the chapter label")
+	_advance_presentation_to(natural, 48.2, owner, registry)
+	_expect(not natural.is_active() and natural.get_completion_reason() == "natural", "48-second natural completion should release the battle gate")
 
-	if first_texture != null and strike_texture != null and second_texture != null:
+	var startup_fixture := {
+		PrologueOverlayHost.PLATE_A1: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A1_TEXTURE_PATH),
+		PrologueOverlayHost.PLATE_A2: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A2_TEXTURE_PATH),
+		PrologueOverlayHost.PLATE_A3: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A3_TEXTURE_PATH),
+	}
+	if startup_fixture.values().all(func(value: Variant) -> bool: return value is Texture2D):
 		var font_host: Control = PrologueOverlayHost.new()
 		owner.add_child(font_host)
 		font_host.sync_layout(Vector2(1920.0, 1080.0))
-		_expect(font_host.begin(first_texture, strike_texture, second_texture, PrologueText.get_copy("ja")), "Japanese font fixture should begin")
+		_expect(font_host.begin(startup_fixture, PrologueText.get_copy("ja")), "Japanese font fixture should begin")
 		_expect(bool(font_host.get_snapshot().get("uses_fallback_font", false)), "Japanese labels should use ThemeDB fallback glyphs")
-		_expect(font_host.begin(first_texture, strike_texture, second_texture, PrologueText.get_copy("zh")), "Chinese font fixture should begin")
+		font_host.sync_layout(Vector2(2560.0, 1440.0))
+		_expect(font_host.begin(startup_fixture, PrologueText.get_copy("zh")), "Chinese font fixture should begin")
 		_expect(bool(font_host.get_snapshot().get("uses_fallback_font", false)), "Chinese labels should use ThemeDB fallback glyphs")
 		font_host.tear_down(true)
 
 	natural.tear_down()
+	replay.tear_down()
 	presentation.tear_down()
+	persisted = null
+	skip_event = null
+	host = null
+	natural_host = null
+	start_asset_status.clear()
+	asset_status.clear()
+	streamed.clear()
+	released_keys.clear()
+	startup_fixture.clear()
+	deterministic_fixture.clear()
+	natural = null
+	replay = null
+	presentation = null
 	registry.audio = null
 	registry = null
 	audio = null
-	owner.queue_free()
-	await process_frame
+	owner.free()
+	owner = null
 	_cleanup(path)
 
 
+func _build_headless_texture_fixture() -> Dictionary:
+	if not _is_headless_runtime():
+		return {}
+	var startup: Dictionary = {}
+	for spec_value in ProloguePresentation.STARTUP_TEXTURE_SPECS:
+		var spec: Dictionary = spec_value
+		var path := str(spec.get("path", ""))
+		var texture := ProjectResourceLoader.load_imported_texture(path)
+		_expect(texture != null, "headless startup fixture should decode %s" % path)
+		if texture != null:
+			startup[str(spec.get("key", ""))] = texture
+	return {"startup": startup}
+
+
+func _seed_headless_texture_fixture(presentation: Object, fixture: Dictionary) -> void:
+	if not _is_headless_runtime() or presentation == null:
+		return
+	presentation.seed_startup_textures_for_test(fixture.get("startup", {}))
+	presentation.set_stream_texture_factory_for_test(Callable(self, "_make_stream_texture_for_test"))
+
+
+func _make_stream_texture_for_test(_plate_key: String, _elapsed: float) -> Texture2D:
+	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.16, 0.28, 0.34, 1.0))
+	return ImageTexture.create_from_image(image)
+
+
+func _make_delayed_stream_texture_for_test(plate_key: String, elapsed: float) -> Dictionary:
+	if plate_key == PrologueOverlayHost.PLATE_B1 and elapsed < 20.0:
+		return {"done": false}
+	return {"done": true, "texture": _make_stream_texture_for_test(plate_key, elapsed)}
+
+
+func _advance_presentation_to(presentation: Object, target_elapsed: float, owner: Object, registry: Object) -> void:
+	if presentation == null:
+		return
+	while presentation.is_active() and presentation.get_elapsed() + 0.0001 < target_elapsed:
+		var delta := minf(0.1, target_elapsed - presentation.get_elapsed())
+		presentation.update(delta, owner, registry)
+
+
+func _is_headless_runtime() -> bool:
+	return OS.get_cmdline_args().has("--headless") or DisplayServer.get_name().to_lower().find("headless") >= 0
+
+
 func _test_path(suffix: String) -> String:
-	return "user://stage1_han_miryang_prologue_smoke_%s_%d.cfg" % [suffix, Time.get_ticks_usec()]
+	return "res://.tmp/stage1_han_miryang_prologue_smoke_%s_%d.cfg" % [suffix, Time.get_ticks_usec()]
 
 
 func _cleanup(path: String) -> void:

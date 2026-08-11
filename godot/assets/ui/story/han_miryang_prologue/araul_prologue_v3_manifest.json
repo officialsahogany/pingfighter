@@ -1,0 +1,132 @@
+{
+  "schema": "araul-prologue-art-v3-runtime",
+  "version": 1,
+  "date": "2026-08-11",
+  "status": "runtime_promoted_and_vulkan_qa_passed",
+  "runtime_authority": true,
+  "source_resolution": [1672, 941],
+  "runtime_resolution": [3344, 1882],
+  "source_directory": "art_sources/araul_prologue/final_v3",
+  "source_manifest": "art_sources/araul_prologue/final_v3/araul_prologue_art_v3_source_manifest.json",
+  "source_manifest_sha256": "8cd608cb31ef44afc9b781869a2fcd37807f93e5843a1cd449c066395baf8694",
+  "asset_contract_validator": "tools/validate_araul_prologue_asset_contract.ps1",
+  "source_derivative_validator": "tools/validate_araul_v3_derivative_candidates.ps1",
+  "plates": [
+    {
+      "key": "A1",
+      "source_file": "araul_a1_v35_proportion_fix.png",
+      "runtime_file": "araul_prologue_v3_a1_coronation.png",
+      "source_sha256": "223113ebd30438becee1ce3a15254c3ad2292939713d6757de845cc16bd013a4",
+      "runtime_sha256": "9de37df1d0aa83c8202ed66a77724b8dbf96fc9f112ae17d19786940b9254a65",
+      "base_key": null
+    },
+    {
+      "key": "A2",
+      "source_file": "araul_prologue_v3_a2_tablet.png",
+      "runtime_file": "araul_prologue_v3_a2_tablet.png",
+      "source_sha256": "b112d6012cc79ae4b12858f806623547422049bfb963e8719e5124edaa9e599c",
+      "runtime_sha256": "6ae62977c3ad888ee3869e6e1934d86acf555e24f985274ff9afabf7f0c154c7",
+      "base_key": "A1",
+      "mask": "ellipse(center=0.525,0.42 radius=0.085,0.29)",
+      "changed_pixels": 110358,
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "A3",
+      "source_file": "araul_prologue_v3_a3_spirit.png",
+      "runtime_file": "araul_prologue_v3_a3_spirit.png",
+      "source_sha256": "f14cde3b48b7b5d5b5ab276579b6bcda2a81be79d14c08fb4537fae0022ac6b5",
+      "runtime_sha256": "3f2def1d95a505f24ec12c06f4579ae673e8aa50f36e1ce3c371eb20c705a792",
+      "base_key": "A2",
+      "mask": "ellipse_union[(0.525,0.42,0.085,0.29),(0.45,0.32,0.13,0.11),(0.335,0.22,0.05,0.10)]",
+      "changed_pixels": 161196,
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "B1",
+      "source_file": "araul_b1_v35_serious_tone_test.png",
+      "runtime_file": "araul_prologue_v3_b1_resistance.png",
+      "source_sha256": "5cb66ffcd9fc43ebe1e94dbf9dc622579ef55de4582f543125fd6423a733893c",
+      "runtime_sha256": "735560a28cff70bca99bc3e32a445c9a33e14a8a84061c40f840ca47c19ea52c",
+      "base_key": null
+    },
+    {
+      "key": "B2",
+      "source_file": "araul_prologue_v3_b2_orb_extraction.png",
+      "runtime_file": "araul_prologue_v3_b2_orb_extraction.png",
+      "source_sha256": "1c146b8598466ae8bec6b975c4b8ceb99efd194a9a4f4f37c9d5460d5aba9975",
+      "runtime_sha256": "5e1496d5c64860a01169015f7a73cd2f8b4d1964781ba4c6e37df21c88ffef9b",
+      "base_key": "B1",
+      "mask": "ellipse(center=0.555,0.31 radius=0.095,0.16)",
+      "changed_pixels": 69970,
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "C1",
+      "source_file": "araul_prologue_v3_c1_eight_rays.png",
+      "runtime_file": "araul_prologue_v3_c1_eight_rays.png",
+      "source_sha256": "28500ed98a17d8a47342e9c9209e65653c4ab570a2f88e0fecb783d4658a2c18",
+      "runtime_sha256": "49e8e87780c52a4fdd07f667fd909d6c3b86aa665a8865978f11ef63789f1bb6",
+      "base_key": "A1",
+      "outside_policy": "no channel decrease outside the eight ray capsules and the queen/official recovery ellipses",
+      "qa": {
+        "ray_center_pixels": [835, 350],
+        "ray_annulus_180_centers_degrees": [36, 76, 121, 158, 200, 246, 308, 356],
+        "ray_annulus_190_centers_degrees": [34, 77, 122, 158, 200, 246, 308, 355],
+        "ray_count_each_annulus": 8,
+        "negative_delta_outside_semantic_masks": 0
+      }
+    },
+    {
+      "key": "D1",
+      "source_file": "araul_prologue_v3_d1_confrontation.png",
+      "runtime_file": "araul_prologue_v3_d1_confrontation.png",
+      "source_sha256": "6c3341f993cbcfae298cc9b9ae63db762874fe47876bbb35860e86eed06cc404",
+      "runtime_sha256": "f7116b9823d8e1761598963ff770710858bd7cd6060411761ed532819cf5a261",
+      "base_key": null
+    },
+    {
+      "key": "D2",
+      "source_file": "araul_prologue_v3_d2_first_strike.png",
+      "runtime_file": "araul_prologue_v3_d2_first_strike.png",
+      "source_sha256": "f6a6a97ea3b449b60746e1007a481acb27b110261fe8abec8f741d4e737c1103",
+      "runtime_sha256": "757b28b30b2ff0dca6a958a73d684d8357d14284b6e660401e1806ef19942643",
+      "base_key": "D1",
+      "outside_policy": "no channel decrease outside the official face recovery ellipse; rightmost 30 percent is pixel-locked",
+      "qa": {
+        "negative_delta_outside_face_mask": 0,
+        "right_30_percent_delta_pixels": 0,
+        "remaining_black_tendrils": "intentional; extraction is still in progress"
+      }
+    }
+  ],
+  "upscale": {
+    "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+    "model": "realesr-animevideov3",
+    "scale": 2,
+    "single_batch": true,
+    "batch_directory": "godot/.tmp/araul_v3_upscale_batch_20260811"
+  },
+  "runtime_import": {
+    "compress_mode": 2,
+    "high_quality": true,
+    "vram_texture": true,
+    "mipmaps": true,
+    "formats": ["s3tc_bptc", "etc2_astc"]
+  },
+  "qa": {
+    "source_contract": "PASS",
+    "vulkan_capture": "PASS",
+    "vulkan_capture_directory": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_1266238_36936",
+    "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v3/v3_vulkan_contact_sheet.png",
+    "durable_contact_sheet_sha256": "1bf2231dcf9fc0f64fad58307d8c3396e6262937d59700a9afe1a391b54c885e",
+    "durable_metadata": "docs/qa_evidence/araul_prologue_v3/v3_vulkan_capture.json",
+    "threaded_preflight": "PASS",
+    "threaded_preflight_clean_runs": 2,
+    "observed_threaded_paths": 8,
+    "stream_paths_completed": 5,
+    "resident_plate_peak": 4,
+    "deadline_misses": 0
+  },
+  "commit_authorized": false
+}

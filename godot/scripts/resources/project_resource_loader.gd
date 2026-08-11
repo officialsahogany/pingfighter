@@ -9,6 +9,7 @@ static var _threaded_texture_prewarm_poll_count: int = 0
 static var _threaded_texture_prewarm_stale_warning_sent: bool = false
 static var _threaded_texture_wait_started_msec_by_path: Dictionary = {}
 static var _threaded_texture_wait_poll_count_by_path: Dictionary = {}
+static var _detached_threaded_texture_paths: Dictionary = {}
 static var _force_threaded_texture_prewarm_in_progress_for_tests: bool = false
 static var _threaded_audio_prewarm_path: String = ""
 static var _threaded_audio_prewarm_started_msec: int = 0
@@ -18,9 +19,10 @@ static var _warned_paths: Dictionary = {}
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
 # Hard upper bound: a threaded load that never reaches LOADED/FAILED (stuck
-# status or evicted request) is abandoned at this bound and resolved
-# synchronously, so the prewarm loop -- and any caller waiting on done == true --
-# can never hang. A different path blocked behind the shared slot uses its own
+# status or evicted request) is abandoned at this bound and normally resolved
+# synchronously. Live presentation callers can explicitly forbid that fallback;
+# they keep their previous plate until completion or teardown instead of hitching.
+# A different path blocked behind the shared slot uses its own
 # wait clock and may resolve itself synchronously; it must not drain the slot
 # owner's in-progress worker on the caller's timeout.
 #
@@ -59,6 +61,7 @@ static func has_threaded_prewarm_in_flight() -> bool:
 # first frame instead of throttling the whole loading batch until a cross-path
 # poll expires it.
 static func try_resolve_finished_threaded_prewarm() -> void:
+	poll_detached_threaded_texture_results()
 	if _threaded_texture_prewarm_path == "":
 		return
 	if _force_threaded_texture_prewarm_in_progress_for_tests:
@@ -67,9 +70,10 @@ static func try_resolve_finished_threaded_prewarm() -> void:
 	var status := ResourceLoader.load_threaded_get_status(_threaded_texture_prewarm_path, progress_values)
 	match status:
 		ResourceLoader.THREAD_LOAD_LOADED:
-			var resource: Resource = ResourceLoader.load_threaded_get(_threaded_texture_prewarm_path)
+			var path := _threaded_texture_prewarm_path
+			var resource: Resource = ResourceLoader.load_threaded_get(path)
 			if resource is Texture2D:
-				store_texture(_threaded_texture_prewarm_path, resource)
+				store_texture(path, resource)
 			_clear_threaded_texture_prewarm()
 		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 			_clear_threaded_texture_prewarm()
@@ -149,6 +153,46 @@ static func store_texture(path: String, texture: Texture2D) -> void:
 	_texture_cache[path] = texture
 
 
+static func evict_cached_texture(path: String) -> void:
+	# Fullscreen story plates are intentionally streamed in families. Removing
+	# the explicit project cache reference lets their Texture2D release after
+	# the presentation host drops the same plate; unique story paths have no
+	# other live consumer during battle.
+	if path != "":
+		_texture_cache.erase(path)
+
+
+static func discard_threaded_texture_result(path: String) -> void:
+	# A cinematic can end while its next family is still loading. Drop the
+	# explicit cache and immediately detach this path from the project-owned
+	# shared slot. ResourceLoader has no cancellation API, so the engine worker
+	# may finish independently; keeping the local slot attached would let a
+	# wedged worker block unrelated mid-battle texture requests indefinitely.
+	if path == "":
+		return
+	_texture_cache.erase(path)
+	if _threaded_texture_prewarm_path == path:
+		_detached_threaded_texture_paths[path] = true
+		_clear_threaded_texture_prewarm()
+
+
+static func poll_detached_threaded_texture_results() -> void:
+	# Detached workers do not own the bounded shared slot, but their terminal
+	# result still has to be collected or Godot retains its internal RefCounted
+	# request until process exit. This poll is nonblocking and runs once per
+	# battle frame; a genuinely wedged worker remains isolated from new owners.
+	for path_value in _detached_threaded_texture_paths.keys():
+		var path := str(path_value)
+		var progress_values: Array = []
+		var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+		match status:
+			ResourceLoader.THREAD_LOAD_LOADED:
+				ResourceLoader.load_threaded_get(path)
+				_detached_threaded_texture_paths.erase(path)
+			ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+				_detached_threaded_texture_paths.erase(path)
+
+
 static func texture_resource_exists(path: String) -> bool:
 	if path == "":
 		return false
@@ -166,25 +210,37 @@ static func prewarm_texture_threaded_step(
 	max_msec: int = THREADED_TEXTURE_PREWARM_MAX_MSEC,
 	max_polls: int = THREADED_TEXTURE_PREWARM_MAX_POLLS,
 	emit_timeout_warning: bool = false,
-	prefer_imported_fallback: bool = false
+	prefer_imported_fallback: bool = false,
+	allow_sync_fallback: bool = true
 ) -> Dictionary:
 	if path == "":
 		return {"done": true, "texture": null}
-	var cached_texture: Texture2D = get_cached_texture(path)
-	if cached_texture != null:
-		return {"done": true, "texture": cached_texture}
-	var resource_loader_texture: Texture2D = _get_resource_loader_texture(path)
-	if resource_loader_texture != null:
-		_texture_cache[path] = resource_loader_texture
-		return {"done": true, "texture": resource_loader_texture}
+	var owns_threaded_slot := _threaded_texture_prewarm_path == path
+	# Once this path owns the threaded slot, either project cache can be filled by
+	# another consumer before our poll harvests the terminal request. Taking a
+	# cache shortcut would return the texture while leaving the worker owner
+	# attached, so the owner skips both caches and closes through load_threaded_get.
+	if not owns_threaded_slot:
+		var cached_texture: Texture2D = get_cached_texture(path)
+		if cached_texture != null:
+			return {"done": true, "texture": cached_texture}
+		var resource_loader_texture: Texture2D = _get_resource_loader_texture(path)
+		if resource_loader_texture != null:
+			_texture_cache[path] = resource_loader_texture
+			return {"done": true, "texture": resource_loader_texture}
 	if not _is_thread_loadable_texture_path(path):
+		if not allow_sync_fallback:
+			return {"done": true, "texture": null, "fallback_blocked": true}
 		return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 
 	if _threaded_texture_prewarm_path == "":
 		var request_error := ResourceLoader.load_threaded_request(path, "Texture2D", true)
 		if request_error != OK and request_error != ERR_BUSY:
+			if not allow_sync_fallback:
+				return {"done": true, "texture": null, "fallback_blocked": true}
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		_threaded_texture_prewarm_path = path
+		_detached_threaded_texture_paths.erase(path)
 		_threaded_texture_prewarm_started_msec = Time.get_ticks_msec()
 		_threaded_texture_prewarm_poll_count = 0
 		_threaded_texture_prewarm_stale_warning_sent = false
@@ -198,7 +254,7 @@ static func prewarm_texture_threaded_step(
 		# slot occupied until the expiry bound even though the worker is done.
 		try_resolve_finished_threaded_prewarm()
 		if _threaded_texture_prewarm_path == "":
-			return prewarm_texture_threaded_step(path, missing_warning, failed_warning, max_msec, max_polls, emit_timeout_warning, prefer_imported_fallback)
+			return prewarm_texture_threaded_step(path, missing_warning, failed_warning, max_msec, max_polls, emit_timeout_warning, prefer_imported_fallback, allow_sync_fallback)
 		# Still loading: use this caller's own wait clock. The shared slot
 		# owner's start time may be much older than this request, and timing out
 		# here must not drain the owner's in-flight worker into this frame.
@@ -207,6 +263,8 @@ static func prewarm_texture_threaded_step(
 			if emit_timeout_warning:
 				_push_threaded_texture_prewarm_stale_warning()
 			_clear_threaded_texture_waiter(path)
+			if not allow_sync_fallback:
+				return {"done": true, "texture": null, "fallback_blocked": true}
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		if _is_threaded_texture_prewarm_stale():
 			_push_threaded_texture_prewarm_stale_warning()
@@ -216,15 +274,19 @@ static func prewarm_texture_threaded_step(
 	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
 	match status:
 		ResourceLoader.THREAD_LOAD_LOADED:
-			_clear_threaded_texture_prewarm()
 			var resource: Resource = ResourceLoader.load_threaded_get(path)
+			_clear_threaded_texture_prewarm()
 			if resource is Texture2D:
 				var texture: Texture2D = resource
 				store_texture(path, texture)
 				return {"done": true, "texture": texture}
+			if not allow_sync_fallback:
+				return {"done": true, "texture": null, "fallback_blocked": true}
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 			_clear_threaded_texture_prewarm()
+			if not allow_sync_fallback:
+				return {"done": true, "texture": null, "fallback_blocked": true}
 			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 	_threaded_texture_prewarm_poll_count += 1
 	# Bounded fallback: a load stuck in a non-terminal status forever must not hang the
@@ -233,6 +295,8 @@ static func prewarm_texture_threaded_step(
 	if _is_threaded_texture_prewarm_expired(max_msec, max_polls):
 		if emit_timeout_warning:
 			_push_threaded_texture_prewarm_stale_warning()
+		if not allow_sync_fallback:
+			return {"done": false, "texture": null, "fallback_blocked": true}
 		_drain_threaded_texture_prewarm()
 		return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 	if _is_threaded_texture_prewarm_stale():
@@ -643,6 +707,7 @@ static func force_threaded_texture_prewarm_in_progress_for_tests(path: String, a
 	_threaded_texture_prewarm_poll_count = maxi(poll_count, 0)
 	_threaded_texture_prewarm_stale_warning_sent = false
 	_force_threaded_texture_prewarm_in_progress_for_tests = true
+	_detached_threaded_texture_paths.erase(path)
 	_clear_threaded_texture_waiters()
 
 
@@ -652,3 +717,7 @@ static func get_threaded_texture_prewarm_path_for_tests() -> String:
 
 static func get_threaded_texture_wait_poll_count_for_tests(path: String) -> int:
 	return int(_threaded_texture_wait_poll_count_by_path.get(path, 0))
+
+
+static func is_threaded_texture_detached_for_tests(path: String) -> bool:
+	return _detached_threaded_texture_paths.has(path)
