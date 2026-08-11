@@ -1,0 +1,144 @@
+{
+  "schema": "araul-prologue-v2-rev5",
+  "date": "2026-08-10",
+  "source_resolution": [1672, 941],
+  "runtime_resolution": [3344, 1882],
+  "runtime_authority": true,
+  "asset_contract_validator": "tools/validate_araul_prologue_asset_contract.ps1",
+  "image_generation": {
+    "tool": "OpenAI built-in imagegen",
+    "session_directory": "C:/Users/woduq/.codex/generated_images/019fe722-ecb2-73c0-ba14-fd8d80c7ee35",
+    "style_lock": "Japanese bishoujo game CG, clean anime lineart, 2D cel shading, hand-drawn visual-novel illustration, restrained texture, Korean mythic-fantasy silhouettes",
+    "policy": "Generate only new camera plates. Derive same-camera variants by deterministic masks or feathered local composites; never accept prompt-only near-duplicates as locked plates."
+  },
+  "promoted_anchors": {
+    "01_araul_coronation_bishoujo_v2.png": "2af617d49f5a411b715bbc523921da9cb9e3842de2699094a2cfc2a37fb28449",
+    "02_araul_ball_strike_no_tablet_bishoujo_v2.png": "3425743f8ed69f545d5ec81e291822608110349f0a590ef7a47d57b01ecc6a68",
+    "03_araul_missing_beat_bishoujo_v2.png": "b7f12d25affa82a60d8e70842b9f142764369a8ffda240664587982663cddb44"
+  },
+  "promoted_donors": {
+    "d2_single_myeongdu_edit_exec-29e85642_padded.png": "023dfd0545ef357656873e6ee2f4d410a324838b6a3df25b9858a1f165f97b34",
+    "d2_gauntlet_edit_exec-b670ac5a.png": "434ab1d48fc86f5295a136b0af784784e35e0b5551ebf526af7d885d8973050a"
+  },
+  "plates": [
+    {
+      "key": "A1",
+      "file": "araul_prologue_v2_a1_coronation.png",
+      "source_sha256": "a79f183c4e8e85f1bfec437a9956a07ca9d01d2f520edffdf4ca7b61932895c3",
+      "runtime_sha256": "f61475a6abea8f04453bbf4146d7374eff7e2fe25b3fdbd94530c74f2d48551c",
+      "generation_output": "exec-995fce85-29e2-4684-85e1-efe9be651f33.png",
+      "derivation": "Hard four-rect composite of the image edit onto promoted anchor 03; every source pixel is from one of those two inputs.",
+      "base_key": "promoted_anchor_03",
+      "mask": "rect_union[(0.40,0.00,0.68,0.66),(0.16,0.08,0.44,0.94),(0.10,0.42,0.26,0.76),(0.32,0.56,0.74,1.00)]",
+      "changed_pixels": 845928,
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "A2",
+      "file": "araul_prologue_v2_a2_tablet.png",
+      "source_sha256": "64d002419ddefc226b0375baf0c15a5756381339231a5b74529733d4a040732b",
+      "runtime_sha256": "68aebfb6fa0b8c8b41649199db309254a9761d51ca0055fae00cc80f5b1e15f7",
+      "derivation": "Exact 02-to-03 source delta applied to A1; 223489 changed pixels, bbox 698,0,414,600.",
+      "base_key": "A1",
+      "mask": "rect(0.40,0.00,0.68,0.66)",
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "A3",
+      "file": "araul_prologue_v2_a3_spirit.png",
+      "source_sha256": "0fd420839d19aad0b6c693d1f7e705b4774806bec8112202c19cba1dc5f80f59",
+      "runtime_sha256": "134de302c58d1569749e68735627f85ee0a9a03069e7c6f37bcf1510bbdc599f",
+      "generation_output": "exec-1489a081-6128-4c78-96b9-91d292df69b4.png",
+      "derivation": "Thin leftward spirit strand and local tablet crack composited onto A2, then restored to A2 outside the approved rect union.",
+      "base_key": "A2",
+      "mask": "rect_union[(0.40,0.00,0.68,0.66),(0.28,0.18,0.44,0.52),(0.28,0.16,0.36,0.26),(0.36,0.159,0.40,0.18)]",
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "B1",
+      "file": "araul_prologue_v2_b1_resistance.png",
+      "source_sha256": "6ca27b216041b979a23c110c5224407231e578fa67734cd9549dfe0f0810b3a6",
+      "runtime_sha256": "2236925a48c885aa05567179a4137352cccd9ef0a1da9c4412cf21913bcca48d",
+      "generation_output": "exec-1b78873b-dc64-4530-99dd-09c02d3dbaaf.png",
+      "derivation": "New medium camera; 1671px output padded by one replicated right-edge column without resizing.",
+      "base_key": null
+    },
+    {
+      "key": "B2",
+      "file": "araul_prologue_v2_b2_orb_extraction.png",
+      "source_sha256": "97fc277d63b57fcc76d5ab1d3ddfea9dfa8bd3820a7974ad4bf2a169232d3890",
+      "runtime_sha256": "5f9563e310d7a6718446d13537734154851819b3ee28b4baef0157b5857d0c19",
+      "generation_output": "exec-3ca74963-1eea-49a8-bb32-232e806d108a.png",
+      "derivation": "Donor detail recomposited onto B1 through one inward-feather ellipse; no wet, vomit, gore, or mouth-interior detail.",
+      "base_key": "B1",
+      "mask": "ellipse(center=0.535,0.30 radius=0.13,0.20 inner=0.72)",
+      "outside_mask_delta_pixels": 0
+    },
+    {
+      "key": "C1",
+      "file": "araul_prologue_v2_c1_eight_rays.png",
+      "source_sha256": "887dd58ac777021e8cc2d0afd693f909b444c9899c4e96610d40a684f68ad12e",
+      "runtime_sha256": "dad06843b147d5999cef430aa1c754204722ab3d135446b03258ca8cf6e5ab44",
+      "generation_output": "exec-7724caff-59f0-446a-9967-ecced7c97e7f.png",
+      "derivation": "Continuous cyan-positive additive composite onto A1, followed by a tapered 335-degree branch restore from A1 so two independent polar annuli contain exactly eight beams. Full imagegen candidate was rejected for -12.620% neutral-luma drift.",
+      "base_key": "A1",
+      "outside_policy": "C1 geometry and luminance contract; not a zero-delta plate",
+      "qa": {
+        "new_effect_percent": 10.789,
+        "baseline_ratio": 87.95,
+        "neutral_sample_percent": 30.444,
+        "neutral_luma_drift_percent": 0.003,
+        "ray_annulus_180_centers_degrees": [14, 41, 96, 146, 168, 202, 268, 350],
+        "ray_annulus_240_centers_degrees": [13, 39, 95, 146, 170, 204, 270, 350]
+      }
+    },
+    {
+      "key": "D1",
+      "file": "araul_prologue_v2_d1_confrontation.png",
+      "source_sha256": "eaa394004e544d87056dbc8a7c7c11e7a2766c01c4ddd240ce5d6c39807e3402",
+      "runtime_sha256": "776a36454cfb4bb1d2d2fa2371944a28a1102ca858f9642b175ebe378f316813",
+      "generation_output": "exec-d72f68c3-ad26-44a8-9662-5f2cddb77a40.png",
+      "derivation": "New confrontation camera; follow-up image edit removed an erroneous memorial tablet while preserving equipment handedness.",
+      "base_key": null
+    },
+    {
+      "key": "D2",
+      "file": "araul_prologue_v2_d2_first_strike.png",
+      "source_sha256": "f307bbfd4e49601b6d4e92e330eecccda75ad9a3e1506384d5d9330a826e778c",
+      "runtime_sha256": "2e7417162c9a47b1ec1e6fb7b5ed880d382a12441625adec7027eb0abcb28e5e",
+      "generation_output": "exec-29e85642-2919-4b37-bdee-f69673d26442.png",
+      "generation_output_sha256": "48912d3bd93c0a45a8adab4f942861635fdbbde74aaadfba43720a4e74ebf616",
+      "promoted_padded_donor": "art_sources/araul_prologue/donors/d2_single_myeongdu_edit_exec-29e85642_padded.png",
+      "promoted_padded_donor_sha256": "023dfd0545ef357656873e6ee2f4d410a324838b6a3df25b9858a1f165f97b34",
+      "gauntlet_generation_output": "exec-b670ac5a-d4ed-4f09-965d-9f688ab09cb5.png",
+      "gauntlet_generation_output_sha256": "434ab1d48fc86f5295a136b0af784784e35e0b5551ebf526af7d885d8973050a",
+      "promoted_gauntlet_donor": "art_sources/araul_prologue/donors/d2_gauntlet_edit_exec-b670ac5a.png",
+      "pre_gauntlet_source_sha256": "c37dadfb5afb1c668aa0f0f7b254da2fa0d413ddccb9625b1faddb200966f588",
+      "pre_gauntlet_runtime_sha256": "fad038fd256dcdcba7b8eb409a3486e9b9ac38942cb839e36c2012bb9070e653",
+      "derivation": "The accepted single-myeongdu D2 was locally refined with a fifth feathered ellipse using the promoted imagegen donor, restoring Han Miryang's dark right-hand gauntlet while keeping the grip, myeongdu, spirit ball, pose, and all pixels outside the five-ellipse union fixed.",
+      "base_key": "D1",
+      "mask": "ellipse_union[(0.235,0.30,0.135,0.28,inner=0.74),(0.47,0.52,0.17,0.25,inner=0.74),(0.492,0.705,0.070,0.150,inner=0.84),(0.476,0.855,0.050,0.145,inner=0.84),(0.505,0.685,0.075,0.135,inner=0.78)]",
+      "outside_mask_delta_pixels": 0
+    }
+  ],
+  "upscale": {
+    "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+    "model": "realesr-animevideov3",
+    "scale": 2,
+    "batch": true
+  },
+  "runtime_import": {
+    "compress_mode": 2,
+    "high_quality": true,
+    "vram_texture": true,
+    "mipmaps": true,
+    "formats": ["s3tc_bptc", "etc2_astc"]
+  },
+  "vulkan_capture": "godot/.tmp/qa_evidence/han_miryang_prologue_v2_1125246_25144",
+  "vulkan_capture_result": "PASS",
+  "durable_vulkan_evidence": {
+    "contact_sheet": "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_contact_sheet.png",
+    "contact_sheet_sha256": "c40d16d43aec3e5bf1b94207d0decd8bcec5d799d90493aaabd3193ae2e9e47f",
+    "metadata": "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_capture.json"
+  }
+}

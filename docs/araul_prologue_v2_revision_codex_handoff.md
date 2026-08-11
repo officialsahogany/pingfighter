@@ -38,12 +38,14 @@ rev4 변경점: CPS 초과 **17개 조합 축약 완료** — 대사표가 84개
 `funeraria` 계열 누락, ru H5 명령형 인칭 불일치)을 보정. C1 휘도 검사를 **양방향
 역조건**으로 강화.
 
-구현 상태(2026-08-10): **rev5 런타임 랜딩 완료.** 1672×941 원본 3장 승격,
+역사적 구현 상태(2026-08-10): **rev5 런타임 랜딩 완료.** 1672×941 원본 3장 승격,
 최종 소스 8장, 일괄 2배 업스케일, BPTC/ASTC+mipmap 임포트, 48초 타임라인,
 A-only 시작 프리웜과 B/C/D 단계 스트리밍, 7언어 CPS 씰, Vulkan 1080p·1440p
-캡처까지 구현했다. 제작 결과·체크섬은
-`godot/assets/ui/story/han_miryang_prologue/araul_prologue_v2_rev5_manifest.json`,
-설정 정본은 `docs/araul_foundation_prologue_canon.md` v2를 따른다.
+캡처까지 구현했다. V3·rev6 수용 뒤 rev5 런타임은 퇴역했으며, 당시 제작 결과와
+체크섬은 `art_sources/araul_prologue/final_rev5/araul_prologue_v2_rev5_manifest.json`에
+원문 그대로 보존한다. 그 매니페스트의 `runtime_authority: true`는 당시 상태의 역사
+기록이며 현행 런타임 권위를 뜻하지 않는다. 설정 정본은
+`docs/araul_foundation_prologue_canon.md` v2를 따른다.
 
 rev5 변경점: C1 청록 마스크를 **실측 기반으로 재설계**. `b>r && g>r` 단독은 야간
 배경 때문에 효과 없는 판도 59.2%가 잡혀 무의미했다(실측표 §4.6). chroma_margin 32 +
@@ -627,14 +629,16 @@ Deep blue night palette, warm candle rim light. Output 1672x941.
 ## 8. 자산 처분
 
 - 구형 3344 런타임 3장과 `araul_prologue_bishoujo_v2_manifest.json`은 rev5 수용 후
-  런타임 권위를 잃었으므로 삭제한다.
+  런타임 권위를 잃었고, V3·rev6 수용 뒤 별도 정리 슬라이스에서 삭제했다.
+- rev5 런타임 8장과 `.import` 8개도 같은 정리 슬라이스에서 제거했다. 1672×941
+  원본 8장과 당시 매니페스트는 `art_sources/araul_prologue/final_rev5/`에 보존한다.
 - `araul_missing_beat_keyart_bishoujo_v2.png`의 **구도·신주 요소만** §0의 1672 원본
   `03_...`을 통해 계승한다. 구형 3344 파일 자체는 런타임에서 계승하지 않는다.
 - 미참조 v1 후보 2장과 `.import` 2개는
   `art_sources/araul_prologue/legacy_v1_runtime_archive/`로 비파괴 이동했다. 복구용
   SHA는 그 폴더의 `README.md`에 고정했으며 Godot 런타임·익스포트에는 포함하지 않는다.
-- 커밋할 때는 rev5 신규 런타임·소스·코드가 먼저 성립해야 한다. 구형 3344 삭제만
-  단독으로 랜딩하거나 공유 WIP 파일을 통째로 스테이징하지 않는다.
+- 정리 커밋은 V3 본체 `f95270ac9896`과 rev6 모션 `93fe02f6b922`가 먼저 성립한 뒤
+  정확한 구형 경로만 제거하는 별도 슬라이스로 수행한다. 공유 WIP 파일은 포함하지 않는다.
 
 ---
 
