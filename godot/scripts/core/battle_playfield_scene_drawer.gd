@@ -94,9 +94,7 @@ func draw(
 	# skill VFX / feedback stay in the post-actor pass (_draw_lingpet_runtime below).
 	if not actor_context.is_empty():
 		var lingpet_body_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
-		if lingpet_body_runtime != null and lingpet_body_runtime.has_method("draw_lingpet_body_behind_actors"):
-			actor_context["lingpet_body_draw"] = func(body_canvas: CanvasItem) -> void:
-				lingpet_body_runtime.draw_lingpet_body_behind_actors(body_canvas, shake_offset)
+		install_lingpet_draw_hooks(actor_context, lingpet_body_runtime, shake_offset)
 	var sample_start: int = _perf_begin(perf_logger)
 	effects_drawer.draw_actors(canvas, registry, draw_context, actor_context, perf_logger)
 	_perf_end(perf_logger, "01.actors.total", sample_start)
@@ -228,6 +226,23 @@ func draw(
 	_perf_end(perf_logger, "34.scoreboard_overlay", sample_start)
 	_perf_end(perf_logger, "00.playfield_frame_total", frame_start)
 	_perf_remember_context(perf_logger, draw_context)
+
+
+# §B-3: 링펫 본체 훅 + 탑다운 M 베이스 훅 주입. 두 훅을 한 곳에서 심어야 새
+# 진입점이 형제 훅을 조용히 빠뜨리지 않는다(§C-2 억제는 본체 훅 쪽 계약이라
+# M 훅이 없으면 탑승 중 아무것도 안 그려진다). 씰이 실 주입 경로를 관통할 수
+# 있도록 공개 헬퍼로 둔다.
+static func install_lingpet_draw_hooks(actor_context: Dictionary, lingpet_body_runtime: Object, shake_offset: Vector2) -> void:
+	if lingpet_body_runtime == null:
+		return
+	if lingpet_body_runtime.has_method("draw_lingpet_body_behind_actors"):
+		actor_context["lingpet_body_draw"] = func(body_canvas: CanvasItem) -> void:
+			lingpet_body_runtime.draw_lingpet_body_behind_actors(body_canvas, shake_offset)
+	# M 베이스는 라이더 최종 rect 를 인자로 받는다 — 여기서 좌표를 재계산하면
+	# shake·visual offset 이 플레이어 렌더러와 갈라진다(§B-3b).
+	if lingpet_body_runtime.has_method("draw_topdown_mount_base"):
+		actor_context["lingpet_mount_base_draw"] = func(mount_canvas: CanvasItem, final_rider_rect: Rect2) -> void:
+			lingpet_body_runtime.draw_topdown_mount_base(mount_canvas, final_rider_rect)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

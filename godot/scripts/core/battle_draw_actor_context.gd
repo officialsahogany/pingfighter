@@ -518,6 +518,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"player_perk_visual_part_levels": _get_dict(context.get("player_perk_visual_part_levels", {})),
 		"player_socket_debug_overlay_enabled": bool(context.get("player_socket_debug_overlay_enabled", false)),
 		"player_mount_rider_lift_px": float(context.get("player_mount_rider_lift_px", 0.0)),
+		# §C-1/§B-4: defer 판정과 착석 시트 분기가 읽는다. seated 페이로드는 scene
+		# context 가 readiness 에서 실어온 **그 객체**를 그대로 통과시킨다 —
+		# 여기서 다시 조회하면 P16② 동일 객체 계약이 끊긴다.
+		"player_mount_topdown_active": bool(context.get("player_mount_topdown_active", false)),
+		"player_mount_rider_seated": context.get("player_mount_rider_seated", {}) as Dictionary,
 		"dash_active": dash_context.get("active", false),
 		"dash_timer": float(dash_context.get("timer", 0.0)),
 		"dash_elapsed_frames": float(dash_context.get("elapsed_frames", 0.0)),

@@ -12,10 +12,15 @@ extends SceneTree
 #    초과는 fail-closed(그리기 0회), 근사 정수는 roundi 정규화.
 #  - P13: 게이지가 **visible=true** 로 M 중심·M draw_size 기하(Y 오프셋 0)를 쓴다.
 #  - P9/P1: 탑승 중 메인 본체 억제 + 공존 아이템 알 보존, 비탑승 대조군은 종전대로.
+#  - P11: 착석 셀 rect 가 **N spec 그리드**에서 나오고(이미지 추론 금지), 라이더
+#    draw size 가 착석 시트 규격으로 교체된다.
+#  - §C-1 defer: 탑다운은 지연 안 함 / 목말은 종전 lift > 0 (홉 시작·하차 잔여
+#    프레임 픽셀 보존).
+#  - §B-3 배선: 실 훅 주입 헬퍼가 본체·M 두 훅을 심고, actor context 가 탑다운
+#    2키를 **객체 그대로** 통과시킨다.
 #
-# defer(§C-1)·P11(착석 셀 rect)·actor context 전달 레그는 플레이어 렌더러 재구성(병행 WIP) 랜딩과
-# 함께 B-1b 에서 합류한다. P3/P8(z 순서·숨김 3경로 픽셀)은 프로토타입 픽셀 QA
-# 하네스(§7) 소관 — 이 파일은 에셋 0장 인메모리 골격 씰이다.
+# P3/P8(z 순서·숨김 3경로 픽셀)은 프로토타입 픽셀 QA 하네스(§7) 소관 — 이 파일은
+# 에셋 0장 인메모리 골격 씰이다.
 
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
@@ -24,6 +29,10 @@ const LingpetDurationFieldGaugeRenderer := preload("res://scripts/lingpet/lingpe
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const PlayerMountRiderSpriteCatalog := preload("res://scripts/resources/player_mount_rider_sprite_catalog.gd")
 const BattleDrawPlayfieldSceneContext := preload("res://scripts/core/battle_draw_playfield_scene_context.gd")
+const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
+const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+const BattlePlayfieldSceneDrawer := preload("res://scripts/core/battle_playfield_scene_drawer.gd")
+const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_context.gd")
 
 const MOUNT_FIXTURE_PATH := "res://__fixture__/topdown_render_mount_base.png"
 
@@ -149,6 +158,32 @@ class SpyLayerRenderer:
 		return counts
 
 
+# 실 플레이어 액터 렌더러 관통용 스파이. sprite_renderer / dash 게이지는 인스턴스
+# 필드라 교체 가능하다 — 실 draw() 를 그대로 돌리고 최종 rect 만 관측한다.
+class SpySpriteRenderer:
+	extends RefCounted
+
+	var draw_calls := 0
+	var last_rect := Rect2()
+
+	func draw(_canvas: CanvasItem, _context: Dictionary, player_visual_rect: Rect2, _move_active: bool, _player_pos: Vector2, _paddle_size: Vector2, _shake_offset: Vector2) -> void:
+		draw_calls += 1
+		last_rect = player_visual_rect
+
+	func clear_transient_canvas_items() -> void:
+		pass
+
+	func prewarm_wheel_spin_sheet() -> void:
+		pass
+
+
+class SpyDashSideGaugeRenderer:
+	extends RefCounted
+
+	func draw(_canvas: CanvasItem, _context: Dictionary, _player_pos: Vector2, _paddle_size: Vector2, _shake_offset: Vector2) -> void:
+		pass
+
+
 class SpyEggRenderer:
 	extends RefCounted
 
@@ -194,6 +229,10 @@ func _run() -> void:
 
 	_test_p16_object_identity_chain()
 	_test_p13_gauge_topdown_layout()
+	_test_p11_seated_region()
+	_test_defer_semantics()
+	_test_seated_draw_size_adoption()
+	await _test_hook_wiring_and_context_forward()
 	await _test_p9_suppression_and_item_egg_preserved()
 	await _test_p12_geometry_and_fail_closed()
 	await _test_p15_layer_transfer()
@@ -372,6 +411,224 @@ func _test_p13_gauge_topdown_layout() -> void:
 	_expect(
 		"P13: 게이지 X 가 M draw_size(112) 기준 (walk 82 기준이면 어긋남)",
 		topdown_track.position.x < walk_track.position.x - 0.01
+	)
+
+
+# ── P11(부분): 착석 셀 rect ─────────────────────────────────────────────────
+
+func _test_p11_seated_region() -> void:
+	var seated_texture := _make_texture()
+	var spec := {"cols": 4, "rows": 2, "frame_count": 8, "draw_size": Vector2(128.0, 128.0)}
+	var region: Rect2 = Stage1PlayerSpriteRenderer._get_mount_rider_seated_region(seated_texture, spec)
+	_expect(
+		"P11: 착석 셀 rect = spec 그리드에서 파생 (frame 0)",
+		region.position == Vector2.ZERO and is_equal_approx(region.size.x, 0.25) and is_equal_approx(region.size.y, 0.5)
+	)
+	var fallback: Rect2 = Stage1PlayerSpriteRenderer._get_mount_rider_seated_region(seated_texture, {})
+	_expect(
+		"P11: spec 없으면 1×1 전체 셀 (fail-safe)",
+		is_equal_approx(fallback.size.x, 1.0) and is_equal_approx(fallback.size.y, 1.0)
+	)
+	# 그리드 정본은 spec 이다 — 이미지 크기에서 추론하면 64px 시트가 통짜 1셀이 된다.
+	var sheet_texture := _make_texture(int(MOUNT_CELL_PX))
+	var sheet_region: Rect2 = Stage1PlayerSpriteRenderer._get_mount_rider_seated_region(
+		sheet_texture, {"cols": 4, "rows": 2, "frame_count": 8}
+	)
+	_expect(
+		"P11: 64px 시트 × spec 4×2 → 셀 16×32 (이미지 추론이면 64×64)",
+		is_equal_approx(sheet_region.size.x, MOUNT_CELL_PX / 4.0)
+			and is_equal_approx(sheet_region.size.y, MOUNT_CELL_PX / 2.0)
+	)
+
+
+# ── §C-1 defer 의미론 ───────────────────────────────────────────────────────
+
+func _test_defer_semantics() -> void:
+	_expect(
+		"defer: 탑다운 활성 + lift>0 이어도 false (M 은 별도 콜백)",
+		not Stage1PlayerActorRenderer._is_lingpet_body_deferred({
+			"player_mount_topdown_active": true,
+			"player_mount_rider_lift_px": 14.0,
+		})
+	)
+	_expect(
+		"defer: 목말 lift>0 = true (종전 유지)",
+		Stage1PlayerActorRenderer._is_lingpet_body_deferred({
+			"player_mount_rider_lift_px": 14.0,
+		})
+	)
+	_expect(
+		"defer: 목말 홉 시작 lift=0 = false (mounted 기준 금지 — 전환 픽셀 보존)",
+		not Stage1PlayerActorRenderer._is_lingpet_body_deferred({
+			"player_mount_rider_lift_px": 0.0,
+		})
+	)
+
+
+# ── §B-4 착석 draw size 채택 ────────────────────────────────────────────────
+
+func _test_seated_draw_size_adoption() -> void:
+	var walk_size := Vector2(82.0, 82.0)
+	var seated_size := Vector2(160.0, 160.0)
+	var seated_context := {
+		"player_mount_topdown_active": true,
+		"player_mount_rider_seated": {"spec": {"draw_size": seated_size}},
+	}
+	_expect(
+		"draw size: 탑다운 착석은 시트 규격 채택",
+		Stage1PlayerActorRenderer._resolve_mount_seated_draw_size(seated_context, walk_size).is_equal_approx(seated_size)
+	)
+	_expect(
+		"draw size: 비탑다운은 종전 걷기 규격 유지",
+		Stage1PlayerActorRenderer._resolve_mount_seated_draw_size(
+			{"player_mount_rider_seated": {"spec": {"draw_size": seated_size}}}, walk_size
+		).is_equal_approx(walk_size)
+	)
+	_expect(
+		"draw size: 페이로드/스펙 결손이면 폴백 (0 크기 승격 금지)",
+		Stage1PlayerActorRenderer._resolve_mount_seated_draw_size(
+			{"player_mount_topdown_active": true}, walk_size
+		).is_equal_approx(walk_size)
+			and Stage1PlayerActorRenderer._resolve_mount_seated_draw_size(
+				{
+					"player_mount_topdown_active": true,
+					"player_mount_rider_seated": {"spec": {"draw_size": Vector2.ZERO}},
+				}, walk_size
+			).is_equal_approx(walk_size)
+	)
+
+
+# ── §B-3 배선: 훅 주입 + actor context 통과 ────────────────────────────────
+
+func _test_hook_wiring_and_context_forward() -> void:
+	var owner := OperationalOwner.new()
+	var fixture := _make_ready_runtime(owner)
+	var runtime: Object = fixture["runtime"]
+	var registry: Object = fixture["registry"]
+	var companion_spy := SpyCompanionRenderer.new()
+	runtime._companion_renderer = companion_spy
+	_expect("배선 사전: 탑다운 탑승 성립", _mount(runtime, owner, registry))
+
+	# 실 주입 헬퍼(생산 경로)로 두 훅을 심는다.
+	var actor_context: Dictionary = {"existing": true}
+	BattlePlayfieldSceneDrawer.install_lingpet_draw_hooks(actor_context, runtime, Vector2.ZERO)
+	_expect(
+		"배선: 본체 훅 + M 훅이 함께 주입된다 (형제 훅 누락 금지)",
+		actor_context.get("lingpet_body_draw", null) is Callable
+			and actor_context.get("lingpet_mount_base_draw", null) is Callable
+	)
+	# 주입된 M 훅이 실제로 egg 의 합성 draw 로 관통하는지 — 렌더러가 부르는 방식
+	# (canvas, final_rider_rect) 그대로 호출한다.
+	var rider_rect := Rect2(Vector2(310.0, 560.0), Vector2(160.0, 160.0))
+	var mount_hook: Callable = actor_context["lingpet_mount_base_draw"]
+	await _draw_on_probe(func(canvas: CanvasItem) -> void:
+		mount_hook.call(canvas, rider_rect))
+	_expect(
+		"배선: M 훅 호출이 합성 draw 로 관통 + dest 는 전달받은 rect 기준",
+		companion_spy.composite_calls == 1
+			and companion_spy.last_dest.position.distance_to(_expected_mount_dest(rider_rect).position) <= 0.01
+	)
+	# 렌더러 호출 정본: 유효 Callable 일 때만 발화하고 rect 를 그대로 넘긴다.
+	var received: Array = []
+	var probe_context := {
+		"lingpet_mount_base_draw": func(_canvas: CanvasItem, rect: Rect2) -> void:
+			received.append(rect),
+	}
+	var fired: bool = Stage1PlayerActorRenderer._call_lingpet_mount_base_hook(_probe, probe_context, rider_rect)
+	_expect(
+		"배선: 렌더러 호출 헬퍼가 최종 rect 를 그대로 전달 (재계산 금지)",
+		fired and received.size() == 1 and (received[0] as Rect2) == rider_rect
+	)
+	_expect(
+		"배선: 훅 없음/무효면 비발화 (본체 훅만 있는 프레임 안전)",
+		not Stage1PlayerActorRenderer._call_lingpet_mount_base_hook(_probe, {}, rider_rect)
+			and not Stage1PlayerActorRenderer._call_lingpet_mount_base_hook(
+				_probe, {"lingpet_mount_base_draw": "not-a-callable"}, rider_rect
+			)
+	)
+	# ── 실 액터 렌더러 관통: 착석 draw size 채택 + M 훅 호출이 **같은 프레임의
+	# 같은 rect** 로 이어지는지. 정적 헬퍼만 재면 호출부 배선이 빠져도 GREEN 이다.
+	var seated_sheet := _make_texture(int(MOUNT_CELL_PX))
+	var mount_rects: Array = []
+	var actor_renderer: Object = Stage1PlayerActorRenderer.new()
+	var sprite_spy := SpySpriteRenderer.new()
+	actor_renderer.sprite_renderer = sprite_spy
+	actor_renderer.dash_side_gauge_renderer = SpyDashSideGaugeRenderer.new()
+	var live_context := {
+		"player_pos": Vector2(300.0, 675.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"player_paddle_scale": 1.0,
+		"paddle_hologram_should_draw": true,
+		"player_mount_topdown_active": true,
+		"player_mount_rider_seated": {
+			"texture": seated_sheet,
+			"spec": {"cols": 1, "rows": 1, "frame_count": 1, "draw_size": Vector2(160.0, 160.0)},
+		},
+		"lingpet_mount_base_draw": func(_canvas: CanvasItem, rect: Rect2) -> void:
+			mount_rects.append(rect),
+	}
+	await _draw_on_probe(func(canvas: CanvasItem) -> void:
+		actor_renderer.draw(canvas, live_context, Vector2.ZERO))
+	_expect(
+		"관통: 실 렌더러 draw 가 M 훅을 1회 호출한다 (호출부 배선)",
+		mount_rects.size() == 1
+	)
+	if mount_rects.size() == 1:
+		var live_rect: Rect2 = mount_rects[0]
+		_expect(
+			"관통: 라이더 rect 크기 == 착석 시트 규격 160 (채택 누락이면 걷기 규격)",
+			live_rect.size.is_equal_approx(Vector2(160.0, 160.0))
+		)
+		_expect(
+			"관통: 스프라이트가 받은 rect 와 M 훅이 받은 rect 가 동일 (같은 프레임 좌표)",
+			sprite_spy.draw_calls >= 1 and sprite_spy.last_rect == live_rect
+		)
+
+	# 링펫 런타임이 없으면 두 훅 모두 심지 않는다(fail-closed).
+	var empty_context: Dictionary = {}
+	BattlePlayfieldSceneDrawer.install_lingpet_draw_hooks(empty_context, null, Vector2.ZERO)
+	_expect("배선: 런타임 없으면 훅 0개", empty_context.is_empty())
+
+	# actor context 통과 — scene context 가 실어온 **그 객체**가 그대로 간다.
+	var seated_texture := _make_texture()
+	var seated_payload := {"texture": seated_texture, "spec": {"cols": 4, "rows": 2, "draw_size": Vector2(160.0, 160.0)}}
+	var built: Dictionary = BattleDrawActorContext.new().build({
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"player_pos": Vector2(40.0, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(320.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"textures": {},
+		"player_mount_topdown_active": true,
+		"player_mount_rider_seated": seated_payload,
+	}, {})
+	_expect(
+		"통과: actor context 가 탑다운 플래그를 싣는다",
+		bool(built.get("player_mount_topdown_active", false))
+	)
+	var forwarded: Dictionary = built.get("player_mount_rider_seated", {}) as Dictionary
+	_expect(
+		"통과: 착석 페이로드의 texture 가 **동일 객체** (재조회·복사 금지)",
+		forwarded.get("texture", null) == seated_texture
+	)
+	_expect(
+		"통과: 페이로드 dict 자체도 무복사 통과 (draw 경로 프레임당 딥카피 금지)",
+		is_same(forwarded, seated_payload)
+	)
+	var plain: Dictionary = BattleDrawActorContext.new().build({
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"player_pos": Vector2(40.0, 700.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(320.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"textures": {},
+	}, {})
+	_expect(
+		"통과: 비탑승 기본값은 false + 빈 dict (fail-closed)",
+		not bool(plain.get("player_mount_topdown_active", true))
+			and (plain.get("player_mount_rider_seated", {}) as Dictionary).is_empty()
 	)
 
 

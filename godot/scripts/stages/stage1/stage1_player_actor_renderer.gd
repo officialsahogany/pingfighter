@@ -279,7 +279,7 @@ func draw(
 	# 목말 탑승: while mounted the companion renders IN FRONT of the rider so
 	# his head / raised hands cover her seat (shoulder-ride read) -- defer the
 	# body hook to after the player sprite. Unmounted keeps behind-player order.
-	var defer_lingpet_body: bool = float(context.get("player_mount_rider_lift_px", 0.0)) > 0.0
+	var defer_lingpet_body: bool = _is_lingpet_body_deferred(context)
 	if lingpet_body_hook_valid and not defer_lingpet_body:
 		(lingpet_body_hook as Callable).call(canvas)
 	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
@@ -413,6 +413,8 @@ func draw(
 			context.get("player_commando_radio_call_draw_size", DEFAULT_PLAYER_COMMANDO_RADIO_CALL_DRAW_SIZE),
 			DEFAULT_PLAYER_COMMANDO_RADIO_CALL_DRAW_SIZE
 		)
+	# 착석 시트 채택은 패들 배율 **곱하기 직전**이다 — 배율은 두 경로가 공유한다.
+	player_draw_size = _resolve_mount_seated_draw_size(context, player_draw_size)
 	var player_paddle_scale: float = max(0.1, float(context.get("player_paddle_scale", max(1.0, paddle_size.x / 155.0))))
 	player_draw_size *= player_paddle_scale
 	var player_visual_x_offset: float = 0.0
@@ -575,6 +577,10 @@ func draw(
 			dash_side_gauge_renderer.draw(canvas, context, player_pos, paddle_size, shake_offset)
 			_perf_end(perf_logger, "actors.stage1.player.dash_side_gauge", sample_start)
 			return
+	# §B-3 탑다운 M 베이스: 라이더 최종 rect 가 확정된 뒤, 상태 글로우 **앞**에
+	# 깔린다(M 은 라이더 아래 · 글로우는 라이더 소유). flicker 프레임은 위에서
+	# 이미 return 했으므로 패들과 함께 M 도 사라진다 — 숨김 계약 공유.
+	_call_lingpet_mount_base_hook(canvas, context, player_visual_rect)
 	sample_start = _perf_begin(perf_logger)
 	if _state_glow_renderer != null:
 		_state_glow_renderer.draw(canvas, player_visual_rect, context, Time.get_ticks_msec())
@@ -1344,6 +1350,48 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
+
+
+# §C-1 본체 지연 판정. 목말(온이마루)은 **종전 그대로 lift > 0** 이 근거다 —
+# `mounted` 로 바꾸면 홉 시작(lift=0) 프레임과 하차 잔여 lift 프레임의 픽셀이
+# 바뀐다. 탑다운 합성만 지연하지 않는다: M 은 별도 콜백으로 라이더 **아래**에
+# 깔리고, 본체 훅 자체는 egg 가 자기억제하므로 여기서 뒤로 미룰 대상이 없다.
+# §B-3: M 베이스 훅 호출 정본. 유효한 Callable 일 때만, 렌더러가 확정한 라이더
+# rect **그대로** 넘긴다(재계산 금지 — shake·visual offset 이 갈라진다).
+# 호출 여부를 돌려줘 씰이 발화/비발화를 관측할 수 있게 한다.
+static func _call_lingpet_mount_base_hook(canvas: CanvasItem, context: Dictionary, player_visual_rect: Rect2) -> bool:
+	var mount_base_hook: Variant = context.get("lingpet_mount_base_draw", null)
+	if not (mount_base_hook is Callable):
+		return false
+	var hook: Callable = mount_base_hook
+	if not hook.is_valid():
+		return false
+	hook.call(canvas, player_visual_rect)
+	return true
+
+
+static func _is_lingpet_body_deferred(context: Dictionary) -> bool:
+	if bool(context.get("player_mount_topdown_active", false)):
+		return false
+	return float(context.get("player_mount_rider_lift_px", 0.0)) > 0.0
+
+
+# §B-4 착석 라이더 draw size. 탑다운 탑승 중에는 걷기/공격 시트가 아니라 착석
+# 시트 규격이 몸 크기 정본이다(패들 배율은 그대로 곱해진다 — 호출부 순서 유지).
+static func _resolve_mount_seated_draw_size(context: Dictionary, fallback: Vector2) -> Vector2:
+	if not bool(context.get("player_mount_topdown_active", false)):
+		return fallback
+	var seated: Dictionary = context.get("player_mount_rider_seated", {}) as Dictionary
+	if seated.is_empty():
+		return fallback
+	var spec: Dictionary = seated.get("spec", {}) as Dictionary
+	var raw: Variant = spec.get("draw_size", null)
+	if not (raw is Vector2):
+		return fallback
+	var seated_size: Vector2 = raw
+	if seated_size.x <= 0.0 or seated_size.y <= 0.0:
+		return fallback
+	return seated_size
 
 
 func _get_player_hit_progress(hit_timer: float, hit_duration: float) -> float:

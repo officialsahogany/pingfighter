@@ -82,6 +82,23 @@ func draw(
 	shake_offset: Vector2
 ) -> void:
 	_prewarm_wheel_spin_sheet_draw(canvas, context)
+	# §B-4: 탑다운 착석 라이더 시트가 체인 최상단이다 — 걷기/공격/대쉬 분기보다
+	# 위에 둬야 안장 위에서 보행 프레임이 재생되지 않는다. 파츠·소켓 글로우 등
+	# 후속 레이어 이관은 B 범위 밖(명시 이월)이라 여기서 그리지 않는다.
+	if bool(context.get("player_mount_topdown_active", false)):
+		var seated_payload: Dictionary = context.get("player_mount_rider_seated", {}) as Dictionary
+		var seated_texture: Variant = seated_payload.get("texture", null)
+		if seated_texture is Texture2D:
+			var seated_texture_typed: Texture2D = seated_texture
+			_draw_texture_region(
+				canvas,
+				seated_texture_typed,
+				player_visual_rect,
+				_get_mount_rider_seated_region(seated_texture_typed, seated_payload.get("spec", {}) as Dictionary),
+				context
+			)
+			return
+
 	if bool(context.get("player_victory_active", false)):
 		var victory_texture = context.get("player_victory_sheet", null)
 		if victory_texture is Texture2D:
@@ -567,6 +584,19 @@ func _prewarm_wheel_spin_sheet_draw(canvas: CanvasItem, context: Dictionary) -> 
 
 func _get_player_wheel_spin_prewarm_source_rect(context: Dictionary) -> Rect2:
 	return _get_player_wheel_spin_sprite_region(context)
+
+
+# 착석 라이더 셀 rect. 그리드는 **N 카탈로그 spec** 이 정본이고(이미지 크기에서
+# 추론 금지 — atlas grid authority), 착석은 정지 포즈라 frame 0 을 쓴다.
+static func _get_mount_rider_seated_region(texture: Texture2D, spec: Dictionary) -> Rect2:
+	if texture == null:
+		return Rect2()
+	var cols: int = maxi(1, int(spec.get("cols", 1)))
+	var rows: int = maxi(1, int(spec.get("rows", 1)))
+	return Rect2(
+		Vector2.ZERO,
+		Vector2(float(texture.get_width()) / float(cols), float(texture.get_height()) / float(rows))
+	)
 
 
 func draw_fallback(
