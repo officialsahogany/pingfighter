@@ -1443,10 +1443,14 @@ static func is_front_presentation_static(pet_id: String) -> bool:
 static var _mount_presentation_test_overrides: Dictionary = {}
 
 
-static func set_mount_presentation_override_for_tests(pet_id: String, model: String, base_path: String) -> void:
+static func set_mount_presentation_override_for_tests(pet_id: String, model: String, base_path: String, visual_layout: Dictionary = {}) -> void:
+	# visual_layout 은 MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS 6값을 공급하는 통로다.
+	# 런타임이 결손 레이아웃을 fail-closed 로 거부하므로(§B-2), 골격 씰도 실제
+	# M 규격(그리드·draw_size)과 안장 소켓을 그대로 넣어야 그림이 성립한다.
 	_mount_presentation_test_overrides[_normalize_pet_id(pet_id)] = {
 		"model": model,
 		"base_path": base_path,
+		"visual_layout": visual_layout.duplicate(true),
 	}
 
 
@@ -1480,6 +1484,13 @@ static func get_stat(pet_id: String, stat_name: String, fallback: float = 0.0) -
 
 
 static func get_visual_layout_value(pet_id: String, layout_key: String, fallback: float = 0.0) -> float:
+	# 테스트 오버라이드 훅(8-10). 프로덕션에서는 is_empty() 한 번 외에 무비용이다.
+	if not _mount_presentation_test_overrides.is_empty():
+		var override: Variant = _mount_presentation_test_overrides.get(_normalize_pet_id(pet_id), null)
+		if override is Dictionary:
+			var layout_override: Variant = (override as Dictionary).get("visual_layout", {})
+			if layout_override is Dictionary and (layout_override as Dictionary).has(layout_key):
+				return float((layout_override as Dictionary)[layout_key])
 	var visual_layout: Variant = _get_entry_ref(pet_id).get("visual_layout", {})
 	if visual_layout is Dictionary:
 		return float((visual_layout as Dictionary).get(layout_key, fallback))

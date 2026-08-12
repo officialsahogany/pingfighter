@@ -15,6 +15,7 @@ const LingpetGuardianTransitionState := preload(
 	"res://scripts/lingpet/lingpet_guardian_transition_state.gd"
 )
 const LingpetStarlightTrackingState := preload("res://scripts/lingpet/lingpet_starlight_tracking_state.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetSpiritWaterDropState := preload("res://scripts/lingpet/lingpet_spirit_water_drop_state.gd")
 const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
@@ -2789,23 +2790,31 @@ func draw_topdown_mount_base(canvas: CanvasItem, final_rider_rect: Rect2) -> voi
 	var mount_texture: Texture2D = _mount_topdown_readiness_result.get("mount_texture", null) as Texture2D
 	if mount_texture == null:
 		return
-	var draw_size: float = maxf(1.0, float(_current_profile.get_visual_layout_value("companion_mount_base_draw_size", 0.0)))
-	var cols: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_cols", 1.0)))
-	var rows: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_rows", 1.0)))
-	var frame_count: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_frame_count", 1.0)))
-	var sheet_meta := {"cols": cols, "rows": rows, "frame_count": frame_count}
+	# §B-2 fail-closed: 6키 중 하나라도 없거나 값이 어긋나면 **그리지 않는다**.
+	# 기본값 보정(1px·5×5/25·셀 중앙 소켓)은 오슬라이스·소켓 미정렬 그림을 조용히
+	# 승인하는 길이라 금지다 — 결손은 저작 결함이고 화면에 남으면 안 된다.
+	var layout: Dictionary = _resolve_topdown_mount_layout()
+	if layout.is_empty():
+		return
+	var draw_size: float = float(layout["companion_mount_base_draw_size"])
+	var sheet_meta := {
+		"cols": int(layout["companion_mount_base_cols"]),
+		"rows": int(layout["companion_mount_base_rows"]),
+		"frame_count": int(layout["companion_mount_base_frame_count"]),
+	}
 	# source 슬라이싱은 animator 규칙 재사용(§B-3c) — build_draw_rects() 는 금지
 	# (WALK_Y_OFFSET −6 dest 보정을 다시 넣는다). 정적 1×1·1f = frame 0.
 	var source_rect: Rect2 = _companion_sprite_animator.get_source_rect(mount_texture, 0, sheet_meta)
 	# §B-3 배치: seat point = 라이더 rect 하단 중앙. 안장 소켓(셀-로컬 px)이
 	# seat point 에 일치하도록 mount rect 를 역산한다.
+	# 0 나눗셈만 막는 가드다(규격 폴백이 아니다 — 규격은 위에서 이미 확정).
 	var cell_size := Vector2(
-		maxf(1.0, source_rect.size.x),
-		maxf(1.0, source_rect.size.y)
+		maxf(0.001, source_rect.size.x),
+		maxf(0.001, source_rect.size.y)
 	)
 	var saddle_local := Vector2(
-		float(_current_profile.get_visual_layout_value("companion_mount_base_saddle_x", cell_size.x * 0.5)),
-		float(_current_profile.get_visual_layout_value("companion_mount_base_saddle_y", cell_size.y * 0.5))
+		float(layout["companion_mount_base_saddle_x"]),
+		float(layout["companion_mount_base_saddle_y"])
 	)
 	var seat_point := Vector2(final_rider_rect.position.x + final_rider_rect.size.x * 0.5, final_rider_rect.end.y)
 	var dest_size := Vector2(draw_size, draw_size)
@@ -2838,6 +2847,28 @@ func draw_topdown_mount_base(canvas: CanvasItem, final_rider_rect: Rect2) -> voi
 		},
 		body_alpha
 	)
+
+
+# §B-2: 탑다운 M 레이아웃 6키 해석. 하나라도 부재/비유한/범위 이탈이면 빈 dict
+# 를 돌려 호출자가 그리기를 포기하게 한다(fail-closed). 부재와 0.0 을 구분해야
+# 하므로 조회 fallback 은 NAN 이다 — 0.0 을 쓰면 "미저작 소켓"이 좌상단 정렬로
+# 조용히 통과한다.
+func _resolve_topdown_mount_layout() -> Dictionary:
+	var values: Dictionary = {}
+	for layout_key in LingpetCatalog.MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS:
+		var value: float = _current_profile.get_visual_layout_value(str(layout_key), NAN)
+		if not is_finite(value):
+			return {}
+		values[str(layout_key)] = value
+	var cols: float = float(values["companion_mount_base_cols"])
+	var rows: float = float(values["companion_mount_base_rows"])
+	var frame_count: float = float(values["companion_mount_base_frame_count"])
+	var draw_size: float = float(values["companion_mount_base_draw_size"])
+	if cols < 1.0 or rows < 1.0 or frame_count < 1.0 or draw_size <= 0.0:
+		return {}
+	if frame_count > cols * rows:
+		return {}
+	return values
 
 
 # 탑승 토글은 맨 우클릭을 쓰는데, 스매셔 벽력유성이 "우클릭 홀드로 무장 →
