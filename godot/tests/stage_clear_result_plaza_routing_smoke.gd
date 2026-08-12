@@ -41,7 +41,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_three_button_action_route()
 	_verify_result_character_type_normalization()
-	await _verify_plaza_delays_result_reset_callback()
+	await _verify_plaza_first_click_enters_and_delays_reset()
 	await _drain_frames(12)
 
 	if _failures.is_empty():
@@ -89,7 +89,7 @@ func _verify_result_character_type_normalization() -> void:
 	owner.free()
 
 
-func _verify_plaza_delays_result_reset_callback() -> void:
+func _verify_plaza_first_click_enters_and_delays_reset() -> void:
 	ProjectResourceLoader.clear_caches()
 	PlazaScene.reset_prewarm_assets_for_test()
 	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
@@ -115,40 +115,42 @@ func _verify_plaza_delays_result_reset_callback() -> void:
 	result_scene.set("_plaza_notice_until", -1.0)
 	result_scene.enter_plaza_callback = StageClearResultSceneSpawnCallbackData.build_enter_plaza_callback(screen)
 
-	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the first click")
-	_expect(result_scene.enter_plaza_callback.is_valid(), "an incomplete first prewarm click must restore the production plaza callback")
-	_expect(screen.is_scene_ready(), "an incomplete first prewarm click must keep the result scene alive")
-	_expect(owner.get_node_or_null("PlazaScene") == null, "an incomplete first prewarm click must not spawn a cache-only plaza")
-	_expect(owner.runtime_perk_gold == 321, "an incomplete first prewarm click must not settle volatile gold early")
-	_expect(float(result_scene.get("_plaza_notice_until")) > float(result_scene.get("timer")), "an incomplete active plaza click must show preparation feedback")
-	_expect(_click_plaza_button(result_scene), "an immediate repeated plaza click should remain handled")
-	_expect(result_scene.enter_plaza_callback.is_valid(), "an immediate repeated click must keep the production callback retryable")
-	_expect(owner.runtime_perk_gold == 321, "an immediate repeated click must not settle volatile gold")
-
-	var gpu_prewarmer: Node = null
-	for _step in range(512):
-		screen.update(1.0 / 60.0)
-		await process_frame
-		gpu_prewarmer = owner.get_node_or_null(BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME)
-		if gpu_prewarmer != null:
-			break
-	_expect(gpu_prewarmer != null, "the first production button click should attach the composed GPU prewarmer")
-	_expect(_count_named_children(owner, BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME) == 1, "repeated readiness clicks must attach exactly one composed GPU prewarmer")
+	# New entry contract (2026-08-12): a cold first click drains the bounded
+	# texture pipeline, forces entry, and never strands the player on the
+	# preparation bubble. The residual GPU flush becomes best-effort background
+	# work instead of an entry gate.
+	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the cold first click")
+	_expect(
+		not result_scene.enter_plaza_callback.is_valid(),
+		"a cold first click must consume the production callback by entering"
+	)
+	_expect(
+		float(result_scene.get("_plaza_notice_until")) < float(result_scene.get("timer")),
+		"a successful cold first click must not show the preparation bubble"
+	)
+	_expect(not screen.is_scene_ready(), "entering the plaza must free the result scene")
+	_expect(screen.is_active(), "entering the plaza should keep the result screen controller active as an input gate")
+	_expect(owner.get_node_or_null("PlazaScene") != null, "a cold first click must spawn the plaza itself, never reroute past it")
+	_expect(
+		_count_named_children(owner, BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME) == 1,
+		"forced entry should hand the residual GPU prewarm to exactly one background prewarmer"
+	)
+	var gpu_prewarmer := owner.get_node_or_null(BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME)
 	if gpu_prewarmer != null:
 		gpu_prewarmer.call("_process", 0.0)
 		var prewarmer_status: Dictionary = gpu_prewarmer.call("get_hwangyeok_instance_status")
-		_expect(bool(prewarmer_status.get("retained_draw_issued", false)), "the retry fixture should reach the real retained SubViewport draw setup")
-		_expect(int(prewarmer_status.get("in_bounds_layer_count", 0)) == 21, "the retry fixture should place all 21 layers inside the GPU target")
+		_expect(bool(prewarmer_status.get("retained_draw_issued", false)), "the background prewarmer should reach the real retained SubViewport draw setup")
+		_expect(int(prewarmer_status.get("in_bounds_layer_count", 0)) == 21, "the background prewarmer should place all 21 layers inside the GPU target")
 		for _flush_idx in range(
 			int(prewarmer_status.get("post_draw_flush_count", 0)),
 			BattlePsoPrewarmer.POST_WARMUP_FLUSH_FRAMES
 		):
 			gpu_prewarmer.call("_on_hwangyeok_frame_post_draw")
 	await process_frame
-	_expect(BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete(), "the retry fixture should complete composed GPU readiness before its second click")
-	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the ready retry")
-	_expect(not result_scene.enter_plaza_callback.is_valid(), "the ready second click should consume the production callback")
-	_expect(screen.is_active(), "entering the plaza should keep the result screen controller active as an input gate")
+	_expect(
+		BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete(),
+		"the forced-entry background prewarm should still converge to full GPU readiness"
+	)
 	_expect(sink.reset_calls == 0, "plaza entry must not invoke the next-stage reset callback immediately")
 	var status: Dictionary = screen.get_status()
 	var progress_summary: Dictionary = status.get("last_plaza_progress_summary", {}) if status.get("last_plaza_progress_summary", {}) is Dictionary else {}
@@ -179,6 +181,10 @@ func _verify_plaza_delays_result_reset_callback() -> void:
 	_expect(sink.reset_calls == 1, "leaving the plaza should invoke the delayed next-stage reset callback exactly once")
 	owner.queue_free()
 	_cleanup_save(save_path)
+	await _drain_frames(2)
+	PlazaScene.reset_prewarm_assets_for_test()
+	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
+	ProjectResourceLoader.clear_caches()
 
 
 func _drain_frames(frame_count: int) -> void:

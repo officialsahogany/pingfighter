@@ -39,6 +39,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_status_and_background_prewarm_toggle()
 	await _verify_spawn_configures_and_frees_plaza_scene()
+	await _verify_forced_entry_click_never_strands_on_notice()
 	_verify_source_boundary()
 	await _drain_frames(8)
 	PlazaScene.reset_prewarm_assets_for_test()
@@ -115,6 +116,48 @@ func _verify_spawn_configures_and_frees_plaza_scene() -> void:
 	handler.free_scene()
 	await _drain_frames(2)
 	_expect(not handler.has_scene(), "plaza scene handler should clear its scene reference after free")
+	owner.queue_free()
+
+
+func _verify_forced_entry_click_never_strands_on_notice() -> void:
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var sink := CallbackSink.new()
+
+	# Counterproof first: a fresh handler with an incomplete GPU prewarm and no
+	# forced entry must keep rejecting cache-only spawn readiness.
+	PlazaScene.reset_prewarm_assets_for_test()
+	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
+	var gated_handler := StageClearResultPlazaSceneHandler.new()
+	var save_store := FakePlazaSaveStore.new()
+	save_store.save_path = _smoke_save_path("forced_entry")
+	var config: Dictionary = gated_handler.build_scene_config(1, save_store, owner, null, "viper", true)
+	_expect(
+		not gated_handler.spawn_scene(owner, config, Callable(sink, "finish")),
+		"non-forced spawn should stay gated on the retained GPU prewarm"
+	)
+
+	# The entry click drains the bounded texture pipeline and forces entry even
+	# though the retained GPU flush has not happened yet.
+	PlazaScene.reset_prewarm_assets_for_test()
+	BattlePsoPrewarmer.reset_hwangyeok_gpu_prewarm_for_test()
+	var handler := StageClearResultPlazaSceneHandler.new()
+	handler.set_background_prewarm_enabled(true)
+	_expect(handler.advance_entry_readiness(1, owner), "entry click should force readiness through the bounded drain")
+	var status: Dictionary = handler.get_status()
+	_expect(bool(status.get("plaza_prewarm_complete", false)), "forced entry should complete the texture cache stage")
+	_expect(str(status.get("plaza_readiness_rejection_reason", "x")) == "", "forced entry should clear the readiness rejection reason")
+	_expect(
+		not BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete(),
+		"forced-entry leg requires the GPU prewarm to still be incomplete to be non-vacuous"
+	)
+	_expect(
+		handler.spawn_scene(owner, config, Callable(sink, "finish")),
+		"forced entry should bypass the GPU spawn gate instead of rerouting past the plaza"
+	)
+	_expect(handler.has_scene(), "forced entry spawn should attach a live plaza scene")
+	handler.free_scene()
+	await _drain_frames(2)
 	owner.queue_free()
 
 

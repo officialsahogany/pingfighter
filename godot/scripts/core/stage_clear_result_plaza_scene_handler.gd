@@ -49,6 +49,10 @@ func prewarm_assets_step(current_stage: int, owner: Object = null) -> bool:
 	return bool(_prewarm_state.prewarm_assets_step(current_stage, owner))
 
 
+func advance_entry_readiness(current_stage: int, owner: Object = null) -> bool:
+	return bool(_prewarm_state.advance_entry_readiness(current_stage, owner))
+
+
 func ensure_assets_ready(current_stage: int, owner: Object = null) -> bool:
 	return bool(_prewarm_state.ensure_assets_ready(current_stage, owner))
 
@@ -76,8 +80,11 @@ func spawn_scene(owner: Object, config: Dictionary, finish_callback: Callable) -
 		return false
 	# Texture2D cache completion alone is not spawn readiness. The retained
 	# 7x3 MIX/ADD layers must have rendered off-screen and crossed two actual
-	# frame_post_draw flushes through BattlePsoPrewarmer first.
-	if not BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete():
+	# frame_post_draw flushes through BattlePsoPrewarmer first. The one
+	# exception is a forced entry click: the bounded texture drain already
+	# completed, and blocking here would silently reroute the player past the
+	# plaza through finish_plaza_and_continue.
+	if not BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete() and not bool(_prewarm_state.was_entry_forced()):
 		return false
 	free_scene()
 	var packed: PackedScene = _get_plaza_scene_packed()

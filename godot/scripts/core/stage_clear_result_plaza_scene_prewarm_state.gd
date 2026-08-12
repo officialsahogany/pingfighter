@@ -7,12 +7,16 @@ var _prewarm_complete: bool = false
 var _prewarm_stage: int = -1
 var _background_prewarm_enabled: bool = true
 var _last_readiness_rejection_reason: String = "not_started"
+var _entry_forced: bool = false
+var _printed_entry_yield_reason: String = ""
 
 
 func reset() -> void:
 	_prewarm_complete = false
 	_prewarm_stage = -1
 	_last_readiness_rejection_reason = "not_started"
+	_entry_forced = false
+	_printed_entry_yield_reason = ""
 
 
 func set_background_prewarm_enabled(enabled: bool) -> void:
@@ -59,6 +63,46 @@ func prewarm_assets_step(current_stage: int, owner: Object = null) -> bool:
 		return false
 	_last_readiness_rejection_reason = ""
 	return true
+
+
+func was_entry_forced() -> bool:
+	return _entry_forced
+
+
+func advance_entry_readiness(current_stage: int, owner: Object = null) -> bool:
+	# Explicit plaza-entry click. The per-frame background step stays
+	# nonblocking, but a click must never strand the player on the notice
+	# bubble: when the shared threaded pipeline has not converged, drain the
+	# remaining texture loads under the same bounded guard ensure_assets_ready()
+	# uses and let the plaza's first frame pay any residual GPU upload instead.
+	# User-approved 2026-08-12; supersedes the R1 nonblocking-click-only yield.
+	if prewarm_assets_step(current_stage, owner):
+		_entry_forced = false
+		return true
+	_print_entry_yield_reason()
+	var stage_id: int = maxi(1, current_stage)
+	var guard := 0
+	while not bool(PlazaScene.prewarm_assets_blocking_step(stage_id)):
+		guard += 1
+		if guard > 256:
+			_last_readiness_rejection_reason = "texture_cache_timeout"
+			_print_entry_yield_reason()
+			return false
+	_prewarm_complete = true
+	_prewarm_stage = stage_id
+	# Best effort only: the retained flush needs real post-draw frames a click
+	# cannot manufacture, so entry proceeds without waiting on it.
+	BattlePsoPrewarmer.run_hwangyeok_gpu_prewarm_step(owner)
+	_entry_forced = true
+	_last_readiness_rejection_reason = ""
+	return true
+
+
+func _print_entry_yield_reason() -> void:
+	if _last_readiness_rejection_reason == _printed_entry_yield_reason:
+		return
+	_printed_entry_yield_reason = _last_readiness_rejection_reason
+	print("[PlazaEntry] readiness yield: %s" % _last_readiness_rejection_reason)
 
 
 func ensure_assets_ready(current_stage: int, owner: Object = null) -> bool:

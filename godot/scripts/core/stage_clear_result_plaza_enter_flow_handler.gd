@@ -96,6 +96,10 @@ func _is_plaza_handler_ready(plaza_scene_handler: Object) -> bool:
 
 
 func _advance_plaza_readiness(plaza_scene_handler: Object, current_stage: int, owner: Object) -> bool:
+	# A click is explicit entry intent: prefer the bounded entry drain so the
+	# player is never stranded on the notice bubble by a stalled background step.
+	if plaza_scene_handler.has_method("advance_entry_readiness"):
+		return bool(plaza_scene_handler.advance_entry_readiness(current_stage, owner))
 	if plaza_scene_handler.has_method("prewarm_assets_step"):
 		return bool(plaza_scene_handler.prewarm_assets_step(current_stage, owner))
 	# Compatibility adapters predating the frame-stepped API retain their
