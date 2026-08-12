@@ -145,6 +145,10 @@ class PsoWeatherWarmupState:
 			{"rect": Rect2(92.0, 54.0, 48.0, 7.0), "depth": 42.0},
 		]
 
+	func get_sand_wall_depth_arrays() -> Dictionary:
+		# Deterministic ridge (no RNG) so the textured sand-wall polygon PSO/upload warms too.
+		return {"bottom": [8.0, 16.0, 26.0, 34.0, 30.0, 22.0, 12.0, 5.0]}
+
 
 static func run_hwangyeok_gpu_prewarm_step(owner: Object) -> bool:
 	if is_hwangyeok_gpu_prewarm_complete():

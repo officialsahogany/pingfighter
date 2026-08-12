@@ -43,6 +43,13 @@ const SAND_BASE_COLOR := Color(0.804, 0.686, 0.451, 1.0)
 const SAND_DARK_COLOR := Color(0.686, 0.580, 0.353, 1.0)
 const SAND_OUTLINE_COLOR := Color(0.608, 0.510, 0.314, 1.0)
 const SAND_HIGHLIGHT_COLOR := Color(0.902, 0.804, 0.588, 1.0)
+const SAND_WALL_TEXTURE_WIDTH := 512
+const SAND_WALL_TEXTURE_HEIGHT := 48
+# Wall-base vertices sit this far outside the field line so a fully eroded column
+# never collapses crest/base into coincident points (keeps the strip triangulable).
+const SAND_WALL_BASE_OUTSET := 0.5
+const SAND_CREST_JITTER_PX := 1.6
+const SAND_SHADOW_MIN_DEPTH := 6.0
 const PREWARM_TEXTURE_KEYS := [
 	"rain_streak",
 	"wind_ribbon",
@@ -50,8 +57,14 @@ const PREWARM_TEXTURE_KEYS := [
 	"hail_core",
 	"ice_glint",
 	"sand_grain",
+	"sand_wall",
 	"message_scanline",
 ]
+
+# Every generated texture here is deterministic (hash-based, no RNG), so bakes are
+# shared process-wide: repeat stage entries and the PSO prewarmer's own renderer
+# instance must not re-pay the sand_wall bake (~120ms) on a loading tick.
+static var _shared_texture_cache: Dictionary = {}
 
 var _texture_cache: Dictionary = {}
 var _prewarm_texture_index := 0
@@ -200,98 +213,163 @@ func _draw_sand_wall_polygon(
 		return
 	var axis_start: float = SAND_VERTICAL_START if side == "left" or side == "right" else SAND_HORIZONTAL_START
 	var span_end: float = axis_start + float(seg_count) * SAND_SEG_SIZE
+	var span_length: float = max(1.0, span_end - axis_start)
 	var stride: int = _get_sand_polygon_stride(effect_lod_scale)
 	var sampled_indices: Array[int] = []
 	for index in range(0, seg_count, stride):
 		sampled_indices.append(index)
 	if sampled_indices.is_empty() or sampled_indices[sampled_indices.size() - 1] != seg_count - 1:
 		sampled_indices.append(seg_count - 1)
+	var sample_count: int = sampled_indices.size()
+	var side_salt: int = _get_sand_side_salt(side)
+	# Corner-closed silhouette keeps feeding the shadow band / outline like before.
 	var points: PackedVector2Array = PackedVector2Array()
-	points.resize(sampled_indices.size() + 2)
+	points.resize(sample_count + 2)
+	# Crest->base strip carries per-column UV anchors so the granular fill keeps its
+	# light-crest / dark-base gradient after triangulation (GRT-033: UVs stay in [0,1]).
+	var strip_points: PackedVector2Array = PackedVector2Array()
+	strip_points.resize(sample_count * 2)
+	var strip_uvs: PackedVector2Array = PackedVector2Array()
+	strip_uvs.resize(sample_count * 2)
 	var has_visible := false
+	for sample_index in range(sample_count):
+		var index: int = sampled_indices[sample_index]
+		var d: float = max(0.0, float(depths[index]))
+		if d > 0.5:
+			has_visible = true
+			# Deterministic sub-pixel crest jitter keeps the ridge organic without RNG.
+			d = max(0.5, d + (_bake_hash01(index * 7349 + side_salt) - 0.5) * SAND_CREST_JITTER_PX)
+		var along: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+		var u: float = clampf((along - axis_start) / span_length, 0.0, 1.0)
+		var crest := Vector2.ZERO
+		var base := Vector2.ZERO
+		match side:
+			"left":
+				crest = Vector2(d, along)
+				base = Vector2(-SAND_WALL_BASE_OUTSET, along)
+			"right":
+				crest = Vector2(FIELD_WIDTH - d, along)
+				base = Vector2(FIELD_WIDTH + SAND_WALL_BASE_OUTSET, along)
+			"top":
+				crest = Vector2(along, d)
+				base = Vector2(along, -SAND_WALL_BASE_OUTSET)
+			_:
+				crest = Vector2(along, FIELD_HEIGHT - d)
+				base = Vector2(along, FIELD_HEIGHT + SAND_WALL_BASE_OUTSET)
+		points[sample_index + 1] = crest + shake_offset
+		strip_points[sample_index] = crest + shake_offset
+		strip_uvs[sample_index] = Vector2(u, 0.0)
+		strip_points[sample_count * 2 - 1 - sample_index] = base + shake_offset
+		strip_uvs[sample_count * 2 - 1 - sample_index] = Vector2(u, 1.0)
 	match side:
 		"left":
 			points[0] = Vector2(0.0, axis_start) + shake_offset
-			for sample_index in range(sampled_indices.size()):
-				var index: int = sampled_indices[sample_index]
-				var d: float = max(0.0, float(depths[index]))
-				if d > 0.5:
-					has_visible = true
-				var y: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
-				points[sample_index + 1] = Vector2(d, y) + shake_offset
-			points[sampled_indices.size() + 1] = Vector2(0.0, span_end) + shake_offset
+			points[sample_count + 1] = Vector2(0.0, span_end) + shake_offset
 		"right":
 			points[0] = Vector2(FIELD_WIDTH, axis_start) + shake_offset
-			for sample_index in range(sampled_indices.size()):
-				var index: int = sampled_indices[sample_index]
-				var d: float = max(0.0, float(depths[index]))
-				if d > 0.5:
-					has_visible = true
-				var y: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
-				points[sample_index + 1] = Vector2(FIELD_WIDTH - d, y) + shake_offset
-			points[sampled_indices.size() + 1] = Vector2(FIELD_WIDTH, span_end) + shake_offset
+			points[sample_count + 1] = Vector2(FIELD_WIDTH, span_end) + shake_offset
 		"top":
 			points[0] = Vector2(axis_start, 0.0) + shake_offset
-			for sample_index in range(sampled_indices.size()):
-				var index: int = sampled_indices[sample_index]
-				var d: float = max(0.0, float(depths[index]))
-				if d > 0.5:
-					has_visible = true
-				var x: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
-				points[sample_index + 1] = Vector2(x, d) + shake_offset
-			points[sampled_indices.size() + 1] = Vector2(span_end, 0.0) + shake_offset
+			points[sample_count + 1] = Vector2(span_end, 0.0) + shake_offset
 		_:
 			points[0] = Vector2(axis_start, FIELD_HEIGHT) + shake_offset
-			for sample_index in range(sampled_indices.size()):
-				var index: int = sampled_indices[sample_index]
-				var d: float = max(0.0, float(depths[index]))
-				if d > 0.5:
-					has_visible = true
-				var x: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
-				points[sample_index + 1] = Vector2(x, FIELD_HEIGHT - d) + shake_offset
-			points[sampled_indices.size() + 1] = Vector2(span_end, FIELD_HEIGHT) + shake_offset
+			points[sample_count + 1] = Vector2(span_end, FIELD_HEIGHT) + shake_offset
 
 	if not has_visible:
 		return
 
-	var fill_color := Color(SAND_BASE_COLOR.r, SAND_BASE_COLOR.g, SAND_BASE_COLOR.b, 0.92 * dissolve_alpha)
-	canvas.draw_colored_polygon(points, fill_color)
+	# Explicit per-column triangle pairs: ear-clipping the whole wall strip re-anchors
+	# UVs onto far-away columns and erases the crest->base gradient (and can fail on
+	# eroded valleys, GRT-006). Fixed topology needs no runtime triangulation at all.
+	var sand_texture: Texture2D = _get_texture("sand_wall")
+	if sand_texture != null and sample_count >= 2:
+		var fill_modulate := Color(1.0, 1.0, 1.0, 0.94 * dissolve_alpha)
+		var strip_colors: PackedColorArray = PackedColorArray()
+		strip_colors.resize(sample_count * 2)
+		strip_colors.fill(fill_modulate)
+		var strip_indices: PackedInt32Array = PackedInt32Array()
+		strip_indices.resize((sample_count - 1) * 6)
+		for column_index in range(sample_count - 1):
+			var crest_a: int = column_index
+			var crest_b: int = column_index + 1
+			var base_a: int = sample_count * 2 - 1 - column_index
+			var base_b: int = base_a - 1
+			var write: int = column_index * 6
+			strip_indices[write] = crest_a
+			strip_indices[write + 1] = base_a
+			strip_indices[write + 2] = crest_b
+			strip_indices[write + 3] = crest_b
+			strip_indices[write + 4] = base_a
+			strip_indices[write + 5] = base_b
+		RenderingServer.canvas_item_add_triangle_array(
+			canvas.get_canvas_item(),
+			strip_indices,
+			strip_points,
+			strip_colors,
+			strip_uvs,
+			PackedInt32Array(),
+			PackedFloat32Array(),
+			sand_texture.get_rid()
+		)
+	else:
+		var fill_color := Color(SAND_BASE_COLOR.r, SAND_BASE_COLOR.g, SAND_BASE_COLOR.b, 0.92 * dissolve_alpha)
+		canvas.draw_colored_polygon(points, fill_color)
 
 	if not _is_severe_lod_active(effect_lod_scale):
-		# Inner shadow band along the wall side to give depth read.
-		var shadow_polygon: PackedVector2Array = _build_sand_shadow_polygon(side, points)
-		if shadow_polygon.size() >= 3:
-			var shadow_color := Color(SAND_DARK_COLOR.r, SAND_DARK_COLOR.g, SAND_DARK_COLOR.b, 0.42 * dissolve_alpha)
-			canvas.draw_colored_polygon(shadow_polygon, shadow_color)
+		# Inner shadow band under the crest lip keeps the dune depth read on the grain fill.
+		var shadow_bands: Array[PackedVector2Array] = _build_sand_shadow_polygon(side, points, shake_offset)
+		var shadow_color := Color(SAND_DARK_COLOR.r, SAND_DARK_COLOR.g, SAND_DARK_COLOR.b, 0.30 * dissolve_alpha)
+		for shadow_band in shadow_bands:
+			if shadow_band.size() >= 3:
+				canvas.draw_colored_polygon(shadow_band, shadow_color)
 
 	# Outline only along the visible silhouette (skip the closing wall edges).
 	var outline_points: PackedVector2Array = PackedVector2Array()
-	outline_points.resize(sampled_indices.size())
-	for index in range(sampled_indices.size()):
-		outline_points[index] = points[index + 1]
+	outline_points.resize(sample_count)
+	for outline_index in range(sample_count):
+		outline_points[outline_index] = points[outline_index + 1]
 	if outline_points.size() >= 2:
 		var outline_color := Color(SAND_OUTLINE_COLOR.r, SAND_OUTLINE_COLOR.g, SAND_OUTLINE_COLOR.b, 0.82 * dissolve_alpha)
 		canvas.draw_polyline(outline_points, outline_color, 1.4, true)
 
 	if not _is_severe_lod_active(effect_lod_scale):
-		# Crest highlight: skim a slightly inset bright ribbon along peaks for an organic dune feel.
-		var highlight_points: PackedVector2Array = _build_sand_highlight_polyline(side, depths, shake_offset, axis_start, effect_lod_scale)
-		if highlight_points.size() >= 2:
-			var highlight_color := Color(SAND_HIGHLIGHT_COLOR.r, SAND_HIGHLIGHT_COLOR.g, SAND_HIGHLIGHT_COLOR.b, 0.42 * dissolve_alpha)
-			canvas.draw_polyline(highlight_points, highlight_color, 1.0, true)
+		# Crest highlight: bright ribbons skim tall peaks; runs are split per contiguous
+		# ridge so the highlight never bridges eroded gaps with a floating line.
+		var highlight_runs: Array[PackedVector2Array] = _build_sand_highlight_polyline(side, depths, shake_offset, axis_start, effect_lod_scale)
+		var highlight_color := Color(SAND_HIGHLIGHT_COLOR.r, SAND_HIGHLIGHT_COLOR.g, SAND_HIGHLIGHT_COLOR.b, 0.40 * dissolve_alpha)
+		for highlight_run in highlight_runs:
+			if highlight_run.size() >= 2:
+				canvas.draw_polyline(highlight_run, highlight_color, 1.0, true)
 
 
-func _build_sand_shadow_polygon(side: String, surface_points: PackedVector2Array) -> PackedVector2Array:
+func _build_sand_shadow_polygon(side: String, surface_points: PackedVector2Array, shake_offset: Vector2) -> Array[PackedVector2Array]:
+	# One band per contiguous tall ridge: a single band spanning eroded zero-depth
+	# valleys collapses crest onto wall points and fails triangulation (GRT-006 spam).
+	var bands: Array[PackedVector2Array] = []
 	if surface_points.size() < 4:
-		return PackedVector2Array()
+		return bands
 	var inset: float = 4.0
-	var result: PackedVector2Array = PackedVector2Array()
-	# Walk the silhouette (skipping the wall closure endpoints) and offset slightly inward to form a thin band.
+	var current_run: PackedVector2Array = PackedVector2Array()
 	for index in range(1, surface_points.size() - 1):
-		result.append(surface_points[index])
-	var inset_count: int = result.size()
-	for back_index in range(inset_count - 1, -1, -1):
-		var p: Vector2 = result[back_index]
+		var point: Vector2 = surface_points[index]
+		if _get_sand_point_depth(side, point, shake_offset) <= SAND_SHADOW_MIN_DEPTH:
+			_append_sand_shadow_band(bands, current_run, side, inset)
+			current_run = PackedVector2Array()
+			continue
+		current_run.append(point)
+	_append_sand_shadow_band(bands, current_run, side, inset)
+	return bands
+
+
+func _append_sand_shadow_band(bands: Array[PackedVector2Array], run_points: PackedVector2Array, side: String, inset: float) -> void:
+	if run_points.size() < 2:
+		return
+	var run_size: int = run_points.size()
+	var band: PackedVector2Array = PackedVector2Array()
+	band.resize(run_size * 2)
+	for index in range(run_size):
+		band[index] = run_points[index]
+		var p: Vector2 = run_points[index]
 		match side:
 			"left":
 				p.x = max(0.0, p.x - inset)
@@ -301,21 +379,36 @@ func _build_sand_shadow_polygon(side: String, surface_points: PackedVector2Array
 				p.y = max(0.0, p.y - inset)
 			_:
 				p.y = min(FIELD_HEIGHT, p.y + inset)
-		result.append(p)
-	return result
+		band[run_size * 2 - 1 - index] = p
+	# GRT-006: decorative band must never reach the renderer as an untriangulable polygon.
+	if Geometry2D.triangulate_polygon(band).is_empty():
+		return
+	bands.append(band)
 
 
-func _build_sand_highlight_polyline(side: String, depths: Array, shake_offset: Vector2, axis_start: float, effect_lod_scale: float = 1.0) -> PackedVector2Array:
-	var result: PackedVector2Array = PackedVector2Array()
+func _get_sand_point_depth(side: String, point: Vector2, shake_offset: Vector2) -> float:
+	match side:
+		"left":
+			return point.x - shake_offset.x
+		"right":
+			return FIELD_WIDTH - (point.x - shake_offset.x)
+		"top":
+			return point.y - shake_offset.y
+	return FIELD_HEIGHT - (point.y - shake_offset.y)
+
+
+func _build_sand_highlight_polyline(side: String, depths: Array, shake_offset: Vector2, axis_start: float, effect_lod_scale: float = 1.0) -> Array[PackedVector2Array]:
+	var runs: Array[PackedVector2Array] = []
+	var current_run: PackedVector2Array = PackedVector2Array()
 	var inset: float = 2.0
 	var stride: int = _get_sand_polygon_stride(effect_lod_scale)
 	for index in range(0, depths.size(), stride):
 		var d: float = max(0.0, float(depths[index]))
 		if d <= 6.0:
-			# Only highlight reasonably tall peaks so we don't draw a long line through flat zones.
-			if not result.is_empty():
-				# Break the polyline by starting a new ribbon next time.
-				pass
+			# Only highlight reasonably tall peaks; close the run so eroded gaps stay unlit.
+			if current_run.size() >= 2:
+				runs.append(current_run)
+			current_run = PackedVector2Array()
 			continue
 		var pos := Vector2.ZERO
 		var axis_along: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
@@ -328,8 +421,10 @@ func _build_sand_highlight_polyline(side: String, depths: Array, shake_offset: V
 				pos = Vector2(axis_along, max(0.0, d - inset))
 			_:
 				pos = Vector2(axis_along, min(FIELD_HEIGHT, FIELD_HEIGHT - d + inset))
-		result.append(pos + shake_offset)
-	return result
+		current_run.append(pos + shake_offset)
+	if current_run.size() >= 2:
+		runs.append(current_run)
+	return runs
 
 
 func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
@@ -415,8 +510,28 @@ func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2,
 				var ice_size: float = float(particle.get("size", 4.0))
 				_draw_texture_piece(canvas, "ice_glint", pos, Vector2(ice_size * 3.0, ice_size * 3.0), color)
 			"sand":
-				var sand_size: float = max(2.0, float(particle.get("size", 3.0)) * 2.0)
-				_draw_texture_piece(canvas, "sand_grain", pos, Vector2(sand_size, sand_size), color)
+				var sand_size: float = max(3.0, float(particle.get("size", 3.0)) * 2.4)
+				var grain_hash: float = _get_particle_variation_hash(particle)
+				var grain_tone: float = 0.78 + grain_hash * 0.44
+				var grain_color := Color(
+					clampf(color.r * grain_tone, 0.0, 1.0),
+					clampf(color.g * grain_tone, 0.0, 1.0),
+					clampf(color.b * grain_tone, 0.0, 1.0),
+					color.a
+				)
+				_draw_texture_piece(canvas, "sand_grain", pos, Vector2(sand_size, sand_size), grain_color)
+				# Trailing fleck breaks the single-quad read into a scattered grain puff.
+				var fleck_offset := Vector2(
+					(grain_hash - 0.5) * sand_size * 1.7,
+					(fposmod(grain_hash * 7.31, 1.0) - 0.5) * sand_size * 1.7
+				)
+				_draw_texture_piece(
+					canvas,
+					"sand_grain",
+					pos + fleck_offset,
+					Vector2(sand_size, sand_size) * 0.55,
+					Color(grain_color.r, grain_color.g, grain_color.b, grain_color.a * 0.72)
+				)
 			_:
 				var width: float = max(18.0, abs(float(particle.get("vx", 0.0))) * 8.0 + 14.0)
 				_draw_texture_piece(canvas, "wind_ribbon", pos, Vector2(width, max(3.0, float(particle.get("size", 2.0)) * 2.0)), color)
@@ -622,8 +737,13 @@ func _draw_weather_message(canvas: CanvasItem, context: Dictionary) -> void:
 func _get_texture(key: String) -> Texture2D:
 	if _texture_cache.has(key):
 		return _texture_cache[key]
+	if _shared_texture_cache.has(key):
+		var shared_texture: Texture2D = _shared_texture_cache[key]
+		_texture_cache[key] = shared_texture
+		return shared_texture
 	var texture: Texture2D = _build_texture(key)
 	_texture_cache[key] = texture
+	_shared_texture_cache[key] = texture
 	return texture
 
 
@@ -640,7 +760,9 @@ func _build_texture(key: String) -> Texture2D:
 		"ice_glint":
 			return _make_glint_texture(32)
 		"sand_grain":
-			return _make_noise_texture(24, Color(0.47, 0.31, 0.11, 1.0), Color(0.97, 0.78, 0.42, 1.0))
+			return _make_sand_grain_cluster_texture(24)
+		"sand_wall":
+			return _make_sand_wall_texture(SAND_WALL_TEXTURE_WIDTH, SAND_WALL_TEXTURE_HEIGHT)
 		"message_scanline":
 			return _make_scanline_texture(16, 8)
 	return _make_radial_texture(16, Color(1.0, 1.0, 1.0, 0.0), Color.WHITE)
@@ -709,15 +831,130 @@ func _make_glint_texture(size: int) -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 
-func _make_noise_texture(size: int, dark: Color, light: Color) -> Texture2D:
-	var image: Image = Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
-	for y in range(size):
-		for x in range(size):
-			var checker: float = 0.35 if (x + y) % 3 == 0 else 0.0
-			var t: float = clamp(0.35 + randf_range(-0.18, 0.28) + checker, 0.0, 1.0)
-			var pixel: Color = dark.lerp(light, t)
-			pixel.a = 0.82
+# Deterministic hash/noise for baked sand art: no global RNG draw, stable across boots.
+func _bake_hash01(n: int) -> float:
+	var h: int = (n * 374761393 + 668265263) & 0xFFFFFFFF
+	h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+	h = h ^ (h >> 16)
+	return float(h & 0xFFFF) / 65535.0
+
+
+func _bake_value_noise(x: float, y: float, cell_x: float, cell_y: float, salt: int) -> float:
+	var cx: float = x / max(0.001, cell_x)
+	var cy: float = y / max(0.001, cell_y)
+	var x0: int = int(floor(cx))
+	var y0: int = int(floor(cy))
+	var fx: float = cx - float(x0)
+	var fy: float = cy - float(y0)
+	fx = fx * fx * (3.0 - 2.0 * fx)
+	fy = fy * fy * (3.0 - 2.0 * fy)
+	var n00: float = _bake_hash01(x0 * 73856093 + y0 * 19349663 + salt)
+	var n10: float = _bake_hash01((x0 + 1) * 73856093 + y0 * 19349663 + salt)
+	var n01: float = _bake_hash01(x0 * 73856093 + (y0 + 1) * 19349663 + salt)
+	var n11: float = _bake_hash01((x0 + 1) * 73856093 + (y0 + 1) * 19349663 + salt)
+	return lerpf(lerpf(n00, n10, fx), lerpf(n01, n11, fx), fy)
+
+
+func _get_sand_side_salt(side: String) -> int:
+	match side:
+		"left":
+			return 11
+		"right":
+			return 23
+		"top":
+			return 37
+	return 53
+
+
+func _get_particle_variation_hash(particle: Dictionary) -> float:
+	# Stable per particle (spawn-time fields), unlike the array index which shifts
+	# as sibling particles die and the array compacts.
+	return fposmod(
+		float(particle.get("size", 3.0)) * 91.17 + float(particle.get("max_life", 30.0)) * 13.31,
+		1.0
+	)
+
+
+func _make_sand_wall_texture(width: int, height: int) -> Texture2D:
+	var image: Image = Image.create_empty(width, height, false, Image.FORMAT_RGBA8)
+	var crest_color := Color(0.918, 0.822, 0.604, 1.0)
+	var mid_color := SAND_BASE_COLOR
+	var base_color := Color(0.648, 0.527, 0.331, 1.0)
+	for y in range(height):
+		var v: float = float(y) / max(1.0, float(height - 1))
+		var ramp: Color
+		if v < 0.5:
+			ramp = crest_color.lerp(mid_color, v / 0.5)
+		else:
+			ramp = mid_color.lerp(base_color, (v - 0.5) / 0.5)
+		for x in range(width):
+			# The wall band is stretched far more along u than v at runtime, so the noise
+			# cells are anisotropic here to come out roughly isotropic in world pixels.
+			var fine: float = _bake_value_noise(float(x), float(y), 2.2, 5.5, 11)
+			var clump: float = _bake_value_noise(float(x), float(y), 7.5, 19.0, 47)
+			var band: float = _bake_value_noise(float(x), float(y), 23.0, 48.0, 89)
+			var tone: float = 0.96 + (fine - 0.5) * 0.20 + (clump - 0.5) * 0.14 + (band - 0.5) * 0.10
+			var pixel := Color(
+				clampf(ramp.r * tone, 0.0, 1.0),
+				clampf(ramp.g * tone, 0.0, 1.0),
+				clampf(ramp.b * tone, 0.0, 1.0),
+				1.0
+			)
+			var dark_roll: float = _bake_hash01(x * 977 + y * 331 + 7)
+			var light_roll: float = _bake_hash01(x * 613 + y * 769 + 91)
+			if dark_roll < 0.035:
+				pixel = pixel.lerp(Color(0.36, 0.27, 0.16, 1.0), 0.62)
+			elif light_roll < 0.05 * (0.35 + 0.65 * (1.0 - v)):
+				pixel = pixel.lerp(Color(0.995, 0.936, 0.762, 1.0), 0.68)
 			image.set_pixel(x, y, pixel)
+	return ImageTexture.create_from_image(image)
+
+
+func _make_sand_grain_cluster_texture(size: int) -> Texture2D:
+	var image: Image = Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var center: float = float(size - 1) * 0.5
+	var palette: Array[Color] = [
+		Color(0.933, 0.827, 0.588, 1.0),
+		Color(0.855, 0.722, 0.459, 1.0),
+		Color(0.749, 0.604, 0.361, 1.0),
+		Color(0.584, 0.451, 0.263, 1.0),
+	]
+	for grain_index in range(6):
+		var angle: float = _bake_hash01(grain_index * 611 + 3) * TAU
+		var orbit: float = sqrt(_bake_hash01(grain_index * 421 + 17)) * center * 0.62
+		var grain_center := Vector2(center + cos(angle) * orbit, center + sin(angle) * orbit)
+		var grain_radius: float = 1.7 + _bake_hash01(grain_index * 233 + 29) * 1.8
+		var grain_color: Color = palette[int(_bake_hash01(grain_index * 149 + 41) * 3.999)]
+		var min_x: int = max(0, int(floor(grain_center.x - grain_radius)) - 1)
+		var max_x: int = min(size - 1, int(ceil(grain_center.x + grain_radius)) + 1)
+		var min_y: int = max(0, int(floor(grain_center.y - grain_radius)) - 1)
+		var max_y: int = min(size - 1, int(ceil(grain_center.y + grain_radius)) + 1)
+		for py in range(min_y, max_y + 1):
+			for px in range(min_x, max_x + 1):
+				var dist: float = Vector2(float(px), float(py)).distance_to(grain_center)
+				if dist > grain_radius:
+					continue
+				# Light falls from the top-left so each grain reads as a lit speck, not a flat dot.
+				var shade: float = clampf(
+					1.04 - ((float(px) - grain_center.x) + (float(py) - grain_center.y)) / max(1.0, grain_radius) * 0.14,
+					0.66,
+					1.12
+				)
+				var edge: float = clampf(1.0 - (dist / max(0.001, grain_radius) - 0.72) / 0.28, 0.0, 1.0)
+				image.set_pixel(px, py, Color(
+					clampf(grain_color.r * shade, 0.0, 1.0),
+					clampf(grain_color.g * shade, 0.0, 1.0),
+					clampf(grain_color.b * shade, 0.0, 1.0),
+					clampf(0.55 + 0.45 * edge, 0.0, 1.0)
+				))
+	for fleck_index in range(10):
+		var fleck_x: int = int(_bake_hash01(fleck_index * 97 + 5) * float(size - 1))
+		var fleck_y: int = int(_bake_hash01(fleck_index * 71 + 9) * float(size - 1))
+		if image.get_pixel(fleck_x, fleck_y).a > 0.0:
+			continue
+		var fleck_color: Color = palette[fleck_index % palette.size()]
+		image.set_pixel(fleck_x, fleck_y, Color(fleck_color.r, fleck_color.g, fleck_color.b, 0.5))
 	return ImageTexture.create_from_image(image)
 
 
