@@ -2674,14 +2674,28 @@ func _get_companion_position_for_guardian_duration() -> Vector2:
 
 
 func _update_companion_motion(delta: float, owner: Object, registry: Object = null) -> void:
+	# §A-4: 매 컴패니언 갱신마다 readiness 를 cache-only 재판정해 완전 교체한다.
+	# resolve 는 비탑다운 모델이면 peek 조차 하지 않으므로(온이마루 무접촉) 매
+	# 프레임 비용은 모델 축 불리언 하나다.
+	refresh_topdown_mount_readiness(owner, registry)
 	_companion_motion_coordinator.update(
 		delta,
 		owner,
 		registry,
 		_pet_id,
 		_is_guardian_summoned(),
-		_compute_mount_body_presentation_incompatible(owner)
+		_compute_mount_body_presentation_incompatible(owner),
+		_compute_topdown_mount_not_ready()
 	)
+
+
+# §A-4 런타임 fail-closed 의 게이트 항: 탑다운 모델인데 최근 판정이 ready 가
+# 아니면 true(진입 차단·탑승 중 철회). 비탑다운 모델은 항상 false — 준비도가
+# 목말(온이마루) 경로에 어떤 영향도 주지 않는다.
+func _compute_topdown_mount_not_ready() -> bool:
+	if not bool(_current_profile.is_mount_presentation_topdown()):
+		return false
+	return not bool(_mount_topdown_readiness_result.get("ready", false))
 
 
 # S3-a §C-3c: 탑다운 모델 × 플레이어 본체 대체. 판정은 여기(egg)가 소유하고

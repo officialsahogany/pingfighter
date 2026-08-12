@@ -1435,9 +1435,32 @@ static func is_front_presentation_static(pet_id: String) -> bool:
 	return str(_get_entry_ref(pet_id).get(FRONT_PRESENTATION_MODEL_KEY, FRONT_PRESENTATION_DYNAMIC)) == FRONT_PRESENTATION_STATIC
 
 
+# 8-10: N 5종이 완비될 때까지 shipped 엔트리에는 topdown 모델을 넣지 않는다.
+# 그동안 골격 씰·디버그 경로가 모델과 베이스 경로를 켜는 **유일한 수단**이 이
+# 오버라이드다. 프로덕션 코드는 절대 채우지 않는다 — 비어 있으면 아래 판정들은
+# is_empty() 한 번 외에 무비용이다. (const PETS 는 Godot 4 에서 read-only 라
+# 런타임 주입이 불가능한 것도 이 수단이 필요한 이유다.)
+static var _mount_presentation_test_overrides: Dictionary = {}
+
+
+static func set_mount_presentation_override_for_tests(pet_id: String, model: String, base_path: String) -> void:
+	_mount_presentation_test_overrides[_normalize_pet_id(pet_id)] = {
+		"model": model,
+		"base_path": base_path,
+	}
+
+
+static func clear_mount_presentation_test_overrides() -> void:
+	_mount_presentation_test_overrides.clear()
+
+
 static func is_mount_presentation_topdown(pet_id: String) -> bool:
 	# S3-a 탑다운 렌더 모델 여부. 매 프레임 탑승 게이트에서 호출되므로 딥카피 없는
 	# _get_entry_ref 를 쓴다. 미선언(현행 목말/일반)은 false.
+	if not _mount_presentation_test_overrides.is_empty():
+		var override: Variant = _mount_presentation_test_overrides.get(_normalize_pet_id(pet_id), null)
+		if override is Dictionary:
+			return str((override as Dictionary).get("model", "")) == MOUNT_PRESENTATION_TOPDOWN
 	return str(_get_entry_ref(pet_id).get(MOUNT_PRESENTATION_MODEL_KEY, "")) == MOUNT_PRESENTATION_TOPDOWN
 
 
@@ -1538,6 +1561,12 @@ static func get_active_skill_runtime_kind_from_entries(entries: Dictionary, skil
 
 
 static func get_visual_path(pet_id: String, visual_key: String) -> String:
+	# 8-10 테스트 오버라이드: mount base 키 한정. 프로덕션은 dict 가 비어 있어
+	# is_empty() 단락으로 즉시 통과한다(핫패스 무비용 유지).
+	if not _mount_presentation_test_overrides.is_empty() and visual_key == MOUNT_BASE_VISUAL_KEY:
+		var override: Variant = _mount_presentation_test_overrides.get(_normalize_pet_id(pet_id), null)
+		if override is Dictionary:
+			return str((override as Dictionary).get("base_path", ""))
 	var visuals: Variant = _get_entry_ref(pet_id).get("visuals", {})
 	if visuals is Dictionary:
 		return str((visuals as Dictionary).get(visual_key, ""))
@@ -1843,6 +1872,44 @@ static func _validate_mount_presentation(pet_id: String, entry: Dictionary, visu
 	for layout_key in MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS:
 		if not layout_data.has(layout_key):
 			issues.append("%s: mount model 'topdown' requires visual_layout.%s (누락 시 5×5/25 오슬라이스·소켓 미정렬)" % [pet_id, str(layout_key)])
+	# 존재만으론 부족하다 — cols=0, 음수 frame_count, 문자열 draw_size 도 존재
+	# 검사는 통과한다. 값 정합까지 본다(visual_layout 은 float 전용 계약).
+	var cols := _mount_layout_number(layout_data, "companion_mount_base_cols", pet_id, issues)
+	var rows := _mount_layout_number(layout_data, "companion_mount_base_rows", pet_id, issues)
+	var frame_count := _mount_layout_number(layout_data, "companion_mount_base_frame_count", pet_id, issues)
+	if not is_nan(cols) and (cols < 1.0 or absf(cols - roundf(cols)) > 0.001):
+		issues.append("%s: visual_layout.companion_mount_base_cols must be a positive integer (got %s)" % [pet_id, str(cols)])
+	if not is_nan(rows) and (rows < 1.0 or absf(rows - roundf(rows)) > 0.001):
+		issues.append("%s: visual_layout.companion_mount_base_rows must be a positive integer (got %s)" % [pet_id, str(rows)])
+	if not is_nan(frame_count):
+		if frame_count < 1.0 or absf(frame_count - roundf(frame_count)) > 0.001:
+			issues.append("%s: visual_layout.companion_mount_base_frame_count must be a positive integer (got %s)" % [pet_id, str(frame_count)])
+		elif not is_nan(cols) and not is_nan(rows) and cols >= 1.0 and rows >= 1.0 and frame_count > cols * rows:
+			issues.append("%s: companion_mount_base_frame_count %s exceeds grid capacity %sx%s" % [pet_id, str(frame_count), str(cols), str(rows)])
+	var draw_size := _mount_layout_number(layout_data, "companion_mount_base_draw_size", pet_id, issues)
+	if not is_nan(draw_size) and draw_size <= 0.0:
+		issues.append("%s: visual_layout.companion_mount_base_draw_size must be > 0 (got %s)" % [pet_id, str(draw_size)])
+	for saddle_key in ["companion_mount_base_saddle_x", "companion_mount_base_saddle_y"]:
+		var saddle := _mount_layout_number(layout_data, str(saddle_key), pet_id, issues)
+		if not is_nan(saddle) and not is_finite(saddle):
+			issues.append("%s: visual_layout.%s must be finite (got %s)" % [pet_id, str(saddle_key), str(saddle)])
+
+
+# 레이아웃 값이 숫자 타입인지 검사하고 float 로 돌려준다. 숫자가 아니면 이슈를
+# 남기고 NaN(후속 범위 검사 스킵 마커) 반환. 키 부재도 NaN — 부재 이슈는 필수
+# 키 루프가 이미 남겼으므로 여기서 중복 보고하지 않는다.
+static func _mount_layout_number(layout_data: Dictionary, key: String, pet_id: String, issues: Array[String]) -> float:
+	if not layout_data.has(key):
+		return NAN
+	var value: Variant = layout_data.get(key)
+	if not (value is float or value is int):
+		issues.append("%s: visual_layout.%s must be a number (visual_layout is float-only; got %s)" % [pet_id, key, type_string(typeof(value))])
+		return NAN
+	var as_float := float(value)
+	if is_nan(as_float):
+		issues.append("%s: visual_layout.%s must not be NaN" % [pet_id, key])
+		return NAN
+	return as_float
 
 
 static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:

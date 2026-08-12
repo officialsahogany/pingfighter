@@ -223,6 +223,10 @@ class _FlowHarness:
 	var callbacks_module: Object = null
 	var lingpet_calls := 0
 	var reconcile_calls := 0
+	# 호출 순서 판별용 trace. 이벤트 플래그는 프레임 시작 시 false 이고
+	# update_mythic_items 콜백이 true 로 전환한다 — reconcile 이 mythic 앞으로
+	# 이동하면 철회할 근거가 아직 없어 mounted 가 남는다(순서 반증의 이빨).
+	var trace: Array = []
 
 	func noop_delta(_delta: float) -> void:
 		pass
@@ -230,10 +234,15 @@ class _FlowHarness:
 	func noop() -> void:
 		pass
 
+	func on_mythic(_delta: float) -> void:
+		trace.append("mythic")
+		owner.set("horn_strawberry_event_playing", true)
+
 	func on_lingpet(_delta: float) -> void:
 		lingpet_calls += 1
 
 	func on_reconcile() -> void:
+		trace.append("reconcile")
 		reconcile_calls += 1
 		callbacks_module._reconcile_lingpet_mount_presentation(owner, registry)
 
@@ -241,8 +250,9 @@ class _FlowHarness:
 # 실 BattleFrameFlowController 로 한 프레임 돌린다. pause 활성 → update_lingpet
 # 0회를 강제하고, 그 프레임 안에서 reconcile 이 철회를 이행했는지 본다.
 func _run_flow_frame(victory_loot: bool) -> Dictionary:
+	# 프레임 시작 시 이벤트는 false — 뿔딸기 이벤트는 update_mythic_items 가
+	# 이 프레임 안에서 owner 에 투영한다(실 운영 순서와 동형).
 	var owner := _make_owner()
-	_set_body_replaced(owner, "horn_strawberry_event_playing")
 	var runtime := _make_mounted_egg(true)
 	var registry := SpyPauseRegistry.new()
 	registry.cached["lingpet_egg_runtime"] = runtime
@@ -255,7 +265,7 @@ func _run_flow_frame(victory_loot: bool) -> Dictionary:
 	var flow: Object = BattleFrameFlowController.new()
 	var callbacks := {
 		"update_weather": Callable(harness, "noop_delta"),
-		"update_mythic_items": Callable(harness, "noop_delta"),
+		"update_mythic_items": Callable(harness, "on_mythic"),
 		"update_effects": Callable(harness, "noop_delta"),
 		"queue_redraw": Callable(harness, "noop"),
 		"reconcile_lingpet_mount_presentation": Callable(harness, "on_reconcile"),
@@ -273,6 +283,7 @@ func _run_flow_frame(victory_loot: bool) -> Dictionary:
 		"registry": registry,
 		"lingpet_calls": harness.lingpet_calls,
 		"reconcile_calls": harness.reconcile_calls,
+		"trace": harness.trace,
 	}
 
 
@@ -280,6 +291,10 @@ func _test_flow_general_path_leg() -> void:
 	var run := _run_flow_frame(false)
 	_expect("L-일반: pause 프레임이라 update_lingpet 0회", int(run["lingpet_calls"]) == 0)
 	_expect("L-일반: pre-pause reconcile 이 호출됨", int(run["reconcile_calls"]) >= 1)
+	_expect(
+		"L-일반: 호출 순서 = mythic → reconcile (이벤트 투영 후 철회)",
+		(run["trace"] as Array) == ["mythic", "reconcile"]
+	)
 	_expect(
 		"L-일반: 그럼에도 같은 프레임 is_mounted()==false",
 		not bool((run["runtime"] as Object)._mount_state.is_mounted())
@@ -324,6 +339,10 @@ func _test_flow_victory_loot_path_leg() -> void:
 	var run := _run_flow_frame(true)
 	_expect("L-전리품: pause 프레임이라 update_lingpet 0회", int(run["lingpet_calls"]) == 0)
 	_expect("L-전리품: pre-pause reconcile 이 호출됨", int(run["reconcile_calls"]) >= 1)
+	_expect(
+		"L-전리품: 호출 순서 = mythic → reconcile (이벤트 투영 후 철회)",
+		(run["trace"] as Array) == ["mythic", "reconcile"]
+	)
 	_expect(
 		"L-전리품: 그럼에도 같은 프레임 is_mounted()==false",
 		not bool((run["runtime"] as Object)._mount_state.is_mounted())

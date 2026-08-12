@@ -152,7 +152,7 @@ func _get_ride_bounce_px() -> float:
 # Ticks the toggle + ride motion clocks. Call once per companion update frame
 # while the companion is in its active (non-egg) state; pass
 # companion_active=false to force a dismount (pet incapacitated / despawned).
-func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool, delta: float, mount_permitted: bool, body_presentation_incompatible: bool) -> Dictionary:
+func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool, delta: float, mount_permitted: bool, body_presentation_incompatible: bool, topdown_mount_not_ready: bool) -> Dictionary:
 	var result := {"toggled": false, "mounted": _mounted}
 	_last_delta = maxf(delta, 0.0)
 	if _mounted:
@@ -169,7 +169,11 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	# 소유하고 여기는 철회 전이만 소유한다. 필수인 이유 = 기본값은 호출 누락을
 	# 조용히 숨긴다(S2 fail-open 교훈). 목말(온이마루)은 모델 축이 false 라 항상
 	# false 로 들어와 변신 중에도 현행 그대로 탑승이 유지된다.
-	if not is_supported_pet(_pet_id) or not companion_active or not mount_permitted or body_presentation_incompatible:
+	# topdown_mount_not_ready(§A-4)는 "탑다운 모델 × M/N 미준비"다 — validate 는
+	# 프로덕션에서 돌지 않으므로 이 게이트가 런타임 fail-closed 의 이행체다.
+	# 미준비면 진입 차단 + 탑승 중 같은 프레임 철회("M만 빠진 채 일반 포즈 유지"
+	# 금지). 판정·readiness 갱신은 egg 소유(cache-only), 여기는 전이만.
+	if not is_supported_pet(_pet_id) or not companion_active or not mount_permitted or body_presentation_incompatible or topdown_mount_not_ready:
 		if _mounted:
 			_dismount()
 			result["toggled"] = true

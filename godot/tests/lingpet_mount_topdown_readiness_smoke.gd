@@ -15,6 +15,9 @@ extends SceneTree
 
 const LingpetMountTopdownReadiness := preload("res://scripts/lingpet/lingpet_mount_topdown_readiness.gd")
 const PlayerMountRiderSpriteCatalog := preload("res://scripts/resources/player_mount_rider_sprite_catalog.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failed := false
 
@@ -105,6 +108,10 @@ func _run() -> void:
 	_test_character_alias_control()
 	_test_unknown_character_is_rejected()
 	_test_result_carries_canonical_id_and_key()
+	_test_operational_gate_blocks_when_not_ready()
+	_test_operational_gate_positive_and_revoke()
+	_test_operational_onimaru_untouched()
+	_test_mount_validation_value_checks()
 
 	if _failed:
 		printerr("lingpet_mount_topdown_readiness_smoke: FAILED")
@@ -400,3 +407,244 @@ func _test_character_alias_control() -> void:
 			"별칭 대조군: 미지의 %s 는 규격도 빈 dict" % str(unknown_id),
 			PlayerMountRiderSpriteCatalog.get_rider_spec(str(unknown_id)).is_empty()
 		)
+
+
+# ══════════ 운영 관통 (P14 게이트 연결) ══════════
+# resolver 단위가 아니라 **실 egg 갱신 → readiness 완전 교체 → coordinator →
+# mount_state 게이트**를 관통한다. 탑다운 모델은 shipped 카탈로그에 없으므로
+# (8-10) 백린 엔트리에 런타임으로 주입하고 레그 끝에 제거한다(인메모리 픽스처).
+const MOUNT_FIXTURE_PATH := "res://__fixture__/baekrin_mount_base_1x1.png"
+
+# store_texture 는 resource_path 를 경로에 고정하므로 같은 경로로 두 번 만들면
+# 엔진이 cyclic-inclusion 오류를 낸다 — 픽스처 텍스처는 전 레그가 1개를 공유한다.
+var _mount_fixture_texture: Texture2D = null
+
+
+func _ensure_mount_fixture_texture() -> void:
+	if _mount_fixture_texture == null:
+		_mount_fixture_texture = _make_texture()
+		ProjectResourceLoader.store_texture(MOUNT_FIXTURE_PATH, _mount_fixture_texture)
+
+
+class FakeInputProbe:
+	extends RefCounted
+
+	var rmb := false
+	var down := false
+
+	func is_rmb_pressed() -> bool:
+		return rmb
+
+	func is_down_pressed() -> bool:
+		return down
+
+
+class OperationalOwner:
+	extends RefCounted
+
+	var player_pos := Vector2(300.0, 675.0)
+	var player_paddle_width := 155.0
+	var player_speed := 0.0
+	var selected_character_type := "smasher"
+	var ball_active := false
+	var ball_pos := Vector2.ZERO
+	var ball_vel := Vector2.ZERO
+	var ball_size := 28.6
+
+
+class OperationalRegistry:
+	extends RefCounted
+
+	var cached: Dictionary = {}
+	var instantiating_calls := 0
+
+	func get_cached_instance(key: String) -> Variant:
+		return cached.get(key, null)
+
+	func get_instance(key: String) -> Variant:
+		instantiating_calls += 1
+		return cached.get(key, null)
+
+
+func _install_topdown_model(with_base_path: bool) -> void:
+	# const PETS 는 read-only — 8-10 이 승인한 테스트 오버라이드가 유일 수단이다.
+	# M 축은 base_path 유무로 제어한다: 빈 경로 = 프리웜·peek 모두 자연 스킵
+	# (실로드 경고 없이 REASON_NO_MOUNT_TEXTURE 로 귀결).
+	LingpetCatalog.set_mount_presentation_override_for_tests(
+		"baekrin",
+		LingpetCatalog.MOUNT_PRESENTATION_TOPDOWN,
+		MOUNT_FIXTURE_PATH if with_base_path else ""
+	)
+
+
+func _remove_topdown_model() -> void:
+	LingpetCatalog.clear_mount_presentation_test_overrides()
+
+
+# mount_ready=true 면 M 을 프리웜(셋업 시점 로드 — 게이트는 cache-only peek 만 한다),
+# rider_published=true 면 발행 캐시에 N 을 싣는다.
+func _make_operational_runtime(owner: Object, registry: OperationalRegistry, mount_ready: bool, rider_authored: bool, rider_published: bool) -> Object:
+	_install_topdown_model(mount_ready)
+	if mount_ready:
+		_ensure_mount_fixture_texture()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.debug_grant_and_activate_pet("baekrin", owner, false, "baekrin_saddle")
+	runtime._state = "companion"
+	runtime._guardian_stowed = false
+	var center_x: float = owner.player_pos.x + owner.player_paddle_width * 0.5
+	runtime._companion_motion_coordinator.set_position(Vector2(center_x, 655.0))
+	if mount_ready:
+		runtime._current_profile.get_visual_texture(LingpetCatalog.MOUNT_BASE_VISUAL_KEY, null)
+	if rider_authored:
+		runtime._mount_topdown_readiness.rider_spec_provider = func(_character_id: String) -> Dictionary:
+			return _make_rider_spec()
+	var resources := SpyBattleResources.new()
+	if rider_published:
+		resources.resource_cache[PlayerMountRiderSpriteCatalog.get_texture_cache_key("smasher")] = _make_texture()
+	registry.cached["battle_resources"] = resources
+	return runtime
+
+
+func _try_mount_via_runtime(runtime: Object, owner: Object, registry: Object) -> bool:
+	var probe := FakeInputProbe.new()
+	runtime._mount_state.set_input_probe(probe)
+	probe.rmb = false
+	runtime._update_companion_motion(0.016, owner, registry)
+	probe.rmb = true
+	runtime._update_companion_motion(0.016, owner, registry)
+	probe.rmb = false
+	return bool(runtime._mount_state.is_mounted())
+
+
+func _test_operational_gate_blocks_when_not_ready() -> void:
+	var combos := [
+		{"label": "M 없음", "mount": false, "authored": true, "published": true},
+		{"label": "N 미발행", "mount": true, "authored": true, "published": false},
+		{"label": "N 미저작", "mount": true, "authored": false, "published": true},
+		{"label": "둘 다 없음", "mount": false, "authored": true, "published": false},
+	]
+	for combo in combos:
+		var owner := OperationalOwner.new()
+		var registry := OperationalRegistry.new()
+		var runtime := _make_operational_runtime(
+			owner, registry,
+			bool(combo["mount"]), bool(combo["authored"]), bool(combo["published"])
+		)
+		_expect(
+			"운영 게이트 %s: 탑다운 진입 차단" % str(combo["label"]),
+			not _try_mount_via_runtime(runtime, owner, registry)
+		)
+		_expect(
+			"운영 게이트 %s: readiness 결과가 미준비" % str(combo["label"]),
+			not bool(runtime.get_topdown_mount_readiness().get("ready", true))
+		)
+		_expect(
+			"운영 게이트 %s: get_instance 0회" % str(combo["label"]),
+			registry.instantiating_calls == 0
+		)
+	_remove_topdown_model()
+
+
+func _test_operational_gate_positive_and_revoke() -> void:
+	# 양성 대조군: M+N 준비 → 진입 성립
+	var owner := OperationalOwner.new()
+	var registry := OperationalRegistry.new()
+	var runtime := _make_operational_runtime(owner, registry, true, true, true)
+	_expect("운영 양성: M+N 준비 시 탑다운 진입 성립", _try_mount_via_runtime(runtime, owner, registry))
+	_expect(
+		"운영 양성: readiness 결과 ready + rider_texture 객체 보존 (B 재조회 금지 소스)",
+		bool(runtime.get_topdown_mount_readiness().get("ready", false))
+		and runtime.get_topdown_mount_readiness().get("rider_texture", null) != null
+	)
+	# 탑승 중 미준비 전이: 발행 캐시에서 N 이 사라지면 같은 프레임 철회
+	var resources: SpyBattleResources = registry.cached["battle_resources"]
+	resources.resource_cache.erase(PlayerMountRiderSpriteCatalog.get_texture_cache_key("smasher"))
+	runtime._update_companion_motion(0.016, owner, registry)
+	_expect("운영 철회: 탑승 중 N 소실 → 같은 프레임 강제 하차", not bool(runtime._mount_state.is_mounted()))
+	_remove_topdown_model()
+
+
+func _test_operational_onimaru_untouched() -> void:
+	# 온이마루(비탑다운): M/N 이 전혀 없어도 유예 탑승이 현행 그대로 성립한다.
+	var owner := OperationalOwner.new()
+	var registry := OperationalRegistry.new()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.debug_grant_and_activate_pet("onimaru", owner, false)
+	runtime._state = "companion"
+	runtime._guardian_stowed = false
+	var center_x: float = owner.player_pos.x + owner.player_paddle_width * 0.5
+	runtime._companion_motion_coordinator.set_position(Vector2(center_x, 655.0))
+	_expect("운영 온이마루 무접촉: M/N 없어도 탑승 성립", _try_mount_via_runtime(runtime, owner, registry))
+
+
+# ══════════ 카탈로그 값 검증 (P2) ══════════
+func _make_validation_entry(layout: Dictionary) -> Dictionary:
+	return {
+		"id": "fixture_pet",
+		"display_name": "픽스처",
+		"hatch_weight": 1,
+		"required_hits": 3,
+		"enabled": true,
+		LingpetCatalog.MOUNT_PRESENTATION_MODEL_KEY: LingpetCatalog.MOUNT_PRESENTATION_TOPDOWN,
+		"visuals": {LingpetCatalog.MOUNT_BASE_VISUAL_KEY: "res://__fixture__/x.png"},
+		"visual_layout": layout,
+	}
+
+
+func _has_issue(issues: Array, needle: String) -> bool:
+	for issue in issues:
+		if str(issue).find(needle) >= 0:
+			return true
+	return false
+
+
+func _validate_layout(layout: Dictionary) -> Array:
+	# 실 validate_entry 통합 관통 — 존재 검사와 값 검사가 같은 경로에서 나온다.
+	return LingpetCatalog.validate_entry("fixture_pet", _make_validation_entry(layout), false)
+
+
+func _good_layout() -> Dictionary:
+	return {
+		"companion_mount_base_cols": 1.0,
+		"companion_mount_base_rows": 1.0,
+		"companion_mount_base_frame_count": 1.0,
+		"companion_mount_base_draw_size": 92.0,
+		"companion_mount_base_saddle_x": 128.0,
+		"companion_mount_base_saddle_y": 64.0,
+	}
+
+
+func _test_mount_validation_value_checks() -> void:
+	# 정상 레이아웃: mount 관련 이슈 0건
+	var clean := _validate_layout(_good_layout())
+	_expect("값검증 대조군: 정상 레이아웃에 mount 이슈 없음", not _has_issue(clean, "companion_mount_base"))
+
+	var zero_cols := _good_layout()
+	zero_cols["companion_mount_base_cols"] = 0.0
+	_expect("값검증: cols=0 거부", _has_issue(_validate_layout(zero_cols), "companion_mount_base_cols must be a positive integer"))
+
+	var negative_frames := _good_layout()
+	negative_frames["companion_mount_base_frame_count"] = -3.0
+	_expect("값검증: 음수 frame_count 거부", _has_issue(_validate_layout(negative_frames), "companion_mount_base_frame_count must be a positive integer"))
+
+	var over_capacity := _good_layout()
+	over_capacity["companion_mount_base_cols"] = 5.0
+	over_capacity["companion_mount_base_rows"] = 5.0
+	over_capacity["companion_mount_base_frame_count"] = 30.0
+	_expect("값검증: frame_count > cols*rows 거부", _has_issue(_validate_layout(over_capacity), "exceeds grid capacity"))
+
+	var zero_draw := _good_layout()
+	zero_draw["companion_mount_base_draw_size"] = 0.0
+	_expect("값검증: draw_size=0 거부", _has_issue(_validate_layout(zero_draw), "companion_mount_base_draw_size must be > 0"))
+
+	var string_draw := _good_layout()
+	string_draw["companion_mount_base_draw_size"] = "92"
+	_expect("값검증: 문자열 draw_size 거부 (float 전용)", _has_issue(_validate_layout(string_draw), "companion_mount_base_draw_size must be a number"))
+
+	var infinite_saddle := _good_layout()
+	infinite_saddle["companion_mount_base_saddle_x"] = INF
+	_expect("값검증: 무한 saddle 좌표 거부", _has_issue(_validate_layout(infinite_saddle), "companion_mount_base_saddle_x must be finite"))
+
+	var fractional_cols := _good_layout()
+	fractional_cols["companion_mount_base_cols"] = 2.5
+	_expect("값검증: 비정수 cols 거부", _has_issue(_validate_layout(fractional_cols), "companion_mount_base_cols must be a positive integer"))

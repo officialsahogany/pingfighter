@@ -116,7 +116,8 @@ func update(
 	registry: Object,
 	pet_id: String,
 	companion_active: bool,
-	body_presentation_incompatible: bool
+	body_presentation_incompatible: bool,
+	topdown_mount_not_ready: bool
 ) -> void:
 	if not _is_configured():
 		return
@@ -153,7 +154,8 @@ func update(
 		right_click_claimed,
 		delta,
 		mount_permitted,
-		body_presentation_incompatible
+		body_presentation_incompatible,
+		topdown_mount_not_ready
 	)
 	if bool(mount_advance_result.get("toggled", false)):
 		_invalidate_runtime_snapshot()
