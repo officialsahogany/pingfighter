@@ -214,6 +214,14 @@ static func can_occupy(
 	return _can_occupy_bound_state(navigation_state, actor_position, include_interaction_portals)
 
 
+static func is_bound_state_valid(navigation_state: Dictionary) -> bool:
+	# One-time validation hook for compile-style consumers
+	# (plaza_map_navigation_compiled.gd). Hot paths must never call this per
+	# tick; the full geometry re-digest here is exactly the GRT-032-family cost
+	# the compiled owner exists to remove.
+	return _is_valid_navigation_state(navigation_state)
+
+
 static func _can_occupy_bound_state(
 	navigation_state: Dictionary,
 	actor_position: Vector2,
