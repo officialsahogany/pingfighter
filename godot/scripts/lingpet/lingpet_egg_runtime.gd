@@ -2797,10 +2797,11 @@ func draw_topdown_mount_base(canvas: CanvasItem, final_rider_rect: Rect2) -> voi
 	if layout.is_empty():
 		return
 	var draw_size: float = float(layout["companion_mount_base_draw_size"])
+	# 그리드 3값은 해석기가 이미 정수로 정규화했다(절단 아님 — roundi).
 	var sheet_meta := {
-		"cols": int(layout["companion_mount_base_cols"]),
-		"rows": int(layout["companion_mount_base_rows"]),
-		"frame_count": int(layout["companion_mount_base_frame_count"]),
+		"cols": roundi(float(layout["companion_mount_base_cols"])),
+		"rows": roundi(float(layout["companion_mount_base_rows"])),
+		"frame_count": roundi(float(layout["companion_mount_base_frame_count"])),
 	}
 	# source 슬라이싱은 animator 규칙 재사용(§B-3c) — build_draw_rects() 는 금지
 	# (WALK_Y_OFFSET −6 dest 보정을 다시 넣는다). 정적 1×1·1f = frame 0.
@@ -2853,6 +2854,15 @@ func draw_topdown_mount_base(canvas: CanvasItem, final_rider_rect: Rect2) -> voi
 # 를 돌려 호출자가 그리기를 포기하게 한다(fail-closed). 부재와 0.0 을 구분해야
 # 하므로 조회 fallback 은 NAN 이다 — 0.0 을 쓰면 "미저작 소켓"이 좌상단 정렬로
 # 조용히 통과한다.
+const MOUNT_LAYOUT_INTEGRAL_KEYS := [
+	"companion_mount_base_cols",
+	"companion_mount_base_rows",
+	"companion_mount_base_frame_count",
+]
+# 카탈로그 검증(`_validate_mount_presentation`)과 **같은** 정수 허용오차.
+const MOUNT_LAYOUT_INTEGER_EPSILON := 0.001
+
+
 func _resolve_topdown_mount_layout() -> Dictionary:
 	var values: Dictionary = {}
 	for layout_key in LingpetCatalog.MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS:
@@ -2860,13 +2870,23 @@ func _resolve_topdown_mount_layout() -> Dictionary:
 		if not is_finite(value):
 			return {}
 		values[str(layout_key)] = value
-	var cols: float = float(values["companion_mount_base_cols"])
-	var rows: float = float(values["companion_mount_base_rows"])
-	var frame_count: float = float(values["companion_mount_base_frame_count"])
 	var draw_size: float = float(values["companion_mount_base_draw_size"])
-	if cols < 1.0 or rows < 1.0 or frame_count < 1.0 or draw_size <= 0.0:
+	if draw_size <= 0.0:
 		return {}
-	if frame_count > cols * rows:
+	# 그리드 3값은 **정수 계약**이다. 유한·양수만 보고 소비 지점에서 int() 로
+	# 절단하면 두 방향으로 갈라진다: 2.5 는 조용히 2 가 되고(저작 오류가 그림으로
+	# 남는다), 1.9995 는 카탈로그 ±0.001 검증을 통과하는데 int() 는 1 을 준다
+	# (검증이 승인한 그리드와 실제 슬라이싱이 어긋난다). 같은 허용오차로 판정하고
+	# 통과분은 roundi 로 정규화해 돌려준다 — 소비 지점에는 이미 정수만 간다.
+	for integral_key in MOUNT_LAYOUT_INTEGRAL_KEYS:
+		var raw: float = float(values[str(integral_key)])
+		if raw < 1.0:
+			return {}
+		if absf(raw - roundf(raw)) > MOUNT_LAYOUT_INTEGER_EPSILON:
+			return {}
+		values[str(integral_key)] = float(roundi(raw))
+	# 용량 판정은 정규화 뒤 값으로 한다(1.9995→2 가 승인된 그리드다).
+	if float(values["companion_mount_base_frame_count"]) > float(values["companion_mount_base_cols"]) * float(values["companion_mount_base_rows"]):
 		return {}
 	return values
 

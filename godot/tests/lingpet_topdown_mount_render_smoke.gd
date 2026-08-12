@@ -8,7 +8,8 @@ extends SceneTree
 #  - P15: L1~L4 가 **공용 레이어 헬퍼** 진입 정확히 1회씩이고 중심이 전부 M exact
 #    center 다(lane 중심 진입 0회). 비탑승 대조군이 lane 중심 진입을 실제로 잡는다.
 #  - P12: M exact-dest — 선언된 draw_size 그대로, 안장 소켓이 seat point 와 일치,
-#    시간 경과 dest 불변(bob·−6 무가산). 레이아웃 결손은 fail-closed(그리기 0회).
+#    시간 경과 dest 불변(bob·−6 무가산). 레이아웃 결손·소수 그리드·비유한·용량
+#    초과는 fail-closed(그리기 0회), 근사 정수는 roundi 정규화.
 #  - P13: 게이지가 **visible=true** 로 M 중심·M draw_size 기하(Y 오프셋 0)를 쓴다.
 #  - P9/P1: 탑승 중 메인 본체 억제 + 공존 아이템 알 보존, 비탑승 대조군은 종전대로.
 #
@@ -220,7 +221,7 @@ func _ensure_mount_fixture_texture() -> void:
 		ProjectResourceLoader.store_texture(MOUNT_FIXTURE_PATH, _mount_fixture_texture)
 
 
-func _mount_layout(omit_key: String = "") -> Dictionary:
+func _mount_layout(omit_key: String = "", overrides: Dictionary = {}) -> Dictionary:
 	var layout := {
 		"companion_mount_base_cols": MOUNT_COLS,
 		"companion_mount_base_rows": MOUNT_ROWS,
@@ -229,17 +230,19 @@ func _mount_layout(omit_key: String = "") -> Dictionary:
 		"companion_mount_base_saddle_x": MOUNT_SADDLE_X,
 		"companion_mount_base_saddle_y": MOUNT_SADDLE_Y,
 	}
+	for key in overrides:
+		layout[str(key)] = overrides[key]
 	if omit_key != "":
 		layout.erase(omit_key)
 	return layout
 
 
-func _install_topdown_model(omit_layout_key: String = "") -> void:
+func _install_topdown_model(omit_layout_key: String = "", overrides: Dictionary = {}) -> void:
 	LingpetCatalog.set_mount_presentation_override_for_tests(
 		"baekrin",
 		LingpetCatalog.MOUNT_PRESENTATION_TOPDOWN,
 		MOUNT_FIXTURE_PATH,
-		_mount_layout(omit_layout_key)
+		_mount_layout(omit_layout_key, overrides)
 	)
 
 
@@ -254,8 +257,8 @@ func _make_rider_spec() -> Dictionary:
 
 
 # 준비 완료 탑다운 egg + registry. mounted=true 까지 실 게이트를 관통한다.
-func _make_ready_runtime(owner: Object, omit_layout_key: String = "") -> Dictionary:
-	_install_topdown_model(omit_layout_key)
+func _make_ready_runtime(owner: Object, omit_layout_key: String = "", layout_overrides: Dictionary = {}) -> Dictionary:
+	_install_topdown_model(omit_layout_key, layout_overrides)
 	_ensure_mount_fixture_texture()
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.debug_grant_and_activate_pet("baekrin", owner, false, "baekrin_saddle")
@@ -471,6 +474,72 @@ func _test_p12_geometry_and_fail_closed() -> void:
 		_expect(
 			"P12 fail-closed: %s 결손 시 합성 draw 0회 (기본값 보정 금지)" % str(omitted),
 			mounted and fc_spy.composite_calls == 0
+		)
+
+	# 정수 계약 — 소수 그리드는 draw 관통에서 기각된다(int() 절단 승인 금지).
+	var fractional_cases := [
+		{"label": "cols=2.5", "overrides": {"companion_mount_base_cols": 2.5, "companion_mount_base_frame_count": 1.0}},
+		{"label": "rows=1.4", "overrides": {"companion_mount_base_rows": 1.4}},
+		{"label": "frame_count=1.5", "overrides": {"companion_mount_base_cols": 2.0, "companion_mount_base_frame_count": 1.5}},
+	]
+	for fractional in fractional_cases:
+		var fr_owner := OperationalOwner.new()
+		var fr_fixture := _make_ready_runtime(fr_owner, "", (fractional as Dictionary)["overrides"])
+		var fr_runtime: Object = fr_fixture["runtime"]
+		var fr_spy := SpyCompanionRenderer.new()
+		fr_runtime._companion_renderer = fr_spy
+		var fr_mounted: bool = _mount(fr_runtime, fr_owner, fr_fixture["registry"])
+		await _draw_on_probe(func(canvas: CanvasItem) -> void:
+			fr_runtime.draw_topdown_mount_base(canvas, rider_rect))
+		_expect(
+			"P12 정수 계약: %s 는 draw 0회 (2.5→2 조용한 절단 금지)" % str((fractional as Dictionary)["label"]),
+			fr_mounted and fr_spy.composite_calls == 0
+		)
+
+	# 카탈로그 ±0.001 을 통과하는 근사 정수는 **정규화**되어야 한다 —
+	# int() 절단이면 1.9995 가 1 이 되어 검증이 승인한 그리드와 슬라이싱이 갈린다.
+	var near_owner := OperationalOwner.new()
+	var near_fixture := _make_ready_runtime(near_owner, "", {
+		"companion_mount_base_cols": 1.9995,
+		"companion_mount_base_frame_count": 1.0,
+	})
+	var near_runtime: Object = near_fixture["runtime"]
+	var near_spy := SpyCompanionRenderer.new()
+	near_runtime._companion_renderer = near_spy
+	var near_mounted: bool = _mount(near_runtime, near_owner, near_fixture["registry"])
+	await _draw_on_probe(func(canvas: CanvasItem) -> void:
+		near_runtime.draw_topdown_mount_base(canvas, rider_rect))
+	_expect(
+		"P12 정수 계약: 1.9995 cols 는 2 로 정규화되어 셀 폭 = 텍스처/2 (절단이면 /1)",
+		near_mounted
+			and near_spy.composite_calls == 1
+			and absf(near_spy.last_source.size.x - MOUNT_CELL_PX * 0.5) <= 0.01
+	)
+
+	# 런타임 해석기 직접 레그 — draw 관통으로 만들기 번거로운 값 범위.
+	var helper_owner := OperationalOwner.new()
+	var helper_fixture := _make_ready_runtime(helper_owner)
+	var helper_runtime: Object = helper_fixture["runtime"]
+	var resolved: Dictionary = helper_runtime._resolve_topdown_mount_layout()
+	_expect(
+		"해석기: 정상 레이아웃은 6키 전부 + 그리드 정수 정규화",
+		resolved.size() == LingpetCatalog.MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS.size()
+			and is_equal_approx(float(resolved.get("companion_mount_base_cols", 0.0)), MOUNT_COLS)
+			and is_equal_approx(float(resolved.get("companion_mount_base_draw_size", 0.0)), MOUNT_DRAW_SIZE)
+	)
+	var reject_cases := [
+		{"label": "cols=INF", "overrides": {"companion_mount_base_cols": INF}},
+		{"label": "draw_size=0", "overrides": {"companion_mount_base_draw_size": 0.0}},
+		{"label": "draw_size=-1", "overrides": {"companion_mount_base_draw_size": -1.0}},
+		{"label": "saddle_x=NAN", "overrides": {"companion_mount_base_saddle_x": NAN}},
+		{"label": "frame_count > cols×rows", "overrides": {"companion_mount_base_cols": 2.0, "companion_mount_base_rows": 1.0, "companion_mount_base_frame_count": 3.0}},
+		{"label": "cols=0", "overrides": {"companion_mount_base_cols": 0.0, "companion_mount_base_frame_count": 1.0}},
+	]
+	for reject in reject_cases:
+		_install_topdown_model("", (reject as Dictionary)["overrides"])
+		_expect(
+			"해석기 fail-closed: %s → 빈 dict" % str((reject as Dictionary)["label"]),
+			(helper_runtime._resolve_topdown_mount_layout() as Dictionary).is_empty()
 		)
 	_install_topdown_model()
 
