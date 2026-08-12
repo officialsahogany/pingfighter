@@ -492,6 +492,14 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 `odins_eye_transformed`가 **항상 선언**되므로(A-0 이후에도 불변) 운영 주 레그가
 아니라 **레거시 호환 레그**로 라벨링한다.
 
+**rev8b 보강 단언 3건** (리뷰):
+
+| # | 단언 | 이유 |
+|---|---|---|
+| 멱등성 | **첫 reconcile만** `mounted→false` + 스냅샷 revision **+1**. 이미 하차한 상태의 반복 호출은 revision을 **더 올리지 않는다** | pause 프레임마다 호출되므로, 멱등이 아니면 매 프레임 캐시 무효화가 일어나 스냅샷 캐시가 무력화된다 |
+| cache-only | L-일반/L-전리품 모두 `get_cached_instance` 호출은 확인하되 **`get_instance("lingpet_egg_runtime")` 0회** | reconcile 콜백이 인스턴스화 트랩을 밟으면 pause 프레임에 lazy-init 히치가 생긴다 |
+| readiness 보존 | resolver 결과는 기존 dict에 **merge 하지 않고 완전 교체**하며, `_set_current_pet_id`와 전체 리셋 경계에서 **fail-closed 빈 payload로 클리어** | merge 잔재나 미클리어 상태가 남으면 슬라이스 B가 **전환 프레임에 이전 펫의 N 객체를 발행**한다 |
+
 ### C-4. 컴패니언 bob 이중 채널 정리
 
 컴패니언 본체에는 항상 `±2.6px` bob이 걸린다(§1-2). 탑다운에서 라이더는
