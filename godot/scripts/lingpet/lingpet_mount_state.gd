@@ -152,7 +152,7 @@ func _get_ride_bounce_px() -> float:
 # Ticks the toggle + ride motion clocks. Call once per companion update frame
 # while the companion is in its active (non-egg) state; pass
 # companion_active=false to force a dismount (pet incapacitated / despawned).
-func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool, delta: float, mount_permitted: bool) -> Dictionary:
+func advance(owner: Object, companion_pos: Vector2, companion_active: bool, input_blocked: bool, delta: float, mount_permitted: bool, body_presentation_incompatible: bool) -> Dictionary:
 	var result := {"toggled": false, "mounted": _mounted}
 	_last_delta = maxf(delta, 0.0)
 	if _mounted:
@@ -164,7 +164,12 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 	# mount_permitted(S2 장착 게이트)는 진입 게이트이자 철회 전이다: 탑승 중에
 	# 안장 슬롯이 제거·교체돼 permit이 떨어지면 미지원 펫/컴패니언 비활성과 같은
 	# 조건으로 이 프레임에 강제 하차한다(입력 엣지 처리보다 먼저).
-	if not is_supported_pet(_pet_id) or not companion_active or not mount_permitted:
+	# body_presentation_incompatible(S3-a §C-3c)은 egg runtime 이 "탑다운 모델 ×
+	# 플레이어 본체 대체(오딘/뿔딸기)"를 곱해 만든 필수 인자다 — 판정은 egg 가
+	# 소유하고 여기는 철회 전이만 소유한다. 필수인 이유 = 기본값은 호출 누락을
+	# 조용히 숨긴다(S2 fail-open 교훈). 목말(온이마루)은 모델 축이 false 라 항상
+	# false 로 들어와 변신 중에도 현행 그대로 탑승이 유지된다.
+	if not is_supported_pet(_pet_id) or not companion_active or not mount_permitted or body_presentation_incompatible:
 		if _mounted:
 			_dismount()
 			result["toggled"] = true
@@ -200,6 +205,20 @@ func advance(owner: Object, companion_pos: Vector2, companion_active: bool, inpu
 func _dismount() -> void:
 	_mounted = false
 	_dismount_t = 0.0
+
+
+# S3-a §C-3d: pre-pause reconcile 전용 멱등 철회. pause 게이트가 update_lingpet
+# 앞에서 프레임을 반환하는 동안(뿔딸기 이벤트 등) advance()가 돌지 않으므로,
+# egg 의 reconcile 표면이 이 API 로 철회만 수행한다.
+# ⚠️ advance(delta=0) 재사용 금지 계약의 이행체다 — advance 는 RMB 에지와 홉/하차
+#    시계까지 갱신하므로 pause 프레임에 돌리면 입력 에지를 먹거나 시계를 오염시킨다.
+#    여기는 상태 전이 하나만 한다. 이미 하차 상태면 아무것도 바꾸지 않는다(멱등).
+# 반환 = 이 호출로 실제 하차가 일어났는가 (호출자가 스냅샷 무효화 판단에 쓴다).
+func force_dismount_for_body_presentation() -> bool:
+	if not _mounted:
+		return false
+	_dismount()
+	return true
 
 
 func has_companion_position_override() -> bool:

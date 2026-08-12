@@ -96,7 +96,7 @@ func _verify_expanded_paddle_uses_declared_width_key() -> void:
 	# stale 155-based anchor -- so a schema miss cannot mount here.
 	var near_pos := Vector2(center + 70.0, 655.0)
 	probe.rmb = true
-	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(bool(result.get("mounted", false)), "expanded paddle must mount from the TRUE visual center (declared width key)")
 	var follow: Vector2 = state.get_companion_position_override(owner, near_pos)
 	_expect(is_equal_approx(follow.x, center), "mounted follow must anchor to the expanded center, not the 155 fallback")
@@ -108,7 +108,7 @@ func _verify_proximity_rmb_mounts() -> void:
 	var state := _make_state(probe)
 	var near_pos := Vector2(_player_center(owner) + 40.0, 660.0)
 	probe.rmb = true
-	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(bool(result.get("mounted", false)) and bool(result.get("toggled", false)), "near right-click should mount")
 
 
@@ -118,8 +118,8 @@ func _verify_held_rmb_is_edge_not_level() -> void:
 	var state := _make_state(probe)
 	var near_pos := Vector2(_player_center(owner), 660.0)
 	probe.rmb = true
-	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
-	var held: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
+	var held: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(bool(held.get("mounted", false)) and not bool(held.get("toggled", false)), "held right-click must not re-toggle (edge, not level)")
 
 
@@ -129,7 +129,7 @@ func _verify_far_click_does_not_mount() -> void:
 	var state := _make_state(probe)
 	var far_pos := Vector2(_player_center(owner) + 200.0, 660.0)
 	probe.rmb = true
-	var result: Dictionary = state.advance(owner, far_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, far_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(not bool(result.get("mounted", false)), "right-click far from the companion should not mount")
 
 
@@ -140,7 +140,7 @@ func _verify_overdrive_chord_is_reserved() -> void:
 	var near_pos := Vector2(_player_center(owner), 660.0)
 	probe.rmb = true
 	probe.down = true
-	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(not bool(result.get("mounted", false)), "S+right-click (Smasher Overdrive chord) must never mount")
 
 
@@ -150,11 +150,11 @@ func _verify_rmb_dismounts() -> void:
 	var state := _make_state(probe)
 	var near_pos := Vector2(_player_center(owner), 660.0)
 	probe.rmb = true
-	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	probe.rmb = false
-	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	probe.rmb = true
-	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, near_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(not bool(result.get("mounted", true)) and bool(result.get("toggled", false)), "right-click while mounted should dismount")
 
 
@@ -165,7 +165,7 @@ func _verify_position_override_keeps_lane_y() -> void:
 	# Non-base lane Y so a Y-copy bug cannot hide (teleport locomotion trap).
 	var pet_pos := Vector2(_player_center(owner) + 30.0, 641.5)
 	probe.rmb = true
-	state.advance(owner, pet_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, pet_pos, true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(bool(state.has_companion_position_override()), "mounted state should own a companion position override")
 	owner.player_pos.x = 520.0
 	# X-follow SNAPS to the rider: any follow inertia visibly separates the
@@ -182,14 +182,14 @@ func _verify_unsupported_pet_and_pet_switch_dismount() -> void:
 	unsupported.set_pet_id("maribo")
 	unsupported.set_input_probe(probe)
 	probe.rmb = true
-	var result: Dictionary = unsupported.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = unsupported.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(not bool(result.get("mounted", false)), "unsupported pet should never mount")
 
 	var state := _make_state(probe)
 	probe.rmb = false
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	probe.rmb = true
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	state.set_pet_id("maribo")
 	_expect(not bool(state.is_mounted()), "switching to an unsupported pet should force a dismount")
 
@@ -199,9 +199,9 @@ func _verify_inactive_companion_forces_dismount() -> void:
 	var owner := FakeOwner.new()
 	var state := _make_state(probe)
 	probe.rmb = true
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	probe.rmb = false
-	var result: Dictionary = state.advance(owner, Vector2(_player_center(owner), 660.0), false, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	var result: Dictionary = state.advance(owner, Vector2(_player_center(owner), 660.0), false, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	_expect(not bool(result.get("mounted", true)) and bool(result.get("toggled", false)), "inactive companion (skill override / despawn) should force a dismount")
 
 
@@ -210,7 +210,7 @@ func _verify_reset_clears_mount() -> void:
 	var owner := FakeOwner.new()
 	var state := _make_state(probe)
 	probe.rmb = true
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	state.reset()
 	_expect(not bool(state.is_mounted()), "reset() must clear the mount (round-boundary leak trap)")
 
@@ -221,9 +221,9 @@ func _verify_rider_lift_values() -> void:
 	var state := _make_state(probe)
 	_expect(float(state.get_rider_lift_px()) == 0.0, "unmounted rider lift should be 0")
 	probe.rmb = true
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.0, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	var lift_at_mount: float = float(state.get_rider_lift_px())
-	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.5, LingpetMountState.is_mount_permitted("onimaru", []))
+	state.advance(owner, Vector2(_player_center(owner), 660.0), true, false, 0.5, LingpetMountState.is_mount_permitted("onimaru", []), false)
 	var lift_settled: float = float(state.get_rider_lift_px())
 	_expect(lift_settled > 0.0, "mounted rider lift should be positive after the hop progresses")
 	_expect(lift_settled > lift_at_mount, "hop-on should animate the lift upward over time, not snap")

@@ -25,6 +25,7 @@ func build_frame_callbacks(owner: Object, registry: Object) -> Dictionary:
 		"update_runtime_perk_resume": Callable(self, "_update_runtime_perk_resume").bind(owner, registry),
 		"update_player_control": Callable(self, "_update_player_control").bind(owner, registry),
 		"update_mythic_items": Callable(self, "_update_mythic_items").bind(owner, registry),
+		"reconcile_lingpet_mount_presentation": Callable(self, "_reconcile_lingpet_mount_presentation").bind(owner, registry),
 		"update_active_items": Callable(self, "_update_active_items").bind(owner, registry),
 		"update_boss_ai": Callable(self, "_update_boss_ai").bind(owner, registry),
 		"observe_viper_wall_leap_ball_availability": Callable(self, "_observe_viper_wall_leap_ball_availability").bind(owner, registry),
@@ -76,6 +77,19 @@ func _update_mythic_items(delta: float, owner: Object, registry: Object) -> void
 	if item_driver != null and item_driver.has_method("update_mythic_items"):
 		item_driver.update_mythic_items(owner, registry, delta)
 	_perf_end(perf_logger, "physics.callback.mythic_items", sample_start)
+
+
+# S3-a §C-3d pre-pause reconcile: 뿔딸기 이벤트 등 mythic pause 가
+# update_lingpet 앞에서 프레임을 반환하는 동안에도 "탑다운 탑승 × 본체 대체"
+# 철회가 그 프레임에 이행되게 한다. ⚠️get_cached_instance peek 전용 —
+# pause 프레임 경로라 콜드 인스턴스화가 끼면 히치다(GRT-003). egg 미생성이면
+# 탑승 자체가 존재하지 않으므로 no-op 이 맞다.
+func _reconcile_lingpet_mount_presentation(owner: Object, registry: Object) -> void:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return
+	var runtime: Object = registry.get_cached_instance("lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("reconcile_topdown_mount_body_presentation"):
+		runtime.reconcile_topdown_mount_body_presentation(owner)
 
 
 func _update_active_items(delta: float, owner: Object, registry: Object) -> void:

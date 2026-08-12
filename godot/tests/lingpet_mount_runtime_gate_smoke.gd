@@ -122,7 +122,8 @@ func _mount(runtime: Object, owner: Object) -> bool:
 		true,
 		false,
 		0.0,
-		runtime._mount_state.is_mount_permitted("onimaru", [])
+		runtime._mount_state.is_mount_permitted("onimaru", []),
+		false
 	)
 	return bool(runtime._mount_state.is_mounted())
 

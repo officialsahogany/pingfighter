@@ -50,6 +50,25 @@ const STATIC_FRONT_FORBIDDEN_VISUAL_KEYS := [
 	"click_reaction_anim",
 	"companion_click_reaction_anim",
 ]
+# S3-a 탑다운 탑승 렌더 모델 (docs/lingpet_topdown_mount_render_contract.md §A-1).
+# ⚠️ 게이트 자격(MOUNT_SADDLE_SKILL_IDS, 안장 장착)과 렌더 구도(이 필드)는 서로
+# 독립 축이다 — 안장 맵에는 온이마루가 이미 있으므로 그 맵을 렌더 계약 기준으로
+# 쓰면 탑다운 키 없는 온이마루가 즉시 validate RED 가 된다. 미선언 = 현행
+# 목말/일반 유지(문자열 강요 없음), "topdown" 선언 시에만 아래 키들이 필수가 된다.
+const MOUNT_PRESENTATION_MODEL_KEY := "mount_presentation_model"
+const MOUNT_PRESENTATION_TOPDOWN := "topdown"
+const MOUNT_BASE_VISUAL_KEY := "companion_mount_base"
+# topdown 선언 펫의 필수 visual_layout 키: 그리드 메타 4값(누락 시 5×5/25 기본값
+# 오슬라이스) + 안장 소켓 2값(셀-로컬 px, §B-2).
+const MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS := [
+	"companion_mount_base_cols",
+	"companion_mount_base_rows",
+	"companion_mount_base_frame_count",
+	"companion_mount_base_draw_size",
+	"companion_mount_base_saddle_x",
+	"companion_mount_base_saddle_y",
+]
+
 const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"id",
 	"runtime_kind",
@@ -1416,6 +1435,12 @@ static func is_front_presentation_static(pet_id: String) -> bool:
 	return str(_get_entry_ref(pet_id).get(FRONT_PRESENTATION_MODEL_KEY, FRONT_PRESENTATION_DYNAMIC)) == FRONT_PRESENTATION_STATIC
 
 
+static func is_mount_presentation_topdown(pet_id: String) -> bool:
+	# S3-a 탑다운 렌더 모델 여부. 매 프레임 탑승 게이트에서 호출되므로 딥카피 없는
+	# _get_entry_ref 를 쓴다. 미선언(현행 목말/일반)은 false.
+	return str(_get_entry_ref(pet_id).get(MOUNT_PRESENTATION_MODEL_KEY, "")) == MOUNT_PRESENTATION_TOPDOWN
+
+
 static func get_display_name(pet_id: String) -> String:
 	return str(_get_entry_ref(pet_id).get("display_name", _normalize_pet_id(pet_id)))
 
@@ -1793,6 +1818,31 @@ static func _validate_required_visuals(pet_id: String, entry: Dictionary, issues
 		for key in STATIC_FRONT_FORBIDDEN_VISUAL_KEYS:
 			if str(visuals_data.get(key, "")).strip_edges() != "":
 				issues.append("%s: static front model must not define visuals.%s (하드코딩 그리드 소비자 오슬라이스 위장 금지)" % [pet_id, str(key)])
+	_validate_mount_presentation(pet_id, entry, visuals_data, issues, require_existing_files)
+
+
+# S3-a §A-1: 탑다운 탑승 렌더 모델의 조건부 필수 검증. 기준은 안장 게이트 맵이
+# 아니라 이 명시 필드다(게이트 자격 축과 렌더 구도 축의 분리 — 맵 기준이면 맵에
+# 이미 있는 온이마루가 즉시 RED). 미선언 = 검증 无, "topdown" = 베이스 키 + 레이아웃
+# 6값 필수, 그 외 문자열 = 거부(front_presentation_model 선례).
+static func _validate_mount_presentation(pet_id: String, entry: Dictionary, visuals_data: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
+	var raw_model: Variant = entry.get(MOUNT_PRESENTATION_MODEL_KEY, null)
+	if raw_model == null:
+		return
+	var model := str(raw_model).strip_edges()
+	if model != MOUNT_PRESENTATION_TOPDOWN:
+		issues.append("%s: unknown %s '%s'" % [pet_id, MOUNT_PRESENTATION_MODEL_KEY, model])
+		return
+	var base_path := str(visuals_data.get(MOUNT_BASE_VISUAL_KEY, "")).strip_edges()
+	if base_path == "":
+		issues.append("%s: mount model 'topdown' requires visuals.%s" % [pet_id, MOUNT_BASE_VISUAL_KEY])
+	elif require_existing_files and not _texture_resource_exists(base_path):
+		issues.append("%s: missing visual file %s" % [pet_id, base_path])
+	var layout: Variant = entry.get("visual_layout", {})
+	var layout_data: Dictionary = layout as Dictionary if layout is Dictionary else {}
+	for layout_key in MOUNT_TOPDOWN_REQUIRED_LAYOUT_KEYS:
+		if not layout_data.has(layout_key):
+			issues.append("%s: mount model 'topdown' requires visual_layout.%s (누락 시 5×5/25 오슬라이스·소켓 미정렬)" % [pet_id, str(layout_key)])
 
 
 static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:

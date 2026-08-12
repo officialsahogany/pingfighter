@@ -106,12 +106,17 @@ func set_facing_left(value: bool) -> void:
 	_facing_left = value
 
 
+# body_presentation_incompatible(S3-a §C-3c)은 egg 가 "탑다운 모델 × 플레이어
+# 본체 대체(오딘/뿔딸기 5조건)"를 곱해 만든 필수 인자다 — 기본값은 호출 누락을
+# 조용히 숨기므로 두지 않는다(S2 fail-open 교훈). 판정은 egg, 철회 전이는
+# mount_state 소유이고 이 코디네이터는 통과만 시킨다.
 func update(
 	delta: float,
 	owner: Object,
 	registry: Object,
 	pet_id: String,
-	companion_active: bool
+	companion_active: bool,
+	body_presentation_incompatible: bool
 ) -> void:
 	if not _is_configured():
 		return
@@ -147,7 +152,8 @@ func update(
 		companion_active and not has_skill_position_override,
 		right_click_claimed,
 		delta,
-		mount_permitted
+		mount_permitted,
+		body_presentation_incompatible
 	)
 	if bool(mount_advance_result.get("toggled", false)):
 		_invalidate_runtime_snapshot()

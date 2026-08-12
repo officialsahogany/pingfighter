@@ -49,6 +49,10 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		# 그 프레임은 이펙트만 흐르고 전리품 갱신도 함께 멈춘다.
 		_call_delta(callbacks, "update_weather", delta)
 		_call_delta(callbacks, "update_mythic_items", delta)
+		# S3-a §C-3d: mythic pause(뿔딸기 이벤트 등)가 update_lingpet 앞에서 이
+		# 프레임을 반환하므로, 탑다운 탑승 × 본체 대체 철회는 여기서 이행돼야
+		# 한다(승리 전리품 경로 호출부).
+		_call(callbacks, "reconcile_lingpet_mount_presentation")
 		if _is_mythic_pause_active(deps) or _is_runtime_perk_pause_active(deps):
 			_call_delta(callbacks, "update_effects", delta)
 			_call(callbacks, "queue_redraw")
@@ -103,6 +107,10 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 
 	_call_delta(callbacks, "update_weather", delta)
 	_call_delta(callbacks, "update_mythic_items", delta)
+	# S3-a §C-3d: mythic pause(뿔딸기 이벤트 등)는 아래 재검사에서 프레임을
+	# 반환해 update_lingpet(:아래)이 돌지 않는다 — 탑다운 탑승 × 본체 대체
+	# 철회는 pause 재검사 앞 이 지점에서 이행한다(일반 경로 호출부).
+	_call(callbacks, "reconcile_lingpet_mount_presentation")
 	# Mythic acquisition may close and synchronously open the deferred next
 	# perk choice or Angel modal inside update_mythic_items(). Recheck the live
 	# runtime state before allowing even one gameplay tick through that edge.

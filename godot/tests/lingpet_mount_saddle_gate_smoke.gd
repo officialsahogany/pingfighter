@@ -99,9 +99,9 @@ func _test_permit_resolution() -> void:
 func _mount_via_toggle(state: Object, probe: FakeInputProbe, owner: Object, companion_pos: Vector2, permitted: bool) -> bool:
 	# 엣지 감지: 눌리지 않은 프레임 → 눌린 프레임.
 	probe.rmb = false
-	state.advance(owner, companion_pos, true, false, 0.016, permitted)
+	state.advance(owner, companion_pos, true, false, 0.016, permitted, false)
 	probe.rmb = true
-	var result: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, permitted)
+	var result: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, permitted, false)
 	probe.rmb = false
 	return bool(result.get("mounted", false))
 
@@ -140,14 +140,14 @@ func _test_revocation_transition_and_control() -> void:
 	_expect("사전: permit=true면 baekrin 탑승 성립", _mount_via_toggle(state, probe, owner, companion_pos, true))
 
 	# 대조군: 슬롯 유지(permit=true) → 계속 탑승
-	var held: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, true)
+	var held: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, true, false)
 	_expect("대조군: permit 유지 → 계속 탑승", bool(held.get("mounted", false)))
 
 	# 철회 전이: 같은 프레임 강제 하차 + toggled
-	var revoked: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, false)
+	var revoked: Dictionary = state.advance(owner, companion_pos, true, false, 0.016, false, false)
 	_expect("철회: permit 상실 프레임에 mounted=false", not bool(revoked.get("mounted", true)))
 	_expect("철회: toggled=true (강제 하차 전이)", bool(revoked.get("toggled", false)))
-	_expect("철회 후 재프레임에도 하차 유지", not bool(state.advance(owner, companion_pos, true, false, 0.016, false).get("mounted", true)))
+	_expect("철회 후 재프레임에도 하차 유지", not bool(state.advance(owner, companion_pos, true, false, 0.016, false, false).get("mounted", true)))
 
 
 class NullRegistry:

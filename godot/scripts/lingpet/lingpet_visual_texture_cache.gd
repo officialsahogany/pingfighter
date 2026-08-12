@@ -12,6 +12,12 @@ const DEFAULT_PREWARM_KEYS := [
 	"companion_strike",
 	"companion_cast",
 	"companion_puppet_control",
+	# S3-a 8-8: 탑승 시트 2키. companion_carry 는 기존 미등재 결함이었다 — 첫 탑승
+	# 프레임에 1280² 시트가 draw 경로에서 동기 로드됐다. companion_mount_base 는
+	# 탑다운 준비도 게이트가 cache-only 로 읽으므로(§A-4) 프리웜이 준비를 책임진다.
+	# 미보유 펫은 get_visual_path 가 빈 문자열이라 프리웜이 자연 스킵된다.
+	"companion_carry",
+	"companion_mount_base",
 ]
 
 var _textures: Dictionary = {}

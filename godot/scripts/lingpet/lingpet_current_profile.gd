@@ -159,6 +159,12 @@ func is_interaction_permit_for_slot(slot_index: int) -> bool:
 	return LingpetCatalog.is_interaction_permit_skill_id(get_skill_id(slot_index))
 
 
+# S3-a: 현재 펫의 탑다운 탑승 렌더 모델 여부 — egg의 본체대체 철회 판정용
+# (동일하게 카탈로그 직조회 금지라 프로필이 대리한다). 미선언 = false.
+func is_mount_presentation_topdown() -> bool:
+	return LingpetCatalog.is_mount_presentation_topdown(pet_id)
+
+
 func set_loadout(
 	active_id: String,
 	passive_id: String,

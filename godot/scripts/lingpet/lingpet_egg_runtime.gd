@@ -183,6 +183,14 @@ var _ghost_blink_vfx: Object = LingpetGhostBlinkVfx.new()
 var _guardian_transition_state: Object = LingpetGuardianTransitionState.new()
 var _starlight_tracking_state: Object = LingpetStarlightTrackingState.new()
 var _mount_state: Object = preload("res://scripts/lingpet/lingpet_mount_state.gd").new()
+# S3-a §A-4: 탑다운 준비도 게이트 + 최근 판정 결과(전체 dict 보존).
+# ready 불리언만 남기지 않는 이유 = 슬라이스 B 가 이 결과의 rider_texture "객체"와
+# rider_texture_key 를 재정규화·재조회 없이 actor context 로 그대로 전달해야
+# P16② 동일 객체 계약이 성립한다. 갱신은 merge 금지·완전 교체, 펫 전환·전체
+# 리셋 경계에서 fail-closed 빈 payload 로 클리어(잔재가 남으면 B 가 전환 프레임에
+# 이전 펫의 N 객체를 발행한다).
+var _mount_topdown_readiness: Object = preload("res://scripts/lingpet/lingpet_mount_topdown_readiness.gd").new()
+var _mount_topdown_readiness_result: Dictionary = {}
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _companion_body_presence_resolver: Object = LingpetCompanionBodyPresenceResolver.new()
 var _companion_player_block_resolver: Object = LingpetCompanionPlayerBlockResolver.new()
@@ -1572,6 +1580,8 @@ func _set_current_pet_id(value: String) -> void:
 	)
 	_mount_state.reset()
 	_mount_state.set_pet_id(_pet_id)
+	# 준비도 결과는 펫 정체성에 귀속 — 전환 경계에서 fail-closed 클리어(§A-4 rev8b).
+	_mount_topdown_readiness_result = {}
 
 
 func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
@@ -2134,6 +2144,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 	# transition may rearm the one-natural-drop latch.
 	_spirit_water_drop_state.cancel_pending_drop()
 	_mount_state.reset()
+	_mount_topdown_readiness_result = {}
 	var owner: Object = deps.get("owner", null) as Object
 	var registry: Object = deps.get("registry", null) as Object
 	cancel_guardian_enhance_cutin(registry)
@@ -2668,8 +2679,78 @@ func _update_companion_motion(delta: float, owner: Object, registry: Object = nu
 		owner,
 		registry,
 		_pet_id,
-		_is_guardian_summoned()
+		_is_guardian_summoned(),
+		_compute_mount_body_presentation_incompatible(owner)
 	)
+
+
+# S3-a §C-3c: 탑다운 모델 × 플레이어 본체 대체. 판정은 여기(egg)가 소유하고
+# mount_state 는 철회 전이만 소유한다. 목말(온이마루)은 모델 축이 false 라
+# 변신 중에도 항상 false = 현행 무접촉.
+func _compute_mount_body_presentation_incompatible(owner: Object) -> bool:
+	if not bool(_current_profile.is_mount_presentation_topdown()):
+		return false
+	return _is_player_body_replaced(owner)
+
+
+# 플레이어 본체를 다른 렌더러가 대체하는 5조건 (renderer 실측과 동일 의미론).
+# ⚠️ mythic_item_runtime.is_*() 직접 호출 금지 — 공개 메서드가
+#    _ensure_helpers_ready() → prewarm_initialization_step() 동기 초기화 루프를
+#    탈 수 있어 매 프레임 게이트에 못 쓴다. owner 투영을 읽는다(운영 프레임에서
+#    mythic update 가 lingpet update 보다 먼저 갱신하므로 stale 하지 않다).
+# ⚠️ 오딘 첫 항은 OR 가 아니라 renderer 와 같은 **fallback** 이다
+#    (stage1_player_actor_renderer.gd:249-256 `odins_context.get("transformed",
+#    odins_context.get("penalty_active", false))`): transformed 키가 존재하며
+#    false 면 penalty_active=true 여도 본체가 대체되지 않는다.
+static func _is_player_body_replaced(owner: Object) -> bool:
+	var odin_transformed := bool(BattleSceneOwnerReader.get_value(
+		owner,
+		"odins_eye_transformed",
+		BattleSceneOwnerReader.get_value(owner, "odins_eye_penalty_active", false)
+	))
+	return (
+		odin_transformed
+		or bool(BattleSceneOwnerReader.get_value(owner, "odins_eye_revival_animation_active", false))
+		or bool(BattleSceneOwnerReader.get_value(owner, "odins_eye_death_animation_active", false))
+		or bool(BattleSceneOwnerReader.get_value(owner, "horn_strawberry_transformed", false))
+		or bool(BattleSceneOwnerReader.get_value(owner, "horn_strawberry_event_playing", false))
+	)
+
+
+# S3-a §C-3d: pre-pause reconcile. pause 게이트(뿔딸기 이벤트 등)가
+# update_lingpet 앞에서 프레임을 반환하는 동안 advance() 가 돌지 않으므로,
+# 프레임 플로가 update_mythic_items 직후·pause 재검사 앞에 이걸 부른다.
+# 시계·입력·위치는 전진시키지 않는다(순수 판정 + 멱등 철회). 반환 = 실제 철회
+# 발생 여부. 철회 시 같은 프레임 스냅샷 무효화(레일이 stale interaction_active
+# 를 읽지 않도록). 이미 하차 상태면 캐시를 건드리지 않는다(멱등 — pause
+# 프레임마다 불리므로 무효화 남발은 스냅샷 캐시 무력화다).
+func reconcile_topdown_mount_body_presentation(owner: Object) -> bool:
+	if not _compute_mount_body_presentation_incompatible(owner):
+		return false
+	if not bool(_mount_state.force_dismount_for_body_presentation()):
+		return false
+	_invalidate_runtime_snapshot_cache()
+	return true
+
+
+# S3-a §A-4: 준비도 재판정 + 결과 보존(merge 금지·완전 교체). 원시 캐릭터 id 는
+# 폴백 ""(누락 = 미준비)로 읽는다 — "smasher" 폴백은 필드 누락을 fail-open 으로
+# 되돌린다(normalize() 폴백과 같은 구멍). normalize() 선행 통과도 금지 — 미지
+# 값이 smasher 로 둔갑해 strict 정본화가 거부할 기회를 잃는다. cache-only 판정
+# (resolver 내부 계약)이라 매 프레임 안전. 슬라이스 B 가 소비 시점을 정한다.
+func refresh_topdown_mount_readiness(owner: Object, registry: Object) -> Dictionary:
+	var raw_character_id := str(BattleSceneOwnerReader.get_value(owner, "selected_character_type", ""))
+	_mount_topdown_readiness_result = _mount_topdown_readiness.resolve(
+		raw_character_id,
+		bool(_current_profile.is_mount_presentation_topdown()),
+		_current_profile,
+		registry
+	)
+	return _mount_topdown_readiness_result
+
+
+func get_topdown_mount_readiness() -> Dictionary:
+	return _mount_topdown_readiness_result
 
 
 # 탑승 토글은 맨 우클릭을 쓰는데, 스매셔 벽력유성이 "우클릭 홀드로 무장 →
