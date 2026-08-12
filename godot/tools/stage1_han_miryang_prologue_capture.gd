@@ -55,31 +55,45 @@ func _run() -> void:
 	for view_size: Vector2i in VIEW_SIZES:
 		var prefix := "ko_%dx%d" % [view_size.x, view_size.y]
 		var event_times := {
+			"spatial_dust_80": 8.0,
 			"a1_coronation": 8.6,
 			"a2_tablet": 12.8,
 			"a3_spirit": 16.8,
 			"b1_resistance": 20.0,
 			"b2_orb": 24.0,
 		}
+		event_times["rhythm_orb_peak_2612"] = 26.12
 		if view_size == Vector2i(1920, 1080):
 			event_times["motion_flash_2615"] = 26.15
+			event_times["rhythm_ray_stagger_2655"] = 26.55
 			event_times["motion_rays_268"] = 26.8
+			event_times["rhythm_sparks_2755"] = 27.55
 		event_times["c1_eight_rays"] = 28.0
+		event_times["rhythm_last_ember_2942"] = 29.42
+		event_times["rhythm_guard_glint_3017"] = 30.17
 		event_times["d1_confrontation"] = 31.0
 		if view_size == Vector2i(1920, 1080):
 			event_times["motion_impact_3305"] = 33.05
+			event_times["rhythm_hitstop_3306"] = 33.06
+			event_times["rhythm_recovery_3335"] = 33.35
 			event_times["motion_shard_335"] = 33.5
 		event_times["d2_first_strike"] = 34.2
-		event_times["elapsed_first"] = 39.5
+		if view_size == Vector2i(1920, 1080):
+			event_times["rhythm_h5_pause_3965"] = 39.65
+		event_times["elapsed_first"] = 40.1
+		event_times["rhythm_tail_vignette_448"] = 44.8
 		event_times["chapter"] = 45.2
 		var previous_image: Image = null
 		for event_name in event_times:
 			var elapsed := float(event_times[event_name])
 			var image := await _capture("%s_%s" % [prefix, event_name], view_size, "ko", elapsed, textures)
-			_verify_frame(image, "%s %s" % [prefix, event_name], view_size, _ink_region_for_time(elapsed))
-			if previous_image != null and event_name not in ["elapsed_first", "chapter"]:
+			var lit_min_scale := 0.8 if event_name == "rhythm_tail_vignette_448" else 1.0
+			_verify_frame(image, "%s %s" % [prefix, event_name], view_size, _ink_region_for_time(elapsed), lit_min_scale)
+			var is_rhythm_event := str(event_name).begins_with("rhythm_")
+			if previous_image != null and not is_rhythm_event and event_name not in ["elapsed_first", "chapter"]:
 				_expect(_sampled_difference(previous_image, image) > 0.006, "%s should differ visibly from the preceding story beat" % event_name)
-			previous_image = image
+			if not is_rhythm_event:
+				previous_image = image
 		var final_fade := await _capture("%s_final_fade" % prefix, view_size, "ko", 47.99, textures)
 		_verify_final_fade(final_fade, "%s final fade" % prefix, view_size)
 
@@ -89,6 +103,11 @@ func _run() -> void:
 		for locale in ["en", "es", "ru"]:
 			var chapter := await _capture("%s_%dx%d_chapter" % [locale, view_size.x, view_size.y], view_size, locale, 45.2, textures)
 			_verify_frame(chapter, "%s chapter" % locale, view_size, "chapter")
+		var english_narration := await _capture("en_%dx%d_rhythm_n" % [view_size.x, view_size.y], view_size, "en", 2.0, textures)
+		_verify_frame(english_narration, "en rhythm N", view_size, "subtitle")
+		for elapsed_locale in ["es", "ru"]:
+			var elapsed_card := await _capture("%s_%dx%d_rhythm_e1" % [elapsed_locale, view_size.x, view_size.y], view_size, elapsed_locale, 40.1, textures)
+			_verify_frame(elapsed_card, "%s rhythm E1" % elapsed_locale, view_size, "subtitle")
 
 	_finish()
 
@@ -241,14 +260,37 @@ func _capture(name: String, view_size: Vector2i, locale: String, elapsed: float,
 	host.sync_timeline(elapsed, fade_alpha, segment, true)
 	var snapshot: Dictionary = host.get_snapshot()
 	_expect(bool(snapshot.get("visible", false)), "%s host should be visible" % name)
-	if is_equal_approx(elapsed, 26.15):
+	if is_equal_approx(elapsed, 8.0):
+		var spatial_ratio := float(snapshot.get("spatial_offset_ratio", 0.0))
+		_expect(spatial_ratio >= 0.0035 and spatial_ratio <= 0.006, "%s should capture the restrained authored spatial differential" % name)
+		_expect(spatial_ratio < float(snapshot.get("spatial_margin_ratio", 0.0)), "%s spatial differential should stay inside the live zoom margin" % name)
+		_expect(int(snapshot.get("dust_active_count", 0)) == 28 and int(snapshot.get("procedural_draw_shape_count", 99)) <= 40, "%s should capture the full deterministic dust field within the procedural budget" % name)
+	elif is_equal_approx(elapsed, 26.12):
+		_expect(float(snapshot.get("orb_peak_progress", 0.0)) > 0.9 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "%s should capture the orb peak before the flash cut" % name)
+	elif is_equal_approx(elapsed, 26.15):
 		_expect(float(snapshot.get("flash_alpha", 0.0)) >= 0.9 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "%s should capture the flash peak over B2" % name)
+	elif is_equal_approx(elapsed, 26.55):
+		_expect(int(snapshot.get("ray_revealed_count", 0)) == 8 and float(snapshot.get("ray_growth", 0.0)) > 0.0 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "%s should capture all eight staggered procedural ray pulses" % name)
 	elif is_equal_approx(elapsed, 26.8):
-		_expect(float(snapshot.get("ray_growth", 0.0)) > 0.0 and float(snapshot.get("ray_additive_alpha", 0.0)) > 0.0 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "%s should capture the growing additive rays after the hard cut" % name)
+		_expect(float(snapshot.get("ray_growth", 0.0)) > 0.0 and int(snapshot.get("ray_revealed_count", 0)) == 8 and str(snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "%s should capture the growing eight-ray stagger after the hard cut" % name)
+	elif is_equal_approx(elapsed, 27.55):
+		_expect(int(snapshot.get("spark_active_count", 0)) > 0 and int(snapshot.get("ray_revealed_count", 0)) == 8, "%s should capture delayed sparks after all rays have entered" % name)
+	elif is_equal_approx(elapsed, 29.42):
+		_expect(float(snapshot.get("last_ember_progress", 0.0)) > 0.0 and float(snapshot.get("last_ember_progress", 0.0)) < 1.0, "%s should capture the last ember travelling toward the officiant" % name)
+	elif is_equal_approx(elapsed, 30.17):
+		_expect(float(snapshot.get("guard_glint_alpha", 0.0)) > 0.95, "%s should capture both guard-blade glints at peak" % name)
+	elif is_equal_approx(elapsed, 33.06):
+		_expect(bool(snapshot.get("impact_hitstop_active", false)) and is_zero_approx(float(snapshot.get("host_recovery_progress", -1.0))), "%s should capture impact hitstop before host recovery" % name)
 	elif is_equal_approx(elapsed, 33.05):
 		_expect(float(snapshot.get("flash_alpha", 0.0)) > 0.0 and float(snapshot.get("shake_magnitude", 0.0)) > 0.0, "%s should capture the first-strike flash and plate shake" % name)
+	elif is_equal_approx(elapsed, 33.35):
+		_expect(not bool(snapshot.get("impact_hitstop_active", true)) and float(snapshot.get("host_recovery_progress", 0.0)) > 0.0 and float(snapshot.get("host_recovery_progress", 0.0)) < 1.0, "%s should capture the host recovery blend after hitstop" % name)
 	elif is_equal_approx(elapsed, 33.5):
 		_expect(float(snapshot.get("shard_progress", 0.0)) > 0.0 and float(snapshot.get("shake_magnitude", -1.0)) == 0.0, "%s should capture shard absorption after the shake settles" % name)
+	elif is_equal_approx(elapsed, 39.65):
+		_expect(str(snapshot.get("subtitle", "")) == "" and not bool(snapshot.get("elapsed_card_visible", true)), "%s should capture the half-second silence after H5" % name)
+	elif is_equal_approx(elapsed, 44.8):
+		_expect(float(snapshot.get("tail_vignette_alpha", 0.0)) > 0.30 and float(snapshot.get("tail_vignette_alpha", 0.0)) <= PrologueOverlayHost.D2_TAIL_DIM_MAX_ALPHA, "%s should capture the bounded peripheral tail vignette" % name)
 	if fade_alpha > 0.0:
 		_expect(is_equal_approx(float(snapshot.get("fade_cover_alpha", -1.0)), fade_alpha), "%s should project the final fade through the screen cover" % name)
 		_expect(bool(snapshot.get("fade_cover_above_title", false)), "%s fade cover should render above localized labels" % name)
@@ -279,12 +321,12 @@ func _capture(name: String, view_size: Vector2i, locale: String, elapsed: float,
 func _ink_region_for_time(elapsed: float) -> String:
 	if elapsed >= 45.0:
 		return "chapter"
-	if elapsed >= 39.4:
+	if not PrologueText.get_segment_at(PrologueText.get_elapsed_segments("ko"), elapsed).is_empty():
 		return "elapsed"
 	return "subtitle" if not PrologueText.get_segment_at(PrologueText.get_segments("ko"), elapsed).is_empty() else "none"
 
 
-func _verify_frame(image: Image, label: String, view_size: Vector2i, ink_region: String) -> void:
+func _verify_frame(image: Image, label: String, view_size: Vector2i, ink_region: String, lit_min_scale: float = 1.0) -> void:
 	_expect(image != null and image.get_size() == view_size, "%s capture should match its requested resolution" % label)
 	if image == null or image.is_empty():
 		return
@@ -306,7 +348,7 @@ func _verify_frame(image: Image, label: String, view_size: Vector2i, ink_region:
 			if y >= y_start and y < y_end and pixel.v > 0.72:
 				ink_samples += 1
 	var sample_scale := float(view_size.x * view_size.y) / float(1600 * 900)
-	_expect(lit_samples > int(9000.0 * sample_scale), "%s should contain the painted scene rather than a black frame" % label)
+	_expect(lit_samples > int(9000.0 * sample_scale * clampf(lit_min_scale, 0.5, 1.0)), "%s should contain the painted scene rather than a black frame" % label)
 	if ink_region != "none":
 		_expect(ink_samples > int(12.0 * sample_scale), "%s should contain rendered localized glyphs" % label)
 

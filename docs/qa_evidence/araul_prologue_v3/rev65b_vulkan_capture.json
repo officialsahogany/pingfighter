@@ -1,0 +1,51 @@
+{
+  "date": "2026-08-12",
+  "result": "PASS_PENDING_USER_VISUAL_ACCEPTANCE",
+  "workspace_head": "bed551641b14e41d8f65ec160610d198884fa31c",
+  "godot": "4.6.2-stable",
+  "renderer": "Vulkan 1.4.325 Forward+",
+  "device": "NVIDIA GeForce RTX 5070",
+  "capture_resolutions": [[1920, 1080], [2560, 1440]],
+  "capture_image_count": 67,
+  "local_full_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_2600909_60684",
+  "rhythm_frames_1080p": [
+    "ko_1920x1080_rhythm_orb_peak_2612.png",
+    "ko_1920x1080_rhythm_ray_stagger_2655.png",
+    "ko_1920x1080_rhythm_sparks_2755.png",
+    "ko_1920x1080_rhythm_last_ember_2942.png",
+    "ko_1920x1080_rhythm_guard_glint_3017.png",
+    "ko_1920x1080_rhythm_hitstop_3306.png",
+    "ko_1920x1080_rhythm_recovery_3335.png",
+    "ko_1920x1080_rhythm_h5_pause_3965.png",
+    "ko_1920x1080_rhythm_tail_vignette_448.png"
+  ],
+  "rhythm_frames_1440p": [
+    "ko_2560x1440_rhythm_orb_peak_2612.png",
+    "ko_2560x1440_rhythm_last_ember_2942.png",
+    "ko_2560x1440_rhythm_guard_glint_3017.png",
+    "ko_2560x1440_rhythm_tail_vignette_448.png"
+  ],
+  "changed_copy_frames": [
+    "en_1920x1080_rhythm_n.png",
+    "en_2560x1440_rhythm_n.png",
+    "es_1920x1080_rhythm_e1.png",
+    "es_2560x1440_rhythm_e1.png",
+    "ru_1920x1080_rhythm_e1.png",
+    "ru_2560x1440_rhythm_e1.png"
+  ],
+  "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v3/rev65b_vulkan_contact_sheet.png",
+  "durable_contact_sheet_sha256": "9804e3f07474764c68c399b10e0eb4bab265b85ba84010744ce7abfd340caa3d",
+  "threaded_preflight": "docs/qa_evidence/araul_prologue_v3/rev65b_threaded_preflight.json",
+  "non_visual_gates": {
+    "focused_smoke": "PASS=1 FAIL=0 with terminal All Godot smoke tests passed and exit 0",
+    "headless_load": "PASS with graceful headless shutdown complete and exit 0",
+    "gd_warning_scan": "PASS across 3557 scripts with every chunk done and terminal pass, ChunkSize 200",
+    "git_diff_check": "PASS"
+  },
+  "initial_reds": [
+    "The first Vulkan run exposed the tail vignette leaking into the chapter card; runtime now releases it at 45.0 seconds.",
+    "The first warning scan process exited -1 in chunk 450-900; the complete retry with 200-script chunks passed all 3557 scripts."
+  ],
+  "commit_authorized": false,
+  "acceptance_gate": "User integrated visual judgment for rev6.5a spatial comfort and rev6.5b causal readability"
+}

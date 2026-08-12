@@ -100,8 +100,9 @@ v2 최종 플레이트 원본은 `art_sources/araul_prologue/final_rev5/`에 남
 | 33.0–34.0 | D1→**D2** | 타격 | 방울 1회 |
 | 33.4–36.2 | D2 | 해원 ④ | |
 | 36.2–39.4 | D2 | 해원 ⑤ | |
-| **39.4–42.2** | D2 | **경과 자막 1행 (2.8초)** | |
-| **42.2–45.0** | D2 | **경과 자막 2행 (2.8초)** | |
+| **39.4–39.9** | D2 | **무자막 여백 (0.5초)** | |
+| **39.9–42.4** | D2 | **경과 자막 1행 (2.5초)** | |
+| **42.4–45.0** | D2 | **경과 자막 2행 (2.6초)** | |
 | **45.0–47.5** | 챕터 카드 | 중앙 (2.5초) | |
 | **47.5–48.0** | 자연 페이드 | — | |
 
@@ -169,7 +170,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 
 **N — 내레이션**
 - ko 옛 왕조가 무너진 뒤, 신의 소리를 듣던 여인이 왕좌에 올랐다.
-- en The old dynasty fell. A woman who heard spirits took the throne.
+- en The old dynasty fell. A woman who heard the divine voice took the throne.
 - zh 旧王朝覆灭之后，一位能听见神灵之声的女子登上了王座。
 - ja 旧き王朝が滅びた後、神の声を聞く一人の女が王座に就いた。
 - es Cayó la antigua dinastía. Una mujer que oía espíritus subió al trono.
@@ -177,7 +178,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru Старая династия пала. Женщина, слышавшая духов, взошла на трон.
 
 **H1 — 해원**
-- ko 오늘부터 이 땅의 이름은—아라울이다.
+- ko 오늘부터 이 땅의 이름은 아라울이다.
 - en From this day forth, this land shall be called Araul.
 - zh 从今日起，这片土地名为——阿罗蔚。
 - ja 今日より、この地の名は——アラウル。
@@ -186,7 +187,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru С этого дня эта земля зовётся Араулом.
 
 **H2 — 해원**
-- ko 아라울은 피로 세운 나라가 아니다. 목숨이 아니라 승부로 겨루는 법을 세우겠다.
+- ko 아라울은 피로 세운 나라가 아니다. 목숨 대신 승부로 결판내는 법을 세우겠다.
 - en Araul was not founded in blood. Contests, not lives, shall settle it.
 - zh 阿罗蔚并非以鲜血立国。我要立下法度——不以性命，而以胜负定高下。
 - ja アラウルは血で建てた国ではない。命ではなく、勝負で競う法を立てる。
@@ -204,7 +205,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru Поминальная табличка Её Величества… но она жива?
 
 **M1 — 한미량**
-- ko 전하, 물러서십시오—!
+- ko 전하, 물러서십시오!
 - en Majesty, stand back—!
 - zh 陛下，请退后——！
 - ja 陛下、お下がりください——！
@@ -213,7 +214,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru Государыня, отойдите—!
 
 **H3 — 해원** (침묵을 깨는 첫 대사)
-- ko 내 몸에서—나가라.
+- ko 내 몸에서 나가라.
 - en Get out—of my body.
 - zh 从我体内——出去。
 - ja 我が身から——出よ。
@@ -222,10 +223,10 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru Изыди—из моего тела.
 
 **M2 — 한미량** (호위들의 발도를 막으며)
-- ko 베면 안 됩니다—령이 사람을 숙주로 삼았습니다.
+- ko 그분을 베지 마십시오. 령이 사람을 숙주로 삼았습니다.
 - en No blades—the spirit has taken him as its host.
 - zh 不可挥刀——恶灵正以他为宿主。
-- ja 斬ってはいけません——霊があの方を宿主にしています。
+- ja あの方を斬ってはなりません——霊が人を宿主にしています。
 - es ¡No lo cortéis! El espíritu lo ha tomado como huésped.
 - pt-BR Não o cortem—o espírito o tomou como hospedeiro.
 - ru Не рубите — дух сделал его своим носителем.
@@ -240,7 +241,7 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 - ru Пощадите человека. Бейте лишь то, что засело внутри.
 
 **H5 — 해원**
-- ko 령을 쳐서 공으로 되돌리는 이 승부—환격전이라 칭한다.
+- ko 령을 쳐서 공으로 되돌리는 이 승부를 환격전이라 칭한다.
 - en Strike the spirit back into the sphere. I name this Hwangyeokjeon.
 - zh 击灵，使其归于球中——此赛，名为环击战。
 - ja 霊を打ち、球へと返すこの勝負——環撃戦と称する。
@@ -253,19 +254,19 @@ ru 23.2 CPS인데 ko는 9.7 CPS다. **영어는 최악의 경우가 아니다.**
 경어로 vos/vosotros 계열을 쓰는 기존 출고 톤을 유지한다. pt-BR은 유럽식·고어식
 혼용(afastai-vos / cortardes / Deixem)을 전부 브라질 표준으로 통일했다.
 
-### 경과 자막 (순차 2행 — 1행 39.4–42.2 / 2행 42.2–45.0)
+### 경과 자막 (순차 2행 — 1행 39.9–42.4 / 2행 42.4–45.0)
 
 ⚠️ 두 행을 **동시에 띄우지 않는다.** 각 행이 자기 창을 단독으로 쓴다.
 
 | 로케일 | 1행 | 2행 |
 |---|---|---|
-| ko | 여덟 줄기는 그날 밤 팔도로 사라졌다. | 세 해 뒤—환격회가 첫 줄기의 행방을 찾았다. |
+| ko | 여덟 줄기는 그날 밤 팔도로 사라졌다. | 3년 뒤, 환격회가 첫 줄기의 행방을 찾았다. |
 | en | That night, eight beams fled to the Eight Provinces. | Three years on, the Hwangyeokhoe tracked the first. |
 | zh | 那一夜，八条光芒散入八道。 | 三年之后——环击会寻得了第一条光芒的下落。 |
 | ja | 八条の光は、その夜、八道へと消えた。 | 三年の後——環撃会が、最初の一条の行方を掴んだ。 |
-| es | Esa noche, ocho rayos se perdieron por las Ocho Provincias. | Tres años después, el Hwangyeokhoe halló el primero. |
+| es | Esa noche, ocho rayos huyeron a las Ocho Provincias. | Tres años después, el Hwangyeokhoe halló el primero. |
 | pt-BR | Naquela noite, oito raios sumiram nas Oito Províncias. | Três anos depois, o Hwangyeokhoe encontrou o primeiro. |
-| ru | В ту ночь восемь лучей разлетелись по Восьми Провинциям. | Три года спустя — Хвангёкхве напал на след первого. |
+| ru | В ту ночь восемь лучей унеслись в Восемь Провинций. | Три года спустя — Хвангёкхве напал на след первого. |
 
 ### 타이틀 / 챕터 카드
 

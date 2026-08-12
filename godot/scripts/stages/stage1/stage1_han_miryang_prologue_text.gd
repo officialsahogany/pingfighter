@@ -32,17 +32,17 @@ const SKIP_BY_LOCALE := {
 const LINES_BY_LOCALE := {
 	"ko": [
 		{"speaker": "내레이션", "text": "옛 왕조가 무너진 뒤, 신의 소리를 듣던 여인이 왕좌에 올랐다."},
-		{"speaker": "여왕 해원", "text": "오늘부터 이 땅의 이름은—아라울이다."},
-		{"speaker": "여왕 해원", "text": "아라울은 피로 세운 나라가 아니다. 목숨이 아니라 승부로 겨루는 법을 세우겠다."},
+		{"speaker": "여왕 해원", "text": "오늘부터 이 땅의 이름은 아라울이다."},
+		{"speaker": "여왕 해원", "text": "아라울은 피로 세운 나라가 아니다. 목숨 대신 승부로 결판내는 법을 세우겠다."},
 		{"speaker": "제관", "text": "살아 계신 전하의 신주가…… 어찌 이곳에……."},
-		{"speaker": "한미량", "text": "전하, 물러서십시오—!"},
-		{"speaker": "여왕 해원", "text": "내 몸에서—나가라."},
-		{"speaker": "한미량", "text": "베면 안 됩니다—령이 사람을 숙주로 삼았습니다."},
+		{"speaker": "한미량", "text": "전하, 물러서십시오!"},
+		{"speaker": "여왕 해원", "text": "내 몸에서 나가라."},
+		{"speaker": "한미량", "text": "그분을 베지 마십시오. 령이 사람을 숙주로 삼았습니다."},
 		{"speaker": "여왕 해원", "text": "사람은 남겨라. 깃든 것만 쳐내라."},
-		{"speaker": "여왕 해원", "text": "령을 쳐서 공으로 되돌리는 이 승부—환격전이라 칭한다."},
+		{"speaker": "여왕 해원", "text": "령을 쳐서 공으로 되돌리는 이 승부를 환격전이라 칭한다."},
 	],
 	"en": [
-		{"speaker": "NARRATION", "text": "The old dynasty fell. A woman who heard spirits took the throne."},
+		{"speaker": "NARRATION", "text": "The old dynasty fell. A woman who heard the divine voice took the throne."},
 		{"speaker": "QUEEN HAEWON", "text": "From this day forth, this land shall be called Araul."},
 		{"speaker": "QUEEN HAEWON", "text": "Araul was not founded in blood. Contests, not lives, shall settle it."},
 		{"speaker": "RITUAL OFFICIANT", "text": "Her Majesty's memorial tablet... while she still lives... how?"},
@@ -70,7 +70,7 @@ const LINES_BY_LOCALE := {
 		{"speaker": "祭官", "text": "ご存命の陛下の位牌が……なぜ、ここに……。"},
 		{"speaker": "ハン・ミリャン", "text": "陛下、お下がりください——！"},
 		{"speaker": "女王ヘウォン", "text": "我が身から——出よ。"},
-		{"speaker": "ハン・ミリャン", "text": "斬ってはいけません——霊があの方を宿主にしています。"},
+		{"speaker": "ハン・ミリャン", "text": "あの方を斬ってはなりません——霊が人を宿主にしています。"},
 		{"speaker": "女王ヘウォン", "text": "人は残せ。宿りしものだけを打て。"},
 		{"speaker": "女王ヘウォン", "text": "霊を打ち、球へと返すこの勝負——環撃戦と称する。"},
 	],
@@ -110,13 +110,13 @@ const LINES_BY_LOCALE := {
 }
 
 const ELAPSED_BY_LOCALE := {
-	"ko": ["여덟 줄기는 그날 밤 팔도로 사라졌다.", "세 해 뒤—환격회가 첫 줄기의 행방을 찾았다."],
+	"ko": ["여덟 줄기는 그날 밤 팔도로 사라졌다.", "3년 뒤, 환격회가 첫 줄기의 행방을 찾았다."],
 	"en": ["That night, eight beams fled to the Eight Provinces.", "Three years on, the Hwangyeokhoe tracked the first."],
 	"zh": ["那一夜，八条光芒散入八道。", "三年之后——环击会寻得了第一条光芒的下落。"],
 	"ja": ["八条の光は、その夜、八道へと消えた。", "三年の後——環撃会が、最初の一条の行方を掴んだ。"],
-	"es": ["Esa noche, ocho rayos se perdieron por las Ocho Provincias.", "Tres años después, el Hwangyeokhoe halló el primero."],
+	"es": ["Esa noche, ocho rayos huyeron a las Ocho Provincias.", "Tres años después, el Hwangyeokhoe halló el primero."],
 	"pt-BR": ["Naquela noite, oito raios sumiram nas Oito Províncias.", "Três anos depois, o Hwangyeokhoe encontrou o primeiro."],
-	"ru": ["В ту ночь восемь лучей разлетелись по Восьми Провинциям.", "Три года спустя — Хвангёкхве напал на след первого."],
+	"ru": ["В ту ночь восемь лучей унеслись в Восемь Провинций.", "Три года спустя — Хвангёкхве напал на след первого."],
 }
 
 const SEGMENT_TIMES := [
@@ -130,7 +130,7 @@ const SEGMENT_TIMES := [
 	Vector2(33.4, 36.2),
 	Vector2(36.2, 39.4),
 ]
-const ELAPSED_TIMES := [Vector2(39.4, 42.2), Vector2(42.2, 45.0)]
+const ELAPSED_TIMES := [Vector2(39.9, 42.4), Vector2(42.4, 45.0)]
 
 
 static func get_copy(locale: String) -> Dictionary:

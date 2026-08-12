@@ -1,0 +1,39 @@
+{
+  "date": "2026-08-11",
+  "result": "PASS_PENDING_USER_VISUAL_ACCEPTANCE",
+  "baseline_commit": "57182ac02e2e65150c6d2ea64a99d3f08a94eeb0",
+  "godot": "4.6.2-stable",
+  "renderer": "Vulkan 1.4.325 Forward+",
+  "device": "NVIDIA GeForce RTX 5070",
+  "capture_resolutions": [[1920, 1080], [2560, 1440]],
+  "capture_image_count": 48,
+  "local_full_evidence": "godot/.tmp/qa_evidence/han_miryang_prologue_v3_1623367_33864",
+  "spatial_frames": [
+    "ko_1920x1080_spatial_dust_80.png",
+    "ko_1920x1080_a1_coronation.png",
+    "ko_2560x1440_spatial_dust_80.png",
+    "ko_2560x1440_a1_coronation.png"
+  ],
+  "durable_contact_sheet": "docs/qa_evidence/araul_prologue_v3/rev65a_vulkan_contact_sheet.png",
+  "durable_contact_sheet_sha256": "6580bbc4b91b4578eefdd5c499ce8f2ae60edbcdf1db38147ce3f6b861a5d6af",
+  "threaded_preflight": "docs/qa_evidence/araul_prologue_v3/rev65a_threaded_preflight.json",
+  "spatial_contract": {
+    "runtime_texture_additions": 0,
+    "dust_count": 28,
+    "c1_dust_count": 14,
+    "foreground_multiplier": 1.55,
+    "initial_offset_ratio_min": 0.0035,
+    "initial_offset_ratio_max": 0.009,
+    "hard_offset_ratio_max": 0.015,
+    "procedural_shape_peak": 38,
+    "dust_color_rgb": [0.74, 0.64, 0.49]
+  },
+  "non_visual_gates": {
+    "focused_smoke": "PASS=1 FAIL=0 with terminal All Godot smoke tests passed",
+    "headless_load": "PASS with graceful headless shutdown complete",
+    "gd_warning_scan": "PASS across 3544 scripts with done markers",
+    "git_diff_check": "PASS"
+  },
+  "commit_authorized": false,
+  "acceptance_gate": "User visual judgment for depth, motion comfort, and ink-paper style preservation"
+}

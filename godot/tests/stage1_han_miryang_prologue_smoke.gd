@@ -160,8 +160,26 @@ func _verify_seven_locale_copy() -> void:
 			var elapsed_segment: Dictionary = elapsed_value if elapsed_value is Dictionary else {}
 			_verify_cps(locale, str(elapsed_segment.get("text", "")), float(elapsed_segment.get("end", 0.0)) - float(elapsed_segment.get("start", 0.0)), "elapsed card")
 		_verify_cps(locale, str(copy.get("chapter", "")), 2.5, "chapter card")
+	var ko_segments := PrologueText.get_segments("ko")
+	var ko_elapsed_segments := PrologueText.get_elapsed_segments("ko")
+	_expect(str(ko_segments[2].get("text", "")) == "아라울은 피로 세운 나라가 아니다. 목숨 대신 승부로 결판내는 법을 세우겠다.", "Korean H2 should retain the approved rhythm-pass copy")
+	_expect(str(ko_segments[8].get("text", "")) == "령을 쳐서 공으로 되돌리는 이 승부를 환격전이라 칭한다.", "Korean H5 should retain the approved rhythm-pass proclamation")
+	_expect(str(ko_segments[6].get("text", "")) == "그분을 베지 마십시오. 령이 사람을 숙주로 삼았습니다.", "Korean M2 should name the threatened person before forbidding the strike")
+	for segment_value in ko_segments:
+		var segment: Dictionary = segment_value if segment_value is Dictionary else {}
+		_expect(str(segment.get("text", "")).find("—") < 0, "Korean spoken dialogue should not use an em dash")
+	for elapsed_value in ko_elapsed_segments:
+		var elapsed_segment: Dictionary = elapsed_value if elapsed_value is Dictionary else {}
+		_expect(str(elapsed_segment.get("text", "")).find("—") < 0, "Korean elapsed copy should not use an em dash")
+	var ja_m2: Dictionary = PrologueText.get_segments("ja")[6]
+	_expect(str(ja_m2.get("text", "")) == "あの方を斬ってはなりません——霊が人を宿主にしています。", "Japanese M2 should retain the approved explicit threatened-person phrasing")
 	_expect(str(PrologueText.get_copy("zh").get("chapter", "")) == "第一章 — 女王体内之物", "Chinese chapter copy should use the approved natural phrasing")
 	var zh_last: Dictionary = PrologueText.get_segments("zh")[8]
+	_expect(str(PrologueText.get_segments("en")[0].get("text", "")) == "The old dynasty fell. A woman who heard the divine voice took the throne.", "English narration should distinguish the divine voice from roaming spirits")
+	_expect(str(PrologueText.get_elapsed_segments("es")[0].get("text", "")) == "Esa noche, ocho rayos huyeron a las Ocho Provincias.", "Spanish E1 should fit the shortened 2.5-second window")
+	_expect(str(PrologueText.get_elapsed_segments("ru")[0].get("text", "")) == "В ту ночь восемь лучей унеслись в Восемь Провинций.", "Russian E1 should fit the shortened 2.5-second window")
+	_expect(is_equal_approx(float(ko_elapsed_segments[0].get("start", 0.0)), 39.9) and is_equal_approx(float(ko_elapsed_segments[0].get("end", 0.0)), 42.4), "E1 should preserve the 39.4-39.9 silence and use the approved 2.5-second window")
+	_expect(is_equal_approx(float(ko_elapsed_segments[1].get("start", 0.0)), 42.4) and is_equal_approx(float(ko_elapsed_segments[1].get("end", 0.0)), 45.0), "E2 should use the approved 2.6-second window")
 	_expect(str(zh_last.get("text", "")).find("环击战") >= 0, "Chinese title term should use 环击战, never the generic counterattack spelling")
 
 
@@ -262,16 +280,34 @@ func _verify_real_audio_transient_gain_contract() -> void:
 	var gong := AudioStreamPlayer.new()
 	var rays := AudioStreamPlayer.new()
 	var bell := AudioStreamPlayer.new()
-	audio.han_miryang_prologue_opening_drum_sfx = gong
-	audio.han_miryang_prologue_rays_sfx = rays
+	var uses_shared_round_players := _has_object_property(audio, "stage_clear_gong_sfx")
+	if uses_shared_round_players:
+		audio.set("stage_clear_gong_sfx", gong)
+		audio.set("odins_eye_spirit_sfx", rays)
+	else:
+		_expect(_has_object_property(audio, "han_miryang_prologue_opening_drum_sfx"), "committed audio owner should expose the dedicated prologue drum player")
+		_expect(_has_object_property(audio, "han_miryang_prologue_rays_sfx"), "committed audio owner should expose the dedicated prologue rays player")
+		audio.set("han_miryang_prologue_opening_drum_sfx", gong)
+		audio.set("han_miryang_prologue_rays_sfx", rays)
 	audio.stage2_speed_defense_block_sfx = bell
 	for player: AudioStreamPlayer in [gong, rays, bell]:
 		player.pitch_scale = 0.72
 	audio.stop_han_miryang_prologue_cues()
-	_expect(is_equal_approx(gong.pitch_scale, 1.0), "prologue cleanup should restore the dedicated opening-drum pitch")
-	_expect(is_equal_approx(rays.pitch_scale, 1.0) and is_equal_approx(bell.pitch_scale, 1.0), "prologue cleanup should restore every cue pitch")
+	_expect(is_equal_approx(gong.pitch_scale, 1.0), "prologue cleanup should restore the opening cue pitch")
+	_expect(is_equal_approx(rays.pitch_scale, 1.0) and is_equal_approx(bell.pitch_scale, 1.0), "prologue cleanup should restore every reused cue pitch")
+	if uses_shared_round_players:
+		gong.pitch_scale = 0.72
+		audio.play_stage_clear_gong()
+		_expect(is_equal_approx(gong.pitch_scale, 1.0), "stage-clear playback should defensively restore the canonical gong pitch")
 	for player: AudioStreamPlayer in [gong, rays, bell]:
 		player.free()
+
+
+func _has_object_property(target: Object, property_name: String) -> bool:
+	for property_info: Dictionary in target.get_property_list():
+		if String(property_info.get("name", "")) == property_name:
+			return true
+	return false
 
 
 func _verify_discarded_threaded_texture_contract() -> void:
@@ -583,6 +619,13 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(bool(plate_ready.get("b1", false)), "only due B1 should materialize beside the startup family")
 		_expect(not bool(plate_ready.get("b2", false)), "future B2 must not materialize before its 12.6-second request gate")
 		_expect(not bool(start_snapshot.get("skip_allowed", true)), "first frame should hide the skip affordance during the first-view lock")
+		var initial_spatial_ratio := float(start_snapshot.get("spatial_offset_ratio", 0.0))
+		_expect(initial_spatial_ratio >= float(start_snapshot.get("spatial_initial_min_ratio", 1.0)) and initial_spatial_ratio <= float(start_snapshot.get("spatial_initial_max_ratio", 0.0)), "opening foreground differential should begin inside the 0.35-0.9 percent authored window")
+		_expect(initial_spatial_ratio < float(start_snapshot.get("spatial_margin_ratio", 0.0)), "opening foreground differential must stay inside the current source-rect zoom margin")
+		_expect(int(start_snapshot.get("dust_active_count", 0)) == 28, "opening spatial pass should expose the deterministic 28-particle dust field")
+		_expect(int(start_snapshot.get("procedural_draw_shape_count", 99)) <= 40, "procedural spatial draw budget should remain at or below forty shapes")
+		_expect(float(start_snapshot.get("spatial_foreground_multiplier", 0.0)) >= 1.4 and float(start_snapshot.get("spatial_foreground_multiplier", 0.0)) <= 1.7, "procedural foreground should retain the authored 1.4-1.7 camera differential multiplier")
+		_expect(PrologueOverlayHost.DUST_COLOR.r > PrologueOverlayHost.DUST_COLOR.g and PrologueOverlayHost.DUST_COLOR.g > PrologueOverlayHost.DUST_COLOR.b, "procedural dust must stay warm amber instead of borrowing the cyan spirit vocabulary")
 	var start_asset_status: Dictionary = presentation.get_asset_status()
 	_expect(int(start_asset_status.get("resident_count", 0)) == 4, "playback should begin with exactly four logical resident plates")
 	_expect(int(start_asset_status.get("resident_peak", 0)) == 4, "first-frame B1 materialization should establish, not exceed, the four-plate peak")
@@ -609,13 +652,35 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	_expect(presentation.begin(owner, registry), "fresh first-view fixture should restart after the input-lock leg")
 	host = presentation.get_host_for_test()
 	var a_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
+	var stable_label_positions: Dictionary = {}
+	if host != null:
+		var spatial_start_snapshot: Dictionary = host.get_snapshot()
+		stable_label_positions = {
+			"subtitle": spatial_start_snapshot.get("subtitle_position", Vector2.ZERO),
+			"speaker": spatial_start_snapshot.get("speaker_position", Vector2.ZERO),
+			"skip": spatial_start_snapshot.get("skip_position", Vector2.ZERO),
+			"title": spatial_start_snapshot.get("title_position", Vector2.ZERO),
+		}
+	_advance_presentation_to(presentation, 8.0, owner, registry)
+	if host != null:
+		var dust_snapshot: Dictionary = host.get_snapshot()
+		_expect(float(dust_snapshot.get("spatial_offset_ratio", 0.0)) >= 0.0035 and float(dust_snapshot.get("spatial_offset_ratio", 0.0)) <= 0.006, "8-second visual-QA beat should retain the restrained authored foreground differential")
+		_expect(float(dust_snapshot.get("spatial_offset_ratio", 1.0)) < float(dust_snapshot.get("spatial_margin_ratio", 0.0)), "spatial differential must remain below the live camera crop margin")
+		_expect(is_equal_approx(float(dust_snapshot.get("dust_cluster_mean_offset_ratio", -1.0)), float(dust_snapshot.get("spatial_offset_ratio", 0.0))), "zero-mean particle drift should keep the dust cluster differential on the sealed foreground offset")
+		_expect(int(dust_snapshot.get("dust_active_count", 0)) == 28, "8-second visual-QA beat should render the full warm dust field")
+		_expect(int(dust_snapshot.get("procedural_draw_shape_count", 99)) <= 40, "8-second visual-QA beat should respect the procedural shape budget")
+		_expect(dust_snapshot.get("subtitle_position", Vector2.ZERO) == stable_label_positions.get("subtitle", Vector2.ONE) and dust_snapshot.get("speaker_position", Vector2.ZERO) == stable_label_positions.get("speaker", Vector2.ONE) and dust_snapshot.get("skip_position", Vector2.ZERO) == stable_label_positions.get("skip", Vector2.ONE) and dust_snapshot.get("title_position", Vector2.ZERO) == stable_label_positions.get("title", Vector2.ONE), "spatial motion must not move any player-facing label")
 	_advance_presentation_to(presentation, 11.40, owner, registry)
 	if host != null:
 		var tablet_snapshot: Dictionary = host.get_snapshot()
 		_expect(str(tablet_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_A1, "tablet wipe should keep A1 as its base until the reveal completes")
 		_expect(float(tablet_snapshot.get("flash_alpha", -1.0)) == 0.0, "tablet wipe should not leak the later flash state")
+		_expect(float(tablet_snapshot.get("fx_spatial_offset_ratio", 0.0)) > 0.0, "tablet wipe should carry a bounded differential before its baked handoff")
 	_advance_presentation_to(presentation, 12.54, owner, registry)
 	_expect(not audio.gain_values.is_empty() and audio.gain_values.min() <= -9.9, "tablet reveal should apply the first BGM duck stage")
+	_advance_presentation_to(presentation, 12.61, owner, registry)
+	if host != null:
+		_expect(is_zero_approx(float(host.get_snapshot().get("fx_spatial_offset_ratio", -1.0))), "tablet differential should be zero immediately after the 12.6-second baked handoff")
 	_advance_presentation_to(presentation, 18.30, owner, registry)
 	if host != null:
 		var a_camera_end := float(host.get_snapshot().get("camera_source_width_ratio", 0.0))
@@ -623,7 +688,10 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	_advance_presentation_to(presentation, 19.60, owner, registry)
 	var b_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
 	_advance_presentation_to(presentation, 21.64, owner, registry)
-	_expect(audio.gain_values.min() <= -79.0, "queen's resistance should create the 21.6–23.4 full-silence window")
+	_expect(audio.gain_values.min() <= -79.0, "queen's resistance should create the 21.6-23.4 full-silence window")
+	if host != null:
+		var b_action_snapshot: Dictionary = host.get_snapshot()
+		_expect(float(b_action_snapshot.get("spatial_offset_ratio", 0.0)) >= 0.008 and float(b_action_snapshot.get("spatial_offset_ratio", 0.0)) <= 0.012, "B-family resistance beat should use the stronger action differential")
 	_advance_presentation_to(presentation, 26.05, owner, registry)
 	if host != null:
 		var preflash_snapshot: Dictionary = host.get_snapshot()
@@ -633,7 +701,10 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(absf(b_camera_end - b_camera_start) / maxf(b_camera_start, 0.001) >= 0.04, "B-family camera source width should change by at least four percent")
 	_advance_presentation_to(presentation, 26.20, owner, registry)
 	if host != null:
-		_expect(str(host.get_snapshot().get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "26.20 should remain on B2 immediately before the hard cut")
+		var precut_snapshot: Dictionary = host.get_snapshot()
+		_expect(str(precut_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_B2, "26.20 should remain on B2 immediately before the hard cut")
+		_expect(float(precut_snapshot.get("fx_orb_offset_ratio", 0.0)) > 0.0, "orb extraction should retain its bounded differential immediately before the flash cut")
+		_expect(float(precut_snapshot.get("orb_peak_progress", 0.0)) > 0.9, "the orb should peak immediately before the flash cut")
 	_advance_presentation_to(presentation, 26.30, owner, registry)
 	var ray_growth_early := 0.0
 	var c_camera_start := 0.0
@@ -642,38 +713,96 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(str(cut_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_C1, "26.30 should be on C1 immediately after the 26.25 hard cut")
 		_expect(float(cut_snapshot.get("flash_alpha", 0.0)) >= 0.8, "the hard cut should remain hidden under the flash peak")
 		ray_growth_early = float(cut_snapshot.get("ray_growth", 0.0))
-		_expect(ray_growth_early > 0.0 and float(cut_snapshot.get("ray_additive_alpha", 0.0)) > 0.0, "the ray layer should begin growing immediately after the cut")
+		var ray_progresses: Array = cut_snapshot.get("ray_progresses", [])
+		_expect(ray_growth_early > 0.0 and int(cut_snapshot.get("ray_revealed_count", 0)) == 1, "the authored first ray should begin immediately after the cut")
+		_expect(ray_progresses.size() == 8 and float(ray_progresses[0]) > float(ray_progresses[4]) and float(ray_progresses[4]) > 0.0 and is_zero_approx(float(ray_progresses[2])), "the stagger should reveal ray zero, then ray four, before ray two")
+		_expect(is_zero_approx(float(cut_snapshot.get("ray_additive_alpha", -1.0))), "the baked-ray handoff layer should stay hidden while the first procedural ray pulses")
+		_expect(is_zero_approx(float(cut_snapshot.get("fx_orb_offset_ratio", -1.0))), "orb differential should be zero after the 26.25 flash-cut handoff")
+		_expect(int(cut_snapshot.get("dust_active_count", 0)) == 14, "C1 should halve the dust field while the spiritual rays dominate the frame")
 		c_camera_start = float(cut_snapshot.get("camera_source_width_ratio", 0.0))
 	_advance_presentation_to(presentation, 27.00, owner, registry)
 	if host != null:
-		_expect(float(host.get_snapshot().get("ray_growth", 0.0)) > ray_growth_early, "ray growth should increase monotonically through the reveal window")
+		var ray_stagger_snapshot: Dictionary = host.get_snapshot()
+		_expect(float(ray_stagger_snapshot.get("ray_growth", 0.0)) > ray_growth_early, "ray growth should increase monotonically through the reveal window")
+		_expect(int(ray_stagger_snapshot.get("ray_revealed_count", 0)) == 8, "all eight authored rays should have entered the stagger by 27 seconds")
+		_expect(int(ray_stagger_snapshot.get("spark_active_count", -1)) == 0, "delayed sparks must not begin before 27.4 seconds")
 	_expect(audio.rays_calls == 1, "the eight-ray expansion should fire one separate spiritual layer")
+	_advance_presentation_to(presentation, 27.34, owner, registry)
+	if host != null:
+		var rays_complete_snapshot: Dictionary = host.get_snapshot()
+		var completed_ray_progresses: Array = rays_complete_snapshot.get("ray_progresses", [])
+		_expect(completed_ray_progresses.size() == 8 and completed_ray_progresses.all(func(value: Variant) -> bool: return is_equal_approx(float(value), 1.0)), "all eight staggered ray pulses should complete before the 27.4-second spark entrance")
+		_expect(int(rays_complete_snapshot.get("spark_active_count", -1)) == 0, "spark field should remain empty after ray completion but before 27.4")
+	_advance_presentation_to(presentation, 27.55, owner, registry)
+	if host != null:
+		_expect(int(host.get_snapshot().get("spark_active_count", 0)) > 0, "the seeded spark field should enter after 27.4, never during ray growth")
+	_advance_presentation_to(presentation, 28.00, owner, registry)
+	if host != null:
+		_expect(int(host.get_snapshot().get("spark_active_count", 0)) > 0, "the seeded spark field should be active after its delayed entrance")
 	_advance_presentation_to(presentation, 28.80, owner, registry)
 	if host != null:
 		var rays_handed_off: Dictionary = host.get_snapshot()
 		_expect(is_equal_approx(float(rays_handed_off.get("ray_growth", 0.0)), 1.0), "ray growth should reach one before handing off to the baked C1 rays")
 		_expect(is_zero_approx(float(rays_handed_off.get("ray_additive_alpha", -1.0))), "additive rays should be zero after the 28.6 handoff")
-	_advance_presentation_to(presentation, 29.50, owner, registry)
+		_expect(is_zero_approx(float(rays_handed_off.get("fx_rays_offset_ratio", -1.0))), "ray differential should converge to zero at the 28.6-second baked handoff")
+	_advance_presentation_to(presentation, 29.42, owner, registry)
+	var ember_distance_mid := 0.0
 	if host != null:
+		_expect(float(host.get_snapshot().get("last_ember_progress", 0.0)) > 0.0 and float(host.get_snapshot().get("last_ember_progress", 0.0)) < 1.0, "the last ember should be travelling toward the officiant at 29.42")
+		ember_distance_mid = float(host.get_snapshot().get("last_ember_distance_to_target_ratio", 0.0))
+		_expect(ember_distance_mid > 0.0, "the travelling ember should still be separated from the officiant at 29.42")
 		var c_camera_end := float(host.get_snapshot().get("camera_source_width_ratio", 0.0))
 		_expect(absf(c_camera_end - c_camera_start) / maxf(c_camera_start, 0.001) >= 0.04, "C1 camera pullback should change source width by at least four percent")
+		_expect(int(host.get_snapshot().get("dust_active_count", 0)) == 14, "C1 dust attenuation should remain active through the ray plate")
+	_advance_presentation_to(presentation, 29.57, owner, registry)
+	if host != null:
+		_expect(float(host.get_snapshot().get("last_ember_distance_to_target_ratio", 1.0)) < ember_distance_mid * 0.1, "the last ember should arrive at the officiant ROI before the C1-to-D1 transition")
+	_advance_presentation_to(presentation, 29.60, owner, registry)
+	if host != null:
+		_expect(is_zero_approx(float(host.get_snapshot().get("last_ember_progress", -1.0))), "the last ember should clear before the D-family cut")
+	_advance_presentation_to(presentation, 30.17, owner, registry)
+	if host != null:
+		_expect(float(host.get_snapshot().get("guard_glint_alpha", 0.0)) > 0.95, "both guard blades should reach their glint peak at 30.17")
 	_advance_presentation_to(presentation, 30.90, owner, registry)
 	var d_camera_start := float(host.get_snapshot().get("camera_source_width_ratio", 0.0)) if host != null else 0.0
 	var subtitle_position_before_shake: Vector2 = host.get_snapshot().get("subtitle_position", Vector2.ZERO) if host != null else Vector2.ZERO
+	var impact_label_positions: Dictionary = {}
+	if host != null:
+		var preimpact_snapshot: Dictionary = host.get_snapshot()
+		_expect(is_zero_approx(float(preimpact_snapshot.get("guard_glint_alpha", -1.0))), "guard glints should be gone before the impact beat")
+		_expect(float(preimpact_snapshot.get("spatial_offset_ratio", 0.0)) >= 0.008 and float(preimpact_snapshot.get("spatial_offset_ratio", 0.0)) <= 0.012, "D-family confrontation should retain the stronger action differential")
+		_expect(int(preimpact_snapshot.get("dust_active_count", 0)) == 28, "dust density should restore after the C1 ray interval")
+		impact_label_positions = {
+			"subtitle": preimpact_snapshot.get("subtitle_position", Vector2.ZERO),
+			"speaker": preimpact_snapshot.get("speaker_position", Vector2.ZERO),
+			"skip": preimpact_snapshot.get("skip_position", Vector2.ZERO),
+			"title": preimpact_snapshot.get("title_position", Vector2.ZERO),
+		}
 	_advance_presentation_to(presentation, 33.05, owner, registry)
 	if host != null:
 		var impact_snapshot: Dictionary = host.get_snapshot()
 		_expect(float(impact_snapshot.get("flash_alpha", 0.0)) > 0.0, "33.05 should render the impact flash")
 		_expect(float(impact_snapshot.get("shake_magnitude", 0.0)) > 0.0, "33.05 should drive nonzero plate shake")
+		_expect(bool(impact_snapshot.get("impact_hitstop_active", false)), "33.05 should freeze the painted host before recovery begins")
+		_expect(is_zero_approx(float(impact_snapshot.get("host_recovery_progress", -1.0))), "host recovery should remain at zero during hitstop")
 		_expect(impact_snapshot.get("subtitle_position", Vector2.ZERO) == subtitle_position_before_shake, "plate shake must not move the subtitle label")
+		_expect(impact_snapshot.get("subtitle_position", Vector2.ZERO) == impact_label_positions.get("subtitle", Vector2.ONE) and impact_snapshot.get("speaker_position", Vector2.ZERO) == impact_label_positions.get("speaker", Vector2.ONE) and impact_snapshot.get("skip_position", Vector2.ZERO) == impact_label_positions.get("skip", Vector2.ONE) and impact_snapshot.get("title_position", Vector2.ZERO) == impact_label_positions.get("title", Vector2.ONE), "spatial offset plus impact shake must leave every label fixed")
+		_expect(float(impact_snapshot.get("spatial_combined_offset_ratio", 1.0)) <= float(impact_snapshot.get("spatial_hard_max_ratio", 0.0)), "spatial differential plus impact shake must stay below the 1.5 percent hard cap")
+		_expect(float(impact_snapshot.get("spatial_offset_ratio", 1.0)) < float(impact_snapshot.get("spatial_margin_ratio", 0.0)), "impact-time spatial differential must stay inside the live zoom margin")
 		_expect(int(impact_snapshot.get("additive_blend_mode", -1)) == CanvasItemMaterial.BLEND_MODE_ADD, "ray/shard/ring FX should use a dedicated additive CanvasItem")
 		_expect(bool(impact_snapshot.get("additive_interpolation_off", false)), "the additive FX child should disable physics interpolation")
+	_advance_presentation_to(presentation, 33.35, owner, registry)
+	if host != null:
+		var recovery_snapshot: Dictionary = host.get_snapshot()
+		_expect(not bool(recovery_snapshot.get("impact_hitstop_active", true)), "host recovery should begin only after hitstop releases")
+		_expect(float(recovery_snapshot.get("host_recovery_progress", 0.0)) > 0.0 and float(recovery_snapshot.get("host_recovery_progress", 0.0)) < 1.0, "33.35 should be inside the host recovery blend")
 	_advance_presentation_to(presentation, 33.60, owner, registry)
 	_expect(audio.spirit_bell_calls == 1, "the first extraction should fire one fixed-pitch bell")
 	if host != null:
 		var shard_snapshot: Dictionary = host.get_snapshot()
 		_expect(float(shard_snapshot.get("shard_progress", 0.0)) > 0.0, "33.60 should be inside the shard absorption path")
 		_expect(is_zero_approx(float(shard_snapshot.get("shake_magnitude", -1.0))), "shake should decay to zero after 33.35")
+		_expect(is_equal_approx(float(shard_snapshot.get("host_recovery_progress", 0.0)), 1.0), "host recovery should complete before the shard path settles")
 	var asset_status := presentation.get_asset_status()
 	var streamed: Dictionary = asset_status.get("stream_ready", {})
 	_expect(int(asset_status.get("stream_completed_count", 0)) == 8, "the deterministic controller fixture should materialize five streamed bases plus three streamed FX layers by D2")
@@ -692,7 +821,8 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	if host != null:
 		var settled_snapshot: Dictionary = host.get_snapshot()
 		_expect(str(settled_snapshot.get("base_plate_key", "")) == PrologueOverlayHost.PLATE_D2, "D2 should become the settled base after the impact blend")
-		_expect(is_zero_approx(float(settled_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(settled_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(settled_snapshot.get("shake_magnitude", -1.0))), "all transient impact FX should return to zero after 34.0")
+		_expect(is_zero_approx(float(settled_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(settled_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(settled_snapshot.get("shake_magnitude", -1.0))) and is_zero_approx(float(settled_snapshot.get("last_ember_progress", -1.0))) and is_zero_approx(float(settled_snapshot.get("guard_glint_alpha", -1.0))), "all transient impact and rhythm FX should return to zero after 34.0")
+		_expect(is_zero_approx(float(settled_snapshot.get("fx_shard_offset_ratio", -1.0))), "shard differential should converge to zero at the 34-second baked handoff")
 	host = presentation.get_host_for_test()
 	if host != null:
 		var extraction_snapshot: Dictionary = host.get_snapshot()
@@ -713,7 +843,9 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 	_expect(audio.clear_gain_calls > 0 and audio.stop_cue_calls > 0, "skip should restore the BGM bus and stop every story cue")
 	if host != null:
 		var skipped_snapshot: Dictionary = host.get_snapshot()
-		_expect(is_zero_approx(float(skipped_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("ray_additive_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shake_magnitude", -1.0))), "skip completion should zero every motion state immediately")
+		_expect(is_zero_approx(float(skipped_snapshot.get("flash_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("ray_additive_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shard_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("shake_magnitude", -1.0))) and is_zero_approx(float(skipped_snapshot.get("orb_peak_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("last_ember_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("guard_glint_alpha", -1.0))) and is_zero_approx(float(skipped_snapshot.get("host_recovery_progress", -1.0))) and is_zero_approx(float(skipped_snapshot.get("tail_vignette_alpha", -1.0))), "skip completion should zero every motion and rhythm state immediately")
+		_expect((skipped_snapshot.get("ray_progresses", []) as Array).is_empty(), "skip completion should discard all per-ray reveal state")
+		_expect(is_zero_approx(float(skipped_snapshot.get("spatial_offset_ratio", -1.0))) and int(skipped_snapshot.get("dust_active_count", -1)) == 0, "skip completion should zero the procedural spatial pass immediately")
 	var persisted := StoryCinematicProgressStore.new()
 	persisted.set_save_path(path)
 	_expect(persisted.has_seen(ProloguePresentation.CINEMATIC_ID), "manual skip should retain completion history")
@@ -740,15 +872,29 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		guard += 1
 		OS.delay_msec(1)
 	_expect(natural.begin(owner, registry), "viewed prologue should still support a full natural replay")
-	_advance_presentation_to(natural, 39.5, owner, registry)
+	_advance_presentation_to(natural, 39.65, owner, registry)
 	var natural_host := natural.get_host_for_test()
+	var tail_camera_start := 0.0
+	if natural_host != null:
+		var pause_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(not bool(pause_snapshot.get("elapsed_card_visible", true)) and str(pause_snapshot.get("subtitle", "")) == "", "39.4-39.9 should preserve a half-second silence after H5")
+		_expect(is_zero_approx(float(pause_snapshot.get("tail_vignette_alpha", -1.0))), "tail vignette should wait for the first elapsed card")
+		_expect(float(pause_snapshot.get("spatial_offset_ratio", 0.0)) >= 0.0035 and float(pause_snapshot.get("spatial_offset_ratio", 0.0)) <= 0.006, "D2 tail should return to a restrained spatial differential")
+		tail_camera_start = float(pause_snapshot.get("camera_source_width_ratio", 0.0))
+	_advance_presentation_to(natural, 40.10, owner, registry)
 	if natural_host != null:
 		var first_elapsed_snapshot: Dictionary = natural_host.get_snapshot()
-		_expect(bool(first_elapsed_snapshot.get("elapsed_card_visible", false)), "39.4-second mark should show the first elapsed-time card")
+		_expect(bool(first_elapsed_snapshot.get("elapsed_card_visible", false)), "40.1-second mark should show the first elapsed-time card")
 		_expect(str(first_elapsed_snapshot.get("subtitle", "")).find("여덟 줄기") >= 0, "first elapsed-time card should state where the eight beams went")
-	_advance_presentation_to(natural, 42.3, owner, registry)
+		_expect(float(first_elapsed_snapshot.get("tail_vignette_alpha", 0.0)) > 0.0, "the peripheral vignette should begin monotonically with E1")
+	_advance_presentation_to(natural, 42.50, owner, registry)
 	if natural_host != null:
-		_expect(str(natural_host.get_snapshot().get("subtitle", "")).find("세 해 뒤") >= 0, "42.2-second mark should replace, not stack, the elapsed card")
+		_expect(str(natural_host.get_snapshot().get("subtitle", "")).find("3년 뒤") >= 0, "42.4-second mark should replace, not stack, the elapsed card")
+	_advance_presentation_to(natural, 44.80, owner, registry)
+	if natural_host != null:
+		var tail_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(float(tail_snapshot.get("tail_vignette_alpha", 0.0)) > 0.30 and float(tail_snapshot.get("tail_vignette_alpha", 0.0)) <= PrologueOverlayHost.D2_TAIL_DIM_MAX_ALPHA, "peripheral tail dim should approach but never exceed the 0.35 alpha cap")
+		_expect(float(tail_snapshot.get("camera_source_width_ratio", 0.0)) > tail_camera_start, "D2 should keep pulling back through the elapsed cards")
 	_advance_presentation_to(natural, 45.1, owner, registry)
 	if natural_host != null:
 		var chapter_snapshot: Dictionary = natural_host.get_snapshot()
@@ -756,6 +902,7 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(bool(chapter_snapshot.get("title_centered", false)), "chapter card should be centered")
 		_expect(bool(chapter_snapshot.get("title_wrap_enabled", false)), "long localized chapter cards should support two-line wrapping")
 		_expect(str(chapter_snapshot.get("subtitle", "")) == "", "chapter card should begin after both elapsed cards end")
+		_expect(is_zero_approx(float(chapter_snapshot.get("tail_vignette_alpha", -1.0))), "peripheral tail vignette should release when the chapter card begins")
 	_advance_presentation_to(natural, 47.7, owner, registry)
 	if natural_host != null:
 		var fade_snapshot: Dictionary = natural_host.get_snapshot()
@@ -764,6 +911,10 @@ func _verify_character_select_replay_timeline_and_completion_history() -> void:
 		_expect(bool(fade_snapshot.get("fade_cover_above_title", false)), "natural fade cover should sit above the chapter label")
 	_advance_presentation_to(natural, 48.2, owner, registry)
 	_expect(not natural.is_active() and natural.get_completion_reason() == "natural", "48-second natural completion should release the battle gate")
+	if natural_host != null:
+		var completed_snapshot: Dictionary = natural_host.get_snapshot()
+		_expect(is_zero_approx(float(completed_snapshot.get("spatial_offset_ratio", -1.0))) and int(completed_snapshot.get("dust_active_count", -1)) == 0, "natural completion should zero the procedural spatial pass immediately")
+		_expect(is_zero_approx(float(completed_snapshot.get("tail_vignette_alpha", -1.0))) and is_zero_approx(float(completed_snapshot.get("host_recovery_progress", -1.0))) and (completed_snapshot.get("ray_progresses", []) as Array).is_empty(), "natural completion should zero every rhythm-pass state")
 
 	var startup_fixture := {
 		PrologueOverlayHost.PLATE_A1: ProjectResourceLoader.load_imported_texture(ProloguePresentation.A1_TEXTURE_PATH),

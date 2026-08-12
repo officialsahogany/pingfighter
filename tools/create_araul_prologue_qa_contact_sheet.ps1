@@ -4,7 +4,11 @@ param(
 
     [string]$OutputPath = "docs/qa_evidence/araul_prologue_v2/rev5_vulkan_contact_sheet.png",
 
-    [switch]$IncludeMotionFrames
+    [switch]$IncludeMotionFrames,
+
+    [switch]$IncludeSpatialFrames,
+
+    [switch]$IncludeRhythmFrames
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,6 +42,36 @@ if ($IncludeMotionFrames) {
         @{ File = "ko_1920x1080_motion_shard_335.png"; Label = "rev6 / 33.50 shard intake" }
     )
     $items = @($motionItems) + @($items)
+}
+if ($IncludeSpatialFrames) {
+    $spatialItems = @(
+        @{ File = "ko_1920x1080_spatial_dust_80.png"; Label = "rev6.5a / 1080p spatial dust" },
+        @{ File = "ko_1920x1080_a1_coronation.png"; Label = "rev6.5a / 1080p follow-up 8.60" },
+        @{ File = "ko_2560x1440_spatial_dust_80.png"; Label = "rev6.5a / 1440p spatial dust" },
+        @{ File = "ko_2560x1440_a1_coronation.png"; Label = "rev6.5a / 1440p follow-up 8.60" }
+    )
+    $items = @($spatialItems) + @($items)
+}
+if ($IncludeRhythmFrames) {
+    $rhythmItems = @(
+        @{ File = "ko_1920x1080_rhythm_orb_peak_2612.png"; Label = "rev6.5b / 26.12 orb peak" },
+        @{ File = "ko_1920x1080_rhythm_ray_stagger_2655.png"; Label = "rev6.5b / 26.55 ray stagger" },
+        @{ File = "ko_1920x1080_rhythm_sparks_2755.png"; Label = "rev6.5b / 27.55 delayed sparks" },
+        @{ File = "ko_1920x1080_rhythm_last_ember_2942.png"; Label = "rev6.5b / 29.42 last ember" },
+        @{ File = "ko_1920x1080_rhythm_guard_glint_3017.png"; Label = "rev6.5b / 30.17 blade glints" },
+        @{ File = "ko_1920x1080_rhythm_hitstop_3306.png"; Label = "rev6.5b / 33.06 hitstop" },
+        @{ File = "ko_1920x1080_rhythm_recovery_3335.png"; Label = "rev6.5b / 33.35 host recovery" },
+        @{ File = "ko_1920x1080_rhythm_h5_pause_3965.png"; Label = "rev6.5b / 39.65 H5 pause" },
+        @{ File = "ko_1920x1080_rhythm_tail_vignette_448.png"; Label = "rev6.5b / 44.80 tail vignette" },
+        @{ File = "ko_2560x1440_rhythm_orb_peak_2612.png"; Label = "rev6.5b / 1440p orb peak" },
+        @{ File = "ko_2560x1440_rhythm_last_ember_2942.png"; Label = "rev6.5b / 1440p last ember" },
+        @{ File = "ko_2560x1440_rhythm_guard_glint_3017.png"; Label = "rev6.5b / 1440p blade glints" },
+        @{ File = "ko_2560x1440_rhythm_tail_vignette_448.png"; Label = "rev6.5b / 1440p tail vignette" },
+        @{ File = "en_1920x1080_rhythm_n.png"; Label = "rev6.5b / EN divine voice" },
+        @{ File = "es_1920x1080_rhythm_e1.png"; Label = "rev6.5b / ES E1 2.5s" },
+        @{ File = "ru_1920x1080_rhythm_e1.png"; Label = "rev6.5b / RU E1 2.5s" }
+    )
+    $items = @($rhythmItems) + @($items)
 }
 
 $captureRoot = (Resolve-Path -LiteralPath $CaptureDir).Path
