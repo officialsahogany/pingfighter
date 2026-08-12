@@ -64,6 +64,11 @@ static func resolve_layout(center: Vector2, config: Dictionary) -> Dictionary:
 	var body_px: float = float(config.get("walk_draw_size", 0.0))
 	if body_px <= 0.0:
 		body_px = LingpetCompanionSpriteAnimator.WALK_DRAW_SIZE.x
+	# S3-b(계약 14b): 탑다운 합성은 walk 상수 기하 금지 — M 의 draw_size 가 몸
+	# 크기 정본이고, 안장 rect 중심이 이미 최종 좌표라 Y 오프셋도 0 이다.
+	var topdown_mount: bool = float(config.get("topdown_mount_draw_size", 0.0)) > 0.0
+	if topdown_mount:
+		body_px = float(config.get("topdown_mount_draw_size", 0.0))
 	var gauge_height: float = clampf(body_px * GAUGE_HEIGHT_RATIO, GAUGE_HEIGHT_MIN, GAUGE_HEIGHT_MAX)
 	var body_left_x: float = center.x - body_px * BODY_HALF_WIDTH_RATIO
 	var left_x: float = body_left_x - GAUGE_BODY_GAP - GAUGE_WIDTH
@@ -85,7 +90,8 @@ static func resolve_layout(center: Vector2, config: Dictionary) -> Dictionary:
 	if left_x + GAUGE_WIDTH + DECOR_PADDING > FIELD_MAX_X:
 		# 우측 화면 밖 진입/퇴장. 이쪽은 밀어 넣어 봐야 본체 방향이라 무의미하다.
 		return _hidden_layout()
-	var top_y: float = center.y + GAUGE_Y_OFFSET - gauge_height * 0.5
+	var gauge_y_offset: float = 0.0 if topdown_mount else GAUGE_Y_OFFSET
+	var top_y: float = center.y + gauge_y_offset - gauge_height * 0.5
 	var track_rect := Rect2(left_x, top_y, GAUGE_WIDTH, gauge_height)
 	var fill_height: float = gauge_height * ratio
 	return {
@@ -127,6 +133,9 @@ static func draw_gauge(
 	# 컷 기준은 본체 표현들과 동일하게 0.0 -- 임계를 다르게 두면 아주 옅은 페이드
 	# 프레임에서 본체는 나오는데 게이지만 사라지는 어긋남이 생긴다.
 	var draw_alpha: float = clampf(alpha, 0.0, 1.0)
+	# S3-b(계약 14b): 탑다운 합성은 walk 상수 기하를 쓰면 안 된다 — 게이지가
+	# 안장이 아니라 옛 walk 위치·크기로 뜬다. topdown_mount_draw_size 가 오면
+	# 그것이 몸 크기 정본이고 Y 오프셋은 0 이다(안장 rect 는 이미 최종 좌표).
 	if draw_alpha <= 0.0:
 		return _hidden_layout()
 	var layout: Dictionary = resolve_layout(center, config)

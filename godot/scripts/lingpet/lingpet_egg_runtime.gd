@@ -1042,6 +1042,11 @@ func draw_lingpet_body_behind_actors(canvas: CanvasItem, shake_offset: Vector2 =
 			_item_egg_state.egg_color_index,
 			_item_egg_state.roll_angle
 		)
+	# §C-2: 탑다운 탑승 중 메인 본체(오라·플래시·게이지 포함)는 M 콜백이 소유한다
+	# — 여기서도 그리면 lane 위치와 안장 위치에 이중으로 그려진다. 공존 아이템
+	# 알은 바로 위에서 이미 그렸으므로 보존된다(메서드 전체 return 금지 계약).
+	if is_topdown_mount_composite_active():
+		return
 	var switch_transition_active: bool = bool(
 		_switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0
 	)
@@ -2767,6 +2772,74 @@ func get_topdown_mount_readiness() -> Dictionary:
 	return _mount_topdown_readiness_result
 
 
+# S3-b: 탑다운 합성 활성 = 탑다운 모델 × 실제 탑승. 준비도 게이트가 미준비
+# 탑승을 같은 프레임 철회하므로(A-3) 탑승 중은 readiness ready 가 함께 성립한다.
+func is_topdown_mount_composite_active() -> bool:
+	return bool(_current_profile.is_mount_presentation_topdown()) and bool(_mount_state.is_mounted())
+
+
+# S3-b §B-3: M 베이스 콜백. 플레이어 렌더러가 flicker return 뒤·상태 글로우 앞에서
+# 최종 라이더 rect 를 넘겨 호출한다(§B-3 rev3). final_rider_rect 에는 shake 가
+# 이미 포함돼 있으므로 재가산하지 않는다(§B-3b).
+# M/N 텍스처 정본 = 보존된 readiness 결과(§A-4a) — 여기서 캐시를 재조회하면
+# P16② 동일 객체 계약이 공허해진다.
+func draw_topdown_mount_base(canvas: CanvasItem, final_rider_rect: Rect2) -> void:
+	if canvas == null or not is_topdown_mount_composite_active():
+		return
+	var mount_texture: Texture2D = _mount_topdown_readiness_result.get("mount_texture", null) as Texture2D
+	if mount_texture == null:
+		return
+	var draw_size: float = maxf(1.0, float(_current_profile.get_visual_layout_value("companion_mount_base_draw_size", 0.0)))
+	var cols: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_cols", 1.0)))
+	var rows: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_rows", 1.0)))
+	var frame_count: int = maxi(1, int(_current_profile.get_visual_layout_value("companion_mount_base_frame_count", 1.0)))
+	var sheet_meta := {"cols": cols, "rows": rows, "frame_count": frame_count}
+	# source 슬라이싱은 animator 규칙 재사용(§B-3c) — build_draw_rects() 는 금지
+	# (WALK_Y_OFFSET −6 dest 보정을 다시 넣는다). 정적 1×1·1f = frame 0.
+	var source_rect: Rect2 = _companion_sprite_animator.get_source_rect(mount_texture, 0, sheet_meta)
+	# §B-3 배치: seat point = 라이더 rect 하단 중앙. 안장 소켓(셀-로컬 px)이
+	# seat point 에 일치하도록 mount rect 를 역산한다.
+	var cell_size := Vector2(
+		maxf(1.0, source_rect.size.x),
+		maxf(1.0, source_rect.size.y)
+	)
+	var saddle_local := Vector2(
+		float(_current_profile.get_visual_layout_value("companion_mount_base_saddle_x", cell_size.x * 0.5)),
+		float(_current_profile.get_visual_layout_value("companion_mount_base_saddle_y", cell_size.y * 0.5))
+	)
+	var seat_point := Vector2(final_rider_rect.position.x + final_rider_rect.size.x * 0.5, final_rider_rect.end.y)
+	var dest_size := Vector2(draw_size, draw_size)
+	var dest_position := seat_point - (saddle_local / cell_size) * dest_size
+	var dest_rect := Rect2(dest_position, dest_size)
+	var draw_config: Dictionary = _build_companion_draw_config()
+	# §B-3d 반경: 베이스만 비례(16 × draw/82), 플래시 가산항은 renderer 가 불변 유지.
+	var radius: float = 16.0 * (draw_size / 82.0)
+	_companion_renderer.draw_topdown_mount_composite(
+		canvas,
+		dest_rect,
+		mount_texture,
+		source_rect,
+		radius,
+		draw_config
+	)
+	# §C-2: 게이지 이관 — 본체 패스와 같은 알파 정본, 기하는 M 중심·M draw_size
+	# (walk 상수 미사용, 계약 14b).
+	var body_alpha: float = LingpetCompanionRenderer.resolve_body_draw_alpha(draw_config)
+	_last_duration_gauge_layout = LingpetDurationFieldGaugeRenderer.draw_gauge(
+		canvas,
+		dest_rect.get_center(),
+		{
+			"duration_gauge_enabled": body_alpha > 0.0 and _is_guardian_summoned(),
+			"duration_pool_current": _guardian_run_state.get_duration_pool_current(),
+			"duration_pool_max": _guardian_run_state.get_duration_pool_max(),
+			"duration_drain_exempt": _guardian_run_state.is_duration_drain_exempt_latched(),
+			"walk_draw_size": draw_size,
+			"topdown_mount_draw_size": draw_size,
+		},
+		body_alpha
+	)
+
+
 # 탑승 토글은 맨 우클릭을 쓰는데, 스매셔 벽력유성이 "우클릭 홀드로 무장 →
 # 타구 시점 발사" 계약으로 바뀌면서 같은 버튼을 쓴다. 무장 가능한(=장착 +
 # 기력 + 쿨타임 + 랠리 진행 중) 순간에는 스킬이 우클릭을 소유하고, 그 외
@@ -3042,6 +3115,15 @@ func _draw_companion(
 	center: Vector2,
 	transition_alpha: float = 1.0
 ) -> float:
+	var draw_config: Dictionary = _build_companion_draw_config(transition_alpha)
+	_companion_renderer.draw_companion(canvas, center, draw_config)
+	# 렌더러가 스프라이트에 실제로 먹인 알파와 같은 정본을 읽는다.
+	return LingpetCompanionRenderer.resolve_body_draw_alpha(draw_config)
+
+
+# 본체/탑다운 합성이 공유하는 draw config 정본. §B-3d 이관 레이어(오라·플래시)가
+# 본체 패스와 같은 소스(guard_feedback·skill state·ghost alpha)를 읽게 한다.
+func _build_companion_draw_config(transition_alpha: float = 1.0) -> Dictionary:
 	var visual_surface: Dictionary = _skill_runtime_surface.get_visual_surface(
 		_current_profile,
 		_active_skill_slot_resolver,
@@ -3107,9 +3189,7 @@ func _draw_companion(
 		"guard_feedback_state": _guard_feedback_state,
 		"mount_carry_active": _mount_state.is_mounted(),
 	})
-	_companion_renderer.draw_companion(canvas, center, draw_config)
-	# 렌더러가 스프라이트에 실제로 먹인 알파와 같은 정본을 읽는다.
-	return LingpetCompanionRenderer.resolve_body_draw_alpha(draw_config)
+	return draw_config
 
 
 # SD 캐릭터 좌측 세로 지속시간 게이지. 본체 표현이 여러 갈래(일반 SD / 클릭 교감

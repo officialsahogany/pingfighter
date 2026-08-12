@@ -87,6 +87,8 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"player_perk_visual_part_levels": RuntimePerkVisualPartCatalog.project_owned_levels(_get_owner_dict(owner, "runtime_perk_levels")),
 		"player_socket_debug_overlay_enabled": bool(_get_owner_value(owner, "player_socket_debug_overlay_enabled", false)),
 		"player_mount_rider_lift_px": _get_mount_rider_lift(registry),
+		"player_mount_topdown_active": _is_mount_topdown_active(registry),
+		"player_mount_rider_seated": _get_mount_rider_seated_payload(registry),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_paddle_size": Vector2(player_paddle_width, player_paddle_height),
@@ -233,6 +235,42 @@ func _merge_blacksmith_thor_shield_state_context(context: Dictionary, character_
 		if key_name.begins_with("blacksmith_umbrella") or key_name == "blacksmith_thor_shield_open_ratio":
 			context[key_name] = snapshot[key]
 
+
+
+# S3-b §C-1: 탑다운 합성 활성 여부 — defer 스위치와 M 콜백 게이트가 읽는다.
+# 비-인스턴스화 peek 전용.
+func _is_mount_topdown_active(registry) -> bool:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return false
+	var lingpet_runtime: Object = registry.get_cached_instance("lingpet_egg_runtime")
+	if lingpet_runtime == null or not lingpet_runtime.has_method("is_topdown_mount_composite_active"):
+		return false
+	return bool(lingpet_runtime.is_topdown_mount_composite_active())
+
+
+# S3-b §A-4a/P16②: N(착석 라이더) 페이로드 — egg 가 보존한 readiness 결과에서
+# **그 객체 그대로** 가져온다. battle_resources 캐시를 여기서 재조회하면 게이트가
+# 본 객체와 렌더러가 받는 객체가 갈라져 P16② 동일 객체 계약이 공허해진다.
+# 반환: {"texture": Texture2D, "spec": Dictionary} 또는 비활성/미준비 시 빈 dict.
+func _get_mount_rider_seated_payload(registry) -> Dictionary:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return {}
+	var lingpet_runtime: Object = registry.get_cached_instance("lingpet_egg_runtime")
+	if (
+		lingpet_runtime == null
+		or not lingpet_runtime.has_method("is_topdown_mount_composite_active")
+		or not bool(lingpet_runtime.is_topdown_mount_composite_active())
+		or not lingpet_runtime.has_method("get_topdown_mount_readiness")
+	):
+		return {}
+	var readiness: Dictionary = lingpet_runtime.get_topdown_mount_readiness()
+	var rider_texture: Variant = readiness.get("rider_texture", null)
+	if not (rider_texture is Texture2D):
+		return {}
+	return {
+		"texture": rider_texture,
+		"spec": readiness.get("rider_spec", {}) as Dictionary,
+	}
 
 # Non-instantiating peek (hot-path lazy init trap: the draw path must never
 # cold-instantiate the lingpet runtime).

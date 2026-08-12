@@ -90,6 +90,63 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
 
 
+# S3-b 탑다운 합성(§B-3c/§B-3d): M 베이스 스프라이트를 exact dest 로 그리고
+# 오라·플래시 L1~L4 를 M exact center 기준으로 이관한다.
+# - bob 무가산: 본체만 고정되고 오라만 흔들리는 어긋남 방지(§B-3d).
+# - WALK_Y_OFFSET(−6) 무가산: animator 의 build_draw_rects() 를 부르지 않는다 —
+#   그 함수가 금지된 mode 기반 dest 보정을 다시 넣는다(§B-3c). source 슬라이싱만
+#   animator 규칙(get_source_rect)을 재사용한다.
+# - switch 레이어(L5·L6)는 이관 대상이 아니다 — 펫 전환은 mount reset 과 공존
+#   불가(P17 상태 씰이 소유).
+func draw_topdown_mount_composite(
+	canvas: CanvasItem,
+	dest_rect: Rect2,
+	texture: Texture2D,
+	source_rect: Rect2,
+	radius: float,
+	config: Dictionary
+) -> void:
+	if canvas == null or texture == null:
+		return
+	var draw_center: Vector2 = dest_rect.get_center()
+	var ghost_alpha: float = clampf(float(config.get("companion_alpha", 1.0)), 0.0, 1.0)
+	var now_ms: float = float(Time.get_ticks_msec())
+	var guard_aura_ratio: float = clampf(float(config.get("defense_guard_aura_ratio", 0.0)), 0.0, 1.0)
+	# L1 상시 앰비언트 오라
+	_draw_soft_aura(canvas, draw_center, radius, now_ms, ghost_alpha, false, guard_aura_ratio)
+	# M 본체 — exact dest (오프셋·bob 전무)
+	canvas.draw_texture_rect_region(
+		texture,
+		dest_rect,
+		source_rect,
+		Color(1.0, 1.0, 1.0, ghost_alpha)
+	)
+	# L2 gauge_flash
+	var gauge_flash: float = float(config.get("gauge_flash", 0.0))
+	if gauge_flash > 0.0:
+		var gauge_radius: float = lerpf(radius + 14.0, radius + 42.0, 1.0 - gauge_flash)
+		canvas.draw_circle(draw_center, gauge_radius, Color(1.0, 0.88, 0.24, 0.16 * gauge_flash))
+		canvas.draw_arc(draw_center, gauge_radius * 0.82, 0.0, TAU, 36, Color(1.0, 0.94, 0.42, 0.68 * gauge_flash), 2.2, true)
+		_draw_burst(canvas, draw_center, gauge_flash, int(config.get("burst_particles", 8)), int(config.get("gauge_trigger_count", 0)), Color(1.0, 0.88, 0.24, 1.0), true)
+	# L3 skill_flash
+	var skill_flash: float = float(config.get("skill_flash", 0.0))
+	if skill_flash > 0.0:
+		var skill_radius: float = lerpf(radius + 18.0, radius + 54.0, 1.0 - skill_flash)
+		var flash_palette: Dictionary = resolve_skill_flash_palette(str(config.get("companion_skill_flash_style", "")))
+		var flash_fill: Color = flash_palette.get("fill", Color(0.24, 0.92, 1.0))
+		var flash_arc: Color = flash_palette.get("arc", Color(0.72, 1.0, 1.0))
+		var flash_burst: Color = flash_palette.get("burst", Color(0.54, 1.0, 1.0))
+		canvas.draw_circle(draw_center, skill_radius, Color(flash_fill.r, flash_fill.g, flash_fill.b, 0.18 * skill_flash))
+		canvas.draw_arc(draw_center, skill_radius * 0.82, 0.0, TAU, 40, Color(flash_arc.r, flash_arc.g, flash_arc.b, 0.72 * skill_flash), 2.6, true)
+		_draw_burst(canvas, draw_center, skill_flash, int(config.get("burst_particles", 8)), int(config.get("skill_trigger_count", 0)), Color(flash_burst.r, flash_burst.g, flash_burst.b, 1.0), false)
+	# L4 hit_flash
+	var hit_flash: float = float(config.get("hit_flash", 0.0))
+	if hit_flash > 0.0:
+		var flash_radius: float = lerpf(radius + 8.0, radius + 34.0, 1.0 - hit_flash)
+		canvas.draw_circle(draw_center, flash_radius, Color(0.70, 1.0, 0.92, 0.22 * hit_flash))
+		canvas.draw_arc(draw_center, flash_radius * 0.86, 0.0, TAU, 36, Color(0.88, 1.0, 0.76, 0.58 * hit_flash), 2.0, true)
+
+
 func draw_guard_feedback(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
