@@ -846,6 +846,56 @@ and `decor` RNG streams define the future split seams. Any later owner split
 must preserve those salts, the canonical fingerprint, the 168-roster outputs,
 and the existing mutation counterproofs exactly.
 
+### Plaza R2-B candidate runtime and R2-C activation gate
+
+`plaza_map_navigation.gd` compiles candidate walkability from the complete actor
+rectangle, binds a digest that rejects later geometry mutation, and owns candidate
+movement and portal routing. `plaza_map_minimap_projection_2d.gd` projects the
+same 2D world spec into the candidate minimap without duplicating generation.
+The navigation and minimap hardening gates are GREEN, including a 2px
+uncovered-slit counterproof and exact two-axis building/player/exit/camera
+comparisons. This is not a production performance sign-off: each candidate
+`move_actor()` validates the whole geometry string/SHA again, and exact body
+coverage uses `Geometry2D.clip_polygons()`. Atomic activation requires
+steady-p95 evidence at the real owner cadence and a bind-once immutable compiled
+owner with a fast occupancy path that preserves the same counterproofs, following
+[GRT-032](godot_runtime_traps.md#grt-032)'s setup-time-index/per-frame-O(1)
+boundary.
+
+`plaza_r2_map_world_candidate_host.gd` is a separate candidate renderer. It
+preflights all state before tree mutation, consumes caller-isolated compiled road
+draw records, and keeps actual building and actor CanvasItems as direct Y-sort
+siblings with relative zero-z layers. Its focused, mutation, and 2020x1246
+Forward Mobile A/B/C Vulkan Y-sort gates are GREEN, including an actual actor
+z=1 structural RED counterproof. The actual-tree seal also restores Base=MIX,
+Sign/Window=ADD, Probe/Body=null material, local material ownership, white
+parent/child modulation, show-behind, and visibility after leaving mutations in
+place; the resulting independent audit found zero CRITICAL/HIGH findings. The
+host, navigation, and 2D minimap owners have no production `plaza_scene.gd` or
+`project.godot` reference. Do not route live state to them piecemeal.
+
+R2-C actor activation must add the active Guardian Spirit as another direct
+Y-sort sibling; the candidate's single actor item proves only the player. The
+current live plaza follower targets fixed `GROUND_Y` and linearly interpolates
+there, so it must not be reused as 2D locomotion. Player and companion feet must
+consume the same compiled walkable/blocker domain. Scripted recall or teleport
+also remains subject to [GRT-013](godot_runtime_traps.md#grt-013), adapted to the
+2D coordinate contract: a ground/patrol companion's full-body destination is
+projected onto the compiled walkable union, so a cross-lane recall may change
+both X and Y. Teleport endpoints and every interpolated/tracked sample must stay
+walkable and outside blockers; only flight companions may use free Y outside the
+ground set. Literal `keep Y/change X only` porting is forbidden under
+[GRT-052](godot_runtime_traps.md#grt-052) and
+[GRT-053](godot_runtime_traps.md#grt-053). Both motion-style outcomes, a naive
+X-only outside-corridor counterproof, companion blocker/portal routing, actual
+player/companion occlusion crossings, and interior/exit cleanup are required
+before the atomic production promotion.
+
+The seed-5 semantic candidate board proves structure and decor-role distribution,
+not final art. Its code-drawn road/plot surfaces and workspace-only decor remain
+RED for production; final ground/road art approval plus an atomic owner/camera/
+input/minimap activation and real production Vulkan regression are still required.
+
 ### Plaza flow-gate and world-geometry boundary
 
 `plaza_flow_gate_policy.gd` owns the update/input priority between runtime-perk

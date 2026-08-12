@@ -116,6 +116,35 @@ This section is intentionally long; use search to find the nearest owner.
   small-owner split seams; a split must preserve phase salts, fingerprint,
   168-roster outputs, and RED counterproofs rather than merely reduce its current
   2,745-line file size.
+- `scripts/plaza/plaza_map_navigation.gd` and
+  `plaza_map_minimap_projection_2d.gd`
+  Own candidate-only R2-B full-actor walkability/swept movement, portal routing,
+  mutation-detecting bound-geometry digest, and exact two-axis minimap projection
+  from the shared layout. Their hardened focused gate is GREEN; the existing
+  `plaza_minimap_projection.gd` remains the production owner. Production
+  activation additionally requires steady-p95 measurement and moving the current
+  per-move whole-geometry SHA plus `Geometry2D` clipping off the hot path into a
+  bind-once immutable compiled owner and fast occupancy query under
+  [GRT-032](godot_runtime_traps.md#grt-032).
+- `scripts/plaza/plaza_r2_map_world_candidate_host.gd`
+  Owns the production-disconnected R2-B retained candidate: strict preflight,
+  caller-isolated compiled road draw records, direct building/actor Y-sort
+  siblings, and relative zero-z child-layer restoration. Focused state,
+  adversarial mutation, and 2020x1246 Forward Mobile A/B/C Vulkan Y-sort gates
+  are GREEN. Its actual-tree recovery also rebinds Base=MIX, Sign/Window=ADD,
+  clears Probe/Body materials, disables parent-material inheritance, and restores
+  parent/child modulation, show-behind, and visibility after an in-place RED
+  mutation; the independent audit reports CRITICAL 0 / HIGH 0. Code-drawn
+  road/plot surfaces and workspace-only semantic decor are not final art, and no
+  candidate owner may be called from production until the later atomic
+  activation. The host's single actor item is player-only proof: R2-C must add
+  the active Guardian Spirit as a direct sibling under the same sort root and
+  replace the live fixed-`GROUND_Y`/linear-follow path with blocker-aware 2D
+  navigation. Under [GRT-013](godot_runtime_traps.md#grt-013)'s 2D form,
+  ground/patrol scripted reposition projects the full-body destination onto the
+  compiled walkable union and may change Y for a cross-lane recall; teleport
+  endpoints and every tracked sample stay walkable/outside blockers. Flight
+  companions alone retain free Y.
 - `scripts/plaza/plaza_background_projection.gd` and
   `plaza_background_renderer.gd`
   Own plaza parallax/tile/flicker/VR-strata projection plus the complete sky,
