@@ -1890,9 +1890,8 @@ static func _validate_mount_presentation(pet_id: String, entry: Dictionary, visu
 	if not is_nan(draw_size) and draw_size <= 0.0:
 		issues.append("%s: visual_layout.companion_mount_base_draw_size must be > 0 (got %s)" % [pet_id, str(draw_size)])
 	for saddle_key in ["companion_mount_base_saddle_x", "companion_mount_base_saddle_y"]:
-		var saddle := _mount_layout_number(layout_data, str(saddle_key), pet_id, issues)
-		if not is_nan(saddle) and not is_finite(saddle):
-			issues.append("%s: visual_layout.%s must be finite (got %s)" % [pet_id, str(saddle_key), str(saddle)])
+		# 비유한 거부는 _mount_layout_number 가 공통 수행한다(중복 진단 없음).
+		_mount_layout_number(layout_data, str(saddle_key), pet_id, issues)
 
 
 # 레이아웃 값이 숫자 타입인지 검사하고 float 로 돌려준다. 숫자가 아니면 이슈를
@@ -1906,8 +1905,10 @@ static func _mount_layout_number(layout_data: Dictionary, key: String, pet_id: S
 		issues.append("%s: visual_layout.%s must be a number (visual_layout is float-only; got %s)" % [pet_id, key, type_string(typeof(value))])
 		return NAN
 	var as_float := float(value)
-	if is_nan(as_float):
-		issues.append("%s: visual_layout.%s must not be NaN" % [pet_id, key])
+	if not is_finite(as_float):
+		# NaN 만 거부하면 INF 가 샌다: 정수 판정식은 INF-INF=NaN 이라 실패 조건이
+		# false 가 되고, draw_size 는 <= 0 이 false 다. 비유한 값은 공통 거부한다.
+		issues.append("%s: visual_layout.%s must be finite (got %s)" % [pet_id, key, str(as_float)])
 		return NAN
 	return as_float
 

@@ -645,6 +645,16 @@ func _test_mount_validation_value_checks() -> void:
 	infinite_saddle["companion_mount_base_saddle_x"] = INF
 	_expect("값검증: 무한 saddle 좌표 거부", _has_issue(_validate_layout(infinite_saddle), "companion_mount_base_saddle_x must be finite"))
 
+	# INF 우회 반증(A-4): NaN 전용 거부였다면 아래 둘은 통과했다 —
+	# cols 는 INF-INF=NaN 으로 정수 판정이 false, draw_size 는 <=0 이 false.
+	var infinite_cols := _good_layout()
+	infinite_cols["companion_mount_base_cols"] = INF
+	_expect("값검증: cols=INF 거부 (정수 판정식 우회 차단)", _has_issue(_validate_layout(infinite_cols), "companion_mount_base_cols must be finite"))
+
+	var infinite_draw := _good_layout()
+	infinite_draw["companion_mount_base_draw_size"] = INF
+	_expect("값검증: draw_size=INF 거부 (<=0 우회 차단)", _has_issue(_validate_layout(infinite_draw), "companion_mount_base_draw_size must be finite"))
+
 	var fractional_cols := _good_layout()
 	fractional_cols["companion_mount_base_cols"] = 2.5
 	_expect("값검증: 비정수 cols 거부", _has_issue(_validate_layout(fractional_cols), "companion_mount_base_cols must be a positive integer"))
