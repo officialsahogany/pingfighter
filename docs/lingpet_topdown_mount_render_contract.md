@@ -488,7 +488,7 @@ _mount_state.advance(..., body_presentation_incompatible)   # 필수 인자
 | 반증 ② | **전리품 호출부 한 줄만** 토글 제거 → **L-전리품만 RED** |
 | 반증 ③ | 공용 reconcile **구현 자체** 제거 → **두 레그 모두 RED** |
 
-⚠️ P10의 "키 누락 + `penalty_active`" 레그는 실 `BattleSceneState`에 
+⚠️ P10의 "키 누락 + `penalty_active`" 레그는 실 `BattleSceneState`에
 `odins_eye_transformed`가 **항상 선언**되므로(A-0 이후에도 불변) 운영 주 레그가
 아니라 **레거시 호환 레그**로 라벨링한다.
 
