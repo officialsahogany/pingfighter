@@ -1556,6 +1556,13 @@ func is_mount_active() -> bool:
 
 
 func get_mount_rider_lift_px() -> float:
+	# §B-5: 탑다운 합성에서 리프트는 **항상 0** 이다 — M 이 지면에 서고 라이더는
+	# 안장 소켓에 앉으므로, 목말용 홉/바운스 리프트를 그대로 흘리면 합성 전체가
+	# 패들 앵커보다 14~17px 떠오른다(M·N 상대 정렬은 맞아 보여서 더 늦게 들킨다).
+	# 판정 기준은 **표현 모델**이지 탑승 활성이 아니다: 활성으로 막으면 하차 직후
+	# 감쇠 잔여 리프트(dismount ramp)가 다시 살아나 같은 결함이 재현된다.
+	if _current_profile.is_mount_presentation_topdown():
+		return 0.0
 	return _mount_state.get_rider_lift_px()
 
 

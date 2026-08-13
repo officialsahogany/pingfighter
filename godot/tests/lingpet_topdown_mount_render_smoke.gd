@@ -18,6 +18,10 @@ extends SceneTree
 #    프레임 픽셀 보존).
 #  - §B-3 배선: 실 훅 주입 헬퍼가 본체·M 두 훅을 심고, actor context 가 탑다운
 #    2키를 **객체 그대로** 통과시킨다.
+#  - §B-5 리프트 0: 탑다운은 진입·정착·하차 잔여 전 구간 rider lift 가 0 이다
+#    (판정 기준 = 표현 모델). 온이마루는 종전 양수 리프트 대조군.
+#  - 사슬: 실 scene context → actor context build → 실 actor draw() → sprite
+#    수신까지 한 줄로 이어 N 페이로드 동일 객체와 무-리프트 배치를 함께 잰다.
 #
 # P3/P8(z 순서·숨김 3경로 픽셀)은 프로토타입 픽셀 QA 하네스(§7) 소관 — 이 파일은
 # 에셋 0장 인메모리 골격 씰이다.
@@ -165,10 +169,12 @@ class SpySpriteRenderer:
 
 	var draw_calls := 0
 	var last_rect := Rect2()
+	var last_context: Dictionary = {}
 
-	func draw(_canvas: CanvasItem, _context: Dictionary, player_visual_rect: Rect2, _move_active: bool, _player_pos: Vector2, _paddle_size: Vector2, _shake_offset: Vector2) -> void:
+	func draw(_canvas: CanvasItem, context: Dictionary, player_visual_rect: Rect2, _move_active: bool, _player_pos: Vector2, _paddle_size: Vector2, _shake_offset: Vector2) -> void:
 		draw_calls += 1
 		last_rect = player_visual_rect
+		last_context = context
 
 	func clear_transient_canvas_items() -> void:
 		pass
@@ -233,6 +239,8 @@ func _run() -> void:
 	_test_defer_semantics()
 	_test_seated_draw_size_adoption()
 	await _test_hook_wiring_and_context_forward()
+	_test_topdown_lift_zero()
+	await _test_end_to_end_chain()
 	await _test_p9_suppression_and_item_egg_preserved()
 	await _test_p12_geometry_and_fail_closed()
 	await _test_p15_layer_transfer()
@@ -629,6 +637,136 @@ func _test_hook_wiring_and_context_forward() -> void:
 		"통과: 비탑승 기본값은 false + 빈 dict (fail-closed)",
 		not bool(plain.get("player_mount_topdown_active", true))
 			and (plain.get("player_mount_rider_seated", {}) as Dictionary).is_empty()
+	)
+
+
+# ── §B-5: 탑다운 리프트 0 ───────────────────────────────────────────────────
+
+func _test_topdown_lift_zero() -> void:
+	var owner := OperationalOwner.new()
+	var fixture := _make_ready_runtime(owner)
+	var runtime: Object = fixture["runtime"]
+	var registry: Object = fixture["registry"]
+	_expect("리프트 사전: 탑다운 탑승 성립", _mount(runtime, owner, registry))
+
+	# 진입(홉 상승 중): mount_state 는 여전히 목말용 리프트를 **계산**하지만,
+	# 표현 모델이 탑다운이면 소비자에게 나가는 값은 0 이어야 한다. 두 값을 함께
+	# 재야 "상태가 죽어서 0"인 공허 GREEN 과 구분된다.
+	# 홉 t=0 프레임의 리프트는 목말에서도 0 이다(그래서 defer 근거로 못 쓴다) —
+	# 상승 구간으로 몇 프레임 진행시켜야 "내부는 양수" 대조가 성립한다.
+	for i in range(3):
+		runtime._update_companion_motion(0.016, owner, registry)
+	var raw_hop: float = float(runtime._mount_state.get_rider_lift_px())
+	_expect(
+		"리프트 진입: 내부 상태는 양수인데 공개 값은 0 (모델 기준 차단)",
+		raw_hop > 0.0 and is_zero_approx(runtime.get_mount_rider_lift_px())
+	)
+	# 정착: 홉이 끝난 뒤에도 0.
+	for i in range(30):
+		runtime._update_companion_motion(0.016, owner, registry)
+	_expect(
+		"리프트 정착: 홉 완료 후에도 0 (바운스 누출 없음)",
+		float(runtime._mount_state.get_rider_lift_px()) > 0.0
+			and is_zero_approx(runtime.get_mount_rider_lift_px())
+	)
+	# 하차 직후 잔여: dismount 램프가 진행 중이어도 0 — 활성 기준으로 막으면
+	# 여기서 되살아난다(이 레그가 "활성 게이트" 오답의 판별점).
+	var probe := FakeInputProbe.new()
+	runtime._mount_state.set_input_probe(probe)
+	probe.rmb = true
+	runtime._update_companion_motion(0.016, owner, registry)
+	probe.rmb = false
+	var residual_raw: float = float(runtime._mount_state.get_rider_lift_px())
+	_expect(
+		"리프트 하차 잔여: 내부 감쇠 리프트는 양수인데 공개 값은 0",
+		not bool(runtime._mount_state.is_mounted())
+			and residual_raw > 0.0
+			and is_zero_approx(runtime.get_mount_rider_lift_px())
+	)
+
+	# 온이마루 대조군: 목말은 종전 그대로 양수 리프트를 내보낸다.
+	var oni_owner := OperationalOwner.new()
+	var oni_registry := SpyRegistry.new()
+	var oni_runtime: Object = LingpetEggRuntime.new()
+	oni_runtime.debug_grant_and_activate_pet("onimaru", oni_owner, false)
+	oni_runtime._state = "companion"
+	oni_runtime._guardian_stowed = false
+	oni_runtime._companion_motion_coordinator.set_position(
+		Vector2(oni_owner.player_pos.x + oni_owner.player_paddle_width * 0.5, 655.0)
+	)
+	var oni_mounted: bool = _mount(oni_runtime, oni_owner, oni_registry)
+	for i in range(20):
+		oni_runtime._update_companion_motion(0.016, oni_owner, oni_registry)
+	_expect(
+		"리프트 대조군: 온이마루(목말)는 양수 리프트 유지",
+		oni_mounted and oni_runtime.get_mount_rider_lift_px() > 0.0
+	)
+
+
+# ── 사슬: scene context → actor context → 실 actor draw() → sprite 수신 ────
+
+func _test_end_to_end_chain() -> void:
+	var owner := OperationalOwner.new()
+	var fixture := _make_ready_runtime(owner)
+	var runtime: Object = fixture["runtime"]
+	var registry: Object = fixture["registry"]
+	_expect("사슬 사전: 탑다운 탑승 성립", _mount(runtime, owner, registry))
+	var stored_texture: Variant = runtime.get_topdown_mount_readiness().get("rider_texture", null)
+
+	# 1) 실 scene context 생산자(헬퍼 3종)가 만드는 값으로 시작한다.
+	var scene_builder: Object = BattleDrawPlayfieldSceneContext.new()
+	var scene_slice := {
+		"selected_character_type": "smasher",
+		"current_stage": 1,
+		"player_pos": Vector2(300.0, 675.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"player_paddle_scale": 1.0,
+		"boss_pos": Vector2(320.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"textures": {},
+		"paddle_hologram_should_draw": true,
+		"player_mount_rider_lift_px": scene_builder._get_mount_rider_lift(registry),
+		"player_mount_topdown_active": scene_builder._is_mount_topdown_active(registry),
+		"player_mount_rider_seated": scene_builder._get_mount_rider_seated_payload(registry),
+	}
+	_expect(
+		"사슬 1: scene 생산자의 리프트가 0 (탑다운 §B-5)",
+		is_zero_approx(float(scene_slice["player_mount_rider_lift_px"]))
+	)
+
+	# 2) 실 actor context 빌더 → 3) 실 훅 주입 → 4) 실 actor draw().
+	var actor_context: Dictionary = BattleDrawActorContext.new().build(scene_slice, {})
+	BattlePlayfieldSceneDrawer.install_lingpet_draw_hooks(actor_context, runtime, Vector2.ZERO)
+	var chain_spy := SpySpriteRenderer.new()
+	var actor_renderer: Object = Stage1PlayerActorRenderer.new()
+	actor_renderer.sprite_renderer = chain_spy
+	actor_renderer.dash_side_gauge_renderer = SpyDashSideGaugeRenderer.new()
+	var companion_spy := SpyCompanionRenderer.new()
+	runtime._companion_renderer = companion_spy
+	await _draw_on_probe(func(canvas: CanvasItem) -> void:
+		actor_renderer.draw(canvas, actor_context, Vector2.ZERO))
+
+	_expect(
+		"사슬 2: actor context 리프트도 0 (중간 단계 재주입 없음)",
+		is_zero_approx(float(actor_context.get("player_mount_rider_lift_px", -1.0)))
+	)
+	var received_payload: Dictionary = (chain_spy.last_context.get("player_mount_rider_seated", {}) as Dictionary)
+	_expect(
+		"사슬 3: sprite 렌더러가 받은 N 텍스처 == readiness 보존 객체 (P16② 전 구간)",
+		chain_spy.draw_calls == 1 and received_payload.get("texture", null) == stored_texture
+	)
+	# 리프트 0 이므로 라이더 rect 하단은 패들 하단 기준 베이스라인에 붙는다.
+	var expected_top: float = 675.0 + 50.0 - chain_spy.last_rect.size.y + 12.0
+	_expect(
+		"사슬 4: 라이더 rect 가 리프트 없이 패들 베이스라인에 앉는다 (14~17px 부양 금지)",
+		absf(chain_spy.last_rect.position.y - expected_top) <= 0.01
+	)
+	_expect(
+		"사슬 5: 같은 프레임에 M 합성이 라이더 rect 기준으로 1회 그려진다",
+		companion_spy.composite_calls == 1
+			and companion_spy.last_dest.position.distance_to(
+				_expected_mount_dest(chain_spy.last_rect).position
+			) <= 0.01
 	)
 
 
