@@ -84,6 +84,54 @@ static func build_ice_slide_particle(position: Vector2, y: float, direction: int
 	}
 
 
+# Paddle kick-up is the only PER-FRAME sand producer, so it takes an explicit RNG
+# instead of the global stream its sibling builders use: those fire on discrete
+# ball/dissolve events, while this one would advance authoritative gameplay RNG on
+# every frame of every dash (AGENTS.md presentation-randomness rule).
+static func build_sand_kickup_particle(
+	origin: Vector2,
+	travel_dir: float,
+	outward: float,
+	speed_scale: float,
+	trailing: bool,
+	sand_color: Color,
+	rng: RandomNumberGenerator
+) -> Dictionary:
+	var throw_dir: float = -travel_dir if trailing else travel_dir
+	# One coarseness roll drives the whole grain so the spray stratifies the way real
+	# kicked sand does: fine grit hangs and drifts, coarse grains arc down fast. Lift and
+	# gravity move together, which keeps rise time (lift / gravity) near-constant so
+	# every grain still peaks and falls back inside its own life instead of sailing off
+	# the top of the arc like a spark.
+	var coarseness: float = rng.randf()
+	var lateral: float = rng.randf_range(0.6, 2.6) if trailing else rng.randf_range(0.35, 1.3)
+	var lift: float = rng.randf_range(1.4, 3.0) if trailing else rng.randf_range(0.9, 2.0)
+	lift *= lerpf(0.55, 1.15, coarseness)
+	# Short enough that a dash's grains die off about as fast as they are emitted, so the
+	# live population settles near the sand cap instead of overrunning it and hard-
+	# deleting older grains mid-fade.
+	var life: float = rng.randf_range(14.0, 24.0)
+	return {
+		"x": origin.x + rng.randf_range(-5.0, 5.0),
+		"y": origin.y + rng.randf_range(-2.5, 2.5),
+		"vx": throw_dir * lateral * speed_scale,
+		"vy": outward * lift * speed_scale,
+		"life": life,
+		# max_life == life keeps a freshly kicked grain fully opaque at spawn, and it
+		# also feeds the renderer's size/max_life tone hash, so both stay randomized.
+		"max_life": life,
+		"size": lerpf(1.4, 3.4, coarseness),
+		"kind": "sand",
+		"weather_type": "sand",
+		"color": sand_color,
+		"gravity": lerpf(0.30, 0.62, coarseness),
+		# Heavier air drag than the ball-impact puff, and heavier still on fine grit:
+		# grains drop into a compact wake beside the trench rather than coasting across
+		# the playfield.
+		"friction": lerpf(0.84, 0.91, coarseness),
+	}
+
+
 static func build_sand_erosion_particle(position: Vector2, velocity: Vector2, sand_color: Color) -> Dictionary:
 	return {
 		"x": position.x + randf_range(-6.0, 6.0),

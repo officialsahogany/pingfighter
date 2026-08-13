@@ -28,8 +28,13 @@ static func is_wind_weather_type(weather_type: String) -> bool:
 # of three was drawn AND its array index shifted as impact/burst/shard particles were
 # appended and removed, so each hailstone appeared mid-field and vanished instead of
 # falling top->bottom. See CLAUDE.md "Godot Stride LOD Sparse Particle Flicker Trap".
+# Sand joined this list when paddle kick-up made it a per-frame producer: grains are
+# appended (and trimmed off the front) EVERY physics tick, so every survivor's index
+# shifts every tick and the `(index - particle_start) % stride` residue rotates with it.
+# The shipped render cap is 72, which is <= FPS_CAP_LOD_MAX_FPS, so live play runs at
+# severe LOD (stride 3) — each grain would draw one tick in three and strobe.
 static func is_stride_exempt_weather_type(weather_type: String) -> bool:
-	return is_wind_weather_type(weather_type) or weather_type == "hail"
+	return is_wind_weather_type(weather_type) or weather_type == "hail" or weather_type == "sand"
 
 
 static func get_weather_particle_limit(weather_type: String, effect_lod_scale: float = 1.0) -> int:

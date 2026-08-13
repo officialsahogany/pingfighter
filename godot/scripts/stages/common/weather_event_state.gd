@@ -78,6 +78,27 @@ const SAND_DASH_ERODE_AMOUNT := 6.0
 const SAND_DASH_ERODE_RADIUS_SEGS := 2
 const SAND_DISSOLVE_FRAMES := 90.0
 const SAND_DISSOLVE_PARTICLE_INTERVAL_FRAMES := 3.0
+# Kick-up emission is driven by eroded VOLUME rather than a per-frame count, which
+# keeps it approximately frame-rate independent (per-frame dash displacement scales
+# with fps_scale, and eroded volume tracks displacement). It is not exact: the shared
+# _erode_sand_range does ceil(distance / SAND_SEG_SIZE) + 1 un-scaled erode calls, so
+# the constant +1 term yields slightly more volume when the same travel is split over
+# more, shorter ticks. Erosion is gameplay (sand is a ball collision surface), so that
+# term is left alone and the carry below absorbs the difference.
+const SAND_DASH_SPRAY_GRAINS_PER_ERODE_UNIT := 0.09
+const SAND_DASH_SPRAY_MAX_PER_FRAME := 3
+const SAND_WALK_SPRAY_GRAINS_PER_ERODE_UNIT := 0.35
+const SAND_WALK_SPRAY_MAX_PER_FRAME := 1
+const SAND_SPRAY_MIN_TRAVEL_PX := 0.5
+const SAND_SPRAY_SPEED_REFERENCE_PX := 14.0
+const SAND_SPRAY_TRAILING_STRIDE := 4
+# Sand had no cap at all and this is its first PER-FRAME producer, so without a ceiling
+# the array grows for the whole event: culled-from-render grains still cost a full
+# update + draw iteration each. Sized against the SEVERE-LOD window (24), not the
+# full-quality one: the shipped render cap is 72, which trips FPS_CAP_LOD_MAX_FPS, so
+# live play is the severe budget. A cap far above the window buys nothing but invisible
+# per-tick work and evicts other sand bursts sooner (GRT-029).
+const SAND_VISUAL_PARTICLE_CAP := 28
 
 var weather_event_active := false
 var weather_event_type := ""
@@ -97,6 +118,14 @@ var _sand_dissolve_timer := 0.0
 var _sand_dissolve_particle_timer := 0.0
 var _sand_visual_segments_cache: Array = []
 var _sand_visual_segments_dirty := true
+var _sand_player_spray_carry := 0.0
+var _sand_boss_spray_carry := 0.0
+# Grain ordinal persists ACROSS frames. Deriving the wake/bow split from a per-frame
+# loop index makes the walk leg (which emits at most one grain per frame) forever pick
+# ordinal 0, i.e. the bow-spray slot, so walking would never throw a grain backwards.
+var _sand_player_spray_ordinal := 0
+var _sand_boss_spray_ordinal := 0
+var _sand_spray_rng := RandomNumberGenerator.new()
 var hail_spawn_timer_frames := 0.0
 var hail_player_hit_cooldown_frames := 0.0
 var hail_destroy_count := 0
@@ -129,6 +158,7 @@ func reset() -> void:
 	sand_dissolving = false
 	_sand_dissolve_timer = 0.0
 	_sand_dissolve_particle_timer = 0.0
+	_reset_sand_spray_carry()
 	_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
@@ -208,6 +238,7 @@ func force_start_weather_event(
 	sand_depths.clear()
 	sand_wall_depths.clear()
 	sand_collision_active = false
+	_reset_sand_spray_carry()
 	_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
@@ -265,6 +296,7 @@ func force_end_weather_event(
 		_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
+	_reset_sand_spray_carry()
 	_reset_ice_slide_state()
 	_sync_owner_and_physics(owner, registry)
 	return had_weather
@@ -1344,11 +1376,20 @@ func _apply_player_sand_erosion(result: Dictionary, owner: Object, registry: Obj
 	var pos: Vector2 = _get_result_or_owner_vec(result, owner, "player_pos", old_pos)
 	var width: float = max(1.0, float(_get_result_or_owner_value(result, owner, "player_paddle_width", 155.0)))
 	var moved: float = abs(pos.x - old_pos.x)
-	if moved > 0.25:
-		_erode_sand_at("bottom", pos.x + width * 0.5, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
+	var travel_dir: float = signf(pos.x - old_pos.x)
+	var old_center: float = old_pos.x + width * 0.5
+	var center: float = pos.x + width * 0.5
+	# The walk and dash legs are not exclusive — a dashing paddle runs both — so the
+	# spray is keyed to exactly one of them to avoid double-emitting per frame.
 	var dash_snapshot := _get_dash_snapshot(registry)
-	if bool(dash_snapshot.get("active", false)):
-		_erode_sand_range("bottom", old_pos.x + width * 0.5, pos.x + width * 0.5, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
+	var dashing: bool = bool(dash_snapshot.get("active", false))
+	if moved > 0.25:
+		var walk_eroded: float = _erode_sand_at("bottom", center, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
+		if not dashing:
+			_spawn_sand_kickup_spray("bottom", center, center, walk_eroded, travel_dir, moved, false)
+	if dashing:
+		var dash_eroded: float = _erode_sand_range("bottom", old_center, center, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
+		_spawn_sand_kickup_spray("bottom", old_center, center, dash_eroded, travel_dir, moved, true)
 
 
 func _apply_boss_sand_erosion(result: Dictionary, owner: Object, registry: Object, fps_scale: float) -> void:
@@ -1357,11 +1398,19 @@ func _apply_boss_sand_erosion(result: Dictionary, owner: Object, registry: Objec
 	var old_pos: Vector2 = _get_vector2(_safe_owner_get(owner, "boss_pos", Vector2.ZERO), Vector2.ZERO)
 	var pos: Vector2 = _get_result_or_owner_vec(result, owner, "boss_pos", old_pos)
 	var width: float = max(1.0, float(_get_result_or_owner_value(result, owner, "boss_paddle_width", 100.0)))
-	if abs(pos.x - old_pos.x) > 0.25:
-		_erode_sand_at("top", pos.x + width * 0.5, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
+	var moved: float = abs(pos.x - old_pos.x)
+	var travel_dir: float = signf(pos.x - old_pos.x)
+	var old_center: float = old_pos.x + width * 0.5
+	var center: float = pos.x + width * 0.5
 	var dash_snapshot := _get_boss_dash_snapshot(registry)
-	if bool(dash_snapshot.get("active", false)):
-		_erode_sand_range("top", old_pos.x + width * 0.5, pos.x + width * 0.5, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
+	var dashing: bool = bool(dash_snapshot.get("active", false))
+	if moved > 0.25:
+		var walk_eroded: float = _erode_sand_at("top", center, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
+		if not dashing:
+			_spawn_sand_kickup_spray("top", center, center, walk_eroded, travel_dir, moved, false)
+	if dashing:
+		var dash_eroded: float = _erode_sand_range("top", old_center, center, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
+		_spawn_sand_kickup_spray("top", old_center, center, dash_eroded, travel_dir, moved, true)
 
 
 func _spawn_ice_slide_particles(pos: Vector2, direction: int, player: bool) -> void:
@@ -1613,6 +1662,115 @@ func _spawn_sand_particles(side: String, pos: Vector2, eroded: float) -> void:
 			velocity,
 			sand_color
 		))
+
+
+func _spawn_sand_kickup_spray(
+	side: String,
+	from_pos: float,
+	to_pos: float,
+	eroded: float,
+	travel_dir: float,
+	moved: float,
+	is_dash: bool
+) -> void:
+	if not _is_sand_spray_supported_side(side):
+		return
+	# The eroded total is the only proof sand was actually there: sand clusters cover a
+	# few of the 56 segments, so keying on "is dashing" alone puffs over bare floor.
+	if eroded <= 0.0 or is_zero_approx(travel_dir):
+		return
+	# A wall-pinned dash keeps carving depth with zero displacement; spraying there
+	# would read as a stationary fountain, so relative motion is what earns the grains.
+	if moved < SAND_SPRAY_MIN_TRAVEL_PX:
+		return
+	var rate: float = SAND_DASH_SPRAY_GRAINS_PER_ERODE_UNIT if is_dash else SAND_WALK_SPRAY_GRAINS_PER_ERODE_UNIT
+	var max_per_frame: int = SAND_DASH_SPRAY_MAX_PER_FRAME if is_dash else SAND_WALK_SPRAY_MAX_PER_FRAME
+	var carry: float = _get_sand_spray_carry(side) + eroded * rate
+	var count: int = mini(int(carry), max_per_frame)
+	_set_sand_spray_carry(side, clampf(carry - float(count), 0.0, 2.0))
+	if count <= 0:
+		return
+	var outward: float = -1.0 if side == "bottom" else 1.0
+	var speed_scale: float = clampf(moved / SAND_SPRAY_SPEED_REFERENCE_PX, 0.55, 2.1)
+	var sand_color: Color = _get_weather_color("sand")
+	var ordinal: int = _get_sand_spray_ordinal(side)
+	for _grain in range(count):
+		var along: float = lerpf(from_pos, to_pos, _sand_spray_rng.randf())
+		weather_particles.append(WeatherEventPayloadFactory.build_sand_kickup_particle(
+			_get_sand_surface_point(side, along),
+			travel_dir,
+			outward,
+			speed_scale,
+			ordinal % SAND_SPRAY_TRAILING_STRIDE != 0,
+			sand_color,
+			_sand_spray_rng
+		))
+		ordinal += 1
+	_set_sand_spray_ordinal(side, ordinal)
+	_trim_weather_particles_for_type("sand", SAND_VISUAL_PARTICLE_CAP)
+
+
+# Only the horizontal walls are supported: build_sand_kickup_particle hardcodes vx to
+# the travel axis and vy to the wall normal, which is the paddle-scrape geometry. A
+# left/right caller would need both axes swapped, so it is rejected at the gate rather
+# than silently sprayed sideways (and _get_sand_spray_ordinal would file it under the
+# boss besides).
+func _is_sand_spray_supported_side(side: String) -> bool:
+	return side == "bottom" or side == "top"
+
+
+func _get_sand_surface_point(side: String, world_pos: float) -> Vector2:
+	var depth: float = _get_sand_depth_at(side, world_pos)
+	var lift: float = _sand_spray_rng.randf_range(1.0, 6.0)
+	if side == "top":
+		return Vector2(world_pos, depth + lift)
+	return Vector2(world_pos, FIELD_HEIGHT - depth - lift)
+
+
+# Samples the depth the dune is actually DRAWN at. The renderer anchors each polygon
+# vertex at the segment CENTRE and straight-lines between them, so a grain has to
+# interpolate the same way: picking one segment by round() on the segment-START axis is
+# biased half a segment (up to 12 px), which at a cluster edge drops the spawn point
+# well inside the painted dune instead of on its surface.
+func _get_sand_depth_at(side: String, world_pos: float) -> float:
+	var depths: Array = _get_sand_depths(side)
+	if depths.is_empty():
+		return 0.0
+	var last_index: int = depths.size() - 1
+	var centred: float = (world_pos - _get_sand_axis_start(side)) / SAND_SEG_SIZE - 0.5
+	var low_index: int = clampi(int(floor(centred)), 0, last_index)
+	var high_index: int = clampi(low_index + 1, 0, last_index)
+	var blend: float = clampf(centred - float(low_index), 0.0, 1.0)
+	return maxf(0.0, lerpf(float(depths[low_index]), float(depths[high_index]), blend))
+
+
+func _get_sand_spray_carry(side: String) -> float:
+	return _sand_player_spray_carry if side == "bottom" else _sand_boss_spray_carry
+
+
+func _set_sand_spray_carry(side: String, value: float) -> void:
+	if side == "bottom":
+		_sand_player_spray_carry = value
+	else:
+		_sand_boss_spray_carry = value
+
+
+func _get_sand_spray_ordinal(side: String) -> int:
+	return _sand_player_spray_ordinal if side == "bottom" else _sand_boss_spray_ordinal
+
+
+func _set_sand_spray_ordinal(side: String, value: int) -> void:
+	if side == "bottom":
+		_sand_player_spray_ordinal = value
+	else:
+		_sand_boss_spray_ordinal = value
+
+
+func _reset_sand_spray_carry() -> void:
+	_sand_player_spray_carry = 0.0
+	_sand_boss_spray_carry = 0.0
+	_sand_player_spray_ordinal = 0
+	_sand_boss_spray_ordinal = 0
 
 
 func _update_sand_dissolve(fps_scale: float) -> void:

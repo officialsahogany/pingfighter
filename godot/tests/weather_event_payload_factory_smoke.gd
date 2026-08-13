@@ -122,12 +122,15 @@ func _init() -> void:
 	_expect(is_equal_approx(float(sand_erosion.get("gravity", 0.0)), 0.12), "sand erosion gravity should stay tuned")
 	_expect(is_equal_approx(float(sand_erosion.get("friction", 0.0)), 0.95), "sand erosion friction should stay tuned")
 
+	_verify_sand_kickup_payload(sand_color)
+
 	var source := FileAccess.get_file_as_string("res://scripts/stages/common/weather_event_state.gd")
 	_expect(source.find("WeatherEventPayloadFactory.build_fire_hit_explosion_particles") >= 0, "weather state should delegate fire hit payloads")
 	_expect(source.find("WeatherEventPayloadFactory.build_hail_impact_particles") >= 0, "weather state should delegate hail impact payloads")
 	_expect(source.find("WeatherEventPayloadFactory.build_sand_dissolve_particle") >= 0, "weather state should delegate sand dissolve payloads")
 	_expect(source.find("WeatherEventPayloadFactory.build_ice_slide_particle") >= 0, "weather state should delegate ice slide payloads")
 	_expect(source.find("WeatherEventPayloadFactory.build_sand_erosion_particle") >= 0, "weather state should delegate sand erosion payloads")
+	_expect(source.find("WeatherEventPayloadFactory.build_sand_kickup_particle") >= 0, "weather state should delegate paddle sand kick-up payloads")
 
 	var modules: Dictionary = GameplayStageModuleCatalog.MODULES
 	_expect(modules.has("weather_event_payload_factory"), "stage module catalog should list the common weather payload factory")
@@ -139,6 +142,115 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_sand_kickup_payload(sand_color: Color) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260814
+	var origin := Vector2(400.0, 712.0)
+	# Bottom wall: outward = -1.0 means grains are thrown UP off the sand surface.
+	var trailing: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+		origin, 1.0, -1.0, 1.0, true, sand_color, rng
+	)
+	var bow: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+		origin, 1.0, -1.0, 1.0, false, sand_color, rng
+	)
+	_expect(
+		float(trailing.get("vx", 0.0)) < 0.0,
+		"a trailing kick-up grain must be thrown OPPOSITE travel so a rightward dash leaves a wake behind it"
+	)
+	_expect(
+		float(bow.get("vx", 0.0)) > 0.0,
+		"a bow-spray kick-up grain must be thrown WITH travel so the plow front reads forward"
+	)
+	_expect(
+		float(trailing.get("vy", 0.0)) < 0.0 and float(bow.get("vy", 0.0)) < 0.0,
+		"bottom-wall kick-up must launch away from the sand (upward), not into it"
+	)
+	var ceiling: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+		Vector2(400.0, 38.0), -1.0, 1.0, 1.0, true, sand_color, rng
+	)
+	_expect(
+		float(ceiling.get("vy", 0.0)) > 0.0,
+		"top-wall kick-up must fall away from the ceiling band, so outward flips with the side"
+	)
+	_expect(
+		float(ceiling.get("vx", 0.0)) > 0.0,
+		"trailing direction must mirror with travel_dir, not be hardcoded to one side"
+	)
+	# speed_scale coupling has to be measured against an IDENTICAL random draw, otherwise
+	# any "fast grain is faster than some threshold" assertion just re-states the tuning
+	# bands and passes whether or not speed_scale is wired to the velocity at all.
+	var slow_rng := RandomNumberGenerator.new()
+	slow_rng.seed = 991
+	var fast_rng := RandomNumberGenerator.new()
+	fast_rng.seed = 991
+	var slow: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+		origin, 1.0, -1.0, 1.0, true, sand_color, slow_rng
+	)
+	var fast: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+		origin, 1.0, -1.0, 2.0, true, sand_color, fast_rng
+	)
+	_expect(
+		is_equal_approx(float(fast.get("vy", 0.0)), float(slow.get("vy", 0.0)) * 2.0)
+		and is_equal_approx(float(fast.get("vx", 0.0)), float(slow.get("vx", 0.0)) * 2.0),
+		"speed_scale must multiply BOTH launch axes: doubling it on the same random draw must exactly double vx and vy, so a fast dash sprays proportionally harder"
+	)
+	# The grain must actually peak and fall back inside its own lifetime, or it reads as
+	# a spark sailing off screen instead of kicked sand. Rise time = |vy| / gravity.
+	for ballistic in [trailing, bow, fast]:
+		_expect(
+			absf(float(ballistic.get("vy", 0.0))) / maxf(0.001, float(ballistic.get("gravity", 0.0)))
+			< float(ballistic.get("life", 0.0)),
+			"a kick-up grain must reach its apex before its life expires, otherwise gravity is too weak for the launch speed and the spray never arcs back into the dune"
+		)
+	for particle in [trailing, bow, ceiling, fast]:
+		var life: float = float(particle.get("life", 0.0))
+		_expect(life >= 14.0 and life <= 24.0, "sand kick-up life should stay in range")
+		_expect(
+			is_equal_approx(float(particle.get("max_life", -1.0)), life),
+			"sand kick-up max_life must equal life: a freshly kicked grain starts opaque, and the renderer tone hash reads max_life"
+		)
+		var grain_size: float = float(particle.get("size", 0.0))
+		_expect(grain_size >= 1.4 and grain_size <= 3.4, "sand kick-up size should stay in range")
+		_expect(str(particle.get("kind", "")) == "sand", "sand kick-up must reuse kind 'sand' so it inherits gravity/friction, cleanup, and the sand draw case")
+		_expect(str(particle.get("weather_type", "")) == "sand", "sand kick-up weather type should stay sand")
+		_expect(particle.get("color", null) == sand_color, "sand kick-up should use the weather sand color")
+		var gravity: float = float(particle.get("gravity", 0.0))
+		_expect(gravity >= 0.30 and gravity <= 0.62, "sand kick-up gravity should stay in the tuned band so grains arc back into the dune")
+		var friction: float = float(particle.get("friction", 0.0))
+		_expect(friction >= 0.84 and friction <= 0.91, "sand kick-up friction should stay in the tuned band")
+		# Coarseness drives size, gravity and friction from ONE roll, so a heavy grain
+		# must never come out with fine-grit drag and vice versa: that pairing is what
+		# makes the spray stratify instead of moving as one uniform sheet.
+		var coarseness: float = clampf((grain_size - 1.4) / 2.0, 0.0, 1.0)
+		_expect(
+			is_equal_approx(gravity, lerpf(0.30, 0.62, coarseness))
+			and is_equal_approx(friction, lerpf(0.84, 0.91, coarseness)),
+			"sand kick-up size, gravity and friction must all come from the same coarseness roll"
+		)
+	# The renderer derives grain tone AND fleck offset from exactly size + max_life, so a
+	# constant in EITHER field tiles one identical grain. Asserted over a sample with a
+	# distinct-count on each field independently — an OR across two grains would pass
+	# while one of the two fields was pinned.
+	var sample_rng := RandomNumberGenerator.new()
+	sample_rng.seed = 4242
+	var seen_sizes: Dictionary = {}
+	var seen_lives: Dictionary = {}
+	for sample_index in range(10):
+		var grain: Dictionary = WeatherEventPayloadFactory.build_sand_kickup_particle(
+			origin, 1.0, -1.0, 1.0, sample_index % 4 != 0, sand_color, sample_rng
+		)
+		seen_sizes[snappedf(float(grain.get("size", 0.0)), 0.001)] = true
+		seen_lives[snappedf(float(grain.get("max_life", 0.0)), 0.001)] = true
+	_expect(
+		seen_sizes.size() >= 5,
+		"grain size must vary per grain: the renderer's tone hash reads size, so pinning it tiles one identical grain"
+	)
+	_expect(
+		seen_lives.size() >= 5,
+		"grain max_life must vary per grain: the renderer's tone hash reads max_life too, so pinning it tiles one identical grain"
+	)
 
 
 func _verify_hail_payload(particles: Array[Dictionary], position: Vector2, size: float, dash_destroy: bool, hail_color: Color) -> void:

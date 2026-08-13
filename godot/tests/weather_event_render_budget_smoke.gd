@@ -4,6 +4,10 @@ const WeatherEventState := preload("res://scripts/stages/common/weather_event_st
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
 const BattleDrawPlayfieldSceneContext := preload("res://scripts/core/battle_draw_playfield_scene_context.gd")
 const BattleSceneWeatherUpdateDriver := preload("res://scripts/core/battle_scene_weather_update_driver.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const WeatherEventRenderBudget := preload("res://scripts/stages/common/weather_event_render_budget.gd")
+const WeatherEventPayloadFactory := preload("res://scripts/stages/common/weather_event_payload_factory.gd")
 
 
 class FakeRegistry:
@@ -55,6 +59,47 @@ class FakeOwner:
 	var weather_event_active := true
 	var weather_event_context := {"active": true, "type": "rain"}
 
+
+class FakeSandDashState:
+	extends RefCounted
+
+	var snapshot := {"active": false, "direction": 0.0}
+
+	func get_snapshot() -> Dictionary:
+		return snapshot
+
+
+class FakeSandOwner:
+	extends RefCounted
+
+	var player_pos := Vector2(300.0, 700.0)
+	var player_paddle_width := 155.0
+	var boss_pos := Vector2(330.0, 25.0)
+	var boss_paddle_width := 100.0
+
+
+class FakeSandBossAiState:
+	extends RefCounted
+
+	var snapshot := {"active": false}
+
+	func get_dash_token_snapshot() -> Dictionary:
+		return snapshot
+
+
+class FakeSandRegistry:
+	extends RefCounted
+
+	var dash_state := FakeSandDashState.new()
+	var boss_ai_state := FakeSandBossAiState.new()
+
+	func get_instance(key: String) -> Object:
+		if key == "smasher_dash_state":
+			return dash_state
+		if key == "boss_ai_state":
+			return boss_ai_state
+		return null
+
 var _failures: Array[String] = []
 
 
@@ -66,6 +111,11 @@ func _init() -> void:
 	_verify_inactive_weather_draw_is_skipped()
 	_verify_owner_blank_weather_draw_is_skipped()
 	_verify_playfield_context_includes_owner_weather()
+	_verify_sand_kickup_spray_emission_gates()
+	_verify_sand_kickup_spray_stays_in_budget()
+	_verify_sand_kickup_spray_uses_isolated_rng()
+	_verify_sand_kickup_spray_render_continuity()
+	_verify_sand_kickup_spray_mirrors_and_walks()
 	_verify_draw_context_route()
 
 	if _failures.is_empty():
@@ -316,6 +366,272 @@ func _verify_playfield_context_includes_owner_weather() -> void:
 	var weather_context: Dictionary = context.get("weather_event_context", {})
 	_expect(str(weather_context.get("type", "")) == "rain", "playfield draw context should include nested owner weather type")
 	_expect(bool(weather_context.get("active", false)), "playfield draw context should include nested owner weather active state")
+
+
+# Builds a sand event whose bottom wall depth is fully controlled, so erosion output is
+# deterministic without depending on the random wall generator.
+func _build_sand_weather_fixture(depth: float) -> WeatherEventState:
+	var weather := WeatherEventState.new()
+	weather.force_start_weather_event("sand", 1, 1, null, null)
+	var depths: Array = []
+	for _index in range(weather._get_sand_segment_count("bottom")):
+		depths.append(depth)
+	weather.sand_wall_depths["bottom"] = depths
+	weather.sand_depths = depths
+	weather.weather_particles.clear()
+	return weather
+
+
+func _count_sand_particles(weather: Object) -> int:
+	var total := 0
+	for value in weather.weather_particles:
+		if value is Dictionary and str(value.get("kind", "")) == "sand":
+			total += 1
+	return total
+
+
+# Drives one physics frame of the real production entry point.
+func _drive_sand_dash_frame(
+	weather: Object,
+	owner: Object,
+	registry: Object,
+	next_x: float,
+	dashing: bool
+) -> void:
+	registry.dash_state.snapshot = {
+		"active": dashing,
+		"direction": signf(next_x - owner.player_pos.x),
+	}
+	weather.apply_player_motion_effects_to_result(
+		{"player_pos": Vector2(next_x, owner.player_pos.y)},
+		owner,
+		registry,
+		1.0
+	)
+	owner.player_pos = Vector2(next_x, owner.player_pos.y)
+
+
+func _verify_sand_kickup_spray_emission_gates() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+
+	# Positive leg: a real dash across a loaded dune throws grains.
+	var loaded := _build_sand_weather_fixture(40.0)
+	owner.player_pos = Vector2(300.0, 700.0)
+	_drive_sand_dash_frame(loaded, owner, registry, 328.0, true)
+	_expect(
+		_count_sand_particles(loaded) > 0,
+		"dashing across sand must throw kick-up grains (the dash erosion return value was discarded before, so the wall silently lost depth with zero visual mass leaving it)"
+	)
+
+	# Negative leg: identical dash over BARE floor must stay silent. Sand clusters only
+	# cover a few of the 56 segments, so keying on "is dashing" would puff over nothing.
+	var bare := _build_sand_weather_fixture(0.0)
+	owner.player_pos = Vector2(300.0, 700.0)
+	_drive_sand_dash_frame(bare, owner, registry, 328.0, true)
+	_expect(
+		_count_sand_particles(bare) == 0,
+		"dashing where the dune has no depth must throw nothing: the eroded total, not the dash flag, is the only proof sand was actually there"
+	)
+
+	# Negative leg: a wall-pinned dash still carves depth with zero displacement, and a
+	# stationary sand fountain there reads as a bug. Erosion is measured WITHIN the same
+	# fixture — the side walls come from the global random generator, so comparing totals
+	# across two fixtures would be a coin flip, not an assertion.
+	var pinned := _build_sand_weather_fixture(40.0)
+	owner.player_pos = Vector2(0.0, 700.0)
+	var pinned_depth_before: float = float(pinned.get_sand_total_depth())
+	_drive_sand_dash_frame(pinned, owner, registry, 0.0, true)
+	_expect(
+		float(pinned.get_sand_total_depth()) < pinned_depth_before,
+		"a wall-pinned dash must still erode: this feature must not change erosion behaviour, only add its missing visual"
+	)
+	_expect(
+		_count_sand_particles(pinned) == 0,
+		"a wall-pinned dash must not spray: with no relative motion there is nothing scraping the dune"
+	)
+
+	# Negative leg: sub-pixel creep is not a scrape either. This is distinct from the
+	# pinned leg above, which is caught by the zero travel-direction guard.
+	var creeping := _build_sand_weather_fixture(40.0)
+	owner.player_pos = Vector2(300.0, 700.0)
+	_drive_sand_dash_frame(creeping, owner, registry, 300.3, true)
+	_expect(
+		_count_sand_particles(creeping) == 0,
+		"a dash creeping 0.3px must not spray: below SAND_SPRAY_MIN_TRAVEL_PX there is no scrape to throw grains"
+	)
+
+
+func _verify_sand_kickup_spray_stays_in_budget() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+	var weather := _build_sand_weather_fixture(40.0)
+	var segment_count: int = weather._get_sand_segment_count("bottom")
+	var peak_per_frame := 0
+	var x := 100.0
+	for frame_index in range(120):
+		# Refill the dune each frame so erosion never runs dry: this is the worst case
+		# for emission, which is exactly what the budget has to survive.
+		var depths: Array = []
+		for _index in range(segment_count):
+			depths.append(40.0)
+		weather.sand_wall_depths["bottom"] = depths
+		weather.sand_depths = depths
+		var before: int = weather.weather_particles.size()
+		owner.player_pos = Vector2(x, 700.0)
+		x += 28.0
+		if x > 600.0:
+			x = 100.0
+		_drive_sand_dash_frame(weather, owner, registry, x, true)
+		peak_per_frame = maxi(peak_per_frame, weather.weather_particles.size() - before)
+		_expect(
+			weather.weather_particles.size() <= WeatherEventState.SAND_VISUAL_PARTICLE_CAP,
+			"sustained dashing must never grow sand particles past SAND_VISUAL_PARTICLE_CAP (sand has no other cap, and every live grain costs a full update + draw iteration even when the render window hides it)"
+		)
+	_expect(
+		peak_per_frame > 0,
+		"the budget leg must actually emit, otherwise the cap assertion above is vacuous"
+	)
+	_expect(
+		peak_per_frame <= WeatherEventState.SAND_DASH_SPRAY_MAX_PER_FRAME,
+		"one physics frame must emit at most the DASH allowance: the walk and dash erosion legs both run while dashing, so a spray keyed to both would double-emit and exceed this"
+	)
+	# The shipped render cap is 72, which is <= FPS_CAP_LOD_MAX_FPS, so live play runs at
+	# SEVERE LOD. Sizing the cap against the full-quality window (72) would be measuring
+	# a budget the shipped build never uses, and every grain above the real window is
+	# invisible per-tick work that also evicts other sand bursts sooner.
+	_expect(
+		BattleRenderQuality.FPS_CAP_LOD_MAX_FPS >= BattleViewLayout.RENDER_FPS_CAP_STABLE_PREFERRED_MAX,
+		"the shipped render cap must still fall inside the FPS-cap LOD band; if this flips, the sand budget below was sized against the wrong window"
+	)
+	_expect(
+		WeatherEventState.SAND_VISUAL_PARTICLE_CAP
+		<= WeatherEventState.WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD + 8,
+		"the sand cap must stay close to the SEVERE-LOD render window (24), not the full-quality one: live play is the severe budget (GRT-029)"
+	)
+	_expect(
+		peak_per_frame * 20 <= WeatherEventState.SAND_VISUAL_PARTICLE_CAP * 3,
+		"emission must stay slow enough that a dash's grains die off near the cap instead of hard-deleting each other mid-fade"
+	)
+
+
+func _verify_sand_kickup_spray_uses_isolated_rng() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+	# Build the fixture BEFORE seeding: the wall generator legitimately uses the global
+	# stream. Only the per-frame spray path is under test here.
+	var weather := _build_sand_weather_fixture(40.0)
+
+	seed(20260814)
+	var control_rolls: Array[int] = [randi(), randi(), randi()]
+
+	seed(20260814)
+	owner.player_pos = Vector2(300.0, 700.0)
+	_drive_sand_dash_frame(weather, owner, registry, 328.0, true)
+	_expect(
+		_count_sand_particles(weather) > 0,
+		"the RNG isolation leg must actually spray, otherwise it proves nothing"
+	)
+	var after_rolls: Array[int] = [randi(), randi(), randi()]
+	_expect(
+		control_rolls == after_rolls,
+		"the dash spray must draw from its own RandomNumberGenerator: it is the first PER-FRAME sand producer, so using the global stream would advance authoritative gameplay RNG on every dash frame (AGENTS.md presentation-randomness rule)"
+	)
+
+
+func _verify_sand_kickup_spray_render_continuity() -> void:
+	# Sand became a per-frame producer, so the array now appends AND trims every tick and
+	# every survivor's index shifts. Under a stride the `(index - particle_start) % stride`
+	# residue then rotates each tick and each grain draws one tick in N — the documented
+	# sparse-stride strobe that wind and hail are already exempt from.
+	_expect(
+		WeatherEventRenderBudget.is_stride_exempt_weather_type("sand"),
+		"sand must be stride-exempt now that paddle kick-up shifts every index every tick, or each grain strobes at a 1-in-3 duty cycle under the shipped severe LOD"
+	)
+	_expect(
+		WeatherEventRenderBudget.get_particle_render_stride_for_type("sand", 0.58) == 1,
+		"sand must never be stride-decimated at the shipped severe-LOD effect scale"
+	)
+	# Control: the exemption must not leak into dense ambient weather.
+	_expect(
+		WeatherEventRenderBudget.get_particle_render_stride_for_type("rain", 0.58) > 1,
+		"dense ambient weather must still be stride-decimated under severe LOD"
+	)
+	# The window cut is a separate mechanism and must survive the exemption.
+	_expect(
+		WeatherEventRenderBudget.should_skip_windowed_particle("sand", "sand", 0, 10, 1),
+		"stride exemption must not disable the newest-N window cut for sand"
+	)
+
+
+func _verify_sand_kickup_spray_mirrors_and_walks() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+
+	# Boss / ceiling wall: the mirror path must work and must throw grains DOWNWARD,
+	# away from the band, rather than reusing the floor's upward launch.
+	var weather := _build_sand_weather_fixture(40.0)
+	var top_depths: Array = []
+	for _index in range(weather._get_sand_segment_count("top")):
+		top_depths.append(40.0)
+	weather.sand_wall_depths["top"] = top_depths
+	weather.weather_particles.clear()
+	registry.boss_ai_state.snapshot = {"active": true}
+	owner.boss_pos = Vector2(300.0, 25.0)
+	weather.apply_boss_motion_effects_to_result(
+		{"boss_pos": Vector2(328.0, 25.0)}, owner, registry, 1.0
+	)
+	var ceiling_grains: Array = []
+	for value in weather.weather_particles:
+		if value is Dictionary and str(value.get("kind", "")) == "sand":
+			ceiling_grains.append(value)
+	_expect(
+		not ceiling_grains.is_empty(),
+		"a boss dash across the ceiling dune must spray too: the mirror path is easy to leave unwired"
+	)
+	for grain in ceiling_grains:
+		_expect(
+			float(grain.get("vy", 0.0)) > 0.0,
+			"ceiling grains must launch downward, away from the top band"
+		)
+		_expect(
+			float(grain.get("y", 0.0)) < 400.0,
+			"ceiling grains must spawn at the TOP wall surface, not the floor's"
+		)
+
+	# Walking (not dashing) must also throw grains, and must be able to throw them
+	# BACKWARD. The walk leg emits at most one grain per frame, so a wake/bow split
+	# derived from a per-frame loop index would pin every walking grain to the bow slot.
+	var walker := _build_sand_weather_fixture(40.0)
+	var walk_registry := FakeSandRegistry.new()
+	var walk_owner := FakeSandOwner.new()
+	walk_owner.player_pos = Vector2(120.0, 700.0)
+	var backward_grains := 0
+	var walk_grains := 0
+	var walk_x := 120.0
+	for _frame in range(90):
+		var refill: Array = []
+		for _index in range(walker._get_sand_segment_count("bottom")):
+			refill.append(40.0)
+		walker.sand_wall_depths["bottom"] = refill
+		walker.sand_depths = refill
+		walker.weather_particles.clear()
+		walk_x = 120.0 + fmod(walk_x + 3.0 - 120.0, 460.0)
+		_drive_sand_dash_frame(walker, walk_owner, walk_registry, walk_x, false)
+		for value in walker.weather_particles:
+			if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
+				continue
+			walk_grains += 1
+			if float(value.get("vx", 0.0)) < 0.0:
+				backward_grains += 1
+	_expect(
+		walk_grains > 0,
+		"walking across sand must eventually throw grains, not just silently carve the dune"
+	)
+	_expect(
+		backward_grains > 0,
+		"walking must be able to throw a grain BACKWARD: the wake/bow split must survive a leg that only ever emits one grain per frame"
+	)
 
 
 func _verify_draw_context_route() -> void:
