@@ -90,7 +90,8 @@ func _verify_live_tree(host: Control, bank: Dictionary, player_world: Vector2) -
 	_expect(bool(sort_status.get("sort_root_modulate_white", false)), "shared sort root must keep inherited modulate white")
 	_expect(int(sort_status.get("building_count", -1)) == 2, "seed 5 host must expose two direct building siblings")
 	_expect(int(sort_status.get("actor_count", -1)) == 1, "host must expose one direct actor sibling")
-	_expect(int(sort_status.get("direct_child_count", -1)) == 3, "sort root must contain only two buildings plus actor")
+	_expect(int(sort_status.get("guardian_count", -1)) == 1, "host must expose one direct guardian sibling")
+	_expect(int(sort_status.get("direct_child_count", -1)) == 4, "sort root must contain only two buildings plus actor and guardian")
 	for key in [
 		"all_direct_parent_match",
 		"all_direct_z_zero",
@@ -327,7 +328,7 @@ func _verify_actual_tree_counterproofs(host: Control, state: Dictionary) -> void
 			null_material_layer_count += 1
 			_expect(int(material_record.get("actual_material_id", -1)) == 0, "Probe/Body actual material RID must restore to 0")
 			_expect(int(material_record.get("expected_material_id", -1)) == 0, "Probe/Body expected material RID must be 0")
-	_expect(null_material_layer_count == 3, "seed 5 must expose two probe plus one actor-body RID 0 records")
+	_expect(null_material_layer_count == 4, "seed 5 must expose two probe plus actor and guardian body RID 0 records")
 
 
 func _verify_strict_art_validation(host: Control, state: Dictionary) -> void:

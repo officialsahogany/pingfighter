@@ -382,6 +382,21 @@ naive X-only 목적지가 corridor 밖/blocker 안인 cross-lane fixture에서 �
 transition cleanup을 모두 실경로로 봉인하기 전에는 R2-C actor 승격을 GREEN으로
 판정하지 않는다.
 
+2026-08-12 후보 레벨 진행: 위 계약 중 수호령 direct sibling Y-sort(구조 씰과
+실제 Vulkan 창모드 D/E/F 픽셀 반전·z=1 반증), 컴파일드 walkable을 소비하는
+스윕 로코모션(무터널링), cross-lane recall 투영과 naive X-only RED fixture,
+flight 면제 실재성, stale-request 숨김·fail-closed 거부는
+`plaza_map_guardian_locomotion.gd`와 그 스모크,
+`plaza_r2c_guardian_sibling_smoke.gd`, `plaza_r2c_guardian_ysort_vulkan_qa.gd`로
+봉인됐다. 다만 `project_recall_destination()`은 정확한 최근접 투영이 아니라
+반경마다 같은 16방향을 쓰는 **유한 예산 프로브**다. 반환된 배치가 항상 전신
+walkable이고 실패는 항상 fail-closed이며 X/Y가 모두 자유롭다는 계약은
+봉인됐지만, `no_walkable_projection`은 "지도에 합법 배치가 없다"가 아니라 "이
+예산으로 못 찾았다"를 뜻한다. 각도 해상도와 미탐률, 그리고 해상도를 올릴 때의
+1회성 비용 실측은 R3 활성화 게이트 항목이다. portal 접근과 interior/exit
+cleanup의 "실제 owner 경로" 레그도 프로덕션 배선이 존재하는 R3 시점의 게이트로
+남는다.
+
 `plaza_map_layout_generator.gd`는 현재 2,745줄이지만 순수 생성기이며 즉시 분할
 대상은 아니다. 다만 `skeleton`/`plots`/`assignment`/`decor` RNG가 이미 독립
 페이즈 경계를 이루므로, 각 페이즈에 두 번째 소비자나 독립 변경 주기가 생기는

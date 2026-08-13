@@ -240,6 +240,13 @@ Godot은 `SubViewport`의 최소 가시 크기를 `2 x 2`로 클램프한다. �
   경로로 통과하기 전 production actor 승격은 RED다. 1D 수식을 좌표계에 그대로
   이식하지 않는 [GRT-052](godot_runtime_traps.md#grt-052)/
   [GRT-053](godot_runtime_traps.md#grt-053) 포팅 판정도 이 gate에 적용한다.
+- **R2-C 후보 씰 상태 (2026-08-12):** 수호령 direct sibling·zero-z 계약,
+  자기 발 anchor 투영, 건물 앞/뒤 픽셀 가림 반전(창모드 Vulkan D/E/F 169px
+  완전 반전과 z=1 반증), 컴파일드 로코모션 무터널링, cross-lane recall 투영과
+  naive X-only RED fixture, flight 면제 실재성, stale-request 숨김과
+  fail-closed 거부는 후보 레벨에서 GREEN이다. 남은 RED는 production 실경로
+  레그(portal 접근·interior/exit cleanup·실 owner cadence p95 재측정)뿐이며
+  R3 활성화 게이트로 이월한다.
 - **생성기 분할 기록:** 현재 2,745줄 순수 생성기는 기능 결함으로 판정하지
   않는다. 향후 `skeleton`/`plots`/`assignment`/`decor` 페이즈를 소형 owner로
   분리할 때는 독립 RNG salt, canonical fingerprint, 168-roster 결과와 기존

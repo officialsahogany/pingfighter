@@ -58,6 +58,10 @@ func get_binding_kind() -> String:
 	return _binding_kind
 
 
+func get_world_size() -> Vector2:
+	return _world_size
+
+
 func can_occupy(actor_position: Vector2, include_interaction_portals: bool = true) -> bool:
 	if not _valid or not actor_position.is_finite():
 		return false

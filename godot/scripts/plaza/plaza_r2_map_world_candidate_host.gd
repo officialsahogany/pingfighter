@@ -14,6 +14,8 @@ const DEFAULT_FILL_COLOR := Color(0.010, 0.009, 0.008, 1.0)
 const DEFAULT_MAP_COLOR := Color(0.055, 0.049, 0.038, 1.0)
 const DEFAULT_ACTOR_COLOR := Color(0.05, 0.92, 1.0, 1.0)
 const DEFAULT_ACTOR_RECT_WORLD := Rect2(-48.0, -126.0, 96.0, 144.0)
+const DEFAULT_GUARDIAN_COLOR := Color(0.72, 0.55, 1.0, 1.0)
+const DEFAULT_GUARDIAN_RECT_WORLD := Rect2(-34.0, -88.0, 68.0, 100.0)
 
 var _active := false
 var _last_sync_rejection_reason := "not_synced"
@@ -29,6 +31,8 @@ var _road_draw_records: Array[Dictionary] = []
 var _sort_root: Node2D = null
 var _building_items: Array[Node2D] = []
 var _actor_item: Node2D = null
+var _guardian_item: Node2D = null
+var _guardian_requested := false
 var _mix_material: CanvasItemMaterial = null
 var _add_material: CanvasItemMaterial = null
 
@@ -138,6 +142,25 @@ func sync_state(state: Dictionary, active: bool = true) -> bool:
 	var actor_compile := _compile_actor_visual(player_world_pos, projection, state)
 	if not bool(actor_compile.get("valid", false)):
 		return _reject(str(actor_compile.get("reason", "invalid_actor_visual")))
+	var guardian_requested := state.has("guardian_world_pos")
+	var guardian_compile := {"valid": true, "record": {}}
+	if guardian_requested:
+		var guardian_value: Variant = state.get("guardian_world_pos", null)
+		if not (guardian_value is Vector2):
+			return _reject("invalid_guardian_world_pos_type")
+		var guardian_world_pos := guardian_value as Vector2
+		if not guardian_world_pos.is_finite():
+			return _reject("invalid_guardian_world_pos")
+		if not Rect2(Vector2.ZERO, world_size).has_point(guardian_world_pos):
+			return _reject("guardian_out_of_world")
+		guardian_compile = _compile_role_visual(
+			guardian_world_pos,
+			projection,
+			state.get("guardian_rect_relative_world", DEFAULT_GUARDIAN_RECT_WORLD),
+			state.get("guardian_color", DEFAULT_GUARDIAN_COLOR)
+		)
+		if not bool(guardian_compile.get("valid", false)):
+			return _reject(str(guardian_compile.get("reason", "invalid_guardian_visual")))
 	var road_compile := _compile_road_draw_records(layout, projection)
 	if not bool(road_compile.get("valid", false)):
 		return _reject(str(road_compile.get("reason", "invalid_road_visual")))
@@ -154,6 +177,9 @@ func sync_state(state: Dictionary, active: bool = true) -> bool:
 	_sort_root.modulate = Color.WHITE
 	_apply_building_visual_records(building_compile.get("records", []) as Array)
 	_apply_actor_visual_record(actor_compile.get("record", {}) as Dictionary)
+	_guardian_requested = guardian_requested
+	if guardian_requested:
+		_apply_guardian_visual_record(guardian_compile.get("record", {}) as Dictionary)
 
 	_layout = layout.duplicate(true)
 	_layout_fingerprint = provided_fingerprint
@@ -171,6 +197,7 @@ func sync_state(state: Dictionary, active: bool = true) -> bool:
 	for item in _building_items:
 		item.visible = true
 	_actor_item.visible = true
+	_guardian_item.visible = _guardian_requested
 	set_process(false)
 	queue_redraw()
 	return true
@@ -187,11 +214,14 @@ func set_active(active: bool) -> void:
 			item.visible = active
 	if _actor_item != null:
 		_actor_item.visible = active
+	if _guardian_item != null:
+		_guardian_item.visible = active and _guardian_requested
 	queue_redraw()
 
 
 func clear_transient_canvas_items() -> void:
 	set_active(false)
+	_guardian_requested = false
 	_projection.clear()
 	_layout.clear()
 	_layout_fingerprint = ""
@@ -209,6 +239,10 @@ func get_sort_root_for_test() -> Node2D:
 
 func get_actor_sort_item_for_test() -> Node2D:
 	return _actor_item
+
+
+func get_guardian_sort_item_for_test() -> Node2D:
+	return _guardian_item
 
 
 func get_building_sort_item_for_test(building_type: String) -> Node2D:
@@ -233,6 +267,7 @@ func get_sort_contract_status() -> Dictionary:
 	if _sort_root != null:
 		direct_children.assign(_sort_root.get_children())
 	var actor_count := 0
+	var guardian_count := 0
 	var building_count := 0
 	var all_direct_parent_match := true
 	var all_direct_z_zero := true
@@ -261,6 +296,8 @@ func get_sort_contract_status() -> Dictionary:
 	var sort_root_modulate_white := _sort_root != null and _sort_root.modulate.is_equal_approx(Color.WHITE)
 	var actor_wrapper_visible := false
 	var actor_body_visible := false
+	var guardian_wrapper_visible := false
+	var guardian_body_visible := false
 	var records: Array[Dictionary] = []
 	for child in direct_children:
 		if not (child is Node2D):
@@ -271,6 +308,8 @@ func get_sort_contract_status() -> Dictionary:
 		var role := str(item.get_meta("sort_role", ""))
 		if role == "actor":
 			actor_count += 1
+		elif role == "guardian":
+			guardian_count += 1
 		elif role == "building":
 			building_count += 1
 		all_direct_parent_match = all_direct_parent_match and item.get_parent() == _sort_root
@@ -281,6 +320,8 @@ func get_sort_contract_status() -> Dictionary:
 		all_wrappers_group_children = all_wrappers_group_children and not item.y_sort_enabled
 		if role == "actor":
 			actor_wrapper_visible = item.visible
+		elif role == "guardian":
+			guardian_wrapper_visible = item.visible
 		for layer in item.get_children():
 			if layer is CanvasItem:
 				var canvas_layer := layer as CanvasItem
@@ -292,6 +333,8 @@ func get_sort_contract_status() -> Dictionary:
 				all_layer_not_using_parent_material = all_layer_not_using_parent_material and not canvas_layer.use_parent_material
 				if role == "actor" and str(layer.name) == "Body":
 					actor_body_visible = canvas_layer.visible
+				if role == "guardian" and str(layer.name) == "Body":
+					guardian_body_visible = canvas_layer.visible
 				var expected_material: Material = null
 				var expected_blend_mode := -1
 				var material_role_known := true
@@ -358,8 +401,9 @@ func get_sort_contract_status() -> Dictionary:
 		and not _sort_root.top_level
 		and sort_root_modulate_white
 		and actor_count == 1
+		and guardian_count == 1
 		and building_count == expected_building_count
-		and direct_children.size() == expected_building_count + 1
+		and direct_children.size() == expected_building_count + 2
 		and all_direct_parent_match
 		and all_direct_z_zero
 		and all_direct_relative
@@ -376,6 +420,7 @@ func get_sort_contract_status() -> Dictionary:
 		and shared_material_blend_contract_valid
 		and actor_wrapper_visible
 		and actor_body_visible
+		and ((not _guardian_requested) or (guardian_wrapper_visible and guardian_body_visible))
 	)
 	return {
 		"valid": contract_valid,
@@ -406,6 +451,10 @@ func get_sort_contract_status() -> Dictionary:
 		"add_blend_mode": add_blend_mode,
 		"actor_wrapper_visible": actor_wrapper_visible,
 		"actor_body_visible": actor_body_visible,
+		"guardian_count": guardian_count,
+		"guardian_requested": _guardian_requested,
+		"guardian_wrapper_visible": guardian_wrapper_visible,
+		"guardian_body_visible": guardian_body_visible,
 		"layer_material_records": layer_material_records,
 		"records": records,
 	}
@@ -434,6 +483,8 @@ func get_debug_status() -> Dictionary:
 		"building_item_count": _building_items.size(),
 		"visible_building_count": visible_buildings,
 		"actor_visible": _actor_item != null and _actor_item.visible,
+		"guardian_visible": _guardian_item != null and _guardian_item.visible,
+		"guardian_requested_debug": _guardian_requested,
 		"sort_contract": get_sort_contract_status(),
 	}
 
@@ -476,6 +527,9 @@ func _build_retained_tree() -> void:
 	if _actor_item == null:
 		_actor_item = _create_actor_item()
 		_sort_root.add_child(_actor_item)
+	if _guardian_item == null:
+		_guardian_item = _create_guardian_item()
+		_sort_root.add_child(_guardian_item)
 
 
 func _compile_building_visual_records(
@@ -594,15 +648,27 @@ func _compile_building_visual_records(
 
 
 func _compile_actor_visual(player_world_pos: Vector2, projection: Dictionary, state: Dictionary) -> Dictionary:
-	var actor_rect_value: Variant = state.get("actor_rect_relative_world", DEFAULT_ACTOR_RECT_WORLD)
-	var actor_color_value: Variant = state.get("actor_color", DEFAULT_ACTOR_COLOR)
-	if not (actor_rect_value is Rect2) or not (actor_color_value is Color):
+	return _compile_role_visual(
+		player_world_pos,
+		projection,
+		state.get("actor_rect_relative_world", DEFAULT_ACTOR_RECT_WORLD),
+		state.get("actor_color", DEFAULT_ACTOR_COLOR)
+	)
+
+
+func _compile_role_visual(
+	world_pos: Vector2,
+	projection: Dictionary,
+	rect_value: Variant,
+	color_value: Variant
+) -> Dictionary:
+	if not (rect_value is Rect2) or not (color_value is Color):
 		return _compile_reject("invalid_actor_art_type")
-	var actor_rect := actor_rect_value as Rect2
-	var actor_color := actor_color_value as Color
+	var actor_rect := rect_value as Rect2
+	var actor_color := color_value as Color
 	if not _is_finite_rect(actor_rect) or not actor_rect.has_area() or not _is_finite_color(actor_color):
 		return _compile_reject("invalid_actor_art")
-	var foot_screen := PlazaMapProjection.world_to_screen(player_world_pos, projection)
+	var foot_screen := PlazaMapProjection.world_to_screen(world_pos, projection)
 	if not foot_screen.is_finite():
 		return _compile_reject("invalid_projected_actor_foot")
 	var scale_value: Variant = projection.get("projection_scale", null)
@@ -614,7 +680,7 @@ func _compile_actor_visual(player_world_pos: Vector2, projection: Dictionary, st
 	return {
 		"valid": true,
 		"record": {
-			"player_world_pos": player_world_pos,
+			"world_pos": world_pos,
 			"foot_screen": foot_screen,
 			"screen_rect_relative": actor_screen_rect,
 			"color": actor_color,
@@ -707,17 +773,25 @@ func _apply_building_visual_records(record_values: Array) -> void:
 
 
 func _apply_actor_visual_record(record: Dictionary) -> void:
-	_restore_sort_item_contract(_actor_item)
-	_actor_item.set_meta("sort_role", "actor")
-	_actor_item.set_meta("building_type", "")
-	_actor_item.set_meta("sort_anchor_world", record.get("player_world_pos", Vector2.ZERO))
-	_actor_item.position = record.get("foot_screen", Vector2.ZERO) as Vector2
-	var actor_body := _actor_item.get_node("Body") as Polygon2D
-	_restore_canvas_layer_contract(actor_body)
-	actor_body.material = null
-	actor_body.visible = true
-	actor_body.polygon = _rect_polygon(record.get("screen_rect_relative", Rect2()) as Rect2)
-	actor_body.color = record.get("color", DEFAULT_ACTOR_COLOR) as Color
+	_apply_role_visual_record(_actor_item, "actor", record, DEFAULT_ACTOR_COLOR)
+
+
+func _apply_guardian_visual_record(record: Dictionary) -> void:
+	_apply_role_visual_record(_guardian_item, "guardian", record, DEFAULT_GUARDIAN_COLOR)
+
+
+func _apply_role_visual_record(item: Node2D, role: String, record: Dictionary, fallback_color: Color) -> void:
+	_restore_sort_item_contract(item)
+	item.set_meta("sort_role", role)
+	item.set_meta("building_type", "")
+	item.set_meta("sort_anchor_world", record.get("world_pos", Vector2.ZERO))
+	item.position = record.get("foot_screen", Vector2.ZERO) as Vector2
+	var body := item.get_node("Body") as Polygon2D
+	_restore_canvas_layer_contract(body)
+	body.material = null
+	body.visible = true
+	body.polygon = _rect_polygon(record.get("screen_rect_relative", Rect2()) as Rect2)
+	body.color = record.get("color", fallback_color) as Color
 
 
 func _create_building_item(index: int) -> Node2D:
@@ -748,6 +822,19 @@ func _create_actor_item() -> Node2D:
 	body.name = "Body"
 	_restore_canvas_layer_contract(body)
 	body.color = DEFAULT_ACTOR_COLOR
+	item.add_child(body)
+	return item
+
+
+func _create_guardian_item() -> Node2D:
+	var item := Node2D.new()
+	item.name = "Guardian"
+	item.set_meta("sort_role", "guardian")
+	_restore_sort_item_contract(item)
+	var body := Polygon2D.new()
+	body.name = "Body"
+	_restore_canvas_layer_contract(body)
+	body.color = DEFAULT_GUARDIAN_COLOR
 	item.add_child(body)
 	return item
 
