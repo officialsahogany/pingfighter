@@ -1,0 +1,1216 @@
+{
+  "schema_version": 1,
+  "status": "r2_candidate_runtime_art_ready",
+  "runtime_usage": "candidate_only_hwangyeok_plaza_2d_ground_road_plot_pad_and_decor",
+  "candidate_only": true,
+  "production_connected": false,
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  },
+  "approved_source_hashes": {
+    "ground": "7d7d3f99055c3406c68fe0960dc5c43598053fce23ec28f32cea844171a7c900",
+    "road_chromakey": "853714031ad46c4eaf7a58eba10dfe542c1051ea4b1b0ed77fb2a66476f417ff",
+    "road_alpha": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+    "road_geometry_guide": "b4b48b2dfbb19e514a3bb28bc4e55b6ed6c8fe64f3679bd428746b7335657e44",
+    "plot_pad_chromakey": "e1a7a2dd81c9999dd4efedcbd07e1837c8af4002ad8f826be2d5d8657c82ccf9",
+    "plot_pad_alpha": "5ede38b97ed7fb042b00b4f9dc0a7b0702bad31ca554b4f672dc6a6127bb1363",
+    "plot_pad_geometry_guide": "a47fe0259ecfbb1a79e03940ba709006bdc1a6c264c7d7b2d9e7e8a1e267bae0",
+    "decor": {
+      "wayfinder": "ffaa85a378d4fd17c32f61bd4828cb0cb1c53ad9fa2657f87f37c756d06b2576",
+      "market": "8f6b603911f574063fb7c3ca831a3927ecdbafa0161896ef75b3f52586887c4d",
+      "pond": "ecfe3bed8781bcccd306d4e4a9e6638dd45bf4e62f9aee8725aa2fc1f4c9aca8",
+      "pine": "1f187262001895f09205f60f7a5258c69275ac26651f1e09767e5d9131fe14c5",
+      "supply": "6896b5afb0d29a0fabba4f8959f42a2efcf5960b31ddb178666f69f238111cad"
+    }
+  },
+  "assets": [
+    {
+      "kind": "ground",
+      "asset_id": "map_ground",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_map_ground_v1.png",
+      "source_path": "tmp/imagegen/plaza_hwangyeok_ground_30deg_ortho_candidate_v3_rectified_clean.png",
+      "source_sha256": "7d7d3f99055c3406c68fe0960dc5c43598053fce23ec28f32cea844171a7c900",
+      "projection": {
+        "kind": "orthographic_oblique",
+        "elevation_degrees": 30,
+        "azimuth_degrees": 45,
+        "basis_slopes": [
+          0.5,
+          -0.5
+        ],
+        "world_size": [
+          2400.0,
+          1500.0
+        ]
+      },
+      "qa": {
+        "size": [
+          1536,
+          1024
+        ],
+        "sha256": "5275ae1ff0015444c1cf8efe0fc8c936e89e09a4973093006c3bcdee4c9494b3",
+        "visible_pixels": 1572864,
+        "opaque_pixels": 1572864,
+        "partial_alpha_pixels": 0,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_map_ground_v1.png.import",
+        "uid": "uid://iobbyntx12lp",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_map_ground_v1.png-fbfca5d71e2771c60c47f041e06792c7.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_map_ground_v1.png-fbfca5d71e2771c60c47f041e06792c7.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "straight_positive",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_positive_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 37154,
+        "atlas_component_bbox_xyxy": [
+          58,
+          126,
+          452,
+          387
+        ],
+        "atlas_crop_bbox_xyxy": [
+          54,
+          122,
+          456,
+          391
+        ],
+        "atlas_component_center": [
+          254.4245841632126,
+          256.63269096194216
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          398,
+          265
+        ],
+        "source_crop_size": [
+          394,
+          261
+        ],
+        "runtime_content_rect": [
+          16,
+          97,
+          480,
+          318
+        ],
+        "runtime_scale": 1.218274111675127,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "75ff02998f7f347e28b37b414567f1642af443254c078c53b248b5e6dbed6da2",
+        "visible_pixels": 56499,
+        "opaque_pixels": 51803,
+        "partial_alpha_pixels": 4696,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_positive_v1.png.import",
+        "uid": "uid://66g2xqtrfym0",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_positive_v1.png-35f766b4a37fcdf3020f57e25093eed6.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_positive_v1.png-35f766b4a37fcdf3020f57e25093eed6.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "straight_negative",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_negative_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 37001,
+        "atlas_component_bbox_xyxy": [
+          570,
+          127,
+          964,
+          387
+        ],
+        "atlas_crop_bbox_xyxy": [
+          566,
+          123,
+          968,
+          391
+        ],
+        "atlas_component_center": [
+          766.8760303775574,
+          256.48214913110456
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          398,
+          264
+        ],
+        "source_crop_size": [
+          394,
+          260
+        ],
+        "runtime_content_rect": [
+          16,
+          97,
+          480,
+          317
+        ],
+        "runtime_scale": 1.218274111675127,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "949110b7b984d8423a1a29cb06afaae9fa99d9b616fe55093f88328c26080673",
+        "visible_pixels": 56345,
+        "opaque_pixels": 51630,
+        "partial_alpha_pixels": 4715,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_negative_v1.png.import",
+        "uid": "uid://5a8qtbup0533",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_negative_v1.png-529888ff07550216f8adab2037bfa241.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_negative_v1.png-529888ff07550216f8adab2037bfa241.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "three_way",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_three_way_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 47213,
+        "atlas_component_bbox_xyxy": [
+          1088,
+          150,
+          1470,
+          427
+        ],
+        "atlas_crop_bbox_xyxy": [
+          1084,
+          146,
+          1474,
+          431
+        ],
+        "atlas_component_center": [
+          1279.5508652277974,
+          268.09150022239635
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          386,
+          281
+        ],
+        "source_crop_size": [
+          382,
+          277
+        ],
+        "runtime_content_rect": [
+          16,
+          82,
+          480,
+          348
+        ],
+        "runtime_scale": 1.256544502617801,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "7db2819dc1f8357dcd2971b9adaee737c4af1ee1d74a68396ba837e55d3293bb",
+        "visible_pixels": 76277,
+        "opaque_pixels": 70240,
+        "partial_alpha_pixels": 6037,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_three_way_v1.png.import",
+        "uid": "uid://wsf3b664trvv",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_three_way_v1.png-36cbe7092ca4ae12ed0a6083377b5fe0.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_three_way_v1.png-36cbe7092ca4ae12ed0a6083377b5fe0.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "plot_spur",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_plot_spur_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 32728,
+        "atlas_component_bbox_xyxy": [
+          59,
+          643,
+          477,
+          880
+        ],
+        "atlas_crop_bbox_xyxy": [
+          55,
+          639,
+          481,
+          884
+        ],
+        "atlas_component_center": [
+          254.0923368369592,
+          768.0598570031777
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          422,
+          241
+        ],
+        "source_crop_size": [
+          418,
+          237
+        ],
+        "runtime_content_rect": [
+          16,
+          120,
+          480,
+          272
+        ],
+        "runtime_scale": 1.1483253588516746,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "f6828ed7f5991794b7597bb0ef8c19d7d065121a217721d0725c609e9328b077",
+        "visible_pixels": 44430,
+        "opaque_pixels": 40166,
+        "partial_alpha_pixels": 4264,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_plot_spur_v1.png.import",
+        "uid": "uid://chd6csf8tgivh",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_plot_spur_v1.png-bf9bb90c539ee954c0e05b441069a241.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_plot_spur_v1.png-bf9bb90c539ee954c0e05b441069a241.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "terminus",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_terminus_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 36037,
+        "atlas_component_bbox_xyxy": [
+          528,
+          645,
+          964,
+          893
+        ],
+        "atlas_crop_bbox_xyxy": [
+          524,
+          641,
+          968,
+          897
+        ],
+        "atlas_component_center": [
+          757.1706024363848,
+          774.9957543635708
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          440,
+          252
+        ],
+        "source_crop_size": [
+          436,
+          248
+        ],
+        "runtime_content_rect": [
+          16,
+          119,
+          480,
+          273
+        ],
+        "runtime_scale": 1.1009174311926606,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "a9f9441cbd1c738d9a9672d4101b437c55aaba32363e0c9af384674da202ded5",
+        "visible_pixels": 44903,
+        "opaque_pixels": 40758,
+        "partial_alpha_pixels": 4145,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_terminus_v1.png.import",
+        "uid": "uid://dc8n2u72pu5lj",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_terminus_v1.png-1898b93579dc3a9c57c5af43aae21290.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_terminus_v1.png-1898b93579dc3a9c57c5af43aae21290.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "entrance_forecourt",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_entrance_forecourt_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_road_pieces_v2_rectified_alpha.png",
+      "source_sha256": "ae2f9b97cf0c1cf7d50000ff240309244e0c028eb49893bb8d4e3720e25d30f8",
+      "component": {
+        "atlas_component_pixels": 62749,
+        "atlas_component_bbox_xyxy": [
+          1035,
+          634,
+          1472,
+          887
+        ],
+        "atlas_crop_bbox_xyxy": [
+          1031,
+          630,
+          1476,
+          891
+        ],
+        "atlas_component_center": [
+          1252.8518701493251,
+          762.8582606894133
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          441,
+          257
+        ],
+        "source_crop_size": [
+          437,
+          253
+        ],
+        "runtime_content_rect": [
+          16,
+          117,
+          480,
+          278
+        ],
+        "runtime_scale": 1.0983981693363845,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "a017cecbf7e72a4567a767eb818fbb2effd665dde40379f55c08aca7460fb628",
+        "visible_pixels": 77121,
+        "opaque_pixels": 72323,
+        "partial_alpha_pixels": 4798,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_entrance_forecourt_v1.png.import",
+        "uid": "uid://do0126ife6ks3",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_entrance_forecourt_v1.png-89b9fc9fbc7febe4495fb99a3bc32883.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_entrance_forecourt_v1.png-89b9fc9fbc7febe4495fb99a3bc32883.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "plot_pad",
+      "asset_id": "plot_pad_large",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_plot_pad_large_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_plot_pads_v2_alpha.png",
+      "source_sha256": "5ede38b97ed7fb042b00b4f9dc0a7b0702bad31ca554b4f672dc6a6127bb1363",
+      "component": {
+        "atlas_component_pixels": 132295,
+        "atlas_component_bbox_xyxy": [
+          69,
+          331,
+          792,
+          697
+        ],
+        "atlas_crop_bbox_xyxy": [
+          65,
+          327,
+          796,
+          701
+        ],
+        "atlas_component_center": [
+          431.004338788314,
+          513.7735515325598
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          727,
+          370
+        ],
+        "source_crop_size": [
+          723,
+          366
+        ],
+        "runtime_content_rect": [
+          18,
+          136,
+          475,
+          240
+        ],
+        "runtime_scale": 0.6566347469220246,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "dafba242419cf8c7f4aab311a55a750ee06b01b150e57175213b67621ed45a5e",
+        "visible_pixels": 58123,
+        "opaque_pixels": 54808,
+        "partial_alpha_pixels": 3315,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_plot_pad_large_v1.png.import",
+        "uid": "uid://cogrnsxi8c3kh",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_plot_pad_large_v1.png-7ba538798f021658bd995dcd8f77655e.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_plot_pad_large_v1.png-7ba538798f021658bd995dcd8f77655e.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "plot_pad",
+      "asset_id": "plot_pad_small",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_plot_pad_small_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_environment_v1/plaza_hwangyeok_plot_pads_v2_alpha.png",
+      "source_sha256": "5ede38b97ed7fb042b00b4f9dc0a7b0702bad31ca554b4f672dc6a6127bb1363",
+      "component": {
+        "atlas_component_pixels": 60315,
+        "atlas_component_bbox_xyxy": [
+          918,
+          392,
+          1404,
+          638
+        ],
+        "atlas_crop_bbox_xyxy": [
+          914,
+          388,
+          1408,
+          642
+        ],
+        "atlas_component_center": [
+          1161.5163392190998,
+          514.2245544226146
+        ]
+      },
+      "placement": {
+        "source_bbox_xyxy": [
+          4,
+          4,
+          490,
+          250
+        ],
+        "source_crop_size": [
+          486,
+          246
+        ],
+        "runtime_content_rect": [
+          96,
+          175,
+          319,
+          162
+        ],
+        "runtime_scale": 0.6566347469220246,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "61613dca89cdedb27f8b607ace39a1e438a04bb83a2171f53e9cc30b468881a8",
+        "visible_pixels": 26864,
+        "opaque_pixels": 24676,
+        "partial_alpha_pixels": 2188,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_plot_pad_small_v1.png.import",
+        "uid": "uid://blpsposwkxejo",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_plot_pad_small_v1.png-a2eeecb1e92d1d2a1c630416749ecb1f.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_plot_pad_small_v1.png-a2eeecb1e92d1d2a1c630416749ecb1f.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "wayfinder",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_wayfinder_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_decor/plaza_hwangyeok_decor_wayfinder_lantern_v1_alpha.png",
+      "source_sha256": "ffaa85a378d4fd17c32f61bd4828cb0cb1c53ad9fa2657f87f37c756d06b2576",
+      "placement": {
+        "source_bbox_xyxy": [
+          219,
+          195,
+          989,
+          1027
+        ],
+        "source_crop_size": [
+          770,
+          832
+        ],
+        "runtime_content_rect": [
+          34,
+          16,
+          444,
+          480
+        ],
+        "runtime_scale": 0.5769230769230769,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "60cd8ab37d58b930e8fe15d62426be460ce0280e63fc59609764ae2fa3a2b003",
+        "visible_pixels": 114577,
+        "opaque_pixels": 104475,
+        "partial_alpha_pixels": 10102,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_wayfinder_v1.png.import",
+        "uid": "uid://bw55rqwt1q27n",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_wayfinder_v1.png-039862a7b7c48af6b7b40d85dacf35d3.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_wayfinder_v1.png-039862a7b7c48af6b7b40d85dacf35d3.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "market",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_market_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_decor/plaza_hwangyeok_decor_market_stall_double_v1_alpha.png",
+      "source_sha256": "8f6b603911f574063fb7c3ca831a3927ecdbafa0161896ef75b3f52586887c4d",
+      "placement": {
+        "source_bbox_xyxy": [
+          88,
+          93,
+          1347,
+          986
+        ],
+        "source_crop_size": [
+          1259,
+          893
+        ],
+        "runtime_content_rect": [
+          16,
+          156,
+          480,
+          340
+        ],
+        "runtime_scale": 0.3812549642573471,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "04b0f2823daeeacf1129b5435e6f0e8ec01a87802bf3106154316750e6713d32",
+        "visible_pixels": 112932,
+        "opaque_pixels": 105742,
+        "partial_alpha_pixels": 7190,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_market_v1.png.import",
+        "uid": "uid://bnxy5byb0y7fs",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_market_v1.png-8ca1492b34e222232838d2515a038ff9.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_market_v1.png-8ca1492b34e222232838d2515a038ff9.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "pond",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_pond_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_decor/plaza_hwangyeok_decor_rock_pond_v1_alpha.png",
+      "source_sha256": "ecfe3bed8781bcccd306d4e4a9e6638dd45bf4e62f9aee8725aa2fc1f4c9aca8",
+      "placement": {
+        "source_bbox_xyxy": [
+          25,
+          91,
+          1378,
+          991
+        ],
+        "source_crop_size": [
+          1353,
+          900
+        ],
+        "runtime_content_rect": [
+          16,
+          177,
+          480,
+          319
+        ],
+        "runtime_scale": 0.35476718403547675,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "0d4e4984c01914c28fb085f05b89e9083c1ce95a52d8b0bc90835d1f9178dcc2",
+        "visible_pixels": 92263,
+        "opaque_pixels": 85504,
+        "partial_alpha_pixels": 6759,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_pond_v1.png.import",
+        "uid": "uid://c1y0ttwv8b66s",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_pond_v1.png-7429e6f883a6f1223358617d6d450f27.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_pond_v1.png-7429e6f883a6f1223358617d6d450f27.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "pine",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_pine_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_decor/plaza_hwangyeok_decor_pine_lantern_waymarker_v1_alpha.png",
+      "source_sha256": "1f187262001895f09205f60f7a5258c69275ac26651f1e09767e5d9131fe14c5",
+      "placement": {
+        "source_bbox_xyxy": [
+          93,
+          74,
+          1229,
+          994
+        ],
+        "source_crop_size": [
+          1136,
+          920
+        ],
+        "runtime_content_rect": [
+          16,
+          107,
+          480,
+          389
+        ],
+        "runtime_scale": 0.4225352112676056,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "738b6a06fa0d4abaff4fcb7020b59c36fae1f7963a23fc5be5addaaab039d8cd",
+        "visible_pixels": 93788,
+        "opaque_pixels": 71643,
+        "partial_alpha_pixels": 22145,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_pine_v1.png.import",
+        "uid": "uid://b2itqqdehatkl",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_pine_v1.png-f55d94a1cb34ec9be02f89986b512b1c.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_pine_v1.png-f55d94a1cb34ec9be02f89986b512b1c.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "supply",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_supply_v1.png",
+      "source_path": "tmp/imagegen/plaza_r2_decor/plaza_hwangyeok_decor_supply_rest_v1_alpha.png",
+      "source_sha256": "6896b5afb0d29a0fabba4f8959f42a2efcf5960b31ddb178666f69f238111cad",
+      "placement": {
+        "source_bbox_xyxy": [
+          123,
+          224,
+          1202,
+          1007
+        ],
+        "source_crop_size": [
+          1079,
+          783
+        ],
+        "runtime_content_rect": [
+          16,
+          148,
+          480,
+          348
+        ],
+        "runtime_scale": 0.4448563484708063,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "011d50ff3784a14a20bd2db206a776a2d715cd7e16a195e03da7b027a8473a6e",
+        "visible_pixels": 112253,
+        "opaque_pixels": 105952,
+        "partial_alpha_pixels": 6301,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_supply_v1.png.import",
+        "uid": "uid://b84g4aydx04br",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_supply_v1.png-c8a8d571de8a21cdda17245d88c68532.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_supply_v1.png-c8a8d571de8a21cdda17245d88c68532.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    }
+  ],
+  "qa": {
+    "status": "pass",
+    "failure_count": 0,
+    "pipeline": "hwangyeok_plaza_r2_environment_art_candidate_prep",
+    "candidate_only": true,
+    "production_connected": false,
+    "world_size": [
+      2400.0,
+      1500.0
+    ],
+    "asset_counts": {
+      "ground": 1,
+      "road_piece": 6,
+      "plot_pad": 2,
+      "decor_cluster": 5,
+      "total": 14
+    },
+    "road_component_count": 6,
+    "road_geometry_metrics": [
+      {
+        "asset_id": "straight_positive",
+        "intersection_pixels": 36297,
+        "union_pixels": 37549,
+        "guide_pixels": 36692,
+        "art_pixels": 37154,
+        "iou": 0.9666569016485126,
+        "guide_coverage": 0.9892347105636106,
+        "art_spill_ratio": 0.023066157075954136
+      },
+      {
+        "asset_id": "straight_negative",
+        "intersection_pixels": 36513,
+        "union_pixels": 37180,
+        "guide_pixels": 36692,
+        "art_pixels": 37001,
+        "iou": 0.9820602474448629,
+        "guide_coverage": 0.9951215523819906,
+        "art_spill_ratio": 0.013188832734250425
+      },
+      {
+        "asset_id": "three_way",
+        "intersection_pixels": 44920,
+        "union_pixels": 47424,
+        "guide_pixels": 45131,
+        "art_pixels": 47213,
+        "iou": 0.9471997300944669,
+        "guide_coverage": 0.995324721366688,
+        "art_spill_ratio": 0.04856713193400123
+      },
+      {
+        "asset_id": "plot_spur",
+        "intersection_pixels": 32500,
+        "union_pixels": 33000,
+        "guide_pixels": 32772,
+        "art_pixels": 32728,
+        "iou": 0.9848484848484849,
+        "guide_coverage": 0.991700231905285,
+        "art_spill_ratio": 0.006966511855292104
+      },
+      {
+        "asset_id": "terminus",
+        "intersection_pixels": 35275,
+        "union_pixels": 36280,
+        "guide_pixels": 35518,
+        "art_pixels": 36037,
+        "iou": 0.9722987872105844,
+        "guide_coverage": 0.9931583985584774,
+        "art_spill_ratio": 0.021144934373005523
+      },
+      {
+        "asset_id": "entrance_forecourt",
+        "intersection_pixels": 60838,
+        "union_pixels": 62791,
+        "guide_pixels": 60880,
+        "art_pixels": 62749,
+        "iou": 0.9688968164227357,
+        "guide_coverage": 0.9993101182654403,
+        "art_spill_ratio": 0.030454668600296417
+      }
+    ],
+    "road_geometry_contract": {
+      "projection": "orthographic_oblique",
+      "elevation_degrees": 30,
+      "azimuth_degrees": 45,
+      "basis_slopes": [
+        0.5,
+        -0.5
+      ],
+      "minimum_component_iou": 0.94,
+      "minimum_guide_coverage": 0.985,
+      "maximum_art_spill_ratio": 0.05
+    },
+    "plot_pad_component_count": 2,
+    "plot_pad_geometry_metrics": [
+      {
+        "asset_id": "plot_pad_large",
+        "intersection_pixels": 131591,
+        "union_pixels": 134277,
+        "guide_pixels": 133573,
+        "art_pixels": 132295,
+        "iou": 0.9799965742457756,
+        "guide_coverage": 0.9851616718947691,
+        "art_spill_ratio": 0.005321440719603916,
+        "mean_luminance_8bit": 85.09976959228516
+      },
+      {
+        "asset_id": "plot_pad_small",
+        "intersection_pixels": 59217,
+        "union_pixels": 61351,
+        "guide_pixels": 60253,
+        "art_pixels": 60315,
+        "iou": 0.965216540887679,
+        "guide_coverage": 0.9828058353940883,
+        "art_spill_ratio": 0.01820442675951256,
+        "mean_luminance_8bit": 83.82173919677734
+      }
+    ],
+    "plot_pad_geometry_contract": {
+      "projection": "orthographic_oblique",
+      "elevation_degrees": 30,
+      "azimuth_degrees": 45,
+      "basis_slopes": [
+        0.5,
+        -0.5
+      ],
+      "minimum_component_iou": 0.96,
+      "minimum_guide_coverage": 0.98,
+      "maximum_art_spill_ratio": 0.02,
+      "minimum_mean_luminance_8bit": 75.0,
+      "maximum_mean_luminance_8bit": 90.0,
+      "shared_runtime_scale": 0.6566347469220246
+    },
+    "runtime_png_count": 14,
+    "aggregate_runtime_sha256": "48299339b61096c6a23043620e32455c8d075c191fae4c4c033602081eec49f9",
+    "import_status_counts": {
+      "ready": 14
+    },
+    "source_retention_policy": {
+      "source_root": "tmp/imagegen",
+      "workspace_masters_preserved": true,
+      "gitignored": true,
+      "clean_checkout_rebuild_supported": false,
+      "runtime_outputs_self_contained": true,
+      "durable_archive_requires_separate_lfs_promotion": true
+    }
+  }
+}

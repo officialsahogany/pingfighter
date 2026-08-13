@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 승격 계획
 
-상태: R0 자산·렌더러 준비 완료, R1 활성 런타임 브리지 완료, R2-A/P1 구조 후보 GREEN, R2-B candidate runtime GREEN; 프로덕션 미연결·최종 지면/도로 아트 RED
+상태: R0 자산·렌더러 준비 완료, R1 활성 런타임 브리지 완료, R2-A/P1 구조 후보 GREEN, R2-B/R2-C candidate runtime GREEN, R2 환경 아트 14장과 필지 패드 최종 미술 승인 완료; 프로덕션 미연결·R3 원자 전환 대기
 기준일: 2026-08-11
 
 ## 목표
@@ -404,9 +404,11 @@ cleanup의 "실제 owner 경로" 레그도 프로덕션 배선이 존재하는 R
 RNG salt, canonical fingerprint, 168-roster 산출물과 모든 RED counterproof를
 byte-stable하게 보존해야 하며, 줄 수만 줄이기 위한 함수 이동은 하지 않는다.
 
-현재 후보 보드의 코드 드로우 도로·필지 표면과 workspace-only 의미 장식은
-구조·역할 판독용이다. 승인된 최종 지면/도로 아트 및 라이브 이동·선택·진입
-승격은 RED로 남아 있으며, 후보 GREEN을 최종 미술 승인으로 대체하지 않는다.
+이전 후보 보드의 코드 드로우 도로·필지 표면은 구조·역할 판독용이었다. 이후
+지면 1장, 도로 6장, 필지 패드 2장, 의미 장식 5장으로 구성한 self-contained
+runtime set이 최종 미술 승인을 받았다. 라이브 이동·선택·진입은 여전히 R3
+원자 전환 전까지 RED이며, 승인된 환경 아트를 production 연결 증거로 대체하지
+않는다.
 
 R1의 `MAP_SIZE` 승격은 별도 호환 판정으로 수락됐다. 저장된
 `stage_map_seeds`를 다시 발급하지 않지만, 위치 산식의 폭 입력이
@@ -469,6 +471,8 @@ R1의 `MAP_SIZE` 승격은 별도 호환 판정으로 수락됐다. 저장된
 - 가챠 분홍 lit preview에는 source-chroma 게이트를 적용하지 않는다.
 - **R1 브리지 게이트:** 실제 2020 x 1246 Vulkan 캡처에서 약 598px 높이로 확대되는 은행의 기와선, 간판/창 마스크 경계와 실루엣 선명도를 확인한다. 512² 원본의 약 1.17x 확대가 허용 가능한지 시각 승인하기 전에는 R1 렌더 게이트를 완료로 판정하지 않는다.
 - **R2 목표 게이트:** 실제 `map_safe_rect.width / 2400` 배율에서 7종 위계와 색 분리를 확인한다. 예시 `left=72`, `right=360` 기준은 `1588/2400`이고 표시 높이는 172~238px, 원거리 절반 배율은 86~119px다. 이 수치는 현재 R1 브리지의 표시 크기가 아니다. 아카데미 source alpha 면적이 은행보다 크더라도 display height 315/360으로 은행이 랜드마크 1위를 유지한다.
+- **R2 환경 아트 게이트 GREEN (2026-08-13):** 승인된 30도 정사영 지면 1장, 엄격한 `+0.5/-0.5` 가이드로 다시 칠한 도로 6종, 의미 역할 장식 5종에 대형·소형 필지 포석 패드 2종을 더한 `assets/ui/plaza/environment/hwangyeok_r2/`의 self-contained runtime set은 최종 미술 승인을 받았다. v1 도로는 두 직선 방향과 장축 기울기가 RED여서 폐기했고, v2는 6성분 모두 가이드 IoU `0.9472..0.9848`, 가이드 피복 `0.9892..0.9993`, 외부 spill `0.0070..0.0486`을 통과했다. 흑기와 건물이 맨땅 휘도 `6.7`에 녹는 결손 때문에 추가한 패드 v2의 대형/소형 가이드 IoU는 `0.9800/0.9652`, 피복 `0.9852/0.9828`, spill `0.0053/0.0182`, 평균 휘도는 `85.10/83.82`다. 이는 도로·광장 계열을 유지하면서 건물 본체 평균 `31.2`, 하위 25% `19.1`보다 밝은 접지면을 제공하고, 기존 12장 재생성 없이 런타임 세트를 14장으로 확장했다. 2020 x 1246 Vulkan Mobile A/B/C/D 대조에서 대형/소형 패드는 각각 `41,491/18,847px`가 변했고, 패드 ROI 밖 변화는 `0px`였다. 도로는 `11,100..19,656px`, 장식은 `19,007..37,333px`, 각 단계 ROI 밖 변화는 모두 `0px`다. 준비 스크립트 2회 실행의 runtime PNG aggregate SHA-256은 모두 `48299339b61096c6a23043620e32455c8d075c191fae4c4c033602081eec49f9`로 동일했다. 런타임 14장은 VRAM high-quality, mipmap, BPTC+ASTC import를 사용한다. 이 결과는 **art GREEN / candidate_only / production_connected=false**다. runtime PNG와 import/manifest/QA는 clean checkout에서 직접 소비 가능한 self-contained 산출물이지만, 승인 1254² source master는 gitignored `tmp/imagegen/`의 workspace-only prep이므로 clean-checkout 재생성은 보장하지 않는다. 그 보장이 필요하면 source master를 별도 LFS 승격하는 게이트를 통과해야 한다.
+- **R3 건물 접지 그림자 결정 게이트:** R1 `RetainedBuildingVisual`에는 `Shadow` 자식이 있지만 `plaza_r2_map_world_candidate_host.gd`의 후보 건물은 `Base/Sign/Window/YSortProbe`만 가진다. 승인 필지 패드가 현재 접지감과 실루엣 분리를 충족하므로 그림자를 자동 이식하지 않는다. R3 production 배선 캡처에서 패드만으로 충분한지, 또는 같은 Y-sort/material 계약 안의 그림자 레이어가 필요한지를 A/B 픽셀·육안 대조로 결정하고, 추가할 경우 actor 가림 순서와 cleanup을 함께 봉인한다.
 - 지붕 위 국소 식별물 추가 여부는 오프라인 축소 보드가 아니라 실제 Godot MIX 경로의 Vulkan 캡처에서만 결정한다.
 - 실제 Godot 렌더러의 기본·호버·선택·진입 전환 캡처
 - 새 텍스처의 프리웜과 import 설정 확인

@@ -1,0 +1,146 @@
+{
+  "status": "pass",
+  "failure_count": 0,
+  "pipeline": "hwangyeok_plaza_r2_environment_art_candidate_prep",
+  "candidate_only": true,
+  "production_connected": false,
+  "world_size": [
+    2400.0,
+    1500.0
+  ],
+  "asset_counts": {
+    "ground": 1,
+    "road_piece": 6,
+    "plot_pad": 2,
+    "decor_cluster": 5,
+    "total": 14
+  },
+  "road_component_count": 6,
+  "road_geometry_metrics": [
+    {
+      "asset_id": "straight_positive",
+      "intersection_pixels": 36297,
+      "union_pixels": 37549,
+      "guide_pixels": 36692,
+      "art_pixels": 37154,
+      "iou": 0.9666569016485126,
+      "guide_coverage": 0.9892347105636106,
+      "art_spill_ratio": 0.023066157075954136
+    },
+    {
+      "asset_id": "straight_negative",
+      "intersection_pixels": 36513,
+      "union_pixels": 37180,
+      "guide_pixels": 36692,
+      "art_pixels": 37001,
+      "iou": 0.9820602474448629,
+      "guide_coverage": 0.9951215523819906,
+      "art_spill_ratio": 0.013188832734250425
+    },
+    {
+      "asset_id": "three_way",
+      "intersection_pixels": 44920,
+      "union_pixels": 47424,
+      "guide_pixels": 45131,
+      "art_pixels": 47213,
+      "iou": 0.9471997300944669,
+      "guide_coverage": 0.995324721366688,
+      "art_spill_ratio": 0.04856713193400123
+    },
+    {
+      "asset_id": "plot_spur",
+      "intersection_pixels": 32500,
+      "union_pixels": 33000,
+      "guide_pixels": 32772,
+      "art_pixels": 32728,
+      "iou": 0.9848484848484849,
+      "guide_coverage": 0.991700231905285,
+      "art_spill_ratio": 0.006966511855292104
+    },
+    {
+      "asset_id": "terminus",
+      "intersection_pixels": 35275,
+      "union_pixels": 36280,
+      "guide_pixels": 35518,
+      "art_pixels": 36037,
+      "iou": 0.9722987872105844,
+      "guide_coverage": 0.9931583985584774,
+      "art_spill_ratio": 0.021144934373005523
+    },
+    {
+      "asset_id": "entrance_forecourt",
+      "intersection_pixels": 60838,
+      "union_pixels": 62791,
+      "guide_pixels": 60880,
+      "art_pixels": 62749,
+      "iou": 0.9688968164227357,
+      "guide_coverage": 0.9993101182654403,
+      "art_spill_ratio": 0.030454668600296417
+    }
+  ],
+  "road_geometry_contract": {
+    "projection": "orthographic_oblique",
+    "elevation_degrees": 30,
+    "azimuth_degrees": 45,
+    "basis_slopes": [
+      0.5,
+      -0.5
+    ],
+    "minimum_component_iou": 0.94,
+    "minimum_guide_coverage": 0.985,
+    "maximum_art_spill_ratio": 0.05
+  },
+  "plot_pad_component_count": 2,
+  "plot_pad_geometry_metrics": [
+    {
+      "asset_id": "plot_pad_large",
+      "intersection_pixels": 131591,
+      "union_pixels": 134277,
+      "guide_pixels": 133573,
+      "art_pixels": 132295,
+      "iou": 0.9799965742457756,
+      "guide_coverage": 0.9851616718947691,
+      "art_spill_ratio": 0.005321440719603916,
+      "mean_luminance_8bit": 85.09976959228516
+    },
+    {
+      "asset_id": "plot_pad_small",
+      "intersection_pixels": 59217,
+      "union_pixels": 61351,
+      "guide_pixels": 60253,
+      "art_pixels": 60315,
+      "iou": 0.965216540887679,
+      "guide_coverage": 0.9828058353940883,
+      "art_spill_ratio": 0.01820442675951256,
+      "mean_luminance_8bit": 83.82173919677734
+    }
+  ],
+  "plot_pad_geometry_contract": {
+    "projection": "orthographic_oblique",
+    "elevation_degrees": 30,
+    "azimuth_degrees": 45,
+    "basis_slopes": [
+      0.5,
+      -0.5
+    ],
+    "minimum_component_iou": 0.96,
+    "minimum_guide_coverage": 0.98,
+    "maximum_art_spill_ratio": 0.02,
+    "minimum_mean_luminance_8bit": 75.0,
+    "maximum_mean_luminance_8bit": 90.0,
+    "shared_runtime_scale": 0.6566347469220246
+  },
+  "runtime_png_count": 14,
+  "aggregate_runtime_sha256": "48299339b61096c6a23043620e32455c8d075c191fae4c4c033602081eec49f9",
+  "import_status_counts": {
+    "ready": 14
+  },
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  }
+}

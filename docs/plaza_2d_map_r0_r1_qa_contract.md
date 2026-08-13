@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 R0/R1 QA 계약
 
-상태: R0 완료 기록 + R1 활성 런타임 브리지 수락 완료 + 후속 R2-A/P1 구조 후보 GREEN + R2-B candidate runtime GREEN; 프로덕션 미연결
+상태: R0 완료 기록 + R1 활성 런타임 브리지 수락 완료 + 후속 R2-A/P1 구조 후보 GREEN + R2-B/R2-C candidate runtime GREEN + 환경 아트 14장·필지 패드 최종 미술 승인 완료; 프로덕션 미연결·R3 원자 전환 대기
 기준일: 2026-08-11
 
 이 문서는 `plaza_2d_map_promotion_plan.md`의 R0/R1 슬라이스를 검증하는 최소 계약이다. 테스트는 특정 함수명이나 임시 디버그 API보다 관찰 가능한 자산, 노드 상태, 실제 프리웜 진행과 렌더 픽셀을 판정한다. 구현 중 API 이름이 바뀌어도 아래 입력·행동·결과와 역검증은 유지한다.
@@ -180,10 +180,32 @@ Godot은 `SubViewport`의 최소 가시 크기를 `2 x 2`로 클램프한다. �
   56개 건물 부분집합 x seed `5/6/7`의 168개 roster가 전체 road topology,
   필지/입구/clearance, 보행 corridor/portal, 라벨과 월드 경계를 통과했고,
   소비 필드 및 geometry 변조 역검증은 RED였다.
-- **seed `5` 의미 보드 GREEN, 최종 아트 RED:** 2020 x 1246 Vulkan 후보
+- **seed `5` 의미 보드 GREEN, 당시 최종 아트 RED:** 2020 x 1246 Vulkan 후보
   보드는 미사용 필지 5곳의 의미 역할과 상·하부 분포 및 역할 교환 반증을
   판별했다. 다만 코드 드로우 도로·필지 표면과 workspace-only 장식은 구조
   시각화이며, 승인된 최종 지면/도로 아트나 라이브 미술 승격의 증거가 아니다.
+- **R2 환경 아트 게이트 GREEN (2026-08-13):** `prepare_plaza_r2_environment_assets.py`는
+  승인 지면 1장, v2 도로 6종, 의미 장식 5종과 대형·소형 필지 포석 패드 2종의 source SHA를 고정하고 정확히
+  14개 self-contained runtime PNG를 결정적으로 재생성한다. v1 도로의 방향/기울기
+  RED 뒤 엄격한 30도 정사영 가이드를 edit target으로 다시 칠했으며, 6성분
+  geometry 대조는 IoU `0.9472..0.9848`, guide coverage `0.9892..0.9993`, art
+  spill `0.0070..0.0486`이다. runtime smoke는 매니페스트·PNG SHA·Texture2D·
+  VRAM high-quality+mipmap+BPTC/ASTC import, 정확한 1/6/2/5 ID 집합, 후보 격리와
+  production 연결·도로/패드 누락·중복 ID·slope·패드 암전 변조 RED를 봉인한다. 패드는 정확한 `+0.5/-0.5` 가이드에서
+  대형/소형 IoU `0.9800/0.9652`, 피복 `0.9852/0.9828`, spill `0.0053/0.0182`, 평균 휘도 `85.10/83.82`를 유지해야 한다. 이는 맨땅 `6.7` 위에서
+  평균 `31.2`/하위 25% `19.1`인 흑기와 건물이 사라지는 실제 대조를 닫는 자산 세트 보강이다. 2020 x 1246
+  Vulkan Mobile A/B/C/D에서 도로 6 ROI는 `11,100..19,656px`, 대형/소형 패드는 `41,491/18,847px`, 장식 5 ROI는 `19,007..37,333px`가 변하고 모든 단계 ROI 밖은 `0px`여야 한다. 이
+  14장 세트와 필지 패드는 최종 미술 승인을 받았다. 준비 스크립트 2회 실행의
+  runtime PNG aggregate SHA-256은 모두
+  `48299339b61096c6a23043620e32455c8d075c191fae4c4c033602081eec49f9`여야 한다.
+  결과는 **art GREEN / candidate_only / production_connected=false**다. runtime
+  PNG와 import/manifest/QA는 self-contained지만 source master는 workspace-only라
+  clean-checkout 재생성을 지원하지 않는다. 그 보장을 추가하려면 source master의
+  별도 LFS 승격 게이트가 필요하다.
+- **R3 건물 그림자 결정 게이트:** R1 retained 건물의 `Shadow` 자식은 R2 후보
+  호스트에 자동 승계되지 않았다. 승인된 필지 패드만으로 접지감이 충분한지 R3
+  production 캡처에서 A/B 대조하고, 그림자를 추가한다면 같은 Y-sort/material,
+  actor 가림 순서와 scene-transition cleanup 계약까지 함께 검증한다.
 - **R2-B navigation/minimap GREEN:** 전신 actor `38 x 32` rect에서
   walkable polygon union을 뺀 미피복 면적이 0이어야 하고, 2px slit은
   occupancy와 swept move 양쪽에서 RED다. 바인딩 뒤 corridor/portal/blocker
@@ -252,6 +274,6 @@ Godot은 `SubViewport`의 최소 가시 크기를 `2 x 2`로 클램프한다. �
   분리할 때는 독립 RNG salt, canonical fingerprint, 168-roster 결과와 기존
   mutation RED를 그대로 보존해야 하며, 줄 수만 줄이는 분할은 승인 근거가 아니다.
 
-따라서 R2-B는 **candidate runtime GREEN**으로만 기록한다. 프로덕션 owner
-콜사이트 연결과 최종 지면/도로 아트 승인이 끝나기 전에는 `2D 광장 활성화`,
-`R2 production GREEN`, `R2 완료`를 선언하지 않는다.
+따라서 R2-B/R2-C와 환경 아트는 각각 **candidate runtime GREEN / art GREEN**으로
+기록한다. 프로덕션 owner 콜사이트의 원자 연결과 실제 이동·진입·cleanup 게이트가
+끝나기 전에는 `2D 광장 활성화`, `R2 production GREEN`, `R2 완료`를 선언하지 않는다.
