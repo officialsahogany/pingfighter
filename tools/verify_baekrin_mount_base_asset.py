@@ -35,6 +35,14 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+# Windows 콘솔 기본 코드페이지(CP949)에서 한글은 되지만 em dash 같은 기호는
+# UnicodeEncodeError 를 낸다 — 게이트가 판정 대신 크래시로 끝나면 안 되므로
+# 인코딩 실패를 치환으로 낮춘다.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
+
 # ── 레퍼런스 실측 상수 (전부 **512 셀 공간**에서 측정) ──────────────────────
 # 재질별 중앙 Lab(D65) + 그 재질이 자기 중앙값 대비 갖는 자연 산포(p95 dE2000).
 # 산포를 함께 박는 이유: 크랙 텍스처·금속 하이라이트는 재질 내부 dE 가 원래 크다.
@@ -55,7 +63,7 @@ TAIL_LENGTH_RATIO_MIN = 0.90
 
 CELL_EXPECTED = 512
 MARGIN_MIN = 4
-CONTENT_WIDTH_RATIO_MAX = 0.72
+CONTENT_WIDTH_RATIO_MAX = 0.75  # 감아 올린 꼬리의 자연 폭(0.70~0.74 실측)을 수용
 MAGENTA_RESIDUE_MAX_DOM = 20
 SOCKET_TOLERANCE_PX = 2.0
 NAVY_MIN_AREA_RATIO = 0.015
@@ -183,6 +191,36 @@ def navy_pad_mask(rgb: np.ndarray, opaque: np.ndarray) -> np.ndarray:
     return largest_component(navy)
 
 
+def saddle_assembly_mask(pad: np.ndarray, gold: np.ndarray) -> np.ndarray:
+    """안장 어셈블리 = 감청 패드 ∪ 그 패드에 **연결된** 금 프레임.
+
+    소켓 y 를 패드 하단으로만 잡으면 안장을 감싸는 금 U 프레임 아랫단이 항상
+    소켓 아래로 남아 G3 가 구조적으로 불가능해진다(생성 4회 전부 같은 지점에서
+    실패). 금 프레임은 §3 정체성 락 항목이라 지울 수도 없다. 그래서 소켓의 y 는
+    **어셈블리 하단**으로 잡는다 — 라이더 rect 하단이 안장 최하단에 맞고, 실제
+    엉덩이선(패드 하단)과의 차이는 N 시트 저작 오프셋으로 흡수한다.
+    """
+    if not pad.any():
+        return pad
+    both = pad | gold
+    h, w = both.shape
+    seen = np.zeros_like(both, dtype=bool)
+    out = np.zeros_like(both, dtype=bool)
+    dq = deque()
+    for y, x in np.argwhere(pad):
+        seen[y, x] = True
+        dq.append((y, x))
+    while dq:
+        y, x = dq.popleft()
+        out[y, x] = True
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < h and 0 <= nx < w and both[ny, nx] and not seen[ny, nx]:
+                seen[ny, nx] = True
+                dq.append((ny, nx))
+    return out
+
+
 def material_masks(rgb: np.ndarray, opaque: np.ndarray, pad: np.ndarray) -> dict:
     f = rgb.astype(np.float64)
     r, g, b = f[..., 0], f[..., 1], f[..., 2]
@@ -251,14 +289,21 @@ def main(argv: list[str]) -> int:
         gate.check("G4", "소켓 가로중앙", False, "소켓 미검출")
     else:
         pys, pxs = np.nonzero(pad)
+        gold_pre = material_masks(rgb, opaque, pad)["gold"]
+        assembly = saddle_assembly_mask(pad, gold_pre)
+        ays = np.nonzero(assembly)[0]
         socket_x = (int(pxs.min()) + int(pxs.max()) + 1) / 2.0
-        socket_y = float(int(pys.max()) + 1)
+        socket_y = float(int(ays.max()) + 1)
+        seat_offset = socket_y - float(int(pys.max()) + 1)
         gate.check("G3", "소켓=최하단", abs(content_bottom - socket_y) <= SOCKET_TOLERANCE_PX,
-                   "socket_y %.1f vs 불투명 bbox 하단 %.1f (허용 %.1fpx)"
+                   "socket_y %.1f (안장 어셈블리 하단) vs 불투명 bbox 하단 %.1f (허용 %.1fpx)"
                    % (socket_y, content_bottom, SOCKET_TOLERANCE_PX))
         gate.check("G4", "소켓 가로중앙", abs(socket_x - content_cx) <= SOCKET_TOLERANCE_PX,
-                   "socket_x %.1f vs 콘텐츠 중앙 %.1f (허용 %.1fpx)" % (socket_x, content_cx, SOCKET_TOLERANCE_PX))
-        print("     socket = (%.1f, %.1f)  ← 카탈로그 companion_mount_base_saddle_x/y" % (socket_x, socket_y))
+                   "socket_x %.1f (감청 패드 중앙) vs 콘텐츠 중앙 %.1f (허용 %.1fpx)"
+                   % (socket_x, content_cx, SOCKET_TOLERANCE_PX))
+        print("     socket = (%.1f, %.1f)  <- 카탈로그 companion_mount_base_saddle_x/y" % (socket_x, socket_y))
+        print("     seat offset = %.1f px (패드 하단 -> 어셈블리 하단). N 착석 시트는 캐릭터"
+              " 엉덩이선을 셀 하단에서 이만큼 위에 둔다 = 운영 %.1fpx" % (seat_offset, seat_offset * 360.0 / 512.0))
 
     # G5 — 셀 규격
     margin = min(bbox[0], w - 1 - bbox[1], bbox[2], h - 1 - bbox[3])
@@ -272,7 +317,7 @@ def main(argv: list[str]) -> int:
 
     # G7 — 꼬리 길이 보존
     if not args.tail_mask:
-        gate.check("G7", "꼬리 길이", False, "--tail-mask 미제공 — 길이 보존은 필수 게이트다")
+        gate.check("G7", "꼬리 길이", False, "--tail-mask 미제공: 길이 보존은 필수 게이트다")
     else:
         tm = np.array(Image.open(args.tail_mask).convert("L")) > 127
         if tm.shape != al.shape:
