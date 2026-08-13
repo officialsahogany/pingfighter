@@ -6,17 +6,23 @@ G9(실 렌더 캡처)는 런타임 QA 소관이라 여기서 다루지 않는다
 사용법
 ------
     py tools/verify_baekrin_mount_base_asset.py <candidate_cell.png>
-        [--tail-mask <tail_mask.png>] [--reference <reference_nukki.png>]
+        [--tail-mask <tail_mask.png>]
 
 - `candidate_cell.png` : 런타임 셀(정사각, 알파 포함). G1~G6·G8 판정 대상.
 - `--tail-mask`        : 꼬리만 1(불투명)인 이진 마스크. 없으면 G7 은 SKIP 이
                          아니라 **FAIL** 이다(길이 보존은 필수 게이트).
-- `--reference`        : 팔레트 기준을 레퍼런스 이미지에서 다시 재는 옵션 경로.
-                         생략하면 아래 REFERENCE_* 상수를 쓴다.
+
+레퍼런스 기준값은 아래 REFERENCE_* **상수**로 고정돼 있다(이미지에서 다시 재는
+옵션은 없다 — 상수가 정본이라야 후보마다 기준이 흔들리지 않는다).
+
+자기검정: **패킹한 레퍼런스 셀을 그대로 candidate 로 넣어** 돌린다.
+    py tools/verify_baekrin_mount_base_asset.py <reference_cell_512.png> --tail-mask <ref_tail_mask.png>
+직선 꼬리 레퍼런스는 **G3 만 FAIL**(꼬리가 안장선 아래 = 재구성 사유)이고 나머지는
+전부 PASS 여야 한다. 그 외 게이트가 레퍼런스에서 떨어지면 상수/문턱이 어긋난 것이다.
 
 레퍼런스 상수는 사용자 제공 원화 `백린_빈안장_topdown_magenta.png` 를
-`chroma_key.py --key magenta --pad 4` + 마젠타 pocket 제거로 정리한
-742x1351 이미지에서 실측했다(2026-08-13).
+`chroma_key.py --key magenta --pad 4` + 마젠타 pocket 제거 → 512 셀 패킹 →
+(리샘플 링잉 때문에) pocket 제거 1회 더, 순서로 만든 셀에서 실측했다(2026-08-13).
 """
 
 from __future__ import annotations
