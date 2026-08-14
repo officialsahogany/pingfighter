@@ -112,8 +112,12 @@ static func build_sand_kickup_particle(
 	# deleting older grains mid-fade.
 	var life: float = rng.randf_range(14.0, 24.0)
 	return {
-		"x": origin.x + rng.randf_range(-5.0, 5.0),
-		"y": origin.y + rng.randf_range(-2.5, 2.5),
+		# origin is used verbatim. Scatter is applied by the caller BEFORE it samples the
+		# dune crest: jittering x here instead would move the grain away from the column
+		# whose depth decided its spawn height, and it would land inside the painted dune
+		# wherever the crest steps between those two columns.
+		"x": origin.x,
+		"y": origin.y,
 		"vx": throw_dir * lateral * speed_scale,
 		"vy": outward * lift * speed_scale,
 		"life": life,

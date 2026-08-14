@@ -89,6 +89,15 @@ static func is_core_always_render_particle(weather_type: String, kind: String) -
 # weather_event_state.draw) so the core-always-render + windowed-debris policy can
 # never drift between them. Loops iterate from index 0 (not particle_start) and defer
 # the cutoff decision here.
+# Stride exemption decided by the PARTICLE, not by the ambient weather context. The
+# context type is cleared the moment weather ends (weather_event_state.force_end_weather_event),
+# but sand particles deliberately outlive it through the dissolve phase — keying the
+# exemption on the context alone would hand those surviving grains back to the stride and
+# make them strobe exactly when the wall is crumbling.
+static func is_stride_exempt_particle(weather_type: String, kind: String) -> bool:
+	return is_stride_exempt_weather_type(weather_type) or kind == "sand"
+
+
 static func should_skip_windowed_particle(
 	weather_type: String,
 	kind: String,
@@ -100,6 +109,8 @@ static func should_skip_windowed_particle(
 		return false
 	if index < particle_start:
 		return true
+	if stride > 1 and is_stride_exempt_particle(weather_type, kind):
+		return false
 	if stride > 1 and (index - particle_start) % stride != 0:
 		return true
 	return false

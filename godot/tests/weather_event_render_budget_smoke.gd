@@ -116,6 +116,9 @@ func _init() -> void:
 	_verify_sand_kickup_spray_uses_isolated_rng()
 	_verify_sand_kickup_spray_render_continuity()
 	_verify_sand_kickup_spray_mirrors_and_walks()
+	_verify_sand_kickup_spray_respects_drawn_surface()
+	_verify_sand_kickup_spray_stays_on_eroded_ground()
+	_verify_sand_particles_survive_weather_end()
 	_verify_draw_context_route()
 
 	if _failures.is_empty():
@@ -631,6 +634,141 @@ func _verify_sand_kickup_spray_mirrors_and_walks() -> void:
 	_expect(
 		backward_grains > 0,
 		"walking must be able to throw a grain BACKWARD: the wake/bow split must survive a leg that only ever emits one grain per frame"
+	)
+
+
+# Depth the SEVERE renderer actually paints at world_pos: it samples every Nth segment
+# centre and straight-lines between them, so a trench in an unsampled segment is bridged.
+func _severe_drawn_depth(depths: Array, world_pos: float) -> float:
+	var stride: int = WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD
+	var axis_start: float = WeatherEventState.SAND_HORIZONTAL_START
+	var seg: float = WeatherEventState.SAND_SEG_SIZE
+	var sampled: Array[int] = []
+	for index in range(0, depths.size(), stride):
+		sampled.append(index)
+	if sampled[sampled.size() - 1] != depths.size() - 1:
+		sampled.append(depths.size() - 1)
+	for slot in range(sampled.size() - 1):
+		var low_index: int = sampled[slot]
+		var high_index: int = sampled[slot + 1]
+		var low_x: float = axis_start + float(low_index) * seg + seg * 0.5
+		var high_x: float = axis_start + float(high_index) * seg + seg * 0.5
+		if world_pos < low_x or world_pos > high_x:
+			continue
+		var blend: float = clampf((world_pos - low_x) / maxf(0.001, high_x - low_x), 0.0, 1.0)
+		return lerpf(float(depths[low_index]), float(depths[high_index]), blend)
+	return float(depths[clampi(int((world_pos - axis_start) / seg), 0, depths.size() - 1)])
+
+
+func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+	var weather := _build_sand_weather_fixture(40.0)
+	var segment_count: int = weather._get_sand_segment_count("bottom")
+	# NON-uniform wall: deep dune with a narrow trench cut into segments the severe
+	# renderer never samples. A uniform 40/0 fixture cannot detect this class of bug.
+	var depths: Array = []
+	for index in range(segment_count):
+		depths.append(2.0 if index % WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD == 2 else 42.0)
+	# Sweep the whole wall over many frames: trenches are 1-in-N segments, so a single
+	# 28 px dash frame emits too few grains to reliably land on one.
+	var checked := 0
+	var buried := 0
+	var worst_depth_inside := 0.0
+	var x := 100.0
+	owner.player_pos = Vector2(x, 700.0)
+	for _frame in range(40):
+		var refill: Array = []
+		for index in range(segment_count):
+			refill.append(2.0 if index % WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD == 2 else 42.0)
+		weather.sand_wall_depths["bottom"] = refill
+		weather.sand_depths = refill
+		weather.weather_particles.clear()
+		x += 28.0
+		if x > 580.0:
+			x = 100.0
+			owner.player_pos = Vector2(x, 700.0)
+			continue
+		_drive_sand_dash_frame(weather, owner, registry, x, true)
+		for value in weather.weather_particles:
+			if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
+				continue
+			checked += 1
+			var grain_x: float = float(value.get("x", 0.0))
+			var grain_y: float = float(value.get("y", 0.0))
+			var drawn_surface_y: float = WeatherEventState.FIELD_HEIGHT - _severe_drawn_depth(refill, grain_x)
+			if grain_y > drawn_surface_y + 1.0:
+				buried += 1
+				worst_depth_inside = maxf(worst_depth_inside, grain_y - drawn_surface_y)
+	_expect(checked > 8, "the drawn-surface leg must produce a real sample of grains, or it proves nothing")
+	_expect(
+		buried == 0,
+		"%d/%d kick-up grains started INSIDE the painted dune (worst %.1f px deep): the SEVERE renderer bridges over trenches in segments it never samples, so spraying from the raw trench depth buries the grain and it climbs out of solid sand" % [buried, checked, worst_depth_inside]
+	)
+
+
+func _verify_sand_kickup_spray_stays_on_eroded_ground() -> void:
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+	var weather := _build_sand_weather_fixture(40.0)
+	var segment_count: int = weather._get_sand_segment_count("bottom")
+	# Partial cluster: sand only on the LEFT half of the swept span. A dash clipping the
+	# cluster edge must not throw grains up off the untouched bare floor to its right.
+	var boundary_x: float = 360.0
+	var depths: Array = []
+	for index in range(segment_count):
+		var seg_x: float = WeatherEventState.SAND_HORIZONTAL_START + float(index) * WeatherEventState.SAND_SEG_SIZE
+		depths.append(40.0 if seg_x < boundary_x else 0.0)
+	weather.sand_wall_depths["bottom"] = depths
+	weather.sand_depths = depths
+	weather.weather_particles.clear()
+	# Paddle centre sweeps from inside the cluster to well past its edge.
+	owner.player_pos = Vector2(boundary_x - 155.0 * 0.5 - 20.0, 700.0)
+	_drive_sand_dash_frame(weather, owner, registry, owner.player_pos.x + 90.0, true)
+
+	var checked := 0
+	var off_cluster := 0
+	var worst_x := 0.0
+	for value in weather.weather_particles:
+		if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
+			continue
+		checked += 1
+		var grain_x: float = float(value.get("x", 0.0))
+		if grain_x > boundary_x + WeatherEventState.SAND_SEG_SIZE:
+			off_cluster += 1
+			worst_x = maxf(worst_x, grain_x)
+	_expect(checked > 0, "the boundary-dash leg must actually produce grains, or it proves nothing")
+	_expect(
+		off_cluster == 0,
+		"%d/%d kick-up grains landed past the cluster edge (worst x=%.1f vs edge %.1f): erosion reports only a TOTAL, so sampling the whole swept span throws sand off bare floor the dash never disturbed" % [off_cluster, checked, worst_x, boundary_x]
+	)
+	# The recorded erode sub-span is the mechanism, and it must be strictly narrower than
+	# the swept span here — otherwise the assertion above could be passing only because of
+	# the separate crest-depth gate and would not notice the span tracking regressing.
+	_expect(
+		weather._has_sand_erode_hit_span()
+		and weather._sand_erode_hit_max < owner.player_pos.x + 155.0 * 0.5,
+		"the eroded sub-span must be recorded and must stop short of the swept span's far end on a cluster-edge dash"
+	)
+
+
+func _verify_sand_particles_survive_weather_end() -> void:
+	# Sand grains deliberately outlive the weather event through the dissolve phase, but
+	# force_end_weather_event clears the context type. If the stride exemption is keyed on
+	# the context instead of the particle, those surviving grains get handed back to the
+	# severe stride and strobe exactly while the wall is crumbling.
+	_expect(
+		WeatherEventRenderBudget.is_stride_exempt_particle("", "sand"),
+		"a sand grain must stay stride-exempt after the weather type is cleared, or the dissolve phase re-introduces the 1-in-3 strobe"
+	)
+	_expect(
+		not WeatherEventRenderBudget.should_skip_windowed_particle("", "sand", 1, 0, 3),
+		"a surviving sand grain must still draw under a stride-3 budget once weather has ended"
+	)
+	# Control: the per-particle exemption must not blanket-exempt everything.
+	_expect(
+		WeatherEventRenderBudget.should_skip_windowed_particle("", "rain", 1, 0, 3),
+		"the per-particle stride exemption must stay scoped to sparse kinds"
 	)
 
 
