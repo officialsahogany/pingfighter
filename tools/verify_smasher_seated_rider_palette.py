@@ -36,10 +36,22 @@ import numpy as np
 from PIL import Image
 
 REF_SHEET = Path("godot/assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png")
+# 기저 시트: 승인 + 동일 생성 경로(포즈 시드 없는 spritesheet) + 동일 세션.
+# 기각 자산(sd_unified)·이종 생성원(gemini_v2)은 진단 전용이며 여기에 넣지 않는다.
+BASIS_SHEETS = [
+    REF_SHEET,
+    Path("godot/assets/sprites/smasher/hanmiryang_rear_cloud_glide_right_autosprite_v1_4x2_160_clean.png"),
+]
+# 조상 512 셀(프로토콜 패리티 진단용). 없으면 해당 레그를 건너뛴다.
+ANCESTOR_SHEET = Path(".tmp/SET2_idle_raw.png")
+ANCESTOR_CELLS = [0, 1, 2, 5, 6, 7]     # 출하 8프레임에 실루엣 IoU 0.946~0.966 으로 대응
+ANCESTOR_GRID = 3
+ANCESTOR_CELL_PX = 512
 REF_CELL = 160
 REF_COLS = 4
 REF_FRAMES = 8
-REF_CLOUD_CUT_Y = 96          # 레퍼런스에만 적용
+# 구름 제외 컷: 레퍼런스 bbox(y 26..128) 에서 정본 y<96 을 재현하는 피규어 분율.
+CLOUD_CUT_FRACTION = (96 - 26) / 103.0
 OCCUPANCY_FRACTION = 0.30
 
 MATERIAL_NAMES = [
@@ -164,14 +176,54 @@ def measure(arr, cloud_cut=None):
     return out, denom
 
 
+def figure_cut(arr):
+    """구름 제외 컷을 **피규어 분율**로 잡는다.
+
+    구 구현의 하드코딩 `y < 96` 은 손으로 맞춘 상수라 그 값에서만 자기정합이었다
+    (94/95/97/98 에서는 레퍼런스 자신이 탈락). 레퍼런스 bbox(y 26..128, h 103)에서
+    96 을 재현하는 분율로 환산해 두면 조상 512 셀이나 다른 승인 시트에도 같은 규칙이
+    적용된다.
+    """
+    op = arr[..., 3] > 200
+    ys = np.nonzero(op.any(axis=1))[0]
+    if not len(ys):
+        return None
+    h = ys.max() - ys.min() + 1
+    return int(ys.min() + round(h * CLOUD_CUT_FRACTION))
+
+
+def sheet_frames(path, frames=8, cell=REF_CELL, cols=REF_COLS):
+    """구름 있는 승인 시트의 프레임별 측정. 컷은 피규어 분율로 자기보정된다."""
+    sheet = np.array(Image.open(path).convert("RGBA"))
+    out = []
+    for i in range(frames):
+        r, c = divmod(i, cols)
+        block = sheet[r * cell:(r + 1) * cell, c * cell:(c + 1) * cell]
+        out.append(measure(block, cloud_cut=figure_cut(block))[0])
+    return out
+
+
 def reference_frames(repo):
-    """승인 idle 8프레임 각각의 재질별 (중앙 Lab, 점유율). 양성 대조군은 이것뿐이다."""
-    sheet = np.array(Image.open(Path(repo) / REF_SHEET).convert("RGBA"))
+    """기저 프레임 = 승인 rear_cloud 계열 **2시트**(idle + glide_right).
+
+    ⚠️ 2026-08-15 수리. 단일 시트 기저는 계측기로 성립하지 않는다:
+    한 시트의 프레임들은 독립 표본이 아니라 **복제**라(f2≡f3, f5≡f6 은 바이트 동일,
+    ICC 기준 n_eff≈1) 반경이 시트 간 변동이 아니라 프레임 잡음을 재게 된다. 그 결과
+    **같은 세션·같은 경로로 생성된 승인 자매 시트 glide_right 가 8/8 탈락**했다.
+    승인 아트를 들이지 못하는 게이트는 후보에 대해 아무것도 말해주지 못한다.
+
+    그래서 기저를 **승인 + 동일 생성 경로(포즈 시드 없는 spritesheet)** 인 자매 시트
+    한 장까지만 확장한다. 기각 자산(sd_unified)과 이종 생성원(gemini_v2)은 계속
+    **진단 자료 전용**이며 기저에 넣지 않는다.
+
+    ★ 이 확장은 후보를 구제하지 않는다(반드시 유지해야 하는 성질): R2 는 기저를
+    idle 단독 / +512조상 / +glide / 전부 중 무엇으로 잡아도 worst-ratio
+    7.92 / 5.42 / 5.37 / 5.26 으로 **전부 FAIL** 이다.
+    """
+    root = Path(repo)
     frames = []
-    for i in range(REF_FRAMES):
-        r, c = divmod(i, REF_COLS)
-        cell = sheet[r * REF_CELL:(r + 1) * REF_CELL, c * REF_CELL:(c + 1) * REF_CELL]
-        frames.append(measure(cell, cloud_cut=REF_CLOUD_CUT_Y)[0])
+    for rel in BASIS_SHEETS:
+        frames.extend(sheet_frames(root / rel))
     return frames
 
 
@@ -196,8 +248,28 @@ def basis_from(frames):
     return basis
 
 
+def ancestor_frames(repo):
+    """레퍼런스 아트의 512 조상 셀을 **후보와 동일한 파이프라인**으로 통과시킨 측정.
+
+    프로토콜 패리티 진단용. 레퍼런스는 native 160 에서, 후보는 512 -> Lanczos 160 으로
+    재므로 같은 아트라도 계통 오차가 생긴다. 이 레그가 그 크기를 드러낸다.
+    """
+    path = Path(repo) / ANCESTOR_SHEET
+    if not path.exists():
+        return None
+    sheet = np.array(Image.open(path).convert("RGBA"))
+    out = []
+    for idx in ANCESTOR_CELLS:
+        r, c = divmod(idx, ANCESTOR_GRID)
+        cell = sheet[r * ANCESTOR_CELL_PX:(r + 1) * ANCESTOR_CELL_PX,
+                     c * ANCESTOR_CELL_PX:(c + 1) * ANCESTOR_CELL_PX]
+        a160 = premultiplied_lanczos(Image.fromarray(cell), REF_CELL)
+        out.append(measure(a160, cloud_cut=figure_cut(a160))[0])
+    return out
+
+
 def show_basis(basis):
-    print("[N6b 기준] 승인 idle 8프레임 medoid + 실측 반경")
+    print("[N6b 기준] 승인 rear_cloud 2시트(idle + glide_right) medoid + 실측 반경")
     print("  %-19s %-24s %6s %8s %s" % ("재질", "medoid Lab", "frame", "반경", "점유율(관측/하한)"))
     for name in MATERIAL_NAMES:
         b = basis[name]
@@ -243,6 +315,9 @@ def main():
     args = ap.parse_args()
 
     frames = reference_frames(args.repo)
+    anc = ancestor_frames(args.repo)
+    if anc:
+        frames = frames + anc
     basis = basis_from(frames)
 
     if args.show_basis:
@@ -251,19 +326,49 @@ def main():
 
     if args.self_test:
         show_basis(basis)
-        print("\n[자기검정] 승인 idle 8프레임을 후보 자리에 넣는다 - 전부 반경 이내여야 한다")
-        ok = True
-        for i, f in enumerate(frames):
-            row = []
-            for name in MATERIAL_NAMES:
-                b = basis[name]
-                de = ciede2000(f[name][0], b["medoid"])
-                bad = de > b["radius"]
-                ok = ok and not bad
-                row.append("%6.3f%s" % (de, "*" if bad else " "))
-            print("  idle f%d  %s" % (i, " ".join(row)))
-        print("  => %s%s" % ("PASS" if ok else "FAIL", "" if ok else "  (* = 반경 초과)"))
-        return 0 if ok else 1
+
+        def run_leg(title, legs, fatal):
+            ok = True
+            print("\n%s" % title)
+            for label, f in legs:
+                row = []
+                for name in MATERIAL_NAMES:
+                    b = basis[name]
+                    if f[name][0] is None:
+                        row.append("  none*")
+                        ok = False
+                        continue
+                    de = ciede2000(f[name][0], b["medoid"])
+                    bad = de > b["radius"]
+                    ok = ok and not bad
+                    row.append("%6.3f%s" % (de, "*" if bad else " "))
+                print("  %-22s %s" % (label, " ".join(row)))
+            print("  => %s%s" % ("PASS" if ok else "FAIL",
+                                 "" if ok else ("  (* = 반경 초과)" if fatal else "  (진단 전용, exit 에 반영 안 함)")))
+            return ok
+
+        names = []
+        for si in range(len(BASIS_SHEETS)):
+            for i in range(REF_FRAMES):
+                names.append("%s f%d" % ("idle" if si == 0 else "glide", i))
+        if anc:
+            names += ["ancestor c%d" % c for c in ANCESTOR_CELLS]
+        ok1 = run_leg("[레그 1] 기저 커버리지 - 반경 정의상 항상 통과(동어반복, 산술 확인용)",
+                      list(zip(names, frames)), True)
+
+        # 레그 2 는 기저 밖 승인 아트다. 게이트가 자기 자신만 통과시키는지 보는 유일한 레그.
+        held = Path(args.repo) / ("godot/assets/sprites/smasher/"
+                                  "hanmiryang_rear_cloud_dash_right_autosprite_v1_4x2_160_clean.png")
+        if held.exists():
+            run_leg("[레그 2 · 진단] 기저 밖 승인 시트 dash_right - exit 에 반영 안 함",
+                    [("dash_right f%d" % i, f) for i, f in enumerate(sheet_frames(held))], False)
+            print("  주의: dash 는 자세가 달라 컷 창이 다르게 잡히고 bronze 는 구름 오염이다")
+            print("        (L*>60 비율 85~86%, 레퍼런스 21%). 이 시트의 bronze/cream 은 판정 불가.")
+        print("\n  계측기 판별력 실적(2026-08-15, 기저 밖 아트로 확인):")
+        print("    Route-A iso_idle_up 16프레임 중 4프레임이 5재질 전부 통과 (참 양성)")
+        print("    Route-C 후보 R2 는 5/5 초과 (참 음성, worst-ratio 5.3~7.9)")
+        print("\n  자기검정 종합: %s" % ("PASS" if ok1 else "FAIL"))
+        return 0 if ok1 else 1
 
     if not args.candidate:
         print("candidate 경로가 필요합니다 (또는 --self-test / --show-basis)")
