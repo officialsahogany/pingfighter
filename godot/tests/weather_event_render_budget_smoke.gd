@@ -121,6 +121,7 @@ func _init() -> void:
 	_verify_sand_kickup_spray_mirrors_and_walks()
 	_verify_sand_kickup_spray_respects_drawn_surface()
 	_verify_sand_kickup_spray_stays_on_eroded_ground()
+	_verify_sand_kickup_spray_stays_on_drawn_mesh()
 	_verify_sand_ball_impact_stays_in_budget()
 	_verify_sand_particles_survive_weather_end()
 	_verify_draw_context_route()
@@ -678,6 +679,12 @@ func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
 	var depths: Array = []
 	for index in range(segment_count):
 		depths.append(2.0 if index % WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD == 2 else 42.0)
+	# The gap budget below is only meaningful if the shipped quality really resolves to
+	# the severe stride, which is what _severe_drawn_depth models.
+	_expect(
+		weather._get_sand_spray_min_render_stride() == WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD,
+		"the spray must resolve the LIVE render stride to the shipped severe one here; if this flips, the surface assertions below are measuring a stride the build never draws"
+	)
 	# Sweep the whole wall over many frames: trenches are 1-in-N segments, so a single
 	# 28 px dash frame emits too few grains to reliably land on one.
 	var checked := 0
@@ -710,17 +717,12 @@ func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
 			if grain_y > drawn_surface_y + 1.0:
 				buried += 1
 				worst_depth_inside = maxf(worst_depth_inside, grain_y - drawn_surface_y)
-			# Opposite direction: the spawn crest must be a surface the renderer really
-			# paints at this column, not a peak borrowed from segments away. A loose
-			# neighbourhood maximum clears the buried check while floating grains tens of
-			# pixels off the sand, so the outward gap is bounded too.
-			var target_depth: float = 0.0
-			for stride in WeatherEventState.SAND_SPRAY_RENDER_STRIDES:
-				target_depth = maxf(target_depth, _drawn_depth_for_stride(refill, grain_x, int(stride)))
-			var target_surface_y: float = WeatherEventState.FIELD_HEIGHT - target_depth
-			if target_surface_y - grain_y > SAND_SPRAY_MAX_OUTWARD_GAP_PX:
+			# Opposite direction, measured against the SHIPPED severe surface — the one the
+			# player actually sees. Measuring against whatever surface production picked
+			# would just restate production's own choice and pass by construction.
+			if drawn_surface_y - grain_y > SAND_SPRAY_MAX_OUTWARD_GAP_PX:
 				floating += 1
-				worst_gap = maxf(worst_gap, target_surface_y - grain_y)
+				worst_gap = maxf(worst_gap, drawn_surface_y - grain_y)
 	_expect(checked > 8, "the drawn-surface leg must produce a real sample of grains, or it proves nothing")
 	_expect(
 		buried == 0,
@@ -781,6 +783,61 @@ func _verify_sand_kickup_spray_stays_on_eroded_ground() -> void:
 	_expect(
 		weather._has_sand_erode_hit_span() and weather._sand_erode_hit_max <= boundary_x,
 		"the recorded erode span must end at the cluster edge (recorded max=%.1f vs edge %.1f): it has to come from eroded SEGMENTS, not from erode call centres" % [weather._sand_erode_hit_max, boundary_x]
+	)
+
+
+func _verify_sand_kickup_spray_stays_on_drawn_mesh() -> void:
+	# The dune mesh stitches consecutive crest vertices, and those sit at segment
+	# CENTRES — so it spans first-centre..last-centre, half a segment short of the wall
+	# at each end. Erosion reaches the outer segment BOUNDARIES, so a dash at the very end
+	# of the wall can otherwise spray off geometry that is never painted. The boss reaches
+	# further along the top wall than the player does along the bottom, so both ends are
+	# driven right into their stops.
+	var registry := FakeSandRegistry.new()
+	var weather := _build_sand_weather_fixture(40.0)
+	var top_count: int = weather._get_sand_segment_count("top")
+	var seg: float = WeatherEventState.SAND_SEG_SIZE
+	var axis_start: float = WeatherEventState.SAND_HORIZONTAL_START
+	var crest_low: float = axis_start + seg * 0.5
+	var crest_high: float = axis_start + float(top_count - 1) * seg + seg * 0.5
+
+	var checked := 0
+	var off_mesh := 0
+	var worst_x := 0.0
+	for pass_index in range(2):
+		var owner := FakeSandOwner.new()
+		var boss_width: float = owner.boss_paddle_width
+		# Pass 0 drives into the RIGHT end stop, pass 1 into the LEFT.
+		var start_x: float = (WeatherEventState.FIELD_WIDTH - boss_width - 90.0) if pass_index == 0 else 90.0
+		owner.boss_pos = Vector2(start_x, 25.0)
+		registry.boss_ai_state.snapshot = {"active": true}
+		for _step in range(6):
+			var refill: Array = []
+			for _index in range(top_count):
+				refill.append(40.0)
+			weather.sand_wall_depths["top"] = refill
+			weather.weather_particles.clear()
+			var next_x: float = clampf(
+				owner.boss_pos.x + (28.0 if pass_index == 0 else -28.0),
+				0.0,
+				WeatherEventState.FIELD_WIDTH - boss_width
+			)
+			weather.apply_boss_motion_effects_to_result(
+				{"boss_pos": Vector2(next_x, 25.0)}, owner, registry, 1.0
+			)
+			owner.boss_pos = Vector2(next_x, 25.0)
+			for value in weather.weather_particles:
+				if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
+					continue
+				checked += 1
+				var grain_x: float = float(value.get("x", 0.0))
+				if grain_x < crest_low - 0.5 or grain_x > crest_high + 0.5:
+					off_mesh += 1
+					worst_x = maxf(worst_x, absf(grain_x - clampf(grain_x, crest_low, crest_high)))
+	_expect(checked > 0, "the wall-end leg must actually produce grains, or it proves nothing")
+	_expect(
+		off_mesh == 0,
+		"%d/%d kick-up grains landed outside the painted dune mesh (worst %.1f px past the crest span %.1f..%.1f): the mesh stops at the outer segment CENTRES while erosion reaches the segment boundaries" % [off_mesh, checked, worst_x, crest_low, crest_high]
 	)
 
 

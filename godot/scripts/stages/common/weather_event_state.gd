@@ -3,6 +3,7 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const WeatherEventPayloadFactory := preload("res://scripts/stages/common/weather_event_payload_factory.gd")
 const WeatherEventRenderBudget := preload("res://scripts/stages/common/weather_event_render_budget.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const WEATHER_TYPES := ["breeze", "gust", "fire", "ice", "rain", "hail", "sand"]
 const WEATHER_DURATION_WEIGHTS := [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]
@@ -1736,14 +1737,19 @@ func _spawn_sand_kickup_spray(
 	_set_sand_spray_carry(side, clampf(carry - float(count), 0.0, 2.0))
 	if count <= 0:
 		return
-	# Emit only across the segments that actually lost depth this frame.
+	# Emit only across the segments that actually lost depth this frame, and only where
+	# the dune mesh actually exists (it stops at the outer segment CENTRES).
 	if not _has_sand_erode_hit_span():
 		return
-	var span_from: float = _sand_erode_hit_min
-	var span_to: float = _sand_erode_hit_max
+	var crest_span: Vector2 = _get_sand_crest_span(side)
+	if crest_span.y <= crest_span.x:
+		return
+	var span_from: float = clampf(_sand_erode_hit_min, crest_span.x, crest_span.y)
+	var span_to: float = clampf(_sand_erode_hit_max, crest_span.x, crest_span.y)
 	var outward: float = -1.0 if side == "bottom" else 1.0
 	var speed_scale: float = clampf(moved / SAND_SPRAY_SPEED_REFERENCE_PX, 0.55, 2.1)
 	var sand_color: Color = _get_weather_color("sand")
+	var min_stride: int = _get_sand_spray_min_render_stride()
 	var ordinal: int = _get_sand_spray_ordinal(side)
 	var emitted := 0
 	for _grain in range(count):
@@ -1758,10 +1764,10 @@ func _spawn_sand_kickup_spray(
 		)
 		# Even inside the eroded sub-span the wall can have gaps, so a grain is only
 		# thrown where there is still a dune to throw it off.
-		if _get_sand_depth_at(side, along) <= SAND_SPRAY_MIN_CREST_DEPTH:
+		if _get_sand_depth_at(side, along, min_stride) <= SAND_SPRAY_MIN_CREST_DEPTH:
 			continue
 		weather_particles.append(WeatherEventPayloadFactory.build_sand_kickup_particle(
-			_get_sand_surface_point(side, along),
+			_get_sand_surface_point(side, along, min_stride),
 			travel_dir,
 			outward,
 			speed_scale,
@@ -1785,8 +1791,8 @@ func _is_sand_spray_supported_side(side: String) -> bool:
 	return side == "bottom" or side == "top"
 
 
-func _get_sand_surface_point(side: String, world_pos: float) -> Vector2:
-	var depth: float = _get_sand_depth_at(side, world_pos)
+func _get_sand_surface_point(side: String, world_pos: float, min_stride: int = 1) -> Vector2:
+	var depth: float = _get_sand_depth_at(side, world_pos, min_stride)
 	# Strictly outward. Any inward component would seat the grain below the painted crest,
 	# which is what makes a spray read as climbing out of solid sand rather than off it.
 	var lift: float = _sand_spray_rng.randf_range(1.5, 6.5)
@@ -1810,14 +1816,46 @@ func _get_sand_surface_point(side: String, world_pos: float) -> Vector2:
 # or above every candidate surface (no burying) while staying a real surface — a raw
 # neighbourhood maximum also clears them all, but it can borrow an unrelated peak several
 # segments away and launch the grain tens of pixels above the sand.
-func _get_sand_depth_at(side: String, world_pos: float) -> float:
+func _get_sand_depth_at(side: String, world_pos: float, min_stride: int = 1) -> float:
 	var depths: Array = _get_sand_depths(side)
 	if depths.is_empty():
 		return 0.0
 	var crest: float = 0.0
 	for stride in SAND_SPRAY_RENDER_STRIDES:
-		crest = maxf(crest, _get_sand_drawn_depth(depths, side, world_pos, int(stride)))
+		var candidate: int = int(stride)
+		if candidate < min_stride:
+			continue
+		crest = maxf(crest, _get_sand_drawn_depth(depths, side, world_pos, candidate))
 	return crest
+
+
+# The stride the wall will actually be drawn with, resolved from the LIVE render quality
+# rather than assumed. Taking the maximum over EVERY stride is safe but not honest: where
+# a fine stride sees a spike the shipped severe stride bridges past, it starts the grain
+# tens of pixels off the dune the player is really looking at.
+#
+# Only per-context modifiers (Viper airborne) can push the draw-time scale BELOW what is
+# visible from here, and a lower scale only ever means a coarser stride — so every stride
+# at or above this one stays a candidate, and the shipped severe case resolves to severe
+# alone.
+func _get_sand_spray_min_render_stride() -> int:
+	return WeatherEventRenderBudget.get_sand_render_stride(BattleRenderQuality.effect_scale())
+
+
+# The textured dune mesh only spans the FIRST to the LAST segment centre — it stitches
+# consecutive crest vertices, and those sit at centres. The eroded span reaches the outer
+# segment BOUNDARIES, half a segment further out at each end, where no dune is painted at
+# all. Emission is clamped to the crest span so a wall-end dash cannot throw grains off
+# geometry that does not exist.
+func _get_sand_crest_span(side: String) -> Vector2:
+	var depths: Array = _get_sand_depths(side)
+	var axis_start: float = _get_sand_axis_start(side)
+	if depths.is_empty():
+		return Vector2(axis_start, axis_start)
+	return Vector2(
+		axis_start + SAND_SEG_SIZE * 0.5,
+		axis_start + float(depths.size() - 1) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+	)
 
 
 # The crest one specific render stride paints at world_pos: the renderer samples every
