@@ -2,18 +2,31 @@
 
 계약: docs/lingpet_mount_rider_seated_smasher_brief.md §3-1.
 
+기준 정의(2026-08-15 개정 — 사용자 판정):
+  **승인 idle 8프레임 medoid + 실측 반경**. 재질별로 8프레임 각각의 중앙 Lab 을 구하고,
+  다른 7개까지의 **최대** dE2000 이 가장 작은 프레임을 medoid 로 삼는다. 그때의 최대
+  거리가 **실측 반경**이다. 후보는 medoid 로부터 반경 이내여야 한다.
+
+  ⚠️ 구 기준(프레임 0 중심 + 평탄 dE <= 2.5)은 폐기됐다. 그 기준은 idle 자기 시트의
+  f2·f3(bronze 2.97 · cream 2.63)를 잘못 탈락시켰다. 반경은 관측에서 나오지, 임의의
+  상수에서 나오지 않는다.
+
+  ⚠️ 양성 대조군은 **승인 idle 8프레임뿐이다.** sd_unified_* 는 출하 자산이 아니다
+  (production record `promotion_status = rejected_motion_qa_runtime_rolled_back`,
+  런타임은 battle_smasher_sprite_paths.gd 에서 별도 시트를 읽는다). gemini_v2 등
+  이종 생성원 시트도 마찬가지로 **진단 자료 전용**이며 기준 산출에 넣지 않는다.
+
 관측 해상도 정본(2026-08-14):
   후보    = premultiplied-alpha Lanczos 로 **운영 draw size(기본 160)** 에 축소
-  레퍼런스 = 승인 idle 시트 프레임 0 의 **native 160** 셀, 구름 제외 y < 96
-
-판정: 재질별 후보 **중앙 Lab** 이 계약 중심과 dE2000 <= 2.5, 그리고 점유율이
-      레퍼런스 점유율의 30% 이상.
+  레퍼런스 = 승인 idle 시트의 **native 160** 셀, 구름 제외 y < 96
 
 사용법:
   py tools/verify_smasher_seated_rider_palette.py <candidate.png> [--draw 160]
-  py tools/verify_smasher_seated_rider_palette.py --self-test    # 레퍼런스 자기검정
+  py tools/verify_smasher_seated_rider_palette.py --self-test    # 8프레임 자기검정
+  py tools/verify_smasher_seated_rider_palette.py --show-basis   # medoid·반경 표만 출력
 
-레퍼런스를 후보로 넣으면 전 재질 dE ~= 0 으로 통과해야 한다(자기검정).
+자기검정은 8프레임 **전부**를 후보 자리에 넣는다. 하나라도 반경을 벗어나면 기준이
+자기 자신을 기각하는 것이므로 exit 1 이다.
 """
 import argparse
 import sys
@@ -24,17 +37,17 @@ from PIL import Image
 
 REF_SHEET = Path("godot/assets/sprites/smasher/hanmiryang_rear_cloud_idle_autosprite_v1_4x2_160_clean.png")
 REF_CELL = 160
+REF_COLS = 4
+REF_FRAMES = 8
 REF_CLOUD_CUT_Y = 96          # 레퍼런스에만 적용
-DE_MAX = 2.5
 OCCUPANCY_FRACTION = 0.30
 
-# 계약 §3-1 확정값 (재질, 중심 Lab, 레퍼런스 점유율 %)
-MATERIALS = [
-    ("indigo_hair_dress", (22.0, 7.4, -15.8), 55.86),
-    ("cream_sleeve", (87.9, 2.2, 4.3), 5.40),
-    ("red_accent", (32.0, 20.8, 13.3), 9.22),
-    ("wood_shield", (24.3, 14.4, 10.5), 8.28),
-    ("bronze_beopgu", (47.9, 8.2, 15.6), 11.98),
+MATERIAL_NAMES = [
+    "indigo_hair_dress",
+    "cream_sleeve",
+    "red_accent",
+    "wood_shield",
+    "bronze_beopgu",
 ]
 
 
@@ -151,26 +164,71 @@ def measure(arr, cloud_cut=None):
     return out, denom
 
 
-def report(res, denom, label):
-    print("%s  (분모 candidate_opaque = %d px)" % (label, denom))
-    print("  %-19s %-26s %8s %8s %s" % ("재질", "중앙 Lab", "dE2000", "점유율%", "판정"))
+def reference_frames(repo):
+    """승인 idle 8프레임 각각의 재질별 (중앙 Lab, 점유율). 양성 대조군은 이것뿐이다."""
+    sheet = np.array(Image.open(Path(repo) / REF_SHEET).convert("RGBA"))
+    frames = []
+    for i in range(REF_FRAMES):
+        r, c = divmod(i, REF_COLS)
+        cell = sheet[r * REF_CELL:(r + 1) * REF_CELL, c * REF_CELL:(c + 1) * REF_CELL]
+        frames.append(measure(cell, cloud_cut=REF_CLOUD_CUT_Y)[0])
+    return frames
+
+
+def basis_from(frames):
+    """재질별 medoid(최대거리 최소 프레임) + 실측 반경 + 점유율 하한."""
+    basis = {}
+    for name in MATERIAL_NAMES:
+        labs = [f[name][0] for f in frames]
+        occs = [f[name][1] for f in frames]
+        if any(l is None for l in labs):
+            raise RuntimeError("레퍼런스 프레임에 %s 픽셀이 없다 — 기준 산출 불가" % name)
+        dist = [[ciede2000(a, b) for b in labs] for a in labs]
+        i = min(range(len(labs)), key=lambda k: max(dist[k]))
+        basis[name] = {
+            "medoid": labs[i],
+            "medoid_frame": i,
+            "radius": max(dist[i]),
+            "occ_min": min(occs),
+            "occ_max": max(occs),
+            "occ_floor": min(occs) * OCCUPANCY_FRACTION,
+        }
+    return basis
+
+
+def show_basis(basis):
+    print("[N6b 기준] 승인 idle 8프레임 medoid + 실측 반경")
+    print("  %-19s %-24s %6s %8s %s" % ("재질", "medoid Lab", "frame", "반경", "점유율(관측/하한)"))
+    for name in MATERIAL_NAMES:
+        b = basis[name]
+        m = b["medoid"]
+        print("  %-19s (%5.1f,%5.1f,%6.1f) %6d %8.3f   %.2f~%.2f%% / >=%.2f%%"
+              % (name, m[0], m[1], m[2], b["medoid_frame"], b["radius"],
+                 b["occ_min"], b["occ_max"], b["occ_floor"]))
+
+
+def report(res, denom, basis, label):
+    print("%s  (분모 opaque = %d px)" % (label, denom))
+    print("  %-19s %-24s %8s %8s %8s %s"
+          % ("재질", "중앙 Lab", "거리", "반경", "점유율%", "판정"))
     ok = True
-    for name, center, ref_occ in MATERIALS:
+    for name in MATERIAL_NAMES:
+        b = basis[name]
         med, occ, n = res[name]
-        floor = ref_occ * OCCUPANCY_FRACTION
         if med is None:
-            print("  %-19s %-26s %8s %8s FAIL(픽셀 0)" % (name, "-", "-", "0.00"))
+            print("  %-19s %-24s %8s %8.3f %8s FAIL(픽셀 0)"
+                  % (name, "-", "-", b["radius"], "0.00"))
             ok = False
             continue
-        de = ciede2000(med, center)
-        pass_de = de <= DE_MAX
-        pass_occ = occ >= floor
+        de = ciede2000(med, b["medoid"])
+        pass_de = de <= b["radius"]
+        pass_occ = occ >= b["occ_floor"]
         if not (pass_de and pass_occ):
             ok = False
-        print("  %-19s (%5.1f,%5.1f,%6.1f) %8.2f %8.2f %s%s"
-              % (name, med[0], med[1], med[2], de, occ,
-                 "PASS" if pass_de else "FAIL(dE)",
-                 "" if pass_occ else " FAIL(점유율<%.2f)" % floor))
+        print("  %-19s (%5.1f,%5.1f,%6.1f) %8.3f %8.3f %8.2f %s%s"
+              % (name, med[0], med[1], med[2], de, b["radius"], occ,
+                 "PASS" if pass_de else "FAIL(반경 초과)",
+                 "" if pass_occ else " FAIL(점유율<%.2f)" % b["occ_floor"]))
     print("  => %s" % ("PASS" if ok else "FAIL"))
     return ok
 
@@ -180,25 +238,43 @@ def main():
     ap.add_argument("candidate", nargs="?")
     ap.add_argument("--draw", type=int, default=160)
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--show-basis", action="store_true")
     ap.add_argument("--repo", default=".")
     args = ap.parse_args()
 
-    ref_path = Path(args.repo) / REF_SHEET
-    ref_cell = np.array(Image.open(ref_path).convert("RGBA"))[:REF_CELL, :REF_CELL]
-    ref_res, ref_denom = measure(ref_cell, cloud_cut=REF_CLOUD_CUT_Y)
+    frames = reference_frames(args.repo)
+    basis = basis_from(frames)
+
+    if args.show_basis:
+        show_basis(basis)
+        return 0
 
     if args.self_test:
-        print("[자기검정] 레퍼런스 native 160 (구름 제외 y<%d)" % REF_CLOUD_CUT_Y)
-        return 0 if report(ref_res, ref_denom, "레퍼런스") else 1
+        show_basis(basis)
+        print("\n[자기검정] 승인 idle 8프레임을 후보 자리에 넣는다 - 전부 반경 이내여야 한다")
+        ok = True
+        for i, f in enumerate(frames):
+            row = []
+            for name in MATERIAL_NAMES:
+                b = basis[name]
+                de = ciede2000(f[name][0], b["medoid"])
+                bad = de > b["radius"]
+                ok = ok and not bad
+                row.append("%6.3f%s" % (de, "*" if bad else " "))
+            print("  idle f%d  %s" % (i, " ".join(row)))
+        print("  => %s%s" % ("PASS" if ok else "FAIL", "" if ok else "  (* = 반경 초과)"))
+        return 0 if ok else 1
 
     if not args.candidate:
-        print("candidate 경로가 필요합니다 (또는 --self-test)")
+        print("candidate 경로가 필요합니다 (또는 --self-test / --show-basis)")
         return 2
     cand = premultiplied_lanczos(Image.open(args.candidate), args.draw)
     cand_res, cand_denom = measure(cand, cloud_cut=None)
-    print("[N6b] 후보 = %s → premultiplied Lanczos %dpx / 레퍼런스 = native %d"
-          % (args.candidate, args.draw, REF_CELL))
-    return 0 if report(cand_res, cand_denom, "후보") else 1
+    print("[N6b] 후보 = %s → premultiplied Lanczos %dpx / 기준 = 승인 idle 8f medoid+반경"
+          % (args.candidate, args.draw))
+    show_basis(basis)
+    print()
+    return 0 if report(cand_res, cand_denom, basis, "후보") else 1
 
 
 if __name__ == "__main__":
