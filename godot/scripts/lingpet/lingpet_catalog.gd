@@ -751,7 +751,12 @@ const PETS := {
 			"companion_mount_base_cols": 1.0,
 			"companion_mount_base_rows": 1.0,
 			"companion_mount_base_frame_count": 1.0,
-			"companion_mount_base_draw_size": 360.0,
+			# 210 = 횡 게이트 상한. 이 아트의 불투명 폭이 379/512 이라 화면 폭은
+			# draw_size × 0.740 이고, 패들 중앙 앵커에서 좌우 오버행 ≤3px 을 지키려면
+			# 화면 폭 ≤161px → draw_size ≤ 217.5 다(G9 스윕 실측: 240 부터 11~12px
+			# 오버행). ⚠️ 폭을 만드는 건 꼬리가 아니라 몸통·귀라서 꼬리를 더 감아도
+			# 이 상한은 내려가지 않는다 — 키우려면 아트 재설계가 필요하다.
+			"companion_mount_base_draw_size": 210.0,
 			"companion_mount_base_saddle_x": 256.0,
 			"companion_mount_base_saddle_y": 508.0,
 		},

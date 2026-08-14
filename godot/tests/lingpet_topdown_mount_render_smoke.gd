@@ -656,7 +656,7 @@ func _test_shipped_mount_base_asset() -> void:
 		"companion_mount_base_cols": 1.0,
 		"companion_mount_base_rows": 1.0,
 		"companion_mount_base_frame_count": 1.0,
-		"companion_mount_base_draw_size": 360.0,
+		"companion_mount_base_draw_size": 210.0,
 		"companion_mount_base_saddle_x": 256.0,
 		"companion_mount_base_saddle_y": 508.0,
 	}
@@ -664,7 +664,7 @@ func _test_shipped_mount_base_asset() -> void:
 	for key in expected:
 		if not is_equal_approx(LingpetCatalog.get_visual_layout_value("baekrin", str(key), -1.0), float(expected[key])):
 			layout_ok = false
-	_expect("출하 M: 레이아웃 6키가 승인 값과 일치(360 / 소켓 256·508)", layout_ok)
+	_expect("출하 M: 레이아웃 6키가 승인 값과 일치(210 / 소켓 256·508)", layout_ok)
 	# ★ 8-10 가드: N 착석 시트 5종이 완비될 때까지 topdown 모델은 **미등재**여야
 	# 한다. 여기서 true 가 되면 준비도 게이트가 매 프레임 N 부재로 거부하는
 	# 무의미한 경로가 열린다.

@@ -41,29 +41,40 @@
     "cols": 1,
     "rows": 1,
     "frame_count": 1,
-    "cell": [512, 512],
-    "sheet": [512, 512],
+    "cell": [
+      512,
+      512
+    ],
+    "sheet": [
+      512,
+      512
+    ],
     "read_order": "정적 1프레임(frame 0)"
   },
   "runtime": {
-    "draw_size": 360,
-    "saddle_socket_px": [256, 508],
+    "draw_size": 210,
+    "saddle_socket_px": [
+      256,
+      508
+    ],
     "socket_rule": "socket_x = 감청 패드 bbox 가로중앙, socket_y = (감청 패드 ∪ 연결된 금 프레임) 어셈블리 bbox 하단 — docs/lingpet_baekrin_mount_base_asset_brief.md §5-1 v2",
     "catalog_keys": [
       "companion_mount_base_cols=1.0",
       "companion_mount_base_rows=1.0",
       "companion_mount_base_frame_count=1.0",
-      "companion_mount_base_draw_size=360.0",
+      "companion_mount_base_draw_size=210.0",
       "companion_mount_base_saddle_x=256.0",
       "companion_mount_base_saddle_y=508.0"
     ],
-    "mount_presentation_model": "미등재 유지 — 계약 8-10(N 착석 시트 5종 완비 전 shipped 등재 금지)"
+    "mount_presentation_model": "미등재 유지 — 계약 8-10(N 착석 시트 5종 완비 전 shipped 등재 금지)",
+    "draw_size_rationale": "횡 게이트 상한. 불투명 폭 379/512 → 화면 폭 = draw_size × 0.740, 패들 중앙 앵커에서 좌우 오버행 ≤3px 을 지키려면 화면 폭 ≤161px → draw_size ≤ 217.5. 폭을 만드는 것은 꼬리가 아니라 몸통·귀이므로(꼬리 제외 bbox 폭도 379) 꼬리 재배치로는 상한을 올릴 수 없다."
   },
   "n_sheet_authoring": {
     "draw_size": 94,
     "seat_offset_px_cell512": 23.0,
-    "seat_offset_px_runtime": 16.2,
-    "rule": "착석 캐릭터의 엉덩이선을 셀 하단이 아니라 셀 하단에서 16.2px(운영) 위에 둔다. 셀 하단은 안장 어셈블리 하단(금 프레임 밑단)에 정렬되기 때문이다. **런타임 키가 아니라 저작 규격이다** — 레이아웃 키는 승인된 6개 그대로.",
+    "seat_offset_px_runtime": 9.43359375,
+    "seat_offset_px_authoring_512": 51.38298,
+    "rule": "착석 캐릭터의 엉덩이선을 셀 하단이 아니라 셀 하단에서 **운영 9.43359375px** 위에 둔다. ⚠️ N 원본이 512px 이면 그 좌표계 환산값은 **51.38298px** 다 — 512 원본에 9.43px 로 직접 저작하면 안 된다. 셀 하단은 M 안장 어셈블리 하단(금 프레임 밑단)에 정렬된다. 런타임 키가 아니라 저작 규격이며 이 매니페스트가 정본이다(레이아웃 키는 승인된 6개 그대로).",
     "seated_bottom_anchor": "N 셀 하단 = M 안장 어셈블리 하단 = 라이더 rect 하단 = 화면 y 762"
   },
   "acceptance": {
@@ -78,8 +89,15 @@
       "G6_width_cap": "PASS (0.740 <= 0.75 — 상한 0.75 고정, 후속 후보를 위한 재완화 금지)",
       "G7_tail_length": "PASS (측지 284px >= 187px = 레퍼런스 208 x 0.90)",
       "G8_palette_ciede2000": "PASS ×4 (중심 dE 백자 0.36 / 금 1.77 / 청자 2.09 / 감청 1.34, 산포·점유율 모두 상한 내)",
-      "G9_live_render": "별도 실렌더 QA — y > 762 마운트 픽셀 0 + 중앙·좌우끝 3지점 안장 정렬"
+      "G9_live_render": "PASS — D=210 좌/중/우 3지점: 횡 오버행 1/0/0px(수락선 ≤3), y > 762 픽셀 0, 안장 오차 2px. 음성 대조군 D=240 은 횡 11~12px 로 FAIL(게이트 판별력 확인). 종료 후 shipped mount_presentation_model 미활성 재확인 = false."
     },
     "accepted_sha256": "9EA2551CF958D2FA2012AB3DE69E65BD44048532B86D8BCBF570072215D9199A"
+  },
+  "presentation_scale_exception": {
+    "rider_to_mount_ratio": 0.45,
+    "art_reference_ratio": 0.26,
+    "scope": "탑승 전용(presentation-scale). M 이 횡 게이트 때문에 210 으로 내려간 만큼 라이더가 상대적으로 커 보인다.",
+    "decision": "M 비율보다 플레이어 캐릭터 5종의 실전 가독성을 우선한다(라이더 55px 안 기각).",
+    "forbidden": "일반 캐릭터 아트의 크기 정본으로 전파 금지 — 이 비율은 탑승 합성 안에서만 유효하다."
   }
 }
