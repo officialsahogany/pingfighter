@@ -44,43 +44,51 @@ const CHARACTER_ID_ALIASES := {
 	"io": "optimus",
 }
 
+# 착석 draw_size 는 M(백린 빈안장) 과의 아트 비율에서 나온 값이다: 원화에서
+# 라이더/마운트 길이비 ≈ 0.26 이고 M 운영 draw_size 가 360 이므로 94.
+# 저작 규격: 캐릭터 엉덩이선을 셀 하단이 아니라 **셀 하단에서 운영 16.2px 위**에
+# 둔다(셀 하단 = M 안장 어셈블리 하단 = 라이더 rect 하단). 이 오프셋은 런타임 키가
+# 아니라 시트 저작 값이며 매니페스트가 정본이다
+# (assets/sprites/lingpet/baekrin_companion_mount_base_topdown_v1_manifest.json).
 const RIDERS := {
 	"smasher": {
 		"path": "",
 		"cols": 1,
 		"rows": 1,
 		"frame_count": 1,
-		"draw_size": Vector2(160.0, 160.0),
+		"draw_size": Vector2(94.0, 94.0),
 	},
 	"viper": {
 		"path": "",
 		"cols": 1,
 		"rows": 1,
 		"frame_count": 1,
-		"draw_size": Vector2(160.0, 160.0),
+		"draw_size": Vector2(94.0, 94.0),
 	},
 	"soldier": {
 		"path": "",
 		"cols": 1,
 		"rows": 1,
 		"frame_count": 1,
-		"draw_size": Vector2(160.0, 160.0),
+		"draw_size": Vector2(94.0, 94.0),
 	},
 	"blacksmith": {
-		# 발토르만 본체 draw_size 가 128 계열이다
-		# (battle_draw_actor_context.gd:18 BLACKSMITH_PLAYER_DRAW_SIZE).
+		# ⚠️ 걷기 본체는 발토르만 128 계열이지만(battle_draw_actor_context.gd:18
+		# BLACKSMITH_PLAYER_DRAW_SIZE) **착석 시트는 5종 모두 94** 다. 착석 크기는
+		# 캐릭터 시트 계열이 아니라 M(백린) 과의 상대 비율이 정하고, 다섯 캐릭터가
+		# 같은 마운트에 앉으므로 값이 갈리면 라이더만 크기가 튄다.
 		"path": "",
 		"cols": 1,
 		"rows": 1,
 		"frame_count": 1,
-		"draw_size": Vector2(128.0, 128.0),
+		"draw_size": Vector2(94.0, 94.0),
 	},
 	"optimus": {
 		"path": "",
 		"cols": 1,
 		"rows": 1,
 		"frame_count": 1,
-		"draw_size": Vector2(160.0, 160.0),
+		"draw_size": Vector2(94.0, 94.0),
 	},
 }
 

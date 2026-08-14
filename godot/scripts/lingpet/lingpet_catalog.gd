@@ -704,6 +704,11 @@ const PETS := {
 			"companion_strike": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
 			"companion_cast": "res://assets/sprites/lingpet/baekrin_companion_idle.png",
 			"companion_puppet_control": "res://assets/sprites/lingpet/baekrin_mokrin_transform_6x2_12f.png",
+			# S3 탑다운 탑승 M(빈안장 베이스). ⚠️ 이 키가 있어도 탑다운 렌더는
+			# 켜지지 않는다 — 활성 스위치는 mount_presentation_model 이고, 계약
+			# 8-10 에 따라 N 착석 시트 5종이 완비될 때까지 **미등재로 둔다**.
+			# 자산은 runtime-only auxiliary · non-anchor (매니페스트 참조).
+			"companion_mount_base": "res://assets/sprites/lingpet/baekrin_companion_mount_base_topdown_v1.png",
 			"cutin_art": "res://assets/sprites/lingpet/baekrin_cutin_art.png",
 			# 동적 정면 3키 + companion_click_reaction_anim은 정의 금지(static 모델
 			# 검증이 fail-closed로 막는다) — 소비자 그리드 하드코딩 오슬라이스 방지.
@@ -739,6 +744,16 @@ const PETS := {
 			"companion_puppet_control_draw_size": 92.0,
 			# D5c: 변신 시트 y 오프셋 델타 — CAST(-12)와 WALK(-6) 기준선 6px 팝 흡수
 			"companion_puppet_control_y_offset_delta": 6.0,
+			# S3-b M 베이스 6키(§A-1 필수 4 + §B-2 안장 소켓 2). 소켓은 셀-로컬 px
+			# 이고 정의는 "감청 패드 가로중앙 × (패드∪연결된 금 프레임) 어셈블리
+			# 하단" 이다 — 검증기 tools/verify_baekrin_mount_base_asset.py 가
+			# 후보에서 기계 추출한 값(256, 508)을 그대로 옮겼다.
+			"companion_mount_base_cols": 1.0,
+			"companion_mount_base_rows": 1.0,
+			"companion_mount_base_frame_count": 1.0,
+			"companion_mount_base_draw_size": 360.0,
+			"companion_mount_base_saddle_x": 256.0,
+			"companion_mount_base_saddle_y": 508.0,
 		},
 		"active_skill_pool": [
 			# 첫 항목 = 묵린변신: 기본 로드아웃·부화 롤의 기본값이 안장이 되지
@@ -1485,12 +1500,18 @@ static func get_stat(pet_id: String, stat_name: String, fallback: float = 0.0) -
 
 static func get_visual_layout_value(pet_id: String, layout_key: String, fallback: float = 0.0) -> float:
 	# 테스트 오버라이드 훅(8-10). 프로덕션에서는 is_empty() 한 번 외에 무비용이다.
-	if not _mount_presentation_test_overrides.is_empty():
+	#
+	# ⚠️ 오버라이드에 visual_layout 이 있으면 **M 레이아웃의 전부**다 — 없는 키는
+	# shipped 엔트리로 폴백하지 않고 fallback 인자를 돌려준다. 부분 상속을 허용하면
+	# "키 결손" 축을 만들 수 없다: 출하 백린이 6키를 갖게 된 뒤로는 오버라이드에서
+	# 키를 지워도 shipped 값이 그대로 새어 들어와 fail-closed 레그가 통과해버린다.
+	if not _mount_presentation_test_overrides.is_empty() and layout_key.begins_with(MOUNT_BASE_VISUAL_KEY):
 		var override: Variant = _mount_presentation_test_overrides.get(_normalize_pet_id(pet_id), null)
 		if override is Dictionary:
 			var layout_override: Variant = (override as Dictionary).get("visual_layout", {})
-			if layout_override is Dictionary and (layout_override as Dictionary).has(layout_key):
-				return float((layout_override as Dictionary)[layout_key])
+			if layout_override is Dictionary and not (layout_override as Dictionary).is_empty():
+				var layout_dict: Dictionary = layout_override
+				return float(layout_dict[layout_key]) if layout_dict.has(layout_key) else fallback
 	var visual_layout: Variant = _get_entry_ref(pet_id).get("visual_layout", {})
 	if visual_layout is Dictionary:
 		return float((visual_layout as Dictionary).get(layout_key, fallback))

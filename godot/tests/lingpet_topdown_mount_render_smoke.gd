@@ -240,6 +240,7 @@ func _run() -> void:
 	_test_seated_draw_size_adoption()
 	await _test_hook_wiring_and_context_forward()
 	_test_topdown_lift_zero()
+	_test_shipped_mount_base_asset()
 	await _test_end_to_end_chain()
 	await _test_p9_suppression_and_item_egg_preserved()
 	await _test_p12_geometry_and_fail_closed()
@@ -637,6 +638,50 @@ func _test_hook_wiring_and_context_forward() -> void:
 		"통과: 비탑승 기본값은 false + 빈 dict (fail-closed)",
 		not bool(plain.get("player_mount_topdown_active", true))
 			and (plain.get("player_mount_rider_seated", {}) as Dictionary).is_empty()
+	)
+
+
+# ── 출하 M 자산 등재 상태 (계약 8-10 가드) ─────────────────────────────────
+
+func _test_shipped_mount_base_asset() -> void:
+	# 이 레그는 **테스트 오버라이드를 쓰지 않는다** — shipped 카탈로그 자체를 본다.
+	LingpetCatalog.clear_mount_presentation_test_overrides()
+	var base_path: String = LingpetCatalog.get_visual_path("baekrin", LingpetCatalog.MOUNT_BASE_VISUAL_KEY)
+	_expect(
+		"출하 M: 백린 companion_mount_base 경로 등재 + 파일 존재",
+		base_path.begins_with("res://assets/sprites/lingpet/baekrin_companion_mount_base_topdown_v1")
+			and ResourceLoader.exists(base_path)
+	)
+	var expected := {
+		"companion_mount_base_cols": 1.0,
+		"companion_mount_base_rows": 1.0,
+		"companion_mount_base_frame_count": 1.0,
+		"companion_mount_base_draw_size": 360.0,
+		"companion_mount_base_saddle_x": 256.0,
+		"companion_mount_base_saddle_y": 508.0,
+	}
+	var layout_ok := true
+	for key in expected:
+		if not is_equal_approx(LingpetCatalog.get_visual_layout_value("baekrin", str(key), -1.0), float(expected[key])):
+			layout_ok = false
+	_expect("출하 M: 레이아웃 6키가 승인 값과 일치(360 / 소켓 256·508)", layout_ok)
+	# ★ 8-10 가드: N 착석 시트 5종이 완비될 때까지 topdown 모델은 **미등재**여야
+	# 한다. 여기서 true 가 되면 준비도 게이트가 매 프레임 N 부재로 거부하는
+	# 무의미한 경로가 열린다.
+	_expect(
+		"출하 M: mount_presentation_model 미등재 유지 (8-10)",
+		not LingpetCatalog.is_mount_presentation_topdown("baekrin")
+	)
+	# N 시트는 아직 한 장도 없다 — 경로 공백 = fail-closed 유지.
+	# 경로가 비어 있으면 소비용 조회는 **빈 dict**(fail-closed)이고, 규격 조회만
+	# 선언값을 돌려준다 — 두 계약을 함께 잰다.
+	var rider: Dictionary = PlayerMountRiderSpriteCatalog.get_rider_from_canonical("smasher")
+	var spec: Dictionary = PlayerMountRiderSpriteCatalog.get_rider_spec("smasher")
+	_expect(
+		"출하 N: 소비 조회는 빈 dict(fail-closed) + 규격 draw_size 94 예약",
+		rider.is_empty()
+			and str(spec.get("path", "x")) == ""
+			and (spec.get("draw_size", Vector2.ZERO) as Vector2).is_equal_approx(Vector2(94.0, 94.0))
 	)
 
 

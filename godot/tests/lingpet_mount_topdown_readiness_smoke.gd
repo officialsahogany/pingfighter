@@ -350,11 +350,15 @@ func _test_shipped_catalog_has_no_authored_rider() -> void:
 			"라이더 카탈로그: %s 는 아직 미저작(8-10) — get_rider() 빈 dict" % expected_id,
 			PlayerMountRiderSpriteCatalog.get_rider(expected_id).is_empty()
 		)
-	# 발토르만 128 계열 — 캐릭터별 규격 차이가 카탈로그에 살아 있어야 한다.
+	# ★ M(백린 빈안장) 수락 후 개정(2026-08-14): 착석 draw_size 는 **5종 모두 94**
+	# 다. 걷기 본체가 발토르만 128 계열인 것과 무관하다 — 착석 크기는 캐릭터 시트가
+	# 아니라 마운트와의 상대 비율(원화 0.26 × M 360)이 정하고, 다섯 캐릭터가 같은
+	# 백린에 앉으므로 값이 갈리면 라이더만 크기가 튄다. 규격이 M 과 동기화돼 있어야
+	# 하므로 상수를 그대로 단언한다.
 	var blacksmith_size: Vector2 = PlayerMountRiderSpriteCatalog.get_rider_spec("blacksmith").get("draw_size", Vector2.ZERO)
 	var smasher_size: Vector2 = PlayerMountRiderSpriteCatalog.get_rider_spec("smasher").get("draw_size", Vector2.ZERO)
-	_expect("라이더 카탈로그: 발토르 draw_size 128 계열", is_equal_approx(blacksmith_size.x, 128.0))
-	_expect("라이더 카탈로그: 스매셔 draw_size 160 계열", is_equal_approx(smasher_size.x, 160.0))
+	_expect("라이더 카탈로그: 착석 draw_size 는 5종 공통 94 (발토르 포함)", is_equal_approx(blacksmith_size.x, 94.0))
+	_expect("라이더 카탈로그: 스매셔도 동일 94", is_equal_approx(smasher_size.x, 94.0))
 	_expect("라이더 카탈로그: 미등재 캐릭터는 빈 dict (fail-closed)", PlayerMountRiderSpriteCatalog.get_rider_spec("__none__").is_empty())
 
 

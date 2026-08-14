@@ -1,0 +1,85 @@
+{
+  "asset_family": "baekrin_companion_mount_base_topdown_v1",
+  "lingpet": "baekrin",
+  "player_facing_name": "백린",
+  "visual_key": "companion_mount_base",
+  "status": "runtime-only auxiliary mount asset, non-anchor",
+  "anchor_policy": {
+    "is_identity_anchor": false,
+    "forbidden_use": "향후 idle / locomotion(walk·move_left·move_right) / cutin / strike / cast 재생성의 정체성 앵커로 사용 금지. 그 계열의 앵커는 계속 baekrin_companion_idle(출하본)과 원화 마스터다.",
+    "reason": "탑다운 안장 구도를 위해 몸통을 세로 압축한 전용 자산이라 체형이 다른 계열과 어긋난다."
+  },
+  "approved_exceptions": [
+    "몸통 세로 압축",
+    "그로 인한 넓어진 실루엣",
+    "꼬리 경로 재배치(우측 옆면으로 감아 올림, 끝 장식은 안장 옆)",
+    "뒷다리 접힘(안장선 아래로 내려오지 않게)"
+  ],
+  "recorded_deviations": [
+    "백자 빙렬(불규칙 크랙)이 규칙적 스캘럽 레이스 무늬로 바뀜 — 출하 idle 은 표면 무늬가 없어 플레이어 대면 영향은 사실상 0",
+    "장식 게이지 증가 — 안장 비늘 밀도 감소, 체인·고리 굵기 증가, 귀 확대"
+  ],
+  "identity_check_360px": {
+    "method": "원화 누끼 · 출하 idle · 후보를 동일 360px 배율/동일 패널 중심으로 나란히, 밝은 배경 1 + 어두운 배경 1, 안장·꼬리끝·두부 확대",
+    "present": [
+      "금 하드웨어(뿔종 2 · 가슴 체인 2 · 다리 커프 4 · 안장 프레임 · 꼬리 고리)",
+      "청자 보석 2(가슴 · 꼬리끝)",
+      "감청 비늘 안장 + 금 프레임 + 흰 안감",
+      "운문 갈기 · 운문 꼬리 + 끝 장식(고리→링→청자)",
+      "늘어진 귀 2",
+      "정직한 탑다운 시점",
+      "좌우 대칭(꼬리만 비대칭)"
+    ],
+    "new_ornaments": 0
+  },
+  "source": {
+    "origin": "사용자 제공 원화 백린_빈안장_topdown_magenta.png (평면 마젠타 크로마)",
+    "route": "built-in imagegen 편집 모드 재구성 4회 중 R2 채택(추가 자유생성 없음)",
+    "nukki": "chroma_key.py --key magenta --pad 4 → 512 셀 패킹 → 리샘플 후 마젠타 pocket 제거 1회 더(LANCZOS 링잉 재발분)"
+  },
+  "grid": {
+    "cols": 1,
+    "rows": 1,
+    "frame_count": 1,
+    "cell": [512, 512],
+    "sheet": [512, 512],
+    "read_order": "정적 1프레임(frame 0)"
+  },
+  "runtime": {
+    "draw_size": 360,
+    "saddle_socket_px": [256, 508],
+    "socket_rule": "socket_x = 감청 패드 bbox 가로중앙, socket_y = (감청 패드 ∪ 연결된 금 프레임) 어셈블리 bbox 하단 — docs/lingpet_baekrin_mount_base_asset_brief.md §5-1 v2",
+    "catalog_keys": [
+      "companion_mount_base_cols=1.0",
+      "companion_mount_base_rows=1.0",
+      "companion_mount_base_frame_count=1.0",
+      "companion_mount_base_draw_size=360.0",
+      "companion_mount_base_saddle_x=256.0",
+      "companion_mount_base_saddle_y=508.0"
+    ],
+    "mount_presentation_model": "미등재 유지 — 계약 8-10(N 착석 시트 5종 완비 전 shipped 등재 금지)"
+  },
+  "n_sheet_authoring": {
+    "draw_size": 94,
+    "seat_offset_px_cell512": 23.0,
+    "seat_offset_px_runtime": 16.2,
+    "rule": "착석 캐릭터의 엉덩이선을 셀 하단이 아니라 셀 하단에서 16.2px(운영) 위에 둔다. 셀 하단은 안장 어셈블리 하단(금 프레임 밑단)에 정렬되기 때문이다. **런타임 키가 아니라 저작 규격이다** — 레이아웃 키는 승인된 6개 그대로.",
+    "seated_bottom_anchor": "N 셀 하단 = M 안장 어셈블리 하단 = 라이더 rect 하단 = 화면 y 762"
+  },
+  "acceptance": {
+    "verifier": "tools/verify_baekrin_mount_base_asset.py",
+    "tail_mask": "baekrin_companion_mount_base_topdown_v1_tail_mask.png (승인된 폴리곤 저작, 몸통 혼입·인위적 연결 육안 확인 완료)",
+    "gates": {
+      "G1_nukki_edge": "PASS (4변 alpha>0 = 0, 코너 0)",
+      "G2_magenta_residue": "PASS (min(r,b)-g >= 20 픽셀 0)",
+      "G3_socket_is_bottom": "PASS (socket_y 508 == 불투명 bbox 하단 508)",
+      "G4_socket_centered": "PASS (256.0 vs 255.5, 0.5px)",
+      "G5_cell_spec": "PASS (512x512, 최소 여백 4px, 1x1 1f)",
+      "G6_width_cap": "PASS (0.740 <= 0.75 — 상한 0.75 고정, 후속 후보를 위한 재완화 금지)",
+      "G7_tail_length": "PASS (측지 284px >= 187px = 레퍼런스 208 x 0.90)",
+      "G8_palette_ciede2000": "PASS ×4 (중심 dE 백자 0.36 / 금 1.77 / 청자 2.09 / 감청 1.34, 산포·점유율 모두 상한 내)",
+      "G9_live_render": "별도 실렌더 QA — y > 762 마운트 픽셀 0 + 중앙·좌우끝 3지점 안장 정렬"
+    },
+    "accepted_sha256": "9EA2551CF958D2FA2012AB3DE69E65BD44048532B86D8BCBF570072215D9199A"
+  }
+}
