@@ -357,8 +357,12 @@ func _test_shipped_catalog_has_no_authored_rider() -> void:
 	# 하므로 상수를 그대로 단언한다.
 	var blacksmith_size: Vector2 = PlayerMountRiderSpriteCatalog.get_rider_spec("blacksmith").get("draw_size", Vector2.ZERO)
 	var smasher_size: Vector2 = PlayerMountRiderSpriteCatalog.get_rider_spec("smasher").get("draw_size", Vector2.ZERO)
-	_expect("라이더 카탈로그: 착석 draw_size 는 5종 공통 94 (발토르 포함)", is_equal_approx(blacksmith_size.x, 94.0))
-	_expect("라이더 카탈로그: 스매셔도 동일 94", is_equal_approx(smasher_size.x, 94.0))
+	# ★ 2026-08-14 재개정: draw_size 는 **셀**이고 캐릭터 크기가 아니다. 좌석 계약이
+	# 엉덩이선 아래 공간을 고정해 캐릭터 높이 상한을 만들므로, 승인 기준은 실제
+	# 라이더 높이 90~98px 다. 스매셔는 그 목표를 맞추는 셀 **160** 으로 확정됐고,
+	# 나머지 4종은 각 후보 bbox 로 재보정 대기(94 는 미보정 자리표시자).
+	_expect("라이더 카탈로그: 스매셔 착석 셀 160 (프로토타입 확정)", is_equal_approx(smasher_size.x, 160.0))
+	_expect("라이더 카탈로그: 미보정 4종은 자리표시자 94 유지", is_equal_approx(blacksmith_size.x, 94.0))
 	_expect("라이더 카탈로그: 미등재 캐릭터는 빈 dict (fail-closed)", PlayerMountRiderSpriteCatalog.get_rider_spec("__none__").is_empty())
 
 

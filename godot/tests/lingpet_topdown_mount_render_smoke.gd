@@ -678,10 +678,10 @@ func _test_shipped_mount_base_asset() -> void:
 	var rider: Dictionary = PlayerMountRiderSpriteCatalog.get_rider_from_canonical("smasher")
 	var spec: Dictionary = PlayerMountRiderSpriteCatalog.get_rider_spec("smasher")
 	_expect(
-		"출하 N: 소비 조회는 빈 dict(fail-closed) + 규격 draw_size 94 예약",
+		"출하 N: 소비 조회는 빈 dict(fail-closed) + 스매셔 규격 셀 160 예약",
 		rider.is_empty()
 			and str(spec.get("path", "x")) == ""
-			and (spec.get("draw_size", Vector2.ZERO) as Vector2).is_equal_approx(Vector2(94.0, 94.0))
+			and (spec.get("draw_size", Vector2.ZERO) as Vector2).is_equal_approx(Vector2(160.0, 160.0))
 	)
 
 

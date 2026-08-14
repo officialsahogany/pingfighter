@@ -70,11 +70,14 @@
     "draw_size_rationale": "횡 게이트 상한. 불투명 폭 379/512 → 화면 폭 = draw_size × 0.740, 패들 중앙 앵커에서 좌우 오버행 ≤3px 을 지키려면 화면 폭 ≤161px → draw_size ≤ 217.5. 폭을 만드는 것은 꼬리가 아니라 몸통·귀이므로(꼬리 제외 bbox 폭도 379) 꼬리 재배치로는 상한을 올릴 수 없다."
   },
   "n_sheet_authoring": {
-    "draw_size": 94,
-    "seat_offset_px_cell512": 23.0,
+    "draw_size_smasher_prototype": 160,
+    "note_draw_size_is_cell": "draw_size 는 셀 크기이지 캐릭터 크기가 아니다. 승인 기준은 실제 라이더 높이 90~98px(512 소스 bbox 288~314px).",
     "seat_offset_px_runtime": 9.43359375,
-    "seat_offset_px_authoring_512": 51.38298,
-    "rule": "착석 캐릭터의 엉덩이선을 셀 하단이 아니라 셀 하단에서 **운영 9.43359375px** 위에 둔다. ⚠️ N 원본이 512px 이면 그 좌표계 환산값은 **51.38298px** 다 — 512 원본에 9.43px 로 직접 저작하면 안 된다. 셀 하단은 M 안장 어셈블리 하단(금 프레임 밑단)에 정렬된다. 런타임 키가 아니라 저작 규격이며 이 매니페스트가 정본이다(레이아웃 키는 승인된 6개 그대로).",
+    "seat_offset_px_authoring_formula": "9.43359375 * 512 / draw_size",
+    "seat_offset_px_authoring_smasher_160": 30.1875,
+    "seat_line_y_smasher_160": 481.8125,
+    "bbox_constraints": "알파 bbox 하단 <= 507, 좌석선 아래(다리·부츠) <= 25px",
+    "per_character": "나머지 4종은 각 후보 bbox 를 보고 같은 실제 높이 목표로 draw_size 를 보정한다 — 160 을 무조건 복사하지 않는다.",
     "seated_bottom_anchor": "N 셀 하단 = M 안장 어셈블리 하단 = 라이더 rect 하단 = 화면 y 762"
   },
   "acceptance": {
@@ -94,10 +97,11 @@
     "accepted_sha256": "9EA2551CF958D2FA2012AB3DE69E65BD44048532B86D8BCBF570072215D9199A"
   },
   "presentation_scale_exception": {
-    "rider_to_mount_ratio": 0.45,
+    "rider_to_mount_ratio": 0.461,
     "art_reference_ratio": 0.26,
     "scope": "탑승 전용(presentation-scale). M 이 횡 게이트 때문에 210 으로 내려간 만큼 라이더가 상대적으로 커 보인다.",
     "decision": "M 비율보다 플레이어 캐릭터 5종의 실전 가독성을 우선한다(라이더 55px 안 기각).",
-    "forbidden": "일반 캐릭터 아트의 크기 정본으로 전파 금지 — 이 비율은 탑승 합성 안에서만 유효하다."
+    "forbidden": "일반 캐릭터 아트의 크기 정본으로 전파 금지 — 이 비율은 탑승 합성 안에서만 유효하다.",
+    "basis": "실제 라이더 높이 95.3px / M 207px (draw 160 기준). 셀 비(160/210)가 아니라 캐릭터 실측 비다."
   }
 }
