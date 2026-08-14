@@ -100,6 +100,9 @@ class FakeSandRegistry:
 			return boss_ai_state
 		return null
 
+# Outward budget: the strictly-outward lift (max 6.5) plus the renderer's crest jitter.
+const SAND_SPRAY_MAX_OUTWARD_GAP_PX := 9.0
+
 var _failures: Array[String] = []
 
 
@@ -118,6 +121,7 @@ func _init() -> void:
 	_verify_sand_kickup_spray_mirrors_and_walks()
 	_verify_sand_kickup_spray_respects_drawn_surface()
 	_verify_sand_kickup_spray_stays_on_eroded_ground()
+	_verify_sand_ball_impact_stays_in_budget()
 	_verify_sand_particles_survive_weather_end()
 	_verify_draw_context_route()
 
@@ -637,14 +641,14 @@ func _verify_sand_kickup_spray_mirrors_and_walks() -> void:
 	)
 
 
-# Depth the SEVERE renderer actually paints at world_pos: it samples every Nth segment
+# Depth one render stride actually paints at world_pos: it samples every Nth segment
 # centre and straight-lines between them, so a trench in an unsampled segment is bridged.
-func _severe_drawn_depth(depths: Array, world_pos: float) -> float:
-	var stride: int = WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD
+# Written independently of the production helper so it can disagree with it.
+func _drawn_depth_for_stride(depths: Array, world_pos: float, stride: int) -> float:
 	var axis_start: float = WeatherEventState.SAND_HORIZONTAL_START
 	var seg: float = WeatherEventState.SAND_SEG_SIZE
 	var sampled: Array[int] = []
-	for index in range(0, depths.size(), stride):
+	for index in range(0, depths.size(), maxi(stride, 1)):
 		sampled.append(index)
 	if sampled[sampled.size() - 1] != depths.size() - 1:
 		sampled.append(depths.size() - 1)
@@ -658,6 +662,10 @@ func _severe_drawn_depth(depths: Array, world_pos: float) -> float:
 		var blend: float = clampf((world_pos - low_x) / maxf(0.001, high_x - low_x), 0.0, 1.0)
 		return lerpf(float(depths[low_index]), float(depths[high_index]), blend)
 	return float(depths[clampi(int((world_pos - axis_start) / seg), 0, depths.size() - 1)])
+
+
+func _severe_drawn_depth(depths: Array, world_pos: float) -> float:
+	return _drawn_depth_for_stride(depths, world_pos, WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD)
 
 
 func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
@@ -674,7 +682,9 @@ func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
 	# 28 px dash frame emits too few grains to reliably land on one.
 	var checked := 0
 	var buried := 0
+	var floating := 0
 	var worst_depth_inside := 0.0
+	var worst_gap := 0.0
 	var x := 100.0
 	owner.player_pos = Vector2(x, 700.0)
 	for _frame in range(40):
@@ -700,10 +710,25 @@ func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
 			if grain_y > drawn_surface_y + 1.0:
 				buried += 1
 				worst_depth_inside = maxf(worst_depth_inside, grain_y - drawn_surface_y)
+			# Opposite direction: the spawn crest must be a surface the renderer really
+			# paints at this column, not a peak borrowed from segments away. A loose
+			# neighbourhood maximum clears the buried check while floating grains tens of
+			# pixels off the sand, so the outward gap is bounded too.
+			var target_depth: float = 0.0
+			for stride in WeatherEventState.SAND_SPRAY_RENDER_STRIDES:
+				target_depth = maxf(target_depth, _drawn_depth_for_stride(refill, grain_x, int(stride)))
+			var target_surface_y: float = WeatherEventState.FIELD_HEIGHT - target_depth
+			if target_surface_y - grain_y > SAND_SPRAY_MAX_OUTWARD_GAP_PX:
+				floating += 1
+				worst_gap = maxf(worst_gap, target_surface_y - grain_y)
 	_expect(checked > 8, "the drawn-surface leg must produce a real sample of grains, or it proves nothing")
 	_expect(
 		buried == 0,
 		"%d/%d kick-up grains started INSIDE the painted dune (worst %.1f px deep): the SEVERE renderer bridges over trenches in segments it never samples, so spraying from the raw trench depth buries the grain and it climbs out of solid sand" % [buried, checked, worst_depth_inside]
+	)
+	_expect(
+		floating == 0,
+		"%d/%d kick-up grains started too far ABOVE every crest the renderer paints at their own column (worst %.1f px, budget %.1f): the safe upper bound must be one of the real per-stride surfaces, not a maximum borrowed from unrelated segments" % [floating, checked, worst_gap, SAND_SPRAY_MAX_OUTWARD_GAP_PX]
 	)
 
 
@@ -714,11 +739,16 @@ func _verify_sand_kickup_spray_stays_on_eroded_ground() -> void:
 	var segment_count: int = weather._get_sand_segment_count("bottom")
 	# Partial cluster: sand only on the LEFT half of the swept span. A dash clipping the
 	# cluster edge must not throw grains up off the untouched bare floor to its right.
-	var boundary_x: float = 360.0
+	var last_sanded_index: int = 26
 	var depths: Array = []
 	for index in range(segment_count):
-		var seg_x: float = WeatherEventState.SAND_HORIZONTAL_START + float(index) * WeatherEventState.SAND_SEG_SIZE
-		depths.append(40.0 if seg_x < boundary_x else 0.0)
+		depths.append(40.0 if index <= last_sanded_index else 0.0)
+	# The cluster ends where its LAST segment ends, which is a segment boundary — not an
+	# arbitrary x. Deriving it keeps the assertion honest if the fixture changes.
+	var boundary_x: float = (
+		WeatherEventState.SAND_HORIZONTAL_START
+		+ float(last_sanded_index + 1) * WeatherEventState.SAND_SEG_SIZE
+	)
 	weather.sand_wall_depths["bottom"] = depths
 	weather.sand_depths = depths
 	weather.weather_particles.clear()
@@ -734,22 +764,56 @@ func _verify_sand_kickup_spray_stays_on_eroded_ground() -> void:
 			continue
 		checked += 1
 		var grain_x: float = float(value.get("x", 0.0))
-		if grain_x > boundary_x + WeatherEventState.SAND_SEG_SIZE:
+		# Held to the ACTUAL cluster edge, not a padded one: an erode call reaches
+		# radius_segments beyond its centre, so a slack allowance would let the span
+		# silently drift back onto bare floor.
+		if grain_x > boundary_x:
 			off_cluster += 1
 			worst_x = maxf(worst_x, grain_x)
 	_expect(checked > 0, "the boundary-dash leg must actually produce grains, or it proves nothing")
 	_expect(
 		off_cluster == 0,
-		"%d/%d kick-up grains landed past the cluster edge (worst x=%.1f vs edge %.1f): erosion reports only a TOTAL, so sampling the whole swept span throws sand off bare floor the dash never disturbed" % [off_cluster, checked, worst_x, boundary_x]
+		"%d/%d kick-up grains landed past the cluster edge (worst x=%.1f vs edge %.1f): erosion reports only a TOTAL, so emitting anywhere but the segments that actually lost depth throws sand off bare floor the dash never disturbed" % [off_cluster, checked, worst_x, boundary_x]
 	)
-	# The recorded erode sub-span is the mechanism, and it must be strictly narrower than
-	# the swept span here — otherwise the assertion above could be passing only because of
-	# the separate crest-depth gate and would not notice the span tracking regressing.
+	# The recorded span is the mechanism. It must cover only segments that actually lost
+	# depth — an erode CALL centre can sit on bare floor while a neighbouring column is
+	# what eroded, so a call-centre span would reach past the cluster.
 	_expect(
-		weather._has_sand_erode_hit_span()
-		and weather._sand_erode_hit_max < owner.player_pos.x + 155.0 * 0.5,
-		"the eroded sub-span must be recorded and must stop short of the swept span's far end on a cluster-edge dash"
+		weather._has_sand_erode_hit_span() and weather._sand_erode_hit_max <= boundary_x,
+		"the recorded erode span must end at the cluster edge (recorded max=%.1f vs edge %.1f): it has to come from eroded SEGMENTS, not from erode call centres" % [weather._sand_erode_hit_max, boundary_x]
 	)
+
+
+func _verify_sand_ball_impact_stays_in_budget() -> void:
+	# The ball-impact burst is the OTHER active-weather sand producer. It shares the cap,
+	# and nothing else in this file drives it, so without this leg removing its trim goes
+	# undetected.
+	var weather := _build_sand_weather_fixture(40.0)
+	var wall: Array = []
+	for _index in range(weather._get_sand_segment_count("left")):
+		wall.append(40.0)
+	weather.sand_wall_depths["left"] = wall
+	weather.weather_particles.clear()
+	var impacts := 0
+	for frame_index in range(60):
+		# Refill so every strike erodes and therefore spawns.
+		var refill: Array = []
+		for _index in range(weather._get_sand_segment_count("left")):
+			refill.append(40.0)
+		weather.sand_wall_depths["left"] = refill
+		var result: Dictionary = weather.resolve_sand_ball_collision(
+			Vector2(18.0, 120.0 + float(frame_index % 40) * 12.0),
+			Vector2(-9.0, 0.0),
+			28.6,
+			{}
+		)
+		if not result.is_empty():
+			impacts += 1
+		_expect(
+			weather.weather_particles.size() <= WeatherEventState.SAND_VISUAL_PARTICLE_CAP,
+			"repeated ball impacts on the sand wall must respect the shared sand cap (%d live vs cap %d): the ball burst is unbounded on its own" % [weather.weather_particles.size(), WeatherEventState.SAND_VISUAL_PARTICLE_CAP]
+		)
+	_expect(impacts > 3, "the ball-impact budget leg must actually land impacts, or the cap assertion is vacuous")
 
 
 func _verify_sand_particles_survive_weather_end() -> void:

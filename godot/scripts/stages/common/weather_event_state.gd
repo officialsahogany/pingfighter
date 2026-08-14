@@ -85,14 +85,23 @@ const SAND_DISSOLVE_PARTICLE_INTERVAL_FRAMES := 3.0
 # the constant +1 term yields slightly more volume when the same travel is split over
 # more, shorter ticks. Erosion is gameplay (sand is a ball collision surface), so that
 # term is left alone and the carry below absorbs the difference.
-const SAND_DASH_SPRAY_GRAINS_PER_ERODE_UNIT := 0.09
-const SAND_DASH_SPRAY_MAX_PER_FRAME := 3
+# Raised once the eroded-span and crest gates started rejecting candidates that used to
+# be emitted onto bare floor: the visible density is what those gates thinned, and the
+# live population still settles well inside the severe-LOD window.
+const SAND_DASH_SPRAY_GRAINS_PER_ERODE_UNIT := 0.13
+const SAND_DASH_SPRAY_MAX_PER_FRAME := 4
 const SAND_WALK_SPRAY_GRAINS_PER_ERODE_UNIT := 0.35
 const SAND_WALK_SPRAY_MAX_PER_FRAME := 1
 const SAND_SPRAY_MIN_TRAVEL_PX := 0.5
 const SAND_SPRAY_SPEED_REFERENCE_PX := 14.0
 const SAND_SPRAY_TRAILING_STRIDE := 4
 const SAND_SPRAY_MIN_CREST_DEPTH := 1.0
+# Every stride the shipped renderer can walk the wall with: full quality, LOD, severe LOD.
+const SAND_SPRAY_RENDER_STRIDES: Array[int] = [
+	1,
+	WeatherEventRenderBudget.SAND_RENDER_STRIDE_LOD,
+	WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD,
+]
 # Ceiling for the two ACTIVE-weather sand producers (paddle kick-up and ball impact).
 # Sand had no cap at all and kick-up is its first PER-FRAME producer, so without one the
 # array grows for the whole event: culled-from-render grains still cost a full update +
@@ -1392,12 +1401,14 @@ func _apply_player_sand_erosion(result: Dictionary, owner: Object, registry: Obj
 	var dash_snapshot := _get_dash_snapshot(registry)
 	var dashing: bool = bool(dash_snapshot.get("active", false))
 	if moved > 0.25:
+		_begin_sand_erode_tracking()
 		var walk_eroded: float = _erode_sand_at("bottom", center, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
 		if not dashing:
-			_spawn_sand_kickup_spray("bottom", center, center, walk_eroded, travel_dir, moved, false)
+			_spawn_sand_kickup_spray("bottom", walk_eroded, travel_dir, moved, false)
 	if dashing:
+		_begin_sand_erode_tracking()
 		var dash_eroded: float = _erode_sand_range("bottom", old_center, center, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
-		_spawn_sand_kickup_spray("bottom", old_center, center, dash_eroded, travel_dir, moved, true)
+		_spawn_sand_kickup_spray("bottom", dash_eroded, travel_dir, moved, true)
 
 
 func _apply_boss_sand_erosion(result: Dictionary, owner: Object, registry: Object, fps_scale: float) -> void:
@@ -1413,12 +1424,14 @@ func _apply_boss_sand_erosion(result: Dictionary, owner: Object, registry: Objec
 	var dash_snapshot := _get_boss_dash_snapshot(registry)
 	var dashing: bool = bool(dash_snapshot.get("active", false))
 	if moved > 0.25:
+		_begin_sand_erode_tracking()
 		var walk_eroded: float = _erode_sand_at("top", center, SAND_WALK_ERODE_AMOUNT * max(0.0, fps_scale), SAND_WALK_ERODE_RADIUS_SEGS)
 		if not dashing:
-			_spawn_sand_kickup_spray("top", center, center, walk_eroded, travel_dir, moved, false)
+			_spawn_sand_kickup_spray("top", walk_eroded, travel_dir, moved, false)
 	if dashing:
+		_begin_sand_erode_tracking()
 		var dash_eroded: float = _erode_sand_range("top", old_center, center, SAND_DASH_ERODE_AMOUNT, SAND_DASH_ERODE_RADIUS_SEGS)
-		_spawn_sand_kickup_spray("top", old_center, center, dash_eroded, travel_dir, moved, true)
+		_spawn_sand_kickup_spray("top", dash_eroded, travel_dir, moved, true)
 
 
 func _spawn_ice_slide_particles(pos: Vector2, direction: int, player: bool) -> void:
@@ -1629,21 +1642,28 @@ func _erode_sand_range(side: String, start_pos: float, end_pos: float, amount: f
 	var total: float = 0.0
 	var distance: float = abs(end_pos - start_pos)
 	var steps: int = max(1, int(ceil(distance / SAND_SEG_SIZE)))
-	# Sand clusters cover only part of the wall, so a dash that clips a cluster edge
-	# erodes over a fraction of its travel. Recording the sub-span that actually lost
-	# depth lets the spray emit there instead of anywhere along the swept path, which
-	# would throw grains up off untouched bare floor.
-	_sand_erode_hit_min = INF
-	_sand_erode_hit_max = -INF
 	for step in range(steps + 1):
 		var t: float = float(step) / max(1.0, float(steps))
-		var step_pos: float = lerp(start_pos, end_pos, t)
-		var step_total: float = _erode_sand_at(side, step_pos, amount, radius_segments)
-		if step_total > 0.0:
-			_sand_erode_hit_min = minf(_sand_erode_hit_min, step_pos)
-			_sand_erode_hit_max = maxf(_sand_erode_hit_max, step_pos)
-		total += step_total
+		total += _erode_sand_at(side, lerp(start_pos, end_pos, t), amount, radius_segments)
 	return total
+
+
+# Sand clusters cover only part of the wall, so a dash clipping a cluster edge erodes
+# over a fraction of its travel. The spray reads the span recorded here to emit on ground
+# that actually lost depth instead of anywhere along the swept path.
+func _begin_sand_erode_tracking() -> void:
+	_sand_erode_hit_min = INF
+	_sand_erode_hit_max = -INF
+
+
+# Recorded per ERODED SEGMENT, not per erode call: an erode call spreads over
+# radius_segments either side, so its centre can sit on bare floor while only a
+# neighbouring column loses depth. Using the call centre would place the span where
+# nothing was actually carved.
+func _note_sand_erode_hit(side: String, index: int) -> void:
+	var segment_start: float = _get_sand_axis_start(side) + float(index) * SAND_SEG_SIZE
+	_sand_erode_hit_min = minf(_sand_erode_hit_min, segment_start)
+	_sand_erode_hit_max = maxf(_sand_erode_hit_max, segment_start + SAND_SEG_SIZE)
 
 
 func _has_sand_erode_hit_span() -> bool:
@@ -1668,6 +1688,7 @@ func _erode_sand_at(side: String, world_pos: float, amount: float, radius_segmen
 			continue
 		depths[index] = before - erode
 		total += erode
+		_note_sand_erode_hit(side, index)
 	if side == "bottom":
 		sand_depths = depths
 	if total > 0.0:
@@ -1693,8 +1714,6 @@ func _spawn_sand_particles(side: String, pos: Vector2, eroded: float) -> void:
 
 func _spawn_sand_kickup_spray(
 	side: String,
-	from_pos: float,
-	to_pos: float,
 	eroded: float,
 	travel_dir: float,
 	moved: float,
@@ -1717,17 +1736,11 @@ func _spawn_sand_kickup_spray(
 	_set_sand_spray_carry(side, clampf(carry - float(count), 0.0, 2.0))
 	if count <= 0:
 		return
-	# Emit only across the stretch that actually lost depth. A dash clipping a cluster
-	# edge erodes over a fraction of its sweep, and sampling the whole sweep would throw
-	# grains up off bare floor the paddle never disturbed. The walk leg erodes at a
-	# single point, so it has no recorded span and uses that point directly.
-	var span_from: float = from_pos
-	var span_to: float = to_pos
-	if is_dash:
-		if not _has_sand_erode_hit_span():
-			return
-		span_from = _sand_erode_hit_min
-		span_to = _sand_erode_hit_max
+	# Emit only across the segments that actually lost depth this frame.
+	if not _has_sand_erode_hit_span():
+		return
+	var span_from: float = _sand_erode_hit_min
+	var span_to: float = _sand_erode_hit_max
 	var outward: float = -1.0 if side == "bottom" else 1.0
 	var speed_scale: float = clampf(moved / SAND_SPRAY_SPEED_REFERENCE_PX, 0.55, 2.1)
 	var sand_color: Color = _get_weather_color("sand")
@@ -1735,8 +1748,14 @@ func _spawn_sand_kickup_spray(
 	var emitted := 0
 	for _grain in range(count):
 		# Along-wall scatter is decided HERE, before the crest lookup, so each grain's
-		# spawn height belongs to the very column it sits on.
-		var along: float = lerpf(span_from, span_to, _sand_spray_rng.randf()) + _sand_spray_rng.randf_range(-5.0, 5.0)
+		# spawn height belongs to the very column it sits on — and it is clamped back
+		# inside the eroded span, or the scatter itself would fling grains onto ground the
+		# paddle never touched.
+		var along: float = clampf(
+			lerpf(span_from, span_to, _sand_spray_rng.randf()) + _sand_spray_rng.randf_range(-5.0, 5.0),
+			span_from,
+			span_to
+		)
 		# Even inside the eroded sub-span the wall can have gaps, so a grain is only
 		# thrown where there is still a dune to throw it off.
 		if _get_sand_depth_at(side, along) <= SAND_SPRAY_MIN_CREST_DEPTH:
@@ -1786,27 +1805,37 @@ func _get_sand_surface_point(side: String, world_pos: float) -> Vector2:
 # dune still LOOKS intact there. Spraying from that trench's own depth would start the
 # grain below the painted surface and it would climb out of solid sand.
 #
-# This runs on the physics path and cannot know the draw-time LOD, so instead of trying
-# to reproduce one stride it takes the local MAXIMUM over the widest stride window. A
-# straight line between two sampled segments never rises above the greatest depth in the
-# window that contains them, so this is at-or-above the drawn crest for EVERY stride —
-# and the 1..6 px lift already covers the renderer's 1.6 px jitter.
+# This runs on the physics path and cannot know which LOD will draw the frame, so it
+# evaluates the crest EACH shipped stride would paint and takes the highest. That is at
+# or above every candidate surface (no burying) while staying a real surface — a raw
+# neighbourhood maximum also clears them all, but it can borrow an unrelated peak several
+# segments away and launch the grain tens of pixels above the sand.
 func _get_sand_depth_at(side: String, world_pos: float) -> float:
 	var depths: Array = _get_sand_depths(side)
 	if depths.is_empty():
 		return 0.0
-	var last_index: int = depths.size() - 1
-	var centred: float = (world_pos - _get_sand_axis_start(side)) / SAND_SEG_SIZE - 0.5
-	var centre_index: int = clampi(int(round(centred)), 0, last_index)
-	# +1 segment of slack absorbs the renderer's crest jitter and the half-segment
-	# rounding of centre_index, so the bound holds at the window edges too.
-	var window: int = WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD + 1
-	var first_index: int = maxi(centre_index - window, 0)
-	var final_index: int = mini(centre_index + window, last_index)
 	var crest: float = 0.0
-	for index in range(first_index, final_index + 1):
-		crest = maxf(crest, float(depths[index]))
+	for stride in SAND_SPRAY_RENDER_STRIDES:
+		crest = maxf(crest, _get_sand_drawn_depth(depths, side, world_pos, int(stride)))
 	return crest
+
+
+# The crest one specific render stride paints at world_pos: the renderer samples every
+# stride-th segment, anchors a vertex at each sampled segment's CENTRE, and straight-lines
+# between them (always closing on the final segment).
+func _get_sand_drawn_depth(depths: Array, side: String, world_pos: float, stride: int) -> float:
+	var last_index: int = depths.size() - 1
+	var axis_start: float = _get_sand_axis_start(side)
+	var centred: float = (world_pos - axis_start) / SAND_SEG_SIZE - 0.5
+	var step: int = maxi(stride, 1)
+	var low_index: int = clampi(int(floor(centred / float(step))) * step, 0, last_index)
+	if low_index >= last_index:
+		return maxf(0.0, float(depths[last_index]))
+	var high_index: int = mini(low_index + step, last_index)
+	var low_x: float = axis_start + float(low_index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+	var high_x: float = axis_start + float(high_index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+	var blend: float = clampf((world_pos - low_x) / maxf(0.001, high_x - low_x), 0.0, 1.0)
+	return maxf(0.0, lerpf(float(depths[low_index]), float(depths[high_index]), blend))
 
 
 func _get_sand_spray_carry(side: String) -> float:
