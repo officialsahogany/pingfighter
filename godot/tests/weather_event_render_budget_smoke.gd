@@ -103,28 +103,62 @@ class FakeSandRegistry:
 # Outward budget: the strictly-outward lift (max 6.5) plus the renderer's crest jitter.
 const SAND_SPRAY_MAX_OUTWARD_GAP_PX := 9.0
 
+const EXPECTED_LEG_COUNT := 20
+
 var _failures: Array[String] = []
+var _completed_legs := 0
 
 
 func _init() -> void:
 	_verify_state_render_lod_budgets()
+	_leg_done()
 	_verify_renderer_render_lod_budgets()
+	_leg_done()
 	_verify_hail_core_survives_debris_burst_window()
+	_leg_done()
 	_verify_renderer_prewarm_is_staged()
+	_leg_done()
 	_verify_inactive_weather_draw_is_skipped()
+	_leg_done()
 	_verify_owner_blank_weather_draw_is_skipped()
+	_leg_done()
 	_verify_playfield_context_includes_owner_weather()
+	_leg_done()
 	_verify_sand_kickup_spray_emission_gates()
+	_leg_done()
 	_verify_sand_kickup_spray_stays_in_budget()
+	_leg_done()
 	_verify_sand_kickup_spray_uses_isolated_rng()
+	_leg_done()
 	_verify_sand_kickup_spray_render_continuity()
+	_leg_done()
 	_verify_sand_kickup_spray_mirrors_and_walks()
+	_leg_done()
 	_verify_sand_kickup_spray_respects_drawn_surface()
+	_leg_done()
 	_verify_sand_kickup_spray_stays_on_eroded_ground()
+	_leg_done()
+	_verify_sand_kickup_spray_honours_the_drawn_stride()
+	_leg_done()
 	_verify_sand_kickup_spray_stays_on_drawn_mesh()
+	_leg_done()
+	_verify_sand_crest_jitter_allowance_covers_the_renderer()
+	_leg_done()
 	_verify_sand_ball_impact_stays_in_budget()
+	_leg_done()
 	_verify_sand_particles_survive_weather_end()
+	_leg_done()
 	_verify_draw_context_route()
+	_leg_done()
+
+	# A GDScript runtime error unwinds only the leg it happened in, so without a completion
+	# sentinel a typo'd member would drop a whole leg and the file would still print ok and
+	# quit 0 for anyone invoking it directly rather than through the runner (GRT-040).
+	if _completed_legs != EXPECTED_LEG_COUNT:
+		_failures.append(
+			"only %d of %d verification legs ran to completion — a leg aborted mid-way (check for SCRIPT ERROR above)"
+			% [_completed_legs, EXPECTED_LEG_COUNT]
+		)
 
 	if _failures.is_empty():
 		print("weather_event_render_budget_smoke: ok")
@@ -133,6 +167,10 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _leg_done() -> void:
+	_completed_legs += 1
 
 
 func _verify_state_render_lod_budgets() -> void:
@@ -387,6 +425,13 @@ func _build_sand_weather_fixture(depth: float) -> WeatherEventState:
 	weather.sand_wall_depths["bottom"] = depths
 	weather.sand_depths = depths
 	weather.weather_particles.clear()
+	# The spray RNG is a bare RandomNumberGenerator, which Godot seeds RANDOMLY at
+	# construction. Left alone, every leg that samples an emission position is a dice roll:
+	# the wall-end leg in particular only catches a missing crest clamp on the frames whose
+	# scatter happens to land in the outer half-segment, which measured ~1 run in 8 passing
+	# GREEN with the clamp deleted. Pinning the seed makes those legs decide the same way
+	# every run, so their RED counterproofs stay valid.
+	weather._sand_spray_rng.seed = 20260815
 	return weather
 
 
@@ -682,7 +727,7 @@ func _verify_sand_kickup_spray_respects_drawn_surface() -> void:
 	# The gap budget below is only meaningful if the shipped quality really resolves to
 	# the severe stride, which is what _severe_drawn_depth models.
 	_expect(
-		weather._get_sand_spray_min_render_stride() == WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD,
+		weather._get_sand_spray_render_stride() == WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD,
 		"the spray must resolve the LIVE render stride to the shipped severe one here; if this flips, the surface assertions below are measuring a stride the build never draws"
 	)
 	# Sweep the whole wall over many frames: trenches are 1-in-N segments, so a single
@@ -786,13 +831,79 @@ func _verify_sand_kickup_spray_stays_on_eroded_ground() -> void:
 	)
 
 
+func _verify_sand_kickup_spray_honours_the_drawn_stride() -> void:
+	# A LONE SPIKE is the only shape that separates the strides: at the spike's own column
+	# a fine stride paints the peak, while the shipped severe stride bridges straight past
+	# it. The alternating-trench fixture used by the surface leg cannot tell them apart —
+	# its trenches sit on unsampled indices, so severe and max-over-all-strides return the
+	# same number everywhere and the stride choice is unsealed.
+	var weather := _build_sand_weather_fixture(40.0)
+	var segment_count: int = weather._get_sand_segment_count("bottom")
+	var spike_index: int = 11
+	var depths: Array = []
+	for index in range(segment_count):
+		depths.append(42.0 if index == spike_index else 2.0)
+	weather.sand_wall_depths["bottom"] = depths
+	weather.sand_depths = depths
+
+	var seg: float = WeatherEventState.SAND_SEG_SIZE
+	var spike_x: float = WeatherEventState.SAND_HORIZONTAL_START + float(spike_index) * seg + seg * 0.5
+	var fine: float = weather._get_sand_depth_at("bottom", spike_x, 1)
+	var severe: float = weather._get_sand_depth_at(
+		"bottom", spike_x, WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD
+	)
+	_expect(
+		fine > severe + 20.0,
+		"the fixture must actually separate the strides at the spike (fine=%.1f severe=%.1f), or the stride assertions below prove nothing" % [fine, severe]
+	)
+	# Each must equal the surface that stride really paints, computed independently here.
+	_expect(
+		is_equal_approx(fine, _drawn_depth_for_stride(depths, spike_x, 1)),
+		"crest lookup at stride 1 must equal the stride-1 surface (%.2f vs %.2f)" % [fine, _drawn_depth_for_stride(depths, spike_x, 1)]
+	)
+	_expect(
+		is_equal_approx(severe, _drawn_depth_for_stride(depths, spike_x, WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD)),
+		"crest lookup at the severe stride must equal the severe surface, not a maximum taken across strides (%.2f vs %.2f)" % [severe, _drawn_depth_for_stride(depths, spike_x, WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD)]
+	)
+
+	# End to end: a dash over the spike must leave grains near the SEVERE surface, which is
+	# what the shipped build paints. Taking a maximum across strides instead puts them ~40 px
+	# above it.
+	var owner := FakeSandOwner.new()
+	var registry := FakeSandRegistry.new()
+	var checked := 0
+	var worst_gap := 0.0
+	for _frame in range(24):
+		var refill: Array = []
+		for index in range(segment_count):
+			refill.append(42.0 if index == spike_index else 2.0)
+		weather.sand_wall_depths["bottom"] = refill
+		weather.sand_depths = refill
+		weather.weather_particles.clear()
+		owner.player_pos = Vector2(spike_x - 155.0 * 0.5 - 30.0, 700.0)
+		_drive_sand_dash_frame(weather, owner, registry, owner.player_pos.x + 28.0, true)
+		for value in weather.weather_particles:
+			if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
+				continue
+			var grain_x: float = float(value.get("x", 0.0))
+			var grain_y: float = float(value.get("y", 0.0))
+			var surface_y: float = WeatherEventState.FIELD_HEIGHT - _severe_drawn_depth(refill, grain_x)
+			checked += 1
+			worst_gap = maxf(worst_gap, absf(surface_y - grain_y))
+	_expect(checked > 4, "the stride leg must actually spray over the spike, or it proves nothing")
+	_expect(
+		worst_gap <= SAND_SPRAY_MAX_OUTWARD_GAP_PX,
+		"grains near a lone spike must sit on the SEVERE surface the build paints (worst %.1f px, budget %.1f): a crest lookup that maximises across strides picks the spike the severe mesh bridges past" % [worst_gap, SAND_SPRAY_MAX_OUTWARD_GAP_PX]
+	)
+
+
 func _verify_sand_kickup_spray_stays_on_drawn_mesh() -> void:
 	# The dune mesh stitches consecutive crest vertices, and those sit at segment
 	# CENTRES — so it spans first-centre..last-centre, half a segment short of the wall
 	# at each end. Erosion reaches the outer segment BOUNDARIES, so a dash at the very end
-	# of the wall can otherwise spray off geometry that is never painted. The boss reaches
-	# further along the top wall than the player does along the bottom, so both ends are
-	# driven right into their stops.
+	# of the wall can otherwise spray off geometry that is never painted. Both stops are
+	# driven with the BOSS: its narrower paddle is what reaches the LEFT end (centre 50 ->
+	# segment 0), where the player's minimum centre stops short.
 	var registry := FakeSandRegistry.new()
 	var weather := _build_sand_weather_fixture(40.0)
 	var top_count: int = weather._get_sand_segment_count("top")
@@ -804,6 +915,13 @@ func _verify_sand_kickup_spray_stays_on_drawn_mesh() -> void:
 	var checked := 0
 	var off_mesh := 0
 	var worst_x := 0.0
+	# Deterministic proof the clamp was exercised: at least one frame must have eroded
+	# PAST the crest span, and grains must still reach the very end of it. Counting grains
+	# alone cannot do this — mid-wall frames dominate the count, so removing the clamp only
+	# fails the bound on the rare frame that happens to sample the outer half-segment.
+	var frames_past_span := 0
+	var reached_low := false
+	var reached_high := false
 	for pass_index in range(2):
 		var owner := FakeSandOwner.new()
 		var boss_width: float = owner.boss_paddle_width
@@ -826,6 +944,10 @@ func _verify_sand_kickup_spray_stays_on_drawn_mesh() -> void:
 				{"boss_pos": Vector2(next_x, 25.0)}, owner, registry, 1.0
 			)
 			owner.boss_pos = Vector2(next_x, 25.0)
+			if weather._has_sand_erode_hit_span() and (
+				weather._sand_erode_hit_max > crest_high or weather._sand_erode_hit_min < crest_low
+			):
+				frames_past_span += 1
 			for value in weather.weather_particles:
 				if not (value is Dictionary) or str(value.get("kind", "")) != "sand":
 					continue
@@ -834,10 +956,43 @@ func _verify_sand_kickup_spray_stays_on_drawn_mesh() -> void:
 				if grain_x < crest_low - 0.5 or grain_x > crest_high + 0.5:
 					off_mesh += 1
 					worst_x = maxf(worst_x, absf(grain_x - clampf(grain_x, crest_low, crest_high)))
+				if grain_x <= crest_low + seg:
+					reached_low = true
+				if grain_x >= crest_high - seg:
+					reached_high = true
 	_expect(checked > 0, "the wall-end leg must actually produce grains, or it proves nothing")
+	_expect(
+		frames_past_span > 0,
+		"the wall-end leg must actually erode past the crest span at least once, otherwise the clamp it exists to seal is never exercised and this leg passes vacuously"
+	)
 	_expect(
 		off_mesh == 0,
 		"%d/%d kick-up grains landed outside the painted dune mesh (worst %.1f px past the crest span %.1f..%.1f): the mesh stops at the outer segment CENTRES while erosion reaches the segment boundaries" % [off_mesh, checked, worst_x, crest_low, crest_high]
+	)
+	# Two-sided: an over-tight crest span would also keep off_mesh at 0 while silently
+	# withholding grains from dune the renderer really paints.
+	_expect(
+		reached_low and reached_high,
+		"grains must still reach BOTH ends of the crest span (low=%s high=%s): a crest span narrower than the painted mesh passes the containment check while starving the wall ends" % [reached_low, reached_high]
+	)
+
+
+func _verify_sand_crest_jitter_allowance_covers_the_renderer() -> void:
+	# The crest lookup models the renderer's sampled interpolation but NOT the outward
+	# jitter it adds to each vertex. The spray absorbs that with a fixed allowance, so the
+	# two numbers have to be kept in step across the two files.
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/stages/common/weather_event_renderer.gd")
+	var marker := "const SAND_CREST_JITTER_PX := "
+	var marker_at := renderer_source.find(marker)
+	_expect(marker_at >= 0, "the renderer must still declare SAND_CREST_JITTER_PX for this guard to read")
+	if marker_at < 0:
+		return
+	var tail: String = renderer_source.substr(marker_at + marker.length(), 16)
+	var jitter: float = float(tail.split("\n")[0].strip_edges())
+	_expect(jitter > 0.0, "failed to parse SAND_CREST_JITTER_PX (%s)" % tail)
+	_expect(
+		WeatherEventState.SAND_SPRAY_CREST_JITTER_ALLOWANCE >= jitter,
+		"the spray's crest-jitter allowance (%.2f) must cover the renderer's jitter (%.2f), otherwise raising the jitter silently seats grains inside the painted crest with no test failing" % [WeatherEventState.SAND_SPRAY_CREST_JITTER_ALLOWANCE, jitter]
 	)
 
 

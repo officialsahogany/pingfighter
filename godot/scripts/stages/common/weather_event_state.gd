@@ -97,12 +97,12 @@ const SAND_SPRAY_MIN_TRAVEL_PX := 0.5
 const SAND_SPRAY_SPEED_REFERENCE_PX := 14.0
 const SAND_SPRAY_TRAILING_STRIDE := 4
 const SAND_SPRAY_MIN_CREST_DEPTH := 1.0
-# Every stride the shipped renderer can walk the wall with: full quality, LOD, severe LOD.
-const SAND_SPRAY_RENDER_STRIDES: Array[int] = [
-	1,
-	WeatherEventRenderBudget.SAND_RENDER_STRIDE_LOD,
-	WeatherEventRenderBudget.SAND_RENDER_STRIDE_SEVERE_LOD,
-]
+# Outward slack for what the crest sampling does NOT model: the renderer nudges each
+# sampled crest vertex outward by up to half of its SAND_CREST_JITTER_PX. Must stay >=
+# that jitter, which weather_event_render_budget_smoke asserts by reading both sources —
+# without it the whole margin is the minimum lift, and raising the jitter would silently
+# start seating grains inside the painted crest.
+const SAND_SPRAY_CREST_JITTER_ALLOWANCE := 1.6
 # Ceiling for the two ACTIVE-weather sand producers (paddle kick-up and ball impact).
 # Sand had no cap at all and kick-up is its first PER-FRAME producer, so without one the
 # array grows for the whole event: culled-from-render grains still cost a full update +
@@ -1749,7 +1749,7 @@ func _spawn_sand_kickup_spray(
 	var outward: float = -1.0 if side == "bottom" else 1.0
 	var speed_scale: float = clampf(moved / SAND_SPRAY_SPEED_REFERENCE_PX, 0.55, 2.1)
 	var sand_color: Color = _get_weather_color("sand")
-	var min_stride: int = _get_sand_spray_min_render_stride()
+	var draw_stride: int = _get_sand_spray_render_stride()
 	var ordinal: int = _get_sand_spray_ordinal(side)
 	var emitted := 0
 	for _grain in range(count):
@@ -1764,10 +1764,10 @@ func _spawn_sand_kickup_spray(
 		)
 		# Even inside the eroded sub-span the wall can have gaps, so a grain is only
 		# thrown where there is still a dune to throw it off.
-		if _get_sand_depth_at(side, along, min_stride) <= SAND_SPRAY_MIN_CREST_DEPTH:
+		if _get_sand_depth_at(side, along, draw_stride) <= SAND_SPRAY_MIN_CREST_DEPTH:
 			continue
 		weather_particles.append(WeatherEventPayloadFactory.build_sand_kickup_particle(
-			_get_sand_surface_point(side, along, min_stride),
+			_get_sand_surface_point(side, along, draw_stride),
 			travel_dir,
 			outward,
 			speed_scale,
@@ -1791,8 +1791,8 @@ func _is_sand_spray_supported_side(side: String) -> bool:
 	return side == "bottom" or side == "top"
 
 
-func _get_sand_surface_point(side: String, world_pos: float, min_stride: int = 1) -> Vector2:
-	var depth: float = _get_sand_depth_at(side, world_pos, min_stride)
+func _get_sand_surface_point(side: String, world_pos: float, stride: int = 1) -> Vector2:
+	var depth: float = _get_sand_depth_at(side, world_pos, stride) + SAND_SPRAY_CREST_JITTER_ALLOWANCE
 	# Strictly outward. Any inward component would seat the grain below the painted crest,
 	# which is what makes a spray read as climbing out of solid sand rather than off it.
 	var lift: float = _sand_spray_rng.randf_range(1.5, 6.5)
@@ -1816,29 +1816,23 @@ func _get_sand_surface_point(side: String, world_pos: float, min_stride: int = 1
 # or above every candidate surface (no burying) while staying a real surface — a raw
 # neighbourhood maximum also clears them all, but it can borrow an unrelated peak several
 # segments away and launch the grain tens of pixels above the sand.
-func _get_sand_depth_at(side: String, world_pos: float, min_stride: int = 1) -> float:
+func _get_sand_depth_at(side: String, world_pos: float, stride: int = 1) -> float:
 	var depths: Array = _get_sand_depths(side)
 	if depths.is_empty():
 		return 0.0
-	var crest: float = 0.0
-	for stride in SAND_SPRAY_RENDER_STRIDES:
-		var candidate: int = int(stride)
-		if candidate < min_stride:
-			continue
-		crest = maxf(crest, _get_sand_drawn_depth(depths, side, world_pos, candidate))
-	return crest
+	return _get_sand_drawn_depth(depths, side, world_pos, stride)
 
 
-# The stride the wall will actually be drawn with, resolved from the LIVE render quality
-# rather than assumed. Taking the maximum over EVERY stride is safe but not honest: where
-# a fine stride sees a spike the shipped severe stride bridges past, it starts the grain
-# tens of pixels off the dune the player is really looking at.
+# The stride the wall is drawn with RIGHT NOW, resolved from live render quality.
 #
-# Only per-context modifiers (Viper airborne) can push the draw-time scale BELOW what is
-# visible from here, and a lower scale only ever means a coarser stride — so every stride
-# at or above this one stays a candidate, and the shipped severe case resolves to severe
-# alone.
-func _get_sand_spray_min_render_stride() -> int:
+# It is the single stride, not a maximum over every stride it might become. A grain only
+# has to leave the dune convincingly at the instant it is kicked; it is airborne
+# immediately after, so a later LOD change moving the surface underneath it is not
+# something any fixed spawn point could track anyway. Covering every stride "just in case"
+# is what put grains tens of pixels off the surface the player is actually looking at —
+# and on a 73..119 FPS cap (a 75 or 90 Hz monitor at the shipped default) it degenerates
+# to exactly the max-over-everything behaviour it was meant to replace.
+func _get_sand_spray_render_stride() -> int:
 	return WeatherEventRenderBudget.get_sand_render_stride(BattleRenderQuality.effect_scale())
 
 
