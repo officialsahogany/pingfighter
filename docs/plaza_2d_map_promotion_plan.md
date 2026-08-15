@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 승격 계획
 
-상태: R0/R1 완료, R2-A/B/C 후보 GREEN, R3-A 도로 우선 골격·환경 배치 후보 GREEN, R3-B 2D exterior runtime 후보 GREEN; 프로덕션은 계속 R1이며 R3-C lifecycle과 R3-D 원자 전환 대기
+상태: R0/R1 완료, R2-A/B/C 후보 GREEN, R3-A 도로 우선 골격·환경 배치 후보 GREEN, R3-B 2D exterior runtime·R3-C lifecycle/prewarm 후보 GREEN; 프로덕션은 계속 R1이며 R3-D 원자 전환 대기
 기준일: 2026-08-11
 
 ## 목표
@@ -496,7 +496,7 @@ R1의 `MAP_SIZE` 승격은 별도 호환 판정으로 수락됐다. 저장된
 7. **candidate-only 완료:** 결정적 도로·필지·장식 생성기, full-map 투영, 2D navigation/minimap/Y-sort 호스트는 focused·반증·2020 x 1246 Vulkan 게이트가 GREEN이다. 프로덕션 경로는 계속 R1 브리지다.
 8. **candidate-only 완료:** R3-A에서 승인 지면·도로·장식 아트를 road-first 골격과 환경 배치 계획에 결박하고, 중앙 walkable hub·교차 0·수직 0·미커버 endpoint 0을 봉인한다.
 9. **candidate-only 완료:** R3-B에서 bind-time R3 내비·미니맵 컴파일, 실 플레이어·수호령 direct-sibling Y-sort, 2축 카메라·미니맵, portal 상호작용과 실 owner cadence를 별도 런타임에 연결한다.
-10. R3-C에서 stage-entry/prewarm/interior/exit cleanup 수명주기를 봉인한 뒤, R3-D 한 커밋에서만 기존 R1 활성 경로를 원자적으로 교체하고 극단 시드·비율·입력·인테리어 회귀와 실제 프로덕션 Vulkan 캡처를 완료한다. R3-D 전에는 R1 폴백을 제거하거나 R3-B 후보를 `plaza_scene.gd`/`project.godot`에 연결하지 않는다.
+10. **candidate-only 완료:** R3-C에서 stage-entry/prewarm/interior/exit cleanup 수명주기, 실 GPU warm submission, 동일 키 재진입과 5회 왕복 무증가를 봉인했다. R3-D 한 커밋에서만 기존 R1 활성 경로를 원자적으로 교체하고 극단 시드·비율·입력·인테리어 회귀와 실제 프로덕션 Vulkan 캡처를 완료한다. R3-D 전에는 R1 폴백을 제거하거나 R3 후보를 `plaza_scene.gd`/`project.godot`에 연결하지 않는다.
 
 은행 3레이어 게이트 또는 수정된 지면 앙각 게이트가 실패하면 3단계에서 멈추며, 나머지 6종을 선제 제작하지 않는다.
 
@@ -507,4 +507,13 @@ R1의 `MAP_SIZE` 승격은 별도 호환 판정으로 수락됐다. 저장된
 - 실제 retained tree는 지면·도로를 sort root 밖에 두고, 장식·건물·플레이어·수호령을 하나의 Y-sort root 직계 자식으로 둔다. 건물 `Shadow`는 추가하지 않고 승인 plot pad를 접지 정본으로 유지하며, 플레이어와 수호령에만 작은 contact shadow를 둔다.
 - 새 프로세스 3회, 각 seed `4/12`에서 warmup `120` + steady `600` sample을 측정했다. p95는 seed 4가 `1277/1228/1214us`, seed 12가 `1311/1287/1227us`로 사전 고정 `2000us` 상한을 모두 통과했다.
 - 실제 2020 x 1246 Vulkan Mobile A-H 캡처에서 플레이어 이동/가림 반증은 `5534/4877px`, 수호령은 `3386/2759px`, 카메라·미니맵 2축 변화는 `2088px`였다. 실 플레이어·수호령 모두 건물 앞/뒤에서 가림이 반전되고 actual sibling `z=1` 반증은 계약을 깨뜨린다.
-- 이 후보는 `candidate_only=true`, `production_connected=false`다. `plaza_scene.gd`, `project.godot`, `scenes/`의 신규 owner 참조는 0건이며, R3-C/R3-D 전까지 라이브 광장은 R1 브리지를 유지한다.
+- 이 후보는 `candidate_only=true`, `production_connected=false`다. `plaza_scene.gd`, `project.godot`, `scenes/`의 신규 owner 참조는 0건이며, R3-D 전까지 라이브 광장은 R1 브리지를 유지한다.
+
+## R3-C lifecycle/prewarm 후보 결과 (2026-08-15)
+
+- `plaza_r3_lifecycle_prewarm_candidate.gd`는 stage/seed/actor/generator-version 키로 authoritative layout·환경 plan을 1회 컴파일하고, 25-key 환경 catalog, 건물 21레이어, 플레이어 3장+수호령 1장, seed 파생 환경 집합과 인테리어 자원을 가시화 전에 staged prewarm한다. 리소스 캐시와 GPU 제출은 별도 단계이며, 실제 in-bounds `SubViewport` draw와 `RenderingServer.frame_post_draw` 2회가 끝나기 전에는 ready가 될 수 없다.
+- focused lifecycle 스모크는 GRT-040 `6 legs / 880 assertions`로 cold prewarm, 위임·step·GPU 누락 RED, 5회 exterior↔interior 왕복, 동일 키 cache hit·변경 seed must-miss, 실제 owner cadence, teardown 격리를 봉인한다. 동일 키는 layout/plan fingerprint와 compile/load count를 보존하며, portal return은 compiled full-body `can_occupy`가 실패하면 강제 snap 없이 fail-closed다.
+- 새 Vulkan 프로세스는 seed `4/12` 각각 3회, 총 6회다. cold prewarm은 seed 4 `7.616..7.767s`, seed 12 `6.293..6.415s`; 동일 키 warm은 `1.507..1.535s`이며 매회 warm≤cold다. 첫 가시 프레임의 R3 activation은 `28..62us`, 별도 whole-frame 표본은 `1.900..2.568ms`, 실제 owner cadence p95는 `519..697us`로 사전 고정 `2ms` 상한 안이다.
+- 2020 x 1246 RTX 5070 Forward Mobile 캡처는 seed 4/12에서 stride-4 changed sample `107,555/107,552`로 비공허다. 같은 seed의 3회 SHA-256은 각각 `803da4b6aedf8334322f35adc4cf1f6c2171b98a7f4b3dcc420e75476246dae6` / `442b793c8f1b47a7e44674dfe1f933d3d4ee706cb1e07ac32705f2c5f9a98fee` 하나로 고정되고, 두 seed SHA는 서로 다르다.
+- teardown 뒤 scene-owned node·material RID·texture identity·audio player 증가는 모두 0이다. verbose fresh-process 종료 감사에서는 6회 중 2회에 generic `RefCounted(reference count 0)` disposal notice가 총 4건 있었으며, Node/Resource/양수 reference 또는 `Resources still in use`는 0건이다. 러너는 전자는 별도 계수하고 후자는 즉시 RED로 유지한다.
+- R2-B/R2-C/R3-B 회귀 6종, compiled nav 최밀도 seed 12 p95 `70us`, R3-B owner p95 `889/896us`, headless load, 전수 warning scan `3610/3610`은 GREEN이다. 신규 owner의 `plaza_scene.gd`, `project.godot`, `scenes/` 참조는 0이므로 결과는 **R3-C candidate lifecycle GREEN / production_connected=false**이며 라이브 광장은 R3-D까지 R1을 유지한다.

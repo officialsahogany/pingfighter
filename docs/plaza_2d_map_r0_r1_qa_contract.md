@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 R0/R1 QA 계약
 
-상태: R0/R1 완료 기록 + R2-A/B/C 후보 GREEN + R3-A 환경 구성 후보 GREEN + R3-B exterior runtime 후보 GREEN; 프로덕션은 R1 유지, R3-C lifecycle·R3-D 원자 전환 대기
+상태: R0/R1 완료 기록 + R2-A/B/C 후보 GREEN + R3-A 환경 구성 후보 GREEN + R3-B exterior runtime·R3-C lifecycle/prewarm 후보 GREEN; 프로덕션은 R1 유지, R3-D 원자 전환 대기
 기준일: 2026-08-11
 
 이 문서는 `plaza_2d_map_promotion_plan.md`의 R0/R1 슬라이스를 검증하는 최소 계약이다. 테스트는 특정 함수명이나 임시 디버그 API보다 관찰 가능한 자산, 노드 상태, 실제 프리웜 진행과 렌더 픽셀을 판정한다. 구현 중 API 이름이 바뀌어도 아래 입력·행동·결과와 역검증은 유지한다.
@@ -286,4 +286,13 @@ Godot은 `SubViewport`의 최소 가시 크기를 `2 x 2`로 클램프한다. �
 - 실 owner cadence 측정은 새 프로세스 3회, seed `4`와 최밀도 seed `12`, 각 warmup `120` + steady `600` samples로 고정한다. 측정 p95는 seed 4 `1277/1228/1214us`, seed 12 `1311/1287/1227us`이며 모든 회차가 `2000us` 상한 안이다. bind 후 source road와 ground draw를 변조해도 720/720 tick 결과가 유효해야 한다.
 - 2020 x 1246 RTX 5070 Vulkan Forward Mobile A-H는 플레이어 앞/뒤 `5534px`, z 반증 `4877px`, 수호령 앞/뒤 `3386px`, z 반증 `2759px`, 카메라·미니맵 XY `2088px` 변화를 기록한다. 정확히 8 PNG와 failures 0 metrics가 있어야 종단 `ok`를 허용한다.
 - R2-B/R2-C 회귀 5종, 변경 8 GDScript 정확 인덱스 warning scan, 격리 headless load와 scoped diff check는 GREEN이다. 격리 full warning scan은 R3-B 밖 기존 `lingpet_guardian_enhance_cutin_overlay_host.gd`가 cold checkout에서 관련 `.ctex`를 찾지 못해 중단됐으며, R3-B 변경 파일 warning 0을 대체하지도 전체 스캔 GREEN으로 오기하지도 않는다.
-- 신규 owner는 `plaza_scene.gd`, `project.godot`, `scenes/`에서 참조 0이다. 따라서 이 기록은 **R3-B candidate runtime GREEN**이며, R3-C lifecycle과 R3-D 원자 전환 전에는 production 활성화 완료로 승격하지 않는다.
+- 신규 owner는 `candidate_only=true`, `production_connected=false`이며 `plaza_scene.gd`, `project.godot`, `scenes/` 참조는 0건이다. 따라서 이 기록은 **R3-B candidate runtime GREEN**이고, R3-D 원자 전환 전에는 production 활성화 완료로 승격하지 않는다.
+
+## 8. R3-C candidate-only lifecycle/prewarm QA 기록
+
+- focused `plaza_r3c_lifecycle_prewarm_smoke.gd`는 GRT-040 `6 legs / 880 assertions`를 요구한다. cold prewarm, counterproof, 5회 왕복, 재진입 결정성, 실제 cadence, teardown isolation 중 하나라도 조기 중단되거나 leg별 최소 assertion을 못 채우면 `ok`가 금지된다.
+- 독립 파생한 resource/GPU 경로는 lifecycle snapshot과 정확히 같아야 한다. catalog 25키, 건물 21레이어, actor 4장, seed 파생 환경·인테리어 집합을 실제로 순회하고, 모든 visible texture를 in-bounds `SubViewport`에 제출한 뒤 real `frame_post_draw` 2회를 통과해야 한다. 위임 자원 1개 제거, `runtime_bind` step 제거, GPU flush 1회, GPU path/identity 제거, duplicate completion은 각각 RED다.
+- interior 진입은 runtime을 숨겨 유지하고 동일 instance로 복귀한다. 저장 return 위치가 compiled full-body navigation에서 유효하지 않으면 fail-closed이며, scene teardown은 runtime을 완전히 해체한다. 5회 왕복 전후 scene-owned node/material RID/texture identity/audio player 수는 같고, teardown 후 네 카운터는 모두 0이어야 한다.
+- 새 Vulkan 프로세스 seed `4/12` × 3회는 각 `4 legs / 784 assertions`다. cold `6.293..7.767s`, warm `1.507..1.535s`, R3 activation `28..62us`, whole frame `1.900..2.568ms`, owner cadence p95 `519..697us`; warm≤cold와 p95<2ms를 모두 통과했다. stride-4 changed sample은 seed 4/12 `107,555/107,552`이며 같은 seed SHA는 3회 동일, 다른 seed SHA는 서로 다르다.
+- 종료 verbose 분류는 실제 retained Node/Resource/양수 refcount/`Resources still in use`를 즉시 RED로 한다. 이번 6회에는 그런 retained 객체가 0건이고, Godot의 generic zero-ref disposal notice만 2회·총 4건 별도 계수됐다. 이는 scene-owned leak 0 계약과 분리해 기록하며 숨기지 않는다.
+- 회귀 6종, headless load, 전수 warning scan `3610/3610`, production 참조 0을 통과했다. 따라서 이 기록은 **R3-C candidate lifecycle GREEN**이고 `production_connected=false`; R3-D 전에는 R1 폴백과 라이브 route를 바꾸지 않는다.
