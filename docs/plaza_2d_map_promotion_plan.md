@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 승격 계획
 
-상태: R0 자산·렌더러 준비 완료, R1 활성 런타임 브리지 완료, R2-A/P1 구조 후보 GREEN, R2-B/R2-C candidate runtime GREEN, R2 환경 아트 14장과 필지 패드 최종 미술 승인 완료; 프로덕션 미연결·R3 원자 전환 대기
+상태: R0/R1 완료, R2-A/B/C 후보 GREEN, R3-A 도로 우선 골격·환경 배치 후보 GREEN, R3-B 2D exterior runtime 후보 GREEN; 프로덕션은 계속 R1이며 R3-C lifecycle과 R3-D 원자 전환 대기
 기준일: 2026-08-11
 
 ## 목표
@@ -494,6 +494,17 @@ R1의 `MAP_SIZE` 승격은 별도 호환 판정으로 수락됐다. 저장된
 5. **완료:** R0로 512² 런타임 자산 21장, 비활성 매니페스트/로더, 소유 CanvasItem 렌더러와 위임 프리웜을 준비하고 독립 QA를 통과시킨다.
 6. **완료:** R1에서 불투명 fill 이동과 월드 호스트 부착을 원자적으로 적용하고, fail-closed 수명·z-order·발광색·미니맵·프리웜을 활성 경로에 연결했다. 레거시 `1900 x 750`에서 `2400 x 1500`으로의 `MAP_SIZE` 승격과 업데이트 경계의 1회성 보존-시드 좌표 이동도 의도된 호환 변경으로 승인했다.
 7. **candidate-only 완료:** 결정적 도로·필지·장식 생성기, full-map 투영, 2D navigation/minimap/Y-sort 호스트는 focused·반증·2020 x 1246 Vulkan 게이트가 GREEN이다. 프로덕션 경로는 계속 R1 브리지다.
-8. 최종 지면·도로 아트를 승인하고, 기존 R1 활성 경로를 원자적으로 교체한 뒤 극단 시드·비율·입력·인테리어 회귀와 실제 프로덕션 Vulkan 캡처를 완료한다.
+8. **candidate-only 완료:** R3-A에서 승인 지면·도로·장식 아트를 road-first 골격과 환경 배치 계획에 결박하고, 중앙 walkable hub·교차 0·수직 0·미커버 endpoint 0을 봉인한다.
+9. **candidate-only 완료:** R3-B에서 bind-time R3 내비·미니맵 컴파일, 실 플레이어·수호령 direct-sibling Y-sort, 2축 카메라·미니맵, portal 상호작용과 실 owner cadence를 별도 런타임에 연결한다.
+10. R3-C에서 stage-entry/prewarm/interior/exit cleanup 수명주기를 봉인한 뒤, R3-D 한 커밋에서만 기존 R1 활성 경로를 원자적으로 교체하고 극단 시드·비율·입력·인테리어 회귀와 실제 프로덕션 Vulkan 캡처를 완료한다. R3-D 전에는 R1 폴백을 제거하거나 R3-B 후보를 `plaza_scene.gd`/`project.godot`에 연결하지 않는다.
 
 은행 3레이어 게이트 또는 수정된 지면 앙각 게이트가 실패하면 3단계에서 멈추며, 나머지 6종을 선제 제작하지 않는다.
+
+## R3-B 2D exterior runtime 후보 결과 (2026-08-15)
+
+- `plaza_r3_navigation_binding.gd`는 R3 레이아웃과 fingerprint를 bind 시점에 한 번 검증하고, edge corridor와 승인 중앙 광장 hub가 이미 합쳐진 navigation union을 중복 없이 컴파일드 owner에 넘긴다. 전용 hub manifest와 union의 ID·edge metadata·polygon이 정확히 일치하지 않으면 fail-closed다.
+- `plaza_r3_exterior_runtime_candidate.gd`는 플레이어·수호령 이동, 2축 카메라, 미니맵, portal hit를 한 owner cadence로 묶는다. 매 tick에는 source layout fingerprint/SHA 재계산이나 카탈로그 탐색이 없고, bind 후 caller layout/plan 변조에도 compiled geometry와 retained draw가 바뀌지 않는다.
+- 실제 retained tree는 지면·도로를 sort root 밖에 두고, 장식·건물·플레이어·수호령을 하나의 Y-sort root 직계 자식으로 둔다. 건물 `Shadow`는 추가하지 않고 승인 plot pad를 접지 정본으로 유지하며, 플레이어와 수호령에만 작은 contact shadow를 둔다.
+- 새 프로세스 3회, 각 seed `4/12`에서 warmup `120` + steady `600` sample을 측정했다. p95는 seed 4가 `1277/1228/1214us`, seed 12가 `1311/1287/1227us`로 사전 고정 `2000us` 상한을 모두 통과했다.
+- 실제 2020 x 1246 Vulkan Mobile A-H 캡처에서 플레이어 이동/가림 반증은 `5534/4877px`, 수호령은 `3386/2759px`, 카메라·미니맵 2축 변화는 `2088px`였다. 실 플레이어·수호령 모두 건물 앞/뒤에서 가림이 반전되고 actual sibling `z=1` 반증은 계약을 깨뜨린다.
+- 이 후보는 `candidate_only=true`, `production_connected=false`다. `plaza_scene.gd`, `project.godot`, `scenes/`의 신규 owner 참조는 0건이며, R3-C/R3-D 전까지 라이브 광장은 R1 브리지를 유지한다.

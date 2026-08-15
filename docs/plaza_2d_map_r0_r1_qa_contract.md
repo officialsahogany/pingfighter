@@ -1,6 +1,6 @@
 # 환격전 광장 2D 지도 R0/R1 QA 계약
 
-상태: R0 완료 기록 + R1 활성 런타임 브리지 수락 완료 + 후속 R2-A/P1 구조 후보 GREEN + R2-B/R2-C candidate runtime GREEN + 환경 아트 14장·필지 패드 최종 미술 승인 완료; 프로덕션 미연결·R3 원자 전환 대기
+상태: R0/R1 완료 기록 + R2-A/B/C 후보 GREEN + R3-A 환경 구성 후보 GREEN + R3-B exterior runtime 후보 GREEN; 프로덕션은 R1 유지, R3-C lifecycle·R3-D 원자 전환 대기
 기준일: 2026-08-11
 
 이 문서는 `plaza_2d_map_promotion_plan.md`의 R0/R1 슬라이스를 검증하는 최소 계약이다. 테스트는 특정 함수명이나 임시 디버그 API보다 관찰 가능한 자산, 노드 상태, 실제 프리웜 진행과 렌더 픽셀을 판정한다. 구현 중 API 이름이 바뀌어도 아래 입력·행동·결과와 역검증은 유지한다.
@@ -277,3 +277,13 @@ Godot은 `SubViewport`의 최소 가시 크기를 `2 x 2`로 클램프한다. �
 따라서 R2-B/R2-C와 환경 아트는 각각 **candidate runtime GREEN / art GREEN**으로
 기록한다. 프로덕션 owner 콜사이트의 원자 연결과 실제 이동·진입·cleanup 게이트가
 끝나기 전에는 `2D 광장 활성화`, `R2 production GREEN`, `R2 완료`를 선언하지 않는다.
+
+## 7. R3-B candidate-only exterior runtime QA 기록
+
+- focused `plaza_r3b_exterior_runtime_smoke.gd`는 GRT-040 완주 게이트 `4 legs / 1533 assertions`를 요구한다. 실 retained tree, 2축 runtime/minimap, portal+fail-closed, owner cadence+source isolation 중 하나라도 조기 중단되거나 leg별 최소 assertion을 못 채우면 최종 `ok`가 금지된다.
+- 플레이어·수호령은 실제 texture를 가진 같은 Y-sort root의 direct sibling이다. 건물은 Base/Sign/Window를 유지하되 `Shadow` 자식은 0개이고, actor `ContactShadow`만 정확히 2개다. actual material·z·top-level·상속·modulate·visibility 변조를 남긴 채 다음 정상 sync가 같은 노드를 canonical 상태로 복원해야 한다.
+- R3 중앙 hub는 edge corridor manifest에 이미 union member로 들어 있으므로 navigation adapter가 다시 append하면 RED다. 별도 hub provenance manifest와 union record의 ID·edge metadata·polygon이 정확히 1:1이어야 하고, portal-only 전신 배치는 `include_portals=true`에서만 통과해야 한다.
+- 실 owner cadence 측정은 새 프로세스 3회, seed `4`와 최밀도 seed `12`, 각 warmup `120` + steady `600` samples로 고정한다. 측정 p95는 seed 4 `1277/1228/1214us`, seed 12 `1311/1287/1227us`이며 모든 회차가 `2000us` 상한 안이다. bind 후 source road와 ground draw를 변조해도 720/720 tick 결과가 유효해야 한다.
+- 2020 x 1246 RTX 5070 Vulkan Forward Mobile A-H는 플레이어 앞/뒤 `5534px`, z 반증 `4877px`, 수호령 앞/뒤 `3386px`, z 반증 `2759px`, 카메라·미니맵 XY `2088px` 변화를 기록한다. 정확히 8 PNG와 failures 0 metrics가 있어야 종단 `ok`를 허용한다.
+- R2-B/R2-C 회귀 5종, 변경 8 GDScript 정확 인덱스 warning scan, 격리 headless load와 scoped diff check는 GREEN이다. 격리 full warning scan은 R3-B 밖 기존 `lingpet_guardian_enhance_cutin_overlay_host.gd`가 cold checkout에서 관련 `.ctex`를 찾지 못해 중단됐으며, R3-B 변경 파일 warning 0을 대체하지도 전체 스캔 GREEN으로 오기하지도 않는다.
+- 신규 owner는 `plaza_scene.gd`, `project.godot`, `scenes/`에서 참조 0이다. 따라서 이 기록은 **R3-B candidate runtime GREEN**이며, R3-C lifecycle과 R3-D 원자 전환 전에는 production 활성화 완료로 승격하지 않는다.

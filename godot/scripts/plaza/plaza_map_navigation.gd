@@ -287,7 +287,11 @@ static func _is_valid_navigation_state(state: Dictionary) -> bool:
 		return false
 	if not _is_sha256_hex(str(state.get("layout_fingerprint", ""))):
 		return false
-	if not ["validated_layout", "qa_geometry_fixture"].has(str(state.get("binding_kind", ""))):
+	if not [
+		"validated_layout",
+		"validated_r3_layout_with_walkable_hubs",
+		"qa_geometry_fixture",
+	].has(str(state.get("binding_kind", ""))):
 		return false
 	var world_value: Variant = state.get("world_size", null)
 	if not (world_value is Vector2) or not (world_value as Vector2).is_equal_approx(MAP_WORLD_SIZE):
