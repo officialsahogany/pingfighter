@@ -62,8 +62,25 @@ function Assert-NoInteractiveGodotGame {
     $processSummary = ($interactiveProcesses | ForEach-Object {
         "PID $($_.ProcessId)"
     }) -join ", "
+
+    if ($env:GODOT_ALLOW_VALIDATION_DURING_PLAY -eq '1') {
+        try {
+            [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'BelowNormal'
+        }
+        catch {}
+        Write-Warning (
+            (
+                "{0} proceeding while this project is running interactively ({1}) " +
+                "because GODOT_ALLOW_VALIDATION_DURING_PLAY=1. Validation runs at " +
+                "BelowNormal priority; the live game may still feel brief frame drops."
+            ) -f $OperationName, $processSummary
+        )
+        return
+    }
+
     throw (
         "{0} blocked because this project is running interactively ({1}). " +
-        "Stop play mode before running automated Godot validation."
+        "Stop play mode before running automated Godot validation, or set " +
+        "GODOT_ALLOW_VALIDATION_DURING_PLAY=1 to accept low-priority validation during play."
     ) -f $OperationName, $processSummary
 }
