@@ -19,6 +19,10 @@ func handle_input(
 ) -> bool:
 	if not _call_bool(is_active, false):
 		return false
+	if plaza_scene_handler != null and plaza_scene_handler.has_method("is_entry_transition_active") and bool(plaza_scene_handler.is_entry_transition_active()):
+		# The opaque loading/error surface owns input until the atomic reveal or
+		# explicit teardown. No result-screen click can double-submit the entry.
+		return true
 	if _has_plaza_scene(plaza_scene_handler):
 		if plaza_scene_handler.has_method("handle_input"):
 			plaza_scene_handler.handle_input(event)

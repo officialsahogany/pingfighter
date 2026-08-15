@@ -103,6 +103,8 @@ class FakePlazaSceneHandler:
 	var seen_owner: Object = null
 	var seen_config: Dictionary = {}
 	var seen_finish_callback: Callable = Callable()
+	var begin_calls: int = 0
+	var seen_commit_callbacks: Dictionary = {}
 
 	func ensure_assets_ready(stage_id: int, owner: Object = null) -> bool:
 		ensure_calls += 1
@@ -139,6 +141,22 @@ class FakePlazaSceneHandler:
 		seen_config = config.duplicate(true)
 		seen_finish_callback = finish_callback
 		return spawn_result
+
+	func begin_r3_entry_transition(_owner: Object, config: Dictionary, finish_callback: Callable, callbacks: Dictionary) -> bool:
+		begin_calls += 1
+		seen_config = config.duplicate(true)
+		seen_finish_callback = finish_callback
+		seen_commit_callbacks = callbacks.duplicate(false)
+		return spawn_result
+
+	func commit_for_test() -> void:
+		for key in ["grant_pending_rewards", "reset_starpoint_choice", "mark_spawn_not_pending", "free_result_scene"]:
+			var callback := seen_commit_callbacks.get(key, Callable()) as Callable
+			if callback.is_valid():
+				callback.call()
+		var progress := seen_commit_callbacks.get("apply_stage_clear_progress", Callable()) as Callable
+		if progress.is_valid():
+			progress.call(true)
 
 
 class FakeStarpointChoiceHandler:
@@ -205,11 +223,8 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_inactive_flow_is_ignored()
-	_verify_successful_plaza_entry_flow()
-	_verify_incomplete_prewarm_remains_retryable()
-	_verify_spawn_failure_falls_back_to_continue()
-	_verify_missing_plaza_handler_falls_back_to_continue()
-	_verify_screen_plaza_entry_adapter()
+	_verify_loading_defers_atomic_commit()
+	_verify_begin_failure_and_missing_handler_fail_closed()
 	_verify_source_boundary()
 
 	if _failures.is_empty():
@@ -221,14 +236,76 @@ func _run() -> void:
 		quit(1)
 
 
+func _verify_loading_defers_atomic_commit() -> void:
+	var sink := FlowSink.new()
+	var owner := FakeOwner.new()
+	var plaza := FakePlazaSceneHandler.new()
+	var starpoint := FakeStarpointChoiceHandler.new()
+	var scene := FakeScene.new()
+	var handled := StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
+		true, 5, FakePlazaSaveStore.new(), owner, FakeRegistry.new(), "viper",
+		scene, plaza, starpoint,
+		Callable(sink, "grant_pending_rewards"),
+		Callable(sink, "apply_stage_clear_progress"),
+		Callable(sink, "mark_spawn_not_pending"),
+		Callable(sink, "free_result_scene"),
+		Callable(sink, "finish_plaza_and_continue")
+	)
+	_expect(handled, "first click should immediately enter the R3 loading transaction")
+	_expect(plaza.build_calls == 1 and plaza.begin_calls == 1, "entry should build and begin exactly one R3 transaction")
+	_expect(sink.grant_calls == 0 and sink.apply_calls == 0, "rewards must wait for the atomic commit")
+	_expect(sink.mark_spawn_calls == 0 and sink.free_result_calls == 0, "result teardown must wait for readiness")
+	_expect(starpoint.reset_calls == 0, "choice state must remain until readiness")
+	_expect(sink.finish_continue_calls == 0, "entry must not silently route past the plaza")
+	_expect(owner.redraw_calls == 1, "first click should immediately redraw the loading surface")
+	plaza.commit_for_test()
+	_expect(sink.grant_calls == 1 and sink.apply_calls == 1, "atomic commit should settle rewards exactly once")
+	_expect(sink.applied_grant_ap == [true], "atomic commit should grant plaza AP")
+	_expect(sink.mark_spawn_calls == 1 and sink.free_result_calls == 1, "atomic commit should retire the result scene")
+	_expect(starpoint.reset_calls == 1, "atomic commit should reset the result choice state")
+	_expect(sink.finish_continue_calls == 0, "successful commit must remain inside the plaza")
+	scene.free()
+
+
+func _verify_begin_failure_and_missing_handler_fail_closed() -> void:
+	var sink := FlowSink.new()
+	var failed := FakePlazaSceneHandler.new()
+	failed.spawn_result = false
+	var first_owner := FakeOwner.new()
+	var first_scene := FakeScene.new()
+	var handled := StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
+		true, 2, FakePlazaSaveStore.new(), first_owner, FakeRegistry.new(), "smasher",
+		first_scene, failed, FakeStarpointChoiceHandler.new(),
+		Callable(sink, "grant_pending_rewards"), Callable(sink, "apply_stage_clear_progress"),
+		Callable(sink, "mark_spawn_not_pending"), Callable(sink, "free_result_scene"),
+		Callable(sink, "finish_plaza_and_continue")
+	)
+	_expect(not handled, "transaction begin failure should fail closed")
+	_expect(sink.grant_calls == 0 and sink.free_result_calls == 0 and sink.finish_continue_calls == 0, "begin failure must not mutate or bypass")
+	first_scene.free()
+	var second_owner := FakeOwner.new()
+	var second_scene := FakeScene.new()
+	handled = StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
+		true, 2, FakePlazaSaveStore.new(), second_owner, FakeRegistry.new(), "smasher",
+		second_scene, null, FakeStarpointChoiceHandler.new(),
+		Callable(sink, "grant_pending_rewards"), Callable(sink, "apply_stage_clear_progress"),
+		Callable(sink, "mark_spawn_not_pending"), Callable(sink, "free_result_scene"),
+		Callable(sink, "finish_plaza_and_continue")
+	)
+	_expect(not handled, "missing production handler should fail closed")
+	_expect(sink.finish_continue_calls == 0, "missing handler must not invoke the R1 continuation")
+	second_scene.free()
+
+
 func _verify_inactive_flow_is_ignored() -> void:
 	var sink := FlowSink.new()
 	var plaza := FakePlazaSceneHandler.new()
+	var owner := FakeOwner.new()
 	StageClearResultPlazaEnterFlowHandler.new().finish_enter_plaza(
 		false,
 		5,
 		FakePlazaSaveStore.new(),
-		FakeOwner.new(),
+		owner,
 		FakeRegistry.new(),
 		"viper",
 		null,
@@ -452,10 +529,9 @@ func _verify_source_boundary() -> void:
 	_expect(screen_data_source.find("mark_spawn_not_pending") >= 0, "plaza enter screen data should wire pending-spawn mutation")
 	_expect(callback_source.find("finish_enter_plaza_from_screen") >= 0, "spawn callback data should wire result-scene plaza callbacks to the plaza adapter")
 	_expect(screen_spawn_source.find("StageClearResultSceneSpawnCallbackData.build_enter_plaza_callback") >= 0, "spawn screen data should build plaza callbacks through callback data")
-	_expect(handler_source.find("ensure_assets_ready") >= 0, "plaza enter flow handler should own plaza asset readiness timing")
-	_expect(handler_source.find("prewarm_assets_step") >= 0, "plaza enter flow handler should prefer the frame-stepped production readiness path")
 	_expect(handler_source.find("build_scene_config") >= 0, "plaza enter flow handler should own plaza config timing")
-	_expect(handler_source.find("spawn_scene") >= 0, "plaza enter flow handler should own plaza spawn timing")
+	_expect(handler_source.find("begin_r3_entry_transition") >= 0, "plaza enter flow handler should begin the bounded R3 transaction")
+	_expect(handler_source.find("_call(finish_plaza_and_continue)") < 0, "plaza entry failure must not silently fall back to R1 continuation")
 	var screen := StageClearResultScreen.new()
 	_expect(screen != null, "result screen should instantiate with the plaza enter flow handler")
 

@@ -27,9 +27,13 @@ class FakePlazaSaveStore:
 	extends RefCounted
 
 	var save_path: String = ""
+	var stage_seed := 4444
 
 	func get_summary() -> Dictionary:
-		return {"save_path": save_path}
+		return {"save_path": save_path, "tavern_active_quest": {}}
+
+	func get_or_create_stage_map_seed(_stage_id: int) -> int:
+		return stage_seed
 
 
 func _init() -> void:
@@ -37,12 +41,8 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_verify_status_and_background_prewarm_toggle()
-	await _verify_spawn_configures_and_frees_plaza_scene()
-	await _verify_forced_entry_click_never_strands_on_notice()
+	_verify_r3d_config_and_boundary()
 	_verify_source_boundary()
-	await _drain_frames(8)
-	PlazaScene.reset_prewarm_assets_for_test()
 
 	if _failures.is_empty():
 		print("stage_clear_result_plaza_scene_handler_smoke: ok")
@@ -51,6 +51,26 @@ func _run() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_r3d_config_and_boundary() -> void:
+	var owner := FakeOwner.new()
+	var handler := StageClearResultPlazaSceneHandler.new()
+	var store := FakePlazaSaveStore.new()
+	store.save_path = _smoke_save_path("r3d_config")
+	var config := handler.build_scene_config(4, store, owner, null, "viper", true)
+	_expect(bool(config.get("r3_production", false)), "R3-D config should select the production 2D exterior")
+	_expect(int(config.get("stage_id", 0)) == 4, "R3-D config should preserve the cleared stage")
+	_expect(int(config.get("map_seed", 0)) == 4444, "R3-D config should consume the persisted stage_map_seed")
+	_expect(config.get("runtime_owner", null) == owner, "R3-D config should preserve the runtime owner")
+	_expect(str(config.get("selected_character_type", "")) == "viper", "R3-D config should preserve the selected character")
+	_expect(config.get("render_size", Vector2.ZERO) is Vector2, "R3-D config should publish the render contract")
+	_expect(config.get("safe_insets", null) is Dictionary, "R3-D config should publish safe insets")
+	_expect(config.get("minimap_rect", null) is Rect2, "R3-D config should publish a two-axis minimap rect")
+	_expect(not handler.has_scene(), "building the config must not expose an exterior")
+	_expect(not handler.is_entry_transition_active(), "building the config must not begin transition work")
+	_expect(handler.prewarm_assets_step(4, owner), "legacy background hook should be a no-work compatibility success")
+	owner.free()
 
 
 func _verify_status_and_background_prewarm_toggle() -> void:
@@ -164,6 +184,7 @@ func _verify_forced_entry_click_never_strands_on_notice() -> void:
 func _verify_source_boundary() -> void:
 	var screen_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_screen.gd")
 	var handler_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_plaza_scene_handler.gd")
+	var enter_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_plaza_enter_flow_handler.gd")
 	var prewarm_state_source: String = FileAccess.get_file_as_string("res://scripts/core/stage_clear_result_plaza_scene_prewarm_state.gd")
 	_expect(screen_source.find("StageClearResultPlazaProgressHandler.get_plaza_save_path") < 0, "result screen should not build plaza save paths directly")
 	_expect(screen_source.find("\"play_arrival_transition\"") < 0, "result screen should not own plaza scene configure keys directly")
@@ -176,7 +197,9 @@ func _verify_source_boundary() -> void:
 	_expect(prewarm_state_source.find("PlazaScene.prewarm_assets_threaded_step") >= 0, "plaza prewarm state should own threaded plaza prewarm")
 	_expect(prewarm_state_source.find("PlazaScene.prewarm_assets_blocking_step") >= 0, "plaza prewarm state should own blocking plaza prewarm")
 	_expect(prewarm_state_source.find("_background_prewarm_enabled") >= 0, "plaza prewarm state should own background prewarm toggles")
-	_expect(handler_source.find("BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete") >= 0, "plaza spawn owner should reject cache-only readiness")
+	_expect(handler_source.find("func begin_r3_entry_transition") >= 0, "plaza scene handler should own the R3-D transition")
+	_expect(handler_source.find("finish_atomic_reveal") >= 0, "plaza scene handler should own the atomic reveal boundary")
+	_expect(enter_source.find("_call(finish_plaza_and_continue)") < 0, "live entry must not silently route past R3 failure")
 
 
 func _drain_frames(frame_count: int) -> void:

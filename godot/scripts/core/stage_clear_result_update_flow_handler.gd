@@ -12,8 +12,11 @@ func update_screen_flow_from_screen(
 	if screen == null or not StageClearResultUpdateScreenContextData.is_screen_active(screen):
 		return
 	var plaza_scene_handler: Object = StageClearResultUpdateScreenContextData.get_plaza_scene_handler(screen)
+	if plaza_scene_handler != null and plaza_scene_handler.has_method("update"):
+		plaza_scene_handler.update(delta)
 	if StageClearResultUpdateScreenContextData.has_plaza_scene(plaza_scene_handler):
-		StageClearResultUpdateScreenContextData.update_plaza_scene(plaza_scene_handler, delta)
+		return
+	if plaza_scene_handler != null and plaza_scene_handler.has_method("is_entry_transition_active") and bool(plaza_scene_handler.is_entry_transition_active()):
 		return
 	if StageClearResultUpdateScreenContextData.is_spawn_pending(screen):
 		var spawn_pending: bool = StageClearResultUpdateScreenContextData.update_pending_scene_spawn_from_screen(
@@ -43,8 +46,6 @@ func update_result_flow(
 		return
 	scene.visible = true
 	StageClearResultUpdateSceneHandler.update_result_scene(scene, delta)
-	if plaza_scene_handler != null and plaza_scene_handler.has_method("prewarm_assets_step"):
-		plaza_scene_handler.prewarm_assets_step(current_stage, owner)
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	if mythic_acquisition_handler != null and mythic_acquisition_handler.has_method("update_cinematic"):
 		mythic_acquisition_handler.update_cinematic(delta, mythic_item_runtime, owner, registry)

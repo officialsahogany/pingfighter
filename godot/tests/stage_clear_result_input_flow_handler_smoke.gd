@@ -13,7 +13,6 @@ class FakeResultScene:
 	var _scroll_phase: String = "hidden"
 	var _runtime_perk_state: Object = null
 	var _mythic_item_runtime: Object = null
-	var _treasure_hunt_runtime: Object = null
 
 
 class FakeRegistry:
@@ -36,10 +35,14 @@ class FakePlazaSceneHandler:
 	extends RefCounted
 
 	var scene_active: bool = false
+	var transition_active: bool = false
 	var input_calls: int = 0
 
 	func has_scene() -> bool:
 		return scene_active
+
+	func is_entry_transition_active() -> bool:
+		return transition_active
 
 	func handle_input(_event: InputEvent) -> void:
 		input_calls += 1
@@ -118,6 +121,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_inactive_input_is_ignored()
+	_verify_loading_transition_owns_input()
 	_verify_plaza_input_takes_priority()
 	_verify_spawn_pending_consumes_without_scene_routing()
 	_verify_mythic_input_takes_priority()
@@ -156,6 +160,36 @@ func _verify_inactive_input_is_ignored() -> void:
 	)
 	_expect(not handled, "inactive result input should not be consumed")
 	_expect(plaza.input_calls == 0, "inactive input should not reach plaza routing")
+
+
+func _verify_loading_transition_owns_input() -> void:
+	var plaza := FakePlazaSceneHandler.new()
+	plaza.transition_active = true
+	var mythic := FakeMythicAcquisitionHandler.new()
+	mythic.consume_input = true
+	var starpoint := FakeStarpointChoiceHandler.new()
+	var active := BoolSequence.new([true])
+	var has_scene := BoolSequence.new([true])
+	var scene := FakeResultScene.new()
+	var handled: bool = StageClearResultInputFlowHandler.new().handle_input(
+		_joy_consume_event(),
+		false,
+		scene,
+		null,
+		null,
+		plaza,
+		mythic,
+		starpoint,
+		0.0,
+		Callable(active, "value"),
+		Callable(has_scene, "value")
+	)
+	_expect(handled, "opaque R3 loading should consume all result input")
+	_expect(plaza.input_calls == 0, "loading input must not reach the not-yet-visible exterior")
+	_expect(mythic.input_calls == 0, "loading input must not double-route to mythic acquisition")
+	_expect(starpoint.sync_calls == 0, "loading input must not mutate starpoint choices")
+	_expect(has_scene.calls == 0, "loading ownership should short-circuit result-scene routing")
+	scene.free()
 
 
 func _verify_plaza_input_takes_priority() -> void:

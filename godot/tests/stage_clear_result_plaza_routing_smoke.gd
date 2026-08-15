@@ -14,7 +14,17 @@ const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd"
 const PlazaScene := preload("res://scripts/plaza/plaza_scene.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
+const EXPECTED_LEGS := 3
+const MIN_ASSERTIONS := {
+	"button_route": 3,
+	"character_normalization": 6,
+	"production_entry": 30,
+}
+
 var _failures: Array[String] = []
+var _completed_legs: Dictionary = {}
+var _assertions_by_leg: Dictionary = {}
+var _current_leg := ""
 
 
 class FakeOwner:
@@ -39,13 +49,23 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_begin_leg("button_route")
 	_verify_three_button_action_route()
+	_complete_leg("button_route")
+	_begin_leg("character_normalization")
 	_verify_result_character_type_normalization()
+	_complete_leg("character_normalization")
+	_begin_leg("production_entry")
 	await _verify_plaza_first_click_enters_and_delays_reset()
+	_complete_leg("production_entry")
 	await _drain_frames(12)
+	_verify_completion_gate()
 
 	if _failures.is_empty():
-		print("stage_clear_result_plaza_routing_smoke: ok")
+		print("stage_clear_result_plaza_routing_smoke: ok legs=%d assertions=%d" % [
+			_completed_legs.size(),
+			_total_assertions(),
+		])
 		quit(0)
 	else:
 		for failure in _failures:
@@ -110,15 +130,16 @@ func _verify_plaza_first_click_enters_and_delays_reset() -> void:
 	screen.set("_pending_owner", owner)
 	screen.set("_pending_reset_callback", Callable(sink, "reset_game"))
 	screen.set("_scene_node", result_scene)
+	var routed_save_store: Object = screen.get("_plaza_save_store")
+	routed_save_store.set_stage_map_seed_for_test(1, 12)
 	result_scene.set("_scroll_phase", StageClearResultInteractionState.PHASE_VISIBLE)
 	result_scene.set("timer", 5.0)
 	result_scene.set("_plaza_notice_until", -1.0)
 	result_scene.enter_plaza_callback = StageClearResultSceneSpawnCallbackData.build_enter_plaza_callback(screen)
 
-	# New entry contract (2026-08-12): a cold first click drains the bounded
-	# texture pipeline, forces entry, and never strands the player on the
-	# preparation bubble. The residual GPU flush becomes best-effort background
-	# work instead of an entry gate.
+	# R3-D entry contract: the cold first click immediately consumes the action
+	# and shows real progress, but result teardown and R3 exposure share one later
+	# commit boundary after the complete CPU+GPU prewarm.
 	_expect(_click_plaza_button(result_scene), "the real result-scroll plaza button should handle the cold first click")
 	_expect(
 		not result_scene.enter_plaza_callback.is_valid(),
@@ -128,29 +149,34 @@ func _verify_plaza_first_click_enters_and_delays_reset() -> void:
 		float(result_scene.get("_plaza_notice_until")) < float(result_scene.get("timer")),
 		"a successful cold first click must not show the preparation bubble"
 	)
-	_expect(not screen.is_scene_ready(), "entering the plaza must free the result scene")
+	_expect(screen.is_scene_ready(), "result scene must remain alive while R3 is loading")
 	_expect(screen.is_active(), "entering the plaza should keep the result screen controller active as an input gate")
-	_expect(owner.get_node_or_null("PlazaScene") != null, "a cold first click must spawn the plaza itself, never reroute past it")
-	_expect(
-		_count_named_children(owner, BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME) == 1,
-		"forced entry should hand the residual GPU prewarm to exactly one background prewarmer"
-	)
-	var gpu_prewarmer := owner.get_node_or_null(BattlePsoPrewarmer.HWANGYEOK_ONLY_NODE_NAME)
-	if gpu_prewarmer != null:
-		gpu_prewarmer.call("_process", 0.0)
-		var prewarmer_status: Dictionary = gpu_prewarmer.call("get_hwangyeok_instance_status")
-		_expect(bool(prewarmer_status.get("retained_draw_issued", false)), "the background prewarmer should reach the real retained SubViewport draw setup")
-		_expect(int(prewarmer_status.get("in_bounds_layer_count", 0)) == 21, "the background prewarmer should place all 21 layers inside the GPU target")
-		for _flush_idx in range(
-			int(prewarmer_status.get("post_draw_flush_count", 0)),
-			BattlePsoPrewarmer.POST_WARMUP_FLUSH_FRAMES
-		):
-			gpu_prewarmer.call("_on_hwangyeok_frame_post_draw")
-	await process_frame
-	_expect(
-		BattlePsoPrewarmer.is_hwangyeok_gpu_prewarm_complete(),
-		"the forced-entry background prewarm should still converge to full GPU readiness"
-	)
+	_expect(owner.get_node_or_null("PlazaScene") == null, "R3 must not be exposed on the click frame")
+	_expect(owner.get_node_or_null("PlazaR3ProductionEntry") != null, "first click should attach the opaque production loading owner")
+	var loading_status: Dictionary = screen.get_status()
+	var entry_status := loading_status.get("r3_entry_status", {}) as Dictionary
+	_expect(bool(loading_status.get("r3_entry_active", false)), "handler should report the bounded transition")
+	_expect(bool(entry_status.get("loading_visible", false)), "production loading surface should be visible")
+	_expect(int(entry_status.get("atomic_reveal_count", -1)) == 0, "click frame must not reveal R3")
+	for _frame in range(2400):
+		screen.update(1.0 / 72.0)
+		# Headless does not reliably emit RenderingServer.frame_post_draw. The
+		# real Vulkan gate uses the signal; this focused route only advances the
+		# already-submitted GPU flush counter through the same lifecycle callback.
+		var transition_host := owner.get_node_or_null("PlazaR3ProductionEntry")
+		if transition_host != null:
+			var lifecycle := transition_host.get_node_or_null("R3Lifecycle")
+			if lifecycle != null and str((lifecycle.call("get_debug_status") as Dictionary).get("phase", "")) == "gpu_submit":
+				lifecycle.call("_on_gpu_frame_post_draw")
+		await process_frame
+		if owner.get_node_or_null("PlazaScene") != null:
+			break
+		var current_entry := (screen.get_status().get("r3_entry_status", {}) as Dictionary)
+		if str(current_entry.get("phase", "")) == "rejected":
+			break
+	var route_entry_status := screen.get_status().get("r3_entry_status", {}) as Dictionary
+	_expect(owner.get_node_or_null("PlazaScene") != null, "bounded prewarm should atomically reveal the production plaza")
+	_expect(not screen.is_scene_ready(), "atomic reveal must retire the result scene")
 	_expect(sink.reset_calls == 0, "plaza entry must not invoke the next-stage reset callback immediately")
 	var status: Dictionary = screen.get_status()
 	var progress_summary: Dictionary = status.get("last_plaza_progress_summary", {}) if status.get("last_plaza_progress_summary", {}) is Dictionary else {}
@@ -173,8 +199,17 @@ func _verify_plaza_first_click_enters_and_delays_reset() -> void:
 	_expect(int(plaza_status.get("ap_current", 0)) == 4, "spawned plaza should read the same plaza save AP")
 	_expect(str(plaza_status.get("selected_character_type", "")) == "viper", "result-screen plaza route should pass the selected character through to the plaza")
 	_expect(bool(plaza_status.get("player_sprite_loaded", false)), "result-screen plaza route should load the selected character plaza sheet")
-	_expect(bool(plaza_status.get("plaza_warp_active", false)), "result-screen plaza route should start the arrival light-pillar phase")
-	_expect(str(plaza_status.get("plaza_warp_phase", "")) == "arrive", "result-screen plaza route should mark the arrival light-pillar phase")
+	_expect(bool(plaza_status.get("r3_production", false)), "result-screen route should activate the R3 production exterior")
+	_expect(int(plaza_status.get("map_seed", 0)) == 12, "real stage-clear route should consume stage_map_seeds")
+	var final_entry := status.get("r3_entry_status", {}) as Dictionary
+	_expect(int(final_entry.get("atomic_reveal_count", 0)) == 1, "production route should cross one atomic reveal")
+	_expect(int(final_entry.get("pre_reveal_runtime_visible_count", -1)) == 0, "production route must expose zero R3 frames before readiness")
+	_expect(not bool(final_entry.get("loading_visible", true)), "loading surface should hide only after reveal")
+	_expect(bool(final_entry.get("lifecycle_visible", false)), "R3 lifecycle should be the sole visible exterior after reveal")
+	_expect(not bool(plaza_status.get("plaza_warp_active", false)), "R1 arrival pillar must remain inactive in R3 production")
+	var plaza_node := owner.get_node_or_null("PlazaScene") as Control
+	var r1_host_status := plaza_node.get_map_world_host_status_for_test() as Dictionary if plaza_node != null else {}
+	_expect(plaza_node != null and not bool(r1_host_status.get("active", true)), "R1 retained map host must be inactive")
 
 	_finish_result_screen(screen, StageClearResultFinishFlowHandler.ACTION_PLAZA_CONTINUE)
 	_expect(not screen.is_active(), "leaving the plaza should close the result screen controller")
@@ -240,5 +275,38 @@ func _smoke_save_path(slug: String) -> String:
 
 
 func _expect(condition: bool, message: String) -> void:
+	if _current_leg != "":
+		_assertions_by_leg[_current_leg] = int(_assertions_by_leg.get(_current_leg, 0)) + 1
 	if not condition:
 		_failures.append(message)
+
+
+func _begin_leg(name: String) -> void:
+	_current_leg = name
+	_assertions_by_leg[name] = 0
+
+
+func _complete_leg(name: String) -> void:
+	if _current_leg != name:
+		_failures.append("GRT-040 leg completion order mismatch:%s" % name)
+	if _completed_legs.has(name):
+		_failures.append("GRT-040 duplicate leg completion:%s" % name)
+	_completed_legs[name] = true
+	_current_leg = ""
+
+
+func _verify_completion_gate() -> void:
+	if _completed_legs.size() != EXPECTED_LEGS:
+		_failures.append("GRT-040 expected %d completed legs, got %d" % [EXPECTED_LEGS, _completed_legs.size()])
+	for leg in MIN_ASSERTIONS.keys():
+		var actual := int(_assertions_by_leg.get(leg, 0))
+		var minimum := int(MIN_ASSERTIONS.get(leg, 1))
+		if actual < minimum:
+			_failures.append("GRT-040 leg %s executed %d assertions, expected at least %d" % [leg, actual, minimum])
+
+
+func _total_assertions() -> int:
+	var total := 0
+	for value in _assertions_by_leg.values():
+		total += int(value)
+	return total

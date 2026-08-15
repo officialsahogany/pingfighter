@@ -21,22 +21,9 @@ func finish_enter_plaza(
 ) -> bool:
 	if not active:
 		return false
-	# The result scene owns the frame-driven Hwangyeok GPU prewarm. Keep it
-	# alive and retryable until that retained SubViewport draw has crossed its flush
-	# gate; a synchronous enter callback cannot manufacture post-draw frames. The
-	# live click must also remain nonblocking: advance the same background step
-	# once instead of draining every remaining texture on the input frame.
 	var plaza_handler_ready := _is_plaza_handler_ready(plaza_scene_handler)
-	if plaza_handler_ready and not _advance_plaza_readiness(plaza_scene_handler, current_stage, owner):
-		return false
-	_call(grant_pending_rewards)
-	_call(apply_stage_clear_progress, [true])
-	_reset_starpoint_choice(scene, starpoint_choice_handler)
-	_call(mark_spawn_not_pending)
-	_call(free_result_scene)
 	if not plaza_handler_ready:
-		_call(finish_plaza_and_continue)
-		return true
+		return false
 	var plaza_config: Dictionary = plaza_scene_handler.build_scene_config(
 		current_stage,
 		plaza_save_store,
@@ -45,9 +32,24 @@ func finish_enter_plaza(
 		selected_character_type,
 		true
 	)
-	if not bool(plaza_scene_handler.spawn_scene(owner, plaza_config, finish_plaza_and_continue)):
-		_call(finish_plaza_and_continue)
-		return true
+	var commit_callbacks := {
+		"grant_pending_rewards": grant_pending_rewards,
+		"apply_stage_clear_progress": apply_stage_clear_progress,
+		"reset_starpoint_choice": _build_reset_starpoint_callback(scene, starpoint_choice_handler),
+		"mark_spawn_not_pending": mark_spawn_not_pending,
+		"free_result_scene": free_result_scene,
+	}
+	# First click is consumed by an immediate opaque loading transition. Rewards,
+	# result teardown, R3 activation, and R1 retirement are deferred until the
+	# same atomic commit boundary after CPU+GPU prewarm completes. Failure stays
+	# on the explicit loading error; it never silently continues past the plaza.
+	if not bool(plaza_scene_handler.begin_r3_entry_transition(
+		owner,
+		plaza_config,
+		finish_plaza_and_continue,
+		commit_callbacks
+	)):
+		return false
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 	return true
@@ -86,25 +88,18 @@ func _reset_starpoint_choice(scene: Control, starpoint_choice_handler: Object) -
 		starpoint_choice_handler.reset(scene)
 
 
+func _build_reset_starpoint_callback(scene: Control, starpoint_choice_handler: Object) -> Callable:
+	if starpoint_choice_handler == null or not starpoint_choice_handler.has_method("reset"):
+		return Callable()
+	return Callable(starpoint_choice_handler, "reset").bind(scene)
+
+
 func _is_plaza_handler_ready(plaza_scene_handler: Object) -> bool:
 	return (
 		plaza_scene_handler != null
-		and plaza_scene_handler.has_method("ensure_assets_ready")
 		and plaza_scene_handler.has_method("build_scene_config")
-		and plaza_scene_handler.has_method("spawn_scene")
+		and plaza_scene_handler.has_method("begin_r3_entry_transition")
 	)
-
-
-func _advance_plaza_readiness(plaza_scene_handler: Object, current_stage: int, owner: Object) -> bool:
-	# A click is explicit entry intent: prefer the bounded entry drain so the
-	# player is never stranded on the notice bubble by a stalled background step.
-	if plaza_scene_handler.has_method("advance_entry_readiness"):
-		return bool(plaza_scene_handler.advance_entry_readiness(current_stage, owner))
-	if plaza_scene_handler.has_method("prewarm_assets_step"):
-		return bool(plaza_scene_handler.prewarm_assets_step(current_stage, owner))
-	# Compatibility adapters predating the frame-stepped API retain their
-	# existing readiness contract.
-	return bool(plaza_scene_handler.ensure_assets_ready(current_stage, owner))
 
 
 func _call(callable_value: Callable, args: Array = []) -> Variant:

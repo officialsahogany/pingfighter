@@ -306,6 +306,66 @@ func tick_exterior(input_direction: Vector2, delta: float, ticks_msec: int) -> D
 	return _runtime.call("tick_candidate", input_direction, delta, ticks_msec) as Dictionary
 
 
+func try_interact() -> Dictionary:
+	if not _ready or not _active or _inside_interior or _phase != PHASE_EXTERIOR:
+		return {"valid": false, "rejection_reason": "lifecycle_not_in_exterior"}
+	if _runtime == null or not is_instance_valid(_runtime) or not _runtime.has_method("try_interact"):
+		return {"valid": false, "rejection_reason": "runtime_interaction_missing"}
+	return _runtime.call("try_interact") as Dictionary
+
+
+func request_guardian_recall(desired_world_position: Vector2) -> Dictionary:
+	if not _ready or not _active or _inside_interior or _phase != PHASE_EXTERIOR:
+		return {"valid": false, "rejection_reason": "lifecycle_not_in_exterior"}
+	if _runtime == null or not is_instance_valid(_runtime) or not _runtime.has_method("request_guardian_recall"):
+		return {"valid": false, "rejection_reason": "runtime_guardian_recall_missing"}
+	return _runtime.call("request_guardian_recall", desired_world_position) as Dictionary
+
+
+func get_prewarm_progress_snapshot() -> Dictionary:
+	var progress := 0.0
+	var completed := 0
+	var total := 1
+	match _phase:
+		PHASE_IDLE:
+			progress = 0.0
+		PHASE_RESOURCE_BASE:
+			total = maxi(1, _base_texture_paths.size())
+			completed = clampi(_resource_index, 0, total)
+			progress = 0.40 * float(completed) / float(total)
+		PHASE_COMPILE:
+			progress = 0.40
+		PHASE_RESOURCE_ALL:
+			total = maxi(1, _resource_texture_paths.size())
+			completed = clampi(_resource_index, 0, total)
+			progress = 0.42 + 0.36 * float(completed) / float(total)
+		PHASE_RUNTIME_BIND:
+			progress = 0.80
+		PHASE_GPU_SUBMIT:
+			total = REQUIRED_GPU_POST_DRAW_FLUSH_COUNT
+			completed = clampi(_gpu_post_draw_flush_count, 0, total)
+			progress = 0.84 + 0.14 * float(completed) / float(total)
+		PHASE_READY, PHASE_EXTERIOR, PHASE_INTERIOR:
+			progress = 1.0
+		PHASE_TORN_DOWN, PHASE_REJECTED:
+			progress = 0.0
+	return {
+		"phase": _phase,
+		"progress": clampf(progress, 0.0, 1.0),
+		"completed": completed,
+		"total": total,
+		"ready": _ready,
+		"rejection_reason": _rejection_reason,
+		"progress_token": "%s:%d:%d:%d:%d" % [
+			_phase,
+			_resource_index,
+			_gpu_post_draw_flush_count,
+			_completed_step_ids.size(),
+			_runtime_build_count,
+		],
+	}
+
+
 func get_readiness_snapshot() -> Dictionary:
 	var expected_steps := _expected_step_ids()
 	return {

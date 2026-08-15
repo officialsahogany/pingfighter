@@ -100,6 +100,11 @@ var _map_world_ticks_msec_for_test := -1
 var _map_world_glow_strength_for_test := -1.0
 var _map_world_render_background_for_test := true
 var _map_world_fill_color_for_test := PlazaMapWorldHost.DEFAULT_FILL_COLOR
+var _r3_production := false
+var _r3_entry_host: Control = null
+var _r3_pending_interaction: Dictionary = {}
+var _r3_last_tick: Dictionary = {}
+var _r3_tick_failure_count := 0
 
 static var _prewarm_stage_id := -1
 static var _prewarm_phase := 0
@@ -172,14 +177,16 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	clip_contents = true
 	set_process(not _driven_by_controller)
-	_ensure_map_world_host()
-	_ensure_warp_pillar_fx_host()
+	if not _r3_production:
+		_ensure_map_world_host()
+		_ensure_warp_pillar_fx_host()
 	_ensure_character_info_overlay_host()
 	if plaza_theme.is_empty():
 		configure({"current_stage": current_stage}, Callable(), false)
 	else:
 		_sync_game_rect()
-		_sync_map_world_host(_sample_map_world_ticks_msec())
+		if not _r3_production:
+			_sync_map_world_host(_sample_map_world_ticks_msec())
 	_sync_warp_pillar_fx_host()
 	_sync_character_info_overlay_host()
 	grab_focus()
@@ -188,6 +195,12 @@ func _ready() -> void:
 func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_controller: bool = false) -> void:
 	_driven_by_controller = driven_by_controller
 	set_process(not _driven_by_controller)
+	_r3_production = bool(data.get("r3_production", false))
+	var r3_host_value: Variant = data.get("r3_entry_host", null)
+	_r3_entry_host = r3_host_value as Control if r3_host_value is Control else null
+	_r3_pending_interaction.clear()
+	_r3_last_tick.clear()
+	_r3_tick_failure_count = 0
 	current_stage = PlazaThemeCatalog.normalize_stage_id(int(data.get("current_stage", current_stage)))
 	plaza_theme = PlazaThemeCatalog.get_theme(current_stage)
 	exit_callback = on_exit
@@ -199,11 +212,12 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 	_interior_npc_textures = PlazaAssetLoader.load_interior_npc_textures()
 	_interior_room_textures = PlazaAssetLoader.load_interior_room_textures()
 	_interior_object_textures = PlazaAssetLoader.load_interior_object_textures()
-	_refresh_lingpet_companion_visual()
+	if not _r3_production:
+		_refresh_lingpet_companion_visual()
 	var save_path := str(data.get("plaza_save_path", "")).strip_edges()
 	if save_path != "" and _plaza_save_store != null and _plaza_save_store.has_method("set_save_path"):
 		_plaza_save_store.set_save_path(save_path)
-	_floor_textures = PlazaAssetLoader.load_floor_textures(current_stage)
+	_floor_textures = {} if _r3_production else PlazaAssetLoader.load_floor_textures(current_stage)
 	_refresh_plaza_save_snapshot()
 	_full_layout_for_test = bool(data.get("full_layout_for_test", false))
 	_map_seed = int(data.get("map_seed", 0))
@@ -211,27 +225,33 @@ func configure(data: Dictionary, on_exit: Callable = Callable(), driven_by_contr
 		_map_seed = _get_or_create_stage_map_seed(current_stage)
 		_refresh_plaza_save_snapshot()
 	var force_tavern := _should_force_tavern_for_current_stage()
-	_building_specs = PlazaAssetLoader.build_hwangyeok_building_specs(
-		current_stage,
-		_map_seed,
-		_full_layout_for_test,
-		force_tavern
-	)
-	_player_pos = _normalize_player_pos(Vector2(120.0, GROUND_Y))
-	_lingpet_follower_initialized = false
-	_update_lingpet_follower(0.0)
+	if _r3_production and _r3_entry_host != null and _r3_entry_host.has_method("get_layout_snapshot"):
+		var r3_layout := _r3_entry_host.call("get_layout_snapshot") as Dictionary
+		_building_specs = _dictionary_array(r3_layout.get("building_specs", []))
+		_player_pos = r3_layout.get("spawn_anchor", Vector2(120.0, GROUND_Y)) as Vector2
+	else:
+		_building_specs = PlazaAssetLoader.build_hwangyeok_building_specs(
+			current_stage,
+			_map_seed,
+			_full_layout_for_test,
+			force_tavern
+		)
+		_player_pos = _normalize_player_pos(Vector2(120.0, GROUND_Y))
+		_lingpet_follower_initialized = false
+		_update_lingpet_follower(0.0)
 	_camera_x = _get_target_camera_x()
 	_close_building_menu(false)
 	_transaction_summaries.clear_all()
 	_close_character_info_overlay(false)
 	_clear_building_transition()
 	_clear_plaza_warp_transition()
-	if bool(data.get("play_arrival_transition", false)):
+	if bool(data.get("play_arrival_transition", false)) and not _r3_production:
 		_start_plaza_warp_transition("arrive")
 	_dialog_text = ""
 	_dialog_timer = 0.0
 	_sync_game_rect()
-	_sync_map_world_host(_sample_map_world_ticks_msec())
+	if not _r3_production:
+		_sync_map_world_host(_sample_map_world_ticks_msec())
 	_sync_character_info_overlay_host()
 	queue_redraw()
 
@@ -259,10 +279,27 @@ func update_plaza(delta: float) -> void:
 	if PlazaFlowGatePolicy.blocks_street_update(flow_gate):
 		_dialog_timer = 0.0
 		_update_hovered_building()
-		_sync_map_world_host(frame_ticks_msec)
+		if not _r3_production:
+			_sync_map_world_host(frame_ticks_msec)
 		queue_redraw()
 		return
 	var input_dir := _get_input_dir()
+	if _r3_production:
+		if _r3_entry_host == null or not is_instance_valid(_r3_entry_host):
+			_r3_tick_failure_count += 1
+			return
+		_r3_last_tick = _r3_entry_host.call("tick_exterior", input_dir, maxf(0.0, delta), Time.get_ticks_msec()) as Dictionary
+		if not bool(_r3_last_tick.get("valid", false)):
+			_r3_tick_failure_count += 1
+			return
+		_player_pos = _r3_last_tick.get("player_world_position", _player_pos) as Vector2
+		var guardian_value: Variant = _r3_last_tick.get("guardian_world_position", Vector2.INF)
+		if guardian_value is Vector2 and (guardian_value as Vector2).is_finite():
+			_lingpet_follower_pos = guardian_value as Vector2
+		_lingpet_follower_initialized = true
+		_dialog_timer = maxf(0.0, _dialog_timer - maxf(0.0, delta))
+		queue_redraw()
+		return
 	if input_dir != Vector2.ZERO:
 		_last_input_dir = input_dir.normalized()
 	var move_result: Dictionary = PlazaPlayerController.move_player(
@@ -309,12 +346,19 @@ func handle_plaza_input(event: InputEvent) -> bool:
 		if key_event.keycode == KEY_ESCAPE:
 			_exit_plaza()
 			return true
+		if _r3_production and key_event.keycode == KEY_R:
+			if _r3_entry_host != null:
+				_r3_entry_host.call("request_guardian_recall", _player_pos)
+			return true
 		if key_event.keycode == KEY_SPACE or key_event.keycode == KEY_ENTER:
 			_try_interact()
 			return true
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+			return true
+		if _r3_production:
+			_try_interact()
 			return true
 		var world_pos := _screen_to_world(mouse_event.position)
 		if EXIT_ZONE.has_point(world_pos):
@@ -328,7 +372,22 @@ func handle_plaza_input(event: InputEvent) -> bool:
 
 
 func get_status() -> Dictionary:
-	return _status_snapshot_builder.build(_build_status_snapshot_context())
+	var status: Dictionary = _status_snapshot_builder.build(_build_status_snapshot_context()) as Dictionary
+	status["r3_production"] = _r3_production
+	status["r3_tick_failure_count"] = _r3_tick_failure_count
+	status["r3_last_tick"] = _r3_last_tick.duplicate(true)
+	status["r3_entry_status"] = _r3_entry_host.call("get_debug_status") if _r3_entry_host != null and is_instance_valid(_r3_entry_host) else {}
+	return status
+
+
+func refresh_progress_state_after_entry_commit() -> void:
+	# PlazaScene owns a separate store instance from the result screen. The
+	# atomic commit writes through the result owner after this scene was hidden-
+	# configured, so reload the same path before exposing the first R3 frame.
+	if _plaza_save_store != null and _plaza_save_store.has_method("load"):
+		_plaza_save_store.call("load")
+	_refresh_plaza_save_snapshot()
+	queue_redraw()
 
 
 func _build_status_snapshot_context() -> Dictionary:
@@ -638,6 +697,11 @@ func _draw() -> void:
 	if size.x <= 1.0 or size.y <= 1.0:
 		_clear_map_world_host()
 		return
+	if _r3_production:
+		# The production R3 host owns the entire exterior, including actor Y-sort,
+		# camera and minimap. Drawing an R1 exterior here creates a dual-world bug.
+		_draw_runtime_perk_overlay()
+		return
 	var scale := _get_game_scale()
 	_draw_world_objects(scale)
 	_draw_overlay_ui(scale)
@@ -672,12 +736,19 @@ func _get_target_camera_x() -> float:
 
 func _get_input_dir() -> Vector2:
 	if _test_input_active:
-		return Vector2(signf(_test_input_dir.x), 0.0)
+		return _test_input_dir.normalized() if _r3_production else Vector2(signf(_test_input_dir.x), 0.0)
 	var dir_x := 0.0
+	var dir_y := 0.0
 	if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A):
 		dir_x -= 1.0
 	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
 		dir_x += 1.0
+	if _r3_production:
+		if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W):
+			dir_y -= 1.0
+		if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S):
+			dir_y += 1.0
+		return Vector2(dir_x, dir_y).normalized()
 	return Vector2(signf(dir_x), 0.0)
 
 
@@ -1007,6 +1078,10 @@ func _ensure_map_world_host() -> void:
 
 
 func _sync_map_world_host(ticks_msec: int) -> bool:
+	if _r3_production:
+		if _map_world_host != null and is_instance_valid(_map_world_host):
+			_map_world_host.call("set_active", false)
+		return false
 	if not is_inside_tree():
 		return false
 	_ensure_map_world_host()
@@ -1057,6 +1132,8 @@ func _clear_map_world_host() -> void:
 
 func clear_transient_canvas_items() -> void:
 	_clear_map_world_host()
+	if _r3_production and _r3_entry_host != null and is_instance_valid(_r3_entry_host):
+		_r3_entry_host.call("teardown_scene")
 
 
 func _exit_tree() -> void:
@@ -1133,6 +1210,10 @@ func _ensure_warp_pillar_fx_host() -> void:
 
 
 func _sync_warp_pillar_fx_host() -> void:
+	if _r3_production:
+		if _warp_pillar_fx_host != null and is_instance_valid(_warp_pillar_fx_host):
+			_warp_pillar_fx_host.set_active(false)
+		return
 	if not is_inside_tree():
 		return
 	_ensure_warp_pillar_fx_host()
@@ -1279,6 +1360,23 @@ func _update_hovered_building() -> void:
 func _try_interact() -> bool:
 	if _menu_session.is_open or _transition_state.building_active or _transition_state.warp_active:
 		return false
+	if _r3_production:
+		if _r3_entry_host == null or not is_instance_valid(_r3_entry_host):
+			return false
+		var interaction := _r3_entry_host.call("try_interact") as Dictionary
+		if not bool(interaction.get("valid", false)):
+			return false
+		if str(interaction.get("interaction_kind", "")) == "exit":
+			_exit_plaza()
+			return true
+		if str(interaction.get("interaction_kind", "")) != "building":
+			return false
+		var building := (interaction.get("building", {}) as Dictionary).duplicate(true)
+		building["type"] = str(interaction.get("building_type", building.get("type", "")))
+		building["r3_interaction"] = interaction.duplicate(true)
+		_r3_pending_interaction = interaction.duplicate(true)
+		_show_building_dialog(building)
+		return true
 	if EXIT_ZONE.has_point(_player_pos):
 		_exit_plaza()
 		return true
@@ -1478,6 +1576,12 @@ func _update_building_transition(delta: float) -> void:
 		var target := _transition_state.building_target.duplicate(true)
 		_clear_building_transition()
 		if not target.is_empty():
+			if _r3_production:
+				var interaction := target.get("r3_interaction", _r3_pending_interaction) as Dictionary
+				if _r3_entry_host == null or interaction.is_empty() or not bool(_r3_entry_host.call("enter_interior", interaction)):
+					_r3_pending_interaction.clear()
+					return
+				_r3_pending_interaction.clear()
 			_open_building_menu(target)
 		return
 	_clear_building_transition()
@@ -1781,6 +1885,9 @@ func _format_tavern_transaction_message(summary: Dictionary) -> String:
 
 func _close_building_menu(play_return_transition: bool = true) -> void:
 	var should_play_return := play_return_transition and _menu_session.is_open and not _transition_state.building_active
+	if _r3_production and _menu_session.is_open:
+		if _r3_entry_host == null or not bool(_r3_entry_host.call("return_from_interior")):
+			return
 	_close_character_info_overlay(false)
 	_free_interior_view()
 	_menu_session.reset()
@@ -1843,6 +1950,9 @@ func _get_owned_lingpet_count() -> int:
 
 
 func _exit_plaza() -> void:
+	if _r3_production:
+		_finish_plaza_exit()
+		return
 	if _transition_state.warp_active:
 		return
 	_start_plaza_warp_transition("exit")
@@ -1853,3 +1963,12 @@ func _finish_plaza_exit() -> void:
 	clear_transient_canvas_items()
 	if exit_callback.is_valid():
 		exit_callback.call()
+
+
+func _dictionary_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is Array:
+		for item in value as Array:
+			if item is Dictionary:
+				result.append((item as Dictionary).duplicate(true))
+	return result
