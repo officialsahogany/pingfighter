@@ -141,6 +141,14 @@ Current CI/pre-push lists must remain lockstep. The nightly lane is the full
 - Use the repository Godot wrappers and require their real exit/terminal line.
   Pair focused smokes with headless load, `.gd` warning scan, diff check, and a
   real render for visible work; legacy Python checks cannot sign off Godot.
+- Validation wrappers refuse to start while an interactive (windowed,
+  non-editor) Godot process runs this project; that throw is guard behavior,
+  not a smoke RED. Blocking PIDs may be QA runners, not the user's game —
+  check the command line. Short checks (headless load) may run during play by
+  setting `GODOT_ALLOW_VALIDATION_DURING_PLAY=1` (warns and demotes to
+  BelowNormal priority). Keep heavy runs — full warning scan, smoke batches —
+  for after the game closes, and copy the Godot log directory first when live
+  logs are evidence.
 
 ## Skills and mirrors
 
