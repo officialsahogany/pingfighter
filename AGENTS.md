@@ -144,10 +144,12 @@ Current CI/pre-push lists must remain lockstep. The nightly lane is the full
 - Validation wrappers refuse to start while an interactive (windowed,
   non-editor) Godot process runs this project; that throw is guard behavior,
   not a smoke RED. Blocking PIDs may be QA runners, not the user's game —
-  check the command line. Short checks (headless load) may run during play by
-  setting `GODOT_ALLOW_VALIDATION_DURING_PLAY=1` (warns and demotes to
-  BelowNormal priority). Keep heavy runs — full warning scan, smoke batches —
-  for after the game closes, and copy the Godot log directory first when live
+  check the command line. `GODOT_ALLOW_VALIDATION_DURING_PLAY=1` engages only
+  for wrappers that declare `-AllowDuringPlay` (currently the headless load
+  check), which warn, run at verified BelowNormal priority, and restore the
+  caller's priority afterward. Heavy wrappers — full warning scan, smoke
+  batches, windowed pixel QA — ignore the opt-in and stay blocked; run them
+  after the game closes, and copy the Godot log directory first when live
   logs are evidence.
 
 ## Skills and mirrors
