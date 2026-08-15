@@ -179,6 +179,25 @@ static func generate(
 
 
 static func validate_layout(layout: Dictionary) -> Dictionary:
+	return _validate_layout_internal(layout, GENERATOR_VERSION, true)
+
+
+# R3 candidate owners reuse the mature plot/building/decor/road-clearance
+# validators while owning their versioned road topology themselves. Keeping
+# this entry point here prevents the integrated generator from copying the
+# collision contract or weakening the production-disconnected R2 validator.
+static func validate_candidate_geometry(
+	layout: Dictionary,
+	expected_generator_version: String
+) -> Dictionary:
+	return _validate_layout_internal(layout, expected_generator_version, false)
+
+
+static func _validate_layout_internal(
+	layout: Dictionary,
+	expected_generator_version: String,
+	validate_r2_road_topology: bool
+) -> Dictionary:
 	var violations: Array[Dictionary] = []
 	var metrics := {
 		"plot_count": 0,
@@ -200,7 +219,7 @@ static func validate_layout(layout: Dictionary) -> Dictionary:
 		}
 	if int(layout.get("schema_version", -1)) != SCHEMA_VERSION:
 		_add_violation(violations, "invalid_schema", "unexpected schema_version")
-	if str(layout.get("generator_version", "")) != GENERATOR_VERSION:
+	if str(layout.get("generator_version", "")) != expected_generator_version:
 		_add_violation(violations, "invalid_generator_version", "unexpected generator_version")
 	if str(layout.get("plot_boundary_overlap_policy", "")) != PLOT_BOUNDARY_OVERLAP_POLICY:
 		_add_violation(violations, "plot_boundary_overlap_policy_mismatch", str(layout.get("plot_boundary_overlap_policy", "")))
@@ -228,19 +247,24 @@ static func validate_layout(layout: Dictionary) -> Dictionary:
 		)
 
 	_validate_selected_building_contract(layout, buildings, violations)
-	_validate_road_graph(layout, world_size, violations)
+	if validate_r2_road_topology:
+		_validate_road_graph(layout, world_size, violations)
 	_validate_plot_assignment_contract(layout, plots, violations)
 	_validate_plot_occupancy(plots, buildings, decor_clusters, violations, metrics)
 	_validate_building_geometry(buildings, decor_clusters, world_size, violations)
-	_validate_label_rects(buildings, decor_clusters, world_size, violations)
+	_validate_label_rects(buildings, decor_clusters, world_size, not validate_r2_road_topology, violations)
 	_validate_plot_boundaries(plots, buildings, decor_clusters, world_size, violations)
 	_validate_road_plot_boundary_clearance(layout, plots, violations)
 	_validate_blocked_polygon_manifest(layout, buildings, decor_clusters, violations)
 	_validate_road_core_clearance(layout, buildings, decor_clusters, violations)
-	_validate_walkable_manifest(layout, buildings, world_size, violations)
+	_validate_walkable_manifest(layout, buildings, world_size, validate_r2_road_topology, violations)
 	_validate_approach_edges(layout, buildings, violations)
 	_validate_route_distance_contract(layout, plots, buildings, decor_clusters, violations)
-	_validate_landmark_gap(layout, plots, violations, metrics)
+	# The 360-world landmark cadence is an R2 spine contract. R3 candidates own
+	# a different road-first spine and validate its authored turn/coverage budget
+	# in their versioned validator instead of inheriting an impossible R2 scalar.
+	if validate_r2_road_topology:
+		_validate_landmark_gap(layout, plots, violations, metrics)
 	_validate_map_distribution(layout, plots, buildings, decor_clusters, world_size, violations, metrics)
 	return {
 		"valid": violations.is_empty(),
@@ -378,6 +402,18 @@ static func build_fingerprint(layout: Dictionary) -> String:
 		])
 		for point in _vector2_array(corridor.get("polygon_world", [])):
 			parts.append("corridor_point:%s" % _vector_token(point))
+	for hub in _dictionary_array(layout.get("walkable_hub_polygons", [])):
+		parts.append("walkable_hub:%s:%s:%s:%s:%s:%d:%.3f" % [
+			str(hub.get("id", "")),
+			str(hub.get("edge_id", "")),
+			str(hub.get("edge_kind", "")),
+			str(hub.get("cap_style", "")),
+			str(hub.get("source_contract_id", "")),
+			int(hub.get("segment_index", -1)),
+			float(hub.get("half_width_world", -1.0)),
+		])
+		for point in _vector2_array(hub.get("polygon_world", [])):
+			parts.append("walkable_hub_point:%s" % _vector_token(point))
 	for portal in _dictionary_array(layout.get("interaction_portals", [])):
 		parts.append("portal:%s:%s:%s:%s" % [str(portal.get("id", "")), str(portal.get("building_type", "")), str(portal.get("plot_id", "")), str(portal.get("approach_edge_id", ""))])
 		for point in _vector2_array(portal.get("polygon_world", [])):
@@ -1134,6 +1170,8 @@ static func _validate_consumed_field_contract(layout: Dictionary, violations: Ar
 					break
 		if not valid_container:
 			_add_violation(violations, "consumed_field_invalid", "layout.%s" % key)
+	if layout.has("walkable_hub_polygons") and not _is_dictionary_array(layout.get("walkable_hub_polygons", null)):
+		_add_violation(violations, "consumed_field_invalid", "layout.walkable_hub_polygons")
 
 	var road_value: Variant = layout.get("road_graph", {})
 	var road: Dictionary = road_value as Dictionary if road_value is Dictionary else {}
@@ -1240,6 +1278,13 @@ static func _validate_consumed_field_contract(layout: Dictionary, violations: Ar
 		_require_int_field(corridor, "segment_index", corridor_context, violations)
 		_require_finite_number_field(corridor, "half_width_world", corridor_context, true, violations)
 		_require_vector2_array_field(corridor, "polygon_world", corridor_context, violations)
+	for hub in _dictionary_array(layout.get("walkable_hub_polygons", [])):
+		var hub_context := "walkable_hub:%s" % str(hub.get("id", ""))
+		for key_value in ["id", "edge_id", "edge_kind", "cap_style", "source_contract_id"]:
+			_require_string_field(hub, str(key_value), hub_context, true, violations)
+		_require_int_field(hub, "segment_index", hub_context, violations)
+		_require_finite_number_field(hub, "half_width_world", hub_context, true, violations)
+		_require_vector2_array_field(hub, "polygon_world", hub_context, violations)
 	for portal in _dictionary_array(layout.get("interaction_portals", [])):
 		var portal_context := "portal:%s" % str(portal.get("id", ""))
 		for key_value in ["id", "building_type", "plot_id", "approach_edge_id"]:
@@ -2053,6 +2098,7 @@ static func _validate_label_rects(
 	buildings: Array[Dictionary],
 	decor_clusters: Array[Dictionary],
 	world_size: Vector2,
+	allow_world_fit_direction: bool,
 	violations: Array[Dictionary]
 ) -> void:
 	for index in range(buildings.size()):
@@ -2067,8 +2113,13 @@ static func _validate_label_rects(
 			clampf(36.0 + float(display_name.length()) * 26.0, 114.0, 192.0),
 			LABEL_HEIGHT_WORLD
 		)
-		var expected_position := label_stem + Vector2(LABEL_STEM_GAP_WORLD, -expected_size.y * 0.5)
-		if not label_rect.position.is_equal_approx(expected_position) or not label_rect.size.is_equal_approx(expected_size):
+		var expected_right_position := label_stem + Vector2(LABEL_STEM_GAP_WORLD, -expected_size.y * 0.5)
+		var expected_left_position := label_stem + Vector2(-LABEL_STEM_GAP_WORLD - expected_size.x, -expected_size.y * 0.5)
+		var expected_position := expected_right_position
+		if allow_world_fit_direction and expected_right_position.x + expected_size.x > world_size.x + 0.01:
+			expected_position = expected_left_position
+		var position_matches := label_rect.position.is_equal_approx(expected_position)
+		if not position_matches or not label_rect.size.is_equal_approx(expected_size):
 			_add_violation(violations, "label_rect_anchor_contract_mismatch", str(building.get("type", "")))
 		if label_rect.position.x < -0.01 or label_rect.position.y < -0.01 or label_rect.end.x > world_size.x + 0.01 or label_rect.end.y > world_size.y + 0.01:
 			_add_violation(violations, "label_rect_out_of_world", str(building.get("type", "")))
@@ -2255,11 +2306,18 @@ static func _validate_walkable_manifest(
 	layout: Dictionary,
 	buildings: Array[Dictionary],
 	world_size: Vector2,
+	validate_r2_road_topology: bool,
 	violations: Array[Dictionary]
 ) -> void:
 	var road_value: Variant = layout.get("road_graph", {})
 	var road: Dictionary = road_value as Dictionary if road_value is Dictionary else {}
 	var expected_corridors := _build_walkable_corridors(road)
+	var hubs := _dictionary_array(layout.get("walkable_hub_polygons", []))
+	if validate_r2_road_topology and not hubs.is_empty():
+		_add_violation(violations, "walkable_hub_forbidden_in_r2", "R2 topology does not publish authored hubs")
+	if not validate_r2_road_topology:
+		for hub in hubs:
+			expected_corridors.append(hub.duplicate(true))
 	var actual_corridors := _dictionary_array(layout.get("walkable_corridor_polygons", []))
 	var actual_by_id := {}
 	for corridor in actual_corridors:
@@ -2281,7 +2339,7 @@ static func _validate_walkable_manifest(
 			continue
 		var actual_value: Variant = actual_by_id.get(corridor_id, {})
 		var actual: Dictionary = actual_value as Dictionary if actual_value is Dictionary else {}
-		if str(actual.get("edge_id", "")) != str(expected.get("edge_id", "")) or str(actual.get("edge_kind", "")) != str(expected.get("edge_kind", "")) or str(actual.get("cap_style", "")) != WALKABLE_CAP_STYLE or int(actual.get("segment_index", -1)) != int(expected.get("segment_index", -1)) or not _is_finite_number(actual.get("half_width_world", null)) or not is_equal_approx(float(actual.get("half_width_world", 0.0)), float(expected.get("half_width_world", -1.0))) or not _polygons_equal_approx(_vector2_array(actual.get("polygon_world", [])), _vector2_array(expected.get("polygon_world", []))):
+		if str(actual.get("edge_id", "")) != str(expected.get("edge_id", "")) or str(actual.get("edge_kind", "")) != str(expected.get("edge_kind", "")) or str(actual.get("cap_style", "")) != str(expected.get("cap_style", WALKABLE_CAP_STYLE)) or int(actual.get("segment_index", -1)) != int(expected.get("segment_index", -1)) or not _is_finite_number(actual.get("half_width_world", null)) or not is_equal_approx(float(actual.get("half_width_world", 0.0)), float(expected.get("half_width_world", -1.0))) or not _polygons_equal_approx(_vector2_array(actual.get("polygon_world", [])), _vector2_array(expected.get("polygon_world", []))):
 			_add_violation(violations, "walkable_corridor_manifest_mismatch", "geometry:%s" % corridor_id)
 		var actual_polygon := _vector2_array(actual.get("polygon_world", []))
 		if actual_polygon.size() < 3 or absf(_array_polygon_signed_area(actual_polygon)) <= 0.01:
@@ -2290,6 +2348,16 @@ static func _validate_walkable_manifest(
 			if point.x < -0.01 or point.y < -0.01 or point.x > world_size.x + 0.01 or point.y > world_size.y + 0.01:
 				_add_violation(violations, "walkable_corridor_out_of_world", "%s:%s" % [corridor_id, _vector_token(point)])
 				break
+	if not validate_r2_road_topology:
+		for hub in hubs:
+			var hub_id := str(hub.get("id", ""))
+			var actual_hub_value: Variant = actual_by_id.get(hub_id, null)
+			var actual_hub: Dictionary = actual_hub_value as Dictionary if actual_hub_value is Dictionary else {}
+			if actual_hub != hub:
+				_add_violation(violations, "walkable_hub_manifest_mismatch", hub_id)
+			var hub_polygon := _vector2_array(hub.get("polygon_world", []))
+			if str(hub.get("edge_kind", "")) != "hub" or str(hub.get("cap_style", "")) != "authored_polygon" or str(hub.get("source_contract_id", "")) == "" or hub_polygon.size() < 3 or absf(_array_polygon_signed_area(hub_polygon)) <= 0.01:
+				_add_violation(violations, "walkable_hub_invalid", hub_id)
 
 	var expected_portals := _build_interaction_portals(buildings)
 	var actual_portals := _dictionary_array(layout.get("interaction_portals", []))

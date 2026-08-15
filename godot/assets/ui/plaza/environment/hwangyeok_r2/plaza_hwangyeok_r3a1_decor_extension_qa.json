@@ -1,0 +1,24 @@
+{
+  "status": "pass",
+  "failure_count": 0,
+  "pipeline": "hwangyeok_plaza_r3a1_semantic_decor_extension_prep",
+  "candidate_only": true,
+  "production_connected": false,
+  "asset_counts": {
+    "road_piece": 2,
+    "decor_cluster": 2,
+    "total": 4
+  },
+  "aggregate_runtime_sha256": "f7173afce42ed0006c88f901ffe38a1fd640343b1b61ace5be8e463c7b0f63fe",
+  "import_status_counts": {
+    "ready": 4
+  },
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  }
+}

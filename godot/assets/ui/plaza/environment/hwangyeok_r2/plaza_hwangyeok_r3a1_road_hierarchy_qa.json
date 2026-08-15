@@ -1,0 +1,34 @@
+{
+  "status": "pass",
+  "failure_count": 0,
+  "pipeline": "hwangyeok_plaza_r3a1_road_hierarchy_extension_prep",
+  "candidate_only": true,
+  "production_connected": false,
+  "asset_counts": {
+    "road_piece": 7,
+    "turn_court": 1,
+    "total": 7
+  },
+  "aggregate_runtime_sha256": "317889a42ac87d04db2d5417b5d8c9916d8aaa93ddd00afa186d51d8dc6a5c65",
+  "material_mean_luminance_8bit": {
+    "secondary_horizontal": 106.01685333251953,
+    "secondary_positive": 68.61891174316406,
+    "secondary_negative": 67.73287963867188,
+    "trail_horizontal": 59.69579315185547,
+    "trail_positive": 56.49327850341797,
+    "trail_negative": 61.13211441040039,
+    "turn_court": 118.16905212402344
+  },
+  "import_status_counts": {
+    "ready": 7
+  },
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  },
+  "approved_layout_geometry_count": 1
+}

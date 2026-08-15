@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "status": "r3a1_candidate_runtime_art_ready",
+  "runtime_usage": "candidate_only_hwangyeok_plaza_2d_axis_road_and_semantic_decor_extension",
+  "candidate_only": true,
+  "production_connected": false,
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  },
+  "approved_source_hashes": {
+    "straight_horizontal": "b9c894e3f48001611fa5bd245abea66f0be7c13bc2c5b7dc2559c07494873a90",
+    "straight_vertical": "147dc9268bbc6c1c329837a7294edc26f18ec4f73ed0dd3abdc2889a02b753ad",
+    "ritual_stone_garden": "3a564dd8268cc579f2c1223e382664749a3e38f89c75bf387a1ef826b213b91a",
+    "stone_lantern_rest": "e43770f2fed088931ba10f903704105c198477a4e951fe06dc134e93481d8b9c"
+  },
+  "assets": [
+    {
+      "kind": "road_piece",
+      "asset_id": "straight_horizontal",
+      "basis": "horizontal",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_horizontal_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_axis_roads/plaza_hwangyeok_road_straight_horizontal_v1_alpha.png",
+      "source_sha256": "b9c894e3f48001611fa5bd245abea66f0be7c13bc2c5b7dc2559c07494873a90",
+      "placement": {
+        "source_bbox_xyxy": [
+          12,
+          245,
+          2133,
+          469
+        ],
+        "source_crop_size": [
+          2121,
+          224
+        ],
+        "runtime_content_rect": [
+          16,
+          230,
+          480,
+          51
+        ],
+        "runtime_scale": 0.2263083451202263,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "0f46b8eaf87d8620a7aac2d07efd9178242e923d0100dc8295842c09c747bcb5",
+        "visible_pixels": 23795,
+        "opaque_pixels": 21449,
+        "partial_alpha_pixels": 2346,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_horizontal_v1.png.import",
+        "uid": "uid://c8tkyp7yuvylk",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_horizontal_v1.png-0364f90051d51ebaa5046edaa1246690.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_horizontal_v1.png-0364f90051d51ebaa5046edaa1246690.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "straight_vertical",
+      "basis": "vertical",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_vertical_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_axis_roads/plaza_hwangyeok_road_straight_vertical_v1_alpha.png",
+      "source_sha256": "147dc9268bbc6c1c329837a7294edc26f18ec4f73ed0dd3abdc2889a02b753ad",
+      "placement": {
+        "source_bbox_xyxy": [
+          363,
+          8,
+          660,
+          1528
+        ],
+        "source_crop_size": [
+          297,
+          1520
+        ],
+        "runtime_content_rect": [
+          209,
+          16,
+          94,
+          480
+        ],
+        "runtime_scale": 0.3157894736842105,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "8671fc34e94cf6a2d708c966ac26f8b1b0d345324df0dca630374ec3ccd10274",
+        "visible_pixels": 43881,
+        "opaque_pixels": 41359,
+        "partial_alpha_pixels": 2522,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_straight_vertical_v1.png.import",
+        "uid": "uid://b8mu3ffbdb5mq",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_vertical_v1.png-7cbaf87bd114908ff28ac65c302313e1.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_straight_vertical_v1.png-7cbaf87bd114908ff28ac65c302313e1.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "ritual_stone_garden",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_ritual_stone_garden_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_decor/plaza_hwangyeok_decor_ritual_stone_garden_v1_alpha.png",
+      "source_sha256": "3a564dd8268cc579f2c1223e382664749a3e38f89c75bf387a1ef826b213b91a",
+      "semantic_cluster_types": [
+        "seal_stone_court",
+        "jade_rock_garden"
+      ],
+      "generation_intent": "ritual seal court plus jade scholar-rock garden",
+      "placement": {
+        "source_bbox_xyxy": [
+          99,
+          49,
+          1437,
+          953
+        ],
+        "source_crop_size": [
+          1338,
+          904
+        ],
+        "runtime_content_rect": [
+          16,
+          172,
+          480,
+          324
+        ],
+        "runtime_scale": 0.35874439461883406,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "c4022dec186fbba0ea181863e29815d2613094b1442c9e63665df2620e35f658",
+        "visible_pixels": 95950,
+        "opaque_pixels": 89510,
+        "partial_alpha_pixels": 6440,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_ritual_stone_garden_v1.png.import",
+        "uid": "uid://cu313a4erh4e",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_ritual_stone_garden_v1.png-88aa1e4deb433d44598a9d0413fabb5f.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_ritual_stone_garden_v1.png-88aa1e4deb433d44598a9d0413fabb5f.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "decor_cluster",
+      "asset_id": "stone_lantern_rest",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_stone_lantern_rest_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_decor/plaza_hwangyeok_decor_stone_lantern_rest_v1_alpha.png",
+      "source_sha256": "e43770f2fed088931ba10f903704105c198477a4e951fe06dc134e93481d8b9c",
+      "semantic_cluster_types": [
+        "bench_and_lanterns",
+        "stone_lantern_gate"
+      ],
+      "generation_intent": "paired stone-lantern gate plus two-bench resting court",
+      "placement": {
+        "source_bbox_xyxy": [
+          66,
+          17,
+          1474,
+          963
+        ],
+        "source_crop_size": [
+          1408,
+          946
+        ],
+        "runtime_content_rect": [
+          16,
+          174,
+          480,
+          322
+        ],
+        "runtime_scale": 0.3409090909090909,
+        "runtime_anchor": [
+          256,
+          496
+        ],
+        "anchor_kind": "bottom_center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "c1649ca9b6e411ce53ca6ebe96bf34199e2e392cc64cf961b9701e9a261dd454",
+        "visible_pixels": 75014,
+        "opaque_pixels": 67728,
+        "partial_alpha_pixels": 7286,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_decor_stone_lantern_rest_v1.png.import",
+        "uid": "uid://dgnvnwuycudtf",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_decor_stone_lantern_rest_v1.png-320a7a793f293f8f3bcb55657183b7e5.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_decor_stone_lantern_rest_v1.png-320a7a793f293f8f3bcb55657183b7e5.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    }
+  ],
+  "qa": {
+    "status": "pass",
+    "failure_count": 0,
+    "pipeline": "hwangyeok_plaza_r3a1_semantic_decor_extension_prep",
+    "candidate_only": true,
+    "production_connected": false,
+    "asset_counts": {
+      "road_piece": 2,
+      "decor_cluster": 2,
+      "total": 4
+    },
+    "aggregate_runtime_sha256": "f7173afce42ed0006c88f901ffe38a1fd640343b1b61ace5be8e463c7b0f63fe",
+    "import_status_counts": {
+      "ready": 4
+    },
+    "source_retention_policy": {
+      "source_root": "tmp/imagegen",
+      "workspace_masters_preserved": true,
+      "gitignored": true,
+      "clean_checkout_rebuild_supported": false,
+      "runtime_outputs_self_contained": true,
+      "durable_archive_requires_separate_lfs_promotion": true
+    }
+  }
+}

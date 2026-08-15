@@ -1,0 +1,585 @@
+{
+  "schema_version": 1,
+  "status": "r3a1_candidate_road_hierarchy_art_ready",
+  "runtime_usage": "candidate_only_hwangyeok_plaza_2d_road_material_hierarchy",
+  "candidate_only": true,
+  "production_connected": false,
+  "source_retention_policy": {
+    "source_root": "tmp/imagegen",
+    "workspace_masters_preserved": true,
+    "gitignored": true,
+    "clean_checkout_rebuild_supported": false,
+    "runtime_outputs_self_contained": true,
+    "durable_archive_requires_separate_lfs_promotion": true
+  },
+  "approved_source_hashes": {
+    "secondary_horizontal": "5214676bc74ed5b8871786dc4e6882796bbec669e85e733c42860ab29df765d0",
+    "secondary_positive": "1d59e7971898b1edef18a4a3aea48d5d2dbb197d26aee5793da2dbca13c268b4",
+    "secondary_negative": "a0c3e64ed7ca925e97cfeba7a07d7afa8be10fa09792b175ebb5cb482144b849",
+    "trail_horizontal": "1f862dd654a43af85ff43c2c4b9d0608a41151c6ba6781375f351a04cd798e0c",
+    "trail_positive": "65aa460e84275f63a866d447518f8a4c06fc716a62d24f3e6b8e68fee24a17bd",
+    "trail_negative": "30fa7c17899bb46fda48d60d67165ae2b4d3e25bed5fbddc637b56c87e9dd79a",
+    "turn_court": "2ee3a75f9a0f351c7768461bc618d27d9d7b62fed570c76796029d415ec4c76e"
+  },
+  "assets": [
+    {
+      "kind": "road_piece",
+      "asset_id": "secondary_horizontal",
+      "edge_kind": "secondary",
+      "basis": "horizontal",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_horizontal_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_secondary_horizontal_v1_alpha.png",
+      "source_sha256": "5214676bc74ed5b8871786dc4e6882796bbec669e85e733c42860ab29df765d0",
+      "generation_intent": "trimless worn stone secondary road",
+      "placement": {
+        "source_bbox_xyxy": [
+          33,
+          558,
+          1221,
+          694
+        ],
+        "source_crop_size": [
+          1188,
+          136
+        ],
+        "runtime_content_rect": [
+          16,
+          228,
+          480,
+          55
+        ],
+        "runtime_scale": 0.40404040404040403,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "730e3b0be0f252bdfb2c2adb1fbcd87927687e9a32983118773229ac24050b01",
+        "visible_pixels": 25372,
+        "opaque_pixels": 1029,
+        "partial_alpha_pixels": 24343,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.9559597112914406,
+        "alpha_intersection_pixels": 23443,
+        "alpha_union_pixels": 24523,
+        "visible_mean_luminance_8bit": 106.01685333251953
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_horizontal_v1.png.import",
+        "uid": "uid://cal004japkats",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_horizontal_v1.png-8853b09ddb6fb7aa0bab11e04627e6ea.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_horizontal_v1.png-8853b09ddb6fb7aa0bab11e04627e6ea.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "secondary_positive",
+      "edge_kind": "secondary",
+      "basis": "positive",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_positive_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_secondary_positive_v1_alpha.png",
+      "source_sha256": "1d59e7971898b1edef18a4a3aea48d5d2dbb197d26aee5793da2dbca13c268b4",
+      "generation_intent": "trimless worn stone secondary road",
+      "placement": {
+        "source_bbox_xyxy": [
+          40,
+          239,
+          1216,
+          1017
+        ],
+        "source_crop_size": [
+          1176,
+          778
+        ],
+        "runtime_content_rect": [
+          16,
+          97,
+          480,
+          318
+        ],
+        "runtime_scale": 0.40816326530612246,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "f831884266101c7aae2b737e36672f5f873c65f6feeaf8e18ec4cd1821e1ebd7",
+        "visible_pixels": 56856,
+        "opaque_pixels": 53234,
+        "partial_alpha_pixels": 3622,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.9870781064663384,
+        "alpha_intersection_pixels": 54923,
+        "alpha_union_pixels": 55642,
+        "visible_mean_luminance_8bit": 68.61891174316406
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_positive_v1.png.import",
+        "uid": "uid://54so7i7opt2a",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_positive_v1.png-f546e56af9dd8845b25aa6e0037b3c80.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_positive_v1.png-f546e56af9dd8845b25aa6e0037b3c80.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "secondary_negative",
+      "edge_kind": "secondary",
+      "basis": "negative",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_negative_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_secondary_negative_v1_alpha.png",
+      "source_sha256": "a0c3e64ed7ca925e97cfeba7a07d7afa8be10fa09792b175ebb5cb482144b849",
+      "generation_intent": "trimless worn stone secondary road",
+      "placement": {
+        "source_bbox_xyxy": [
+          40,
+          241,
+          1208,
+          1015
+        ],
+        "source_crop_size": [
+          1168,
+          774
+        ],
+        "runtime_content_rect": [
+          16,
+          97,
+          480,
+          318
+        ],
+        "runtime_scale": 0.410958904109589,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "cae0e9def61a6d77fcc163aeebc18d0f13657c549d87bce7c5cc0dcd4aa09fd0",
+        "visible_pixels": 56192,
+        "opaque_pixels": 52650,
+        "partial_alpha_pixels": 3542,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.9848703951411735,
+        "alpha_intersection_pixels": 54485,
+        "alpha_union_pixels": 55322,
+        "visible_mean_luminance_8bit": 67.73287963867188
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_secondary_negative_v1.png.import",
+        "uid": "uid://w7656561klcu",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_negative_v1.png-5c4a73c9545c8cb63c5cf98b3124c5e9.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_secondary_negative_v1.png-5c4a73c9545c8cb63c5cf98b3124c5e9.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "trail_horizontal",
+      "edge_kind": "trail",
+      "basis": "horizontal",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_horizontal_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_trail_horizontal_v1_alpha.png",
+      "source_sha256": "1f862dd654a43af85ff43c2c4b9d0608a41151c6ba6781375f351a04cd798e0c",
+      "generation_intent": "compacted earth and gravel trail",
+      "placement": {
+        "source_bbox_xyxy": [
+          37,
+          563,
+          1216,
+          691
+        ],
+        "source_crop_size": [
+          1179,
+          128
+        ],
+        "runtime_content_rect": [
+          16,
+          230,
+          480,
+          52
+        ],
+        "runtime_scale": 0.4071246819338422,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "e5b8e525fcaf9e407d0568ae2f47d3168ec1503f9e7ba1b33e8dde2798f03831",
+        "visible_pixels": 24459,
+        "opaque_pixels": 21888,
+        "partial_alpha_pixels": 2571,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.9784552676454685,
+        "alpha_intersection_pixels": 23525,
+        "alpha_union_pixels": 24043,
+        "visible_mean_luminance_8bit": 59.69579315185547
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_horizontal_v1.png.import",
+        "uid": "uid://d4grk411oieww",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_horizontal_v1.png-184fc505ead8d1412421bf0c8cc65dda.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_horizontal_v1.png-184fc505ead8d1412421bf0c8cc65dda.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "trail_positive",
+      "edge_kind": "trail",
+      "basis": "positive",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_positive_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_trail_positive_v1_alpha.png",
+      "source_sha256": "65aa460e84275f63a866d447518f8a4c06fc716a62d24f3e6b8e68fee24a17bd",
+      "generation_intent": "compacted earth and gravel trail",
+      "placement": {
+        "source_bbox_xyxy": [
+          42,
+          237,
+          1212,
+          1020
+        ],
+        "source_crop_size": [
+          1170,
+          783
+        ],
+        "runtime_content_rect": [
+          16,
+          95,
+          480,
+          321
+        ],
+        "runtime_scale": 0.41025641025641024,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "39e0dd9498ce9df71f5b614bb7a08042fdd7be37e81f385cc3983bb0972d1829",
+        "visible_pixels": 57583,
+        "opaque_pixels": 54069,
+        "partial_alpha_pixels": 3514,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.972786705171589,
+        "alpha_intersection_pixels": 54907,
+        "alpha_union_pixels": 56443,
+        "visible_mean_luminance_8bit": 56.49327850341797
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_positive_v1.png.import",
+        "uid": "uid://drwsp3l5tvl0b",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_positive_v1.png-13c9f64709dbc50373daa27bdefc2342.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_positive_v1.png-13c9f64709dbc50373daa27bdefc2342.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "trail_negative",
+      "edge_kind": "trail",
+      "basis": "negative",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_negative_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_trail_negative_v1_alpha.png",
+      "source_sha256": "30fa7c17899bb46fda48d60d67165ae2b4d3e25bed5fbddc637b56c87e9dd79a",
+      "generation_intent": "compacted earth and gravel trail",
+      "placement": {
+        "source_bbox_xyxy": [
+          42,
+          238,
+          1211,
+          1016
+        ],
+        "source_crop_size": [
+          1169,
+          778
+        ],
+        "runtime_content_rect": [
+          16,
+          96,
+          480,
+          319
+        ],
+        "runtime_scale": 0.41060735671514115,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "8c5969cf159c6dbed92c32007f9aa04fcd5a33807c7d4e7275b2b392361a25fa",
+        "visible_pixels": 55731,
+        "opaque_pixels": 52160,
+        "partial_alpha_pixels": 3571,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_iou_against_main": 0.9766739598213479,
+        "alpha_intersection_pixels": 54013,
+        "alpha_union_pixels": 55303,
+        "visible_mean_luminance_8bit": 61.13211441040039
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_trail_negative_v1.png.import",
+        "uid": "uid://b8d2n12cx1qqm",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_negative_v1.png-2d9723d2a7c3726f01655d98b945b9ae.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_trail_negative_v1.png-2d9723d2a7c3726f01655d98b945b9ae.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    },
+    {
+      "kind": "road_piece",
+      "asset_id": "turn_court",
+      "edge_kind": "junction",
+      "basis": "rotation_symmetric",
+      "res_path": "res://assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_turn_court_v1.png",
+      "source_path": "tmp/imagegen/plaza_r3a1_road_hierarchy/plaza_hwangyeok_road_turn_court_v1_alpha.png",
+      "source_sha256": "2ee3a75f9a0f351c7768461bc618d27d9d7b62fed570c76796029d415ec4c76e",
+      "generation_intent": "direction-neutral paved court covering authored degree-two road turns",
+      "placement": {
+        "source_bbox_xyxy": [
+          115,
+          340,
+          1138,
+          913
+        ],
+        "source_crop_size": [
+          1023,
+          573
+        ],
+        "runtime_content_rect": [
+          16,
+          121,
+          480,
+          269
+        ],
+        "runtime_scale": 0.46920821114369504,
+        "runtime_anchor": [
+          256,
+          256
+        ],
+        "anchor_kind": "center"
+      },
+      "qa": {
+        "size": [
+          512,
+          512
+        ],
+        "sha256": "5bf3a34541ffc313d2d445fdfafdc7344e49c93b846bb78f5b0a45f62cefacdd",
+        "visible_pixels": 87284,
+        "opaque_pixels": 83926,
+        "partial_alpha_pixels": 3358,
+        "hidden_rgb_pixels": 0,
+        "visible_near_magenta_pixels": 0,
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "alpha_rotation_180_iou": 0.9711712123636862,
+        "alpha_intersection_pixels": 84960,
+        "alpha_union_pixels": 87482,
+        "visible_mean_luminance_8bit": 118.16905212402344,
+        "directional_arm_count": 0
+      },
+      "import": {
+        "status": "ready",
+        "import_path": "godot/assets/ui/plaza/environment/hwangyeok_r2/plaza_hwangyeok_road_turn_court_v1.png.import",
+        "uid": "uid://cbh30bm7tq67k",
+        "bptc_path": "res://.godot/imported/plaza_hwangyeok_road_turn_court_v1.png-f5c2da5fefafcec492583e81f9bfa1da.bptc.ctex",
+        "astc_path": "res://.godot/imported/plaza_hwangyeok_road_turn_court_v1.png-f5c2da5fefafcec492583e81f9bfa1da.astc.ctex",
+        "destination_files_exist": [
+          true,
+          true
+        ],
+        "vram_texture": true,
+        "compress_mode": 2,
+        "high_quality": true,
+        "mipmaps": true
+      }
+    }
+  ],
+  "approved_layout_geometry": {
+    "central_plaza_walkable_hub": {
+      "id": "hwangyeok_r3a1_central_plaza_hub_v1",
+      "layout_record_id": "approved_ground_central_plaza_walkable_hub",
+      "polygon_world": [
+        [
+          214.0,
+          576.0
+        ],
+        [
+          1006.0,
+          190.0
+        ],
+        [
+          2286.0,
+          951.0
+        ],
+        [
+          1462.0,
+          1347.0
+        ]
+      ],
+      "navigation_policy": "full_body_walkable_union_member",
+      "road_render_policy": "no_straight_stamp_inside_hub",
+      "polygon_sha256": "978e515f642108a3acfdf482ded9b2eb996dd157ea781ade979f6504a942cbaa"
+    }
+  },
+  "qa": {
+    "status": "pass",
+    "failure_count": 0,
+    "pipeline": "hwangyeok_plaza_r3a1_road_hierarchy_extension_prep",
+    "candidate_only": true,
+    "production_connected": false,
+    "asset_counts": {
+      "road_piece": 7,
+      "turn_court": 1,
+      "total": 7
+    },
+    "aggregate_runtime_sha256": "317889a42ac87d04db2d5417b5d8c9916d8aaa93ddd00afa186d51d8dc6a5c65",
+    "material_mean_luminance_8bit": {
+      "secondary_horizontal": 106.01685333251953,
+      "secondary_positive": 68.61891174316406,
+      "secondary_negative": 67.73287963867188,
+      "trail_horizontal": 59.69579315185547,
+      "trail_positive": 56.49327850341797,
+      "trail_negative": 61.13211441040039,
+      "turn_court": 118.16905212402344
+    },
+    "import_status_counts": {
+      "ready": 7
+    },
+    "source_retention_policy": {
+      "source_root": "tmp/imagegen",
+      "workspace_masters_preserved": true,
+      "gitignored": true,
+      "clean_checkout_rebuild_supported": false,
+      "runtime_outputs_self_contained": true,
+      "durable_archive_requires_separate_lfs_promotion": true
+    },
+    "approved_layout_geometry_count": 1
+  }
+}
