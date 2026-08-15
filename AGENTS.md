@@ -151,6 +151,14 @@ Current CI/pre-push lists must remain lockstep. The nightly lane is the full
   batches, windowed pixel QA — ignore the opt-in and stay blocked; run them
   after the game closes, and copy the Godot log directory first when live
   logs are evidence.
+- Asset-promotion and reimport chains must not ask the user to close the
+  editor. Replace source/runtime files with the editor open, let the editor
+  reimport them on its next window focus (owner-driven import; no `.godot`
+  cache conflict), and poll for the materialized reimport before continuing
+  to headless smokes instead of asking the user to relay progress. Never run
+  headless `--import`, or any import-materializing headless pass, while the
+  editor is open. Ask to close only a non-editor game process that holds the
+  touched resources.
 
 ## Skills and mirrors
 
