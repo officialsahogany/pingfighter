@@ -9,6 +9,15 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentChestContract := preload(
+	"res://scripts/tower_ascent/tower_ascent_chest_contract.gd"
+)
+const TowerAscentChestContextBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_chest_context_builder.gd"
+)
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -17,6 +26,9 @@ const BOX_KIND_NORMAL := "normal"
 const BOX_KIND_ADVANCED := "advanced"
 const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
 const LEGACY_BOX_KIND_MYTHIC := "mythic"
+const BOX_KIND_TOWER_NORMAL := TowerAscentChestContract.CHEST_NORMAL
+const BOX_KIND_TOWER_SUPREME_ART := TowerAscentChestContract.CHEST_SUPREME_ART
+const BOX_KIND_TOWER_SECRET_CHOSIK := TowerAscentChestContract.CHEST_SECRET_CHOSIK
 
 # 시트 계약은 stage_clear_result_box_draw_helper와 동일(4x4 그리드 · 256px 셀 ·
 # 16프레임 전부 안전).
@@ -32,6 +44,9 @@ const BOX_SHEET_PATHS := {
 	BOX_KIND_NORMAL: "res://assets/sprites/result_boxes/result_box_common_open_16f.png",
 	BOX_KIND_ADVANCED: "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png",
 	BOX_KIND_GUARANTEED_MYTHIC: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
+	BOX_KIND_TOWER_NORMAL: "res://assets/sprites/result_boxes/result_box_common_open_16f.png",
+	BOX_KIND_TOWER_SUPREME_ART: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
+	BOX_KIND_TOWER_SECRET_CHOSIK: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
 }
 
 # 인트로: 스코어보드의 파워로스 진동이 끝난 뒤, 보스가 힘을 잃고 패배 라투디를
@@ -79,6 +94,9 @@ const DROP_FLASH_KIND_COLORS := {
 	BOX_KIND_NORMAL: Color(1.0, 0.86, 0.55),
 	BOX_KIND_ADVANCED: Color(0.55, 0.95, 0.85),
 	BOX_KIND_GUARANTEED_MYTHIC: Color(0.85, 0.6, 1.0),
+	BOX_KIND_TOWER_NORMAL: Color(1.0, 0.86, 0.55),
+	BOX_KIND_TOWER_SUPREME_ART: Color(0.85, 0.6, 1.0),
+	BOX_KIND_TOWER_SECRET_CHOSIK: Color(0.85, 0.6, 1.0),
 }
 
 # 보스 defeat 프레임 클럭: battle_draw_actor_result_context의 defeat 시트 상수
@@ -109,6 +127,7 @@ var _owner: Object = null
 var _registry: Object = null
 var _current_stage: int = 1
 var _plan_builder: Object = StageClearRewardPlanBuilder.new()
+var _tower_chest_context_builder: Object = TowerAscentChestContextBuilder.new()
 var _reward_resolver: Object = null
 var _drop_flash_timer: float = 0.0
 var _drop_flash_kind: String = BOX_KIND_NORMAL
@@ -125,14 +144,22 @@ func start(
 		return false
 	if player_score <= boss_score:
 		return false
-	var plan: Dictionary = _plan_builder.build_reward_plan(player_score, boss_score)
+	_current_stage = int(_get_owner_value(owner, "current_stage", 1))
+	var plan: Dictionary
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		plan = _plan_builder.build_reward_plan(
+			player_score,
+			boss_score,
+			_build_tower_chest_context(owner, registry)
+		)
+	else:
+		plan = _plan_builder.build_reward_plan(player_score, boss_score)
 	var plan_boxes_value: Variant = plan.get("boxes", [])
 	var plan_boxes: Array = plan_boxes_value if plan_boxes_value is Array else []
 	if plan_boxes.is_empty():
 		return false
 	_owner = owner
 	_registry = registry
-	_current_stage = int(_get_owner_value(owner, "current_stage", 1))
 	_ensure_reward_resolver()
 	boxes = _build_boxes(plan_boxes, owner)
 	_prewarm_box_textures()
@@ -290,8 +317,11 @@ func _build_boxes(plan_boxes: Array, owner: Object) -> Array:
 	for index in range(count):
 		var plan_box_value: Variant = plan_boxes[index]
 		var kind: String = BOX_KIND_NORMAL
+		var boss_vision_offer_id := ""
 		if plan_box_value is Dictionary:
-			kind = _normalize_box_kind(str((plan_box_value as Dictionary).get("kind", BOX_KIND_NORMAL)))
+			var plan_box := plan_box_value as Dictionary
+			kind = _normalize_box_kind(str(plan_box.get("kind", BOX_KIND_NORMAL)))
+			boss_vision_offer_id = str(plan_box.get("boss_vision_offer_id", ""))
 		var spread_step: float = 0.0
 		if count > 1:
 			spread_step = (float(index) - float(count - 1) * 0.5) * DROP_X_SPREAD_PX
@@ -302,6 +332,7 @@ func _build_boxes(plan_boxes: Array, owner: Object) -> Array:
 		)
 		built.append({
 			"kind": kind,
+			"boss_vision_offer_id": boss_vision_offer_id,
 			"pos": Vector2(origin.x, origin.y),
 			"base_x": rest_x,
 			"fall_speed": -DROP_POP_SPEED_PX_PER_FRAME,
@@ -386,7 +417,14 @@ func _grant_box_reward(box: Dictionary) -> void:
 		return
 	var kind: String = str(box.get("kind", BOX_KIND_NORMAL))
 	var pos: Vector2 = _get_vector2(box.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var reward_value: Variant = _reward_resolver.roll_reward(kind, _owner, _registry)
+	var boss_vision_offer_id := str(box.get("boss_vision_offer_id", ""))
+	var reward_value: Variant
+	if boss_vision_offer_id != "":
+		reward_value = _tower_chest_context_builder.build_secret_chosik_reward(
+			boss_vision_offer_id
+		)
+	else:
+		reward_value = _reward_resolver.roll_reward(kind, _owner, _registry)
 	if not (reward_value is Dictionary):
 		return
 	var reward: Dictionary = reward_value
@@ -612,11 +650,17 @@ func _ensure_reward_resolver() -> void:
 
 
 func _normalize_box_kind(kind: String) -> String:
+	if kind in [BOX_KIND_TOWER_NORMAL, BOX_KIND_TOWER_SUPREME_ART, BOX_KIND_TOWER_SECRET_CHOSIK]:
+		return kind
 	if kind == LEGACY_BOX_KIND_MYTHIC:
 		return BOX_KIND_ADVANCED
 	if kind == BOX_KIND_ADVANCED or kind == BOX_KIND_GUARANTEED_MYTHIC:
 		return kind
 	return BOX_KIND_NORMAL
+
+
+func _build_tower_chest_context(owner: Object, registry: Object) -> Dictionary:
+	return _tower_chest_context_builder.build(owner, registry, _current_stage)
 
 
 func _get_boss_drop_origin(owner: Object) -> Vector2:

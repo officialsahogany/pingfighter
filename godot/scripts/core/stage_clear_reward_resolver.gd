@@ -8,6 +8,12 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentChestContract := preload(
+	"res://scripts/tower_ascent/tower_ascent_chest_contract.gd"
+)
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
@@ -18,6 +24,7 @@ const REWARD_STARPOINT := "starpoint"
 const BOX_ADVANCED := "advanced"
 const BOX_GUARANTEED_MYTHIC := "guaranteed_mythic"
 const LEGACY_BOX_MYTHIC := "mythic"
+const TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE := 0.03
 
 const NORMAL_ACTIVE_WEIGHT := 15.0
 const NORMAL_PASSIVE_WEIGHT := 27.0
@@ -41,7 +48,19 @@ var _spawn_pool: Object = ActiveItemFieldSpawnPool.new()
 var _active_catalog: Object = ActiveItemCatalog.new()
 
 
-func roll_reward(box_kind: String, owner: Object = null, registry: Object = null) -> Dictionary:
+func roll_reward(
+	box_kind: String,
+	owner: Object = null,
+	registry: Object = null,
+	roll_override: float = -1.0
+) -> Dictionary:
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		if box_kind == TowerAscentChestContract.CHEST_SUPREME_ART:
+			return _roll_mythic_perk_reward(owner, registry)
+		if box_kind == TowerAscentChestContract.CHEST_SECRET_CHOSIK:
+			# 비전 ID가 없는 직접 호출은 적격을 증명할 수 없으므로 절세무공으로 다운시프트.
+			return _roll_mythic_perk_reward(owner, registry)
+		return _roll_tower_normal_box_reward(owner, registry, roll_override)
 	if _is_guaranteed_mythic_box_kind(box_kind):
 		if PerkConversionFlags.is_enabled():
 			return _roll_mythic_perk_reward(owner, registry)
@@ -50,6 +69,40 @@ func roll_reward(box_kind: String, owner: Object = null, registry: Object = null
 		return _roll_advanced_box_reward(owner, registry)
 
 	return _roll_normal_box_reward(owner, registry)
+
+
+func _roll_tower_normal_box_reward(
+	owner: Object,
+	registry: Object,
+	roll_override: float = -1.0
+) -> Dictionary:
+	var roll_value := randf() if roll_override < 0.0 else clampf(roll_override, 0.0, 0.999999)
+	if roll_value < TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE:
+		if PerkConversionFlags.is_enabled():
+			return _roll_mythic_perk_reward(owner, registry)
+		return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+	var non_jackpot_roll := (
+		(roll_value - TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE)
+		/ (1.0 - TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE)
+	)
+	var total_weight := (
+		NORMAL_ACTIVE_WEIGHT
+		+ NORMAL_PASSIVE_WEIGHT
+		+ NORMAL_STARPOINT_SINGLE_WEIGHT
+		+ NORMAL_STARPOINT_DOUBLE_WEIGHT
+	)
+	var weighted_roll := non_jackpot_roll * maxf(0.001, total_weight)
+	if weighted_roll < NORMAL_ACTIVE_WEIGHT:
+		return _roll_item_reward(REWARD_ACTIVE, owner, registry)
+	weighted_roll -= NORMAL_ACTIVE_WEIGHT
+	if weighted_roll < NORMAL_PASSIVE_WEIGHT:
+		if PerkConversionFlags.is_enabled():
+			return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
+		return _roll_item_reward(REWARD_PASSIVE, owner, registry)
+	weighted_roll -= NORMAL_PASSIVE_WEIGHT
+	if weighted_roll < NORMAL_STARPOINT_SINGLE_WEIGHT:
+		return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
+	return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
 
 
 func _roll_normal_box_reward(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
