@@ -31,6 +31,9 @@ const TowerAscentFallenMonkNode := preload(
 const TowerAscentGuardianSpringNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_guardian_spring_node.gd"
 )
+const TowerAscentRestNode := preload(
+	"res://scripts/tower_ascent/tower_ascent_rest_node.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -71,6 +74,7 @@ var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
 var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
 var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
+var _rest_node: Object = TowerAscentRestNode.new()
 var _claimed_decoration_ids: Array[String] = []
 var _build_state := {
 	"mugong": [],
@@ -269,6 +273,11 @@ func restore_snapshot(
 	if not _guardian_spring_node.restore_runtime(owner, registry):
 		_reset_runtime_state()
 		return false
+	_rest_node.restore_state(snapshot.get("rest_history", []))
+	for rest_record in _rest_node.get_history():
+		var rest_resolution_id := str(rest_record.get("node_resolution_id", ""))
+		if not rest_resolution_id.is_empty():
+			_resolution_ids[rest_resolution_id] = true
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
@@ -325,6 +334,7 @@ func export_snapshot() -> Dictionary:
 		"claimed_decoration_ids": _claimed_decoration_ids.duplicate(),
 		"build_state": _build_state.duplicate(true),
 		"guardian_state": _guardian_state.duplicate(true),
+		"rest_history": _rest_node.get_history(),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
 		"route_source_node_id": _route_source_node_id,
@@ -667,6 +677,10 @@ func get_guardian_state() -> Dictionary:
 	return _guardian_spring_node.export_state()
 
 
+func get_rest_history() -> Array[Dictionary]:
+	return _rest_node.get_history()
+
+
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
 	if not _active or _phase != PHASE_NODE_MODAL:
 		return {"accepted": false, "reason": "node_modal_inactive"}
@@ -679,6 +693,8 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 		return _execute_fallen_monk_action(action_id, requested_resolution_id)
 	if _node_modal_kind == "guardian_spring" and action_id.begins_with("guardian_spring:"):
 		return _execute_guardian_spring_action(action_id, requested_resolution_id)
+	if _node_modal_kind == "rest" and action_id.begins_with("rest:"):
+		return _execute_rest_action(action_id, requested_resolution_id)
 	return {"accepted": false, "reason": "unknown_node_action"}
 
 
@@ -824,6 +840,8 @@ func _build_node_modal_actions() -> Array[Dictionary]:
 		return _build_fallen_monk_actions()
 	if _node_modal_kind == "guardian_spring":
 		return _build_guardian_spring_actions()
+	if _node_modal_kind == "rest":
+		return _build_rest_actions()
 	return []
 
 
@@ -1121,6 +1139,36 @@ func _refresh_guardian_spring_modal(status_text: String) -> void:
 	_node_modal_state.set_status_text(status_text)
 
 
+func _build_rest_actions() -> Array[Dictionary]:
+	return _rest_node.build_actions(_current_node_id, _run_state)
+
+
+func _execute_rest_action(
+	action_id: String,
+	requested_resolution_id: String = ""
+) -> Dictionary:
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(_current_node_id, action_id)
+	var result: Dictionary = _rest_node.execute_action(
+		action_id,
+		resolution_id,
+		_current_node_id,
+		_run_state,
+		_resolution_ids,
+		_node_action_transaction
+	)
+	_sync_owner_chance_gems(_active_owner)
+	_refresh_rest_modal(str(result.get("message", result.get("reason", ""))))
+	return result
+
+
+func _refresh_rest_modal(status_text: String) -> void:
+	_node_modal_state.set_actions(_build_rest_actions())
+	_node_modal_state.set_balances(_run_state.export_economy())
+	_node_modal_state.set_status_text(status_text)
+
+
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
 		return null
@@ -1313,6 +1361,7 @@ func _reset_runtime_state() -> void:
 	_purchase_history.clear()
 	_fallen_monk_node.reset()
 	_guardian_spring_node.reset()
+	_rest_node.reset()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],

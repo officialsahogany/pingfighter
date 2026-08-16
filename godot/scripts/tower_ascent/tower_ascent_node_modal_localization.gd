@@ -44,6 +44,10 @@ const KEY_SPRING_ENHANCE_COMPLETED := "tower_ascent.node_modal.guardian_spring.e
 const KEY_SPRING_SWAP_COMPLETED := "tower_ascent.node_modal.guardian_spring.swap_completed"
 const KEY_SPRING_ABSORB_COMPLETED := "tower_ascent.node_modal.guardian_spring.absorb_completed"
 const KEY_SPRING_ACTION_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.action_unavailable"
+const KEY_REST_RESTORE_OPTION := "tower_ascent.node_modal.rest.restore_option"
+const KEY_REST_ALREADY_USED := "tower_ascent.node_modal.rest.already_used"
+const KEY_REST_CHANCE_GEMS_FULL := "tower_ascent.node_modal.rest.chance_gems_full"
+const KEY_REST_COMPLETED := "tower_ascent.node_modal.rest.completed"
 
 const NODE_TITLE_KEYS := {
 	"shop": "tower_ascent.node_modal.shop.title",
@@ -106,6 +110,10 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_SWAP_COMPLETED: "{name} 교체 완료",
 		KEY_SPRING_ABSORB_COMPLETED: "{name} 흡수 완료",
 		KEY_SPRING_ACTION_UNAVAILABLE: "샘터에서 처리할 수호령 업무가 없습니다.",
+		KEY_REST_RESTORE_OPTION: "기회의 보석 {amount}개 회복",
+		KEY_REST_ALREADY_USED: "이 휴식 노드의 회복을 이미 마쳤습니다.",
+		KEY_REST_CHANCE_GEMS_FULL: "기회의 보석이 최대 {maximum}개입니다.",
+		KEY_REST_COMPLETED: "기회의 보석 {amount}개 회복 완료",
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",
