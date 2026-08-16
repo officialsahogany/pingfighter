@@ -6,7 +6,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
-Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Victory highlight non-headless pixel QA"
+$validationPriorityContext = $null
+try {
+$validationPriorityContext = Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Victory highlight non-headless pixel QA" -AllowDuringPlay
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
 . (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
@@ -52,3 +54,7 @@ if ($outputText -notmatch [regex]::Escape($okMarker)) {
 }
 
 Write-Host "Victory highlight non-headless pixel QA passed."
+}
+finally {
+    Restore-GodotValidationPriority -Context $validationPriorityContext
+}

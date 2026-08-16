@@ -52,26 +52,27 @@ function Assert-NoInteractiveGodotGame {
     param(
         [string]$ProjectPath,
         [string]$OperationName,
-        # Only wrappers whose whole run is short and light may declare this.
-        # The opt-in engages only when the caller declares it AND the user set
-        # GODOT_ALLOW_VALIDATION_DURING_PLAY=1; heavy wrappers (full warning
-        # scan, smoke batches, windowed pixel QA) must not declare it. The
-        # bypass demotes the CALLER process so the spawned Godot child inherits
-        # BelowNormal; the declaring wrapper owns restoring its original
-        # priority class in a finally block.
+        # Validation wrappers may explicitly declare concurrent play support.
+        # The guard demotes the CALLER so spawned Godot children inherit
+        # BelowNormal. Every declaring wrapper must restore the returned
+        # OriginalPriorityClass in a finally block.
         [switch]$AllowDuringPlay
     )
 
     $interactiveProcesses = @(Get-InteractiveGodotProjectProcesses -TargetProjectPath $ProjectPath)
     if ($interactiveProcesses.Count -eq 0) {
-        return
+        return [pscustomobject]@{
+            Demoted = $false
+            OriginalPriorityClass = [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass
+        }
     }
 
     $processSummary = ($interactiveProcesses | ForEach-Object {
         "PID $($_.ProcessId)"
     }) -join ", "
 
-    if ($AllowDuringPlay -and $env:GODOT_ALLOW_VALIDATION_DURING_PLAY -eq '1') {
+    if ($AllowDuringPlay) {
+        $originalPriority = [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass
         try {
             [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'BelowNormal'
         }
@@ -87,18 +88,38 @@ function Assert-NoInteractiveGodotGame {
         Write-Warning (
             (
                 "{0} proceeding while this project is running interactively ({1}) " +
-                "because GODOT_ALLOW_VALIDATION_DURING_PLAY=1 and this operation " +
-                "declares -AllowDuringPlay. Verified process priority: {2}. The live " +
+                "because this wrapper declares -AllowDuringPlay. Verified process " +
+                "priority: {2}. The live " +
                 "game may still feel brief frame drops."
             ) -f $OperationName, $processSummary, $effectivePriority
         )
-        return
+        return [pscustomobject]@{
+            Demoted = $true
+            OriginalPriorityClass = $originalPriority
+        }
     }
 
     throw (
         "{0} blocked because this project is running interactively ({1}). " +
-        "Stop play mode before running automated Godot validation. " +
-        "GODOT_ALLOW_VALIDATION_DURING_PLAY=1 applies only to operations that " +
-        "declare -AllowDuringPlay (short checks such as the headless load check)."
+        "This wrapper must declare -AllowDuringPlay and restore the validation " +
+        "priority context before it may run concurrently."
     ) -f $OperationName, $processSummary
+}
+
+function Restore-GodotValidationPriority {
+    param([object]$Context)
+
+    if ($null -eq $Context -or -not [bool]$Context.Demoted) {
+        return
+    }
+    try {
+        [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = $Context.OriginalPriorityClass
+    }
+    catch {
+        throw "Failed to restore validation caller priority to $($Context.OriginalPriorityClass): $($_.Exception.Message)"
+    }
+    $restoredPriority = [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass
+    if ($restoredPriority -ne $Context.OriginalPriorityClass) {
+        throw "Validation caller priority restore mismatch: expected $($Context.OriginalPriorityClass), got $restoredPriority"
+    }
 }

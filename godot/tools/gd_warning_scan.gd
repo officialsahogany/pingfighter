@@ -6,6 +6,17 @@ func _initialize() -> void:
 	_collect_scripts("res://tests", paths)
 	_collect_scripts("res://tools", paths)
 	paths.sort()
+	var include_paths := _get_string_args("--include-path=")
+	if not include_paths.is_empty():
+		var all_paths := paths
+		paths = []
+		for include_path in include_paths:
+			if not all_paths.has(include_path):
+				push_error("gd_warning_scan: requested path not found: %s" % include_path)
+				continue
+			if not paths.has(include_path):
+				paths.append(include_path)
+		paths.sort()
 	print("gd_warning_scan: scanning %d scripts" % paths.size())
 	var args := OS.get_cmdline_user_args()
 	var verbose_files := args.has("--verbose-files")
@@ -42,6 +53,15 @@ func _get_int_arg(prefix: String, default_value: int) -> int:
 		if text.begins_with(prefix):
 			return int(text.substr(prefix.length()))
 	return default_value
+
+
+func _get_string_args(prefix: String) -> Array[String]:
+	var values: Array[String] = []
+	for arg in OS.get_cmdline_user_args():
+		var text := str(arg)
+		if text.begins_with(prefix):
+			values.append(text.substr(prefix.length()))
+	return values
 
 
 func _collect_scripts(dir_path: String, paths: Array[String]) -> void:

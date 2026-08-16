@@ -62,8 +62,12 @@ $smokeClassifierText = Read-Utf8Text "godot/tools/verify_smoke_runner_classifier
 $outputClassifierText = Read-Utf8Text "godot/tools/godot_output_classifier.ps1"
 $headlessRunnerText = Read-Utf8Text "godot/tools/run_headless_load_check.ps1"
 $warningScanText = Read-Utf8Text "godot/tools/run_warning_scan.ps1"
+$warningScannerText = Read-Utf8Text "godot/tools/gd_warning_scan.gd"
+$interactivePlayGuardText = Read-Utf8Text "godot/tools/assert_no_interactive_godot_game.ps1"
+$interactivePlayGuardVerifierText = Read-Utf8Text "godot/tools/verify_interactive_play_validation_guard.ps1"
 $stage7QaText = Read-Utf8Text "godot/tools/run_stage7_akamu_video_qa.ps1"
 $victoryReplayQaText = Read-Utf8Text "godot/tools/run_victory_highlight_replay_clip_pixel_qa.ps1"
+$plazaR3dVulkanQaText = Read-Utf8Text "godot/tools/run_plaza_r3d_production_vulkan_qa.ps1"
 $victoryGpuQaPath = Join-Path $RepoRoot "godot/tools/run_victory_highlight_gpu_capture_probe_qa.ps1"
 $victoryGpuQaText = if (Test-Path -LiteralPath $victoryGpuQaPath -PathType Leaf) {
     [System.IO.File]::ReadAllText($victoryGpuQaPath, [System.Text.UTF8Encoding]::new($false))
@@ -142,6 +146,63 @@ foreach ($heading in $agentsRequiredHeadings) {
     if ($agentsText -notmatch "(?m)^## $([regex]::Escape($heading))\r?$") {
         $failures.Add("AGENTS.md is missing a referenced compact heading: $heading")
     }
+}
+
+foreach ($interactivePlayInstructionSignal in @(
+    "Interactive (windowed, non-editor) play does not block routine validation.",
+    "-AllowDuringPlay",
+    "BelowNormal priority",
+    "PID/timestamp-unique"
+)) {
+    if (-not $agentsText.Contains($interactivePlayInstructionSignal)) {
+        $failures.Add("AGENTS.md is missing interactive-play validation policy: $interactivePlayInstructionSignal")
+    }
+}
+if ($interactivePlayGuardText.Contains("GODOT_ALLOW_VALIDATION_DURING_PLAY")) {
+    $failures.Add("interactive-play guard still exposes the retired process-wide environment bypass")
+}
+foreach ($guardSignal in @(
+    '[switch]$AllowDuringPlay',
+    "function Restore-GodotValidationPriority",
+    "OriginalPriorityClass",
+    "Refusing to run validation"
+)) {
+    if (-not $interactivePlayGuardText.Contains($guardSignal)) {
+        $failures.Add("interactive-play guard is missing fail-closed signal: $guardSignal")
+    }
+}
+$interactivePlayRunners = @{
+    "headless load" = $headlessRunnerText
+    "warning scan" = $warningScanText
+    "smoke tests" = $smokeRunnerText
+    "victory replay Vulkan QA" = $victoryReplayQaText
+    "plaza R3-D Vulkan QA" = $plazaR3dVulkanQaText
+}
+foreach ($runnerName in $interactivePlayRunners.Keys) {
+    $runnerText = $interactivePlayRunners[$runnerName]
+    foreach ($runnerSignal in @("-AllowDuringPlay", "finally", "Restore-GodotValidationPriority", "--log-file")) {
+        if (-not $runnerText.Contains($runnerSignal)) {
+            $failures.Add("$runnerName wrapper is missing interactive-play contract: $runnerSignal")
+        }
+    }
+}
+foreach ($guardVerifierSignal in @(
+    "did not fail closed without -AllowDuringPlay",
+    "did not report priority demotion",
+    "failed to restore priority",
+    "interactive-play validation guard verification: ok"
+)) {
+    if (-not $interactivePlayGuardVerifierText.Contains($guardVerifierSignal)) {
+        $failures.Add("interactive-play guard verifier is missing a RED/GREEN signal: $guardVerifierSignal")
+    }
+}
+if (-not $prePushText.Contains("verify_interactive_play_validation_guard.ps1")) {
+    $failures.Add("pre-push does not execute the interactive-play validation guard regression")
+}
+if (-not $warningScanText.Contains('[string[]]$Paths = @()') -or
+    -not $warningScanText.Contains('--include-path=') -or
+    -not $warningScannerText.Contains('func _get_string_args(prefix: String) -> Array[String]:')) {
+    $failures.Add("warning scan is missing touched-file -Paths support")
 }
 
 $claudeRequiredHeadings = @(
@@ -945,11 +1006,18 @@ foreach ($requiredHarnessPath in @(
     '"godot/tools/run_nightly_smoke.ps1"',
     '"godot/tools/nightly_smoke_result_policy.ps1"',
     '"godot/tools/run_smoke_tests.ps1"',
+    '"godot/tools/assert_no_interactive_godot_game.ps1"',
+    '"godot/tools/run_headless_load_check.ps1"',
+    '"godot/tools/run_warning_scan.ps1"',
+    '"godot/tools/gd_warning_scan.gd"',
+    '"godot/tools/run_victory_highlight_replay_clip_pixel_qa.ps1"',
+    '"godot/tools/run_plaza_r3d_production_vulkan_qa.ps1"',
+    '"godot/tools/verify_interactive_play_validation_guard.ps1"',
     '"godot/tools/godot_output_classifier.ps1"',
     '"godot/tools/verify_nightly_smoke_status.ps1"',
     '"godot/tools/verify_smoke_runner_classifier.ps1"',
     '"godot/tests/fixtures/**"',
-    '"tools/verify_agent_harness.ps1"'
+    '"tools/verify_agent_harness.ps1"',
     '"tools/verify_no_project_secrets.ps1"',
     '"tools/verify_project_secret_scanner.ps1"'
 )) {
@@ -959,6 +1027,14 @@ foreach ($requiredHarnessPath in @(
 }
 if ($harnessWorkflowText -notmatch '\\tools\\verify_agent_harness\.ps1') {
     $failures.Add("agent-harness workflow does not execute the verifier")
+}
+
+try {
+    & (Join-Path $RepoRoot "godot/tools/verify_interactive_play_validation_guard.ps1") `
+        -ProjectPath (Join-Path $RepoRoot "godot")
+}
+catch {
+    $failures.Add("interactive-play validation guard regression failed: $($_.Exception.Message)")
 }
 
 foreach ($warning in $warnings) {

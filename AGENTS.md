@@ -22,6 +22,12 @@ player-facing rebranding. In particular, preserve `godot/project.godot`
   hunk can do the job.
 - Diagnose before fixing; prove the production owner/call path and test the
   reverse or negative leg. Distinguish fixed, deferred, blocked, and unverified.
+- An interactive game process is not a reason to delay implementation or asset
+  promotion or routine validation. Continue safe edits and run the repository
+  smoke, warning, load, and windowed QA wrappers concurrently; they must declare
+  `-AllowDuringPlay`, run at verified BelowNormal priority, use unique log paths,
+  and restore caller priority in `finally`. Never terminate the user's game or
+  editor for automation.
 - Do not commit, push, rotate credentials, or rewrite history unless the user
   authorizes that external-state change.
 
@@ -51,8 +57,9 @@ player-facing rebranding. In particular, preserve `godot/project.godot`
 2. Run focused production-path smokes, including a negative/reverse leg. A helper
    or final `ok` alone is not proof; require the wrapper exit and terminal line.
 3. From `godot/`, run `./tools/run_headless_load_check.ps1`.
-4. After every `.gd` edit, run `./tools/run_warning_scan.ps1` or report why it
-   was blocked.
+4. After every `.gd` edit, run `./tools/run_warning_scan.ps1`; use its `-Paths`
+   focused mode for touched-file proof and keep full-scan baseline failures
+   separate.
 5. Run `git diff --check`. For visible work, also inspect a real windowed/Vulkan
    render or pixel capture at the acceptance resolution.
 6. Re-snapshot HEAD, index, and scoped diff immediately before staging. Stage
@@ -141,24 +148,29 @@ Current CI/pre-push lists must remain lockstep. The nightly lane is the full
 - Use the repository Godot wrappers and require their real exit/terminal line.
   Pair focused smokes with headless load, `.gd` warning scan, diff check, and a
   real render for visible work; legacy Python checks cannot sign off Godot.
-- Validation wrappers refuse to start while an interactive (windowed,
-  non-editor) Godot process runs this project; that throw is guard behavior,
-  not a smoke RED. Blocking PIDs may be QA runners, not the user's game —
-  check the command line. `GODOT_ALLOW_VALIDATION_DURING_PLAY=1` engages only
-  for wrappers that declare `-AllowDuringPlay` (currently the headless load
-  check), which warn, run at verified BelowNormal priority, and restore the
-  caller's priority afterward. Heavy wrappers — full warning scan, smoke
-  batches, windowed pixel QA — ignore the opt-in and stay blocked; run them
-  after the game closes, and copy the Godot log directory first when live
-  logs are evidence.
+- Interactive (windowed, non-editor) play does not block routine validation.
+  Standard smoke, warning, headless-load, and windowed QA wrappers explicitly
+  declare `-AllowDuringPlay`; the shared guard verifies BelowNormal priority and
+  every wrapper restores its caller priority in `finally`. Each concurrent Godot
+  process must use a PID/timestamp-unique `--log-file`; never reuse or delete the
+  live game's log. A wrapper without the explicit declaration still fails
+  closed and must be repaired or replaced with an operation-specific wrapper,
+  not bypassed with an inherited environment variable. Performance causality
+  experiments that require an uncontended fresh process remain a separate
+  evidence gate; continue all other validation while that measurement is deferred.
 - Asset-promotion and reimport chains must not ask the user to close the
   editor. Replace source/runtime files with the editor open, let the editor
   reimport them on its next window focus (owner-driven import; no `.godot`
   cache conflict), and poll for the materialized reimport before continuing
   to headless smokes instead of asking the user to relay progress. Never run
   headless `--import`, or any import-materializing headless pass, while the
-  editor is open. Ask to close only a non-editor game process that holds the
-  touched resources.
+  editor is open. Do not ask the user to close a non-editor game merely to
+  begin or continue work: prefer versioned replacement files so the running
+  session may keep its already-loaded resources, complete the source/config
+  switch, and note that a fresh play session is required to observe it. Ask for
+  closure only when an exact in-place lock has no safe versioned alternative.
+  Do not halt routine smoke, warning, load, or Vulkan capture validation merely
+  because another play session is active.
 
 ## Skills and mirrors
 

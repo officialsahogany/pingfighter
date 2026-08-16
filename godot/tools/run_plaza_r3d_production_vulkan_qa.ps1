@@ -5,7 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
-Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "R3-D production Vulkan QA"
+$validationPriorityContext = $null
+try {
+$validationPriorityContext = Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "R3-D production Vulkan QA" -AllowDuringPlay
 $logRoot = Join-Path $ProjectPath ".godot\codex_logs"
 $evidenceRoot = Join-Path $ProjectPath ".tmp\plaza_r3d_production_transition_vulkan"
 New-Item -ItemType Directory -Force -Path $logRoot, $evidenceRoot | Out-Null
@@ -76,3 +78,7 @@ if ([string]$metrics.capture_sha256.loading -notmatch '^[0-9a-f]{64}$' -or
 Write-Host ("plaza_r3d_production_vulkan: ok p95_usec={0} changed_samples={1}" -f `
     $metrics.cadence.p95_usec, $metrics.timeline.loading_to_exterior_changed_samples)
 Write-Host "Evidence: $evidenceRoot"
+}
+finally {
+    Restore-GodotValidationPriority -Context $validationPriorityContext
+}

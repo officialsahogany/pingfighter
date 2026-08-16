@@ -10,9 +10,9 @@ $ErrorActionPreference = "Stop"
 # The during-play opt-in demotes this process to BelowNormal so the Godot
 # child inherits it; restore the caller's original priority class once the
 # child has exited so a long-lived shell is not left demoted.
-$callerPriorityClass = [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass
+$validationPriorityContext = $null
 try {
-    Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot headless load check" -AllowDuringPlay
+    $validationPriorityContext = Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot headless load check" -AllowDuringPlay
 
     . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
     . (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
@@ -52,10 +52,7 @@ try {
     }
 }
 finally {
-    try {
-        [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = $callerPriorityClass
-    }
-    catch {}
+    Restore-GodotValidationPriority -Context $validationPriorityContext
 }
 
 $output | ForEach-Object { Write-Host $_ }

@@ -218,6 +218,9 @@ function Invoke-Step {
 }
 
 try {
+    Invoke-Step "interactive-play validation guard regression" {
+        & (Join-Path $tools "verify_interactive_play_validation_guard.ps1") -ProjectPath (Join-Path $repoRoot "godot")
+    }
     Invoke-Step "headless load check" {
         & (Join-Path $tools "run_headless_load_check.ps1") -GodotExe $godot
     }

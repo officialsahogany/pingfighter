@@ -1,13 +1,16 @@
 param(
     [string]$GodotExe = "",
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [int]$ChunkSize = 450
+    [int]$ChunkSize = 450,
+    [string[]]$Paths = @()
 )
 
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
-Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot warning scan"
+$validationPriorityContext = $null
+try {
+$validationPriorityContext = Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot warning scan" -AllowDuringPlay
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
 . (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
@@ -19,6 +22,26 @@ Write-Host "Warning scan: res://tools/gd_warning_scan.gd"
 
 $scanLogDir = Join-Path $ProjectPath ".godot\codex_logs"
 New-Item -ItemType Directory -Force -Path $scanLogDir | Out-Null
+$normalizedIncludePaths = @()
+foreach ($pathValue in $Paths) {
+    $candidate = [string]$pathValue
+    if ($candidate.StartsWith("res://", [StringComparison]::OrdinalIgnoreCase)) {
+        $relative = $candidate.Substring(6).Replace("/", [IO.Path]::DirectorySeparatorChar)
+        $absolute = [IO.Path]::GetFullPath((Join-Path $ProjectPath $relative))
+    } else {
+        $absolute = [IO.Path]::GetFullPath((Join-Path $ProjectPath $candidate))
+    }
+    $projectRoot = [IO.Path]::GetFullPath($ProjectPath).TrimEnd('\', '/')
+    if (-not $absolute.StartsWith($projectRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Warning-scan path escapes the project: $pathValue"
+    }
+    if (-not (Test-Path -LiteralPath $absolute -PathType Leaf) -or -not $absolute.EndsWith(".gd", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Warning-scan path is not a GDScript file: $pathValue"
+    }
+    $relativePath = $absolute.Substring($projectRoot.Length + 1).Replace('\', '/')
+    $normalizedIncludePaths += "res://$relativePath"
+}
+$normalizedIncludePaths = @($normalizedIncludePaths | Sort-Object -Unique)
 
 function Invoke-WarningScanChunk {
     param(
@@ -40,6 +63,12 @@ function Invoke-WarningScanChunk {
         $godotArgs += "--"
         $godotArgs += "--start-index=$StartIndex"
         $godotArgs += "--max-count=$CurrentChunkSize"
+    }
+    foreach ($includePath in $normalizedIncludePaths) {
+        if (-not ($godotArgs -contains "--")) {
+            $godotArgs += "--"
+        }
+        $godotArgs += "--include-path=$includePath"
     }
 
     $previousErrorActionPreference = $ErrorActionPreference
@@ -118,3 +147,7 @@ if ((Test-Path -LiteralPath $scanLogDir -PathType Container) -and -not (Get-Chil
 
 Write-Host ""
 Write-Host "Godot warning scan passed with no GDScript warnings."
+}
+finally {
+    Restore-GodotValidationPriority -Context $validationPriorityContext
+}

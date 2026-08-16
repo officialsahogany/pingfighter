@@ -74,3 +74,18 @@ current instructions.
 - `.claude/skills/` is canonical. `.agents/skills/` remains an ignored local
   loader mirror until its tracked-generation policy is explicitly settled; a
   CI check must not silently skip an absent mirror.
+
+## Interactive-play validation contract
+
+- Routine Godot validation continues while the same project is running in a
+  non-editor game process. A repository wrapper must opt in explicitly with
+  `-AllowDuringPlay`; the shared guard remains fail-closed for undeclared tools.
+- Declaring wrappers inherit a verified BelowNormal caller priority into their
+  Godot child and restore the original caller priority in `finally`, including
+  error exits. Never use a process-wide environment variable as a global bypass.
+- Concurrent runs require PID/timestamp-unique engine log paths and must never
+  remove or overwrite the live game's logs. Import-materializing headless runs
+  remain forbidden while the editor is open.
+- Keep a pure guard regression with both the undeclared RED leg and declared
+  GREEN/priority-restore leg. The harness verifier owns the wrapper declarations
+  and CI path-filter coverage.

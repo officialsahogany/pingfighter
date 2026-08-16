@@ -7,7 +7,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
-Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot smoke tests"
+$validationPriorityContext = $null
+try {
+$validationPriorityContext = Assert-NoInteractiveGodotGame -ProjectPath $ProjectPath -OperationName "Godot smoke tests" -AllowDuringPlay
 
 . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
 . (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
@@ -126,3 +128,7 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Host "All Godot smoke tests passed."
+}
+finally {
+    Restore-GodotValidationPriority -Context $validationPriorityContext
+}
