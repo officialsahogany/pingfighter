@@ -14,6 +14,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentChestContract := preload(
 	"res://scripts/tower_ascent/tower_ascent_chest_contract.gd"
 )
+const TowerAscentActiveItemAcquisitionPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
+)
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
@@ -282,6 +285,22 @@ func _roll_mythic_perk_reward(owner: Object, registry: Object) -> Dictionary:
 
 func _build_candidates_for_group(reward_group: String, owner: Object, registry: Object) -> Array:
 	var candidates: Array = []
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled() and reward_group == REWARD_ACTIVE:
+		for item_name_value in ActiveItemCatalog.CATALOG_ORDER:
+			var item_name := str(item_name_value)
+			if not TowerAscentUnlockFilter.is_content_unlocked(
+				registry,
+				TowerAscentUnlockFilter.CONTENT_ITEM,
+				item_name
+			):
+				continue
+			var item_data: Dictionary = _active_catalog.build_item_by_name(item_name)
+			if TowerAscentActiveItemAcquisitionPolicy.is_allowed(
+				item_data,
+				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_NORMAL_CHEST
+			):
+				candidates.append(item_data.duplicate(true))
+		return candidates
 	if _spawn_pool == null or not _spawn_pool.has_method("build_spawn_candidates"):
 		return candidates
 	for item_value in _spawn_pool.build_spawn_candidates(registry, owner):

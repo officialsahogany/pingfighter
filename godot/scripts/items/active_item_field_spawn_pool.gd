@@ -9,6 +9,12 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentActiveItemAcquisitionPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
+)
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -301,6 +307,14 @@ func build_spawn_candidates(
 			continue
 		if _should_skip_active_spawn_candidate(active_template, registry, owner):
 			continue
+		if (
+			TowerAscentFeatureFlags.is_vertical_slice_enabled()
+			and not TowerAscentActiveItemAcquisitionPolicy.is_allowed(
+				active_template,
+				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_FIELD_SPAWN
+			)
+		):
+			continue
 		# _apply_passive_spawn_weight returns the original template unchanged for
 		# every name except wall/boomerang/aipill; only those three allocate a
 		# duplicate. The downstream weighted picker reads candidates without
@@ -312,6 +326,8 @@ func build_spawn_candidates(
 	sample_start = _perf_begin(perf_logger)
 	for passive_template in _get_passive_mythic_spawn_candidate_templates(perf_logger):
 		if passive_template.is_empty():
+			continue
+		if TowerAscentFeatureFlags.is_vertical_slice_enabled():
 			continue
 		if not TowerAscentUnlockFilter.is_content_unlocked(
 			registry,

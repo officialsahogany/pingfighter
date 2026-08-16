@@ -1,15 +1,29 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 const SPAWN_DELAY_MIN_MSEC := 20000
 const SPAWN_DELAY_MAX_MSEC := 50000
 
 var last_item_spawn_msec: int = 0
 var next_item_spawn_delay_msec: int = 0
+var regular_spawn_budget: int = -1
+var regular_spawns_consumed: int = 0
+var regular_spawn_budget_generation: int = 0
+
+
+func _init() -> void:
+	reset()
 
 
 func reset() -> void:
+	_reset_regular_spawn_budget()
 	reset_spawn_timer()
 
 
@@ -29,6 +43,8 @@ func consume_regular_spawn_due(
 	has_spawned_items: bool,
 	has_pending_spawn_or_portals: bool
 ) -> bool:
+	if _is_regular_spawn_budget_exhausted():
+		return false
 	if is_item_spawn_blocked(owner):
 		reset_spawn_timer()
 		return false
@@ -46,7 +62,47 @@ func consume_regular_spawn_due(
 
 	last_item_spawn_msec = now_msec
 	next_item_spawn_delay_msec = _roll_spawn_delay_msec()
+	if regular_spawn_budget >= 0:
+		regular_spawns_consumed += 1
 	return true
+
+
+func get_regular_spawn_budget_state() -> Dictionary:
+	return {
+		"budget": regular_spawn_budget,
+		"consumed": regular_spawns_consumed,
+		"remaining": (
+			maxi(0, regular_spawn_budget - regular_spawns_consumed)
+			if regular_spawn_budget >= 0
+			else -1
+		),
+		"generation": regular_spawn_budget_generation,
+		"unlimited": regular_spawn_budget < 0,
+	}
+
+
+func debug_set_regular_spawn_budget_for_test(value: int) -> void:
+	regular_spawn_budget = maxi(0, value)
+	regular_spawns_consumed = 0
+
+
+func _reset_regular_spawn_budget() -> void:
+	regular_spawns_consumed = 0
+	regular_spawn_budget_generation += 1
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		regular_spawn_budget = -1
+		return
+	regular_spawn_budget = randi_range(
+		TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MIN,
+		TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MAX
+	)
+
+
+func _is_regular_spawn_budget_exhausted() -> bool:
+	return (
+		regular_spawn_budget >= 0
+		and regular_spawns_consumed >= regular_spawn_budget
+	)
 
 
 func is_item_spawn_blocked(owner: Object) -> bool:

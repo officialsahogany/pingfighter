@@ -1,6 +1,9 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const ActiveItemRaritySchema := preload(
+	"res://scripts/items/active_item_rarity_schema.gd"
+)
 
 const DEFAULT_COOLDOWN_MSEC := 7000
 const LINGPET_SPIRIT_WATER_COOLDOWN_MSEC := 1500
@@ -44,6 +47,16 @@ const LINGPET_SPIRIT_WATER_ICON_PATH := "res://assets/sprites/items/lingpet_spec
 const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
 
 const LEGACY_DISABLED_ACQUISITION_NAMES := {}
+
+const CATALOG_ORDER := [
+	"gauge_charge", "lingpet_spirit_water", "lingpet_egg", "life_elixir",
+	"ammo_box", "doping_potion", "vitamin_pill", "strange_vial", "aipill",
+	"pandora_box", "grenade", "flare", "tear_gas", "dynamite", "molotov",
+	"stopwatch", "magnet_field", "hologram_disk", "long_boost",
+	"regeneration_potion", "holy_barrier", "dash_boost", "wall", "trampoline",
+	"boomerang", "banana", "soap", "spider_mine", "elixir_of_mastery",
+	"milk_bottle", "cheddar_cheese", "camembert_cheese", "emmental_cheese",
+]
 
 const FIELD_SPAWN_ORDER := [
 	"gauge_charge",
@@ -169,6 +182,7 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			)
 	if item_data.is_empty():
 		return {}
+	item_data = ActiveItemRaritySchema.normalize_item_data(item_data)
 	return LanguageSettings.localize_item_data(item_data)
 
 
