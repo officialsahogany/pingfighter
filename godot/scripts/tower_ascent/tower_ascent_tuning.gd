@@ -37,6 +37,15 @@ const TEMP_NODE_TYPE_WEIGHTS := {
 	"rest": 2,
 }
 
+# TEMP: Phase C validates only the relative price skeleton fixed by the goal
+# document. Product balance may replace these values without moving payment,
+# stock, or snapshot ownership out of the tower run.
+const TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE := 60
+const TEMP_PHASE_C_SHOP_LEGENDARY_ACTIVE_PRICE := 180
+const TEMP_PHASE_C_SHOP_MYTHIC_ACTIVE_PRICE := 300
+const TEMP_PHASE_C_SHOP_CAPSULE_PRICE := 80
+const TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE := 150
+
 # TEMP: Unported and shell boss slots reuse existing Godot bosses until their
 # content tracks replace the stand-ins. These are compatibility IDs, not new
 # player-facing boss names.

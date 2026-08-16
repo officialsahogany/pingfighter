@@ -116,6 +116,49 @@ func apply_reward_bundle(reward_bundle: Dictionary) -> Dictionary:
 	}
 
 
+func can_afford(costs: Dictionary) -> Dictionary:
+	var normalized := {
+		"gold": maxi(0, int(costs.get("gold", 0))),
+		"muhon": maxi(0, int(costs.get("muhon", 0))),
+	}
+	for currency in ["gold", "muhon"]:
+		var balance := _gold if currency == "gold" else _muhon
+		var required := int(normalized.get(currency, 0))
+		if balance < required:
+			return {
+				"accepted": false,
+				"reason": "insufficient_%s" % currency,
+				"currency": currency,
+				"required": required,
+				"balance": balance,
+				"shortfall": required - balance,
+				"costs": normalized,
+			}
+	return {
+		"accepted": true,
+		"reason": "affordable",
+		"costs": normalized,
+		"balances": export_economy(),
+	}
+
+
+func apply_economy_transaction(costs: Dictionary, rewards: Dictionary = {}) -> Dictionary:
+	var affordability := can_afford(costs)
+	if not bool(affordability.get("accepted", false)):
+		return affordability
+	var normalized_costs: Dictionary = affordability.get("costs", {})
+	_gold -= int(normalized_costs.get("gold", 0))
+	_muhon -= int(normalized_costs.get("muhon", 0))
+	var reward_result := apply_reward_bundle(rewards)
+	return {
+		"accepted": true,
+		"reason": "applied",
+		"costs": normalized_costs.duplicate(true),
+		"rewards": reward_result.get("applied", {}),
+		"balances": export_economy(),
+	}
+
+
 func get_chance_gems() -> int:
 	return _chance_gems
 

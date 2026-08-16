@@ -8,6 +8,16 @@ const KEY_BALANCE_GOLD := "tower_ascent.node_modal.balance.gold"
 const KEY_END_WORK := "tower_ascent.node_modal.action.end_work"
 const KEY_STATUS_READY := "tower_ascent.node_modal.status.ready"
 const KEY_STATUS_DISABLED := "tower_ascent.node_modal.status.disabled"
+const KEY_COST_GOLD := "tower_ascent.node_modal.cost.gold"
+const KEY_INSUFFICIENT_GOLD := "tower_ascent.node_modal.insufficient.gold"
+const KEY_SHOP_PREMIUM_ITEM := "tower_ascent.node_modal.shop.item.premium"
+const KEY_SHOP_CAPSULE := "tower_ascent.node_modal.shop.item.capsule"
+const KEY_SHOP_CHANCE_GEM := "tower_ascent.node_modal.shop.item.chance_gem"
+const KEY_SHOP_SOLD_OUT := "tower_ascent.node_modal.shop.sold_out"
+const KEY_SHOP_SLOT_FULL := "tower_ascent.node_modal.shop.slot_full"
+const KEY_SHOP_GEM_FULL := "tower_ascent.node_modal.shop.gem_full"
+const KEY_SHOP_PURCHASED := "tower_ascent.node_modal.shop.purchased"
+const KEY_SHOP_INVENTORY_UNAVAILABLE := "tower_ascent.node_modal.shop.inventory_unavailable"
 
 const NODE_TITLE_KEYS := {
 	"shop": "tower_ascent.node_modal.shop.title",
@@ -34,6 +44,16 @@ const TEXT_BY_LOCALE := {
 		KEY_END_WORK: "업무 종료",
 		KEY_STATUS_READY: "할 일을 고르거나 업무를 마치세요.",
 		KEY_STATUS_DISABLED: "지금은 선택할 수 없습니다.",
+		KEY_COST_GOLD: "{amount} 골드",
+		KEY_INSUFFICIENT_GOLD: "골드 {required} 필요, {shortfall} 부족",
+		KEY_SHOP_PREMIUM_ITEM: "귀물 진열: {name}",
+		KEY_SHOP_CAPSULE: "액티브 캡슐",
+		KEY_SHOP_CHANCE_GEM: "기회의 보석",
+		KEY_SHOP_SOLD_OUT: "매진",
+		KEY_SHOP_SLOT_FULL: "액티브 슬롯이 가득 찼습니다.",
+		KEY_SHOP_GEM_FULL: "기회의 보석이 이미 가득 찼습니다.",
+		KEY_SHOP_PURCHASED: "{name} 구매 완료",
+		KEY_SHOP_INVENTORY_UNAVAILABLE: "상점 재고를 준비할 수 없습니다.",
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",

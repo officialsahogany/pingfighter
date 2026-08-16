@@ -19,6 +19,15 @@ const TowerAscentNodeModalState := preload(
 const TowerAscentModalLifecycle := preload(
 	"res://scripts/tower_ascent/tower_ascent_modal_lifecycle.gd"
 )
+const TowerAscentNodeActionTransaction := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_action_transaction.gd"
+)
+const TowerAscentShopInventory := preload(
+	"res://scripts/tower_ascent/tower_ascent_shop_inventory.gd"
+)
+const TowerAscentNodeModalLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -50,6 +59,7 @@ var _resolution_ids: Dictionary = {}
 var _pending_rewards: Array[Dictionary] = []
 var _run_state: Object = TowerAscentRunState.new()
 var _resolution_transaction: Object = TowerAscentNodeResolutionTransaction.new()
+var _node_action_transaction: Object = TowerAscentNodeActionTransaction.new()
 var _defeat_resolver: Object = TowerAscentDefeatResolver.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
@@ -81,9 +91,12 @@ var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
 var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
+var _shop_inventory_builder: Object = TowerAscentShopInventory.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
+var _active_owner: Object = null
+var _active_registry: Object = null
 var _header_subtitle := ""
 
 
@@ -108,6 +121,8 @@ func begin_vertical_slice(
 		return false
 	_prepared = false
 	_prepared_resolution_id = ""
+	_active_owner = owner
+	_active_registry = context.get("registry", null)
 	_active = true
 	_phase = PHASE_NODE_MODAL
 	_current_node_id = _route_source_node_id
@@ -214,6 +229,10 @@ func restore_snapshot(
 	_pending_rewards.assign(_dictionary_array(snapshot.get("pending_rewards", [])))
 	_generated_shop_inventory.assign(_dictionary_array(snapshot.get("generated_shop_inventory", [])))
 	_purchase_history.assign(_dictionary_array(snapshot.get("purchase_history", [])))
+	for purchase in _purchase_history:
+		var purchase_resolution_id := str(purchase.get("node_resolution_id", ""))
+		if not purchase_resolution_id.is_empty():
+			_resolution_ids[purchase_resolution_id] = true
 	_claimed_decoration_ids.assign(_string_array(snapshot.get("claimed_decoration_ids", [])))
 	_build_state = _dictionary_copy(snapshot.get("build_state", {}))
 	_guardian_state = _dictionary_copy(snapshot.get("guardian_state", {}))
@@ -240,6 +259,8 @@ func restore_snapshot(
 	if not bool(lifecycle_result.get("accepted", false)):
 		_reset_runtime_state()
 		return false
+	_active_owner = owner
+	_active_registry = registry
 	_active = true
 	_prepared = false
 	_prepared_resolution_id = ""
@@ -557,6 +578,25 @@ func get_node_modal_kind() -> String:
 	return _node_modal_kind
 
 
+func get_generated_shop_inventory() -> Array[Dictionary]:
+	return _generated_shop_inventory.duplicate(true)
+
+
+func get_purchase_history() -> Array[Dictionary]:
+	return _purchase_history.duplicate(true)
+
+
+func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
+	if not _active or _phase != PHASE_NODE_MODAL:
+		return {"accepted": false, "reason": "node_modal_inactive"}
+	if _node_modal_kind == "shop" and action_id.begins_with("shop_purchase:"):
+		return _execute_shop_purchase(
+			action_id.trim_prefix("shop_purchase:"),
+			requested_resolution_id
+		)
+	return {"accepted": false, "reason": "unknown_node_action"}
+
+
 func get_graph_edges() -> Array[Dictionary]:
 	return _graph_edges
 
@@ -631,8 +671,13 @@ func _open_node_modal() -> void:
 	_node_modal_state.open(
 		_current_node_id,
 		_node_modal_kind,
-		_run_state.export_economy()
+		_run_state.export_economy(),
+		_build_node_modal_actions()
 	)
+	if _node_modal_kind == "shop" and _get_shop_inventory_entry().is_empty():
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
+		))
 
 
 func _handle_node_modal_input(event: InputEvent) -> void:
@@ -673,6 +718,240 @@ func _confirm_node_modal_action() -> void:
 		return
 	if str(action.get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK:
 		_enter_route_aim()
+		return
+	var action_result := execute_node_action(str(action.get("id", "")))
+	if not bool(action_result.get("accepted", false)):
+		_node_modal_state.set_status_text(str(action_result.get("message", action_result.get("reason", ""))))
+
+
+func _build_node_modal_actions() -> Array[Dictionary]:
+	if _node_modal_kind == "shop":
+		return _build_shop_actions()
+	return []
+
+
+func _build_shop_actions() -> Array[Dictionary]:
+	var inventory := _get_or_create_shop_inventory()
+	if inventory.is_empty():
+		return []
+	var balances: Dictionary = _run_state.export_economy()
+	var result: Array[Dictionary] = []
+	for stock_value in inventory.get("stock", []):
+		if not (stock_value is Dictionary):
+			continue
+		var stock := stock_value as Dictionary
+		var sold := bool(stock.get("sold", false))
+		var price := maxi(0, int(stock.get("price", 0)))
+		var affordable := int(balances.get("gold", 0)) >= price
+		var gem_full := (
+			str(stock.get("kind", "")) == "chance_gem"
+			and int(balances.get("chance_gems", 0)) >= TowerAscentRunState.MAX_CHANCE_GEMS
+		)
+		var enabled := not sold and affordable and not gem_full
+		var unavailable_reason := ""
+		if sold:
+			unavailable_reason = TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_SOLD_OUT
+			)
+		elif gem_full:
+			unavailable_reason = TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_GEM_FULL
+			)
+		elif not affordable:
+			unavailable_reason = TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_GOLD,
+				{
+					"required": price,
+					"shortfall": price - int(balances.get("gold", 0)),
+				}
+			)
+		result.append({
+			"id": "shop_purchase:%s" % str(stock.get("stock_id", "")),
+			"label": _shop_stock_label(stock),
+			"cost_text": (
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SHOP_SOLD_OUT
+				)
+				if sold
+				else TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_COST_GOLD,
+					{"amount": price}
+				)
+			),
+			"enabled": enabled,
+			"unavailable_reason": unavailable_reason,
+			"payload": {"stock_id": str(stock.get("stock_id", ""))},
+		})
+	return result
+
+
+func _shop_stock_label(stock: Dictionary) -> String:
+	match str(stock.get("kind", "")):
+		"premium":
+			return TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_PREMIUM_ITEM,
+				{"name": str(stock.get("display_name", ""))}
+			)
+		"capsule":
+			return TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE
+			)
+		"chance_gem":
+			return TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_CHANCE_GEM
+			)
+	return str(stock.get("display_name", stock.get("item_name", "")))
+
+
+func _execute_shop_purchase(stock_id: String, requested_resolution_id: String = "") -> Dictionary:
+	var stock := _find_shop_stock(stock_id)
+	if stock.is_empty():
+		return {"accepted": false, "reason": "unknown_shop_stock"}
+	if bool(stock.get("sold", false)):
+		return {"accepted": false, "reason": "sold_out"}
+	var price := maxi(0, int(stock.get("price", 0)))
+	var affordability: Dictionary = _run_state.can_afford({"gold": price})
+	if not bool(affordability.get("accepted", false)):
+		_refresh_shop_modal(str(affordability.get("reason", "insufficient_gold")))
+		return affordability
+	var stock_kind := str(stock.get("kind", ""))
+	if stock_kind == "chance_gem" and _run_state.get_chance_gems() >= TowerAscentRunState.MAX_CHANCE_GEMS:
+		var gem_full_result := {
+			"accepted": false,
+			"reason": "chance_gems_full",
+			"message": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SHOP_GEM_FULL
+			),
+		}
+		_refresh_shop_modal(str(gem_full_result.message))
+		return gem_full_result
+	var item_name := str(stock.get("item_name", ""))
+	var effect_callback := Callable()
+	var rollback_callback := Callable()
+	var rewards := {}
+	if stock_kind == "chance_gem":
+		rewards = {"chance_gems": 1}
+	else:
+		effect_callback = Callable(self, "_grant_shop_active_item").bind(item_name)
+		rollback_callback = Callable(self, "_rollback_shop_active_item").bind(item_name)
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(
+			_current_node_id,
+			"shop_purchase:%s" % stock_id
+		)
+	var transaction_result: Dictionary = _node_action_transaction.apply_once(
+		resolution_id,
+		{"gold": price},
+		rewards,
+		_run_state,
+		_resolution_ids,
+		effect_callback,
+		rollback_callback
+	)
+	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
+		var message := (
+			TowerAscentNodeModalLocalization.text(TowerAscentNodeModalLocalization.KEY_SHOP_SLOT_FULL)
+			if str(transaction_result.get("reason", "")) == "effect_rejected"
+			else str(transaction_result.get("reason", "purchase_failed"))
+		)
+		transaction_result["message"] = message
+		_refresh_shop_modal(message)
+		return transaction_result
+	stock["sold"] = true
+	var purchase := {
+		"node_id": _current_node_id,
+		"node_resolution_id": resolution_id,
+		"stock_id": stock_id,
+		"kind": stock_kind,
+		"item_name": item_name,
+		"price": price,
+	}
+	_purchase_history.append(purchase)
+	if stock_kind != "chance_gem":
+		var active_items: Array = _build_state.get("active_items", [])
+		active_items.append({
+			"item_name": item_name,
+			"node_resolution_id": resolution_id,
+		})
+		_build_state["active_items"] = active_items
+	_sync_owner_chance_gems(_active_owner)
+	var purchased_name := (
+		TowerAscentNodeModalLocalization.text(TowerAscentNodeModalLocalization.KEY_SHOP_CHANCE_GEM)
+		if stock_kind == "chance_gem"
+		else str(stock.get("display_name", item_name))
+	)
+	var success_message := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SHOP_PURCHASED,
+		{"name": purchased_name}
+	)
+	_refresh_shop_modal(success_message)
+	transaction_result["purchase"] = purchase.duplicate(true)
+	transaction_result["message"] = success_message
+	return transaction_result
+
+
+func _get_or_create_shop_inventory() -> Dictionary:
+	var existing := _get_shop_inventory_entry()
+	if not existing.is_empty():
+		return existing
+	var generated: Dictionary = _shop_inventory_builder.build_inventory(
+		_current_node_id,
+		_map_seed,
+		_active_owner,
+		_active_registry
+	)
+	if not bool(generated.get("accepted", false)):
+		return {}
+	_generated_shop_inventory.append(generated)
+	return _generated_shop_inventory.back()
+
+
+func _get_shop_inventory_entry() -> Dictionary:
+	for inventory in _generated_shop_inventory:
+		if str(inventory.get("node_id", "")) == _current_node_id:
+			return inventory
+	return {}
+
+
+func _find_shop_stock(stock_id: String) -> Dictionary:
+	var inventory := _get_or_create_shop_inventory()
+	for stock_value in inventory.get("stock", []):
+		if stock_value is Dictionary and str((stock_value as Dictionary).get("stock_id", "")) == stock_id:
+			return stock_value as Dictionary
+	return {}
+
+
+func _grant_shop_active_item(item_name: String) -> bool:
+	var runtime := _get_registry_instance(_active_registry, "active_item_runtime")
+	return (
+		runtime != null
+		and runtime.has_method("grant_item_to_slot")
+		and bool(runtime.call("grant_item_to_slot", item_name, _active_owner, _active_registry, false))
+	)
+
+
+func _rollback_shop_active_item(item_name: String) -> void:
+	var runtime := _get_registry_instance(_active_registry, "active_item_runtime")
+	if runtime != null and runtime.has_method("debug_remove_item_from_slot"):
+		runtime.call("debug_remove_item_from_slot", item_name, _active_owner, _active_registry)
+
+
+func _refresh_shop_modal(status_text: String) -> void:
+	_node_modal_state.set_actions(_build_shop_actions())
+	_node_modal_state.set_balances(_run_state.export_economy())
+	_node_modal_state.set_status_text(status_text)
+
+
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	for method_name in ["get_instance", "get_cached_instance"]:
+		if registry.has_method(method_name):
+			var value: Variant = registry.call(method_name, key)
+			if value is Object and value != null:
+				return value as Object
+	return null
 
 
 func _set_aim_target(x_value: float) -> void:
@@ -817,6 +1096,8 @@ func _finish_vertical_slice() -> void:
 	_finish_callback = Callable()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
+	_active_owner = null
+	_active_registry = null
 	_active = false
 	_map_seed = 0
 	_phase = PHASE_COMBAT
@@ -834,6 +1115,8 @@ func _reset_selector() -> void:
 func _reset_runtime_state() -> void:
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
+	_active_owner = null
+	_active_registry = null
 	_active = false
 	_prepared = false
 	_prepared_resolution_id = ""
