@@ -8655,8 +8655,12 @@ This section is intentionally long; use search to find the nearest owner.
 ## 2026-08-16 Tower-ascent vertical slice
 
 - `scripts/tower_ascent/tower_ascent_feature_flags.gd`,
-  `tower_ascent_flow_owner.gd`, and `tower_ascent_flow_renderer.gd` own the
-  default-off first run-map slice: activation, fixed serialized graph,
+  `tower_ascent_flow_owner.gd`, `tower_ascent_map_generator.gd`,
+  `tower_ascent_boss_registry.gd`, `tower_ascent_route_candidate_policy.gd`,
+  `tower_ascent_enraged_policy.gd`, and `tower_ascent_flow_renderer.gd` own the
+  default-off generated run-map slice: activation, versioned seeded 12-floor
+  graph, full-graph snapshot recovery, boss pools and stand-ins, avoided-boss
+  filtering, generation-time enraged marking,
   `COMBAT -> NODE_MODAL -> ROUTE_AIM -> MAP_TRANSITION`, separate selector-ball
   simulation, idempotent resolution records, required snapshot boundary, and
   code-drawn parchment presentation. Existing battle match/input/physics/draw

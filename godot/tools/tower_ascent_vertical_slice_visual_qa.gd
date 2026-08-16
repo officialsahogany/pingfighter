@@ -11,7 +11,7 @@ const TowerAscentFlowOwner := preload(
 )
 
 const GAME_SIZE := Vector2i(760, 750)
-const OUTPUT_DIR := "res://.godot/codex_captures/tower_ascent_vertical_slice"
+const OUTPUT_DIR := "res://.godot/codex_captures/tower_ascent_phase_b"
 
 
 class CaptureRegistry:
@@ -80,7 +80,7 @@ func _run() -> void:
 
 func _capture_phase(output_name: String, phase_name: String, output_dir: String) -> bool:
 	var flow_owner := TowerAscentFlowOwner.new()
-	if not flow_owner.begin_vertical_slice(null, Callable(), {"run_id": "visual-qa", "current_stage": 4}):
+	if not flow_owner.begin_vertical_slice(null, Callable(), {"run_id": "visual-qa", "current_stage": 4, "map_seed": 83521}):
 		push_error("tower-ascent visual fixture could not begin")
 		quit(1)
 		return false

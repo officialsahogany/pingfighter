@@ -63,6 +63,8 @@ var _gameplay_rng_state := {"seed": 140913, "state": 140913}
 var _route_history: Array[Dictionary] = []
 var _route_source_node_id := ""
 var _route_target_ids: Array[String] = []
+var _available_route_target_ids: Array[String] = []
+var _route_aim_targets_cache: Array[Dictionary] = []
 var _selected_target_id := ""
 var _selector_position := SELECTOR_ORIGIN
 var _selector_velocity := Vector2.ZERO
@@ -195,6 +197,7 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 	_route_target_ids.assign(_string_array(snapshot.get("route_target_ids", [])))
 	if _route_source_node_id.is_empty() or _route_target_ids.size() != 2:
 		return false
+	_refresh_route_target_cache()
 	_selected_target_id = str(snapshot.get("selected_target_id", ""))
 	_phase = clampi(int(snapshot.get("phase", PHASE_NODE_MODAL)), PHASE_NODE_MODAL, PHASE_MAP_TRANSITION)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
@@ -400,12 +403,22 @@ func get_graph_phases() -> Array[Dictionary]:
 	return _graph_phases.duplicate(true)
 
 
+func get_graph_floors() -> Array:
+	if _graph_phases.is_empty():
+		return []
+	return _graph_phases[0].get("floors", [])
+
+
 func get_route_target_ids() -> Array[String]:
-	return _route_candidate_policy.filter_available(
-		_graph_nodes,
-		_route_target_ids,
-		_run_state.get_skipped_boss_ids()
-	)
+	return _available_route_target_ids
+
+
+func get_current_node_id() -> String:
+	return _current_node_id
+
+
+func get_route_aim_targets() -> Array[Dictionary]:
+	return _route_aim_targets_cache
 
 
 func get_skipped_boss_ids() -> Array[String]:
@@ -549,12 +562,15 @@ func _build_generated_graph(_current_stage: int) -> bool:
 	_graph_edges.assign(_dictionary_array(phase.get("edges", [])))
 	_route_source_node_id = str(phase.get("entry_node_id", ""))
 	_route_target_ids.assign(_string_array(phase.get("initial_route_candidate_ids", [])))
-	return (
+	var valid: bool = (
 		int(phase.get("total_floors", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT
 		and not _route_source_node_id.is_empty()
 		and _route_target_ids.size() == 2
 		and _get_node(_route_source_node_id).get("kind", "") == "boss"
 	)
+	if valid:
+		_refresh_route_target_cache()
+	return valid
 
 
 func _enter_route_aim() -> void:
@@ -749,6 +765,8 @@ func _reset_runtime_state() -> void:
 	_route_history.clear()
 	_route_source_node_id = ""
 	_route_target_ids.clear()
+	_available_route_target_ids.clear()
+	_route_aim_targets_cache.clear()
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_finish_callback = Callable()
@@ -780,6 +798,29 @@ func _mark_boss_slot_skipped_in_graph(boss_slot_id: String) -> void:
 		if str(node.get("boss_slot_id", "")) == boss_slot_id:
 			node["route_disabled"] = true
 			node["skipped"] = true
+	_refresh_route_target_cache()
+
+
+func _refresh_route_target_cache() -> void:
+	_available_route_target_ids.assign(_route_candidate_policy.filter_available(
+		_graph_nodes,
+		_route_target_ids,
+		_run_state.get_skipped_boss_ids()
+	))
+	_route_aim_targets_cache.clear()
+	for raw_index in range(_route_target_ids.size()):
+		var target_id := _route_target_ids[raw_index]
+		if not _available_route_target_ids.has(target_id):
+			continue
+		var node := _get_node(target_id)
+		_route_aim_targets_cache.append({
+			"id": target_id,
+			"label": str(node.get("label", "행로")),
+			"kind": str(node.get("kind", "")),
+			"enraged": bool(node.get("enraged", false)),
+			"position": _route_target_aim_position(raw_index),
+			"map_position": _node_position(target_id),
+		})
 
 
 func _sync_run_state_phases() -> void:

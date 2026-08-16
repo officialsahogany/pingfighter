@@ -1162,10 +1162,14 @@ predicate so the certificate exception cannot suppress ObjectDB/RID leaks.
 
 ## 2026-08-16 Tower-ascent vertical-slice boundary
 
-The default-off `tower_ascent_flow_owner.gd` is the sole state owner for the
-approved fixed-graph slice: post-combat node modal, separate selector-ball
+The default-off `tower_ascent_flow_owner.gd` is the sole runtime owner for the
+generated 12-floor map flow: post-combat node modal, separate selector-ball
 `ROUTE_AIM`, idempotent `node_resolution_id` commits, full-graph run snapshot,
-and map-transition completion. `battle_scene_match_flow_driver.gd` may enter it
+boss avoidance, and map-transition completion. `tower_ascent_map_generator.gd`
+owns versioned map-seed determinism without advancing gameplay RNG;
+`tower_ascent_boss_registry.gd` owns floor pools and stand-in metadata, while
+the renderer consumes the generated graph without recreating policy.
+`battle_scene_match_flow_driver.gd` may enter the flow
 only after victory loot finishes and resumes the unchanged legacy result flow
 when the slice completes or cannot start. The central physics gate keeps normal
 combat frozen while calling only `update_selective()`; input and the playfield
