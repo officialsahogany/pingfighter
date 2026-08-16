@@ -2,7 +2,8 @@
 
 - 기준 지시문: `docs/perk_cluster_commit_goal.md` (`dc5aa40cf`)
 - 기준 HEAD: `dc5aa40cfbeed35a5d70d2a0b65888c625c11650`
-- 판정: **BLOCKED — 관련 씰 RED로 코드·클러스터 커밋 중단**
+- 재개 HEAD: `24b00188c338b5cb9e2f7f44dc9b3db4a748514f`
+- 판정: **BLOCKED — 최소 폐쇄가 명시적 비범위인 청린귀 트랙을 요구해 중단**
 - 푸시: 없음
 
 ## 1. 전수 백업
@@ -43,8 +44,9 @@
 
 ## 3. 커밋 목록
 
-클러스터 커밋은 **0개**다. 관련 씰 RED가 발생했으므로 지시문 §3에 따라 후보
-코드를 고치거나 부분 커밋하지 않았다.
+클러스터 커밋은 **0개**다. 최초 씰 RED 해소 후 작전을 재개했으나, 최소 격리
+후보가 명시적 커밋 금지 범위를 요구하는 두 번째 차단을 만났으므로 후보 코드를
+고치거나 부분 커밋하지 않았다.
 
 보고서 작성 전까지 메인 인덱스는 비어 있었고, 격리 실험이 메인 소스 파일이나
 인덱스를 변경하지 않았음을 확인했다.
@@ -67,29 +69,54 @@
   - `physique_training_icon_art_smoke` GREEN
   - `dowsing_goggles_port_smoke` GREEN
   - `perk_choice_per_card_description_smoke` GREEN
-- 메인 최신 WIP 관련 묶음 중 GREEN 5종:
+- 메인 최신 WIP 관련 묶음 6종 독립 재검증 GREEN:
   - `bag_expansion_mugong_removal_smoke`
   - `revival_mugong_removal_smoke`
   - `speedgear_mugong_removal_smoke`
   - `posture_correction_mugong_merge_smoke`
   - `perk_conversion_values_smoke`
+  - `perk_conversion_gate_batch4_smoke`
+  - `Smoke summary: PASS=6 FAIL=0 TOTAL=6`
+  - `All Godot smoke tests passed.` / exit 0
+- 교정된 `perk_conversion_gate_batch4_smoke`를 복사한 최소 격리 후보:
+  - `perk_conversion_gate_batch4_smoke: ok`
 
-### RED — 중단 원인
+### 최초 RED 해소 이력
 
-메인 최신 WIP에서 관련 씰 6종을 한 래퍼로 실행했으며, 5종 통과 후 다음 1종이
-실패했다.
+최초 중단 원인은 `perk_conversion_gate_batch4_smoke`의 다음 실패였다.
 
 - 씰: `res://tests/perk_conversion_gate_batch4_smoke.gd`
 - 실패: `Revival consumer fixture should be at fatal boss score`
 - 종단선: `Smoke summary: PASS=5 FAIL=1 TOTAL=6`
 - 래퍼 결과: `Godot smoke suite failed: 1 of 6 tests failed` / exit 1
 
-이 실패는 코드 수정이 금지된 커밋 작전에서 발견한 실제 최신 WIP 드리프트다.
-지시문에 따라 테스트 기대값을 손보거나 런타임을 고쳐 GREEN으로 만들지 않았다.
+Claude 별도 수정 트랙에서 이를 GRT-054 계열의 5점제 fixture 리터럴 잔재로
+진단했고, `MatchScoreState.WIN_GOAL - 1` 및 `MatchScoreState.WIN_GOAL` 파생으로
+교정했다. 이 작전은 해당 교정을 만들지 않았으며, 재개 시 교정된 기존 WIP를
+그대로 복사했다. 위 6종 독립 재검증으로 첫 차단이 해소됐음을 확인했다.
+
+### 현재 RED — 두 번째 중단 원인
+
+은퇴 트랙의 `perk_conversion_values.gd`를 포함한 최소 격리 후보에서 현재
+`perk_conversion_values_smoke`를 실행하면 정확 개수 단언 2건이 실패한다.
+
+- 최소 후보 `RuntimePerkCatalog.CONVERTED_PERKS`: 25개
+- 메인 전체 WIP 및 현재 씰 기대값: 23개
+- 차이: `gravitybelt`, `smartphone`의 별도 상승무공 승격 WIP
+- 최소 후보 `CONVERSION_SOURCE_TO_PERK`: 38개
+- 메인 전체 WIP 및 현재 씰 기대값: 39개
+- 결정적 차이: `yangui_hoechun`
+
+현재 씰 파일을 그대로 커밋해 GREEN으로 만들려면 청린귀 비전 초식 소유의
+`yangui_hoechun` 매핑을 가져와야 한다. 이는 지시문 §1의 명시적 커밋 금지 범위다.
+반대로 최소 후보 값 25/38에 맞춰 씰 기대값을 새로 작성하는 것은 기존 WIP 커밋만
+허용한 이번 작전에서의 코드 내용 수정이다. 두 선택 모두 금지되어 의존 폭발로
+판정하고 중단했다.
 
 ### 미실행 게이트
 
-관련 씰 RED에서 즉시 중단했으므로 다음 최종 게이트는 실행하지 않았다.
+최소 격리 후보의 두 번째 관련 씰 RED에서 중단했으므로 다음 최종 게이트는
+실행하지 않았다.
 
 - 최종 후보 HEAD 기준 집중 경고 스캔
 - 헤드리스 로드
@@ -109,22 +136,24 @@
 
 ## 6. 수용 기준 증명
 
-페이즈 C 항목 3 보존 파일을 포함한 격리 트리에서 핵심 2종은 GREEN이었다. 그러나
-최종 클러스터 후보에 필요한 관련 회귀 씰이 RED이므로 수용 기준은 **미충족**이다.
+페이즈 C 항목 3 보존 파일을 포함한 격리 트리에서 핵심 2종은 GREEN이었고, 최초
+GRT-054 차단도 해소됐다. 그러나 최종 최소 폐쇄에 필요한 변환 값 회귀 씰이
+명시적 비범위 트랙 없이 GREEN이 되지 않으므로 수용 기준은 **미충족**이다.
 클러스터 커밋과 페이즈 C 항목 3 커밋을 만들지 않았다.
 
 ## 7. 잔여 미커밋 WIP
 
 메인 체크아웃의 기존 대형 WIP는 그대로 보존됐다. 격리 트리에는 최소 폐쇄 후보와
 검증 전용 fixture가 남아 있으나, 메인 인덱스나 커밋에는 반영하지 않았다. 다음
-재개 전에 RED 씰의 런타임 소유자와 fixture 상태를 별도 수정 트랙에서 해결한 뒤,
-이 작전은 새 기준 HEAD에서 처음부터 격리 검증해야 한다.
+재개 전에 `perk_conversion_values_smoke`의 트랙별 개수 소유권을 분리하거나,
+청린귀 트랙을 포함하지 않는 은퇴 트랙 전용 기대값을 별도 수정 트랙에서 확정해야
+한다. 그 뒤 이 작전은 새 기준 HEAD에서 격리 검증을 재개해야 한다.
 
 ## 8. 상태 분류
 
-- fixed: 없음 — 코드 내용 수정 금지 작전
+- fixed: 최초 GRT-054 fixture 드리프트 — Claude 별도 수정 트랙 출처, 메인 6/6 GREEN
 - deferred: 집중 경고, 헤드리스 로드, A·B·C 회귀, 커밋 객체 격리 검증
-- blocked: `perk_conversion_gate_batch4_smoke`의 부활 소비자 fatal-score fixture 실패
+- blocked: `perk_conversion_values_smoke`가 명시적 비범위 `yangui_hoechun` 매핑을 요구
 - unverified: 최종 커밋 후보 HEAD 및 페이즈 C 항목 3 커밋 객체
 
 완료 선언 조건의 `blocked/unverified 0건`을 충족하지 못했으므로 목표 완료로 처리하지
