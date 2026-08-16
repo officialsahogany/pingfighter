@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
 const TowerAscentMapGenerator := preload("res://scripts/tower_ascent/tower_ascent_map_generator.gd")
+const TowerAscentRouteCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
+)
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
 const TowerAscentNodeResolutionTransaction := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_resolution_transaction.gd"
@@ -38,7 +41,6 @@ var _graph_edges: Array[Dictionary] = []
 var _current_node_id := ""
 var _completed_nodes: Array[Dictionary] = []
 var _resolution_ids: Dictionary = {}
-var _skipped_boss_ids: Array[String] = []
 var _pending_rewards: Array[Dictionary] = []
 var _run_state: Object = TowerAscentRunState.new()
 var _resolution_transaction: Object = TowerAscentNodeResolutionTransaction.new()
@@ -70,6 +72,7 @@ var _map_transition_progress := 0.0
 var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
+var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
 var _header_subtitle := ""
 
 
@@ -101,6 +104,10 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		return true
 	var existing_run_id: String = str(_run_state.get_run_id())
 	var existing_economy: Dictionary = _run_state.export_economy()
+	var existing_progress := {
+		"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
+	}
+	var existing_map_seed := _map_seed
 	var reuse_existing_run: bool = bool(
 		_run_state.has_started() and not context.has("run_id")
 	)
@@ -114,10 +121,14 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		existing_economy if reuse_existing_run else {}
 	)
 	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
-	if not _run_state.begin(run_id, economy):
+	var progress := existing_progress if reuse_existing_run else {}
+	if not _run_state.begin(run_id, economy, [], progress):
 		return false
 	var current_stage := int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1)))
-	_map_seed = int(context.get("map_seed", _derive_map_seed(run_id, current_stage)))
+	_map_seed = int(context.get(
+		"map_seed",
+		existing_map_seed if reuse_existing_run else _derive_map_seed(run_id, current_stage)
+	))
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
 		return false
@@ -171,7 +182,6 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 	_completed_nodes.assign(_dictionary_array(snapshot.get("completed_nodes", [])))
 	for entry in _completed_nodes:
 		_resolution_ids[str(entry.get("node_resolution_id", ""))] = true
-	_skipped_boss_ids.assign(_string_array(snapshot.get("skipped_boss_ids", [])))
 	_pending_rewards.assign(_dictionary_array(snapshot.get("pending_rewards", [])))
 	_generated_shop_inventory.assign(_dictionary_array(snapshot.get("generated_shop_inventory", [])))
 	_purchase_history.assign(_dictionary_array(snapshot.get("purchase_history", [])))
@@ -207,7 +217,6 @@ func export_snapshot() -> Dictionary:
 		"map_seed": _map_seed,
 		"current_node_id": _current_node_id,
 		"completed_nodes": _completed_nodes.duplicate(true),
-		"skipped_boss_ids": _skipped_boss_ids.duplicate(),
 		"pending_rewards": _pending_rewards.duplicate(true),
 		"generated_shop_inventory": _generated_shop_inventory.duplicate(true),
 		"purchase_history": _purchase_history.duplicate(true),
@@ -391,7 +400,15 @@ func get_graph_phases() -> Array[Dictionary]:
 
 
 func get_route_target_ids() -> Array[String]:
-	return _route_target_ids.duplicate()
+	return _route_candidate_policy.filter_available(
+		_graph_nodes,
+		_route_target_ids,
+		_run_state.get_skipped_boss_ids()
+	)
+
+
+func get_skipped_boss_ids() -> Array[String]:
+	return _run_state.get_skipped_boss_ids()
 
 
 func get_run_id() -> String:
@@ -502,7 +519,10 @@ func get_selected_target_position() -> Vector2:
 
 
 func _build_generated_graph(_current_stage: int) -> bool:
-	var generated: Dictionary = _map_generator.generate_tower(_map_seed)
+	var generated: Dictionary = _map_generator.generate_tower(
+		_map_seed,
+		_run_state.get_skipped_boss_ids()
+	)
 	var phases_variant: Variant = generated.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
 		return false
@@ -564,6 +584,8 @@ func _update_selector(delta: float) -> void:
 func _try_hit_route_target() -> bool:
 	for target_index in range(_route_target_ids.size()):
 		var target_id := _route_target_ids[target_index]
+		if not get_route_target_ids().has(target_id):
+			continue
 		if _selector_position.distance_to(_route_target_aim_position(target_index)) <= 49.0:
 			_resolve_route_target(target_id)
 			return true
@@ -571,11 +593,20 @@ func _try_hit_route_target() -> bool:
 
 
 func _resolve_route_target(target_id: String) -> void:
+	if not get_route_target_ids().has(target_id):
+		return
 	_selected_target_id = target_id
 	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})
 	for candidate_id in _route_target_ids:
-		if candidate_id != target_id and not _skipped_boss_ids.has(candidate_id):
-			_skipped_boss_ids.append(candidate_id)
+		if candidate_id == target_id:
+			continue
+		var skipped_node := _get_node(candidate_id)
+		var skipped_slot_id := str(skipped_node.get("boss_slot_id", ""))
+		if (
+			str(skipped_node.get("kind", "")) in TowerAscentRouteCandidatePolicy.COMBAT_NODE_KINDS
+			and _run_state.mark_boss_skipped(skipped_slot_id)
+		):
+			_mark_boss_slot_skipped_in_graph(skipped_slot_id)
 	_route_history.append({"from": _route_source_node_id, "to": target_id})
 	_current_node_id = target_id
 	_phase = PHASE_MAP_TRANSITION
@@ -685,7 +716,6 @@ func _reset_runtime_state() -> void:
 	_completed_nodes.clear()
 	_resolution_ids.clear()
 	_resolution_transaction.reset()
-	_skipped_boss_ids.clear()
 	_pending_rewards.clear()
 	_generated_shop_inventory.clear()
 	_purchase_history.clear()
@@ -727,6 +757,15 @@ func _get_node(node_id: String) -> Dictionary:
 
 func _route_target_aim_position(target_index: int) -> Vector2:
 	return Vector2(220.0 if target_index <= 0 else 540.0, SELECTOR_TARGET_Y)
+
+
+func _mark_boss_slot_skipped_in_graph(boss_slot_id: String) -> void:
+	if boss_slot_id.is_empty():
+		return
+	for node in _graph_nodes:
+		if str(node.get("boss_slot_id", "")) == boss_slot_id:
+			node["route_disabled"] = true
+			node["skipped"] = true
 
 
 func _sync_run_state_phases() -> void:

@@ -6,8 +6,11 @@ const TowerAscentTuning := preload(
 const TowerAscentBossRegistry := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
 )
+const TowerAscentRouteCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
+)
 
-const GENERATOR_VERSION := "tower_map_v3_boss_registry"
+const GENERATOR_VERSION := "tower_map_v4_boss_avoidance"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := 9
 const ROUTE_CANDIDATE_COUNT := 2
@@ -21,7 +24,7 @@ const NONCOMBAT_NODE_KINDS := [
 ]
 
 
-func generate_tower(map_seed: int) -> Dictionary:
+func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
 	var extra_combat_floor_count := rng.randi_range(
@@ -95,7 +98,11 @@ func generate_tower(map_seed: int) -> Dictionary:
 		"floor_02_route_01_lane_02",
 	]
 	generated["phases"] = [phase]
-	return TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
+	var decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
+	return TowerAscentRouteCandidatePolicy.new().apply_skipped_markers(
+		decorated,
+		skipped_boss_ids
+	)
 
 
 func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:

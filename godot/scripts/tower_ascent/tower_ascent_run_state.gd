@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SNAPSHOT_SCHEMA_VERSION := 2
+const SNAPSHOT_SCHEMA_VERSION := 3
 const DEFAULT_CHANCE_GEMS := 3
 const MAX_CHANCE_GEMS := 3
 
@@ -9,15 +9,22 @@ var _gold := 0
 var _muhon := 0
 var _chance_gems := 0
 var _phases: Array[Dictionary] = []
+var _skipped_boss_ids: Array[String] = []
 
 
-func begin(run_id: String, economy: Dictionary = {}, phases: Array = []) -> bool:
+func begin(
+	run_id: String,
+	economy: Dictionary = {},
+	phases: Array = [],
+	progress: Dictionary = {}
+) -> bool:
 	reset()
 	_run_id = run_id.strip_edges()
 	if _run_id.is_empty():
 		return false
 	_import_economy(economy)
 	_phases = _sanitize_phases(phases)
+	_skipped_boss_ids.assign(_sanitize_ids(progress.get("skipped_boss_ids", [])))
 	return true
 
 
@@ -27,6 +34,7 @@ func reset() -> void:
 	_muhon = 0
 	_chance_gems = 0
 	_phases.clear()
+	_skipped_boss_ids.clear()
 
 
 func restore_snapshot(snapshot: Dictionary) -> bool:
@@ -44,7 +52,15 @@ func restore_snapshot(snapshot: Dictionary) -> bool:
 	var phases_variant: Variant = (map_graph_variant as Dictionary).get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).is_empty():
 		return false
-	return begin(run_id, economy_variant as Dictionary, phases_variant as Array)
+	var progress_variant: Variant = snapshot.get("run_progress", {})
+	if not (progress_variant is Dictionary):
+		return false
+	return begin(
+		run_id,
+		economy_variant as Dictionary,
+		phases_variant as Array,
+		progress_variant as Dictionary
+	)
 
 
 func export_snapshot_fields() -> Dictionary:
@@ -53,6 +69,7 @@ func export_snapshot_fields() -> Dictionary:
 		"run_id": _run_id,
 		"map_graph": {"phases": _phases.duplicate(true)},
 		"run_state": export_economy(),
+		"run_progress": {"skipped_boss_ids": _skipped_boss_ids.duplicate()},
 	}
 
 
@@ -103,6 +120,18 @@ func get_chance_gems() -> int:
 	return _chance_gems
 
 
+func mark_boss_skipped(boss_slot_id: String) -> bool:
+	var normalized := boss_slot_id.strip_edges()
+	if normalized.is_empty() or _skipped_boss_ids.has(normalized):
+		return false
+	_skipped_boss_ids.append(normalized)
+	return true
+
+
+func get_skipped_boss_ids() -> Array[String]:
+	return _skipped_boss_ids.duplicate()
+
+
 func consume_chance_gem() -> Dictionary:
 	if _chance_gems <= 0:
 		return {"accepted": false, "remaining": 0, "reason": "empty"}
@@ -125,4 +154,14 @@ func _sanitize_phases(value: Array) -> Array[Dictionary]:
 	for phase_variant in value:
 		if phase_variant is Dictionary:
 			result.append((phase_variant as Dictionary).duplicate(true))
+	return result
+
+
+func _sanitize_ids(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if value is Array:
+		for entry in value as Array:
+			var normalized := str(entry).strip_edges()
+			if not normalized.is_empty() and not result.has(normalized):
+				result.append(normalized)
 	return result

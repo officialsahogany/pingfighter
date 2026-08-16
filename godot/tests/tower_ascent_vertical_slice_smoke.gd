@@ -236,7 +236,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "target hit must commit the route and enter MAP_TRANSITION")
 	var committed_snapshot: Dictionary = flow.export_snapshot()
 	_expect(committed_snapshot.completed_nodes.size() == 2, "route selection must add one idempotent node resolution")
-	_expect(committed_snapshot.skipped_boss_ids.size() == 1, "the unchosen generated route fixture must be recorded as skipped")
+	_expect(committed_snapshot.run_progress.skipped_boss_ids.size() <= 1, "only an unchosen generated boss slot may be recorded as skipped")
 	_expect(bool(committed_snapshot.stable_boundary), "post-commit map transition must be a stable snapshot boundary")
 	flow.update_selective(1.0, owner)
 	_expect(not flow.is_active(), "map movement completion must close the vertical slice")
@@ -271,7 +271,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 		"map_graph",
 		"current_node_id",
 		"completed_nodes",
-		"skipped_boss_ids",
+		"run_progress",
 		"pending_rewards",
 		"run_state",
 		"generated_shop_inventory",

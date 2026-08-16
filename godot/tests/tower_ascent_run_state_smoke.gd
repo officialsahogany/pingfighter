@@ -38,6 +38,7 @@ func _verify_new_run_and_sanitization() -> void:
 func _verify_snapshot_round_trip() -> void:
 	var source := TowerAscentRunState.new()
 	source.begin("round-trip", {"gold": 11, "muhon": 13, "chance_gems": 1})
+	source.mark_boss_skipped("floor_02_molewang")
 	source.set_phases([{"id": "phase_01", "nodes": [{"id": "node_01"}], "edges": []}])
 	var snapshot: Dictionary = source.export_snapshot_fields()
 	_expect(int(snapshot.schema_version) == TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION, "snapshot schema version must be explicit")
@@ -47,6 +48,7 @@ func _verify_snapshot_round_trip() -> void:
 	_expect(restored.get_run_id() == "round-trip", "restore must preserve run_id")
 	_expect(restored.export_economy() == source.export_economy(), "restore must preserve run-local economy")
 	_expect(restored.get_phases() == source.get_phases(), "restore must preserve phase graph data")
+	_expect(restored.get_skipped_boss_ids() == ["floor_02_molewang"], "restore must preserve run-owned avoided boss slots")
 
 
 func _verify_rejected_snapshots_do_not_restore() -> void:
@@ -54,6 +56,7 @@ func _verify_rejected_snapshots_do_not_restore() -> void:
 		"schema_version": TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION,
 		"run_id": "reject-fixture",
 		"run_state": {"gold": 0, "muhon": 0, "chance_gems": 0},
+		"run_progress": {"skipped_boss_ids": []},
 		"map_graph": {"phases": [{"id": "phase_01", "nodes": [], "edges": []}]},
 	}
 	var wrong_schema := valid.duplicate(true)
