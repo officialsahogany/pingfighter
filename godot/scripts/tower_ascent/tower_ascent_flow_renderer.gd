@@ -70,12 +70,12 @@ func _find_node_position(nodes: Array, node_id: String) -> Vector2:
 	for node_variant in nodes:
 		var node: Dictionary = node_variant
 		if str(node.get("id", "")) == node_id:
-			return node.get("position", Vector2.ZERO)
+			return _vector2(node.get("position", Vector2.ZERO))
 	return Vector2.ZERO
 
 
 func _draw_map_node(canvas: CanvasItem, node: Dictionary, selected_target_id: String) -> void:
-	var position: Vector2 = node.get("position", Vector2.ZERO)
+	var position := _vector2(node.get("position", Vector2.ZERO))
 	var node_id := str(node.get("id", ""))
 	var completed := bool(node.get("completed", false))
 	var selected := node_id == selected_target_id and not selected_target_id.is_empty()
@@ -140,3 +140,13 @@ func _draw_map_transition(canvas: CanvasItem, flow: Object) -> void:
 		20,
 		INK
 	)
+
+
+func _vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value as Vector2
+	if value is Vector2i:
+		return Vector2(value as Vector2i)
+	if value is Array and (value as Array).size() >= 2:
+		return Vector2(float((value as Array)[0]), float((value as Array)[1]))
+	return Vector2.ZERO
