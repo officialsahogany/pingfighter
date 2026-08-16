@@ -3,8 +3,11 @@ extends RefCounted
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
 
-const GENERATOR_VERSION := "tower_map_v2_12_floor"
+const GENERATOR_VERSION := "tower_map_v3_boss_registry"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := 9
 const ROUTE_CANDIDATE_COUNT := 2
@@ -26,7 +29,7 @@ func generate_tower(map_seed: int) -> Dictionary:
 		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX
 	)
 	var standard_optional_floors: Array[int] = []
-	for floor_number in range(2, STANDARD_CLEAR_FLOOR + 1):
+	for floor_number in range(2, STANDARD_CLEAR_FLOOR):
 		standard_optional_floors.append(floor_number)
 	_shuffle_ints(standard_optional_floors, rng)
 	var combat_optional_floors := standard_optional_floors.slice(0, extra_combat_floor_count)
@@ -92,7 +95,7 @@ func generate_tower(map_seed: int) -> Dictionary:
 		"floor_02_route_01_lane_02",
 	]
 	generated["phases"] = [phase]
-	return generated
+	return TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
 
 
 func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:

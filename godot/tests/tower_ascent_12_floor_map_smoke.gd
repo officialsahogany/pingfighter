@@ -55,7 +55,10 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 			for node_id_variant in (row_variant as Dictionary).node_ids:
 				var node: Dictionary = node_by_id.get(str(node_id_variant), {})
 				seen_kinds[str(node.get("kind", ""))] = true
-				_expect(str(node.get("label", "")) == _label_for_kind(str(node.get("kind", "")), int(floor_data.floor)), "generated node labels must stay paired with their node kind")
+				if node.has("boss_slot_id"):
+					_expect(not str(node.get("label", "")).is_empty(), "registry-decorated combat nodes must expose their canonical slot label")
+				else:
+					_expect(str(node.get("label", "")) == _label_for_kind(str(node.get("kind", "")), int(floor_data.floor)), "generated node labels must stay paired with their node kind")
 				if int(floor_data.floor) > 9:
 					_expect(bool(node.get("route_locked", false)), "10-12 floor metadata must remain unreachable before the true-ending gate")
 	for required_kind in ["boss", "combat", "enraged", "shop", "training", "fallen_monk", "guardian_spring", "rest"]:

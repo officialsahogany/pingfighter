@@ -36,3 +36,32 @@ const TEMP_NODE_TYPE_WEIGHTS := {
 	"guardian_spring": 1,
 	"rest": 2,
 }
+
+# TEMP: Unported and shell boss slots reuse existing Godot bosses until their
+# content tracks replace the stand-ins. These are compatibility IDs, not new
+# player-facing boss names.
+const TEMP_BOSS_STANDIN_BY_SLOT := {
+	"floor_02_molewang": {"stage": 2, "boss_id": "cheongringwi"},
+	"floor_02_arachne": {"stage": 2, "boss_id": "cheongringwi"},
+	"floor_03_teddy_bear": {"stage": 3, "boss_id": "yeonmyo"},
+	"floor_03_alice": {"stage": 3, "boss_id": "yeonmyo"},
+	"floor_04_shell_01": {"stage": 4, "boss_id": "ponk"},
+	"floor_04_shell_02": {"stage": 4, "boss_id": "ponk"},
+	"floor_05_shell_01": {"stage": 5, "boss_id": "hongryun"},
+	"floor_05_shell_02": {"stage": 5, "boss_id": "hongryun"},
+	"floor_06_shell_01": {"stage": 6, "boss_id": "tetriser"},
+	"floor_06_shell_02": {"stage": 6, "boss_id": "tetriser"},
+	"floor_07_shell_01": {"stage": 7, "boss_id": "akamu_rigo"},
+	"floor_07_shell_02": {"stage": 7, "boss_id": "akamu_rigo"},
+	"floor_08_shell_01": {"stage": 8, "boss_id": "minotaur"},
+	"floor_08_shell_02": {"stage": 8, "boss_id": "minotaur"},
+	"floor_09_fake_ending": {"stage": 8, "boss_id": "minotaur"},
+	"floor_10_shell_01": {"stage": 6, "boss_id": "tetriser"},
+	"floor_10_shell_02": {"stage": 7, "boss_id": "akamu_rigo"},
+	"floor_10_shell_03": {"stage": 8, "boss_id": "minotaur"},
+	"floor_11_king_01": {"stage": 4, "boss_id": "ponk"},
+	"floor_11_king_02": {"stage": 5, "boss_id": "hongryun"},
+	"floor_11_king_03": {"stage": 6, "boss_id": "tetriser"},
+	"floor_11_king_04": {"stage": 7, "boss_id": "akamu_rigo"},
+	"floor_12_true_ending": {"stage": 8, "boss_id": "minotaur"},
+}
