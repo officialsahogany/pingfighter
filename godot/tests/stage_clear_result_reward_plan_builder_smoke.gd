@@ -1,5 +1,6 @@
 extends SceneTree
 
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const StageClearResultRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 
 var _failures: Array[String] = []
@@ -8,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_stage_clear_box_kind_odds()
 	_verify_reward_box_counts()
+	_verify_regular_win_is_never_treated_as_deuce()
 	_verify_reward_plan_shape()
 	_verify_screen_delegates_reward_plan_builder()
 
@@ -30,23 +32,34 @@ func _verify_stage_clear_box_kind_odds() -> void:
 
 
 func _verify_reward_box_counts() -> void:
-	# 2026-07-28 보상 하향 계약: 압승(5:0~5:1) 3개 / 일반 승리(5:2~5:4) 2개 /
-	# 듀스 승리(6:x·7:x) 1개.
+	# 현행 7점제에서 압승/일반 승리는 2개 이상, 듀스 승리는 1개다.
 	var builder := StageClearResultRewardPlanBuilder.new()
-	_expect(builder.get_reward_box_count(5, 0) == 3, "5:0 stage clear should award three boxes")
-	_expect(builder.get_reward_box_count(5, 1) == 3, "5:1 stage clear should award three boxes")
-	_expect(builder.get_reward_box_count(5, 2) == 2, "5:2 stage clear should award two boxes")
-	_expect(builder.get_reward_box_count(5, 3) == 2, "5:3 stage clear should award two boxes")
-	_expect(builder.get_reward_box_count(5, 4) == 2, "5:4 stage clear should award two boxes")
-	_expect(builder.get_reward_box_count(6, 4) == 1, "6:4 deuce win should award one box")
-	_expect(builder.get_reward_box_count(6, 5) == 1, "6:5 deuce win should award one box")
-	_expect(builder.get_reward_box_count(7, 5) == 1, "7:5 deuce win should award one box")
-	_expect(builder.get_reward_box_count(7, 6) == 1, "7:6 deuce win should award one box")
+	_expect(builder.get_reward_box_count(7, 0) == 3, "7:0 stage clear should award three boxes")
+	_expect(builder.get_reward_box_count(7, 1) == 3, "7:1 stage clear should award three boxes")
+	_expect(builder.get_reward_box_count(7, 2) == 2, "7:2 stage clear should award two boxes")
+	_expect(builder.get_reward_box_count(7, 6) == 2, "7:6 stage clear should award two boxes")
+	_expect(builder.get_reward_box_count(8, 6) == 1, "8:6 deuce win should award one box")
+
+
+func _verify_regular_win_is_never_treated_as_deuce() -> void:
+	# GRT-054: 정규 승리 점수에서는 전 구간이 2개 이상이어야 한다. 이 씰은
+	# WIN_GOAL을 리터럴 5로 되돌리면 7:0부터 바로 RED가 된다.
+	var builder := StageClearResultRewardPlanBuilder.new()
+	var win_goal: int = MatchScoreState.WIN_GOAL
+	for losing_score in range(0, win_goal):
+		_expect(
+			builder.get_reward_box_count(win_goal, losing_score) >= 2,
+			"a regular %d:%d win must never collapse to the deuce reward tier" % [win_goal, losing_score]
+		)
+	_expect(
+		builder.get_reward_box_count(win_goal + 1, win_goal - 1) == 1,
+		"the first score above the win goal must be the deuce reward tier"
+	)
 
 
 func _verify_reward_plan_shape() -> void:
 	var builder := StageClearResultRewardPlanBuilder.new()
-	var plan: Dictionary = builder.build_reward_plan(5, 2)
+	var plan: Dictionary = builder.build_reward_plan(7, 2)
 	var boxes: Array = plan.get("boxes", [])
 	_expect(int(plan.get("reward_count", 0)) == 2, "reward plan should expose the score-derived reward count")
 	_expect(boxes.size() == 2, "reward plan should materialize one box per reward")

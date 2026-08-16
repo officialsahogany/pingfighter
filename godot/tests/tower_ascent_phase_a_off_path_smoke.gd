@@ -6,6 +6,9 @@ const TowerAscentFeatureFlags := preload(
 const StageClearResultRewardPlanBuilder := preload(
 	"res://scripts/core/stage_clear_result_reward_plan_builder.gd"
 )
+const MatchScoreState := preload(
+	"res://scripts/core/match_score_state.gd"
+)
 const PlazaSaveStore := preload(
 	"res://scripts/plaza/plaza_save_store.gd"
 )
@@ -45,12 +48,25 @@ func _init() -> void:
 func _verify_score_scaled_chests_remain_legacy() -> void:
 	var builder := StageClearResultRewardPlanBuilder.new()
 	var observed_counts: Dictionary = {}
-	for winning_score in range(5, 11):
-		for losing_score in range(0, winning_score):
-			observed_counts[builder.get_reward_box_count(winning_score, losing_score)] = true
+	for losing_score in range(0, MatchScoreState.WIN_GOAL):
+		var reward_count: int = builder.get_reward_box_count(
+			MatchScoreState.WIN_GOAL,
+			losing_score
+		)
+		observed_counts[reward_count] = true
+		_expect(
+			reward_count != 1,
+			"flag OFF regular win must never be folded into the deuce one-box tier"
+		)
 	_expect(observed_counts.has(3), "flag OFF dominant-win tier must still grant three score-scaled boxes")
 	_expect(observed_counts.has(2), "flag OFF regular-win tier must still grant two score-scaled boxes")
-	_expect(observed_counts.has(1), "flag OFF deuce-win tier must still grant one score-scaled box")
+	_expect(
+		builder.get_reward_box_count(
+			MatchScoreState.WIN_GOAL + 1,
+			MatchScoreState.DEUCE_TRIGGER
+		) == 1,
+		"flag OFF deuce win must still grant one score-scaled box"
+	)
 
 
 func _verify_plaza_gem_store_remains_legacy_owner() -> void:

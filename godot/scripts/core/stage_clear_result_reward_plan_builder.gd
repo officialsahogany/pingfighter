@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -43,9 +44,10 @@ func build_reward_plan(
 func get_reward_box_count(winning_score: int, losing_score: int) -> int:
 	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return 1
-	# 2026-07-28 보상 하향: 압승(5:0~5:1) 3개 / 일반 승리(5:2~5:4) 2개 /
-	# 듀스 승리(6:4·6:5·7:5·7:6) 1개.
-	if winning_score > 5:
+	# 정규 승리 전 구간은 압승/일반 티어이고, 정본 WIN_GOAL을 넘는
+	# 듀스 승리만 1개 티어다. 승리 점수를 리터럴로 복제하면 GRT-054처럼
+	# 정규 승리 전체가 듀스 티어로 접힌다.
+	if winning_score > MatchScoreState.WIN_GOAL:
 		return 1
 	if losing_score <= 1:
 		return 3
