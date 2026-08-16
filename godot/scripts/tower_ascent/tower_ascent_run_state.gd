@@ -78,6 +78,21 @@ func export_economy() -> Dictionary:
 	}
 
 
+func apply_reward_bundle(reward_bundle: Dictionary) -> Dictionary:
+	var applied := {
+		"gold": maxi(0, int(reward_bundle.get("gold", 0))),
+		"muhon": maxi(0, int(reward_bundle.get("muhon", 0))),
+		"chance_gems": maxi(0, int(reward_bundle.get("chance_gems", 0))),
+	}
+	_gold += int(applied.gold)
+	_muhon += int(applied.muhon)
+	_chance_gems += int(applied.chance_gems)
+	return {
+		"applied": applied,
+		"balances": export_economy(),
+	}
+
+
 func _import_economy(economy: Dictionary) -> void:
 	_gold = maxi(0, int(economy.get("gold", 0)))
 	_muhon = maxi(0, int(economy.get("muhon", 0)))

@@ -250,6 +250,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	var snapshot_context := {
 		"run_id": "snapshot-contract",
 		"run_state": {"gold": 17, "muhon": 23, "chance_gems": 2},
+		"node_reward_bundle": {"gold": 5, "muhon": 2},
 	}
 	_expect(source.prepare_vertical_slice_combat(owner, snapshot_context), "combat resolution must prepare before reward completion")
 	var pending_snapshot: Dictionary = source.export_snapshot()
@@ -257,6 +258,8 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	_expect(pending_snapshot.completed_nodes.is_empty(), "prepared resolution must not mark the combat node complete early")
 	_expect(pending_snapshot.pending_rewards.size() == 1, "prepared resolution must carry one node_resolution_id through reward completion")
 	var prepared_resolution_id := str(pending_snapshot.pending_rewards[0].node_resolution_id)
+	var recovery_journal: Dictionary = source.export_pending_reward_journal()
+	_expect(recovery_journal.pending_rewards.size() == 1, "prepared reward must be exported through the separate crash journal")
 	_expect(source.begin_vertical_slice(owner, Callable(), snapshot_context), "snapshot fixture must start")
 	var snapshot: Dictionary = source.export_snapshot()
 	_expect(snapshot.pending_rewards.is_empty(), "completed victory loot must clear the pending reward record")
@@ -280,7 +283,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	]
 	for key in required_keys:
 		_expect(snapshot.has(key), "snapshot must include required field: %s" % key)
-	_expect(snapshot.run_state == {"gold": 17, "muhon": 23, "chance_gems": 2}, "run economy must stay run-local in the snapshot")
+	_expect(snapshot.run_state == {"gold": 22, "muhon": 25, "chance_gems": 2}, "node transaction must grant the prepared run-local reward exactly once")
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot), "the fixed-graph snapshot must restore")
 	var round_trip: Dictionary = restored.export_snapshot()

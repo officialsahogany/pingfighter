@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
+const TowerAscentNodeResolutionTransaction := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_resolution_transaction.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := "fixed_vertical_slice_v1"
@@ -32,6 +35,7 @@ var _resolution_ids: Dictionary = {}
 var _skipped_boss_ids: Array[String] = []
 var _pending_rewards: Array[Dictionary] = []
 var _run_state: Object = TowerAscentRunState.new()
+var _resolution_transaction: Object = TowerAscentNodeResolutionTransaction.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
 var _claimed_decoration_ids: Array[String] = []
@@ -69,16 +73,13 @@ func begin_vertical_slice(
 	if not _prepared and not prepare_vertical_slice_combat(owner, context):
 		return false
 	_finish_callback = finish_callback
+	if not _complete_prepared_combat_resolution():
+		return false
+	_prepared = false
+	_prepared_resolution_id = ""
 	_active = true
 	_phase = PHASE_NODE_MODAL
 	_current_node_id = "rest_01"
-	_commit_node_resolution("combat_01", "combat_victory", {
-		"reward_source": "victory_loot_phase",
-		"reward_status": "already_resolved",
-	}, _prepared_resolution_id)
-	_pending_rewards.clear()
-	_prepared = false
-	_prepared_resolution_id = ""
 	_request_redraw(owner)
 	return true
 
@@ -98,12 +99,19 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	_build_fixed_graph(int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1))))
 	_sync_run_state_phases()
 	_prepared_resolution_id = _make_resolution_id("combat_01", "combat_victory")
-	_pending_rewards.append({
-		"node_id": "combat_01",
-		"node_resolution_id": _prepared_resolution_id,
-		"reward_source": "victory_loot_phase",
-		"status": "awaiting_resolution",
-	})
+	var reward_bundle_variant: Variant = context.get("node_reward_bundle", {})
+	var reward_bundle: Dictionary = reward_bundle_variant if reward_bundle_variant is Dictionary else {}
+	var pending: Dictionary = _resolution_transaction.prepare(
+		_run_state.get_run_id(),
+		"combat_01",
+		"combat_victory",
+		"victory_loot_phase",
+		reward_bundle,
+		_prepared_resolution_id
+	)
+	if pending.is_empty():
+		return false
+	_pending_rewards.append(pending)
 	_prepared = true
 	return true
 
@@ -189,6 +197,58 @@ func export_persistable_snapshot() -> Dictionary:
 	if not bool(snapshot.get("stable_boundary", false)) or not _pending_rewards.is_empty():
 		return {}
 	return snapshot
+
+
+func export_pending_reward_journal() -> Dictionary:
+	return {
+		"run_id": _run_state.get_run_id(),
+		"pending_rewards": _pending_rewards.duplicate(true),
+	}
+
+
+func recover_pending_reward_journal(journal: Dictionary) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if str(journal.get("run_id", "")) != _run_state.get_run_id():
+		return {"accepted": false, "reason": "run_id_mismatch"}
+	var pending_entries := _dictionary_array(journal.get("pending_rewards", []))
+	var applied_count := 0
+	var committed_count := 0
+	var skipped_count := 0
+	for pending in pending_entries:
+		var validation: Dictionary = _resolution_transaction.validate_pending(
+			pending,
+			_run_state.get_run_id()
+		)
+		if not bool(validation.get("accepted", false)):
+			return {"accepted": false, "reason": validation.get("reason", "invalid_pending")}
+		var resolution_id := str(pending.get("node_resolution_id", ""))
+		if _resolution_ids.has(resolution_id):
+			skipped_count += 1
+			continue
+		var apply_result: Dictionary = _resolution_transaction.apply_once(
+			pending,
+			_run_state,
+			_resolution_ids
+		)
+		if not bool(apply_result.get("accepted", false)):
+			return {"accepted": false, "reason": apply_result.get("reason", "reward_apply_failed")}
+		if bool(apply_result.get("applied", false)):
+			applied_count += 1
+		if _commit_node_resolution(
+			str(pending.get("node_id", "")),
+			str(pending.get("resolution_kind", "")),
+			{"reward_source": pending.get("reward_source", ""), "reward_bundle": pending.get("reward_bundle", {})},
+			resolution_id
+		):
+			committed_count += 1
+		_resolution_transaction.mark_committed(resolution_id)
+	return {
+		"accepted": true,
+		"applied_count": applied_count,
+		"committed_count": committed_count,
+		"skipped_count": skipped_count,
+	}
 
 
 func is_active() -> bool:
@@ -434,6 +494,47 @@ func _commit_node_resolution(
 	return true
 
 
+func _complete_prepared_combat_resolution() -> bool:
+	var pending := _find_pending_reward(_prepared_resolution_id)
+	if pending.is_empty():
+		return false
+	var apply_result: Dictionary = _resolution_transaction.apply_once(
+		pending,
+		_run_state,
+		_resolution_ids
+	)
+	if not bool(apply_result.get("accepted", false)):
+		return false
+	var committed := _commit_node_resolution(
+		str(pending.get("node_id", "combat_01")),
+		str(pending.get("resolution_kind", "combat_victory")),
+		{
+			"reward_source": pending.get("reward_source", "victory_loot_phase"),
+			"reward_status": apply_result.get("reason", "reward_applied"),
+			"reward_bundle": pending.get("reward_bundle", {}),
+		},
+		_prepared_resolution_id
+	)
+	if not committed and not _resolution_ids.has(_prepared_resolution_id):
+		return false
+	_resolution_transaction.mark_committed(_prepared_resolution_id)
+	_remove_pending_reward(_prepared_resolution_id)
+	return true
+
+
+func _find_pending_reward(resolution_id: String) -> Dictionary:
+	for pending in _pending_rewards:
+		if str(pending.get("node_resolution_id", "")) == resolution_id:
+			return pending
+	return {}
+
+
+func _remove_pending_reward(resolution_id: String) -> void:
+	for index in range(_pending_rewards.size() - 1, -1, -1):
+		if str(_pending_rewards[index].get("node_resolution_id", "")) == resolution_id:
+			_pending_rewards.remove_at(index)
+
+
 func _make_resolution_id(node_id: String, resolution_kind: String) -> String:
 	return "%s:%s:%s" % [_run_state.get_run_id(), node_id, resolution_kind]
 
@@ -466,6 +567,7 @@ func _reset_runtime_state() -> void:
 	_current_node_id = ""
 	_completed_nodes.clear()
 	_resolution_ids.clear()
+	_resolution_transaction.reset()
 	_skipped_boss_ids.clear()
 	_pending_rewards.clear()
 	_generated_shop_inventory.clear()
