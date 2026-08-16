@@ -65,3 +65,7 @@ const TEMP_BOSS_STANDIN_BY_SLOT := {
 	"floor_11_king_04": {"stage": 7, "boss_id": "akamu_rigo"},
 	"floor_12_true_ending": {"stage": 8, "boss_id": "minotaur"},
 }
+
+# Canonical §3.5 parity value. League scaling remains a later tuning input;
+# the base opportunity roll is 10% and is resolved once during map generation.
+const NORMAL_BOSS_ENRAGED_CHANCE := 0.10

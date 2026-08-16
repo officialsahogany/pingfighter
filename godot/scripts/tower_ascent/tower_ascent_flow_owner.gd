@@ -132,6 +132,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
 		return false
+	_current_node_id = _route_source_node_id
 	_sync_run_state_phases()
 	_prepared_resolution_id = _make_resolution_id(_route_source_node_id, "combat_victory")
 	var reward_bundle_variant: Variant = context.get("node_reward_bundle", {})
@@ -409,6 +410,19 @@ func get_route_target_ids() -> Array[String]:
 
 func get_skipped_boss_ids() -> Array[String]:
 	return _run_state.get_skipped_boss_ids()
+
+
+func get_current_node_risk_context() -> Dictionary:
+	var node := _get_node(_current_node_id)
+	if node.is_empty():
+		node = _get_node(_route_source_node_id)
+	return {
+		"floor": maxi(1, int(node.get("floor", 1))),
+		"is_elite": bool(node.get("elite", false)),
+		"is_enraged": bool(node.get("enraged", false)),
+		"is_gatekeeper": bool(node.get("gatekeeper", false)),
+		"boss_slot_id": str(node.get("boss_slot_id", "")),
+	}
 
 
 func get_run_id() -> String:

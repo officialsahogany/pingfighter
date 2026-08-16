@@ -3,6 +3,9 @@ extends RefCounted
 const CommonSkillCatalog := preload(
 	"res://scripts/characters/common_skill_catalog.gd"
 )
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 
 # These are compatibility IDs, not new player-facing names. Keep the chest
 # contract loadable before the separate boss-Vision content track lands.
@@ -19,11 +22,12 @@ const _VISION_SKILL_ID_BY_UNLOCK_ID := {
 func build(owner: Object, registry: Object, current_stage: int) -> Dictionary:
 	var vision_offer_id := _get_boss_vision_offer_id(owner, current_stage)
 	var vision_catalog_available := _is_boss_vision_catalog_available(vision_offer_id)
+	var map_risk_context := _get_map_risk_context(registry)
 	return {
-		"floor": maxi(1, int(_get_owner_value(owner, "tower_floor", current_stage))),
-		"is_elite": bool(_get_owner_value(owner, "tower_node_is_elite", false)),
-		"is_enraged": bool(_get_owner_value(owner, "tower_node_is_enraged", false)),
-		"is_gatekeeper": bool(_get_owner_value(owner, "tower_node_is_gatekeeper", false)),
+		"floor": maxi(1, int(map_risk_context.get("floor", _get_owner_value(owner, "tower_floor", current_stage)))),
+		"is_elite": bool(map_risk_context.get("is_elite", _get_owner_value(owner, "tower_node_is_elite", false))),
+		"is_enraged": bool(map_risk_context.get("is_enraged", _get_owner_value(owner, "tower_node_is_enraged", false))),
+		"is_gatekeeper": bool(map_risk_context.get("is_gatekeeper", _get_owner_value(owner, "tower_node_is_gatekeeper", false))),
 		"secret_chosik_id": vision_offer_id,
 		"secret_chosik_catalog_available": vision_catalog_available,
 		"secret_chosik_eligible": vision_catalog_available and not _is_boss_vision_owned(registry, vision_offer_id),
@@ -108,6 +112,16 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 		if value is Object and value != null:
 			return value as Object
 	return null
+
+
+func _get_map_risk_context(registry: Object) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {}
+	var flow_owner := _get_registry_instance(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("get_current_node_risk_context"):
+		return {}
+	var context_variant: Variant = flow_owner.call("get_current_node_risk_context")
+	return (context_variant as Dictionary).duplicate(true) if context_variant is Dictionary else {}
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

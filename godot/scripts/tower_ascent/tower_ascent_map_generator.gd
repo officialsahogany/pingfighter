@@ -9,8 +9,11 @@ const TowerAscentBossRegistry := preload(
 const TowerAscentRouteCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
 )
+const TowerAscentEnragedPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_enraged_policy.gd"
+)
 
-const GENERATOR_VERSION := "tower_map_v4_boss_avoidance"
+const GENERATOR_VERSION := "tower_map_v5_enraged_marking"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := 9
 const ROUTE_CANDIDATE_COUNT := 2
@@ -98,7 +101,12 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 		"floor_02_route_01_lane_02",
 	]
 	generated["phases"] = [phase]
-	var decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
+	var boss_decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
+	var decorated := TowerAscentEnragedPolicy.new().decorate_graph(
+		boss_decorated,
+		map_seed,
+		TowerAscentTuning.NORMAL_BOSS_ENRAGED_CHANCE
+	)
 	return TowerAscentRouteCandidatePolicy.new().apply_skipped_markers(
 		decorated,
 		skipped_boss_ids
