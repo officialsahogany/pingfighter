@@ -193,6 +193,10 @@ const MODULES := {
 		"path": "res://scripts/tower_ascent/tower_ascent_flow_owner.gd",
 		"label": "tower ascent run-map flow owner",
 	},
+	"tower_ascent_run_state": {
+		"path": "res://scripts/tower_ascent/tower_ascent_run_state.gd",
+		"label": "tower ascent run state",
+	},
 	"victory_highlight_recorder": {
 		"path": "res://scripts/core/victory_highlight_recorder.gd",
 		"label": "victory highlight recorder",

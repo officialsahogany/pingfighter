@@ -286,9 +286,12 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	var round_trip: Dictionary = restored.export_snapshot()
 	_expect(round_trip.run_id == "snapshot-contract", "snapshot restore must preserve run_id")
 	_expect(round_trip.map_graph == snapshot.map_graph, "snapshot restore must preserve the serialized full graph")
-	_expect(round_trip.map_graph.nodes.size() == 4 and round_trip.map_graph.edges.size() == 3, "serialized graph must include nodes and edges")
+	_expect(round_trip.map_graph.phases.size() == 1, "serialized graph must preserve the one-phase phases array contract")
+	var first_phase: Dictionary = round_trip.map_graph.phases[0]
+	_expect(first_phase.nodes.size() == 4 and first_phase.edges.size() == 3, "serialized phase must include nodes and edges")
 	_expect(round_trip.completed_nodes == snapshot.completed_nodes, "snapshot restore must preserve node_resolution_id records")
 	_expect(round_trip.run_state == snapshot.run_state, "snapshot restore must preserve run-local economy")
+	_expect(not source.export_persistable_snapshot().is_empty(), "post-commit stable boundary must export a persistable snapshot")
 	var unstable_snapshot := snapshot.duplicate(true)
 	unstable_snapshot["phase"] = TowerAscentFlowOwner.PHASE_ROUTE_AIM
 	unstable_snapshot["stable_boundary"] = false
@@ -296,6 +299,9 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 		not TowerAscentFlowOwner.new().restore_snapshot(unstable_snapshot),
 		"restore must reject a snapshot taken outside a post-commit stable boundary"
 	)
+	var pending_source := TowerAscentFlowOwner.new()
+	_expect(pending_source.prepare_vertical_slice_combat(owner, {"run_id": "unstable-pending"}), "pending fixture must prepare")
+	_expect(pending_source.export_persistable_snapshot().is_empty(), "pending reward boundary must not be persistable")
 
 
 func _verify_physics_gate_updates_only_selector_flow() -> void:

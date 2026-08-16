@@ -2,8 +2,9 @@ extends RefCounted
 
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
+const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
 
-const SNAPSHOT_SCHEMA_VERSION := 1
+const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := "fixed_vertical_slice_v1"
 const PHASE_COMBAT := 0
 const PHASE_NODE_MODAL := 1
@@ -23,7 +24,6 @@ var _active := false
 var _prepared := false
 var _prepared_resolution_id := ""
 var _phase := PHASE_COMBAT
-var _run_id := ""
 var _graph_nodes: Array[Dictionary] = []
 var _graph_edges: Array[Dictionary] = []
 var _current_node_id := ""
@@ -31,7 +31,7 @@ var _completed_nodes: Array[Dictionary] = []
 var _resolution_ids: Dictionary = {}
 var _skipped_boss_ids: Array[String] = []
 var _pending_rewards: Array[Dictionary] = []
-var _run_state := {"gold": 0, "muhon": 0, "chance_gems": 0}
+var _run_state: Object = TowerAscentRunState.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
 var _claimed_decoration_ids: Array[String] = []
@@ -89,10 +89,14 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	if _prepared:
 		return true
 	_reset_runtime_state()
-	_run_id = str(context.get("run_id", "vertical-slice-%d" % Time.get_ticks_msec()))
-	_header_subtitle = "고정 그래프 검증판 · %s" % _run_id
-	_run_state = _sanitize_run_state(context.get("run_state", {}))
+	var run_id := str(context.get("run_id", "vertical-slice-%d" % Time.get_ticks_msec()))
+	var economy_variant: Variant = context.get("run_state", {})
+	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
+	if not _run_state.begin(run_id, economy):
+		return false
+	_header_subtitle = "고정 그래프 검증판 · %s" % _run_state.get_run_id()
 	_build_fixed_graph(int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1))))
+	_sync_run_state_phases()
 	_prepared_resolution_id = _make_resolution_id("combat_01", "combat_victory")
 	_pending_rewards.append({
 		"node_id": "combat_01",
@@ -109,25 +113,20 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 		return false
 	if not bool(snapshot.get("stable_boundary", false)):
 		return false
-	if int(snapshot.get("schema_version", -1)) != SNAPSHOT_SCHEMA_VERSION:
-		return false
 	if str(snapshot.get("map_generator_version", "")) != MAP_GENERATOR_VERSION:
 		return false
-	var graph_variant: Variant = snapshot.get("map_graph", {})
-	if not (graph_variant is Dictionary):
+	_reset_runtime_state()
+	if not _run_state.restore_snapshot(snapshot):
 		return false
-	var graph: Dictionary = graph_variant as Dictionary
+	var phases: Array[Dictionary] = _run_state.get_phases()
+	var graph: Dictionary = phases[0]
 	var nodes_variant: Variant = graph.get("nodes", [])
 	var edges_variant: Variant = graph.get("edges", [])
 	if not (nodes_variant is Array) or (nodes_variant as Array).size() < 4:
 		return false
 	if not (edges_variant is Array) or (edges_variant as Array).size() < 3:
 		return false
-	_reset_runtime_state()
-	_run_id = str(snapshot.get("run_id", ""))
-	if _run_id.is_empty():
-		return false
-	_header_subtitle = "고정 그래프 검증판 · %s" % _run_id
+	_header_subtitle = "고정 그래프 검증판 · %s" % _run_state.get_run_id()
 	_graph_nodes.assign((nodes_variant as Array).duplicate(true))
 	_graph_edges.assign((edges_variant as Array).duplicate(true))
 	_current_node_id = str(snapshot.get("current_node_id", ""))
@@ -136,7 +135,6 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 		_resolution_ids[str(entry.get("node_resolution_id", ""))] = true
 	_skipped_boss_ids.assign(_string_array(snapshot.get("skipped_boss_ids", [])))
 	_pending_rewards.assign(_dictionary_array(snapshot.get("pending_rewards", [])))
-	_run_state = _sanitize_run_state(snapshot.get("run_state", {}))
 	_generated_shop_inventory.assign(_dictionary_array(snapshot.get("generated_shop_inventory", [])))
 	_purchase_history.assign(_dictionary_array(snapshot.get("purchase_history", [])))
 	_claimed_decoration_ids.assign(_string_array(snapshot.get("claimed_decoration_ids", [])))
@@ -159,19 +157,14 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 
 
 func export_snapshot() -> Dictionary:
-	return {
-		"schema_version": SNAPSHOT_SCHEMA_VERSION,
+	_sync_run_state_phases()
+	var snapshot: Dictionary = _run_state.export_snapshot_fields()
+	snapshot.merge({
 		"map_generator_version": MAP_GENERATOR_VERSION,
-		"run_id": _run_id,
-		"map_graph": {
-			"nodes": _graph_nodes.duplicate(true),
-			"edges": _graph_edges.duplicate(true),
-		},
 		"current_node_id": _current_node_id,
 		"completed_nodes": _completed_nodes.duplicate(true),
 		"skipped_boss_ids": _skipped_boss_ids.duplicate(),
 		"pending_rewards": _pending_rewards.duplicate(true),
-		"run_state": _run_state.duplicate(true),
 		"generated_shop_inventory": _generated_shop_inventory.duplicate(true),
 		"purchase_history": _purchase_history.duplicate(true),
 		"claimed_decoration_ids": _claimed_decoration_ids.duplicate(),
@@ -187,7 +180,15 @@ func export_snapshot() -> Dictionary:
 		"aim_target_x": _aim_target_x,
 		"map_transition_progress": _map_transition_progress,
 		"stable_boundary": _phase == PHASE_NODE_MODAL or _phase == PHASE_MAP_TRANSITION,
-	}
+	}, true)
+	return snapshot
+
+
+func export_persistable_snapshot() -> Dictionary:
+	var snapshot := export_snapshot()
+	if not bool(snapshot.get("stable_boundary", false)) or not _pending_rewards.is_empty():
+		return {}
+	return snapshot
 
 
 func is_active() -> bool:
@@ -287,7 +288,11 @@ func get_graph_nodes() -> Array[Dictionary]:
 
 
 func get_run_id() -> String:
-	return _run_id
+	return _run_state.get_run_id()
+
+
+func get_run_state_snapshot() -> Dictionary:
+	return _run_state.export_economy()
 
 
 func get_header_subtitle() -> String:
@@ -430,7 +435,7 @@ func _commit_node_resolution(
 
 
 func _make_resolution_id(node_id: String, resolution_kind: String) -> String:
-	return "%s:%s:%s" % [_run_id, node_id, resolution_kind]
+	return "%s:%s:%s" % [_run_state.get_run_id(), node_id, resolution_kind]
 
 
 func _finish_vertical_slice() -> void:
@@ -454,7 +459,7 @@ func _reset_runtime_state() -> void:
 	_prepared = false
 	_prepared_resolution_id = ""
 	_phase = PHASE_COMBAT
-	_run_id = ""
+	_run_state.reset()
 	_header_subtitle = ""
 	_graph_nodes.clear()
 	_graph_edges.clear()
@@ -463,7 +468,6 @@ func _reset_runtime_state() -> void:
 	_resolution_ids.clear()
 	_skipped_boss_ids.clear()
 	_pending_rewards.clear()
-	_run_state = {"gold": 0, "muhon": 0, "chance_gems": 0}
 	_generated_shop_inventory.clear()
 	_purchase_history.clear()
 	_claimed_decoration_ids.clear()
@@ -493,15 +497,14 @@ func _node_position(node_id: String) -> Vector2:
 	return Vector2.ZERO
 
 
-func _sanitize_run_state(value: Variant) -> Dictionary:
-	var source: Dictionary = {}
-	if value is Dictionary:
-		source = value as Dictionary
-	return {
-		"gold": maxi(0, int(source.get("gold", 0))),
-		"muhon": maxi(0, int(source.get("muhon", 0))),
-		"chance_gems": maxi(0, int(source.get("chance_gems", 0))),
-	}
+func _sync_run_state_phases() -> void:
+	if _graph_nodes.is_empty():
+		return
+	_run_state.set_phases([{
+		"id": "phase_01",
+		"nodes": _graph_nodes.duplicate(true),
+		"edges": _graph_edges.duplicate(true),
+	}])
 
 
 func _dictionary_copy(value: Variant) -> Dictionary:
