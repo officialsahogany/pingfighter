@@ -26,7 +26,6 @@ const SELECTOR_TARGET_Y := 165.0
 const SELECTOR_LEFT_WALL := 52.0
 const SELECTOR_RIGHT_WALL := 708.0
 const SELECTOR_RESET_Y := 92.0
-const ROUTE_TARGET_IDS := ["boss_left_02", "boss_right_02"]
 
 var _active := false
 var _map_seed := 0
@@ -60,6 +59,8 @@ var _guardian_state := {
 }
 var _gameplay_rng_state := {"seed": 140913, "state": 140913}
 var _route_history: Array[Dictionary] = []
+var _route_source_node_id := ""
+var _route_target_ids: Array[String] = []
 var _selected_target_id := ""
 var _selector_position := SELECTOR_ORIGIN
 var _selector_velocity := Vector2.ZERO
@@ -88,7 +89,7 @@ func begin_vertical_slice(
 	_prepared_resolution_id = ""
 	_active = true
 	_phase = PHASE_NODE_MODAL
-	_current_node_id = "rest_01"
+	_current_node_id = _route_source_node_id
 	_request_redraw(owner)
 	return true
 
@@ -121,12 +122,12 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	if not _build_generated_graph(current_stage):
 		return false
 	_sync_run_state_phases()
-	_prepared_resolution_id = _make_resolution_id("combat_01", "combat_victory")
+	_prepared_resolution_id = _make_resolution_id(_route_source_node_id, "combat_victory")
 	var reward_bundle_variant: Variant = context.get("node_reward_bundle", {})
 	var reward_bundle: Dictionary = reward_bundle_variant if reward_bundle_variant is Dictionary else {}
 	var pending: Dictionary = _resolution_transaction.prepare(
 		_run_state.get_run_id(),
-		"combat_01",
+		_route_source_node_id,
 		"combat_victory",
 		"victory_loot_phase",
 		reward_bundle,
@@ -179,6 +180,10 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 	_guardian_state = _dictionary_copy(snapshot.get("guardian_state", {}))
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
+	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
+	_route_target_ids.assign(_string_array(snapshot.get("route_target_ids", [])))
+	if _route_source_node_id.is_empty() or _route_target_ids.size() != 2:
+		return false
 	_selected_target_id = str(snapshot.get("selected_target_id", ""))
 	_phase = clampi(int(snapshot.get("phase", PHASE_NODE_MODAL)), PHASE_NODE_MODAL, PHASE_MAP_TRANSITION)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
@@ -211,6 +216,8 @@ func export_snapshot() -> Dictionary:
 		"guardian_state": _guardian_state.duplicate(true),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
+		"route_source_node_id": _route_source_node_id,
+		"route_target_ids": _route_target_ids.duplicate(),
 		"selected_target_id": _selected_target_id,
 		"phase": _phase,
 		"selector_position": _selector_position,
@@ -363,7 +370,7 @@ func debug_advance_to_route_aim() -> void:
 func debug_launch_at_target(target_index: int) -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
 		return
-	_set_aim_target(220.0 if target_index <= 0 else 540.0)
+	_set_aim_target(_route_target_aim_position(target_index).x)
 	_launch_selector()
 
 
@@ -381,6 +388,10 @@ func get_graph_nodes() -> Array[Dictionary]:
 func get_graph_phases() -> Array[Dictionary]:
 	_sync_run_state_phases()
 	return _graph_phases.duplicate(true)
+
+
+func get_route_target_ids() -> Array[String]:
+	return _route_target_ids.duplicate()
 
 
 func get_run_id() -> String:
@@ -483,43 +494,15 @@ func get_map_transition_progress() -> float:
 
 
 func get_rest_node_position() -> Vector2:
-	return _node_position("rest_01")
+	return _node_position(_route_source_node_id)
 
 
 func get_selected_target_position() -> Vector2:
 	return _node_position(_selected_target_id)
 
 
-func _build_generated_graph(current_stage: int) -> bool:
-	var generated: Dictionary = _map_generator.generate(_map_seed, [{
-		"floor": 1,
-		"rows": [
-			{
-				"id": "slice_combat",
-				"candidate_count": 1,
-				"node_ids": ["combat_01"],
-				"kinds": ["boss"],
-				"labels": ["보스 %d" % maxi(1, current_stage)],
-				"display_y": 590,
-			},
-			{
-				"id": "slice_rest",
-				"candidate_count": 1,
-				"node_ids": ["rest_01"],
-				"kinds": ["rest"],
-				"labels": ["샘터"],
-				"display_y": 430,
-			},
-			{
-				"id": "slice_route",
-				"candidate_count": 2,
-				"node_ids": ROUTE_TARGET_IDS,
-				"kinds": ["boss_fixture"],
-				"labels": ["왼길", "오른길"],
-				"display_y": int(SELECTOR_TARGET_Y),
-			},
-		],
-	}])
+func _build_generated_graph(_current_stage: int) -> bool:
+	var generated: Dictionary = _map_generator.generate_tower(_map_seed)
 	var phases_variant: Variant = generated.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
 		return false
@@ -530,7 +513,14 @@ func _build_generated_graph(current_stage: int) -> bool:
 	var phase := phase_variant as Dictionary
 	_graph_nodes.assign(_dictionary_array(phase.get("nodes", [])))
 	_graph_edges.assign(_dictionary_array(phase.get("edges", [])))
-	return _graph_nodes.size() == 4 and _graph_edges.size() == 3
+	_route_source_node_id = str(phase.get("entry_node_id", ""))
+	_route_target_ids.assign(_string_array(phase.get("initial_route_candidate_ids", [])))
+	return (
+		int(phase.get("total_floors", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT
+		and not _route_source_node_id.is_empty()
+		and _route_target_ids.size() == 2
+		and _get_node(_route_source_node_id).get("kind", "") == "boss"
+	)
 
 
 func _enter_route_aim() -> void:
@@ -572,8 +562,9 @@ func _update_selector(delta: float) -> void:
 
 
 func _try_hit_route_target() -> bool:
-	for target_id in ROUTE_TARGET_IDS:
-		if _selector_position.distance_to(_node_position(target_id)) <= 49.0:
+	for target_index in range(_route_target_ids.size()):
+		var target_id := _route_target_ids[target_index]
+		if _selector_position.distance_to(_route_target_aim_position(target_index)) <= 49.0:
 			_resolve_route_target(target_id)
 			return true
 	return false
@@ -581,11 +572,11 @@ func _try_hit_route_target() -> bool:
 
 func _resolve_route_target(target_id: String) -> void:
 	_selected_target_id = target_id
-	_commit_node_resolution("rest_01", "route_selected", {"target_node_id": target_id})
-	for candidate_id in ROUTE_TARGET_IDS:
+	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})
+	for candidate_id in _route_target_ids:
 		if candidate_id != target_id and not _skipped_boss_ids.has(candidate_id):
 			_skipped_boss_ids.append(candidate_id)
-	_route_history.append({"from": "rest_01", "to": target_id})
+	_route_history.append({"from": _route_source_node_id, "to": target_id})
 	_current_node_id = target_id
 	_phase = PHASE_MAP_TRANSITION
 	_map_transition_progress = 0.0
@@ -630,7 +621,7 @@ func _complete_prepared_combat_resolution() -> bool:
 	if not bool(apply_result.get("accepted", false)):
 		return false
 	var committed := _commit_node_resolution(
-		str(pending.get("node_id", "combat_01")),
+		str(pending.get("node_id", _route_source_node_id)),
 		str(pending.get("resolution_kind", "combat_victory")),
 		{
 			"reward_source": pending.get("reward_source", "victory_loot_phase"),
@@ -712,6 +703,8 @@ func _reset_runtime_state() -> void:
 	}
 	_gameplay_rng_state = {"seed": 140913, "state": 140913}
 	_route_history.clear()
+	_route_source_node_id = ""
+	_route_target_ids.clear()
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_finish_callback = Callable()
@@ -719,10 +712,21 @@ func _reset_runtime_state() -> void:
 
 
 func _node_position(node_id: String) -> Vector2:
+	var node := _get_node(node_id)
+	if not node.is_empty():
+		return _vector2(node.get("position", Vector2.ZERO))
+	return Vector2.ZERO
+
+
+func _get_node(node_id: String) -> Dictionary:
 	for node in _graph_nodes:
 		if str(node.get("id", "")) == node_id:
-			return _vector2(node.get("position", Vector2.ZERO))
-	return Vector2.ZERO
+			return node
+	return {}
+
+
+func _route_target_aim_position(target_index: int) -> Vector2:
+	return Vector2(220.0 if target_index <= 0 else 540.0, SELECTOR_TARGET_Y)
 
 
 func _sync_run_state_phases() -> void:

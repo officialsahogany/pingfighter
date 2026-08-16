@@ -73,7 +73,8 @@ func _verify_flow_uses_generated_graph_only_behind_flag() -> void:
 	_expect(first_snapshot.map_generator_version == TowerAscentMapGenerator.GENERATOR_VERSION, "snapshot must pin the generator version")
 	_expect(int(first_snapshot.map_seed) == 44, "snapshot must pin the map seed")
 	_expect(first_snapshot.map_graph == second_snapshot.map_graph, "same flow seed must preserve the generated graph")
-	_expect(first.get_graph_nodes().size() == 4, "the generated slice must replace the former fixed graph")
+	_expect(first.get_graph_nodes().size() > 4, "the generated tower must replace the former fixed graph")
+	_expect(first.get_graph_phases()[0].floors.size() == 12, "flow integration must retain all generated floor metadata")
 
 
 func _blueprint() -> Array:

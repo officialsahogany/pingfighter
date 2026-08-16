@@ -1,6 +1,132 @@
 extends RefCounted
 
-const GENERATOR_VERSION := "tower_map_v1"
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
+
+const GENERATOR_VERSION := "tower_map_v2_12_floor"
+const TOWER_FLOOR_COUNT := 12
+const STANDARD_CLEAR_FLOOR := 9
+const ROUTE_CANDIDATE_COUNT := 2
+const COMBAT_NODE_KINDS := ["boss", "combat", "enraged"]
+const NONCOMBAT_NODE_KINDS := [
+	"shop",
+	"training",
+	"fallen_monk",
+	"guardian_spring",
+	"rest",
+]
+
+
+func generate_tower(map_seed: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = map_seed
+	var extra_combat_floor_count := rng.randi_range(
+		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MIN,
+		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX
+	)
+	var standard_optional_floors: Array[int] = []
+	for floor_number in range(2, STANDARD_CLEAR_FLOOR + 1):
+		standard_optional_floors.append(floor_number)
+	_shuffle_ints(standard_optional_floors, rng)
+	var combat_optional_floors := standard_optional_floors.slice(0, extra_combat_floor_count)
+	var noncombat_deck := _build_noncombat_deck(rng)
+	var noncombat_cursor := 0
+	var total_rows := 1 + (TOWER_FLOOR_COUNT - 1) * (
+		TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
+	)
+	var global_row_index := 0
+	var floor_specs: Array[Dictionary] = []
+	for floor_number in range(1, TOWER_FLOOR_COUNT + 1):
+		var rows: Array[Dictionary] = []
+		if floor_number > 1:
+			for optional_index in range(TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR):
+				var node_kinds: Array[String] = []
+				var labels: Array[String] = []
+				if floor_number <= STANDARD_CLEAR_FLOOR and combat_optional_floors.has(floor_number):
+					node_kinds = ["combat", "enraged"]
+					labels = ["전투", "광폭화"]
+				else:
+					for _lane in range(ROUTE_CANDIDATE_COUNT):
+						var node_kind := noncombat_deck[noncombat_cursor % noncombat_deck.size()]
+						noncombat_cursor += 1
+						node_kinds.append(node_kind)
+						labels.append(_label_for_kind(node_kind))
+				rows.append({
+					"id": "floor_%02d_route_%02d" % [floor_number, optional_index + 1],
+					"candidate_count": ROUTE_CANDIDATE_COUNT,
+					"node_ids": [
+						"floor_%02d_route_%02d_lane_01" % [floor_number, optional_index + 1],
+						"floor_%02d_route_%02d_lane_02" % [floor_number, optional_index + 1],
+					],
+					"kinds": node_kinds,
+					"labels": labels,
+					"display_y": _map_y(global_row_index, total_rows),
+					"route_locked": floor_number > STANDARD_CLEAR_FLOOR,
+					"content_state": "registry_only" if floor_number > STANDARD_CLEAR_FLOOR else "generated",
+				})
+				global_row_index += 1
+		rows.append({
+			"id": "floor_%02d_gatekeeper_row" % floor_number,
+			"candidate_count": 1,
+			"node_ids": ["floor_%02d_gatekeeper" % floor_number],
+			"kinds": ["boss"],
+			"labels": ["%d층 수문장" % floor_number],
+			"display_y": _map_y(global_row_index, total_rows),
+			"gatekeeper": true,
+			"floor_boundary": true,
+			"route_locked": floor_number > STANDARD_CLEAR_FLOOR,
+			"content_state": "registry_only" if floor_number > STANDARD_CLEAR_FLOOR else "generated",
+		})
+		global_row_index += 1
+		floor_specs.append({"floor": floor_number, "rows": rows})
+	var generated := generate(map_seed, floor_specs)
+	if generated.is_empty():
+		return {}
+	var phase: Dictionary = generated.phases[0]
+	phase["total_floors"] = TOWER_FLOOR_COUNT
+	phase["standard_clear_floor"] = STANDARD_CLEAR_FLOOR
+	phase["entry_node_id"] = "floor_01_gatekeeper"
+	phase["initial_route_candidate_ids"] = [
+		"floor_02_route_01_lane_01",
+		"floor_02_route_01_lane_02",
+	]
+	generated["phases"] = [phase]
+	return generated
+
+
+func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
+	var phases_variant: Variant = graph.get("phases", [])
+	if not (phases_variant is Array) or (phases_variant as Array).is_empty():
+		return {}
+	var phase_variant: Variant = (phases_variant as Array)[0]
+	if not (phase_variant is Dictionary):
+		return {}
+	var phase := phase_variant as Dictionary
+	var node_by_id: Dictionary = {}
+	for node_variant in phase.get("nodes", []):
+		if node_variant is Dictionary:
+			var node := node_variant as Dictionary
+			node_by_id[str(node.get("id", ""))] = node
+	var minimum := 0
+	var maximum := 0
+	for floor_variant in phase.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_data := floor_variant as Dictionary
+		if int(floor_data.get("floor", 0)) > STANDARD_CLEAR_FLOOR:
+			break
+		for row_variant in floor_data.get("rows", []):
+			if not (row_variant is Dictionary):
+				continue
+			var counts: Array[int] = []
+			for node_id_variant in (row_variant as Dictionary).get("node_ids", []):
+				var node: Dictionary = node_by_id.get(str(node_id_variant), {})
+				counts.append(1 if COMBAT_NODE_KINDS.has(str(node.get("kind", ""))) else 0)
+			if not counts.is_empty():
+				minimum += counts.min()
+				maximum += counts.max()
+	return {"minimum": minimum, "maximum": maximum}
 
 
 func generate(map_seed: int, floor_specs: Array) -> Dictionary:
@@ -87,7 +213,11 @@ func _build_row_nodes(
 	var display_y := int(row_spec.get("display_y", 590 - global_row_index * 160))
 	var result: Array[Dictionary] = []
 	var kind_offset := rng.randi_range(0, kinds.size() - 1)
-	var label_offset := rng.randi_range(0, labels.size() - 1)
+	var label_offset := (
+		kind_offset
+		if labels.size() == kinds.size()
+		else rng.randi_range(0, labels.size() - 1)
+	)
 	for lane in range(candidate_count):
 		var node_id := (
 			node_ids[lane]
@@ -106,6 +236,9 @@ func _build_row_nodes(
 			"completed": false,
 			"gatekeeper": bool(row_spec.get("gatekeeper", false)),
 			"enraged": bool(row_spec.get("enraged", false)),
+			"floor_boundary": bool(row_spec.get("floor_boundary", false)),
+			"route_locked": bool(row_spec.get("route_locked", false)),
+			"content_state": str(row_spec.get("content_state", "generated")),
 			"generation_roll": rng.randi(),
 		})
 	return result
@@ -128,3 +261,46 @@ func _string_array(value: Variant) -> Array[String]:
 		for entry in value as Array:
 			result.append(str(entry))
 	return result
+
+
+func _build_noncombat_deck(rng: RandomNumberGenerator) -> Array[String]:
+	var result: Array[String] = []
+	for node_kind in NONCOMBAT_NODE_KINDS:
+		var copies := maxi(1, int(TowerAscentTuning.TEMP_NODE_TYPE_WEIGHTS.get(node_kind, 1)))
+		for _copy_index in range(copies):
+			result.append(node_kind)
+	for index in range(result.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var held := result[index]
+		result[index] = result[swap_index]
+		result[swap_index] = held
+	return result
+
+
+func _shuffle_ints(values: Array[int], rng: RandomNumberGenerator) -> void:
+	for index in range(values.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var held := values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = held
+
+
+func _map_y(global_row_index: int, total_rows: int) -> int:
+	if total_rows <= 1:
+		return 590
+	return int(round(lerpf(620.0, 130.0, float(global_row_index) / float(total_rows - 1))))
+
+
+func _label_for_kind(node_kind: String) -> String:
+	match node_kind:
+		"shop":
+			return "상점"
+		"training":
+			return "수련장"
+		"fallen_monk":
+			return "파계승"
+		"guardian_spring":
+			return "샘터"
+		"rest":
+			return "휴식"
+	return "노드"

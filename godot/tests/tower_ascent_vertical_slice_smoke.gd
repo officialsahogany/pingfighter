@@ -236,7 +236,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "target hit must commit the route and enter MAP_TRANSITION")
 	var committed_snapshot: Dictionary = flow.export_snapshot()
 	_expect(committed_snapshot.completed_nodes.size() == 2, "route selection must add one idempotent node resolution")
-	_expect(committed_snapshot.skipped_boss_ids == ["boss_right_02"], "the unchosen boss fixture must be recorded as skipped")
+	_expect(committed_snapshot.skipped_boss_ids.size() == 1, "the unchosen generated route fixture must be recorded as skipped")
 	_expect(bool(committed_snapshot.stable_boundary), "post-commit map transition must be a stable snapshot boundary")
 	flow.update_selective(1.0, owner)
 	_expect(not flow.is_active(), "map movement completion must close the vertical slice")
@@ -291,7 +291,8 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	_expect(round_trip.map_graph == snapshot.map_graph, "snapshot restore must preserve the serialized full graph")
 	_expect(round_trip.map_graph.phases.size() == 1, "serialized graph must preserve the one-phase phases array contract")
 	var first_phase: Dictionary = round_trip.map_graph.phases[0]
-	_expect(first_phase.nodes.size() == 4 and first_phase.edges.size() == 3, "serialized phase must include nodes and edges")
+	_expect(first_phase.floors.size() == 12, "serialized phase must include the generated 12-floor graph")
+	_expect(first_phase.nodes.size() > 4 and first_phase.edges.size() > 3, "serialized phase must include generated nodes and edges")
 	_expect(round_trip.completed_nodes == snapshot.completed_nodes, "snapshot restore must preserve node_resolution_id records")
 	_expect(round_trip.run_state == snapshot.run_state, "snapshot restore must preserve run-local economy")
 	_expect(not source.export_persistable_snapshot().is_empty(), "post-commit stable boundary must export a persistable snapshot")

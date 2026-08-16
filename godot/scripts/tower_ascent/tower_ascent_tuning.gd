@@ -20,3 +20,19 @@ const TEMP_SHOP_REGULAR_ACTIVE_RARITIES := ["common", "rare"]
 const TEMP_SHOP_PREMIUM_ACTIVE_RARITIES := ["legendary", "mythic"]
 const TEMP_REGULAR_SPAWN_BUDGET_MIN := 0
 const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
+
+# TEMP: Phase B establishes generated floor/row ownership. Product tuning may
+# change only these values while the 12-floor, floor-gate, and two-candidate
+# contracts remain fixed.
+const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
+const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MIN := 1
+const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX := 3
+const TEMP_STANDARD_COMBAT_BUDGET_MIN := 10
+const TEMP_STANDARD_COMBAT_BUDGET_MAX := 12
+const TEMP_NODE_TYPE_WEIGHTS := {
+	"shop": 2,
+	"training": 2,
+	"fallen_monk": 1,
+	"guardian_spring": 1,
+	"rest": 2,
+}
