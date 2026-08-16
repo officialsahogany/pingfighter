@@ -190,6 +190,23 @@ func _resolve_match_defeat(
 	reset_drive_input_callback: Callable,
 	reset_ball_callback: Callable
 ) -> bool:
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var tower_flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+		if tower_flow_owner != null and tower_flow_owner.has_method("resolve_defeat"):
+			var tower_continue_callback := Callable(self, "reset_for_continue").bind(
+				owner,
+				registry,
+				reset_drive_input_callback,
+				reset_ball_callback
+			)
+			var tower_exit_callback := Callable(self, "_exit_to_main_menu").bind(owner)
+			if bool(tower_flow_owner.resolve_defeat(
+				registry,
+				owner,
+				tower_continue_callback,
+				tower_exit_callback
+			)):
+				return true
 	if owner == null or not _is_scoreboard_player_defeat(registry):
 		return false
 	var chance_gems_count: int = _get_chance_gems_count(owner, registry)

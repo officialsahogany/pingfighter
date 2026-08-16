@@ -6,6 +6,9 @@ const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_ru
 const TowerAscentNodeResolutionTransaction := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_resolution_transaction.gd"
 )
+const TowerAscentDefeatResolver := preload(
+	"res://scripts/tower_ascent/tower_ascent_defeat_resolver.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := "fixed_vertical_slice_v1"
@@ -36,6 +39,7 @@ var _skipped_boss_ids: Array[String] = []
 var _pending_rewards: Array[Dictionary] = []
 var _run_state: Object = TowerAscentRunState.new()
 var _resolution_transaction: Object = TowerAscentNodeResolutionTransaction.new()
+var _defeat_resolver: Object = TowerAscentDefeatResolver.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
 var _claimed_decoration_ids: Array[String] = []
@@ -89,9 +93,20 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		return false
 	if _prepared:
 		return true
+	var existing_run_id: String = str(_run_state.get_run_id())
+	var existing_economy: Dictionary = _run_state.export_economy()
+	var reuse_existing_run: bool = bool(
+		_run_state.has_started() and not context.has("run_id")
+	)
 	_reset_runtime_state()
-	var run_id := str(context.get("run_id", "vertical-slice-%d" % Time.get_ticks_msec()))
-	var economy_variant: Variant = context.get("run_state", {})
+	var run_id := str(context.get(
+		"run_id",
+		existing_run_id if reuse_existing_run else "vertical-slice-%d" % Time.get_ticks_msec()
+	))
+	var economy_variant: Variant = context.get(
+		"run_state",
+		existing_economy if reuse_existing_run else {}
+	)
 	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
 	if not _run_state.begin(run_id, economy):
 		return false
@@ -353,6 +368,45 @@ func get_run_id() -> String:
 
 func get_run_state_snapshot() -> Dictionary:
 	return _run_state.export_economy()
+
+
+func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if _run_state.has_started():
+		_sync_owner_chance_gems(owner)
+		return true
+	var run_id := str(context.get(
+		"run_id",
+		"tower-run-%d" % Time.get_ticks_msec()
+	))
+	var economy_variant: Variant = context.get("run_state", {})
+	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
+	if not _run_state.begin(run_id, economy):
+		return false
+	_sync_owner_chance_gems(owner)
+	return true
+
+
+func resolve_defeat(
+	registry: Object,
+	owner: Object,
+	continue_callback: Callable,
+	exit_callback: Callable
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if not _defeat_resolver.is_scoreboard_player_defeat(registry):
+		return false
+	if not ensure_run_started(owner):
+		return false
+	return _defeat_resolver.resolve(
+		registry,
+		owner,
+		_run_state,
+		continue_callback,
+		exit_callback
+	)
 
 
 func get_header_subtitle() -> String:
@@ -658,3 +712,10 @@ func _request_redraw(owner: Object) -> void:
 		owner.call("request_battle_redraw")
 	elif owner.has_method("queue_redraw"):
 		owner.call("queue_redraw")
+
+
+func _sync_owner_chance_gems(owner: Object) -> void:
+	if owner == null:
+		return
+	owner.set("chance_gems_count", _run_state.get_chance_gems())
+	owner.set("chance_gems_max", TowerAscentRunState.MAX_CHANCE_GEMS)

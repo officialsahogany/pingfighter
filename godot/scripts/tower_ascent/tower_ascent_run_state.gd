@@ -1,6 +1,8 @@
 extends RefCounted
 
 const SNAPSHOT_SCHEMA_VERSION := 1
+const DEFAULT_CHANCE_GEMS := 3
+const MAX_CHANCE_GEMS := 3
 
 var _run_id := ""
 var _gold := 0
@@ -70,6 +72,10 @@ func get_run_id() -> String:
 	return _run_id
 
 
+func has_started() -> bool:
+	return not _run_id.is_empty()
+
+
 func export_economy() -> Dictionary:
 	return {
 		"gold": _gold,
@@ -86,17 +92,32 @@ func apply_reward_bundle(reward_bundle: Dictionary) -> Dictionary:
 	}
 	_gold += int(applied.gold)
 	_muhon += int(applied.muhon)
-	_chance_gems += int(applied.chance_gems)
+	_chance_gems = mini(MAX_CHANCE_GEMS, _chance_gems + int(applied.chance_gems))
 	return {
 		"applied": applied,
 		"balances": export_economy(),
 	}
 
 
+func get_chance_gems() -> int:
+	return _chance_gems
+
+
+func consume_chance_gem() -> Dictionary:
+	if _chance_gems <= 0:
+		return {"accepted": false, "remaining": 0, "reason": "empty"}
+	_chance_gems -= 1
+	return {"accepted": true, "remaining": _chance_gems, "reason": "consumed"}
+
+
 func _import_economy(economy: Dictionary) -> void:
 	_gold = maxi(0, int(economy.get("gold", 0)))
 	_muhon = maxi(0, int(economy.get("muhon", 0)))
-	_chance_gems = maxi(0, int(economy.get("chance_gems", 0)))
+	_chance_gems = clampi(
+		int(economy.get("chance_gems", DEFAULT_CHANCE_GEMS)),
+		0,
+		MAX_CHANCE_GEMS
+	)
 
 
 func _sanitize_phases(value: Array) -> Array[Dictionary]:
