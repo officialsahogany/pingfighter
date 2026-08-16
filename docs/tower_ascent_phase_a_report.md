@@ -3,7 +3,8 @@
 - 지시문: `docs/tower_ascent_phase_a_goal.md` @ `55ff4fa0e`
 - 정본: `docs/tower_ascent_run_map_plan.md` v1.4 @ `967f526db`
 - 수직 슬라이스 기준점: `7ebf521ad`
-- 구현 범위: `4a1c1cc77..07c5ba932` (8개 항목 커밋 + 항목 6 교정 1개)
+- 기능 범위: `4a1c1cc77..07c5ba932` (8개 항목 커밋 + 항목 6 교정 1개)
+- 지원 커밋: `e642bcff6` (신규 GDScript UID sidecar 22쌍)
 - 검증 런타임: Godot `4.6.2.stable.official.71f334935`
 - 종합 판정: **GREEN** — 필수 게이트 `blocked=0`, `unverified=0`
 - 외부 상태: push하지 않았고, 사용자 Godot 편집기·플레이 프로세스를 종료하지 않았다.
@@ -21,10 +22,17 @@
 | 7 | `fc46b104f` | `feat(godot): 탑 스타포인트를 런 무혼으로 적립` |
 | 8 | `3360dd863` | `feat(godot): 액티브 등급과 판당 스폰 예산 정식화` |
 | 6 교정 | `07c5ba932` | `fix(godot): 7점제 상자 임계값을 정본에 연결` |
+| UID 지원 | `e642bcff6` | `chore(godot): 탑 등정 신규 스크립트 UID 동반` |
 
 `git rev-list --count 55ff4fa0e..07c5ba932` 결과는 `9`다. §1의 각 항목은
 독립 커밋이고, 보고서 역검증에서 잡은 GRT-054 결함은 history rewrite 없이 항목 6
 교정 커밋으로 분리했다. 전부 로컬 커밋이고 push는 수행하지 않았다.
+
+보고서 초판은 `760c7ceff`에 기록했고, 이후 사후 상태 감사에서 발견한 UID
+sidecar 누락을 `e642bcff6`으로 보강했다. Phase A가 새로 만든 GDScript 22개는
+`.gd.uid` 22개와 모두 짝을 이루며, UID 값은 `22/22` 고유하고 기존 추적 UID와
+충돌 `0`건이다. 라이브 편집기가 이미 만든 17개는 그대로 보존했고, 미생성 5개만
+격리 동일 경로 프로젝트의 editor scan으로 생성해 승격했다.
 
 ## 2. 게이트 결과
 
@@ -81,7 +89,7 @@ Godot headless load check passed.
   `finally` 우선순위 복구 계약을 그대로 탔다.
 - 검증 전 사용자 로그 5개를
   `D:\codex_tmp\tower_ascent_phase_a_logs_20260816T220500`에 복사했다.
-- `git diff --check 55ff4fa0e..07c5ba932`: PASS.
+- `git diff --check 55ff4fa0e..e642bcff6`: PASS.
 - 최종 기능 커밋 직전 index tree는
   `6b342e7aaf5ab2021ffeebf9ebd1dc16689617dd`로 다시 일치시켰다.
 - 공유 파일의 동시 WIP는 line/hunk 단위로 제외했다. 주요 격리 증거:
@@ -91,6 +99,8 @@ Godot headless load check passed.
   - 항목 6 GRT-054 교정: staged-tree smoke `3/3`, warning `3/3` PASS.
     `WIN_GOAL` 참조를 리터럴 `5`로 되돌린 counterproof는 두 점수 씰 모두 RED,
     원복 뒤 같은 배치가 다시 GREEN이었다.
+  - 신규 GDScript UID: parent/sidecar `22/22`, phase 내부 중복 `0`, 기존 추적
+    UID 충돌 `0`. 다른 735개 미추적 UID baseline은 stage하지 않았다.
 - 항목 8의 격리 기준 catalog는 당시 커밋 HEAD의 33개 항목만 포함한다. 작업
   체크아웃의 동시 아이템 WIP(34개)는 stage하지 않았고, 런타임 rarity 정규화는
   현재 작업 체크아웃의 전 항목에도 적용됨을 별도 working-tree smoke로 확인했다.
@@ -154,17 +164,32 @@ Godot headless load check passed.
 
 ### 4.2 GRT-054 승리 점수 파생 임계값 소비자 감사
 
-직접 정본 참조(`WIN_GOAL`, `DEUCE_TRIGGER`, `DEUCE_GOAL_BASE`)와 비영점 점수
-리터럴 비교를 함께 검색했다. 비영점 점수 리터럴 비교는 0건이며, 다음 소비자가
-모두 canonical score owner 또는 snapshot 값을 읽는다.
+기능·지원 커밋 트리 `e642bcff6`에서 직접 정본 참조와 점수 리터럴을 따로
+검색했다. canonical 직접 소비자는 다음과 같다.
 
 | 분류 | 소비자 |
 |---|---|
-| 정본·사다리 | `core/match_score_state.gd`, `core/match_score_event_controller.gd`, `core/round_flow_state.gd` |
-| 상자 수량 | `core/stage_clear_result_reward_plan_builder.gd:43-55` |
+| 정본·사다리 | `core/match_score_state.gd` |
+| 상자 수량 | `core/stage_clear_result_reward_plan_builder.gd:50` |
 | 디버그 강제 승리 | `core/battle_pre_intro_stage_input_router.gd:8` |
-| 패배·재도전 | `tower_ascent/tower_ascent_defeat_resolver.gd:106`, `core/battle_defeat_flow_resolver.gd`, `core/defeat_settlement_screen.gd`, `core/battle_playfield_overlay_drawer.gd` |
-| HUD·렌더 | `hud/scoreboard_state.gd`, `hud/scoreboard_renderer.gd`, `hud/scoreboard_top_mini_renderer.gd`, `hud/scoreboard_overlay_renderer.gd`, `hud/scoreboard_overlay_footer_renderer.gd`, `hud/serve_wait_indicator_renderer.gd` |
+| 타워 패배 판정 | `tower_ascent/tower_ascent_defeat_resolver.gd:106` |
+
+커밋 트리에는 선재 GRT-054 리터럴 소비자도 7파일·14행 남아 있다. 이 목록은
+감사 결과로 고정하되, Phase A가 소유한 상자 판정 외에는 동시 score-rule WIP라
+stage하지 않았다.
+
+| 소비자 | 선재 리터럴 위치·의미 |
+|---|---|
+| `core/battle_scene_match_flow_driver.gd` | `:273` — `get_win_goal` 폴백 `5` |
+| `core/battle_playfield_overlay_drawer.gd` | `:50` — overlay 폴백 `5` |
+| `core/defeat_settlement_screen.gd` | `:180`, `:188` — scoreboard/snapshot 폴백 `5` |
+| `core/match_score_event_controller.gd` | `:209`, `:412-420` — win/deuce 폴백과 `5:5 -> 7` 사다리 사본 |
+| `hud/scoreboard_state.gd` | `:17`, `:29`, `:40` — 기본 win goal `5` |
+| `hud/scoreboard_renderer.gd` | `:35` — retained HUD 듀스 폴백 `>= 4` |
+| `hud/scoreboard_top_mini_renderer.gd` | `:47` — top-mini 듀스 폴백 `>= 4` |
+
+`stage_clear_result_reward_plan_builder.gd:52`의 `losing_score <= 1`은 승리 점수
+파생값이 아니라 압승 구간을 정하는 독립 튜닝값이므로 GRT-054 결함과 구분했다.
 
 상자 경로의 핵심 판정은 OFF에서 교정 커밋 `07c5ba932` 이후
 `winning_score > MatchScoreState.WIN_GOAL`로 듀스 승리를 판별한다. 타워 ON은
@@ -199,6 +224,10 @@ Godot headless load check passed.
   폐지는 지시문의 명시적 비범위다.
 - [deferred] Phase B 지도/12층/껍데기 보스, Phase C 노드 실기능·UI·아트,
   Phase D 9층 판정·결산·신규 보스.
+- [deferred, baseline GRT-054] 커밋 트리에 남은 score-rule 리터럴 소비자
+  7파일·14행은 위 §4.2 목록과 같다. 작업 체크아웃의 동시 WIP가 다수를 canonical
+  owner로 이관하거나 owner를 추출 중이므로, Phase A 상자 교정에 섞지 않았다.
+  위치·의미를 정적 감사로 확정했으므로 blocked/unverified가 아니라 deferred다.
 - [deferred, baseline RED] `perk_conversion_mythic_perk_channel_smoke`는
   `flag-ON field spawn should remove mythic item candidates`에서 실패한다. 항목 7
   감사 때 항목 8 이전에도 같은 지점에서 RED였고, perk-conversion 동시 WIP의
@@ -250,6 +279,7 @@ Godot headless load check passed.
 | 변경 파일 warning scan | 40/40 PASS |
 | headless load | PASS |
 | diff check | PASS |
+| 신규 GDScript UID sidecar | 22/22, 충돌 0 |
 | 보고서 완성 | 완료 |
 | 필수 게이트 blocked/unverified | `0/0` |
 
