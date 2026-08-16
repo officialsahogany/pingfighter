@@ -445,6 +445,7 @@ func _prepare_tower_ascent_vertical_slice(registry: Object, owner: Object) -> bo
 		return false
 	return bool(flow_owner.prepare_vertical_slice_combat(owner, {
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"registry": registry,
 	}))
 
 
@@ -465,6 +466,7 @@ func _try_start_tower_ascent_vertical_slice(
 	)
 	return bool(flow_owner.begin_vertical_slice(owner, finish_callback, {
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+		"registry": registry,
 	}))
 
 

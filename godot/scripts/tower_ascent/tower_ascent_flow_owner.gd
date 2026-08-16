@@ -13,6 +13,12 @@ const TowerAscentNodeResolutionTransaction := preload(
 const TowerAscentDefeatResolver := preload(
 	"res://scripts/tower_ascent/tower_ascent_defeat_resolver.gd"
 )
+const TowerAscentNodeModalState := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
+const TowerAscentModalLifecycle := preload(
+	"res://scripts/tower_ascent/tower_ascent_modal_lifecycle.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -75,6 +81,9 @@ var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
 var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
+var _node_modal_state: Object = TowerAscentNodeModalState.new()
+var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
+var _node_modal_kind := "guardian_spring"
 var _header_subtitle := ""
 
 
@@ -87,14 +96,22 @@ func begin_vertical_slice(
 		return false
 	if not _prepared and not prepare_vertical_slice_combat(owner, context):
 		return false
+	var lifecycle_result: Dictionary = _modal_lifecycle.enter(
+		owner,
+		context.get("registry", null)
+	)
+	if not bool(lifecycle_result.get("accepted", false)):
+		return false
 	_finish_callback = finish_callback
 	if not _complete_prepared_combat_resolution():
+		_modal_lifecycle.leave()
 		return false
 	_prepared = false
 	_prepared_resolution_id = ""
 	_active = true
 	_phase = PHASE_NODE_MODAL
 	_current_node_id = _route_source_node_id
+	_open_node_modal()
 	_request_redraw(owner)
 	return true
 
@@ -131,6 +148,10 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		"map_seed",
 		existing_map_seed if reuse_existing_run else _derive_map_seed(run_id, current_stage)
 	))
+	_node_modal_kind = _normalize_node_modal_kind(str(context.get(
+		"node_modal_kind",
+		"guardian_spring"
+	)))
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
 		return false
@@ -154,7 +175,12 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	return true
 
 
-func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable()) -> bool:
+func restore_snapshot(
+	snapshot: Dictionary,
+	finish_callback: Callable = Callable(),
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return false
 	if not bool(snapshot.get("stable_boundary", false)):
@@ -199,6 +225,10 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 		return false
 	_refresh_route_target_cache()
 	_selected_target_id = str(snapshot.get("selected_target_id", ""))
+	_node_modal_kind = _normalize_node_modal_kind(str(snapshot.get(
+		"node_modal_kind",
+		"guardian_spring"
+	)))
 	_phase = clampi(int(snapshot.get("phase", PHASE_NODE_MODAL)), PHASE_NODE_MODAL, PHASE_MAP_TRANSITION)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
@@ -206,9 +236,17 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 	_aim_target_x = clampf(float(snapshot.get("aim_target_x", 220.0)), SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
 	_map_transition_progress = clampf(float(snapshot.get("map_transition_progress", 0.0)), 0.0, 1.0)
 	_finish_callback = finish_callback
+	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+	if not bool(lifecycle_result.get("accepted", false)):
+		_reset_runtime_state()
+		return false
 	_active = true
 	_prepared = false
 	_prepared_resolution_id = ""
+	if _phase == PHASE_NODE_MODAL:
+		_open_node_modal()
+	else:
+		_node_modal_state.close()
 	return true
 
 
@@ -232,6 +270,7 @@ func export_snapshot() -> Dictionary:
 		"route_source_node_id": _route_source_node_id,
 		"route_target_ids": _route_target_ids.duplicate(),
 		"selected_target_id": _selected_target_id,
+		"node_modal_kind": _node_modal_kind,
 		"phase": _phase,
 		"selector_position": _selector_position,
 		"selector_velocity": _selector_velocity,
@@ -329,8 +368,7 @@ func handle_input(event: InputEvent) -> bool:
 	if not _active:
 		return false
 	if _phase == PHASE_NODE_MODAL:
-		if _is_confirm_event(event):
-			_enter_route_aim()
+		_handle_node_modal_input(event)
 		return true
 	if _phase != PHASE_ROUTE_AIM:
 		return true
@@ -509,6 +547,16 @@ func get_header_subtitle() -> String:
 	return _header_subtitle
 
 
+func get_node_modal_view_model() -> Dictionary:
+	if _node_modal_state == null or not _node_modal_state.has_method("build_view_model"):
+		return {}
+	return _node_modal_state.build_view_model()
+
+
+func get_node_modal_kind() -> String:
+	return _node_modal_kind
+
+
 func get_graph_edges() -> Array[Dictionary]:
 	return _graph_edges
 
@@ -574,8 +622,57 @@ func _build_generated_graph(_current_stage: int) -> bool:
 
 
 func _enter_route_aim() -> void:
+	_node_modal_state.close()
 	_phase = PHASE_ROUTE_AIM
 	_reset_selector()
+
+
+func _open_node_modal() -> void:
+	_node_modal_state.open(
+		_current_node_id,
+		_node_modal_kind,
+		_run_state.export_economy()
+	)
+
+
+func _handle_node_modal_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if not key_event.pressed or key_event.echo:
+			return
+		if key_event.keycode in [KEY_UP, KEY_W]:
+			_node_modal_state.move_selection(-1)
+			return
+		if key_event.keycode in [KEY_DOWN, KEY_S]:
+			_node_modal_state.move_selection(1)
+			return
+		if key_event.keycode == KEY_ESCAPE:
+			_enter_route_aim()
+			return
+		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			_confirm_node_modal_action()
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			if _node_modal_state.select_at_position(mouse_event.position):
+				_confirm_node_modal_action()
+		return
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed and _node_modal_state.select_at_position(touch_event.position):
+			_confirm_node_modal_action()
+
+
+func _confirm_node_modal_action() -> void:
+	var action: Dictionary = _node_modal_state.get_selected_action()
+	if action.is_empty():
+		return
+	if not bool(action.get("enabled", true)):
+		_node_modal_state.set_status_text(str(action.get("unavailable_reason", "")))
+		return
+	if str(action.get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK:
+		_enter_route_aim()
 
 
 func _set_aim_target(x_value: float) -> void:
@@ -718,6 +815,8 @@ func _make_resolution_id(node_id: String, resolution_kind: String) -> String:
 func _finish_vertical_slice() -> void:
 	var callback := _finish_callback
 	_finish_callback = Callable()
+	_modal_lifecycle.leave()
+	_node_modal_state.close()
 	_active = false
 	_map_seed = 0
 	_phase = PHASE_COMBAT
@@ -733,6 +832,8 @@ func _reset_selector() -> void:
 
 
 func _reset_runtime_state() -> void:
+	_modal_lifecycle.leave()
+	_node_modal_state.close()
 	_active = false
 	_prepared = false
 	_prepared_resolution_id = ""
@@ -767,6 +868,7 @@ func _reset_runtime_state() -> void:
 	_route_target_ids.clear()
 	_available_route_target_ids.clear()
 	_route_aim_targets_cache.clear()
+	_node_modal_kind = "guardian_spring"
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_finish_callback = Callable()
@@ -897,6 +999,13 @@ func _sync_owner_chance_gems(owner: Object) -> void:
 
 func _derive_map_seed(run_id: String, current_stage: int) -> int:
 	return absi(hash("%s:%d:%s" % [run_id, current_stage, MAP_GENERATOR_VERSION]))
+
+
+func _normalize_node_modal_kind(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	if normalized in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "common_shell"]:
+		return normalized
+	return "common_shell"
 
 
 func _vector2(value: Variant) -> Vector2:

@@ -130,6 +130,22 @@ class FakeModalPause:
 		leave_calls += 1
 
 
+class FakeTowerModalRuntime:
+	extends RefCounted
+
+	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
+		pass
+
+	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
+		pass
+
+	func _resume_skill_cooldowns_for_choice() -> void:
+		pass
+
+	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
+		pass
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -180,6 +196,7 @@ func _verify_flag_off_preserves_legacy_result_flow() -> void:
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
 		"stage_clear_result_screen": result_screen,
+		"runtime_perk_state": FakeTowerModalRuntime.new(),
 	}
 	var owner := FakeOwner.new()
 	BattleSceneMatchFlowDriver.new().call(
@@ -204,6 +221,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
 		"stage_clear_result_screen": result_screen,
+		"runtime_perk_state": FakeTowerModalRuntime.new(),
 	}
 	var owner := FakeOwner.new()
 	var driver := BattleSceneMatchFlowDriver.new()

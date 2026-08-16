@@ -2,7 +2,7 @@ extends RefCounted
 
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
-const MODAL_RECT := Rect2(120.0, 188.0, 520.0, 350.0)
+const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
 const SELECTOR_RADIUS := 11.0
 const MAP_NODE_RADIUS := 6.0
 const ACTIVE_NODE_RADIUS := 13.0
@@ -29,7 +29,7 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	_draw_route_map(canvas, flow)
 	var phase_name := str(flow.get_phase_name())
 	if phase_name == "NODE_MODAL":
-		_draw_node_modal(canvas)
+		_draw_node_modal(canvas, flow)
 	elif phase_name == "ROUTE_AIM":
 		_draw_route_aim(canvas, flow)
 	elif phase_name == "MAP_TRANSITION":
@@ -167,19 +167,112 @@ func _draw_map_node(
 		)
 
 
-func _draw_node_modal(canvas: CanvasItem) -> void:
+func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
+	var model: Dictionary = (
+		flow.get_node_modal_view_model()
+		if flow.has_method("get_node_modal_view_model")
+		else {}
+	)
 	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.06, 0.04, 0.025, 0.54), true)
 	canvas.draw_rect(MODAL_RECT, Color("f7e9c8"), true)
 	canvas.draw_rect(MODAL_RECT, CINNABAR_DARK, false, 5.0)
 	canvas.draw_rect(MODAL_RECT.grow(-13.0), GOLD, false, 2.0)
 	var font := ThemeDB.fallback_font
-	canvas.draw_string(font, Vector2(205.0, 252.0), "수호의 샘터", HORIZONTAL_ALIGNMENT_CENTER, 350.0, 31, INK)
-	canvas.draw_line(Vector2(216.0, 274.0), Vector2(544.0, 274.0), GOLD, 2.0)
-	canvas.draw_string(font, Vector2(180.0, 333.0), "전투가 멎은 사이, 다음 행로를 정비합니다.", HORIZONTAL_ALIGNMENT_CENTER, 400.0, 19, INK_SOFT)
-	canvas.draw_string(font, Vector2(180.0, 375.0), "이번 검증판은 효과 없이 노드만 안전하게 해소합니다.", HORIZONTAL_ALIGNMENT_CENTER, 400.0, 16, SEALED)
-	canvas.draw_rect(Rect2(260.0, 434.0, 240.0, 55.0), CINNABAR, true)
-	canvas.draw_rect(Rect2(260.0, 434.0, 240.0, 55.0), CINNABAR_DARK, false, 2.0)
-	canvas.draw_string(font, Vector2(260.0, 469.0), "행로 조준으로", HORIZONTAL_ALIGNMENT_CENTER, 240.0, 20, PAPER)
+	canvas.draw_string(
+		font,
+		Vector2(126.0, 178.0),
+		str(model.get("title", "행로 정비")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0,
+		30,
+		INK
+	)
+	canvas.draw_line(Vector2(126.0, 195.0), Vector2(634.0, 195.0), GOLD, 2.0)
+	canvas.draw_string(
+		font,
+		Vector2(126.0, 224.0),
+		str(model.get("description", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0,
+		16,
+		INK_SOFT
+	)
+	_draw_balance_badge(canvas, Rect2(190.0, 242.0, 176.0, 38.0), str(model.get("muhon_text", "무혼 0")))
+	_draw_balance_badge(canvas, Rect2(394.0, 242.0, 176.0, 38.0), str(model.get("gold_text", "골드 0")))
+	var actions: Array = model.get("actions", [])
+	var selected_index := int(model.get("selected_index", 0))
+	for index in range(actions.size()):
+		if not (actions[index] is Dictionary):
+			continue
+		var row_rect := Rect2(
+			126.0,
+			301.0 + float(index) * 43.0,
+			508.0,
+			38.0
+		)
+		_draw_modal_action_row(
+			canvas,
+			row_rect,
+			actions[index] as Dictionary,
+			index == selected_index
+		)
+	canvas.draw_string(
+		font,
+		Vector2(126.0, 635.0),
+		str(model.get("status_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0,
+		14,
+		INK_SOFT
+	)
+
+
+func _draw_balance_badge(canvas: CanvasItem, rect: Rect2, label: String) -> void:
+	canvas.draw_rect(rect, Color(PAPER_DEEP, 0.62), true)
+	canvas.draw_rect(rect, GOLD, false, 1.5)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(rect.position.x, rect.position.y + 25.0),
+		label,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		rect.size.x,
+		16,
+		INK
+	)
+
+
+func _draw_modal_action_row(
+	canvas: CanvasItem,
+	rect: Rect2,
+	action: Dictionary,
+	selected: bool
+) -> void:
+	var enabled := bool(action.get("enabled", true))
+	var fill := CINNABAR if selected and enabled else Color(PAPER_DEEP, 0.72)
+	var text_color := PAPER if selected and enabled else INK
+	if not enabled:
+		fill = Color(SEALED, 0.32)
+		text_color = Color(SEALED, 0.84)
+	canvas.draw_rect(rect, fill, true)
+	canvas.draw_rect(rect, CINNABAR_DARK if selected else GOLD, false, 2.0 if selected else 1.0)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(rect.position.x + 14.0, rect.position.y + 25.0),
+		str(action.get("label", "")),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x - 150.0,
+		16,
+		text_color
+	)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(rect.end.x - 130.0, rect.position.y + 25.0),
+		str(action.get("cost_text", "")),
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		116.0,
+		14,
+		text_color
+	)
 
 
 func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
