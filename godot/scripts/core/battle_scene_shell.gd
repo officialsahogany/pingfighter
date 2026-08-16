@@ -133,6 +133,14 @@ func _set(property: StringName, value: Variant) -> bool:
 	return true
 
 
+func set_tower_ascent_guardian_projection(
+	sealed_guardians: Array,
+	soul_summoning_owned: bool
+) -> void:
+	scene_state.set_value("tower_ascent_sealed_guardians", sealed_guardians.duplicate(true))
+	scene_state.set_value("tower_ascent_soul_summoning_owned", soul_summoning_owned)
+
+
 func configure_ball_physics_context(
 	stage: int,
 	league_mode: String = "champion",

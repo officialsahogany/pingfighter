@@ -30,6 +30,20 @@ const KEY_MONK_ACQUIRE_COMPLETED := "tower_ascent.node_modal.fallen_monk.acquire
 const KEY_MONK_SWAP_COMPLETED := "tower_ascent.node_modal.fallen_monk.swap_completed"
 const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_completed"
 const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
+const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
+const KEY_SPRING_SOUL_SUMMONING_OPTION := "tower_ascent.node_modal.guardian_spring.soul_summoning_option"
+const KEY_SPRING_FIRST_VISIT_COMPLETE := "tower_ascent.node_modal.guardian_spring.first_visit_complete"
+const KEY_SPRING_ENHANCE_OPTION := "tower_ascent.node_modal.guardian_spring.enhance_option"
+const KEY_SPRING_SWAP_OPTION := "tower_ascent.node_modal.guardian_spring.swap_option"
+const KEY_SPRING_ABSORB_OPTION := "tower_ascent.node_modal.guardian_spring.absorb_option"
+const KEY_SPRING_RUNTIME_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.runtime_unavailable"
+const KEY_SPRING_ENHANCE_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.enhance_unavailable"
+const KEY_SPRING_ACTIVE_GUARDIAN_REQUIRED := "tower_ascent.node_modal.guardian_spring.active_guardian_required"
+const KEY_SPRING_SOUL_SUMMONING_COMPLETED := "tower_ascent.node_modal.guardian_spring.soul_summoning_completed"
+const KEY_SPRING_ENHANCE_COMPLETED := "tower_ascent.node_modal.guardian_spring.enhance_completed"
+const KEY_SPRING_SWAP_COMPLETED := "tower_ascent.node_modal.guardian_spring.swap_completed"
+const KEY_SPRING_ABSORB_COMPLETED := "tower_ascent.node_modal.guardian_spring.absorb_completed"
+const KEY_SPRING_ACTION_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.action_unavailable"
 
 const NODE_TITLE_KEYS := {
 	"shop": "tower_ascent.node_modal.shop.title",
@@ -78,6 +92,20 @@ const TEXT_BY_LOCALE := {
 		KEY_MONK_SWAP_COMPLETED: "{name} 교환 완료",
 		KEY_MONK_REMOVE_COMPLETED: "{name} 제거 완료",
 		KEY_MONK_OFFER_UNAVAILABLE: "파계승의 초식 선택지를 준비할 수 없습니다.",
+		KEY_COST_FREE: "무료",
+		KEY_SPRING_SOUL_SUMMONING_OPTION: "영혼소환술 습득",
+		KEY_SPRING_FIRST_VISIT_COMPLETE: "영혼소환술을 익혔습니다. 다음 샘터부터 수호령을 정비할 수 있습니다.",
+		KEY_SPRING_ENHANCE_OPTION: "수호령 강화: {name}",
+		KEY_SPRING_SWAP_OPTION: "봉인 해제 및 교체: {name}",
+		KEY_SPRING_ABSORB_OPTION: "봉인 수호령 흡수: {name}",
+		KEY_SPRING_RUNTIME_UNAVAILABLE: "수호령 기능을 준비할 수 없습니다.",
+		KEY_SPRING_ENHANCE_UNAVAILABLE: "현재 수호령에 적용할 강화가 없습니다.",
+		KEY_SPRING_ACTIVE_GUARDIAN_REQUIRED: "흡수할 힘을 받을 동행 수호령이 필요합니다.",
+		KEY_SPRING_SOUL_SUMMONING_COMPLETED: "영혼소환술 습득 완료",
+		KEY_SPRING_ENHANCE_COMPLETED: "수호령 강화 완료",
+		KEY_SPRING_SWAP_COMPLETED: "{name} 교체 완료",
+		KEY_SPRING_ABSORB_COMPLETED: "{name} 흡수 완료",
+		KEY_SPRING_ACTION_UNAVAILABLE: "샘터에서 처리할 수호령 업무가 없습니다.",
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",

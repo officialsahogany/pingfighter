@@ -89,7 +89,8 @@ func apply_random_roll(
 	owner: Object,
 	registry: Object,
 	trigger_source: String,
-	current_pet_id: String
+	current_pet_id: String,
+	rng_override: RandomNumberGenerator = null
 ) -> Dictionary:
 	var pet_id := resolve_pet_id(owner, current_pet_id)
 	if pet_id == "":
@@ -103,7 +104,7 @@ func apply_random_roll(
 		Callable(self, "can_apply_candidate").bind(pet_id),
 		Callable(self, "apply_candidate").bind(owner, registry, pet_id, current_pet_id),
 		Callable(self, "apply_duration_fallback").bind(owner, registry),
-		_roll_rng_for_tests
+		rng_override if rng_override != null else _roll_rng_for_tests
 	)
 	result["display_candidate_icons"] = _presentation.build_display_candidate_icons(
 		candidates,

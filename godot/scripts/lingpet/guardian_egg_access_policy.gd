@@ -9,6 +9,13 @@ static func has_egg_access(owner: Object, registry: Object) -> bool:
 		return false
 	if LingpetCollectionState.new().is_auto_present_league(owner):
 		return true
+	var tower_flow: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		tower_flow != null
+		and tower_flow.has_method("has_soul_summoning")
+		and bool(tower_flow.call("has_soul_summoning"))
+	):
+		return true
 	var runtime_perk_state: Object = _get_cached_instance(registry, "runtime_perk_state")
 	if runtime_perk_state == null:
 		return false

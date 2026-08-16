@@ -44,14 +44,16 @@ static func _build_slot_tabs(owner: Object, safe_owner_get: Callable, active_pet
 	if occupied.is_empty():
 		# Slots not synced yet but a companion is on field — show a single tab so
 		# the header never reads zero tabs while a lingpet accompanies the player.
+		var empty_slot_tabs: Array = []
 		if normalized_active != "":
-			return [{
+			empty_slot_tabs.append({
 				"slot_index": 0,
 				"pet_id": normalized_active,
 				"name": _get_display_name(normalized_active),
 				"active": true,
-			}]
-		return []
+			})
+		_append_sealed_tabs(empty_slot_tabs, owner, safe_owner_get)
+		return empty_slot_tabs
 	var resolved_active: int = -1
 	if active_index >= 0:
 		resolved_active = active_index
@@ -71,7 +73,29 @@ static func _build_slot_tabs(owner: Object, safe_owner_get: Callable, active_pet
 			"name": _get_display_name(pet_id),
 			"active": int(entry.get("slot_index", -1)) == resolved_active,
 		})
+	_append_sealed_tabs(tabs, owner, safe_owner_get)
 	return tabs
+
+
+static func _append_sealed_tabs(tabs: Array, owner: Object, safe_owner_get: Callable) -> void:
+	var sealed_value: Variant = safe_owner_get.call(owner, "tower_ascent_sealed_guardians", [])
+	if not (sealed_value is Array):
+		return
+	for raw_entry in (sealed_value as Array):
+		if not (raw_entry is Dictionary):
+			continue
+		var sealed := raw_entry as Dictionary
+		var pet_id := str(sealed.get("pet_id", "")).strip_edges().to_lower()
+		if pet_id.is_empty():
+			continue
+		var display_name := str(sealed.get("display_name", _get_display_name(pet_id)))
+		tabs.append({
+			"slot_index": -1,
+			"pet_id": pet_id,
+			"name": "봉인 %s" % display_name,
+			"active": false,
+			"sealed": true,
+		})
 
 
 static func build_panel_snapshot(owner: Object, safe_owner_get: Callable, hatch_required_hits: int) -> Dictionary:

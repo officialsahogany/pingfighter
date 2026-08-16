@@ -605,7 +605,9 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			func() -> void: _audio_dispatcher.play_lingpet_egg_hit(registry)
 		))
 		if hatched_item_egg_pet_id != "":
-			_record_guardian_discovery_at_reveal(hatched_item_egg_pet_id, registry)
+			var item_reveal_result := _record_guardian_discovery_at_reveal(hatched_item_egg_pet_id, registry)
+			if bool(item_reveal_result.get("tower_sealed", false)):
+				_item_egg_lifecycle_state.consume_ready_absorb()
 			_acquisition_lifecycle.start_acquire_cutin(
 				hatched_item_egg_pet_id,
 				registry
@@ -644,14 +646,16 @@ func apply_guardian_enhance_random_roll(
 	candidates: Array,
 	owner: Object = null,
 	registry: Object = null,
-	trigger_source: String = "perk"
+	trigger_source: String = "perk",
+	rng_override: RandomNumberGenerator = null
 ) -> Dictionary:
 	return _guardian_enhance_flow.apply_random_roll(
 		candidates,
 		owner,
 		registry,
 		trigger_source,
-		_pet_id
+		_pet_id,
+		rng_override
 	)
 
 
@@ -1625,6 +1629,81 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null, registry: Object
 	return true
 
 
+# Tower Ascent keeps revealed guardians sealed outside the live collection until
+# the spring explicitly activates one. This production seam updates the existing
+# one-guardian roster and then runs the normal companion/loadout projection.
+func activate_tower_sealed_guardian(
+	pet_id: String,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
+	if normalized_pet_id.is_empty() or not LingpetCatalog.has_pet(normalized_pet_id):
+		return {"accepted": false, "reason": "invalid_pet_id"}
+	_collection_state.sync_from_owner(owner)
+	var previous_pet_id: String = str(_collection_state.find_active_slot_pet_id(owner))
+	if previous_pet_id.is_empty() and _state == STATE_COMPANION:
+		previous_pet_id = _pet_id
+	_companion_skill_persistence.save_current(
+		_pet_id,
+		_companion_skill_states,
+		_skill_runtime_surface.get_active_skill_ids(
+			_current_profile,
+			_active_skill_slot_resolver,
+			_skill_runtime_host
+		)
+	)
+	var slots: Array = _collection_state.get_battle_slots_from_owner(owner)
+	var active_index: int = int(_collection_state.get_active_slot_index_from_owner(owner))
+	var registered := ""
+	if slots.is_empty() or slots.all(func(slot_value: Variant) -> bool: return str(slot_value).is_empty()):
+		registered = _collection_state.ensure_pet_active_slot(owner, normalized_pet_id)
+	else:
+		active_index = clampi(active_index, 0, maxi(0, slots.size() - 1))
+		var replace_result: Dictionary = _collection_state.replace_slot(owner, active_index, normalized_pet_id)
+		registered = str(replace_result.get("new_pet_id", ""))
+	if registered != normalized_pet_id:
+		return {"accepted": false, "reason": "live_roster_registration_failed"}
+	_invalidate_runtime_snapshot_cache()
+	_ensure_duration_pool_roll()
+	if previous_pet_id != normalized_pet_id:
+		_refill_duration_pool_for_guardian_replacement()
+	_state = STATE_COMPANION
+	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
+	_duration_warning_stage = 0
+	_set_current_pet_id(normalized_pet_id)
+	_apply_current_loadout(owner, true, true, registry)
+	_apply_companion_position_surface(_companion_runtime_resetter.prepare_companion_activation(
+		_build_companion_activation_context(owner, registry, true, true, true, false)
+	))
+	_initialize_companion_patrol(owner, true)
+	_sync_owner(owner, registry)
+	return {
+		"accepted": true,
+		"previous_pet_id": previous_pet_id,
+		"pet_id": normalized_pet_id,
+	}
+
+
+func absorb_tower_sealed_guardian(
+	pet_id: String,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
+	if normalized_pet_id.is_empty() or normalized_pet_id == _pet_id:
+		return {"accepted": false, "reason": "invalid_absorb_target"}
+	if not _is_guardian_summoned():
+		return {"accepted": false, "reason": "missing_active_guardian"}
+	_loadout_state.forget_pet_loadout_and_invalidate(owner, normalized_pet_id, _snapshot_builder)
+	_guardian_run_state.forget_pet_data(normalized_pet_id)
+	_companion_skill_persistence.forget_pet(normalized_pet_id)
+	var result: Dictionary = trigger_guardian_enhancement_from_absorption(owner, registry)
+	result["absorbed_pet_id"] = normalized_pet_id
+	return result
+
+
 # Test-only accessors: the strike state is transient visual state that is
 # intentionally NOT persisted in get_snapshot()/save schema, so the smoke reads
 # it directly to assert the anticipatory pre-contact timing.
@@ -2414,6 +2493,10 @@ func _resolve_ball_hit(owner: Object, registry: Object = null, perf_logger: Obje
 
 
 func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
+	var discovery_result := _record_guardian_discovery_at_reveal(_pet_id, registry)
+	if bool(discovery_result.get("tower_sealed", false)):
+		_finish_tower_sealed_hatch(owner, registry)
+		return
 	_ensure_duration_pool_roll()
 	_state = STATE_COMPANION
 	_guardian_stowed = false
@@ -2423,7 +2506,6 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
 	_initialize_companion_patrol(owner, false)
 	_reset_companion_runtime_state(false, owner, registry)
-	_record_guardian_discovery_at_reveal(_pet_id, registry)
 	_companion_runtime_resetter.start_hatch_reveal_effects(_build_hatch_reveal_context(
 		registry,
 		true,
@@ -2439,13 +2521,16 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 
 
 func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: Object = null) -> void:
+	var discovery_result := _record_guardian_discovery_at_reveal(_pet_id, registry)
+	if bool(discovery_result.get("tower_sealed", false)):
+		_finish_tower_sealed_hatch(owner, registry)
+		return
 	_prepare_overflow_preview_loadout(_pet_id)
 	_overflow_choice_state.begin_main_overflow(
 		_pet_id,
 		_collection_state.is_absorb_only_candidate(owner, _pet_id)
 	)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
-	_record_guardian_discovery_at_reveal(_pet_id, registry)
 	_companion_runtime_resetter.start_hatch_reveal_effects(_build_hatch_reveal_context(
 		registry,
 		true,
@@ -2458,7 +2543,49 @@ func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: 
 
 
 func _record_guardian_discovery_at_reveal(pet_id: String, registry: Object) -> Dictionary:
+	var tower_flow := _get_reveal_registry_instance(registry, "tower_ascent_flow_owner")
+	if tower_flow != null and tower_flow.has_method("record_guardian_identity_reveal"):
+		var tower_value: Variant = tower_flow.call(
+			"record_guardian_identity_reveal",
+			pet_id,
+			registry
+		)
+		if tower_value is Dictionary and bool((tower_value as Dictionary).get("handled", false)):
+			return (tower_value as Dictionary).duplicate(true)
 	return GuardianCodexDiscoveryRecorder.record_identity_reveal(registry, pet_id)
+
+
+func _get_reveal_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	for method_name in ["get_cached_instance", "get_instance"]:
+		if not registry.has_method(method_name):
+			continue
+		var value: Variant = registry.call(method_name, key)
+		if value is Object and value != null:
+			return value as Object
+	return null
+
+
+func _finish_tower_sealed_hatch(owner: Object, registry: Object) -> void:
+	var sealed_pet_id := _pet_id
+	_acquisition_lifecycle.start_acquire_cutin(sealed_pet_id, registry)
+	_overflow_choice_state.reset()
+	var previous_pet_id: String = str(_collection_state.find_active_slot_pet_id(owner))
+	if not previous_pet_id.is_empty():
+		_adopt_owned_pet(owner, previous_pet_id, registry)
+		return
+	_state = STATE_NONE
+	_guardian_stowed = false
+	_guardian_active_elapsed = 0.0
+	_duration_warning_stage = 0
+	_apply_companion_position_surface(
+		_companion_runtime_resetter.reset_companion_position(
+			_companion_motion_state,
+			_companion_distance_roll_state
+		)
+	)
+	_sync_owner(owner, registry)
 
 
 func _prepare_overflow_preview_loadout(pet_id: String) -> Dictionary:

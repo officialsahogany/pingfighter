@@ -181,6 +181,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"runtime_perk_gold": 0,
 	"runtime_perk_choice_active": false,
 	"runtime_laurel_leaf_count": 0,
+	"tower_ascent_soul_summoning_owned": false,
+	"tower_ascent_sealed_guardians": [],
 	"lingpet_id": "",
 	"active_lingpet_id": "",
 	"current_lingpet_id": "",

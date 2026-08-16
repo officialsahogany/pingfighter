@@ -706,18 +706,26 @@ static func _draw_lingpet_slot_tabs(
 		var entry: Dictionary = entry_value
 		var tab_rect := Rect2(start_x + float(i) * (tab_w + gap), tab_y, tab_w, tab_h)
 		var is_active: bool = bool(entry.get("active", false))
+		var is_sealed: bool = bool(entry.get("sealed", false))
 		var bg: Color = Color(accent_blue.r, accent_blue.g, accent_blue.b, 0.85) if is_active else Color(slot_fill.r, slot_fill.g, slot_fill.b, 0.72)
+		if is_sealed:
+			bg = Color(0.18, 0.16, 0.20, 0.90)
 		canvas.draw_rect(tab_rect, bg)
 		var border: Color = Color(1.0, 1.0, 1.0, 0.85) if is_active else Color(empty_text_color.r, empty_text_color.g, empty_text_color.b, 0.5)
+		if is_sealed:
+			border = Color(0.58, 0.35, 0.31, 0.88)
 		canvas.draw_rect(tab_rect, border, false, 1.0)
 		var label: String = _fit_text_to_width(font, str(entry.get("name", "")), 11, tab_w - 8.0 * ui_text_scale, ui_text_scale)
 		var label_color: Color = Color.WHITE if is_active else text_soft
+		if is_sealed:
+			label_color = Color(0.82, 0.61, 0.54)
 		_draw_centered_text(canvas, font, label, tab_rect.get_center().x, tab_rect.get_center().y, 11, label_color, ui_text_scale)
-		slot_tab_rects.append({
-			"rect": tab_rect,
-			"slot_index": int(entry.get("slot_index", -1)),
-			"pet_id": str(entry.get("pet_id", "")),
-		})
+		if not is_sealed:
+			slot_tab_rects.append({
+				"rect": tab_rect,
+				"slot_index": int(entry.get("slot_index", -1)),
+				"pet_id": str(entry.get("pet_id", "")),
+			})
 
 
 static func _draw_centered_fallback_text(canvas: CanvasItem, text: String, center_x: float, center_y: float, size: int, color: Color, ui_text_scale: float) -> void:

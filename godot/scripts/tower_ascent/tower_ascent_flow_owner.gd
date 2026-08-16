@@ -28,6 +28,9 @@ const TowerAscentShopInventory := preload(
 const TowerAscentFallenMonkNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_fallen_monk_node.gd"
 )
+const TowerAscentGuardianSpringNode := preload(
+	"res://scripts/tower_ascent/tower_ascent_guardian_spring_node.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -67,6 +70,7 @@ var _defeat_resolver: Object = TowerAscentDefeatResolver.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
 var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
+var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
 var _claimed_decoration_ids: Array[String] = []
 var _build_state := {
 	"mugong": [],
@@ -76,8 +80,11 @@ var _build_state := {
 }
 var _guardian_state := {
 	"soul_summoning_owned": false,
+	"soul_summoning_node_id": "",
 	"active_guardian": {},
 	"sealed_guardians": [],
+	"history": [],
+	"runtime_snapshot": {},
 }
 var _gameplay_rng_state := {"seed": 140913, "state": 140913}
 var _route_history: Array[Dictionary] = []
@@ -127,6 +134,7 @@ func begin_vertical_slice(
 	_prepared_resolution_id = ""
 	_active_owner = owner
 	_active_registry = context.get("registry", null)
+	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
 	_phase = PHASE_NODE_MODAL
 	_current_node_id = _route_source_node_id
@@ -253,6 +261,14 @@ func restore_snapshot(
 	_claimed_decoration_ids.assign(_string_array(snapshot.get("claimed_decoration_ids", [])))
 	_build_state = _dictionary_copy(snapshot.get("build_state", {}))
 	_guardian_state = _dictionary_copy(snapshot.get("guardian_state", {}))
+	_guardian_spring_node.restore_state(_guardian_state)
+	for guardian_record in _guardian_spring_node.get_history():
+		var guardian_resolution_id := str(guardian_record.get("node_resolution_id", ""))
+		if not guardian_resolution_id.is_empty():
+			_resolution_ids[guardian_resolution_id] = true
+	if not _guardian_spring_node.restore_runtime(owner, registry):
+		_reset_runtime_state()
+		return false
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
@@ -278,6 +294,7 @@ func restore_snapshot(
 		return false
 	_active_owner = owner
 	_active_registry = registry
+	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
 	_prepared = false
 	_prepared_resolution_id = ""
@@ -290,6 +307,7 @@ func restore_snapshot(
 
 func export_snapshot() -> Dictionary:
 	_sync_run_state_phases()
+	_guardian_state = _guardian_spring_node.export_state()
 	var snapshot: Dictionary = _run_state.export_snapshot_fields()
 	snapshot.merge({
 		"map_generator_version": MAP_GENERATOR_VERSION,
@@ -551,6 +569,7 @@ func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 		return false
 	if _run_state.has_started():
 		_sync_owner_chance_gems(owner)
+		_guardian_spring_node.sync_owner_projection(owner)
 		return true
 	var run_id := str(context.get(
 		"run_id",
@@ -561,7 +580,32 @@ func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 	if not _run_state.begin(run_id, economy):
 		return false
 	_sync_owner_chance_gems(owner)
+	_guardian_spring_node.sync_owner_projection(owner)
 	return true
+
+
+func has_soul_summoning() -> bool:
+	return (
+		TowerAscentFeatureFlags.is_vertical_slice_enabled()
+		and _run_state.has_started()
+		and _guardian_spring_node.has_soul_summoning()
+	)
+
+
+func record_guardian_identity_reveal(pet_id: String, registry: Object = null) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _run_state.has_started():
+		return {
+			"accepted": true,
+			"handled": false,
+			"tower_sealed": false,
+			"reason": "tower_run_inactive",
+		}
+	var result: Dictionary = _guardian_spring_node.record_identity_reveal(pet_id, registry)
+	_guardian_state = _guardian_spring_node.export_state()
+	_guardian_spring_node.sync_owner_projection(_active_owner)
+	if _active and _phase == PHASE_NODE_MODAL and _node_modal_kind == "guardian_spring":
+		_refresh_guardian_spring_modal("")
+	return result
 
 
 func resolve_defeat(
@@ -615,6 +659,14 @@ func get_fallen_monk_history() -> Array[Dictionary]:
 	return _fallen_monk_node.get_history()
 
 
+func get_guardian_spring_history() -> Array[Dictionary]:
+	return _guardian_spring_node.get_history()
+
+
+func get_guardian_state() -> Dictionary:
+	return _guardian_spring_node.export_state()
+
+
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
 	if not _active or _phase != PHASE_NODE_MODAL:
 		return {"accepted": false, "reason": "node_modal_inactive"}
@@ -625,6 +677,8 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 		)
 	if _node_modal_kind == "fallen_monk" and action_id.begins_with("fallen_monk:"):
 		return _execute_fallen_monk_action(action_id, requested_resolution_id)
+	if _node_modal_kind == "guardian_spring" and action_id.begins_with("guardian_spring:"):
+		return _execute_guardian_spring_action(action_id, requested_resolution_id)
 	return {"accepted": false, "reason": "unknown_node_action"}
 
 
@@ -713,6 +767,10 @@ func _open_node_modal() -> void:
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_MONK_OFFER_UNAVAILABLE
 		))
+	elif _node_modal_kind == "guardian_spring" and _build_guardian_spring_actions().is_empty():
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
+		))
 
 
 func _handle_node_modal_input(event: InputEvent) -> void:
@@ -764,6 +822,8 @@ func _build_node_modal_actions() -> Array[Dictionary]:
 		return _build_shop_actions()
 	if _node_modal_kind == "fallen_monk":
 		return _build_fallen_monk_actions()
+	if _node_modal_kind == "guardian_spring":
+		return _build_guardian_spring_actions()
 	return []
 
 
@@ -1021,6 +1081,46 @@ func _refresh_fallen_monk_modal(status_text: String) -> void:
 	_node_modal_state.set_status_text(status_text)
 
 
+func _build_guardian_spring_actions() -> Array[Dictionary]:
+	return _guardian_spring_node.build_actions(
+		_current_node_id,
+		_map_seed,
+		_run_state,
+		_active_owner,
+		_active_registry
+	)
+
+
+func _execute_guardian_spring_action(
+	action_id: String,
+	requested_resolution_id: String = ""
+) -> Dictionary:
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(_current_node_id, action_id)
+	var result: Dictionary = _guardian_spring_node.execute_action(
+		action_id,
+		resolution_id,
+		_current_node_id,
+		_map_seed,
+		_run_state,
+		_resolution_ids,
+		_node_action_transaction,
+		_active_owner,
+		_active_registry
+	)
+	_guardian_state = _guardian_spring_node.export_state()
+	_guardian_spring_node.sync_owner_projection(_active_owner)
+	_refresh_guardian_spring_modal(str(result.get("message", result.get("reason", ""))))
+	return result
+
+
+func _refresh_guardian_spring_modal(status_text: String) -> void:
+	_node_modal_state.set_actions(_build_guardian_spring_actions())
+	_node_modal_state.set_balances(_run_state.export_economy())
+	_node_modal_state.set_status_text(status_text)
+
+
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
 		return null
@@ -1212,6 +1312,7 @@ func _reset_runtime_state() -> void:
 	_generated_shop_inventory.clear()
 	_purchase_history.clear()
 	_fallen_monk_node.reset()
+	_guardian_spring_node.reset()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],
@@ -1221,8 +1322,11 @@ func _reset_runtime_state() -> void:
 	}
 	_guardian_state = {
 		"soul_summoning_owned": false,
+		"soul_summoning_node_id": "",
 		"active_guardian": {},
 		"sealed_guardians": [],
+		"history": [],
+		"runtime_snapshot": {},
 	}
 	_gameplay_rng_state = {"seed": 140913, "state": 140913}
 	_route_history.clear()
