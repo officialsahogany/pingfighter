@@ -13,6 +13,7 @@ const TowerAscentDefeatResolver := preload(
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
+const MAP_GRAPH_STORAGE_FULL := "full_graph"
 const PHASE_COMBAT := 0
 const PHASE_NODE_MODAL := 1
 const PHASE_ROUTE_AIM := 2
@@ -32,6 +33,7 @@ var _map_seed := 0
 var _prepared := false
 var _prepared_resolution_id := ""
 var _phase := PHASE_COMBAT
+var _graph_phases: Array[Dictionary] = []
 var _graph_nodes: Array[Dictionary] = []
 var _graph_edges: Array[Dictionary] = []
 var _current_node_id := ""
@@ -142,12 +144,17 @@ func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable
 		return false
 	if not bool(snapshot.get("stable_boundary", false)):
 		return false
+	if str(snapshot.get("map_graph_storage", "")) != MAP_GRAPH_STORAGE_FULL:
+		return false
 	if str(snapshot.get("map_generator_version", "")) != MAP_GENERATOR_VERSION:
+		return false
+	if not snapshot.has("map_seed"):
 		return false
 	_reset_runtime_state()
 	if not _run_state.restore_snapshot(snapshot):
 		return false
 	var phases: Array[Dictionary] = _run_state.get_phases()
+	_graph_phases.assign(phases.duplicate(true))
 	var graph: Dictionary = phases[0]
 	var nodes_variant: Variant = graph.get("nodes", [])
 	var edges_variant: Variant = graph.get("edges", [])
@@ -191,6 +198,7 @@ func export_snapshot() -> Dictionary:
 	var snapshot: Dictionary = _run_state.export_snapshot_fields()
 	snapshot.merge({
 		"map_generator_version": MAP_GENERATOR_VERSION,
+		"map_graph_storage": MAP_GRAPH_STORAGE_FULL,
 		"map_seed": _map_seed,
 		"current_node_id": _current_node_id,
 		"completed_nodes": _completed_nodes.duplicate(true),
@@ -370,6 +378,11 @@ func get_graph_nodes() -> Array[Dictionary]:
 	return _graph_nodes
 
 
+func get_graph_phases() -> Array[Dictionary]:
+	_sync_run_state_phases()
+	return _graph_phases.duplicate(true)
+
+
 func get_run_id() -> String:
 	return _run_state.get_run_id()
 
@@ -510,7 +523,8 @@ func _build_generated_graph(current_stage: int) -> bool:
 	var phases_variant: Variant = generated.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
 		return false
-	var phase_variant: Variant = (phases_variant as Array)[0]
+	_graph_phases.assign(_dictionary_array(phases_variant))
+	var phase_variant: Variant = _graph_phases[0]
 	if not (phase_variant is Dictionary):
 		return false
 	var phase := phase_variant as Dictionary
@@ -673,6 +687,7 @@ func _reset_runtime_state() -> void:
 	_phase = PHASE_COMBAT
 	_run_state.reset()
 	_header_subtitle = ""
+	_graph_phases.clear()
 	_graph_nodes.clear()
 	_graph_edges.clear()
 	_current_node_id = ""
@@ -713,11 +728,15 @@ func _node_position(node_id: String) -> Vector2:
 func _sync_run_state_phases() -> void:
 	if _graph_nodes.is_empty():
 		return
-	_run_state.set_phases([{
-		"id": "phase_01",
-		"nodes": _graph_nodes.duplicate(true),
-		"edges": _graph_edges.duplicate(true),
-	}])
+	var phase := (
+		_graph_phases[0].duplicate(true)
+		if not _graph_phases.is_empty()
+		else {"id": "phase_01"}
+	)
+	phase["nodes"] = _graph_nodes.duplicate(true)
+	phase["edges"] = _graph_edges.duplicate(true)
+	_graph_phases = [phase]
+	_run_state.set_phases(_graph_phases)
 
 
 func _dictionary_copy(value: Variant) -> Dictionary:
