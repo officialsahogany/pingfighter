@@ -18,6 +18,18 @@ const KEY_SHOP_SLOT_FULL := "tower_ascent.node_modal.shop.slot_full"
 const KEY_SHOP_GEM_FULL := "tower_ascent.node_modal.shop.gem_full"
 const KEY_SHOP_PURCHASED := "tower_ascent.node_modal.shop.purchased"
 const KEY_SHOP_INVENTORY_UNAVAILABLE := "tower_ascent.node_modal.shop.inventory_unavailable"
+const KEY_COST_MUHON := "tower_ascent.node_modal.cost.muhon"
+const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
+const KEY_MONK_ACQUIRE_OPTION := "tower_ascent.node_modal.fallen_monk.acquire_option"
+const KEY_MONK_SWAP_OPTION := "tower_ascent.node_modal.fallen_monk.swap_option"
+const KEY_MONK_REMOVE_OPTION := "tower_ascent.node_modal.fallen_monk.remove_option"
+const KEY_MONK_ACQUIRE_USED := "tower_ascent.node_modal.fallen_monk.acquire_used"
+const KEY_MONK_SWAP_USED := "tower_ascent.node_modal.fallen_monk.swap_used"
+const KEY_MONK_REMOVE_USED := "tower_ascent.node_modal.fallen_monk.remove_used"
+const KEY_MONK_ACQUIRE_COMPLETED := "tower_ascent.node_modal.fallen_monk.acquire_completed"
+const KEY_MONK_SWAP_COMPLETED := "tower_ascent.node_modal.fallen_monk.swap_completed"
+const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_completed"
+const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
 
 const NODE_TITLE_KEYS := {
 	"shop": "tower_ascent.node_modal.shop.title",
@@ -54,6 +66,18 @@ const TEXT_BY_LOCALE := {
 		KEY_SHOP_GEM_FULL: "기회의 보석이 이미 가득 찼습니다.",
 		KEY_SHOP_PURCHASED: "{name} 구매 완료",
 		KEY_SHOP_INVENTORY_UNAVAILABLE: "상점 재고를 준비할 수 없습니다.",
+		KEY_COST_MUHON: "{amount} 무혼",
+		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
+		KEY_MONK_ACQUIRE_OPTION: "초식 습득: {name}",
+		KEY_MONK_SWAP_OPTION: "초식 교환: {old_name} 대신 {new_name}",
+		KEY_MONK_REMOVE_OPTION: "초식 제거: {name}",
+		KEY_MONK_ACQUIRE_USED: "이번 방문의 초식 습득을 마쳤습니다.",
+		KEY_MONK_SWAP_USED: "이번 방문의 초식 교환을 마쳤습니다.",
+		KEY_MONK_REMOVE_USED: "이번 방문의 초식 제거를 마쳤습니다.",
+		KEY_MONK_ACQUIRE_COMPLETED: "{name} 습득 완료",
+		KEY_MONK_SWAP_COMPLETED: "{name} 교환 완료",
+		KEY_MONK_REMOVE_COMPLETED: "{name} 제거 완료",
+		KEY_MONK_OFFER_UNAVAILABLE: "파계승의 초식 선택지를 준비할 수 없습니다.",
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",

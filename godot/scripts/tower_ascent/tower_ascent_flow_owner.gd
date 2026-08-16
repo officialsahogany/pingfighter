@@ -25,6 +25,9 @@ const TowerAscentNodeActionTransaction := preload(
 const TowerAscentShopInventory := preload(
 	"res://scripts/tower_ascent/tower_ascent_shop_inventory.gd"
 )
+const TowerAscentFallenMonkNode := preload(
+	"res://scripts/tower_ascent/tower_ascent_fallen_monk_node.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -63,6 +66,7 @@ var _node_action_transaction: Object = TowerAscentNodeActionTransaction.new()
 var _defeat_resolver: Object = TowerAscentDefeatResolver.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
+var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
 var _claimed_decoration_ids: Array[String] = []
 var _build_state := {
 	"mugong": [],
@@ -233,6 +237,19 @@ func restore_snapshot(
 		var purchase_resolution_id := str(purchase.get("node_resolution_id", ""))
 		if not purchase_resolution_id.is_empty():
 			_resolution_ids[purchase_resolution_id] = true
+	_fallen_monk_node.restore_state(
+		snapshot.get("generated_fallen_monk_offers", []),
+		snapshot.get("fallen_monk_history", []),
+		snapshot.get("fallen_monk_runtime_snapshot", {}),
+		snapshot.get("fallen_monk_skill_config_snapshot", {})
+	)
+	for monk_record in _fallen_monk_node.get_history():
+		var monk_resolution_id := str(monk_record.get("node_resolution_id", ""))
+		if not monk_resolution_id.is_empty():
+			_resolution_ids[monk_resolution_id] = true
+	if not _fallen_monk_node.restore_runtime(owner, registry):
+		_reset_runtime_state()
+		return false
 	_claimed_decoration_ids.assign(_string_array(snapshot.get("claimed_decoration_ids", [])))
 	_build_state = _dictionary_copy(snapshot.get("build_state", {}))
 	_guardian_state = _dictionary_copy(snapshot.get("guardian_state", {}))
@@ -283,6 +300,10 @@ func export_snapshot() -> Dictionary:
 		"pending_rewards": _pending_rewards.duplicate(true),
 		"generated_shop_inventory": _generated_shop_inventory.duplicate(true),
 		"purchase_history": _purchase_history.duplicate(true),
+		"generated_fallen_monk_offers": _fallen_monk_node.get_generated_offers(),
+		"fallen_monk_history": _fallen_monk_node.get_history(),
+		"fallen_monk_runtime_snapshot": _fallen_monk_node.get_runtime_snapshot(),
+		"fallen_monk_skill_config_snapshot": _fallen_monk_node.get_skill_config_snapshot(),
 		"claimed_decoration_ids": _claimed_decoration_ids.duplicate(),
 		"build_state": _build_state.duplicate(true),
 		"guardian_state": _guardian_state.duplicate(true),
@@ -586,6 +607,14 @@ func get_purchase_history() -> Array[Dictionary]:
 	return _purchase_history.duplicate(true)
 
 
+func get_generated_fallen_monk_offers() -> Array[Dictionary]:
+	return _fallen_monk_node.get_generated_offers()
+
+
+func get_fallen_monk_history() -> Array[Dictionary]:
+	return _fallen_monk_node.get_history()
+
+
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
 	if not _active or _phase != PHASE_NODE_MODAL:
 		return {"accepted": false, "reason": "node_modal_inactive"}
@@ -594,6 +623,8 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 			action_id.trim_prefix("shop_purchase:"),
 			requested_resolution_id
 		)
+	if _node_modal_kind == "fallen_monk" and action_id.begins_with("fallen_monk:"):
+		return _execute_fallen_monk_action(action_id, requested_resolution_id)
 	return {"accepted": false, "reason": "unknown_node_action"}
 
 
@@ -678,6 +709,10 @@ func _open_node_modal() -> void:
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
 		))
+	elif _node_modal_kind == "fallen_monk" and _build_fallen_monk_actions().is_empty():
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_MONK_OFFER_UNAVAILABLE
+		))
 
 
 func _handle_node_modal_input(event: InputEvent) -> void:
@@ -727,6 +762,8 @@ func _confirm_node_modal_action() -> void:
 func _build_node_modal_actions() -> Array[Dictionary]:
 	if _node_modal_kind == "shop":
 		return _build_shop_actions()
+	if _node_modal_kind == "fallen_monk":
+		return _build_fallen_monk_actions()
 	return []
 
 
@@ -943,6 +980,47 @@ func _refresh_shop_modal(status_text: String) -> void:
 	_node_modal_state.set_status_text(status_text)
 
 
+func _build_fallen_monk_actions() -> Array[Dictionary]:
+	return _fallen_monk_node.build_actions(
+		_current_node_id,
+		_map_seed,
+		_run_state,
+		_active_owner,
+		_active_registry
+	)
+
+
+func _execute_fallen_monk_action(
+	action_id: String,
+	requested_resolution_id: String = ""
+) -> Dictionary:
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(_current_node_id, action_id)
+	var result: Dictionary = _fallen_monk_node.execute_action(
+		action_id,
+		resolution_id,
+		_current_node_id,
+		_map_seed,
+		_run_state,
+		_resolution_ids,
+		_node_action_transaction,
+		_active_owner,
+		_active_registry
+	)
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		_build_state["chosik"] = _fallen_monk_node.get_history()
+		_build_state["runtime_perk_snapshot"] = _fallen_monk_node.get_runtime_snapshot()
+	_refresh_fallen_monk_modal(str(result.get("message", result.get("reason", ""))))
+	return result
+
+
+func _refresh_fallen_monk_modal(status_text: String) -> void:
+	_node_modal_state.set_actions(_build_fallen_monk_actions())
+	_node_modal_state.set_balances(_run_state.export_economy())
+	_node_modal_state.set_status_text(status_text)
+
+
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
 		return null
@@ -1133,6 +1211,7 @@ func _reset_runtime_state() -> void:
 	_pending_rewards.clear()
 	_generated_shop_inventory.clear()
 	_purchase_history.clear()
+	_fallen_monk_node.reset()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],

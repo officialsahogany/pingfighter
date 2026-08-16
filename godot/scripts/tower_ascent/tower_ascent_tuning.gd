@@ -45,6 +45,12 @@ const TEMP_PHASE_C_SHOP_LEGENDARY_ACTIVE_PRICE := 180
 const TEMP_PHASE_C_SHOP_MYTHIC_ACTIVE_PRICE := 300
 const TEMP_PHASE_C_SHOP_CAPSULE_PRICE := 80
 const TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE := 150
+const TEMP_PHASE_C_MONK_CHOSIK_ACQUIRE_COST := 8
+const TEMP_PHASE_C_MONK_CHOSIK_SWAP_COST := 10
+const TEMP_PHASE_C_MONK_CHOSIK_REMOVE_COST := 12
+const TEMP_PHASE_C_MONK_ACQUIRE_PER_VISIT := 1
+const TEMP_PHASE_C_MONK_SWAP_PER_VISIT := 1
+const TEMP_PHASE_C_MONK_REMOVE_PER_VISIT := 1
 
 # TEMP: Unported and shell boss slots reuse existing Godot bosses until their
 # content tracks replace the stand-ins. These are compatibility IDs, not new
