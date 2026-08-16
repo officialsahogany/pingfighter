@@ -2,6 +2,9 @@ extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LingpetItemOfferPolicy := preload("res://scripts/lingpet/lingpet_item_offer_policy.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const PULL_COST := 150
 const EXTRA_GACHA_ACTIVE_ITEM_NAMES: Array[String] = []
@@ -116,6 +119,12 @@ func _is_valid_gacha_item(item_data: Dictionary) -> bool:
 
 func _is_offerable_gacha_item(item_data: Dictionary, owner: Object, registry: Object) -> bool:
 	if not _is_valid_gacha_item(item_data):
+		return false
+	if not TowerAscentUnlockFilter.is_content_unlocked(
+		registry,
+		TowerAscentUnlockFilter.CONTENT_ITEM,
+		str(item_data.get("name", ""))
+	):
 		return false
 	return LingpetItemOfferPolicy.can_offer_item(str(item_data.get("name", "")), owner, registry)
 

@@ -5,6 +5,9 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
@@ -235,12 +238,18 @@ func _build_candidates_for_group(reward_group: String, owner: Object, registry: 
 		if _get_item_group(item_data) == reward_group:
 			candidates.append(item_data.duplicate(true))
 	if reward_group == REWARD_ACTIVE:
-		_append_extra_active_reward_candidates(candidates)
+		_append_extra_active_reward_candidates(candidates, registry)
 	return candidates
 
 
-func _append_extra_active_reward_candidates(candidates: Array) -> void:
+func _append_extra_active_reward_candidates(candidates: Array, registry: Object) -> void:
 	for item_name in EXTRA_ACTIVE_REWARD_ITEM_NAMES:
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_ITEM,
+			str(item_name)
+		):
+			continue
 		if _candidate_list_has_item(candidates, str(item_name)):
 			continue
 		var item_data: Dictionary = _active_catalog.build_item_by_name(str(item_name))

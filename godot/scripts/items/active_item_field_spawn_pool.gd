@@ -6,6 +6,9 @@ const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const GuardianEggAccessPolicy := preload("res://scripts/lingpet/guardian_egg_access_policy.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -290,6 +293,12 @@ func build_spawn_candidates(
 	var candidates: Array[Dictionary] = []
 	var sample_start: int = _perf_begin(perf_logger)
 	for active_template in _get_active_spawn_candidate_templates():
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_ITEM,
+			str(active_template.get("name", ""))
+		):
+			continue
 		if _should_skip_active_spawn_candidate(active_template, registry, owner):
 			continue
 		# _apply_passive_spawn_weight returns the original template unchanged for
@@ -303,6 +312,12 @@ func build_spawn_candidates(
 	sample_start = _perf_begin(perf_logger)
 	for passive_template in _get_passive_mythic_spawn_candidate_templates(perf_logger):
 		if passive_template.is_empty():
+			continue
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_ITEM,
+			str(passive_template.get("name", ""))
+		):
 			continue
 		if PerkConversionFlags.is_enabled() and _get_spawn_group(passive_template) in ["passive", "mythic"]:
 			continue

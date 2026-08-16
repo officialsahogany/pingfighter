@@ -7,6 +7,9 @@ const LingpetGuardianEnhanceOfferEngine := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd"
 )
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const BASE_CHOICE_COUNT := 3
 # 퍽 슬롯 동적 한도(flag ON): 기본 6 + 슬롯 확장 퍽(common_expansion) RAW
@@ -1341,6 +1344,7 @@ func get_choices(
 		_append_pool_choices(choices, VIPER_PERKS, runtime_levels, "viper")
 	elif normalized == "soldier":
 		_append_pool_choices(choices, SOLDIER_PERKS, runtime_levels, "soldier")
+	choices = _filter_tower_unlock_choices(choices, _registry)
 
 	if PerkConversionFlags.is_enabled():
 		_append_converted_perk_choices(choices, runtime_levels, normalized)
@@ -1351,6 +1355,7 @@ func get_choices(
 	_append_lingpet_guardian_enhance_choice(choices, owner, _registry)
 	if not exclude_instant:
 		_append_instant_choices(choices, owner)
+	choices = _filter_tower_unlock_choices(choices, _registry)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
 	var full_chosik_swap_reservation := _extract_full_chosik_swap_reserved_choice(choices)
@@ -1432,6 +1437,7 @@ func get_choices(
 	if not exclude_instant and result.size() < target_choice_count:
 		var filler: Array = []
 		_append_instant_choices(filler, owner)
+		filler = _filter_tower_unlock_choices(filler, _registry)
 		filler = _filter_lingpet_owned_gate(filler, owner)
 		filler.shuffle()
 		for instant_choice in filler:
@@ -1440,10 +1446,31 @@ func get_choices(
 			if not _has_choice_id(result, str(instant_choice.get("id", ""))):
 				result.append(instant_choice)
 
-	var gold_choice := GOLD_CHOICE.duplicate(true)
-	gold_choice["id"] = "convert_to_gold"
-	result.append(LanguageSettings.localize_perk_data(gold_choice))
+	result = _filter_tower_unlock_choices(result, _registry)
+	if TowerAscentUnlockFilter.is_content_unlocked(
+		_registry,
+		TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+		"convert_to_gold"
+	):
+		var gold_choice := GOLD_CHOICE.duplicate(true)
+		gold_choice["id"] = "convert_to_gold"
+		result.append(LanguageSettings.localize_perk_data(gold_choice))
 	return result
+
+
+func _filter_tower_unlock_choices(choices: Array, registry: Object) -> Array:
+	var filtered: Array = []
+	for choice_value in choices:
+		if not (choice_value is Dictionary):
+			continue
+		var choice := choice_value as Dictionary
+		if TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+			str(choice.get("id", ""))
+		):
+			filtered.append(choice)
+	return filtered
 
 
 func get_all_perk_data() -> Dictionary:

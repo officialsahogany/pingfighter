@@ -4,6 +4,9 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PlazaShopPricing := preload("res://scripts/plaza/plaza_shop_pricing.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const MIN_STOCK_COUNT := 5
 const MAX_STOCK_COUNT := 12
@@ -13,11 +16,16 @@ const FEATURED_COUNT := 2
 const GUARANTEED_ACTIVE_ITEM_NAMES: Array[String] = []
 
 
-func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0) -> Array:
+func build_inventory(
+	catalog: Object = null,
+	item_count: int = -1,
+	seed: int = 0,
+	registry: Object = null
+) -> Array:
 	var source_catalog := catalog if catalog != null else MythicItemCatalog.new()
 	var active_catalog := ActiveItemCatalog.new()
-	var passive_pool := _build_pool(source_catalog, false)
-	var legendary_pool := _build_pool(source_catalog, true)
+	var passive_pool := _build_pool(source_catalog, false, registry)
+	var legendary_pool := _build_pool(source_catalog, true, registry)
 	var count := item_count
 	if count < 0:
 		count = randi_range(MIN_STOCK_COUNT, MAX_STOCK_COUNT)
@@ -28,7 +36,7 @@ func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0
 	else:
 		rng.seed = seed
 	var stock: Array = []
-	_append_guaranteed_active_stock(stock, active_catalog)
+	_append_guaranteed_active_stock(stock, active_catalog, registry)
 	var available_legendary := legendary_pool.duplicate()
 	var random_slots := maxi(0, count - stock.size())
 	for _index in range(random_slots):
@@ -49,9 +57,19 @@ func build_inventory(catalog: Object = null, item_count: int = -1, seed: int = 0
 	return stock
 
 
-func _append_guaranteed_active_stock(stock: Array, active_catalog: Object) -> void:
+func _append_guaranteed_active_stock(
+	stock: Array,
+	active_catalog: Object,
+	registry: Object
+) -> void:
 	for item_name_value in GUARANTEED_ACTIVE_ITEM_NAMES:
 		var item_name := str(item_name_value)
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_ITEM,
+			item_name
+		):
+			continue
 		if not PlazaShopPricing.is_shop_priced_item(item_name):
 			continue
 		var item_data := _build_shop_item(active_catalog, item_name, stock.size())
@@ -59,12 +77,18 @@ func _append_guaranteed_active_stock(stock: Array, active_catalog: Object) -> vo
 			stock.append(item_data)
 
 
-func _build_pool(catalog: Object, legendary: bool) -> Array:
+func _build_pool(catalog: Object, legendary: bool, registry: Object) -> Array:
 	var result: Array = []
 	if PerkConversionFlags.is_enabled():
 		return result
 	for item_name_value in MythicItemCatalog.FIELD_SPAWN_ORDER:
 		var item_name := str(item_name_value)
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_ITEM,
+			item_name
+		):
+			continue
 		if not PlazaShopPricing.is_shop_priced_item(item_name):
 			continue
 		if PlazaShopPricing.is_legacy_legendary(item_name) != legendary:

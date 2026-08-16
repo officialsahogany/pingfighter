@@ -197,6 +197,10 @@ const MODULES := {
 		"path": "res://scripts/tower_ascent/tower_ascent_run_state.gd",
 		"label": "tower ascent run state",
 	},
+	"tower_ascent_unlock_store": {
+		"path": "res://scripts/tower_ascent/tower_ascent_unlock_store.gd",
+		"label": "tower ascent unlock store",
+	},
 	"victory_highlight_recorder": {
 		"path": "res://scripts/core/victory_highlight_recorder.gd",
 		"label": "victory highlight recorder",

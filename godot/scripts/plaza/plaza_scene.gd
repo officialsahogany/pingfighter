@@ -1499,7 +1499,7 @@ func _refresh_shop_inventory_for_visit() -> void:
 		_shop_inventory_state.clear()
 		return
 	var catalog := _get_runtime_instance("mythic_item_catalog")
-	var value: Variant = _plaza_shop_stock.build_inventory(catalog)
+	var value: Variant = _plaza_shop_stock.build_inventory(catalog, -1, 0, _runtime_registry)
 	_shop_inventory_state.replace(value)
 
 

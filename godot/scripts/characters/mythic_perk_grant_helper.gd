@@ -3,6 +3,9 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const REWARD_MYTHIC_PERK := "mythic_perk"
 const REWARD_MYTHIC_PERK_CHOICE := "mythic_perk_choice"
@@ -59,6 +62,12 @@ static func build_reward_for_perk(
 	perk_id = perk_id.strip_edges()
 	if perk_id == "":
 		return build_starpoint_fallback_reward(fallback_starpoints)
+	if not TowerAscentUnlockFilter.is_content_unlocked(
+		registry,
+		TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+		perk_id
+	):
+		return build_starpoint_fallback_reward(fallback_starpoints)
 	if not _has_open_perk_slot(registry):
 		return build_starpoint_fallback_reward(fallback_starpoints)
 	var perk_data: Dictionary = _get_perk_data(registry, perk_id)
@@ -84,6 +93,12 @@ static func build_choice_card_for_perk(
 ) -> Dictionary:
 	perk_id = perk_id.strip_edges()
 	if perk_id == "" or _get_runtime_perk_level(registry, perk_id) > 0:
+		return {}
+	if not TowerAscentUnlockFilter.is_content_unlocked(
+		registry,
+		TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+		perk_id
+	):
 		return {}
 	var perk_data: Dictionary = _get_perk_data_from_catalog(catalog, registry, perk_id)
 	if perk_data.is_empty() or str(perk_data.get("rarity", "")).to_lower() != "mythic":
@@ -136,6 +151,12 @@ static func get_available_mythic_perk_ids(
 	var resolved_catalog: Object = catalog if catalog != null else _get_runtime_perk_catalog(registry)
 	for perk_id_value in MYTHIC_PERK_IDS:
 		var perk_id: String = str(perk_id_value)
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+			perk_id
+		):
+			continue
 		if _get_runtime_perk_level(registry, perk_id) > 0:
 			continue
 		var perk_data: Dictionary = _get_perk_data_from_catalog(resolved_catalog, registry, perk_id)
