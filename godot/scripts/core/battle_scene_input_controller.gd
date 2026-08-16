@@ -47,6 +47,8 @@ func handle_unhandled_input(
 		return
 	if _handle_victory_highlight_input(event, owner, module_getter):
 		return
+	if _handle_tower_ascent_flow_input(event, owner, registry):
+		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
 		_mark_handled(owner)
@@ -158,6 +160,25 @@ func _handle_victory_highlight_input(
 			return false
 	if playback.has_method("handle_input") and bool(playback.handle_input(event)):
 		_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_tower_ascent_flow_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object
+) -> bool:
+	var flow_owner := _get_cached_module(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("is_active")
+		or not bool(flow_owner.is_active())
+	):
+		return false
+	if flow_owner.has_method("handle_input"):
+		flow_owner.handle_input(event)
+	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
 

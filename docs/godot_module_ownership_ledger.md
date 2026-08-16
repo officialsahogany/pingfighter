@@ -8651,6 +8651,17 @@ This section is intentionally long; use search to find the nearest owner.
   fixed 60Hz simulation-tick lock lifecycle.
 - `scripts/network/online_enet_transport.gd` owns raw ENet peer lifecycle and
   channels; `online_match_protocol.gd` owns sanitized compact binary packets.
+
+## 2026-08-16 Tower-ascent vertical slice
+
+- `scripts/tower_ascent/tower_ascent_feature_flags.gd`,
+  `tower_ascent_flow_owner.gd`, and `tower_ascent_flow_renderer.gd` own the
+  default-off first run-map slice: activation, fixed serialized graph,
+  `COMBAT -> NODE_MODAL -> ROUTE_AIM -> MAP_TRANSITION`, separate selector-ball
+  simulation, idempotent resolution records, required snapshot boundary, and
+  code-drawn parchment presentation. Existing battle match/input/physics/draw
+  modules only route this owner; the legacy result/plaza path remains the
+  fallback until a later atomic production promotion.
 - `scripts/network/online_match_simulation.gd` owns host-authoritative ball,
   collision, serve, and match outcomes by composing existing score/round/ball
   owners plus the production paddle-bounce resolver group and public rally-cap

@@ -189,6 +189,10 @@ const MODULES := {
 		"path": "res://scripts/core/victory_loot_phase_state.gd",
 		"label": "victory loot phase state",
 	},
+	"tower_ascent_flow_owner": {
+		"path": "res://scripts/tower_ascent/tower_ascent_flow_owner.gd",
+		"label": "tower ascent run-map flow owner",
+	},
 	"victory_highlight_recorder": {
 		"path": "res://scripts/core/victory_highlight_recorder.gd",
 		"label": "victory highlight recorder",

@@ -2,6 +2,7 @@ extends RefCounted
 
 const DriveCutinFxHost := preload("res://scripts/hud/drive_cutin_fx_host.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const DRIVE_CUTIN_FX_HOST_NAME := "SmasherDriveCutinFxHost"
 const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
 
@@ -309,6 +310,15 @@ func process_physics(
 	_perf_end(perf_logger, "physics.frame.gate.defeat_settlement", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
+	if _process_tower_ascent_flow(delta, owner, registry):
+		_pause_modal_active_item_cooldowns(owner, registry, module_getter)
+		_stop_modal_blocked_gameplay_loop_audio(module_getter)
+		_perf_end(perf_logger, "physics.frame.gate.tower_ascent_flow", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.tower_ascent_flow", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
 	if _process_grip_selection_physics_gate(delta, owner, registry, module_getter):
 		_perf_end(perf_logger, "physics.frame.gate.grip_style_selection", sample_start)
 		_perf_end(perf_logger, "physics.frame.total", total_start)
@@ -545,6 +555,28 @@ func _is_intro_or_warmup_blocking(module_getter: Callable, callbacks: Dictionary
 		_call_bool(callbacks, "is_battle_initialized"),
 		_call_bool(callbacks, "is_stage_landing_intro_started")
 	))
+
+
+func _process_tower_ascent_flow(
+	delta: float,
+	owner: Object,
+	registry: Object
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return false
+	var flow_owner: Object = registry.get_cached_instance("tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("is_active")
+		or not bool(flow_owner.is_active())
+	):
+		return false
+	if flow_owner.has_method("update_selective"):
+		flow_owner.update_selective(delta, owner)
+	_queue_redraw(owner)
+	return true
 
 
 func _process_grip_selection_physics_gate(

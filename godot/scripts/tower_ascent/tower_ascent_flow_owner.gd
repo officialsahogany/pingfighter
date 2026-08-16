@@ -1,0 +1,555 @@
+extends RefCounted
+
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
+const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
+
+const SNAPSHOT_SCHEMA_VERSION := 1
+const MAP_GENERATOR_VERSION := "fixed_vertical_slice_v1"
+const PHASE_COMBAT := 0
+const PHASE_NODE_MODAL := 1
+const PHASE_ROUTE_AIM := 2
+const PHASE_MAP_TRANSITION := 3
+const MAP_TRANSITION_SECONDS := 0.9
+const SELECTOR_RADIUS := 11.0
+const SELECTOR_SPEED := 520.0
+const SELECTOR_ORIGIN := Vector2(380.0, 665.0)
+const SELECTOR_TARGET_Y := 165.0
+const SELECTOR_LEFT_WALL := 52.0
+const SELECTOR_RIGHT_WALL := 708.0
+const SELECTOR_RESET_Y := 92.0
+const ROUTE_TARGET_IDS := ["boss_left_02", "boss_right_02"]
+
+var _active := false
+var _prepared := false
+var _prepared_resolution_id := ""
+var _phase := PHASE_COMBAT
+var _run_id := ""
+var _graph_nodes: Array[Dictionary] = []
+var _graph_edges: Array[Dictionary] = []
+var _current_node_id := ""
+var _completed_nodes: Array[Dictionary] = []
+var _resolution_ids: Dictionary = {}
+var _skipped_boss_ids: Array[String] = []
+var _pending_rewards: Array[Dictionary] = []
+var _run_state := {"gold": 0, "muhon": 0, "chance_gems": 0}
+var _generated_shop_inventory: Array[Dictionary] = []
+var _purchase_history: Array[Dictionary] = []
+var _claimed_decoration_ids: Array[String] = []
+var _build_state := {
+	"mugong": [],
+	"chosik": [],
+	"active_items": [],
+	"mythic": {},
+}
+var _guardian_state := {
+	"soul_summoning_owned": false,
+	"active_guardian": {},
+	"sealed_guardians": [],
+}
+var _gameplay_rng_state := {"seed": 140913, "state": 140913}
+var _route_history: Array[Dictionary] = []
+var _selected_target_id := ""
+var _selector_position := SELECTOR_ORIGIN
+var _selector_velocity := Vector2.ZERO
+var _selector_launched := false
+var _aim_target_x := 220.0
+var _map_transition_progress := 0.0
+var _finish_callback := Callable()
+var _renderer: Object = TowerAscentFlowRenderer.new()
+var _header_subtitle := ""
+
+
+func begin_vertical_slice(
+	owner: Object,
+	finish_callback: Callable,
+	context: Dictionary = {}
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _active:
+		return false
+	if not _prepared and not prepare_vertical_slice_combat(owner, context):
+		return false
+	_finish_callback = finish_callback
+	_active = true
+	_phase = PHASE_NODE_MODAL
+	_current_node_id = "rest_01"
+	_commit_node_resolution("combat_01", "combat_victory", {
+		"reward_source": "victory_loot_phase",
+		"reward_status": "already_resolved",
+	}, _prepared_resolution_id)
+	_pending_rewards.clear()
+	_prepared = false
+	_prepared_resolution_id = ""
+	_request_redraw(owner)
+	return true
+
+
+func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _active:
+		return false
+	if _prepared:
+		return true
+	_reset_runtime_state()
+	_run_id = str(context.get("run_id", "vertical-slice-%d" % Time.get_ticks_msec()))
+	_header_subtitle = "고정 그래프 검증판 · %s" % _run_id
+	_run_state = _sanitize_run_state(context.get("run_state", {}))
+	_build_fixed_graph(int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1))))
+	_prepared_resolution_id = _make_resolution_id("combat_01", "combat_victory")
+	_pending_rewards.append({
+		"node_id": "combat_01",
+		"node_resolution_id": _prepared_resolution_id,
+		"reward_source": "victory_loot_phase",
+		"status": "awaiting_resolution",
+	})
+	_prepared = true
+	return true
+
+
+func restore_snapshot(snapshot: Dictionary, finish_callback: Callable = Callable()) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if not bool(snapshot.get("stable_boundary", false)):
+		return false
+	if int(snapshot.get("schema_version", -1)) != SNAPSHOT_SCHEMA_VERSION:
+		return false
+	if str(snapshot.get("map_generator_version", "")) != MAP_GENERATOR_VERSION:
+		return false
+	var graph_variant: Variant = snapshot.get("map_graph", {})
+	if not (graph_variant is Dictionary):
+		return false
+	var graph: Dictionary = graph_variant as Dictionary
+	var nodes_variant: Variant = graph.get("nodes", [])
+	var edges_variant: Variant = graph.get("edges", [])
+	if not (nodes_variant is Array) or (nodes_variant as Array).size() < 4:
+		return false
+	if not (edges_variant is Array) or (edges_variant as Array).size() < 3:
+		return false
+	_reset_runtime_state()
+	_run_id = str(snapshot.get("run_id", ""))
+	if _run_id.is_empty():
+		return false
+	_header_subtitle = "고정 그래프 검증판 · %s" % _run_id
+	_graph_nodes.assign((nodes_variant as Array).duplicate(true))
+	_graph_edges.assign((edges_variant as Array).duplicate(true))
+	_current_node_id = str(snapshot.get("current_node_id", ""))
+	_completed_nodes.assign(_dictionary_array(snapshot.get("completed_nodes", [])))
+	for entry in _completed_nodes:
+		_resolution_ids[str(entry.get("node_resolution_id", ""))] = true
+	_skipped_boss_ids.assign(_string_array(snapshot.get("skipped_boss_ids", [])))
+	_pending_rewards.assign(_dictionary_array(snapshot.get("pending_rewards", [])))
+	_run_state = _sanitize_run_state(snapshot.get("run_state", {}))
+	_generated_shop_inventory.assign(_dictionary_array(snapshot.get("generated_shop_inventory", [])))
+	_purchase_history.assign(_dictionary_array(snapshot.get("purchase_history", [])))
+	_claimed_decoration_ids.assign(_string_array(snapshot.get("claimed_decoration_ids", [])))
+	_build_state = _dictionary_copy(snapshot.get("build_state", {}))
+	_guardian_state = _dictionary_copy(snapshot.get("guardian_state", {}))
+	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
+	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
+	_selected_target_id = str(snapshot.get("selected_target_id", ""))
+	_phase = clampi(int(snapshot.get("phase", PHASE_NODE_MODAL)), PHASE_NODE_MODAL, PHASE_MAP_TRANSITION)
+	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
+	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
+	_selector_launched = bool(snapshot.get("selector_launched", false))
+	_aim_target_x = clampf(float(snapshot.get("aim_target_x", 220.0)), SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
+	_map_transition_progress = clampf(float(snapshot.get("map_transition_progress", 0.0)), 0.0, 1.0)
+	_finish_callback = finish_callback
+	_active = true
+	_prepared = false
+	_prepared_resolution_id = ""
+	return true
+
+
+func export_snapshot() -> Dictionary:
+	return {
+		"schema_version": SNAPSHOT_SCHEMA_VERSION,
+		"map_generator_version": MAP_GENERATOR_VERSION,
+		"run_id": _run_id,
+		"map_graph": {
+			"nodes": _graph_nodes.duplicate(true),
+			"edges": _graph_edges.duplicate(true),
+		},
+		"current_node_id": _current_node_id,
+		"completed_nodes": _completed_nodes.duplicate(true),
+		"skipped_boss_ids": _skipped_boss_ids.duplicate(),
+		"pending_rewards": _pending_rewards.duplicate(true),
+		"run_state": _run_state.duplicate(true),
+		"generated_shop_inventory": _generated_shop_inventory.duplicate(true),
+		"purchase_history": _purchase_history.duplicate(true),
+		"claimed_decoration_ids": _claimed_decoration_ids.duplicate(),
+		"build_state": _build_state.duplicate(true),
+		"guardian_state": _guardian_state.duplicate(true),
+		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
+		"route_history": _route_history.duplicate(true),
+		"selected_target_id": _selected_target_id,
+		"phase": _phase,
+		"selector_position": _selector_position,
+		"selector_velocity": _selector_velocity,
+		"selector_launched": _selector_launched,
+		"aim_target_x": _aim_target_x,
+		"map_transition_progress": _map_transition_progress,
+		"stable_boundary": _phase == PHASE_NODE_MODAL or _phase == PHASE_MAP_TRANSITION,
+	}
+
+
+func is_active() -> bool:
+	return _active
+
+
+func blocks_battle_physics() -> bool:
+	return _active
+
+
+func get_phase() -> int:
+	return _phase
+
+
+func get_phase_name() -> String:
+	match _phase:
+		PHASE_NODE_MODAL:
+			return "NODE_MODAL"
+		PHASE_ROUTE_AIM:
+			return "ROUTE_AIM"
+		PHASE_MAP_TRANSITION:
+			return "MAP_TRANSITION"
+	return "COMBAT"
+
+
+func handle_input(event: InputEvent) -> bool:
+	if not _active:
+		return false
+	if _phase == PHASE_NODE_MODAL:
+		if _is_confirm_event(event):
+			_enter_route_aim()
+		return true
+	if _phase != PHASE_ROUTE_AIM:
+		return true
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo:
+			if key_event.keycode == KEY_LEFT or key_event.physical_keycode == KEY_LEFT:
+				_set_aim_target(220.0)
+			elif key_event.keycode == KEY_RIGHT or key_event.physical_keycode == KEY_RIGHT:
+				_set_aim_target(540.0)
+			elif key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_launch_selector()
+	elif event is InputEventMouseMotion:
+		_set_aim_target(220.0 if (event as InputEventMouseMotion).position.x < 380.0 else 540.0)
+	elif event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			_set_aim_target(220.0 if mouse_event.position.x < 380.0 else 540.0)
+			_launch_selector()
+	elif event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed:
+			_set_aim_target(220.0 if touch_event.position.x < 380.0 else 540.0)
+			_launch_selector()
+	return true
+
+
+func update_selective(delta: float, owner: Object = null) -> void:
+	if not _active:
+		return
+	if _phase == PHASE_ROUTE_AIM and _selector_launched:
+		_update_selector(maxf(0.0, delta))
+	elif _phase == PHASE_MAP_TRANSITION:
+		_map_transition_progress = minf(1.0, _map_transition_progress + maxf(0.0, delta) / MAP_TRANSITION_SECONDS)
+		if _map_transition_progress >= 1.0:
+			_finish_vertical_slice()
+	_request_redraw(owner)
+
+
+func draw(canvas: CanvasItem) -> void:
+	if _renderer != null and _renderer.has_method("draw"):
+		_renderer.draw(canvas, self)
+
+
+func debug_advance_to_route_aim() -> void:
+	if _active and _phase == PHASE_NODE_MODAL:
+		_enter_route_aim()
+
+
+func debug_launch_at_target(target_index: int) -> void:
+	if not _active or _phase != PHASE_ROUTE_AIM:
+		return
+	_set_aim_target(220.0 if target_index <= 0 else 540.0)
+	_launch_selector()
+
+
+func debug_launch_miss() -> void:
+	if not _active or _phase != PHASE_ROUTE_AIM:
+		return
+	_set_aim_target(380.0)
+	_launch_selector()
+
+
+func get_graph_nodes() -> Array[Dictionary]:
+	return _graph_nodes
+
+
+func get_run_id() -> String:
+	return _run_id
+
+
+func get_header_subtitle() -> String:
+	return _header_subtitle
+
+
+func get_graph_edges() -> Array[Dictionary]:
+	return _graph_edges
+
+
+func get_selected_target_id() -> String:
+	return _selected_target_id
+
+
+func get_selector_origin() -> Vector2:
+	return SELECTOR_ORIGIN
+
+
+func get_selector_position() -> Vector2:
+	return _selector_position
+
+
+func get_aim_preview_point() -> Vector2:
+	return Vector2(_aim_target_x, SELECTOR_TARGET_Y)
+
+
+func is_selector_launched() -> bool:
+	return _selector_launched
+
+
+func get_map_transition_progress() -> float:
+	return _map_transition_progress
+
+
+func get_rest_node_position() -> Vector2:
+	return _node_position("rest_01")
+
+
+func get_selected_target_position() -> Vector2:
+	return _node_position(_selected_target_id)
+
+
+func _build_fixed_graph(current_stage: int) -> void:
+	_graph_nodes = [
+		{"id": "combat_01", "kind": "boss", "label": "보스 %d" % maxi(1, current_stage), "position": Vector2(380.0, 590.0), "completed": false},
+		{"id": "rest_01", "kind": "rest", "label": "샘터", "position": Vector2(380.0, 430.0), "completed": false},
+		{"id": "boss_left_02", "kind": "boss_fixture", "label": "왼길", "position": Vector2(220.0, SELECTOR_TARGET_Y), "completed": false},
+		{"id": "boss_right_02", "kind": "boss_fixture", "label": "오른길", "position": Vector2(540.0, SELECTOR_TARGET_Y), "completed": false},
+	]
+	_graph_edges = [
+		{"from": "combat_01", "to": "rest_01"},
+		{"from": "rest_01", "to": "boss_left_02"},
+		{"from": "rest_01", "to": "boss_right_02"},
+	]
+
+
+func _enter_route_aim() -> void:
+	_phase = PHASE_ROUTE_AIM
+	_reset_selector()
+
+
+func _set_aim_target(x_value: float) -> void:
+	if _selector_launched:
+		return
+	_aim_target_x = clampf(x_value, SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
+
+
+func _launch_selector() -> void:
+	if _selector_launched:
+		return
+	var direction := (Vector2(_aim_target_x, SELECTOR_TARGET_Y) - SELECTOR_ORIGIN).normalized()
+	_selector_velocity = direction * SELECTOR_SPEED
+	_selector_launched = true
+
+
+func _update_selector(delta: float) -> void:
+	var remaining := delta
+	while remaining > 0.0 and _selector_launched and _phase == PHASE_ROUTE_AIM:
+		var step := minf(remaining, 1.0 / 120.0)
+		remaining -= step
+		_selector_position += _selector_velocity * step
+		if _selector_position.x - SELECTOR_RADIUS <= SELECTOR_LEFT_WALL:
+			_selector_position.x = SELECTOR_LEFT_WALL + SELECTOR_RADIUS
+			_selector_velocity.x = absf(_selector_velocity.x)
+		elif _selector_position.x + SELECTOR_RADIUS >= SELECTOR_RIGHT_WALL:
+			_selector_position.x = SELECTOR_RIGHT_WALL - SELECTOR_RADIUS
+			_selector_velocity.x = -absf(_selector_velocity.x)
+		if _try_hit_route_target():
+			return
+		if _selector_position.y <= SELECTOR_RESET_Y:
+			_reset_selector()
+			return
+
+
+func _try_hit_route_target() -> bool:
+	for target_id in ROUTE_TARGET_IDS:
+		if _selector_position.distance_to(_node_position(target_id)) <= 49.0:
+			_resolve_route_target(target_id)
+			return true
+	return false
+
+
+func _resolve_route_target(target_id: String) -> void:
+	_selected_target_id = target_id
+	_commit_node_resolution("rest_01", "route_selected", {"target_node_id": target_id})
+	for candidate_id in ROUTE_TARGET_IDS:
+		if candidate_id != target_id and not _skipped_boss_ids.has(candidate_id):
+			_skipped_boss_ids.append(candidate_id)
+	_route_history.append({"from": "rest_01", "to": target_id})
+	_current_node_id = target_id
+	_phase = PHASE_MAP_TRANSITION
+	_map_transition_progress = 0.0
+	_selector_launched = false
+	_selector_velocity = Vector2.ZERO
+
+
+func _commit_node_resolution(
+	node_id: String,
+	resolution_kind: String,
+	payload: Dictionary,
+	requested_resolution_id: String = ""
+) -> bool:
+	var resolution_id := requested_resolution_id
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(node_id, resolution_kind)
+	if _resolution_ids.has(resolution_id):
+		return false
+	_resolution_ids[resolution_id] = true
+	_completed_nodes.append({
+		"node_id": node_id,
+		"node_resolution_id": resolution_id,
+		"resolution_kind": resolution_kind,
+		"payload": payload.duplicate(true),
+	})
+	for node in _graph_nodes:
+		if str(node.get("id", "")) == node_id:
+			node["completed"] = true
+			break
+	return true
+
+
+func _make_resolution_id(node_id: String, resolution_kind: String) -> String:
+	return "%s:%s:%s" % [_run_id, node_id, resolution_kind]
+
+
+func _finish_vertical_slice() -> void:
+	var callback := _finish_callback
+	_finish_callback = Callable()
+	_active = false
+	_phase = PHASE_COMBAT
+	if callback.is_valid():
+		callback.call()
+
+
+func _reset_selector() -> void:
+	_selector_position = SELECTOR_ORIGIN
+	_selector_velocity = Vector2.ZERO
+	_selector_launched = false
+	_aim_target_x = 220.0
+
+
+func _reset_runtime_state() -> void:
+	_active = false
+	_prepared = false
+	_prepared_resolution_id = ""
+	_phase = PHASE_COMBAT
+	_run_id = ""
+	_header_subtitle = ""
+	_graph_nodes.clear()
+	_graph_edges.clear()
+	_current_node_id = ""
+	_completed_nodes.clear()
+	_resolution_ids.clear()
+	_skipped_boss_ids.clear()
+	_pending_rewards.clear()
+	_run_state = {"gold": 0, "muhon": 0, "chance_gems": 0}
+	_generated_shop_inventory.clear()
+	_purchase_history.clear()
+	_claimed_decoration_ids.clear()
+	_build_state = {
+		"mugong": [],
+		"chosik": [],
+		"active_items": [],
+		"mythic": {},
+	}
+	_guardian_state = {
+		"soul_summoning_owned": false,
+		"active_guardian": {},
+		"sealed_guardians": [],
+	}
+	_gameplay_rng_state = {"seed": 140913, "state": 140913}
+	_route_history.clear()
+	_selected_target_id = ""
+	_map_transition_progress = 0.0
+	_finish_callback = Callable()
+	_reset_selector()
+
+
+func _node_position(node_id: String) -> Vector2:
+	for node in _graph_nodes:
+		if str(node.get("id", "")) == node_id:
+			return node.get("position", Vector2.ZERO)
+	return Vector2.ZERO
+
+
+func _sanitize_run_state(value: Variant) -> Dictionary:
+	var source: Dictionary = {}
+	if value is Dictionary:
+		source = value as Dictionary
+	return {
+		"gold": maxi(0, int(source.get("gold", 0))),
+		"muhon": maxi(0, int(source.get("muhon", 0))),
+		"chance_gems": maxi(0, int(source.get("chance_gems", 0))),
+	}
+
+
+func _dictionary_copy(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	return {}
+
+
+func _dictionary_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is Array:
+		for entry in value as Array:
+			if entry is Dictionary:
+				result.append((entry as Dictionary).duplicate(true))
+	return result
+
+
+func _string_array(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if value is Array:
+		for entry in value as Array:
+			result.append(str(entry))
+	return result
+
+
+func _get_owner_int(owner: Object, property_name: String, fallback: int) -> int:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(property_name)
+	return fallback if value == null else int(value)
+
+
+func _is_confirm_event(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		return key_event.pressed and not key_event.echo and key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		return mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
+	return false
+
+
+func _request_redraw(owner: Object) -> void:
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.call("request_battle_redraw")
+	elif owner.has_method("queue_redraw"):
+		owner.call("queue_redraw")

@@ -224,6 +224,9 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	overlay_drawer.draw_scoreboard_overlay(canvas, registry, width, height, draw_context, perf_logger)
 	_perf_end(perf_logger, "34.scoreboard_overlay", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_tower_ascent_flow(canvas, registry)
+	_perf_end(perf_logger, "35.tower_ascent_flow", sample_start)
 	_perf_end(perf_logger, "00.playfield_frame_total", frame_start)
 	_perf_remember_context(perf_logger, draw_context)
 
@@ -358,6 +361,18 @@ func _draw_victory_loot_boxes(canvas: CanvasItem, registry: Object, shake_offset
 		return
 	if loot_state.has_method("draw"):
 		loot_state.draw(canvas, shake_offset)
+
+func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
+	# Draw-path lookup must remain cached-only. The victory-flow transition owns
+	# creation, so the default-off lane cannot cold-instantiate this module.
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner != null
+		and flow_owner.has_method("is_active")
+		and bool(flow_owner.is_active())
+		and flow_owner.has_method("draw")
+	):
+		flow_owner.draw(canvas)
 
 
 func _draw_active_item_field(

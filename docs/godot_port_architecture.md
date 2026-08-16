@@ -1159,6 +1159,17 @@ predicate so the certificate exception cannot suppress ObjectDB/RID leaks.
   `await process_frame` yields). Synchronous `screen.free()` does
   eliminate the leak but causes an access-violation crash inside Godot's
   shutdown cleanup, so it is not a viable workaround. Pattern smells like
+
+## 2026-08-16 Tower-ascent vertical-slice boundary
+
+The default-off `tower_ascent_flow_owner.gd` is the sole state owner for the
+approved fixed-graph slice: post-combat node modal, separate selector-ball
+`ROUTE_AIM`, idempotent `node_resolution_id` commits, full-graph run snapshot,
+and map-transition completion. `battle_scene_match_flow_driver.gd` may enter it
+only after victory loot finishes and resumes the unchanged legacy result flow
+when the slice completes or cannot start. The central physics gate keeps normal
+combat frozen while calling only `update_selective()`; input and the playfield
+drawer are routing/consumer surfaces and must not recreate run-map policy.
   a Godot 4.6 headless shutdown ordering issue between the Control tree,
   shader-resource RIDs, and `ResourceCache` / static-Dictionary
   RefCounted caches.

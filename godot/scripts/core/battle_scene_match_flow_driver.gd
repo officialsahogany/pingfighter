@@ -5,6 +5,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
 var _fallback_reset_result_applier: Object = BattleSceneMatchResetResultApplier.new()
@@ -144,6 +145,9 @@ func _apply_scoreboard_update_result(
 			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
 		_perf_end(perf_logger, "physics.scoreboard_result.victory_presentation", victory_presentation_start)
+		if _try_start_tower_ascent_vertical_slice(registry, reset_game_callback, owner):
+			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
+			return
 		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
@@ -348,6 +352,7 @@ func _try_start_victory_presentation(
 	owner: Object,
 	reset_game_callback: Callable
 ) -> bool:
+	_prepare_tower_ascent_vertical_slice(registry, owner)
 	var recorder: Object = _get_instance(registry, "victory_highlight_recorder")
 	var playback: Object = _get_instance(registry, "victory_highlight_playback_state")
 	if (
@@ -378,9 +383,7 @@ func _finish_victory_highlight(
 ) -> void:
 	if _try_start_victory_loot_phase(registry, owner, reset_game_callback):
 		return
-	if _show_stage_clear_result(registry, reset_game_callback, owner):
-		return
-	_call_callback(reset_game_callback)
+	_continue_after_victory_presentation(registry, reset_game_callback, owner)
 
 
 func _try_start_victory_loot_phase(registry: Object, owner: Object, reset_game_callback: Callable) -> bool:
@@ -404,6 +407,55 @@ func _try_start_victory_loot_phase(registry: Object, owner: Object, reset_game_c
 
 func _finish_victory_loot_phase(registry: Object, reset_game_callback: Callable, owner: Object) -> void:
 	# 전리품 페이즈 종료 = 기존 스코어보드 승리 래더의 나머지 절반을 그대로 실행.
+	_continue_after_victory_presentation(registry, reset_game_callback, owner)
+
+
+func _continue_after_victory_presentation(
+	registry: Object,
+	reset_game_callback: Callable,
+	owner: Object
+) -> void:
+	if _try_start_tower_ascent_vertical_slice(registry, reset_game_callback, owner):
+		return
+	_finish_legacy_victory_flow(registry, reset_game_callback, owner)
+
+
+func _prepare_tower_ascent_vertical_slice(registry: Object, owner: Object) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("prepare_vertical_slice_combat"):
+		return false
+	return bool(flow_owner.prepare_vertical_slice_combat(owner, {
+		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+	}))
+
+
+func _try_start_tower_ascent_vertical_slice(
+	registry: Object,
+	reset_game_callback: Callable,
+	owner: Object
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("begin_vertical_slice"):
+		return false
+	var finish_callback := Callable(self, "_finish_legacy_victory_flow").bind(
+		registry,
+		reset_game_callback,
+		owner
+	)
+	return bool(flow_owner.begin_vertical_slice(owner, finish_callback, {
+		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
+	}))
+
+
+func _finish_legacy_victory_flow(
+	registry: Object,
+	reset_game_callback: Callable,
+	owner: Object
+) -> void:
 	if _show_stage_clear_result(registry, reset_game_callback, owner):
 		return
 	_call_callback(reset_game_callback)
