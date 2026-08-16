@@ -370,6 +370,22 @@ func get_run_state_snapshot() -> Dictionary:
 	return _run_state.export_economy()
 
 
+func collect_muhon(amount: int, owner: Object = null) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if amount <= 0:
+		return {"accepted": false, "reason": "invalid_amount"}
+	if not ensure_run_started(owner):
+		return {"accepted": false, "reason": "run_unavailable"}
+	var apply_result: Dictionary = _run_state.apply_reward_bundle({"muhon": amount})
+	return {
+		"accepted": true,
+		"reason": "collected",
+		"amount": amount,
+		"balances": apply_result.get("balances", {}),
+	}
+
+
 func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return false

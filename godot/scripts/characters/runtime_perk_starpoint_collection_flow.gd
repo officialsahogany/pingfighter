@@ -1,5 +1,9 @@
 extends RefCounted
 
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+
 const CALLBACK_GET_INSTANCE := "get_instance"
 const CALLBACK_CAPTURE_RESUME_PRE_CHOICE_VELOCITY := "capture_resume_pre_choice_velocity"
 const CALLBACK_OPEN_NEXT_CHOICE := "open_next_choice"
@@ -59,6 +63,8 @@ func collect_star_points(
 	callbacks: Dictionary,
 	starpoint_per_choice: int
 ) -> Dictionary:
+	if _should_collect_tower_muhon(catalog):
+		return _collect_tower_muhon(amount, owner, registry, runtime_state)
 	if runtime_state == null or starpoint_absorption == null:
 		return {"accepted": false, "choice_active": false, "blocked_reason": "missing_starpoint_collection_deps"}
 	var collection_update: Dictionary = starpoint_absorption.build_collection_update(
@@ -112,6 +118,59 @@ func collect_star_points(
 	}
 
 
+func _should_collect_tower_muhon(catalog: Object) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	# A reserved boss-Vision offer is content acquisition, not currency. The
+	# compatibility path still needs one pending choice to materialize the exact
+	# reserved Chosik instead of turning that chest into Muhon.
+	if (
+		catalog != null
+		and catalog.has_method("has_reserved_boss_vision_offer")
+		and bool(catalog.call("has_reserved_boss_vision_offer"))
+	):
+		return false
+	return true
+
+
+func _collect_tower_muhon(
+	amount: int,
+	owner: Object,
+	registry: Object,
+	runtime_state: Object
+) -> Dictionary:
+	if amount <= 0:
+		return {
+			"accepted": false,
+			"choice_active": _get_choice_active(runtime_state),
+			"collection_mode": "tower_muhon",
+			"blocked_reason": "invalid_muhon_amount",
+		}
+	var flow_owner := _get_registry_instance(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("collect_muhon"):
+		return {
+			"accepted": false,
+			"choice_active": _get_choice_active(runtime_state),
+			"collection_mode": "tower_muhon",
+			"blocked_reason": "missing_tower_ascent_flow_owner",
+		}
+	var apply_value: Variant = flow_owner.call("collect_muhon", amount, owner)
+	var apply_result: Dictionary = (
+		(apply_value as Dictionary)
+		if apply_value is Dictionary
+		else {}
+	)
+	var accepted := bool(apply_result.get("accepted", false))
+	return {
+		"accepted": accepted,
+		"choice_active": _get_choice_active(runtime_state),
+		"collection_mode": "tower_muhon",
+		"muhon_amount": amount,
+		"run_state_result": apply_result,
+		"blocked_reason": "" if accepted else str(apply_result.get("reason", "tower_muhon_rejected")),
+	}
+
+
 func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
 	var callback := _get_callback(callbacks, key)
 	if not callback.is_valid():
@@ -139,3 +198,19 @@ func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
 	if value is Object:
 		return value
 	return null
+
+
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	for method_name in ["get_instance", "get_cached_instance"]:
+		if not registry.has_method(method_name):
+			continue
+		var value: Variant = registry.call(method_name, key)
+		if value is Object and value != null:
+			return value as Object
+	return null
+
+
+func _get_choice_active(runtime_state: Object) -> bool:
+	return bool(runtime_state.get("choice_active")) if runtime_state != null else false
