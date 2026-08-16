@@ -4,6 +4,9 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const LingpetAcquireCutinAssetPrewarmState := preload("res://scripts/lingpet/lingpet_acquire_cutin_asset_prewarm_state.gd")
 const LingpetAcquireCutinOverlayHostResolver := preload("res://scripts/lingpet/lingpet_acquire_cutin_overlay_host_resolver.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
+const GuardianCodexDiscoveryRecorder := preload(
+	"res://scripts/lingpet/guardian_codex_discovery_recorder.gd"
+)
 const LingpetAcquisitionLifecycleCoordinator := preload(
 	"res://scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd"
 )
@@ -602,6 +605,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 			func() -> void: _audio_dispatcher.play_lingpet_egg_hit(registry)
 		))
 		if hatched_item_egg_pet_id != "":
+			_record_guardian_discovery_at_reveal(hatched_item_egg_pet_id, registry)
 			_acquisition_lifecycle.start_acquire_cutin(
 				hatched_item_egg_pet_id,
 				registry
@@ -2419,6 +2423,7 @@ func _finish_regular_hatch(owner: Object, registry: Object = null, perf_logger: 
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
 	_initialize_companion_patrol(owner, false)
 	_reset_companion_runtime_state(false, owner, registry)
+	_record_guardian_discovery_at_reveal(_pet_id, registry)
 	_companion_runtime_resetter.start_hatch_reveal_effects(_build_hatch_reveal_context(
 		registry,
 		true,
@@ -2440,6 +2445,7 @@ func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: 
 		_collection_state.is_absorb_only_candidate(owner, _pet_id)
 	)
 	_apply_companion_position_surface(_companion_runtime_resetter.prepare_hatch_position(_egg_state))
+	_record_guardian_discovery_at_reveal(_pet_id, registry)
 	_companion_runtime_resetter.start_hatch_reveal_effects(_build_hatch_reveal_context(
 		registry,
 		true,
@@ -2449,6 +2455,10 @@ func _begin_overflow_hatch(owner: Object, registry: Object = null, perf_logger: 
 		# Same continuity rule as the regular commit: keep the in-flight burst.
 		float(_egg_state.get_hatch_flash_timer())
 	))
+
+
+func _record_guardian_discovery_at_reveal(pet_id: String, registry: Object) -> Dictionary:
+	return GuardianCodexDiscoveryRecorder.record_identity_reveal(registry, pet_id)
 
 
 func _prepare_overflow_preview_loadout(pet_id: String) -> Dictionary:

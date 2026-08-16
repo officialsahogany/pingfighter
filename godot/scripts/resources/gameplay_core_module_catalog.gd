@@ -201,6 +201,10 @@ const MODULES := {
 		"path": "res://scripts/tower_ascent/tower_ascent_unlock_store.gd",
 		"label": "tower ascent unlock store",
 	},
+	"guardian_codex_store": {
+		"path": "res://scripts/lingpet/guardian_codex_store.gd",
+		"label": "guardian codex store",
+	},
 	"victory_highlight_recorder": {
 		"path": "res://scripts/core/victory_highlight_recorder.gd",
 		"label": "victory highlight recorder",
