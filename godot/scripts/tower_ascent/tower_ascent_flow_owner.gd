@@ -3,6 +3,7 @@ extends RefCounted
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
 const TowerAscentMapGenerator := preload("res://scripts/tower_ascent/tower_ascent_map_generator.gd")
+const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascent_boss_registry.gd")
 const TowerAscentRouteCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
 )
@@ -47,6 +48,9 @@ const TowerAscentEndingState := preload(
 const TowerAscentSettlementState := preload(
 	"res://scripts/tower_ascent/tower_ascent_settlement_state.gd"
 )
+const TowerAscentGauntletState := preload(
+	"res://scripts/tower_ascent/tower_ascent_gauntlet_state.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -61,6 +65,7 @@ const PHASE_MAP_TRANSITION := 3
 const PHASE_FAKE_ENDING_TEASER := 4
 const PHASE_ENDING_CHOICE := 5
 const PHASE_RUN_SETTLEMENT := 6
+const PHASE_GAUNTLET_TRANSITION := 7
 const MAP_TRANSITION_SECONDS := 0.9
 const SELECTOR_RADIUS := 11.0
 const SELECTOR_SPEED := 520.0
@@ -126,6 +131,7 @@ var _rest_node: Object = TowerAscentRestNode.new()
 var _record_store: Object = TowerAscentRecordStore.new()
 var _ending_state: Object = TowerAscentEndingState.new()
 var _settlement_state: Object = TowerAscentSettlementState.new()
+var _gauntlet_state: Object = TowerAscentGauntletState.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
@@ -133,6 +139,7 @@ var _active_owner: Object = null
 var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
 var _codex_discoveries: Array[Dictionary] = []
+var _gauntlet_transition_callback := Callable()
 var _header_subtitle := ""
 
 
@@ -231,7 +238,8 @@ func restore_snapshot(
 	snapshot: Dictionary,
 	finish_callback: Callable = Callable(),
 	owner: Object = null,
-	registry: Object = null
+	registry: Object = null,
+	gauntlet_transition_callback: Callable = Callable()
 ) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return false
@@ -314,6 +322,14 @@ func restore_snapshot(
 		if not _settlement_state.restore_state(settlement_snapshot):
 			_reset_runtime_state()
 			return false
+	var gauntlet_snapshot: Variant = snapshot.get("gauntlet_state", {})
+	if gauntlet_snapshot is Dictionary and not (gauntlet_snapshot as Dictionary).is_empty():
+		var gauntlet_has_identity := not str(
+			(gauntlet_snapshot as Dictionary).get("node_resolution_id", "")
+		).is_empty()
+		if gauntlet_has_identity and not _gauntlet_state.restore_state(gauntlet_snapshot):
+			_reset_runtime_state()
+			return false
 	_codex_discoveries.assign(_dictionary_array(snapshot.get("codex_discoveries", [])))
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
@@ -330,7 +346,7 @@ func restore_snapshot(
 	_phase = clampi(
 		snapshot_phase,
 		PHASE_NODE_MODAL,
-		PHASE_RUN_SETTLEMENT
+		PHASE_GAUNTLET_TRANSITION
 	)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
@@ -338,6 +354,7 @@ func restore_snapshot(
 	_aim_target_x = clampf(float(snapshot.get("aim_target_x", 220.0)), SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
 	_map_transition_progress = clampf(float(snapshot.get("map_transition_progress", 0.0)), 0.0, 1.0)
 	_finish_callback = finish_callback
+	_gauntlet_transition_callback = gauntlet_transition_callback
 	if not _restore_runtime_perk_build_state(owner, registry):
 		_reset_runtime_state()
 		return false
@@ -365,6 +382,9 @@ func restore_snapshot(
 		_reset_runtime_state()
 		return false
 	if _phase == PHASE_RUN_SETTLEMENT and not _settlement_state.is_active():
+		_reset_runtime_state()
+		return false
+	if _phase == PHASE_GAUNTLET_TRANSITION and not _gauntlet_state.is_transition_pending():
 		_reset_runtime_state()
 		return false
 	return true
@@ -395,6 +415,7 @@ func export_snapshot() -> Dictionary:
 		"rest_history": _rest_node.get_history(),
 		"ending_state": _ending_state.export_state(),
 		"settlement_state": _settlement_state.export_state(),
+		"gauntlet_state": _gauntlet_state.export_state(),
 		"codex_discoveries": _codex_discoveries.duplicate(true),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
@@ -414,6 +435,7 @@ func export_snapshot() -> Dictionary:
 			PHASE_FAKE_ENDING_TEASER,
 			PHASE_ENDING_CHOICE,
 			PHASE_RUN_SETTLEMENT,
+			PHASE_GAUNTLET_TRANSITION,
 		],
 	}, true)
 	return snapshot
@@ -504,6 +526,8 @@ func get_phase_name() -> String:
 			return "ENDING_CHOICE"
 		PHASE_RUN_SETTLEMENT:
 			return "RUN_SETTLEMENT"
+		PHASE_GAUNTLET_TRANSITION:
+			return "GAUNTLET_TRANSITION"
 	return "COMBAT"
 
 
@@ -520,6 +544,10 @@ func handle_input(event: InputEvent) -> bool:
 	if _phase == PHASE_RUN_SETTLEMENT:
 		if _is_confirm_event(event):
 			_confirm_run_settlement()
+		return true
+	if _phase == PHASE_GAUNTLET_TRANSITION:
+		if _is_confirm_event(event):
+			_confirm_gauntlet_transition()
 		return true
 	if _phase == PHASE_NODE_MODAL:
 		_handle_node_modal_input(event)
@@ -728,6 +756,14 @@ func resolve_defeat(
 		return false
 	if not ensure_run_started(owner):
 		return false
+	if _gauntlet_state.is_active():
+		_gauntlet_state.record_defeat(
+			"%s:encounter:%d:defeat:%d" % [
+				_run_state.get_run_id(),
+				int(_gauntlet_state.export_state().get("encounter_index", 0)),
+				int(_gauntlet_state.export_state().get("defeat_count", 0)) + 1,
+			]
+		)
 	if _run_state.get_chance_gems() <= 0:
 		var floor := maxi(
 			int(get_current_node_risk_context().get("floor", 1)),
@@ -872,6 +908,83 @@ func get_settlement_state_snapshot() -> Dictionary:
 
 func get_settlement_view_model() -> Dictionary:
 	return _settlement_state.build_view_model()
+
+
+func get_gauntlet_state_snapshot() -> Dictionary:
+	return _gauntlet_state.export_state()
+
+
+func get_gauntlet_transition_view_model() -> Dictionary:
+	return _gauntlet_state.build_transition_view_model()
+
+
+func begin_floor_eleven_gauntlet(node_resolution_id: String = "") -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	var group_node := _find_floor_eleven_gauntlet_node()
+	if group_node.is_empty():
+		return {"accepted": false, "reason": "missing_floor_eleven_group"}
+	var slot_ids := _string_array(group_node.get("boss_sequence_slot_ids", []))
+	var standins := _dictionary_array(group_node.get("standin_sequence", []))
+	if slot_ids.size() != TowerAscentGauntletState.ENCOUNTER_COUNT or standins.size() != slot_ids.size():
+		return {"accepted": false, "reason": "invalid_floor_eleven_sequence"}
+	var sequence: Array[Dictionary] = []
+	for index in range(slot_ids.size()):
+		var slot := TowerAscentBossRegistry.new().get_slot(slot_ids[index])
+		sequence.append({
+			"slot_id": slot_ids[index],
+			"display_name": str(slot.get("display_name", "4천왕 슬롯")),
+			"standin": standins[index].duplicate(true),
+		})
+	var normalized_id := node_resolution_id.strip_edges()
+	if normalized_id.is_empty():
+		normalized_id = _make_resolution_id(
+			str(group_node.get("id", "floor_11_four_kings_group")),
+			"four_kings_gauntlet"
+		)
+	var result: Dictionary = _gauntlet_state.start(normalized_id, sequence)
+	if bool(result.get("accepted", false)):
+		_set_floor_eleven_encounter_locked(false)
+	return result
+
+
+func resolve_gauntlet_victory(
+	transition_callback: Callable = Callable(),
+	owner: Object = null,
+	registry: Object = null,
+	event_id: String = ""
+) -> Dictionary:
+	if not _gauntlet_state.is_active():
+		var start_result := begin_floor_eleven_gauntlet()
+		if not bool(start_result.get("accepted", false)):
+			return start_result
+	var encounter_index := int(_gauntlet_state.export_state().get("encounter_index", 0))
+	var normalized_event_id := event_id.strip_edges()
+	if normalized_event_id.is_empty():
+		normalized_event_id = "%s:encounter:%d:victory" % [
+			str(_gauntlet_state.export_state().get("node_resolution_id", "")),
+			encounter_index,
+		]
+	var result: Dictionary = _gauntlet_state.resolve_victory(normalized_event_id)
+	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
+		return result
+	if str(result.get("reason", "")) == "gauntlet_completed":
+		return result
+	if not _modal_lifecycle.is_active():
+		var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+		if not bool(lifecycle_result.get("accepted", false)):
+			return {
+				"accepted": false,
+				"reason": lifecycle_result.get("reason", "modal_enter_failed"),
+			}
+	_active_owner = owner
+	_active_registry = registry
+	_gauntlet_transition_callback = transition_callback
+	_active = true
+	_phase = PHASE_GAUNTLET_TRANSITION
+	_node_modal_state.close()
+	_request_redraw(owner)
+	return result
 
 
 func begin_run_settlement(
@@ -1919,6 +2032,22 @@ func _confirm_run_settlement() -> void:
 	_finish_vertical_slice()
 
 
+func _confirm_gauntlet_transition() -> void:
+	var result: Dictionary = _gauntlet_state.acknowledge_transition()
+	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
+		return
+	var callback := _gauntlet_transition_callback
+	_gauntlet_transition_callback = Callable()
+	_modal_lifecycle.leave()
+	_node_modal_state.close()
+	_active_owner = null
+	_active_registry = null
+	_active = false
+	_phase = PHASE_COMBAT
+	if callback.is_valid():
+		callback.call(result.get("transition_plan", {}))
+
+
 func _handle_ending_choice_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
@@ -1988,6 +2117,27 @@ func _find_floor_node_id(floor: int, first_row: bool) -> String:
 	return selected_id
 
 
+func _find_floor_eleven_gauntlet_node() -> Dictionary:
+	for node in _graph_nodes:
+		if (
+			int(node.get("floor", 0)) == 11
+			and str(node.get("boss_slot_id", "")) == "floor_11_four_kings_group"
+		):
+			return node.duplicate(true)
+	return {}
+
+
+func _set_floor_eleven_encounter_locked(locked: bool) -> void:
+	for node in _graph_nodes:
+		if (
+			int(node.get("floor", 0)) == 11
+			and str(node.get("boss_slot_id", "")) == "floor_11_four_kings_group"
+		):
+			node["encounter_locked"] = locked
+			break
+	_sync_run_state_phases()
+
+
 func _reset_selector() -> void:
 	_selector_position = SELECTOR_ORIGIN
 	_selector_velocity = Vector2.ZERO
@@ -2023,8 +2173,10 @@ func _reset_runtime_state() -> void:
 	_rest_node.reset()
 	_ending_state.reset()
 	_settlement_state.reset()
+	_gauntlet_state.reset()
 	_pending_runtime_perk_rollback_snapshot.clear()
 	_codex_discoveries.clear()
+	_gauntlet_transition_callback = Callable()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],
