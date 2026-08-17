@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -49,11 +52,17 @@ func _verify_route_aim_targets_follow_generated_data() -> void:
 	flow.debug_advance_to_route_aim()
 	var targets := flow.get_route_aim_targets()
 	_expect(targets.size() == 2, "route aim must expose two generated target records")
-	_expect((targets[0] as Dictionary).position == Vector2(220.0, 165.0), "left generated candidate must own the left selector target")
-	_expect((targets[1] as Dictionary).position == Vector2(540.0, 165.0), "right generated candidate must own the right selector target")
+	_expect((targets[0] as Dictionary).position == Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y), "left generated candidate must own the left serve target")
+	_expect((targets[1] as Dictionary).position == Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y), "right generated candidate must own the right serve target")
+	_expect(
+		flow.call("_route_target_aim_position", 0, 1) == Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_CENTER_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y),
+		"a single available candidate must move to the center serve target"
+	)
 	for target_variant in targets:
 		var target := target_variant as Dictionary
 		_expect(not str(target.get("id", "")).is_empty() and not str(target.get("label", "")).is_empty(), "route target presentation must derive id and label from graph data")
+		if str(target.get("kind", "")) == "guardian_spring":
+			_expect(str(target.get("label", "")) == "수호의 샘터", "noncombat targets must reuse the canonical node display name")
 	flow.debug_launch_at_target(1)
 	flow.update_selective(1.5)
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "generated target hit must enter map transition")

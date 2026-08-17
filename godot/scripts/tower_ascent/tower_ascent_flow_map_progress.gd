@@ -65,7 +65,10 @@ func debug_advance_to_route_aim() -> void:
 func debug_launch_at_target(target_index: int) -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
 		return
-	_route_serve_runtime.debug_serve_toward(_route_target_aim_position(target_index))
+	if target_index < 0 or target_index >= _route_aim_targets_cache.size():
+		return
+	var target: Dictionary = _route_aim_targets_cache[target_index]
+	_route_serve_runtime.debug_serve_toward(_vector2(target.get("position", Vector2.ZERO)))
 
 func debug_launch_miss() -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
@@ -308,8 +311,18 @@ func _get_node(node_id: String) -> Dictionary:
 			return node
 	return {}
 
-func _route_target_aim_position(target_index: int) -> Vector2:
-	return Vector2(220.0 if target_index <= 0 else 540.0, SELECTOR_TARGET_Y)
+func _route_target_aim_position(target_index: int, target_count: int = 2) -> Vector2:
+	if target_count <= 1:
+		return Vector2(
+			TowerAscentTuning.TEMP_ROUTE_TARGET_CENTER_X,
+			TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+		)
+	return Vector2(
+			TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X
+			if target_index <= 0
+			else TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X,
+		TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+	)
 
 func _mark_boss_slot_skipped_in_graph(boss_slot_id: String) -> void:
 	if boss_slot_id.is_empty():
@@ -327,6 +340,8 @@ func _refresh_route_target_cache() -> void:
 		_run_state.get_skipped_boss_ids()
 	))
 	_route_aim_targets_cache.clear()
+	var available_target_count := _available_route_target_ids.size()
+	var display_index := 0
 	for raw_index in range(_route_target_ids.size()):
 		var target_id := _route_target_ids[raw_index]
 		if not _available_route_target_ids.has(target_id):
@@ -334,13 +349,21 @@ func _refresh_route_target_cache() -> void:
 		var node := _get_node(target_id)
 		_route_aim_targets_cache.append({
 			"id": target_id,
-			"label": str(node.get("label", "행로")),
+			"label": _route_target_display_label(node),
 			"kind": str(node.get("kind", "")),
 			"enraged": bool(node.get("enraged", false)),
-			"position": _route_target_aim_position(raw_index),
-			"hit_radius": ROUTE_TARGET_HIT_RADIUS,
+			"position": _route_target_aim_position(display_index, available_target_count),
+			"draw_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_DRAW_RADIUS,
+			"hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS,
 			"map_position": _node_position(target_id),
 		})
+		display_index += 1
+
+func _route_target_display_label(node: Dictionary) -> String:
+	var kind := str(node.get("kind", ""))
+	if kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+		return TowerAscentNodeModalLocalization.node_title(kind)
+	return str(node.get("label", "행로"))
 
 func _sync_run_state_phases() -> void:
 	if _graph_nodes.is_empty():

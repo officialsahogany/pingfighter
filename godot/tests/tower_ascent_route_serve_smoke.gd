@@ -4,6 +4,9 @@ const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 const TowerAscentRouteServeRuntime := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -117,7 +120,10 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	var round_state := FakeRoundState.new()
 	var serve_flow := FakeServeFlow.new()
 	var ball_driver := FakeBallDriver.new(round_state)
-	var left_target := Vector2(220.0, 165.0)
+	var left_target := Vector2(
+		TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X,
+		TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+	)
 	ball_driver.velocities = [
 		Vector2(0.0, -8.7),
 		(left_target - Vector2(380.0, 665.0)).normalized() * 8.7,
@@ -135,8 +141,8 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	_expect(round_state.player_serves, "route serve must assign the existing player serve owner")
 	_expect(ball_driver.reset_calls == 1 and serve_flow.sync_calls == 1, "route entry must park the live ball and synchronize the existing serve edge")
 	var targets: Array[Dictionary] = [
-		{"id": "left", "position": left_target, "hit_radius": 49.0},
-		{"id": "right", "position": Vector2(540.0, 165.0), "hit_radius": 49.0},
+		{"id": "left", "position": left_target, "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
+		{"id": "right", "position": Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y), "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
 	]
 	runtime.update(0.016, targets)
 	_expect(ball_driver.serve_calls == 1 and owner.ball_active, "serve flow must launch the live owner ball through the existing ball driver")

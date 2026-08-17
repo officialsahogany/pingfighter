@@ -1,5 +1,9 @@
 extends RefCounted
 
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
+
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
@@ -285,10 +289,21 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 	for target_variant in flow.get_route_aim_targets():
 		var target: Dictionary = target_variant
 		var target_position := _vector2(target.get("position", Vector2.ZERO))
+		var target_radius := float(target.get("draw_radius", TowerAscentTuning.TEMP_ROUTE_TARGET_DRAW_RADIUS))
 		var target_fill := CINNABAR_DARK if bool(target.get("enraged", false)) else PAPER_DEEP
-		canvas.draw_circle(target_position, 30.0, target_fill)
-		canvas.draw_circle(target_position, 30.0, CINNABAR, false, 3.0)
-		canvas.draw_string(font, target_position + Vector2(-82.0, -41.0), str(target.get("label", "행로")), HORIZONTAL_ALIGNMENT_CENTER, 164.0, 16, INK)
+		canvas.draw_circle(target_position, target_radius, target_fill)
+		canvas.draw_circle(target_position, target_radius, CINNABAR, false, 3.0)
+		var label_rect := Rect2(
+			target_position.x - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH * 0.5,
+			target_position.y - target_radius - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_GAP - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT,
+			TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH,
+			TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT
+		)
+		canvas.draw_rect(label_rect, Color(0.04, 0.025, 0.02, 0.86), true)
+		canvas.draw_rect(label_rect, GOLD, false, 1.5)
+		canvas.draw_string(font, label_rect.position + Vector2(0.0, 21.0), str(target.get("label", "행로")), HORIZONTAL_ALIGNMENT_CENTER, label_rect.size.x, 16, PAPER)
+	canvas.draw_string(font, Vector2(80.0, 694.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
+	canvas.draw_string(font, Vector2(80.0, 716.0), "명중할 때까지 다시 서브할 수 있습니다", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, Color(PAPER, 0.82))
 
 
 func _draw_map_transition(canvas: CanvasItem, flow: Object) -> void:

@@ -77,7 +77,6 @@ const SELECTOR_TARGET_Y := 165.0
 const SELECTOR_LEFT_WALL := 52.0
 const SELECTOR_RIGHT_WALL := 708.0
 const SELECTOR_RESET_Y := 92.0
-const ROUTE_TARGET_HIT_RADIUS := 49.0
 
 var _active := false
 var _map_seed := 0

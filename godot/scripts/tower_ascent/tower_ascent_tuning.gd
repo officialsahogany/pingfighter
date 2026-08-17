@@ -37,6 +37,18 @@ const TEMP_NODE_TYPE_WEIGHTS := {
 	"rest": 2,
 }
 
+# TEMP: v1.6 fixes the two-target/one-target layout contract but leaves final
+# battle-scene target sizing and placement to product tuning.
+const TEMP_ROUTE_TARGET_LEFT_X := 220.0
+const TEMP_ROUTE_TARGET_RIGHT_X := 540.0
+const TEMP_ROUTE_TARGET_CENTER_X := 380.0
+const TEMP_ROUTE_TARGET_Y := 165.0
+const TEMP_ROUTE_TARGET_DRAW_RADIUS := 30.0
+const TEMP_ROUTE_TARGET_HIT_RADIUS := 49.0
+const TEMP_ROUTE_TARGET_LABEL_WIDTH := 184.0
+const TEMP_ROUTE_TARGET_LABEL_HEIGHT := 30.0
+const TEMP_ROUTE_TARGET_LABEL_GAP := 8.0
+
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,
 # stock, or snapshot ownership out of the tower run.
