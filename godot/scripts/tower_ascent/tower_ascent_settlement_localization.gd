@@ -6,6 +6,8 @@ const KEY_CLEAR_TITLE := "tower_ascent.settlement.clear.title"
 const KEY_CLEAR_BODY := "tower_ascent.settlement.clear.body"
 const KEY_DEFEAT_TITLE := "tower_ascent.settlement.defeat.title"
 const KEY_DEFEAT_BODY := "tower_ascent.settlement.defeat.body"
+const KEY_TRUE_ENDING_TITLE := "tower_ascent.settlement.true_ending.title"
+const KEY_TRUE_ENDING_BODY := "tower_ascent.settlement.true_ending.body"
 const KEY_LOST_BUILD_TITLE := "tower_ascent.settlement.lost_build.title"
 const KEY_PERSISTENT_INCOME_TITLE := "tower_ascent.settlement.persistent_income.title"
 const KEY_EMPTY_BUILD := "tower_ascent.settlement.lost_build.empty"
@@ -18,6 +20,8 @@ const TEXT_BY_LOCALE := {
 		KEY_CLEAR_BODY: "왕의 시련에서 얻은 기록을 정리합니다.",
 		KEY_DEFEAT_TITLE: "등정 종료",
 		KEY_DEFEAT_BODY: "런의 힘은 놓고 가지만, 등정의 흔적은 남습니다.",
+		KEY_TRUE_ENDING_TITLE: "왕의 시련 완수",
+		KEY_TRUE_ENDING_BODY: "승천탑의 마지막 시련을 넘어 진엔딩 기록을 남겼습니다.",
 		KEY_LOST_BUILD_TITLE: "이번 런에서 놓고 가는 것",
 		KEY_PERSISTENT_INCOME_TITLE: "이번 런이 남긴 것",
 		KEY_EMPTY_BUILD: "기록된 런 빌드 없음",

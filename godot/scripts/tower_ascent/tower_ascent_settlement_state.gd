@@ -6,7 +6,8 @@ const TowerAscentSettlementLocalization := preload(
 
 const RESULT_STANDARD_CLEAR := "standard_clear"
 const RESULT_DEFEAT := "defeat"
-const VALID_RESULT_KINDS := [RESULT_STANDARD_CLEAR, RESULT_DEFEAT]
+const RESULT_TRUE_ENDING := "true_ending"
+const VALID_RESULT_KINDS := [RESULT_STANDARD_CLEAR, RESULT_DEFEAT, RESULT_TRUE_ENDING]
 
 var _state: Dictionary = {}
 
@@ -106,19 +107,12 @@ func restore_state(value: Variant) -> bool:
 func build_view_model() -> Dictionary:
 	var result_kind := str(_state.get("result_kind", RESULT_DEFEAT))
 	var clear := result_kind == RESULT_STANDARD_CLEAR
+	var true_ending := result_kind == RESULT_TRUE_ENDING
 	var lost_build := _dictionary(_state.get("lost_build", {}))
 	var persistent_income := _dictionary(_state.get("persistent_income", {}))
 	return {
-		"title": TowerAscentSettlementLocalization.text(
-			TowerAscentSettlementLocalization.KEY_CLEAR_TITLE
-			if clear
-			else TowerAscentSettlementLocalization.KEY_DEFEAT_TITLE
-		),
-		"body": TowerAscentSettlementLocalization.text(
-			TowerAscentSettlementLocalization.KEY_CLEAR_BODY
-			if clear
-			else TowerAscentSettlementLocalization.KEY_DEFEAT_BODY
-		),
+		"title": TowerAscentSettlementLocalization.text(_settlement_title_key(clear, true_ending)),
+		"body": TowerAscentSettlementLocalization.text(_settlement_body_key(clear, true_ending)),
 		"floor_text": "%d층" % int(_state.get("floor", 0)),
 		"lost_build_title": TowerAscentSettlementLocalization.text(
 			TowerAscentSettlementLocalization.KEY_LOST_BUILD_TITLE
@@ -187,6 +181,8 @@ static func build_persistent_income(
 		rows.append("도감 신규 등록 %d종 · %s" % [discovery_names.size(), ", ".join(discovery_names)])
 	rows.append("최고 층 기록 %d층" % maxi(0, int(record_snapshot.get("highest_floor", 0))))
 	rows.append("클리어 기록 %d회" % maxi(0, int(record_snapshot.get("clear_count", 0))))
+	if bool(record_snapshot.get("undefeated_true_ending_medal", false)):
+		rows.append("무패 진엔딩 훈장")
 	return {
 		"rows": rows,
 		"codex_new_discoveries": codex_discoveries.duplicate(true),
@@ -227,3 +223,23 @@ func _result(accepted: bool, changed: bool, reason: String) -> Dictionary:
 		"reason": reason,
 		"state": export_state(),
 	}
+
+
+func _settlement_title_key(clear: bool, true_ending: bool) -> String:
+	if true_ending:
+		return TowerAscentSettlementLocalization.KEY_TRUE_ENDING_TITLE
+	return (
+		TowerAscentSettlementLocalization.KEY_CLEAR_TITLE
+		if clear
+		else TowerAscentSettlementLocalization.KEY_DEFEAT_TITLE
+	)
+
+
+func _settlement_body_key(clear: bool, true_ending: bool) -> String:
+	if true_ending:
+		return TowerAscentSettlementLocalization.KEY_TRUE_ENDING_BODY
+	return (
+		TowerAscentSettlementLocalization.KEY_CLEAR_BODY
+		if clear
+		else TowerAscentSettlementLocalization.KEY_DEFEAT_BODY
+	)

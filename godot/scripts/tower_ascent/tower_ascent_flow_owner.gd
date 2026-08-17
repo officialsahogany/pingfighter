@@ -140,6 +140,8 @@ var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
 var _codex_discoveries: Array[Dictionary] = []
 var _gauntlet_transition_callback := Callable()
+var _run_defeat_count := 0
+var _defeat_event_ids: Array[String] = []
 var _header_subtitle := ""
 
 
@@ -331,6 +333,11 @@ func restore_snapshot(
 			_reset_runtime_state()
 			return false
 	_codex_discoveries.assign(_dictionary_array(snapshot.get("codex_discoveries", [])))
+	_run_defeat_count = maxi(0, int(snapshot.get("run_defeat_count", 0)))
+	_defeat_event_ids.assign(_string_array(snapshot.get("defeat_event_ids", [])))
+	if _run_defeat_count != _defeat_event_ids.size():
+		_reset_runtime_state()
+		return false
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
@@ -417,6 +424,8 @@ func export_snapshot() -> Dictionary:
 		"settlement_state": _settlement_state.export_state(),
 		"gauntlet_state": _gauntlet_state.export_state(),
 		"codex_discoveries": _codex_discoveries.duplicate(true),
+		"run_defeat_count": _run_defeat_count,
+		"defeat_event_ids": _defeat_event_ids.duplicate(),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
 		"route_source_node_id": _route_source_node_id,
@@ -756,13 +765,12 @@ func resolve_defeat(
 		return false
 	if not ensure_run_started(owner):
 		return false
+	var defeat_result := record_run_defeat()
+	if not bool(defeat_result.get("accepted", false)):
+		return false
 	if _gauntlet_state.is_active():
 		_gauntlet_state.record_defeat(
-			"%s:encounter:%d:defeat:%d" % [
-				_run_state.get_run_id(),
-				int(_gauntlet_state.export_state().get("encounter_index", 0)),
-				int(_gauntlet_state.export_state().get("defeat_count", 0)) + 1,
-			]
+			str(defeat_result.get("event_id", ""))
 		)
 	if _run_state.get_chance_gems() <= 0:
 		var floor := maxi(
@@ -918,6 +926,35 @@ func get_gauntlet_transition_view_model() -> Dictionary:
 	return _gauntlet_state.build_transition_view_model()
 
 
+func get_run_defeat_count() -> int:
+	return _run_defeat_count
+
+
+func record_run_defeat(event_id: String = "") -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _run_state.has_started():
+		return {"accepted": false, "changed": false, "reason": "run_unavailable"}
+	var normalized_id := event_id.strip_edges()
+	if normalized_id.is_empty():
+		normalized_id = "%s:defeat:%d" % [_run_state.get_run_id(), _run_defeat_count + 1]
+	if _defeat_event_ids.has(normalized_id):
+		return {
+			"accepted": true,
+			"changed": false,
+			"reason": "already_committed",
+			"event_id": normalized_id,
+			"defeat_count": _run_defeat_count,
+		}
+	_defeat_event_ids.append(normalized_id)
+	_run_defeat_count += 1
+	return {
+		"accepted": true,
+		"changed": true,
+		"reason": "recorded",
+		"event_id": normalized_id,
+		"defeat_count": _run_defeat_count,
+	}
+
+
 func begin_floor_eleven_gauntlet(node_resolution_id: String = "") -> Dictionary:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return {"accepted": false, "reason": "feature_disabled"}
@@ -985,6 +1022,44 @@ func resolve_gauntlet_victory(
 	_node_modal_state.close()
 	_request_redraw(owner)
 	return result
+
+
+func begin_floor_twelve_true_ending(
+	resolution_id: String = "",
+	finish_callback: Callable = Callable(),
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if not ensure_run_started(owner):
+		return {"accepted": false, "reason": "run_unavailable"}
+	if not bool(_ending_state.export_state().get("route_unlocked", false)):
+		return {"accepted": false, "reason": "true_route_locked"}
+	if not bool(_gauntlet_state.export_state().get("completed", false)):
+		return {"accepted": false, "reason": "gauntlet_incomplete"}
+	var normalized_id := resolution_id.strip_edges()
+	if normalized_id.is_empty():
+		normalized_id = _make_resolution_id("floor_12_true_ending", "true_ending")
+	var record_result: Dictionary = _record_store.record_clear(
+		12,
+		TowerAscentRecordStore.ENDING_TRUE,
+		_run_defeat_count == 0,
+		"%s:true_clear" % normalized_id
+	)
+	if not bool(record_result.get("accepted", false)):
+		return record_result
+	var settlement_result := begin_run_settlement(
+		TowerAscentSettlementState.RESULT_TRUE_ENDING,
+		12,
+		"%s:settlement" % normalized_id,
+		finish_callback,
+		owner,
+		registry
+	)
+	settlement_result["record_result"] = record_result.duplicate(true)
+	settlement_result["undefeated"] = _run_defeat_count == 0
+	return settlement_result
 
 
 func begin_run_settlement(
@@ -2177,6 +2252,8 @@ func _reset_runtime_state() -> void:
 	_pending_runtime_perk_rollback_snapshot.clear()
 	_codex_discoveries.clear()
 	_gauntlet_transition_callback = Callable()
+	_run_defeat_count = 0
+	_defeat_event_ids.clear()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],
