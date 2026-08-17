@@ -271,7 +271,7 @@ func _verify_flag_off_is_untouched() -> void:
 
 
 func _verify_source_contract() -> void:
-	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_runtime.gd")
+	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd")
 	var builder_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd")
 	_expect(flow_source.find("apply_choice") >= 0 and flow_source.find("build_unlock_save_snapshot") >= 0, "training must reuse the existing runtime perk grant and save boundaries")
 	_expect(builder_source.find("get_choices") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training choices must consume existing Mugong and physique catalogs")
