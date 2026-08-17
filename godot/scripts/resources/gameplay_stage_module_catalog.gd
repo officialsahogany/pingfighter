@@ -254,8 +254,8 @@ const MODULES := {
 		"label": "stage2 rock fragment payload config builder",
 	},
 	"stage2_boss_skill_state": {
-		"path": "res://scripts/stages/stage2/stage2_boss_skill_state.gd",
-		"label": "stage2 boss skill state",
+		"path": "res://scripts/stages/stage2/stage2_boss_variant_skill_state.gd",
+		"label": "stage2 boss variant skill state",
 	},
 	"stage2_boss_ai_context_builder": {
 		"path": "res://scripts/stages/stage2/stage2_boss_ai_context_builder.gd",
@@ -294,8 +294,8 @@ const MODULES := {
 		"label": "stage3 playfield renderer",
 	},
 	"stage3_boss_skill_state": {
-		"path": "res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"label": "stage3 Menhera boss skill state",
+		"path": "res://scripts/stages/stage3/stage3_boss_variant_skill_state.gd",
+		"label": "stage3 boss variant skill state",
 	},
 	"stage3_boss_skill_payload_factory": {
 		"path": "res://scripts/stages/stage3/stage3_boss_skill_payload_factory.gd",

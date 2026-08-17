@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 const DEFAULT_LEAGUE_MODE := "junior"
 # Player-facing Stage 1 roulette pool. Dalji-only by explicit decision
 # (2026-07-04): Gaksital / Pododaejang stay debug-picker-only (explicit
@@ -27,8 +28,17 @@ func apply_selection_state(owner: Object) -> void:
 	)
 	var entry_stage: int = max(1, int(selection.get("stage_id", 1)))
 	var stage1_boss_variant: String = resolve_stage1_boss_variant(selection, entry_stage)
+	var stage_boss_variant: String = StageBossVariantCatalog.normalize_variant(
+		entry_stage,
+		selection.get("stage_boss_variant", "")
+	)
+	var stage_boss_entry: Dictionary = StageBossVariantCatalog.get_entry(entry_stage, stage_boss_variant)
+	var boss_paddle_scale := maxf(0.1, float(stage_boss_entry.get("boss_paddle_scale", 1.0)))
 	owner.set("current_stage", entry_stage)
 	owner.set("stage1_boss_variant", stage1_boss_variant if entry_stage == 1 else "dalji")
+	owner.set("stage_boss_variant", stage_boss_variant)
+	owner.set("boss_paddle_width", 100.0 * boss_paddle_scale)
+	owner.set("boss_hitbox_height", 40.0 * boss_paddle_scale)
 	owner.set("selected_character_id", str(selection.get("character_id", "ufo_player")))
 	owner.set("selected_runtime_character_id", runtime_character_id)
 	owner.set("selected_character_type", runtime_character_id)

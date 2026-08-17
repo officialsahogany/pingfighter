@@ -59,6 +59,9 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_apply_stage_score_reaction(scoring_side, deps)
 	_perf_end(perf_logger, "physics.score_event.stage_reaction.background", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_apply_stage2_variant_score_reaction(scoring_side, score_result, deps)
+	_perf_end(perf_logger, "physics.score_event.stage_reaction.stage2_variant", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_apply_stage3_kuromi_score_reaction(scoring_side, score_result, deps)
 	_perf_end(perf_logger, "physics.score_event.stage_reaction.stage3", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -532,6 +535,14 @@ func _apply_stage3_kuromi_score_reaction(scoring_side: String, score_result: Dic
 	var stage3_boss_skill_state: Object = deps.get("stage3_boss_skill_state", null)
 	if stage3_boss_skill_state != null and stage3_boss_skill_state.has_method("handle_score_event"):
 		stage3_boss_skill_state.handle_score_event(scoring_side, score_result, deps)
+
+
+func _apply_stage2_variant_score_reaction(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 2:
+		return
+	var stage2_boss_skill_state: Object = deps.get("stage2_boss_skill_state", null)
+	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("handle_score_event"):
+		stage2_boss_skill_state.handle_score_event(scoring_side, score_result, deps)
 
 
 func _apply_stage4_score_reaction(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:

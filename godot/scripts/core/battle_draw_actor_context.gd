@@ -495,6 +495,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	if boss_paddle_shrink_scale < 0.999:
 		boss_sprite_draw_size *= boss_paddle_shrink_scale
 	var actor_context := {
+		"stage_boss_variant": str(context.get("stage_boss_variant", "")),
 		"shake_offset": _get_vector2(context, "shake_offset", Vector2.ZERO),
 		"width": float(context.get("width", 760.0)),
 		"height": float(context.get("height", 750.0)),

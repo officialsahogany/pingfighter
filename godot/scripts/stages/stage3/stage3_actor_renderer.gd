@@ -5,11 +5,13 @@ const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stag
 const Stage3PlayfieldRenderer := preload("res://scripts/stages/stage3/stage3_playfield_renderer.gd")
 const Stage3MenheraBossActorRenderer := preload("res://scripts/stages/stage3/stage3_menhera_boss_actor_renderer.gd")
 const Stage3MenheraSkillEffectRenderer := preload("res://scripts/stages/stage3/stage3_menhera_skill_effect_renderer.gd")
+const Stage3VariantBossRenderer := preload("res://scripts/stages/stage3/stage3_variant_boss_renderer.gd")
 
 var playfield_renderer: Object = Stage3PlayfieldRenderer.new()
 var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage3MenheraBossActorRenderer.new()
 var skill_effect_renderer: Object = Stage3MenheraSkillEffectRenderer.new()
+var variant_boss_renderer: Object = Stage3VariantBossRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var _prewarm_assets_done: bool = false
 var _prewarm_step_index: int = 0
@@ -35,9 +37,12 @@ func prewarm_assets_step() -> bool:
 			if not _prewarm_renderer_step(boss_renderer):
 				return false
 		3:
-			if not _prewarm_renderer_step(skill_effect_renderer):
+			if not _prewarm_renderer_step(variant_boss_renderer):
 				return false
 		4:
+			if not _prewarm_renderer_step(skill_effect_renderer):
+				return false
+		5:
 			if not _prewarm_renderer_step(commando_firearm_renderer):
 				return false
 		_:
@@ -45,7 +50,7 @@ func prewarm_assets_step() -> bool:
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 4:
+	if _prewarm_step_index > 5:
 		_prewarm_assets_done = true
 		_prewarm_step_index = 0
 		return true
@@ -57,6 +62,8 @@ func reset() -> void:
 		playfield_renderer.reset()
 	if boss_renderer != null and boss_renderer.has_method("reset"):
 		boss_renderer.reset()
+	if variant_boss_renderer != null and variant_boss_renderer.has_method("reset"):
+		variant_boss_renderer.reset()
 
 
 func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -> void:
@@ -76,7 +83,10 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	player_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage3.player", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	boss_renderer.draw(canvas, context, shake_offset)
+	if str(context.get("stage_boss_variant", "yeonmyo")) in ["teddy_bear", "alice"]:
+		variant_boss_renderer.draw(canvas, context, shake_offset)
+	else:
+		boss_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage3.boss", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	commando_firearm_renderer.draw(canvas, context, shake_offset)
@@ -89,6 +99,7 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 func clear_transient_canvas_items() -> void:
 	_clear_renderer_transients(player_renderer)
 	_clear_renderer_transients(boss_renderer)
+	_clear_renderer_transients(variant_boss_renderer)
 	_clear_renderer_transients(skill_effect_renderer)
 	_clear_renderer_transients(commando_firearm_renderer)
 

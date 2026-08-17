@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const VictoryHighlightPillarTrace := preload("res://scripts/core/victory_highlight_pillar_trace.gd")
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
@@ -120,12 +121,33 @@ func _draw_transformed_playfield_scene(canvas: CanvasItem, registry: Object, sur
 	var width: float = float(surface.get("width", 760.0))
 	var height: float = float(surface.get("height", 750.0))
 	var pillar_width: float = float(surface.get("pillar_width", 80.0))
+	var transform_state: Dictionary = _resolve_playfield_transform(surface)
+	canvas.draw_set_transform(
+		_get_vector2(transform_state, "origin", Vector2.ZERO),
+		0.0,
+		_get_vector2(transform_state, "scale", Vector2.ONE)
+	)
+	_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _resolve_playfield_transform(surface: Dictionary) -> Dictionary:
+	var width: float = float(surface.get("width", 760.0))
 	var render_scale: float = float(surface.get("render_scale", 1.0))
 	var game_offset: Vector2 = _get_vector2(surface, "game_offset", Vector2.ZERO)
 	var shake_offset: Vector2 = _get_vector2(surface, "shake_offset", Vector2.ZERO)
-	canvas.draw_set_transform(game_offset + shake_offset * render_scale, 0.0, Vector2(render_scale, render_scale))
-	_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var origin := game_offset + shake_offset * render_scale
+	var scale_value := Vector2(render_scale, render_scale)
+	var context_owner: Object = _get_context_owner(null, surface)
+	var mirror_active := (
+		int(BattleSceneOwnerReader.get_value(context_owner, "current_stage", 1)) == 3
+		and str(BattleSceneOwnerReader.get_value(context_owner, "stage_boss_variant", "")) == "alice"
+		and bool(BattleSceneOwnerReader.get_value(context_owner, "stage3_alice_mirror_active", false))
+	)
+	if mirror_active:
+		origin.x += width * render_scale
+		scale_value.x = -render_scale
+	return {"origin": origin, "scale": scale_value, "mirrored": mirror_active}
 
 
 func _build_draw_surface(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> Dictionary:

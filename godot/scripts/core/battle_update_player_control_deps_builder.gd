@@ -3,6 +3,7 @@ extends RefCounted
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const PlayerSkillLockInputProxy := preload("res://scripts/characters/player_skill_lock_input_proxy.gd")
 const Stage3CurseControlInputProxy := preload("res://scripts/stages/stage3/stage3_curse_control_input_proxy.gd")
+const Stage3DashBlockInputProxy := preload("res://scripts/stages/stage3/stage3_dash_block_input_proxy.gd")
 
 const WIDTH: float = 760.0
 const PLAY_LEFT: float = 0.0
@@ -15,6 +16,9 @@ var _cached_status_input_reader: Object = null
 var _cached_status_stage3_boss_skill_state: Object = null
 var _cached_status_effect_state: Object = null
 var _cached_status_input_proxy: Object = null
+var _cached_dash_lock_input_reader: Object = null
+var _cached_dash_lock_stage3_boss_skill_state: Object = null
+var _cached_dash_lock_input_proxy: Object = null
 var _cached_skill_lock_input_reader: Object = null
 var _cached_skill_lock_mythic_item_runtime: Object = null
 var _cached_skill_lock_lingpet_runtime: Object = null
@@ -48,10 +52,11 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 	# Status-proxied but NOT skill-lock-proxied reader. Dash is core movement, so the controllers
 	# read its down trigger from here to survive a 뿔딸기 / 오딘의 눈 transform, whose skill-lock
 	# proxy zeroes down_pressed to block down-based character skills (warp gate / EMP dive). When no
-	# transform lock is active this equals routed_input_reader (same object), so off-transform frames
-	# are unaffected. Still status/curse-gated, so stun/freeze correctly suppress dash.
-	var dash_input_reader: Object = _build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state)
-	var routed_input_reader: Object = _build_skill_lock_input_reader(dash_input_reader, mythic_item_runtime, lingpet_runtime)
+	# transform lock is active this bypasses only the player-skill lock; the boss-owned dash lock
+	# remains authoritative. Status/curse gates still suppress dash.
+	var status_input_reader: Object = _build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state)
+	var dash_input_reader: Object = _build_dash_lock_input_reader(status_input_reader, stage3_boss_skill_state)
+	var routed_input_reader: Object = _build_skill_lock_input_reader(status_input_reader, mythic_item_runtime, lingpet_runtime)
 	var lingpet_mount_active := _is_baekrin_mount_active(lingpet_runtime)
 	return {
 		"registry": registry,
@@ -130,6 +135,24 @@ func _build_status_input_reader(input_reader: Object, stage3_boss_skill_state: O
 		status_effect_state
 	)
 	return _cached_status_input_proxy
+
+
+func _build_dash_lock_input_reader(input_reader: Object, stage3_boss_skill_state: Object) -> Object:
+	if input_reader == null or stage3_boss_skill_state == null:
+		_cached_dash_lock_input_reader = null
+		_cached_dash_lock_stage3_boss_skill_state = null
+		_cached_dash_lock_input_proxy = null
+		return input_reader
+	if (
+		_cached_dash_lock_input_proxy != null
+		and input_reader == _cached_dash_lock_input_reader
+		and stage3_boss_skill_state == _cached_dash_lock_stage3_boss_skill_state
+	):
+		return _cached_dash_lock_input_proxy
+	_cached_dash_lock_input_reader = input_reader
+	_cached_dash_lock_stage3_boss_skill_state = stage3_boss_skill_state
+	_cached_dash_lock_input_proxy = Stage3DashBlockInputProxy.new().configure(input_reader, stage3_boss_skill_state)
+	return _cached_dash_lock_input_proxy
 
 
 func _build_skill_lock_input_reader(input_reader: Object, mythic_item_runtime: Object, lingpet_runtime: Object = null) -> Object:

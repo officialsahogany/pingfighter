@@ -34,6 +34,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var player_paddle_visual_scale_override: float = float(_get_owner_value(owner, "player_paddle_visual_scale_override", -1.0))
 	var boss_paddle_width: float = max(1.0, float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH)))
 	var boss_hitbox_height: float = max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT)))
+	var ball_size: float = maxf(4.0, float(_get_owner_value(owner, "ball_size", BALL_SIZE)))
 	var player_paddle_scale: float = _resolve_player_visual_paddle_scale(
 		runtime_player_paddle_scale,
 		player_paddle_visual_scale_override,
@@ -69,6 +70,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"selected_character_name": str(_get_owner_value(owner, "selected_character_name", "")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
+		"stage_boss_variant": str(_get_owner_value(owner, "stage_boss_variant", "")),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),
 		"weather_active": bool(_get_owner_value(owner, "weather_event_active", false)),
 		"weather_event_active": bool(_get_owner_value(owner, "weather_event_active", false)),
@@ -122,7 +124,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
 		"perk_fusion_overload_speed_cap": float(_get_owner_value(owner, "perk_fusion_overload_speed_cap", 0.0)),
 		"stage3_kuromi_ball_hidden": bool(_get_owner_value(owner, "stage3_kuromi_ball_hidden", false)),
-		"ball_size": BALL_SIZE,
+		"ball_size": ball_size,
 		"ball_visual_type": str(_get_owner_value(owner, "ball_visual_type", "energy")),
 		"bomb_ball_loaded": bool(_get_owner_value(owner, "bomb_ball_loaded", false)),
 		"poisoned_ball_overlay_active": bool(_get_owner_value(owner, "poisoned_ball_overlay_active", false)),
@@ -155,7 +157,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"boss_y": BOSS_Y,
 		"player_paddle_width": player_paddle_width,
 		"boss_paddle_width": boss_paddle_width,
-		"ball_render_radius": BALL_RENDER_RADIUS,
+		"ball_render_radius": BALL_RENDER_RADIUS * ball_size / BALL_SIZE,
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"drive_text_duration_frames": DRIVE_TEXT_DURATION_FRAMES,

@@ -62,9 +62,11 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 			dalji_cooldown_state.update(fps_scale, context, effect_deps)
 
 	var stage2_boss_skill_state = deps.get("stage2_boss_skill_state", null)
+	var stage2_boss_skill_result: Dictionary = {}
 	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("update"):
 		_merge_score_context(context, deps.get("score_state", null))
-		stage2_boss_skill_state.update(delta, context, effect_deps)
+		stage2_boss_skill_result = stage2_boss_skill_state.update(delta, context, effect_deps)
+		context.merge(stage2_boss_skill_result, true)
 
 	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
 	var stage3_boss_skill_result: Dictionary = {}
@@ -294,6 +296,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		"special_gauge": next_special_gauge,
 	}
 	result.merge(stage2_monkey_banana_result, true)
+	result.merge(stage2_boss_skill_result, true)
 	result.merge(stage3_boss_skill_result, true)
 	result.merge(stage5_hongryun_result, true)
 	result.merge(stage5_hongryun_fire_machine_result, true)
