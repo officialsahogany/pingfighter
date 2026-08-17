@@ -17,13 +17,13 @@ const FLOOR_BOSS_SLOTS := {
 	],
 	2: [
 		{"slot_id": "floor_02_cheongringwi", "display_name": "청린귀", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi"},
-		{"slot_id": "floor_02_molewang", "display_name": "두더지왕", "status": STATUS_UNPORTED},
-		{"slot_id": "floor_02_arachne", "display_name": "아라크네", "status": STATUS_UNPORTED},
+		{"slot_id": "floor_02_molewang", "display_name": "두더지왕", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "molewang"},
+		{"slot_id": "floor_02_arachne", "display_name": "아라크네", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "arachne"},
 	],
 	3: [
 		{"slot_id": "floor_03_yeonmyo", "display_name": "환묘 연묘", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo"},
-		{"slot_id": "floor_03_teddy_bear", "display_name": "테디베어", "status": STATUS_UNPORTED},
-		{"slot_id": "floor_03_alice", "display_name": "엘리스", "status": STATUS_UNPORTED},
+		{"slot_id": "floor_03_teddy_bear", "display_name": "테디베어", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "teddy_bear"},
+		{"slot_id": "floor_03_alice", "display_name": "엘리스", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "alice"},
 	],
 	4: [
 		{"slot_id": "floor_04_ponk", "display_name": "퐁크", "status": STATUS_PORTED, "stage": 4, "boss_id": "ponk"},

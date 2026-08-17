@@ -1,5 +1,11 @@
 extends SceneTree
 
+const BattleSceneSelectionStartupLifecycle := preload(
+	"res://scripts/core/battle_scene_selection_startup_lifecycle.gd"
+)
+const GameSelectionState := preload(
+	"res://scripts/core/game_selection_state.gd"
+)
 const TowerAscentBossRegistry := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
 )
@@ -16,8 +22,32 @@ const TowerAscentMapGenerator := preload(
 var _failures: Array[String] = []
 
 
+class FakeBattleOwner:
+	extends RefCounted
+	var selection_state: Object
+	var current_stage := 1
+	var stage1_boss_variant := "dalji"
+	var stage_boss_variant := ""
+	var boss_paddle_width := 100.0
+	var boss_hitbox_height := 40.0
+	var selected_character_id := ""
+	var selected_runtime_character_id := ""
+	var selected_character_type := ""
+	var selected_character_name := ""
+	var ai_mode := ""
+	var chance_gems_count := 0
+	var chance_gems_max := 3
+
+	func _init(value: Object) -> void:
+		selection_state = value
+
+	func get_node_or_null(path: NodePath) -> Object:
+		return selection_state if str(path) == "/root/GameSelectionState" else null
+
+
 func _init() -> void:
 	_verify_canonical_floor_pools_and_standins()
+	_verify_ported_slots_route_into_battle_selection()
 	_verify_generated_boss_nodes_are_registry_driven()
 	_verify_four_kings_are_locked_metadata_only()
 	_verify_flag_off_preserves_legacy()
@@ -45,6 +75,38 @@ func _verify_canonical_floor_pools_and_standins() -> void:
 			_expect(not str(standin.get("boss_id", "")).is_empty(), "every slot must resolve to an existing Godot boss compatibility id")
 			if str(slot.get("status", "")) == TowerAscentBossRegistry.STATUS_SHELL:
 				_expect(str(slot.get("display_name", "")) == "임시 보스", "shell slots must not invent boss names")
+
+
+func _verify_ported_slots_route_into_battle_selection() -> void:
+	var expected_routes := {
+		"floor_02_molewang": {"stage": 2, "boss_id": "cheongringwi", "variant": "molewang"},
+		"floor_02_arachne": {"stage": 2, "boss_id": "cheongringwi", "variant": "arachne"},
+		"floor_03_teddy_bear": {"stage": 3, "boss_id": "yeonmyo", "variant": "teddy_bear"},
+		"floor_03_alice": {"stage": 3, "boss_id": "yeonmyo", "variant": "alice"},
+	}
+	var registry := TowerAscentBossRegistry.new()
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	for slot_id in expected_routes:
+		var expected: Dictionary = expected_routes[slot_id]
+		var slot := registry.get_slot(slot_id)
+		var route := registry.get_standin(slot_id)
+		_expect(str(slot.get("slot_id", "")) == slot_id, "%s must preserve its stable snapshot slot id" % slot_id)
+		_expect(str(slot.get("status", "")) == TowerAscentBossRegistry.STATUS_PORTED, "%s must be marked ported" % slot_id)
+		_expect(route == expected, "%s must resolve to its shipped battle variant" % slot_id)
+		var selection_state: Object = GameSelectionState.new()
+		selection_state.set_stage(
+			int(route.get("stage", 0)),
+			"dalji",
+			false,
+			str(route.get("variant", ""))
+		)
+		var owner := FakeBattleOwner.new(selection_state)
+		BattleSceneSelectionStartupLifecycle.new().apply_selection_state(owner)
+		_expect(owner.current_stage == int(expected.get("stage", 0)), "%s must enter the mapped battle stage with the tower flag ON" % slot_id)
+		_expect(owner.stage_boss_variant == str(expected.get("variant", "")), "%s must enter the mapped boss variant with the tower flag ON" % slot_id)
+		owner.selection_state = null
+		selection_state.free()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 
 
 func _verify_generated_boss_nodes_are_registry_driven() -> void:
