@@ -148,6 +148,10 @@ func _apply_scoreboard_update_result(
 		if _try_start_tower_ascent_vertical_slice(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
 			return
+		if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+			_finish_tower_victory_flow(reset_game_callback)
+			_perf_end(perf_logger, "physics.scoreboard_result.total", total_start)
+			return
 		var show_result_start: int = _perf_begin(perf_logger)
 		if _show_stage_clear_result(registry, reset_game_callback, owner):
 			_perf_end(perf_logger, "physics.scoreboard_result.show_stage_clear", show_result_start)
@@ -434,6 +438,9 @@ func _continue_after_victory_presentation(
 ) -> void:
 	if _try_start_tower_ascent_vertical_slice(registry, reset_game_callback, owner):
 		return
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		_finish_tower_victory_flow(reset_game_callback)
+		return
 	_finish_legacy_victory_flow(registry, reset_game_callback, owner)
 
 
@@ -459,15 +466,17 @@ func _try_start_tower_ascent_vertical_slice(
 	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
 	if flow_owner == null or not flow_owner.has_method("begin_vertical_slice"):
 		return false
-	var finish_callback := Callable(self, "_finish_legacy_victory_flow").bind(
-		registry,
-		reset_game_callback,
-		owner
+	var finish_callback := Callable(self, "_finish_tower_victory_flow").bind(
+		reset_game_callback
 	)
 	return bool(flow_owner.begin_vertical_slice(owner, finish_callback, {
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"registry": registry,
 	}))
+
+
+func _finish_tower_victory_flow(reset_game_callback: Callable) -> void:
+	_call_callback(reset_game_callback)
 
 
 func _finish_legacy_victory_flow(

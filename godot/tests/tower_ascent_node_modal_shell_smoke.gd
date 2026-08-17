@@ -18,6 +18,7 @@ const TowerAscentNodeModalState := preload(
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
+var _reset_calls := 0
 
 
 class FakeOwner:
@@ -169,6 +170,7 @@ func _verify_common_shell_and_localization_catalog() -> void:
 
 func _verify_production_entry_lifecycle_and_exit() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var runtime_state := FakeRuntimePerkState.new()
 	var audio := FakeAudio.new()
@@ -185,7 +187,7 @@ func _verify_production_entry_lifecycle_and_exit() -> void:
 	driver.call(
 		"_finish_victory_loot_phase",
 		registry,
-		Callable(),
+		Callable(self, "_on_reset"),
 		owner
 	)
 	_expect(flow.is_active(), "the production victory continuation must open the tower route flow")
@@ -203,17 +205,13 @@ func _verify_production_entry_lifecycle_and_exit() -> void:
 	_expect(not flow.is_active(), "map transition completion must close the tower flow")
 	_expect(runtime_state.resume_calls == 1, "flow close must resume paused cooldowns exactly once")
 	_expect(runtime_state.arm_calls == 1, "flow close must arm ball-freeze and score resume safety")
-	_expect(
-		result_screen.show_calls == 1,
-		"flow close must continue the untouched legacy victory path (show_calls=%d, phase=%s)" % [
-			result_screen.show_calls,
-			flow.get_phase_name(),
-		]
-	)
+	_expect(result_screen.show_calls == 0, "tower flow close must never show the legacy result screen")
+	_expect(_reset_calls == 1, "tower flow close must resume combat through the reset callback exactly once")
 
 
 func _verify_production_entry_fails_closed_without_runtime_contract() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var result_screen := FakeResultScreen.new()
 	var registry := FakeRegistry.new()
@@ -224,16 +222,18 @@ func _verify_production_entry_fails_closed_without_runtime_contract() -> void:
 	BattleSceneMatchFlowDriver.new().call(
 		"_finish_victory_loot_phase",
 		registry,
-		Callable(),
+		Callable(self, "_on_reset"),
 		FakeOwner.new()
 	)
 	_expect(not flow.is_active(), "production entry must fail closed without the modal lifecycle runtime")
-	_expect(result_screen.show_calls == 1, "failed tower entry must fall back to the legacy victory continuation")
+	_expect(result_screen.show_calls == 0, "failed tower entry must not leak into the legacy result continuation")
+	_expect(_reset_calls == 1, "failed tower entry must fail closed through the reset callback")
 	_expect(flow.export_snapshot().completed_nodes.is_empty(), "failed lifecycle entry must not commit the prepared node reward")
 
 
 func _verify_flag_off_preserves_legacy_path() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
+	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var runtime_state := FakeRuntimePerkState.new()
 	var result_screen := FakeResultScreen.new()
@@ -246,11 +246,16 @@ func _verify_flag_off_preserves_legacy_path() -> void:
 	BattleSceneMatchFlowDriver.new().call(
 		"_finish_victory_loot_phase",
 		registry,
-		Callable(),
+		Callable(self, "_on_reset"),
 		FakeOwner.new()
 	)
 	_expect(result_screen.show_calls == 1, "flag OFF must preserve the legacy result flow")
+	_expect(_reset_calls == 0, "flag OFF result ownership must remain with the legacy screen")
 	_expect(runtime_state.pause_calls == 0, "flag OFF must not enter the tower modal lifecycle")
+
+
+func _on_reset() -> void:
+	_reset_calls += 1
 
 
 func _expect(condition: bool, message: String) -> void:

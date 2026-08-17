@@ -190,6 +190,7 @@ func _init() -> void:
 
 func _verify_flag_off_preserves_legacy_result_flow() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
+	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var result_screen := FakeResultScreen.new()
 	var registry := FakeRegistry.new()
@@ -206,6 +207,7 @@ func _verify_flag_off_preserves_legacy_result_flow() -> void:
 		owner
 	)
 	_expect(result_screen.show_calls == 1, "flag OFF must preserve the existing result-screen continuation")
+	_expect(_reset_calls == 0, "flag OFF result ownership must remain with the legacy screen")
 	_expect(not flow.is_active(), "flag OFF must not activate the tower flow")
 	_expect(
 		not registry.instance_reads.has("tower_ascent_flow_owner"),
@@ -215,6 +217,7 @@ func _verify_flag_off_preserves_legacy_result_flow() -> void:
 
 func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var result_screen := FakeResultScreen.new()
 	var registry := FakeRegistry.new()
@@ -233,7 +236,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	)
 	_expect(flow.is_active(), "flag ON must enter the tower flow after victory loot")
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "the first post-combat state must remain in the battle scene as ROUTE_AIM")
-	_expect(result_screen.show_calls == 0, "legacy result screen must wait until the slice completes")
+	_expect(result_screen.show_calls == 0, "tower mode must not show the legacy result screen before route serving")
 	var initial_snapshot: Dictionary = flow.export_snapshot()
 	_expect(initial_snapshot.completed_nodes.size() == 1, "combat resolution must commit exactly once on entry")
 	_expect(
@@ -263,7 +266,8 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		flow.call("_finish_vertical_slice")
 	else:
 		_expect(not flow.is_active(), "combat-node map arrival must close the vertical-slice owner")
-	_expect(result_screen.show_calls == 1, "explicit slice exit must resume the current legacy continuation exactly once")
+	_expect(result_screen.show_calls == 0, "tower flow completion must never enter the legacy result screen")
+	_expect(_reset_calls == 1, "tower flow completion must resume combat through the reset callback exactly once")
 
 
 func _verify_snapshot_round_trip_and_required_fields() -> void:
