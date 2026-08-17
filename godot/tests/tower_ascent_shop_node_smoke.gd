@@ -298,7 +298,7 @@ func _verify_flag_off_is_untouched() -> void:
 
 
 func _verify_source_contract() -> void:
-	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_owner.gd")
+	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_runtime.gd")
 	var inventory_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_shop_inventory.gd")
 	_expect(flow_source.find("grant_item_to_slot") >= 0, "shop purchase must call the existing active-item grant path")
 	_expect(inventory_source.find("TowerAscentShopShelfBuilder") >= 0 and inventory_source.find("TowerAscentUnlockFilter") >= 0, "shop stock must consume the Phase A shelf and unlock owners")
