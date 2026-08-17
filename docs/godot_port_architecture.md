@@ -1162,13 +1162,25 @@ predicate so the certificate exception cannot suppress ObjectDB/RID leaks.
 
 ## 2026-08-16 Tower-ascent vertical-slice boundary
 
-The default-off `tower_ascent_flow_owner.gd` is the sole runtime owner for the
-generated 12-floor map flow: post-combat node modal, separate selector-ball
-`ROUTE_AIM`, idempotent `node_resolution_id` commits, full-graph run snapshot,
-boss avoidance, and map-transition completion. `tower_ascent_map_generator.gd`
-owns versioned map-seed determinism without advancing gameplay RNG;
-`tower_ascent_boss_registry.gd` owns floor pools and stand-in metadata, while
-the renderer consumes the generated graph without recreating policy.
+The default-off `tower_ascent_flow_owner.gd` remains the sole stable public
+facade for the generated 12-floor flow. It inherits an eager, behavior-preserving
+owner chain: `tower_ascent_flow_runtime.gd` coordinates lifecycle/input/update/
+draw; `tower_ascent_flow_snapshot_progress.gd` owns full-graph snapshots and
+pending-reward journals; `tower_ascent_flow_ending_progress.gd` owns ending,
+settlement, gauntlet, and defeat progression; `tower_ascent_flow_node_progress.gd`
+owns node-modal routing; `tower_ascent_flow_economy_progress.gd` owns run economy
+and shop/training transactions; `tower_ascent_flow_map_progress.gd` owns graph,
+route, selector-ball, movement, and idempotent resolution state; and
+`tower_ascent_flow_state.gd` eagerly constructs shared dependencies and owns
+reset utilities. Public signatures and `SNAPSHOT_SCHEMA_VERSION` remain on the
+facade through inheritance. `update_selective()` and `draw()` must not become
+lazy construction sites under GRT-003/GRT-042.
+
+`tower_ascent_map_generator.gd` owns versioned map-seed determinism without
+advancing gameplay RNG; `tower_ascent_boss_registry.gd` owns floor pools and
+direct routing for ported variants while the tuning stand-in table retains only
+unported shell slots. The renderer consumes generated state without recreating
+policy.
 `battle_scene_match_flow_driver.gd` may enter the flow
 only after victory loot finishes and resumes the unchanged legacy result flow
 when the slice completes or cannot start. The central physics gate keeps normal

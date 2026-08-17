@@ -8672,18 +8672,29 @@ This section is intentionally long; use search to find the nearest owner.
 
 ## 2026-08-16 Tower-ascent vertical slice
 
+- `scripts/tower_ascent/tower_ascent_flow_owner.gd` is the stable one-line
+  compatibility facade for the default-off generated run-map flow. Its eager
+  inheritance chain splits ownership without changing the public API:
+  `tower_ascent_flow_runtime.gd` owns lifecycle/input/update/draw coordination;
+  `tower_ascent_flow_snapshot_progress.gd` owns full-graph snapshot recovery and
+  pending-reward journals; `tower_ascent_flow_ending_progress.gd` owns floor 9
+  judgment/choice, settlement, floor 11 gauntlet, floor 12 true ending, and
+  defeat records; `tower_ascent_flow_node_progress.gd` owns node-modal routing
+  and service-node delegation; `tower_ascent_flow_economy_progress.gd` owns run
+  economy plus shop/training transactions; `tower_ascent_flow_map_progress.gd`
+  owns graph consumption, route candidates, selector-ball simulation, movement,
+  and idempotent node resolution; `tower_ascent_flow_state.gd` eagerly owns the
+  shared state/dependencies and reset utilities. The chain must not lazy-create
+  modules from `update_selective()` or `draw()`.
 - `scripts/tower_ascent/tower_ascent_feature_flags.gd`,
-  `tower_ascent_flow_owner.gd`, `tower_ascent_map_generator.gd`,
-  `tower_ascent_boss_registry.gd`, `tower_ascent_route_candidate_policy.gd`,
-  `tower_ascent_enraged_policy.gd`, and `tower_ascent_flow_renderer.gd` own the
-  default-off generated run-map slice: activation, versioned seeded 12-floor
-  graph, full-graph snapshot recovery, boss pools and stand-ins, avoided-boss
-  filtering, generation-time enraged marking,
-  `COMBAT -> NODE_MODAL -> ROUTE_AIM -> MAP_TRANSITION`, separate selector-ball
-  simulation, idempotent resolution records, required snapshot boundary, and
-  code-drawn parchment presentation. Existing battle match/input/physics/draw
-  modules only route this owner; the legacy result/plaza path remains the
-  fallback until a later atomic production promotion.
+  `tower_ascent_map_generator.gd`, `tower_ascent_boss_registry.gd`,
+  `tower_ascent_route_candidate_policy.gd`, `tower_ascent_enraged_policy.gd`,
+  and `tower_ascent_flow_renderer.gd` retain activation, versioned seeded
+  12-floor generation, boss pools/routing, avoided-boss filtering,
+  generation-time enraged marking, and code-drawn parchment presentation.
+  Existing battle match/input/physics/draw modules only route the facade; the
+  legacy result/plaza path remains the fallback until a later atomic production
+  promotion.
 - `scripts/network/online_match_simulation.gd` owns host-authoritative ball,
   collision, serve, and match outcomes by composing existing score/round/ball
   owners plus the production paddle-bounce resolver group and public rally-cap
