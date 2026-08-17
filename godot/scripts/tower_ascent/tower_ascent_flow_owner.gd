@@ -41,6 +41,9 @@ const TowerAscentRestNode := preload(
 const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
+const TowerAscentEndingState := preload(
+	"res://scripts/tower_ascent/tower_ascent_ending_state.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -52,6 +55,7 @@ const PHASE_COMBAT := 0
 const PHASE_NODE_MODAL := 1
 const PHASE_ROUTE_AIM := 2
 const PHASE_MAP_TRANSITION := 3
+const PHASE_FAKE_ENDING_TEASER := 4
 const MAP_TRANSITION_SECONDS := 0.9
 const SELECTOR_RADIUS := 11.0
 const SELECTOR_SPEED := 520.0
@@ -115,6 +119,7 @@ var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
 var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
 var _rest_node: Object = TowerAscentRestNode.new()
 var _record_store: Object = TowerAscentRecordStore.new()
+var _ending_state: Object = TowerAscentEndingState.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
@@ -293,6 +298,9 @@ func restore_snapshot(
 		var rest_resolution_id := str(rest_record.get("node_resolution_id", ""))
 		if not rest_resolution_id.is_empty():
 			_resolution_ids[rest_resolution_id] = true
+	if not _ending_state.restore_state(snapshot.get("ending_state", {})):
+		_reset_runtime_state()
+		return false
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
@@ -305,7 +313,11 @@ func restore_snapshot(
 		"node_modal_kind",
 		"guardian_spring"
 	)))
-	_phase = clampi(int(snapshot.get("phase", PHASE_NODE_MODAL)), PHASE_NODE_MODAL, PHASE_MAP_TRANSITION)
+	_phase = clampi(
+		int(snapshot.get("phase", PHASE_NODE_MODAL)),
+		PHASE_NODE_MODAL,
+		PHASE_FAKE_ENDING_TEASER
+	)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
 	_selector_launched = bool(snapshot.get("selector_launched", false))
@@ -329,6 +341,9 @@ func restore_snapshot(
 		_open_node_modal()
 	else:
 		_node_modal_state.close()
+	if _phase == PHASE_FAKE_ENDING_TEASER and not _ending_state.is_teaser_pending():
+		_reset_runtime_state()
+		return false
 	return true
 
 
@@ -355,6 +370,7 @@ func export_snapshot() -> Dictionary:
 		"build_state": _build_state.duplicate(true),
 		"guardian_state": _guardian_state.duplicate(true),
 		"rest_history": _rest_node.get_history(),
+		"ending_state": _ending_state.export_state(),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
 		"route_source_node_id": _route_source_node_id,
@@ -367,7 +383,11 @@ func export_snapshot() -> Dictionary:
 		"selector_launched": _selector_launched,
 		"aim_target_x": _aim_target_x,
 		"map_transition_progress": _map_transition_progress,
-		"stable_boundary": _phase == PHASE_NODE_MODAL or _phase == PHASE_MAP_TRANSITION,
+		"stable_boundary": _phase in [
+			PHASE_NODE_MODAL,
+			PHASE_MAP_TRANSITION,
+			PHASE_FAKE_ENDING_TEASER,
+		],
 	}, true)
 	return snapshot
 
@@ -451,12 +471,18 @@ func get_phase_name() -> String:
 			return "ROUTE_AIM"
 		PHASE_MAP_TRANSITION:
 			return "MAP_TRANSITION"
+		PHASE_FAKE_ENDING_TEASER:
+			return "FAKE_ENDING_TEASER"
 	return "COMBAT"
 
 
 func handle_input(event: InputEvent) -> bool:
 	if not _active:
 		return false
+	if _phase == PHASE_FAKE_ENDING_TEASER:
+		if _is_confirm_event(event):
+			_dismiss_fake_ending_teaser()
+		return true
 	if _phase == PHASE_NODE_MODAL:
 		_handle_node_modal_input(event)
 		return true
@@ -715,6 +741,53 @@ func set_record_store_path_for_tests(path: String) -> void:
 
 func get_record_snapshot() -> Dictionary:
 	return _record_store.get_snapshot()
+
+
+func begin_floor_nine_resolution(
+	resolution_id: String = "",
+	finish_callback: Callable = Callable(),
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if not ensure_run_started(owner):
+		return {"accepted": false, "reason": "run_unavailable"}
+	var normalized_resolution_id := resolution_id.strip_edges()
+	if normalized_resolution_id.is_empty():
+		normalized_resolution_id = _make_resolution_id(
+			"floor_09_fake_ending",
+			"ending_judgment"
+		)
+	var result: Dictionary = _ending_state.resolve_floor_nine(
+		_run_state.get_run_id(),
+		normalized_resolution_id,
+		_record_store
+	)
+	if not bool(result.get("accepted", false)):
+		return result
+	if not _ending_state.is_teaser_pending():
+		return result
+	if not _modal_lifecycle.is_active():
+		var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+		if not bool(lifecycle_result.get("accepted", false)):
+			return {"accepted": false, "reason": lifecycle_result.get("reason", "modal_enter_failed")}
+	_active_owner = owner
+	_active_registry = registry
+	_finish_callback = finish_callback
+	_active = true
+	_phase = PHASE_FAKE_ENDING_TEASER
+	_node_modal_state.close()
+	_request_redraw(owner)
+	return result
+
+
+func get_ending_state_snapshot() -> Dictionary:
+	return _ending_state.export_state()
+
+
+func get_ending_view_model() -> Dictionary:
+	return _ending_state.build_teaser_view_model()
 
 
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
@@ -1667,6 +1740,13 @@ func _finish_vertical_slice() -> void:
 		callback.call()
 
 
+func _dismiss_fake_ending_teaser() -> void:
+	var result: Dictionary = _ending_state.mark_teaser_presented()
+	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
+		return
+	_finish_vertical_slice()
+
+
 func _reset_selector() -> void:
 	_selector_position = SELECTOR_ORIGIN
 	_selector_velocity = Vector2.ZERO
@@ -1700,6 +1780,7 @@ func _reset_runtime_state() -> void:
 	_fallen_monk_node.reset()
 	_guardian_spring_node.reset()
 	_rest_node.reset()
+	_ending_state.reset()
 	_pending_runtime_perk_rollback_snapshot.clear()
 	_claimed_decoration_ids.clear()
 	_build_state = {

@@ -34,6 +34,8 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_route_aim(canvas, flow)
 	elif phase_name == "MAP_TRANSITION":
 		_draw_map_transition(canvas, flow)
+	elif phase_name == "FAKE_ENDING_TEASER":
+		_draw_fake_ending_teaser(canvas, flow)
 
 
 func build_render_model(flow: Object) -> Dictionary:
@@ -310,6 +312,24 @@ func _draw_map_transition(canvas: CanvasItem, flow: Object) -> void:
 		20,
 		INK
 	)
+
+
+func _draw_fake_ending_teaser(canvas: CanvasItem, flow: Object) -> void:
+	var model: Dictionary = (
+		flow.get_ending_view_model()
+		if flow.has_method("get_ending_view_model")
+		else {}
+	)
+	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.02, 0.012, 0.01, 0.84), true)
+	var panel := Rect2(104.0, 214.0, 552.0, 292.0)
+	canvas.draw_rect(panel, Color("201813"), true)
+	canvas.draw_rect(panel, CINNABAR, false, 4.0)
+	canvas.draw_rect(panel.grow(-12.0), GOLD, false, 1.5)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(font, Vector2(144.0, 286.0), str(model.get("title", "가짜 끝")), HORIZONTAL_ALIGNMENT_CENTER, 472.0, 30, PAPER)
+	canvas.draw_line(Vector2(166.0, 310.0), Vector2(594.0, 310.0), Color(GOLD, 0.72), 2.0)
+	canvas.draw_string(font, Vector2(132.0, 374.0), str(model.get("body", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 24, Color("f3dba8"))
+	canvas.draw_string(font, Vector2(132.0, 454.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 15, Color(PAPER, 0.78))
 
 
 func _vector2(value: Variant) -> Vector2:

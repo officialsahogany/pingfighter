@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SNAPSHOT_SCHEMA_VERSION := 3
+const SNAPSHOT_SCHEMA_VERSION := 4
 const DEFAULT_CHANCE_GEMS := 3
 const MAX_CHANCE_GEMS := 3
 
