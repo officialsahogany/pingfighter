@@ -4,7 +4,7 @@
 - 작업 브랜치: `codex/tower-unported-boss-port-4164` (로컬 전용, push 없음)
 - 금지 경계: `godot/scripts/tower_ascent/**`, `tower_ascent_tuning.gd`,
   `tower_ascent_boss_registry.gd` 대역 매핑 무수정
-- 전체 상태: 4종 구현·개별 게이트 완료, 최종 인계 감사 진행 중
+- 전체 상태: 완료 (4종 구현·독립 커밋·필수 게이트 완료, blocked/unverified 0건)
 
 ## 두더지왕
 
@@ -255,8 +255,7 @@ SHA-256 일치 확인 후 격리 작업트리에만 복사했다. 첫 시도에�
 
 ### 1. 커밋과 파리티 조사
 
-- 독립 커밋: 이 섹션과 엘리스 구현을 함께 담은 커밋. 최종 인계 감사에서
-  실제 커밋 해시로 치환한다.
+- 독립 커밋: `5d4ee1646559107c05daced7a9c8056787e259c0`
 - 원본 실제 호출 경로:
   - Stage 3 보스 패들 접촉마다 게이지 `+50` 후 거울 세계, 사이즈 시프트,
     토끼 투사체 순으로 판정한다.
@@ -348,3 +347,27 @@ SHA-256 일치 확인 후 격리 작업트리에만 복사했다. 첫 시도에�
 - 통합 호출: 전투 진입 전 `GameSelectionState.set_stage(3, "dalji", false,
   "alice")` 또는 스테이지 3 선택 후 `set_stage_boss_variant("alice")`.
 - 이 트랙에서는 금지된 탑 레지스트리/대역 매핑을 수정하지 않았다.
+
+## 최종 인계 감사
+
+- 기준부터 보스별 독립 커밋 순서:
+  1. `55281df29ed636846e9cd3bb7935d83c714b8aca` — 두더지왕
+  2. `f8424d08e75fe9c777e386685cffebb42a912298` — 아라크네
+  3. `038287f3ec2f44ab19fa8bcecd657cf6bdaf8835` — 테디베어
+  4. `5d4ee1646559107c05daced7a9c8056787e259c0` — 엘리스
+- 최종 공통 게이트:
+  - 4종 집중 스모크 + Stage 2 라우터 + Teddy/환묘 연묘 역방향 회귀:
+    `Smoke summary: PASS=8 FAIL=0 TOTAL=8`
+  - 변경 GDScript 경고 스캔: `checked 14/14`, 무경고
+  - 헤드리스 로드: graceful shutdown 및 PASS
+  - 네 보스 모두 Forward Mobile/Vulkan RTX 5070 실창 캡처 및 육안 검사 완료
+  - `git diff --check` PASS
+- 금지 경계 감사:
+  - `godot/scripts/tower_ascent/**` 변경 0건
+  - `tower_ascent_boss_registry.gd` SHA-256:
+    `F4A5564ED54699F891F425AA57D9D2FDD3C354590416CB71C34AF285926E6E29`
+  - `tower_ascent_tuning.gd` SHA-256:
+    `1027846CCC26FF3745E9F448557F530A505F98B8E0610825056FEFD3EB6A9268`
+- 외부 상태: 로컬 커밋만 생성, push 0건.
+- 최종 상태 구분: fixed 4종, deferred는 별도 통합 담당의 대역 매핑 교체만,
+  blocked 0건, unverified 0건.
