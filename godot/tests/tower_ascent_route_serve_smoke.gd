@@ -1,11 +1,26 @@
 extends SceneTree
 
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
+const BattleSceneFrameController := preload(
+	"res://scripts/core/battle_scene_frame_controller.gd"
+)
+const BattleScenePlayerControlConfigBuilder := preload(
+	"res://scripts/core/battle_scene_player_control_config_builder.gd"
+)
 const TowerAscentRouteServeRuntime := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
 )
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentFlowOwner := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
+const PHYSICS_GATE_COORDINATOR_PATH := (
+	"res://scripts/core/battle_physics_gate_coordinator.gd"
 )
 
 var _failures: Array[String] = []
@@ -15,6 +30,12 @@ class FakeOwner:
 	extends Node
 
 	var current_stage := 4
+	var selected_character_type := "smasher"
+	var player_pos := Vector2(250.0, 700.0)
+	var player_speed := 0.0
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
+	var gameplay_frame_counter := 0
 	var ball_pos := Vector2(380.0, 665.0)
 	var ball_vel := Vector2.ZERO
 	var ball_active := false
@@ -25,6 +46,10 @@ class FakeOwner:
 	var boss_ai_ticks := 0
 	var combat_rng_state := 44123
 	var cooldown_seconds := 2.5
+	var redraw_requests := 0
+
+	func request_battle_redraw() -> void:
+		redraw_requests += 1
 
 
 class FakeRoundState:
@@ -50,6 +75,7 @@ class FakeServeFlow:
 
 	var sync_calls := 0
 	var update_calls := 0
+	var trace: Array[String] = []
 
 	func sync_current_input_state() -> void:
 		sync_calls += 1
@@ -61,6 +87,7 @@ class FakeServeFlow:
 		callbacks: Dictionary
 	) -> void:
 		update_calls += 1
+		trace.append("serve_trigger")
 		var serve_callback: Callable = callbacks.get("serve_ball", Callable())
 		if serve_callback.is_valid():
 			serve_callback.call()
@@ -73,6 +100,7 @@ class FakeBallDriver:
 	var velocities: Array[Vector2] = []
 	var reset_calls := 0
 	var serve_calls := 0
+	var trace: Array[String] = []
 
 	func _init(state: FakeRoundState) -> void:
 		round_state = state
@@ -85,6 +113,7 @@ class FakeBallDriver:
 
 	func serve_ball(owner: Object, _registry: Object) -> void:
 		serve_calls += 1
+		trace.append("serve_ball")
 		round_state.waiting = false
 		owner.ball_pos = Vector2(380.0, 665.0)
 		owner.ball_vel = velocities.pop_front() if not velocities.is_empty() else Vector2(0.0, -8.7)
@@ -101,11 +130,194 @@ class FakeRegistry:
 		reads.append(key)
 		return instances.get(key, null)
 
+	func get_cached_instance(key: String) -> Variant:
+		return instances.get(key, null)
+
+
+class FakeInputReader:
+	extends RefCounted
+
+	var snapshot := {
+		"left_pressed": false,
+		"right_pressed": true,
+		"direction": 1.0,
+		"action_pressed": true,
+		"action_just_pressed": true,
+	}
+	var snapshot_calls := 0
+	var trace: Array[String] = []
+
+	func get_snapshot() -> Dictionary:
+		snapshot_calls += 1
+		trace.append("input_snapshot")
+		return snapshot.duplicate(true)
+
+
+class FakeMovementState:
+	extends RefCounted
+
+	var update_calls := 0
+	var trace: Array[String] = []
+
+	func update_horizontal(
+		delta: float,
+		player_pos: Vector2,
+		player_speed: float,
+		direction: float,
+		play_left: float,
+		play_right: float,
+		paddle_width: float,
+		_config: Dictionary = {}
+	) -> Dictionary:
+		update_calls += 1
+		trace.append("player_movement")
+		var next_speed := direction * 6.0
+		var next_pos := player_pos + Vector2(next_speed * delta * 60.0, 0.0)
+		next_pos.x = clampf(next_pos.x, play_left, play_right - paddle_width)
+		return {"player_pos": next_pos, "player_speed": next_speed}
+
+
+class FakePlayerControlContext:
+	extends RefCounted
+
+	func build_player_control_config(_character_type: String = "smasher") -> Dictionary:
+		return {
+			"play_left": 0.0,
+			"play_right": 760.0,
+			"paddle_width": 155.0,
+			"paddle_speed": 6.0,
+			"paddle_max_speed": 6.0,
+			"paddle_accel": 0.5,
+			"paddle_decel": 0.5,
+			"paddle_turn_decel": 1.0,
+		}
+
+
+class FakeMotionStepper:
+	extends RefCounted
+
+	var inner: Object = BallMotionStepper.new()
+	var trace: Array[String] = []
+
+	func step(
+		ball_pos: Vector2,
+		movement: Vector2,
+		ball_vel: Vector2,
+		context: Dictionary
+	) -> Dictionary:
+		trace.append("ball_step")
+		return inner.step(ball_pos, movement, ball_vel, context)
+
+
+class FakeModalRuntime:
+	extends RefCounted
+
+	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
+		pass
+
+	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
+		pass
+
+	func _resume_skill_cooldowns_for_choice() -> void:
+		pass
+
+	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
+		pass
+
+
+class FakeReadiness:
+	extends RefCounted
+
+	func is_logo_intro_active(_module_getter: Callable) -> bool:
+		return false
+
+	func is_boot_warmup_finished(_module_getter: Callable) -> bool:
+		return true
+
+	func is_stage_landing_intro_active(_module_getter: Callable) -> bool:
+		return false
+
+	func is_ball_spawn_intro_active(_module_getter: Callable) -> bool:
+		return false
+
+
+class FakeTransition:
+	extends RefCounted
+
+	func is_stage_transition_loading_active() -> bool:
+		return false
+
+
+class FakeScreen:
+	extends RefCounted
+
+	func is_active() -> bool:
+		return false
+
+	func blocks_battle_physics() -> bool:
+		return false
+
+
+class FakeGrip:
+	extends RefCounted
+
+	func update(
+		_delta: float,
+		_owner: Object,
+		_registry: Object,
+		_module_getter: Callable
+	) -> bool:
+		return false
+
+	func is_active() -> bool:
+		return false
+
+
+class FakeModalGate:
+	extends RefCounted
+
+	func should_block_battle_physics_with_perf(
+		_module_getter: Callable,
+		_perf_logger: Object = null
+	) -> bool:
+		return false
+
+
+class FakeModalPause:
+	extends RefCounted
+
+	var enter_calls := 0
+
+	func enter_modal_block(
+		_owner: Object,
+		_registry: Object,
+		_module_getter: Callable
+	) -> void:
+		enter_calls += 1
+
+	func leave_modal_block(
+		_owner: Object,
+		_registry: Object,
+		_module_getter: Callable
+	) -> void:
+		pass
+
+
+class ModuleHolder:
+	extends RefCounted
+
+	var modules: Dictionary = {}
+
+	func get_module(key: String) -> Variant:
+		return modules.get(key, null)
+
 
 func _init() -> void:
+	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
 	_verify_production_source_uses_serve_contract_without_aim_input()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print("tower_ascent_route_serve_smoke: ok")
 		quit(0)
@@ -113,6 +325,125 @@ func _init() -> void:
 	for failure in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var owner := FakeOwner.new()
+	var frame_trace: Array[String] = []
+	var input_reader := FakeInputReader.new()
+	var movement_state := FakeMovementState.new()
+	var round_state := FakeRoundState.new()
+	var serve_flow := FakeServeFlow.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var motion_stepper := FakeMotionStepper.new()
+	input_reader.trace = frame_trace
+	movement_state.trace = frame_trace
+	serve_flow.trace = frame_trace
+	ball_driver.trace = frame_trace
+	motion_stepper.trace = frame_trace
+	var flow := TowerAscentFlowOwner.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"tower_ascent_flow_owner": flow,
+		"runtime_perk_state": FakeModalRuntime.new(),
+		"round_flow_state": round_state,
+		"serve_flow_controller": serve_flow,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": motion_stepper,
+		"smasher_input_reader": input_reader,
+		"player_movement_state": movement_state,
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	_expect(
+		flow.begin_vertical_slice(owner, Callable(), {"registry": registry, "run_id": "gate-frame-route"}),
+		"production route fixture must enter ROUTE_AIM"
+	)
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	_expect(targets.size() >= 1, "generated ROUTE_AIM must expose a physical target")
+	if targets.is_empty():
+		flow.call("_finish_vertical_slice")
+		owner.free()
+		return
+	var target_position: Vector2 = targets[0].get("position", Vector2.ZERO)
+	ball_driver.velocities = [
+		(target_position - Vector2(380.0, 665.0)).normalized() * 8.7,
+	]
+	var holder := ModuleHolder.new()
+	holder.modules = {
+		"battle_scene_readiness_controller": FakeReadiness.new(),
+		"battle_scene_match_event_driver": FakeTransition.new(),
+		"stage_clear_result_screen": FakeScreen.new(),
+		"defeat_chance_gems_continue_screen": FakeScreen.new(),
+		"defeat_settlement_screen": FakeScreen.new(),
+		"grip_style_selection_overlay": FakeGrip.new(),
+		"battle_scene_modal_gate_controller": FakeModalGate.new(),
+	}
+	var pause := FakeModalPause.new()
+	var initial_player_pos := owner.player_pos
+	var initial_scores := Vector2i(owner.player_score, owner.boss_score)
+	var initial_cooldown := owner.cooldown_seconds
+	var uses_extracted_gate := ResourceLoader.exists(PHYSICS_GATE_COORDINATOR_PATH)
+	var blocked := _run_physics_gate_frame(
+		1.5,
+		owner,
+		registry,
+		holder,
+		pause
+	)
+	_expect(blocked, "ROUTE_AIM frame must stay inside the tower physics gate")
+	_expect(owner.player_pos.x > initial_player_pos.x, "the coordinator frame path must tick player movement")
+	_expect(input_reader.snapshot_calls == 1, "one ROUTE_AIM frame must acquire one idempotent input snapshot")
+	_expect(movement_state.update_calls == 1, "one ROUTE_AIM frame must tick player movement once")
+	_expect(ball_driver.serve_calls == 1, "the same coordinator frame must trigger the existing serve producer")
+	_expect(frame_trace.count("ball_step") == 1, "the same coordinator frame must step the served ball once")
+	_expect(flow.get_phase_name() == "MAP_TRANSITION", "the same coordinator frame must resolve the swept target hit")
+	_expect(
+		frame_trace == ["input_snapshot", "player_movement", "serve_trigger", "serve_ball", "ball_step"],
+		"ROUTE_AIM selective order must be snapshot -> movement -> serve -> ball step before hit transition"
+	)
+	_expect(
+		Vector2i(owner.player_score, owner.boss_score) == initial_scores,
+		"the selective frame must keep combat score processing frozen"
+	)
+	_expect(is_equal_approx(owner.cooldown_seconds, initial_cooldown), "the selective frame must keep combat cooldowns frozen")
+	if uses_extracted_gate:
+		_expect(pause.enter_calls == 1, "the extracted physics gate must retain the modal pause fanout")
+	flow.call("_finish_vertical_slice")
+	owner.free()
+
+
+func _run_physics_gate_frame(
+	delta: float,
+	owner: Object,
+	registry: Object,
+	holder: ModuleHolder,
+	pause: FakeModalPause
+) -> bool:
+	if ResourceLoader.exists(PHYSICS_GATE_COORDINATOR_PATH):
+		var gate_script := load(PHYSICS_GATE_COORDINATOR_PATH) as Script
+		return bool(gate_script.new().should_block(
+			delta,
+			owner,
+			registry,
+			Callable(holder, "get_module"),
+			{
+				"is_battle_initialized": Callable(self, "_true_callback"),
+				"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+			},
+			pause
+		))
+	return bool(BattleSceneFrameController.new().call(
+		"_process_tower_ascent_flow",
+		delta,
+		owner,
+		registry
+	))
+
+
+func _true_callback() -> bool:
+	return true
 
 
 func _verify_real_serve_owner_and_unlimited_retry() -> void:
@@ -129,11 +460,17 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 		(left_target - Vector2(380.0, 665.0)).normalized() * 8.7,
 	]
 	var registry := FakeRegistry.new()
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot["direction"] = 0.0
 	registry.instances = {
 		"round_flow_state": round_state,
 		"serve_flow_controller": serve_flow,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": BallMotionStepper.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
 	}
 	var runtime := TowerAscentRouteServeRuntime.new()
 	var begin_result: Dictionary = runtime.begin(owner, registry)
@@ -159,6 +496,7 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	_expect(owner.boss_ai_ticks == 0 and owner.combat_rng_state == 44123, "route ball ownership must not tick boss AI or combat RNG")
 	_expect(is_equal_approx(owner.cooldown_seconds, 2.5), "route ball ownership must not tick combat cooldowns")
 	_expect(not registry.reads.has("game_audio") and not registry.reads.has("boss_ai"), "selective route simulation must not acquire loop audio or boss AI")
+	runtime.cancel()
 	owner.free()
 
 
@@ -182,6 +520,10 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 		"serve_flow_controller",
 		"battle_scene_ball_update_driver",
 		"ball_motion_stepper",
+		"get_input_reader_key",
+		"player_movement_state",
+		"battle_update_context",
+		"battle_scene_player_control_config_builder",
 	]:
 		_expect(route_source.find(required_key) >= 0, "route serve must use production dependency: %s" % required_key)
 	for retired_aim_input in ["KEY_LEFT", "KEY_RIGHT", "InputEventMouseMotion", "_launch_selector"]:

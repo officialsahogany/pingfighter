@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+const PlayerCharacterRuntime := preload(
+	"res://scripts/characters/player_character_runtime.gd"
+)
 
 const STATUS_WAITING := "waiting"
 const STATUS_FLIGHT := "flight"
@@ -16,6 +19,12 @@ var _round_state: Object = null
 var _serve_flow: Object = null
 var _ball_driver: Object = null
 var _motion_stepper: Object = null
+var _input_reader: Object = null
+var _movement_state: Object = null
+var _player_control_context: Object = null
+var _player_control_config_builder: Object = null
+var _character_runtime: Object = PlayerCharacterRuntime.new()
+var _character_type := PlayerCharacterRuntime.SMASHER
 var _owner_properties: Dictionary = {}
 var _fixture_ball_position := Vector2.ZERO
 var _fixture_ball_velocity := Vector2.ZERO
@@ -37,6 +46,20 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 	_serve_flow = _get_instance(registry, "serve_flow_controller")
 	_ball_driver = _get_instance(registry, "battle_scene_ball_update_driver")
 	_motion_stepper = _get_instance(registry, "ball_motion_stepper")
+	_character_type = _character_runtime.normalize(_owner_value(
+		"selected_character_type",
+		PlayerCharacterRuntime.SMASHER
+	))
+	_input_reader = _get_instance(
+		registry,
+		_character_runtime.get_input_reader_key(_character_type)
+	)
+	_movement_state = _get_instance(registry, "player_movement_state")
+	_player_control_context = _get_instance(registry, "battle_update_context")
+	_player_control_config_builder = _get_instance(
+		registry,
+		"battle_scene_player_control_config_builder"
+	)
 	if not _has_production_contract():
 		cancel()
 		return {"accepted": false, "reason": "missing_route_serve_contract"}
@@ -56,6 +79,11 @@ func cancel() -> void:
 	_serve_flow = null
 	_ball_driver = null
 	_motion_stepper = null
+	_input_reader = null
+	_movement_state = null
+	_player_control_context = null
+	_player_control_config_builder = null
+	_character_type = PlayerCharacterRuntime.SMASHER
 	_owner_properties.clear()
 	_fixture_ball_position = Vector2.ZERO
 	_fixture_ball_velocity = Vector2.ZERO
@@ -72,6 +100,8 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 		return {"status": STATUS_WAITING}
 	if _fixture_mode:
 		return _update_fixture_flight(delta, targets)
+	var input_snapshot := _read_player_input_snapshot()
+	_update_player_route_movement(maxf(0.0, delta), input_snapshot)
 	if bool(_round_state.is_waiting_for_serve()):
 		_serve_flow.update(
 			maxf(0.0, delta),
@@ -79,7 +109,8 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 			{"round_state": _round_state},
 			{"serve_ball": Callable(self, "_serve_live_ball")}
 		)
-		return {"status": STATUS_WAITING}
+		if bool(_round_state.is_waiting_for_serve()):
+			return {"status": STATUS_WAITING}
 	if not bool(_owner_value("ball_active", false)):
 		_prepare_next_serve()
 		return {"status": STATUS_MISS}
@@ -125,6 +156,53 @@ func _serve_live_ball() -> void:
 	_ball_driver.serve_ball(_owner, _registry)
 	if bool(_owner_value("ball_active", false)):
 		_serve_attempt_count += 1
+
+
+func _read_player_input_snapshot() -> Dictionary:
+	if _input_reader == null or not _input_reader.has_method("get_snapshot"):
+		return {}
+	var value: Variant = _input_reader.call("get_snapshot")
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _update_player_route_movement(delta: float, input_snapshot: Dictionary) -> void:
+	var config_value: Variant = _player_control_config_builder.call(
+		"build_config",
+		_owner,
+		_registry,
+		_character_type,
+		_player_control_context
+	)
+	var config: Dictionary = config_value if config_value is Dictionary else {}
+	var player_pos := _owner_vector2("player_pos", Vector2.ZERO)
+	var movement_value: Variant = _movement_state.call(
+		"update_horizontal",
+		delta,
+		player_pos,
+		float(_owner_value("player_speed", 0.0)),
+		float(input_snapshot.get("direction", 0.0)),
+		float(config.get("play_left", 0.0)),
+		float(config.get("play_right", BattleSceneConfig.WIDTH)),
+		maxf(1.0, float(config.get(
+			"paddle_width",
+			_owner_value("player_paddle_width", 155.0)
+		))),
+		config
+	)
+	if not (movement_value is Dictionary):
+		return
+	var movement := movement_value as Dictionary
+	var next_pos: Variant = movement.get("player_pos", player_pos)
+	if next_pos is Vector2:
+		_set_owner_value("player_pos", next_pos)
+	_set_owner_value(
+		"player_speed",
+		float(movement.get("player_speed", _owner_value("player_speed", 0.0)))
+	)
+	_set_owner_value(
+		"gameplay_frame_counter",
+		int(_owner_value("gameplay_frame_counter", 0)) + 1
+	)
 
 
 func _advance_live_ball(delta: float, targets: Array[Dictionary]) -> Dictionary:
@@ -251,6 +329,14 @@ func _has_production_contract() -> bool:
 		and _ball_driver.has_method("serve_ball")
 		and _motion_stepper != null
 		and _motion_stepper.has_method("step")
+		and _input_reader != null
+		and _input_reader.has_method("get_snapshot")
+		and _movement_state != null
+		and _movement_state.has_method("update_horizontal")
+		and _player_control_context != null
+		and _player_control_context.has_method("build_player_control_config")
+		and _player_control_config_builder != null
+		and _player_control_config_builder.has_method("build_config")
 	)
 
 

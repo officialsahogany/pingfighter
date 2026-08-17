@@ -137,3 +137,74 @@ GREEN이며, 이 baseline 부채를 본 작업에서 수정하거나 커밋하�
 - **unverified**: 필수 게이트 0건.
 
 원본 워크트리의 다른 WIP와 사용자 Godot 편집기/플레이 세션은 보존했다.
+
+## 8. 라이브 ROUTE_AIM 입력 정지 후속 수정 (2026-08-18)
+
+### 원인과 수정
+
+사용자 라이브 런에서 ROUTE_AIM 진입 뒤 플레이어 이동과 수동 서브가 모두
+멈추는 결함이 확인됐다. 실제 물리 호출 경로는
+`battle_scene_frame_controller.process_physics()` →
+`battle_physics_gate_coordinator.should_block()` →
+`tower_ascent_flow_owner.update_selective()`였고, 게이트는 의도대로 일반 전투
+사다리를 반환 전에 차단했다. 그러나 선택적 flow가 서브 대기·공 이동만
+갱신하고 플레이어 입력 스냅샷과 수평 이동을 전혀 틱하지 않은 것이 원인이다.
+
+`tower_ascent_route_serve_runtime.gd`의 프로덕션 계약에 선택 캐릭터의 실제
+input reader, `player_movement_state`, `battle_update_context`,
+`battle_scene_player_control_config_builder`를 추가했다. ROUTE_AIM 한 물리 프레임은
+이제 아래 순서를 명시적으로 소유한다.
+
+1. 공유 input reader의 `get_snapshot()`을 정확히 한 번 호출한다.
+2. 그 스냅샷의 방향과 실제 플레이어 이동 설정으로 위치·속도·애니메이션
+   프레임을 갱신한다.
+3. 기존 `serve_flow_controller`가 수동/자동 서브 에지를 처리한다.
+4. 같은 프레임에 서브가 성립하면 기존 공 소유자와 `ball_motion_stepper`를
+   즉시 틱한다.
+5. 실제 공의 swept 구간으로 표적 명중을 판정하고 MAP_TRANSITION으로 넘긴다.
+
+입력 스냅샷은 프레임당 한 번만 읽으므로 GRT-019의 same-frame idempotent 계약을
+보존한다. 보스 AI·득실점 처리·전투 타이머·전투 RNG·전투 쿨다운의 일반
+사다리는 계속 닫혀 있다. 새 이동 의존성 가운데 하나라도 없으면 기존과 같이
+`missing_route_serve_contract`로 실패 폐쇄한다.
+
+### GRT-053 프레임 경로 씰
+
+`tower_ascent_route_serve_smoke.gd`의 주 회귀 레그를 직접 debug 발사 헬퍼가 아닌
+실제 `battle_physics_gate_coordinator.should_block()` 관통 경로로 승격했다. 한
+코디네이터 프레임 안에서 다음을 단언한다.
+
+씰은 게이트 추출 WIP와 이 3파일 수정의 커밋 경계를 섞지 않도록
+`battle_physics_gate_coordinator.gd`가 존재하면 추출 코디네이터를 관통하고,
+격리된 3파일 커밋 트리처럼 아직 추출 파일이 없으면 커밋된
+`battle_scene_frame_controller._process_tower_ascent_flow()`의 동일 프로덕션
+분기로 관통한다. 현재 라이브 워크트리 재검증은 추출 코디네이터 경로를 탔다.
+
+- 호출 순서: `input_snapshot → player_movement → serve_trigger → serve_ball → ball_step`
+- 플레이어 X 위치 증가와 input snapshot 1회/이동 1회
+- 실제 서브 생산자 호출 1회와 공 스텝 1회
+- swept 표적 명중 뒤 `ROUTE_AIM → MAP_TRANSITION`
+- 게이트 반환은 계속 `blocked=true`, modal pause fanout 1회
+- 플레이어/보스 점수와 전투 쿨다운 불변
+
+수정 전 이 레그는 이동·스냅샷·공 스텝·명중 전이에서 RED였고, 수정 뒤 GREEN이다.
+
+### 후속 검증 종단선
+
+- 집중 프레임 경로/GRT 회귀 3종:
+  `Smoke summary: PASS=3 FAIL=0 TOTAL=3` / `All Godot smoke tests passed.`
+  (`tower_ascent_route_serve`, `battle_physics_gate_coordinator_owner`,
+  `player_input_reader_same_frame_edge`)
+- 탑 전체 회귀 35종:
+  `Smoke summary: PASS=35 FAIL=0 TOTAL=35` / `All Godot smoke tests passed.`
+- 변경 GDScript 2개 집중 경고 스캔:
+  `gd_warning_scan: checked 2/2` / 경고 0.
+- 헤드리스 로드:
+  `[ApplicationQuitCoordinator] graceful headless shutdown complete` /
+  `Godot headless load check passed.`
+- 실행 중인 사용자 게임 PID 38784는 종료하지 않았다. 모든 검증은
+  `-AllowDuringPlay`, BelowNormal, 고유 로그 계약으로 병행했다.
+
+후속 판정: **GREEN**. blocked 0건, 필수 자동 게이트 unverified 0건. 이미 떠 있는
+게임 프로세스는 수정 전 스크립트를 유지하므로 다음 새 탑 런에서 체감을
+재확인할 수 있다.
