@@ -18,6 +18,13 @@ const VARIANTS := {
 		"codex_key": "boss.molewang",
 		"ported": true,
 	},
+	"arachne": {
+		"stage": 2,
+		"display_name": "아라크네",
+		"codex_key": "boss.arachne",
+		"boss_paddle_scale": 1.30,
+		"ported": true,
+	},
 	"yeonmyo": {
 		"stage": 3,
 		"display_name": "환묘 연묘",

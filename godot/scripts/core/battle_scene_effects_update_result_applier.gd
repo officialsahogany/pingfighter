@@ -29,6 +29,10 @@ func apply_effects_result(owner: Object, result: Dictionary) -> void:
 			"boss_vel",
 			_get_owner_value(owner, "boss_vel", 0.0)
 		)))
+	if result.has("boss_paddle_width"):
+		owner.set("boss_paddle_width", maxf(1.0, float(result.get("boss_paddle_width", 100.0))))
+	if result.has("boss_hitbox_height"):
+		owner.set("boss_hitbox_height", maxf(1.0, float(result.get("boss_hitbox_height", 40.0))))
 	if result.has("ball_pos"):
 		var ball_pos: Variant = result.get("ball_pos", _get_owner_value(owner, "ball_pos", Vector2.ZERO))
 		if ball_pos is Vector2:

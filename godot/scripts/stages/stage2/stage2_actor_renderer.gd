@@ -75,7 +75,7 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	player_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage2.player", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	if str(context.get("stage_boss_variant", "cheongringwi")) == "molewang":
+	if str(context.get("stage_boss_variant", "cheongringwi")) in ["molewang", "arachne"]:
 		variant_boss_renderer.draw(canvas, context, shake_offset)
 	else:
 		boss_renderer.draw(canvas, context, shake_offset)

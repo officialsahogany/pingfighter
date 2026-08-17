@@ -10,11 +10,16 @@ func prewarm_assets_step() -> bool:
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null or str(context.get("stage_boss_variant", "")) != "molewang":
+	if canvas == null:
 		return
-	_draw_tunnel_spikes(canvas, context, shake_offset)
-	_draw_friend_moles(canvas, context, shake_offset)
-	_draw_molewang(canvas, context, shake_offset)
+	match str(context.get("stage_boss_variant", "")):
+		"molewang":
+			_draw_tunnel_spikes(canvas, context, shake_offset)
+			_draw_friend_moles(canvas, context, shake_offset)
+			_draw_molewang(canvas, context, shake_offset)
+		"arachne":
+			_draw_arachne_webs(canvas, context, shake_offset)
+			_draw_arachne(canvas, context, shake_offset)
 
 
 func _draw_molewang(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
@@ -124,6 +129,94 @@ func _draw_friend_moles(canvas: CanvasItem, context: Dictionary, shake_offset: V
 		canvas.draw_circle(center + Vector2(0.0, 10.0 - 18.0 * emerge), 15.0, Color("d5a62e"))
 		canvas.draw_circle(center + Vector2(-5.0, 6.0 - 18.0 * emerge), 2.0, Color("17110b"))
 		canvas.draw_circle(center + Vector2(5.0, 6.0 - 18.0 * emerge), 2.0, Color("17110b"))
+
+
+func _draw_arachne(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var boss_pos := _as_vector2(context.get("boss_draw_pos", context.get("boss_pos", Vector2(315.0, 25.0))), Vector2(315.0, 25.0)) + shake_offset
+	var boss_size := _as_vector2(context.get("boss_paddle_size", Vector2(130.0, 52.0)), Vector2(130.0, 52.0))
+	var center := boss_pos + Vector2(boss_size.x * 0.5, boss_size.y + 16.0 + float(context.get("arachne_rage_stomp_offset_y", 0.0)))
+	var hit_flash := clampf(float(context.get("arachne_hit_progress", 0.0)), 0.0, 1.0) * 0.22
+	var rage_tint := clampf(float(context.get("arachne_rage_red_tint", 0.0)), 0.0, 1.0)
+	var body_color := Color("281c16").lerp(Color.WHITE, hit_flash).lerp(Color("8f1816"), rage_tint * 0.55)
+	var leg_color := Color("3a2018").lerp(Color("8b211d"), rage_tint * 0.45)
+	for pair_index in range(4):
+		var y_offset := -18.0 + float(pair_index) * 12.0
+		var reach := 48.0 + float(3 - pair_index) * 5.0
+		for side in [-1.0, 1.0]:
+			var hip := center + Vector2(side * 15.0, y_offset)
+			var knee := center + Vector2(side * (32.0 + float(pair_index) * 3.0), y_offset - 14.0 + float(pair_index) * 5.0)
+			var foot := center + Vector2(side * reach, 18.0 + float(pair_index) * 7.0)
+			canvas.draw_polyline(PackedVector2Array([hip, knee, foot]), leg_color, 6.0)
+			canvas.draw_circle(knee, 4.2, Color("4d2d22"))
+	canvas.draw_circle(center + Vector2(0.0, 15.0), 30.0, Color("201712"))
+	canvas.draw_circle(center + Vector2(0.0, -13.0), 23.0, body_color)
+	for chevron_index in range(3):
+		var chevron_y := center.y + 3.0 + float(chevron_index) * 9.0
+		var width := 17.0 - float(chevron_index) * 2.0
+		canvas.draw_polyline(PackedVector2Array([
+			Vector2(center.x - width, chevron_y), Vector2(center.x, chevron_y + 7.0), Vector2(center.x + width, chevron_y),
+		]), Color("c98a38"), 3.0)
+	for side in [-1.0, 1.0]:
+		for eye_index in range(2):
+			var eye_pos := center + Vector2(side * (5.0 + float(eye_index) * 5.0), -18.0 + float(eye_index) * 5.0)
+			canvas.draw_circle(eye_pos, 2.8, Color("7d2017"))
+			canvas.draw_circle(eye_pos + Vector2(-0.5, -0.5), 0.9, Color("f5ddc9"))
+		var fang_root := center + Vector2(side * 7.0, 1.0)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			fang_root, fang_root + Vector2(side * 5.0, 11.0), fang_root + Vector2(side * 1.0, 8.0),
+		]), Color("b63827"))
+
+
+func _draw_arachne_webs(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var projectile_value: Variant = context.get("arachne_web_trap_projectile", {})
+	if projectile_value is Dictionary and not projectile_value.is_empty():
+		_draw_web_projectile(canvas, projectile_value, shake_offset)
+	for value in context.get("arachne_rage_projectiles", []):
+		if value is Dictionary:
+			_draw_web_projectile(canvas, value, shake_offset)
+	for value in context.get("arachne_web_traps", []):
+		if value is Dictionary:
+			_draw_web_trap(canvas, value, shake_offset)
+	for value in context.get("arachne_web_break_bursts", []):
+		if not (value is Dictionary):
+			continue
+		var burst: Dictionary = value
+		var center := _as_vector2(burst.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var ratio := clampf(float(burst.get("age", 0.0)) / 0.55, 0.0, 1.0)
+		var color := Color("ffd750") if bool(burst.get("golden", false)) else Color("ded7d0")
+		for index in range(8):
+			var angle := TAU * float(index) / 8.0
+			canvas.draw_line(center + Vector2.from_angle(angle) * 8.0, center + Vector2.from_angle(angle) * lerpf(12.0, 48.0, ratio), Color(color, 1.0 - ratio), 2.0)
+	if bool(context.get("arachne_web_rescue_active", false)):
+		var boss_pos := _as_vector2(context.get("boss_draw_pos", context.get("boss_pos", Vector2(315.0, 25.0))), Vector2(315.0, 25.0)) + Vector2(65.0, 57.0) + shake_offset
+		var ball_pos := _as_vector2(context.get("arachne_web_rescue_ball_pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		for index in range(3):
+			var offset := Vector2(float(index - 1) * 5.0, 0.0)
+			canvas.draw_line(boss_pos + offset, ball_pos + offset, Color(0.90, 0.90, 0.96, 0.85), 2.0)
+		canvas.draw_arc(ball_pos, 17.0, 0.0, TAU, 24, Color(0.95, 0.95, 1.0, 0.75), 2.0)
+
+
+func _draw_web_projectile(canvas: CanvasItem, projectile: Dictionary, shake_offset: Vector2) -> void:
+	var start := _as_vector2(projectile.get("start", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var target := _as_vector2(projectile.get("target", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var ratio := clampf(float(projectile.get("age", 0.0)) / maxf(0.001, float(projectile.get("duration", 0.58))), 0.0, 1.0)
+	var eased := 1.0 - (1.0 - ratio) * (1.0 - ratio)
+	var head := start.lerp(target, eased)
+	var color := Color("ffd750") if bool(projectile.get("golden", false)) else Color("ef5350") if bool(projectile.get("rage", false)) else Color("eee9e5")
+	canvas.draw_line(start, head, color, 3.0)
+	canvas.draw_circle(head, 7.0, color)
+
+
+func _draw_web_trap(canvas: CanvasItem, trap: Dictionary, shake_offset: Vector2) -> void:
+	var center := _as_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var radius := float(trap.get("radius", 50.0))
+	var expand := clampf(1.0 - float(trap.get("expand", 0.0)) / 0.2, 0.0, 1.0)
+	radius *= expand
+	var color := Color("ffd750") if bool(trap.get("golden", false)) else Color("de3d3a") if bool(trap.get("rage", false)) else Color("d7d1cc")
+	for ring in range(1, 5):
+		canvas.draw_arc(center, radius * float(ring) / 4.0, 0.0, TAU, 32, Color(color, 0.72), 1.8)
+	for index in range(8):
+		canvas.draw_line(center, center + Vector2.from_angle(TAU * float(index) / 8.0) * radius, Color(color, 0.72), 1.8)
 
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
