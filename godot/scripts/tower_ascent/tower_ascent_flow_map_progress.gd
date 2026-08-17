@@ -65,14 +65,12 @@ func debug_advance_to_route_aim() -> void:
 func debug_launch_at_target(target_index: int) -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
 		return
-	_set_aim_target(_route_target_aim_position(target_index).x)
-	_launch_selector()
+	_route_serve_runtime.debug_serve_toward(_route_target_aim_position(target_index))
 
 func debug_launch_miss() -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
 		return
-	_set_aim_target(380.0)
-	_launch_selector()
+	_route_serve_runtime.debug_serve_miss()
 
 func get_graph_nodes() -> Array[Dictionary]:
 	return _graph_nodes
@@ -126,13 +124,13 @@ func get_selector_origin() -> Vector2:
 	return SELECTOR_ORIGIN
 
 func get_selector_position() -> Vector2:
-	return _selector_position
+	return _route_serve_runtime.get_ball_position()
 
 func get_aim_preview_point() -> Vector2:
 	return Vector2(_aim_target_x, SELECTOR_TARGET_Y)
 
 func is_selector_launched() -> bool:
-	return _selector_launched
+	return _route_serve_runtime.is_ball_in_flight()
 
 func get_map_transition_progress() -> float:
 	return _map_transition_progress
@@ -170,54 +168,22 @@ func _build_generated_graph(_current_stage: int) -> bool:
 		_refresh_route_target_cache()
 	return valid
 
-func _enter_route_aim() -> void:
+func _enter_route_aim() -> bool:
 	_node_modal_state.close()
 	_phase = PHASE_ROUTE_AIM
 	_reset_selector()
+	var result: Dictionary = _route_serve_runtime.begin(_active_owner, _active_registry)
+	return bool(result.get("accepted", false))
 
-func _set_aim_target(x_value: float) -> void:
-	if _selector_launched:
-		return
-	_aim_target_x = clampf(x_value, SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
-
-func _launch_selector() -> void:
-	if _selector_launched:
-		return
-	var direction := (Vector2(_aim_target_x, SELECTOR_TARGET_Y) - SELECTOR_ORIGIN).normalized()
-	_selector_velocity = direction * SELECTOR_SPEED
-	_selector_launched = true
-
-func _update_selector(delta: float) -> void:
-	var remaining := delta
-	while remaining > 0.0 and _selector_launched and _phase == PHASE_ROUTE_AIM:
-		var step := minf(remaining, 1.0 / 120.0)
-		remaining -= step
-		_selector_position += _selector_velocity * step
-		if _selector_position.x - SELECTOR_RADIUS <= SELECTOR_LEFT_WALL:
-			_selector_position.x = SELECTOR_LEFT_WALL + SELECTOR_RADIUS
-			_selector_velocity.x = absf(_selector_velocity.x)
-		elif _selector_position.x + SELECTOR_RADIUS >= SELECTOR_RIGHT_WALL:
-			_selector_position.x = SELECTOR_RIGHT_WALL - SELECTOR_RADIUS
-			_selector_velocity.x = -absf(_selector_velocity.x)
-		if _try_hit_route_target():
-			return
-		if _selector_position.y <= SELECTOR_RESET_Y:
-			_reset_selector()
-			return
-
-func _try_hit_route_target() -> bool:
-	for target_index in range(_route_target_ids.size()):
-		var target_id := _route_target_ids[target_index]
-		if not get_route_target_ids().has(target_id):
-			continue
-		if _selector_position.distance_to(_route_target_aim_position(target_index)) <= 49.0:
-			_resolve_route_target(target_id)
-			return true
-	return false
+func _update_route_serve(delta: float) -> void:
+	var result: Dictionary = _route_serve_runtime.update(delta, _route_aim_targets_cache)
+	if str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT:
+		_resolve_route_target(str(result.get("target_id", "")))
 
 func _resolve_route_target(target_id: String) -> void:
 	if not get_route_target_ids().has(target_id):
 		return
+	_route_serve_runtime.finish_selection()
 	_selected_target_id = target_id
 	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})
 	for candidate_id in _route_target_ids:
@@ -372,6 +338,7 @@ func _refresh_route_target_cache() -> void:
 			"kind": str(node.get("kind", "")),
 			"enraged": bool(node.get("enraged", false)),
 			"position": _route_target_aim_position(raw_index),
+			"hit_radius": ROUTE_TARGET_HIT_RADIUS,
 			"map_position": _node_position(target_id),
 		})
 

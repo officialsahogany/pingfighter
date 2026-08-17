@@ -27,7 +27,9 @@ func begin_vertical_slice(
 	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
 	_current_node_id = _route_source_node_id
-	_enter_route_aim()
+	if not _enter_route_aim():
+		_reset_runtime_state()
+		return false
 	_request_redraw(owner)
 	return true
 
@@ -98,35 +100,14 @@ func handle_input(event: InputEvent) -> bool:
 		return true
 	if _phase != PHASE_ROUTE_AIM:
 		return true
-	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		if key_event.pressed and not key_event.echo:
-			if key_event.keycode == KEY_LEFT or key_event.physical_keycode == KEY_LEFT:
-				_set_aim_target(220.0)
-			elif key_event.keycode == KEY_RIGHT or key_event.physical_keycode == KEY_RIGHT:
-				_set_aim_target(540.0)
-			elif key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
-				_launch_selector()
-	elif event is InputEventMouseMotion:
-		_set_aim_target(220.0 if (event as InputEventMouseMotion).position.x < 380.0 else 540.0)
-	elif event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			_set_aim_target(220.0 if mouse_event.position.x < 380.0 else 540.0)
-			_launch_selector()
-	elif event is InputEventScreenTouch:
-		var touch_event := event as InputEventScreenTouch
-		if touch_event.pressed:
-			_set_aim_target(220.0 if touch_event.position.x < 380.0 else 540.0)
-			_launch_selector()
 	return true
 
 
 func update_selective(delta: float, owner: Object = null) -> void:
 	if not _active:
 		return
-	if _phase == PHASE_ROUTE_AIM and _selector_launched:
-		_update_selector(maxf(0.0, delta))
+	if _phase == PHASE_ROUTE_AIM:
+		_update_route_serve(maxf(0.0, delta))
 	elif _phase == PHASE_MAP_TRANSITION:
 		_map_transition_progress = minf(1.0, _map_transition_progress + maxf(0.0, delta) / MAP_TRANSITION_SECONDS)
 		if _map_transition_progress >= 1.0:

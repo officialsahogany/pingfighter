@@ -72,7 +72,7 @@ func _verify_owner_chain() -> void:
 func _verify_eager_runtime_contract() -> void:
 	var state_source := FileAccess.get_file_as_string(STATE_PATH)
 	var runtime_source := FileAccess.get_file_as_string(RUNTIME_PATH)
-	_expect(state_source.count(".new()") == 18, "all shared flow dependencies must remain eager state fields")
+	_expect(state_source.count(".new()") == 19, "all shared flow dependencies, including the route serve runtime, must remain eager state fields")
 	for function_name in ["update_selective", "draw"]:
 		var body := _function_body(runtime_source, function_name)
 		_expect(not body.is_empty(), "%s must remain on the runtime coordinator" % function_name)

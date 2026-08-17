@@ -7,6 +7,9 @@ const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascen
 const TowerAscentRouteCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
 )
+const TowerAscentRouteServeRuntime := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
+)
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
 const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 const TowerAscentNodeResolutionTransaction := preload(
@@ -74,6 +77,7 @@ const SELECTOR_TARGET_Y := 165.0
 const SELECTOR_LEFT_WALL := 52.0
 const SELECTOR_RIGHT_WALL := 708.0
 const SELECTOR_RESET_Y := 92.0
+const ROUTE_TARGET_HIT_RADIUS := 49.0
 
 var _active := false
 var _map_seed := 0
@@ -123,6 +127,7 @@ var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
 var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
+var _route_serve_runtime: Object = TowerAscentRouteServeRuntime.new()
 var _shop_inventory_builder: Object = TowerAscentShopInventory.new()
 var _training_offer_builder: Object = TowerAscentTrainingOfferBuilder.new()
 var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
@@ -164,6 +169,7 @@ func _reset_selector() -> void:
 	_aim_target_x = 220.0
 
 func _reset_runtime_state() -> void:
+	_route_serve_runtime.cancel()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
 	_active_owner = null

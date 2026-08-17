@@ -318,6 +318,7 @@ func choose_ending_route(choice: String) -> Dictionary:
 func _finish_vertical_slice() -> void:
 	var callback := _finish_callback
 	_finish_callback = Callable()
+	_route_serve_runtime.cancel()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
 	_active_owner = null
