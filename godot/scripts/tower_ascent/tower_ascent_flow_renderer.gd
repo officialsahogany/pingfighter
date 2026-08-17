@@ -28,15 +28,11 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	if phase_name == "ROUTE_AIM":
 		_draw_route_aim(canvas, flow)
 		return
-	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.035, 0.025, 0.02, 0.92), true)
-	canvas.draw_rect(MAP_RECT, PAPER, true)
-	canvas.draw_rect(MAP_RECT, INK, false, 4.0)
-	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
-	_draw_title(canvas, flow)
-	_draw_route_map(canvas, flow)
 	if phase_name == "MAP_TRANSITION":
+		_draw_map_surface(canvas, flow)
 		_draw_map_transition(canvas, flow)
-	elif phase_name == "FAKE_ENDING_TEASER":
+		return
+	if phase_name == "FAKE_ENDING_TEASER":
 		_draw_fake_ending_teaser(canvas, flow)
 	elif phase_name == "ENDING_CHOICE":
 		_draw_ending_choice(canvas, flow)
@@ -44,6 +40,15 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_run_settlement(canvas, flow)
 	elif phase_name == "GAUNTLET_TRANSITION":
 		_draw_gauntlet_transition(canvas, flow)
+
+
+func _draw_map_surface(canvas: CanvasItem, flow: Object) -> void:
+	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.035, 0.025, 0.02, 0.92), true)
+	canvas.draw_rect(MAP_RECT, PAPER, true)
+	canvas.draw_rect(MAP_RECT, INK, false, 4.0)
+	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
+	_draw_title(canvas, flow)
+	_draw_route_map(canvas, flow)
 
 
 func build_render_model(flow: Object) -> Dictionary:
