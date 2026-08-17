@@ -49,6 +49,16 @@ const TEMP_ROUTE_TARGET_LABEL_WIDTH := 184.0
 const TEMP_ROUTE_TARGET_LABEL_HEIGHT := 30.0
 const TEMP_ROUTE_TARGET_LABEL_GAP := 8.0
 
+# TEMP: the map-view overlay establishes the information hierarchy while its
+# final mobile/readability sizing is still product-tuning work.
+const TEMP_MAP_OVERLAY_NODE_RADIUS := 8.0
+const TEMP_MAP_OVERLAY_CURRENT_RING_RADIUS := 14.0
+const TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE := 10
+const TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X := 11.0
+const TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH := 110.0
+const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
+const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
+
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,
 # stock, or snapshot ownership out of the tower run.

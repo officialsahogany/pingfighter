@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentMapOverlayLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
+)
 
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
@@ -28,6 +31,9 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	if phase_name == "ROUTE_AIM":
 		_draw_route_aim(canvas, flow)
 		return
+	if phase_name == "MAP_OVERLAY":
+		_draw_map_surface(canvas, flow, true)
+		return
 	if phase_name == "MAP_TRANSITION":
 		_draw_map_surface(canvas, flow)
 		_draw_map_transition(canvas, flow)
@@ -42,13 +48,19 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_gauntlet_transition(canvas, flow)
 
 
-func _draw_map_surface(canvas: CanvasItem, flow: Object) -> void:
+func _draw_map_surface(
+	canvas: CanvasItem,
+	flow: Object,
+	map_overlay: bool = false
+) -> void:
 	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.035, 0.025, 0.02, 0.92), true)
 	canvas.draw_rect(MAP_RECT, PAPER, true)
 	canvas.draw_rect(MAP_RECT, INK, false, 4.0)
 	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
-	_draw_title(canvas, flow)
-	_draw_route_map(canvas, flow)
+	_draw_title(canvas, flow, map_overlay)
+	_draw_route_map(canvas, flow, map_overlay)
+	if map_overlay:
+		_draw_map_overlay_legend(canvas)
 
 
 func build_render_model(flow: Object) -> Dictionary:
@@ -67,9 +79,14 @@ func build_render_model(flow: Object) -> Dictionary:
 	}
 
 
-func _draw_title(canvas: CanvasItem, flow: Object) -> void:
+func _draw_title(canvas: CanvasItem, flow: Object, map_overlay: bool = false) -> void:
 	var font := ThemeDB.fallback_font
-	canvas.draw_string(font, Vector2(62.0, 70.0), "승천탑 행로", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 30, INK)
+	var title := (
+		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_TITLE)
+		if map_overlay
+		else "승천탑 행로"
+	)
+	canvas.draw_string(font, Vector2(62.0, 70.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 30, INK)
 	canvas.draw_string(
 		font,
 		Vector2(62.0, 98.0),
@@ -82,9 +99,21 @@ func _draw_title(canvas: CanvasItem, flow: Object) -> void:
 	canvas.draw_circle(Vector2(683.0, 71.0), 24.0, CINNABAR)
 	canvas.draw_circle(Vector2(683.0, 71.0), 18.0, PAPER, false, 2.0)
 	canvas.draw_string(font, Vector2(670.0, 79.0), "塔", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 22, PAPER)
+	if map_overlay:
+		canvas.draw_string(
+			font,
+			Vector2(452.0, 101.0),
+			TowerAscentMapOverlayLocalization.text(
+				TowerAscentMapOverlayLocalization.KEY_CLOSE_HINT
+			),
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			184.0,
+			13,
+			INK_SOFT
+		)
 
 
-func _draw_route_map(canvas: CanvasItem, flow: Object) -> void:
+func _draw_route_map(canvas: CanvasItem, flow: Object, map_overlay: bool = false) -> void:
 	var nodes: Array = flow.get_graph_nodes()
 	var edges: Array = flow.get_graph_edges()
 	if nodes.is_empty():
@@ -106,7 +135,8 @@ func _draw_route_map(canvas: CanvasItem, flow: Object) -> void:
 			node,
 			active_candidate_ids,
 			current_node_id,
-			selected_target_id
+			selected_target_id,
+			map_overlay
 		)
 
 
@@ -140,7 +170,8 @@ func _draw_map_node(
 	node: Dictionary,
 	active_candidate_ids: Array,
 	current_node_id: String,
-	selected_target_id: String
+	selected_target_id: String,
+	map_overlay: bool = false
 ) -> void:
 	var position := _vector2(node.get("position", Vector2.ZERO))
 	var node_id := str(node.get("id", ""))
@@ -151,7 +182,11 @@ func _draw_map_node(
 	var skipped := bool(node.get("skipped", false))
 	var route_locked := bool(node.get("route_locked", false))
 	var enraged := bool(node.get("enraged", false))
-	var radius := ACTIVE_NODE_RADIUS if active or current or selected else MAP_NODE_RADIUS
+	var radius := (
+		TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_RADIUS
+		if map_overlay
+		else ACTIVE_NODE_RADIUS if active or current or selected else MAP_NODE_RADIUS
+	)
 	var fill := GOLD if completed or current else PAPER_DEEP
 	if route_locked or skipped:
 		fill = SEALED
@@ -163,6 +198,14 @@ func _draw_map_node(
 		fill = CINNABAR
 	canvas.draw_circle(position, radius, fill)
 	canvas.draw_circle(position, radius, CINNABAR_DARK if active or selected else INK, false, 2.0 if active or current or selected else 1.0)
+	if map_overlay and current:
+		canvas.draw_circle(
+			position,
+			TowerAscentTuning.TEMP_MAP_OVERLAY_CURRENT_RING_RADIUS,
+			CINNABAR,
+			false,
+			3.0
+		)
 	if enraged:
 		canvas.draw_circle(position, radius + 3.0, CINNABAR, false, 1.5)
 	if skipped:
@@ -170,7 +213,43 @@ func _draw_map_node(
 		canvas.draw_line(position + Vector2(5.0, -5.0), position + Vector2(-5.0, 5.0), PAPER, 1.5)
 	var label := str(node.get("label", "노드"))
 	var text_color := PAPER if selected else INK
-	if active or selected:
+	if map_overlay:
+		var kind_label := TowerAscentMapOverlayLocalization.node_kind_label(
+			str(node.get("kind", "")),
+			enraged
+		)
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			position + Vector2(
+				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X,
+				3.0
+			),
+			kind_label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH,
+			TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE,
+			INK
+		)
+		var state_label := TowerAscentMapOverlayLocalization.node_state_label(
+			current,
+			completed,
+			skipped,
+			route_locked
+		)
+		if not state_label.is_empty():
+			canvas.draw_string(
+				ThemeDB.fallback_font,
+				position + Vector2(
+					-TowerAscentTuning.TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH - 11.0,
+					3.0
+				),
+				state_label,
+				HORIZONTAL_ALIGNMENT_RIGHT,
+				TowerAscentTuning.TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH,
+				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE,
+				CINNABAR_DARK if current else INK_SOFT
+			)
+	elif active or selected:
 		canvas.draw_string(
 			ThemeDB.fallback_font,
 			position + Vector2(-70.0, -17.0),
@@ -180,6 +259,39 @@ func _draw_map_node(
 			12,
 			text_color
 		)
+
+
+func _draw_map_overlay_legend(canvas: CanvasItem) -> void:
+	var panel := Rect2(
+		66.0,
+		TowerAscentTuning.TEMP_MAP_OVERLAY_LEGEND_Y,
+		628.0,
+		50.0
+	)
+	canvas.draw_rect(panel, Color(PAPER_DEEP, 0.82), true)
+	canvas.draw_rect(panel, GOLD, false, 1.5)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		panel.position + Vector2(12.0, 19.0),
+		TowerAscentMapOverlayLocalization.text(
+			TowerAscentMapOverlayLocalization.KEY_LEGEND_TYPES
+		),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel.size.x - 24.0,
+		11,
+		INK
+	)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		panel.position + Vector2(12.0, 39.0),
+		TowerAscentMapOverlayLocalization.text(
+			TowerAscentMapOverlayLocalization.KEY_LEGEND_STATES
+		),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel.size.x - 24.0,
+		11,
+		INK_SOFT
+	)
 
 
 func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
