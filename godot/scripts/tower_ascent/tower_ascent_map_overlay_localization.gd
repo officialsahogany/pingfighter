@@ -4,6 +4,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const KEY_TITLE := "tower_ascent.map_overlay.title"
 const KEY_CLOSE_HINT := "tower_ascent.map_overlay.close_hint"
+const KEY_HUD_HINT := "tower_ascent.map_overlay.hud_hint"
 const KEY_NODE_COMBAT := "tower_ascent.map_overlay.node.combat"
 const KEY_NODE_ENRAGED := "tower_ascent.map_overlay.node.enraged"
 const KEY_NODE_SHOP := "tower_ascent.map_overlay.node.shop"
@@ -23,6 +24,7 @@ const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_KOREAN: {
 		KEY_TITLE: "지도",
 		KEY_CLOSE_HINT: "M 또는 ESC로 닫기",
+		KEY_HUD_HINT: "M 지도",
 		KEY_NODE_COMBAT: "전투",
 		KEY_NODE_ENRAGED: "광폭화",
 		KEY_NODE_SHOP: "상점",

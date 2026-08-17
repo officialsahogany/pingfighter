@@ -58,6 +58,8 @@ const TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X := 11.0
 const TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH := 110.0
 const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
 const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
+const TEMP_MAP_HINT_RECT := Rect2(18.0, 698.0, 98.0, 30.0)
+const TEMP_MAP_HINT_FONT_SIZE := 14
 
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,
