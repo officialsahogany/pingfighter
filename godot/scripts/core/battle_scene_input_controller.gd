@@ -18,6 +18,9 @@ const BattleCombatShortcutInputRouter := preload(
 const BattlePreIntroStageInputRouter := preload(
 	"res://scripts/core/battle_pre_intro_stage_input_router.gd"
 )
+const BattleTowerMapOverlayInputRouter := preload(
+	"res://scripts/core/battle_tower_map_overlay_input_router.gd"
+)
 
 const FULLSCREEN_TOGGLE_KEY := BattleSystemShortcutInputRouter.FULLSCREEN_TOGGLE_KEY
 const BGM_TOGGLE_KEY := BattleSystemShortcutInputRouter.BGM_TOGGLE_KEY
@@ -32,6 +35,7 @@ var _terminal_input_router := BattleTerminalScreenInputRouter.new()
 var _reward_modal_input_router := BattleRewardModalInputRouter.new()
 var _combat_shortcut_input_router := BattleCombatShortcutInputRouter.new()
 var _pre_intro_stage_input_router := BattlePreIntroStageInputRouter.new()
+var _tower_map_overlay_input_router := BattleTowerMapOverlayInputRouter.new()
 
 
 func handle_unhandled_input(
@@ -86,6 +90,8 @@ func handle_unhandled_input(
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
+	if _tower_map_overlay_input_router.handle_open_shortcut(event, owner, registry):
+		return
 	if _handle_active_item_hud_input(event, owner, registry, module_getter, context):
 		return
 	if _lingpet_input_router.handle_companion_input(event, owner, registry, module_getter):

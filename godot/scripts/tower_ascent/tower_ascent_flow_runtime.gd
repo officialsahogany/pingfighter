@@ -34,6 +34,79 @@ func begin_vertical_slice(
 	return true
 
 
+func open_map_overlay(
+	owner: Object,
+	registry: Object,
+	context: Dictionary = {}
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _map_overlay_active:
+		return false
+	if _active and _phase not in [PHASE_ROUTE_AIM, PHASE_MAP_TRANSITION]:
+		return false
+	if _graph_nodes.is_empty():
+		var prepare_context := context.duplicate(true)
+		prepare_context["registry"] = registry
+		if not prepare_vertical_slice_combat(owner, prepare_context):
+			return false
+	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+	if not bool(lifecycle_result.get("accepted", false)):
+		return false
+	_map_overlay_active = true
+	_map_overlay_lifecycle_owned = bool(lifecycle_result.get("changed", false))
+	_map_overlay_owner = owner
+	_request_redraw(owner)
+	return true
+
+
+func close_map_overlay() -> bool:
+	if not _map_overlay_active:
+		return false
+	var owner := _map_overlay_owner
+	_map_overlay_active = false
+	_map_overlay_owner = null
+	if _map_overlay_lifecycle_owned:
+		_modal_lifecycle.leave()
+	_map_overlay_lifecycle_owned = false
+	_request_redraw(owner)
+	return true
+
+
+func is_map_overlay_active() -> bool:
+	return _map_overlay_active
+
+
+func can_open_map_overlay() -> bool:
+	return (
+		TowerAscentFeatureFlags.is_vertical_slice_enabled()
+		and not _map_overlay_active
+		and (not _active or _phase in [PHASE_ROUTE_AIM, PHASE_MAP_TRANSITION])
+	)
+
+
+func _is_map_toggle_event(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key_event := event as InputEventKey
+	return (
+		key_event.pressed
+		and not key_event.echo
+		and (key_event.keycode == KEY_M or key_event.physical_keycode == KEY_M)
+	)
+
+
+func _is_map_close_event(event: InputEvent) -> bool:
+	if _is_map_toggle_event(event):
+		return true
+	if not (event is InputEventKey):
+		return false
+	var key_event := event as InputEventKey
+	return (
+		key_event.pressed
+		and not key_event.echo
+		and (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE)
+	)
+
+
 
 
 
@@ -47,11 +120,11 @@ func begin_vertical_slice(
 
 
 func is_active() -> bool:
-	return _active
+	return _active or _map_overlay_active
 
 
 func blocks_battle_physics() -> bool:
-	return _active
+	return _active or _map_overlay_active
 
 
 func get_phase() -> int:
@@ -59,6 +132,8 @@ func get_phase() -> int:
 
 
 func get_phase_name() -> String:
+	if _map_overlay_active:
+		return "MAP_OVERLAY"
 	match _phase:
 		PHASE_NODE_MODAL:
 			return "NODE_MODAL"
@@ -78,8 +153,14 @@ func get_phase_name() -> String:
 
 
 func handle_input(event: InputEvent) -> bool:
+	if _map_overlay_active:
+		if _is_map_close_event(event):
+			close_map_overlay()
+		return true
 	if not _active:
 		return false
+	if _is_map_toggle_event(event) and can_open_map_overlay():
+		return open_map_overlay(_active_owner, _active_registry)
 	if _phase == PHASE_FAKE_ENDING_TEASER:
 		if _is_confirm_event(event):
 			_dismiss_fake_ending_teaser()

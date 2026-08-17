@@ -139,6 +139,9 @@ var _gauntlet_state: Object = TowerAscentGauntletState.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
+var _map_overlay_active := false
+var _map_overlay_lifecycle_owned := false
+var _map_overlay_owner: Object = null
 var _active_owner: Object = null
 var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
@@ -224,6 +227,9 @@ func _reset_runtime_state() -> void:
 	_available_route_target_ids.clear()
 	_route_aim_targets_cache.clear()
 	_node_modal_kind = "guardian_spring"
+	_map_overlay_active = false
+	_map_overlay_lifecycle_owned = false
+	_map_overlay_owner = null
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_finish_callback = Callable()
