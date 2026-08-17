@@ -1,0 +1,39 @@
+{
+  "collection_id": "common_mugong_hanji_seals_v1",
+  "art_direction": "Hwangyeokjeon common martial-art seals: standalone irregular aged-hanji discs, dry black takbon ink, restrained ochre and one muted effect accent. No book cover, leather, metal corner, Western fantasy codex, modern device UI, glossy frame, or readable text.",
+  "tier_policy": "Common Mugong stays static for instant recognition. Eight-frame breathing sheets remain a Peerless Mugong rarity treatment.",
+  "dimensions": {
+    "static": [256, 256],
+    "rendered_sizes": [80, 32]
+  },
+  "runtime": {
+    "renderer": "res://scripts/hud/runtime_perk_icon_renderer.gd",
+    "slot_frame": "res://scripts/hud/character_info_overlay_texture_drawer.gd::draw_mugong_seal_cell",
+    "capture": "res://.tmp/common_mugong_collection_qa.png"
+  },
+  "groups": {
+    "foundation": ["common_bulk_up", "common_swiftness", "common_expansion", "training_mastery", "perk_boost_charge", "perk_laurel_shield"],
+    "dash": ["dash_lightweight", "dash_module_control", "dash_jump", "dash_acceleration", "dash_amplification"],
+    "item": ["item_luck", "item_cooldown_mastery", "item_gauge_mastery", "item_caffeine", "item_polish", "item_recycle", "downtown_treasure_map"]
+  },
+  "assets": [
+    {"perk_id": "common_bulk_up", "display_name_ko": "철산공", "static_path": "res://assets/sprites/perks/common_bulk_up_perk_icon.png", "manifest_path": "res://assets/sprites/perks/common_bulk_up_perk_icon_manifest.json"},
+    {"perk_id": "common_swiftness", "display_name_ko": "유운보", "static_path": "res://assets/sprites/perks/common_swiftness_perk_icon.png", "manifest_path": "res://assets/sprites/perks/common_swiftness_perk_icon_manifest.json"},
+    {"perk_id": "common_expansion", "display_name_ko": "광맥결", "static_path": "res://assets/sprites/perks/common_expansion_perk_icon.png", "manifest_path": "res://assets/sprites/perks/common_expansion_perk_icon_manifest.json"},
+    {"perk_id": "training_mastery", "display_name_ko": "연공심법", "static_path": "res://assets/sprites/perks/training_mastery_perk_icon.png", "manifest_path": "res://assets/sprites/perks/training_mastery_perk_icon_manifest.json"},
+    {"perk_id": "perk_boost_charge", "display_name_ko": "축기결", "static_path": "res://assets/sprites/perks/perk_boost_charge_perk_icon_v2.png", "manifest_path": "res://assets/sprites/perks/perk_boost_charge_perk_icon_v2_manifest.json"},
+    {"perk_id": "perk_laurel_shield", "display_name_ko": "오엽호신", "static_path": "res://assets/sprites/perks/perk_laurel_shield_perk_icon.png", "manifest_path": "res://assets/sprites/perks/perk_laurel_shield_perk_icon_manifest.json"},
+    {"perk_id": "dash_lightweight", "display_name_ko": "회기보", "static_path": "res://assets/sprites/perks/dash_lightweight_perk_icon.png", "manifest_path": "res://assets/sprites/perks/dash_lightweight_perk_icon_manifest.json"},
+    {"perk_id": "dash_module_control", "display_name_ko": "수세결", "static_path": "res://assets/sprites/perks/dash_module_control_perk_icon.png", "manifest_path": "res://assets/sprites/perks/dash_module_control_perk_icon_manifest.json"},
+    {"perk_id": "dash_jump", "display_name_ko": "비천보", "static_path": "res://assets/sprites/perks/dash_jump_perk_icon.png", "manifest_path": "res://assets/sprites/perks/dash_jump_perk_icon_manifest.json"},
+    {"perk_id": "dash_acceleration", "display_name_ko": "대붕전익", "static_path": "res://assets/sprites/perks/dash_acceleration_perk_icon.png", "manifest_path": "res://assets/sprites/perks/dash_acceleration_perk_icon_manifest.json"},
+    {"perk_id": "dash_amplification", "display_name_ko": "활주구슬", "static_path": "res://assets/sprites/perks/dash_amplification_perk_icon.png", "manifest_path": "res://assets/sprites/perks/dash_amplification_perk_icon_manifest.json"},
+    {"perk_id": "item_luck", "display_name_ko": "인보결", "static_path": "res://assets/sprites/perks/item_luck_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_luck_perk_icon_manifest.json"},
+    {"perk_id": "item_cooldown_mastery", "display_name_ko": "순환결", "static_path": "res://assets/sprites/perks/item_cooldown_mastery_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_cooldown_mastery_perk_icon_manifest.json"},
+    {"perk_id": "item_gauge_mastery", "display_name_ko": "기령심법", "static_path": "res://assets/sprites/perks/item_gauge_mastery_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_gauge_mastery_perk_icon_manifest.json"},
+    {"perk_id": "item_caffeine", "display_name_ko": "연효결", "static_path": "res://assets/sprites/perks/item_caffeine_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_caffeine_perk_icon_manifest.json"},
+    {"perk_id": "item_polish", "display_name_ko": "개광결", "static_path": "res://assets/sprites/perks/item_polish_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_polish_perk_icon_manifest.json"},
+    {"perk_id": "item_recycle", "display_name_ko": "환보결", "static_path": "res://assets/sprites/perks/item_recycle_perk_icon.png", "manifest_path": "res://assets/sprites/perks/item_recycle_perk_icon_manifest.json"},
+    {"perk_id": "downtown_treasure_map", "display_name_ko": "천기보도", "static_path": "res://assets/sprites/perks/downtown_treasure_map_perk_icon.png", "manifest_path": "res://assets/sprites/perks/downtown_treasure_map_perk_icon_manifest.json"}
+  ]
+}

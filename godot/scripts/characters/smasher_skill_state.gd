@@ -126,6 +126,41 @@ func reduce_all_cooldowns_by_fraction(reduction_fraction: float, time_now: int =
 	return changed
 
 
+# Dynamic recovery-speed bonuses (for example the Campfire aura) advance the
+# cooldown clock itself. This differs from an item cooldown multiplier: skills
+# already cooling recover faster only while the player remains inside the aura.
+func advance_cooldowns_by_msec(bonus_msec: int, time_now: int = -1) -> int:
+	var safe_bonus: int = max(0, bonus_msec)
+	if safe_bonus <= 0 or cooldowns.is_empty() or cooldown_pause_started_msec >= 0:
+		return 0
+	var effective_time_now: int = time_now
+	if effective_time_now < 0:
+		effective_time_now = Time.get_ticks_msec()
+	var changed := 0
+	for skill_name in cooldowns.keys():
+		var data: Variant = cooldowns.get(skill_name)
+		if not (data is Dictionary):
+			continue
+		var cooldown_data: Dictionary = (data as Dictionary).duplicate(true)
+		var start_msec: int = int(cooldown_data.get("start_msec", cooldown_data.get("start", -1)))
+		var cooldown_msec: int = int(cooldown_data.get("cooldown_msec", cooldown_data.get("cooldown_ms", 0)))
+		var allow_negative_start: bool = bool(cooldown_data.get("allow_negative_start_msec", false))
+		if (start_msec < 0 and not allow_negative_start) or cooldown_msec <= 0:
+			continue
+		var next_start_msec: int = start_msec - safe_bonus
+		if effective_time_now - next_start_msec >= cooldown_msec:
+			cooldowns.erase(skill_name)
+		else:
+			cooldown_data["start_msec"] = next_start_msec
+			if next_start_msec < 0:
+				cooldown_data["allow_negative_start_msec"] = true
+			else:
+				cooldown_data.erase("allow_negative_start_msec")
+			cooldowns[skill_name] = cooldown_data
+		changed += 1
+	return changed
+
+
 func update_activation_state(skill_name: String, is_active: bool, time_now: int) -> int:
 	var previously_active: bool = bool(was_active.get(skill_name, false))
 	if is_active and not previously_active:

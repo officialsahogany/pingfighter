@@ -96,6 +96,25 @@ func activate_lingpet_egg(
 	return true
 
 
+func activate_mystic_dice(
+	_target: Object,
+	owner: Object,
+	registry: Object,
+	effect_feedback: Object
+) -> bool:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if (
+		runtime_perk_state == null
+		or not runtime_perk_state.has_method("begin_mystic_dice_active_item")
+		or not bool(runtime_perk_state.begin_mystic_dice_active_item(owner, registry))
+	):
+		return false
+	if effect_feedback != null:
+		effect_feedback.play_first_audio(registry, ["play_active_item"])
+		effect_feedback.trigger_registry_feedback(registry, false, false, 0.015, 0.18)
+	return true
+
+
 func apply_ammo_box(
 	target: Object,
 	item_data: Dictionary,
@@ -303,25 +322,6 @@ func activate_magnet_field(
 		state_applier,
 		effect_feedback
 	)
-
-
-func activate_hologram_disk(
-	target: Object,
-	registry: Object,
-	hologram_disk_runtime: Object,
-	state_applier: Object,
-	effect_feedback: Object
-) -> bool:
-	if target == null or hologram_disk_runtime == null or state_applier == null:
-		return false
-	state_applier.apply_hologram_disk_state(
-		target,
-		hologram_disk_runtime.start_state(_duration_bonus.get_multiplier(registry))
-	)
-	if effect_feedback != null:
-		effect_feedback.play_first_audio(registry, ["play_hologram_disk", "play_active_item"])
-		effect_feedback.trigger_registry_feedback(registry, false, false, 0.018, 0.26)
-	return true
 
 
 func activate_holy_barrier(

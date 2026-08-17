@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_collision_detector.gd")
+
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
 const BallMotionEventProcessor := preload("res://scripts/ball/ball_motion_event_processor.gd")
@@ -59,6 +61,10 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	var motion_apply_start: int = _perf_begin(perf_logger)
 	frame_motion_controller.update_serve_collision_cooldowns(scene, fps_scale)
 	frame_motion_controller.update_trampoline_launch_cap(scene, fps_scale)
+	frame_motion_controller.update_dalji_vision_ball_modifiers(scene, fps_scale, frame_deps)
+	# 융합 과부하 failsafe TTL: 보스 리턴/득점이 없어도 열린 캡이 90프레임을
+	# 넘겨 살 수 없다 — 실 볼 업데이트마다 1회 틱(스킵 프레임 포함).
+	frame_motion_controller.update_perk_fusion_overload_speed_cap(scene, fps_scale)
 	if not power_smashing_parabola_active and not ball_speed_recovery_active:
 		frame_motion_controller.apply_ball_speed_limits(scene, frame_deps)
 
@@ -69,6 +75,14 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	# 연습모드 정지공 홀드는 바이퍼 스킬 패스 직후·skip 단축 평가 전이어야 한다:
 	# 홀드 중에도 쉐도우 스텝이 공을 때릴 수 있고, 히트 프레임에 같은 프레임 해제된다.
 	frame_motion_controller.apply_viper_practice_hold(scene, frame_context, frame_deps)
+	# 허공환영은 발동 접촉 뒤 1초 동안 공을 한미량 앞에 소유한다. skip 조기 반환보다
+	# 먼저 틱해야 마지막 차지 프레임에 stale skip을 내리고 즉시 정상 발사할 수 있다.
+	frame_motion_controller.apply_smasher_void_phantom_charge(
+		scene, fps_scale, frame_context, frame_deps
+	)
+	var boss_vision_reflected: bool = _apply_dalji_vision_chosik(scene, frame_context, frame_deps)
+	if not boss_vision_reflected:
+		_apply_cheongringwi_vision_chosik(scene, frame_context, frame_deps, fps_scale)
 	frame_motion_controller.apply_stage1_gaksital_fan_wind(scene, fps_scale, frame_context, frame_deps)
 	if bool(scene.get("skip_ball_motion_step", false)):
 		var skip_observation_context: Dictionary = frame_context.duplicate()
@@ -122,7 +136,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 		frame_motion_controller.apply_ball_speed_limits(scene, frame_deps)
 
 	frame_motion_controller.apply_laurel_leaf_shield_collision(scene, frame_context, frame_deps)
-	frame_motion_controller.apply_smasher_overdrive(scene, frame_context, frame_deps)
+	frame_motion_controller.apply_smasher_overdrive(scene, fps_scale, frame_context, frame_deps)
+	frame_motion_controller.apply_smasher_wheel_rebound(scene, fps_scale, frame_context, frame_deps)
 	scene["previous_ball_pos"] = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	var motion_step_start: int = _perf_begin(perf_logger)
 	var score_event: String = motion_event_processor.step_motion(scene, fps_scale, frame_context, frame_deps, callbacks)
@@ -145,7 +160,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	# 분신을 본다. motion 앞이면 스폰이 한 틱 늦어 AI가 진짜 공을 1틱
 	# 먼저 추적한다. skip_ball_motion_step 프레임은 위의 조기 반환으로
 	# 여기 오지 않으므로 홀드 중 분신 정지 계약도 유지된다.
-	frame_motion_controller.apply_active_item_hologram_decoys(scene, fps_scale, frame_context, frame_deps)
+	frame_motion_controller.apply_smasher_void_phantom_decoys(scene, fps_scale, frame_context, frame_deps)
 	var stage_collision_start: int = _perf_begin(perf_logger)
 	_process_stage_background_collision(scene, frame_context, frame_deps)
 	_process_stage1_balloon_collision(scene, frame_context, frame_deps)
@@ -176,6 +191,111 @@ func _snapshot_result(scene: Dictionary, extra: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {"snapshot": scene}
 	result.merge(extra, true)
 	return result
+
+
+func _apply_dalji_vision_chosik(scene: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
+	# Ball-owning skills (Hongryun inferno trail, Void Phantom charge, etc.)
+	# publish skip before this hook. Their visible ball position is only a
+	# projection; reflecting it would be overwritten by the owner next tick while
+	# still corrupting rally ownership, audio, and hit feedback.
+	if bool(scene.get("skip_ball_motion_step", false)):
+		return false
+	var state: Object = deps.get("dalji_vision_chosik_state", null)
+	if state == null or not state.has_method("apply_ball_motion"):
+		return false
+	var last_hit_by: String = str(context.get("last_hit_by", "")).strip_edges().to_lower()
+	if last_hit_by == "":
+		last_hit_by = str(scene.get("ball_serve_origin", context.get("ball_serve_origin", ""))).strip_edges().to_lower()
+	var result: Dictionary = state.apply_ball_motion(
+		_get_vector2(scene, "ball_pos", Vector2.ZERO),
+		_get_vector2(scene, "ball_vel", Vector2.ZERO),
+		float(scene.get("ball_size", context.get("ball_size", 28.6))),
+		_get_vector2(context, "boss_pos", Vector2.ZERO),
+		float(context.get("boss_paddle_width", 100.0)),
+		float(context.get("boss_hitbox_height", 40.0)),
+		last_hit_by
+	)
+	for key in ["ball_pos", "ball_vel"]:
+		if result.has(key):
+			scene[key] = result[key]
+	if not bool(result.get("dalji_vision_reflected", false)):
+		return false
+	var ball_intensity: Object = deps.get("ball_intensity", null)
+	if ball_intensity != null:
+		if ball_intensity.has_method("register_contact"):
+			ball_intensity.register_contact(
+				"dalji_vision_chain_top",
+				"player",
+				{"source": "dalji_vision_chain_top", "reflection": true}
+			)
+		elif ball_intensity.has_method("register_hit"):
+			ball_intensity.register_hit("player")
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_whipcrack"):
+		audio.play_whipcrack(0.82)
+	var ball_effects: Object = deps.get("ball_effects", null)
+	if ball_effects != null and ball_effects.has_method("register_hit_pulse"):
+		ball_effects.register_hit_pulse(
+			_get_vector2(result, "dalji_vision_impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
+			_get_vector2(scene, "ball_vel", Vector2.ZERO),
+			0.82,
+			"dalji_vision_chain_top"
+		)
+	return true
+
+
+func _apply_cheongringwi_vision_chosik(
+	scene: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	fps_scale: float = 1.0
+) -> bool:
+	if bool(scene.get("skip_ball_motion_step", false)):
+		return false
+	var state: Object = deps.get("cheongringwi_vision_chosik_state", null)
+	if state == null or not state.has_method("apply_ball_motion"):
+		return false
+	var last_hit_by := str(context.get("last_hit_by", "")).strip_edges().to_lower()
+	if last_hit_by == "":
+		last_hit_by = str(scene.get("ball_serve_origin", context.get("ball_serve_origin", ""))).strip_edges().to_lower()
+	var result: Dictionary = state.apply_ball_motion(
+		_get_vector2(scene, "ball_pos", Vector2.ZERO),
+		_get_vector2(scene, "ball_vel", Vector2.ZERO),
+		float(scene.get("ball_size", context.get("ball_size", 28.6))),
+		_get_vector2(context, "boss_pos", Vector2.ZERO),
+		float(context.get("boss_paddle_width", 100.0)),
+		float(context.get("boss_hitbox_height", 40.0)),
+		last_hit_by,
+		context,
+		fps_scale
+	)
+	for key in ["ball_pos", "ball_vel", "max_ball_speed", "impact_boost_max_ball_speed"]:
+		if result.has(key):
+			scene[key] = result[key]
+	if not bool(result.get("cheongringwi_vision_reflected", false)):
+		return false
+	var ball_intensity: Object = deps.get("ball_intensity", null)
+	if ball_intensity != null:
+		if ball_intensity.has_method("register_contact"):
+			ball_intensity.register_contact(
+				"cheongringwi_vision_dragon_torrent",
+				"player",
+				{"source": "cheongringwi_vision_dragon_torrent", "reflection": true}
+			)
+		elif ball_intensity.has_method("register_hit"):
+			ball_intensity.register_hit("player")
+	var broken_rock_value: Variant = result.get("cheongringwi_vision_broken_rock", {})
+	if broken_rock_value is Dictionary and state.has_method("publish_rock_break_feedback"):
+		state.publish_rock_break_feedback(broken_rock_value as Dictionary, deps)
+	var ball_effects: Object = deps.get("ball_effects", null)
+	if ball_effects != null and ball_effects.has_method("register_hit_pulse"):
+		ball_effects.register_hit_pulse(
+			_get_vector2(result, "cheongringwi_vision_impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
+			_get_vector2(scene, "ball_vel", Vector2.ZERO),
+			0.92,
+			"cheongringwi_vision_dragon_torrent"
+		)
+	return true
 
 
 func _is_stage3_psychoball_hitstop_active(context: Dictionary, deps: Dictionary) -> bool:
@@ -220,6 +340,8 @@ func _try_release_stage5_hongryun_player_paddle_hit(
 	var contact: Dictionary = _get_stage5_hongryun_player_paddle_contact(scene, context)
 	if contact.is_empty():
 		return false
+	if contact.has("ball_pos"):
+		scene["ball_pos"] = contact["ball_pos"]
 
 	var ball_pos: Vector2 = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	if stage5_hongryun_state.has_method("resolve_inferno_player_guard"):
@@ -262,7 +384,7 @@ func _try_release_stage5_hongryun_holy_barrier(
 	context: Dictionary,
 	deps: Dictionary
 ) -> bool:
-	# 홀리베리어(바닥 무적)는 normal step_motion()의 check_holy_barrier()로 공을
+	# 금강결계(바닥 무적)는 normal step_motion()의 check_holy_barrier()로 공을
 	# 받아내지만, 홍련폭염 trail 공은 ball_hold로 step_motion()을 통째로 우회하므로
 	# 그 차단 경로가 닿지 않는다. trail 공이 베리어 띠에 닿으면 여기서 명시적으로
 	# 위로 반사하고 inferno를 종료해 normal physics로 되돌린다 (가드/미스 경로와
@@ -362,16 +484,36 @@ func _get_stage5_hongryun_player_paddle_contact(scene: Dictionary, context: Dict
 		max(1.0, player_size.x - x_shrink * 2.0 + guard_padding * 2.0),
 		max(1.0, player_size.y - y_shrink * 2.0 + guard_padding * 2.0)
 	)
+	var dash_width_bonus := 0.0
+	if bool(context.get("dash_acceleration_active", false)):
+		dash_width_bonus = maxf(0.0, float(context.get("dash_acceleration_width_bonus", 0.0)))
+		var height_bonus: float = maxf(0.0, float(context.get("dash_acceleration_height_bonus", 0.0)))
+		if dash_width_bonus > 0.0:
+			base_rect.position.x -= dash_width_bonus * 0.5
+			base_rect.size.x += dash_width_bonus
+		if height_bonus > 0.0:
+			base_rect.position.y -= height_bonus * 0.5
+			base_rect.size.y += height_bonus
 	var catch_rect := base_rect
 	catch_rect.position.y -= ball_size * STAGE5_HONGRYUN_GUARD_UPWARD_BALL_FACTOR
 	catch_rect.size.y += ball_size * STAGE5_HONGRYUN_GUARD_UPWARD_BALL_FACTOR
 	var collision_rect: Rect2 = _resolve_viper_chaos_player_collision_rect(catch_rect, ball_rect, context)
 	if not collision_rect.intersects(ball_rect):
 		return {}
-	return {
-		"paddle_x": player_pos.x,
-		"paddle_w": player_size.x,
+	var result := {
+		"paddle_x": player_pos.x - dash_width_bonus * 0.5,
+		"paddle_w": player_size.x + dash_width_bonus,
 	}
+	var dash_contact: Dictionary = BallMotionCollisionDetector.resolve_dash_acceleration_contact(
+		ball_pos,
+		_get_vector2(scene, "ball_vel", Vector2.DOWN),
+		ball_size,
+		collision_rect,
+		context
+	)
+	if not dash_contact.is_empty():
+		result.merge(dash_contact, true)
+	return result
 
 
 func _try_update_poseidon_capture(
@@ -601,6 +743,9 @@ func _build_frame_context(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_ball_collision_context"):
 		frame_context.merge(mythic_item_runtime.get_ball_collision_context(), true)
+	var lingpet_runtime: Object = deps.get("lingpet_egg_runtime", null)
+	if lingpet_runtime != null and lingpet_runtime.has_method("get_ball_collision_context"):
+		frame_context.merge(lingpet_runtime.get_ball_collision_context(), true)
 	var viper_jetpack_state: Object = deps.get("viper_jetpack_state", null)
 	if (
 		str(frame_context.get("selected_character_type", "smasher")) == "viper"
@@ -649,6 +794,8 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 			_get_vector2(context, "ball_pos", Vector2.ZERO)
 		),
 		"ball_interp_reset_requested": bool(context.get("ball_interp_reset_requested", false)),
+		"perk_fusion_overload_speed_cap": float(context.get("perk_fusion_overload_speed_cap", 0.0)),
+		"perk_fusion_overload_speed_cap_frames": float(context.get("perk_fusion_overload_speed_cap_frames", 0.0)),
 		"ball_interp_last_physics_usec": int(context.get("ball_interp_last_physics_usec", 0)),
 		"ball_render_interpolation_enabled": bool(context.get("ball_render_interpolation_enabled", true)),
 		"ball_vel": _get_vector2(context, "ball_vel", Vector2.ZERO),
@@ -681,6 +828,7 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 		"lingpet_wild_roar_ball_boost_active": bool(context.get("lingpet_wild_roar_ball_boost_active", false)),
 		"lingpet_wild_roar_ball_restore_speed": float(context.get("lingpet_wild_roar_ball_restore_speed", 0.0)),
 		"active_item_aipill_ball_boost_active": bool(context.get("active_item_aipill_ball_boost_active", false)),
+		"lingpet_mokrin_ball_boost_active": bool(context.get("lingpet_mokrin_ball_boost_active", false)),
 		"viper_knockback_overlay_active": bool(context.get("viper_knockback_overlay_active", false)),
 		"ai_mode": str(context.get("ai_mode", "champion")),
 		"speed_limit_disabled": bool(context.get("speed_limit_disabled", false)),
@@ -708,12 +856,12 @@ func _try_intercept_viper_practice_ball_loss(scene: Dictionary, frame_deps: Dict
 		return false
 	scene["ball_active"] = false
 	scene["ball_vel"] = Vector2.ZERO
-	# 연습모드 재시도는 라운드 리셋 없이 공만 재실체화한다 — 이전 홀로그램
-	# 분신·락이 남으면 홀드 중에도 그려지고, 재상승 첫 프레임의 보스 AI가
-	# 오래된 락을 재사용한다. 여기서 명시적으로 정리한다(효과 타이머는 유지).
-	var active_item_runtime: Object = frame_deps.get("active_item_runtime", null)
-	if active_item_runtime != null and active_item_runtime.has_method("clear_hologram_decoys_and_lock"):
-		active_item_runtime.clear_hologram_decoys_and_lock()
+	# 연습모드 재시도는 라운드 리셋 없이 공만 재실체화한다 — 이전 허공환영
+	# 환영·락이 남으면 홀드 중에도 그려지고, 재상승 첫 프레임의 보스 AI가
+	# 오래된 락을 재사용한다. 여기서 명시적으로 정리한다.
+	var void_phantom_state: Object = frame_deps.get("smasher_void_phantom_state", null)
+	if void_phantom_state != null and void_phantom_state.has_method("clear_decoys_and_lock"):
+		void_phantom_state.clear_decoys_and_lock()
 	return true
 
 
@@ -767,6 +915,10 @@ func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
 	if bool(context.get("fire_weather_speed_cap_active", false)):
 		speed_cap = min(speed_cap, float(context.get("fire_weather_max_ball_speed", 35.0)))
+	# 융합 과부하 일시 캡은 파워스매싱 캡 경로도 관통한다(일반 하드캡 상위).
+	var overload_cap: float = float(scene.get("perk_fusion_overload_speed_cap", 0.0))
+	if overload_cap > 0.0:
+		speed_cap = max(speed_cap, overload_cap)
 	return speed_cap
 
 
@@ -780,6 +932,7 @@ func _is_speed_limit_disabled(context: Dictionary) -> bool:
 		or bool(context.get("commando_suicide_drone_ball_boost_active", false))
 		or bool(context.get("lingpet_wild_roar_ball_boost_active", false))
 		or bool(context.get("active_item_aipill_ball_boost_active", false))
+		or bool(context.get("lingpet_mokrin_ball_boost_active", false))
 	)
 
 

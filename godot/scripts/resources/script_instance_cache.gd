@@ -31,7 +31,7 @@ func request_threaded_script(path: String, label: String) -> bool:
 		request_error = ResourceLoader.load_threaded_request(path, "", true)
 	if request_error != OK and request_error != ERR_BUSY:
 		return true
-	threaded_script_requests[path] = true
+	threaded_script_requests[path] = label
 	return false
 
 
@@ -41,6 +41,18 @@ func is_threaded_script_ready(path: String, label: String) -> bool:
 	if not threaded_script_requests.has(path):
 		return true
 	return _try_finish_threaded_script(path, label)
+
+
+func has_threaded_script_request_in_flight() -> bool:
+	# A request issued ahead of its consumer may finish while an earlier warmup
+	# step is still running. Harvest terminal requests here; otherwise a stale
+	# dictionary entry keeps the frame gate true and throttles unrelated cheap
+	# warmup work to exactly one item per rendered frame.
+	for path_value in threaded_script_requests.keys():
+		var path := str(path_value)
+		var label := str(threaded_script_requests.get(path, "gameplay module"))
+		_try_finish_threaded_script(path, label)
+	return not threaded_script_requests.is_empty()
 
 
 func _try_finish_threaded_script(path: String, label: String) -> bool:

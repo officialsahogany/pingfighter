@@ -77,10 +77,10 @@ func _verify_drop_motion_culls_at_floor_edge() -> void:
 
 func _verify_background_delegates_drop_motion() -> void:
 	var paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage3/stage3_starpoint_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 	]
 	for path in paths:
 		var source: String = FileAccess.get_file_as_string(path)
@@ -110,14 +110,15 @@ func _verify_background_delegates_drop_motion() -> void:
 
 func _verify_background_hides_stale_starpoint_host() -> void:
 	var background_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	var coordinator_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_starpoint_coordinator.gd")
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 	_expect(
 		background_source.find("obstacle_visual_renderer.hide_starpoint_drops(canvas)") >= 0,
 		"Stage 2 overlay draw should hide stale starpoint host slots when no drops remain"
 	)
 	_expect(
-		background_source.find("obstacle_visual_renderer.hide_all_starpoint_drops()") >= 0,
-		"Stage 2 stage-exit cleanup should hide stale shared starpoint host slots"
+		coordinator_source.find("obstacle_visual_renderer.hide_all_starpoint_drops()") >= 0,
+		"Stage 2 starpoint coordinator should hide stale shared host slots on stage exit"
 	)
 	_expect(
 		renderer_source.find("CommonStarpointVisualHost.hide_on_canvas(canvas)") >= 0,

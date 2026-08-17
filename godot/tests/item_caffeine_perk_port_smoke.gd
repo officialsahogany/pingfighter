@@ -36,7 +36,7 @@ class FakeRegistry:
 func _init() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var caffeine_data: Dictionary = catalog.get_perk_data("item_caffeine")
-	_expect(str(caffeine_data.get("name", "")) == "카페인", "catalog should register Caffeine")
+	_expect(str(caffeine_data.get("name", "")) == "연효결", "catalog should register Effect-Prolonging Art")
 	_expect(int(caffeine_data.get("max_level", 0)) == 5, "Caffeine should have five base levels")
 	_expect(str(caffeine_data.get("tree", "")) == "item", "Caffeine should live in the item tree")
 

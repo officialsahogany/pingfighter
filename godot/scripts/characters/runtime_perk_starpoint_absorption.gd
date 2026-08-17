@@ -1,12 +1,18 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 const FIELD_HEIGHT := 750.0
 const DURATION := 0.70
 const PARTICLE_COUNT := 7
 const SOURCE_PLAYFIELD_OFFSET_Y := -120.0
-const COLLECTION_FEEDBACK_TEMPLATE := "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +%d"
+# 표시 명칭은 무혼으로 통일한다. 합성 문자열은 카탈로그 키가 될 수 없으므로
+# 접두사만 번역하고 수치를 붙인다. 이 상수는 반드시 평문 한글로 둘 것.
+# 이전의 유니코드 이스케이프 표기가 리브랜드 검색을 통째로 빗나가게 했다.
+const COLLECTION_FEEDBACK_PREFIX := "무혼"
+const COLLECTION_FEEDBACK_TEMPLATE := "%s +%d"
 const COLLECTION_FEEDBACK_TIMER := 1.0
 
 var effect: Dictionary = {}
@@ -33,7 +39,7 @@ func build_collection_update(
 		"next_starpoint_for_skills": next_starpoints,
 		"next_pending_skill_choices": next_pending,
 		"granted_choices": granted_choices,
-		"feedback_text": COLLECTION_FEEDBACK_TEMPLATE % collected_amount,
+		"feedback_text": COLLECTION_FEEDBACK_TEMPLATE % [LanguageSettings.translate_text(COLLECTION_FEEDBACK_PREFIX), collected_amount],
 		"feedback_timer": COLLECTION_FEEDBACK_TIMER,
 	}
 

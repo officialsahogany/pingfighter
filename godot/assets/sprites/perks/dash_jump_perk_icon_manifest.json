@@ -1,0 +1,28 @@
+{
+  "asset_id": "dash_jump_perk_icon",
+  "perk_id": "dash_jump",
+  "display_name_ko": "비천보",
+  "display_name_en": "Sky-Soaring Step",
+  "runtime_path": "res://assets/sprites/perks/dash_jump_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-b6726eab-0e3d-45dd-9561-4ebbb07a4aa5.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy hanji training seal: one black martial artist travels in a long airborne stride across a single jade crescent path whose start and landing marks are far apart. No book, text, modern sneaker, wings, arrows, metal, leather, neon, or glossy frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_color_observed": "#f802f9",
+    "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [17, 16, 240, 240],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "1306d9a8a3d9e2d84fb45e8df0b26b2b045484da99b44e41c8bcbda1ecfc96fe",
+    "runtime_capture": "res://.tmp/common_mugong_dash_seal_qa.png",
+    "rendered_sizes": [80, 32]
+  }
+}

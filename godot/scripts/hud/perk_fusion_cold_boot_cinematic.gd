@@ -25,6 +25,18 @@ const MODULE_GEM_PLATE_TEXTURE_PATH := ASSET_DIR + "cold_boot_module_gem_plate.p
 const IGNITION_SHEET_TEXTURE_PATH := ASSET_DIR + "cold_boot_ignition_ring_sheet.png"
 const SPARK_SHARD_TEXTURE_PATH := ASSET_DIR + "cold_boot_spark_shard.png"
 const ALTAR_BACKPLATE_TEXTURE_PATH := ASSET_DIR + "cold_boot_altar_backplate.png"
+const PREWARM_TEXTURE_MANIFEST := {
+	"chassis_off": CHASSIS_OFF_TEXTURE_PATH,
+	"chassis_on": CHASSIS_ON_TEXTURE_PATH,
+	"cartridge_left": CARTRIDGE_LEFT_TEXTURE_PATH,
+	"cartridge_right": CARTRIDGE_RIGHT_TEXTURE_PATH,
+	"module_shoulder_pod": MODULE_SHOULDER_POD_TEXTURE_PATH,
+	"module_collar_ring": MODULE_COLLAR_RING_TEXTURE_PATH,
+	"module_gem_plate": MODULE_GEM_PLATE_TEXTURE_PATH,
+	"ignition_sheet": IGNITION_SHEET_TEXTURE_PATH,
+	"spark_shard": SPARK_SHARD_TEXTURE_PATH,
+	"altar_backplate": ALTAR_BACKPLATE_TEXTURE_PATH,
+}
 # 아틀라스 그리드 권위: AutoSprite 4x4 = 16프레임(잘못된 그리드는 조용히
 # 엉뚱한 셀을 자른다 — atlas grid authority 트랩).
 const IGNITION_SHEET_COLS := 4
@@ -73,6 +85,7 @@ const EVENT_PULSE_DECAY := 4.0
 static var _assets_prewarmed := false
 static var _textures: Dictionary = {}
 static var _icon_renderer: Object = null
+static var _prewarm_asset_index := 0
 
 var _boot_active := false
 var _boot_snapshot: Dictionary = {}
@@ -93,20 +106,8 @@ var _haze_preset := ""
 static func prewarm_assets() -> void:
 	if _assets_prewarmed:
 		return
-	var manifest := {
-		"chassis_off": CHASSIS_OFF_TEXTURE_PATH,
-		"chassis_on": CHASSIS_ON_TEXTURE_PATH,
-		"cartridge_left": CARTRIDGE_LEFT_TEXTURE_PATH,
-		"cartridge_right": CARTRIDGE_RIGHT_TEXTURE_PATH,
-		"module_shoulder_pod": MODULE_SHOULDER_POD_TEXTURE_PATH,
-		"module_collar_ring": MODULE_COLLAR_RING_TEXTURE_PATH,
-		"module_gem_plate": MODULE_GEM_PLATE_TEXTURE_PATH,
-		"ignition_sheet": IGNITION_SHEET_TEXTURE_PATH,
-		"spark_shard": SPARK_SHARD_TEXTURE_PATH,
-		"altar_backplate": ALTAR_BACKPLATE_TEXTURE_PATH,
-	}
-	for texture_key: String in manifest.keys():
-		var path := str(manifest[texture_key])
+	for texture_key: String in PREWARM_TEXTURE_MANIFEST.keys():
+		var path := str(PREWARM_TEXTURE_MANIFEST[texture_key])
 		if not FileAccess.file_exists(path) and not ResourceLoader.exists(path):
 			continue
 		var texture: Variant = ProjectResourceLoader.load_imported_texture(path)
@@ -115,6 +116,31 @@ static func prewarm_assets() -> void:
 	if _icon_renderer == null:
 		_icon_renderer = RuntimePerkIconRenderer.new()
 	_assets_prewarmed = true
+
+
+static func prewarm_assets_step() -> bool:
+	if _assets_prewarmed:
+		return true
+	var texture_keys: Array = PREWARM_TEXTURE_MANIFEST.keys()
+	if _prewarm_asset_index < texture_keys.size():
+		var texture_key := str(texture_keys[_prewarm_asset_index])
+		var path := str(PREWARM_TEXTURE_MANIFEST[texture_key])
+		if not FileAccess.file_exists(path) and not ResourceLoader.exists(path):
+			_prewarm_asset_index += 1
+			return false
+		var result := ProjectResourceLoader.prewarm_texture_threaded_step(path, "", "", ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC, ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS, false, true)
+		if not bool(result.get("done", false)):
+			return false
+		var texture := result.get("texture", null) as Texture2D
+		if texture != null:
+			_textures[texture_key] = texture
+		_prewarm_asset_index += 1
+		return false
+	if _icon_renderer == null:
+		_icon_renderer = RuntimePerkIconRenderer.new()
+	_assets_prewarmed = true
+	_prewarm_asset_index = 0
+	return true
 
 
 static func _texture(texture_key: String) -> Texture2D:

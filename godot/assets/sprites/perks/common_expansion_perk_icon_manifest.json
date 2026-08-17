@@ -1,0 +1,36 @@
+{
+  "asset_id": "common_expansion_perk_icon",
+  "perk_id": "common_expansion",
+  "display_name_ko": "광맥결",
+  "display_name_en": "Meridian-Widening Art",
+  "runtime_path": "res://assets/sprites/perks/common_expansion_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-65d2c407-1ba2-41cc-8032-69d9c3c1d81d.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy martial-arts training seal on torn aged hanji: a black upper-body practitioner whose central violet meridian branches into four widened nodes, with restrained indigo cloud accents. No book, readable text, arrows, gemstone crest, metal, leather, neon, or glossy UI frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_method": "auto-key border on flat magenta",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [8, 9, 248, 248],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "42589136758352f207b931a52c65586c4de5855301eff7c440d92c3b0406cf4a",
+    "runtime_capture": "res://.tmp/common_mugong_seal_qa.png",
+    "rendered_sizes": [80, 32],
+    "notes": "Standalone common-Mugong hanji seal; the four meridian nodes remain legible at the 32px owned-HUD size."
+  }
+}

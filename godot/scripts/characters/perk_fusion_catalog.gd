@@ -48,12 +48,12 @@ const LIMIT_BREAK_ELIGIBLE_IDS := {
 	"item_luck": true,
 	"item_cooldown_mastery": true,
 	"item_gauge_mastery": true,
-	"item_bag_expansion": true,
 	"item_caffeine": true,
 	"item_polish": true,
 	"item_recycle": true,
 	"common_swiftness": true,
 	"common_bulk_up": true,
+	"training_mastery": true,
 	"common_training": true,
 	"perk_boost_charge": true,
 	"perk_laurel_shield": true,
@@ -78,7 +78,6 @@ const LIMIT_BREAK_ELIGIBLE_IDS := {
 	"knee_pads": true,
 	"soul_burst": true,
 	"bulletproof_hat": true,
-	"spiked_helmet": true,
 	"venom_mist_gauntlet": true,
 }
 

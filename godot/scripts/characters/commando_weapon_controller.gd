@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
 
 const BASE_WEAPON := "pistol"
 const PISTOL_ORB_SKILL := "commando_pistol"
@@ -28,7 +29,7 @@ const HUD_HIGHLIGHT_DURATION_FRAMES := 180.0
 
 const WEAPON_DATA := {
 	"pistol": {
-		"display_name_ko": "권총",
+		"display_name_ko": "단총통",
 		"kind": "base",
 		"ammo_current": PISTOL_AMMO_MAX,
 		"ammo_max": PISTOL_AMMO_MAX,
@@ -39,7 +40,7 @@ const WEAPON_DATA := {
 		"status_label": "탄약",
 	},
 	"commando_pistol": {
-		"display_name_ko": "베레타",
+		"display_name_ko": "삼안속총",
 		"kind": "owned",
 		"ammo_current": BERETTA_AMMO_MAX,
 		"ammo_max": BERETTA_AMMO_MAX,
@@ -51,42 +52,42 @@ const WEAPON_DATA := {
 		"status_label": "탄약",
 	},
 	"net_gun": {
-		"display_name_ko": "그물덫총",
+		"display_name_ko": "투망총통",
 		"kind": "owned",
 		"ammo_current": NET_GUN_AMMO_MAX,
 		"ammo_max": NET_GUN_AMMO_MAX,
 		"status_label": "탄환",
 	},
 	"fire_support": {
-		"display_name_ko": "화력지원",
+		"display_name_ko": "신기화전",
 		"kind": "owned",
 		"ammo_current": FIRE_SUPPORT_AMMO_MAX,
 		"ammo_max": FIRE_SUPPORT_AMMO_MAX,
 		"status_label": "호출권",
 	},
 	"bowling_trap": {
-		"display_name_ko": "볼링트랩",
+		"display_name_ko": "질려포통",
 		"kind": "owned",
 		"ammo_current": BOWLING_TRAP_AMMO_MAX,
 		"ammo_max": BOWLING_TRAP_AMMO_MAX,
 		"status_label": "탄환",
 	},
 	"suicide_drone": {
-		"display_name_ko": "자폭드론",
+		"display_name_ko": "화조뢰",
 		"kind": "owned",
 		"ammo_current": SUICIDE_DRONE_AMMO_MAX,
 		"ammo_max": SUICIDE_DRONE_AMMO_MAX,
 		"status_label": "탄환",
 	},
 	"bazooka": {
-		"display_name_ko": "바주카포",
+		"display_name_ko": "벽력완구",
 		"kind": "owned",
 		"ammo_current": BAZOOKA_AMMO_MAX,
 		"ammo_max": BAZOOKA_AMMO_MAX,
 		"status_label": "탄약",
 	},
 	"ak47": {
-		"display_name_ko": "AK-47",
+		"display_name_ko": "연주총통",
 		"kind": "owned",
 		"ammo_current": AK47_AMMO_MAX,
 		"ammo_max": AK47_AMMO_MAX,
@@ -107,6 +108,7 @@ var switch_debounce_msec := 80
 var hud_highlight_weapon_id := ""
 var hud_highlight_timer_frames := 0.0
 var hud_highlight_max_frames := HUD_HIGHLIGHT_DURATION_FRAMES
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func _init() -> void:
@@ -121,7 +123,31 @@ func reset() -> void:
 	current_weapon_id = BASE_WEAPON
 	prepared_stage_id = 0
 	last_switch_msec = -100000
+	_runtime_perk_modal_pause_started_msec = -1
 	_clear_hud_highlight()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+# ⚠️`switch_debounce_msec` 는 시각이 아니라 **길이**라 밀면 안 된다.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	last_switch_msec = RuntimePerkModalTimeShift.shift_anchor(last_switch_msec, delta_msec)
 
 
 func get_snapshot() -> Dictionary:
@@ -773,7 +799,7 @@ func _get_base_pistol_ammo_text(data: Dictionary) -> String:
 	var ammo_max: int = int(data.get("ammo_max", PISTOL_AMMO_MAX))
 	if bool(data.get("reloading", false)):
 		var display_ammo: int = int(data.get("reload_display_ammo", ammo_current))
-		return "%s %d/%d" % [LanguageSettings.translate_text("재장전"), display_ammo, ammo_max]
+		return "%s %d/%d" % [LanguageSettings.translate_text("재장약"), display_ammo, ammo_max]
 	return "%s %d/%d" % [LanguageSettings.translate_text("탄약"), ammo_current, ammo_max]
 
 

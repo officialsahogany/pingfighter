@@ -3,11 +3,14 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneActorUpdateResultApplier := preload("res://scripts/core/battle_scene_actor_update_result_applier.gd")
 const BattleScenePlayerControlConfigBuilder := preload("res://scripts/core/battle_scene_player_control_config_builder.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var _fallback_result_applier: Object = BattleSceneActorUpdateResultApplier.new()
 var _fallback_config_builder: Object = BattleScenePlayerControlConfigBuilder.new()
+var _vision_modifier_input_proxy: Object = VisionModifierInputProxy.new()
 
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
@@ -32,6 +35,63 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	sample_start = _perf_begin(perf_logger)
 	var config: Dictionary = _get_config_builder(registry).build_config(owner, registry, character_type, context_builder)
 	_perf_end(perf_logger, "physics.player_control.build_config", sample_start)
+	var locked_player_pos := _get_owner_vector2(owner, "player_pos", Vector2.ZERO)
+	var vision_entries: Array[Dictionary] = [
+		{
+			"state": player_control_deps.get("dalji_vision_chosik_state", null),
+			"skill_id": CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID,
+		},
+		{
+			"state": player_control_deps.get("cheongringwi_vision_chosik_state", null),
+			"skill_id": CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID,
+		},
+		{
+			"state": player_control_deps.get("yeonmyo_vision_chosik_state", null),
+			"skill_id": CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_ID,
+		},
+	]
+	var vision_special_gauge_override := -1.0
+	var vision_movement_locked := false
+	var vision_activated := false
+	var input_snapshot: Dictionary = {}
+	var input_reader: Object = player_control_deps.get("input_reader", null)
+	if input_reader != null and input_reader.has_method("get_snapshot"):
+		var snapshot_value: Variant = input_reader.get_snapshot()
+		if snapshot_value is Dictionary:
+			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
+	var modifier_pressed := Input.is_action_pressed("vision_modifier")
+	var skill_config: Object = player_control_deps.get("skill_config", null)
+	var any_vision_equipped := false
+	for entry: Dictionary in vision_entries:
+		var vision_state: Object = entry.get("state", null)
+		var vision_skill_id: String = str(entry.get("skill_id", ""))
+		if (
+			modifier_pressed
+			and skill_config != null
+			and skill_config.has_method("is_skill_equipped")
+			and bool(skill_config.is_skill_equipped(vision_skill_id))
+		):
+			any_vision_equipped = true
+		if vision_state == null or not vision_state.has_method("update"):
+			continue
+		var vision_result: Dictionary = vision_state.update(
+			delta,
+			input_snapshot,
+			modifier_pressed,
+			locked_player_pos,
+			config,
+			player_control_deps
+		)
+		if vision_result.has("special_gauge"):
+			vision_special_gauge_override = float(vision_result.get("special_gauge", config.get("special_gauge", 0.0)))
+			config["special_gauge"] = vision_special_gauge_override
+		if bool(vision_result.get("activated", false)):
+			vision_activated = true
+		if vision_state.has_method("is_movement_locked") and bool(vision_state.is_movement_locked()):
+			vision_movement_locked = true
+	if modifier_pressed and any_vision_equipped:
+		player_control_deps["input_reader"] = _vision_modifier_input_proxy.configure(input_reader)
+		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
 	var result: Dictionary = controller.update(
 		delta,
@@ -44,6 +104,13 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	_perf_end(perf_logger, "physics.player_control.controller", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_apply_player_weather_motion(result, owner, registry, fps_scale, character_type)
+	if vision_activated:
+		result["activated"] = true
+	if vision_special_gauge_override >= 0.0:
+		result["special_gauge"] = vision_special_gauge_override
+	if vision_movement_locked:
+		result["player_pos"] = locked_player_pos
+		result["player_speed"] = 0.0
 	_get_result_applier(registry).apply_player_result(owner, registry, result)
 	_perf_end(perf_logger, "physics.player_control.apply", sample_start)
 	_perf_end(perf_logger, "physics.player_control.total", total_start)
@@ -78,7 +145,6 @@ func update_boss_ai(owner: Object, registry: Object, delta: float) -> void:
 	_get_result_applier(registry).apply_boss_result(owner, result)
 	_perf_end(perf_logger, "physics.boss_ai.apply", sample_start)
 	_perf_end(perf_logger, "physics.boss_ai.total", total_start)
-
 
 func _apply_player_weather_motion(
 	result: Dictionary,

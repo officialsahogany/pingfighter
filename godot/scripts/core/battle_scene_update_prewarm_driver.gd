@@ -2,9 +2,11 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneUpdatePrewarmKeySets := preload("res://scripts/core/battle_scene_update_prewarm_key_sets.gd")
+const BattleSceneUpdatePrewarmPlan := preload("res://scripts/core/battle_scene_update_prewarm_plan.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
+var _prewarm_plan: Object = BattleSceneUpdatePrewarmPlan.new()
 var battle_update_prewarmed := false
 var battle_update_prewarmed_for := ""
 var update_prewarm_step_index := 0
@@ -57,7 +59,7 @@ func prewarm_update(owner: Object, registry: Object) -> void:
 func prewarm_update_step(owner: Object, registry: Object) -> bool:
 	if owner == null or registry == null:
 		return true
-	var prewarm_key := _build_prewarm_key(owner)
+	var prewarm_key: String = str(_prewarm_plan.build_prewarm_key(owner))
 	if battle_update_prewarmed and battle_update_prewarmed_for == prewarm_key:
 		return true
 	if battle_update_prewarmed_for != prewarm_key:
@@ -69,6 +71,8 @@ func prewarm_update_step(owner: Object, registry: Object) -> bool:
 	var module_count := BattleSceneUpdatePrewarmKeySets.UPDATE_MODULE_KEYS.size()
 	if update_prewarm_step_index < module_count:
 		update_prewarm_detail_label = str(BattleSceneUpdatePrewarmKeySets.UPDATE_MODULE_KEYS[update_prewarm_step_index])
+		if not _prewarm_instance_script_step(registry, update_prewarm_detail_label):
+			return false
 		_get_instance(registry, update_prewarm_detail_label)
 		update_prewarm_step_index += 1
 		update_prewarm_substep_index = 0
@@ -78,7 +82,7 @@ func prewarm_update_step(owner: Object, registry: Object) -> bool:
 	match update_prewarm_step_index - module_count:
 		0:
 			update_prewarm_detail_label = "player_lookup"
-			_prewarm_player_control_lookup(owner, registry)
+			step_done = _prewarm_player_control_lookup(owner, registry)
 		1:
 			step_done = _prewarm_player_control_context_step(owner, registry)
 		2:
@@ -109,9 +113,11 @@ func prewarm_ball_update(owner: Object, registry: Object) -> void:
 func prewarm_ball_update_step(owner: Object, registry: Object) -> bool:
 	if owner == null or registry == null:
 		return true
-	var prewarm_key := _build_prewarm_key(owner)
+	var prewarm_key: String = str(_prewarm_plan.build_prewarm_key(owner))
 	if battle_ball_update_prewarmed and battle_ball_update_prewarmed_for == prewarm_key:
 		return true
+	if not _prewarm_instance_script_step(registry, "battle_scene_ball_update_driver"):
+		return false
 	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
 	if ball_driver != null and ball_driver.has_method("prewarm_update"):
 		ball_driver.prewarm_update(owner, registry)
@@ -132,14 +138,14 @@ func get_update_prewarm_detail_label(owner: Object) -> String:
 		1:
 			return _get_step_key_label(
 				"player_deps",
-				_get_player_control_context_prewarm_keys(character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher")))
+				_prewarm_plan.get_player_control_context_keys(character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher")))
 			)
 		2:
 			return "boss_ai_context"
 		3:
-			return _get_step_key_label("effects_deps", _get_effects_context_prewarm_keys(owner))
+			return _get_step_key_label("effects_deps", _prewarm_plan.get_effects_context_keys(owner))
 		4:
-			return _get_step_key_label("match_deps", _get_match_flow_context_prewarm_keys(owner))
+			return _get_step_key_label("match_deps", _prewarm_plan.get_match_flow_context_keys(owner))
 	return ""
 
 
@@ -164,13 +170,15 @@ func _prewarm_player_control_context(owner: Object, registry: Object) -> void:
 
 func _prewarm_player_control_context_step(owner: Object, registry: Object) -> bool:
 	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
-	var keys: Array = _get_player_control_context_prewarm_keys(character_type)
+	var keys: Array = _prewarm_plan.get_player_control_context_keys(character_type)
 	if update_prewarm_substep_index < keys.size():
 		var key := str(keys[update_prewarm_substep_index])
 		update_prewarm_detail_label = "player_deps.%02d_%s" % [
 			update_prewarm_substep_index,
 			key,
 		]
+		if not _prewarm_instance_script_step(registry, key):
+			return false
 		var instance: Object = _get_instance(registry, key)
 		if not _prewarm_instance_assets_step(key, instance):
 			return false
@@ -207,13 +215,15 @@ func _prewarm_effects_context(owner: Object, registry: Object) -> void:
 
 
 func _prewarm_effects_context_step(owner: Object, registry: Object) -> bool:
-	var keys: Array = _get_effects_context_prewarm_keys(owner)
+	var keys: Array = _prewarm_plan.get_effects_context_keys(owner)
 	if update_prewarm_substep_index < keys.size():
 		var key := str(keys[update_prewarm_substep_index])
 		update_prewarm_detail_label = "effects_deps.%02d_%s" % [
 			update_prewarm_substep_index,
 			key,
 		]
+		if not _prewarm_instance_script_step(registry, key):
+			return false
 		var instance: Object = _get_instance(registry, key)
 		if not _prewarm_instance_assets_step(key, instance):
 			return false
@@ -245,13 +255,15 @@ func _prewarm_match_flow_context(owner: Object, registry: Object) -> void:
 
 
 func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
-	var keys: Array = _get_match_flow_context_prewarm_keys(owner)
+	var keys: Array = _prewarm_plan.get_match_flow_context_keys(owner)
 	if update_prewarm_substep_index < keys.size():
 		var key := str(keys[update_prewarm_substep_index])
 		update_prewarm_detail_label = "match_deps.%02d_%s" % [
 			update_prewarm_substep_index,
 			key,
 		]
+		if not _prewarm_instance_script_step(registry, key):
+			return false
 		var instance: Object = _get_instance(registry, key)
 		if not _prewarm_instance_assets_step(key, instance):
 			return false
@@ -262,9 +274,23 @@ func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
 	return true
 
 
-func _prewarm_player_control_lookup(owner: Object, registry: Object) -> void:
+func _prewarm_player_control_lookup(owner: Object, registry: Object) -> bool:
 	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
-	_get_instance(registry, character_runtime.get_player_controller_key(character_type))
+	var controller_key: String = character_runtime.get_player_controller_key(character_type)
+	if not _prewarm_instance_script_step(registry, controller_key):
+		return false
+	_get_instance(registry, controller_key)
+	return true
+
+
+func _prewarm_instance_script_step(registry: Object, key: String) -> bool:
+	if registry == null:
+		return true
+	if registry.has_method("request_threaded_script"):
+		registry.request_threaded_script(key)
+	if registry.has_method("is_threaded_script_ready"):
+		return bool(registry.is_threaded_script_ready(key))
+	return true
 
 
 func _get_instance(registry: Object, key: String) -> Object:
@@ -289,7 +315,7 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 
 
 func _prewarm_instance_assets_step(key: String, instance: Object) -> bool:
-	if key != "smasher_cleanse_state":
+	if key not in ["smasher_cleanse_state", "cheongringwi_vision_chosik_state"]:
 		return true
 	if instance == null or not instance.has_method("prewarm_assets_step"):
 		return true
@@ -298,163 +324,6 @@ func _prewarm_instance_assets_step(key: String, instance: Object) -> bool:
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	return BattleSceneOwnerReader.get_value(owner, key, fallback)
-
-
-func _build_prewarm_key(owner: Object) -> String:
-	return "%s:%d" % [
-		character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher")),
-		int(_get_owner_value(owner, "current_stage", 1)),
-	]
-
-
-func _get_player_control_context_prewarm_keys(character_type: String) -> Array:
-	var normalized_character: String = character_runtime.normalize(character_type)
-	var keys: Array = [
-		"stage3_boss_skill_state",
-		"status_effect_state",
-		character_runtime.get_input_reader_key(normalized_character),
-		"mythic_item_runtime",
-		character_runtime.get_dash_state_key(normalized_character),
-		character_runtime.get_skill_state_key(normalized_character),
-		character_runtime.get_skill_config_key(normalized_character),
-	]
-	if character_runtime.is_viper(normalized_character):
-		keys.append_array([
-			"viper_skill_runtime",
-			"viper_jetpack_state",
-		])
-	elif character_runtime.is_optimus(normalized_character):
-		keys.append("optimus_energy_state")
-	elif character_runtime.is_commando(normalized_character):
-		keys.append_array([
-			"commando_weapon_controller",
-			"commando_emergency_supply_state",
-			"commando_reload_delivery_state",
-			"commando_firearm_runtime",
-			"commando_supply_drop_state",
-		])
-	elif character_runtime.is_blacksmith(normalized_character):
-		keys.append_array([
-			"blacksmith_player_controller",
-			"blacksmith_thor_shield_state",
-			"blacksmith_skill_state",
-			"blacksmith_skill_config",
-		])
-	else:
-		keys.append_array([
-			"smasher_drive_input_state",
-			"smasher_power_smash_state",
-			"smasher_plasma_state",
-			"smasher_recovery_state",
-			"smasher_cleanse_state",
-			"smasher_warp_gate_state",
-			"smasher_wheel_state",
-			"smasher_overdrive_state",
-			"smasher_magnum_grip_state",
-			"smasher_dash_spirit_state",
-			"smasher_shield_kiting_state",
-			"smasher_combo_state",
-			"smasher_drive_bounce_state",
-			"smasher_drive_counter_state",
-			"smasher_drive_activation_controller",
-			"smasher_power_smash_activation_controller",
-			"smasher_power_smash_motion_controller",
-		])
-	keys.append_array([
-		"player_movement_state",
-		"runtime_perk_state",
-		"orb_hud_state",
-		"active_item_runtime",
-		"round_flow_state",
-		"game_audio",
-		"battle_feedback_state",
-	])
-	return _unique_non_empty_keys(keys)
-
-
-func _get_effects_context_prewarm_keys(owner: Object) -> Array:
-	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
-	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
-	var keys: Array = []
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_CORE_PREWARM_KEYS)
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_COMMON_CHARACTER_PREWARM_KEYS)
-	if character_runtime.is_viper(character_type):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_VIPER_PREWARM_KEYS)
-	elif character_runtime.is_commando(character_type):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_COMMANDO_PREWARM_KEYS)
-	elif character_runtime.is_blacksmith(character_type):
-		keys.append_array(["blacksmith_thor_shield_state"])
-	elif not character_runtime.is_optimus(character_type):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.EFFECTS_SMASHER_PREWARM_KEYS)
-	keys.append_array(_get_stage_runtime_prewarm_keys(current_stage, false))
-	return _unique_non_empty_keys(keys)
-
-
-func _get_match_flow_context_prewarm_keys(owner: Object) -> Array:
-	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
-	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
-	var keys: Array = []
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_STATE_PREWARM_KEYS)
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_ITEM_RUNTIME_PREWARM_KEYS)
-	keys.append_array(_get_match_player_skill_prewarm_keys(character_type))
-	keys.append_array(_get_stage_runtime_prewarm_keys(current_stage, false))
-	return _unique_non_empty_keys(keys)
-
-
-func _get_match_player_skill_prewarm_keys(character_type: String) -> Array:
-	var normalized_character: String = character_runtime.normalize(character_type)
-	var keys: Array = []
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_PLAYER_SKILL_COMMON_PREWARM_KEYS)
-	if character_runtime.is_viper(normalized_character):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_VIPER_SKILL_PREWARM_KEYS)
-	elif character_runtime.is_commando(normalized_character):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_COMMANDO_SKILL_PREWARM_KEYS)
-	elif character_runtime.is_optimus(normalized_character):
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_OPTIMUS_SKILL_PREWARM_KEYS)
-	elif character_runtime.is_blacksmith(normalized_character):
-		keys.append_array(["blacksmith_skill_state", "blacksmith_skill_config", "blacksmith_thor_shield_state"])
-	else:
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.MATCH_SMASHER_SKILL_PREWARM_KEYS)
-	return keys
-
-
-func _get_stage_runtime_prewarm_keys(current_stage: int, include_all_stages: bool) -> Array:
-	var keys: Array = []
-	keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE_RUNTIME_COMMON_PREWARM_KEYS)
-	if include_all_stages:
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE1_RUNTIME_PREWARM_KEYS)
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE2_RUNTIME_PREWARM_KEYS)
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE3_RUNTIME_PREWARM_KEYS)
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE4_RUNTIME_PREWARM_KEYS)
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE5_RUNTIME_PREWARM_KEYS)
-		keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE6_RUNTIME_PREWARM_KEYS)
-		return keys
-	match current_stage:
-		1:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE1_RUNTIME_PREWARM_KEYS)
-		2:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE2_RUNTIME_PREWARM_KEYS)
-		3:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE3_RUNTIME_PREWARM_KEYS)
-		4:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE4_RUNTIME_PREWARM_KEYS)
-		5:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE5_RUNTIME_PREWARM_KEYS)
-		6:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE6_RUNTIME_PREWARM_KEYS)
-		_:
-			keys.append_array(BattleSceneUpdatePrewarmKeySets.STAGE1_RUNTIME_PREWARM_KEYS)
-	return keys
-
-
-func _unique_non_empty_keys(keys: Array) -> Array:
-	var unique_keys: Array = []
-	for key_value in keys:
-		var key := str(key_value)
-		if key == "" or unique_keys.has(key):
-			continue
-		unique_keys.append(key)
-	return unique_keys
 
 
 func _get_step_key_label(prefix: String, keys: Array) -> String:

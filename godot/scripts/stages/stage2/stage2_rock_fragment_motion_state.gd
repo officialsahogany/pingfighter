@@ -1,6 +1,36 @@
 extends RefCounted
 
 
+var fragments: Array = []
+
+
+func reset() -> void:
+	fragments.clear()
+
+
+func advance(delta: float, floor_y: float = 700.0) -> void:
+	update_fragments(fragments, max(0.0, delta), floor_y)
+
+
+func append_fragments(entries: Array, max_count: int) -> void:
+	fragments.append_array(entries)
+	_trim_front(max_count)
+
+
+func _trim_front(max_count: int) -> void:
+	if max_count <= 0:
+		fragments.clear()
+		return
+	var overflow := fragments.size() - max_count
+	if overflow <= 0:
+		return
+	var write_index := 0
+	for read_index in range(overflow, fragments.size()):
+		fragments[write_index] = fragments[read_index]
+		write_index += 1
+	fragments.resize(write_index)
+
+
 static func update_fragments(rock_fragments: Array, delta: float, floor_y: float = 700.0) -> void:
 	var write_index := 0
 	var fragment_count := rock_fragments.size()

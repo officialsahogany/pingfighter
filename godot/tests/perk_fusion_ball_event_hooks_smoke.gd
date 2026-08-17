@@ -6,9 +6,13 @@ const BallRoundActorCleanup := preload("res://scripts/ball/ball_round_actor_clea
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
 const BallUpdateOwnerSnapshot := preload("res://scripts/ball/ball_update_owner_snapshot.gd")
+const BallRenderer := preload("res://scripts/ball/ball_renderer.gd")
+const BattleDrawBallContext := preload("res://scripts/core/battle_draw_ball_context.gd")
+const BattleDrawPlayfieldSceneContext := preload("res://scripts/core/battle_draw_playfield_scene_context.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
 const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_controller.gd")
 const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
+const PerkFusionOverloadBallSpeed := preload("res://scripts/ball/perk_fusion_overload_ball_speed.gd")
 
 const OVERLOAD_SPEED_CAP_KEY := "perk_fusion_overload_speed_cap"
 const OVERLOAD_SPEED_CAP_FRAMES_KEY := "perk_fusion_overload_speed_cap_frames"
@@ -90,25 +94,45 @@ class FakeBallPhysics:
 class FakeFusionRuntime:
 	extends RefCounted
 
-	var overload_multiplier := 1.15
-	var overload_consume_count := 0
+	var thunder_drive_available := true
+	var thunder_drive_trigger_count := 0
+	var thunder_drive_restore_speed := 0.0
 	var wall_award := 2
 	var wall_query_count := 0
 	var gold_awards: Array[int] = []
+	var runtime_perk_gold_total := 0
 	var skill_use_count := 0
 	var round_reset_count := 0
 
-	func consume_perk_fusion_paddle_bounce_speed_multiplier() -> float:
-		overload_consume_count += 1
-		var result := overload_multiplier
-		overload_multiplier = 1.0
+	func can_trigger_perk_fusion_dash_paddle_speed_boost() -> bool:
+		return thunder_drive_available
+
+	func try_trigger_perk_fusion_dash_paddle_speed_boost(
+		roll_unit: float,
+		restore_effective_speed: float
+	) -> Dictionary:
+		thunder_drive_trigger_count += 1
+		if not thunder_drive_available or roll_unit >= 0.15:
+			return {"triggered": false, "speed_multiplier": 1.0}
+		thunder_drive_available = false
+		thunder_drive_restore_speed = restore_effective_speed
+		return {"triggered": true, "speed_multiplier": 1.80}
+
+	func consume_perk_fusion_boss_guard_restore_effective_speed() -> float:
+		var result := thunder_drive_restore_speed
+		thunder_drive_restore_speed = 0.0
+		thunder_drive_available = true
 		return result
 
 	func award_perk_fusion_wall_bounce_gold(_context: Dictionary = {}, _deps: Dictionary = {}) -> int:
 		wall_query_count += 1
 		if wall_award > 0:
 			gold_awards.append(wall_award)
+			runtime_perk_gold_total += wall_award
 		return wall_award
+
+	func get_runtime_perk_gold_total() -> int:
+		return runtime_perk_gold_total
 
 	func notify_perk_fusion_skill_used() -> void:
 		skill_use_count += 1
@@ -120,7 +144,35 @@ class FakeFusionRuntime:
 
 	func reset_perk_fusion_round_byproducts() -> void:
 		round_reset_count += 1
-		overload_multiplier = 1.0
+		thunder_drive_available = true
+		thunder_drive_restore_speed = 0.0
+
+
+class FakeActiveDashState:
+	extends RefCounted
+
+	var active := true
+
+	func is_active() -> bool:
+		return active
+
+
+class FakeBallEffects:
+	extends RefCounted
+
+	var events: Array[Dictionary] = []
+
+	func register_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float, kind: String) -> void:
+		events.append({"pos": pos, "velocity": velocity, "intensity": intensity, "kind": kind})
+
+
+class FakeImpactEffects:
+	extends RefCounted
+
+	var thunder_drive_bursts: Array[Dictionary] = []
+
+	func create_thunder_drive_burst(pos: Vector2, velocity: Vector2) -> void:
+		thunder_drive_bursts.append({"pos": pos, "velocity": velocity})
 
 
 class FakeBallOwner:
@@ -134,9 +186,10 @@ class FakeBallOwner:
 
 
 func _init() -> void:
-	_verify_player_paddle_consumes_overload_after_a_real_bounce()
-	_verify_canonical_paddle_normalizes_effective_speed_before_overload()
-	_verify_overload_opens_effective_rally_cap_until_boss_return()
+	_expect(PerkFusionOverloadBallSpeed != null, "Thunderbolt Drive compatibility speed helper should compile")
+	_verify_dash_paddle_hit_triggers_thunder_drive_and_vfx()
+	_verify_canonical_paddle_normalizes_effective_speed_before_thunder_drive()
+	_verify_thunder_drive_opens_effective_rally_cap_until_boss_guard()
 	_verify_overload_cap_outlanks_ordinary_hard_caps()
 	_verify_round_cleanup_resets_overload_arm()
 	_verify_boss_or_empty_paddle_result_does_not_consume_overload()
@@ -154,32 +207,44 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_player_paddle_consumes_overload_after_a_real_bounce() -> void:
+func _verify_dash_paddle_hit_triggers_thunder_drive_and_vfx() -> void:
 	var runtime := FakeFusionRuntime.new()
+	var ball_effects := FakeBallEffects.new()
+	var impact_effects := FakeImpactEffects.new()
 	var scene := _base_scene()
 	var processor := BallMotionEventProcessor.new()
+	var context := _base_context()
+	context["perk_fusion_thunder_drive_roll_unit"] = 0.0
 	processor.step_motion(
 		scene,
 		1.0,
-		_base_context(),
+		context,
 		{
 			"motion_stepper": FakeMotionStepper.new(_paddle_event(true)),
 			"paddle_bounce_controller": FakePaddleBounceController.new({"ball_vel": Vector2(3.0, -4.0)}),
 			"runtime_perk_state": runtime,
+			"dash_state": FakeActiveDashState.new(),
+			"ball_effects": ball_effects,
+			"impact_effects": impact_effects,
 		},
 		{}
 	)
-	_expect(runtime.overload_consume_count == 1, "successful player paddle bounce should consume overload exactly once")
+	_expect(runtime.thunder_drive_trigger_count == 1, "a successful dash paddle hit should roll Thunderbolt Drive exactly once")
 	_expect(
-		_get_vector2(scene, "ball_vel", Vector2.ZERO).is_equal_approx(Vector2(3.45, -4.6)),
-		"overload should multiply the committed outgoing player-paddle velocity by 1.15"
+		_get_vector2(scene, "ball_vel", Vector2.ZERO).is_equal_approx(Vector2(5.4, -7.2)),
+		"Thunderbolt Drive should multiply the committed outgoing velocity by exactly 1.80"
 	)
+	var active_draw_context: Dictionary = BattleDrawBallContext.new().build_draw(scene, {}).get("context", {}) as Dictionary
+	_expect(bool(active_draw_context.get("perk_fusion_thunder_drive_active", false)), "an open Thunderbolt Drive cap should publish the red-purple ball render flag")
+	_expect(BallRenderer.new()._get_skill_fx_mode(active_draw_context) == "thunder_drive", "the active render flag should select the dedicated Thunderbolt Drive ball palette")
+	_expect(ball_effects.events.size() == 1 and str(ball_effects.events[0].get("kind", "")) == "thunder_drive", "activation should publish the dedicated ball hit pulse")
+	_expect(impact_effects.thunder_drive_bursts.size() == 1, "activation should spawn one visible thunder burst")
 
 
-func _verify_canonical_paddle_normalizes_effective_speed_before_overload() -> void:
+func _verify_canonical_paddle_normalizes_effective_speed_before_thunder_drive() -> void:
 	const ORDINARY_EFFECTIVE_CAP := 30.5
 	const IMPACT_BOOST := 1.2
-	const OVERLOAD_EFFECTIVE_CAP := ORDINARY_EFFECTIVE_CAP * 1.15
+	const OVERLOAD_EFFECTIVE_CAP := ORDINARY_EFFECTIVE_CAP * 1.80
 	var runtime := FakeFusionRuntime.new()
 	var physics := FakeBallPhysics.new(IMPACT_BOOST)
 	var scene := _base_scene()
@@ -190,6 +255,7 @@ func _verify_canonical_paddle_normalizes_effective_speed_before_overload() -> vo
 	}, true)
 	var context := _base_context()
 	context.merge({
+		"perk_fusion_thunder_drive_roll_unit": 0.0,
 		"player_pos": Vector2(300.0, 700.0),
 		"player_paddle_size": Vector2(155.0, 50.0),
 		"paddle_height": 50.0,
@@ -218,6 +284,7 @@ func _verify_canonical_paddle_normalizes_effective_speed_before_overload() -> vo
 			"paddle_bounce_state": PaddleBounceState.new(),
 			"ball_physics": physics,
 			"runtime_perk_state": runtime,
+			"dash_state": FakeActiveDashState.new(),
 		},
 		{}
 	)
@@ -225,15 +292,15 @@ func _verify_canonical_paddle_normalizes_effective_speed_before_overload() -> vo
 		_get_vector2(scene, "ball_vel", Vector2.ZERO).length()
 		* float(scene.get("ball_impact_boost", 1.0))
 	)
-	_expect(runtime.overload_consume_count == 1, "canonical paddle and event fallback must not consume overload twice")
-	_expect_close(effective_speed, OVERLOAD_EFFECTIVE_CAP, "impact boost should still produce exactly ordinary effective cap * 1.15")
+	_expect(runtime.thunder_drive_trigger_count == 1, "canonical paddle path should roll Thunderbolt Drive exactly once")
+	_expect_close(effective_speed, OVERLOAD_EFFECTIVE_CAP, "impact boost should still produce exactly ordinary effective cap * 1.80")
 	_expect_close(float(scene.get(OVERLOAD_SPEED_CAP_KEY, 0.0)), OVERLOAD_EFFECTIVE_CAP, "transient cap should be stored in effective-speed space")
 	BallFrameMotionController.new().apply_ball_speed_limits(scene, {"ball_physics": physics})
 	_expect_close(
 		_get_vector2(scene, "ball_vel", Vector2.ZERO).length()
 			* float(scene.get("ball_impact_boost", 1.0)),
 		OVERLOAD_EFFECTIVE_CAP,
-		"same-frame limiter should preserve exact +15% with impact boost"
+		"same-frame limiter should preserve exact +80% with impact boost"
 	)
 
 	# A later player return without a new charge closes any stale excursion left
@@ -251,13 +318,15 @@ func _verify_canonical_paddle_normalizes_effective_speed_before_overload() -> vo
 			}),
 			"ball_physics": physics,
 			"runtime_perk_state": runtime,
+			"dash_state": FakeActiveDashState.new(),
 		},
 		{}
 	)
-	_expect_close(float(scene.get(OVERLOAD_SPEED_CAP_KEY, -1.0)), 0.0, "uncharged next player return should close a stale overload cap")
+	_expect_close(float(scene.get(OVERLOAD_SPEED_CAP_KEY, -1.0)), OVERLOAD_EFFECTIVE_CAP, "an auxiliary player return must not end the boost before a boss guard")
+	_expect(runtime.thunder_drive_trigger_count == 1, "an active boost must not reroll on an auxiliary player return")
 
 
-func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
+func _verify_thunder_drive_opens_effective_rally_cap_until_boss_guard() -> void:
 	# The player bounce itself advances the rally cap by 0.5. Overload must use
 	# that committed effective cap (base 26 + prior bonus 4 + this hit 0.5), not
 	# the base league cap, and must survive the same frame's final clamp.
@@ -265,7 +334,7 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 	const PRIOR_RALLY_BONUS := 4.0
 	const RALLY_INCREMENT := 0.5
 	const EFFECTIVE_CAP := BASE_CAP + PRIOR_RALLY_BONUS + RALLY_INCREMENT
-	const OVERLOAD_MULTIPLIER := 1.15
+	const OVERLOAD_MULTIPLIER := 1.80
 	const BOOSTED_CAP := EFFECTIVE_CAP * OVERLOAD_MULTIPLIER
 
 	var runtime := FakeFusionRuntime.new()
@@ -274,6 +343,7 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 	scene["impact_boost_max_ball_speed"] = BASE_CAP + PRIOR_RALLY_BONUS
 	scene["rally_speed_cap_bonus"] = PRIOR_RALLY_BONUS
 	var context := _base_context()
+	context["perk_fusion_thunder_drive_roll_unit"] = 0.0
 	context["max_ball_speed"] = BASE_CAP + PRIOR_RALLY_BONUS
 	context["impact_boost_max_ball_speed"] = BASE_CAP + PRIOR_RALLY_BONUS
 	context["rally_speed_cap_bonus"] = PRIOR_RALLY_BONUS
@@ -293,19 +363,20 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 				"impact_boost_max_ball_speed": EFFECTIVE_CAP,
 			}),
 			"runtime_perk_state": runtime,
+			"dash_state": FakeActiveDashState.new(),
 		},
 		{}
 	)
-	_expect(runtime.overload_consume_count == 1, "at-cap player bounce should consume overload once")
+	_expect(runtime.thunder_drive_trigger_count == 1, "at-cap dash bounce should roll Thunderbolt Drive once")
 	_expect_close(
 		float(scene.get(OVERLOAD_SPEED_CAP_KEY, 0.0)),
 		BOOSTED_CAP,
-		"overload should open a transient cap from the committed rally-adjusted cap"
+		"Thunderbolt Drive should open a transient cap from the committed rally-adjusted speed"
 	)
 	_expect(float(scene.get(OVERLOAD_SPEED_CAP_FRAMES_KEY, 0.0)) > 0.0, "overload cap should arm a bounded failsafe TTL")
 
 	# This is the real post-motion clamp that currently swallows the multiplier.
-	# The overload cap must keep the same-frame effective speed at cap * 1.15.
+	# The compatibility cap must keep the same-frame effective speed at cap * 1.80.
 	BallFrameMotionController.new().apply_ball_speed_limits(
 		scene,
 		{"ball_physics": FakeBallPhysics.new()}
@@ -313,7 +384,7 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 	_expect_close(
 		_get_vector2(scene, "ball_vel", Vector2.ZERO).length(),
 		BOOSTED_CAP,
-		"same-frame clamp should preserve overload speed at effective cap * 1.15"
+		"same-frame clamp should preserve Thunderbolt Drive speed at effective cap * 1.80"
 	)
 
 	# Overload is a one-rally excursion. Exercise the same event processor that
@@ -327,6 +398,7 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 			"motion_stepper": FakeMotionStepper.new(_paddle_event(false)),
 			"paddle_bounce_controller": FakePaddleBounceController.new({
 				"ball_vel": Vector2(0.0, BOOSTED_CAP),
+				"normal_boss_bounce_committed": true,
 			}),
 			"runtime_perk_state": runtime,
 		},
@@ -347,6 +419,9 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 		EFFECTIVE_CAP,
 		"boss return should restore ball speed to the effective rally cap"
 	)
+	var restored_draw_context: Dictionary = BattleDrawBallContext.new().build_draw(scene, {}).get("context", {}) as Dictionary
+	_expect(not bool(restored_draw_context.get("perk_fusion_thunder_drive_active", true)), "boss guard should clear the red-purple ball render flag with the speed cap")
+	_expect(BallRenderer.new()._get_skill_fx_mode(restored_draw_context) == "", "boss guard should restore the ordinary ball palette")
 
 	var round_reset: Dictionary = BallRoundState.new().build_common_snapshot()
 	_expect_close(
@@ -380,6 +455,9 @@ func _verify_overload_opens_effective_rally_cap_until_boss_return() -> void:
 	_expect_close(float(owner_snapshot.get(OVERLOAD_SPEED_CAP_FRAMES_KEY, 0.0)), 90.0, "owner snapshot should preserve the overload TTL across frames")
 	var scene_snapshot: Dictionary = BallUpdateController.new()._build_scene_snapshot(owner_snapshot)
 	_expect_close(float(scene_snapshot.get(OVERLOAD_SPEED_CAP_KEY, 0.0)), 35.0, "scene snapshot whitelist should preserve the overload cap")
+	var live_draw_source: Dictionary = BattleDrawPlayfieldSceneContext.new().build(FakeBallOwner.new(), Vector2.ZERO, null)
+	var live_ball_context: Dictionary = BattleDrawBallContext.new().build_draw(live_draw_source, {}).get("context", {}) as Dictionary
+	_expect(bool(live_ball_context.get("perk_fusion_thunder_drive_active", false)), "live owner draw projection should preserve the Thunderbolt Drive color state")
 
 	var ttl_scene: Dictionary = {
 		"ball_vel": Vector2(0.0, BOOSTED_CAP),
@@ -446,9 +524,12 @@ func _verify_overload_cap_outlanks_ordinary_hard_caps() -> void:
 
 func _verify_round_cleanup_resets_overload_arm() -> void:
 	var runtime := FakeFusionRuntime.new()
+	runtime.thunder_drive_available = false
+	runtime.thunder_drive_restore_speed = 17.0
 	BallRoundActorCleanup.new().reset_actor_round_state({"runtime_perk_state": runtime})
-	_expect(runtime.round_reset_count == 1, "generic round reset should clear the armed overload hold")
-	_expect_close(runtime.overload_multiplier, 1.0, "generic round reset should prevent overload from crossing rounds")
+	_expect(runtime.round_reset_count == 1, "generic round reset should clear the active Thunderbolt Drive hold")
+	_expect(runtime.thunder_drive_available, "generic round reset should allow a fresh Thunderbolt Drive roll")
+	_expect_close(runtime.thunder_drive_restore_speed, 0.0, "generic round reset should discard the stored restore speed")
 
 
 func _verify_boss_or_empty_paddle_result_does_not_consume_overload() -> void:
@@ -464,7 +545,7 @@ func _verify_boss_or_empty_paddle_result_does_not_consume_overload() -> void:
 		},
 		{}
 	)
-	_expect(boss_runtime.overload_consume_count == 0, "boss paddle bounce must not consume player overload")
+	_expect(boss_runtime.thunder_drive_trigger_count == 0, "boss paddle bounce must not roll player Thunderbolt Drive")
 
 	var empty_runtime := FakeFusionRuntime.new()
 	BallMotionEventProcessor.new().step_motion(
@@ -478,7 +559,23 @@ func _verify_boss_or_empty_paddle_result_does_not_consume_overload() -> void:
 		},
 		{}
 	)
-	_expect(empty_runtime.overload_consume_count == 0, "rejected/empty player paddle result must preserve overload")
+	_expect(empty_runtime.thunder_drive_trigger_count == 0, "rejected/empty player paddle result must not roll Thunderbolt Drive")
+
+	var walking_runtime := FakeFusionRuntime.new()
+	var walking_context := _base_context()
+	walking_context["perk_fusion_thunder_drive_roll_unit"] = 0.0
+	BallMotionEventProcessor.new().step_motion(
+		_base_scene(),
+		1.0,
+		walking_context,
+		{
+			"motion_stepper": FakeMotionStepper.new(_paddle_event(true)),
+			"paddle_bounce_controller": FakePaddleBounceController.new({"ball_vel": Vector2(3.0, -4.0)}),
+			"runtime_perk_state": walking_runtime,
+		},
+		{}
+	)
+	_expect(walking_runtime.thunder_drive_trigger_count == 0, "an ordinary non-dash paddle hit must not roll Thunderbolt Drive")
 
 
 const SmasherPlayerDashController := preload("res://scripts/characters/smasher_player_dash_controller.gd")
@@ -495,7 +592,9 @@ class FakeDashState:
 		_runtime_perk_state: Object,
 		_registry: Object,
 		_consume_token: bool = true,
-		_sensor: bool = false
+		_sensor: bool = false,
+		_base_paddle_height: float = 50.0,
+		_base_paddle_width: float = 155.0
 	) -> bool:
 		return allow_start
 
@@ -598,6 +697,7 @@ func _verify_wall_bounce_routes_fusion_gold_through_runtime_award_flow() -> void
 	)
 	_expect(runtime.wall_query_count == 1, "each resolved wall bounce should query golden trajectory exactly once")
 	_expect(runtime.gold_awards == [2], "positive golden trajectory award should use the canonical capped runtime transaction")
+	_expect(int(scene.get("runtime_perk_gold", -1)) == 2, "positive golden trajectory award should publish the new total through the ball snapshot")
 
 	runtime.wall_award = 0
 	BallMotionEventProcessor.new().step_motion(
@@ -618,6 +718,7 @@ func _verify_wall_bounce_routes_fusion_gold_through_runtime_award_flow() -> void
 	)
 	_expect(runtime.wall_query_count == 2, "zero-award wall bounce should still advance the byproduct runtime cap/query state")
 	_expect(runtime.gold_awards == [2], "zero golden trajectory award must not store gold")
+	_expect(int(scene.get("runtime_perk_gold", -1)) == 2, "zero golden trajectory award must preserve the last synchronized total")
 
 
 func _paddle_event(is_player: bool) -> Dictionary:

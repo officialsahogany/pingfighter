@@ -160,12 +160,18 @@ static func refresh_tooltip_entry_lines(
 		if text == "":
 			continue
 		var color: Color = _get_color(entry.get("color", accent_gold))
-		var wrapped: Array = _get_array(wrap_text_callable.call(font, text, size, max_width, max(1, max_lines - result.size())))
-		for line in wrapped:
-			var line_text: String = str(line)
+		var icon_id := str(entry.get("icon_id", ""))
+		var entry_max_width := maxf(1.0, max_width - (18.0 if not icon_id.is_empty() else 0.0))
+		var wrapped: Array = _get_array(wrap_text_callable.call(font, text, size, entry_max_width, max(1, max_lines - result.size())))
+		for wrapped_index in range(wrapped.size()):
+			var line_text: String = str(wrapped[wrapped_index])
 			var line_entry: Dictionary = tooltip_entry_line_dict(line_dict_cache, result.size())
 			line_entry["text"] = line_text
 			line_entry["color"] = color
+			if not icon_id.is_empty():
+				line_entry["icon_indent"] = true
+				if wrapped_index == 0:
+					line_entry["icon_id"] = icon_id
 			# 삭제 흉터의 렌더러 소유 취소선 메타를 래핑을 통과해 보존한다
 			# (U+0336 결합 글리프는 폰트 미지원 — 명시 세그먼트로 그린다).
 			if bool(entry.get("strikethrough", false)):

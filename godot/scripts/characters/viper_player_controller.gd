@@ -26,13 +26,9 @@ func update(
 		and active_item_runtime.has_method("is_aipill_active")
 		and bool(active_item_runtime.is_aipill_active())
 	)
-	# 묵린변신 (D15): like the AIPill autopilot, the transform must win over viper
-	# skill early-returns — otherwise a viper-owned skill frame preempts the shared
-	# controller and the automation never runs. Same predicate definition as the
-	# smasher block (single source; drift here = "viper만 자동조작 무시" 회귀).
-	var mokrin_transform_active: bool = SmasherPlayerController.is_mokrin_transform_engaged(deps)
+	var lingpet_mount_active := bool(viper_config.get("lingpet_mount_active", deps.get("lingpet_mount_active", false)))
 	var skill_runtime: Object = deps.get("viper_skill_runtime", null)
-	if not aipill_active and not mokrin_transform_active and skill_runtime != null and skill_runtime.has_method("try_activate_before_movement"):
+	if not aipill_active and not lingpet_mount_active and skill_runtime != null and skill_runtime.has_method("try_activate_before_movement"):
 		var skill_result: Dictionary = skill_runtime.try_activate_before_movement(
 			delta,
 			player_pos,
@@ -54,9 +50,9 @@ func update(
 			if not blade_dash_result.is_empty():
 				return blade_dash_result
 			return _build_skill_control_result(frame_counter, skill_result, player_pos, viper_config)
-	var jetpack_result: Dictionary = _apply_jetpack_update(delta, {"player_pos": player_pos}, player_pos, viper_config, deps)
+	var jetpack_result: Dictionary = {"player_pos": player_pos} if lingpet_mount_active else _apply_jetpack_update(delta, {"player_pos": player_pos}, player_pos, viper_config, deps)
 	var movement_start_pos: Vector2 = jetpack_result.get("player_pos", player_pos)
-	var movement_config: Dictionary = _get_jetpack_movement_config(viper_config, deps.get("viper_jetpack_state", null))
+	var movement_config: Dictionary = viper_config if lingpet_mount_active else _get_jetpack_movement_config(viper_config, deps.get("viper_jetpack_state", null))
 	var result: Dictionary = shared_controller.update(delta, frame_counter, movement_start_pos, player_speed, movement_config, deps)
 	_merge_jetpack_result_metadata(result, jetpack_result)
 	if skill_runtime != null and skill_runtime.has_method("observe_after_movement"):

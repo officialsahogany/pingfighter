@@ -74,8 +74,9 @@ func _verify_atomic_accumulation_cap_and_reset() -> void:
 	_expect_close(state.get_multiplier("dash_cooldown"), 0.91, "LIB multiplier should expose mirrored accumulated raw")
 
 	var revision_at_cap := state.get_revision()
-	_expect(not bool(state.commit_roll(best_raw).get("accepted", true)), "fourth use should be rejected")
-	_expect(state.get_revision() == revision_at_cap, "rejected cap use must not change revision")
+	_expect(bool(state.commit_roll(best_raw).get("accepted", false)), "a fourth dropped item should remain usable")
+	_expect(state.get_revision() == revision_at_cap + 1, "repeatable item use should advance revision")
+	_expect(state.get_raw("player_speed") == 9, "repeat use should respect the cumulative +9 stat cap")
 
 	var invalid_state := MysticDiceState.new()
 	var incomplete_raw := best_raw.duplicate(true)
@@ -87,7 +88,7 @@ func _verify_atomic_accumulation_cap_and_reset() -> void:
 	var revision_before_reset := state.get_revision()
 	state.reset()
 	_expect(state.get_use_count() == 0, "new-run reset should clear use count")
-	_expect(state.get_remaining_uses() == 3, "new-run reset should restore all uses")
+	_expect(state.get_remaining_uses() == -1, "active-item uses should have no run-count limit")
 	_expect(state.get_raw("player_speed") == 0 and state.get_raw("dash_cooldown") == 0, "new-run reset should clear accumulated raw")
 	_expect(state.get_revision() == revision_before_reset + 1, "reset should invalidate revision-dependent projections")
 
@@ -96,7 +97,7 @@ func _verify_three_worst_benefit_rolls() -> void:
 	var roller := MysticDiceRoller.new()
 	var state := MysticDiceState.new()
 	var worst_raw: Dictionary = roller.roll(_repeated_units(0.0)).get("raw", {}) as Dictionary
-	for expected_use_count: int in range(1, MysticDiceState.MAX_USES_PER_RUN + 1):
+	for expected_use_count: int in range(1, 5):
 		var result: Dictionary = state.commit_roll(worst_raw)
 		_expect(bool(result.get("accepted", false)), "worst benefit roll %d should commit" % expected_use_count)
 
@@ -104,9 +105,9 @@ func _verify_three_worst_benefit_rolls() -> void:
 		var expected_raw := 9 if stat_key in MysticDiceRoller.LOWER_IS_BETTER_STAT_KEYS else -9
 		_expect(
 			state.get_raw(stat_key) == expected_raw,
-			"three worst %s rolls should accumulate to %+d raw" % [stat_key, expected_raw]
+			"repeated worst %s rolls should remain at %+d raw" % [stat_key, expected_raw]
 		)
-	_expect(state.get_remaining_uses() == 0, "three worst rolls should consume the full run allowance")
+	_expect(state.get_remaining_uses() == -1, "repeatable item uses should never exhaust a run allowance")
 	_expect_close(state.get_multiplier("player_speed"), 0.91, "three worst normal rolls should expose -9%")
 	_expect_close(state.get_multiplier("dash_cooldown"), 1.09, "three worst LIB rolls should expose +9% raw")
 
@@ -121,10 +122,11 @@ func _verify_runtime_state_reset_and_snapshot_wiring() -> void:
 	var snapshot: Dictionary = runtime.get_snapshot()
 	var dice_snapshot: Dictionary = snapshot.get("mystic_dice", {}) as Dictionary
 	_expect(int(dice_snapshot.get("use_count", 0)) == 1, "runtime snapshot should expose Mystic Dice use count")
-	_expect(int(dice_snapshot.get("remaining_uses", -1)) == 2, "runtime snapshot should expose remaining Mystic Dice uses")
+	_expect(bool(dice_snapshot.get("uses_unlimited", false)), "runtime snapshot should identify unlimited item uses explicitly")
+	_expect(int(dice_snapshot.get("remaining_uses", 0)) == -1, "runtime snapshot should expose unlimited item uses")
 	_expect(
-		int(dice_snapshot.get("max_uses_per_run", -1)) == MysticDiceState.MAX_USES_PER_RUN,
-		"runtime snapshot should expose the Mystic Dice per-run use cap"
+		int(dice_snapshot.get("max_uses_per_run", -1)) == MysticDiceState.UNLIMITED_USES,
+		"runtime snapshot should expose the unlimited-use sentinel"
 	)
 	_expect(int((dice_snapshot.get("permanent_raw", {}) as Dictionary).get("dash_cooldown", 0)) == -3, "runtime snapshot should expose mirrored LIB raw")
 	_expect(int(snapshot.get("mystic_dice_revision", -1)) == runtime.get_mystic_dice_revision(), "runtime snapshot should expose canonical Mystic Dice revision")
@@ -153,7 +155,7 @@ func _verify_runtime_state_reset_and_snapshot_wiring() -> void:
 	runtime.reset()
 	_expect(runtime.get_mystic_dice_raw("player_speed") == 0, "runtime new-run reset should clear Mystic Dice raw")
 	_expect(int(runtime.get_mystic_dice_snapshot().get("use_count", -1)) == 0, "runtime new-run reset should clear Mystic Dice uses")
-	_expect(int(runtime.get_mystic_dice_snapshot().get("remaining_uses", -1)) == MysticDiceState.MAX_USES_PER_RUN, "runtime new-run reset should restore Mystic Dice uses")
+	_expect(int(runtime.get_mystic_dice_snapshot().get("remaining_uses", 0)) == MysticDiceState.UNLIMITED_USES, "runtime new-run reset should preserve the unlimited-use sentinel")
 	_expect(runtime.get_mystic_dice_revision() == revision_before_reset + 1, "runtime new-run reset should advance Mystic Dice revision")
 
 	var reset_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_reset_state.gd")

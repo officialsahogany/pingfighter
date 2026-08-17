@@ -4,8 +4,8 @@ extends SceneTree
 # 렌더 경로" 픽셀 판정. 데이터 조립 스모크(perk_status_owned_tooltip_smoke)와
 # 달리 실 Control _draw()에서 _draw_status_panel을 호출하고, 캡처는
 # RenderingServer.frame_post_draw 이후 root 뷰포트에서 뜬다.
-#  - [A] 5소모+비소모(common_expansion Lv.1): 실렌더된 빈칸 정확 2개(십자
-#    글리프+어두운 셀 배경)와 후미 비소모 셀
+#  - [A] 합일 환급 뒤 5소모+기맥 확장(한도 7)+주사위 비소모: 실렌더된
+#    빈칸 정확 2개(봉인 문양+어두운 부적판)와 후미 비소모 셀
 #  - [B] 주사위 셀 hover: 우측 능력치 패널 실렌더 — benefit(녹)/curse(적)
 #    색 픽셀 판정(주사위 고유색, 패널의 골드/청색과 판별식 분리)
 #  - [C] 음성 대조: 같은 fixture에서 hover만 끄면 benefit/curse 색 0픽셀
@@ -67,6 +67,7 @@ func _run() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	await _test_grid_renders_two_empty_and_trailing_free_cell()
 	await _test_dice_hover_renders_right_panel_colors()
+	await _test_mythic_hover_renders_peerless_badge()
 	PerkConversionFlags.debug_set_enabled(false)
 	_viewport.queue_free()
 
@@ -83,14 +84,10 @@ func _run() -> void:
 
 # 렌더러 _draw_status_panel의 그리드 기하 재현(display_slots는 조립 결과 수).
 func _cell_rect(index: int, display_slots: int) -> Rect2:
-	var icons_left: float = PANEL_RECT.position.x + 18.0
-	var counter_col_left: float = PANEL_RECT.end.x - 130.0
-	var gap := 10.0
-	var avail_w: float = max(60.0, counter_col_left - icons_left - 6.0)
-	var fit_size: float = (avail_w - gap * float(max(0, display_slots - 1))) / float(display_slots)
-	var icon_size: float = clamp(fit_size, 28.0, 54.0)
-	var row_y: float = PANEL_RECT.position.y + 52.0
-	return Rect2(Vector2(icons_left + float(index) * (icon_size + gap), row_y), Vector2(icon_size, icon_size))
+	# Keep the rendered hover target and this real-render probe on the same geometry
+	# owner. The redesigned slots are vertical talisman boards, not square cells.
+	var renderer := RuntimePerkOverlayRenderer.new()
+	return renderer._get_status_slot_rect(PANEL_RECT, index, display_slots)
 
 
 func _capture(probe: StatusPanelProbe, slug: String) -> Image:
@@ -122,6 +119,23 @@ func _cell_center_luma(image: Image, cell: Rect2) -> float:
 	return p.r + p.g + p.b
 
 
+func _cell_content_pixel_count(image: Image, cell: Rect2) -> int:
+	# Redesigned filled cells keep the same dark talisman-board body as empty cells;
+	# classify by substantial icon content instead of the old bright square fill.
+	# The empty seal is only a few thin brass strokes, while real icons occupy a
+	# broad disc/figure area (including the trailing non-consuming projection).
+	var inner := cell.grow(-7.0)
+	var count := 0
+	for y: int in range(int(inner.position.y), int(inner.end.y)):
+		for x: int in range(int(inner.position.x), int(inner.end.x)):
+			var pixel: Color = image.get_pixel(x, y)
+			var high: float = maxf(pixel.r, maxf(pixel.g, pixel.b))
+			var low: float = minf(pixel.r, minf(pixel.g, pixel.b))
+			if high > 0.42 and (pixel.r + pixel.g + pixel.b > 1.30 or high - low > 0.20):
+				count += 1
+	return count
+
+
 func _count_color(image: Image, region: Rect2, classifier: Callable) -> int:
 	var count := 0
 	for y in range(int(region.position.y), int(region.end.y)):
@@ -149,21 +163,35 @@ func _test_grid_renders_two_empty_and_trailing_free_cell() -> void:
 	var catalog: Object = RuntimePerkCatalog.new()
 	var state: Object = RuntimePerkState.new()
 	var levels := {
+		"item_luck": 5,
+		"common_bulk_up": 5,
 		"dash_lightweight": 1,
 		"dash_module_control": 1,
 		"dash_jump": 1,
-		"item_luck": 1,
 		"common_swiftness": 1,
-		"common_expansion": 1,
 	}
-	# 라이브 정합: state와 snapshot은 같은 레벨을 본다(불일치 시 배지 레벨이
-	# effective 0으로 그려지는 fixture 한정 왜곡).
 	state.runtime_skill_levels = levels.duplicate(true)
+	var fusion_record: Dictionary = state.commit_perk_fusion(
+		["item_luck", "common_bulk_up"],
+		{"outcome": "byproduct", "byproducts": ["meridian_expand"]},
+		catalog
+	)
+	if fusion_record.is_empty():
+		_failures.append("grid fixture must commit meridian expansion through the real fusion path")
+		return
+	# 라이브 projection을 유지한 채 비소모 주사위 셀만 추가한다. 합일 재료쌍은
+	# 한 셀로 접혀 5소모, meridian_expand는 state의 한도만 7로 올린다.
+	var snapshot: Dictionary = state.get_snapshot()
+	var projection: Dictionary = (snapshot.get("perk_fusion_display_projection", {}) as Dictionary).duplicate(true)
+	var projection_entries: Array = (projection.get("entries", []) as Array).duplicate(true)
+	projection_entries.append({"type": "mystic_dice", "permanent_raw": {}, "use_count": 1})
+	projection["entries"] = projection_entries
+	snapshot["perk_fusion_display_projection"] = projection
 	var probe := StatusPanelProbe.new()
 	probe.size = VIEW_SIZE
 	probe.renderer = renderer
 	probe.runtime_state = state
-	probe.snapshot = {"runtime_skill_levels": levels}
+	probe.snapshot = snapshot
 	probe.catalog = catalog
 	probe.icon_renderer = RuntimePerkIconRenderer.new()
 	probe.panel_rect = PANEL_RECT
@@ -175,16 +203,14 @@ func _test_grid_renders_two_empty_and_trailing_free_cell() -> void:
 		_failures.append("grid capture must produce a non-empty image")
 		return
 
-	# 조립 결과(소모 5 + empty 2 + free 1 = 8셀)의 실렌더 판별: empty 셀은
-	# 어두운 셀 배경 + 중심 십자 글리프(배경보다 밝음), 소모/free 셀은 색
-	# 배경(밝음). 임계는 실측 캘리브(배경≈0.19 luma, 소모 셀≥0.55).
+	# 조립 결과(소모 5 + empty 2 + free 1 = 8셀)의 실렌더 판별: filled/free
+	# cells have a broad icon footprint; empty talisman boards only have a thin
+	# recessed seal. This remains valid even though both states share a dark board.
 	var display_slots := 8
 	var empty_indices: Array = []
 	for idx in range(display_slots):
 		var cell := _cell_rect(idx, display_slots)
-		var bg_luma := _cell_probe_luma(image, cell)
-		var center_luma := _cell_center_luma(image, cell)
-		var reads_empty: bool = bg_luma < 0.42 and center_luma > bg_luma + 0.12
+		var reads_empty: bool = _cell_content_pixel_count(image, cell) < 180
 		if reads_empty:
 			empty_indices.append(idx)
 	_expect(
@@ -193,8 +219,8 @@ func _test_grid_renders_two_empty_and_trailing_free_cell() -> void:
 	)
 	var free_cell := _cell_rect(7, display_slots)
 	_expect(
-		_cell_probe_luma(image, free_cell) > 0.42,
-		"the trailing non-consuming cell must render as a filled cell, not an empty slot (luma %.2f)" % _cell_probe_luma(image, free_cell)
+		_cell_content_pixel_count(image, free_cell) >= 180,
+		"the trailing non-consuming cell must render as filled icon content (pixels %d)" % _cell_content_pixel_count(image, free_cell)
 	)
 
 
@@ -255,6 +281,29 @@ func _test_dice_hover_renders_right_panel_colors() -> void:
 	var curse_after := _count_color(image_hover, tooltip_band, _is_dice_curse_red)
 	_expect(benefit_after > 0, "dice hover must render benefit-green stat rows in the right panel (got 0 px)")
 	_expect(curse_after > 0, "dice hover must render curse-red stat rows in the right panel (got 0 px)")
+
+
+func _test_mythic_hover_renders_peerless_badge() -> void:
+	var renderer: Object = RuntimePerkOverlayRenderer.new()
+	var catalog: Object = RuntimePerkCatalog.new()
+	var state: Object = RuntimePerkState.new()
+	var levels := {"odins_eye": 1}
+	state.runtime_skill_levels = levels.duplicate(true)
+	var probe := StatusPanelProbe.new()
+	probe.size = VIEW_SIZE
+	probe.renderer = renderer
+	probe.runtime_state = state
+	probe.snapshot = {"runtime_skill_levels": levels}
+	probe.catalog = catalog
+	probe.icon_renderer = RuntimePerkIconRenderer.new()
+	probe.panel_rect = PANEL_RECT
+	probe.view_size = VIEW_SIZE
+	_viewport.add_child(probe)
+	# One occupied slot followed by five empty base slots: the mythic cell is index 0.
+	state.set_status_hover_mouse_pos(_cell_rect(0, 6).get_center())
+	var image: Image = await _capture(probe, "mythic_hover_peerless_badge")
+	probe.queue_free()
+	_expect(image != null and not image.is_empty(), "mythic hover capture must render the 절세무공 tooltip badge")
 
 
 func _expect(condition: bool, message: String) -> void:

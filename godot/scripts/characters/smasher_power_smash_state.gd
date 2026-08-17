@@ -7,6 +7,7 @@ const PowerSmashVelocityFacade := preload("res://scripts/characters/smasher_powe
 const PowerSmashCutinState := preload("res://scripts/characters/smasher_power_smash_cutin_state.gd")
 const SmasherDriveCutinState := preload("res://scripts/characters/smasher_drive_cutin_state.gd")
 const SmasherGhostPossessionState := preload("res://scripts/characters/smasher_ghost_possession_state.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
 
 var runtime_state: Object = PowerSmashRuntimeState.new()
 var effects_state: Object = PowerSmashEffectsState.new()
@@ -22,6 +23,7 @@ var drive_cutin_state: Object = SmasherDriveCutinState.new()
 # player paddle. Separate lifecycle from ghost_state -- see
 # smasher_ghost_possession_state.gd.
 var ghost_possession_state: Object = SmasherGhostPossessionState.new()
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func reset(clear_text: bool = true) -> void:
@@ -31,6 +33,29 @@ func reset(clear_text: bool = true) -> void:
 	cutin_state.reset()
 	drive_cutin_state.reset()
 	ghost_possession_state.reset()
+	_runtime_perk_modal_pause_started_msec = -1
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 파워스매싱 자신은 프레임 타이머로 돌지만
+# 소유한 잔영(ghost_state)이 벽시계 예약(`arrive_msec`)을 쓰므로 여기로 흘린다.
+# 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	if ghost_state != null and ghost_state.has_method("shift_runtime_perk_modal_time"):
+		ghost_state.shift_runtime_perk_modal_time(pause_started_msec, resumed_msec)
 
 
 func can_activate(
@@ -74,6 +99,16 @@ func begin_activation(
 		cutin_state.begin(freeze_duration, "ghost_shot" if ghost_shot else "power_smashing")
 	else:
 		cutin_state.reset()
+
+
+func begin_cinematic_freeze(freeze_duration: float, skill_name: String) -> void:
+	if freeze_duration <= 0.0:
+		return
+	runtime_state.begin_cinematic_freeze()
+	clear_effects()
+	ghost_state.reset()
+	ghost_possession_state.reset()
+	cutin_state.begin(freeze_duration, skill_name)
 
 
 func lock_freeze_pose(pos: Vector2) -> void:

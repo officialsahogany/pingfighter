@@ -1,5 +1,13 @@
 extends RefCounted
 
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
+# ⚠️`start_msec` 는 시간 앵커가 아니라 `_seeded_rng(start_msec + ...)` 의 **시드**다.
+# 여기에 모달 시프트를 걸면 순간이동 패턴이 비행 도중에 바뀐다 — 시프트 대상은
+# 실제 경과 비교에 쓰이는 앵커뿐이다.
+const PENDING_TELEPORT_MODAL_TIME_KEYS: Array[String] = ["arrive_msec"]
+const BLACKHOLE_MODAL_TIME_KEYS: Array[String] = ["start_msec"]
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const BALL_RADIUS := 14.3
@@ -70,6 +78,16 @@ func begin(current_msec: int) -> void:
 
 func is_active() -> bool:
 	return active
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 소유자(smasher_power_smash_state)가 정지 마커를
+# 들고 여기로 흘려준다. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	RuntimePerkModalTimeShift.shift_dict_anchors(pending_teleport, PENDING_TELEPORT_MODAL_TIME_KEYS, delta_msec)
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(blackhole_effects, BLACKHOLE_MODAL_TIME_KEYS, delta_msec)
 
 
 func has_pending_teleport() -> bool:

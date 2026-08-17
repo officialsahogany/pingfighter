@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 static func build_box_perk_choice_reward(snapshot: Dictionary, perk_catalog: Object) -> Dictionary:
 	var choice_value: Variant = snapshot.get("last_selected_choice", {})
@@ -16,7 +18,7 @@ static func build_box_perk_choice_reward(snapshot: Dictionary, perk_catalog: Obj
 	var perk_name: String = str(perk_data.get("name", choice.get("name", perk_id)))
 	var label: String = perk_name
 	if next_level > 0:
-		label = "%s Lv.%d" % [perk_name, next_level]
+		label = "%s %s" % [perk_name, LanguageSettings.format_mugong_rank(perk_data, next_level)]
 	return {
 		"type": "perk",
 		"label": label,

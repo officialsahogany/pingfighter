@@ -3,6 +3,13 @@ extends RefCounted
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
+const CharacterInfoOverlayTooltipPresenter := preload("res://scripts/hud/character_info_overlay_tooltip_presenter.gd")
+# 하단 능력치 원장은 캐릭터 정보창과 "같은 값 / 같은 그림"이어야 하므로 행 조립기,
+# 드로어, 색/스케일 상수를 전부 그쪽에서 그대로 끌어 쓴다. 여기서 상수를 다시
+# 타이핑하면 두 화면이 조용히 갈라진다.
+const CharacterInfoOverlayState := preload("res://scripts/hud/character_info_overlay_state.gd")
+const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
@@ -10,6 +17,8 @@ const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
+const RuntimePerkTraditionalChrome := preload("res://scripts/hud/runtime_perk_traditional_chrome.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -23,25 +32,70 @@ const CHOICE_FLIGHT_ARRIVAL_RING_COUNT := 1
 # runtime_perk_state.gd's `_start_starpoint_absorption_effect` /
 # `_update_starpoint_absorption_effect`.
 const STARPOINT_ABSORPTION_ARRIVAL_ARC_SEGMENTS := 24
-const STARPOINT_ABSORPTION_STAR_TIP_COUNT := 5
-const STARPOINT_ABSORPTION_GLOW_COLOR := Color(1.0, 0.65, 0.85, 1.0)
-const STARPOINT_ABSORPTION_FILL_COLOR := Color(1.0, 0.85, 0.4, 1.0)
-const STARPOINT_ABSORPTION_OUTLINE_COLOR := Color(1.0, 1.0, 0.55, 1.0)
-const STARPOINT_ABSORPTION_BURST_COLOR := Color(1.0, 0.95, 0.55, 1.0)
+# 흡수되는 것은 방금 주운 무혼이므로 필드 드롭과 같은 팔레트를 공유한다.
+# 여기서 색을 다시 타이핑하면 리브랜드가 이 표면만 조용히 놓친다.
+const STARPOINT_ABSORPTION_GLOW_COLOR := CommonStarpointVisualHost.MUHON_GLOW_COLOR
+const STARPOINT_ABSORPTION_CORE_COLOR := CommonStarpointVisualHost.MUHON_CORE_COLOR
+const STARPOINT_ABSORPTION_BURST_COLOR := CommonStarpointVisualHost.MUHON_OUTLINE_COLOR
 const FLIGHT_SOURCE_ARC_SEGMENTS := 10
 const FLIGHT_CORE_ARC_SEGMENTS := 8
 const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
 const PERK_UNLOCK_SYMBOL_ARC_SEGMENTS := 20
 const PERK_FALLBACK_SYMBOL_ARC_SEGMENTS := 24
-const TITLE_TEXT := "스킬 강화!"
+const CARD_ICON_MEDALLION_WIDTH_RATIO := 0.51
+const CARD_ICON_MEDALLION_HEIGHT_RATIO := 0.315
+const CARD_ICON_DRAW_SCALE := 1.04
+const CARD_ICON_MEDALLION_MIN_SIZE := 34.0
+# 메달리온 바깥 그림자 링은 draw_circle(medallion_radius + 5)로 그려진다. 여백
+# 계산은 반드시 이 링까지 포함해야 한다.
+const CARD_MEDALLION_RADIUS_RATIO := 0.56
+const CARD_MEDALLION_RIM_PAD := 5.0
+# 이름판 상단 비율. _draw_card의 그리기와 메달리온 밴드 계산이 같은 값을 읽는다.
+const CARD_NAMEPLATE_TOP_RATIO := 0.386
+const CARD_NAMEPLATE_HEIGHT_RATIO := 0.092
+# 메달리온이 앉을 수 있는 세로 밴드 = [종이 상단 + 위 여백, 이름판 상단 - 아래 여백].
+# 카드 높이 390 -> 316 축소(2026-08-06) 뒤 비율식 반지름(0.315 * h * 0.56 + 5)이
+# 밴드보다 커져 바깥 링이 상단 황동 테두리를 파고들고(라이브 1.32배율에서 종이면
+# 위로 약 1px) 하단은 이름판에 3px 물렸다. 이제 비율은 "희망 크기"일 뿐이고 실제
+# 크기는 밴드가 정한다. 봉인:
+# runtime_perk_traditional_choice_ui_smoke._verify_card_medallion_clearance
+const CARD_MEDALLION_TOP_CLEARANCE_RATIO := 0.017
+const CARD_MEDALLION_TOP_CLEARANCE_MIN := 4.0
+const CARD_MEDALLION_TOP_CLEARANCE_MAX := 9.0
+const CARD_MEDALLION_BOTTOM_CLEARANCE_RATIO := 0.013
+const CARD_MEDALLION_BOTTOM_CLEARANCE_MIN := 3.0
+const CARD_MEDALLION_BOTTOM_CLEARANCE_MAX := 7.0
+const CARD_SELECTION_TRANSITION_MSEC := 160.0
+const CARD_SELECTION_LIFT := 5.0
+const CARD_SELECTION_SCALE := 0.028
+# "현재 무공" 슬롯의 성급 금박 명패. 폰트는 셀 폭에 비례하는데 명패 높이가 16px
+# 리터럴로 고정돼 있어, 셀이 커지면 어두운 글자가 명패 아래 어두운 셀 위로 흘러
+# "글자 하단이 잘렸다"로 읽혔다(2026-08-07). 높이는 실제 폰트 메트릭에서 뽑는다.
+# 성장 경지가 없는(max_level == 1) 무공 중, 명패에 전용 등급 문구를 실어야 하는
+# 계열. 프레젠터가 `_level_text`로 정본 문구를 내려 준다(합일 -> "합일"). 단일
+# 습득형의 범용 태그(고유 / 비급 / 절세무공)는 여기 넣지 않는다 -- 그건 TAB
+# 정보창의 넓은 셀 계약이고, 이 좁은 명패는 "무엇으로 얻은 칸인가"만 말한다.
+const STATUS_BADGE_TAG_TREES := ["fusion"]
+const STATUS_BADGE_FONT_RATIO := 0.19
+const STATUS_BADGE_MIN_FONT := 9
+const STATUS_BADGE_VERTICAL_PADDING := 3.0
+const STATUS_BADGE_HORIZONTAL_PADDING := 4.0
+const STATUS_BADGE_BOTTOM_MARGIN_RATIO := 0.045
+const STATUS_BADGE_BOTTOM_MARGIN_MIN := 4.0
+# `_draw_text_centered`가 쓰는 baseline 근사 계수. 박스 안에 글자를 가두는 계산은
+# 이 계수를 그대로 되짚어야 draw와 어긋나지 않는다.
+const TEXT_CENTER_BASELINE_RATIO := 0.35
+const TRADITIONAL_ORNAMENT_ATLAS_PATH := "res://assets/ui/runtime_perk/runtime_perk_inkwash_ornament_atlas_imagegen_v1.png"
+const TRADITIONAL_CARD_PAPER_TEXTURE_PATH := "res://assets/ui/runtime_perk/runtime_perk_hanji_card_surface_imagegen_v2.png"
+const TITLE_TEXT := "무공 수련!"
 const UNLOCK_SHOWCASE_PANEL_TEXTURE_PATH := "res://assets/sprites/hud/runtime_perk_unlock_showcase_panel_imagegen_v1.png"
 const UNLOCK_SHOWCASE_PANEL_ASPECT := 1939.0 / 811.0
 const UNLOCK_SHOWCASE_PANEL_MIN_WIDTH := 520.0
 const UNLOCK_SHOWCASE_PANEL_MAX_WIDTH := 690.0
 const UNLOCK_SHOWCASE_PANEL_HORIZONTAL_MARGIN := 84.0
-const UNLOCK_SHOWCASE_TITLE_TEXT := "새 스킬 획득!"
+const UNLOCK_SHOWCASE_TITLE_TEXT := "새 초식 습득!"
 const UNLOCK_SHOWCASE_PROMPT_TEXT := "아무 키나 눌러 계속"
-const TITLE_FONT_SIZE := 34
+const TITLE_FONT_SIZE := 44
 const MYTHIC_REVEAL_LIGHTBURST_PATH := "res://assets/sprites/hud/mythic_reveal_lightburst_v1.png"
 const MYTHIC_REVEAL_SMOKE_PATH := "res://assets/sprites/hud/mythic_reveal_smoke_v1.png"
 const MYTHIC_REVEAL_DURATION := 1.5
@@ -55,12 +109,18 @@ const MYTHIC_ORNAMENT_CROWN_MIN_REF := 70.0
 const TITLE_SHADOW_DRAW_COUNT := 1
 const TEXT_FIT_CACHE_LIMIT := 160
 const TEXT_SIZE_CACHE_LIMIT := 160
+# 능력치 행 재조립 주기(ms). 모달이 열려 있는 동안 게임플레이는 멈춰 있어
+# 수치가 바뀌지 않지만, 어떤 경로로든 값이 갱신되면 늦어도 이 주기 안에는
+# 따라잡도록 안전망을 둔다.
+const STATS_BAND_REBUILD_INTERVAL_MSEC := 500
 
 var _fallback_font: Font = null
 var _draw_now_msec := 0
 var _title_text_size := Vector2.ZERO
 var _title_text_line: TextLine = null
 var _title_text_line_font_id := 0
+var _title_text_line_font_size := 0
+var _title_text_line_language := ""
 var _text_fit_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
 var _text_cache_font_id := 0
@@ -69,20 +129,50 @@ var _back_glow_stylebox: StyleBoxFlat = null
 # width changes (the modal redraws every frame for its animation).
 var _card_desc_cache_signature := 0
 var _card_desc_cache: Array = []
+var _choice_visual_signature := 0
+var _choice_visual_index := -1
+var _choice_visual_previous_index := -1
+var _choice_visual_transition_started_msec := 0
 # prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
 # 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
 var _unlock_showcase_panel_texture: Texture2D = null
 var _mythic_reveal_lightburst_texture: Texture2D = null
 var _mythic_reveal_smoke_texture: Texture2D = null
+var _traditional_ornament_atlas_texture: Texture2D = null
+var _traditional_card_paper_texture: Texture2D = null
+
+# 하단 능력치 원장 캐시. 행 조립(build_player_stat_rows)은 레지스트리 모듈을
+# 여러 개 훑는 비싼 작업이라 시그니처가 바뀔 때만 다시 만들고, 매 프레임에는
+# 프레젠터의 표시 캐시 갱신 + 드로우만 돌린다.
+var _stats_character_runtime: Object = PlayerCharacterRuntime.new()
+var _stats_rows: Array = []
+var _stats_rows_signature := 0
+var _stats_rows_built_msec := 0
+var _stats_row_cache: Array = []
+var _stats_label_cache: Array[String] = []
+var _stats_value_cache: Array[String] = []
+var _stats_color_cache: Array[Color] = []
+var _stats_value_width_cache: Array[float] = []
+var _stats_value_width_text_cache: Array[String] = []
+var _stats_value_width_size_cache: Array[int] = []
+var _stats_value_width_font_id_cache: Array[int] = []
+# 드로어가 행 rect를 append하는 출력 버퍼. 기본 인자([])를 그대로 쓰면 GDScript가
+# 기본값 배열 인스턴스를 재사용해 프레임마다 무한히 늘어난다 — 소유 버퍼를 넘기고
+# 매 프레임 비운다.
+var _stats_hover_row_rects: Array = []
+var _stats_hover_data: Dictionary = {}
 
 
 # 시스템 카드 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
 # 함께 프리웜).
 var _mystic_dice_overlay_renderer: Object = MysticDiceOverlayRenderer.new()
 var _perk_fusion_overlay_renderer: Object = PerkFusionOverlayRenderer.new()
+var _prewarm_assets_step_index := 0
+var _prewarm_assets_complete := false
 
 
 func prewarm_assets() -> void:
+	prewarm_traditional_choice_assets()
 	if _unlock_showcase_panel_texture == null:
 		_unlock_showcase_panel_texture = ProjectResourceLoader.load_texture(
 			UNLOCK_SHOWCASE_PANEL_TEXTURE_PATH,
@@ -107,6 +197,7 @@ func prewarm_assets() -> void:
 	PerkFusionColdBootCinematic.prewarm_assets()
 	var font: Font = _get_font()
 	if font == null:
+		_prewarm_assets_complete = true
 		return
 	_prepare_text_caches()
 	_get_title_text_line(font)
@@ -115,8 +206,10 @@ func prewarm_assets() -> void:
 		{"text": TITLE_TEXT, "size": TITLE_FONT_SIZE},
 		{"text": UNLOCK_SHOWCASE_TITLE_TEXT, "size": 24},
 		{"text": UNLOCK_SHOWCASE_PROMPT_TEXT, "size": 14},
+		{"text": "1성", "size": 18},
+		{"text": "극성", "size": 18},
+		{"text": "극성 +1", "size": 18},
 		{"text": "Lv.1", "size": 18},
-		{"text": "Lv.5", "size": 18},
 		{"text": "+1", "size": 11},
 		{"text": "A", "size": 12},
 		{"text": "G", "size": 20},
@@ -124,20 +217,105 @@ func prewarm_assets() -> void:
 	]:
 		_get_text_size(font, str(sample.get("text", "")), int(sample.get("size", 14)))
 	_get_fitted_text(font, TITLE_TEXT, 18, 12, 180.0)
+	_prewarm_assets_complete = true
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_assets_complete:
+		return true
+	match _prewarm_assets_step_index:
+		0:
+			var ornament_result := ProjectResourceLoader.prewarm_texture_threaded_step(TRADITIONAL_ORNAMENT_ATLAS_PATH)
+			if not bool(ornament_result.get("done", false)):
+				return false
+			_traditional_ornament_atlas_texture = ornament_result.get("texture", null) as Texture2D
+		1:
+			var paper_result := ProjectResourceLoader.prewarm_texture_threaded_step(TRADITIONAL_CARD_PAPER_TEXTURE_PATH)
+			if not bool(paper_result.get("done", false)):
+				return false
+			_traditional_card_paper_texture = paper_result.get("texture", null) as Texture2D
+		2:
+			var panel_result := ProjectResourceLoader.prewarm_texture_threaded_step(UNLOCK_SHOWCASE_PANEL_TEXTURE_PATH)
+			if not bool(panel_result.get("done", false)):
+				return false
+			_unlock_showcase_panel_texture = panel_result.get("texture", null) as Texture2D
+		3:
+			var lightburst_result := ProjectResourceLoader.prewarm_texture_threaded_step(MYTHIC_REVEAL_LIGHTBURST_PATH)
+			if not bool(lightburst_result.get("done", false)):
+				return false
+			_mythic_reveal_lightburst_texture = lightburst_result.get("texture", null) as Texture2D
+		4:
+			var smoke_result := ProjectResourceLoader.prewarm_texture_threaded_step(MYTHIC_REVEAL_SMOKE_PATH)
+			if not bool(smoke_result.get("done", false)):
+				return false
+			_mythic_reveal_smoke_texture = smoke_result.get("texture", null) as Texture2D
+		5:
+			if not AngelBlessingRollOverlayHost.prewarm_assets_step():
+				return false
+		6:
+			_mystic_dice_overlay_renderer.prewarm_assets()
+		7:
+			if not _perk_fusion_overlay_renderer.prewarm_assets_step():
+				return false
+		8:
+			if not PerkFusionColdBootCinematic.prewarm_assets_step():
+				return false
+		9:
+			var font: Font = _get_font()
+			if font != null:
+				_prepare_text_caches()
+				_get_title_text_line(font)
+				_get_title_text_size(font)
+		_:
+			_prewarm_assets_step_index = 0
+			_prewarm_assets_complete = true
+			return true
+	_prewarm_assets_step_index += 1
+	return false
+
+
+func get_prewarm_assets_debug_label() -> String:
+	return str({
+		0: "traditional_ornament",
+		1: "traditional_paper",
+		2: "unlock_panel",
+		3: "mythic_lightburst",
+		4: "mythic_smoke",
+		5: "angel_blessing",
+		6: "mystic_dice",
+		7: "fusion_overlay",
+		8: "fusion_cold_boot",
+		9: "text_cache",
+	}.get(_prewarm_assets_step_index, "done"))
+
+
+func prewarm_traditional_choice_assets() -> void:
+	if _traditional_ornament_atlas_texture == null:
+		_traditional_ornament_atlas_texture = ProjectResourceLoader.load_texture(
+			TRADITIONAL_ORNAMENT_ATLAS_PATH,
+			"Missing traditional perk ornament atlas: %s",
+			"Failed to load traditional perk ornament atlas: %s"
+		)
+	if _traditional_card_paper_texture == null:
+		_traditional_card_paper_texture = ProjectResourceLoader.load_texture(
+			TRADITIONAL_CARD_PAPER_TEXTURE_PATH,
+			"Missing traditional perk card paper texture: %s",
+			"Failed to load traditional perk card paper texture: %s"
+		)
+	if _traditional_ornament_atlas_texture != null:
+		_traditional_ornament_atlas_texture.get_size()
+	if _traditional_card_paper_texture != null:
+		_traditional_card_paper_texture.get_size()
 
 
 func has_visible_effects(
 	runtime_state: Object,
-	mythic_item_runtime: Object = null,
-	treasure_hunt_runtime: Object = null
+	mythic_item_runtime: Object = null
 ) -> bool:
 	if _runtime_state_has_visible_effects(runtime_state):
 		return true
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("is_activation_effect_active"):
 		if bool(mythic_item_runtime.is_activation_effect_active()):
-			return true
-	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("is_effect_active"):
-		if bool(treasure_hunt_runtime.is_effect_active()):
 			return true
 	return false
 
@@ -149,7 +327,6 @@ func draw(
 	view_size: Vector2,
 	icon_renderer: Object = null,
 	mythic_item_runtime: Object = null,
-	treasure_hunt_runtime: Object = null,
 	perf_logger: Object = null
 ) -> void:
 	if canvas == null or runtime_state == null or not runtime_state.has_method("is_choice_active"):
@@ -163,9 +340,6 @@ func draw(
 		inactive_start = _perf_begin(perf_logger)
 		_draw_mythic_item_effect(canvas, mythic_item_runtime, view_size)
 		_perf_end(perf_logger, "hud.perk_overlay.mythic_effect", inactive_start)
-		inactive_start = _perf_begin(perf_logger)
-		_draw_treasure_hunt_effect(canvas, treasure_hunt_runtime, view_size)
-		_perf_end(perf_logger, "hud.perk_overlay.treasure_effect", inactive_start)
 		# Starpoint absorption fires AFTER the modal closes, so the renderer must
 		# read its state from the inactive branch as well. Snapshot is cheap when
 		# the effect dict is empty (just one Dictionary.get + early return).
@@ -235,27 +409,34 @@ func draw(
 	var layout: Dictionary = runtime_state.build_layout(view_size)
 	_perf_end(perf_logger, "hud.perk_overlay.layout", sample_start)
 
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.62))
+	var animation_time: float = float(snapshot.get("animation_time", 0.0))
+	var backdrop_alpha: float = clamp(animation_time / 0.18, 0.0, 1.0)
+	RuntimePerkTraditionalChrome.draw_backdrop(canvas, view_size, backdrop_alpha, _traditional_ornament_atlas_texture)
+	_draw_training_signage(canvas, view_size, backdrop_alpha)
 	sample_start = _perf_begin(perf_logger)
 	_draw_particles(canvas, snapshot)
 	_perf_end(perf_logger, "hud.perk_overlay.particles", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_title(canvas, _get_vector2(layout.get("title_pos", Vector2.ZERO)), float(snapshot.get("animation_time", 0.0)))
+	var layout_scale: float = float(layout.get("layout_scale", 1.0))
+	_draw_title(canvas, _get_vector2(layout.get("title_pos", Vector2.ZERO)), animation_time, layout_scale)
 	_perf_end(perf_logger, "hud.perk_overlay.title", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_mythic_reveal_backdrop(canvas, runtime_state, choices, view_size, float(snapshot.get("animation_time", 0.0)))
+	_draw_mythic_reveal_backdrop(canvas, runtime_state, choices, view_size, animation_time)
 	_perf_end(perf_logger, "hud.perk_overlay.mythic_reveal", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_cards(canvas, runtime_state, choices, selected_index, view_size, float(snapshot.get("animation_time", 0.0)), icon_renderer)
+	_draw_cards(canvas, runtime_state, choices, selected_index, view_size, animation_time, icon_renderer)
 	_perf_end(perf_logger, "hud.perk_overlay.cards", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_per_card_descriptions(canvas, choices, selected_index, layout, float(snapshot.get("animation_time", 0.0)))
+	_draw_per_card_descriptions(canvas, runtime_state, choices, selected_index, layout, animation_time)
 	_perf_end(perf_logger, "hud.perk_overlay.description", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_status_panel(canvas, runtime_state, snapshot, catalog, _get_rect2(layout.get("panel_rect", Rect2())), icon_renderer, view_size)
 	_perf_end(perf_logger, "hud.perk_overlay.status_panel", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_pending_hint(canvas, snapshot, _get_vector2(layout.get("hint_pos", Vector2.ZERO)), runtime_state)
+	_draw_stats_band(canvas, runtime_state, snapshot, _get_rect2(layout.get("stats_rect", Rect2())), view_size, icon_renderer)
+	_perf_end(perf_logger, "hud.perk_overlay.stats_band", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_pending_hint(canvas, snapshot, _get_vector2(layout.get("hint_pos", Vector2.ZERO)), runtime_state, layout_scale)
 	_perf_end(perf_logger, "hud.perk_overlay.pending_hint", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_feedback(canvas, runtime_state, view_size)
@@ -263,9 +444,6 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	_draw_mythic_item_effect(canvas, mythic_item_runtime, view_size)
 	_perf_end(perf_logger, "hud.perk_overlay.mythic_effect", sample_start)
-	sample_start = _perf_begin(perf_logger)
-	_draw_treasure_hunt_effect(canvas, treasure_hunt_runtime, view_size)
-	_perf_end(perf_logger, "hud.perk_overlay.treasure_effect", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_choice_flight_effect(canvas, _get_dict(snapshot.get("choice_flight_effect", {})), icon_renderer)
 	_perf_end(perf_logger, "hud.perk_overlay.choice_flight", sample_start)
@@ -298,17 +476,21 @@ func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
 	return false
 
 
-func _draw_title(canvas: CanvasItem, center: Vector2, animation_time: float) -> void:
+func _draw_title(canvas: CanvasItem, center: Vector2, animation_time: float, layout_scale: float = 1.0) -> void:
 	var font: Font = _get_font()
 	if font == null:
 		return
 	var alpha: float = clamp(animation_time / 0.22, 0.0, 1.0)
 	if alpha <= 0.001:
 		return
-	var title_line: TextLine = _get_title_text_line(font)
+	var title_font_size: int = clampi(int(round(float(TITLE_FONT_SIZE) * layout_scale)), 34, 58)
+	var title_line: TextLine = _get_title_text_line(font, title_font_size)
 	if title_line == null:
 		return
-	var text_size: Vector2 = _get_title_text_size(font)
+	var text_size: Vector2 = _get_title_text_size(font, title_font_size)
+	var plaque_size := Vector2(max(300.0, text_size.x + 128.0 * layout_scale), max(72.0, text_size.y + 34.0 * layout_scale))
+	var plaque_rect := Rect2(center - plaque_size * 0.5, plaque_size)
+	RuntimePerkTraditionalChrome.draw_title_plaque(canvas, plaque_rect, alpha)
 	var pos := center - Vector2(text_size.x * 0.5, text_size.y * 0.28)
 	var canvas_rid: RID = canvas.get_canvas_item()
 	for glow in range(TITLE_SHADOW_DRAW_COUNT, 0, -1):
@@ -317,103 +499,244 @@ func _draw_title(canvas: CanvasItem, center: Vector2, animation_time: float) -> 
 			pos + Vector2(float(glow), float(glow)) * 0.75,
 			Color(1.0, 190.0 / 255.0, 70.0 / 255.0, alpha * 0.24 * float(glow))
 		)
-	title_line.draw(canvas_rid, pos, Color(1.0, 220.0 / 255.0, 100.0 / 255.0, alpha))
+	title_line.draw(canvas_rid, pos, Color(230.0 / 255.0, 190.0 / 255.0, 98.0 / 255.0, alpha))
 
 
-func _get_title_text_size(font: Font) -> Vector2:
-	if _title_text_size == Vector2.ZERO:
-		var title_line: TextLine = _get_title_text_line(font)
+func _draw_training_signage(canvas: CanvasItem, view_size: Vector2, alpha: float) -> void:
+	if alpha <= 0.001 or view_size.x < 620.0:
+		return
+	var plaque_size := Vector2(31.0, min(126.0, view_size.y * 0.19))
+	var y: float = max(82.0, view_size.y * 0.20)
+	_draw_vertical_plaque(canvas, Rect2(Vector2(18.0, y), plaque_size), "수련", alpha)
+	_draw_vertical_plaque(canvas, Rect2(Vector2(view_size.x - plaque_size.x - 18.0, y), plaque_size), "환격전", alpha)
+
+
+func _draw_vertical_plaque(canvas: CanvasItem, rect: Rect2, text: String, alpha: float) -> void:
+	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 3.0), rect.size), Color(0.0, 0.0, 0.0, 0.28 * alpha))
+	canvas.draw_rect(rect, Color(20.0 / 255.0, 30.0 / 255.0, 37.0 / 255.0, 0.94 * alpha))
+	canvas.draw_rect(rect, Color(151.0 / 255.0, 112.0 / 255.0, 52.0 / 255.0, 0.80 * alpha), false, 1.5)
+	var chars: Array[String] = []
+	for character: String in LanguageSettings.translate_text(text):
+		chars.append(character)
+	if chars.is_empty():
+		return
+	var step: float = min(24.0, (rect.size.y - 16.0) / float(chars.size()))
+	var start_y: float = rect.get_center().y - step * float(chars.size() - 1) * 0.5
+	for index: int in range(chars.size()):
+		_draw_text_centered(
+			canvas,
+			chars[index],
+			Vector2(rect.get_center().x, start_y + float(index) * step),
+			14,
+			Color(214.0 / 255.0, 181.0 / 255.0, 111.0 / 255.0, alpha)
+		)
+
+
+func _get_title_text_size(font: Font, font_size: int = TITLE_FONT_SIZE) -> Vector2:
+	if _title_text_size == Vector2.ZERO or _title_text_line_font_size != font_size:
+		var title_line: TextLine = _get_title_text_line(font, font_size)
 		if title_line != null:
 			_title_text_size = title_line.get_size()
 		else:
-			_title_text_size = font.get_string_size(TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TITLE_FONT_SIZE)
+			_title_text_size = font.get_string_size(LanguageSettings.translate_text(TITLE_TEXT), HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	return _title_text_size
 
 
-func _get_title_text_line(font: Font) -> TextLine:
+func _get_title_text_line(font: Font, font_size: int = TITLE_FONT_SIZE) -> TextLine:
 	if font == null:
 		return null
 	var font_id: int = font.get_instance_id()
-	if _title_text_line != null and _title_text_line_font_id == font_id:
+	var language := LanguageSettings.get_language()
+	if _title_text_line != null and _title_text_line_font_id == font_id and _title_text_line_font_size == font_size and _title_text_line_language == language:
 		return _title_text_line
 	var title_line := TextLine.new()
-	if not title_line.add_string(TITLE_TEXT, font, TITLE_FONT_SIZE):
+	if not title_line.add_string(LanguageSettings.translate_text(TITLE_TEXT), font, font_size):
 		return null
 	_title_text_line = title_line
 	_title_text_line_font_id = font_id
+	_title_text_line_font_size = font_size
+	_title_text_line_language = language
 	_title_text_size = title_line.get_size()
 	return _title_text_line
 
 
 func _draw_cards(canvas: CanvasItem, runtime_state: Object, choices: Array, selected_index: int, view_size: Vector2, animation_time: float, icon_renderer: Object) -> void:
 	var rects: Array = runtime_state.get_card_rects(view_size)
+	_sync_choice_visual_selection(choices, selected_index)
 	for index in range(min(choices.size(), rects.size())):
 		var choice: Dictionary = _get_dict(choices[index])
 		var rect: Rect2 = rects[index]
 		var selected: bool = index == selected_index
-		_draw_card(canvas, choice, rect, selected, animation_time, icon_renderer)
+		_draw_card(canvas, choice, rect, selected, animation_time, icon_renderer, _choice_visual_blend(index), index)
 
 
-func _draw_card(canvas: CanvasItem, choice: Dictionary, rect: Rect2, selected: bool, animation_time: float, icon_renderer: Object) -> void:
+func _sync_choice_visual_selection(choices: Array, selected_index: int) -> void:
+	var signature: int = hash(choices)
+	if signature != _choice_visual_signature or _choice_visual_index < 0:
+		_choice_visual_signature = signature
+		_choice_visual_index = selected_index
+		_choice_visual_previous_index = -1
+		_choice_visual_transition_started_msec = _get_draw_msec() - int(CARD_SELECTION_TRANSITION_MSEC)
+		return
+	if selected_index == _choice_visual_index:
+		return
+	_choice_visual_previous_index = _choice_visual_index
+	_choice_visual_index = selected_index
+	_choice_visual_transition_started_msec = _get_draw_msec()
+
+
+func _choice_visual_blend(index: int) -> float:
+	var elapsed: float = float(_get_draw_msec() - _choice_visual_transition_started_msec)
+	var progress: float = clamp(elapsed / CARD_SELECTION_TRANSITION_MSEC, 0.0, 1.0)
+	var eased: float = progress * progress * (3.0 - 2.0 * progress)
+	if index == _choice_visual_index:
+		return eased
+	if index == _choice_visual_previous_index:
+		return 1.0 - eased
+	return 0.0
+
+
+# 메달리온(원형 아이콘 판)의 최종 지오메트리 정본. 그리기와 봉인 스모크가 같은
+# 함수를 통과해야 "코드상 여백이 있는데 화면은 붙어 있다"가 재발하지 않는다.
+static func get_card_medallion_geometry(rect: Rect2) -> Dictionary:
+	var paper_top: float = rect.position.y + RuntimePerkTraditionalChrome.CARD_PAPER_INSET
+	var nameplate_top: float = rect.position.y + rect.size.y * CARD_NAMEPLATE_TOP_RATIO
+	var top_clearance: float = clampf(
+		rect.size.y * CARD_MEDALLION_TOP_CLEARANCE_RATIO,
+		CARD_MEDALLION_TOP_CLEARANCE_MIN,
+		CARD_MEDALLION_TOP_CLEARANCE_MAX
+	)
+	var bottom_clearance: float = clampf(
+		rect.size.y * CARD_MEDALLION_BOTTOM_CLEARANCE_RATIO,
+		CARD_MEDALLION_BOTTOM_CLEARANCE_MIN,
+		CARD_MEDALLION_BOTTOM_CLEARANCE_MAX
+	)
+	var band_top: float = paper_top + top_clearance
+	var band_bottom: float = max(band_top, nameplate_top - bottom_clearance)
+	var band_radius: float = (band_bottom - band_top) * 0.5
+	var icon_size: float = min(
+		rect.size.x * CARD_ICON_MEDALLION_WIDTH_RATIO,
+		rect.size.y * CARD_ICON_MEDALLION_HEIGHT_RATIO
+	)
+	# 밴드가 비율보다 우선한다 -- 넘치면 테두리/이름판을 파고든다.
+	icon_size = min(icon_size, (band_radius - CARD_MEDALLION_RIM_PAD) / CARD_MEDALLION_RADIUS_RATIO)
+	icon_size = max(CARD_ICON_MEDALLION_MIN_SIZE, icon_size)
+	return {
+		"center": Vector2(rect.get_center().x, (band_top + band_bottom) * 0.5),
+		"radius": icon_size * CARD_MEDALLION_RADIUS_RATIO,
+		"icon_size": icon_size,
+		"band_top": band_top,
+		"band_bottom": band_bottom,
+		"paper_top": paper_top,
+		"nameplate_top": nameplate_top,
+	}
+
+
+func _draw_card(canvas: CanvasItem, choice: Dictionary, rect: Rect2, selected: bool, animation_time: float, icon_renderer: Object, selection_blend: float = 0.0, paper_variant: int = 0) -> void:
+	# The hit target remains the stable layout rect. Only the painted card lifts and
+	# grows, so mouse/keyboard ownership cannot drift during the 160 ms transition.
+	var visual_scale: float = 1.0 + CARD_SELECTION_SCALE * selection_blend
+	var visual_size: Vector2 = rect.size * visual_scale
+	var visual_center: Vector2 = rect.get_center() + Vector2(0.0, -CARD_SELECTION_LIFT * selection_blend)
+	rect = Rect2(visual_center - visual_size * 0.5, visual_size)
 	var icon_color: Color = _get_color(choice.get("icon_color", Color(100.0 / 255.0, 150.0 / 255.0, 1.0)))
+	var is_gold_conversion: bool = bool(choice.get("is_gold_conversion", false))
+	if is_gold_conversion:
+		# The reward remains legible as gold, but its surrounding engraving uses
+		# aged brass instead of the former mobile-game yellow highlight.
+		icon_color = Color(148.0 / 255.0, 109.0 / 255.0, 58.0 / 255.0)
 	var rarity: String = str(choice.get("rarity", "common"))
+	var is_mythic: bool = rarity == "mythic"
 	var is_unique: bool = bool(choice.get("is_unique", false)) or rarity == "legendary"
+	# 절세무공(mythic)은 레전더리보다 상위 프리미엄 — 골드 배경/테두리/이름을 공유하고,
+	# 소유 그리드와 동일한 금빛 오너먼트(뒤 글로우 + 위 프레임)를 선택 카드에도 입힌다.
+	var is_premium: bool = is_unique or is_mythic
 	var is_dowsing_bonus: bool = bool(choice.get("is_dowsing_goggles_bonus", false))
 	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.006)
-	var alpha: float = clamp(animation_time / 0.24, 0.0, 1.0)
+	var alpha: float = clamp(animation_time / 0.24, 0.0, 1.0) * lerpf(0.89, 1.0, selection_blend)
+
+	# 금빛 오너먼트 글로우는 카드 배경보다 뒤에 깔린다(bg 이전). 프레임은 함수 말미에.
+	if is_mythic:
+		_draw_mythic_ornament_glow(canvas, rect, alpha, 0.9)
 
 	if is_dowsing_bonus:
-		var bonus_color := Color(60.0 / 255.0, 220.0 / 255.0, 200.0 / 255.0, (0.18 + 0.18 * pulse) * alpha)
-		for grow in [12.0, 8.0, 4.0]:
-			canvas.draw_rect(rect.grow(grow), bonus_color, false, max(1.2, 4.0 - grow * 0.18))
-	if selected:
-		var glow_color: Color = Color(icon_color.r, icon_color.g, icon_color.b, 0.20 + 0.18 * pulse)
-		for grow in [10.0, 6.0, 3.0]:
-			canvas.draw_rect(rect.grow(grow), glow_color, false, max(1.0, 6.0 - grow * 0.35))
-	elif is_unique:
-		canvas.draw_rect(rect.grow(5.0), Color(1.0, 210.0 / 255.0, 40.0 / 255.0, 0.18 + 0.12 * pulse), false, 2.0)
-	_draw_character_outer_glow(canvas, rect, str(choice.get("character_restriction", "")), alpha, pulse)
+		var jade_glow := Color(104.0 / 255.0, 169.0 / 255.0, 151.0 / 255.0, (0.16 + 0.12 * pulse) * alpha)
+		canvas.draw_rect(rect.grow(7.0), jade_glow, false, 2.0)
+	_draw_character_outer_glow(canvas, rect, str(choice.get("character_restriction", "")), alpha * 0.42, pulse)
 
-	var bg: Color = Color(25.0 / 255.0, 30.0 / 255.0, 50.0 / 255.0, 0.86 * alpha)
-	if selected:
-		bg = Color(40.0 / 255.0, 50.0 / 255.0, 90.0 / 255.0, 0.94 * alpha)
-	elif is_unique:
-		bg = Color(45.0 / 255.0, 38.0 / 255.0, 20.0 / 255.0, 0.90 * alpha)
-	canvas.draw_rect(rect, bg)
+	var paper_rect: Rect2 = RuntimePerkTraditionalChrome.draw_card_base(
+		canvas,
+		rect,
+		selected,
+		is_premium,
+		alpha,
+		pulse,
+		paper_variant,
+		_traditional_ornament_atlas_texture,
+		_traditional_card_paper_texture
+	)
+	_draw_character_edge(canvas, rect.grow(-3.0), str(choice.get("character_restriction", "")), alpha * 0.46, pulse)
 
-	var border_color: Color = icon_color if selected else Color(60.0 / 255.0, 70.0 / 255.0, 90.0 / 255.0, alpha)
-	if is_unique:
-		border_color = Color(1.0, 215.0 / 255.0, 0.0, alpha)
-	elif is_dowsing_bonus:
-		border_color = Color(60.0 / 255.0, 220.0 / 255.0, 200.0 / 255.0, alpha)
-	canvas.draw_rect(rect, border_color, false, 3.0 if selected else 2.0)
-	_draw_character_edge(canvas, rect, str(choice.get("character_restriction", "")), alpha, pulse)
-
-	var icon_margin: float = max(10.0, rect.size.y * 0.13)
-	var icon_size: float = rect.size.y - icon_margin * 2.0
-	var icon_rect := Rect2(rect.position + Vector2(12.0, icon_margin), Vector2(icon_size, icon_size))
-	canvas.draw_rect(icon_rect, Color(15.0 / 255.0, 19.0 / 255.0, 31.0 / 255.0, 0.92 * alpha))
-	canvas.draw_rect(icon_rect, Color(icon_color.r, icon_color.g, icon_color.b, 0.70 * alpha), false, 2.0)
+	var medallion: Dictionary = get_card_medallion_geometry(rect)
+	var icon_size: float = float(medallion.get("icon_size", 56.0))
+	var icon_center: Vector2 = medallion.get("center", rect.get_center())
+	var medallion_radius: float = float(medallion.get("radius", icon_size * CARD_MEDALLION_RADIUS_RATIO))
+	canvas.draw_circle(icon_center, medallion_radius + CARD_MEDALLION_RIM_PAD, Color(44.0 / 255.0, 31.0 / 255.0, 20.0 / 255.0, 0.94 * alpha))
+	canvas.draw_circle(icon_center, medallion_radius + 1.0, Color(17.0 / 255.0, 25.0 / 255.0, 30.0 / 255.0, 0.96 * alpha))
+	canvas.draw_arc(icon_center, medallion_radius + 2.0, 0.0, TAU, 32, Color(188.0 / 255.0, 143.0 / 255.0, 66.0 / 255.0, 0.90 * alpha), 2.0)
+	canvas.draw_arc(icon_center, medallion_radius - 3.0, 0.0, TAU, 32, Color(icon_color.r, icon_color.g, icon_color.b, 0.48 * alpha), 1.2)
+	# Source PNGs already carry transparent breathing room around their ink disc.
+	# Fill the medallion with that disc while keeping a narrow dark-metal reveal.
+	var icon_draw_size: float = icon_size * CARD_ICON_DRAW_SCALE
+	var icon_rect := Rect2(icon_center - Vector2.ONE * icon_draw_size * 0.5, Vector2.ONE * icon_draw_size)
 	_draw_icon(canvas, icon_renderer, choice, icon_rect, alpha)
+	RuntimePerkTraditionalChrome.draw_medallion_finish(
+		canvas,
+		icon_center,
+		medallion_radius,
+		is_gold_conversion,
+		alpha
+	)
 
-	var text_x: float = icon_rect.end.x + 10.0
+	var nameplate_h: float = clamp(rect.size.y * CARD_NAMEPLATE_HEIGHT_RATIO, 27.0, 38.0)
+	var nameplate_y: float = float(medallion.get("nameplate_top", rect.position.y + rect.size.y * CARD_NAMEPLATE_TOP_RATIO))
+	var nameplate := Rect2(
+		Vector2(paper_rect.position.x + 8.0, nameplate_y),
+		Vector2(max(40.0, paper_rect.size.x - 16.0), nameplate_h)
+	)
+	RuntimePerkTraditionalChrome.draw_nameplate(canvas, nameplate, selected, is_premium, alpha)
 	var name := str(choice.get("name", "알 수 없음"))
-	var name_color: Color = Color(1.0, 215.0 / 255.0, 0.0, alpha) if is_unique else Color(1.0, 1.0, 1.0, alpha)
-	var text_max_width: float = max(32.0, rect.end.x - text_x - 14.0)
-	_draw_text_fitted(canvas, name, Vector2(text_x, rect.position.y + rect.size.y * 0.38), 18, name_color, text_max_width, 12)
-	_draw_text_fitted(canvas, _level_text(choice), Vector2(text_x, rect.position.y + rect.size.y * 0.67), 14, _level_color(choice, is_unique, alpha), text_max_width, 10)
+	var name_color: Color = Color(235.0 / 255.0, 222.0 / 255.0, 188.0 / 255.0, alpha)
+	if is_premium:
+		name_color = Color(1.0, 218.0 / 255.0, 116.0 / 255.0, alpha)
+	var name_size: int = clampi(int(round(rect.size.x * 0.072)), 13, 24)
+	_draw_text_centered_fitted(canvas, name, nameplate.get_center() + Vector2(0.0, 1.0), name_size, name_color, nameplate.size.x - 16.0, 11)
+	var rank_text := _level_text(choice)
+	var rank_size: int = clampi(int(round(rect.size.x * 0.057)), 11, 18)
+	var rank_y: float = nameplate.end.y + max(14.0, rect.size.y * 0.045)
+	_draw_text_centered(canvas, rank_text, Vector2(rect.get_center().x, rank_y), rank_size, _level_color(choice, is_premium, alpha))
+	canvas.draw_line(
+		Vector2(paper_rect.position.x + 13.0, rank_y + 12.0),
+		Vector2(paper_rect.end.x - 13.0, rank_y + 12.0),
+		Color(116.0 / 255.0, 87.0 / 255.0, 50.0 / 255.0, 0.38 * alpha),
+		1.0
+	)
 
 	if is_dowsing_bonus:
-		var bonus_badge := Rect2(rect.end - Vector2(39.0, rect.size.y - 8.0), Vector2(30.0, 18.0))
-		canvas.draw_rect(bonus_badge, Color(10.0 / 255.0, 46.0 / 255.0, 46.0 / 255.0, 0.92 * alpha))
-		canvas.draw_rect(bonus_badge, Color(90.0 / 255.0, 1.0, 220.0 / 255.0, 0.84 * alpha), false, 1.0)
-		_draw_text_centered(canvas, "+1", bonus_badge.get_center() + Vector2(0.0, 1.0), 11, Color(220.0 / 255.0, 1.0, 245.0 / 255.0, alpha))
+		var bonus_badge := Rect2(rect.position + Vector2(8.0, 8.0), Vector2(30.0, 18.0))
+		canvas.draw_rect(bonus_badge, Color(20.0 / 255.0, 52.0 / 255.0, 47.0 / 255.0, 0.94 * alpha))
+		canvas.draw_rect(bonus_badge, Color(108.0 / 255.0, 169.0 / 255.0, 151.0 / 255.0, 0.82 * alpha), false, 1.0)
+		_draw_text_centered(canvas, "+1", bonus_badge.get_center() + Vector2(0.0, 1.0), 11, Color(205.0 / 255.0, 225.0 / 255.0, 202.0 / 255.0, alpha))
 
 	if _shows_character_unlock_badge(choice):
-		var badge_rect := Rect2(rect.end - Vector2(33.0, 27.0), Vector2(24.0, 18.0))
+		var badge_rect := Rect2(Vector2(rect.end.x - 32.0, rect.position.y + 8.0), Vector2(24.0, 18.0))
 		canvas.draw_rect(badge_rect, Color(18.0 / 255.0, 32.0 / 255.0, 42.0 / 255.0, 0.92 * alpha))
-		canvas.draw_rect(badge_rect, Color(icon_color.r, icon_color.g, icon_color.b, 0.82 * alpha), false, 1.0)
-		_draw_text_centered(canvas, "A", badge_rect.get_center() + Vector2(0.0, 1.0), 12, Color(1.0, 1.0, 1.0, alpha))
+		canvas.draw_rect(badge_rect, Color(188.0 / 255.0, 143.0 / 255.0, 66.0 / 255.0, 0.82 * alpha), false, 1.0)
+		_draw_text_centered(canvas, "A", badge_rect.get_center() + Vector2(0.0, 1.0), 12, Color(236.0 / 255.0, 220.0 / 255.0, 178.0 / 255.0, alpha))
+
+	# 절세무공 금빛 프레임(오너먼트)은 카드 내용 전부 위에 — 소유 그리드와 동일한 프리미엄 표현.
+	if is_mythic:
+		_draw_mythic_ornament_frame(canvas, rect, alpha, 0.9)
 
 
 func _draw_unlock_showcase(canvas: CanvasItem, snapshot: Dictionary, view_size: Vector2, icon_renderer: Object) -> void:
@@ -1127,7 +1450,7 @@ func _perimeter_point(r: Rect2, dist: float) -> Vector2:
 # at once in a column directly under its own card. The selected card's column is
 # brighter. Wrapped lines are cached and only recomputed when the choice set or
 # card width changes (the modal redraws every frame for its animation).
-func _draw_per_card_descriptions(canvas: CanvasItem, choices: Array, selected_index: int, layout: Dictionary, animation_time: float) -> void:
+func _draw_per_card_descriptions(canvas: CanvasItem, runtime_state: Object, choices: Array, selected_index: int, layout: Dictionary, animation_time: float) -> void:
 	if choices.is_empty():
 		return
 	var alpha: float = clamp(animation_time / 0.3, 0.0, 1.0)
@@ -1139,7 +1462,7 @@ func _draw_per_card_descriptions(canvas: CanvasItem, choices: Array, selected_in
 	var desc_rect: Rect2 = _get_rect2(layout.get("desc_rect", Rect2()))
 	if card_size.x <= 0.0 or desc_rect.size.y <= 0.0:
 		return
-	_ensure_card_desc_cache(choices, card_size.x)
+	_ensure_card_desc_cache(choices, card_size.x, runtime_state)
 	for i in range(min(choices.size(), _card_desc_cache.size())):
 		var choice: Dictionary = _get_dict(choices[i])
 		var col_x: float = cards_start.x + float(i) * (card_size.x + card_gap)
@@ -1151,65 +1474,67 @@ func _draw_card_description_block(canvas: CanvasItem, choice: Dictionary, cached
 	var icon_color: Color = _get_color(choice.get("icon_color", Color.WHITE))
 	var accent_lines: Array = _get_array(cached.get("accent_lines", []))
 	var body_lines: Array = _get_array(cached.get("body_lines", []))
-
-	# Fit the panel to its content so short perks do not leave a tall empty box; cap
-	# at the reserved band height so a long body never overlaps the status panel below.
-	var accent_line_h := 22.0
-	var body_line_h := 21.0
-	var top_offset := 24.0
-	var content_h: float = top_offset + float(accent_lines.size()) * accent_line_h + float(body_lines.size()) * body_line_h + 6.0
-	if not accent_lines.is_empty() and not body_lines.is_empty():
-		content_h += 3.0
-	var box_h: float = clamp(content_h, 46.0, rect.size.y)
-	var box := Rect2(rect.position, Vector2(rect.size.x, box_h))
-
-	var bg := Color(30.0 / 255.0, 35.0 / 255.0, 55.0 / 255.0, 0.90 * alpha)
+	var font_size: int = int(cached.get("font_size", 14))
+	var line_h: float = float(font_size + 4)
+	var box := Rect2(rect.position + Vector2(14.0, 3.0), rect.size - Vector2(28.0, 6.0))
 	if selected:
-		bg = Color(40.0 / 255.0, 50.0 / 255.0, 84.0 / 255.0, 0.94 * alpha)
-	canvas.draw_rect(box, bg)
-	var border_alpha: float = (0.85 if selected else 0.42) * alpha
-	canvas.draw_rect(box, Color(icon_color.r, icon_color.g, icon_color.b, border_alpha), false, 2.0 if selected else 1.2)
+		canvas.draw_rect(box, Color(188.0 / 255.0, 143.0 / 255.0, 66.0 / 255.0, 0.055 * alpha))
+	var rule_color := Color(94.0 / 255.0, 70.0 / 255.0, 42.0 / 255.0, (0.56 if selected else 0.34) * alpha)
+	canvas.draw_line(box.position, Vector2(box.end.x, box.position.y), rule_color, 1.0)
+	var seal_center := box.position + Vector2(4.0, 7.0)
+	canvas.draw_circle(seal_center, 2.3, Color(icon_color.r, icon_color.g, icon_color.b, 0.60 * alpha))
 
-	var pad := 12.0
-	var text_x: float = box.position.x + pad
-	var y: float = box.position.y + top_offset
+	var text_x: float = box.position.x + 8.0
+	var y: float = box.position.y + float(font_size) + 8.0
 
 	for line in accent_lines:
-		_draw_text(canvas, str(line), Vector2(text_x, y), 16, Color(1.0, 0.86, 0.56, alpha))
-		y += accent_line_h
+		_draw_text(canvas, str(line), Vector2(text_x, y), font_size, Color(96.0 / 255.0, 55.0 / 255.0, 26.0 / 255.0, alpha))
+		y += line_h
 
 	if not body_lines.is_empty():
 		if not accent_lines.is_empty():
-			y += 3.0
+			y += 2.0
 		for line in body_lines:
-			_draw_text(canvas, str(line), Vector2(text_x, y), 16, Color(0.86, 0.91, 0.98, alpha))
-			y += body_line_h
+			_draw_text(canvas, str(line), Vector2(text_x, y), font_size, Color(50.0 / 255.0, 42.0 / 255.0, 34.0 / 255.0, 0.96 * alpha))
+			y += line_h
 
 
 # Rebuilds the wrapped description lines only when the choice set or card width
 # changes; the per-frame draw path then just blits the cached lines.
 #
 # Layout intent (2026-07-09 readability pass): the card already shows the name and
-# the Lv./해금/즉시/골드 tag, so the description column does NOT repeat them. It shows
+	# the 경지/비급/즉시/골드 tag, so the description column does NOT repeat them. It shows
 # at most two tiers:
 #  - accent = the numeric effect (`description`), highlighted, ONLY for scaling perks
-#    where the number is the point (Lv.-tagged). Unlock/instant/gold perks skip it
-#    because their `description` just restates the card name ("고스트스매싱 스킬 해금").
+	#    where the number is the point (성급-tagged). Unlock/instant/gold perks skip it
+#    because their `description` just restates the card name ("빙혼비격 초식 비급").
 #  - body = the friendly `detail` sentence. Falls back to `description` when `detail`
 #    is absent or collapses to the same text (the non-Korean locale summary case).
-func _ensure_card_desc_cache(choices: Array, card_width: float) -> void:
-	var signature: int = hash([hash(choices), int(round(card_width))])
+func _ensure_card_desc_cache(choices: Array, card_width: float, runtime_state: Object = null) -> void:
+	var signature: int = hash([hash(choices), int(round(card_width)), _perk_polish_cache_signature(runtime_state)])
 	if signature == _card_desc_cache_signature and not _card_desc_cache.is_empty():
 		return
 	_card_desc_cache_signature = signature
 	_card_desc_cache = []
-	var inner_width: float = max(20.0, card_width - 20.0)
+	var inner_width: float = max(20.0, card_width - 44.0)
+	var compact_many_cards: bool = choices.size() >= 5 and card_width < 160.0
+	var minimum_font_size := 10 if compact_many_cards else 12
+	var description_font_size: int = clampi(int(round(card_width / 16.4)), minimum_font_size, 18)
+	var body_line_limit := 2 if compact_many_cards else 3
 	for choice_value in choices:
 		var choice: Dictionary = _get_dict(choice_value)
 		var description := str(choice.get("description", ""))
+		description = RuntimePerkOverflowDescriptions.append_polish_delta(
+			description,
+			str(choice.get("id", "")),
+			int(choice.get("next_level", choice.get("level", 1))),
+			runtime_state
+		)
 		var detail := str(choice.get("detail", ""))
 		var has_distinct_detail: bool = detail != "" and detail.strip_edges() != description.strip_edges()
-		var is_scaling: bool = _level_text(choice).begins_with("Lv.")
+		# Training has no Mugong level by contract, but its repeatable stat delta is
+		# still the primary card information and must retain the numeric accent.
+		var is_scaling: bool = _is_scaling_perk_choice(choice) or bool(choice.get("is_physique_training", false))
 		var accent_text := ""
 		var body_text := ""
 		if is_scaling and has_distinct_detail:
@@ -1220,9 +1545,20 @@ func _ensure_card_desc_cache(choices: Array, card_width: float) -> void:
 		else:
 			body_text = description
 		_card_desc_cache.append({
-			"accent_lines": _wrap_text_px(accent_text, 16, inner_width, 3) if accent_text != "" else [],
-			"body_lines": _wrap_text_px(body_text, 16, inner_width, 4),
+			"font_size": description_font_size,
+			"accent_lines": _wrap_text_px(accent_text, description_font_size, inner_width, 2) if accent_text != "" else [],
+			"body_lines": _wrap_text_px(body_text, description_font_size, inner_width, body_line_limit),
 		})
+
+
+func _perk_polish_cache_signature(runtime_state: Object) -> int:
+	if runtime_state == null:
+		return 0
+	if runtime_state.has_method("get_perk_amplify_multiplier"):
+		return int(round(float(runtime_state.call("get_perk_amplify_multiplier", "common_swiftness")) * 10000.0))
+	if runtime_state.has_method("_get_perk_amplify_multiplier"):
+		return int(round(float(runtime_state.call("_get_perk_amplify_multiplier", "common_swiftness")) * 10000.0))
+	return 0
 
 
 # Width-aware word wrap (the plain _wrap_text is char-count based and would overflow
@@ -1233,7 +1569,10 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 		return []
 	var lines: Array = []
 	var current := ""
+	var truncated := false
 	for word in text.split(" ", false):
+		if truncated:
+			break
 		# A single token wider than the column -- a long word, or a space-less CJK run
 		# (Korean/Japanese/Chinese text often has no break spaces at all) -- must be split
 		# at the character level, or it overflows the card. Flush the pending line first.
@@ -1242,12 +1581,15 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 				lines.append(current)
 				current = ""
 				if lines.size() >= max_lines:
-					return lines
+					truncated = true
+					break
 			for ch in word:
 				if current != "" and _get_text_size(font, current + ch, font_size).x > max_px:
 					lines.append(current)
 					if lines.size() >= max_lines:
-						return lines
+						truncated = true
+						current = ""
+						break
 					current = ch
 				else:
 					current += ch
@@ -1256,27 +1598,54 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 		if current != "" and _get_text_size(font, trial, font_size).x > max_px:
 			lines.append(current)
 			if lines.size() >= max_lines:
-				return lines
+				truncated = true
+				current = ""
+				break
 			current = word
 		else:
 			current = trial
-	if current != "" and lines.size() < max_lines:
-		lines.append(current)
+	if current != "":
+		if lines.size() < max_lines:
+			lines.append(current)
+		else:
+			truncated = true
+	if truncated and not lines.is_empty():
+		lines[lines.size() - 1] = _append_clip_ellipsis(font, str(lines[lines.size() - 1]), font_size, max_px)
 	return lines
 
 
+# 줄 예산을 넘겨 버려진 텍스트가 있으면 마지막 줄에 잘림 표시를 붙인다.
+# 표시가 없으면 "좌우로 움직이는 속도가" 처럼 서술어 앞에서 끊긴 조각이
+# 완결된 문장처럼 읽히고, 5장 압축 카드에서는 문장 하나가 통째로 사라진 것도
+# 화면상 구분되지 않는다(러너는 줄 수만 세므로 씰도 이를 통과시킨다).
+func _append_clip_ellipsis(font: Font, line: String, font_size: int, max_px: float) -> String:
+	var suffix := "..."
+	var trimmed := line.strip_edges(false, true)
+	while trimmed != "" and _get_text_size(font, trimmed + suffix, font_size).x > max_px:
+		trimmed = trimmed.substr(0, trimmed.length() - 1).strip_edges(false, true)
+	if trimmed == "":
+		return suffix
+	return trimmed + suffix
+
+
 func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dictionary, catalog: Object, rect: Rect2, icon_renderer: Object, view_size: Vector2 = Vector2.ZERO) -> void:
-	canvas.draw_rect(rect, Color(12.0 / 255.0, 18.0 / 255.0, 32.0 / 255.0, 0.82))
-	canvas.draw_rect(rect, Color(110.0 / 255.0, 96.0 / 255.0, 58.0 / 255.0, 0.72), false, 2.0)
-	canvas.draw_line(rect.position + Vector2(12.0, 3.0), Vector2(rect.end.x - 12.0, rect.position.y + 3.0), Color(190.0 / 255.0, 160.0 / 255.0, 82.0 / 255.0, 0.65), 1.0)
+	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, rect)
 
 	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
 	var pending: int = int(snapshot.get("pending_skill_choices", 0))
 	var gold: int = int(snapshot.get("gold_from_perks", 0))
+	# 배율 기준값은 RuntimePerkChoiceLayout의 원장 기준 높이(142)와 짝이다 --
+	# 한쪽만 옮기면 원장 글자 크기가 통째로 달라진다.
+	var status_scale: float = clamp(rect.size.y / 142.0, 0.72, 1.32)
+	var status_font_size: int = clampi(int(round(13.0 * status_scale)), 11, 17)
 
-	_draw_text(canvas, "◆ 현재 퍽", rect.position + Vector2(16.0, 26.0), 15, Color(1.0, 215.0 / 255.0, 100.0 / 255.0))
-	_draw_text(canvas, "선택 대기: %d" % pending, rect.position + Vector2(rect.size.x - 118.0, 23.0), 13, Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0))
-	_draw_text(canvas, "퍽 골드: %d" % gold, rect.position + Vector2(rect.size.x - 118.0, 45.0), 13, Color(1.0, 215.0 / 255.0, 100.0 / 255.0))
+	_draw_text(canvas, "◆ 현재 무공", rect.position + Vector2(17.0 * status_scale, 28.0 * status_scale), clampi(int(round(16.0 * status_scale)), 13, 21), Color(220.0 / 255.0, 185.0 / 255.0, 105.0 / 255.0))
+	var counter_rect: Rect2 = _get_status_counter_rect(rect)
+	RuntimePerkTraditionalChrome.draw_status_counter_board(canvas, counter_rect)
+	var counter_x: float = counter_rect.end.x - 10.0 * status_scale
+	var counter_step: float = counter_rect.size.y / 4.0
+	_draw_text_right(canvas, "선택 대기: %d" % pending, Vector2(counter_x, counter_rect.position.y + counter_step), status_font_size, Color(214.0 / 255.0, 209.0 / 255.0, 185.0 / 255.0))
+	_draw_text_right(canvas, "무공 골드: %d" % gold, Vector2(counter_x, counter_rect.position.y + counter_step * 2.0), status_font_size, Color(229.0 / 255.0, 192.0 / 255.0, 107.0 / 255.0))
 
 	var slot_status: Dictionary = _get_dict(snapshot.get("perk_slot_status", {}))
 	if slot_status.is_empty() and catalog != null and catalog.has_method("get_perk_slot_status"):
@@ -1286,12 +1655,12 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 		var slot_count: int = int(slot_status.get("count", 0))
 		var slot_limit: int = int(slot_status.get("limit", 0))
 		if slot_limit > 0:
-			var slot_color := Color(170.0 / 255.0, 225.0 / 255.0, 1.0, 0.95)
+			var slot_color := Color(151.0 / 255.0, 190.0 / 255.0, 170.0 / 255.0, 0.95)
 			if slot_count >= slot_limit:
-				slot_color = Color(1.0, 190.0 / 255.0, 90.0 / 255.0, 0.98)
-			_draw_text(canvas, "슬롯 %d/%d" % [slot_count, slot_limit], rect.position + Vector2(rect.size.x - 118.0, 67.0), 13, slot_color)
+				slot_color = Color(205.0 / 255.0, 145.0 / 255.0, 82.0 / 255.0, 0.98)
+			_draw_text_right(canvas, "슬롯 %d/%d" % [slot_count, slot_limit], Vector2(counter_x, counter_rect.position.y + counter_step * 3.0), status_font_size, slot_color)
 			if slot_count >= slot_limit:
-				_draw_text(canvas, get_full_slot_hint(), rect.position + Vector2(rect.size.x - 118.0, 89.0), 12, Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.90))
+				_draw_text_right(canvas, get_full_slot_hint(), Vector2(counter_x, counter_rect.end.y - 7.0), max(9, status_font_size - 2), Color(218.0 / 255.0, 177.0 / 255.0, 111.0 / 255.0, 0.90))
 
 	# Owned perks EXCLUDE active-skill unlocks (fold 후처리에서 제외); they
 	# live in the 5-orb skill HUD and do not consume a perk slot. 실경로 fold:
@@ -1307,69 +1676,305 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	var grid_entries: Array = _build_status_slot_grid(acquired, slot_limit_for_grid)
 	var display_slots: int = max(1, grid_entries.size())
 
-	var icons_left: float = rect.position.x + 18.0
-	var counter_col_left: float = rect.end.x - 130.0
-	var gap := 10.0
-	var avail_w: float = max(60.0, counter_col_left - icons_left - 6.0)
-	var fit_size: float = (avail_w - gap * float(max(0, display_slots - 1))) / float(display_slots)
-	var icon_size: float = clamp(fit_size, 28.0, 54.0)
-	var row_y: float = rect.position.y + 52.0
-
 	var mouse_pos: Vector2 = Vector2(-1.0, -1.0)
 	if runtime_state != null and runtime_state.has_method("get_status_hover_mouse_pos"):
 		mouse_pos = runtime_state.get_status_hover_mouse_pos()
 	var hovered_skill: Dictionary = {}
 	var hovered_icon_rect := Rect2()
 
-	var inset: float = icon_size * 0.11
-	var badge_offset: float = icon_size * 0.17
-	var badge_radius: float = icon_size * 0.185
-	var badge_font: int = max(9, int(round(icon_size * 0.22)))
-	var plus_half: float = icon_size * 0.14
 	for idx in range(display_slots):
-		var icon_rect := Rect2(Vector2(icons_left + float(idx) * (icon_size + gap), row_y), Vector2(icon_size, icon_size))
+		var slot_rect: Rect2 = _get_status_slot_rect(rect, idx, display_slots)
 		var skill: Dictionary = _get_dict(grid_entries[idx])
 		if bool(skill.get("_empty_slot", false)):
-			# Empty slot(조립기가 소모 셀 뒤·비소모 셀 앞에 채움).
-			canvas.draw_rect(icon_rect, Color(18.0 / 255.0, 23.0 / 255.0, 36.0 / 255.0, 0.62))
-			canvas.draw_rect(icon_rect, Color(80.0 / 255.0, 92.0 / 255.0, 120.0 / 255.0, 0.40), false, 1.2)
-			var plus_center: Vector2 = icon_rect.get_center()
-			var plus_color := Color(120.0 / 255.0, 135.0 / 255.0, 165.0 / 255.0, 0.55)
-			canvas.draw_line(plus_center - Vector2(plus_half, 0.0), plus_center + Vector2(plus_half, 0.0), plus_color, 1.6)
-			canvas.draw_line(plus_center - Vector2(0.0, plus_half), plus_center + Vector2(0.0, plus_half), plus_color, 1.6)
+			# Empty slot: a recessed talisman board and seal, not a modern plus button.
+			RuntimePerkTraditionalChrome.draw_talisman_slot(canvas, slot_rect, false, Color.WHITE)
+			RuntimePerkTraditionalChrome.draw_empty_seal(canvas, slot_rect.get_center(), min(slot_rect.size.x, slot_rect.size.y) * 0.22)
 			continue
 		var is_mythic: bool = str(skill.get("rarity", "")).to_lower() == "mythic"
-		if icon_rect.has_point(mouse_pos):
+		if slot_rect.has_point(mouse_pos):
 			hovered_skill = skill
-			hovered_icon_rect = icon_rect
+			hovered_icon_rect = slot_rect
 		var color: Color = _get_color(skill.get("icon_color", Color(100.0 / 255.0, 150.0 / 255.0, 1.0)))
 		# Mythic: soft gold halo BEHIND the cell only; the interior keeps the normal dark
 		# cell so the gold reads as a surround, not a hazy tint (2026-07-09 feedback).
 		if is_mythic:
-			_draw_mythic_ornament_glow(canvas, icon_rect, 1.0, 0.72)
-		canvas.draw_rect(icon_rect, Color(max(0.0, color.r - 0.28), max(0.0, color.g - 0.28), max(0.0, color.b - 0.28), 0.92))
-		canvas.draw_rect(icon_rect, Color(color.r, color.g, color.b, 0.72), false, 1.4)
-		_draw_icon(canvas, icon_renderer, skill, icon_rect.grow(-inset), 1.0)
-		# Slot cells (dash-token per-slot occupancy) already read as one filled slot each,
-		# so skip the level badge -- the count of cells IS the level/token count. Single-level
-		# perks (max_level == 1) also skip it: they never level, and "고유"/"신화" would not
-		# fit the tiny numeric circle (2026-07-09 wording decision).
-		if not bool(skill.get("is_slot_cell", false)) and int(skill.get("max_level", 1)) > 1:
-			var badge_center: Vector2 = icon_rect.end - Vector2(badge_offset, badge_offset)
-			canvas.draw_circle(badge_center, badge_radius + 1.0, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.92))
-			canvas.draw_circle(badge_center, badge_radius, Color(1.0, 215.0 / 255.0, 70.0 / 255.0))
-			_draw_text_centered(canvas, str(skill.get("level", 1)), badge_center + Vector2(0.0, 1.0), badge_font, Color(42.0 / 255.0, 30.0 / 255.0, 0.0))
+			_draw_mythic_ornament_glow(canvas, slot_rect, 1.0, 0.72)
+		var slot_inner: Rect2 = RuntimePerkTraditionalChrome.draw_talisman_slot(canvas, slot_rect, true, color)
+		var icon_size: float = min(slot_inner.size.x, slot_inner.size.y * 0.66)
+		var icon_rect := Rect2(
+			Vector2(slot_inner.get_center().x - icon_size * 0.5, slot_inner.position.y + 2.0),
+			Vector2.ONE * icon_size
+		)
+		_draw_icon(canvas, icon_renderer, skill, icon_rect, 1.0)
+		var badge_text: String = get_status_badge_text(skill)
+		if badge_text != "":
+			var badge: Dictionary = get_status_badge_geometry(slot_rect, badge_text)
+			var badge_rect: Rect2 = badge.get("rect", Rect2())
+			canvas.draw_rect(badge_rect.grow(1.0), Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.92))
+			canvas.draw_rect(badge_rect, Color(188.0 / 255.0, 143.0 / 255.0, 66.0 / 255.0, 0.96))
+			_draw_text_centered(
+				canvas,
+				badge_text,
+				badge.get("text_center", badge_rect.get_center()),
+				int(badge.get("font_size", 9)),
+				Color(42.0 / 255.0, 30.0 / 255.0, 0.0)
+			)
 		if is_mythic:
-			_draw_mythic_ornament_frame(canvas, icon_rect, 1.0, 0.72)
+			_draw_mythic_ornament_frame(canvas, slot_rect, 1.0, 0.72)
 
 	# Owned-perk hover tooltip (2026-07-09 request): mirrors the character-info perk
 	# tooltip -- left = friendly detail, right = "능력치" numeric breakdown. Drawn last
 	# so it sits on top of the status row.
 	if not hovered_skill.is_empty() and view_size.x > 0.0:
-		_draw_perk_status_tooltip(canvas, hovered_skill, hovered_icon_rect, view_size)
+		_draw_perk_status_tooltip(canvas, hovered_skill, hovered_icon_rect, view_size, runtime_state, icon_renderer)
 
 
-func _perk_stats_for_level(skill: Dictionary) -> String:
+# 하단 능력치 원장(2026-08-06 요청): "어디가 부족한지 보고 수련/무공을 고를 수
+# 있게" 캐릭터 정보창의 플레이어 능력치 10행을 퍽 선택 화면 하단에 그대로 싣는다.
+# 행 조립기와 드로어는 캐릭터 정보창과 같은 프레젠터를 관통한다 -- 여기서 값을
+# 다시 계산하면 두 화면이 갈라진다.
+func _draw_stats_band(
+	canvas: CanvasItem,
+	runtime_state: Object,
+	snapshot: Dictionary,
+	rect: Rect2,
+	view_size: Vector2 = Vector2.ZERO,
+	icon_renderer: Object = null
+) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	if runtime_state == null or not runtime_state.has_method("get_stats_context_registry"):
+		return
+	var registry: Object = runtime_state.get_stats_context_registry()
+	var owner: Object = runtime_state.get_stats_context_owner()
+	if registry == null or owner == null:
+		return
+	var font: Font = _get_font()
+	if font == null:
+		return
+	# 모달 입력 핸들러가 매 motion마다 갱신하는 원시 포인터 -- 무공 슬롯 hover와
+	# 같은 소스다.
+	var mouse_pos: Vector2 = Vector2(-1.0, -1.0)
+	if runtime_state.has_method("get_status_hover_mouse_pos"):
+		mouse_pos = runtime_state.get_status_hover_mouse_pos()
+	var hovering: bool = rect.has_point(mouse_pos)
+	_refresh_stats_rows(owner, registry, snapshot, hovering)
+	if _stats_rows.is_empty():
+		return
+	var inner: Rect2 = RuntimePerkTraditionalChrome.draw_stats_ledger(canvas, rect)
+	_stats_hover_row_rects.clear()
+	# _fill_hover_data는 hover된 행이 있을 때만 dict를 덮어쓴다 -- 직접 비우지
+	# 않으면 마우스가 띠 밖으로 나가도 지난 프레임 툴팁이 계속 뜬다.
+	_stats_hover_data.clear()
+	CharacterInfoOverlayStatsPresenter.draw_cached_player_stat_rows(
+		canvas,
+		font,
+		"플레이어 능력치",
+		inner,
+		CharacterInfoOverlayState.STAT_ROW_COUNT,
+		_stats_label_cache,
+		_stats_value_cache,
+		_stats_color_cache,
+		_stats_value_width_cache,
+		_stats_value_width_text_cache,
+		_stats_value_width_size_cache,
+		_stats_value_width_font_id_cache,
+		CharacterInfoOverlayState.ACCENT_BLUE,
+		CharacterInfoOverlayState.TEXT_DIM,
+		CharacterInfoOverlayState.OVERLAY_GRID_EMPTY_TEXT,
+		CharacterInfoOverlayState.UI_TEXT_SCALE,
+		mouse_pos,
+		_stats_hover_data,
+		_stats_hover_row_rects
+	)
+	if not _stats_hover_data.is_empty() and view_size.x > 0.0:
+		_draw_stats_row_tooltip(canvas, registry, font, mouse_pos, view_size, icon_renderer)
+
+
+# 능력치 행 hover 툴팁(설명 + 원인별 증감). 캐릭터 정보창의 툴팁 드로어를 그대로
+# 빌려 쓴다 -- 같은 hover_data 계약이라 배선만 하면 두 화면이 픽셀까지 같은
+# 툴팁을 그린다. 여기서 별도 드로어를 새로 쓰면 정보창과 서서히 갈라진다.
+# 모듈 해석은 hover 프레임에서만 한다: 마우스를 올리지 않으면 조회 자체가 없고,
+# 배틀/광장에서는 이미 살아 있는 인스턴스라 캐시 히트로 끝난다.
+func _draw_stats_row_tooltip(
+	canvas: CanvasItem,
+	registry: Object,
+	font: Font,
+	mouse_pos: Vector2,
+	view_size: Vector2,
+	icon_renderer: Object
+) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var info_overlay: Object = null
+	if registry.has_method("get_cached_instance"):
+		info_overlay = registry.get_cached_instance("character_info_overlay")
+	if info_overlay == null:
+		info_overlay = registry.get_instance("character_info_overlay")
+	if info_overlay == null or not info_overlay.has_method("_draw_tooltip"):
+		return
+	info_overlay._draw_tooltip(canvas, _stats_hover_data, mouse_pos, view_size, font, icon_renderer)
+
+
+# 표시 캐시(아이콘/게이지/툴팁 정적 배열)는 캐릭터 정보창과 공유되므로 매 프레임
+# 다시 실어 준다 -- 조립만 시그니처 기반으로 건너뛴다.
+func _refresh_stats_rows(owner: Object, registry: Object, snapshot: Dictionary, include_breakdown: bool = false) -> void:
+	# include_breakdown은 시그니처의 일부다 -- 빼면 hover 진입 프레임이 캐시
+	# 히트로 넘어가 증감 내역이 영원히 비어 있는 채로 굳는다(Lazy Applied-Key
+	# Re-Apply Trap과 같은 형태).
+	var signature: int = hash([
+		snapshot.get("runtime_skill_levels", {}),
+		snapshot.get("pending_skill_choices", 0),
+		hash(snapshot.get("current_choices", [])),
+		include_breakdown,
+	])
+	var now_msec: int = _get_draw_msec()
+	if (
+		_stats_rows.is_empty()
+		or signature != _stats_rows_signature
+		or now_msec - _stats_rows_built_msec > STATS_BAND_REBUILD_INTERVAL_MSEC
+	):
+		_stats_rows_signature = signature
+		_stats_rows_built_msec = now_msec
+		# 소스별 증감 내역은 hover 툴팁 전용이라 마우스가 띠 위에 있을 때만
+		# 조립한다(캐릭터 정보창의 hover 게이팅과 같은 이유).
+		_stats_rows = CharacterInfoOverlayStatsPresenter.build_player_stat_rows(
+			owner,
+			registry,
+			_stats_character_runtime,
+			null,
+			null,
+			null,
+			"",
+			[],
+			-1,
+			null,
+			CharacterInfoOverlayState.SPECIAL_GAUGE_MAX,
+			CharacterInfoOverlayState.PLAYER_BASE_PADDLE_WIDTH,
+			CharacterInfoOverlayState.BASE_ACTIVE_ITEM_SLOT_COUNT,
+			CharacterInfoOverlayState.STAT_BUFF_COLOR,
+			CharacterInfoOverlayState.STAT_DEBUFF_COLOR,
+			include_breakdown
+		)
+	if _stats_rows.is_empty():
+		return
+	CharacterInfoOverlayStatsPresenter.refresh_player_stat_cache(
+		_stats_rows,
+		CharacterInfoOverlayState.STAT_ROW_COUNT,
+		false,
+		_stats_row_cache,
+		_stats_label_cache,
+		_stats_value_cache,
+		_stats_color_cache,
+		_stats_value_width_cache,
+		_stats_value_width_text_cache,
+		_stats_value_width_size_cache,
+		_stats_value_width_font_id_cache
+	)
+
+
+# 성급 금박 명패 문구의 정본.
+# - 일반 슬롯 셀(다중 점유)은 셀 개수가 곧 수량이라 명패 없음. 명시적 분류
+#   태그가 있는 카운트형 무공은 가짜 성급을 막기 위해 태그를 유지한다.
+# - 합일처럼 전용 등급 문구를 가진 계열은 프레젠터가 내려 준 `_level_text`를
+#   그대로 쓴다. 여기서 "합일"을 다시 타이핑하면 다국어가 갈라진다.
+# - 나머지는 성장 경지(1성 ~ 극성)만. 단일 습득형은 명패를 그리지 않는다.
+func get_status_badge_text(skill: Dictionary) -> String:
+	if str(skill.get("rank_tag", "")).strip_edges() != "":
+		return LanguageSettings.format_mugong_rank(skill, int(skill.get("level", 1)))
+	if bool(skill.get("is_slot_cell", false)) or bool(skill.get("_is_slot_cell", false)):
+		return ""
+	if STATUS_BADGE_TAG_TREES.has(str(skill.get("tree", ""))):
+		return str(skill.get("_level_text", "")).strip_edges()
+	if int(skill.get("max_level", 1)) <= 1:
+		return ""
+	return LanguageSettings.format_mugong_level(
+		mini(int(skill.get("level", 1)), int(skill.get("max_level", 1))),
+		int(skill.get("max_level", 1))
+	)
+
+
+# 성급 금박 명패의 지오메트리 정본 -- 그리기와 봉인 스모크가 같은 함수를 통과한다.
+# 명패 높이는 폰트 메트릭(ascent + descent)에서 파생되고, 글자 중심은 잉크 기준으로
+# 보정해 넘긴다. `_draw_text_centered`가 baseline = center.y + h * 0.35라는 근사를
+# 쓰기 때문에, 박스 중심을 그대로 넘기면 폰트가 커질수록 글자가 아래로 밀린다.
+func get_status_badge_geometry(slot_rect: Rect2, badge_text: String) -> Dictionary:
+	var font_size: int = max(STATUS_BADGE_MIN_FONT, int(round(slot_rect.size.x * STATUS_BADGE_FONT_RATIO)))
+	var metrics: Dictionary = _get_boxed_text_metrics(badge_text, font_size)
+	var line_height: float = float(metrics.get("line_height", float(font_size)))
+	var badge_h: float = line_height + STATUS_BADGE_VERTICAL_PADDING * 2.0
+	var badge_w: float = float(metrics.get("width", 0.0)) + STATUS_BADGE_HORIZONTAL_PADDING * 2.0
+	var badge_bottom: float = slot_rect.end.y - max(
+		STATUS_BADGE_BOTTOM_MARGIN_MIN,
+		slot_rect.size.y * STATUS_BADGE_BOTTOM_MARGIN_RATIO
+	)
+	var rect := Rect2(
+		Vector2(slot_rect.get_center().x - badge_w * 0.5, badge_bottom - badge_h),
+		Vector2(badge_w, badge_h)
+	)
+	return {
+		"rect": rect,
+		"font_size": font_size,
+		"line_height": line_height,
+		"text_center": Vector2(rect.get_center().x, rect.get_center().y - float(metrics.get("ink_offset", 0.0))),
+	}
+
+
+# 번역 후 실측한 폭/줄높이와, `_draw_text_centered`의 baseline 근사가 만드는
+# "잉크 중심 - 박스 중심" 어긋남을 함께 돌려준다.
+func _get_boxed_text_metrics(text: String, font_size: int) -> Dictionary:
+	var font: Font = _get_font()
+	if font == null:
+		return {"width": 0.0, "line_height": float(font_size), "ink_offset": 0.0}
+	var translated: String = LanguageSettings.translate_text(text)
+	var measured: Vector2 = _get_text_size(font, translated, font_size)
+	var ascent: float = font.get_ascent(font_size)
+	var descent: float = font.get_descent(font_size)
+	return {
+		"width": measured.x,
+		"line_height": max(measured.y, ascent + descent),
+		"ink_offset": measured.y * TEXT_CENTER_BASELINE_RATIO - (ascent - descent) * 0.5,
+	}
+
+
+func _get_status_slot_rect(panel_rect: Rect2, index: int, display_slots: int) -> Rect2:
+	var safe_slots: int = max(1, display_slots)
+	var icons_left: float = panel_rect.position.x + 18.0
+	var counter_width: float = clamp(panel_rect.size.x * 0.20, 136.0, 246.0)
+	var counter_col_left: float = panel_rect.end.x - counter_width
+	var avail_w: float = max(60.0, counter_col_left - icons_left - 8.0)
+	var minimum_gap: float = clamp(panel_rect.size.x * 0.009, 6.0, 10.0)
+	var fit_width: float = (avail_w - minimum_gap * float(max(0, safe_slots - 1))) / float(safe_slots)
+	# 셀 상한 116 -> 96 (2026-08-06 "퍽 슬롯도 좀더 작게"). 원장 높이가 함께
+	# 내려갔으므로 높이 비율은 0.60 -> 0.62로 올려 셀이 원장 안에서 갖는 비중을
+	# 유지한다.
+	var slot_width_limit: float = minf(96.0, panel_rect.size.y * 0.62)
+	var slot_width: float = clamp(fit_width, 34.0, slot_width_limit)
+	var gap: float = minimum_gap
+	if safe_slots > 1:
+		gap = clamp((avail_w - slot_width * float(safe_slots)) / float(safe_slots - 1), minimum_gap, 34.0)
+	var row_width: float = slot_width * float(safe_slots) + gap * float(max(0, safe_slots - 1))
+	var row_left: float = icons_left + max(0.0, (avail_w - row_width) * 0.5)
+	var row_offset: float = clamp(panel_rect.size.y * 0.235, 40.0, 54.0)
+	var slot_height: float = clamp(min(panel_rect.size.y - row_offset - 18.0, slot_width * 1.24), 34.0, 124.0)
+	var row_y: float = panel_rect.position.y + row_offset
+	return Rect2(
+		Vector2(row_left + float(index) * (slot_width + gap), row_y),
+		Vector2(slot_width, slot_height)
+	)
+
+
+func _get_status_counter_rect(panel_rect: Rect2) -> Rect2:
+	var scale: float = clamp(panel_rect.size.y / 142.0, 0.72, 1.32)
+	var width: float = clamp(panel_rect.size.x * 0.20 - 16.0, 120.0, 228.0)
+	var height: float = clamp(panel_rect.size.y - 30.0 * scale, 86.0, 150.0)
+	return Rect2(
+		Vector2(panel_rect.end.x - width - 12.0 * scale, panel_rect.position.y + 14.0 * scale),
+		Vector2(width, height)
+	)
+
+
+func _perk_stats_for_level(skill: Dictionary, runtime_state: Object = null) -> String:
 	var descriptions: Dictionary = _get_dict(skill.get("descriptions", {}))
 	if descriptions.is_empty():
 		return ""
@@ -1378,7 +1983,17 @@ func _perk_stats_for_level(skill: Dictionary) -> String:
 	# resolve_stats_text generates the Lv.6+ stat line from the runtime scaling
 	# patterns (Korean), falling back to the highest defined level description
 	# for unregistered perks and non-Korean locales.
-	var stats: String = RuntimePerkOverflowDescriptions.resolve_stats_text(str(skill.get("id", "")), descriptions, level)
+	var stats: String = RuntimePerkOverflowDescriptions.resolve_stats_text_with_polish(
+		str(skill.get("id", "")),
+		descriptions,
+		level,
+		runtime_state
+	)
+	stats = RuntimePerkOverflowDescriptions.append_polish_status(
+		stats,
+		str(skill.get("id", "")),
+		runtime_state
+	)
 	if stats != "":
 		return stats
 	var max_level: int = int(skill.get("max_level", 1))
@@ -1411,32 +2026,56 @@ func _build_status_slot_grid(acquired: Array, slot_limit: int) -> Array:
 # (overflow 연동) 콤마 분해, 융합/주사위 projection 엔트리는 descriptions
 # 사전 없이 단수 description(태그 스탯 라인)으로 오므로 공용 파서
 # build_perk_stat_entries로 라우팅해 색·취소선 메타데이터를 보존한다.
-func _perk_status_tooltip_stat_entries(skill: Dictionary) -> Array:
-	var stats := _perk_stats_for_level(skill)
+func _perk_status_tooltip_stat_entries(skill: Dictionary, runtime_state: Object = null) -> Array:
+	var stats := _perk_stats_for_level(skill, runtime_state)
 	if stats == "":
 		stats = str(skill.get("description", ""))
 	return CharacterInfoOverlayPerkPresenter.build_perk_stat_entries(stats, str(skill.get("detail", "")))
 
 
-func _draw_perk_status_tooltip(canvas: CanvasItem, skill: Dictionary, anchor_rect: Rect2, view_size: Vector2) -> void:
+func _draw_perk_status_tooltip(
+	canvas: CanvasItem,
+	skill: Dictionary,
+	anchor_rect: Rect2,
+	view_size: Vector2,
+	runtime_state: Object = null,
+	icon_renderer_override: Object = null
+) -> void:
 	var name := str(skill.get("name", ""))
 	var detail := str(skill.get("detail", ""))
-	var stats := _perk_stats_for_level(skill)
-	var stat_entries: Array = _perk_status_tooltip_stat_entries(skill)
+	var stats := _perk_stats_for_level(skill, runtime_state)
+	var stat_entries: Array = _perk_status_tooltip_stat_entries(skill, runtime_state)
 	var left_body: String = detail if detail != "" else stats
 	var accent: Color = _get_color(skill.get("icon_color", Color(0.55, 0.72, 1.0)))
-	var max_level: int = int(skill.get("max_level", 1))
-	# Single-level perks show "신화"/"고유" instead of "Lv.1" (2026-07-09 wording
-	# decision). 융합/주사위 projection 엔트리는 자기 라벨(_level_text: "융합" 등)을
+	# 단일/카운트형 무공은 성장 경지 대신 "절세무공"/"고유" 태그를 쓴다. 융합/주사위
+	# projection 엔트리는 자기 라벨(_level_text: "융합" 등)을
 	# 이미 실어 오므로 그것을 우선한다.
 	var level_text := str(skill.get("_level_text", ""))
 	if level_text == "":
-		if max_level > 1:
-			level_text = "Lv.%d" % int(skill.get("level", 1))
-		elif str(skill.get("rarity", "")) == "mythic":
-			level_text = "신화"
-		else:
-			level_text = "고유"
+		level_text = LanguageSettings.format_mugong_rank(skill, int(skill.get("level", 1)))
+	var fusion_sections: Array = skill.get("fusion_sections", []) as Array
+	if str(skill.get("tree", "")) == "fusion" and fusion_sections.size() == 3:
+		CharacterInfoOverlayTooltipPresenter.draw_fusion_tooltip(
+			canvas,
+			{
+				"anchor_rect": anchor_rect,
+				"tooltip_kind": "fusion",
+			},
+			anchor_rect.get_center(),
+			view_size,
+			_get_font(),
+			accent,
+			name,
+			level_text,
+			fusion_sections,
+			Color(0.86, 0.91, 0.98),
+			Color(12.0 / 255.0, 16.0 / 255.0, 28.0 / 255.0, 0.97),
+			Callable(self, "_draw_status_fusion_text"),
+			Callable(self, "_wrap_status_fusion_text"),
+			Callable(self, "_status_fusion_subtitle_color"),
+			Callable(self, "_draw_status_fusion_icon").bind(icon_renderer_override)
+		)
+		return
 
 	var pad := 12.0
 	var gap := 10.0
@@ -1512,15 +2151,64 @@ func _draw_perk_status_tooltip(canvas: CanvasItem, skill: Dictionary, anchor_rec
 		ry += line_h
 
 
-func _draw_pending_hint(canvas: CanvasItem, snapshot: Dictionary, pos: Vector2, runtime_state: Object) -> void:
+func _draw_status_fusion_text(
+	canvas: CanvasItem,
+	_font: Font,
+	text: String,
+	baseline_x: float,
+	baseline_y: float,
+	size: int,
+	color: Color
+) -> void:
+	_draw_text(canvas, text, Vector2(baseline_x, baseline_y), size, color)
+
+
+func _wrap_status_fusion_text(
+	_font: Font,
+	text: String,
+	size: int,
+	max_width: float,
+	max_lines: int
+) -> Array:
+	var result: Array = []
+	for paragraph_value: Variant in text.split("\n"):
+		var remaining := max_lines - result.size()
+		if remaining <= 0:
+			break
+		result.append_array(_wrap_text_px(str(paragraph_value), size, max_width, remaining))
+	return result
+
+
+func _status_fusion_subtitle_color(color: Color) -> Color:
+	return Color(color.r, color.g, color.b, 0.95)
+
+
+func _draw_status_fusion_icon(
+	canvas: CanvasItem,
+	icon_id: String,
+	rect: Rect2,
+	icon_renderer_override: Object
+) -> bool:
+	if icon_renderer_override == null or not icon_renderer_override.has_method("draw_icon"):
+		return false
+	return bool(icon_renderer_override.draw_icon(canvas, icon_id, rect, 1.0, true))
+
+
+func _draw_pending_hint(canvas: CanvasItem, snapshot: Dictionary, pos: Vector2, runtime_state: Object, layout_scale: float = 1.0) -> void:
 	var selectable: bool = runtime_state.has_method("is_selectable") and bool(runtime_state.is_selectable())
 	var text := "마우스 클릭 또는 ← → / Enter 로 선택"
 	if not selectable:
 		text = "선택지를 불러오는 중"
-	_draw_text_centered(canvas, text, pos, 13, Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0, 0.92))
+	var hint_font_size: int = clampi(int(round(13.0 * layout_scale)), 11, 17)
+	var font: Font = _get_font()
+	if font != null:
+		var text_size: Vector2 = _get_text_size(font, LanguageSettings.translate_text(text), hint_font_size)
+		var hint_rect := Rect2(pos - Vector2(text_size.x * 0.5 + 42.0 * layout_scale, 19.0 * layout_scale), Vector2(text_size.x + 84.0 * layout_scale, 34.0 * layout_scale))
+		RuntimePerkTraditionalChrome.draw_hint_ribbon(canvas, hint_rect)
+	_draw_text_centered(canvas, text, pos, hint_font_size, Color(218.0 / 255.0, 214.0 / 255.0, 193.0 / 255.0, 0.96))
 	var pending: int = int(snapshot.get("pending_skill_choices", 0))
 	if pending > 1:
-		_draw_text_centered(canvas, "추가 %d개" % (pending - 1), pos + Vector2(0.0, -22.0), 12, Color(1.0, 220.0 / 255.0, 100.0 / 255.0, 0.95))
+		_draw_text_centered(canvas, "추가 %d개" % (pending - 1), pos + Vector2(0.0, -22.0 * layout_scale), max(10, hint_font_size - 1), Color(220.0 / 255.0, 185.0 / 255.0, 105.0 / 255.0, 0.95))
 
 
 func _draw_feedback(canvas: CanvasItem, runtime_state: Object, view_size: Vector2) -> void:
@@ -1547,11 +2235,6 @@ func _draw_feedback(canvas: CanvasItem, runtime_state: Object, view_size: Vector
 func _draw_mythic_item_effect(canvas: CanvasItem, mythic_item_runtime: Object, view_size: Vector2) -> void:
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("draw_activation_effect"):
 		mythic_item_runtime.draw_activation_effect(canvas, view_size)
-
-
-func _draw_treasure_hunt_effect(canvas: CanvasItem, treasure_hunt_runtime: Object, view_size: Vector2) -> void:
-	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("draw_effect"):
-		treasure_hunt_runtime.draw_effect(canvas, view_size)
 
 
 func _draw_particles(canvas: CanvasItem, snapshot: Dictionary) -> void:
@@ -1741,18 +2424,9 @@ func _draw_starpoint_absorption_effect(canvas: CanvasItem, runtime_state: Object
 	if flight_progress < 1.0:
 		var star_size: float = (15.0 - flight_progress * 5.0) * screen_scale
 		var head_alpha: float = clampf(1.0 - flight_progress * 0.35, 0.0, 1.0)
-		# Outer halo glow rings.
-		canvas.draw_circle(head_pos, star_size * 2.6, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, 0.18 * head_alpha))
-		canvas.draw_circle(head_pos, star_size * 1.6, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, 0.32 * head_alpha))
-		# 5-tip star polygon (matches the starpoint drop's visual identity so
-		# the absorbed thing reads as "the starpoint you just picked up").
-		var star_points: PackedVector2Array = _build_starpoint_absorption_star(head_pos, star_size, age * 6.0)
-		if star_points.size() >= 3:
-			canvas.draw_colored_polygon(star_points, Color(STARPOINT_ABSORPTION_FILL_COLOR.r, STARPOINT_ABSORPTION_FILL_COLOR.g, STARPOINT_ABSORPTION_FILL_COLOR.b, head_alpha))
-			for idx in range(star_points.size()):
-				canvas.draw_line(star_points[idx], star_points[(idx + 1) % star_points.size()], Color(STARPOINT_ABSORPTION_OUTLINE_COLOR.r, STARPOINT_ABSORPTION_OUTLINE_COLOR.g, STARPOINT_ABSORPTION_OUTLINE_COLOR.b, head_alpha), max(1.4, 2.2 * screen_scale))
-		# Central white-hot dot.
-		canvas.draw_circle(head_pos, max(1.4, star_size * 0.28), Color(1.0, 1.0, 1.0, head_alpha))
+		# 흡수되는 것은 방금 주운 무혼이므로 필드 드롭과 같은 합성을 그대로 쓴다.
+		# 여기서 실루엣을 따로 만들면 같은 보상이 두 모습으로 갈라진다.
+		CommonStarpointVisualHost.draw_muhon_fallback(canvas, head_pos, star_size, head_alpha, 1.0, false, age * 6.0)
 	# --- Arrival burst (last 15% of effect) ---
 	if progress > 0.85:
 		var burst_t: float = clamp((progress - 0.85) / 0.15, 0.0, 1.0)
@@ -1769,7 +2443,7 @@ func _draw_starpoint_absorption_effect(canvas: CanvasItem, runtime_state: Object
 		)
 		# Soft inner flash that collapses inward as the burst expands.
 		var flash_alpha: float = (1.0 - burst_t) * 0.55
-		canvas.draw_circle(target, 18.0 * screen_scale * (1.0 - burst_t * 0.4), Color(1.0, 0.95, 0.65, flash_alpha))
+		canvas.draw_circle(target, 18.0 * screen_scale * (1.0 - burst_t * 0.4), Color(STARPOINT_ABSORPTION_CORE_COLOR.r, STARPOINT_ABSORPTION_CORE_COLOR.g, STARPOINT_ABSORPTION_CORE_COLOR.b, flash_alpha))
 
 
 func _draw_starpoint_absorption_trail(
@@ -1808,17 +2482,7 @@ func _draw_starpoint_absorption_trail(
 		var size: float = max(1.2, (2.6 - local_progress * 1.2) * screen_scale)
 		var alpha: float = clampf((1.0 - local_progress) * 0.85 * twinkle, 0.0, 1.0)
 		canvas.draw_circle(pos, size * 2.4, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, alpha * 0.35))
-		canvas.draw_circle(pos, size, Color(1.0, 0.95, 0.55, alpha))
-
-
-func _build_starpoint_absorption_star(center: Vector2, size: float, rotation: float) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var vertices: int = STARPOINT_ABSORPTION_STAR_TIP_COUNT * 2
-	for idx in range(vertices):
-		var r: float = size if idx % 2 == 0 else size * 0.5
-		var a: float = rotation + float(idx) * PI / float(STARPOINT_ABSORPTION_STAR_TIP_COUNT)
-		points.append(center + Vector2(cos(a), sin(a)) * r)
-	return points
+		canvas.draw_circle(pos, size, Color(STARPOINT_ABSORPTION_CORE_COLOR.r, STARPOINT_ABSORPTION_CORE_COLOR.g, STARPOINT_ABSORPTION_CORE_COLOR.b, alpha))
 
 
 func _recent_start(values: Array, render_limit: int) -> int:
@@ -1857,13 +2521,26 @@ func _draw_perk_symbol(canvas: CanvasItem, rect: Rect2, color: Color, tree: Stri
 		canvas.draw_circle(center, radius, Color(1.0, 200.0 / 255.0, 40.0 / 255.0, 0.95 * alpha))
 		_draw_text_centered(canvas, "G", center + Vector2(0.0, 2.0), int(radius * 1.35), Color(70.0 / 255.0, 42.0 / 255.0, 0.0, alpha))
 	elif skill_id == "mystic_dice":
-		# 절차 five-pip 폴백: PNG 로드가 실패해도 주사위 카드가 주사위로
-		# 읽히게 한다(둥근 몸체+5핍).
-		canvas.draw_rect(Rect2(center - Vector2(radius * 0.82, radius * 0.82), Vector2(radius * 1.64, radius * 1.64)), Color(c.r, c.g, c.b, 0.85 * alpha))
-		canvas.draw_rect(Rect2(center - Vector2(radius * 0.82, radius * 0.82), Vector2(radius * 1.64, radius * 1.64)), hi, false, 1.4)
-		var pip_radius: float = radius * 0.16
-		for pip_offset: Vector2 in [Vector2(-0.45, -0.45), Vector2(0.45, -0.45), Vector2(0.0, 0.0), Vector2(-0.45, 0.45), Vector2(0.45, 0.45)]:
-			canvas.draw_circle(center + pip_offset * radius, pip_radius, hi)
+		# 절차 팔자윷 폴백: PNG 로드가 실패해도 미색 몸체·옻칠 캡·적색
+		# 매듭의 3가락 다발로 읽히게 한다. 액티브 아이콘과 같은 실루엣이다.
+		var yut_body := Color(0.94, 0.82, 0.56, alpha)
+		var yut_cap := Color(0.24, 0.09, 0.035, alpha)
+		var yut_outline := Color(0.035, 0.02, 0.012, alpha)
+		var yut_cord := Color(0.86, 0.12, 0.09, alpha)
+		for yut_spec: Array in [
+			[Vector2(-0.54, 0.58), Vector2(0.38, -0.58)],
+			[Vector2(-0.34, -0.62), Vector2(0.52, 0.55)],
+			[Vector2(-0.64, 0.02), Vector2(0.62, -0.05)],
+		]:
+			var start_offset: Vector2 = yut_spec[0]
+			var finish_offset: Vector2 = yut_spec[1]
+			var start: Vector2 = center + start_offset * radius
+			var finish: Vector2 = center + finish_offset * radius
+			canvas.draw_line(start, finish, yut_outline, maxf(3.8, radius * 0.36), true)
+			canvas.draw_line(start, finish, yut_body, maxf(2.4, radius * 0.22), true)
+			canvas.draw_circle(start, maxf(1.5, radius * 0.13), yut_cap)
+			canvas.draw_circle(finish, maxf(1.5, radius * 0.13), yut_cap)
+		canvas.draw_circle(center, maxf(1.7, radius * 0.16), yut_cord)
 	elif tree.find("unlock") >= 0:
 		canvas.draw_circle(center, radius, Color(c.r, c.g, c.b, 0.36 * alpha))
 		canvas.draw_arc(center, radius, -PI * 0.75, PI * 0.75, PERK_UNLOCK_SYMBOL_ARC_SEGMENTS, c, 3.0)
@@ -1938,37 +2615,60 @@ func _level_text(choice: Dictionary) -> String:
 	var override := str(choice.get("level_text", ""))
 	if override != "":
 		return override
+	if bool(choice.get("is_physique_training", false)):
+		return LanguageSettings.translate_text("기초 수련")
 	if bool(choice.get("is_gold_conversion", false)):
 		return LanguageSettings.translate_text("골드")
 	if bool(choice.get("is_instant", false)):
 		return LanguageSettings.translate_text("즉시")
+	# 호란 화기는 무공 비급이 아니라 노획·개조 병기의 밀조도다(병렬 갈래 계약).
+	if bool(choice.get("is_weapon_unlock", false)):
+		return LanguageSettings.translate_text("밀조도")
 	if bool(choice.get("is_skill_manual", false)):
 		return LanguageSettings.translate_text("비급")
 	if _shows_character_unlock_badge(choice):
-		return LanguageSettings.translate_text("해금")
-	# 1회성(최대 Lv.1) 퍽은 레벨 대신 태그 — 신화 레어리티는 "신화", 그 외
-	# "고유"(2026-07-09 문구 확정). 선택 카드와 획득 패널이 같은
+		return LanguageSettings.translate_text("비급")
+	# 1회성 무공은 경지 대신 태그 — mythic 레어리티는 "절세무공",
+	# 그 외는 "고유". 선택 카드와 획득 패널이 같은
 	# 라우팅(LanguageSettings)을 쓴다.
-	if int(choice.get("max_level", 99)) == 1 and str(choice.get("character_restriction", "")) == "":
-		if str(choice.get("rarity", "")) == "mythic":
-			return LanguageSettings.translate_text("신화")
-		return LanguageSettings.translate_text("고유")
-	return "Lv.%d" % int(choice.get("next_level", 1))
+	return LanguageSettings.format_mugong_rank(choice, int(choice.get("next_level", 1)))
 
 
 func _long_level_text(choice: Dictionary) -> String:
 	var override := str(choice.get("long_level_text", ""))
 	if override != "":
 		return override
+	if bool(choice.get("is_physique_training", false)):
+		return "  (%s)" % LanguageSettings.translate_text("기초 수련")
 	if bool(choice.get("is_gold_conversion", false)):
 		return "  (500골드)"
 	if bool(choice.get("is_instant", false)):
 		return "  (즉시 효과)"
+	if bool(choice.get("is_weapon_unlock", false)):
+		return "  (%s)" % LanguageSettings.translate_text("화기 밀조도")
 	if bool(choice.get("is_skill_manual", false)):
 		return "  (%s)" % LanguageSettings.translate_text("초식 비급")
 	if _shows_character_unlock_badge(choice):
-		return "  (액티브 해금)"
-	return "  (Lv.%d → Lv.%d)" % [int(choice.get("current_level", 0)), int(choice.get("next_level", 1))]
+		return "  (%s)" % LanguageSettings.translate_text("초식 비급")
+	if str(choice.get("rank_tag", "")).strip_edges() != "":
+		return "  (%s)" % _level_text(choice)
+	if not _is_scaling_perk_choice(choice):
+		return "  (%s)" % _level_text(choice)
+	return "  (%s)" % LanguageSettings.format_mugong_level_transition(
+		int(choice.get("current_level", 0)),
+		int(choice.get("next_level", 1)),
+		int(choice.get("max_level", 1))
+	)
+
+
+func _is_scaling_perk_choice(choice: Dictionary) -> bool:
+	return (
+		int(choice.get("max_level", 1)) > 1
+		and not bool(choice.get("is_gold_conversion", false))
+		and not bool(choice.get("is_instant", false))
+		and not bool(choice.get("is_skill_manual", false))
+		and not _shows_character_unlock_badge(choice)
+	)
 
 
 func _shows_character_unlock_badge(choice: Dictionary) -> bool:
@@ -1977,10 +2677,14 @@ func _shows_character_unlock_badge(choice: Dictionary) -> bool:
 
 func _level_color(choice: Dictionary, unique: bool, alpha: float) -> Color:
 	if unique:
-		return Color(1.0, 205.0 / 255.0, 50.0 / 255.0, alpha)
+		return Color(105.0 / 255.0, 67.0 / 255.0, 18.0 / 255.0, alpha)
+	if bool(choice.get("is_gold_conversion", false)):
+		return Color(92.0 / 255.0, 68.0 / 255.0, 22.0 / 255.0, alpha)
 	if bool(choice.get("is_instant", false)):
-		return Color(100.0 / 255.0, 1.0, 200.0 / 255.0, alpha)
-	return Color(1.0, 200.0 / 255.0, 100.0 / 255.0, alpha)
+		return Color(38.0 / 255.0, 100.0 / 255.0, 82.0 / 255.0, alpha)
+	# Warm parchment needs a dark ink rank. The previous yellow 1성/2성 sat too
+	# close to the hanji luminance and disappeared during play.
+	return Color(76.0 / 255.0, 50.0 / 255.0, 28.0 / 255.0, alpha)
 
 
 func _wrap_text(text: String, max_chars: int, max_lines: int) -> Array:
@@ -1996,7 +2700,7 @@ func _wrap_text(text: String, max_chars: int, max_lines: int) -> Array:
 
 static func get_full_slot_hint() -> String:
 	# 가득 시 실제 규칙은 '새 슬롯-소모 퍽만 제외'다: flag ON에서는 보유
-	# 강화에 더해 비소모 후보(슬롯 확장·해금·즉시·골드·링펫)가 전부 계속
+	# 강화에 더해 비소모 후보(슬롯 확장·해금·즉시·골드·수호령)가 전부 계속
 	# 나온다 — 특정 부류만 콕 집는 문구는 실제 후보와 다시 어긋난다.
 	if PerkConversionFlags.is_enabled():
 		return LanguageSettings.translate_text("강화·비소모 퍽만")
@@ -2022,6 +2726,35 @@ func _draw_text_fitted(canvas: CanvasItem, text: String, baseline: Vector2, font
 	if fitted_text == "":
 		return
 	canvas.draw_string(font, baseline, fitted_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size, color)
+
+
+func _draw_text_centered_fitted(
+	canvas: CanvasItem,
+	text: String,
+	center: Vector2,
+	font_size: int,
+	color: Color,
+	max_width: float,
+	min_font_size: int = 10
+) -> void:
+	text = LanguageSettings.translate_text(text)
+	var font: Font = _get_font()
+	if font == null or text == "" or max_width <= 0.0:
+		return
+	var fit: Dictionary = _get_fitted_text(font, text, font_size, min_font_size, max_width)
+	var fitted_text: String = str(fit.get("text", ""))
+	var fitted_size: int = int(fit.get("font_size", font_size))
+	var measured: Vector2 = _get_text_size(font, fitted_text, fitted_size)
+	canvas.draw_string(font, center - Vector2(measured.x * 0.5, -measured.y * 0.35), fitted_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size, color)
+
+
+func _draw_text_right(canvas: CanvasItem, text: String, right_baseline: Vector2, font_size: int, color: Color) -> void:
+	text = LanguageSettings.translate_text(text)
+	var font: Font = _get_font()
+	if font == null or text == "":
+		return
+	var measured: Vector2 = _get_text_size(font, text, font_size)
+	canvas.draw_string(font, right_baseline - Vector2(measured.x, 0.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
 func _get_fitted_text(font: Font, text: String, font_size: int, min_font_size: int, max_width: float) -> Dictionary:

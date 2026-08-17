@@ -233,6 +233,8 @@ func _verify_golden_trajectory_caps_actual_modified_gold() -> void:
 	var first_award := state.award_perk_fusion_wall_bounce_gold({}, {})
 	_expect(first_award == 40, "gold modifiers should be applied before clamping Golden Trajectory to the remaining actual-gold budget")
 	_expect(state.gold_from_perks == 40, "Golden Trajectory must award at most 40 actual gold in the round")
+	_expect(state.get_runtime_perk_gold_total() == 40, "Golden Trajectory should expose the synchronized cumulative gold total to the ball snapshot")
+	_expect(state.feedback_timer > 0.0 and state.feedback_text.contains("40"), "Golden Trajectory should use the canonical visible gold feedback path")
 	_expect(state.get_perk_fusion_round_golden_trajectory_gold() == 40, "Golden Trajectory cap counter should track actual stored gold")
 	_expect(state.award_perk_fusion_wall_bounce_gold({}, {}) == 0, "wall bounces after the actual-gold cap must award nothing")
 	_expect(state.gold_from_perks == 40, "post-cap bounces must not exceed 40 actual gold")
@@ -338,20 +340,13 @@ func _verify_central_penalties_reach_production_getters() -> void:
 	_expect_close(cooldown_duration_state.get_active_item_duration_multiplier(), 1.75, "Caffeine penalty must reach the real duration getter")
 	_expect_close(cooldown_duration_state.get_active_item_duration_frames(100.0), 175.0, "Caffeine penalty must reach duration-frame consumers")
 
-	var gauge_slot_state: Object = _central_penalty_state(
-		["item_gauge_mastery", "item_bag_expansion"],
+	var gauge_state: Object = _central_penalty_state(
+		["item_gauge_mastery", "item_luck"],
 		{
 			"item_gauge_mastery": _float_central_penalty(75.0, 60.0),
-			"item_bag_expansion": _integer_central_penalty(5, 4, 20.0),
 		}
 	)
-	_expect_close(gauge_slot_state.get_active_item_use_gauge_bonus(), 60.0, "item gauge penalty must reach the real use-gauge getter")
-	_expect(gauge_slot_state.get_active_item_slot_capacity(3) == 7, "bag expansion integer penalty must preserve its quantized four-slot bonus")
-	gauge_slot_state.set_item_perk_level_bonus(2)
-	var grown_slot_bonus: int = int(gauge_slot_state.get_active_item_slot_capacity(3)) - 3
-	var grown_slot_penalty := float(7 - grown_slot_bonus) / 7.0
-	_expect(grown_slot_bonus == 6, "Lv.7 bag expansion should requantize to a six-slot bonus")
-	_expect(grown_slot_penalty >= 0.10 and grown_slot_penalty <= 0.30, "Lv.6+ bag expansion must stay in the actual 10-30 percent penalty band")
+	_expect_close(gauge_state.get_active_item_use_gauge_bonus(), 60.0, "item gauge penalty must reach the real use-gauge getter")
 
 	var recycle_laurel_state: Object = _central_penalty_state(
 		["item_recycle", "perk_laurel_shield"],

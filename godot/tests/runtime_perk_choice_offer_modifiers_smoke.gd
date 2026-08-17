@@ -1,6 +1,9 @@
 extends SceneTree
 
 const RuntimePerkChoiceOfferModifiers := preload("res://scripts/characters/runtime_perk_choice_offer_modifiers.gd")
+const PhysiqueTrainingCatalog := preload("res://scripts/characters/physique_training_catalog.gd")
+const PhysiqueTrainingOfferPlanner := preload("res://scripts/characters/physique_training_offer_planner.gd")
+const PhysiqueTrainingState := preload("res://scripts/characters/physique_training_state.gd")
 
 var _failures: Array[String] = []
 
@@ -51,10 +54,10 @@ func _verify_target_choice_count() -> void:
 func _verify_dowsing_bonus_state_update() -> void:
 	var helper := RuntimePerkChoiceOfferModifiers.new()
 	var choices: Array = [
-		{"id": "a"},
-		{"id": "b"},
-		{"id": "c", "nested": {"value": 1}},
-		{"id": "d"},
+		{"id": "a", "offer_lane": "replaceable", "offer_protected": false},
+		{"id": "b", "offer_lane": "replaceable", "offer_protected": false},
+		{"id": "c", "nested": {"value": 1}, "offer_lane": "replaceable", "offer_protected": false},
+		{"id": "d", "offer_lane": "replaceable", "offer_protected": false},
 	]
 	var rejected: Dictionary = helper.build_dowsing_bonus_state_update(choices, 0, 3)
 	_expect(not bool(rejected.get("accepted", true)), "no item bonus should skip Dowsing mark")
@@ -68,6 +71,21 @@ func _verify_dowsing_bonus_state_update() -> void:
 	_expect(str(marked_choice.get("bonus_source_item", "")) == RuntimePerkChoiceOfferModifiers.DOWSING_GOGGLES_BONUS_SOURCE, "Dowsing bonus source should be helper-owned")
 	_get_dict(_get_dict(marked_choice.get("nested", {})))["value"] = 9
 	_expect(int(_get_dict(_get_dict(choices[2]).get("nested", {})).get("value", 0)) == 1, "Dowsing update should deep-copy choices")
+
+	var training_plan := PhysiqueTrainingOfferPlanner.new().plan_offer(
+		next_choices,
+		"battle_starpoint",
+		PhysiqueTrainingState.new(),
+		PhysiqueTrainingCatalog.new(),
+		0.0,
+		0.0,
+		0.999999
+	)
+	var training_choices := _get_array(training_plan.get("choices", []))
+	_expect(bool(training_plan.get("appeared", false)), "an eligible Dowsing offer should still permit training in another lane")
+	_expect(training_choices.size() == next_choices.size(), "training should preserve the Dowsing offer card count")
+	_expect(int(training_plan.get("replacement_index", -1)) == 3, "replacement should select the last unprotected lane at the upper roll boundary")
+	_expect(str(_get_dict(training_choices[2]).get("id", "")) == "c", "training must not replace the protected Dowsing bonus card")
 
 
 func _verify_perk_slot_status_copy() -> void:

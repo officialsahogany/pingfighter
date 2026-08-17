@@ -1,0 +1,167 @@
+{
+  "collection_id": "peerless_mugong_hanji_seals_v1",
+  "art_direction": "Hwangyeokjeon peerless martial-art seals: torn aged hanji, dry black takbon ink, broken double ring, restrained antique-gold cracks, cinnabar flecks, and one muted effect accent. No book, leather, metal frame, Western fantasy equipment, glossy UI, or readable text.",
+  "dimensions": {
+    "static": [128, 128],
+    "animated_sheet": [1024, 128],
+    "frames": 8,
+    "frame_size": [128, 128]
+  },
+  "animation": {
+    "source": "AutoSprite MCP plus Codex built-in imagegen",
+    "runtime_frame_interval_msec": 250,
+    "motion_contract": "The hanji shell, alpha silhouette, camera, and whole-icon scale stay fixed. Only motif-specific ink, light, or energy moves inside the seal.",
+    "source_dir": "items/peerless_mugong_autosprite_v2",
+    "jobs": {
+      "megingjord": {"asset_id": "cms47cdho001z14fmi13k9343", "job_id": "wf_564b64a4-573a-4b77-bc6d-ee41258dfdef", "selected_pass": "v1"},
+      "transcendent_crown": {"asset_id": "cms47cerm002114fmqjkgyshr", "job_id": "wf_b494f570-f429-43ba-b447-19af94c8ebea", "selected_pass": "v4"},
+      "ragnarok_hammer": {"asset_id": "cms47cg0s002714fmoqdhzubr", "job_id": "wf_82d3cf53-2814-424f-8871-d783da7bce5e", "selected_pass": "v1"},
+      "hermes_shoes": {"asset_id": "cms47ch8z002c14fmkucvcsqd", "job_id": "wf_dbf125ce-f628-453d-9481-9ba70174fb97", "selected_pass": "v2"},
+      "poseidon_trident": {"asset_id": "cms47cihn002e14fmf14ru1od", "job_id": "wf_20d9dc1e-5e38-41c6-af7f-04aa4dcb29ee", "selected_pass": "v2"},
+      "sacred_laurel": {"asset_id": "cms47cjy2002g14fm89ccxaib", "job_id": "wf_05e2e643-57df-407f-804d-28aebdddd468", "selected_pass": "v1"},
+      "heavenly_cape": {"asset_id": "cms47cl6m002i14fmo2kwqsy3", "job_id": "wf_04da916c-5662-47e5-8bbb-1c0c3321fb11", "selected_pass": "v3"},
+      "horn_strawberry_mask": {"asset_id": "cms47cmgy002k14fmh5kqsfd9", "job_id": "wf_1ef129de-155d-4f93-89e9-397a03a5b633", "selected_pass": "v2"},
+      "odins_eye": {"asset_id": "cms47cnrf002m14fm7tayao27", "job_id": "wf_93b36c65-6b2c-4a3c-8e2e-9e5653d99616", "selected_pass": "v2"},
+      "celestial_armor": {"asset_id": "cms47cp5z002q14fm9esqcjsl", "job_id": "wf_4fb9d841-e8a3-4682-9bd2-e37f9c4b8dbd", "selected_pass": "v2"},
+      "baal_boots": {"asset_id": "cms47cqhx002s14fm0hmkp2q4", "job_id": "wf_c1b9dbeb-6596-43be-891c-3ae071231e45", "selected_pass": "v2"},
+      "pandora_legacy": {"asset_id": "cms47crqf002u14fm6ntbi61q", "job_id": "wf_ea9644e2-b2ed-4db4-bae7-3a84730841e5", "selected_pass": "v2"},
+      "angel_blessing": {"asset_id": "cms47csz6002w14fm24cc4hv2", "job_id": "wf_cb58d6f6-919b-4d49-8e78-313d892fd60c", "selected_pass": "v3"},
+      "yangui_hoechun": {"generator": "Codex built-in imagegen", "generation_id": "019fb6a4-78c3-7cb2-a114-91b21d845cae", "selected_pass": "v1", "motion_builder": "godot/tools/build_yangui_hoechun_internal_motion.py"}
+    }
+  },
+  "postprocess": {
+    "chroma_helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "chroma_arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"],
+    "static_resize": "120x120 Lanczos centered on transparent 128x128 canvas",
+    "sheet_builder": "godot/tools/build_peerless_mugong_internal_motion_sheets.py; godot/tools/build_yangui_hoechun_internal_motion.py for yangui_hoechun",
+    "sheet_motion": "Eight AutoSprite-derived internal-motion frames. A fixed static hanji shell carries temporal colour/light delta only inside the seal; the former 120-128px whole-icon breathing pulse is removed."
+  },
+  "assets": [
+    {
+      "perk_id": "megingjord",
+      "display_name_ko": "삼재개문",
+      "display_name_en": "Three Gates of Providence",
+      "static_path": "res://assets/sprites/perks/megingjord_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/megingjord_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-d0c41e5d-a82e-4aaa-8e12-215b03abc2fe.png",
+      "symbol": "three Korean spirit gates opening from one center"
+    },
+    {
+      "perk_id": "transcendent_crown",
+      "display_name_ko": "만법귀일",
+      "display_name_en": "Unity of Ten Thousand Arts",
+      "static_path": "res://assets/sprites/perks/transcendent_crown_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/transcendent_crown_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-fa6b3af0-69b8-4568-8fce-e38e4ddaa041.png",
+      "symbol": "many martial traces spiraling into one gold-black enso"
+    },
+    {
+      "perk_id": "ragnarok_hammer",
+      "display_name_ko": "천뢰진경",
+      "display_name_en": "Heavenly Thunder Scripture",
+      "static_path": "res://assets/sprites/perks/ragnarok_hammer_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/ragnarok_hammer_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-83aab528-a94e-44b2-9926-db44576f2edd.png",
+      "symbol": "martial palm imbuing a ball with heavenly lightning"
+    },
+    {
+      "perk_id": "hermes_shoes",
+      "display_name_ko": "축지신행",
+      "display_name_en": "Earth-Shrinking Steps",
+      "static_path": "res://assets/sprites/perks/hermes_shoes_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/hermes_shoes_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-a3680f8e-dc6f-42d6-9e96-d2803df48781.png",
+      "symbol": "traditional cloth shoes crossing compressed mountain ridges"
+    },
+    {
+      "perk_id": "poseidon_trident",
+      "display_name_ko": "쌍룡회류",
+      "display_name_en": "Twin Dragon Vortex",
+      "static_path": "res://assets/sprites/perks/poseidon_trident_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/poseidon_trident_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-bbbb155d-60af-4919-808b-8cf5fcc2e32d.png",
+      "symbol": "two mirrored ink dragons becoming water vortices"
+    },
+    {
+      "perk_id": "sacred_laurel",
+      "display_name_ko": "팔엽금강",
+      "display_name_en": "Eight-Leaf Vajra",
+      "static_path": "res://assets/sprites/perks/sacred_laurel_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/sacred_laurel_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-0c0955a1-f6ae-483b-9250-5f982bf7097a.png",
+      "symbol": "eight ward leaves around a protected martial artist"
+    },
+    {
+      "perk_id": "heavenly_cape",
+      "display_name_ko": "천문개결",
+      "display_name_en": "Celestial Gate Art",
+      "static_path": "res://assets/sprites/perks/heavenly_cape_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/heavenly_cape_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-68556bd3-6d7d-49cc-a1dd-cd7dc51358bd.png",
+      "symbol": "open spirit gate revealing an extra skill orb"
+    },
+    {
+      "perk_id": "horn_strawberry_mask",
+      "display_name_ko": "혼딸기강신",
+      "display_name_en": "Hornberry Spirit Descent",
+      "static_path": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/horn_strawberry_mask_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-e127131a-d20e-48f6-93bb-88297f843041.png",
+      "symbol": "horned strawberry spirit mask with descending ghost flame"
+    },
+    {
+      "perk_id": "odins_eye",
+      "display_name_ko": "윤회천안",
+      "display_name_en": "Samsara Heavenly Eye",
+      "static_path": "res://assets/sprites/perks/odins_eye_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/odins_eye_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-6a8ad1de-e135-47e3-bdc9-242cf5053071.png",
+      "symbol": "vertical heavenly eye with samsara pupil and dark-swamp ripple"
+    },
+    {
+      "perk_id": "celestial_armor",
+      "display_name_ko": "부동금강체",
+      "display_name_en": "Immovable Vajra Body",
+      "static_path": "res://assets/sprites/perks/celestial_armor_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/celestial_armor_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-da4e8b18-772d-41a5-8dfd-d6cb2bc39ec5.png",
+      "symbol": "seated martial artist inside an impact-shattering vajra ward"
+    },
+    {
+      "perk_id": "baal_boots",
+      "display_name_ko": "풍우식기결",
+      "display_name_en": "Storm-Devouring Art",
+      "static_path": "res://assets/sprites/perks/baal_boots_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/baal_boots_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-7df3964d-ce15-4da3-a9c0-b44f6f88d736.png",
+      "symbol": "dokkaebi inhaling weather into a dantian pearl"
+    },
+    {
+      "perk_id": "pandora_legacy",
+      "display_name_ko": "금기개함",
+      "display_name_en": "Forbidden Casket",
+      "static_path": "res://assets/sprites/perks/pandora_legacy_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/pandora_legacy_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-ffc0a481-2aaa-4a80-a565-18420d4d18c5.png",
+      "symbol": "Korean wooden casket releasing three sealed choices"
+    },
+    {
+      "perk_id": "angel_blessing",
+      "display_name_ko": "천운삼괘",
+      "display_name_en": "Three Heavenly Omens",
+      "static_path": "res://assets/sprites/perks/angel_blessing_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/angel_blessing_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-b28b8ea3-20f1-46c8-9e05-684378f8cf89.png",
+      "symbol": "three divination omen medallions around a celestial pearl"
+    },
+    {
+      "perk_id": "yangui_hoechun",
+      "display_name_ko": "양의회천",
+      "display_name_en": "Dual-Principle Heaven Reversal",
+      "static_path": "res://assets/sprites/perks/yangui_hoechun_perk_icon.png",
+      "sheet_path": "res://assets/sprites/perks/yangui_hoechun_perk_icon_sheet.png",
+      "generated_output": "C:/Users/woduq/.codex/generated_images/019fb6a4-78c3-7cb2-a114-91b21d845cae/exec-11cecf82-48c3-441c-af14-72e3fef75fae.png",
+      "symbol": "martial artist sending paired golden energy crescents outward to reflect a descending ball"
+    }
+  ]
+}

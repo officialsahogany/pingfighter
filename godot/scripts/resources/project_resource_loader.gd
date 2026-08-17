@@ -14,6 +14,7 @@ static var _force_threaded_texture_prewarm_in_progress_for_tests: bool = false
 static var _threaded_audio_prewarm_path: String = ""
 static var _threaded_audio_prewarm_started_msec: int = 0
 static var _threaded_audio_prewarm_poll_count: int = 0
+static var _threaded_audio_batch_requests: Dictionary = {}
 static var _warned_paths: Dictionary = {}
 
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
@@ -50,7 +51,11 @@ const THREADED_AUDIO_PREWARM_MAX_POLLS := 240
 # ~1 poll per frame, so same-frame spin-polling would hit MAX_POLLS early and
 # demote a healthy threaded load to a synchronous main-thread fallback.
 static func has_threaded_prewarm_in_flight() -> bool:
-	return _threaded_texture_prewarm_path != "" or _threaded_audio_prewarm_path != ""
+	return (
+		_threaded_texture_prewarm_path != ""
+		or _threaded_audio_prewarm_path != ""
+		or not _threaded_audio_batch_requests.is_empty()
+	)
 
 
 # Resolves the shared texture slot WITHOUT becoming a new owner: if the
@@ -433,6 +438,115 @@ static func prewarm_audio_stream_threaded_step(path: String, missing_warning: St
 	return {"done": false, "stream": null}
 
 
+# GameAudio owns hundreds of independent streams. Sending them through the
+# single shared slot above makes the loading screen wait for every decoder in
+# strict serial order. This batch API permits a bounded caller-owned queue while
+# keeping each request observable by has_threaded_prewarm_in_flight().
+static func request_audio_stream_threaded_batch(
+	path: String,
+	missing_warning: String = "",
+	failed_warning: String = ""
+) -> Dictionary:
+	if path == "":
+		return {"done": true, "stream": null}
+	var cached_stream: AudioStream = get_cached_audio_stream(path)
+	if cached_stream != null:
+		_threaded_audio_batch_requests.erase(path)
+		return {"done": true, "stream": cached_stream}
+	var cached_resource: AudioStream = _get_resource_loader_audio_stream(path)
+	if cached_resource != null:
+		_audio_cache[path] = cached_resource
+		_threaded_audio_batch_requests.erase(path)
+		return {"done": true, "stream": cached_resource}
+	if not _is_thread_loadable_audio_path(path):
+		return {
+			"done": true,
+			"stream": load_audio_stream(path, missing_warning, failed_warning),
+		}
+	if _threaded_audio_batch_requests.has(path):
+		return {"done": false, "stream": null}
+
+	var request_error := ResourceLoader.load_threaded_request(path, "AudioStream", true)
+	if request_error != OK and request_error != ERR_BUSY:
+		return {
+			"done": true,
+			"stream": load_audio_stream(path, missing_warning, failed_warning),
+		}
+	_threaded_audio_batch_requests[path] = {
+		"started_msec": Time.get_ticks_msec(),
+		"poll_count": 0,
+		"missing_warning": missing_warning,
+		"failed_warning": failed_warning,
+	}
+	return {"done": false, "stream": null}
+
+
+static func poll_audio_stream_threaded_batch(path: String) -> Dictionary:
+	if path == "":
+		return {"done": true, "stream": null}
+	var cached_stream: AudioStream = get_cached_audio_stream(path)
+	if cached_stream != null:
+		_threaded_audio_batch_requests.erase(path)
+		return {"done": true, "stream": cached_stream}
+	if not _threaded_audio_batch_requests.has(path):
+		return request_audio_stream_threaded_batch(path)
+
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			_threaded_audio_batch_requests.erase(path)
+			var resource: Resource = ResourceLoader.load_threaded_get(path)
+			if resource is AudioStream:
+				var stream: AudioStream = resource
+				store_audio_stream(path, stream)
+				return {"done": true, "stream": stream}
+			return {"done": true, "stream": load_audio_stream(path)}
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			var failed_metadata: Dictionary = _get_threaded_audio_batch_metadata(path)
+			_threaded_audio_batch_requests.erase(path)
+			return {
+				"done": true,
+				"stream": load_audio_stream(
+					path,
+					str(failed_metadata.get("missing_warning", "")),
+					str(failed_metadata.get("failed_warning", ""))
+				),
+			}
+
+	var metadata: Dictionary = _get_threaded_audio_batch_metadata(path)
+	metadata["poll_count"] = int(metadata.get("poll_count", 0)) + 1
+	_threaded_audio_batch_requests[path] = metadata
+	if _is_threaded_audio_batch_request_expired(metadata):
+		# Do not drain the worker with load_threaded_get(): a wedged request would
+		# turn this bounded escape hatch into another visible loading freeze.
+		_threaded_audio_batch_requests.erase(path)
+		return {
+			"done": true,
+			"stream": load_audio_stream(
+				path,
+				str(metadata.get("missing_warning", "")),
+				str(metadata.get("failed_warning", ""))
+			),
+		}
+	return {"done": false, "stream": null}
+
+
+static func release_audio_stream_threaded_batch(paths: Array[String] = []) -> void:
+	if paths.is_empty():
+		return
+	for path in paths:
+		_threaded_audio_batch_requests.erase(path)
+
+
+static func get_threaded_audio_batch_request_count() -> int:
+	return _threaded_audio_batch_requests.size()
+
+
+static func is_audio_stream_threaded_batch_requested(path: String) -> bool:
+	return _threaded_audio_batch_requests.has(path)
+
+
 static func load_font(path: String, missing_warning: String = "", failed_warning: String = "") -> Font:
 	if _font_cache.has(path):
 		var cached_font: Variant = _font_cache[path]
@@ -642,6 +756,21 @@ static func _is_threaded_audio_prewarm_expired() -> bool:
 	return elapsed_msec >= THREADED_AUDIO_PREWARM_MAX_MSEC
 
 
+static func _get_threaded_audio_batch_metadata(path: String) -> Dictionary:
+	var metadata_value: Variant = _threaded_audio_batch_requests.get(path, {})
+	if metadata_value is Dictionary:
+		return metadata_value
+	return {}
+
+
+static func _is_threaded_audio_batch_request_expired(metadata: Dictionary) -> bool:
+	var poll_count := int(metadata.get("poll_count", 0))
+	if poll_count >= THREADED_AUDIO_PREWARM_MAX_POLLS:
+		return true
+	var started_msec := int(metadata.get("started_msec", Time.get_ticks_msec()))
+	return Time.get_ticks_msec() - started_msec >= THREADED_AUDIO_PREWARM_MAX_MSEC
+
+
 static func _clear_threaded_audio_prewarm() -> void:
 	_threaded_audio_prewarm_path = ""
 	_threaded_audio_prewarm_started_msec = 0
@@ -673,6 +802,7 @@ static func clear_caches() -> void:
 	_font_cache.clear()
 	_clear_threaded_texture_prewarm()
 	_clear_threaded_audio_prewarm()
+	_threaded_audio_batch_requests.clear()
 
 
 static func clear_caches_except(retained_texture_paths: Array = [], retained_audio_paths: Array = []) -> void:
@@ -686,6 +816,7 @@ static func clear_caches_except(retained_texture_paths: Array = [], retained_aud
 	_font_cache.clear()
 	_clear_threaded_texture_prewarm()
 	_clear_threaded_audio_prewarm()
+	_threaded_audio_batch_requests.clear()
 
 
 static func _retain_cache_entries(cache: Dictionary, retained_paths: Array) -> void:

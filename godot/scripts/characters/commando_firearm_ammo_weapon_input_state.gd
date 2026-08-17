@@ -9,6 +9,55 @@ const CommandoFirearmProfileResolver := preload("res://scripts/characters/comman
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
+static func update_runtime_generic_weapon_input(
+	runtime_owner: Object,
+	input_snapshot: Dictionary,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	current_weapon: Dictionary,
+	now_msec: int,
+	switch_fire_suppress_msec: int,
+	fire_debounce_msec: int,
+	options: Dictionary
+) -> Dictionary:
+	var weapon_id := str(current_weapon.get("weapon_id", "pistol"))
+	if not bool(input_snapshot.get("action_pressed", false)):
+		return {}
+	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
+		return {}
+	if bool(input_snapshot.get("down_pressed", false)):
+		return {}
+	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		switch_fire_suppress_msec
+	):
+		return {}
+	if now_msec - int(runtime_owner.get("last_fire_msec")) < fire_debounce_msec:
+		return {}
+	if not CommandoFirearmCooldownState.is_ready(weapon_id, now_msec, deps):
+		return _build_generic_fire_failed_result(weapon_id, special_gauge)
+	if not bool(current_weapon.get("can_fire", true)):
+		return _build_generic_fire_failed_result(weapon_id, special_gauge)
+	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
+		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
+			return _build_generic_fire_failed_result(weapon_id, special_gauge)
+	runtime_owner.set("last_fire_msec", now_msec)
+	if weapon_id != "pistol":
+		CommandoFirearmCooldownState.trigger_configured_cooldown(weapon_id, now_msec, deps)
+	_spawn_runtime_firearm_effect(runtime_owner, weapon_id, config, deps, options)
+	CommandoFirearmAudioDispatcher.play_fire_audio(weapon_id, deps)
+	return {
+		"handled": true,
+		"weapon_id": weapon_id,
+		"fired": true,
+		"special_gauge": special_gauge,
+		"skill_gold_award": 0,
+	}
+
+
 static func update_runtime_bazooka_input(
 	runtime_owner: Object,
 	input_snapshot: Dictionary,
@@ -225,6 +274,15 @@ static func _consume_bowling_trap_single_press_input(runtime_owner: Object, inpu
 	))
 	runtime_owner.set("bowling_trap_last_action_pressed", action_pressed)
 	return action_just_pressed and not bool(input_snapshot.get("down_pressed", false))
+
+
+static func _build_generic_fire_failed_result(weapon_id: String, special_gauge: float) -> Dictionary:
+	return {
+		"handled": true,
+		"weapon_id": weapon_id,
+		"fire_failed": true,
+		"special_gauge": special_gauge,
+	}
 
 
 static func _spawn_runtime_firearm_effect(

@@ -1,0 +1,36 @@
+{
+  "asset_id": "common_training_perk_icon",
+  "perk_id": "common_training",
+  "display_name_ko": "조식심법",
+  "display_name_en": "Breath-Regulating Inner Art",
+  "runtime_path": "res://assets/sprites/perks/common_training_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-ab6838dd-c48a-4435-bae3-c69c2d537ee7.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy martial-arts training seal on torn aged hanji: a seated black practitioner regulates a cinnabar breath path from nose to chest into a circular pulse ring, accented by three restrained amber pulse marks. No boxing glove, clock, book, readable text, metal, leather, neon, or glossy UI frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_method": "auto-key border on flat magenta",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [10, 11, 246, 245],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "1f2741b812dc950795d3628ec682d3a1f1bdd8fb9c7521fd1db71de9e4b7b8dd",
+    "runtime_capture": "res://.tmp/common_mugong_seal_qa.png",
+    "rendered_sizes": [80, 32],
+    "notes": "Standalone common-Mugong hanji seal; the breath path and seated silhouette remain readable at the 32px owned-HUD size."
+  }
+}

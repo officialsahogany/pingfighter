@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "stage": 2,
+  "boss_id": "cheongringwi",
+  "display_name": "청린귀",
+  "generator": "AutoSprite",
+  "character": {
+    "name": "Cheongringwi Pixel Guardian V10",
+    "character_id": "cmsbj8kfd006u11mdojs33qd0",
+    "identity_master": "images/stage2_cheongringwi_boss/concepts/stage2_cheongringwi_identity_master_autosprite_v10.png",
+    "defeated_pose_id": "cmsbjdxl3000nqkh06my9stw8"
+  },
+  "runtime_contract": {
+    "columns": 4,
+    "rows": 2,
+    "frame_count": 8,
+    "cell_size": [512, 512],
+    "texture_size": [2048, 1024],
+    "body_scale_reference": "walk_right",
+    "draw_size": [160, 104],
+    "center_offset": [0, 14]
+  },
+  "combat_clips": {
+    "idle": {
+      "job_id": "wf_fd92c8b7-bd45-4c48-acb5-d6007f0a03ff",
+      "sheet_id": "cmsbjgyby002kkmcscbr9kbth",
+      "video_id": "cmsbj9gnt0045rkhaxcua0tqk",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_idle_8f_autosprite_v10_4x2.png",
+      "sha256": "AA341ECFD5DE114C93B959928FB1CBA455C5FB1E5B6265FD9741B9E481B589BB"
+    },
+    "walk_right": {
+      "job_id": "wf_b9d6de51-c7c0-48d7-a2f4-8af47ebfe115",
+      "sheet_id": "cmsbjpb26003y12kdio3dymj0",
+      "video_id": "cmsbjit5p003212kdk7j8tvar",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_walk_right_8f_autosprite_v10_4x2.png",
+      "sha256": "4213907009B70B2E092A805E7265D396260D430EDCA2F6A848A0C5AD3BEC1BD6"
+    },
+    "walk_left": {
+      "job_id": "wf_a1cc195e-3f5e-4fec-925f-1441a98230d6",
+      "sheet_id": "cmsbjpb5j001tqkh0hak6ykta",
+      "video_id": "cmsbjiso6002y12kdjczfxm7q",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_walk_left_8f_autosprite_v10_4x2.png",
+      "sha256": "87FFE554207DB1E3988AC98EF59AC0B10F067B9239713FBF301FE90BCF176F11"
+    },
+    "attack": {
+      "job_id": "wf_1bcc4eba-c0f9-4a48-b2a4-556fbf4d90b3",
+      "sheet_id": "cmsbjjthy0016qkh0yzy3hzkr",
+      "video_id": "cmsbjg5bm001v12kd1vctpg5p",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_attack_8f_autosprite_v10_4x2.png",
+      "sha256": "948BA6CB06A729B829C396EC421401A7CBA4B1C7256ECC06CFB8C6F7326F4822",
+      "impact_frame": 4,
+      "frame_recipe": "idle frame 0; accepted attack v2 frames 0,1,2,3,2,1; idle frame 0"
+    },
+    "quake_stomp": {
+      "job_id": "wf_834a9aa5-4b37-4bba-b726-dc2b0609a958",
+      "sheet_id": "cmsbjcnki000bqkh01zsyf62l",
+      "video_id": "cmsbj9ghv003trkhacbvf9rqv",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_quake_stomp_8f_autosprite_v10_4x2.png",
+      "sha256": "DB1AD97354C5A334DEBAA58DF2EF66D3F9D52FC17263DF528D3B571B902A333C",
+      "impact_frame": 4
+    },
+    "victory": {
+      "job_id": "wf_c11870cf-cd19-401d-acae-ac6ec87b8ae9",
+      "sheet_id": "cmsbjdmzu001hkmcsbyj9y4n8",
+      "video_id": "cmsbj9grv004jrkhakpcfhmdh",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_victory_8f_autosprite_v10_4x2.png",
+      "sha256": "3C5140D9E31CC64344CE7298E125E3526BA91E1D36E1960DB63162F8C9EF7307"
+    },
+    "defeat": {
+      "job_id": "wf_18fd3ef3-ce2b-4bd2-9de6-90d8c3b37656",
+      "sheet_id": "cmsbjdjfk001dkmcsc6gn423n",
+      "video_id": "cmsbj9gpb004drkha0boxfx8t",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_defeat_8f_autosprite_v10_4x2.png",
+      "sha256": "60493E20E7650AE65604809CCAECC0B846C2F754381D19EAC1DC5070FC950F96"
+    }
+  },
+  "result_presentation": {
+    "frame_count": 49,
+    "columns": 7,
+    "rows": 7,
+    "source_cell_size": [1024, 1024],
+    "imported_cell_size": [896, 896],
+    "idle": {
+      "job_id": "wf_b5a5be38-18e3-4b00-a11a-7b328c9dc9d0",
+      "sheet_id": "cmsbjoyyg0016jwszt80ahoa1",
+      "video_id": "cmsbjhbde000bjwszwfw4eyqu",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_result_defeat_idle_loop49_autosprite_v10_hq1024.png",
+      "sha256": "7A6E11B9610273343EC7CC8349DCF086DC870CB7B9E027ABE1105BF87C710B51"
+    },
+    "click_reaction": {
+      "job_id": "wf_2f666c33-f876-421c-bae1-346f8738ba10",
+      "sheet_id": "cmsbjp8jq003u12kdfera7sz1",
+      "video_id": "cmsbjhbcm0009jwsztgqrmq70",
+      "runtime_path": "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_result_defeat_click_reaction49_autosprite_v10_hq1024.png",
+      "sha256": "49804D224CB716E76968F9807FC7D461BC6EF6D4E8B30725932447722B3C9653"
+    }
+  },
+  "rejected_candidates": [
+    {
+      "role": "attack",
+      "job_id": "wf_ae7ed15a-5a20-47ed-aa02-c52cab5d85e0",
+      "sheet_id": "cmsbjdydh000pqkh0r05pryo3",
+      "reason": "detached seal head, broken staff, and body corruption"
+    },
+    {
+      "role": "walk_right",
+      "job_id": "wf_25639f1b-ec4c-4361-a4af-8999742c5ff1",
+      "sheet_id": "cmsbjgvis002gkmcsv8gac6kz",
+      "reason": "side-profile body broke the front-facing paddle contract"
+    },
+    {
+      "role": "walk_left",
+      "job_id": "wf_64a23d5d-f1e7-43f7-9893-802b5ebe2ffe",
+      "sheet_id": "cmsbjhszn002h12kdm6h4objw",
+      "reason": "side-profile body broke the front-facing paddle contract"
+    }
+  ]
+}

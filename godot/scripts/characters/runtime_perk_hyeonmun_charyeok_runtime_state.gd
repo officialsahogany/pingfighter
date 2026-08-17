@@ -41,7 +41,7 @@ func try_proc_from_runtime_state(
 		)
 	)
 	var roll_unit := float(context.get(RuntimePerkHyeonmunCharyeokState.ROLL_OVERRIDE_KEY, -1.0))
-	var result: Dictionary = _state.try_proc(invested_level, roll_unit)
+	var result: Dictionary = _state.try_proc(invested_level, roll_unit, runtime_state)
 	if bool(result.get("activated", false)):
 		_sync_effective_level_bonus(
 			runtime_state,

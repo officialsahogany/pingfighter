@@ -1,6 +1,7 @@
 extends Node2D
 
-# Shared starpoint-drop shader overlay host. One slot per active drop; each
+# Shared shader overlay host for the compatibility-owned `starpoint` reward,
+# presented to players as a crimson muhon flame. One slot per active drop; each
 # slot is a Sprite2D + ShaderMaterial that the per-stage `_draw_starpoint_drops`
 # function fills via `sync_drop(state)` after `begin_frame()`. After all drops
 # are synced for the frame the caller invokes `end_frame()` to hide any slots
@@ -16,6 +17,7 @@ extends Node2D
 
 const STARPOINT_SHADER := preload("res://shaders/playfield/starpoint_drop.gdshader")
 const STARPOINT_HALO_SHADER := preload("res://shaders/playfield/starpoint_soft_halo.gdshader")
+const MuhonVisualGeometry := preload("res://scripts/effects/muhon_visual_geometry.gd")
 
 const HOST_NAME := "CommonStarpointVisualHost"
 # Max simultaneous active drops across all stages. Most stages keep ~10 active
@@ -24,7 +26,7 @@ const MAX_SLOTS := 32
 # Quad half-size = drop size * QUAD_SIZE_FACTOR so the outermost glow layer
 # (size * 4.0 in the original CPU code) still fits inside the quad.
 const QUAD_SIZE_FACTOR := 4.0
-# Soft-halo quad extends 1.5x beyond the star's outer halo radius so the
+# Soft-halo quad extends 1.5x beyond the flame's outer halo radius so the
 # premium aura has room to breathe outside the existing 4-layer glow.
 const HALO_QUAD_FACTOR := 6.0
 # Side length of the prebaked radial-falloff texture used by the soft halo
@@ -36,6 +38,11 @@ const HALO_SPAWN_TWEEN_ALPHA_DURATION := 0.3
 const HALO_SPAWN_TWEEN_SCALE_DURATION := 0.45
 # Z above the pillar background and obstacle layer; below ball / paddle.
 const HOST_Z_INDEX := 12
+const MUHON_GLOW_COLOR := Color(0.92, 0.08, 0.18, 1.0)
+const MUHON_FILL_COLOR := Color(0.68, 0.015, 0.07, 1.0)
+const MUHON_MID_COLOR := Color(0.98, 0.18, 0.055, 1.0)
+const MUHON_OUTLINE_COLOR := Color(1.0, 0.62, 0.18, 1.0)
+const MUHON_CORE_COLOR := Color(1.0, 0.94, 0.70, 1.0)
 
 static var _prewarmed: bool = false
 static var _shader_ready: bool = false
@@ -197,7 +204,7 @@ func begin_frame() -> void:
 
 
 # Push one drop's render state into the next free slot. `state` keys:
-#   "pos" (Vector2, world space), "size" (float, star outer radius in px),
+#   "pos" (Vector2, world space), "size" (float, flame radius in px),
 #   "life" (float, raw life counter, alpha = clamp(life * 2 / 255, 0, 1)),
 #   "rotation" (float, radians), "glow_intensity" (float, 0..1),
 #   "star_detector_bonus" (bool), "glow_color" / "fill_color" / "outline_color"
@@ -329,36 +336,24 @@ func _apply_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) -> void
 		slot.scale = Vector2.ONE * (quad_size / tex_w)
 	if mat == null:
 		return
-	# size_norm = star outer radius / quad half-size = 1.0 / QUAD_SIZE_FACTOR.
+	# size_norm = flame radius / quad half-size = 1.0 / QUAD_SIZE_FACTOR.
 	mat.set_shader_parameter("size_norm", 1.0 / QUAD_SIZE_FACTOR)
-	mat.set_shader_parameter("inner_radius_ratio", 0.5)
 	mat.set_shader_parameter("alpha", alpha)
 	mat.set_shader_parameter("glow_intensity", clampf(float(state.get("glow_intensity", 1.0)), 0.0, 1.0))
 	mat.set_shader_parameter("rotation", float(state.get("rotation", 0.0)))
 	mat.set_shader_parameter("elapsed", float(state.get("elapsed", 0.0)))
-	var glow_color: Color = _as_color(state.get("glow_color", Color(1.0, 0.45, 0.74, 1.0)), Color(1.0, 0.45, 0.74, 1.0))
-	var fill_color: Color = _as_color(state.get("fill_color", Color(1.0, 0.0, 0.0, 1.0)), Color(1.0, 0.0, 0.0, 1.0))
-	var outline_color: Color = _as_color(state.get("outline_color", Color(1.0, 1.0, 0.0, 1.0)), Color(1.0, 1.0, 0.0, 1.0))
+	var glow_color: Color = _as_color(state.get("glow_color", MUHON_GLOW_COLOR), MUHON_GLOW_COLOR)
+	var fill_color: Color = _as_color(state.get("fill_color", MUHON_FILL_COLOR), MUHON_FILL_COLOR)
+	var mid_color: Color = _as_color(state.get("mid_color", MUHON_MID_COLOR), MUHON_MID_COLOR)
+	var outline_color: Color = _as_color(state.get("outline_color", MUHON_OUTLINE_COLOR), MUHON_OUTLINE_COLOR)
+	var core_color: Color = _as_color(state.get("core_color", MUHON_CORE_COLOR), MUHON_CORE_COLOR)
 	mat.set_shader_parameter("glow_color", glow_color)
 	mat.set_shader_parameter("fill_color", fill_color)
+	mat.set_shader_parameter("mid_color", mid_color)
 	mat.set_shader_parameter("outline_color", outline_color)
-	# Stage 1's original drop uses a 4-tip sparkle (STARPOINT_DROP_STAR_POINTS = 8);
-	# Stage 2/3/4 use 5-tip stars. Per-drop selection lets us keep both shapes
-	# unchanged from the legacy CPU draws.
-	var tip_count: int = clamp(int(state.get("star_tip_count", 5)), 3, 8)
-	mat.set_shader_parameter("star_tip_count", tip_count)
+	mat.set_shader_parameter("core_color", core_color)
 	var shimmer: float = 1.0 if bool(state.get("star_detector_bonus", false)) else 0.0
 	mat.set_shader_parameter("detector_shimmer_intensity", shimmer)
-	# Iridescent body shimmer for the normal pink drops; detector drops can
-	# still pass a smaller value (or zero) so the cyan rim isn't washed out by
-	# competing hue cycling.
-	var iridescent: float = clampf(float(state.get("iridescent_shimmer_intensity", 0.0)), 0.0, 1.0)
-	mat.set_shader_parameter("iridescent_shimmer_intensity", iridescent)
-	# Cross-shaped sparkle ray "shining" highlight. Stages that want the
-	# jewel-like sparkle pass 1.0; gold-palette / detector drops can suppress
-	# it by passing 0 so their identity (gold / cyan rim) reads cleanly.
-	var sparkle: float = clampf(float(state.get("sparkle_ray_intensity", 0.0)), 0.0, 1.0)
-	mat.set_shader_parameter("sparkle_ray_intensity", sparkle)
 
 
 func _apply_halo_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) -> void:
@@ -383,16 +378,78 @@ func _apply_halo_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) ->
 	mat.set_shader_parameter("alpha", alpha)
 	mat.set_shader_parameter("glow_intensity", clampf(float(state.get("glow_intensity", 1.0)), 0.0, 1.0))
 	mat.set_shader_parameter("elapsed", float(state.get("elapsed", 0.0)))
-	# The halo color follows the star's glow palette so each stage's identity
-	# stays consistent (pink for normal, cyan for detector, gold for stage 4).
-	var glow_color: Color = _as_color(state.get("glow_color", Color(1.0, 0.45, 0.74, 1.0)), Color(1.0, 0.45, 0.74, 1.0))
+	# The halo follows the shared crimson muhon palette in every stage.
+	var glow_color: Color = _as_color(state.get("glow_color", MUHON_GLOW_COLOR), MUHON_GLOW_COLOR)
 	mat.set_shader_parameter("halo_color", glow_color)
-	# Star-detector drops already carry a cyan rim from the star shader; muting
+	# Star-detector drops already carry a cyan rim from the flame shader; muting
 	# both halo sparkles and the iridescent rim there keeps the cyan identity
 	# from getting washed out by the additive premium layer.
 	var is_detector: bool = bool(state.get("star_detector_bonus", false))
 	mat.set_shader_parameter("sparkle_intensity", 0.55 if is_detector else 0.95)
 	mat.set_shader_parameter("iridescent_rim_intensity", 0.0 if is_detector else 0.55)
+
+
+static func draw_muhon_fallback(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	alpha: float,
+	glow_intensity: float,
+	detector_bonus: bool = false,
+	phase: float = 0.0
+) -> void:
+	if canvas == null or radius <= 0.0 or alpha <= 0.001:
+		return
+	var safe_alpha: float = clampf(alpha, 0.0, 1.0)
+	var safe_glow: float = clampf(glow_intensity, 0.0, 1.4)
+	var glow_layer_count: int = 12
+	for layer in range(glow_layer_count):
+		var layer_t: float = float(layer) / float(glow_layer_count - 1)
+		var glow_radius: float = radius * lerpf(4.0, 1.16, layer_t)
+		var layer_alpha: float = safe_alpha * safe_glow * lerpf(0.018, 0.055, layer_t)
+		canvas.draw_circle(center, glow_radius, Color(MUHON_GLOW_COLOR.r, MUHON_GLOW_COLOR.g, MUHON_GLOW_COLOR.b, layer_alpha))
+	var sway: float = sin(phase) * 0.10
+	var outer_points: PackedVector2Array = MuhonVisualGeometry.smooth_flame_polygon_points(center, radius, sway, 2)
+	canvas.draw_colored_polygon(outer_points, Color(MUHON_FILL_COLOR.r, MUHON_FILL_COLOR.g, MUHON_FILL_COLOR.b, safe_alpha))
+	var closed_outer: PackedVector2Array = MuhonVisualGeometry.closed_polyline_points(outer_points)
+	if detector_bonus:
+		canvas.draw_polyline(closed_outer, Color(0.42, 0.96, 1.0, safe_alpha * 0.62), maxf(2.2, radius * 0.28), true)
+	canvas.draw_polyline(closed_outer, Color(MUHON_OUTLINE_COLOR.r, MUHON_OUTLINE_COLOR.g, MUHON_OUTLINE_COLOR.b, safe_alpha), maxf(1.5, radius * 0.16), true)
+	var fold_color := Color(0.30, 0.005, 0.025, safe_alpha * 0.48)
+	for side in [-1.0, 1.0]:
+		canvas.draw_polyline(
+			MuhonVisualGeometry.smooth_open_polyline_points(
+				MuhonVisualGeometry.flame_fold_polyline_points(center, radius, float(side), sway),
+				2
+			),
+			fold_color,
+			maxf(1.0, radius * 0.055),
+			true
+		)
+	var middle_center: Vector2 = center + Vector2(radius * 0.015, radius * 0.10)
+	var middle_points: PackedVector2Array = MuhonVisualGeometry.smooth_flame_polygon_points(middle_center, radius * 0.72, sway * 0.46, 2)
+	canvas.draw_colored_polygon(middle_points, Color(MUHON_MID_COLOR.r, MUHON_MID_COLOR.g, MUHON_MID_COLOR.b, safe_alpha * 0.96))
+	var inner_center: Vector2 = center + Vector2(-radius * 0.04, radius * 0.22)
+	var inner_points: PackedVector2Array = MuhonVisualGeometry.smooth_flame_polygon_points(inner_center, radius * 0.43, -sway * 0.72, 2)
+	canvas.draw_colored_polygon(inner_points, Color(MUHON_CORE_COLOR.r, MUHON_CORE_COLOR.g, MUHON_CORE_COLOR.b, safe_alpha * 0.98))
+	canvas.draw_circle(center + Vector2(-radius * 0.03, radius * 0.30), maxf(1.25, radius * 0.085), Color(1.0, 0.98, 0.86, safe_alpha * safe_glow))
+	for ember_index in range(2):
+		var ember_phase: float = phase * 0.72 + float(ember_index) * 2.9
+		var ember_pos := center + Vector2(
+			cos(ember_phase) * radius * (1.22 + float(ember_index) * 0.18),
+			-radius * (0.35 + float(ember_index) * 0.22) + sin(ember_phase) * radius * 0.16
+		)
+		canvas.draw_circle(ember_pos, maxf(0.8, radius * 0.055), Color(MUHON_OUTLINE_COLOR.r, MUHON_OUTLINE_COLOR.g, MUHON_OUTLINE_COLOR.b, safe_alpha * 0.72))
+
+
+static func get_muhon_particle_color(color_shift: float, alpha: float) -> Color:
+	var t: float = clampf(color_shift, 0.0, 1.0)
+	var ember := Color(0.78, 0.02, 0.08, alpha)
+	var hot := Color(1.0, 0.72, 0.24, alpha)
+	var pale_core := Color(1.0, 0.96, 0.78, alpha)
+	if t < 0.68:
+		return ember.lerp(hot, t / 0.68)
+	return hot.lerp(pale_core, (t - 0.68) / 0.32)
 
 
 # Premium spawn animation kicked once per drop's first visible frame: alpha

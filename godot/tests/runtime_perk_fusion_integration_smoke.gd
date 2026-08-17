@@ -76,11 +76,11 @@ func _init() -> void:
 	_expect(not reverb_record.is_empty(), "reverb lifecycle fixture should commit")
 	reverb_state.notify_perk_fusion_skill_used()
 	_expect(
-		is_equal_approx(reverb_state.get_perk_fusion_move_speed_multiplier(), 1.25),
+		is_equal_approx(reverb_state.get_perk_fusion_move_speed_multiplier(), 1.70),
 		"reverb should activate before the gameplay driver tick"
 	)
 	_expect(
-		is_equal_approx(reverb_state.get_player_speed_multiplier(), 1.25),
+		is_equal_approx(reverb_state.get_player_speed_multiplier(), 1.70),
 		"the REAL player-speed stat composition must consume the active reverb buff"
 	)
 	RuntimePerkUpdateDriver.new().update_runtime_perk_resume(

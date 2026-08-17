@@ -106,18 +106,37 @@ func _verify_renderer_contract() -> void:
 	_expect(source.find("func _format_preview_value(") < 0, "unused preview formatter should be removed")
 	_expect(source.find("func _byproduct_name(") < 0, "unused byproduct-name wrapper should be removed")
 	var canonical_probabilities: Dictionary = renderer._get_probabilities({
-		"outcome_preview": {"weights": {"success": 0.60, "side_effect": 0.25, "byproduct": 0.15}},
+		"outcome_preview": {"weights": {
+			"success": 0.20,
+			"side_effect": 0.10,
+			"byproduct": 0.70,
+			"byproduct_count_1": 0.40,
+			"byproduct_count_2": 0.20,
+			"byproduct_count_3": 0.10,
+		}},
 	})
-	_expect(is_equal_approx(float(canonical_probabilities.get("success", 0.0)), 0.60), "overlay should read probabilities from canonical outcome_preview.weights")
+	_expect(is_equal_approx(float(canonical_probabilities.get("success", 0.0)), 0.20), "overlay should read preservation probability from canonical outcome_preview.weights")
+	_expect(is_equal_approx(float(canonical_probabilities.get("side_effect", 0.0)), 0.10), "overlay should read qi-deviation probability from canonical outcome_preview.weights")
+	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_1", 0.0)), 0.40), "overlay should expose the one-art final probability")
+	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_2", 0.0)), 0.20), "overlay should expose the two-art final probability")
+	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_3", 0.0)), 0.10), "overlay should expose the three-art final probability")
 	var fallback_probabilities: Dictionary = renderer._get_probabilities({})
 	var authored_weights := PerkFusionOutcomeRules.build_final_outcome_weights(false)
 	_expect(fallback_probabilities == authored_weights, "missing preview weights should fall back to the production outcome-rules owner")
-	_expect(source.find("weights.get(\"success\", 55.0)") < 0, "overlay must not duplicate authored outcome constants in a renderer fallback")
-	_expect(is_equal_approx(renderer._animation_progress({"animation_remaining": 0.55}), 0.5), "overlay animation should read canonical animation_remaining")
+	_expect(source.find("weights.get(\"success\", 20.0)") < 0, "overlay must not duplicate authored outcome constants in a renderer fallback")
+	# 콜드부트 타임라인이 duration 권위(CB1) — 리터럴 대신 권위 파생 절반값으로
+	# 같은 canonical-read 속성을 검사한다(duration 재조정에 중립).
+	_expect(
+		is_equal_approx(
+			renderer._animation_progress({"animation_remaining": float(renderer.DEFAULT_ANIMATION_DURATION) * 0.5}),
+			0.5
+		),
+		"overlay animation should read canonical animation_remaining"
+	)
 	_expect(renderer._selected_sources({"selected_source_ids": ["alpha", "beta"]}) == ["alpha", "beta"], "overlay should read canonical selected_source_ids")
 	_expect(renderer._record({"committed_record": {"fusion_id": "fusion_0"}}).get("fusion_id", "") == "fusion_0", "overlay should read canonical committed_record")
 	var localization_source := FileAccess.get_file_as_string("res://scripts/characters/perk_fusion_localization.gd")
-	for korean_text in ["퍽 융합 재료 선택", "융합 확인", "융합 중...", "부작용 발생", "부산물 발견", "결정 키를 눌러 계속"]:
+	for korean_text in ["합일할 무공 선택", "합일 확인", "합일 중...", "주화입마 발생", "상승무공 발현", "결정 키를 눌러 계속"]:
 		_expect(localization_source.find(korean_text) >= 0, "localization owner should keep Korean copy for: %s" % korean_text)
 	_expect(source.find("get_perk_data") >= 0, "renderer should resolve candidate names through the perk catalog")
 	_expect(source.find("icon_renderer.draw_icon") >= 0, "renderer should reuse the perk icon renderer when available")

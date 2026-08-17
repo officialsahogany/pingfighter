@@ -1,0 +1,16 @@
+{
+  "asset_id": "item_gauge_mastery_perk_icon",
+  "perk_id": "item_gauge_mastery",
+  "display_name_ko": "기령심법",
+  "display_name_en": "Vessel-Spirit Inner Art",
+  "runtime_path": "res://assets/sprites/perks/item_gauge_mastery_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-b58251e2-0a15-48dd-9db1-7967384c0775.png",
+    "prompt_summary": "A common-Mugong Joseon hanji seal where a black hand tips a traditional medicine gourd and a thick jade spirit ribbon pours into the ochre dantian pearl of a seated silhouette. No book, text, battery, lightning, modern bottle, metal, leather, neon, or glossy UI; flat magenta chroma background."
+  },
+  "postprocess": {"helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py", "key_color_observed": "#f502f5", "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"], "resize": "240x240 Lanczos centered on transparent 256x256 at 8,8"},
+  "qa": {"rgba": true, "alpha_bbox": [9, 8, 248, 247], "corner_alpha": [0, 0, 0, 0], "sha256": "84f724b8ef9254ce3b94cd6f6ecfd700fd987e77c0d69c7b17d42f6984b6ecd8", "runtime_capture": "res://.tmp/common_mugong_item_seal_qa.png", "rendered_sizes": [80, 32]}
+}

@@ -51,6 +51,7 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		"mystic_dice": RuntimePerkRuntimeStateAccess.call_dict(state, "get_mystic_dice_snapshot"),
 		"mystic_dice_revision": RuntimePerkRuntimeStateAccess.call_int(state, "get_mystic_dice_revision"),
 		"mystic_dice_display_projection": RuntimePerkRuntimeStateAccess.call_dict(state, "get_mystic_dice_display_projection"),
+		"physique_training": RuntimePerkRuntimeStateAccess.call_dict(state, "get_physique_training_snapshot"),
 		"angel_blessing": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_snapshot"),
 		"angel_blessing_acquisition": RuntimePerkRuntimeStateAccess.call_dict(state, "get_angel_blessing_acquisition_snapshot"),
 		"pending_dimension_gate_after_spawn_intro": RuntimePerkRuntimeStateAccess.call_bool(deferred_instants, "has_pending_dimension_gate"),

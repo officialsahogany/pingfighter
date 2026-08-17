@@ -14,17 +14,25 @@ const MysticDicePaddleFxHost := preload(
 	"res://scripts/characters/mystic_dice_paddle_fx_host.gd"
 )
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const BattleBootResourcePrewarmController := preload(
+	"res://scripts/core/battle_boot_resource_prewarm_controller.gd"
+)
 const SourceContractFunctionBody := preload("res://tests/source_contract_function_body.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_three_second_expiry_hides_bound_host()
 	_verify_detached_host_is_controller_driven_and_deterministic()
 	_verify_screen_state_mapping()
 	_verify_physics_update_uses_dirty_redraw()
 	_verify_round_score_stage_and_full_reset_cleanup()
+	_verify_real_boot_lifecycle_binds_scene_host()
 	_verify_source_contracts()
 	if _failures.is_empty():
 		print("mystic_dice_paddle_effect_smoke: ok")
@@ -147,12 +155,75 @@ func _verify_round_score_stage_and_full_reset_cleanup() -> void:
 	_free_fixture(reset_fixture)
 
 
+# 실 부트 lifecycle 관통(v1 반려 P1): 실제 부트 프리웜 스텝이 실 씬 노드
+# 아래에 실 호스트를 생성·부착·바인딩하고, 실 드로어 팬아웃이 그 호스트를
+# 활성화하며, 씬 해제 후 stale 바인딩이 서빙되지 않고 재부트가 재바인딩
+# 하는지 — 테스트가 가짜 호스트를 직접 바인딩하는 공허 경로를 걷어낸다.
+func _verify_real_boot_lifecycle_binds_scene_host() -> void:
+	var controller := BattleBootResourcePrewarmController.new()
+	var state := RuntimePerkState.new()
+	var owner := Node.new()
+	root.add_child(owner)
+	var module_getter := func(key: String) -> Object:
+		return state if key == "runtime_perk_state" else null
+	var step_done := false
+	for _step_index: int in range(8):
+		if bool(controller.prewarm_runtime_perk_overlay_resources_step(owner, module_getter)):
+			step_done = true
+			break
+	_expect(step_done, "real boot prewarm step should complete")
+	var host: Node = state.get_mystic_dice_paddle_fx_host()
+	_expect(host != null and host.is_inside_tree() and host.get_parent() == owner, "boot step must create and attach the paddle host under the battle scene")
+	_expect(host != null and host.has_method("sync_state") and host.has_method("get_debug_status"), "bound host should be the real MysticDicePaddleFxHost")
+	var attached_child_count := owner.get_child_count()
+	controller.battle_runtime_perk_overlay_prewarmed = false
+	controller.prewarm_runtime_perk_overlay_resources_step(owner, module_getter)
+	_expect(owner.get_child_count() == attached_child_count, "re-running the boot step must not attach a duplicate host")
+
+	state.start_mystic_dice_paddle_effect()
+	state.update_mystic_dice_paddle_effect(0.5)
+	var drawer := BattlePlayfieldEffectsDrawer.new()
+	var registry := RegistryProbe.new(state)
+	drawer.draw_mystic_dice_paddle_effect(
+		registry,
+		{
+			"game_offset": Vector2(40.0, 10.0),
+			"game_size": Vector2(950.0, 937.5),
+			"render_scale": 1.25,
+			"player_pos": Vector2(100.0, 600.0),
+			"player_paddle_size": Vector2(155.0, 50.0),
+		},
+		Vector2.ZERO
+	)
+	var status: Dictionary = host.get_debug_status()
+	_expect(bool(status.get("active", false)), "real drawer fanout should activate the boot-attached host mid-effect")
+
+	owner.free()
+	_expect(state.get_mystic_dice_paddle_fx_host() == null, "a freed scene host must not be served as a stale binding")
+	state.clear_mystic_dice_paddle_effect()
+	var rebooted_controller := BattleBootResourcePrewarmController.new()
+	var owner_next := Node.new()
+	root.add_child(owner_next)
+	var reboot_done := false
+	for _reboot_index: int in range(8):
+		if bool(rebooted_controller.prewarm_runtime_perk_overlay_resources_step(owner_next, module_getter)):
+			reboot_done = true
+			break
+	_expect(reboot_done, "rebooted prewarm step should complete")
+	var rebound_host: Node = state.get_mystic_dice_paddle_fx_host()
+	_expect(rebound_host != null and rebound_host.is_inside_tree() and rebound_host.get_parent() == owner_next, "a fresh battle boot must rebind a new scene host after the old scene was freed")
+	owner_next.free()
+
+
 func _verify_source_contracts() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
-	var finish_body := SourceContractFunctionBody.extract(state_source, "func _finish_mystic_dice_modal")
+	var owner_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_mystic_dice_runtime_state.gd")
+	var finish_body := SourceContractFunctionBody.extract(owner_source, "func finish_modal_from_runtime_state")
 	var accepted_index := finish_body.find("if not bool(finish_result.get(\"accepted\", false))")
-	var pending_index := finish_body.find("_mystic_dice_paddle_effect_pending = true")
+	var pending_index := finish_body.find("queue_paddle_effect()")
 	_expect(accepted_index >= 0 and pending_index > accepted_index, "accepted Dice finish should arm the paddle effect for the first resumed physics tick")
+	var facade_finish_body := SourceContractFunctionBody.extract(state_source, "func _finish_mystic_dice_modal")
+	_expect(facade_finish_body.contains("_mystic_dice_runtime_state.finish_modal_from_runtime_state"), "runtime Dice finish should delegate the transaction to the feature owner")
 
 	var host_source := FileAccess.get_file_as_string("res://scripts/characters/mystic_dice_paddle_fx_host.gd")
 	var draw_source := FileAccess.get_file_as_string("res://scripts/characters/mystic_dice_paddle_draw_bridge.gd")
@@ -168,6 +239,10 @@ func _verify_source_contracts() -> void:
 	_expect(update_body.contains("update_mystic_dice_paddle_effect"), "gameplay-time update fanout should own the three-second clock")
 	var redraw_body := SourceContractFunctionBody.extract(update_source, "func _request_battle_redraw")
 	_expect(redraw_body.contains("request_battle_redraw") and not redraw_body.contains(".queue_redraw"), "physics path must use only the coalesced redraw API")
+
+	var boot_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+	var boot_body := SourceContractFunctionBody.extract(boot_source, "func prewarm_runtime_perk_overlay_resources_step")
+	_expect(boot_body.contains("_ensure_mystic_dice_paddle_fx_host"), "battle boot loading step must own the scene-host attach/bind wiring")
 
 	var reset_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_reset_state.gd")
 	_expect(reset_source.contains("_reset_mystic_dice_paddle_effect(runtime_state)"), "new-run reset facade should own direct effect cleanup")

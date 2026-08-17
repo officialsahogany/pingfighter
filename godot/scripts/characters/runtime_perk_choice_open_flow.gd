@@ -8,6 +8,8 @@ const CALLBACK_GET_INSTANCE := "get_instance"
 const CALLBACK_APPLY_CHOICE_OPENING_UPDATE := "apply_choice_opening_update"
 const CALLBACK_PAUSE_SKILL_COOLDOWNS_FOR_CHOICE := "pause_skill_cooldowns_for_choice"
 const CALLBACK_BUILD_PARTICLES := "build_particles"
+const CALLBACK_INJECT_PERK_FUSION_OFFER := "inject_perk_fusion_offer"
+const CALLBACK_INJECT_PHYSIQUE_TRAINING_OFFER := "inject_physique_training_offer"
 const DEFAULT_BASE_PERK_CHOICE_COUNT := 3
 
 
@@ -30,6 +32,14 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 		CALLBACK_BUILD_PARTICLES: RuntimePerkRuntimeStateAccess.build_callable(
 			runtime_state,
 			"_build_particles"
+		),
+		CALLBACK_INJECT_PERK_FUSION_OFFER: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_try_inject_perk_fusion_offer"
+		),
+		CALLBACK_INJECT_PHYSIQUE_TRAINING_OFFER: RuntimePerkRuntimeStateAccess.build_callable(
+			runtime_state,
+			"_try_inject_physique_training_offer"
 		),
 	}
 
@@ -244,6 +254,8 @@ func open_next_choice(
 		]
 	)
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.catalog", sample_start)
+	# Auxiliary lanes are part of the opening transaction. They must finish
+	# before the ready-state count and particle layout are built.
 	var current_choices: Array = RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")
 	if current_choices.is_empty():
 		var empty_choices_result: Dictionary = RuntimePerkCallbackMap.call_dict(
@@ -281,6 +293,27 @@ func open_next_choice(
 				runtime_state,
 				RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer")
 			)
+	# Dowsing protection must be stamped before fusion or training chooses a
+	# replaceable base lane.
+	var fusion_result: Dictionary = RuntimePerkCallbackMap.call_optional(
+		callbacks,
+		CALLBACK_INJECT_PERK_FUSION_OFFER,
+		[catalog]
+	)
+	# ⚠ registry 를 반드시 함께 넘긴다 — 수련 포화 판정은 최종 소비자(신화 계층 포함)를
+	# 호출해야 하고, registry 가 없으면 퍽 단계까지만 보고 죽은 카드를 통과시킨다.
+	RuntimePerkCallbackMap.call_optional(
+		callbacks,
+		CALLBACK_INJECT_PHYSIQUE_TRAINING_OFFER,
+		[
+			false,
+			bool(fusion_result.get("appeared", false)),
+			-1.0,
+			-1.0,
+			-1.0,
+			registry,
+		]
+	)
 
 	var ready_result: Dictionary = RuntimePerkCallbackMap.call_dict(
 		callbacks,

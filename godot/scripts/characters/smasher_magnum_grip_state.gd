@@ -1,5 +1,8 @@
 extends RefCounted
 
+const SmasherDriveCutinState := preload("res://scripts/characters/smasher_drive_cutin_state.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
 const SKILL_NAME := "magnum_grip"
 const GAUGE_COST := 70.0
 const MAX_DURATION_MSEC := 2500
@@ -17,6 +20,7 @@ const MIN_APPROACH_SPEED_CAP := 8.0
 const PADDLE_HOMING_SIDE_DAMPEN := 0.055
 const PADDLE_HOMING_NEAR_BONUS := 0.04
 const PARTICLE_CAP := 42
+const CUTIN_DURATION_SEC := 1.20
 
 var active := false
 var start_msec := 0
@@ -29,6 +33,8 @@ var activated_this_frame := false
 var release_hit_pending := false
 var release_hit_speed_cap_active := false
 var particles: Array[Dictionary] = []
+var cutin_state: Object = SmasherDriveCutinState.new()
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func reset() -> void:
@@ -42,11 +48,38 @@ func reset() -> void:
 	activated_this_frame = false
 	release_hit_pending = false
 	release_hit_speed_cap_active = false
+	_runtime_perk_modal_pause_started_msec = -1
 	particles.clear()
+	cutin_state.reset()
 
 
 func reset_round() -> void:
 	reset()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	if active:
+		start_msec = RuntimePerkModalTimeShift.shift_anchor(start_msec, delta_msec)
+	last_burst_msec = RuntimePerkModalTimeShift.shift_anchor(last_burst_msec, delta_msec)
+	both_held_start_msec = RuntimePerkModalTimeShift.shift_anchor(both_held_start_msec, delta_msec)
 
 
 func is_active() -> bool:
@@ -54,7 +87,7 @@ func is_active() -> bool:
 
 
 func needs_effect_update() -> bool:
-	return active
+	return active or cutin_state.is_active()
 
 
 func deactivate() -> bool:
@@ -144,6 +177,7 @@ func update_input(
 		activated_this_frame = true
 		both_held_start_msec = 0
 		particles.clear()
+		cutin_state.begin(CUTIN_DURATION_SEC)
 		var next_gauge: float = max(0.0, special_gauge - _get_skill_cost(deps.get("skill_config", null)))
 		result["special_gauge"] = next_gauge
 		result["activated"] = true
@@ -155,6 +189,8 @@ func update_input(
 
 
 func update_effects(fps_scale: float, current_msec: int, context: Dictionary) -> Dictionary:
+	if cutin_state.is_active():
+		cutin_state.update(fps_scale / 60.0)
 	if _expire_if_needed(current_msec):
 		return {"deactivated": true}
 	if not active:
@@ -209,6 +245,10 @@ func get_draw_context() -> Dictionary:
 		"max_duration_msec": MAX_DURATION_MSEC,
 		"last_burst_msec": last_burst_msec,
 	}
+
+
+func is_partial_cutin_active() -> bool:
+	return cutin_state.is_active()
 
 
 func _expire_if_needed(current_msec: int) -> bool:

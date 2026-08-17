@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
+const BACKUP_MODAL_TIME_KEYS: Array[String] = ["last_item_use_msec"]
 
 const THROW_WINDUP_ITEM_NAMES := {
 	"grenade": true,
@@ -18,6 +21,19 @@ var pending_throw_item_backup: Dictionary = {}
 
 func reset() -> void:
 	pending_throw_item_backup.clear()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 던지기가 취소되면 이 백업의 쿨다운 앵커가 슬롯
+# 컨트롤러로 되돌아가므로, 여기 숨은 앵커도 같이 밀지 않으면 모달을 연 만큼
+# 액티브 아이템 쿨다운이 공짜로 흘러간다.
+# 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	RuntimePerkModalTimeShift.shift_dict_anchors(
+		pending_throw_item_backup, BACKUP_MODAL_TIME_KEYS, delta_msec
+	)
 
 
 func restore_on_round_end(owner: Object, registry: Object, slot_controller: Object, throw_controller: Object) -> bool:

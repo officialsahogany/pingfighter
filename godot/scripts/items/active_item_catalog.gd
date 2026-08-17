@@ -9,53 +9,58 @@ const DEFAULT_COOLDOWN_MSEC := 7000
 const LINGPET_SPIRIT_WATER_COOLDOWN_MSEC := 1500
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
+const DAESEONG_YEONGDAN_SPAWN_WEIGHT := 0.001
 
-const AIPILL_ICON_PATH := "res://assets/sprites/items/shinryeonghwan_icon_gemini_v1.png"
-const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/tangyak_icon_hud_bright_v1.png"
-const LIFE_ELIXIR_ICON_PATH := "res://assets/sprites/items/osaek_yaksu_icon_hud_v1.png"
-const AMMO_BOX_ICON_PATH := "res://assets/sprites/items/ammo_box.png"
-const DOPING_POTION_ICON_PATH := "res://assets/sprites/items/doping_potion.png"
-const VITAMIN_PILL_ICON_PATH := "res://assets/sprites/items/gyeongsinhwan_icon_imagegen_v1.png"
+const AIPILL_ICON_PATH := "res://assets/sprites/items/aipill_icon_hq_v1.png"
+const GAUGE_CHARGE_ICON_PATH := "res://assets/sprites/items/gauge_charge_icon_hq_v1.png"
+const LIFE_ELIXIR_ICON_PATH := "res://assets/sprites/items/life_elixir_icon_hq_v1.png"
+const AMMO_BOX_ICON_PATH := "res://assets/sprites/items/ammo_box_icon_hq_v1.png"
+const DOPING_POTION_ICON_PATH := "res://assets/sprites/items/doping_potion_icon_hq_v1.png"
+const VITAMIN_PILL_ICON_PATH := "res://assets/sprites/items/vitamin_pill_icon_hq_v1.png"
 const STRANGE_VIAL_ICON_PATH := "res://assets/sprites/items/strange_vial.png"
-const PANDORA_BOX_ICON_PATH := "res://assets/sprites/items/pandora_box.png"
-const GRENADE_ICON_PATH := "res://assets/sprites/items/jinroe_tan_icon_imagegen_v1_readable_v2.png"
-const FLARE_ICON_PATH := "res://assets/sprites/items/hwangwangtan_icon_imagegen_v1_readable_v2.png"
-const TEAR_GAS_ICON_PATH := "res://assets/sprites/items/smoke_grenade.png"
-const DYNAMITE_ICON_PATH := "res://assets/sprites/items/pokryeol_hwatong_icon_hud_bright_v1.png"
-const MOLOTOV_ICON_PATH := "res://assets/sprites/items/yeolhwabyeong_icon_imagegen_v1.png"
-const STOPWATCH_ICON_PATH := "res://assets/sprites/items/stopwatch_icon.png"
-const MAGNET_FIELD_ICON_PATH := "res://assets/sprites/items/magnet_field.png"
-const HOLOGRAM_DISK_ICON_PATH := "res://assets/sprites/items/hologram_disk.png"
-const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/geosindan_icon_imagegen_v1.png"
-const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/wongitang_icon_imagegen_v1.png"
-const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/geumgang_barrier_icon_imagegen_v1.png"
-const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/chukjibu_icon_imagegen_v1.png"
-const WALL_ICON_PATH := "res://assets/sprites/items/wall.png"
-const TRAMPOLINE_ICON_PATH := "res://assets/sprites/items/trampoline.png"
-const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
-const BOOMERANG_METAL_ICON_PATH := "res://assets/sprites/items/boomerang_metal.png"
-const BANANA_ICON_PATH := "res://assets/sprites/items/banana.png"
-const SOAP_ICON_PATH := "res://assets/sprites/items/soap.png"
-const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine.png"
-const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
-const MILK_BOTTLE_ICON_PATH := "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png"
+const PANDORA_BOX_ICON_PATH := "res://assets/sprites/items/pandora_box_icon_hq_v1.png"
+const MYSTIC_DICE_ICON_PATH := "res://assets/sprites/items/mystic_dice_icon_hq_v1.png"
+const GRENADE_ICON_PATH := "res://assets/sprites/items/pokhwatan_icon_imagegen_v1.png"
+const FLARE_ICON_PATH := "res://assets/sprites/items/flare_icon_hq_v1.png"
+const TEAR_GAS_ICON_PATH := "res://assets/sprites/items/tear_gas_icon_hq_v1.png"
+const DYNAMITE_ICON_PATH := "res://assets/sprites/items/dynamite_icon_hq_v1.png"
+const MOLOTOV_ICON_PATH := "res://assets/sprites/items/molotov_icon_hq_v1.png"
+const STOPWATCH_ICON_PATH := "res://assets/sprites/items/stopwatch_icon_hq_v1.png"
+const MAGNET_FIELD_ICON_PATH := "res://assets/sprites/items/magnet_field_icon_hq_v1.png"
+const LONG_BOOST_ICON_PATH := "res://assets/sprites/items/long_boost_icon_hq_v1.png"
+const REGENERATION_POTION_ICON_PATH := "res://assets/sprites/items/regeneration_potion_icon_hq_v1.png"
+const HOLY_BARRIER_ICON_PATH := "res://assets/sprites/items/holy_barrier_icon_hq_v1.png"
+const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost_icon_hq_v1.png"
+const WALL_ICON_PATH := "res://assets/sprites/items/wall_icon_hq_v1.png"
+const TRAMPOLINE_ICON_PATH := "res://assets/sprites/items/trampoline_icon_hq_v1.png"
+const CAMPFIRE_ICON_PATH := "res://assets/sprites/items/campfire_icon_hq_v1.png"
+const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang_icon_hq_v1.png"
+const BOOMERANG_METAL_ICON_PATH := "res://assets/sprites/items/boomerang_metal_icon_hq_v1.png"
+const BANANA_ICON_PATH := "res://assets/sprites/items/banana_icon_hq_v1.png"
+const SOAP_ICON_PATH := "res://assets/sprites/items/soap_icon_hq_v1.png"
+const SPIDER_MINE_ICON_PATH := "res://assets/sprites/items/spider_mine_icon_hq_v1.png"
+const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery_icon_hq_v1.png"
+const MILK_BOTTLE_ICON_PATH := "res://assets/sprites/items/milk_bottle_icon_hq_v1.png"
 const MILK_BOTTLE_FIELD_ICON_PATH := "res://assets/sprites/items/milk_bottle_field_imagegen_v1.png"
-const CHEDDAR_CHEESE_ICON_PATH := "res://assets/sprites/items/cheddar_cheese_icon_imagegen_v1.png"
-const CAMEMBERT_CHEESE_ICON_PATH := "res://assets/sprites/items/camembert_cheese_icon_imagegen_v1.png"
-const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_icon_imagegen_v1.png"
-const LINGPET_SPIRIT_WATER_ICON_PATH := "res://assets/sprites/items/lingpet_special_feed_icon.png"
-const LINGPET_EGG_ICON_PATH := "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"
+const CHEDDAR_CHEESE_ICON_PATH := "res://assets/sprites/items/cheddar_cheese_icon_hq_v1.png"
+const CAMEMBERT_CHEESE_ICON_PATH := "res://assets/sprites/items/camembert_cheese_icon_hq_v1.png"
+const EMMENTAL_CHEESE_ICON_PATH := "res://assets/sprites/items/emmental_cheese_icon_hq_v1.png"
+const LINGPET_SPIRIT_WATER_ICON_PATH := "res://assets/sprites/items/lingpet_spirit_water_icon_hq_v1.png"
+const LINGPET_EGG_ICON_PATH := "res://assets/sprites/items/lingpet_egg_icon_hq_v1.png"
 
-const LEGACY_DISABLED_ACQUISITION_NAMES := {}
+const LEGACY_DISABLED_ACQUISITION_NAMES := {
+	"strange_vial": true,
+}
 
 const CATALOG_ORDER := [
 	"gauge_charge", "lingpet_spirit_water", "lingpet_egg", "life_elixir",
 	"ammo_box", "doping_potion", "vitamin_pill", "strange_vial", "aipill",
-	"pandora_box", "grenade", "flare", "tear_gas", "dynamite", "molotov",
-	"stopwatch", "magnet_field", "hologram_disk", "long_boost",
+	"pandora_box", "mystic_dice", "grenade", "flare", "tear_gas",
+	"dynamite", "molotov", "stopwatch", "magnet_field", "long_boost",
 	"regeneration_potion", "holy_barrier", "dash_boost", "wall", "trampoline",
-	"boomerang", "banana", "soap", "spider_mine", "elixir_of_mastery",
-	"milk_bottle", "cheddar_cheese", "camembert_cheese", "emmental_cheese",
+	"campfire", "boomerang", "banana", "soap", "spider_mine",
+	"elixir_of_mastery", "milk_bottle", "cheddar_cheese",
+	"camembert_cheese", "emmental_cheese",
 ]
 
 const FIELD_SPAWN_ORDER := [
@@ -64,9 +69,9 @@ const FIELD_SPAWN_ORDER := [
 	"lingpet_egg",
 	"life_elixir",
 	"vitamin_pill",
-	"strange_vial",
 	"aipill",
 	"pandora_box",
+	"mystic_dice",
 	"grenade",
 	"flare",
 	"tear_gas",
@@ -74,17 +79,18 @@ const FIELD_SPAWN_ORDER := [
 	"molotov",
 	"stopwatch",
 	"magnet_field",
-	"hologram_disk",
 	"long_boost",
 	"regeneration_potion",
 	"holy_barrier",
 	"dash_boost",
 	"wall",
 	"trampoline",
+	"campfire",
 	"boomerang",
 	"banana",
 	"soap",
 	"spider_mine",
+	"elixir_of_mastery",
 ]
 
 
@@ -113,6 +119,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_aipill()
 		"pandora_box":
 			item_data = _build_pandora_box()
+		"mystic_dice":
+			item_data = _build_mystic_dice()
 		"grenade":
 			item_data = _build_grenade()
 		"flare":
@@ -127,8 +135,6 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_stopwatch()
 		"magnet_field":
 			item_data = _build_magnet_field()
-		"hologram_disk":
-			item_data = _build_hologram_disk()
 		"long_boost":
 			item_data = _build_long_boost()
 		"regeneration_potion":
@@ -141,6 +147,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			item_data = _build_wall()
 		"trampoline":
 			item_data = _build_trampoline()
+		"campfire":
+			item_data = _build_campfire()
 		"boomerang":
 			item_data = _build_boomerang()
 		"banana":
@@ -367,7 +375,7 @@ func _build_strange_vial() -> Dictionary:
 		"chance": 0.012,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "무작위로 패들 크기와 이동 속도가 크게 변합니다.",
+		"description": "무작위로 몸집 크기와 이동 속도가 크게 변합니다.",
 		"icon_path": STRANGE_VIAL_ICON_PATH,
 		"color": Color(160.0 / 255.0, 90.0 / 255.0, 220.0 / 255.0),
 		"consumable": true,
@@ -383,7 +391,7 @@ func _build_aipill() -> Dictionary:
 		"chance": 0.006,
 		"duration": 300,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "신령환을 복용해 호신령의 자동 가드를 활성화합니다. 가드할 때마다 기력이 줄고, 공을 쳐낼 때마다 공 속도가 25%씩 증가합니다(상한 없음).",
+		"description": "신령환을 복용해 호신령의 자동 가드를 활성화합니다. 가드할 때마다 기력이 줄고, 공을 쳐낼 때마다 공 속도가 8%씩 증가합니다(상한 없음).",
 		"icon_path": AIPILL_ICON_PATH,
 		# 호신령 빙의 연출이 금/주사 팔레트로 바뀌면서 HUD 슬롯·픽업 토스트
 		# 강조색도 같이 옮긴다(구 시안은 사이버 글리치 시절의 잔재).
@@ -395,15 +403,32 @@ func _build_aipill() -> Dictionary:
 func _build_pandora_box() -> Dictionary:
 	return {
 		"name": "pandora_box",
-		"display_name": "판도라의 상자",
+		"display_name": "도깨비 보따리",
 		"type": "active",
 		"effect": "pandora_box",
 		"chance": 0.003,
 		"duration": 180,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "차원문을 열어 필드에 액티브 아이템을 소환합니다.",
+		"description": "도깨비 보따리를 풀어 귀문을 엽니다. 3초 동안 중앙에서 액티브 아이템이 0.5~1초 간격으로 쏟아집니다.",
 		"icon_path": PANDORA_BOX_ICON_PATH,
-		"color": Color(1.0, 0.0, 1.0),
+		"color": Color(0.66, 0.27, 0.76),
+		"consumable": true,
+	}
+
+
+func _build_mystic_dice() -> Dictionary:
+	return {
+		"name": "mystic_dice",
+		"display_name": "팔자윷",
+		"type": "active",
+		"effect": "mystic_dice",
+		# Frozen PingFighter's Devil Dice used the same 0.005 field weight.
+		"chance": 0.005,
+		"duration": 0,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"description": "윷가락을 던져 7가지 능력치가 각각 오르거나 내립니다. 결과는 이번 플레이 동안 누적되며, 최대 2회 다시 던질 수 있습니다.",
+		"icon_path": MYSTIC_DICE_ICON_PATH,
+		"color": Color(0.78, 0.56, 0.24),
 		"consumable": true,
 	}
 
@@ -411,15 +436,15 @@ func _build_pandora_box() -> Dictionary:
 func _build_grenade() -> Dictionary:
 	return {
 		"name": "grenade",
-		"display_name": "진뢰탄",
+		"display_name": "폭화탄",
 		"type": "active",
 		"effect": "grenade",
 		"chance": 0.018,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "뇌문 부적을 두른 진뢰탄을 던져 폭발 범위 안의 보스를 기절시킵니다.",
+		"description": "화약을 채운 무쇠 폭화탄을 던져 폭발 범위 안의 보스를 기절시킵니다.",
 		"icon_path": GRENADE_ICON_PATH,
-		"color": Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0),
+		"color": Color(210.0 / 255.0, 76.0 / 255.0, 20.0 / 255.0),
 		"consumable": true,
 		"count": 1,
 	}
@@ -496,15 +521,15 @@ func _build_molotov() -> Dictionary:
 func _build_stopwatch() -> Dictionary:
 	return {
 		"name": "stopwatch",
-		"display_name": "스탑워치",
+		"display_name": "요술 회중시계",
 		"type": "active",
 		"effect": "stopwatch",
 		"chance": 0.006,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "잠시 시간을 멈춰 공과 전투 흐름을 정지시킵니다.",
+		"description": "요술 회중시계의 태엽을 멈춰 잠시 공과 전투의 흐름을 정지시킵니다.",
 		"icon_path": STOPWATCH_ICON_PATH,
-		"color": Color(180.0 / 255.0, 140.0 / 255.0, 90.0 / 255.0),
+		"color": Color(0.15, 0.82, 0.93),
 		"consumable": true,
 	}
 
@@ -512,31 +537,15 @@ func _build_stopwatch() -> Dictionary:
 func _build_magnet_field() -> Dictionary:
 	return {
 		"name": "magnet_field",
-		"display_name": "자기장",
+		"display_name": "흡인진",
 		"type": "active",
 		"effect": "magnet_field",
 		"chance": 0.007,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 공을 플레이어 패들 쪽으로 끌어당깁니다.",
+		"description": "흡인진을 펼쳐 일정 시간 공을 플레이어 쪽으로 끌어당깁니다.",
 		"icon_path": MAGNET_FIELD_ICON_PATH,
-		"color": Color(100.0 / 255.0, 120.0 / 255.0, 1.0),
-		"consumable": true,
-	}
-
-
-func _build_hologram_disk() -> Dictionary:
-	return {
-		"name": "hologram_disk",
-		"display_name": "홀로그램 디스크",
-		"type": "active",
-		"effect": "hologram_disk",
-		"chance": 0.008,
-		"duration": 300,
-		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 공이 홀로그램 분신을 만들어 보스의 예측을 교란합니다.",
-		"icon_path": HOLOGRAM_DISK_ICON_PATH,
-		"color": Color(0.35, 0.9, 1.0),
+		"color": Color(214.0 / 255.0, 158.0 / 255.0, 53.0 / 255.0),
 		"consumable": true,
 	}
 
@@ -550,7 +559,7 @@ func _build_long_boost() -> Dictionary:
 		"chance": 0.028,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "일정 시간 플레이어 패들이 크게 커집니다.",
+		"description": "일정 시간 플레이어의 몸집이 크게 커집니다.",
 		"icon_path": LONG_BOOST_ICON_PATH,
 		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
 		"consumable": true,
@@ -608,15 +617,15 @@ func _build_dash_boost() -> Dictionary:
 func _build_wall() -> Dictionary:
 	return {
 		"name": "wall",
-		"display_name": "벽돌",
+		"display_name": "토벽패",
 		"type": "active",
 		"effect": "wall",
 		"chance": 0.035,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "공을 막는 방어용 벽돌을 설치합니다.",
+		"description": "부적의 힘으로 공을 막는 토벽을 세웁니다.",
 		"icon_path": WALL_ICON_PATH,
-		"color": Color(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0),
+		"color": Color(183.0 / 255.0, 126.0 / 255.0, 55.0 / 255.0),
 		"consumable": true,
 	}
 
@@ -624,15 +633,31 @@ func _build_wall() -> Dictionary:
 func _build_trampoline() -> Dictionary:
 	return {
 		"name": "trampoline",
-		"display_name": "트램펄린",
+		"display_name": "널뛰기",
 		"type": "active",
 		"effect": "trampoline",
 		"chance": 0.012,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "공을 띠용 튕겨 올리는 트램펄린을 설치합니다. 3회 튕기면 사라집니다.",
+		"description": "널뛰기를 설치해 떨어지는 공의 기세를 받아 더 강하게 되받아칩니다. 세 번 사용하면 부서집니다.",
 		"icon_path": TRAMPOLINE_ICON_PATH,
-		"color": Color(80.0 / 255.0, 210.0 / 255.0, 1.0),
+		"color": Color(0.18, 0.78, 0.67),
+		"consumable": true,
+	}
+
+
+func _build_campfire() -> Dictionary:
+	return {
+		"name": "campfire",
+		"display_name": "모닥불",
+		"type": "active",
+		"effect": "campfire",
+		"chance": 0.012,
+		"duration": 600,
+		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
+		"description": "모닥불을 설치합니다. 반경 80px 안에 있으면 활주 재충전과 초식 쿨타임 회복 속도가 80% 증가하고, 기력을 초당 30 회복합니다. 공에 한 번 맞으면 공을 반사하며 부서지고, 플레이어가 대쉬로 통과해도 부서집니다.",
+		"icon_path": CAMPFIRE_ICON_PATH,
+		"color": Color(1.0, 0.46, 0.12),
 		"consumable": true,
 	}
 
@@ -650,6 +675,9 @@ func _build_boomerang() -> Dictionary:
 		"icon_path": BOOMERANG_ICON_PATH,
 		"color": Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0),
 		"consumable": true,
+		# Returning the projectile already restores this item. Keeping it in the
+		# slot through 환보결 would stack two independent recovery paths.
+		"no_recycle": true,
 		"count": 1,
 	}
 
@@ -691,15 +719,15 @@ func _build_soap() -> Dictionary:
 func _build_spider_mine() -> Dictionary:
 	return {
 		"name": "spider_mine",
-		"display_name": "스파이더지뢰",
+		"display_name": "귀주뢰",
 		"type": "active",
 		"effect": "spider_mine",
 		"chance": 0.007,
 		"duration": 600,
 		"cooldown_msec": DEFAULT_COOLDOWN_MSEC,
-		"description": "벽을 타고 이동하는 지뢰를 전개해 보스를 느리게 합니다.",
+		"description": "귀문 부적을 새긴 귀주뢰가 벽을 타고 올라 보스 곁에 박힌 뒤 폭발해 이동을 늦춥니다.",
 		"icon_path": SPIDER_MINE_ICON_PATH,
-		"color": Color(120.0 / 255.0, 90.0 / 255.0, 160.0 / 255.0),
+		"color": Color(210.0 / 255.0, 64.0 / 255.0, 38.0 / 255.0),
 		"consumable": true,
 		"count": 1,
 	}
@@ -708,19 +736,21 @@ func _build_spider_mine() -> Dictionary:
 func _build_elixir_of_mastery() -> Dictionary:
 	return {
 		"name": "elixir_of_mastery",
-		"display_name": "엘릭서 오브 마스터리",
-		"korean_name": "엘릭서 오브 마스터리",
+		"display_name": "대성영단",
+		"korean_name": "대성영단",
 		"type": "active",
 		"rarity": "mythic",
 		"effect": "elixir_of_mastery",
-		"chance": 0.0,
+		# Raw weight for active-derived pools. The production field picker classifies
+		# this active mythic into its 1% base mythic lane, keeping ordinary drops rare.
+		"chance": DAESEONG_YEONGDAN_SPAWN_WEIGHT,
 		"duration": 0,
 		"cooldown_msec": 0,
 		"icon_path": ELIXIR_OF_MASTERY_ICON_PATH,
-		"color": Color(0.47, 0.2, 0.78),
+		"color": Color(0.93, 0.61, 0.12),
 		"consumable": true,
 		"mythic_active": true,
-		"description": "보유 중인 무공 하나를 무작위로 골라 즉시 Lv.5로 만듭니다.",
+		"description": "대성영단을 복용하면 보유 중인 무공 하나를 무작위로 골라 즉시 극성에 도달시킵니다. 사용 후 소모됩니다.",
 	}
 
 
@@ -742,7 +772,7 @@ func _build_milk_bottle() -> Dictionary:
 		"paddle_scale_multiplier": 1.20,
 		"stage_persistent": true,
 		"lingpet_generated_only": true,
-		"description": "사용 시 스테이지 종료까지 플레이어 패들과 이미지 크기가 20% 증가합니다.",
+		"description": "사용 시 스테이지 종료까지 플레이어 몸집과 이미지 크기가 20% 증가합니다.",
 	}
 
 
@@ -771,5 +801,5 @@ func _build_cheese(item_name: String, display_name: String, gauge_gain: float, p
 		"lingpet_generated_only": true,
 		"gauge_gain": gauge_gain,
 		"gauge_max": GAUGE_MAX,
-		"description": "사용 시 왼쪽 파란 기력 구슬을 즉시 %d 회복하고, 스테이지 종료까지 플레이어 패들과 이미지 크기가 %d%% 증가합니다." % [int(round(gauge_gain)), scale_percent],
+		"description": "사용 시 왼쪽 파란 기력 구슬을 즉시 %d 회복하고, 스테이지 종료까지 플레이어 몸집과 이미지 크기가 %d%% 증가합니다." % [int(round(gauge_gain)), scale_percent],
 	}

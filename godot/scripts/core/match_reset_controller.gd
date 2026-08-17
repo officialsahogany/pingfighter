@@ -48,6 +48,7 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 func reset_for_stage_transition(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	_reset_runtime_perk_round_visuals(deps, true)
 	_reset_match_state(deps)
+	_normalize_match_boundary_item_selections(deps)
 	var orb_hud_state: Object = _reset_hud_state(deps)
 	_reset_drive_input_cooldowns(deps)
 	_call_callback(callbacks, "reset_drive_input")
@@ -56,6 +57,22 @@ func reset_for_stage_transition(deps: Dictionary, callbacks: Dictionary) -> Dict
 	reset_stage_state(deps)
 	_call_callback(callbacks, "reset_ball")
 	return _build_stage_transition_reset_result()
+
+
+# Stage transition intentionally skips _reset_item_runtimes (equipment / perks /
+# mythic progression must survive the boundary), so any per-match reward window
+# parked inside those runtimes has to be normalized explicitly here. Pandora
+# Legacy's queued selection is one: it is consumed at the next serve, and a serve
+# that never came leaves it to open in the next stage after any round outcome.
+# This is the stage half of the rule — match_score_event_controller normalizes on
+# the match-ending point itself. Never move this into reset_round(): an ordinary
+# won round must keep its pending across that round boundary.
+func _normalize_match_boundary_item_selections(deps: Dictionary) -> void:
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return
+	if mythic_item_runtime.has_method("normalize_pandora_legacy_selection_for_boundary"):
+		mythic_item_runtime.normalize_pandora_legacy_selection_for_boundary()
 
 
 func _reset_drive_input_cooldowns(deps: Dictionary) -> void:
@@ -123,7 +140,6 @@ func _reset_item_runtimes(deps: Dictionary) -> Array:
 				active_item_slots = slots
 
 	_call_reset(deps.get("mythic_item_runtime", null))
-	_call_reset(deps.get("treasure_hunt_runtime", null))
 	return active_item_slots
 
 
@@ -147,6 +163,7 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"smasher_warp_gate_state",
 		"smasher_wheel_state",
 		"smasher_overdrive_state",
+		"smasher_void_phantom_state",
 		"smasher_magnum_grip_state",
 		"smasher_dash_spirit_state",
 		"smasher_shield_kiting_state",
@@ -155,6 +172,9 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"monkey_blessing_delivery_state",
 		"commando_reload_delivery_state",
 		"runtime_perk_state",
+		"dalji_vision_chosik_state",
+		"cheongringwi_vision_chosik_state",
+		"yeonmyo_vision_chosik_state",
 		"optimus_energy_state",
 	]:
 		_call_reset(deps.get(key, null))

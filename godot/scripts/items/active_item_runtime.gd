@@ -1,9 +1,11 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const ScriptInstanceCache := preload("res://scripts/resources/script_instance_cache.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
+const HELPER_SCRIPT_REQUEST_AHEAD := 12
 const HELPER_INIT_ORDER := [
 	"slot_controller",
 	"field_spawn_controller",
@@ -70,6 +72,8 @@ var use_facade: Object = null
 var elixir_cinematic_draw: Object = null
 var _helper_init_step_index := 0
 var _helpers_initialized := false
+var _helper_script_cache: Object = ScriptInstanceCache.new()
+var _runtime_perk_modal_pause_started_msec := -1
 var _asset_prewarm_step_index := 0
 var _method_argument_count_cache: Dictionary = {}
 
@@ -78,11 +82,20 @@ func _init() -> void:
 	pass
 
 
-func prewarm_initialization_step(perform_reset: bool = true) -> bool:
+func prewarm_initialization_step(
+	perform_reset: bool = true,
+	use_threaded_script_loads: bool = false
+) -> bool:
 	if _helpers_initialized:
 		return true
 	if _helper_init_step_index < HELPER_INIT_ORDER.size():
-		_init_helper(str(HELPER_INIT_ORDER[_helper_init_step_index]))
+		var member_name := str(HELPER_INIT_ORDER[_helper_init_step_index])
+		if use_threaded_script_loads:
+			_request_helper_scripts_ahead()
+			if not _prewarm_helper_threaded_step(member_name):
+				return false
+		else:
+			_init_helper(member_name)
 		_helper_init_step_index += 1
 		return false
 	_helpers_initialized = true
@@ -92,18 +105,29 @@ func prewarm_initialization_step(perform_reset: bool = true) -> bool:
 	return true
 
 
+func has_threaded_initialization_in_flight() -> bool:
+	return (
+		_helper_script_cache != null
+		and _helper_script_cache.has_method("has_threaded_script_request_in_flight")
+		and bool(_helper_script_cache.has_threaded_script_request_in_flight())
+	)
+
+
 func reset() -> void:
 	_ensure_helpers_ready(false)
+	_runtime_perk_modal_pause_started_msec = -1
 	lifecycle_facade.reset(self)
 	_deactivate_render_hosts()
 
 
 func reset_round() -> void:
 	_ensure_helpers_ready()
+	# 신령환은 다음 라운드까지 이어지지 않는다. 다른 지속형 아이템의 기존
+	# 라운드 정책은 보존하고 신령환 소유 상태만 명시적으로 해제한다.
+	if effect_controller != null and effect_controller.has_method("clear_aipill"):
+		effect_controller.clear_aipill()
 	if throw_controller != null and throw_controller.has_method("clear_round_boss_status_effects"):
 		throw_controller.clear_round_boss_status_effects()
-	if effect_controller != null and effect_controller.has_method("clear_hologram_disk_runtime"):
-		effect_controller.clear_hologram_disk_runtime()
 	_deactivate_render_hosts()
 
 
@@ -141,6 +165,10 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 					return false
 			elif field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates"):
 				field_spawn_controller.prewarm_spawn_candidate_templates()
+		3:
+			if elixir_cinematic_draw != null and elixir_cinematic_draw.has_method("prewarm_assets_step"):
+				if not bool(elixir_cinematic_draw.prewarm_assets_step()):
+					return false
 		_:
 			_asset_prewarm_step_index = 0
 			return true
@@ -193,6 +221,26 @@ func resume_cooldowns(owner: Object = null, _registry: Object = null) -> void:
 	var resumed_slots: Array = slot_controller.resume_cooldowns(Time.get_ticks_msec(), active_item_slots)
 	if owner != null:
 		owner.set("active_item_slots", resumed_slots)
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 여기는 정지 마커만 들고, 실제 시프트는 앵커를
+# 소유한 헬퍼들이 `shift_runtime_perk_modal_time` 로 수행한다.
+# ⚠️새 헬퍼가 `Time.get_ticks_msec()` 앵커를 들면 이 팬아웃에 추가해야 한다.
+# 규칙은 res://scripts/core/runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec >= 0:
+		return
+	_runtime_perk_modal_pause_started_msec = maxi(0, current_msec)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	for helper: Object in [field_spawn_controller, throw_controller, pending_throw_recovery]:
+		if helper != null and helper.has_method("shift_runtime_perk_modal_time"):
+			helper.shift_runtime_perk_modal_time(pause_started_msec, current_msec)
 
 
 func get_active_item_cooldown_time_msec(current_time_msec: int) -> int:
@@ -594,9 +642,18 @@ func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: D
 	return context_facade.apply_aipill_guard_drain(self, special_gauge, context, deps)
 
 
-func apply_aipill_ball_hit_speed_boost(ball_vel: Vector2, was_active_on_contact: bool = false) -> Dictionary:
+func apply_aipill_ball_hit_speed_boost(
+	ball_vel: Vector2,
+	was_active_on_contact: bool = false,
+	gangsin_bonus_pct: float = 0.0
+) -> Dictionary:
 	_ensure_helpers_ready()
-	return context_facade.apply_aipill_ball_hit_speed_boost(self, ball_vel, was_active_on_contact)
+	return context_facade.apply_aipill_ball_hit_speed_boost(
+		self,
+		ball_vel,
+		was_active_on_contact,
+		gangsin_bonus_pct
+	)
 
 
 func get_boss_ai_context() -> Dictionary:
@@ -614,31 +671,9 @@ func is_magnet_field_active() -> bool:
 	return context_facade.is_magnet_field_active(self)
 
 
-func is_hologram_disk_active() -> bool:
-	_ensure_helpers_ready()
-	return context_facade.is_hologram_disk_active(self)
-
-
 func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
 	_ensure_helpers_ready()
 	return context_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
-
-
-func apply_hologram_decoy_tick(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	_ensure_helpers_ready()
-	return context_facade.apply_hologram_decoy_tick(self, fps_scale, context, deps)
-
-
-func clear_hologram_decoys_and_lock() -> void:
-	_ensure_helpers_ready()
-	if effect_controller != null and effect_controller.has_method("clear_hologram_decoys_and_lock"):
-		effect_controller.clear_hologram_decoys_and_lock()
-
-
-func peek_hologram_deception_ball_context() -> Dictionary:
-	if effect_controller == null or context_facade == null:
-		return {"active": false}
-	return context_facade.peek_hologram_deception_ball_context(self)
 
 
 func notify_holy_barrier_hit(impact_pos: Vector2) -> void:
@@ -654,6 +689,11 @@ func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
 func notify_trampoline_hit(trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
 	_ensure_helpers_ready()
 	return context_facade.notify_trampoline_hit(self, trampoline_index, ball_pos, ball_vel)
+
+
+func notify_campfire_hit(campfire_index: int, impact_pos: Vector2) -> Dictionary:
+	_ensure_helpers_ready()
+	return context_facade.notify_campfire_hit(self, campfire_index, impact_pos)
 
 
 func _store_active_item(field_item: Dictionary, active_item_slots: Array, registry: Object, owner: Object) -> bool:
@@ -720,7 +760,11 @@ func handle_elixir_confirm() -> bool:
 	return bool(effect_controller.handle_elixir_confirm())
 
 
-func draw_elixir_cinematic(canvas: CanvasItem, view_size: Vector2) -> void:
+func draw_elixir_cinematic(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	perk_icon_renderer: Object = null
+) -> void:
 	_ensure_helpers_ready()
 	if effect_controller == null or not effect_controller.has_method("get_elixir_of_mastery_runtime"):
 		return
@@ -730,7 +774,7 @@ func draw_elixir_cinematic(canvas: CanvasItem, view_size: Vector2) -> void:
 	if elixir_runtime == null or not elixir_runtime.has_method("get_draw_context"):
 		return
 	var ctx: Dictionary = elixir_runtime.get_draw_context()
-	elixir_cinematic_draw.draw_cinematic(canvas, ctx, view_size)
+	elixir_cinematic_draw.draw_cinematic(canvas, ctx, view_size, perk_icon_renderer)
 
 
 func _ensure_helpers_ready(perform_reset: bool = true) -> void:
@@ -753,3 +797,31 @@ func _init_helper(member_name: String) -> void:
 	if script == null:
 		return
 	set(member_name, script.new())
+
+
+func _prewarm_helper_threaded_step(member_name: String) -> bool:
+	if get(member_name) is Object:
+		return true
+	var path := str(HELPER_SCRIPT_PATHS.get(member_name, ""))
+	if path == "":
+		return true
+	var label := "active item helper %s" % member_name
+	_helper_script_cache.request_threaded_script(path, label)
+	if not bool(_helper_script_cache.is_threaded_script_ready(path, label)):
+		return false
+	var helper: Object = _helper_script_cache.create_ref_counted(path, label)
+	if helper != null:
+		set(member_name, helper)
+	return true
+
+
+func _request_helper_scripts_ahead() -> void:
+	var request_end := mini(HELPER_INIT_ORDER.size(), _helper_init_step_index + HELPER_SCRIPT_REQUEST_AHEAD)
+	for request_index in range(_helper_init_step_index, request_end):
+		var member_name := str(HELPER_INIT_ORDER[request_index])
+		if get(member_name) is Object:
+			continue
+		var path := str(HELPER_SCRIPT_PATHS.get(member_name, ""))
+		if path == "":
+			continue
+		_helper_script_cache.request_threaded_script(path, "active item helper %s" % member_name)

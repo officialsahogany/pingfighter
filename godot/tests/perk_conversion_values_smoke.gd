@@ -20,7 +20,6 @@ const DELETED_ITEM_EXPECTED := {
 	"dashgear": ["dash_jump", "perk_boost_charge"],
 	"cooltime": ["item_cooldown_mastery"],
 	"timer_belt": ["common_training"],
-	"slot_add": ["item_bag_expansion"],
 }
 
 
@@ -90,7 +89,7 @@ func _init() -> void:
 
 
 func _verify_regular_tables() -> void:
-	_expect(RuntimePerkCatalog.CONVERTED_PERKS.size() == 28, "converted regular perk count should include the R1 redesign perks")
+	_expect(RuntimePerkCatalog.CONVERTED_PERKS.size() == 23, "converted regular perk count should also exclude 찰나신법 and 응변결 after their Superior Martial Art promotion")
 	for id_value in RuntimePerkCatalog.CONVERTED_PERKS.keys():
 		var id := str(id_value)
 		_expect(PerkConversionValues.has_perk(id), "value helper should know regular converted perk %s" % id)
@@ -113,6 +112,21 @@ func _verify_star_endpoints() -> void:
 	# (CLAUDE.md 유효레벨 오버플로우 표준 — 상세 씰은
 	# perk_conversion_overflow_scaling_smoke가 소유). 25 + 5*(99-5) = 495.
 	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 99), 495.0, "get_value should extrapolate high levels by the table's average slope")
+
+	var expected_gangsin_gauge_reductions: Array[float] = [10.0, 15.0, 20.0, 25.0, 30.0]
+	var expected_gangsin_ball_speed_bonuses: Array[float] = [2.0, 4.0, 6.0, 8.0, 10.0]
+	for index in range(5):
+		var gangsin_level := index + 1
+		_expect_close(
+			PerkConversionValues.get_value("neural_helmet", "aipill_gauge_reduction", gangsin_level),
+			expected_gangsin_gauge_reductions[index],
+			"Gangsin gauge reduction Lv%d" % gangsin_level
+		)
+		_expect_close(
+			PerkConversionValues.get_value("neural_helmet", "aipill_ball_speed_bonus_pct", gangsin_level),
+			expected_gangsin_ball_speed_bonuses[index],
+			"Gangsin ball-speed bonus Lv%d" % gangsin_level
+		)
 
 	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 1), 20.0, "adversity_armor trigger Lv1")
 	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 5), 40.0, "adversity_armor trigger Lv5")
@@ -151,7 +165,7 @@ func _verify_star_endpoints() -> void:
 
 
 func _verify_mythic_values_and_exempt() -> void:
-	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 13, "converted mythic perk count should include Angel Blessing")
+	_expect(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size() == 14, "converted mythic perk count should include Angel Blessing and Yangui Hoechun")
 	for id_value in RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.keys():
 		var id := str(id_value)
 		_expect(PerkConversionValues.has_perk(id), "value helper should know mythic converted perk %s" % id)
@@ -189,7 +203,7 @@ func _verify_flags() -> void:
 
 
 func _verify_conversion_maps() -> void:
-	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 41, "conversion source map should include Angel Blessing plus S1 replacements and R1 redesign perks")
+	_expect(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size() == 39, "conversion source map should match all active perks after merging Spiked Helmet into Iron Heart Art")
 	for id_value in RuntimePerkCatalog.CONVERTED_PERKS.keys():
 		var id := str(id_value)
 		_expect(str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(id, "")) == id, "regular conversion source %s should map to itself" % id)
@@ -202,6 +216,12 @@ func _verify_conversion_maps() -> void:
 			"deleted item compensation for %s should match the migration plan" % str(deleted_id)
 		)
 	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("gold_bar"), "gold_bar should stay deleted without a replacement mapping")
+	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("revival"), "retired Revival should have no conversion mapping")
+	_expect(not PerkConversionValues.CONVERTED_PERK_VALUES.has("revival"), "retired Revival should have no converted value lanes")
+	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("speedgear"), "retired Speedgear should have no conversion mapping")
+	_expect(not PerkConversionValues.CONVERTED_PERK_VALUES.has("speedgear"), "retired Speedgear should have no converted value lanes")
+	_expect(not PerkConversionValues.CONVERSION_SOURCE_TO_PERK.has("spiked_helmet"), "merged Spiked Helmet should have no conversion mapping")
+	_expect(not PerkConversionValues.CONVERTED_PERK_VALUES.has("spiked_helmet"), "merged Spiked Helmet should have no standalone value lanes")
 	for redesign_id in ["gold_bar", "sage_ring", "sacred_laurel", "dowsing_goggles"]:
 		_expect(not PerkConversionValues.DELETED_ITEM_COMPENSATION.has(redesign_id), "%s should not enter deleted compensation" % redesign_id)
 	for redesign_id in ["sage_ring", "sacred_laurel", "dowsing_goggles"]:

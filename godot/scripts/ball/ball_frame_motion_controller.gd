@@ -39,6 +39,23 @@ func update_trampoline_launch_cap(scene: Dictionary, fps_scale: float) -> void:
 	scene["trampoline_launch_speed_cap"] = 0.0
 
 
+func update_dalji_vision_ball_modifiers(
+	scene: Dictionary,
+	fps_scale: float,
+	deps: Dictionary
+) -> void:
+	var state: Object = deps.get("dalji_vision_chosik_state", null)
+	if state == null:
+		return
+	if state.has_method("advance_ball_motion_modifiers"):
+		state.advance_ball_motion_modifiers(fps_scale)
+	if bool(scene.get("skip_ball_motion_step", false)):
+		return
+	if state.has_method("apply_wallward_curve"):
+		var velocity := _get_vector2(scene, "ball_vel", Vector2.ZERO)
+		scene["ball_vel"] = state.apply_wallward_curve(velocity, fps_scale)
+
+
 func apply_power_smash_speed_limit(scene: Dictionary, max_effective_speed: float) -> void:
 	_limit_effective_speed(scene, max_effective_speed)
 
@@ -48,16 +65,32 @@ func apply_ball_speed_limits(scene: Dictionary, deps: Dictionary) -> void:
 	if ball_physics == null:
 		return
 	var velocity: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
-	if ball_physics.has_method("enforce_minimum_rally_speed"):
+	var minimum_suspended: bool = _is_minimum_rally_speed_suspended(deps)
+	if not minimum_suspended and ball_physics.has_method("enforce_minimum_rally_speed"):
 		velocity = ball_physics.enforce_minimum_rally_speed(velocity)
 	var speed_unlimited: bool = _is_speed_limit_disabled(scene)
 	var impact_boost: float = max(1.0, float(scene.get("ball_impact_boost", 1.0)))
-	if ball_physics.has_method("get_minimum_effective_boost"):
+	if not minimum_suspended and ball_physics.has_method("get_minimum_effective_boost"):
 		impact_boost = max(impact_boost, float(ball_physics.get_minimum_effective_boost(velocity)))
 	if not speed_unlimited:
 		velocity = _cap_effective_velocity(velocity, impact_boost, _get_effective_speed_cap(scene, impact_boost, deps))
 	scene["ball_vel"] = velocity
 	scene["ball_impact_boost"] = impact_boost
+
+
+# 허공환영 기만 비행 창에서만 랠리 최저속 '하한'을 중지한다(캡을 여는
+# _is_speed_limit_disabled 의 대칭 레버).
+# ⚠️하한은 이중으로 걸린다: ball_vel 자체를 최저속으로 클램프하고, 그 뒤
+# get_minimum_effective_boost 가 impact_boost 를 최저속/현재속으로 다시 올려
+# 실효 이동거리까지 되돌린다. 한쪽만 풀면 감속이 조용히 먹힌다.
+# 스테이지1 기준 최저속 ≈9.68px/frame 이라, 이 게이트가 없으면 저속 랠리에서
+# -40%가 -19% 수준으로 줄어 표시값과 체감이 갈린다.
+# 창은 보스 가드 반사에서 소비되므로(peek 이 0 을 돌려주는 즉시) 하한도 함께 복귀한다.
+func _is_minimum_rally_speed_suspended(deps: Dictionary) -> bool:
+	var state: Object = deps.get("smasher_void_phantom_state", null)
+	if state == null or not state.has_method("peek_suppressed_launch_speed"):
+		return false
+	return float(state.peek_suppressed_launch_speed()) > 0.0
 
 
 func _is_speed_limit_disabled(scene: Dictionary) -> bool:
@@ -66,6 +99,7 @@ func _is_speed_limit_disabled(scene: Dictionary) -> bool:
 		or bool(scene.get("commando_suicide_drone_ball_boost_active", false))
 		or bool(scene.get("lingpet_wild_roar_ball_boost_active", false))
 		or bool(scene.get("active_item_aipill_ball_boost_active", false))
+		or bool(scene.get("lingpet_mokrin_ball_boost_active", false))
 	)
 
 
@@ -86,7 +120,37 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 		speed_cap = min(speed_cap, float(scene.get("fire_weather_max_ball_speed", 35.0)))
 	if meditation_release_cap > 0.0:
 		speed_cap = min(speed_cap, meditation_release_cap)
+	# 벽력추진(legacy overload key) 일시 캡: 보스 가드 전까지 유효속도 초과 허용 — 일반 하드캡
+	# (화염 기상·명상 해방)보다 상위다. 신령환류 무제한 정책은 이 함수에
+	# 오기 전에 클램프 자체를 끈다(우세 유지).
+	var overload_cap: float = float(scene.get("perk_fusion_overload_speed_cap", 0.0))
+	if overload_cap > 0.0:
+		speed_cap = max(speed_cap, overload_cap)
+	# 연환팽이의 명시적 +50% -> 벽 반사 +30% 궤적은 일반/기상 캡에서
+	# 즉시 잘리지 않도록 짧은 전용 캡 창으로 보존한다.
+	speed_cap = max(speed_cap, _get_dalji_vision_speed_cap(deps) * maxf(1.0, impact_boost))
 	return speed_cap
+
+
+func _get_dalji_vision_speed_cap(deps: Dictionary) -> float:
+	var state: Object = deps.get("dalji_vision_chosik_state", null)
+	if state == null or not state.has_method("get_boosted_ball_speed_cap"):
+		return 0.0
+	return maxf(0.0, float(state.get_boosted_ball_speed_cap()))
+
+
+# 벽력추진 호환 캡 failsafe TTL(프레임): 보스 가드/득점/라운드 리셋이 정상
+# 마감하지만, 소유 이벤트가 유실된 leak도 바운디드로 닫는다.
+func update_perk_fusion_overload_speed_cap(scene: Dictionary, fps_scale: float) -> void:
+	var remaining: float = float(scene.get("perk_fusion_overload_speed_cap_frames", 0.0))
+	if remaining <= 0.0:
+		return
+	remaining -= maxf(0.0, fps_scale)
+	if remaining <= 0.0:
+		scene["perk_fusion_overload_speed_cap"] = 0.0
+		scene["perk_fusion_overload_speed_cap_frames"] = 0.0
+		return
+	scene["perk_fusion_overload_speed_cap_frames"] = remaining
 
 
 func _cap_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
@@ -222,6 +286,30 @@ func apply_viper_practice_hold(scene: Dictionary, context: Dictionary, deps: Dic
 	_apply_viper_motion_result(
 		scene,
 		practice.apply_ball_hold_motion(scene, deps.get("viper_skill_runtime", null))
+	)
+
+
+# 허공환영 발동 직후 1초 차지는 같은 owned-ball skip 계약을 쓴다. 위치·속도·
+# skip을 scene snapshot에 함께 써야 원래 속도나 과거 skip 값이 되살아나지 않는다.
+func apply_smasher_void_phantom_charge(
+	scene: Dictionary,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary
+) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return
+	var state: Object = deps.get("smasher_void_phantom_state", null)
+	if state == null or not state.has_method("apply_charge_ball_motion"):
+		return
+	if state.has_method("is_charging") and not bool(state.is_charging()):
+		return
+	var motion_context: Dictionary = context.duplicate()
+	motion_context.merge(scene, true)
+	var charge_scale: float = 0.0 if _is_active_item_time_frozen(deps) else fps_scale
+	_apply_viper_motion_result(
+		scene,
+		state.apply_charge_ball_motion(charge_scale, motion_context, deps)
 	)
 
 
@@ -365,16 +453,63 @@ func apply_smasher_wheel_collision(scene: Dictionary, context: Dictionary, deps:
 		scene[str(key)] = result[key]
 
 
-func apply_smasher_overdrive(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+# 풍운천선무 회선반동 조향. 벽력유성과 같은 "프레임별 속도 조향" 계약이라
+# step_motion 앞에서 돌고, 공을 소유하지 않는다(skip_ball_motion_step 미사용).
+# ⚠️가장 싼 판별 게이트(is_rebound_active)를 컨텍스트 조립 위로 끌어올린다 —
+# 회선은 라운드당 최대 한 번인데 이 함수는 매 프레임 불린다.
+func apply_smasher_wheel_rebound(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return
+	var wheel_state: Object = deps.get("smasher_wheel_state", null)
+	if wheel_state == null or not wheel_state.has_method("apply_rebound_ball_motion"):
+		return
+	if not wheel_state.has_method("is_rebound_active") or not bool(wheel_state.is_rebound_active()):
+		return
+	var result: Dictionary = wheel_state.apply_rebound_ball_motion(
+		_get_vector2(scene, "ball_pos", Vector2.ZERO),
+		_get_vector2(scene, "ball_vel", Vector2.ZERO),
+		fps_scale,
+		{
+			"ball_impact_boost": float(scene.get("ball_impact_boost", 1.0)),
+			"width": float(context.get("width", 760.0)),
+			"height": float(context.get("height", 750.0)),
+		}
+	)
+	if result.is_empty():
+		return
+	scene.merge(result, true)
+
+
+func apply_smasher_overdrive(
+	scene: Dictionary,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary
+) -> void:
 	if str(context.get("selected_character_type", "smasher")) != "smasher":
 		return
 	var state: Object = deps.get("smasher_overdrive_state", null)
 	if state == null or not state.has_method("apply_ball_motion"):
 		return
+	# 급전 타이밍은 "보스 라인까지 남은 비행 프레임"으로 판정하므로 보스 지오메트리가
+	# 필요하다. context 는 step_motion 이 쓰는 것과 같은 frame_context 라
+	# boss_pos / boss_paddle_size / hitbox_padding / ball_size 를 모두 들고 있다.
+	var motion_context: Dictionary = {
+		"boss_pos": _get_vector2(context, "boss_pos", Vector2.ZERO),
+		"boss_paddle_size": _get_vector2(context, "boss_paddle_size", Vector2(100.0, 40.0)),
+		"hitbox_padding": float(context.get("hitbox_padding", 5.0)),
+		"ball_size": float(context.get("ball_size", 28.6)),
+		"width": float(context.get("width", 760.0)),
+		"ball_pos": _get_vector2(scene, "ball_pos", Vector2.ZERO),
+		# 유성 예고는 꺾임 지점을 앞당겨 적분한다 — 실전 변위가
+		# ball_vel * boost * fps_scale 이므로 틱 스케일이 없으면 타점이 어긋난다.
+		"fps_scale": fps_scale,
+	}
 	var result: Dictionary = state.apply_ball_motion(
 		_get_vector2(scene, "ball_pos", Vector2.ZERO),
 		_get_vector2(scene, "ball_vel", Vector2.ZERO),
-		max(0.001, float(scene.get("ball_impact_boost", 1.0)))
+		max(0.001, float(scene.get("ball_impact_boost", 1.0))),
+		motion_context
 	)
 	if not result.is_empty():
 		scene.merge(result, true)
@@ -424,15 +559,30 @@ func apply_active_item_magnet_field(scene: Dictionary, fps_scale: float, context
 		scene["ball_vel"] = _get_vector2(result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
 
 
-func apply_active_item_hologram_decoys(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	var active_item_runtime: Object = deps.get("active_item_runtime", null)
-	if active_item_runtime == null or not active_item_runtime.has_method("apply_hologram_decoy_tick"):
+func apply_smasher_void_phantom_decoys(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
+	var state: Object = deps.get("smasher_void_phantom_state", null)
+	if state == null or not state.has_method("apply_ball_path_tick"):
 		return
-	if active_item_runtime.has_method("is_hologram_disk_active") and not bool(active_item_runtime.is_hologram_disk_active()):
+	if state.has_method("is_active") and not bool(state.is_active()):
+		return
+	# 스톱워치 시간정지 중에는 환영도 멈춘다(구 홀로그램 계약 유지) — 실제 공이
+	# 멈춰 있는데 환영만 날아가면 기만이 곧바로 들통난다.
+	if _is_active_item_time_frozen(deps):
 		return
 	var motion_context: Dictionary = context.duplicate()
 	motion_context.merge(scene, true)
-	active_item_runtime.apply_hologram_decoy_tick(fps_scale, motion_context, deps)
+	state.apply_ball_path_tick(fps_scale, motion_context, deps)
+
+
+func _is_active_item_time_frozen(deps: Dictionary) -> bool:
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime == null:
+		return false
+	var effect_controller: Variant = active_item_runtime.get("effect_controller")
+	if typeof(effect_controller) != TYPE_OBJECT or not is_instance_valid(effect_controller):
+		return false
+	var controller: Object = effect_controller
+	return controller.has_method("is_time_frozen") and bool(controller.is_time_frozen())
 
 
 func apply_poseidon_trident(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:

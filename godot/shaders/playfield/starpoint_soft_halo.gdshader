@@ -1,12 +1,12 @@
 shader_type canvas_item;
 render_mode blend_add;
 
-// Premium "soft halo" layer drawn behind each starpoint drop. Sits underneath
-// the existing starpoint_drop.gdshader output and adds a refined outer aura:
+// Soft aura behind the compatibility-owned starpoint reward, now presented as
+// a crimson 무혼 flame. It adds a restrained, warm supernatural halo:
 //   - Texture-sampled radial gradient (no banding, no per-frame CPU rebuild)
 //   - Slow breathing pulse (~1.4Hz scale + intensity)
-//   - 3 orbital pinpoint "shader particles" cycling around the halo
-//   - Subtle iridescent rim band
+//   - 3 drifting ember wisps around the halo
+//   - Subtle crimson-gold rim band
 //   - Drives a `spawn_scale` uniform animated from a Tween on first claim so
 //     the drop pops in with a back-eased zoom instead of appearing flat.
 //
@@ -22,7 +22,7 @@ uniform float glow_intensity = 1.0;
 // Implemented in-shader as an inward UV scale so we don't fight the slot's
 // per-frame size-driven Sprite2D.scale assignment.
 uniform float spawn_scale : hint_range(0.1, 1.0) = 1.0;
-uniform vec4 halo_color : source_color = vec4(1.0, 0.65, 0.85, 1.0);
+uniform vec4 halo_color : source_color = vec4(0.92, 0.08, 0.18, 1.0);
 uniform float sparkle_intensity : hint_range(0.0, 1.0) = 1.0;
 uniform float iridescent_rim_intensity : hint_range(0.0, 1.0) = 0.55;
 
@@ -42,7 +42,8 @@ void fragment() {
 	// Slow breathing pulse so the halo never feels static.
 	float breath = 0.86 + 0.14 * sin(elapsed * 2.2);
 
-	// 3 orbital pinpoint sparkles around r ~= 0.56, slow orbit + slight bobble.
+	// Three ember wisps drift around the soul flame rather than forming the old
+	// jewel-like sparkle orbit.
 	float spark_total = 0.0;
 	if (sparkle_intensity > 0.001) {
 		for (int i = 0; i < 3; i++) {
@@ -56,22 +57,19 @@ void fragment() {
 		}
 	}
 
-	// Subtle iridescent rim band around r ~= 0.42; cycles through nearby hues.
+	// Warm rim band around r ~= 0.42. Keep it in the crimson-gold family so the
+	// pickup cannot be mistaken for the old rainbow star reward.
 	float rim_band = 0.0;
 	vec3 rim_rgb = vec3(0.0);
 	if (iridescent_rim_intensity > 0.001) {
 		rim_band = exp(-pow((r - 0.42) * 5.5, 2.0));
-		float hue = fract(elapsed * 0.18 + r * 0.7);
-		rim_rgb = vec3(
-			0.55 + 0.45 * cos(hue * TAU + 0.0),
-			0.55 + 0.45 * cos(hue * TAU + 2.0944),
-			0.55 + 0.45 * cos(hue * TAU + 4.1888)
-		);
+		float heat = 0.5 + 0.5 * sin(elapsed * 1.35 + r * 4.0);
+		rim_rgb = mix(halo_color.rgb, vec3(1.0, 0.58, 0.16), heat * 0.42);
 	}
 
 	vec3 col = halo_color.rgb * base * breath;
 	col += rim_rgb * rim_band * iridescent_rim_intensity * 0.25;
-	col += vec3(1.0, 0.95, 0.85) * spark_total * sparkle_intensity;
+	col += vec3(1.0, 0.72, 0.30) * spark_total * sparkle_intensity;
 
 	float total_alpha = (
 		base * breath

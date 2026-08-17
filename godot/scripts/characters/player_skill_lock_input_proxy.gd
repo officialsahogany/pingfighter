@@ -2,11 +2,13 @@ extends RefCounted
 
 var _input_reader: Object = null
 var _mythic_item_runtime: Object = null
+var _lingpet_runtime: Object = null
 
 
-func configure(input_reader: Object, mythic_item_runtime: Object) -> Object:
+func configure(input_reader: Object, mythic_item_runtime: Object, lingpet_runtime: Object = null) -> Object:
 	_input_reader = input_reader
 	_mythic_item_runtime = mythic_item_runtime
+	_lingpet_runtime = lingpet_runtime
 	return self
 
 
@@ -21,6 +23,12 @@ func get_snapshot() -> Dictionary:
 
 
 func _is_player_skill_locked() -> bool:
+	if (
+		_lingpet_runtime != null
+		and _lingpet_runtime.has_method("is_baekrin_mount_active")
+		and bool(_lingpet_runtime.is_baekrin_mount_active())
+	):
+		return true
 	if _mythic_item_runtime == null:
 		return false
 	if (
@@ -58,6 +66,8 @@ func _lock_skill_inputs(snapshot: Dictionary) -> Dictionary:
 		"supply_drop_hold_pressed",
 		"commando_supply_drop_hold_pressed",
 		"mouse_right_pressed",
+		"secondary_action_pressed",
+		"secondary_action_just_pressed",
 		"gamepad_supply_hold_pressed",
 		"mouse_middle_pressed",
 		"mouse_middle_just_pressed",

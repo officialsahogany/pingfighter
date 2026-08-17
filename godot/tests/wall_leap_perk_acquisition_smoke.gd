@@ -145,7 +145,7 @@ func _verify_localization(catalog: Object, config: Object) -> void:
 		var skill: Dictionary = config.get_skill_data("wall_leap_raid")
 		_expect(str(perk.get("name", "")) == str(expected_perk_names[language]), "%s perk localization must use its authored language" % language)
 		_expect(str(skill.get("korean", "")) == str(expected_skill_names[language]), "%s skill localization must use its authored language" % language)
-		for control_token in ["잠입", "참격", "폭발", "기력 160 필요 · 100 소모", "60 소모 · 둔화 5초", "150 소모 · 기절 3초"]:
+		for control_token in ["잠입", "참격", "폭발", "기력 180 소모", "추가 소모 없음 · 둔화 5초", "추가 소모 없음 · 기절 3초"]:
 			var translated := LanguageSettings.translate_text(control_token)
 			_expect(not translated.is_empty(), "%s control hint localization must exist" % language)
 			if language != "ko":

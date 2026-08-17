@@ -37,7 +37,11 @@ func get_master_wall_spawn_bonus_pct(runtime: Object) -> float:
 
 
 func get_brick_wall_width(runtime: Object, base_width: float) -> float:
-	return max(1.0, float(base_width) * (1.0 + get_master_wall_length_bonus_pct(runtime) / 100.0))
+	return _get_master_scaled_width(runtime, base_width)
+
+
+func get_trampoline_width(runtime: Object, base_width: float) -> float:
+	return _get_master_scaled_width(runtime, base_width)
 
 
 func get_wall_item_spawn_chance(runtime: Object, base_chance: float) -> float:
@@ -85,3 +89,7 @@ func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) ->
 	if level <= 0:
 		return 0.0
 	return PerkConversionValues.get_value(perk_id, key, level, runtime.runtime_perk_state_ref if runtime != null else null)
+
+
+func _get_master_scaled_width(runtime: Object, base_width: float) -> float:
+	return max(1.0, float(base_width) * (1.0 + get_master_wall_length_bonus_pct(runtime) / 100.0))

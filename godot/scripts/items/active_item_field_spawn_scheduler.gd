@@ -7,6 +7,7 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
 
 const SPAWN_DELAY_MIN_MSEC := 20000
 const SPAWN_DELAY_MAX_MSEC := 50000
@@ -35,6 +36,16 @@ func reset_spawn_timer() -> void:
 func mark_spawn_now() -> void:
 	last_item_spawn_msec = Time.get_ticks_msec()
 	next_item_spawn_delay_msec = _roll_spawn_delay_msec()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 정지 마커는 소유자(active_item_runtime)가 든다.
+# ⚠️`next_item_spawn_delay_msec` 는 길이라 밀지 않는다.
+# 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	last_item_spawn_msec = RuntimePerkModalTimeShift.shift_anchor(last_item_spawn_msec, delta_msec)
 
 
 func consume_regular_spawn_due(

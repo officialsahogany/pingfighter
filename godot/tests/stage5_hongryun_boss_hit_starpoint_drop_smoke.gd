@@ -3,8 +3,8 @@ extends SceneTree
 # Stage 5 홍련 보스 피격 스타포인트 드랍 씰.
 #
 # 스펙: 홍련이 공에 맞을 때(보스 패들 접촉) 이벤트당 단일 굴림 1회 —
-# [0, 0.02) → 2개 드랍, [0.02, 0.07) → 1개 드랍, 나머지 → 없음.
-# (2% 확률 2개 / 5% 확률 1개, 상호배타.)
+# [0, 0.007) → 2개 드랍, [0.007, 0.025) → 1개 드랍, 나머지 → 없음.
+# (0.7% 확률 2개 / 1.8% 확률 1개, 상호배타.)
 #
 # 봉인 레그:
 # 1. roll → count 매핑 경계값 (확률 정의 그 자체)
@@ -78,10 +78,10 @@ func _base_context() -> Dictionary:
 func _verify_roll_mapping_boundaries() -> void:
 	var cases: Array = [
 		[0.0, 2],
-		[0.019, 2],
-		[0.02, 1],
-		[0.0699, 1],
-		[0.07, 0],
+		[0.0069, 2],
+		[0.007, 1],
+		[0.0249, 1],
+		[0.025, 0],
 		[0.5, 0],
 		[0.99, 0],
 	]
@@ -120,12 +120,12 @@ func _verify_boss_hit_producer_rolls_drops() -> void:
 			if pos.x < 0.0 or pos.x > 760.0 or pos.y < 0.0 or pos.y > 750.0:
 				out_of_bounds += 1
 	_expect(invalid_deltas == 0, "boss hit must spawn only 0/1/2 drops per contact (saw %d invalid)" % invalid_deltas)
-	_expect(single_hits > 0, "1-drop (5%% band) case should occur across %d seeded contacts" % total_calls)
-	_expect(double_hits > 0, "2-drop (2%% band) case should occur across %d seeded contacts" % total_calls)
+	_expect(single_hits > 0, "1-drop (1.8%% band) case should occur across %d seeded contacts" % total_calls)
+	_expect(double_hits > 0, "2-drop (0.7%% band) case should occur across %d seeded contacts" % total_calls)
 	var hit_ratio: float = float(single_hits + double_hits) / float(total_calls)
 	_expect(
-		hit_ratio > 0.02 and hit_ratio < 0.15,
-		"combined drop rate should sit near 7%% (got %.4f)" % hit_ratio
+		hit_ratio > 0.01 and hit_ratio < 0.04,
+		"combined drop rate should sit near 2.5%% (got %.4f)" % hit_ratio
 	)
 	_expect(out_of_bounds == 0, "drop positions must clamp inside the playfield (saw %d outside)" % out_of_bounds)
 	_expect(not state.inferno_active, "starpoint roll must not start the inferno on its own")

@@ -1,24 +1,26 @@
 ﻿extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
 const CommandoFirearmAk47InputState := preload("res://scripts/characters/commando_firearm_ak47_input_state.gd")
 const CommandoFirearmAmmoWeaponInputState := preload("res://scripts/characters/commando_firearm_ammo_weapon_input_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
-const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
-const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmEffectUpdateState := preload("res://scripts/characters/commando_firearm_effect_update_state.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSpawnState := preload("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
-const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmPistolInputState := preload("res://scripts/characters/commando_firearm_pistol_input_state.gd")
+const CommandoFirearmPistolEnhanceState := preload("res://scripts/characters/commando_firearm_pistol_enhance_state.gd")
+const CommandoFirearmProfileCatalog := preload("res://scripts/characters/commando_firearm_profile_catalog.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
+const CommandoFirearmRuntimeLifecycleState := preload("res://scripts/characters/commando_firearm_runtime_lifecycle_state.gd")
+const CommandoFirearmRuntimeConfigCatalog := preload("res://scripts/characters/commando_firearm_runtime_config_catalog.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
@@ -176,6 +178,15 @@ const PISTOL_ENHANCE_PERK_ID := "pistol_enhance"
 const PISTOL_ENHANCE_SPREAD_DEGREES := [0.0, 12.0, 9.0, 6.0, 3.0, 1.0]
 const PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL := 0.10
 const PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL := 0.30
+const PISTOL_ENHANCE_TUNING := {
+	"perk_id": PISTOL_ENHANCE_PERK_ID,
+	"base_ammo_max": PISTOL_AMMO_MAX,
+	"base_spread_radians": PISTOL_SPREAD_RADIANS,
+	"spread_degrees": PISTOL_ENHANCE_SPREAD_DEGREES,
+	"speed_bonus_per_level": PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL,
+	"knockback_bonus_per_level": PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL,
+	"beretta_spread_radians": BERETTA_SPREAD_RADIANS,
+}
 const PISTOL_WALL_BOUNCE_MARGIN := 10.0
 const PISTOL_WALL_BOUNCE_MAX := 1
 const PISTOL_WALL_BOUNCE_DAMPING := 0.85
@@ -239,6 +250,13 @@ const AK47_BOSS_KNOCKBACK_DECAY_PER_FRAME := 0.72
 const BAZOOKA_AMMO_MAX := 4
 const BAZOOKA_COOLDOWN_FRAMES := 120.0
 const BAZOOKA_CONTROL_LOCK_FRAMES := 30.0
+const RUNTIME_LIFECYCLE_RESET_DEFAULTS := {
+	"pistol_cooldown_frames": PISTOL_COOLDOWN_FRAMES,
+	"pistol_control_lock_frames": PISTOL_CONTROL_LOCK_FRAMES,
+	"ak47_fire_interval_frames": AK47_FIRE_INTERVAL_FRAMES,
+	"bazooka_cooldown_frames": BAZOOKA_COOLDOWN_FRAMES,
+	"bazooka_control_lock_frames": BAZOOKA_CONTROL_LOCK_FRAMES,
+}
 const BAZOOKA_FIRE_ANIMATION_FRAMES := 15.0
 const BAZOOKA_FIRING_POSE_FRAMES := 30.0
 const BAZOOKA_MUZZLE_FLASH_FRAMES := 5.0
@@ -304,230 +322,224 @@ const DRAW_CONTEXT_TIMING := {
 	"suicide_drone_cooldown_max_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
 }
 
-const WEAPON_PROFILES := {
-	"pistol": {
-		"kind": "bullet",
-		"speed": PISTOL_BULLET_SPEED,
-		"radius": 4.4,
-		"hitbox_size": Vector2(9.0, 9.0),
-		"life_frames": 44.0,
-		"trail": 30.0,
-		"impact_radius": 16.0,
-		"color": Color(0.96, 0.82, 0.36),
-		"secondary": Color(1.0, 0.52, 0.18),
-	},
-	"commando_pistol": {
-		"kind": "bullet",
-		"speed": BERETTA_BULLET_SPEED,
-		"radius": 5.0,
-		"hitbox_size": Vector2(10.0, 10.0),
-		"life_frames": 44.0,
-		"trail": 34.0,
-		"impact_radius": 16.0,
-		"color": Color(1.0, 0.86, 0.40),
-		"secondary": Color(1.0, 0.50, 0.18),
-	},
-	"ak47": {
-		"kind": "bullet",
-		"speed": AK47_BULLET_SPEED,
-		"radius": 3.6,
-		"hitbox_size": Vector2(6.0, 6.0),
-		"life_frames": AK47_BULLET_LIFE_FRAMES,
-		"trail": 40.0,
-		"impact_radius": 12.0,
-		"color": Color(0.95, 1.0, 0.50),
-		"secondary": Color(0.72, 0.94, 0.25),
-	},
-	"bazooka": {
-		"kind": "rocket",
-		"speed": BAZOOKA_INITIAL_SPEED,
-		"acceleration": BAZOOKA_ACCELERATION,
-		"max_speed": BAZOOKA_MAX_SPEED,
-		"radius": 9.5,
-		"hitbox_size": Vector2(20.0, 30.0),
-		"hitbox_offset": Vector2(0.0, 5.0),
-		"life_frames": 72.0,
-		"trail": 48.0,
-		"impact_radius": 46.0,
-		"explosion_radius": BAZOOKA_EXPLOSION_RADIUS,
-		"smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
-		"vertical_launch": true,
-		"muzzle_flash_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
-		"color": Color(1.0, 0.46, 0.18),
-		"secondary": Color(1.0, 0.88, 0.38),
-	},
-	"net_gun": {
-		"kind": "net",
-		"speed": NET_GUN_PROJECTILE_SPEED,
-		"radius": 13.0,
-		"hitbox_size": Vector2(12.0, 12.0),
-		"boss_inflate": Vector2(60.0, 40.0),
-		"segment_radius": 6.0,
-		"life_frames": 64.0,
-		"trail": 20.0,
-		"impact_radius": 36.0,
-		"rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
-		"muzzle_flash_frames": NET_GUN_HARPOON_FLASH_FRAMES,
-		"color": Color(0.42, 1.0, 0.52),
-		"secondary": Color(0.18, 0.65, 0.28),
-	},
-	"fire_support": {
-		"kind": "support",
-		"speed": SUPPORT_BOMB_INITIAL_VY,
-		"initial_vy": SUPPORT_BOMB_INITIAL_VY,
-		"gravity": SUPPORT_BOMB_GRAVITY,
-		"horizontal_jitter": SUPPORT_BOMB_HORIZONTAL_JITTER,
-		"flight_frames": SUPPORT_MISSILE_FLIGHT_FRAMES,
-		"radius": 7.0,
-		"hitbox_size": Vector2(14.0, 14.0),
-		"life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
-		"trail": 52.0,
-		"impact_radius": 54.0,
-		"explosion_radius": ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS,
-		"color": Color(1.0, 0.34, 0.16),
-		"secondary": Color(1.0, 0.82, 0.25),
-	},
-	"bowling_trap": {
-		"kind": "trap",
-		"speed": 8.5,
-		"radius": 12.0,
-		"life_frames": 84.0,
-		"trail": 22.0,
-		"impact_radius": 30.0,
-		"color": Color(0.95, 0.18, 0.24),
-		"secondary": Color(0.22, 0.10, 0.12),
-	},
-	"suicide_drone": {
-		"kind": "drone",
-		"speed": 0.0,
-		"radius": 24.0,
-		"hitbox_size": SUICIDE_DRONE_SIZE,
-		"life_frames": SUICIDE_DRONE_LIFE_FRAMES,
-		"trail": 26.0,
-		"impact_radius": 40.0,
-		"explosion_radius": 150.0,
-		"max_speed": SUICIDE_DRONE_MAX_SPEED,
-		"acceleration": SUICIDE_DRONE_ACCEL,
-		"color": Color(1.0, 0.42, 0.18),
-		"secondary": Color(0.45, 0.86, 1.0),
-	},
-}
+static var PROFILE_CATALOG: Dictionary = CommandoFirearmProfileCatalog.build_catalog({
+	"pistol_bullet_speed": PISTOL_BULLET_SPEED,
+	"beretta_bullet_speed": BERETTA_BULLET_SPEED,
+	"ak47_bullet_speed": AK47_BULLET_SPEED,
+	"ak47_bullet_life_frames": AK47_BULLET_LIFE_FRAMES,
+	"bazooka_initial_speed": BAZOOKA_INITIAL_SPEED,
+	"bazooka_acceleration": BAZOOKA_ACCELERATION,
+	"bazooka_max_speed": BAZOOKA_MAX_SPEED,
+	"bazooka_explosion_radius": BAZOOKA_EXPLOSION_RADIUS,
+	"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
+	"bazooka_muzzle_flash_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
+	"net_gun_projectile_speed": NET_GUN_PROJECTILE_SPEED,
+	"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
+	"net_gun_harpoon_flash_frames": NET_GUN_HARPOON_FLASH_FRAMES,
+	"support_bomb_initial_vy": SUPPORT_BOMB_INITIAL_VY,
+	"support_bomb_gravity": SUPPORT_BOMB_GRAVITY,
+	"support_bomb_horizontal_jitter": SUPPORT_BOMB_HORIZONTAL_JITTER,
+	"support_missile_flight_frames": SUPPORT_MISSILE_FLIGHT_FRAMES,
+	"support_missile_life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
+	"grenade_explosion_radius": ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS,
+	"suicide_drone_size": SUICIDE_DRONE_SIZE,
+	"suicide_drone_life_frames": SUICIDE_DRONE_LIFE_FRAMES,
+	"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
+	"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
+	"pistol_boss_knockback_power": PISTOL_BOSS_KNOCKBACK_POWER,
+	"ak47_boss_knockback_power": AK47_BOSS_KNOCKBACK_POWER,
+	"ak47_knockback_velocity_scale": AK47_BOSS_KNOCKBACK_VELOCITY_SCALE,
+	"ak47_knockback_frames": AK47_BOSS_KNOCKBACK_FRAMES,
+	"ak47_knockback_decay_per_frame": AK47_BOSS_KNOCKBACK_DECAY_PER_FRAME,
+	"bazooka_stun_frames": BAZOOKA_STUN_FRAMES,
+	"bazooka_knockback_power": BAZOOKA_KNOCKBACK_POWER,
+	"bazooka_knockback_frames": BAZOOKA_KNOCKBACK_FRAMES,
+	"bazooka_knockback_decay_per_frame": BAZOOKA_KNOCKBACK_DECAY_PER_FRAME,
+	"grenade_boss_stun_frames": ActiveItemThrowController.GRENADE_BOSS_STUN_FRAMES,
+	"grenade_boss_knockback_power": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_POWER,
+	"grenade_boss_knockback_frames": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_FRAMES,
+	"grenade_boss_knockback_decay": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY,
+	"suicide_drone_knockback_power": SUICIDE_DRONE_KNOCKBACK_POWER,
+	"suicide_drone_knockback_frames": SUICIDE_DRONE_KNOCKBACK_FRAMES,
+	"suicide_drone_knockback_decay_per_frame": SUICIDE_DRONE_KNOCKBACK_DECAY_PER_FRAME,
+	"net_gun_field_duration_frames": NET_GUN_FIELD_DURATION_FRAMES,
+	"net_gun_dissolve_frames": NET_GUN_DISSOLVE_FRAMES,
+	"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
+	"net_gun_width": NET_GUN_WIDTH,
+	"net_gun_height": NET_GUN_HEIGHT,
+	"net_gun_min_height": NET_GUN_MIN_HEIGHT,
+})
+static var WEAPON_PROFILES: Dictionary = PROFILE_CATALOG["weapon_profiles"]
 
-const WEAPON_HIT_FEEDBACK := {
-	"pistol": {"intensity": 0.46, "shake_amount": 0.040, "shake_intensity": 1.25},
-	"commando_pistol": {"intensity": 0.50, "shake_amount": 0.045, "shake_intensity": 1.4},
-	"ak47": {"intensity": 0.36, "shake_amount": 0.030, "shake_intensity": 1.1},
-	"bazooka": {"intensity": 1.12, "shake_amount": 0.140, "shake_intensity": 3.2},
-	"net_gun": {"intensity": 0.76, "shake_amount": 0.070, "shake_intensity": 1.8},
-	"fire_support": {"intensity": 1.25, "shake_amount": 0.24, "shake_intensity": 7.0},
-	"bowling_trap": {"intensity": 0.82, "shake_amount": 0.085, "shake_intensity": 2.1},
-	"suicide_drone": {"intensity": 1.05, "shake_amount": 0.125, "shake_intensity": 3.0},
-}
+static var WEAPON_HIT_FEEDBACK: Dictionary = PROFILE_CATALOG["weapon_hit_feedback"]
 
-const WEAPON_HIT_RESULTS := {
-	"pistol": {
-		"stun_frames": 42.0,
-		"knockback_power": PISTOL_BOSS_KNOCKBACK_POWER,
-		"damage_units": 0,
-	},
-	"commando_pistol": {
-		"stun_frames": 42.0,
-		"knockback_power": PISTOL_BOSS_KNOCKBACK_POWER,
-		"damage_units": 0,
-	},
-	"ak47": {
-		"stun_frames": 12.0,
-		"knockback_power": AK47_BOSS_KNOCKBACK_POWER,
-		"knockback_velocity_scale": AK47_BOSS_KNOCKBACK_VELOCITY_SCALE,
-		"knockback_frames": AK47_BOSS_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": AK47_BOSS_KNOCKBACK_DECAY_PER_FRAME,
-		"damage_units": 0,
-	},
-	"bazooka": {
-		"stun_frames": BAZOOKA_STUN_FRAMES,
-		"knockback_power": BAZOOKA_KNOCKBACK_POWER,
-		"knockback_frames": BAZOOKA_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": BAZOOKA_KNOCKBACK_DECAY_PER_FRAME,
-		"damage_units": 2,
-	},
-	"net_gun": {
-		"damage_units": 0,
-	},
-	"fire_support": {
-		"stun_frames": ActiveItemThrowController.GRENADE_BOSS_STUN_FRAMES,
-		"knockback_power": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_POWER,
-		"knockback_frames": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY,
-		"damage_units": 1,
-	},
-	"bowling_trap": {
-		# 볼링트랩 직격 히트 스턴 2.5초 (가드 스턴과 동일). 볼링트랩은 총알 투사체를
-		# 발사하지 않고 붙잡은 공을 재발사하므로 이 히트 프로파일 경로는 사실상 미도달이나,
-		# 데이터 일관성을 위해 가드 스턴과 같은 값으로 유지한다.
-		"stun_frames": 150.0,
-		"knockback_power": 7.0,
-		"damage_units": 0,
-	},
-	"suicide_drone": {
-		"stun_frames": 48.0,
-		"knockback_power": SUICIDE_DRONE_KNOCKBACK_POWER,
-		"knockback_frames": SUICIDE_DRONE_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": SUICIDE_DRONE_KNOCKBACK_DECAY_PER_FRAME,
-		"damage_units": 0,
-	},
-}
+static var WEAPON_HIT_RESULTS: Dictionary = PROFILE_CATALOG["weapon_hit_results"]
 
-const WEAPON_LINGERING_EFFECTS := {
-	"net_gun": {
-		"kind": "net_field",
-		"duration_frames": NET_GUN_FIELD_DURATION_FRAMES,
-		"dissolve_frames": NET_GUN_DISSOLVE_FRAMES,
-		"dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
-		"width": NET_GUN_WIDTH,
-		"height": NET_GUN_HEIGHT,
-		"min_height": NET_GUN_MIN_HEIGHT,
-		"color": Color(0.42, 1.0, 0.52),
-		"secondary": Color(0.72, 0.95, 1.0),
-	},
-	"bowling_trap": {
-		"kind": "trap_clamp",
-		"duration_frames": 90.0,
-		"width": 92.0,
-		"height": 42.0,
-		"color": Color(0.95, 0.18, 0.24),
-		"secondary": Color(0.22, 0.10, 0.12),
-	},
-	"suicide_drone": {
-		"kind": "fire_zone",
-		"duration_frames": 150.0,
-		"width": 150.0,
-		"height": 60.0,
-		"color": Color(1.0, 0.28, 0.08),
-		"secondary": Color(1.0, 0.78, 0.18),
-	},
-}
+static var WEAPON_LINGERING_EFFECTS: Dictionary = PROFILE_CATALOG["weapon_lingering_effects"]
 
-const WEAPON_PROFILE_OVERRIDES := {
-	"fire_support": {
-		"explosion_radius": ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS,
-	},
-}
-const HIT_FEEDBACK_PROFILE_OVERRIDES := {
-	"fire_support": {
-		"shake_amount": 0.24,
-		"shake_intensity": 7.0,
-	},
-}
-const HIT_RESULT_PROFILE_OVERRIDES := {
-	"fire_support": {
-		"stun_frames": ActiveItemThrowController.GRENADE_BOSS_STUN_FRAMES,
-		"knockback_power": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_POWER,
-		"knockback_frames": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_FRAMES,
-		"knockback_decay_per_frame": ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY,
-	},
-}
+static var WEAPON_PROFILE_OVERRIDES: Dictionary = PROFILE_CATALOG["weapon_profile_overrides"]
+static var HIT_FEEDBACK_PROFILE_OVERRIDES: Dictionary = PROFILE_CATALOG["hit_feedback_profile_overrides"]
+static var HIT_RESULT_PROFILE_OVERRIDES: Dictionary = PROFILE_CATALOG["hit_result_profile_overrides"]
+static var RUNTIME_CONFIGS: Dictionary = CommandoFirearmRuntimeConfigCatalog.build_configs({
+	"base_weapon_id": BASE_WEAPON_ID,
+	"commando_pistol_weapon_id": "commando_pistol",
+	"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+	"doping_potion_defaults": DOPING_POTION_DEFAULTS,
+	"pistol_ammo_max": PISTOL_AMMO_MAX,
+	"pistol_cooldown_frames": PISTOL_COOLDOWN_FRAMES,
+	"beretta_cooldown_frames": BERETTA_COOLDOWN_FRAMES,
+	"pistol_control_lock_frames": PISTOL_CONTROL_LOCK_FRAMES,
+	"pistol_fire_delay_frames": PISTOL_FIRE_DELAY_FRAMES,
+	"pistol_post_fire_animation_frames": PISTOL_POST_FIRE_ANIMATION_FRAMES,
+	"commando_pistol_control_lock_frames": 0.0,
+	"commando_pistol_fire_delay_frames": 0.0,
+	"pistol_empty_reload_gauge_cost": PISTOL_EMPTY_RELOAD_GAUGE_COST,
+	"doping_potion_pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
+	"doping_potion_pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
+	"weapon_profiles": WEAPON_PROFILES,
+	"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+	"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
+	"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
+	"weapon_hit_results": WEAPON_HIT_RESULTS,
+	"hit_result_profile_overrides": HIT_RESULT_PROFILE_OVERRIDES,
+	"weapon_lingering_effects": WEAPON_LINGERING_EFFECTS,
+	"doping_fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
+	"doping_ak47_fire_interval_frames": DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
+	"ak47_ammo_max": AK47_AMMO_MAX,
+	"ak47_duration_frames": AK47_DURATION_FRAMES,
+	"ak47_fire_interval_frames": AK47_FIRE_INTERVAL_FRAMES,
+	"ak47_initial_burst_shots": AK47_INITIAL_BURST_SHOTS,
+	"ak47_base_spread_radians": AK47_BASE_SPREAD_RADIANS,
+	"ak47_recoil_per_shot": AK47_RECOIL_PER_SHOT,
+	"ak47_max_recoil": AK47_MAX_RECOIL,
+	"ak47_movement_speed_multiplier": AK47_MOVEMENT_SPEED_MULTIPLIER,
+	"doping_bazooka_cooldown_frames": DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
+	"doping_bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
+	"bazooka_ammo_max": BAZOOKA_AMMO_MAX,
+	"bazooka_cooldown_frames": BAZOOKA_COOLDOWN_FRAMES,
+	"bazooka_control_lock_frames": BAZOOKA_CONTROL_LOCK_FRAMES,
+	"bazooka_fire_animation_frames": BAZOOKA_FIRE_ANIMATION_FRAMES,
+	"bazooka_firing_pose_frames": BAZOOKA_FIRING_POSE_FRAMES,
+	"bazooka_muzzle_flash_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
+	"net_gun_ammo_max": NET_GUN_AMMO_MAX,
+	"net_gun_cooldown_frames": NET_GUN_COOLDOWN_FRAMES,
+	"net_gun_control_lock_frames": NET_GUN_CONTROL_LOCK_FRAMES,
+	"net_gun_throw_pose_frames": NET_GUN_THROW_POSE_FRAMES,
+	"net_gun_harpoon_flash_frames": NET_GUN_HARPOON_FLASH_FRAMES,
+	"field_width": FIELD_WIDTH,
+	"field_height": FIELD_HEIGHT,
+	"bowling_trap_min_field_y_ratio": BOWLING_TRAP_MIN_FIELD_Y_RATIO,
+	"bowling_trap_ammo_max": BOWLING_TRAP_AMMO_MAX,
+	"bowling_trap_cooldown_frames": BOWLING_TRAP_COOLDOWN_FRAMES,
+	"bowling_trap_control_lock_frames": BOWLING_TRAP_CONTROL_LOCK_FRAMES,
+	"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
+	"fire_sheet_default_frames": COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
+	"fire_sheet_long_frames": COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
+	"fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
+	"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+	"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+	"suicide_drone_ammo_max": SUICIDE_DRONE_AMMO_MAX,
+	"suicide_drone_grace_frames": SUICIDE_DRONE_GRACE_FRAMES,
+	"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
+	"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
+	"suicide_drone_size": SUICIDE_DRONE_SIZE,
+	"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
+	"suicide_drone_rotor_speed_scale": SUICIDE_DRONE_ROTOR_SPEED_SCALE,
+	"suicide_drone_life_frames": SUICIDE_DRONE_LIFE_FRAMES,
+	"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
+	"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+	"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
+	"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
+	"projectile_limit": PROJECTILE_LIMIT,
+	"flash_limit": FLASH_LIMIT,
+	"pistol_muzzle_source": COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
+	"bazooka_muzzle_source": COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
+	"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+	"pistol_bullet_speed": PISTOL_BULLET_SPEED,
+	"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
+	"doping_potion_pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+	"support_call_limit": SUPPORT_CALL_LIMIT,
+	"support_call_delay_min_frames": SUPPORT_CALL_DELAY_MIN_FRAMES,
+	"support_call_delay_max_frames": SUPPORT_CALL_DELAY_MAX_FRAMES,
+	"support_bomb_min_count": SUPPORT_BOMB_MIN_COUNT,
+	"support_bomb_max_count": SUPPORT_BOMB_MAX_COUNT,
+	"support_call_lock_frames": SUPPORT_CALL_LOCK_FRAMES,
+	"support_aircraft_drop_arm_frames": SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
+	"support_aircraft_y": SUPPORT_AIRCRAFT_Y,
+	"support_aircraft_speed": SUPPORT_AIRCRAFT_SPEED,
+	"support_bomb_interval_frames": SUPPORT_BOMB_INTERVAL_FRAMES,
+	"support_aircraft_finish_margin": SUPPORT_AIRCRAFT_FINISH_MARGIN,
+	"support_bomb_initial_vy": SUPPORT_BOMB_INITIAL_VY,
+	"support_bomb_gravity": SUPPORT_BOMB_GRAVITY,
+	"support_bomb_horizontal_jitter": SUPPORT_BOMB_HORIZONTAL_JITTER,
+	"support_missile_flight_frames": SUPPORT_MISSILE_FLIGHT_FRAMES,
+	"support_missile_life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
+	"support_aircraft_curve_amplitude": SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+	"support_aircraft_curve_frequency": SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+	"support_aircraft_curve_secondary_ratio": SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+	"support_aircraft_start_x": SUPPORT_AIRCRAFT_START_X,
+	"support_opponent_wall_y": SUPPORT_OPPONENT_WALL_Y,
+	"support_bomb_random_x_range": SUPPORT_BOMB_RANDOM_X_RANGE,
+	"bowling_trap_width": BOWLING_TRAP_WIDTH,
+	"bowling_trap_height": BOWLING_TRAP_HEIGHT,
+	"bowling_trap_capture_ball_offset": BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+	"bowling_trap_capture_frames": BOWLING_TRAP_CAPTURE_FRAMES,
+	"bowling_trap_capture_height": BOWLING_TRAP_CAPTURE_HEIGHT,
+	"trap_launch_speed_multiplier": BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+	"trap_launch_fan_half_angle": BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE,
+	"bowling_trap_guard_speed_reduction": BOWLING_TRAP_GUARD_SPEED_REDUCTION,
+	"bowling_trap_guard_knockback_power": BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+	"bowling_trap_guard_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,
+	"bowling_trap_limit": BOWLING_TRAP_LIMIT,
+	"default_projectile_speed": 16.0,
+	"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
+	"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
+	"ak47_shell_lifetime_frames": AK47_SHELL_LIFETIME_FRAMES,
+	"ak47_shell_gravity": AK47_SHELL_GRAVITY,
+	"ak47_shell_bounce_decay": AK47_SHELL_BOUNCE_DECAY,
+	"ak47_shell_max_bounces": AK47_SHELL_MAX_BOUNCES,
+	"pistol_shell_lifetime_frames": PISTOL_SHELL_LIFETIME_FRAMES,
+	"shell_casing_limit": SHELL_CASING_LIMIT,
+	"pistol_wall_bounce_margin": PISTOL_WALL_BOUNCE_MARGIN,
+	"pistol_wall_bounce_max": PISTOL_WALL_BOUNCE_MAX,
+	"pistol_wall_bounce_damping": PISTOL_WALL_BOUNCE_DAMPING,
+	"bazooka_acceleration": BAZOOKA_ACCELERATION,
+	"bazooka_max_speed": BAZOOKA_MAX_SPEED,
+	"slingshot_stun_multipliers": SLINGSHOT_STUN_MULT,
+	"slingshot_knockback_multipliers": SLINGSHOT_KNOCKBACK_MULT,
+	"pistol_head_shot_chance": PISTOL_HEAD_SHOT_CHANCE,
+	"pistol_leg_shot_chance": PISTOL_LEG_SHOT_CHANCE,
+	"pistol_hit_tuning": PISTOL_HIT_TUNING,
+	"pistol_hit_text_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
+	"pistol_head_shot_label": "헤드샷!",
+	"pistol_leg_shot_label": "레그샷!",
+	"pistol_feedback_limit": PISTOL_FEEDBACK_LIMIT,
+	"ak47_boss_damage_hit_threshold": AK47_BOSS_DAMAGE_HIT_THRESHOLD,
+	"hit_event_limit": HIT_EVENT_LIMIT,
+	"net_gun_width": NET_GUN_WIDTH,
+	"net_gun_height": NET_GUN_HEIGHT,
+	"net_gun_min_height": NET_GUN_MIN_HEIGHT,
+	"net_gun_dissolve_frames": NET_GUN_DISSOLVE_FRAMES,
+	"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
+	"net_gun_player_slow_multiplier": NET_GUN_PLAYER_SLOW_MULTIPLIER,
+	"status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+	"status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+	"status_initial_cooldown_frames": LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
+	"status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+	"effect_limit": LINGERING_EFFECT_LIMIT,
+	"lingering_effect_phase_step": LINGERING_EFFECT_PHASE_STEP,
+	"lingering_status_target": LINGERING_STATUS_TARGET,
+	"lingering_status_id_slow": LINGERING_STATUS_ID_SLOW,
+	"lingering_status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+	"lingering_status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+	"lingering_status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+	"lingering_status_min_slow_multiplier": LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+	"lingering_status_max_slow_multiplier": LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+	"lingering_status_source": LINGERING_STATUS_DEFAULT_SOURCE,
+})
 
 var last_fire_msec := -100000
+var _runtime_perk_modal_pause_started_msec := -1
 var projectiles: Array = []
 var muzzle_flashes: Array = []
 var impact_flashes: Array = []
@@ -598,62 +610,27 @@ var serve_wait_fire_suppressed_until_release := false
 
 
 static func get_pistol_enhance_ammo_bonus(level: int) -> int:
-	if level <= 2:
-		return 0
-	if level <= 4:
-		return 1
-	return level - 3
+	return CommandoFirearmPistolEnhanceState.get_ammo_bonus(level)
 
 
 static func get_pistol_enhance_spread_radians(level: int) -> float:
-	if level <= 0:
-		return PISTOL_SPREAD_RADIANS
-	var index: int = clampi(level, 1, PISTOL_ENHANCE_SPREAD_DEGREES.size() - 1)
-	return deg_to_rad(float(PISTOL_ENHANCE_SPREAD_DEGREES[index]))
+	return CommandoFirearmPistolEnhanceState.get_spread_radians(level, PISTOL_ENHANCE_TUNING)
 
 
 static func get_pistol_enhance_speed_multiplier(level: int) -> float:
-	return 1.0 + float(clampi(level, 0, 5)) * PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL
+	return CommandoFirearmPistolEnhanceState.get_speed_multiplier(level, PISTOL_ENHANCE_TUNING)
 
 
 static func get_pistol_enhance_knockback_multiplier(level: int) -> float:
-	return 1.0 + float(clampi(level, 0, 5)) * PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL
-
-
-func _get_runtime_perk_level(deps: Dictionary, perk_id: String) -> int:
-	var perk_state: Object = deps.get("runtime_perk_state", null)
-	if perk_state == null or not perk_state.has_method("get_runtime_skill_level"):
-		return 0
-	return max(0, int(perk_state.call("get_runtime_skill_level", perk_id)))
-
-
-func _get_effective_base_pistol_spread_radians(deps: Dictionary) -> float:
-	return get_pistol_enhance_spread_radians(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
-
-
-func _get_effective_base_pistol_speed_multiplier(deps: Dictionary) -> float:
-	return get_pistol_enhance_speed_multiplier(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
-
-
-func _get_effective_base_pistol_knockback_multiplier(deps: Dictionary) -> float:
-	return get_pistol_enhance_knockback_multiplier(_get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID))
+	return CommandoFirearmPistolEnhanceState.get_knockback_multiplier(level, PISTOL_ENHANCE_TUNING)
 
 
 func _sync_base_pistol_enhance_ammo(deps: Dictionary, weapon_controller: Object) -> void:
-	if weapon_controller == null or not weapon_controller.has_method("set_base_pistol_ammo_max"):
-		return
-	var level: int = _get_runtime_perk_level(deps, PISTOL_ENHANCE_PERK_ID)
-	var ammo_max: int = PISTOL_AMMO_MAX + get_pistol_enhance_ammo_bonus(level)
-	weapon_controller.call("set_base_pistol_ammo_max", ammo_max)
+	CommandoFirearmPistolEnhanceState.sync_base_pistol_ammo(deps, weapon_controller, PISTOL_ENHANCE_TUNING)
 
 
 func _build_firearm_spawn_options(deps: Dictionary) -> Dictionary:
-	return {
-		"pistol_spread_radians": _get_effective_base_pistol_spread_radians(deps),
-		"base_pistol_speed_mult": _get_effective_base_pistol_speed_multiplier(deps),
-		"base_pistol_knockback_mult": _get_effective_base_pistol_knockback_multiplier(deps),
-		"beretta_spread_radians": BERETTA_SPREAD_RADIANS,
-	}
+	return CommandoFirearmPistolEnhanceState.build_spawn_options(deps, PISTOL_ENHANCE_TUNING)
 
 
 func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dictionary, deps: Dictionary) -> Dictionary:
@@ -681,19 +658,12 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var weapon_id: String = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_controller.has_method("update_timers"):
 		CommandoFirearmAudioDispatcher.play_reload_progress_audio(weapon_controller.update_timers(1.0), deps)
-	var serve_wait_suppression: Dictionary = CommandoFirearmControlState.get_serve_wait_fire_suppression(
+	if CommandoFirearmControlState.apply_runtime_serve_wait_fire_suppression(
+		self,
 		input_snapshot,
 		config,
-		deps,
-		serve_wait_fire_suppressed_until_release
-	)
-	serve_wait_fire_suppressed_until_release = bool(serve_wait_suppression.get(
-		"suppressed_until_release",
-		serve_wait_fire_suppressed_until_release
-	))
-	if bool(serve_wait_suppression.get("clear_input_state", false)):
-		CommandoFirearmControlState.apply_serve_wait_firearm_input_cleared(self)
-	if bool(serve_wait_suppression.get("suppressed", false)):
+		deps
+	):
 		return {}
 	var timed_result: Dictionary = CommandoFirearmTimerState.advance_runtime_firearm_timers(
 		self,
@@ -748,135 +718,60 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_suicide_drone_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-	if not bool(input_snapshot.get("action_pressed", false)):
-		return {}
-	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	if now_msec - last_fire_msec < FIRE_DEBOUNCE_MSEC:
-		return {}
-	if not CommandoFirearmCooldownState.is_ready(weapon_id, now_msec, deps):
-		return {
-			"handled": true,
-			"weapon_id": weapon_id,
-			"fire_failed": true,
-			"special_gauge": special_gauge,
-		}
-	if not bool(current_weapon.get("can_fire", true)):
-		return {
-			"handled": true,
-			"weapon_id": weapon_id,
-			"fire_failed": true,
-			"special_gauge": special_gauge,
-		}
-	if weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return {
-				"handled": true,
-				"weapon_id": weapon_id,
-				"fire_failed": true,
-				"special_gauge": special_gauge,
-			}
-	last_fire_msec = now_msec
-	if weapon_id != "pistol":
-		CommandoFirearmCooldownState.trigger_configured_cooldown(weapon_id, now_msec, deps)
-	_spawn_firearm_effect(weapon_id, config, deps)
-	CommandoFirearmAudioDispatcher.play_fire_audio(weapon_id, deps)
-	return {
-		"handled": true,
-		"weapon_id": weapon_id,
-		"fired": true,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
-
-
-func reset() -> void:
-	last_fire_msec = -100000
-	projectiles.clear()
-	muzzle_flashes.clear()
-	impact_flashes.clear()
-	lingering_effects.clear()
-	shell_casings.clear()
-	pistol_feedbacks.clear()
-	support_calls.clear()
-	bowling_traps.clear()
-	pistol_pending_weapon_id = ""
-	hit_events.clear()
-	serve_wait_fire_suppressed_until_release = false
-	pending_boss_damage_units = 0
-	pending_boss_damage_sources.clear()
-	pending_special_gauge_gain = 0.0
-	pending_special_gauge_sources.clear()
-	pending_special_gauge_hit_kind = ""
-	pending_pistol_feedback_timer_frames = 0.0
-	pistol_boss_hit_count = 0
-	ak47_boss_hit_count = 0
-	slingshot_charging = false
-	slingshot_charge_timer_frames = 0.0
-	slingshot_charge_level = 0
-	slingshot_cooldown_frames = 0.0
-	slingshot_gauge_spent = 0.0
-	slingshot_last_action_pressed = false
-	slingshot_control_lock_frames = 0.0
-	pistol_cooldown_frames = 0.0
-	pistol_cooldown_max_frames = PISTOL_COOLDOWN_FRAMES
-	pistol_control_lock_frames = 0.0
-	pistol_control_lock_max_frames = PISTOL_CONTROL_LOCK_FRAMES
-	pistol_fire_delay_frames = 0.0
-	pistol_post_fire_animation_frames = 0.0
-	pistol_pending_config.clear()
-	ak47_fire_interval_frames = 0.0
-	ak47_fire_interval_max_frames = AK47_FIRE_INTERVAL_FRAMES
-	ak47_burst_shots_remaining = 0
-	ak47_trigger_held = false
-	ak47_last_action_pressed = false
-	ak47_recoil_accumulation = 0.0
-	bazooka_cooldown_frames = 0.0
-	bazooka_cooldown_max_frames = BAZOOKA_COOLDOWN_FRAMES
-	bazooka_control_lock_frames = 0.0
-	bazooka_control_lock_max_frames = BAZOOKA_CONTROL_LOCK_FRAMES
-	bazooka_fire_animation_frames = 0.0
-	bazooka_firing_pose_frames = 0.0
-	bazooka_muzzle_flash_frames = 0.0
-	net_gun_cooldown_frames = 0.0
-	net_gun_control_lock_frames = 0.0
-	net_gun_throw_pose_frames = 0.0
-	net_gun_harpoon_flash_frames = 0.0
-	net_gun_last_dash_active = false
-	bowling_trap_cooldown_frames = 0.0
-	bowling_trap_control_lock_frames = 0.0
-	bowling_trap_install_pose_frames = 0.0
-	bowling_trap_last_action_pressed = false
-	suicide_drone_cooldown_frames = 0.0
-	suicide_drone_last_action_pressed = false
-	weapon_fire_sheet_id = ""
-	weapon_fire_sheet_timer_frames = 0.0
-	weapon_fire_sheet_max_frames = 0.0
-	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+	return CommandoFirearmAmmoWeaponInputState.update_runtime_generic_weapon_input(
 		self,
-		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
+		input_snapshot,
+		special_gauge,
+		config,
+		deps,
+		current_weapon,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC,
+		FIRE_DEBOUNCE_MSEC,
+		RUNTIME_CONFIGS["fire_spawn"]
 	)
 
 
+func reset() -> void:
+	_runtime_perk_modal_pause_started_msec = -1
+	CommandoFirearmRuntimeLifecycleState.reset_runtime(self, RUNTIME_LIFECYCLE_RESET_DEFAULTS)
+
+
 func reset_round(deps: Dictionary = {}) -> void:
-	CommandoFirearmAudioDispatcher.stop_all_support_aircraft_audio(support_calls, deps)
-	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
-	var carried_bowling_traps: Array = []
-	if bool(deps.get("preserve_bowling_traps", true)):
-		carried_bowling_traps = CommandoFirearmBowlingTrapGeometry.build_round_carryover(
-			bowling_traps,
-			BOWLING_TRAP_CAPTURE_BALL_OFFSET
-		)
-	reset()
-	bowling_traps = carried_bowling_traps
+	_runtime_perk_modal_pause_started_msec = -1
+	CommandoFirearmRuntimeLifecycleState.reset_round(
+		self,
+		deps,
+		RUNTIME_LIFECYCLE_RESET_DEFAULTS,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET
+	)
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+# 발사 디바운스(`last_fire_msec`)와 그물 조임 틱(`net_constrict_last_tick_msec`)
+# 둘 다 "지금 - 앵커" 로 재는 값이라 모달이 지나가면 즉시 열려버린다.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	last_fire_msec = RuntimePerkModalTimeShift.shift_anchor(last_fire_msec, delta_msec)
+	net_constrict_last_tick_msec = RuntimePerkModalTimeShift.shift_anchor(
+		net_constrict_last_tick_msec, delta_msec
+	)
 
 
 func has_visible_effects() -> bool:
@@ -957,74 +852,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		fps_scale,
 		context,
 		deps,
-		{
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
-			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
-			"base_weapon_id": BASE_WEAPON_ID,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"support_aircraft_start_x": SUPPORT_AIRCRAFT_START_X,
-			"support_aircraft_y": SUPPORT_AIRCRAFT_Y,
-			"support_aircraft_speed": SUPPORT_AIRCRAFT_SPEED,
-			"support_bomb_interval_frames": SUPPORT_BOMB_INTERVAL_FRAMES,
-			"support_aircraft_finish_margin": SUPPORT_AIRCRAFT_FINISH_MARGIN,
-			"support_aircraft_curve_amplitude": SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-			"support_aircraft_curve_frequency": SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-			"support_aircraft_curve_secondary_ratio": SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-			"support_bomb_initial_vy": SUPPORT_BOMB_INITIAL_VY,
-			"support_bomb_gravity": SUPPORT_BOMB_GRAVITY,
-			"support_bomb_horizontal_jitter": SUPPORT_BOMB_HORIZONTAL_JITTER,
-			"support_opponent_wall_y": SUPPORT_OPPONENT_WALL_Y,
-			"support_missile_flight_frames": SUPPORT_MISSILE_FLIGHT_FRAMES,
-			"support_missile_life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
-			"support_bomb_random_x_range": SUPPORT_BOMB_RANDOM_X_RANGE,
-			"projectile_limit": PROJECTILE_LIMIT,
-			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
-			"flash_limit": FLASH_LIMIT,
-			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
-			"bowling_trap_capture_frames": BOWLING_TRAP_CAPTURE_FRAMES,
-			"bowling_trap_capture_ball_offset": BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-			"bowling_trap_height": BOWLING_TRAP_HEIGHT,
-			"bowling_trap_capture_height": BOWLING_TRAP_CAPTURE_HEIGHT,
-			"bowling_trap_width": BOWLING_TRAP_WIDTH,
-			"trap_launch_speed_multiplier": BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-			"trap_launch_fan_half_angle": BOWLING_TRAP_LAUNCH_FAN_HALF_ANGLE,
-			"bowling_trap_guard_speed_reduction": BOWLING_TRAP_GUARD_SPEED_REDUCTION,
-			"bowling_trap_guard_knockback_power": BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-			"bowling_trap_guard_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,
-			"pistol_wall_bounce_margin": PISTOL_WALL_BOUNCE_MARGIN,
-			"pistol_wall_bounce_max": PISTOL_WALL_BOUNCE_MAX,
-			"pistol_wall_bounce_damping": PISTOL_WALL_BOUNCE_DAMPING,
-			"bazooka_acceleration": BAZOOKA_ACCELERATION,
-			"bazooka_max_speed": BAZOOKA_MAX_SPEED,
-			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
-			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
-			"suicide_drone_size": SUICIDE_DRONE_SIZE,
-			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
-			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
-			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
-			"ak47_shell_gravity": AK47_SHELL_GRAVITY,
-			"ak47_shell_bounce_decay": AK47_SHELL_BOUNCE_DECAY,
-			"ak47_shell_max_bounces": AK47_SHELL_MAX_BOUNCES,
-			"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
-			"lingering_effect_phase_step": LINGERING_EFFECT_PHASE_STEP,
-			"net_gun_width": NET_GUN_WIDTH,
-			"net_gun_min_height": NET_GUN_MIN_HEIGHT,
-			"lingering_status_target": LINGERING_STATUS_TARGET,
-			"lingering_status_id_slow": LINGERING_STATUS_ID_SLOW,
-			"lingering_status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-			"lingering_status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-			"lingering_status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-			"lingering_status_min_slow_multiplier": LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
-			"lingering_status_max_slow_multiplier": LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
-			"lingering_status_source": LINGERING_STATUS_DEFAULT_SOURCE,
-		}
+		RUNTIME_CONFIGS["effect_update"]
 	)
 
 
@@ -1056,23 +884,7 @@ func _update_pistol_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"base_weapon_id": BASE_WEAPON_ID,
-			"commando_pistol_weapon_id": "commando_pistol",
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
-			"pistol_ammo_max": PISTOL_AMMO_MAX,
-			"pistol_cooldown_frames": PISTOL_COOLDOWN_FRAMES,
-			"beretta_cooldown_frames": BERETTA_COOLDOWN_FRAMES,
-			"pistol_control_lock_frames": PISTOL_CONTROL_LOCK_FRAMES,
-			"pistol_fire_delay_frames": PISTOL_FIRE_DELAY_FRAMES,
-			"pistol_post_fire_animation_frames": PISTOL_POST_FIRE_ANIMATION_FRAMES,
-			"commando_pistol_control_lock_frames": 0.0,
-			"commando_pistol_fire_delay_frames": 0.0,
-			"pistol_empty_reload_gauge_cost": PISTOL_EMPTY_RELOAD_GAUGE_COST,
-			"doping_potion_pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
-			"doping_potion_pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
-		}
+		RUNTIME_CONFIGS["pistol_input"]
 	)
 
 
@@ -1092,22 +904,7 @@ func _update_ak47_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
-			"doping_fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
-			"doping_ak47_fire_interval_frames": DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
-			"ak47_ammo_max": AK47_AMMO_MAX,
-			"ak47_duration_frames": AK47_DURATION_FRAMES,
-			"ak47_fire_interval_frames": AK47_FIRE_INTERVAL_FRAMES,
-			"ak47_initial_burst_shots": AK47_INITIAL_BURST_SHOTS,
-			"ak47_base_spread_radians": AK47_BASE_SPREAD_RADIANS,
-			"ak47_recoil_per_shot": AK47_RECOIL_PER_SHOT,
-			"ak47_max_recoil": AK47_MAX_RECOIL,
-			"ak47_movement_speed_multiplier": AK47_MOVEMENT_SPEED_MULTIPLIER,
-		}
+		RUNTIME_CONFIGS["ak47_input"]
 	)
 
 
@@ -1127,21 +924,7 @@ func _update_bazooka_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
-			"doping_fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
-			"doping_bazooka_cooldown_frames": DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
-			"doping_bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
-			"bazooka_ammo_max": BAZOOKA_AMMO_MAX,
-			"bazooka_cooldown_frames": BAZOOKA_COOLDOWN_FRAMES,
-			"bazooka_control_lock_frames": BAZOOKA_CONTROL_LOCK_FRAMES,
-			"bazooka_fire_animation_frames": BAZOOKA_FIRE_ANIMATION_FRAMES,
-			"bazooka_firing_pose_frames": BAZOOKA_FIRING_POSE_FRAMES,
-			"bazooka_muzzle_flash_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
-		}
+		RUNTIME_CONFIGS["bazooka_input"]
 	)
 
 
@@ -1161,16 +944,7 @@ func _update_net_gun_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"net_gun_ammo_max": NET_GUN_AMMO_MAX,
-			"net_gun_cooldown_frames": NET_GUN_COOLDOWN_FRAMES,
-			"net_gun_control_lock_frames": NET_GUN_CONTROL_LOCK_FRAMES,
-			"net_gun_throw_pose_frames": NET_GUN_THROW_POSE_FRAMES,
-			"net_gun_harpoon_flash_frames": NET_GUN_HARPOON_FLASH_FRAMES,
-		}
+		RUNTIME_CONFIGS["net_gun_input"]
 	)
 
 
@@ -1190,18 +964,7 @@ func _update_bowling_trap_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"bowling_trap_min_field_y_ratio": BOWLING_TRAP_MIN_FIELD_Y_RATIO,
-			"bowling_trap_ammo_max": BOWLING_TRAP_AMMO_MAX,
-			"bowling_trap_cooldown_frames": BOWLING_TRAP_COOLDOWN_FRAMES,
-			"bowling_trap_control_lock_frames": BOWLING_TRAP_CONTROL_LOCK_FRAMES,
-			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
-		}
+		RUNTIME_CONFIGS["bowling_trap_input"]
 	)
 
 
@@ -1221,25 +984,7 @@ func _update_suicide_drone_input(
 		deps,
 		current_weapon,
 		now_msec,
-		{
-			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"fire_sheet_default_frames": COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
-			"fire_sheet_long_frames": COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
-			"fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
-			"suicide_drone_ammo_max": SUICIDE_DRONE_AMMO_MAX,
-			"suicide_drone_grace_frames": SUICIDE_DRONE_GRACE_FRAMES,
-			"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
-			"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
-			"suicide_drone_size": SUICIDE_DRONE_SIZE,
-			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
-			"suicide_drone_life_frames": SUICIDE_DRONE_LIFE_FRAMES,
-			"projectile_limit": PROJECTILE_LIMIT,
-			"flash_limit": FLASH_LIMIT,
-		}
+		RUNTIME_CONFIGS["suicide_drone_input"]
 	)
 
 
@@ -1255,23 +1000,7 @@ func _update_active_suicide_drone_input(
 		special_gauge,
 		config,
 		deps,
-		{
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
-			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
-			"base_weapon_id": BASE_WEAPON_ID,
-			"field_width": FIELD_WIDTH,
-			"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
-			"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
-			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
-			"suicide_drone_rotor_speed_scale": SUICIDE_DRONE_ROTOR_SPEED_SCALE,
-			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
-			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
-			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
-			"flash_limit": FLASH_LIMIT,
-		}
+		RUNTIME_CONFIGS["active_suicide_drone_input"]
 	)
 
 
@@ -1283,57 +1012,14 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		config,
 		deps,
 		profile_override,
-		{
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
-			"base_weapon_id": BASE_WEAPON_ID,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"fire_sheet_default_frames": COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
-			"fire_sheet_long_frames": COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
-			"fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
-			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-			"pistol_muzzle_source": COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
-			"bazooka_muzzle_source": COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
-			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			"pistol_bullet_speed": PISTOL_BULLET_SPEED,
-			"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
-			"doping_potion_pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
-			"pistol_spread_radians": float(spawn_options.get("pistol_spread_radians", PISTOL_SPREAD_RADIANS)),
-			"base_pistol_speed_mult": float(spawn_options.get("base_pistol_speed_mult", 1.0)),
-			"base_pistol_knockback_mult": float(spawn_options.get("base_pistol_knockback_mult", 1.0)),
-			"beretta_spread_radians": float(spawn_options.get("beretta_spread_radians", BERETTA_SPREAD_RADIANS)),
-			"flash_limit": FLASH_LIMIT,
-			"support_call_limit": SUPPORT_CALL_LIMIT,
-			"support_call_delay_min_frames": SUPPORT_CALL_DELAY_MIN_FRAMES,
-			"support_call_delay_max_frames": SUPPORT_CALL_DELAY_MAX_FRAMES,
-			"support_bomb_min_count": SUPPORT_BOMB_MIN_COUNT,
-			"support_bomb_max_count": SUPPORT_BOMB_MAX_COUNT,
-			"support_call_lock_frames": SUPPORT_CALL_LOCK_FRAMES,
-			"support_aircraft_drop_arm_frames": SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
-			"support_aircraft_y": SUPPORT_AIRCRAFT_Y,
-			"support_aircraft_speed": SUPPORT_AIRCRAFT_SPEED,
-			"support_aircraft_curve_amplitude": SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-			"support_aircraft_curve_frequency": SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-			"support_aircraft_curve_secondary_ratio": SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-			"support_aircraft_start_x": SUPPORT_AIRCRAFT_START_X,
-			"bowling_trap_width": BOWLING_TRAP_WIDTH,
-			"bowling_trap_height": BOWLING_TRAP_HEIGHT,
-			"bowling_trap_min_field_y_ratio": BOWLING_TRAP_MIN_FIELD_Y_RATIO,
-			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
-			"bowling_trap_capture_ball_offset": BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-			"bowling_trap_limit": BOWLING_TRAP_LIMIT,
-			"default_projectile_speed": 16.0,
-			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
-			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
-			"projectile_limit": PROJECTILE_LIMIT,
-			"ak47_shell_lifetime_frames": AK47_SHELL_LIFETIME_FRAMES,
-			"pistol_shell_lifetime_frames": PISTOL_SHELL_LIFETIME_FRAMES,
-			"shell_casing_limit": SHELL_CASING_LIMIT,
-		}
+		_build_runtime_fire_spawn_config(spawn_options)
 	)
+
+
+func _build_runtime_fire_spawn_config(spawn_options: Dictionary) -> Dictionary:
+	var runtime_config: Dictionary = RUNTIME_CONFIGS["fire_spawn"].duplicate()
+	runtime_config.merge(spawn_options, true)
+	return runtime_config
 
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -1344,32 +1030,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		fps_scale,
 		context,
 		deps,
-		{
-			"weapon_profiles": WEAPON_PROFILES,
-			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
-			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
-			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
-			"base_weapon_id": BASE_WEAPON_ID,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"pistol_wall_bounce_margin": PISTOL_WALL_BOUNCE_MARGIN,
-			"pistol_wall_bounce_max": PISTOL_WALL_BOUNCE_MAX,
-			"pistol_wall_bounce_damping": PISTOL_WALL_BOUNCE_DAMPING,
-			"bazooka_acceleration": BAZOOKA_ACCELERATION,
-			"bazooka_max_speed": BAZOOKA_MAX_SPEED,
-			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
-			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
-			"suicide_drone_size": SUICIDE_DRONE_SIZE,
-			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
-			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
-			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
-			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
-			"flash_limit": FLASH_LIMIT,
-		}
+		RUNTIME_CONFIGS["projectile_update"]
 	)
 
 
@@ -1379,27 +1040,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		projectile,
 		context,
 		deps,
-		{
-			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
-			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
-			"weapon_hit_results": WEAPON_HIT_RESULTS,
-			"hit_result_profile_overrides": HIT_RESULT_PROFILE_OVERRIDES,
-			"base_weapon_id": BASE_WEAPON_ID,
-			"slingshot_stun_multipliers": SLINGSHOT_STUN_MULT,
-			"slingshot_knockback_multipliers": SLINGSHOT_KNOCKBACK_MULT,
-			"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
-			"pistol_head_shot_chance": PISTOL_HEAD_SHOT_CHANCE,
-			"pistol_leg_shot_chance": PISTOL_LEG_SHOT_CHANCE,
-			"pistol_hit_tuning": PISTOL_HIT_TUNING,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"pistol_hit_text_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
-			"pistol_head_shot_label": "헤드샷!",
-			"pistol_leg_shot_label": "레그샷!",
-			"pistol_feedback_limit": PISTOL_FEEDBACK_LIMIT,
-			"ak47_boss_damage_hit_threshold": AK47_BOSS_DAMAGE_HIT_THRESHOLD,
-			"hit_event_limit": HIT_EVENT_LIMIT,
-		}
+		RUNTIME_CONFIGS["projectile_hit"]
 	)
 
 
@@ -1409,23 +1050,5 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		weapon_id,
 		projectile,
 		context,
-		{
-			"weapon_lingering_effects": WEAPON_LINGERING_EFFECTS,
-			"field_width": FIELD_WIDTH,
-			"field_height": FIELD_HEIGHT,
-			"net_gun_width": NET_GUN_WIDTH,
-			"net_gun_height": NET_GUN_HEIGHT,
-			"net_gun_min_height": NET_GUN_MIN_HEIGHT,
-			"net_gun_dissolve_frames": NET_GUN_DISSOLVE_FRAMES,
-			"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
-			"net_gun_player_slow_multiplier": NET_GUN_PLAYER_SLOW_MULTIPLIER,
-			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-			"status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-			"status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-			"status_initial_cooldown_frames": LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
-			"status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-			"effect_limit": LINGERING_EFFECT_LIMIT,
-		}
+		RUNTIME_CONFIGS["lingering_spawn"]
 	)

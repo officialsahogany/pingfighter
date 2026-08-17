@@ -1,0 +1,28 @@
+{
+  "asset": "res://assets/ui/runtime_perk/runtime_perk_inkwash_ornament_atlas_imagegen_v1.png",
+  "references": [
+    "res://assets/ui/character_info/character_info_inkwash_ornament_atlas_imagegen_v1.png",
+    "C:/Users/woduq/Downloads/ChatGPT Image 2026년 8월 3일 오후 08_09_20.png"
+  ],
+  "generator": "OpenAI built-in imagegen",
+  "layout": {
+    "grid": "2x2",
+    "cells": {
+      "0,0": "low layered mountain and mist band",
+      "1,0": "faded circular Daoist seal with cloud curls",
+      "0,1": "pine and plum branch over a cloud-scroll bank",
+      "1,1": "mountain river valley with a separate cinnabar seal"
+    }
+  },
+  "postprocess": {
+    "source_background": "#00ff00 chroma key",
+    "sampled_key": "#05f908",
+    "transparent_threshold": 28,
+    "opaque_threshold": 170,
+    "edge_contract": 1,
+    "soft_matte": true,
+    "despill": true
+  },
+  "runtime": "Prewarmed by RuntimePerkOverlayRenderer before the choice modal opens. Four card variants and the backdrop consume fixed atlas regions; procedural ornaments remain as the load-failure fallback.",
+  "prompt_summary": "Joseon ink-and-light-color 2x2 fixed-cell ornament atlas for tall Mugong perk cards; low mountains, Daoist seal and clouds, pine-plum cloud bank, and mountain river with restrained cinnabar seal on a flat green key background."
+}

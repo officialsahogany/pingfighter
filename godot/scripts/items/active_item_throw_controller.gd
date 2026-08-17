@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
 const ActiveItemThrowActivation := preload("res://scripts/items/active_item_throw_activation.gd")
 const ActiveItemThrowBanana := preload("res://scripts/items/active_item_throw_banana.gd")
 const ActiveItemThrowBoomerang := preload("res://scripts/items/active_item_throw_boomerang.gd")
@@ -13,6 +14,12 @@ const ActiveItemThrowSoap := preload("res://scripts/items/active_item_throw_soap
 const ActiveItemThrowSpiderMine := preload("res://scripts/items/active_item_throw_spider_mine.gd")
 const ActiveItemThrowTearGas := preload("res://scripts/items/active_item_throw_tear_gas.gd")
 const ActiveItemThrowWindup := preload("res://scripts/items/active_item_throw_windup.gd")
+
+# ⚠️`windup_msec` 는 길이라 제외 — 같이 밀면 예비동작이 모달 길이만큼 늘어난다.
+const PENDING_THROW_MODAL_TIME_KEYS: Array[String] = [
+	"start_msec",
+	"release_msec",
+]
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -385,6 +392,18 @@ func is_throw_windup_active() -> bool:
 
 func cancel_pending_throw_windups() -> void:
 	pending_throws.clear()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 정지 마커는 소유자(active_item_runtime)가 든다.
+# ⚠️`windup_msec` 는 길이라 제외 — 같이 밀면 던지기 예비동작이 모달 길이만큼
+# 늘어난다. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(
+		pending_throws, PENDING_THROW_MODAL_TIME_KEYS, delta_msec
+	)
 
 
 func is_player_control_locked() -> bool:

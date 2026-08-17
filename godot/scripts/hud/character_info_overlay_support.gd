@@ -43,7 +43,7 @@ func _build_lingpet_stats(owner: Object, panel_snapshot_override: Dictionary = {
 		STAT_BUFF_COLOR,
 		LINGPET_SPEED_DISPLAY_PX_PER_POINT,
 		LINGPET_HATCH_REQUIRED_HITS,
-		"링펫 근처로 떨어지는, 플레이어가 막기 어려운 공을 미리 예측해 가드하는 확률입니다. 링펫에서 멀리 떨어진 공은 가드하지 않습니다."
+		"수호령 근처로 떨어지는, 플레이어가 막기 어려운 공을 미리 예측해 가드하는 확률입니다. 수호령에서 멀리 떨어진 공은 가드하지 않습니다."
 	)
 	return CharacterInfoOverlayValueUtils.get_array(_lingpet_stats_cache.get("rows", []))
 
@@ -51,7 +51,7 @@ func _build_stats(owner: Object, registry: Object, runtime_state_override: Objec
 	return CharacterInfoOverlayStatsPresenter.build_overlay_player_stat_rows(self, owner, registry, _character_runtime, runtime_state_override, active_item_runtime_override, mythic_item_runtime_override, character_type_override, stat_sources_override, write_row_cache, active_item_slot_capacity_override, active_item_slots_override, STAT_ROW_COUNT, _stats_row_cache, _stats_label_cache, _stats_value_cache, _stats_color_cache, _stats_value_width_cache, _stats_value_width_text_cache, _stats_value_width_size_cache, _stats_value_width_font_id_cache, SPECIAL_GAUGE_MAX, PLAYER_BASE_PADDLE_WIDTH, BASE_ACTIVE_ITEM_SLOT_COUNT, STAT_BUFF_COLOR, STAT_DEBUFF_COLOR, include_breakdown)
 
 func _draw_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font, perk_icon_renderer: Object = null) -> void:
-	CharacterInfoOverlayTooltipPresenter.draw_tooltip(canvas, data, mouse_pos, view_size, font, _empty_tooltip_roll_entries, ACCENT_BLUE, TEXT_SOFT, OVERLAY_TOOLTIP_PANEL_FILL, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(CharacterInfoOverlayValueUtils, "tooltip_width").bind(Callable(self, "_text_size")), Callable(self, "_draw_dual_item_tooltip"), Callable(self, "_tooltip_subtitle_color"), Callable(self, "_draw_breakdown_icon").bind(perk_icon_renderer))
+	CharacterInfoOverlayTooltipPresenter.draw_tooltip(canvas, data, mouse_pos, view_size, font, _empty_tooltip_roll_entries, ACCENT_BLUE, OVERLAY_TOOLTIP_TEXT, OVERLAY_TOOLTIP_PANEL_FILL, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(CharacterInfoOverlayValueUtils, "tooltip_width").bind(Callable(self, "_text_size")), Callable(self, "_draw_dual_item_tooltip").bind(perk_icon_renderer), Callable(self, "_tooltip_subtitle_color"), Callable(self, "_draw_breakdown_icon").bind(perk_icon_renderer))
 
 
 # 능력치 툴팁 증감 내역 줄 앞의 원인 아이콘. 퍽/신화(gold_digger·bluetooth_ring·
@@ -59,11 +59,10 @@ func _draw_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, vie
 # 커버하고, 나머지 액티브 아이템은 아이템 텍스처로 폴백한다. 카테고리 전용
 # 항목(icon_id 없음)은 그리지 않는다.
 const _BREAKDOWN_ITEM_ICON_PATHS := {
-	"vitamin_pill": "res://assets/sprites/items/vitamin_pill.png",
-	"strange_vial": "res://assets/sprites/items/strange_vial.png",
-	"long_boost": "res://assets/sprites/items/long_boost_icon.png",
-	"dash_boost": "res://assets/sprites/items/dash_boost.png",
-	"milk_bottle": "res://assets/sprites/items/milk_bottle_icon_imagegen_v1.png",
+	"vitamin_pill": "res://assets/sprites/items/vitamin_pill_icon_hq_v1.png",
+	"long_boost": "res://assets/sprites/items/long_boost_icon_hq_v1.png",
+	"dash_boost": "res://assets/sprites/items/dash_boost_icon_hq_v1.png",
+	"milk_bottle": "res://assets/sprites/items/milk_bottle_icon_hq_v1.png",
 }
 var _breakdown_item_icon_cache: Dictionary = {}
 
@@ -83,17 +82,25 @@ func _draw_breakdown_icon(canvas: CanvasItem, icon_id: String, rect: Rect2, perk
 			return true
 	return false
 
-func _draw_dual_item_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font, color: Color, title: String, subtitle: String, body: String, roll_entries: Array) -> void:
-	CharacterInfoOverlayTooltipPresenter.draw_dual_item_tooltip(canvas, data, mouse_pos, view_size, font, color, title, subtitle, body, roll_entries, TEXT_SOFT, ACCENT_GOLD, OVERLAY_TOOLTIP_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_BORDER, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(self, "_build_tooltip_entry_lines"), Callable(self, "_tooltip_subtitle_color"), _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache)
+func _draw_dual_item_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, view_size: Vector2, font: Font, color: Color, title: String, subtitle: String, body: String, roll_entries: Array, perk_icon_renderer: Object = null) -> void:
+	CharacterInfoOverlayTooltipPresenter.draw_dual_item_tooltip(canvas, data, mouse_pos, view_size, font, color, title, subtitle, body, roll_entries, OVERLAY_TOOLTIP_TEXT, OVERLAY_TOOLTIP_ACCENT, OVERLAY_TOOLTIP_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_PANEL_FILL, OVERLAY_TOOLTIP_ROLL_BORDER, Callable(self, "_draw_text_xy"), Callable(self, "_wrap_text_to_width"), Callable(self, "_build_tooltip_entry_lines"), Callable(self, "_tooltip_subtitle_color"), _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, Callable(self, "_draw_breakdown_icon").bind(perk_icon_renderer))
 
 func _tooltip_subtitle_color(color: Color) -> Color:
-	return CharacterInfoOverlayValueUtils.cached_alpha_color(self, color, _tooltip_subtitle_color_source, _tooltip_subtitle_color_cache, "_tooltip_subtitle_color_source", "_tooltip_subtitle_color_cache", 0.95)
+	if color == _tooltip_subtitle_color_source:
+		return _tooltip_subtitle_color_cache
+	var readable := color
+	if readable.get_luminance() < 0.58:
+		readable = readable.lerp(OVERLAY_TOOLTIP_TEXT, 0.62)
+	readable.a = 0.98
+	_tooltip_subtitle_color_source = color
+	_tooltip_subtitle_color_cache = readable
+	return readable
 
 func _set_hover_data(data: Dictionary, title: String, subtitle: String, body: String, color: Color, title_color: Variant = null, anchor_rect: Variant = null, roll_options: Variant = null, right_header: String = "") -> Dictionary:
 	return CharacterInfoOverlayValueUtils.set_hover_data(data, title, subtitle, body, color, title_color, anchor_rect, roll_options, right_header)
 
 func _build_tooltip_entry_lines(font: Font, entries: Array, size: int, max_width: float, max_lines: int) -> Array:
-	return CharacterInfoOverlayValueUtils.build_overlay_tooltip_entry_lines(self, font, entries, size, max_width, max_lines, _tooltip_entry_lines_cache_entries_hash, _tooltip_entry_lines_cache_size, _tooltip_entry_lines_cache_width, _tooltip_entry_lines_cache_max_lines, _tooltip_entry_lines_cache, _tooltip_entry_line_dict_cache, _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, Callable(self, "_wrap_text_to_width"), ACCENT_GOLD)
+	return CharacterInfoOverlayValueUtils.build_overlay_tooltip_entry_lines(self, font, entries, size, max_width, max_lines, _tooltip_entry_lines_cache_entries_hash, _tooltip_entry_lines_cache_size, _tooltip_entry_lines_cache_width, _tooltip_entry_lines_cache_max_lines, _tooltip_entry_lines_cache, _tooltip_entry_line_dict_cache, _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, Callable(self, "_wrap_text_to_width"), OVERLAY_TOOLTIP_ACCENT)
 
 func _update_perk_scrollbar_layout(grid_rect: Rect2, max_scroll: float) -> void:
 	CharacterInfoOverlayValueUtils.update_scrollbar_rects(self, "_perk_scrollbar_track_rect", "_perk_scrollbar_thumb_rect", grid_rect, _last_perk_content_height, perk_scroll, max_scroll)

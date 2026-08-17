@@ -4,6 +4,7 @@ extends SceneTree
 # 보상 롤/그랜트 -> 전부 획득하면 종료 콜백(결과화면 진입) 계약을 검증한다.
 # 결과화면 상자 이벤트에서 이관된 롤/그랜트/시네마틱 플래그 계약도 여기서 승계.
 
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const VictoryLootPhaseState := preload("res://scripts/core/victory_loot_phase_state.gd")
 const BattleFrameFlowController := preload("res://scripts/core/battle_frame_flow_controller.gd")
 const BattleSceneState := preload("res://scripts/core/battle_scene_state.gd")
@@ -15,6 +16,15 @@ const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
 const BattleDrawActorResultContext := preload("res://scripts/core/battle_draw_actor_result_context.gd")
 const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_context.gd")
+const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
+
+# 전리품 상자 수는 점수 구간에서 파생되므로 픽스처 점수도 룰 상수에서 만든다.
+# 리터럴(구 5:0 / 6:4)로 굳히면 승리 점수가 바뀔 때 압승 레그가 조용히 듀스
+# 구간으로 미끄러져 기대 상자 수가 어긋난다.
+const SHUTOUT_WIN_PLAYER_SCORE := MatchScoreState.WIN_GOAL
+const SHUTOUT_WIN_BOSS_SCORE := 0
+const DEUCE_WIN_PLAYER_SCORE := MatchScoreState.WIN_GOAL + 1
+const DEUCE_WIN_BOSS_SCORE := MatchScoreState.WIN_GOAL - 1
 
 var _failures: Array[String] = []
 var _finish_calls: int = 0
@@ -28,6 +38,10 @@ class SchemaGatedOwner:
 
 	func _init() -> void:
 		scene_state.reset()
+		# This suite validates the ordinary loot rail. Keep the unrelated
+		# boss-Vision 20% lane disabled; its exact hit/miss boundary is sealed by
+		# the dedicated Dalji and Cheongringwi Vision smokes.
+		scene_state.set_value("stage1_boss_variant", "gaksi")
 		scene_state.set_value("boss_pos", Vector2(330.0, 25.0))
 		scene_state.set_value("player_pos", Vector2(300.0, 700.0))
 		scene_state.set_value("player_paddle_width", 155.0)
@@ -277,16 +291,16 @@ func _verify_start_guards_and_plan() -> void:
 	_expect(not loot.start(owner, registry, 3, 5, Callable()), "boss win must not start the victory loot phase")
 	_expect(not loot.is_active(), "failed start should keep the loot phase inactive")
 
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "player 5:0 win should start the victory loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "a shutout player win should start the victory loot phase")
 	_expect(loot.is_active(), "started loot phase should be active")
 	_expect(loot.boxes.size() == 3, "5:0 win should drop three boxes under the 2026-07-28 reward tuning")
 	_expect(bool(owner.value_of("victory_loot_phase_active")), "loot start should mirror the owner schema flag on")
 	_expect(owner.rejected_keys.is_empty(), "owner flag mirror must use declared schema keys only; rejected=%s" % ", ".join(owner.rejected_keys))
-	_expect(not loot.start(owner, registry, 5, 0, Callable()), "an active loot phase must reject a second start")
+	_expect(not loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "an active loot phase must reject a second start")
 
 	var deuce_loot := VictoryLootPhaseState.new()
 	deuce_loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(deuce_loot.start(owner, registry, 7, 6, Callable()), "deuce win should still start the loot phase")
+	_expect(deuce_loot.start(owner, registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable()), "deuce win should still start the loot phase")
 	_expect(deuce_loot.boxes.size() == 1, "7:6 deuce win should drop exactly one box")
 	deuce_loot.reset(owner)
 	_expect(not bool(owner.value_of("victory_loot_phase_active")), "loot reset should clear the owner schema flag")
@@ -298,7 +312,7 @@ func _verify_drop_physics_and_stagger() -> void:
 	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "drop physics leg should start the loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "drop physics leg should start the loot phase")
 
 	var origin_y: float = ((loot.boxes[0] as Dictionary).get("pos") as Vector2).y
 	_expect(origin_y < 100.0, "boxes should spawn from the boss body band at the top")
@@ -370,7 +384,7 @@ func _verify_pickup_open_grant_and_finish() -> void:
 	resolver.reward_type = "passive"
 	loot.set_reward_resolver_for_test(resolver)
 	_expect(
-		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		loot.start(owner, registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"pickup leg should start a one-box deuce loot phase"
 	)
 	_expect(loot.boxes.size() == 1, "deuce loot phase should carry one box")
@@ -422,7 +436,7 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	resolver.reward_type = "active"
 	loot.set_reward_resolver_for_test(resolver)
 	_expect(
-		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		loot.start(owner, registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"active reward leg should start a one-box loot phase"
 	)
 	for _i in range(600):
@@ -455,7 +469,7 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	full_resolver.reward_type = "active"
 	full_loot.set_reward_resolver_for_test(full_resolver)
 	_expect(
-		full_loot.start(full_owner, full_registry, 6, 4, Callable(self, "_record_finish")),
+		full_loot.start(full_owner, full_registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"slot-full active reward leg should start a one-box loot phase"
 	)
 	for _i in range(600):
@@ -489,7 +503,7 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	gated_resolver.grant_fail_types = ["active"]
 	gated_loot.set_reward_resolver_for_test(gated_resolver)
 	_expect(
-		gated_loot.start(gated_owner, gated_registry, 6, 4, Callable(self, "_record_finish")),
+		gated_loot.start(gated_owner, gated_registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"grant-fail active reward leg should start a one-box loot phase"
 	)
 	for _i in range(600):
@@ -527,7 +541,7 @@ func _verify_active_reward_routes_through_pickup_rail() -> void:
 	dead_resolver.grant_fail_types = ["active", "starpoint"]
 	dead_loot.set_reward_resolver_for_test(dead_resolver)
 	_expect(
-		dead_loot.start(dead_owner, dead_registry, 6, 4, Callable(self, "_record_finish")),
+		dead_loot.start(dead_owner, dead_registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"double-grant-fail leg should start a one-box loot phase"
 	)
 	for _i in range(600):
@@ -555,7 +569,7 @@ func _verify_actor_draw_context() -> void:
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
 	_expect(loot.get_actor_draw_context().is_empty(), "inactive loot phase must not emit a boss defeat context")
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "actor context leg should start the loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "actor context leg should start the loot phase")
 	var context: Dictionary = loot.get_actor_draw_context()
 	_expect(bool(context.get("boss_defeat_active", false)), "active loot phase should keep the boss defeat sheet playing")
 	# 신규 연출 계약: 최종 승리 스코어보드는 defeat 대신 파워로스 진동을 틀므로,
@@ -578,7 +592,7 @@ func _verify_actor_draw_context() -> void:
 	var stage2_owner := SchemaGatedOwner.new()
 	stage2_owner.scene_state.set_value("current_stage", 2)
 	stage2_loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(stage2_loot.start(stage2_owner, registry, 5, 0, Callable()), "stage2 actor context leg should start the loot phase")
+	_expect(stage2_loot.start(stage2_owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "stage2 actor context leg should start the loot phase")
 	var stage2_context: Dictionary = stage2_loot.get_actor_draw_context()
 	_expect(
 		int(stage2_context.get("boss_defeat_frame", -1)) == 0,
@@ -674,7 +688,7 @@ func _verify_match_reset_clears_loot() -> void:
 	var owner := SchemaGatedOwner.new()
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "match reset leg should start the loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "match reset leg should start the loot phase")
 	var deps: Dictionary = MatchStateDepsBuilder.new().build_deps(FakeMatchStateDepsRegistry.new(loot))
 	_expect(deps.get("victory_loot_phase_state") == loot, "match-state reset deps must include the victory loot phase")
 	MatchResetController.new()._reset_match_state(deps)
@@ -750,7 +764,7 @@ func _verify_final_win_scoreboard_plays_power_loss_vibration() -> void:
 	_expect(bool(context.get("player_victory_active", false)), "player victory pose should keep playing during the vibration beat")
 
 	# 구간 말미에는 진동이 잦아들어 슬럼프로 자연 연결된다.
-	scoreboard.timer = 1.75
+	scoreboard.timer = ScoreboardState.SCOREBOARD_FINAL_VICTORY_TOTAL_DURATION
 	var end_context: Dictionary = BattleDrawActorResultContext.get_boss_result_context(deps, 1)
 	var end_offset_value: Variant = end_context.get("boss_power_loss_shake_offset", Vector2.ZERO)
 	var end_offset: Vector2 = end_offset_value if end_offset_value is Vector2 else Vector2.ZERO
@@ -781,7 +795,7 @@ func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
 	var owner := SchemaGatedOwner.new()
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "actor-context integration leg should start the loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "actor-context integration leg should start the loot phase")
 	loot.update(0.5)
 	var expected_frame: int = int(loot.get_actor_draw_context().get("boss_result_frame", -99))
 	var builder := BattleDrawActorContext.new()
@@ -798,7 +812,7 @@ func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
 		"renderer-facing actor context should carry the loot defeat frame clock"
 	)
 
-	# Stage 2(64f 시트) 픽스처: S2/S6 렌더러는 boss_defeat_frame을 우선 소비하고
+	# Stage 2(8f 시트) 픽스처: S2/S6 렌더러는 boss_defeat_frame을 우선 소비하고
 	# 키가 누락되면 자체 루프 클럭으로 조용히 폴백한다 — merge가 필드별 복사로
 	# 바뀌어 frame 키만 빠지는 회귀까지 build() 반환값에서 직접 봉인한다.
 	var stage2_loot := VictoryLootPhaseState.new()
@@ -806,7 +820,7 @@ func _verify_loot_defeat_reaches_renderer_facing_actor_context() -> void:
 	stage2_owner.scene_state.set_value("current_stage", 2)
 	stage2_loot.set_reward_resolver_for_test(FakeRewardResolver.new())
 	_expect(
-		stage2_loot.start(stage2_owner, registry, 5, 0, Callable()),
+		stage2_loot.start(stage2_owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()),
 		"stage2 actor-context integration leg should start the loot phase"
 	)
 	var stage2_start_context: Dictionary = builder.build(
@@ -836,7 +850,7 @@ func _verify_boss_body_flash_on_each_drop() -> void:
 	owner.scene_state.set_value("player_pos", Vector2(-500.0, 700.0))
 	var registry := FakeRegistry.new()
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
-	_expect(loot.start(owner, registry, 5, 0, Callable()), "drop flash leg should start a three-box loot phase")
+	_expect(loot.start(owner, registry, SHUTOUT_WIN_PLAYER_SCORE, SHUTOUT_WIN_BOSS_SCORE, Callable()), "drop flash leg should start a three-box loot phase")
 	_expect(
 		float(loot.get_status_for_tests().get("drop_flash_timer", -1.0)) == 0.0,
 		"no boss flash should be armed during the defeat-latudi intro"
@@ -892,7 +906,7 @@ func _verify_finish_waits_for_pending_perk_choice() -> void:
 	resolver.reward_type = "starpoint"
 	loot.set_reward_resolver_for_test(resolver)
 	_expect(
-		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		loot.start(owner, registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"perk-choice finish gate leg should start a one-box loot phase"
 	)
 	# 수집된 스타포인트가 선택 1개를 대기시켰지만 아직 열려있지 않은 상태를 재현.
@@ -930,7 +944,7 @@ func _verify_slump_impact_beat_and_landing_audio() -> void:
 	registry.game_audio = audio
 	loot.set_reward_resolver_for_test(FakeRewardResolver.new())
 	_expect(
-		loot.start(owner, registry, 6, 4, Callable(self, "_record_finish")),
+		loot.start(owner, registry, DEUCE_WIN_PLAYER_SCORE, DEUCE_WIN_BOSS_SCORE, Callable(self, "_record_finish")),
 		"slump impact leg should start a one-box loot phase"
 	)
 	_expect(audio.ragnarok_boom_calls == 1, "loot intro must play the slump boom exactly once at start")

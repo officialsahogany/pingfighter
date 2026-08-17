@@ -20,6 +20,7 @@ func _init() -> void:
 	_verify_runtime_state_facade_fully_closed_finish_runs_close_steps()
 	_verify_open_next_choice_keeps_modal_side_effects_gated()
 	_verify_megingjord_extra_pick_feedback()
+	_verify_runtime_state_facade_revision_guards()
 	_verify_source_contract()
 
 	if _failures.is_empty():
@@ -153,6 +154,65 @@ func _verify_megingjord_extra_pick_feedback() -> void:
 	_expect(is_equal_approx(state.feedback_timer, RuntimePerkChoiceFeedback.MEGINGJORD_EXTRA_PICK_TIMER), "finish flow should apply Megingjord feedback timer")
 
 
+func _verify_runtime_state_facade_revision_guards() -> void:
+	var helper := _finish_helper()
+	_verify_revision_guard_for_choice(
+		helper,
+		"mystic_dice",
+		{"id": "mystic_dice", "type": "mystic_dice", "mystic_dice_revision": 7}
+	)
+	_verify_revision_guard_for_choice(
+		helper,
+		"perk_fusion",
+		{"id": "perk_fusion", "type": "fusion", "fusion_revision": 11}
+	)
+
+
+func _verify_revision_guard_for_choice(helper: Object, choice_id: String, choice: Dictionary) -> void:
+	var state := FakeRuntimeState.new()
+	state.pending_skill_choices = 1
+	state.runtime_skill_levels = {choice_id: 1}
+	state._choice_completion = RuntimePerkChoiceCompletion.new()
+	state._choice_offer_modifiers = FakeChoiceOfferModifiers.new(false)
+	state._choice_feedback = RuntimePerkChoiceFeedback.new()
+	var first: Dictionary = helper.finish_successful_choice_from_runtime_state(
+		state,
+		choice_id,
+		FakeOwner.new(),
+		FakeRegistry.new(),
+		null,
+		choice
+	)
+	_expect(bool(first.get("accepted", false)), "%s first finish should commit" % choice_id)
+	var sequence_after_first := state.selected_choice_sequence
+	var pending_after_first := state.pending_skill_choices
+	var resume_after_first := state.resume_calls
+	var arm_after_first := state.arm_resume_calls
+	var absorption_after_first := state.absorption_calls
+	var sync_after_first := state.sync_owner_calls
+	var duplicate: Dictionary = helper.finish_successful_choice_from_runtime_state(
+		state,
+		choice_id,
+		FakeOwner.new(),
+		FakeRegistry.new(),
+		null,
+		choice.duplicate(true)
+	)
+	_expect(bool(duplicate.get("already_finished", false)), "%s duplicate revision should be rejected" % choice_id)
+	_expect(
+		state.selected_choice_sequence == sequence_after_first
+		and state.pending_skill_choices == pending_after_first,
+		"%s duplicate finish must not consume choice state twice" % choice_id
+	)
+	_expect(
+		state.resume_calls == resume_after_first
+		and state.arm_resume_calls == arm_after_first
+		and state.absorption_calls == absorption_after_first
+		and state.sync_owner_calls == sync_after_first,
+		"%s duplicate finish must not repeat close callbacks" % choice_id
+	)
+
+
 func _verify_source_contract() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_finish_flow.gd")
@@ -176,10 +236,15 @@ func _verify_source_contract() -> void:
 	_expect(finish_body.find("build_post_state_plan") < 0, "state finish-success wrapper should not build post-state plans directly")
 	_expect(finish_body.find("build_modal_close_steps") < 0, "state finish-success wrapper should not iterate close steps directly")
 	_expect(finish_body.find("_choice_offer_modifiers.try_megingjord_extra_pick") < 0, "state finish-success wrapper should not own Megingjord finish sequencing")
+	_expect(finish_body.find("mystic_dice_revision") < 0, "state finish-success wrapper should not own Mystic Dice revision guards")
+	_expect(finish_body.find("fusion_revision") < 0, "state finish-success wrapper should not own fusion revision guards")
+	_expect(state_source.find("var _mystic_dice_last_finished_revision") < 0, "state facade should not store Mystic Dice finish revision")
+	_expect(state_source.find("var _perk_fusion_last_finished_revision") < 0, "state facade should not store fusion finish revision")
 	_expect(helper_source.find("build_success_state_update_for_choice") >= 0, "finish-flow helper should consume completion success payloads")
 	_expect(helper_source.find("build_post_state_plan") >= 0, "finish-flow helper should consume post-state plans")
 	_expect(helper_source.find("build_modal_close_steps") >= 0, "finish-flow helper should consume modal close steps")
 	_expect(helper_source.find("try_megingjord_extra_pick") >= 0, "finish-flow helper should own Megingjord finish sequencing")
+	_expect(facade_body.find("_is_duplicate_committed_finish") >= 0, "finish-flow facade should guard committed system-card revisions before state consumption")
 
 
 func _finish_helper() -> Object:

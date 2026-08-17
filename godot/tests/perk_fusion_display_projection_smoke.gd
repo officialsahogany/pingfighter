@@ -65,7 +65,9 @@ func _verify_two_sources_fold_into_one_entry() -> void:
 		fusion.get("effective_levels", {}) == {"alpha": 7, "beta": 6},
 		"fusion entry should preserve both source effective levels"
 	)
-	_expect(str(fusion.get("summary", "")).contains("융합"), "fusion summary should use Korean copy")
+	var fusion_summary := str(fusion.get("summary", ""))
+	_expect(fusion_summary.contains("합일"), "fusion summary should use the canonical Korean Mugong unity copy")
+	_expect(not fusion_summary.contains("융합"), "fusion summary should not regress to the retired Korean fusion term")
 	_expect(_sources_are_unique(entries), "a source id must not appear in more than one projected entry")
 
 

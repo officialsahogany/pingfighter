@@ -22,14 +22,14 @@ func build_dowsing_bonus_state_update(
 ) -> Dictionary:
 	if item_bonus_choice_count <= 0:
 		return {"accepted": false}
-	if choices.size() < target_choice_count + 1:
+	if choices.size() < target_choice_count:
 		return {"accepted": false}
 	var next_choices := choices.duplicate(true)
-	var bonus_card_index: int = next_choices.size() - 2
+	var bonus_card_index: int = target_choice_count - 1
 	var bonus_choice: Dictionary = _get_dict(next_choices[bonus_card_index]).duplicate(true)
 	bonus_choice["is_dowsing_goggles_bonus"] = true
 	bonus_choice["bonus_source_item"] = DOWSING_GOGGLES_BONUS_SOURCE
-	# 보호 lane 스탬프: 다우징 보너스 카드는 교체형 오퍼(융합/주사위)가
+	# 보호 lane 스탬프: 다우징 보너스 카드는 교체형 오퍼(합일/수련)가
 	# 잠식할 수 없다.
 	bonus_choice["offer_lane"] = "dowsing_bonus"
 	bonus_choice["offer_protected"] = true

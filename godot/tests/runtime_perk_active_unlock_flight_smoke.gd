@@ -472,7 +472,7 @@ func _verify_result_box_dimension_gate_waits_for_next_spawn_intro_finish() -> vo
 	var view_size := Vector2(1488.0, 918.0)
 	registry.runtime_perk_catalog.choices = [{
 		"id": "instant_dimension_gate",
-		"name": "차원개방",
+		"name": "백보초래",
 		"is_instant": true,
 		"icon_color": Color(0.52, 0.86, 1.0),
 	}]
@@ -558,7 +558,7 @@ func _verify_starpoint_collection_update_helper() -> void:
 	_expect(int(update.get("next_pending_skill_choices", 0)) == 4, "starpoint collection helper should convert collected points into pending choices")
 	_expect(int(update.get("next_starpoint_for_skills", -1)) == 0, "starpoint collection helper should expose the starpoint remainder")
 	_expect(int(update.get("granted_choices", 0)) == 3, "starpoint collection helper should expose granted choice count")
-	_expect(str(update.get("feedback_text", "")) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +3", "starpoint collection helper should own collection feedback text")
+	_expect(str(update.get("feedback_text", "")) == "무혼 +3", "starpoint collection helper should own collection feedback text")
 	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "starpoint collection helper should own collection feedback timer")
 
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
@@ -566,7 +566,10 @@ func _verify_starpoint_collection_update_helper() -> void:
 	_expect(state_source.find("RuntimePerkStarpointCollectionFlow") >= 0, "runtime perk state should use the starpoint collection-flow helper")
 	_expect(collection_flow_source.find("build_collection_update") >= 0, "starpoint collection flow should use the starpoint collection helper")
 	_expect(state_source.find("while starpoint_for_skills >=") < 0, "runtime perk state should not own starpoint-to-choice conversion loop")
-	_expect(state_source.find("\"스타포인트 +%d\"") < 0, "runtime perk state should not own starpoint collection feedback text")
+	# 템플릿이 "%s +%d"로 바뀌어 완성 문자열 검색은 항상 통과한다. 라벨 자체와
+	# 템플릿 상수 소유 여부를 봐야 씰이 의미를 유지한다.
+	_expect(state_source.find("무혼") < 0, "runtime perk state should not own the muhon collection feedback label")
+	_expect(state_source.find("COLLECTION_FEEDBACK_TEMPLATE") < 0, "runtime perk state should not own the collection feedback template")
 
 
 func _verify_collect_starpoints_preserves_in_flight_drops() -> void:
@@ -580,7 +583,7 @@ func _verify_collect_starpoints_preserves_in_flight_drops() -> void:
 	_expect(opened, "collecting a full starpoint should open the perk choice modal")
 	_expect(state.is_choice_active(), "starpoint collection should activate the perk choice modal")
 	_expect(state.pending_skill_choices == 1, "starpoint collection should queue one pending choice")
-	_expect(str(state.feedback_text) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +1", "starpoint collection should apply helper-owned feedback text")
+	_expect(str(state.feedback_text) == "무혼 +1", "starpoint collection should apply helper-owned feedback text")
 	_expect(is_equal_approx(float(state.feedback_timer), RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "starpoint collection should apply helper-owned feedback timer")
 	_expect(not registry.stage1_balloon_event.starpoint_drops.is_empty(), "Stage 1 in-flight starpoint drops should survive the modal open")
 	_expect(not registry.stage1_balloon_event.starpoint_particles.is_empty(), "Stage 1 starpoint particles should survive the modal open")

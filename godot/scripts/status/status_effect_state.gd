@@ -8,6 +8,8 @@ const STATUS_CONFUSION := "confusion"
 const STATUS_REVERSE := "reverse"
 const STATUS_BURN := "burn"
 
+const SOURCE_PERK_FUSION_STATIC_FIELD := "perk_fusion_static_field"
+
 const BOSS_STUN_FRAME_MSEC := 100.0
 
 const _TARGET_ALIASES := {
@@ -35,6 +37,9 @@ const _STATUS_ALIASES := {
 }
 
 var _status_sources: Dictionary = {}
+# Posture Correction is a persistent build stat. Owner sync updates it when
+# the build changes; a rally reset only clears active status entries.
+var _player_posture_correction_pct := 0.0
 
 
 func _init() -> void:
@@ -62,6 +67,9 @@ func update(fps_scale: float, context: Dictionary = {}, deps: Dictionary = {}) -
 			for source_key in sources.keys():
 				var entry: Dictionary = _as_dictionary(sources.get(source_key, {}))
 				if bool(entry.get("persistent", false)):
+					sources[source_key] = entry
+					continue
+				if _should_pause_entry_timer(entry, context):
 					sources[source_key] = entry
 					continue
 				var remaining: float = max(0.0, float(entry.get("remaining_frames", 0.0)) - step)
@@ -101,6 +109,12 @@ func apply_status(
 		return {}
 
 	var duration: float = max(0.0, duration_frames)
+	if (
+		normalized_target == TARGET_PLAYER
+		and normalized_status == STATUS_STUN
+		and not bool(data.get("ignore_posture_correction", false))
+	):
+		duration *= get_player_posture_correction_scale()
 	var persistent: bool = bool(data.get("persistent", false))
 	if duration <= 0.0 and not persistent:
 		return {}
@@ -115,6 +129,18 @@ func apply_status(
 	sources[source_key] = next_entry
 	target_statuses[normalized_status] = sources
 	return get_status(normalized_target, normalized_status)
+
+
+func set_player_posture_correction_pct(value: float) -> void:
+	_player_posture_correction_pct = clampf(value, 0.0, 100.0)
+
+
+func get_player_posture_correction_pct() -> float:
+	return _player_posture_correction_pct
+
+
+func get_player_posture_correction_scale() -> float:
+	return maxf(0.0, 1.0 - _player_posture_correction_pct / 100.0)
 
 
 func clear_status(target: String, status_id: String = "", source: String = "") -> void:
@@ -233,6 +259,20 @@ func get_actor_draw_context() -> Dictionary:
 		context["status_boss_slow_multiplier"] = float(boss_slow.get("multiplier", 1.0))
 		context["active_item_boss_spider_slow_active"] = true
 		context["active_item_boss_spider_slow_ratio"] = float(boss_slow.get("ratio", 1.0))
+	var static_field: Dictionary = get_status_source(
+		TARGET_BOSS,
+		STATUS_SLOW,
+		SOURCE_PERK_FUSION_STATIC_FIELD
+	)
+	if not static_field.is_empty():
+		context["perk_fusion_static_field_active"] = true
+		context["perk_fusion_static_field_ratio"] = _get_entry_ratio(static_field)
+		context["perk_fusion_static_field_remaining_sec"] = (
+			maxf(0.0, float(static_field.get("remaining_frames", 0.0))) / 60.0
+		)
+		context["perk_fusion_static_field_multiplier"] = float(
+			static_field.get("multiplier", 1.0)
+		)
 
 	var player_slow: Dictionary = get_status(TARGET_PLAYER, STATUS_SLOW)
 	if not player_slow.is_empty():
@@ -434,6 +474,12 @@ func _update_entry_knockback(entry: Dictionary, step: float) -> void:
 			entry["knockback_active"] = false
 		else:
 			entry["knockback_vel"] = next_vel
+
+
+func _should_pause_entry_timer(entry: Dictionary, context: Dictionary) -> bool:
+	if not bool(entry.get("pause_while_ball_inactive", false)):
+		return false
+	return not bool(context.get("ball_active", false))
 
 
 func _clear_stage2_boss_disable_statuses(context: Dictionary, deps: Dictionary) -> void:

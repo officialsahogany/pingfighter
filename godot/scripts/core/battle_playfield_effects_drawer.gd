@@ -65,6 +65,31 @@ func draw_mystic_dice_paddle_effect(registry: Object, draw_context: Dictionary, 
 	host.sync_state(screen_state, bool(effect_snapshot.get("active", false)))
 
 
+func draw_smasher_overdrive_meteor_effect(
+	canvas: CanvasItem,
+	registry: Object,
+	draw_context: Dictionary,
+	shake_offset: Vector2
+) -> void:
+	var overdrive_state: Object = _get_instance(registry, "smasher_overdrive_state")
+	if overdrive_state == null:
+		return
+	if not _is_smasher_context(draw_context):
+		if overdrive_state.has_method("hide_meteor_fx"):
+			overdrive_state.hide_meteor_fx()
+		return
+	if (
+		overdrive_state.has_method("has_visible_effects")
+		and bool(overdrive_state.has_visible_effects())
+		and overdrive_state.has_method("draw_meteor_fx")
+	):
+		overdrive_state.draw_meteor_fx(
+			canvas,
+			shake_offset,
+			_build_node_fx_layout(canvas, registry)
+		)
+
+
 # 화면 상태 매핑(순수): 패들 중심(+셰이크)을 게임 좌표에서 스크린 좌표로
 # 올린다 — FX host 좌표식 offset + (pos + shake) × scale. 클립은 항상
 # 렌더된 풀 게임 캔버스(호스트가 플레이필드 전체를 클립 소유).
@@ -203,6 +228,7 @@ func draw_dash_acceleration_effect(
 		return
 
 	var level: int = max(1, int(dash_snapshot.get("dash_acceleration_skill_level", 1)))
+	var width_bonus: float = max(0.0, float(dash_snapshot.get("dash_acceleration_width_bonus", 0.0)))
 	var height_bonus: float = max(0.0, float(dash_snapshot.get("dash_acceleration_height_bonus", 0.0)))
 	var direction: float = float(dash_snapshot.get("direction", 0.0))
 	if abs(direction) <= 0.01:
@@ -220,7 +246,7 @@ func draw_dash_acceleration_effect(
 	var secondary: Color = palette.get("secondary", Color(0.9, 0.9, 1.0))
 	var accent: Color = palette.get("accent", Color(1.0, 1.0, 1.0))
 	var glow_intensity: float = float(palette.get("glow", 0.4))
-	var base_half_width: float = max(1.0, player_size.x * 0.5)
+	var base_half_width: float = max(1.0, (player_size.x + width_bonus) * 0.5)
 	var trail_start_x: float = center.x + base_half_width if direction < 0.0 else center.x - base_half_width
 	var trail_end_x: float = trail_start_x + trail_length if direction < 0.0 else trail_start_x - trail_length
 	var min_x: float = min(trail_start_x, trail_end_x)
@@ -274,7 +300,7 @@ func draw_dash_acceleration_effect(
 		canvas.draw_circle(Vector2(particle_x, particle_y), particle_radius * 2.0, Color(primary.r, primary.g, primary.b, particle_alpha * 0.35))
 		canvas.draw_circle(Vector2(particle_x, particle_y), particle_radius, Color(accent.r, accent.g, accent.b, particle_alpha))
 
-	var aura_size := Vector2(player_size.x, player_size.y + height_bonus)
+	var aura_size := Vector2(player_size.x + width_bonus, player_size.y + height_bonus)
 	for i in range(5):
 		var aura_progress: float = float(i) / 4.0
 		var aura_color: Color = accent.lerp(secondary, aura_progress)
@@ -552,7 +578,46 @@ func draw_smasher_wheel_effects(
 		return
 	var wheel_state: Object = _get_instance(registry, "smasher_wheel_state")
 	if _has_visible_effects(wheel_state) and wheel_state.has_method("draw"):
-		wheel_state.draw(canvas, shake_offset, _get_instance(registry, "horizontal_timer_gauge_stack"))
+		wheel_state.draw(
+			canvas,
+			shake_offset,
+			_get_instance(registry, "horizontal_timer_gauge_stack"),
+			_build_node_fx_layout(canvas, registry)
+		)
+
+
+func draw_dalji_vision_chosik_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2
+) -> void:
+	var state: Object = _get_cached_instance(registry, "dalji_vision_chosik_state")
+	if _has_visible_effects(state) and state.has_method("draw"):
+		state.draw(
+			canvas,
+			shake_offset,
+			_get_instance(registry, "horizontal_timer_gauge_stack")
+		)
+
+
+func draw_cheongringwi_vision_chosik_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2
+) -> void:
+	var state: Object = _get_cached_instance(registry, "cheongringwi_vision_chosik_state")
+	if _has_visible_effects(state) and state.has_method("draw"):
+		state.draw(canvas, shake_offset)
+
+
+func draw_yeonmyo_vision_chosik_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2
+) -> void:
+	var state: Object = _get_cached_instance(registry, "yeonmyo_vision_chosik_state")
+	if _has_visible_effects(state) and state.has_method("draw"):
+		state.draw(canvas, shake_offset)
 
 
 func draw_monkey_blessing_delivery(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
@@ -685,7 +750,7 @@ func _get_cached_stage_instance(registry: Object, stage: int, role: String) -> O
 
 
 func _clear_inactive_stage_actor_transients(registry: Object, current_stage: int, current_renderer: Object) -> void:
-	for stage in [1, 2, 3, 4, 5, 6, 7]:
+	for stage in [1, 2, 3, 4, 5, 6, 7, 8]:
 		if stage == current_stage:
 			continue
 		var renderer: Object = _get_cached_stage_instance(registry, stage, "actor_renderer")

@@ -39,6 +39,15 @@ func _verify_card_hit_index_helper() -> void:
 		helper.get_card_index_at(Vector2(-200.0, -200.0), view_size, 3, 0.5) == -1,
 		"choice layout helper should reject positions outside all cards"
 	)
+	var viewport_rect := Rect2(Vector2.ZERO, view_size)
+	for choice_count: int in [3, 4, 5]:
+		var count_rects: Array = helper.get_card_rects(view_size, choice_count, 0.5)
+		_expect(count_rects.size() == choice_count, "%d-card auxiliary layout should preserve every choice" % choice_count)
+		for index: int in range(count_rects.size()):
+			var card_rect := _get_rect2(count_rects[index])
+			_expect(viewport_rect.encloses(card_rect), "%d-card layout should stay inside the viewport" % choice_count)
+			if index > 0:
+				_expect(not card_rect.intersects(_get_rect2(count_rects[index - 1])), "%d-card layout should not overlap adjacent cards" % choice_count)
 
 	var state := FakeRuntimeState.new()
 	state.current_choices = [{"id": "a"}, {"id": "b"}, {"id": "c"}]

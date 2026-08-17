@@ -88,6 +88,7 @@ var stage_intro_resources_prewarm_step_index: int = 0
 var stage_runtime_resources_prewarmed_for_stage: int = 0
 var stage_runtime_prewarm_step_stage: int = 0
 var stage_runtime_prewarm_step_index: int = 0
+var stage_runtime_prewarm_detail_label: String = ""
 var battle_pso_prewarmer_attached: bool = false
 var battle_pso_prewarmer_stage_ids: Dictionary = {}
 
@@ -322,6 +323,8 @@ func get_stage_runtime_prewarm_debug_label(owner: Object) -> String:
 	if step_label == "selected_character":
 		var character_type := _get_selected_character_type(owner)
 		label += ".%s" % _get_selected_character_runtime_prewarm_debug_label(character_type)
+	if stage_runtime_prewarm_detail_label != "":
+		label += ".%s" % stage_runtime_prewarm_detail_label
 	return label
 
 
@@ -332,6 +335,7 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 	if stage_runtime_prewarm_step_stage != current_stage:
 		stage_runtime_prewarm_step_stage = current_stage
 		stage_runtime_prewarm_step_index = 0
+		stage_runtime_prewarm_detail_label = ""
 	var total_steps := (
 		STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
 		+ _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
@@ -350,6 +354,7 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 	)
 	if not step_complete:
 		return false
+	stage_runtime_prewarm_detail_label = ""
 	stage_runtime_prewarm_step_index += 1
 	if stage_runtime_prewarm_step_index >= total_steps:
 		stage_runtime_resources_prewarmed_for_stage = current_stage
@@ -398,12 +403,16 @@ func _run_stage_runtime_prewarm_step(
 			var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
 			if lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets_step"):
 				if not bool(lingpet_runtime.prewarm_assets_step()):
+					stage_runtime_prewarm_detail_label = "lingpet"
+					if lingpet_runtime.has_method("get_prewarm_assets_debug_label"):
+						stage_runtime_prewarm_detail_label += ".%s" % str(lingpet_runtime.get_prewarm_assets_debug_label())
 					return false
 			elif lingpet_runtime != null and lingpet_runtime.has_method("prewarm_assets"):
 				lingpet_runtime.prewarm_assets()
 			var overflow_choice_host: Object = _get_module(module_getter, "lingpet_overflow_choice_overlay_host")
 			if overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets_step"):
 				if not bool(overflow_choice_host.prewarm_assets_step()):
+					stage_runtime_prewarm_detail_label = "lingpet.overflow_choice_icons"
 					return false
 			elif overflow_choice_host != null and overflow_choice_host.has_method("prewarm_assets"):
 				overflow_choice_host.prewarm_assets()
@@ -1160,6 +1169,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"smasher_warp_gate_state",
 				"smasher_wheel_state",
 				"smasher_overdrive_state",
+				"smasher_void_phantom_state",
 				"smasher_dash_spirit_state",
 				"smasher_shield_kiting_state",
 				"smasher_dash_state",
@@ -1208,13 +1218,31 @@ func prewarm_ball_update_runtime_resources_step(owner: Object, module_getter: Ca
 	elif ball_renderer != null and ball_renderer.has_method("prewarm_runtime_nodes"):
 		ball_renderer.prewarm_runtime_nodes(owner)
 	var prewarm_driver: Object = _get_module(module_getter, "battle_scene_update_prewarm_driver")
-	if prewarm_driver == null:
-		return true
-	var registry := ModuleGetterRegistryAdapter.new(module_getter)
-	if prewarm_driver.has_method("prewarm_ball_update_step"):
-		return bool(prewarm_driver.prewarm_ball_update_step(owner, registry))
-	if prewarm_driver.has_method("prewarm_ball_update"):
-		prewarm_driver.prewarm_ball_update(owner, registry)
+	if prewarm_driver != null:
+		var registry := ModuleGetterRegistryAdapter.new(module_getter)
+		if prewarm_driver.has_method("prewarm_ball_update_step"):
+			if not bool(prewarm_driver.prewarm_ball_update_step(owner, registry)):
+				return false
+		elif prewarm_driver.has_method("prewarm_ball_update"):
+			prewarm_driver.prewarm_ball_update(owner, registry)
+	var frame_capture: Object = _get_module(module_getter, "victory_highlight_frame_capture_state")
+	var recorder: Object = _get_module(module_getter, "victory_highlight_recorder")
+	if recorder != null and recorder.has_method("set_frame_capture_state"):
+		recorder.set_frame_capture_state(frame_capture)
+	if frame_capture != null and frame_capture.has_method("prewarm_step"):
+		if not bool(frame_capture.prewarm_step(owner)):
+			return false
+	var frame_renderer: Object = _get_module(module_getter, "victory_highlight_frame_renderer")
+	var frame_capture_available := (
+		frame_capture != null
+		and frame_capture.has_method("is_available")
+		and bool(frame_capture.is_available())
+	)
+	if frame_capture_available and frame_renderer != null:
+		if frame_renderer.has_method("configure_base_renderer"):
+			frame_renderer.configure_base_renderer(_get_module(module_getter, "victory_highlight_renderer"))
+		if frame_renderer.has_method("prewarm_assets"):
+			frame_renderer.prewarm_assets()
 	return true
 
 
@@ -1229,6 +1257,7 @@ func _prewarm_selected_character_runtime_resources_legacy(owner: Object, module_
 				"smasher_warp_gate_state",
 				"smasher_wheel_state",
 				"smasher_overdrive_state",
+				"smasher_void_phantom_state",
 				"smasher_shield_kiting_state",
 			]
 		"soldier":
@@ -1251,11 +1280,18 @@ func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: C
 	var icon_renderer: Object = _get_module(module_getter, "runtime_perk_icon_renderer")
 	if icon_renderer != null and icon_renderer.has_method("prewarm_assets_step"):
 		if not bool(icon_renderer.prewarm_assets_step()):
+			stage_runtime_prewarm_detail_label = "icon_renderer"
 			return false
 	elif icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
 		icon_renderer.prewarm_assets()
 	var overlay_renderer: Object = _get_module(module_getter, "runtime_perk_overlay_renderer")
-	if overlay_renderer != null and overlay_renderer.has_method("prewarm_assets"):
+	if overlay_renderer != null and overlay_renderer.has_method("prewarm_assets_step"):
+		if not bool(overlay_renderer.prewarm_assets_step()):
+			stage_runtime_prewarm_detail_label = "overlay"
+			if overlay_renderer.has_method("get_prewarm_assets_debug_label"):
+				stage_runtime_prewarm_detail_label += ".%s" % str(overlay_renderer.get_prewarm_assets_debug_label())
+			return false
+	elif overlay_renderer != null and overlay_renderer.has_method("prewarm_assets"):
 		overlay_renderer.prewarm_assets()
 	# 융합 재료쌍 합성 텍스처 프리웜(부트 로딩 프레임 — draw 밖): 세이브
 	# 복원으로 이미 융합을 보유한 매치가 첫 표시 프레임에서 합성 히치를
@@ -1267,15 +1303,13 @@ func prewarm_runtime_perk_overlay_resources_step(owner: Object, module_getter: C
 	# 씬에 부착·바인딩하지 않으면 실게임에서 오라가 렌더되지 않는다.
 	# 호스트는 배틀 씬의 자식으로 붙어 씬 해제와 함께 정리된다.
 	_ensure_mystic_dice_paddle_fx_host(owner, _get_module(module_getter, "runtime_perk_state"))
-	var treasure_hunt_runtime: Object = _get_module(module_getter, "treasure_hunt_runtime")
-	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("prewarm_assets"):
-		treasure_hunt_runtime.prewarm_assets()
 	var overlay_frame_controller: Object = _get_module(module_getter, "battle_scene_overlay_frame_controller")
 	if (
 		overlay_frame_controller != null
 		and overlay_frame_controller.has_method("prewarm_angel_blessing_runtime_nodes")
 		and not bool(overlay_frame_controller.prewarm_angel_blessing_runtime_nodes(owner))
 	):
+		stage_runtime_prewarm_detail_label = "angel_runtime_nodes"
 		return false
 	battle_runtime_perk_overlay_prewarmed = true
 	return true

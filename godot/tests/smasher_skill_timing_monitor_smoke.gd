@@ -76,6 +76,7 @@ func _verify_magnum_grip_cooldown_contract() -> void:
 	var cooldowns: Dictionary = snapshot.get("cooldown_seconds", {}) as Dictionary
 	var snapshot_skill_data: Dictionary = snapshot.get("skill_data", {}) as Dictionary
 	var snapshot_magnum_data: Dictionary = snapshot_skill_data.get("magnum_grip", {}) as Dictionary
+	_expect(str(skill_data.get("korean", "")) == "흡인장", "magnum_grip should display the confirmed Korean 초식 name")
 	_expect(is_equal_approx(config.get_cooldown_seconds("magnum_grip"), 22.0), "Magnum Grip base cooldown should be 22 seconds")
 	_expect(is_equal_approx(float(skill_data.get("cooldown", 0.0)), 22.0), "Magnum Grip tooltip data should expose the 22-second cooldown")
 	_expect(is_equal_approx(float(cooldowns.get("magnum_grip", 0.0)), 22.0), "Magnum Grip orb cooldown map should expose the 22-second cooldown")

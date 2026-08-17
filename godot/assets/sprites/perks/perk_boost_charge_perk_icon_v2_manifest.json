@@ -1,0 +1,36 @@
+{
+  "asset_id": "perk_boost_charge_perk_icon_v2",
+  "perk_id": "perk_boost_charge",
+  "display_name_ko": "축기결",
+  "display_name_en": "Energy-Gathering Art",
+  "runtime_path": "res://assets/sprites/perks/perk_boost_charge_perk_icon_v2.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-3e17b675-e646-41bd-8d2b-22aeb63b16e3.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy martial-arts training seal on torn aged hanji: two black cupped hands gather a deep-blue breath-cloud spiral into an ochre dantian pearl, with one small cloth-shoe footprint below. No book, readable text, battery, lightning bolt, circuitry, metal, leather, neon, or glossy UI frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_method": "auto-key border on flat magenta",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [12, 11, 245, 246],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "e9c57e305489c1aab55c8eafcb8b50adbc612f12405f2a979b8fac036408d32d",
+    "runtime_capture": "res://.tmp/common_mugong_seal_qa.png",
+    "rendered_sizes": [80, 32],
+    "notes": "Standalone common-Mugong hanji seal; the hands and gathered breath pearl replace the former sci-fi charging core while the compatibility ID stays unchanged."
+  }
+}

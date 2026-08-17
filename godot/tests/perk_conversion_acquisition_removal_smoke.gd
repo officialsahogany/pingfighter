@@ -8,7 +8,6 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
-const TreasureHuntRuntime := preload("res://scripts/items/treasure_hunt_runtime.gd")
 
 var _failures: Array[String] = []
 
@@ -50,7 +49,6 @@ func _init() -> void:
 	_verify_field_spawn_gate()
 	_verify_stage_clear_box_redirect()
 	_verify_pandora_passive_pool_gate()
-	_verify_treasure_hunt_redirect()
 
 	PerkConversionFlags.debug_set_enabled(false)
 	if _failures.is_empty():
@@ -132,65 +130,6 @@ func _verify_pandora_passive_pool_gate() -> void:
 		var choice: Dictionary = _get_dict(choice_value)
 		_expect(str(choice.get("pandora_source", "")) != "passive", "flag-ON Pandora choices should not include passive-source items")
 		_expect(str(choice.get("pandora_source", "")) != "mythic", "flag-ON Pandora choices should not include mythic-source items")
-
-
-func _verify_treasure_hunt_redirect() -> void:
-	PerkConversionFlags.debug_set_enabled(false)
-	var off_runtime := TreasureHuntRuntime.new()
-	var off_mythic_runtime := MythicItemRuntime.new()
-	var off_owner := FakeOwner.new()
-	var off_registry := FakeRegistry.new({
-		"mythic_item_runtime": off_mythic_runtime,
-		"runtime_perk_state": RuntimePerkState.new(),
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	})
-	var passive_off: Dictionary = off_runtime._roll_result(off_owner, off_registry, 0.21)
-	_expect(str(passive_off.get("result_type", "")) == "passive", "flag-OFF treasure passive roll should grant a passive item")
-	_expect(_inventory_has_item(off_mythic_runtime, str(passive_off.get("item_name", ""))), "flag-OFF treasure passive result should enter inventory")
-
-	PerkConversionFlags.debug_set_enabled(true)
-	var on_runtime := TreasureHuntRuntime.new()
-	var on_mythic_runtime := MythicItemRuntime.new()
-	var on_perk_state := RuntimePerkState.new()
-	var on_owner := FakeOwner.new()
-	var on_registry := FakeRegistry.new({
-		"mythic_item_runtime": on_mythic_runtime,
-		"runtime_perk_state": on_perk_state,
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	})
-	var starpoint_on: Dictionary = on_runtime._roll_result(on_owner, on_registry, 0.21)
-	_expect(str(starpoint_on.get("result_type", "")) == "starpoint", "flag-ON treasure passive roll should redirect to starpoint")
-	_expect(int(starpoint_on.get("amount", 0)) == 1, "flag-ON treasure passive roll should grant one starpoint")
-	_expect(on_mythic_runtime.get_snapshot().get("inventory_items", []).is_empty(), "flag-ON treasure passive roll should not grant passive inventory")
-	_expect(int(on_perk_state.pending_skill_choices) == 1, "flag-ON treasure starpoint should enter runtime perk progression")
-
-	var missing_state_runtime := TreasureHuntRuntime.new()
-	var missing_state_mythic_runtime := MythicItemRuntime.new()
-	var missing_state_result: Dictionary = missing_state_runtime._roll_result(FakeOwner.new(), FakeRegistry.new({
-		"mythic_item_runtime": missing_state_mythic_runtime,
-	}), 0.21)
-	_expect(str(missing_state_result.get("result_type", "")) != "passive", "flag-ON treasure passive roll should not fall back to passive when perk state is missing")
-	_expect(missing_state_mythic_runtime.get_snapshot().get("inventory_items", []).is_empty(), "flag-ON treasure missing-state fallback should not grant passive inventory")
-
-	var mythic_off_runtime := TreasureHuntRuntime.new()
-	var mythic_off_equipment := MythicItemRuntime.new()
-	PerkConversionFlags.debug_set_enabled(false)
-	var mythic_off: Dictionary = mythic_off_runtime._roll_result(FakeOwner.new(), FakeRegistry.new({
-		"mythic_item_runtime": mythic_off_equipment,
-		"runtime_perk_state": RuntimePerkState.new(),
-	}), 0.0)
-	PerkConversionFlags.debug_set_enabled(true)
-	var mythic_on_runtime := TreasureHuntRuntime.new()
-	var mythic_on_equipment := MythicItemRuntime.new()
-	var mythic_on: Dictionary = mythic_on_runtime._roll_result(FakeOwner.new(), FakeRegistry.new({
-		"mythic_item_runtime": mythic_on_equipment,
-		"runtime_perk_state": RuntimePerkState.new(),
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	}), 0.0)
-	_expect(str(mythic_off.get("result_type", "")) == "legendary", "flag-OFF treasure mythic roll should stay legendary")
-	_expect(str(mythic_on.get("result_type", "")) == "mythic_perk", "flag-ON treasure mythic roll should grant a mythic perk")
-	_expect(not str(mythic_on.get("perk_id", "")).is_empty(), "flag-ON treasure mythic perk result should expose the granted perk id")
-	_expect(mythic_on_equipment.get_snapshot().get("inventory_items", []).is_empty(), "flag-ON treasure mythic roll should not grant mythic item inventory")
 
 
 func _count_spawn_groups(candidates: Array) -> Dictionary:

@@ -4,6 +4,7 @@ const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acq
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -12,6 +13,7 @@ const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.g
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
 
 const CAPTURE_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal.png"
+const PEERLESS_ICON_FRAME_MSEC := 250
 const SLOT_FILLER_IDS := [
 	"dash_lightweight",
 	"dash_module_control",
@@ -20,7 +22,7 @@ const SLOT_FILLER_IDS := [
 	"item_luck",
 	"item_cooldown_mastery",
 	"item_gauge_mastery",
-	"item_bag_expansion",
+	"common_swiftness",
 ]
 
 var _failures: Array[String] = []
@@ -143,6 +145,7 @@ func _run() -> void:
 	_verify_mythic_perk_choice_fallback_does_not_start_cinematic()
 	_verify_single_unowned_mythic_choice()
 	_verify_mythic_perk_sheet_paths()
+	_verify_static_fallback_metadata()
 	_verify_cinematic_text_lane_key_gate()
 	_verify_prewarm_includes_mythic_perk_sheets()
 	await _capture_reveal_if_available()
@@ -192,7 +195,7 @@ func _verify_mythic_box_choice_opens_and_selection_starts_cinematic() -> void:
 	var selected_choice: Dictionary = _get_dict(perk_state.current_choices[perk_state.selected_index])
 	var selected_perk_id: String = str(selected_choice.get("id", ""))
 	var expected_perk_data: Dictionary = perk_catalog.get_perk_data(selected_perk_id)
-	var expected_description: String = _first_description_line(expected_perk_data)
+	var expected_description: String = "%s\n%s" % [LanguageSettings.translate_text("절세무공 대성!"), _first_description_line(expected_perk_data)]
 	perk_state.update(0.30, Vector2(760.0, 750.0), owner, registry)
 	perk_state.choose_selected(owner, registry, Vector2(760.0, 750.0))
 	var item_data: Dictionary = runtime.last_item_data
@@ -206,7 +209,7 @@ func _verify_mythic_box_choice_opens_and_selection_starts_cinematic() -> void:
 	_expect(str(item_data.get("rarity", "")) == "mythic", "cinematic item_data should pass the mythic rarity gate")
 	_expect(str(item_data.get("icon_sheet_path", "")) == str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get(selected_perk_id, "")), "cinematic should use the chosen animated mythic perk sheet")
 	_expect(int(item_data.get("icon_frame_count", 0)) == 8, "cinematic mythic perk sheet should expose eight frames")
-	_expect(int(item_data.get("icon_frame_msec", 0)) == 110, "cinematic mythic perk sheet should use the perk animation cadence")
+	_expect(int(item_data.get("icon_frame_msec", 0)) == PEERLESS_ICON_FRAME_MSEC, "cinematic peerless sheet should use the AutoSprite internal-motion cadence")
 	_expect(str(item_data.get("reveal_description", "")) == expected_description, "cinematic should reveal the chosen Lv1 perk description")
 	owner.queue_free()
 
@@ -264,7 +267,7 @@ func _verify_direct_mythic_perk_grant_starts_cinematic_once() -> void:
 	reward["pickup_position"] = Vector2(244.0, 318.0)
 	reward["target_player_center"] = Vector2(610.0, 284.0)
 	var expected_perk_data: Dictionary = perk_catalog.get_perk_data("odins_eye")
-	var expected_description: String = _first_description_line(expected_perk_data)
+	var expected_description: String = "%s\n%s" % [LanguageSettings.translate_text("절세무공 대성!"), _first_description_line(expected_perk_data)]
 
 	var summary: Dictionary = resolver.grant_rewards([reward], owner, registry)
 	var item_data: Dictionary = runtime.last_item_data
@@ -276,7 +279,7 @@ func _verify_direct_mythic_perk_grant_starts_cinematic_once() -> void:
 	_expect(str(item_data.get("rarity", "")) == "mythic", "cinematic item_data should pass the mythic rarity gate")
 	_expect(str(item_data.get("icon_sheet_path", "")) == str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get("odins_eye", "")), "cinematic should use the animated mythic perk sheet")
 	_expect(int(item_data.get("icon_frame_count", 0)) == 8, "cinematic mythic perk sheet should expose eight frames")
-	_expect(int(item_data.get("icon_frame_msec", 0)) == 110, "cinematic mythic perk sheet should use the perk animation cadence")
+	_expect(int(item_data.get("icon_frame_msec", 0)) == PEERLESS_ICON_FRAME_MSEC, "cinematic peerless sheet should use the AutoSprite internal-motion cadence")
 	_expect(str(item_data.get("reveal_description", "")) == expected_description, "cinematic should reveal the Lv1 perk description")
 	_expect(runtime.last_pickup_position == Vector2(244.0, 318.0), "mythic perk cinematic should honor reward pickup_position")
 	_expect(runtime.last_target_player_center == Vector2(610.0, 284.0), "mythic perk cinematic should honor reward target_player_center")
@@ -456,11 +459,25 @@ func _verify_single_unowned_mythic_choice() -> void:
 
 
 func _verify_mythic_perk_sheet_paths() -> void:
+	var renderer := RuntimePerkIconRenderer.new()
 	for perk_id_value in MythicPerkGrantHelper.MYTHIC_PERK_IDS:
 		var perk_id: String = str(perk_id_value)
 		var sheet_path: String = str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get(perk_id, ""))
 		_expect(sheet_path != "", "%s should register an animated perk sheet path" % perk_id)
 		_expect(ResourceLoader.exists(sheet_path, "Texture2D"), "%s animated perk sheet should import as Texture2D" % perk_id)
+		var item_data: Dictionary = MythicPerkGrantHelper.build_acquisition_cinematic_item_data(perk_id, null)
+		_expect(str(item_data.get("icon_sheet_path", "")) == sheet_path, "%s acquisition should prefer the same production sheet" % perk_id)
+		_expect(int(item_data.get("icon_frame_msec", 0)) == PEERLESS_ICON_FRAME_MSEC, "%s acquisition cadence should stay at 250ms" % perk_id)
+		_expect(is_equal_approx(renderer.get_icon_frame_interval_msec(perk_id), float(item_data.get("icon_frame_msec", 0))), "%s card/HUD and acquisition cadence should share one renderer contract" % perk_id)
+
+
+func _verify_static_fallback_metadata() -> void:
+	var static_path := str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get("odins_eye", ""))
+	var metadata: Dictionary = MythicPerkGrantHelper._build_cinematic_icon_metadata("odins_eye", "", static_path)
+	_expect(str(metadata.get("icon_path", "")) == static_path, "acquisition should keep the existing static peerless icon as fallback")
+	_expect(not metadata.has("icon_sheet_path"), "static acquisition fallback should not masquerade as a sheet")
+	_expect(int(metadata.get("icon_frame_count", 0)) == 1, "static acquisition fallback must expose one full frame instead of slicing the icon into eight slivers")
+	_expect(int(metadata.get("icon_frame_msec", 0)) == PEERLESS_ICON_FRAME_MSEC, "static fallback metadata should preserve the peerless presentation cadence contract")
 
 
 func _verify_cinematic_text_lane_key_gate() -> void:
@@ -480,7 +497,7 @@ func _verify_cinematic_text_lane_key_gate() -> void:
 		"rarity": "mythic",
 		"icon_sheet_path": str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get("odins_eye", "")),
 		"icon_frame_count": 8,
-		"icon_frame_msec": 110,
+		"icon_frame_msec": PEERLESS_ICON_FRAME_MSEC,
 		"reveal_description": _first_description_line(perk_data),
 	}
 	cinematic.trigger(perk_cinematic_data, Vector2(220.0, 330.0), Vector2(380.0, 725.0))
@@ -529,7 +546,7 @@ func _capture_reveal_if_available() -> void:
 		"rarity": "mythic",
 		"icon_sheet_path": str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get("odins_eye", "")),
 		"icon_frame_count": 8,
-		"icon_frame_msec": 110,
+		"icon_frame_msec": PEERLESS_ICON_FRAME_MSEC,
 		"reveal_description": _first_description_line(perk_data),
 	}
 	cinematic.trigger(perk_cinematic_data, Vector2(220.0, 330.0), Vector2(380.0, 725.0))

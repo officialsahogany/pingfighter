@@ -1,13 +1,16 @@
 extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ActiveItemHudState := preload("res://scripts/hud/active_item_hud_state.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
 const DIRECT_VALUE_CASES := [
@@ -54,6 +57,7 @@ class FakeOwner:
 	var special_gauge := 100.0
 	var special_gauge_max := 500.0
 	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
 	var boss_pos := Vector2(330.0, 25.0)
 	var ball_pos := Vector2.ZERO
 	var ball_active := false
@@ -101,7 +105,10 @@ func _init() -> void:
 	_verify_on_flag_perk_replaces_item_without_max()
 	_verify_boolean_effect_gates()
 	_verify_runtime_consumers_use_batch2_getters()
+	_verify_master_copy_includes_neolttwigi_width()
+	_verify_gangsin_copy_describes_down_hold_cancel()
 	_verify_overflow_saturates_at_consumer_limits()
+	LanguageSettings.set_test_locale_override("")
 	PerkConversionFlags.debug_set_enabled(false)
 
 	if _failures.is_empty():
@@ -196,6 +203,13 @@ func _verify_on_flag_uses_perk_levels() -> void:
 				1.0 + PerkConversionValues.get_value(str(case_data["id"]), str(case_data["key"]), level) / 100.0,
 				"ON should use Lv%d perk multiplier for %s.%s" % [level, str(case_data["id"]), str(case_data["key"])]
 			)
+	var expected_gangsin_drains: Array[float] = [80.0, 75.0, 70.0, 65.0, 60.0]
+	var expected_gangsin_speed_bonuses: Array[float] = [2.0, 4.0, 6.0, 8.0, 10.0]
+	for index in range(5):
+		var level := index + 1
+		var gangsin_runtime: Object = _make_runtime({"neural_helmet": level})
+		_expect_close(gangsin_runtime.get_aipill_gauge_drain(90.0), expected_gangsin_drains[index], "Gangsin Lv%d effective guard drain" % level)
+		_expect_close(gangsin_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), expected_gangsin_speed_bonuses[index], "Gangsin Lv%d effective ball-speed bonus" % level)
 	var bonus_runtime: Object = _make_runtime({"master": 3}, 2)
 	_expect(bonus_runtime.get_converted_perk_effect_level("master") == 5, "Batch2 bridge should expose base+bonus effective level")
 	_expect_close(bonus_runtime.get_master_wall_length_bonus_pct(), 45.0, "base 3 + bonus 2 should use Master Lv5 wall length")
@@ -221,9 +235,11 @@ func _verify_on_flag_level_zero_is_inactive() -> void:
 		)
 	var runtime: Object = _make_runtime({})
 	_expect_close(runtime.get_aipill_gauge_drain(90.0), 90.0, "ON level 0 should keep base AI Pill drain")
+	_expect_close(runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), 0.0, "ON level 0 should keep neutral AI Pill ball-speed bonus")
 	_expect_close(runtime.get_commando_arm_throw_speed_multiplier(false), 1.0, "ON level 0 should keep neutral Commando speed")
 	_expect_close(runtime.get_commando_arm_prep_multiplier(), 1.0, "ON level 0 should keep neutral Commando prep")
 	_expect(not runtime.is_neural_helmet_effect_active(), "ON level 0 Neural Helmet effect gate should be inactive")
+	_expect(not runtime.can_cancel_aipill_with_gangsin_down_hold(), "ON level 0 should not enable Gangsin down-hold cancel")
 	_expect(not runtime.is_reinforced_boomerang_gauntlet_effect_active(), "ON level 0 Boomerang Gauntlet effect gate should be inactive")
 	_expect(not runtime.is_commando_arm_effect_active(), "ON level 0 Commando Arm effect gate should be inactive")
 
@@ -256,6 +272,7 @@ func _verify_on_flag_item_only_is_inactive() -> void:
 	_expect(_equip_item(neural_runtime, "neural_helmet", {}), "ON item-only Neural Helmet should equip")
 	_expect(not neural_runtime.is_neural_helmet_effect_active(), "ON item-only Neural Helmet effect gate should be inactive")
 	_expect(not neural_runtime.should_cancel_aipill_on_direction_key(), "ON item-only Neural Helmet should not cancel AI Pill")
+	_expect(not neural_runtime.can_cancel_aipill_with_gangsin_down_hold(), "ON item-only Neural Helmet should not enable Gangsin down-hold cancel")
 	var boomerang_runtime: Object = _make_runtime({})
 	_expect(_equip_item(boomerang_runtime, "reinforced_boomerang_gauntlet", {}), "ON item-only Boomerang Gauntlet should equip")
 	_expect(not boomerang_runtime.is_reinforced_boomerang_gauntlet_effect_active(), "ON item-only Boomerang Gauntlet effect gate should be inactive")
@@ -267,6 +284,7 @@ func _verify_on_flag_item_only_is_inactive() -> void:
 	_expect_close(master_runtime.get_active_item_cooldown_msec(10000), 10000.0, "ON item-only Master should not reduce cooldown")
 	_expect_close(master_runtime.get_wall_item_spawn_chance(0.25), 0.25, "ON item-only Master should not raise wall spawn chance")
 	_expect_close(neural_runtime.get_aipill_item_spawn_chance(0.006), 0.006, "ON item-only Neural Helmet should not raise AI Pill spawn chance")
+	_expect_close(neural_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), 0.0, "ON item-only Neural Helmet should not raise AI Pill ball speed")
 	_expect_close(boomerang_runtime.get_boomerang_item_spawn_chance(0.006), 0.006, "ON item-only Boomerang Gauntlet should not raise boomerang spawn chance")
 
 
@@ -313,6 +331,7 @@ func _verify_boolean_effect_gates() -> void:
 	_expect(_equip_item(off_runtime, "commando_arm", {}), "OFF Commando Arm should equip")
 	_expect(off_runtime.is_neural_helmet_effect_active(), "OFF Neural Helmet effect gate should follow equipped state")
 	_expect(off_runtime.should_cancel_aipill_on_direction_key(), "OFF Neural Helmet should cancel AI Pill by equipped state")
+	_expect(not off_runtime.can_cancel_aipill_with_gangsin_down_hold(), "OFF Neural Helmet should keep the legacy cancel path only")
 	_expect(off_runtime.is_reinforced_boomerang_gauntlet_effect_active(), "OFF Boomerang Gauntlet effect gate should follow equipped state")
 	_expect(off_runtime.is_commando_arm_effect_active(), "OFF Commando Arm effect gate should follow equipped state")
 
@@ -323,7 +342,9 @@ func _verify_boolean_effect_gates() -> void:
 		"commando_arm": 1,
 	})
 	_expect(on_runtime.is_neural_helmet_effect_active(), "ON perk-only Neural Helmet effect gate should be active")
-	_expect(on_runtime.should_cancel_aipill_on_direction_key(), "ON perk-only Neural Helmet should cancel AI Pill")
+	_expect_close(on_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), 2.0, "ON Gangsin Lv1 should add 2% AI Pill ball speed")
+	_expect(not on_runtime.should_cancel_aipill_on_direction_key(), "ON Gangsin should not cancel AI Pill on an immediate direction press")
+	_expect(on_runtime.can_cancel_aipill_with_gangsin_down_hold(), "ON Gangsin should enable one-second down-hold cancel")
 	_expect(on_runtime.is_reinforced_boomerang_gauntlet_effect_active(), "ON perk-only Boomerang Gauntlet effect gate should be active")
 	_expect(on_runtime.is_commando_arm_effect_active(), "ON perk-only Commando Arm effect gate should be active")
 
@@ -342,12 +363,27 @@ func _verify_runtime_consumers_use_batch2_getters() -> void:
 		8800.0,
 		"ON Master perk should feed active-item cooldown consumers"
 	)
+	var active_item_controller: Object = ActiveItemEffectController.new()
+	var trampoline_owner := FakeOwner.new()
+	_expect(
+		active_item_controller.activate_trampoline(trampoline_owner, master_registry),
+		"ON Master perk should activate Neolttwigi through the production controller route"
+	)
+	var trampoline_rect: Rect2 = active_item_controller.trampolines[0].get("rect", Rect2())
+	_expect_close(trampoline_rect.size.x, 199.375, "ON Master Lv5 should widen the 25% longer Neolttwigi by the shared 45% width bonus")
+	_expect_close(
+		trampoline_rect.get_center().x,
+		trampoline_owner.player_pos.x + trampoline_owner.player_paddle_width * 0.5,
+		"widened Neolttwigi should stay centered on the player"
+	)
 
 	var neural_runtime: Object = _make_runtime({"neural_helmet": 5})
 	var neural_registry := FakeRegistry.new(neural_runtime, neural_runtime.runtime_perk_state_ref)
 	var aipill_item: Dictionary = spawn_pool._apply_passive_spawn_weight({"name": "aipill", "chance": 0.006}, neural_registry)
 	_expect_close(float(aipill_item.get("chance", 0.0)), 0.0258, "ON Neural Helmet perk should feed AI Pill field-spawn weighting")
-	_expect_close(neural_runtime.get_aipill_gauge_drain(90.0), 20.0, "ON Neural Helmet perk should feed AI Pill gauge drain")
+	_expect_close(neural_runtime.get_aipill_gauge_drain(90.0), 60.0, "ON Gangsin Lv5 should reduce the 90 AI Pill guard drain by 30")
+	_expect_close(neural_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), 10.0, "ON Gangsin Lv5 should add 10% AI Pill ball speed")
+
 
 	var commando_runtime: Object = _make_runtime({"commando_arm": 5})
 	var commando_registry := FakeRegistry.new(commando_runtime, commando_runtime.runtime_perk_state_ref)
@@ -400,14 +436,56 @@ func _verify_runtime_consumers_use_batch2_getters() -> void:
 	_expect(str(normal_visual.get("icon_path", "")) == ActiveItemCatalog.BOOMERANG_ICON_PATH, "ON item-only Boomerang Gauntlet should not make stored boomerang metal")
 
 
+func _verify_master_copy_includes_neolttwigi_width() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+	var expected_fragments := {
+		"ko": ["널뛰기", "폭"],
+		"en": ["Neolttwigi", "Widens"],
+		"zh": ["跳板", "加宽"],
+		"ja": ["ノルティギ", "幅"],
+		"es": ["Neolttwigi", "Amplía"],
+		"pt-BR": ["Neolttwigi", "largura"],
+		"ru": ["Нольттвиги", "ширину"],
+	}
+	var catalog: Object = RuntimePerkCatalog.new()
+	for locale: String in expected_fragments.keys():
+		LanguageSettings.set_test_locale_override(locale)
+		var data: Dictionary = catalog.get_perk_data("master")
+		var detail: String = str(data.get("detail", ""))
+		for fragment: String in expected_fragments[locale]:
+			_expect(detail.contains(fragment), "Master detail should describe Neolttwigi width in %s: missing %s" % [locale, fragment])
+	LanguageSettings.set_test_locale_override("")
+
+
+func _verify_gangsin_copy_describes_down_hold_cancel() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+	var expected_fragments := {
+		"ko": ["가드 1회 기력 비용", "패들 반사", "아래 방향키", "1초"],
+		"en": ["ball-speed", "Down", "1 second"],
+		"zh": ["球速", "下方向键", "1秒"],
+		"ja": ["球速", "下方向キー", "1秒"],
+		"es": ["velocidad de pelota", "Abajo", "1 segundo"],
+		"pt-BR": ["velocidade à bola", "Baixo", "1 segundo"],
+		"ru": ["скорости мяча", "вниз", "1 секунду"],
+	}
+	var catalog: Object = RuntimePerkCatalog.new()
+	for locale: String in expected_fragments.keys():
+		LanguageSettings.set_test_locale_override(locale)
+		var detail: String = str(catalog.get_perk_data("neural_helmet").get("detail", ""))
+		for fragment: String in expected_fragments[locale]:
+			_expect(detail.contains(fragment), "Gangsin detail should describe down-hold cancel in %s: missing %s" % [locale, fragment])
+	LanguageSettings.set_test_locale_override("")
+
+
 func _verify_overflow_saturates_at_consumer_limits() -> void:
 	# 감소 계열 오버플로우가 소비 코드의 실효 한도에 정확히 포화한다
 	# (레거시 패리티 — OVERFLOW_VALUE_BOUNDS와 공개 소비 함수의 관통 씰:
 	# 100 캡이었다면 neural은 실효 무증가·master는 실제 쿨다운 0이 된다).
 	PerkConversionFlags.debug_set_enabled(true)
-	var neural_runtime: Object = _make_runtime({"neural_helmet": 9})
+	var neural_runtime: Object = _make_runtime({"neural_helmet": 17})
 	_expect_close(neural_runtime.get_neural_helmet_aipill_gauge_reduction(), 90.0, "overflow neural gauge reduction must saturate at the 90 base-gauge limit")
 	_expect_close(neural_runtime.get_aipill_gauge_drain(90.0), 0.0, "overflow neural drain must land exactly on 0, never negative")
+	_expect_close(neural_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(), 34.0, "overflow Gangsin ball-speed bonus must keep scaling without a fake Lv5 cap")
 	var master_runtime: Object = _make_runtime({"master": 60})
 	_expect_close(master_runtime.get_master_item_cooldown_reduction_pct(), 95.0, "overflow master cooldown reduction must saturate at the legacy 95 limit")
 	# 최종 소비 관통: 실제 쿨다운 계산이 5%를 남긴다(95 게터만으로는 소비

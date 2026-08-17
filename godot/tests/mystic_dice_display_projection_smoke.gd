@@ -24,13 +24,10 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
-	_verify_projection_visibility_and_copy_contract()
-	_verify_runtime_snapshot_and_dice_only_hud()
-	_verify_tab_rows_and_benefit_colors()
-	_verify_localized_accumulated_header()
-	_verify_early_return_and_tooltip_source_contracts()
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
+	_verify_retired_perk_projection()
 	ProjectResourceLoader.clear_caches()
+	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
 		print("mystic_dice_display_projection_smoke: ok")
 		quit(0)
@@ -38,6 +35,32 @@ func _init() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_retired_perk_projection() -> void:
+	var state := RuntimePerkState.new()
+	var catalog := RuntimePerkCatalog.new()
+	_expect(bool(state.commit_mystic_dice_roll(_raw_fixture()).get("accepted", false)), "item stat state should still commit")
+	_expect(state.runtime_skill_levels.is_empty(), "item use must not invent a runtime perk level")
+	var projection: Dictionary = state.get_perk_fusion_display_projection(catalog)
+	_expect((projection.get("entries", []) as Array).is_empty(), "consumed Mystic Dice must not appear in the perk HUD")
+	var snapshot: Dictionary = state.get_snapshot()
+	var dedicated: Dictionary = snapshot.get("mystic_dice_display_projection", {}) as Dictionary
+	_expect((dedicated.get("entries", []) as Array).is_empty(), "compatibility snapshot must not project a retired perk")
+	var acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks({}, catalog, null, snapshot)
+	_expect(acquired.is_empty(), "TAB acquired-Mugong grid must not show the Mystic Dice item")
+	var legacy_projection: Dictionary = MysticDiceDisplayProjection.new().build(
+		snapshot.get("mystic_dice", {}) as Dictionary
+	)
+	var legacy_entries: Array = legacy_projection.get("entries", []) as Array
+	_expect(legacy_entries.size() == 1, "legacy projection should remain readable for old snapshot consumers")
+	if legacy_entries.size() == 1:
+		var legacy_entry: Dictionary = legacy_entries[0] as Dictionary
+		_expect(bool(legacy_entry.get("uses_unlimited", false)), "legacy projection should distinguish unlimited uses from exhaustion")
+		_expect(int(legacy_entry.get("remaining_uses", 0)) == -1, "unlimited remaining uses must not collapse to exhausted zero")
+	var compat_card: Dictionary = load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
+	_expect(str(compat_card.get("detail", "")).contains("행운"), "legacy tooltip compatibility should keep player-facing flavor copy")
+	_expect(not str(compat_card.get("detail", "")).contains("액티브 아이템으로 획득"), "player tooltip must not expose migration patch notes")
 
 
 func _verify_projection_visibility_and_copy_contract() -> void:
@@ -57,7 +80,7 @@ func _verify_projection_visibility_and_copy_contract() -> void:
 	(entry.get("permanent_raw", {}) as Dictionary)["player_speed"] = 30
 	var rebuilt: Dictionary = projector.build(_dice_snapshot(1, 1, _raw_fixture()))
 	var rebuilt_entry: Dictionary = (rebuilt.get("entries", []) as Array)[0] as Dictionary
-	_expect(int((rebuilt_entry.get("permanent_raw", {}) as Dictionary).get("player_speed", 0)) == -5, "projection output must not alias raw input or later builds")
+	_expect(int((rebuilt_entry.get("permanent_raw", {}) as Dictionary).get("player_speed", 0)) == -3, "projection output must not alias raw input or later builds")
 	var revision_only: Dictionary = projector.build(_dice_snapshot(1, 2, _raw_fixture()))
 	_expect(after.get("cache_signature") != revision_only.get("cache_signature"), "Dice revision must invalidate the display cache")
 
@@ -111,18 +134,18 @@ func _verify_tab_rows_and_benefit_colors() -> void:
 	)
 	_expect(rows.size() == 7, "TAB Dice tooltip must retain all seven accumulated stat rows")
 	var by_label := _rows_by_label(rows)
-	_expect(_row_has(by_label, "이동속도", "-5%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_CURSE_COLOR), "normal raw -5 should display red as a loss")
-	_expect(_row_has(by_label, "몸집 크기", "+10%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "normal raw +10 should display green as a benefit")
-	_expect(_row_has(by_label, "최대 게이지", "0%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_NEUTRAL_COLOR), "zero raw should display neutral gray")
-	_expect(_row_has(by_label, "대쉬 후딜", "-10%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "LIB raw -10 must invert to green")
-	_expect(_row_has(by_label, "대쉬 쿨타임", "+5%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_CURSE_COLOR), "LIB raw +5 must invert to red")
-	_expect(_row_has(by_label, "아이템 쿨타임", "-4%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "LIB item cooldown raw -4 must invert to green")
+	_expect(_row_has(by_label, "이동속도", "-3%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_CURSE_COLOR), "normal raw -3 should display red as a loss")
+	_expect(_row_has(by_label, "몸집 크기", "+3%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "normal raw +3 should display green as a benefit")
+	_expect(_row_has(by_label, "최대 기력", "0%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_NEUTRAL_COLOR), "zero raw should display neutral gray")
+	_expect(_row_has(by_label, "활주 후딜", "-3%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "LIB raw -3 must invert to green")
+	_expect(_row_has(by_label, "활주 재충전", "+3%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_CURSE_COLOR), "LIB raw +3 must invert to red")
+	_expect(_row_has(by_label, "아이템 쿨타임", "-2%", CharacterInfoOverlayPerkPresenter.MYSTIC_DICE_STAT_BENEFIT_COLOR), "LIB item cooldown raw -2 must invert to green")
 
 	var before_hash := CharacterInfoOverlayPerkPresenter.acquired_perk_cache_hash({}, catalog, null, snapshot)
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
 	var english_hash := CharacterInfoOverlayPerkPresenter.acquired_perk_cache_hash({}, catalog, null, snapshot)
 	_expect(before_hash != english_hash, "TAB acquired-perk cache should invalidate when localized Dice labels change")
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	state.commit_mystic_dice_roll(_zero_raw())
 	var after_snapshot: Dictionary = state.get_snapshot()
 	var after_hash := CharacterInfoOverlayPerkPresenter.acquired_perk_cache_hash({}, catalog, null, after_snapshot)
@@ -139,13 +162,13 @@ func _verify_localized_accumulated_header() -> void:
 		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL,
 		LanguageSettings.LANGUAGE_RUSSIAN,
 	]:
-		LanguageSettings.set_language(locale)
+		LanguageSettings.set_test_locale_override(locale)
 		var header := MysticDiceLocalization.text("accumulated_changes")
 		_expect(not header.strip_edges().is_empty() and header != "accumulated_changes", "%s should localize the accumulated-change header" % locale)
 		for stat_key: String in ["player_speed", "paddle_size", "skill_gauge", "dash_distance", "dash_recovery", "dash_cooldown", "item_cooldown"]:
 			var label := MysticDiceLocalization.text(stat_key)
 			_expect(not label.strip_edges().is_empty() and label != stat_key, "%s should localize Dice stat %s" % [locale, stat_key])
-	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_early_return_and_tooltip_source_contracts() -> void:
@@ -171,14 +194,14 @@ func _rows_by_label(rows: Array) -> Dictionary:
 		var label := text.get_slice(" ", 0)
 		if text.begins_with("몸집 크기"):
 			label = "몸집 크기"
-		elif text.begins_with("최대 게이지"):
-			label = "최대 게이지"
-		elif text.begins_with("대쉬 거리"):
-			label = "대쉬 거리"
-		elif text.begins_with("대쉬 후딜"):
-			label = "대쉬 후딜"
-		elif text.begins_with("대쉬 쿨타임"):
-			label = "대쉬 쿨타임"
+		elif text.begins_with("최대 기력"):
+			label = "최대 기력"
+		elif text.begins_with("활주 거리"):
+			label = "활주 거리"
+		elif text.begins_with("활주 후딜"):
+			label = "활주 후딜"
+		elif text.begins_with("활주 재충전"):
+			label = "활주 재충전"
 		elif text.begins_with("아이템 쿨타임"):
 			label = "아이템 쿨타임"
 		result[label] = row
@@ -195,13 +218,13 @@ func _row_has(rows: Dictionary, label: String, raw_text: String, expected_color:
 
 func _raw_fixture() -> Dictionary:
 	return {
-		"player_speed": -5,
-		"paddle_size": 10,
+		"player_speed": -3,
+		"paddle_size": 3,
 		"skill_gauge": 0,
-		"dash_distance": 3,
-		"dash_recovery": -10,
-		"dash_cooldown": 5,
-		"item_cooldown": -4,
+		"dash_distance": 2,
+		"dash_recovery": -3,
+		"dash_cooldown": 3,
+		"item_cooldown": -2,
 	}
 
 

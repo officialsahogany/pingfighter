@@ -20,7 +20,7 @@ const SKILL_COSTS := {
 	"core_flip": 120.0,
 	"dual_glitch": 220.0,
 	"ignition_aura": 230.0,
-	"wall_leap_raid": 160.0,
+	"wall_leap_raid": 180.0,
 }
 const SKILL_COLORS := {
 	"shadow_step": Color(100.0 / 255.0, 0.0, 180.0 / 255.0),
@@ -68,7 +68,7 @@ const SKILL_DATA := {
 		"cost": 200.0,
 		"color": Color(200.0 / 255.0, 50.0 / 255.0, 1.0),
 		"cooldown": 20.0,
-		"description": "체공 중 전방으로 검기를 발사합니다.\n발사 전 짧은 준비동작이 있습니다.\n검기에 맞은 공은 난이도와 관계없이 공속 상한 40을 적용합니다.",
+		"description": "체공 중 전방으로 검기를 발사합니다.\n발사 전 짧은 준비동작이 있습니다.\n검기에 맞은 공은 진행 방향으로 강하게 휘며, 난이도와 관계없이 공속 상한 40을 적용합니다.",
 		"how_to_use": "체공 중 W키 또는 위쪽 방향키로 발동",
 		"motion_hint": "전방으로 거대한 보라 검기 발사",
 		"effect_type": "slash_purple",
@@ -158,7 +158,7 @@ const SKILL_DATA := {
 		"cooldown": 40.0,
 		"description": "바이퍼의 고대 비술로 두 잔영을 나눕니다.\n분신은 플레이어 움직임을 거울처럼 따릅니다.\n좌우에서 공을 가드합니다.",
 		"how_to_use": "A, D, A, D 순서 또는 좌우좌우 입력",
-		"motion_hint": "좌우 분신 패들 소환",
+		"motion_hint": "좌우 분신 소환",
 		"effect_type": "glitch_clone",
 	},
 	"ignition_aura": {
@@ -167,7 +167,7 @@ const SKILL_DATA := {
 		"cost": 230.0,
 		"color": Color(1.0, 130.0 / 255.0, 40.0 / 255.0),
 		"cooldown": 70.0,
-		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 무공 레벨이 증가합니다.\n골드 보너스도 함께 증가합니다.",
+		"description": "체내의 화염 에너지를 증폭합니다.\n일정 기간 모든 무공의 유효 경지가 증가합니다.\n골드 보너스도 함께 증가합니다.",
 		"how_to_use": "지상에서 W키 또는 위쪽 방향키를 0.5초 이상 누르기",
 		"motion_hint": "화염 경맥을 열어 기운 분출",
 		"effect_type": "ignition_burst",
@@ -175,7 +175,7 @@ const SKILL_DATA := {
 	"wall_leap_raid": {
 		"name": "wall_leap_raid",
 		"korean": "월담야습",
-		"cost": 160.0,
+		"cost": 180.0,
 		"color": Color(0.30, 0.82, 0.92),
 		"cooldown": 40.0,
 		"description": "담을 넘어 적진에 잠입합니다.\n좌우로 방향을 잡고 검기나 폭발을 씁니다.\n검기가 사라지거나 폭발하면 귀환합니다.",
@@ -263,7 +263,7 @@ func apply_save_snapshot(snapshot: Dictionary) -> Dictionary:
 			var skill_id := str(skill_value).strip_edges()
 			if skill_id == "" or restored.has(skill_id):
 				continue
-			if not SKILL_DATA.has(skill_id) and skill_id != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+			if not SKILL_DATA.has(skill_id) and not CommonSkillCatalog.is_common_skill(skill_id):
 				dropped_ids.append(skill_id)
 				continue
 			restored.append(skill_id)
@@ -288,6 +288,8 @@ func get_max_skill_slots() -> int:
 
 
 func get_cooldown_seconds(skill_name: String) -> float:
+	if CommonSkillCatalog.is_common_skill(skill_name):
+		return float(CommonSkillCatalog.get_cooldown_seconds_map(_get_effective_cooldown_multiplier()).get(skill_name, 0.0))
 	return float(COOLDOWN_SECONDS.get(skill_name, 0.0)) * _get_effective_cooldown_multiplier()
 
 
@@ -296,6 +298,9 @@ func get_cooldown_reduction_skill_ids() -> Array[String]:
 	for skill_name_value: Variant in COOLDOWN_SECONDS.keys():
 		if float(COOLDOWN_SECONDS.get(skill_name_value, 0.0)) > 0.0:
 			result.append(str(skill_name_value))
+	for common_skill_id: String in CommonSkillCatalog.get_all_skill_ids():
+		if float(CommonSkillCatalog.get_cooldown_seconds_map().get(common_skill_id, 0.0)) > 0.0:
+			result.append(common_skill_id)
 	result.sort()
 	return result
 
@@ -314,8 +319,8 @@ func set_item_skill_slot_bonus(slot_bonus: int) -> Array:
 
 
 func get_skill_cost(skill_name: String) -> float:
-	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-		return 0.0
+	if CommonSkillCatalog.is_common_skill(skill_name):
+		return float(CommonSkillCatalog.get_skill_costs().get(skill_name, 0.0))
 	return float(SKILL_COSTS.get(skill_name, 0.0))
 
 
@@ -324,7 +329,7 @@ func is_skill_equipped(skill_name: String) -> bool:
 
 
 func unlock_and_equip_skill(skill_name: String) -> bool:
-	if not SKILL_DATA.has(skill_name) and skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+	if not SKILL_DATA.has(skill_name) and not CommonSkillCatalog.is_common_skill(skill_name):
 		return false
 	if equipped_skills.has(skill_name):
 		return true
@@ -339,7 +344,7 @@ func is_shared_slot_full() -> bool:
 
 
 func get_shared_slot_swap_candidates(skill_name: String) -> Array:
-	if (not SKILL_DATA.has(skill_name) and skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID) or equipped_skills.has(skill_name):
+	if (not SKILL_DATA.has(skill_name) and not CommonSkillCatalog.is_common_skill(skill_name)) or equipped_skills.has(skill_name):
 		return []
 	return equipped_skills.duplicate()
 
@@ -359,8 +364,10 @@ func reset_runtime_skills() -> void:
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
-	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-		return CommonSkillCatalog.get_skill_data()
+	if CommonSkillCatalog.is_common_skill(skill_name):
+		var common_data := CommonSkillCatalog.get_skill_data(skill_name)
+		common_data["cooldown"] = get_cooldown_seconds(skill_name)
+		return common_data
 	var value: Variant = SKILL_DATA.get(skill_name, {})
 	if value is Dictionary:
 		var data: Dictionary = value
@@ -399,7 +406,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["motion_hint"] = "Leave an afterimage and teleport to the start point"
 		"blade_rush":
 			data["korean"] = "Air Blade"
-			data["description"] = "Fire a blade wave forward while airborne. Has a short windup; balls hit by it use a speed cap of 40 regardless of difficulty."
+			data["description"] = "Fire a blade wave forward while airborne. Has a short windup; balls hit by it curve sharply along their travel direction and use a speed cap of 40 regardless of difficulty."
 			data["how_to_use"] = "Press W or Up while airborne"
 			data["motion_hint"] = "Fire a giant purple slash forward"
 		"nerve_strike":
@@ -441,7 +448,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["korean"] = "Twin-Shadow Doppelganger"
 			data["description"] = "Split two shadows from yourself with an ancient Viper art. The doubles mirror player movement and guard the ball from both sides."
 			data["how_to_use"] = "Input A, D, A, D or left-right-left-right"
-			data["motion_hint"] = "Summon left and right clone paddles"
+			data["motion_hint"] = "Summon left and right clones"
 		"ignition_aura":
 			data["korean"] = "Flame Meridian Opening"
 			data["description"] = "Amplify internal fire energy. All perk levels increase for a duration, and gold bonuses increase too."
@@ -458,7 +465,7 @@ func _get_effective_cooldown_seconds_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in COOLDOWN_SECONDS.keys():
 		result[str(skill_name)] = get_cooldown_seconds(str(skill_name))
-	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
+	result.merge(CommonSkillCatalog.get_cooldown_seconds_map(_get_effective_cooldown_multiplier()), true)
 	return result
 
 
@@ -466,19 +473,21 @@ func _get_effective_skill_data_map() -> Dictionary:
 	var result: Dictionary = {}
 	for skill_name in SKILL_DATA.keys():
 		result[str(skill_name)] = get_skill_data(str(skill_name))
-	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.get_skill_data()
+	result.merge(CommonSkillCatalog.get_all_skill_data(), true)
+	for common_skill_id: String in CommonSkillCatalog.get_all_skill_ids():
+		result[common_skill_id]["cooldown"] = get_cooldown_seconds(common_skill_id)
 	return result
 
 
 func _get_effective_skill_costs_map() -> Dictionary:
 	var result := SKILL_COSTS.duplicate()
-	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = 0.0
+	result.merge(CommonSkillCatalog.get_skill_costs(), true)
 	return result
 
 
 func _get_effective_skill_colors_map() -> Dictionary:
 	var result := SKILL_COLORS.duplicate()
-	result[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = CommonSkillCatalog.SOUL_SUMMON_ART_COLOR
+	result.merge(CommonSkillCatalog.get_skill_colors(), true)
 	return result
 
 

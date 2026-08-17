@@ -1,0 +1,28 @@
+{
+  "asset_id": "dash_lightweight_perk_icon",
+  "perk_id": "dash_lightweight",
+  "display_name_ko": "회기보",
+  "display_name_en": "Return-Breath Step",
+  "runtime_path": "res://assets/sprites/perks/dash_lightweight_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-edf015dd-3f2e-4e99-966c-9f562c656385.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy hanji training seal: two traditional cloth-shoe footprints curve around a returning cyan breath current and three breath pearls, rendered in dry black ink with muted cyan and ochre takbon accents. No book, text, modern sneaker, battery, arrows, metal, leather, neon, or glossy frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_color_observed": "#fa02f9",
+    "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [14, 15, 244, 242],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "487d67aff28e5bfee4c6317c1a4bbeb12a8701aca7e9f66e782925db4478c87d",
+    "runtime_capture": "res://.tmp/common_mugong_dash_seal_qa.png",
+    "rendered_sizes": [80, 32]
+  }
+}

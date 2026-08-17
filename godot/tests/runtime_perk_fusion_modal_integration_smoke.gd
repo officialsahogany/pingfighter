@@ -4,6 +4,7 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkFusionModalLayout := preload("res://scripts/characters/perk_fusion_modal_layout.gd")
+const PerkFusionByproductCatalog := preload("res://scripts/characters/perk_fusion_byproduct_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -85,6 +86,22 @@ class CooldownProbe:
 		resume_calls += 1
 
 
+class RollProbe:
+	extends RefCounted
+
+	var call_count := 0
+	var value := 0.0
+
+
+	func _init(p_value: float) -> void:
+		value = p_value
+
+
+	func next_roll() -> float:
+		call_count += 1
+		return value
+
+
 class ResumeSafetyProbe:
 	extends RefCounted
 
@@ -148,6 +165,7 @@ class FusionOverlayRendererProbe:
 func _init() -> void:
 	_verify_material_cancel_is_a_noop()
 	_verify_s2_commit_and_s4_next_modal_boundary()
+	_verify_low_count_rare_promotion_commits_through_s2()
 	_verify_result_box_dowsing_finish_is_transactionally_idempotent()
 	_verify_rt_release_gate_blocks_phase_cascade()
 	_verify_late_phase_grid_click_cannot_consume_finish_latches()
@@ -211,6 +229,37 @@ func _verify_s2_commit_and_s4_next_modal_boundary() -> void:
 	_expect(str(state.last_selected_id) == "perk_fusion", "finish path should record the fusion selection identity")
 	_expect(str(state.last_selected_choice.get("type", "")) == "fusion", "S4 snapshot should publish the canonical fusion reward type")
 	_expect((state.last_selected_choice.get("fusion_record", {}) as Dictionary).has("fusion_id"), "finish snapshot should carry the committed fusion record")
+
+
+# 코덱스 P2(2026-08-12): +1/+2 롤 희귀 승격은 빌더 단위 씰 + 시드 소스 문자열
+# 검사만으로는 생산 경로 증명이 아니다 — 실제 S2 확정→레코드 커밋 경로를
+# 결정적 롤(rare_slot=0.0)로 관통해 +1개 롤에서 희귀가 커밋됨을 봉인한다.
+func _verify_low_count_rare_promotion_commits_through_s2() -> void:
+	var fixture: Dictionary = _build_fixture(2)
+	var state: Object = fixture["state"]
+	var registry: Object = fixture["registry"]
+	state.choose_selected(null, registry, Vector2(760.0, 750.0))
+	_select_pair_and_enter_confirm(state)
+	var rolls: Dictionary = _success_rolls()
+	rolls["outcome"] = 0.90
+	rolls["byproduct_count"] = 0.0
+	rolls["rare_slot"] = 0.0
+	var commit_result: Dictionary = state._confirm_perk_fusion_modal(null, registry, rolls)
+	_expect(bool(commit_result.get("accepted", false)), "rare-promotion S2 confirm should commit a fusion record")
+	var record: Dictionary = commit_result.get("record", {}) as Dictionary
+	var byproducts: Array = record.get("byproducts", []) as Array
+	_expect(byproducts.size() == 1, "a promoted one-reward roll should still grant exactly one Superior Martial Art")
+	var byproduct_catalog: Object = PerkFusionByproductCatalog.new()
+	var granted_id := str(byproducts[0]) if byproducts.size() == 1 else ""
+	_expect(
+		str(byproduct_catalog.get_data(granted_id).get("rarity", "")) == "rare",
+		"the promoted single slot must come from the live rare pool through the real commit path"
+	)
+	var persisted: Array = state.get_perk_fusion_snapshot().get("records", []) as Array
+	_expect(
+		persisted.size() == 1 and (persisted[0] as Dictionary).get("byproducts", []) == byproducts,
+		"the promoted rare must persist in the committed record snapshot"
+	)
 
 
 # 코덱스 P3: 프리뷰의 한계돌파 자격은 실 커밋과 같은 카탈로그(max_level)를
@@ -285,19 +334,15 @@ func _verify_commit_authority_and_preview_cache_across_catalog_swaps() -> void:
 		"test_alloy_core": 3,
 		"test_alloy_lattice": 3,
 	}
+	var preowned_byproducts: Array = []
+	for byproduct_id: String in PerkFusionByproductCatalog.GENERAL_IDS + PerkFusionByproductCatalog.RARE_IDS:
+		if byproduct_id != "limit_break":
+			preowned_byproducts.append(byproduct_id)
 	var grant_record: Dictionary = state.commit_perk_fusion(
 		["common_swiftness", "sensor"],
 		{
 			"outcome": "byproduct",
-			"byproducts": [
-				"overload_circuit",
-				"reverb",
-				"golden_trajectory",
-				"static_field",
-				"recycle_protocol",
-				"core_stabilize",
-				"dual_catalyst",
-			],
+			"byproducts": preowned_byproducts,
 		},
 		catalog_a
 	)
@@ -397,16 +442,20 @@ func _verify_result_box_dowsing_finish_is_transactionally_idempotent() -> void:
 	state._starpoint_absorption = absorption
 
 	# Build the plan's adversarial S2 fixture through the production opener:
-	# two full-slot owned upgrades become protected reservations, Dowsing marks
-	# another card, and only the last ordinary lane may become the fusion card.
+	# the current full-slot contract reserves at most one rare Chosik replacement,
+	# Dowsing marks another card, and an ordinary lane becomes the fusion card.
 	PerkConversionFlags.debug_set_enabled(true)
 	catalog.mythic_jackpot_offer_chance = 0.0
+	var full_slot_roll := RollProbe.new(0.0)
+	catalog.set_full_chosik_swap_offer_roll_for_tests(Callable(full_slot_roll, "next_roll"))
 	state.runtime_skill_levels = {
 		"item_luck": 5,
 		"common_bulk_up": 5,
 		"dash_lightweight": 5,
 		"dash_module_control": 5,
-		"dash_jump": 1,
+		"unlock_magnum_grip": 1,
+		"unlock_plasma": 1,
+		"unlock_recovery_skill": 1,
 		"common_swiftness": 1,
 	}
 	state.pending_skill_choices = 2
@@ -425,9 +474,9 @@ func _verify_result_box_dowsing_finish_is_transactionally_idempotent() -> void:
 	var fusion_index: int = _find_choice_index(state.current_choices, "perk_fusion")
 	_expect(fusion_index >= 0, "the real result-box open path should expose one fusion card deterministically")
 	_expect(state._test_perk_fusion_offer_roll_override.is_empty(), "the deterministic offer seam must be consumed by the real open exactly once")
-	_expect(_count_offer_lane(state.current_choices, "owned_upgrade_reserved") == 2, "combined S2 fixture should preserve two actual owned-upgrade reservations")
+	_expect(full_slot_roll.call_count == 1, "combined S2 fixture should roll the full-slot Chosik gate exactly once")
+	_expect(_count_offer_lane(state.current_choices, "full_chosik_swap_reserved") == 1, "combined S2 fixture should preserve one protected full-slot Chosik replacement")
 	_expect(_count_offer_lane(state.current_choices, "dowsing_bonus") == 1, "combined S2 fixture should preserve the actual Dowsing bonus lane")
-	_expect(_count_offer_lane(state.current_choices, "gold") == 1, "combined S2 fixture should preserve the gold lane")
 	_expect(mythic.choice_bonus_calls == 1, "initial result-box opener should query Dowsing exactly once")
 	_expect(cooldown.pause_calls == 1, "initial result-box opener should pause cooldowns exactly once")
 	state.selected_index = maxi(0, fusion_index)
@@ -748,7 +797,6 @@ func _on_overlay_probe_draw(probe: Control) -> void:
 		Vector2(760.0, 750.0),
 		null,
 		null,
-		null,
 		_overlay_perf_probe
 	)
 
@@ -792,7 +840,7 @@ func _success_rolls() -> Dictionary:
 
 func _side_effect_rolls() -> Dictionary:
 	var rolls := _success_rolls()
-	rolls["outcome"] = 0.60
+	rolls["outcome"] = 0.25
 	return rolls
 
 

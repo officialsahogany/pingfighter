@@ -11,19 +11,19 @@ var equipped_skills: Array[String] = []
 
 
 func get_snapshot() -> Dictionary:
-	var skill_data := CommonSkillCatalog.get_skill_data()
+	var cooldown_reduction_skill_ids := get_cooldown_reduction_skill_ids()
 	return {
 		"max_slots": get_max_skill_slots(),
 		"equipped_skills": equipped_skills.duplicate(),
-		"skill_costs": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
-		"skill_colors": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: CommonSkillCatalog.SOUL_SUMMON_ART_COLOR},
+		"skill_costs": CommonSkillCatalog.get_skill_costs(),
+		"skill_colors": CommonSkillCatalog.get_skill_colors(),
 		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
 		"item_cooldown_multiplier": item_cooldown_multiplier,
 		"cooldown_multiplier": get_effective_cooldown_multiplier(),
-		"cooldown_reduction_eligible": false,
-		"cooldown_reduction_skill_ids": [],
-		"cooldown_seconds": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
-		"skill_data": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: skill_data},
+		"cooldown_reduction_eligible": not cooldown_reduction_skill_ids.is_empty(),
+		"cooldown_reduction_skill_ids": cooldown_reduction_skill_ids,
+		"cooldown_seconds": _get_equipped_cooldown_seconds_map(),
+		"skill_data": CommonSkillCatalog.get_all_skill_data(),
 	}
 
 
@@ -35,8 +35,23 @@ func get_equipped_skills() -> Array:
 	return equipped_skills.duplicate()
 
 
-func get_cooldown_seconds(_skill_name: String) -> float:
-	return 0.0
+func get_cooldown_seconds(skill_name: String) -> float:
+	return float(CommonSkillCatalog.get_cooldown_seconds_map(get_effective_cooldown_multiplier()).get(skill_name, 0.0))
+
+
+func get_cooldown_reduction_skill_ids() -> Array[String]:
+	var result: Array[String] = []
+	for skill_id: String in equipped_skills:
+		if get_cooldown_seconds(skill_id) > 0.0:
+			result.append(skill_id)
+	return result
+
+
+func _get_equipped_cooldown_seconds_map() -> Dictionary:
+	var result: Dictionary = {}
+	for skill_id: String in get_cooldown_reduction_skill_ids():
+		result[skill_id] = get_cooldown_seconds(skill_id)
+	return result
 
 
 func get_effective_cooldown_multiplier() -> float:
@@ -55,8 +70,10 @@ func set_item_cooldown_multiplier(multiplier: float) -> void:
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
-	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-		return CommonSkillCatalog.get_skill_data()
+	if CommonSkillCatalog.is_common_skill(skill_name):
+		var data := CommonSkillCatalog.get_skill_data(skill_name)
+		data["cooldown"] = get_cooldown_seconds(skill_name)
+		return data
 	return {}
 
 
@@ -69,13 +86,13 @@ func is_shared_slot_full() -> bool:
 
 
 func get_shared_slot_swap_candidates(skill_name: String) -> Array:
-	if skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID or equipped_skills.has(skill_name):
+	if not CommonSkillCatalog.is_common_skill(skill_name) or equipped_skills.has(skill_name):
 		return []
 	return equipped_skills.duplicate()
 
 
 func unlock_and_equip_skill(skill_name: String) -> bool:
-	if skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+	if not CommonSkillCatalog.is_common_skill(skill_name):
 		return false
 	if equipped_skills.has(skill_name):
 		return true

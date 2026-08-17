@@ -8,6 +8,14 @@ const DEFAULT_ROCK_FRAGMENT_LIFE_SEC := 100.0 / 60.0
 const DEFAULT_WATER_SPLASH_LIFE_SEC := 60.0 / 60.0
 const DEFAULT_ROCK_FRAGMENT_GRAVITY := 0.5 * 60.0 * 60.0
 const DEFAULT_WATER_SPLASH_GRAVITY := 0.3 * 60.0 * 60.0
+const DEFAULT_ROCK_FRAGMENT_DIRECTIONAL_CHANCE := 0.65
+const DEFAULT_ROCK_FRAGMENT_CONE_HALF_ANGLE := PI * 0.35
+const DEFAULT_ROCK_FRAGMENT_CONE_MIN_ANGLE := PI * 0.15
+const DEFAULT_ROCK_FRAGMENT_CONE_MAX_ANGLE := PI * 0.85
+const DEFAULT_ROCK_FRAGMENT_SPEED_MIN_PER_FRAME := 5.6
+const DEFAULT_ROCK_FRAGMENT_SPEED_MAX_PER_FRAME := 10.1
+const DEFAULT_ROCK_FRAGMENT_SIZE_MIN := 10
+const DEFAULT_ROCK_FRAGMENT_SIZE_MAX := 22
 const GOLDEN_ROCK_DEBRIS_INDICES := [10, 15]
 
 
@@ -42,12 +50,21 @@ func build_rock_fragments(
 	var fragments: Array = []
 	for idx in range(rock_count):
 		var angle: float
-		if random_source.randf() < 0.65:
-			angle = random_source.randf_range(PI * 0.15, PI * 0.85)
+		if random_source.randf() < DEFAULT_ROCK_FRAGMENT_DIRECTIONAL_CHANCE:
+			angle = random_source.randf_range(
+				DEFAULT_ROCK_FRAGMENT_CONE_MIN_ANGLE,
+				DEFAULT_ROCK_FRAGMENT_CONE_MAX_ANGLE
+			)
 		else:
 			angle = random_source.randf_range(0.0, TAU)
-		var speed: float = random_source.randf_range(5.6, 10.1) * 60.0
-		var fragment_size: float = float(random_source.randi_range(10, 22))
+		var speed: float = random_source.randf_range(
+			DEFAULT_ROCK_FRAGMENT_SPEED_MIN_PER_FRAME,
+			DEFAULT_ROCK_FRAGMENT_SPEED_MAX_PER_FRAME
+		) * 60.0
+		var fragment_size: float = float(random_source.randi_range(
+			DEFAULT_ROCK_FRAGMENT_SIZE_MIN,
+			DEFAULT_ROCK_FRAGMENT_SIZE_MAX
+		))
 		fragments.append({
 			"pos": center + Vector2(
 				random_source.randf_range(-rock_size / 3.0, rock_size / 3.0),

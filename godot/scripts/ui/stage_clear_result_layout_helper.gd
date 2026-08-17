@@ -1,5 +1,8 @@
 extends RefCounted
 
+const REWARD_CARD_BASE_SIZE := Vector2(208.0, 156.0)
+const REWARD_CARD_ICON_BASE_SIZE := Vector2(82.0, 76.0)
+
 
 static func get_box_layout(count: int) -> Array:
 	match count:
@@ -220,8 +223,8 @@ static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_s
 		header_reserve = 42.0 * ui_scale
 	var gap: float = 16.0 * ui_scale
 	var card_scale: float = ui_scale
-	var card_size := Vector2(148.0, 112.0) * card_scale
-	var columns: int = get_reward_section_columns(rect.size.x, card_size.x, gap, 4)
+	var card_size: Vector2 = REWARD_CARD_BASE_SIZE * card_scale
+	var columns: int = get_reward_section_columns(rect.size.x, card_size.x, gap, min(4, max(1, reward_count)))
 	var rows: int = int(ceil(float(max(1, reward_count)) / float(columns)))
 	var available_height: float = max(1.0, rect.size.y - header_reserve)
 	var required_height: float = float(rows) * card_size.y + float(max(0, rows - 1)) * gap
@@ -229,9 +232,9 @@ static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_s
 		var fitted_height: float = max(64.0 * ui_scale, (available_height - float(max(0, rows - 1)) * gap) / float(rows))
 		var fitted_scale: float = clamp(fitted_height / max(1.0, card_size.y), 0.56, 1.0)
 		card_scale *= fitted_scale
-		card_size = Vector2(148.0, 112.0) * card_scale
+		card_size = REWARD_CARD_BASE_SIZE * card_scale
 		gap = max(8.0 * ui_scale, gap * fitted_scale)
-		columns = get_reward_section_columns(rect.size.x, card_size.x, gap, 5)
+		columns = get_reward_section_columns(rect.size.x, card_size.x, gap, min(5, max(1, reward_count)))
 		rows = int(ceil(float(max(1, reward_count)) / float(columns)))
 		required_height = float(rows) * card_size.y + float(max(0, rows - 1)) * gap
 	return {
@@ -253,10 +256,10 @@ static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_s
 # one uniform card size (sized for the busiest band) for cross-band consistency.
 static func calculate_reward_band_stack_layout(item_counts: Array, rect: Rect2, ui_scale: float) -> Dictionary:
 	var count: int = item_counts.size()
-	var label_col_w: float = 240.0 * ui_scale
-	var band_gap: float = 10.0 * ui_scale
-	var band_vpad: float = 8.0 * ui_scale
-	var max_band_h: float = 156.0 * ui_scale
+	var label_col_w: float = 200.0 * ui_scale
+	var band_gap: float = 8.0 * ui_scale
+	var band_vpad: float = 4.0 * ui_scale
+	var max_band_h: float = 172.0 * ui_scale
 	var card_area_w: float = max(1.0, rect.size.x - label_col_w - 8.0 * ui_scale)
 	if count <= 0:
 		return {
@@ -287,7 +290,7 @@ static func calculate_reward_band_stack_layout(item_counts: Array, rect: Rect2, 
 		"label_col_w": label_col_w,
 		"band_gap": band_gap,
 		"band_height": band_h,
-		"card_size": section_layout.get("card_size", Vector2(148.0, 112.0) * ui_scale),
+		"card_size": section_layout.get("card_size", REWARD_CARD_BASE_SIZE * ui_scale),
 		"card_scale": float(section_layout.get("card_scale", ui_scale)),
 		"card_gap": float(section_layout.get("gap", 16.0 * ui_scale)),
 		"columns": max(1, int(section_layout.get("columns", max_items))),

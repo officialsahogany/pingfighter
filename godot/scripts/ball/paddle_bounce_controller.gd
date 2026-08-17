@@ -28,6 +28,8 @@ func bounce(
 	var ball_vel: Vector2 = _get_vector2(context, "ball_vel", Vector2.ZERO)
 	if is_player:
 		ball_vel = _restore_perk_resume_suppressed_speed(ball_vel, context)
+	else:
+		ball_vel = _restore_void_phantom_suppressed_speed(ball_vel, deps)
 	var pre_hit_speed: float = ball_vel.length()
 	var incoming_dx: float = ball_vel.x
 	var paddle_center_x: float = paddle_x + paddle_w * 0.5
@@ -234,6 +236,29 @@ func _restore_perk_resume_suppressed_speed(ball_vel: Vector2, context: Dictionar
 	if current_speed <= 0.001 or pre_modal_speed <= current_speed + 0.001:
 		return ball_vel
 	return ball_vel * (pre_modal_speed / current_speed)
+
+
+# 허공환영은 발동 타구의 공속을 -40% 눌러 기만 비행 시간을 벌어준다. 그 창의
+# 계약은 "보스가 가드할 때까지"이므로, 보스 반사가 확정되는 이 지점에서 크기만
+# 원속으로 되돌린다(방향은 아래 반사 계산이 정한다).
+# ⚠️여기서 복원하지 않으면 감속이 랠리 전체로 샌다 — get_initial_speed 가 들어오는
+# 크기를 그대로 나가는 속도로 쓰기 때문에(×PADDLE_HIT_BOOST=1.0), 눌린 공을 받아친
+# 보스 리턴도 눌린 채 확정되고 이후 랠리가 통째로 느려진다.
+# ⚠️아카무 무형화는 controller.bounce 호출 '전'에 걸러지고(_process_paddle),
+# 여기 도달한 보스 반사는 normal_boss_bounce_committed 로 확정되므로,
+# 이 지점의 소비 = 가드 확정 1회다.
+func _restore_void_phantom_suppressed_speed(ball_vel: Vector2, deps: Dictionary) -> Vector2:
+	var state: Object = deps.get("smasher_void_phantom_state", null)
+	if state == null or not state.has_method("consume_suppressed_launch_speed"):
+		return ball_vel
+	var original_speed: float = float(state.consume_suppressed_launch_speed())
+	if original_speed <= 0.0:
+		return ball_vel
+	var current_speed: float = ball_vel.length()
+	# 초과 금지(max 의미론) — 감속이 없었을 때와 동일한 입력으로만 되돌린다.
+	if current_speed <= 0.001 or original_speed <= current_speed + 0.001:
+		return ball_vel
+	return ball_vel * (original_speed / current_speed)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

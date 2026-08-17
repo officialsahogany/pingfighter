@@ -17,6 +17,7 @@ var _cached_status_effect_state: Object = null
 var _cached_status_input_proxy: Object = null
 var _cached_skill_lock_input_reader: Object = null
 var _cached_skill_lock_mythic_item_runtime: Object = null
+var _cached_skill_lock_lingpet_runtime: Object = null
 var _cached_skill_lock_input_proxy: Object = null
 
 
@@ -43,15 +44,19 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 	var status_effect_state: Object = _get_instance(registry, "status_effect_state")
 	var input_reader: Object = _get_instance(registry, character_runtime.get_input_reader_key(character_type))
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	var lingpet_runtime: Object = _get_cached_instance(registry, "lingpet_egg_runtime")
 	# Status-proxied but NOT skill-lock-proxied reader. Dash is core movement, so the controllers
 	# read its down trigger from here to survive a 뿔딸기 / 오딘의 눈 transform, whose skill-lock
 	# proxy zeroes down_pressed to block down-based character skills (warp gate / EMP dive). When no
 	# transform lock is active this equals routed_input_reader (same object), so off-transform frames
 	# are unaffected. Still status/curse-gated, so stun/freeze correctly suppress dash.
 	var dash_input_reader: Object = _build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state)
-	var routed_input_reader: Object = _build_skill_lock_input_reader(dash_input_reader, mythic_item_runtime)
+	var routed_input_reader: Object = _build_skill_lock_input_reader(dash_input_reader, mythic_item_runtime, lingpet_runtime)
+	var lingpet_mount_active := _is_baekrin_mount_active(lingpet_runtime)
 	return {
 		"registry": registry,
+		"ai_state": _get_instance(registry, "boss_ai_state"),
+		"impact_effects": _get_instance(registry, "impact_effects"),
 		"input_reader": routed_input_reader,
 		"dash_input_reader": dash_input_reader,
 		"dash_state": _get_instance(registry, character_runtime.get_dash_state_key(character_type)),
@@ -77,17 +82,22 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"smasher_warp_gate_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_warp_gate_state"),
 		"smasher_wheel_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_wheel_state"),
 		"smasher_overdrive_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_overdrive_state"),
+		"smasher_void_phantom_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_void_phantom_state"),
 		"smasher_magnum_grip_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_magnum_grip_state"),
 		"smasher_dash_spirit_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_dash_spirit_state"),
 		"smasher_shield_kiting_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_shield_kiting_state"),
 		"movement_state": _get_instance(registry, "player_movement_state"),
 		"combo_state": _get_instance(registry, combo_key) if combo_key != "" else null,
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+		"dalji_vision_chosik_state": _get_instance(registry, "dalji_vision_chosik_state"),
+		"cheongringwi_vision_chosik_state": _get_instance(registry, "cheongringwi_vision_chosik_state"),
+		"yeonmyo_vision_chosik_state": _get_instance(registry, "yeonmyo_vision_chosik_state"),
+		"boss_ai_state": _get_instance(registry, "boss_ai_state"),
 		"orb_hud_state": _get_instance(registry, "orb_hud_state"),
 		"active_item_runtime": _get_instance(registry, "active_item_runtime"),
 		"mythic_item_runtime": mythic_item_runtime,
-		"mokrin_transform_active": _build_mokrin_transform_predicate(registry),
-		"player_skill_input_locked": _is_player_skill_locked(mythic_item_runtime),
+		"lingpet_mount_active": lingpet_mount_active,
+		"player_skill_input_locked": _is_player_skill_locked(mythic_item_runtime) or lingpet_mount_active,
 		"status_effect_state": status_effect_state,
 		"stage3_boss_skill_state": stage3_boss_skill_state,
 		"round_state": _get_instance(registry, "round_flow_state"),
@@ -122,21 +132,24 @@ func _build_status_input_reader(input_reader: Object, stage3_boss_skill_state: O
 	return _cached_status_input_proxy
 
 
-func _build_skill_lock_input_reader(input_reader: Object, mythic_item_runtime: Object) -> Object:
-	if input_reader == null or mythic_item_runtime == null or not _is_player_skill_locked(mythic_item_runtime):
+func _build_skill_lock_input_reader(input_reader: Object, mythic_item_runtime: Object, lingpet_runtime: Object = null) -> Object:
+	if input_reader == null or (not _is_player_skill_locked(mythic_item_runtime) and not _is_baekrin_mount_active(lingpet_runtime)):
 		_cached_skill_lock_input_reader = null
 		_cached_skill_lock_mythic_item_runtime = null
+		_cached_skill_lock_lingpet_runtime = null
 		_cached_skill_lock_input_proxy = null
 		return input_reader
 	if (
 		_cached_skill_lock_input_proxy != null
 		and input_reader == _cached_skill_lock_input_reader
 		and mythic_item_runtime == _cached_skill_lock_mythic_item_runtime
+		and lingpet_runtime == _cached_skill_lock_lingpet_runtime
 	):
 		return _cached_skill_lock_input_proxy
 	_cached_skill_lock_input_reader = input_reader
 	_cached_skill_lock_mythic_item_runtime = mythic_item_runtime
-	_cached_skill_lock_input_proxy = PlayerSkillLockInputProxy.new().configure(input_reader, mythic_item_runtime)
+	_cached_skill_lock_lingpet_runtime = lingpet_runtime
+	_cached_skill_lock_input_proxy = PlayerSkillLockInputProxy.new().configure(input_reader, mythic_item_runtime, lingpet_runtime)
 	return _cached_skill_lock_input_proxy
 
 
@@ -166,24 +179,22 @@ func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
 	return false
 
 
-# D15 bridge (묵린변신): expose ONLY the narrow predicate as a Callable — never
-# the egg runtime object. Fail-closed: no runtime / no method -> unbound Callable,
-# and consumers must treat an unbound Callable as false. Peek-only lookup
-# (get_cached_instance) so this per-tick path can never cold-instantiate the
-# lingpet runtime; before the runtime exists there is no companion, hence no
-# transform, hence false is the correct answer.
-func _build_mokrin_transform_predicate(registry: Object) -> Callable:
-	if registry == null or not registry.has_method("get_cached_instance"):
-		return Callable()
-	var egg_runtime: Variant = registry.get_cached_instance("lingpet_egg_runtime")
-	if typeof(egg_runtime) != TYPE_OBJECT or not is_instance_valid(egg_runtime):
-		return Callable()
-	if not (egg_runtime as Object).has_method("is_mokrin_transform_active"):
-		return Callable()
-	return Callable(egg_runtime, "is_mokrin_transform_active")
+func _is_baekrin_mount_active(lingpet_runtime: Object) -> bool:
+	return (
+		lingpet_runtime != null
+		and lingpet_runtime.has_method("is_baekrin_mount_active")
+		and bool(lingpet_runtime.is_baekrin_mount_active())
+	)
 
 
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or key == "" or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	return value as Object if typeof(value) == TYPE_OBJECT and is_instance_valid(value) else null

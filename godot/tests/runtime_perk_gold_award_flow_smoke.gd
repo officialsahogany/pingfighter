@@ -70,7 +70,7 @@ class FakeSmasherComboState:
 
 
 func _init() -> void:
-	_verify_flow_applies_awards_with_feedback()
+	_verify_flow_applies_awards_without_gold_feedback()
 	_verify_flow_runtime_state_wrappers_assemble_dependencies()
 	_verify_flow_handles_store_and_rejected_results()
 	_verify_state_public_wrappers_delegate_to_flow()
@@ -85,7 +85,7 @@ func _init() -> void:
 	quit(1)
 
 
-func _verify_flow_applies_awards_with_feedback() -> void:
+func _verify_flow_applies_awards_without_gold_feedback() -> void:
 	var flow: Object = RuntimePerkGoldAwardFlow.new()
 	var state := FakeRuntimeState.new()
 	var feedback := FakeChoiceFeedback.new()
@@ -105,9 +105,9 @@ func _verify_flow_applies_awards_with_feedback() -> void:
 	)
 	_expect(total == 112, "flow should preserve gold modifier order while applying to runtime state")
 	_expect(state.gold_from_perks == 112, "flow should write the returned gold total to runtime state")
-	_expect(feedback.apply_count == 1, "flow should route gold award feedback through the feedback helper")
-	_expect(state.feedback_text.find("+112") >= 0, "flow should keep the helper-built gold feedback text")
-	_expect(is_equal_approx(state.feedback_timer, 1.0), "flow should keep the default gold feedback duration")
+	_expect(feedback.apply_count == 1, "flow should preserve existing feedback state through the feedback helper")
+	_expect(state.feedback_text == "old", "gold awards should not replace existing non-gold feedback text")
+	_expect(is_equal_approx(state.feedback_timer, 0.25), "gold awards should not replace the existing non-gold feedback timer")
 
 
 func _verify_flow_runtime_state_wrappers_assemble_dependencies() -> void:
@@ -130,12 +130,14 @@ func _verify_flow_runtime_state_wrappers_assemble_dependencies() -> void:
 	_expect(accepted, "runtime-state convert wrapper should keep the state wrapper boolean contract")
 	_expect(state.gold_from_perks == 112, "runtime-state convert wrapper should assemble owner/combo/feedback dependencies")
 	_expect(state.sync_owner_count == 1, "runtime-state convert wrapper should sync the owner after applying gold")
-	_expect(feedback.apply_count == 1, "runtime-state convert wrapper should use the runtime state's feedback helper")
-	_expect(state.feedback_text.find("+112") >= 0, "runtime-state convert wrapper should keep conversion feedback text")
+	_expect(feedback.apply_count == 1, "runtime-state convert wrapper should preserve existing feedback through the runtime state's helper")
+	_expect(state.feedback_text == "old", "runtime-state convert wrapper should not show conversion gold feedback")
 
 	var stored_total: int = flow.store_gold_gain_from_runtime_state(state, 4, 0.2)
-	_expect(stored_total == 116, "runtime-state store wrapper should reuse the runtime state's feedback helper")
-	_expect(is_equal_approx(state.feedback_timer, 0.2), "runtime-state store wrapper should preserve explicit feedback duration")
+	_expect(stored_total == 116, "runtime-state store wrapper should still add gold while feedback stays hidden")
+	_expect(feedback.apply_count == 2, "runtime-state store wrapper should preserve the existing feedback state")
+	_expect(state.feedback_text == "old", "runtime-state store wrapper should not show stored-gold feedback")
+	_expect(is_equal_approx(state.feedback_timer, 0.25), "runtime-state store wrapper should not replace the existing feedback duration")
 
 	var rejected_total: int = flow.apply_gold_award_result_from_runtime_state(state, {"accepted": false})
 	_expect(rejected_total == 116, "runtime-state award-result wrapper should return current gold when rejected")
@@ -162,7 +164,8 @@ func _verify_flow_handles_store_and_rejected_results() -> void:
 	var stored_total: int = flow.store_gold_gain(7, 0.4, state, feedback)
 	_expect(stored_total == 12, "flow should store already-boosted gold without reapplying modifiers")
 	_expect(state.gold_from_perks == 12, "flow should apply stored gold totals to runtime state")
-	_expect(is_equal_approx(state.feedback_timer, 0.4), "flow should keep explicit stored-gold feedback duration")
+	_expect(state.feedback_text == "old", "stored gold should not replace existing non-gold feedback text")
+	_expect(is_equal_approx(state.feedback_timer, 0.25), "stored gold should not replace the existing non-gold feedback duration")
 
 	var fallback_total: int = flow.apply_gold_award_result({"accepted": false}, state, feedback)
 	_expect(fallback_total == 12, "flow should return the current total when award-result application is rejected")

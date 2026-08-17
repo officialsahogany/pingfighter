@@ -1,9 +1,26 @@
 extends "res://scripts/hud/character_info_overlay_support.gd"
 
+var _bgm_muffle_registry: Object = null
+
+
 func is_active() -> bool:
+	CharacterInfoOverlayLifecycle.complete_expired_close(self)
 	return active
 
+func is_closing() -> bool:
+	return active and _closing
+
 func open(owner: Object = null, registry: Object = null) -> void:
+	if _bgm_muffle_registry != null and _bgm_muffle_registry != registry:
+		_set_bgm_muffled(_bgm_muffle_registry, false)
+	_bgm_muffle_registry = registry
+	_set_bgm_muffled(_bgm_muffle_registry, true)
+	# 열기 종이 넘김 큐의 정본은 여기다. 호스트별 라우터(전투 TAB 단축키 / 광장 TAB /
+	# 일시정지 메뉴 진입)가 각자 재생하면 한 곳만 누락돼도 조용히 무음이 된다.
+	# 닫기 큐는 반대로 입력 종류(TAB만)와 하위 모달 취소를 구분해야 하므로
+	# character_info_overlay_input_handler._handle_key 가 계속 소유한다.
+	_play_toggle_cue(registry)
+	_ensure_display_font(ThemeDB.fallback_font)
 	_ensure_editorial_bg_texture()
 	_ensure_empty_hero_textures()
 	_ensure_scene_dressing_textures()
@@ -12,23 +29,41 @@ func open(owner: Object = null, registry: Object = null) -> void:
 	_skill_cooldown_pause_owner = pause_state.get("owner", null)
 	_skill_cooldown_pause_registry = pause_state.get("registry", null)
 
+func _complete_deferred_close() -> void:
+	close(false)
+
 func close(from_input: bool = false) -> void:
 	# Drop any held item / open discard confirm so it cannot leak into the next open.
 	_drag_cancel()
 	_cancel_discard_confirm()
-	var pause_state: Dictionary = CharacterInfoOverlayLifecycle.close(self, from_input, _skill_cooldown_pause_active, _skill_cooldown_pause_owner, _skill_cooldown_pause_registry)
+	var pause_state: Dictionary = CharacterInfoOverlayLifecycle.close(self, from_input, _skill_cooldown_pause_active, _skill_cooldown_pause_owner, _skill_cooldown_pause_registry, CLOSE_ANIMATION_DURATION)
 	_skill_cooldown_pause_active = bool(pause_state.get("active", false))
 	_skill_cooldown_pause_owner = pause_state.get("owner", null)
 	_skill_cooldown_pause_registry = pause_state.get("registry", null)
+	if not active:
+		_set_bgm_muffled(_bgm_muffle_registry, false)
+		_bgm_muffle_registry = null
+
+
+func _set_bgm_muffled(registry: Object, muffled: bool) -> void:
+	var audio: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("set_character_info_bgm_muffled"):
+		audio.set_character_info_bgm_muffled(muffled)
+
+
+func _play_toggle_cue(registry: Object) -> void:
+	var audio: Object = CharacterInfoOverlayOwnerState.get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_character_info_toggle"):
+		audio.play_character_info_toggle()
 
 func toggle(owner: Object = null, registry: Object = null) -> void:
 	if active:
-		close()
+		close(true)
 	else:
 		open(owner, registry)
 
 func update(delta: float) -> bool:
-	return CharacterInfoOverlayLifecycle.update(self, delta, OPEN_ANIMATION_DURATION)
+	return CharacterInfoOverlayLifecycle.update(self, delta, OPEN_ANIMATION_DURATION, CLOSE_ANIMATION_DURATION)
 
 func consume_input_redraw_request() -> bool:
 	return CharacterInfoOverlayValueUtils.consume_overlay_input_redraw(self, _input_redraw_requested, _redraw_requested)
@@ -112,13 +147,28 @@ func _resolve_prewarm_view_size(owner: Object, view_size: Vector2) -> Vector2:
 
 
 func _ensure_editorial_bg_texture() -> void:
+	if _editorial_bg_texture == null:
+		_editorial_bg_texture = ProjectResourceLoader.load_texture(
+			EDITORIAL_BG_PATH,
+			"Character info editorial background texture is missing",
+			"Character info editorial background texture failed to load"
+		)
 	if _editorial_bg_texture != null:
+		CharacterInfoOverlayTextureDrawer.set_hanji_surface_texture(_editorial_bg_texture)
+
+
+func _ensure_display_font(fallback: Font) -> void:
+	if _display_font != null:
 		return
-	_editorial_bg_texture = ProjectResourceLoader.load_texture(
-		EDITORIAL_BG_PATH,
-		"Character info editorial background texture is missing",
-		"Character info editorial background texture failed to load"
-	)
+	var system_font := SystemFont.new()
+	system_font.font_names = PackedStringArray(DISPLAY_SYSTEM_FONT_NAMES)
+	if fallback != null:
+		system_font.fallbacks = [fallback]
+	_display_font = system_font
+
+
+func _heading_font(fallback: Font) -> Font:
+	return _display_font if _display_font != null else fallback
 
 
 func _ensure_scene_dressing_textures() -> void:
@@ -135,11 +185,27 @@ func _ensure_scene_dressing_textures() -> void:
 			"Character info empty slot socket texture failed to load"
 		)
 		CharacterInfoOverlayTextureDrawer.set_empty_slot_socket_texture(_empty_slot_socket_texture)
-	if _mystic_backdrop_texture == null:
-		_mystic_backdrop_texture = ProjectResourceLoader.load_texture(
-			MYSTIC_BACKDROP_PATH,
-			"Character info mystic backdrop texture is missing",
-			"Character info mystic backdrop texture failed to load"
+	if _ornate_ledger_frame_texture == null:
+		_ornate_ledger_frame_texture = ProjectResourceLoader.load_texture(
+			ORNATE_LEDGER_FRAME_PATH,
+			"Character info ornate ledger frame texture is missing",
+			"Character info ornate ledger frame texture failed to load"
+		)
+	if _ornate_ledger_frame_texture != null:
+		CharacterInfoOverlayTextureDrawer.set_ornate_ledger_frame_texture(_ornate_ledger_frame_texture)
+	if _inkwash_ornament_atlas_texture == null:
+		_inkwash_ornament_atlas_texture = ProjectResourceLoader.load_texture(
+			INKWASH_ORNAMENT_ATLAS_PATH,
+			"Character info ink-wash ornament atlas is missing",
+			"Character info ink-wash ornament atlas failed to load"
+		)
+	if _inkwash_ornament_atlas_texture != null:
+		CharacterInfoOverlayTextureDrawer.set_inkwash_ornament_atlas_texture(_inkwash_ornament_atlas_texture)
+	if _opening_cloud_texture == null:
+		_opening_cloud_texture = ProjectResourceLoader.load_texture(
+			OPENING_CLOUD_TEXTURE_PATH,
+			"Character info opening cloud texture is missing",
+			"Character info opening cloud texture failed to load"
 		)
 	if _class_emblem_textures.size() < CLASS_EMBLEM_PATHS.size():
 		for class_id in CLASS_EMBLEM_PATHS:
@@ -163,9 +229,9 @@ func _ensure_empty_hero_textures() -> void:
 		)
 	if _empty_ringpet_hero_texture == null:
 		_empty_ringpet_hero_texture = ProjectResourceLoader.load_texture(
-			EMPTY_HERO_RINGPET_EGG_PATH,
-			"Character info empty ringpet hero texture is missing",
-			"Character info empty ringpet hero texture failed to load"
+			EMPTY_HERO_GUARDIAN_SHRINE_PATH,
+			"Character info empty guardian shrine texture is missing",
+			"Character info empty guardian shrine texture failed to load"
 		)
 	if _empty_passive_hero_texture == null:
 		_empty_passive_hero_texture = ProjectResourceLoader.load_texture(
@@ -186,6 +252,7 @@ func prewarm_assets(
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
+	_ensure_display_font(font)
 	_ensure_editorial_bg_texture()
 	_ensure_empty_hero_textures()
 	_ensure_scene_dressing_textures()
@@ -226,6 +293,7 @@ func prewarm_assets_step(
 		_prewarm_assets_step_index = 0
 		_reset_text_prewarm_step_state()
 		return true
+	_ensure_display_font(font)
 	var resolved_view_size: Vector2 = _resolve_prewarm_view_size(owner, view_size)
 	var step_start: int = _perf_begin(perf_logger)
 	_ensure_editorial_bg_texture()
@@ -372,7 +440,7 @@ func _perf_end_with_prefix(perf_logger: Object, label_prefix: String, label_suff
 		perf_logger.finish_sample("%s.%s" % [label_prefix, label_suffix], start_usec)
 
 func handle_input(event: InputEvent, owner: Object, registry: Object, _view_size: Vector2) -> bool:
-	return CharacterInfoOverlayInputHandler.handle_input(self, event, owner, registry)
+	return CharacterInfoOverlayInputHandler.handle_input(self, event, owner, registry, not _opening_input_locked)
 
 func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
 	if not active or canvas == null:
@@ -382,8 +450,9 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 		return
 	_update_frame_layout(view_size)
 	CharacterInfoOverlayFramePresenter.draw_frame(self, canvas, owner, registry, view_size, font, _layout_panel_rect, _layout_equipment_rect, _layout_skill_rect, _layout_active_items_rect, _layout_perk_rect, _layout_lingpet_rect, _layout_stats_rect, _layout_inventory_rect, _frame_stat_sources, _frame_hover_data, _header_subtitle_cache, _header_status_text_cache, _header_status_width_cache, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_slot_tab_rects, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, OPEN_ANIMATION_DURATION, PANEL_COLOR, PANEL_BORDER, TEXT_DIM, ACCENT_GOLD, BASE_ACTIVE_ITEM_SLOT_COUNT, LINGPET_HATCH_REQUIRED_HITS, SECTION_COLOR, SECTION_BORDER, OVERLAY_GRID_FILL, STAT_BUFF_COLOR, OVERLAY_GRID_EMPTY_TEXT, ACCENT_BLUE, TEXT_SOFT, OVERLAY_SLOT_FILL, FALLBACK_SYMBOL_RING_SEGMENTS, UI_TEXT_SCALE)
-	# Drag preview / trash zone / discard-confirm modal draw on top of the frame.
-	_draw_drag_overlay(canvas, owner, registry, view_size, font)
+	# Avoid click/drag affordances floating over the still-unfolding ledger.
+	if not _opening_input_locked:
+		_draw_drag_overlay(canvas, owner, registry, view_size, font)
 
 func _update_frame_layout(view_size: Vector2) -> void:
 	CharacterInfoOverlayLayout.update_frame_layout(self, view_size, _layout_view_size, _layout_panel_rect)
@@ -446,8 +515,10 @@ func _draw_equipment_slots(canvas: CanvasItem, owner: Object, registry: Object, 
 func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, character_type_override: String = "", skill_snapshot_override: Dictionary = {}, icon_renderer_override: Object = null) -> Dictionary:
 	_last_skill_rect = rect
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
-	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "star", SECTION_GLYPH_COLOR)
-	_draw_text_xy(canvas, font, "장착 스킬", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
+	CharacterInfoOverlayTextureDrawer.draw_mountain_watermark(canvas, rect)
+	CharacterInfoOverlayTextureDrawer.draw_seal_stamp(canvas, Vector2(rect.end.x - 22.0, rect.position.y + 18.0), 14.0)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 70.0, rect.position.y + 18.0), 12.0, "star", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, _heading_font(font), "장착 초식", rect.position.x + 82.0, rect.position.y + 28.0, 21, TEXT_SOFT)
 
 	var character_type: String = character_type_override if character_type_override != "" else CharacterInfoOverlayOwnerState.character_type_from_owner(owner, _character_runtime)
 	var snapshot: Dictionary = skill_snapshot_override
@@ -466,8 +537,8 @@ func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect
 	# formula identical to _prewarm_skills in the prewarm presenter (two-path trap).
 	var card_width_limit: float = (rect.size.x - 24.0 - float(max_slots - 1) * 12.0) / float(max_slots)
 	var slot_width_limit: float = card_width_limit - 24.0
-	var slot_height_limit: float = rect.size.y - 118.0
-	var slot_size: float = min(96.0, max(40.0, min(slot_width_limit, slot_height_limit)))
+	var slot_height_limit: float = rect.size.y - 130.0
+	var slot_size: float = min(112.0, max(40.0, min(slot_width_limit, slot_height_limit)))
 	_update_skill_slot_layout(rect, slot_size, max_slots)
 	var fallback_skill_color: Color = CharacterInfoOverlayFormatter.skill_fallback_color(character_type, ACCENT_BLUE)
 	_refresh_skill_slot_draw_cache(equipped, skill_data, fallback_skill_color)
@@ -500,8 +571,10 @@ func _draw_skill_slots(canvas: CanvasItem, owner: Object, registry: Object, rect
 func _draw_active_items(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, max_slots: int = -1, active_item_hud_visuals: Object = null, stat_sources: Array = [], active_slots_override: Variant = null) -> Dictionary:
 	_last_active_items_rect = rect
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_pine_watermark(canvas, rect)
+	CharacterInfoOverlayTextureDrawer.draw_seal_stamp(canvas, Vector2(rect.end.x - 24.0, rect.end.y - 24.0), 16.0)
 	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 13.0, "flask", SECTION_GLYPH_COLOR)
-	_draw_text_xy(canvas, font, "액티브 아이템", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
+	_draw_text_xy(canvas, _heading_font(font), "액티브 아이템", rect.position.x + 36.0, rect.position.y + 28.0, 21, TEXT_SOFT)
 
 	var slots: Array = active_slots_override if active_slots_override is Array else CharacterInfoOverlayValueUtils.get_array(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "active_item_slots", []))
 	_refresh_active_item_label_cache(slots)
@@ -511,9 +584,9 @@ func _draw_active_items(canvas: CanvasItem, owner: Object, registry: Object, rec
 	if max_slots < 1:
 		max_slots = CharacterInfoOverlayOwnerState.active_item_slot_capacity_from_registry(registry, BASE_ACTIVE_ITEM_SLOT_COUNT)
 	var slot_width_limit: float = (rect.size.x - 34.0) / float(max_slots)
-	var slot_height_limit: float = rect.size.y - 64.0
+	var slot_height_limit: float = rect.size.y - 72.0
 	var min_slot_size: float = 24.0 if max_slots > 5 else 40.0
-	var slot_size: float = min(68.0, max(min_slot_size, min(slot_width_limit, slot_height_limit)))
+	var slot_size: float = min(128.0, max(min_slot_size, min(slot_width_limit, slot_height_limit)))
 	var gap: float = max(4.0, (rect.size.x - slot_size * float(max_slots)) / float(max_slots + 1))
 	_update_active_slot_layout(rect, slot_size, gap, max_slots)
 	_refresh_active_slot_draw_cache(slots, max_slots, visuals, not can_draw_active_item_icon)
@@ -628,8 +701,8 @@ func _draw_passive_inventory(canvas: CanvasItem, owner: Object, registry: Object
 
 func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, runtime_state: Object = null, icon_renderer_override: Object = null, runtime_snapshot_override: Variant = null, catalog_override: Object = null, equipped_skills_for_filter: Array = []) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
-	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "hex", SECTION_GLYPH_COLOR)
-	_draw_text_xy(canvas, font, "퍽", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
+	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "seal", SECTION_GLYPH_COLOR)
+	_draw_text_xy(canvas, _heading_font(font), "무공", rect.position.x + 36.0, rect.position.y + 28.0, 21, TEXT_SOFT)
 
 	var effective_runtime_state: Object = runtime_state if runtime_state != null else CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_state")
 	var catalog: Object = catalog_override
@@ -652,9 +725,9 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 		if slot_limit > 0:
 			var slot_text := "슬롯 %d/%d" % [slot_count, slot_limit]
 			var slot_width: float = _text_size(font, slot_text, 11).x
-			var slot_color := Color(170.0 / 255.0, 225.0 / 255.0, 1.0, 0.90)
+			var slot_color := Color(0.19, 0.39, 0.34, 0.96)
 			if slot_count >= slot_limit:
-				slot_color = Color(1.0, 190.0 / 255.0, 90.0 / 255.0, 0.95)
+				slot_color = Color(0.60, 0.35, 0.15, 0.96)
 			_draw_text_xy(canvas, font, slot_text, rect.end.x - slot_width - 14.0, rect.position.y + 23.0, 11, slot_color)
 	var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot, equipped_skills_for_filter)
 
@@ -662,12 +735,15 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	var mouse_in_perk_grid_rect: bool = grid_rect.has_point(mouse_pos)
 	_last_perk_grid_rect = grid_rect
 	canvas.draw_rect(grid_rect, OVERLAY_GRID_FILL)
-	var gap := 8.0
+	CharacterInfoOverlayTextureDrawer.draw_mountain_watermark(canvas, grid_rect)
+	CharacterInfoOverlayTextureDrawer.draw_cloud_scroll_watermark(canvas, grid_rect, true)
+	var gap := 10.0
 	var display_slot_count: int = max(6, slot_limit)
 	var display_entries: Array = _build_perk_display_entries_cached(acquired, display_slot_count)
 	# Recompute animation liveness from the just-refreshed display draw ids so the
 	# lifecycle update loop knows whether it must keep redrawing for an animated perk.
-	_perk_grid_has_animated_icon = _perk_grid_contains_animated_icon(icon_renderer, can_draw_perk_icon)
+	_perk_grid_anim_step_msec = _perk_grid_animation_step_msec(icon_renderer, can_draw_perk_icon)
+	_perk_grid_has_animated_icon = _perk_grid_anim_step_msec > 0
 	if display_entries.is_empty():
 		_set_perk_grid_hover_layout(Vector2.ZERO, 0.0, 0.0, 0, 0)
 		_draw_empty_state_hero(canvas, _empty_perk_hero_texture, grid_rect, -74.0, 0.52, 76.0, 132.0, 6.0)
@@ -677,7 +753,7 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 		_last_perk_content_height = grid_rect.size.y
 		return hover_data
 
-	# Wide redesign (mockup v2 2026-07-08): prefer a single centered row of hex slots
+	# Wide redesign (mockup v2 2026-07-08): prefer a single centered row of seal slots
 	# across the widened panel; wrap back to the legacy 4-column grid only when the
 	# section is too narrow for readable single-row cells.
 	var entry_count: int = display_entries.size()
@@ -687,18 +763,18 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 	var cell_width_limit: float = floor((grid_rect.size.x - float(columns - 1) * gap) / float(columns))
 	var cell_height_limit: float = floor((grid_rect.size.y - float(max(0, rows - 1)) * gap) / float(max(1, rows)))
 	# Cells scale up to fill the section (width/height limits govern); the cap only
-	# stops comically large hexes on very large windows.
+	# stops comically large seals on very large windows.
 	var cell_size: float = min(110.0, max(28.0, min(cell_width_limit, cell_height_limit)))
 	_last_perk_content_height = float(rows) * (cell_size + gap) - gap
 	var max_perk_scroll: float = max(0.0, _last_perk_content_height - _last_perk_grid_rect.size.y)
 	perk_scroll = clamp(perk_scroll, 0.0, max_perk_scroll)
 	var stride: float = cell_size + gap
-	# Center the hex block inside the section while it fits (no scroll); a scrolling
+	# Center the seal block inside the section while it fits (no scroll); a scrolling
 	# grid keeps the legacy top-left origin so the scroll math stays untouched.
+	# Horizontal centering belongs to refresh_perk_grid_layout_arrays(). Shifting x
+	# here as well applies the same empty-space offset twice and pushes the row right.
 	var layout_rect := grid_rect
 	if max_perk_scroll <= 0.0:
-		var used_w: float = float(columns) * stride - gap
-		layout_rect.position.x += max(0.0, (grid_rect.size.x - used_w) * 0.5)
 		layout_rect.position.y += max(0.0, (grid_rect.size.y - _last_perk_content_height) * 0.5)
 	_update_perk_grid_layout(layout_rect, cell_size, stride, columns, entry_count, perk_scroll)
 	var hovered_perk_index := -1
@@ -731,18 +807,28 @@ func _draw_perk_grid(canvas: CanvasItem, owner: Object, registry: Object, rect: 
 # Scans the already-built display draw ids (empty slots are ""), so it is O(slots)
 # and only touched on the ~9x/sec animation redraws it enables.
 func _perk_grid_contains_animated_icon(icon_renderer: Object, can_draw_perk_icon: bool) -> bool:
+	return _perk_grid_animation_step_msec(icon_renderer, can_draw_perk_icon) > 0
+
+
+func _perk_grid_animation_step_msec(icon_renderer: Object, can_draw_perk_icon: bool) -> int:
 	if not can_draw_perk_icon or icon_renderer == null or not icon_renderer.has_method("has_animated_icon"):
-		return false
+		return 0
+	var fastest_step_msec := 0
 	for id_value in _acquired_perk_draw_id_cache:
 		var perk_id: String = str(id_value)
 		if perk_id != "" and bool(icon_renderer.has_animated_icon(perk_id)):
-			return true
-	return false
+			var step_msec := 110
+			if icon_renderer.has_method("get_icon_frame_interval_msec"):
+				step_msec = maxi(1, int(round(float(icon_renderer.get_icon_frame_interval_msec(perk_id)))))
+			fastest_step_msec = step_msec if fastest_step_msec <= 0 else mini(fastest_step_msec, step_msec)
+	return fastest_step_msec
 
 func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect: Rect2, font: Font, runtime_state_override: Object = null, active_item_runtime_override: Object = null, mythic_item_runtime_override: Object = null, character_type_override: String = "", stat_sources_override: Array = [], mouse_pos: Vector2 = Vector2.INF, hover_data: Dictionary = {}, active_item_slot_capacity_override: int = -1, active_item_slots_override: Variant = null, lingpet_snapshot_override: Dictionary = {}) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_mountain_watermark(canvas, rect, true)
+	CharacterInfoOverlayTextureDrawer.draw_seal_stamp(canvas, Vector2(rect.end.x - 22.0, rect.end.y - 22.0), 15.0)
 	CharacterInfoOverlayTextureDrawer.draw_ui_glyph(canvas, Vector2(rect.position.x + 24.0, rect.position.y + 18.0), 12.0, "chart", SECTION_GLYPH_COLOR)
-	_draw_text_xy(canvas, font, "능력치", rect.position.x + 36.0, rect.position.y + 24.0, 13, TEXT_SOFT)
+	_draw_text_xy(canvas, _heading_font(font), "능력치", rect.position.x + 36.0, rect.position.y + 28.0, 21, TEXT_SOFT)
 	_build_stats(
 		owner,
 		registry,
@@ -772,9 +858,11 @@ func _draw_stats_panel(canvas: CanvasItem, owner: Object, registry: Object, rect
 # rows then append into it (the same protocol draw_stat_sections relied on).
 func _draw_lingpet_stats_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary, lingpet_snapshot_override: Dictionary = {}) -> Dictionary:
 	CharacterInfoOverlayTextureDrawer.draw_section_chrome(canvas, rect, SECTION_COLOR, SECTION_BORDER, ACCENT_BLUE)
+	CharacterInfoOverlayTextureDrawer.draw_cloud_scroll_watermark(canvas, rect)
+	CharacterInfoOverlayTextureDrawer.draw_seal_stamp(canvas, Vector2(rect.end.x - 20.0, rect.end.y - 20.0), 14.0)
 	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 10.0, rect.size.x - 24.0, rect.size.y - 22.0)
-	return CharacterInfoOverlayStatsPresenter.draw_lingpet_stat_rows(canvas, font, "링펫 능력치", _build_lingpet_stats(owner, lingpet_snapshot_override), inner_rect, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
+	return CharacterInfoOverlayStatsPresenter.draw_lingpet_stat_rows(canvas, font, "수호령 능력치", _build_lingpet_stats(owner, lingpet_snapshot_override), inner_rect, mouse_pos, hover_data, _last_lingpet_stat_row_rects, ACCENT_BLUE, TEXT_DIM, OVERLAY_GRID_EMPTY_TEXT, UI_TEXT_SCALE)
 
 	# 소스별 증감 내역(breakdown)은 툴팁 전용이라 마우스가 이 패널 위에 있을
-	# 때만 계산한다 — 링펫 동반 시 패널이 상시 redraw되므로 hover 게이팅으로
+	# 때만 계산한다 — 수호령 동반 시 패널이 상시 redraw되므로 hover 게이팅으로
 	# build-then-discard 비용을 막는다 (2026-07-11 리뷰 P2).

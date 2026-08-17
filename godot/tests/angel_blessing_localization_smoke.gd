@@ -6,28 +6,28 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const PERK_ID := "angel_blessing"
 const EXPECTED := {
 	"en": {
-		"name": "Angel's Dice",
-		"summary": "Gain 1–3 different blessings each stage (30% effect).",
+		"name": "Three Heavenly Omens",
+		"summary": "Gain 1–3 different heavenly omens each stage (30% effect).",
 	},
 	"zh": {
-		"name": "天使骰子",
-		"summary": "每关获得1～3种不同的祝福（效果30%）。",
+		"name": "天运三卦",
+		"summary": "每关获得1～3种不同的天运（效果30%）。",
 	},
 	"ja": {
-		"name": "天使のダイス",
-		"summary": "ステージごとに異なる祝福を1～3個獲得します（効果30%）。",
+		"name": "天運三卦",
+		"summary": "ステージごとに異なる天運を1～3個獲得します（効果30%）。",
 	},
 	"es": {
-		"name": "Dado angelical",
-		"summary": "Obtén de 1 a 3 bendiciones diferentes en cada fase (efecto del 30%).",
+		"name": "Tres Presagios Celestiales",
+		"summary": "Obtén de 1 a 3 presagios celestiales en cada fase (efecto del 30%).",
 	},
 	"pt-BR": {
-		"name": "Dado angelical",
-		"summary": "Receba de 1 a 3 bênçãos diferentes a cada fase (efeito de 30%).",
+		"name": "Três Presságios Celestiais",
+		"summary": "Receba de 1 a 3 presságios celestiais a cada fase (efeito de 30%).",
 	},
 	"ru": {
-		"name": "Ангельская кость",
-		"summary": "На каждом этапе дает 1–3 разных благословения (эффект 30%).",
+		"name": "Три Небесных Знамения",
+		"summary": "На каждом этапе даёт 1–3 небесных знамения (эффект 30%).",
 	},
 }
 
@@ -66,11 +66,11 @@ func _verify_language(language: String, expected: Dictionary) -> void:
 	_expect(summary_map.has(PERK_ID), "PERK_SUMMARY[%s] should contain angel_blessing" % language)
 	_expect(
 		str(name_map.get(PERK_ID, "")) == str(expected.get("name", "")),
-		"Angel Dice name should match the locked %s terminology" % language
+		"Three Heavenly Omens name should match the adopted %s terminology" % language
 	)
 	_expect(
 		str(summary_map.get(PERK_ID, "")) == str(expected.get("summary", "")),
-		"Angel Dice summary should match the locked %s copy" % language
+		"Three Heavenly Omens summary should match the adopted %s copy" % language
 	)
 
 	LanguageSettings._cached_language = language

@@ -11,11 +11,10 @@ const CALLBACK_FULL_GAUGE := "apply_full_gauge"
 const CALLBACK_DIMENSION_GATE_DEFERRED := "queue_dimension_gate_deferred"
 const CALLBACK_DIMENSION_GATE := "apply_dimension_gate"
 const CALLBACK_MONKEY_BLESSING := "apply_monkey_blessing"
-const CALLBACK_TREASURE_HUNT := "apply_treasure_hunt"
+const CALLBACK_PHYSIQUE_TRAINING := "apply_physique_training"
 
 const TIMER_IMMEDIATE := 1.2
 const TIMER_MONKEY_BLESSING := 1.1
-const TIMER_TREASURE_HUNT := 1.6
 
 
 func build_state_action_callbacks(state: Object) -> Dictionary:
@@ -28,7 +27,7 @@ func build_state_action_callbacks(state: Object) -> Dictionary:
 		CALLBACK_DIMENSION_GATE_DEFERRED: Callable(state, "_queue_dimension_gate_after_spawn_intro_choice"),
 		CALLBACK_DIMENSION_GATE: Callable(state, "_apply_dimension_gate_choice"),
 		CALLBACK_MONKEY_BLESSING: Callable(state, "_apply_monkey_blessing_choice"),
-		CALLBACK_TREASURE_HUNT: Callable(state, "_apply_treasure_hunt_choice"),
+		CALLBACK_PHYSIQUE_TRAINING: Callable(state, "_apply_physique_training_choice"),
 	}
 
 
@@ -60,8 +59,6 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 			return _call_feedback(callbacks, CALLBACK_DIMENSION_GATE, [registry], TIMER_IMMEDIATE)
 		RuntimePerkChoiceDispatch.ACTION_MONKEY_BLESSING:
 			return _call_feedback(callbacks, CALLBACK_MONKEY_BLESSING, [owner, registry, choice_name], TIMER_MONKEY_BLESSING)
-		RuntimePerkChoiceDispatch.ACTION_TREASURE_HUNT:
-			return _call_feedback(callbacks, CALLBACK_TREASURE_HUNT, [owner, registry], TIMER_TREASURE_HUNT)
 		RuntimePerkChoiceDispatch.ACTION_LINGPET_GUARDIAN_ENHANCE:
 			var begin_result := LingpetGuardianEnhanceApplier.begin(choice, owner, registry)
 			return {
@@ -70,6 +67,8 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 				"uses_feedback": false,
 				"begin_result": begin_result,
 			}
+		RuntimePerkChoiceDispatch.ACTION_PHYSIQUE_TRAINING:
+			return _call_bool(callbacks, CALLBACK_PHYSIQUE_TRAINING, [choice, owner, registry])
 	return {"handled": false}
 
 

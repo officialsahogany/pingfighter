@@ -457,8 +457,8 @@ func _verify_committed_icon_prepare_on_boot_entry() -> void:
 # 소비가 소유하며 record 파생 카운트로 게이트된다(부작용=벤트 팬,
 # 부산물=골드 샤워, 성공=침묵). finish는 방출을 내린다.
 func _verify_spark_particle_contract() -> void:
-	# side_effect record(outcome 0.60): B3 진입 시 벤트 발화, 골드 침묵.
-	var side_fixture: Dictionary = _build_animation_state(0.60)
+	# side_effect record(outcome 0.25): B3 진입 시 벤트 발화, 골드 침묵.
+	var side_fixture: Dictionary = _build_animation_state(0.25)
 	var side_state: Object = side_fixture["state"]
 	var side_registry: Object = side_fixture["registry"]
 	var side_getter: Object = side_fixture["getter"]
@@ -565,7 +565,7 @@ func _verify_ignition_haze_contract() -> void:
 	var controller := BattleSceneOverlayFrameController.new()
 
 	# side_effect record: B3에서 surge 프리셋 + 가시 + intensity>0.
-	var side_fixture: Dictionary = _build_animation_state(0.60)
+	var side_fixture: Dictionary = _build_animation_state(0.25)
 	var side_state: Object = side_fixture["state"]
 	var side_registry: Object = side_fixture["registry"]
 	var side_getter: Object = side_fixture["getter"]
@@ -861,7 +861,6 @@ func _on_overlay_probe_draw(probe: Control, perf_probe: Object) -> void:
 		_overlay_state,
 		_overlay_catalog,
 		Vector2(760.0, 750.0),
-		null,
 		null,
 		null,
 		perf_probe

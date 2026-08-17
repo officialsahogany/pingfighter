@@ -3,7 +3,7 @@ extends SceneTree
 const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
 const Stage1BalloonEvent := preload("res://scripts/stages/stage1/stage1_balloon_event.gd")
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
-const Stage3BossSkillState := preload("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+const Stage3StarpointState := preload("res://scripts/stages/stage3/stage3_starpoint_state.gd")
 const Stage4BirdEvent := preload("res://scripts/stages/stage4/stage4_bird_event.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
 const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
@@ -177,12 +177,12 @@ func _verify_resolve_context_gates_on_active() -> void:
 
 func _verify_stage_states_delegate_attraction() -> void:
 	var paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage3/stage3_starpoint_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 		"res://scripts/stages/stage5/stage5_hongryun_state.gd",
-		"res://scripts/stages/stage6/stage6_tetriser_state.gd",
+		"res://scripts/stages/stage6/stage6_tetriser_starpoint_state.gd",
 	]
 	for path in paths:
 		var source: String = FileAccess.get_file_as_string(path)
@@ -286,12 +286,17 @@ func _verify_stage_loop_behavioral_pull_all_stages() -> void:
 		"Stage 1 drop loop should apply dowsing attraction"
 	)
 
-	var stage3 := Stage3BossSkillState.new()
-	stage3.starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
-	stage3._update_starpoint_drops(1.0, _build_stage_context(3, registry), {})
-	_expect(stage3.starpoint_drops.size() == 1, "Stage 3 pulled drop should stay alive")
+	var stage3_rng := RandomNumberGenerator.new()
+	stage3_rng.seed = 62063
+	var stage3 := Stage3StarpointState.new(stage3_rng)
+	stage3.spawn_drop_at(Vector2(200.0, 600.0), {}, {}, false)
+	var stage3_drops: Array = stage3.get_actor_draw_context().get("stage3_starpoint_drops", [])
+	(stage3_drops[0] as Dictionary)["vel"] = Vector2.ZERO
+	stage3.update(1.0, _build_stage_context(3, registry), {})
+	stage3_drops = stage3.get_snapshot().get("stage3_starpoint_drops", [])
+	_expect(stage3_drops.size() == 1, "Stage 3 pulled drop should stay alive")
 	_expect(
-		Vector2(stage3.starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		Vector2((stage3_drops[0] as Dictionary).get("vel", Vector2.ZERO)).x > 0.0,
 		"Stage 3 drop loop should apply dowsing attraction"
 	)
 
@@ -305,11 +310,18 @@ func _verify_stage_loop_behavioral_pull_all_stages() -> void:
 	)
 
 	var stage6 := Stage6TetriserState.new()
-	stage6._starpoint_drops.append(_build_drop(Vector2(200.0, 600.0)))
-	stage6._update_starpoint_drops(1.0, _build_stage_context(6, registry), {})
-	_expect(stage6._starpoint_drops.size() == 1, "Stage 6 pulled drop should stay alive")
+	stage6.debug_set_rng_seed(62064)
+	stage6.debug_spawn_starpoint_drop_at(Vector2(200.0, 600.0))
+	var before_snapshot: Array = stage6.debug_get_starpoint_drops_snapshot()
+	var before_velocity: Vector2 = (before_snapshot[0] as Dictionary).get("vel", Vector2.ZERO)
+	var stage6_context: Dictionary = _build_stage_context(6, registry)
+	stage6_context["ball_active"] = true
+	stage6_context["waiting_for_serve"] = false
+	stage6.update(1.0 / 60.0, stage6_context, {})
+	var after_snapshot: Array = stage6.debug_get_starpoint_drops_snapshot()
+	_expect(after_snapshot.size() == 1, "Stage 6 pulled drop should stay alive")
 	_expect(
-		Vector2(stage6._starpoint_drops[0].get("vel", Vector2.ZERO)).x > 0.0,
+		Vector2((after_snapshot[0] as Dictionary).get("vel", Vector2.ZERO)).x > before_velocity.x,
 		"Stage 6 drop loop should apply dowsing attraction"
 	)
 

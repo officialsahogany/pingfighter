@@ -4,6 +4,7 @@ const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_p
 const RuntimePerkLevelSideEffects := preload("res://scripts/characters/runtime_perk_level_side_effects.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_perk_unlock_swap_flow.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 var _sync_calls := 0
@@ -11,6 +12,7 @@ var _refresh_calls := 0
 
 
 func _init() -> void:
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	_verify_level_choice_update()
 	_verify_unlock_choice_update()
 	_verify_debug_level_update()
@@ -19,6 +21,7 @@ func _init() -> void:
 	_verify_unlock_side_effect_and_commando_sync()
 	_verify_runtime_state_facade_side_effects()
 	_verify_state_source_contract()
+	LanguageSettings.set_test_locale_override("")
 
 	if _failures.is_empty():
 		print("runtime_perk_level_side_effects_smoke: ok")
@@ -39,13 +42,13 @@ func _verify_level_choice_update() -> void:
 	_expect(str(update.get("choice_id", "")) == "common_bulk_up", "level choice update should expose the choice id")
 	_expect(int(update.get("old_level", 0)) == 2, "level choice update should expose old level")
 	_expect(int(update.get("next_level", 0)) == 2, "level choice update should respect max-level cap")
-	_expect(str(update.get("feedback_text", "")) == "Bulk Lv.2", "level choice update should own level feedback text")
+	_expect(str(update.get("feedback_text", "")) == "Bulk 극성", "level choice update should own martial-rank feedback text")
 	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkLevelSideEffects.LEVEL_FEEDBACK_TIMER), "level choice update should own level feedback timer")
 
 	var state := RuntimePerkState.new()
 	_expect(state.apply_choice({"id": "common_bulk_up", "name": "Bulk", "max_level": 2}, null, null), "state should apply ordinary level choices through the level helper")
 	_expect(int(state.runtime_skill_levels.get("common_bulk_up", 0)) == 1, "ordinary level choice should write next level")
-	_expect(str(state.feedback_text) == "Bulk Lv.1", "ordinary level choice should apply helper-owned feedback text")
+	_expect(str(state.feedback_text) == "Bulk 1성", "ordinary level choice should apply helper-owned martial-rank feedback text")
 
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	var apply_flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_apply_flow.gd")
@@ -64,7 +67,7 @@ func _verify_unlock_choice_update() -> void:
 	_expect(bool(update.get("accepted", false)), "unlock choice update should accept valid unlock choices")
 	_expect(str(update.get("choice_id", "")) == "soldier_unlock_ak47", "unlock choice update should expose the choice id")
 	_expect(int(update.get("next_level", 0)) == 2, "unlock choice update should increment from current level")
-	_expect(str(update.get("feedback_text", "")) == "AK Lv.2", "unlock choice update should own unlock feedback text")
+	_expect(str(update.get("feedback_text", "")) == "AK 비급", "unlock choice update should keep the one-off manual tag")
 	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkLevelSideEffects.LEVEL_FEEDBACK_TIMER), "unlock choice update should own unlock feedback timer")
 	_expect(not bool(helper.build_unlock_choice_update({"id": "not_unlock"}, {}).get("accepted", false)), "unlock choice update should reject non-unlock choices")
 	var levels := {"soldier_unlock_ak47": 1}
@@ -96,7 +99,7 @@ func _verify_debug_level_update() -> void:
 	_expect(str(update.get("choice_id", "")) == "common_bulk_up", "debug level update should expose the choice id")
 	_expect(int(update.get("current_level", -1)) == 1, "debug level update should expose previous display level")
 	_expect(int(update.get("next_level", 0)) == 2, "debug level update should clamp to max level")
-	_expect(str(update.get("feedback_text", "")) == "Bulk Lv.2", "debug level update should own debug feedback text")
+	_expect(str(update.get("feedback_text", "")) == "Bulk 극성", "debug level update should own martial-rank feedback text")
 	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkLevelSideEffects.LEVEL_FEEDBACK_TIMER), "debug level update should own debug feedback timer")
 	_expect(not bool(helper.build_debug_level_update("", 1, {"name": "Bulk"}).get("accepted", false)), "debug level update should reject blank ids")
 	_expect(not bool(helper.build_debug_level_update("common_bulk_up", 1, {}).get("accepted", false)), "debug level update should reject empty perk data")
@@ -107,7 +110,7 @@ func _verify_debug_level_update() -> void:
 	})
 	_expect(state.debug_set_perk_level(" common_bulk_up ", 5, null, FakeRegistry.new(), catalog), "debug state should apply ordinary level grants through the helper")
 	_expect(int(state.runtime_skill_levels.get("common_bulk_up", 0)) == 2, "debug state should write helper-clamped level")
-	_expect(str(state.feedback_text) == "Bulk Lv.2", "debug state should apply helper-owned debug feedback")
+	_expect(str(state.feedback_text) == "Bulk 극성", "debug state should apply helper-owned martial-rank feedback")
 
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	var debug_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_debug_grants.gd")

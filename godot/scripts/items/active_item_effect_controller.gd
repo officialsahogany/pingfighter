@@ -6,13 +6,14 @@ const ActiveItemHolyBarrierParticles := preload("res://scripts/items/active_item
 const ActiveItemHolyBarrierRuntime := preload("res://scripts/items/active_item_holy_barrier_runtime.gd")
 const ActiveItemDashBoostParticles := preload("res://scripts/items/active_item_dash_boost_particles.gd")
 const ActiveItemDashBoostRuntime := preload("res://scripts/items/active_item_dash_boost_runtime.gd")
+const ActiveItemGyeongsinhwanParticles := preload("res://scripts/items/active_item_gyeongsinhwan_particles.gd")
 const ActiveItemMagnetFieldParticles := preload("res://scripts/items/active_item_magnet_field_particles.gd")
 const ActiveItemMagnetFieldRuntime := preload("res://scripts/items/active_item_magnet_field_runtime.gd")
-const ActiveItemHologramDiskRuntime := preload("res://scripts/items/active_item_hologram_disk_runtime.gd")
 const ActiveItemAipillRuntime := preload("res://scripts/items/active_item_aipill_runtime.gd")
 const ActiveItemPickupEffectState := preload("res://scripts/items/active_item_pickup_effect_state.gd")
 const ActiveItemBrickWallGeometry := preload("res://scripts/items/active_item_brick_wall_geometry.gd")
 const ActiveItemTrampolineRuntime := preload("res://scripts/items/active_item_trampoline_runtime.gd")
+const ActiveItemCampfireRuntime := preload("res://scripts/items/active_item_campfire_runtime.gd")
 const ActiveItemBrickWallParticles := preload("res://scripts/items/active_item_brick_wall_particles.gd")
 const ActiveItemBrickWallInstallation := preload("res://scripts/items/active_item_brick_wall_installation.gd")
 const ActiveItemPlayerCenterReader := preload("res://scripts/items/active_item_player_center_reader.gd")
@@ -58,6 +59,8 @@ var vitamin_pill_initial_timer_frames: float = 0.0
 var vitamin_pill_phase: float = 0.0
 var vitamin_pill_flash_timer_frames: float = 0.0
 var vitamin_pill_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var vitamin_pill_particle_accumulator_frames: float = 0.0
+var vitamin_pill_particles: Array[Dictionary] = []
 var strange_vial_active: bool = false
 var strange_vial_timer_frames: float = 0.0
 var strange_vial_initial_timer_frames: float = 0.0
@@ -91,18 +94,6 @@ var magnet_field_phase: float = 0.0
 var magnet_field_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
 var magnet_field_particle_accumulator_frames: float = 0.0
 var magnet_field_particles: Array[Dictionary] = []
-var hologram_disk_active: bool = false
-var hologram_disk_timer_frames: float = 0.0
-var hologram_disk_initial_timer_frames: float = 0.0
-var hologram_disk_phase: float = 0.0
-var hologram_decoys: Array[Dictionary] = []
-var hologram_decoy_pop_particles: Array[Dictionary] = []
-var hologram_locked_decoy_index: int = -1
-var hologram_deception_flight_active: bool = false
-var hologram_deception_roll_locked: bool = false
-var hologram_deception_roll_count: int = 0
-var hologram_last_ball_ascending: bool = false
-var hologram_disk_deception_chance_override: float = -1.0
 var holy_barrier_active: bool = false
 var holy_barrier_timer_frames: float = 0.0
 var holy_barrier_initial_timer_frames: float = 0.0
@@ -123,21 +114,27 @@ var brick_wall_install_initial_frames: float = 0.0
 var brick_particles: Array[Dictionary] = []
 var trampolines: Array[Dictionary] = []
 var trampoline_particles: Array[Dictionary] = []
+var campfires: Array[Dictionary] = []
+var campfire_particles: Array[Dictionary] = []
+var campfire_player_in_range: bool = false
+var campfire_vigor_accumulator: float = 0.0
+var campfire_cooldown_bonus_msec_carry: float = 0.0
 var _state_applier: Object = ActiveItemEffectStateApplier.new()
 var _paddle_sync: Object = ActiveItemPaddleSync.new()
 var _holy_barrier_particles: Object = ActiveItemHolyBarrierParticles.new()
 var _holy_barrier_runtime: Object = ActiveItemHolyBarrierRuntime.new()
 var _dash_boost_particles: Object = ActiveItemDashBoostParticles.new()
 var _dash_boost_runtime: Object = ActiveItemDashBoostRuntime.new()
+var _gyeongsinhwan_particles: Object = ActiveItemGyeongsinhwanParticles.new()
 var _magnet_field_particles: Object = ActiveItemMagnetFieldParticles.new()
 var _magnet_field_runtime: Object = ActiveItemMagnetFieldRuntime.new()
-var _hologram_disk_runtime: Object = ActiveItemHologramDiskRuntime.new()
 var _aipill_runtime: Object = ActiveItemAipillRuntime.new()
 var _pickup_effect_state: Object = ActiveItemPickupEffectState.new()
 var _brick_wall_geometry: Object = ActiveItemBrickWallGeometry.new()
 var _brick_wall_particles: Object = ActiveItemBrickWallParticles.new()
 var _brick_wall_installation: Object = ActiveItemBrickWallInstallation.new()
 var _trampoline_runtime: Object = ActiveItemTrampolineRuntime.new()
+var _campfire_runtime: Object = ActiveItemCampfireRuntime.new()
 var _player_center_reader: Object = ActiveItemPlayerCenterReader.new()
 var _regeneration_potion_effect: Object = ActiveItemRegenerationPotionEffect.new()
 var _timed_paddle_effects: Object = ActiveItemTimedPaddleEffects.new()
@@ -166,8 +163,8 @@ func _init() -> void:
 		"stopwatch_owner_effects": _stopwatch_owner_effects,
 		"magnet_field_runtime": _magnet_field_runtime,
 		"magnet_field_particles": _magnet_field_particles,
-		"hologram_disk_runtime": _hologram_disk_runtime,
 		"timed_paddle_effects": _timed_paddle_effects,
+		"gyeongsinhwan_particles": _gyeongsinhwan_particles,
 		"holy_barrier_runtime": _holy_barrier_runtime,
 		"holy_barrier_particles": _holy_barrier_particles,
 		"dash_boost_runtime": _dash_boost_runtime,
@@ -190,7 +187,6 @@ func reset() -> void:
 		_timed_paddle_effects,
 		_stopwatch_runtime,
 		_magnet_field_runtime,
-		_hologram_disk_runtime,
 		_holy_barrier_runtime,
 		_dash_boost_runtime,
 		_brick_wall_installation,
@@ -238,6 +234,15 @@ func activate_lingpet_egg(owner: Object, registry: Object) -> bool:
 	)
 
 
+func activate_mystic_dice(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_mystic_dice(
+		self,
+		owner,
+		registry,
+		_effect_feedback
+	)
+
+
 func apply_ammo_box(item_data: Dictionary, owner: Object, registry: Object) -> bool:
 	return _effect_action_facade.apply_ammo_box(
 		self,
@@ -263,7 +268,7 @@ func activate_doping_potion(item_data: Dictionary, owner: Object, registry: Obje
 
 
 func activate_vitamin_pill(owner: Object, registry: Object) -> bool:
-	return _effect_action_facade.activate_vitamin_pill(
+	var activated: bool = _effect_action_facade.activate_vitamin_pill(
 		self,
 		owner,
 		registry,
@@ -271,6 +276,10 @@ func activate_vitamin_pill(owner: Object, registry: Object) -> bool:
 		_player_center_reader,
 		_effect_feedback
 	)
+	if activated:
+		vitamin_pill_particle_accumulator_frames = 0.0
+		vitamin_pill_particles.clear()
+	return activated
 
 
 func activate_strange_vial(owner: Object, registry: Object) -> bool:
@@ -313,7 +322,14 @@ func activate_cheese(item_data: Dictionary, owner: Object, registry: Object) -> 
 
 
 func activate_aipill(_owner: Object, registry: Object) -> bool:
-	return _effect_action_facade.activate_aipill(self, registry, _state_applier, _effect_feedback)
+	var activated: bool = bool(_effect_action_facade.activate_aipill(self, registry, _state_applier, _effect_feedback))
+	if activated:
+		_aipill_runtime.reset_gangsin_cancel_down_hold()
+	return activated
+
+
+func clear_aipill() -> void:
+	_state_applier.apply_aipill_state(self, _aipill_runtime.clear_state())
 
 
 func apply_regeneration_potion(owner: Object, registry: Object) -> bool:
@@ -346,16 +362,6 @@ func activate_magnet_field(owner: Object, registry: Object) -> bool:
 		registry,
 		_player_center_reader,
 		_magnet_field_runtime,
-		_state_applier,
-		_effect_feedback
-	)
-
-
-func activate_hologram_disk(_owner: Object, registry: Object) -> bool:
-	return _effect_action_facade.activate_hologram_disk(
-		self,
-		registry,
-		_hologram_disk_runtime,
 		_state_applier,
 		_effect_feedback
 	)
@@ -399,12 +405,53 @@ func activate_wall(owner: Object, registry: Object) -> bool:
 func activate_trampoline(owner: Object, registry: Object) -> bool:
 	if owner == null:
 		return false
-	var trampoline: Dictionary = _trampoline_runtime.build_spawn_trampoline(owner)
+	var mythic_item_runtime: Object = null
+	if registry != null and registry.has_method("get_instance"):
+		mythic_item_runtime = registry.get_instance("mythic_item_runtime")
+	var trampoline: Dictionary = _trampoline_runtime.build_spawn_trampoline(owner, mythic_item_runtime)
 	trampolines.append(trampoline)
 	_trampoline_runtime.spawn_install_particles(trampoline_particles, trampoline.get("rect", Rect2()))
 	_effect_feedback.trigger_registry_feedback(registry, false, false, 0.02, 0.7)
 	_effect_feedback.play_first_audio(registry, ["play_active_item"])
 	return true
+
+
+func activate_campfire(owner: Object, registry: Object) -> bool:
+	if owner == null:
+		return false
+	var campfire: Dictionary = _campfire_runtime.build_spawn_campfire(owner, registry)
+	campfires.append(campfire)
+	_campfire_runtime.spawn_install_particles(campfire_particles, campfire.get("rect", Rect2()))
+	_effect_feedback.trigger_registry_feedback(registry, false, false, 0.018, 0.55)
+	_effect_feedback.play_first_audio(registry, ["play_active_item"])
+	return true
+
+
+func update_campfires(owner: Object, registry: Object, delta: float) -> void:
+	if not needs_campfire_update():
+		campfire_player_in_range = false
+		campfire_vigor_accumulator = 0.0
+		campfire_cooldown_bonus_msec_carry = 0.0
+		return
+	var result: Dictionary = _campfire_runtime.update(
+		campfires,
+		campfire_particles,
+		owner,
+		registry,
+		delta,
+		campfire_vigor_accumulator,
+		campfire_cooldown_bonus_msec_carry
+	)
+	campfire_player_in_range = bool(result.get("player_in_range", false))
+	campfire_vigor_accumulator = float(result.get("vigor_accumulator", 0.0))
+	campfire_cooldown_bonus_msec_carry = float(result.get("cooldown_bonus_msec_carry", 0.0))
+	if int(result.get("dash_destroyed_count", 0)) > 0:
+		_effect_feedback.trigger_registry_feedback(registry, false, false, 0.035, 1.0)
+		_effect_feedback.play_first_audio(registry, ["play_molotov_explosion", "play_brick_wall_destroy"])
+
+
+func needs_campfire_update() -> bool:
+	return not campfires.is_empty() or not campfire_particles.is_empty()
 
 
 func can_store_item(item_name: String) -> bool:
@@ -475,6 +522,10 @@ func get_dash_boost_particles() -> Array[Dictionary]:
 	return _effect_query.get_dash_boost_particles(self)
 
 
+func get_vitamin_pill_particles() -> Array[Dictionary]:
+	return _effect_query.get_vitamin_pill_particles(self)
+
+
 func get_field_effect_draw_context() -> Dictionary:
 	return _effect_query.get_field_effect_draw_context(self)
 
@@ -513,14 +564,6 @@ func get_stopwatch_context() -> Dictionary:
 
 func get_magnet_field_context() -> Dictionary:
 	return _effect_query.get_magnet_field_context(self)
-
-
-func get_hologram_disk_context() -> Dictionary:
-	return _effect_query.get_hologram_disk_context(self)
-
-
-func get_hologram_decoys() -> Array[Dictionary]:
-	return _effect_query.get_hologram_decoys(self)
 
 
 func get_holy_barrier_context() -> Dictionary:
@@ -562,6 +605,18 @@ func get_trampoline_context() -> Dictionary:
 	}
 
 
+func get_campfire_collision_context() -> Dictionary:
+	return _campfire_runtime.build_collision_context(campfires)
+
+
+func get_campfire_context() -> Dictionary:
+	return _campfire_runtime.build_draw_context(
+		campfires,
+		campfire_particles,
+		campfire_player_in_range
+	)
+
+
 func get_stopwatch_ball_context() -> Dictionary:
 	return _effect_query.get_stopwatch_ball_context(self)
 
@@ -599,7 +654,10 @@ func get_dash_cost_multiplier() -> float:
 
 
 func get_dash_cooldown_multiplier() -> float:
-	return _dash_boost_runtime.get_cooldown_multiplier(_effect_query.is_dash_boost_active(self))
+	return (
+		_dash_boost_runtime.get_cooldown_multiplier(_effect_query.is_dash_boost_active(self))
+		* _campfire_runtime.get_dash_cooldown_multiplier(campfire_player_in_range)
+	)
 
 
 func get_dash_boost_remaining_ratio() -> float:
@@ -618,32 +676,12 @@ func is_magnet_field_active() -> bool:
 	return _effect_query.is_magnet_field_active(self)
 
 
-func is_hologram_disk_active() -> bool:
-	return _effect_query.is_hologram_disk_active(self)
-
-
 func is_wall_installing() -> bool:
 	return _effect_query.is_wall_installing(self)
 
 
 func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
 	return _effect_interaction_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
-
-
-func apply_hologram_decoy_tick(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	return _hologram_disk_runtime.apply_ball_path_tick(self, fps_scale, context, deps)
-
-
-func peek_hologram_deception_ball_context() -> Dictionary:
-	return _hologram_disk_runtime.peek_deception_ball_context(self)
-
-
-func clear_hologram_decoys_and_lock() -> void:
-	_hologram_disk_runtime.clear_decoys_and_lock_state(self)
-
-
-func clear_hologram_disk_runtime() -> void:
-	_state_applier.apply_hologram_disk_state(self, _hologram_disk_runtime.clear_state())
 
 
 func notify_holy_barrier_hit(impact_pos: Vector2) -> void:
@@ -656,6 +694,20 @@ func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
 
 func notify_trampoline_hit(trampoline_index: int, ball_pos: Vector2, ball_vel: Vector2) -> Dictionary:
 	return _trampoline_runtime.apply_contact(trampolines, trampoline_particles, trampoline_index, ball_pos, ball_vel)
+
+
+func notify_campfire_hit(campfire_index: int, impact_pos: Vector2) -> Dictionary:
+	var result: Dictionary = _campfire_runtime.destroy_on_ball_hit(
+		campfires,
+		campfire_particles,
+		campfire_index,
+		impact_pos
+	)
+	if campfires.is_empty():
+		campfire_player_in_range = false
+		campfire_vigor_accumulator = 0.0
+		campfire_cooldown_bonus_msec_carry = 0.0
+	return result
 
 
 func apply_aipill_player_control(player_pos: Vector2, player_speed: float, config: Dictionary, delta: float) -> Dictionary:
@@ -673,8 +725,17 @@ func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: D
 	)
 
 
-func apply_aipill_ball_hit_speed_boost(ball_vel: Vector2, was_active_on_contact: bool = false) -> Dictionary:
-	return _effect_interaction_facade.apply_aipill_ball_hit_speed_boost(self, ball_vel, was_active_on_contact)
+func apply_aipill_ball_hit_speed_boost(
+	ball_vel: Vector2,
+	was_active_on_contact: bool = false,
+	gangsin_bonus_pct: float = 0.0
+) -> Dictionary:
+	return _effect_interaction_facade.apply_aipill_ball_hit_speed_boost(
+		self,
+		ball_vel,
+		was_active_on_contact,
+		gangsin_bonus_pct
+	)
 
 
 func cancel_aipill_if_neural_helmet_direction_pressed(
@@ -685,6 +746,31 @@ func cancel_aipill_if_neural_helmet_direction_pressed(
 		self,
 		mythic_item_runtime,
 		direction_pressed,
+		_state_applier,
+		_aipill_runtime
+	)
+
+
+func update_aipill_gangsin_down_hold_cancel(
+	mythic_item_runtime: Object,
+	down_pressed: bool,
+	delta: float
+) -> bool:
+	var cancel_enabled := (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("can_cancel_aipill_with_gangsin_down_hold")
+		and bool(mythic_item_runtime.can_cancel_aipill_with_gangsin_down_hold())
+	)
+	var hold_completed: bool = bool(_aipill_runtime.advance_gangsin_cancel_down_hold(
+		aipill_active,
+		cancel_enabled,
+		down_pressed,
+		delta
+	))
+	return _effect_interaction_facade.cancel_aipill_if_gangsin_down_hold_completed(
+		self,
+		mythic_item_runtime,
+		hold_completed,
 		_state_applier,
 		_aipill_runtime
 	)

@@ -2,6 +2,7 @@ extends RefCounted
 
 const Stage1ActiveItemHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_active_item_hud_scene_drawer.gd")
 const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
@@ -9,6 +10,12 @@ const EXPRESSION_NEUTRAL := "neutral"
 const EXPRESSION_HAPPY := "happy"
 const EXPRESSION_SAD := "sad"
 const EXPRESSION_PAINED := "pained"
+
+const VISION_STATE_KEYS := {
+	CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID: "dalji_vision_chosik_state",
+	CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: "cheongringwi_vision_chosik_state",
+	CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_ID: "yeonmyo_vision_chosik_state",
+}
 
 const BASE_PREWARM_MODULE_KEYS := [
 	"scoreboard_renderer",
@@ -19,6 +26,7 @@ const BASE_PREWARM_MODULE_KEYS := [
 	"smasher_skill_orb_renderer",
 	"horn_strawberry_skill_pillar_renderer",
 	"odins_eye_skill_pillar_renderer",
+	"baekrin_mount_skill_pillar_renderer",
 	"pillar_status_orb_renderer",
 	"active_item_hud_layout",
 	"active_item_hud_renderer",
@@ -261,6 +269,8 @@ func _draw_stage1_pillar_ui(
 	var odins_eye_context: Dictionary = mythic_item_runtime.get_odins_eye_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_odins_eye_context") else {}
 	var odins_eye_skill_pillar_renderer: Object = _get_cached_module(registry, "odins_eye_skill_pillar_renderer")
 	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
+	var baekrin_mount_context: Dictionary = lingpet_runtime.get_baekrin_mount_context() if lingpet_runtime != null and lingpet_runtime.has_method("get_baekrin_mount_context") else {}
+	var baekrin_mount_skill_pillar_renderer: Object = _get_cached_module(registry, "baekrin_mount_skill_pillar_renderer")
 	# Reactive pillar portraits: resolve the boss / player face from live stun +
 	# per-point score state (stateless direct mapping; latch/decay lands in a later
 	# slice). Read the modules via the registry so the face does not depend on
@@ -283,6 +293,8 @@ func _draw_stage1_pillar_ui(
 	ui_context["horn_strawberry_context"] = horn_strawberry_context
 	ui_context["odins_eye_skill_pillar_renderer"] = odins_eye_skill_pillar_renderer
 	ui_context["odins_eye_context"] = odins_eye_context
+	ui_context["baekrin_mount_skill_pillar_renderer"] = baekrin_mount_skill_pillar_renderer
+	ui_context["baekrin_mount_context"] = baekrin_mount_context
 	ui_context["status_orb_renderer"] = status_orb_renderer
 	ui_context["commando_firearm_selector_renderer"] = commando_firearm_selector_renderer
 	ui_context["commando_weapon_controller"] = commando_weapon_controller
@@ -298,6 +310,19 @@ func _draw_stage1_pillar_ui(
 	ui_context["skill_icons"] = context.get("skill_icons", {})
 	ui_context["skill_state"] = skill_state
 	ui_context["skill_config_snapshot"] = skill_config_snapshot
+	var vision_cooldown_ratios: Dictionary = {}
+	var vision_ready_overrides: Dictionary = {}
+	for vision_skill_id: String in VISION_STATE_KEYS:
+		if not _skill_snapshot_has_skill(skill_config_snapshot, vision_skill_id):
+			continue
+		var vision_state: Object = _get_cached_module(registry, str(VISION_STATE_KEYS[vision_skill_id]))
+		if vision_state != null:
+			if vision_state.has_method("get_cooldown_ratio"):
+				vision_cooldown_ratios[vision_skill_id] = float(vision_state.get_cooldown_ratio())
+			if vision_state.has_method("is_ready"):
+				vision_ready_overrides[vision_skill_id] = bool(vision_state.is_ready(float(context.get("special_gauge", 0.0)), true))
+	ui_context["skill_cooldown_remaining_ratios"] = vision_cooldown_ratios
+	ui_context["skill_ready_overrides"] = vision_ready_overrides
 	ui_context["cleanse_status_active"] = cleanse_status_active
 	ui_context["special_gauge"] = float(context.get("special_gauge", 0.0))
 	ui_context["gauge_max"] = float(context.get("gauge_max", 500.0))
@@ -504,6 +529,8 @@ func _build_commando_firearm_panel_state_for_boss_hud(
 		"horn_strawberry_context": _get_horn_strawberry_context(registry),
 		"odins_eye_skill_pillar_renderer": _get_cached_module(registry, "odins_eye_skill_pillar_renderer"),
 		"odins_eye_context": _get_odins_eye_context(registry),
+		"baekrin_mount_skill_pillar_renderer": _get_cached_module(registry, "baekrin_mount_skill_pillar_renderer"),
+		"baekrin_mount_context": _get_baekrin_mount_context(registry),
 		"commando_firearm_selector_renderer": selector_renderer,
 		"commando_weapon_controller": weapon_controller,
 		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
@@ -543,6 +570,15 @@ func _get_odins_eye_context(registry: Object) -> Dictionary:
 	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_odins_eye_context"):
 		var value: Variant = mythic_item_runtime.get_odins_eye_context()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _get_baekrin_mount_context(registry: Object) -> Dictionary:
+	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
+	if lingpet_runtime != null and lingpet_runtime.has_method("get_baekrin_mount_context"):
+		var value: Variant = lingpet_runtime.get_baekrin_mount_context()
 		if value is Dictionary:
 			return value
 	return {}

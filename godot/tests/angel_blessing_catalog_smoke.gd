@@ -7,7 +7,7 @@ const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_gra
 
 const ANGEL_PERK_ID := "angel_blessing"
 const EXPECTED_MYTHIC_COUNT := 13
-const EXPECTED_CONVERSION_SOURCE_COUNT := 41
+const EXPECTED_CONVERSION_SOURCE_COUNT := 39
 
 var _failures: Array[String] = []
 
@@ -31,7 +31,7 @@ func _verify_catalog_contract() -> void:
 	var data: Dictionary = catalog.get_perk_data(ANGEL_PERK_ID)
 	_expect_eq(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size(), EXPECTED_MYTHIC_COUNT, "converted mythic catalog should expose 13 perks")
 	_expect(not data.is_empty(), "Angel should be queryable from the runtime perk catalog")
-	_expect_eq(str(data.get("name", "")), "천사의 주사위", "Angel should keep the locked Korean display name")
+	_expect_eq(str(data.get("name", "")), "천운삼괘", "Angel should expose the adopted peerless-martial-art name")
 	_expect_eq(int(data.get("max_level", 0)), 1, "Angel should be a max-level-1 perk")
 	_expect_eq(str(data.get("tree", "")), "mythic", "Angel should use the mythic tree")
 	_expect_eq(str(data.get("rarity", "")), "mythic", "Angel should use mythic rarity")
@@ -43,7 +43,7 @@ func _verify_catalog_contract() -> void:
 
 
 func _verify_conversion_value_contract() -> void:
-	_expect_eq(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size(), EXPECTED_CONVERSION_SOURCE_COUNT, "conversion source map should expose 41 entries")
+	_expect_eq(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.size(), EXPECTED_CONVERSION_SOURCE_COUNT, "conversion source map should expose 39 active entries")
 	_expect_eq(
 		str(PerkConversionValues.CONVERSION_SOURCE_TO_PERK.get(ANGEL_PERK_ID, "")),
 		ANGEL_PERK_ID,

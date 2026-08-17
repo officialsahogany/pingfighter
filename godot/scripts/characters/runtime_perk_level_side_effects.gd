@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const LEVEL_FEEDBACK_TIMER := 1.1
 
 
@@ -17,7 +19,7 @@ func build_level_choice_update(choice: Dictionary, runtime_skill_levels: Diction
 		"choice_id": choice_id,
 		"old_level": old_level,
 		"next_level": next_level,
-		"feedback_text": "%s Lv.%d" % [str(choice.get("name", choice_id)), next_level],
+		"feedback_text": "%s %s" % [str(choice.get("name", choice_id)), _feedback_rank_text(choice, next_level)],
 		"feedback_timer": LEVEL_FEEDBACK_TIMER,
 	}
 
@@ -31,7 +33,7 @@ func build_unlock_choice_update(choice: Dictionary, runtime_skill_levels: Dictio
 		"accepted": true,
 		"choice_id": choice_id,
 		"next_level": next_level,
-		"feedback_text": "%s Lv.%d" % [str(choice.get("name", choice_id)), next_level],
+		"feedback_text": "%s %s" % [str(choice.get("name", choice_id)), _feedback_rank_text(choice, next_level)],
 		"feedback_timer": LEVEL_FEEDBACK_TIMER,
 	}
 
@@ -58,7 +60,7 @@ func build_debug_level_update(perk_id: String, target_level: int, perk_data: Dic
 		"choice_id": clean_id,
 		"current_level": max(0, next_level - 1),
 		"next_level": next_level,
-		"feedback_text": "%s Lv.%d" % [str(perk_data.get("name", clean_id)), next_level],
+		"feedback_text": "%s %s" % [str(perk_data.get("name", clean_id)), _feedback_rank_text(perk_data, next_level)],
 		"feedback_timer": LEVEL_FEEDBACK_TIMER,
 	}
 
@@ -75,6 +77,10 @@ func build_debug_unlock_choice_update(perk_id: String, target_level: int, perk_d
 		"current_level": 0,
 		"next_level": next_level,
 	}
+
+
+func _feedback_rank_text(perk_data: Dictionary, level: int) -> String:
+	return LanguageSettings.format_mugong_rank(perk_data, level)
 
 
 func apply_from_runtime_state(

@@ -36,7 +36,7 @@ class FakeRuntimePerkState:
 	var last_view_size: Vector2 = Vector2.ZERO
 	var last_selected_choice: Dictionary = {
 		"id": "dash_module_control",
-		"name": "Module Control",
+		"name": "Posture-Recovery Art",
 		"current_level": 0,
 		"next_level": 1,
 		"level_delta": 1,
@@ -76,6 +76,11 @@ class FakeRuntimePerkState:
 
 class FakeRuntimePerkCatalog:
 	extends RefCounted
+
+	func get_perk_data(perk_id: String) -> Dictionary:
+		if perk_id == "dash_module_control":
+			return {"id": perk_id, "name": "수세결", "max_level": 5}
+		return {}
 
 
 class FakeGameAudio:
@@ -158,6 +163,7 @@ func _verify_deferred_choice_flow() -> void:
 	_expect(str(perk_reward.get("type", "")) == "perk", "handler should append a perk reward")
 	_expect(str(perk_reward.get("perk_id", "")) == "dash_module_control", "handler should preserve the selected perk id")
 	_expect(str(perk_reward.get("source", "")) == "box_starpoint_choice", "handler should tag selected perks as box starpoint choices")
+	_expect(str(perk_reward.get("label", "")) == "수세결 1성", "starpoint result row should use the Korean Mugong rank")
 	_expect(int(reward.get("resolved_perk_count", 0)) == 1, "handler should update the resolved perk count")
 
 	runtime_state.selected_choice_sequence = 1

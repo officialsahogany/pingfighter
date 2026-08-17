@@ -7,27 +7,27 @@ const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const ITEM_PANDORA_LEGACY := "pandora_legacy"
 const CARD_COUNT := 3
 const ACTIVE_ITEM_KOREAN_NAMES := {
-	"gauge_charge": "에너지드링크",
-	"life_elixir": "생명수",
-	"vitamin_pill": "비타민드링크",
-	"strange_vial": "이상한 약병",
-	"aipill": "AI 알약",
-	"pandora_box": "판도라의 상자",
-	"grenade": "수류탄",
-	"flare": "조명탄",
+	"gauge_charge": "탕약",
+	"life_elixir": "오색약수",
+	"vitamin_pill": "경신단",
+	"aipill": "신령환",
+	"pandora_box": "도깨비 보따리",
+	"grenade": "폭화탄",
+	"flare": "환광탄",
 	"tear_gas": "최루탄",
-	"dynamite": "다이너마이트",
-	"molotov": "화염병",
-	"stopwatch": "스탑워치",
-	"magnet_field": "자기장",
-	"long_boost": "거대화포션",
-	"regeneration_potion": "재생물약",
-	"holy_barrier": "홀리베리어",
-	"wall": "벽돌",
+	"dynamite": "폭렬화통",
+	"molotov": "열화병",
+	"stopwatch": "요술 회중시계",
+	"magnet_field": "흡인진",
+	"long_boost": "거신단",
+	"regeneration_potion": "원기탕",
+	"holy_barrier": "금강결계",
+	"dash_boost": "축지부",
+	"wall": "토벽패",
 	"boomerang": "부메랑",
 	"banana": "바나나",
 	"soap": "비누",
-	"spider_mine": "스파이더지뢰",
+	"spider_mine": "귀주뢰",
 }
 
 
@@ -249,6 +249,27 @@ func clear_selection(runtime: Object, clear_pending: bool = true) -> void:
 func clear_runtime(runtime: Object) -> void:
 	runtime.pandora_legacy_selection_state.clear_runtime()
 	runtime.pandora_legacy_icon_texture_cache.clear()
+
+
+# Match-boundary normalize layer. A queued selection is a NEXT-ROUND reward window
+# that lives inside ONE match: it is queued on a won round and consumed at the
+# following serve. No pending may survive a match / stage boundary — the serve that
+# would have consumed it never comes, so it opens at the next stage's first serve
+# regardless of who won that round (the "금기개함 fires on a lost round" report).
+#
+# Deliberately NOT wired into reset_round(): an ordinary round win legitimately
+# queues here and must survive that round boundary to be consumed. Only the match
+# end and the stage transition may normalize. Keeps the icon texture cache warm —
+# only selection state is boundary-scoped.
+func normalize_selection_for_boundary(runtime: Object) -> bool:
+	var selection_state: Object = runtime.pandora_legacy_selection_state
+	if selection_state == null:
+		return false
+	if not selection_state.has_pending() and not selection_state.is_active():
+		return false
+	selection_state.clear_selection(true)
+	selection_state.reset_trigger_result()
+	return true
 
 
 func _queue_owner_redraw(owner: Object) -> void:

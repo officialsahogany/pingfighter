@@ -10,7 +10,6 @@ static func get_floating_box_draw_context(
 	scroll_timer: float,
 	hovered_box_index: int,
 	result_box_sheet_common: Texture2D,
-	result_box_sheet_mythic: Texture2D,
 	result_box_sheet_guaranteed_mythic: Texture2D,
 	reward_icon_cache: Dictionary
 ) -> Dictionary:
@@ -20,7 +19,6 @@ static func get_floating_box_draw_context(
 		"scroll_timer": scroll_timer,
 		"hovered_box_index": hovered_box_index,
 		"result_box_sheet_common": result_box_sheet_common,
-		"result_box_sheet_mythic": result_box_sheet_mythic,
 		"result_box_sheet_guaranteed_mythic": result_box_sheet_guaranteed_mythic,
 		"reward_icon_cache": reward_icon_cache,
 	}
@@ -49,7 +47,6 @@ static func draw_floating_boxes(
 				float(draw_context.get("scroll_timer", 0.0)),
 				StageClearResultScrollState.SCROLL_UNFURL_DURATION,
 				draw_context.get("result_box_sheet_common", null) as Texture2D,
-				draw_context.get("result_box_sheet_mythic", null) as Texture2D,
 				draw_context.get("result_box_sheet_guaranteed_mythic", null) as Texture2D,
 				draw_context.get("reward_icon_cache", {})
 			)

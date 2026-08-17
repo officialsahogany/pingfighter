@@ -53,6 +53,16 @@ func reset_wall_bounce_guard(deps: Dictionary) -> void:
 
 
 func reset_power_and_drive(deps: Dictionary, reset_mythic: bool = true) -> void:
+	var dalji_vision_state: Object = deps.get("dalji_vision_chosik_state", null)
+	if dalji_vision_state != null and dalji_vision_state.has_method("reset_round"):
+		dalji_vision_state.reset_round()
+	var cheongringwi_vision_state: Object = deps.get("cheongringwi_vision_chosik_state", null)
+	if cheongringwi_vision_state != null and cheongringwi_vision_state.has_method("reset_round"):
+		cheongringwi_vision_state.reset_round()
+	var yeonmyo_vision_state: Object = deps.get("yeonmyo_vision_chosik_state", null)
+	if yeonmyo_vision_state != null and yeonmyo_vision_state.has_method("reset_round"):
+		yeonmyo_vision_state.reset_round(deps)
+
 	var power_state = deps.get("power_state", null)
 	if power_state != null:
 		power_state.reset()
@@ -91,6 +101,10 @@ func reset_power_and_drive(deps: Dictionary, reset_mythic: bool = true) -> void:
 	var overdrive_state = deps.get("smasher_overdrive_state", null)
 	if overdrive_state != null and overdrive_state.has_method("reset_round"):
 		overdrive_state.reset_round()
+
+	var void_phantom_state = deps.get("smasher_void_phantom_state", null)
+	if void_phantom_state != null and void_phantom_state.has_method("reset_round"):
+		void_phantom_state.reset_round()
 
 	var dash_spirit_state = deps.get("smasher_dash_spirit_state", null)
 	if dash_spirit_state != null and dash_spirit_state.has_method("reset_round"):

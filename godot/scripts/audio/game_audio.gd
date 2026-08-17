@@ -5,696 +5,1575 @@ var _core_match_feedback_rng := RandomNumberGenerator.new()
 var _core_match_feedback_rng_ready := false
 
 const GameAudioPlayerFactory := preload("res://scripts/audio/game_audio_player_factory.gd")
-const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const BlacksmithThorShieldAudio := preload("res://scripts/audio/blacksmith_thor_shield_audio.gd")
+const PerkFusionCombatAudio := preload("res://scripts/audio/perk_fusion_combat_audio.gd")
+const CommandoSkillAudio := preload("res://scripts/audio/commando_skill_audio.gd")
+const CoreBallDashAudio := preload("res://scripts/audio/core_ball_dash_audio.gd")
+const ElementalCombatAudio := preload("res://scripts/audio/elemental_combat_audio.gd")
+const GameAudioBusController := preload("res://scripts/audio/game_audio_bus_controller.gd")
+const GameAudioSetupController := preload(
+	"res://scripts/audio/game_audio_setup_controller.gd"
+)
+const GameUiFeedbackAudio := preload("res://scripts/audio/game_ui_feedback_audio.gd")
+const ItemRewardFeedbackAudio := preload("res://scripts/audio/item_reward_feedback_audio.gd")
+const ProjectileItemAudio := preload("res://scripts/audio/projectile_item_audio.gd")
+const SharedStageFeedbackAudio := preload("res://scripts/audio/shared_stage_feedback_audio.gd")
+const StageBgmAudio := preload("res://scripts/audio/stage_bgm_audio.gd")
+const StageBgmPlaybackController := preload("res://scripts/audio/stage_bgm_playback_controller.gd")
+const TransformationItemAudio := preload("res://scripts/audio/transformation_item_audio.gd")
+const SmasherSkillAudio := preload("res://scripts/audio/smasher_skill_audio.gd")
+const Stage1BossSkillAudio := preload("res://scripts/audio/stage1_boss_skill_audio.gd")
+const ViperSkillAudio := preload("res://scripts/audio/viper_skill_audio.gd")
+const LingpetAcquisitionAudio := preload("res://scripts/audio/lingpet_acquisition_audio.gd")
+const LingpetClickVoiceAudio := preload("res://scripts/audio/lingpet_click_voice_audio.gd")
+const LingpetCombatAudio := preload("res://scripts/audio/lingpet_combat_audio.gd")
+const Stage2BattleAudio := preload("res://scripts/audio/stage2_battle_audio.gd")
+const Stage3BattleAudio := preload("res://scripts/audio/stage3_battle_audio.gd")
+const Stage4PonkAudio := preload("res://scripts/audio/stage4_ponk_audio.gd")
+const Stage5HongryunAudio := preload("res://scripts/audio/stage5_hongryun_audio.gd")
+const Stage6TetriserAudio := preload("res://scripts/audio/stage6_tetriser_audio.gd")
+const Stage7AkamuAudio := preload("res://scripts/audio/stage7_akamu_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
-const PADDLE_HIT_SOUND_PATH := "res://assets/sounds/paddle_hit.wav"
-const SERVE_SOUND_PATH := "res://assets/sounds/serve.wav"
-const PINGPONG_SERVE_SOUND_PATH := "res://assets/sounds/pong_paddle.wav"
-const WALL_HIT_SOUND_PATH := "res://assets/sounds/wall_hit.wav"
-const DASH_SOUND_PATH := "res://assets/sounds/dash.wav"
-const HALF_DASH_SOUND_PATH := "res://assets/sounds/halfdash.wav"
-const DASH_DELAY_SOUND_PATH := "res://assets/sounds/dashdelay.wav"
-const DASH_CHARGE_SOUND_PATH := "res://assets/sounds/dashcharge.wav"
-const BUST_UP_DASH_SOUND_PATH := "res://assets/sounds/bustup.wav"
-const BOOST_CHARGING_SOUND_PATH := "res://assets/sounds/boostcharging.wav"
-const SOUL_BURST_DASH_SOUND_PATH := "res://assets/sounds/soulbust.wav"
-const DASH_SPIRIT_DELETE_SOUND_PATH := "res://assets/sounds/dashspiritdelete.wav"
-const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
-const MIKA_DRIVE_VOICE_PATH := "res://assets/sounds/mika_drive.mp3"
-const MIKA_DRIVE_VOICE_GAIN_DB := -2.5
-const PLASMA_CHARGE_SOUND_PATH := "res://assets/sounds/plazmacharge.wav"
-const PLASMA_SHOOT_SOUND_PATH := "res://assets/sounds/plazmashoot.wav"
-const PLASMA_SHOCK_SOUND_PATH := "res://assets/sounds/plazmashock.wav"
-const PLASMA_CHARGE_GAIN_DB := 0.0
-const PLASMA_SHOOT_GAIN_DB := -6.0206
-const PLASMA_SHOCK_GAIN_DB := -4.4370
-const RECOVERY_SOUND_PATH := "res://assets/sounds/recovery.wav"
-const CLEANSE_SOUND_PATH := "res://assets/sounds/cleanse.wav"
-const WARP_GATE_SOUND_PATH := "res://assets/sounds/warpgate.wav"
-const MAGNUM_GRIP_SOUND_PATH := "res://assets/sounds/magnumgrip.wav"
-const SMASHER_WHEEL_SOUND_PATH := "res://assets/sounds/smasherwheel.wav"
-const SHIELD_KITING_WIND_UP_SOUND_PATH := "res://assets/sounds/shieldcating1.wav"
-const SHIELD_KITING_LAUNCH_SOUND_PATH := "res://assets/sounds/shieldcating2.wav"
-const SHIELD_KITING_HIT_SOUND_PATH := "res://assets/sounds/shieldcating3.wav"
-const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
-const FAN_SOUND_PATH := "res://assets/sounds/fan.wav"
-const WHIPCRACK_SOUND_PATH := "res://assets/sounds/whipcrack.wav"
-const GAKSITAL_FAN_SOUND_POOL_SIZE := 3
-const VIPER_JETPACK_SOUND_PATH := "res://assets/sounds/jetpack.wav"
-const VIPER_BACKSTEP_SOUND_PATH := "res://assets/sounds/backstep.wav"
-const VIPER_SHADOW_KICK_SOUND_PATH := "res://assets/sounds/shadowkick.wav"
-const VIPER_DIVE_PREP_SOUND_PATH := "res://assets/sounds/beforedivestrike.wav"
-const VIPER_DIVE_STRIKE_SOUND_PATH := "res://assets/sounds/divestrike.wav"
-const VIPER_DIVE_PREP_GAIN_DB := -4.4370
-const VIPER_DIVE_STRIKE_GAIN_DB := -4.4370
-const VIPER_IGNITION_AURA_SOUND_PATH := "res://assets/sounds/beforedivestrike.wav"
-const VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH := "res://assets/sounds/backstep.wav"
-const VIPER_IGNITION_AURA_GAIN_DB := -3.0980
-const VIPER_PHANTOM_SHOW_SOUND_PATH := "res://assets/sounds/bypershow.wav"
-const VIPER_PHANTOM_KICK_HIT_SOUND_PATH := "res://assets/sounds/pentomkick.wav"
-const VIPER_BLADE_SOUND_PATH := "res://assets/sounds/blade.wav"
-const VIPER_BLADE_SPIN_SOUND_PATH := "res://assets/sounds/bladeafter.wav"
-const VIPER_VENOM_MOVING_SOUND_PATH := "res://assets/sounds/venommoving.wav"
-const VIPER_VENOM_ATTACK_SOUND_PATH := "res://assets/sounds/venomattack.wav"
-const VIPER_HWARANG_KICK_SOUND_PATH := "res://assets/sounds/hwarangkick.wav"
-const VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH := "res://assets/sounds/nuckbackball.wav"
-const VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH := "res://assets/sounds/dualglitch1.wav"
-const VIPER_DUAL_GLITCH_WINDUP_GAIN_DB := -13.5
-# 분신이 몸에서 갈라져 분리되는 순간(startup -> spawn) 재생. windup(dualglitch1)은 이때 정지.
-const VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH := "res://assets/sounds/dualglitch2.wav"
-const VIPER_DUAL_GLITCH_SPLIT_GAIN_DB := 0.0
-const CHAOS_SPEAR_WINDUP_SOUND_PATH := "res://assets/sounds/chaosphase1.wav"
-const CHAOS_SPEAR_FLYING_SOUND_PATH := "res://assets/sounds/chaosphase2.wav"
-const CHAOS_SPEAR_IMPACT_SOUND_PATH := "res://assets/sounds/chaosphase3.wav"
-const CHAOS_SPEAR_BLACKHOLE_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
-const COMMANDO_SUPPLY_RADIO_SOUND_PATH := "res://assets/sounds/radio.wav"
-const COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH := "res://assets/sounds/airplane.wav"
-const COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB := -3.0980
-const COMMANDO_WEAPON_CHANGE_SOUND_PATH := "res://assets/sounds/weapon.wav"
-const COMMANDO_WEAPON_CHANGE_GAIN_DB := -5.0
-const COMMANDO_SLINGSHOT_FIRE_SOUND_PATH := "res://assets/sounds/shurikenthrow.wav"
-const COMMANDO_PISTOL_READY_SOUND_PATH := "res://assets/sounds/gunroad.wav"
-const COMMANDO_PISTOL_FIRE_SOUND_PATH := "res://assets/sounds/gunshot.wav"
-const COMMANDO_PISTOL_RELOAD_START_SOUND_PATH := "res://assets/sounds/pistolreloadstart.wav"
-const COMMANDO_PISTOL_RELOAD_SOUND_PATH := "res://assets/sounds/pistolreload.wav"
-const COMMANDO_RELOAD_SOUND_PATH := "res://assets/sounds/reload.wav"
-const COMMANDO_AK47_FIRE_SOUND_PATH := "res://assets/sounds/ak47.wav"
-const COMMANDO_BAZOOKA_FIRE_SOUND_PATH := "res://assets/sounds/bazukagoing.wav"
-const COMMANDO_NET_CAPTURE_SOUND_PATH := "res://assets/sounds/net.wav"
-const COMMANDO_NET_CONSTRICT_SOUND_PATH := "res://assets/sounds/netcome.wav"
-const COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH := "res://assets/sounds/ballingtrapsetup.wav"
-const COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH := "res://assets/sounds/ballingtrapgrap.wav"
-const COMMANDO_SUICIDE_DRONE_SOUND_PATH := "res://assets/sounds/drone.wav"
-const THOR_SHIELD_OPEN_SOUND_PATH := "res://assets/sounds/umbopen.wav"
-const THOR_SHIELD_CLOSE_SOUND_PATH := "res://assets/sounds/umbclose.wav"
-const THOR_SHIELD_SWING_SOUND_PATH := "res://assets/sounds/swing.wav"
-const THOR_SHIELD_BLOCK_SOUND_PATH := "res://assets/sounds/blocking.wav"
-const COMMANDO_SLINGSHOT_FIRE_GAIN_DB := -4.4370
-const COMMANDO_PISTOL_READY_GAIN_DB := -3.0980
-const COMMANDO_PISTOL_FIRE_GAIN_DB := -6.0206
-const COMMANDO_PISTOL_RELOAD_GAIN_DB := -6.0206
-const COMMANDO_AK47_FIRE_GAIN_DB := -6.0206
-const COMMANDO_AK47_FIRE_POOL_SIZE := 4
-const COMMANDO_BAZOOKA_FIRE_GAIN_DB := -4.4370
-const COMMANDO_NET_CAPTURE_GAIN_DB := -6.0206
-const COMMANDO_NET_CONSTRICT_GAIN_DB := -1.9382
-const COMMANDO_BOWLING_TRAP_GAIN_DB := -3.0980
-const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
-const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
-const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
-const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
-const TRADE_SOUND_PATH := "res://assets/sounds/trade.wav"
-const TRADE_SOUND_GAIN_DB := -4.4370
-const BRICK_WALL_DESTROY_SOUND_PATH := "res://assets/sounds/stonebreak2.wav"
-const BRICK_WALL_DESTROY_GAIN_DB := -5.0
-const TREASURE_HUNT_MINING_SOUND_PATH := "res://assets/sounds/mining.wav"
-const ALCHEMY_SOUND_PATH := "res://assets/sounds/alchemy.wav"
-const PANDORA_SOUND_PATH := "res://assets/sounds/pandora.wav"
-const LUCKY_COIN_SPAWN_SOUND_PATH := "res://assets/sounds/lucky_coin_spawn.wav"
-const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
-const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
-const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
-const ANGEL_BLESSING_ROLL_SOUND_PATH := "res://assets/sounds/angeldice.wav"
-const ANGEL_BLESSING_ABSORB_SOUND_PATH := "res://assets/sounds/angeldicewhisp.wav"
-const ANGEL_BLESSING_ABSORB_POOL_SIZE := 3
-const ANGEL_BLESSING_ROLL_GAIN_DB := 0.0
-const ANGEL_BLESSING_ABSORB_GAIN_DB := 0.0
-const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
-const DEFEAT_JEWEL_SOUND_PATH := "res://assets/sounds/defeatjewel1.wav"
-const DEFEAT_GEM_SHATTER_SOUND_PATH := "res://assets/sounds/defeat_gem_shatter.wav"
-const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
-const LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_deep_bass_doom.wav"
-const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_click_magic_crackle_sweep.wav"
-const LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/lunabi_click_reaction_voice_v1.mp3"
-const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
-const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
-const LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/red_dragon_click_reaction_voice_v1.mp3"
-const LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/maribo_click_reaction_voice_v1.mp3"
-const LINGPET_RABI_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/rabi_click_reaction_voice_v1.mp3"
-const LINGPET_LUMION_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/lumion_click_reaction_voice_v1.mp3"
-const LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/monkeyring_click_reaction_voice_v1.mp3"
-const LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/onimaru_click_reaction_voice_v1.mp3"
-const LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/orosha_click_reaction_voice_v1.wav"
-const LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/koyora_click_reaction_voice_v1.mp3"
-const LINGPET_PUPPET_GRAB_CAST_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
-const LINGPET_PUPPET_GRAB_PULL_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab.wav"
-const LINGPET_PUPPET_GRAB_KISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_kissing.wav"
-const LINGPET_PUPPET_GRAB_MISS_SOUND_PATH := "res://assets/sounds/lingpet/puppet_grab_tentacle.wav"
-const LINGPET_SAND_PRISON_OPEN_SOUND_PATH := "res://assets/sounds/lingpet/rahoset_sand_prison_open.wav"
-const LINGPET_WILD_ROAR_SOUND_PATH := "res://assets/sounds/lingpet/monkeyshouting.wav"
-# Orosha 별똬리(star_coil) BIND squish: plays while the star coil-snake constricts the
-# boss (one-shot at bind start, stopped on release so the wet squish does not trail
-# into the roll-away). Source is the ESM "Juicy Wet Squish" foley, re-mastered louder
-# (soft-clip makeup gain so its quiet body lifts from ~-30 to ~-21 dBFS RMS) and
-# trimmed to ~3.6s so the audible squish lands on the bind window (1.5~3.5s).
-const LINGPET_STAR_COIL_BIND_SOUND_PATH := "res://assets/sounds/lingpet/orosha_star_coil_bind.wav"
-# Orosha 별똬리(star_coil) MOVE loop: plays while the star coil-snake rolls to the wall,
-# climbs, lunges, crosses, and descends (every moving phase). Looping — started once per
-# travel and stopped on bind / idle / retire / cancel by the skill.
-const LINGPET_STAR_COIL_MOVE_SOUND_PATH := "res://assets/sounds/starmoving.wav"
-const LINGPET_RING_DASH_SOUND_PATH := "res://assets/sounds/lingpet/ring_dash_whoosh_strike.wav"
-const LINGPET_GATLING_TRANSFORM_SOUND_PATH := "res://assets/sounds/tanktransform.wav"
-const LINGPET_GATLING_LOOP_SOUND_PATH := "res://assets/sounds/gatling.wav"
-const LINGPET_GATLING_FIRE_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
-const LINGPET_GATLING_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
-const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
-const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
-const LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0
-const LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB := -2.0
-const LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB := -5.0
-const LINGPET_LUNABI_CLICK_VOICE_GAIN_DB := -4.0
-const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_MARIBO_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_RABI_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_LUMION_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_OROSHA_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_KOYORA_CLICK_VOICE_GAIN_DB := 0.0
-const LINGPET_PUPPET_GRAB_CAST_GAIN_DB := -5.0
-const LINGPET_PUPPET_GRAB_PULL_GAIN_DB := -5.0
-const LINGPET_PUPPET_GRAB_KISS_GAIN_DB := -5.0
-const LINGPET_PUPPET_GRAB_MISS_GAIN_DB := -5.0
-const LINGPET_SAND_PRISON_OPEN_GAIN_DB := -6.0
-const LINGPET_WILD_ROAR_GAIN_DB := -4.0
-const LINGPET_STAR_COIL_BIND_GAIN_DB := -2.0
-const LINGPET_STAR_COIL_MOVE_GAIN_DB := -6.0
-const LINGPET_RING_DASH_GAIN_DB := -5.0
-# 링펫알(공명 알)이 공에 맞을 때 재생하는 뼈 부러지는 임팩트 SFX 2종. 매 히트마다
-# 둘 중 하나를 랜덤으로 재생(피치 지터)해 연속 히트가 똑같이 들리지 않게 한다.
-# mini_spark 패턴과 동일하게 단일 플레이어 + 후보 스트림 배열로 로드한다.
-const LINGPET_EGG_HIT_SOUND_PATHS := [
-	"res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_1.wav",
-	"res://assets/sounds/lingpet/lingpet_egg_hit_bone_break_2.wav",
-]
-const LINGPET_EGG_HIT_GAIN_DB := -5.0
-const LINGPET_GATLING_TRANSFORM_GAIN_DB := -3.0980
-const LINGPET_GATLING_LOOP_GAIN_DB := -3.0980
-const LINGPET_GATLING_FIRE_GAIN_DB := -16.4782
-const LINGPET_GATLING_HIT_GAIN_DB := -13.9794
-# Serabi 난쟁이마술 (Dwarf Magic): original PingFighter parity — smallboyshoot on
-# cast, smallboyhit on boss hit (downtown/hero_skills.py DwarfMagic).
-const LINGPET_DWARF_MAGIC_CAST_SOUND_PATH := "res://assets/sounds/smallboyshoot.wav"
-const LINGPET_DWARF_MAGIC_HIT_SOUND_PATH := "res://assets/sounds/smallboyhit.wav"
-const LINGPET_DWARF_MAGIC_CAST_GAIN_DB := -4.0
-const LINGPET_DWARF_MAGIC_HIT_GAIN_DB := -4.0
-# Serabi 중력가속 (Gravity Accel): original PingFighter parity — gravityaccel on
-# cast (downtown/hero_skills.py GravityControl, duration field skill, cast cue only).
-const LINGPET_GRAVITY_ACCEL_CAST_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
-const LINGPET_GRAVITY_ACCEL_CAST_GAIN_DB := -4.0
-const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
-const RAGNAROK_BOOM_SOUND_PATH := "res://assets/sounds/ragnarokboom.wav"
-const RAGNAROK_SHOCK_SOUND_PATH := "res://assets/sounds/ragnarokshock.wav"
-const ELECTRIC_SHOCK_SOUND_PATH := "res://assets/sounds/electricshock.wav"
-const ELECTRIC_SHOCK_GAIN_DB := -6.9357
-const THUNDER_ORB_SHOT_SOUND_PATH := "res://assets/sounds/thunderbolt.wav"
-const THUNDER_ORB_BOOM_SOUND_PATH := "res://assets/sounds/thunderboltboom.wav"
-const THUNDER_ORB_SHOT_GAIN_DB := -7.9588
-const THUNDER_ORB_BOOM_GAIN_DB := -6.0206
+const ITEM_GET_SOUND_PATH := ItemRewardFeedbackAudio.ITEM_GET_SOUND_PATH
+const DRINK_SOUND_PATH := ItemRewardFeedbackAudio.DRINK_SOUND_PATH
+const ACTIVE_ITEM_SOUND_PATH := ItemRewardFeedbackAudio.ACTIVE_ITEM_SOUND_PATH
+const TRADE_SOUND_PATH := ItemRewardFeedbackAudio.TRADE_SOUND_PATH
+const TRADE_SOUND_GAIN_DB := ItemRewardFeedbackAudio.TRADE_SOUND_GAIN_DB
+const BRICK_WALL_DESTROY_SOUND_PATH := ItemRewardFeedbackAudio.BRICK_WALL_DESTROY_SOUND_PATH
+const BRICK_WALL_DESTROY_GAIN_DB := ItemRewardFeedbackAudio.BRICK_WALL_DESTROY_GAIN_DB
+const ALCHEMY_SOUND_PATH := ItemRewardFeedbackAudio.ALCHEMY_SOUND_PATH
+const PANDORA_SOUND_PATH := ItemRewardFeedbackAudio.PANDORA_SOUND_PATH
+const LUCKY_COIN_SPAWN_SOUND_PATH := ItemRewardFeedbackAudio.LUCKY_COIN_SPAWN_SOUND_PATH
+const FOUL_WHISTLE_SOUND_PATH := ItemRewardFeedbackAudio.FOUL_WHISTLE_SOUND_PATH
+const MEGINGJORD_SOUND_PATH := ItemRewardFeedbackAudio.MEGINGJORD_SOUND_PATH
+const LEGENDARY_OPEN_SOUND_PATH := ItemRewardFeedbackAudio.LEGENDARY_OPEN_SOUND_PATH
+const ANGEL_BLESSING_ROLL_SOUND_PATH := ItemRewardFeedbackAudio.ANGEL_BLESSING_ROLL_SOUND_PATH
+const ANGEL_BLESSING_ABSORB_SOUND_PATH := ItemRewardFeedbackAudio.ANGEL_BLESSING_ABSORB_SOUND_PATH
+const ANGEL_BLESSING_ABSORB_POOL_SIZE := ItemRewardFeedbackAudio.ANGEL_BLESSING_ABSORB_POOL_SIZE
+const ANGEL_BLESSING_ROLL_GAIN_DB := ItemRewardFeedbackAudio.ANGEL_BLESSING_ROLL_GAIN_DB
+const ANGEL_BLESSING_ABSORB_GAIN_DB := ItemRewardFeedbackAudio.ANGEL_BLESSING_ABSORB_GAIN_DB
+const RESULT_BOX_OPEN_SOUND_PATH := ItemRewardFeedbackAudio.RESULT_BOX_OPEN_SOUND_PATH
+const DEFEAT_JEWEL_SOUND_PATH := ItemRewardFeedbackAudio.DEFEAT_JEWEL_SOUND_PATH
+const DEFEAT_GEM_SHATTER_SOUND_PATH := ItemRewardFeedbackAudio.DEFEAT_GEM_SHATTER_SOUND_PATH
+const COLD_BOOT_CHNK_LATCH_SOUND_PATH := ItemRewardFeedbackAudio.COLD_BOOT_CHNK_LATCH_SOUND_PATH
+const COLD_BOOT_POST_RAMP_SOUND_PATH := ItemRewardFeedbackAudio.COLD_BOOT_POST_RAMP_SOUND_PATH
+const COLD_BOOT_IGNITION_THUNK_SOUND_PATH := ItemRewardFeedbackAudio.COLD_BOOT_IGNITION_THUNK_SOUND_PATH
+const COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH := ItemRewardFeedbackAudio.COLD_BOOT_AWAKEN_FANFARE_SOUND_PATH
+const LEGENDARY_AFTER_SOUND_PATH := ItemRewardFeedbackAudio.LEGENDARY_AFTER_SOUND_PATH
+const LEGENDARY_ENDING_SOUND_PATH := ItemRewardFeedbackAudio.LEGENDARY_ENDING_SOUND_PATH
+const RAGNAROK_SHOT_SOUND_PATH := ElementalCombatAudio.RAGNAROK_SHOT_SOUND_PATH
+const RAGNAROK_BOOM_SOUND_PATH := ElementalCombatAudio.RAGNAROK_BOOM_SOUND_PATH
+const RAGNAROK_SHOCK_SOUND_PATH := ElementalCombatAudio.RAGNAROK_SHOCK_SOUND_PATH
+const ELECTRIC_SHOCK_SOUND_PATH := ElementalCombatAudio.ELECTRIC_SHOCK_SOUND_PATH
+const ELECTRIC_SHOCK_GAIN_DB := ElementalCombatAudio.ELECTRIC_SHOCK_GAIN_DB
+const THUNDER_ORB_SHOT_SOUND_PATH := ElementalCombatAudio.THUNDER_ORB_SHOT_SOUND_PATH
+const THUNDER_ORB_BOOM_SOUND_PATH := ElementalCombatAudio.THUNDER_ORB_BOOM_SOUND_PATH
+const THUNDER_ORB_SHOT_GAIN_DB := ElementalCombatAudio.THUNDER_ORB_SHOT_GAIN_DB
+const THUNDER_ORB_BOOM_GAIN_DB := ElementalCombatAudio.THUNDER_ORB_BOOM_GAIN_DB
 # Parity with original PingFighter SolarBolt (천둥 낙뢰): plays devinethunder.wav,
 # the same divine-thunder cue DivineShield's lightning interception uses. Gain
 # -6.0206 dB matches the original's pygame volume 0.5.
-const SOLAR_BOLT_STRIKE_SOUND_PATH := "res://assets/sounds/devinethunder.wav"
+const SOLAR_BOLT_STRIKE_SOUND_PATH := ElementalCombatAudio.SOLAR_BOLT_STRIKE_SOUND_PATH
 # Lumion Thunder Orb (천둥 뇌구) Lv.3+ mini-spark crackle. Each spark instance plays
 # a RANDOM one of these three short zaps (pitch-jittered) so the scattered
 # post-stun sparks read audibly distinct. Streams are loaded eagerly at setup via
-# _load_audio_stream_candidates and retained in mini_spark_streams (no hot-path
+# the elemental owner and retained in mini_spark_streams (no hot-path
 # lazy load), mirroring the mika_*_voice multi-variant pattern.
-const MINI_SPARK_SOUND_PATHS := [
-	"res://assets/sounds/spark1.wav",
-	"res://assets/sounds/spark2.wav",
-	"res://assets/sounds/spark3.wav",
-]
-const MINI_SPARK_GAIN_DB := -11.0
-const SOLAR_BOLT_STRIKE_GAIN_DB := -6.0206
-const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
-const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
-const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
-const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
-const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
-const HORN_STRAWBERRY_CHANGE_SOUND_PATH := "res://assets/sounds/strawberrychange.wav"
-const HORN_STRAWBERRY_EAT_SOUND_PATH := "res://assets/sounds/strawberryeat.wav"
-const HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
-const HORN_STRAWBERRY_STEM_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
-const HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH := "res://assets/sounds/horncharge.wav"
-const HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH := "res://assets/sounds/bonemake3.wav"
-const HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH := "res://assets/sounds/bonebreak.wav"
-const HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH := "res://assets/sounds/shurikenhit.wav"
-const HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH := "res://assets/sounds/bullethit.wav"
-const HORN_STRAWBERRY_CHANGE_GAIN_DB := -3.0980
-const HORN_STRAWBERRY_EAT_GAIN_DB := 0.0
-const HORN_STRAWBERRY_STEM_FIRE_GAIN_DB := -6.0206
+const MINI_SPARK_SOUND_PATHS := ElementalCombatAudio.MINI_SPARK_SOUND_PATHS
+const MINI_SPARK_GAIN_DB := ElementalCombatAudio.MINI_SPARK_GAIN_DB
+const SOLAR_BOLT_STRIKE_GAIN_DB := ElementalCombatAudio.SOLAR_BOLT_STRIKE_GAIN_DB
+const POSEIDON_WAVE_SOUND_PATH := ElementalCombatAudio.POSEIDON_WAVE_SOUND_PATH
+const POSEIDON_CHARGE_SOUND_PATH := ElementalCombatAudio.POSEIDON_CHARGE_SOUND_PATH
+const TIMEWATCH_SOUND_PATH := ItemRewardFeedbackAudio.TIMEWATCH_SOUND_PATH
+const THROW_BEFORE_SOUND_PATH := ItemRewardFeedbackAudio.THROW_BEFORE_SOUND_PATH
+const THROW_SOUND_PATH := ItemRewardFeedbackAudio.THROW_SOUND_PATH
+const HORN_STRAWBERRY_CHANGE_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH
+const ODINS_EYE_CHANGE_SOUND_PATH := TransformationItemAudio.ODINS_EYE_CHANGE_SOUND_PATH
+const ODINS_EYE_DEATH_SOUND_PATH := TransformationItemAudio.ODINS_EYE_DEATH_SOUND_PATH
+const ODINS_EYE_SPIRIT_SOUND_PATH := TransformationItemAudio.ODINS_EYE_SPIRIT_SOUND_PATH
+const ODINS_EYE_ATTACK_SOUND_PATH := TransformationItemAudio.ODINS_EYE_ATTACK_SOUND_PATH
+const ODINS_EYE_SHADOW_SOUND_PATH := TransformationItemAudio.ODINS_EYE_SHADOW_SOUND_PATH
+const HORN_STRAWBERRY_EAT_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_EAT_SOUND_PATH
+const HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH
+const HORN_STRAWBERRY_STEM_HIT_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_STEM_HIT_SOUND_PATH
+const HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH
+const HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH
+const HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH
+const HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH
+const HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH := TransformationItemAudio.HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH
+const HORN_STRAWBERRY_CHANGE_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_CHANGE_GAIN_DB
+const HORN_STRAWBERRY_EAT_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_EAT_GAIN_DB
+const HORN_STRAWBERRY_STEM_FIRE_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_STEM_FIRE_GAIN_DB
 # Python parity: stem hit plays bullethit at 0.3 (pingfighter play_cached_sound), not the
 # module's unused 0.4 loader. 20*log10(0.3) = -10.4576.
-const HORN_STRAWBERRY_STEM_HIT_GAIN_DB := -10.4576
-const HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB := -3.7417
-const HORN_STRAWBERRY_FIELD_GAIN_DB := -3.0980
-const HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB := -10.4576
-const HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB := -7.9588
-const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
-const FLASHBOMB_SOUND_PATH := "res://assets/sounds/flashbomb.wav"
-const SMOKEBOMB_SOUND_PATH := "res://assets/sounds/smokebomb.wav"
-const DYNAMITE_FUSE_SOUND_PATH := "res://assets/sounds/bombfuse.wav"
-const FIREBOMB_SOUND_PATH := "res://assets/sounds/firebomb.wav"
-const BOOMERANG_SOUND_PATH := "res://assets/sounds/boomerang.wav"
-const BOOMERANG_HIT_SOUND_PATH := "res://assets/sounds/boomeranghit.wav"
-const BOOMERANG_BREAK_SOUND_PATH := "res://assets/sounds/bonebreak.wav"
-const SHRAPNEL_ARMOR_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
-const SHRAPNEL_ARMOR_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
-const BANANA_THROW_SOUND_PATH := "res://assets/sounds/throwingbanana.wav"
-const BANANA_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
-const SOAP_THROW_SOUND_PATH := "res://assets/sounds/oil.wav"
-const SOAP_LAND_SOUND_PATH := "res://assets/sounds/shootoil.wav"
-const SOAP_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
-const SPIDER_MINE_WALK_SOUND_PATH := "res://assets/sounds/spiderminewalk.wav"
-const SPIDER_MINE_SETUP_SOUND_PATH := "res://assets/sounds/spiderminesetup.wav"
-const BOMB_SURPRISE_ATTACH_SOUND_PATH := "res://assets/sounds/boomstart.wav"
-const BOMB_SURPRISE_TICK1_SOUND_PATH := "res://assets/sounds/ticking1.wav"
-const BOMB_SURPRISE_TICK2_SOUND_PATH := "res://assets/sounds/ticking2.wav"
-const BOMB_SURPRISE_URGENT_TICK_SOUND_PATH := "res://assets/sounds/ticking3.wav"
-const BOMB_SURPRISE_ATTACH_GAIN_DB := -9.1186
-const BOMB_SURPRISE_TRANSFER_GAIN_DB := -10.4576
-const BOMB_SURPRISE_URGENT_TICK_GAIN_DB := -6.9357
-const BOMB_SURPRISE_EXPLOSION_GAIN_DB := -1.9382
-const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
-const MIKA_POWER_SMASHING_VOICE_PATHS := [
-	"res://assets/sounds/voice/mika_power_smashing_cutin_v1.mp3",
-	"res://assets/sounds/voice/mika_power_smashing_cutin_v2.mp3",
-	"res://assets/sounds/voice/mika_power_smashing_cutin_v3.mp3",
-	"res://assets/sounds/voice/mika_power_smashing_cutin_v4.mp3",
-]
-const MIKA_GHOST_SMASHING_VOICE_PATHS := [
-	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v1.mp3",
-	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v2.wav",
-	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v3.mp3",
-	"res://assets/sounds/voice/mika_ghost_smashing_cutin_v4.wav",
-]
-const MIKA_POWER_SMASHING_VOICE_GAIN_DB := -6.0
-const MIKA_GHOST_SMASHING_VOICE_GAIN_DB := -4.5
-const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
-const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
-const HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH := "res://assets/sounds/roundgong.wav"
-const HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH := "res://assets/sounds/odinspirit.wav"
-const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
-const STAGE_LANDING_ZOOM_INTRO_SOUND_PATH := "res://assets/sounds/stage_landing_zoom_doom.wav"
-const BALLOON_POP_SOUND_PATH := "res://assets/sounds/balloonboom.wav"
-const STAGE1_BALLOON_DOOR_SOUND_PATH := "res://assets/sounds/stage1door.wav"
-const STAGE1_BALLOON_MACHINE_SOUND_PATH := "res://assets/sounds/stage1muchine.wav"
-const STAR_COLLECT_SOUND_PATH := "res://assets/sounds/star.wav"
-const STAGE2_HYDRO_SOUND_PATH := "res://assets/sounds/hydro.wav"
-const STAGE2_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak2.wav"
-const STAGE2_ROCKHIT_SOUND_PATH := "res://assets/sounds/rockhit.wav"
-const STAGE2_ROCK_SPAWN_SOUND_PATH := "res://assets/sounds/rock_spawn.wav"
-const STAGE2_QUAKE_SOUND_PATH := "res://assets/sounds/quake_sound.wav"
-const STAGE2_BOSS_CRY_SOUND_PATH := "res://assets/sounds/cry.wav"
-const STAGE2_SPEED_DEFENSE_START_SOUND_PATH := "res://assets/sounds/speed_defense_start.wav"
-const STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH := "res://assets/sounds/defense_hit.wav"
-const STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH := "res://assets/sounds/blocking.wav"
-const STAGE3_TAIL_SOUND_PATH := "res://assets/sounds/stage3tail.wav"
-const STAGE3_PSYCHOBALL_SOUND_PATH := "res://assets/sounds/psychoball.wav"
-const STAGE3_DOLLCURSE_SOUND_PATH := "res://assets/sounds/dollcurse.wav"
-const STAGE3_TEARS_SOUND_PATH := "res://assets/sounds/tears.wav"
-const STAGE3_CHEST_LAND_SOUND_PATH := "res://assets/sounds/bonemake.wav"
-const STAGE3_CURSE_EXPLODE_SOUND_PATH := "res://assets/sounds/weakexplosion.wav"
-const STAGE3_KUROMI_AWAKE_SOUND_PATH := "res://assets/sounds/kuromiawake.wav"
-const STAGE3_KUROMI_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak_large.wav"
-const STAGE3_KUROMI_TONGUE_SOUND_PATH := "res://assets/sounds/kuromitongue.wav"
-const STAGE3_KUROMI_SWALLOW_SOUND_PATH := "res://assets/sounds/kuromiswallow.wav"
-const STAGE3_KUROMI_SPIT_SOUND_PATH := "res://assets/sounds/kuromispit.wav"
-const LINGPET_GHOST_SUMMON_SOUND_PATH := "res://assets/sounds/bencyghost.wav"
-const LINGPET_GHOST_SUMMON_OUT_SOUND_PATH := "res://assets/sounds/bencyghostout.wav"
-# Nekuring Skeleton Archer (네크로 해골궁수) original PingFighter SFX, ported 1:1 from
-# downtown/hero_skills.py SkeletonArcher. dB values mirror the original pygame
-# set_volume() (0.6 -> -4.4, 0.3 -> -10.5, 0.7 -> -3.1; played at native pitch).
-const LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH := "res://assets/sounds/bonemake2.wav"
-const LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH := "res://assets/sounds/skulldead.wav"
-const LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
-const LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
-const LINGPET_BONE_BARRIER_BUILD_SOUND_PATH := "res://assets/sounds/bonemake3.wav"
-const LINGPET_BONE_BARRIER_BREAK_SOUND_PATH := "res://assets/sounds/bonebreak.wav"
-const LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH := "res://assets/sounds/shurikenhit.wav"
-const STAGE4_MOON_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot.wav"
-const STAGE4_FRAGMENT_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot2.wav"
-const STAGE4_TEMPLE_HIT_SOUND_PATH := "res://assets/sounds/stage4hitting.wav"
-const STAGE4_BIRDKILL_SOUND_PATH := "res://assets/sounds/birdkill.wav"
-const STAGE4_MAGNETIC_SOUND_PATH := "res://assets/sounds/magnetic.wav"
-const STAGE4_MEDITATION_SOUND_PATH := "res://assets/sounds/ponkmeditation.wav"
-const STAGE4_MEDITATION_AFTER_SOUND_PATH := "res://assets/sounds/meditationafter.wav"
-const STAGE5_HONGRYUN_FIREBALL_SOUND_PATH := "res://assets/sounds/stage5_hongryun_fireball.wav"
-const STAGE5_HONGRYUN_CHARGE_SOUND_PATH := "res://assets/sounds/stage5_hongryun_charge.wav"
-const STAGE5_HONGRYUN_SHOOT_SOUND_PATH := "res://assets/sounds/stage5_hongryun_shoot.wav"
-const STAGE6_TETRISER_BREAK_SOUND_PATH := "res://assets/sounds/stage6_tetriser_break.wav"
-const STAGE6_TETRISER_WALL_SOUND_PATH := "res://assets/sounds/stage6_tetriser_wall.wav"
-const STAGE6_TETRISER_SUPER_ROAR_SOUND_PATH := "res://assets/sounds/stage6_tetriser_super_roar.wav"
-const STAGE6_TETRISER_BIG_SOUND_PATH := "res://assets/sounds/stage6_tetriser_big.wav"
-const STAGE6_TETRISER_SHIELD_SOUND_PATH := "res://assets/sounds/stage6_tetriser_shield.wav"
-const STAGE6_TETRISER_LASER_SOUND_PATH := "res://assets/sounds/stage6_tetriser_laser.wav"
-const STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH := "res://assets/sounds/stage7_akamu_shuriken_shoot.wav"
-const STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH := "res://assets/sounds/stage7_akamu_shuriken_hit.wav"
-const STAGE7_AKAMU_CLOUD_SOUND_PATH := "res://assets/sounds/stage7_akamu_cloud.wav"
-const STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH := "res://assets/sounds/stage7_akamu_aura_block.wav"
-const STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH := "res://assets/sounds/stage7_akamu_clone_spawn.wav"
-const STAGE7_AKAMU_CLONE_OUT_SOUND_PATH := "res://assets/sounds/stage7_akamu_clone_out.wav"
-const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
-	"res://assets/sounds/stage5_hongryun_hurt_1.wav",
-	"res://assets/sounds/stage5_hongryun_hurt_2.wav",
-	"res://assets/sounds/stage5_hongryun_hurt_3.wav",
-]
-const LEAF_SHIELD_SOUND_PATH := "res://assets/sounds/leaf.wav"
+const HORN_STRAWBERRY_STEM_HIT_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_STEM_HIT_GAIN_DB
+const HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB
+const HORN_STRAWBERRY_FIELD_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_FIELD_GAIN_DB
+const HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB
+const HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB := TransformationItemAudio.HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB
+const GRENADE_SOUND_PATH := ProjectileItemAudio.GRENADE_SOUND_PATH
+const FLASHBOMB_SOUND_PATH := ProjectileItemAudio.FLASHBOMB_SOUND_PATH
+const SMOKEBOMB_SOUND_PATH := ProjectileItemAudio.SMOKEBOMB_SOUND_PATH
+const DYNAMITE_FUSE_SOUND_PATH := ProjectileItemAudio.DYNAMITE_FUSE_SOUND_PATH
+const FIREBOMB_SOUND_PATH := ProjectileItemAudio.FIREBOMB_SOUND_PATH
+const BOOMERANG_SOUND_PATH := ProjectileItemAudio.BOOMERANG_SOUND_PATH
+const BOOMERANG_HIT_SOUND_PATH := ProjectileItemAudio.BOOMERANG_HIT_SOUND_PATH
+const BOOMERANG_BREAK_SOUND_PATH := ProjectileItemAudio.BOOMERANG_BREAK_SOUND_PATH
+const SHRAPNEL_ARMOR_FIRE_SOUND_PATH := ProjectileItemAudio.SHRAPNEL_ARMOR_FIRE_SOUND_PATH
+const SHRAPNEL_ARMOR_HIT_SOUND_PATH := ProjectileItemAudio.SHRAPNEL_ARMOR_HIT_SOUND_PATH
+const BANANA_THROW_SOUND_PATH := ProjectileItemAudio.BANANA_THROW_SOUND_PATH
+const BANANA_SLIP_SOUND_PATH := ProjectileItemAudio.BANANA_SLIP_SOUND_PATH
+const SOAP_THROW_SOUND_PATH := ProjectileItemAudio.SOAP_THROW_SOUND_PATH
+const SOAP_LAND_SOUND_PATH := ProjectileItemAudio.SOAP_LAND_SOUND_PATH
+const SOAP_SLIP_SOUND_PATH := ProjectileItemAudio.SOAP_SLIP_SOUND_PATH
+const SPIDER_MINE_WALK_SOUND_PATH := ProjectileItemAudio.SPIDER_MINE_WALK_SOUND_PATH
+const SPIDER_MINE_SETUP_SOUND_PATH := ProjectileItemAudio.SPIDER_MINE_SETUP_SOUND_PATH
+const BOMB_SURPRISE_ATTACH_SOUND_PATH := ProjectileItemAudio.BOMB_SURPRISE_ATTACH_SOUND_PATH
+const BOMB_SURPRISE_TICK1_SOUND_PATH := ProjectileItemAudio.BOMB_SURPRISE_TICK1_SOUND_PATH
+const BOMB_SURPRISE_TICK2_SOUND_PATH := ProjectileItemAudio.BOMB_SURPRISE_TICK2_SOUND_PATH
+const BOMB_SURPRISE_URGENT_TICK_SOUND_PATH := ProjectileItemAudio.BOMB_SURPRISE_URGENT_TICK_SOUND_PATH
+const BOMB_SURPRISE_SELF_EXPLOSION_SOUND_PATH := ProjectileItemAudio.BOMB_SURPRISE_SELF_EXPLOSION_SOUND_PATH
+const BOMB_SURPRISE_ATTACH_GAIN_DB := ProjectileItemAudio.BOMB_SURPRISE_ATTACH_GAIN_DB
+const BOMB_SURPRISE_TRANSFER_GAIN_DB := ProjectileItemAudio.BOMB_SURPRISE_TRANSFER_GAIN_DB
+const BOMB_SURPRISE_URGENT_TICK_GAIN_DB := ProjectileItemAudio.BOMB_SURPRISE_URGENT_TICK_GAIN_DB
+const BOMB_SURPRISE_EXPLOSION_GAIN_DB := ProjectileItemAudio.BOMB_SURPRISE_EXPLOSION_GAIN_DB
+const ROUND_SET_SOUND_PATH := SharedStageFeedbackAudio.ROUND_SET_SOUND_PATH
+const ROUND_DEFEAT_SOUND_PATH := SharedStageFeedbackAudio.ROUND_DEFEAT_SOUND_PATH
+const STAGE_CLEAR_GONG_SOUND_PATH := SharedStageFeedbackAudio.STAGE_CLEAR_GONG_SOUND_PATH
+const BALL_SPAWN_INTRO_SOUND_PATH := SharedStageFeedbackAudio.BALL_SPAWN_INTRO_SOUND_PATH
+const STAGE_LANDING_ZOOM_INTRO_SOUND_PATH := SharedStageFeedbackAudio.STAGE_LANDING_ZOOM_INTRO_SOUND_PATH
+const BALLOON_POP_SOUND_PATH := SharedStageFeedbackAudio.BALLOON_POP_SOUND_PATH
+const STAGE1_BALLOON_DOOR_SOUND_PATH := SharedStageFeedbackAudio.STAGE1_BALLOON_DOOR_SOUND_PATH
+const STAGE1_BALLOON_MACHINE_SOUND_PATH := SharedStageFeedbackAudio.STAGE1_BALLOON_MACHINE_SOUND_PATH
+const STAR_COLLECT_SOUND_PATH := SharedStageFeedbackAudio.STAR_COLLECT_SOUND_PATH
+const LEAF_SHIELD_SOUND_PATH := SharedStageFeedbackAudio.LEAF_SHIELD_SOUND_PATH
 # 트램펄린(trampoline) 액티브 아이템이 공을 위로 튕겨내는(launch) 순간 재생하는 "보잉" 큐.
-const TRAMPOLINE_BOUNCE_SOUND_PATH := "res://assets/sounds/trampoline_bounce.wav"
-const TRAMPOLINE_BOUNCE_GAIN_DB := -4.0
-const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
-const STAGE1_ALT_BGM_PATH := "res://assets/bgm/stage1bgm2.ogg"
-const STAGE1_ALT2_BGM_PATH := "res://assets/bgm/stage1bgm3.ogg"
-const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.ogg"
-const STAGE2_ALT_BGM_PATH := "res://assets/bgm/stage2bgm2.mp3"
-const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.ogg"
-const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.ogg"
-const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
-const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.ogg"
-const STAGE6_BGM_PATH := "res://assets/bgm/stage6_tetriser_bgm.ogg"
-const STAGE7_BGM_PATH := "res://assets/bgm/stage7_akamu_bgm.ogg"
+const TRAMPOLINE_BOUNCE_SOUND_PATH := SharedStageFeedbackAudio.TRAMPOLINE_BOUNCE_SOUND_PATH
+const TRAMPOLINE_BOUNCE_GAIN_DB := SharedStageFeedbackAudio.TRAMPOLINE_BOUNCE_GAIN_DB
+# 스테이지1 BGM 단일화(2026-07-21): Shamanic Bell Rite.
+# 구 3곡 랜덤 풀(stage1bgm.mp3/stage1bgm2.ogg/stage1bgm3.ogg)은 에셋 삭제,
+# 조선의 달북 제2악장(stage1_joseon_dalbuk_mv2_bgm.wav)은 미배선 예비 에셋.
+# 풀 선택 머신(STAGE1_BGM_NAMES)은 단일 원소로 유지 — 추후 풀 재확장 가능.
+const STAGE1_BGM_PATH := StageBgmAudio.STAGE1_BGM_PATH
+const STAGE2_BGM_PATH := StageBgmAudio.STAGE2_BGM_PATH
+const STAGE2_ALT_BGM_PATH := StageBgmAudio.STAGE2_ALT_BGM_PATH
+const STAGE3_BGM_PATH := StageBgmAudio.STAGE3_BGM_PATH
+const STAGE4_BGM_PATH := StageBgmAudio.STAGE4_BGM_PATH
+const STAGE4_PHASE2_BGM_PATH := StageBgmAudio.STAGE4_PHASE2_BGM_PATH
+const STAGE5_BGM_PATH := StageBgmAudio.STAGE5_BGM_PATH
+const STAGE6_BGM_PATH := StageBgmAudio.STAGE6_BGM_PATH
+const STAGE7_BGM_PATH := StageBgmAudio.STAGE7_BGM_PATH
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
-const SCOREBOARD_SOUND_VOLUME_DB := -8.0
-const UI_MOVE_SOUND_PATH := "res://assets/sounds/ui_move.wav"
-const UI_CONFIRM_SOUND_PATH := "res://assets/sounds/ui_confirm.wav"
-const UI_BACK_SOUND_PATH := "res://assets/sounds/ui_back.wav"
+const SCOREBOARD_SOUND_VOLUME_DB := SharedStageFeedbackAudio.ROUND_SET_GAIN_DB
+const UI_MOVE_SOUND_PATH := GameUiFeedbackAudio.UI_MOVE_SOUND_PATH
+const UI_CONFIRM_SOUND_PATH := GameUiFeedbackAudio.UI_CONFIRM_SOUND_PATH
+const UI_BACK_SOUND_PATH := GameUiFeedbackAudio.UI_BACK_SOUND_PATH
 # 퍽 선택화면에서 퍽을 확정(선택)했을 때 재생하는 마법 보상 확인음. 일반 퍽 픽에 쓰인다
-# (액티브 언락 퍽은 오브로 날아가는 비행 연출 사운드를 유지).
-const UI_PERK_SELECT_SOUND_PATH := "res://assets/sounds/ui_perk_select.wav"
-const UI_MOVE_GAIN_DB := -9.0
-const UI_CONFIRM_GAIN_DB := -7.0
-const UI_BACK_GAIN_DB := -8.0
-const UI_PERK_SELECT_GAIN_DB := 0.0
-const DEFAULT_BGM_VOLUME := 0.4
-const DEFAULT_SFX_VOLUME := 0.7
-const STAGE1_BGM_GAIN := 0.75
-const STAGE2_BGM_GAIN := 1.0
-const STAGE3_BGM_GAIN := 0.9
-const STAGE4_BGM_GAIN := 0.9
-const STAGE5_BGM_GAIN := 0.9
-const STAGE6_BGM_GAIN := 0.9
-const STAGE7_BGM_GAIN := 0.9
-const STAGE1_BGM_NAMES := ["stage1", "stage1_alt", "stage1_alt2"]
-const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
-const BGM_BUS_NAME := "BGM"
-const SFX_BUS_NAME := "SFX"
-const SFX_PAN_PADDLE_BUS_NAME := "SFXPanPaddle"
-const SFX_PAN_WALL_BUS_NAME := "SFXPanWall"
+	# (액티브 언락 퍽은 오브로 날아가는 비행 연출 사운드를 유지).
+const UI_PERK_SELECT_SOUND_PATH := GameUiFeedbackAudio.UI_PERK_SELECT_SOUND_PATH
+const CHARACTER_INFO_TOGGLE_SOUND_PATH := GameUiFeedbackAudio.CHARACTER_INFO_TOGGLE_SOUND_PATH
+const UI_MOVE_GAIN_DB := GameUiFeedbackAudio.UI_MOVE_GAIN_DB
+const UI_CONFIRM_GAIN_DB := GameUiFeedbackAudio.UI_CONFIRM_GAIN_DB
+const UI_BACK_GAIN_DB := GameUiFeedbackAudio.UI_BACK_GAIN_DB
+const UI_PERK_SELECT_GAIN_DB := GameUiFeedbackAudio.UI_PERK_SELECT_GAIN_DB
+const CHARACTER_INFO_TOGGLE_GAIN_DB := GameUiFeedbackAudio.CHARACTER_INFO_TOGGLE_GAIN_DB
+const DEFAULT_BGM_VOLUME := GameAudioBusController.DEFAULT_BGM_VOLUME
+const DEFAULT_SFX_VOLUME := GameAudioBusController.DEFAULT_SFX_VOLUME
+# 0.75는 구 주력 mp3(-9.9 LUFS)의 과열을 깎던 값 — 신곡은 -15.1 LUFS라
+# 타 스테이지 표준 게인으로 복귀. 라이브 청감에서 재튜닝 가능.
+const STAGE1_BGM_GAIN := StageBgmAudio.STAGE1_BGM_GAIN
+const STAGE2_BGM_GAIN := StageBgmAudio.STAGE2_BGM_GAIN
+const STAGE3_BGM_GAIN := StageBgmAudio.STAGE3_BGM_GAIN
+const STAGE4_BGM_GAIN := StageBgmAudio.STAGE4_BGM_GAIN
+const STAGE5_BGM_GAIN := StageBgmAudio.STAGE5_BGM_GAIN
+const STAGE6_BGM_GAIN := StageBgmAudio.STAGE6_BGM_GAIN
+const STAGE7_BGM_GAIN := StageBgmAudio.STAGE7_BGM_GAIN
+const STAGE1_BGM_NAMES := StageBgmAudio.STAGE1_BGM_NAMES
+const STAGE2_BGM_NAMES := StageBgmAudio.STAGE2_BGM_NAMES
+const BGM_BUS_NAME := GameAudioBusController.BGM_BUS_NAME
+const SFX_BUS_NAME := GameAudioBusController.SFX_BUS_NAME
+const SFX_PAN_PADDLE_BUS_NAME := GameAudioBusController.PADDLE_PAN_BUS_NAME
+const SFX_PAN_WALL_BUS_NAME := GameAudioBusController.WALL_PAN_BUS_NAME
+const CHARACTER_INFO_BGM_MUFFLE_CUTOFF_HZ := GameAudioBusController.CHARACTER_INFO_BGM_MUFFLE_CUTOFF_HZ
+const SPELLBREAKER_GUARD_PARRY_SOUND_PATH := PerkFusionCombatAudio.SPELLBREAKER_GUARD_PARRY_SOUND_PATH
+const SPELLBREAKER_GUARD_PARRY_GAIN_DB := PerkFusionCombatAudio.SPELLBREAKER_GUARD_PARRY_GAIN_DB
 const AUDIO_SETUP_STEP_COUNT := 7
-const BGM_SETUP_STEP_COUNT := 12
-const PLAYFIELD_LEFT_X := 0.0
-const PLAYFIELD_RIGHT_X := 760.0
-const PLAYFIELD_CENTER_X := 380.0
-const HIT_PAN_STRENGTH := 0.6
+const BGM_SETUP_STEP_COUNT := StageBgmAudio.SETUP_STEP_COUNT
+const PLAYFIELD_LEFT_X := GameAudioBusController.PLAYFIELD_LEFT_X
+const PLAYFIELD_RIGHT_X := GameAudioBusController.PLAYFIELD_RIGHT_X
+const PLAYFIELD_CENTER_X := GameAudioBusController.PLAYFIELD_CENTER_X
+const HIT_PAN_STRENGTH := GameAudioBusController.HIT_PAN_STRENGTH
+const HAN_MIRYANG_PROLOGUE_TABLET_CRACK_SOUND_PATH := "res://assets/sounds/blocking.wav"
+const HAN_MIRYANG_PROLOGUE_TABLET_CRACK_PITCH := 0.45
+const HAN_MIRYANG_PROLOGUE_TABLET_CRACK_TAIL_PITCH := 0.325
 
 var owner_node: Node
 var player_factory: Object = GameAudioPlayerFactory.new()
+var han_miryang_prologue_tablet_crack_sfx: AudioStreamPlayer
+var han_miryang_prologue_tablet_crack_tail_sfx: AudioStreamPlayer
+var blacksmith_thor_shield_audio: Object = BlacksmithThorShieldAudio.new()
+var perk_fusion_combat_audio: Object = PerkFusionCombatAudio.new()
+var commando_skill_audio: Object = CommandoSkillAudio.new()
+var core_ball_dash_audio: Object = CoreBallDashAudio.new()
+var elemental_combat_audio: Object = ElementalCombatAudio.new()
+var game_audio_bus_controller: Object = GameAudioBusController.new()
+var game_audio_setup_controller: Object = GameAudioSetupController.new()
+var game_ui_feedback_audio: Object = GameUiFeedbackAudio.new()
+var item_reward_feedback_audio: Object = ItemRewardFeedbackAudio.new()
+var projectile_item_audio: Object = ProjectileItemAudio.new()
+var shared_stage_feedback_audio: Object = SharedStageFeedbackAudio.new()
+var stage_bgm_audio: Object = StageBgmAudio.new()
+var stage_bgm_playback_controller: Object = StageBgmPlaybackController.new()
+var transformation_item_audio: Object = TransformationItemAudio.new()
+var smasher_skill_audio: Object = SmasherSkillAudio.new()
+var stage1_boss_skill_audio: Object = Stage1BossSkillAudio.new()
+var viper_skill_audio: Object = ViperSkillAudio.new()
+var lingpet_acquisition_audio: Object = LingpetAcquisitionAudio.new()
+var lingpet_click_voice_audio: Object = LingpetClickVoiceAudio.new()
+var lingpet_combat_audio: Object = LingpetCombatAudio.new()
+var stage2_battle_audio: Object = Stage2BattleAudio.new()
+var stage3_battle_audio: Object = Stage3BattleAudio.new()
+var stage4_ponk_audio: Object = Stage4PonkAudio.new()
+var stage5_hongryun_audio: Object = Stage5HongryunAudio.new()
+var stage6_tetriser_audio: Object = Stage6TetriserAudio.new()
+var stage7_akamu_audio: Object = Stage7AkamuAudio.new()
 var paddle_sound_cooldown := 0.0
 var wall_sound_cooldown := 0.0
-var current_bgm_name := ""
-var primed_bgm_volumes: Dictionary = {}
-var bgm_volume := DEFAULT_BGM_VOLUME
-var _story_cinematic_bgm_gain_db := 0.0
-var sfx_volume := DEFAULT_SFX_VOLUME
-var audio_bus_volumes_adopted := false
-var bgm_muted := false
-var muted_bgm_name := ""
-var ui_move_sfx: AudioStreamPlayer
-var ui_confirm_sfx: AudioStreamPlayer
-var ui_back_sfx: AudioStreamPlayer
-var ui_perk_select_sfx: AudioStreamPlayer
-var paddle_hit_sfx: AudioStreamPlayer
-var serve_sfx: AudioStreamPlayer
-var pingpong_serve_sfx: AudioStreamPlayer
-var wall_hit_sfx: AudioStreamPlayer
-var dash_sfx: AudioStreamPlayer
-var half_dash_sfx: AudioStreamPlayer
-var dash_delay_sfx: AudioStreamPlayer
-var dash_charge_sfx: AudioStreamPlayer
-var bust_up_dash_sfx: AudioStreamPlayer
-var boost_charging_sfx: AudioStreamPlayer
-var soul_burst_dash_sfx: AudioStreamPlayer
-var dash_spirit_delete_sfx: AudioStreamPlayer
-var drive_sfx: AudioStreamPlayer
-var mika_drive_voice_sfx: AudioStreamPlayer
-var plasma_charge_sfx: AudioStreamPlayer
-var plasma_shoot_sfx: AudioStreamPlayer
-var plasma_shock_sfx: AudioStreamPlayer
-var recovery_sfx: AudioStreamPlayer
-var cleanse_sfx: AudioStreamPlayer
-var warp_gate_sfx: AudioStreamPlayer
-var magnum_grip_sfx: AudioStreamPlayer
-var smasher_wheel_sfx: AudioStreamPlayer
-var shield_kiting_wind_up_sfx: AudioStreamPlayer
-var shield_kiting_launch_sfx: AudioStreamPlayer
-var shield_kiting_hit_sfx: AudioStreamPlayer
-var whip_sfx: AudioStreamPlayer
-var gaksital_fan_sfx: AudioStreamPlayer
-var gaksital_fan_sfx_layers: Array = []
+var current_bgm_name: String:
+	get:
+		return stage_bgm_playback_controller.get_current_bgm_name()
+	set(value):
+		stage_bgm_playback_controller.set_current_bgm_name(value)
+var primed_bgm_volumes: Dictionary:
+	get:
+		return stage_bgm_playback_controller.get_primed_bgm_volumes()
+	set(value):
+		stage_bgm_playback_controller.set_primed_bgm_volumes(value)
+var bgm_volume: float:
+	get:
+		return game_audio_bus_controller.get_bgm_volume()
+	set(value):
+		game_audio_bus_controller.set_bgm_volume_state(value)
+var sfx_volume: float:
+	get:
+		return game_audio_bus_controller.get_sfx_volume()
+	set(value):
+		game_audio_bus_controller.set_sfx_volume_state(value)
+var audio_bus_volumes_adopted: bool:
+	get:
+		return game_audio_bus_controller.get_audio_bus_volumes_adopted()
+	set(value):
+		game_audio_bus_controller.set_audio_bus_volumes_adopted(value)
+var bgm_muted: bool:
+	get:
+		return stage_bgm_playback_controller.is_bgm_muted()
+	set(value):
+		stage_bgm_playback_controller.set_bgm_muted_state(value)
+var muted_bgm_name: String:
+	get:
+		return stage_bgm_playback_controller.get_muted_bgm_name()
+	set(value):
+		stage_bgm_playback_controller.set_muted_bgm_name(value)
+var ui_move_sfx: AudioStreamPlayer:
+	get:
+		return game_ui_feedback_audio.get_player("ui_move") as AudioStreamPlayer
+	set(value):
+		game_ui_feedback_audio.set_player("ui_move", value)
+var ui_confirm_sfx: AudioStreamPlayer:
+	get:
+		return game_ui_feedback_audio.get_player("ui_confirm") as AudioStreamPlayer
+	set(value):
+		game_ui_feedback_audio.set_player("ui_confirm", value)
+var ui_back_sfx: AudioStreamPlayer:
+	get:
+		return game_ui_feedback_audio.get_player("ui_back") as AudioStreamPlayer
+	set(value):
+		game_ui_feedback_audio.set_player("ui_back", value)
+var ui_perk_select_sfx: AudioStreamPlayer:
+	get:
+		return game_ui_feedback_audio.get_player("ui_perk_select") as AudioStreamPlayer
+	set(value):
+		game_ui_feedback_audio.set_player("ui_perk_select", value)
+var character_info_toggle_sfx: AudioStreamPlayer:
+	get:
+		return game_ui_feedback_audio.get_player("character_info_toggle") as AudioStreamPlayer
+	set(value):
+		game_ui_feedback_audio.set_player("character_info_toggle", value)
+var paddle_hit_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("paddle_hit") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("paddle_hit", value)
+var serve_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("serve") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("serve", value)
+var pingpong_serve_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("pingpong_serve") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("pingpong_serve", value)
+var wall_hit_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("wall_hit") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("wall_hit", value)
+var dash_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("dash") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("dash", value)
+var half_dash_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("half_dash") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("half_dash", value)
+var dash_delay_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("dash_delay") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("dash_delay", value)
+var dash_charge_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("dash_charge") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("dash_charge", value)
+var bust_up_dash_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("bust_up_dash") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("bust_up_dash", value)
+var boost_charging_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("boost_charging") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("boost_charging", value)
+var soul_burst_dash_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("soul_burst_dash") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("soul_burst_dash", value)
+var dash_spirit_delete_sfx: AudioStreamPlayer:
+	get:
+		return core_ball_dash_audio.get_player("dash_spirit_delete") as AudioStreamPlayer
+	set(value):
+		core_ball_dash_audio.set_player("dash_spirit_delete", value)
+var drive_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("drive") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("drive", value)
+var mika_drive_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("drive_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("drive_voice", value)
+var mika_drive_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_byeokryeokta_voice_streams()
+	set(value):
+		smasher_skill_audio.set_byeokryeokta_voice_streams(value)
+var plasma_charge_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("plasma_charge") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("plasma_charge", value)
+var plasma_shoot_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("plasma_shoot") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("plasma_shoot", value)
+var plasma_shock_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("plasma_shock") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("plasma_shock", value)
+var recovery_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("recovery") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("recovery", value)
+var cleanse_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("cleanse") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("cleanse", value)
+var warp_gate_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("warp_gate") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("warp_gate", value)
+var magnum_grip_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("magnum_grip") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("magnum_grip", value)
+var smasher_wheel_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("smasher_wheel") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("smasher_wheel", value)
+var mika_smasher_wheel_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("smasher_wheel_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("smasher_wheel_voice", value)
+var mika_smasher_wheel_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_pungun_cheonseonmu_voice_streams()
+	set(value):
+		smasher_skill_audio.set_pungun_cheonseonmu_voice_streams(value)
+var smasher_overdrive_activation_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("smasher_overdrive_activation") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("smasher_overdrive_activation", value)
+var mika_smasher_overdrive_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("smasher_overdrive_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("smasher_overdrive_voice", value)
+var mika_smasher_overdrive_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_smasher_overdrive_voice_streams()
+	set(value):
+		smasher_skill_audio.set_smasher_overdrive_voice_streams(value)
+var mika_void_phantom_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("void_phantom_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("void_phantom_voice", value)
+var mika_void_phantom_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_void_phantom_voice_streams()
+	set(value):
+		smasher_skill_audio.set_void_phantom_voice_streams(value)
+var void_phantom_charge_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("void_phantom_charge") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("void_phantom_charge", value)
+var void_phantom_launch_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("void_phantom_launch") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("void_phantom_launch", value)
+var shield_kiting_wind_up_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("shield_kiting_wind_up") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("shield_kiting_wind_up", value)
+var shield_kiting_launch_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("shield_kiting_launch") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("shield_kiting_launch", value)
+var shield_kiting_hit_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("shield_kiting_hit") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("shield_kiting_hit", value)
+var whip_sfx: AudioStreamPlayer:
+	get:
+		return stage1_boss_skill_audio.get_player("whip") as AudioStreamPlayer
+	set(value):
+		stage1_boss_skill_audio.set_player("whip", value)
+var gaksital_fan_sfx: AudioStreamPlayer:
+	get:
+		return stage1_boss_skill_audio.get_player("gaksital_fan") as AudioStreamPlayer
+	set(value):
+		stage1_boss_skill_audio.set_player("gaksital_fan", value)
+var gaksital_fan_sfx_layers: Array:
+	get:
+		return stage1_boss_skill_audio.get_fan_layers()
+	set(value):
+		stage1_boss_skill_audio.set_fan_layers(value)
 var gaksital_fan_sfx_cursor := 0
-var whipcrack_sfx: AudioStreamPlayer
-var thor_shield_open_sfx: AudioStreamPlayer
-var thor_shield_close_sfx: AudioStreamPlayer
-var thor_shield_swing_sfx: AudioStreamPlayer
-var thor_shield_block_sfx: AudioStreamPlayer
-var viper_jetpack_sfx: AudioStreamPlayer
-var viper_backstep_sfx: AudioStreamPlayer
-var viper_shadow_kick_sfx: AudioStreamPlayer
-var viper_marshal_kick_sfx: AudioStreamPlayer
-var viper_dive_prep_sfx: AudioStreamPlayer
-var viper_dive_strike_sfx: AudioStreamPlayer
-var viper_ignition_aura_sfx: AudioStreamPlayer
-var viper_ignition_aura_fallback_sfx: AudioStreamPlayer
-var viper_phantom_show_sfx: AudioStreamPlayer
-var viper_phantom_kick_hit_sfx: AudioStreamPlayer
-var viper_blade_sfx: AudioStreamPlayer
-var viper_blade_spin_sfx: AudioStreamPlayer
-var viper_venom_moving_sfx: AudioStreamPlayer
-var viper_venom_attack_sfx: AudioStreamPlayer
-var viper_hwarang_kick_sfx: AudioStreamPlayer
-var viper_kick_guard_knockback_sfx: AudioStreamPlayer
-var viper_dual_glitch_windup_sfx: AudioStreamPlayer
-var viper_dual_glitch_split_sfx: AudioStreamPlayer
-var chaos_spear_windup_sfx: AudioStreamPlayer
-var chaos_spear_flying_sfx: AudioStreamPlayer
-var chaos_spear_impact_sfx: AudioStreamPlayer
-var chaos_spear_blackhole_sfx: AudioStreamPlayer
-var commando_supply_radio_sfx: AudioStreamPlayer
-var commando_supply_radio_loop_sfx: AudioStreamPlayer
-var commando_supply_aircraft_sfx: AudioStreamPlayer
-var commando_weapon_change_sfx: AudioStreamPlayer
-var commando_fire_support_radio_sfx: AudioStreamPlayer
-var commando_fire_support_aircraft_sfx: AudioStreamPlayer
-var commando_slingshot_fire_sfx: AudioStreamPlayer
-var commando_pistol_ready_sfx: AudioStreamPlayer
-var commando_pistol_fire_sfx: AudioStreamPlayer
-var commando_pistol_reload_start_sfx: AudioStreamPlayer
-var commando_pistol_reload_sfx: AudioStreamPlayer
-var commando_reload_sfx: AudioStreamPlayer
-var commando_ak47_fire_sfx: AudioStreamPlayer
-var commando_ak47_fire_sfx_layers: Array = []
+var whipcrack_sfx: AudioStreamPlayer:
+	get:
+		return stage1_boss_skill_audio.get_player("whipcrack") as AudioStreamPlayer
+	set(value):
+		stage1_boss_skill_audio.set_player("whipcrack", value)
+var thor_shield_open_sfx: AudioStreamPlayer:
+	get:
+		return blacksmith_thor_shield_audio.get_player("open") as AudioStreamPlayer
+	set(value):
+		blacksmith_thor_shield_audio.set_player("open", value)
+var thor_shield_close_sfx: AudioStreamPlayer:
+	get:
+		return blacksmith_thor_shield_audio.get_player("close") as AudioStreamPlayer
+	set(value):
+		blacksmith_thor_shield_audio.set_player("close", value)
+var thor_shield_swing_sfx: AudioStreamPlayer:
+	get:
+		return blacksmith_thor_shield_audio.get_player("swing") as AudioStreamPlayer
+	set(value):
+		blacksmith_thor_shield_audio.set_player("swing", value)
+var thor_shield_block_sfx: AudioStreamPlayer:
+	get:
+		return blacksmith_thor_shield_audio.get_player("block") as AudioStreamPlayer
+	set(value):
+		blacksmith_thor_shield_audio.set_player("block", value)
+var spellbreaker_guard_parry_sfx: AudioStreamPlayer:
+	get:
+		return perk_fusion_combat_audio.get_player("spellbreaker_guard_parry") as AudioStreamPlayer
+	set(value):
+		perk_fusion_combat_audio.set_player("spellbreaker_guard_parry", value)
+var viper_jetpack_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("jetpack") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("jetpack", value)
+var viper_backstep_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("backstep") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("backstep", value)
+var viper_shadow_kick_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("shadow_kick") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("shadow_kick", value)
+var viper_marshal_kick_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("marshal_kick") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("marshal_kick", value)
+var viper_dive_prep_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("dive_prep") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("dive_prep", value)
+var viper_dive_strike_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("dive_strike") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("dive_strike", value)
+var viper_ignition_aura_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("ignition_aura") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("ignition_aura", value)
+var viper_ignition_aura_fallback_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("ignition_aura_fallback") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("ignition_aura_fallback", value)
+var viper_phantom_show_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("phantom_show") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("phantom_show", value)
+var viper_phantom_kick_hit_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("phantom_kick_hit") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("phantom_kick_hit", value)
+var viper_blade_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("blade") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("blade", value)
+var viper_blade_spin_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("blade_spin") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("blade_spin", value)
+var viper_venom_moving_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("venom_moving") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("venom_moving", value)
+var viper_venom_attack_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("venom_attack") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("venom_attack", value)
+var viper_hwarang_kick_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("hwarang_kick") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("hwarang_kick", value)
+var viper_kick_guard_knockback_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("kick_guard_knockback") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("kick_guard_knockback", value)
+var viper_dual_glitch_windup_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("dual_glitch_windup") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("dual_glitch_windup", value)
+var viper_dual_glitch_split_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("dual_glitch_split") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("dual_glitch_split", value)
+var chaos_spear_windup_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("chaos_spear_windup") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("chaos_spear_windup", value)
+var chaos_spear_flying_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("chaos_spear_flying") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("chaos_spear_flying", value)
+var chaos_spear_impact_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("chaos_spear_impact") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("chaos_spear_impact", value)
+var chaos_spear_blackhole_sfx: AudioStreamPlayer:
+	get:
+		return viper_skill_audio.get_player("chaos_spear_blackhole") as AudioStreamPlayer
+	set(value):
+		viper_skill_audio.set_player("chaos_spear_blackhole", value)
+var commando_supply_radio_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("supply_radio") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("supply_radio", value)
+var commando_supply_radio_loop_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("supply_radio_loop") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("supply_radio_loop", value)
+var commando_supply_aircraft_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("supply_aircraft") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("supply_aircraft", value)
+var commando_weapon_change_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("weapon_change") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("weapon_change", value)
+var commando_fire_support_radio_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("fire_support_radio") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("fire_support_radio", value)
+var commando_fire_support_aircraft_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("fire_support_aircraft") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("fire_support_aircraft", value)
+var commando_slingshot_fire_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("slingshot_fire") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("slingshot_fire", value)
+var commando_pistol_ready_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("pistol_ready") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("pistol_ready", value)
+var commando_pistol_fire_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("pistol_fire") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("pistol_fire", value)
+var commando_pistol_reload_start_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("pistol_reload_start") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("pistol_reload_start", value)
+var commando_pistol_reload_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("pistol_reload") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("pistol_reload", value)
+var commando_reload_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("reload") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("reload", value)
+var commando_ak47_fire_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("ak47_fire") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("ak47_fire", value)
+var commando_ak47_fire_sfx_layers: Array:
+	get:
+		return commando_skill_audio.get_ak47_fire_layers()
+	set(value):
+		commando_skill_audio.set_ak47_fire_layers(value)
 var commando_ak47_fire_sfx_cursor := 0
-var commando_bazooka_fire_sfx: AudioStreamPlayer
-var commando_net_capture_sfx: AudioStreamPlayer
-var commando_net_constrict_sfx: AudioStreamPlayer
-var commando_bowling_trap_install_sfx: AudioStreamPlayer
-var commando_bowling_trap_snap_sfx: AudioStreamPlayer
-var commando_suicide_drone_sfx: AudioStreamPlayer
-var item_get_sfx: AudioStreamPlayer
-var drink_sfx: AudioStreamPlayer
-var active_item_sfx: AudioStreamPlayer
-var trade_sfx: AudioStreamPlayer
-var brick_wall_destroy_sfx: AudioStreamPlayer
-var treasure_hunt_mining_sfx: AudioStreamPlayer
-var alchemy_sfx: AudioStreamPlayer
-var pandora_sfx: AudioStreamPlayer
-var lucky_coin_spawn_sfx: AudioStreamPlayer
-var foul_whistle_sfx: AudioStreamPlayer
-var megingjord_sfx: AudioStreamPlayer
-var legendary_open_sfx: AudioStreamPlayer
-var angel_blessing_roll_sfx: AudioStreamPlayer
-var angel_blessing_absorb_sfx: AudioStreamPlayer
-var angel_blessing_absorb_sfx_layers: Array = []
+var commando_bazooka_fire_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("bazooka_fire") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("bazooka_fire", value)
+var commando_net_capture_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("net_capture") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("net_capture", value)
+var commando_net_constrict_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("net_constrict") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("net_constrict", value)
+var commando_bowling_trap_install_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("bowling_trap_install") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("bowling_trap_install", value)
+var commando_bowling_trap_snap_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("bowling_trap_snap") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("bowling_trap_snap", value)
+var commando_suicide_drone_sfx: AudioStreamPlayer:
+	get:
+		return commando_skill_audio.get_player("suicide_drone") as AudioStreamPlayer
+	set(value):
+		commando_skill_audio.set_player("suicide_drone", value)
+var item_get_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("item_get") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("item_get", value)
+var drink_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("drink") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("drink", value)
+var active_item_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("active_item") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("active_item", value)
+var trade_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("trade") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("trade", value)
+var brick_wall_destroy_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("brick_wall_destroy") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("brick_wall_destroy", value)
+var alchemy_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("alchemy") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("alchemy", value)
+var pandora_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("pandora") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("pandora", value)
+var lucky_coin_spawn_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("lucky_coin_spawn") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("lucky_coin_spawn", value)
+var foul_whistle_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("foul_whistle") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("foul_whistle", value)
+var megingjord_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("megingjord") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("megingjord", value)
+var legendary_open_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("legendary_open") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("legendary_open", value)
+var angel_blessing_roll_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("angel_blessing_roll") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("angel_blessing_roll", value)
+var angel_blessing_absorb_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("angel_blessing_absorb") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("angel_blessing_absorb", value)
+var angel_blessing_absorb_sfx_layers: Array:
+	get:
+		return item_reward_feedback_audio.get_absorb_layers()
+	set(value):
+		item_reward_feedback_audio.set_absorb_layers(value)
 var angel_blessing_absorb_sfx_cursor := 0
-var result_box_open_sfx: AudioStreamPlayer
-var defeat_jewel_sfx: AudioStreamPlayer
-var defeat_gem_shatter_sfx: AudioStreamPlayer
-var lingpet_acquire_cutin_sfx: AudioStreamPlayer
-var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer
-var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer
-var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer
-var lingpet_volty_click_voice_sfx: AudioStreamPlayer
-var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
-var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer
-var lingpet_maribo_click_voice_sfx: AudioStreamPlayer
-var lingpet_rabi_click_voice_sfx: AudioStreamPlayer
-var lingpet_lumion_click_voice_sfx: AudioStreamPlayer
-var lingpet_monkeyring_click_voice_sfx: AudioStreamPlayer
-var lingpet_onimaru_click_voice_sfx: AudioStreamPlayer
-var lingpet_orosha_click_voice_sfx: AudioStreamPlayer
-var lingpet_koyora_click_voice_sfx: AudioStreamPlayer
-var lingpet_puppet_grab_cast_sfx: AudioStreamPlayer
-var lingpet_puppet_grab_pull_sfx: AudioStreamPlayer
-var lingpet_puppet_grab_kiss_sfx: AudioStreamPlayer
-var lingpet_puppet_grab_miss_sfx: AudioStreamPlayer
-var lingpet_sand_prison_open_sfx: AudioStreamPlayer
-var lingpet_wild_roar_sfx: AudioStreamPlayer
-var lingpet_star_coil_bind_sfx: AudioStreamPlayer
-var lingpet_star_coil_move_sfx: AudioStreamPlayer
-var lingpet_ring_dash_sfx: AudioStreamPlayer
-var lingpet_egg_hit_sfx: AudioStreamPlayer
-var lingpet_egg_hit_streams: Array[AudioStream] = []
-var lingpet_gatling_transform_sfx: AudioStreamPlayer
-var lingpet_gatling_loop_sfx: AudioStreamPlayer
-var lingpet_gatling_fire_sfx: AudioStreamPlayer
-var lingpet_gatling_hit_sfx: AudioStreamPlayer
-var lingpet_dwarf_magic_cast_sfx: AudioStreamPlayer
-var lingpet_dwarf_magic_hit_sfx: AudioStreamPlayer
-var lingpet_gravity_accel_cast_sfx: AudioStreamPlayer
-var legendary_after_sfx: AudioStreamPlayer
-var legendary_ending_sfx: AudioStreamPlayer
-var ragnarok_shot_sfx: AudioStreamPlayer
-var ragnarok_boom_sfx: AudioStreamPlayer
-var ragnarok_shock_sfx: AudioStreamPlayer
-var electric_shock_sfx: AudioStreamPlayer
-var thunder_orb_shot_sfx: AudioStreamPlayer
-var thunder_orb_boom_sfx: AudioStreamPlayer
-var solar_bolt_strike_sfx: AudioStreamPlayer
-var mini_spark_sfx: AudioStreamPlayer
-var mini_spark_streams: Array[AudioStream] = []
-var poseidon_wave_sfx: AudioStreamPlayer
-var poseidon_charge_sfx: AudioStreamPlayer
-var timewatch_sfx: AudioStreamPlayer
-var throw_before_sfx: AudioStreamPlayer
-var throw_sfx: AudioStreamPlayer
-var horn_strawberry_change_sfx: AudioStreamPlayer
-var horn_strawberry_eat_sfx: AudioStreamPlayer
-var horn_strawberry_stem_fire_sfx: AudioStreamPlayer
-var horn_strawberry_stem_hit_sfx: AudioStreamPlayer
-var horn_strawberry_horn_charge_sfx: AudioStreamPlayer
-var horn_strawberry_field_build_sfx: AudioStreamPlayer
-var horn_strawberry_field_break_sfx: AudioStreamPlayer
-var horn_strawberry_field_build_break_sfx: AudioStreamPlayer
-var horn_strawberry_bomb_trigger_sfx: AudioStreamPlayer
-var grenade_sfx: AudioStreamPlayer
-var flashbomb_sfx: AudioStreamPlayer
-var smokebomb_sfx: AudioStreamPlayer
-var firebomb_sfx: AudioStreamPlayer
-var boomerang_sfx: AudioStreamPlayer
-var boomerang_hit_sfx: AudioStreamPlayer
-var boomerang_break_sfx: AudioStreamPlayer
-var shrapnel_armor_fire_sfx: AudioStreamPlayer
-var shrapnel_armor_hit_sfx: AudioStreamPlayer
-var banana_throw_sfx: AudioStreamPlayer
-var banana_slip_sfx: AudioStreamPlayer
-var soap_throw_sfx: AudioStreamPlayer
-var soap_land_sfx: AudioStreamPlayer
-var soap_slip_sfx: AudioStreamPlayer
-var spider_mine_walk_sfx: AudioStreamPlayer
-var spider_mine_setup_sfx: AudioStreamPlayer
-var bomb_surprise_attach_sfx: AudioStreamPlayer
-var bomb_surprise_transfer_sfx: AudioStreamPlayer
-var bomb_surprise_tick1_sfx: AudioStreamPlayer
-var bomb_surprise_tick2_sfx: AudioStreamPlayer
-var bomb_surprise_urgent_tick_sfx: AudioStreamPlayer
-var bomb_surprise_explosion_sfx: AudioStreamPlayer
-var bomb_surprise_self_explosion_sfx: AudioStreamPlayer
-var power_smash_sfx: AudioStreamPlayer
-var mika_power_smashing_voice_sfx: AudioStreamPlayer
-var mika_power_smashing_voice_streams: Array[AudioStream] = []
-var mika_ghost_smashing_voice_sfx: AudioStreamPlayer
-var mika_ghost_smashing_voice_streams: Array[AudioStream] = []
-var power_smash_launch_sfx: AudioStreamPlayer
-var round_set_sfx: AudioStreamPlayer
-var han_miryang_prologue_opening_drum_sfx: AudioStreamPlayer
-var han_miryang_prologue_rays_sfx: AudioStreamPlayer
-var ball_spawn_intro_sfx: AudioStreamPlayer
-var stage_landing_zoom_intro_sfx: AudioStreamPlayer
-var balloon_pop_sfx: AudioStreamPlayer
-var stage1_balloon_door_sfx: AudioStreamPlayer
-var stage1_balloon_machine_sfx: AudioStreamPlayer
-var star_collect_sfx: AudioStreamPlayer
-var stage2_hydro_sfx: AudioStreamPlayer
-var stage2_stonebreak_sfx: AudioStreamPlayer
-var stage2_rockhit_sfx: AudioStreamPlayer
-var stage2_rock_spawn_sfx: AudioStreamPlayer
-var stage2_quake_sfx: AudioStreamPlayer
-var stage2_boss_cry_sfx: AudioStreamPlayer
-var stage2_speed_defense_start_sfx: AudioStreamPlayer
-var stage2_speed_defense_hit_sfx: AudioStreamPlayer
-var stage2_speed_defense_block_sfx: AudioStreamPlayer
-var stage3_tail_sfx: AudioStreamPlayer
-var stage3_psychoball_sfx: AudioStreamPlayer
-var stage3_dollcurse_sfx: AudioStreamPlayer
-var stage3_tears_sfx: AudioStreamPlayer
-var stage3_chest_land_sfx: AudioStreamPlayer
-var stage3_curse_explode_sfx: AudioStreamPlayer
-var stage3_kuromi_awake_sfx: AudioStreamPlayer
-var stage3_kuromi_stonebreak_sfx: AudioStreamPlayer
-var stage3_kuromi_tongue_sfx: AudioStreamPlayer
-var stage3_kuromi_swallow_sfx: AudioStreamPlayer
-var stage3_kuromi_spit_sfx: AudioStreamPlayer
-var lingpet_ghost_summon_sfx: AudioStreamPlayer
-var lingpet_ghost_summon_out_sfx: AudioStreamPlayer
-var lingpet_skeleton_archer_summon_sfx: AudioStreamPlayer
-var lingpet_skeleton_archer_death_sfx: AudioStreamPlayer
-var lingpet_skeleton_archer_arrow_fire_sfx: AudioStreamPlayer
-var lingpet_skeleton_archer_arrow_hit_sfx: AudioStreamPlayer
-var lingpet_bone_barrier_build_sfx: AudioStreamPlayer
-var lingpet_bone_barrier_break_sfx: AudioStreamPlayer
-var lingpet_bone_barrier_build_break_sfx: AudioStreamPlayer
-var stage4_moon_shoot_sfx: AudioStreamPlayer
-var stage4_fragment_shoot_sfx: AudioStreamPlayer
-var stage4_temple_hit_sfx: AudioStreamPlayer
-var stage4_birdkill_sfx: AudioStreamPlayer
-var stage4_magnetic_sfx: AudioStreamPlayer
-var stage4_meditation_sfx: AudioStreamPlayer
-var stage4_meditation_after_sfx: AudioStreamPlayer
-var stage5_hongryun_fireball_sfx: AudioStreamPlayer
-var stage5_hongryun_charge_sfx: AudioStreamPlayer
-var stage5_hongryun_shoot_sfx: AudioStreamPlayer
-var stage6_tetriser_break_sfx: AudioStreamPlayer
-var stage6_tetriser_wall_sfx: AudioStreamPlayer
-var stage6_tetriser_super_sfx: AudioStreamPlayer
-var stage6_tetriser_big_sfx: AudioStreamPlayer
-var stage6_tetriser_shield_sfx: AudioStreamPlayer
-var stage6_tetriser_laser_sfx: AudioStreamPlayer
-var stage7_akamu_shuriken_shoot_sfx: AudioStreamPlayer
-var stage7_akamu_shuriken_hit_sfx: AudioStreamPlayer
-var stage7_akamu_cloud_sfx: AudioStreamPlayer
-var stage7_akamu_aura_block_sfx: AudioStreamPlayer
-var stage7_akamu_clone_spawn_sfx: AudioStreamPlayer
-var stage7_akamu_clone_out_sfx: AudioStreamPlayer
-var stage5_hongryun_hurt_sfx: Array = []
-var leaf_shield_sfx: AudioStreamPlayer
-var trampoline_bounce_sfx: AudioStreamPlayer
-var stage1_bgm: AudioStreamPlayer
-var stage1_alt_bgm: AudioStreamPlayer
-var stage1_alt2_bgm: AudioStreamPlayer
-var stage2_bgm: AudioStreamPlayer
-var stage2_alt_bgm: AudioStreamPlayer
-var stage3_bgm: AudioStreamPlayer
-var stage4_bgm: AudioStreamPlayer
-var stage4_phase2_bgm: AudioStreamPlayer
-var stage5_bgm: AudioStreamPlayer
-var stage6_bgm: AudioStreamPlayer
-var stage7_bgm: AudioStreamPlayer
-var stage1_bgm_rng := RandomNumberGenerator.new()
-var stage1_bgm_rng_ready := false
-var stage2_bgm_rng := RandomNumberGenerator.new()
-var stage2_bgm_rng_ready := false
-var _audio_setup_step := 0
-var _audio_setup_stream_prewarm_group := -1
-var _audio_setup_stream_prewarm_index := 0
-var _bgm_setup_step := 0
-var paddle_hit_panner: AudioEffectPanner
-var wall_hit_panner: AudioEffectPanner
+var result_box_open_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("result_box_open") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("result_box_open", value)
+var defeat_jewel_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("defeat_jewel") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("defeat_jewel", value)
+var defeat_gem_shatter_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("defeat_gem_shatter") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("defeat_gem_shatter", value)
+var cold_boot_chnk_latch_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("cold_boot_chnk_latch") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("cold_boot_chnk_latch", value)
+var cold_boot_post_ramp_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("cold_boot_post_ramp") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("cold_boot_post_ramp", value)
+var cold_boot_ignition_thunk_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("cold_boot_ignition_thunk") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("cold_boot_ignition_thunk", value)
+var cold_boot_awaken_fanfare_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("cold_boot_awaken_fanfare") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("cold_boot_awaken_fanfare", value)
+var lingpet_acquire_cutin_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("cutin") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("cutin", value)
+var lingpet_acquire_click_deep_bass_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("click_deep_bass") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("click_deep_bass", value)
+var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("click_crackle_sweep") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("click_crackle_sweep", value)
+var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("lunabi") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("lunabi", value)
+var lingpet_volty_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("volty") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("volty", value)
+var lingpet_milkring_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("milkring") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("milkring", value)
+var lingpet_red_dragon_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("red_dragon") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("red_dragon", value)
+var lingpet_maribo_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("maribo") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("maribo", value)
+var lingpet_rabi_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("rabi") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("rabi", value)
+var lingpet_lumion_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("lumion") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("lumion", value)
+var lingpet_monkeyring_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("monkeyring") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("monkeyring", value)
+var lingpet_onimaru_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("onimaru") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("onimaru", value)
+var lingpet_orosha_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("orosha") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("orosha", value)
+var lingpet_koyora_click_voice_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_click_voice_audio.get_player("koyora") as AudioStreamPlayer
+	set(value):
+		lingpet_click_voice_audio.set_player("koyora", value)
+var legendary_after_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("legendary_after") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("legendary_after", value)
+var legendary_ending_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("legendary_ending") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("legendary_ending", value)
+var ragnarok_shot_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("ragnarok_shot") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("ragnarok_shot", value)
+var ragnarok_boom_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("ragnarok_boom") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("ragnarok_boom", value)
+var ragnarok_shock_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("ragnarok_shock") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("ragnarok_shock", value)
+var electric_shock_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("electric_shock") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("electric_shock", value)
+var thunder_orb_shot_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("thunder_orb_shot") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("thunder_orb_shot", value)
+var thunder_orb_boom_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("thunder_orb_boom") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("thunder_orb_boom", value)
+var solar_bolt_strike_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("solar_bolt_strike") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("solar_bolt_strike", value)
+var mini_spark_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("mini_spark") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("mini_spark", value)
+var mini_spark_streams: Array[AudioStream]:
+	get:
+		return elemental_combat_audio.get_candidate_streams("mini_spark") as Array[AudioStream]
+	set(value):
+		elemental_combat_audio.set_candidate_streams("mini_spark", value)
+var poseidon_wave_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("poseidon_wave") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("poseidon_wave", value)
+var poseidon_charge_sfx: AudioStreamPlayer:
+	get:
+		return elemental_combat_audio.get_player("poseidon_charge") as AudioStreamPlayer
+	set(value):
+		elemental_combat_audio.set_player("poseidon_charge", value)
+var timewatch_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("timewatch") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("timewatch", value)
+var throw_before_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("throw_before") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("throw_before", value)
+var throw_sfx: AudioStreamPlayer:
+	get:
+		return item_reward_feedback_audio.get_player("throw") as AudioStreamPlayer
+	set(value):
+		item_reward_feedback_audio.set_player("throw", value)
+var horn_strawberry_change_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_change") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_change", value)
+var horn_strawberry_eat_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_eat") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_eat", value)
+var horn_strawberry_stem_fire_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_stem_fire") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_stem_fire", value)
+var horn_strawberry_stem_hit_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_stem_hit") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_stem_hit", value)
+var horn_strawberry_horn_charge_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_horn_charge") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_horn_charge", value)
+var horn_strawberry_field_build_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_field_build") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_field_build", value)
+var horn_strawberry_field_break_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_field_break") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_field_break", value)
+var horn_strawberry_field_build_break_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_field_build_break") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_field_build_break", value)
+var odins_eye_change_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("odins_eye_change") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("odins_eye_change", value)
+var odins_eye_death_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("odins_eye_death") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("odins_eye_death", value)
+var odins_eye_spirit_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("odins_eye_spirit") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("odins_eye_spirit", value)
+var odins_eye_attack_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("odins_eye_attack") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("odins_eye_attack", value)
+var odins_eye_shadow_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("odins_eye_shadow") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("odins_eye_shadow", value)
+var horn_strawberry_bomb_trigger_sfx: AudioStreamPlayer:
+	get:
+		return transformation_item_audio.get_player("horn_strawberry_bomb_trigger") as AudioStreamPlayer
+	set(value):
+		transformation_item_audio.set_player("horn_strawberry_bomb_trigger", value)
+var grenade_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("grenade") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("grenade", value)
+var flashbomb_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("flashbomb") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("flashbomb", value)
+var smokebomb_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("smokebomb") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("smokebomb", value)
+var firebomb_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("firebomb") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("firebomb", value)
+var boomerang_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("boomerang") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("boomerang", value)
+var boomerang_hit_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("boomerang_hit") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("boomerang_hit", value)
+var boomerang_break_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("boomerang_break") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("boomerang_break", value)
+var shrapnel_armor_fire_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("shrapnel_armor_fire") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("shrapnel_armor_fire", value)
+var shrapnel_armor_hit_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("shrapnel_armor_hit") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("shrapnel_armor_hit", value)
+var banana_throw_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("banana_throw") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("banana_throw", value)
+var banana_slip_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("banana_slip") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("banana_slip", value)
+var soap_throw_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("soap_throw") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("soap_throw", value)
+var soap_land_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("soap_land") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("soap_land", value)
+var soap_slip_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("soap_slip") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("soap_slip", value)
+var spider_mine_walk_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("spider_mine_walk") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("spider_mine_walk", value)
+var spider_mine_setup_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("spider_mine_setup") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("spider_mine_setup", value)
+var bomb_surprise_attach_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_attach") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_attach", value)
+var bomb_surprise_transfer_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_transfer") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_transfer", value)
+var bomb_surprise_tick1_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_tick1") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_tick1", value)
+var bomb_surprise_tick2_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_tick2") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_tick2", value)
+var bomb_surprise_urgent_tick_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_urgent_tick") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_urgent_tick", value)
+var bomb_surprise_explosion_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_explosion") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_explosion", value)
+var bomb_surprise_self_explosion_sfx: AudioStreamPlayer:
+	get:
+		return projectile_item_audio.get_player("bomb_surprise_self_explosion") as AudioStreamPlayer
+	set(value):
+		projectile_item_audio.set_player("bomb_surprise_self_explosion", value)
+var power_smash_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("power_smash") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("power_smash", value)
+var mika_power_smashing_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("power_smashing_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("power_smashing_voice", value)
+var mika_power_smashing_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_power_smashing_voice_streams()
+	set(value):
+		smasher_skill_audio.set_power_smashing_voice_streams(value)
+var mika_ghost_smashing_voice_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("ghost_smashing_voice") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("ghost_smashing_voice", value)
+var mika_ghost_smashing_voice_streams: Array[AudioStream]:
+	get:
+		return smasher_skill_audio.get_ghost_smashing_voice_streams()
+	set(value):
+		smasher_skill_audio.set_ghost_smashing_voice_streams(value)
+var power_smash_launch_sfx: AudioStreamPlayer:
+	get:
+		return smasher_skill_audio.get_player("power_smash_launch") as AudioStreamPlayer
+	set(value):
+		smasher_skill_audio.set_player("power_smash_launch", value)
+var round_set_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("round_set") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("round_set", value)
+var round_defeat_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("round_defeat") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("round_defeat", value)
+var stage_clear_gong_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("stage_clear_gong") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("stage_clear_gong", value)
+var ball_spawn_intro_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("ball_spawn_intro") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("ball_spawn_intro", value)
+var stage_landing_zoom_intro_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("stage_landing_zoom_intro") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("stage_landing_zoom_intro", value)
+var balloon_pop_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("balloon_pop") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("balloon_pop", value)
+var stage1_balloon_door_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("stage1_balloon_door") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("stage1_balloon_door", value)
+var stage1_balloon_machine_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("stage1_balloon_machine") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("stage1_balloon_machine", value)
+var star_collect_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("star_collect") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("star_collect", value)
+var stage2_hydro_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("hydro") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("hydro", value)
+var stage2_stonebreak_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("stonebreak") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("stonebreak", value)
+var stage2_rockhit_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("rockhit") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("rockhit", value)
+var stage2_rock_spawn_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("rock_spawn") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("rock_spawn", value)
+var stage2_quake_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("quake") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("quake", value)
+var stage2_boss_cry_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("boss_cry") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("boss_cry", value)
+var stage2_speed_defense_start_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("speed_defense_start") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("speed_defense_start", value)
+var stage2_speed_defense_hit_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("speed_defense_hit") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("speed_defense_hit", value)
+var stage2_speed_defense_block_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("speed_defense_block") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("speed_defense_block", value)
+var stage3_tail_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("tail") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("tail", value)
+var stage3_psychoball_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("psychoball") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("psychoball", value)
+var stage3_dollcurse_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("dollcurse") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("dollcurse", value)
+var stage3_tears_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("tears") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("tears", value)
+var stage3_chest_land_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("chest_land") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("chest_land", value)
+var stage3_curse_explode_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("curse_explode") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("curse_explode", value)
+var stage3_kuromi_awake_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("kuromi_awake") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("kuromi_awake", value)
+var stage3_kuromi_stonebreak_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("kuromi_stonebreak") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("kuromi_stonebreak", value)
+var stage3_kuromi_tongue_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("kuromi_tongue") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("kuromi_tongue", value)
+var stage3_kuromi_swallow_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("kuromi_swallow") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("kuromi_swallow", value)
+var stage3_kuromi_spit_sfx: AudioStreamPlayer:
+	get:
+		return stage3_battle_audio.get_player("kuromi_spit") as AudioStreamPlayer
+	set(value):
+		stage3_battle_audio.set_player("kuromi_spit", value)
+var stage4_moon_shoot_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("moon_shoot") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("moon_shoot", value)
+var stage4_fragment_shoot_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("fragment_shoot") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("fragment_shoot", value)
+var stage4_temple_hit_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("temple_hit") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("temple_hit", value)
+var stage4_birdkill_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("birdkill") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("birdkill", value)
+var stage4_magnetic_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("magnetic") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("magnetic", value)
+var stage4_meditation_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("meditation") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("meditation", value)
+var stage4_meditation_after_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("meditation_after") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("meditation_after", value)
+var stage4_illusion_sfx: AudioStreamPlayer:
+	get:
+		return stage4_ponk_audio.get_player("illusion") as AudioStreamPlayer
+	set(value):
+		stage4_ponk_audio.set_player("illusion", value)
+var stage5_hongryun_fireball_sfx: AudioStreamPlayer:
+	get:
+		return stage5_hongryun_audio.get_primary_player("fireball") as AudioStreamPlayer
+	set(value):
+		stage5_hongryun_audio.set_primary_player("fireball", value)
+var stage5_hongryun_charge_sfx: AudioStreamPlayer:
+	get:
+		return stage5_hongryun_audio.get_primary_player("charge") as AudioStreamPlayer
+	set(value):
+		stage5_hongryun_audio.set_primary_player("charge", value)
+var stage5_hongryun_shoot_sfx: AudioStreamPlayer:
+	get:
+		return stage5_hongryun_audio.get_primary_player("shoot") as AudioStreamPlayer
+	set(value):
+		stage5_hongryun_audio.set_primary_player("shoot", value)
+var stage6_tetriser_break_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("break") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("break", value)
+var stage6_tetriser_wall_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("wall") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("wall", value)
+var stage6_tetriser_super_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("super") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("super", value)
+var stage6_tetriser_big_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("big") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("big", value)
+var stage6_tetriser_shield_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("shield") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("shield", value)
+var stage6_tetriser_laser_sfx: AudioStreamPlayer:
+	get:
+		return stage6_tetriser_audio.get_player("laser") as AudioStreamPlayer
+	set(value):
+		stage6_tetriser_audio.set_player("laser", value)
+var stage7_akamu_shuriken_shoot_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("shuriken_shoot") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("shuriken_shoot", value)
+var stage7_akamu_shuriken_hit_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("shuriken_hit") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("shuriken_hit", value)
+var stage7_akamu_cloud_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("cloud") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("cloud", value)
+var stage7_akamu_aura_block_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("aura_block") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("aura_block", value)
+var stage7_akamu_clone_spawn_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("clone_spawn") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("clone_spawn", value)
+var stage7_akamu_clone_out_sfx: AudioStreamPlayer:
+	get:
+		return stage7_akamu_audio.get_player("clone_out") as AudioStreamPlayer
+	set(value):
+		stage7_akamu_audio.set_player("clone_out", value)
+var stage5_hongryun_hurt_sfx: Array:
+	get:
+		return stage5_hongryun_audio.get_hurt_players()
+	set(value):
+		stage5_hongryun_audio.set_hurt_players(value)
+var leaf_shield_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("leaf_shield") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("leaf_shield", value)
+var trampoline_bounce_sfx: AudioStreamPlayer:
+	get:
+		return shared_stage_feedback_audio.get_player("trampoline_bounce") as AudioStreamPlayer
+	set(value):
+		shared_stage_feedback_audio.set_player("trampoline_bounce", value)
+var stage1_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage1") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage1", value)
+var stage2_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage2") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage2", value)
+var stage2_alt_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage2_alt") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage2_alt", value)
+var stage3_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage3") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage3", value)
+var stage4_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage4") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage4", value)
+var stage4_phase2_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage4_phase2") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage4_phase2", value)
+var stage5_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage5") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage5", value)
+var stage6_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage6") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage6", value)
+var stage7_bgm: AudioStreamPlayer:
+	get:
+		return stage_bgm_audio.get_player("stage7") as AudioStreamPlayer
+	set(value):
+		stage_bgm_audio.set_player("stage7", value)
+var stage1_bgm_rng: RandomNumberGenerator:
+	get:
+		return stage_bgm_playback_controller.get_stage1_bgm_rng() as RandomNumberGenerator
+	set(value):
+		stage_bgm_playback_controller.set_stage1_bgm_rng(value)
+var stage1_bgm_rng_ready: bool:
+	get:
+		return stage_bgm_playback_controller.is_stage1_bgm_rng_ready()
+	set(value):
+		stage_bgm_playback_controller.set_stage1_bgm_rng_ready(value)
+var stage2_bgm_rng: RandomNumberGenerator:
+	get:
+		return stage_bgm_playback_controller.get_stage2_bgm_rng() as RandomNumberGenerator
+	set(value):
+		stage_bgm_playback_controller.set_stage2_bgm_rng(value)
+var stage2_bgm_rng_ready: bool:
+	get:
+		return stage_bgm_playback_controller.is_stage2_bgm_rng_ready()
+	set(value):
+		stage_bgm_playback_controller.set_stage2_bgm_rng_ready(value)
+var _audio_setup_step: int:
+	get:
+		return game_audio_setup_controller.get_audio_setup_step()
+	set(value):
+		game_audio_setup_controller.set_audio_setup_step(value)
+var _audio_setup_stream_prewarm_group: int:
+	get:
+		return game_audio_setup_controller.get_audio_setup_stream_prewarm_group()
+	set(value):
+		game_audio_setup_controller.set_audio_setup_stream_prewarm_group(value)
+var _audio_setup_stream_prewarm_index: int:
+	get:
+		return game_audio_setup_controller.get_audio_setup_stream_prewarm_index()
+	set(value):
+		game_audio_setup_controller.set_audio_setup_stream_prewarm_index(value)
+var _bgm_setup_step: int:
+	get:
+		return game_audio_setup_controller.get_bgm_setup_step()
+	set(value):
+		game_audio_setup_controller.set_bgm_setup_step(value)
+var paddle_hit_panner: AudioEffectPanner:
+	get:
+		return game_audio_bus_controller.get_paddle_hit_panner() as AudioEffectPanner
+	set(value):
+		game_audio_bus_controller.set_paddle_hit_panner(value)
+var wall_hit_panner: AudioEffectPanner:
+	get:
+		return game_audio_bus_controller.get_wall_hit_panner() as AudioEffectPanner
+	set(value):
+		game_audio_bus_controller.set_wall_hit_panner(value)
 
 
 func setup(parent: Node) -> void:
@@ -703,10 +1582,14 @@ func setup(parent: Node) -> void:
 
 
 func get_setup_progress() -> float:
-	if _is_setup_complete():
-		return 1.0
-	var step_progress := _get_audio_setup_step_progress(_audio_setup_step)
-	return clampf((float(_audio_setup_step) + step_progress) / float(AUDIO_SETUP_STEP_COUNT), 0.0, 1.0)
+	var setup_complete := _is_setup_complete()
+	if not setup_complete:
+		_ensure_audio_setup_stream_paths(_audio_setup_step)
+	return game_audio_setup_controller.get_setup_progress(
+		AUDIO_SETUP_STEP_COUNT,
+		BGM_SETUP_STEP_COUNT,
+		setup_complete
+	)
 
 
 func setup_step(parent: Node) -> bool:
@@ -714,10 +1597,7 @@ func setup_step(parent: Node) -> bool:
 		return true
 	if owner_node != parent:
 		owner_node = parent
-		_audio_setup_step = 0
-		_audio_setup_stream_prewarm_group = -1
-		_audio_setup_stream_prewarm_index = 0
-		_bgm_setup_step = 0
+		game_audio_setup_controller.reset()
 
 	if not _prewarm_audio_setup_streams_step():
 		return false
@@ -743,318 +1623,101 @@ func setup_step(parent: Node) -> bool:
 			return _is_setup_complete()
 
 	_apply_audio_buses_and_volumes()
-	_audio_setup_step += 1
-	_audio_setup_stream_prewarm_group = -1
-	_audio_setup_stream_prewarm_index = 0
+	game_audio_setup_controller.advance_audio_setup_step()
 	return _is_setup_complete()
 
 
 func _setup_core_ball_sfx() -> void:
 	_ensure_hit_pan_buses()
-	ui_move_sfx = player_factory.create(owner_node, "UiMoveSfx", UI_MOVE_SOUND_PATH, UI_MOVE_GAIN_DB)
-	ui_confirm_sfx = player_factory.create(owner_node, "UiConfirmSfx", UI_CONFIRM_SOUND_PATH, UI_CONFIRM_GAIN_DB)
-	ui_back_sfx = player_factory.create(owner_node, "UiBackSfx", UI_BACK_SOUND_PATH, UI_BACK_GAIN_DB)
-	ui_perk_select_sfx = player_factory.create(owner_node, "UiPerkSelectSfx", UI_PERK_SELECT_SOUND_PATH, UI_PERK_SELECT_GAIN_DB)
-	paddle_hit_sfx = player_factory.create(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0)
-	serve_sfx = player_factory.create(owner_node, "ServeSfx", SERVE_SOUND_PATH, -5.0)
-	pingpong_serve_sfx = player_factory.create(owner_node, "PingpongServeSfx", PINGPONG_SERVE_SOUND_PATH, -5.0)
-	wall_hit_sfx = player_factory.create(owner_node, "WallHitSfx", WALL_HIT_SOUND_PATH, -7.0)
-	dash_sfx = player_factory.create(owner_node, "DashSfx", DASH_SOUND_PATH, -6.0)
-	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
-	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, 0.0)
+	game_ui_feedback_audio.setup(owner_node, player_factory)
+	core_ball_dash_audio.setup(owner_node, player_factory)
 	_enable_loop(dash_delay_sfx)
-	dash_charge_sfx = player_factory.create(owner_node, "DashChargeSfx", DASH_CHARGE_SOUND_PATH, -5.0)
-	bust_up_dash_sfx = player_factory.create(owner_node, "BustUpDashSfx", BUST_UP_DASH_SOUND_PATH, -5.0)
-	boost_charging_sfx = player_factory.create(owner_node, "BoostChargingSfx", BOOST_CHARGING_SOUND_PATH, -5.0)
-	soul_burst_dash_sfx = player_factory.create(owner_node, "SoulBurstDashSfx", SOUL_BURST_DASH_SOUND_PATH, -5.0)
-	dash_spirit_delete_sfx = player_factory.create(owner_node, "DashSpiritDeleteSfx", DASH_SPIRIT_DELETE_SOUND_PATH, -5.0)
 
 
 func _setup_smasher_skill_sfx() -> void:
-	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
-	mika_drive_voice_sfx = player_factory.create(owner_node, "MikaDriveVoiceSfx", MIKA_DRIVE_VOICE_PATH, MIKA_DRIVE_VOICE_GAIN_DB)
-	plasma_charge_sfx = player_factory.create(owner_node, "PlasmaChargeSfx", PLASMA_CHARGE_SOUND_PATH, PLASMA_CHARGE_GAIN_DB)
-	plasma_shoot_sfx = player_factory.create(owner_node, "PlasmaShootSfx", PLASMA_SHOOT_SOUND_PATH, PLASMA_SHOOT_GAIN_DB)
-	plasma_shock_sfx = player_factory.create(owner_node, "PlasmaShockSfx", PLASMA_SHOCK_SOUND_PATH, PLASMA_SHOCK_GAIN_DB)
+	smasher_skill_audio.setup_skill_players(owner_node, player_factory)
 	_enable_loop(plasma_charge_sfx)
 	_enable_loop(plasma_shock_sfx)
-	recovery_sfx = player_factory.create(owner_node, "RecoverySfx", RECOVERY_SOUND_PATH, -5.0)
-	cleanse_sfx = player_factory.create(owner_node, "CleanseSfx", CLEANSE_SOUND_PATH, -5.0)
-	warp_gate_sfx = player_factory.create(owner_node, "WarpGateSfx", WARP_GATE_SOUND_PATH, -5.0)
 	_enable_loop(warp_gate_sfx)
-	magnum_grip_sfx = player_factory.create(owner_node, "MagnumGripSfx", MAGNUM_GRIP_SOUND_PATH, -5.0)
 	_enable_loop(magnum_grip_sfx)
-	smasher_wheel_sfx = player_factory.create(owner_node, "SmasherWheelSfx", SMASHER_WHEEL_SOUND_PATH, -5.0)
 	_enable_loop(smasher_wheel_sfx)
-	shield_kiting_wind_up_sfx = player_factory.create(owner_node, "ShieldKitingWindUpSfx", SHIELD_KITING_WIND_UP_SOUND_PATH, -5.0)
-	shield_kiting_launch_sfx = player_factory.create(owner_node, "ShieldKitingLaunchSfx", SHIELD_KITING_LAUNCH_SOUND_PATH, -5.0)
-	shield_kiting_hit_sfx = player_factory.create(owner_node, "ShieldKitingHitSfx", SHIELD_KITING_HIT_SOUND_PATH, -4.0)
-	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
-	gaksital_fan_sfx = player_factory.create(owner_node, "GaksitalFanSfx", FAN_SOUND_PATH, _volume_to_db(0.35))
-	gaksital_fan_sfx_layers = _create_optional_sfx_layers("GaksitalFanSfxLayer", FAN_SOUND_PATH, _volume_to_db(0.35), GAKSITAL_FAN_SOUND_POOL_SIZE - 1)
+	stage1_boss_skill_audio.setup(owner_node, player_factory, Callable(self, "_create_optional_sfx"))
 	gaksital_fan_sfx_cursor = 0
-	whipcrack_sfx = player_factory.create(owner_node, "WhipcrackSfx", WHIPCRACK_SOUND_PATH, _volume_to_db(0.6))
-	thor_shield_open_sfx = player_factory.create(owner_node, "ThorShieldOpenSfx", THOR_SHIELD_OPEN_SOUND_PATH, -4.4)
-	thor_shield_close_sfx = player_factory.create(owner_node, "ThorShieldCloseSfx", THOR_SHIELD_CLOSE_SOUND_PATH, -4.4)
-	thor_shield_swing_sfx = player_factory.create(owner_node, "ThorShieldSwingSfx", THOR_SHIELD_SWING_SOUND_PATH, -5.0)
-	thor_shield_block_sfx = player_factory.create(owner_node, "ThorShieldBlockSfx", THOR_SHIELD_BLOCK_SOUND_PATH, -4.0)
-	viper_jetpack_sfx = player_factory.create(owner_node, "ViperJetpackSfx", VIPER_JETPACK_SOUND_PATH, -8.5)
+	blacksmith_thor_shield_audio.setup(owner_node, player_factory)
+	viper_skill_audio.setup(owner_node, player_factory)
 	_enable_loop(viper_jetpack_sfx)
-	viper_backstep_sfx = player_factory.create(owner_node, "ViperBackstepSfx", VIPER_BACKSTEP_SOUND_PATH, -6.0)
-	viper_shadow_kick_sfx = player_factory.create(owner_node, "ViperShadowKickSfx", VIPER_SHADOW_KICK_SOUND_PATH, -4.4)
-	viper_marshal_kick_sfx = player_factory.create(owner_node, "ViperMarshalKickSfx", VIPER_SHADOW_KICK_SOUND_PATH, -4.4)
-	viper_dive_prep_sfx = player_factory.create(owner_node, "ViperDivePrepSfx", VIPER_DIVE_PREP_SOUND_PATH, VIPER_DIVE_PREP_GAIN_DB)
-	viper_dive_strike_sfx = player_factory.create(owner_node, "ViperDiveStrikeSfx", VIPER_DIVE_STRIKE_SOUND_PATH, VIPER_DIVE_STRIKE_GAIN_DB)
-	viper_ignition_aura_sfx = player_factory.create(owner_node, "ViperIgnitionAuraSfx", VIPER_IGNITION_AURA_SOUND_PATH, VIPER_IGNITION_AURA_GAIN_DB)
-	viper_ignition_aura_fallback_sfx = player_factory.create(owner_node, "ViperIgnitionAuraFallbackSfx", VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH, VIPER_IGNITION_AURA_GAIN_DB)
-	viper_phantom_show_sfx = player_factory.create(owner_node, "ViperPhantomShowSfx", VIPER_PHANTOM_SHOW_SOUND_PATH, -1.5)
-	viper_phantom_kick_hit_sfx = player_factory.create(owner_node, "ViperPhantomKickHitSfx", VIPER_PHANTOM_KICK_HIT_SOUND_PATH, -2.5)
-	viper_blade_sfx = player_factory.create(owner_node, "ViperBladeSfx", VIPER_BLADE_SOUND_PATH, -6.0)
-	viper_blade_spin_sfx = player_factory.create(owner_node, "ViperBladeSpinSfx", VIPER_BLADE_SPIN_SOUND_PATH, -3.0)
-	viper_venom_moving_sfx = player_factory.create(owner_node, "ViperVenomMovingSfx", VIPER_VENOM_MOVING_SOUND_PATH, -4.4)
-	viper_venom_attack_sfx = player_factory.create(owner_node, "ViperVenomAttackSfx", VIPER_VENOM_ATTACK_SOUND_PATH, -4.4)
-	viper_hwarang_kick_sfx = player_factory.create(owner_node, "ViperHwarangKickSfx", VIPER_HWARANG_KICK_SOUND_PATH, -3.2)
-	viper_kick_guard_knockback_sfx = player_factory.create(owner_node, "ViperKickGuardKnockbackSfx", VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH, -4.0)
-	viper_dual_glitch_windup_sfx = player_factory.create(owner_node, "ViperDualGlitchWindupSfx", VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH, VIPER_DUAL_GLITCH_WINDUP_GAIN_DB)
-	viper_dual_glitch_split_sfx = player_factory.create(owner_node, "ViperDualGlitchSplitSfx", VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH, VIPER_DUAL_GLITCH_SPLIT_GAIN_DB)
-	chaos_spear_windup_sfx = player_factory.create(owner_node, "ChaosSpearWindupSfx", CHAOS_SPEAR_WINDUP_SOUND_PATH, -4.4)
-	chaos_spear_flying_sfx = player_factory.create(owner_node, "ChaosSpearFlyingSfx", CHAOS_SPEAR_FLYING_SOUND_PATH, -4.4)
-	chaos_spear_impact_sfx = player_factory.create(owner_node, "ChaosSpearImpactSfx", CHAOS_SPEAR_IMPACT_SOUND_PATH, -4.4)
-	chaos_spear_blackhole_sfx = player_factory.create(owner_node, "ChaosSpearBlackholeSfx", CHAOS_SPEAR_BLACKHOLE_SOUND_PATH, -5.5)
 	_enable_loop(chaos_spear_blackhole_sfx)
 
 
 func _setup_commando_skill_sfx() -> void:
-	commando_supply_radio_sfx = _create_optional_sfx("CommandoSupplyRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -6.0)
+	commando_skill_audio.setup(Callable(self, "_create_optional_sfx"))
 	# Python parity (supply_drop.py start_radio_loop): radio.wav (~3.5s) plays
 	# exactly once per hold session and runs to its natural end -- the "loop"
 	# name is historical. Do not _enable_loop this player; with the state-side
 	# tail no longer force-stopping it, a looping stream would never end.
-	commando_supply_radio_loop_sfx = _create_optional_sfx("CommandoSupplyRadioLoopSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -7.0)
-	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB)
 	_enable_loop(commando_supply_aircraft_sfx)
-	commando_weapon_change_sfx = _create_optional_sfx("CommandoWeaponChangeSfx", COMMANDO_WEAPON_CHANGE_SOUND_PATH, COMMANDO_WEAPON_CHANGE_GAIN_DB)
-	commando_fire_support_radio_sfx = _create_optional_sfx("CommandoFireSupportRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -5.5)
-	commando_fire_support_aircraft_sfx = _create_optional_sfx("CommandoFireSupportAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -7.5)
 	_enable_loop(commando_fire_support_aircraft_sfx)
-	commando_slingshot_fire_sfx = _create_optional_sfx("CommandoSlingshotFireSfx", COMMANDO_SLINGSHOT_FIRE_SOUND_PATH, COMMANDO_SLINGSHOT_FIRE_GAIN_DB)
-	commando_pistol_ready_sfx = _create_optional_sfx("CommandoPistolReadySfx", COMMANDO_PISTOL_READY_SOUND_PATH, COMMANDO_PISTOL_READY_GAIN_DB)
-	commando_pistol_fire_sfx = _create_optional_sfx("CommandoPistolFireSfx", COMMANDO_PISTOL_FIRE_SOUND_PATH, COMMANDO_PISTOL_FIRE_GAIN_DB)
-	commando_pistol_reload_start_sfx = _create_optional_sfx("CommandoPistolReloadStartSfx", COMMANDO_PISTOL_RELOAD_START_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
-	commando_pistol_reload_sfx = _create_optional_sfx("CommandoPistolReloadSfx", COMMANDO_PISTOL_RELOAD_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
-	commando_reload_sfx = _create_optional_sfx("CommandoReloadSfx", COMMANDO_RELOAD_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
-	commando_ak47_fire_sfx = _create_optional_sfx("CommandoAk47FireSfx", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB)
-	commando_ak47_fire_sfx_layers = _create_optional_sfx_layers("CommandoAk47FireSfxLayer", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB, COMMANDO_AK47_FIRE_POOL_SIZE - 1)
 	commando_ak47_fire_sfx_cursor = 0
-	commando_bazooka_fire_sfx = _create_optional_sfx("CommandoBazookaFireSfx", COMMANDO_BAZOOKA_FIRE_SOUND_PATH, COMMANDO_BAZOOKA_FIRE_GAIN_DB)
-	commando_net_capture_sfx = _create_optional_sfx("CommandoNetCaptureSfx", COMMANDO_NET_CAPTURE_SOUND_PATH, COMMANDO_NET_CAPTURE_GAIN_DB)
-	commando_net_constrict_sfx = _create_optional_sfx("CommandoNetConstrictSfx", COMMANDO_NET_CONSTRICT_SOUND_PATH, COMMANDO_NET_CONSTRICT_GAIN_DB)
-	commando_bowling_trap_install_sfx = _create_optional_sfx("CommandoBowlingTrapInstallSfx", COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
-	commando_bowling_trap_snap_sfx = _create_optional_sfx("CommandoBowlingTrapSnapSfx", COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
-	commando_suicide_drone_sfx = _create_optional_sfx("CommandoSuicideDroneSfx", COMMANDO_SUICIDE_DRONE_SOUND_PATH, COMMANDO_SUICIDE_DRONE_GAIN_DB)
 	_enable_loop(commando_suicide_drone_sfx)
 
 
 func _setup_item_command_sfx() -> void:
-	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
-	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
-	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
-	trade_sfx = player_factory.create(owner_node, "TradeSfx", TRADE_SOUND_PATH, TRADE_SOUND_GAIN_DB)
-	brick_wall_destroy_sfx = player_factory.create(owner_node, "BrickWallDestroySfx", BRICK_WALL_DESTROY_SOUND_PATH, BRICK_WALL_DESTROY_GAIN_DB)
-	treasure_hunt_mining_sfx = player_factory.create(owner_node, "TreasureHuntMiningSfx", TREASURE_HUNT_MINING_SOUND_PATH, -6.0)
-	alchemy_sfx = player_factory.create(owner_node, "AlchemySfx", ALCHEMY_SOUND_PATH, -4.5)
-	pandora_sfx = player_factory.create(owner_node, "PandoraSfx", PANDORA_SOUND_PATH, -5.0)
-	lucky_coin_spawn_sfx = player_factory.create(owner_node, "LuckyCoinSpawnSfx", LUCKY_COIN_SPAWN_SOUND_PATH, -5.0)
-	foul_whistle_sfx = player_factory.create(owner_node, "FoulWhistleSfx", FOUL_WHISTLE_SOUND_PATH, -4.0)
-	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
-	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
-	angel_blessing_roll_sfx = player_factory.create(owner_node, "AngelBlessingRollSfx", ANGEL_BLESSING_ROLL_SOUND_PATH, ANGEL_BLESSING_ROLL_GAIN_DB)
-	angel_blessing_absorb_sfx = player_factory.create(owner_node, "AngelBlessingAbsorbSfx", ANGEL_BLESSING_ABSORB_SOUND_PATH, ANGEL_BLESSING_ABSORB_GAIN_DB)
-	angel_blessing_absorb_sfx_layers = _create_optional_sfx_layers(
-		"AngelBlessingAbsorbSfxLayer",
-		ANGEL_BLESSING_ABSORB_SOUND_PATH,
-		ANGEL_BLESSING_ABSORB_GAIN_DB,
-		ANGEL_BLESSING_ABSORB_POOL_SIZE - 1
-	)
+	item_reward_feedback_audio.setup(owner_node, player_factory, Callable(self, "_create_optional_sfx"))
 	angel_blessing_absorb_sfx_cursor = 0
-	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
-	defeat_jewel_sfx = player_factory.create(owner_node, "DefeatJewelSfx", DEFEAT_JEWEL_SOUND_PATH, -4.0)
-	defeat_gem_shatter_sfx = player_factory.create(owner_node, "DefeatGemShatterSfx", DEFEAT_GEM_SHATTER_SOUND_PATH, -3.0)
-	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
-	lingpet_acquire_click_deep_bass_sfx = player_factory.create(owner_node, "LingpetAcquireClickDeepBassSfx", LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH, LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB)
-	lingpet_acquire_click_crackle_sweep_sfx = player_factory.create(owner_node, "LingpetAcquireClickCrackleSweepSfx", LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH, LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB)
-	lingpet_lunabi_click_voice_sfx = player_factory.create(owner_node, "LingpetLunabiClickVoiceSfx", LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH, LINGPET_LUNABI_CLICK_VOICE_GAIN_DB)
-	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
-	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
-	lingpet_red_dragon_click_voice_sfx = player_factory.create(owner_node, "LingpetRedDragonClickVoiceSfx", LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH, LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB)
-	lingpet_maribo_click_voice_sfx = player_factory.create(owner_node, "LingpetMariboClickVoiceSfx", LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH, LINGPET_MARIBO_CLICK_VOICE_GAIN_DB)
-	lingpet_rabi_click_voice_sfx = player_factory.create(owner_node, "LingpetRabiClickVoiceSfx", LINGPET_RABI_CLICK_VOICE_SOUND_PATH, LINGPET_RABI_CLICK_VOICE_GAIN_DB)
-	lingpet_lumion_click_voice_sfx = player_factory.create(owner_node, "LingpetLumionClickVoiceSfx", LINGPET_LUMION_CLICK_VOICE_SOUND_PATH, LINGPET_LUMION_CLICK_VOICE_GAIN_DB)
-	lingpet_monkeyring_click_voice_sfx = player_factory.create(owner_node, "LingpetMonkeyringClickVoiceSfx", LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH, LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB)
-	lingpet_onimaru_click_voice_sfx = player_factory.create(owner_node, "LingpetOnimaruClickVoiceSfx", LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH, LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB)
-	lingpet_orosha_click_voice_sfx = player_factory.create(owner_node, "LingpetOroshaClickVoiceSfx", LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH, LINGPET_OROSHA_CLICK_VOICE_GAIN_DB)
-	lingpet_koyora_click_voice_sfx = player_factory.create(owner_node, "LingpetKoyoraClickVoiceSfx", LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH, LINGPET_KOYORA_CLICK_VOICE_GAIN_DB)
-	lingpet_puppet_grab_cast_sfx = player_factory.create(owner_node, "LingpetPuppetGrabCastSfx", LINGPET_PUPPET_GRAB_CAST_SOUND_PATH, LINGPET_PUPPET_GRAB_CAST_GAIN_DB)
-	lingpet_puppet_grab_pull_sfx = player_factory.create(owner_node, "LingpetPuppetGrabPullSfx", LINGPET_PUPPET_GRAB_PULL_SOUND_PATH, LINGPET_PUPPET_GRAB_PULL_GAIN_DB)
-	lingpet_puppet_grab_kiss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabKissSfx", LINGPET_PUPPET_GRAB_KISS_SOUND_PATH, LINGPET_PUPPET_GRAB_KISS_GAIN_DB)
-	lingpet_puppet_grab_miss_sfx = player_factory.create(owner_node, "LingpetPuppetGrabMissSfx", LINGPET_PUPPET_GRAB_MISS_SOUND_PATH, LINGPET_PUPPET_GRAB_MISS_GAIN_DB)
-	lingpet_sand_prison_open_sfx = player_factory.create(owner_node, "LingpetSandPrisonOpenSfx", LINGPET_SAND_PRISON_OPEN_SOUND_PATH, LINGPET_SAND_PRISON_OPEN_GAIN_DB)
-	lingpet_wild_roar_sfx = player_factory.create(owner_node, "LingpetWildRoarSfx", LINGPET_WILD_ROAR_SOUND_PATH, LINGPET_WILD_ROAR_GAIN_DB)
-	lingpet_star_coil_bind_sfx = player_factory.create(owner_node, "LingpetStarCoilBindSfx", LINGPET_STAR_COIL_BIND_SOUND_PATH, LINGPET_STAR_COIL_BIND_GAIN_DB)
-	lingpet_star_coil_move_sfx = player_factory.create(owner_node, "LingpetStarCoilMoveSfx", LINGPET_STAR_COIL_MOVE_SOUND_PATH, LINGPET_STAR_COIL_MOVE_GAIN_DB)
-	_enable_loop(lingpet_star_coil_move_sfx)
-	lingpet_ring_dash_sfx = player_factory.create(owner_node, "LingpetRingDashSfx", LINGPET_RING_DASH_SOUND_PATH, LINGPET_RING_DASH_GAIN_DB)
-	lingpet_egg_hit_sfx = player_factory.create(owner_node, "LingpetEggHitSfx", str(LINGPET_EGG_HIT_SOUND_PATHS[0]), LINGPET_EGG_HIT_GAIN_DB)
-	lingpet_egg_hit_streams = _load_audio_stream_candidates(LINGPET_EGG_HIT_SOUND_PATHS)
-	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
-	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
-	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
-	ragnarok_boom_sfx = player_factory.create(owner_node, "RagnarokBoomSfx", RAGNAROK_BOOM_SOUND_PATH, -3.5)
-	ragnarok_shock_sfx = player_factory.create(owner_node, "RagnarokShockSfx", RAGNAROK_SHOCK_SOUND_PATH, -5.5)
-	electric_shock_sfx = player_factory.create(owner_node, "ElectricShockSfx", ELECTRIC_SHOCK_SOUND_PATH, ELECTRIC_SHOCK_GAIN_DB)
-	thunder_orb_shot_sfx = player_factory.create(owner_node, "ThunderOrbShotSfx", THUNDER_ORB_SHOT_SOUND_PATH, THUNDER_ORB_SHOT_GAIN_DB)
-	thunder_orb_boom_sfx = player_factory.create(owner_node, "ThunderOrbBoomSfx", THUNDER_ORB_BOOM_SOUND_PATH, THUNDER_ORB_BOOM_GAIN_DB)
-	solar_bolt_strike_sfx = player_factory.create(owner_node, "SolarBoltStrikeSfx", SOLAR_BOLT_STRIKE_SOUND_PATH, SOLAR_BOLT_STRIKE_GAIN_DB)
-	mini_spark_sfx = player_factory.create(owner_node, "MiniSparkSfx", str(MINI_SPARK_SOUND_PATHS[0]), MINI_SPARK_GAIN_DB)
-	mini_spark_streams = _load_audio_stream_candidates(MINI_SPARK_SOUND_PATHS)
-	poseidon_wave_sfx = player_factory.create(owner_node, "PoseidonWaveSfx", POSEIDON_WAVE_SOUND_PATH, -5.0)
-	poseidon_charge_sfx = player_factory.create(owner_node, "PoseidonChargeSfx", POSEIDON_CHARGE_SOUND_PATH, -5.0)
+	lingpet_acquisition_audio.setup(owner_node, player_factory)
+	lingpet_click_voice_audio.setup(owner_node, player_factory)
+	lingpet_combat_audio.setup_item_players(owner_node, player_factory)
+	_enable_loop(lingpet_combat_audio.get_player("star_coil_move"))
+	item_reward_feedback_audio.setup_cinematic(owner_node, player_factory)
+	elemental_combat_audio.setup(owner_node, player_factory)
 	_enable_loop(ragnarok_shock_sfx)
 	_enable_loop(electric_shock_sfx)
-	timewatch_sfx = player_factory.create(owner_node, "TimewatchSfx", TIMEWATCH_SOUND_PATH, -5.0)
-	throw_before_sfx = player_factory.create(owner_node, "ThrowBeforeSfx", THROW_BEFORE_SOUND_PATH, -5.0)
-	throw_sfx = player_factory.create(owner_node, "ThrowSfx", THROW_SOUND_PATH, -5.0)
-	horn_strawberry_change_sfx = player_factory.create(owner_node, "HornStrawberryChangeSfx", HORN_STRAWBERRY_CHANGE_SOUND_PATH, HORN_STRAWBERRY_CHANGE_GAIN_DB)
-	horn_strawberry_eat_sfx = player_factory.create(owner_node, "HornStrawberryEatSfx", HORN_STRAWBERRY_EAT_SOUND_PATH, HORN_STRAWBERRY_EAT_GAIN_DB)
-	horn_strawberry_stem_fire_sfx = player_factory.create(owner_node, "HornStrawberryStemFireSfx", HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH, HORN_STRAWBERRY_STEM_FIRE_GAIN_DB)
-	horn_strawberry_stem_hit_sfx = player_factory.create(owner_node, "HornStrawberryStemHitSfx", HORN_STRAWBERRY_STEM_HIT_SOUND_PATH, HORN_STRAWBERRY_STEM_HIT_GAIN_DB)
-	horn_strawberry_horn_charge_sfx = player_factory.create(owner_node, "HornStrawberryHornChargeSfx", HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH, HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB)
-	horn_strawberry_field_build_sfx = player_factory.create(owner_node, "HornStrawberryFieldBuildSfx", HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH, HORN_STRAWBERRY_FIELD_GAIN_DB)
-	horn_strawberry_field_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBreakSfx", HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_GAIN_DB)
-	horn_strawberry_field_build_break_sfx = player_factory.create(owner_node, "HornStrawberryFieldBuildBreakSfx", HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH, HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB)
-	horn_strawberry_bomb_trigger_sfx = player_factory.create(owner_node, "HornStrawberryBombTriggerSfx", HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH, HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB)
+	item_reward_feedback_audio.setup_item_actions(owner_node, player_factory)
+	transformation_item_audio.setup(owner_node, player_factory)
 
 
 func _setup_projectile_item_sfx() -> void:
-	grenade_sfx = player_factory.create(owner_node, "GrenadeSfx", GRENADE_SOUND_PATH, -4.0)
-	flashbomb_sfx = player_factory.create(owner_node, "FlashbombSfx", FLASHBOMB_SOUND_PATH, -4.0)
-	smokebomb_sfx = player_factory.create(owner_node, "SmokebombSfx", SMOKEBOMB_SOUND_PATH, -5.0)
-	firebomb_sfx = player_factory.create(owner_node, "FirebombSfx", FIREBOMB_SOUND_PATH, -4.0)
-	boomerang_sfx = player_factory.create(owner_node, "BoomerangSfx", BOOMERANG_SOUND_PATH, -8.0)
-	boomerang_hit_sfx = player_factory.create(owner_node, "BoomerangHitSfx", BOOMERANG_HIT_SOUND_PATH, -5.0)
-	boomerang_break_sfx = player_factory.create(owner_node, "BoomerangBreakSfx", BOOMERANG_BREAK_SOUND_PATH, -5.0)
-	shrapnel_armor_fire_sfx = player_factory.create(owner_node, "ShrapnelArmorFireSfx", SHRAPNEL_ARMOR_FIRE_SOUND_PATH, -5.0)
-	shrapnel_armor_hit_sfx = player_factory.create(owner_node, "ShrapnelArmorHitSfx", SHRAPNEL_ARMOR_HIT_SOUND_PATH, -5.0)
+	projectile_item_audio.setup_pre_loop_players(owner_node, player_factory)
 	_enable_loop(boomerang_sfx)
-	banana_throw_sfx = player_factory.create(owner_node, "BananaThrowSfx", BANANA_THROW_SOUND_PATH, -6.0)
-	banana_slip_sfx = player_factory.create(owner_node, "BananaSlipSfx", BANANA_SLIP_SOUND_PATH, -4.0)
-	soap_throw_sfx = player_factory.create(owner_node, "SoapThrowSfx", SOAP_THROW_SOUND_PATH, -7.0)
-	soap_land_sfx = player_factory.create(owner_node, "SoapLandSfx", SOAP_LAND_SOUND_PATH, -8.0)
-	soap_slip_sfx = player_factory.create(owner_node, "SoapSlipSfx", SOAP_SLIP_SOUND_PATH, -4.0)
-	spider_mine_walk_sfx = player_factory.create(owner_node, "SpiderMineWalkSfx", SPIDER_MINE_WALK_SOUND_PATH, -6.5)
-	spider_mine_setup_sfx = player_factory.create(owner_node, "SpiderMineSetupSfx", SPIDER_MINE_SETUP_SOUND_PATH, -5.0)
-	bomb_surprise_attach_sfx = player_factory.create(owner_node, "BombSurpriseAttachSfx", BOMB_SURPRISE_ATTACH_SOUND_PATH, BOMB_SURPRISE_ATTACH_GAIN_DB)
-	bomb_surprise_transfer_sfx = player_factory.create(owner_node, "BombSurpriseTransferSfx", SPIDER_MINE_SETUP_SOUND_PATH, BOMB_SURPRISE_TRANSFER_GAIN_DB)
-	bomb_surprise_tick1_sfx = player_factory.create(owner_node, "BombSurpriseTick1Sfx", BOMB_SURPRISE_TICK1_SOUND_PATH, -16.4782)
-	bomb_surprise_tick2_sfx = player_factory.create(owner_node, "BombSurpriseTick2Sfx", BOMB_SURPRISE_TICK2_SOUND_PATH, -16.4782)
-	bomb_surprise_urgent_tick_sfx = player_factory.create(owner_node, "BombSurpriseUrgentTickSfx", BOMB_SURPRISE_URGENT_TICK_SOUND_PATH, BOMB_SURPRISE_URGENT_TICK_GAIN_DB)
-	bomb_surprise_explosion_sfx = player_factory.create(owner_node, "BombSurpriseExplosionSfx", GRENADE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
-	bomb_surprise_self_explosion_sfx = player_factory.create(owner_node, "BombSurpriseSelfExplosionSfx", STAGE3_CURSE_EXPLODE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
-	lingpet_gatling_transform_sfx = player_factory.create(owner_node, "LingpetGatlingTransformSfx", LINGPET_GATLING_TRANSFORM_SOUND_PATH, LINGPET_GATLING_TRANSFORM_GAIN_DB)
-	lingpet_gatling_loop_sfx = player_factory.create(owner_node, "LingpetGatlingLoopSfx", LINGPET_GATLING_LOOP_SOUND_PATH, LINGPET_GATLING_LOOP_GAIN_DB)
-	lingpet_gatling_fire_sfx = player_factory.create(owner_node, "LingpetGatlingFireSfx", LINGPET_GATLING_FIRE_SOUND_PATH, LINGPET_GATLING_FIRE_GAIN_DB)
-	lingpet_gatling_hit_sfx = player_factory.create(owner_node, "LingpetGatlingHitSfx", LINGPET_GATLING_HIT_SOUND_PATH, LINGPET_GATLING_HIT_GAIN_DB)
-	lingpet_dwarf_magic_cast_sfx = player_factory.create(owner_node, "LingpetDwarfMagicCastSfx", LINGPET_DWARF_MAGIC_CAST_SOUND_PATH, LINGPET_DWARF_MAGIC_CAST_GAIN_DB)
-	lingpet_dwarf_magic_hit_sfx = player_factory.create(owner_node, "LingpetDwarfMagicHitSfx", LINGPET_DWARF_MAGIC_HIT_SOUND_PATH, LINGPET_DWARF_MAGIC_HIT_GAIN_DB)
-	lingpet_gravity_accel_cast_sfx = player_factory.create(owner_node, "LingpetGravityAccelCastSfx", LINGPET_GRAVITY_ACCEL_CAST_SOUND_PATH, LINGPET_GRAVITY_ACCEL_CAST_GAIN_DB)
+	projectile_item_audio.setup_post_loop_players(owner_node, player_factory)
+	lingpet_combat_audio.setup_projectile_players(owner_node, player_factory)
 	_enable_loop(spider_mine_walk_sfx)
-	_enable_loop(lingpet_gatling_loop_sfx)
+	_enable_loop(lingpet_combat_audio.get_player("gatling_loop"))
 
 
 func _setup_stage_feedback_sfx() -> void:
-	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
-	mika_power_smashing_voice_sfx = player_factory.create(owner_node, "MikaPowerSmashingVoiceSfx", str(MIKA_POWER_SMASHING_VOICE_PATHS[0]), MIKA_POWER_SMASHING_VOICE_GAIN_DB)
-	mika_power_smashing_voice_streams = _load_audio_stream_candidates(MIKA_POWER_SMASHING_VOICE_PATHS)
-	mika_ghost_smashing_voice_sfx = player_factory.create(owner_node, "MikaGhostSmashingVoiceSfx", str(MIKA_GHOST_SMASHING_VOICE_PATHS[0]), MIKA_GHOST_SMASHING_VOICE_GAIN_DB)
-	mika_ghost_smashing_voice_streams = _load_audio_stream_candidates(MIKA_GHOST_SMASHING_VOICE_PATHS)
-	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
-	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
-	han_miryang_prologue_opening_drum_sfx = player_factory.create(owner_node, "HanMiryangPrologueOpeningDrumSfx", HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH, -4.0)
-	han_miryang_prologue_rays_sfx = player_factory.create(owner_node, "HanMiryangPrologueRaysSfx", HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH, -5.0)
-	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
-	stage_landing_zoom_intro_sfx = player_factory.create(owner_node, "StageLandingZoomIntroSfx", STAGE_LANDING_ZOOM_INTRO_SOUND_PATH, -3.0)
-	balloon_pop_sfx = player_factory.create(owner_node, "BalloonPopSfx", BALLOON_POP_SOUND_PATH, -5.0)
-	stage1_balloon_door_sfx = player_factory.create(owner_node, "Stage1BalloonDoorSfx", STAGE1_BALLOON_DOOR_SOUND_PATH, -6.0)
-	stage1_balloon_machine_sfx = player_factory.create(owner_node, "Stage1BalloonMachineSfx", STAGE1_BALLOON_MACHINE_SOUND_PATH, -7.0)
-	star_collect_sfx = player_factory.create(owner_node, "StarCollectSfx", STAR_COLLECT_SOUND_PATH, -4.0)
-	stage2_hydro_sfx = player_factory.create(owner_node, "Stage2HydroSfx", STAGE2_HYDRO_SOUND_PATH, -5.0)
-	stage2_stonebreak_sfx = player_factory.create(owner_node, "Stage2StonebreakSfx", STAGE2_STONEBREAK_SOUND_PATH, -5.0)
-	stage2_rockhit_sfx = player_factory.create(owner_node, "Stage2RockhitSfx", STAGE2_ROCKHIT_SOUND_PATH, -5.0)
-	stage2_rock_spawn_sfx = player_factory.create(owner_node, "Stage2RockSpawnSfx", STAGE2_ROCK_SPAWN_SOUND_PATH, -5.0)
-	stage2_quake_sfx = player_factory.create(owner_node, "Stage2QuakeSfx", STAGE2_QUAKE_SOUND_PATH, -7.0)
-	stage2_boss_cry_sfx = player_factory.create(owner_node, "Stage2BossCrySfx", STAGE2_BOSS_CRY_SOUND_PATH, -6.0)
-	stage2_speed_defense_start_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseStartSfx", STAGE2_SPEED_DEFENSE_START_SOUND_PATH, -4.5)
-	stage2_speed_defense_hit_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseHitSfx", STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH, -5.0)
-	stage2_speed_defense_block_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseBlockSfx", STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH, -5.0)
-	stage3_tail_sfx = player_factory.create(owner_node, "Stage3TailSfx", STAGE3_TAIL_SOUND_PATH, -4.5)
-	stage3_psychoball_sfx = player_factory.create(owner_node, "Stage3PsychoballSfx", STAGE3_PSYCHOBALL_SOUND_PATH, -6.0)
-	stage3_dollcurse_sfx = player_factory.create(owner_node, "Stage3DollcurseSfx", STAGE3_DOLLCURSE_SOUND_PATH, -5.0)
-	stage3_tears_sfx = player_factory.create(owner_node, "Stage3TearsSfx", STAGE3_TEARS_SOUND_PATH, -7.0)
-	stage3_chest_land_sfx = player_factory.create(owner_node, "Stage3ChestLandSfx", STAGE3_CHEST_LAND_SOUND_PATH, -5.0)
-	stage3_curse_explode_sfx = player_factory.create(owner_node, "Stage3CurseExplodeSfx", STAGE3_CURSE_EXPLODE_SOUND_PATH, -5.0)
-	stage3_kuromi_awake_sfx = player_factory.create(owner_node, "Stage3KuromiAwakeSfx", STAGE3_KUROMI_AWAKE_SOUND_PATH, -3.0)
-	stage3_kuromi_stonebreak_sfx = _create_optional_sfx("Stage3KuromiStonebreakSfx", STAGE3_KUROMI_STONEBREAK_SOUND_PATH, -4.0)
-	stage3_kuromi_tongue_sfx = player_factory.create(owner_node, "Stage3KuromiTongueSfx", STAGE3_KUROMI_TONGUE_SOUND_PATH, -4.5)
-	stage3_kuromi_swallow_sfx = player_factory.create(owner_node, "Stage3KuromiSwallowSfx", STAGE3_KUROMI_SWALLOW_SOUND_PATH, -5.0)
-	stage3_kuromi_spit_sfx = player_factory.create(owner_node, "Stage3KuromiSpitSfx", STAGE3_KUROMI_SPIT_SOUND_PATH, -4.0)
-	lingpet_ghost_summon_sfx = player_factory.create(owner_node, "LingpetGhostSummonSfx", LINGPET_GHOST_SUMMON_SOUND_PATH, -5.0)
-	lingpet_ghost_summon_out_sfx = player_factory.create(owner_node, "LingpetGhostSummonOutSfx", LINGPET_GHOST_SUMMON_OUT_SOUND_PATH, -5.0)
-	lingpet_skeleton_archer_summon_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherSummonSfx", LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH, -4.4)
-	lingpet_skeleton_archer_death_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherDeathSfx", LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH, -10.5)
-	lingpet_skeleton_archer_arrow_fire_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherArrowFireSfx", LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH, -3.1)
-	lingpet_skeleton_archer_arrow_hit_sfx = player_factory.create(owner_node, "LingpetSkeletonArcherArrowHitSfx", LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH, -3.1)
-	lingpet_bone_barrier_build_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBuildSfx", LINGPET_BONE_BARRIER_BUILD_SOUND_PATH, -3.1)
-	lingpet_bone_barrier_break_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBreakSfx", LINGPET_BONE_BARRIER_BREAK_SOUND_PATH, -3.1)
-	lingpet_bone_barrier_build_break_sfx = player_factory.create(owner_node, "LingpetBoneBarrierBuildBreakSfx", LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH, -10.5)
-	stage4_moon_shoot_sfx = player_factory.create(owner_node, "Stage4MoonShootSfx", STAGE4_MOON_SHOOT_SOUND_PATH, -4.0)
-	stage4_fragment_shoot_sfx = player_factory.create(owner_node, "Stage4FragmentShootSfx", STAGE4_FRAGMENT_SHOOT_SOUND_PATH, -5.0)
-	stage4_temple_hit_sfx = player_factory.create(owner_node, "Stage4TempleHitSfx", STAGE4_TEMPLE_HIT_SOUND_PATH, -5.0)
-	stage4_birdkill_sfx = player_factory.create(owner_node, "Stage4BirdkillSfx", STAGE4_BIRDKILL_SOUND_PATH, -5.0)
-	stage4_magnetic_sfx = player_factory.create(owner_node, "Stage4MagneticSfx", STAGE4_MAGNETIC_SOUND_PATH, -7.0)
-	stage4_meditation_sfx = player_factory.create(owner_node, "Stage4MeditationSfx", STAGE4_MEDITATION_SOUND_PATH, -5.0)
-	stage4_meditation_after_sfx = player_factory.create(owner_node, "Stage4MeditationAfterSfx", STAGE4_MEDITATION_AFTER_SOUND_PATH, -5.0)
-	stage5_hongryun_fireball_sfx = player_factory.create(owner_node, "Stage5HongryunFireballSfx", STAGE5_HONGRYUN_FIREBALL_SOUND_PATH, -5.0)
-	stage5_hongryun_charge_sfx = player_factory.create(owner_node, "Stage5HongryunChargeSfx", STAGE5_HONGRYUN_CHARGE_SOUND_PATH, -5.0)
-	stage5_hongryun_shoot_sfx = player_factory.create(owner_node, "Stage5HongryunShootSfx", STAGE5_HONGRYUN_SHOOT_SOUND_PATH, -5.0)
-	stage6_tetriser_break_sfx = player_factory.create(owner_node, "Stage6TetriserBreakSfx", STAGE6_TETRISER_BREAK_SOUND_PATH, -6.0)
-	stage6_tetriser_wall_sfx = player_factory.create(owner_node, "Stage6TetriserWallSfx", STAGE6_TETRISER_WALL_SOUND_PATH, -6.0)
-	stage6_tetriser_super_sfx = player_factory.create(owner_node, "Stage6TetriserSuperSfx", STAGE6_TETRISER_SUPER_ROAR_SOUND_PATH, -4.0)
-	stage6_tetriser_big_sfx = player_factory.create(owner_node, "Stage6TetriserBigSfx", STAGE6_TETRISER_BIG_SOUND_PATH, -4.0)
-	stage6_tetriser_shield_sfx = player_factory.create(owner_node, "Stage6TetriserShieldSfx", STAGE6_TETRISER_SHIELD_SOUND_PATH, -5.0)
-	stage6_tetriser_laser_sfx = player_factory.create(owner_node, "Stage6TetriserLaserSfx", STAGE6_TETRISER_LASER_SOUND_PATH, -4.0)
-	stage7_akamu_shuriken_shoot_sfx = player_factory.create(owner_node, "Stage7AkamuShurikenShootSfx", STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH, 0.0)
-	stage7_akamu_shuriken_hit_sfx = player_factory.create(owner_node, "Stage7AkamuShurikenHitSfx", STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH, 0.0)
-	stage7_akamu_cloud_sfx = player_factory.create(owner_node, "Stage7AkamuCloudSfx", STAGE7_AKAMU_CLOUD_SOUND_PATH, 0.0)
-	stage7_akamu_aura_block_sfx = player_factory.create(owner_node, "Stage7AkamuAuraBlockSfx", STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH, 0.0)
-	stage7_akamu_clone_spawn_sfx = player_factory.create(owner_node, "Stage7AkamuCloneSpawnSfx", STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH, 0.0)
-	stage7_akamu_clone_out_sfx = player_factory.create(owner_node, "Stage7AkamuCloneOutSfx", STAGE7_AKAMU_CLONE_OUT_SOUND_PATH, 0.0)
-	stage5_hongryun_hurt_sfx.clear()
-	for index in range(STAGE5_HONGRYUN_HURT_SOUND_PATHS.size()):
-		stage5_hongryun_hurt_sfx.append(player_factory.create(
-			owner_node,
-			"Stage5HongryunHurtSfx%d" % (index + 1),
-			str(STAGE5_HONGRYUN_HURT_SOUND_PATHS[index]),
-			-5.0
-		))
-	leaf_shield_sfx = player_factory.create(owner_node, "LeafShieldSfx", LEAF_SHIELD_SOUND_PATH, -4.5)
-	trampoline_bounce_sfx = player_factory.create(owner_node, "TrampolineBounceSfx", TRAMPOLINE_BOUNCE_SOUND_PATH, TRAMPOLINE_BOUNCE_GAIN_DB)
+	smasher_skill_audio.setup_stage_feedback_players(owner_node, player_factory)
+	shared_stage_feedback_audio.setup_primary(owner_node, player_factory)
+	stage2_battle_audio.setup(owner_node, player_factory)
+	stage3_battle_audio.setup(owner_node, player_factory, Callable(self, "_create_optional_sfx"))
+	lingpet_combat_audio.setup_stage_players(owner_node, player_factory)
+	stage4_ponk_audio.setup(owner_node, player_factory)
+	stage5_hongryun_audio.setup_primary_players(owner_node, player_factory)
+	stage6_tetriser_audio.setup(owner_node, player_factory)
+	stage7_akamu_audio.setup(owner_node, player_factory)
+	stage5_hongryun_audio.setup_hurt_players(owner_node, player_factory)
+	shared_stage_feedback_audio.setup_tail(owner_node, player_factory)
+	han_miryang_prologue_tablet_crack_sfx = _configure_sfx_player(player_factory.create(
+		owner_node,
+		"HanMiryangPrologueTabletCrackSfx",
+		HAN_MIRYANG_PROLOGUE_TABLET_CRACK_SOUND_PATH,
+		-7.0
+	))
+	han_miryang_prologue_tablet_crack_tail_sfx = _configure_sfx_player(player_factory.create(
+		owner_node,
+		"HanMiryangPrologueTabletCrackTailSfx",
+		HAN_MIRYANG_PROLOGUE_TABLET_CRACK_SOUND_PATH,
+		-15.0
+	))
+	perk_fusion_combat_audio.setup(owner_node, player_factory)
 	_enable_loop(stage2_quake_sfx)
 	_enable_loop(stage3_psychoball_sfx)
 	_enable_loop(stage4_magnetic_sfx)
+	_enable_loop(stage4_illusion_sfx)
 
 
 func _setup_bgm_players() -> void:
-	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6", "stage7"]:
+	for bgm_name: String in stage_bgm_audio.get_bgm_ids():
 		_ensure_bgm_player(str(bgm_name))
 	_bgm_setup_step = BGM_SETUP_STEP_COUNT
 	_restore_bgm_muted()
@@ -1062,309 +1725,81 @@ func _setup_bgm_players() -> void:
 
 
 func _setup_bgm_players_step() -> bool:
-	match _bgm_setup_step:
-		0:
-			if _should_setup_bgm_player("stage1"):
-				_ensure_bgm_player("stage1")
-		1:
-			if _should_setup_bgm_player("stage1_alt"):
-				_ensure_bgm_player("stage1_alt")
-		2:
-			if _should_setup_bgm_player("stage1_alt2"):
-				_ensure_bgm_player("stage1_alt2")
-		3:
-			if _should_setup_bgm_player("stage2"):
-				_ensure_bgm_player("stage2")
-		4:
-			if _should_setup_bgm_player("stage2_alt"):
-				_ensure_bgm_player("stage2_alt")
-		5:
-			if _should_setup_bgm_player("stage3"):
-				_ensure_bgm_player("stage3")
-		6:
-			if _should_setup_bgm_player("stage4"):
-				_ensure_bgm_player("stage4")
-		7:
-			if _should_setup_bgm_player("stage4_phase2"):
-				_ensure_bgm_player("stage4_phase2")
-		8:
-			if _should_setup_bgm_player("stage5"):
-				_ensure_bgm_player("stage5")
-		9:
-			if _should_setup_bgm_player("stage6"):
-				_ensure_bgm_player("stage6")
-		10:
-			if _should_setup_bgm_player("stage7"):
-				_ensure_bgm_player("stage7")
-		11:
-			_restore_bgm_muted()
-		_:
-			return true
+	var bgm_ids: Array[String] = stage_bgm_audio.get_bgm_ids()
+	if _bgm_setup_step < bgm_ids.size():
+		var bgm_id := bgm_ids[_bgm_setup_step]
+		if _should_setup_bgm_player(bgm_id):
+			_ensure_bgm_player(bgm_id)
+	elif _bgm_setup_step == bgm_ids.size():
+		_restore_bgm_muted()
+	else:
+		return true
 	_bgm_setup_step += 1
 	return _bgm_setup_step >= BGM_SETUP_STEP_COUNT
 
 
 func _prewarm_audio_setup_streams_step() -> bool:
-	var paths: Array[String] = _get_audio_setup_stream_paths(_audio_setup_step)
-	if paths.is_empty():
-		return true
-	if _audio_setup_stream_prewarm_group != _audio_setup_step:
-		_audio_setup_stream_prewarm_group = _audio_setup_step
-		_audio_setup_stream_prewarm_index = 0
-	while _audio_setup_stream_prewarm_index < paths.size():
-		var path := str(paths[_audio_setup_stream_prewarm_index])
-		_audio_setup_stream_prewarm_index += 1
-		if not _should_prewarm_audio_stream(path):
-			continue
-		if ProjectResourceLoader.get_cached_audio_stream(path) != null:
-			continue
-		ProjectResourceLoader.load_audio_stream(path)
-		return _audio_setup_stream_prewarm_index >= paths.size()
-	return true
+	_ensure_audio_setup_stream_paths(_audio_setup_step)
+	return game_audio_setup_controller.prewarm_streams_step(_audio_setup_step)
 
 
 func _get_audio_setup_step_progress(step: int) -> float:
-	if step >= AUDIO_SETUP_STEP_COUNT:
-		return 1.0
-	if step < 0:
-		return 0.0
-	var paths: Array[String] = _get_audio_setup_stream_paths(step)
-	if not paths.is_empty():
-		var stream_progress := 0.0
-		if _audio_setup_stream_prewarm_group == step:
-			stream_progress = clampf(float(_audio_setup_stream_prewarm_index) / float(paths.size()), 0.0, 1.0)
-		if stream_progress < 1.0:
-			return stream_progress * 0.92
-	if step == 6:
-		return 0.92 + 0.08 * clampf(float(_bgm_setup_step) / float(BGM_SETUP_STEP_COUNT), 0.0, 1.0)
-	return 0.96
+	var stream_paths: Array[String] = _get_audio_setup_stream_paths(step)
+	return game_audio_setup_controller.get_audio_setup_step_progress(
+		step,
+		AUDIO_SETUP_STEP_COUNT,
+		BGM_SETUP_STEP_COUNT,
+		stream_paths.size()
+	)
+
+
+func _ensure_audio_setup_stream_paths(step: int) -> void:
+	if not game_audio_setup_controller.needs_stream_paths(step):
+		return
+	game_audio_setup_controller.set_stream_paths(
+		step,
+		_get_audio_setup_stream_paths(step)
+	)
 
 
 func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 	match step:
 		0:
-			return [
-				UI_MOVE_SOUND_PATH,
-				UI_CONFIRM_SOUND_PATH,
-				UI_BACK_SOUND_PATH,
-				UI_PERK_SELECT_SOUND_PATH,
-				PADDLE_HIT_SOUND_PATH,
-				SERVE_SOUND_PATH,
-				PINGPONG_SERVE_SOUND_PATH,
-				WALL_HIT_SOUND_PATH,
-				DASH_SOUND_PATH,
-				HALF_DASH_SOUND_PATH,
-				DASH_DELAY_SOUND_PATH,
-				DASH_CHARGE_SOUND_PATH,
-				BUST_UP_DASH_SOUND_PATH,
-				BOOST_CHARGING_SOUND_PATH,
-				SOUL_BURST_DASH_SOUND_PATH,
-				DASH_SPIRIT_DELETE_SOUND_PATH,
-			]
+			var core_paths: Array[String] = game_ui_feedback_audio.get_prewarm_stream_paths()
+			core_paths.append_array(core_ball_dash_audio.get_prewarm_stream_paths())
+			return core_paths
 		1:
-			return [
-				DRIVE_SOUND_PATH,
-				MIKA_DRIVE_VOICE_PATH,
-				PLASMA_CHARGE_SOUND_PATH,
-				PLASMA_SHOOT_SOUND_PATH,
-				PLASMA_SHOCK_SOUND_PATH,
-				RECOVERY_SOUND_PATH,
-				CLEANSE_SOUND_PATH,
-				WARP_GATE_SOUND_PATH,
-				MAGNUM_GRIP_SOUND_PATH,
-				SMASHER_WHEEL_SOUND_PATH,
-				SHIELD_KITING_WIND_UP_SOUND_PATH,
-				SHIELD_KITING_LAUNCH_SOUND_PATH,
-				SHIELD_KITING_HIT_SOUND_PATH,
-				WHIP_SOUND_PATH,
-				FAN_SOUND_PATH,
-				WHIPCRACK_SOUND_PATH,
-				VIPER_JETPACK_SOUND_PATH,
-				VIPER_BACKSTEP_SOUND_PATH,
-				VIPER_SHADOW_KICK_SOUND_PATH,
-				VIPER_DIVE_PREP_SOUND_PATH,
-				VIPER_DIVE_STRIKE_SOUND_PATH,
-				VIPER_IGNITION_AURA_SOUND_PATH,
-				VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH,
-				VIPER_PHANTOM_SHOW_SOUND_PATH,
-				VIPER_PHANTOM_KICK_HIT_SOUND_PATH,
-				VIPER_BLADE_SOUND_PATH,
-				VIPER_BLADE_SPIN_SOUND_PATH,
-				VIPER_VENOM_MOVING_SOUND_PATH,
-				VIPER_VENOM_ATTACK_SOUND_PATH,
-				VIPER_HWARANG_KICK_SOUND_PATH,
-				VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH,
-				VIPER_DUAL_GLITCH_WINDUP_SOUND_PATH,
-				VIPER_DUAL_GLITCH_SPLIT_SOUND_PATH,
-				CHAOS_SPEAR_WINDUP_SOUND_PATH,
-				CHAOS_SPEAR_FLYING_SOUND_PATH,
-				CHAOS_SPEAR_IMPACT_SOUND_PATH,
-				CHAOS_SPEAR_BLACKHOLE_SOUND_PATH,
-			]
+			var skill_paths: Array[String] = smasher_skill_audio.get_skill_prewarm_stream_paths()
+			skill_paths.append_array(stage1_boss_skill_audio.get_prewarm_stream_paths())
+			skill_paths.append_array(viper_skill_audio.get_prewarm_stream_paths())
+			return skill_paths
 		2:
-			return [
-				COMMANDO_SUPPLY_RADIO_SOUND_PATH,
-				COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH,
-				COMMANDO_WEAPON_CHANGE_SOUND_PATH,
-				COMMANDO_SLINGSHOT_FIRE_SOUND_PATH,
-				COMMANDO_PISTOL_READY_SOUND_PATH,
-				COMMANDO_PISTOL_FIRE_SOUND_PATH,
-				COMMANDO_PISTOL_RELOAD_START_SOUND_PATH,
-				COMMANDO_PISTOL_RELOAD_SOUND_PATH,
-				COMMANDO_RELOAD_SOUND_PATH,
-				COMMANDO_AK47_FIRE_SOUND_PATH,
-				COMMANDO_BAZOOKA_FIRE_SOUND_PATH,
-				COMMANDO_NET_CAPTURE_SOUND_PATH,
-				COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH,
-				COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH,
-				COMMANDO_SUICIDE_DRONE_SOUND_PATH,
-			]
+			return commando_skill_audio.get_prewarm_stream_paths()
 		3:
-			return [
-				ITEM_GET_SOUND_PATH,
-				DRINK_SOUND_PATH,
-				ACTIVE_ITEM_SOUND_PATH,
-				TRADE_SOUND_PATH,
-				BRICK_WALL_DESTROY_SOUND_PATH,
-				TREASURE_HUNT_MINING_SOUND_PATH,
-				ALCHEMY_SOUND_PATH,
-				PANDORA_SOUND_PATH,
-				LUCKY_COIN_SPAWN_SOUND_PATH,
-				FOUL_WHISTLE_SOUND_PATH,
-				MEGINGJORD_SOUND_PATH,
-				LEGENDARY_OPEN_SOUND_PATH,
-				ANGEL_BLESSING_ROLL_SOUND_PATH,
-				ANGEL_BLESSING_ABSORB_SOUND_PATH,
-				RESULT_BOX_OPEN_SOUND_PATH,
-				DEFEAT_JEWEL_SOUND_PATH,
-				DEFEAT_GEM_SHATTER_SOUND_PATH,
-				LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
-				LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH,
-				LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH,
-				LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH,
-				LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
-				LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
-				LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
-				LINGPET_PUPPET_GRAB_CAST_SOUND_PATH,
-				LINGPET_PUPPET_GRAB_PULL_SOUND_PATH,
-				LINGPET_PUPPET_GRAB_KISS_SOUND_PATH,
-				LINGPET_PUPPET_GRAB_MISS_SOUND_PATH,
-				LINGPET_SAND_PRISON_OPEN_SOUND_PATH,
-				LINGPET_WILD_ROAR_SOUND_PATH,
-				LINGPET_STAR_COIL_BIND_SOUND_PATH,
-				LINGPET_RING_DASH_SOUND_PATH,
-				str(LINGPET_EGG_HIT_SOUND_PATHS[0]),
-				str(LINGPET_EGG_HIT_SOUND_PATHS[1]),
-				LEGENDARY_AFTER_SOUND_PATH,
-				LEGENDARY_ENDING_SOUND_PATH,
-				RAGNAROK_SHOT_SOUND_PATH,
-				RAGNAROK_BOOM_SOUND_PATH,
-				RAGNAROK_SHOCK_SOUND_PATH,
-				ELECTRIC_SHOCK_SOUND_PATH,
-				THUNDER_ORB_SHOT_SOUND_PATH,
-				THUNDER_ORB_BOOM_SOUND_PATH,
-				SOLAR_BOLT_STRIKE_SOUND_PATH,
-				POSEIDON_WAVE_SOUND_PATH,
-				POSEIDON_CHARGE_SOUND_PATH,
-				TIMEWATCH_SOUND_PATH,
-				THROW_BEFORE_SOUND_PATH,
-				THROW_SOUND_PATH,
-				HORN_STRAWBERRY_CHANGE_SOUND_PATH,
-				HORN_STRAWBERRY_EAT_SOUND_PATH,
-				HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH,
-				HORN_STRAWBERRY_STEM_HIT_SOUND_PATH,
-				HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH,
-				HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH,
-				HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH,
-				HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH,
-				HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH,
-			]
+			var item_paths: Array[String] = item_reward_feedback_audio.get_prewarm_stream_paths()
+			item_paths.append_array(lingpet_acquisition_audio.get_prewarm_stream_paths())
+			item_paths.append_array(lingpet_click_voice_audio.get_prewarm_stream_paths())
+			item_paths.append_array(lingpet_combat_audio.get_item_prewarm_stream_paths())
+			item_paths.append_array(item_reward_feedback_audio.get_cinematic_prewarm_stream_paths())
+			item_paths.append_array(elemental_combat_audio.get_prewarm_stream_paths())
+			item_paths.append_array(item_reward_feedback_audio.get_item_action_prewarm_stream_paths())
+			item_paths.append_array(transformation_item_audio.get_prewarm_stream_paths())
+			return item_paths
 		4:
-			return [
-				GRENADE_SOUND_PATH,
-				FLASHBOMB_SOUND_PATH,
-				SMOKEBOMB_SOUND_PATH,
-				FIREBOMB_SOUND_PATH,
-				BOOMERANG_SOUND_PATH,
-				BOOMERANG_HIT_SOUND_PATH,
-				BOOMERANG_BREAK_SOUND_PATH,
-				SHRAPNEL_ARMOR_FIRE_SOUND_PATH,
-				SHRAPNEL_ARMOR_HIT_SOUND_PATH,
-				BANANA_THROW_SOUND_PATH,
-				BANANA_SLIP_SOUND_PATH,
-				SOAP_THROW_SOUND_PATH,
-				SOAP_LAND_SOUND_PATH,
-				SOAP_SLIP_SOUND_PATH,
-				SPIDER_MINE_WALK_SOUND_PATH,
-				SPIDER_MINE_SETUP_SOUND_PATH,
-			]
+			return projectile_item_audio.get_prewarm_stream_paths()
 		5:
-			var stage_paths: Array[String] = [
-				POWER_SMASH_SOUND_PATH,
-				POWER_SMASH_LAUNCH_SOUND_PATH,
-				ROUND_SET_SOUND_PATH,
-				HAN_MIRYANG_PROLOGUE_OPENING_DRUM_SOUND_PATH,
-				HAN_MIRYANG_PROLOGUE_RAYS_SOUND_PATH,
-				BALL_SPAWN_INTRO_SOUND_PATH,
-				STAGE_LANDING_ZOOM_INTRO_SOUND_PATH,
-				BALLOON_POP_SOUND_PATH,
-				STAGE1_BALLOON_DOOR_SOUND_PATH,
-				STAGE1_BALLOON_MACHINE_SOUND_PATH,
-				STAR_COLLECT_SOUND_PATH,
-				STAGE2_HYDRO_SOUND_PATH,
-				STAGE2_STONEBREAK_SOUND_PATH,
-				STAGE2_ROCKHIT_SOUND_PATH,
-				STAGE2_ROCK_SPAWN_SOUND_PATH,
-				STAGE2_QUAKE_SOUND_PATH,
-				STAGE2_BOSS_CRY_SOUND_PATH,
-				STAGE2_SPEED_DEFENSE_START_SOUND_PATH,
-				STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH,
-				STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH,
-				STAGE3_TAIL_SOUND_PATH,
-				STAGE3_PSYCHOBALL_SOUND_PATH,
-				STAGE3_DOLLCURSE_SOUND_PATH,
-				STAGE3_TEARS_SOUND_PATH,
-				STAGE3_CHEST_LAND_SOUND_PATH,
-				STAGE3_CURSE_EXPLODE_SOUND_PATH,
-				STAGE3_KUROMI_AWAKE_SOUND_PATH,
-				STAGE3_KUROMI_STONEBREAK_SOUND_PATH,
-				STAGE3_KUROMI_TONGUE_SOUND_PATH,
-				STAGE3_KUROMI_SWALLOW_SOUND_PATH,
-				STAGE3_KUROMI_SPIT_SOUND_PATH,
-				LINGPET_GHOST_SUMMON_SOUND_PATH,
-				LINGPET_GHOST_SUMMON_OUT_SOUND_PATH,
-				LINGPET_SKELETON_ARCHER_SUMMON_SOUND_PATH,
-				LINGPET_SKELETON_ARCHER_DEATH_SOUND_PATH,
-				LINGPET_SKELETON_ARCHER_ARROW_FIRE_SOUND_PATH,
-				LINGPET_SKELETON_ARCHER_ARROW_HIT_SOUND_PATH,
-				LINGPET_BONE_BARRIER_BUILD_SOUND_PATH,
-				LINGPET_BONE_BARRIER_BREAK_SOUND_PATH,
-				LINGPET_BONE_BARRIER_BUILD_BREAK_SOUND_PATH,
-				STAGE4_MOON_SHOOT_SOUND_PATH,
-				STAGE4_FRAGMENT_SHOOT_SOUND_PATH,
-				STAGE4_TEMPLE_HIT_SOUND_PATH,
-				STAGE4_BIRDKILL_SOUND_PATH,
-				STAGE4_MAGNETIC_SOUND_PATH,
-				STAGE4_MEDITATION_SOUND_PATH,
-				STAGE4_MEDITATION_AFTER_SOUND_PATH,
-				STAGE5_HONGRYUN_FIREBALL_SOUND_PATH,
-				STAGE5_HONGRYUN_CHARGE_SOUND_PATH,
-				STAGE5_HONGRYUN_SHOOT_SOUND_PATH,
-				STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH,
-				STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH,
-				STAGE7_AKAMU_CLOUD_SOUND_PATH,
-				STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH,
-				STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH,
-				STAGE7_AKAMU_CLONE_OUT_SOUND_PATH,
-				LEAF_SHIELD_SOUND_PATH,
-				TRAMPOLINE_BOUNCE_SOUND_PATH,
-			]
-			for voice_path in MIKA_POWER_SMASHING_VOICE_PATHS:
-				stage_paths.append(str(voice_path))
-			for voice_path in MIKA_GHOST_SMASHING_VOICE_PATHS:
-				stage_paths.append(str(voice_path))
-			for hurt_path in STAGE5_HONGRYUN_HURT_SOUND_PATHS:
-				stage_paths.append(str(hurt_path))
+			var stage_paths: Array[String] = smasher_skill_audio.get_stage_primary_prewarm_stream_paths()
+			stage_paths.append_array(shared_stage_feedback_audio.get_primary_prewarm_stream_paths())
+			stage_paths.append_array(stage2_battle_audio.get_prewarm_stream_paths())
+			stage_paths.append_array(stage3_battle_audio.get_prewarm_stream_paths())
+			stage_paths.append_array(lingpet_combat_audio.get_stage_prewarm_stream_paths())
+			stage_paths.append_array(stage4_ponk_audio.get_prewarm_stream_paths())
+			stage_paths.append_array(stage5_hongryun_audio.get_primary_prewarm_stream_paths())
+			stage_paths.append_array(stage7_akamu_audio.get_prewarm_stream_paths())
+			stage_paths.append_array(shared_stage_feedback_audio.get_tail_prewarm_stream_paths())
+			stage_paths.append_array(smasher_skill_audio.get_voice_prewarm_stream_paths())
+			stage_paths.append_array(stage5_hongryun_audio.get_hurt_prewarm_stream_paths())
+			stage_paths.append_array(perk_fusion_combat_audio.get_prewarm_stream_paths())
 			return stage_paths
 		6:
 			return _get_required_bgm_stream_paths()
@@ -1372,51 +1807,26 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 
 
 func _get_required_bgm_stream_paths() -> Array[String]:
-	var paths: Array[String] = []
-	for bgm_name in ["stage1", "stage1_alt", "stage1_alt2", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6", "stage7"]:
-		var bgm_key := str(bgm_name)
-		if _should_setup_bgm_player(bgm_key):
-			paths.append(_get_bgm_stream_path(bgm_key))
-	return paths
+	return stage_bgm_audio.get_required_stream_paths(Callable(self, "_should_setup_bgm_player"))
 
 
 func _get_bgm_stream_path(bgm_name: String) -> String:
-	if bgm_name == "stage1":
-		return STAGE1_BGM_PATH
-	if bgm_name == "stage1_alt":
-		return STAGE1_ALT_BGM_PATH
-	if bgm_name == "stage1_alt2":
-		return STAGE1_ALT2_BGM_PATH
-	if bgm_name == "stage2":
-		return STAGE2_BGM_PATH
-	if bgm_name == "stage2_alt":
-		return STAGE2_ALT_BGM_PATH
-	if bgm_name == "stage3":
-		return STAGE3_BGM_PATH
-	if bgm_name == "stage4":
-		return STAGE4_BGM_PATH
-	if bgm_name == "stage4_phase2":
-		return STAGE4_PHASE2_BGM_PATH
-	if bgm_name == "stage5":
-		return STAGE5_BGM_PATH
-	if bgm_name == "stage6":
-		return STAGE6_BGM_PATH
-	if bgm_name == "stage7":
-		return STAGE7_BGM_PATH
-	return ""
-
-
-func _should_prewarm_audio_stream(path: String) -> bool:
-	return (
-		path != ""
-		and (FileAccess.file_exists(path) or ProjectResourceLoader.audio_resource_exists(path))
-	)
+	return stage_bgm_audio.get_stream_path(bgm_name)
 
 
 func _is_setup_complete() -> bool:
-	if _bgm_setup_step >= BGM_SETUP_STEP_COUNT and _are_all_bgm_players_ready():
-		return true
-	return _audio_setup_step > 6 and _bgm_setup_step >= BGM_SETUP_STEP_COUNT and _is_required_bgm_player_ready()
+	var all_bgm_players_ready := false
+	var required_bgm_player_ready := false
+	if _bgm_setup_step >= BGM_SETUP_STEP_COUNT:
+		all_bgm_players_ready = _are_all_bgm_players_ready()
+		if not all_bgm_players_ready and _audio_setup_step >= AUDIO_SETUP_STEP_COUNT:
+			required_bgm_player_ready = _is_required_bgm_player_ready()
+	return game_audio_setup_controller.is_setup_complete(
+		AUDIO_SETUP_STEP_COUNT,
+		BGM_SETUP_STEP_COUNT,
+		all_bgm_players_ready,
+		required_bgm_player_ready
+	)
 
 
 func _should_setup_bgm_player(bgm_name: String) -> bool:
@@ -1439,45 +1849,17 @@ func _should_setup_bgm_player(bgm_name: String) -> bool:
 
 
 func _is_required_bgm_player_ready() -> bool:
-	if _should_setup_bgm_player("stage1") and not _is_owned_player_ready(stage1_bgm):
-		return false
-	if _should_setup_bgm_player("stage1_alt") and not _is_owned_player_ready(stage1_alt_bgm):
-		return false
-	if _should_setup_bgm_player("stage1_alt2") and not _is_owned_player_ready(stage1_alt2_bgm):
-		return false
-	if _should_setup_bgm_player("stage2") and not _is_owned_player_ready(stage2_bgm):
-		return false
-	if _should_setup_bgm_player("stage2_alt") and not _is_owned_player_ready(stage2_alt_bgm):
-		return false
-	if _should_setup_bgm_player("stage3") and not _is_owned_player_ready(stage3_bgm):
-		return false
-	if _should_setup_bgm_player("stage4") and not _is_owned_player_ready(stage4_bgm):
-		return false
-	if _should_setup_bgm_player("stage4_phase2") and not _is_owned_player_ready(stage4_phase2_bgm):
-		return false
-	if _should_setup_bgm_player("stage5") and not _is_owned_player_ready(stage5_bgm):
-		return false
-	if _should_setup_bgm_player("stage6") and not _is_owned_player_ready(stage6_bgm):
-		return false
-	if _should_setup_bgm_player("stage7") and not _is_owned_player_ready(stage7_bgm):
-		return false
+	for bgm_id: String in stage_bgm_audio.get_bgm_ids():
+		if _should_setup_bgm_player(bgm_id) and not _is_owned_player_ready(_get_bgm_player(bgm_id)):
+			return false
 	return true
 
 
 func _are_all_bgm_players_ready() -> bool:
-	return (
-		_is_owned_player_ready(stage1_bgm)
-		and _is_owned_player_ready(stage1_alt_bgm)
-		and _is_owned_player_ready(stage1_alt2_bgm)
-		and _is_owned_player_ready(stage2_bgm)
-		and _is_owned_player_ready(stage2_alt_bgm)
-		and _is_owned_player_ready(stage3_bgm)
-		and _is_owned_player_ready(stage4_bgm)
-		and _is_owned_player_ready(stage4_phase2_bgm)
-		and _is_owned_player_ready(stage5_bgm)
-		and _is_owned_player_ready(stage6_bgm)
-		and _is_owned_player_ready(stage7_bgm)
-	)
+	for bgm_id: String in stage_bgm_audio.get_bgm_ids():
+		if not _is_owned_player_ready(_get_bgm_player(bgm_id)):
+			return false
+	return true
 
 
 func _get_owner_current_stage() -> int:
@@ -1498,7 +1880,7 @@ func update(delta: float) -> void:
 
 func play_drive() -> void:
 	_play_with_pitch(drive_sfx, randf_range(0.98, 1.02))
-	_play_with_pitch(mika_drive_voice_sfx, 1.0)
+	_play_random_stream_with_pitch(mika_drive_voice_sfx, mika_drive_voice_streams, 1.0)
 
 
 func play_plasma_charge() -> void:
@@ -1549,6 +1931,24 @@ func sync_plasma_shock(active: bool) -> void:
 
 func play_recovery() -> void:
 	_play_with_pitch(recovery_sfx, randf_range(0.98, 1.02))
+
+
+# 콜드부트 §9 전이 SFX: B1 트위스트락 CHNK / B2 부팅 램프(0.85s 원샷) /
+# B3 이그니션 THUNK / B4 각성 팡파르(부산물 전개 시에만 — 호출측 게이트).
+func play_cold_boot_chnk_latch() -> void:
+	_play_with_pitch(cold_boot_chnk_latch_sfx, randf_range(0.97, 1.03))
+
+
+func play_cold_boot_post_ramp() -> void:
+	_play_with_pitch(cold_boot_post_ramp_sfx, randf_range(0.99, 1.01))
+
+
+func play_cold_boot_ignition_thunk() -> void:
+	_play_with_pitch(cold_boot_ignition_thunk_sfx, randf_range(0.97, 1.03))
+
+
+func play_cold_boot_awaken_fanfare() -> void:
+	_play_with_pitch(cold_boot_awaken_fanfare_sfx, randf_range(0.99, 1.01))
 
 
 func play_defeat_jewel() -> void:
@@ -1626,6 +2026,20 @@ func sync_smasher_wheel_loop(active: bool) -> void:
 		stop_smasher_wheel_loop()
 
 
+# 풍운천선무 컷인 한미량 보이스. 발동마다 후보 2개 중 1개를 무작위로 고른다.
+func play_smasher_wheel_cutin_voice() -> void:
+	_play_random_stream_with_pitch(mika_smasher_wheel_voice_sfx, mika_smasher_wheel_voice_streams, 1.0)
+
+
+func play_smasher_overdrive_activation() -> void:
+	_play_with_pitch(smasher_overdrive_activation_sfx, randf_range(0.98, 1.02))
+	_play_random_stream_with_pitch(
+		mika_smasher_overdrive_voice_sfx,
+		mika_smasher_overdrive_voice_streams,
+		1.0
+	)
+
+
 func play_shield_kiting_wind_up() -> void:
 	_play_with_pitch(shield_kiting_wind_up_sfx, randf_range(0.98, 1.02))
 
@@ -1700,6 +2114,10 @@ func play_thor_shield_swing() -> void:
 
 func play_thor_shield_block() -> void:
 	_play_with_pitch(thor_shield_block_sfx, randf_range(0.98, 1.02))
+
+
+func play_spellbreaker_guard_parry() -> void:
+	_play_with_pitch(spellbreaker_guard_parry_sfx, 1.0)
 
 
 func play_viper_backstep() -> void:
@@ -2075,10 +2493,6 @@ func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
-func play_hologram_disk() -> void:
-	play_active_item()
-
-
 func play_trade() -> void:
 	_play_with_pitch(trade_sfx, randf_range(0.98, 1.02))
 
@@ -2086,11 +2500,6 @@ func play_trade() -> void:
 func play_brick_wall_destroy() -> void:
 	if not _play_with_pitch(brick_wall_destroy_sfx, randf_range(0.94, 1.06)):
 		play_wall_hit(0.0)
-
-
-func play_treasure_hunt_mining() -> void:
-	if not _play_with_pitch(treasure_hunt_mining_sfx, randf_range(0.98, 1.02)):
-		play_stage2_rockhit()
 
 
 func play_alchemy() -> void:
@@ -2152,122 +2561,116 @@ func play_result_box_open() -> void:
 
 
 func play_lingpet_acquire_cutin() -> void:
-	if not _play_with_pitch(_ensure_lingpet_acquire_cutin_sfx(), randf_range(0.98, 1.02)):
+	lingpet_acquisition_audio.configure(owner_node, player_factory)
+	if not _play_with_pitch(lingpet_acquisition_audio.ensure_player("cutin"), randf_range(0.98, 1.02)):
 		play_item_get()
 
 
 func play_lingpet_acquire_click_reaction_backing() -> void:
-	_play_with_pitch(_ensure_lingpet_acquire_click_deep_bass_sfx(), 1.0)
-	_play_with_pitch(_ensure_lingpet_acquire_click_crackle_sweep_sfx(), 1.0)
+	lingpet_acquisition_audio.configure(owner_node, player_factory)
+	_play_with_pitch(lingpet_acquisition_audio.ensure_player("click_deep_bass"), 1.0)
+	_play_with_pitch(lingpet_acquisition_audio.ensure_player("click_crackle_sweep"), 1.0)
 
 
 # In-battle companion click-reaction voice. Pet-agnostic at the call site; this
 # method owns the per-pet sound mapping. Pets without a dedicated click voice
 # play nothing (silent), so callers can always pass the current pet id.
 func play_lingpet_click_reaction(pet_id: String) -> void:
-	var normalized_pet_id := pet_id.strip_edges().to_lower()
-	if normalized_pet_id == "lunabi":
-		_play_with_pitch(_ensure_lingpet_lunabi_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "volty":
-		_play_with_pitch(_ensure_lingpet_volty_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "milkring":
-		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "red_dragon":
-		_play_with_pitch(_ensure_lingpet_red_dragon_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "maribo":
-		_play_with_pitch(_ensure_lingpet_maribo_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "rabi":
-		_play_with_pitch(_ensure_lingpet_rabi_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "lumion":
-		_play_with_pitch(_ensure_lingpet_lumion_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "monkeyring":
-		_play_with_pitch(_ensure_lingpet_monkeyring_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "onimaru":
-		_play_with_pitch(_ensure_lingpet_onimaru_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "orosha":
-		_play_with_pitch(_ensure_lingpet_orosha_click_voice_sfx(), randf_range(0.98, 1.02))
-	elif normalized_pet_id == "koyora":
-		_play_with_pitch(_ensure_lingpet_koyora_click_voice_sfx(), randf_range(0.98, 1.02))
+	lingpet_click_voice_audio.configure(owner_node, player_factory)
+	var previous_player: AudioStreamPlayer = lingpet_click_voice_audio.get_player(pet_id)
+	var player: AudioStreamPlayer = lingpet_click_voice_audio.ensure_player_for_pet(pet_id)
+	if player == null:
+		return
+	if player != previous_player:
+		_configure_sfx_player(player)
+	_play_with_pitch(player, randf_range(0.98, 1.02))
 
 
 func play_lingpet_puppet_grab_cast() -> void:
-	if not _play_with_pitch(lingpet_puppet_grab_cast_sfx, randf_range(0.98, 1.02)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("puppet_grab_cast"), randf_range(0.98, 1.02)):
 		play_active_item()
 
 
 func play_lingpet_puppet_grab_pull() -> void:
-	if not _play_with_pitch(lingpet_puppet_grab_pull_sfx, randf_range(0.98, 1.02)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("puppet_grab_pull"), randf_range(0.98, 1.02)):
 		play_active_item()
 
 
 func play_lingpet_puppet_grab_kiss() -> void:
-	if not _play_with_pitch(lingpet_puppet_grab_kiss_sfx, randf_range(0.98, 1.02)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("puppet_grab_kiss"), randf_range(0.98, 1.02)):
 		play_active_item()
 
 
 func play_lingpet_puppet_grab_miss() -> void:
-	if not _play_with_pitch(lingpet_puppet_grab_miss_sfx, randf_range(0.98, 1.02)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("puppet_grab_miss"), randf_range(0.98, 1.02)):
 		play_active_item()
 
 
 func play_lingpet_sand_prison_cast() -> void:
-	if not _play_with_pitch(lingpet_sand_prison_open_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("sand_prison"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func play_lingpet_wild_roar() -> void:
-	if not _play_with_pitch(lingpet_wild_roar_sfx, randf_range(0.96, 1.04)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("wild_roar"), randf_range(0.96, 1.04)):
 		play_active_item()
 
 
 func play_lingpet_star_coil_bind() -> void:
-	if not _play_with_pitch(lingpet_star_coil_bind_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("star_coil_bind"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func stop_lingpet_star_coil_bind() -> void:
-	if lingpet_star_coil_bind_sfx != null and lingpet_star_coil_bind_sfx.playing:
-		lingpet_star_coil_bind_sfx.stop()
+	var player: AudioStreamPlayer = lingpet_combat_audio.get_player("star_coil_bind")
+	if player != null and player.playing:
+		player.stop()
 
 
 func play_lingpet_star_coil_move() -> void:
-	if lingpet_star_coil_move_sfx == null or lingpet_star_coil_move_sfx.stream == null:
+	var player: AudioStreamPlayer = lingpet_combat_audio.get_player("star_coil_move")
+	if player == null or player.stream == null:
 		return
-	if lingpet_star_coil_move_sfx.playing:
+	if player.playing:
 		return
-	lingpet_star_coil_move_sfx.pitch_scale = 1.0
-	lingpet_star_coil_move_sfx.play()
+	player.pitch_scale = 1.0
+	player.play()
 
 
 func stop_lingpet_star_coil_move() -> void:
-	if lingpet_star_coil_move_sfx != null and lingpet_star_coil_move_sfx.playing:
-		lingpet_star_coil_move_sfx.stop()
+	var player: AudioStreamPlayer = lingpet_combat_audio.get_player("star_coil_move")
+	if player != null and player.playing:
+		player.stop()
 
 
 func play_lingpet_dwarf_magic_cast() -> void:
-	if not _play_with_pitch(lingpet_dwarf_magic_cast_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("dwarf_magic_cast"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func play_lingpet_dwarf_magic_hit() -> void:
-	if not _play_with_pitch(lingpet_dwarf_magic_hit_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("dwarf_magic_hit"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func play_lingpet_gravity_accel_cast() -> void:
-	if not _play_with_pitch(lingpet_gravity_accel_cast_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("gravity_accel_cast"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func play_lingpet_ring_dash() -> void:
-	if not _play_with_pitch(lingpet_ring_dash_sfx, randf_range(0.97, 1.03)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("ring_dash"), randf_range(0.97, 1.03)):
 		play_active_item()
 
 
 func play_lingpet_egg_hit() -> void:
-	# 링펫알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 하나를 랜덤 재생(피치 지터)해
+	# 수호령 알이 공에 맞을 때: 뼈 부러지는 임팩트 2종 중 하나를 랜덤 재생(피치 지터)해
 	# 연속 히트가 똑같이 들리지 않게 한다.
-	_play_random_stream_with_pitch(lingpet_egg_hit_sfx, lingpet_egg_hit_streams, randf_range(0.94, 1.06))
+	_play_random_stream_with_pitch(
+		lingpet_combat_audio.get_player("egg_hit"),
+		lingpet_combat_audio.get_candidate_streams("egg_hit"),
+		randf_range(0.94, 1.06)
+	)
 
 
 func play_lingpet_doll_curse() -> void:
@@ -2389,6 +2792,28 @@ func play_throw_before() -> void:
 
 func play_throw() -> void:
 	_play_with_pitch(throw_sfx, randf_range(0.98, 1.02))
+
+
+# 오딘의 눈 5종 원샷 큐 — 루프 SFX 금지 계약(모달 loop-audio 트랩 자체 회피).
+# 변신·사망 큐는 타임라인 원샷(재생 시점=시퀀스 시작)이라 피치 랜덤 없이 1.0.
+func play_odins_eye_change() -> void:
+	_play_with_pitch(odins_eye_change_sfx, 1.0)
+
+
+func play_odins_eye_death() -> void:
+	_play_with_pitch(odins_eye_death_sfx, 1.0)
+
+
+func play_odins_eye_spirit() -> void:
+	_play_with_pitch(odins_eye_spirit_sfx, randf_range(0.98, 1.02))
+
+
+func play_odins_eye_attack() -> void:
+	_play_with_pitch(odins_eye_attack_sfx, randf_range(0.98, 1.02))
+
+
+func play_odins_eye_shadow() -> void:
+	_play_with_pitch(odins_eye_shadow_sfx, randf_range(0.98, 1.02))
 
 
 func play_horn_strawberry_change() -> void:
@@ -2630,31 +3055,33 @@ func play_bomb_surprise_explosion(self_explosion: bool) -> void:
 
 
 func play_lingpet_gatling_transform() -> void:
-	if not _play_with_pitch(lingpet_gatling_transform_sfx, 1.0):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("gatling_transform"), 1.0):
 		play_active_item()
 
 
 func play_lingpet_gatling_fire() -> void:
-	_play_with_pitch(lingpet_gatling_fire_sfx, randf_range(0.98, 1.02))
+	_play_with_pitch(lingpet_combat_audio.get_player("gatling_fire"), randf_range(0.98, 1.02))
 
 
 func play_lingpet_gatling_hit() -> void:
-	if not _play_with_pitch(lingpet_gatling_hit_sfx, randf_range(0.98, 1.02)):
+	if not _play_with_pitch(lingpet_combat_audio.get_player("gatling_hit"), randf_range(0.98, 1.02)):
 		play_paddle_hit()
 
 
 func play_lingpet_gatling_loop() -> void:
-	if lingpet_gatling_loop_sfx == null or lingpet_gatling_loop_sfx.stream == null:
+	var player: AudioStreamPlayer = lingpet_combat_audio.get_player("gatling_loop")
+	if player == null or player.stream == null:
 		return
-	if lingpet_gatling_loop_sfx.playing:
+	if player.playing:
 		return
-	lingpet_gatling_loop_sfx.pitch_scale = 1.0
-	lingpet_gatling_loop_sfx.play()
+	player.pitch_scale = 1.0
+	player.play()
 
 
 func stop_lingpet_gatling_loop() -> void:
-	if lingpet_gatling_loop_sfx != null and lingpet_gatling_loop_sfx.playing:
-		lingpet_gatling_loop_sfx.stop()
+	var player: AudioStreamPlayer = lingpet_combat_audio.get_player("gatling_loop")
+	if player != null and player.playing:
+		player.stop()
 
 
 func sync_lingpet_gatling_loop(active: bool) -> void:
@@ -2664,8 +3091,13 @@ func sync_lingpet_gatling_loop(active: bool) -> void:
 		stop_lingpet_gatling_loop()
 
 
-func play_power_smash() -> void:
+func play_full_skill_cutin() -> void:
 	_play_with_pitch(power_smash_sfx, randf_range(0.98, 1.02))
+
+
+func play_power_smash() -> void:
+	# Compatibility facade for older callers and replay presentation.
+	play_full_skill_cutin()
 
 
 func play_power_smashing_cutin_voice() -> void:
@@ -2785,11 +3217,30 @@ func play_trampoline_catch() -> void:
 
 
 func play_round_set() -> void:
-	if round_set_sfx == null or round_set_sfx.stream == null:
+	_play_exclusive_round_result_sfx(round_set_sfx)
+
+
+func play_round_victory() -> void:
+	_play_exclusive_round_result_sfx(round_defeat_sfx)
+
+
+func play_round_defeat() -> void:
+	_play_exclusive_round_result_sfx(round_defeat_sfx)
+
+
+func play_stage_clear_gong() -> void:
+	if stage_clear_gong_sfx != null:
+		stage_clear_gong_sfx.pitch_scale = 1.0
+	_play_exclusive_round_result_sfx(stage_clear_gong_sfx)
+
+
+func _play_exclusive_round_result_sfx(target: AudioStreamPlayer) -> void:
+	if target == null or target.stream == null:
 		return
-	if round_set_sfx.playing:
-		round_set_sfx.stop()
-	round_set_sfx.play()
+	for player: AudioStreamPlayer in [round_set_sfx, round_defeat_sfx, stage_clear_gong_sfx]:
+		if player != null and player.playing:
+			player.stop()
+	target.play()
 
 
 func play_ball_spawn_intro() -> void:
@@ -2819,7 +3270,42 @@ func play_stage1_balloon_pop() -> void:
 	_play_with_pitch(balloon_pop_sfx, randf_range(0.98, 1.04))
 
 
-func play_hologram_decoy_pop() -> void:
+func play_void_phantom_cast() -> void:
+	play_active_item()
+	_play_random_stream_with_pitch(
+		mika_void_phantom_voice_sfx,
+		mika_void_phantom_voice_streams,
+		1.0
+	)
+
+
+# 허공환영 60프레임 기 모으기 라이저(one-shot ~1.6s). 컷인 동결 동안은 볼-패스가
+# 정지라 차징 틱이 돌지 않으므로, 시전(cast)이 아니라 실제 차징 첫 틱에서 부른다.
+func play_void_phantom_charge() -> void:
+	if void_phantom_charge_sfx == null or void_phantom_charge_sfx.stream == null:
+		return
+	if void_phantom_charge_sfx.playing:
+		void_phantom_charge_sfx.stop()
+	void_phantom_charge_sfx.pitch_scale = 1.0
+	void_phantom_charge_sfx.play()
+
+
+func stop_void_phantom_charge() -> void:
+	if void_phantom_charge_sfx != null and void_phantom_charge_sfx.playing:
+		void_phantom_charge_sfx.stop()
+
+
+# 차지 60프레임 완료 → 실공+환영 동시 발사 순간의 에너지 블라스트(one-shot).
+func play_void_phantom_launch() -> void:
+	if void_phantom_launch_sfx == null or void_phantom_launch_sfx.stream == null:
+		return
+	if void_phantom_launch_sfx.playing:
+		void_phantom_launch_sfx.stop()
+	void_phantom_launch_sfx.pitch_scale = 1.0
+	void_phantom_launch_sfx.play()
+
+
+func play_void_phantom_pop() -> void:
 	play_stage1_balloon_pop()
 
 
@@ -2831,23 +3317,31 @@ func play_stage1_balloon_machine() -> void:
 	_play_with_pitch(stage1_balloon_machine_sfx, randf_range(0.98, 1.02))
 
 
-# 한미량 서막은 전용 북·광선 플레이어와 기존 금속 차임을 사용한다.
-# 재생 시점은 story presentation이 소유하고 실제 버스 라우팅과 정리는
-# GameAudio에 남긴다. 전용 플레이어라 다른 전투 효과의 pitch를 오염시키지 않는다.
+# 한미량 서막은 기존 SFX 플레이어를 전용 타이밍으로 재사용한다. 재생
+# 타임라인은 presentation이 소유하고, 버스/사용자 볼륨 보존은 GameAudio가
+# 계속 소유한다. 고정 피치는 동일 장면의 반복 감상에서도 큐를 흔들지 않는다.
 func play_han_miryang_prologue_opening_drum() -> void:
-	_play_with_pitch(han_miryang_prologue_opening_drum_sfx, 0.72)
+	_play_with_pitch(stage_clear_gong_sfx, 0.72)
 
 
 func play_han_miryang_prologue_rays() -> void:
-	_play_with_pitch(han_miryang_prologue_rays_sfx, 0.90)
+	_play_with_pitch(odins_eye_spirit_sfx, 0.90)
 
 
 func play_han_miryang_prologue_spirit_bell() -> void:
 	_play_with_pitch(stage2_speed_defense_block_sfx, 1.0)
 
 
+func play_han_miryang_prologue_tablet_crack() -> void:
+	_play_with_pitch(han_miryang_prologue_tablet_crack_sfx, HAN_MIRYANG_PROLOGUE_TABLET_CRACK_PITCH)
+
+
+func play_han_miryang_prologue_tablet_crack_tail() -> void:
+	_play_with_pitch(han_miryang_prologue_tablet_crack_tail_sfx, HAN_MIRYANG_PROLOGUE_TABLET_CRACK_TAIL_PITCH)
+
+
 func stop_han_miryang_prologue_cues() -> void:
-	for player: AudioStreamPlayer in [han_miryang_prologue_opening_drum_sfx, han_miryang_prologue_rays_sfx, stage2_speed_defense_block_sfx]:
+	for player: AudioStreamPlayer in [stage_clear_gong_sfx, odins_eye_spirit_sfx, stage2_speed_defense_block_sfx, han_miryang_prologue_tablet_crack_sfx, han_miryang_prologue_tablet_crack_tail_sfx]:
 		if player == null:
 			continue
 		if player.playing:
@@ -2969,41 +3463,41 @@ func play_stage3_kuromi_spit() -> void:
 
 
 func play_lingpet_ghost_summon() -> void:
-	_play_with_pitch(lingpet_ghost_summon_sfx, randf_range(0.97, 1.03))
+	_play_with_pitch(lingpet_combat_audio.get_player("ghost_summon"), randf_range(0.97, 1.03))
 
 
 func play_lingpet_ghost_summon_out() -> void:
-	_play_with_pitch(lingpet_ghost_summon_out_sfx, randf_range(0.97, 1.03))
+	_play_with_pitch(lingpet_combat_audio.get_player("ghost_summon_out"), randf_range(0.97, 1.03))
 
 
 # Skeleton Archer cues play at native pitch (1.0) to match the original pygame
 # Sound.play(), which applies no pitch variation.
 func play_lingpet_skeleton_archer_summon() -> void:
-	_play_with_pitch(lingpet_skeleton_archer_summon_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("skeleton_archer_summon"), 1.0)
 
 
 func play_lingpet_skeleton_archer_death() -> void:
-	_play_with_pitch(lingpet_skeleton_archer_death_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("skeleton_archer_death"), 1.0)
 
 
 func play_lingpet_skeleton_archer_arrow_fire() -> void:
-	_play_with_pitch(lingpet_skeleton_archer_arrow_fire_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("skeleton_archer_arrow_fire"), 1.0)
 
 
 func play_lingpet_skeleton_archer_arrow_hit() -> void:
-	_play_with_pitch(lingpet_skeleton_archer_arrow_hit_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("skeleton_archer_arrow_hit"), 1.0)
 
 
 func play_lingpet_bone_barrier_build() -> void:
-	_play_with_pitch(lingpet_bone_barrier_build_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("bone_barrier_build"), 1.0)
 
 
 func play_lingpet_bone_barrier_break() -> void:
-	_play_with_pitch(lingpet_bone_barrier_break_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("bone_barrier_break"), 1.0)
 
 
 func play_lingpet_bone_barrier_build_break() -> void:
-	_play_with_pitch(lingpet_bone_barrier_build_break_sfx, 1.0)
+	_play_with_pitch(lingpet_combat_audio.get_player("bone_barrier_build_break"), 1.0)
 
 
 func play_stage3_psychoball_loop() -> void:
@@ -3070,6 +3564,29 @@ func sync_stage4_magnetic_loop(active: bool) -> void:
 		play_stage4_magnetic_loop()
 	else:
 		stop_stage4_magnetic_loop()
+
+
+# 몽환포영(illusion_ripple) 최면 앰비언스 루프 — 마그네틱 루프 1:1 미러
+# (WIP 파괴 후 재배선). 게이트는 illusion_active(별도 release 페이즈 없음).
+func play_stage4_illusion_loop() -> void:
+	if stage4_illusion_sfx == null or stage4_illusion_sfx.stream == null:
+		return
+	if stage4_illusion_sfx.playing:
+		return
+	stage4_illusion_sfx.pitch_scale = 1.0
+	stage4_illusion_sfx.play()
+
+
+func stop_stage4_illusion_loop() -> void:
+	if stage4_illusion_sfx != null and stage4_illusion_sfx.playing:
+		stage4_illusion_sfx.stop()
+
+
+func sync_stage4_illusion_loop(active: bool) -> void:
+	if active:
+		play_stage4_illusion_loop()
+	else:
+		stop_stage4_illusion_loop()
 
 
 func play_stage5_hongryun_fireball() -> void:
@@ -3158,195 +3675,118 @@ func play_stage5_hongryun_hurt() -> void:
 
 
 func play_stage4_phase2_bgm() -> bool:
-	return play_bgm("stage4_phase2")
+	return stage_bgm_playback_controller.play_stage4_phase2_bgm(
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func play_stage_bgm(stage: int) -> bool:
-	if stage == 1:
-		return play_bgm(_select_stage1_bgm_name())
-	if stage == 2:
-		return play_bgm(_select_stage2_bgm_name())
-	if stage == 3:
-		return play_bgm("stage3")
-	if stage == 4:
-		return play_bgm("stage4")
-	if stage == 5:
-		return play_bgm("stage5")
-	if stage == 6:
-		return play_bgm("stage6")
-	if stage == 7:
-		return play_bgm("stage7")
-	stop_bgm()
-	return false
+	return stage_bgm_playback_controller.play_stage_bgm(
+		stage,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func prime_stage_bgm(stage: int) -> bool:
-	if stage == 1:
-		return prime_bgm(_select_stage1_bgm_name())
-	if stage == 2:
-		return prime_bgm(_select_stage2_bgm_name())
-	if stage == 3:
-		return prime_bgm("stage3")
-	if stage == 4:
-		var stage4_ready: bool = prime_bgm("stage4")
-		var phase2_ready: bool = prime_bgm("stage4_phase2")
-		return stage4_ready or phase2_ready
-	if stage == 5:
-		return prime_bgm("stage5")
-	if stage == 6:
-		return prime_bgm("stage6")
-	if stage == 7:
-		return prime_bgm("stage7")
-	return false
+	return stage_bgm_playback_controller.prime_stage_bgm(
+		stage,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func prime_bgm(bgm_name: String) -> bool:
-	var player: AudioStreamPlayer = _ensure_bgm_player(bgm_name)
-	if player == null or player.stream == null:
-		return false
-	if bgm_muted:
-		current_bgm_name = bgm_name
-		muted_bgm_name = bgm_name
-		return true
-	if player.playing:
-		return true
-	if not primed_bgm_volumes.has(bgm_name):
-		primed_bgm_volumes[bgm_name] = player.volume_db
-	player.volume_db = -80.0
-	player.pitch_scale = 1.0
-	player.play()
-	current_bgm_name = bgm_name
-	return true
+	return stage_bgm_playback_controller.prime_bgm(
+		bgm_name,
+		Callable(self, "_ensure_bgm_player")
+	)
 
 
 func play_bgm(bgm_name: String) -> bool:
-	var player: AudioStreamPlayer = _ensure_bgm_player(bgm_name)
-	if player == null or player.stream == null:
-		return false
-	var target_volume_db: float = player.volume_db
-	if primed_bgm_volumes.has(bgm_name):
-		target_volume_db = float(primed_bgm_volumes[bgm_name])
-	if bgm_muted:
-		if player.playing:
-			player.stop()
-		player.volume_db = target_volume_db
-		current_bgm_name = bgm_name
-		muted_bgm_name = bgm_name
-		primed_bgm_volumes.erase(bgm_name)
-		return true
-	if current_bgm_name == bgm_name and player.playing:
-		player.seek(0.0)
-		player.volume_db = target_volume_db
-		primed_bgm_volumes.erase(bgm_name)
-		return true
-	stop_bgm()
-	player.volume_db = target_volume_db
-	player.pitch_scale = 1.0
-	player.play()
-	current_bgm_name = bgm_name
-	primed_bgm_volumes.erase(bgm_name)
-	return true
+	return stage_bgm_playback_controller.play_bgm(
+		bgm_name,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func stop_bgm() -> void:
-	var player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
-	if player != null and player.playing:
-		player.stop()
-	if primed_bgm_volumes.has(current_bgm_name):
-		if player != null:
-			player.volume_db = float(primed_bgm_volumes[current_bgm_name])
-		primed_bgm_volumes.erase(current_bgm_name)
-	current_bgm_name = ""
-	muted_bgm_name = ""
+	stage_bgm_playback_controller.stop_bgm(Callable(self, "_get_bgm_player"))
 	clear_story_cinematic_bgm_gain()
+	set_character_info_bgm_muffled(false)
 
 
 func toggle_bgm() -> bool:
-	return set_bgm_muted(not bgm_muted)
+	return stage_bgm_playback_controller.toggle_bgm(
+		owner_node,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func set_bgm_muted(muted: bool) -> bool:
-	if bgm_muted == muted:
-		BgmMuteState.set_muted(_get_owner_tree(), bgm_muted)
-		return bgm_muted
-	bgm_muted = BgmMuteState.set_muted(_get_owner_tree(), muted)
-	if bgm_muted:
-		muted_bgm_name = current_bgm_name
-		var muted_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
-		if muted_player != null and muted_player.playing:
-			muted_player.stop()
-		if primed_bgm_volumes.has(current_bgm_name):
-			if muted_player != null:
-				muted_player.volume_db = float(primed_bgm_volumes[current_bgm_name])
-			primed_bgm_volumes.erase(current_bgm_name)
-		return true
-
-	var target_bgm_name: String = muted_bgm_name
-	if target_bgm_name.is_empty():
-		target_bgm_name = current_bgm_name
-	muted_bgm_name = ""
-	if not target_bgm_name.is_empty():
-		current_bgm_name = ""
-		play_bgm(target_bgm_name)
-	return false
+	return stage_bgm_playback_controller.set_bgm_muted(
+		muted,
+		owner_node,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func is_bgm_muted() -> bool:
-	return bgm_muted
+	return stage_bgm_playback_controller.is_bgm_muted()
 
 
 func _restore_bgm_muted() -> void:
-	bgm_muted = BgmMuteState.is_muted(_get_owner_tree())
+	stage_bgm_playback_controller.restore_bgm_muted(owner_node)
 
 
 func _get_owner_tree() -> SceneTree:
-	if owner_node != null and owner_node.is_inside_tree():
-		return owner_node.get_tree()
-	var main_loop := Engine.get_main_loop()
-	if main_loop is SceneTree:
-		return main_loop as SceneTree
-	return null
+	return stage_bgm_playback_controller.get_owner_tree(owner_node)
 
 
 func get_current_bgm_name() -> String:
-	return current_bgm_name
+	return stage_bgm_playback_controller.get_current_bgm_name()
 
 
 func get_bgm_volume() -> float:
-	return bgm_volume
+	return game_audio_bus_controller.get_bgm_volume()
 
 
 func set_bgm_volume(value: float) -> float:
-	bgm_volume = clampf(value, 0.0, 1.0)
-	_apply_bgm_bus_volume()
-	return bgm_volume
+	return game_audio_bus_controller.set_bgm_volume(value)
 
 
 func set_story_cinematic_bgm_gain_db(value: float) -> float:
-	_story_cinematic_bgm_gain_db = clampf(value, -80.0, 0.0)
-	_apply_bgm_bus_volume()
-	return _story_cinematic_bgm_gain_db
+	return game_audio_bus_controller.set_story_cinematic_bgm_gain_db(value)
 
 
 func clear_story_cinematic_bgm_gain() -> void:
-	if is_zero_approx(_story_cinematic_bgm_gain_db):
-		return
-	_story_cinematic_bgm_gain_db = 0.0
-	_apply_bgm_bus_volume()
+	game_audio_bus_controller.clear_story_cinematic_bgm_gain()
 
 
 func get_story_cinematic_bgm_gain_db() -> float:
-	return _story_cinematic_bgm_gain_db
+	return game_audio_bus_controller.get_story_cinematic_bgm_gain_db()
+
+
+func set_character_info_bgm_muffled(active: bool) -> void:
+	game_audio_bus_controller.set_character_info_bgm_muffled(active)
+
+
+func is_character_info_bgm_muffled() -> bool:
+	return game_audio_bus_controller.is_character_info_bgm_muffled()
 
 
 func get_sfx_volume() -> float:
-	return sfx_volume
+	return game_audio_bus_controller.get_sfx_volume()
 
 
 func set_sfx_volume(value: float) -> float:
-	sfx_volume = clampf(value, 0.0, 1.0)
-	_apply_sfx_bus_volume()
-	return sfx_volume
+	return game_audio_bus_controller.set_sfx_volume(value)
 
 
 func play_ui_move() -> void:
@@ -3370,6 +3810,10 @@ func play_victory_highlight_impact() -> void:
 
 func play_ui_back() -> void:
 	_play_with_pitch(ui_back_sfx, 1.0)
+
+
+func play_character_info_toggle() -> void:
+	_play_with_pitch(character_info_toggle_sfx, 1.0)
 
 
 func play_runtime_perk_select() -> void:
@@ -3401,10 +3845,7 @@ func _play_with_pitch_at(player: AudioStreamPlayer, pitch: float, source_x: floa
 
 
 func _get_hit_pan_from_source_x(source_x: float) -> float:
-	var clamped_x: float = clampf(source_x, PLAYFIELD_LEFT_X, PLAYFIELD_RIGHT_X)
-	var half_width: float = maxf((PLAYFIELD_RIGHT_X - PLAYFIELD_LEFT_X) * 0.5, 1.0)
-	var normalized_x: float = (clamped_x - PLAYFIELD_CENTER_X) / half_width
-	return clampf(normalized_x * HIT_PAN_STRENGTH, -1.0, 1.0)
+	return game_audio_bus_controller.get_hit_pan_from_source_x(source_x)
 
 
 func _play_random_stream_with_pitch(player: AudioStreamPlayer, streams: Array[AudioStream], pitch: float) -> bool:
@@ -3418,20 +3859,6 @@ func _play_random_stream_with_pitch(player: AudioStreamPlayer, streams: Array[Au
 		return _play_with_pitch(player, pitch)
 	player.stream = valid_streams[randi() % valid_streams.size()]
 	return _play_with_pitch(player, pitch)
-
-
-func _load_audio_stream_candidates(paths: Array) -> Array[AudioStream]:
-	var streams: Array[AudioStream] = []
-	for path_value in paths:
-		var path := str(path_value)
-		var stream: AudioStream = ProjectResourceLoader.load_audio_stream(
-			path,
-			"Missing sound at %s",
-			"Failed to load sound at %s"
-		)
-		if stream != null:
-			streams.append(stream)
-	return streams
 
 
 func _set_sfx_player_linear_volume(player: AudioStreamPlayer, volume: float) -> void:
@@ -3533,453 +3960,80 @@ func _create_optional_sfx(name: String, path: String, volume_db: float) -> Audio
 	return _configure_sfx_player(player)
 
 
-func _create_optional_sfx_layers(name_prefix: String, path: String, volume_db: float, count: int) -> Array:
-	var players: Array = []
-	for index in range(max(0, count)):
-		players.append(_create_optional_sfx("%s%d" % [name_prefix, index + 2], path, volume_db))
-	return players
-
-
-func _ensure_lingpet_acquire_cutin_sfx() -> AudioStreamPlayer:
-	if lingpet_acquire_cutin_sfx != null and lingpet_acquire_cutin_sfx.stream != null:
-		return lingpet_acquire_cutin_sfx
-	lingpet_acquire_cutin_sfx = _create_optional_sfx(
-		"LingpetAcquireCutinSfx",
-		LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
-		LINGPET_ACQUIRE_CUTIN_GAIN_DB
-	)
-	return lingpet_acquire_cutin_sfx
-
-
-func _ensure_lingpet_acquire_click_deep_bass_sfx() -> AudioStreamPlayer:
-	if lingpet_acquire_click_deep_bass_sfx != null and lingpet_acquire_click_deep_bass_sfx.stream != null:
-		return lingpet_acquire_click_deep_bass_sfx
-	lingpet_acquire_click_deep_bass_sfx = _create_optional_sfx(
-		"LingpetAcquireClickDeepBassSfx",
-		LINGPET_ACQUIRE_CLICK_DEEP_BASS_SOUND_PATH,
-		LINGPET_ACQUIRE_CLICK_DEEP_BASS_GAIN_DB
-	)
-	return lingpet_acquire_click_deep_bass_sfx
-
-
-func _ensure_lingpet_acquire_click_crackle_sweep_sfx() -> AudioStreamPlayer:
-	if lingpet_acquire_click_crackle_sweep_sfx != null and lingpet_acquire_click_crackle_sweep_sfx.stream != null:
-		return lingpet_acquire_click_crackle_sweep_sfx
-	lingpet_acquire_click_crackle_sweep_sfx = _create_optional_sfx(
-		"LingpetAcquireClickCrackleSweepSfx",
-		LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_SOUND_PATH,
-		LINGPET_ACQUIRE_CLICK_CRACKLE_SWEEP_GAIN_DB
-	)
-	return lingpet_acquire_click_crackle_sweep_sfx
-
-
-func _ensure_lingpet_lunabi_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_lunabi_click_voice_sfx != null and lingpet_lunabi_click_voice_sfx.stream != null:
-		return lingpet_lunabi_click_voice_sfx
-	lingpet_lunabi_click_voice_sfx = _create_optional_sfx(
-		"LingpetLunabiClickVoiceSfx",
-		LINGPET_LUNABI_CLICK_VOICE_SOUND_PATH,
-		LINGPET_LUNABI_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_lunabi_click_voice_sfx
-
-
-func _ensure_lingpet_volty_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_volty_click_voice_sfx != null and lingpet_volty_click_voice_sfx.stream != null:
-		return lingpet_volty_click_voice_sfx
-	lingpet_volty_click_voice_sfx = _create_optional_sfx(
-		"LingpetVoltyClickVoiceSfx",
-		LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
-		LINGPET_VOLTY_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_volty_click_voice_sfx
-
-
-func _ensure_lingpet_milkring_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_milkring_click_voice_sfx != null and lingpet_milkring_click_voice_sfx.stream != null:
-		return lingpet_milkring_click_voice_sfx
-	lingpet_milkring_click_voice_sfx = _create_optional_sfx(
-		"LingpetMilkringClickVoiceSfx",
-		LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
-		LINGPET_MILKRING_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_milkring_click_voice_sfx
-
-
-func _ensure_lingpet_red_dragon_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_red_dragon_click_voice_sfx != null and lingpet_red_dragon_click_voice_sfx.stream != null:
-		return lingpet_red_dragon_click_voice_sfx
-	lingpet_red_dragon_click_voice_sfx = _create_optional_sfx(
-		"LingpetRedDragonClickVoiceSfx",
-		LINGPET_RED_DRAGON_CLICK_VOICE_SOUND_PATH,
-		LINGPET_RED_DRAGON_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_red_dragon_click_voice_sfx
-
-
-func _ensure_lingpet_maribo_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_maribo_click_voice_sfx != null and lingpet_maribo_click_voice_sfx.stream != null:
-		return lingpet_maribo_click_voice_sfx
-	lingpet_maribo_click_voice_sfx = _create_optional_sfx(
-		"LingpetMariboClickVoiceSfx",
-		LINGPET_MARIBO_CLICK_VOICE_SOUND_PATH,
-		LINGPET_MARIBO_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_maribo_click_voice_sfx
-
-
-func _ensure_lingpet_rabi_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_rabi_click_voice_sfx != null and lingpet_rabi_click_voice_sfx.stream != null:
-		return lingpet_rabi_click_voice_sfx
-	lingpet_rabi_click_voice_sfx = _create_optional_sfx(
-		"LingpetRabiClickVoiceSfx",
-		LINGPET_RABI_CLICK_VOICE_SOUND_PATH,
-		LINGPET_RABI_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_rabi_click_voice_sfx
-
-
-func _ensure_lingpet_lumion_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_lumion_click_voice_sfx != null and lingpet_lumion_click_voice_sfx.stream != null:
-		return lingpet_lumion_click_voice_sfx
-	lingpet_lumion_click_voice_sfx = _create_optional_sfx(
-		"LingpetLumionClickVoiceSfx",
-		LINGPET_LUMION_CLICK_VOICE_SOUND_PATH,
-		LINGPET_LUMION_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_lumion_click_voice_sfx
-
-
-func _ensure_lingpet_monkeyring_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_monkeyring_click_voice_sfx != null and lingpet_monkeyring_click_voice_sfx.stream != null:
-		return lingpet_monkeyring_click_voice_sfx
-	lingpet_monkeyring_click_voice_sfx = _create_optional_sfx(
-		"LingpetMonkeyringClickVoiceSfx",
-		LINGPET_MONKEYRING_CLICK_VOICE_SOUND_PATH,
-		LINGPET_MONKEYRING_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_monkeyring_click_voice_sfx
-
-
-func _ensure_lingpet_onimaru_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_onimaru_click_voice_sfx != null and lingpet_onimaru_click_voice_sfx.stream != null:
-		return lingpet_onimaru_click_voice_sfx
-	lingpet_onimaru_click_voice_sfx = _create_optional_sfx(
-		"LingpetOnimaruClickVoiceSfx",
-		LINGPET_ONIMARU_CLICK_VOICE_SOUND_PATH,
-		LINGPET_ONIMARU_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_onimaru_click_voice_sfx
-
-
-func _ensure_lingpet_orosha_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_orosha_click_voice_sfx != null and lingpet_orosha_click_voice_sfx.stream != null:
-		return lingpet_orosha_click_voice_sfx
-	lingpet_orosha_click_voice_sfx = _create_optional_sfx(
-		"LingpetOroshaClickVoiceSfx",
-		LINGPET_OROSHA_CLICK_VOICE_SOUND_PATH,
-		LINGPET_OROSHA_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_orosha_click_voice_sfx
-
-
-func _ensure_lingpet_koyora_click_voice_sfx() -> AudioStreamPlayer:
-	if lingpet_koyora_click_voice_sfx != null and lingpet_koyora_click_voice_sfx.stream != null:
-		return lingpet_koyora_click_voice_sfx
-	lingpet_koyora_click_voice_sfx = _create_optional_sfx(
-		"LingpetKoyoraClickVoiceSfx",
-		LINGPET_KOYORA_CLICK_VOICE_SOUND_PATH,
-		LINGPET_KOYORA_CLICK_VOICE_GAIN_DB
-	)
-	return lingpet_koyora_click_voice_sfx
-
-
 func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
 	if _is_owned_player_ready(player):
 		return player
-	match bgm_name:
-		"stage1":
-			stage1_bgm = _create_bgm_player("Stage1Bgm", STAGE1_BGM_PATH, STAGE1_BGM_GAIN)
-			return stage1_bgm
-		"stage1_alt":
-			stage1_alt_bgm = _create_bgm_player("Stage1AltBgm", STAGE1_ALT_BGM_PATH, STAGE1_BGM_GAIN)
-			return stage1_alt_bgm
-		"stage1_alt2":
-			stage1_alt2_bgm = _create_bgm_player("Stage1Alt2Bgm", STAGE1_ALT2_BGM_PATH, STAGE1_BGM_GAIN)
-			return stage1_alt2_bgm
-		"stage2":
-			stage2_bgm = _create_bgm_player("Stage2Bgm", STAGE2_BGM_PATH, STAGE2_BGM_GAIN)
-			return stage2_bgm
-		"stage2_alt":
-			stage2_alt_bgm = _create_bgm_player("Stage2AltBgm", STAGE2_ALT_BGM_PATH, STAGE2_BGM_GAIN)
-			return stage2_alt_bgm
-		"stage3":
-			stage3_bgm = _create_bgm_player("Stage3Bgm", STAGE3_BGM_PATH, STAGE3_BGM_GAIN)
-			return stage3_bgm
-		"stage4":
-			stage4_bgm = _create_bgm_player("Stage4Bgm", STAGE4_BGM_PATH, STAGE4_BGM_GAIN)
-			return stage4_bgm
-		"stage4_phase2":
-			stage4_phase2_bgm = _create_bgm_player("Stage4Phase2Bgm", STAGE4_PHASE2_BGM_PATH, STAGE4_BGM_GAIN)
-			return stage4_phase2_bgm
-		"stage5":
-			stage5_bgm = _create_bgm_player("Stage5Bgm", STAGE5_BGM_PATH, STAGE5_BGM_GAIN)
-			return stage5_bgm
-		"stage6":
-			stage6_bgm = _create_bgm_player("Stage6Bgm", STAGE6_BGM_PATH, STAGE6_BGM_GAIN)
-			return stage6_bgm
-		"stage7":
-			stage7_bgm = _create_bgm_player("Stage7Bgm", STAGE7_BGM_PATH, STAGE7_BGM_GAIN)
-			return stage7_bgm
-	return null
+	return stage_bgm_audio.create_and_cache_player(bgm_name, Callable(self, "_create_bgm_player"))
 
 
 func _create_bgm_player(name: String, path: String, gain: float) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = player_factory.create(owner_node, name, path, _volume_to_db(gain))
 	_enable_loop(player)
-	if player != null:
-		player.bus = BGM_BUS_NAME
-	_apply_bgm_bus_volume()
-	return player
+	return game_audio_bus_controller.configure_bgm_player(player)
 
 
 func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
-	if bgm_name == "stage1":
-		return stage1_bgm
-	if bgm_name == "stage1_alt":
-		return stage1_alt_bgm
-	if bgm_name == "stage1_alt2":
-		return stage1_alt2_bgm
-	if bgm_name == "stage2":
-		return stage2_bgm
-	if bgm_name == "stage2_alt":
-		return stage2_alt_bgm
-	if bgm_name == "stage3":
-		return stage3_bgm
-	if bgm_name == "stage4":
-		return stage4_bgm
-	if bgm_name == "stage4_phase2":
-		return stage4_phase2_bgm
-	if bgm_name == "stage5":
-		return stage5_bgm
-	if bgm_name == "stage6":
-		return stage6_bgm
-	if bgm_name == "stage7":
-		return stage7_bgm
-	return null
+	return stage_bgm_audio.get_player(bgm_name)
 
 
 func _apply_audio_buses_and_volumes() -> void:
-	_adopt_existing_audio_bus_volumes()
-	_ensure_audio_bus(BGM_BUS_NAME)
-	_ensure_audio_bus(SFX_BUS_NAME)
-	_ensure_hit_pan_buses()
-	_apply_bgm_bus_to_players()
-	_apply_sfx_bus_to_players()
-	_apply_bgm_bus_volume()
-	_apply_sfx_bus_volume()
+	game_audio_bus_controller.apply_audio_buses_and_volumes(
+		stage_bgm_audio.get_players(),
+		_get_sfx_players(),
+		paddle_hit_sfx,
+		wall_hit_sfx
+	)
 
 
 func _adopt_existing_audio_bus_volumes() -> void:
-	if audio_bus_volumes_adopted:
-		return
-	audio_bus_volumes_adopted = true
-	bgm_volume = _get_existing_audio_bus_volume(BGM_BUS_NAME, bgm_volume)
-	sfx_volume = _get_existing_audio_bus_volume(SFX_BUS_NAME, sfx_volume)
+	game_audio_bus_controller.adopt_existing_audio_bus_volumes()
 
 
 func _get_existing_audio_bus_volume(bus_name: String, fallback: float) -> float:
-	var bus_index: int = AudioServer.get_bus_index(bus_name)
-	if bus_index < 0:
-		return fallback
-	var volume_db: float = AudioServer.get_bus_volume_db(bus_index)
-	if volume_db <= -79.0:
-		return 0.0
-	return clampf(db_to_linear(volume_db), 0.0, 1.0)
+	return game_audio_bus_controller.get_existing_audio_bus_volume(bus_name, fallback)
 
 
 func _apply_bgm_bus_to_players() -> void:
-	for player in [stage1_bgm, stage1_alt_bgm, stage1_alt2_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm, stage7_bgm]:
-		if player is AudioStreamPlayer:
-			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
+	game_audio_bus_controller.route_bgm_players(stage_bgm_audio.get_players())
 
 
 func _apply_sfx_bus_to_players() -> void:
-	for player in _get_sfx_players():
-		if player == null:
-			continue
-		if player == paddle_hit_sfx:
-			(player as AudioStreamPlayer).bus = SFX_PAN_PADDLE_BUS_NAME
-		elif player == wall_hit_sfx:
-			(player as AudioStreamPlayer).bus = SFX_PAN_WALL_BUS_NAME
-		elif player is AudioStreamPlayer:
-			(player as AudioStreamPlayer).bus = SFX_BUS_NAME
+	game_audio_bus_controller.route_sfx_players(_get_sfx_players(), paddle_hit_sfx, wall_hit_sfx)
 
 
 func _ensure_hit_pan_buses() -> void:
-	if AudioServer.get_bus_index(SFX_BUS_NAME) < 0:
-		_ensure_audio_bus(SFX_BUS_NAME)
-	paddle_hit_panner = _ensure_sfx_pan_bus(SFX_PAN_PADDLE_BUS_NAME, paddle_hit_panner)
-	wall_hit_panner = _ensure_sfx_pan_bus(SFX_PAN_WALL_BUS_NAME, wall_hit_panner)
+	game_audio_bus_controller.ensure_hit_pan_buses()
 
 
 func _ensure_sfx_pan_bus(bus_name: String, current_panner: AudioEffectPanner) -> AudioEffectPanner:
-	var bus_index: int = _ensure_audio_bus(bus_name)
-	if bus_index < 0:
-		return current_panner
-	AudioServer.set_bus_send(bus_index, SFX_BUS_NAME)
-	AudioServer.set_bus_volume_db(bus_index, 0.0)
-	if current_panner != null:
-		return current_panner
-	var effect_count: int = AudioServer.get_bus_effect_count(bus_index)
-	for effect_index in range(effect_count):
-		var effect: AudioEffect = AudioServer.get_bus_effect(bus_index, effect_index)
-		if effect is AudioEffectPanner:
-			var existing_panner: AudioEffectPanner = effect as AudioEffectPanner
-			existing_panner.set_pan(0.0)
-			return existing_panner
-	var panner := AudioEffectPanner.new()
-	panner.set_pan(0.0)
-	AudioServer.add_bus_effect(bus_index, panner)
-	return panner
+	return game_audio_bus_controller.ensure_sfx_pan_bus(bus_name, current_panner)
 
 
 func _configure_sfx_player(player: AudioStreamPlayer) -> AudioStreamPlayer:
-	if player != null:
-		_ensure_audio_bus(SFX_BUS_NAME)
-		player.bus = SFX_BUS_NAME
-		_apply_sfx_bus_volume()
-	return player
+	return game_audio_bus_controller.configure_sfx_player(player)
 
 
 func _apply_bgm_bus_volume() -> void:
-	var bus_index: int = _ensure_audio_bus(BGM_BUS_NAME)
-	if bus_index >= 0:
-		AudioServer.set_bus_volume_db(
-			bus_index,
-			maxf(-80.0, _volume_to_db(bgm_volume) + _story_cinematic_bgm_gain_db)
-		)
+	game_audio_bus_controller.apply_bgm_bus_volume()
 
 
 func _apply_sfx_bus_volume() -> void:
-	var bus_index: int = _ensure_audio_bus(SFX_BUS_NAME)
-	if bus_index >= 0:
-		AudioServer.set_bus_volume_db(bus_index, _volume_to_db(sfx_volume))
+	game_audio_bus_controller.apply_sfx_bus_volume()
 
 
 func _ensure_audio_bus(bus_name: String) -> int:
-	var bus_index: int = AudioServer.get_bus_index(bus_name)
-	if bus_index >= 0:
-		return bus_index
-	AudioServer.add_bus(AudioServer.get_bus_count())
-	bus_index = AudioServer.get_bus_count() - 1
-	AudioServer.set_bus_name(bus_index, bus_name)
-	return bus_index
+	return game_audio_bus_controller.ensure_audio_bus(bus_name)
 
 
 func _volume_to_db(volume: float) -> float:
-	var clamped: float = clampf(volume, 0.0, 1.0)
-	if clamped <= 0.0:
-		return -80.0
-	return linear_to_db(clamped)
+	return game_audio_bus_controller.volume_to_db(volume)
 
 
 func _get_sfx_players() -> Array:
-	return [
-		ui_move_sfx,
-		ui_confirm_sfx,
-		ui_back_sfx,
-		ui_perk_select_sfx,
-		paddle_hit_sfx,
-		serve_sfx,
-		pingpong_serve_sfx,
-		wall_hit_sfx,
-		dash_sfx,
-		half_dash_sfx,
-		dash_delay_sfx,
-		dash_charge_sfx,
-		bust_up_dash_sfx,
-		boost_charging_sfx,
-		soul_burst_dash_sfx,
-		dash_spirit_delete_sfx,
-		drive_sfx,
-		mika_drive_voice_sfx,
-		plasma_charge_sfx,
-		plasma_shoot_sfx,
-		plasma_shock_sfx,
-		recovery_sfx,
-		cleanse_sfx,
-		warp_gate_sfx,
-		magnum_grip_sfx,
-		smasher_wheel_sfx,
-		shield_kiting_wind_up_sfx,
-		shield_kiting_launch_sfx,
-		shield_kiting_hit_sfx,
-		whip_sfx,
-		gaksital_fan_sfx,
-		whipcrack_sfx,
-		thor_shield_open_sfx,
-		thor_shield_close_sfx,
-		thor_shield_swing_sfx,
-		thor_shield_block_sfx,
-		viper_jetpack_sfx,
-		viper_backstep_sfx,
-		viper_shadow_kick_sfx,
-		viper_marshal_kick_sfx,
-		viper_dive_prep_sfx,
-		viper_dive_strike_sfx,
-		viper_ignition_aura_sfx,
-		viper_ignition_aura_fallback_sfx,
-		viper_phantom_show_sfx,
-		viper_phantom_kick_hit_sfx,
-		viper_blade_sfx,
-		viper_blade_spin_sfx,
-		viper_venom_moving_sfx,
-		viper_venom_attack_sfx,
-		viper_hwarang_kick_sfx,
-		viper_kick_guard_knockback_sfx,
-		viper_dual_glitch_windup_sfx,
-		viper_dual_glitch_split_sfx,
-		chaos_spear_windup_sfx,
-		chaos_spear_flying_sfx,
-		chaos_spear_impact_sfx,
-		chaos_spear_blackhole_sfx,
-		commando_supply_radio_sfx,
-		commando_supply_radio_loop_sfx,
-		commando_supply_aircraft_sfx,
-		commando_fire_support_radio_sfx,
-		commando_fire_support_aircraft_sfx,
-		commando_slingshot_fire_sfx,
-		commando_pistol_ready_sfx,
-		commando_pistol_fire_sfx,
-		commando_pistol_reload_start_sfx,
-		commando_pistol_reload_sfx,
-		commando_reload_sfx,
-		commando_ak47_fire_sfx,
-		commando_bazooka_fire_sfx,
-		commando_net_capture_sfx,
-		commando_net_constrict_sfx,
-		commando_bowling_trap_install_sfx,
-		commando_bowling_trap_snap_sfx,
-		commando_suicide_drone_sfx,
-		item_get_sfx,
-		drink_sfx,
-		active_item_sfx,
-		trade_sfx,
-		brick_wall_destroy_sfx,
-		treasure_hunt_mining_sfx,
-		alchemy_sfx,
-		pandora_sfx,
-		lucky_coin_spawn_sfx,
-		foul_whistle_sfx,
-		megingjord_sfx,
-		legendary_open_sfx,
-		angel_blessing_roll_sfx,
-		angel_blessing_absorb_sfx,
-		result_box_open_sfx,
-		defeat_jewel_sfx,
-		defeat_gem_shatter_sfx,
+	return game_ui_feedback_audio.get_sfx_bus_players() + core_ball_dash_audio.get_players() + smasher_skill_audio.get_skill_players() + stage1_boss_skill_audio.get_primary_players() + blacksmith_thor_shield_audio.get_players() + viper_skill_audio.get_players() + commando_skill_audio.get_sfx_bus_players() + item_reward_feedback_audio.get_sfx_bus_players() + [
+		han_miryang_prologue_tablet_crack_sfx,
+		han_miryang_prologue_tablet_crack_tail_sfx,
 		lingpet_acquire_cutin_sfx,
 		lingpet_acquire_click_deep_bass_sfx,
 		lingpet_acquire_click_crackle_sweep_sfx,
@@ -3994,178 +4048,41 @@ func _get_sfx_players() -> Array:
 		lingpet_onimaru_click_voice_sfx,
 		lingpet_orosha_click_voice_sfx,
 		lingpet_koyora_click_voice_sfx,
-		lingpet_puppet_grab_cast_sfx,
-		lingpet_puppet_grab_pull_sfx,
-		lingpet_puppet_grab_kiss_sfx,
-		lingpet_puppet_grab_miss_sfx,
-		lingpet_sand_prison_open_sfx,
-		lingpet_wild_roar_sfx,
-		lingpet_star_coil_bind_sfx,
-		lingpet_star_coil_move_sfx,
-		lingpet_ring_dash_sfx,
-		lingpet_egg_hit_sfx,
-		lingpet_gatling_transform_sfx,
-		lingpet_gatling_loop_sfx,
-		lingpet_gatling_fire_sfx,
-		lingpet_gatling_hit_sfx,
-		lingpet_dwarf_magic_cast_sfx,
-		lingpet_dwarf_magic_hit_sfx,
-		lingpet_gravity_accel_cast_sfx,
-		legendary_after_sfx,
-		legendary_ending_sfx,
-		ragnarok_shot_sfx,
-		ragnarok_boom_sfx,
-		ragnarok_shock_sfx,
-		electric_shock_sfx,
-		thunder_orb_shot_sfx,
-		thunder_orb_boom_sfx,
-		solar_bolt_strike_sfx,
-		mini_spark_sfx,
-		poseidon_wave_sfx,
-		poseidon_charge_sfx,
-		timewatch_sfx,
-		throw_before_sfx,
-		throw_sfx,
-		horn_strawberry_change_sfx,
-		horn_strawberry_eat_sfx,
-		horn_strawberry_stem_fire_sfx,
-		horn_strawberry_stem_hit_sfx,
-		horn_strawberry_horn_charge_sfx,
-		horn_strawberry_field_build_sfx,
-		horn_strawberry_field_break_sfx,
-		horn_strawberry_field_build_break_sfx,
-		horn_strawberry_bomb_trigger_sfx,
-		grenade_sfx,
-		flashbomb_sfx,
-		smokebomb_sfx,
-		firebomb_sfx,
-		boomerang_sfx,
-		boomerang_hit_sfx,
-		boomerang_break_sfx,
-		shrapnel_armor_fire_sfx,
-		shrapnel_armor_hit_sfx,
-		banana_throw_sfx,
-		banana_slip_sfx,
-		soap_throw_sfx,
-		soap_land_sfx,
-		soap_slip_sfx,
-		spider_mine_walk_sfx,
-		spider_mine_setup_sfx,
-		bomb_surprise_attach_sfx,
-		bomb_surprise_transfer_sfx,
-		bomb_surprise_tick1_sfx,
-		bomb_surprise_tick2_sfx,
-		bomb_surprise_urgent_tick_sfx,
-		bomb_surprise_explosion_sfx,
-		bomb_surprise_self_explosion_sfx,
-		power_smash_sfx,
-		mika_power_smashing_voice_sfx,
-		mika_ghost_smashing_voice_sfx,
-		power_smash_launch_sfx,
-		round_set_sfx,
-		ball_spawn_intro_sfx,
-		stage_landing_zoom_intro_sfx,
-		balloon_pop_sfx,
-		stage1_balloon_door_sfx,
-		stage1_balloon_machine_sfx,
-		star_collect_sfx,
-		stage2_hydro_sfx,
-		stage2_stonebreak_sfx,
-		stage2_rockhit_sfx,
-		stage2_rock_spawn_sfx,
-		stage2_quake_sfx,
-		stage2_boss_cry_sfx,
-		stage2_speed_defense_start_sfx,
-		stage2_speed_defense_hit_sfx,
-		stage2_speed_defense_block_sfx,
-		stage3_tail_sfx,
-		stage3_psychoball_sfx,
-		stage3_dollcurse_sfx,
-		stage3_tears_sfx,
-		stage3_chest_land_sfx,
-		stage3_curse_explode_sfx,
-		stage3_kuromi_awake_sfx,
-		stage3_kuromi_stonebreak_sfx,
-		stage3_kuromi_tongue_sfx,
-		stage3_kuromi_swallow_sfx,
-		stage3_kuromi_spit_sfx,
-		lingpet_ghost_summon_sfx,
-		lingpet_ghost_summon_out_sfx,
-		stage4_moon_shoot_sfx,
-		stage4_fragment_shoot_sfx,
-		stage4_temple_hit_sfx,
-		stage4_birdkill_sfx,
-		stage4_magnetic_sfx,
-		stage4_meditation_sfx,
-		stage4_meditation_after_sfx,
-		stage5_hongryun_fireball_sfx,
-		stage5_hongryun_charge_sfx,
-		stage5_hongryun_shoot_sfx,
-		stage6_tetriser_break_sfx,
-		stage6_tetriser_wall_sfx,
-		stage6_tetriser_super_sfx,
-		stage6_tetriser_big_sfx,
-		stage6_tetriser_shield_sfx,
-		stage6_tetriser_laser_sfx,
-		stage7_akamu_shuriken_shoot_sfx,
-		stage7_akamu_shuriken_hit_sfx,
-		stage7_akamu_cloud_sfx,
-		stage7_akamu_aura_block_sfx,
-		stage7_akamu_clone_spawn_sfx,
-		stage7_akamu_clone_out_sfx,
-		leaf_shield_sfx,
-		trampoline_bounce_sfx,
-	] + gaksital_fan_sfx_layers + commando_ak47_fire_sfx_layers + angel_blessing_absorb_sfx_layers + stage5_hongryun_hurt_sfx
+	] + lingpet_combat_audio.get_players() + item_reward_feedback_audio.get_cinematic_players() + elemental_combat_audio.get_sfx_bus_players() + item_reward_feedback_audio.get_item_action_players() + transformation_item_audio.get_sfx_bus_players() + projectile_item_audio.get_players() + smasher_skill_audio.get_stage_feedback_players() + shared_stage_feedback_audio.get_primary_players() + stage2_battle_audio.get_players() + stage3_battle_audio.get_players() + lingpet_combat_audio.get_stage_sfx_bus_players() + stage4_ponk_audio.get_players() + stage5_hongryun_audio.get_primary_players() + stage6_tetriser_audio.get_players() + stage7_akamu_audio.get_players() + shared_stage_feedback_audio.get_tail_players() + stage1_boss_skill_audio.get_fan_layers() + commando_skill_audio.get_ak47_fire_layers() + item_reward_feedback_audio.get_absorb_layers() + stage5_hongryun_audio.get_hurt_players() + perk_fusion_combat_audio.get_players()
 
 
 func _select_stage1_bgm_name() -> String:
-	if STAGE1_BGM_NAMES.has(current_bgm_name):
-		var current_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
-		if bgm_muted or (current_player != null and current_player.playing):
-			return current_bgm_name
-	var candidates: Array[String] = _get_stage1_bgm_candidates()
-	if candidates.is_empty():
-		return "stage1"
-	if candidates.size() == 1:
-		return candidates[0]
-	if not stage1_bgm_rng_ready:
-		stage1_bgm_rng.randomize()
-		stage1_bgm_rng_ready = true
-	return candidates[stage1_bgm_rng.randi_range(0, candidates.size() - 1)]
+	return stage_bgm_playback_controller.select_stage_bgm_name(
+		1,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func _get_stage1_bgm_candidates() -> Array[String]:
-	var candidates: Array[String] = []
-	for bgm_name in STAGE1_BGM_NAMES:
-		var player: AudioStreamPlayer = _ensure_bgm_player(str(bgm_name))
-		if player != null and player.stream != null:
-			candidates.append(str(bgm_name))
-	return candidates
+	return stage_bgm_playback_controller.get_stage_bgm_candidates(
+		1,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player")
+	)
 
 
 func _select_stage2_bgm_name() -> String:
-	if STAGE2_BGM_NAMES.has(current_bgm_name):
-		var current_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
-		if bgm_muted or (current_player != null and current_player.playing):
-			return current_bgm_name
-	var candidates: Array[String] = _get_stage2_bgm_candidates()
-	if candidates.is_empty():
-		return "stage2"
-	if candidates.size() == 1:
-		return candidates[0]
-	if not stage2_bgm_rng_ready:
-		stage2_bgm_rng.randomize()
-		stage2_bgm_rng_ready = true
-	return candidates[stage2_bgm_rng.randi_range(0, candidates.size() - 1)]
+	return stage_bgm_playback_controller.select_stage_bgm_name(
+		2,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player"),
+		Callable(self, "_get_bgm_player")
+	)
 
 
 func _get_stage2_bgm_candidates() -> Array[String]:
-	var candidates: Array[String] = []
-	for bgm_name in STAGE2_BGM_NAMES:
-		var player: AudioStreamPlayer = _ensure_bgm_player(str(bgm_name))
-		if player != null and player.stream != null:
-			candidates.append(str(bgm_name))
-	return candidates
+	return stage_bgm_playback_controller.get_stage_bgm_candidates(
+		2,
+		stage_bgm_audio,
+		Callable(self, "_ensure_bgm_player")
+	)
 
 
 func _is_owned_player_ready(player: AudioStreamPlayer) -> bool:
@@ -4178,7 +4095,8 @@ func _enable_loop(player: AudioStreamPlayer) -> void:
 	# ProjectResourceLoader.load_audio_stream caches by path and the player factory
 	# assigns that cached AudioStream RAW, so one AudioStream instance can back
 	# several players (gravityaccel.wav is shared by chaos_spear_blackhole_sfx AND
-	# lingpet_gravity_accel_cast_sfx). Flipping loop_mode on the shared instance
+	# the focused Guardian Spirit gravity-accel cast player). Flipping loop_mode on
+	# the shared instance
 	# force-loops EVERY player pointing at it -- that is what made Serabi's 중력가속
 	# one-shot cast cue loop forever and bleed into the next round. Duplicate first
 	# so only THIS player's stream loops; every other user keeps the one-shot cache

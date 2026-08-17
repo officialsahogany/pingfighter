@@ -10,19 +10,43 @@ const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_f
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
+const PhysiqueTrainingCatalog := preload("res://scripts/characters/physique_training_catalog.gd")
+const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_perk_character_context.gd")
 
 const BASE_CHOICE_COUNT := 3
-# 퍽 슬롯 동적 한도(flag ON): 기본 6 + 슬롯 확장 퍽(common_expansion) RAW
-# 레벨(최대 10). flag OFF에서는 고정 6이며 확장 퍽은 레거시 장신구 의미.
+# 무공 슬롯 동적 한도(flag ON): 기본 6 + 합일 부산물 기맥 확장 1(최대 7).
+# flag OFF에서는 고정 6이며 common_expansion은 레거시 장신구 의미.
 const BASE_PERK_SLOT_LIMIT := 6
-const MAX_PERK_SLOT_LIMIT := 10
+const MAX_PERK_SLOT_LIMIT := 7
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
+const FUSION_SLOT_EXPANSION_BYPRODUCT_ID := "meridian_expand"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
 const GUARDIAN_ENHANCE_PRIORITY_KEY := "_guardian_enhance_reserved"
 const FULL_CHOSIK_SWAP_PRIORITY_KEY := "_full_chosik_swap_reserved"
-const FULL_CHOSIK_SWAP_OFFER_CHANCE := 0.15
+const BOSS_VISION_PRIORITY_KEY := "_boss_vision_reserved"
+# 초식 슬롯 만석 뒤에는 화면당 한 번만 굴려, 드물게 교체 기회를 연다.
+const FULL_CHOSIK_SWAP_OFFER_CHANCE := 0.05
+# 슬롯에 여유가 있어도 초식 후보가 무제한으로 풀에 깔리면 화면 절반 이상을
+# 점령한다(2026-08-12 실측 52.8%). 라이브 만석 판정이 가능한 경로에서는 여유
+# 상태도 화면당 한 번만 굴려 최대 1장으로 제한한다. 단일 튜닝 상수.
+const OPEN_CHOSIK_OFFER_CHANCE := 0.35
 const LINGPET_GATED_CHOICE_IDS := {
 	LINGPET_GUARDIAN_ENHANCE_CHOICE_ID: true,
+}
+const TRAINING_MIGRATED_PERK_IDS := {
+	"dash_lightweight": true,
+	"dash_module_control": true,
+	"dash_jump": true,
+	"common_swiftness": true,
+	"bulletproof_hat": true,
+	"common_bulk_up": true,
+	"fuel_pouch": true,
+	"bluetooth_ring": true,
+	"item_cooldown_mastery": true,
+	"common_training": true,
+}
+const TRAINING_DEPENDENT_PERK_IDS := {
+	"training_mastery": true,
 }
 const COMMON_PERKS := {
 	"dash_lightweight": {
@@ -71,25 +95,28 @@ const COMMON_PERKS := {
 		"name": "대붕전익",
 		"max_level": 5,
 		"descriptions": {
-			1: "활주시 패들 크기 70% 증가",
-			2: "활주시 패들 크기 140% 증가",
-			3: "활주시 패들 크기 210% 증가",
-			4: "활주시 패들 크기 280% 증가",
-			5: "활주시 패들 크기 350% 증가",
+			1: "활주시 몸집 세로 70%·가로 10% 증가",
+			2: "활주시 몸집 세로 140%·가로 20% 증가",
+			3: "활주시 몸집 세로 210%·가로 30% 증가",
+			4: "활주시 몸집 세로 280%·가로 40% 증가",
+			5: "활주시 몸집 세로 350%·가로 50% 증가",
 		},
-		"detail": "활주 순간 대붕이 날개를 펼치듯 패들이 크게 넓어져 더 넓은 범위의 공을 받아냅니다.",
+		"detail": "활주 순간 대붕이 날개를 펼치듯 몸집이 세로로 크게, 가로로 적당히 넓어져 더 넓은 범위의 공을 받아냅니다.",
 		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
 		"tree": "dash",
 	},
 	"dash_amplification": {
-		"name": "연환보",
+		"name": "활주구슬",
 		"max_level": 3,
+		# 보유 수는 내부 level로 누적되지만 각 구슬이 슬롯 한 칸을 따로 차지하는
+		# 카운트형 무공이다. 성장 경지(1성~극성) 대신 고유 태그로 표시한다.
+		"rank_tag": "unique",
 		"descriptions": {
 			1: "최대 활주 횟수 +1",
 			2: "최대 활주 횟수 +2",
 			3: "최대 활주 횟수 +3",
 		},
-		"detail": "연환보로 레벨마다 최대 활주 횟수를 1회 늘리고, 같은 수만큼 무공 슬롯을 사용합니다.",
+		"detail": "활주구슬 하나마다 최대 활주 횟수가 1회 늘어나며, 구슬 하나당 무공 슬롯을 1칸 사용합니다.",
 		"icon_color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
 		"tree": "dash",
 	},
@@ -153,13 +180,13 @@ const COMMON_PERKS := {
 		"name": "개광결",
 		"max_level": 5,
 		"descriptions": {
-			1: "적용 대상 무공의 수치 능력치 5% 증폭",
-			2: "적용 대상 무공의 수치 능력치 10% 증폭",
-			3: "적용 대상 무공의 수치 능력치 15% 증폭",
-			4: "적용 대상 무공의 수치 능력치 20% 증폭",
-			5: "적용 대상 무공의 수치 능력치 25% 증폭",
+			1: "모든 일반 성장형 무공의 수치 능력치 5% 증폭",
+			2: "모든 일반 성장형 무공의 수치 능력치 10% 증폭",
+			3: "모든 일반 성장형 무공의 수치 능력치 15% 증폭",
+			4: "모든 일반 성장형 무공의 수치 능력치 20% 증폭",
+			5: "모든 일반 성장형 무공의 수치 능력치 25% 증폭",
 		},
-		"detail": "개광결로 적용 대상 무공의 수치형 능력치를 독립적으로 증폭합니다. 절세무공, 캐릭터, 비급, 즉시 효과와 카운트형 효과는 제외됩니다.",
+		"detail": "개광결로 모든 일반 성장형 무공의 증폭 가능한 수치 효과를 독립적으로 강화합니다. 횟수·슬롯·해금·활성 여부 같은 구조값은 그대로 유지됩니다.",
 		"icon_color": Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0),
 		"tree": "item",
 	},
@@ -173,7 +200,7 @@ const COMMON_PERKS := {
 			4: "아이템 유지 확률 28%",
 			5: "아이템 유지 확률 35%",
 		},
-		"detail": "환보결로 사용한 아이템을 확률적으로 되돌려 보존합니다.",
+		"detail": "환보결로 사용한 아이템을 확률적으로 되돌려 보존합니다. 자체 회수되는 부메랑은 제외됩니다.",
 		"icon_color": Color(148.0 / 255.0, 0.0, 211.0 / 255.0),
 		"tree": "item",
 	},
@@ -181,29 +208,15 @@ const COMMON_PERKS := {
 		"name": "천기보도",
 		"max_level": 5,
 		"descriptions": {
-			1: "신화 확률 +150%, 패시브 드랍 +3%, 보물탐색 신화 +3%",
-			2: "신화 확률 +300%, 패시브 드랍 +6%, 보물탐색 신화 +6%",
-			3: "신화 확률 +450%, 패시브 드랍 +9%, 보물탐색 신화 +9%",
-			4: "신화 확률 +600%, 패시브 드랍 +12%, 보물탐색 신화 +12%",
-			5: "신화 확률 +750%, 패시브 드랍 +15%, 보물탐색 신화 +15%",
+			1: "절세무공 확률 +150%, 비전초식 상자 +3%p",
+			2: "절세무공 확률 +300%, 비전초식 상자 +6%p",
+			3: "절세무공 확률 +450%, 비전초식 상자 +9%p",
+			4: "절세무공 확률 +600%, 비전초식 상자 +12%p",
+			5: "절세무공 확률 +750%, 비전초식 상자 +15%p",
 		},
-		"detail": "천기보도가 신화 아이템 획득 확률과 패시브 아이템 드랍 비율을 높입니다. 즉시형 무공 '보물탐색'의 신화 보상 확률도 레벨당 3% 증가합니다.",
+		"detail": "천기보도가 보상 상자에서 절세무공이 나올 확률을 높입니다. 비전초식 상자가 배정된 보스를 쓰러뜨렸고 해당 비전을 아직 보유하지 않았을 때, 상자 드랍 확률이 레벨당 3%p 증가합니다.",
 		"icon_color": Color(1.0, 223.0 / 255.0, 0.0),
 		"tree": "downtown",
-	},
-	"item_bag_expansion": {
-		"name": "건곤낭",
-		"max_level": 5,
-		"descriptions": {
-			1: "액티브 슬롯 +1",
-			2: "액티브 슬롯 +2",
-			3: "액티브 슬롯 +3",
-			4: "액티브 슬롯 +4",
-			5: "액티브 슬롯 +5",
-		},
-		"detail": "건곤낭의 안쪽 공간을 넓혀 더 많은 액티브 아이템을 보관합니다.",
-		"icon_color": Color(180.0 / 255.0, 120.0 / 255.0, 80.0 / 255.0),
-		"tree": "item",
 	},
 	"common_swiftness": {
 		"name": "유운보",
@@ -236,14 +249,28 @@ const COMMON_PERKS := {
 		"name": "철산공",
 		"max_level": 5,
 		"descriptions": {
-			1: "패들 크기 6% 증가",
-			2: "패들 크기 12% 증가",
-			3: "패들 크기 18% 증가",
-			4: "패들 크기 24% 증가",
-			5: "패들 크기 30% 증가",
+			1: "몸집 크기 6% 증가",
+			2: "몸집 크기 12% 증가",
+			3: "몸집 크기 18% 증가",
+			4: "몸집 크기 24% 증가",
+			5: "몸집 크기 30% 증가",
 		},
-		"detail": "철산공으로 몸의 기세를 넓혀 패들 크기가 증가합니다.",
+		"detail": "철산공으로 몸의 기세를 넓혀 몸집 크기가 증가합니다.",
 		"icon_color": Color(1.0, 150.0 / 255.0, 80.0 / 255.0),
+		"tree": "common",
+	},
+	"training_mastery": {
+		"name": "연공심법",
+		"max_level": 5,
+		"descriptions": {
+			1: "모든 수련의 능력치 효과 20% 증폭",
+			2: "모든 수련의 능력치 효과 40% 증폭",
+			3: "모든 수련의 능력치 효과 60% 증폭",
+			4: "모든 수련의 능력치 효과 80% 증폭",
+			5: "모든 수련의 능력치 효과 100% 증폭",
+		},
+		"detail": "연공심법으로 모든 수련의 수치 효과를 독립적으로 강화합니다. 수납술의 액티브 아이템 슬롯 증가는 그대로 유지됩니다.",
+		"icon_color": Color(0.66, 0.49, 0.20),
 		"tree": "common",
 	},
 	"perk_boost_charge": {
@@ -370,7 +397,7 @@ const SMASHER_PERKS := {
 		"name": "건곤환문 비급",
 		"max_level": 1,
 		"descriptions": {1: "건곤환문 초식 비급"},
-		"detail": "S 또는 ↓ 키를 0.5초 이상 홀드하면 건곤의 문을 열어 좌/우 경계를 넘어 반대편으로 순간이동하는 초식을 익힙니다. 문을 넘을 때 추가 기력을 소모하지 않습니다.",
+		"detail": "S 또는 ↓ 키를 0.5초 이상 홀드하면 건곤의 문을 열어 좌/우 경계를 넘어 반대편으로 순간이동하는 초식을 익힙니다. 문을 넘을 때 추가 기력을 소모하지 않으며, 통과 후 2초간 이동 경로에 남은 환문잔영이 공을 한 번 받아치고 연기로 흩어집니다.",
 		"icon_color": Color(200.0 / 255.0, 110.0 / 255.0, 1.0),
 		"tree": "smasher_unlock",
 		"character_restriction": "smasher",
@@ -395,6 +422,16 @@ const SMASHER_PERKS := {
 		"tree": "smasher_unlock",
 		"character_restriction": "smasher",
 		"unlocks_skill": "smasher_overdrive",
+	},
+	"unlock_void_phantom": {
+		"name": "허공환영 비급",
+		"max_level": 1,
+		"descriptions": {1: "허공환영 초식 비급"},
+		"detail": "↓/S와 좌클릭을 유지한 채 공을 받아치면 허공을 갈라 반투명 환영공 2개를 좌우로 넓게 띄워 보내, 보스가 어느 것이 진짜인지 착각하게 만드는 초식을 익힙니다.",
+		"icon_color": Color(0.35, 0.90, 1.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "void_phantom",
 	},
 	"extension_gear": {
 		"name": "불식심법",
@@ -421,7 +458,7 @@ const SMASHER_PERKS := {
 			4: "콤보 효과 증폭: 벽력타 공속+360%, 커브+15%(캡), 천뢰격 공속+180%, 초기부스트 감쇄 -40%",
 			5: "콤보 효과 증폭: 벽력타 공속+450%, 커브+15%(캡), 천뢰격 공속+225%, 초기부스트 감쇄 -50%(캡)",
 		},
-		"detail": "콤보 소모형 벽력타/천뢰격의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 레벨에 따라 계속 증가하지만, 벽력타 커브 증폭은 Lv3에서 캡됩니다(밸런스 보호). 또한 천뢰격의 초기 부스트 감쇄가 완만해져 폭발력이 더 오래 유지됩니다.",
+		"detail": "콤보 소모형 벽력타/천뢰격의 콤보 비례 증가율을 추가로 증폭합니다. 공속 증폭은 경지에 따라 계속 증가하지만, 벽력타 커브 증폭은 3성에서 상한에 도달합니다. 또한 천뢰격의 초기 부스트 감쇄가 완만해져 폭발력이 더 오래 유지됩니다.",
 		"icon_color": Color(1.0, 100.0 / 255.0, 200.0 / 255.0),
 		"tree": "smasher",
 		"character_restriction": "smasher",
@@ -546,7 +583,7 @@ const VIPER_PERKS := {
 			4: "킥 발사 정밀도 +32%, 공속 +48%, 준비 -28%, 용광로 넉백볼 20%",
 			5: "킥 발사 정밀도 +40%, 공속 +60%, 준비 -35%, 용광로 넉백볼 30%",
 		},
-		"detail": "바이퍼 킥 계열 초식의 정밀도, 공속, 준비동작을 강화합니다. Lv.3부터 킥 적중 시 확률로 공이 용광로 넉백볼이 되며, 보스가 가드하면 화재형 넉백 150%를 1회 적용합니다.",
+		"detail": "바이퍼 킥 계열 초식의 정밀도, 공속, 준비동작을 강화합니다. 3성부터 킥 적중 시 확률로 공이 용광로 넉백볼이 되며, 보스가 가드하면 화재형 넉백 150%를 1회 적용합니다.",
 		"icon_color": Color(1.0, 90.0 / 255.0, 130.0 / 255.0),
 		"tree": "viper",
 		"character_restriction": "viper",
@@ -555,11 +592,11 @@ const VIPER_PERKS := {
 		"name": "검강심법",
 		"max_level": 5,
 		"descriptions": {
-			1: "검기 사거리/가로폭 +10%, 검기 속도 +10%",
-			2: "검기 사거리/가로폭 +20%, 검기 속도 +20%",
-			3: "검기 사거리/가로폭 +30%, 검기 속도 +30%, 유도검기",
-			4: "검기 사거리/가로폭 +40%, 검기 속도 +40%, 유도검기",
-			5: "검기 사거리/가로폭 +50%, 검기 속도 +50%, 추가 유도검기",
+			1: "참격 사거리/가로폭 +10%, 참격 속도 +10%",
+			2: "참격 사거리/가로폭 +20%, 참격 속도 +20%",
+			3: "참격 사거리/가로폭 +30%, 참격 속도 +30%, 유도검기",
+			4: "참격 사거리/가로폭 +40%, 참격 속도 +40%, 유도검기",
+			5: "참격 사거리/가로폭 +50%, 참격 속도 +50%, 추가 유도검기",
 		},
 		"detail": "에어 블레이드와 혈영참의 검기를 강화합니다.",
 		"icon_color": Color(180.0 / 255.0, 60.0 / 255.0, 220.0 / 255.0),
@@ -576,7 +613,7 @@ const VIPER_PERKS := {
 			4: "천뢰진각/혼천흑창 준비 -33%, 천뢰진각 수면 +20%, 독영절맥 혼란 +48%, 쌍영분신 지속 +27%, 쌍영분신 HP 3, 4초식 쿨 -15%, 슈퍼아머",
 			5: "천뢰진각/혼천흑창 준비 -40%, 천뢰진각 수면 +25%, 독영절맥 혼란 +70%, 쌍영분신 지속 +33%, 쌍영분신 HP 4, 4초식 쿨 -20%, 슈퍼아머, 분신 복제",
 		},
-		"detail": "천뢰진각, 독영절맥, 혼천흑창, 쌍영분신을 묶어 강화합니다.\n천뢰진각/혼천흑창 준비와 천뢰진각 수면, 독영절맥 혼란, 쌍영분신 지속시간을 올립니다.\nLv.3부터 준비동작 슈퍼아머와 4초식 쿨감이 켜지고 쌍영분신 HP가 3이 됩니다.\nLv.5부터 쌍영분신 HP 4, 분신 초식 복제가 적용됩니다. 복제는 추가 기력/쿨/골드를 만들지 않습니다.",
+		"detail": "천뢰진각, 독영절맥, 혼천흑창, 쌍영분신을 묶어 강화합니다.\n천뢰진각/혼천흑창 준비와 천뢰진각 수면, 독영절맥 혼란, 쌍영분신 지속시간을 올립니다.\n3성부터 준비동작 슈퍼아머와 4초식 쿨감이 켜지고 쌍영분신 HP가 3이 됩니다.\n극성부터 쌍영분신 HP 4, 분신 초식 복제가 적용됩니다. 복제는 추가 기력/쿨/골드를 만들지 않습니다.",
 		"icon_color": Color(215.0 / 255.0, 70.0 / 255.0, 1.0),
 		"tree": "viper",
 		"character_restriction": "viper",
@@ -585,10 +622,10 @@ const VIPER_PERKS := {
 
 const SOLDIER_PERKS := {
 	"soldier_unlock_net_gun": {
-		"name": "그물덫총",
+		"name": "투망총통",
 		"max_level": 1,
-		"descriptions": {1: "그물덫총 비급"},
-		"detail": "그물덫총을 영구 습득하고 호란의 초식 구슬에 추가합니다. 탄환은 재장전 초식으로 1발씩 다시 채웁니다.",
+		"descriptions": {1: "투망총통 밀조도"},
+		"detail": "투망총통을 영구 습득하고 호란의 화기 구슬에 추가합니다. 총통에 오랏줄을 물려 고친 물건이라 산채에선 오랏총이라 부릅니다. 탄환은 재장약으로 1발씩 다시 채웁니다.",
 		"icon_color": Color(100.0 / 255.0, 180.0 / 255.0, 100.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -597,10 +634,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "net_gun",
 	},
 	"soldier_unlock_fire_support": {
-		"name": "화력지원",
+		"name": "신기화전",
 		"max_level": 1,
-		"descriptions": {1: "화력지원 비급"},
-		"detail": "화력지원을 영구 습득하고 호란의 초식 구슬에 추가합니다. 호출권은 재장전 게이지가 끝까지 차면 보충됩니다.",
+		"descriptions": {1: "신기화전 밀조도"},
+		"detail": "신기화전을 영구 습득하고 호란의 화기 구슬에 추가합니다. 관군 화차째 통째로 털어온 물건이라 산채에선 불벼락이라 부릅니다. 호출권은 재장약 게이지가 끝까지 차면 보충됩니다.",
 		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -609,10 +646,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "fire_support",
 	},
 	"soldier_unlock_bowling_trap": {
-		"name": "볼링트랩",
+		"name": "질려포통",
 		"max_level": 1,
-		"descriptions": {1: "볼링트랩 비급"},
-		"detail": "볼링트랩을 영구 습득하고 호란의 초식 구슬에 추가합니다. 탄환은 재장전 초식으로 1발씩 다시 채웁니다.",
+		"descriptions": {1: "질려포통 밀조도"},
+		"detail": "질려포통을 영구 습득하고 호란의 화기 구슬에 추가합니다. 굴려서 마름쇠를 뿌리는 통이라 산채에선 밤송이라 부릅니다. 탄환은 재장약으로 1발씩 다시 채웁니다.",
 		"icon_color": Color(200.0 / 255.0, 80.0 / 255.0, 80.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -621,10 +658,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "bowling_trap",
 	},
 	"soldier_unlock_suicide_drone": {
-		"name": "자폭드론",
+		"name": "화조뢰",
 		"max_level": 1,
-		"descriptions": {1: "자폭드론 비급"},
-		"detail": "자폭드론을 영구 습득하고 호란의 초식 구슬에 추가합니다. 탄환은 재장전 초식으로 1발씩 다시 채웁니다.",
+		"descriptions": {1: "화조뢰 밀조도"},
+		"detail": "화조뢰를 영구 습득하고 호란의 화기 구슬에 추가합니다. 비격진천뢰에 날개를 달아 고친 물건이라 산채에선 불까마귀라 부릅니다. 탄환은 재장약으로 1발씩 다시 채웁니다.",
 		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -633,10 +670,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "suicide_drone",
 	},
 	"soldier_unlock_bazooka": {
-		"name": "바주카포",
+		"name": "벽력완구",
 		"max_level": 1,
-		"descriptions": {1: "바주카포 비급"},
-		"detail": "바주카포를 영구 습득하고 호란의 초식 구슬에 추가합니다. 탄약은 재장전 초식으로 1발씩 다시 채웁니다.",
+		"descriptions": {1: "벽력완구 밀조도"},
+		"detail": "벽력완구를 영구 습득하고 호란의 화기 구슬에 추가합니다. 대완구를 어깨에 메도록 잘라낸 개조품이라 산채에선 떡메라 부릅니다. 탄약은 재장약으로 1발씩 다시 채웁니다.",
 		"icon_color": Color(220.0 / 255.0, 120.0 / 255.0, 70.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -645,10 +682,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "bazooka",
 	},
 	"soldier_unlock_ak47": {
-		"name": "AK-47",
+		"name": "연주총통",
 		"max_level": 1,
-		"descriptions": {1: "AK-47 비급"},
-		"detail": "AK-47을 영구 습득하고 호란의 초식 구슬에 추가합니다. 탄약과 지속시간은 재장전 게이지가 끝까지 차면 보충됩니다.",
+		"descriptions": {1: "연주총통 밀조도"},
+		"detail": "연주총통을 영구 습득하고 호란의 화기 구슬에 추가합니다. 쉬지 않고 쏘면 총열이 콩 볶듯 달아올라 산채에선 콩볶이라 부릅니다. 탄약과 지속시간은 재장약 게이지가 끝까지 차면 보충됩니다.",
 		"icon_color": Color(110.0 / 255.0, 135.0 / 255.0, 85.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -657,10 +694,10 @@ const SOLDIER_PERKS := {
 		"unlocks_skill": "ak47",
 	},
 	"soldier_pistol_perk": {
-		"name": "베레타",
+		"name": "삼안속총",
 		"max_level": 1,
-		"descriptions": {1: "베레타 비급"},
-		"detail": "기본 권총은 유지한 채 베레타를 별도 영구 화기류로 습득합니다. 베레타는 준비동작 없이 즉시 발사되며 권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상되고 탄약 12발은 재장전 초식으로만 보충합니다.",
+		"descriptions": {1: "삼안속총 밀조도"},
+		"detail": "기본 단총통은 유지한 채 삼안속총을 별도 영구 화기로 습득합니다. 세 총열을 잇달아 격발하도록 손봐서 산채에선 세눈이라 부릅니다. 준비동작 없이 즉시 격발되며 단총통보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상되고 탄약 12발은 재장약으로만 보충합니다.",
 		"icon_color": Color(140.0 / 255.0, 130.0 / 255.0, 120.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
@@ -672,13 +709,13 @@ const SOLDIER_PERKS := {
 		"name": "철포결",
 		"max_level": 5,
 		"descriptions": {
-			1: "기본권총 정확도 ±12°, 탄속 +10%, 넉백 +30%, 탄창 5발",
-			2: "기본권총 정확도 ±9°, 탄속 +20%, 넉백 +60%, 탄창 5발",
-			3: "기본권총 정확도 ±6°, 탄속 +30%, 넉백 +90%, 탄창 6발",
-			4: "기본권총 정확도 ±3°, 탄속 +40%, 넉백 +120%, 탄창 6발",
-			5: "기본권총 정확도 ±1°, 탄속 +50%, 넉백 +150%, 탄창 7발",
+			1: "단총통 정확도 ±12°, 탄속 +10%, 넉백 +30%, 장전 5발",
+			2: "단총통 정확도 ±9°, 탄속 +20%, 넉백 +60%, 장전 5발",
+			3: "단총통 정확도 ±6°, 탄속 +30%, 넉백 +90%, 장전 6발",
+			4: "단총통 정확도 ±3°, 탄속 +40%, 넉백 +120%, 장전 6발",
+			5: "단총통 정확도 ±1°, 탄속 +50%, 넉백 +150%, 장전 7발",
 		},
-		"detail": "기본권총 전용 강화입니다. 베레타는 영향을 받지 않습니다.\n레벨이 오를수록 기본권총 탄퍼짐이 줄고 탄속은 10%씩, 정상타 넉백은 30%씩 증가하며, Lv.3/Lv.5에 탄창이 늘어납니다.\n효과 레벨이 Lv.6 이상이면 정확도는 ±1°, 탄속은 +50%, 넉백은 +150%에 머물고 탄창만 레벨마다 1발씩 계속 늘어납니다.",
+		"detail": "기본 화기인 단총통 전용 강화입니다. 삼안속총은 영향을 받지 않습니다.\n경지가 오를수록 단총통 탄퍼짐이 줄고 탄속은 10%씩, 정상타 넉백은 30%씩 증가하며, 3성/극성에 장전 수가 늘어납니다.\n유효 경지가 극성 +1 이상이면 정확도는 ±1°, 탄속은 +50%, 넉백은 +150%에 머물고 장전 수만 경지마다 1발씩 계속 늘어납니다.",
 		"icon_color": Color(210.0 / 255.0, 175.0 / 255.0, 92.0 / 255.0),
 		"tree": "soldier",
 		"character_restriction": "soldier",
@@ -690,13 +727,13 @@ const CONVERTED_PERKS := {
 		"name": "낙성결",
 		"max_level": 5,
 		"descriptions": {
-			1: "스타포인트 보너스 드랍 확률 +5%",
-			2: "스타포인트 보너스 드랍 확률 +10%",
-			3: "스타포인트 보너스 드랍 확률 +15%",
-			4: "스타포인트 보너스 드랍 확률 +20%",
-			5: "스타포인트 보너스 드랍 확률 +25%",
+			1: "무혼 보너스 출현 확률 +5%",
+			2: "무혼 보너스 출현 확률 +10%",
+			3: "무혼 보너스 출현 확률 +15%",
+			4: "무혼 보너스 출현 확률 +20%",
+			5: "무혼 보너스 출현 확률 +25%",
 		},
-		"detail": "스타포인트 드랍이 생길 때 추가 스타포인트 드랍을 노립니다.",
+		"detail": "무혼이 나타날 때 추가 무혼이 나타날 확률을 얻습니다.",
 		"icon_color": Color(80.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0),
 		"tree": "item",
 		"conversion_source": "star_detector",
@@ -746,26 +783,17 @@ const CONVERTED_PERKS := {
 		"tree": "dash",
 		"conversion_source": "sensor",
 	},
-	"gravitybelt": {
-		"name": "찰나신법",
-		"max_level": 1,
-		"descriptions": {1: "이동 입력 즉시 최대속도, 입력 해제 시 즉시 정지"},
-		"detail": "이동 가속과 감속을 즉시 반응형 조작감으로 바꿉니다.",
-		"icon_color": Color(120.0 / 255.0, 90.0 / 255.0, 1.0),
-		"tree": "dash",
-		"conversion_source": "gravitybelt",
-	},
 	"dowsing_pendulum": {
 		"name": "섭물공",
 		"max_level": 5,
 		"descriptions": {
-			1: "필드 아이템·스타포인트 흡인 범위 120px",
-			2: "필드 아이템·스타포인트 흡인 범위 160px",
-			3: "필드 아이템·스타포인트 흡인 범위 200px",
-			4: "필드 아이템·스타포인트 흡인 범위 240px",
-			5: "필드 아이템·스타포인트 흡인 범위 280px",
+			1: "필드 아이템·무혼 흡인 범위 120px",
+			2: "필드 아이템·무혼 흡인 범위 160px",
+			3: "필드 아이템·무혼 흡인 범위 200px",
+			4: "필드 아이템·무혼 흡인 범위 240px",
+			5: "필드 아이템·무혼 흡인 범위 280px",
 		},
-		"detail": "주변의 필드 아이템과 스타포인트를 플레이어 패들 쪽으로 끌어당깁니다.",
+		"detail": "주변의 필드 아이템과 무혼을 플레이어 쪽으로 끌어당깁니다.",
 		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 		"tree": "item",
 		"conversion_source": "dowsing_pendulum",
@@ -774,11 +802,11 @@ const CONVERTED_PERKS := {
 		"name": "천안결",
 		"max_level": 3,
 		"descriptions": {
-			1: "무공 선택지 보너스 발동 확률 40%",
-			2: "무공 선택지 보너스 발동 확률 70%",
-			3: "무공 선택지 보너스 발동 확률 100%",
+			1: "무공 선택지 보너스 발동 확률 40%, 무공 합일 상승무공 발현 확률 +3%p",
+			2: "무공 선택지 보너스 발동 확률 70%, 무공 합일 상승무공 발현 확률 +6%p",
+			3: "무공 선택지 보너스 발동 확률 100%, 무공 합일 상승무공 발현 확률 +9%p",
 		},
-		"detail": "무공 선택지가 열릴 때 확률적으로 선택지 하나를 더 보여줍니다.",
+		"detail": "무공 선택지가 열릴 때 확률적으로 선택지 하나를 더 보여주며, 무공 합일 시 상승무공 발현 확률이 레벨당 3%p 증가합니다.",
 		"icon_color": Color(70.0 / 255.0, 210.0 / 255.0, 1.0),
 		"tree": "item",
 		"conversion_source": "dowsing_goggles",
@@ -813,26 +841,17 @@ const CONVERTED_PERKS := {
 		"tree": "item",
 		"conversion_source": "battery",
 	},
-	"revival": {
-		"name": "윤회결",
-		"max_level": 1,
-		"descriptions": {1: "패배 직전 런당 1회 스테이지 재시작"},
-		"detail": "패배 직전 한 번 발동해 게임 오버를 막고 스테이지를 다시 시작합니다.",
-		"icon_color": Color(1.0, 0.0, 1.0),
-		"tree": "common",
-		"conversion_source": "revival",
-	},
 	"master": {
 		"name": "축성공",
 		"max_level": 5,
 		"descriptions": {
-			1: "벽돌 길이 +12%, 아이템 쿨타임 3% 감소, 벽돌 스폰 +100%",
-			2: "벽돌 길이 +20%, 아이템 쿨타임 5% 감소, 벽돌 스폰 +158%",
-			3: "벽돌 길이 +29%, 아이템 쿨타임 8% 감소, 벽돌 스폰 +215%",
-			4: "벽돌 길이 +37%, 아이템 쿨타임 10% 감소, 벽돌 스폰 +273%",
-			5: "벽돌 길이 +45%, 아이템 쿨타임 12% 감소, 벽돌 스폰 +330%",
+			1: "토벽·널뛰기 폭 +12%, 아이템 쿨타임 3% 감소, 토벽패 등장 +100%",
+			2: "토벽·널뛰기 폭 +20%, 아이템 쿨타임 5% 감소, 토벽패 등장 +158%",
+			3: "토벽·널뛰기 폭 +29%, 아이템 쿨타임 8% 감소, 토벽패 등장 +215%",
+			4: "토벽·널뛰기 폭 +37%, 아이템 쿨타임 10% 감소, 토벽패 등장 +273%",
+			5: "토벽·널뛰기 폭 +45%, 아이템 쿨타임 12% 감소, 토벽패 등장 +330%",
 		},
-		"detail": "벽돌 액티브 아이템의 방어력과 등장 빈도를 강화합니다.",
+		"detail": "토벽과 널뛰기의 폭을 늘리고, 액티브 아이템 쿨타임을 줄이며 토벽패 등장 빈도를 높입니다.",
 		"icon_color": Color(1.0, 215.0 / 255.0, 0.0),
 		"tree": "item",
 		"conversion_source": "master",
@@ -841,13 +860,13 @@ const CONVERTED_PERKS := {
 		"name": "취금결",
 		"max_level": 5,
 		"descriptions": {
-			1: "골드·일부 기력 획득 +15%",
-			2: "골드·일부 기력 획득 +25%",
-			3: "골드·일부 기력 획득 +35%",
-			4: "골드·일부 기력 획득 +45%",
-			5: "골드·일부 기력 획득 +55%",
+			1: "골드 획득량 +15%",
+			2: "골드 획득량 +25%",
+			3: "골드 획득량 +35%",
+			4: "골드 획득량 +45%",
+			5: "골드 획득량 +55%",
 		},
-		"detail": "전투 중 얻는 골드와 일부 기력 획득량을 늘립니다.",
+		"detail": "전투 중 얻는 골드 획득량을 늘립니다.",
 		"icon_color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
 		"tree": "item",
 		"conversion_source": "gold_digger",
@@ -907,7 +926,7 @@ const CONVERTED_PERKS := {
 			4: "타격 기력 +20%",
 			5: "타격 기력 +24%",
 		},
-		"detail": "패들로 공을 칠 때 얻는 기력을 늘립니다.",
+		"detail": "공을 받아칠 때 얻는 기력을 늘립니다.",
 		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 		"tree": "common",
 		"conversion_source": "bluetooth_ring",
@@ -927,26 +946,17 @@ const CONVERTED_PERKS := {
 		"tree": "common",
 		"conversion_source": "foul_whistle",
 	},
-	"smartphone": {
-		"name": "응변결",
-		"max_level": 1,
-		"descriptions": {1: "회복/스톱워치/금강결계 자동 사용"},
-		"detail": "위급 상황에서 특정 액티브 아이템을 자동으로 사용합니다.",
-		"icon_color": Color(100.0 / 255.0, 150.0 / 255.0, 200.0 / 255.0),
-		"tree": "item",
-		"conversion_source": "smartphone",
-	},
 	"neural_helmet": {
 		"name": "강신결",
 		"max_level": 5,
 		"descriptions": {
-			1: "신령환 기력 비용 30 감소, 스폰 +100%",
-			2: "신령환 기력 비용 40 감소, 스폰 +158%",
-			3: "신령환 기력 비용 50 감소, 스폰 +215%",
-			4: "신령환 기력 비용 60 감소, 스폰 +273%",
-			5: "신령환 기력 비용 70 감소, 스폰 +330%",
+			1: "신령환 가드 기력 비용 10 감소, 패들 반사 공속 추가 +2%, 스폰 +100%",
+			2: "신령환 가드 기력 비용 15 감소, 패들 반사 공속 추가 +4%, 스폰 +158%",
+			3: "신령환 가드 기력 비용 20 감소, 패들 반사 공속 추가 +6%, 스폰 +215%",
+			4: "신령환 가드 기력 비용 25 감소, 패들 반사 공속 추가 +8%, 스폰 +273%",
+			5: "신령환 가드 기력 비용 30 감소, 패들 반사 공속 추가 +10%, 스폰 +330%",
 		},
-		"detail": "신령환 액티브의 부담을 낮추고 필드 등장률을 높입니다.",
+		"detail": "신령환의 가드 1회 기력 비용을 낮추고, 패들 반사 시 기존 공속 증가에 성급별 추가 보너스를 더하며 필드 등장률을 높입니다. 발동 중 아래 방향키(S/↓)를 1초간 누르면 해제할 수 있습니다.",
 		"icon_color": Color(140.0 / 255.0, 180.0 / 255.0, 1.0),
 		"tree": "item",
 		"conversion_source": "neural_helmet",
@@ -970,13 +980,13 @@ const CONVERTED_PERKS := {
 		"name": "칠채순환",
 		"max_level": 5,
 		"descriptions": {
-			1: "공 히트 시 발동 3%, 진행 중 초식 쿨타임 20% 감소",
-			2: "공 히트 시 발동 5%, 진행 중 초식 쿨타임 29% 감소",
-			3: "공 히트 시 발동 8%, 진행 중 초식 쿨타임 38% 감소",
-			4: "공 히트 시 발동 10%, 진행 중 초식 쿨타임 46% 감소",
-			5: "공 히트 시 발동 12%, 진행 중 초식 쿨타임 55% 감소",
+			1: "공 히트 시 발동 3%, 진행 중 초식의 전체 쿨타임 8% 감소",
+			2: "공 히트 시 발동 4%, 진행 중 초식의 전체 쿨타임 11% 감소",
+			3: "공 히트 시 발동 5%, 진행 중 초식의 전체 쿨타임 14% 감소",
+			4: "공 히트 시 발동 6%, 진행 중 초식의 전체 쿨타임 17% 감소",
+			5: "공 히트 시 발동 7%, 진행 중 초식의 전체 쿨타임 20% 감소",
 		},
-		"detail": "공을 받아칠 때 장착한 초식의 남은 쿨타임을 줄일 수 있습니다.",
+		"detail": "공을 받아칠 때 장착한 초식의 전체 쿨타임을 기준으로 진행 중 쿨타임을 줄입니다.",
 		"icon_color": Color(1.0, 170.0 / 255.0, 220.0 / 255.0),
 		"tree": "common",
 		"conversion_source": "rainbow_fur_glove",
@@ -1015,31 +1025,16 @@ const CONVERTED_PERKS := {
 		"name": "철심공",
 		"max_level": 5,
 		"descriptions": {
-			1: "스턴 저항 +6%",
-			2: "스턴 저항 +11%",
-			3: "스턴 저항 +15%",
-			4: "스턴 저항 +20%",
-			5: "스턴 저항 +24%",
+			1: "자세보정 +6%",
+			2: "자세보정 +11%",
+			3: "자세보정 +15%",
+			4: "자세보정 +20%",
+			5: "자세보정 +24%",
 		},
-		"detail": "플레이어에게 걸리는 스턴 시간을 줄입니다.",
+		"detail": "자세보정으로 스턴 지속시간과 넉백 이동거리·지속시간을 함께 줄입니다.",
 		"icon_color": Color(0.38, 0.72, 1.0),
 		"tree": "common",
 		"conversion_source": "bulletproof_hat",
-	},
-	"spiked_helmet": {
-		"name": "천근추",
-		"max_level": 5,
-		"descriptions": {
-			1: "넉백 저항 +6%",
-			2: "넉백 저항 +11%",
-			3: "넉백 저항 +15%",
-			4: "넉백 저항 +20%",
-			5: "넉백 저항 +24%",
-		},
-		"detail": "플레이어가 받는 넉백 속도를 줄입니다.",
-		"icon_color": Color(1.0, 0.62, 0.32),
-		"tree": "common",
-		"conversion_source": "spiked_helmet",
 	},
 	"venom_mist_gauntlet": {
 		"name": "독운공",
@@ -1057,26 +1052,17 @@ const CONVERTED_PERKS := {
 		"character_restriction": "viper",
 		"conversion_source": "venom_mist_gauntlet",
 	},
-	"speedgear": {
-		"name": "회류보",
-		"max_level": 1,
-		"descriptions": {1: "좌우 방향 전환 감속 2.5배"},
-		"detail": "방향 전환 시 급격한 조작을 보정하는 이동 특성을 적용합니다.",
-		"icon_color": Color(1.0, 150.0 / 255.0, 0.0),
-		"tree": "dash",
-		"conversion_source": "speedgear",
-	},
 	"sage_ring": {
 		"name": "현문차력",
 		"max_level": 5,
 		"descriptions": {
-			1: "공 타격 시 5%: 모든 무공 레벨 +1 (6초)",
-			2: "공 타격 시 5%: 모든 무공 레벨 +1 (7초)",
-			3: "공 타격 시 5%: 모든 무공 레벨 +2 (8초)",
-			4: "공 타격 시 5%: 모든 무공 레벨 +2 (9초)",
-			5: "공 타격 시 5%: 모든 무공 레벨 +3 (10초)",
+			1: "공 타격 시 5%: 모든 무공 유효 경지 +1 (6초)",
+			2: "공 타격 시 5%: 모든 무공 유효 경지 +1 (7초)",
+			3: "공 타격 시 5%: 모든 무공 유효 경지 +2 (8초)",
+			4: "공 타격 시 5%: 모든 무공 유효 경지 +2 (9초)",
+			5: "공 타격 시 5%: 모든 무공 유효 경지 +3 (10초)",
 		},
-		"detail": "공을 타격할 때 5% 확률로 발동해 일정 시간 모든 무공의 유효 레벨을 올립니다. 활성 중 다시 발동하면 효과는 중첩되지 않고 현재 투자 레벨 기준으로 지속시간이 갱신됩니다.",
+		"detail": "공을 타격할 때 5% 확률로 발동해 일정 시간 모든 무공의 유효 경지를 올립니다. 활성 중 다시 발동하면 효과는 중첩되지 않고 현재 투자 경지 기준으로 지속시간이 갱신됩니다.",
 		"icon_color": Color(160.0 / 255.0, 115.0 / 255.0, 1.0),
 		"tree": "common",
 		"effective_level_exempt": true,
@@ -1099,8 +1085,8 @@ const CONVERTED_MYTHIC_PERKS := {
 	"transcendent_crown": {
 		"name": "만법귀일",
 		"max_level": 1,
-		"descriptions": {1: "전 무공 유효레벨 +2"},
-		"detail": "투자한 모든 무공의 흐름을 하나로 합쳐 유효레벨을 올립니다.",
+		"descriptions": {1: "전 무공 유효 경지 +2"},
+		"detail": "투자한 모든 무공의 흐름을 하나로 합쳐 유효 경지를 올립니다.",
 		"icon_color": Color(1.0, 215.0 / 255.0, 100.0 / 255.0),
 		"tree": "mythic",
 		"rarity": "mythic",
@@ -1165,8 +1151,8 @@ const CONVERTED_MYTHIC_PERKS := {
 	"horn_strawberry_mask": {
 		"name": "혼딸기강신",
 		"max_level": 1,
-		"descriptions": {1: "혼딸기 강신 60초"},
-		"detail": "커맨드 입력으로 일정 시간 혼딸기 신령을 몸에 내립니다.",
+		"descriptions": {1: "혼딸기 강신 60초, 기력 500, 초식 커맨드 A→D→A→D→A→D"},
+		"detail": "기력 500을 소모해 2초 안에 초식 커맨드 A→D→A→D→A→D를 입력하면 스테이지당 1회, 60초간 혼딸기 신령을 몸에 내립니다.",
 		"icon_color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
 		"tree": "mythic",
 		"rarity": "mythic",
@@ -1176,8 +1162,8 @@ const CONVERTED_MYTHIC_PERKS := {
 	"odins_eye": {
 		"name": "윤회천안",
 		"max_level": 1,
-		"descriptions": {1: "실점 무효·악귀 부활 35%"},
-		"detail": "실점 시 일정 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 되살아난 뒤에는 이동과 활주가 둔해지고, 다시 실점하면 패배합니다.",
+		"descriptions": {1: "실점 무효·악귀 부활 35%, 활주 거리 +50%"},
+		"detail": "실점 시 일정 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 악귀 상태에서는 이동속도 -50%, 활주 1회, 재충전 시간 +100%가 적용되지만 활주 거리는 50% 늘어나며, 다시 실점하면 패배합니다.",
 		"icon_color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
 		"tree": "mythic",
 		"rarity": "mythic",
@@ -1221,12 +1207,23 @@ const CONVERTED_MYTHIC_PERKS := {
 		"name": "천운삼괘",
 		"max_level": 1,
 		"descriptions": {1: "스테이지마다 서로 다른 천운 1~3개 획득 (효과 30%)"},
-		"detail": "괘상에 따라 패들 크기·최대 기력·이동 속도 증가 또는 액티브 아이템·초식·활주 재충전 시간 감소 천운을 얻습니다.",
+		"detail": "괘상에 따라 몸집 크기·최대 기력·이동 속도 증가 또는 액티브 아이템·초식·활주 재충전 시간 감소 천운을 얻습니다.",
 		"icon_color": Color(1.0, 235.0 / 255.0, 150.0 / 255.0),
 		"tree": "mythic",
 		"rarity": "mythic",
 		"effective_level_exempt": true,
 		"conversion_source": "angel_blessing",
+	},
+	"yangui_hoechun": {
+		"name": "양의회천",
+		"max_level": 1,
+		"descriptions": {1: "초식 발동 시 50%, 기력 30 소모"},
+		"detail": "초식 발동 시 기력이 30 이상이면 50% 확률로 기력 30을 소모해 좌우로 황금빛 기파를 펼칩니다. 기파에 닿은 하강 공은 위로 반사됩니다.",
+		"icon_color": Color(1.0, 225.0 / 255.0, 72.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"conversion_source": "yangui_hoechun",
 	},
 }
 
@@ -1240,22 +1237,12 @@ const INSTANT_PERKS := {
 		"is_instant": true,
 	},
 	"instant_dimension_gate": {
-		"name": "차원개방",
-		"description": "잠시 아이템 스폰 흐름을 강화",
-		"detail": "3초 동안 중앙 차원문에서 아이템이 0.5~1초 간격으로 쏟아집니다.",
-		"icon_color": Color(1.0, 100.0 / 255.0, 1.0),
+		"name": "백보초래",
+		"description": "도깨비 보따리의 귀문을 즉시 개방",
+		"detail": "3초 동안 중앙 귀문에서 액티브 아이템이 0.5~1초 간격으로 쏟아집니다.",
+		"icon_color": Color(0.66, 0.34, 0.72),
 		"tree": "instant",
 		"is_instant": true,
-	},
-	"instant_treasure_hunt": {
-		"name": "보물탐색",
-		"description": "보물을 탐색하여 보상을 노립니다",
-		"detail": "고대의 천기보도를 따라 보상을 탐색합니다. 신화 아이템 20%, 패시브 아이템 60%, 꽝 20%를 기본으로 하며, 천기보도 레벨당 신화 보상 확률이 3% 증가합니다.",
-		"icon_color": Color(1.0, 215.0 / 255.0, 0.0),
-		"tree": "instant",
-		"is_instant": true,
-		"is_unique": true,
-		"rarity": "legendary",
 	},
 	"instant_monkey_blessing": {
 		"name": "원숭이은혜",
@@ -1277,7 +1264,7 @@ const INSTANT_PERKS := {
 
 # 승리 전리품 페이즈(보스 격파 후 상자 드랍) 오퍼에서 빼는 즉시형 보상 퍽.
 # 이 시점에는 매치가 이미 끝나 공/랠리가 없으므로 인게임 즉발 효과를 쓸 곳이
-# 없다 — 아이템 스폰 강화(차원개방), 기력·활주·쿨 완충(풀게이징), 빈 액티브
+# 없다 — 아이템 스폰 강화(백보초래), 기력·활주·쿨 완충(풀게이징), 빈 액티브
 # 슬롯 보급(원숭이은혜)이 전부 사장된 카드로 상자 보상 한 장을 소모한다.
 # `common_refresh`(새로고침)는 선택지 재굴림 유틸이라 상자 오퍼에서도 유효하므로
 # 의도적으로 남긴다 — INSTANT_PERKS 전체 제외(`exclude_instant`)와는 다른 계약.
@@ -1290,16 +1277,15 @@ const VICTORY_LOOT_EXCLUDED_INSTANT_IDS := {
 const GOLD_CHOICE := {
 	"id": "convert_to_gold",
 	"name": "골드변환",
-	"description": "스타포인트로 무공을 획득하는 대신 골드로 변환합니다",
+	"description": "무혼으로 무공을 획득하는 대신 골드로 변환합니다",
 	"detail": "무공을 포기하고 즉시 500골드를 인게임 골드로 획득합니다.",
 	"icon_color": Color(1.0, 215.0 / 255.0, 0.0),
 	"tree": "instant",
 	"character_restriction": "",
 	"is_instant": true,
 	"is_gold_conversion": true,
-	# 오퍼 lane 메타: 시스템 카드 로테이션(융합·신비의 주사위)이 골드 lane을
-	# 판별/스왑하는 계약 필드 — 골드는 항상 보호 lane으로 남고, 로테이션은
-	# 카탈로그 밖(오퍼 후처리)에서만 일어난다.
+	# 일반 오퍼에서는 은퇴했지만 레거시 저장·디버그 주입·표시 경로가 이
+	# payload를 계속 해석한다. lane 메타도 그 호환 범위에서만 보존한다.
 	"offer_lane": "gold",
 	"offer_protected": true,
 	"gold_amount": 500,
@@ -1322,6 +1308,79 @@ var mythic_jackpot_offer_chance := 0.05
 var dash_token_boost_chances: Array = [0.25, 0.10, 0.05]
 var owned_upgrade_partial_chance := 0.5
 var _full_chosik_swap_offer_roll_for_tests: Callable = Callable()
+var _open_chosik_offer_roll_for_tests: Callable = Callable()
+var _reserved_boss_vision_offer_id := ""
+var _character_context: Object = RuntimePerkCharacterContext.new()
+
+
+func _try_build_mythic_jackpot_offer(
+	regular_pool: Array,
+	runtime_levels: Dictionary,
+	character_type: String,
+	exclude_instant: bool,
+	target_choice_count: int,
+	owner: Object,
+	registry: Object
+) -> Array:
+	if not PerkConversionFlags.is_enabled() or target_choice_count <= 0:
+		return []
+	if not has_open_perk_slot(runtime_levels, registry):
+		return []
+	var mythic_offer_chances := _get_mythic_offer_chances(runtime_levels)
+	var jackpot_chance := float(mythic_offer_chances.get("jackpot", 0.0))
+	if randf() >= jackpot_chance:
+		return []
+
+	var mythic_reserved := _build_unowned_mythic_choices(
+		runtime_levels,
+		character_type,
+		target_choice_count
+	)
+	if mythic_reserved.is_empty():
+		return []
+
+	var result: Array = []
+	for mythic_choice in mythic_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(mythic_choice, "mythic_jackpot", true))
+	if result.size() >= target_choice_count:
+		return result
+
+	# A jackpot is a dedicated screen. Only ordinary Mugong may fill a genuine
+	# mythic-candidate shortage; Chosik and other protected reservations are not
+	# evaluated or consumed on this path.
+	var regular_fill: Array = []
+	for value in regular_pool:
+		if not (value is Dictionary):
+			continue
+		var choice: Dictionary = value as Dictionary
+		if bool(choice.get(BOSS_VISION_PRIORITY_KEY, false)):
+			continue
+		if str(choice.get("unlocks_skill", "")).strip_edges() != "":
+			continue
+		regular_fill.append(choice)
+	regular_fill = _filter_perk_slot_budget(regular_fill, runtime_levels, registry)
+	regular_fill = _filter_lingpet_owned_gate(regular_fill, owner)
+	regular_fill.shuffle()
+	for regular_choice in regular_fill:
+		if result.size() >= target_choice_count:
+			break
+		var regular_id := str((regular_choice as Dictionary).get("id", ""))
+		if not _has_choice_id(result, regular_id):
+			result.append(_with_offer_metadata(regular_choice, "replaceable", false))
+
+	if not exclude_instant and result.size() < target_choice_count:
+		var instant_fill: Array = []
+		_append_instant_choices(instant_fill, owner)
+		instant_fill = _filter_lingpet_owned_gate(instant_fill, owner)
+		instant_fill.shuffle()
+		for instant_choice in instant_fill:
+			if result.size() >= target_choice_count:
+				break
+			if not _has_choice_id(result, str(instant_choice.get("id", ""))):
+				result.append(instant_choice)
+	return result
 
 
 func get_choices(
@@ -1336,6 +1395,7 @@ func get_choices(
 	var choices: Array = []
 	_append_pool_choices(choices, COMMON_PERKS, runtime_levels, "")
 	_append_soul_summon_choice(choices, runtime_levels)
+	_append_reserved_boss_vision_choice(choices, runtime_levels)
 
 	var normalized: String = _normalize_character(character_type)
 	if normalized == "smasher":
@@ -1349,7 +1409,23 @@ func get_choices(
 	if PerkConversionFlags.is_enabled():
 		_append_converted_perk_choices(choices, runtime_levels, normalized)
 
-	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
+	var mythic_jackpot_choices := _try_build_mythic_jackpot_offer(
+		choices,
+		runtime_levels,
+		normalized,
+		exclude_instant,
+		target_choice_count,
+		owner,
+		_registry
+	)
+	mythic_jackpot_choices = _filter_tower_unlock_choices(
+		mythic_jackpot_choices,
+		_registry
+	)
+	if not mythic_jackpot_choices.is_empty():
+		return mythic_jackpot_choices
+
+	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels, _registry)
 	if PerkConversionFlags.is_enabled():
 		choices = _filter_perk_slot_budget(choices, runtime_levels, _registry)
 	_append_lingpet_guardian_enhance_choice(choices, owner, _registry)
@@ -1358,26 +1434,23 @@ func get_choices(
 	choices = _filter_tower_unlock_choices(choices, _registry)
 
 	choices = _filter_lingpet_owned_gate(choices, owner)
+	var boss_vision_reservation := _extract_boss_vision_reserved_choice(choices)
+	var boss_vision_reserved: Array = boss_vision_reservation.get("reserved", []) as Array
+	choices = boss_vision_reservation.get("remaining", []) as Array
 	var full_chosik_swap_reservation := _extract_full_chosik_swap_reserved_choice(choices)
 	var full_chosik_swap_reserved: Array = full_chosik_swap_reservation.get("reserved", []) as Array
 	choices = full_chosik_swap_reservation.get("remaining", []) as Array
 	var guardian_enhance_reservation := _extract_guardian_enhance_reserved_choice(choices)
 	var guardian_enhance_reserved: Array = guardian_enhance_reservation.get("reserved", []) as Array
 	choices = guardian_enhance_reservation.get("remaining", []) as Array
-	var mythic_reserved: Array = []
-	var mythic_count := 0
-	if PerkConversionFlags.is_enabled() and has_open_perk_slot(runtime_levels, _registry):
-		var mythic_offer_chances := _get_mythic_offer_chances(runtime_levels)
-		var jackpot_chance := float(mythic_offer_chances.get("jackpot", 0.0))
-		if randf() < jackpot_chance:
-			mythic_count = target_choice_count
-	if mythic_count > 0:
-		mythic_reserved = _build_unowned_mythic_choices(runtime_levels, normalized, mythic_count)
-	# 예약 체인(fill order 계약: mythic -> dash token -> owned upgrades ->
-	# ring-core -> shuffled). 대쉬토큰은 전용 per-level 부스트 lane(소유 후
+	# 절세무공 당첨은 위 전용 분기에서 즉시 반환한다. 일반 예약 체인은
+	# boss vision -> guardian enhance -> full Chosik swap -> dash token ->
+	# owned upgrades -> shuffled 순서다. 대쉬토큰은
+	# 전용 per-level 부스트 lane(소유 후
 	# generic 예약과 이중 등장 금지), 소유 업그레이드는 만석=target-1(마지막
-	# 일반 lane 1개는 교체형 오퍼(융합/주사위) 진입로로 항상 남김) /
-	# 빈슬롯=partial 확률 1장. 융합 슬롯 환급이 슬롯을 열면 만석 예약은
+	# 일반 lane 1개는 교체형 오퍼(합일/수련) 진입로로 항상 남김) /
+	# 빈슬롯=partial 확률 1장.
+	# 융합 슬롯 환급이 슬롯을 열면 만석 예약은
 	# 자연 비활성화된다(has_open_perk_slot 공유 판정).
 	var dash_token_reserved: Array = []
 	if PerkConversionFlags.is_enabled():
@@ -1403,6 +1476,10 @@ func get_choices(
 			choices = owned_upgrade_reservation.get("remaining", []) as Array
 	choices.shuffle()
 	var result: Array = []
+	for vision_choice in boss_vision_reserved:
+		if result.size() >= target_choice_count:
+			break
+		result.append(_with_offer_metadata(vision_choice, "boss_vision_reserved", true))
 	for guardian_choice in guardian_enhance_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1411,10 +1488,6 @@ func get_choices(
 		if result.size() >= target_choice_count:
 			break
 		result.append(_with_offer_metadata(swap_choice, "full_chosik_swap_reserved", true))
-	for mythic_choice in mythic_reserved:
-		if result.size() >= target_choice_count:
-			break
-		result.append(_with_offer_metadata(mythic_choice, "mythic_jackpot", true))
 	for dash_token_choice in dash_token_reserved:
 		if result.size() >= target_choice_count:
 			break
@@ -1447,14 +1520,6 @@ func get_choices(
 				result.append(instant_choice)
 
 	result = _filter_tower_unlock_choices(result, _registry)
-	if TowerAscentUnlockFilter.is_content_unlocked(
-		_registry,
-		TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
-		"convert_to_gold"
-	):
-		var gold_choice := GOLD_CHOICE.duplicate(true)
-		gold_choice["id"] = "convert_to_gold"
-		result.append(LanguageSettings.localize_perk_data(gold_choice))
 	return result
 
 
@@ -1477,6 +1542,15 @@ func get_all_perk_data() -> Dictionary:
 	var data: Dictionary = {}
 	data.merge(COMMON_PERKS, true)
 	data[CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data()
+	data[CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+	)
+	data[CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
+	)
+	data[CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID
+	)
 	data[LINGPET_GUARDIAN_ENHANCE_CHOICE_ID] = LingpetGuardianEnhanceOfferEngine.get_perk_data()
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
@@ -1498,8 +1572,8 @@ func get_all_perk_data() -> Dictionary:
 
 
 func get_perk_data(skill_id: String) -> Dictionary:
-	if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
-		var common_unlock := CommonSkillCatalog.get_unlock_perk_data()
+	if CommonSkillCatalog.is_common_unlock(skill_id):
+		var common_unlock := CommonSkillCatalog.get_unlock_perk_data(skill_id)
 		common_unlock["id"] = skill_id
 		return common_unlock
 	var all_data: Dictionary = get_all_perk_data()
@@ -1519,9 +1593,11 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		gold_choice["id"] = "convert_to_gold"
 		return LanguageSettings.localize_perk_data(gold_choice)
 	if skill_id == "mystic_dice":
-		# 카드 정의 단일 소스는 오퍼 플래너의 build_card — 카탈로그는 조회
-		# 해석만 담당하고 로테이션 로직은 갖지 않는다(get_choices 비등장).
+		# Legacy save/test compatibility only. Production offers and the debug perk
+		# list no longer expose this card; acquisition belongs to the active item.
 		return load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
+	if skill_id.begins_with("physique_"):
+		return PhysiqueTrainingCatalog.new().build_card(skill_id, 0)
 	if skill_id == LINGPET_GUARDIAN_ENHANCE_CHOICE_ID:
 		var guardian_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
 		guardian_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
@@ -1536,6 +1612,11 @@ static var _perk_display_name_index: Dictionary = {}
 
 
 static func get_perk_display_name(skill_id: String) -> String:
+	if skill_id.begins_with("physique_"):
+		var training_value: Variant = PhysiqueTrainingCatalog.DATA.get(skill_id, {})
+		if training_value is Dictionary:
+			return LanguageSettings.localize_perk_name(skill_id, str((training_value as Dictionary).get("name", "")))
+		return ""
 	if _perk_display_name_index.is_empty():
 		for pool_value: Variant in [
 			COMMON_PERKS,
@@ -1580,18 +1661,15 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	var perk_id: String = str(perk_data.get("id", "")).strip_edges()
 	if perk_id == "convert_to_gold" or bool(perk_data.get("is_gold_conversion", false)):
 		return false
-	# 신비의 주사위: 모달 전용 시스템 카드 — 퍽 슬롯을 절대 소모하지 않는다
-	# (영구 스탯은 슬롯 밖 run-scope 누적).
+	# Retired Mystic Dice card IDs can survive in old snapshots. Treat them as
+	# slot-free compatibility data; new runs acquire the active item instead.
 	if perk_id == "mystic_dice" or bool(perk_data.get("is_mystic_dice", false)):
+		return false
+	if bool(perk_data.get("is_physique_training", false)):
 		return false
 	if bool(perk_data.get("is_instant", false)) or str(perk_data.get("tree", "")) == "instant":
 		return false
 	if str(perk_data.get("unlocks_skill", "")).strip_edges() != "":
-		return false
-	# 슬롯 확장 퍽은 flag ON에서만 비소모(자신은 슬롯을 먹지 않고 최대치만
-	# 올림 — 가득 상태에서도 오퍼에 등장하는 탈출 밸브). OFF에서는 레거시
-	# 장신구 퍽 의미라 기존 소모 규칙을 유지한다.
-	if PerkConversionFlags.is_enabled() and perk_id == SLOT_EXPANSION_PERK_ID:
 		return false
 	if bool(LINGPET_GATED_CHOICE_IDS.get(perk_id, false)):
 		return false
@@ -1643,23 +1721,39 @@ func _resolve_perk_fusion_slot_reduction(slot_context: Object) -> int:
 	return maxi(0, int(runtime_state.get_perk_fusion_slot_reduction()))
 
 
+func _resolve_perk_fusion_slot_limit_bonus(slot_context: Object) -> int:
+	if slot_context == null:
+		return 0
+	var runtime_state: Object = slot_context
+	if slot_context.has_method("get_instance"):
+		runtime_state = slot_context.get_instance("runtime_perk_state")
+	if runtime_state == null or not runtime_state.has_method("get_perk_fusion_owned_byproduct_ids"):
+		return 0
+	var owned_value: Variant = runtime_state.get_perk_fusion_owned_byproduct_ids()
+	if not owned_value is Array:
+		return 0
+	for byproduct_id_value: Variant in owned_value as Array:
+		if str(byproduct_id_value) == FUSION_SLOT_EXPANSION_BYPRODUCT_ID:
+			return 1
+	return 0
+
+
 func has_open_perk_slot(runtime_levels: Dictionary, slot_context: Object = null) -> bool:
-	return count_owned_slot_perks(runtime_levels, slot_context) < get_perk_slot_limit(runtime_levels)
+	return count_owned_slot_perks(runtime_levels, slot_context) < get_perk_slot_limit(runtime_levels, slot_context)
 
 
-func get_perk_slot_limit(runtime_levels: Dictionary) -> int:
+func get_perk_slot_limit(_runtime_levels: Dictionary, slot_context: Object = null) -> int:
 	# flag OFF에서는 고정 6(UI가 flag와 무관하게 조회하므로 여기서 중앙
-	# 격리). ON에서만 슬롯 확장 퍽의 RAW 레벨을 반영한다 — 유효레벨
-	# 보너스(초월자의 왕관·현자의 계약·점화 등)로 최대 슬롯이 늘면 안 됨.
+	# 격리). ON에서는 합일 부산물 보유 상태만 한도에 반영한다.
 	if not PerkConversionFlags.is_enabled():
 		return BASE_PERK_SLOT_LIMIT
-	var expansion_level: int = maxi(0, int(runtime_levels.get(SLOT_EXPANSION_PERK_ID, 0)))
-	return clampi(BASE_PERK_SLOT_LIMIT + expansion_level, BASE_PERK_SLOT_LIMIT, MAX_PERK_SLOT_LIMIT)
+	var bonus: int = _resolve_perk_fusion_slot_limit_bonus(slot_context)
+	return clampi(BASE_PERK_SLOT_LIMIT + bonus, BASE_PERK_SLOT_LIMIT, MAX_PERK_SLOT_LIMIT)
 
 
 func get_perk_slot_status(runtime_levels: Dictionary, slot_context: Object = null) -> Dictionary:
 	var count := count_owned_slot_perks(runtime_levels, slot_context)
-	var limit := get_perk_slot_limit(runtime_levels)
+	var limit := get_perk_slot_limit(runtime_levels, slot_context)
 	return {
 		"count": count,
 		"limit": limit,
@@ -1674,6 +1768,24 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	soul_summon_entry["id"] = CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 	soul_summon_entry["debug_group"] = "common"
 	entries.append(soul_summon_entry)
+	var dalji_vision_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+	)
+	dalji_vision_entry["id"] = CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+	dalji_vision_entry["debug_group"] = "vision"
+	entries.append(dalji_vision_entry)
+	var cheongringwi_vision_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
+	)
+	cheongringwi_vision_entry["id"] = CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
+	cheongringwi_vision_entry["debug_group"] = "vision"
+	entries.append(cheongringwi_vision_entry)
+	var yeonmyo_vision_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID
+	)
+	yeonmyo_vision_entry["id"] = CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID
+	yeonmyo_vision_entry["debug_group"] = "vision"
+	entries.append(yeonmyo_vision_entry)
 	_append_debug_pool_entries(entries, SMASHER_PERKS, "smasher")
 	_append_debug_pool_entries(entries, VIPER_PERKS, "viper")
 	_append_debug_pool_entries(entries, SOLDIER_PERKS, "soldier")
@@ -1684,11 +1796,13 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	gold_choice["id"] = "convert_to_gold"
 	gold_choice["debug_group"] = "instant"
 	entries.append(LanguageSettings.localize_perk_data(gold_choice))
-	# 신비의 주사위: 디버그 피커에는 검사용으로 노출하되, 직접 부여는
-	# RuntimePerkDebugGrants가 modal_only_choice로 거부한다.
-	var mystic_dice_choice: Dictionary = get_perk_data("mystic_dice")
-	mystic_dice_choice["debug_group"] = "instant"
-	entries.append(mystic_dice_choice)
+	# 신비의 주사위는 퍽 목록에서 은퇴했으며 F2 액티브 아이템 메뉴로 검증한다.
+	if PerkConversionFlags.is_enabled():
+		var training_catalog := PhysiqueTrainingCatalog.new()
+		for training_id: String in PhysiqueTrainingCatalog.TRAINING_IDS:
+			var training_choice: Dictionary = training_catalog.build_card(training_id, 0)
+			training_choice["debug_group"] = "training"
+			entries.append(training_choice)
 	var guardian_enhance_choice := LingpetGuardianEnhanceOfferEngine.get_perk_data()
 	guardian_enhance_choice["id"] = LINGPET_GUARDIAN_ENHANCE_CHOICE_ID
 	guardian_enhance_choice["debug_group"] = "lingpet"
@@ -1697,8 +1811,28 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	return entries
 
 
+func get_legacy_training_compat_debug_entries() -> Array:
+	var entries: Array = []
+	for perk_id_value: Variant in TRAINING_MIGRATED_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		var data := get_perk_data(perk_id)
+		if data.is_empty():
+			continue
+		data["debug_group"] = "legacy_training_compat"
+		data["legacy_injection_only"] = true
+		entries.append(data)
+	entries.sort_custom(func(a, b): return str(a.get("id", "")) < str(b.get("id", "")))
+	return entries
+
+
 func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dictionary, character_restriction: String) -> void:
 	for skill_id in pool.keys():
+		if not PerkConversionFlags.is_enabled() and TRAINING_DEPENDENT_PERK_IDS.has(str(skill_id)):
+			continue
+		if PerkConversionFlags.is_enabled() and str(skill_id) == SLOT_EXPANSION_PERK_ID:
+			continue
+		if PerkConversionFlags.is_enabled() and TRAINING_MIGRATED_PERK_IDS.has(str(skill_id)):
+			continue
 		var skill_data: Dictionary = _resolve_expansion_definition(str(skill_id), pool[skill_id])
 		var max_level: int = int(skill_data.get("max_level", 1))
 		var current_level: int = int(runtime_levels.get(skill_id, 0))
@@ -1725,6 +1859,56 @@ func _append_soul_summon_choice(
 		""
 	)
 	output.append(choice)
+
+
+func reserve_boss_vision_offer(perk_id: String) -> bool:
+	if not CommonSkillCatalog.is_vision_unlock_id(perk_id):
+		return false
+	_reserved_boss_vision_offer_id = perk_id
+	return true
+
+
+func has_reserved_boss_vision_offer() -> bool:
+	return _reserved_boss_vision_offer_id != ""
+
+
+func _append_reserved_boss_vision_choice(output: Array, runtime_levels: Dictionary) -> void:
+	var perk_id := _reserved_boss_vision_offer_id
+	if perk_id == "":
+		return
+	var skill_id := CommonSkillCatalog.get_skill_id_for_unlock(perk_id)
+	if skill_id == "":
+		_reserved_boss_vision_offer_id = ""
+		return
+	if int(runtime_levels.get(perk_id, 0)) > 0 or int(runtime_levels.get(skill_id, 0)) > 0:
+		_reserved_boss_vision_offer_id = ""
+		return
+	var choice := _build_level_choice(
+		perk_id,
+		CommonSkillCatalog.get_unlock_perk_data(perk_id),
+		0,
+		1,
+		""
+	)
+	choice[BOSS_VISION_PRIORITY_KEY] = true
+	output.append(choice)
+
+
+func _extract_boss_vision_reserved_choice(choices: Array) -> Dictionary:
+	var reserved: Array = []
+	var remaining: Array = []
+	for value in choices:
+		if value is Dictionary:
+			var choice: Dictionary = value as Dictionary
+			if bool(choice.get(BOSS_VISION_PRIORITY_KEY, false)):
+				var reserved_choice := choice.duplicate(true)
+				reserved_choice.erase(BOSS_VISION_PRIORITY_KEY)
+				reserved.append(reserved_choice)
+				continue
+		remaining.append(value)
+	if not reserved.is_empty():
+		_reserved_boss_vision_offer_id = ""
+	return {"reserved": reserved, "remaining": remaining}
 
 
 func _extract_guardian_enhance_reserved_choice(choices: Array) -> Dictionary:
@@ -1770,6 +1954,8 @@ func _extract_full_chosik_swap_reserved_choice(choices: Array) -> Dictionary:
 
 func _append_converted_perk_choices(output: Array, runtime_levels: Dictionary, character_type: String) -> void:
 	for skill_id in CONVERTED_PERKS.keys():
+		if TRAINING_MIGRATED_PERK_IDS.has(str(skill_id)):
+			continue
 		var skill_data: Dictionary = CONVERTED_PERKS[skill_id]
 		if not _is_perk_allowed_for_character(skill_data, character_type):
 			continue
@@ -1884,6 +2070,15 @@ func _append_lingpet_guardian_enhance_choice(
 
 func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
 	for skill_id in pool.keys():
+		if not PerkConversionFlags.is_enabled() and TRAINING_DEPENDENT_PERK_IDS.has(str(skill_id)):
+			continue
+		# The live flag-ON picker must not grant the retired slot perk into a
+		# state where it consumes a slot but has no effect. Flag OFF still needs
+		# the same entry to exercise the preserved accessory-expansion path.
+		if PerkConversionFlags.is_enabled() and str(skill_id) == SLOT_EXPANSION_PERK_ID:
+			continue
+		if PerkConversionFlags.is_enabled() and TRAINING_MIGRATED_PERK_IDS.has(str(skill_id)):
+			continue
 		# 디버그 목록도 조회/오퍼/bulk와 같은 flag-OFF 레거시 정의를 봐야
 		# 한다 — 원본을 그대로 복사하면 OFF 디버그 피커가 max 4를 보여주고
 		# 적용 단계(get_perk_data=max 2)와 어긋난다.
@@ -1903,6 +2098,7 @@ func _debug_sort_key(entry: Dictionary) -> String:
 		"converted": "4",
 		"converted_mythic": "5",
 		"instant": "6",
+		"training": "7",
 	}
 	return "%s:%s" % [str(group_order.get(group, "9")), str(entry.get("id", ""))]
 
@@ -1927,36 +2123,72 @@ func _build_level_choice(
 	return choice
 
 
-func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_levels: Dictionary) -> Array:
-	if character_type == "soldier":
-		return choices
-	var budget: int = int(UNLOCK_SLOT_BUDGET.get(character_type, 99))
-	if budget >= 99:
-		return choices
-	var chosen_unlocks: int = 0
-	for skill_id in runtime_levels.keys():
-		var data: Dictionary = get_perk_data(str(skill_id))
-		if str(data.get("character_restriction", "")) == character_type and str(data.get("unlocks_skill", "")) != "":
-			chosen_unlocks += 1
-	if chosen_unlocks < budget:
-		return choices
+func _filter_unlock_slot_budget(
+	choices: Array,
+	character_type: String,
+	runtime_levels: Dictionary,
+	registry: Object = null
+) -> Array:
+	var live_slots_full: Variant = _get_live_chosik_slots_full(character_type, registry)
+	if live_slots_full == null:
+		# Direct catalog/debug callers may not own a live registry. Keep the
+		# legacy character-manual count as a compatibility fallback, but never
+		# prefer it over the production skill config: common/Vision Chosik also
+		# occupy one of the same five combat orbs. The fallback also preserves
+		# the legacy open-budget pass-through; only the live path below applies
+		# the open-slot rarity gate.
+		if character_type == "soldier":
+			return choices
+		var budget: int = int(UNLOCK_SLOT_BUDGET.get(character_type, 99))
+		if budget >= 99:
+			return choices
+		var chosen_unlocks: int = 0
+		for skill_id in runtime_levels.keys():
+			var data: Dictionary = get_perk_data(str(skill_id))
+			if str(data.get("character_restriction", "")) == character_type and str(data.get("unlocks_skill", "")) != "":
+				chosen_unlocks += 1
+		if chosen_unlocks < budget:
+			return choices
+		return _reserve_rare_chosik_offer(choices, true)
+	# 라이브 경로: 만석/여유 모두 화면당 한 번 굴려 초식을 최대 1장으로
+	# 제한한다(만석=FULL 5%, 여유=OPEN 상수).
+	return _reserve_rare_chosik_offer(choices, bool(live_slots_full))
 
+
+func _reserve_rare_chosik_offer(choices: Array, slots_full: bool) -> Array:
 	var filtered: Array = []
-	var swap_candidates: Array = []
+	var manual_candidates: Array = []
 	for choice in choices:
-		if str(choice.get("id", "")) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID:
+		if bool(choice.get(BOSS_VISION_PRIORITY_KEY, false)):
 			filtered.append(choice)
 			continue
 		if str(choice.get("unlocks_skill", "")) == "":
 			filtered.append(choice)
 		else:
-			swap_candidates.append(choice)
-	if not swap_candidates.is_empty() and _roll_full_chosik_swap_offer():
-		swap_candidates.shuffle()
-		var reserved_choice: Dictionary = (swap_candidates[0] as Dictionary).duplicate(true)
+			manual_candidates.append(choice)
+	if manual_candidates.is_empty():
+		return filtered
+	var offer_allowed := _roll_full_chosik_swap_offer() if slots_full else _roll_open_chosik_offer()
+	if offer_allowed:
+		manual_candidates.shuffle()
+		var reserved_choice: Dictionary = (manual_candidates[0] as Dictionary).duplicate(true)
+		# 여유 상태의 희귀 등장도 같은 예약 레인을 쓴다: 일반 셔플에 섞이면
+		# 후보 수십 장에 희석되어 상수가 화면 노출률을 의미하지 못한다. 선택
+		# 시 동작은 적용 시점의 실제 만석 여부(_should_start_unlock_swap)가
+		# 가른다.
 		reserved_choice[FULL_CHOSIK_SWAP_PRIORITY_KEY] = true
 		filtered.append(reserved_choice)
 	return filtered
+
+
+func _get_live_chosik_slots_full(character_type: String, registry: Object) -> Variant:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	var config_key := str(_character_context.get_skill_config_key(character_type))
+	var skill_config: Object = registry.get_instance(config_key)
+	if skill_config == null or not skill_config.has_method("is_shared_slot_full"):
+		return null
+	return bool(skill_config.is_shared_slot_full())
 
 
 func set_full_chosik_swap_offer_roll_for_tests(roll_callable: Callable) -> void:
@@ -1967,10 +2199,24 @@ func clear_full_chosik_swap_offer_roll_for_tests() -> void:
 	_full_chosik_swap_offer_roll_for_tests = Callable()
 
 
+func set_open_chosik_offer_roll_for_tests(roll_callable: Callable) -> void:
+	_open_chosik_offer_roll_for_tests = roll_callable
+
+
+func clear_open_chosik_offer_roll_for_tests() -> void:
+	_open_chosik_offer_roll_for_tests = Callable()
+
+
 func _roll_full_chosik_swap_offer() -> bool:
 	if _full_chosik_swap_offer_roll_for_tests.is_valid():
 		return float(_full_chosik_swap_offer_roll_for_tests.call()) < FULL_CHOSIK_SWAP_OFFER_CHANCE
 	return randf() < FULL_CHOSIK_SWAP_OFFER_CHANCE
+
+
+func _roll_open_chosik_offer() -> bool:
+	if _open_chosik_offer_roll_for_tests.is_valid():
+		return float(_open_chosik_offer_roll_for_tests.call()) < OPEN_CHOSIK_OFFER_CHANCE
+	return randf() < OPEN_CHOSIK_OFFER_CHANCE
 
 
 func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_context: Object = null) -> Array:
@@ -1981,6 +2227,9 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_c
 			filtered.append(value)
 			continue
 		var choice: Dictionary = value
+		if bool(choice.get(BOSS_VISION_PRIORITY_KEY, false)):
+			filtered.append(choice)
+			continue
 		if not is_slot_consuming_perk(choice):
 			filtered.append(choice)
 			continue
@@ -1990,7 +2239,7 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_c
 		var current_cost: int = get_slot_cost_for_level(choice, current_level)
 		var next_cost: int = get_slot_cost_for_level(choice, next_level)
 		var extra_slots: int = max(0, next_cost - current_cost)
-		if occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels):
+		if occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels, slot_context):
 			filtered.append(choice)
 	return filtered
 
@@ -2087,11 +2336,4 @@ func _has_choice_id(choices: Array, skill_id: String) -> bool:
 
 
 func _normalize_character(character_type: String) -> String:
-	var normalized: String = character_type.strip_edges().to_lower()
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "optimus"
-	if normalized == "viper":
-		return "viper"
-	return "smasher"
+	return str(_character_context.normalize_character_type(character_type))

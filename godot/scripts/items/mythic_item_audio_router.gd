@@ -127,6 +127,31 @@ func play_celestial_armor_audio(runtime: Object, registry: Object) -> void:
 		audio.play_item_get()
 
 
+func play_yangui_hoechun_cast_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_solar_bolt_strike", "play_megingjord", "play_active_item"]
+	)
+
+
+func play_yangui_hoechun_reflect_audio(
+	runtime: Object,
+	registry: Object,
+	impact_speed: float
+) -> void:
+	var audio: Object = runtime._get_instance(registry, "game_audio")
+	if audio == null:
+		return
+	if audio.has_method("play_stage7_akamu_wind_aura_block"):
+		audio.play_stage7_akamu_wind_aura_block()
+	elif audio.has_method("play_wall_hit"):
+		audio.play_wall_hit(impact_speed)
+	elif audio.has_method("play_shield_kiting_hit"):
+		audio.play_shield_kiting_hit()
+	elif audio.has_method("play_active_item"):
+		audio.play_active_item()
+
+
 func play_baal_boots_absorb_audio(runtime: Object, registry: Object) -> void:
 	var audio: Object = runtime._get_instance(registry, "game_audio")
 	if audio == null:

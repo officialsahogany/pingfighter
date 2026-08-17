@@ -1,6 +1,9 @@
 extends RefCounted
 
+const HELPER_SCRIPT_REQUEST_AHEAD := 12
+
 const HelperRegistry := preload("res://scripts/items/mythic_item_helper_registry.gd")
+const ScriptInstanceCache := preload("res://scripts/resources/script_instance_cache.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -190,6 +193,7 @@ var revival_runtime: Object = null
 var odins_eye_runtime: Object = null
 var celestial_armor_runtime: Object = null
 var celestial_armor_state: Object = null
+var yangui_hoechun_runtime: Object = null
 var heavenly_cape_runtime: Object = null
 var horn_strawberry_mask_runtime: Object = null
 var horn_strawberry_mask_state: Object = null
@@ -217,13 +221,23 @@ var pandora_legacy_selection_state: Object = null
 var pandora_legacy_icon_texture_cache: Dictionary = {}
 var _helper_init_step_index := 0
 var _helpers_initialized := false
+var _helper_script_cache: Object = ScriptInstanceCache.new()
 
 
-func prewarm_initialization_step(perform_reset: bool = true) -> bool:
+func prewarm_initialization_step(
+	perform_reset: bool = true,
+	use_threaded_script_loads: bool = false
+) -> bool:
 	if _helpers_initialized:
 		return true
 	if _helper_init_step_index < HelperRegistry.INIT_ORDER.size():
-		_init_helper(str(HelperRegistry.INIT_ORDER[_helper_init_step_index]))
+		var member_name := str(HelperRegistry.INIT_ORDER[_helper_init_step_index])
+		if use_threaded_script_loads:
+			_request_helper_scripts_ahead()
+			if not _prewarm_helper_threaded_step(member_name):
+				return false
+		else:
+			_init_helper(member_name)
 		_helper_init_step_index += 1
 		return false
 	_helpers_initialized = true
@@ -231,6 +245,14 @@ func prewarm_initialization_step(perform_reset: bool = true) -> bool:
 	if perform_reset:
 		reset()
 	return true
+
+
+func has_threaded_initialization_in_flight() -> bool:
+	return (
+		_helper_script_cache != null
+		and _helper_script_cache.has_method("has_threaded_script_request_in_flight")
+		and bool(_helper_script_cache.has_threaded_script_request_in_flight())
+	)
 
 
 func reset() -> void:
@@ -762,6 +784,11 @@ func get_player_stat_breakdown(stat_key: String, base_value: float = 0.0) -> Arr
 			var duration_frames := maxf(1.0, base_value)
 			var next_duration_frames: float = float(stat_bonus_runtime.get_dash_duration_frames(self, duration_frames))
 			_append_stat_step(entries, "dashgear", "활주기어", duration_frames, next_duration_frames)
+			duration_frames = next_duration_frames
+			var odin_distance_ratio := get_odins_eye_dash_distance_multiplier()
+			if not is_equal_approx(odin_distance_ratio, 1.0):
+				next_duration_frames = maxf(1.0, float(int(duration_frames * odin_distance_ratio)))
+				_append_stat_step(entries, "odins_eye", "오딘의 눈", duration_frames, next_duration_frames)
 		"dash_recovery":
 			var recovery_frames := maxf(1.0, base_value)
 			var next_recovery_frames: float = float(defense_gear_runtime.get_dash_recovery_frames(self, recovery_frames))
@@ -838,6 +865,11 @@ func get_bulletproof_hat_stun_resist_pct() -> float:
 func get_player_stun_resist_pct() -> float:
 	_ensure_helpers_ready()
 	return defense_gear_runtime.get_player_stun_resist_pct(self)
+
+
+func get_player_posture_correction_pct() -> float:
+	_ensure_helpers_ready()
+	return defense_gear_runtime.get_player_posture_correction_pct(self)
 
 
 func get_player_stun_duration_seconds(base_seconds: float) -> float:
@@ -995,6 +1027,11 @@ func try_queue_pandora_legacy_round_win(deps: Dictionary = {}) -> bool:
 	return pandora_legacy_runtime.try_queue_round_win(self, deps)
 
 
+func normalize_pandora_legacy_selection_for_boundary() -> bool:
+	_ensure_helpers_ready()
+	return pandora_legacy_runtime.normalize_selection_for_boundary(self)
+
+
 func start_pending_pandora_legacy_selection(owner: Object = null, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
 	return pandora_legacy_runtime.start_pending_selection(self, owner, registry)
@@ -1015,9 +1052,9 @@ func cancel_pandora_legacy_selection(owner: Object, registry: Object = null) -> 
 	return pandora_legacy_runtime.cancel_selection(self, owner, registry)
 
 
-func generate_pandora_legacy_selection_choices(owner: Object = null, _registry: Object = null) -> Array:
+func generate_pandora_legacy_selection_choices(owner: Object = null, registry: Object = null) -> Array:
 	_ensure_helpers_ready()
-	return pandora_legacy_runtime.generate_selection_choices(self, owner, _registry)
+	return pandora_legacy_runtime.generate_selection_choices(self, owner, registry)
 
 
 func handle_pandora_legacy_selection_input(
@@ -1291,6 +1328,11 @@ func get_neural_helmet_aipill_spawn_bonus_pct() -> float:
 	return ai_assist_runtime.get_neural_helmet_aipill_spawn_bonus_pct(self)
 
 
+func get_neural_helmet_aipill_ball_speed_bonus_pct() -> float:
+	_ensure_helpers_ready()
+	return ai_assist_runtime.get_neural_helmet_aipill_ball_speed_bonus_pct(self)
+
+
 func get_aipill_gauge_drain(base_drain: float = 90.0) -> float:
 	_ensure_helpers_ready()
 	return ai_assist_runtime.get_aipill_gauge_drain(self, base_drain)
@@ -1309,6 +1351,11 @@ func get_aipill_item_spawn_chance(base_chance: float) -> float:
 func should_cancel_aipill_on_direction_key() -> bool:
 	_ensure_helpers_ready()
 	return ai_assist_runtime.should_cancel_aipill_on_direction_key(self)
+
+
+func can_cancel_aipill_with_gangsin_down_hold() -> bool:
+	_ensure_helpers_ready()
+	return ai_assist_runtime.can_cancel_aipill_with_gangsin_down_hold(self)
 
 
 func is_venom_mist_gauntlet_equipped() -> bool:
@@ -1945,6 +1992,11 @@ func get_odins_eye_dash_token_limit_override() -> Variant:
 	return odins_eye_runtime.get_dash_token_limit_override(self)
 
 
+func get_odins_eye_dash_distance_multiplier() -> float:
+	_ensure_helpers_ready()
+	return odins_eye_runtime.get_dash_distance_multiplier(self)
+
+
 func get_odins_eye_dash_cooldown_multiplier() -> float:
 	_ensure_helpers_ready()
 	return odins_eye_runtime.get_dash_cooldown_multiplier(self)
@@ -2012,11 +2064,6 @@ func get_gold_digger_gold_bonus_pct() -> float:
 func get_gold_digger_multiplier() -> float:
 	_ensure_helpers_ready()
 	return resource_bonus_runtime.get_gold_digger_multiplier(self)
-
-
-func apply_gold_digger_gauge_bonus(gauge_gain: float) -> float:
-	_ensure_helpers_ready()
-	return resource_bonus_runtime.apply_gold_digger_gauge_bonus(self, gauge_gain)
 
 
 func apply_gold_digger_gold_bonus(amount: int) -> int:
@@ -2112,6 +2159,11 @@ func get_master_wall_spawn_bonus_pct() -> float:
 func get_brick_wall_width(base_width: float) -> float:
 	_ensure_helpers_ready()
 	return cooldown_gear_runtime.get_brick_wall_width(self, base_width)
+
+
+func get_trampoline_width(base_width: float) -> float:
+	_ensure_helpers_ready()
+	return cooldown_gear_runtime.get_trampoline_width(self, base_width)
 
 
 func get_wall_item_spawn_chance(base_chance: float) -> float:
@@ -2359,7 +2411,14 @@ func get_dashgear_boost_charge_chance_pct() -> float:
 
 func get_dash_duration_frames(base_frames: float) -> float:
 	_ensure_helpers_ready()
-	return stat_bonus_runtime.get_dash_duration_frames(self, base_frames)
+	var duration_frames: float = stat_bonus_runtime.get_dash_duration_frames(self, base_frames)
+	var odins_eye_multiplier: float = odins_eye_runtime.get_dash_distance_multiplier(self)
+	if is_equal_approx(odins_eye_multiplier, 1.0):
+		return duration_frames
+	# Python parity: every normal/chain/half/sensor dash applies Odin's 1.5x
+	# after the other duration modifiers, then stores int(...). Floor only on
+	# the transformed branch so ordinary fractional dashgear values stay intact.
+	return maxf(1.0, floorf(duration_frames * odins_eye_multiplier))
 
 
 func get_boost_charge_chance_pct() -> float:
@@ -2637,6 +2696,34 @@ func _init_helper(member_name: String) -> void:
 	var helper := HelperRegistry.create_helper(member_name)
 	if helper != null:
 		set(member_name, helper)
+
+
+func _prewarm_helper_threaded_step(member_name: String) -> bool:
+	if get(member_name) is Object:
+		return true
+	var path := HelperRegistry.get_script_path(member_name)
+	if path == "":
+		return true
+	var label := "mythic item helper %s" % member_name
+	_helper_script_cache.request_threaded_script(path, label)
+	if not bool(_helper_script_cache.is_threaded_script_ready(path, label)):
+		return false
+	var helper: Object = _helper_script_cache.create_ref_counted(path, label)
+	if helper != null:
+		set(member_name, helper)
+	return true
+
+
+func _request_helper_scripts_ahead() -> void:
+	var request_end := mini(HelperRegistry.INIT_ORDER.size(), _helper_init_step_index + HELPER_SCRIPT_REQUEST_AHEAD)
+	for request_index in range(_helper_init_step_index, request_end):
+		var member_name := str(HelperRegistry.INIT_ORDER[request_index])
+		if get(member_name) is Object:
+			continue
+		var path := str(HelperRegistry.get_script_path(member_name))
+		if path == "":
+			continue
+		_helper_script_cache.request_threaded_script(path, "mythic item helper %s" % member_name)
 
 
 func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:

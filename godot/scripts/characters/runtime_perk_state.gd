@@ -3,18 +3,8 @@ extends RefCounted
 const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_perk_character_context.gd")
 const RuntimePerkRegistryLookup := preload("res://scripts/characters/runtime_perk_registry_lookup.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
-const RuntimePerkAngelBlessingState := preload("res://scripts/characters/runtime_perk_angel_blessing_state.gd")
-const RuntimePerkAngelBlessingCooldownCapability := preload("res://scripts/characters/runtime_perk_angel_blessing_cooldown_capability.gd")
-const RuntimePerkAngelBlessingStageLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_stage_lifecycle.gd")
-const RuntimePerkAngelBlessingModalFlow := preload("res://scripts/characters/runtime_perk_angel_blessing_modal_flow.gd")
-const RuntimePerkAngelBlessingAcquisitionLifecycle := preload("res://scripts/characters/runtime_perk_angel_blessing_acquisition_lifecycle.gd")
 const RuntimePerkAngelBlessingLocalization := preload("res://scripts/characters/runtime_perk_angel_blessing_localization.gd")
-const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
-const RuntimePerkFusionRuntimeState := preload("res://scripts/characters/runtime_perk_fusion_runtime_state.gd")
-const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkChoiceLayout := preload("res://scripts/characters/runtime_perk_choice_layout.gd")
-const RuntimePerkActiveUnlockFlight := preload("res://scripts/characters/runtime_perk_active_unlock_flight.gd")
-const RuntimePerkUnlockShowcase := preload("res://scripts/characters/runtime_perk_unlock_showcase.gd")
 const RuntimePerkSkillCooldownPause := preload("res://scripts/characters/runtime_perk_skill_cooldown_pause.gd")
 const RuntimePerkDeferredInstants := preload("res://scripts/characters/runtime_perk_deferred_instants.gd")
 const RuntimePerkInstantRewards := preload("res://scripts/characters/runtime_perk_instant_rewards.gd")
@@ -25,8 +15,6 @@ const RuntimePerkOwnerSyncFlow := preload("res://scripts/characters/runtime_perk
 const RuntimePerkResumeSafety := preload("res://scripts/characters/runtime_perk_resume_safety.gd")
 const RuntimePerkStarpointAbsorption := preload("res://scripts/characters/runtime_perk_starpoint_absorption.gd")
 const RuntimePerkStarpointCollectionFlow := preload("res://scripts/characters/runtime_perk_starpoint_collection_flow.gd")
-const RuntimePerkUnlockSwapLayout := preload("res://scripts/characters/runtime_perk_unlock_swap_layout.gd")
-const RuntimePerkUnlockSwapFlow := preload("res://scripts/characters/runtime_perk_unlock_swap_flow.gd")
 const RuntimePerkGamepadNavigation := preload("res://scripts/characters/runtime_perk_gamepad_navigation.gd")
 const RuntimePerkSnapshotBuilder := preload("res://scripts/characters/runtime_perk_snapshot_builder.gd")
 const RuntimePerkEffectiveStatQuerySurface := preload("res://scripts/characters/runtime_perk_effective_stat_query_surface.gd")
@@ -34,24 +22,41 @@ const RuntimePerkChoiceAudio := preload("res://scripts/characters/runtime_perk_c
 const RuntimePerkChoiceFeedback := preload("res://scripts/characters/runtime_perk_choice_feedback.gd")
 const RuntimePerkChoiceOfferModifiers := preload("res://scripts/characters/runtime_perk_choice_offer_modifiers.gd")
 const RuntimePerkChoiceOpening := preload("res://scripts/characters/runtime_perk_choice_opening.gd")
-const RuntimePerkChoiceSelection := preload("res://scripts/characters/runtime_perk_choice_selection.gd")
-const RuntimePerkChoiceCompletion := preload("res://scripts/characters/runtime_perk_choice_completion.gd")
-const RuntimePerkChoiceDispatch := preload("res://scripts/characters/runtime_perk_choice_dispatch.gd")
-const RuntimePerkChoiceActionRunner := preload("res://scripts/characters/runtime_perk_choice_action_runner.gd")
-const RuntimePerkChoiceStandardPath := preload("res://scripts/characters/runtime_perk_choice_standard_path.gd")
-const RuntimePerkChoiceOpenFlow := preload("res://scripts/characters/runtime_perk_choice_open_flow.gd")
-const RuntimePerkChoiceApplyFlow := preload("res://scripts/characters/runtime_perk_choice_apply_flow.gd")
-const RuntimePerkChoiceConfirmFlow := preload("res://scripts/characters/runtime_perk_choice_confirm_flow.gd")
-const RuntimePerkUnlockShowcaseFlow := preload("res://scripts/characters/runtime_perk_unlock_showcase_flow.gd")
+const RuntimePerkChoicePipelineState := preload("res://scripts/characters/runtime_perk_choice_pipeline_state.gd")
+# Source-contract aliases remain on the facade while helper construction and
+# mutable test seams live exclusively in RuntimePerkChoicePipelineState.
+const RuntimePerkChoiceSelection := RuntimePerkChoicePipelineState.RuntimePerkChoiceSelection
+const RuntimePerkChoiceCompletion := RuntimePerkChoicePipelineState.RuntimePerkChoiceCompletion
+const RuntimePerkChoiceDispatch := RuntimePerkChoicePipelineState.RuntimePerkChoiceDispatch
+const RuntimePerkChoiceActionRunner := RuntimePerkChoicePipelineState.RuntimePerkChoiceActionRunner
+const RuntimePerkChoiceStandardPath := RuntimePerkChoicePipelineState.RuntimePerkChoiceStandardPath
+const RuntimePerkChoiceOpenFlow := RuntimePerkChoicePipelineState.RuntimePerkChoiceOpenFlow
+const RuntimePerkChoiceApplyFlow := RuntimePerkChoicePipelineState.RuntimePerkChoiceApplyFlow
+const RuntimePerkChoiceConfirmFlow := RuntimePerkChoicePipelineState.RuntimePerkChoiceConfirmFlow
+const RuntimePerkChoiceFinishFlow := RuntimePerkChoicePipelineState.RuntimePerkChoiceFinishFlow
+const RuntimePerkUnlockPipelineState := preload("res://scripts/characters/runtime_perk_unlock_pipeline_state.gd")
+const RuntimePerkActiveUnlockFlight := RuntimePerkUnlockPipelineState.RuntimePerkActiveUnlockFlight
+const RuntimePerkUnlockShowcase := RuntimePerkUnlockPipelineState.RuntimePerkUnlockShowcase
+const RuntimePerkUnlockShowcaseFlow := RuntimePerkUnlockPipelineState.RuntimePerkUnlockShowcaseFlow
+const RuntimePerkUnlockSwapLayout := RuntimePerkUnlockPipelineState.RuntimePerkUnlockSwapLayout
+const RuntimePerkUnlockSwapFlow := RuntimePerkUnlockPipelineState.RuntimePerkUnlockSwapFlow
+const RuntimePerkUnlockChoiceApply := RuntimePerkUnlockPipelineState.RuntimePerkUnlockChoiceApply
 const RuntimePerkUpdateFlow := preload("res://scripts/characters/runtime_perk_update_flow.gd")
-const RuntimePerkChoiceFinishFlow := preload("res://scripts/characters/runtime_perk_choice_finish_flow.gd")
 const RuntimePerkDebugGrants := preload("res://scripts/characters/runtime_perk_debug_grants.gd")
 const RuntimePerkOwnerProjection := preload("res://scripts/characters/runtime_perk_owner_projection.gd")
 const RuntimePerkGoldAwardFlow := preload("res://scripts/characters/runtime_perk_gold_award_flow.gd")
 const RuntimePerkResetState := preload("res://scripts/characters/runtime_perk_reset_state.gd")
 const RuntimePerkModalInput := preload("res://scripts/characters/runtime_perk_modal_input.gd")
-const RuntimePerkUnlockChoiceApply := preload("res://scripts/characters/runtime_perk_unlock_choice_apply.gd")
 const RuntimePerkDynamicEffects := preload("res://scripts/characters/runtime_perk_dynamic_effects.gd")
+const RuntimePerkDisplayProjectionState := preload("res://scripts/characters/runtime_perk_display_projection_state.gd")
+const RuntimePerkFusionRuntimeState := preload("res://scripts/characters/runtime_perk_fusion_runtime_state.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkMysticDiceRuntimeState := preload("res://scripts/characters/runtime_perk_mystic_dice_runtime_state.gd")
+const RuntimePerkPhysiqueTrainingRuntimeState := preload("res://scripts/characters/runtime_perk_physique_training_runtime_state.gd")
+const RuntimePerkAngelBlessingRuntimeState := preload("res://scripts/characters/runtime_perk_angel_blessing_runtime_state.gd")
+const RuntimePerkChosikEventState := preload("res://scripts/characters/runtime_perk_chosik_event_state.gd")
+const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -70,6 +75,8 @@ const ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.ITEM_
 const ITEM_POLISH_ID := RuntimePerkEffectiveLevels.ITEM_POLISH_ID
 const ITEM_POLISH_ROLL_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.ITEM_POLISH_ROLL_BONUS_PER_LEVEL
 const PERK_POLISH_AMPLIFY_PER_LEVEL := RuntimePerkEffectiveLevels.PERK_POLISH_AMPLIFY_PER_LEVEL
+const TRAINING_MASTERY_ID := RuntimePerkEffectiveLevels.TRAINING_MASTERY_ID
+const TRAINING_MASTERY_AMPLIFY_PER_LEVEL := RuntimePerkEffectiveLevels.TRAINING_MASTERY_AMPLIFY_PER_LEVEL
 const ITEM_RECYCLE_ID := RuntimePerkEffectiveLevels.ITEM_RECYCLE_ID
 const ITEM_RECYCLE_CHANCE_PER_LEVEL := RuntimePerkEffectiveLevels.ITEM_RECYCLE_CHANCE_PER_LEVEL
 const MAX_ITEM_RECYCLE_CHANCE := RuntimePerkEffectiveLevels.MAX_ITEM_RECYCLE_CHANCE
@@ -79,11 +86,13 @@ const DASH_ACCELERATION_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.DASH_ACCEL
 const CHOICE_CONTEXT_DEFER_DIMENSION_GATE_UNTIL_SPAWN_END := RuntimePerkDeferredInstants.DEFER_DIMENSION_GATE_CONTEXT_KEY
 const CHOICE_CONTEXT_DEFER_FULL_GAUGE_UNTIL_SPAWN_END := RuntimePerkDeferredInstants.DEFER_FULL_GAUGE_CONTEXT_KEY
 const DOWNTOWN_TREASURE_MAP_ID := RuntimePerkEffectiveLevels.DOWNTOWN_TREASURE_MAP_ID
-const TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL
-const TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL
-const TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL
+const TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
+const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := RuntimePerkEffectiveLevels.TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
 const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := RuntimePerkEffectiveLevels.PERK_POLISH_AMPLIFIABLE_BONUS_IDS
 const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := RuntimePerkEffectiveLevels.VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS
+const PROMOTED_FUSION_BYPRODUCT_IDS: Array[String] = ["gravitybelt", "smartphone"]
+const DEBUG_PHYSIQUE_TRAINING_OFFER_LOG := RuntimePerkPhysiqueTrainingRuntimeState.DEBUG_OFFER_LOG
+const PROBE_ACTIVE_ITEM_COOLDOWN_BASE_MSEC := RuntimePerkPhysiqueTrainingRuntimeState.PROBE_ACTIVE_ITEM_COOLDOWN_BASE_MSEC
 
 var runtime_skill_levels: Dictionary = {}
 var starpoint_for_skills := 0
@@ -100,13 +109,6 @@ var gold_from_perks := 0
 # ---- 퍽 융합 위임 계층 ----
 # 코어(records/커밋/오버레이/한계돌파)는 PerkFusionState가 소유하고, 이
 # 래퍼는 central getter·projection·부산물 런타임을 잇는 접착만 담당한다.
-var _fusion_runtime_state: Object = RuntimePerkFusionRuntimeState.new()
-var _perk_fusion_display_projector: Object = null
-var _perk_fusion_display_catalog: Object = null
-var _perk_fusion_projection_cache: Dictionary = {}
-var _perk_fusion_projection_cache_key := 0
-var _perk_fusion_projection_cache_ready := false
-var _perk_fusion_projection_builds := 0
 var feedback_text := ""
 var feedback_timer := 0.0
 var last_selected_id := ""
@@ -124,11 +126,47 @@ var gamepad_choice_horizontal_latch := 0
 var gamepad_unlock_swap_horizontal_latch := 0
 var current_choice_context: Dictionary = {}
 var current_perk_slot_status: Dictionary = {}
+# 하단 능력치 원장(2026-08-06): 캐릭터 정보창의 "플레이어 능력치" 10행을 퍽
+# 선택 모달 아래에 그대로 싣는다. owner/registry가 실제로 붙어 있는 컨텍스트
+# (전투 / 광장 / 스테이지 클리어)에서만 켜지고, 레이아웃과 카드 히트테스트가
+# 동일한 값을 읽어야 하므로 프레임 시작 update()에서 한 번만 갱신한다.
+var stats_band_enabled := false
+var _stats_context_owner: Object = null
+var _stats_context_registry: Object = null
 var _character_context: Object = RuntimePerkCharacterContext.new()
 var _registry_lookup: Object = RuntimePerkRegistryLookup.new()
 var _choice_layout: Object = RuntimePerkChoiceLayout.new()
-var _active_unlock_flight: Object = RuntimePerkActiveUnlockFlight.new()
-var _unlock_showcase_controller: Object = RuntimePerkUnlockShowcase.new()
+var _unlock_pipeline_state: Object = RuntimePerkUnlockPipelineState.new()
+var _active_unlock_flight: Object:
+	get:
+		return _unlock_pipeline_state.get_active_unlock_flight()
+	set(value):
+		_unlock_pipeline_state.set_active_unlock_flight(value)
+var _unlock_showcase_controller: Object:
+	get:
+		return _unlock_pipeline_state.get_unlock_showcase_controller()
+	set(value):
+		_unlock_pipeline_state.set_unlock_showcase_controller(value)
+var _unlock_showcase_flow: Object:
+	get:
+		return _unlock_pipeline_state.get_unlock_showcase_flow()
+	set(value):
+		_unlock_pipeline_state.set_unlock_showcase_flow(value)
+var _unlock_swap_layout: Object:
+	get:
+		return _unlock_pipeline_state.get_unlock_swap_layout()
+	set(value):
+		_unlock_pipeline_state.set_unlock_swap_layout(value)
+var _unlock_swap_flow: Object:
+	get:
+		return _unlock_pipeline_state.get_unlock_swap_flow()
+	set(value):
+		_unlock_pipeline_state.set_unlock_swap_flow(value)
+var _unlock_choice_apply: Object:
+	get:
+		return _unlock_pipeline_state.get_unlock_choice_apply()
+	set(value):
+		_unlock_pipeline_state.set_unlock_choice_apply(value)
 var _skill_cooldown_pause: Object = RuntimePerkSkillCooldownPause.new()
 var _deferred_instants: Object = RuntimePerkDeferredInstants.new()
 var _effective_levels: Object = RuntimePerkEffectiveLevels.new()
@@ -140,16 +178,93 @@ var _owner_sync_flow: Object = RuntimePerkOwnerSyncFlow.new()
 var _resume_safety: Object = RuntimePerkResumeSafety.new()
 var _starpoint_absorption: Object = RuntimePerkStarpointAbsorption.new()
 var _starpoint_collection_flow: Object = RuntimePerkStarpointCollectionFlow.new()
-var _unlock_swap_layout: Object = RuntimePerkUnlockSwapLayout.new()
-var _unlock_swap_flow: Object = RuntimePerkUnlockSwapFlow.new()
 var _gamepad_navigation: Object = RuntimePerkGamepadNavigation.new()
 var _snapshot_builder: Object = RuntimePerkSnapshotBuilder.new()
 var _effective_stat_queries: Object = RuntimePerkEffectiveStatQuerySurface.new()
-var _angel_blessing_state: Object = RuntimePerkAngelBlessingState.new()
-var _angel_blessing_cooldown_capability: Object = RuntimePerkAngelBlessingCooldownCapability.new()
-var _angel_blessing_stage_lifecycle: Object = RuntimePerkAngelBlessingStageLifecycle.new()
-var _angel_blessing_modal_flow: Object = RuntimePerkAngelBlessingModalFlow.new()
-var _angel_blessing_acquisition_lifecycle: Object = RuntimePerkAngelBlessingAcquisitionLifecycle.new()
+var _angel_blessing_state: Object:
+	get:
+		return _angel_blessing_runtime_state.get_state()
+var _angel_blessing_modal_flow: Object:
+	get:
+		return _angel_blessing_runtime_state.get_modal_flow()
+var _choice_audio: Object = RuntimePerkChoiceAudio.new()
+var _choice_feedback: Object = RuntimePerkChoiceFeedback.new()
+var _choice_offer_modifiers: Object = RuntimePerkChoiceOfferModifiers.new()
+var _choice_opening: Object = RuntimePerkChoiceOpening.new()
+var _choice_pipeline_state: Object = RuntimePerkChoicePipelineState.new()
+var _choice_selection: Object:
+	get:
+		return _choice_pipeline_state.get_selection()
+	set(value):
+		_choice_pipeline_state.set_selection(value)
+var _choice_completion: Object:
+	get:
+		return _choice_pipeline_state.get_completion()
+	set(value):
+		_choice_pipeline_state.set_completion(value)
+var _choice_dispatch: Object:
+	get:
+		return _choice_pipeline_state.get_dispatch()
+	set(value):
+		_choice_pipeline_state.set_dispatch(value)
+var _choice_action_runner: Object:
+	get:
+		return _choice_pipeline_state.get_action_runner()
+	set(value):
+		_choice_pipeline_state.set_action_runner(value)
+var _choice_standard_path: Object:
+	get:
+		return _choice_pipeline_state.get_standard_path()
+	set(value):
+		_choice_pipeline_state.set_standard_path(value)
+var _choice_open_flow: Object:
+	get:
+		return _choice_pipeline_state.get_open_flow()
+	set(value):
+		_choice_pipeline_state.set_open_flow(value)
+var _choice_apply_flow: Object:
+	get:
+		return _choice_pipeline_state.get_apply_flow()
+	set(value):
+		_choice_pipeline_state.set_apply_flow(value)
+var _choice_confirm_flow: Object:
+	get:
+		return _choice_pipeline_state.get_confirm_flow()
+	set(value):
+		_choice_pipeline_state.set_confirm_flow(value)
+var _update_flow: Object = RuntimePerkUpdateFlow.new()
+var _choice_finish_flow: Object:
+	get:
+		return _choice_pipeline_state.get_finish_flow()
+	set(value):
+		_choice_pipeline_state.set_finish_flow(value)
+var _debug_grants: Object = RuntimePerkDebugGrants.new()
+var _owner_projection: Object = RuntimePerkOwnerProjection.new()
+var _gold_award_flow: Object = RuntimePerkGoldAwardFlow.new()
+var _reset_state: Object = RuntimePerkResetState.new()
+var _modal_input: Object = RuntimePerkModalInput.new()
+var _dynamic_effects: Object = RuntimePerkDynamicEffects.new()
+var _display_projection_state: Object = RuntimePerkDisplayProjectionState.new()
+var _fusion_runtime_state: Object = RuntimePerkFusionRuntimeState.new()
+var _mystic_dice_runtime_state: Object = RuntimePerkMysticDiceRuntimeState.new()
+var _physique_training_runtime_state: Object = RuntimePerkPhysiqueTrainingRuntimeState.new()
+var _physique_training_catalog: Object:
+	get:
+		return _physique_training_runtime_state.get_catalog()
+	set(value):
+		_physique_training_runtime_state.set_catalog(value)
+var _physique_training_state: Object:
+	get:
+		return _physique_training_runtime_state.get_state()
+	set(value):
+		_physique_training_runtime_state.set_state(value)
+var _physique_training_offer_planner: Object:
+	get:
+		return _physique_training_runtime_state.get_offer_planner()
+	set(value):
+		_physique_training_runtime_state.set_offer_planner(value)
+var _angel_blessing_runtime_state: Object = RuntimePerkAngelBlessingRuntimeState.new()
+var _chosik_event_state: Object = RuntimePerkChosikEventState.new()
 var _hyeonmun_charyeok_runtime_state: Object = RuntimePerkHyeonmunCharyeokRuntimeState.new()
 var _hyeonmun_charyeok_state: Object:
 	get:
@@ -161,28 +276,6 @@ var _hyeonmun_charyeok_renderer: Object:
 		return _hyeonmun_charyeok_runtime_state.get_renderer()
 	set(value):
 		_hyeonmun_charyeok_runtime_state.set_renderer(value)
-var _choice_audio: Object = RuntimePerkChoiceAudio.new()
-var _choice_feedback: Object = RuntimePerkChoiceFeedback.new()
-var _choice_offer_modifiers: Object = RuntimePerkChoiceOfferModifiers.new()
-var _choice_opening: Object = RuntimePerkChoiceOpening.new()
-var _choice_selection: Object = RuntimePerkChoiceSelection.new()
-var _choice_completion: Object = RuntimePerkChoiceCompletion.new()
-var _choice_dispatch: Object = RuntimePerkChoiceDispatch.new()
-var _choice_action_runner: Object = RuntimePerkChoiceActionRunner.new()
-var _choice_standard_path: Object = RuntimePerkChoiceStandardPath.new()
-var _choice_open_flow: Object = RuntimePerkChoiceOpenFlow.new()
-var _choice_apply_flow: Object = RuntimePerkChoiceApplyFlow.new()
-var _choice_confirm_flow: Object = RuntimePerkChoiceConfirmFlow.new()
-var _unlock_showcase_flow: Object = RuntimePerkUnlockShowcaseFlow.new()
-var _update_flow: Object = RuntimePerkUpdateFlow.new()
-var _choice_finish_flow: Object = RuntimePerkChoiceFinishFlow.new()
-var _debug_grants: Object = RuntimePerkDebugGrants.new()
-var _owner_projection: Object = RuntimePerkOwnerProjection.new()
-var _gold_award_flow: Object = RuntimePerkGoldAwardFlow.new()
-var _reset_state: Object = RuntimePerkResetState.new()
-var _modal_input: Object = RuntimePerkModalInput.new()
-var _unlock_choice_apply: Object = RuntimePerkUnlockChoiceApply.new()
-var _dynamic_effects: Object = RuntimePerkDynamicEffects.new()
 
 
 func get_perk_fusion_state() -> Object:
@@ -196,7 +289,13 @@ func commit_perk_fusion(source_ids: Array, outcome_data: Dictionary, catalog: Ob
 
 
 func restore_perk_fusion_snapshot(snapshot: Dictionary, catalog: Object) -> Dictionary:
-	return _fusion_runtime_state.restore_snapshot(snapshot, catalog, runtime_skill_levels)
+	var removed_legacy_expansion := false
+	if PerkConversionFlags.is_enabled() and runtime_skill_levels.has("common_expansion"):
+		runtime_skill_levels.erase("common_expansion")
+		removed_legacy_expansion = true
+	var result: Dictionary = _fusion_runtime_state.restore_snapshot(snapshot, catalog, runtime_skill_levels)
+	result["removed_legacy_common_expansion"] = removed_legacy_expansion
+	return result
 
 
 func apply_perk_fusion_option_value(perk_id: String, option_key: String, base_value: float) -> float:
@@ -211,12 +310,47 @@ func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
 	return _fusion_runtime_state.get_effective_level_bonus(perk_id)
 
 
+func get_perk_fusion_byproduct_chance_bonus_percent() -> float:
+	return _fusion_runtime_state.get_byproduct_chance_bonus_percent(self)
+
+
 func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
-	return _fusion_runtime_state.get_owned_byproduct_ids()
+	var owned: Array[String] = _fusion_runtime_state.get_owned_byproduct_ids()
+	# 이전 세이브의 일반 무공 레벨은 상승무공 보유로 투영한다. 신규 획득은
+	# 오직 합일 레코드를 통하지만, 구 세이브의 효과/표시/중복 제외는 보존한다.
+	if PerkConversionFlags.is_enabled():
+		for byproduct_id: String in PROMOTED_FUSION_BYPRODUCT_IDS:
+			if int(runtime_skill_levels.get(byproduct_id, 0)) > 0 and byproduct_id not in owned:
+				owned.append(byproduct_id)
+	owned.sort()
+	return owned
+
+
+func has_perk_fusion_byproduct(byproduct_id: String) -> bool:
+	return byproduct_id.strip_edges() in get_perk_fusion_owned_byproduct_ids()
 
 
 func get_perk_fusion_slot_reduction() -> int:
 	return _fusion_runtime_state.get_slot_reduction()
+
+
+func get_perk_fusion_active_item_slot_bonus() -> int:
+	return _fusion_runtime_state.get_active_item_slot_bonus(
+		_get_perk_fusion_dash_amplification_count()
+	)
+
+
+func get_perk_fusion_active_item_slot_bonus_breakdown() -> Dictionary:
+	return _fusion_runtime_state.get_active_item_slot_bonus_breakdown(
+		_get_perk_fusion_dash_amplification_count()
+	)
+
+
+func _get_perk_fusion_dash_amplification_count() -> int:
+	return maxi(0, int(round(_effective_stat_queries.get_runtime_skill_bonus_from_runtime_state(
+		self,
+		"dash_amplification"
+	))))
 
 
 # 황금 궤적: 부산물 런타임이 라운드 40 실골드 캡을 소유한다. 골드 배수
@@ -229,8 +363,15 @@ func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary)
 	))
 	if actual <= 0:
 		return 0
-	gold_from_perks += actual
+	# The byproduct owner has already applied every multiplier and recorded the
+	# actual capped amount. Store that exact amount through the canonical gold
+	# flow so feedback state stays in sync without applying modifiers twice.
+	_gold_award_flow.store_gold_gain_from_runtime_state(self, actual, 1.0)
 	return actual
+
+
+func get_runtime_perk_gold_total() -> int:
+	return maxi(0, gold_from_perks)
 
 
 func get_perk_fusion_round_golden_trajectory_gold() -> int:
@@ -243,200 +384,154 @@ func _build_perk_fusion_result_context(source_ids: Array, catalog: Object) -> Di
 	return _fusion_runtime_state.build_result_context(source_ids, catalog, runtime_skill_levels)
 
 
-# TAB/모달이 매 프레임 읽는 표시 projection의 캐시 래퍼. 키=레벨 해시 ×
-# fusion revision × locale × 유효레벨 보정(왕관/반지 성장이 라이브 hover
-# 값을 바꾼다) — reset은 코어 revision 증가로 자동 무효화된다.
 func get_perk_fusion_display_projection(catalog: Object = null) -> Dictionary:
-	# catalog 미지정(스냅샷 경로)은 state 소유 기본 표시 카탈로그를 쓴다 —
-	# 저작 slot_cost 등 카탈로그 파생 필드가 커밋 전에도 보존돼야 한다.
-	if catalog == null:
-		if _perk_fusion_display_catalog == null:
-			_perk_fusion_display_catalog = load("res://scripts/characters/runtime_perk_catalog.gd").new()
-		catalog = _perk_fusion_display_catalog
-	var cache_key: int = hash([
-		runtime_skill_levels.hash(),
-		_fusion_runtime_state.get_revision(),
-		# 주사위 리비전: 합성 채널이 주사위 synthetic 엔트리를 함께 실으므로
-		# 주사위 커밋/리셋도 표시 캐시를 무효화해야 한다.
-		get_mystic_dice_revision(),
-		_get_perk_fusion_display_locale(),
-		item_perk_level_bonus,
-		int(viper_ignition_aura_active),
-		catalog.get_instance_id() if catalog != null else 0,
-	])
-	if _perk_fusion_projection_cache_ready and cache_key == _perk_fusion_projection_cache_key:
-		return _perk_fusion_projection_cache
-	if _perk_fusion_display_projector == null:
-		_perk_fusion_display_projector = load("res://scripts/characters/perk_fusion_display_projection.gd").new()
-	_perk_fusion_projection_builds += 1
-	var projection: Dictionary = _perk_fusion_display_projector.build(
-		runtime_skill_levels,
-		get_perk_fusion_snapshot(),
-		catalog,
-		get_effective_runtime_skill_levels(),
-		_build_perk_fusion_live_source_options()
-	)
-	# 주사위 synthetic 엔트리를 기존 합성 채널에 병합 — HUD/TAB 소비자가
-	# 두 번째 merge 정책을 배우지 않게 한다(projector.merge 소유).
-	if _mystic_dice_display_projector == null:
-		_mystic_dice_display_projector = load("res://scripts/characters/mystic_dice_display_projection.gd").new()
-	projection = _mystic_dice_display_projector.merge(projection, get_mystic_dice_snapshot())
-	projection["cache_signature"] = cache_key
-	_perk_fusion_projection_cache = projection
-	_perk_fusion_projection_cache_key = cache_key
-	_perk_fusion_projection_cache_ready = true
-	return projection
+	return _display_projection_state.get_composite_projection(self, catalog)
 
 
 func get_perk_fusion_display_cache_stats() -> Dictionary:
-	return {
-		"projection_builds": _perk_fusion_projection_builds,
-		"modal_preview_builds": _perk_fusion_modal_preview_builds,
-	}
-
-
-func _get_perk_fusion_display_locale() -> String:
-	var language_settings: Object = load("res://scripts/core/language_settings.gd")
-	if language_settings != null and language_settings.has_method("get_language"):
-		return str(language_settings.get_language())
-	return ""
-
-
-# 라이브 hover 옵션: value=성장한 base(융합 이전), adjusted_value=production
-# central getter와 일치하는 값(이중 페널티 금지 — 오버레이는 한 번만).
-func _build_perk_fusion_live_source_options() -> Dictionary:
-	var live: Dictionary = {}
-	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
-	for record: Dictionary in _fusion_runtime_state.get_fusion_state().get_all_records():
-		var penalties: Dictionary = record.get("option_penalties", {}) as Dictionary
-		var snapshots: Dictionary = record.get("commit_value_snapshots", {}) as Dictionary
-		var deleted: Dictionary = record.get("deleted_options", {}) as Dictionary
-		for source_value: Variant in record.get("sources", []) as Array:
-			var perk_id := str(source_value)
-			var option_keys: Array[String] = []
-			for key_source: Dictionary in [
-				penalties.get(perk_id, {}) as Dictionary,
-				snapshots.get(perk_id, {}) as Dictionary,
-			]:
-				for option_value: Variant in key_source.keys():
-					var option_key := str(option_value)
-					if option_key not in option_keys:
-						option_keys.append(option_key)
-			for option_value: Variant in deleted.get(perk_id, []) as Array:
-				var deleted_key := str(option_value)
-				if deleted_key not in option_keys:
-					option_keys.append(deleted_key)
-			if option_keys.is_empty():
-				continue
-			var per_perk: Dictionary = {}
-			var effective_level: int = get_runtime_skill_level(perk_id)
-			for option_key: String in option_keys:
-				var base_value: float
-				if option_key == "runtime_skill_bonus":
-					base_value = _effective_stat_queries.get_runtime_skill_bonus_before_fusion_from_runtime_state(self, perk_id)
-				else:
-					base_value = float(conversion_values.get_value(perk_id, option_key, effective_level))
-				per_perk[option_key] = {
-					"value": base_value,
-					"adjusted_value": apply_perk_fusion_option_value(perk_id, option_key, base_value),
-				}
-			live[perk_id] = per_perk
-	return live
+	return _display_projection_state.get_cache_stats()
 
 
 # ── 신비의 주사위 위임 계층 (융합 위임 패턴 미러) ────────────────────
 # 코어 모듈(state/roller/planner/modal flow/input/paddle effect)은 각자
 # 소유 파일에 살고, 이 파사드는 배선·리비전·리셋 경계만 소유한다.
 
-var _mystic_dice_state: Object = null
-var _mystic_dice_roller: Object = null
-var _mystic_dice_offer_planner: Object = null
-var _mystic_dice_modal_flow: Object = null
-var _mystic_dice_modal_input: Object = null
-var _mystic_dice_display_projector: Object = null
-var _mystic_dice_paddle_effect: Object = null
-var _mystic_dice_paddle_effect_pending := false
-var _mystic_dice_last_finished_revision := 0
-
-
-func _get_mystic_dice_state() -> Object:
-	if _mystic_dice_state == null:
-		_mystic_dice_state = load("res://scripts/characters/mystic_dice_state.gd").new()
-	return _mystic_dice_state
-
-
-func _get_mystic_dice_offer_planner() -> Object:
-	if _mystic_dice_offer_planner == null:
-		_mystic_dice_offer_planner = load("res://scripts/characters/mystic_dice_offer_planner.gd").new()
-	return _mystic_dice_offer_planner
+var _mystic_dice_modal_flow: Object:
+	get:
+		return _mystic_dice_runtime_state.peek_modal_flow()
+	set(value):
+		_mystic_dice_runtime_state.set_modal_flow(value)
+var _mystic_dice_modal_input: Object:
+	get:
+		return _mystic_dice_runtime_state.peek_modal_input()
+	set(value):
+		_mystic_dice_runtime_state.set_modal_input(value)
+var _mystic_dice_offer_planner: Object:
+	get:
+		return _mystic_dice_runtime_state.get_offer_planner()
+	set(value):
+		_mystic_dice_runtime_state.set_offer_planner(value)
+var _mystic_dice_paddle_effect_pending: bool:
+	get:
+		return _mystic_dice_runtime_state.is_paddle_effect_pending()
+	set(value):
+		_mystic_dice_runtime_state.set_paddle_effect_pending(value)
 
 
 func _get_mystic_dice_modal_flow() -> Object:
-	if _mystic_dice_modal_flow == null:
-		_mystic_dice_modal_flow = load("res://scripts/characters/mystic_dice_modal_flow.gd").new()
-	return _mystic_dice_modal_flow
+	return _mystic_dice_runtime_state.get_modal_flow()
 
 
 func _get_mystic_dice_modal_input() -> Object:
-	if _mystic_dice_modal_input == null:
-		_mystic_dice_modal_input = load("res://scripts/characters/mystic_dice_modal_input.gd").new()
-	return _mystic_dice_modal_input
-
-
-func _get_mystic_dice_paddle_effect() -> Object:
-	if _mystic_dice_paddle_effect == null:
-		_mystic_dice_paddle_effect = load("res://scripts/characters/mystic_dice_paddle_effect.gd").new()
-	return _mystic_dice_paddle_effect
+	return _mystic_dice_runtime_state.get_modal_input()
 
 
 func commit_mystic_dice_roll(raw_roll: Dictionary) -> Dictionary:
-	return _get_mystic_dice_state().commit_roll(raw_roll)
+	return _mystic_dice_runtime_state.commit_roll(raw_roll)
 
 
 func get_mystic_dice_raw(stat_key: String) -> int:
-	return int(_get_mystic_dice_state().get_raw(stat_key))
+	return _mystic_dice_runtime_state.get_raw(stat_key)
 
 
 func get_mystic_dice_multiplier(stat_key: String) -> float:
-	return float(_get_mystic_dice_state().get_multiplier(stat_key))
+	return _mystic_dice_runtime_state.get_multiplier(stat_key)
 
 
 func get_mystic_dice_revision() -> int:
-	return int(_get_mystic_dice_state().get_revision())
+	return _mystic_dice_runtime_state.get_revision()
 
 
 func get_mystic_dice_snapshot() -> Dictionary:
-	return _get_mystic_dice_state().get_snapshot()
+	return _mystic_dice_runtime_state.get_snapshot()
 
 
 func get_mystic_dice_display_projection() -> Dictionary:
-	if _mystic_dice_display_projector == null:
-		_mystic_dice_display_projector = load("res://scripts/characters/mystic_dice_display_projection.gd").new()
-	return _mystic_dice_display_projector.build(get_mystic_dice_snapshot())
+	# Kept as a snapshot compatibility key; the retired perk no longer projects
+	# into the acquired-Mugong grid.
+	return {}
 
 
-# 오퍼 후처리(이벤트 시점 1회 — per-frame 확률 롤 금지): 골드 lane만 신비의
-# 주사위 카드로 스왑한다. roll_unit < 0 → 실 랜덤 1회(플래너는 순수 주입형).
+func get_physique_training_snapshot() -> Dictionary:
+	return _physique_training_runtime_state.get_snapshot()
+
+
+func restore_physique_training_snapshot(snapshot: Dictionary) -> Dictionary:
+	return _physique_training_runtime_state.restore(snapshot)
+
+
+func get_physique_training_count(training_id: String) -> int:
+	return _physique_training_runtime_state.get_count(training_id)
+
+
+func get_physique_training_bonus(stat_key: String) -> float:
+	return _physique_training_runtime_state.get_bonus(
+		stat_key,
+		get_physique_training_multiplier()
+	)
+
+
+func get_physique_training_multiplier() -> float:
+	if not PerkConversionFlags.is_enabled():
+		return 1.0
+	return 1.0 + maxf(0.0, get_runtime_skill_bonus(TRAINING_MASTERY_ID))
+
+
+# 실효 포화 자격 판정(2026-08-08 재리뷰 P1). 카탈로그 고정 천장은 **수련 누적치만**
+# 보므로, 기보유 이관 무공과 곱/합 합성되는 호환 런에서는 천장 도달 **전에** 이미
+# 죽은 카드가 된다(순환결 + item_cooldown_mastery Lv.5 = 13회차에서 이미 5% 하한,
+# 수세결 + dash_module_control Lv.5 = 10회차에서 1프레임 하한, 철심공 +
+# bulletproof_hat Lv.5 = 16회차에서 100%). 그래서 고정 상한이 아니라
+# **"한 번 더 습득하면 최종 소비자 값이 실제로 바뀌는가"** 를 실 공식으로 묻는다.
+func is_physique_training_saturated(training_id: String, registry: Object = null) -> bool:
+	return _physique_training_runtime_state.is_saturated_from_runtime_state(
+		self,
+		training_id,
+		registry
+	)
+
+
+func _apply_physique_training_choice(choice: Dictionary, owner: Object, registry: Object) -> bool:
+	return _physique_training_runtime_state.apply_choice_from_runtime_state(
+		self,
+		choice,
+		owner,
+		registry
+	)
+
+
+func _try_inject_physique_training_offer(
+	_dice_appeared: bool,
+	fusion_appeared: bool = false,
+	appearance_roll_unit: float = -1.0,
+	selection_roll_unit: float = -1.0,
+	replacement_roll_unit: float = -1.0,
+	registry: Object = null
+) -> Dictionary:
+	return _physique_training_runtime_state.try_inject_offer_from_runtime_state(
+		self,
+		_dice_appeared,
+		fusion_appeared,
+		appearance_roll_unit,
+		selection_roll_unit,
+		replacement_roll_unit,
+		registry
+	)
+
+
+# Legacy test/save seam. Production offers no longer surface Mystic Dice;
+# acquisition now belongs to the active-item field/reward pools.
 func _try_inject_mystic_dice_offer(roll_unit: float = -1.0) -> Dictionary:
-	if not choice_active:
-		return {"rolled": false}
-	var planner: Object = _get_mystic_dice_offer_planner()
-	var offer_source := str(current_choice_context.get("source", ""))
-	var remaining_uses: int = int(_get_mystic_dice_state().get_remaining_uses())
-	# 부적격 오퍼(source 비허용/골드 lane 부재/캡 소진)는 전역 RNG를 한 번도
-	# 소비하지 않는다 — randf 선소비는 rolled=false여도 이후 보상 난수열을
-	# 교란한다. can_roll 통과 후에만 롤 유닛을 뽑는다.
-	if not bool(planner.can_roll(current_choices, offer_source, remaining_uses)):
-		return {"rolled": false}
-	var unit: float = roll_unit if roll_unit >= 0.0 else randf()
-	var result: Dictionary = planner.plan_offer(current_choices, offer_source, remaining_uses, unit)
-	if bool(result.get("appeared", false)):
-		current_choices = result.get("choices", current_choices) as Array
-	return result
+	return {
+		"rolled": false,
+		"retired_to_active_item": true,
+		"ignored_roll_unit": roll_unit,
+	}
 
 
-# 융합 오퍼 후처리: 주사위보다 먼저 돈다(주사위는 골드 lane만 스왑하므로
-# 융합 카드 주입 뒤에 돌아야 서로 간섭이 없다). 전체 행동 봉인·자격 정책
+# 융합 오퍼 후처리: 수련보다 먼저 돈다. 융합은 일반 replaceable lane만
+# 교체하며, 성공한 화면은 수련 교체 판정을 건너뛴다.
+# 전체 행동 봉인·자격 정책
 # 정련은 융합 core 슬라이스의 offer 통합 스모크 소유 — 여기서는 생존
 # 플래너에 소유 퍽(카탈로그 인지 + Lv≥1) 후보를 위임하는 접착만 놓는다.
 # 테스트 전용 결정적 오퍼 RNG seam: 다음 '실제 롤이 수행되는' 실 오퍼
@@ -454,8 +549,6 @@ var _test_perk_fusion_offer_roll_override: Array:
 
 
 func _try_inject_perk_fusion_offer(catalog: Object, appearance_roll_unit: float = -1.0, replacement_roll_unit: float = -1.0) -> Dictionary:
-	if not choice_active:
-		return {"rolled": false}
 	return _fusion_runtime_state.try_inject_offer_from_runtime_state(
 		self,
 		catalog,
@@ -465,139 +558,99 @@ func _try_inject_perk_fusion_offer(catalog: Object, appearance_roll_unit: float 
 
 
 func is_mystic_dice_modal_active() -> bool:
-	return _mystic_dice_modal_flow != null and bool(_mystic_dice_modal_flow.is_active())
+	return _mystic_dice_runtime_state.is_modal_active()
 
 
 func get_mystic_dice_modal_snapshot() -> Dictionary:
-	if _mystic_dice_modal_flow == null:
-		return {}
-	return _mystic_dice_modal_flow.get_snapshot()
+	return _mystic_dice_runtime_state.get_modal_snapshot()
 
 
 # D0→D1: 주사위 카드는 표준 apply_choice를 타지 않는다. raw choice_active/
 # pending 큐는 전 구간 유지(새 freeze actor / modal-gate OR 금지 계약).
 # roll_units 비움 → 실 랜덤 7유닛 1회.
 func _begin_mystic_dice_modal(selected_choice: Dictionary, registry: Object, roll_units: Array = [], entered_via_rt: bool = false) -> bool:
-	var roll_payload: Dictionary = _roll_mystic_dice(roll_units)
-	if not bool(roll_payload.get("accepted", false)):
-		return false
-	var flow: Object = _get_mystic_dice_modal_flow()
-	if not bool(flow.start(selected_choice, current_choices.duplicate(true), roll_payload)):
-		return false
-	_get_mystic_dice_modal_input().reset()
-	# 진입 입력원이 실제 RT일 때만 래치를 무장한다 — D0에서 눌려 있던 RT가
-	# D2 확정으로 캐스케이드하는 것을 막되, 키보드/마우스/A 진입 후의 첫
-	# RT press까지 삼키면 안 된다(입력원별 계약).
-	if entered_via_rt:
-		_get_mystic_dice_modal_input().suppress_confirm_until_release()
-	_play_perk_select_audio(registry)
-	return true
+	return _mystic_dice_runtime_state.begin_modal_from_runtime_state(
+		self,
+		selected_choice,
+		registry,
+		roll_units,
+		entered_via_rt
+	)
+
+
+func begin_mystic_dice_active_item(
+	owner: Object,
+	registry: Object,
+	roll_units: Array = []
+) -> bool:
+	return _mystic_dice_runtime_state.begin_active_item_modal_from_runtime_state(
+		self,
+		owner,
+		registry,
+		roll_units
+	)
 
 
 func _roll_mystic_dice(roll_units: Array = []) -> Dictionary:
-	if _mystic_dice_roller == null:
-		_mystic_dice_roller = load("res://scripts/characters/mystic_dice_roller.gd").new()
-	var units: Array = roll_units
-	if units.is_empty():
-		units = []
-		for _index: int in range(_mystic_dice_roller.get_stat_keys().size()):
-			units.append(randf())
-	return _mystic_dice_roller.roll(units)
+	return _mystic_dice_runtime_state.roll(roll_units)
 
 
+# cancel(ESC/X)은 의도적 no-op — 주사위는 커밋 의사 흐름이라 취소 불가.
 func _handle_mystic_dice_modal_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
-	var resolution: Dictionary = _get_mystic_dice_modal_input().resolve(
+	return _mystic_dice_runtime_state.handle_modal_input_from_runtime_state(
+		self,
 		event,
-		get_mystic_dice_modal_snapshot(),
+		owner,
+		registry,
 		view_size
 	)
-	var flow: Object = _get_mystic_dice_modal_flow()
-	if resolution.has("move"):
-		flow.move_selection(int(resolution.get("move", 0)))
-	if resolution.has("selected_action") and int(resolution.get("selected_action", -1)) >= 0:
-		flow.set_selected_action(int(resolution.get("selected_action", -1)))
-	# cancel(ESC/X)은 의도적 no-op — 주사위는 커밋 의사 흐름이라 취소 불가.
-	if bool(resolution.get("activate", false)):
-		_activate_mystic_dice_selected_action(owner, registry)
-	return bool(resolution.get("consumed", true))
 
 
 func _activate_mystic_dice_selected_action(owner: Object, registry: Object, reroll_units: Array = []) -> Dictionary:
-	var flow: Object = _get_mystic_dice_modal_flow()
-	var request: Dictionary = flow.request_selected_action()
-	if bool(request.get("reroll_requested", false)):
-		var payload: Dictionary = _roll_mystic_dice(reroll_units)
-		if bool(flow.begin_reroll(payload)):
-			return {"rerolled": true}
-		return {"rerolled": false}
-	if bool(request.get("commit_requested", false)):
-		return _finish_mystic_dice_modal(owner, registry, request)
-	return request
+	return _mystic_dice_runtime_state.activate_selected_action_from_runtime_state(
+		self,
+		owner,
+		registry,
+		reroll_units
+	)
 
 
 # D3: 원자 커밋 + 표준 finish 위임. 커밋 실패(캡)는 요청 래치를 되돌리고
 # 모달을 유지한다.
+# 스탯 소비자 갱신과 modal-blocked paddle 예약 순서는 feature owner가 보존한다.
 func _finish_mystic_dice_modal(owner: Object, registry: Object, request: Dictionary) -> Dictionary:
-	var finish_result: Dictionary = commit_mystic_dice_roll(request.get("raw", {}) as Dictionary)
-	if not bool(finish_result.get("accepted", false)):
-		_get_mystic_dice_modal_flow().reject_commit_request()
-		return finish_result
-	# 스탯 소비자(일반+mythic) 즉시 1회 갱신 — 모달이 닫히기 전에 착지.
-	_owner_sync_flow.sync_owner_effects_from_runtime_state(self, owner, registry)
-	_owner_sync_flow.refresh_mythic_runtime_perk_consumers_from_runtime_state(self, owner, registry)
-	# 모달 physics 차단 중에는 패들 연출 시작을 미룬다 — 재개 첫 게임플레이
-	# 틱(update_mystic_dice_paddle_effect)이 시작한다.
-	_mystic_dice_paddle_effect_pending = true
-	var committed_choice: Dictionary = {
-		"id": "mystic_dice",
-		"type": "mystic_dice",
-		"mystic_dice_revision": get_mystic_dice_revision(),
-	}
-	_get_mystic_dice_modal_flow().mark_committed(finish_result, committed_choice)
-	var finish: Dictionary = _finish_successful_choice("mystic_dice", owner, registry, null, committed_choice)
-	_get_mystic_dice_modal_flow().reset()
-	_get_mystic_dice_modal_input().reset()
-	var merged: Dictionary = finish_result.duplicate(true)
-	merged["finish"] = finish
-	return merged
+	return _mystic_dice_runtime_state.finish_modal_from_runtime_state(
+		self,
+		owner,
+		registry,
+		request
+	)
 
 
 func start_mystic_dice_paddle_effect() -> Dictionary:
-	_mystic_dice_paddle_effect_pending = false
-	return _get_mystic_dice_paddle_effect().start()
+	return _mystic_dice_runtime_state.start_paddle_effect()
 
 
 func bind_mystic_dice_paddle_fx_host(host: Node) -> void:
-	_get_mystic_dice_paddle_effect().bind_host(host)
+	_mystic_dice_runtime_state.bind_paddle_fx_host(host)
 
 
 func get_mystic_dice_paddle_effect_snapshot() -> Dictionary:
-	var snapshot: Dictionary = _get_mystic_dice_paddle_effect().get_snapshot()
-	snapshot["pending_start"] = _mystic_dice_paddle_effect_pending
-	return snapshot
+	return _mystic_dice_runtime_state.get_paddle_effect_snapshot()
 
 
 func get_mystic_dice_paddle_fx_host() -> Node:
-	if _mystic_dice_paddle_effect == null:
-		return null
-	return _mystic_dice_paddle_effect.get_bound_host()
+	return _mystic_dice_runtime_state.get_paddle_fx_host()
 
 
 # 게임플레이 시간 전용 3초 시계: 모달 차단 중엔 드라이버가 안 불러서
 # 자연 정지, 재개 첫 틱이 지연 시작한다(그 틱의 delta는 소모하지 않음).
 func update_mystic_dice_paddle_effect(delta: float) -> bool:
-	if _mystic_dice_paddle_effect_pending:
-		start_mystic_dice_paddle_effect()
-		return true
-	if _mystic_dice_paddle_effect == null:
-		return false
-	return bool(_mystic_dice_paddle_effect.update(delta))
+	return _mystic_dice_runtime_state.update_paddle_effect(delta)
 
 
 func clear_mystic_dice_paddle_effect() -> void:
-	_mystic_dice_paddle_effect_pending = false
-	if _mystic_dice_paddle_effect != null:
-		_mystic_dice_paddle_effect.reset()
+	_mystic_dice_runtime_state.clear_paddle_effect()
 
 
 # 라운드/스코어/스테이지 경계 공통 훅: 진행 중 3초 패들 연출만 걷는다 —
@@ -609,14 +662,14 @@ func reset_mystic_dice_round_visuals() -> void:
 # new-run 리셋 파사드 위임(runtime_perk_reset_state 소유): 영구 raw·사용
 # 횟수를 지우고 revision을 올려 표시 캐시를 무효화한다.
 func reset_mystic_dice_state() -> void:
-	if _mystic_dice_state != null:
-		_mystic_dice_state.reset()
+	_mystic_dice_runtime_state.reset_state()
 
 
 # ── 퍽 융합 core 위임 계층 (모달 S1~S4·부산물·오퍼) ──────────────────
 # 코어 모듈(modal flow/input·outcome rules·result builder·byproduct
-# runtime·penalty lane builder)은 각자 소유 파일에 살고, 이 파사드는
-# 배선·트랜잭션 경계·리셋만 소유한다.
+# runtime·penalty lane builder)은 각자 소유 파일에 산다. 기능 소유자는
+# S0~S4 트랜잭션과 리셋 경계를, 이 파사드는 공개 API·업데이트/입력 순서·
+# 프리뷰 표현 조합과 공통 choice-finish 구현을 유지한다.
 
 var _perk_fusion_modal_flow: Object:
 	get:
@@ -637,18 +690,13 @@ var _perk_fusion_modal_catalog: Object:
 		_fusion_runtime_state.set_modal_catalog(value)
 # CB3: 콜드부트 시네마틱 Node2D 호스트(래퍼가 생성/정리 — freed 가드 필수).
 var _cold_boot_cinematic_host: Object = null
-var _perk_fusion_modal_preview_cache: Dictionary = {}
-var _perk_fusion_modal_preview_cache_key := 0
-var _perk_fusion_modal_preview_builds := 0
-var _perk_fusion_last_finished_revision := 0
 
 
 # 프리뷰 캐시 경계 초기화: 캐시 키(선택·phase·리비전)에 카탈로그 식별자가
 # 없으므로, 카탈로그가 바뀔 수 있는 모달 경계(시작·완전 취소·finish)에서
 # 반드시 비운다. 리비전 불변 경로(취소 후 재진입)의 stale 서빙이 실 위험.
 func _reset_perk_fusion_modal_preview_cache() -> void:
-	_perk_fusion_modal_preview_cache = {}
-	_perk_fusion_modal_preview_cache_key = 0
+	_display_projection_state.reset_modal_preview_cache()
 
 
 func _get_perk_fusion_modal_flow() -> Object:
@@ -668,8 +716,45 @@ func get_perk_fusion_token_snapshot() -> Dictionary:
 
 
 # ── 부산물 게임플레이 파사드 ──
-func consume_perk_fusion_paddle_bounce_speed_multiplier() -> float:
-	return _fusion_runtime_state.consume_paddle_bounce_speed_multiplier()
+func can_trigger_perk_fusion_dash_paddle_speed_boost() -> bool:
+	return _fusion_runtime_state.can_trigger_dash_paddle_speed_boost()
+
+
+func try_trigger_perk_fusion_dash_paddle_speed_boost(
+	roll_unit: float,
+	restore_effective_speed: float
+) -> Dictionary:
+	return _fusion_runtime_state.try_trigger_dash_paddle_speed_boost(
+		roll_unit,
+		restore_effective_speed
+	)
+
+
+func consume_perk_fusion_boss_guard_restore_effective_speed() -> float:
+	return _fusion_runtime_state.consume_boss_guard_restore_effective_speed()
+
+
+func can_activate_perk_fusion_spellbreaker_guard() -> bool:
+	return _fusion_runtime_state.can_activate_spellbreaker_guard()
+
+
+func try_activate_perk_fusion_spellbreaker_guard(
+	roll_unit: float,
+	player_center: Vector2
+) -> Dictionary:
+	return _fusion_runtime_state.try_activate_spellbreaker_guard(roll_unit, player_center)
+
+
+func is_perk_fusion_boss_skill_parry_active() -> bool:
+	return _fusion_runtime_state.is_spellbreaker_guard_active()
+
+
+func try_parry_perk_fusion_boss_skill(
+	skill_id: String,
+	skill_label: String,
+	impact_pos: Vector2
+) -> Dictionary:
+	return _fusion_runtime_state.try_parry_boss_skill(skill_id, skill_label, impact_pos)
 
 
 func notify_perk_fusion_player_dash() -> void:
@@ -678,6 +763,15 @@ func notify_perk_fusion_player_dash() -> void:
 
 func notify_perk_fusion_skill_used() -> void:
 	_fusion_runtime_state.notify_skill_used()
+	_chosik_event_state.notify_activation()
+
+
+func consume_pending_chosik_activations() -> int:
+	return _chosik_event_state.consume_pending_activations()
+
+
+func peek_pending_chosik_activations() -> int:
+	return _chosik_event_state.peek_pending_activations()
 
 
 func get_perk_fusion_move_speed_multiplier() -> float:
@@ -686,12 +780,28 @@ func get_perk_fusion_move_speed_multiplier() -> float:
 
 # 게임플레이 시간 부산물 시계(잔향 만료 등) — 항상 도는 update 드라이버가
 # 소유한다(오버레이 없는 만료).
-func update_perk_fusion_byproducts(delta: float) -> void:
-	_fusion_runtime_state.update_byproducts(delta)
+func update_perk_fusion_byproducts(
+	delta: float,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	return _fusion_runtime_state.update_byproducts(delta, owner, registry)
+
+
+func has_perk_fusion_byproduct_visible_effects() -> bool:
+	return _fusion_runtime_state.has_byproduct_visible_effects()
+
+
+func draw_perk_fusion_byproduct_effects(
+	canvas: CanvasItem,
+	shake_offset: Vector2 = Vector2.ZERO
+) -> void:
+	_fusion_runtime_state.draw_byproduct_effects(canvas, shake_offset)
 
 
 func reset_perk_fusion_round_byproducts() -> void:
 	_fusion_runtime_state.reset_round_byproducts()
+	_chosik_event_state.reset()
 
 
 # 종결 득점(match_finished)은 부산물 기회를 만들지 않는다 — pending이
@@ -749,61 +859,15 @@ func get_perk_fusion_modal_snapshot() -> Dictionary:
 	var snapshot: Dictionary = _perk_fusion_modal_flow.get_snapshot()
 	if not bool(_perk_fusion_modal_flow.is_active()):
 		return snapshot
-	# 파생 프리뷰(가중치·armed 토큰·재료 옵션)는 선택이 바뀔 때만 재구축한다
-	# — 매 프레임 스냅샷 소비자(입력 레이아웃·렌더러)가 캐시를 공유한다.
-	var preview_key: int = hash([
-		snapshot.get("selected_source_ids", []),
-		str(snapshot.get("phase", "")),
-		get_perk_fusion_revision(),
-	])
-	if preview_key != _perk_fusion_modal_preview_cache_key or _perk_fusion_modal_preview_cache.is_empty():
-		_perk_fusion_modal_preview_cache = _build_perk_fusion_modal_preview(snapshot)
-		_perk_fusion_modal_preview_cache_key = preview_key
-		_perk_fusion_modal_preview_builds += 1
-	snapshot.merge(_perk_fusion_modal_preview_cache, true)
+	snapshot = _display_projection_state.merge_perk_fusion_modal_preview(
+		self,
+		snapshot,
+		_perk_fusion_modal_catalog if _perk_fusion_modal_catalog != null else _get_catalog(null)
+	)
 	# CB3: 렌더러가 즉시모드(degraded)와 호스트 드로 중 무엇을 그릴지
 	# 스냅샷 플래그로 판별한다.
 	snapshot["cold_boot_host_live"] = is_perk_fusion_cold_boot_host_live()
 	return snapshot
-
-
-func _build_perk_fusion_modal_preview(snapshot: Dictionary) -> Dictionary:
-	var outcome_rules: Object = load("res://scripts/characters/perk_fusion_outcome_rules.gd")
-	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
-	var tokens: Dictionary = get_perk_fusion_token_snapshot()
-	var source_ids: Array = snapshot.get("selected_source_ids", []) as Array
-	var owned: Array[String] = get_perk_fusion_owned_byproduct_ids()
-	var limit_context: Dictionary = _build_perk_fusion_result_context(
-		source_ids,
-		_perk_fusion_modal_catalog if _perk_fusion_modal_catalog != null else _get_catalog(null)
-	)
-	var byproduct_catalog: Object = load("res://scripts/characters/perk_fusion_byproduct_catalog.gd").new()
-	var available: Array[String] = byproduct_catalog.get_contextual_pool(
-		owned,
-		limit_context.get("limit_break_eligible_sources", []) as Array
-	)
-	var dual_catalyst_armed := bool(tokens.get("dual_catalyst_armed", false))
-	var weights: Dictionary = outcome_rules.build_final_outcome_weights(available.is_empty(), dual_catalyst_armed)
-	var source_previews: Array = []
-	for source_value: Variant in source_ids:
-		var perk_id := str(source_value)
-		var options: Array = []
-		for option_key_value: Variant in conversion_values.get_value_keys(perk_id):
-			var option_key := str(option_key_value)
-			options.append({
-				"option_key": option_key,
-				"value": float(conversion_values.get_value(perk_id, option_key, get_runtime_skill_level(perk_id), self)),
-			})
-		source_previews.append({"perk_id": perk_id, "options": options})
-	return {
-		"outcome_preview": {
-			"core_stabilize_armed": bool(tokens.get("core_stabilize_armed", false)),
-			"side_effect_effective_outcome": "stable" if bool(tokens.get("core_stabilize_armed", false)) else "side_effect",
-			"weights": weights.duplicate(true),
-		},
-		"source_previews": source_previews,
-		"weights": weights.duplicate(true),
-	}
 
 
 func _handle_perk_fusion_modal_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
@@ -857,11 +921,11 @@ func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictiona
 
 func reset() -> void:
 	_fusion_runtime_state.reset()
+	_physique_training_runtime_state.reset_state()
+	_chosik_event_state.reset()
 	_hyeonmun_charyeok_runtime_state.reset_state()
-	_perk_fusion_projection_cache_ready = false
-	_perk_fusion_modal_preview_cache = {}
-	_perk_fusion_modal_preview_cache_key = 0
-	_perk_fusion_modal_catalog = null
+	_display_projection_state.invalidate()
+	_display_projection_state.reset_modal_preview_cache()
 	_reset_state.reset_from_runtime_state(self)
 
 
@@ -904,9 +968,8 @@ func open_next_choice(
 		perf_logger,
 		choice_context
 	)
-	# 오퍼 후처리(오퍼 생성 직후 1회): 융합 → 주사위 순서 고정.
-	_try_inject_perk_fusion_offer(catalog)
-	_try_inject_mystic_dice_offer()
+	# 오퍼 후처리는 open-flow가 천안결 → 융합 → 주사위 → 수련 순서로
+	# ready 이전에 끝낸다.
 
 
 func open_mythic_perk_choice(
@@ -937,7 +1000,10 @@ func _apply_choice_opening_update(update: Dictionary) -> Dictionary:
 
 
 func is_choice_active() -> bool:
-	return _choice_opening.is_choice_active_from_runtime_state(self)
+	return (
+		_choice_opening.is_choice_active_from_runtime_state(self)
+		or is_mystic_dice_modal_active()
+	)
 
 
 func is_selectable() -> bool:
@@ -977,6 +1043,7 @@ func update_with_perf(delta: float, view_size: Vector2, owner: Object = null, re
 
 
 func _update_internal(delta: float, view_size: Vector2, owner: Object, registry: Object, perf_logger: Object) -> void:
+	_capture_stats_context(owner, registry)
 	# 융합 재료쌍 아이콘 스테이지드 프리웜: 업데이트 경로(배틀 오버레이 프레임
 	# 컨트롤러·플라자·결과화면 스타포인트 핸들러 공통) 소유 — 리비전 변경 후
 	# 첫 update 틱에서 합성되고, CanvasItem draw 프레임은 조회 히트만 본다.
@@ -1000,6 +1067,23 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 	# or open a higher-priority modal during this same frame.
 	if has_angel_blessing_modal_work():
 		update_angel_blessing_acquisition(delta, owner, registry)
+
+
+# 하단 능력치 원장이 소비할 owner/registry를 프레임 시작에 고정한다. 드로우와
+# 입력 히트테스트가 같은 프레임 안에서 같은 레이아웃을 봐야 하므로, 렌더러가
+# draw() 시점에 플래그를 뒤집는 방식은 쓰지 않는다(첫 프레임 클릭이 어긋난다).
+func _capture_stats_context(owner: Object, registry: Object) -> void:
+	_stats_context_owner = owner if owner != null and is_instance_valid(owner) else null
+	_stats_context_registry = registry if registry != null and is_instance_valid(registry) else null
+	stats_band_enabled = _stats_context_owner != null and _stats_context_registry != null
+
+
+func get_stats_context_owner() -> Object:
+	return _stats_context_owner
+
+
+func get_stats_context_registry() -> Object:
+	return _stats_context_registry
 
 
 func _prewarm_fusion_pair_icons(registry: Object) -> void:
@@ -1170,21 +1254,7 @@ func _finish_successful_choice(
 	perf_logger: Object = null,
 	choice: Dictionary = {}
 ) -> Dictionary:
-	# 주사위 D3 리비전 가드: 같은 커밋 리비전의 중복 finish는 pending/
-	# sequence/다음 모달을 두 번 소비하지 않는 no-op이어야 한다.
-	if str(choice.get("type", "")) == "mystic_dice":
-		var dice_revision := int(choice.get("mystic_dice_revision", 0))
-		if dice_revision > 0 and dice_revision <= _mystic_dice_last_finished_revision:
-			return {"already_finished": true}
-		_mystic_dice_last_finished_revision = maxi(_mystic_dice_last_finished_revision, dice_revision)
-	# 융합 S4 트랜잭션 가드: 같은 fusion record(리비전)의 반복 finish도
-	# 동일하게 no-op — 메긴기요르드/Dowsing/다음 모달을 두 번 굴리지 않는다.
-	if str(choice.get("type", "")) == "fusion":
-		var fusion_revision := int(choice.get("fusion_revision", 0))
-		if fusion_revision > 0 and fusion_revision <= _perk_fusion_last_finished_revision:
-			return {"already_finished": true}
-		_perk_fusion_last_finished_revision = maxi(_perk_fusion_last_finished_revision, fusion_revision)
-	var result: Dictionary = _choice_finish_flow.finish_successful_choice_from_runtime_state(
+	return _choice_finish_flow.finish_successful_choice_from_runtime_state(
 		self,
 		choice_id,
 		owner,
@@ -1192,7 +1262,6 @@ func _finish_successful_choice(
 		perf_logger,
 		choice
 	)
-	return result
 
 
 func _finish_or_open_unlock_showcase(
@@ -1262,7 +1331,7 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 	if bool(result.get("accepted", false)):
 		var applied_choice_id: String = str(result.get("choice_id", choice_id)).strip_edges()
 		if applied_choice_id == "angel_blessing":
-			_angel_blessing_acquisition_lifecycle.on_accepted_choice(
+			_angel_blessing_runtime_state.on_accepted_choice(
 				self,
 				choice,
 				previous_raw_level,
@@ -1301,18 +1370,34 @@ func build_unlock_save_snapshot() -> Dictionary:
 	# Keep this save codec distinct from the owner-projection contract below.
 	# The local name also prevents source-contract checks from mistaking the
 	# persisted snapshot for an inline owner sync payload.
-	var saved_levels: Dictionary = runtime_skill_levels.duplicate(true)
-	return {"version": 1, "runtime_skill_levels": saved_levels}
+	var saved_levels: Dictionary = PerkConversionValues.sanitize_runtime_levels(runtime_skill_levels)
+	return {
+		"version": 2,
+		"runtime_skill_levels": saved_levels,
+		"physique_training": get_physique_training_snapshot(),
+	}
 
 
 func apply_unlock_save_snapshot(snapshot: Dictionary, owner: Object = null, registry: Object = null) -> Dictionary:
 	if snapshot.is_empty() or not (snapshot.get("runtime_skill_levels", null) is Dictionary):
 		return {"restored": false, "reason": "invalid_snapshot"}
-	runtime_skill_levels = (snapshot.get("runtime_skill_levels", {}) as Dictionary).duplicate(true)
+	var saved_levels := (snapshot.get("runtime_skill_levels", {}) as Dictionary).duplicate(true)
+	var retired_entry_count := PerkConversionValues.count_retired_runtime_level_entries(saved_levels)
+	runtime_skill_levels = PerkConversionValues.sanitize_runtime_levels(saved_levels)
+	var training_snapshot_value: Variant = snapshot.get("physique_training", {})
+	if training_snapshot_value is Dictionary:
+		restore_physique_training_snapshot(training_snapshot_value as Dictionary)
+	else:
+		_physique_training_runtime_state.reset_state()
 	if owner != null:
 		_sync_runtime_perk_owner_effects(owner, registry)
+		_refresh_mythic_runtime_perk_consumers(owner, registry)
 	var restored_levels: Dictionary = runtime_skill_levels.duplicate(true)
-	return {"restored": true, "runtime_skill_levels": restored_levels}
+	return {
+		"restored": true,
+		"runtime_skill_levels": restored_levels,
+		"removed_retired_perks": retired_entry_count,
+	}
 
 
 func get_runtime_skill_level(skill_id: String) -> int:
@@ -1370,6 +1455,10 @@ func get_converted_perk_effect_level(perk_id: String) -> int:
 	return _effective_stat_queries.get_converted_perk_effect_level_from_runtime_state(self, perk_id)
 
 
+func get_converted_perk_option_value(perk_id: String, option_key: String) -> float:
+	return _effective_stat_queries.get_converted_perk_option_value_from_runtime_state(self, perk_id, option_key)
+
+
 func get_effective_runtime_skill_levels() -> Dictionary:
 	return _effective_stat_queries.get_effective_runtime_skill_levels_from_runtime_state(self)
 
@@ -1378,8 +1467,16 @@ func get_runtime_skill_bonus(skill_id: String) -> float:
 	return _effective_stat_queries.get_runtime_skill_bonus_from_runtime_state(self, skill_id)
 
 
-func _get_perk_amplify_multiplier(skill_id: String) -> float:
+func get_runtime_skill_bonus_before_fusion(skill_id: String) -> float:
+	return _effective_stat_queries.get_runtime_skill_bonus_before_fusion_from_runtime_state(self, skill_id)
+
+
+func get_perk_amplify_multiplier(skill_id: String) -> float:
 	return _effective_stat_queries.get_perk_amplify_multiplier_from_runtime_state(self, skill_id)
+
+
+func _get_perk_amplify_multiplier(skill_id: String) -> float:
+	return get_perk_amplify_multiplier(skill_id)
 
 
 # Smasher 콤보증폭칩: 콤보 소모형 드라이브/파워스매싱의 콤보 비례 항을 추가 증폭.
@@ -1392,7 +1489,7 @@ func get_combo_amplifier_chip_bonus() -> Dictionary:
 
 
 func get_angel_blessing_state() -> Object:
-	return _angel_blessing_state
+	return _angel_blessing_runtime_state.get_state()
 
 
 func roll_angel_blessing_for_stage(
@@ -1401,7 +1498,7 @@ func roll_angel_blessing_for_stage(
 	forced_face: int = 0,
 	forced_candidate_order: Array = []
 ) -> Dictionary:
-	return _angel_blessing_state.roll_for_stage(
+	return _angel_blessing_runtime_state.roll_for_stage(
 		stage,
 		eligible_buff_ids,
 		forced_face,
@@ -1410,15 +1507,11 @@ func roll_angel_blessing_for_stage(
 
 
 func get_angel_blessing_eligible_buff_ids(character_type: String, registry: Object) -> Array[String]:
-	return _angel_blessing_cooldown_capability.get_eligible_buff_ids(
-		_angel_blessing_state,
-		character_type,
-		registry
-	)
+	return _angel_blessing_runtime_state.get_eligible_buff_ids(character_type, registry)
 
 
 func get_angel_blessing_skill_cooldown_capability(character_type: String, registry: Object) -> Dictionary:
-	return _angel_blessing_cooldown_capability.get_capability(character_type, registry)
+	return _angel_blessing_runtime_state.get_cooldown_capability(character_type, registry)
 
 
 func roll_angel_blessing_for_character_stage(
@@ -1437,13 +1530,11 @@ func roll_angel_blessing_for_character_stage(
 
 
 func get_angel_blessing_snapshot() -> Dictionary:
-	return _angel_blessing_state.get_snapshot()
+	return _angel_blessing_runtime_state.get_snapshot()
 
 
 func get_angel_blessing_acquisition_snapshot() -> Dictionary:
-	var snapshot: Dictionary = _angel_blessing_modal_flow.get_snapshot()
-	snapshot["roll_state"] = get_angel_blessing_snapshot()
-	return snapshot
+	return _angel_blessing_runtime_state.get_acquisition_snapshot()
 
 
 func get_angel_blessing_presentation_snapshot() -> Dictionary:
@@ -1451,31 +1542,29 @@ func get_angel_blessing_presentation_snapshot() -> Dictionary:
 
 
 func has_angel_blessing_visual_work() -> bool:
-	return _angel_blessing_modal_flow.has_visual_work()
+	return _angel_blessing_runtime_state.has_visual_work()
 
 
 func get_runtime_status_lines(perk_id: String) -> Array[String]:
-	if perk_id.strip_edges() != RuntimePerkAngelBlessingState.PERK_ID:
+	if perk_id.strip_edges() != RuntimePerkAngelBlessingRuntimeState.PERK_ID:
 		return []
 	return RuntimePerkAngelBlessingLocalization.build_status_lines(
 		get_angel_blessing_snapshot(),
 		get_angel_blessing_acquisition_snapshot(),
-		int(runtime_skill_levels.get(RuntimePerkAngelBlessingState.PERK_ID, 0)) > 0
+		int(runtime_skill_levels.get(RuntimePerkAngelBlessingRuntimeState.PERK_ID, 0)) > 0
 	)
 
 
 func has_pending_angel_blessing_acquisition() -> bool:
-	return _angel_blessing_modal_flow.has_work()
+	return _angel_blessing_runtime_state.has_pending_acquisition()
 
 
 func is_angel_blessing_modal_active() -> bool:
-	return _angel_blessing_modal_flow.is_modal_active()
+	return _angel_blessing_runtime_state.is_modal_active()
 
 
 func has_angel_blessing_modal_work() -> bool:
-	if _angel_blessing_modal_flow.has_visual_work() or _angel_blessing_modal_flow.has_pending_reveals():
-		return true
-	return _angel_blessing_modal_flow.has_ready_current_stage_roll()
+	return _angel_blessing_runtime_state.has_modal_work()
 
 
 func update_angel_blessing_acquisition(
@@ -1485,68 +1574,14 @@ func update_angel_blessing_acquisition(
 	blockers: Dictionary = {},
 	roll_options: Dictionary = {}
 ) -> Dictionary:
-	var update_result: Dictionary = _angel_blessing_modal_flow.update(delta)
-	_play_angel_blessing_absorb_cues(registry, update_result)
-	if is_angel_blessing_modal_active():
-		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
-		return update_result
-	if _is_angel_blessing_open_blocked(owner, registry, blockers):
-		update_result["blocked"] = true
-		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
-		return update_result
-	if choice_active or has_pending_unlock_swap():
-		update_result["blocked"] = true
-		update_result["blocked_reason"] = "runtime_perk_choice"
-		update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
-		return update_result
-	if pending_skill_choices > 0:
-		update_result["choice_resume"] = _try_resume_deferred_runtime_choices(owner, registry)
-		if choice_active or has_pending_unlock_swap():
-			update_result["blocked"] = true
-			update_result["blocked_reason"] = "runtime_perk_choice"
-			update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
-			return update_result
-
-	var stage: int = _get_angel_blessing_owner_stage(owner)
-	var pending_roll: Dictionary = _angel_blessing_modal_flow.take_ready_roll_for_stage(stage, false)
-	if not pending_roll.is_empty():
-		var roll_result: Dictionary = _roll_angel_blessing_current_stage_only(
-			owner,
-			registry,
-			roll_options
-		)
-		update_result["pending_roll"] = pending_roll
-		update_result["roll_result"] = roll_result
-		if bool(roll_result.get("rolled", false)):
-			_angel_blessing_modal_flow.queue_reveal_from_roll_result(
-				roll_result,
-				str(pending_roll.get("reason", "first_acquisition"))
-			)
-
-	if _angel_blessing_modal_flow.has_pending_reveals():
-		var begin_result: Dictionary = _angel_blessing_modal_flow.begin_next_pending_reveal(stage)
-		update_result["begin_result"] = begin_result
-		if bool(begin_result.get("started", false)):
-			_pause_skill_cooldowns_for_choice(owner, registry)
-			var game_audio: Object = _get_instance(registry, "game_audio")
-			if game_audio != null and game_audio.has_method("play_angel_blessing_roll"):
-				game_audio.play_angel_blessing_roll()
-	update_result["snapshot"] = get_angel_blessing_acquisition_snapshot()
-	return update_result
-
-
-func _play_angel_blessing_absorb_cues(registry: Object, update_result: Dictionary) -> void:
-	var absorption_value: Variant = update_result.get("absorption", {})
-	if not (absorption_value is Dictionary):
-		return
-	var cues_value: Variant = (absorption_value as Dictionary).get("arrival_cues", [])
-	if not (cues_value is Array) or (cues_value as Array).is_empty():
-		return
-	var game_audio: Object = _get_instance(registry, "game_audio")
-	if game_audio == null or not game_audio.has_method("play_angel_blessing_absorb"):
-		return
-	for _cue: Variant in cues_value:
-		game_audio.play_angel_blessing_absorb()
+	return _angel_blessing_runtime_state.update_acquisition_from_runtime_state(
+		self,
+		delta,
+		owner,
+		registry,
+		blockers,
+		roll_options
+	)
 
 
 func handle_angel_blessing_input(
@@ -1555,12 +1590,12 @@ func handle_angel_blessing_input(
 	registry: Object,
 	_view_size: Vector2 = Vector2.ZERO
 ) -> bool:
-	if not is_angel_blessing_modal_active():
-		return false
-	var input_result: Dictionary = _angel_blessing_modal_flow.handle_input(event)
-	if bool(input_result.get("dismissed", false)):
-		_finalize_angel_blessing_deferred_choice_chain(owner, registry, true)
-	return bool(input_result.get("consumed", false))
+	return _angel_blessing_runtime_state.handle_acquisition_input_from_runtime_state(
+		self,
+		event,
+		owner,
+		registry
+	)
 
 
 func on_angel_blessing_acquisition_cinematic_finished(
@@ -1568,82 +1603,28 @@ func on_angel_blessing_acquisition_cinematic_finished(
 	owner: Object = null,
 	registry: Object = null
 ) -> Dictionary:
-	var result: Dictionary = _angel_blessing_acquisition_lifecycle.on_acquisition_cinematic_finished(
+	return _angel_blessing_runtime_state.finish_acquisition_cinematic_from_runtime_state(
 		self,
-		perk_id
+		perk_id,
+		owner,
+		registry
 	)
-	if bool(result.get("ignored", false)) or perk_id.strip_edges() != "angel_blessing":
-		return result
-	if int(result.get("released", result.get("released_count", 0))) <= 0:
-		result["ready_work"] = has_angel_blessing_modal_work()
-		return result
-	if owner == null or registry == null:
-		return result
-	if pending_skill_choices > 0 and not choice_active and not has_pending_unlock_swap():
-		result["choice_resume"] = _try_resume_deferred_runtime_choices(owner, registry)
-		result["opened_next_choice"] = choice_active
-		if choice_active or has_pending_unlock_swap():
-			return result
-	result["angel_update"] = update_angel_blessing_acquisition(0.0, owner, registry)
-	if (
-		not choice_active
-		and not has_pending_unlock_swap()
-		and not has_angel_blessing_modal_work()
-	):
-		_finalize_angel_blessing_deferred_choice_chain(owner, registry)
-	return result
 
 
 func on_angel_blessing_round_boundary() -> void:
-	var cancel_result: Dictionary = _angel_blessing_modal_flow.cancel_active_presentation()
-	_angel_blessing_modal_flow.reset_for_round_boundary()
-	if bool(cancel_result.get("canceled", false)):
-		current_choice_context.clear()
-		_resume_skill_cooldowns_for_choice()
+	_angel_blessing_runtime_state.on_round_boundary_from_runtime_state(self)
 
 
 func on_angel_blessing_stage_transition(_next_stage: int = 0) -> void:
-	var had_discarded_work: bool = _has_current_stage_angel_blessing_work()
-	_angel_blessing_modal_flow.reset_for_stage_boundary()
-	if (
-		not choice_active
-		and not has_pending_unlock_swap()
-		and (
-			had_discarded_work
-			or (
-				_skill_cooldown_pause != null
-				and _skill_cooldown_pause.has_method("is_active")
-				and bool(_skill_cooldown_pause.is_active())
-			)
-		)
-	):
-		current_choice_context.clear()
-		_resume_skill_cooldowns_for_choice()
+	_angel_blessing_runtime_state.on_stage_transition_from_runtime_state(self)
 
 
 func _should_defer_next_choice_for_angel_acquisition() -> bool:
-	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
-		if not (pending_value is Dictionary):
-			continue
-		var pending: Dictionary = pending_value
-		if bool(pending.get("waiting_for_cinematic", false)):
-			return true
-	return false
+	return _angel_blessing_runtime_state.should_defer_next_choice()
 
 
 func _has_angel_blessing_post_choice_blocker() -> bool:
-	if is_angel_blessing_modal_active() or _angel_blessing_modal_flow.has_pending_reveals():
-		return true
-	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
-		if not (pending_value is Dictionary):
-			continue
-		var pending: Dictionary = pending_value
-		if (
-			str(pending.get("policy", "")) == RuntimePerkAngelBlessingModalFlow.POLICY_CURRENT_STAGE
-			or bool(pending.get("waiting_for_cinematic", false))
-		):
-			return true
-	return false
+	return _angel_blessing_runtime_state.has_post_choice_blocker()
 
 
 func _has_runtime_perk_post_choice_blocker(registry: Object = null) -> bool:
@@ -1666,50 +1647,23 @@ func _has_runtime_perk_post_choice_blocker(registry: Object = null) -> bool:
 
 
 func _has_current_stage_angel_blessing_work() -> bool:
-	if is_angel_blessing_modal_active() or _angel_blessing_modal_flow.has_pending_reveals():
-		return true
-	for pending_value: Variant in _angel_blessing_modal_flow.get_snapshot().get("pending_rolls", []):
-		if (
-			pending_value is Dictionary
-			and str((pending_value as Dictionary).get("policy", "")) == RuntimePerkAngelBlessingModalFlow.POLICY_CURRENT_STAGE
-		):
-			return true
-	return false
+	return _angel_blessing_runtime_state.has_current_stage_work()
 
 
 func _continue_angel_blessing_after_choice(owner: Object, registry: Object) -> void:
-	if choice_active or pending_skill_choices > 0 or _should_defer_next_choice_for_angel_acquisition():
-		return
-	update_angel_blessing_acquisition(0.0, owner, registry)
+	_angel_blessing_runtime_state.continue_after_choice_from_runtime_state(
+		self,
+		owner,
+		registry
+	)
 
 
 func _try_resume_deferred_runtime_choices(owner: Object, registry: Object) -> Dictionary:
-	if pending_skill_choices <= 0 or choice_active or has_pending_unlock_swap():
-		return {"opened": false, "pending_skill_choices": pending_skill_choices}
-	var catalog: Object = _get_catalog(registry)
-	if catalog != null:
-		open_next_choice(
-			_get_character_type(owner),
-			catalog,
-			false,
-			owner,
-			registry,
-			null,
-			current_choice_context.duplicate(true)
-		)
-	if not choice_active and not has_pending_unlock_swap() and pending_skill_choices > 0:
-		# Match the established empty-catalog recursion: an earned choice with no
-		# legal cards is consumed instead of leaving a non-renderable permanent
-		# blocker between the acquisition cinematic and Angel.
-		while pending_skill_choices > 0:
-			_apply_choice_opening_update(
-				_choice_opening.build_empty_choices_state_update(pending_skill_choices)
-			)
-	return {
-		"opened": choice_active,
-		"pending_skill_choices": pending_skill_choices,
-		"catalog_available": catalog != null,
-	}
+	return _angel_blessing_runtime_state.try_resume_deferred_choices_from_runtime_state(
+		self,
+		owner,
+		registry
+	)
 
 
 func _finalize_angel_blessing_deferred_choice_chain(
@@ -1717,17 +1671,12 @@ func _finalize_angel_blessing_deferred_choice_chain(
 	registry: Object,
 	force_resume_effects: bool = false
 ) -> void:
-	current_choice_context.clear()
-	var had_cooldown_pause: bool = (
-		_skill_cooldown_pause != null
-		and _skill_cooldown_pause.has_method("is_active")
-		and bool(_skill_cooldown_pause.is_active())
+	_angel_blessing_runtime_state.finalize_deferred_choice_chain_from_runtime_state(
+		self,
+		owner,
+		registry,
+		force_resume_effects
 	)
-	if had_cooldown_pause or force_resume_effects:
-		_resume_skill_cooldowns_for_choice()
-		_try_arm_resume_safety(owner, registry)
-		_start_starpoint_absorption_effect(owner)
-	_sync_owner(owner)
 
 
 func _roll_angel_blessing_current_stage_only(
@@ -1735,93 +1684,16 @@ func _roll_angel_blessing_current_stage_only(
 	registry: Object,
 	roll_options: Dictionary = {}
 ) -> Dictionary:
-	var forced_order_value: Variant = roll_options.get("forced_candidate_order", [])
-	var forced_order: Array = forced_order_value if forced_order_value is Array else []
-	return _angel_blessing_stage_lifecycle.on_ball_spawn_intro_finished(
+	return _angel_blessing_runtime_state.roll_current_stage_from_runtime_state(
 		self,
 		owner,
 		registry,
-		int(roll_options.get("forced_face", 0)),
-		forced_order
+		roll_options
 	)
 
 
 func _get_angel_blessing_owner_stage(owner: Object) -> int:
-	if owner == null:
-		return 0
-	if _character_context != null and _character_context.has_method("get_current_stage"):
-		return max(0, int(_character_context.get_current_stage(owner)))
-	var stage_value: Variant = owner.get("current_stage")
-	return max(0, int(stage_value)) if stage_value != null else 0
-
-
-func _is_angel_blessing_open_blocked(
-	owner: Object,
-	registry: Object,
-	blockers: Dictionary
-) -> bool:
-	for blocker_key in [
-		"blocked",
-		"higher_priority_modal_active",
-		"stage_clear_result_active",
-		"stage_clear_result_screen_active",
-		"mythic_acquisition_active",
-		"mythic_acquisition_cinematic_active",
-		"scoreboard_active",
-		"runtime_perk_choice_active",
-	]:
-		if bool(blockers.get(blocker_key, false)):
-			return true
-	var cached_module_getter := Callable()
-	if registry != null and registry.has_method("get_cached_instance"):
-		cached_module_getter = Callable(registry, "get_cached_instance")
-	elif registry != null and registry.has_method("_get_cached_module"):
-		cached_module_getter = Callable(registry, "_get_cached_module")
-	elif registry != null and registry.has_method("get_instance"):
-		cached_module_getter = Callable(registry, "get_instance")
-	var shared_modal_gate: Object = _get_cached_angel_blocker_module(
-		registry,
-		"battle_scene_modal_gate_controller"
-	)
-	if (
-		shared_modal_gate != null
-		and shared_modal_gate.has_method("should_block_battle_physics")
-		and cached_module_getter.is_valid()
-		and bool(shared_modal_gate.should_block_battle_physics(cached_module_getter))
-	):
-		return true
-	var result_screen: Object = _get_cached_angel_blocker_module(registry, "stage_clear_result_screen")
-	if result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active()):
-		return true
-	var scoreboard_state: Object = _get_cached_angel_blocker_module(registry, "scoreboard_state")
-	if scoreboard_state != null and scoreboard_state.has_method("is_active") and bool(scoreboard_state.is_active()):
-		return true
-	var mythic_runtime: Object = _get_cached_angel_blocker_module(registry, "mythic_item_runtime")
-	if mythic_runtime == null:
-		return false
-	for method_name in [
-		"is_acquisition_cinematic_active",
-		"is_pandora_legacy_selection_active",
-		"is_debug_management_menu_open",
-	]:
-		if mythic_runtime.has_method(method_name) and bool(mythic_runtime.call(method_name)):
-			return true
-	return false
-
-
-func _get_cached_angel_blocker_module(registry: Object, key: String) -> Object:
-	if registry == null or key == "":
-		return null
-	var value: Variant = null
-	if registry.has_method("get_cached_instance"):
-		value = registry.call("get_cached_instance", key)
-	elif registry.has_method("_get_cached_module"):
-		value = registry.call("_get_cached_module", key)
-	elif registry.has_method("get_instance"):
-		value = registry.call("get_instance", key)
-	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-		return value as Object
-	return null
+	return _angel_blessing_runtime_state.get_owner_stage_from_runtime_state(self, owner)
 
 
 func get_angel_blessing_special_gauge_max(current_max: float) -> float:
@@ -1883,24 +1755,20 @@ func get_base_polish_multiplier() -> float:
 	return _effective_stat_queries.get_base_polish_multiplier_from_runtime_state(self)
 
 
-func get_downtown_treasure_map_field_mythic_bonus() -> float:
-	return _effective_stat_queries.get_downtown_treasure_map_field_mythic_bonus_from_runtime_state(self)
+func get_downtown_treasure_map_mythic_bonus() -> float:
+	return _effective_stat_queries.get_downtown_treasure_map_mythic_bonus_from_runtime_state(self)
 
 
-func get_downtown_treasure_map_field_mythic_multiplier() -> float:
-	return _effective_stat_queries.get_downtown_treasure_map_field_mythic_multiplier_from_runtime_state(self)
+func get_downtown_treasure_map_mythic_multiplier() -> float:
+	return _effective_stat_queries.get_downtown_treasure_map_mythic_multiplier_from_runtime_state(self)
 
 
-func get_downtown_treasure_map_passive_drop_share_bonus() -> float:
-	return _effective_stat_queries.get_downtown_treasure_map_passive_drop_share_bonus_from_runtime_state(self)
+func get_downtown_treasure_map_vision_box_chance_bonus() -> float:
+	return _effective_stat_queries.get_downtown_treasure_map_vision_box_chance_bonus_from_runtime_state(self)
 
 
-func get_treasure_hunt_legendary_chance_bonus() -> float:
-	return _effective_stat_queries.get_treasure_hunt_legendary_chance_bonus_from_runtime_state(self)
-
-
-func get_treasure_hunt_legendary_chance(base_chance: float) -> float:
-	return _effective_stat_queries.get_treasure_hunt_legendary_chance_from_runtime_state(self, base_chance)
+func get_downtown_treasure_map_vision_box_chance(base_chance: float) -> float:
+	return _effective_stat_queries.get_downtown_treasure_map_vision_box_chance_from_runtime_state(self, base_chance)
 
 
 func get_player_speed_multiplier() -> float:
@@ -2110,46 +1978,18 @@ func on_ball_spawn_intro_finished(
 		owner,
 		registry
 	)
-	var forced_order_value: Variant = angel_roll_options.get("forced_candidate_order", [])
-	var forced_order: Array = forced_order_value if forced_order_value is Array else []
-	var current_stage: int = _get_angel_blessing_owner_stage(owner)
-	var acquisition_reservation: Dictionary = _angel_blessing_modal_flow.take_ready_roll_for_stage(
-		current_stage,
-		true
-	)
-	var angel_result: Dictionary = _angel_blessing_stage_lifecycle.on_ball_spawn_intro_finished(
+	var angel_result: Dictionary = _angel_blessing_runtime_state.handle_spawn_intro_completion_from_runtime_state(
 		self,
 		owner,
 		registry,
-		int(angel_roll_options.get("forced_face", 0)),
-		forced_order
+		angel_roll_options
 	)
-	if not angel_result.is_empty():
-		result["angel_blessing"] = angel_result
-	if bool(angel_result.get("rolled", false)):
-		var reveal_reason: String = str(acquisition_reservation.get("reason", "stage_intro"))
-		result["angel_blessing_reveal"] = _angel_blessing_modal_flow.queue_reveal_from_roll_result(
-			angel_result,
-			reveal_reason
-		)
-		result["angel_blessing_modal"] = update_angel_blessing_acquisition(
-			0.0,
-			owner,
-			registry,
-			{},
-			angel_roll_options
-		)
-	if not acquisition_reservation.is_empty():
-		result["angel_blessing_acquisition_reservation"] = acquisition_reservation
+	result.merge(angel_result, true)
 	return result
 
 
 func _apply_monkey_blessing_choice(owner: Object, registry: Object, choice_name: String = "") -> Dictionary:
 	return _instant_choice_flow.apply_monkey_blessing_choice_from_runtime_state(self, owner, registry, choice_name)
-
-
-func _apply_treasure_hunt_choice(owner: Object, registry: Object) -> Dictionary:
-	return _instant_choice_flow.apply_treasure_hunt_choice_from_runtime_state(self, owner, registry)
 
 
 func _capture_resume_pre_choice_velocity(owner: Object) -> void:

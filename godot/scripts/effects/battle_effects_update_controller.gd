@@ -20,6 +20,11 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
 		feedback.update(delta, dash_token_max)
+		_push_odins_eye_cinematic_shake(feedback, deps.get("mythic_item_runtime", null), now_msec)
+		_publish_cheongringwi_vision_quake_shake(
+			feedback,
+			deps.get("cheongringwi_vision_chosik_state", null)
+		)
 
 	var audio = deps.get("audio", null)
 	if audio != null:
@@ -111,6 +116,17 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		stage7_akamu_result = stage7_akamu_state.update(delta, context, effect_deps)
 		context.merge(stage7_akamu_result, true)
 
+	var stage8_minotaur_state: Object = deps.get("stage8_minotaur_state", null)
+	var stage8_minotaur_result: Dictionary = {}
+	if (
+		int(context.get("current_stage", 1)) == 8
+		and stage8_minotaur_state != null
+		and stage8_minotaur_state.has_method("update")
+	):
+		_merge_score_context(context, deps.get("score_state", null))
+		stage8_minotaur_result = stage8_minotaur_state.update(delta, context, effect_deps)
+		context.merge(stage8_minotaur_result, true)
+
 	var drive_text_timer_frames: float = max(
 		0.0,
 		float(context.get("drive_text_timer_frames", 0.0)) - fps_scale
@@ -127,6 +143,11 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 			float(context.get("ball_size", 0.0)),
 			context
 		)
+
+	# 벽력유성은 발동 즉시 시작한 지면 유성과 독립 하프 컷인을 같은 상태에서 병행 갱신한다.
+	var overdrive_state: Object = deps.get("smasher_overdrive_state", null)
+	if _needs_effect_update(overdrive_state) and overdrive_state.has_method("update_effects"):
+		overdrive_state.update_effects(fps_scale, context, effect_deps)
 
 	var plasma_state: Object = deps.get("smasher_plasma_state", null)
 	if _needs_effect_update(plasma_state) and plasma_state.has_method("update_effects"):
@@ -151,6 +172,12 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		wheel_state.update_effects(fps_scale, context, effect_deps)
 	if audio != null and audio.has_method("sync_smasher_wheel_loop") and wheel_state != null and wheel_state.has_method("is_active"):
 		audio.sync_smasher_wheel_loop(loop_audio_allowed and bool(wheel_state.is_active()))
+
+	# 허공환영 팝 파티클은 초식이 끝난 뒤에도 남은 수명만큼 재생돼야 해서
+	# 공 경로가 아니라 이펙트 경로에서 돈다(공 경로는 active 게이트에 걸린다).
+	var void_phantom_state: Object = deps.get("smasher_void_phantom_state", null)
+	if _needs_effect_update(void_phantom_state) and void_phantom_state.has_method("update_effects"):
+		void_phantom_state.update_effects(fps_scale)
 
 	var magnum_state: Object = deps.get("smasher_magnum_grip_state", null)
 	if _needs_effect_update(magnum_state) and magnum_state.has_method("update_effects"):
@@ -238,9 +265,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var commando_firearm_gauge_gain: float = max(0.0, float(commando_firearm_result.get("commando_firearm_special_gauge_gain", 0.0)))
 	if commando_firearm_gauge_gain > 0.0:
 		var commando_gauge_max: float = max(1.0, float(context.get("gauge_max", GAUGE_MAX)))
-		var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
-		if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
-			commando_firearm_gauge_gain = max(0.0, float(mythic_item_runtime.apply_gold_digger_gauge_bonus(commando_firearm_gauge_gain)))
 		var old_special_gauge: float = next_special_gauge
 		next_special_gauge = min(commando_gauge_max, next_special_gauge + commando_firearm_gauge_gain)
 		commando_firearm_result["commando_firearm_special_gauge_gain_applied"] = next_special_gauge - old_special_gauge
@@ -280,6 +304,30 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	result.merge(blacksmith_thor_shield_result, true)
 	result["special_gauge"] = next_special_gauge
 	return result
+
+
+# 오딘의 눈 부활/사망 시네마틱 화면흔들림: state 곡선(px)을 프레임-리셋되는
+# fixed shake offset으로 민다. 반드시 feedback.update(리셋) 직후 — mythic 틱은
+# 프레임 순서상 먼저라 거기서 밀면 이 리셋에 지워진다. 방향은 결정적 단위원
+# 회전(고주파) — offset.length()가 항상 곡선 강도와 일치해야 BANG 스파이크
+# 12px이 그대로 12px로 착지한다(주파수 상이 sin/cos 조합은 실길이가
+# 0~√2×강도로 요동해 스파이크가 2.5px로 증발하거나 17px로 튄다).
+func _push_odins_eye_cinematic_shake(feedback: Object, mythic_item_runtime: Object, now_msec: int) -> void:
+	if mythic_item_runtime == null or not feedback.has_method("push_fixed_shake_offset"):
+		return
+	if not mythic_item_runtime.has_method("get_odins_eye_cinematic_shake_intensity"):
+		return
+	var intensity: float = float(mythic_item_runtime.get_odins_eye_cinematic_shake_intensity())
+	if intensity <= 0.0:
+		return
+	var angle: float = float(now_msec) / 1000.0 * 47.0
+	feedback.push_fixed_shake_offset(Vector2(cos(angle), sin(angle)) * intensity)
+
+
+func _publish_cheongringwi_vision_quake_shake(feedback: Object, vision_state: Object) -> void:
+	if vision_state == null or not vision_state.has_method("publish_screen_shake"):
+		return
+	vision_state.publish_screen_shake(feedback)
 
 
 func _update_actor_animation(

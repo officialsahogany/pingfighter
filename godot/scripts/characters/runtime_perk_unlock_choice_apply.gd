@@ -54,7 +54,9 @@ func apply_choice(
 	var unlocked_skill: String = str(choice.get("unlocks_skill", ""))
 	if choice_id == "" or unlocked_skill == "":
 		return {"accepted": false, "blocked_reason": "missing_unlock_choice", "choice_id": choice_id}
-	var character_type: String = str(choice.get("character_restriction", _get_owner_character_type(character_context, owner)))
+	var character_type: String = str(choice.get("character_restriction", "")).strip_edges()
+	if character_type == "":
+		character_type = _get_owner_character_type(character_context, owner)
 	var skill_config: Object = _call_object(
 		callbacks,
 		CALLBACK_GET_INSTANCE,

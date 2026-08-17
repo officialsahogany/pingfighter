@@ -3,6 +3,7 @@ extends RefCounted
 const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
 const RuntimePerkAngelBlessingProjection := preload("res://scripts/characters/runtime_perk_angel_blessing_projection.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
 
 func get_runtime_skill_level_from_runtime_state(runtime_state: Object, skill_id: String) -> int:
@@ -42,6 +43,18 @@ func get_converted_perk_effect_level_from_runtime_state(runtime_state: Object, p
 	var resolved: int = get_converted_perk_effect_level(_get_effective_levels(runtime_state), runtime_state, clean_id)
 	_converted_level_memo[clean_id] = [raw_level, item_bonus, ignition, fusion_revision, state_id, resolved]
 	return resolved
+
+
+func get_converted_perk_option_value_from_runtime_state(
+	runtime_state: Object,
+	perk_id: String,
+	option_key: String
+) -> float:
+	var level := get_converted_perk_effect_level_from_runtime_state(runtime_state, perk_id)
+	var value := 0.0
+	if level > 0:
+		value = PerkConversionValues.get_value(perk_id, option_key, level, runtime_state)
+	return value + _get_converted_physique_training_bonus(runtime_state, perk_id, option_key)
 
 
 func get_effective_runtime_skill_levels_from_runtime_state(runtime_state: Object) -> Dictionary:
@@ -121,24 +134,20 @@ func get_base_polish_multiplier_from_runtime_state(runtime_state: Object) -> flo
 	return get_base_polish_multiplier(_get_effective_levels(runtime_state), runtime_state)
 
 
-func get_downtown_treasure_map_field_mythic_bonus_from_runtime_state(runtime_state: Object) -> float:
-	return get_downtown_treasure_map_field_mythic_bonus(_get_effective_levels(runtime_state), runtime_state)
+func get_downtown_treasure_map_mythic_bonus_from_runtime_state(runtime_state: Object) -> float:
+	return get_downtown_treasure_map_mythic_bonus(_get_effective_levels(runtime_state), runtime_state)
 
 
-func get_downtown_treasure_map_field_mythic_multiplier_from_runtime_state(runtime_state: Object) -> float:
-	return get_downtown_treasure_map_field_mythic_multiplier(_get_effective_levels(runtime_state), runtime_state)
+func get_downtown_treasure_map_mythic_multiplier_from_runtime_state(runtime_state: Object) -> float:
+	return get_downtown_treasure_map_mythic_multiplier(_get_effective_levels(runtime_state), runtime_state)
 
 
-func get_downtown_treasure_map_passive_drop_share_bonus_from_runtime_state(runtime_state: Object) -> float:
-	return get_downtown_treasure_map_passive_drop_share_bonus(_get_effective_levels(runtime_state), runtime_state)
+func get_downtown_treasure_map_vision_box_chance_bonus_from_runtime_state(runtime_state: Object) -> float:
+	return get_downtown_treasure_map_vision_box_chance_bonus(_get_effective_levels(runtime_state), runtime_state)
 
 
-func get_treasure_hunt_legendary_chance_bonus_from_runtime_state(runtime_state: Object) -> float:
-	return get_treasure_hunt_legendary_chance_bonus(_get_effective_levels(runtime_state), runtime_state)
-
-
-func get_treasure_hunt_legendary_chance_from_runtime_state(runtime_state: Object, base_chance: float) -> float:
-	return get_treasure_hunt_legendary_chance(_get_effective_levels(runtime_state), runtime_state, base_chance)
+func get_downtown_treasure_map_vision_box_chance_from_runtime_state(runtime_state: Object, base_chance: float) -> float:
+	return get_downtown_treasure_map_vision_box_chance(_get_effective_levels(runtime_state), runtime_state, base_chance)
 
 
 func get_player_speed_multiplier_from_runtime_state(runtime_state: Object) -> float:
@@ -330,6 +339,7 @@ func get_dash_recharge_frames(effective_levels: Object, runtime_state: Object, b
 		RuntimePerkEffectiveLevels.MIN_DASH_RECHARGE_FRAMES,
 		float(base_frames)
 		* maxf(0.0, 1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "dash_lightweight"))
+		* maxf(0.0, 1.0 - _get_physique_training_fraction(runtime_state, "dash_recharge_reduction_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "dash_cooldown")
 	)
 	return RuntimePerkAngelBlessingProjection.apply_dash_recharge_frames(
@@ -343,6 +353,7 @@ func get_dash_recovery_frames(effective_levels: Object, runtime_state: Object, b
 		RuntimePerkEffectiveLevels.MIN_DASH_RECOVERY_FRAMES,
 		float(base_frames)
 		* maxf(0.0, 1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "dash_module_control"))
+		* maxf(0.0, 1.0 - _get_physique_training_fraction(runtime_state, "dash_recovery_reduction_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "dash_recovery")
 	)
 
@@ -350,7 +361,9 @@ func get_dash_recovery_frames(effective_levels: Object, runtime_state: Object, b
 func get_dash_duration_frames(effective_levels: Object, runtime_state: Object, base_frames: float) -> float:
 	return maxf(
 		1.0,
-		float(base_frames) * (1.0 + get_runtime_skill_bonus(effective_levels, runtime_state, "dash_jump"))
+		float(base_frames)
+		* (1.0 + get_runtime_skill_bonus(effective_levels, runtime_state, "dash_jump"))
+		* (1.0 + _get_physique_training_fraction(runtime_state, "dash_distance_bonus_pct"))
 	)
 
 
@@ -366,6 +379,9 @@ func get_active_item_cooldown_msec(effective_levels: Object, runtime_state: Obje
 	var adjusted := float(maxi(0, base_cooldown_msec)) * maxf(
 		0.0,
 		1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "item_cooldown_mastery")
+	) * maxf(
+		0.0,
+		1.0 - _get_physique_training_fraction(runtime_state, "active_item_cooldown_reduction_pct")
 	) * _get_mystic_dice_multiplier(runtime_state, "item_cooldown")
 	return RuntimePerkAngelBlessingProjection.apply_active_item_cooldown_msec(
 		_get_angel_blessing_state(runtime_state),
@@ -377,10 +393,16 @@ func get_active_item_use_gauge_bonus(effective_levels: Object, runtime_state: Ob
 	return maxf(0.0, get_runtime_skill_bonus(effective_levels, runtime_state, "item_gauge_mastery"))
 
 
-func get_active_item_slot_capacity(effective_levels: Object, runtime_state: Object, base_slots: int) -> int:
+func get_active_item_slot_capacity(_effective_levels: Object, runtime_state: Object, base_slots: int) -> int:
+	var fusion_byproduct_bonus := RuntimePerkRuntimeStateAccess.call_int(
+		runtime_state,
+		"get_perk_fusion_active_item_slot_bonus"
+	)
 	return maxi(
 		1,
-		base_slots + int(round(get_runtime_skill_bonus(effective_levels, runtime_state, "item_bag_expansion")))
+		base_slots
+		+ maxi(0, fusion_byproduct_bonus)
+		+ maxi(0, int(roundf(_get_physique_training_bonus(runtime_state, "active_item_slot_bonus"))))
 	)
 
 
@@ -422,30 +444,27 @@ func get_base_polish_multiplier(effective_levels: Object, runtime_state: Object)
 	return 1.0 + maxf(0.0, _apply_fusion_skill_bonus(runtime_state, RuntimePerkEffectiveLevels.ITEM_POLISH_ID, base_bonus))
 
 
-func get_downtown_treasure_map_field_mythic_bonus(effective_levels: Object, runtime_state: Object) -> float:
-	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_field_mythic_bonus", [], 0.0)
+func get_downtown_treasure_map_mythic_bonus(effective_levels: Object, runtime_state: Object) -> float:
+	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_mythic_bonus", [], 0.0)
 
 
-func get_downtown_treasure_map_field_mythic_multiplier(effective_levels: Object, runtime_state: Object) -> float:
-	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_field_mythic_multiplier", [], 1.0)
+func get_downtown_treasure_map_mythic_multiplier(effective_levels: Object, runtime_state: Object) -> float:
+	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_mythic_multiplier", [], 1.0)
 
 
-func get_downtown_treasure_map_passive_drop_share_bonus(effective_levels: Object, runtime_state: Object) -> float:
-	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_passive_drop_share_bonus", [], 0.0)
+func get_downtown_treasure_map_vision_box_chance_bonus(effective_levels: Object, runtime_state: Object) -> float:
+	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_vision_box_chance_bonus", [], 0.0)
 
 
-func get_treasure_hunt_legendary_chance_bonus(effective_levels: Object, runtime_state: Object) -> float:
-	return _call_effective_float(effective_levels, runtime_state, "get_treasure_hunt_legendary_chance_bonus", [], 0.0)
-
-
-func get_treasure_hunt_legendary_chance(effective_levels: Object, runtime_state: Object, base_chance: float) -> float:
-	return _call_effective_float(effective_levels, runtime_state, "get_treasure_hunt_legendary_chance", [base_chance], clamp(float(base_chance), 0.0, 1.0))
+func get_downtown_treasure_map_vision_box_chance(effective_levels: Object, runtime_state: Object, base_chance: float) -> float:
+	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_vision_box_chance", [base_chance], clamp(float(base_chance), 0.0, 1.0))
 
 
 func get_player_speed_multiplier(effective_levels: Object, runtime_state: Object) -> float:
 	return RuntimePerkAngelBlessingProjection.apply_player_speed_multiplier(
 		_get_angel_blessing_state(runtime_state),
 		(1.0 + maxf(0.0, get_runtime_skill_bonus(effective_levels, runtime_state, "common_swiftness")))
+		* (1.0 + _get_physique_training_fraction(runtime_state, "move_speed_bonus_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "player_speed")
 		* _get_perk_fusion_move_speed_multiplier(runtime_state)
 	)
@@ -466,6 +485,7 @@ func get_player_paddle_size_multiplier(effective_levels: Object, runtime_state: 
 		maxf(
 			0.1,
 			(1.0 + get_runtime_skill_bonus(effective_levels, runtime_state, "common_bulk_up"))
+			* (1.0 + _get_physique_training_fraction(runtime_state, "paddle_size_bonus_pct"))
 			* _get_mystic_dice_multiplier(runtime_state, "paddle_size")
 		)
 	)
@@ -476,9 +496,17 @@ func get_accessory_slot_bonus(effective_levels: Object, runtime_state: Object) -
 
 
 func get_player_skill_cooldown_multiplier(effective_levels: Object, runtime_state: Object) -> float:
+	var legacy_multiplier := maxf(
+		0.0,
+		1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "common_training")
+	)
+	var training_multiplier := maxf(
+		0.0,
+		1.0 - _get_physique_training_fraction(runtime_state, "chosik_cooldown_reduction_pct")
+	)
 	return RuntimePerkAngelBlessingProjection.apply_player_skill_cooldown_multiplier(
 		_get_angel_blessing_state(runtime_state),
-		maxf(0.0, 1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "common_training"))
+		legacy_multiplier * training_multiplier
 	)
 
 
@@ -582,6 +610,40 @@ func _get_mystic_dice_multiplier(runtime_state: Object, stat_key: String) -> flo
 			1.0
 		)
 	)
+
+
+func _get_physique_training_bonus(runtime_state: Object, stat_key: String) -> float:
+	return maxf(
+		0.0,
+		RuntimePerkRuntimeStateAccess.call_float(
+			runtime_state,
+			"get_physique_training_bonus",
+			[stat_key],
+			0.0
+		)
+	)
+
+
+func _get_physique_training_fraction(runtime_state: Object, stat_key: String) -> float:
+	return _get_physique_training_bonus(runtime_state, stat_key) / 100.0
+
+
+func _get_converted_physique_training_bonus(
+	runtime_state: Object,
+	perk_id: String,
+	option_key: String
+) -> float:
+	var stat_key := ""
+	match "%s:%s" % [perk_id.strip_edges(), option_key.strip_edges()]:
+		"fuel_pouch:fuel_bonus_flat":
+			stat_key = "max_gauge_flat"
+		"bluetooth_ring:gauge_gain_pct":
+			stat_key = "hit_gauge_bonus_pct"
+		"bulletproof_hat:posture_correction_pct":
+			stat_key = "posture_correction_pct"
+	if stat_key == "":
+		return 0.0
+	return _get_physique_training_bonus(runtime_state, stat_key)
 
 
 func _missing_instance(_registry: Object, _key: String) -> Object:

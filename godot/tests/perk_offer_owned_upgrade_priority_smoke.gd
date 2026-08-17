@@ -6,14 +6,14 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const TARGET_CHOICES := 3
 const OFFER_TRIALS := 24
 const OWNED_UPGRADE_IDS := [
-	"dash_lightweight",
-	"dash_module_control",
-	"dash_jump",
 	"dash_acceleration",
 	"item_luck",
-	"item_cooldown_mastery",
 	"item_gauge_mastery",
-	"common_swiftness",
+	"item_caffeine",
+	"item_polish",
+	"item_recycle",
+	"perk_boost_charge",
+	"perk_laurel_shield",
 ]
 
 var _failures: Array[String] = []
@@ -54,10 +54,9 @@ func _verify_full_slots_reserve_owned_upgrades() -> void:
 		var choices: Array = catalog.get_choices("smasher", levels, false, TARGET_CHOICES)
 		var offer_slots := _offer_slots(choices)
 		_expect_eq(offer_slots.size(), TARGET_CHOICES, "full-slot offer should keep the requested non-gold choice count")
-		_expect_eq(_gold_count(choices), 1, "full-slot offer should still append exactly one gold conversion")
-		_expect(str((offer_slots[0] as Dictionary).get("id", "")) == "unlock_soul_summon_art", "full-slot offer should keep the guaranteed soul-summon reservation first")
+		_expect_eq(_gold_count(choices), 0, "full-slot offer should not append the retired gold conversion lane")
+		_expect(_is_owned_upgrade(offer_slots[0], levels), "full-slot offer first card should be a reserved owned slot-perk upgrade")
 		_expect(_is_owned_upgrade(offer_slots[1], levels), "full-slot offer second card should be a reserved owned slot-perk upgrade")
-		_expect(_is_owned_upgrade(offer_slots[2], levels), "full-slot offer third card should be a reserved owned slot-perk upgrade")
 		_expect(_owned_upgrade_count(offer_slots, levels) >= 2, "full-slot offer should reserve at least two owned upgrades")
 		_expect(TARGET_CHOICES - _owned_upgrade_count(offer_slots, levels) <= 1, "full-slot offer should leave at most one diversity slot")
 
@@ -161,10 +160,10 @@ func _verify_mythic_jackpot_coexists_with_dash_and_owned_reservations() -> void:
 	var choices: Array = catalog.get_choices("smasher", levels, false, TARGET_CHOICES)
 	var offer_slots := _offer_slots(choices)
 	_expect_eq(offer_slots.size(), TARGET_CHOICES, "jackpot plus dash/owned reservations should not exceed the target offer count")
-	_expect_eq(_choice_id_count(offer_slots, "unlock_soul_summon_art"), 1, "guaranteed soul summon should retain its protected lane during a jackpot")
-	_expect_eq(_mythic_choice_count(offer_slots), TARGET_CHOICES - 1, "jackpot should fill the remaining target after the protected soul-summon lane")
+	_expect_eq(_choice_id_count(offer_slots, "unlock_soul_summon_art"), 0, "a full mythic jackpot should occupy all three target lanes")
+	_expect_eq(_mythic_choice_count(offer_slots), TARGET_CHOICES, "jackpot should fill the complete target offer")
 	_expect_eq(_choice_id_count(offer_slots, "dash_amplification"), 0, "jackpot-filled offers should naturally push out dash reservation")
-	_expect_eq(_gold_count(choices), 1, "jackpot coexistence should still append exactly one gold conversion")
+	_expect_eq(_gold_count(choices), 0, "jackpot coexistence should not revive the retired gold conversion lane")
 
 
 func _verify_one_open_slot_keeps_normal_offer_pool() -> void:
@@ -172,7 +171,8 @@ func _verify_one_open_slot_keeps_normal_offer_pool() -> void:
 	var levels := _one_open_slot_upgrade_levels()
 	_expect(catalog.has_open_perk_slot(levels), "one-open fixture should report an open perk slot")
 	var scan_choices: Array = catalog.get_choices("smasher", levels, true, 500)
-	_expect(_has_choice_id(scan_choices, "fuel_pouch"), "one-open offers should still include new slot-consuming perks")
+	_expect(not _has_choice_id(scan_choices, "common_training"), "one-open offers should exclude the training-migrated common_training")
+	_expect(_has_choice_id(scan_choices, "item_gauge_mastery"), "one-open offers should still include current slot-consuming perks")
 	var all_trials_started_with_reserved_upgrades := true
 	for _trial in range(OFFER_TRIALS):
 		var offer_slots := _offer_slots(catalog.get_choices("smasher", levels, false, TARGET_CHOICES))
@@ -194,7 +194,7 @@ func _verify_no_upgrade_candidates_falls_back_to_diversity() -> void:
 	var choices: Array = catalog.get_choices("smasher", levels, false, TARGET_CHOICES)
 	var offer_slots := _offer_slots(choices)
 	_expect_eq(_owned_upgrade_count(offer_slots, levels), 0, "full slots with only maxed owned perks should reserve no upgrades")
-	_expect_eq(_gold_count(choices), 1, "no-upgrade fallback should still append gold conversion")
+	_expect_eq(_gold_count(choices), 0, "no-upgrade fallback should not append the retired gold conversion lane")
 
 
 func _verify_offer_chain_source_contract() -> void:
@@ -257,7 +257,6 @@ func _one_open_slot_upgrade_levels() -> Dictionary:
 func _full_slot_maxed_levels() -> Dictionary:
 	return {
 		"dash_amplification": 5,
-		"item_bag_expansion": 5,
 		"common_expansion": 5,
 		"perk_laurel_shield": 5,
 		"common_swiftness": 5,

@@ -35,8 +35,7 @@ const EXPECTED_OVERFLOW_BOUNDS := {
 		"rainbow_glove_cooldown_reduction_pct": {"max": 95.0},
 	},
 	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
-	"bulletproof_hat": {"stun_resist_pct": {"max": 100.0}},
-	"spiked_helmet": {"knockback_resist_pct": {"max": 100.0}},
+	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
 	"venom_mist_gauntlet": {"mist_trigger_chance_pct": {"max": 100.0}},
 	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
 }
@@ -103,10 +102,11 @@ func _verify_overflow_respects_domain_bounds() -> void:
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 12), 1.0, "sensor auto-dash cooldown must floor at 1s")
 	# 감소 계열 4레인은 소비 코드 실효 한도와 정합(레거시 패리티 —
 	# 100으로 두면 neural은 실효 무증가·master는 쿨다운 0이 된다).
-	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_gauge_reduction", 9), 90.0, "neural gauge reduction must cap at the 90 base-gauge consumption limit")
+	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_gauge_reduction", 17), 90.0, "neural gauge reduction must cap at the 90 base-gauge consumption limit")
+	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_ball_speed_bonus_pct", 7), 14.0, "Gangsin ball-speed bonus must keep scaling past max level")
 	_expect_close(PerkConversionValues.get_value("master", "item_cooldown_pct", 60), 95.0, "master cooldown reduction must cap at the legacy 95 limit (never a zero cooldown)")
 	_expect_close(PerkConversionValues.get_value("commando_arm", "prep_reduction_pct", 20), 95.0, "commando prep reduction must cap at the legacy 95 limit")
-	_expect_close(PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", 20), 95.0, "rainbow cooldown reduction must cap at the consumer 0.95 clamp")
+	_expect_close(PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", 30), 95.0, "rainbow cooldown reduction must cap at the consumer 0.95 clamp")
 
 
 func _verify_bounds_map_matches_expected_exactly() -> void:

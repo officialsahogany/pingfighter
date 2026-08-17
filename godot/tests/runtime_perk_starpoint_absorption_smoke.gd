@@ -30,7 +30,7 @@ func _verify_collection_update_payload() -> void:
 	_expect(int(update.get("next_pending_skill_choices", 0)) == 4, "collection update should convert points into pending choices")
 	_expect(int(update.get("next_starpoint_for_skills", -1)) == 0, "collection update should expose the starpoint remainder")
 	_expect(int(update.get("granted_choices", 0)) == 3, "collection update should expose granted choice count")
-	_expect(str(update.get("feedback_text", "")) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +3", "collection update should own feedback text")
+	_expect(str(update.get("feedback_text", "")) == "무혼 +3", "collection update should own feedback text")
 	_expect(is_equal_approx(float(update.get("feedback_timer", 0.0)), RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "collection update should own feedback timer")
 
 	var partial: Dictionary = helper.build_collection_update(1, 1, 2, 3)
@@ -83,7 +83,7 @@ func _verify_runtime_state_collection_path() -> void:
 	state.collect_star_points(1, "smasher", null, null, null, true)
 	_expect(state.starpoint_for_skills == 0, "runtime state collection should apply starpoint remainder through helper")
 	_expect(state.pending_skill_choices == 1, "runtime state collection should apply pending choices through helper")
-	_expect(str(state.feedback_text) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +1", "runtime state collection should keep helper-owned feedback text")
+	_expect(str(state.feedback_text) == "무혼 +1", "runtime state collection should keep helper-owned feedback text")
 	_expect(is_equal_approx(state.feedback_timer, RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TIMER), "runtime state collection should keep helper-owned feedback timer")
 
 

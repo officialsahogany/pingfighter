@@ -4,7 +4,11 @@ const SmasherDashMotionUpdateResolver := preload("res://scripts/characters/smash
 
 const DASH_DURATION: float = 15.0
 const HALF_DASH_DURATION: float = 11.0
+const PLAYER_BASE_PADDLE_WIDTH: float = 155.0
 const PLAYER_BASE_PADDLE_HEIGHT: float = 50.0
+# 대붕전익의 세로 보너스(+70%/Lv)는 유지하되, 같은 비율을 가로에
+# 적용하면 Lv.5에 화면 대부분을 덮는다. 가로는 시각 오라와 맞는 +10%/Lv로 제한한다.
+const DASH_ACCELERATION_WIDTH_BONUS_SCALE: float = 1.0 / 7.0
 
 var update_resolver: Object = SmasherDashMotionUpdateResolver.new()
 var dash_active: bool = false
@@ -12,6 +16,7 @@ var dash_timer: float = 0.0
 var dash_direction: float = 0.0
 var dash_is_half: bool = false
 var dash_acceleration_bonus: float = 0.0
+var dash_acceleration_width_bonus: float = 0.0
 var dash_acceleration_height_bonus: float = 0.0
 var dash_acceleration_skill_level: int = 0
 var dash_skip_recovery: bool = false
@@ -30,6 +35,7 @@ func reset_round() -> void:
 	dash_direction = 0.0
 	dash_is_half = false
 	dash_acceleration_bonus = 0.0
+	dash_acceleration_width_bonus = 0.0
 	dash_acceleration_height_bonus = 0.0
 	dash_acceleration_skill_level = 0
 	dash_skip_recovery = false
@@ -61,6 +67,7 @@ func cancel_active_without_recovery() -> bool:
 	dash_timer = 0.0
 	dash_elapsed_frames = 0.0
 	dash_acceleration_bonus = 0.0
+	dash_acceleration_width_bonus = 0.0
 	dash_acceleration_height_bonus = 0.0
 	dash_acceleration_skill_level = 0
 	dash_skip_recovery = false
@@ -96,7 +103,8 @@ func start(
 	acceleration_level: int = 0,
 	base_paddle_height: float = PLAYER_BASE_PADDLE_HEIGHT,
 	skip_recovery: bool = false,
-	distance_multiplier: float = 1.0
+	distance_multiplier: float = 1.0,
+	base_paddle_width: float = PLAYER_BASE_PADDLE_WIDTH
 ) -> bool:
 	if direction == 0.0:
 		return false
@@ -106,6 +114,11 @@ func start(
 	dash_distance_multiplier = maxf(0.0, distance_multiplier)
 	dash_acceleration_bonus = max(0.0, acceleration_bonus)
 	dash_acceleration_skill_level = max(0, acceleration_level)
+	dash_acceleration_width_bonus = (
+		max(0.0, float(base_paddle_width))
+		* dash_acceleration_bonus
+		* DASH_ACCELERATION_WIDTH_BONUS_SCALE
+	)
 	dash_acceleration_height_bonus = max(0.0, float(base_paddle_height)) * dash_acceleration_bonus
 	dash_skip_recovery = bool(skip_recovery)
 	dash_elapsed_frames = 0.0
@@ -131,7 +144,10 @@ func update(
 
 
 func get_snapshot() -> Dictionary:
-	var acceleration_active: bool = dash_active and dash_acceleration_height_bonus > 0.0
+	var acceleration_active: bool = dash_active and (
+		dash_acceleration_width_bonus > 0.0
+		or dash_acceleration_height_bonus > 0.0
+	)
 	return {
 		"active": dash_active,
 		"timer": dash_timer,
@@ -139,6 +155,7 @@ func get_snapshot() -> Dictionary:
 		"is_half": dash_is_half,
 		"dash_acceleration_active": acceleration_active,
 		"dash_acceleration_bonus": dash_acceleration_bonus if acceleration_active else 0.0,
+		"dash_acceleration_width_bonus": dash_acceleration_width_bonus if acceleration_active else 0.0,
 		"dash_acceleration_height_bonus": dash_acceleration_height_bonus if acceleration_active else 0.0,
 		"dash_acceleration_skill_level": dash_acceleration_skill_level if acceleration_active else 0,
 		"skip_recovery": dash_skip_recovery,

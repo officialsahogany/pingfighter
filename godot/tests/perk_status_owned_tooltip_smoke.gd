@@ -22,6 +22,16 @@ const PerkFusionLocalization := preload("res://scripts/characters/perk_fusion_lo
 const MysticDiceRoller := preload("res://scripts/characters/mystic_dice_roller.gd")
 
 
+class MeridianSlotState:
+	extends RefCounted
+
+	func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
+		return ["meridian_expand"]
+
+	func get_perk_fusion_slot_reduction() -> int:
+		return 0
+
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -72,7 +82,7 @@ func _test_stats_for_level() -> void:
 	var real_lv7: Dictionary = catalog.get_perk_data("dash_jump")
 	real_lv7["id"] = "dash_jump"
 	real_lv7["level"] = 7
-	_expect(renderer._perk_stats_for_level(real_lv7) == "대쉬 거리 49% 증가", "registered overflow must show the generated Lv.7 stats")
+	_expect(renderer._perk_stats_for_level(real_lv7) == "활주 거리 49% 증가", "registered overflow must show the generated Lv.7 glide stats")
 
 
 func _test_stat_lines_split_and_collapse() -> void:
@@ -121,7 +131,7 @@ func _test_owned_perks_exclude_active_unlocks() -> void:
 
 
 func _test_slot_grid_reserves_free_cells() -> void:
-	# 코덱스 v1 P1 행동 씰: 소모 5 + 비소모(common_expansion Lv.1, 한도 6→7)
+	# 코덱스 v1 P1 행동 씰: 소모 5 + 비소모 projection 1 + 기맥 확장(한도 6→7)
 	# → 카운터 5/7, 그리드 7칸 중 빈칸 정확 2, 비소모 셀은 그리드 뒤 별도
 	# 표시(빈칸 산정 미참여). acquired.size() 기준 옛 산정은 빈칸 1로 어긋난다.
 	PerkConversionFlags.debug_set_enabled(true)
@@ -133,12 +143,13 @@ func _test_slot_grid_reserves_free_cells() -> void:
 		"dash_jump": 1,
 		"item_luck": 1,
 		"common_swiftness": 1,
-		"common_expansion": 1,
 	}
-	var slot_limit: int = catalog.get_perk_slot_limit(levels)
-	_expect(slot_limit == 7, "expansion Lv.1 fixture should raise the slot limit to 7 (got %d)" % slot_limit)
+	var slot_state := MeridianSlotState.new()
+	var slot_limit: int = catalog.get_perk_slot_limit(levels, slot_state)
+	_expect(slot_limit == 7, "meridian expansion fixture should raise the slot limit to 7 (got %d)" % slot_limit)
 	_expect(catalog.count_owned_slot_perks(levels) == 5, "fixture should consume exactly 5 slots")
 	var acquired: Array = renderer._build_acquired_perks(levels, catalog, null)
+	acquired.append({"id": "mystic_dice", "_slot_free_cell": true})
 	var grid: Array = renderer._build_status_slot_grid(acquired, slot_limit)
 	_expect(grid.size() == 8, "grid must hold 7 slot cells + 1 trailing free cell (got %d)" % grid.size())
 	if grid.size() != 8:

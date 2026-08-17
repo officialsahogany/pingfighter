@@ -135,7 +135,7 @@ func _verify_success_tier_clean_boot() -> void:
 
 
 func _verify_side_effect_tier_counts_match_record() -> void:
-	var driven: Dictionary = _commit_real_record(["item_luck", "common_bulk_up"], _rolls(0.60))
+	var driven: Dictionary = _commit_real_record(["item_luck", "common_bulk_up"], _rolls(0.25))
 	var record: Dictionary = driven.get("record", {}) as Dictionary
 	var plan: Dictionary = driven.get("plan", {}) as Dictionary
 	_expect(str(plan.get("tier", "")) == "side_effect", "an unarmed side-effect roll should plan the OVERLOAD boot")
@@ -150,7 +150,7 @@ func _verify_side_effect_tier_counts_match_record() -> void:
 
 
 func _verify_deletion_ejects_modules_with_count_parity() -> void:
-	var driven: Dictionary = _commit_real_record(["sensor", "shrapnel_armor"], _rolls(0.60, 0.0))
+	var driven: Dictionary = _commit_real_record(["sensor", "shrapnel_armor"], _rolls(0.25, 0.0))
 	var record: Dictionary = driven.get("record", {}) as Dictionary
 	var plan: Dictionary = driven.get("plan", {}) as Dictionary
 	_expect(str(plan.get("tier", "")) == "side_effect", "a deletion roll is still the side-effect tier")
@@ -175,7 +175,7 @@ func _verify_byproduct_tier_deploys_modules_with_count_parity() -> void:
 
 
 func _verify_stable_save_tier_snaps_stabilizer() -> void:
-	var driven: Dictionary = _commit_real_record(["item_luck", "common_bulk_up"], _rolls(0.60), true)
+	var driven: Dictionary = _commit_real_record(["item_luck", "common_bulk_up"], _rolls(0.25), true)
 	var record: Dictionary = driven.get("record", {}) as Dictionary
 	var plan: Dictionary = driven.get("plan", {}) as Dictionary
 	_expect(str(record.get("raw_outcome", "")) == "side_effect", "stabilizer fixture should roll a raw side effect")
@@ -196,7 +196,7 @@ func _verify_stable_save_tier_snaps_stabilizer() -> void:
 # 소비되지 않았으므로 안정화 코일 SNAP-IN이 없어야 한다(서지는 자가
 # 해소 — 게이지 스터터만 남는다).
 func _verify_empty_penalty_stable_resolves_without_stabilizer() -> void:
-	var driven: Dictionary = _commit_real_record(["dash_spirit", "extension_gear"], _rolls(0.60))
+	var driven: Dictionary = _commit_real_record(["dash_spirit", "extension_gear"], _rolls(0.25))
 	var record: Dictionary = driven.get("record", {}) as Dictionary
 	var plan: Dictionary = driven.get("plan", {}) as Dictionary
 	_expect(str(record.get("raw_outcome", "")) == "side_effect", "empty-penalty fixture should roll a raw side effect")

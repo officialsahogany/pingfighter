@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemHudState := preload("res://scripts/hud/active_item_hud_state.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
@@ -50,9 +51,10 @@ func _init() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var alchemy_data: Dictionary = catalog.get_perk_data("item_recycle")
 	_expect(not alchemy_data.is_empty(), "catalog should register Alchemy")
-	_expect(str(alchemy_data.get("name", "")) == "연금술", "Alchemy should keep its Korean display name")
+	_expect(str(alchemy_data.get("name", "")) == "환보결", "Treasure-Returning Art should use its adopted Korean Mugong name")
 	_expect(int(alchemy_data.get("max_level", 0)) == 5, "Alchemy should have five base levels")
 	_expect(str(alchemy_data.get("tree", "")) == "item", "Alchemy should live in the item tree")
+	_expect(str(alchemy_data.get("detail", "")).contains("부메랑은 제외"), "Alchemy detail should disclose the Boomerang exclusion")
 	_expect(ProjectResourceLoader.load_audio_stream("res://assets/sounds/alchemy.wav") != null, "Alchemy sound should load from Godot assets")
 
 	var perk_state := RuntimePerkState.new()
@@ -118,6 +120,8 @@ func _init() -> void:
 	_expect(_backup_calls == 1, "non-recycled consumable path should still call the pending backup hook")
 
 	_verify_lingpet_egg_excluded_from_recycle()
+	_verify_boomerang_excluded_from_recycle()
+	_verify_boomerang_exclusion_localization(catalog)
 
 	print("item_alchemy_perk_port_smoke: ok")
 	quit(0)
@@ -159,6 +163,47 @@ func _verify_lingpet_egg_excluded_from_recycle() -> void:
 	var egg_sc := ActiveItemSlotController.new()
 	_expect(egg_sc.use_slot(0, egg_owner, registry, false, Callable(self, "_apply_effect"), Callable(self, "_backup_item")), "lingpet_egg use should succeed")
 	_expect(egg_owner.active_item_slots.is_empty(), "lingpet_egg must be consumed by Alchemy, never recycled into a dead slot")
+
+
+# Boomerang has its own recovery contract: catching the returning projectile
+# grants a fresh boomerang. 환보결 must consume the thrown slot item so the two
+# recovery paths cannot duplicate it.
+func _verify_boomerang_excluded_from_recycle() -> void:
+	var perk_state := RuntimePerkState.new()
+	perk_state.runtime_skill_levels["item_recycle"] = 5
+	perk_state.item_perk_level_bonus = 20
+	var registry := FakeRegistry.new(perk_state, FakeAudio.new())
+	var boomerang_item: Dictionary = ActiveItemCatalog.new().build_item_by_name("boomerang")
+	_expect(bool(boomerang_item.get("no_recycle", false)), "catalog boomerang should opt out of Alchemy recycling")
+	boomerang_item["cooldown_msec"] = 0
+
+	seed(1)
+	_effect_calls = 0
+	_backup_calls = 0
+	var owner := FakeOwner.new()
+	owner.active_item_slots = [boomerang_item]
+	var slot_controller := ActiveItemSlotController.new()
+	_expect(slot_controller.use_slot(0, owner, registry, false, Callable(self, "_apply_effect"), Callable(self, "_backup_item")), "boomerang use should succeed")
+	_expect(owner.active_item_slots.is_empty(), "boomerang must be consumed even when Alchemy would otherwise trigger")
+	_expect(_backup_calls == 1, "consumed boomerang should retain the normal pending-windup recovery hook")
+
+
+func _verify_boomerang_exclusion_localization(catalog: Object) -> void:
+	var expected_tokens := {
+		LanguageSettings.LANGUAGE_ENGLISH: "Boomerang",
+		LanguageSettings.LANGUAGE_CHINESE: "回旋镖",
+		LanguageSettings.LANGUAGE_JAPANESE: "ブーメラン",
+		LanguageSettings.LANGUAGE_SPANISH: "Bumerán",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Bumerangue",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Бумеранг",
+	}
+	for language_value in expected_tokens:
+		var language: String = str(language_value)
+		LanguageSettings.set_test_locale_override(language)
+		var localized: Dictionary = catalog.get_perk_data("item_recycle")
+		var token: String = str(expected_tokens[language_value])
+		_expect(str(localized.get("detail", "")).contains(token), "Alchemy detail [%s] should disclose the localized Boomerang exclusion" % language)
+	LanguageSettings.set_test_locale_override("")
 
 
 func _build_test_item(item_name: String) -> Dictionary:

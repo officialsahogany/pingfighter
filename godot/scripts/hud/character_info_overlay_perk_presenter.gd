@@ -4,9 +4,14 @@ const CharacterInfoOverlayFormatter := preload("res://scripts/hud/character_info
 const CharacterInfoOverlayTextureDrawer := preload("res://scripts/hud/character_info_overlay_texture_drawer.gd")
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkFusionByproductCatalog := preload("res://scripts/characters/perk_fusion_byproduct_catalog.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 
-const LEVEL_BADGE_FILL := Color(0.05, 0.09, 0.15, 0.92)
+const LEVEL_BADGE_FILL := Color(0.12, 0.075, 0.032, 0.94)
+const LEVEL_BADGE_HORIZONTAL_PADDING := 7.0
+const LEVEL_BADGE_VERTICAL_PADDING := 2.0
+const LEVEL_BADGE_MIN_HEIGHT := 18.0
+const LEVEL_BADGE_BOTTOM_OFFSET := 4.0
 
 # Perk tooltip right-panel ("능력치") stat-line color and header. The 2-panel
 # perk tooltip mirrors the passive-item dual tooltip: left = friendly `detail`,
@@ -161,12 +166,12 @@ const FUSION_STAT_DELETED_COLOR := Color(0.62, 0.62, 0.66, 1.0)
 const FUSION_STAT_BYPRODUCT_COLOR := Color(0.55, 0.85, 1.0, 1.0)
 const FUSION_ENTRY_DRAW_COLOR := Color(0.72, 0.46, 0.98, 1.0)
 
-# 신비의 주사위 스탯 행 색: 표시는 raw 부호가 아니라 "이득/손해"(benefit)
+# 팔자윷 스탯 행 색: 표시는 raw 부호가 아니라 "이득/손해"(benefit)
 # 기준 — LIB(낮을수록 이득) 3종은 raw 부호가 반전돼 색이 뒤집힌다.
-const MYSTIC_DICE_STAT_BENEFIT_COLOR := Color(0.45, 0.95, 0.55, 1.0)
-const MYSTIC_DICE_STAT_CURSE_COLOR := Color(1.0, 0.45, 0.42, 1.0)
-const MYSTIC_DICE_STAT_NEUTRAL_COLOR := Color(0.66, 0.68, 0.74, 1.0)
-const MYSTIC_DICE_ENTRY_DRAW_COLOR := Color(0.38, 0.28, 0.82, 1.0)
+const MYSTIC_DICE_STAT_BENEFIT_COLOR := Color(0.14, 0.52, 0.82, 1.0)
+const MYSTIC_DICE_STAT_CURSE_COLOR := Color(0.88, 0.20, 0.18, 1.0)
+const MYSTIC_DICE_STAT_NEUTRAL_COLOR := Color(0.70, 0.65, 0.56, 1.0)
+const MYSTIC_DICE_ENTRY_DRAW_COLOR := Color(0.78, 0.56, 0.24, 1.0)
 
 
 static func _mystic_dice_localization() -> Object:
@@ -196,15 +201,18 @@ static func build_acquired_perks_from_projection(
 	equipped_skill_lookup: Dictionary = {}
 ) -> Array:
 	var result: Array = []
-	var has_soul_unlock_entry := projection_entries.any(func(value: Variant) -> bool:
-		return value is Dictionary and str((value as Dictionary).get("perk_id", (value as Dictionary).get("id", ""))) == CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
-	)
+	var common_unlock_entries: Dictionary = {}
+	for projection_value: Variant in projection_entries:
+		if projection_value is Dictionary:
+			var projection_id := str((projection_value as Dictionary).get("perk_id", (projection_value as Dictionary).get("id", "")))
+			if CommonSkillCatalog.is_common_unlock(projection_id):
+				common_unlock_entries[projection_id] = true
 	for entry_value: Variant in projection_entries:
 		if not (entry_value is Dictionary):
 			continue
 		var entry: Dictionary = entry_value as Dictionary
 		if str(entry.get("type", "perk")) == "fusion":
-			var fusion_data: Dictionary = _fusion_display_entry(entry, accent_gold)
+			var fusion_data: Dictionary = _fusion_display_entry(entry, catalog, accent_gold, runtime_state)
 			if not fusion_data.is_empty():
 				result.append(fusion_data)
 			continue
@@ -217,7 +225,8 @@ static func build_acquired_perks_from_projection(
 		var base_level := int(entry.get("base_level", 0))
 		if perk_id.is_empty() or base_level <= 0:
 			continue
-		if has_soul_unlock_entry and perk_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		var common_unlock_id := CommonSkillCatalog.get_unlock_id_for_skill(perk_id)
+		if common_unlock_id != "" and bool(common_unlock_entries.get(common_unlock_id, false)):
 			continue
 		var level := int(entry.get("effective_level", int(effective_levels.get(perk_id, base_level))))
 		# 장착 해금퍽 숨김은 acquired_perk_data의 lookup 인자를 그대로 관통
@@ -225,7 +234,8 @@ static func build_acquired_perks_from_projection(
 		var data: Dictionary = acquired_perk_data(perk_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)
 		if data.is_empty():
 			continue
-		var draw_id := CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID if perk_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID else perk_id
+		_apply_polish_stats_text(data, perk_id, level, runtime_state)
+		var draw_id := common_unlock_id if common_unlock_id != "" else perk_id
 		_decorate_presented_perk(data, draw_id, accent_blue, accent_gold)
 		# 런타임 상태 라인(천사의 주사위 등)은 일반 분기와 동일하게 여기서도
 		# 적용한다 — projection 분기 추출 때 탈락해 씰(angel_blessing_status_
@@ -247,7 +257,12 @@ static func _decorate_presented_perk(data: Dictionary, draw_id: String, accent_b
 	data["_level_color"] = CharacterInfoOverlayFormatter.perk_level_color(data, accent_gold)
 
 
-static func _fusion_display_entry(entry: Dictionary, accent_gold: Color) -> Dictionary:
+static func _fusion_display_entry(
+	entry: Dictionary,
+	catalog: Object,
+	accent_gold: Color,
+	runtime_state: Object = null
+) -> Dictionary:
 	var localization: Object = _fusion_localization()
 	var fusion_id := str(entry.get("fusion_id", entry.get("id", "")))
 	if fusion_id.is_empty():
@@ -274,6 +289,11 @@ static func _fusion_display_entry(entry: Dictionary, accent_gold: Color) -> Dict
 		entry.get("base_levels", {}) as Dictionary,
 		entry.get("effective_levels", {}) as Dictionary
 	)
+	var fusion_draw_id: String = str(_fusion_icon_key().build(
+		fusion_id,
+		int(entry.get("fusion_revision", 0)),
+		sources
+	))
 	var data: Dictionary = {
 		"id": fusion_id,
 		"name": str(entry.get("summary", fusion_id)),
@@ -286,11 +306,17 @@ static func _fusion_display_entry(entry: Dictionary, accent_gold: Color) -> Dict
 		"description": "\n".join(stat_lines),
 		"icon_color": FUSION_ENTRY_DRAW_COLOR,
 	}
-	data["_draw_id"] = _fusion_icon_key().build(
-		fusion_id,
-		int(entry.get("fusion_revision", 0)),
-		sources
+	var fusion_sections: Array = _build_fusion_detail_sections(
+		entry,
+		record,
+		source_labels,
+		catalog,
+		runtime_state,
+		fusion_draw_id
 	)
+	if fusion_sections.size() == 3:
+		data["fusion_sections"] = fusion_sections
+	data["_draw_id"] = fusion_draw_id
 	data["_draw_color"] = FUSION_ENTRY_DRAW_COLOR
 	data["_draw_border_color"] = Color(FUSION_ENTRY_DRAW_COLOR.r, FUSION_ENTRY_DRAW_COLOR.g, FUSION_ENTRY_DRAW_COLOR.b, 0.48)
 	data["_draw_hover_border_color"] = Color(FUSION_ENTRY_DRAW_COLOR.r, FUSION_ENTRY_DRAW_COLOR.g, FUSION_ENTRY_DRAW_COLOR.b, 0.92)
@@ -299,7 +325,200 @@ static func _fusion_display_entry(entry: Dictionary, accent_gold: Color) -> Dict
 	return data
 
 
-# 신비의 주사위 projection 엔트리 → TAB 표시 엔트리(접착). 슬롯 비소모
+# 합일 hover의 정본 3칸: 원본 무공 A, 원본 무공 B, 부작용/부산물 결과.
+# 첫 두 칸은 일반 무공 tooltip과 같은 catalog/effective-level 해석기를
+# 통과한다. 합일 전용 option key를 다시 설명문처럼 조립하지 않는다.
+static func _build_fusion_detail_sections(
+	entry: Dictionary,
+	record: Dictionary,
+	source_labels: Dictionary,
+	catalog: Object,
+	runtime_state: Object,
+	fusion_draw_id: String
+) -> Array:
+	if catalog == null or not catalog.has_method("get_perk_data"):
+		return []
+	var sources: Array = entry.get("sources", []) as Array
+	if sources.size() != 2:
+		return []
+	var localization: Object = _fusion_localization()
+	var base_levels: Dictionary = entry.get("base_levels", {}) as Dictionary
+	var effective_levels: Dictionary = entry.get("effective_levels", {}) as Dictionary
+	var sections: Array = []
+	for source_index in range(2):
+		var source_id := str(sources[source_index])
+		var catalog_data_value: Variant = catalog.get_perk_data(source_id)
+		if not (catalog_data_value is Dictionary) or (catalog_data_value as Dictionary).is_empty():
+			return []
+		var base_level := int(base_levels.get(source_id, 0))
+		var effective_level := int(effective_levels.get(source_id, base_level))
+		var source_data := acquired_perk_data(
+			source_id,
+			base_level,
+			effective_level,
+			catalog,
+			{},
+			Color.WHITE
+		)
+		_apply_polish_stats_text(source_data, source_id, effective_level, runtime_state)
+		_apply_runtime_status_lines(source_data, source_id, runtime_state)
+		sections.append({
+			"kind": "source",
+			"source_id": source_id,
+			"eyebrow": str(localization.text("material_a" if source_index == 0 else "material_b")),
+			"icon_id": source_id,
+			"title": str(source_data.get("name", source_labels.get(source_id, source_id))),
+			"subtitle": CharacterInfoOverlayFormatter.perk_level_text(source_data),
+			"body": str(source_data.get("detail", "")),
+			"stats": str(source_data.get("description", "")),
+			"rows": _build_source_fusion_change_rows(
+				source_id,
+				record,
+				source_labels,
+				base_level,
+				effective_level
+			),
+		})
+	sections.append(_build_fusion_outcome_section(record, source_labels, fusion_draw_id))
+	return sections
+
+
+static func _build_source_fusion_change_rows(
+	source_id: String,
+	record: Dictionary,
+	source_labels: Dictionary,
+	base_level: int,
+	effective_level: int
+) -> Array:
+	var localization: Object = _fusion_localization()
+	var source_record: Dictionary = record.duplicate(true)
+	source_record["sources"] = [source_id]
+	source_record["source_options"] = _dictionary_subset(record.get("source_options", {}), source_id)
+	source_record["option_penalties"] = _dictionary_subset(record.get("option_penalties", {}), source_id)
+	source_record["deleted_options"] = _dictionary_subset(record.get("deleted_options", {}), source_id)
+	source_record["byproducts"] = []
+	source_record["byproduct_payloads"] = {}
+	var tagged_lines: Array = localization.tooltip_stat_lines(
+		source_record,
+		source_labels,
+		{source_id: base_level},
+		{source_id: effective_level}
+	)
+	var rows: Array = []
+	for line_value: Variant in tagged_lines:
+		var line := str(line_value)
+		if line.begins_with(localization.STAT_PENALTY_PREFIX):
+			rows.append({
+				"text": line.trim_prefix(localization.STAT_PENALTY_PREFIX),
+				"tone": "penalty",
+			})
+		elif line.begins_with(localization.STAT_DELETED_PREFIX):
+			rows.append({
+				"text": line.trim_prefix(localization.STAT_DELETED_PREFIX),
+				"tone": "deleted",
+				"strikethrough": true,
+			})
+	return rows
+
+
+static func _dictionary_subset(value: Variant, key: String) -> Dictionary:
+	if not (value is Dictionary):
+		return {}
+	var dictionary: Dictionary = value as Dictionary
+	if not dictionary.has(key):
+		return {}
+	var child: Variant = dictionary.get(key)
+	return {key: child.duplicate(true) if child is Dictionary or child is Array else child}
+
+
+static func _build_fusion_outcome_section(
+	record: Dictionary,
+	source_labels: Dictionary,
+	fusion_draw_id: String
+) -> Dictionary:
+	var localization: Object = _fusion_localization()
+	var outcome := str(record.get("outcome", "success"))
+	var byproducts: Array = record.get("byproducts", []) as Array
+	var payloads: Dictionary = record.get("byproduct_payloads", {}) as Dictionary
+	var changed_count := _nested_fusion_record_count(record.get("option_penalties", {}))
+	var deleted_count := _deleted_fusion_record_count(record.get("deleted_options", {}))
+	var title_key := "outcome_complete"
+	var body_key := "result_success"
+	match outcome:
+		"stable":
+			title_key = "outcome_stable"
+			body_key = "result_stable"
+		"side_effect":
+			title_key = "outcome_side"
+			body_key = "result_side"
+		"byproduct":
+			title_key = "outcome_byproduct"
+			body_key = "result_byproduct"
+	var rows: Array = []
+	if changed_count > 0 or deleted_count > 0:
+		rows.append({
+			"text": str(localization.format("result_change_summary", [changed_count, deleted_count])),
+			"tone": "penalty",
+		})
+	for byproduct_value: Variant in byproducts:
+		var byproduct_id := str(byproduct_value.get("id", "")) if byproduct_value is Dictionary else str(byproduct_value)
+		if byproduct_id.is_empty():
+			continue
+		var detail := str(localization.byproduct_detail(
+			byproduct_id,
+			payloads.get(byproduct_id, {}) as Dictionary,
+			source_labels
+		))
+		var row_text := str(localization.byproduct_name(byproduct_id))
+		if not detail.is_empty():
+			row_text += " — " + detail
+		rows.append({
+			"text": row_text,
+			"tone": "byproduct",
+			"icon_id": byproduct_id,
+		})
+	var eyebrow_key := "outcome_complete"
+	if not byproducts.is_empty():
+		eyebrow_key = "prob_byproduct"
+	elif outcome == "side_effect" or changed_count > 0 or deleted_count > 0:
+		eyebrow_key = "prob_side"
+	var outcome_icon_id := fusion_draw_id
+	if byproducts.size() == 1:
+		var only_byproduct: Variant = byproducts[0]
+		outcome_icon_id = str(only_byproduct.get("id", "")) if only_byproduct is Dictionary else str(only_byproduct)
+	return {
+		"kind": "outcome",
+		"eyebrow": str(localization.text(eyebrow_key)),
+		"icon_id": outcome_icon_id,
+		"title": str(localization.text(title_key)),
+		"subtitle": "",
+		"body": str(localization.text(body_key)),
+		"stats": "",
+		"rows": rows,
+	}
+
+
+static func _nested_fusion_record_count(value: Variant) -> int:
+	if not (value is Dictionary):
+		return 0
+	var count := 0
+	for child_value: Variant in (value as Dictionary).values():
+		if child_value is Dictionary:
+			count += (child_value as Dictionary).size()
+	return count
+
+
+static func _deleted_fusion_record_count(value: Variant) -> int:
+	if not (value is Dictionary):
+		return 0
+	var count := 0
+	for child_value: Variant in (value as Dictionary).values():
+		if child_value is Array:
+			count += (child_value as Array).size()
+	return count
+
+
+# 팔자윷 호환 projection 엔트리 → TAB 표시 엔트리(접착). 슬롯 비소모
 # 셀(_slot_free_cell) 하나로 접히고, detail=플레이버, description=7행
 # 태그 스탯([[dice:*]] — benefit 부호 기준 색)으로 분리 유지한다.
 static func _mystic_dice_display_entry(entry: Dictionary, accent_gold: Color) -> Dictionary:
@@ -320,7 +539,7 @@ static func _mystic_dice_display_entry(entry: Dictionary, accent_gold: Color) ->
 	var card: Dictionary = load("res://scripts/characters/mystic_dice_offer_planner.gd").build_card()
 	var data: Dictionary = {
 		"id": "mystic_dice",
-		"name": str(card.get("name", "신비의 주사위")),
+		"name": str(card.get("name", "팔자윷")),
 		"tree": "mystic_dice",
 		"level": 1,
 		"base_level": 1,
@@ -345,10 +564,18 @@ static func _mystic_dice_display_entry(entry: Dictionary, accent_gold: Color) ->
 # 구조를 실을 수 없다 — detail(결과 로그, 좌패널)과 description(태그 스탯,
 # 우패널 분해용)을 제어문자 1개로 팩킹해 드로우 시점에 분해한다.
 const FUSION_HOVER_SPLIT := ""
+const FUSION_SECTION_SPLIT := ""
 
 
-static func pack_fusion_hover_body(detail: String, tagged_stats: String) -> String:
-	return detail + FUSION_HOVER_SPLIT + tagged_stats
+static func pack_fusion_hover_body(
+	detail: String,
+	tagged_stats: String,
+	fusion_sections: Array = []
+) -> String:
+	var packed := detail + FUSION_HOVER_SPLIT + tagged_stats
+	if not fusion_sections.is_empty():
+		packed += FUSION_SECTION_SPLIT + JSON.stringify(fusion_sections)
+	return packed
 
 
 # fusion hover 실경로 payload: 팩킹된 hover 본문 → 좌패널 body(결과 로그)+
@@ -361,19 +588,30 @@ static func build_fusion_hover_payload(packed_body: String) -> Dictionary:
 		return {}
 	var detail_text := packed_body.substr(0, split_at)
 	var tagged_stats := packed_body.substr(split_at + FUSION_HOVER_SPLIT.length())
+	var fusion_sections: Array = []
+	var section_split_at := tagged_stats.find(FUSION_SECTION_SPLIT)
+	if section_split_at >= 0:
+		var section_json := tagged_stats.substr(section_split_at + FUSION_SECTION_SPLIT.length())
+		tagged_stats = tagged_stats.substr(0, section_split_at)
+		var parsed_sections: Variant = JSON.parse_string(section_json)
+		if parsed_sections is Array:
+			fusion_sections = parsed_sections as Array
 	var entries: Array = build_perk_stat_entries(tagged_stats, "")
-	if entries.is_empty():
+	if entries.is_empty() and fusion_sections.is_empty():
 		return {}
 	if detail_text.strip_edges().is_empty():
-		detail_text = str((entries[0] as Dictionary).get("text", " "))
+		detail_text = str((entries[0] as Dictionary).get("text", " ")) if not entries.is_empty() else " "
 	# 행 예산 프로파일은 태그 출처가 결정한다: [[dice:*]] 스탯이면 주사위
 	# 전용(14행), 아니면 융합(24행).
 	var tooltip_kind := "mystic_dice" if tagged_stats.contains("[[dice:") else "fusion"
-	return {
+	var payload := {
 		"body": detail_text,
 		"roll_options": entries,
 		"tooltip_kind": tooltip_kind,
 	}
+	if fusion_sections.size() == 3:
+		payload["fusion_sections"] = fusion_sections
+	return payload
 
 
 # 융합 스탯 문자열([[fusion:*]] 프리픽스 라인) → 렌더 엔트리 분해. 삭제
@@ -387,6 +625,7 @@ static func _build_tagged_stat_entries(stats: String) -> Array:
 		var line := raw_line
 		var color: Color = Color.WHITE
 		var strikethrough := false
+		var icon_id := ""
 		if line.begins_with(localization.STAT_HEADER_PREFIX):
 			line = line.trim_prefix(localization.STAT_HEADER_PREFIX)
 			color = FUSION_STAT_HEADER_COLOR
@@ -400,6 +639,7 @@ static func _build_tagged_stat_entries(stats: String) -> Array:
 		elif line.begins_with(localization.STAT_BYPRODUCT_PREFIX):
 			line = line.trim_prefix(localization.STAT_BYPRODUCT_PREFIX)
 			color = FUSION_STAT_BYPRODUCT_COLOR
+			icon_id = _byproduct_icon_id_for_line(line, localization)
 		elif line.begins_with(dice_localization.STAT_BENEFIT_PREFIX):
 			line = line.trim_prefix(dice_localization.STAT_BENEFIT_PREFIX)
 			color = MYSTIC_DICE_STAT_BENEFIT_COLOR
@@ -413,12 +653,26 @@ static func _build_tagged_stat_entries(stats: String) -> Array:
 			line = line.trim_prefix(localization.STAT_NORMAL_PREFIX)
 		if line.strip_edges().is_empty():
 			continue
-		entries.append({
+		var entry := {
 			"text": line,
 			"color": color,
 			"strikethrough": strikethrough,
-		})
+		}
+		if not icon_id.is_empty():
+			entry["icon_id"] = icon_id
+		entries.append(entry)
 	return entries
+
+
+# 로컬라이즈된 부산물 행을 실제 카탈로그 id로 되돌린다. 표시 문자열에 별도
+# 마커를 섞지 않아 툴팁 원문/번역 계약은 보존하면서 아이콘 메타만 붙인다.
+static func _byproduct_icon_id_for_line(line: String, localization: Object) -> String:
+	for byproduct_id_value: Variant in PerkFusionByproductCatalog.DATA.keys():
+		var byproduct_id := str(byproduct_id_value)
+		var localized_name := str(localization.byproduct_name(byproduct_id))
+		if line == localized_name or line.begins_with(localized_name + " —"):
+			return byproduct_id
+	return ""
 
 
 static func acquired_perk_data(
@@ -432,8 +686,8 @@ static func acquired_perk_data(
 	var data: Dictionary = {}
 	if catalog != null and catalog.has_method("get_perk_data"):
 		data = catalog.get_perk_data(skill_id)
-	if data.is_empty() and skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-		data = CommonSkillCatalog.get_unlock_perk_data()
+	if data.is_empty() and CommonSkillCatalog.is_common_skill(skill_id):
+		data = CommonSkillCatalog.get_unlock_perk_data(CommonSkillCatalog.get_unlock_id_for_skill(skill_id))
 	if data.is_empty():
 		data = {"name": skill_id, "icon_color": accent_blue, "tree": ""}
 	elif should_hide_equipped_unlock_perk(data, equipped_skill_lookup):
@@ -455,6 +709,20 @@ static func acquired_perk_data(
 			description = str(data.get("detail", ""))
 		data["description"] = description
 	return data
+
+
+static func _apply_polish_stats_text(data: Dictionary, skill_id: String, level: int, runtime_state: Object) -> void:
+	var stats_text: String = RuntimePerkOverflowDescriptions.append_polish_delta(
+		str(data.get("description", "")),
+		skill_id,
+		level,
+		runtime_state
+	)
+	data["description"] = RuntimePerkOverflowDescriptions.append_polish_status(
+		stats_text,
+		skill_id,
+		runtime_state
+	)
 
 
 static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null, effective_levels_override: Dictionary = {}, equipped_skills_for_filter: Array = [], accent_blue: Color = Color.WHITE, accent_gold: Color = Color.WHITE) -> Array:
@@ -488,15 +756,17 @@ static func build_acquired_perks(levels: Dictionary, catalog: Object, runtime_st
 		var base_level: int = int(levels.get(skill_id_value, 0))
 		if base_level <= 0:
 			continue
-		if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID and int(levels.get(CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID, 0)) > 0:
+		var common_unlock_id := CommonSkillCatalog.get_unlock_id_for_skill(skill_id)
+		if common_unlock_id != "" and int(levels.get(common_unlock_id, 0)) > 0:
 			continue
 		var level: int = effective_runtime_perk_level(runtime_state, skill_id, base_level, effective_levels)
 		var data: Dictionary = acquired_perk_data(skill_id, base_level, level, catalog, equipped_skill_lookup, accent_blue)
 		if data.is_empty():
 			continue
+		_apply_polish_stats_text(data, skill_id, level, runtime_state)
 		data["_draw_id"] = skill_id
-		if skill_id == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-			data["_draw_id"] = CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+		if common_unlock_id != "":
+			data["_draw_id"] = common_unlock_id
 		var draw_color: Color = CharacterInfoOverlayValueUtils.get_color(data.get("icon_color", accent_blue))
 		data["_draw_color"] = draw_color
 		data["_draw_border_color"] = Color(draw_color.r, draw_color.g, draw_color.b, 0.48)
@@ -529,7 +799,11 @@ static func append_presented_perk_with_slot_cells(result: Array, data: Dictionar
 			cell_data["_is_slot_cell"] = true
 			cell_data["_slot_cell_index"] = cell_index
 			cell_data["_slot_cell_total"] = slot_cost
-			cell_data["_level_text"] = ""
+			# 일반 다중 점유 셀은 개수가 곧 수량이라 명패를 생략한다. 다만
+			# 카운트형 고유 무공은 내부 level을 성급으로 오해하지 않도록 분류
+			# 태그를 각 셀에 유지한다.
+			if str(cell_data.get("rank_tag", "")).strip_edges() == "":
+				cell_data["_level_text"] = ""
 			result.append(cell_data)
 		return
 	if slot_cost <= 0:
@@ -694,9 +968,16 @@ static func prewarm_runtime_perk_text_entries_step(
 	for i in range(max(cursor, 0), end_index):
 		var prewarm_entry: Dictionary = CharacterInfoOverlayValueUtils.get_dict(entries[i])
 		var kind: String = str(prewarm_entry.get("kind", "perk"))
-		if kind == "runtime_level":
-			text_size_callable.call(font, "Lv.%d" % int(prewarm_entry.get("level", 1)), 9)
 		var entry: Dictionary = CharacterInfoOverlayValueUtils.get_dict(prewarm_entry.get("entry", {}))
+		if kind == "runtime_level":
+			text_size_callable.call(
+				font,
+				LanguageSettings.format_mugong_level(
+					int(prewarm_entry.get("level", 1)),
+					int(entry.get("max_level", 1))
+				),
+				9
+			)
 		if entry.is_empty():
 			continue
 		CharacterInfoOverlayValueUtils.prewarm_perk_text_entry(
@@ -778,7 +1059,11 @@ static func refresh_draw_arrays(
 		# 스탯)을 쓰고 detail 캐시는 비운다 — hover 실경로가 전용 dual 툴팁으로
 		# 분기한다(태그 원문을 일반 본문으로 노출하지 않는다).
 		if str(perk.get("tree", "")) in ["fusion", "mystic_dice"]:
-			hover_body_cache[i] = pack_fusion_hover_body(str(perk.get("detail", "")), str(perk.get("description", "")))
+			hover_body_cache[i] = pack_fusion_hover_body(
+				str(perk.get("detail", "")),
+				str(perk.get("description", "")),
+				perk.get("fusion_sections", []) as Array
+			)
 			hover_detail_cache[i] = ""
 		else:
 			hover_body_cache[i] = CharacterInfoOverlayValueUtils.get_string_fallback(perk, "description", "detail")
@@ -822,26 +1107,27 @@ static func draw_grid_cells(
 		var border_color: Color = border_color_cache[i]
 		if hovered:
 			border_color = hover_border_color_cache[i]
-		CharacterInfoOverlayTextureDrawer.draw_hex_cell(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.2)
+		CharacterInfoOverlayTextureDrawer.draw_mugong_seal_cell(canvas, cell_rect, grid_cell_fill, border_color, 2.0 if hovered else 1.2)
 		var perk_id: String = draw_id_cache[i]
 		if perk_id == "":
-			# Empty pad slot: dim "+" hint (mockup v2 2026-07-08).
+			# Empty seal: a small engraved brush cross, not a modern add button.
 			var plus_center: Vector2 = cell_rect.get_center()
-			var plus_half: float = cell_rect.size.x * 0.14
-			var plus_color := Color(color.r, color.g, color.b, 0.60)
-			canvas.draw_line(plus_center - Vector2(plus_half, 0.0), plus_center + Vector2(plus_half, 0.0), plus_color, 1.6)
-			canvas.draw_line(plus_center - Vector2(0.0, plus_half), plus_center + Vector2(0.0, plus_half), plus_color, 1.6)
+			var plus_half: float = cell_rect.size.x * 0.10
+			var plus_color := Color(0.55, 0.41, 0.23, 0.72)
+			CharacterInfoOverlayTextureDrawer.draw_traditional_plus(canvas, plus_center, plus_half, plus_color, 1.5)
 			continue
 		if not can_draw_perk_icon or not bool(icon_renderer.draw_icon(canvas, perk_id, icon_rect_cache[i], 1.0, true)):
 			CharacterInfoOverlayTextureDrawer.draw_fallback_symbol(canvas, icon_rect_cache[i], color, perk_id, letter_cache, letter_cache_limit, ring_segments, draw_text_centered_xy_callable)
+		# The art now fills the same square as the round socket. Restore the rim
+		# above it so padded and energetic PNG families share one final diameter.
+		CharacterInfoOverlayTextureDrawer.draw_mugong_seal_rim(canvas, cell_rect, border_color, 2.0 if hovered else 1.2)
 		var level_text: String = level_text_cache[i]
 		var level_color: Color = level_color_cache[i]
 		if level_text != "":
-			var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 9)
-			var badge_rect := Rect2(center_x_cache[i] - level_text_size.x * 0.5 - 6.0, level_y_cache[i] - 10.0, level_text_size.x + 12.0, 13.0)
-			canvas.draw_rect(badge_rect, LEVEL_BADGE_FILL)
-			canvas.draw_rect(badge_rect, Color(level_color.r, level_color.g, level_color.b, 0.55), false, 1.0)
-			draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], level_y_cache[i], 9, level_color, level_text_size)
+			var level_text_size: Vector2 = get_level_text_size_callable.call(font, level_text, 10)
+			var badge_rect := get_level_badge_rect(center_x_cache[i], level_y_cache[i], level_text_size)
+			CharacterInfoOverlayTextureDrawer.draw_ink_nameplate(canvas, badge_rect, Color(level_color.r, level_color.g, level_color.b, 0.70))
+			draw_text_centered_with_size_xy_callable.call(canvas, font, level_text, center_x_cache[i], badge_rect.get_center().y, 10, level_color, level_text_size)
 		if hovered:
 			# fusion/주사위 셀은 팩킹 본문을 분해한 전용 dual 툴팁(동적 행
 			# 예산+색·취소선), 그 외는 개편 범용 2단(좌=detail 설명/우=레벨별
@@ -850,6 +1136,9 @@ static func draw_grid_cells(
 			if not fusion_payload.is_empty():
 				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, str(fusion_payload.get("body", "")), color, null, null, fusion_payload.get("roll_options", []))
 				hover_data["tooltip_kind"] = str(fusion_payload.get("tooltip_kind", "fusion"))
+				var fusion_sections: Array = fusion_payload.get("fusion_sections", []) as Array
+				if fusion_sections.size() == 3:
+					hover_data["fusion_sections"] = fusion_sections
 			else:
 				var detail_body: String = hover_detail_cache[i] if i < hover_detail_cache.size() else ""
 				var stat_entries: Array = build_perk_stat_entries(hover_body_cache[i], detail_body)
@@ -857,6 +1146,24 @@ static func draw_grid_cells(
 				var right_header: String = PERK_STAT_HEADER if not stat_entries.is_empty() else ""
 				hover_data = set_hover_data_callable.call(hover_data, hover_title_cache[i], level_text, left_body, color, null, null, stat_entries, right_header)
 	return hover_data
+
+
+# `level_y` is the established lower-edge anchor used by the cached grid layout.
+# Keep the plaque bottom fixed, but derive its height from the scaled font metrics
+# and center the text inside that rect. The former 16px literal left 10px Korean
+# glyph descenders below the dark plaque after UI_TEXT_SCALE raised them to 11px.
+static func get_level_badge_rect(center_x: float, level_y: float, text_size: Vector2) -> Rect2:
+	var badge_height: float = maxf(
+		LEVEL_BADGE_MIN_HEIGHT,
+		ceilf(text_size.y + LEVEL_BADGE_VERTICAL_PADDING * 2.0)
+	)
+	var badge_bottom: float = level_y + LEVEL_BADGE_BOTTOM_OFFSET
+	return Rect2(
+		center_x - text_size.x * 0.5 - LEVEL_BADGE_HORIZONTAL_PADDING,
+		badge_bottom - badge_height,
+		text_size.x + LEVEL_BADGE_HORIZONTAL_PADDING * 2.0,
+		badge_height
+	)
 
 
 static func draw_overlay_grid_cells(

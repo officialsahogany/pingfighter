@@ -50,7 +50,7 @@ func _verify_collection_opens_choice_and_runs_post_actions() -> void:
 	_expect(modifiers.reset_calls == 1, "collection flow should reset Megingjord batch count once")
 	_expect(modifiers.last_new_pending_count == 1, "collection flow should pass newly granted choice count")
 	_expect(feedback.calls == 1, "collection flow should apply collection feedback")
-	_expect(str(state.feedback_text) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +1", "collection flow should preserve helper-owned feedback text")
+	_expect(str(state.feedback_text) == "무혼 +1", "collection flow should preserve helper-owned feedback text")
 	_expect(state.capture_calls == 1, "collection flow should capture resume velocity before opening")
 	_expect(state.open_calls == 1, "collection flow should open the next choice")
 	_expect(state.clear_pre_choice_calls == 0, "successful choice open should preserve pre-choice velocity")

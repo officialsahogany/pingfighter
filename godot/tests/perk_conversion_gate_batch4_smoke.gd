@@ -151,7 +151,7 @@ func _init() -> void:
 	_verify_on_flag_uses_perk_levels()
 	_verify_on_flag_level_zero_and_item_only_are_inactive()
 	_verify_on_flag_perk_replaces_item_without_max()
-	_verify_revival_used_state_is_independent()
+	_verify_retired_revival_is_runtime_neutral()
 	_verify_runtime_consumers_use_batch4_gates()
 	PerkConversionFlags.debug_set_enabled(false)
 
@@ -203,8 +203,8 @@ func _verify_on_flag_uses_perk_levels() -> void:
 		)
 
 	var revival_env := _make_env({"revival": 1})
-	_expect(revival_env["runtime"].is_revival_active(), "ON perk-only Revival active gate should use perk level")
-	_expect(revival_env["runtime"].is_revival_available(), "ON perk-only Revival should be available before use")
+	_expect(not revival_env["runtime"].is_revival_active(), "ON retired Revival should ignore stale perk levels")
+	_expect(not revival_env["runtime"].is_revival_available(), "ON retired Revival should stay unavailable")
 
 	var phone_env := _make_env({"smartphone": 1})
 	_expect(phone_env["runtime"].is_smartphone_active(), "ON perk-only Smartphone active gate should use perk level")
@@ -246,20 +246,14 @@ func _verify_on_flag_perk_replaces_item_without_max() -> void:
 	_expect_close(runtime.get_foul_whistle_negate_chance_pct(), 3.0, "ON Foul Whistle should replace high item roll with Lv1 value")
 
 
-func _verify_revival_used_state_is_independent() -> void:
+func _verify_retired_revival_is_runtime_neutral() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	var env := _make_env({"revival": 1})
 	var runtime: Object = env["runtime"]
-	_expect(runtime.is_revival_available(), "ON Revival fixture should start available")
-	_expect(runtime.try_trigger_revival("round", {"owner": env["owner"], "registry": env["registry"]}), "ON perk-only Revival should trigger once")
-	_expect(runtime.has_revival_used(), "ON Revival trigger should mark used")
-	_expect(not runtime.is_revival_available(), "ON Revival should be unavailable after used=true")
-	_expect(not runtime.try_trigger_revival("round", {"owner": env["owner"], "registry": env["registry"]}), "ON Revival used state should block a second trigger")
-
-	runtime.revival_runtime.clear_runtime(runtime, true)
-	_expect(not runtime.has_revival_used(), "full Revival runtime clear should reset used state")
-	_expect(runtime.is_revival_available(), "ON Revival should be available after the existing used reset boundary")
-	_expect(runtime.try_trigger_revival("round", {"owner": env["owner"], "registry": env["registry"]}), "ON Revival should trigger again after used reset")
+	_expect(not runtime.is_revival_active(), "ON retired Revival should be inactive even with a stale raw level")
+	_expect(not runtime.is_revival_available(), "ON retired Revival should be unavailable even with a stale raw level")
+	_expect(not runtime.try_trigger_revival("round", {"owner": env["owner"], "registry": env["registry"]}), "ON retired Revival should never trigger")
+	_expect(not runtime.has_revival_used(), "blocked retired Revival should not mutate used state")
 
 
 func _verify_runtime_consumers_use_batch4_gates() -> void:
@@ -273,7 +267,8 @@ func _verify_revival_match_flow_consumer() -> void:
 	var env := _make_env({"revival": 1})
 	var runtime: Object = env["runtime"]
 	var score_state: Object = MatchScoreState.new()
-	for _i in range(4):
+	# GRT-054: 치명 점수는 정본 WIN_GOAL에서 파생 (5점제 리터럴 잔재 금지).
+	for _i in range(MatchScoreState.WIN_GOAL - 1):
 		score_state.score_for("boss")
 	_expect(score_state.would_score_finish("boss"), "Revival consumer fixture should be at fatal boss score")
 
@@ -287,10 +282,12 @@ func _verify_revival_match_flow_consumer() -> void:
 		"registry": env["registry"],
 	}, {})
 	var snapshot: Dictionary = score_state.get_snapshot()
-	_expect(int(snapshot.get("boss_score", -1)) == 0, "ON perk-only Revival should reset score through the real loss chain")
-	_expect(round_state.waiting_for_serve and round_state.player_serves, "ON Revival should keep the existing stage-restart hold")
-	_expect(round_state.restart_notice_calls == 1, "ON Revival should keep the existing restart notice")
-	_expect(runtime.has_revival_used(), "ON Revival match-flow trigger should mark used")
+	_expect(
+		int(snapshot.get("boss_score", -1)) == MatchScoreState.WIN_GOAL,
+		"ON retired Revival must not reset a fatal boss score"
+	)
+	_expect(round_state.restart_notice_calls == 0, "ON retired Revival must not start the Revival restart notice")
+	_expect(not runtime.has_revival_used(), "ON retired Revival match-flow query must not mark used")
 
 
 func _verify_foul_whistle_match_flow_consumer() -> void:

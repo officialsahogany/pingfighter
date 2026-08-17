@@ -67,14 +67,15 @@ func _verify_helper_derived_stat_queries() -> void:
 	_expect(helper.get_item_spawn_delay_msec(levels, 0, false, 1000) == 880, "helper should own item spawn delay math")
 	_expect(helper.get_active_item_cooldown_msec(levels, 0, false, 1000) == 870, "helper should own item cooldown math")
 	_expect_close(helper.get_active_item_use_gauge_bonus(levels, 0, false), 30.0, "helper should own active item gauge bonus")
-	_expect(helper.get_active_item_slot_capacity(levels, 0, false, 3) == 5, "helper should own item slot capacity")
+	_expect(helper.get_active_item_slot_capacity(levels, 0, false, 3) == 3, "retired bag Mugong must not change item slot capacity")
 	_expect_close(helper.get_active_item_duration_bonus(levels, 0, false), 0.60, "helper should own active item duration bonus")
 	_expect_close(helper.get_active_item_duration_multiplier(levels, 0, false), 1.60, "helper should own active item duration multiplier")
 	_expect_close(helper.get_active_item_duration_frames(levels, 0, false, 600.0), 960.0, "helper should own active item duration frames")
 	_expect_close(helper.get_active_item_recycle_chance(levels, 0, false), 0.21, "helper should own active item recycle chance")
 	_expect_close(helper.get_effective_polish_multiplier(levels, 0, false), 1.24, "helper should own effective polish multiplier")
-	_expect_close(helper.get_downtown_treasure_map_field_mythic_multiplier(levels, 0, false), 4.0, "helper should own treasure-map mythic multiplier")
-	_expect_close(helper.get_treasure_hunt_legendary_chance(levels, 0, false, 0.95), 1.0, "helper should own treasure-hunt chance clamp")
+	_expect_close(helper.get_downtown_treasure_map_mythic_multiplier(levels, 0, false), 4.0, "helper should own treasure-map mythic multiplier")
+	_expect_close(helper.get_downtown_treasure_map_vision_box_chance_bonus(levels, 0, false), 0.06, "helper should own treasure-map Vision box bonus")
+	_expect_close(helper.get_downtown_treasure_map_vision_box_chance(levels, 0, false, 0.20), 0.26, "helper should add Treasure Map to the base Vision box chance")
 	_expect_close(helper.get_player_speed_multiplier(levels, 0, false), 1.06, "helper should own player speed multiplier")
 	_expect_close(helper.get_player_paddle_size_multiplier(levels, 0, false), 1.12, "helper should own player paddle size multiplier")
 	_expect(helper.get_accessory_slot_bonus(levels, 0, false) == 2, "helper should own accessory slot bonus")
@@ -193,7 +194,6 @@ func _sample_levels() -> Dictionary:
 		"item_luck": 1,
 		"item_cooldown_mastery": 1,
 		"item_gauge_mastery": 2,
-		"item_bag_expansion": 2,
 		"item_caffeine": 2,
 		"item_recycle": 3,
 		"item_polish": 2,

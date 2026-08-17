@@ -24,22 +24,18 @@ static func draw_ingame_starpoint_visual(
 		if radius > 0.0 and color.a > 0.001:
 			canvas.draw_circle(star_center, radius, color)
 
-	StageClearResultShapeHelper.draw_star_polygon(
+	StageClearResultShapeHelper.draw_soul_flame(
 		canvas,
 		star_center,
 		star_radius,
-		float(visual_state.get("inner_radius", star_radius * 0.5)),
-		1.0,
-		visual_state.get("star_fill", Color(1.0, 0.42, 0.78, 1.0)),
-		visual_state.get("star_outline", Color(1.0, 1.0, 0.0, 1.0)),
-		float(visual_state.get("star_outline_width", 3.0))
+		float(visual_state.get("flame_sway", 0.0)),
+		visual_state.get("flame_fill", Color(0.68, 0.015, 0.07, 1.0)),
+		visual_state.get("flame_outline", Color(1.0, 0.62, 0.18, 1.0)),
+		float(visual_state.get("flame_outline_width", 3.0)),
+		visual_state.get("inner_flame_fill", Color(1.0, 0.72, 0.24, 0.96)),
+		visual_state.get("core_color", Color(1.0, 0.98, 0.86, 1.0))
 	)
-	draw_starpoint_sparkle_rays(canvas, star_center, visual_state)
-	canvas.draw_circle(
-		star_center,
-		float(visual_state.get("center_dot_radius", max(2.0, star_radius * 0.18))),
-		visual_state.get("center_dot_color", Color.WHITE)
-	)
+	draw_muhon_wisps(canvas, star_center, star_radius, visual_state)
 
 	if not draw_amount:
 		return
@@ -55,34 +51,26 @@ static func draw_ingame_starpoint_visual(
 	)
 
 
-static func draw_starpoint_sparkle_rays(
+static func draw_muhon_wisps(
 	canvas: CanvasItem,
-	star_center: Vector2,
+	center: Vector2,
+	radius: float,
 	visual_state: Dictionary
 ) -> void:
 	if canvas == null:
 		return
-	var ray_color: Color = visual_state.get("ray_color", Color.TRANSPARENT)
-	var ray_hot_color: Color = visual_state.get("ray_hot_color", Color.TRANSPARENT)
-	if ray_color.a <= 0.001 and ray_hot_color.a <= 0.001:
+	var wisp_color: Color = visual_state.get("wisp_color", Color.TRANSPARENT)
+	if wisp_color.a <= 0.001 or radius <= 0.0:
 		return
-	var ray_angle: float = float(visual_state.get("ray_angle", 0.0))
-	var ray_length: float = float(visual_state.get("ray_length", 0.0))
-	if ray_length <= 0.0:
-		return
-	var main_width: float = float(visual_state.get("ray_width", 1.4))
-	var diagonal_width: float = float(visual_state.get("diagonal_ray_width", 0.9))
-	var directions := [
-		Vector2.RIGHT.rotated(ray_angle),
-		Vector2.UP.rotated(ray_angle),
-		Vector2(1.0, 1.0).normalized().rotated(ray_angle),
-		Vector2(1.0, -1.0).normalized().rotated(ray_angle),
-	]
-	for i in range(directions.size()):
-		var direction: Vector2 = directions[i]
-		var length: float = ray_length if i < 2 else ray_length * 0.72
-		var width: float = main_width if i < 2 else diagonal_width
-		var color: Color = ray_color if i < 2 else ray_hot_color
-		if color.a <= 0.001:
-			continue
-		canvas.draw_line(star_center - direction * length, star_center + direction * length, color, width, true)
+	var phase: float = float(visual_state.get("wisp_phase", 0.0))
+	for direction in [-1.0, 1.0]:
+		var side: float = float(direction)
+		var points: PackedVector2Array = StageClearResultShapeHelper.soul_wisp_polyline_points(center, radius, side, phase)
+		var glow_color: Color = wisp_color
+		glow_color.a *= 0.28
+		canvas.draw_polyline(points, glow_color, maxf(2.0, radius * 0.14), true)
+		canvas.draw_polyline(points, wisp_color, maxf(1.0, radius * 0.045), true)
+		if not points.is_empty():
+			var ember_color: Color = wisp_color.lightened(0.52)
+			ember_color.a = minf(1.0, wisp_color.a * 1.35)
+			canvas.draw_circle(points[points.size() - 1], maxf(1.2, radius * 0.045), ember_color)

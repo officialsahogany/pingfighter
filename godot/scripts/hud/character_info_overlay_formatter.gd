@@ -90,15 +90,17 @@ static func slot_display_label(slot_key: String) -> String:
 
 
 static func character_type_label(character_type: String) -> String:
+	if character_type == "smasher":
+		return "격령사"
 	if character_type == "viper":
-		return "바이퍼"
+		return "독영객"
 	if character_type == "soldier":
-		return "코만도"
+		return "산군포수"
 	if character_type == "blacksmith":
 		return "발토르"
 	if character_type == "optimus":
 		return "옵티머스"
-	return "스매셔"
+	return "격령사"
 
 
 static func character_color(character_type: String) -> Color:
@@ -151,23 +153,15 @@ static func format_plain_number(value: float) -> String:
 
 
 static func perk_level_text(perk: Dictionary) -> String:
-	# 단일 레벨(max_level==1) 퍽은 "Lv.1"이 노이즈라 태그로 대체: 해금(캐릭터
-	# 제한)/신화(신화 레어리티)/고유(그 외 — 2026-07-09 문구 확정). 라벨은
+	# 단일 레벨 또는 명시적 카운트형 무공은 성장 경지가 아니라 태그로 대체:
+	# 비급(캐릭터 제한)/절세무공(mythic 레어리티)/고유(그 외). 라벨은
 	# 렌더 시점에 LanguageSettings로 해석한다 — 캐시된 한국어 리터럴이 언어
 	# 전환 후에도 남는 것을 막는다.
-	if int(perk.get("max_level", 1)) == 1:
-		if bool(perk.get("is_skill_manual", false)):
-			return LanguageSettings.translate_text("비급")
-		if str(perk.get("character_restriction", "")) != "":
-			return LanguageSettings.translate_text("해금")
-		if str(perk.get("rarity", "")) == "mythic":
-			return LanguageSettings.translate_text("신화")
-		return LanguageSettings.translate_text("고유")
-	return "Lv.%d" % int(perk.get("level", 1))
+	return LanguageSettings.format_mugong_rank(perk)
 
 
 static func perk_level_color(perk: Dictionary, accent_gold: Color) -> Color:
-	if int(perk.get("max_level", 1)) == 1:
+	if int(perk.get("max_level", 1)) == 1 or str(perk.get("rank_tag", "")).strip_edges() != "":
 		if bool(perk.get("is_skill_manual", false)):
 			return Color(120.0 / 255.0, 1.0, 210.0 / 255.0)
 		if str(perk.get("character_restriction", "")) != "":
@@ -175,7 +169,15 @@ static func perk_level_color(perk: Dictionary, accent_gold: Color) -> Color:
 		if str(perk.get("rarity", "")) == "mythic":
 			return Color(1.0, 0.84, 0.32)
 		return Color(0.74, 0.64, 1.0)
-	return accent_gold
+	# The hanji redesign intentionally darkened ACCENT_GOLD for parchment ink,
+	# but multi-level rank text sits on a near-black nameplate. Keep the caller's
+	# brighter accents while enforcing a warm-gold readability floor for 1성~극성.
+	return Color(
+		maxf(accent_gold.r, 0.96),
+		maxf(accent_gold.g, 0.78),
+		maxf(accent_gold.b, 0.30),
+		1.0
+	)
 
 
 static func item_color(item_data: Dictionary, visuals: Object, fallback_color: Color) -> Color:

@@ -7,6 +7,7 @@ const CONSECUTIVE_DASH_START_DELAY_FRAMES := 12.0
 const DASH_BASE_DURATION_FRAMES := 15.0
 const DASH_BASE_RECOVERY_FRAMES := 42.0
 const DASH_BASE_RECHARGE_FRAMES := 300.0
+const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 
 var dash_key_released_since_last: bool = true
@@ -104,7 +105,9 @@ func start(
 	runtime_perk_state: Object = null,
 	registry: Object = null,
 	consume_token: bool = true,
-	skip_recovery: bool = false
+	skip_recovery: bool = false,
+	base_paddle_height: float = PLAYER_BASE_PADDLE_HEIGHT,
+	base_paddle_width: float = PLAYER_BASE_PADDLE_WIDTH
 ) -> bool:
 	var duration_frames: float = _get_dash_duration_frames(runtime_perk_state, registry)
 	if not motion_state.start(
@@ -113,9 +116,10 @@ func start(
 		duration_frames,
 		_get_dash_acceleration_bonus(runtime_perk_state),
 		_get_dash_acceleration_level(runtime_perk_state),
-		PLAYER_BASE_PADDLE_HEIGHT,
+		base_paddle_height,
 		skip_recovery,
-		_get_mystic_dice_distance_multiplier(runtime_perk_state)
+		_get_mystic_dice_distance_multiplier(runtime_perk_state),
+		base_paddle_width
 	):
 		return false
 	dash_key_released_since_last = false
@@ -180,6 +184,7 @@ func get_ball_collision_context() -> Dictionary:
 		return {}
 	return {
 		"dash_acceleration_active": true,
+		"dash_acceleration_width_bonus": max(0.0, float(snapshot.get("dash_acceleration_width_bonus", 0.0))),
 		"dash_acceleration_height_bonus": max(0.0, float(snapshot.get("dash_acceleration_height_bonus", 0.0))),
 		"dash_acceleration_bonus": max(0.0, float(snapshot.get("dash_acceleration_bonus", 0.0))),
 		"dash_acceleration_skill_level": max(0, int(snapshot.get("dash_acceleration_skill_level", 0))),

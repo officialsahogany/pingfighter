@@ -5,8 +5,8 @@ const PlayerCharacterRuntime := preload("res://scripts/characters/player_charact
 const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
-const STAGE2_BACKGROUND_PATH := "res://assets/sprites/stage2/result/stage2_result_background_imagegen_v1.png"
-const STAGE3_BACKGROUND_PATH := "res://assets/sprites/stage3/result/stage3_result_background_imagegen_v1.png"
+const STAGE2_BACKGROUND_PATH := "res://assets/sprites/stage2/result/stage2_cheongringwi_result_background_imagegen_v1.png"
+const STAGE3_BACKGROUND_PATH := "res://assets/sprites/stage3/result/stage3_hwangyeokjeon_result_background_imagegen_v1.png"
 const STAGE4_BACKGROUND_PATH := "res://assets/sprites/stage4/result/stage4_result_background_imagegen_v1.png"
 const STAGE5_BACKGROUND_PATH := "res://assets/sprites/stage5/result/stage5_result_background_imagegen_v1.png"
 const STAGE6_BACKGROUND_PATH := "res://assets/sprites/hud/stage6_tetriser_pillar_bg_imagegen_v1.png"
@@ -14,24 +14,24 @@ const STAGE7_BACKGROUND_PATH := "res://assets/sprites/hud/stage7_akamu_pillar_ba
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
-const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_live2d_pingpong_98f_autosprite_v2_realesrgan_animev3_hq1152.png"
-const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
-const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_live2d_pingpong_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
-const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage3/menhera_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
+const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_result_defeat_idle_loop49_autosprite_v10_hq1024.png"
+const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/cheongringwi/stage2_cheongringwi_result_defeat_click_reaction49_autosprite_v10_hq1024.png"
+const STAGE3_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage3/yeonmyo/stage3_yeonmyo_result_defeat_idle_loop49_autosprite_v1_realesrgan_animev3_hq1024_safe.png"
+const STAGE3_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage3/yeonmyo/stage3_yeonmyo_result_defeat_click_reaction49_autosprite_v1_realesrgan_animev3_hq1024_safe.png"
 const STAGE4_PONK_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_dalji_ratio_live2d_pingpong_98f_autosprite_v3_realesrgan_animev3_hq1152.png"
 const STAGE4_PONK_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage4/stage4_ponk_result_defeat_masked_right_dalji_ratio_click_reaction_98f_autosprite_v3_realesrgan_animev3_hq1152.png"
 const STAGE5_HONGRYUN_RESULT_SHEET_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_victory.png"
 const STAGE6_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage6_tetriser/stage6_tetriser_boss_defeat.png"
 const STAGE7_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage7_akamu/stage7_akamu_boss_defeat.png"
+const STAGE8_BOSS_DEFEAT_SHEET_PATH := "res://assets/sprites/bosses/stage8_minotaur/stage8_minotaur_boss_defeat.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
 const COMMANDO_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
 const OPTIMUS_VICTORY_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_io_result_victory_base_loop_98f_magenta_onebounce_autosprite_v5_realesrgan_animev3_hq896_safe.png"
 const OPTIMUS_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_io_result_victory_click_talk_nozoom_98f_magenta_autosprite_v6_realesrgan_animev3_hq896_safe.png"
-const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clear_cyber_scroll_imagegen_v1_alpha.png"
+const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/hud/stage_clear_result_hwangyeokjeon_scroll_imagegen_v2.png"
 const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
-const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
 const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
 
 # TEXTURE_KEYS.size() + Dalji voice 스텝 + result-box FX 스텝과 항상 같아야
@@ -51,11 +51,11 @@ const TEXTURE_KEYS := [
 	"stage5_hongryun_result_sheet",
 	"stage6_boss_defeat_sheet",
 	"stage7_boss_defeat_sheet",
+	"stage8_boss_defeat_sheet",
 	"player_victory_sheet",
 	"player_victory_click_reaction_sheet",
 	"scroll_texture",
 	"result_box_sheet_common",
-	"result_box_sheet_mythic",
 	"result_box_sheet_guaranteed_mythic",
 ]
 
@@ -71,10 +71,10 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 	"stage5_hongryun_result_sheet": true,
 	"stage6_boss_defeat_sheet": true,
 	"stage7_boss_defeat_sheet": true,
+	"stage8_boss_defeat_sheet": true,
 	"player_victory_sheet": true,
 	"player_victory_click_reaction_sheet": true,
 	"result_box_sheet_common": true,
-	"result_box_sheet_mythic": true,
 	"result_box_sheet_guaranteed_mythic": true,
 }
 
@@ -91,11 +91,11 @@ const TEXTURE_MESSAGES := {
 	"stage5_hongryun_result_sheet": ["Missing Stage 5 Hongryun result fallback sheet at %s", "Failed to load Stage 5 Hongryun result fallback sheet at %s"],
 	"stage6_boss_defeat_sheet": ["Missing Stage 6 Tetriser result defeat sheet at %s", "Failed to load Stage 6 Tetriser result defeat sheet at %s"],
 	"stage7_boss_defeat_sheet": ["Missing Stage 7 Akamu result defeat sheet at %s", "Failed to load Stage 7 Akamu result defeat sheet at %s"],
+	"stage8_boss_defeat_sheet": ["Missing Stage 8 Minotaur result defeat sheet at %s", "Failed to load Stage 8 Minotaur result defeat sheet at %s"],
 	"player_victory_sheet": ["Missing player victory sheet at %s", "Failed to load player victory sheet at %s"],
 	"player_victory_click_reaction_sheet": ["Missing player victory click reaction sheet at %s", "Failed to load player victory click reaction sheet at %s"],
-	"scroll_texture": ["Missing stage clear cyber scroll panel at %s", "Failed to load stage clear cyber scroll panel at %s"],
+	"scroll_texture": ["Missing stage clear traditional scroll panel at %s", "Failed to load stage clear traditional scroll panel at %s"],
 	"result_box_sheet_common": ["Missing result box common sheet at %s", "Failed to load result box common sheet at %s"],
-	"result_box_sheet_mythic": ["Missing result box mythic sheet at %s", "Failed to load result box mythic sheet at %s"],
 	"result_box_sheet_guaranteed_mythic": ["Missing guaranteed mythic result box sheet at %s", "Failed to load guaranteed mythic result box sheet at %s"],
 }
 
@@ -122,7 +122,6 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"optimus_click_reaction_sheet": OPTIMUS_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
-		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
 		"result_box_sheet_guaranteed_mythic": RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
 		"stage2_boss_defeat_live2d_sheet": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
@@ -133,6 +132,7 @@ static func get_default_result_asset_path_config() -> Dictionary:
 		"stage5_hongryun_result_sheet": STAGE5_HONGRYUN_RESULT_SHEET_PATH,
 		"stage6_boss_defeat_sheet": STAGE6_BOSS_DEFEAT_SHEET_PATH,
 		"stage7_boss_defeat_sheet": STAGE7_BOSS_DEFEAT_SHEET_PATH,
+		"stage8_boss_defeat_sheet": STAGE8_BOSS_DEFEAT_SHEET_PATH,
 		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
 		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
 		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
@@ -150,7 +150,6 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 		"player_victory_click_reaction_sheet": get_player_victory_click_reaction_sheet_path_for_character(normalized_character, path_config),
 		"scroll_texture": str(path_config.get("scroll_texture", "")),
 		"result_box_sheet_common": str(path_config.get("result_box_sheet_common", "")),
-		"result_box_sheet_mythic": str(path_config.get("result_box_sheet_mythic", "")),
 		"result_box_sheet_guaranteed_mythic": str(path_config.get("result_box_sheet_guaranteed_mythic", "")),
 	}
 	if normalized_stage_id == 2:
@@ -171,6 +170,8 @@ static func get_result_asset_paths(character_type: String, stage_id: int, path_c
 		# 경로로 코드 네이티브 결과 액터가 그린다(스폰 게이트 비차단).
 		var stage7_sheet_path := str(path_config.get("stage7_boss_defeat_sheet", ""))
 		paths["stage7_boss_defeat_sheet"] = stage7_sheet_path if ResourceLoader.exists(stage7_sheet_path) else ""
+	elif normalized_stage_id == 8:
+		paths["stage8_boss_defeat_sheet"] = str(path_config.get("stage8_boss_defeat_sheet", ""))
 	elif normalized_stage_id == 1:
 		paths["dalji_defeat_sheet"] = str(path_config.get("dalji_defeat_sheet", ""))
 		paths["dalji_click_reaction_sheet"] = str(path_config.get("dalji_click_reaction_sheet", ""))
@@ -302,6 +303,22 @@ static func get_result_prewarm_asset_status() -> Dictionary:
 	return _prewarm_result_asset_status.duplicate()
 
 
+static func get_result_prewarm_debug_label() -> String:
+	if _prewarm_result_asset_step_index >= 0 and _prewarm_result_asset_step_index < TEXTURE_KEYS.size():
+		return "asset_%02d_%s" % [
+			_prewarm_result_asset_step_index,
+			str(TEXTURE_KEYS[_prewarm_result_asset_step_index]),
+		]
+	if _prewarm_result_asset_step_index == TEXTURE_KEYS.size():
+		return "asset_%02d_dalji_click_voice" % _prewarm_result_asset_step_index
+	if _prewarm_result_asset_step_index == TEXTURE_KEYS.size() + 1:
+		return "asset_%02d_result_box_fx_%s" % [
+			_prewarm_result_asset_step_index,
+			ResultBoxOpenFxHost.get_threaded_prewarm_debug_label(),
+		]
+	return "asset_%02d_done" % _prewarm_result_asset_step_index
+
+
 static func prewarm_assets_step(
 	step_index: int,
 	status: Dictionary,
@@ -335,10 +352,20 @@ static func prewarm_assets_step(
 		if voice_path == "":
 			status.erase("dalji_click_voice")
 			return true
-		status["dalji_click_voice"] = ProjectResourceLoader.load_audio_stream(voice_path) != null
+		if use_threaded_texture_loads:
+			var result: Dictionary = ProjectResourceLoader.prewarm_audio_stream_threaded_step(voice_path)
+			if not bool(result.get("done", false)):
+				return false
+			status["dalji_click_voice"] = result.get("stream", null) is AudioStream
+		else:
+			status["dalji_click_voice"] = ProjectResourceLoader.load_audio_stream(voice_path) != null
 		return true
 	if step_index == TEXTURE_KEYS.size() + 1:
-		ResultBoxOpenFxHost.prewarm_assets()
+		if use_threaded_texture_loads:
+			if not ResultBoxOpenFxHost.prewarm_assets_threaded_step():
+				return false
+		else:
+			ResultBoxOpenFxHost.prewarm_assets()
 		status["result_box_fx"] = true
 	return true
 

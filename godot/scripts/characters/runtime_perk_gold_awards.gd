@@ -10,7 +10,6 @@ const SMASHER_COMBO_BONUS_PER_STACK := 0.08
 const BLACKSMITH_STRUCTURE_BONUS := 0.15
 const VIPER_IGNITION_AURA_GOLD_BONUS := 50
 const DEFAULT_FEEDBACK_TEMPLATE := "\ud37d \uace8\ub4dc +%d"
-const CONVERT_FEEDBACK_TEMPLATE := "\uace8\ub4dc +%d"
 
 
 static func get_viper_ignition_aura_gold_bonus(viper_ignition_aura_active: bool) -> int:
@@ -110,7 +109,7 @@ static func award_convert_to_gold_choice(
 	item_gold_gain_multiplier: float = 1.0,
 	viper_ignition_aura_active: bool = false
 ) -> Dictionary:
-	var result: Dictionary = award_gold(
+	return award_gold(
 		int(choice.get("gold_amount", 500)),
 		current_total,
 		build_owner_context(owner, combo_state),
@@ -119,8 +118,6 @@ static func award_convert_to_gold_choice(
 		viper_ignition_aura_active,
 		1.2
 	)
-	result["feedback_text"] = format_convert_gold_feedback(int(result.get("awarded", 0)))
-	return result
 
 
 static func apply_modifiers(
@@ -151,14 +148,14 @@ static func apply_item_bonus(amount: int, item_gold_gain_multiplier: float) -> i
 	return int(floor(float(max(0, amount)) * max(0.0, item_gold_gain_multiplier)))
 
 
-static func store_gold_gain(boosted_amount: int, current_total: int, feedback_duration: float = 1.0) -> Dictionary:
+static func store_gold_gain(boosted_amount: int, current_total: int, _feedback_duration: float = 1.0) -> Dictionary:
 	var stored_amount: int = max(0, int(boosted_amount))
 	return {
 		"total": int(current_total) + stored_amount,
 		"awarded": stored_amount,
-		"show_feedback": stored_amount > 0,
-		"feedback_timer": max(0.0, float(feedback_duration)),
-		"feedback_text": format_default_gold_feedback(stored_amount) if stored_amount > 0 else "",
+		"show_feedback": false,
+		"feedback_timer": 0.0,
+		"feedback_text": "",
 	}
 
 
@@ -252,10 +249,6 @@ static func apply_award_result_to_runtime_state(
 
 static func format_default_gold_feedback(amount: int) -> String:
 	return DEFAULT_FEEDBACK_TEMPLATE % max(0, int(amount))
-
-
-static func format_convert_gold_feedback(amount: int) -> String:
-	return CONVERT_FEEDBACK_TEMPLATE % max(0, int(amount))
 
 
 static func build_owner_context(owner: Object, combo_state: Object = null) -> Dictionary:

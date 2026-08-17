@@ -5,6 +5,7 @@ const SkillOrbTooltipPreviewDrawPrimitives := preload("res://scripts/hud/skill_o
 const SMASHER_EFFECT_PREVIEW_TYPES := {
 	"drive_curve": true,
 	"smash_orange": true,
+	"thunder_strike": true,
 	"projectile_cyan": true,
 	"heal_green": true,
 	"cleanse_light": true,
@@ -13,9 +14,10 @@ const SMASHER_EFFECT_PREVIEW_TYPES := {
 	"ghost_purple": true,
 	"portal_purple": true,
 	"wheel_spin": true,
+	"overdrive_meteor_break": true,
+	"void_phantom_split": true,
 }
 const VIPER_EFFECT_PREVIEW_TYPES := {
-	"wall_leap_raid": true,
 	"shadow_teleport": true,
 	"slash_purple": true,
 	"stun_purple": true,
@@ -26,6 +28,7 @@ const VIPER_EFFECT_PREVIEW_TYPES := {
 	"core_flip_arc": true,
 	"glitch_clone": true,
 	"ignition_burst": true,
+	"wall_leap_raid": true,
 }
 const ODINS_EYE_EFFECT_PREVIEW_TYPES := {
 	"odins_eye_dark_swamp": true,
@@ -41,8 +44,12 @@ const COMMANDO_EFFECT_PREVIEW_TYPES := {
 	"firearm_trap": true,
 	"firearm_drone": true,
 }
+const VISION_EFFECT_PREVIEW_TYPES := {
+	"dalji_vision_chain_top": true,
+	"cheongringwi_vision_dragon_torrent": true,
+	"yeonmyo_vision_bonghongwe": true,
+}
 const VIPER_EFFECT_INPUT_OVERLAY := {
-	"wall_leap_raid": ["sequence", "RMB,LMB,RMB"],
 	"shadow_teleport": ["combo", "S"],
 	"slash_purple": ["hold", "W"],
 	"stun_purple": ["combo", "W"],
@@ -53,6 +60,7 @@ const VIPER_EFFECT_INPUT_OVERLAY := {
 	"core_flip_arc": ["plus", "A,D"],
 	"glitch_clone": ["sequence", "A,D,A,D"],
 	"ignition_burst": ["hold", "W"],
+	"wall_leap_raid": ["sequence", "RMB,LMB,RMB"],
 }
 const VIPER_INPUT_CYCLE_MS := 2400.0
 const VIPER_INPUT_VISIBLE_RATIO := 0.45
@@ -67,19 +75,25 @@ func get_effect_preview_family(effect_type: String) -> String:
 	return _get_effect_preview_family(effect_type)
 
 func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, _progress: float) -> void:
-	if _get_effect_preview_family(effect_type) == "viper":
+	var preview_family: String = _get_effect_preview_family(effect_type)
+	if preview_family == "viper":
 		_draw_viper_effect_preview(canvas, rect, effect_type, color)
 		return
-	if _get_effect_preview_family(effect_type) == "commando":
+	if preview_family == "commando":
 		_draw_commando_effect_preview(canvas, rect, effect_type, color)
 		return
-	if _get_effect_preview_family(effect_type) == "odins_eye":
+	if preview_family == "odins_eye":
 		_draw_odins_dark_swamp_preview(canvas, rect, color)
+		return
+	if preview_family == "vision":
+		_draw_vision_effect_preview(canvas, rect, effect_type, color)
 		return
 	if effect_type == "drive_curve":
 		_draw_drive_curve_preview(canvas, rect, color)
 	elif effect_type == "smash_orange":
-		_draw_smash_orange_preview(canvas, rect, color)
+		_draw_smasher_heavy_strike_preview(canvas, rect, color, false)
+	elif effect_type == "thunder_strike":
+		_draw_smasher_heavy_strike_preview(canvas, rect, color, true)
 	elif effect_type == "projectile_cyan":
 		_draw_projectile_cyan_preview(canvas, rect, color)
 	elif effect_type == "heal_green":
@@ -96,6 +110,10 @@ func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, 
 		_draw_portal_purple_preview(canvas, rect, color)
 	elif effect_type == "wheel_spin":
 		_draw_wheel_spin_preview(canvas, rect, color)
+	elif effect_type == "overdrive_meteor_break":
+		_draw_overdrive_meteor_break_preview(canvas, rect, color)
+	elif effect_type == "void_phantom_split":
+		_draw_void_phantom_split_preview(canvas, rect, color)
 	else:
 		_draw_drive_curve_preview(canvas, rect, color)
 
@@ -107,9 +125,24 @@ func _get_effect_preview_family(effect_type: String) -> String:
 		return "odins_eye"
 	if COMMANDO_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "commando"
+	if VISION_EFFECT_PREVIEW_TYPES.has(effect_type):
+		return "vision"
 	if SMASHER_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "smasher"
 	return "fallback"
+
+
+func _draw_vision_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color) -> void:
+	match effect_type:
+		"dalji_vision_chain_top":
+			_draw_dalji_vision_chain_top_preview(canvas, rect, color)
+		"cheongringwi_vision_dragon_torrent":
+			_draw_cheongringwi_vision_dragon_torrent_preview(canvas, rect, color)
+		"yeonmyo_vision_bonghongwe":
+			_draw_yeonmyo_vision_bonghongwe_preview(canvas, rect, color)
+		_:
+			push_error("Missing Vision Chosik tooltip preview branch: %s" % effect_type)
+			_draw_drive_curve_preview(canvas, rect, color)
 
 
 func _draw_viper_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color) -> void:
@@ -490,11 +523,11 @@ func _draw_drive_curve_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -
 		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": int(curve_direction)})
 		_draw_blue_energy_ball(canvas, Vector2(center_x, ball_y), ball_radius)
 		if phase > 0.4:
-			canvas.draw_arc(Vector2(center_x, ball_y), 14.0 * (1.0 + 0.1 * sin(float(time_ms) * 0.015)), 0.0, TAU, 36, Color.YELLOW, 2.0)
+			canvas.draw_arc(Vector2(center_x, ball_y), 14.0 * (1.0 + 0.1 * sin(float(time_ms) * 0.015)), 0.0, TAU, 36, Color(0.36, 0.66, 1.0), 1.6)
 	elif local_progress < 0.5:
 		var ball_y: float = char_top - 8.0
 		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": int(curve_direction)})
-		canvas.draw_arc(Vector2(center_x, ball_y), 15.0 * (1.0 + 0.15 * sin(float(time_ms) * 0.02)), 0.0, TAU, 36, Color.YELLOW, 2.0)
+		canvas.draw_arc(Vector2(center_x, ball_y), 15.0 * (1.0 + 0.15 * sin(float(time_ms) * 0.02)), 0.0, TAU, 36, Color(0.48, 0.34, 1.0), 1.8)
 		_draw_blue_energy_ball(canvas, Vector2(center_x, ball_y), ball_radius)
 		_draw_preview_keycap(canvas, Vector2(center_x - 55.0, char_y - 8.0), key_text)
 	else:
@@ -510,14 +543,161 @@ func _draw_drive_curve_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -
 			if t <= 0.0:
 				continue
 			var trail_pos := Vector2(center_x + curve_direction * 40.0 * sin(t * PI), start_y + (end_y - start_y) * t)
-			canvas.draw_circle(trail_pos, max(2.0, ball_radius - float(i) * 0.4), _draw_primitives.rainbow_color(float(time_ms) * 0.003 + float(i) * 0.1))
-		for i in range(4):
-			canvas.draw_circle(ball_pos, ball_radius + 5.0 - float(i), _draw_primitives.rainbow_color(float(time_ms) * 0.005 + float(i) * 0.1))
+			var trail_mix: float = clampf(float(i) / 11.0, 0.0, 1.0)
+			var trail_color: Color = Color(0.26, 0.66, 1.0, 0.88).lerp(Color(0.42, 0.22, 1.0, 0.18), trail_mix)
+			canvas.draw_circle(trail_pos, max(1.2, ball_radius - float(i) * 0.42), trail_color)
+		canvas.draw_circle(ball_pos, ball_radius + 4.0, Color(0.18, 0.42, 1.0, 0.38))
+		canvas.draw_circle(ball_pos, ball_radius + 1.5, Color(0.42, 0.76, 1.0, 0.74))
 		canvas.draw_circle(ball_pos, ball_radius - 1.0, Color.WHITE)
 		canvas.draw_circle(ball_pos + Vector2(-1.0, -1.0), 2.0, Color(1.0, 1.0, 230.0 / 255.0))
+		var tangent := Vector2(curve_direction * cos(ease_phase * PI) * 0.72, -1.0).normalized()
+		_draw_preview_drive_lightning_lashes(canvas, ball_pos, tangent, time_ms)
 
 
-func _draw_smash_orange_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
+# 벽력유성: 기만 활강 → 늦은 역방향 급전. 프리뷰가 팔아야 하는 정보는 "공이
+# 한쪽으로 가는 걸 보스가 믿고 자리잡았다가, 코앞에서 반대로 꺾여 못 막는다"
+# 딱 하나다. 그래서 보스 가드 라인 위에 보스 미니 패들을 그려 기만 지점까지
+# 따라가게 하고, 급전 이후엔 따라가지 못하는 것을 보여준다.
+func _draw_overdrive_meteor_break_preview(canvas: CanvasItem, rect: Rect2, _color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var cycle: float = float(time_ms % 3200) / 3200.0
+	var is_left_cycle: bool = cycle < 0.5
+	var local: float = fposmod(cycle, 0.5) * 2.0
+	# 방향키 = 최종 낙하 지점. 기만은 그 반대쪽으로 흐른다.
+	var land_dir: float = -1.0 if is_left_cycle else 1.0
+	var bait_dir: float = -land_dir
+	var key_text: String = "A" if is_left_cycle else "D"
+
+	var center_x: float = float(metrics["center_x"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var char_y: float = preview_bottom - 2.0
+	var char_top: float = char_y - 18.0
+	var guard_y: float = preview_top + 6.0
+	var launch_y: float = char_top - 8.0
+	var ball_radius := 5.5
+	var bait_x: float = center_x + bait_dir * 44.0
+	var land_x: float = center_x + land_dir * 46.0
+	# 급전은 비행의 마지막 구간에서만 일어난다(늦은 단발 역꺾임).
+	var break_t := 0.68
+
+	# 보스 가드 라인.
+	canvas.draw_line(
+		Vector2(center_x - 96.0, guard_y),
+		Vector2(center_x + 96.0, guard_y),
+		Color(1.0, 1.0, 1.0, 0.10),
+		1.0
+	)
+
+	if local < 0.26:
+		# 준비: 우클릭 홀드 + 방향키. 입력 창에서만 노출(스매셔 리듬).
+		var phase: float = local / 0.26
+		var ball_y: float = preview_top - 5.0 + (launch_y - (preview_top - 5.0)) * phase
+		_draw_overdrive_preview_boss(canvas, center_x, guard_y, 0.0)
+		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": int(land_dir)})
+		_draw_blue_energy_ball(canvas, Vector2(center_x, ball_y), ball_radius)
+		if phase > 0.35:
+			_draw_preview_keycap(canvas, Vector2(center_x - 58.0, char_y - 8.0), key_text)
+			_draw_preview_plus(canvas, Vector2(center_x - 42.0, char_y - 8.0))
+			_draw_preview_mouse(canvas, Vector2(center_x - 28.0, char_y - 8.0), false)
+		return
+
+	var flight: float = clampf((local - 0.26) / 0.74, 0.0, 1.0)
+	_draw_smasher_mini_character(
+		canvas,
+		center_x,
+		char_y,
+		{"block": 4.0, "direction": int(land_dir), "swing_ratio": minf(1.0, flight * 3.0)}
+	)
+
+	# 트레일: 같은 궤도식을 샘플링해 꼬리를 남긴다.
+	for i in range(14):
+		var t: float = flight - float(i) * 0.055
+		if t <= 0.0:
+			continue
+		var p: Vector2 = _overdrive_preview_point(t, break_t, center_x, bait_x, land_x, launch_y, guard_y)
+		var mix: float = clampf(float(i) / 13.0, 0.0, 1.0)
+		var trail_color: Color = Color(0.55, 0.92, 1.0, 0.85).lerp(Color(0.18, 0.45, 0.85, 0.12), mix)
+		canvas.draw_circle(p, maxf(1.1, ball_radius - float(i) * 0.36), trail_color)
+
+	var ball_pos: Vector2 = _overdrive_preview_point(flight, break_t, center_x, bait_x, land_x, launch_y, guard_y)
+	# 보스는 기만 지점을 믿고 따라간다: 급전 전까지만 추적하고 그 뒤엔 굳는다
+	# (역방향 브레이크 페널티 = 되돌아오지 못함).
+	var boss_track: float = minf(flight, break_t)
+	var boss_x: float = _overdrive_preview_point(
+		boss_track, break_t, center_x, bait_x, land_x, launch_y, guard_y
+	).x
+	_draw_overdrive_preview_boss(canvas, boss_x, guard_y, clampf((flight - break_t) / 0.2, 0.0, 1.0))
+
+	# 급전 순간의 임팩트 링.
+	if flight >= break_t and flight < break_t + 0.22:
+		var burst: float = (flight - break_t) / 0.22
+		var burst_pos: Vector2 = _overdrive_preview_point(
+			break_t, break_t, center_x, bait_x, land_x, launch_y, guard_y
+		)
+		canvas.draw_arc(
+			burst_pos,
+			4.0 + burst * 22.0,
+			0.0,
+			TAU,
+			24,
+			Color(0.55, 0.92, 1.0, (1.0 - burst) * 0.8),
+			1.8
+		)
+
+	canvas.draw_circle(ball_pos, ball_radius + 4.0, Color(0.18, 0.52, 1.0, 0.34))
+	canvas.draw_circle(ball_pos, ball_radius + 1.5, Color(0.45, 0.85, 1.0, 0.76))
+	canvas.draw_circle(ball_pos, ball_radius - 1.0, Color.WHITE)
+
+
+# 발사점 -> 기만점 -> (급전) -> 낙하점. break_t 이전은 기만 쪽으로 부드럽게
+# 흐르고, 이후는 반대편으로 직선 급전한다.
+func _overdrive_preview_point(
+	t: float,
+	break_t: float,
+	center_x: float,
+	bait_x: float,
+	land_x: float,
+	launch_y: float,
+	guard_y: float
+) -> Vector2:
+	var clamped: float = clampf(t, 0.0, 1.0)
+	var y: float = launch_y + (guard_y - launch_y) * clamped
+	if clamped <= break_t:
+		var glide: float = clamped / maxf(0.0001, break_t)
+		# ease-out: 기만 구간은 초반에 크게 흘러 보스가 확신하게 만든다.
+		var eased: float = 1.0 - pow(1.0 - glide, 2.0)
+		return Vector2(center_x + (bait_x - center_x) * eased, y)
+	var snap: float = (clamped - break_t) / maxf(0.0001, 1.0 - break_t)
+	return Vector2(bait_x + (land_x - bait_x) * snap, y)
+
+
+func _draw_overdrive_preview_boss(canvas: CanvasItem, cx: float, guard_y: float, miss_ratio: float) -> void:
+	var half_w := 15.0
+	var body := Rect2(Vector2(cx - half_w, guard_y - 6.0), Vector2(half_w * 2.0, 5.0))
+	# 놓치는 중이면 붉게 물들여 "못 따라감"을 읽히게 한다.
+	var base := Color(0.72, 0.78, 0.88, 0.85)
+	var missed := Color(1.0, 0.45, 0.42, 0.9)
+	_draw_primitives.draw_round_rect(canvas, body, base.lerp(missed, clampf(miss_ratio, 0.0, 1.0)), 2.0)
+
+
+func _draw_preview_drive_lightning_lashes(canvas: CanvasItem, center: Vector2, direction: Vector2, time_ms: int) -> void:
+	var backward: Vector2 = -direction
+	var normal := Vector2(-direction.y, direction.x)
+	for lash_index in range(2):
+		var side: float = -1.0 if lash_index == 0 else 1.0
+		var points := PackedVector2Array()
+		for segment_index in range(5):
+			var segment_t: float = float(segment_index) / 4.0
+			var jitter: float = sin(float(time_ms) * 0.018 + float(lash_index) * 4.2 + float(segment_index) * 2.8) * 2.2 * sin(segment_t * PI)
+			points.append(center + backward * (3.0 + segment_t * 20.0) + normal * (side * sin(segment_t * PI) * 3.0 + jitter))
+		canvas.draw_polyline(points, Color(0.22, 0.12, 0.72, 0.66), 2.4, true)
+		canvas.draw_polyline(points, Color(0.90, 0.98, 1.0, 0.92), 0.8, true)
+	canvas.draw_line(center - normal * 3.0, center + normal * 3.0, Color(1.0, 0.78, 0.24, 0.80), 1.0, true)
+
+
+func _draw_smasher_heavy_strike_preview(canvas: CanvasItem, rect: Rect2, _color: Color, thunder: bool) -> void:
 	var metrics: Dictionary = _preview_metrics(rect)
 	var time_ms: int = Time.get_ticks_msec()
 	var cycle_progress: float = float(time_ms % 4500) / 4500.0
@@ -548,11 +728,13 @@ func _draw_smash_orange_preview(canvas: CanvasItem, rect: Rect2, _color: Color) 
 		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": smash_direction})
 		_draw_blue_energy_ball(canvas, Vector2(center_x, ball_y), 6.0)
 		if phase > 0.4:
-			canvas.draw_arc(Vector2(center_x, ball_y), 14.0 * (1.0 + 0.1 * sin(float(time_ms) * 0.015)), 0.0, TAU, 36, Color(1.0, 80.0 / 255.0, 80.0 / 255.0), 2.0)
+			var charge_color: Color = Color(0.32, 0.88, 1.0) if thunder else Color(1.0, 80.0 / 255.0, 80.0 / 255.0)
+			canvas.draw_arc(Vector2(center_x, ball_y), 14.0 * (1.0 + 0.1 * sin(float(time_ms) * 0.015)), 0.0, TAU, 36, charge_color, 2.0)
 	elif local_progress < 0.5:
 		var ball_y: float = char_top - 8.0
 		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "direction": smash_direction})
-		canvas.draw_arc(Vector2(center_x, ball_y), 15.0 * (1.0 + 0.15 * sin(float(time_ms) * 0.02)), 0.0, TAU, 36, Color(1.0, 80.0 / 255.0, 80.0 / 255.0), 2.0)
+		var charge_color: Color = Color(0.32, 0.88, 1.0) if thunder else Color(1.0, 80.0 / 255.0, 80.0 / 255.0)
+		canvas.draw_arc(Vector2(center_x, ball_y), 15.0 * (1.0 + 0.15 * sin(float(time_ms) * 0.02)), 0.0, TAU, 36, charge_color, 2.0)
 		_draw_blue_energy_ball(canvas, Vector2(center_x, ball_y), 6.0)
 		var keycap_x: float = center_x - 55.0
 		var keycap_y: float = char_y - 8.0
@@ -576,7 +758,12 @@ func _draw_smash_orange_preview(canvas: CanvasItem, rect: Rect2, _color: Color) 
 			if t <= 0.0:
 				continue
 			var trail_pos: Vector2 = start.lerp(end, t)
-			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(i) * 0.6), Color(1.0, max(40.0, 150.0 - float(i) * 15.0) / 255.0, max(20.0, 60.0 - float(i) * 6.0) / 255.0))
+			var trail_color: Color
+			if thunder:
+				trail_color = Color(0.22 + float(i) * 0.025, 0.82 + float(i) * 0.015, 1.0)
+			else:
+				trail_color = Color(1.0, max(40.0, 150.0 - float(i) * 15.0) / 255.0, max(20.0, 60.0 - float(i) * 6.0) / 255.0)
+			canvas.draw_circle(trail_pos, max(2.0, 6.0 - float(i) * 0.6), trail_color)
 		if phase < 0.6:
 			for i in range(4):
 				var line_t: float = max(0.0, ease_phase - float(i) * 0.12 - 0.05)
@@ -584,13 +771,43 @@ func _draw_smash_orange_preview(canvas: CanvasItem, rect: Rect2, _color: Color) 
 					continue
 				var line_pos: Vector2 = start.lerp(end, line_t)
 				var dir_vec: Vector2 = (end - start).normalized()
+				var speed_line_color: Color = Color(0.90, 0.99, 1.0) if thunder else Color(1.0, 200.0 / 255.0, 100.0 / 255.0)
 				if motion_type == "straight":
-					canvas.draw_line(line_pos, line_pos + Vector2(0.0, 12.0 * (1.0 - float(i) * 0.2)), Color(1.0, 200.0 / 255.0, 100.0 / 255.0), 1.0)
+					canvas.draw_line(line_pos, line_pos + Vector2(0.0, 12.0 * (1.0 - float(i) * 0.2)), speed_line_color, 1.0)
 				else:
-					canvas.draw_line(line_pos, line_pos - dir_vec * (12.0 * (1.0 - float(i) * 0.2)), Color(1.0, 200.0 / 255.0, 100.0 / 255.0), 1.0)
-		_draw_preview_ball(canvas, ball_pos, 6.0, [Color(1.0, 80.0 / 255.0, 40.0 / 255.0), Color(1.0, 180.0 / 255.0, 70.0 / 255.0), Color(1.0, 245.0 / 255.0, 190.0 / 255.0)], Color(1.0, 220.0 / 255.0, 120.0 / 255.0))
+					canvas.draw_line(line_pos, line_pos - dir_vec * (12.0 * (1.0 - float(i) * 0.2)), speed_line_color, 1.0)
+		var ball_palette: Array[Color] = [
+			Color(1.0, 80.0 / 255.0, 40.0 / 255.0),
+			Color(1.0, 180.0 / 255.0, 70.0 / 255.0),
+			Color(1.0, 245.0 / 255.0, 190.0 / 255.0),
+		]
+		if thunder:
+			ball_palette = [
+				Color(0.08, 0.32, 1.0),
+				Color(0.26, 0.86, 1.0),
+				Color(0.92, 0.99, 1.0),
+			]
+		var ball_highlight: Color = Color(1.0, 0.84, 0.30) if thunder else Color(1.0, 220.0 / 255.0, 120.0 / 255.0)
+		_draw_preview_ball(canvas, ball_pos, 6.0, ball_palette, ball_highlight)
+		if thunder:
+			_draw_preview_thunder_corona(canvas, ball_pos, time_ms, phase)
 		if phase < 0.25:
-			canvas.draw_arc(start, 12.0 + phase * 35.0, 0.0, TAU, 36, Color(1.0, 140.0 / 255.0, 70.0 / 255.0), 2.0)
+			var impact_color: Color = Color(0.32, 0.88, 1.0) if thunder else Color(1.0, 140.0 / 255.0, 70.0 / 255.0)
+			canvas.draw_arc(start, 12.0 + phase * 35.0, 0.0, TAU, 36, impact_color, 2.0)
+
+
+func _draw_preview_thunder_corona(canvas: CanvasItem, center: Vector2, time_ms: int, phase: float) -> void:
+	for branch_index in range(5):
+		var angle: float = TAU * float(branch_index) / 5.0 + float(time_ms) * 0.0012
+		var direction := Vector2(cos(angle), sin(angle))
+		var perpendicular := Vector2(-direction.y, direction.x)
+		var points := PackedVector2Array([center])
+		for point_index in range(1, 4):
+			var point_t: float = float(point_index) / 3.0
+			var jitter: float = sin(float(time_ms) * 0.012 + float(branch_index) * 3.7 + float(point_index) * 4.9) * 3.0 * sin(point_t * PI)
+			points.append(center + direction * lerpf(4.0, 18.0 + phase * 5.0, point_t) + perpendicular * jitter)
+		canvas.draw_polyline(points, Color(0.08, 0.30, 1.0, 0.62), 3.0, true)
+		canvas.draw_polyline(points, Color(0.92, 0.99, 1.0, 0.92), 1.0, true)
 
 
 func _draw_magnetic_pull_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
@@ -702,6 +919,80 @@ func _draw_ghost_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) -
 		_draw_preview_ball(canvas, ball_pos, 6.0, [color, Color(180.0 / 255.0, 110.0 / 255.0, 1.0), Color(235.0 / 255.0, 200.0 / 255.0, 1.0)], color)
 
 
+# 허공환영: ↓+좌클릭 입력 창 → 타구 → 실제 공 1 + 좌우 환영 2가 함께 상승 →
+# 보스가 환영을 가드(빗나감). 입력 키캡은 스매셔 리듬대로 준비 구간에만 뜬다.
+func _draw_void_phantom_split_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var local_progress: float = float(time_ms % 3600) / 3600.0
+	var center_x: float = float(metrics["center_x"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var char_y: float = preview_bottom - 2.0
+	var guard_y: float = preview_top + 10.0
+	var real_color := Color(235.0 / 255.0, 200.0 / 255.0, 1.0)
+
+	if local_progress < 0.32:
+		var prep: float = local_progress / 0.32
+		_draw_smasher_mini_character(canvas, center_x, char_y, {"block": 4.0, "paddle_lift": prep * 0.4})
+		var keycap := Vector2(center_x - 30.0, char_y - 26.0)
+		_draw_preview_keycap(canvas, keycap, "S")
+		_draw_preview_plus(canvas, keycap + Vector2(13.0, 0.0))
+		_draw_preview_mouse(canvas, keycap + Vector2(23.0, 0.0), true)
+		_draw_overdrive_preview_boss(canvas, center_x, guard_y, 0.0)
+		return
+
+	var phase: float = (local_progress - 0.32) / 0.68
+	@warning_ignore("shadowed_global_identifier")
+	var ease: float = 1.0 - pow(1.0 - phase, 2.2)
+	var anchors: Dictionary = _draw_smasher_mini_character(
+		canvas,
+		center_x,
+		char_y,
+		{"block": 4.0, "swing_ratio": min(1.0, phase * 2.0)}
+	)
+	var paddle: Dictionary = _draw_primitives.get_dictionary(anchors.get("paddle_pos", {}))
+	var p_center: Vector2 = _draw_primitives.get_vector2(paddle, "center", Vector2(center_x, char_y - 18.0))
+	var start := p_center + Vector2(0.0, -float(paddle.get("radius", 6.0)) - 4.0)
+	var end_y: float = guard_y - 2.0
+	var rise: float = start.y + (end_y - start.y) * ease
+
+	# 실전처럼 환영 2개가 항상 좌우로, 기존 프리뷰보다 더 넓게 갈라진다.
+	var phantom_offsets: Array[float] = _build_void_phantom_offsets()
+	var phantom_positions: Array[Vector2] = []
+	for offset in phantom_offsets:
+		phantom_positions.append(Vector2(start.x + offset * ease, rise))
+	var real_pos := Vector2(start.x, rise)
+
+	# 보스는 환영 하나를 진짜로 착각해 그쪽을 막는다 — 실제 공은 그대로 통과.
+	var guard_x: float = phantom_positions[0].x if not phantom_positions.is_empty() else real_pos.x
+	_draw_overdrive_preview_boss(canvas, guard_x, guard_y, clampf((ease - 0.55) / 0.45, 0.0, 1.0))
+
+	for phantom_pos in phantom_positions:
+		canvas.draw_arc(phantom_pos, 8.0, 0.0, TAU, 24, _draw_primitives.alpha(color, 0.45), 1.5)
+		_draw_preview_ball(
+			canvas,
+			phantom_pos,
+			5.5,
+			[
+				_draw_primitives.alpha(color, 0.55),
+				_draw_primitives.alpha(real_color, 0.55),
+				_draw_primitives.alpha(Color.WHITE, 0.55),
+			],
+			_draw_primitives.alpha(color, 0.55)
+		)
+	_draw_preview_ball(canvas, real_pos, 6.0, [color, real_color, Color.WHITE], real_color)
+
+
+# Godot 4.6은 조건식의 untyped 배열 리터럴을 Array[float]에 직접 대입하면
+# draw 프레임마다 런타임 타입 오류를 낸다. 명시적 append로 typed 배열을 만든다.
+func _build_void_phantom_offsets() -> Array[float]:
+	var offsets: Array[float] = []
+	offsets.append(-34.0)
+	offsets.append(34.0)
+	return offsets
+
+
 func _draw_portal_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
 	var metrics: Dictionary = _preview_metrics(rect)
 	var time_ms: int = Time.get_ticks_msec()
@@ -753,6 +1044,115 @@ func _draw_portal_purple_preview(canvas: CanvasItem, rect: Rect2, color: Color) 
 		_draw_preview_ball(canvas, ball_pos, 6.0, [_draw_primitives.alpha(color, ball_alpha), _draw_primitives.alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha), _draw_primitives.alpha(Color.WHITE, ball_alpha)], _draw_primitives.alpha(Color(235.0 / 255.0, 200.0 / 255.0, 1.0), ball_alpha))
 
 
+func _draw_dalji_vision_chain_top_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var progress: float = float(time_ms % 2600) / 2600.0
+	var center_x: float = float(metrics["center_x"])
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var player_center := Vector2(center_x, preview_bottom - 6.0)
+	var boss_center := Vector2(center_x, preview_top + 10.0)
+	canvas.draw_rect(Rect2(boss_center + Vector2(-22.0, -3.0), Vector2(44.0, 6.0)), Color(0.91, 0.72, 0.28, 0.82), true)
+	canvas.draw_rect(Rect2(player_center + Vector2(-24.0, -4.0), Vector2(48.0, 8.0)), Color(color.r, color.g, color.b, 0.72), true)
+	var rise_ratio: float = clampf(progress / 0.55, 0.0, 1.0)
+	var top_positions: Array[Vector2] = []
+	for side: float in [-1.0, 1.0]:
+		var start: Vector2 = player_center + Vector2(side * 12.0, -8.0)
+		var end: Vector2 = Vector2(center_x + side * 60.0, preview_top + 42.0)
+		var top_pos: Vector2 = start.lerp(end, rise_ratio) + Vector2(side * sin(rise_ratio * PI) * 12.0, -sin(rise_ratio * PI) * 10.0)
+		top_positions.append(top_pos)
+		canvas.draw_line(top_pos, top_pos + Vector2(-side * 18.0, 18.0), Color(color.r, color.g, color.b, 0.34), 3.0, true)
+		var spin: float = progress * TAU * 8.0 * side
+		canvas.draw_arc(top_pos, 9.0, spin, spin + PI * 1.55, 18, Color(0.95, 0.76, 0.31, 0.96), 2.4, true)
+		canvas.draw_circle(top_pos, 3.2, Color(0.64, 1.0, 0.94, 0.96))
+	var capture_center: Vector2 = top_positions[1]
+	var ball_start := Vector2(preview_left + 28.0, preview_top + 48.0)
+	var ball_pos := ball_start
+	if progress < 0.55:
+		ball_pos = ball_start.lerp(capture_center, rise_ratio)
+	elif progress < 0.68:
+		var coil: float = (progress - 0.55) / 0.13
+		ball_pos = capture_center + Vector2(cos(coil * TAU), sin(coil * TAU)) * 11.0
+		canvas.draw_arc(capture_center, 15.0 + sin(coil * PI) * 3.0, 0.0, TAU, 24, Color(color.r, color.g, color.b, 0.75), 2.0, true)
+	else:
+		var release: float = (progress - 0.68) / 0.32
+		ball_pos = capture_center.lerp(boss_center, release)
+		for trail_index in range(5):
+			var trail_t: float = maxf(0.0, release - float(trail_index) * 0.08)
+			canvas.draw_circle(capture_center.lerp(boss_center, trail_t), maxf(1.4, 5.0 - float(trail_index) * 0.7), Color(color.r, color.g, color.b, maxf(0.08, 0.38 - float(trail_index) * 0.06)))
+	_draw_preview_ball(canvas, ball_pos, 5.5, [color, Color(0.72, 1.0, 0.94), Color.WHITE])
+	_draw_preview_keycap_row(canvas, Vector2(preview_right - 58.0, preview_bottom - 12.0), ["A", "D", "A"], "arrow", min(2, int(progress * 4.5)), color)
+
+
+func _draw_cheongringwi_vision_dragon_torrent_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var cycle: float = float(time_ms % 2400) / 2400.0
+	var center_x: float = float(metrics["center_x"])
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var quake_offset := Vector2(sin(cycle * TAU * 19.0), cos(cycle * TAU * 23.0)) * (2.4 * (1.0 - cycle))
+	var boss_center := Vector2(center_x, preview_top + 10.0) + quake_offset
+	var player_center := Vector2(center_x, preview_bottom - 6.0) + quake_offset
+	canvas.draw_rect(Rect2(boss_center + Vector2(-22.0, -3.0), Vector2(44.0, 6.0)), Color(0.32, 0.27, 0.12, 0.90), true)
+	canvas.draw_rect(Rect2(player_center + Vector2(-24.0, -4.0), Vector2(48.0, 8.0)), Color(color.r, color.g, color.b, 0.74), true)
+	for wave_index in range(3):
+		var wave_y := lerpf(preview_top + 26.0, preview_bottom - 20.0, float(wave_index) / 2.0)
+		var wave_points := PackedVector2Array()
+		for point_index in range(9):
+			var point_ratio := float(point_index) / 8.0
+			wave_points.append(Vector2(lerpf(preview_left + 10.0, preview_right - 10.0, point_ratio), wave_y + sin(cycle * TAU * 8.0 + float(point_index)) * 2.0) + quake_offset)
+		canvas.draw_polyline(wave_points, Color(0.70, 0.92, 0.30, 0.18), 1.4, true)
+	for rock_index in range(4):
+		var local_progress := fposmod(cycle * 1.42 - float(rock_index) * 0.19, 1.0)
+		var rock_x := lerpf(preview_left + 26.0, preview_right - 26.0, float(rock_index) / 3.0)
+		var landing_y := preview_bottom - 28.0 - float(rock_index % 2) * 22.0
+		var rock_y := lerpf(preview_top - 18.0, landing_y, 1.0 - pow(1.0 - local_progress, 3.0))
+		var rock_center := Vector2(rock_x, rock_y) + quake_offset
+		var rock_radius := 6.5 + float(rock_index % 2) * 1.5
+		var rock_points := PackedVector2Array()
+		for point_index in range(7):
+			var angle := TAU * float(point_index) / 7.0
+			var jag := 0.82 + 0.18 * sin(float(point_index) * 4.7 + float(rock_index))
+			rock_points.append(rock_center + Vector2.from_angle(angle) * rock_radius * jag)
+		canvas.draw_colored_polygon(rock_points, Color(0.48, 0.34, 0.15, 0.96))
+		rock_points.append(rock_points[0])
+		canvas.draw_polyline(rock_points, Color(0.94, 0.76, 0.28, 0.86), 1.2, true)
+		canvas.draw_circle(Vector2(rock_x, landing_y + rock_radius * 0.6) + quake_offset, rock_radius * (0.18 + local_progress * 0.30), Color(0.04, 0.03, 0.01, 0.22))
+	_draw_preview_keycap_row(canvas, Vector2(preview_right - 58.0, preview_bottom - 12.0), ["D", "A", "D"], "arrow", min(2, int(cycle * 4.5)), color)
+
+
+func _draw_yeonmyo_vision_bonghongwe_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var cycle := float(time_ms % 2600) / 2600.0
+	var left := float(metrics["left"])
+	var right := float(metrics["right"])
+	var top := float(metrics["top"])
+	var bottom := float(metrics["bottom"])
+	var boss_y := top + 13.0
+	var chest_center := Vector2(lerpf(left + 42.0, right - 42.0, 0.52), top + 43.0)
+	var dash_x := lerpf(left + 12.0, right - 12.0, cycle)
+	canvas.draw_rect(Rect2(Vector2(dash_x - 21.0, boss_y - 3.0), Vector2(42.0, 6.0)), Color(0.72, 0.58, 0.82, 0.86), true)
+	for trail_index in range(4):
+		var trail_x := dash_x - float(trail_index + 1) * 12.0
+		canvas.draw_line(Vector2(trail_x, boss_y), Vector2(trail_x + 8.0, boss_y), Color(color.r, color.g, color.b, 0.34), 2.0)
+	canvas.draw_circle(chest_center, 30.0, Color(color.r, color.g, color.b, 0.10))
+	canvas.draw_arc(chest_center, 30.0, 0.0, TAU, 28, Color(color.r, color.g, color.b, 0.34), 1.5, true)
+	var body := Rect2(chest_center + Vector2(-17.0, -8.0), Vector2(34.0, 22.0))
+	canvas.draw_rect(body, Color(0.18, 0.06, 0.24, 0.96), true)
+	canvas.draw_rect(body, color, false, 2.0)
+	canvas.draw_rect(Rect2(chest_center + Vector2(-19.0, -14.0), Vector2(38.0, 9.0)), Color(0.34, 0.10, 0.43, 1.0), true)
+	canvas.draw_circle(chest_center + Vector2(0.0, 3.0), 3.0, Color(1.0, 0.78, 0.28, 1.0))
+	canvas.draw_rect(Rect2(Vector2(left + 24.0, bottom - 8.0), Vector2(right - left - 48.0, 5.0)), Color(0.25, 0.18, 0.30, 0.75), true)
+	_draw_preview_keycap_row(canvas, Vector2(right - 37.0, bottom - 13.0), ["S"], "plus", 0, color)
+
+
 func _draw_wheel_spin_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
 	var metrics: Dictionary = _preview_metrics(rect)
 	var time_ms: int = Time.get_ticks_msec()
@@ -769,21 +1169,25 @@ func _draw_wheel_spin_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> 
 	var start_x: float = center_x - direction * 56.0
 	var end_x: float = center_x + direction * 56.0
 	var char_x: float = start_x + (end_x - start_x) * eased
-	canvas.draw_line(Vector2(preview_left + 12.0, floor_y), Vector2(preview_right - 12.0, floor_y), Color(110.0 / 255.0, 80.0 / 255.0, 45.0 / 255.0, 55.0 / 255.0), 2.0)
+	canvas.draw_line(Vector2(preview_left + 12.0, floor_y), Vector2(preview_right - 12.0, floor_y), Color(0.30, 0.42, 0.58, 0.24), 2.0)
 	for stripe_idx in range(4):
 		var stripe_y: float = preview_top + 14.0 + float(stripe_idx) * 16.0
 		var stripe_offset: float = fposmod(phase * 40.0 + float(stripe_idx) * 9.0, 24.0)
-		canvas.draw_line(Vector2(preview_left + stripe_offset, stripe_y), Vector2(preview_right - 8.0, stripe_y - direction * 2.0), Color(1.0, 170.0 / 255.0, 70.0 / 255.0, (30.0 + float(stripe_idx) * 8.0) / 255.0), 1.0)
+		canvas.draw_line(Vector2(preview_left + stripe_offset, stripe_y), Vector2(preview_right - 8.0, stripe_y - direction * 2.0), Color(0.66, 0.84, 1.0, (30.0 + float(stripe_idx) * 8.0) / 255.0), 1.0)
 	for trail_idx in range(5):
 		var trail_t: float = max(0.0, eased - float(trail_idx) * 0.10)
 		var tx: float = start_x + (end_x - start_x) * trail_t
-		_draw_primitives.draw_ellipse(canvas, Rect2(Vector2(tx - 23.0, floor_y - 30.0), Vector2(46.0, 30.0)), Color(1.0, 155.0 / 255.0, 58.0 / 255.0, max(18.0, 115.0 - float(trail_idx) * 18.0) / 255.0), false, max(1.0, 3.0 - float(trail_idx) * 0.4))
+		var cloud_alpha: float = max(18.0, 138.0 - float(trail_idx) * 22.0) / 255.0
+		var cloud_center := Vector2(tx, floor_y - 34.0 + sin(phase * TAU + float(trail_idx)) * 3.0)
+		canvas.draw_circle(cloud_center + Vector2(-10.0, 1.0), max(3.0, 9.0 - float(trail_idx) * 0.7), Color(0.72, 0.84, 0.98, cloud_alpha * 0.72))
+		canvas.draw_circle(cloud_center, max(4.0, 12.0 - float(trail_idx) * 0.8), Color(0.92, 0.96, 1.0, cloud_alpha))
+		canvas.draw_circle(cloud_center + Vector2(11.0, 2.0), max(3.0, 8.0 - float(trail_idx) * 0.6), Color(0.78, 0.88, 1.0, cloud_alpha * 0.78))
 	var spin: float = phase * TAU * 3.0 * direction
 	for ring_idx in range(3):
 		var rx: float = 28.0 + float(ring_idx) * 7.0
 		var ry: float = 16.0 + float(ring_idx) * 4.0
 		var ring_center := Vector2(char_x, floor_y - 44.0)
-		_draw_primitives.draw_ellipse_arc(canvas, Rect2(ring_center - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), spin + float(ring_idx) * 0.8, spin + float(ring_idx) * 0.8 + deg_to_rad(235.0), Color(1.0, 214.0 / 255.0, 116.0 / 255.0, max(70.0, 170.0 - float(ring_idx) * 38.0) / 255.0), max(2.0, 4.0 - float(ring_idx)))
+		_draw_primitives.draw_ellipse_arc(canvas, Rect2(ring_center - Vector2(rx, ry), Vector2(rx * 2.0, ry * 2.0)), spin + float(ring_idx) * 0.8, spin + float(ring_idx) * 0.8 + deg_to_rad(235.0), Color(0.78, 0.90, 1.0, max(70.0, 184.0 - float(ring_idx) * 38.0) / 255.0), max(2.0, 4.0 - float(ring_idx)))
 	_draw_smasher_mini_character(canvas, char_x, floor_y + 1.0, {"block": 4.0, "direction": int(direction), "swing_ratio": 0.6, "rotation": -spin * 0.28, "rotation_center": Vector2(char_x, floor_y - 28.0)})
 	var hit_t: float = clamp((phase - 0.38) / 0.62, 0.0, 1.0)
 	var ball_start := Vector2(char_x + direction * 18.0, floor_y - 30.0)
@@ -793,8 +1197,8 @@ func _draw_wheel_spin_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> 
 		var t: float = max(0.0, hit_t - float(trail_idx) * 0.08)
 		if t <= 0.0:
 			continue
-		canvas.draw_circle(ball_start.lerp(ball_end, t), max(2.0, 6.0 - float(trail_idx) * 0.5), Color(1.0, 180.0 / 255.0, 64.0 / 255.0, max(40.0, 160.0 - float(trail_idx) * 18.0) / 255.0))
-	_draw_preview_ball(canvas, ball_pos, 6.0, [Color(1.0, 120.0 / 255.0, 40.0 / 255.0), Color(1.0, 190.0 / 255.0, 78.0 / 255.0), Color(1.0, 245.0 / 255.0, 190.0 / 255.0)])
+		canvas.draw_circle(ball_start.lerp(ball_end, t), max(2.0, 6.0 - float(trail_idx) * 0.5), Color(0.70, 0.88, 1.0, max(40.0, 170.0 - float(trail_idx) * 18.0) / 255.0))
+	_draw_preview_ball(canvas, ball_pos, 6.0, [Color(0.28, 0.58, 0.92), Color(0.72, 0.90, 1.0), Color.WHITE])
 	_draw_preview_keycap_row(canvas, Vector2(center_x, preview_top + 14.0), ["A" if direction < 0.0 else "D", "A" if direction < 0.0 else "D", "A" if direction < 0.0 else "D"], "arrow", min(2, int(phase * 3.0)), color)
 
 

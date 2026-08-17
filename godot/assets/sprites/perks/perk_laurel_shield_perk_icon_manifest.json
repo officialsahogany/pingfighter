@@ -1,0 +1,36 @@
+{
+  "asset_id": "perk_laurel_shield_perk_icon",
+  "perk_id": "perk_laurel_shield",
+  "display_name_ko": "오엽호신",
+  "display_name_en": "Five-Leaf Ward",
+  "runtime_path": "res://assets/sprites/perks/perk_laurel_shield_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-6524ae3e-09d5-4343-a551-5a909b4796d8.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy martial-arts training seal on torn aged hanji: exactly five broad pine-green native leaves orbit an ochre central warding ball in a bold black takbon composition. No laurel wreath, heraldic shield, book, readable text, metal, leather, gems, neon, or glossy UI frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_method": "auto-key border on flat magenta",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [12, 13, 244, 243],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "f31690bc64ccc1d1142ae6564355a06b8bdae8920d1d2eedeb345e6f35f28d72",
+    "runtime_capture": "res://.tmp/common_mugong_seal_qa.png",
+    "rendered_sizes": [80, 32],
+    "notes": "Standalone common-Mugong hanji seal; exactly five native warding leaves replace the Western laurel-and-shield motif."
+  }
+}

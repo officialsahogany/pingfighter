@@ -3,6 +3,7 @@ extends SceneTree
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 
 const TARGET_CHOICES := 3
 const SLOT_FILLER_IDS := [
@@ -13,7 +14,6 @@ const SLOT_FILLER_IDS := [
 	"item_luck",
 	"item_cooldown_mastery",
 	"item_gauge_mastery",
-	"item_bag_expansion",
 	"common_swiftness",
 	"common_bulk_up",
 	"common_training",
@@ -24,6 +24,32 @@ const SLOT_FILLER_IDS := [
 var _failures: Array[String] = []
 
 
+class RollProbe:
+	extends RefCounted
+	var value := 1.0
+	var call_count := 0
+
+	func _init(next_value: float) -> void:
+		value = next_value
+
+	func next_roll() -> float:
+		call_count += 1
+		return value
+
+
+class FakeRegistry:
+	extends RefCounted
+	var skill_config: Object
+
+	func _init(next_skill_config: Object) -> void:
+		skill_config = next_skill_config
+
+	func get_instance(key: String) -> Object:
+		if key == "smasher_skill_config":
+			return skill_config
+		return null
+
+
 func _init() -> void:
 	_run()
 
@@ -32,6 +58,7 @@ func _run() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_unowned_mythic_builder()
 	_verify_jackpot_reserves_all_mythic_cards()
+	_verify_jackpot_bypasses_open_chosik_reservation()
 	_verify_jackpot_candidate_shortage_fills_regular_pool()
 	_verify_full_slots_suppress_mythic_offer()
 	_verify_chance_zero_suppresses_mythic_offer()
@@ -95,6 +122,31 @@ func _verify_jackpot_reserves_all_mythic_cards() -> void:
 		_expect_eq(offer_slots.size(), TARGET_CHOICES, "jackpot offer should keep the requested non-gold card count")
 		_expect_eq(mythic_choices.size(), TARGET_CHOICES, "jackpot=1.0 offer should reserve every non-gold card as mythic")
 		_expect_unique_ids(mythic_choices, "jackpot offer should not duplicate mythic ids")
+
+
+func _verify_jackpot_bypasses_open_chosik_reservation() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	catalog.mythic_jackpot_offer_chance = 1.0
+	var open_chosik_probe := RollProbe.new(0.0)
+	catalog.set_open_chosik_offer_roll_for_tests(Callable(open_chosik_probe, "next_roll"))
+	var skill_config := SmasherSkillConfig.new()
+	skill_config.equipped_skills = ["drive", "power_smashing"]
+	_expect(not skill_config.is_shared_slot_full(), "jackpot regression fixture should have open Chosik slots")
+
+	var choices: Array = catalog.get_choices(
+		"smasher",
+		_one_open_slot_levels(),
+		true,
+		TARGET_CHOICES,
+		null,
+		FakeRegistry.new(skill_config)
+	)
+	var offer_slots := _offer_slots(choices)
+	_expect_eq(open_chosik_probe.call_count, 0, "jackpot screen must not consume the open-slot Chosik roll")
+	_expect_eq(offer_slots.size(), TARGET_CHOICES, "jackpot screen should keep exactly three offer cards")
+	_expect_eq(_mythic_choices(offer_slots).size(), TARGET_CHOICES, "jackpot screen should contain only three Peerless Martial Arts")
+	_expect_eq(_chosik_choices(offer_slots).size(), 0, "jackpot screen must not mix in a Chosik card")
+	catalog.clear_open_chosik_offer_roll_for_tests()
 
 
 func _verify_jackpot_candidate_shortage_fills_regular_pool() -> void:
@@ -163,21 +215,31 @@ func _verify_source_contracts() -> void:
 	_expect(source.find("func _get_mythic_offer_chance(") < 0, "catalog should not keep the old single chance helper")
 	_expect(source.find("func _pick_random_unowned_mythic_perk_id") < 0, "catalog should not keep the old single mythic picker")
 	_expect(source.find("func _get_mythic_offer_chances") >= 0, "catalog should route the mythic offer probability through the jackpot helper")
-	_expect(source.find("if randf() < jackpot_chance") >= 0, "get_choices should roll once against the jackpot band")
+	_expect(source.find("if randf() >= jackpot_chance") >= 0, "jackpot helper should roll once against the jackpot band")
 	_expect(source.find("single_chance") < 0, "get_choices should no longer reference a single mythic band")
-	_expect(source.find("_build_unowned_mythic_choices(runtime_levels, normalized, mythic_count)") >= 0, "get_choices should reserve N mythic choices through the builder")
+	_expect(source.find("func _try_build_mythic_jackpot_offer(") >= 0, "catalog should isolate jackpot-only offer construction")
+	_expect(source.find("ring-core") < 0, "retired ring-core reservation language should not remain in the catalog")
+	var jackpot_call := source.find("var mythic_jackpot_choices := _try_build_mythic_jackpot_offer(")
+	var unlock_filter := source.find("choices = _filter_unlock_slot_budget(", jackpot_call)
+	var guardian_append := source.find("_append_lingpet_guardian_enhance_choice(", jackpot_call)
 	_expect(
-		source.find("target_choice_count - mythic_reserved.size() - dash_token_reserved.size() - owned_upgrade_reserved.size()") >= 0,
-		"ring-core reservation limit should subtract mythic, dash-token, and owned-upgrade reservations"
+		jackpot_call >= 0 and unlock_filter > jackpot_call and guardian_append > jackpot_call,
+		"jackpot branch must run before Chosik and guardian reservation evaluation"
 	)
-	var mythic_fill := source.find("for mythic_choice in mythic_reserved:")
+	var boss_vision_fill := source.find("for vision_choice in boss_vision_reserved:")
+	var guardian_fill := source.find("for guardian_choice in guardian_enhance_reserved:")
+	var swap_fill := source.find("for swap_choice in full_chosik_swap_reserved:")
 	var dash_fill := source.find("for dash_token_choice in dash_token_reserved:")
 	var owned_fill := source.find("for owned_upgrade_choice in owned_upgrade_reserved:")
-	var ring_fill := source.find("for reserved_choice in reserved_choices:")
 	var shuffle_fill := source.find("for choice in choices:")
 	_expect(
-		mythic_fill >= 0 and dash_fill > mythic_fill and owned_fill > dash_fill and ring_fill > owned_fill and shuffle_fill > ring_fill,
-		"get_choices fill order should be mythic -> dash token -> owned upgrades -> ring-core -> shuffled choices"
+		boss_vision_fill >= 0
+		and guardian_fill > boss_vision_fill
+		and swap_fill > guardian_fill
+		and dash_fill > swap_fill
+		and owned_fill > dash_fill
+		and shuffle_fill > owned_fill,
+		"ordinary get_choices fill order should match the post-jackpot reservation chain"
 	)
 
 
@@ -224,6 +286,14 @@ func _mythic_choices(choices: Array) -> Array:
 	var result: Array = []
 	for value in choices:
 		if value is Dictionary and _is_mythic_id(str((value as Dictionary).get("id", ""))):
+			result.append(value)
+	return result
+
+
+func _chosik_choices(choices: Array) -> Array:
+	var result: Array = []
+	for value in choices:
+		if value is Dictionary and str((value as Dictionary).get("unlocks_skill", "")).strip_edges() != "":
 			result.append(value)
 	return result
 

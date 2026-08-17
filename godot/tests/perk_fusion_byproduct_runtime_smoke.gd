@@ -8,8 +8,9 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_no_ownership_is_a_noop()
-	_verify_overload_is_one_shot_per_dash()
+	_verify_thunder_drive_roll_and_guard_restore()
 	_verify_reverb_refreshes_and_expires()
+	_verify_active_item_slot_bonus_breakdown()
 	_verify_golden_trajectory_round_cap()
 	_verify_point_loss_payload_and_roll_boundary()
 	_verify_point_loss_queue_survives_round_reset_and_consumes_once()
@@ -28,7 +29,9 @@ func _init() -> void:
 func _verify_no_ownership_is_a_noop() -> void:
 	var runtime := PerkFusionByproductRuntime.new()
 	runtime.on_player_dash([])
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.0, "unowned overload should not arm")
+	var boost: Dictionary = runtime.try_trigger_dash_paddle_speed_boost([], 0.0, 12.0)
+	_expect(not bool(boost.get("triggered", true)), "unowned Thunderbolt Drive should not trigger")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 0.0, "unowned Thunderbolt Drive should store no restore speed")
 	runtime.on_skill_used([])
 	_expect_close(runtime.get_player_move_speed_multiplier(), 1.0, "unowned reverb should not activate")
 	_expect(runtime.on_wall_bounce([]) == 0, "unowned golden trajectory should award no gold")
@@ -37,28 +40,50 @@ func _verify_no_ownership_is_a_noop() -> void:
 	_expect(not bool(result.get("restore_dash_tokens", true)), "unowned recycle protocol should not restore dash tokens")
 
 
-func _verify_overload_is_one_shot_per_dash() -> void:
+func _verify_thunder_drive_roll_and_guard_restore() -> void:
 	var runtime := PerkFusionByproductRuntime.new()
 	var owned := [PerkFusionByproductRuntime.OVERLOAD_CIRCUIT_ID]
+	_expect(runtime.can_trigger_dash_paddle_speed_boost(owned), "owned Thunderbolt Drive should be eligible before a dash hit")
 	runtime.on_player_dash(owned)
-	runtime.on_player_dash(owned)
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.15, "dash should arm one +15% paddle-bounce speed multiplier")
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.0, "overload should be consumed by the first paddle bounce only")
-	runtime.on_player_dash(owned)
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.15, "a later dash should re-arm overload")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 0.0, "dash start alone must not arm Thunderbolt Drive")
+	var boundary_failure: Dictionary = runtime.try_trigger_dash_paddle_speed_boost(owned, 0.15, 12.0)
+	_expect(not bool(boundary_failure.get("triggered", true)), "a roll at the strict 15% boundary should fail")
+	var success: Dictionary = runtime.try_trigger_dash_paddle_speed_boost(owned, 0.1499, 12.0)
+	_expect(bool(success.get("triggered", false)), "a roll below 15% should trigger on the live dash hit")
+	_expect_close(float(success.get("speed_multiplier", 1.0)), 1.80, "Thunderbolt Drive should apply exactly +80% ball speed")
+	_expect(not runtime.can_trigger_dash_paddle_speed_boost(owned), "an active boost must not reroll before the boss guard")
+	var blocked_retrigger: Dictionary = runtime.try_trigger_dash_paddle_speed_boost(owned, 0.0, 20.0)
+	_expect(not bool(blocked_retrigger.get("triggered", true)), "an active boost should ignore later dash-hit rolls")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 12.0, "boss guard should return the activation-time effective speed")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 0.0, "boss guard restore should be consumed exactly once")
+	_expect(runtime.can_trigger_dash_paddle_speed_boost(owned), "a later dash hit should be eligible after the boss guard")
 
 
 func _verify_reverb_refreshes_and_expires() -> void:
 	var runtime := PerkFusionByproductRuntime.new()
 	var owned := [PerkFusionByproductRuntime.REVERB_ID]
 	runtime.on_skill_used(owned)
-	_expect_close(runtime.get_player_move_speed_multiplier(), 1.25, "skill use should activate the reverb move-speed boost")
+	_expect_close(runtime.get_player_move_speed_multiplier(), 1.70, "skill use should activate the exact +70% reverb move-speed boost")
 	runtime.update(2.5)
 	runtime.on_skill_used(owned)
 	runtime.update(2.99)
-	_expect_close(runtime.get_player_move_speed_multiplier(), 1.25, "retriggering reverb should refresh its full three-second duration")
+	_expect_close(runtime.get_player_move_speed_multiplier(), 1.70, "retriggering reverb should refresh its full three-second duration without stacking")
 	runtime.update(0.02)
 	_expect_close(runtime.get_player_move_speed_multiplier(), 1.0, "reverb should expire after the refreshed duration")
+
+
+func _verify_active_item_slot_bonus_breakdown() -> void:
+	var runtime := PerkFusionByproductRuntime.new()
+	_expect(runtime.get_active_item_slot_bonus([], 5) == 0, "unowned slot arts should not change active item capacity")
+	var owned := [
+		"sleeve_cosmos",
+		PerkFusionByproductRuntime.LINKED_ARSENAL_ID,
+	]
+	var breakdown: Dictionary = runtime.get_active_item_slot_bonus_breakdown(owned, 3)
+	_expect(not breakdown.has("sleeve_cosmos"), "retired Sleevebound Cosmos must grant no slot even when a legacy record still owns it")
+	_expect(int(breakdown.get(PerkFusionByproductRuntime.LINKED_ARSENAL_ID, 0)) == 3, "Linked Arsenal should add one slot per Linked Step rank")
+	_expect(runtime.get_active_item_slot_bonus(owned, 3) == 3, "slot-art total should count only live arts")
+	_expect(runtime.get_active_item_slot_bonus([PerkFusionByproductRuntime.LINKED_ARSENAL_ID], 0) == 0, "Linked Arsenal should add no slots without Linked Step")
 
 
 func _verify_golden_trajectory_round_cap() -> void:
@@ -117,34 +142,40 @@ func _verify_round_and_full_reset_clear_transients() -> void:
 		PerkFusionByproductRuntime.REVERB_ID,
 		PerkFusionByproductRuntime.GOLDEN_TRAJECTORY_ID,
 	]
-	runtime.on_player_dash(all_owned)
+	runtime.try_trigger_dash_paddle_speed_boost(all_owned, 0.0, 14.0)
 	runtime.on_skill_used(all_owned)
 	runtime.on_wall_bounce(all_owned)
 	runtime.reset_round()
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.0, "round reset should clear an armed overload")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 0.0, "round reset should clear an active Thunderbolt Drive restore")
 	_expect_close(runtime.get_player_move_speed_multiplier(), 1.0, "round reset should clear reverb")
 	_expect(runtime.get_round_golden_trajectory_gold() == 0, "round reset should clear earned round gold")
 
-	runtime.on_player_dash(all_owned)
+	runtime.try_trigger_dash_paddle_speed_boost(all_owned, 0.0, 14.0)
 	runtime.on_skill_used(all_owned)
 	runtime.on_wall_bounce(all_owned)
 	runtime.reset()
-	_expect_close(runtime.consume_player_paddle_bounce_speed_multiplier(), 1.0, "full reset should clear an armed overload")
+	_expect_close(runtime.consume_boss_guard_restore_effective_speed(), 0.0, "full reset should clear an active Thunderbolt Drive restore")
 	_expect_close(runtime.get_player_move_speed_multiplier(), 1.0, "full reset should clear reverb")
 	_expect(runtime.get_round_golden_trajectory_gold() == 0, "full reset should clear the round gold counter")
 
 
 func _verify_snapshot_is_detached() -> void:
 	var runtime := PerkFusionByproductRuntime.new()
-	runtime.on_player_dash([PerkFusionByproductRuntime.OVERLOAD_CIRCUIT_ID])
+	runtime.try_trigger_dash_paddle_speed_boost(
+		[PerkFusionByproductRuntime.OVERLOAD_CIRCUIT_ID],
+		0.0,
+		14.0
+	)
 	runtime.on_skill_used([PerkFusionByproductRuntime.REVERB_ID])
 	runtime.on_wall_bounce([PerkFusionByproductRuntime.GOLDEN_TRAJECTORY_ID])
 	var snapshot: Dictionary = runtime.get_snapshot()
-	snapshot["overload_armed"] = false
+	snapshot["thunder_drive_active"] = false
+	snapshot["thunder_drive_restore_effective_speed"] = 0.0
 	snapshot["reverb_remaining_sec"] = 0.0
 	snapshot["golden_trajectory_round_gold"] = 999
 	var fresh_snapshot: Dictionary = runtime.get_snapshot()
-	_expect(bool(fresh_snapshot.get("overload_armed", false)), "mutating a snapshot should not disarm live overload state")
+	_expect(bool(fresh_snapshot.get("thunder_drive_active", false)), "mutating a snapshot should not clear the live Thunderbolt Drive state")
+	_expect_close(float(fresh_snapshot.get("thunder_drive_restore_effective_speed", 0.0)), 14.0, "snapshot mutation should not alter the live restore speed")
 	_expect(float(fresh_snapshot.get("reverb_remaining_sec", 0.0)) > 0.0, "mutating a snapshot should not expire live reverb state")
 	_expect(int(fresh_snapshot.get("golden_trajectory_round_gold", 0)) == 2, "mutating a snapshot should not alter the live round gold counter")
 

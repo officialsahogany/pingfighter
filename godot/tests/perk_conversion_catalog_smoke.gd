@@ -2,6 +2,7 @@ extends SceneTree
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkFusionByproductCatalog := preload("res://scripts/characters/perk_fusion_byproduct_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 
 const CONVERTED_PERK_IDS := [
@@ -9,12 +10,10 @@ const CONVERTED_PERK_IDS := [
 	"adversity_armor",
 	"reinforced_boomerang_gauntlet",
 	"sensor",
-	"gravitybelt",
 	"dowsing_pendulum",
 	"dowsing_goggles",
 	"chargebag",
 	"battery",
-	"revival",
 	"master",
 	"gold_digger",
 	"lucky_coin",
@@ -22,18 +21,16 @@ const CONVERTED_PERK_IDS := [
 	"fuel_pouch",
 	"bluetooth_ring",
 	"foul_whistle",
-	"smartphone",
 	"neural_helmet",
 	"commando_arm",
 	"rainbow_fur_glove",
 	"knee_pads",
 	"soul_burst",
 	"bulletproof_hat",
-	"spiked_helmet",
 	"venom_mist_gauntlet",
-	"speedgear",
 	"sage_ring",
 ]
+const PROMOTED_BYPRODUCT_IDS := ["gravitybelt", "smartphone"]
 const CONVERTED_MYTHIC_PERK_IDS := [
 	"megingjord",
 	"transcendent_crown",
@@ -64,6 +61,7 @@ func _init() -> void:
 	_verify_localization_maps()
 	_verify_offer_pool_block()
 	_verify_debug_visibility()
+	_verify_promoted_byproducts_leave_normal_catalog()
 
 	_restore_language_settings_snapshot()
 	PerkConversionFlags.debug_set_enabled(false)
@@ -170,6 +168,22 @@ func _verify_debug_visibility() -> void:
 	var debug_entries: Array = catalog.get_debug_perk_entries()
 	for perk_id in _all_converted_ids():
 		_expect(_has_choice_id(debug_entries, str(perk_id)), "debug entries should expose converted perk %s" % str(perk_id))
+
+
+func _verify_promoted_byproducts_leave_normal_catalog() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+	var catalog := RuntimePerkCatalog.new()
+	var byproduct_catalog := PerkFusionByproductCatalog.new()
+	var all_data: Dictionary = catalog.get_all_perk_data()
+	var debug_entries: Array = catalog.get_debug_perk_entries()
+	for perk_id: String in PROMOTED_BYPRODUCT_IDS:
+		_expect(not all_data.has(perk_id), "%s should leave get_all_perk_data after promotion" % perk_id)
+		_expect(catalog.get_perk_data(perk_id).is_empty(), "%s should leave direct normal-Mugong lookup after promotion" % perk_id)
+		_expect(not _has_choice_id(debug_entries, perk_id), "%s should leave the normal-Mugong debug list after promotion" % perk_id)
+		_expect(bool(byproduct_catalog.get_data(perk_id).get("runtime_enabled", false)), "%s should enter the live Superior Martial Art catalog" % perk_id)
+	var choices: Array = catalog.get_choices("smasher", {}, true, 300)
+	for perk_id: String in PROMOTED_BYPRODUCT_IDS:
+		_expect(not _has_choice_id(choices, perk_id), "%s should never appear in ordinary Mugong offers after promotion" % perk_id)
 
 
 func _get_non_korean_languages() -> Array[String]:

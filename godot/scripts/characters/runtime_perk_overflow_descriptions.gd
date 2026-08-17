@@ -5,7 +5,7 @@ extends RefCounted
 # transcendent_crown / sage_ring / ignition aura raise a perk's effective level
 # past its authored `descriptions` cap (usually Lv.5). Runtime keeps scaling
 # (CLAUDE.md effective-level overflow default), but tooltips fell back to the
-# highest authored text, so a Lv.7 도약 still displayed the Lv.5 "대쉬 거리 35%
+# highest authored text, so a Lv.7 비천보 still displayed the Lv.5 "대쉬 거리 35%
 # 증가" line (2026-07-10 bug). This is the Godot port of legacy pingfighter.py
 # `get_runtime_skill_description()`.
 #
@@ -29,31 +29,31 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
 
 # Linear "prefix + per_level * L + suffix" lanes (legacy skill_patterns port).
 # per_level values mirror runtime_perk_effective_levels.gd's
 # get_runtime_skill_bonus() match block; value_max mirrors the runtime clamp
 # where one exists (item_recycle MAX_ITEM_RECYCLE_CHANCE, boost charge 100%).
 const LINEAR_PATTERNS := {
-	"dash_lightweight": {"prefix": "대쉬 쿨타임 ", "per_level": 12, "suffix": "% 감소"},
-	"dash_module_control": {"prefix": "대쉬 후딜 ", "per_level": 18, "suffix": "% 감소"},
-	"dash_jump": {"prefix": "대쉬 거리 ", "per_level": 7, "suffix": "% 증가"},
-	"dash_acceleration": {"prefix": "대쉬시 패들 크기 ", "per_level": 70, "suffix": "% 증가"},
-	"dash_amplification": {"prefix": "대쉬토큰 슬롯 +", "per_level": 1, "suffix": ""},
-	"dash_spirit": {"prefix": "대쉬시 ", "per_level": 7, "suffix": "% 확률로 레이저 잔상"},
+	"dash_lightweight": {"prefix": "활주 재충전 ", "per_level": 12, "suffix": "% 감소"},
+	"dash_module_control": {"prefix": "활주 후딜 ", "per_level": 18, "suffix": "% 감소"},
+	"dash_jump": {"prefix": "활주 거리 ", "per_level": 7, "suffix": "% 증가"},
+	"dash_amplification": {"prefix": "최대 활주 횟수 +", "per_level": 1, "suffix": ""},
+	"dash_spirit": {"prefix": "활주시 ", "per_level": 7, "suffix": "% 확률로 레이저 잔상"},
 	"item_luck": {"prefix": "아이템 스폰 대기 ", "per_level": 12, "suffix": "% 감소"},
 	"item_cooldown_mastery": {"prefix": "액티브 아이템 쿨타임 ", "per_level": 13, "suffix": "% 감소"},
-	"item_gauge_mastery": {"prefix": "액티브 사용시 게이지 +", "per_level": 15, "suffix": ""},
+	"item_gauge_mastery": {"prefix": "액티브 사용시 기력 +", "per_level": 15, "suffix": ""},
 	"item_caffeine": {"prefix": "타이머형 아이템 지속 ", "per_level": 30, "suffix": "% 증가"},
-	"item_polish": {"prefix": "적용 대상 퍽의 수치 능력치 ", "per_level": 5, "suffix": "% 증폭"},
+	"item_polish": {"prefix": "모든 일반 성장형 무공의 수치 능력치 ", "per_level": 5, "suffix": "% 증폭"},
 	"item_recycle": {"prefix": "아이템 유지 확률 ", "per_level": 7, "suffix": "%", "value_max": 90},
-	"item_bag_expansion": {"prefix": "액티브 슬롯 +", "per_level": 1, "suffix": ""},
 	"common_swiftness": {"prefix": "이동속도 ", "per_level": 6, "suffix": "% 증가"},
-	"common_bulk_up": {"prefix": "패들 크기 ", "per_level": 6, "suffix": "% 증가"},
-	"common_training": {"prefix": "모든 스킬 쿨타임 ", "per_level": 8, "suffix": "% 감소"},
-	"perk_boost_charge": {"prefix": "확률 +", "per_level": 7, "suffix": "%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%", "value_max": 100},
-	"perk_laurel_shield": {"prefix": "월계수 잎 ", "per_level": 1, "suffix": "개 보호"},
-	"extension_gear": {"prefix": "리커버리/클렌즈/워프게이트 지속시간 +", "per_level": 25, "suffix": "%"},
+	"common_bulk_up": {"prefix": "몸집 크기 ", "per_level": 6, "suffix": "% 증가"},
+	"training_mastery": {"prefix": "모든 수련의 능력치 효과 ", "per_level": 20, "suffix": "% 증폭"},
+	"common_training": {"prefix": "모든 초식 쿨타임 ", "per_level": 8, "suffix": "% 감소"},
+	"perk_boost_charge": {"prefix": "확률 +", "per_level": 7, "suffix": "%, 발동 시 다음 활주 무료 + 재충전 -90%", "value_max": 100},
+	"perk_laurel_shield": {"prefix": "벽사 잎 ", "per_level": 1, "suffix": "개 보호"},
+	"extension_gear": {"prefix": "경신보/청심결/건곤환문 지속시간 +", "per_level": 25, "suffix": "%"},
 }
 
 # Converted-perk lane templates. Values come straight from
@@ -61,52 +61,68 @@ const LINEAR_PATTERNS := {
 # runtime consumers make, so the Lv.6+ text is single-sourced with gameplay
 # (including OVERFLOW_VALUE_BOUNDS clamps). int_keys mirror consumers that
 # read the lane with int(round(...)) (shard/token counts, knockback level).
+const RUNTIME_PERCENT_POINT_SKILL_IDS := {
+	"dash_lightweight": true,
+	"dash_module_control": true,
+	"dash_jump": true,
+	"dash_spirit": true,
+	"item_luck": true,
+	"item_cooldown_mastery": true,
+	"item_caffeine": true,
+	"common_swiftness": true,
+	"common_bulk_up": true,
+	"training_mastery": true,
+	"common_training": true,
+}
+
 const CONVERTED_TEMPLATES := {
-	"star_detector": {"format": "스타포인트 보너스 드랍 확률 +%s%%", "keys": ["star_bonus_pct"]},
+	"star_detector": {"format": "무혼 보너스 출현 확률 +%s%%", "keys": ["star_bonus_pct"]},
 	"adversity_armor": {"format": "실점 후 발동 %s%%, 보호 %s초", "keys": ["trigger_chance_pct", "invincible_duration_sec"]},
 	"reinforced_boomerang_gauntlet": {
 		"format": "부메랑 넉백 +%s%%, 스턴 +%s%%, 발사속도 +%s%%, 유도 +%s%%, 스폰 +%s%%",
 		"keys": ["boomerang_knockback_pct", "boomerang_stun_pct", "boomerang_launch_speed_pct", "boomerang_homing_pct", "boomerang_spawn_bonus_pct"],
 	},
 	"sensor": {
-		"format": "자동대쉬 토큰 %s개, 쿨타임 %s초",
+		"format": "자동 활주 %s회, 쿨타임 %s초",
 		"keys": ["auto_dash_token_count", "auto_dash_cooldown_sec"],
 		"int_keys": {"auto_dash_token_count": true},
 	},
-	"dowsing_pendulum": {"format": "필드 아이템·스타포인트 흡인 범위 %spx", "keys": ["attraction_range"]},
-	"dowsing_goggles": {"format": "퍽 선택지 보너스 발동 확률 %s%%", "keys": ["bonus_perk_chance"]},
-	"chargebag": {"format": "벽 반사 게이지 +%s%%", "keys": ["chargebag_pct"]},
-	"battery": {"format": "스테이지 전환 게이지 보존 %s%%", "keys": ["gauge_preserve_pct"]},
+	"dowsing_pendulum": {"format": "필드 아이템·무혼 흡인 범위 %spx", "keys": ["attraction_range"]},
+	"dowsing_goggles": {
+		"format": "무공 선택지 보너스 발동 확률 %s%%, 무공 합일 상승무공 발현 확률 +%s%%p",
+		"keys": ["bonus_perk_chance", "fusion_byproduct_chance_pct"],
+	},
+	"chargebag": {"format": "벽 반사 기력 +%s%%", "keys": ["chargebag_pct"]},
+	"battery": {"format": "스테이지 전환 기력 보존 %s%%", "keys": ["gauge_preserve_pct"]},
 	"master": {
-		"format": "벽돌 길이 +%s%%, 아이템 쿨타임 %s%% 감소, 벽돌 스폰 +%s%%",
+		"format": "토벽·널뛰기 폭 +%s%%, 아이템 쿨타임 %s%% 감소, 토벽패 등장 +%s%%",
 		"keys": ["wall_length_pct", "item_cooldown_pct", "wall_spawn_bonus_pct"],
 	},
-	"gold_digger": {"format": "골드·일부 기력 획득 +%s%%", "keys": ["gold_bonus_pct"]},
+	"gold_digger": {"format": "골드 획득량 +%s%%", "keys": ["gold_bonus_pct"]},
 	"lucky_coin": {"format": "아이템 더블스폰 확률 %s%%", "keys": ["double_spawn_pct"]},
 	"shrapnel_armor": {
-		"format": "발동 %s%%, 파편 %s개, 넉백 Lv.%s, 게이지 %s 소모",
+		"format": "발동 %s%%, 파편 %s개, 넉백 Lv.%s, 기력 %s 소모",
 		"keys": ["trigger_chance_pct", "shard_count", "knockback_level", "gauge_cost"],
 		"int_keys": {"shard_count": true, "knockback_level": true},
 	},
-	"fuel_pouch": {"format": "최대 게이지 +%s", "keys": ["fuel_bonus_flat"]},
-	"bluetooth_ring": {"format": "히트 게이지 +%s%%", "keys": ["gauge_gain_pct"]},
+	"fuel_pouch": {"format": "최대 기력 +%s", "keys": ["fuel_bonus_flat"]},
+	"bluetooth_ring": {"format": "타격 기력 +%s%%", "keys": ["gauge_gain_pct"]},
 	"foul_whistle": {"format": "실점 무효 확률 %s%%", "keys": ["negate_chance_pct"]},
 	"neural_helmet": {
-		"format": "AI알약 게이지 비용 %s 감소, 스폰 +%s%%",
-		"keys": ["aipill_gauge_reduction", "aipill_spawn_bonus_pct"],
+		"format": "신령환 가드 기력 비용 %s 감소, 패들 반사 공속 추가 +%s%%, 스폰 +%s%%",
+		"keys": ["aipill_gauge_reduction", "aipill_ball_speed_bonus_pct", "aipill_spawn_bonus_pct"],
 	},
 	"commando_arm": {
 		"format": "투척 속도 +%s%%, 폭발 +%s%%, 연막 +%s%%, 준비 %s%% 감소",
 		"keys": ["throw_speed_pct", "explosion_range_pct", "smoke_duration_pct", "prep_reduction_pct"],
 	},
 	"rainbow_fur_glove": {
-		"format": "공 히트 시 발동 %s%%, 진행 중 스킬 쿨타임 %s%% 감소",
+		"format": "공 히트 시 발동 %s%%, 진행 중 초식의 전체 쿨타임 %s%% 감소",
 		"keys": ["rainbow_glove_trigger_chance_pct", "rainbow_glove_cooldown_reduction_pct"],
 	},
-	"knee_pads": {"format": "하프대쉬 히트 게이지 +%s%%", "keys": ["knee_charge_pct"]},
-	"soul_burst": {"format": "대쉬 토큰이 없을 때 풀대쉬 소모 %s", "keys": ["soul_burst_gauge_cost"]},
-	"bulletproof_hat": {"format": "스턴 저항 +%s%%", "keys": ["stun_resist_pct"]},
-	"spiked_helmet": {"format": "넉백 저항 +%s%%", "keys": ["knockback_resist_pct"]},
+	"knee_pads": {"format": "짧은 활주 타격 기력 +%s%%", "keys": ["knee_charge_pct"]},
+	"soul_burst": {"format": "활주 횟수가 없을 때 완전 활주 기력 %s", "keys": ["soul_burst_gauge_cost"]},
+	"bulletproof_hat": {"format": "자세보정 +%s%%", "keys": ["posture_correction_pct"]},
 	"venom_mist_gauntlet": {"format": "독안개 발동 %s%%, 지속 %s초", "keys": ["mist_trigger_chance_pct", "mist_duration_sec"]},
 }
 
@@ -144,6 +160,181 @@ static func resolve_stats_text(skill_id: String, descriptions: Dictionary, level
 	return str(highest) if highest != null else ""
 
 
+# 개광결은 대상 무공의 최종 수치에 독립 배율로 적용되므로, 기본 레벨 문구만
+# 그리면 실제 효과와 UI가 어긋난다. 생산 툴팁들이 같은 함수를 사용해 현재
+# 개광결 배율로 생긴 절대 추가분을 `(+N%)`(기령심법은 무단위)로 표시한다.
+static func resolve_stats_text_with_polish(
+	skill_id: String,
+	descriptions: Dictionary,
+	level: int,
+	runtime_state: Object
+) -> String:
+	return append_polish_delta(resolve_stats_text(skill_id, descriptions, level), skill_id, level, runtime_state)
+
+
+# TAB/ESC 보유 무공 툴팁 전용 상태 표기. 수치 추가분만 `(+N)`으로 붙이면
+# 개광결 대상이 하나도 없는 런(활주구슬 같은 카운트형 + 절세무공만 보유)에서
+# 적용 실패처럼 보인다. 개광결 자체에는 현재 적용 대상 수를, 다른 무공에는
+# 실제 배율 적용/대상 제외 여부를 한 줄로 명시한다. 선택 카드의 좁은 설명
+# 예산에는 이 상태 행을 넣지 않고 append_polish_delta()만 사용한다.
+static func append_polish_status(stats_text: String, skill_id: String, runtime_state: Object) -> String:
+	var status_text: String = get_polish_status_text(skill_id, runtime_state)
+	if status_text == "":
+		return stats_text
+	if stats_text.strip_edges() == "":
+		return status_text
+	return "%s, %s" % [stats_text, status_text]
+
+
+static func get_polish_status_text(skill_id: String, runtime_state: Object) -> String:
+	if runtime_state == null or LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
+		return ""
+	var polish_level: int = _get_runtime_skill_level(runtime_state, RuntimePerkEffectiveLevels.ITEM_POLISH_ID)
+	if polish_level <= 0:
+		return ""
+	var clean_id: String = skill_id.strip_edges()
+	if clean_id == "":
+		return ""
+	if clean_id == RuntimePerkEffectiveLevels.ITEM_POLISH_ID:
+		var target_count: int = _get_owned_polish_target_count(runtime_state)
+		return "현재 적용 대상 없음" if target_count <= 0 else "현재 적용 대상 %d개" % target_count
+	if not _is_polish_amplifiable_perk_id(clean_id):
+		return "개광결 미적용 · 대상 제외"
+	var multiplier: float = _get_polish_multiplier(runtime_state, clean_id)
+	if multiplier <= 1.0 + 0.0001:
+		return "개광결 미적용"
+	return "개광결 +%s%% 적용" % _format_number((multiplier - 1.0) * 100.0)
+
+
+static func _get_runtime_skill_level(runtime_state: Object, skill_id: String) -> int:
+	if runtime_state.has_method("get_runtime_skill_level"):
+		return max(0, int(runtime_state.call("get_runtime_skill_level", skill_id)))
+	if runtime_state.has_method("get_effective_runtime_skill_levels"):
+		var levels_value: Variant = runtime_state.call("get_effective_runtime_skill_levels")
+		if levels_value is Dictionary:
+			return max(0, int((levels_value as Dictionary).get(skill_id, 0)))
+	return 0
+
+
+static func _get_owned_polish_target_count(runtime_state: Object) -> int:
+	if not runtime_state.has_method("get_effective_runtime_skill_levels"):
+		return 0
+	var levels_value: Variant = runtime_state.call("get_effective_runtime_skill_levels")
+	if not (levels_value is Dictionary):
+		return 0
+	var levels: Dictionary = levels_value as Dictionary
+	var count := 0
+	for perk_id_value: Variant in levels.keys():
+		var perk_id := str(perk_id_value)
+		if int(levels.get(perk_id_value, 0)) > 0 and _is_polish_amplifiable_perk_id(perk_id):
+			count += 1
+	return count
+
+
+static func append_polish_delta(stats_text: String, skill_id: String, level: int, runtime_state: Object) -> String:
+	if stats_text == "" or level <= 0 or runtime_state == null:
+		return stats_text
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
+		return stats_text
+	var clean_id: String = skill_id.strip_edges()
+	if not _is_polish_amplifiable_perk_id(clean_id):
+		return stats_text
+	var multiplier: float = _get_polish_multiplier(runtime_state, clean_id)
+	if multiplier <= 1.0 + 0.0001:
+		return stats_text
+	if CONVERTED_TEMPLATES.has(clean_id):
+		return _converted_template_text_with_polish(clean_id, level, runtime_state)
+	var amplify_ratio: float = multiplier - 1.0
+	if clean_id == "dash_acceleration":
+		return _dash_acceleration_text_with_polish(level, amplify_ratio)
+	if not LINEAR_PATTERNS.has(clean_id):
+		return stats_text
+	return _linear_pattern_text_with_polish(clean_id, level, runtime_state)
+
+
+static func _is_polish_amplifiable_perk_id(skill_id: String) -> bool:
+	return RuntimePerkEffectiveLevels.is_polish_amplifiable_perk_id(skill_id)
+
+
+static func _converted_template_text_with_polish(
+	skill_id: String,
+	level: int,
+	runtime_state: Object
+) -> String:
+	var template: Dictionary = CONVERTED_TEMPLATES[skill_id]
+	var keys: Array = template["keys"]
+	var int_keys: Dictionary = template.get("int_keys", {})
+	var args: Array = []
+	for key_value: Variant in keys:
+		var key := str(key_value)
+		var base_value := PerkConversionValues.get_value(skill_id, key, level)
+		var amplified_value := PerkConversionValues.get_value_before_fusion(
+			skill_id,
+			key,
+			level,
+			runtime_state
+		)
+		if bool(int_keys.get(key, false)):
+			args.append(str(int(round(base_value))))
+			continue
+		var rendered_value := _format_number(base_value)
+		var delta := amplified_value - base_value
+		if absf(delta) > 0.0001:
+			rendered_value += " (%s%s)" % ["+" if delta > 0.0 else "", _format_number(delta)]
+		args.append(rendered_value)
+	return str(template["format"]) % args
+
+
+static func _get_polish_multiplier(runtime_state: Object, skill_id: String) -> float:
+	if runtime_state.has_method("get_perk_amplify_multiplier"):
+		return maxf(1.0, float(runtime_state.call("get_perk_amplify_multiplier", skill_id)))
+	# Compatibility for focused fakes and older runtime-state surfaces.
+	if runtime_state.has_method("_get_perk_amplify_multiplier"):
+		return maxf(1.0, float(runtime_state.call("_get_perk_amplify_multiplier", skill_id)))
+	return 1.0
+
+
+static func _linear_pattern_text_with_polish(
+	skill_id: String,
+	level: int,
+	runtime_state: Object
+) -> String:
+	var pattern: Dictionary = LINEAR_PATTERNS[skill_id]
+	var base_value: float = float(int(pattern["per_level"]) * level)
+	if pattern.has("value_max"):
+		base_value = minf(base_value, float(pattern["value_max"]))
+	var amplified_value := base_value
+	if runtime_state.has_method("get_runtime_skill_bonus_before_fusion"):
+		amplified_value = float(runtime_state.call("get_runtime_skill_bonus_before_fusion", skill_id))
+		if bool(RUNTIME_PERCENT_POINT_SKILL_IDS.get(skill_id, false)):
+			amplified_value *= 100.0
+	if pattern.has("value_max"):
+		amplified_value = minf(amplified_value, float(pattern["value_max"]))
+	var prefix: String = str(pattern["prefix"])
+	var suffix: String = str(pattern["suffix"])
+	var base_text: String = _format_number(base_value)
+	var has_percent_unit: bool = suffix.begins_with("%")
+	var delta_text: String = _format_polish_delta(amplified_value - base_value, has_percent_unit)
+	if has_percent_unit:
+		return "%s%s%% %s%s" % [prefix, base_text, delta_text, suffix.substr(1)]
+	return "%s%s %s%s" % [prefix, base_text, delta_text, suffix]
+
+
+static func _dash_acceleration_text_with_polish(level: int, amplify_ratio: float) -> String:
+	var height_value: float = 70.0 * float(level)
+	var width_value: float = 10.0 * float(level)
+	return "활주시 몸집 세로 %s%% %s·가로 %s%% %s 증가" % [
+		_format_number(height_value),
+		_format_polish_delta(height_value * amplify_ratio, true),
+		_format_number(width_value),
+		_format_polish_delta(width_value * amplify_ratio, true),
+	]
+
+
+static func _format_polish_delta(delta: float, percent_unit: bool) -> String:
+	return "(+%s%s)" % [_format_number(maxf(0.0, delta)), "%" if percent_unit else ""]
+
+
 # Pattern-generated stat line for any level (the smoke also calls this at
 # authored levels to seal template-vs-catalog equality). Returns "" for
 # unregistered perks and non-Korean locales.
@@ -153,11 +344,15 @@ static func generate_stats_text(skill_id: String, level: int) -> String:
 	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_KOREAN:
 		return ""
 	var clean_id: String = skill_id.strip_edges()
+	if clean_id == "dash_acceleration":
+		return _dash_acceleration_text(level)
 	if LINEAR_PATTERNS.has(clean_id):
 		return _linear_pattern_text(clean_id, level)
 	if CONVERTED_TEMPLATES.has(clean_id):
 		return _converted_template_text(clean_id, level)
 	match clean_id:
+		"downtown_treasure_map":
+			return _treasure_map_text(level)
 		"combo_amplifier_chip":
 			return _combo_amplifier_chip_text(level)
 		"pistol_enhance":
@@ -171,6 +366,10 @@ static func generate_stats_text(skill_id: String, level: int) -> String:
 		"four_poisons":
 			return _four_poisons_text(level)
 	return ""
+
+
+static func _dash_acceleration_text(level: int) -> String:
+	return "활주시 몸집 세로 %d%%·가로 %d%% 증가" % [70 * level, 10 * level]
 
 
 static func _linear_pattern_text(skill_id: String, level: int) -> String:
@@ -196,6 +395,18 @@ static func _converted_template_text(skill_id: String, level: int) -> String:
 	return str(template["format"]) % args
 
 
+# 천기보도 두 레인은 런타임에서 레벨 상한 없이 선형 증가한다.
+# 절세무공 확률: runtime_perk_effective_levels TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
+# (1.50 = +150%/lv) → stage_clear_reward_resolver의 보상 상자 신화 가중치 배율.
+# 비전초식 상자: TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
+# (0.03 = +3%p/lv) → victory_loot_phase_state의 승리당 1회 드랍 판정.
+static func _treasure_map_text(level: int) -> String:
+	return "절세무공 확률 +%d%%, 비전초식 상자 +%d%%p" % [
+		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL * 100.0)) * level,
+		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL * 100.0)) * level,
+	]
+
+
 # drive_curve caps at Lv.3 and the initial-boost decay reduction at 50%
 # (runtime: get_combo_amplifier_chip_bonus min(L,3), smasher_power_smash_
 # motion_resolver max(0.5, 1 - L*0.10)); the authored text marks both with
@@ -207,7 +418,7 @@ static func _combo_amplifier_chip_text(level: int) -> String:
 	var smash_speed: int = 45 * level
 	var decay: int = mini(10 * level, 50)
 	var decay_cap: String = "(캡)" if 10 * level >= 50 else ""
-	return "콤보 효과 증폭: 드라이브 공속+%d%%, 커브+%d%%%s, 파워스매시 공속+%d%%, 초기부스트 감쇄 -%d%%%s" % [
+	return "콤보 효과 증폭: 벽력타 공속+%d%%, 커브+%d%%%s, 천뢰격 공속+%d%%, 초기부스트 감쇄 -%d%%%s" % [
 		drive_speed, curve, curve_cap, smash_speed, decay, decay_cap,
 	]
 
@@ -225,7 +436,7 @@ static func _pistol_enhance_text(level: int) -> String:
 		ammo_bonus = level - 3
 	elif level >= 3:
 		ammo_bonus = 1
-	return "기본권총 정확도 ±%d°, 탄속 +%d%%, 넉백 +%d%%, 탄창 %d발" % [
+	return "단총통 정확도 ±%d°, 탄속 +%d%%, 넉백 +%d%%, 장전 %d발" % [
 		spread_deg, speed, knockback, 5 + ammo_bonus,
 	]
 
@@ -256,7 +467,7 @@ static func _kick_enhance_text(level: int) -> String:
 # (viper_skill_geometry.gd). The homing labels follow the authored gating.
 static func _blade_amp_text(level: int) -> String:
 	var range_cap: String = "(캡)" if level > 5 else ""
-	var text: String = "검기 사거리/가로폭 +%d%%%s, 검기 속도 +%d%%" % [
+	var text: String = "참격 사거리/가로폭 +%d%%%s, 참격 속도 +%d%%" % [
 		10 * mini(level, 5), range_cap, 10 * level,
 	]
 	if level >= 5:

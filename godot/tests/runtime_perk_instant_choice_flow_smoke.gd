@@ -76,14 +76,6 @@ class FakeActiveItemRuntime:
 		return 1
 
 
-class FakeTreasureRuntime:
-	extends RefCounted
-
-	var start_calls := 0
-
-	func start(_owner: Object, _registry: Object) -> Dictionary:
-		start_calls += 1
-		return {"ok": true, "feedback_text": "treasure-ok"}
 
 
 func _init() -> void:
@@ -163,11 +155,6 @@ func _verify_flow_state_facing_wrappers() -> void:
 	var monkey_result: Dictionary = flow.apply_monkey_blessing_choice_from_runtime_state(state, owner, registry, "Monkey")
 	_expect(bool(monkey_result.get("accepted", false)), "state-facing Monkey Blessing wrapper should accept valid runtime state")
 	_expect(active_runtime.fill_calls == 1 and active_runtime.last_fill_item == "banana", "state-facing Monkey Blessing wrapper should route get_instance through runtime state")
-	var treasure := FakeTreasureRuntime.new()
-	registry.instances["treasure_hunt_runtime"] = treasure
-	var treasure_result: Dictionary = flow.apply_treasure_hunt_choice_from_runtime_state(state, owner, registry)
-	_expect(bool(treasure_result.get("accepted", false)), "state-facing Treasure Hunt wrapper should accept valid runtime state")
-	_expect(treasure.start_calls == 1, "state-facing Treasure Hunt wrapper should route get_instance through runtime state")
 
 	state.current_choice_context = {
 		RuntimePerkDeferredInstants.DEFER_FULL_GAUGE_CONTEXT_KEY: true,
@@ -240,7 +227,6 @@ func _verify_source_contract() -> void:
 	_expect(flow_source.find("func apply_full_gauge_choice_from_runtime_state") >= 0, "instant flow should own runtime-state full-gauge assembly")
 	_expect(flow_source.find("func apply_dimension_gate_choice_from_runtime_state") >= 0, "instant flow should own runtime-state Dimension Gate assembly")
 	_expect(flow_source.find("func apply_monkey_blessing_choice_from_runtime_state") >= 0, "instant flow should own runtime-state Monkey Blessing assembly")
-	_expect(flow_source.find("func apply_treasure_hunt_choice_from_runtime_state") >= 0, "instant flow should own runtime-state Treasure Hunt assembly")
 	_expect(flow_source.find("func on_ball_spawn_intro_finished_from_runtime_state") >= 0, "instant flow should own runtime-state spawn-intro assembly")
 	_expect(flow_source.find("collect_spawn_intro_actions") >= 0, "instant flow should own deferred spawn-intro action collection")
 	_expect(flow_source.find("resolve_spawn_intro_actions") >= 0, "instant flow should own deferred spawn-intro action resolution")
@@ -265,10 +251,6 @@ func _verify_source_contract() -> void:
 	_expect(monkey_body.find("_instant_choice_flow.apply_monkey_blessing_choice_from_runtime_state") >= 0, "state Monkey Blessing wrapper should delegate to instant choice flow runtime-state API")
 	_expect(monkey_body.find("_instant_rewards") < 0, "state Monkey Blessing wrapper should not pass instant rewards directly")
 	_expect(monkey_body.find("Callable(self, \"_get_instance\")") < 0, "state Monkey Blessing wrapper should not build get-instance callbacks directly")
-	var treasure_body: String = _function_body(state_source, "func _apply_treasure_hunt_choice(")
-	_expect(treasure_body.find("_instant_choice_flow.apply_treasure_hunt_choice_from_runtime_state") >= 0, "state Treasure Hunt wrapper should delegate to instant choice flow runtime-state API")
-	_expect(treasure_body.find("_instant_rewards") < 0, "state Treasure Hunt wrapper should not pass instant rewards directly")
-	_expect(treasure_body.find("Callable(self, \"_get_instance\")") < 0, "state Treasure Hunt wrapper should not build get-instance callbacks directly")
 	var defer_body: String = _function_body(state_source, "func _should_defer_full_gauge_until_spawn_intro_end(")
 	_expect(defer_body.find("current_choice_context") < 0, "state defer wrapper should not pass current choice context directly")
 	_expect(defer_body.find("_deferred_instants") < 0, "state defer wrapper should not pass deferred helper directly")

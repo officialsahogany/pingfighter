@@ -3,6 +3,7 @@ extends RefCounted
 const BattlePlayfieldBallDrawer := preload("res://scripts/core/battle_playfield_ball_drawer.gd")
 const BattlePlayfieldEffectsDrawer := preload("res://scripts/core/battle_playfield_effects_drawer.gd")
 const BattlePlayfieldOverlayDrawer := preload("res://scripts/core/battle_playfield_overlay_drawer.gd")
+const SmasherVoidPhantomRenderer := preload("res://scripts/characters/smasher_void_phantom_renderer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const BLOCKING_OVERLAY_LOD_METHODS := [
@@ -23,6 +24,7 @@ const BLOCKING_OVERLAY_LOD_METHODS := [
 var ball_drawer: Object = BattlePlayfieldBallDrawer.new()
 var effects_drawer: Object = BattlePlayfieldEffectsDrawer.new()
 var overlay_drawer: Object = BattlePlayfieldOverlayDrawer.new()
+var _void_phantom_renderer: Object = SmasherVoidPhantomRenderer.new()
 var _mythic_draw_field_effects_accepts_perf_logger: int = -1
 var _mythic_draw_field_effects_accepts_timer_stack: int = -1
 var _mythic_draw_field_effects_accepts_draw_context: int = -1
@@ -68,7 +70,6 @@ func draw(
 			actor_context = draw_context_builder.build_actor_context(draw_context, draw_deps)
 		_perf_end(perf_logger, "context.actor", context_step_start)
 		_perf_end(perf_logger, "context.build_all", context_start)
-
 	var highlight_recorder: Object = _get_instance(registry, "victory_highlight_recorder")
 	if highlight_recorder != null and highlight_recorder.has_method("capture_visual"):
 		highlight_recorder.capture_visual(actor_context, draw_context)
@@ -103,6 +104,12 @@ func draw(
 	effects_drawer.draw_mystic_dice_paddle_effect(registry, draw_context, shake_offset)
 	_perf_end(perf_logger, "01b.mystic_dice_paddle", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_perk_fusion_byproduct_effects(canvas, registry, shake_offset)
+	_perf_end(perf_logger, "01c.perk_fusion_byproduct", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	effects_drawer.draw_smasher_overdrive_meteor_effect(canvas, registry, draw_context, shake_offset)
+	_perf_end(perf_logger, "01d.smasher_overdrive_meteor", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_stage1_butterfly_event(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "02.stage1_butterfly", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -129,8 +136,25 @@ func draw(
 	_draw_lingpet_runtime(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "08b.lingpet", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	ball_drawer.draw_ball(canvas, registry, draw_context_builder, draw_context, draw_deps, shake_offset, width, height, perf_logger)
+	var live_ball_renderer_context: Dictionary = ball_drawer.draw_ball(
+		canvas,
+		registry,
+		draw_context_builder,
+		draw_context,
+		draw_deps,
+		shake_offset,
+		width,
+		height,
+		perf_logger
+	)
 	_perf_end(perf_logger, "09.ball", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	# 환영공은 실제 공과 같은 z-계층이다. 둘 사이에 전면 날씨/스킬/필드 레이어가
+	# 끼면 "나중에 선명하게 뜨는 쪽이 가짜"라는 판별 텔이 생긴다.
+	_draw_void_phantom_decoys(
+		canvas, registry, shake_offset, draw_context, live_ball_renderer_context
+	)
+	_perf_end(perf_logger, "09a.void_phantom", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_stage1_balloon_foreground(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "10.stage1_balloon_fg", sample_start)
@@ -156,6 +180,13 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	effects_drawer.draw_smasher_wheel_effects(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "17.smasher_wheel", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	effects_drawer.draw_dalji_vision_chosik_effects(canvas, registry, shake_offset)
+	_perf_end(perf_logger, "17b.dalji_vision_chosik", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	effects_drawer.draw_cheongringwi_vision_chosik_effects(canvas, registry, shake_offset)
+	effects_drawer.draw_yeonmyo_vision_chosik_effects(canvas, registry, shake_offset)
+	_perf_end(perf_logger, "17c.cheongringwi_vision_chosik", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	effects_drawer.draw_plasma_effects(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "18.plasma", sample_start)
@@ -231,10 +262,23 @@ func draw(
 	_perf_remember_context(perf_logger, draw_context)
 
 
-# §B-3: 링펫 본체 훅 + 탑다운 M 베이스 훅 주입. 두 훅을 한 곳에서 심어야 새
-# 진입점이 형제 훅을 조용히 빠뜨리지 않는다(§C-2 억제는 본체 훅 쪽 계약이라
-# M 훅이 없으면 탑승 중 아무것도 안 그려진다). 씰이 실 주입 경로를 관통할 수
-# 있도록 공개 헬퍼로 둔다.
+func _draw_perk_fusion_byproduct_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2
+) -> void:
+	var runtime_perk_state: Object = _get_cached_instance(registry, "runtime_perk_state")
+	if (
+		runtime_perk_state != null
+		and runtime_perk_state.has_method("has_perk_fusion_byproduct_visible_effects")
+		and bool(runtime_perk_state.has_perk_fusion_byproduct_visible_effects())
+		and runtime_perk_state.has_method("draw_perk_fusion_byproduct_effects")
+	):
+		runtime_perk_state.draw_perk_fusion_byproduct_effects(canvas, shake_offset)
+
+
+# S3-b §B-3. 본체·M 두 훅 주입 — 생산 경로와 씰이 공유하는 정본 헬퍼다.
+# 인라인으로 풀어 쓰면 씰이 주입 배선을 증명하지 못한다(2026-08-15 회귀 복구).
 static func install_lingpet_draw_hooks(actor_context: Dictionary, lingpet_body_runtime: Object, shake_offset: Vector2) -> void:
 	if lingpet_body_runtime == null:
 		return
@@ -362,6 +406,7 @@ func _draw_victory_loot_boxes(canvas: CanvasItem, registry: Object, shake_offset
 	if loot_state.has_method("draw"):
 		loot_state.draw(canvas, shake_offset)
 
+
 func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
 	# Draw-path lookup must remain cached-only. The victory-flow transition owns
 	# creation, so the default-off lane cannot cold-instantiate this module.
@@ -373,6 +418,49 @@ func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
 		and flow_owner.has_method("draw")
 	):
 		flow_owner.draw(canvas)
+
+
+func _draw_void_phantom_decoys(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2,
+	scene_draw_context: Dictionary = {},
+	live_ball_renderer_context: Dictionary = {}
+) -> void:
+	# ⚠️peek 전용: 매 프레임 도는 드로우 경로다. get_instance 는 미생성 모듈을
+	# 콜드 인스턴스화해 첫 호출을 히치로 만든다(Hot-Path Lazy Init Trap).
+	# 미캐시 = 초식이 한 번도 돌아본 적 없음이므로 그릴 환영도 없다.
+	var state: Object = _get_cached_instance(registry, "smasher_void_phantom_state")
+	if state == null or not state.has_method("has_visible_effects"):
+		if _void_phantom_renderer.has_method("set_active"):
+			_void_phantom_renderer.set_active(false)
+		return
+	if not bool(state.has_visible_effects()):
+		if _void_phantom_renderer.has_method("set_active"):
+			_void_phantom_renderer.set_active(false)
+		return
+	var draw_context: Dictionary = state.build_draw_context()
+	if draw_context.is_empty():
+		if _void_phantom_renderer.has_method("set_active"):
+			_void_phantom_renderer.set_active(false)
+		return
+	var textures_value: Variant = scene_draw_context.get("textures", {})
+	if textures_value is Dictionary:
+		var seal_ring_texture: Variant = textures_value.get("smasher_void_phantom_seal_ring", null)
+		if seal_ring_texture is Texture2D:
+			draw_context["seal_ring_texture"] = seal_ring_texture
+	# 실제 공이 방금 사용한 완성 컨텍스트를 재사용한다. 스킬 색, 그림자,
+	# 상태 오버레이, 공 전용 잔상과 LOD가 환영 쪽에서 따로 갈라지지 않는다.
+	var effect_lod_scale: float = clampf(
+		float(live_ball_renderer_context.get("effect_lod_scale", 1.0)), 0.25, 1.0
+	)
+	_void_phantom_renderer.draw(
+		canvas,
+		draw_context,
+		shake_offset,
+		effect_lod_scale,
+		live_ball_renderer_context
+	)
 
 
 func _draw_active_item_field(

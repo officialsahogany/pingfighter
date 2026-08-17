@@ -2,7 +2,7 @@ extends SceneTree
 
 const Stage1BalloonEvent := preload("res://scripts/stages/stage1/stage1_balloon_event.gd")
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
-const Stage3BossSkillState := preload("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+const Stage3StarpointState := preload("res://scripts/stages/stage3/stage3_starpoint_state.gd")
 const Stage4BirdEvent := preload("res://scripts/stages/stage4/stage4_bird_event.gd")
 const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 
@@ -89,15 +89,15 @@ func _verify_common_compaction_helpers() -> void:
 
 func _verify_stage_sources_delegate_compaction() -> void:
 	var in_place_paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 	]
 	for path in in_place_paths:
 		var source: String = FileAccess.get_file_as_string(path)
 		_expect(source.find("StarpointCollectionCompaction.finish_in_place") >= 0, "%s should delegate in-place modal compaction" % path)
 		_expect(source.find("func _finish_starpoint_modal_collection") < 0, "%s should not keep private modal compaction" % path)
-	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_boss_skill_state.gd")
+	var stage3_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_starpoint_state.gd")
 	_expect(stage3_source.find("StarpointCollectionCompaction.build_preserved_after_modal") >= 0, "Stage 3 should delegate kept-array modal compaction")
 	_expect(stage3_source.find("func _finish_starpoint_modal_collection") < 0, "Stage 3 should not keep private modal compaction")
 
@@ -163,16 +163,17 @@ func _verify_stage2_collection_preserves_remaining_drop_after_modal() -> void:
 
 
 func _verify_stage3_collection_preserves_remaining_drop_after_modal() -> void:
-	var boss_state := Stage3BossSkillState.new()
-	boss_state.starpoint_drops = [
-		_make_drop(Vector2(100.0, 100.0), Stage3BossSkillState.STARPOINT_DROP_SIZE),
-		_make_drop(Vector2(110.0, 100.0), Stage3BossSkillState.STARPOINT_DROP_SIZE),
-	]
-	var runtime_state := RuntimePerkStateStub.new(boss_state)
-	boss_state._update_starpoint_drops(0.0, _context(3), {"runtime_perk_state": runtime_state})
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 33031
+	var starpoint_state := Stage3StarpointState.new(rng)
+	starpoint_state.spawn_drop_at(Vector2(100.0, 100.0), {}, {}, false)
+	starpoint_state.spawn_drop_at(Vector2(110.0, 100.0), {}, {}, false)
+	var runtime_state := RuntimePerkStateStub.new(starpoint_state)
+	starpoint_state.update(0.0, _context(3), {"runtime_perk_state": runtime_state})
+	var remaining: Array = starpoint_state.get_snapshot().get("stage3_starpoint_drops", [])
 	_expect(runtime_state.collect_calls == 1, "Stage 3 should collect exactly one starpoint before the modal opens")
-	_expect(boss_state.starpoint_drops.size() == 1, "Stage 3 should preserve remaining starpoint drops after the modal opens")
-	_expect(_drop_pos(boss_state.starpoint_drops[0]) == Vector2(110.0, 100.0), "Stage 3 should remove only the collected starpoint")
+	_expect(remaining.size() == 1, "Stage 3 should preserve remaining starpoint drops after the modal opens")
+	_expect(_drop_pos(remaining[0]) == Vector2(110.0, 100.0), "Stage 3 should remove only the collected starpoint")
 
 
 func _verify_stage4_collection_preserves_remaining_drop_after_modal() -> void:

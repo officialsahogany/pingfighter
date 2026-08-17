@@ -31,15 +31,14 @@ func is_speedgear_equipped(runtime: Object) -> bool:
 
 func is_speedgear_effect_active(runtime: Object) -> bool:
 	if PerkConversionFlags.is_enabled():
-		return _get_converted_perk_level(runtime, ITEM_SPEEDGEAR) > 0
+		# 전환 무공은 퇴역했다. 전환 OFF의 레거시 보정 벨트만 보존한다.
+		return false
 	return is_speedgear_equipped(runtime)
 
 
 func get_speedgear_turn_decel_multiplier(runtime: Object) -> float:
 	if not is_speedgear_effect_active(runtime):
 		return 1.0
-	if PerkConversionFlags.is_enabled():
-		return max(0.0, _get_converted_perk_value(runtime, ITEM_SPEEDGEAR, "speedgear_turn_decel_multiplier"))
 	return max(0.0, SPEEDGEAR_TURN_DECEL_MULTIPLIER)
 
 
@@ -52,11 +51,14 @@ func is_gravitybelt_equipped(runtime: Object) -> bool:
 
 
 func is_gravitybelt_active(runtime: Object) -> bool:
-	return is_gravitybelt_equipped(runtime)
+	return is_gravitybelt_effect_active(runtime)
 
 
 func is_gravitybelt_effect_active(runtime: Object) -> bool:
 	if PerkConversionFlags.is_enabled():
+		if _owns_promoted_fusion_byproduct(runtime, ITEM_GRAVITYBELT):
+			return true
+		# 구 세이브는 일반 무공 레벨을 보존하므로 한 버전 이상 호환한다.
 		return (
 			_get_converted_perk_level(runtime, ITEM_GRAVITYBELT) > 0
 			and _get_converted_perk_value(runtime, ITEM_GRAVITYBELT, "gravitybelt_instant_movement") > 0.0
@@ -214,3 +216,15 @@ func _get_converted_perk_level(runtime: Object, perk_id: String) -> int:
 	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
 		return max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
 	return 0
+
+
+func _owns_promoted_fusion_byproduct(runtime: Object, byproduct_id: String) -> bool:
+	if runtime == null:
+		return false
+	var perk_state: Object = runtime.get("runtime_perk_state_ref")
+	return (
+		perk_state != null
+		and is_instance_valid(perk_state)
+		and perk_state.has_method("has_perk_fusion_byproduct")
+		and bool(perk_state.has_perk_fusion_byproduct(byproduct_id))
+	)

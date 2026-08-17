@@ -22,22 +22,32 @@ func _init() -> void:
 
 func _verify_outcome_weights() -> void:
 	var base_weights: Dictionary = PerkFusionOutcomeRules.build_outcome_weights()
-	_expect_float(float(base_weights.get("success", 0.0)), 55.0, "base success weight should be 55 percent")
-	_expect_float(float(base_weights.get("side_effect", 0.0)), 25.0, "base side-effect weight should be 25 percent")
-	_expect_float(float(base_weights.get("byproduct", 0.0)), 20.0, "base byproduct weight should be 20 percent")
+	_expect_float(float(base_weights.get("success", 0.0)), 20.0, "base preserved weight should be 20 percent")
+	_expect_float(float(base_weights.get("side_effect", 0.0)), 10.0, "base qi-deviation weight should be 10 percent")
+	_expect_float(float(base_weights.get("byproduct", 0.0)), 70.0, "base Superior Martial Art weight should be 70 percent")
+	_expect_float(float(base_weights.get("byproduct_count_1", 0.0)), 40.0, "one-art final weight should be 40 percent")
+	_expect_float(float(base_weights.get("byproduct_count_2", 0.0)), 20.0, "two-art final weight should be 20 percent")
+	_expect_float(float(base_weights.get("byproduct_count_3", 0.0)), 10.0, "three-art final weight should be 10 percent")
 	_expect_float(_sum_weights(base_weights), 100.0, "base outcome weights should sum to 100 percent")
+	_expect_float(_sum_byproduct_count_weights(base_weights), 70.0, "count-specific weights should sum to the Superior Martial Art bucket")
 
 	var catalyst_weights: Dictionary = PerkFusionOutcomeRules.build_outcome_weights(true)
-	_expect_float(float(catalyst_weights.get("success", 0.0)), 40.0, "dual catalyst should subtract 15 percentage points from success")
-	_expect_float(float(catalyst_weights.get("side_effect", 0.0)), 25.0, "dual catalyst should preserve side-effect weight")
-	_expect_float(float(catalyst_weights.get("byproduct", 0.0)), 35.0, "dual catalyst should add 15 percentage points to byproduct")
+	_expect_float(float(catalyst_weights.get("success", 0.0)), 5.0, "dual catalyst should subtract 15 percentage points from preservation")
+	_expect_float(float(catalyst_weights.get("side_effect", 0.0)), 10.0, "dual catalyst should preserve qi-deviation weight")
+	_expect_float(float(catalyst_weights.get("byproduct", 0.0)), 85.0, "dual catalyst should add 15 percentage points to Superior Martial Art")
 	_expect_float(_sum_weights(catalyst_weights), 100.0, "dual-catalyst outcome weights should sum to 100 percent")
+	_expect_float(_sum_byproduct_count_weights(catalyst_weights), 85.0, "boosted count weights should track the boosted Superior Martial Art bucket")
 
 	var empty_pool_weights: Dictionary = PerkFusionOutcomeRules.build_final_outcome_weights(true, true)
-	_expect_float(float(empty_pool_weights.get("success", 0.0)), 75.0, "empty pool should centralize its success redistribution")
-	_expect_float(float(empty_pool_weights.get("side_effect", 0.0)), 25.0, "empty pool should preserve side-effect weight")
+	_expect_float(float(empty_pool_weights.get("success", 0.0)), 90.0, "empty pool should return unavailable Superior Martial Art weight to preservation")
+	_expect_float(float(empty_pool_weights.get("side_effect", 0.0)), 10.0, "empty pool should preserve qi-deviation weight")
 	_expect_float(float(empty_pool_weights.get("byproduct", -1.0)), 0.0, "empty pool should suppress the byproduct bucket even with dual catalyst")
 	_expect_float(_sum_weights(empty_pool_weights), 100.0, "empty-pool final weights should sum to 100 percent")
+
+	var two_available: Dictionary = PerkFusionOutcomeRules.build_final_outcome_weights(false, false, 0.0, 2)
+	_expect_float(float(two_available.get("byproduct_count_1", 0.0)), 40.0, "one-art weight should remain intact with two rewards available")
+	_expect_float(float(two_available.get("byproduct_count_2", 0.0)), 30.0, "unavailable three-art weight should fold into the two-art result")
+	_expect_float(float(two_available.get("byproduct_count_3", -1.0)), 0.0, "three-art result should be impossible with only two rewards available")
 
 
 
@@ -93,6 +103,14 @@ func _sum_weights(weights: Dictionary) -> float:
 		float(weights.get("success", 0.0))
 		+ float(weights.get("side_effect", 0.0))
 		+ float(weights.get("byproduct", 0.0))
+	)
+
+
+func _sum_byproduct_count_weights(weights: Dictionary) -> float:
+	return (
+		float(weights.get("byproduct_count_1", 0.0))
+		+ float(weights.get("byproduct_count_2", 0.0))
+		+ float(weights.get("byproduct_count_3", 0.0))
 	)
 
 

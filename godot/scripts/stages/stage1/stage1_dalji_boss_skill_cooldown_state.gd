@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
+
 const STAGE_ID := 1
 const SKILL_SPINNING_TOP := "spinning_top"
 const SKILL_WHIP := "whip"
@@ -43,7 +45,7 @@ func update(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dic
 	return {}
 
 
-func consume_on_hit(skill_id: String, _context: Dictionary = {}, _deps: Dictionary = {}) -> bool:
+func consume_on_hit(skill_id: String, context: Dictionary = {}, deps: Dictionary = {}) -> bool:
 	if skill_id != SKILL_WHIP:
 		return false
 	var runtime: Dictionary = _get_runtime(SKILL_WHIP)
@@ -54,6 +56,8 @@ func consume_on_hit(skill_id: String, _context: Dictionary = {}, _deps: Dictiona
 	runtime["status"] = "casting"
 	runtime["flash_timer"] = CAST_FLASH_FRAMES
 	skill_runtime[SKILL_WHIP] = runtime
+	if BossSkillParryGate.try_parry(SKILL_WHIP, "상모돌리기", context, deps):
+		return false
 	return true
 
 
@@ -100,6 +104,14 @@ func _update_spinning_top(fps_scale: float, context: Dictionary, deps: Dictionar
 	runtime = _charge_skill(runtime, fps_scale)
 	if bool(runtime.get("ready", false)):
 		runtime["status"] = "ready"
+		if BossSkillParryGate.try_parry(SKILL_SPINNING_TOP, "팽이치기", context, deps):
+			runtime["timer"] = 0.0
+			runtime["ready"] = false
+			runtime["used"] = false
+			runtime["status"] = "charging"
+			runtime["flash_timer"] = CAST_FLASH_FRAMES
+			skill_runtime[SKILL_SPINNING_TOP] = runtime
+			return
 		if spinning_top_state != null and spinning_top_state.has_method("activate"):
 			if bool(spinning_top_state.activate(context, deps)):
 				runtime["timer"] = 0.0

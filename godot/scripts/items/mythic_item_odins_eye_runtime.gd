@@ -187,6 +187,11 @@ func get_dash_token_limit_override(runtime: Object) -> Variant:
 	return state.get_dash_token_limit_override()
 
 
+func get_dash_distance_multiplier(runtime: Object) -> float:
+	var state: Object = runtime.odins_eye_state
+	return 1.0 if state == null else state.get_dash_distance_multiplier()
+
+
 func get_dash_cooldown_multiplier(runtime: Object) -> float:
 	var state: Object = runtime.odins_eye_state
 	return 1.0 if state == null else state.get_dash_cooldown_multiplier()

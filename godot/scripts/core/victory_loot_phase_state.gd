@@ -9,6 +9,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearRewardPlanBuilder := preload("res://scripts/core/stage_clear_result_reward_plan_builder.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -23,8 +24,8 @@ const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 
 const BOX_KIND_NORMAL := "normal"
-const BOX_KIND_ADVANCED := "advanced"
 const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
+const LEGACY_BOX_KIND_ADVANCED := "advanced"
 const LEGACY_BOX_KIND_MYTHIC := "mythic"
 const BOX_KIND_TOWER_NORMAL := TowerAscentChestContract.CHEST_NORMAL
 const BOX_KIND_TOWER_SUPREME_ART := TowerAscentChestContract.CHEST_SUPREME_ART
@@ -42,11 +43,16 @@ const BOX_DRAW_SIZE := 78.0 / BOX_FRAME_ASSET_GUARD_SCALE
 
 const BOX_SHEET_PATHS := {
 	BOX_KIND_NORMAL: "res://assets/sprites/result_boxes/result_box_common_open_16f.png",
-	BOX_KIND_ADVANCED: "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png",
 	BOX_KIND_GUARANTEED_MYTHIC: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
 	BOX_KIND_TOWER_NORMAL: "res://assets/sprites/result_boxes/result_box_common_open_16f.png",
 	BOX_KIND_TOWER_SUPREME_ART: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
 	BOX_KIND_TOWER_SECRET_CHOSIK: "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png",
+}
+const DALJI_VISION_BOX_SHEET_PATH := "res://assets/sprites/result_boxes/result_box_dalji_vision_open_16f_imagegen_v1.png"
+const CHEONGRINGWI_VISION_BOX_SHEET_PATH := "res://assets/sprites/result_boxes/result_box_cheongringwi_vision_earth_vein_open_16f_imagegen_v1.png"
+const BOSS_VISION_BOX_SHEET_PATHS := {
+	CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID: DALJI_VISION_BOX_SHEET_PATH,
+	CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID: CHEONGRINGWI_VISION_BOX_SHEET_PATH,
 }
 
 # 인트로: 스코어보드의 파워로스 진동이 끝난 뒤, 보스가 힘을 잃고 패배 라투디를
@@ -92,7 +98,6 @@ const DROP_FLASH_GLOW_RADIUS_PX := 84.0
 const DROP_FLASH_SPARKLE_COUNT := 5
 const DROP_FLASH_KIND_COLORS := {
 	BOX_KIND_NORMAL: Color(1.0, 0.86, 0.55),
-	BOX_KIND_ADVANCED: Color(0.55, 0.95, 0.85),
 	BOX_KIND_GUARANTEED_MYTHIC: Color(0.85, 0.6, 1.0),
 	BOX_KIND_TOWER_NORMAL: Color(1.0, 0.86, 0.55),
 	BOX_KIND_TOWER_SUPREME_ART: Color(0.85, 0.6, 1.0),
@@ -104,14 +109,16 @@ const DROP_FLASH_KIND_COLORS := {
 # 에서 0프레임부터 재생된다.
 const BOSS_RESULT_FRAME_SPEED := 0.18
 const BOSS_RESULT_FRAME_COUNT := 8
-const BOSS_STAGE2_DEFEAT_FRAME_SPEED := 0.025
-const BOSS_STAGE2_DEFEAT_FRAME_COUNT := 64
+const BOSS_STAGE2_DEFEAT_FRAME_SPEED := 0.100
+const BOSS_STAGE2_DEFEAT_FRAME_COUNT := 8
 
 const BOX_PHASE_PENDING := "pending"
 const BOX_PHASE_DROP := "drop"
 const BOX_PHASE_REST := "rest"
 const BOX_PHASE_OPENING := "opening"
 const BOX_PHASE_DONE := "done"
+const BOSS_VISION_OFFER_CHANCE := 0.20
+const DALJI_VISION_OFFER_CHANCE := BOSS_VISION_OFFER_CHANCE
 
 var active: bool = false
 var elapsed_sec: float = 0.0
@@ -131,6 +138,7 @@ var _tower_chest_context_builder: Object = TowerAscentChestContextBuilder.new()
 var _reward_resolver: Object = null
 var _drop_flash_timer: float = 0.0
 var _drop_flash_kind: String = BOX_KIND_NORMAL
+var _vision_offer_roll_for_tests: Callable = Callable()
 
 
 func start(
@@ -155,11 +163,12 @@ func start(
 	else:
 		plan = _plan_builder.build_reward_plan(player_score, boss_score)
 	var plan_boxes_value: Variant = plan.get("boxes", [])
-	var plan_boxes: Array = plan_boxes_value if plan_boxes_value is Array else []
+	var plan_boxes: Array = (plan_boxes_value as Array).duplicate(true) if plan_boxes_value is Array else []
 	if plan_boxes.is_empty():
 		return false
 	_owner = owner
 	_registry = registry
+	_try_mark_boss_vision_offer_box(plan_boxes, owner)
 	_ensure_reward_resolver()
 	boxes = _build_boxes(plan_boxes, owner)
 	_prewarm_box_textures()
@@ -287,6 +296,7 @@ func get_status_for_tests() -> Dictionary:
 		"drop_flash_kind": _drop_flash_kind,
 		"intro_impact_active": elapsed_sec < INTRO_IMPACT_DUST_SEC,
 		"box_count": boxes.size(),
+		"vision_offer_box_count": boxes.filter(func(box): return box is Dictionary and str((box as Dictionary).get("boss_vision_offer_id", "")) != "").size(),
 		"box_phases": boxes.map(func(box): return str((box as Dictionary).get("phase", "")) if box is Dictionary else ""),
 		"collected_reward_count": collected_rewards.size(),
 		"finish_fired": _finish_fired,
@@ -296,6 +306,18 @@ func get_status_for_tests() -> Dictionary:
 
 func set_reward_resolver_for_test(reward_resolver: Object) -> void:
 	_reward_resolver = reward_resolver
+
+
+func set_vision_offer_roll_for_tests(roll_callable: Callable) -> void:
+	_vision_offer_roll_for_tests = roll_callable
+
+
+func clear_vision_offer_roll_for_tests() -> void:
+	_vision_offer_roll_for_tests = Callable()
+
+
+func get_box_sheet_path_for_tests(box: Dictionary) -> String:
+	return _get_box_sheet_path(box)
 
 
 func force_box_rest_for_test(box_index: int) -> void:
@@ -332,7 +354,6 @@ func _build_boxes(plan_boxes: Array, owner: Object) -> Array:
 		)
 		built.append({
 			"kind": kind,
-			"boss_vision_offer_id": boss_vision_offer_id,
 			"pos": Vector2(origin.x, origin.y),
 			"base_x": rest_x,
 			"fall_speed": -DROP_POP_SPEED_PX_PER_FRAME,
@@ -342,6 +363,7 @@ func _build_boxes(plan_boxes: Array, owner: Object) -> Array:
 			"sway_phase": float(index) * 1.7,
 			"open_progress": 0.0,
 			"reward_granted": false,
+			"boss_vision_offer_id": boss_vision_offer_id,
 		})
 	return built
 
@@ -417,12 +439,17 @@ func _grant_box_reward(box: Dictionary) -> void:
 		return
 	var kind: String = str(box.get("kind", BOX_KIND_NORMAL))
 	var pos: Vector2 = _get_vector2(box.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var boss_vision_offer_id := str(box.get("boss_vision_offer_id", ""))
 	var reward_value: Variant
+	var boss_vision_offer_id := str(box.get("boss_vision_offer_id", ""))
 	if boss_vision_offer_id != "":
-		reward_value = _tower_chest_context_builder.build_secret_chosik_reward(
-			boss_vision_offer_id
-		)
+		var manual_data := CommonSkillCatalog.get_unlock_perk_data(boss_vision_offer_id)
+		reward_value = {
+			"type": "starpoint",
+			"amount": 1,
+			"label": str(manual_data.get("name", "보스 비전 초식 비급")),
+			"reserved_perk_offer_id": boss_vision_offer_id,
+			"source": "boss_vision_box",
+		}
 	else:
 		reward_value = _reward_resolver.roll_reward(kind, _owner, _registry)
 	if not (reward_value is Dictionary):
@@ -449,13 +476,97 @@ func _grant_box_reward(box: Dictionary) -> void:
 	if _grant_reward_through_resolver(fallback_reward):
 		collected_rewards.append(fallback_reward)
 		return
-	# 스타포인트 인프라마저 없으면 지급 수단이 없다 — 소실을 기록만 하고 상자
-	# 완료는 유지한다(전리품 페이즈 소프트락 방지).
 	reward["grant_failed"] = true
 	collected_rewards.append(reward)
 
 
+func _try_mark_boss_vision_offer_box(plan_boxes: Array, owner: Object) -> void:
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return
+	var vision_offer_id := _get_boss_vision_offer_id(owner)
+	if vision_offer_id == "":
+		return
+	if plan_boxes.is_empty() or _is_boss_vision_owned(vision_offer_id):
+		return
+	var roll := randf()
+	if _vision_offer_roll_for_tests.is_valid():
+		roll = float(_vision_offer_roll_for_tests.call())
+	if roll >= _get_boss_vision_offer_chance():
+		return
+	var box_index := -1
+	for index in range(plan_boxes.size() - 1, -1, -1):
+		var candidate_value: Variant = plan_boxes[index]
+		var candidate_kind := BOX_KIND_NORMAL
+		if candidate_value is Dictionary:
+			candidate_kind = _normalize_box_kind(str((candidate_value as Dictionary).get("kind", BOX_KIND_NORMAL)))
+		if candidate_kind == BOX_KIND_NORMAL:
+			box_index = index
+			break
+	if box_index < 0:
+		for fallback_index in range(plan_boxes.size() - 1, -1, -1):
+			var fallback_value: Variant = plan_boxes[fallback_index]
+			var fallback_kind := BOX_KIND_NORMAL
+			if fallback_value is Dictionary:
+				fallback_kind = _normalize_box_kind(str((fallback_value as Dictionary).get("kind", BOX_KIND_NORMAL)))
+			if fallback_kind != BOX_KIND_GUARANTEED_MYTHIC:
+				box_index = fallback_index
+				break
+	if box_index < 0:
+		return
+	var value: Variant = plan_boxes[box_index]
+	var marked_box: Dictionary = (value as Dictionary).duplicate(true) if value is Dictionary else {"kind": BOX_KIND_NORMAL}
+	marked_box["boss_vision_offer_id"] = vision_offer_id
+	plan_boxes[box_index] = marked_box
+
+
+func _build_tower_chest_context(owner: Object, registry: Object) -> Dictionary:
+	return _tower_chest_context_builder.build(owner, registry, _current_stage)
+
+
+func _get_boss_vision_offer_id(owner: Object) -> String:
+	if _current_stage == 1:
+		if str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower() == "dalji":
+			return CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+		return ""
+	if _current_stage == 2:
+		return CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
+	if _current_stage == 3:
+		return CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID
+	return ""
+
+
+func _get_boss_vision_offer_chance() -> float:
+	var runtime_perk_state: Object = _get_registry_instance("runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_vision_box_chance"):
+		return clampf(
+			float(runtime_perk_state.call(
+				"get_downtown_treasure_map_vision_box_chance",
+				BOSS_VISION_OFFER_CHANCE
+			)),
+			0.0,
+			1.0
+		)
+	return BOSS_VISION_OFFER_CHANCE
+
+
+func _is_boss_vision_owned(vision_unlock_id: String) -> bool:
+	var runtime_perk_state: Object = _get_registry_instance("runtime_perk_state")
+	if runtime_perk_state == null:
+		return false
+	var levels_value: Variant = _get_object_value(runtime_perk_state, "runtime_skill_levels", {})
+	if not (levels_value is Dictionary):
+		return false
+	var levels := levels_value as Dictionary
+	var vision_skill_id := CommonSkillCatalog.get_skill_id_for_unlock(vision_unlock_id)
+	return (
+		int(levels.get(vision_unlock_id, 0)) > 0
+		or (vision_skill_id != "" and int(levels.get(vision_skill_id, 0)) > 0)
+	)
+
+
 func _grant_reward_through_resolver(reward: Dictionary) -> bool:
+	# 스타포인트 인프라마저 없으면 지급 수단이 없다 — 소실을 기록만 하고 상자
+	# 완료는 유지한다(전리품 페이즈 소프트락 방지).
 	var summary_value: Variant = _reward_resolver.grant_rewards([reward], _owner, _registry)
 	if not (summary_value is Dictionary):
 		return false
@@ -590,7 +701,7 @@ func _draw_box(canvas: CanvasItem, box: Dictionary, phase: String, shake_offset:
 				cos(elapsed_sec * 39.0) * 1.4 * shake_intensity
 			)
 	_draw_box_shadow(canvas, box, pos, shake_offset)
-	var texture: Texture2D = ProjectResourceLoader.get_cached_texture(str(BOX_SHEET_PATHS.get(kind, BOX_SHEET_PATHS[BOX_KIND_NORMAL])))
+	var texture: Texture2D = ProjectResourceLoader.get_cached_texture(_get_box_sheet_path(box))
 	if texture == null:
 		var fallback_rect := Rect2(draw_center - Vector2(28.0, 22.0), Vector2(56.0, 44.0))
 		canvas.draw_rect(fallback_rect, Color(0.62, 0.46, 0.22, 0.95))
@@ -628,19 +739,28 @@ func _draw_box_shadow(canvas: CanvasItem, box: Dictionary, pos: Vector2, shake_o
 
 
 func _prewarm_box_textures() -> void:
-	var seen_kinds := {}
+	var seen_paths := {}
 	for box_value in boxes:
 		if not (box_value is Dictionary):
 			continue
-		var kind: String = str((box_value as Dictionary).get("kind", BOX_KIND_NORMAL))
-		if seen_kinds.has(kind):
+		var box := box_value as Dictionary
+		var sheet_path := _get_box_sheet_path(box)
+		if seen_paths.has(sheet_path):
 			continue
-		seen_kinds[kind] = true
+		seen_paths[sheet_path] = true
 		ProjectResourceLoader.load_imported_texture(
-			str(BOX_SHEET_PATHS.get(kind, BOX_SHEET_PATHS[BOX_KIND_NORMAL])),
+			sheet_path,
 			"Missing victory loot box sheet at %s",
 			"Failed to load victory loot box sheet at %s"
 		)
+
+
+func _get_box_sheet_path(box: Dictionary) -> String:
+	var vision_offer_id := str(box.get("boss_vision_offer_id", ""))
+	if BOSS_VISION_BOX_SHEET_PATHS.has(vision_offer_id):
+		return str(BOSS_VISION_BOX_SHEET_PATHS[vision_offer_id])
+	var kind := str(box.get("kind", BOX_KIND_NORMAL))
+	return str(BOX_SHEET_PATHS.get(kind, BOX_SHEET_PATHS[BOX_KIND_NORMAL]))
 
 
 func _ensure_reward_resolver() -> void:
@@ -652,15 +772,13 @@ func _ensure_reward_resolver() -> void:
 func _normalize_box_kind(kind: String) -> String:
 	if kind in [BOX_KIND_TOWER_NORMAL, BOX_KIND_TOWER_SUPREME_ART, BOX_KIND_TOWER_SECRET_CHOSIK]:
 		return kind
-	if kind == LEGACY_BOX_KIND_MYTHIC:
-		return BOX_KIND_ADVANCED
-	if kind == BOX_KIND_ADVANCED or kind == BOX_KIND_GUARANTEED_MYTHIC:
-		return kind
+	if kind == BOX_KIND_GUARANTEED_MYTHIC:
+		return BOX_KIND_GUARANTEED_MYTHIC
+	# Retired high-grade ids may remain in stale result payloads. They now use
+	# the common chest and common reward lane instead of reviving the removed tier.
+	if kind == LEGACY_BOX_KIND_ADVANCED or kind == LEGACY_BOX_KIND_MYTHIC:
+		return BOX_KIND_NORMAL
 	return BOX_KIND_NORMAL
-
-
-func _build_tower_chest_context(owner: Object, registry: Object) -> Dictionary:
-	return _tower_chest_context_builder.build(owner, registry, _current_stage)
 
 
 func _get_boss_drop_origin(owner: Object) -> Vector2:

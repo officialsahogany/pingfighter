@@ -1,5 +1,16 @@
 extends RefCounted
 
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
+# ⚠️`duration_msec` 는 길이라 제외. 시각 앵커만 민다.
+const PENDING_SPAWN_MODAL_TIME_KEYS: Array[String] = ["release_msec"]
+const PORTAL_MODAL_TIME_KEYS: Array[String] = [
+	"start_msec",
+	"phase_start_msec",
+	"end_msec",
+	"effect_end_msec",
+]
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const ITEM_SPAWN_PORTAL_DURATION_MSEC := 1000
@@ -26,6 +37,25 @@ func reset() -> void:
 	dimension_gate_start_msec = 0
 	dimension_gate_end_msec = 0
 	dimension_gate_next_spawn_msec = 0
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 정지 마커는 소유자(active_item_runtime)가 들고
+# 여기로 구간을 흘려준다. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	dimension_gate_start_msec = RuntimePerkModalTimeShift.shift_anchor(dimension_gate_start_msec, delta_msec)
+	dimension_gate_end_msec = RuntimePerkModalTimeShift.shift_anchor(dimension_gate_end_msec, delta_msec)
+	dimension_gate_next_spawn_msec = RuntimePerkModalTimeShift.shift_anchor(
+		dimension_gate_next_spawn_msec, delta_msec
+	)
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(
+		pending_spawn_items, PENDING_SPAWN_MODAL_TIME_KEYS, delta_msec
+	)
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(
+		item_spawn_portals, PORTAL_MODAL_TIME_KEYS, delta_msec
+	)
 
 
 func activate_dimension_gate() -> bool:

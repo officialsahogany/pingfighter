@@ -16,6 +16,7 @@ const MYTHIC_IDS := [
 	"sacred_laurel",
 	"celestial_armor",
 	"angel_blessing",
+	"yangui_hoechun",
 ]
 
 const EXPECTED_SHEET_SIZE := Vector2i(1024, 128)
@@ -102,9 +103,10 @@ func _verify_sheet_and_fallback_wiring() -> void:
 			_expect(static_texture.get_width() == EXPECTED_STATIC_SIZE.x and static_texture.get_height() == EXPECTED_STATIC_SIZE.y, "%s static fallback should stay 128x128" % perk_id)
 		if sheet_texture != null:
 			_expect(sheet_texture.get_width() == EXPECTED_SHEET_SIZE.x and sheet_texture.get_height() == EXPECTED_SHEET_SIZE.y, "%s sheet should stay 1024x128" % perk_id)
-			var region: Rect2 = renderer._get_sheet_region(sheet_texture)
+			var region: Rect2 = renderer._get_sheet_region(sheet_texture, perk_id)
 			_expect(region.size == Vector2(128.0, 128.0), "%s sheet region should slice 128x128 frames" % perk_id)
 			_expect(int(floor(float(sheet_texture.get_width()) / float(max(1, sheet_texture.get_height())))) == 8, "%s sheet should expose eight frames" % perk_id)
+			_expect(is_equal_approx(renderer.get_icon_frame_interval_msec(perk_id), 250.0), "%s should play the AutoSprite internal-motion loop at 250ms per frame" % perk_id)
 
 		var source: Dictionary = renderer._get_icon_source(perk_id)
 		_expect(source.get("texture", null) == sheet_texture, "%s should use the animated sheet before static fallback" % perk_id)
@@ -142,7 +144,10 @@ func _verify_source_png_alpha(path: String, expected_size: Vector2i, label: Stri
 			if (x == 0 or y == 0 or x == image.get_width() - 1 or y == image.get_height() - 1) and alpha > 0.001:
 				edge_alpha_count += 1
 	_expect(opaque_count > 0, "%s source PNG should contain visible pixels" % label)
-	_expect(semi_alpha_count == 0, "%s source PNG should be hard-alpha with no semi-transparent residue" % label)
+	# The adopted torn-hanji seals intentionally keep a narrow anti-aliased
+	# paper edge. It must remain a minority of the visible body, not be erased
+	# into a hard pixel edge or expand into a broad matte halo.
+	_expect(semi_alpha_count > 0 and semi_alpha_count < opaque_count, "%s source PNG should keep a narrow torn-hanji edge matte" % label)
 	_expect(edge_alpha_count == 0, "%s source PNG should leave transparent outer edges" % label)
 
 

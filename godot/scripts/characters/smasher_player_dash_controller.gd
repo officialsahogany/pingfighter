@@ -80,7 +80,7 @@ func _notify_perk_fusion_player_dash(deps: Dictionary) -> void:
 func try_start_sensor_dash(
 	direction: float,
 	_player_pos: Vector2,
-	_config: Dictionary,
+	config: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
 	var dash_state: Object = deps.get("dash_state", null)
@@ -93,16 +93,14 @@ func try_start_sensor_dash(
 		deps.get("runtime_perk_state", null),
 		registry,
 		false,
-		true
+		true,
+		_get_paddle_height(config),
+		_get_paddle_width(config)
 	):
 		return {"started": false}
 
 	var audio: Object = deps.get("audio", null)
-	if audio != null:
-		if audio.has_method("stop_dash_delay"):
-			audio.stop_dash_delay()
-		if audio.has_method("play_dash_start"):
-			audio.play_dash_start(false)
+	_play_dash_audio(audio, dash_state, false, false)
 
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null:
@@ -185,7 +183,10 @@ func _start_dash(
 			is_half,
 			deps.get("runtime_perk_state", null),
 			registry,
-			not use_soul_burst
+			not use_soul_burst,
+			false,
+			_get_paddle_height(config),
+			_get_paddle_width(config)
 		)
 	):
 		return {"started": false, "special_gauge": next_special_gauge}
@@ -220,19 +221,7 @@ func _start_dash(
 			orb_hud_state.trigger_dash_token_spin(Time.get_ticks_msec())
 
 	var audio: Object = deps.get("audio", null)
-	if audio != null:
-		if audio.has_method("stop_dash_delay"):
-			audio.stop_dash_delay()
-		if not use_soul_burst:
-			if (
-				not is_half
-				and dash_state.has_method("is_dash_acceleration_active")
-				and bool(dash_state.is_dash_acceleration_active())
-				and audio.has_method("play_burst_up_dash")
-			):
-				audio.play_burst_up_dash()
-			elif audio.has_method("play_dash_start"):
-				audio.play_dash_start(is_half)
+	_play_dash_audio(audio, dash_state, is_half, use_soul_burst)
 
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null:
@@ -242,6 +231,33 @@ func _start_dash(
 		"special_gauge": next_special_gauge,
 		"soul_burst_dash": use_soul_burst,
 	}
+
+
+func _play_dash_audio(audio: Object, dash_state: Object, is_half: bool, use_soul_burst: bool) -> void:
+	if audio == null:
+		return
+	if audio.has_method("stop_dash_delay"):
+		audio.stop_dash_delay()
+	if use_soul_burst:
+		return
+	if (
+		not is_half
+		and dash_state != null
+		and dash_state.has_method("is_dash_acceleration_active")
+		and bool(dash_state.is_dash_acceleration_active())
+		and audio.has_method("play_burst_up_dash")
+	):
+		audio.play_burst_up_dash()
+	elif audio.has_method("play_dash_start"):
+		audio.play_dash_start(is_half)
+
+
+func _get_paddle_height(config: Dictionary) -> float:
+	return maxf(1.0, float(config.get("paddle_height", 50.0)))
+
+
+func _get_paddle_width(config: Dictionary) -> float:
+	return maxf(1.0, float(config.get("paddle_width", 155.0)))
 
 
 func _should_use_soul_burst_for_chain(dash_state: Object, special_gauge: float, deps: Dictionary) -> bool:

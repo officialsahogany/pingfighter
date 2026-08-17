@@ -16,6 +16,19 @@ const RECORD_SOURCE_COUNT := 2
 const SLOT_REDUCTION_PER_RECORD := 1
 const FUSION_ID_PREFIX := "fusion_"
 
+const RESTORED_SOURCE_ALIASES := {
+	"spiked_helmet": "bulletproof_hat",
+}
+
+# 은퇴 상승무공은 커밋·복원 양쪽에서 레코드로부터 제거한다. 구 세이브 레코드가
+# 효과 없는 표시 항목을 계속 실어 오는 것을 막는 자가 치유 경로다.
+const RETIRED_BYPRODUCT_IDS: Array[String] = ["sleeve_cosmos"]
+
+const RESTORED_OPTION_ALIASES := {
+	"bulletproof_hat": {"stun_resist_pct": "posture_correction_pct"},
+	"spiked_helmet": {"knockback_resist_pct": "posture_correction_pct"},
+}
+
 var _records: Array[Dictionary] = []
 var _next_fusion_index := 0
 var _revision := 0
@@ -229,6 +242,7 @@ func create_record(
 	record["commit_value_snapshots"] = _dictionary_or_empty(record.get("commit_value_snapshots", {}))
 	record["byproducts"] = _array_or_empty(record.get("byproducts", []))
 	record["byproduct_payloads"] = _dictionary_or_empty(record.get("byproduct_payloads", {}))
+	_prune_retired_byproducts(record)
 	record["slot_reduction"] = SLOT_REDUCTION_PER_RECORD
 	record["created_revision"] = _revision + 1
 	_apply_token_transaction(record)
@@ -299,7 +313,7 @@ func _validate_restored_record(
 ) -> Dictionary:
 	if not raw_record_value is Dictionary:
 		return {"reason": "missing_record_fields"}
-	var raw_record: Dictionary = raw_record_value as Dictionary
+	var raw_record: Dictionary = _migrate_restored_record(raw_record_value as Dictionary)
 	var fusion_id: String = str(raw_record.get("fusion_id", "")).strip_edges()
 	var raw_sources_value: Variant = raw_record.get("sources", null)
 	if fusion_id.is_empty() or not raw_sources_value is Array:
@@ -337,8 +351,102 @@ func _validate_restored_record(
 	record["commit_value_snapshots"] = _dictionary_or_empty(record.get("commit_value_snapshots", {}))
 	record["byproducts"] = _array_or_empty(record.get("byproducts", []))
 	record["byproduct_payloads"] = _dictionary_or_empty(record.get("byproduct_payloads", {}))
+	_prune_retired_byproducts(record)
 	record["slot_reduction"] = SLOT_REDUCTION_PER_RECORD
 	return {"record": record}
+
+
+func _migrate_restored_record(raw_record: Dictionary) -> Dictionary:
+	var record: Dictionary = raw_record.duplicate(true)
+	var raw_sources_value: Variant = record.get("sources", null)
+	if raw_sources_value is Array:
+		var migrated_sources: Array[String] = []
+		for source_value: Variant in (raw_sources_value as Array):
+			migrated_sources.append(_restored_source_id(str(source_value)))
+		record["sources"] = migrated_sources
+	for field_name: String in ["option_penalties", "commit_value_snapshots"]:
+		record[field_name] = _migrate_restored_source_options(
+			_dictionary_or_empty(record.get(field_name, {}))
+		)
+	record["deleted_options"] = _migrate_restored_deleted_options(
+		_dictionary_or_empty(record.get("deleted_options", {}))
+	)
+	var payloads: Dictionary = _dictionary_or_empty(record.get("byproduct_payloads", {}))
+	var limit_break: Dictionary = _dictionary_or_empty(payloads.get("limit_break", {}))
+	if not limit_break.is_empty():
+		var eligible_sources: Array = limit_break.get("eligible_sources", []) as Array
+		var migrated_eligible: Array[String] = []
+		for source_value: Variant in eligible_sources:
+			var migrated_id := _restored_source_id(str(source_value))
+			if migrated_id != "" and migrated_id not in migrated_eligible:
+				migrated_eligible.append(migrated_id)
+		limit_break["eligible_sources"] = migrated_eligible
+		payloads["limit_break"] = limit_break
+	record["byproduct_payloads"] = payloads
+	return record
+
+
+func _migrate_restored_source_options(source_options: Dictionary) -> Dictionary:
+	var migrated: Dictionary = {}
+	for source_value: Variant in source_options.keys():
+		var raw_source_id := str(source_value)
+		var source_id := _restored_source_id(raw_source_id)
+		var raw_options: Dictionary = _dictionary_or_empty(source_options.get(source_value, {}))
+		var options: Dictionary = _dictionary_or_empty(migrated.get(source_id, {}))
+		for option_value: Variant in raw_options.keys():
+			var raw_option_key := str(option_value)
+			var option_key := _restored_option_key(raw_source_id, raw_option_key)
+			options[option_key] = raw_options[option_value]
+		migrated[source_id] = options
+	return migrated
+
+
+func _migrate_restored_deleted_options(deleted_options: Dictionary) -> Dictionary:
+	var migrated: Dictionary = {}
+	for source_value: Variant in deleted_options.keys():
+		var raw_source_id := str(source_value)
+		var source_id := _restored_source_id(raw_source_id)
+		var raw_deleted: Variant = deleted_options[source_value]
+		var option_keys: Array[String] = []
+		if raw_deleted is Array:
+			for option_value: Variant in raw_deleted:
+				option_keys.append(_restored_option_key(raw_source_id, str(option_value)))
+		elif raw_deleted is Dictionary:
+			for option_value: Variant in (raw_deleted as Dictionary).keys():
+				option_keys.append(_restored_option_key(raw_source_id, str(option_value)))
+		elif str(raw_deleted) != "":
+			option_keys.append(_restored_option_key(raw_source_id, str(raw_deleted)))
+		var existing: Array = migrated.get(source_id, []) as Array
+		for option_key: String in option_keys:
+			if option_key != "" and option_key not in existing:
+				existing.append(option_key)
+		migrated[source_id] = existing
+	return migrated
+
+
+func _prune_retired_byproducts(record: Dictionary) -> void:
+	var kept: Array = []
+	for value: Variant in _array_or_empty(record.get("byproducts", [])):
+		var byproduct_id := str((value as Dictionary).get("id", "")) if value is Dictionary else str(value)
+		if byproduct_id.strip_edges() in RETIRED_BYPRODUCT_IDS:
+			continue
+		kept.append(value)
+	record["byproducts"] = kept
+	var payloads: Dictionary = _dictionary_or_empty(record.get("byproduct_payloads", {}))
+	for retired_id: String in RETIRED_BYPRODUCT_IDS:
+		payloads.erase(retired_id)
+	record["byproduct_payloads"] = payloads
+
+
+func _restored_source_id(source_id: String) -> String:
+	var clean_id := source_id.strip_edges()
+	return str(RESTORED_SOURCE_ALIASES.get(clean_id, clean_id))
+
+
+func _restored_option_key(source_id: String, option_key: String) -> String:
+	var aliases: Dictionary = RESTORED_OPTION_ALIASES.get(source_id.strip_edges(), {})
+	var clean_key := option_key.strip_edges()
+	return str(aliases.get(clean_key, clean_key))
 
 
 func _normalize_sources(source_ids: Array) -> Array[String]:

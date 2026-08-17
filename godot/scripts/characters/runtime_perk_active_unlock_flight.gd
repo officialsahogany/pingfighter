@@ -228,7 +228,9 @@ func _get_skill_config_key(character_type: String) -> String:
 		"soldier":
 			return "commando_skill_config"
 		"optimus":
-			return ""
+			return "optimus_skill_config"
+		"blacksmith":
+			return "blacksmith_skill_config"
 	return "smasher_skill_config"
 
 
@@ -240,6 +242,8 @@ func _normalize_character_type(character_type: String) -> String:
 		return "soldier"
 	if normalized == "optimus" or normalized == "io":
 		return "optimus"
+	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
+		return "blacksmith"
 	return "smasher"
 
 

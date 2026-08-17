@@ -3,16 +3,15 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 # Texture paths, atlas geometry, and pure atlas-region slicing for the
-# Stage 2 pillar background. Owner is `stage2_pillar_background.gd`; that
-# script still owns the loaded `Texture2D` references and the cached
-# `game_frame_hole` Rect so existing direct-field readers keep working.
-# This module's job is the static asset surface (paths, grid sizes,
-# measured source rects) and the pure slicing helper.
+# Stage 2 pillar background. `stage2_pillar_asset_state.gd` retains the loaded
+# Texture2D references, staged-prewarm progress, and frame-hole cache; this
+# module remains the immutable asset surface (paths, grid sizes, measured
+# source rects) plus the offline-compatible pure slicing helper.
 
-const BASE_TEXTURE_PATH := "res://assets/sprites/hud/stage2_layered_cyber_jungle_base_imagegen_v3.png"
-const TREE_TEXTURE_PATH := "res://assets/sprites/hud/stage2_layered_tree_sprites_imagegen_v3.png"
-const GAME_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/stage2_game_frame_rock_leaf_imagegen_v3.png"
-const LEAF_TEXTURE_PATH := "res://assets/sprites/hud/stage2_ambient_leaf_sprites_imagegen_v1.png"
+const BASE_TEXTURE_PATH := "res://assets/sprites/hud/stage2_cheongringwi_dragon_pool_base_imagegen_v3.png"
+const TREE_TEXTURE_PATH := "res://assets/sprites/hud/stage2_cheongringwi_pine_guardians_imagegen_v1.png"
+const GAME_FRAME_TEXTURE_PATH := "res://assets/sprites/hud/stage2_cheongringwi_game_frame_imagegen_v1.png"
+const LEAF_TEXTURE_PATH := "res://assets/sprites/hud/stage2_cheongringwi_ambient_seal_sprites_imagegen_v1.png"
 const ROCK_TEXTURE_PATH := "res://assets/sprites/hud/stage2_crisis_rock_atlas_imagegen_v2.png"
 const ROCK_DEBRIS_TEXTURE_PATH := "res://assets/sprites/hud/stage2_crisis_rock_debris_atlas_imagegen_v1.png"
 
@@ -21,18 +20,18 @@ const ROCK_ATLAS_ROWS := 4
 
 # Fixed Stage 2 imagegen atlases use measured alpha bounds to avoid first-entry pixel scans.
 const TREE_SOURCE_REGION_DATA := {
-	"left": Rect2(212.0, 81.0, 265.0, 832.0),
-	"right": Rect2(1103.0, 81.0, 267.0, 831.0),
+	"left": Rect2(55.0, 63.0, 404.0, 913.0),
+	"right": Rect2(1078.0, 34.0, 412.0, 945.0),
 }
 const LEAF_SOURCE_REGION_DATA := [
-	Rect2(71.0, 84.0, 356.0, 361.0),
-	Rect2(567.0, 67.0, 368.0, 401.0),
-	Rect2(1088.0, 75.0, 376.0, 377.0),
-	Rect2(83.0, 581.0, 362.0, 334.0),
-	Rect2(594.0, 580.0, 295.0, 350.0),
-	Rect2(1047.0, 560.0, 396.0, 380.0),
+	Rect2(176.0, 59.0, 298.0, 395.0),
+	Rect2(625.0, 62.0, 266.0, 383.0),
+	Rect2(1126.0, 117.0, 143.0, 252.0),
+	Rect2(201.0, 529.0, 206.0, 400.0),
+	Rect2(656.0, 545.0, 239.0, 370.0),
+	Rect2(1115.0, 552.0, 221.0, 368.0),
 ]
-const GAME_FRAME_SOURCE_HOLE := Rect2(90.0, 83.0, 1491.0, 775.0)
+const GAME_FRAME_SOURCE_HOLE := Rect2(155.0, 296.0, 1362.0, 568.0)
 const ROCK_SOURCE_REGION_DATA := [
 	Rect2(46.0, 60.0, 254.0, 246.0),
 	Rect2(359.0, 66.0, 245.0, 234.0),

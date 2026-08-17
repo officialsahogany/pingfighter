@@ -2,6 +2,15 @@ extends RefCounted
 
 const SmasherShieldKitingRenderer := preload("res://scripts/characters/smasher_shield_kiting_renderer.gd")
 const SmasherSkillPartialCutinState := preload("res://scripts/characters/smasher_skill_partial_cutin_state.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
+# `last_update_msec` 를 빼먹으면 모달 직후 첫 프레임의 delta 가 모달 길이만큼
+# 튀어 방패가 순간이동한다(만료 앵커만 미는 것으로는 부족).
+const PROJECTILE_MODAL_TIME_KEYS: Array[String] = [
+	"started_msec",
+	"last_update_msec",
+	"outbound_started_msec",
+]
 
 const SKILL_NAME := "shield_kiting"
 const GAUGE_COST := 130.0
@@ -93,6 +102,7 @@ var post_activate_cooldown_until_msec := 0
 var previous_action_pressed := false
 var locked_player_x := 0.0
 var launch_sound_pending := false
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func reset() -> void:
@@ -104,6 +114,7 @@ func reset() -> void:
 	previous_action_pressed = false
 	locked_player_x = 0.0
 	launch_sound_pending = false
+	_runtime_perk_modal_pause_started_msec = -1
 
 
 func reset_round(deps: Dictionary = {}) -> void:
@@ -112,7 +123,36 @@ func reset_round(deps: Dictionary = {}) -> void:
 	cutin_state.reset()
 	locked_player_x = 0.0
 	launch_sound_pending = false
+	# 라운드가 끝나면 밀어 줄 살아있는 앵커가 없다. 마커를 남기면 다음 resume 이
+	# 새 라운드의 상태를 엉뚱하게 민다.
+	_runtime_perk_modal_pause_started_msec = -1
 	_stop_wind_up_sound(deps)
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	last_action_edge_msec = RuntimePerkModalTimeShift.shift_anchor(last_action_edge_msec, delta_msec)
+	post_activate_cooldown_until_msec = RuntimePerkModalTimeShift.shift_anchor(
+		post_activate_cooldown_until_msec, delta_msec
+	)
+	RuntimePerkModalTimeShift.shift_dict_anchors(projectile, PROJECTILE_MODAL_TIME_KEYS, delta_msec)
 
 
 func update_input(

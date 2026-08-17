@@ -9,6 +9,8 @@ const ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL := 0.30
 const ITEM_POLISH_ID := "item_polish"
 const ITEM_POLISH_ROLL_BONUS_PER_LEVEL := 0.12
 const PERK_POLISH_AMPLIFY_PER_LEVEL := 0.05
+const TRAINING_MASTERY_ID := "training_mastery"
+const TRAINING_MASTERY_AMPLIFY_PER_LEVEL := 0.20
 const ITEM_RECYCLE_ID := "item_recycle"
 const ITEM_RECYCLE_CHANCE_PER_LEVEL := 0.07
 const MAX_ITEM_RECYCLE_CHANCE := 0.90
@@ -22,9 +24,8 @@ const MIN_DASH_RECHARGE_FRAMES := 6.0
 const MIN_DASH_RECOVERY_FRAMES := 1.0
 const MIN_ITEM_SPAWN_DELAY_MSEC := 1
 const DOWNTOWN_TREASURE_MAP_ID := "downtown_treasure_map"
-const TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL := 1.50
-const TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL := 0.03
-const TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL := 0.03
+const TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL := 1.50
+const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := 0.03
 const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := {
 	"dash_lightweight": true,
 	"dash_module_control": true,
@@ -37,6 +38,7 @@ const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := {
 	ITEM_CAFFEINE_ID: true,
 	"common_swiftness": true,
 	"common_bulk_up": true,
+	TRAINING_MASTERY_ID: true,
 	"common_training": true,
 	"perk_boost_charge": true,
 }
@@ -50,6 +52,7 @@ const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"unlock_warp_gate": true,
 	"unlock_smasher_wheel": true,
 	"unlock_smasher_overdrive": true,
+	"unlock_void_phantom": true,
 	"unlock_nerve_strike": true,
 	"unlock_dive_strike": true,
 	"unlock_chaos_spear": true,
@@ -61,6 +64,12 @@ const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"common_refresh": true,
 	"star_change": true,
 	"sage_ring": true,
+}
+# 슬롯-코스트 커플링 퍽: 레벨당 무공 슬롯 1개를 소모(레벨 = 슬롯 = 글라이드 1개). 무상 레벨
+# 보너스(초월자의 관 · 세이지링 · 바이퍼 점화오라)가 이 퍽의 effective level을 올리면 슬롯을
+# 내지 않고 글라이드가 공짜로 늘어나 슬롯-코스트 계약이 깨진다 — 모든 무상 레벨부스트에서 제외.
+const SLOT_COST_COUPLED_LEVEL_BONUS_EXCLUDED_IDS := {
+	"dash_amplification": true,
 }
 
 
@@ -152,6 +161,8 @@ func is_runtime_level_bonus_eligible(skill_id: String, base_level: int) -> bool:
 		return false
 	if PerkConversionFlags.is_enabled() and clean_id == SLOT_EXPANSION_PERK_ID:
 		return false
+	if bool(SLOT_COST_COUPLED_LEVEL_BONUS_EXCLUDED_IDS.get(clean_id, false)):
+		return false
 	return not bool(VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS.get(clean_id, false))
 
 
@@ -169,8 +180,11 @@ func get_runtime_skill_level(
 	viper_ignition_aura_active: bool,
 	skill_id: String
 ) -> int:
-	var base_level: int = int(runtime_skill_levels.get(skill_id, 0))
-	if is_runtime_level_bonus_eligible(skill_id, base_level):
+	var clean_id: String = skill_id.strip_edges()
+	if PerkConversionValues.is_retired_converted_perk_id(clean_id):
+		return 0
+	var base_level: int = int(runtime_skill_levels.get(clean_id, 0))
+	if is_runtime_level_bonus_eligible(clean_id, base_level):
 		return base_level + item_perk_level_bonus + get_viper_ignition_aura_level_bonus(viper_ignition_aura_active)
 	return base_level
 
@@ -182,7 +196,7 @@ func get_converted_perk_effect_level(
 	perk_id: String
 ) -> int:
 	var clean_id: String = perk_id.strip_edges()
-	if clean_id == "":
+	if clean_id == "" or PerkConversionValues.is_retired_converted_perk_id(clean_id):
 		return 0
 	var base_level: int = int(runtime_skill_levels.get(clean_id, 0))
 	var bonus := 0
@@ -199,6 +213,8 @@ func get_effective_runtime_skill_levels(
 	var effective_levels: Dictionary = {}
 	for skill_id_value in runtime_skill_levels.keys():
 		var skill_id: String = str(skill_id_value)
+		if PerkConversionValues.is_retired_converted_perk_id(skill_id):
+			continue
 		var base_level: int = int(runtime_skill_levels.get(skill_id_value, 0))
 		if base_level > 0:
 			effective_levels[skill_id] = get_runtime_skill_level(
@@ -243,16 +259,16 @@ func get_runtime_skill_bonus(
 			base_bonus = float(level) * 0.13
 		"item_gauge_mastery":
 			base_bonus = float(level) * 15.0
-		"item_bag_expansion":
-			base_bonus = float(level)
 		ITEM_CAFFEINE_ID:
 			base_bonus = float(level) * ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL
 		ITEM_POLISH_ID:
 			base_bonus = float(level) * ITEM_POLISH_ROLL_BONUS_PER_LEVEL
+		TRAINING_MASTERY_ID:
+			base_bonus = float(level) * TRAINING_MASTERY_AMPLIFY_PER_LEVEL
 		ITEM_RECYCLE_ID:
 			base_bonus = float(level) * ITEM_RECYCLE_CHANCE_PER_LEVEL
 		DOWNTOWN_TREASURE_MAP_ID:
-			base_bonus = get_downtown_treasure_map_field_mythic_bonus(
+			base_bonus = get_downtown_treasure_map_mythic_bonus(
 				runtime_skill_levels,
 				item_perk_level_bonus,
 				viper_ignition_aura_active
@@ -276,12 +292,20 @@ func get_perk_amplify_multiplier(runtime_skill_levels: Dictionary, skill_id: Str
 	if not PerkConversionFlags.is_enabled():
 		return 1.0
 	var clean_id: String = skill_id.strip_edges()
-	if not bool(PERK_POLISH_AMPLIFIABLE_BONUS_IDS.get(clean_id, false)):
+	if not is_polish_amplifiable_perk_id(clean_id):
 		return 1.0
 	var polish_level: int = max(0, int(runtime_skill_levels.get(ITEM_POLISH_ID, 0)))
 	if polish_level <= 0:
 		return 1.0
 	return 1.0 + float(polish_level) * PERK_POLISH_AMPLIFY_PER_LEVEL
+
+
+static func is_polish_amplifiable_perk_id(skill_id: String) -> bool:
+	var clean_id := skill_id.strip_edges()
+	return (
+		bool(PERK_POLISH_AMPLIFIABLE_BONUS_IDS.get(clean_id, false))
+		or PerkConversionValues.has_polish_amplifiable_option(clean_id)
+	)
 
 
 func get_combo_amplifier_chip_bonus(
@@ -402,20 +426,12 @@ func get_active_item_use_gauge_bonus(
 
 
 func get_active_item_slot_capacity(
-	runtime_skill_levels: Dictionary,
-	item_perk_level_bonus: int,
-	viper_ignition_aura_active: bool,
+	_runtime_skill_levels: Dictionary,
+	_item_perk_level_bonus: int,
+	_viper_ignition_aura_active: bool,
 	base_slots: int = BASE_ACTIVE_ITEM_SLOT_LIMIT
 ) -> int:
-	return max(
-		1,
-		int(base_slots) + int(get_runtime_skill_bonus(
-			runtime_skill_levels,
-			item_perk_level_bonus,
-			viper_ignition_aura_active,
-			"item_bag_expansion"
-		))
-	)
+	return maxi(1, base_slots)
 
 
 func get_active_item_duration_bonus(
@@ -497,26 +513,26 @@ func get_effective_polish_multiplier(
 	)
 
 
-func get_downtown_treasure_map_field_mythic_multiplier(
+func get_downtown_treasure_map_mythic_multiplier(
 	runtime_skill_levels: Dictionary,
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool
 ) -> float:
-	return 1.0 + get_downtown_treasure_map_field_mythic_bonus(
+	return 1.0 + get_downtown_treasure_map_mythic_bonus(
 		runtime_skill_levels,
 		item_perk_level_bonus,
 		viper_ignition_aura_active
 	)
 
 
-func get_treasure_hunt_legendary_chance(
+func get_downtown_treasure_map_vision_box_chance(
 	runtime_skill_levels: Dictionary,
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool,
 	base_chance: float
 ) -> float:
 	return clamp(
-		float(base_chance) + get_treasure_hunt_legendary_chance_bonus(
+		float(base_chance) + get_downtown_treasure_map_vision_box_chance_bonus(
 			runtime_skill_levels,
 			item_perk_level_bonus,
 			viper_ignition_aura_active
@@ -678,7 +694,7 @@ func get_laurel_leaf_count(
 	))) + max(0, sacred_laurel_leaf_bonus)
 
 
-func get_downtown_treasure_map_field_mythic_bonus(
+func get_downtown_treasure_map_mythic_bonus(
 	runtime_skill_levels: Dictionary,
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool
@@ -690,11 +706,11 @@ func get_downtown_treasure_map_field_mythic_bonus(
 			item_perk_level_bonus,
 			viper_ignition_aura_active,
 			DOWNTOWN_TREASURE_MAP_ID
-		)) * TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL
+		)) * TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
 	)
 
 
-func get_downtown_treasure_map_passive_drop_share_bonus(
+func get_downtown_treasure_map_vision_box_chance_bonus(
 	runtime_skill_levels: Dictionary,
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool
@@ -706,23 +722,7 @@ func get_downtown_treasure_map_passive_drop_share_bonus(
 			item_perk_level_bonus,
 			viper_ignition_aura_active,
 			DOWNTOWN_TREASURE_MAP_ID
-		)) * TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL
-	)
-
-
-func get_treasure_hunt_legendary_chance_bonus(
-	runtime_skill_levels: Dictionary,
-	item_perk_level_bonus: int,
-	viper_ignition_aura_active: bool
-) -> float:
-	return max(
-		0.0,
-		float(get_runtime_skill_level(
-			runtime_skill_levels,
-			item_perk_level_bonus,
-			viper_ignition_aura_active,
-			DOWNTOWN_TREASURE_MAP_ID
-		)) * TREASURE_MAP_HUNT_LEGENDARY_BONUS_PER_LEVEL
+		)) * TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
 	)
 
 

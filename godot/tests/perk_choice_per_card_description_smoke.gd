@@ -16,6 +16,8 @@ const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_over
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
+var _failed := false
+
 
 func _init() -> void:
 	call_deferred("_run")
@@ -26,14 +28,20 @@ func _run() -> void:
 	# 오염시킨다 — 테스트 override로 엔진 locale만 고정하고 종료 전 해제.
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	_test_cache_builds_per_choice()
+	_test_training_keeps_numeric_accent_without_level()
 	_test_detail_collapse()
 	_test_unlock_shows_detail_only()
 	_test_wrap_respects_width_and_lines()
 	_test_wrap_breaks_long_single_token()
 	_test_cache_rebuild_signature()
-	print("perk_choice_per_card_description_smoke: ok")
 	LanguageSettings.set_test_locale_override("")
 	ProjectResourceLoader.clear_caches()
+	# `_expect`의 quit(1)은 실행을 멈추지 않는다 — 게이트 없이 말미의 무조건
+	# ok/quit(0)이 종료코드를 덮어써 실패가 GREEN으로 읽힌다(CLAUDE.md 공허-GREEN 변종).
+	if _failed:
+		quit(1)
+		return
+	print("perk_choice_per_card_description_smoke: ok")
 	quit(0)
 
 
@@ -62,11 +70,11 @@ func _make_choices() -> Array:
 			"icon_color": Color(1.0, 0.8, 0.4),
 		},
 		{
-			# Unlock perk (해금): no accent, body = the friendly detail only (the
-			# `description` "고스트스매싱 스킬 해금" just restates the card name).
-			"name": "고스트스매싱 해금",
-			"description": "고스트스매싱 스킬 해금",
-			"detail": "게이지 420 이상에서 파워스매싱을 입력하면 공을 재발사하는 스킬을 해금합니다.",
+			# Skill manual (비급): no accent, body = the friendly detail only (the
+			# `description` "빙혼비격 초식 비급" just restates the card name).
+			"name": "빙혼비격 비급",
+			"description": "빙혼비격 초식 비급",
+			"detail": "게이지 420 이상에서 파워스매싱을 입력하면 공을 재발사하는 초식을 익힙니다.",
 			"max_level": 1,
 			"character_restriction": "smasher",
 			"unlocks_skill": "ghost_shot",
@@ -88,6 +96,45 @@ func _test_cache_builds_per_choice() -> void:
 	_expect(accent_joined.find("넉백") >= 0, "accent should carry the numeric stat text")
 
 
+func _test_training_keeps_numeric_accent_without_level() -> void:
+	var renderer: Object = RuntimePerkOverlayRenderer.new()
+	# 실제 카드 문구와 같은 모양(정본: physique_training_catalog.build_card).
+	var training := {
+		"name": "유운보 수련",
+		"description": "이동 속도 4% 증가",
+		"detail": "좌우로 움직이는 속도가 빨라집니다. 무공 슬롯을 쓰지 않습니다.",
+		"is_physique_training": true,
+		"current_level": 0,
+		"next_level": 0,
+		"max_level": 0,
+	}
+	renderer._ensure_card_desc_cache([training], 250.0)
+	var cached: Dictionary = renderer._card_desc_cache[0]
+	var accent_joined: String = " ".join(cached.get("accent_lines", []))
+	_expect(accent_joined.find("4% 증가") >= 0, "training must keep its numeric accent without a Mugong level")
+	_expect(not (cached.get("body_lines", []) as Array).is_empty(), "training must keep the friendly detail as the body")
+
+	# Five compact cards use a smaller font and a shorter body budget instead of
+	# spilling their descriptions into adjacent columns.
+	renderer._ensure_card_desc_cache([training, training, training, training, training], 126.0)
+	var compact: Dictionary = renderer._card_desc_cache[0]
+	_expect(int(compact.get("font_size", 0)) == 10, "compact five-card training copy should use the 10px floor")
+	var compact_body: Array = compact.get("body_lines", []) as Array
+	_expect(compact_body.size() <= 2, "compact five-card body must stay within two lines")
+	# 줄 수만 세면 문장이 서술어 앞에서 잘려 나가도 통과한다(2026-08-06 리뷰 P2-③).
+	# 버려진 텍스트가 있으면 마지막 줄이 잘림 표시로 끝나야 한다.
+	var compact_joined: String = "".join(compact_body)
+	var full_detail: String = str(training["detail"])
+	var kept_everything: bool = compact_joined.replace(" ", "") == full_detail.replace(" ", "")
+	_expect(
+		kept_everything or compact_joined.ends_with("..."),
+		"clipped compact copy must end with a truncation marker, got '%s'" % compact_joined
+	)
+	# 대조군: 넓은 카드에서는 잘리지 않으므로 잘림 표시가 붙으면 안 된다.
+	var wide_joined: String = "".join(cached.get("body_lines", []) as Array)
+	_expect(not wide_joined.ends_with("..."), "wide card body fits and must not be marked as clipped, got '%s'" % wide_joined)
+
+
 func _test_detail_collapse() -> void:
 	var renderer: Object = RuntimePerkOverlayRenderer.new()
 	renderer._ensure_card_desc_cache(_make_choices(), 250.0)
@@ -100,9 +147,9 @@ func _test_unlock_shows_detail_only() -> void:
 	var renderer: Object = RuntimePerkOverlayRenderer.new()
 	renderer._ensure_card_desc_cache(_make_choices(), 250.0)
 	var unlock: Dictionary = renderer._card_desc_cache[2]
-	_expect((unlock.get("accent_lines", []) as Array).is_empty(), "unlock perk must NOT accent the redundant 'X 스킬 해금'")
+	_expect((unlock.get("accent_lines", []) as Array).is_empty(), "manual perk must NOT accent the redundant 'X 초식 비급'")
 	var body_joined: String = " ".join(unlock.get("body_lines", []))
-	_expect(body_joined.find("재발사") >= 0, "unlock perk body must be the friendly detail (how it works), not the redundant 'X 스킬 해금'")
+	_expect(body_joined.find("재발사") >= 0, "manual perk body must be the friendly detail (how it works), not the redundant 'X 초식 비급'")
 
 
 func _test_wrap_respects_width_and_lines() -> void:
@@ -153,6 +200,7 @@ func _test_cache_rebuild_signature() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_failed = true
 	push_error("perk_choice_per_card_description_smoke FAIL: " + message)
 	ProjectResourceLoader.clear_caches()
 	quit(1)

@@ -33,34 +33,42 @@ const LINGPET_SPEED_DISPLAY_PX_PER_POINT := 60.0
 
 const SPECIAL_GAUGE_MAX := 500.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
-# Glassmorphism pass: the main frame is a frosted translucent pane over the
-# (paused) battle scene; sections are slightly darker glass wells. Alpha values
-# are the felt-QA levers — raise them if battle noise hurts text readability.
-const PANEL_COLOR := Color(0.40, 0.54, 0.70, 0.18)
-const PANEL_BORDER := Color(0.62, 0.80, 0.98, 0.85)
-const SECTION_COLOR := Color(0.10, 0.17, 0.27, 0.62)
-const SECTION_BORDER := Color(0.55, 0.73, 0.92, 0.55)
-const TEXT_DIM := Color(178.0 / 255.0, 188.0 / 255.0, 210.0 / 255.0)
-const TEXT_SOFT := Color(210.0 / 255.0, 220.0 / 255.0, 235.0 / 255.0)
-const ACCENT_BLUE := Color(0.0, 205.0 / 255.0, 1.0)
-const ACCENT_GOLD := Color(1.0, 215.0 / 255.0, 85.0 / 255.0)
-const STAT_BUFF_COLOR := Color(105.0 / 255.0, 245.0 / 255.0, 170.0 / 255.0)
-const STAT_DEBUFF_COLOR := Color(1.0, 95.0 / 255.0, 95.0 / 255.0)
-const OVERLAY_GRID_FILL := Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.55)
+# Korean-fantasy hanji pass: the reference layout reads as an opaque parchment
+# ledger set into dark lacquered wood. Keep content sockets dark so the existing
+# skill/item art retains its contrast, but make every reading surface warm paper.
+const PANEL_COLOR := Color(0.050, 0.039, 0.028, 0.99)
+const PANEL_BORDER := Color(0.55, 0.39, 0.19, 0.96)
+const SECTION_COLOR := Color(0.91, 0.86, 0.74, 0.96)
+const SECTION_BORDER := Color(0.24, 0.17, 0.095, 0.88)
+const TEXT_DIM := Color(0.20, 0.16, 0.11)
+const TEXT_SOFT := Color(0.13, 0.10, 0.07)
+const ACCENT_BLUE := Color(0.055, 0.27, 0.28)
+const ACCENT_GOLD := Color(0.56, 0.40, 0.18)
+const STAT_BUFF_COLOR := Color(0.10, 0.42, 0.25)
+const STAT_DEBUFF_COLOR := Color(0.68, 0.16, 0.13)
+const OVERLAY_GRID_FILL := Color(0.49, 0.40, 0.27, 0.08)
 const OVERLAY_GRID_CELL_FILL := Color(20.0 / 255.0, 25.0 / 255.0, 38.0 / 255.0, 0.96)
-const OVERLAY_GRID_EMPTY_TEXT := Color(125.0 / 255.0, 132.0 / 255.0, 150.0 / 255.0)
-const OVERLAY_SLOT_FILL := Color(12.0 / 255.0, 17.0 / 255.0, 29.0 / 255.0, 0.96)
-# Editorial chrome (pause-menu visual language shared into the character info panel).
-# The draw-side alpha lever lives in character_info_overlay_frame_presenter.gd.
-const EDITORIAL_BG_PATH := "res://assets/ui/pause_menu/pause_system_editorial_map_bg_cyberpunk_v2.png"
+const OVERLAY_GRID_EMPTY_TEXT := Color(0.35, 0.29, 0.21)
+const OVERLAY_SLOT_FILL := Color(0.025, 0.038, 0.040, 0.98)
+# Reuse the shipped cyber-hanji master rather than adding another first-frame
+# bitmap. It already has an export-safe import and its parchment grain survives
+# cover-cropping at every supported character-info aspect.
+const EDITORIAL_BG_PATH := "res://assets/sprites/hud/stage1_layered_cyber_hanji_base_imagegen_v1.png"
 const EMPTY_HERO_PERK_CRYSTAL_PATH := "res://assets/ui/character_info/character_info_empty_perk_crystal_imagegen_v1.png"
-const EMPTY_HERO_RINGPET_EGG_PATH := "res://assets/ui/character_info/character_info_empty_guardian_spirit_egg_traditional_v1.png"
+const EMPTY_HERO_GUARDIAN_SHRINE_PATH := "res://assets/ui/character_info/character_info_empty_guardian_spirit_shrine_v1.png"
+# Compatibility alias for older capture/test callers. The empty-state artwork is
+# now an unoccupied shrine and must not imply that an egg has already appeared.
+const EMPTY_HERO_RINGPET_EGG_PATH := EMPTY_HERO_GUARDIAN_SHRINE_PATH
 const EMPTY_HERO_PASSIVE_CLUSTER_PATH := "res://assets/ui/character_info/character_info_empty_passive_crystal_cluster_imagegen_v1.png"
-# Slice C scene dressing: human hologram figure, machined empty-slot socket, mystic backdrop.
+# Slice C scene dressing retained by the live layout: equipment hologram metadata
+# and machined empty-slot sockets. The retired neon blur asset remains on disk for
+# provenance but is no longer loaded by the hanji panel.
 const HUMAN_HOLOGRAM_PATH := "res://assets/ui/character_info/character_info_human_hologram_imagegen_v1.png"
 const EMPTY_SLOT_SOCKET_PATH := "res://assets/ui/character_info/character_info_empty_slot_socket_imagegen_v1.png"
-const MYSTIC_BACKDROP_PATH := "res://assets/ui/character_info/character_info_mystic_backdrop_imagegen_v1.png"
-const SECTION_GLYPH_COLOR := Color(0.92, 0.96, 1.0, 0.95)
+const ORNATE_LEDGER_FRAME_PATH := "res://assets/ui/character_select_chrome/hwangyeokjeon/scroll_frame_9p.png"
+const INKWASH_ORNAMENT_ATLAS_PATH := "res://assets/ui/character_info/character_info_inkwash_ornament_atlas_imagegen_v1.png"
+const OPENING_CLOUD_TEXTURE_PATH := "res://assets/sprites/skills/smasher_wheel_vfx/pungun_cloud_puff.png"
+const SECTION_GLYPH_COLOR := Color(0.13, 0.18, 0.17, 0.92)
 const CLASS_EMBLEM_PATHS := {
 	"smasher": "res://assets/ui/character_info/character_info_class_emblem_smasher_imagegen_v1.png",
 	"viper": "res://assets/ui/character_info/character_info_class_emblem_viper_imagegen_v1.png",
@@ -68,9 +76,9 @@ const CLASS_EMBLEM_PATHS := {
 	"blacksmith": "res://assets/ui/character_info/character_info_class_emblem_blacksmith_imagegen_v1.png",
 	"optimus": "res://assets/ui/character_info/character_info_class_emblem_optimus_imagegen_v1.png",
 }
-const OVERLAY_SLOT_BORDER := Color(80.0 / 255.0, 100.0 / 255.0, 140.0 / 255.0, 0.72)
-const OVERLAY_SKILL_EMPTY_HOVER_FILL := Color(80.0 / 255.0, 90.0 / 255.0, 110.0 / 255.0, 0.35)
-const OVERLAY_ACTIVE_EMPTY_TEXT := Color(95.0 / 255.0, 100.0 / 255.0, 120.0 / 255.0)
+const OVERLAY_SLOT_BORDER := Color(0.47, 0.35, 0.18, 0.82)
+const OVERLAY_SKILL_EMPTY_HOVER_FILL := Color(0.24, 0.48, 0.41, 0.16)
+const OVERLAY_ACTIVE_EMPTY_TEXT := Color(0.36, 0.30, 0.22)
 const OVERLAY_SCROLLBAR_TRACK := Color(0.0, 0.0, 0.0, 0.35)
 const OVERLAY_PERK_SCROLLBAR_THUMB := Color(120.0 / 255.0, 170.0 / 255.0, 1.0, 0.72)
 const OVERLAY_PASSIVE_SCROLLBAR_THUMB := Color(120.0 / 255.0, 220.0 / 255.0, 170.0 / 255.0, 0.72)
@@ -78,6 +86,11 @@ const OVERLAY_EQUIPPED_BADGE_FILL := Color(70.0 / 255.0, 160.0 / 255.0, 1.0, 0.9
 const OVERLAY_TOOLTIP_PANEL_FILL := Color(12.0 / 255.0, 16.0 / 255.0, 28.0 / 255.0, 0.97)
 const OVERLAY_TOOLTIP_ROLL_PANEL_FILL := Color(18.0 / 255.0, 22.0 / 255.0, 40.0 / 255.0, 0.97)
 const OVERLAY_TOOLTIP_ROLL_BORDER := Color(1.0, 140.0 / 255.0, 70.0 / 255.0)
+# Tooltip surfaces stay dark even though the redesigned ledger body uses dark
+# ink. Keep their copy on a dedicated high-contrast palette instead of reusing
+# TEXT_SOFT, which is intentionally near-black on parchment.
+const OVERLAY_TOOLTIP_TEXT := Color(0.92, 0.91, 0.86)
+const OVERLAY_TOOLTIP_ACCENT := Color(1.0, 0.74, 0.38)
 const EQUIPMENT_SILHOUETTE_BASE := Color(32.0 / 255.0, 43.0 / 255.0, 72.0 / 255.0, 0.46)
 const EQUIPMENT_SILHOUETTE_HEAD := Color(20.0 / 255.0, 27.0 / 255.0, 48.0 / 255.0, 0.56)
 const EQUIPMENT_SILHOUETTE_NECK := Color(20.0 / 255.0, 27.0 / 255.0, 48.0 / 255.0, 0.44)
@@ -102,7 +115,9 @@ const EQUIPMENT_COLOR_ACCESSORY := Color(220.0 / 255.0, 175.0 / 255.0, 1.0)
 const BASE_ACCESSORY_SLOT_COUNT := 2
 const BASE_ACTIVE_ITEM_SLOT_COUNT := 3
 const UI_TEXT_SCALE := 1.12
-const OPEN_ANIMATION_DURATION := 0.14
+const DISPLAY_SYSTEM_FONT_NAMES := ["Gungsuh", "궁서", "GungSeo", "Batang", "바탕"]
+const OPEN_ANIMATION_DURATION := 1.50
+const CLOSE_ANIMATION_DURATION := 0.90
 const MOUSE_MOTION_REDRAW_DISTANCE := 32.0
 const MOUSE_MOTION_REDRAW_DISTANCE_SQ := MOUSE_MOTION_REDRAW_DISTANCE * MOUSE_MOTION_REDRAW_DISTANCE
 const UI_FONT_SIZE_CACHE_LIMIT := 64
@@ -112,7 +127,7 @@ const CENTERED_TEXT_SIZE_CACHE_LIMIT := 256
 const WRAP_TEXT_CACHE_LIMIT := 1024
 const PASSIVE_FRAME_COLOR_CACHE_LIMIT := 128
 const PASSIVE_INVENTORY_COLUMN_TARGET := 84.0
-const STAT_ROW_COUNT := 9
+const STAT_ROW_COUNT := 10
 const LINGPET_HATCH_REQUIRED_HITS := 1
 const FALLBACK_SYMBOL_RING_SEGMENTS := 8
 const EQUIPMENT_BODY_RING_SEGMENTS := 4
@@ -123,19 +138,27 @@ const EQUIPMENT_ACCESSORY_RING_SEGMENTS := 3
 const EQUIPMENT_SLOT_DEFINITIONS := CharacterInfoOverlayStaticData.EQUIPMENT_SLOT_DEFINITIONS
 
 var active := false
+var _display_font: Font = null
 var animation_time := 0.0
+var _closing := false
+var _closing_start_animation_time := 0.0
+var _closing_deadline_msec := 0
+var _opening_input_locked := false
 var _editorial_bg_texture: Texture2D = null
 var _empty_perk_hero_texture: Texture2D = null
 var _empty_ringpet_hero_texture: Texture2D = null
 var _empty_passive_hero_texture: Texture2D = null
 var _human_hologram_texture: Texture2D = null
 var _empty_slot_socket_texture: Texture2D = null
-var _mystic_backdrop_texture: Texture2D = null
+var _ornate_ledger_frame_texture: Texture2D = null
+var _inkwash_ornament_atlas_texture: Texture2D = null
+var _opening_cloud_texture: Texture2D = null
 var _class_emblem_textures: Dictionary = {}
 var lingpet_panel_live2d_time := 0.0
 var perk_scroll := 0.0
 var passive_inventory_scroll := 0.0
 var _lingpet_panel_live2d_redraw_active := false
+var _lingpet_panel_anim_frame_step := -1
 var _last_perk_grid_rect := Rect2()
 var _last_perk_content_height := 0.0
 var _last_passive_inventory_rect := Rect2()
@@ -288,13 +311,13 @@ var _wrap_text_fast_lines: Array = []
 var _acquired_perk_cache_hash := 0
 var _acquired_perk_cache_ready := false
 var _acquired_perk_cache: Array = []
-# TAB perk-grid animation liveness. `_perk_grid_has_animated_icon` is recomputed each
-# perk-grid draw: true while the padded grid shows at least one sheet-backed (animated)
-# perk icon. CharacterInfoOverlayLifecycle.update reads it to fire a throttled redraw
-# (~110ms cadence, tracked by `_perk_grid_anim_frame_step`) so animated mythic-perk
-# icons keep playing without a mouse-move nudge, while an all-static panel stays at
-# zero redraw cost.
+# TAB perk-grid animation liveness. The grid recomputes the fastest visible sheet
+# interval (250ms for an all-peerless grid, 110ms if a faster instant icon is also
+# visible). CharacterInfoOverlayLifecycle uses that exact interval so the fixed-shell
+# AutoSprite seals advance without redundant redraws while an all-static panel stays
+# at zero redraw cost.
 var _perk_grid_has_animated_icon: bool = false
+var _perk_grid_anim_step_msec: int = 0
 var _perk_grid_anim_frame_step: int = -1
 var _acquired_perk_draw_id_cache: Array[String] = []
 var _acquired_perk_draw_color_cache: Array[Color] = []
@@ -447,7 +470,8 @@ var _skill_cooldown_pause_registry: Object = null
 
 func state_fields_warning_anchor() -> int:
 	var value := 0
-	value = hash([value, active, animation_time, _editorial_bg_texture, _empty_perk_hero_texture, _empty_ringpet_hero_texture, _empty_passive_hero_texture, lingpet_panel_live2d_time, perk_scroll, passive_inventory_scroll, _lingpet_panel_live2d_redraw_active, _last_perk_grid_rect, _last_perk_content_height, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_inventory_content_height, _last_equipment_rect, _last_skill_rect, _last_active_items_rect, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_stat_row_rects, _last_equipment_slot_rects, _equipment_hover_uses_indexed_layout, _equipment_layout_content_rect, _equipment_layout_slot_size, _equipment_slot_rect_cache, _equipment_slot_rect_list_cache, _equipment_slot_icon_rect_cache, _equipment_slot_fallback_rect_cache, _equipment_slot_placeholder_rect_cache, _equipment_slot_locked_line_a_start_cache, _equipment_slot_locked_line_a_end_cache, _equipment_slot_locked_line_b_start_cache, _equipment_slot_locked_line_b_end_cache, _equipment_slot_center_x_cache, _equipment_slot_center_y_cache, _equipment_slot_label_y_cache, _equipment_slot_index_cache, _equipment_slot_keys, _equipment_slot_labels, _equipment_slot_compact_labels, _equipment_slot_visible_label_cache, _equipment_slot_visible_label_cache_compact, _equipment_slot_bases, _equipment_slot_accessory_numbers, _equipment_slot_empty_colors, _equipment_slot_empty_border_colors])
+	value = hash([value, _closing, _closing_start_animation_time, _closing_deadline_msec])
+	value = hash([value, active, animation_time, _opening_input_locked, _editorial_bg_texture, _ornate_ledger_frame_texture, _inkwash_ornament_atlas_texture, _opening_cloud_texture, _empty_perk_hero_texture, _empty_ringpet_hero_texture, _empty_passive_hero_texture, lingpet_panel_live2d_time, perk_scroll, passive_inventory_scroll, _lingpet_panel_live2d_redraw_active, _last_perk_grid_rect, _last_perk_content_height, _last_passive_inventory_rect, _last_passive_inventory_grid_rect, _last_passive_inventory_content_height, _last_equipment_rect, _last_skill_rect, _last_active_items_rect, _last_lingpet_skill_icon_rects, _last_lingpet_unlock_card_rects, _last_lingpet_stat_row_rects, _last_equipment_slot_rects, _equipment_hover_uses_indexed_layout, _equipment_layout_content_rect, _equipment_layout_slot_size, _equipment_slot_rect_cache, _equipment_slot_rect_list_cache, _equipment_slot_icon_rect_cache, _equipment_slot_fallback_rect_cache, _equipment_slot_placeholder_rect_cache, _equipment_slot_locked_line_a_start_cache, _equipment_slot_locked_line_a_end_cache, _equipment_slot_locked_line_b_start_cache, _equipment_slot_locked_line_b_end_cache, _equipment_slot_center_x_cache, _equipment_slot_center_y_cache, _equipment_slot_label_y_cache, _equipment_slot_index_cache, _equipment_slot_keys, _equipment_slot_labels, _equipment_slot_compact_labels, _equipment_slot_visible_label_cache, _equipment_slot_visible_label_cache_compact, _equipment_slot_bases, _equipment_slot_accessory_numbers, _equipment_slot_empty_colors, _equipment_slot_empty_border_colors])
 	value = hash([value, _equipment_slot_item_cache, _equipment_slot_has_item_cache, _equipment_slot_enabled_cache, _equipment_slot_label_color_cache, _equipment_slot_base_color_cache, _equipment_slot_border_color_cache, _equipment_slot_fill_color_cache, _equipment_slot_border_width_cache, _equipment_slot_locked_line_color_cache, _equipment_slot_frame_cache_slot_state_hash, _equipment_slot_frame_cache_accessory_slot_count, _equipment_slot_frame_cache_slot_count, _empty_equipment_item, _equipment_silhouette_content_rect, _equipment_silhouette_slot_size, _equipment_silhouette_body_x, _equipment_silhouette_head_center, _equipment_silhouette_neck_rect, _equipment_silhouette_shoulder_y, _equipment_silhouette_waist_y, _equipment_silhouette_hip_y, _equipment_silhouette_waist_w, _equipment_silhouette_torso_poly, _equipment_silhouette_left_arm_poly, _equipment_silhouette_right_arm_poly, _equipment_silhouette_left_leg_poly, _equipment_silhouette_right_leg_poly, _active_item_catalog, _active_item_icon_renderer, _character_runtime, _lingpet_art_texture_cache, _lingpet_skill_icon_texture_cache, _lingpet_stats_cache, _shared_icon_assets_prewarmed, _static_text_prewarmed, _active_item_text_prewarmed, _runtime_perk_text_prewarmed, _skill_text_prewarmed, _prewarm_assets_step_index, _prewarm_text_step_index, _active_item_text_prewarm_entries, _active_item_text_prewarm_cursor, _runtime_perk_text_prewarm_entries, _runtime_perk_text_prewarm_cursor, _skill_text_prewarm_entries, _skill_text_prewarm_cursor, _lingpet_panel_prewarm_step_index, _prewarm_shared_runtime_icon_assets_done, _prewarm_shared_active_item_icons_done, _passive_inventory_icon_prewarm_items_hash, _passive_inventory_icon_prewarm_item_count])
 	value = hash([value, _passive_inventory_draw_cache_items_hash, _passive_inventory_draw_cache_item_count, _passive_inventory_summary_count, _passive_inventory_summary_equipped, _passive_inventory_summary, _header_subtitle_cache, _header_status_text_cache, _header_status_width_cache, _passive_inventory_count_text_width_cache, _passive_item_frame_color_cache, _passive_item_body_cache_hash, _passive_item_body_cache_ready, _passive_item_body_cache, _passive_item_roll_entries_cache_item_hash, _passive_item_roll_entries_cache_runtime_id, _passive_item_roll_entries_cache_polish_multiplier, _passive_item_roll_entries_cache, _passive_item_roll_entry_dict_cache, _equipment_item_display_name_cache_hash, _equipment_item_display_name_cache_ready, _equipment_item_display_name_cache, _item_quality_color_cache_hash, _item_quality_color_cache_ready, _item_quality_color_cache, _tooltip_subtitle_color_source, _tooltip_subtitle_color_cache, _tooltip_entry_lines_cache_entries_hash, _tooltip_entry_lines_cache_size, _tooltip_entry_lines_cache_width, _tooltip_entry_lines_cache_max_lines, _tooltip_entry_lines_cache, _tooltip_entry_line_dict_cache, _tooltip_entry_line_text_cache, _tooltip_entry_line_color_cache, _empty_tooltip_roll_entries, _ui_font_size_cache, _fallback_symbol_letter_cache, _text_size_cache, _text_size_fast_text, _text_size_fast_ui_size])
 	value = hash([value, _text_size_fast_value, _wrap_text_cache, _wrap_text_fast_text, _wrap_text_fast_size, _wrap_text_fast_width, _wrap_text_fast_max_lines, _wrap_text_fast_lines, _acquired_perk_cache_hash, _acquired_perk_cache_ready, _acquired_perk_cache, _acquired_perk_draw_id_cache, _acquired_perk_draw_color_cache, _acquired_perk_border_color_cache, _acquired_perk_hover_border_color_cache, _acquired_perk_level_text_cache, _acquired_perk_level_color_cache, _acquired_perk_hover_title_cache, _acquired_perk_hover_body_cache, _acquired_perk_hover_detail_cache, _perk_level_text_size_cache_texts, _perk_level_text_size_cache_sizes, _perk_level_text_size_cache_font_ids, _perk_level_text_size_cache_values, _perk_level_text_size_fast_text, _perk_level_text_size_fast_size, _perk_level_text_size_fast_font_id, _perk_level_text_size_fast_value, _centered_text_size_cache_texts, _centered_text_size_cache_sizes, _centered_text_size_cache_font_ids, _centered_text_size_cache_values, _centered_text_size_fast_text, _centered_text_size_fast_size, _centered_text_size_fast_font_id, _centered_text_size_fast_value, _skill_slot_layout_rect, _skill_slot_layout_count, _skill_slot_layout_slot_size, _skill_slot_rect_cache, _skill_slot_icon_rect_cache, _skill_slot_fallback_rect_cache])

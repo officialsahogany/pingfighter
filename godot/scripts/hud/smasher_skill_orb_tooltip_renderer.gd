@@ -16,13 +16,23 @@ const COMMON_CONTROL_ROWS := {
 	"soul_summon_art": [
 		[["key", "Ctrl"], ["slash", "/"], ["key", "R3"], ["text", "소환·수납 전환"], ["accent", "발동"]],
 	],
+	"dalji_vision_chain_top": [
+		[["key", "Shift"], ["plus", "+"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
+	],
+	"cheongringwi_vision_dragon_torrent": [
+		[["key", "Shift"], ["plus", "+"], ["key", "A"], ["arrow", "→"], ["key", "D"], ["arrow", "→"], ["key", "A"]],
+		[["dim", "또는"], ["key", "←"], ["arrow", "→"], ["key", "→"], ["arrow", "→"], ["key", "←"], ["accent", "발동"]],
+	],
+	"yeonmyo_vision_bonghongwe": [
+		[["key", "Shift"], ["plus", "+"], ["key", "S"], ["slash", "/"], ["key", "↓"], ["accent", "발동"]],
+	],
 }
 const CONTROL_ROWS := {
 	"plasma": [
 		[["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "홀드 후 손 떼면 발동"]],
 	],
 	"recovery": [
-		[["text", "대쉬후딜 중"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
+		[["text", "활주 후딜 중"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
 	],
 	"cleanse": [
 		[["text", "상태이상 중"], ["key", "W"], ["accent", "발동"]],
@@ -50,19 +60,29 @@ const CONTROL_ROWS := {
 		[["key", "A"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "D"], ["accent", "우회전 발동"]],
 		[["key", "D"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "A"], ["accent", "좌회전 발동"]],
 	],
+	# 천뢰격(power_smashing)과 동일한 "방향키 + 버튼 홀드 → 타구 시점 발동" 계약이라
+	# 행 구성/문구를 그대로 미러한다(좌클릭 → 우클릭만 교체). 재사용한 문구는 이미
+	# EXACT_TEXT 전 언어에 등재돼 있어 신규 다국어 누락이 생기지 않는다.
 	"smasher_overdrive": [
-		[["key", "S"], ["slash", "/"], ["key", "↓"], ["plus", "+"], ["mouse_right", ""], ["accent", "발동"]],
+		[["key", "A"], ["slash", "/"], ["key", "D"], ["plus", "+"], ["mouse_right", ""], ["accent", "홀드 발동"]],
+		[["text", "단독"], ["mouse_right", ""], ["text", "홀드 시 반대쪽 자동 발동"]],
+	],
+	# 접촉 발동은 입력만 보여 주면 즉시 시전으로 오해하기 쉽다. 기존 다국어
+	# 토큰인 "받아치기"를 별도 맥락 행으로 두고, 실제 커맨드는 그 아래에 둔다.
+	"void_phantom": [
+		[["text", "받아치기"]],
+		[["key", "S"], ["slash", "/"], ["key", "↓"], ["plus", "+"], ["mouse_left", ""], ["accent", "홀드 발동"]],
 	],
 }
 
 const VIPER_CONTROL_ROWS := {
 	"wall_leap_raid": [
-		[["mouse_right", ""], ["text", "잠입"], ["dim", "기력 160 필요 · 100 소모"]],
-		[["mouse_left", ""], ["text", "검기"], ["dim", "60 소모 · 둔화 5초"]],
-		[["mouse_right", ""], ["text", "폭발"], ["dim", "150 소모 · 기절 3초"]],
+		[["mouse_right", ""], ["text", "잠입"], ["dim", "기력 180 소모"]],
+		[["mouse_left", ""], ["text", "참격"], ["dim", "추가 소모 없음 · 둔화 5초"]],
+		[["mouse_right", ""], ["text", "폭발"], ["dim", "추가 소모 없음 · 기절 3초"]],
 	],
 	"shadow_step": [
-		[["text", "대쉬 중/직후"], ["key", "S"], ["accent", "발동"]],
+		[["text", "활주 중/직후"], ["key", "S"], ["accent", "발동"]],
 	],
 	"blade_rush": [
 		[["text", "체공 중"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
@@ -86,7 +106,7 @@ const VIPER_CONTROL_ROWS := {
 		[["key", "A"], ["arrow", "→"], ["key", "W"], ["arrow", "→"], ["key", "D"], ["accent", "발동"]],
 	],
 	"core_flip": [
-		[["text", "대쉬 타격 후"], ["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "발동"]],
+		[["text", "활주 타격 후"], ["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "발동"]],
 	],
 	"dual_glitch": [
 		[["key", "A"], ["arrow", "→"], ["key", "D"], ["arrow", "→"], ["key", "A"], ["arrow", "→"], ["key", "D"]],
@@ -293,6 +313,21 @@ func _build_hover_context(
 			_get_instance(registry, "pillar_orb_drawer"),
 			skill_orb_context
 		)
+	var baekrin_mount_context: Dictionary = _get_baekrin_mount_context(registry, scene_context)
+	var baekrin_mount_skill_renderer: Object = _get_instance(registry, "baekrin_mount_skill_pillar_renderer")
+	var baekrin_mount_active: bool = (
+		not horn_strawberry_active
+		and not odins_eye_active
+		and _is_baekrin_mount_skill_hud_active(baekrin_mount_skill_renderer, baekrin_mount_context)
+	)
+	if baekrin_mount_active and baekrin_mount_skill_renderer.has_method("build_skill_orb_context"):
+		orb_renderer = baekrin_mount_skill_renderer
+		skill_orb_context = baekrin_mount_skill_renderer.build_skill_orb_context(
+			baekrin_mount_context,
+			float(scene_context.get("special_gauge", 0.0)),
+			_get_instance(registry, "pillar_orb_drawer"),
+			skill_orb_context
+		)
 	var commando_firearm_runtime: Object = _get_instance(registry, "commando_firearm_runtime") if is_commando else null
 	var commando_firearm_context: Dictionary = {}
 	if commando_firearm_runtime != null and commando_firearm_runtime.has_method("get_actor_draw_context"):
@@ -324,6 +359,9 @@ func _build_hover_context(
 		"odins_eye_active": odins_eye_active,
 		"odins_eye_context": odins_eye_context,
 		"odins_eye_skill_pillar_renderer": odins_eye_skill_renderer,
+		"baekrin_mount_active": baekrin_mount_active,
+		"baekrin_mount_context": baekrin_mount_context,
+		"baekrin_mount_skill_pillar_renderer": baekrin_mount_skill_renderer,
 	}
 
 
@@ -346,6 +384,17 @@ func _find_hovered_skill(hover_context: Dictionary) -> Dictionary:
 		var odins_renderer: Object = hover_context.get("odins_eye_skill_pillar_renderer", null)
 		if odins_renderer != null and odins_renderer.has_method("find_hovered_skill"):
 			return odins_renderer.find_hovered_skill(
+				_get_vector2(hover_context, "mouse_pos", Vector2.ZERO),
+				_get_vector2(hover_context, "left_center", Vector2.ZERO),
+				float(hover_context.get("orb_radius", 55.0)),
+				float(hover_context.get("scale_factor", 1.0)),
+				skill_context
+			)
+		return {}
+	if bool(hover_context.get("baekrin_mount_active", false)):
+		var mount_renderer: Object = hover_context.get("baekrin_mount_skill_pillar_renderer", null)
+		if mount_renderer != null and mount_renderer.has_method("find_hovered_skill"):
+			return mount_renderer.find_hovered_skill(
 				_get_vector2(hover_context, "mouse_pos", Vector2.ZERO),
 				_get_vector2(hover_context, "left_center", Vector2.ZERO),
 				float(hover_context.get("orb_radius", 55.0)),
@@ -395,6 +444,12 @@ func _find_skill_by_name(hover_context: Dictionary, target_skill_name: String) -
 		return _find_horn_strawberry_skill_by_name(hover_context, target_skill_name)
 	if bool(hover_context.get("odins_eye_active", false)):
 		return _find_odins_eye_skill_by_name(hover_context, target_skill_name)
+	if bool(hover_context.get("baekrin_mount_active", false)):
+		return _find_replacement_skill_by_name(
+			hover_context,
+			target_skill_name,
+			"baekrin_mount_skill_pillar_renderer"
+		)
 	var snapshot: Dictionary = _get_dictionary(hover_context.get("skill_config_snapshot", {}))
 	var equipped_skills: Array = _get_array(snapshot.get("equipped_skills", []))
 	var skill_data_map: Dictionary = _get_dictionary(snapshot.get("skill_data", {}))
@@ -510,8 +565,48 @@ func _find_odins_eye_skill_by_name(hover_context: Dictionary, target_skill_name:
 	return data
 
 
+func _find_replacement_skill_by_name(
+	hover_context: Dictionary,
+	target_skill_name: String,
+	renderer_key: String
+) -> Dictionary:
+	var renderer: Object = hover_context.get(renderer_key, null)
+	if (
+		renderer == null
+		or not renderer.has_method("get_skill_order")
+		or not renderer.has_method("get_skill_data_map")
+		or not renderer.has_method("get_slot_positions")
+	):
+		return {}
+	var data_map: Dictionary = _get_dictionary(renderer.get_skill_data_map())
+	if not data_map.has(target_skill_name):
+		return {}
+	var order: Array = _get_array(renderer.get_skill_order())
+	var target_index := order.find(target_skill_name)
+	if target_index < 0:
+		return {}
+	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	var scale_factor := float(hover_context.get("scale_factor", 1.0))
+	var positions: Array = renderer.get_slot_positions(
+		_get_vector2(hover_context, "left_center", Vector2.ZERO),
+		float(hover_context.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	if target_index >= positions.size():
+		return {}
+	var icon_radius := float(skill_context.get("skill_orb_radius", 24.0)) * scale_factor
+	var slot_center := _get_vector2_from_variant(positions[target_index], Vector2.ZERO)
+	var data: Dictionary = _get_dictionary(data_map.get(target_skill_name, {})).duplicate(true)
+	data["slot_rect"] = Rect2(
+		slot_center - Vector2(icon_radius, icon_radius),
+		Vector2(icon_radius * 2.0, icon_radius * 2.0)
+	)
+	return data
+
+
 func _find_hovered_commando_firearm(hover_context: Dictionary) -> Dictionary:
-	if bool(hover_context.get("horn_strawberry_active", false)):
+	if bool(hover_context.get("horn_strawberry_active", false)) or bool(hover_context.get("baekrin_mount_active", false)):
 		return {}
 	if bool(hover_context.get("odins_eye_active", false)):
 		return {}
@@ -632,7 +727,7 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 
 	var cursor_y: float = tooltip_pos.y + padding
 	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, cursor_y), str(skill_data.get("korean", "")), title_size, Color.WHITE)
-	var active_text := LanguageSettings.translate_text("액티브")
+	var active_text := LanguageSettings.translate_text("초식")
 	var active_size: Vector2 = font.get_string_size(active_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size)
 	_draw_text(
 		canvas,
@@ -780,7 +875,7 @@ func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
-# 콤보증폭칩(enhancer)이 드라이브/파워스매싱 orb 스킬의 콤보 항을 증폭하므로, 대상 orb
+# 콤보증폭칩(enhancer)이 드라이브/천뢰격 orb 스킬의 콤보 항을 증폭하므로, 대상 orb
 # 툴팁에 현재 효과값 시너지 라인을 노출(CLAUDE.md: enhancer는 target orb tooltip에 live값 표시).
 func _append_combo_amplifier_runtime_bonus(description: String, hover_context: Dictionary, skill_name: String) -> String:
 	var level: int = _get_runtime_skill_level(hover_context, "combo_amplifier_chip")
@@ -922,53 +1017,53 @@ func _append_ignition_aura_runtime_bonus(description: String, hover_context: Dic
 		return "%s\n点火：25秒内已投资升级 Lv.+%d / 金币 +%d" % [description, active_bonus, gold_bonus]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
 		return "%s\nイグニッション：25秒間、投資パーク Lv.+%d / ゴールド +%d" % [description, active_bonus, gold_bonus]
-	return "%s\n이그니션: 25초 동안 투자 퍽 Lv.+%d / 골드 +%d" % [description, active_bonus, gold_bonus]
+	return "%s\n이그니션: 25초 동안 투자 무공 경지 +%d / 골드 +%d" % [description, active_bonus, gold_bonus]
 
 
 func _format_blade_amp_runtime_line(size_pct: int, projectile_speed_pct: int, hit_speed_pct: int, cost_cut: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Blade Amp: width/range +%d%%, blade speed +%d%%, attack speed +%d%%, cost -%d" % [
+		return "Sword Aura Inner Art: width/range +%d%%, blade speed +%d%%, attack speed +%d%%, cost -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Amplificador de hoja: ancho/alcance +%d%%, velocidad de hoja +%d%%, velocidad de ataque +%d%%, coste -%d" % [
+		return "Arte Interior de Aura de Espada: ancho/alcance +%d%%, velocidad de hoja +%d%%, velocidad de ataque +%d%%, coste -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Amplificador de lâmina: largura/alcance +%d%%, velocidade da lâmina +%d%%, velocidade de ataque +%d%%, custo -%d" % [
+		return "Arte Interior da Aura de Espada: largura/alcance +%d%%, velocidade da lâmina +%d%%, velocidade de ataque +%d%%, custo -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Усилитель лезвия: ширина/дальность +%d%%, скорость лезвия +%d%%, скорость атаки +%d%%, стоимость -%d" % [
+		return "Внутреннее Искусство Мечевой Ци: ширина/дальность +%d%%, скорость лезвия +%d%%, скорость атаки +%d%%, стоимость -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "刀刃增幅：宽度/距离 +%d%%，刀速 +%d%%，攻速 +%d%%，费用 -%d" % [
+		return "剑罡心法：宽度/距离 +%d%%，刀速 +%d%%，攻速 +%d%%，费用 -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "ブレード増幅：幅/距離 +%d%%、刃速 +%d%%、攻速 +%d%%、費用 -%d" % [
+		return "剣罡心法：幅/距離 +%d%%、刃速 +%d%%、攻速 +%d%%、費用 -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
 			cost_cut,
 		]
-	return "검기증폭: 폭/거리+%d%%, 검속+%d%%, 공속+%d%%, 비용-%d" % [
+	return "검강심법: 폭/거리+%d%%, 검속+%d%%, 공속+%d%%, 비용-%d" % [
 		size_pct,
 		projectile_speed_pct,
 		hit_speed_pct,
@@ -989,23 +1084,23 @@ func _format_blade_amp_lv3_line(homing_pct: int, followup_pct: int) -> String:
 		return "Lv3+：追踪 %d%%，追加刀波 %d%%" % [homing_pct, followup_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
 		return "Lv3+：誘導 %d%%、追加刃波 %d%%" % [homing_pct, followup_pct]
-	return "Lv3+: 유도 %d%%, 추가검기 %d%%" % [homing_pct, followup_pct]
+	return "3성부터: 유도 %d%%, 추가검기 %d%%" % [homing_pct, followup_pct]
 
 
 func _format_kick_enhance_runtime_line(precision_pct: int, speed_pct: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Kick Enhance: precision +%d%%, ball speed +%d%%" % [precision_pct, speed_pct]
+		return "Heavenly Kick Inner Art: precision +%d%%, ball speed +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Patada mejorada: precisión +%d%%, velocidad de bola +%d%%" % [precision_pct, speed_pct]
+		return "Arte Interior de Patada Celestial: precisión +%d%%, velocidad de bola +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Chute melhorado: precisão +%d%%, velocidade da bola +%d%%" % [precision_pct, speed_pct]
+		return "Arte Interior do Chute Celestial: precisão +%d%%, velocidade da bola +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Улучшенный удар: точность +%d%%, скорость мяча +%d%%" % [precision_pct, speed_pct]
+		return "Внутреннее Искусство Небесного Удара: точность +%d%%, скорость мяча +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "踢击强化：精度 +%d%%，球速 +%d%%" % [precision_pct, speed_pct]
+		return "天脚心法：精度 +%d%%，球速 +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "キック強化：精度 +%d%%、球速 +%d%%" % [precision_pct, speed_pct]
-	return "킥 강화: 정밀도 +%d%%, 공속 +%d%%" % [precision_pct, speed_pct]
+		return "天脚心法：精度 +%d%%、球速 +%d%%" % [precision_pct, speed_pct]
+	return "천각심법: 정밀도 +%d%%, 공속 +%d%%" % [precision_pct, speed_pct]
 
 
 func _format_kick_knockback_runtime_line(knockback_chance_pct: int) -> String:
@@ -1021,71 +1116,71 @@ func _format_kick_knockback_runtime_line(knockback_chance_pct: int) -> String:
 		return "Lv3+：熔炉击退球 %d%%，防御击退 150%%" % knockback_chance_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
 		return "Lv3+：炉ノックバックボール %d%%、ガードノックバック 150%%" % knockback_chance_pct
-	return "Lv3+: 용광로 넉백볼 %d%%, 가드 넉백 150%%" % knockback_chance_pct
+	return "3성부터: 용광로 넉백볼 %d%%, 가드 넉백 150%%" % knockback_chance_pct
 
 
 func _format_four_poisons_dive_line(prep_pct: int, sleep_pct: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Four Poisons: prep -%d%%, sleep +%d%%" % [prep_pct, sleep_pct]
+		return "Four Poisons Unity: prep -%d%%, sleep +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Cuatro venenos: preparación -%d%%, sueño +%d%%" % [prep_pct, sleep_pct]
+		return "Unidad de los Cuatro Venenos: preparación -%d%%, sueño +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Quatro venenos: preparação -%d%%, sono +%d%%" % [prep_pct, sleep_pct]
+		return "Unidade dos Quatro Venenos: preparação -%d%%, sono +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Четыре яда: подготовка -%d%%, сон +%d%%" % [prep_pct, sleep_pct]
+		return "Единство Четырёх Ядов: подготовка -%d%%, сон +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "四毒：准备 -%d%%，睡眠 +%d%%" % [prep_pct, sleep_pct]
+		return "四毒归一：准备 -%d%%，睡眠 +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "四毒：準備 -%d%%、睡眠 +%d%%" % [prep_pct, sleep_pct]
-	return "사독: 준비 -%d%%, 수면 +%d%%" % [prep_pct, sleep_pct]
+		return "四毒帰一：準備 -%d%%、睡眠 +%d%%" % [prep_pct, sleep_pct]
+	return "사독귀일: 준비 -%d%%, 수면 +%d%%" % [prep_pct, sleep_pct]
 
 
 func _format_four_poisons_dual_line(duration_pct: int, clone_hp: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Four Poisons: duration +%d%%, clone HP %d" % [duration_pct, clone_hp]
+		return "Four Poisons Unity: duration +%d%%, clone HP %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Cuatro venenos: duración +%d%%, PV del clon %d" % [duration_pct, clone_hp]
+		return "Unidad de los Cuatro Venenos: duración +%d%%, PV del clon %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Quatro venenos: duração +%d%%, PV do clone %d" % [duration_pct, clone_hp]
+		return "Unidade dos Quatro Venenos: duração +%d%%, PV do clone %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Четыре яда: длительность +%d%%, HP клона %d" % [duration_pct, clone_hp]
+		return "Единство Четырёх Ядов: длительность +%d%%, HP клона %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "四毒：持续 +%d%%，分身HP %d" % [duration_pct, clone_hp]
+		return "四毒归一：持续 +%d%%，分身HP %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "四毒：持続 +%d%%、分身HP %d" % [duration_pct, clone_hp]
-	return "사독: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
+		return "四毒帰一：持続 +%d%%、分身HP %d" % [duration_pct, clone_hp]
+	return "사독귀일: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
 
 
 func _format_four_poisons_dual_lv5_line() -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Four Poisons Lv5: clones copy skills while active"
+		return "Four Poisons Unity Lv5: clones copy skills while active"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Cuatro venenos Lv5: los clones copian habilidades durante la activa"
+		return "Unidad de los Cuatro Venenos Lv5: los clones copian habilidades durante la activa"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Quatro venenos Lv5: clones copiam habilidades durante a ativa"
+		return "Unidade dos Quatro Venenos Lv5: clones copiam habilidades durante a ativa"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Четыре яда Lv5: клоны копируют навыки во время актива"
+		return "Единство Четырёх Ядов Lv5: клоны копируют навыки во время актива"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "四毒Lv5：主动期间分身复制技能"
+		return "四毒归一Lv5：主动期间分身复制技能"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "四毒Lv5：アクティブ中、分身がスキルをコピー"
-	return "사독 Lv5: active 중 분신 초식 복제"
+		return "四毒帰一Lv5：アクティブ中、分身がスキルをコピー"
+	return "사독귀일 극성: 발동 중 분신이 초식을 복제"
 
 
 func _format_four_poisons_nerve_line(confusion_pct: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Four Poisons: confusion +%d%%" % confusion_pct
+		return "Four Poisons Unity: confusion +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Cuatro venenos: confusión +%d%%" % confusion_pct
+		return "Unidad de los Cuatro Venenos: confusión +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Quatro venenos: confusão +%d%%" % confusion_pct
+		return "Unidade dos Quatro Venenos: confusão +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Четыре яда: замешательство +%d%%" % confusion_pct
+		return "Единство Четырёх Ядов: замешательство +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "四毒：混乱 +%d%%" % confusion_pct
+		return "四毒归一：混乱 +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "四毒：混乱 +%d%%" % confusion_pct
-	return "사독: 혼란 +%d%%" % confusion_pct
+		return "四毒帰一：混乱 +%d%%" % confusion_pct
+	return "사독귀일: 혼란 +%d%%" % confusion_pct
 
 
 func _format_cooldown_reduction_runtime_line(cooldown_pct: int) -> String:
@@ -1184,6 +1279,10 @@ func _get_tooltip_position(hover_context: Dictionary, tooltip_width: float, tool
 
 func _build_control_rows(skill_name: String, character_type: String, motion_hint: String, font: Font, font_size: int, max_width: float) -> Array:
 	var rows: Array = _get_control_rows(skill_name, character_type).duplicate(true)
+	# 구조화 입력 행이 없으면 호출자가 how_to_use 문장 폴백을 그린다. 여기서
+	# motion_hint를 먼저 붙이면 rows가 비지 않아 폴백이 조용히 사라진다.
+	if rows.is_empty():
+		return rows
 	if not motion_hint.is_empty():
 		for line in _wrap_text(motion_hint, font, font_size, max_width, 2):
 			rows.append([["dim", line]])
@@ -1373,6 +1472,26 @@ func _is_odins_eye_skill_hud_active(odins_renderer: Object, odins_context: Dicti
 	if odins_renderer.has_method("is_active"):
 		return bool(odins_renderer.is_active(odins_context))
 	return bool(odins_context.get("transformed", false))
+
+
+func _get_baekrin_mount_context(registry: Object, scene_context: Dictionary) -> Dictionary:
+	var context: Dictionary = _get_dictionary(scene_context.get("baekrin_mount_context", {}))
+	if not context.is_empty():
+		return context
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if lingpet_runtime != null and lingpet_runtime.has_method("get_baekrin_mount_context"):
+		var value: Variant = lingpet_runtime.get_baekrin_mount_context()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _is_baekrin_mount_skill_hud_active(mount_renderer: Object, mount_context: Dictionary) -> bool:
+	if mount_renderer == null:
+		return false
+	if mount_renderer.has_method("is_active"):
+		return bool(mount_renderer.is_active(mount_context))
+	return bool(mount_context.get("mounted", false))
 
 
 func _token_color(token_type: String) -> Color:

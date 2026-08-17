@@ -74,7 +74,7 @@ func _verify_layout_contract() -> void:
 	var small_back_rect: Rect2 = _rect(small_layout.get("back_rect", Rect2()))
 	var small_medallion_span: float = PerkFusionOverlayRenderer.new()._probability_medallion_span(small_probability_rect)
 	_expect(small_probability_rect.size.y >= 125.0, "small-window probability lane should retain enough vertical room")
-	_expect(small_medallion_span <= small_probability_rect.size.x * 0.25 + 0.01, "small-window medallions should not overlap adjacent columns")
+	_expect(small_medallion_span <= small_probability_rect.size.x * 0.15 + 0.01, "small-window medallions should not overlap the five final-outcome columns")
 	_expect(small_probability_rect.end.y < small_back_rect.position.y, "small-window probability lane should finish before the footer buttons")
 
 
@@ -198,7 +198,14 @@ func _confirm_snapshot() -> Dictionary:
 			{"perk_id": "beta", "base_level": 5, "effective_level": 5, "options": []},
 		],
 		"outcome_preview": {
-			"weights": {"success": 0.55, "side_effect": 0.25, "byproduct": 0.20},
+			"weights": {
+				"success": 0.20,
+				"side_effect": 0.10,
+				"byproduct": 0.70,
+				"byproduct_count_1": 0.40,
+				"byproduct_count_2": 0.20,
+				"byproduct_count_3": 0.10,
+			},
 		},
 	}
 

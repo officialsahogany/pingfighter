@@ -18,6 +18,9 @@ const CALLBACK_SHOULD_DEFER_NEXT_CHOICE := "should_defer_next_choice"
 const CALLBACK_HAS_POST_CHOICE_BLOCKER := "has_post_choice_blocker"
 const CALLBACK_CONTINUE_AFTER_CHOICE := "continue_after_choice"
 
+var _mystic_dice_last_finished_revision := 0
+var _fusion_last_finished_revision := 0
+
 
 func build_state_callbacks(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
@@ -82,6 +85,8 @@ func finish_successful_choice_from_runtime_state(
 	perf_logger: Object = null,
 	choice: Dictionary = {}
 ) -> Dictionary:
+	if _is_duplicate_committed_finish(choice):
+		return {"already_finished": true}
 	return finish_successful_choice(
 		choice_id,
 		owner,
@@ -95,6 +100,27 @@ func finish_successful_choice_from_runtime_state(
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
+
+
+func _is_duplicate_committed_finish(choice: Dictionary) -> bool:
+	match str(choice.get("type", "")):
+		"mystic_dice":
+			var dice_revision := int(choice.get("mystic_dice_revision", 0))
+			if dice_revision > 0 and dice_revision <= _mystic_dice_last_finished_revision:
+				return true
+			_mystic_dice_last_finished_revision = maxi(
+				_mystic_dice_last_finished_revision,
+				dice_revision
+			)
+		"fusion":
+			var fusion_revision := int(choice.get("fusion_revision", 0))
+			if fusion_revision > 0 and fusion_revision <= _fusion_last_finished_revision:
+				return true
+			_fusion_last_finished_revision = maxi(
+				_fusion_last_finished_revision,
+				fusion_revision
+			)
+	return false
 
 
 func finish_successful_choice(

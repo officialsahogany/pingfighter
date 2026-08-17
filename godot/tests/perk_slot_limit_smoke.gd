@@ -77,6 +77,23 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class ByproductSlotState:
+	extends RefCounted
+
+	var owned_byproducts: Array[String] = []
+	var slot_reduction := 0
+
+	func _init(next_owned_byproducts: Array[String], next_slot_reduction: int = 0) -> void:
+		owned_byproducts = next_owned_byproducts.duplicate()
+		slot_reduction = next_slot_reduction
+
+	func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
+		return owned_byproducts.duplicate()
+
+	func get_perk_fusion_slot_reduction() -> int:
+		return slot_reduction
+
+
 class ChoiceModalProbe:
 	extends Control
 
@@ -115,8 +132,9 @@ func _run() -> void:
 	_verify_non_consuming_choices_survive_full_slots()
 	_verify_mythic_grant_respects_slots()
 	_verify_slot_status_data()
-	_verify_dynamic_slot_expansion()
-	_verify_expansion_apply_fanout()
+	_verify_fusion_byproduct_slot_expansion()
+	_verify_fusion_byproduct_apply_fanout()
+	_verify_legacy_expansion_live_paths_and_defensive_restore_hook()
 	_verify_mythic_gate_follows_dynamic_limit()
 	_verify_expansion_localization_semantics()
 	await _capture_choice_modal_slot_status()
@@ -216,16 +234,16 @@ func _verify_offer_budget_at_five_slots() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var levels := _five_slot_levels()
 	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT)
-	_expect(_has_choice_id(choices, "fuel_pouch"), "with five occupied slots, a new slot-consuming perk should still be offerable")
-	_expect(_has_choice_id(choices, "dash_lightweight"), "with five occupied slots, owned slot-consuming perks should still level up")
+	_expect(_has_choice_id(choices, "item_recycle"), "with five occupied slots, a new slot-consuming perk should still be offerable")
+	_expect(_has_choice_id(choices, "dash_acceleration"), "with five occupied slots, owned slot-consuming perks should still level up")
 
 
 func _verify_offer_budget_at_six_slots() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var levels := _full_slot_levels()
 	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT)
-	_expect(not _has_choice_id(choices, "fuel_pouch"), "with six occupied slots, new slot-consuming perks should be filtered out")
-	_expect(_has_choice_id(choices, "dash_lightweight"), "with six occupied slots, owned slot-consuming level-ups should remain offerable")
+	_expect(not _has_choice_id(choices, "item_recycle"), "with six occupied slots, new slot-consuming perks should be filtered out")
+	_expect(_has_choice_id(choices, "dash_acceleration"), "with six occupied slots, owned slot-consuming level-ups should remain offerable")
 
 
 func _verify_non_consuming_choices_survive_full_slots() -> void:
@@ -238,7 +256,7 @@ func _verify_non_consuming_choices_survive_full_slots() -> void:
 
 	var choices_with_instant: Array = catalog.get_choices("smasher", full_levels, false, OFFER_SCAN_COUNT, owner, registry)
 	_expect(_has_choice_id(choices_with_instant, "instant_gauge_full"), "full slots should not suppress instant choices")
-	_expect(_has_choice_id(choices_with_instant, "convert_to_gold"), "full slots should not suppress gold conversion")
+	_expect(not _has_choice_id(choices_with_instant, "convert_to_gold"), "normal offers should retire gold conversion")
 
 	var choices_without_instant: Array = catalog.get_choices("smasher", full_levels, true, OFFER_SCAN_COUNT, owner, registry)
 	_expect(_has_choice_id(choices_without_instant, "unlock_plasma"), "full slots should not suppress unlock_* active-skill choices")
@@ -286,107 +304,84 @@ func _verify_slot_status_data() -> void:
 	_expect(bool(full_status.get("is_full", false)), "slot status should mark six slots as full")
 
 
-func _verify_dynamic_slot_expansion() -> void:
-	# flag ON: 슬롯 확장 퍽의 RAW 레벨만큼 한도가 6→10으로 성장하고,
-	# 확장 퍽 자신은 슬롯을 소모하지 않는다(가득 상태의 탈출 밸브).
+func _verify_fusion_byproduct_slot_expansion() -> void:
 	var catalog := RuntimePerkCatalog.new()
-	_expect_eq(catalog.get_perk_slot_limit({}), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "no expansion should keep the base limit of 6")
-	_expect_eq(catalog.get_perk_slot_limit({"common_expansion": 2}), 8, "expansion level 2 should raise the limit to 8")
-	_expect_eq(catalog.get_perk_slot_limit({"common_expansion": 4}), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "expansion level 4 should reach the max limit of 10")
-	_expect_eq(catalog.get_perk_slot_limit({"common_expansion": 99}), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "expansion level overflow must clamp to 10")
-	var expansion_data := catalog.get_perk_data("common_expansion")
-	expansion_data["id"] = "common_expansion"
-	_expect(not RuntimePerkCatalog.is_slot_consuming_perk(expansion_data), "flag ON: the slot-expansion perk must not consume a perk slot")
-	_expect_eq(RuntimePerkCatalog.get_slot_cost_for_level(expansion_data, 4), 0, "flag ON: expansion levels must cost zero slots")
-	_expect_eq(int(expansion_data.get("max_level", 0)), 4, "expansion perk should grow four times (6 -> 10)")
-	# 가득(6/6) + 확장 2 = 한도 8 → 슬롯이 다시 열린다.
-	var expanded_levels := _full_slot_levels()
-	expanded_levels["common_expansion"] = 2
-	_expect(catalog.has_open_perk_slot(expanded_levels), "expansion levels should reopen slots past the six-slot wall")
-	var expanded_status: Dictionary = catalog.get_perk_slot_status(expanded_levels)
-	_expect_eq(int(expanded_status.get("limit", 0)), 8, "slot status should expose the expanded limit")
-	_expect(not bool(expanded_status.get("is_full", true)), "slot status should not be full at 6/8")
-	# 가득 상태 오퍼에서 확장 퍽이 등장한다(비소모라 슬롯 예산 필터 통과).
-	var full_choices: Array = catalog.get_choices("smasher", _full_slot_levels(), true, OFFER_SCAN_COUNT)
-	_expect(_has_choice_id(full_choices, "common_expansion"), "full slots should still offer the slot-expansion perk (escape valve)")
-	# RAW-only: 유효레벨 보너스(크라운·현자·점화)는 확장 퍽에 부적격 —
-	# 슬롯 한도는 직접 투자한 레벨로만 성장한다.
+	var state := ByproductSlotState.new(["meridian_expand"])
+	var registry := FakeRegistry.new({"runtime_perk_state": state})
+	_expect_eq(catalog.get_perk_slot_limit({}, null), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "no byproduct context should keep the base limit of 6")
+	_expect_eq(catalog.get_perk_slot_limit({"common_expansion": 99}, null), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "legacy expansion levels must not raise the flag-ON slot limit")
+	_expect_eq(catalog.get_perk_slot_limit({}, state), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "runtime-state context should expose the meridian expansion limit of 7")
+	_expect_eq(catalog.get_perk_slot_limit({}, registry), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "registry context should expose the meridian expansion limit of 7")
+	var state_status: Dictionary = catalog.get_perk_slot_status(_full_slot_levels(), state)
+	var registry_status: Dictionary = catalog.get_perk_slot_status(_full_slot_levels(), registry)
+	_expect_eq(int(state_status.get("limit", 0)), 7, "slot status must forward runtime-state context into the limit query")
+	_expect_eq(int(registry_status.get("limit", 0)), 7, "slot status must forward registry context into the limit query")
+	_expect(not bool(state_status.get("is_full", true)) and not bool(registry_status.get("is_full", true)), "six occupied slots should remain open at the byproduct limit of 7")
+	_expect(catalog.has_open_perk_slot(_full_slot_levels(), registry), "open-slot checks must forward the byproduct context")
+	var duplicate_state := ByproductSlotState.new(["meridian_expand", "meridian_expand"])
+	_expect_eq(catalog._resolve_perk_fusion_slot_limit_bonus(duplicate_state), 1, "duplicate/corrupt byproduct ids must resolve to one ownership bonus before the hard-limit clamp")
+	_expect_eq(catalog.get_perk_slot_limit({}, duplicate_state), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "duplicate/corrupt byproduct ids must still grant the one-time slot bonus only once")
 	var effective_levels := RuntimePerkEffectiveLevels.new()
-	_expect(not effective_levels.is_runtime_level_bonus_eligible("common_expansion", 2), "flag ON: effective-level bonuses must not apply to the slot-expansion perk")
+	_expect(not effective_levels.is_runtime_level_bonus_eligible("common_expansion", 2), "the preserved flag-OFF expansion definition must remain excluded from effective-level inflation")
 
 
-func _verify_expansion_apply_fanout() -> void:
-	# 실적용 팬아웃: 가득(6/6) 상태에서 실제 오퍼 choice를 RuntimePerkState의
-	# 실경로(apply_choice)로 적용 → 레벨 반영 → 한도 7 → 벽이 열려 7번째
-	# 소모 퍽까지 실적용되는 전 흐름을 봉인한다(유닛 dict 계산만으로는
-	# 오퍼→적용→한도 반영의 배선 단절을 못 잡는다).
+func _verify_fusion_byproduct_apply_fanout() -> void:
+	# 실제 합일 커밋으로 부산물과 슬롯 환급을 함께 만든 뒤, 오퍼→적용→HUD
+	# 상태가 동일한 registry 컨텍스트를 통해 6/7→7/7을 보는지 봉인한다.
 	var catalog := RuntimePerkCatalog.new()
 	var owner := FakeOwner.new()
 	root.add_child(owner)
-	var state := RuntimePerkState.new()
-	state.runtime_skill_levels = _full_slot_levels()
+	var state: Object = _build_meridian_expanded_state(catalog)
 	var registry := FakeRegistry.new({
 		"runtime_perk_state": state,
 		"runtime_perk_catalog": catalog,
 	})
-	var full_choices: Array = catalog.get_choices("smasher", state.runtime_skill_levels, true, OFFER_SCAN_COUNT)
-	var expansion_choice: Dictionary = {}
-	for choice_value in full_choices:
-		if choice_value is Dictionary and str((choice_value as Dictionary).get("id", "")) == "common_expansion":
-			expansion_choice = choice_value
-			break
-	_expect(not expansion_choice.is_empty(), "full-slot offer should contain a real slot-expansion choice to apply")
-	_expect_eq(int(owner.runtime_accessory_slot_bonus), 7, "sentinel accessory bonus should still be dirty before the real apply (field must exist so the seal is not vacuous)")
-	_expect(state.apply_choice(expansion_choice, owner, registry), "real apply path should accept the slot-expansion perk at full slots")
-	_expect_eq(int(state.runtime_skill_levels.get("common_expansion", 0)), 1, "real apply should land expansion level 1 in runtime levels")
-	# owner-sync 내용 계약: 동기화가 돌 때 owner 미러(RAW·유효레벨)에 확장
-	# 레벨이 실리고, 유효레벨 미러에서도 확장은 RAW 그대로여야 한다(UI가
-	# 어느 미러를 읽어도 슬롯 한도가 부풀지 않는 계약). apply는 sync를
-	# 직접 부르지 않으므로(별도 주기) 실 sync 경로를 명시 구동해 검증한다.
-	state._sync_owner(owner)
-	_expect_eq(int(owner.runtime_perk_levels.get("common_expansion", 0)), 1, "owner sync should mirror the RAW expansion level")
-	_expect_eq(int(owner.runtime_perk_effective_levels.get("common_expansion", 0)), 1, "owner effective-level mirror must keep the expansion perk at its RAW level (no effective-level inflation)")
-	# apply→effect-sync 배선 씰: apply_choice 자체가 effect sync까지 돌려
-	# sentinel(7)을 flag ON에서 0으로 덮어야 한다(수동 sync를 먼저 부르면
-	# apply 경로의 sync 배선이 끊겨도 GREEN이 되는 공허 씰이 된다).
-	_expect_eq(int(owner.runtime_accessory_slot_bonus), 0, "flag ON: apply_choice itself must run the owner-effect sync (expansion apply wiring)")
-	# 수동 sync 계약(별도 레그): sentinel을 다시 세우고 실 sync가 0으로
-	# 덮는지 — sync 함수 자체의 내용 계약을 apply 배선과 분리해 본다.
-	owner.runtime_accessory_slot_bonus = 7
-	state._sync_runtime_perk_owner_effects(owner, registry)
-	_expect_eq(int(owner.runtime_accessory_slot_bonus), 0, "flag ON: the real owner-effect sync must write a zero accessory bonus for expansion levels")
-	_expect_eq(CharacterInfoOverlayOwnerState.accessory_slot_count_from_owner(owner, 2), 2, "flag ON: synced owner must not gain accessory slots from the expansion level (real accessory path)")
-	var synced_equipment_index := MythicItemEquipmentIndex.new()
-	var synced_accessory_runtime := AccessoryProbeRuntime.new()
-	_expect(not synced_equipment_index.is_equipment_slot_enabled(synced_accessory_runtime, "accessory3", owner), "flag ON: synced owner must not enable extra accessory equipment slots (real equipment path)")
-	_expect_eq(catalog.get_perk_slot_limit(state.runtime_skill_levels), 7, "applied expansion should raise the live limit to 7")
-	_expect(catalog.has_open_perk_slot(state.runtime_skill_levels), "applied expansion should reopen the slot budget")
-	var reopened_choices: Array = catalog.get_choices("smasher", state.runtime_skill_levels, true, OFFER_SCAN_COUNT)
+	_expect(state.get_perk_fusion_owned_byproduct_ids().has("meridian_expand"), "real fusion commit should own meridian_expand")
+	_expect_eq(catalog.count_owned_slot_perks(state.runtime_skill_levels, registry), 6, "seven raw perks minus one fusion refund should occupy six slots")
+	_expect_eq(catalog.get_perk_slot_limit(state.runtime_skill_levels, registry), 7, "real owned byproduct should raise the live limit to 7")
+	_expect(catalog.has_open_perk_slot(state.runtime_skill_levels, registry), "real owned byproduct should reopen the slot budget")
+	var reopened_choices: Array = catalog.get_choices("smasher", state.runtime_skill_levels, true, OFFER_SCAN_COUNT, owner, registry)
 	var seventh_choice: Dictionary = {}
 	for choice_value in reopened_choices:
-		if choice_value is Dictionary and str((choice_value as Dictionary).get("id", "")) == "fuel_pouch":
+		if choice_value is Dictionary and str((choice_value as Dictionary).get("id", "")) == "item_recycle":
 			seventh_choice = choice_value
 			break
 	_expect(not seventh_choice.is_empty(), "reopened budget should offer a new slot-consuming perk again")
 	_expect(state.apply_choice(seventh_choice, owner, registry), "real apply path should accept the seventh slot-consuming perk")
-	var final_status: Dictionary = catalog.get_perk_slot_status(state.runtime_skill_levels)
+	var final_status: Dictionary = catalog.get_perk_slot_status(state.runtime_skill_levels, registry)
 	_expect_eq(int(final_status.get("count", 0)), 7, "seventh perk should occupy the expanded slot")
 	_expect_eq(int(final_status.get("limit", 0)), 7, "limit should stay at 7 after filling it")
 	_expect(bool(final_status.get("is_full", false)), "7/7 should read as full again")
 	owner.free()
 
 
+func _verify_legacy_expansion_live_paths_and_defensive_restore_hook() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var choices: Array = catalog.get_choices("smasher", {}, true, OFFER_SCAN_COUNT)
+	_expect(not _has_choice_id(choices, "common_expansion"), "flag ON: common_expansion must not appear in the live offer pool")
+	_expect(not _has_choice_id(catalog.get_debug_perk_entries("smasher"), "common_expansion"), "flag ON: the debug picker must not grant the retired perk as a slot-consuming dead entry")
+	var legacy_data: Dictionary = catalog.get_perk_data("common_expansion")
+	legacy_data["id"] = "common_expansion"
+	_expect(RuntimePerkCatalog.is_slot_consuming_perk(legacy_data), "flag ON must remove the retired non-consuming escape-valve exception")
+	# Production currently writes fusion snapshots but has no consumer that
+	# calls restore_perk_fusion_snapshot(). This is a unit-level contract for
+	# the correctly placed future restore seam, not proof of live save healing.
+	var state := RuntimePerkState.new()
+	state.runtime_skill_levels = {"common_expansion": 3}
+	var restore_result: Dictionary = state.restore_perk_fusion_snapshot({"records": []}, catalog)
+	_expect(bool(restore_result.get("removed_legacy_common_expansion", false)), "flag-ON defensive restore hook should report removing the retired expansion key")
+	_expect(not state.runtime_skill_levels.has("common_expansion"), "flag-ON defensive restore hook must erase the retired common_expansion level")
+
+
 func _verify_mythic_gate_follows_dynamic_limit() -> void:
-	# 신화 오퍼/그랜트의 슬롯 게이트가 동적 한도를 추종해야 한다: 확장으로
+	# 신화 오퍼/그랜트의 슬롯 게이트가 동적 한도를 추종해야 한다: 부산물로
 	# 한도 7·보유 6이면 신화 퍽이 grant되고(7번째), 7/7이 되면 다시
 	# 스타포인트로 넘어간다. owner-sync: grant가 owner 유효레벨 동기화까지
 	# 요구하는 실경로(grant_reward)를 그대로 지난다.
 	var catalog := RuntimePerkCatalog.new()
 	var owner := FakeOwner.new()
 	root.add_child(owner)
-	var state := RuntimePerkState.new()
-	state.runtime_skill_levels = _full_slot_levels()
-	state.runtime_skill_levels["common_expansion"] = 1
+	var state: Object = _build_meridian_expanded_state(catalog)
 	var registry := FakeRegistry.new({
 		"runtime_perk_state": state,
 		"runtime_perk_catalog": catalog,
@@ -395,7 +390,7 @@ func _verify_mythic_gate_follows_dynamic_limit() -> void:
 	_expect(str(expanded_reward.get("type", "")) == MythicPerkGrantHelper.REWARD_MYTHIC_PERK, "expanded limit (6/7) should let the mythic gate offer a new mythic perk")
 	var expanded_result: Dictionary = MythicPerkGrantHelper.grant_reward(expanded_reward, owner, registry)
 	_expect(bool(expanded_result.get("granted", false)), "expanded limit should grant the mythic perk into the seventh slot")
-	var post_grant_status: Dictionary = catalog.get_perk_slot_status(state.runtime_skill_levels)
+	var post_grant_status: Dictionary = catalog.get_perk_slot_status(state.runtime_skill_levels, registry)
 	_expect_eq(int(post_grant_status.get("count", 0)), 7, "mythic grant should fill the seventh (expanded) slot")
 	var refill_reward: Dictionary = MythicPerkGrantHelper.build_reward(owner, registry)
 	_expect(str(refill_reward.get("type", "")) == MythicPerkGrantHelper.REWARD_STARPOINT, "7/7 under the expanded limit should fall back to starpoints again")
@@ -406,25 +401,25 @@ func _verify_mythic_gate_follows_dynamic_limit() -> void:
 		"type": MythicPerkGrantHelper.REWARD_MYTHIC_PERK,
 		"fallback_starpoints": 1,
 	}
-	var pre_forced_count: int = catalog.count_owned_slot_perks(state.runtime_skill_levels)
+	var pre_forced_count: int = catalog.count_owned_slot_perks(state.runtime_skill_levels, registry)
 	var forced_result: Dictionary = MythicPerkGrantHelper.grant_reward(forced_mythic_reward, owner, registry)
 	_expect(bool(forced_result.get("fallback_starpoint", false)), "7/7 forced mythic grant must degrade to the starpoint fallback (grant-side slot gate)")
 	_expect(not bool(forced_result.get("granted", false)) or bool(forced_result.get("fallback_starpoint", false)), "7/7 forced mythic grant must not land a new mythic perk")
-	_expect_eq(catalog.count_owned_slot_perks(state.runtime_skill_levels), pre_forced_count, "7/7 forced mythic grant must not add an eighth slot-consuming perk")
+	_expect_eq(catalog.count_owned_slot_perks(state.runtime_skill_levels, registry), pre_forced_count, "7/7 forced mythic grant must not add an eighth slot-consuming perk")
 	owner.free()
 
 
 func _verify_expansion_localization_semantics() -> void:
 	# 의미론 씰: 이름/요약이 stale '장신구(accessory)' 문구로 남아 있으면
 	# 키 존재만 보는 기존 localization 스모크는 통과한다 — 6언어 전부
-	# '장신구' 계열 단어 부재 + 퍽 슬롯 계열 단어 존재를 직접 본다.
+	# '장신구' 계열 단어 부재 + 무공 슬롯 계열 단어 존재를 직접 본다.
 	var stale_tokens := {
 		"en": "accessory", "zh": "饰品", "ja": "アクセサリ",
 		"es": "accesorio", "pt": "acessório", "ru": "аксессуар",
 	}
 	var expected_tokens := {
-		"en": "perk slot", "zh": "天赋", "ja": "パークスロット",
-		"es": "pericia", "pt": "perk", "ru": "перк",
+		"en": "mugong", "zh": "武功", "ja": "武功",
+		"es": "mugong", "pt": "mugong", "ru": "мугон",
 	}
 	var name_maps := {
 		"en": LanguageSettingsData.PERK_NAME_EN, "zh": LanguageSettingsData.PERK_NAME_ZH,
@@ -437,8 +432,8 @@ func _verify_expansion_localization_semantics() -> void:
 		"pt": LanguageSettingsData.PERK_SUMMARY_PT_BR, "ru": LanguageSettingsData.PERK_SUMMARY_RU,
 	}
 	var name_tokens := {
-		"en": "slot", "zh": "栏", "ja": "スロット",
-		"es": "espacios", "pt": "espaços", "ru": "ячеек",
+		"en": "meridian", "zh": "脉", "ja": "脈",
+		"es": "meridianos", "pt": "meridianos", "ru": "меридиан",
 	}
 	var raw_only_tokens := {
 		"en": "directly invested", "zh": "直接投资", "ja": "直接投資",
@@ -450,15 +445,15 @@ func _verify_expansion_localization_semantics() -> void:
 		_expect(name_text != "" and summary_text != "", "expansion perk should keep %s name/summary entries" % lang)
 		var stale: String = str(stale_tokens[lang])
 		_expect(name_text.to_lower().find(stale) < 0 and summary_text.to_lower().find(stale) < 0, "%s expansion copy must drop the stale accessory wording" % lang)
-		_expect(summary_text.to_lower().find(str(expected_tokens[lang]).to_lower()) >= 0, "%s expansion summary should describe perk slots" % lang)
-		_expect(name_text.to_lower().find(str(name_tokens[lang]).to_lower()) >= 0, "%s expansion NAME should describe perk slots too" % lang)
+		_expect(summary_text.to_lower().find(str(expected_tokens[lang]).to_lower()) >= 0, "%s expansion summary should describe Mugong slots" % lang)
+		_expect(name_text.to_lower().find(str(name_tokens[lang]).to_lower()) >= 0, "%s expansion NAME should preserve the meridian-art identity" % lang)
 		_expect(summary_text.to_lower().find(str(raw_only_tokens[lang]).to_lower()) >= 0, "%s expansion summary must carry the RAW-only (directly invested) notice" % lang)
 	# 6개 비한국어 전부에서 flag ON/OFF의 localize 실경로와 힌트 번역을
 	# 순환 봉인한다(en 단일 검증으로는 언어별 재분기를 못 잡는다).
 	for cycle_language in ["en", "zh", "ja", "es", "pt-BR", "ru"]:
 		LanguageSettings.set_test_locale_override(cycle_language)
-		var on_cycle_name: String = LanguageSettings.localize_perk_name("common_expansion", "확장")
-		_expect(on_cycle_name != "" and on_cycle_name != "확장", "flag ON %s: localize should replace the Korean expansion name" % cycle_language)
+		var on_cycle_name: String = LanguageSettings.localize_perk_name("common_expansion", "광맥결")
+		_expect(on_cycle_name != "" and on_cycle_name != "광맥결", "flag ON %s: localize should replace the Korean Mugong name" % cycle_language)
 		var on_cycle_hint: String = LanguageSettings.translate_text(RuntimePerkOverlayRenderer.get_full_slot_hint())
 		_expect(on_cycle_hint != "" and on_cycle_hint != "강화·비소모 퍽만", "flag ON %s: the full-slot hint must be translated" % cycle_language)
 		PerkConversionFlags.debug_set_enabled(false)
@@ -492,9 +487,9 @@ func _verify_expansion_localization_semantics() -> void:
 	# ALIASES 경유 실조회가 죽어도 통과한다 — 실제 localize API로 봉인.
 	_expect(str(LanguageSettingsData.PERK_LOCALIZATION_ALIASES.get("common_expansion", "")) == "accessory_slot_expand", "common_expansion must alias to the localized expansion entry")
 	LanguageSettings.set_test_locale_override("en")
-	var localized_name: String = LanguageSettings.localize_perk_name("common_expansion", "확장")
+	var localized_name: String = LanguageSettings.localize_perk_name("common_expansion", "광맥결")
 	LanguageSettings.set_test_locale_override("ko")
-	_expect(localized_name.to_lower().find("perk slot") >= 0, "live localize path must resolve common_expansion to the perk-slot wording (got '%s')" % localized_name)
+	_expect(localized_name.to_lower().find("meridian") >= 0, "live localize path must resolve common_expansion to the meridian-art wording (got '%s')" % localized_name)
 	# 한국어 detail의 RAW-only 고지.
 	var catalog := RuntimePerkCatalog.new()
 	var detail: String = str(catalog.get_perk_data("common_expansion").get("detail", ""))
@@ -526,7 +521,7 @@ func _verify_flag_off_isolation() -> void:
 	_expect(not off_expansion_choice.is_empty(), "flag OFF: the legacy expansion perk should still appear in the real offer below its max")
 	_expect_eq(int(off_expansion_choice.get("max_level", 0)), 2, "flag OFF: the real offer candidate must carry the legacy max level of 2")
 	_expect(str(off_expansion_choice.get("description", "")).find("장신구") >= 0, "flag OFF: the real offer candidate must describe accessory slots, not perk slots")
-	_expect(RuntimePerkOverlayRenderer.get_full_slot_hint() == "보유 퍽 강화만", "flag OFF: the full-slot hint should keep the legacy upgrade-only wording")
+	_expect(RuntimePerkOverlayRenderer.get_full_slot_hint() == "보유 무공 강화만", "flag OFF: the full-slot hint should keep the branded upgrade-only wording")
 	PerkConversionFlags.debug_set_enabled(true)
 	_expect(RuntimePerkOverlayRenderer.get_full_slot_hint().find("비소모") >= 0, "flag ON: the full-slot hint must state the real rule (upgrades + non-consuming perks stay offerable)")
 	var on_expansion_data := RuntimePerkCatalog.new().get_perk_data("common_expansion")
@@ -543,6 +538,9 @@ func _verify_flag_off_isolation() -> void:
 	var off_registry := FakeRegistry.new({"runtime_perk_catalog": catalog})
 	off_state._sync_runtime_perk_owner_effects(off_owner, off_registry)
 	_expect_eq(int(off_owner.runtime_accessory_slot_bonus), 2, "flag OFF: the legacy effect sync should keep converting expansion levels into the accessory bonus")
+	var off_restore_result: Dictionary = off_state.restore_perk_fusion_snapshot({"records": []}, catalog)
+	_expect(not bool(off_restore_result.get("removed_legacy_common_expansion", true)), "flag-OFF defensive restore hook must not remove the legacy expansion key")
+	_expect_eq(int(off_state.runtime_skill_levels.get("common_expansion", 0)), 2, "flag-OFF defensive restore hook must preserve the legacy expansion level")
 	off_owner.free()
 	# bulk 경로(get_all_perk_data)도 OFF에서 레거시 정의를 봐야 한다.
 	var off_bulk: Dictionary = catalog.get_all_perk_data()
@@ -612,12 +610,32 @@ func _capture_choice_modal_slot_status() -> void:
 
 func _five_slot_levels() -> Dictionary:
 	return {
+		"dash_acceleration": 1,
+		"item_luck": 1,
+		"item_gauge_mastery": 1,
+		"item_caffeine": 1,
+		"item_polish": 1,
+	}
+
+
+func _build_meridian_expanded_state(catalog: Object) -> Object:
+	var state := RuntimePerkState.new()
+	state.runtime_skill_levels = {
+		"item_luck": 5,
+		"common_bulk_up": 5,
 		"dash_lightweight": 1,
 		"dash_module_control": 1,
 		"dash_jump": 1,
 		"dash_acceleration": 1,
-		"item_luck": 1,
+		"star_detector": 1,
 	}
+	var record: Dictionary = state.commit_perk_fusion(
+		["item_luck", "common_bulk_up"],
+		{"outcome": "byproduct", "byproducts": ["meridian_expand"]},
+		catalog
+	)
+	_expect(not record.is_empty(), "meridian expansion fixture must commit through the real fusion facade")
+	return state
 
 
 func _full_slot_levels() -> Dictionary:

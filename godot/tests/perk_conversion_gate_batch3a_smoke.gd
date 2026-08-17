@@ -144,6 +144,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(false)
 	_verify_off_flag_keeps_item_rolls()
+	_verify_rainbow_balance_curve()
 	_verify_on_flag_uses_perk_levels()
 	_verify_on_flag_level_zero_is_inactive()
 	_verify_on_flag_item_only_is_inactive()
@@ -189,6 +190,28 @@ func _verify_off_flag_keeps_item_rolls() -> void:
 	_expect_close(_movement_speed_after_speedgear_config(speed_runtime), -1.0, "OFF Speedgear should feed turn-decel movement")
 
 
+func _verify_rainbow_balance_curve() -> void:
+	var expected_trigger_chances: Array[float] = [3.0, 4.0, 5.0, 6.0, 7.0]
+	var expected_cooldown_reductions: Array[float] = [8.0, 11.0, 14.0, 17.0, 20.0]
+	for index in range(expected_trigger_chances.size()):
+		var level := index + 1
+		_expect_close(
+			PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_trigger_chance_pct", level),
+			expected_trigger_chances[index],
+			"rainbow trigger chance Lv%d" % level
+		)
+		_expect_close(
+			PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", level),
+			expected_cooldown_reductions[index],
+			"rainbow cooldown reduction Lv%d" % level
+		)
+	_expect_close(
+		PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", 6),
+		23.0,
+		"rainbow cooldown reduction Lv6 should continue the authored +3%p slope"
+	)
+
+
 func _verify_on_flag_uses_perk_levels() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	for case_value in VALUE_CASES:
@@ -208,7 +231,8 @@ func _verify_on_flag_uses_perk_levels() -> void:
 			"ON should use Lv%d Soul Burst cost" % level
 		)
 		var speed_runtime: Object = _make_runtime({"speedgear": level})
-		_expect_close(speed_runtime.get_speedgear_turn_decel_multiplier(), 2.5, "ON should use static Speedgear value at Lv%d" % level)
+		_expect_close(speed_runtime.get_speedgear_turn_decel_multiplier(), 1.0, "ON retired Speedgear should ignore stale Lv%d" % level)
+		_expect_close(_movement_speed_after_speedgear_config(speed_runtime), -2.5, "ON retired Speedgear should keep turn movement neutral at stale Lv%d" % level)
 		var gravity_runtime: Object = _make_runtime({"gravitybelt": level})
 		_expect_close(_movement_speed_after_gravity_config(gravity_runtime), 6.0, "ON should use Gravity Belt perk-only movement at Lv%d" % level)
 	var bonus_runtime: Object = _make_runtime({"shrapnel_armor": 3}, 2)
@@ -308,7 +332,7 @@ func _verify_boolean_effect_gates() -> void:
 	_expect(on_runtime.is_rainbow_fur_glove_effect_active(), "ON perk-only Rainbow effect gate should be active")
 	_expect(on_runtime.is_venom_mist_gauntlet_effect_active(), "ON perk-only Venom Mist effect gate should be active")
 	_expect(on_runtime.is_gravitybelt_effect_active(), "ON perk-only Gravity Belt effect gate should be active")
-	_expect(on_runtime.is_speedgear_effect_active(), "ON perk-only Speedgear effect gate should be active")
+	_expect(not on_runtime.is_speedgear_effect_active(), "ON retired Speedgear effect gate should ignore stale perk levels")
 
 
 func _verify_runtime_consumers_use_batch3a_getters() -> void:
@@ -402,8 +426,8 @@ func _verify_rainbow_runtime_consumer() -> void:
 		if bool(result.get("activated", false)):
 			break
 	_expect(bool(result.get("activated", false)), "ON Rainbow perk should proc through the player-hit consumer without the item")
-	_expect_close(float(result.get("cooldown_reduction_pct", 0.0)), 55.0, "ON Rainbow Lv5 should feed perk cooldown reduction")
-	_expect_close(skill_state.last_fraction, 0.55, "ON Rainbow consumer should apply the perk cooldown fraction")
+	_expect_close(float(result.get("cooldown_reduction_pct", 0.0)), 20.0, "ON Rainbow Lv5 should feed perk cooldown reduction")
+	_expect_close(skill_state.last_fraction, 0.20, "ON Rainbow consumer should apply the perk cooldown fraction")
 	_expect(skill_state.reduction_calls == 1, "ON Rainbow consumer should call the cooldown reducer once")
 	_expect(audio.rainbow_calls == 1, "ON Rainbow proc should keep routed audio")
 	_expect(feedback.shake_calls == 1, "ON Rainbow proc should keep feedback")
@@ -437,9 +461,9 @@ func _verify_overflow_saturates_at_consumer_limits() -> void:
 	# 무지개 털장갑 쿨감 오버플로우가 소비자 0.95 클램프와 정합하게 95에
 	# 포화한다(OVERFLOW_VALUE_BOUNDS↔공개 소비 함수 관통 씰).
 	PerkConversionFlags.debug_set_enabled(true)
-	# Lv.60: trigger 외삽(12+2.25/lv)이 100 캡에 도달해 proc이 결정론이
-	# 된다(Lv.20은 45.75%라 randf 게이트가 비결정론 — 실측).
-	var runtime: Object = _make_runtime({"rainbow_fur_glove": 60})
+	# Lv.98: 새 하향 곡선의 trigger 외삽(7+1/lv)이 100 캡에 도달해
+	# proc이 결정론이 된다(Lv.60은 62%라 randf 게이트가 비결정론).
+	var runtime: Object = _make_runtime({"rainbow_fur_glove": 98})
 	_expect_close(runtime.get_rainbow_fur_glove_cooldown_reduction_pct(), 95.0, "overflow rainbow cooldown reduction must saturate at the consumer 0.95 clamp")
 	_expect_close(runtime.get_rainbow_fur_glove_trigger_chance_pct(), 100.0, "overflow rainbow trigger must cap at 100 for the deterministic proc leg")
 	# 최종 소비 관통: 실제 적용 fraction이 정확히 0.95에 클램프됨을 봉인

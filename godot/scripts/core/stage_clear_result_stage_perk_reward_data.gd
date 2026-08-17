@@ -1,5 +1,8 @@
 extends RefCounted
 
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 static func build_perk_rewards(
 	current_levels: Dictionary,
@@ -32,13 +35,21 @@ static func build_perk_reward(
 ) -> Dictionary:
 	if perk_id == "" or current_level <= baseline_level:
 		return {}
+	# Common active-orb skill levels are derived from their unlock-manual
+	# perks. Listing both produces a valid localized manual card plus a second
+	# internal-id row such as `soul_summon_art 고유` on the result scroll.
+	if CommonSkillCatalog.is_common_skill(perk_id):
+		return {}
 	var perk_data: Dictionary = {}
 	if perk_catalog != null and perk_catalog.has_method("get_perk_data"):
 		var perk_value: Variant = perk_catalog.get_perk_data(perk_id)
 		if perk_value is Dictionary:
 			perk_data = (perk_value as Dictionary).duplicate(true)
 	var perk_name: String = str(perk_data.get("name", perk_id))
-	var label: String = "%s Lv.%d" % [perk_name, current_level]
+	var label: String = "%s %s" % [
+		perk_name,
+		LanguageSettings.format_mugong_rank(perk_data, current_level),
+	]
 	if current_level - baseline_level > 1:
 		label = "%s +%d" % [label, current_level - baseline_level]
 	return {

@@ -116,12 +116,11 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 		"size_norm",
 		"glow_color",
 		"fill_color",
+		"mid_color",
 		"outline_color",
+		"core_color",
 		"detector_shimmer_intensity",
-		"iridescent_shimmer_intensity",
-		"sparkle_ray_intensity",
 		"elapsed",
-		"star_tip_count",
 	]:
 		_expect(
 			shader_source.find("uniform") >= 0 and shader_source.find(required_uniform) >= 0,
@@ -133,27 +132,21 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 		shader_source.find("for (int layer = 0; layer < 4;") >= 0,
 		"shader must iterate 4 outer glow layers (restores Stage 1 glow quality)"
 	)
-	# Stage 1's 4-tip sparkle must remain selectable via star_tip_count; the
-	# shader must NOT hardcode TAU / 5.0 in the star SDF or that breaks the
-	# per-stage shape parity.
 	_expect(
-		shader_source.find("TAU / float(n)") >= 0
-			and shader_source.find("max(3, tips)") >= 0
-			and shader_source.find("TAU / 5.0") < 0,
-		"star SDF must be parameterized by tip count (no hardcoded TAU / 5.0)"
-	)
-	# The SDF must measure distance to actual polygon edges (line segments
-	# between tip and valley) rather than interpolating the boundary radius
-	# in polar coordinates. The polar interpolation form rendered as rounded
-	# petal shapes instead of sharp star tips.
-	_expect(
-		shader_source.find("vec2 tip = vec2(r_outer, 0.0)") >= 0
-			and shader_source.find("vec2 valley = vec2(r_inner * cos(half_sector)") >= 0,
-		"star SDF must use line-segment distance to (tip, valley) vertices, not polar mix(r_outer, r_inner, t)"
+		shader_source.find("soul_flame_sdf") >= 0
+			and shader_source.find("flame_profile_sdf") >= 0
+			and shader_source.find("star_sdf") < 0,
+		"compatibility shader must render the muhon soul-flame profile instead of a star SDF"
 	)
 	_expect(
-		shader_source.find("mix(r_outer, r_inner, t)") < 0,
-		"star SDF must not fall back to polar radius interpolation (produces rounded petal shapes)"
+		shader_source.find("vec2 side_q") >= 0
+			and shader_source.find("detector_shimmer_intensity") >= 0,
+		"muhon shader must keep a split crown and restrained detector-bonus contour"
+	)
+	_expect(
+		shader_source.find("sparkle_ray_intensity") < 0
+			and shader_source.find("star_tip_count") < 0,
+		"muhon shader must remove old star-tip and lens-flare controls"
 	)
 
 
@@ -166,7 +159,7 @@ func _verify_instance_slot_pool_and_gating() -> void:
 	# sync_drop with zero life must hide the slot (no wasted GPU work).
 	host.begin_frame()
 	host.sync_drop({"pos": Vector2(40.0, 40.0), "size": 12.0, "life": 0.0})
-	# Real drop with full life and the normal scrap palette.
+	# Real drop with full life and the shared crimson muhon palette.
 	host.sync_drop({
 		"pos": Vector2(120.0, 40.0),
 		"size": 12.0,
@@ -174,9 +167,11 @@ func _verify_instance_slot_pool_and_gating() -> void:
 		"rotation": 0.42,
 		"glow_intensity": 1.0,
 		"star_detector_bonus": false,
-		"glow_color": Color(1.0, 0.45, 0.74, 1.0),
-		"fill_color": Color(1.0, 0.0, 0.0, 1.0),
-		"outline_color": Color(1.0, 1.0, 0.0, 1.0),
+		"glow_color": CommonStarpointVisualHost.MUHON_GLOW_COLOR,
+		"fill_color": CommonStarpointVisualHost.MUHON_FILL_COLOR,
+		"mid_color": CommonStarpointVisualHost.MUHON_MID_COLOR,
+		"outline_color": CommonStarpointVisualHost.MUHON_OUTLINE_COLOR,
+		"core_color": CommonStarpointVisualHost.MUHON_CORE_COLOR,
 	})
 	host.end_frame()
 	_expect(

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const TowerAscentUnlockFilter := preload(
@@ -13,7 +14,6 @@ const REWARD_STARPOINT := "starpoint"
 const FALLBACK_STARPOINT_AMOUNT := 3
 const MYTHIC_PERK_CHOICE_COUNT := 3
 const MYTHIC_PERK_ICON_FRAME_COUNT := 8
-const MYTHIC_PERK_ICON_FRAME_MSEC := 110
 const MYTHIC_PERK_IDS := [
 	"megingjord",
 	"transcendent_crown",
@@ -45,7 +45,7 @@ static func build_choice_reward(owner: Object, registry: Object, fallback_starpo
 		return build_starpoint_fallback_reward(fallback_starpoints)
 	return {
 		"type": REWARD_MYTHIC_PERK_CHOICE,
-		"label": "신화 퍽 선택",
+		"label": "절세무공 선택",
 		"amount": 1,
 		"choice_count": MYTHIC_PERK_CHOICE_COUNT,
 		"rarity": "mythic",
@@ -197,8 +197,8 @@ static func build_acquisition_cinematic_item_data(
 	var reveal_description: String = _get_reveal_description_from_perk_data(perk_data)
 	if reveal_description == "":
 		reveal_description = str(fallback_data.get("description", "")).strip_edges()
-	var sheet_path: String = str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get(perk_id, ""))
-	var static_path: String = str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get(perk_id, ""))
+	var mastery_text := LanguageSettings.translate_text("절세무공 대성!")
+	reveal_description = mastery_text if reveal_description == "" else "%s\n%s" % [mastery_text, reveal_description]
 	var cinematic_data := {
 		"id": perk_id,
 		"perk_id": perk_id,
@@ -206,17 +206,41 @@ static func build_acquisition_cinematic_item_data(
 		"qualified_display_name": display_name,
 		"rarity": "mythic",
 		"type": REWARD_MYTHIC_PERK,
-		"icon_frame_count": MYTHIC_PERK_ICON_FRAME_COUNT,
-		"icon_frame_msec": MYTHIC_PERK_ICON_FRAME_MSEC,
 		"reveal_description": reveal_description,
 	}
-	if _texture_path_exists(sheet_path):
-		cinematic_data["icon_sheet_path"] = sheet_path
-	elif _texture_path_exists(static_path):
-		cinematic_data["icon_path"] = static_path
-	else:
+	var icon_metadata := _build_cinematic_icon_metadata(
+		perk_id,
+		str(RuntimePerkIconRenderer.PERK_SHEET_PATHS.get(perk_id, "")),
+		str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get(perk_id, ""))
+	)
+	if icon_metadata.is_empty():
 		return {}
+	cinematic_data.merge(icon_metadata, true)
 	return cinematic_data
+
+
+static func _build_cinematic_icon_metadata(
+	perk_id: String,
+	sheet_path: String,
+	static_path: String
+) -> Dictionary:
+	var frame_msec := maxi(
+		1,
+		int(round(RuntimePerkIconRenderer.get_icon_frame_interval_msec_for_id(perk_id)))
+	)
+	if _texture_path_exists(sheet_path):
+		return {
+			"icon_sheet_path": sheet_path,
+			"icon_frame_count": MYTHIC_PERK_ICON_FRAME_COUNT,
+			"icon_frame_msec": frame_msec,
+		}
+	if _texture_path_exists(static_path):
+		return {
+			"icon_path": static_path,
+			"icon_frame_count": 1,
+			"icon_frame_msec": frame_msec,
+		}
+	return {}
 
 
 static func try_start_acquisition_cinematic(
@@ -382,7 +406,9 @@ static func _has_open_perk_slot(registry: Object) -> bool:
 	var runtime_perk_catalog: Object = _get_runtime_perk_catalog(registry)
 	if runtime_perk_catalog == null or not runtime_perk_catalog.has_method("has_open_perk_slot"):
 		return true
-	return bool(runtime_perk_catalog.has_open_perk_slot(_get_runtime_perk_levels(registry)))
+	# 융합 슬롯 환급을 강제 신화 지급 판정도 봐야 한다 — registry를 slot
+	# context로 관통(소비자별 구식 계산 금지).
+	return bool(runtime_perk_catalog.has_open_perk_slot(_get_runtime_perk_levels(registry), registry))
 
 
 static func _get_runtime_perk_levels(registry: Object) -> Dictionary:

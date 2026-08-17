@@ -3,10 +3,7 @@ extends RefCounted
 const DisplaySettingsConfigCodec := preload("res://scripts/core/display_settings_config_codec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const VIEW_WIDTH := 1488.0
-const VIEW_HEIGHT := 918.0
-const WINDOW_TARGET_HEIGHT_RATIO := 0.865
-const WINDOW_TARGET_WIDTH_RATIO := 0.90
+const WINDOW_TARGET_RATIO := 0.80
 const GAME_RENDER_MARGIN_Y_RATIO := 0.065
 const GAME_RENDER_MIN_MARGIN_Y := 30.0
 const MOBILE_SAFE_MARGIN_MIN := 8.0
@@ -55,6 +52,7 @@ const RENDER_FPS_CAP_OPTIONS: Array[int] = [
 var _display_settings_codec: DisplaySettingsConfigCodec = DisplaySettingsConfigCodec.new()
 var _last_windowed_size := Vector2i.ZERO
 var _last_windowed_position := Vector2i.ZERO
+var _last_windowed_screen := -1
 static var _online_simulation_tick_locked := false
 static var _online_simulation_ticks_per_second := 60
 static var _runtime_render_fps_cap := RENDER_FPS_CAP_DEFAULT
@@ -106,34 +104,30 @@ func configure_window(window: Window) -> void:
 	var settings_load_summary := get_settings_load_summary()
 	var window_geometry_action := "unmanaged"
 	if can_manage_window:
-		if remember_display_mode:
-			if saved_display_mode == DISPLAY_MODE_WINDOWED and not is_fullscreen(window):
-				_remember_windowed_geometry(window)
-				window_geometry_action = "preserve_windowed"
-			else:
-				var applied_mode := apply_display_mode(window, saved_display_mode)
-				window_geometry_action = "apply_%s" % applied_mode
-				if applied_mode == DISPLAY_MODE_WINDOWED:
-					_remember_windowed_geometry(window)
+		if remember_display_mode and saved_display_mode != DISPLAY_MODE_WINDOWED:
+			var applied_saved_mode := apply_display_mode(window, saved_display_mode)
+			window_geometry_action = "apply_%s" % applied_saved_mode
 		elif not is_fullscreen(window):
 			if _runtime_window_geometry_configured:
 				window_geometry_action = "preserve_windowed"
 			else:
-				var target_rect := _build_default_window_rect()
-				if target_rect.size.x > 0 and target_rect.size.y > 0:
-					window.size = target_rect.size
-					window.position = target_rect.position
+				if _apply_default_window_geometry(window):
 					window_geometry_action = "apply_default"
 				else:
 					window_geometry_action = "default_unavailable"
 			_remember_windowed_geometry(window)
+		elif remember_display_mode:
+			var applied_windowed_mode := apply_display_mode(window, saved_display_mode)
+			window_geometry_action = "apply_%s" % applied_windowed_mode
+			if applied_windowed_mode == DISPLAY_MODE_WINDOWED:
+				_remember_windowed_geometry(window)
 		else:
 			window_geometry_action = "preserve_fullscreen"
 		_runtime_window_geometry_configured = true
 	apply_auto_refresh_rate(window, get_auto_refresh_rate_enabled())
 	apply_render_fps_cap(window, saved_render_cap, saved_vsync_mode)
 	apply_vsync_mode(saved_vsync_mode, window)
-	_last_configure_window_summary = "count=%d can_manage=%s geometry=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_vsync=%s config=%s" % [
+	_last_configure_window_summary = "count=%d can_manage=%s geometry=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_size=%s actual_screen=%d actual_vsync=%s config=%s" % [
 		_configure_window_count,
 		"on" if can_manage_window else "off",
 		window_geometry_action,
@@ -142,6 +136,8 @@ func configure_window(window: Window) -> void:
 		str(get_render_fps_cap_label(saved_render_cap, window)).replace(" ", "_"),
 		get_vsync_mode_label(saved_vsync_mode).replace(" ", "_"),
 		get_display_mode(window),
+		str(window.size).replace(" ", ""),
+		window.current_screen,
 		get_vsync_mode_label(get_vsync_mode()).replace(" ", "_"),
 		settings_load_summary,
 	]
@@ -773,24 +769,32 @@ func _error_token(result: int) -> String:
 	return str(result)
 
 
-func _build_default_window_rect() -> Rect2i:
-	var usable_rect: Rect2i = DisplayServer.screen_get_usable_rect()
+func _build_default_window_rect(screen_index: int = DisplayServer.SCREEN_OF_MAIN_WINDOW) -> Rect2i:
+	return build_window_rect_for_usable_rect(DisplayServer.screen_get_usable_rect(screen_index))
+
+
+static func build_window_rect_for_usable_rect(usable_rect: Rect2i) -> Rect2i:
 	if usable_rect.size.x <= 0 or usable_rect.size.y <= 0:
 		return Rect2i()
 
-	var width_scale: float = (float(usable_rect.size.x) * WINDOW_TARGET_WIDTH_RATIO) / VIEW_WIDTH
-	var height_scale: float = (float(usable_rect.size.y) * WINDOW_TARGET_HEIGHT_RATIO) / VIEW_HEIGHT
-	var target_scale: float = min(width_scale, height_scale)
-	if target_scale <= 0.0:
-		return Rect2i()
-
 	var target_size := Vector2i(
-		int(round(VIEW_WIDTH * target_scale)),
-		int(round(VIEW_HEIGHT * target_scale))
+		int(round(float(usable_rect.size.x) * WINDOW_TARGET_RATIO)),
+		int(round(float(usable_rect.size.y) * WINDOW_TARGET_RATIO))
 	)
 	@warning_ignore("integer_division")
 	var target_position := usable_rect.position + (usable_rect.size - target_size) / 2
 	return Rect2i(target_position, target_size)
+
+
+func _apply_default_window_geometry(window: Window) -> bool:
+	if window == null:
+		return false
+	var target_rect := _build_default_window_rect(window.current_screen)
+	if target_rect.size.x <= 0 or target_rect.size.y <= 0:
+		return false
+	window.size = target_rect.size
+	window.position = target_rect.position
+	return true
 
 
 func _remember_windowed_geometry(window: Window) -> void:
@@ -800,16 +804,23 @@ func _remember_windowed_geometry(window: Window) -> void:
 		return
 	_last_windowed_size = window.size
 	_last_windowed_position = window.position
+	_last_windowed_screen = window.current_screen
 
 
 func _restore_windowed(window: Window) -> void:
+	var screen_index := window.current_screen
 	window.mode = Window.MODE_WINDOWED
-	if _last_windowed_size.x <= 0 or _last_windowed_size.y <= 0:
-		var target_rect := _build_default_window_rect()
+	if (
+		_last_windowed_size.x <= 0
+		or _last_windowed_size.y <= 0
+		or _last_windowed_screen != screen_index
+	):
+		var target_rect := _build_default_window_rect(screen_index)
 		if target_rect.size.x <= 0 or target_rect.size.y <= 0:
 			return
 		_last_windowed_size = target_rect.size
 		_last_windowed_position = target_rect.position
+		_last_windowed_screen = screen_index
 	window.size = _last_windowed_size
 	window.position = _last_windowed_position
 

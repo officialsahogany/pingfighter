@@ -106,12 +106,13 @@ func _draw_drive_banner(
 	elif timer_frames < fade_frames:
 		alpha = clamp(timer_frames / fade_frames, 0.0, 1.0)
 
-	var text: String = "DRIVE!"
+	var text: String = "벽력타"
 	var font_size: int = 28
 	var text_size: Vector2 = _get_text_size(font, text, font_size)
 	var text_pos: Vector2 = Vector2(center_x - text_size.x * 0.5, height * 0.60)
 	canvas.draw_string(font, text_pos + Vector2(2.0, 2.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.1, 0.1, 0.1, 0.65 * alpha))
-	canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 1.0, 1.0, alpha))
+	canvas.draw_string(font, text_pos + Vector2(-1.0, 0.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.38, 0.62, 1.0, 0.72 * alpha))
+	canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.90, 0.98, 1.0, alpha))
 
 
 func _draw_power_smash_banner(
@@ -129,14 +130,14 @@ func _draw_power_smash_banner(
 	elif timer_frames < fade_frames:
 		alpha = clamp(timer_frames / fade_frames, 0.0, 1.0)
 
-	var text: String = "POWER SMASHING"
+	var text: String = "천뢰격"
 	var font_size: int = 30
 	var text_size: Vector2 = _get_text_size(font, text, font_size)
 	var text_pos: Vector2 = Vector2(center_x - text_size.x * 0.5, height * 0.54)
-	var glow_color: Color = Color(1.0, 80.0 / 255.0, 35.0 / 255.0, 0.55 * alpha)
-	canvas.draw_string(font, text_pos + Vector2(3.0, 3.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.08, 0.02, 0.01, 0.78 * alpha))
+	var glow_color: Color = Color(0.18, 0.72, 1.0, 0.72 * alpha)
+	canvas.draw_string(font, text_pos + Vector2(3.0, 3.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.01, 0.04, 0.16, 0.82 * alpha))
 	canvas.draw_string(font, text_pos + Vector2(-1.0, 0.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, glow_color)
-	canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 230.0 / 255.0, 160.0 / 255.0, alpha))
+	canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.92, 0.99, 1.0, alpha))
 
 
 func _draw_magnum_paddle_field(canvas: CanvasItem, center: Vector2, ring_phase: float, fade: float) -> void:

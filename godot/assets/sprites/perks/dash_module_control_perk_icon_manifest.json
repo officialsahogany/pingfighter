@@ -1,0 +1,28 @@
+{
+  "asset_id": "dash_module_control_perk_icon",
+  "perk_id": "dash_module_control",
+  "display_name_ko": "수세결",
+  "display_name_en": "Posture-Recovery Art",
+  "runtime_path": "res://assets/sprites/perks/dash_module_control_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-909a61bb-888f-4653-858f-a28d431c034d.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy hanji training seal: a compact black martial artist immediately draws a finished glide posture back into a centered ready stance while one hooked violet brushstroke folds into the torso. No book, text, gears, circuitry, control panel, arrows, metal, leather, neon, or glossy frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_color_observed": "#fa02f7",
+    "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [15, 14, 240, 241],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "9d6643902fef357f7acb16ad66208562db5659c2304388f6e166c328a5de7890",
+    "runtime_capture": "res://.tmp/common_mugong_dash_seal_qa.png",
+    "rendered_sizes": [80, 32]
+  }
+}

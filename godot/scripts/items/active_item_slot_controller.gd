@@ -520,9 +520,6 @@ func _apply_active_item_use_gauge_bonus(owner: Object, registry: Object) -> void
 	var gauge_bonus: float = float(runtime_perk_state.get_active_item_use_gauge_bonus())
 	if gauge_bonus <= 0.0:
 		return
-	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
-		gauge_bonus = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_bonus))
 	var current_gauge: float = float(BattleSceneOwnerReader.get_value(owner, "special_gauge", 0.0))
 	var gauge_max: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "special_gauge_max", 500.0)))
 	owner.set("special_gauge", min(gauge_max, current_gauge + gauge_bonus))

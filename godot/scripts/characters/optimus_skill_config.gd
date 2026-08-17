@@ -1,26 +1,29 @@
 extends RefCounted
 
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 
 const MAX_SKILL_SLOTS := 5
 
 var equipped_skills: Array[String] = []
+var runtime_cooldown_multiplier := 1.0
+var item_cooldown_multiplier := 1.0
 
 
 func get_snapshot() -> Dictionary:
-	var skill_data := CommonSkillCatalog.get_skill_data()
+	var cooldown_reduction_skill_ids := get_cooldown_reduction_skill_ids()
 	return {
 		"max_slots": MAX_SKILL_SLOTS,
 		"equipped_skills": equipped_skills.duplicate(),
-		"skill_costs": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
-		"skill_colors": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: CommonSkillCatalog.SOUL_SUMMON_ART_COLOR},
-		"runtime_cooldown_multiplier": 1.0,
-		"item_cooldown_multiplier": 1.0,
-		"cooldown_multiplier": 1.0,
-		"cooldown_reduction_eligible": false,
-		"cooldown_reduction_skill_ids": [],
-		"cooldown_seconds": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: 0.0},
-		"skill_data": {CommonSkillCatalog.SOUL_SUMMON_ART_ID: skill_data},
+		"skill_costs": CommonSkillCatalog.get_skill_costs(),
+		"skill_colors": CommonSkillCatalog.get_skill_colors(),
+		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
+		"item_cooldown_multiplier": item_cooldown_multiplier,
+		"cooldown_multiplier": get_effective_cooldown_multiplier(),
+		"cooldown_reduction_eligible": not cooldown_reduction_skill_ids.is_empty(),
+		"cooldown_reduction_skill_ids": cooldown_reduction_skill_ids,
+		"cooldown_seconds": _get_equipped_cooldown_seconds_map(),
+		"skill_data": CommonSkillCatalog.get_all_skill_data(),
 	}
 
 
@@ -32,25 +35,42 @@ func get_equipped_skills() -> Array:
 	return equipped_skills.duplicate()
 
 
-func get_cooldown_seconds(_skill_name: String) -> float:
-	return 0.0
+func get_cooldown_seconds(skill_name: String) -> float:
+	return float(CommonSkillCatalog.get_cooldown_seconds_map(get_effective_cooldown_multiplier()).get(skill_name, 0.0))
 
 
 func get_cooldown_reduction_skill_ids() -> Array[String]:
-	return []
+	var result: Array[String] = []
+	for skill_id: String in equipped_skills:
+		if get_cooldown_seconds(skill_id) > 0.0:
+			result.append(skill_id)
+	return result
 
 
-func set_runtime_cooldown_multiplier(_multiplier: float) -> void:
-	pass
+func _get_equipped_cooldown_seconds_map() -> Dictionary:
+	var result: Dictionary = {}
+	for skill_id: String in get_cooldown_reduction_skill_ids():
+		result[skill_id] = get_cooldown_seconds(skill_id)
+	return result
 
 
-func set_item_cooldown_multiplier(_multiplier: float) -> void:
-	pass
+func get_effective_cooldown_multiplier() -> float:
+	return CooldownFloorPolicy.floor_final_multiplier(
+		maxf(0.0, runtime_cooldown_multiplier) * maxf(0.0, item_cooldown_multiplier)
+	)
+
+
+func set_runtime_cooldown_multiplier(multiplier: float) -> void:
+	runtime_cooldown_multiplier = maxf(0.0, multiplier)
+
+
+func set_item_cooldown_multiplier(multiplier: float) -> void:
+	item_cooldown_multiplier = maxf(0.0, multiplier)
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
-	if skill_name == CommonSkillCatalog.SOUL_SUMMON_ART_ID:
-		return CommonSkillCatalog.get_skill_data()
+	if CommonSkillCatalog.is_common_skill(skill_name):
+		return CommonSkillCatalog.get_skill_data(skill_name)
 	return {}
 
 
@@ -63,13 +83,13 @@ func is_shared_slot_full() -> bool:
 
 
 func get_shared_slot_swap_candidates(skill_name: String) -> Array:
-	if skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID or equipped_skills.has(skill_name):
+	if not CommonSkillCatalog.is_common_skill(skill_name) or equipped_skills.has(skill_name):
 		return []
 	return equipped_skills.duplicate()
 
 
 func unlock_and_equip_skill(skill_name: String) -> bool:
-	if skill_name != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+	if not CommonSkillCatalog.is_common_skill(skill_name):
 		return false
 	if equipped_skills.has(skill_name):
 		return true
@@ -88,3 +108,5 @@ func unequip_skill(skill_name: String) -> bool:
 
 func reset_runtime_skills() -> void:
 	equipped_skills.clear()
+	runtime_cooldown_multiplier = 1.0
+	item_cooldown_multiplier = 1.0

@@ -4,6 +4,7 @@ const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_ke
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const StageClearResultBoxSceneHandler := preload("res://scripts/ui/stage_clear_result_box_scene_handler.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollContentDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_content_draw_helper.gd")
 const StageClearResultScrollSceneHandler := preload("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd")
 
@@ -41,8 +42,8 @@ func _run() -> void:
 		stage_snapshot,
 		[]
 	)
-	var fitted_scale := icon_size.x / 64.0
-	_expect(icon_size.is_equal_approx(Vector2(64.0, 54.0) * fitted_scale), "prepared size must keep the exact reward-card icon aspect")
+	var fitted_scale := icon_size.x / StageClearResultLayoutHelper.REWARD_CARD_ICON_BASE_SIZE.x
+	_expect(icon_size.is_equal_approx(StageClearResultLayoutHelper.REWARD_CARD_ICON_BASE_SIZE * fitted_scale), "prepared size must keep the enlarged reward-card icon aspect")
 	# v3(재리뷰 P2): 융합 상세 패널은 이 슬라이스에 렌더러가 없다 — 실재하지
 	# 않는 예약으로 fitter를 왜곡하면 안 된다. 같은 밴드 구성에서 융합 유무가
 	# 카드 fitted 크기를 갈라놓지 않아야 한다(가공 규격 금지).

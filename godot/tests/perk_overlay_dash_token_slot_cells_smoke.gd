@@ -4,8 +4,8 @@ extends SceneTree
 # (its per-level slot cost), instead of a single leveled icon. Mirrors the design
 # decision that dash-token Lv.N occupies N of the perk-slot budget, so the list must
 # read the same as the dynamic slot counter above it. Data-layer seal on
-# runtime_perk_overlay_renderer._build_acquired_perks (the draw loop then suppresses the
-# level badge for is_slot_cell entries).
+# runtime_perk_overlay_renderer._build_acquired_perks. 활주구슬은 내부 level이 보유
+# 수일 뿐 성장 경지가 아니므로 모든 셀에 고유 태그를 유지한다.
 
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -55,19 +55,22 @@ func _run() -> void:
 			lv2_cells += 1
 	_expect(lv2_cells == 2, "dash token Lv2 should expand into exactly two slot cells (got %d)" % lv2_cells)
 
-	# Lv1 -> single cell, NOT flagged (one slot = normal leveled badge, indistinguishable
-	# from an ordinary 1-slot perk, which is correct).
+	# Lv1 -> single cell, NOT flagged, but count-based rank metadata keeps 고유.
 	var acquired_lv1: Array = renderer._build_acquired_perks({"dash_amplification": 1}, catalog, null)
 	var lv1_cells := 0
 	var lv1_flagged := 0
+	var lv1_unique_badges := 0
 	for entry_value in acquired_lv1:
 		var entry: Dictionary = entry_value
 		if str(entry.get("id", "")) == "dash_amplification":
 			lv1_cells += 1
 			if bool(entry.get("is_slot_cell", false)):
 				lv1_flagged += 1
+			if renderer.get_status_badge_text(entry) == "고유":
+				lv1_unique_badges += 1
 	_expect(lv1_cells == 1, "dash token Lv1 (one slot) should stay a single cell (got %d)" % lv1_cells)
-	_expect(lv1_flagged == 0, "dash token Lv1 single cell should keep the normal level badge, not slot-cell mode")
+	_expect(lv1_flagged == 0, "dash token Lv1 single cell should not enter multi-slot-cell mode")
+	_expect(lv1_unique_badges == 1, "dash token Lv1 should show 고유 instead of 1성")
 
 	# Contiguity: dash cells must stay adjacent even when another perk shares the same level
 	# (Lv3 here). Godot sort_custom is unstable, so this seals the id tie-break.
@@ -122,7 +125,7 @@ func _run_projection_snapshot_legs(renderer: RuntimePerkOverlayRenderer, catalog
 	)
 	var dash_cells := 0
 	var dash_flagged := 0
-	var dash_badgeless := 0
+	var dash_unique_badges := 0
 	var slot_cell_total := 0
 	for entry_value in presented:
 		var entry: Dictionary = entry_value
@@ -133,11 +136,11 @@ func _run_projection_snapshot_legs(renderer: RuntimePerkOverlayRenderer, catalog
 			dash_cells += 1
 			if bool(entry.get("_is_slot_cell", false)):
 				dash_flagged += 1
-			if str(entry.get("_level_text", "")) == "":
-				dash_badgeless += 1
+			if str(entry.get("_level_text", "")) == "고유":
+				dash_unique_badges += 1
 	_expect(dash_cells == 2, "projection branch: dash token Lv2 must expand into two slot cells (got %d)" % dash_cells)
 	_expect(dash_flagged == 2, "projection branch: both dash cells must be flagged _is_slot_cell (got %d)" % dash_flagged)
-	_expect(dash_badgeless == 2, "projection branch: dash slot cells must suppress the level badge (got %d badge-less)" % dash_badgeless)
+	_expect(dash_unique_badges == 2, "projection branch: every dash slot cell must preserve the 고유 badge (got %d)" % dash_unique_badges)
 	# Grid-vs-counter contract: the number of slot-consuming cells must equal the
 	# slot counter shown above the grid (this was the user-visible mismatch).
 	var counter_count := int((catalog.get_perk_slot_status(state.runtime_skill_levels, state) as Dictionary).get("count", -1))
@@ -149,14 +152,18 @@ func _run_projection_snapshot_legs(renderer: RuntimePerkOverlayRenderer, catalog
 	)
 	var folded_dash_cells := 0
 	var folded_flat_flagged := 0
+	var folded_unique_badges := 0
 	for entry_value in folded:
 		var entry: Dictionary = entry_value
 		if str(entry.get("id", "")) == "dash_amplification":
 			folded_dash_cells += 1
 			if bool(entry.get("is_slot_cell", false)):
 				folded_flat_flagged += 1
+			if renderer.get_status_badge_text(entry) == "고유":
+				folded_unique_badges += 1
 	_expect(folded_dash_cells == 2, "overlay fold path: dash token Lv2 must expand into two slot cells (got %d)" % folded_dash_cells)
 	_expect(folded_flat_flagged == 2, "overlay fold path: both dash cells must mirror the flat is_slot_cell key (got %d)" % folded_flat_flagged)
+	_expect(folded_unique_badges == 2, "overlay fold path: both dash cells must render the 고유 status badge (got %d)" % folded_unique_badges)
 
 
 func _expect(condition: bool, message: String) -> void:

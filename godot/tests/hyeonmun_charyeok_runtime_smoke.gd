@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PaddleBouncePostHitHandler := preload("res://scripts/ball/paddle_bounce_post_hit_handler.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkHyeonmunCharyeokState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_state.gd")
 const RuntimePerkHyeonmunCharyeokRenderer := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_renderer.gd")
@@ -40,14 +41,30 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakePolishFusionRuntime:
+	extends RefCounted
+
+	func get_perk_amplify_multiplier(_perk_id: String) -> float:
+		return 1.10
+
+	func apply_perk_fusion_option_value(
+		_perk_id: String,
+		_option_key: String,
+		base_value: float
+	) -> float:
+		return base_value * 0.80
+
+
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_catalog_and_curve()
 	_verify_probability_boundary()
+	_verify_fusion_and_live_refresh_policy()
 	_verify_runtime_activation_refresh_and_expiry()
 	_verify_crown_composition_and_round_reset()
 	_verify_timer_stack_contract()
 	_verify_production_wiring()
+	_verify_production_hit_path_polish_boundary()
 	PerkConversionFlags.debug_set_enabled(false)
 	if _failures.is_empty():
 		print("hyeonmun_charyeok_runtime_smoke: ok")
@@ -83,6 +100,32 @@ func _verify_probability_boundary() -> void:
 	var hit_state := RuntimePerkHyeonmunCharyeokState.new()
 	var hit: Dictionary = hit_state.try_proc(1, 0.049999)
 	_expect(bool(hit.get("activated", false)), "a roll just below 5% should proc")
+
+
+func _verify_fusion_and_live_refresh_policy() -> void:
+	var overlay := FakePolishFusionRuntime.new()
+	_expect_close(
+		RuntimePerkHyeonmunCharyeokState.resolve_trigger_chance_pct(1, overlay),
+		4.4,
+		"Hyeonmun trigger chance should compose Polish with its fusion scar"
+	)
+	var overlay_state := RuntimePerkHyeonmunCharyeokState.new()
+	var overlay_miss: Dictionary = overlay_state.try_proc(1, 0.045, overlay)
+	_expect(not bool(overlay_miss.get("activated", false)), "fusion-scarred 4.4% Hyeonmun should reject a 4.5% roll")
+	var overlay_hit: Dictionary = overlay_state.try_proc(1, 0.043, overlay)
+	_expect(bool(overlay_hit.get("activated", false)), "fusion-scarred 4.4% Hyeonmun should accept a 4.3% roll")
+	_expect_close(float(overlay_hit.get("total_duration_sec", 0.0)), 5.28, "fusion and Polish should compose on Hyeonmun duration")
+
+	var live_state := RuntimePerkState.new()
+	live_state.runtime_skill_levels = {"item_polish": 2, "sage_ring": 1}
+	var first: Dictionary = live_state.try_proc_hyeonmun_charyeok({"hyeonmun_charyeok_roll_unit": 0.0})
+	_expect_close(float(first.get("trigger_chance_pct", 0.0)), 5.5, "first Hyeonmun proc should use the pre-buff live Polish level")
+	_expect_close(float(first.get("total_duration_sec", 0.0)), 6.6, "first Hyeonmun proc should use the pre-buff polished duration")
+	var refreshed: Dictionary = live_state.try_proc_hyeonmun_charyeok({"hyeonmun_charyeok_roll_unit": 0.056})
+	_expect(bool(refreshed.get("activated", false)) and bool(refreshed.get("refreshed", false)), "active Hyeonmun should refresh from the current live canonical state")
+	_expect_close(float(refreshed.get("trigger_chance_pct", 0.0)), 5.75, "active refresh should see Hyeonmun's current effective-level contribution to Polish")
+	_expect_close(float(refreshed.get("total_duration_sec", 0.0)), 6.9, "active refresh should replace duration without stacking the level bonus")
+	_expect(live_state.get_hyeonmun_charyeok_level_bonus() == 1, "active refresh must replace rather than stack Hyeonmun's level bonus")
 
 
 func _verify_runtime_activation_refresh_and_expiry() -> void:
@@ -154,6 +197,60 @@ func _verify_production_wiring() -> void:
 	_expect(update_source.find("_request_battle_redraw(owner)") >= 0, "physics timer should use the coalesced battle redraw path")
 	_expect(cleanup_source.find("reset_hyeonmun_charyeok_round") >= 0, "round cleanup should clear the temporary buff")
 	_expect(drawer_source.find("draw_runtime_perk_timer_effects") >= 0, "playfield draw fanout should include the shared timer bar")
+
+
+func _verify_production_hit_path_polish_boundary() -> void:
+	var hit_state := RuntimePerkState.new()
+	hit_state.runtime_skill_levels = {"item_polish": 2, "sage_ring": 1}
+	var handler := PaddleBouncePostHitHandler.new()
+	var hit_result: Dictionary = handler.apply(
+		true,
+		Vector2(380.0, 690.0),
+		Vector2(0.0, -12.0),
+		0.5,
+		155.0,
+		false,
+		false,
+		false,
+		0.0,
+		0.0,
+		false,
+		false,
+		0.0,
+		{
+			"hyeonmun_charyeok_roll_unit": 0.0525,
+			"selected_character": "smasher",
+			"special_gauge": 0.0,
+		},
+		{"runtime_perk_state": hit_state}
+	)
+	_expect(bool(hit_result.get("hyeonmun_charyeok_activated", false)), "a 5.25% roll should proc only after the real hit path applies Lv.2 Polish")
+	_expect_close(float(hit_result.get("hyeonmun_charyeok_duration_sec", 0.0)), 6.6, "production hit result should expose the polished Hyeonmun duration")
+
+	var miss_state := RuntimePerkState.new()
+	miss_state.runtime_skill_levels = {"item_polish": 2, "sage_ring": 1}
+	var miss_result: Dictionary = handler.apply(
+		true,
+		Vector2(380.0, 690.0),
+		Vector2(0.0, -12.0),
+		0.5,
+		155.0,
+		false,
+		false,
+		false,
+		0.0,
+		0.0,
+		false,
+		false,
+		0.0,
+		{
+			"hyeonmun_charyeok_roll_unit": 0.055,
+			"selected_character": "smasher",
+			"special_gauge": 0.0,
+		},
+		{"runtime_perk_state": miss_state}
+	)
+	_expect(not bool(miss_result.get("hyeonmun_charyeok_activated", false)), "a roll exactly at the polished 5.5% boundary should fail through the real hit path")
 
 
 func _expect_close(actual: float, expected: float, message: String) -> void:

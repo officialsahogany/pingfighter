@@ -136,7 +136,9 @@ func _run() -> void:
 		# [P1-2] 각성 모듈 전개: 부산물 1/2/3개 카운트 구동 + SNAP OPEN
 		# (초기 프레임≪완전 전개). s13=success 동시각 베이스라인(모듈 0).
 		["s9_deploy_count1", _byproduct_rolls_with_count(0.0, [0.0]), false, true, [0.016, 2.58], false, 1],
-		["s10_deploy_count2", _byproduct_rolls_with_count(0.40, [0.0, 0.0]), false, true, [0.016, 2.58], false, 2],
+		# count_roll은 균등 3분할이 아니라 resolve_byproduct_count의 4:2:1 대역을
+		# 탄다 — count2 대역은 roll_unit 4/7~6/7이라 구 0.40은 count1로 떨어진다.
+		["s10_deploy_count2", _byproduct_rolls_with_count(0.70, [0.0, 0.0]), false, true, [0.016, 2.58], false, 2],
 		["s11_deploy_count3", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.58], false, 3],
 		["s12_deploy_early_snap", _byproduct_rolls_with_count(0.99, [0.0, 0.0, 0.0]), false, true, [0.016, 2.05], false, 3],
 		["s13_reveal_success_baseline", _success_rolls(), false, true, [0.016, 2.58], false, 0],

@@ -1,0 +1,28 @@
+{
+  "asset_id": "dash_acceleration_perk_icon",
+  "perk_id": "dash_acceleration",
+  "display_name_ko": "대붕전익",
+  "display_name_en": "Great Roc Spreads Wings",
+  "runtime_path": "res://assets/sprites/perks/dash_acceleration_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-8fb9a7f0-7b0a-430c-b94f-957daee8a5c8.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy hanji training seal: a monumental black great-roc bird spreads two wide symmetrical wings around a small cinnabar horizontal player-bar silhouette, expressing enlarged blocking width during a glide. No book, text, shield, explosion, arrows, metal, leather, neon, or glossy frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_color_observed": "#fa02fa",
+    "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"],
+    "resize": "Alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [15, 16, 242, 241],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "6c8e85f70067a91d3f456847f0a3780c5bbf4cc51cb13de2634b8eb4284e19a8",
+    "runtime_capture": "res://.tmp/common_mugong_dash_seal_qa.png",
+    "rendered_sizes": [80, 32]
+  }
+}

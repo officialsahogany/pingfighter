@@ -254,9 +254,6 @@ class FakeRuntimeState:
 	func _apply_monkey_blessing_choice(_owner: Object, _registry: Object, choice_name: String = "") -> Dictionary:
 		return {"accepted": true, "feedback_text": choice_name}
 
-	func _apply_treasure_hunt_choice(_owner: Object, _registry: Object) -> Dictionary:
-		return {"accepted": true}
-
 class FakeOwner:
 	extends RefCounted
 

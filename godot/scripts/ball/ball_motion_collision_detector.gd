@@ -10,7 +10,9 @@ const EVENT_HORN_STRAWBERRY_FIELD := "horn_strawberry_field"
 const EVENT_LINGPET_BONE_BARRIER := "lingpet_bone_barrier"
 const EVENT_BRICK_WALL := "brick_wall"
 const EVENT_TRAMPOLINE := "trampoline"
+const EVENT_CAMPFIRE := "campfire"
 const EVENT_SAND_TERRAIN := "sand_terrain"
+const DASH_CONTACT_SEPARATION_EPSILON := 0.01
 
 
 func check_sand_terrain(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, context: Dictionary) -> Dictionary:
@@ -62,7 +64,7 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 					player_paddle_size.x + hitbox_padding * 2.0,
 					player_paddle_size.y + hitbox_padding * 2.0
 				)
-				player_rect = _apply_dash_acceleration_height_bonus(player_rect, context)
+				player_rect = _apply_dash_acceleration_size_bonus(player_rect, context)
 				var collision_result: Dictionary = _resolve_player_collision_result(player_rect, ball_rect, context)
 				if bool(collision_result.get("hit", false)):
 					var collision_rect: Rect2 = _as_rect2(collision_result.get("rect", player_rect), player_rect)
@@ -77,6 +79,9 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 						result["viper_dual_glitch_clone_hit"] = true
 						result["viper_dual_glitch_clone_index"] = int(collision_result.get("viper_dual_glitch_clone_index", -1))
 						result["viper_dual_glitch_clone_side"] = int(collision_result.get("viper_dual_glitch_clone_side", 0))
+					if bool(collision_result.get("warp_gate_afterimage_hit", false)):
+						result["warp_gate_afterimage_hit"] = true
+						result["warp_gate_afterimage_id"] = int(collision_result.get("warp_gate_afterimage_id", -1))
 					if bool(collision_result.get("blacksmith_thor_shield_hit", false)):
 						result["blacksmith_thor_shield_hit"] = true
 						result["blacksmith_thor_shield_rect"] = collision_result.get("rect", collision_rect)
@@ -84,6 +89,15 @@ func check_paddles(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, conte
 							"blacksmith_thor_shield_gauge_gain",
 							context.get("blacksmith_umbrella_gauge_gain", 60.0)
 						))
+					var dash_contact: Dictionary = resolve_dash_acceleration_contact(
+						ball_pos,
+						ball_vel,
+						ball_size,
+						collision_rect,
+						context
+					)
+					if not dash_contact.is_empty():
+						result.merge(dash_contact, true)
 					return result
 
 	if ball_vel.y < 0.0:
@@ -123,6 +137,23 @@ func _resolve_player_collision_result(base_rect: Rect2, ball_rect: Rect2, contex
 			"hit": true,
 			"rect": base_hit_rect,
 			"paddle_w": max(1.0, base_hit_rect.size.x - hitbox_padding * 2.0),
+		}
+	# 건곤환문 잔상은 실제 패들보다 뒤에서 검사한다. 둘이 겹치면 본체가 항상
+	# 접촉을 소유하며, 잔상은 별도 초식을 발동하지 않는 1회용 일반 반사다.
+	var afterimage_rects: Array = context.get("warp_gate_afterimage_rects", [])
+	for entry_value in afterimage_rects:
+		var afterimage_entry: Dictionary = _resolve_warp_gate_afterimage_entry(entry_value, hitbox_padding)
+		var afterimage_rect: Rect2 = _as_rect2(afterimage_entry.get("rect", Rect2()), Rect2())
+		if afterimage_rect.size.x <= 0.0 or afterimage_rect.size.y <= 0.0:
+			continue
+		if not afterimage_rect.intersects(ball_rect):
+			continue
+		return {
+			"hit": true,
+			"rect": afterimage_rect,
+			"paddle_w": max(1.0, afterimage_rect.size.x - hitbox_padding * 2.0),
+			"warp_gate_afterimage_hit": true,
+			"warp_gate_afterimage_id": int(afterimage_entry.get("id", -1)),
 		}
 	if bool(context.get("blacksmith_thor_shield_active", false)):
 		var shield_rect: Rect2 = _as_rect2(context.get("blacksmith_thor_shield_rect", Rect2()), Rect2())
@@ -189,16 +220,75 @@ func _resolve_player_collision_rect(base_rect: Rect2, ball_rect: Rect2, context:
 	return base_rect
 
 
-func _apply_dash_acceleration_height_bonus(base_rect: Rect2, context: Dictionary) -> Rect2:
+func _apply_dash_acceleration_size_bonus(base_rect: Rect2, context: Dictionary) -> Rect2:
 	if not bool(context.get("dash_acceleration_active", false)):
 		return base_rect
+	var width_bonus: float = max(0.0, float(context.get("dash_acceleration_width_bonus", 0.0)))
 	var height_bonus: float = max(0.0, float(context.get("dash_acceleration_height_bonus", 0.0)))
-	if height_bonus <= 0.0:
+	if width_bonus <= 0.0 and height_bonus <= 0.0:
 		return base_rect
 	var expanded := base_rect
+	expanded.position.x -= width_bonus * 0.5
+	expanded.size.x += width_bonus
 	expanded.position.y -= height_bonus * 0.5
 	expanded.size.y += height_bonus
 	return expanded
+
+
+static func resolve_dash_acceleration_contact(
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	ball_size: float,
+	collision_rect: Rect2,
+	context: Dictionary
+) -> Dictionary:
+	if not bool(context.get("dash_acceleration_active", false)):
+		return {}
+	var radius: float = ball_size * 0.5
+	var ball_rect := Rect2(ball_pos - Vector2(radius, radius), Vector2(ball_size, ball_size))
+	if not collision_rect.intersects(ball_rect):
+		return {}
+
+	# 대붕전익은 순간적으로 큰 판정을 만들기 때문에 겹친 샘플 위치를 그대로
+	# 반사에 넘기면 공이 날개 안으로 빨려 들어갔다가 나오는 것처럼 보인다.
+	# 진행 방향의 세로 면과 양쪽 가로 면 중 최소 이동 면으로 즉시 분리한다.
+	# 위에서 떨어진 공은 위 경계로, 대쉬가 옆에서 낚아챈 공은 가까운 날개 끝으로
+	# 빠져나가므로 큰 세로 보너스 때문에 공이 먼 위쪽으로 순간이동하지 않는다.
+	var vertical_surface := "top"
+	var separation_depth: float = ball_rect.end.y - collision_rect.position.y
+	if ball_vel.y < 0.0:
+		vertical_surface = "bottom"
+		separation_depth = collision_rect.end.y - ball_rect.position.y
+	var left_depth: float = ball_rect.end.x - collision_rect.position.x
+	var right_depth: float = collision_rect.end.x - ball_rect.position.x
+	var surface: String = vertical_surface
+	if left_depth < separation_depth:
+		separation_depth = left_depth
+		surface = "left"
+	if right_depth < separation_depth:
+		surface = "right"
+
+	var resolved_pos := ball_pos
+	var impact_pos := ball_pos
+	match surface:
+		"bottom":
+			resolved_pos.y = collision_rect.end.y + radius + DASH_CONTACT_SEPARATION_EPSILON
+			impact_pos = Vector2(clampf(ball_pos.x, collision_rect.position.x, collision_rect.end.x), collision_rect.end.y)
+		"left":
+			resolved_pos.x = collision_rect.position.x - radius - DASH_CONTACT_SEPARATION_EPSILON
+			impact_pos = Vector2(collision_rect.position.x, clampf(ball_pos.y, collision_rect.position.y, collision_rect.end.y))
+		"right":
+			resolved_pos.x = collision_rect.end.x + radius + DASH_CONTACT_SEPARATION_EPSILON
+			impact_pos = Vector2(collision_rect.end.x, clampf(ball_pos.y, collision_rect.position.y, collision_rect.end.y))
+		_:
+			resolved_pos.y = collision_rect.position.y - radius - DASH_CONTACT_SEPARATION_EPSILON
+			impact_pos = Vector2(clampf(ball_pos.x, collision_rect.position.x, collision_rect.end.x), collision_rect.position.y)
+	return {
+		"ball_pos": resolved_pos,
+		"impact_pos": impact_pos,
+		"dash_acceleration_contact": true,
+		"dash_acceleration_contact_surface": surface,
+	}
 
 
 func _resolve_dual_glitch_clone_entry(entry_value: Variant, hitbox_padding: float) -> Dictionary:
@@ -218,6 +308,23 @@ func _resolve_dual_glitch_clone_entry(entry_value: Variant, hitbox_padding: floa
 		"rect": raw_rect.grow(hitbox_padding),
 		"index": clone_index,
 		"side": clone_side,
+	}
+
+
+func _resolve_warp_gate_afterimage_entry(entry_value: Variant, hitbox_padding: float) -> Dictionary:
+	var raw_rect := Rect2()
+	var sample_id := -1
+	if entry_value is Dictionary:
+		var entry: Dictionary = entry_value
+		raw_rect = _as_rect2(entry.get("rect", Rect2()), Rect2())
+		sample_id = int(entry.get("id", -1))
+	elif entry_value is Rect2:
+		raw_rect = entry_value
+	if raw_rect.size.x <= 0.0 or raw_rect.size.y <= 0.0:
+		return {}
+	return {
+		"rect": raw_rect.grow(hitbox_padding),
+		"id": sample_id,
 	}
 
 
@@ -290,6 +397,41 @@ func check_trampoline(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, co
 			"ball_pos": ball_pos,
 			"trampoline_index": i,
 			"impact_pos": Vector2(ball_pos.x, trampoline_rect.position.y),
+		}
+
+	return {}
+
+
+func check_campfire(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, context: Dictionary) -> Dictionary:
+	if ball_vel.y <= 0.0:
+		return {}
+
+	var campfires: Array = context.get("campfires", [])
+	if campfires.is_empty():
+		return {}
+
+	var ball_rect := Rect2(
+		ball_pos.x - ball_size * 0.5,
+		ball_pos.y - ball_size * 0.5,
+		ball_size,
+		ball_size
+	)
+	for i in range(campfires.size()):
+		var campfire_value: Variant = campfires[i]
+		if not (campfire_value is Dictionary):
+			continue
+		var campfire: Dictionary = campfire_value
+		var campfire_rect: Rect2 = _as_rect2(campfire.get("rect", Rect2()), Rect2())
+		if campfire_rect.size.x <= 0.0 or campfire_rect.size.y <= 0.0:
+			continue
+		if not campfire_rect.intersects(ball_rect):
+			continue
+		ball_pos.y = campfire_rect.position.y - ball_size * 0.5
+		return {
+			"event": EVENT_CAMPFIRE,
+			"ball_pos": ball_pos,
+			"campfire_index": i,
+			"impact_pos": Vector2(ball_pos.x, campfire_rect.position.y),
 		}
 
 	return {}

@@ -1,11 +1,15 @@
 extends SceneTree
 
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MysticDiceLocalization := preload("res://scripts/characters/mystic_dice_localization.gd")
 const MysticDiceModalFlow := preload("res://scripts/characters/mystic_dice_modal_flow.gd")
 const MysticDiceModalLayout := preload("res://scripts/characters/mystic_dice_modal_layout.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 const MysticDiceRoller := preload("res://scripts/characters/mystic_dice_roller.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+
+const MysticDiceActiveItemIcon := "res://assets/sprites/items/mystic_dice_icon_hq_v1.png"
 
 var _failures: Array[String] = []
 
@@ -78,12 +82,12 @@ func _verify_bounded_long_hover_animation() -> void:
 func _verify_localized_column_headers() -> void:
 	var original_language: String = LanguageSettings.get_language()
 	var expected_headers := {
-		LanguageSettings.LANGUAGE_KOREAN: ["이번 굴림", "누적"],
-		LanguageSettings.LANGUAGE_ENGLISH: ["This Roll", "Total"],
+		LanguageSettings.LANGUAGE_KOREAN: ["이번 던짐", "누적"],
+		LanguageSettings.LANGUAGE_ENGLISH: ["This Throw", "Total"],
 		LanguageSettings.LANGUAGE_CHINESE: ["本次", "累计"],
 		LanguageSettings.LANGUAGE_JAPANESE: ["今回", "累計"],
-		LanguageSettings.LANGUAGE_SPANISH: ["Tirada", "Total"],
-		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: ["Rolagem", "Total"],
+		LanguageSettings.LANGUAGE_SPANISH: ["Lanzamiento", "Total"],
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: ["Lançamento", "Total"],
 		LanguageSettings.LANGUAGE_RUSSIAN: ["Бросок", "Итог"],
 	}
 	for locale: String in expected_headers:
@@ -120,18 +124,58 @@ func _verify_renderer_and_icon_contract() -> void:
 	renderer.prewarm_assets()
 	renderer.reset()
 	renderer.draw(null, {}, {}, Vector2.ZERO)
-	_expect(FileAccess.file_exists("res://assets/sprites/perks/mystic_dice_perk_icon.png"), "imagegen icon must land before registration")
-	var icon_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
-	_expect(icon_source.contains("mystic_dice_perk_icon.png"), "perk icon renderer should register the landed mystic dice PNG")
+	# 신비의 주사위는 무공 카드가 아니라 액티브 아이템이다. 호환 퍽 ID를 그리는
+	# 자리(능력치 원인표기·TAB 누적 엔트리)도 아이템 정본 아이콘을 써야 한다.
+	# 소스 문자열이 아니라 실제 맵을 조회해 경로 리터럴이 옮겨져도 계약이 남게 한다.
+	var registered_icon_path: String = str(RuntimePerkIconRenderer.PERK_ICON_PATHS.get("mystic_dice", ""))
+	_expect(
+		registered_icon_path == MysticDiceActiveItemIcon,
+		"compat perk id should register the canonical active-item PNG, got '%s'" % registered_icon_path
+	)
+	var catalog_icon_path := str(ActiveItemCatalog.new().build_item_by_name("mystic_dice").get("icon_path", ""))
+	_expect(
+		catalog_icon_path == MysticDiceActiveItemIcon,
+		"active-item catalog should register the same canonical yut PNG, got '%s'" % catalog_icon_path
+	)
+	_expect(FileAccess.file_exists(registered_icon_path), "the registered mystic dice icon must land on disk")
 	var host_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 	_expect(host_source.contains("MysticDiceOverlayRenderer") and host_source.contains("is_mystic_dice_modal_active"), "runtime overlay should route the dice modal through its focused renderer")
-	_expect(host_source.contains("skill_id == \"mystic_dice\""), "runtime overlay should retain a procedural five-pip fallback")
+	_expect(host_source.contains("skill_id == \"mystic_dice\""), "runtime overlay should retain a procedural yut-bundle fallback")
+	_expect(not host_source.contains("five-pip") and not host_source.contains("pip_offset"), "procedural compatibility fallback must not return to dice pips")
 	var source := FileAccess.get_file_as_string("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 	_expect(source.contains('MysticDiceLocalization.text("roll_header")'), "result renderer should label the current-roll value column")
 	_expect(source.contains('MysticDiceLocalization.text("total_header")'), "result renderer should label the accumulated-total value column")
 	_expect(source.contains("_draw_text_centered_fitted"), "localized result headers should shrink to fit narrow modal columns")
 	_expect(not source.contains('"Δ"') and not source.contains('"Σ"'), "opaque math-symbol column headers must not return")
-	_expect(not source.contains("draw_set_transform"), "dice geometry should rotate manually without leaking a canvas transform")
+	_expect(source.contains("YUT_STICK_COUNT := 4"), "modal centerpiece should render the complete four-stick yut set")
+	_expect(not source.contains("FACE_GLYPHS") and not source.contains("LINGPET_GLYPH_FONT"), "six-face Lingpet glyph dice art must not return")
+	var expected_back_counts := [1, 2, 3, 4, 0, 1]
+	for face: int in range(1, 7):
+		_expect(
+			MysticDiceOverlayRenderer.get_yut_back_count(face) == int(expected_back_counts[face - 1]),
+			"compat face %d should project to the intended four-stick back/front pattern" % face
+		)
+	_expect(
+		MysticDiceOverlayRenderer.PANEL_BORDER_COLOR.r > MysticDiceOverlayRenderer.PANEL_BORDER_COLOR.b
+		and MysticDiceOverlayRenderer.PANEL_BORDER_COLOR.g > MysticDiceOverlayRenderer.PANEL_BORDER_COLOR.b,
+		"modal panel border should stay in the brass-gold palette"
+	)
+	_expect(
+		MysticDiceOverlayRenderer.YUT_BODY_LIT.r > MysticDiceOverlayRenderer.YUT_BODY_LIT.g
+		and MysticDiceOverlayRenderer.YUT_BODY_LIT.g > MysticDiceOverlayRenderer.YUT_BODY_LIT.b,
+		"yut body highlight should stay warm birch cream"
+	)
+	_expect(
+		MysticDiceOverlayRenderer.BENEFIT_COLOR.b > MysticDiceOverlayRenderer.BENEFIT_COLOR.r
+		and MysticDiceOverlayRenderer.HARM_COLOR.r > MysticDiceOverlayRenderer.HARM_COLOR.b,
+		"benefit/harm colors should stay obangsaek blue/red"
+	)
+	_expect(
+		source.contains("_draw_yut_knot")
+		and MysticDiceOverlayRenderer.YUT_KNOT_RED.r > MysticDiceOverlayRenderer.YUT_KNOT_RED.g * 4.0,
+		"modal yut bundle should retain the icon-matching red silk binding"
+	)
+	_expect(not source.contains("draw_set_transform"), "yut geometry should tumble manually without leaking a canvas transform")
 	_expect(not source.contains("Time.get_ticks") and not source.contains("randf") and not source.contains("randi"), "modal draw animation should consume snapshot time without wall-clock or RNG")
 	_expect(not source.contains("Image.get_image") and not source.contains("create_from_image"), "draw path must not scan or construct textures")
 

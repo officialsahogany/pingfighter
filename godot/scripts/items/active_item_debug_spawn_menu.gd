@@ -25,9 +25,9 @@ const DEBUG_ENTRY_ORDER := [
 	"lingpet_egg",
 	"life_elixir",
 	"vitamin_pill",
-	"strange_vial",
 	"aipill",
 	"pandora_box",
+	"mystic_dice",
 	"grenade",
 	"flare",
 	"tear_gas",
@@ -35,13 +35,13 @@ const DEBUG_ENTRY_ORDER := [
 	"molotov",
 	"stopwatch",
 	"magnet_field",
-	"hologram_disk",
 	"long_boost",
 	"regeneration_potion",
 	"holy_barrier",
 	"dash_boost",
 	"wall",
 	"trampoline",
+	"campfire",
 	"boomerang",
 	"banana",
 	"soap",
@@ -399,79 +399,27 @@ func _get_icon_texture(item_name: String) -> Texture2D:
 
 
 func _get_debug_item_title(item_name: String) -> String:
-	match item_name:
-		"gauge_charge":
-			return "에너지드링크"
-		"lingpet_feed":
-			return "귤"
-		"lingpet_apple_feed":
-			return "사과"
-		"lingpet_melon_feed":
-			return "멜론"
-		"lingpet_special_feed":
-			return "특제 사료"
-		"life_elixir":
-			return "생명수"
-		"vitamin_pill":
-			return "비타민드링크"
-		"strange_vial":
-			return "이상한 약병"
-		"aipill":
-			return "AI 알약"
-		"pandora_box":
-			return "판도라의 상자"
-		"grenade":
-			return "수류탄"
-		"flare":
-			return "조명탄"
-		"tear_gas":
-			return "최루탄"
-		"dynamite":
-			return "다이너마이트"
-		"molotov":
-			return "화염병"
-		"stopwatch":
-			return "스탑워치"
-		"magnet_field":
-			return "자기장"
-		"long_boost":
-			return "거대화포션"
-		"regeneration_potion":
-			return "재생물약"
-		"holy_barrier":
-			return "홀리베리어"
-		"dash_boost":
-			return "대쉬부스트"
-		"wall":
-			return "벽돌"
-		"boomerang":
-			return "부메랑"
-		"banana":
-			return "바나나"
-		"soap":
-			return "비누"
-		"spider_mine":
-			return "스파이더지뢰"
-		_:
-			return item_name
+	var item_data: Dictionary = item_catalog.build_item_by_name(item_name)
+	var display_name: String = str(item_data.get("display_name", "")).strip_edges()
+	return display_name if display_name != "" else item_name
 
 
 func _get_debug_item_subtitle(item_name: String) -> String:
 	match item_name:
 		"gauge_charge":
-			return "게이지 +220 충전"
+			return "기력 +220 충전"
 		"lingpet_spirit_water":
 			return "수호령 지속시간 전량 회복"
 		"life_elixir":
-			return "게이지 최대 충전"
+			return "기력 최대 충전"
 		"vitamin_pill":
 			return "이동속도 증가"
-		"strange_vial":
-			return "무작위 크기 / 속도 변화"
 		"aipill":
-			return "자동 가드 / 히트당 공속 +25%"
+			return "자동 가드 / 히트당 공속 +10%"
 		"pandora_box":
-			return "차원문 아이템 소환"
+			return "귀문 개방 / 액티브 아이템 소환"
+		"mystic_dice":
+			return "7종 능력치 무작위 누적"
 		"grenade":
 			return "투척 폭발 / 스턴"
 		"flare":
@@ -483,19 +431,19 @@ func _get_debug_item_subtitle(item_name: String) -> String:
 		"molotov":
 			return "화염 장판"
 		"stopwatch":
-			return "시간 정지"
+			return "요술 태엽 / 시간 정지"
 		"magnet_field":
-			return "공 끌어당김"
+			return "흡인진 전개 / 공 유도"
 		"long_boost":
-			return "패들 거대화"
+			return "몸집 거대화"
 		"regeneration_potion":
-			return "쿨타임 초기화 / 대시토큰 회복"
+			return "쿨타임 초기화 / 활주 횟수 회복"
 		"holy_barrier":
-			return "하단 방벽"
+			return "하단 금강결계"
 		"dash_boost":
-			return "대쉬 무료 / 즉시 충전"
+			return "축지 활주 무료 / 즉시 충전"
 		"wall":
-			return "벽돌 설치"
+			return "토벽 설치"
 		"boomerang":
 			return "부메랑 투척"
 		"banana":
@@ -503,7 +451,7 @@ func _get_debug_item_subtitle(item_name: String) -> String:
 		"soap":
 			return "미끄럼 투척"
 		"spider_mine":
-			return "벽타는 지뢰"
+			return "벽타는 봉인뢰"
 		_:
 			return "액티브 아이템"
 

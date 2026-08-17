@@ -1,7 +1,7 @@
 extends SceneTree
 
 # Seals the Lv.6+ (effective-level overflow) perk stat-line generator
-# (2026-07-10 bug: a transcendent_crown Lv.7 도약 tooltip still displayed the
+# (2026-07-10 bug: a transcendent_crown Lv.7 비천보 tooltip still displayed the
 # Lv.5 "대쉬 거리 35% 증가" line; every overflow-eligible perk shared the bug).
 #
 # Legs:
@@ -32,6 +32,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const SPECIAL_PATTERN_IDS := [
+	"downtown_treasure_map",
 	"combo_amplifier_chip",
 	"pistol_enhance",
 	"jetpack_enhance",
@@ -103,25 +104,26 @@ func _test_reproduces_every_authored_level() -> void:
 
 
 func _test_linear_overflow_values() -> void:
-	# The reported bug: 도약 Lv.7 must show 49%, not the Lv.5 35%.
-	_expect_text("dash_jump", 7, "대쉬 거리 49% 증가")
-	_expect_text("dash_lightweight", 6, "대쉬 쿨타임 72% 감소")
+	# The reported bug: 비천보 Lv.7 must show 49%, not the Lv.5 35%.
+	_expect_text("dash_jump", 7, "활주 거리 49% 증가")
+	_expect_text("dash_lightweight", 6, "활주 재충전 72% 감소")
 	_expect_text("common_swiftness", 6, "이동속도 36% 증가")
-	_expect_text("perk_laurel_shield", 7, "월계수 잎 7개 보호")
+	_expect_text("perk_laurel_shield", 7, "벽사 잎 7개 보호")
 	# value_max lanes clamp like their runtime consumers.
 	_expect_text("item_recycle", 15, "아이템 유지 확률 90%")
-	_expect_text("perk_boost_charge", 15, "확률 +100%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%")
+	_expect_text("perk_boost_charge", 15, "확률 +100%, 발동 시 다음 활주 무료 + 재충전 -90%")
 
 
 func _test_converted_overflow_single_sourced() -> void:
 	# adversity_armor Lv.6: 40+5=45% / 15+2.5=17.5초 (average-slope extrapolation).
 	_expect_text("adversity_armor", 6, "실점 후 발동 45%, 보호 17.5초")
 	# battery Lv.6 hits its 100% overflow bound.
-	_expect_text("battery", 6, "스테이지 전환 게이지 보존 100%")
+	_expect_text("battery", 6, "스테이지 전환 기력 보존 100%")
+	_expect_text("neural_helmet", 6, "신령환 가드 기력 비용 35 감소, 패들 반사 공속 추가 +12%, 스폰 +387.5%")
 	# sensor Lv.9 token count follows the int(round()) consumer (2.25 -> 2... 3.0 at Lv.9).
 	var sensor_tokens: float = PerkConversionValues.get_value("sensor", "auto_dash_token_count", 9)
 	_expect(int(round(sensor_tokens)) == 3, "fixture: sensor Lv.9 token lane should round to 3, got %f" % sensor_tokens)
-	_expect_text("sensor", 9, "자동대쉬 토큰 3개, 쿨타임 %s초" % _fmt(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 9)))
+	_expect_text("sensor", 9, "자동 활주 3회, 쿨타임 %s초" % _fmt(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 9)))
 	# Structural: every converted template lane matches get_value at an overflow level.
 	for skill_id_value in RuntimePerkOverflowDescriptions.CONVERTED_TEMPLATES.keys():
 		var skill_id: String = str(skill_id_value)
@@ -130,17 +132,19 @@ func _test_converted_overflow_single_sourced() -> void:
 
 
 func _test_special_overflow_values() -> void:
+	# 천기보도 Lv.7: 절세무공과 비전초식 상자 레인 모두 상한 없이 선형 증가한다.
+	_expect_text("downtown_treasure_map", 7, "절세무공 확률 +1050%, 비전초식 상자 +21%p")
 	# combo chip Lv.7: uncapped lanes keep scaling, capped lanes hold with (캡).
 	_expect_text(
 		"combo_amplifier_chip", 7,
-		"콤보 효과 증폭: 드라이브 공속+630%, 커브+15%(캡), 파워스매시 공속+315%, 초기부스트 감쇄 -50%(캡)"
+		"콤보 효과 증폭: 벽력타 공속+630%, 커브+15%(캡), 천뢰격 공속+315%, 초기부스트 감쇄 -50%(캡)"
 	)
 	# pistol Lv.7: only the magazine keeps growing (documented Lv.6+ contract).
-	_expect_text("pistol_enhance", 7, "기본권총 정확도 ±1°, 탄속 +50%, 넉백 +150%, 탄창 9발")
+	_expect_text("pistol_enhance", 7, "단총통 정확도 ±1°, 탄속 +50%, 넉백 +150%, 장전 9발")
 	_expect_text("jetpack_enhance", 6, "제트팩 최대 게이지 +120%, 체공 중 게이지 획득 +40%")
 	_expect_text("kick_enhance", 7, "킥 발사 정밀도 +56%, 공속 +84%, 준비 -49%, 용광로 넉백볼 50%")
 	# blade_amp Lv.6: range holds at the runtime clamp (+50%), speed keeps scaling.
-	_expect_text("blade_amp", 6, "검기 사거리/가로폭 +50%(캡), 검기 속도 +60%, 추가 유도검기")
+	_expect_text("blade_amp", 6, "참격 사거리/가로폭 +50%(캡), 참격 속도 +60%, 추가 유도검기")
 	# four_poisons Lv.6 extrapolates every lane by its runtime per-extra step.
 	_expect_text(
 		"four_poisons", 6,
@@ -198,7 +202,7 @@ func _test_presenter_consumes_overflow_text() -> void:
 	)
 	var stats: String = str(data.get("description", ""))
 	_expect(
-		stats == "대쉬 거리 49% 증가",
+		stats == "활주 거리 49% 증가",
 		"TAB perk tooltip must show the generated Lv.7 stats, got: %s" % stats
 	)
 
@@ -211,7 +215,7 @@ func _test_overlay_renderer_consumes_overflow_text() -> void:
 	skill["level"] = 7
 	var stats: String = renderer._perk_stats_for_level(skill)
 	_expect(
-		stats == "대쉬 거리 49% 증가",
+		stats == "활주 거리 49% 증가",
 		"perk overlay owned-perk tooltip must show the generated Lv.7 stats, got: %s" % stats
 	)
 

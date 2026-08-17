@@ -1,11 +1,13 @@
 extends SceneTree
 
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	var overlay := RuntimePerkOverlayRenderer.new()
 	_verify_character_edge_theme(overlay)
 	_verify_unlock_label_path(overlay)
@@ -13,6 +15,7 @@ func _init() -> void:
 	_verify_card_text_measurement_cache(overlay)
 	_verify_static_prewarm_populates_text_caches(overlay)
 	_verify_fallback_symbol_draw_budgets()
+	LanguageSettings.set_test_locale_override("")
 
 	if _failures.is_empty():
 		print("runtime_perk_overlay_theme_smoke: ok")
@@ -51,15 +54,15 @@ func _verify_character_edge_theme(overlay: Object) -> void:
 func _verify_unlock_label_path(overlay: Object) -> void:
 	var unlock_choice := {
 		"id": "soldier_unlock_bazooka",
-		"name": "바주카포",
+		"name": "벽력완구",
 		"max_level": 1,
 		"current_level": 0,
 		"next_level": 1,
 		"character_restriction": "soldier",
 		"unlocks_skill": "bazooka",
 	}
-	_expect(str(overlay._level_text(unlock_choice)) == "해금", "Character unlock cards should use the Korean short unlock label")
-	_expect(str(overlay._long_level_text(unlock_choice)).contains("액티브 해금"), "Character unlock cards should use the Korean long unlock label")
+	_expect(str(overlay._level_text(unlock_choice)) == "비급", "Character skill manuals should use the Korean short manual label")
+	_expect(str(overlay._long_level_text(unlock_choice)).contains("초식 비급"), "Character skill manuals should use the Korean long manual label")
 	_expect(bool(overlay._shows_character_unlock_badge(unlock_choice)), "Character unlock cards should show the A badge")
 
 	var sparse_unlock_choice := {
@@ -74,16 +77,22 @@ func _verify_unlock_label_path(overlay: Object) -> void:
 
 	var common_choice := {
 		"id": "common_swiftness",
-		"name": "신속",
+		"name": "유운보",
 		"max_level": 5,
 		"current_level": 0,
 		"next_level": 1,
 	}
 	_expect(not bool(overlay._shows_character_unlock_badge(common_choice)), "Common scaling perks should not show the A badge")
+	_expect(str(overlay._level_text(common_choice)) == "1성", "Common scaling perks should use 1성 on their first rank")
+	_expect(str(overlay._long_level_text(common_choice)).contains("미습득 → 1성"), "Common scaling perk transition should use martial-rank wording")
+	var max_choice := common_choice.duplicate(true)
+	max_choice["current_level"] = 4
+	max_choice["next_level"] = 5
+	_expect(str(overlay._level_text(max_choice)) == "극성", "Common scaling perks should use 극성 at authored max")
 
 
 func _verify_title_text_cache(overlay: Object) -> void:
-	_expect(str(overlay.TITLE_TEXT) == "스킬 강화!", "Runtime perk overlay title should use readable Korean text")
+	_expect(str(overlay.TITLE_TEXT) == "무공 수련!", "Runtime perk overlay title should use the branded Korean text")
 	var font: Font = ThemeDB.fallback_font
 	_expect(font != null, "Runtime perk overlay title smoke needs a fallback font")
 	if font == null:
@@ -111,8 +120,8 @@ func _verify_card_text_measurement_cache(overlay: Object) -> void:
 	_expect(fitted_1 == fitted_2, "Runtime perk card text fitting should reuse cached results")
 	_expect(overlay._text_fit_cache.size() == 1, "Runtime perk card text fitting should not add duplicate cache entries")
 
-	var size_1: Vector2 = overlay._get_text_size(font, "Lv.5", 12)
-	var size_2: Vector2 = overlay._get_text_size(font, "Lv.5", 12)
+	var size_1: Vector2 = overlay._get_text_size(font, "극성", 12)
+	var size_2: Vector2 = overlay._get_text_size(font, "극성", 12)
 	_expect(size_1 == size_2, "Runtime perk card text measurement should reuse cached string sizes")
 	_expect(not overlay._text_size_cache.is_empty(), "Runtime perk card text measurement should populate the size cache")
 

@@ -65,17 +65,29 @@ func _verify_particle_payloads() -> void:
 
 func _verify_stage_sources_delegate_payload_construction() -> void:
 	var paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage3/stage3_starpoint_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 	]
 	for path in paths:
 		var source: String = FileAccess.get_file_as_string(path)
 		_expect(source.find("StarpointPayloadFactory.build_drop") >= 0, "%s should delegate starpoint drop payloads" % path)
 		_expect(source.find("StarpointPayloadFactory.build_particles") >= 0, "%s should delegate starpoint particles" % path)
-		var drop_body := _slice_between(source, "func _spawn_starpoint_drop_at", "func _spawn_star_detector_bonus_drops")
-		var particle_body := _slice_between(source, "func _spawn_starpoint_particles", "func _update_starpoint_particles")
+		var is_stage1_owner: bool = path.ends_with("stage1_balloon_starpoint_state.gd")
+		var is_stage2_owner: bool = path.ends_with("stage2_starpoint_coordinator.gd")
+		var is_stage3_owner: bool = path.ends_with("stage3_starpoint_state.gd")
+		var is_stage4_owner: bool = path.ends_with("stage4_bird_starpoint_state.gd")
+		var drop_body := _slice_between(
+			source,
+			"func spawn_drop_at" if is_stage1_owner or is_stage2_owner or is_stage3_owner or is_stage4_owner else "func _spawn_starpoint_drop_at",
+			"func spawn_star_detector_bonus_drops" if is_stage1_owner or is_stage2_owner or is_stage4_owner else "func _spawn_star_detector_bonus_drops"
+		)
+		var particle_body := _slice_between(
+			source,
+			"func spawn_particles" if is_stage1_owner or is_stage2_owner or is_stage4_owner else ("func _spawn_particles" if is_stage3_owner else "func _spawn_starpoint_particles"),
+			"func update_particles" if is_stage1_owner or is_stage2_owner or is_stage4_owner else ("func _play_collect_sound" if is_stage3_owner else "func _update_starpoint_particles")
+		)
 		_expect(drop_body.find("\"glow_intensity\"") < 0, "%s should not keep private drop payload dictionaries" % path)
 		_expect(particle_body.find("\"fade_speed\"") < 0, "%s should not keep private particle payload dictionaries" % path)
 

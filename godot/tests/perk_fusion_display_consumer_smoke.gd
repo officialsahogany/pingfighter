@@ -28,10 +28,10 @@ func _init() -> void:
 				"fusion_id": "fusion_0",
 				"fusion_revision": 1,
 				"sources": ["common_bulk_up", "common_swiftness"],
-				"source_names": ["부피 증가", "신속"],
+				"source_names": ["철산공", "유운보"],
 				"base_levels": {"common_bulk_up": 5, "common_swiftness": 5},
 				"effective_levels": {"common_bulk_up": 5, "common_swiftness": 5},
-				"summary": "부피 증가 + 신속 · 성공 융합",
+				"summary": "철산공 + 유운보 · 성공 융합",
 				"slot_cost": 1,
 				"record_payload": {
 					"fusion_id": "fusion_0",
@@ -84,7 +84,7 @@ func _init() -> void:
 			_expect(str(entry.get("description", "")).contains("100") and str(entry.get("description", "")).contains("80"), "fusion TAB tooltip should expose the actual before-to-after option values")
 			_expect(str(entry.get("description", "")).contains("잔향"), "fusion TAB tooltip should expose acquired byproduct details")
 			_expect(str(entry.get("detail", "")) != str(entry.get("description", "")), "fusion TAB tooltip should keep result log and material stats in separate panels")
-			_expect(str(entry.get("description", "")).contains("부피 증가 · Lv.5") and str(entry.get("description", "")).contains("신속 · Lv.5"), "fusion TAB stats should retain both material section headers")
+			_expect(str(entry.get("description", "")).contains("철산공 · Lv.5") and str(entry.get("description", "")).contains("유운보 · Lv.5"), "fusion TAB stats should retain both material section headers")
 	_expect(fusion_count == 1, "character info should render exactly one canonical fusion cell")
 
 	var before_hash: int = CharacterInfoOverlayPerkPresenter.acquired_perk_cache_hash(

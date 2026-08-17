@@ -58,12 +58,13 @@ const HEADING_TITLE_CENTER_Y_FRAC := 0.110
 const HEADING_SUBTITLE_CENTER_Y_FRAC := 0.183
 const HEADING_CLEAR_WIDTH_FRAC := 0.66
 const PROBABILITY_MEDALLION_SPAN := 110.0
-const PROBABILITY_COLUMN_FRACS := [0.225, 0.5, 0.775]
+const PROBABILITY_COLUMN_COUNT := 5
 
 var _layout_helper: Object = PerkFusionModalLayout.new()
 var _fallback_font: Font = null
 var _assets_prewarmed := false
 var _textures: Dictionary = {}
+var _prewarm_asset_index := 0
 
 
 func prewarm_assets() -> void:
@@ -77,6 +78,29 @@ func prewarm_assets() -> void:
 		if texture is Texture2D:
 			_textures[texture_key] = texture
 	_assets_prewarmed = true
+
+
+func prewarm_assets_step() -> bool:
+	if _assets_prewarmed:
+		return true
+	var texture_keys: Array = TEXTURE_MANIFEST.keys()
+	if _prewarm_asset_index < texture_keys.size():
+		var texture_key := str(texture_keys[_prewarm_asset_index])
+		var path := str(TEXTURE_MANIFEST[texture_key])
+		if not FileAccess.file_exists(path) and not ResourceLoader.exists(path):
+			_prewarm_asset_index += 1
+			return false
+		var result := ProjectResourceLoader.prewarm_texture_threaded_step(path, "", "", ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC, ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS, false, true)
+		if not bool(result.get("done", false)):
+			return false
+		var texture := result.get("texture", null) as Texture2D
+		if texture != null:
+			_textures[texture_key] = texture
+		_prewarm_asset_index += 1
+		return false
+	_assets_prewarmed = true
+	_prewarm_asset_index = 0
+	return true
 
 
 func _texture(texture_key: String) -> Texture2D:
@@ -222,26 +246,45 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 	var preview: Dictionary = _as_dict(snapshot.get("outcome_preview", {}))
 	var core_stabilize_armed := bool(preview.get("core_stabilize_armed", false))
 	var medallion_span := _probability_medallion_span(rect)
+	var column_width := rect.size.x / float(PROBABILITY_COLUMN_COUNT)
 	var label_y := rect.position.y + minf(18.0, rect.size.y * 0.10)
 	var medallion_center_y := rect.position.y + rect.size.y * 0.46
 	var percent_y := rect.end.y - minf(22.0, rect.size.y * 0.10)
 	var labels: Array[String] = [
-		PerkFusionLocalization.text("prob_success"),
 		PerkFusionLocalization.text("prob_core_stable" if core_stabilize_armed else "prob_side"),
-		PerkFusionLocalization.text("prob_byproduct"),
+		PerkFusionLocalization.text("prob_success"),
+		PerkFusionLocalization.format("prob_byproduct_count", [1]),
+		PerkFusionLocalization.format("prob_byproduct_count", [2]),
+		PerkFusionLocalization.format("prob_byproduct_count", [3]),
 	]
-	var keys: Array[String] = ["success", "side_effect", "byproduct"]
+	var keys: Array[String] = [
+		PerkFusionOutcomeRules.OUTCOME_SIDE_EFFECT,
+		PerkFusionOutcomeRules.OUTCOME_SUCCESS,
+		PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_1,
+		PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_2,
+		PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_3,
+	]
 	var side_color := Color(0.52, 0.92, 0.82) if core_stabilize_armed else Color(0.90, 0.32, 0.22)
-	var colors: Array[Color] = [Color(0.34, 0.86, 0.70), side_color, GOLD_COLOR]
+	var colors: Array[Color] = [side_color, Color(0.34, 0.86, 0.70), GOLD_COLOR, GOLD_COLOR, GOLD_COLOR]
 	var texture_keys: Array[String] = [
-		"medallion_stable",
 		"medallion_stable" if core_stabilize_armed else "medallion_side",
+		"medallion_stable",
+		"medallion_byproduct",
+		"medallion_byproduct",
 		"medallion_byproduct",
 	]
-	for column in range(3):
+	for column in range(PROBABILITY_COLUMN_COUNT):
 		var percent: float = _as_percent(float(probabilities.get(keys[column], 0.0)))
-		var center_x: float = rect.position.x + rect.size.x * float(PROBABILITY_COLUMN_FRACS[column])
-		_draw_text_centered(canvas, labels[column], Vector2(center_x, label_y), 14, colors[column])
+		var center_x: float = rect.position.x + column_width * (float(column) + 0.5)
+		_draw_text_fitted_centered(
+			canvas,
+			labels[column],
+			Vector2(center_x, label_y),
+			14,
+			colors[column],
+			maxf(1.0, column_width - 4.0),
+			9
+		)
 		var medallion_rect := Rect2(
 			Vector2(center_x, medallion_center_y) - Vector2.ONE * medallion_span * 0.5,
 			Vector2.ONE * medallion_span
@@ -255,7 +298,7 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 			canvas,
 			"%d%%" % int(round(percent)),
 			Vector2(center_x, percent_y),
-			22,
+			clampi(int(round(column_width * 0.22)), 15, 22),
 			Color.WHITE
 		)
 
@@ -263,7 +306,7 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 func _probability_medallion_span(rect: Rect2) -> float:
 	return minf(
 		PROBABILITY_MEDALLION_SPAN,
-		minf(rect.size.y * 0.58, rect.size.x * 0.25)
+		minf(rect.size.y * 0.58, rect.size.x * 0.15)
 	)
 
 
@@ -369,8 +412,21 @@ func _draw_reveal(
 	)
 	_draw_text_centered(canvas, pair_text, Vector2(result_rect.get_center().x, icon_rect.end.y + 25.0), 21, Color.WHITE)
 
-	var lines: Array[String] = _result_lines(record, outcome, catalog)
 	var line_y: float = icon_rect.end.y + 55.0
+	var byproduct_ids := _record_byproduct_ids(record)
+	if not byproduct_ids.is_empty():
+		var byproduct_row_y := icon_rect.end.y + 37.0
+		line_y = maxf(
+			line_y,
+			byproduct_row_y + _draw_byproduct_icon_row(
+				canvas,
+				icon_renderer,
+				byproduct_ids,
+				result_rect,
+				byproduct_row_y
+			)
+		)
+	var lines: Array[String] = _result_lines(record, outcome, catalog)
 	var max_visible_lines := mini(
 		MAX_RESULT_LINES,
 		maxi(1, int(floor((result_rect.end.y - line_y - 8.0) / 25.0)))
@@ -477,16 +533,20 @@ func _draw_candidate_preview(
 	_draw_text_fitted(canvas, _perk_name(catalog, perk_id), Vector2(name_x, rect.position.y + 28.0), 15, colors["title"], rect.end.x - name_x - 10.0, 9)
 	var base_level := int(preview.get("base_level", 0))
 	var effective_level := int(preview.get("effective_level", base_level))
-	var level_label := "Lv.%d" % base_level
+	# 합일 재료는 기본 경지가 이미 저작 최대치이므로 base_level 자체가 극성 기준이다.
+	var level_label := LanguageSettings.format_mugong_level(base_level, base_level)
 	if effective_level != base_level:
-		level_label += " → %d" % effective_level
+		level_label += " → " + LanguageSettings.format_mugong_level(effective_level, base_level)
 	_draw_text_fitted(canvas, level_label, Vector2(name_x, rect.position.y + 48.0), 11, colors["detail"], rect.end.x - name_x - 10.0, 8)
 
 	var option_lines: Array[String] = []
 	for option_value: Variant in _as_array(preview.get("options", [])):
 		var option: Dictionary = _as_dict(option_value)
+		var option_key := str(option.get("option_key", option.get("key", ""))).strip_edges()
+		if option_key.is_empty():
+			continue
 		option_lines.append(PerkFusionLocalization.option_preview(
-			str(option.get("key", "option")),
+			option_key,
 			option.get("value", 0.0),
 			str(option.get("polarity", "forward"))
 		))
@@ -660,10 +720,24 @@ func _get_probabilities(snapshot: Dictionary) -> Dictionary:
 	var weights := _as_dict(preview.get("weights", {}))
 	if weights.is_empty():
 		weights = PerkFusionOutcomeRules.build_final_outcome_weights(false)
+	var byproduct_percent := float(weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT, 0.0))
+	var count_weights := PerkFusionOutcomeRules.build_byproduct_count_weights(byproduct_percent)
 	return {
 		"success": weights.get(PerkFusionOutcomeRules.OUTCOME_SUCCESS, 0.0),
 		"side_effect": weights.get(PerkFusionOutcomeRules.OUTCOME_SIDE_EFFECT, 0.0),
 		"byproduct": weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT, 0.0),
+		"byproduct_count_1": weights.get(
+			PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_1,
+			count_weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_1, 0.0)
+		),
+		"byproduct_count_2": weights.get(
+			PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_2,
+			count_weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_2, 0.0)
+		),
+		"byproduct_count_3": weights.get(
+			PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_3,
+			count_weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_3, 0.0)
+		),
 	}
 
 
@@ -682,6 +756,39 @@ func _selected_sources(snapshot: Dictionary) -> Array:
 
 func _record(snapshot: Dictionary) -> Dictionary:
 	return _as_dict(snapshot.get("committed_record", {}))
+
+
+func _record_byproduct_ids(record: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for byproduct_value: Variant in _as_array(record.get("byproducts", [])):
+		var byproduct_id := str(byproduct_value.get("id", "")) if byproduct_value is Dictionary else str(byproduct_value)
+		byproduct_id = byproduct_id.strip_edges()
+		if not byproduct_id.is_empty() and byproduct_id not in result:
+			result.append(byproduct_id)
+	return result
+
+
+# 결과 공개 카드의 획득 부산물을 26px 구슬로 즉시 보여준다. 재료쌍 아이콘은
+# 합일 정체성으로 유지하고, 부산물 행은 별도 시각 보상으로 그 아래에 놓는다.
+func _draw_byproduct_icon_row(
+	canvas: CanvasItem,
+	icon_renderer: Object,
+	byproduct_ids: Array[String],
+	result_rect: Rect2,
+	top_y: float
+) -> float:
+	var visible_count := mini(4, byproduct_ids.size())
+	if visible_count <= 0:
+		return 0.0
+	var icon_size := 26.0
+	var gap := 7.0
+	var total_width := icon_size * float(visible_count) + gap * float(maxi(0, visible_count - 1))
+	var start_x := result_rect.get_center().x - total_width * 0.5
+	for index in range(visible_count):
+		var icon_rect := Rect2(Vector2(start_x + float(index) * (icon_size + gap), top_y), Vector2(icon_size, icon_size))
+		canvas.draw_circle(icon_rect.get_center(), icon_size * 0.52, Color(0.035, 0.024, 0.020, 0.92))
+		_draw_perk_icon(canvas, icon_renderer, byproduct_ids[index], icon_rect)
+	return icon_size + 9.0
 
 
 func _result_lines(record: Dictionary, outcome: String, catalog: Object = null) -> Array[String]:

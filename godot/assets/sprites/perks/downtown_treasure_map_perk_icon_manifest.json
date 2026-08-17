@@ -1,0 +1,16 @@
+{
+  "asset_id": "downtown_treasure_map_perk_icon",
+  "perk_id": "downtown_treasure_map",
+  "display_name_ko": "천기보도",
+  "display_name_en": "Heavenly-Secret Treasure Map",
+  "runtime_path": "res://assets/sprites/perks/downtown_treasure_map_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-df5fca7a-fab9-471b-94db-6631681d957b.png",
+    "prompt_summary": "A common-Mugong Joseon hanji seal containing one unfolded torn Korean landscape map with a black mountain, winding moss-green river, large ochre destination seal-sun, and thin cloud. No readable text, book, rolled scroll, pirate symbols, compass rose, dotted route, metal, leather, neon, or glossy UI; flat magenta chroma background."
+  },
+  "postprocess": {"helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py", "key_color_observed": "#f902f7", "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"], "resize": "240x240 Lanczos centered on transparent 256x256 at 8,8"},
+  "qa": {"rgba": true, "alpha_bbox": [8, 10, 248, 246], "corner_alpha": [0, 0, 0, 0], "sha256": "f63152028a29d6fdc14e9407d5d3e38ee91e9d862bbbbbc949b073d25fab7d78", "runtime_capture": "res://.tmp/common_mugong_item_seal_qa.png", "rendered_sizes": [80, 32]}
+}

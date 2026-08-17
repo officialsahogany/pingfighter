@@ -80,6 +80,121 @@ const QUALITY_PREFIXES_PT_BR := LanguageSettingsData.QUALITY_PREFIXES_PT_BR
 const QUALITY_PREFIXES_RU := LanguageSettingsData.QUALITY_PREFIXES_RU
 const TEXT := LanguageSettingsData.TEXT
 
+# 환격전 표시 용어 리브랜딩. 기존 한국어 문구는 번역 키로도 쓰이므로 소스 키를
+# 한꺼번에 폐기하지 않고, 한국어 표시 단계에서만 새 세계관 용어로 정규화한다.
+# 수호령의 액티브/패시브 스킬은 별도 체계이므로 여기서 일반 "스킬"은 치환하지 않는다.
+const KOREAN_MARTIAL_TERM_OVERRIDES := {
+	"리커버리 스킬": "경신보",
+	"스킬 강화!": "무공 수련!",
+	"새 스킬 획득!": "새 초식 습득!",
+	"Lv.5 달성!": "극성 도달!",
+	"장착 스킬": "장착 초식",
+	"스킬 슬롯": "초식 슬롯",
+	"대표 스킬": "대표 초식",
+}
+const MARTIAL_BRAND_TEXT := {
+	"신화 퍽": {
+		LANGUAGE_KOREAN: "절세무공", LANGUAGE_ENGLISH: "Peerless Martial Art",
+		LANGUAGE_CHINESE: "绝世武功", LANGUAGE_JAPANESE: "絶世武功",
+		LANGUAGE_SPANISH: "Arte marcial suprema", LANGUAGE_PORTUGUESE_BRAZIL: "Arte marcial suprema",
+		LANGUAGE_RUSSIAN: "Непревзойдённое боевое искусство",
+	},
+	"신화 퍽 선택": {
+		LANGUAGE_KOREAN: "절세무공 선택", LANGUAGE_ENGLISH: "Peerless Martial Art Choice",
+		LANGUAGE_CHINESE: "选择绝世武功", LANGUAGE_JAPANESE: "絶世武功を選択",
+		LANGUAGE_SPANISH: "Elección de arte marcial suprema", LANGUAGE_PORTUGUESE_BRAZIL: "Escolha de arte marcial suprema",
+		LANGUAGE_RUSSIAN: "Выбор непревзойдённого боевого искусства",
+	},
+	"초식": {
+		LANGUAGE_KOREAN: "초식", LANGUAGE_ENGLISH: "Form", LANGUAGE_CHINESE: "招式",
+		LANGUAGE_JAPANESE: "技", LANGUAGE_SPANISH: "Técnica", LANGUAGE_PORTUGUESE_BRAZIL: "Técnica",
+		LANGUAGE_RUSSIAN: "Приём",
+	},
+	"초식 해금": {
+		LANGUAGE_KOREAN: "초식 해금", LANGUAGE_ENGLISH: "Form Unlock", LANGUAGE_CHINESE: "招式解锁",
+		LANGUAGE_JAPANESE: "技を解放", LANGUAGE_SPANISH: "Desbloqueo de técnica", LANGUAGE_PORTUGUESE_BRAZIL: "Desbloqueio de técnica",
+		LANGUAGE_RUSSIAN: "Открытие приёма",
+	},
+	"초식 비급": {
+		LANGUAGE_KOREAN: "초식 비급", LANGUAGE_ENGLISH: "Form Manual", LANGUAGE_CHINESE: "招式秘笈",
+		LANGUAGE_JAPANESE: "技の秘伝書", LANGUAGE_SPANISH: "Manual de técnica", LANGUAGE_PORTUGUESE_BRAZIL: "Manual de técnica",
+		LANGUAGE_RUSSIAN: "Свиток приёма",
+	},
+	# 호란(산군포수) 전용 갈래: 화기는 무공 초식이 아니라 노획·개조 병기라,
+	# 습득물이 "비급"이 아니라 산채가 훔쳐 그린 "밀조도"다.
+	"밀조도": {
+		LANGUAGE_KOREAN: "밀조도", LANGUAGE_ENGLISH: "Blueprint", LANGUAGE_CHINESE: "图纸",
+		LANGUAGE_JAPANESE: "密造図", LANGUAGE_SPANISH: "Plano", LANGUAGE_PORTUGUESE_BRAZIL: "Planta",
+		LANGUAGE_RUSSIAN: "Чертёж",
+	},
+	"화기 밀조도": {
+		LANGUAGE_KOREAN: "화기 밀조도", LANGUAGE_ENGLISH: "Firearm Blueprint", LANGUAGE_CHINESE: "火器图纸",
+		LANGUAGE_JAPANESE: "火器の密造図", LANGUAGE_SPANISH: "Plano de arma", LANGUAGE_PORTUGUESE_BRAZIL: "Planta de arma",
+		LANGUAGE_RUSSIAN: "Оружейный чертёж",
+	},
+	# 호란 화기 표시명. `commando_weapon_controller.WEAPON_DATA`는 한국어 이름
+	# (`display_name_ko`) 하나만 들고 있어서, 선택 HUD와 툴팁 제목은 이 사전을
+	# 거쳐야 비한국어에서 한국어로 굳지 않는다. 값은 `SKILL_DATA_*`의 같은
+	# 무기 `korean` 필드와 일치해야 하며 `commando_firearm_display_name_smoke`가
+	# 두 소스를 대조한다.
+	"단총통": {
+		LANGUAGE_KOREAN: "단총통", LANGUAGE_ENGLISH: "Short Hand Cannon", LANGUAGE_CHINESE: "短铳筒",
+		LANGUAGE_JAPANESE: "短銃筒", LANGUAGE_SPANISH: "Cañón corto", LANGUAGE_PORTUGUESE_BRAZIL: "Canhão curto",
+		LANGUAGE_RUSSIAN: "Короткая пищаль",
+	},
+	"삼안속총": {
+		LANGUAGE_KOREAN: "삼안속총", LANGUAGE_ENGLISH: "Triple-Eye Quickfire", LANGUAGE_CHINESE: "三眼速铳",
+		LANGUAGE_JAPANESE: "三眼速銃", LANGUAGE_SPANISH: "Fusil de triple ojo", LANGUAGE_PORTUGUESE_BRAZIL: "Fuzil de Três Olhos",
+		LANGUAGE_RUSSIAN: "Трёхствольная пищаль",
+	},
+	"연주총통": {
+		LANGUAGE_KOREAN: "연주총통", LANGUAGE_ENGLISH: "Repeating Hand Cannon", LANGUAGE_CHINESE: "连珠铳筒",
+		LANGUAGE_JAPANESE: "連珠銃筒", LANGUAGE_SPANISH: "Cañón de repetición", LANGUAGE_PORTUGUESE_BRAZIL: "Canhão de Repetição",
+		LANGUAGE_RUSSIAN: "Многозарядная пищаль",
+	},
+	"벽력완구": {
+		LANGUAGE_KOREAN: "벽력완구", LANGUAGE_ENGLISH: "Thunderclap Mortar", LANGUAGE_CHINESE: "霹雳碗口",
+		LANGUAGE_JAPANESE: "霹靂碗口", LANGUAGE_SPANISH: "Mortero del trueno", LANGUAGE_PORTUGUESE_BRAZIL: "Morteiro do Trovão",
+		LANGUAGE_RUSSIAN: "Громовая мортира",
+	},
+	"투망총통": {
+		LANGUAGE_KOREAN: "투망총통", LANGUAGE_ENGLISH: "Net-Casting Cannon", LANGUAGE_CHINESE: "投网铳筒",
+		LANGUAGE_JAPANESE: "投網銃筒", LANGUAGE_SPANISH: "Cañón lanzarredes", LANGUAGE_PORTUGUESE_BRAZIL: "Canhão de Rede",
+		LANGUAGE_RUSSIAN: "Сетемётная пищаль",
+	},
+	"신기화전": {
+		LANGUAGE_KOREAN: "신기화전", LANGUAGE_ENGLISH: "Divine Machine Arrows", LANGUAGE_CHINESE: "神机火箭",
+		LANGUAGE_JAPANESE: "神機火箭", LANGUAGE_SPANISH: "Flechas de máquina divina", LANGUAGE_PORTUGUESE_BRAZIL: "Flechas da Máquina Divina",
+		LANGUAGE_RUSSIAN: "Стрелы небесной машины",
+	},
+	"질려포통": {
+		LANGUAGE_KOREAN: "질려포통", LANGUAGE_ENGLISH: "Caltrop Bomb Barrel", LANGUAGE_CHINESE: "蒺藜炮筒",
+		LANGUAGE_JAPANESE: "蒺藜砲筒", LANGUAGE_SPANISH: "Barril de abrojos", LANGUAGE_PORTUGUESE_BRAZIL: "Barril de Abrolhos",
+		LANGUAGE_RUSSIAN: "Бочонок с шипами",
+	},
+	"화조뢰": {
+		LANGUAGE_KOREAN: "화조뢰", LANGUAGE_ENGLISH: "Firebird Bomb", LANGUAGE_CHINESE: "火鸟雷",
+		LANGUAGE_JAPANESE: "火鳥雷", LANGUAGE_SPANISH: "Bomba ave de fuego", LANGUAGE_PORTUGUESE_BRAZIL: "Bomba Ave de Fogo",
+		LANGUAGE_RUSSIAN: "Огненная птица-бомба",
+	},
+	"무공 수련!": {
+		LANGUAGE_KOREAN: "무공 수련!", LANGUAGE_ENGLISH: "Martial Art Training!", LANGUAGE_CHINESE: "修炼武功！",
+		LANGUAGE_JAPANESE: "武功修練！", LANGUAGE_SPANISH: "¡Entrenamiento marcial!", LANGUAGE_PORTUGUESE_BRAZIL: "Treino marcial!",
+		LANGUAGE_RUSSIAN: "Тренировка боевого искусства!",
+	},
+	"새 초식 습득!": {
+		LANGUAGE_KOREAN: "새 초식 습득!", LANGUAGE_ENGLISH: "New Form Learned!", LANGUAGE_CHINESE: "习得新招式！",
+		LANGUAGE_JAPANESE: "新しい技を習得！", LANGUAGE_SPANISH: "¡Nueva técnica aprendida!", LANGUAGE_PORTUGUESE_BRAZIL: "Nova técnica aprendida!",
+		LANGUAGE_RUSSIAN: "Новый приём изучен!",
+	},
+	"절세무공 대성!": {
+		LANGUAGE_KOREAN: "절세무공 대성!", LANGUAGE_ENGLISH: "Peerless Martial Art Mastered!",
+		LANGUAGE_CHINESE: "绝世武功大成！", LANGUAGE_JAPANESE: "絶世武功を大成！",
+		LANGUAGE_SPANISH: "¡Arte marcial suprema dominada!", LANGUAGE_PORTUGUESE_BRAZIL: "Arte marcial suprema dominada!",
+		LANGUAGE_RUSSIAN: "Непревзойдённое искусство освоено!",
+	},
+}
+
 static var _cached_language := ""
 static var _item_description_override_maps: Dictionary = {}
 
@@ -334,8 +449,16 @@ static func translate(key: String, fallback: String = "") -> String:
 
 static func translate_text(text: String, fallback: String = "") -> String:
 	var language := get_language()
+	var martial_key := text
+	if martial_key == "절세무공":
+		martial_key = "신화 퍽"
+	elif martial_key == "절세무공 선택":
+		martial_key = "신화 퍽 선택"
+	var martial_text_by_locale: Dictionary = MARTIAL_BRAND_TEXT.get(martial_key, {})
+	if martial_text_by_locale.has(language):
+		return str(martial_text_by_locale[language])
 	if language == LANGUAGE_KOREAN:
-		return text
+		return _translate_korean_martial_terms(text)
 	if text.is_empty():
 		return text
 	if language == LANGUAGE_RUSSIAN and EXACT_TEXT_RU_OVERRIDES.has(text):
@@ -351,6 +474,82 @@ static func translate_text(text: String, fallback: String = "") -> String:
 	if translated != "":
 		return translated
 	return text
+
+
+static func _translate_korean_martial_terms(text: String) -> String:
+	var visible_text := str(KOREAN_MARTIAL_TERM_OVERRIDES.get(text, text))
+	# More specific phrases must be replaced before the generic perk noun.
+	visible_text = visible_text.replace("신화 퍽", "절세무공")
+	visible_text = visible_text.replace("퍽 융합", "무공 합일")
+	return visible_text.replace("퍽", "무공")
+
+
+# 성장형 무공의 플레이어 표시 경지. 내부 level/max_level 수치와 비한국어
+# 레벨 관습은 보존하고, 한국어에서만 1성~N성/극성 세계관 표기를 적용한다.
+# 최대 경지를 넘는 유효 레벨은 숨기지 않고 "극성 +N"으로 드러낸다.
+static func format_mugong_level(level: int, max_level: int) -> String:
+	var safe_level := maxi(0, level)
+	if get_language() != LANGUAGE_KOREAN:
+		var prefix := "Lv."
+		match get_language():
+			LANGUAGE_SPANISH, LANGUAGE_PORTUGUESE_BRAZIL:
+				prefix = "Nv."
+			LANGUAGE_RUSSIAN:
+				prefix = "ур."
+		return "%s%d" % [prefix, safe_level]
+	if safe_level <= 0:
+		return "미습득"
+	var authored_max := maxi(1, max_level)
+	if safe_level >= authored_max:
+		var overflow := safe_level - authored_max
+		return "극성" if overflow <= 0 else "극성 +%d" % overflow
+	return "%d성" % safe_level
+
+
+static func format_mugong_level_transition(current_level: int, next_level: int, max_level: int) -> String:
+	return "%s → %s" % [
+		format_mugong_level(current_level, max_level),
+		format_mugong_level(next_level, max_level),
+	]
+
+
+# 수호령 액티브·패시브 스킬은 한국어에서 최대 레벨도 극성이 아닌 N성으로
+# 표시한다. 내부 레벨 수치와 비한국어권의 기존 레벨 약어는 그대로 보존한다.
+static func format_guardian_skill_level(level: int) -> String:
+	var safe_level := maxi(0, level)
+	if get_language() == LANGUAGE_KOREAN:
+		return "%d성" % safe_level
+	var prefix := "Lv."
+	match get_language():
+		LANGUAGE_SPANISH, LANGUAGE_PORTUGUESE_BRAZIL:
+			prefix = "Nv."
+		LANGUAGE_RUSSIAN:
+			prefix = "Ур."
+	return "%s%d" % [prefix, safe_level]
+
+
+# 성장형 무공의 경지와 단일/카운트형 무공의 분류 태그를 한 경로에서 결정한다.
+# 결과·디버그·TAB처럼 서로 다른 화면이 같은 무공을 다르게 부르는 일을 막는다.
+static func format_mugong_rank(perk: Dictionary, level_override: int = -1) -> String:
+	var level := level_override if level_override >= 0 else int(perk.get("level", 1))
+	var max_level := maxi(1, int(perk.get("max_level", 1)))
+	# 카운트형 무공은 내부 level이 보유 수를 나타낼 뿐 성장 경지가 아니다.
+	# 카탈로그의 명시 태그를 max_level보다 먼저 해석해 가짜 1성~극성을 막는다.
+	if str(perk.get("rank_tag", "")).strip_edges().to_lower() == "unique":
+		return translate_text("고유")
+	if max_level > 1:
+		return format_mugong_level(level, max_level)
+	if bool(perk.get("is_weapon_unlock", false)):
+		return translate_text("밀조도")
+	if (
+		bool(perk.get("is_skill_manual", false))
+		or str(perk.get("unlocks_skill", "")).strip_edges() != ""
+		or str(perk.get("character_restriction", "")).strip_edges() != ""
+	):
+		return translate_text("비급")
+	if str(perk.get("rarity", "")).to_lower() == "mythic":
+		return translate_text("절세무공")
+	return translate_text("고유")
 
 
 static func get_quality_prefixes(tier: String, fallback: Array) -> Array:
@@ -454,12 +653,20 @@ static func localize_perk_data(perk_data: Dictionary) -> Dictionary:
 	if perk_summary_map.has(perk_id):
 		result["description"] = str(perk_summary_map[perk_id])
 		result["detail"] = str(perk_summary_map[perk_id])
-	var descriptions_value: Variant = result.get("descriptions", {})
+	# 레벨별 효과는 exact 번역이 있으면 요약문보다 우선한다. exact가 없는
+	# 기존 무공은 종전처럼 locale 요약문으로 폴백해 한국어 누출을 막는다.
+	var descriptions_value: Variant = perk_data.get("descriptions", {})
 	if descriptions_value is Dictionary:
 		var descriptions: Dictionary = descriptions_value
 		var localized_descriptions: Dictionary = {}
 		for level_value in descriptions.keys():
-			localized_descriptions[level_value] = str(perk_summary_map.get(perk_id, translate_text(str(descriptions[level_value]))))
+			var source_description := str(descriptions[level_value])
+			var exact_description := translate_text(source_description)
+			localized_descriptions[level_value] = (
+				exact_description
+				if exact_description != source_description
+				else str(perk_summary_map.get(perk_id, exact_description))
+			)
 		result["descriptions"] = localized_descriptions
 	return result
 
@@ -681,30 +888,35 @@ static func _localize_visible_string(key: String, value: String, parent_key: Str
 
 static func _translate_known_patterns(text: String) -> String:
 	var language := get_language()
+	if text.begins_with("기력 "):
+		if language == LANGUAGE_CHINESE:
+			return "气力 %s" % text.substr("기력 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "気力 %s" % text.substr("기력 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Vigor %s" % text.substr("기력 ".length())
+		if language == LANGUAGE_PORTUGUESE_BRAZIL:
+			return "Vigor %s" % text.substr("기력 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Сила духа %s" % text.substr("기력 ".length())
+		return "Vigor %s" % text.substr("기력 ".length())
 	if text.begins_with("게이지 "):
+		return "%s %s" % [
+			translate_text("게이지"),
+			text.substr("게이지 ".length()),
+		]
+	if text.begins_with("활주 "):
 		if language == LANGUAGE_CHINESE:
-			return "能量 %s" % text.substr("게이지 ".length())
+			return "滑步 %s" % text.substr("활주 ".length())
 		if language == LANGUAGE_JAPANESE:
-			return "ゲージ %s" % text.substr("게이지 ".length())
+			return "滑走 %s" % text.substr("활주 ".length())
 		if language == LANGUAGE_SPANISH:
-			return "Energía %s" % text.substr("게이지 ".length())
+			return "Deslizamiento %s" % text.substr("활주 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
-			return "Energia %s" % text.substr("게이지 ".length())
+			return "Deslize %s" % text.substr("활주 ".length())
 		if language == LANGUAGE_RUSSIAN:
-			return "Энергия %s" % text.substr("게이지 ".length())
-		return "Gauge %s" % text.substr("게이지 ".length())
-	if text.begins_with("대시 토큰 "):
-		if language == LANGUAGE_CHINESE:
-			return "冲刺令牌 %s" % text.substr("대시 토큰 ".length())
-		if language == LANGUAGE_JAPANESE:
-			return "ダッシュトークン %s" % text.substr("대시 토큰 ".length())
-		if language == LANGUAGE_SPANISH:
-			return "Fichas de dash %s" % text.substr("대시 토큰 ".length())
-		if language == LANGUAGE_PORTUGUESE_BRAZIL:
-			return "Fichas de dash %s" % text.substr("대시 토큰 ".length())
-		if language == LANGUAGE_RUSSIAN:
-			return "Жетоны рывка %s" % text.substr("대시 토큰 ".length())
-		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
+			return "Скольжение %s" % text.substr("활주 ".length())
+		return "Glide %s" % text.substr("활주 ".length())
 	if text.begins_with("부활 확률 "):
 		var revival_value := text.substr("부활 확률 ".length())
 		if language == LANGUAGE_CHINESE:

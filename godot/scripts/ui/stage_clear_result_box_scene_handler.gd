@@ -10,13 +10,37 @@ const StageClearResultRuntimeOverlaySceneHandler := preload("res://scripts/ui/st
 const StageClearResultViewportSceneHandler := preload("res://scripts/ui/stage_clear_result_viewport_scene_handler.gd")
 
 
+# 순차 상자 오픈 간격: 한 상자의 오픈 연출이 끝난 뒤 다음 상자를 여는 텀(초).
+const SEQUENTIAL_OPEN_INTERVAL := 0.2
+
+
 static func open_next_idle_box(scene: Control) -> bool:
+	# 스페이스/엔터 진행 입력: 다음 유휴 상자를 즉시 열고, 남은 상자를 순차 오픈으로 무장한다.
+	var opened: bool = _open_next_idle_box_once(scene)
+	arm_sequential_box_open(scene)
+	return opened
+
+
+static func _open_next_idle_box_once(scene: Control) -> bool:
 	if scene == null or _is_result_interaction_blocked(scene):
 		return false
 	return apply_box_open_result(scene, StageClearResultBoxInputHandler.open_next_idle_box(
 		_get_scene_array(scene, &"_boxes"),
 		_get_scene_callable(scene, &"reward_roll_callback")
 	))
+
+
+static func arm_sequential_box_open(scene: Control) -> bool:
+	# 결과화면 상자 페이즈에서만 순차 오픈을 무장한다. 보상 모달 차단 중이거나 스크롤이 뜬 뒤,
+	# 또는 남은 유휴 상자가 없으면 아무것도 하지 않는다.
+	if scene == null or _is_result_interaction_blocked(scene):
+		return false
+	if _get_scene_string(scene, &"_scroll_phase", "hidden") != "hidden":
+		return false
+	if StageClearResultBoxData.get_next_idle_box_index(_get_scene_array(scene, &"_boxes")) < 0:
+		return false
+	_set_sequential_open(scene, true, 0.0)
+	return true
 
 
 static func handle_box_click(scene: Control, mouse_position: Vector2) -> bool:
@@ -85,6 +109,45 @@ static func update_boxes(scene: Control, delta: float) -> void:
 			int(scene.get("_lid_open_counter"))
 		)
 	)
+	# 상자 상태/보상 지급(게이트 무장) 이후에 순차 오픈을 돌려야 방금 무장된 차단을 즉시 반영한다.
+	update_sequential_open(scene, delta)
+
+
+static func update_sequential_open(scene: Control, delta: float) -> void:
+	if scene == null or not _get_scene_bool(scene, &"_auto_open_active"):
+		return
+	# 보상 모달(신화 획득 시네마틱 / 퍽 선택 / 스타포인트 게이트) 동안은 일시정지하고
+	# 모달이 닫히면 남은 상자를 이어서 연다.
+	if _is_result_interaction_blocked(scene):
+		return
+	if _get_scene_string(scene, &"_scroll_phase", "hidden") != "hidden":
+		_set_sequential_open(scene, false, 0.0)
+		return
+	var boxes: Array = _get_scene_array(scene, &"_boxes")
+	# 현재 열리는 중인 상자가 끝날 때까지 다음 상자를 열지 않는다. 스타포인트/신화 게이트는 상자가
+	# 완전히 열리는 순간 동기적으로 무장되므로, 완료를 기다려야 게이트 앞에서 과오픈하지 않는다.
+	if _has_opening_box(boxes):
+		_set_sequential_open(scene, true, SEQUENTIAL_OPEN_INTERVAL)
+		return
+	if StageClearResultBoxData.get_next_idle_box_index(boxes) < 0:
+		_set_sequential_open(scene, false, 0.0)
+		return
+	var next_timer: float = _get_scene_float(scene, &"_auto_open_timer", SEQUENTIAL_OPEN_INTERVAL) - max(0.0, delta)
+	if next_timer <= 0.0:
+		_open_next_idle_box_once(scene)
+		next_timer = SEQUENTIAL_OPEN_INTERVAL
+	_set_sequential_open(scene, true, next_timer)
+
+
+static func _has_opening_box(boxes: Array) -> bool:
+	return StageClearResultBoxData.has_opening_box(boxes)
+
+
+static func _set_sequential_open(scene: Control, active: bool, timer: float) -> void:
+	if scene == null:
+		return
+	scene.set(&"_auto_open_active", active)
+	scene.set(&"_auto_open_timer", timer)
 
 
 static func update_hovered_box(scene: Control, mouse_position: Vector2) -> void:
@@ -123,7 +186,6 @@ static func get_floating_box_draw_context(scene: Object) -> Dictionary:
 		_get_scene_float(scene, &"_scroll_timer"),
 		_get_scene_int(scene, &"_hovered_box_index", -1),
 		_get_scene_texture(scene, &"_result_box_sheet_common"),
-		_get_scene_texture(scene, &"_result_box_sheet_mythic"),
 		_get_scene_texture(scene, &"_result_box_sheet_guaranteed_mythic"),
 		_get_scene_dictionary(scene, &"_reward_icon_cache")
 	)
@@ -185,6 +247,14 @@ static func _get_scene_callable(scene: Object, field_name: StringName) -> Callab
 		return Callable()
 	var value: Variant = scene.get(field_name)
 	return value if value is Callable else Callable()
+
+
+static func _get_scene_bool(scene: Object, field_name: StringName, fallback: bool = false) -> bool:
+	if scene == null:
+		return fallback
+	var value: Variant = scene.get(field_name)
+	# bool(null) 은 이 Godot 버전에서 예외를 던지므로(int(null) 과 달리) null 을 먼저 걸러낸다.
+	return fallback if value == null else bool(value)
 
 
 static func _get_scene_string(scene: Object, field_name: StringName, fallback: String) -> String:

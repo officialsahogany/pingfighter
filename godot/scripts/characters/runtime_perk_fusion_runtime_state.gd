@@ -1,6 +1,11 @@
 extends RefCounted
 
 const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+
+const DOWSING_GOGGLES_PERK_ID := "dowsing_goggles"
+const DOWSING_GOGGLES_BYPRODUCT_CHANCE_KEY := "fusion_byproduct_chance_pct"
 
 var _fusion_state: Object = null
 var _byproduct_runtime: Object = null
@@ -56,6 +61,20 @@ func get_owned_byproduct_ids() -> Array[String]:
 
 func get_slot_reduction() -> int:
 	return int(get_fusion_state().get_slot_reduction())
+
+
+func get_active_item_slot_bonus(dash_amplification_count: int) -> int:
+	return int(_get_byproduct_runtime().get_active_item_slot_bonus(
+		get_owned_byproduct_ids(),
+		dash_amplification_count
+	))
+
+
+func get_active_item_slot_bonus_breakdown(dash_amplification_count: int) -> Dictionary:
+	return _get_byproduct_runtime().get_active_item_slot_bonus_breakdown(
+		get_owned_byproduct_ids(),
+		dash_amplification_count
+	).duplicate(true)
 
 
 func get_fused_source_lookup() -> Dictionary:
@@ -299,10 +318,12 @@ func build_commit_result_from_runtime_state(
 	context["owned_byproducts"] = owned_byproducts
 	context["available_byproducts"] = byproduct_catalog.get_contextual_pool(
 		context["owned_byproducts"],
-		context.get("limit_break_eligible_sources", []) as Array
+		context.get("limit_break_eligible_sources", []) as Array,
+		PerkConversionFlags.is_enabled()
 	)
 	context["core_stabilize_armed"] = bool(tokens.get("core_stabilize_armed", false))
 	context["dual_catalyst_armed"] = bool(tokens.get("dual_catalyst_armed", false))
+	context["byproduct_chance_bonus_percent"] = get_byproduct_chance_bonus_percent(runtime_state)
 	context["penalty_lanes"] = lane_builder.build(source_ids, runtime_state, catalog)
 	var effective_rolls: Dictionary = rolls
 	if effective_rolls.is_empty():
@@ -312,9 +333,34 @@ func build_commit_result_from_runtime_state(
 			"lane_selection": [randf(), randf()],
 			"delete": randf(),
 			"byproduct_count": randf(),
-			"byproduct_selection": [randf(), randf()],
+			# 3번째 선택 롤이 없으면 +3 롤의 희귀 슬롯이 항상 목록 첫 항목으로
+			# 고정된다(roll 0.0 폴백). 슬롯 수만큼 공급한다.
+			"byproduct_selection": [randf(), randf(), randf()],
+			"rare_slot": randf(),
 		}
 	return result_builder.build_result(context, effective_rolls)
+
+
+func get_byproduct_chance_bonus_percent(runtime_state: Object) -> float:
+	if not PerkConversionFlags.is_enabled() or runtime_state == null:
+		return 0.0
+	if not runtime_state.has_method("get_converted_perk_effect_level"):
+		return 0.0
+	var effective_level := maxi(
+		0,
+		int(runtime_state.call("get_converted_perk_effect_level", DOWSING_GOGGLES_PERK_ID))
+	)
+	if effective_level <= 0:
+		return 0.0
+	return maxf(
+		0.0,
+		PerkConversionValues.get_value(
+			DOWSING_GOGGLES_PERK_ID,
+			DOWSING_GOGGLES_BYPRODUCT_CHANCE_KEY,
+			effective_level,
+			runtime_state
+		)
+	)
 
 
 func finish_modal_from_runtime_state(
@@ -432,8 +478,49 @@ func get_round_golden_trajectory_gold() -> int:
 	return int(_get_byproduct_runtime().get_round_golden_trajectory_gold())
 
 
-func consume_paddle_bounce_speed_multiplier() -> float:
-	return float(_get_byproduct_runtime().consume_player_paddle_bounce_speed_multiplier())
+func can_trigger_dash_paddle_speed_boost() -> bool:
+	return bool(_get_byproduct_runtime().can_trigger_dash_paddle_speed_boost(
+		get_owned_byproduct_ids()
+	))
+
+
+func try_trigger_dash_paddle_speed_boost(
+	roll_unit: float,
+	restore_effective_speed: float
+) -> Dictionary:
+	return _get_byproduct_runtime().try_trigger_dash_paddle_speed_boost(
+		get_owned_byproduct_ids(),
+		roll_unit,
+		restore_effective_speed
+	).duplicate(true)
+
+
+func consume_boss_guard_restore_effective_speed() -> float:
+	return float(_get_byproduct_runtime().consume_boss_guard_restore_effective_speed())
+
+
+func can_activate_spellbreaker_guard() -> bool:
+	return bool(_get_byproduct_runtime().can_activate_spellbreaker_guard(get_owned_byproduct_ids()))
+
+
+func try_activate_spellbreaker_guard(roll_unit: float, player_center: Vector2) -> Dictionary:
+	return _get_byproduct_runtime().try_activate_spellbreaker_guard(
+		get_owned_byproduct_ids(),
+		roll_unit,
+		player_center
+	).duplicate(true)
+
+
+func is_spellbreaker_guard_active() -> bool:
+	return bool(_get_byproduct_runtime().is_spellbreaker_guard_active())
+
+
+func try_parry_boss_skill(skill_id: String, skill_label: String, impact_pos: Vector2) -> Dictionary:
+	return _get_byproduct_runtime().try_parry_boss_skill(
+		skill_id,
+		skill_label,
+		impact_pos
+	).duplicate(true)
 
 
 func notify_player_dash() -> void:
@@ -448,8 +535,37 @@ func get_move_speed_multiplier() -> float:
 	return float(_get_byproduct_runtime().get_player_move_speed_multiplier())
 
 
-func update_byproducts(delta: float) -> void:
-	_get_byproduct_runtime().update(delta)
+func update_byproducts(
+	delta: float,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var dash_state: Object = _get_cached_instance(registry, "smasher_dash_state")
+	var player_guard_available := true
+	var viper_runtime: Object = _get_cached_instance(registry, "viper_skill_runtime")
+	if viper_runtime != null and viper_runtime.has_method("is_player_guard_available"):
+		player_guard_available = bool(viper_runtime.is_player_guard_available())
+	var result: Dictionary = _get_byproduct_runtime().update(
+		delta,
+		get_owned_byproduct_ids(),
+		owner,
+		dash_state,
+		player_guard_available
+	)
+	if bool(result.get("triggered", false)):
+		var audio: Object = _get_cached_instance(registry, "game_audio")
+		if audio != null and audio.has_method("play_lingpet_ring_dash"):
+			audio.play_lingpet_ring_dash()
+	return result
+
+
+func has_byproduct_visible_effects() -> bool:
+	return _byproduct_runtime != null and bool(_byproduct_runtime.has_visible_effects())
+
+
+func draw_byproduct_effects(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	if _byproduct_runtime != null:
+		_byproduct_runtime.draw(canvas, shake_offset)
 
 
 func reset_round_byproducts() -> void:
@@ -487,3 +603,12 @@ func _get_offer_planner() -> Object:
 	if _offer_planner == null:
 		_offer_planner = load("res://scripts/characters/perk_fusion_offer_planner.gd").new()
 	return _offer_planner
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null

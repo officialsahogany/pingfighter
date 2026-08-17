@@ -1,6 +1,7 @@
 extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 
@@ -42,11 +43,14 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	var score_result: Dictionary = score_state.score_for(scoring_side)
 	_perf_end(perf_logger, "physics.score_event.score_state.score_for", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_clear_common_vision_round_boundary_fx(deps)
+	_perf_end(perf_logger, "physics.score_event.round_boundary.common_vision", sample_start)
 	_record_victory_highlight_score(scoring_side, score_result, deps)
+	sample_start = _perf_begin(perf_logger)
 	_queue_perk_fusion_round_boundary(scoring_side, deps, score_result)
 	_perf_end(perf_logger, "physics.score_event.perk_fusion_round_boundary", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_queue_pandora_legacy_selection(scoring_side, deps)
+	_queue_pandora_legacy_selection(scoring_side, score_result, deps)
 	_perf_end(perf_logger, "physics.score_event.mythic.pandora_queue", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_queue_adversity_armor_after_loss(scoring_side, score_result, deps)
@@ -88,7 +92,7 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_start_scoreboard_wait(deps)
 	_perf_end(perf_logger, "physics.score_event.round_state.scoreboard_wait", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_play_score_audio(deps)
+	_play_score_audio(scoring_side, score_result, deps)
 	_perf_end(perf_logger, "physics.score_event.audio.total", sample_start)
 
 
@@ -206,8 +210,20 @@ func _start_scoreboard_or_reset_ball(
 		var player_score := int(score_result.get("player_score", 0))
 		var boss_score := int(score_result.get("boss_score", 0))
 		var match_finished := bool(score_result.get("match_finished", false))
-		var win_goal := int(score_result.get("win_goal", 5))
-		if _method_accepts_argument_count(scoreboard_state, "start", 5):
+		var win_goal := int(score_result.get("win_goal", MatchScoreState.WIN_GOAL))
+		var deuce_mode := bool(score_result.get("deuce_mode", false))
+		var deuce_goal := int(score_result.get("deuce_goal", MatchScoreState.DEUCE_GOAL_BASE))
+		if _method_accepts_argument_count(scoreboard_state, "start", 7):
+			scoreboard_state.start(
+				player_score,
+				boss_score,
+				match_finished,
+				scoring_side,
+				win_goal,
+				deuce_mode,
+				deuce_goal
+			)
+		elif _method_accepts_argument_count(scoreboard_state, "start", 5):
 			scoreboard_state.start(player_score, boss_score, match_finished, scoring_side, win_goal)
 		else:
 			scoreboard_state.start(player_score, boss_score, match_finished, scoring_side)
@@ -219,16 +235,30 @@ func _start_scoreboard_wait(deps: Dictionary) -> void:
 		round_state.start_scoreboard_wait()
 
 
-func _play_score_audio(deps: Dictionary) -> void:
+func _play_score_audio(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
 	var audio: Object = deps.get("audio", null)
 	if audio == null:
 		return
 	var perf_logger: Object = _get_perf_logger(deps)
 	_stop_score_audio_loops(audio, perf_logger, "physics.score_event.audio.cleanup")
 	var sample_start: int = _perf_begin(perf_logger)
-	if audio.has_method("play_round_set"):
+	var is_player_stage_clear := (
+		scoring_side == "player"
+		and bool(score_result.get("match_finished", false))
+	)
+	var perf_label := "physics.score_event.audio.round_set"
+	if is_player_stage_clear and audio.has_method("play_stage_clear_gong"):
+		audio.play_stage_clear_gong()
+		perf_label = "physics.score_event.audio.stage_clear_gong"
+	elif scoring_side == "player" and audio.has_method("play_round_victory"):
+		audio.play_round_victory()
+		perf_label = "physics.score_event.audio.round_victory"
+	elif scoring_side == "boss" and audio.has_method("play_round_defeat"):
+		audio.play_round_defeat()
+		perf_label = "physics.score_event.audio.round_defeat"
+	elif audio.has_method("play_round_set"):
 		audio.play_round_set()
-	_perf_end(perf_logger, "physics.score_event.audio.round_set", sample_start)
+	_perf_end(perf_logger, perf_label, sample_start)
 
 
 func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
@@ -253,11 +283,27 @@ func _stop_score_audio_loops(
 	_perf_end(perf_logger, label, sample_start)
 
 
-func _queue_pandora_legacy_selection(scoring_side: String, deps: Dictionary) -> void:
+func _queue_pandora_legacy_selection(
+	scoring_side: String,
+	score_result: Dictionary,
+	deps: Dictionary
+) -> void:
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return
+	# Match-ending points have no next-round reward window: no serve follows, so a
+	# selection queued here survives into the NEXT stage and opens after its first
+	# round regardless of outcome. Normalize instead of queueing. This is the match
+	# half of the boundary rule; match_reset_controller.reset_for_stage_transition
+	# owns the other half. Both sides are normalized — a lost match ends the window
+	# just as surely as a won one.
+	if bool(score_result.get("match_finished", false)):
+		if mythic_item_runtime.has_method("normalize_pandora_legacy_selection_for_boundary"):
+			mythic_item_runtime.normalize_pandora_legacy_selection_for_boundary()
+		return
 	if scoring_side != "player":
 		return
-	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
-	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_queue_pandora_legacy_round_win"):
+	if not mythic_item_runtime.has_method("try_queue_pandora_legacy_round_win"):
 		return
 	mythic_item_runtime.try_queue_pandora_legacy_round_win(deps)
 
@@ -409,15 +455,17 @@ func _would_score_finish(score_state: Object, scoring_side: String) -> bool:
 	var snapshot: Dictionary = score_state.get_snapshot() if score_state != null and score_state.has_method("get_snapshot") else {}
 	var player_score := int(snapshot.get("player_score", 0))
 	var boss_score := int(snapshot.get("boss_score", 0))
-	var win_goal := int(snapshot.get("win_goal", 5))
-	var deuce_goal := int(snapshot.get("deuce_goal", 6))
+	var win_goal := int(snapshot.get("win_goal", MatchScoreState.WIN_GOAL))
+	var deuce_goal := int(snapshot.get("deuce_goal", MatchScoreState.DEUCE_GOAL_BASE))
 	if scoring_side == "player":
 		player_score += 1
 	elif scoring_side == "boss":
 		boss_score += 1
 	if bool(snapshot.get("deuce_mode", false)):
-		if player_score == 5 and boss_score == 5:
-			deuce_goal = 7
+		# 사다리 정본은 match_score_state.resolve_deuce_goal 하나뿐이다.
+		# 여기에 리터럴로 재구현하면(과거 5/7 사본) 룰 변경 시 조용히 갈린다.
+		if player_score == boss_score:
+			deuce_goal = maxi(deuce_goal, MatchScoreState.resolve_deuce_goal(player_score))
 		return player_score >= deuce_goal or boss_score >= deuce_goal
 	return player_score >= win_goal or boss_score >= win_goal
 
@@ -500,6 +548,12 @@ func _clear_stage4_round_boundary_fx(deps: Dictionary) -> void:
 	var stage4_ponk_skill_state: Object = deps.get("stage4_ponk_skill_state", null)
 	if stage4_ponk_skill_state != null and stage4_ponk_skill_state.has_method("reset_round"):
 		stage4_ponk_skill_state.reset_round(deps)
+
+
+func _clear_common_vision_round_boundary_fx(deps: Dictionary) -> void:
+	var vision_state: Object = deps.get("yeonmyo_vision_chosik_state", null)
+	if vision_state != null and vision_state.has_method("reset_round"):
+		vision_state.reset_round(deps)
 
 
 func _clear_stage2_round_boundary_fx(deps: Dictionary) -> void:

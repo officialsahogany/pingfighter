@@ -1,64 +1,156 @@
 extends RefCounted
 
-const DEFAULT_CARD_SIZE := Vector2(250.0, 126.0)
-const DEFAULT_CARD_GAP := 16.0
+# 카드 높이 390 -> 316 (2026-08-06): 하단 능력치 원장 자리를 만들면서 카드가
+# "너무 크다"는 사용자 판정을 함께 반영한다. 폭(268)은 손대지 않는다 --
+# 카드 이름/성급/설명 폰트 크기가 전부 card_width에서 파생되므로(_draw_card의
+# rect.size.x * 0.072 / 0.057, _ensure_card_desc_cache의 card_width / 16.4)
+# 폭을 줄이면 "설명·폰트 크기는 그대로" 요구가 깨진다.
+const DEFAULT_CARD_SIZE := Vector2(268.0, 316.0)
+const DEFAULT_CARD_GAP := 20.0
+const REFERENCE_VIEW_HEIGHT := 920.0
+const MIN_LAYOUT_SCALE := 0.58
+const MAX_LAYOUT_SCALE := 1.32
+# 카드가 낮아지면 성급 밑줄(_draw_card: 이름판 0.386 + 0.092 뒤 rank + 12)과
+# 설명 블록 상단 괘선이 붙어 이중선처럼 읽힌다. 시작 비율을 0.565 -> 0.595로
+# 내려 간격을 되찾고, 높이 비율은 최대 5줄(강조 2 + 본문 3)이 폰트 크기 변화
+# 없이 들어가는 선(카드 높이 417 기준 152px)까지만 줄인다.
+const CARD_DESCRIPTION_TOP_RATIO := 0.595
+# 0.365 -> 0.375: 최악 케이스(강조 2 + 본문 3, 폰트 18)의 여유가 8.2px밖에
+# 남지 않아 늘렸다(약 12.5px). 줄 수는 _wrap_text_px가 상한을 걸어 로케일과
+# 무관하므로 이 여유는 안정적이다. 봉인:
+# runtime_perk_choice_stats_band_smoke._verify_worst_case_description_stays_inside_card
+const CARD_DESCRIPTION_HEIGHT_RATIO := 0.375
+# 하단 능력치 원장(2026-08-06): 캐릭터 정보창의 "플레이어 능력치" 10행을 퍽
+# 선택 화면에도 그대로 싣는다. 드로어(draw_cached_player_stat_rows)는 제목 49px
+# + 행당 최소 19px + 하단 여백 8px가 필요하고, 넘치는 행은 조용히 잘라 버린다
+# (Godot Stats-Panel Row Budget Trap). 그래서 최소 높이를 밑돌면 띠를 그리는
+# 대신 아예 끄고 기존 레이아웃으로 되돌린다 -- 잘린 행을 보여 주는 것보다
+# 낫다.
+const STATS_BAND_ROW_COUNT := 10
+# draw_cached_player_stat_rows의 하드 지오메트리: 제목 49 + 행당 최소 19 + 하단
+# 여백 8. 여기에 원장 크롬 안쪽 여백(runtime_perk_traditional_chrome의
+# draw_stats_ledger가 rect.grow(-11)을 돌려준다)을 위아래로 더한 값이 10행이
+# 온전히 보이는 최소 띠 높이다. 상수를 곱셈으로 유도해 두면 한쪽만 바뀌어도
+# 봉인 스모크가 잡는다.
+const STATS_BAND_CHROME_INSET := 11.0
+const STATS_BAND_HEADER_HEIGHT := 49.0
+const STATS_BAND_ROW_MIN_GAP := 19.0
+const STATS_BAND_FOOTER_PADDING := 8.0
+const STATS_BAND_MIN_HEIGHT := (
+	STATS_BAND_CHROME_INSET * 2.0
+	+ STATS_BAND_HEADER_HEIGHT
+	+ STATS_BAND_ROW_MIN_GAP * STATS_BAND_ROW_COUNT
+	+ STATS_BAND_FOOTER_PADDING
+)
+const STATS_BAND_MAX_HEIGHT := 292.0
+const STATS_BAND_BASE_HEIGHT := 216.0
+const STATS_BAND_GAP := 16.0
+# 폭은 캐릭터 정보창의 능력치 박스와 같은 급으로 맞춘다. 게이지 바 좌측 시작점이
+# rect.x + 186 * ui_text_scale 고정이라, 띠를 무공 원장처럼 full-width로 늘리면
+# 바만 900px대로 길어져 원본과 다르게 읽힌다.
+const STATS_BAND_BASE_WIDTH := 692.0
+const STATS_BAND_MIN_WIDTH := 560.0
+const STATS_BAND_MAX_WIDTH := 960.0
+# 그룹 전체가 뷰 안에 들어와야 하는 최소 상/하 여백 합.
+const GROUP_VERTICAL_SAFE_MARGIN := 32.0
+# 제목 현판은 title_pos를 중심으로 그려지고(높이 최대 ~120), 그룹 박스 밖으로
+# 올라간다. 능력치 띠가 켜지면 카드가 위로 올라와 기존 리프트(최대 160)를 다 쓸
+# 수 없으므로, 현판 상단이 화면 밖으로 잘리지 않도록 중심 y의 하한을 둔다.
+const TITLE_MIN_CENTER_Y := 72.0
 const PARTICLE_COLORS := [
-	Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
-	Color(1.0, 220.0 / 255.0, 100.0 / 255.0),
-	Color(150.0 / 255.0, 1.0, 150.0 / 255.0),
-	Color(1.0, 150.0 / 255.0, 200.0 / 255.0),
+	Color(229.0 / 255.0, 192.0 / 255.0, 107.0 / 255.0),
+	Color(244.0 / 255.0, 217.0 / 255.0, 145.0 / 255.0),
+	Color(169.0 / 255.0, 130.0 / 255.0, 66.0 / 255.0),
+	Color(98.0 / 255.0, 155.0 / 255.0, 139.0 / 255.0),
 ]
 
 
-func build_layout(view_size: Vector2, choice_count_value: int) -> Dictionary:
+func build_layout(view_size: Vector2, choice_count_value: int, stats_band_requested: bool = false) -> Dictionary:
 	var card_count: int = max(1, choice_count_value)
-	var game_width: float = min(1120.0, max(420.0, view_size.x - 128.0))
-	var card_gap: float = DEFAULT_CARD_GAP
-	var card_width: float = DEFAULT_CARD_SIZE.x
-	var card_height: float = DEFAULT_CARD_SIZE.y
+	var game_width: float = min(1720.0, max(420.0, view_size.x - 72.0))
+	var base_total_width: float = DEFAULT_CARD_SIZE.x * float(card_count) + DEFAULT_CARD_GAP * float(max(0, card_count - 1))
+	var width_scale: float = min(MAX_LAYOUT_SCALE, game_width / max(1.0, base_total_width))
+	var height_scale: float = clamp(view_size.y / REFERENCE_VIEW_HEIGHT, MIN_LAYOUT_SCALE, MAX_LAYOUT_SCALE)
+	var layout_scale: float = min(width_scale, height_scale)
+	var card_gap: float = max(10.0, floor(DEFAULT_CARD_GAP * layout_scale))
+	var card_width: float = floor(DEFAULT_CARD_SIZE.x * layout_scale)
+	var card_height: float = floor(DEFAULT_CARD_SIZE.y * layout_scale)
 	var total_width: float = card_width * float(card_count) + card_gap * float(max(0, card_count - 1))
-	if total_width > game_width:
-		var scale_factor: float = game_width / total_width
-		card_width = floor(card_width * scale_factor)
-		card_height = floor(card_height * scale_factor)
-		card_gap = max(8.0, floor(card_gap * scale_factor))
-		total_width = card_width * float(card_count) + card_gap * float(max(0, card_count - 1))
-	var title_to_card: float = 72.0
-	var desc_gap: float = 18.0
-	# desc_h holds the level stats (up to 2 lines) plus the friendly `detail`
-	# explanation added below them (2026-07-09 request); taller than the old
-	# stats-only box so the description reads without clipping.
-	var desc_h: float = 128.0
-	var panel_gap: float = 14.0
-	var panel_h: float = 158.0
-	var hint_gap: float = 34.0
-	var group_h: float = title_to_card + card_height + desc_gap + desc_h + panel_gap + panel_h + hint_gap + 18.0
-	var group_top: float = max(48.0, floor((view_size.y - group_h) * 0.5))
+	var title_to_card: float = floor(86.0 * layout_scale)
+	var panel_gap: float = max(12.0, floor(22.0 * layout_scale))
+	# 무공 원장 기준 높이 172 -> 142 (2026-08-06): 사용자가 상단 선택 카드와 함께
+	# "현재 소지중인 퍽 슬롯도 좀더 작게"를 요청했다. 이 값을 줄이면 슬롯 셀 크기
+	# (_get_status_slot_rect)와 원장 글자 배율(_draw_status_panel /
+	# _get_status_counter_rect의 status_scale)이 함께 따라 내려가므로, 그 두 곳의
+	# 배율 기준값도 172 -> 142로 같이 옮겨야 글자 크기가 유지된다.
+	var panel_h: float = clamp(floor(142.0 * layout_scale), 104.0, 190.0)
+	var hint_gap: float = max(28.0, floor(38.0 * layout_scale))
+	var stats_gap: float = max(10.0, floor(STATS_BAND_GAP * layout_scale))
+	var group_h: float = title_to_card + card_height + panel_gap + panel_h + hint_gap + 18.0
+	# 능력치 띠는 그룹 높이에 포함되어야 한다 -- card_y가 group_top에서 파생되고
+	# get_card_rects()/get_card_index_at()이 같은 build_layout을 통과하므로,
+	# 여기서 빠지면 그리는 좌표와 클릭 히트테스트가 어긋난다.
+	var stats_h: float = 0.0
+	if stats_band_requested:
+		stats_h = clamp(floor(STATS_BAND_BASE_HEIGHT * layout_scale), STATS_BAND_MIN_HEIGHT, STATS_BAND_MAX_HEIGHT)
+		var stats_budget: float = view_size.y - GROUP_VERTICAL_SAFE_MARGIN - group_h - stats_gap
+		if stats_budget < STATS_BAND_MIN_HEIGHT:
+			stats_h = 0.0
+		else:
+			stats_h = min(stats_h, stats_budget)
+			group_h += stats_gap + stats_h
+	var group_top: float = max(24.0, floor((view_size.y - group_h) * 0.5))
 	var card_y: float = group_top + title_to_card
 	var card_x: float = floor((view_size.x - total_width) * 0.5)
-	var desc_y: float = card_y + card_height + desc_gap
-	var panel_y: float = desc_y + desc_h + panel_gap
-	var panel_w: float = min(game_width, total_width + 128.0)
+	var desc_y: float = card_y + card_height * CARD_DESCRIPTION_TOP_RATIO
+	var desc_h: float = card_height * CARD_DESCRIPTION_HEIGHT_RATIO
+	var panel_y: float = card_y + card_height + panel_gap
+	var panel_w: float = min(game_width, total_width + max(68.0, floor(112.0 * layout_scale)))
+	var stats_rect := Rect2()
+	var content_bottom: float = panel_y + panel_h
+	if stats_h > 0.0:
+		var stats_w: float = min(panel_w, clamp(floor(STATS_BAND_BASE_WIDTH * layout_scale), STATS_BAND_MIN_WIDTH, STATS_BAND_MAX_WIDTH))
+		var stats_y: float = content_bottom + stats_gap
+		stats_rect = Rect2(Vector2(max(20.0, floor((view_size.x - stats_w) * 0.5)), stats_y), Vector2(stats_w, stats_h))
+		content_bottom = stats_y + stats_h
 	return {
 		"card_size": Vector2(card_width, card_height),
 		"card_gap": card_gap,
+		"layout_scale": layout_scale,
 		"cards_start": Vector2(card_x, card_y),
 		"total_width": total_width,
 		"desc_rect": Rect2(Vector2(card_x, desc_y), Vector2(total_width, desc_h)),
 		"panel_rect": Rect2(Vector2(max(20.0, (view_size.x - panel_w) * 0.5), panel_y), Vector2(panel_w, panel_h)),
-		"title_pos": Vector2(view_size.x * 0.5, group_top + 32.0),
-		"hint_pos": Vector2(view_size.x * 0.5, panel_y + panel_h + hint_gap),
+		"stats_rect": stats_rect,
+		"title_pos": Vector2(
+			view_size.x * 0.5,
+			max(TITLE_MIN_CENTER_Y, card_y - clamp(view_size.y * 0.145, 105.0, 160.0))
+		),
+		"hint_pos": Vector2(view_size.x * 0.5, content_bottom + hint_gap),
 	}
 
 
 func build_layout_from_runtime_state(runtime_state: Object, view_size: Vector2) -> Dictionary:
 	if runtime_state == null:
 		return build_layout(view_size, 0)
-	return build_layout(view_size, _get_array(runtime_state.get("current_choices")).size())
+	return build_layout(
+		view_size,
+		_get_array(runtime_state.get("current_choices")).size(),
+		stats_band_requested_from_runtime_state(runtime_state)
+	)
 
 
-func get_card_rects(view_size: Vector2, choice_count_value: int, animation_time: float) -> Array:
-	var layout: Dictionary = build_layout(view_size, choice_count_value)
+# 능력치 띠 요청 플래그는 레이아웃/카드 히트테스트가 반드시 같은 값을 읽어야
+# 하므로 runtime_state 한 곳에서만 읽는다.
+func stats_band_requested_from_runtime_state(runtime_state: Object) -> bool:
+	if runtime_state == null:
+		return false
+	var value: Variant = runtime_state.get("stats_band_enabled")
+	return value is bool and bool(value)
+
+
+func get_card_rects(view_size: Vector2, choice_count_value: int, animation_time: float, stats_band_requested: bool = false) -> Array:
+	var layout: Dictionary = build_layout(view_size, choice_count_value, stats_band_requested)
 	var rects: Array = []
 	var card_size: Vector2 = _get_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
 	var start: Vector2 = _get_vector2(layout.get("cards_start", Vector2.ZERO))
@@ -75,7 +167,8 @@ func get_card_rects_from_runtime_state(runtime_state: Object, view_size: Vector2
 	return get_card_rects(
 		view_size,
 		_get_array(runtime_state.get("current_choices")).size(),
-		float(runtime_state.get("animation_time"))
+		float(runtime_state.get("animation_time")),
+		stats_band_requested_from_runtime_state(runtime_state)
 	)
 
 
@@ -83,9 +176,10 @@ func get_card_index_at(
 	position: Vector2,
 	view_size: Vector2,
 	choice_count_value: int,
-	animation_time: float
+	animation_time: float,
+	stats_band_requested: bool = false
 ) -> int:
-	var rects: Array = get_card_rects(view_size, choice_count_value, animation_time)
+	var rects: Array = get_card_rects(view_size, choice_count_value, animation_time, stats_band_requested)
 	for index in range(rects.size()):
 		var rect: Rect2 = rects[index]
 		if rect.has_point(position):
@@ -100,7 +194,8 @@ func get_card_index_at_from_runtime_state(runtime_state: Object, position: Vecto
 		position,
 		view_size,
 		_get_array(runtime_state.get("current_choices")).size(),
-		float(runtime_state.get("animation_time"))
+		float(runtime_state.get("animation_time")),
+		stats_band_requested_from_runtime_state(runtime_state)
 	)
 
 
@@ -155,9 +250,9 @@ func reset_particle(particle: Dictionary, view_size: Vector2, particle_life: flo
 	var x: float = randf_range(center_x - 280.0, center_x + 280.0)
 	var y: float = randf_range(80.0, max(100.0, view_size.y * 0.64))
 	particle["position"] = Vector2(x, y)
-	particle["velocity"] = Vector2(randf_range(-24.0, 24.0), randf_range(-92.0, -22.0))
+	particle["velocity"] = Vector2(randf_range(-12.0, 12.0), randf_range(-36.0, -12.0))
 	particle["age"] = randf_range(0.0, particle_life * 0.65)
-	particle["size"] = randf_range(2.0, 5.5)
+	particle["size"] = randf_range(1.5, 3.4)
 	particle["color"] = PARTICLE_COLORS[randi() % PARTICLE_COLORS.size()]
 
 

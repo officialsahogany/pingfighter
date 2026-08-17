@@ -1,0 +1,16 @@
+{
+  "asset_id": "item_caffeine_perk_icon",
+  "perk_id": "item_caffeine",
+  "display_name_ko": "연효결",
+  "display_name_en": "Effect-Prolonging Art",
+  "runtime_path": "res://assets/sprites/perks/item_caffeine_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-54f74a41-0a9b-463e-b996-936d618aeed8.png",
+    "prompt_summary": "A common-Mugong Joseon hanji seal with one blank upright talisman, a small cinnabar flame, and one unusually long unbroken dark-indigo smoke ribbon coiling in broad loops. No book, text, coffee, clock, hourglass, metal, leather, neon, or glossy UI; flat magenta chroma background."
+  },
+  "postprocess": {"helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py", "key_color_observed": "#f902fa", "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"], "resize": "240x240 Lanczos centered on transparent 256x256 at 8,8"},
+  "qa": {"rgba": true, "alpha_bbox": [12, 10, 246, 246], "corner_alpha": [0, 0, 0, 0], "sha256": "c08c0611367626b02ba12294403adf23211f7fd7ff21b0262d3c186c93a9367e", "runtime_capture": "res://.tmp/common_mugong_item_seal_qa.png", "rendered_sizes": [80, 32]}
+}

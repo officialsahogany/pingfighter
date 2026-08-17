@@ -14,7 +14,13 @@ func update_runtime_perk_resume(owner: Object, registry: Object, delta: float) -
 	# 융합 부산물 게임플레이 시계(잔향 이속 버프 만료 등): 항상 도는 이
 	# 드라이버가 소유해 오버레이 없이도 만료된다.
 	if runtime_perk_state != null and runtime_perk_state.has_method("update_perk_fusion_byproducts"):
-		runtime_perk_state.update_perk_fusion_byproducts(delta)
+		var byproduct_result: Dictionary = runtime_perk_state.update_perk_fusion_byproducts(
+			delta,
+			owner,
+			registry
+		)
+		if bool(byproduct_result.get("triggered", false)) or bool(byproduct_result.get("request_redraw", false)):
+			_request_battle_redraw(owner)
 	# 현문차력은 일반 무공 런타임 상태가 소유하는 전투시간 버프다. 이
 	# physics-side 브리지는 시계만 진행하고 통합 redraw를 요청한다.
 	if runtime_perk_state != null and runtime_perk_state.has_method("update_hyeonmun_charyeok"):

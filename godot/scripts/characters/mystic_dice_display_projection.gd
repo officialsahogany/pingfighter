@@ -14,6 +14,18 @@ const PERK_ID := "mystic_dice"
 func build(dice_snapshot: Dictionary) -> Dictionary:
 	var revision := int(dice_snapshot.get("revision", 0))
 	var use_count := maxi(0, int(dice_snapshot.get("use_count", 0)))
+	var max_uses := int(dice_snapshot.get("max_uses_per_run", 0))
+	var remaining_uses := int(dice_snapshot.get("remaining_uses", 0))
+	var uses_unlimited := bool(dice_snapshot.get(
+		"uses_unlimited",
+		max_uses < 0 or remaining_uses < 0
+	))
+	if uses_unlimited:
+		max_uses = -1
+		remaining_uses = -1
+	else:
+		max_uses = maxi(0, max_uses)
+		remaining_uses = maxi(0, remaining_uses)
 	var permanent_raw := _normalized_raw(dice_snapshot.get("permanent_raw", {}))
 	var signature_values: Array[int] = []
 	for stat_key: String in MysticDiceRoller.STAT_KEYS:
@@ -21,8 +33,9 @@ func build(dice_snapshot: Dictionary) -> Dictionary:
 	var signature := hash([
 		revision,
 		use_count,
-		maxi(0, int(dice_snapshot.get("max_uses_per_run", 0))),
-		maxi(0, int(dice_snapshot.get("remaining_uses", 0))),
+		uses_unlimited,
+		max_uses,
+		remaining_uses,
 		signature_values,
 	])
 	var entries: Array[Dictionary] = []
@@ -35,8 +48,9 @@ func build(dice_snapshot: Dictionary) -> Dictionary:
 			"effective_level": 1,
 			"slot_cost": 0,
 			"use_count": use_count,
-			"max_uses_per_run": maxi(0, int(dice_snapshot.get("max_uses_per_run", 0))),
-			"remaining_uses": maxi(0, int(dice_snapshot.get("remaining_uses", 0))),
+			"uses_unlimited": uses_unlimited,
+			"max_uses_per_run": max_uses,
+			"remaining_uses": remaining_uses,
 			"mystic_dice_revision": revision,
 			"permanent_raw": permanent_raw.duplicate(true),
 		})

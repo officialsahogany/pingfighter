@@ -103,13 +103,6 @@ func get_gold_digger_multiplier(runtime: Object) -> float:
 	return max(0.0, 1.0 + get_gold_digger_gold_bonus_pct(runtime) / 100.0)
 
 
-func apply_gold_digger_gauge_bonus(runtime: Object, gauge_gain: float) -> float:
-	var bonus_pct: float = get_gold_digger_gold_bonus_pct(runtime)
-	if bonus_pct <= 0.0:
-		return float(gauge_gain)
-	return floor(max(0.0, float(gauge_gain)) * max(0.0, 1.0 + bonus_pct / 100.0))
-
-
 func apply_gold_digger_gold_bonus(runtime: Object, amount: int) -> int:
 	var bonus_pct: float = get_gold_digger_gold_bonus_pct(runtime)
 	if bonus_pct <= 0.0:
@@ -143,9 +136,12 @@ func should_lucky_coin_double_spawn(runtime: Object) -> bool:
 
 
 func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
+	var runtime_state: Object = runtime.runtime_perk_state_ref if runtime != null else null
+	if runtime_state != null and runtime_state.has_method("get_converted_perk_option_value"):
+		return float(runtime_state.get_converted_perk_option_value(perk_id, key))
 	var level := 0
 	if runtime != null and runtime.has_method("get_converted_perk_effect_level"):
 		level = max(0, int(runtime.get_converted_perk_effect_level(perk_id)))
 	if level <= 0:
 		return 0.0
-	return PerkConversionValues.get_value(perk_id, key, level, runtime.runtime_perk_state_ref if runtime != null else null)
+	return PerkConversionValues.get_value(perk_id, key, level, runtime_state)

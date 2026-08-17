@@ -20,19 +20,22 @@ static func apply_player_bounce(
 	)
 	if outgoing_velocity.length_squared() <= 0.0001:
 		return false
-	# A successful player return starts a new outgoing leg. Any surviving cap
-	# belongs to the previous excursion (for example after an auxiliary boss-side
-	# reflector), so close it even when no new overload charge is armed.
-	clear(result)
+	# An active Thunderbolt Drive cap survives auxiliary reflectors and ends only
+	# when the boss commits a real guard (or a round/score failsafe clears it).
+	var dash_state: Object = deps.get("dash_state", null)
+	if dash_state == null or not dash_state.has_method("is_active") or not bool(dash_state.is_active()):
+		return false
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	if (
 		runtime_perk_state == null
-		or not runtime_perk_state.has_method("consume_perk_fusion_paddle_bounce_speed_multiplier")
+		or not runtime_perk_state.has_method("can_trigger_perk_fusion_dash_paddle_speed_boost")
+		or not bool(runtime_perk_state.can_trigger_perk_fusion_dash_paddle_speed_boost())
+		or not runtime_perk_state.has_method("try_trigger_perk_fusion_dash_paddle_speed_boost")
 	):
 		return false
 
-	# Resolve the ordinary effective-speed policy before consuming the one-shot.
-	# This keeps the promise at exactly +15% even when impact_boost > 1, and it
+	# Resolve the ordinary effective-speed policy before activating Thunderbolt Drive.
+	# This keeps the promise at exactly +80% even when impact_boost > 1, and it
 	# reuses every existing league/weather/skill cap instead of duplicating them.
 	var ordinary_scene: Dictionary = _build_owner_ball_context(deps)
 	ordinary_scene.merge(context, true)
@@ -49,10 +52,15 @@ static func apply_player_bounce(
 	)
 	if ordinary_velocity.length_squared() <= 0.0001:
 		return false
-	var speed_multiplier := float(
-		runtime_perk_state.consume_perk_fusion_paddle_bounce_speed_multiplier()
+	var roll_unit := randf()
+	if context.has("perk_fusion_thunder_drive_roll_unit"):
+		roll_unit = clampf(float(context.get("perk_fusion_thunder_drive_roll_unit", 1.0)), 0.0, 1.0)
+	var activation: Dictionary = runtime_perk_state.try_trigger_perk_fusion_dash_paddle_speed_boost(
+		roll_unit,
+		ordinary_velocity.length() * maxf(1.0, float(ordinary_scene.get("ball_impact_boost", 1.0)))
 	)
-	if speed_multiplier <= 1.0:
+	var speed_multiplier := float(activation.get("speed_multiplier", 1.0))
+	if not bool(activation.get("triggered", false)) or speed_multiplier <= 1.0:
 		return false
 
 	var boosted_velocity := ordinary_velocity * speed_multiplier

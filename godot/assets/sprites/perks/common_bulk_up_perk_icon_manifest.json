@@ -1,0 +1,36 @@
+{
+  "asset_id": "common_bulk_up_perk_icon",
+  "perk_id": "common_bulk_up",
+  "display_name_ko": "철산공",
+  "display_name_en": "Iron Mountain Art",
+  "runtime_path": "res://assets/sprites/perks/common_bulk_up_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-f321490e-c0f0-48eb-9b9c-01f6f6272ecb.png",
+    "prompt_summary": "A standalone Joseon Korean-fantasy martial-arts training seal on torn aged hanji: a broad rooted martial artist merging with an iron mountain, rendered as a black, rust-red, and ochre takbon rubbing. No book, readable text, modern gym bicep, arrows, metal, leather, or glossy UI frame; flat magenta chroma background."
+  },
+  "postprocess": {
+    "helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "key_color_observed": "#f801fa",
+    "arguments": [
+      "--auto-key", "border",
+      "--soft-matte",
+      "--transparent-threshold", "12",
+      "--opaque-threshold", "220",
+      "--despill",
+      "--edge-contract", "1"
+    ],
+    "resize": "1254x1254 alpha source resized to 240x240 with ffmpeg Lanczos and centered on a transparent 256x256 canvas at offset 8,8"
+  },
+  "qa": {
+    "rgba": true,
+    "alpha_bbox": [13, 12, 242, 243],
+    "corner_alpha": [0, 0, 0, 0],
+    "sha256": "2e5f55869835580761f0bcfe12d58686bde18501c1d96ea9e184baba2d008e0c",
+    "runtime_capture": "res://.tmp/common_mugong_seal_qa.png",
+    "rendered_sizes": [80, 32],
+    "notes": "The common Mugong remains a standalone hanji training seal. It intentionally does not use the seonjangbon manual cover or cyan acquisition badge reserved for Chosik manuals."
+  }
+}

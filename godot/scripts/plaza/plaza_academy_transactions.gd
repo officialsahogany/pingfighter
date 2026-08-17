@@ -4,7 +4,7 @@ const LESSON_COST := 200
 
 
 static func get_menu_action_labels() -> Array[String]:
-	return ["스킬 수업 %dG" % LESSON_COST, "스킬 교환"]
+	return ["초식 수련 %dG" % LESSON_COST, "초식 교환"]
 
 
 func perform_action(

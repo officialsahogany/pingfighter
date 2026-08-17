@@ -4,7 +4,21 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 
 const PERK_ICON_PATHS := {
-	"mystic_dice": "res://assets/sprites/perks/mystic_dice_perk_icon.png",
+	# 신비의 주사위는 더 이상 무공/퍽 카드가 아니라 액티브 아이템이다.
+	# 능력치 원인표기처럼 이 호환 ID를 그리는 곳도 아이템 정본 아이콘을 쓴다.
+	"mystic_dice": "res://assets/sprites/items/mystic_dice_icon_hq_v1.png",
+	"physique_dash_recharge": "res://assets/sprites/perks/physique_training/physique_dash_recharge_training_icon.png",
+	"physique_dash_recovery": "res://assets/sprites/perks/physique_training/physique_dash_recovery_training_icon.png",
+	"physique_dash_distance": "res://assets/sprites/perks/physique_training/physique_dash_distance_training_icon.png",
+	"physique_move_speed": "res://assets/sprites/perks/physique_training/physique_move_speed_training_icon.png",
+	"physique_posture": "res://assets/sprites/perks/physique_training/physique_posture_training_icon.png",
+	"physique_paddle_size": "res://assets/sprites/perks/physique_training/physique_paddle_size_training_icon.png",
+	"physique_max_gauge": "res://assets/sprites/perks/physique_training/physique_max_gauge_training_icon.png",
+	"physique_hit_gauge": "res://assets/sprites/perks/physique_training/physique_hit_gauge_training_icon.png",
+	"physique_active_item_cooldown": "res://assets/sprites/perks/physique_training/physique_active_item_cooldown_training_icon.png",
+	"physique_chosik_cooldown": "res://assets/sprites/perks/physique_training/physique_chosik_cooldown_training_icon.png",
+	# 수련 카드는 무공과 구분되는 여성형 수련 교본 메달리온을 사용한다.
+	"physique_storage": "res://assets/sprites/perks/physique_training/physique_storage_training_icon.png",
 	"dash_lightweight": "res://assets/sprites/perks/dash_lightweight_perk_icon.png",
 	"dash_module_control": "res://assets/sprites/perks/dash_module_control_perk_icon.png",
 	"dash_jump": "res://assets/sprites/perks/dash_jump_perk_icon.png",
@@ -13,61 +27,57 @@ const PERK_ICON_PATHS := {
 	"item_luck": "res://assets/sprites/perks/item_luck_perk_icon.png",
 	"item_cooldown_mastery": "res://assets/sprites/perks/item_cooldown_mastery_perk_icon.png",
 	"item_gauge_mastery": "res://assets/sprites/perks/item_gauge_mastery_perk_icon.png",
-	"item_bag_expansion": "res://assets/sprites/perks/item_bag_expansion_perk_icon.png",
 	"item_caffeine": "res://assets/sprites/perks/item_caffeine_perk_icon.png",
 	"item_polish": "res://assets/sprites/perks/item_polish_perk_icon.png",
 	"item_recycle": "res://assets/sprites/perks/item_recycle_perk_icon.png",
 	"common_swiftness": "res://assets/sprites/perks/common_swiftness_perk_icon.png",
 	"common_expansion": "res://assets/sprites/perks/common_expansion_perk_icon.png",
 	"common_bulk_up": "res://assets/sprites/perks/common_bulk_up_perk_icon.png",
+	"training_mastery": "res://assets/sprites/perks/training_mastery_perk_icon.png",
 	"common_training": "res://assets/sprites/perks/common_training_perk_icon.png",
-	"common_refresh": "res://assets/sprites/perks/common_refresh_perk_icon.png",
+	"common_refresh": "res://assets/sprites/perks/common_refresh_perk_icon_traditional_v2.png",
 	"perk_boost_charge": "res://assets/sprites/perks/perk_boost_charge_perk_icon_v2.png",
 	"perk_laurel_shield": "res://assets/sprites/perks/perk_laurel_shield_perk_icon.png",
 	"downtown_treasure_map": "res://assets/sprites/perks/downtown_treasure_map_perk_icon.png",
 	"downtown_gamble": "res://assets/sprites/perks/downtown_gamble_perk_icon.png",
 	"downtown_bargain": "res://assets/sprites/perks/downtown_bargain_perk_icon.png",
-	"convert_to_gold": "res://assets/sprites/perks/convert_to_gold_perk_icon.png",
+	"convert_to_gold": "res://assets/sprites/perks/convert_to_gold_perk_icon_traditional_v2.png",
 	"instant_gauge_full": "res://assets/sprites/perks/instant_gauge_full_perk_icon.png",
-	"instant_dimension_gate": "res://assets/sprites/perks/instant_dimension_gate_perk_icon.png",
-	"instant_treasure_hunt": "res://assets/sprites/perks/instant_treasure_hunt_perk_icon.png",
+	"instant_dimension_gate": "res://assets/sprites/perks/instant_dimension_gate_dokkaebi_perk_icon_imagegen_v1.png",
 	"instant_monkey_blessing": "res://assets/sprites/perks/instant_monkey_blessing_perk_icon.png",
-	"dash_spirit": "res://assets/sprites/perks/smasher_dash_spirit_perk_icon.png",
-	"extension_gear": "res://assets/sprites/perks/smasher_extension_gear_perk_icon.png",
-	"combo_amplifier_chip": "res://assets/sprites/perks/smasher_combo_amplifier_chip_perk_icon.png",
-	"jetpack_enhance": "res://assets/sprites/perks/viper_jetpack_enhance_perk_icon.png",
-	"kick_enhance": "res://assets/sprites/perks/viper_kick_enhance_perk_icon.png",
-	"blade_amp": "res://assets/sprites/perks/viper_blade_amp_perk_icon.png",
-	"four_poisons": "res://assets/sprites/perks/viper_four_poisons_perk_icon.png",
-	"pistol_enhance": "res://assets/sprites/perks/soldier_pistol_enhance_perk_icon.png",
-	"star_detector": "res://assets/sprites/perks/star_detector_perk_icon.png",
-	"adversity_armor": "res://assets/sprites/perks/adversity_armor_perk_icon.png",
-	"reinforced_boomerang_gauntlet": "res://assets/sprites/perks/reinforced_boomerang_gauntlet_perk_icon.png",
-	"sensor": "res://assets/sprites/perks/sensor_perk_icon.png",
-	"gravitybelt": "res://assets/sprites/perks/gravitybelt_perk_icon.png",
-	"dowsing_pendulum": "res://assets/sprites/perks/dowsing_pendulum_perk_icon.png",
-	"dowsing_goggles": "res://assets/sprites/perks/dowsing_goggles_perk_icon.png",
-	"chargebag": "res://assets/sprites/perks/chargebag_perk_icon.png",
-	"battery": "res://assets/sprites/perks/battery_perk_icon.png",
-	"revival": "res://assets/sprites/perks/revival_perk_icon.png",
-	"master": "res://assets/sprites/perks/master_perk_icon.png",
-	"gold_digger": "res://assets/sprites/perks/gold_digger_perk_icon.png",
-	"lucky_coin": "res://assets/sprites/perks/lucky_coin_perk_icon.png",
-	"shrapnel_armor": "res://assets/sprites/perks/shrapnel_armor_perk_icon.png",
-	"fuel_pouch": "res://assets/sprites/perks/fuel_pouch_perk_icon.png",
-	"bluetooth_ring": "res://assets/sprites/perks/bluetooth_ring_perk_icon.png",
-	"foul_whistle": "res://assets/sprites/perks/foul_whistle_perk_icon.png",
-	"smartphone": "res://assets/sprites/perks/smartphone_perk_icon.png",
-	"neural_helmet": "res://assets/sprites/perks/neural_helmet_perk_icon.png",
-	"commando_arm": "res://assets/sprites/perks/commando_arm_perk_icon.png",
-	"rainbow_fur_glove": "res://assets/sprites/perks/rainbow_fur_glove_perk_icon.png",
-	"knee_pads": "res://assets/sprites/perks/knee_pads_perk_icon.png",
-	"soul_burst": "res://assets/sprites/perks/soul_burst_perk_icon.png",
-	"bulletproof_hat": "res://assets/sprites/perks/bulletproof_hat_perk_icon.png",
-	"spiked_helmet": "res://assets/sprites/perks/spiked_helmet_perk_icon.png",
-	"venom_mist_gauntlet": "res://assets/sprites/perks/venom_mist_gauntlet_perk_icon.png",
-	"speedgear": "res://assets/sprites/perks/speedgear_perk_icon.png",
-	"sage_ring": "res://assets/sprites/perks/sage_ring_perk_icon.png",
+	"dash_spirit": "res://assets/sprites/perks/dash_spirit_mugong_icon.png",
+	"extension_gear": "res://assets/sprites/perks/extension_gear_mugong_icon.png",
+	"combo_amplifier_chip": "res://assets/sprites/perks/combo_amplifier_chip_mugong_icon.png",
+	"jetpack_enhance": "res://assets/sprites/perks/jetpack_enhance_mugong_icon.png",
+	"kick_enhance": "res://assets/sprites/perks/kick_enhance_mugong_icon.png",
+	"blade_amp": "res://assets/sprites/perks/blade_amp_mugong_icon.png",
+	"four_poisons": "res://assets/sprites/perks/four_poisons_mugong_icon.png",
+	"pistol_enhance": "res://assets/sprites/perks/pistol_enhance_mugong_icon.png",
+	"star_detector": "res://assets/sprites/perks/star_detector_mugong_icon.png",
+	"adversity_armor": "res://assets/sprites/perks/adversity_armor_mugong_icon.png",
+	"reinforced_boomerang_gauntlet": "res://assets/sprites/perks/reinforced_boomerang_gauntlet_mugong_icon.png",
+	"sensor": "res://assets/sprites/perks/sensor_mugong_icon.png",
+	"gravitybelt": "res://assets/sprites/perks/gravitybelt_mugong_icon.png",
+	"dowsing_pendulum": "res://assets/sprites/perks/dowsing_pendulum_mugong_icon.png",
+	"dowsing_goggles": "res://assets/sprites/perks/dowsing_goggles_mugong_icon.png",
+	"chargebag": "res://assets/sprites/perks/chargebag_mugong_icon.png",
+	"battery": "res://assets/sprites/perks/battery_mugong_icon.png",
+	"master": "res://assets/sprites/perks/master_mugong_icon.png",
+	"gold_digger": "res://assets/sprites/perks/gold_digger_mugong_icon.png",
+	"lucky_coin": "res://assets/sprites/perks/lucky_coin_mugong_icon.png",
+	"shrapnel_armor": "res://assets/sprites/perks/shrapnel_armor_mugong_icon.png",
+	"fuel_pouch": "res://assets/sprites/perks/fuel_pouch_mugong_icon.png",
+	"bluetooth_ring": "res://assets/sprites/perks/bluetooth_ring_mugong_icon.png",
+	"foul_whistle": "res://assets/sprites/perks/foul_whistle_mugong_icon.png",
+	"smartphone": "res://assets/sprites/perks/smartphone_mugong_icon.png",
+	"neural_helmet": "res://assets/sprites/perks/neural_helmet_mugong_icon.png",
+	"commando_arm": "res://assets/sprites/perks/commando_arm_mugong_icon.png",
+	"rainbow_fur_glove": "res://assets/sprites/perks/rainbow_fur_glove_mugong_icon.png",
+	"knee_pads": "res://assets/sprites/perks/knee_pads_mugong_icon.png",
+	"soul_burst": "res://assets/sprites/perks/soul_burst_mugong_icon.png",
+	"bulletproof_hat": "res://assets/sprites/perks/bulletproof_hat_mugong_icon.png",
+	"venom_mist_gauntlet": "res://assets/sprites/perks/venom_mist_gauntlet_mugong_icon.png",
+	"sage_ring": "res://assets/sprites/perks/sage_ring_mugong_icon.png",
 	"pandora_legacy": "res://assets/sprites/perks/pandora_legacy_perk_icon.png",
 	"ragnarok_hammer": "res://assets/sprites/perks/ragnarok_hammer_perk_icon.png",
 	"transcendent_crown": "res://assets/sprites/perks/transcendent_crown_perk_icon.png",
@@ -81,6 +91,28 @@ const PERK_ICON_PATHS := {
 	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon.png",
 	"angel_blessing": "res://assets/sprites/perks/angel_blessing_perk_icon.png",
+	"yangui_hoechun": "res://assets/sprites/perks/yangui_hoechun_perk_icon.png",
+	# 무공 합일 부산물 구슬. 예약 6종과 은퇴 1종(sleeve_cosmos)도 같은 경로를
+	# 선등록해 카탈로그 전수 아이콘 봉인과 폴백 회귀를 막는다.
+	"overload_circuit": "res://assets/sprites/perks/fusion_byproducts/overload_circuit_orb.png",
+	"reverb": "res://assets/sprites/perks/fusion_byproducts/reverb_orb.png",
+	"golden_trajectory": "res://assets/sprites/perks/fusion_byproducts/golden_trajectory_orb.png",
+	"static_field": "res://assets/sprites/perks/fusion_byproducts/static_field_orb.png",
+	"recycle_protocol": "res://assets/sprites/perks/fusion_byproducts/recycle_protocol_orb.png",
+	"meridian_expand": "res://assets/sprites/perks/fusion_byproducts/meridian_expand_orb.png",
+	"sleeve_cosmos": "res://assets/sprites/perks/fusion_byproducts/sleeve_cosmos_orb.png",
+	"core_stabilize": "res://assets/sprites/perks/fusion_byproducts/core_stabilize_orb.png",
+	"limit_break": "res://assets/sprites/perks/fusion_byproducts/limit_break_orb.png",
+	"dual_catalyst": "res://assets/sprites/perks/fusion_byproducts/dual_catalyst_orb.png",
+	"linked_arsenal": "res://assets/sprites/perks/fusion_byproducts/linked_arsenal_orb.png",
+	"returning_light_step": "res://assets/sprites/perks/fusion_byproducts/returning_light_step_orb.png",
+	"spellbreaker_guard": "res://assets/sprites/perks/fusion_byproducts/spellbreaker_guard_orb.png",
+	"overflow": "res://assets/sprites/perks/fusion_byproducts/overflow_orb.png",
+	"magnet_burst": "res://assets/sprites/perks/fusion_byproducts/magnet_burst_orb.png",
+	"lingpet_resonance": "res://assets/sprites/perks/fusion_byproducts/lingpet_resonance_orb.png",
+	"weather_adapt": "res://assets/sprites/perks/fusion_byproducts/weather_adapt_orb.png",
+	"mutation_factor": "res://assets/sprites/perks/fusion_byproducts/mutation_factor_orb.png",
+	"twin_roulette": "res://assets/sprites/perks/fusion_byproducts/twin_roulette_orb.png",
 }
 
 # 융합 제안 카드 아트: 명시 PNG 경로 테이블(공유 텍스처 캐시 진입).
@@ -97,10 +129,12 @@ const FUSION_PAIR_DEFAULT_SIZE := Vector2(64.0, 64.0)
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 
 const PERK_SHEET_PATHS := {
-	"common_refresh": "res://assets/sprites/perks/common_refresh_perk_icon_sheet.png",
+	# The previous animated sheet used a saturated neon-blue treatment. Keep the
+	# sheet-first lookup contract, but source the restrained traditional seal as a
+	# single-frame sheet so every runtime route resolves to the same art direction.
+	"common_refresh": "res://assets/sprites/perks/common_refresh_perk_icon_traditional_v2.png",
 	"instant_gauge_full": "res://assets/sprites/perks/instant_gauge_full_perk_icon_sheet.png",
-	"instant_dimension_gate": "res://assets/sprites/perks/instant_dimension_gate_perk_icon_sheet.png",
-	"instant_treasure_hunt": "res://assets/sprites/perks/instant_treasure_hunt_perk_icon_sheet.png",
+	"instant_dimension_gate": "res://assets/sprites/perks/instant_dimension_gate_dokkaebi_perk_icon_sheet_imagegen_v1.png",
 	"instant_monkey_blessing": "res://assets/sprites/perks/instant_monkey_blessing_perk_icon_sheet.png",
 	"pandora_legacy": "res://assets/sprites/perks/pandora_legacy_perk_icon_sheet.png",
 	"ragnarok_hammer": "res://assets/sprites/perks/ragnarok_hammer_perk_icon_sheet.png",
@@ -115,14 +149,38 @@ const PERK_SHEET_PATHS := {
 	"sacred_laurel": "res://assets/sprites/perks/sacred_laurel_perk_icon_sheet.png",
 	"celestial_armor": "res://assets/sprites/perks/celestial_armor_perk_icon_sheet.png",
 	"angel_blessing": "res://assets/sprites/perks/angel_blessing_perk_icon_sheet.png",
+	"yangui_hoechun": "res://assets/sprites/perks/yangui_hoechun_perk_icon_sheet.png",
+}
+
+# The peerless-Mugong seals use two-second AutoSprite internal-motion loops.
+# Their outer hanji shell is fixed, so a slower cadence lets the ink/light read
+# without recreating the old rapid whole-icon breathing pulse.
+const DEFAULT_PERK_SHEET_FRAME_INTERVAL_MSEC := 110.0
+const PERK_SHEET_FRAME_INTERVAL_MSEC := {
+	"megingjord": 250.0,
+	"transcendent_crown": 250.0,
+	"ragnarok_hammer": 250.0,
+	"hermes_shoes": 250.0,
+	"poseidon_trident": 250.0,
+	"sacred_laurel": 250.0,
+	"heavenly_cape": 250.0,
+	"horn_strawberry_mask": 250.0,
+	"odins_eye": 250.0,
+	"celestial_armor": 250.0,
+	"baal_boots": 250.0,
+	"pandora_legacy": 250.0,
+	"angel_blessing": 250.0,
+	"yangui_hoechun": 250.0,
 }
 
 const SKILL_ICON_PATHS := {
-	"wall_leap_raid": "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1.png",
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
+	"dalji_vision_chain_top": "res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png",
+	"cheongringwi_vision_dragon_torrent": "res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png",
+	"yeonmyo_vision_bonghongwe": "res://assets/sprites/skills/yeonmyo_vision_bonghongwe_skill_orb_imagegen_v1.png",
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
 	"power_smashing": "res://assets/sprites/skills/smasher_power_smashing_skill_orb.png",
-	"plasma": "res://assets/sprites/skills/smasher_plasma_skill_orb.png",
+	"plasma": "res://assets/sprites/skills/smasher_hanryeongtan_skill_orb.png",
 	"recovery": "res://assets/sprites/skills/smasher_recovery_skill_orb.png",
 	"cleanse": "res://assets/sprites/skills/smasher_cleanse_skill_orb.png",
 	"shield_kiting": "res://assets/sprites/skills/smasher_shield_kiting_skill_orb.png",
@@ -130,7 +188,10 @@ const SKILL_ICON_PATHS := {
 	"ghost_shot": "res://assets/sprites/skills/smasher_ghost_shot_skill_orb.png",
 	"warp_gate": "res://assets/sprites/skills/smasher_warp_gate_skill_orb.png",
 	"smasher_wheel": "res://assets/sprites/skills/smasher_wheel_skill_orb.png",
+	"smasher_overdrive": "res://assets/sprites/skills/smasher_byeokryeok_yuseong_skill_orb.png",
+	"void_phantom": "res://assets/sprites/skills/smasher_void_phantom_skill_orb.png",
 	"shadow_step": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
+	"wall_leap_raid": "res://assets/sprites/skills/viper_wall_leap_raid_skill_orb_imagegen_v1.png",
 	"blade_rush": "res://assets/sprites/skills/viper_blade_rush_skill_orb.png",
 	"nerve_strike": "res://assets/sprites/skills/viper_nerve_strike_skill_orb.png",
 	"dive_strike": "res://assets/sprites/skills/viper_emp_strike_skill_orb.png",
@@ -157,7 +218,20 @@ const SKILL_ICON_PATHS := {
 # 책 표지를 쓴다. 전용 표지가 없으면 UNLOCK_ALIASES의 초식 인장으로 폴백한다.
 const MANUAL_ICON_PATHS := {
 	"unlock_soul_summon_art": "res://assets/sprites/perks/soul_summon_art_manual_icon.png",
+	"unlock_dalji_vision_chain_top": "res://assets/sprites/perks/dalji_vision_chain_top_manual_icon_imagegen_v1.png",
+	"unlock_cheongringwi_vision_dragon_torrent": "res://assets/sprites/perks/cheongringwi_vision_earth_vein_quake_manual_icon_imagegen_v1.png",
+	"unlock_yeonmyo_vision_bonghongwe": "res://assets/sprites/perks/yeonmyo_vision_bonghongwe_manual_icon_imagegen_v1.png",
 	"unlock_wall_leap_raid": "res://assets/sprites/perks/viper_wall_leap_raid_manual_icon_imagegen_v1.png",
+	"unlock_magnum_grip": "res://assets/sprites/perks/smasher_heubinjang_manual_icon.png",
+	"unlock_plasma": "res://assets/sprites/perks/smasher_hanryeongtan_manual_icon.png",
+	"unlock_recovery_skill": "res://assets/sprites/perks/smasher_gyeongsinbo_manual_icon.png",
+	"unlock_cleanse": "res://assets/sprites/perks/smasher_cheongsimgyeol_manual_icon.png",
+	"unlock_shield_kiting": "res://assets/sprites/perks/smasher_hoecheon_biryun_manual_icon.png",
+	"unlock_ghost_shot": "res://assets/sprites/perks/smasher_binghon_bigyeok_manual_icon.png",
+	"unlock_warp_gate": "res://assets/sprites/perks/smasher_geongon_hwanmun_manual_icon.png",
+	"unlock_smasher_wheel": "res://assets/sprites/perks/smasher_pungun_cheonseonmu_manual_icon.png",
+	"unlock_smasher_overdrive": "res://assets/sprites/perks/smasher_byeokryeok_yuseong_manual_icon.png",
+	"unlock_void_phantom": "res://assets/sprites/perks/smasher_void_phantom_manual_icon.png",
 	"unlock_nerve_strike": "res://assets/sprites/perks/viper_dokyeong_jeolmaek_manual_icon.png",
 	"unlock_dive_strike": "res://assets/sprites/perks/viper_cheonroe_jingak_manual_icon.png",
 	"unlock_chaos_spear": "res://assets/sprites/perks/viper_honcheon_heukchang_manual_icon.png",
@@ -179,6 +253,7 @@ const UNLOCK_ALIASES := {
 	"unlock_warp_gate": "warp_gate",
 	"unlock_smasher_wheel": "smasher_wheel",
 	"unlock_smasher_overdrive": "smasher_overdrive",
+	"unlock_void_phantom": "void_phantom",
 	"unlock_nerve_strike": "nerve_strike",
 	"unlock_dive_strike": "dive_strike",
 	"unlock_chaos_spear": "chaos_spear",
@@ -227,6 +302,7 @@ var _static_source_cache: Dictionary = {}
 var _sheet_region_cache: Dictionary = {}
 var _prewarm_asset_jobs: Array = []
 var _prewarm_asset_index := 0
+var _prewarm_assets_complete := false
 
 
 func prewarm_assets() -> void:
@@ -235,6 +311,8 @@ func prewarm_assets() -> void:
 
 
 func prewarm_assets_step(batch_size: int = PREWARM_ASSET_BATCH_SIZE) -> bool:
+	if _prewarm_assets_complete:
+		return true
 	if _prewarm_asset_jobs.is_empty():
 		_prewarm_asset_jobs = _build_prewarm_asset_jobs()
 		_prewarm_asset_index = 0
@@ -246,6 +324,7 @@ func prewarm_assets_step(batch_size: int = PREWARM_ASSET_BATCH_SIZE) -> bool:
 	if _prewarm_asset_index >= _prewarm_asset_jobs.size():
 		_prewarm_asset_jobs.clear()
 		_prewarm_asset_index = 0
+		_prewarm_assets_complete = true
 		return true
 	return false
 
@@ -576,7 +655,7 @@ func _get_icon_source(skill_id: String) -> Dictionary:
 		if sheet_texture != null:
 			return {
 				"texture": sheet_texture,
-				"region": _get_sheet_region(sheet_texture),
+				"region": _get_sheet_region(sheet_texture, skill_id),
 			}
 
 	if _static_source_cache.has(skill_id):
@@ -592,7 +671,7 @@ func _get_icon_source(skill_id: String) -> Dictionary:
 	if texture == null:
 		return {}
 	# 비급책은 완성된 투명 실루엣이므로 원형 초식 구슬의 crop/zoom 정규화를
-	# 적용하지 않는다. 같은 호환 id를 쓰더라도 책 외곽을 보존해야 한다.
+	# 적용하지 않는다. 같은 plasma 호환 id를 쓰더라도 책 외곽을 보존해야 한다.
 	if not MANUAL_ICON_PATHS.has(skill_id):
 		texture = SkillOrbTextureNormalizer.normalize(_resolve_skill_icon_id(skill_id), texture)
 	var source := {"texture": texture, "region": Rect2()}
@@ -641,7 +720,7 @@ func _get_sheet_texture(path: String) -> Texture2D:
 	return texture
 
 
-func _get_sheet_region(texture: Texture2D) -> Rect2:
+func _get_sheet_region(texture: Texture2D, skill_id: String) -> Rect2:
 	var cache_key: String = str(texture.get_rid().get_id())
 	var region_data: Dictionary = {}
 	if _sheet_region_cache.has(cache_key):
@@ -658,8 +737,20 @@ func _get_sheet_region(texture: Texture2D) -> Rect2:
 		_sheet_region_cache[cache_key] = region_data
 	var frame_size: int = int(region_data.get("frame_size", max(1, texture.get_height())))
 	var frame_count: int = int(region_data.get("frame_count", 1))
-	var frame_index: int = int(floor(float(Time.get_ticks_msec()) / 110.0)) % frame_count
+	var frame_interval_msec := get_icon_frame_interval_msec(skill_id)
+	var frame_index: int = int(floor(float(Time.get_ticks_msec()) / frame_interval_msec)) % frame_count
 	return Rect2(Vector2(float(frame_index * frame_size), 0.0), Vector2(float(frame_size), float(frame_size)))
+
+
+func get_icon_frame_interval_msec(skill_id: String) -> float:
+	return get_icon_frame_interval_msec_for_id(skill_id)
+
+
+static func get_icon_frame_interval_msec_for_id(skill_id: String) -> float:
+	return maxf(
+		1.0,
+		float(PERK_SHEET_FRAME_INTERVAL_MSEC.get(skill_id, DEFAULT_PERK_SHEET_FRAME_INTERVAL_MSEC))
+	)
 
 
 func _get_draw_rect(rect: Rect2, skill_id: String, texture: Texture2D) -> Rect2:

@@ -40,6 +40,7 @@ const DEATH_SHAKE_EXPLOSION_PEAK := 10.0
 const DEATH_SHAKE_DISINTEGRATE_START := 5.0
 const PENALTY_MOVE_SPEED_MULTIPLIER := 0.5
 const PENALTY_DASH_TOKEN_LIMIT := 1
+const PENALTY_DASH_DISTANCE_MULTIPLIER := 1.5
 const PENALTY_DASH_COOLDOWN_MULTIPLIER := 2.0
 
 var active := false
@@ -248,6 +249,10 @@ func get_dash_token_limit_override() -> Variant:
 	return PENALTY_DASH_TOKEN_LIMIT
 
 
+func get_dash_distance_multiplier() -> float:
+	return PENALTY_DASH_DISTANCE_MULTIPLIER if is_transformed() else 1.0
+
+
 func get_dash_cooldown_multiplier() -> float:
 	return PENALTY_DASH_COOLDOWN_MULTIPLIER if is_transformed() else 1.0
 
@@ -343,6 +348,7 @@ func get_context() -> Dictionary:
 		"last_triggered": last_triggered,
 		"move_speed_multiplier": get_move_speed_multiplier(),
 		"dash_token_limit": get_dash_token_limit_override(),
+		"dash_distance_multiplier": get_dash_distance_multiplier(),
 		"dash_cooldown_multiplier": get_dash_cooldown_multiplier(),
 	}
 

@@ -73,6 +73,18 @@ const MODULES := {
 		"path": "res://scripts/characters/runtime_perk_state.gd",
 		"label": "runtime perk state",
 	},
+	"dalji_vision_chosik_state": {
+		"path": "res://scripts/characters/dalji_vision_chosik_state.gd",
+		"label": "dalji vision Chosik state",
+	},
+	"cheongringwi_vision_chosik_state": {
+		"path": "res://scripts/characters/cheongringwi_vision_chosik_state.gd",
+		"label": "cheongringwi vision Chosik state",
+	},
+	"yeonmyo_vision_chosik_state": {
+		"path": "res://scripts/characters/yeonmyo_vision_chosik_state.gd",
+		"label": "yeonmyo vision Chosik state",
+	},
 	"smasher_plasma_state": {
 		"path": "res://scripts/characters/smasher_plasma_state.gd",
 		"label": "smasher plasma state",
@@ -96,6 +108,10 @@ const MODULES := {
 	"smasher_overdrive_state": {
 		"path": "res://scripts/characters/smasher_overdrive_state.gd",
 		"label": "smasher overdrive state",
+	},
+	"smasher_void_phantom_state": {
+		"path": "res://scripts/characters/smasher_void_phantom_state.gd",
+		"label": "smasher void phantom state",
 	},
 	"smasher_magnum_grip_state": {
 		"path": "res://scripts/characters/smasher_magnum_grip_state.gd",

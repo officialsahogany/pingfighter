@@ -7,6 +7,18 @@ const SOUL_SUMMON_ART_ID := "soul_summon_art"
 const SOUL_SUMMON_ART_ICON: Texture2D = preload(
 	"res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png"
 )
+const DALJI_VISION_CHAIN_TOP_ID := "dalji_vision_chain_top"
+const DALJI_VISION_CHAIN_TOP_ICON: Texture2D = preload(
+	"res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png"
+)
+const CHEONGRINGWI_VISION_DRAGON_TORRENT_ID := "cheongringwi_vision_dragon_torrent"
+const CHEONGRINGWI_VISION_DRAGON_TORRENT_ICON: Texture2D = preload(
+	"res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png"
+)
+const YEONMYO_VISION_BONGHONGWE_ID := "yeonmyo_vision_bonghongwe"
+const YEONMYO_VISION_BONGHONGWE_ICON: Texture2D = preload(
+	"res://assets/sprites/skills/yeonmyo_vision_bonghongwe_skill_orb_imagegen_v1.png"
+)
 
 const TEXTURE_ORB_EDGE_FILL_EXTRA := 2.0
 const TEXTURE_ORB_Y_NUDGE := -1.0
@@ -115,6 +127,12 @@ func _resolve_skill_icon_texture(skill_name: String, skill_icons: Dictionary) ->
 	# Keep the accepted PNG ahead of the procedural symbol for those live HUDs.
 	if skill_name == SOUL_SUMMON_ART_ID:
 		return SOUL_SUMMON_ART_ICON
+	if skill_name == DALJI_VISION_CHAIN_TOP_ID:
+		return DALJI_VISION_CHAIN_TOP_ICON
+	if skill_name == CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
+		return CHEONGRINGWI_VISION_DRAGON_TORRENT_ICON
+	if skill_name == YEONMYO_VISION_BONGHONGWE_ID:
+		return YEONMYO_VISION_BONGHONGWE_ICON
 	return null
 
 

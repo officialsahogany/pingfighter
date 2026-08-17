@@ -1,13 +1,17 @@
 extends RefCounted
 
+const PLAZA_BUTTON_DISABLED := false
+
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollButtonDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_button_draw_helper.gd")
 const StageClearResultScrollDrawHelper := preload("res://scripts/ui/stage_clear_result_scroll_draw_helper.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultSummaryDrawHelper := preload("res://scripts/ui/stage_clear_result_summary_draw_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
+const RESULT_TITLE_FONT := preload("res://assets/fonts/NanumBrushScript-Regular.ttf")
 
 const PLACEHOLDER_GOLD := 1240
 
@@ -26,15 +30,14 @@ static func get_fusion_reward_card_icon_size(
 	_reserved: Array = []
 ) -> Vector2:
 	var scroll_state: Object = load("res://scripts/ui/stage_clear_result_scroll_state.gd")
-	var layout_helper: Object = load("res://scripts/ui/stage_clear_result_layout_helper.gd")
 	var full_rect: Rect2 = scroll_state.get_region_full_rect(ui_scale, Vector2.ZERO)
-	var content_rect: Rect2 = layout_helper.get_scroll_content_rect(
+	var content_rect: Rect2 = StageClearResultLayoutHelper.get_scroll_content_rect(
 		full_rect,
 		ui_scale,
 		scroll_state.SCROLL_CONTENT_MARGIN
 	)
 	# draw_scroll_contents의 실 섹션 rect 공식 미러(헤더 188/버튼 90/여백 22).
-	var section_top: float = content_rect.position.y + 188.0 * ui_scale
+	var section_top: float = content_rect.position.y + 180.0 * ui_scale
 	var button_top: float = content_rect.position.y + content_rect.size.y - 90.0 * ui_scale
 	var section_bottom: float = button_top - 22.0 * ui_scale
 	var body_rect := Rect2(
@@ -48,9 +51,9 @@ static func get_fusion_reward_card_icon_size(
 			item_counts.append((band_value as Array).size())
 	if item_counts.is_empty():
 		item_counts.append(1)
-	var band_layout: Dictionary = layout_helper.calculate_reward_band_stack_layout(item_counts, body_rect, ui_scale)
+	var band_layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_band_stack_layout(item_counts, body_rect, ui_scale)
 	var card_scale: float = float(band_layout.get("card_scale", ui_scale))
-	return Vector2(64.0, 54.0) * card_scale
+	return StageClearResultLayoutHelper.REWARD_CARD_ICON_BASE_SIZE * card_scale
 
 
 static func draw_scroll_contents(
@@ -63,26 +66,24 @@ static func draw_scroll_contents(
 ) -> Dictionary:
 	if canvas == null or alpha <= 0.02:
 		return {}
-	var accent := Color(0.05, 0.54, 0.68, alpha)
-	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
+	var accent := Color(0.52, 0.075, 0.045, alpha)
+	var muted := Color(0.29, 0.20, 0.13, alpha * 0.86)
 	var current_stage: int = int(draw_context.get("current_stage", 1))
+	var title_font: Font = RESULT_TITLE_FONT if RESULT_TITLE_FONT != null else font
 
-	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 58.0 * scale))
-	StageClearResultTextLayoutHelper.draw_centered_text(
+	var header_rect := Rect2(rect.position + Vector2(0.0, -2.0 * scale), Vector2(rect.size.x, 64.0 * scale))
+	_draw_result_title(
 		canvas,
-		font,
+		title_font,
 		LanguageSettings.format_stage_result_label(current_stage),
 		header_rect,
-		int(round(42.0 * scale)),
+		int(round(52.0 * scale)),
+		scale,
+		alpha,
 		accent
 	)
 	var divider_y: float = rect.position.y + 68.0 * scale
-	canvas.draw_line(
-		Vector2(rect.position.x + 34.0 * scale, divider_y),
-		Vector2(rect.position.x + rect.size.x - 34.0 * scale, divider_y),
-		Color(0.03, 0.82, 0.96, alpha * 0.46),
-		max(1.0, 1.4 * scale)
-	)
+	_draw_title_divider(canvas, rect, divider_y, scale, alpha)
 
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		_get_dictionary(draw_context, "stage_reward_snapshot"),
@@ -120,7 +121,7 @@ static func draw_scroll_contents(
 	var item_rewards: Array = _get_summary_array(reward_summary_state, "item_rewards")
 	var sections: Array = _build_reward_sections(perks, item_rewards)
 
-	var section_top: float = rect.position.y + 188.0 * scale
+	var section_top: float = rect.position.y + 180.0 * scale
 	var button_top: float = rect.position.y + rect.size.y - 90.0 * scale
 	var section_bottom: float = button_top - 22.0 * scale
 	var body_rect := Rect2(
@@ -167,7 +168,7 @@ static func draw_scroll_contents(
 		LanguageSettings.translate_text("다음 스테이지"),
 		LanguageSettings.translate_text("광장으로"),
 		LanguageSettings.translate_text("나가기"),
-		true
+		PLAZA_BUTTON_DISABLED
 	)
 
 
@@ -178,7 +179,7 @@ static func _build_reward_sections(perks: Array, item_rewards: Array) -> Array:
 	var mythic_items: Array = _get_summary_array(item_groups, "mythic_items")
 	var sections: Array = []
 	if not perks.is_empty():
-		sections.append({"title": LanguageSettings.translate_text("획득 퍽"), "rewards": perks})
+		sections.append({"title": _get_mugong_section_title(), "rewards": perks})
 	if not active_items.is_empty():
 		sections.append({"title": LanguageSettings.translate_text("액티브 아이템"), "rewards": active_items})
 	if not passive_items.is_empty():
@@ -186,6 +187,74 @@ static func _build_reward_sections(perks: Array, item_rewards: Array) -> Array:
 	if not mythic_items.is_empty():
 		sections.append({"title": LanguageSettings.translate_text("신화 아이템"), "rewards": mythic_items})
 	return sections
+
+
+static func _get_mugong_section_title() -> String:
+	var localized_perk_title: String = LanguageSettings.translate_text("획득 퍽")
+	if localized_perk_title == "획득 퍽":
+		return "획득 무공"
+	return localized_perk_title
+
+
+static func _draw_result_title(
+	canvas: CanvasItem,
+	font: Font,
+	title: String,
+	rect: Rect2,
+	font_size: int,
+	scale: float,
+	alpha: float,
+	accent: Color
+) -> void:
+	var baseline: Vector2 = StageClearResultTextLayoutHelper.get_centered_baseline(font, title, rect, font_size)
+	var stroke_offset: float = max(0.65, 1.05 * scale)
+	var shadow_offset := Vector2(max(1.0, 1.8 * scale), max(1.0, 2.0 * scale))
+	canvas.draw_string(
+		font,
+		baseline + shadow_offset,
+		title,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		Color(0.12, 0.045, 0.02, 0.34 * alpha)
+	)
+	var stroke_color := Color(0.37, 0.035, 0.02, 0.78 * alpha)
+	var stroke_offsets: Array[Vector2] = [
+		Vector2(-stroke_offset, 0.0),
+		Vector2(stroke_offset, 0.0),
+		Vector2(0.0, -stroke_offset),
+		Vector2(0.0, stroke_offset),
+	]
+	for offset: Vector2 in stroke_offsets:
+		canvas.draw_string(font, baseline + offset, title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, stroke_color)
+	canvas.draw_string(font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, accent)
+
+
+static func _draw_title_divider(canvas: CanvasItem, rect: Rect2, divider_y: float, scale: float, alpha: float) -> void:
+	var center_x: float = rect.get_center().x
+	var line_color := Color(0.36, 0.20, 0.09, alpha * 0.54)
+	var ornament_color := Color(0.62, 0.36, 0.12, alpha * 0.72)
+	var half_gap: float = 20.0 * scale
+	canvas.draw_line(
+		Vector2(rect.position.x + 34.0 * scale, divider_y),
+		Vector2(center_x - half_gap, divider_y),
+		line_color,
+		max(1.0, 1.4 * scale)
+	)
+	canvas.draw_line(
+		Vector2(center_x + half_gap, divider_y),
+		Vector2(rect.end.x - 34.0 * scale, divider_y),
+		line_color,
+		max(1.0, 1.4 * scale)
+	)
+	var diamond_radius: float = 6.0 * scale
+	var diamond := PackedVector2Array([
+		Vector2(center_x, divider_y - diamond_radius),
+		Vector2(center_x + diamond_radius, divider_y),
+		Vector2(center_x, divider_y + diamond_radius),
+		Vector2(center_x - diamond_radius, divider_y),
+	])
+	canvas.draw_colored_polygon(diamond, ornament_color)
 
 
 static func _get_dictionary(source: Dictionary, key: String) -> Dictionary:

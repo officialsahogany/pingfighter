@@ -12,11 +12,15 @@ var _remaining_sec := 0.0
 var _total_duration_sec := 0.0
 
 
-func try_proc(invested_level: int, roll_unit: float = -1.0) -> Dictionary:
+func try_proc(
+	invested_level: int,
+	roll_unit: float = -1.0,
+	runtime_state: Object = null
+) -> Dictionary:
 	var level := maxi(0, invested_level)
 	if level <= 0:
 		return _build_result(false, "not_invested")
-	var chance_pct := resolve_trigger_chance_pct(level)
+	var chance_pct := resolve_trigger_chance_pct(level, runtime_state)
 	var resolved_roll := roll_unit if roll_unit >= 0.0 else randf()
 	if chance_pct <= 0.0 or resolved_roll >= chance_pct / 100.0:
 		var miss := _build_result(false, "chance_failed")
@@ -25,8 +29,8 @@ func try_proc(invested_level: int, roll_unit: float = -1.0) -> Dictionary:
 		return miss
 
 	var previous_bonus := _level_bonus if _active else 0
-	_level_bonus = resolve_level_bonus(level)
-	_total_duration_sec = resolve_duration_sec(level)
+	_level_bonus = resolve_level_bonus(level, runtime_state)
+	_total_duration_sec = resolve_duration_sec(level, runtime_state)
 	_remaining_sec = _total_duration_sec
 	_active = _level_bonus > 0 and _total_duration_sec > 0.0
 	var result := _build_result(_active, "activated" if _active else "invalid_spec")
@@ -86,28 +90,31 @@ func get_snapshot() -> Dictionary:
 	}
 
 
-static func resolve_trigger_chance_pct(invested_level: int) -> float:
+static func resolve_trigger_chance_pct(invested_level: int, runtime_state: Object = null) -> float:
 	var resolved := PerkConversionValues.get_value(
 		PERK_ID,
 		"trigger_chance_pct",
-		maxi(1, invested_level)
+		maxi(1, invested_level),
+		runtime_state
 	)
 	return resolved if resolved > 0.0 else DEFAULT_TRIGGER_CHANCE_PCT
 
 
-static func resolve_level_bonus(invested_level: int) -> int:
+static func resolve_level_bonus(invested_level: int, runtime_state: Object = null) -> int:
 	return maxi(0, int(round(PerkConversionValues.get_value(
 		PERK_ID,
 		"perk_level_bonus",
-		maxi(1, invested_level)
+		maxi(1, invested_level),
+		runtime_state
 	))))
 
 
-static func resolve_duration_sec(invested_level: int) -> float:
+static func resolve_duration_sec(invested_level: int, runtime_state: Object = null) -> float:
 	return maxf(0.0, PerkConversionValues.get_value(
 		PERK_ID,
 		"duration_sec",
-		maxi(1, invested_level)
+		maxi(1, invested_level),
+		runtime_state
 	))
 
 

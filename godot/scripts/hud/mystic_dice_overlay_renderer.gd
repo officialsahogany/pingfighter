@@ -6,28 +6,38 @@ const MysticDiceLocalization := preload("res://scripts/characters/mystic_dice_lo
 const MysticDiceRoller := preload("res://scripts/characters/mystic_dice_roller.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const KOREAN_UI_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
-const LINGPET_GLYPH_FONT: Font = preload("res://assets/fonts/LingpetScriptDisplay-Regular.ttf")
-# Each die face carries a distinct Lingpet Script (링펫어) rune. The face value is
-# purely decorative here — the roll outcome is the 7-stat shift — so real Lingpet
-# glyphs fit the theme far better than mundane 1-6 pips.
-const FACE_GLYPHS: Array[String] = ["c", "o", "g", "m", "t", "z"]
 
-const BACKDROP_COLOR := Color(0.008, 0.006, 0.04, 0.82)
-const PANEL_COLOR := Color(0.035, 0.025, 0.11, 0.97)
-const PANEL_BORDER_COLOR := Color(0.27, 0.84, 1.0, 0.88)
-const DIE_BODY_DEEP := Color(0.09, 0.03, 0.28, 1.0)
-const DIE_BODY_MID := Color(0.20, 0.08, 0.50, 1.0)
-const DIE_BODY_LIT := Color(0.40, 0.22, 0.74, 1.0)
-const DIE_EDGE_COLOR := Color(0.44, 0.91, 1.0, 1.0)
-const DIE_BEVEL_COLOR := Color(0.66, 0.94, 1.0, 0.42)
-const DIE_RIM_SHADOW := Color(0.02, 0.01, 0.08, 0.96)
-const STARLIGHT_COLOR := Color(0.82, 0.97, 1.0, 1.0)
-const BENEFIT_COLOR := Color(0.42, 1.0, 0.62, 1.0)
-const HARM_COLOR := Color(1.0, 0.38, 0.44, 1.0)
-const NEUTRAL_COLOR := Color(0.68, 0.73, 0.84, 1.0)
-const MAX_ACCUMULATED_RAW := 30
-const DIE_SUPERELLIPSE_N := 4.0
-const DIE_OUTLINE_POINTS := 32
+const BACKDROP_COLOR := Color(0.012, 0.009, 0.007, 0.86)
+const PANEL_COLOR := Color(0.075, 0.043, 0.028, 0.97)
+const PANEL_BORDER_COLOR := Color(0.78, 0.56, 0.24, 0.92)
+const YUT_BODY_DEEP := Color(0.56, 0.39, 0.20, 1.0)
+const YUT_BODY_MID := Color(0.78, 0.62, 0.38, 1.0)
+const YUT_BODY_LIT := Color(0.96, 0.84, 0.58, 1.0)
+const YUT_CAP_DEEP := Color(0.19, 0.075, 0.035, 1.0)
+const YUT_CAP_LIT := Color(0.36, 0.16, 0.075, 1.0)
+const YUT_EDGE_COLOR := Color(0.78, 0.56, 0.24, 1.0)
+const YUT_FACE_INK := Color(0.055, 0.035, 0.025, 0.96)
+const YUT_RIM_SHADOW := Color(0.018, 0.012, 0.009, 0.98)
+const YUT_KNOT_RED := Color(0.76, 0.10, 0.075, 1.0)
+const YUT_KNOT_DARK := Color(0.24, 0.025, 0.018, 1.0)
+const TALISMAN_INK_COLOR := Color(0.56, 0.51, 0.43, 0.22)
+const BENEFIT_COLOR := Color(0.14, 0.52, 0.82, 1.0)
+const HARM_COLOR := Color(0.88, 0.20, 0.18, 1.0)
+const NEUTRAL_COLOR := Color(0.70, 0.65, 0.56, 1.0)
+const MAX_ACCUMULATED_RAW := 9
+const YUT_STICK_COUNT := 4
+# Faces 1..6 remain compatibility inputs from the unchanged gameplay state.
+# They project to do/gae/geol/yut/mo plus a second do pose; each bit marks one
+# flat, ink-carved back among the four sticks.
+const YUT_BACK_MASKS := [1, 3, 7, 15, 0, 8]
+const YUT_BASE_ANGLES := [-0.44, -0.15, 0.15, 0.44]
+const YUT_BASE_OFFSETS := [
+	Vector2(-0.285, 0.04),
+	Vector2(-0.095, -0.035),
+	Vector2(0.095, -0.035),
+	Vector2(0.285, 0.04),
+]
+const YUT_CAPSULE_ARC_STEPS := 6
 
 var _layout_helper: Object = MysticDiceModalLayout.new()
 var _fallback_font: Font = null
@@ -60,9 +70,9 @@ func draw(
 		return
 
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKDROP_COLOR)
-	_draw_arcane_backdrop(canvas, view_size, float(modal_snapshot.get("phase_elapsed", 0.0)))
+	_draw_talisman_backdrop(canvas, view_size, float(modal_snapshot.get("phase_elapsed", 0.0)))
 	var visual: Dictionary = get_visual_state(modal_snapshot, view_size)
-	_draw_dice(
+	_draw_yut_bundle(
 		canvas,
 		visual.get("center", view_size * 0.5),
 		float(visual.get("size", 96.0)),
@@ -134,25 +144,46 @@ static func build_result_rows(modal_snapshot: Dictionary, dice_snapshot: Diction
 	return rows
 
 
+static func get_yut_back_mask(face: int) -> int:
+	return int(YUT_BACK_MASKS[clampi(face, 1, 6) - 1])
+
+
+static func get_yut_back_count(face: int) -> int:
+	var mask := get_yut_back_mask(face)
+	var count := 0
+	for stick_index: int in range(YUT_STICK_COUNT):
+		if (mask & (1 << stick_index)) != 0:
+			count += 1
+	return count
+
+
 static func _benefit_from_raw(stat_key: String, raw_value: int) -> int:
 	return -raw_value if stat_key in MysticDiceRoller.LOWER_IS_BETTER_STAT_KEYS else raw_value
 
 
-func _draw_arcane_backdrop(canvas: CanvasItem, view_size: Vector2, elapsed: float) -> void:
+func _draw_talisman_backdrop(canvas: CanvasItem, view_size: Vector2, elapsed: float) -> void:
 	var center := view_size * 0.5
 	var pulse := 0.5 + 0.5 * sin(elapsed * 1.8)
 	var radius: float = minf(view_size.x, view_size.y) * (0.34 + pulse * 0.015)
-	canvas.draw_circle(center, radius, Color(0.18, 0.04, 0.42, 0.18))
-	canvas.draw_arc(center, radius * 0.82, 0.0, TAU, 48, Color(0.22, 0.82, 1.0, 0.18), 2.0)
-	canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(0.62, 0.26, 1.0, 0.13), 1.5)
-	for star_index: int in range(8):
-		var angle: float = float(star_index) * TAU / 8.0 + elapsed * 0.08
-		var star_center: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius * 0.92
-		var star_radius: float = 2.0 + float(star_index % 3)
-		canvas.draw_circle(star_center, star_radius, Color(0.55, 0.92, 1.0, 0.30 + pulse * 0.22))
+	canvas.draw_circle(center, radius, Color(0.11, 0.065, 0.035, 0.16))
+	canvas.draw_arc(center, radius * 0.82, 0.0, TAU, 48, Color(0.65, 0.49, 0.26, 0.18), 2.0)
+	canvas.draw_arc(center, radius, 0.0, TAU, 48, TALISMAN_INK_COLOR, 1.5)
+	for mark_index: int in range(12):
+		var angle: float = float(mark_index) * TAU / 12.0 + elapsed * 0.025
+		var radial := Vector2(cos(angle), sin(angle))
+		var tangent := Vector2(-radial.y, radial.x)
+		var mark_center: Vector2 = center + radial * radius * 0.91
+		var half_mark: float = 4.0 + float(mark_index % 3) * 1.5
+		canvas.draw_line(
+			mark_center - tangent * half_mark,
+			mark_center + tangent * half_mark,
+			Color(0.61, 0.56, 0.47, 0.16 + pulse * 0.08),
+			1.4,
+			true
+		)
 
 
-func _draw_dice(
+func _draw_yut_bundle(
 	canvas: CanvasItem,
 	center: Vector2,
 	size: float,
@@ -161,125 +192,138 @@ func _draw_dice(
 	is_rolling: bool = false,
 	pulse: float = 0.0
 ) -> void:
-	var half := size * 0.5
-	# Ambient arcane glow.
-	canvas.draw_circle(center, size * 0.80, Color(0.16, 0.66, 1.0, 0.06))
-	canvas.draw_circle(center, size * 0.62, Color(0.52, 0.20, 1.0, 0.10))
-	# Spin trail behind the die (deterministic — driven by rotation, no RNG).
-	if is_rolling:
-		for trail_index: int in [2, 1]:
-			var trail_alpha := 0.06 * float(trail_index)
-			var trail_color := DIE_BODY_MID
-			trail_color.a = trail_alpha
-			canvas.draw_colored_polygon(
-				_die_body_points(center, half, rotation - float(trail_index) * 0.22, 0.86),
-				trail_color
-			)
-	# Drop shadow for grounded volume.
-	canvas.draw_colored_polygon(
-		_die_body_points(center + Vector2(size * 0.03, size * 0.075), half, rotation, 0.86),
-		Color(0.0, 0.0, 0.0, 0.34)
-	)
-	# Body with a top-lit vertical gradient (real volume, not a flat sticker).
-	var body_points := _die_body_points(center, half, rotation, 0.86)
-	canvas.draw_polygon(body_points, _die_gradient_colors(body_points))
-	# Outer rim: dark seat + cyan edge light.
-	var outline := body_points.duplicate()
-	outline.append(body_points[0])
-	canvas.draw_polyline(outline, DIE_RIM_SHADOW, maxf(5.0, size * 0.05), true)
-	canvas.draw_polyline(outline, DIE_EDGE_COLOR, maxf(2.0, size * 0.022), true)
-	# Beveled inner face (cyan, replaces the clashing gold filet).
-	var bevel := _die_body_points(center, half, rotation, 0.66)
-	bevel.append(bevel[0])
-	canvas.draw_polyline(bevel, DIE_BEVEL_COLOR, maxf(1.2, size * 0.012), true)
-	# Crisp top-left rim light.
-	_draw_die_rim_light(canvas, center, half, rotation, size)
-	_draw_face_glyph(canvas, center, size, clampi(face, 1, 6))
-	# Twinkling corner sparkle (deterministic from the phase pulse).
-	_draw_die_sparkle(canvas, center, half, rotation, pulse)
+	# The old cyan/purple glow becomes a faint talisman-ink seal behind the set.
+	canvas.draw_arc(center, size * 0.68, 0.0, TAU, 36, Color(0.58, 0.52, 0.43, 0.18), maxf(1.0, size * 0.012))
+	canvas.draw_arc(center, size * 0.55, PI * 0.12, PI * 1.82, 30, Color(0.72, 0.55, 0.27, 0.16), maxf(1.0, size * 0.01))
+	var back_mask := get_yut_back_mask(face)
+	var stick_length := size * 0.88
+	var stick_width := size * 0.16
+	for stick_index: int in range(YUT_STICK_COUNT):
+		var stick_offset: Vector2 = YUT_BASE_OFFSETS[stick_index] * size
+		var stick_rotation: float = rotation + float(YUT_BASE_ANGLES[stick_index])
+		if is_rolling:
+			var phase_offset := pulse * 6.2 + float(stick_index) * 1.73
+			stick_offset += Vector2(sin(phase_offset), cos(phase_offset * 0.83)) * size * 0.045
+			# Keep the four silhouettes independently alive without letting adjacent
+			# phases collapse into one apparent stick at the mid-throw frame.
+			stick_rotation += sin(phase_offset * 1.17) * 0.12
+		var stick_center := center + _rotated(stick_offset, rotation * 0.45)
+		var shows_back := (back_mask & (1 << stick_index)) != 0
+		if is_rolling:
+			for trail_index: int in [2, 1]:
+				var trail_alpha := 0.045 * float(trail_index)
+				_draw_yut_stick(
+					canvas,
+					stick_center + Vector2(0.0, float(trail_index) * size * 0.025),
+					stick_length,
+					stick_width,
+					stick_rotation - float(trail_index) * 0.12,
+					shows_back,
+					trail_alpha
+				)
+		_draw_yut_stick(canvas, stick_center, stick_length, stick_width, stick_rotation, shows_back)
+	_draw_yut_knot(canvas, center, size, rotation)
 
 
-func _die_body_points(center: Vector2, half: float, rotation: float, radius_scale: float) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	for point_index: int in range(DIE_OUTLINE_POINTS):
-		var angle: float = float(point_index) * TAU / float(DIE_OUTLINE_POINTS)
-		var cosine := cos(angle)
-		var sine := sin(angle)
-		var denom: float = pow(
-			pow(absf(cosine), DIE_SUPERELLIPSE_N) + pow(absf(sine), DIE_SUPERELLIPSE_N),
-			1.0 / DIE_SUPERELLIPSE_N
+func _draw_yut_knot(canvas: CanvasItem, center: Vector2, size: float, rotation: float) -> void:
+	# One small red binding is the shared identity cue between the 32 px icon
+	# and the full four-stick modal set. It stays subordinate to the face result.
+	var knot_center := center + _rotated(Vector2(0.0, size * 0.018), rotation)
+	var wrap_axis := _rotated(Vector2(size * 0.17, 0.0), rotation)
+	canvas.draw_line(knot_center - wrap_axis, knot_center + wrap_axis, YUT_KNOT_DARK, maxf(2.0, size * 0.052), true)
+	canvas.draw_line(knot_center - wrap_axis, knot_center + wrap_axis, YUT_KNOT_RED, maxf(1.2, size * 0.030), true)
+	canvas.draw_circle(knot_center, size * 0.052, YUT_KNOT_DARK)
+	canvas.draw_circle(knot_center, size * 0.034, YUT_KNOT_RED)
+	for tail_sign: float in [-1.0, 1.0]:
+		var tail_end := knot_center + _rotated(Vector2(tail_sign * size * 0.045, size * 0.13), rotation)
+		canvas.draw_line(knot_center, tail_end, YUT_KNOT_DARK, maxf(1.6, size * 0.036), true)
+		canvas.draw_line(knot_center, tail_end, YUT_KNOT_RED, maxf(1.0, size * 0.020), true)
+
+
+func _draw_yut_stick(
+	canvas: CanvasItem,
+	center: Vector2,
+	length: float,
+	width: float,
+	rotation: float,
+	shows_back: bool,
+	alpha: float = 1.0
+) -> void:
+	if alpha >= 0.99:
+		canvas.draw_colored_polygon(
+			_yut_capsule_points(center + Vector2(width * 0.12, width * 0.24), length, width, rotation),
+			Color(0.0, 0.0, 0.0, 0.34)
 		)
-		var local := Vector2(cosine, sine) * (half * radius_scale / maxf(0.0001, denom))
+	var outer_points := _yut_capsule_points(center, length, width, rotation)
+	canvas.draw_colored_polygon(outer_points, _with_alpha(YUT_CAP_DEEP, alpha))
+	var outline := outer_points.duplicate()
+	outline.append(outer_points[0])
+	canvas.draw_polyline(outline, _with_alpha(YUT_RIM_SHADOW, alpha), maxf(1.4, width * 0.16), true)
+
+	var body_width := width * (0.84 if shows_back else 0.72)
+	var body_length := length * 0.68
+	var body_points := _yut_capsule_points(center, body_length, body_width, rotation)
+	canvas.draw_colored_polygon(body_points, _with_alpha(YUT_BODY_LIT if shows_back else YUT_BODY_DEEP, alpha))
+	if not shows_back:
+		var rounded_face := _yut_capsule_points(center, body_length * 0.96, body_width * 0.64, rotation)
+		canvas.draw_colored_polygon(rounded_face, _with_alpha(YUT_BODY_MID, alpha))
+		var highlight_x := -body_width * 0.14
+		canvas.draw_line(
+			center + _rotated(Vector2(highlight_x, -body_length * 0.26), rotation),
+			center + _rotated(Vector2(highlight_x, body_length * 0.22), rotation),
+			_with_alpha(YUT_BODY_LIT, alpha * 0.86),
+			maxf(1.0, width * 0.075),
+			true
+		)
+	var body_outline := body_points.duplicate()
+	body_outline.append(body_points[0])
+	canvas.draw_polyline(body_outline, _with_alpha(YUT_EDGE_COLOR, alpha * 0.76), maxf(1.0, width * 0.075), true)
+
+	# The flat back has one transverse ink carving instead of a six-face rune.
+	if shows_back:
+		canvas.draw_line(
+			center + _rotated(Vector2(-body_width * 0.36, -body_length * 0.035), rotation),
+			center + _rotated(Vector2(body_width * 0.36, body_length * 0.035), rotation),
+			_with_alpha(YUT_FACE_INK, alpha),
+			maxf(1.4, width * 0.13),
+			true
+		)
+
+	# Thin brass seams make the lacquered end caps legible without carrying the
+	# silhouette; the cream/black/red family still reads if this detail disappears.
+	for end_sign: float in [-1.0, 1.0]:
+		var seam_y := end_sign * body_length * 0.50
+		canvas.draw_line(
+			center + _rotated(Vector2(-width * 0.30, seam_y), rotation),
+			center + _rotated(Vector2(width * 0.30, seam_y), rotation),
+			_with_alpha(YUT_CAP_LIT.lerp(YUT_EDGE_COLOR, 0.58), alpha),
+			maxf(1.0, width * 0.065),
+			true
+		)
+
+
+func _yut_capsule_points(center: Vector2, length: float, width: float, rotation: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var half_width := width * 0.5
+	var cap_center_y := maxf(0.0, length * 0.5 - half_width)
+	for step_index: int in range(YUT_CAPSULE_ARC_STEPS + 1):
+		var angle := PI + PI * float(step_index) / float(YUT_CAPSULE_ARC_STEPS)
+		var local := Vector2(cos(angle), sin(angle)) * half_width + Vector2(0.0, -cap_center_y)
+		points.append(center + _rotated(local, rotation))
+	for step_index: int in range(YUT_CAPSULE_ARC_STEPS + 1):
+		var angle := PI * float(step_index) / float(YUT_CAPSULE_ARC_STEPS)
+		var local := Vector2(cos(angle), sin(angle)) * half_width + Vector2(0.0, cap_center_y)
 		points.append(center + _rotated(local, rotation))
 	return points
 
 
-func _die_gradient_colors(points: PackedVector2Array) -> PackedColorArray:
-	var min_y := points[0].y
-	var max_y := points[0].y
-	for point: Vector2 in points:
-		min_y = minf(min_y, point.y)
-		max_y = maxf(max_y, point.y)
-	var span := maxf(1.0, max_y - min_y)
-	var colors := PackedColorArray()
-	for point: Vector2 in points:
-		var t := clampf((point.y - min_y) / span, 0.0, 1.0)
-		if t < 0.5:
-			colors.append(DIE_BODY_LIT.lerp(DIE_BODY_MID, t / 0.5))
-		else:
-			colors.append(DIE_BODY_MID.lerp(DIE_BODY_DEEP, (t - 0.5) / 0.5))
-	return colors
-
-
-func _draw_die_rim_light(canvas: CanvasItem, center: Vector2, half: float, rotation: float, size: float) -> void:
-	var points := PackedVector2Array()
-	var steps := 9
-	for step_index: int in range(steps + 1):
-		var angle := lerpf(PI * 1.06, PI * 1.62, float(step_index) / float(steps))
-		var cosine := cos(angle)
-		var sine := sin(angle)
-		var denom: float = pow(
-			pow(absf(cosine), DIE_SUPERELLIPSE_N) + pow(absf(sine), DIE_SUPERELLIPSE_N),
-			1.0 / DIE_SUPERELLIPSE_N
-		)
-		var local := Vector2(cosine, sine) * (half * 0.86 / maxf(0.0001, denom))
-		points.append(center + _rotated(local, rotation))
-	canvas.draw_polyline(points, Color(0.88, 0.98, 1.0, 0.7), maxf(1.4, size * 0.015), true)
-
-
-func _draw_die_sparkle(canvas: CanvasItem, center: Vector2, half: float, rotation: float, pulse: float) -> void:
-	var twinkle := 0.5 + 0.5 * sin(pulse * 3.4)
-	var pos := center + _rotated(Vector2(half * 0.56, -half * 0.56), rotation)
-	var ray := half * (0.11 + 0.05 * twinkle)
-	var color := Color(0.92, 0.99, 1.0, 0.42 + 0.4 * twinkle)
-	var width := maxf(1.0, half * 0.022)
-	canvas.draw_line(pos - Vector2(ray, 0.0), pos + Vector2(ray, 0.0), color, width, true)
-	canvas.draw_line(pos - Vector2(0.0, ray), pos + Vector2(0.0, ray), color, width, true)
-	canvas.draw_circle(pos, ray * 0.26, Color.WHITE)
-
-
-func _draw_face_glyph(canvas: CanvasItem, center: Vector2, size: float, face: int) -> void:
-	# Carve a distinct Lingpet Script rune into the top face. Drawn upright (not
-	# rotated with the die) because draw_string cannot rotate without a leaked
-	# canvas transform, and the result phase settles near zero rotation anyway.
-	var key: String = FACE_GLYPHS[clampi(face, 1, 6) - 1]
-	var glyph_size: int = int(maxf(18.0, size * 0.5))
-	var glow_size: int = glyph_size + int(maxf(2.0, size * 0.03))
-	var glyph_extent: Vector2 = LINGPET_GLYPH_FONT.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1.0, glyph_size)
-	var glow_extent: Vector2 = LINGPET_GLYPH_FONT.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1.0, glow_size)
-	var base_pos: Vector2 = center - Vector2(glyph_extent.x * 0.5, -glyph_extent.y * 0.34)
-	var glow_pos: Vector2 = center - Vector2(glow_extent.x * 0.5, -glow_extent.y * 0.34)
-	# Cyan bloom halo (a slightly larger glyph behind reads as a glowing outline).
-	canvas.draw_string(LINGPET_GLYPH_FONT, glow_pos, key, HORIZONTAL_ALIGNMENT_LEFT, -1.0, glow_size, Color(0.28, 0.86, 1.0, 0.30))
-	# Engraved dark underlay offset downward for a carved-in read.
-	canvas.draw_string(LINGPET_GLYPH_FONT, base_pos + Vector2(0.0, size * 0.014), key, HORIZONTAL_ALIGNMENT_LEFT, -1.0, glyph_size, Color(0.02, 0.01, 0.08, 0.55))
-	# Starlight rune.
-	canvas.draw_string(LINGPET_GLYPH_FONT, base_pos, key, HORIZONTAL_ALIGNMENT_LEFT, -1.0, glyph_size, STARLIGHT_COLOR)
+static func _with_alpha(color: Color, alpha: float) -> Color:
+	return Color(color.r, color.g, color.b, color.a * clampf(alpha, 0.0, 1.0))
 
 
 func _draw_rolling_copy(canvas: CanvasItem, view_size: Vector2) -> void:
 	_draw_text_centered(canvas, MysticDiceLocalization.text("roll_title"), Vector2(view_size.x * 0.5, view_size.y * 0.44), _responsive_font_size(view_size, 30, 20), Color.WHITE)
-	_draw_text_centered(canvas, MysticDiceLocalization.text("rolling"), Vector2(view_size.x * 0.5, view_size.y * 0.50), _responsive_font_size(view_size, 17, 12), Color(0.68, 0.90, 1.0))
+	_draw_text_centered(canvas, MysticDiceLocalization.text("rolling"), Vector2(view_size.x * 0.5, view_size.y * 0.50), _responsive_font_size(view_size, 17, 12), Color(0.92, 0.79, 0.52))
 
 
 func _draw_result_panel(canvas: CanvasItem, modal_snapshot: Dictionary, dice_snapshot: Dictionary, view_size: Vector2) -> void:
@@ -305,16 +349,16 @@ func _draw_result_panel(canvas: CanvasItem, modal_snapshot: Dictionary, dice_sna
 	var accumulated_x: float = panel_rect.position.x + panel_rect.size.x * 0.88
 	var header_size := _responsive_font_size(view_size, 13, 10)
 	var header_y: float = panel_rect.position.y + header_height * 0.58
-	_draw_text_centered_fitted(canvas, MysticDiceLocalization.text("roll_header"), Vector2(roll_x, header_y), header_size, Color(0.68, 0.88, 1.0), (accumulated_x - roll_x) * 0.94, 8)
-	_draw_text_centered_fitted(canvas, MysticDiceLocalization.text("total_header"), Vector2(accumulated_x, header_y), header_size, Color(0.80, 0.70, 1.0), (panel_rect.end.x - accumulated_x) * 2.0 - 6.0, 8)
+	_draw_text_centered_fitted(canvas, MysticDiceLocalization.text("roll_header"), Vector2(roll_x, header_y), header_size, Color(0.90, 0.78, 0.55), (accumulated_x - roll_x) * 0.94, 8)
+	_draw_text_centered_fitted(canvas, MysticDiceLocalization.text("total_header"), Vector2(accumulated_x, header_y), header_size, Color(0.73, 0.67, 0.57), (panel_rect.end.x - accumulated_x) * 2.0 - 6.0, 8)
 	for row_index: int in range(rows.size()):
 		var row: Dictionary = rows[row_index]
 		var center_y: float = panel_rect.position.y + header_height + row_height * (float(row_index) + 0.5)
 		if row_index > 0:
-			canvas.draw_line(Vector2(panel_rect.position.x + 8.0, center_y - row_height * 0.5), Vector2(panel_rect.end.x - 8.0, center_y - row_height * 0.5), Color(0.30, 0.34, 0.55, 0.26), 1.0)
+			canvas.draw_line(Vector2(panel_rect.position.x + 8.0, center_y - row_height * 0.5), Vector2(panel_rect.end.x - 8.0, center_y - row_height * 0.5), Color(0.45, 0.36, 0.26, 0.30), 1.0)
 		var stat_key: String = str(row.get("stat_key", ""))
 		var row_font_size := _responsive_font_size(view_size, 14, 9)
-		_draw_text_fitted(canvas, MysticDiceLocalization.text(stat_key), Vector2(name_x, center_y + float(row_font_size) * 0.34), row_font_size, Color(0.86, 0.91, 1.0), maxf(80.0, roll_x - name_x - 32.0), 8)
+		_draw_text_fitted(canvas, MysticDiceLocalization.text(stat_key), Vector2(name_x, center_y + float(row_font_size) * 0.34), row_font_size, Color(0.91, 0.86, 0.75), maxf(80.0, roll_x - name_x - 32.0), 8)
 		var raw_change: int = int(row.get("raw_change", 0))
 		var accumulated_raw: int = int(row.get("accumulated_raw", 0))
 		_draw_text_centered(canvas, _signed_percent(raw_change), Vector2(roll_x, center_y), row_font_size, _value_color(int(row.get("benefit", 0))))
@@ -326,20 +370,20 @@ func _draw_result_panel(canvas: CanvasItem, modal_snapshot: Dictionary, dice_sna
 	if action_rects.has("confirm"):
 		_draw_action_button(canvas, action_rects.get("confirm", Rect2()), MysticDiceLocalization.text("confirm"), selected_action == MysticDiceModalFlow.ACTION_CONFIRM)
 	var rerolls_text := MysticDiceLocalization.format("rerolls_left", [int(modal_snapshot.get("rerolls_remaining", 0))])
-	_draw_text_centered(canvas, rerolls_text, Vector2(view_size.x * 0.5, minf(view_size.y - 18.0, first_button_y + 66.0)), _responsive_font_size(view_size, 14, 10), Color(0.70, 0.80, 0.94))
+	_draw_text_centered(canvas, rerolls_text, Vector2(view_size.x * 0.5, minf(view_size.y - 18.0, first_button_y + 66.0)), _responsive_font_size(view_size, 14, 10), Color(0.78, 0.70, 0.58))
 
 
 func _draw_action_button(canvas: CanvasItem, rect_value: Variant, label: String, selected: bool) -> void:
 	if not (rect_value is Rect2):
 		return
 	var rect: Rect2 = rect_value
-	var fill: Color = Color(0.20, 0.15, 0.42, 0.98) if selected else Color(0.07, 0.06, 0.16, 0.94)
-	var border: Color = Color(0.42, 0.92, 1.0, 1.0) if selected else Color(0.35, 0.38, 0.62, 0.76)
+	var fill: Color = Color(0.28, 0.13, 0.055, 0.98) if selected else Color(0.095, 0.055, 0.035, 0.94)
+	var border: Color = Color(0.86, 0.63, 0.27, 1.0) if selected else Color(0.48, 0.36, 0.22, 0.78)
 	canvas.draw_rect(rect, fill)
 	canvas.draw_rect(rect, border, false, 2.0 if selected else 1.0)
 	if selected:
-		canvas.draw_rect(rect.grow(3.0), Color(0.40, 0.76, 1.0, 0.16), false, 2.0)
-	_draw_text_centered(canvas, label, rect.get_center(), 16, Color.WHITE if selected else Color(0.74, 0.78, 0.88))
+		canvas.draw_rect(rect.grow(3.0), Color(0.86, 0.61, 0.24, 0.16), false, 2.0)
+	_draw_text_centered(canvas, label, rect.get_center(), 16, Color.WHITE if selected else Color(0.78, 0.72, 0.62))
 
 
 func _draw_text_fitted(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color, max_width: float, min_font_size: int) -> void:

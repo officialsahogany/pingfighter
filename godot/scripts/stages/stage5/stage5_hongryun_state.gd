@@ -4,6 +4,7 @@ const Stage5HongryunPayloadFactory := preload("res://scripts/stages/stage5/stage
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
+const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
 const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
 const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
@@ -13,6 +14,7 @@ const StarpointParticleState := preload("res://scripts/stages/common/starpoint_p
 const StarpointPayloadFactory := preload("res://scripts/stages/common/starpoint_payload_factory.gd")
 const StagePlayerInteractionRects := preload("res://scripts/stages/common/stage_player_interaction_rects.gd")
 const StagePlayfieldBounds := preload("res://scripts/stages/common/stage_playfield_bounds.gd")
+const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
 
 # Stage 5 홍련 boss state.
 #
@@ -51,10 +53,10 @@ const DRAGON_ORB_MAX := 5
 
 # === 보스 피격 스타포인트 드랍 ===
 # 홍련이 공에 맞을 때(보스 패들 접촉) 단일 굴림 1회:
-# [0, 0.02) → 2개, [0.02, 0.07) → 1개, 나머지 → 없음.
+# [0, 0.007) → 2개, [0.007, 0.025) → 1개, 나머지 → 없음.
 # per-frame 재굴림이 아니라 접촉 이벤트당 1회라 확률 복리 트랩 없음.
-const BOSS_HIT_STARPOINT_DOUBLE_CHANCE := 0.02
-const BOSS_HIT_STARPOINT_SINGLE_CHANCE := 0.05
+const BOSS_HIT_STARPOINT_DOUBLE_CHANCE := 0.007
+const BOSS_HIT_STARPOINT_SINGLE_CHANCE := 0.018
 const BOSS_HIT_STARPOINT_SCATTER_PX := 30
 # Drop 물리/수명 상수는 stage1~4 공용 값과 동일 유지.
 const STARPOINT_DROP_SIZE := 12.0
@@ -381,6 +383,11 @@ func register_fireball_hit_player(deps: Dictionary = {}) -> Dictionary:
 func register_boss_paddle_contact(ball_vel: Vector2, deps: Dictionary = {}, context: Dictionary = {}) -> Dictionary:
 	_roll_boss_hit_starpoint_drops(deps, context)
 	if inferno_ready and not inferno_active:
+		if BossSkillParryGate.try_parry("hongryun_inferno", "홍련폭염", context, deps):
+			inferno_ready = false
+			dragon_orb_count = 0.0
+			status = "charging"
+			return {"stage5_hongryun_inferno_parried": true}
 		_start_inferno(ball_vel, deps, context)
 		return {"stage5_hongryun_inferno_started": true}
 	return {}
@@ -427,7 +434,7 @@ func resolve_inferno_player_miss(pos: Vector2, deps: Dictionary = {}) -> Diction
 	}
 
 
-# 홀리베리어(바닥 무적)가 홍련폭염 trail 공을 받아냈을 때 — inferno를 종료하고
+# 금강결계(바닥 무적)가 홍련폭염 trail 공을 받아냈을 때 — inferno를 종료하고
 # 공을 normal physics로 되돌린다. inferno owned-ball은 step_motion()을 우회하므로
 # ball_update_controller가 베리어 충돌을 직접 감지해 이 entry point를 호출한다
 # (가드/미스 경로와 동일하게 _stop_inferno로 단일 cleanup을 통과시킨다).
@@ -500,6 +507,13 @@ func _update_fireball_skill(delta: float, context: Dictionary, deps: Dictionary,
 func _spawn_fireball_volley(context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
 	var perf_logger: Object = deps.get("perf_logger", null)
 	var sample_start: int = _perf_begin(perf_logger)
+	if BossSkillParryGate.try_parry("hongryun_fireball", "화염탄", context, deps):
+		fireball_cooldown_total = rng.randf_range(FIREBALL_COOLDOWN_MIN_SEC, FIREBALL_COOLDOWN_MAX_SEC)
+		fireball_cooldown = fireball_cooldown_total
+		status = "charging"
+		result["stage5_hongryun_fireball_parried"] = true
+		_perf_end(perf_logger, "physics.stage5.hongryun.fireball_spawn", sample_start)
+		return
 	var boss_origin: Vector2 = _get_boss_fireball_origin(context)
 	var target_center: Vector2 = _get_player_rect(context).get_center()
 	var count := 1
@@ -573,7 +587,18 @@ func _resolve_fireball_player_hit(pos: Vector2, context: Dictionary, deps: Dicti
 	_register_fireball_impact(pos, "player", deps)
 	if _is_boss_skill_immune(context, deps):
 		result.merge(register_fireball_parried(), true)
-		_trigger_boss_skill_parry(pos, deps)
+		_trigger_boss_skill_parry(pos, context, deps)
+		return
+
+	# 부동갑주(celestial_armor): 화염탄은 스턴+넉백을 동시에 주는 stun-bearing 히트라
+	# 전체 히트를 stun 게이트로 막는다(한 롤로 스턴·넉백 동시 스킵). proc/클렌즈 시
+	# register_fireball_hit_player(오브 충전·피격 SFX)·면역타이머까지 모두 스킵 —
+	# "웨이브는 떴는데 스턴은 먹었다"는 부분차단 버그(신고된 화염탄/우박 증상)를 봉인.
+	if PlayerKnockbackImmunity.is_cleanse_immune(deps, context):
+		result["stage5_hongryun_player_hit_blocked_by_cleanse"] = true
+		return
+	if PlayerKnockbackImmunity.try_block_player_stun(deps, context, "stage5_fireball"):
+		result["stage5_hongryun_player_hit_blocked_by_armor"] = true
 		return
 
 	result.merge(register_fireball_hit_player(deps), true)
@@ -897,6 +922,8 @@ func _is_timing_frozen(context: Dictionary) -> bool:
 func _is_boss_skill_immune(context: Dictionary, deps: Dictionary) -> bool:
 	if bool(context.get("boss_skill_immune", false)) or bool(context.get("active_item_boss_skill_immune", false)):
 		return true
+	if BossSkillParryGate.is_active(context, deps):
+		return true
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if active_item_runtime == null:
 		return false
@@ -910,7 +937,9 @@ func _is_boss_skill_immune(context: Dictionary, deps: Dictionary) -> bool:
 	return false
 
 
-func _trigger_boss_skill_parry(pos: Vector2, deps: Dictionary) -> void:
+func _trigger_boss_skill_parry(pos: Vector2, context: Dictionary, deps: Dictionary) -> void:
+	if BossSkillParryGate.try_parry("hongryun_fireball", "화염탄", context, deps, pos):
+		return
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("trigger_magic_anti_potion_parry"):
 		active_item_runtime.trigger_magic_anti_potion_parry("화염탄", pos, "hongryeon_fireball")
@@ -921,7 +950,7 @@ func _trigger_boss_skill_parry(pos: Vector2, deps: Dictionary) -> void:
 # ============================================================================
 
 # 단일 굴림 → 드랍 개수 매핑. 스모크에서 경계값 봉인용으로 public static.
-# [0, 0.02) → 2개 / [0.02, 0.07) → 1개 / [0.07, 1.0] → 0개.
+# [0, 0.007) → 2개 / [0.007, 0.025) → 1개 / [0.025, 1.0] → 0개.
 static func resolve_boss_hit_starpoint_drop_count(roll: float) -> int:
 	if roll < BOSS_HIT_STARPOINT_DOUBLE_CHANCE:
 		return 2

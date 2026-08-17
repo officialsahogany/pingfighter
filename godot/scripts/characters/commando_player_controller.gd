@@ -81,12 +81,13 @@ func update(
 
 	var movement_config: Dictionary = config.duplicate(true)
 	movement_config["special_gauge"] = next_special_gauge
-	if firearm_runtime != null and firearm_runtime.has_method("is_player_control_locked"):
+	var lingpet_mount_active := bool(movement_config.get("lingpet_mount_active", false))
+	if not lingpet_mount_active and firearm_runtime != null and firearm_runtime.has_method("is_player_control_locked"):
 		movement_config["horizontal_input_locked"] = (
 			bool(movement_config.get("horizontal_input_locked", false))
 			or bool(firearm_runtime.is_player_control_locked())
 		)
-	if firearm_runtime != null and firearm_runtime.has_method("get_movement_speed_multiplier"):
+	if not lingpet_mount_active and firearm_runtime != null and firearm_runtime.has_method("get_movement_speed_multiplier"):
 		var firearm_speed_multiplier: float = float(firearm_runtime.get_movement_speed_multiplier())
 		# Horn replaces Commando's character-specific AK slow, but an active
 		# suicide drone still owns a hard movement freeze through multiplier 0.

@@ -103,10 +103,10 @@ func _verify_missing_runtime_and_redraw() -> void:
 
 func _verify_stage_sources_delegate_reward_policy() -> void:
 	var paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage3/stage3_starpoint_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 	]
 	for path in paths:
 		var source: String = FileAccess.get_file_as_string(path)

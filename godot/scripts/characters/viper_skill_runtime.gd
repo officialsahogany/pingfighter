@@ -43,6 +43,8 @@ const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill
 const ViperSkillWallLeapRuntime := preload("res://scripts/characters/viper_skill_wall_leap_runtime.gd")
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
 const ViperPhantomKickCutinState := preload("res://scripts/characters/viper_phantom_kick_cutin_state.gd")
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+const CMD_BUFFER_MODAL_TIME_KEYS: Array[String] = ["time"]
 const CHAOS_FX_DISK_HEIGHT := 220.0
 const SHADOW_STEP := "shadow_step"; const MARSHAL_KICK := "marshal_kick"; const PHANTOM_KICK := "phantom_kick"; const DOUBLE_MARSHAL_KICK := "double_marshal_kick"
 const BLADE_RUSH := "blade_rush"; const DARK_BLADE := "dark_blade"; const NERVE_STRIKE := "nerve_strike"; const CHAOS_SPEAR := "chaos_spear"; const CORE_FLIP := "core_flip"
@@ -74,6 +76,7 @@ const BLADE_FADEOUT_FRAMES := 30.0; const BLADE_TRAIL_MAX := 20; const BLADE_FOL
 # tightened to 60f (1s) for a continuous-combo chain feel (2026-06-11 design decision).
 const BLADE_COMBO_DELAY_FRAMES := 30.0; const BLADE_DASH_RELEASE_DELAY_FRAMES := 18.0; const DARK_BLADE_WINDOW_FRAMES := 60.0; const DARK_BLADE_DEFAULT_BALL_SIZE := 28.6; const BLADE_HIT_GOLD := 30
 const AIR_BLADE_MAX_BALL_SPEED := 40.0; const DARK_BLADE_MAX_BALL_SPEED := 50.0; const AIR_BLADE_HIT_SPEED_MULT := 2.1; const DARK_BLADE_HIT_SPEED_MULT := 2.4
+const AIR_BLADE_CURVE_FRAMES := 24.0; const AIR_BLADE_CURVE_FORCE := 4.0
 const AIR_BLADE_HIT_SHAKE_AMOUNT := 0.15; const DARK_BLADE_HIT_SHAKE_AMOUNT := 0.20; const AIR_BLADE_HIT_SHAKE_INTENSITY := 4.8; const DARK_BLADE_HIT_SHAKE_INTENSITY := 6.0
 const AIR_BLADE_HIT_PULSE_KIND := "viper_blade"; const DARK_BLADE_HIT_PULSE_KIND := "viper_dark_blade"; const AIR_BLADE_HIT_PULSE_INTENSITY := 0.86; const DARK_BLADE_HIT_PULSE_INTENSITY := 1.0
 const AIR_BLADE_FALLBACK_HIT_COLOR := Color(1.0, 0.38, 1.0, 1.0); const DARK_BLADE_FALLBACK_HIT_COLOR := Color(1.0, 0.16, 0.24, 1.0)
@@ -229,6 +232,7 @@ var emp_fx_host: Node = null; var emp_fx_host_add_pending := false; var chaos_re
 var chaos_ball_motion_owned := false
 var viper_hologram_attack_left_sheet: Texture2D; var viper_hologram_attack_right_sheet: Texture2D
 var _asset_prewarm_step_index := 0
+var _runtime_perk_modal_pause_started_msec := -1
 func _init() -> void:
 	pass
 func prewarm_assets() -> void:
@@ -264,7 +268,51 @@ func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
 	prewarm_runtime_nodes(owner)
 	return true
 func reset() -> void: reset_round({"preserve_ignition_aura": false, "preserve_dual_glitch": false})
-func reset_round(deps: Dictionary = {}) -> void: ViperSkillResetRuntime.reset_round(self, deps, {"core_flip_input_frame_unset": CORE_FLIP_INPUT_FRAME_UNSET, "shadow_step_activation_unset_msec": -100000, "ignition_duration_frames": IGNITION_DURATION_FRAMES})
+func reset_round(deps: Dictionary = {}) -> void:
+	# 라운드가 끝나면 밀어 줄 살아있는 앵커가 없다 — 마커를 남기면 다음 resume 이
+	# 새 라운드 상태를 엉뚱하게 민다.
+	_runtime_perk_modal_pause_started_msec = -1
+	ViperSkillResetRuntime.reset_round(self, deps, {"core_flip_input_frame_unset": CORE_FLIP_INPUT_FRAME_UNSET, "shadow_step_activation_unset_msec": -100000, "ignition_duration_frames": IGNITION_DURATION_FRAMES})
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(_runtime_perk_modal_pause_started_msec, current_msec)
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	shadow_step_activation_msec = RuntimePerkModalTimeShift.shift_anchor(shadow_step_activation_msec, delta_msec)
+	dive_hold_start_msec = RuntimePerkModalTimeShift.shift_anchor(dive_hold_start_msec, delta_msec)
+	dive_effect_start_msec = RuntimePerkModalTimeShift.shift_anchor(dive_effect_start_msec, delta_msec)
+	dive_shockwave_spawn_msec = RuntimePerkModalTimeShift.shift_anchor(dive_shockwave_spawn_msec, delta_msec)
+	dive_hit_feedback_msec = RuntimePerkModalTimeShift.shift_anchor(dive_hit_feedback_msec, delta_msec)
+	ignition_hold_start_msec = RuntimePerkModalTimeShift.shift_anchor(ignition_hold_start_msec, delta_msec)
+	ignition_start_msec = RuntimePerkModalTimeShift.shift_anchor(ignition_start_msec, delta_msec)
+	dual_glitch_start_msec = RuntimePerkModalTimeShift.shift_anchor(dual_glitch_start_msec, delta_msec)
+	marshal_activation_msec = RuntimePerkModalTimeShift.shift_anchor(marshal_activation_msec, delta_msec)
+	marshal_hit_msec = RuntimePerkModalTimeShift.shift_anchor(marshal_hit_msec, delta_msec)
+	core_flip_ready_msec = RuntimePerkModalTimeShift.shift_anchor(core_flip_ready_msec, delta_msec)
+	core_flip_buffered_until_msec = RuntimePerkModalTimeShift.shift_anchor(core_flip_buffered_until_msec, delta_msec)
+	core_flip_last_dash_start_msec = RuntimePerkModalTimeShift.shift_anchor(core_flip_last_dash_start_msec, delta_msec)
+	# 커맨드 버퍼 항목의 나이(now - time)로 시퀀스 유효성을 재므로 같이 밀지 않으면
+	# 모달을 닫는 순간 입력 시퀀스가 통째로 만료된다.
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(dual_glitch_cmd_buffer, CMD_BUFFER_MODAL_TIME_KEYS, delta_msec)
+	RuntimePerkModalTimeShift.shift_dict_array_anchors(chaos_cmd_buffer, CMD_BUFFER_MODAL_TIME_KEYS, delta_msec)
+# 모달 중에도 HUD 스냅샷 / 툴팁은 계속 그려지며 실시간 `Time.get_ticks_msec()` 로
+# 창 판정을 묻는다. 그 질의가 만료로 떨어지면 `_is_core_flip_ready_window_active`
+# 가 창을 **영구히 지워버리므로**(읽기가 상태를 바꾼다) 정지 중에는 얼어붙은
+# 시각으로 답한다.
+func _resolve_runtime_perk_modal_effective_msec(now_msec: int) -> int:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return now_msec
+	return mini(now_msec, _runtime_perk_modal_pause_started_msec)
 func _clear_dmk_presentation_state() -> void: dmk_freeze_active = false; dmk_freeze_frames = 0.0; dmk_text_active = false; dmk_text_frames = 0.0
 func open_marshal_kick_window(from_shadow_step_chain: bool = false, from_core_flip_chain: bool = false) -> void:
 	if marshal_active:
@@ -377,9 +425,10 @@ func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 		core_flip_dark_blade_handoff_frames = 0.0; core_flip_miss_text_timer = 0.0; core_flip_miss_text_pos = Vector2.ZERO
 	core_flip_web_lines.clear()
 func _is_core_flip_ready_window_active(now_msec: int) -> bool:
+	var effective_msec: int = _resolve_runtime_perk_modal_effective_msec(now_msec)
 	if core_flip_ready_msec <= 0 or core_flip_consumed or (core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC and core_flip_ready_msec < core_flip_last_dash_start_msec):
 		return false
-	if now_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC:
+	if effective_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC:
 		core_flip_ready_msec = 0; core_flip_buffered_until_msec = 0
 		return false
 	return true
@@ -535,7 +584,7 @@ func _trigger_configured_skill_cooldown(skill_name: String, skill_config: Object
 	var skill_state: Object = visibility_query.get_viper_skill_state(deps)
 	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
 		skill_state.trigger_configured_cooldown(skill_name, now_msec, skill_config)
-func _get_blade_motion_runtime_constants() -> Dictionary: return {"blade_rush": BLADE_RUSH, "dark_blade": DARK_BLADE, "marshal_kick": MARSHAL_KICK, "phantom_kick": PHANTOM_KICK, "spin_frames": BLADE_SPIN_FRAMES, "decel_frames": BLADE_DECEL_FRAMES, "rest_frames": BLADE_REST_FRAMES, "dark_rest_frames": BLADE_DARK_REST_FRAMES, "dark_spin_mult": BLADE_DARK_SPIN_MULT, "dark_time_mult": BLADE_DARK_TIME_MULT, "normal_spin_turns": BLADE_NORMAL_SPIN_TURNS, "dark_spin_turns": BLADE_DARK_SPIN_TURNS, "projectile_speed": BLADE_PROJECTILE_SPEED, "base_width": BLADE_BASE_WIDTH, "base_range": BLADE_BASE_RANGE, "hitbox_height": BLADE_HITBOX_HEIGHT, "dark_hitbox_height": BLADE_DARK_HITBOX_HEIGHT, "fadeout_frames": BLADE_FADEOUT_FRAMES, "trail_max": BLADE_TRAIL_MAX, "followup_trail_max": BLADE_FOLLOWUP_TRAIL_MAX, "followup_start_y_offset": BLADE_FOLLOWUP_START_Y_OFFSET, "combo_delay_frames": BLADE_COMBO_DELAY_FRAMES, "dark_window_frames": DARK_BLADE_WINDOW_FRAMES, "dark_default_ball_size": DARK_BLADE_DEFAULT_BALL_SIZE, "hit_gold": BLADE_HIT_GOLD, "air_max_ball_speed": AIR_BLADE_MAX_BALL_SPEED, "dark_max_ball_speed": DARK_BLADE_MAX_BALL_SPEED, "air_hit_speed_mult": AIR_BLADE_HIT_SPEED_MULT, "dark_hit_speed_mult": DARK_BLADE_HIT_SPEED_MULT, "air_hit_shake_amount": AIR_BLADE_HIT_SHAKE_AMOUNT, "dark_hit_shake_amount": DARK_BLADE_HIT_SHAKE_AMOUNT, "air_hit_shake_intensity": AIR_BLADE_HIT_SHAKE_INTENSITY, "dark_hit_shake_intensity": DARK_BLADE_HIT_SHAKE_INTENSITY, "air_hit_pulse_kind": AIR_BLADE_HIT_PULSE_KIND, "dark_hit_pulse_kind": DARK_BLADE_HIT_PULSE_KIND, "air_hit_pulse_intensity": AIR_BLADE_HIT_PULSE_INTENSITY, "dark_hit_pulse_intensity": DARK_BLADE_HIT_PULSE_INTENSITY, "air_fallback_hit_color": AIR_BLADE_FALLBACK_HIT_COLOR, "dark_fallback_hit_color": DARK_BLADE_FALLBACK_HIT_COLOR, "air_fallback_particle_intensity": AIR_BLADE_FALLBACK_PARTICLE_INTENSITY, "dark_fallback_particle_intensity": DARK_BLADE_FALLBACK_PARTICLE_INTENSITY, "air_fallback_explosion_scale": AIR_BLADE_FALLBACK_EXPLOSION_SCALE, "dark_fallback_explosion_scale": DARK_BLADE_FALLBACK_EXPLOSION_SCALE, "air_fallback_explosion_intensity": AIR_BLADE_FALLBACK_EXPLOSION_INTENSITY, "dark_fallback_explosion_intensity": DARK_BLADE_FALLBACK_EXPLOSION_INTENSITY, "player_collision_cooldown": BLADE_HIT_PLAYER_COLLISION_COOLDOWN, "amp_followup_width_scale": BLADE_AMP_FOLLOWUP_WIDTH_SCALE, "amp_followup_range_scale": BLADE_AMP_FOLLOWUP_RANGE_SCALE, "amp_followup_hit_speed_scale": BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE, "amp_followup_min_width": BLADE_AMP_FOLLOWUP_MIN_WIDTH, "dual_glitch_replica_min_scale": BLADE_DUAL_GLITCH_REPLICA_MIN_SCALE, "dual_glitch_replica_hit_speed_scale": BLADE_DUAL_GLITCH_REPLICA_HIT_SPEED_SCALE, "prep_fall_speed": BLADE_PREP_FALL_SPEED, "airborne_move_bonus_max": BLADE_AIRBORNE_MOVE_BONUS_MAX, "jetpack_max_height": BLADE_JETPACK_MAX_HEIGHT, "dark_post_fire_lateral_scale": BLADE_DARK_POST_FIRE_LATERAL_SCALE, "combo_pop_min_offset": BLADE_COMBO_POP_MIN_OFFSET, "combo_pop_extra": BLADE_COMBO_POP_EXTRA, "dark_auto_fire_start_frames": DARK_BLADE_AUTO_FIRE_START_FRAMES, "dark_auto_fire_end_frames": DARK_BLADE_AUTO_FIRE_END_FRAMES, "dark_auto_fire_near_y": DARK_BLADE_AUTO_FIRE_NEAR_Y, "air_rise_frames": BLADE_AIR_RISE_FRAMES, "dark_rise_frames": BLADE_DARK_RISE_FRAMES, "air_jump_peak": BLADE_AIR_JUMP_PEAK, "dark_jump_peak": BLADE_DARK_JUMP_PEAK, "marshal_ready_frames": MARSHAL_KICK_READY_FRAMES}
+func _get_blade_motion_runtime_constants() -> Dictionary: return {"blade_rush": BLADE_RUSH, "dark_blade": DARK_BLADE, "marshal_kick": MARSHAL_KICK, "phantom_kick": PHANTOM_KICK, "spin_frames": BLADE_SPIN_FRAMES, "decel_frames": BLADE_DECEL_FRAMES, "rest_frames": BLADE_REST_FRAMES, "dark_rest_frames": BLADE_DARK_REST_FRAMES, "dark_spin_mult": BLADE_DARK_SPIN_MULT, "dark_time_mult": BLADE_DARK_TIME_MULT, "normal_spin_turns": BLADE_NORMAL_SPIN_TURNS, "dark_spin_turns": BLADE_DARK_SPIN_TURNS, "projectile_speed": BLADE_PROJECTILE_SPEED, "base_width": BLADE_BASE_WIDTH, "base_range": BLADE_BASE_RANGE, "hitbox_height": BLADE_HITBOX_HEIGHT, "dark_hitbox_height": BLADE_DARK_HITBOX_HEIGHT, "fadeout_frames": BLADE_FADEOUT_FRAMES, "trail_max": BLADE_TRAIL_MAX, "followup_trail_max": BLADE_FOLLOWUP_TRAIL_MAX, "followup_start_y_offset": BLADE_FOLLOWUP_START_Y_OFFSET, "combo_delay_frames": BLADE_COMBO_DELAY_FRAMES, "dark_window_frames": DARK_BLADE_WINDOW_FRAMES, "dark_default_ball_size": DARK_BLADE_DEFAULT_BALL_SIZE, "hit_gold": BLADE_HIT_GOLD, "air_max_ball_speed": AIR_BLADE_MAX_BALL_SPEED, "dark_max_ball_speed": DARK_BLADE_MAX_BALL_SPEED, "air_hit_speed_mult": AIR_BLADE_HIT_SPEED_MULT, "dark_hit_speed_mult": DARK_BLADE_HIT_SPEED_MULT, "air_curve_frames": AIR_BLADE_CURVE_FRAMES, "air_curve_force": AIR_BLADE_CURVE_FORCE, "air_hit_shake_amount": AIR_BLADE_HIT_SHAKE_AMOUNT, "dark_hit_shake_amount": DARK_BLADE_HIT_SHAKE_AMOUNT, "air_hit_shake_intensity": AIR_BLADE_HIT_SHAKE_INTENSITY, "dark_hit_shake_intensity": DARK_BLADE_HIT_SHAKE_INTENSITY, "air_hit_pulse_kind": AIR_BLADE_HIT_PULSE_KIND, "dark_hit_pulse_kind": DARK_BLADE_HIT_PULSE_KIND, "air_hit_pulse_intensity": AIR_BLADE_HIT_PULSE_INTENSITY, "dark_hit_pulse_intensity": DARK_BLADE_HIT_PULSE_INTENSITY, "air_fallback_hit_color": AIR_BLADE_FALLBACK_HIT_COLOR, "dark_fallback_hit_color": DARK_BLADE_FALLBACK_HIT_COLOR, "air_fallback_particle_intensity": AIR_BLADE_FALLBACK_PARTICLE_INTENSITY, "dark_fallback_particle_intensity": DARK_BLADE_FALLBACK_PARTICLE_INTENSITY, "air_fallback_explosion_scale": AIR_BLADE_FALLBACK_EXPLOSION_SCALE, "dark_fallback_explosion_scale": DARK_BLADE_FALLBACK_EXPLOSION_SCALE, "air_fallback_explosion_intensity": AIR_BLADE_FALLBACK_EXPLOSION_INTENSITY, "dark_fallback_explosion_intensity": DARK_BLADE_FALLBACK_EXPLOSION_INTENSITY, "player_collision_cooldown": BLADE_HIT_PLAYER_COLLISION_COOLDOWN, "amp_followup_width_scale": BLADE_AMP_FOLLOWUP_WIDTH_SCALE, "amp_followup_range_scale": BLADE_AMP_FOLLOWUP_RANGE_SCALE, "amp_followup_hit_speed_scale": BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE, "amp_followup_min_width": BLADE_AMP_FOLLOWUP_MIN_WIDTH, "dual_glitch_replica_min_scale": BLADE_DUAL_GLITCH_REPLICA_MIN_SCALE, "dual_glitch_replica_hit_speed_scale": BLADE_DUAL_GLITCH_REPLICA_HIT_SPEED_SCALE, "prep_fall_speed": BLADE_PREP_FALL_SPEED, "airborne_move_bonus_max": BLADE_AIRBORNE_MOVE_BONUS_MAX, "jetpack_max_height": BLADE_JETPACK_MAX_HEIGHT, "dark_post_fire_lateral_scale": BLADE_DARK_POST_FIRE_LATERAL_SCALE, "combo_pop_min_offset": BLADE_COMBO_POP_MIN_OFFSET, "combo_pop_extra": BLADE_COMBO_POP_EXTRA, "dark_auto_fire_start_frames": DARK_BLADE_AUTO_FIRE_START_FRAMES, "dark_auto_fire_end_frames": DARK_BLADE_AUTO_FIRE_END_FRAMES, "dark_auto_fire_near_y": DARK_BLADE_AUTO_FIRE_NEAR_Y, "air_rise_frames": BLADE_AIR_RISE_FRAMES, "dark_rise_frames": BLADE_DARK_RISE_FRAMES, "air_jump_peak": BLADE_AIR_JUMP_PEAK, "dark_jump_peak": BLADE_DARK_JUMP_PEAK, "marshal_ready_frames": MARSHAL_KICK_READY_FRAMES}
 func _start_blade_motion(player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, dark_mode: bool, now_msec: int, trigger_cooldown: bool = true, pop_up_from_combo: bool = false) -> Dictionary: return ViperSkillBladeMotionRuntime.start_motion(self, player_pos, special_gauge, config, deps, dark_mode, now_msec, trigger_cooldown, pop_up_from_combo, _get_blade_motion_runtime_constants())
 func _enter_blade_spin_phase() -> void: ViperSkillBladeMotionRuntime.enter_spin_phase(self)
 func _reset_blade_motion_combo_windows() -> void: ViperSkillBladeMotionRuntime.reset_combo_windows(self)

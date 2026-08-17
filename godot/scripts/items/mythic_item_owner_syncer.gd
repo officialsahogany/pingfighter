@@ -100,6 +100,7 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("odins_eye_context", runtime.get_odins_eye_context())
 	owner.set("odins_eye_move_speed_multiplier", runtime.get_odins_eye_move_speed_multiplier())
 	owner.set("odins_eye_dash_token_limit", runtime.get_odins_eye_dash_token_limit_override())
+	owner.set("odins_eye_dash_distance_multiplier", runtime.get_odins_eye_dash_distance_multiplier())
 	owner.set("odins_eye_dash_cooldown_multiplier", runtime.get_odins_eye_dash_cooldown_multiplier())
 	owner.set("odins_eye_death_phase", runtime.get_odins_eye_death_phase())
 	owner.set("odins_eye_death_overall_progress", runtime.get_odins_eye_death_overall_progress())
@@ -134,6 +135,7 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("bulletproof_hat_equipped", runtime.is_bulletproof_hat_equipped())
 	owner.set("bulletproof_hat_stun_resist_pct", runtime.get_bulletproof_hat_stun_resist_pct())
 	owner.set("player_stun_resist_pct", runtime.get_player_stun_resist_pct())
+	owner.set("player_posture_correction_pct", runtime.get_player_posture_correction_pct())
 	owner.set("spiked_helmet_equipped", runtime.is_spiked_helmet_equipped())
 	owner.set("spiked_helmet_knockback_resist_pct", runtime.get_spiked_helmet_knockback_resist_pct())
 	owner.set("player_knockback_resist_pct", runtime.get_player_knockback_resist_pct())
@@ -582,8 +584,8 @@ func sync_boomerang_active_slot_visuals(runtime: Object, owner: Object, constant
 		return
 	var slots: Array = slots_value
 	var use_metal: bool = _is_reinforced_boomerang_gauntlet_effect_active(runtime)
-	var normal_icon_path: String = str(constants.get("boomerang_icon_path", "res://assets/sprites/items/boomerang.png"))
-	var metal_icon_path: String = str(constants.get("boomerang_metal_icon_path", "res://assets/sprites/items/boomerang_metal.png"))
+	var normal_icon_path: String = str(constants.get("boomerang_icon_path", "res://assets/sprites/items/boomerang_icon_hq_v1.png"))
+	var metal_icon_path: String = str(constants.get("boomerang_metal_icon_path", "res://assets/sprites/items/boomerang_metal_icon_hq_v1.png"))
 	var changed := false
 	for i in range(slots.size()):
 		if not (slots[i] is Dictionary):
@@ -685,7 +687,7 @@ func sync_skill_cooldown_to_configs(runtime: Object, registry: Object) -> void:
 		return
 	var multiplier: float = runtime.get_player_skill_cooldown_multiplier()
 	var skill_slot_bonus: int = runtime.get_heavenly_cape_skill_slot_bonus()
-	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config", "blacksmith_skill_config"]:
+	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config", "blacksmith_skill_config", "optimus_skill_config"]:
 		var skill_config: Object = runtime._get_instance(registry, key)
 		if skill_config != null and skill_config.has_method("set_item_cooldown_multiplier"):
 			skill_config.set_item_cooldown_multiplier(multiplier)
@@ -752,8 +754,13 @@ func sync_player_status_resistance_to_movement(runtime: Object, registry: Object
 	if registry == null:
 		return
 	var movement_state: Object = runtime._get_instance(registry, "player_movement_state")
-	if movement_state != null and movement_state.has_method("set_knockback_resist_pct"):
+	if movement_state != null and movement_state.has_method("set_posture_correction_pct"):
+		movement_state.set_posture_correction_pct(runtime.get_player_knockback_resist_pct())
+	elif movement_state != null and movement_state.has_method("set_knockback_resist_pct"):
 		movement_state.set_knockback_resist_pct(runtime.get_player_knockback_resist_pct())
+	var status_state: Object = runtime._get_instance(registry, "status_effect_state")
+	if status_state != null and status_state.has_method("set_player_posture_correction_pct"):
+		status_state.set_player_posture_correction_pct(runtime.get_player_stun_resist_pct())
 
 
 func sync_gold_digger_to_runtime_perk_state(runtime: Object, registry: Object) -> void:

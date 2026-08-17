@@ -295,33 +295,6 @@ func apply_monkey_blessing_choice_from_runtime_state(
 	)
 
 
-func apply_treasure_hunt_choice(
-	instant_rewards: Object,
-	owner: Object,
-	registry: Object,
-	get_instance: Callable
-) -> Dictionary:
-	if instant_rewards == null or not instant_rewards.has_method("apply_treasure_hunt_choice"):
-		return {"accepted": false}
-	return instant_rewards.apply_treasure_hunt_choice(owner, registry, get_instance)
-
-
-func apply_treasure_hunt_choice_from_runtime_state(
-	runtime_state: Object,
-	owner: Object,
-	registry: Object
-) -> Dictionary:
-	var get_instance := _build_runtime_state_get_instance(runtime_state)
-	if not get_instance.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_get_instance_callback"}
-	return apply_treasure_hunt_choice(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
-		owner,
-		registry,
-		get_instance
-	)
-
-
 func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
 	if runtime_state == null:
 		return null

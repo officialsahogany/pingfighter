@@ -269,7 +269,7 @@ func _build_fixture(pending_count: int, first_roll_units: Array) -> Dictionary:
 	state.choice_active = true
 	state.animation_time = 10.0
 	state.current_choice_context = {"source": "battle_starpoint"}
-	state.current_choices = [MysticDiceOfferPlanner.build_card(_gold_card()), _gold_card()]
+	state.current_choices = [MysticDiceOfferPlanner.build_card(), _gold_card()]
 	state.selected_index = 0
 	# Start uses a forced pure-roll payload so this smoke never depends on RNG.
 	state._begin_mystic_dice_modal(state.current_choices[0], registry, first_roll_units)

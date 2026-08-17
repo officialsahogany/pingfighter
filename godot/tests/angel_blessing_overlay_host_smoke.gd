@@ -27,8 +27,8 @@ func _run() -> void:
 
 	_verify_pipeline_and_clip_contract(host)
 	_verify_phase_boundaries(host)
-	_verify_dice_toss_and_wings(host)
-	_verify_dice_three_piece_layers(host)
+	_verify_hwangyeokjeon_omen_reading(host)
+	_verify_omen_modular_layers(host)
 	_verify_absorption_projection(host)
 	await _verify_letterbox_clip_when_available(viewport, host)
 	_verify_explicit_and_static_cleanup(viewport, host)
@@ -40,11 +40,18 @@ func _run() -> void:
 func _verify_pipeline_and_clip_contract(host: Node2D) -> void:
 	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
 	_expect(bool(pipeline.get("icon_ready", false)), "Angel overlay should prewarm its dedicated icon texture")
+	_expect(bool(pipeline.get("omen_identity_ready", false)), "천운삼괘 overlay should prewarm its static seal and 8-frame omen sheet")
+	_expect(str(pipeline.get("style_family", "")) == "hwangyeokjeon_divination", "천운삼괘 overlay should declare the 환격전 divination style family")
+	_expect(not bool(pipeline.get("legacy_dice_assets_required", true)), "환격전 천운삼괘 presentation must not require dice or angel-wing assets")
 	_expect(bool(pipeline.get("texture_layers_ready", false)), "Angel overlay should prewarm its modular texture layers")
 	_expect(bool(pipeline.get("particle_texture_ready", false)), "Angel overlay should prewarm its particle texture")
 	_expect(bool(pipeline.get("shader_ready", false)), "Angel overlay should prewarm its halo shader")
 	_expect(int(pipeline.get("texture_layer_count", 0)) >= 3, "Angel overlay should expose at least three texture pieces")
 	_expect(int(pipeline.get("gpu_particle_layer_count", 0)) >= 2, "Angel overlay should expose its ambient and absorb particle layers")
+	var source := FileAccess.get_file_as_string("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
+	_expect(source.find("angel_blessing_perk_icon_sheet.png") >= 0, "천운삼괘 live host should use the rebranded 8-frame omen seal sheet")
+	for retired_asset: String in ["angel_dice_backplate", "angel_dice_arc", "angel_dice_die", "angel_dice_wing"]:
+		_expect(source.find(retired_asset) < 0, "천운삼괘 live host must not load retired Ringpia asset %s" % retired_asset)
 
 	var status: Dictionary = host.get_debug_status()
 	_expect(not bool(status.get("process_enabled", true)), "controller-driven Angel overlay host must keep its own process disabled")
@@ -55,14 +62,14 @@ func _verify_pipeline_and_clip_contract(host: Node2D) -> void:
 
 func _verify_phase_boundaries(host: Node2D) -> void:
 	var cases := [
-		{"elapsed": 0.0, "phase": "descent"},
-		{"elapsed": 0.599, "phase": "descent"},
-		{"elapsed": 0.60, "phase": "rolling"},
-		{"elapsed": 2.249, "phase": "rolling"},
+		{"elapsed": 0.0, "phase": "unseal"},
+		{"elapsed": 0.599, "phase": "unseal"},
+		{"elapsed": 0.60, "phase": "divination"},
+		{"elapsed": 2.249, "phase": "divination"},
 		{"elapsed": 2.25, "phase": "settle"},
 		{"elapsed": 2.699, "phase": "settle"},
-		{"elapsed": 2.70, "phase": "highlight"},
-		{"elapsed": 2.999, "phase": "highlight"},
+		{"elapsed": 2.70, "phase": "reveal"},
+		{"elapsed": 2.999, "phase": "reveal"},
 		{"elapsed": 3.0, "phase": "wait_confirm"},
 	]
 	for case_value: Variant in cases:
@@ -81,82 +88,72 @@ func _verify_phase_boundaries(host: Node2D) -> void:
 		)
 
 
-func _verify_dice_toss_and_wings(host: Node2D) -> void:
+func _verify_hwangyeokjeon_omen_reading(host: Node2D) -> void:
 	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
-	_expect(bool(pipeline.get("dice_toss_ready", false)), "Angel overlay should prewarm the separated die + wing textures for the toss animation")
-	_expect(bool(pipeline.get("wing_flap_sheet_ready", false)), "Angel overlay should prewarm the AutoSprite wing flap sheet (양쪽 날갯짓 애니메이션)")
+	_expect(bool(pipeline.get("omen_identity_ready", false)), "천운삼괘 should load the rebranded divination seal identity")
 
-	# 날갯짓은 정적 회전 오실레이션이 아니라 AutoSprite 시트 프레임 재생: 시간이
-	# 지나면 프레임 인덱스가 순환해야 하고 항상 유효 범위(0..15)여야 한다.
-	var wf_a := int(host._wing_flap_frame(0.80))
-	var wf_b := int(host._wing_flap_frame(1.20))
-	_expect(wf_a >= 0 and wf_a < 16 and wf_b >= 0 and wf_b < 16, "wing flap frame index must stay within the 16-frame sheet")
-	_expect(wf_a != wf_b, "wing flap should advance frames over time (프레임 재생 펄럭)")
+	# 새 8프레임 괘문 시트는 점괘를 읽는 동안 순환하고, 결과 공개 뒤에는 마지막
+	# 인장 프레임에 안착한다. 날개 시트나 주사위 텀블이 다시 들어오지 못하게 봉인한다.
+	var frame_a := int(host._omen_sheet_frame(0.80))
+	var frame_b := int(host._omen_sheet_frame(1.20))
+	var frame_settled := int(host._omen_sheet_frame(3.20))
+	_expect(frame_a >= 0 and frame_a < 8 and frame_b >= 0 and frame_b < 8, "omen sheet frame must stay within the 8-frame seal sheet")
+	_expect(frame_a != frame_b, "omen seal should animate while the three omens are being read")
+	_expect(frame_settled == 7, "omen seal should settle on its final frame after the result reveal")
 
-	# 주사위는 중앙에서 위로 던져졌다 낙하한다: rolling 중 정점에서 위(음수 오프셋),
-	# settle/wait_confirm에서는 0(안착). 날개 펄럭은 좌우 대칭이므로 여기서는 주사위
-	# 토스 궤적의 형태만 봉인한다(위로 던졌다 떨어지는 계약).
-	var toss_rolling := float(host._die_toss_offset(0.90))
-	var toss_settle := float(host._die_toss_offset(2.40))
-	var toss_rest := float(host._die_toss_offset(3.20))
-	_expect(toss_rolling < -20.0, "die should be tossed clearly UP (negative offset) during the rolling phase, got %.1f" % toss_rolling)
-	_expect(is_equal_approx(toss_settle, 0.0), "die should have landed (offset 0) by the settle phase, got %.1f" % toss_settle)
-	_expect(is_equal_approx(toss_rest, 0.0), "die should rest at center (offset 0) in wait_confirm, got %.1f" % toss_rest)
-	# 텀블은 rolling 동안 계속 진행(엔진측 회전).
-	var tumble_a := float(host._die_tumble(0.80, 1.0))
-	var tumble_b := float(host._die_tumble(1.80, 1.0))
-	_expect(absf(tumble_b - tumble_a) > 1.0, "die tumble rotation should advance through the rolling phase")
+	# 세 괘패는 점괘를 읽는 동안 중심을 공전하다 settle에서 안쪽으로 모인다.
+	var orbiting := host._omen_token_position(1.20, 0) as Vector2
+	var settled := host._omen_token_position(2.60, 0) as Vector2
+	_expect(orbiting.distance_to(Vector2(380.0, 302.0)) > 100.0, "omen token should orbit clearly outside the center seal during divination")
+	_expect(settled.distance_to(Vector2(380.0, 302.0)) < orbiting.distance_to(Vector2(380.0, 302.0)), "omen token should gather inward during settle")
 
 
-func _verify_dice_three_piece_layers(host: Node2D) -> void:
+func _verify_omen_modular_layers(host: Node2D) -> void:
 	var pipeline: Dictionary = AngelBlessingRollOverlayHost.build_pipeline_status()
-	_expect(bool(pipeline.get("dice_layers_ready", false)), "Angel overlay should prewarm both dice texture pieces (backplate + arc)")
-	_expect(bool(pipeline.get("dice_arc_shader_ready", false)), "Angel dice arc should have the writhe-ember shader plus both angel presets")
-	_expect(int(pipeline.get("gpu_particle_layer_count", 0)) >= 3, "Angel overlay should expose the dedicated dice burst particle layer")
+	_expect(bool(pipeline.get("omen_aura_ready", false)), "천운삼괘 should prewarm the ritual aura texture layer")
+	_expect(int(pipeline.get("gpu_particle_layer_count", 0)) >= 3, "천운삼괘 should expose the dedicated omen burst particle layer")
 
 	# rolling 진입: 서지 프리셋 + 호 가시화 + 버스트 원샷.
 	host.sync_state(_modal_snapshot(0.30), Vector2(380.0, 690.0), _layout())
 	host.sync_state(_modal_snapshot(0.80), Vector2(380.0, 690.0), _layout())
 	var rolling_status: Dictionary = host.get_debug_status()
-	_expect(bool(rolling_status.get("dice_arc_visible", false)), "dice arc light layer should be visible while rolling")
-	_expect(str(rolling_status.get("dice_arc_preset", "")) == "angel_dice_roll_surge", "rolling phase should switch the arc to the surge preset")
-	_expect(bool(rolling_status.get("dice_arc_above_bridge", false)), "dice arc light must sit above the draw bridge so the opaque panel cannot bury it")
-	_expect(bool(rolling_status.get("dice_arc_uses_writhe_shader", false)), "dice arc must reuse the shared writhe-ember shader family")
-	_expect(bool(rolling_status.get("dice_burst_emitting", false)), "entering the rolling phase should fire the dice burst particles")
-	var rolling_rotation := float(rolling_status.get("dice_arc_rotation", 0.0))
+	_expect(bool(rolling_status.get("omen_aura_visible", false)), "ritual aura should be visible while the omens are being read")
+	_expect(bool(rolling_status.get("omen_aura_above_bridge", false)), "ritual aura must sit above the draw bridge so the opaque panel cannot bury it")
+	_expect(bool(rolling_status.get("omen_burst_emitting", false)), "entering divination should fire the omen burst particles")
+	_expect(str(rolling_status.get("style_family", "")) == "hwangyeokjeon_divination", "live host status should identify the 환격전 divination style")
+	var rolling_rotation := float(rolling_status.get("omen_aura_rotation", 0.0))
 
 	# 텀블 리듬: rolling 중 회전이 계속 진행되어야 한다(엔진측 모션).
 	host.sync_state(_modal_snapshot(1.60), Vector2(380.0, 690.0), _layout())
 	var later_status: Dictionary = host.get_debug_status()
 	_expect(
-		absf(float(later_status.get("dice_arc_rotation", 0.0)) - rolling_rotation) > 0.5,
-		"dice arc rotation should advance with the tumble rhythm during rolling"
+		absf(float(later_status.get("omen_aura_rotation", 0.0)) - rolling_rotation) > 0.15,
+		"ritual aura rotation should advance while the three omens are being read"
 	)
 
 	# 호 크기 회귀 가드: TextureRect는 texture 지정으로 min_size가 원본(768)이 되면
 	# 이후 size 축소가 되돌려져 네이티브로 렌더되는 함정이 있다(라이브 픽셀 QA에서
 	# 발견). Sprite2D + 명시 scale이라 실측 span이 DICE_ARC_SIZE 근처여야 한다.
 	# settle_pop(최대 1.12배)까지 감안해 상한을 잡고, 네이티브 768 폭은 반드시 배제.
-	var arc_span := float(rolling_status.get("dice_arc_span_px", 0.0))
-	_expect(arc_span > 0.0, "dice arc should report a measurable on-screen span")
-	_expect(arc_span <= 380.0, "dice arc must render near DICE_ARC_SIZE, not its native ~768px texture size (TextureRect min-size trap)")
-	_expect(arc_span >= 240.0, "dice arc on-screen span should stay close to its intended ~306px size")
+	var aura_span := float(rolling_status.get("omen_aura_span_px", 0.0))
+	_expect(aura_span > 0.0, "omen aura should report a measurable on-screen span")
+	_expect(aura_span <= 360.0, "omen aura must stay inside the intended ritual seal area")
+	_expect(aura_span >= 220.0, "omen aura should remain large enough to frame the central divination seal")
 
 	# 엔벨로프 연속성 회귀 가드(적대 리뷰에서 발견): settle(끝값 0.66) -> wait_confirm
 	# 호흡 밴드가 2.70 경계에서 C0 연속이어야 한다. 불연속이면 ADD 호+백플레이트가
 	# 한 프레임 침침해지는 팝으로 읽힌다. 경계 좌우극한 차이를 직접 잰다.
-	var env_before := float(host._dice_envelope(2.6999))
-	var env_after := float(host._dice_envelope(2.70))
+	var env_before := float(host._omen_envelope(2.6999))
+	var env_after := float(host._omen_envelope(2.70))
 	_expect(
 		absf(env_before - env_after) < 0.01,
-		"dice envelope must be continuous across the settle->wait_confirm boundary (2.70s), got %.4f -> %.4f" % [env_before, env_after]
+		"omen envelope must be continuous across the settle->reveal boundary (2.70s), got %.4f -> %.4f" % [env_before, env_after]
 	)
 
 	# wait_confirm: 서지 해제 + calm 프리셋 복귀, 호는 숨쉬며 유지.
 	host.sync_state(_modal_snapshot(3.2), Vector2(380.0, 690.0), _layout())
 	var calm_status: Dictionary = host.get_debug_status()
-	_expect(str(calm_status.get("dice_arc_preset", "")) == "angel_dice_halo", "post-settle phases should return the arc to the calm halo preset")
-	_expect(bool(calm_status.get("dice_arc_visible", false)), "dice arc should keep breathing through wait_confirm")
+	_expect(bool(calm_status.get("omen_aura_visible", false)), "ritual aura should keep breathing through wait_confirm")
 
 
 func _verify_absorption_projection(host: Node2D) -> void:

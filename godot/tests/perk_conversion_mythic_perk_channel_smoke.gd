@@ -13,7 +13,6 @@ const StageClearResultImmediateRewardGrantData := preload("res://scripts/core/st
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
-const TreasureHuntRuntime := preload("res://scripts/items/treasure_hunt_runtime.gd")
 
 const RESULT_RENDER_CAPTURE_PATH := "res://../.tmp/perk_conversion_s5a/mythic_perk_result_card.png"
 
@@ -122,7 +121,6 @@ func _run() -> void:
 	_verify_flag_on_stage_clear_mythic_perk_grant()
 	_verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback()
 	_verify_flag_on_field_and_pandora_mythic_suppression()
-	_verify_flag_on_treasure_mythic_perk_grant()
 	_verify_all_owned_fallback_starpoints()
 	await _verify_result_screen_card_uses_animated_mythic_perk_icon()
 	PerkConversionFlags.debug_set_enabled(false)
@@ -149,14 +147,6 @@ func _verify_flag_off_legacy_mythic_routes() -> void:
 	_expect(not pandora_builder.build_mythic_pool(MythicItemCatalog.new()).is_empty(), "flag-OFF Pandora mythic pool should stay populated")
 
 	var mythic_runtime := MythicItemRuntime.new()
-	var treasure_result: Dictionary = TreasureHuntRuntime.new()._roll_result(FakeOwner.new(), FakeRegistry.new({
-		"mythic_item_runtime": mythic_runtime,
-		"runtime_perk_state": RuntimePerkState.new(),
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	}), 0.0)
-	_expect(str(treasure_result.get("result_type", "")) == "legendary", "flag-OFF treasure mythic result should stay legendary item")
-	_expect(not (mythic_runtime.get_snapshot().get("inventory_items", []) as Array).is_empty(), "flag-OFF treasure mythic result should enter mythic item inventory")
-
 
 func _verify_flag_on_stage_clear_mythic_perk_grant() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
@@ -320,33 +310,6 @@ func _verify_flag_on_field_and_pandora_mythic_suppression() -> void:
 	for choice_value in choices:
 		var choice: Dictionary = _get_dict(choice_value)
 		_expect(str(choice.get("pandora_source", "")) == "active", "flag-ON Pandora choice should be active-source only")
-
-
-func _verify_flag_on_treasure_mythic_perk_grant() -> void:
-	PerkConversionFlags.debug_set_enabled(true)
-	var mythic_runtime := MythicItemRuntime.new()
-	var perk_state := RuntimePerkState.new()
-	var owner := FakeOwner.new()
-	root.add_child(owner)
-	var registry := FakeRegistry.new({
-		"mythic_item_runtime": mythic_runtime,
-		"runtime_perk_state": perk_state,
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	})
-	var result: Dictionary = TreasureHuntRuntime.new()._roll_result(owner, registry, 0.0)
-	var perk_id: String = str(result.get("perk_id", ""))
-	_expect(str(result.get("result_type", "")) == "mythic_perk", "flag-ON treasure mythic lane should return mythic_perk result")
-	_expect(perk_id != "", "flag-ON treasure mythic_perk result should expose perk_id")
-	# Assert the RAW granted level, not the effective level: a random pick can be
-	# transcendent_crown, whose own effect inflates effective levels, so the
-	# effective-level query returns >1 for the crown even though the grant set
-	# runtime_skill_levels[crown] == 1. "Granted Lv.1" means the raw level is 1.
-	_expect(
-		int(perk_state.runtime_skill_levels.get(perk_id, 0)) == 1,
-		"flag-ON treasure mythic_perk result should apply raw Lv.1 for %s, levels=%s" % [perk_id, str(perk_state.runtime_skill_levels)]
-	)
-	_expect((mythic_runtime.get_snapshot().get("inventory_items", []) as Array).is_empty(), "flag-ON treasure mythic lane must not grant mythic item inventory")
-	owner.queue_free()
 
 
 func _verify_all_owned_fallback_starpoints() -> void:

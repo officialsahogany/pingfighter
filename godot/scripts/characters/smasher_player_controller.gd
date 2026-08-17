@@ -1,14 +1,8 @@
 extends RefCounted
 
 const SmasherPlayerDashController := preload("res://scripts/characters/smasher_player_dash_controller.gd")
-const ActiveItemAipillBehavior := preload("res://scripts/items/active_item_aipill_behavior.gd")
 
 var dash_controller: Object = SmasherPlayerDashController.new()
-# 묵린변신 (D15): the transform reuses the AIPill guard-tracking math verbatim.
-# The behavior class is stateless, so the controller owns one instance and calls
-# apply_player_control(true, ...) directly — the AIPill item does not need to be
-# active, and no cost/gauge semantics from the item path are inherited.
-var _mokrin_autopilot_behavior: Object = ActiveItemAipillBehavior.new()
 
 
 func update(
@@ -27,7 +21,11 @@ func update(
 	var warp_gate_state: Object = deps.get("smasher_warp_gate_state", null)
 
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
-	var player_control_locked: bool = _is_active_item_control_locked(active_item_runtime) or _is_shared_player_stun_active(deps)
+	var player_control_locked: bool = (
+		_is_active_item_control_locked(active_item_runtime)
+		or _is_shared_player_stun_active(deps)
+		or _is_void_phantom_charge_control_locked(deps)
+	)
 	if player_control_locked:
 		var drive_lock_state: Object = deps.get("drive_input_state", null)
 		if drive_lock_state != null and drive_lock_state.has_method("update_cooldowns"):
@@ -76,29 +74,6 @@ func update(
 					"special_gauge": float(aipill_final.get("special_gauge", next_special_gauge)),
 				}
 
-	# 묵린변신 자동조작 (D15 bridge). Sits AFTER the AIPill block so the paid item
-	# keeps first-wins precedence (both run the identical tracking calc, so the
-	# order only matters for that precedence). The predicate is the fail-closed
-	# Callable built by the deps builder — unbound Callable == false.
-	if is_mokrin_transform_engaged(deps):
-		var mokrin_drive_state: Object = deps.get("drive_input_state", null)
-		if mokrin_drive_state != null and mokrin_drive_state.has_method("update_cooldowns"):
-			mokrin_drive_state.update_cooldowns(fps_scale)
-		var mokrin_motion_config: Dictionary = _build_warp_motion_config(config, warp_gate_state)
-		var mokrin_result: Dictionary = _mokrin_autopilot_behavior.apply_player_control(true, next_pos, mokrin_motion_config, delta)
-		if bool(mokrin_result.get("handled", false)):
-			var mokrin_pos: Variant = mokrin_result.get("player_pos", next_pos)
-			if mokrin_pos is Vector2:
-				next_pos = mokrin_pos
-			next_speed = float(mokrin_result.get("player_speed", 0.0))
-			var mokrin_final: Dictionary = _finalize_warp_gate_position(next_pos, next_special_gauge, config, deps)
-			return {
-				"frame_counter": next_frame_counter,
-				"player_pos": mokrin_final.get("player_pos", next_pos),
-				"player_speed": next_speed,
-				"special_gauge": float(mokrin_final.get("special_gauge", next_special_gauge)),
-			}
-
 	var input_reader: Object = deps.get("input_reader", null)
 	var input_snapshot: Dictionary = input_reader.get_snapshot() if input_reader != null else {}
 	# Dash is core movement, not a character skill: read its down trigger from the pre-skill-lock
@@ -107,6 +82,15 @@ func update(
 	# still blocks dash because horizontal_input_locked forces direction == 0 (dash requires a
 	# direction). Off-transform frames share one reader, so behavior is unchanged there.
 	var down_pressed: bool = _read_dash_down_pressed(deps, input_reader, input_snapshot)
+	var lingpet_mount_active := bool(config.get("lingpet_mount_active", deps.get("lingpet_mount_active", false)))
+	if lingpet_mount_active:
+		down_pressed = false
+		var mounted_dash_state: Object = deps.get("dash_state", null)
+		if mounted_dash_state != null:
+			if mounted_dash_state.has_method("cancel_active_without_recovery"):
+				mounted_dash_state.cancel_active_without_recovery()
+			if mounted_dash_state.has_method("update_key_release"):
+				mounted_dash_state.update_key_release(false)
 	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
@@ -155,7 +139,11 @@ func update(
 		next_special_gauge = float(cleanse_result.get("special_gauge", next_special_gauge))
 		cleanse_activated = bool(cleanse_result.get("activated", false))
 
-	var overdrive_activated := false
+	# 벽력유성은 여기서 "무장"만 한다(우클릭 홀드 + 발동 조건 충족). 실제 발사는
+	# 플레이어 패들 접촉 프레임에 볼-패스에서 일어나므로(파워스매싱과 동일한
+	# 접촉-시점 계약) 이 경로는 활성화 에지를 발행하지 않는다 — 융합 스킬-사용
+	# 훅은 발사 지점(ball_motion_event_processor._try_launch_smasher_overdrive)이
+	# 직접 통지한다.
 	var overdrive_state: Object = deps.get("smasher_overdrive_state", null)
 	var overdrive_active: bool = overdrive_state != null and overdrive_state.has_method("is_active") and bool(overdrive_state.is_active())
 	if overdrive_state != null and overdrive_state.has_method("update_input") and (overdrive_active or (not recovery_activated and not cleanse_activated)):
@@ -163,11 +151,10 @@ func update(
 			input_snapshot, current_msec, next_special_gauge, next_pos, config, deps
 		)
 		next_special_gauge = float(overdrive_result.get("special_gauge", next_special_gauge))
-		overdrive_activated = bool(overdrive_result.get("activated", false))
 	var overdrive_live: bool = overdrive_state != null and overdrive_state.has_method("is_active") and bool(overdrive_state.is_active())
 
 	var warp_gate_activated := false
-	if not recovery_activated and not cleanse_activated and not overdrive_activated and warp_gate_state != null and warp_gate_state.has_method("update_input"):
+	if not recovery_activated and not cleanse_activated and warp_gate_state != null and warp_gate_state.has_method("update_input"):
 		var warp_gate_result: Dictionary = warp_gate_state.update_input(
 			input_snapshot,
 			current_msec,
@@ -249,8 +236,6 @@ func update(
 		fusion_skill_edge = "recovery"
 	elif cleanse_activated:
 		fusion_skill_edge = "cleanse"
-	elif overdrive_activated:
-		fusion_skill_edge = "smasher_overdrive"
 	elif warp_gate_activated:
 		fusion_skill_edge = "warp_gate"
 	elif magnum_activated:
@@ -287,7 +272,7 @@ func update(
 			}, plasma_charging, fusion_skill_edge)
 
 	var handled_by_dash := false
-	if not wheel_active:
+	if not wheel_active and not lingpet_mount_active:
 		motion_config["special_gauge"] = next_special_gauge
 		var sensor_dash: Dictionary = _try_sensor_auto_dash(next_pos, next_speed, motion_config, deps)
 		if bool(sensor_dash.get("activated", false)):
@@ -296,7 +281,9 @@ func update(
 			motion_config["special_gauge"] = next_special_gauge
 			handled_by_dash = true
 
-	if not wheel_active and not handled_by_dash and not overdrive_activated:
+	# 벽력유성은 더 이상 S+우클릭 단발 발동이 아니므로 대시와 입력이 겹치지 않는다
+	# (무장은 우클릭 홀드, 대시는 S+방향). 활주 차단 게이트를 유지할 이유가 없다.
+	if not wheel_active and not lingpet_mount_active and not handled_by_dash:
 		motion_config["special_gauge"] = next_special_gauge
 		var dash_input: Dictionary = dash_controller.handle_dash_input(
 			down_pressed,
@@ -328,7 +315,7 @@ func update(
 				next_pos = moved_pos
 			next_speed = float(movement.get("player_speed", next_speed))
 
-	if not wheel_active:
+	if not wheel_active and not lingpet_mount_active:
 		var dash_update: Dictionary = dash_controller.update_dash_motion(delta, next_pos, next_speed, motion_config, deps)
 		var dash_pos: Variant = dash_update.get("player_pos", next_pos)
 		if dash_pos is Vector2:
@@ -360,19 +347,6 @@ func _apply_smasher_skill_result_fields(
 		result["activated"] = true
 		result["activated_skill"] = fusion_skill_edge
 	return result
-
-
-# Shared D15 predicate read (smasher block above + viper's early-return gate).
-# Public and static-shaped on purpose: viper_player_controller must consult the
-# SAME definition, or the two controllers drift on what "engaged" means.
-static func is_mokrin_transform_engaged(deps: Dictionary) -> bool:
-	var predicate: Variant = deps.get("mokrin_transform_active", null)
-	if not (predicate is Callable):
-		return false
-	var callable: Callable = predicate
-	if not callable.is_valid():
-		return false
-	return bool(callable.call())
 
 
 func _read_dash_down_pressed(deps: Dictionary, input_reader: Object, input_snapshot: Dictionary) -> bool:
@@ -472,6 +446,15 @@ func _is_shared_player_stun_active(deps: Dictionary) -> bool:
 		if context is Dictionary:
 			return bool(context.get("player_stun_active", false)) or float(context.get("player_stun_ratio", 0.0)) > 0.0
 	return false
+
+
+func _is_void_phantom_charge_control_locked(deps: Dictionary) -> bool:
+	var void_phantom_state: Object = deps.get("smasher_void_phantom_state", null)
+	return (
+		void_phantom_state != null
+		and void_phantom_state.has_method("is_player_control_locked")
+		and bool(void_phantom_state.is_player_control_locked())
+	)
 
 
 func _get_mythic_item_runtime(deps: Dictionary) -> Object:

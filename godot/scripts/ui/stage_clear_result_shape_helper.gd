@@ -1,5 +1,7 @@
 extends RefCounted
 
+const MuhonVisualGeometry := preload("res://scripts/effects/muhon_visual_geometry.gd")
+
 
 static func ellipse_polygon_points(center: Vector2, radius_x: float, radius_y: float, segments: int) -> PackedVector2Array:
 	if radius_x <= 0.0 or radius_y <= 0.0:
@@ -110,6 +112,73 @@ static func draw_star_polygon(
 	canvas.draw_colored_polygon(pts, fill)
 	if outline.a > 0.001 and outline_width > 0.0:
 		canvas.draw_polyline(closed_polyline_points(pts), outline, outline_width, true)
+
+
+static func soul_flame_polygon_points(
+	center: Vector2,
+	radius: float,
+	sway: float = 0.0
+) -> PackedVector2Array:
+	return MuhonVisualGeometry.flame_polygon_points(center, radius, sway)
+
+
+static func soul_wisp_polyline_points(
+	center: Vector2,
+	radius: float,
+	side: float,
+	phase: float = 0.0
+) -> PackedVector2Array:
+	return MuhonVisualGeometry.smooth_open_polyline_points(
+		MuhonVisualGeometry.wisp_polyline_points(center, radius, side, phase),
+		4
+	)
+
+
+static func soul_flame_smooth_polygon_points(
+	center: Vector2,
+	radius: float,
+	sway: float = 0.0
+) -> PackedVector2Array:
+	return MuhonVisualGeometry.smooth_flame_polygon_points(center, radius, sway, 3)
+
+
+static func draw_soul_flame(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	sway: float,
+	fill: Color,
+	outline: Color,
+	outline_width: float,
+	inner_fill: Color,
+	core_color: Color
+) -> void:
+	if canvas == null or radius <= 0.0 or fill.a <= 0.001:
+		return
+	var outer_points: PackedVector2Array = soul_flame_smooth_polygon_points(center, radius, sway)
+	canvas.draw_colored_polygon(outer_points, fill)
+	if outline.a > 0.001 and outline_width > 0.0:
+		canvas.draw_polyline(closed_polyline_points(outer_points), outline, outline_width, true)
+	var fold_color: Color = fill.darkened(0.58)
+	fold_color.a = fill.a * 0.52
+	for side in [-1.0, 1.0]:
+		canvas.draw_polyline(
+			MuhonVisualGeometry.smooth_open_polyline_points(
+				MuhonVisualGeometry.flame_fold_polyline_points(center, radius, float(side), sway),
+				3
+			),
+			fold_color,
+			maxf(1.0, radius * 0.055),
+			true
+		)
+	var middle_center: Vector2 = center + Vector2(radius * 0.015, radius * 0.10)
+	var middle_points: PackedVector2Array = soul_flame_smooth_polygon_points(middle_center, radius * 0.72, sway * 0.46)
+	canvas.draw_colored_polygon(middle_points, inner_fill)
+	var inner_center: Vector2 = center + Vector2(-radius * 0.04, radius * 0.22)
+	var inner_points: PackedVector2Array = soul_flame_smooth_polygon_points(inner_center, radius * 0.43, -sway * 0.72)
+	canvas.draw_colored_polygon(inner_points, core_color)
+	var glint_color := Color(1.0, 0.99, 0.90, core_color.a)
+	canvas.draw_circle(center + Vector2(-radius * 0.03, radius * 0.30), maxf(1.25, radius * 0.085), glint_color)
 
 
 static func draw_radial_burst(canvas: CanvasItem, center: Vector2, radius: float, color: Color, segments: int = 28) -> void:

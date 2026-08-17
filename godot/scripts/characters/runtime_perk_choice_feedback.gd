@@ -2,7 +2,7 @@ extends RefCounted
 
 const APPLY_FAILURE_TEXT := "선택을 적용할 수 없습니다"
 const APPLY_FAILURE_TIMER := 1.4
-const DOWSING_GOGGLES_BONUS_TEXT := "다우징 고글: 추가 퍽 등장!"
+const DOWSING_GOGGLES_BONUS_TEXT := "다우징 고글: 추가 무공 등장!"
 const DOWSING_GOGGLES_BONUS_TIMER := 1.25
 const MEGINGJORD_EXTRA_PICK_TEXT := "메긴기요르드 발동"
 const MEGINGJORD_EXTRA_PICK_TIMER := 1.25

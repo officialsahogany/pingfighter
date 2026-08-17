@@ -63,7 +63,7 @@ func _run() -> void:
 			},
 		},
 		"deleted_options": {right_id: ["item_cooldown_pct"]},
-		"byproducts": ["reverb", "golden_trajectory", "limit_break"],
+		"byproducts": ["meridian_expand", "golden_trajectory", "limit_break"],
 		"byproduct_payloads": {"limit_break": {"eligible_sources": [left_id]}},
 	}
 	var projection_entry := {
@@ -77,7 +77,7 @@ func _run() -> void:
 		"effective_levels": {left_id: 7, right_id: 6},
 		"live_source_options": live_options,
 		"record_payload": record,
-		"summary": "%s × %s · 부산물 3" % [left_name, right_name],
+		"summary": "%s × %s · 상승무공 3" % [left_name, right_name],
 	}
 	var acquired := CharacterInfoOverlayPerkPresenter.build_acquired_perks_from_projection(
 		[projection_entry],
@@ -144,7 +144,7 @@ func _run() -> void:
 		170.0
 	)
 	_expect(strike_segment.size() == 2 and strike_segment[1].x > strike_segment[0].x and strike_segment[1].x <= 182.0, "deleted render entry should produce one bounded explicit strike segment")
-	_expect(joined_entry_text.contains("잔향") and joined_entry_text.contains("황금 궤적") and joined_entry_text.contains("한계 돌파"), "all three byproduct lanes should remain visible")
+	_expect(joined_entry_text.contains("기맥 확장") and joined_entry_text.contains("황금 궤적") and joined_entry_text.contains("한계 돌파"), "all three byproduct lanes, including meridian expansion, should remain visible")
 	_expect(joined_entry_text.contains(left_name), "limit-break payload should name its eligible material")
 	_expect(colors.has(CharacterInfoOverlayPerkPresenter.FUSION_STAT_HEADER_COLOR), "material headers should keep their dedicated color")
 	_expect(colors.has(CharacterInfoOverlayPerkPresenter.FUSION_STAT_PENALTY_COLOR), "penalty lane should keep its red correction color")

@@ -8,6 +8,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterInfoOverlayPerkPresenter := preload("res://scripts/hud/character_info_overlay_perk_presenter.gd")
 const MysticDiceModalFlow := preload("res://scripts/characters/mystic_dice_modal_flow.gd")
+const MysticDiceDisplayProjection := preload("res://scripts/characters/mystic_dice_display_projection.gd")
 const MysticDiceLocalization := preload("res://scripts/characters/mystic_dice_localization.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -25,9 +26,9 @@ class DiceDrawer:
 	var view_size: Vector2
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.06, 0.10, 0.18))
-		draw_circle(Vector2(view_size.x * 0.27, view_size.y * 0.52), minf(view_size.x, view_size.y) * 0.15, Color(0.25, 0.46, 0.72, 0.48))
-		draw_rect(Rect2(0.0, view_size.y * 0.80, view_size.x, view_size.y * 0.20), Color(0.04, 0.07, 0.13))
+		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.045, 0.035, 0.026))
+		draw_circle(Vector2(view_size.x * 0.27, view_size.y * 0.52), minf(view_size.x, view_size.y) * 0.15, Color(0.22, 0.15, 0.07, 0.38))
+		draw_rect(Rect2(0.0, view_size.y * 0.80, view_size.x, view_size.y * 0.20), Color(0.025, 0.02, 0.016))
 		renderer.draw(self, modal_snapshot, dice_snapshot, view_size)
 
 
@@ -40,10 +41,10 @@ class TooltipDrawer:
 	var view_size: Vector2
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.055, 0.085, 0.14))
-		draw_circle(Vector2(view_size.x * 0.74, view_size.y * 0.34), minf(view_size.x, view_size.y) * 0.16, Color(0.38, 0.18, 0.64, 0.34))
-		draw_rect(Rect2(18.0, 18.0, 76.0, 76.0), Color(0.05, 0.04, 0.12, 0.94))
-		draw_rect(Rect2(18.0, 18.0, 76.0, 76.0), Color(0.40, 0.90, 1.0, 0.82), false, 2.0)
+		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.045, 0.035, 0.026))
+		draw_circle(Vector2(view_size.x * 0.74, view_size.y * 0.34), minf(view_size.x, view_size.y) * 0.16, Color(0.23, 0.15, 0.065, 0.30))
+		draw_rect(Rect2(18.0, 18.0, 76.0, 76.0), Color(0.075, 0.043, 0.028, 0.96))
+		draw_rect(Rect2(18.0, 18.0, 76.0, 76.0), Color(0.78, 0.56, 0.24, 0.90), false, 2.0)
 		icon_renderer.draw_icon(self, "mystic_dice", Rect2(22.0, 22.0, 68.0, 68.0), 1.0, true)
 		overlay._draw_tooltip(self, tooltip_data, Vector2(24.0, view_size.y - 72.0), view_size, ThemeDB.fallback_font)
 
@@ -148,7 +149,18 @@ func _run() -> void:
 	var state := RuntimePerkState.new()
 	state.commit_mystic_dice_roll(raw)
 	var catalog := RuntimePerkCatalog.new()
-	var acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks({}, catalog, null, state.get_snapshot())
+	# The production Mugong grid intentionally no longer projects this retired
+	# card. Build the compatibility tooltip from the dedicated projection only;
+	# this keeps the QA path alive without re-exposing the card in real offers.
+	var dice_projection: Dictionary = MysticDiceDisplayProjection.new().build(state.get_mystic_dice_snapshot())
+	var acquired: Array = CharacterInfoOverlayPerkPresenter.build_acquired_perks_from_projection(
+		dice_projection.get("entries", []) as Array,
+		catalog,
+		{},
+		Color(0.14, 0.52, 0.82),
+		Color(0.78, 0.56, 0.24),
+		state
+	)
 	if acquired.is_empty():
 		push_error("Mystic Dice tooltip capture could not build its projected entry")
 		LanguageSettings.set_test_locale_override("")
@@ -158,10 +170,10 @@ func _run() -> void:
 	var detail_body := str(dice_entry.get("detail", ""))
 	var stat_entries: Array = CharacterInfoOverlayPerkPresenter.build_perk_stat_entries(str(dice_entry.get("description", "")), detail_body)
 	var tooltip_data := {
-		"title": str(dice_entry.get("name", "신비의 주사위")),
-		"subtitle": "×%d" % int(dice_entry.get("_mystic_dice_use_count", 1)),
+		"title": str(dice_entry.get("name", "팔자윷")),
+		"subtitle": "×%d" % int(dice_entry.get("use_count", 1)),
 		"body": detail_body,
-		"color": dice_entry.get("icon_color", Color(0.42, 0.82, 1.0)),
+		"color": dice_entry.get("icon_color", Color(0.78, 0.56, 0.24)),
 		"roll_options": stat_entries,
 		"right_header": MysticDiceLocalization.text("accumulated_changes"),
 		"tooltip_kind": "mystic_dice",

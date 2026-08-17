@@ -45,6 +45,9 @@ const EFFECTS_CORE_PREWARM_KEYS := [
 ]
 const EFFECTS_COMMON_CHARACTER_PREWARM_KEYS := [
 	"runtime_perk_state",
+	"dalji_vision_chosik_state",
+	"cheongringwi_vision_chosik_state",
+	"yeonmyo_vision_chosik_state",
 	"monkey_blessing_delivery_state",
 ]
 const EFFECTS_SMASHER_PREWARM_KEYS := [
@@ -55,6 +58,7 @@ const EFFECTS_SMASHER_PREWARM_KEYS := [
 	"smasher_warp_gate_state",
 	"smasher_wheel_state",
 	"smasher_overdrive_state",
+	"smasher_void_phantom_state",
 	"smasher_magnum_grip_state",
 	"smasher_dash_spirit_state",
 	"smasher_shield_kiting_state",
@@ -73,6 +77,10 @@ const MATCH_STATE_PREWARM_KEYS := [
 	"match_score_state",
 	"round_flow_state",
 	"scoreboard_state",
+	"ball_intensity",
+	"victory_highlight_playback_state",
+	"victory_highlight_recorder",
+	"victory_loot_phase_state",
 	"game_audio",
 	"match_score_event_controller",
 	"match_scoreboard_flow_controller",
@@ -84,9 +92,11 @@ const MATCH_ITEM_RUNTIME_PREWARM_KEYS := [
 	"active_item_hud_state",
 	"active_item_runtime",
 	"mythic_item_runtime",
-	"treasure_hunt_runtime",
 ]
 const MATCH_PLAYER_SKILL_COMMON_PREWARM_KEYS := [
+	"dalji_vision_chosik_state",
+	"cheongringwi_vision_chosik_state",
+	"yeonmyo_vision_chosik_state",
 	"laurel_leaf_shield_state",
 	"monkey_blessing_delivery_state",
 	"commando_reload_delivery_state",
@@ -101,6 +111,7 @@ const MATCH_SMASHER_SKILL_PREWARM_KEYS := [
 	"smasher_warp_gate_state",
 	"smasher_wheel_state",
 	"smasher_overdrive_state",
+	"smasher_void_phantom_state",
 	"smasher_magnum_grip_state",
 	"smasher_dash_spirit_state",
 	"smasher_shield_kiting_state",

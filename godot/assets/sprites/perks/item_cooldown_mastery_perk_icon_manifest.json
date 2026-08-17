@@ -1,0 +1,16 @@
+{
+  "asset_id": "item_cooldown_mastery_perk_icon",
+  "perk_id": "item_cooldown_mastery",
+  "display_name_ko": "순환결",
+  "display_name_en": "Circulation Art",
+  "runtime_path": "res://assets/sprites/perks/item_cooldown_mastery_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-7a713f03-d429-4265-9444-ff3d7aee3082.png",
+    "prompt_summary": "A common-Mugong Joseon hanji seal with a traditional gourd charm at two phases of one fast circular deep-blue water current and three receding pulse marks. No book, text, clock, gears, circuitry, arrows, metal, leather, neon, or glossy UI; flat magenta chroma background."
+  },
+  "postprocess": {"helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py", "key_color_observed": "#fb02fb", "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"], "resize": "240x240 Lanczos centered on transparent 256x256 at 8,8"},
+  "qa": {"rgba": true, "alpha_bbox": [11, 11, 247, 247], "corner_alpha": [0, 0, 0, 0], "sha256": "cc0cdad1ab3313e49a655e77a6ed5813e0f064c17808637041dd0d39e896cc57", "runtime_capture": "res://.tmp/common_mugong_item_seal_qa.png", "rendered_sizes": [80, 32]}
+}

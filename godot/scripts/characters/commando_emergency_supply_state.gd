@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+
 const SKILL_NAME := "emergency_supply"
 const GAUGE_COST := 150.0
 const TAP_WINDOW_MSEC := 250
@@ -10,6 +12,7 @@ var tap_count := 0
 var tap_deadline_msec := 0
 var suppress_until_msec := 0
 var last_result: Dictionary = {}
+var _runtime_perk_modal_pause_started_msec := -1
 
 
 func reset() -> void:
@@ -17,7 +20,31 @@ func reset() -> void:
 	tap_count = 0
 	tap_deadline_msec = 0
 	suppress_until_msec = 0
+	_runtime_perk_modal_pause_started_msec = -1
 	last_result.clear()
+
+
+# 퍽 모달 동안 벽시계 앵커 동결. 규칙은 runtime_perk_modal_time_shift.gd 참조.
+func pause_runtime_perk_modal_time(current_msec: int) -> void:
+	_runtime_perk_modal_pause_started_msec = RuntimePerkModalTimeShift.begin_pause(
+		_runtime_perk_modal_pause_started_msec, current_msec
+	)
+
+
+func resume_runtime_perk_modal_time(current_msec: int) -> void:
+	if _runtime_perk_modal_pause_started_msec < 0:
+		return
+	var pause_started_msec: int = _runtime_perk_modal_pause_started_msec
+	_runtime_perk_modal_pause_started_msec = -1
+	shift_runtime_perk_modal_time(pause_started_msec, current_msec)
+
+
+func shift_runtime_perk_modal_time(pause_started_msec: int, resumed_msec: int) -> void:
+	var delta_msec: int = RuntimePerkModalTimeShift.resolve_paused_duration(pause_started_msec, resumed_msec)
+	if delta_msec <= 0:
+		return
+	tap_deadline_msec = RuntimePerkModalTimeShift.shift_anchor(tap_deadline_msec, delta_msec)
+	suppress_until_msec = RuntimePerkModalTimeShift.shift_anchor(suppress_until_msec, delta_msec)
 
 
 func cancel_transient() -> void:

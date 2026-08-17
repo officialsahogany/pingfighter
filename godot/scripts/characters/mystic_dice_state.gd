@@ -3,12 +3,16 @@ extends RefCounted
 const MysticDiceRoller := preload("res://scripts/characters/mystic_dice_roller.gd")
 
 const PERK_ID := "mystic_dice"
-const MAX_USES_PER_RUN := 3
+# Active-item copies may keep appearing during a run, matching the frozen
+# PingFighter Devil Dice's repeatable consumable contract. The cumulative raw
+# stat cap below remains the balance guard.
+const UNLIMITED_USES := -1
 const RAW_ABS_CAP := 9
 const STAT_KEYS: Array[String] = MysticDiceRoller.STAT_KEYS
 
 var permanent_raw: Dictionary = {}
 var use_count := 0
+var eligible_offer_screen_count := 0
 var revision := 0
 
 
@@ -19,17 +23,11 @@ func _init() -> void:
 func reset() -> void:
 	_clear_permanent_raw()
 	use_count = 0
+	eligible_offer_screen_count = 0
 	revision += 1
 
 
-func can_commit() -> bool:
-	return use_count < MAX_USES_PER_RUN
-
-
 func commit_roll(raw_roll: Dictionary) -> Dictionary:
-	if not can_commit():
-		return _build_commit_result(false, "use_cap_reached")
-
 	var validated_raw: Dictionary = {}
 	var roller := MysticDiceRoller.new()
 	for stat_key: String in STAT_KEYS:
@@ -69,7 +67,16 @@ func get_use_count() -> int:
 
 
 func get_remaining_uses() -> int:
-	return maxi(0, MAX_USES_PER_RUN - use_count)
+	return UNLIMITED_USES
+
+
+func note_eligible_offer_screen() -> int:
+	eligible_offer_screen_count += 1
+	return eligible_offer_screen_count
+
+
+func get_eligible_offer_screen_count() -> int:
+	return eligible_offer_screen_count
 
 
 func get_revision() -> int:
@@ -85,8 +92,10 @@ func get_snapshot() -> Dictionary:
 		"permanent_raw": permanent_raw.duplicate(true),
 		"multipliers": multipliers,
 		"use_count": use_count,
-		"max_uses_per_run": MAX_USES_PER_RUN,
+		"uses_unlimited": true,
+		"max_uses_per_run": UNLIMITED_USES,
 		"remaining_uses": get_remaining_uses(),
+		"eligible_offer_screen_count": eligible_offer_screen_count,
 		"raw_abs_cap": RAW_ABS_CAP,
 		"revision": revision,
 	}

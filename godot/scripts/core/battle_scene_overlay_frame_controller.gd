@@ -247,8 +247,12 @@ func draw(
 		"elixir":
 			sample_start = BattleSceneOverlayFrameUtils.perf_begin(perf_logger)
 			var elixir_runtime_module: Object = BattleSceneOverlayFrameUtils.get_module(module_getter, "active_item_runtime")
+			var elixir_perk_icon_renderer: Object = BattleSceneOverlayFrameUtils.get_module(
+				module_getter,
+				"runtime_perk_icon_renderer"
+			)
 			if elixir_runtime_module != null and elixir_runtime_module.has_method("draw_elixir_cinematic"):
-				elixir_runtime_module.draw_elixir_cinematic(canvas, view_size)
+				elixir_runtime_module.draw_elixir_cinematic(canvas, view_size, elixir_perk_icon_renderer)
 			BattleSceneOverlayFrameUtils.perf_end(perf_logger, "draw.overlay.elixir", sample_start)
 			return
 		"character_info":

@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "generator": "OpenAI built-in imagegen",
+  "scope": "runtime Mugong choice final visual polish",
+  "assets": [
+    {
+      "runtime_path": "res://assets/sprites/perks/common_refresh_perk_icon_traditional_v2.png",
+      "source_path": "res://assets/sprites/perks/common_refresh_perk_icon_traditional_v2_source_magenta.png",
+      "size": [1254, 1254],
+      "role": "common_refresh traditional single-frame seal",
+      "prompt_summary": "Preserve the three-arrow refresh meaning while replacing neon light with dry black ink, muted jade cloud strokes, aged hanji, and restrained old-gold accents. No glow, sparkles, text, or modern UI chrome."
+    },
+    {
+      "runtime_path": "res://assets/sprites/perks/convert_to_gold_perk_icon_traditional_v2.png",
+      "source_path": "res://assets/sprites/perks/convert_to_gold_perk_icon_traditional_v2_source_magenta.png",
+      "size": [1254, 1254],
+      "role": "convert_to_gold aged yeopjeon reward seal",
+      "prompt_summary": "Recast the glossy reward coin as an aged brass square-hole yeopjeon on an irregular hanji-and-ink disc with subdued cloud engravings. No stars, neon, text, or mobile-game shine."
+    },
+    {
+      "runtime_path": "res://assets/ui/runtime_perk/runtime_perk_hanji_card_surface_imagegen_v2.png",
+      "size": [1024, 1536],
+      "role": "shared prewarmed card paper surface",
+      "prompt_summary": "Warm ivory Joseon hanji with visible vertical fibres, quiet pulp variation, faint patina and worn edges, a clean reading center, and very low-contrast non-circular talisman and cloud traces. No text, border, central seal, or strong illustration."
+    }
+  ],
+  "runtime_owners": [
+    "res://scripts/hud/runtime_perk_icon_renderer.gd",
+    "res://scripts/hud/runtime_perk_overlay_renderer.gd",
+    "res://scripts/hud/runtime_perk_traditional_chrome.gd"
+  ],
+  "constraints": {
+    "circular_card_watermark_enabled": false,
+    "reason": "The prior explicit art-direction request removed the repeated circular watermark; card variation uses cropped hanji fibres and non-circular ink-wash ornaments instead.",
+    "runtime_loading": "All visible textures are prewarmed and reused; no image loading or texture creation occurs in the draw path."
+  }
+}

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
+const VictoryHighlightPillarTrace := preload("res://scripts/core/victory_highlight_pillar_trace.gd")
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
@@ -21,6 +22,7 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 		return
 	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
 	var layout: Dictionary = surface.get("layout", {})
+	VictoryHighlightPillarTrace.trace_draw_pass("battle_scene", canvas, registry, view_size, layout)
 	sample_start = _perf_begin(perf_logger)
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
 	_perf_end(perf_logger, "draw.scene.background", sample_start)
@@ -97,6 +99,7 @@ func draw_pillar_overlay(canvas: CanvasItem, registry: Object, config: Dictionar
 	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
 	var layout: Dictionary = surface.get("layout", {})
 	var context_owner: Object = _get_context_owner(canvas, surface)
+	VictoryHighlightPillarTrace.trace_draw_pass("pillar_overlay", canvas, registry, view_size, layout)
 	if not bool(config.get("skip_background", false)):
 		sample_start = _perf_begin(perf_logger)
 		_draw_pillar_background_overlay(canvas, registry, view_size, layout, context_owner)
@@ -203,18 +206,17 @@ func _draw_hud_overlays(canvas: CanvasItem, registry: Object, _view_size: Vector
 		return
 	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
-	var treasure_hunt_runtime: Object = _get_instance(registry, "treasure_hunt_runtime")
 	if (
-		_method_accepts_argument_count(perk_renderer, "has_visible_effects", 3)
-		and not bool(perk_renderer.has_visible_effects(perk_state, mythic_item_runtime, treasure_hunt_runtime))
+		_method_accepts_argument_count(perk_renderer, "has_visible_effects", 2)
+		and not bool(perk_renderer.has_visible_effects(perk_state, mythic_item_runtime))
 	):
 		return
 	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
 	var perk_icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
-	if _method_accepts_argument_count(perk_renderer, "draw", 8):
-		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime, treasure_hunt_runtime, perf_logger)
+	if _method_accepts_argument_count(perk_renderer, "draw", 7):
+		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime, perf_logger)
 	else:
-		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime, treasure_hunt_runtime)
+		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime)
 
 
 func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:

@@ -142,6 +142,7 @@ const DEFAULT_VALUES: Dictionary = {
 	"horn_strawberry_context": {},
 	"odins_eye_move_speed_multiplier": 1.0,
 	"odins_eye_dash_token_limit": null,
+	"odins_eye_dash_distance_multiplier": 1.0,
 	"odins_eye_dash_cooldown_multiplier": 1.0,
 	"odins_eye_death_phase": "",
 	"odins_eye_death_overall_progress": 0.0,

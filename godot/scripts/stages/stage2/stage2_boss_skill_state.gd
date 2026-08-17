@@ -1,14 +1,23 @@
 extends RefCounted
 
+const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
+
 const STAGE_ID := 2
 const QUAKE_INITIAL_COOLDOWN_SEC := 40.0
 const QUAKE_REPEAT_COOLDOWN_SEC := 40.0
 const QUAKE_DURATION_SEC := 80.0 / 60.0
 const WATER_CANNON_AUTO_COOLDOWN_SEC := 30.0
 const WATER_CANNON_AFTER_ROCK_SPAWN_GRACE_SEC := 7.0
-const WATER_CANNON_UNLOCK_PLAYER_SCORE := 3
-const WATER_CANNON_UNLOCK_ROUND_WINS := 3
-const HIGH_PRESSURE_PLAYER_SCORE := 5
+# 2026-07-31 7점제 재보정: 물대포 해금 3/5(60%) -> 4/7(57%).
+# 원본 파이썬의 `round_wins >= 3` 게이트와 같은 조건이다 — Godot의
+# `player_score`가 곧 랠리 승수 카운터라 별도 상수를 두지 않는다.
+# (구 `WATER_CANNON_UNLOCK_ROUND_WINS := 3`은 소비자 0인 죽은 중복 계약이라
+#  제거했다. 같은 개념을 두 상수로 두면 룰 개편 때 한쪽만 갱신된다.)
+const WATER_CANNON_UNLOCK_PLAYER_SCORE := 4
+# 고압 티어(격노 다음으로 높은 압박)는 5점제에서 player_score 5 = 듀스에서만
+# 도달 가능한 특수 상태였다. 7점제에서 5를 그대로 두면 5·6점이 평범한 중후반이라
+# 최고 압박이 상시화된다 -> WIN_GOAL과 같은 7로 올려 "듀스 전용"을 유지한다.
+const HIGH_PRESSURE_PLAYER_SCORE := 7
 const BOSS_GAUGE_MAX := 500.0
 const BOSS_GAUGE_GAIN_ON_HIT := 60.0
 const BOSS_GAUGE_ROUND_CARRY_RATIO := 0.80
@@ -103,7 +112,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	if speed_defense_active:
 		status = "speed_defense"
 	else:
-		status = _get_idle_status()
+		status = _get_idle_status(context)
 	return {}
 
 
@@ -135,7 +144,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 	if stage_background != null and stage_background.has_method("interrupt_water_cannon_charge_on_boss_hit"):
 		water_cannon_interrupted = bool(stage_background.interrupt_water_cannon_charge_on_boss_hit())
 	if water_cannon_interrupted:
-		status = _get_idle_status()
+		status = _get_idle_status(context)
 	if speed_defense_active:
 		_play_speed_defense_boss_hit_audio(deps)
 	boss_launch_guard_pending = true
@@ -154,7 +163,7 @@ func get_hud_context(stage_background: Object = null, context: Dictionary = {}) 
 	var water_unlocked := _is_water_cannon_hud_unlocked(stage_background, context)
 	return {
 		"stage2_boss_skill_hud_active": true,
-		"stage2_boss_skill_hud_boss_name": "악어장군",
+		"stage2_boss_skill_hud_boss_name": "청린귀",
 		"stage2_boss_skill_hud_speech": _get_hud_speech(water_phase, quake_active, water_unlocked, rage_active),
 		"stage2_boss_skill_hud_status": status,
 		"stage2_boss_skill_hud_boss_gauge": boss_special_gauge,
@@ -373,6 +382,8 @@ func _update_water_cannon_schedule(
 	deps: Dictionary,
 	stage_background: Object
 ) -> bool:
+	if not _is_water_cannon_unlocked(context):
+		return false
 	if water_cannon_delay > 0.0:
 		return false
 	if _is_stage_background_casting_busy(stage_background):
@@ -383,6 +394,11 @@ func _update_water_cannon_schedule(
 		return false
 	status = "water_pending"
 	if stage_background.has_method("activate_water_cannon"):
+		if BossSkillParryGate.try_parry("water_cannon", "천수포", context, deps):
+			status = "charging"
+			water_cannon_delay = WATER_CANNON_AUTO_COOLDOWN_SEC
+			water_cannon_delay_total = WATER_CANNON_AUTO_COOLDOWN_SEC
+			return true
 		if bool(stage_background.activate_water_cannon(context, deps)):
 			status = "water_cannon"
 			water_cannon_delay = WATER_CANNON_AUTO_COOLDOWN_SEC
@@ -398,7 +414,7 @@ func _get_quake_hud_skill(quake_active: bool, _context: Dictionary) -> Dictionar
 	var progress := 1.0 if quake_active else _cooldown_progress(remaining, cooldown_total)
 	return {
 		"id": "jungle_quake",
-		"label": "정글지진",
+		"label": "지맥진동",
 		"status": skill_status,
 		"cooldown_remaining": remaining,
 		"cooldown_total": cooldown_total,
@@ -411,7 +427,7 @@ func _get_quake_hud_skill(quake_active: bool, _context: Dictionary) -> Dictionar
 	}
 
 
-func _get_water_cannon_hud_skill(water_phase: String, _water_unlocked: bool) -> Dictionary:
+func _get_water_cannon_hud_skill(water_phase: String, water_unlocked: bool) -> Dictionary:
 	var remaining: float = max(0.0, water_cannon_delay)
 	var total: float = max(0.1, WATER_CANNON_AUTO_COOLDOWN_SEC)
 	var skill_status := "ready" if remaining <= 0.0 else "charging"
@@ -419,12 +435,15 @@ func _get_water_cannon_hud_skill(water_phase: String, _water_unlocked: bool) -> 
 	if water_phase in ["charging", "firing"]:
 		skill_status = "casting"
 		progress = 1.0
+	elif not water_unlocked:
+		skill_status = "locked"
+		progress = 0.0
 	elif status == "water_pending":
 		skill_status = "ready"
 		progress = 1.0
 	return {
 		"id": "water_cannon",
-		"label": "물대포",
+		"label": "용소격류",
 		"status": skill_status,
 		"cooldown_remaining": remaining,
 		"cooldown_total": total,
@@ -458,7 +477,7 @@ func _get_speed_defense_hud_skill() -> Dictionary:
 		progress = 1.0
 	return {
 		"id": "speed_defense",
-		"label": "스피드디펜스",
+		"label": "용린호체",
 		"status": skill_status,
 		"cooldown_remaining": cooldown_remaining,
 		"cooldown_total": cooldown_total,
@@ -479,26 +498,26 @@ func _get_boss_gauge_gain_on_hit(_context: Dictionary) -> float:
 	return 0.0
 
 
-func _get_hud_speech(water_phase: String, quake_active: bool, _water_unlocked: bool, rage_active: bool = false) -> String:
+func _get_hud_speech(water_phase: String, quake_active: bool, water_unlocked: bool, rage_active: bool = false) -> String:
 	if speed_defense_active:
-		return "스피드디펜스!"
+		return "용린호체!"
 	if rage_active:
 		return "분노 발구르기!"
 	if water_phase == "charging":
-		return "물대포 충전!"
+		return "용소격류 충전!"
 	if water_phase == "firing":
-		return "물대포 발사!"
+		return "용소격류 발사!"
 	if quake_active:
-		return "정글지진!"
-	if water_cannon_delay <= 0.0:
-		return "물대포 준비!"
+		return "지맥진동!"
+	if water_unlocked and water_cannon_delay <= 0.0:
+		return "용소격류 준비!"
 	if quake_cooldown <= 0.0:
-		return "지진 준비!"
+		return "지맥진동 준비!"
 	if speed_defense_since_activation >= SPEED_DEFENSE_INTERVAL_SEC:
-		return "방어 준비!"
-	if water_cannon_delay > 0.0:
-		return "물대포 조준 중"
-	return "정글을 흔든다"
+		return "용린호체 준비!"
+	if water_unlocked and water_cannon_delay > 0.0:
+		return "용소격류 조준 중"
+	return "용소의 지맥을 흔든다"
 
 
 func _get_water_cannon_phase(stage_background: Object) -> String:
@@ -519,8 +538,8 @@ func _is_boss_rage_active(stage_background: Object) -> bool:
 	return false
 
 
-func _is_water_cannon_hud_unlocked(_stage_background: Object, _context: Dictionary) -> bool:
-	return true
+func _is_water_cannon_hud_unlocked(stage_background: Object, context: Dictionary) -> bool:
+	return _is_water_cannon_active(stage_background) or _is_water_cannon_unlocked(context)
 
 
 func _is_stage_background_casting_busy(stage_background: Object) -> bool:
@@ -547,8 +566,11 @@ func _has_rocks(stage_background: Object) -> bool:
 	return int(stage_background.get_rock_count()) > 0
 
 
-func _is_water_cannon_unlocked(_context: Dictionary) -> bool:
-	return true
+func _is_water_cannon_unlocked(context: Dictionary) -> bool:
+	return (
+		bool(context.get("enraged_boss_active", false))
+		or int(context.get("player_score", 0)) >= WATER_CANNON_UNLOCK_PLAYER_SCORE
+	)
 
 
 func _roll_water_cannon_delay(_context: Dictionary) -> float:
@@ -562,6 +584,14 @@ func _activate_quake_from_cooldown(context: Dictionary, deps: Dictionary, stage_
 		return false
 	if stage_background == null or not stage_background.has_method("activate_quake"):
 		return false
+	if BossSkillParryGate.try_parry("jungle_quake", "지맥진동", context, deps):
+		boss_special_gauge = 0.0
+		boss_launch_guard_pending = false
+		quake_charge_total = QUAKE_REPEAT_COOLDOWN_SEC
+		quake_cooldown = quake_charge_total
+		defer_water_cannon_after_rock_spawn()
+		status = "charging"
+		return true
 	var rock_count: int = _roll_quake_rock_count(context)
 	if not bool(stage_background.activate_quake(
 		QUAKE_DURATION_SEC,
@@ -598,10 +628,10 @@ func _get_water_cannon_delay_range(_context: Dictionary) -> Vector2:
 	return Vector2(WATER_CANNON_AUTO_COOLDOWN_SEC, WATER_CANNON_AUTO_COOLDOWN_SEC)
 
 
-func _get_idle_status() -> String:
+func _get_idle_status(context: Dictionary = {}) -> String:
 	if quake_cooldown <= 0.0:
 		return "ready"
-	if water_cannon_delay <= 0.0:
+	if _is_water_cannon_unlocked(context) and water_cannon_delay <= 0.0:
 		return "water_pending"
 	if speed_defense_since_activation >= SPEED_DEFENSE_INTERVAL_SEC and speed_defense_serve_grace_timer <= 0.0:
 		return "speed_ready"

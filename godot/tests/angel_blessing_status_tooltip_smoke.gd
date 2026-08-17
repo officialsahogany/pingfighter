@@ -75,7 +75,7 @@ func _verify_unrolled_and_next_intro_status() -> void:
 	_expect(str(reservation.get("route", "")) == "next_valid_intro", "result-route fixture should use next-valid-intro policy")
 	_expect_array(
 		state.get_runtime_status_lines(PERK_ID),
-		["Dice queued for the next stage"],
+		["Omen reading queued for the next stage"],
 		"queued next-valid-intro acquisition should replace the generic unrolled hint"
 	)
 
@@ -89,8 +89,8 @@ func _verify_face_three_and_all_six_buff_signs() -> Object:
 	_expect_array(
 		state.get_runtime_status_lines(PERK_ID),
 		[
-			"Current blessings (3)",
-			"Paddle size +30%",
+			"Current omens (3)",
+			"Body size +30%",
 			"Maximum gauge +30%",
 			"Move speed +30%",
 		],
@@ -104,7 +104,7 @@ func _verify_face_three_and_all_six_buff_signs() -> Object:
 	_expect_array(
 		state.get_runtime_status_lines(PERK_ID),
 		[
-			"Current blessings (3)",
+			"Current omens (3)",
 			"Item cooldown -30%",
 			"Skill cooldown -30%",
 			"Dash cooldown -30%",

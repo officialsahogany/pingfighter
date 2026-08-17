@@ -57,10 +57,10 @@ func _verify_overlap_query() -> void:
 
 func _verify_background_delegates_drop_query() -> void:
 	var paths := [
-		"res://scripts/stages/stage1/stage1_balloon_event.gd",
-		"res://scripts/stages/stage2/stage2_pillar_background.gd",
-		"res://scripts/stages/stage3/stage3_boss_skill_state.gd",
-		"res://scripts/stages/stage4/stage4_bird_event.gd",
+		"res://scripts/stages/stage1/stage1_balloon_starpoint_state.gd",
+		"res://scripts/stages/stage2/stage2_starpoint_coordinator.gd",
+		"res://scripts/stages/stage3/stage3_starpoint_state.gd",
+		"res://scripts/stages/stage4/stage4_bird_starpoint_state.gd",
 	]
 	for path in paths:
 		var source: String = FileAccess.get_file_as_string(path)

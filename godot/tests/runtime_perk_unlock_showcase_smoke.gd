@@ -366,7 +366,7 @@ func _smasher_unlock_choice() -> Dictionary:
 func _soldier_unlock_choice() -> Dictionary:
 	return {
 		"id": "soldier_unlock_bowling_trap",
-		"name": "볼링트랩",
+		"name": "질려포통",
 		"max_level": 1,
 		"next_level": 1,
 		"unlocks_skill": "bowling_trap",

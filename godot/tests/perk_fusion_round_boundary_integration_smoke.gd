@@ -1,8 +1,11 @@
 extends SceneTree
 
 const BattleSceneMatchEventDriver := preload("res://scripts/core/battle_scene_match_event_driver.gd")
+const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
+const BossAiTurnInertiaResolver := preload("res://scripts/ai/boss_ai_turn_inertia_resolver.gd")
 const MatchScoreEventController := preload("res://scripts/core/match_score_event_controller.gd")
 const BossSlowTiers := preload("res://scripts/status/boss_slow_tiers.gd")
+const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 
 var _failures: Array[String] = []
 
@@ -100,6 +103,15 @@ class OrbHudStateStub:
 		reset_values.append(current_charges)
 
 
+class GameAudioStub:
+	extends RefCounted
+
+	var mini_spark_calls := 0
+
+	func play_mini_spark() -> void:
+		mini_spark_calls += 1
+
+
 class RegistryStub:
 	extends RefCounted
 
@@ -111,6 +123,7 @@ class RegistryStub:
 
 func _init() -> void:
 	_verify_score_commit_queues_once_and_new_round_applies_once()
+	_verify_static_field_preserves_four_seconds_of_live_rally_slow()
 	_verify_match_finishing_score_carries_no_pending_into_next_stage()
 	_verify_real_reset_ball_applies_pending_after_ball_cleanup()
 	if _failures.is_empty():
@@ -152,12 +165,14 @@ func _verify_score_commit_queues_once_and_new_round_applies_once() -> void:
 	var status_state := StatusEffectStateStub.new()
 	var dash_state := DashStateStub.new()
 	var orb_hud_state := OrbHudStateStub.new()
+	var game_audio := GameAudioStub.new()
 	var registry := RegistryStub.new()
 	registry.instances = {
 		"runtime_perk_state": runtime_state,
 		"status_effect_state": status_state,
 		"smasher_dash_state": dash_state,
 		"orb_hud_state": orb_hud_state,
+		"game_audio": game_audio,
 	}
 	var event_driver := BattleSceneMatchEventDriver.new()
 	event_driver._apply_pending_perk_fusion_round_start(registry)
@@ -168,10 +183,65 @@ func _verify_score_commit_queues_once_and_new_round_applies_once() -> void:
 		_expect(is_equal_approx(float(application.get("duration_frames", 0.0)), 240.0), "four-second static field should enter the 60-fps status owner as 240 frames")
 		var data: Dictionary = application.get("data", {}) as Dictionary
 		_expect(is_equal_approx(float(data.get("multiplier", 0.0)), BossSlowTiers.WEAK), "static field should use the shared WEAK slow multiplier")
+		_expect(bool(data.get("pause_while_ball_inactive", false)), "static field should preserve its timer until the ball is served")
+	_expect(game_audio.mini_spark_calls == 1, "static field should play one electric activation cue")
 	_expect(dash_state.refill_calls == 1, "successful recycle protocol should refill the full dash token state")
 	_expect(orb_hud_state.reset_values == [3], "recycle protocol should synchronize the HUD to the refilled token count")
 	event_driver._apply_pending_perk_fusion_round_start(registry)
 	_expect(status_state.applications.size() == 1 and dash_state.refill_calls == 1, "pending point-loss effects must be consumed exactly once")
+	_expect(game_audio.mini_spark_calls == 1, "consumed static field should not replay its activation cue")
+
+
+func _verify_static_field_preserves_four_seconds_of_live_rally_slow() -> void:
+	var status_state := StatusEffectState.new()
+	status_state.apply_status("boss", "slow", 240.0, {
+		"multiplier": BossSlowTiers.WEAK,
+		"pause_while_ball_inactive": true,
+	}, StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD)
+	var effects_controller := BattleEffectsUpdateController.new()
+	# Worst-case boss serve delay can exceed the entire old four-second timer.
+	effects_controller.update(5.0, _effects_context(false, true), {
+		"status_effect_state": status_state,
+	})
+	var waiting_source: Dictionary = status_state.get_status_source(
+		"boss",
+		"slow",
+		StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD
+	)
+	_expect(
+		is_equal_approx(float(waiting_source.get("remaining_frames", 0.0)), 240.0),
+		"five seconds of serve waiting must not consume static field"
+	)
+	var boss_context: Dictionary = status_state.get_boss_ai_context()
+	_expect(
+		is_equal_approx(
+			BossAiTurnInertiaResolver.get_movement_slow_multiplier(boss_context),
+			BossSlowTiers.WEAK
+		),
+		"live boss AI movement should receive the static-field weak slow multiplier"
+	)
+	effects_controller.update(239.0 / 60.0, _effects_context(true, false), {
+		"status_effect_state": status_state,
+	})
+	_expect(status_state.has_status("boss", "slow"), "static field should remain for the first 239 live-rally frames")
+	effects_controller.update(1.0 / 60.0, _effects_context(true, false), {
+		"status_effect_state": status_state,
+	})
+	_expect(not status_state.has_status("boss", "slow"), "static field should expire after exactly 240 live-rally frames")
+
+
+func _effects_context(ball_active: bool, waiting_for_serve: bool) -> Dictionary:
+	return {
+		"current_stage": 1,
+		"current_msec": 1000,
+		"selected_character_type": "smasher",
+		"ball_active": ball_active,
+		"waiting_for_serve": waiting_for_serve,
+		"dash_snapshot": {},
+		"ball_pos": Vector2(380.0, 360.0),
+		"player_pos": Vector2(300.0, 680.0),
+		"boss_pos": Vector2(330.0, 25.0),
+	}
 
 
 # 종결 득점(match_finished) 이월 차단: 마지막 보스 득점은 부산물 기회를

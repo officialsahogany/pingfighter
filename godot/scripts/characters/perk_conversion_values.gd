@@ -11,7 +11,6 @@ const CONVERSION_SOURCE_TO_PERK := {
 	"dowsing_pendulum": "dowsing_pendulum",
 	"chargebag": "chargebag",
 	"battery": "battery",
-	"revival": "revival",
 	"master": "master",
 	"gold_digger": "gold_digger",
 	"lucky_coin": "lucky_coin",
@@ -26,9 +25,7 @@ const CONVERSION_SOURCE_TO_PERK := {
 	"knee_pads": "knee_pads",
 	"soul_burst": "soul_burst",
 	"bulletproof_hat": "bulletproof_hat",
-	"spiked_helmet": "spiked_helmet",
 	"venom_mist_gauntlet": "venom_mist_gauntlet",
-	"speedgear": "speedgear",
 	"sage_ring": "sage_ring",
 	"sacred_laurel": "sacred_laurel",
 	"dowsing_goggles": "dowsing_goggles",
@@ -44,6 +41,18 @@ const CONVERSION_SOURCE_TO_PERK := {
 	"baal_boots": "baal_boots",
 	"pandora_legacy": "pandora_legacy",
 	"angel_blessing": "angel_blessing",
+	"yangui_hoechun": "yangui_hoechun",
+}
+
+const RETIRED_CONVERTED_PERK_IDS := {
+	"item_bag_expansion": true,
+	"revival": true,
+	"speedgear": true,
+	"spiked_helmet": true,
+}
+
+const RETIRED_CONVERTED_PERK_MIGRATIONS := {
+	"spiked_helmet": "bulletproof_hat",
 }
 
 const DELETED_ITEM_COMPENSATION := {
@@ -54,7 +63,6 @@ const DELETED_ITEM_COMPENSATION := {
 	"dashgear": ["dash_jump", "perk_boost_charge"],
 	"cooltime": ["item_cooldown_mastery"],
 	"timer_belt": ["common_training"],
-	"slot_add": ["item_bag_expansion"],
 }
 
 # R1 redesign group: gold_bar is intentionally absent from conversion and
@@ -86,15 +94,13 @@ const CONVERTED_PERK_VALUES := {
 	},
 	"dowsing_goggles": {
 		"bonus_perk_chance": [40.0, 70.0, 100.0],
+		"fusion_byproduct_chance_pct": [3.0, 6.0, 9.0],
 	},
 	"chargebag": {
 		"chargebag_pct": [15.0, 25.0, 35.0, 45.0, 55.0],
 	},
 	"battery": {
 		"gauge_preserve_pct": [40.0, 55.0, 70.0, 85.0, 100.0],
-	},
-	"revival": {
-		"revival_count": [1.0],
 	},
 	"master": {
 		"wall_length_pct": [12.0, 20.0, 29.0, 37.0, 45.0],
@@ -126,7 +132,8 @@ const CONVERTED_PERK_VALUES := {
 		"smartphone_auto_use_enabled": [1.0],
 	},
 	"neural_helmet": {
-		"aipill_gauge_reduction": [30.0, 40.0, 50.0, 60.0, 70.0],
+		"aipill_gauge_reduction": [10.0, 15.0, 20.0, 25.0, 30.0],
+		"aipill_ball_speed_bonus_pct": [2.0, 4.0, 6.0, 8.0, 10.0],
 		"aipill_spawn_bonus_pct": [100.0, 158.0, 215.0, 273.0, 330.0],
 	},
 	"commando_arm": {
@@ -136,8 +143,8 @@ const CONVERTED_PERK_VALUES := {
 		"prep_reduction_pct": [12.0, 21.0, 30.0, 39.0, 48.0],
 	},
 	"rainbow_fur_glove": {
-		"rainbow_glove_trigger_chance_pct": [3.0, 5.0, 8.0, 10.0, 12.0],
-		"rainbow_glove_cooldown_reduction_pct": [20.0, 29.0, 38.0, 46.0, 55.0],
+		"rainbow_glove_trigger_chance_pct": [3.0, 4.0, 5.0, 6.0, 7.0],
+		"rainbow_glove_cooldown_reduction_pct": [8.0, 11.0, 14.0, 17.0, 20.0],
 	},
 	"knee_pads": {
 		"knee_charge_pct": [20.0, 33.0, 45.0, 58.0, 70.0],
@@ -146,22 +153,40 @@ const CONVERTED_PERK_VALUES := {
 		"soul_burst_gauge_cost": [170.0, 153.0, 135.0, 118.0, 100.0],
 	},
 	"bulletproof_hat": {
-		"stun_resist_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
-	},
-	"spiked_helmet": {
-		"knockback_resist_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
+		"posture_correction_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
 	},
 	"venom_mist_gauntlet": {
 		"mist_trigger_chance_pct": [20.0, 29.0, 38.0, 46.0, 55.0],
 		"mist_duration_sec": [1.5, 2.5, 3.5, 4.5, 5.5],
 	},
-	"speedgear": {
-		"speedgear_turn_decel_multiplier": [2.5],
-	},
 	"sage_ring": {
 		"trigger_chance_pct": [5.0, 5.0, 5.0, 5.0, 5.0],
 		"perk_level_bonus": [1.0, 1.0, 2.0, 2.0, 3.0],
 		"duration_sec": [6.0, 7.0, 8.0, 9.0, 10.0],
+	},
+}
+
+# 개광결은 전환 일반무공의 연속 수치 레인 전체를 증폭한다. 정수 횟수와
+# on/off 상태는 배율을 곱하면 경계가 깨지므로 구조값으로 분류해 그대로 둔다.
+# 신규 전환 레인은 기본적으로 증폭 대상이며, 구조값을 추가할 때만 이 표에
+# 명시한다. 이 fail-open 정책은 "모든 무공의 수치 효과"라는 개광결 계약을
+# 신규 무공에도 자동으로 유지하기 위한 것이다.
+const POLISH_STRUCTURAL_OPTION_KEYS := {
+	"sensor": {
+		"auto_dash_token_count": true,
+	},
+	"gravitybelt": {
+		"gravitybelt_instant_movement": true,
+	},
+	"shrapnel_armor": {
+		"shard_count": true,
+		"knockback_level": true,
+	},
+	"smartphone": {
+		"smartphone_auto_use_enabled": true,
+	},
+	"sage_ring": {
+		"perk_level_bonus": true,
 	},
 }
 
@@ -213,7 +238,53 @@ const CONVERTED_MYTHIC_VALUES := {
 	"angel_blessing": {
 		"buff_pct": 30.0,
 	},
+	"yangui_hoechun": {
+		"trigger_chance": 50.0,
+		"gauge_cost": 30.0,
+	},
 }
+
+
+static func is_retired_converted_perk_id(perk_id: String) -> bool:
+	return bool(RETIRED_CONVERTED_PERK_IDS.get(perk_id.strip_edges(), false))
+
+
+static func sanitize_runtime_levels(runtime_levels: Dictionary) -> Dictionary:
+	var sanitized: Dictionary = runtime_levels.duplicate(true)
+	for source_id_value: Variant in RETIRED_CONVERTED_PERK_MIGRATIONS.keys():
+		var source_id := str(source_id_value)
+		var target_id := str(RETIRED_CONVERTED_PERK_MIGRATIONS[source_id_value])
+		var source_level := _get_stored_runtime_level(sanitized, source_id)
+		var target_level := _get_stored_runtime_level(sanitized, target_id)
+		sanitized.erase(source_id)
+		sanitized.erase(StringName(source_id))
+		sanitized.erase(target_id)
+		sanitized.erase(StringName(target_id))
+		if source_level > 0 or target_level > 0:
+			var target_data: Dictionary = RuntimePerkCatalog.CONVERTED_PERKS.get(target_id, {})
+			var max_level := maxi(1, int(target_data.get("max_level", 5)))
+			sanitized[target_id] = mini(max_level, source_level + target_level)
+	for perk_id_value: Variant in RETIRED_CONVERTED_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		sanitized.erase(perk_id)
+		sanitized.erase(StringName(perk_id))
+	return sanitized
+
+
+static func count_retired_runtime_level_entries(runtime_levels: Dictionary) -> int:
+	var count := 0
+	for perk_id_value: Variant in RETIRED_CONVERTED_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		if runtime_levels.has(perk_id) or runtime_levels.has(StringName(perk_id)):
+			count += 1
+	return count
+
+
+static func _get_stored_runtime_level(runtime_levels: Dictionary, perk_id: String) -> int:
+	return maxi(
+		maxi(0, int(runtime_levels.get(perk_id, 0))),
+		maxi(0, int(runtime_levels.get(StringName(perk_id), 0)))
+	)
 
 
 # 값이 낮을수록 이득인 레인 여부(쿨타임 초·게이지 코스트류 — 융합 페널티
@@ -235,6 +306,34 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 	if values.size() < 2:
 		return false
 	return float(values[values.size() - 1]) < float(values[0])
+
+
+static func is_polish_amplifiable_option(perk_id: String, key: String) -> bool:
+	var clean_id := perk_id.strip_edges()
+	var clean_key := key.strip_edges()
+	if clean_id.is_empty() or clean_key.is_empty() or not CONVERTED_PERK_VALUES.has(clean_id):
+		return false
+	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
+	if not table.has(clean_key):
+		return false
+	if not POLISH_STRUCTURAL_OPTION_KEYS.has(clean_id):
+		return true
+	var structural_keys: Dictionary = POLISH_STRUCTURAL_OPTION_KEYS[clean_id]
+	return not bool(structural_keys.get(clean_key, false))
+
+
+static func has_polish_amplifiable_option(perk_id: String) -> bool:
+	var clean_id := perk_id.strip_edges()
+	if not CONVERTED_PERK_VALUES.has(clean_id):
+		return false
+	var option_table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
+	if not POLISH_STRUCTURAL_OPTION_KEYS.has(clean_id):
+		return not option_table.is_empty()
+	var structural_keys: Dictionary = POLISH_STRUCTURAL_OPTION_KEYS[clean_id]
+	for key_value: Variant in option_table.keys():
+		if not bool(structural_keys.get(str(key_value), false)):
+			return true
+	return false
 
 
 # Effective-level overflow (Lv.6+) domain limits. Authored table entries are
@@ -273,21 +372,44 @@ const OVERFLOW_VALUE_BOUNDS := {
 		"rainbow_glove_cooldown_reduction_pct": {"max": 95.0},
 	},
 	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
-	"bulletproof_hat": {"stun_resist_pct": {"max": 100.0}},
-	"spiked_helmet": {"knockback_resist_pct": {"max": 100.0}},
+	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
 	"venom_mist_gauntlet": {"mist_trigger_chance_pct": {"max": 100.0}},
 	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
 }
 
 
 static func get_value(perk_id: String, key: String, level: int, fusion_overlay_source: Object = null) -> float:
+	var resolved_value := get_value_before_fusion(perk_id, key, level, fusion_overlay_source)
+	if (
+		fusion_overlay_source != null
+		and fusion_overlay_source.has_method("apply_perk_fusion_option_value")
+	):
+		resolved_value = float(fusion_overlay_source.apply_perk_fusion_option_value(
+			perk_id.strip_edges(),
+			key.strip_edges(),
+			resolved_value
+		))
+	return resolved_value
+
+
+# Four-argument canonical read for displays that need the current live value
+# before a fusion scar is applied. This shares the same authored table,
+# overflow bounds, and Polish direction rules as get_value(); consumers must
+# not rebuild the value from the three-argument raw read plus a multiplier.
+static func get_value_before_fusion(
+	perk_id: String,
+	key: String,
+	level: int,
+	runtime_state: Object = null
+) -> float:
 	var clean_id := perk_id.strip_edges()
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return 0.0
+	var clean_key := key.strip_edges()
 	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
-	if not table.has(key):
+	if not table.has(clean_key):
 		return 0.0
-	var values: Array = table[key]
+	var values: Array = table[clean_key]
 	if values.is_empty():
 		return 0.0
 	var index := clampi(int(level), 1, values.size()) - 1
@@ -301,13 +423,33 @@ static func get_value(perk_id: String, key: String, level: int, fusion_overlay_s
 	if int(level) > values.size() and values.size() >= 2:
 		var average_step := (float(values[values.size() - 1]) - float(values[0])) / float(values.size() - 1)
 		base_value += average_step * float(int(level) - values.size())
-		base_value = _clamp_overflow_value(clean_id, key, base_value)
-	# 4번째 인자(runtime_perk_state)가 있으면 융합 오버레이를 적용한다 —
-	# 정수 레인은 코어가 성장한 base에 대해 라이브 재양자화한다(3인자
-	# 호출은 융합 이전 원값으로 하위호환).
-	if fusion_overlay_source != null and fusion_overlay_source.has_method("apply_perk_fusion_option_value"):
-		return float(fusion_overlay_source.apply_perk_fusion_option_value(clean_id, key, base_value))
-	return base_value
+		base_value = _clamp_overflow_value(clean_id, clean_key, base_value)
+	if (
+		runtime_state == null
+		or not is_polish_amplifiable_option(clean_id, clean_key)
+		or not runtime_state.has_method("get_perk_amplify_multiplier")
+	):
+		return base_value
+	return apply_polish_amplification(
+		clean_id,
+		clean_key,
+		base_value,
+		float(runtime_state.call("get_perk_amplify_multiplier", clean_id))
+	)
+
+
+static func apply_polish_amplification(perk_id: String, key: String, value: float, multiplier: float) -> float:
+	var clean_id := perk_id.strip_edges()
+	var clean_key := key.strip_edges()
+	if not is_polish_amplifiable_option(clean_id, clean_key):
+		return value
+	var safe_multiplier := maxf(1.0, multiplier)
+	if safe_multiplier <= 1.0 + 0.0001:
+		return value
+	# 쿨타임·기력 비용처럼 낮을수록 좋은 저하향 레인은 나눗셈으로 강화한다.
+	# 일반 레인은 곱셈으로 강화해 어느 방향이든 플레이어에게 이득이 된다.
+	var amplified := value / safe_multiplier if is_lower_value_better(clean_id, clean_key) else value * safe_multiplier
+	return _clamp_overflow_value(clean_id, clean_key, amplified)
 
 
 static func _clamp_overflow_value(perk_id: String, key: String, value: float) -> float:

@@ -19,13 +19,10 @@ const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 static func get_result_box_sheet_texture_for_kind(
 	kind: String,
 	common_sheet: Texture2D,
-	mythic_sheet: Texture2D,
 	guaranteed_mythic_sheet: Texture2D
 ) -> Texture2D:
 	if StageClearResultBoxData.is_guaranteed_mythic_box_kind(kind):
 		return guaranteed_mythic_sheet
-	if StageClearResultBoxData.is_advanced_box_kind(kind):
-		return mythic_sheet
 	return common_sheet
 
 
@@ -38,7 +35,6 @@ static func build_floating_result_box_draw_context(
 	scroll_timer: float,
 	scroll_unfurl_duration: float,
 	common_sheet: Texture2D,
-	mythic_sheet: Texture2D,
 	guaranteed_mythic_sheet: Texture2D,
 	reward_icon_cache: Dictionary
 ) -> Dictionary:
@@ -63,7 +59,7 @@ static func build_floating_result_box_draw_context(
 		"sheet_grid_cols": RESULT_BOX_SHEET_GRID_COLS,
 		"sheet_cell_size": RESULT_BOX_SHEET_CELL_SIZE,
 		"reward_hover_offset": StageClearResultBoxData.BOX_REWARD_HOVER_OFFSET,
-		"texture": get_result_box_sheet_texture_for_kind(kind, common_sheet, mythic_sheet, guaranteed_mythic_sheet),
+		"texture": get_result_box_sheet_texture_for_kind(kind, common_sheet, guaranteed_mythic_sheet),
 		"reward_icon_cache": reward_icon_cache,
 	}
 

@@ -58,6 +58,7 @@ func _verify_ready_path_generates_choices_and_runs_side_effects() -> void:
 	state.pending_skill_choices = 1
 	state.runtime_skill_levels = {"dash_acceleration": 2}
 	state.feedback_timer = 0.25
+	state.next_fusion_appeared = true
 	var catalog := FakeCatalog.new([[{"id": "a"}, {"id": "b"}, {"id": "c"}, {"id": "d"}]])
 	var modifiers := FakeOfferModifiers.new()
 	modifiers.item_bonus = 1
@@ -91,7 +92,12 @@ func _verify_ready_path_generates_choices_and_runs_side_effects() -> void:
 	_expect(state.selected_index == 1, "ready path should select center card for multiple choices")
 	_expect(state.pause_cooldown_calls == 1, "ready path should pause skill cooldowns")
 	_expect(state.build_particles_calls == 1, "ready path should rebuild choice particles")
-	_expect(bool(_get_dict(state.current_choices[2]).get("is_dowsing_goggles_bonus", false)), "ready path should preserve Dowsing bonus mark")
+	_expect(bool(_get_dict(state.current_choices[3]).get("is_dowsing_goggles_bonus", false)), "ready path should preserve the protected Dowsing bonus mark")
+	_expect(state.training_injection_calls == 1, "ready path should run the training decision once")
+	_expect(not state.training_received_dice_appeared, "training callback should receive the retired Dice lane as false")
+	_expect(state.training_received_fusion_appeared, "training callback should receive the fusion appearance result")
+	# 포화 판정이 신화 계층까지 보려면 registry 가 콜백까지 도달해야 한다.
+	_expect(state.training_received_registry != null, "training callback should receive the registry for the final-consumer saturation probe")
 	_expect(
 		perf.labels == [
 			"process.runtime_perk.open_next_choice.item_bonus",
@@ -176,6 +182,7 @@ func _verify_source_contract() -> void:
 	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_open_flow.gd")
 	var open_body: String = _function_body(state_source, "func open_next_choice(")
 	var facade_body: String = _function_body(helper_source, "func open_next_choice_from_runtime_state(")
+	var flow_body: String = _function_body(helper_source, "func open_next_choice(")
 	_expect(state_source.find("RuntimePerkChoiceOpenFlow") >= 0, "state should preload choice open-flow helper")
 	_expect(open_body.find("_choice_open_flow.open_next_choice_from_runtime_state") >= 0, "state open-next wrapper should delegate runtime-state assembly to open-flow helper")
 	_expect(open_body.find("_active_unlock_flight") < 0, "state open-next wrapper should not pass active-unlock flight helper inline")
@@ -201,6 +208,14 @@ func _verify_source_contract() -> void:
 	_expect(helper_source.find("build_dowsing_bonus_state_update") >= 0, "open-flow helper should consume Dowsing bonus helper")
 	_expect(helper_source.find("build_ready_state_update") >= 0, "open-flow helper should build ready state")
 	_expect(helper_source.find("CALLBACK_BUILD_PARTICLES") >= 0, "open-flow helper should trigger particle rebuild through callback")
+	var dowsing_pos := flow_body.find("build_dowsing_bonus_state_update")
+	var fusion_pos := flow_body.find("CALLBACK_INJECT_PERK_FUSION_OFFER", dowsing_pos + 1)
+	var training_pos := flow_body.find("CALLBACK_INJECT_PHYSIQUE_TRAINING_OFFER", fusion_pos + 1)
+	var ready_pos := flow_body.find("build_ready_state_update", training_pos + 1)
+	_expect(dowsing_pos >= 0 and dowsing_pos < fusion_pos, "Dowsing must stamp its protected base card before fusion replacement")
+	_expect(fusion_pos < training_pos, "auxiliary ordering should stay fusion -> training after Dice retirement")
+	_expect(flow_body.find("CALLBACK_INJECT_MYSTIC_DICE_OFFER") < 0, "open flow must not invoke the retired Dice perk lane")
+	_expect(training_pos < ready_pos, "all auxiliary lanes must finish before ready-state card counts")
 
 
 func _function_body(source: String, signature: String) -> String:
@@ -246,6 +261,12 @@ class FakeRuntimeState:
 	var _choice_feedback: Object = null
 	var pause_cooldown_calls := 0
 	var build_particles_calls := 0
+	var next_fusion_appeared := false
+	var next_dice_appeared := false
+	var training_injection_calls := 0
+	var training_received_dice_appeared := false
+	var training_received_fusion_appeared := false
+	var training_received_registry: Object = null
 
 	func _apply_choice_opening_update(update: Dictionary) -> Dictionary:
 		if not bool(update.get("accepted", false)):
@@ -290,6 +311,29 @@ class FakeRuntimeState:
 
 	func _build_particles() -> void:
 		build_particles_calls += 1
+
+	func _try_inject_perk_fusion_offer(_catalog: Object) -> Dictionary:
+		return {"appeared": next_fusion_appeared}
+
+	func _try_inject_mystic_dice_offer() -> Dictionary:
+		return {"appeared": next_dice_appeared}
+
+	# 실 호출부는 롤 시드 3개 + registry 까지 6인자로 부른다(포화 판정이 최종 소비자를
+	# 호출해야 하므로 registry 필수). 인자수를 좁혀두면 그 분기가 도는 프레임에
+	# `Invalid call ... Expected 2 arguments` 로 죽는다.
+	func _try_inject_physique_training_offer(
+		dice_appeared: bool,
+		fusion_appeared: bool,
+		_appearance_roll_unit: float = -1.0,
+		_selection_roll_unit: float = -1.0,
+		_replacement_roll_unit: float = -1.0,
+		registry: Object = null
+	) -> Dictionary:
+		training_injection_calls += 1
+		training_received_dice_appeared = dice_appeared
+		training_received_fusion_appeared = fusion_appeared
+		training_received_registry = registry
+		return {"rolled": false}
 
 	func _get_array(value: Variant) -> Array:
 		if value is Array:
@@ -365,9 +409,11 @@ class FakeOfferModifiers:
 		if item_bonus_choice_count <= 0:
 			return {"accepted": false}
 		var next_choices: Array = choices.duplicate(true)
-		var bonus_index: int = clamp(target_choice_count - 2, 0, max(0, next_choices.size() - 1))
+		var bonus_index: int = clamp(target_choice_count - 1, 0, max(0, next_choices.size() - 1))
 		var marked: Dictionary = _get_dict(next_choices[bonus_index]).duplicate(true)
 		marked["is_dowsing_goggles_bonus"] = true
+		marked["offer_lane"] = "dowsing_bonus"
+		marked["offer_protected"] = true
 		next_choices[bonus_index] = marked
 		return {
 			"accepted": true,

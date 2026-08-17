@@ -21,7 +21,8 @@ func reset() -> void:
 	knockback_timer = 0.0
 	knockback_decay_per_frame = KNOCKBACK_DECAY_PER_FRAME
 	knockback_cleansable = true
-	knockback_resist_pct = 0.0
+	# Posture Correction is a persistent build stat. Owner sync updates it when
+	# the build changes; a rally reset only clears the current knockback motion.
 
 
 func start_knockback(
@@ -41,17 +42,26 @@ func start_knockback(
 		knockback_vel = effective_velocity
 		knockback_decay_per_frame = clamp(decay_per_frame * resist_scale, 0.0, 1.0)
 		knockback_cleansable = cleansable
-	knockback_timer = max(knockback_timer, frames)
+	var effective_frames: float = maxf(0.0, frames) * resist_scale
+	knockback_timer = max(knockback_timer, effective_frames)
 	return true
 
 
 func set_knockback_resist_pct(value: float) -> void:
+	set_posture_correction_pct(value)
+
+
+func set_posture_correction_pct(value: float) -> void:
 	knockback_resist_pct = clamp(float(value), 0.0, 100.0)
 	if is_zero_approx(get_knockback_resist_scale()):
 		clear_knockback()
 
 
 func get_knockback_resist_pct() -> float:
+	return knockback_resist_pct
+
+
+func get_posture_correction_pct() -> float:
 	return knockback_resist_pct
 
 
@@ -81,6 +91,7 @@ func get_status_snapshot() -> Dictionary:
 		"knockback_cleansable": knockback_cleansable,
 		"knockback_vel": knockback_vel,
 		"knockback_timer": knockback_timer,
+		"posture_correction_pct": get_posture_correction_pct(),
 		"knockback_resist_pct": knockback_resist_pct,
 		"knockback_resist_scale": get_knockback_resist_scale(),
 	}

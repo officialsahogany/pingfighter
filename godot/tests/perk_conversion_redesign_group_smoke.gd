@@ -11,7 +11,6 @@ const PlazaShopStock := preload("res://scripts/plaza/plaza_shop_stock.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
-const TreasureHuntRuntime := preload("res://scripts/items/treasure_hunt_runtime.gd")
 
 var _failures: Array[String] = []
 
@@ -253,15 +252,6 @@ func _verify_gold_bar_remains_deleted_and_runtime_neutral() -> void:
 	var box_result: Dictionary = resolver._roll_normal_box_reward(FakeOwner.new(), FakeRegistry.new(), 0.15)
 	_expect(str(box_result.get("type", "")) != StageClearRewardResolver.REWARD_PASSIVE, "flag-ON stage-clear passive lane should not emit passive items")
 	_expect(str(box_result.get("type", "")) == StageClearRewardResolver.REWARD_STARPOINT, "flag-ON stage-clear passive lane should redirect to starpoints")
-
-	var treasure_runtime := TreasureHuntRuntime.new()
-	var treasure_result: Dictionary = treasure_runtime._roll_result(FakeOwner.new(), FakeRegistry.new({
-		"mythic_item_runtime": MythicItemRuntime.new(),
-		"runtime_perk_state": RuntimePerkState.new(),
-		"runtime_perk_catalog": RuntimePerkCatalog.new(),
-	}), 0.21)
-	_expect(str(treasure_result.get("result_type", "")) == "starpoint", "flag-ON treasure passive lane should redirect to starpoints")
-	_expect(str(treasure_result.get("item_name", "")) != "gold_bar", "flag-ON treasure passive lane should not emit Gold Bar")
 
 
 func _verify_flag_off_legacy_items_still_work() -> void:

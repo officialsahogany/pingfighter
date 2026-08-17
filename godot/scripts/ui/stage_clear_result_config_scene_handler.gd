@@ -67,6 +67,10 @@ static func get_prewarm_asset_status() -> Dictionary:
 	return StageClearResultAssetLoader.get_result_prewarm_asset_status()
 
 
+static func get_prewarm_asset_debug_label() -> String:
+	return StageClearResultAssetLoader.get_result_prewarm_debug_label()
+
+
 static func ready_scene(scene: Control) -> void:
 	if scene == null:
 		return
@@ -121,6 +125,10 @@ static func configure(
 	scene.set("reward_roll_callback", on_roll_reward)
 	scene.set("immediate_reward_callback", on_immediate_reward)
 	StageClearResultViewportSceneHandler.sync_control_to_viewport(scene)
+	# 융합 보상 카드 아이콘 프리컴포즈(씬 구성 시점 — 드로우 핫패스 밖).
+	# 스냅샷·_boxes·뷰포트 크기가 모두 확정된 뒤에 호출해야 실 fitted
+	# 크기로 준비된다.
+	load("res://scripts/ui/stage_clear_result_scroll_scene_handler.gd").prepare_fusion_reward_icons(scene)
 	load_textures(scene)
 	load_audio(scene)
 	scene.queue_redraw()
@@ -187,6 +195,7 @@ static func get_config_reset_current_state(scene: Object) -> Dictionary:
 		"stage4_ponk_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage4_ponk_boss_defeat_click_reaction_timer"),
 		"stage5_hongryun_result_click_reaction_timer": _get_scene_float(scene, &"_stage5_hongryun_result_click_reaction_timer"),
 		"stage6_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage6_boss_defeat_click_reaction_timer"),
+		"stage8_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage8_boss_defeat_click_reaction_timer"),
 		"stage7_boss_defeat_click_reaction_timer": _get_scene_float(scene, &"_stage7_boss_defeat_click_reaction_timer"),
 		"dalji_dialogue_timer": _get_scene_float(scene, &"_dalji_dialogue_timer"),
 	}
@@ -245,7 +254,6 @@ static func clear_runtime_references(scene: Control) -> void:
 	scene.set("_runtime_perk_owner", null)
 	scene.set("_runtime_perk_registry", null)
 	scene.set("_mythic_item_runtime", null)
-	scene.set("_treasure_hunt_runtime", null)
 	scene.set("_game_audio", null)
 	scene.set("_dalji_click_voice_stream", null)
 

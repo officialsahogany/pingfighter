@@ -257,19 +257,19 @@ func get_spawn_group_target_shares(group_sums: Dictionary, registry: Object = nu
 	if active_sum + passive_sum + mythic_sum <= 0.0:
 		return {"active": 0.0, "passive": 0.0, "mythic": 0.0}
 
+	# 천기보도의 절세무공 배율은 퍽 전환(PerkConversionFlags) OFF인 레거시
+	# 파리티 경로에서만 의미가 있다 — 전환 ON(프로덕션)에서는
+	# build_spawn_candidates가 passive/mythic 템플릿을 전부 제외하므로
+	# mythic_sum/passive_sum이 0이고 두 target 모두 0으로 접힌다. 프로덕션
+	# 소비처는 stage_clear_reward_resolver의 보상 상자 굴림이다.
 	var treasure_map_level: int = max(0, _get_treasure_map_level(registry))
-	var mythic_multiplier: float = _get_treasure_map_field_mythic_multiplier(registry, treasure_map_level)
-	var passive_share_bonus: float = _get_treasure_map_passive_drop_share_bonus(registry, treasure_map_level)
+	var mythic_multiplier: float = _get_treasure_map_mythic_multiplier(registry, treasure_map_level)
 	var raw_mythic: float = (
 		min(MYTHIC_MAX_SHARE, MYTHIC_BASE_SHARE * mythic_multiplier)
 		if mythic_sum > 0.0
 		else 0.0
 	)
-	var raw_passive: float = (
-		TARGET_PASSIVE_DROP_SHARE + passive_share_bonus
-		if passive_sum > 0.0
-		else 0.0
-	)
+	var raw_passive: float = TARGET_PASSIVE_DROP_SHARE if passive_sum > 0.0 else 0.0
 
 	var target_active := 0.0
 	var target_passive := 0.0
@@ -614,18 +614,11 @@ func _get_treasure_map_level(registry: Object) -> int:
 	return 0
 
 
-func _get_treasure_map_field_mythic_multiplier(registry: Object, fallback_level: int) -> float:
+func _get_treasure_map_mythic_multiplier(registry: Object, fallback_level: int) -> float:
 	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_field_mythic_multiplier"):
-		return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_field_mythic_multiplier()))
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_mythic_multiplier"):
+		return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_mythic_multiplier()))
 	return 1.0 + 1.5 * float(max(0, fallback_level))
-
-
-func _get_treasure_map_passive_drop_share_bonus(registry: Object, fallback_level: int) -> float:
-	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_passive_drop_share_bonus"):
-		return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_passive_drop_share_bonus()))
-	return 0.03 * float(max(0, fallback_level))
 
 
 func _get_selected_character_type(owner: Object) -> String:

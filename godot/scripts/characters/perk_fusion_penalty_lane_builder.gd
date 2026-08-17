@@ -9,7 +9,6 @@ const VALUE_KIND_FLOAT := "float"
 const VALUE_KIND_INT := "int"
 const CENTRAL_VALUE_KEY := "runtime_skill_bonus"
 const CENTRAL_INTEGER_PERK_IDS := {
-	"item_bag_expansion": true,
 	"perk_laurel_shield": true,
 }
 

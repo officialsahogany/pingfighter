@@ -1,5 +1,6 @@
 extends RefCounted
 
+const MatchScoreStateScript := preload("res://scripts/core/match_score_state.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
 
@@ -47,7 +48,7 @@ func draw_scoreboard_overlay(
 		scoreboard_state,
 		width,
 		height,
-		match_score_state.get_win_goal() if match_score_state != null else 5,
+		match_score_state.get_win_goal() if match_score_state != null else MatchScoreStateScript.WIN_GOAL,
 		ScoreboardState.SCOREBOARD_FADE_IN_DURATION,
 		draw_context,
 		perf_logger

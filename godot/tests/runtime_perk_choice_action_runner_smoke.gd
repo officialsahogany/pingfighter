@@ -62,6 +62,16 @@ func _verify_dispatch_runner() -> void:
 	_expect(bool(gold.get("handled", false)), "dispatch runner should handle explicit actions")
 	_expect(bool(gold.get("accepted", false)), "dispatch runner should preserve explicit action acceptance")
 	_expect(_calls.size() == 1 and str(_calls[0].get("key", "")) == "gold", "dispatch runner should route action callbacks")
+	_calls.clear()
+	var training: Dictionary = runner.run_dispatch(
+		{"accepted": true, "action": RuntimePerkChoiceDispatch.ACTION_PHYSIQUE_TRAINING},
+		{"id": "physique_move_speed", "is_physique_training": true},
+		owner,
+		registry,
+		_callbacks()
+	)
+	_expect(bool(training.get("handled", false)) and bool(training.get("accepted", false)), "dispatch runner should handle training as a repeatable non-level action")
+	_expect(_calls.size() == 1 and str(_calls[0].get("key", "")) == "training", "training dispatch should call the training callback once")
 
 	var standard: Dictionary = runner.run_dispatch(
 		{"accepted": true},
@@ -124,15 +134,6 @@ func _verify_feedback_callback_actions() -> void:
 	_expect_feedback(monkey, RuntimePerkChoiceActionRunner.TIMER_MONKEY_BLESSING, "Monkey", "Monkey Blessing")
 	_expect(str(_calls.back().get("key", "")) == "monkey", "Monkey Blessing should call the monkey callback")
 
-	var treasure: Dictionary = runner.run(
-		RuntimePerkChoiceDispatch.ACTION_TREASURE_HUNT,
-		{"id": "instant_treasure_hunt", "name": "Treasure"},
-		owner,
-		registry,
-		_callbacks()
-	)
-	_expect_feedback(treasure, RuntimePerkChoiceActionRunner.TIMER_TREASURE_HUNT, "treasure", "Treasure Hunt")
-	_expect(str(_calls.back().get("key", "")) == "treasure", "Treasure Hunt should call the treasure callback")
 
 func _verify_missing_callback_and_standard_action() -> void:
 	var runner := RuntimePerkChoiceActionRunner.new()
@@ -215,7 +216,7 @@ func _verify_callback_builder() -> void:
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE_DEFERRED), "callback builder should wire deferred Dimension Gate")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE), "callback builder should wire immediate Dimension Gate")
 	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_MONKEY_BLESSING), "callback builder should wire Monkey Blessing")
-	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_TREASURE_HUNT), "callback builder should wire Treasure Hunt")
+	_expect(_callback_is_valid(callbacks, RuntimePerkChoiceActionRunner.CALLBACK_PHYSIQUE_TRAINING), "callback builder should wire Physique Training")
 
 
 func _verify_state_source_contract() -> void:
@@ -238,7 +239,6 @@ func _verify_state_source_contract() -> void:
 	_expect(apply_body.find("_apply_dimension_gate_choice(registry)") < 0, "apply_choice should not call Dimension Gate action inline")
 	_expect(runner_source.find("func run_dispatch(dispatch: Dictionary") >= 0, "runner should own dispatch action extraction")
 	_expect(runner_source.find("func build_state_action_callbacks(state: Object)") >= 0, "runner should own state action callback map assembly")
-	_expect(runner_source.find("TIMER_TREASURE_HUNT := 1.6") >= 0, "runner should own Treasure Hunt fallback timer")
 
 
 func _callbacks() -> Dictionary:
@@ -249,7 +249,7 @@ func _callbacks() -> Dictionary:
 		RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE_DEFERRED: Callable(self, "_queue_dimension_gate"),
 		RuntimePerkChoiceActionRunner.CALLBACK_DIMENSION_GATE: Callable(self, "_dimension_gate"),
 		RuntimePerkChoiceActionRunner.CALLBACK_MONKEY_BLESSING: Callable(self, "_monkey"),
-		RuntimePerkChoiceActionRunner.CALLBACK_TREASURE_HUNT: Callable(self, "_treasure"),
+		RuntimePerkChoiceActionRunner.CALLBACK_PHYSIQUE_TRAINING: Callable(self, "_training"),
 	}
 
 
@@ -283,9 +283,11 @@ func _monkey(_owner: Object, _registry: Object, choice_name: String) -> Dictiona
 	return {"accepted": true, "feedback_text": choice_name}
 
 
-func _treasure(_owner: Object, _registry: Object) -> Dictionary:
-	_calls.append({"key": "treasure"})
-	return {"accepted": true, "feedback_text": "treasure"}
+
+
+func _training(_choice: Dictionary, _owner: Object, _registry: Object) -> bool:
+	_calls.append({"key": "training"})
+	return true
 
 
 func _apply_feedback(result: Dictionary, choice: Dictionary, fallback_timer: float) -> bool:
@@ -361,5 +363,5 @@ class CallbackProvider:
 	func _apply_monkey_blessing_choice(_owner: Object, _registry: Object, _choice_name: String) -> Dictionary:
 		return {"accepted": true}
 
-	func _apply_treasure_hunt_choice(_owner: Object, _registry: Object) -> Dictionary:
-		return {"accepted": true}
+	func _apply_physique_training_choice(_choice: Dictionary, _owner: Object, _registry: Object) -> bool:
+		return true

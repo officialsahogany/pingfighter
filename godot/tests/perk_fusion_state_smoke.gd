@@ -52,7 +52,6 @@ func _test_classification_and_candidates() -> void:
 	for overflow_perk_id in [
 		"perk_laurel_shield", "dowsing_goggles", "battery", "lucky_coin",
 		"foul_whistle", "rainbow_fur_glove", "soul_burst", "bulletproof_hat",
-		"spiked_helmet",
 	]:
 		var overflow_data: Dictionary = _catalog.get_perk_data(overflow_perk_id)
 		_expect(
@@ -181,7 +180,13 @@ func _test_restore_self_heal_revision_and_reset() -> void:
 	}
 	var snapshot := {
 		"records": [
-			{"fusion_id": "fusion_4", "sources": ["kick_enhance", "item_luck"], "outcome": "success"},
+			{
+				"fusion_id": "fusion_4",
+				"sources": ["kick_enhance", "item_luck"],
+				"outcome": "byproduct",
+				"byproducts": ["sleeve_cosmos", "reverb"],
+				"byproduct_payloads": {"sleeve_cosmos": {}},
+			},
 			{"fusion_id": "fusion_5", "sources": ["item_luck", "kick_enhance"], "outcome": "success"},
 			{"fusion_id": "fusion_6", "sources": ["kick_enhance", "common_bulk_up"], "outcome": "success"},
 			{"fusion_id": "fusion_7", "sources": ["not_a_real_perk", "common_bulk_up"], "outcome": "success"},
@@ -201,6 +206,10 @@ func _test_restore_self_heal_revision_and_reset() -> void:
 	_expect(int(reasons.get("source_not_owned", 0)) == 1, "restore should identify non-owned sources")
 	_expect(int(reasons.get("source_not_maxed", 0)) == 1, "restore should identify non-maxed sources")
 	_expect(state.get_all_records().size() == 1, "invalid restored records must be physically removed")
+	var healed_record: Dictionary = state.get_all_records()[0]
+	_expect(healed_record.get("byproducts", []) == ["reverb"], "restore must prune retired byproducts while keeping live ones")
+	_expect(not (healed_record.get("byproduct_payloads", {}) as Dictionary).has("sleeve_cosmos"), "restore must drop retired byproduct payloads")
+	_expect("sleeve_cosmos" not in state.get_owned_byproduct_ids(), "pruned retired byproducts must not surface as owned")
 	_expect(state.get_slot_reduction_count() == 1, "slot reduction must count only healed, valid records")
 	_expect(state.get_revision() == 12, "restore should advance beyond the serialized revision")
 	_expect(state.get_next_fusion_index() == 10, "restore should preserve the monotonic next fusion index")

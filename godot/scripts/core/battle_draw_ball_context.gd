@@ -51,6 +51,7 @@ func build_draw(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var lod_scale: float = ViperAirborneLod.effect_scale(context)
 	var ball_context := {
 		"drive_ball_active": bool(context.get("drive_ball_active", false)),
+		"perk_fusion_thunder_drive_active": float(context.get("perk_fusion_overload_speed_cap", 0.0)) > 0.0,
 		"power_smashing_freeze_active": power_state != null and power_state.is_freeze_active(),
 		"power_smashing_parabola_active": power_state != null and power_state.is_parabola_active(),
 		"ghost_shot_active": _call_bool(power_state, "is_ghost_shot_active"),

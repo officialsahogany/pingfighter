@@ -2,6 +2,10 @@ extends RefCounted
 
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 
+const SERVE_WAIT_SUPPRESSED := 1
+const SERVE_WAIT_CLEAR_INPUT := 2
+const SERVE_WAIT_LATCH_UNTIL_RELEASE := 4
+
 const CONTROL_LOCK_TIMER_FIELDS := [
 	"slingshot_control_lock_frames",
 	"pistol_control_lock_frames",
@@ -102,30 +106,42 @@ static func get_serve_wait_fire_suppression(
 	deps: Dictionary,
 	suppressed_until_release: bool
 ) -> Dictionary:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	if get_waiting_for_serve(config, deps):
-		return {
-			"suppressed": true,
-			"clear_input_state": true,
-			"suppressed_until_release": true if action_pressed else suppressed_until_release,
-		}
-	if not suppressed_until_release:
-		return {
-			"suppressed": false,
-			"clear_input_state": false,
-			"suppressed_until_release": false,
-		}
-	if action_pressed:
-		return {
-			"suppressed": true,
-			"clear_input_state": true,
-			"suppressed_until_release": true,
-		}
+	var flags := _resolve_serve_wait_fire_suppression_flags(
+		input_snapshot,
+		config,
+		deps,
+		suppressed_until_release
+	)
 	return {
-		"suppressed": false,
-		"clear_input_state": false,
-		"suppressed_until_release": false,
+		"suppressed": bool(flags & SERVE_WAIT_SUPPRESSED),
+		"clear_input_state": bool(flags & SERVE_WAIT_CLEAR_INPUT),
+		"suppressed_until_release": bool(flags & SERVE_WAIT_LATCH_UNTIL_RELEASE),
 	}
+
+
+static func apply_runtime_serve_wait_fire_suppression(
+	target: Object,
+	input_snapshot: Dictionary,
+	config: Dictionary,
+	deps: Dictionary
+) -> bool:
+	var suppressed_until_release := false
+	if target != null:
+		suppressed_until_release = bool(target.get("serve_wait_fire_suppressed_until_release"))
+	var flags := _resolve_serve_wait_fire_suppression_flags(
+		input_snapshot,
+		config,
+		deps,
+		suppressed_until_release
+	)
+	if target != null:
+		target.set(
+			"serve_wait_fire_suppressed_until_release",
+			bool(flags & SERVE_WAIT_LATCH_UNTIL_RELEASE)
+		)
+		if bool(flags & SERVE_WAIT_CLEAR_INPUT):
+			apply_serve_wait_firearm_input_cleared(target)
+	return bool(flags & SERVE_WAIT_SUPPRESSED)
 
 
 static func apply_serve_wait_firearm_input_cleared(target: Object) -> void:
@@ -147,6 +163,23 @@ static func apply_serve_wait_firearm_input_cleared(target: Object) -> void:
 	else:
 		target.set("pistol_pending_config", {})
 	target.set("pistol_pending_weapon_id", "")
+
+
+static func _resolve_serve_wait_fire_suppression_flags(
+	input_snapshot: Dictionary,
+	config: Dictionary,
+	deps: Dictionary,
+	suppressed_until_release: bool
+) -> int:
+	var action_pressed := bool(input_snapshot.get("action_pressed", false))
+	if get_waiting_for_serve(config, deps):
+		var waiting_flags := SERVE_WAIT_SUPPRESSED | SERVE_WAIT_CLEAR_INPUT
+		if action_pressed or suppressed_until_release:
+			waiting_flags |= SERVE_WAIT_LATCH_UNTIL_RELEASE
+		return waiting_flags
+	if suppressed_until_release and action_pressed:
+		return SERVE_WAIT_SUPPRESSED | SERVE_WAIT_CLEAR_INPUT | SERVE_WAIT_LATCH_UNTIL_RELEASE
+	return 0
 
 
 static func handle_firearm_reset_input(

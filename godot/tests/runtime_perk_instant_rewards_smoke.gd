@@ -3,6 +3,9 @@ extends SceneTree
 const RuntimePerkInstantRewards := preload("res://scripts/characters/runtime_perk_instant_rewards.gd")
 const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_perk_character_context.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const DaljiVisionChosikState := preload("res://scripts/characters/dalji_vision_chosik_state.gd")
+const CheongringwiVisionChosikState := preload("res://scripts/characters/cheongringwi_vision_chosik_state.gd")
+const YeonmyoVisionChosikState := preload("res://scripts/characters/yeonmyo_vision_chosik_state.gd")
 
 var _failures: Array[String] = []
 
@@ -88,7 +91,6 @@ func _run() -> void:
 	_verify_full_gauge_reward()
 	_verify_dimension_gate_reward()
 	_verify_monkey_blessing_delivery_and_fallback()
-	_verify_treasure_hunt_reward()
 
 	if _failures.is_empty():
 		print("runtime_perk_instant_rewards_smoke: ok")
@@ -118,7 +120,7 @@ func _verify_bookkeeping_instant_choices() -> void:
 	_expect(int(star_result.get("pending_skill_choices", 0)) == 3, "star_change should convert three starpoints into choices")
 	_expect(int(star_result.get("starpoint_for_skills", -1)) == 0, "star_change should leave no remainder at one starpoint per choice")
 	_expect(str(star_result.get("feedback_key", "")) == "star_change", "star_change should return a feedback key")
-	_expect(str(star_result.get("feedback_text", "")) == "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +3", "star_change should own its visible feedback text")
+	_expect(str(star_result.get("feedback_text", "")) == "무혼 +3", "star_change should own its visible feedback text")
 	var star_update: Dictionary = helper.build_bookkeeping_state_update(star_result, 0, 0)
 	_expect(int(star_update.get("next_pending_skill_choices", 0)) == 3, "star_change update should expose converted pending choices")
 	_expect(int(star_update.get("next_starpoint_for_skills", -1)) == 0, "star_change update should expose converted starpoint remainder")
@@ -176,10 +178,25 @@ func _verify_full_gauge_reward() -> void:
 	var owner := FakeOwner.new()
 	var dash := FakeDashState.new()
 	var skill := FakeSkillState.new()
+	var dalji_vision := DaljiVisionChosikState.new()
+	dalji_vision.cooldown_remaining = 17.0
+	dalji_vision.cast_remaining = 0.35
+	dalji_vision.tops = [{"age": 1.0, "lifetime": 7.0}]
+	var cheongringwi_vision := CheongringwiVisionChosikState.new()
+	var yeonmyo_vision := YeonmyoVisionChosikState.new()
+	cheongringwi_vision.cooldown_remaining = 39.0
+	cheongringwi_vision.phase = "quake"
+	cheongringwi_vision.rocks = [{"rock_seed": 22070}]
+	yeonmyo_vision.cooldown_remaining = 34.0
+	yeonmyo_vision.phase = "active"
+	yeonmyo_vision.active_remaining = 9.0
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"smasher_dash_state": dash,
 		"smasher_skill_state": skill,
+		"dalji_vision_chosik_state": dalji_vision,
+		"cheongringwi_vision_chosik_state": cheongringwi_vision,
+		"yeonmyo_vision_chosik_state": yeonmyo_vision,
 	}
 
 	var applied: bool = state.apply_choice({"id": "instant_gauge_full", "name": "Gauge"}, owner, registry)
@@ -187,6 +204,12 @@ func _verify_full_gauge_reward() -> void:
 	_expect(is_equal_approx(owner.special_gauge, RuntimePerkState.SPECIAL_GAUGE_MAX), "instant gauge should fill the owner gauge")
 	_expect(dash.refill_calls == 1, "instant gauge should refill dash tokens")
 	_expect(skill.reset_calls == 1, "instant gauge should reset character skill cooldowns")
+	_expect(is_zero_approx(dalji_vision.cooldown_remaining), "instant gauge should reset Dalji Vision Chosik cooldown")
+	_expect(is_zero_approx(cheongringwi_vision.cooldown_remaining), "instant gauge should reset Cheongringwi Vision Chosik cooldown")
+	_expect(is_zero_approx(yeonmyo_vision.cooldown_remaining), "instant gauge should reset Yeonmyo Vision Chosik cooldown")
+	_expect(dalji_vision.cast_remaining > 0.0 and dalji_vision.tops.size() == 1, "instant gauge cooldown reset must preserve active Dalji tops")
+	_expect(cheongringwi_vision.phase == "quake" and cheongringwi_vision.rocks.size() == 1, "instant gauge cooldown reset must preserve active Cheongringwi rocks")
+	_expect(yeonmyo_vision.phase == "active" and is_equal_approx(yeonmyo_vision.active_remaining, 9.0), "instant gauge cooldown reset must preserve the active Yeonmyo chest")
 	_expect(str(state.feedback_text) == RuntimePerkInstantRewards.FULL_GAUGE_FEEDBACK_TEXT, "instant gauge should apply helper-owned feedback text")
 	_expect(is_equal_approx(float(state.feedback_timer), RuntimePerkInstantRewards.IMMEDIATE_FEEDBACK_TIMER), "instant gauge should apply helper-owned feedback timer")
 
@@ -247,10 +270,8 @@ func _verify_dimension_gate_reward() -> void:
 	_expect(reward_source.find("func apply_full_gauge_choice") >= 0, "instant reward helper should own full-gauge choice payloads")
 	_expect(reward_source.find("func apply_dimension_gate_choice") >= 0, "instant reward helper should own Dimension Gate choice payloads")
 	_expect(reward_source.find("func apply_monkey_blessing_choice") >= 0, "instant reward helper should own Monkey Blessing choice payloads")
-	_expect(reward_source.find("func apply_treasure_hunt_choice") >= 0, "instant reward helper should own Treasure Hunt choice payloads")
 	var flow_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_instant_choice_flow.gd")
 	_expect(flow_source.find("func apply_monkey_blessing_choice_from_runtime_state") >= 0, "instant choice flow should own runtime-state Monkey Blessing assembly")
-	_expect(flow_source.find("func apply_treasure_hunt_choice_from_runtime_state") >= 0, "instant choice flow should own runtime-state Treasure Hunt assembly")
 
 
 func _verify_monkey_blessing_delivery_and_fallback() -> void:
@@ -275,28 +296,11 @@ func _verify_monkey_blessing_delivery_and_fallback() -> void:
 	_expect(is_equal_approx(float(fallback_state.feedback_timer), RuntimePerkInstantRewards.MONKEY_BLESSING_FEEDBACK_TIMER), "monkey blessing fallback should apply helper-owned feedback timer")
 
 
-func _verify_treasure_hunt_reward() -> void:
-	var state := RuntimePerkState.new()
-	var owner := FakeOwner.new()
-	var treasure := FakeTreasureRuntime.new()
-	var registry := FakeRegistry.new()
-	registry.instances = {"treasure_hunt_runtime": treasure}
-
-	var applied: bool = state.apply_choice({"id": "instant_treasure_hunt", "name": "Treasure"}, owner, registry)
-	_expect(applied, "treasure hunt should apply when runtime starts")
-	_expect(treasure.start_calls == 1, "treasure hunt should route through treasure_hunt_runtime.start")
-	_expect(state.feedback_text == "treasure-ok", "treasure hunt should surface runtime feedback text")
-	_expect(is_equal_approx(float(state.feedback_timer), RuntimePerkInstantRewards.TREASURE_HUNT_FEEDBACK_TIMER), "treasure hunt should apply helper-owned feedback timer")
-
 	var state_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
 	_expect(state_source.find("_apply_monkey_blessing(owner, registry)") < 0, "state should apply Monkey Blessing through helper-owned choice payloads")
-	_expect(state_source.find("_apply_treasure_hunt(owner, registry)") < 0, "state should apply Treasure Hunt through helper-owned choice payloads")
 	var monkey_body := _function_body(state_source, "func _apply_monkey_blessing_choice(")
 	_expect(monkey_body.find("_instant_choice_flow.apply_monkey_blessing_choice_from_runtime_state") >= 0, "state Monkey Blessing wrapper should delegate to instant choice flow runtime-state API")
 	_expect(monkey_body.find("Callable(self, \"_get_instance\")") < 0, "state Monkey Blessing wrapper should not build get-instance callbacks directly")
-	var treasure_body := _function_body(state_source, "func _apply_treasure_hunt_choice(")
-	_expect(treasure_body.find("_instant_choice_flow.apply_treasure_hunt_choice_from_runtime_state") >= 0, "state Treasure Hunt wrapper should delegate to instant choice flow runtime-state API")
-	_expect(treasure_body.find("Callable(self, \"_get_instance\")") < 0, "state Treasure Hunt wrapper should not build get-instance callbacks directly")
 
 
 func _expect(condition: bool, message: String) -> void:

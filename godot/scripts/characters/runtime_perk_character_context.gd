@@ -59,6 +59,8 @@ func get_owner_character_type(owner: Object) -> String:
 		return "viper"
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
+	if normalized == "optimus" or normalized == "io":
+		return "optimus"
 	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
 		return "blacksmith"
 	return "smasher"

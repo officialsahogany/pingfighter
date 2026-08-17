@@ -66,6 +66,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"game_size": _get_layout_vector2(layout, "game_size", Vector2(WIDTH, HEIGHT)),
 		"render_scale": max(0.001, float(layout.get("render_scale", 1.0))),
 		"selected_character_type": selected_character_type,
+		"selected_character_name": str(_get_owner_value(owner, "selected_character_name", "")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),
@@ -119,6 +120,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"ball_interp_last_physics_usec": int(_get_owner_value(owner, "ball_interp_last_physics_usec", 0)),
 		"ball_render_interpolation_enabled": bool(_get_owner_value(owner, "ball_render_interpolation_enabled", true)),
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
+		"perk_fusion_overload_speed_cap": float(_get_owner_value(owner, "perk_fusion_overload_speed_cap", 0.0)),
 		"stage3_kuromi_ball_hidden": bool(_get_owner_value(owner, "stage3_kuromi_ball_hidden", false)),
 		"ball_size": BALL_SIZE,
 		"ball_visual_type": str(_get_owner_value(owner, "ball_visual_type", "energy")),
@@ -236,7 +238,6 @@ func _merge_blacksmith_thor_shield_state_context(context: Dictionary, character_
 			context[key_name] = snapshot[key]
 
 
-
 # S3-b §C-1: 탑다운 합성 활성 여부 — defer 스위치와 M 콜백 게이트가 읽는다.
 # 비-인스턴스화 peek 전용.
 func _is_mount_topdown_active(registry) -> bool:
@@ -248,10 +249,8 @@ func _is_mount_topdown_active(registry) -> bool:
 	return bool(lingpet_runtime.is_topdown_mount_composite_active())
 
 
-# S3-b §A-4a/P16②: N(착석 라이더) 페이로드 — egg 가 보존한 readiness 결과에서
-# **그 객체 그대로** 가져온다. battle_resources 캐시를 여기서 재조회하면 게이트가
-# 본 객체와 렌더러가 받는 객체가 갈라져 P16② 동일 객체 계약이 공허해진다.
-# 반환: {"texture": Texture2D, "spec": Dictionary} 또는 비활성/미준비 시 빈 dict.
+# N(전환 또는 착석 라이더) 페이로드. egg가 보존한 readiness 객체와 현재 전환
+# 프레임을 그대로 넘긴다. draw 경로에서는 리소스 캐시를 다시 조회하지 않는다.
 func _get_mount_rider_seated_payload(registry) -> Dictionary:
 	if registry == null or not registry.has_method("get_cached_instance"):
 		return {}
@@ -260,17 +259,12 @@ func _get_mount_rider_seated_payload(registry) -> Dictionary:
 		lingpet_runtime == null
 		or not lingpet_runtime.has_method("is_topdown_mount_composite_active")
 		or not bool(lingpet_runtime.is_topdown_mount_composite_active())
-		or not lingpet_runtime.has_method("get_topdown_mount_readiness")
+		or not lingpet_runtime.has_method("get_topdown_mount_rider_payload")
 	):
 		return {}
-	var readiness: Dictionary = lingpet_runtime.get_topdown_mount_readiness()
-	var rider_texture: Variant = readiness.get("rider_texture", null)
-	if not (rider_texture is Texture2D):
-		return {}
-	return {
-		"texture": rider_texture,
-		"spec": readiness.get("rider_spec", {}) as Dictionary,
-	}
+	var payload: Variant = lingpet_runtime.get_topdown_mount_rider_payload()
+	return payload as Dictionary if payload is Dictionary else {}
+
 
 # Non-instantiating peek (hot-path lazy init trap: the draw path must never
 # cold-instantiate the lingpet runtime).

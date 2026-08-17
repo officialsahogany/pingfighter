@@ -24,10 +24,10 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_doping_potion", [item_data, owner, registry])
 	if _matches(item_name, effect_name, "vitamin_pill"):
 		return _call_bool(effect_controller, "activate_vitamin_pill", [owner, registry])
-	if _matches(item_name, effect_name, "strange_vial"):
-		return _call_bool(effect_controller, "activate_strange_vial", [owner, registry])
 	if _matches(item_name, effect_name, "aipill"):
 		return _call_bool(effect_controller, "activate_aipill", [owner, registry])
+	if _matches(item_name, effect_name, "mystic_dice"):
+		return _call_bool(effect_controller, "activate_mystic_dice", [owner, registry])
 	if _matches(item_name, effect_name, "grenade"):
 		return _call_bool(throw_controller, "activate_grenade", [owner, registry])
 	if _matches(item_name, effect_name, "flare"):
@@ -50,8 +50,6 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_stopwatch", [owner, registry])
 	if _matches(item_name, effect_name, "magnet_field"):
 		return _call_bool(effect_controller, "activate_magnet_field", [owner, registry])
-	if _matches(item_name, effect_name, "hologram_disk"):
-		return _call_bool(effect_controller, "activate_hologram_disk", [owner, registry])
 	if _matches(item_name, effect_name, "long_boost"):
 		return _call_bool(effect_controller, "activate_long_boost", [owner, registry])
 	if _matches(item_name, effect_name, "milk_bottle"):
@@ -68,6 +66,8 @@ func apply_item_effect(
 		return _call_bool(effect_controller, "activate_wall", [owner, registry])
 	if _matches(item_name, effect_name, "trampoline"):
 		return _call_bool(effect_controller, "activate_trampoline", [owner, registry])
+	if _matches(item_name, effect_name, "campfire"):
+		return _call_bool(effect_controller, "activate_campfire", [owner, registry])
 	if _matches(item_name, effect_name, "elixir_of_mastery"):
 		return _call_bool(effect_controller, "activate_elixir_of_mastery", [owner, registry])
 	return false

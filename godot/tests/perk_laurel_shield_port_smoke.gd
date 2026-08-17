@@ -47,7 +47,7 @@ func _init() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var data: Dictionary = catalog.get_perk_data("perk_laurel_shield")
 	_expect(not data.is_empty(), "catalog should register Laurel Leaf")
-	_expect(str(data.get("name", "")) == "월계수잎", "Laurel Leaf should keep its Korean display name")
+	_expect(str(data.get("name", "")) == "오엽호신", "Five-Leaf Ward should use its Korean Mugong display name")
 	_expect(int(data.get("max_level", 0)) == 5, "Laurel Leaf should have five base levels")
 	_expect(str(data.get("tree", "")) == "common", "Laurel Leaf should live in the common tree")
 	_expect(ProjectResourceLoader.load_texture("res://assets/sprites/perks/perk_laurel_shield_perk_icon.png") != null, "Laurel Leaf perk icon should load")

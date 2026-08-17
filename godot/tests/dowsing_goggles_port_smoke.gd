@@ -4,6 +4,7 @@ const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
@@ -86,8 +87,7 @@ func _init() -> void:
 	perk_state.open_next_choice("smasher", perk_catalog, false, owner, registry)
 	var bonus_snapshot: Dictionary = perk_state.get_snapshot()
 	var bonus_choices: Array = bonus_snapshot.get("current_choices", [])
-	_expect(bonus_choices.size() == 5, "100% Dowsing Goggles should add one perk card before gold conversion")
-	_expect(str(_get_choice(bonus_choices, 4).get("id", "")) == "convert_to_gold", "gold conversion should remain the last card")
+	_expect(bonus_choices.size() == 4, "100% Dowsing Goggles should add one protected perk card")
 	_expect(bool(_get_choice(bonus_choices, 3).get("is_dowsing_goggles_bonus", false)), "the added card should be marked for Dowsing Goggles UI feedback")
 	_expect(runtime.was_dowsing_goggles_bonus_triggered(), "runtime should remember the latest Dowsing Goggles trigger")
 
@@ -97,7 +97,7 @@ func _init() -> void:
 	normal_state.pending_skill_choices = 1
 	normal_state.open_next_choice("smasher", perk_catalog, false, owner, registry)
 	var normal_choices: Array = normal_state.get_snapshot().get("current_choices", [])
-	_expect(normal_choices.size() == 4, "unequipped Dowsing Goggles should leave the normal 3 perks plus gold")
+	_expect(normal_choices.size() == 3, "unequipped Dowsing Goggles should leave the normal three perks")
 	_expect(not runtime.was_dowsing_goggles_bonus_triggered(), "unequip should clear the latest Dowsing Goggles trigger")
 
 	var polish_state := RuntimePerkState.new()
@@ -114,6 +114,18 @@ func _init() -> void:
 		62.0,
 		"Polish should boost Dowsing Goggles bonus-perk chance through the shared roll helper"
 	)
+
+	PerkConversionFlags.debug_set_enabled(true)
+	var converted_state := RuntimePerkState.new()
+	converted_state.runtime_skill_levels = {"item_polish": 2, "dowsing_goggles": 1}
+	var converted_runtime := MythicItemRuntime.new()
+	converted_runtime.runtime_perk_state_ref = converted_state
+	_expect_close(
+		converted_runtime.get_dowsing_goggles_bonus_perk_chance_pct(),
+		44.0,
+		"live converted Tianan Art chance should receive the shared 10% Polish multiplier"
+	)
+	PerkConversionFlags.debug_set_enabled(false)
 
 	print("dowsing_goggles_port_smoke: ok")
 	quit(0)

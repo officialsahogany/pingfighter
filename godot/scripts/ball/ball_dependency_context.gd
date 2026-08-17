@@ -85,6 +85,8 @@ func _build_common_update_deps(registry) -> Dictionary:
 		"lingpet_egg_runtime": _get_instance(registry, "lingpet_egg_runtime"),
 		"weather_event_state": _get_instance(registry, "weather_event_state"),
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+		"dalji_vision_chosik_state": _get_instance(registry, "dalji_vision_chosik_state"),
+		"cheongringwi_vision_chosik_state": _get_instance(registry, "cheongringwi_vision_chosik_state"),
 		"animation_state": _get_instance(registry, "actor_animation_state"),
 		"ai_state": _get_instance(registry, "boss_ai_state"),
 		"stage_runtime_router": _get_instance(registry, "stage_runtime_router"),
@@ -157,6 +159,8 @@ static func get_stage_round_dep_keys(current_stage: int, stage1_boss_variant: St
 			keys.append("stage6_tetriser_state")
 		7:
 			keys.append("stage7_akamu_state")
+		8:
+			keys.append("stage8_minotaur_state")
 	return keys
 
 
@@ -173,6 +177,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"smasher_warp_gate_state": registry.get_instance("smasher_warp_gate_state"),
 		"smasher_wheel_state": registry.get_instance("smasher_wheel_state"),
 		"smasher_overdrive_state": registry.get_instance("smasher_overdrive_state"),
+		"smasher_void_phantom_state": registry.get_instance("smasher_void_phantom_state"),
 		"smasher_dash_spirit_state": registry.get_instance("smasher_dash_spirit_state"),
 		"smasher_shield_kiting_state": registry.get_instance("smasher_shield_kiting_state"),
 		"laurel_leaf_shield_state": registry.get_instance("laurel_leaf_shield_state"),
@@ -196,6 +201,9 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"commando_firearm_runtime": registry.get_instance("commando_firearm_runtime"),
 		"commando_supply_drop_state": registry.get_instance("commando_supply_drop_state"),
 		"runtime_perk_state": registry.get_instance("runtime_perk_state"),
+		"dalji_vision_chosik_state": registry.get_instance("dalji_vision_chosik_state"),
+		"cheongringwi_vision_chosik_state": registry.get_instance("cheongringwi_vision_chosik_state"),
+		"yeonmyo_vision_chosik_state": registry.get_instance("yeonmyo_vision_chosik_state"),
 		"feedback": registry.get_instance("battle_feedback_state"),
 		"ball_physics": registry.get_instance("ball_physics"),
 		"active_item_runtime": registry.get_instance("active_item_runtime"),
@@ -219,6 +227,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"stage5_hongryun_actor_renderer": registry.get_instance("stage5_hongryun_actor_renderer"),
 		"stage6_tetriser_state": registry.get_instance("stage6_tetriser_state"),
 		"stage7_akamu_state": registry.get_instance("stage7_akamu_state"),
+		"stage8_minotaur_state": registry.get_instance("stage8_minotaur_state"),
 		"stage1_balloon_event": registry.get_instance("stage1_balloon_event"),
 	}
 
@@ -239,6 +248,9 @@ func _build_common_round_deps(registry, perf_logger: Object = null, perf_label_p
 		"movement_state": _get_round_instance(registry, "player_movement_state", perf_logger, perf_label_prefix),
 		"animation_state": _get_round_instance(registry, "actor_animation_state", perf_logger, perf_label_prefix),
 		"runtime_perk_state": _get_round_instance(registry, "runtime_perk_state", perf_logger, perf_label_prefix),
+		"dalji_vision_chosik_state": _get_round_instance(registry, "dalji_vision_chosik_state", perf_logger, perf_label_prefix),
+		"cheongringwi_vision_chosik_state": _get_round_instance(registry, "cheongringwi_vision_chosik_state", perf_logger, perf_label_prefix),
+		"yeonmyo_vision_chosik_state": _get_round_instance(registry, "yeonmyo_vision_chosik_state", perf_logger, perf_label_prefix),
 		"feedback": _get_round_instance(registry, "battle_feedback_state", perf_logger, perf_label_prefix),
 		"ball_physics": _get_round_instance(registry, "ball_physics", perf_logger, perf_label_prefix),
 		"active_item_runtime": _get_round_instance(registry, "active_item_runtime", perf_logger, perf_label_prefix),
@@ -279,6 +291,7 @@ func _append_smasher_round_deps(
 	deps["smasher_warp_gate_state"] = _get_round_instance(registry, "smasher_warp_gate_state", perf_logger, perf_label_prefix)
 	deps["smasher_wheel_state"] = _get_round_instance(registry, "smasher_wheel_state", perf_logger, perf_label_prefix)
 	deps["smasher_overdrive_state"] = _get_round_instance(registry, "smasher_overdrive_state", perf_logger, perf_label_prefix)
+	deps["smasher_void_phantom_state"] = _get_round_instance(registry, "smasher_void_phantom_state", perf_logger, perf_label_prefix)
 	deps["smasher_dash_spirit_state"] = _get_round_instance(registry, "smasher_dash_spirit_state", perf_logger, perf_label_prefix)
 	deps["smasher_shield_kiting_state"] = _get_round_instance(registry, "smasher_shield_kiting_state", perf_logger, perf_label_prefix)
 	deps["combo_state"] = _get_round_instance(registry, "smasher_combo_state", perf_logger, perf_label_prefix)
@@ -365,6 +378,7 @@ func _append_smasher_update_deps(deps: Dictionary, registry, include_generic_key
 	deps["smasher_warp_gate_state"] = _get_instance(registry, "smasher_warp_gate_state")
 	deps["smasher_wheel_state"] = _get_instance(registry, "smasher_wheel_state")
 	deps["smasher_overdrive_state"] = _get_instance(registry, "smasher_overdrive_state")
+	deps["smasher_void_phantom_state"] = _get_instance(registry, "smasher_void_phantom_state")
 	deps["smasher_dash_spirit_state"] = _get_instance(registry, "smasher_dash_spirit_state")
 	deps["smasher_shield_kiting_state"] = _get_instance(registry, "smasher_shield_kiting_state")
 
@@ -424,6 +438,7 @@ func _append_legacy_stage_update_deps(deps: Dictionary, registry) -> void:
 	deps["stage5_hongryun_state"] = _get_instance(registry, "stage5_hongryun_state")
 	deps["stage5_hongryun_fire_machine_event"] = _get_instance(registry, "stage5_hongryun_fire_machine_event")
 	deps["stage6_tetriser_state"] = _get_instance(registry, "stage6_tetriser_state")
+	deps["stage8_minotaur_state"] = _get_instance(registry, "stage8_minotaur_state")
 	deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
 	deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
 	deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
@@ -475,6 +490,8 @@ func _append_stage_update_deps(
 			deps["stage6_tetriser_state"] = _get_instance(registry, "stage6_tetriser_state")
 		7:
 			deps["stage7_akamu_state"] = _get_instance(registry, "stage7_akamu_state")
+		8:
+			deps["stage8_minotaur_state"] = _get_instance(registry, "stage8_minotaur_state")
 
 
 func _get_stage_background_key(router: Object, current_stage: int) -> String:

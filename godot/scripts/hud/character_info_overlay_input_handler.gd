@@ -3,13 +3,15 @@ extends RefCounted
 const CharacterInfoOverlayValueUtils := preload("res://scripts/hud/character_info_overlay_value_utils.gd")
 
 
-static func handle_input(target: Object, event: InputEvent, owner: Object, registry: Object) -> bool:
+static func handle_input(target: Object, event: InputEvent, owner: Object, registry: Object, input_ready: bool = true) -> bool:
 	if not bool(target.get("active")):
 		return false
+	if event is InputEventKey:
+		return _handle_key(target, event, registry)
+	if not input_ready:
+		return true
 	if event is InputEventMouseMotion:
 		return _handle_mouse_motion(target, event)
-	if event is InputEventKey:
-		return _handle_key(target, event)
 	if event is InputEventMouseButton:
 		return _handle_mouse_button(target, event, owner, registry)
 	return true
@@ -26,11 +28,13 @@ static func _handle_mouse_motion(target: Object, event: InputEvent) -> bool:
 	return true
 
 
-static func _handle_key(target: Object, event: InputEvent) -> bool:
+static func _handle_key(target: Object, event: InputEvent, registry: Object) -> bool:
 	var key_event: InputEventKey = event
 	if not key_event.pressed or key_event.echo:
 		return true
-	if key_event.keycode == KEY_TAB or key_event.physical_keycode == KEY_TAB or key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
+	var is_tab := key_event.keycode == KEY_TAB or key_event.physical_keycode == KEY_TAB
+	var is_escape := key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE
+	if is_tab or is_escape:
 		if bool(target.call("_is_discard_confirm_active")):
 			target.call("_cancel_discard_confirm")
 			target.call("_reset_hover_and_request_redraw", true)
@@ -39,8 +43,22 @@ static func _handle_key(target: Object, event: InputEvent) -> bool:
 			target.call("_drag_cancel")
 			target.call("_reset_hover_and_request_redraw", true)
 			return true
+		var was_closing := target.has_method("is_closing") and bool(target.call("is_closing"))
 		target.call("close", true)
+		if is_tab and not was_closing:
+			_play_toggle_sound(registry)
 	return true
+
+
+static func _play_toggle_sound(registry: Object) -> void:
+	if registry == null or not registry.has_method("get_instance"):
+		return
+	var value: Variant = registry.get_instance("game_audio")
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return
+	var audio := value as Object
+	if audio.has_method("play_character_info_toggle"):
+		audio.play_character_info_toggle()
 
 
 static func _handle_mouse_button(target: Object, event: InputEvent, owner: Object, registry: Object) -> bool:

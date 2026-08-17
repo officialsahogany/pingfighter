@@ -33,6 +33,7 @@ func _build_common_deps(registry: Object) -> Dictionary:
 	return {
 		"registry": registry,
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+		"cheongringwi_vision_chosik_state": _get_instance(registry, "cheongringwi_vision_chosik_state"),
 		"monkey_blessing_delivery_state": _get_instance(registry, "monkey_blessing_delivery_state"),
 		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 	}
@@ -45,6 +46,7 @@ func _append_smasher_deps(deps: Dictionary, registry: Object) -> void:
 	deps["smasher_cleanse_state"] = _get_instance(registry, "smasher_cleanse_state")
 	deps["smasher_warp_gate_state"] = _get_instance(registry, "smasher_warp_gate_state")
 	deps["smasher_wheel_state"] = _get_instance(registry, "smasher_wheel_state")
+	deps["smasher_overdrive_state"] = _get_instance(registry, "smasher_overdrive_state")
 	deps["smasher_magnum_grip_state"] = _get_instance(registry, "smasher_magnum_grip_state")
 	deps["smasher_dash_spirit_state"] = _get_instance(registry, "smasher_dash_spirit_state")
 	deps["smasher_shield_kiting_state"] = _get_instance(registry, "smasher_shield_kiting_state")

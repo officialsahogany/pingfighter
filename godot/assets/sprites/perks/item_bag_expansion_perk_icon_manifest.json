@@ -1,0 +1,16 @@
+{
+  "asset_id": "item_bag_expansion_perk_icon",
+  "perk_id": "item_bag_expansion",
+  "display_name_ko": "건곤낭",
+  "display_name_en": "Heaven-Earth Pouch",
+  "runtime_path": "res://assets/sprites/perks/item_bag_expansion_perk_icon.png",
+  "dimensions": [256, 256],
+  "source_generation": {
+    "tool": "built-in image_gen",
+    "mode": "new static raster illustration without reference images",
+    "generated_output": "C:/Users/woduq/.codex/generated_images/019f9de3-f4c9-7bb0-b660-e72a04ccf169/exec-546e7424-e39c-436a-8064-21b7ba291e73.png",
+    "prompt_summary": "A common-Mugong Joseon hanji seal with one open embroidered Korean silk pouch whose deep-indigo interior spiral contains exactly five large item tokens. No book, text, suitcase, backpack, chest, plus sign, arrows, metal, leather, neon, or glossy UI; flat magenta chroma background."
+  },
+  "postprocess": {"helper": "C:/Users/woduq/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py", "key_color_observed": "#fa01fb", "arguments": ["--auto-key", "border", "--soft-matte", "--transparent-threshold", "12", "--opaque-threshold", "220", "--despill", "--edge-contract", "1"], "resize": "240x240 Lanczos centered on transparent 256x256 at 8,8"},
+  "qa": {"rgba": true, "alpha_bbox": [9, 8, 246, 247], "corner_alpha": [0, 0, 0, 0], "sha256": "796e6e7dcc72ff0505ab9d85286751773c5f61b7fd7970b14f55f3cb9ebd2739", "runtime_capture": "res://.tmp/common_mugong_item_seal_qa.png", "rendered_sizes": [80, 32]}
+}

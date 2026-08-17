@@ -28,10 +28,16 @@ func _run() -> void:
 
 
 func _verify_inactive_work_query_stays_allocation_free() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
-	var body: String = SourceContractFunctionBody.extract(source, "func has_angel_blessing_modal_work")
-	_expect(body.find("get_snapshot") < 0, "inactive Angel work query must not deep-copy the full presentation snapshot every frame")
-	_expect(body.find("has_ready_current_stage_roll") >= 0, "Angel work query should use the flow's allocation-free ready-roll predicate")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_state.gd")
+	var owner_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_angel_blessing_runtime_state.gd")
+	var runtime_body: String = SourceContractFunctionBody.extract(runtime_source, "func has_angel_blessing_modal_work")
+	var owner_body: String = SourceContractFunctionBody.extract(owner_source, "func has_modal_work")
+	_expect(
+		runtime_body.find("_angel_blessing_runtime_state.has_modal_work") >= 0,
+		"Angel work query facade should delegate to the feature owner"
+	)
+	_expect(owner_body.find("get_snapshot") < 0, "inactive Angel work query must not deep-copy the full presentation snapshot every frame")
+	_expect(owner_body.find("has_ready_current_stage_roll") >= 0, "Angel work query should use the flow's allocation-free ready-roll predicate")
 
 
 func _start_face_three_reveal(flow: Object, stage: int) -> void:

@@ -69,6 +69,7 @@ var _light_envelope_tween: Tween = null
 static var _backplate_common_texture: Texture2D = null
 static var _backplate_mythic_texture: Texture2D = null
 static var _ribbon_trail_texture: Texture2D = null
+static var _threaded_prewarm_step_index: int = 0
 
 
 static func prewarm_assets() -> void:
@@ -80,10 +81,56 @@ static func prewarm_assets() -> void:
 	_build_spark_particle_material()
 
 
+static func prewarm_assets_threaded_step() -> bool:
+	match _threaded_prewarm_step_index:
+		0:
+			# The procedural cache owns three pieces. Advance only one piece per
+			# rendered frame so even its CPU fallback cannot freeze the haze.
+			if not ImpactFlareTextureCache.prewarm_step():
+				return false
+		1:
+			var common_result := ProjectResourceLoader.prewarm_texture_threaded_step(BACKPLATE_COMMON_PATH)
+			if not bool(common_result.get("done", false)):
+				return false
+			_backplate_common_texture = common_result.get("texture", null) as Texture2D
+		2:
+			var mythic_result := ProjectResourceLoader.prewarm_texture_threaded_step(BACKPLATE_MYTHIC_PATH)
+			if not bool(mythic_result.get("done", false)):
+				return false
+			_backplate_mythic_texture = mythic_result.get("texture", null) as Texture2D
+		3:
+			var ribbon_result := ProjectResourceLoader.prewarm_texture_threaded_step(RIBBON_TRAIL_PATH)
+			if not bool(ribbon_result.get("done", false)):
+				return false
+			_ribbon_trail_texture = ribbon_result.get("texture", null) as Texture2D
+		4:
+			WritheEmber.prewarm()
+		5:
+			_build_spark_particle_material()
+		_:
+			_threaded_prewarm_step_index = 0
+			return true
+	_threaded_prewarm_step_index += 1
+	return false
+
+
+static func get_threaded_prewarm_debug_label() -> String:
+	if _threaded_prewarm_step_index == 0:
+		return "impact_flare_piece"
+	return str({
+		1: "backplate_common",
+		2: "backplate_mythic",
+		3: "ribbon_trail",
+		4: "writhe_material",
+		5: "spark_material",
+	}.get(_threaded_prewarm_step_index, "done"))
+
+
 static func reset_prewarm_assets_for_test() -> void:
 	_backplate_common_texture = null
 	_backplate_mythic_texture = null
 	_ribbon_trail_texture = null
+	_threaded_prewarm_step_index = 0
 	ImpactFlareTextureCache.reset_for_test()
 	WritheEmber.reset_for_test()
 

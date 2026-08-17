@@ -15,8 +15,8 @@ const BATCH1_CASES := [
 	{"id": "fuel_pouch", "key": "fuel_bonus_flat", "fixture": 100.0, "getter": "get_fuel_pouch_gauge_bonus"},
 	{"id": "bluetooth_ring", "key": "gauge_gain_pct", "fixture": 25.0, "getter": "get_bluetooth_ring_gauge_gain_pct"},
 	{"id": "knee_pads", "key": "knee_charge_pct", "fixture": 100.0, "getter": "get_knee_pads_charge_pct"},
-	{"id": "bulletproof_hat", "key": "stun_resist_pct", "fixture": 20.0, "getter": "get_bulletproof_hat_stun_resist_pct"},
-	{"id": "spiked_helmet", "key": "knockback_resist_pct", "fixture": 20.0, "getter": "get_spiked_helmet_knockback_resist_pct"},
+	{"id": "bulletproof_hat", "converted_id": "bulletproof_hat", "converted_key": "posture_correction_pct", "key": "stun_resist_pct", "fixture": 20.0, "getter": "get_bulletproof_hat_stun_resist_pct"},
+	{"id": "spiked_helmet", "converted_id": "bulletproof_hat", "converted_key": "posture_correction_pct", "key": "knockback_resist_pct", "fixture": 20.0, "getter": "get_spiked_helmet_knockback_resist_pct"},
 ]
 
 
@@ -160,10 +160,12 @@ func _verify_on_flag_uses_perk_levels() -> void:
 	for case_value in BATCH1_CASES:
 		var case_data: Dictionary = case_value
 		for level in [1, 5]:
-			var runtime: Object = _make_runtime({str(case_data["id"]): level})
+			var converted_id := _converted_id(case_data)
+			var converted_key := _converted_key(case_data)
+			var runtime: Object = _make_runtime({converted_id: level})
 			_expect_close(
 				_read_case_value(runtime, case_data),
-				PerkConversionValues.get_value(str(case_data["id"]), str(case_data["key"]), level),
+				PerkConversionValues.get_value(converted_id, converted_key, level),
 				"ON should use Lv%d perk value for %s" % [level, str(case_data["id"])]
 			)
 
@@ -197,12 +199,14 @@ func _verify_on_flag_perk_replaces_item_without_max() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	for case_value in BATCH1_CASES:
 		var case_data: Dictionary = case_value
-		var runtime: Object = _make_runtime({str(case_data["id"]): 1})
+		var converted_id := _converted_id(case_data)
+		var converted_key := _converted_key(case_data)
+		var runtime: Object = _make_runtime({converted_id: 1})
 		var high_item_roll := 500.0 if str(case_data["id"]) == "dowsing_pendulum" else 100.0
 		_expect(_equip_case_roll(runtime, case_data, high_item_roll), "ON replacement fixture should equip %s" % str(case_data["id"]))
 		_expect_close(
 			_read_case_value(runtime, case_data),
-			PerkConversionValues.get_value(str(case_data["id"]), str(case_data["key"]), 1),
+			PerkConversionValues.get_value(converted_id, converted_key, 1),
 			"ON should replace item roll instead of max/add for %s" % str(case_data["id"])
 		)
 
@@ -211,11 +215,13 @@ func _verify_effective_level_bonus_uses_shared_bridge() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	for case_value in BATCH1_CASES:
 		var case_data: Dictionary = case_value
-		var runtime: Object = _make_runtime({str(case_data["id"]): 3}, 2)
-		_expect(runtime.get_converted_perk_effect_level(str(case_data["id"])) == 5, "bridge should expose base+bonus effective level for %s" % str(case_data["id"]))
+		var converted_id := _converted_id(case_data)
+		var converted_key := _converted_key(case_data)
+		var runtime: Object = _make_runtime({converted_id: 3}, 2)
+		_expect(runtime.get_converted_perk_effect_level(converted_id) == 5, "bridge should expose base+bonus effective level for %s" % str(case_data["id"]))
 		_expect_close(
 			_read_case_value(runtime, case_data),
-			PerkConversionValues.get_value(str(case_data["id"]), str(case_data["key"]), 5),
+			PerkConversionValues.get_value(converted_id, converted_key, 5),
 			"base 3 + bonus 2 should use Lv5 value for %s" % str(case_data["id"])
 		)
 
@@ -240,7 +246,7 @@ func _verify_runtime_consumers_use_batch1_getters() -> void:
 	_expect_close(bluetooth_runtime.calculate_bluetooth_ring_gauge_charge(40.0), 49.0, "ON Bluetooth Ring perk should multiply gauge without old equipped gate")
 
 	var gold_runtime: Object = _make_runtime({"gold_digger": 5})
-	_expect_close(gold_runtime.apply_gold_digger_gauge_bonus(70.0), 108.0, "ON Gold Digger perk should multiply gauge without old equipped gate")
+	_expect(not gold_runtime.has_method("apply_gold_digger_gauge_bonus"), "ON Gold Digger perk should stay gold-only")
 	_expect(gold_runtime.apply_gold_digger_gold_bonus(100) == 155, "ON Gold Digger perk should multiply direct gold without old equipped gate")
 
 	var fuel_runtime: Object = _make_runtime({"fuel_pouch": 5})
@@ -273,9 +279,7 @@ func _verify_runtime_consumers_use_batch1_getters() -> void:
 
 	var bulletproof_runtime: Object = _make_runtime({"bulletproof_hat": 5})
 	_expect_close(bulletproof_runtime.get_player_stun_duration_seconds(1.5), 1.14, "ON Bulletproof Hat perk should feed stun duration math")
-
-	var spiked_runtime: Object = _make_runtime({"spiked_helmet": 5})
-	_expect_close(spiked_runtime.get_player_knockback_resist_scale(), 0.76, "ON Spiked Helmet perk should feed knockback scale math")
+	_expect_close(bulletproof_runtime.get_player_knockback_resist_scale(), 0.76, "ON Iron Heart Art should feed the same posture correction into knockback math")
 
 	var item_only_chargebag: Object = _make_runtime({})
 	_expect(_equip_fixture(item_only_chargebag, _case_by_id("chargebag")), "item-only Charge Bag should equip")
@@ -291,7 +295,7 @@ func _verify_runtime_consumers_use_batch1_getters() -> void:
 
 	var item_only_gold: Object = _make_runtime({})
 	_expect(_equip_fixture(item_only_gold, _case_by_id("gold_digger")), "item-only Gold Digger should equip")
-	_expect_close(item_only_gold.apply_gold_digger_gauge_bonus(70.0), 70.0, "ON item-only Gold Digger should stay inactive")
+	_expect(not item_only_gold.has_method("apply_gold_digger_gauge_bonus"), "ON item-only Gold Digger should expose no gauge multiplier")
 
 	var item_only_knee: Object = _make_runtime({})
 	_expect(_equip_fixture(item_only_knee, _case_by_id("knee_pads")), "item-only Kick Charger should equip")
@@ -365,6 +369,14 @@ func _equip_case_roll(runtime: Object, case_data: Dictionary, roll_value: float)
 
 func _read_case_value(runtime: Object, case_data: Dictionary) -> float:
 	return float(runtime.call(str(case_data["getter"])))
+
+
+func _converted_id(case_data: Dictionary) -> String:
+	return str(case_data.get("converted_id", case_data.get("id", "")))
+
+
+func _converted_key(case_data: Dictionary) -> String:
+	return str(case_data.get("converted_key", case_data.get("key", "")))
 
 
 func _case_by_id(item_id: String) -> Dictionary:

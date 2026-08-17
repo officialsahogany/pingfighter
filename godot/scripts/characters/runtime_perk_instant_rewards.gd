@@ -1,11 +1,20 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+# 무혼 표시 문구는 필드 획득 토스트와 한 출처를 쓴다. 여기서 문자열을 다시
+# 타이핑하면 다음 명칭 변경 때 이 보상만 옛 이름으로 남는다.
+const RuntimePerkStarpointAbsorption := preload("res://scripts/characters/runtime_perk_starpoint_absorption.gd")
+
+const VISION_COOLDOWN_STATE_KEYS := [
+	"dalji_vision_chosik_state",
+	"cheongringwi_vision_chosik_state",
+	"yeonmyo_vision_chosik_state",
+]
+
 const FULL_GAUGE_FEEDBACK_TEXT := "\uac8c\uc774\uc9c0 \uc644\ucda9"
-const DIMENSION_GATE_FEEDBACK_TEXT := "\ucc28\uc6d0\uac1c\ubc29"
+const DIMENSION_GATE_FEEDBACK_TEXT := "\ubc31\ubcf4\ucd08\ub798"
 const IMMEDIATE_FEEDBACK_TIMER := 1.2
 const MONKEY_BLESSING_FEEDBACK_TIMER := 1.1
-const TREASURE_HUNT_FALLBACK_FEEDBACK_TEXT := "\ubcf4\ubb3c\ud0d0\uc0c9"
-const TREASURE_HUNT_FEEDBACK_TIMER := 1.6
 
 
 func apply_bookkeeping_choice(
@@ -41,7 +50,7 @@ func apply_bookkeeping_choice(
 			"pending_skill_choices": next_pending,
 			"starpoint_for_skills": next_starpoints,
 			"feedback_key": "star_change",
-			"feedback_text": "\uc2a4\ud0c0\ud3ec\uc778\ud2b8 +3",
+			"feedback_text": RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_TEMPLATE % [LanguageSettings.translate_text(RuntimePerkStarpointAbsorption.COLLECTION_FEEDBACK_PREFIX), 3],
 			"feedback_timer": 1.0,
 		}
 
@@ -137,6 +146,12 @@ func apply_full_gauge(
 	if dash_state != null and dash_state.has_method("refill_tokens"):
 		dash_state.refill_tokens()
 	var skill_state: Object = _resolve_instance(get_instance, registry, skill_state_key)
+	_reset_cooldowns(skill_state)
+	for vision_state_key: String in VISION_COOLDOWN_STATE_KEYS:
+		_reset_cooldowns(_resolve_instance(get_instance, registry, vision_state_key))
+
+
+func _reset_cooldowns(skill_state: Object) -> void:
 	if skill_state != null and skill_state.has_method("reset_cooldowns"):
 		skill_state.reset_cooldowns()
 
@@ -206,25 +221,6 @@ func apply_monkey_blessing_choice(
 		"feedback_text": choice_name,
 		"feedback_timer": MONKEY_BLESSING_FEEDBACK_TIMER,
 	}
-
-
-func apply_treasure_hunt(owner: Object, registry: Object, get_instance: Callable) -> Dictionary:
-	var treasure_runtime: Object = get_instance.call(registry, "treasure_hunt_runtime")
-	if treasure_runtime == null or not treasure_runtime.has_method("start"):
-		return {"ok": false}
-	return treasure_runtime.start(owner, registry)
-
-
-func apply_treasure_hunt_choice(owner: Object, registry: Object, get_instance: Callable) -> Dictionary:
-	var result: Dictionary = apply_treasure_hunt(owner, registry, get_instance)
-	if not bool(result.get("ok", false)):
-		result["accepted"] = false
-		return result
-	var response := result.duplicate(true)
-	response["accepted"] = true
-	response["feedback_text"] = str(response.get("feedback_text", TREASURE_HUNT_FALLBACK_FEEDBACK_TEXT))
-	response["feedback_timer"] = TREASURE_HUNT_FEEDBACK_TIMER
-	return response
 
 
 func _get_owner_skill_state_key(owner: Object, character_context: Object) -> String:
