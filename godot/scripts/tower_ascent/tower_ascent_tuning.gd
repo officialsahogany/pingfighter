@@ -57,14 +57,10 @@ const TEMP_PHASE_C_MONK_REMOVE_PER_VISIT := 1
 const TEMP_PHASE_C_SPRING_ENHANCE_COST := 6
 const TEMP_PHASE_C_REST_RESTORE_PER_NODE := 1
 
-# TEMP: Unported and shell boss slots reuse existing Godot bosses until their
-# content tracks replace the stand-ins. These are compatibility IDs, not new
-# player-facing boss names.
+# TEMP: Remaining shell boss slots reuse existing Godot bosses until their
+# content tracks replace the stand-ins. Ported variants route from the boss
+# registry itself and must not retain duplicate entries here.
 const TEMP_BOSS_STANDIN_BY_SLOT := {
-	"floor_02_molewang": {"stage": 2, "boss_id": "cheongringwi"},
-	"floor_02_arachne": {"stage": 2, "boss_id": "cheongringwi"},
-	"floor_03_teddy_bear": {"stage": 3, "boss_id": "yeonmyo"},
-	"floor_03_alice": {"stage": 3, "boss_id": "yeonmyo"},
 	"floor_04_shell_01": {"stage": 4, "boss_id": "ponk"},
 	"floor_04_shell_02": {"stage": 4, "boss_id": "ponk"},
 	"floor_05_shell_01": {"stage": 5, "boss_id": "hongryun"},
