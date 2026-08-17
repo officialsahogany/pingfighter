@@ -4,7 +4,7 @@
 - 작업 브랜치: `codex/tower-unported-boss-port-4164` (로컬 전용, push 없음)
 - 금지 경계: `godot/scripts/tower_ascent/**`, `tower_ascent_tuning.gd`,
   `tower_ascent_boss_registry.gd` 대역 매핑 무수정
-- 전체 상태: 진행 중 (두더지왕·아라크네 완료, 다음 보스 미착수)
+- 전체 상태: 진행 중 (두더지왕·아라크네·테디베어 완료, 다음 보스 미착수)
 
 ## 두더지왕
 
@@ -95,8 +95,7 @@ SHA-256 일치 확인 후 격리 작업트리에만 복사했다. 첫 시도에�
 
 ### 1. 커밋과 파리티 조사
 
-- 독립 커밋: 이 섹션과 아라크네 구현을 함께 담은 커밋. 최종 인계 감사에서
-  실제 커밋 해시로 치환한다.
+- 독립 커밋: `f8424d08e75fe9c777e386685cffebb42a912298`
 - 원본 실제 호출 경로:
   - 보스 패들 접촉 시 게이지 `+60` 후 15초 쿨다운·게이지 500 조건으로
     거미줄 함정을 한 발 발사한다. 35f 이동 후 Y `695..720`에 300f 동안
@@ -135,6 +134,9 @@ SHA-256 일치 확인 후 격리 작업트리에만 복사했다. 첫 시도에�
 - 변경 파일 경고 스캔:
   - `gd_warning_scan: checked 9/9`
   - `Godot warning scan passed with no GDScript warnings.`
+- 헤드리스 로드:
+  - `[ApplicationQuitCoordinator] graceful headless shutdown complete`
+  - `Godot headless load check passed.`
 - windowed/Vulkan 픽셀 캡처:
   - `Vulkan 1.4.325 - Forward Mobile - NVIDIA GeForce RTX 5070`
   - `[StageBossVariantVisualQA] variant=arachne evidence=.../arachne.png`
@@ -168,7 +170,87 @@ SHA-256 일치 확인 후 격리 작업트리에만 복사했다. 첫 시도에�
 
 ## 테디베어
 
-- 상태: 미착수.
+### 1. 커밋과 파리티 조사
+
+- 독립 커밋: 이 섹션과 테디베어 구현을 함께 담은 커밋. 최종 인계 감사에서
+  실제 커밋 해시로 치환한다.
+- 원본 실제 호출 경로:
+  - Stage 3 보스 패들 접촉마다 게이지 `+50` 후 같은 접촉 분기에서 네 스킬을
+    순서대로 판정한다. 솜뭉치 투척은 게이지 200/15%/10초, 솜뭉치 폭탄은
+    150/10%/12초, 죽음의 포옹은 250/20%/15초, 하트 빔은 150/20%/8초다.
+  - 하트 빔 주석의 13%·10초가 아니라 실제 조건 `random <= 0.20`과 실제 상수
+    480f를 정본으로 이관했다(GRT-053).
+- 수치·타이밍:
+  - 솜뭉치 투척: 선딜 30f, 3~5발, 속도 `4+-0.5`, 수명 240f, 피격 반경
+    22, 피격 시 120f 화이트아웃(첫 30f 완전 백색 구간).
+  - 솜뭉치 폭탄: 선딜 30f, 3~5개, 수명 480f, 반경 24. 공 피격 시 초기
+    `+-0.4..0.7rad`와 60f 이중 사인 유령 커브, 플레이어 피격 시 120f
+    `x0.50` 감속. 광폭화 중 폭발하면 4개 파편(속도 3, 수명 90f)으로 분열.
+  - 죽음의 포옹: 보스 하단에서 Y630까지 6px/f 돌진, 폭 350의 하단 영역을
+    300f 유지하며 영역 안의 대시 입력만 차단한다.
+  - 하트 빔: 속도 9, 크기 12/피격 반경 18. 피격 뒤 72f 동안 0/24/48f에
+    60~85px 좌우 교대 넉백 3회.
+- 파리티 예외:
+  - 원본 정본은 `entities/teddy_bear_boss_sprite.py`의 절차형 폴백과 추적되지
+    않은 `.tmp` 후보 시트다. 저장소에 존재하는 정본만 사용해 갈색 봉제 몸체,
+    하트 눈/덜렁이는 단추 눈, 터진 솔기 솜, 안전핀, 붕대, 분홍 리본을 Godot
+    절차형 렌더러로 이관했다. 신규 이미지 생성은 하지 않았다.
+  - 원본에 없는 부동갑주/정화 호환을 위해 하트 빔의 각 넉백을 공용
+    `PlayerKnockbackImmunity`의 넉백 전용 게이트에 연결했다. 수치·발동 순서는
+    바꾸지 않았다.
+  - 죽음의 포옹은 전용 `dash_input_reader`만 막아 좌우 이동과 일반 액션 입력은
+    그대로 유지한다.
+
+### 2. 게이트 결과
+
+- 포커스 스모크 + 부정 레그:
+  - `stage3_teddy_bear_boss_port_smoke: ok`
+  - 환묘 연묘 사이코볼·저주 입력·Stage 3 맵 회귀와 묶은 재실행:
+    `Smoke summary: PASS=4 FAIL=0 TOTAL=4`
+  - 잘못된 스테이지/변형, 게이지·쿨다운 차단, 포옹 영역 밖 대시 복원,
+    라운드/매치 정리와 4개 HUD 항목을 실행 검증했다.
+- 기존 간판 보스 회귀:
+  - `stage3_psychoball_parity_smoke: ok`
+  - `stage3_curse_control_reverse_smoke: ok`
+  - `stage3_map_port_smoke: ok`
+- 변경 파일 경고 스캔:
+  - `gd_warning_scan: checked 10/10`
+  - `Godot warning scan passed with no GDScript warnings.`
+- 헤드리스 로드:
+  - `[ApplicationQuitCoordinator] graceful headless shutdown complete`
+  - `Godot headless load check passed.`
+- windowed/Vulkan 픽셀 캡처:
+  - `Vulkan 1.4.325 - Forward Mobile - NVIDIA GeForce RTX 5070`
+  - `[StageBossVariantVisualQA] variant=teddy_bear evidence=.../teddy_bear.png`
+  - `stage_boss_variant_visual_qa: ok`
+  - 캡처 육안 검사: 봉제 곰 본체와 특징물, 투척 솜뭉치, 폭탄/파편, 유령
+    커브, 하트 빔, 죽음의 포옹 영역이 760x750 실 렌더에 존재.
+
+### 3. 자산 상태
+
+- 상태: 저장소 내 원본 절차형 자산 이관 완료. 신규 이미지 생성 없음,
+  수용 대기 없음.
+- 런타임: `stage3_variant_boss_renderer.gd`; 추적되지 않은 원본 `.tmp` 후보
+  시트 의존 없음.
+- 프리웜: 절차형 렌더러 `prewarm_assets_step() == true`; 핫패스 이미지
+  스캔·슬라이스·동기 로드 없음.
+
+### 4. 상태 구분
+
+- fixed: 변형 등록, Stage 3 프록시, 접촉 게이지/확률 발동, 네 스킬 상태,
+  공/플레이어/대시 소비자, HUD, 오디오 라우팅, 절차형 렌더,
+  라운드/매치 정리.
+- deferred: 탑 통합 담당의 대역 매핑 교체만 의도적으로 비범위.
+- blocked: 0건.
+- unverified: 0건.
+
+### 5. 통합 인계
+
+- 레지스트리 슬롯 id: `floor_03_teddy_bear`
+- 연결할 변형 id: `teddy_bear`
+- 통합 호출: 전투 진입 전 `GameSelectionState.set_stage(3, "dalji", false,
+  "teddy_bear")` 또는 스테이지 3 선택 후 `set_stage_boss_variant("teddy_bear")`.
+- 이 트랙에서는 금지된 탑 레지스트리/대역 매핑을 수정하지 않았다.
 
 ## 엘리스
 

@@ -31,6 +31,12 @@ const VARIANTS := {
 		"codex_key": "boss.yeonmyo",
 		"ported": true,
 	},
+	"teddy_bear": {
+		"stage": 3,
+		"display_name": "테디베어",
+		"codex_key": "boss.teddy_bear",
+		"ported": true,
+	},
 }
 
 

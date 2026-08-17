@@ -2,6 +2,8 @@ extends SceneTree
 
 const Stage2ActorRenderer := preload("res://scripts/stages/stage2/stage2_actor_renderer.gd")
 const Stage2BossVariantSkillState := preload("res://scripts/stages/stage2/stage2_boss_variant_skill_state.gd")
+const Stage3ActorRenderer := preload("res://scripts/stages/stage3/stage3_actor_renderer.gd")
+const Stage3BossVariantSkillState := preload("res://scripts/stages/stage3/stage3_boss_variant_skill_state.gd")
 
 const VIEW_SIZE := Vector2i(760, 750)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_unported_bosses"
@@ -40,7 +42,7 @@ func _run() -> void:
 		_fail("stage_boss_variant_visual_qa requires a Vulkan rendering device")
 		return
 	var variant := _get_variant_argument()
-	if variant not in ["molewang", "arachne"]:
+	if variant not in ["molewang", "arachne", "teddy_bear"]:
 		_fail("unsupported visual QA variant: %s" % variant)
 		return
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
@@ -52,12 +54,20 @@ func _run() -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
-	var renderer := Stage2ActorRenderer.new()
+	var renderer: Object = Stage3ActorRenderer.new() if variant == "teddy_bear" else Stage2ActorRenderer.new()
 	renderer.playfield_renderer = NoopRenderer.new()
 	renderer.player_renderer = NoopRenderer.new()
 	renderer.commando_firearm_renderer = NoopRenderer.new()
-	var state := Stage2BossVariantSkillState.new()
-	var context := _build_molewang_context(state) if variant == "molewang" else _build_arachne_context(state)
+	if variant == "teddy_bear":
+		renderer.skill_effect_renderer = NoopRenderer.new()
+	var state: Object = Stage3BossVariantSkillState.new() if variant == "teddy_bear" else Stage2BossVariantSkillState.new()
+	var context: Dictionary
+	if variant == "molewang":
+		context = _build_molewang_context(state)
+	elif variant == "arachne":
+		context = _build_arachne_context(state)
+	else:
+		context = _build_teddy_bear_context(state)
 	var canvas := BossCaptureCanvas.new(renderer, context)
 	viewport.add_child(canvas)
 	canvas.queue_redraw()
@@ -146,6 +156,65 @@ func _build_arachne_context(state: Object) -> Dictionary:
 		"boss_pos": Vector2(315.0, 25.0),
 		"boss_draw_pos": Vector2(315.0, 25.0),
 		"boss_paddle_size": Vector2(130.0, 52.0),
+		"shake_offset": Vector2.ZERO,
+	}
+	context.merge(state.get_actor_draw_context(), true)
+	return context
+
+
+func _build_teddy_bear_context(state: Object) -> Dictionary:
+	var base_context := {
+		"current_stage": 3,
+		"stage_boss_variant": "teddy_bear",
+		"ball_active": true,
+		"waiting_for_serve": false,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+		"player_pos": Vector2(302.0, 680.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"ball_pos": Vector2(390.0, 390.0),
+		"ball_vel": Vector2(4.0, 8.0),
+	}
+	state.update(0.0, base_context, {})
+	var teddy: Object = state.teddy_bear_state
+	teddy.hit_timer = 0.22
+	teddy.blackout_timer = 0.16
+	teddy.cotton_throw_projectiles = [
+		{"pos": Vector2(235.0, 260.0), "vel": Vector2.ZERO, "remaining": 2.0, "wobble": 0.8, "size": 22.0},
+		{"pos": Vector2(525.0, 350.0), "vel": Vector2.ZERO, "remaining": 2.0, "wobble": 2.1, "size": 27.0},
+	]
+	teddy.cotton_bombs = [
+		{"pos": Vector2(155.0, 520.0), "remaining": 5.0, "wobble": 0.0, "size": 26.0, "pulse": 1.4},
+		{"pos": Vector2(605.0, 560.0), "remaining": 1.0, "wobble": 0.0, "size": 23.0, "pulse": 2.2},
+	]
+	teddy.cotton_fragments = [
+		{"pos": Vector2(560.0, 445.0), "vel": Vector2.ZERO, "remaining": 1.0, "size": 10.0, "wobble": 0.0},
+		{"pos": Vector2(650.0, 430.0), "vel": Vector2.ZERO, "remaining": 1.0, "size": 12.0, "wobble": 0.0},
+	]
+	teddy.ghost_curve_timer = 0.75
+	teddy.ghost_trail = [
+		{"pos": Vector2(355.0, 435.0), "life": 0.35, "size": 14.0},
+		{"pos": Vector2(370.0, 415.0), "life": 0.60, "size": 14.0},
+		{"pos": Vector2(385.0, 395.0), "life": 0.90, "size": 14.0},
+	]
+	teddy.deadly_hug_timer = 3.5
+	teddy.deadly_hug_rush_y = 630.0
+	teddy.cotton_slow_timer = 1.4
+	teddy.heart_projectile = {"pos": Vector2(470.0, 280.0), "vel": Vector2.ZERO, "size": 12.0}
+	teddy.heart_trail = [
+		{"pos": Vector2(420.0, 225.0), "life": 0.35},
+		{"pos": Vector2(438.0, 244.0), "life": 0.55},
+		{"pos": Vector2(454.0, 262.0), "life": 0.75},
+	]
+	var context := {
+		"current_stage": 3,
+		"stage_boss_variant": "teddy_bear",
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_draw_pos": Vector2(330.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"player_pos": Vector2(302.0, 680.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
 		"shake_offset": Vector2.ZERO,
 	}
 	context.merge(state.get_actor_draw_context(), true)
