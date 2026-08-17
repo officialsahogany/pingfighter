@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 
@@ -75,15 +77,9 @@ func _consume_navigation_from_runtime_state(
 	event: InputEvent,
 	direction: int
 ) -> Dictionary:
-	var current_latch: int = _get_runtime_state_int(runtime_state, latch_property)
+	var current_latch: int = RuntimePerkRuntimeStateAccess.get_int(runtime_state, latch_property)
 	var result: Dictionary = consume_horizontal_latch(event, direction, current_latch)
 	return _apply_latch_update(runtime_state, latch_property, result, current_latch)
-
-
-func _get_runtime_state_int(runtime_state: Object, key: String) -> int:
-	if runtime_state == null:
-		return 0
-	return int(runtime_state.get(key))
 
 
 func _apply_latch_update(

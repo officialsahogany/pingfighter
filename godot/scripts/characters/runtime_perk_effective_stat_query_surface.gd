@@ -26,7 +26,7 @@ func get_converted_perk_effect_level_from_runtime_state(runtime_state: Object, p
 		return 0
 	var raw_level: int = int(_get_runtime_skill_levels(runtime_state).get(clean_id, 0))
 	var item_bonus: int = _get_item_perk_level_bonus(runtime_state)
-	var ignition: bool = _is_viper_ignition_aura_active(runtime_state)
+	var ignition: bool = RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")
 	var fusion_revision: int = RuntimePerkRuntimeStateAccess.call_int(runtime_state, "get_perk_fusion_revision")
 	var state_id: int = runtime_state.get_instance_id() if runtime_state != null else 0
 	var cached: Variant = _converted_level_memo.get(clean_id)
@@ -197,7 +197,7 @@ func get_viper_ignition_aura_level_bonus_from_runtime_state(runtime_state: Objec
 	var effective_levels: Object = _get_effective_levels(runtime_state)
 	if effective_levels == null or not effective_levels.has_method("get_viper_ignition_aura_level_bonus"):
 		return 0
-	return int(effective_levels.get_viper_ignition_aura_level_bonus(_is_viper_ignition_aura_active(runtime_state)))
+	return int(effective_levels.get_viper_ignition_aura_level_bonus(RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")))
 
 
 func is_runtime_level_bonus_eligible_from_runtime_state(
@@ -220,7 +220,7 @@ func is_ignition_aura_level_bonus_eligible_from_runtime_state(
 	if effective_levels == null or not effective_levels.has_method("is_ignition_aura_level_bonus_eligible"):
 		return false
 	return bool(effective_levels.is_ignition_aura_level_bonus_eligible(
-		_is_viper_ignition_aura_active(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
 		skill_id,
 		base_level
 	))
@@ -232,7 +232,7 @@ func get_runtime_skill_level(effective_levels: Object, runtime_state: Object, sk
 	var base_level := int(effective_levels.get_runtime_skill_level(
 		_get_runtime_skill_levels(runtime_state),
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
 		skill_id
 	))
 	if base_level <= 0:
@@ -246,7 +246,7 @@ func get_converted_perk_effect_level(effective_levels: Object, runtime_state: Ob
 	var base_level := int(effective_levels.get_converted_perk_effect_level(
 		_get_runtime_skill_levels(runtime_state),
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
 		perk_id
 	))
 	if base_level <= 0:
@@ -260,7 +260,7 @@ func get_effective_runtime_skill_levels(effective_levels: Object, runtime_state:
 	var resolved_levels: Dictionary = effective_levels.get_effective_runtime_skill_levels(
 		_get_runtime_skill_levels(runtime_state),
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state)
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")
 	)
 	for perk_id_value: Variant in resolved_levels.keys():
 		var perk_id := str(perk_id_value)
@@ -296,7 +296,7 @@ func get_runtime_skill_bonus(
 	var base_bonus := float(effective_levels.get_runtime_skill_bonus(
 		unamplified_levels,
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
 		skill_id
 	))
 	base_bonus *= get_perk_amplify_multiplier(effective_levels, runtime_state, skill_id)
@@ -330,7 +330,7 @@ func get_combo_amplifier_chip_bonus(effective_levels: Object, runtime_state: Obj
 	return effective_levels.get_combo_amplifier_chip_bonus(
 		_get_runtime_skill_levels(runtime_state),
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state)
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")
 	)
 
 
@@ -572,7 +572,7 @@ func _call_effective_float(
 	var args := [
 		_get_runtime_skill_levels_with_all_fusion_bonuses(runtime_state),
 		_get_item_perk_level_bonus(runtime_state),
-		_is_viper_ignition_aura_active(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
 	]
 	args.append_array(extra_args)
 	return RuntimePerkRuntimeStateAccess.call_float(effective_levels, method_name, args, fallback)

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const LEVEL_FEEDBACK_TIMER := 1.1
@@ -95,11 +97,11 @@ func apply_from_runtime_state(
 		owner,
 		registry,
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_character_context"),
-		_get_runtime_state_object(runtime_state, "_unlock_swap_flow"),
-		_build_runtime_state_callable(runtime_state, "_get_instance"),
-		_build_runtime_state_callable(runtime_state, "_sync_runtime_perk_owner_effects"),
-		_build_runtime_state_callable(runtime_state, "_refresh_mythic_runtime_perk_consumers"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_character_context"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_swap_flow"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_runtime_perk_owner_effects"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_refresh_mythic_runtime_perk_consumers"),
 		perf_logger
 	)
 
@@ -193,18 +195,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _build_runtime_state_callable(runtime_state: Object, method_name: String) -> Callable:
-	if runtime_state != null and runtime_state.has_method(method_name):
-		return Callable(runtime_state, method_name)
-	return Callable()

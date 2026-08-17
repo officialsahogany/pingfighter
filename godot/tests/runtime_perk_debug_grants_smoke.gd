@@ -376,7 +376,7 @@ func _verify_state_source_contract() -> void:
 	_expect(debug_body.find("_instant_rewards") < 0, "debug setter should not pass instant-reward helper inline")
 	_expect(debug_body.find("_lingpet_rewards") < 0, "debug setter should not pass Lingpet helper inline")
 	_expect(debug_body.find("build_grant_callbacks") < 0, "debug setter should not build callback maps inline")
-	_expect(facade_body.find("_get_runtime_state_dict(runtime_state, \"runtime_skill_levels\")") >= 0, "debug facade should own runtime-level lookup")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.get_dict(runtime_state, \"runtime_skill_levels\")") >= 0, "debug facade should own runtime-level lookup")
 	_expect(facade_body.find("DEFAULT_RING_CORE_CHOICE_ID") < 0, "debug facade should omit the retired ring-core default")
 	_expect(facade_body.find("_get_level_feedback_timer") >= 0, "debug facade should own feedback timer lookup")
 	_expect(facade_body.find("build_grant_callbacks_from_runtime_state(runtime_state)") >= 0, "debug facade should build callbacks internally")

@@ -1,8 +1,10 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 
 func play_active_unlock_flight_from_runtime_state(runtime_state: Object, registry: Object) -> bool:
-	return play_active_unlock_flight(registry, _build_runtime_state_get_instance(runtime_state))
+	return play_active_unlock_flight(registry, RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"))
 
 
 func play_active_unlock_flight(registry: Object, get_instance: Callable) -> bool:
@@ -19,7 +21,7 @@ func play_active_unlock_flight(registry: Object, get_instance: Callable) -> bool
 
 
 func play_perk_select_from_runtime_state(runtime_state: Object, registry: Object) -> bool:
-	return play_perk_select(registry, _build_runtime_state_get_instance(runtime_state))
+	return play_perk_select(registry, RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"))
 
 
 func play_perk_select(registry: Object, get_instance: Callable) -> bool:
@@ -40,12 +42,6 @@ func _get_game_audio(registry: Object, get_instance: Callable) -> Object:
 		if registry_value is Object:
 			return registry_value
 	return null
-
-
-func _build_runtime_state_get_instance(runtime_state: Object) -> Callable:
-	if runtime_state != null and runtime_state.has_method("_get_instance"):
-		return Callable(runtime_state, "_get_instance")
-	return Callable(self, "_missing_instance")
 
 
 func _missing_instance(_registry: Object, _key: String) -> Object:

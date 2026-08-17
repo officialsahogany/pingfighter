@@ -31,7 +31,10 @@ static func get_array(runtime_state: Object, key: String) -> Array:
 static func get_int(runtime_state: Object, key: String) -> int:
 	if runtime_state == null:
 		return 0
-	return int(runtime_state.get(key))
+	var value: Variant = runtime_state.get(key)
+	if value == null:
+		return 0
+	return int(value)
 
 
 static func get_float(runtime_state: Object, key: String, fallback: float = 0.0) -> float:
@@ -46,13 +49,19 @@ static func get_float(runtime_state: Object, key: String, fallback: float = 0.0)
 static func get_bool(runtime_state: Object, key: String) -> bool:
 	if runtime_state == null:
 		return false
-	return bool(runtime_state.get(key))
+	var value: Variant = runtime_state.get(key)
+	if value == null:
+		return false
+	return bool(value)
 
 
 static func get_string(runtime_state: Object, key: String) -> String:
 	if runtime_state == null:
 		return ""
-	return str(runtime_state.get(key))
+	var value: Variant = runtime_state.get(key)
+	if value == null:
+		return ""
+	return str(value)
 
 
 static func build_callable(runtime_state: Object, method: String, fallback: Callable = Callable()) -> Callable:

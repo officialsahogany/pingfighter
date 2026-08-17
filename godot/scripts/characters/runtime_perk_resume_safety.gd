@@ -122,7 +122,7 @@ func try_arm(owner: Object, registry: Object) -> void:
 		owner.set("ball_vel", Vector2.ZERO)
 		owner.set(
 			"player_collision_cooldown",
-			max(float(_safe_owner_get(owner, "player_collision_cooldown", 0.0)), FREEZE_FRAMES + 4.0)
+			max(float(RuntimePerkPayloadAccess.get_value(owner, "player_collision_cooldown", 0.0)), FREEZE_FRAMES + 4.0)
 		)
 
 
@@ -147,7 +147,7 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 			owner.set("ball_vel", Vector2.ZERO)
 			owner.set(
 				"player_collision_cooldown",
-				max(float(_safe_owner_get(owner, "player_collision_cooldown", 0.0)), freeze_timer_frames + 4.0)
+				max(float(RuntimePerkPayloadAccess.get_value(owner, "player_collision_cooldown", 0.0)), freeze_timer_frames + 4.0)
 			)
 		if freeze_timer_frames <= 0.0:
 			# 프리즈 동안 ball_update_controller는 쿨다운 감소보다 먼저 조기 반환하므로
@@ -159,7 +159,7 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 			if owner != null:
 				owner.set(
 					"player_collision_cooldown",
-					min(float(_safe_owner_get(owner, "player_collision_cooldown", 0.0)), 4.0)
+					min(float(RuntimePerkPayloadAccess.get_value(owner, "player_collision_cooldown", 0.0)), 4.0)
 				)
 			recovery_timer_frames = RECOVERY_FRAMES
 			_apply_recovery_velocity(owner, MIN_SPEED_RATIO)
@@ -229,15 +229,6 @@ func _is_stopwatch_active(registry: Object) -> bool:
 		var context: Dictionary = active_item_runtime.get_ball_collision_context()
 		return bool(context.get("stopwatch_score_blocking", false))
 	return false
-
-
-func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
 
 
 func _refresh_viper_ignition_aura_owner_sync_if_needed(

@@ -1,18 +1,20 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 var active := false
 var owner: Object = null
 var registry: Object = null
 
 
 func pause_from_runtime_state(runtime_state: Object, next_owner: Object, next_registry: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_skill_cooldown_pause")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_skill_cooldown_pause")
 	if helper != null and helper.has_method("pause"):
 		helper.pause(next_owner, next_registry)
 
 
 func resume_from_runtime_state(runtime_state: Object) -> void:
-	var helper: Object = _get_state_object(runtime_state, "_skill_cooldown_pause")
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_skill_cooldown_pause")
 	if helper != null and helper.has_method("resume"):
 		helper.resume()
 
@@ -54,12 +56,3 @@ func _get_instance(source_registry: Object, key: String) -> Object:
 	if source_registry == null or key == "" or not source_registry.has_method("get_instance"):
 		return null
 	return source_registry.get_instance(key)
-
-
-func _get_state_object(runtime_state: Object, field_name: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(field_name)
-	if value is Object:
-		return value
-	return null

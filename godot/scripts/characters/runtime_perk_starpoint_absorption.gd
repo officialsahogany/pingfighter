@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
@@ -47,10 +51,10 @@ func build_collection_update(
 func apply_collection_state_update(runtime_state: Object, collection_update: Dictionary) -> Dictionary:
 	if runtime_state == null or not bool(collection_update.get("accepted", false)):
 		return {"accepted": false}
-	var previous_pending_choices: int = int(runtime_state.get("pending_skill_choices"))
+	var previous_pending_choices: int = int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"))
 	var next_starpoints: int = int(collection_update.get(
 		"next_starpoint_for_skills",
-		runtime_state.get("starpoint_for_skills")
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills")
 	))
 	var next_pending_choices: int = int(collection_update.get(
 		"next_pending_skill_choices",
@@ -93,10 +97,8 @@ func is_active() -> bool:
 
 
 func is_active_from_runtime_state(runtime_state: Object) -> bool:
-	var helper: Object = _get_runtime_state_starpoint_absorption(runtime_state)
-	if helper == null or not helper.has_method("is_active"):
-		return false
-	return bool(helper.call("is_active"))
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_starpoint_absorption")
+	return RuntimePerkRuntimeStateAccess.call_bool(helper, "is_active")
 
 
 func start(owner: Object) -> void:
@@ -115,13 +117,13 @@ func start(owner: Object) -> void:
 
 
 func start_from_runtime_state(runtime_state: Object, owner: Object) -> Dictionary:
-	var helper: Object = _get_runtime_state_starpoint_absorption(runtime_state)
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_starpoint_absorption")
 	if helper == null or not helper.has_method("start"):
 		return {"accepted": false}
 	helper.call("start", owner)
 	return {
 		"accepted": true,
-		"active": _call_bool(helper, "is_active"),
+		"active": RuntimePerkRuntimeStateAccess.call_bool(helper, "is_active"),
 	}
 
 
@@ -136,11 +138,11 @@ func update(delta: float, view_size: Vector2, owner: Object, layout_state: Dicti
 	if owner == null or view_size == Vector2.ZERO or layout_state.is_empty():
 		return
 
-	var player_pos: Vector2 = _safe_owner_get(owner, "player_pos", Vector2.ZERO)
-	var paddle_width: float = float(_safe_owner_get(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH))
+	var player_pos: Vector2 = RuntimePerkPayloadAccess.get_value(owner, "player_pos", Vector2.ZERO)
+	var paddle_width: float = float(RuntimePerkPayloadAccess.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH))
 	var player_center_pf := player_pos + Vector2(paddle_width * 0.5, PLAYER_BASE_PADDLE_HEIGHT * 0.5)
-	var game_offset: Vector2 = _get_vector2(layout_state.get("game_offset", Vector2.ZERO))
-	var game_size: Vector2 = _get_vector2(layout_state.get("game_size", Vector2.ZERO))
+	var game_offset: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout_state.get("game_offset", Vector2.ZERO))
+	var game_size: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout_state.get("game_size", Vector2.ZERO))
 	var pf_height: float = float(layout_state.get("height", FIELD_HEIGHT))
 	var screen_scale: float = max(0.001, game_size.y / max(1.0, pf_height))
 	var target_screen: Vector2 = game_offset + player_center_pf * screen_scale
@@ -157,7 +159,7 @@ func update_from_runtime_state(
 	owner: Object,
 	registry: Object
 ) -> Dictionary:
-	var helper: Object = _get_runtime_state_starpoint_absorption(runtime_state)
+	var helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_starpoint_absorption")
 	if helper == null or not helper.has_method("update"):
 		return {"accepted": false}
 	var layout_state: Dictionary = {}
@@ -166,7 +168,7 @@ func update_from_runtime_state(
 	helper.call("update", delta, view_size, owner, layout_state)
 	return {
 		"accepted": true,
-		"active": _call_bool(helper, "is_active"),
+		"active": RuntimePerkRuntimeStateAccess.call_bool(helper, "is_active"),
 	}
 
 
@@ -190,45 +192,10 @@ func _pseudo_unit(index: int, salt: float) -> float:
 	return fposmod(sin(float(index) * 12.9898 + salt) * 43758.5453, 1.0)
 
 
-func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
-
-
 func _build_layout_state_from_runtime_state(runtime_state: Object, registry: Object, view_size: Vector2) -> Dictionary:
-	var flight_helper: Object = _get_runtime_state_object(runtime_state, "_active_unlock_flight")
-	if flight_helper == null or not flight_helper.has_method("build_layout_state_from_runtime_state"):
-		return {}
-	var value: Variant = flight_helper.call("build_layout_state_from_runtime_state", runtime_state, registry, view_size)
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_runtime_state_starpoint_absorption(runtime_state: Object) -> Object:
-	return _get_runtime_state_object(runtime_state, "_starpoint_absorption")
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _call_bool(source: Object, method: String) -> bool:
-	if source == null or not source.has_method(method):
-		return false
-	return bool(source.call(method))
-
-
-func _get_vector2(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value
-	return Vector2.ZERO
+	var flight_helper: Object = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_active_unlock_flight")
+	return RuntimePerkRuntimeStateAccess.call_dict(
+		flight_helper,
+		"build_layout_state_from_runtime_state",
+		[runtime_state, registry, view_size]
+	)

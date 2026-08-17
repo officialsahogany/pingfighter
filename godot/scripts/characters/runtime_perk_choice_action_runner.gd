@@ -1,5 +1,8 @@
 extends RefCounted
 
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const RuntimePerkChoiceDispatch := preload("res://scripts/characters/runtime_perk_choice_dispatch.gd")
 const LingpetGuardianEnhanceApplier := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_applier.gd"
@@ -48,17 +51,17 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 	var choice_name: String = str(choice.get("name", choice_id))
 	match action:
 		RuntimePerkChoiceDispatch.ACTION_CONVERT_TO_GOLD:
-			return _call_bool(callbacks, CALLBACK_CONVERT_TO_GOLD, [choice, owner, registry])
+			return _build_acceptance_action_result(callbacks, CALLBACK_CONVERT_TO_GOLD, [choice, owner, registry])
 		RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE_DEFERRED:
-			return _call_feedback(callbacks, CALLBACK_FULL_GAUGE_DEFERRED, [owner, choice_name], TIMER_IMMEDIATE)
+			return _build_feedback_action_result(callbacks, CALLBACK_FULL_GAUGE_DEFERRED, [owner, choice_name], TIMER_IMMEDIATE)
 		RuntimePerkChoiceDispatch.ACTION_FULL_GAUGE:
-			return _call_feedback(callbacks, CALLBACK_FULL_GAUGE, [owner, registry], TIMER_IMMEDIATE)
+			return _build_feedback_action_result(callbacks, CALLBACK_FULL_GAUGE, [owner, registry], TIMER_IMMEDIATE)
 		RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE_DEFERRED:
-			return _call_feedback(callbacks, CALLBACK_DIMENSION_GATE_DEFERRED, [owner, choice_name], TIMER_IMMEDIATE)
+			return _build_feedback_action_result(callbacks, CALLBACK_DIMENSION_GATE_DEFERRED, [owner, choice_name], TIMER_IMMEDIATE)
 		RuntimePerkChoiceDispatch.ACTION_DIMENSION_GATE:
-			return _call_feedback(callbacks, CALLBACK_DIMENSION_GATE, [registry], TIMER_IMMEDIATE)
+			return _build_feedback_action_result(callbacks, CALLBACK_DIMENSION_GATE, [registry], TIMER_IMMEDIATE)
 		RuntimePerkChoiceDispatch.ACTION_MONKEY_BLESSING:
-			return _call_feedback(callbacks, CALLBACK_MONKEY_BLESSING, [owner, registry, choice_name], TIMER_MONKEY_BLESSING)
+			return _build_feedback_action_result(callbacks, CALLBACK_MONKEY_BLESSING, [owner, registry, choice_name], TIMER_MONKEY_BLESSING)
 		RuntimePerkChoiceDispatch.ACTION_LINGPET_GUARDIAN_ENHANCE:
 			var begin_result := LingpetGuardianEnhanceApplier.begin(choice, owner, registry)
 			return {
@@ -68,7 +71,7 @@ func run(action: String, choice: Dictionary, owner: Object, registry: Object, ca
 				"begin_result": begin_result,
 			}
 		RuntimePerkChoiceDispatch.ACTION_PHYSIQUE_TRAINING:
-			return _call_bool(callbacks, CALLBACK_PHYSIQUE_TRAINING, [choice, owner, registry])
+			return _build_acceptance_action_result(callbacks, CALLBACK_PHYSIQUE_TRAINING, [choice, owner, registry])
 	return {"handled": false}
 
 
@@ -89,7 +92,7 @@ func apply_handled_result(
 		return {
 			"handled": true,
 			"accepted": bool(apply_choice_feedback_result.call(
-				_get_dict(action_result.get("feedback_result", {})),
+				RuntimePerkPayloadAccess.as_dict(action_result.get("feedback_result", {})),
 				choice,
 				float(action_result.get("fallback_timer", 1.0))
 			)),
@@ -100,29 +103,17 @@ func apply_handled_result(
 	}
 
 
-func _call_bool(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"handled": true, "accepted": false}
+func _build_acceptance_action_result(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
+	var result: Dictionary = RuntimePerkCallbackMap.call_strict_acceptance(callbacks, key, args)
 	return {
 		"handled": true,
-		"accepted": bool(callback.callv(args)),
+		"accepted": bool(result.get("accepted", false)),
 		"uses_feedback": false,
 	}
 
 
-func _call_feedback(callbacks: Dictionary, key: String, args: Array, fallback_timer: float) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {
-			"handled": true,
-			"accepted": false,
-			"uses_feedback": true,
-			"feedback_result": {"accepted": false},
-			"fallback_timer": fallback_timer,
-		}
-	var result: Variant = callback.callv(args)
-	var feedback_result: Dictionary = result if result is Dictionary else {"accepted": false}
+func _build_feedback_action_result(callbacks: Dictionary, key: String, args: Array, fallback_timer: float) -> Dictionary:
+	var feedback_result: Dictionary = RuntimePerkCallbackMap.call_dict(callbacks, key, args)
 	return {
 		"handled": true,
 		"accepted": bool(feedback_result.get("accepted", false)),
@@ -130,16 +121,3 @@ func _call_feedback(callbacks: Dictionary, key: String, args: Array, fallback_ti
 		"feedback_result": feedback_result,
 		"fallback_timer": fallback_timer,
 	}
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

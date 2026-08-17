@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const RALLY_BASE := 4
 const RALLY_SPEED_BONUS_8 := 2
 const RALLY_SPEED_BONUS_12 := 4
@@ -27,11 +29,11 @@ static func build_item_gold_gain_multiplier_update(current_multiplier: float, mu
 static func apply_item_gold_gain_multiplier_update(runtime_state: Object, update: Dictionary) -> Dictionary:
 	if runtime_state == null or not update.has("multiplier"):
 		return {"accepted": false}
-	runtime_state.set("item_gold_gain_multiplier", float(update.get("multiplier", runtime_state.get("item_gold_gain_multiplier"))))
+	runtime_state.set("item_gold_gain_multiplier", float(update.get("multiplier", RuntimePerkRuntimeStateAccess.get_float(runtime_state, "item_gold_gain_multiplier"))))
 	return {
 		"accepted": true,
 		"changed": bool(update.get("changed", false)),
-		"multiplier": float(runtime_state.get("item_gold_gain_multiplier")),
+		"multiplier": float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "item_gold_gain_multiplier")),
 	}
 
 
@@ -202,12 +204,12 @@ static func build_state_application(
 static func apply_state_application(runtime_state: Object, state_application: Dictionary) -> Dictionary:
 	if runtime_state == null:
 		return {"accepted": false}
-	runtime_state.set("gold_from_perks", int(state_application.get("gold_from_perks", runtime_state.get("gold_from_perks"))))
+	runtime_state.set("gold_from_perks", int(state_application.get("gold_from_perks", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gold_from_perks"))))
 	return {
 		"accepted": true,
-		"gold_from_perks": int(runtime_state.get("gold_from_perks")),
-		"feedback_text": str(state_application.get("feedback_text", runtime_state.get("feedback_text"))),
-		"feedback_timer": float(state_application.get("feedback_timer", runtime_state.get("feedback_timer"))),
+		"gold_from_perks": int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gold_from_perks")),
+		"feedback_text": str(state_application.get("feedback_text", RuntimePerkRuntimeStateAccess.get_string(runtime_state, "feedback_text"))),
+		"feedback_timer": float(state_application.get("feedback_timer", RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer"))),
 	}
 
 
@@ -218,9 +220,9 @@ static func apply_award_result_to_runtime_state(
 ) -> Dictionary:
 	if runtime_state == null:
 		return {"accepted": false}
-	var current_total: int = int(runtime_state.get("gold_from_perks"))
-	var current_feedback_text: String = str(runtime_state.get("feedback_text"))
-	var current_feedback_timer: float = float(runtime_state.get("feedback_timer"))
+	var current_total: int = int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gold_from_perks"))
+	var current_feedback_text: String = str(RuntimePerkRuntimeStateAccess.get_string(runtime_state, "feedback_text"))
+	var current_feedback_timer: float = float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer"))
 	var state_application: Dictionary = build_state_application(
 		result,
 		current_total,

@@ -182,3 +182,6 @@ class FakeRuntimeState:
 	var unlock_showcase: Dictionary = {}
 	var pending_unlock_swap: Dictionary = {}
 	var animation_time := 0.0
+
+	func has_pending_unlock_swap() -> bool:
+		return not pending_unlock_swap.is_empty()

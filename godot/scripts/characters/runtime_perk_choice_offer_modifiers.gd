@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const MYTHIC_ITEM_RUNTIME_KEY := "mythic_item_runtime"
 const DOWSING_GOGGLES_BONUS_SOURCE := "dowsing_goggles"
 
@@ -26,7 +28,7 @@ func build_dowsing_bonus_state_update(
 		return {"accepted": false}
 	var next_choices := choices.duplicate(true)
 	var bonus_card_index: int = target_choice_count - 1
-	var bonus_choice: Dictionary = _get_dict(next_choices[bonus_card_index]).duplicate(true)
+	var bonus_choice: Dictionary = RuntimePerkPayloadAccess.as_dict(next_choices[bonus_card_index]).duplicate(true)
 	bonus_choice["is_dowsing_goggles_bonus"] = true
 	bonus_choice["bonus_source_item"] = DOWSING_GOGGLES_BONUS_SOURCE
 	# 보호 lane 스탬프: 다우징 보너스 카드는 교체형 오퍼(합일/수련)가
@@ -77,9 +79,3 @@ func _get_mythic_item_runtime(registry: Object, get_instance: Callable) -> Objec
 	if not get_instance.is_valid():
 		return null
 	return get_instance.call(registry, MYTHIC_ITEM_RUNTIME_KEY)
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

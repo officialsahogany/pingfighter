@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
 const RuntimePerkSoulSummonArt := preload("res://scripts/characters/runtime_perk_soul_summon_art.gd")
 
 const CALLBACK_GET_INSTANCE := "get_instance"
@@ -12,10 +16,10 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
 		return {}
 	return {
-		CALLBACK_GET_INSTANCE: Callable(runtime_state, "_get_instance"),
-		CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE: Callable(runtime_state, "_apply_unlock_swap_state_update"),
-		CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS: Callable(runtime_state, "_sync_runtime_perk_owner_effects"),
-		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT: Callable(runtime_state, "_apply_choice_feedback_result"),
+		CALLBACK_GET_INSTANCE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"),
+		CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_unlock_swap_state_update"),
+		CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_runtime_perk_owner_effects"),
+		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_choice_feedback_result"),
 	}
 
 
@@ -30,10 +34,10 @@ func apply_choice_from_runtime_state(
 		choice,
 		owner,
 		registry,
-		_get_runtime_state_dict(runtime_state, "runtime_skill_levels"),
-		_get_runtime_state_object(runtime_state, "_character_context"),
-		_get_runtime_state_object(runtime_state, "_unlock_swap_flow"),
-		_get_runtime_state_object(runtime_state, "_level_side_effects"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_character_context"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_swap_flow"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects"),
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
@@ -57,7 +61,7 @@ func apply_choice(
 	var character_type: String = str(choice.get("character_restriction", "")).strip_edges()
 	if character_type == "":
 		character_type = _get_owner_character_type(character_context, owner)
-	var skill_config: Object = _call_object(
+	var skill_config: Object = RuntimePerkCallbackMap.call_object(
 		callbacks,
 		CALLBACK_GET_INSTANCE,
 		[registry, _get_skill_config_key(character_context, character_type)]
@@ -80,7 +84,7 @@ func apply_choice(
 		runtime_skill_levels[unlocked_skill] = 1
 
 	sample_start = _perf_begin(perf_logger)
-	var owner_sync_result: Dictionary = _call_optional(
+	var owner_sync_result: Dictionary = RuntimePerkCallbackMap.call_optional(
 		callbacks,
 		CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS,
 		[owner, registry, perf_logger]
@@ -99,11 +103,11 @@ func apply_choice(
 			skill_config,
 			registry,
 			character_type,
-			_get_callback(callbacks, CALLBACK_GET_INSTANCE)
+			RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_GET_INSTANCE)
 		)
 	_perf_end(perf_logger, "process.runtime_perk.unlock.commando_sync", sample_start)
 
-	var feedback_result: Dictionary = _call_bool(
+	var feedback_result: Dictionary = RuntimePerkCallbackMap.call_acceptance(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT,
 		[unlock_update, choice, _get_level_feedback_timer(level_side_effects)]
@@ -142,7 +146,7 @@ func _start_pending_unlock_swap(
 	if swap.is_empty():
 		return {"accepted": false, "blocked_reason": "empty_pending_swap"}
 	var update: Dictionary = unlock_swap_flow.build_start_state_update(swap) if unlock_swap_flow.has_method("build_start_state_update") else {"accepted": false}
-	var apply_result: Dictionary = _call_bool(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE, [update, owner])
+	var apply_result: Dictionary = RuntimePerkCallbackMap.call_acceptance(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE, [update, owner])
 	if not bool(apply_result.get("accepted", false)):
 		return apply_result
 	return {
@@ -181,47 +185,6 @@ func _get_level_feedback_timer(level_side_effects: Object) -> float:
 	return float(value)
 
 
-func _call_bool(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": bool(result)}
-
-
-func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": true}
-
-
-func _call_object(callbacks: Dictionary, key: String, args: Array) -> Object:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return null
-	var result: Variant = callback.callv(args)
-	return result as Object
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
 func _perf_begin(perf_logger: Object) -> int:
 	if perf_logger != null and perf_logger.has_method("begin_sample"):
 		return int(perf_logger.begin_sample())
@@ -231,21 +194,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(key)
-	if value is Dictionary:
-		return value
-	return {}

@@ -225,3 +225,6 @@ class FakeRuntimeState:
 	var current_choice_context: Dictionary = {}
 	var current_perk_slot_status: Dictionary = {}
 	var pending_unlock_swap: Dictionary = {}
+
+	func has_pending_unlock_swap() -> bool:
+		return not pending_unlock_swap.is_empty()

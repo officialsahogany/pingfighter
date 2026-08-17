@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
@@ -29,7 +33,7 @@ func consume_effect(effect: Dictionary) -> Dictionary:
 
 
 func build_landing_payload(effect: Dictionary) -> Dictionary:
-	var choice: Dictionary = _get_dict(effect.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(effect.get("choice", {}))
 	var choice_id: String = str(effect.get("choice_id", choice.get("id", "")))
 	if choice_id == "" or choice.is_empty():
 		return {"accepted": false}
@@ -45,7 +49,7 @@ func is_active(effect: Dictionary) -> bool:
 
 
 func is_active_from_runtime_state(runtime_state: Object) -> bool:
-	return is_active(_get_runtime_state_dict(runtime_state, "choice_flight_effect"))
+	return is_active(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "choice_flight_effect"))
 
 
 func build_effect(
@@ -64,10 +68,10 @@ func build_effect(
 	if source_rect.size.x <= 0.0 or source_rect.size.y <= 0.0:
 		return {}
 	var source_pos: Vector2 = source_rect.get_center()
-	var target_pos: Vector2 = _get_vector2(target.get("target_pos", Vector2.ZERO))
+	var target_pos: Vector2 = RuntimePerkPayloadAccess.as_vector2(target.get("target_pos", Vector2.ZERO))
 	if source_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
 		return {}
-	var color: Color = _get_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0)))
+	var color: Color = RuntimePerkPayloadAccess.as_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0)))
 	return {
 		"active": true,
 		"age": 0.0,
@@ -98,7 +102,7 @@ func build_effect_for_selected_card(
 		return {}
 	if selected_index < 0 or selected_index >= card_rects.size():
 		return {}
-	var source_rect: Rect2 = _get_rect2(card_rects[selected_index])
+	var source_rect: Rect2 = RuntimePerkPayloadAccess.as_rect2(card_rects[selected_index])
 	return build_effect(choice, source_rect, owner, registry, view_size)
 
 
@@ -106,7 +110,7 @@ func apply_effect_state_update(runtime_state: Object, effect: Dictionary) -> Dic
 	if runtime_state == null or effect.is_empty():
 		return {"accepted": false}
 	runtime_state.set("choice_flight_effect", effect.duplicate(true))
-	var applied_effect: Dictionary = _get_dict(runtime_state.get("choice_flight_effect"))
+	var applied_effect: Dictionary = RuntimePerkPayloadAccess.as_dict(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "choice_flight_effect"))
 	return {
 		"accepted": true,
 		"active": is_active(applied_effect),
@@ -131,8 +135,8 @@ func resolve_target(choice: Dictionary, owner: Object, registry: Object, view_si
 	var skill_config: Object = _get_instance(registry, _get_skill_config_key(character_type))
 	if skill_config == null or not skill_config.has_method("get_snapshot"):
 		return {}
-	var snapshot: Dictionary = _get_dict(skill_config.get_snapshot())
-	var equipped: Array = _get_array(snapshot.get("equipped_skills", []))
+	var snapshot: Dictionary = RuntimePerkPayloadAccess.as_dict(skill_config.get_snapshot())
+	var equipped: Array = RuntimePerkPayloadAccess.as_array(snapshot.get("equipped_skills", []))
 	var max_slots: int = max(1, int(snapshot.get("max_slots", 5)))
 	var slot_index: int = equipped.find(unlocked_skill)
 	if slot_index < 0:
@@ -141,14 +145,14 @@ func resolve_target(choice: Dictionary, owner: Object, registry: Object, view_si
 		slot_index = equipped.size()
 
 	var layout_state: Dictionary = build_layout_state(registry, view_size)
-	var game_offset: Vector2 = _get_vector2(layout_state.get("game_offset", Vector2.ZERO))
-	var game_size: Vector2 = _get_vector2(layout_state.get("game_size", Vector2.ZERO))
+	var game_offset: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout_state.get("game_offset", Vector2.ZERO))
+	var game_size: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout_state.get("game_size", Vector2.ZERO))
 	var height: float = float(layout_state.get("height", FIELD_HEIGHT))
 	if game_size.x <= 0.0 or game_size.y <= 0.0 or height <= 0.0:
 		return {}
 	var pillar_layout: Dictionary = _pillar_layout.build_layout(game_offset, game_size, {"height": height})
 	var scale_factor: float = max(0.001, float(pillar_layout.get("scale_factor", game_size.y / height)))
-	var left_center: Vector2 = _get_vector2(pillar_layout.get("left_center", Vector2.ZERO))
+	var left_center: Vector2 = RuntimePerkPayloadAccess.as_vector2(pillar_layout.get("left_center", Vector2.ZERO))
 	var orb_radius: float = max(1.0, float(pillar_layout.get("orb_radius", 55.0 * scale_factor)))
 	var slot_layout: Dictionary = _pillar_layout.get_skill_orb_slot_layout(character_type)
 	var positions: Array = _orb_positioner.get_slot_positions(left_center, orb_radius, scale_factor, {
@@ -161,7 +165,7 @@ func resolve_target(choice: Dictionary, owner: Object, registry: Object, view_si
 	})
 	if slot_index < 0 or slot_index >= positions.size():
 		return {}
-	var target_pos: Vector2 = _get_vector2(positions[slot_index])
+	var target_pos: Vector2 = RuntimePerkPayloadAccess.as_vector2(positions[slot_index])
 	if target_pos == Vector2.ZERO:
 		return {}
 	return {
@@ -175,13 +179,13 @@ func build_layout_state(registry: Object, view_size: Vector2) -> Dictionary:
 	var draw_context: Dictionary = _scene_config.build_draw_context()
 	var scene_config: Object = _get_instance(registry, "battle_scene_config")
 	if scene_config != null and scene_config.has_method("build_draw_context"):
-		draw_context = _get_dict(scene_config.build_draw_context())
+		draw_context = RuntimePerkPayloadAccess.as_dict(scene_config.build_draw_context())
 	var width: float = float(draw_context.get("width", FIELD_WIDTH))
 	var height: float = float(draw_context.get("height", FIELD_HEIGHT))
 	var layout_module: Object = _get_instance(registry, "battle_view_layout")
 	if layout_module == null or not layout_module.has_method("build_game_layout"):
 		layout_module = _view_layout
-	var layout: Dictionary = _get_dict(layout_module.build_game_layout(view_size, width, height))
+	var layout: Dictionary = RuntimePerkPayloadAccess.as_dict(layout_module.build_game_layout(view_size, width, height))
 	layout["width"] = width
 	layout["height"] = height
 	return layout
@@ -260,42 +264,6 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	return _get_dict(runtime_state.get(key))
-
-
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_color(value: Variant) -> Color:
-	if value is Color:
-		return value
-	return Color.WHITE
-
-
-func _get_vector2(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value
-	return Vector2.ZERO
-
-
-func _get_rect2(value: Variant) -> Rect2:
-	if value is Rect2:
-		return value
-	return Rect2()
 
 
 func _pseudo_unit(index: int, salt: float) -> float:

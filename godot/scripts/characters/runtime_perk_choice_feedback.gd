@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const APPLY_FAILURE_TEXT := "선택을 적용할 수 없습니다"
 const APPLY_FAILURE_TIMER := 1.4
 const DOWSING_GOGGLES_BONUS_TEXT := "다우징 고글: 추가 무공 등장!"
@@ -32,7 +34,7 @@ func apply_failure_feedback_state_update(runtime_state: Object, has_pending_unlo
 func apply_failure_feedback_from_runtime_state(runtime_state: Object) -> Dictionary:
 	return apply_failure_feedback_state_update(
 		runtime_state,
-		_has_pending_unlock_swap_from_runtime_state(runtime_state)
+		RuntimePerkRuntimeStateAccess.call_bool(runtime_state, "has_pending_unlock_swap")
 	)
 
 
@@ -65,7 +67,7 @@ func has_feedback(current_text: String, current_timer: float) -> bool:
 func has_feedback_from_runtime_state(runtime_state: Object) -> bool:
 	if runtime_state == null:
 		return false
-	return has_feedback(str(runtime_state.get("feedback_text")), float(runtime_state.get("feedback_timer")))
+	return has_feedback(str(RuntimePerkRuntimeStateAccess.get_string(runtime_state, "feedback_text")), float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer")))
 
 
 func build_result_feedback(result: Dictionary, choice: Dictionary, fallback_timer: float) -> Dictionary:
@@ -134,12 +136,6 @@ func apply_feedback_state_update(runtime_state: Object, update: Dictionary, fall
 	runtime_state.set("feedback_timer", float(update.get("feedback_timer", fallback_timer)))
 	return {
 		"accepted": true,
-		"feedback_text": str(runtime_state.get("feedback_text")),
-		"feedback_timer": float(runtime_state.get("feedback_timer")),
+		"feedback_text": str(RuntimePerkRuntimeStateAccess.get_string(runtime_state, "feedback_text")),
+		"feedback_timer": float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer")),
 	}
-
-
-func _has_pending_unlock_swap_from_runtime_state(runtime_state: Object) -> bool:
-	if runtime_state != null and runtime_state.has_method("has_pending_unlock_swap"):
-		return bool(runtime_state.has_pending_unlock_swap())
-	return false

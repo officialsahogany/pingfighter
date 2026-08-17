@@ -281,11 +281,11 @@ func _verify_state_source_contract() -> void:
 	_expect(apply_body.find("_unlock_swap_flow") < 0, "state level side-effect wrapper should not pass unlock-swap helper inline")
 	_expect(apply_body.find("Callable(self") < 0, "state level side-effect wrapper should not build callbacks inline")
 	_expect(helper_source.find("func apply_from_runtime_state(") >= 0, "level-side-effect helper should expose runtime-state facade")
-	_expect(facade_body.find("_get_runtime_state_object(runtime_state, \"_character_context\")") >= 0, "level-side-effect facade should own character-context lookup")
-	_expect(facade_body.find("_get_runtime_state_object(runtime_state, \"_unlock_swap_flow\")") >= 0, "level-side-effect facade should own unlock-swap lookup")
-	_expect(facade_body.find("_build_runtime_state_callable(runtime_state, \"_get_instance\")") >= 0, "level-side-effect facade should own get-instance callback assembly")
-	_expect(facade_body.find("_build_runtime_state_callable(runtime_state, \"_sync_runtime_perk_owner_effects\")") >= 0, "level-side-effect facade should own owner-sync callback assembly")
-	_expect(facade_body.find("_build_runtime_state_callable(runtime_state, \"_refresh_mythic_runtime_perk_consumers\")") >= 0, "level-side-effect facade should own mythic-refresh callback assembly")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_character_context\")") >= 0, "level-side-effect facade should own character-context lookup")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_unlock_swap_flow\")") >= 0, "level-side-effect facade should own unlock-swap lookup")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.build_callable(runtime_state, \"_get_instance\")") >= 0, "level-side-effect facade should own get-instance callback assembly")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.build_callable(runtime_state, \"_sync_runtime_perk_owner_effects\")") >= 0, "level-side-effect facade should own owner-sync callback assembly")
+	_expect(facade_body.find("RuntimePerkRuntimeStateAccess.build_callable(runtime_state, \"_refresh_mythic_runtime_perk_consumers\")") >= 0, "level-side-effect facade should own mythic-refresh callback assembly")
 
 
 func _function_body(source: String, signature: String) -> String:

@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const PATH_BOOKKEEPING := "bookkeeping"
 const PATH_UNLOCK := "unlock"
 const PATH_LEVEL := "level"
@@ -13,7 +17,7 @@ func build_path(choice: Dictionary, bookkeeping_update: Dictionary) -> Dictionar
 			"accepted": bool(bookkeeping_update.get("accepted", false)),
 			"next_pending_skill_choices": int(bookkeeping_update.get("next_pending_skill_choices", 0)),
 			"next_starpoint_for_skills": int(bookkeeping_update.get("next_starpoint_for_skills", 0)),
-			"feedback_result": _get_dict(bookkeeping_update.get("feedback_result", {})).duplicate(true),
+			"feedback_result": RuntimePerkPayloadAccess.as_dict(bookkeeping_update.get("feedback_result", {})).duplicate(true),
 			"fallback_timer": BOOKKEEPING_FEEDBACK_TIMER,
 		}
 	if str(choice.get("unlocks_skill", "")) != "":
@@ -45,13 +49,13 @@ func build_path_from_bookkeeping_choice(
 		current_starpoint_for_skills,
 		starpoint_per_choice
 	)
-	var bookkeeping_result: Dictionary = _get_dict(bookkeeping_result_value)
+	var bookkeeping_result: Dictionary = RuntimePerkPayloadAccess.as_dict(bookkeeping_result_value)
 	var bookkeeping_update_value: Variant = build_bookkeeping_state_update.call(
 		bookkeeping_result,
 		current_pending_skill_choices,
 		current_starpoint_for_skills
 	)
-	var bookkeeping_update: Dictionary = _get_dict(bookkeeping_update_value)
+	var bookkeeping_update: Dictionary = RuntimePerkPayloadAccess.as_dict(bookkeeping_update_value)
 	var path: Dictionary = build_path(choice, bookkeeping_update)
 	path["bookkeeping_result"] = bookkeeping_result
 	path["bookkeeping_update"] = bookkeeping_update
@@ -84,7 +88,7 @@ func build_bookkeeping_state_application(
 		"accepted": true,
 		"pending_skill_choices": int(standard_path.get("next_pending_skill_choices", current_pending_skill_choices)),
 		"starpoint_for_skills": int(standard_path.get("next_starpoint_for_skills", current_starpoint_for_skills)),
-		"feedback_result": _get_dict(standard_path.get("feedback_result", {})).duplicate(true),
+		"feedback_result": RuntimePerkPayloadAccess.as_dict(standard_path.get("feedback_result", {})).duplicate(true),
 		"fallback_timer": float(standard_path.get("fallback_timer", BOOKKEEPING_FEEDBACK_TIMER)),
 	}
 
@@ -100,7 +104,7 @@ func build_level_state_application(level_state_update: Dictionary) -> Dictionary
 	return {
 		"accepted": true,
 		"runtime_skill_level_patch": runtime_level_patch,
-		"feedback_result": _get_dict(level_state_update.get("feedback_result", {})).duplicate(true),
+		"feedback_result": RuntimePerkPayloadAccess.as_dict(level_state_update.get("feedback_result", {})).duplicate(true),
 	}
 
 
@@ -146,7 +150,7 @@ func apply_bookkeeping_path_to_runtime_state(
 	if not apply_choice_feedback_result.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_feedback_callback"}
 	var feedback_accepted := bool(apply_choice_feedback_result.call(
-		_get_dict(state_result.get("feedback_result", {})),
+		RuntimePerkPayloadAccess.as_dict(state_result.get("feedback_result", {})),
 		choice,
 		float(state_result.get("fallback_timer", BOOKKEEPING_FEEDBACK_TIMER))
 	))
@@ -240,7 +244,7 @@ func apply_level_feedback_result(
 	if not apply_choice_feedback_result.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_feedback_callback"}
 	var feedback_accepted := bool(apply_choice_feedback_result.call(
-		_get_dict(level_state_result.get("feedback_result", {})),
+		RuntimePerkPayloadAccess.as_dict(level_state_result.get("feedback_result", {})),
 		choice,
 		float(level_state_result.get("fallback_timer", fallback_timer))
 	))
@@ -263,7 +267,7 @@ func apply_state_update(
 ) -> Dictionary:
 	if not bool(update.get("accepted", false)):
 		return {"accepted": false}
-	var runtime_level_patch: Dictionary = _get_dict(update.get("runtime_skill_level_patch", {}))
+	var runtime_level_patch: Dictionary = RuntimePerkPayloadAccess.as_dict(update.get("runtime_skill_level_patch", {}))
 	for perk_id_value in runtime_level_patch.keys():
 		var perk_id := str(perk_id_value)
 		if perk_id != "":
@@ -272,7 +276,7 @@ func apply_state_update(
 		"accepted": true,
 		"pending_skill_choices": int(update.get("pending_skill_choices", current_pending_skill_choices)),
 		"starpoint_for_skills": int(update.get("starpoint_for_skills", current_starpoint_for_skills)),
-		"feedback_result": _get_dict(update.get("feedback_result", {})).duplicate(true),
+		"feedback_result": RuntimePerkPayloadAccess.as_dict(update.get("feedback_result", {})).duplicate(true),
 	}
 	if update.has("fallback_timer"):
 		result["fallback_timer"] = float(update.get("fallback_timer", BOOKKEEPING_FEEDBACK_TIMER))
@@ -283,21 +287,15 @@ func apply_result_to_runtime_state(runtime_state: Object, apply_result: Dictiona
 	if runtime_state == null or not bool(apply_result.get("accepted", false)):
 		return {"accepted": false}
 	if apply_result.has("pending_skill_choices"):
-		runtime_state.set("pending_skill_choices", int(apply_result.get("pending_skill_choices", runtime_state.get("pending_skill_choices"))))
+		runtime_state.set("pending_skill_choices", int(apply_result.get("pending_skill_choices", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"))))
 	if apply_result.has("starpoint_for_skills"):
-		runtime_state.set("starpoint_for_skills", int(apply_result.get("starpoint_for_skills", runtime_state.get("starpoint_for_skills"))))
+		runtime_state.set("starpoint_for_skills", int(apply_result.get("starpoint_for_skills", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills"))))
 	var result := {
 		"accepted": true,
-		"pending_skill_choices": int(runtime_state.get("pending_skill_choices")),
-		"starpoint_for_skills": int(runtime_state.get("starpoint_for_skills")),
-		"feedback_result": _get_dict(apply_result.get("feedback_result", {})).duplicate(true),
+		"pending_skill_choices": int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices")),
+		"starpoint_for_skills": int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills")),
+		"feedback_result": RuntimePerkPayloadAccess.as_dict(apply_result.get("feedback_result", {})).duplicate(true),
 	}
 	if apply_result.has("fallback_timer"):
 		result["fallback_timer"] = float(apply_result.get("fallback_timer", BOOKKEEPING_FEEDBACK_TIMER))
 	return result
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

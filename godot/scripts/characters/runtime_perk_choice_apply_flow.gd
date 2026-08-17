@@ -1,5 +1,11 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
 const RuntimePerkChoiceStandardPath := preload("res://scripts/characters/runtime_perk_choice_standard_path.gd")
 const RuntimePerkLevelSideEffects := preload("res://scripts/characters/runtime_perk_level_side_effects.gd")
@@ -16,11 +22,11 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
 		return {}
 	return {
-		CALLBACK_SHOULD_DEFER_FULL_GAUGE: Callable(runtime_state, "_should_defer_full_gauge_until_spawn_intro_end"),
-		CALLBACK_SHOULD_DEFER_DIMENSION_GATE: Callable(runtime_state, "_should_defer_dimension_gate_until_spawn_intro_end"),
-		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT: Callable(runtime_state, "_apply_choice_feedback_result"),
-		CALLBACK_APPLY_UNLOCK_CHOICE: Callable(runtime_state, "_apply_unlock_choice"),
-		CALLBACK_APPLY_LEVEL_SIDE_EFFECT: Callable(runtime_state, "_apply_level_side_effect"),
+		CALLBACK_SHOULD_DEFER_FULL_GAUGE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_should_defer_full_gauge_until_spawn_intro_end"),
+		CALLBACK_SHOULD_DEFER_DIMENSION_GATE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_should_defer_dimension_gate_until_spawn_intro_end"),
+		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_choice_feedback_result"),
+		CALLBACK_APPLY_UNLOCK_CHOICE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_unlock_choice"),
+		CALLBACK_APPLY_LEVEL_SIDE_EFFECT: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_level_side_effect"),
 	}
 
 
@@ -36,14 +42,14 @@ func apply_choice_from_runtime_state(
 		owner,
 		registry,
 		runtime_state,
-		_get_runtime_state_dict(runtime_state, "runtime_skill_levels"),
-		_get_runtime_state_int(runtime_state, "pending_skill_choices"),
-		_get_runtime_state_int(runtime_state, "starpoint_for_skills"),
-		_get_runtime_state_object(runtime_state, "_choice_dispatch"),
-		_get_runtime_state_object(runtime_state, "_choice_action_runner"),
-		_get_runtime_state_object(runtime_state, "_choice_standard_path"),
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
-		_get_runtime_state_object(runtime_state, "_level_side_effects"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_dispatch"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_action_runner"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_standard_path"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects"),
 		DEFAULT_STARPOINT_PER_SKILL_CHOICE,
 		build_state_callbacks(runtime_state),
 		perf_logger
@@ -71,8 +77,8 @@ func apply_choice(
 		return {"accepted": false, "blocked_reason": "missing_apply_flow_deps"}
 	var dispatch: Dictionary = choice_dispatch.build_dispatch(
 		choice,
-		_call_bool(callbacks, CALLBACK_SHOULD_DEFER_FULL_GAUGE, [], false),
-		_call_bool(callbacks, CALLBACK_SHOULD_DEFER_DIMENSION_GATE, [], false)
+		RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_SHOULD_DEFER_FULL_GAUGE, [], false),
+		RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_SHOULD_DEFER_DIMENSION_GATE, [], false)
 	)
 	if not bool(dispatch.get("accepted", false)):
 		return dispatch
@@ -87,7 +93,7 @@ func apply_choice(
 	var handled_action_result: Dictionary = choice_action_runner.apply_handled_result(
 		action_result,
 		choice,
-		_get_callback(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT)
 	)
 	if bool(handled_action_result.get("handled", false)):
 		return _with_mythic_acquisition_cinematic({
@@ -115,13 +121,13 @@ func apply_choice(
 			pending_skill_choices,
 			starpoint_for_skills,
 			choice,
-			_get_callback(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT)
+			RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT)
 		)
 		return _with_choice_id(bookkeeping_result, choice_id)
 
 	if path == RuntimePerkChoiceStandardPath.PATH_UNLOCK:
 		var unlock_start: int = _perf_begin(perf_logger)
-		var unlock_applied: bool = _call_bool(
+		var unlock_applied: bool = RuntimePerkCallbackMap.call_bool(
 			callbacks,
 			CALLBACK_APPLY_UNLOCK_CHOICE,
 			[choice, owner, registry, perf_logger],
@@ -146,12 +152,12 @@ func apply_choice(
 	if not bool(level_state_result.get("accepted", false)):
 		return _with_choice_id(level_state_result, choice_id)
 	var level_start: int = _perf_begin(perf_logger)
-	_call_optional(callbacks, CALLBACK_APPLY_LEVEL_SIDE_EFFECT, [choice, owner, registry, perf_logger])
+	RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_APPLY_LEVEL_SIDE_EFFECT, [choice, owner, registry, perf_logger])
 	_perf_end(perf_logger, "process.runtime_perk.apply.level_side_effect", level_start)
 	var level_feedback_result: Dictionary = choice_standard_path.apply_level_feedback_result(
 		level_state_result,
 		choice,
-		_get_callback(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT),
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT),
 		RuntimePerkLevelSideEffects.LEVEL_FEEDBACK_TIMER
 	)
 	return _with_mythic_acquisition_cinematic(
@@ -187,8 +193,8 @@ func _with_mythic_acquisition_cinematic(
 			choice_id,
 			owner,
 			registry,
-			_get_vector2(choice.get("pickup_position", Vector2(380.0, 375.0)), Vector2(380.0, 375.0)),
-			_get_vector2(choice.get("target_player_center", Vector2.INF), Vector2.INF),
+			RuntimePerkPayloadAccess.as_vector2(choice.get("pickup_position", Vector2(380.0, 375.0)), Vector2(380.0, 375.0)),
+			RuntimePerkPayloadAccess.as_vector2(choice.get("target_player_center", Vector2.INF), Vector2.INF),
 			choice
 		)
 	return copy
@@ -196,33 +202,6 @@ func _with_mythic_acquisition_cinematic(
 
 func _is_mythic_choice(choice: Dictionary) -> bool:
 	return str(choice.get("rarity", "")).to_lower() == "mythic"
-
-
-func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": true}
-
-
-func _call_bool(callbacks: Dictionary, key: String, args: Array, fallback: bool = false) -> bool:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return fallback
-	return bool(callback.callv(args))
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
 
 
 func _perf_begin(perf_logger: Object) -> int:
@@ -234,33 +213,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(key)
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_runtime_state_int(runtime_state: Object, key: String) -> int:
-	if runtime_state == null:
-		return 0
-	return int(runtime_state.get(key))
-
-
-func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
-	if value is Vector2:
-		return value
-	return fallback

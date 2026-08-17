@@ -73,7 +73,7 @@ func _verify_source_contract() -> void:
 	var helper_source := FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_choice_audio.gd")
 	_expect(helper_source.find("play_active_unlock_flight_from_runtime_state") >= 0, "choice audio should expose active-unlock runtime-state facade")
 	_expect(helper_source.find("play_perk_select_from_runtime_state") >= 0, "choice audio should expose perk-select runtime-state facade")
-	_expect(helper_source.find("_build_runtime_state_get_instance(runtime_state)") >= 0, "choice audio should assemble runtime-state get-instance callback")
+	_expect(helper_source.find("RuntimePerkRuntimeStateAccess.build_callable(runtime_state, \"_get_instance\")") >= 0, "choice audio should assemble runtime-state get-instance callback")
 
 	var flight_body: String = _function_body(state_source, "func _play_active_unlock_flight_audio(")
 	_expect(flight_body.find("play_active_unlock_flight_from_runtime_state") >= 0, "state active-unlock audio wrapper should use runtime-state facade")

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const CALLBACK_IS_CHOICE_ACTIVE := "is_choice_active"
@@ -64,13 +66,13 @@ func handle_input(
 	view_size: Vector2,
 	callbacks: Dictionary
 ) -> bool:
-	if not _call_bool(callbacks, CALLBACK_IS_CHOICE_ACTIVE):
+	if not RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_IS_CHOICE_ACTIVE):
 		return false
-	if _call_bool(callbacks, CALLBACK_IS_CHOICE_FLIGHT_ACTIVE):
+	if RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_IS_CHOICE_FLIGHT_ACTIVE):
 		return true
-	if _call_bool(callbacks, CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE):
-		return _call_bool(callbacks, CALLBACK_HANDLE_UNLOCK_SHOWCASE_INPUT, [event, owner, registry], true)
-	if _call_bool(callbacks, CALLBACK_HAS_PENDING_UNLOCK_SWAP):
+	if RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE):
+		return RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_HANDLE_UNLOCK_SHOWCASE_INPUT, [event, owner, registry], true)
+	if RuntimePerkCallbackMap.call_bool(callbacks, CALLBACK_HAS_PENDING_UNLOCK_SWAP):
 		return handle_unlock_swap_input(event, owner, registry, view_size, callbacks)
 	return handle_choice_input(event, owner, registry, view_size, callbacks)
 
@@ -84,24 +86,24 @@ func handle_choice_input(
 ) -> bool:
 	if GamepadInput.is_gamepad_event(event):
 		var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
-		var navigation_direction := _call_int(
+		var navigation_direction := RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_CONSUME_CHOICE_GAMEPAD_NAVIGATION,
 			[event, horizontal_direction]
 		)
 		if navigation_direction != 0:
-			_call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [navigation_direction])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [navigation_direction])
 			return true
 		if GamepadInput.is_confirm_event(event):
 			# 진입 입력원 전달: 공용 choose_selected callback은 3인자 계약을
 			# 유지한다(스텁·소비자 호환) — RT 여부는 별도 note 채널로 먼저
 			# 알린 뒤 표준 3인자로 호출한다. 주사위 모달은 RT 진입일 때만
 			# 첫 RT 캐스케이드 억제 래치를 무장한다.
-			_call_void(callbacks, CALLBACK_NOTE_CONFIRM_INPUT_SOURCE, [
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_NOTE_CONFIRM_INPUT_SOURCE, [
 				event is InputEventJoypadMotion
 				and (event as InputEventJoypadMotion).axis == JOY_AXIS_TRIGGER_RIGHT
 			])
-			_call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
 			return true
 		return true
 	if event is InputEventKey:
@@ -110,41 +112,41 @@ func handle_choice_input(
 			return true
 		match key_event.keycode:
 			KEY_LEFT:
-				_call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [-1])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [-1])
 				return true
 			KEY_RIGHT:
-				_call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [1])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_CHOICE_SELECTION, [1])
 				return true
 			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_Z:
-				_call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
 				return true
 		return true
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
 			return true
-		var clicked_index: int = _call_int(
+		var clicked_index: int = RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_GET_CARD_INDEX_AT,
 			[mouse_event.position, view_size],
 			-1
 		)
 		if clicked_index >= 0:
-			_call_void(callbacks, CALLBACK_SELECT_CHOICE_INDEX, [clicked_index])
-			_call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_SELECT_CHOICE_INDEX, [clicked_index])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CHOOSE_SELECTED, [owner, registry, view_size])
 		return true
 	if event is InputEventMouseMotion:
 		var motion_event: InputEventMouseMotion = event
 		# Track the raw pointer so the renderer can hover-test the "현재 퍽" icons.
-		_call_void(callbacks, CALLBACK_SET_STATUS_HOVER, [motion_event.position])
-		var hovered_index: int = _call_int(
+		RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_SET_STATUS_HOVER, [motion_event.position])
+		var hovered_index: int = RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_GET_CARD_INDEX_AT,
 			[motion_event.position, view_size],
 			-1
 		)
 		if hovered_index >= 0:
-			_call_void(callbacks, CALLBACK_SELECT_CHOICE_INDEX, [hovered_index])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_SELECT_CHOICE_INDEX, [hovered_index])
 		return true
 	return true
 
@@ -158,19 +160,19 @@ func handle_unlock_swap_input(
 ) -> bool:
 	if GamepadInput.is_gamepad_event(event):
 		var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
-		var navigation_direction := _call_int(
+		var navigation_direction := RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_CONSUME_UNLOCK_SWAP_GAMEPAD_NAVIGATION,
 			[event, horizontal_direction]
 		)
 		if navigation_direction != 0:
-			_call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [navigation_direction])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [navigation_direction])
 			return true
 		if GamepadInput.is_confirm_event(event):
-			_call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
 			return true
 		if GamepadInput.is_cancel_event(event):
-			_call_void(callbacks, CALLBACK_CANCEL_UNLOCK_SWAP, [owner])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CANCEL_UNLOCK_SWAP, [owner])
 			return true
 		return true
 	if event is InputEventKey:
@@ -179,68 +181,41 @@ func handle_unlock_swap_input(
 			return true
 		match key_event.keycode:
 			KEY_LEFT:
-				_call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [-1])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [-1])
 				return true
 			KEY_RIGHT:
-				_call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [1])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_MOVE_UNLOCK_SWAP_SELECTION, [1])
 				return true
 			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_Z:
-				_call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
 				return true
 			KEY_ESCAPE, KEY_X:
-				_call_void(callbacks, CALLBACK_CANCEL_UNLOCK_SWAP, [owner])
+				RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CANCEL_UNLOCK_SWAP, [owner])
 				return true
 		return true
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
 			return true
-		var clicked_index: int = _call_int(
+		var clicked_index: int = RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_GET_UNLOCK_SWAP_INDEX_AT,
 			[mouse_event.position, view_size],
 			-1
 		)
 		if clicked_index >= 0:
-			_call_void(callbacks, CALLBACK_SELECT_UNLOCK_SWAP_INDEX, [clicked_index])
-			_call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_SELECT_UNLOCK_SWAP_INDEX, [clicked_index])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_CONFIRM_UNLOCK_SWAP, [owner, registry])
 		return true
 	if event is InputEventMouseMotion:
 		var motion_event: InputEventMouseMotion = event
-		var hovered_index: int = _call_int(
+		var hovered_index: int = RuntimePerkCallbackMap.call_int(
 			callbacks,
 			CALLBACK_GET_UNLOCK_SWAP_INDEX_AT,
 			[motion_event.position, view_size],
 			-1
 		)
 		if hovered_index >= 0:
-			_call_void(callbacks, CALLBACK_SELECT_UNLOCK_SWAP_INDEX, [hovered_index])
+			RuntimePerkCallbackMap.call_void(callbacks, CALLBACK_SELECT_UNLOCK_SWAP_INDEX, [hovered_index])
 		return true
 	return true
-
-
-func _call_bool(callbacks: Dictionary, key: String, args: Array = [], fallback: bool = false) -> bool:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return fallback
-	return bool(callback.callv(args))
-
-
-func _call_int(callbacks: Dictionary, key: String, args: Array = [], fallback: int = 0) -> int:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return fallback
-	return int(callback.callv(args))
-
-
-func _call_void(callbacks: Dictionary, key: String, args: Array = []) -> void:
-	var callback := _get_callback(callbacks, key)
-	if callback.is_valid():
-		callback.callv(args)
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 
 func apply_full_gauge(
 	instant_rewards: Object,
@@ -27,12 +29,12 @@ func apply_full_gauge_from_runtime_state(
 	special_gauge_max: float
 ) -> void:
 	apply_full_gauge(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
-		_get_runtime_state_object(runtime_state, "_character_context"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_character_context"),
 		owner,
 		registry,
 		special_gauge_max,
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -62,12 +64,12 @@ func apply_full_gauge_choice_from_runtime_state(
 	special_gauge_max: float
 ) -> Dictionary:
 	return apply_full_gauge_choice(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
-		_get_runtime_state_object(runtime_state, "_character_context"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_character_context"),
 		owner,
 		registry,
 		special_gauge_max,
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -79,9 +81,9 @@ func apply_dimension_gate(instant_rewards: Object, registry: Object, get_instanc
 
 func apply_dimension_gate_from_runtime_state(runtime_state: Object, registry: Object) -> bool:
 	return apply_dimension_gate(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
 		registry,
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -93,9 +95,9 @@ func apply_dimension_gate_choice(instant_rewards: Object, registry: Object, get_
 
 func apply_dimension_gate_choice_from_runtime_state(runtime_state: Object, registry: Object) -> Dictionary:
 	return apply_dimension_gate_choice(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
 		registry,
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -107,8 +109,8 @@ func should_defer_dimension_gate(deferred_instants: Object, choice_context: Dict
 
 func should_defer_dimension_gate_from_runtime_state(runtime_state: Object) -> bool:
 	return should_defer_dimension_gate(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
-		_get_runtime_state_dict(runtime_state, "current_choice_context")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "current_choice_context")
 	)
 
 
@@ -120,8 +122,8 @@ func should_defer_full_gauge(deferred_instants: Object, choice_context: Dictiona
 
 func should_defer_full_gauge_from_runtime_state(runtime_state: Object) -> bool:
 	return should_defer_full_gauge(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
-		_get_runtime_state_dict(runtime_state, "current_choice_context")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "current_choice_context")
 	)
 
 
@@ -136,7 +138,7 @@ func queue_dimension_gate_from_runtime_state(
 	pending_feedback_text: String = ""
 ) -> void:
 	queue_dimension_gate(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
 		owner,
 		pending_feedback_text
 	)
@@ -154,7 +156,7 @@ func queue_dimension_gate_choice_from_runtime_state(
 	choice_name: String = ""
 ) -> Dictionary:
 	return queue_dimension_gate_choice(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
 		owner,
 		choice_name
 	)
@@ -167,7 +169,7 @@ func has_pending_dimension_gate(deferred_instants: Object) -> bool:
 
 
 func has_pending_dimension_gate_from_runtime_state(runtime_state: Object) -> bool:
-	return has_pending_dimension_gate(_get_runtime_state_object(runtime_state, "_deferred_instants"))
+	return has_pending_dimension_gate(RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"))
 
 
 func queue_full_gauge(deferred_instants: Object, owner: Object, pending_feedback_text: String = "") -> void:
@@ -181,7 +183,7 @@ func queue_full_gauge_from_runtime_state(
 	pending_feedback_text: String = ""
 ) -> void:
 	queue_full_gauge(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
 		owner,
 		pending_feedback_text
 	)
@@ -199,7 +201,7 @@ func queue_full_gauge_choice_from_runtime_state(
 	choice_name: String = ""
 ) -> Dictionary:
 	return queue_full_gauge_choice(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
 		owner,
 		choice_name
 	)
@@ -212,7 +214,7 @@ func has_pending_full_gauge(deferred_instants: Object) -> bool:
 
 
 func has_pending_full_gauge_from_runtime_state(runtime_state: Object) -> bool:
-	return has_pending_full_gauge(_get_runtime_state_object(runtime_state, "_deferred_instants"))
+	return has_pending_full_gauge(RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"))
 
 
 func on_ball_spawn_intro_finished(
@@ -254,14 +256,14 @@ func on_ball_spawn_intro_finished_from_runtime_state(
 	registry: Object
 ) -> Dictionary:
 	return on_ball_spawn_intro_finished(
-		_get_runtime_state_object(runtime_state, "_deferred_instants"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_deferred_instants"),
 		runtime_state,
 		owner,
 		registry,
-		_get_runtime_state_object(runtime_state, "_choice_feedback"),
-		Callable(runtime_state, "_apply_dimension_gate"),
-		Callable(runtime_state, "_apply_full_gauge"),
-		Callable(runtime_state, "_sync_owner")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_feedback"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_dimension_gate"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_full_gauge"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_owner")
 	)
 
 
@@ -283,40 +285,16 @@ func apply_monkey_blessing_choice_from_runtime_state(
 	registry: Object,
 	choice_name: String = ""
 ) -> Dictionary:
-	var get_instance := _build_runtime_state_get_instance(runtime_state)
+	var get_instance := RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	if not get_instance.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_get_instance_callback"}
 	return apply_monkey_blessing_choice(
-		_get_runtime_state_object(runtime_state, "_instant_rewards"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards"),
 		owner,
 		registry,
 		get_instance,
 		choice_name
 	)
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(key)
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _build_runtime_state_get_instance(runtime_state: Object) -> Callable:
-	if runtime_state != null and runtime_state.has_method("_get_instance"):
-		return Callable(runtime_state, "_get_instance")
-	return Callable()
 
 
 func _build_feedback_apply(choice_feedback: Object) -> Callable:

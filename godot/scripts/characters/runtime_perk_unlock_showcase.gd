@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
@@ -16,13 +20,13 @@ func is_active(showcase: Dictionary) -> bool:
 
 
 func is_active_from_runtime_state(runtime_state: Object) -> bool:
-	return is_active(_get_runtime_state_dict(runtime_state, "unlock_showcase"))
+	return is_active(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"))
 
 
 func should_open(choice: Dictionary, owner: Object) -> bool:
 	if str(choice.get("unlocks_skill", "")) == "":
 		return false
-	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(_safe_owner_get(owner, "ai_mode", "champion")))
+	var ai_mode: String = BattleSceneConfig.normalize_league_mode(str(RuntimePerkPayloadAccess.get_value(owner, "ai_mode", "champion")))
 	return ai_mode == "junior"
 
 
@@ -38,10 +42,10 @@ func build(choice_id: String, owner: Object, registry: Object, choice: Dictionar
 			"korean": str(choice.get("name", skill_id)),
 			"how_to_use": "",
 			"motion_hint": "",
-			"color": _get_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0))),
+			"color": RuntimePerkPayloadAccess.as_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0))),
 		}
 	elif not skill_data.has("color"):
-		skill_data["color"] = _get_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0)))
+		skill_data["color"] = RuntimePerkPayloadAccess.as_color(choice.get("icon_color", Color(100.0 / 255.0, 180.0 / 255.0, 1.0)))
 	return {
 		"active": true,
 		"age": 0.0,
@@ -57,7 +61,7 @@ func apply_showcase_state_update(runtime_state: Object, showcase: Dictionary) ->
 	if runtime_state == null or showcase.is_empty():
 		return {"accepted": false}
 	runtime_state.set("unlock_showcase", showcase.duplicate(true))
-	var applied_showcase: Dictionary = _get_dict(runtime_state.get("unlock_showcase"))
+	var applied_showcase: Dictionary = RuntimePerkPayloadAccess.as_dict(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"))
 	return {
 		"accepted": true,
 		"active": is_active(applied_showcase),
@@ -147,33 +151,6 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or key == "" or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
-
-
-func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	return _get_dict(runtime_state.get(key))
-
-
-func _get_color(value: Variant) -> Color:
-	if value is Color:
-		return value
-	return Color.WHITE
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
 
 
 func _is_mouse_wheel_button(button_index: int) -> bool:

@@ -1,23 +1,25 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 
 func sync_owner_from_runtime_state(runtime_state: Object, owner: Object, owner_projection: Object = null) -> void:
 	if runtime_state == null:
 		return
 	var projection: Object = owner_projection
 	if projection == null:
-		projection = _get_state_object(runtime_state, "_owner_projection")
+		projection = RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_owner_projection")
 	sync_owner(
 		owner,
 		projection,
-		_get_state_dict(runtime_state, "runtime_skill_levels"),
-		_call_state_dict(runtime_state, "get_effective_runtime_skill_levels"),
-		_get_state_int(runtime_state, "pending_skill_choices"),
-		_get_state_int(runtime_state, "starpoint_for_skills"),
-		_get_state_int(runtime_state, "gold_from_perks"),
-		_call_state_bool(runtime_state, "is_choice_active"),
-		_get_state_int(runtime_state, "item_perk_level_bonus"),
-		_get_state_bool(runtime_state, "viper_ignition_aura_active")
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.call_dict(runtime_state, "get_effective_runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gold_from_perks"),
+		RuntimePerkRuntimeStateAccess.call_bool(runtime_state, "is_choice_active"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "item_perk_level_bonus"),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")
 	)
 
 
@@ -59,13 +61,13 @@ func sync_owner_effects_from_runtime_state(
 	sync_owner_effects(
 		owner,
 		registry,
-		_get_state_object(runtime_state, "_owner_effect_sync"),
-		_call_state_dict(runtime_state, "get_effective_runtime_skill_levels"),
-		_call_state_int(runtime_state, "get_accessory_slot_bonus"),
-		_call_state_int(runtime_state, "get_laurel_leaf_count", [registry]),
-		_call_state_float(runtime_state, "get_player_paddle_size_multiplier"),
-		_call_state_float(runtime_state, "get_player_skill_cooldown_multiplier"),
-		_build_runtime_state_get_instance(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_owner_effect_sync"),
+		RuntimePerkRuntimeStateAccess.call_dict(runtime_state, "get_effective_runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.call_int(runtime_state, "get_accessory_slot_bonus"),
+		RuntimePerkRuntimeStateAccess.call_int(runtime_state, "get_laurel_leaf_count", [registry]),
+		RuntimePerkRuntimeStateAccess.call_float(runtime_state, "get_player_paddle_size_multiplier"),
+		RuntimePerkRuntimeStateAccess.call_float(runtime_state, "get_player_skill_cooldown_multiplier"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"),
 		perf_logger
 	)
 
@@ -122,8 +124,8 @@ func refresh_item_polish_consumers_from_runtime_state(
 	refresh_item_polish_consumers(
 		owner,
 		registry,
-		_get_state_object(runtime_state, "_owner_effect_sync"),
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_owner_effect_sync"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -135,8 +137,8 @@ func refresh_mythic_runtime_perk_consumers_from_runtime_state(
 	refresh_mythic_runtime_perk_consumers(
 		owner,
 		registry,
-		_get_state_object(runtime_state, "_owner_effect_sync"),
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_owner_effect_sync"),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -146,9 +148,9 @@ func apply_training_to_skill_configs_from_runtime_state(
 ) -> void:
 	apply_training_to_skill_configs(
 		registry,
-		_get_state_object(runtime_state, "_owner_effect_sync"),
-		_call_state_float(runtime_state, "get_player_skill_cooldown_multiplier", [], 1.0),
-		_build_runtime_state_get_instance(runtime_state)
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_owner_effect_sync"),
+		RuntimePerkRuntimeStateAccess.call_float(runtime_state, "get_player_skill_cooldown_multiplier", [], 1.0),
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance")
 	)
 
 
@@ -166,66 +168,5 @@ func apply_training_to_skill_configs(
 		)
 
 
-func _get_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(key)
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_state_int(runtime_state: Object, key: String) -> int:
-	if runtime_state == null:
-		return 0
-	return int(runtime_state.get(key))
-
-
-func _get_state_bool(runtime_state: Object, key: String) -> bool:
-	if runtime_state == null:
-		return false
-	return bool(runtime_state.get(key))
-
-
-func _get_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _build_runtime_state_get_instance(runtime_state: Object) -> Callable:
-	if runtime_state != null and runtime_state.has_method("_get_instance"):
-		return Callable(runtime_state, "_get_instance")
-	return Callable(self, "_missing_instance")
-
-
 func _missing_instance(_registry: Object, _key: String) -> Object:
 	return null
-
-
-func _call_state_dict(runtime_state: Object, method_name: String, args: Array = []) -> Dictionary:
-	var value: Variant = _call_state_value(runtime_state, method_name, args, {})
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _call_state_int(runtime_state: Object, method_name: String, args: Array = [], fallback: int = 0) -> int:
-	return int(_call_state_value(runtime_state, method_name, args, fallback))
-
-
-func _call_state_float(runtime_state: Object, method_name: String, args: Array = [], fallback: float = 1.0) -> float:
-	return float(_call_state_value(runtime_state, method_name, args, fallback))
-
-
-func _call_state_bool(runtime_state: Object, method_name: String, args: Array = [], fallback: bool = false) -> bool:
-	return bool(_call_state_value(runtime_state, method_name, args, fallback))
-
-
-func _call_state_value(runtime_state: Object, method_name: String, args: Array, fallback: Variant) -> Variant:
-	if runtime_state == null or not runtime_state.has_method(method_name):
-		return fallback
-	return runtime_state.callv(method_name, args)

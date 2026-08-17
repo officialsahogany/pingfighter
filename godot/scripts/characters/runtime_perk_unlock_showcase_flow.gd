@@ -1,5 +1,11 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const CALLBACK_FINISH_SUCCESSFUL_CHOICE := "finish_successful_choice"
 const CALLBACK_SYNC_OWNER := "sync_owner"
 const CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE := "is_unlock_showcase_active"
@@ -9,9 +15,9 @@ func build_state_callbacks(runtime_state: Object) -> Dictionary:
 	if runtime_state == null:
 		return {}
 	return {
-		CALLBACK_FINISH_SUCCESSFUL_CHOICE: Callable(runtime_state, "_finish_successful_choice"),
-		CALLBACK_SYNC_OWNER: Callable(runtime_state, "_sync_owner"),
-		CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE: Callable(runtime_state, "is_unlock_showcase_active"),
+		CALLBACK_FINISH_SUCCESSFUL_CHOICE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_finish_successful_choice"),
+		CALLBACK_SYNC_OWNER: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_owner"),
+		CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "is_unlock_showcase_active"),
 	}
 
 
@@ -30,7 +36,7 @@ func finish_or_open_unlock_showcase_from_runtime_state(
 		perf_logger,
 		choice,
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_unlock_showcase_controller"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_showcase_controller"),
 		build_state_callbacks(runtime_state)
 	)
 
@@ -57,7 +63,7 @@ func finish_or_open_unlock_showcase(
 			unlock_showcase_controller,
 			callbacks
 		)
-	var result: Dictionary = _call_optional(
+	var result: Dictionary = RuntimePerkCallbackMap.call_optional(
 		callbacks,
 		CALLBACK_FINISH_SUCCESSFUL_CHOICE,
 		[choice_id, owner, registry, perf_logger, choice]
@@ -83,7 +89,7 @@ func open_unlock_showcase(
 	var accepted: bool = bool(apply_result.get("accepted", false))
 	apply_result["opened_showcase"] = accepted
 	if accepted:
-		_call_optional(callbacks, CALLBACK_SYNC_OWNER, [owner])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_SYNC_OWNER, [owner])
 	return apply_result
 
 
@@ -95,11 +101,11 @@ func update_unlock_showcase_from_runtime_state(
 	perf_logger: Object = null
 ) -> Dictionary:
 	return update_unlock_showcase(
-		_get_runtime_state_dict(runtime_state, "unlock_showcase"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"),
 		delta,
 		owner,
 		registry,
-		_get_runtime_state_object(runtime_state, "_unlock_showcase_controller"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_showcase_controller"),
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
@@ -135,10 +141,10 @@ func dismiss_unlock_showcase_from_runtime_state(
 	perf_logger: Object = null
 ) -> Dictionary:
 	return dismiss_unlock_showcase(
-		_get_runtime_state_dict(runtime_state, "unlock_showcase"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"),
 		owner,
 		registry,
-		_get_runtime_state_object(runtime_state, "_unlock_showcase_controller"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_showcase_controller"),
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
@@ -157,16 +163,16 @@ func dismiss_unlock_showcase(
 	if not _is_unlock_showcase_active(unlock_showcase, unlock_showcase_controller, callbacks):
 		return {"accepted": false, "dismissed": false}
 	var showcase: Dictionary = unlock_showcase_controller.consume(unlock_showcase)
-	var choice: Dictionary = _get_dict(showcase.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(showcase.get("choice", {}))
 	var choice_id: String = str(showcase.get("choice_id", choice.get("id", "")))
 	if choice_id == "":
-		_call_optional(callbacks, CALLBACK_SYNC_OWNER, [owner])
+		RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_SYNC_OWNER, [owner])
 		return {
 			"accepted": false,
 			"dismissed": true,
 			"blocked_reason": "missing_choice_id",
 		}
-	var result: Dictionary = _call_optional(
+	var result: Dictionary = RuntimePerkCallbackMap.call_optional(
 		callbacks,
 		CALLBACK_FINISH_SUCCESSFUL_CHOICE,
 		[choice_id, owner, registry, perf_logger, choice]
@@ -183,11 +189,11 @@ func handle_unlock_showcase_input_from_runtime_state(
 	registry: Object
 ) -> Dictionary:
 	return handle_unlock_showcase_input(
-		_get_runtime_state_dict(runtime_state, "unlock_showcase"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "unlock_showcase"),
 		event,
 		owner,
 		registry,
-		_get_runtime_state_object(runtime_state, "_unlock_showcase_controller"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_unlock_showcase_controller"),
 		build_state_callbacks(runtime_state)
 	)
 
@@ -220,50 +226,9 @@ func _is_unlock_showcase_active(
 	unlock_showcase_controller: Object,
 	callbacks: Dictionary
 ) -> bool:
-	var callback := _get_callback(callbacks, CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE)
+	var callback := RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_IS_UNLOCK_SHOWCASE_ACTIVE)
 	if callback.is_valid():
 		return bool(callback.call())
 	if unlock_showcase_controller != null and unlock_showcase_controller.has_method("is_active"):
 		return bool(unlock_showcase_controller.is_active(unlock_showcase))
 	return false
-
-
-func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": true}
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	return _get_dict(runtime_state.get(key))

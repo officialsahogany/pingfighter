@@ -1,5 +1,11 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const RuntimePerkSoulSummonArt := preload("res://scripts/characters/runtime_perk_soul_summon_art.gd")
 
@@ -25,19 +31,19 @@ func build_confirm_callbacks(runtime_state: Object, level_side_effects: Object) 
 			CALLBACK_COMMIT_UNLOCK_CHOICE_LEVEL: commit_callback,
 		}
 	return {
-		CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE: Callable(runtime_state, "_apply_unlock_swap_state_update"),
-		CALLBACK_GET_INSTANCE: Callable(runtime_state, "_get_instance"),
-		CALLBACK_GET_SKILL_CONFIG_KEY: Callable(runtime_state, "_get_skill_config_key"),
+		CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_unlock_swap_state_update"),
+		CALLBACK_GET_INSTANCE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_instance"),
+		CALLBACK_GET_SKILL_CONFIG_KEY: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_get_skill_config_key"),
 		CALLBACK_COMMIT_UNLOCK_CHOICE_LEVEL: commit_callback,
-		CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS: Callable(runtime_state, "_sync_runtime_perk_owner_effects"),
-		CALLBACK_FINISH_OR_OPEN_UNLOCK_SHOWCASE: Callable(runtime_state, "_finish_or_open_unlock_showcase"),
+		CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_runtime_perk_owner_effects"),
+		CALLBACK_FINISH_OR_OPEN_UNLOCK_SHOWCASE: RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_finish_or_open_unlock_showcase"),
 	}
 
 
 func build_confirm_callbacks_from_runtime_state(runtime_state: Object) -> Dictionary:
 	return build_confirm_callbacks(
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_level_side_effects")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects")
 	)
 
 
@@ -49,7 +55,7 @@ func confirm_pending_swap_from_runtime_state(
 ) -> Dictionary:
 	if runtime_state == null:
 		return {"accepted": false, "blocked_reason": "missing_runtime_state"}
-	var pending_swap: Dictionary = _get_runtime_state_dict(runtime_state, "pending_unlock_swap")
+	var pending_swap: Dictionary = RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap")
 	if not has_pending_swap(pending_swap):
 		return {"accepted": false, "blocked_reason": "missing_pending_swap"}
 	var confirm_callbacks: Dictionary = build_confirm_callbacks(runtime_state, level_side_effects)
@@ -57,12 +63,12 @@ func confirm_pending_swap_from_runtime_state(
 		confirm_callbacks = build_confirm_callbacks_from_runtime_state(runtime_state)
 	return confirm_pending_swap(
 		pending_swap,
-		_get_runtime_state_int(runtime_state, "unlock_swap_selected_index"),
-		_get_runtime_state_dict(runtime_state, "runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "unlock_swap_selected_index"),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
 		owner,
 		registry,
-		_get_catalog_from_runtime_state(runtime_state, registry),
-		_get_character_type_from_runtime_state(runtime_state, owner),
+		RuntimePerkRuntimeStateAccess.call_object(runtime_state, "_get_catalog", [registry]),
+		RuntimePerkRuntimeStateAccess.call_string(runtime_state, "_get_character_type", [owner], "smasher"),
 		confirm_callbacks
 	)
 
@@ -70,7 +76,7 @@ func confirm_pending_swap_from_runtime_state(
 func cancel_pending_swap_from_runtime_state(runtime_state: Object, owner: Object = null) -> Dictionary:
 	if runtime_state == null:
 		return {"accepted": false, "blocked_reason": "missing_runtime_state"}
-	var pending_swap: Dictionary = _get_runtime_state_dict(runtime_state, "pending_unlock_swap")
+	var pending_swap: Dictionary = RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap")
 	if not has_pending_swap(pending_swap):
 		return {"accepted": false, "blocked_reason": "missing_pending_swap"}
 	return apply_state_update_and_sync_owner_from_runtime_state(
@@ -92,7 +98,7 @@ func should_start_swap(skill_config: Object, unlocked_skill: String, _character_
 	if skill_config.has_method("is_shared_slot_full") and not bool(skill_config.is_shared_slot_full()):
 		return false
 	if skill_config.has_method("get_shared_slot_swap_candidates"):
-		return not _get_array(skill_config.get_shared_slot_swap_candidates(unlocked_skill)).is_empty()
+		return not RuntimePerkPayloadAccess.as_array(skill_config.get_shared_slot_swap_candidates(unlocked_skill)).is_empty()
 	return false
 
 
@@ -103,7 +109,7 @@ func build_pending_swap(choice: Dictionary, skill_config: Object) -> Dictionary:
 	var candidates: Array = []
 	var raw_candidates: Array = []
 	if skill_config.has_method("get_shared_slot_swap_candidates"):
-		raw_candidates = _get_array(skill_config.get_shared_slot_swap_candidates(unlocked_skill))
+		raw_candidates = RuntimePerkPayloadAccess.as_array(skill_config.get_shared_slot_swap_candidates(unlocked_skill))
 	for value in raw_candidates:
 		var skill_id := str(value)
 		var skill_data: Dictionary = skill_config.get_skill_data(skill_id) if skill_config.has_method("get_skill_data") else {}
@@ -128,7 +134,7 @@ func has_pending_swap(pending_swap: Dictionary) -> bool:
 
 
 func has_pending_swap_from_runtime_state(runtime_state: Object) -> bool:
-	return has_pending_swap(_get_runtime_state_dict(runtime_state, "pending_unlock_swap"))
+	return has_pending_swap(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"))
 
 
 func get_pending_swap_snapshot(pending_swap: Dictionary) -> Dictionary:
@@ -136,7 +142,7 @@ func get_pending_swap_snapshot(pending_swap: Dictionary) -> Dictionary:
 
 
 func get_pending_swap_snapshot_from_runtime_state(runtime_state: Object) -> Dictionary:
-	return get_pending_swap_snapshot(_get_runtime_state_dict(runtime_state, "pending_unlock_swap"))
+	return get_pending_swap_snapshot(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"))
 
 
 func get_selected_index(selected_index: int) -> int:
@@ -144,11 +150,11 @@ func get_selected_index(selected_index: int) -> int:
 
 
 func get_selected_index_from_runtime_state(runtime_state: Object) -> int:
-	return get_selected_index(_get_runtime_state_int(runtime_state, "unlock_swap_selected_index"))
+	return get_selected_index(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "unlock_swap_selected_index"))
 
 
 func get_candidate_count(pending_swap: Dictionary) -> int:
-	return _get_array(pending_swap.get("candidates", [])).size()
+	return RuntimePerkPayloadAccess.as_array(pending_swap.get("candidates", [])).size()
 
 
 func has_candidates(pending_swap: Dictionary) -> bool:
@@ -213,8 +219,8 @@ func move_selection_from_runtime_state(runtime_state: Object, delta_index: int) 
 	return apply_state_update_and_sync_owner_from_runtime_state(
 		runtime_state,
 		build_move_selection_for_pending_swap(
-			_get_runtime_state_dict(runtime_state, "pending_unlock_swap"),
-			_get_runtime_state_int(runtime_state, "unlock_swap_selected_index"),
+			RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"),
+			RuntimePerkRuntimeStateAccess.get_int(runtime_state, "unlock_swap_selected_index"),
 			delta_index
 		)
 	)
@@ -242,7 +248,7 @@ func select_index_from_runtime_state(runtime_state: Object, index: int) -> Dicti
 	return apply_state_update_and_sync_owner_from_runtime_state(
 		runtime_state,
 		build_direct_selection_for_pending_swap(
-			_get_runtime_state_dict(runtime_state, "pending_unlock_swap"),
+			RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"),
 			index
 		)
 	)
@@ -267,7 +273,7 @@ func build_confirm_request(
 	current_index: int,
 	fallback_character_type: String = ""
 ) -> Dictionary:
-	var choice: Dictionary = _get_dict(pending_swap.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(pending_swap.get("choice", {}))
 	var choice_id: String = str(pending_swap.get("choice_id", choice.get("id", "")))
 	var unlocked_skill: String = str(pending_swap.get("unlocks_skill", choice.get("unlocks_skill", "")))
 	if choice_id == "":
@@ -302,7 +308,7 @@ func apply_confirm_selection_update(
 		return {"accepted": false, "blocked_reason": "invalid_confirm_request"}
 	if not apply_unlock_swap_state_update.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_state_update_callback"}
-	var update: Dictionary = _get_dict(confirm_request.get("selection_update", {}))
+	var update: Dictionary = RuntimePerkPayloadAccess.as_dict(confirm_request.get("selection_update", {}))
 	if not bool(update.get("accepted", false)):
 		return {"accepted": false, "blocked_reason": "missing_selection_update"}
 	var apply_result: Variant = apply_unlock_swap_state_update.call(update, owner)
@@ -327,7 +333,7 @@ func apply_confirm_selection_update(
 func build_confirm_completion_plan(confirm_request: Dictionary) -> Dictionary:
 	if not bool(confirm_request.get("accepted", false)):
 		return {"accepted": false, "blocked_reason": "invalid_confirm_request"}
-	var choice: Dictionary = _get_dict(confirm_request.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(confirm_request.get("choice", {}))
 	var choice_id := str(confirm_request.get("choice_id", choice.get("id", "")))
 	if choice_id == "":
 		return {"accepted": false, "blocked_reason": "missing_choice_id"}
@@ -353,7 +359,7 @@ func apply_confirm_completion_and_showcase(
 	if not finish_or_open_unlock_showcase.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_showcase_callback"}
 	var apply_result: Variant = apply_unlock_swap_state_update.call(
-		_get_dict(completion_plan.get("state_update", {})),
+		RuntimePerkPayloadAccess.as_dict(completion_plan.get("state_update", {})),
 		owner
 	)
 	var state_applied := false
@@ -368,7 +374,7 @@ func apply_confirm_completion_and_showcase(
 			"apply_result": apply_result,
 		}
 	var showcase_choice_id := str(completion_plan.get("showcase_choice_id", ""))
-	var showcase_choice: Dictionary = _get_dict(completion_plan.get("showcase_choice", {}))
+	var showcase_choice: Dictionary = RuntimePerkPayloadAccess.as_dict(completion_plan.get("showcase_choice", {}))
 	finish_or_open_unlock_showcase.call(showcase_choice_id, owner, registry, null, showcase_choice)
 	return {
 		"accepted": true,
@@ -400,17 +406,17 @@ func confirm_pending_swap(
 	var selection_apply: Dictionary = apply_confirm_selection_update(
 		confirm_request,
 		owner,
-		_get_callback(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE)
 	)
 	if not bool(selection_apply.get("accepted", false)):
 		return selection_apply
 
-	var get_instance := _get_callback(callbacks, CALLBACK_GET_INSTANCE)
+	var get_instance := RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_GET_INSTANCE)
 	var skill_config_result: Dictionary = resolve_confirm_skill_config(
 		confirm_request,
 		registry,
 		get_instance,
-		_get_callback(callbacks, CALLBACK_GET_SKILL_CONFIG_KEY)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_GET_SKILL_CONFIG_KEY)
 	)
 	if not bool(skill_config_result.get("accepted", false)):
 		return skill_config_result
@@ -435,7 +441,7 @@ func confirm_pending_swap(
 	var unlock_update: Dictionary = commit_confirm_choice_level(
 		confirm_request,
 		runtime_skill_levels,
-		_get_callback(callbacks, CALLBACK_COMMIT_UNLOCK_CHOICE_LEVEL)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_COMMIT_UNLOCK_CHOICE_LEVEL)
 	)
 	if not bool(unlock_update.get("accepted", false)):
 		return unlock_update
@@ -446,7 +452,7 @@ func confirm_pending_swap(
 		confirm_request,
 		owner,
 		registry,
-		_get_callback(callbacks, CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_SYNC_RUNTIME_PERK_OWNER_EFFECTS)
 	)
 	if not bool(owner_effect_sync.get("accepted", false)):
 		return owner_effect_sync
@@ -471,8 +477,8 @@ func confirm_pending_swap(
 		completion_plan,
 		owner,
 		registry,
-		_get_callback(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE),
-		_get_callback(callbacks, CALLBACK_FINISH_OR_OPEN_UNLOCK_SHOWCASE)
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_UNLOCK_SWAP_STATE_UPDATE),
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_FINISH_OR_OPEN_UNLOCK_SHOWCASE)
 	)
 	completion_result["soul_summon_result"] = soul_summon_result
 	return completion_result
@@ -550,7 +556,7 @@ func commit_confirm_choice_level(
 		return {"accepted": false, "blocked_reason": "invalid_confirm_request"}
 	if not commit_unlock_choice_level.is_valid():
 		return {"accepted": false, "blocked_reason": "missing_commit_callback"}
-	var choice: Dictionary = _get_dict(confirm_request.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(confirm_request.get("choice", {}))
 	var result: Variant = commit_unlock_choice_level.call(choice, runtime_skill_levels)
 	if result is Dictionary:
 		return result
@@ -583,28 +589,28 @@ func apply_state_update(
 	if runtime_state == null or not bool(update.get("accepted", false)):
 		return {"accepted": false}
 	if update.has("pending_unlock_swap"):
-		runtime_state.set("pending_unlock_swap", _get_dict(update.get("pending_unlock_swap", {})).duplicate(true))
+		runtime_state.set("pending_unlock_swap", RuntimePerkPayloadAccess.as_dict(update.get("pending_unlock_swap", {})).duplicate(true))
 	elif bool(update.get("clear_pending_unlock_swap", false)):
 		_clear_dictionary_field(runtime_state, "pending_unlock_swap")
 	if update.has("unlock_swap_selected_index"):
 		runtime_state.set(
 			"unlock_swap_selected_index",
-			int(update.get("unlock_swap_selected_index", runtime_state.get("unlock_swap_selected_index")))
+			int(update.get("unlock_swap_selected_index", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "unlock_swap_selected_index")))
 		)
 	if update.has("gamepad_unlock_swap_horizontal_latch"):
 		runtime_state.set(
 			"gamepad_unlock_swap_horizontal_latch",
-			int(update.get("gamepad_unlock_swap_horizontal_latch", runtime_state.get("gamepad_unlock_swap_horizontal_latch")))
+			int(update.get("gamepad_unlock_swap_horizontal_latch", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gamepad_unlock_swap_horizontal_latch")))
 		)
 	if bool(update.get("clear_current_choice_context", false)):
 		_clear_dictionary_field(runtime_state, "current_choice_context")
-	var feedback_result: Dictionary = _get_dict(update.get("feedback_result", {}))
+	var feedback_result: Dictionary = RuntimePerkPayloadAccess.as_dict(update.get("feedback_result", {}))
 	if not feedback_result.is_empty() and feedback_helper != null and feedback_helper.has_method("apply_feedback_state_update"):
 		feedback_helper.apply_feedback_state_update(runtime_state, feedback_result, fallback_feedback_timer)
 	return {
 		"accepted": true,
 		"sync_owner": bool(update.get("sync_owner", false)),
-		"unlock_swap_selected_index": int(runtime_state.get("unlock_swap_selected_index")),
+		"unlock_swap_selected_index": int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "unlock_swap_selected_index")),
 	}
 
 
@@ -641,10 +647,10 @@ func apply_state_update_and_sync_owner_from_runtime_state(
 	return apply_state_update_and_sync_owner(
 		runtime_state,
 		update,
-		_get_runtime_state_object(runtime_state, "_choice_feedback"),
-		_get_runtime_state_float(runtime_state, "feedback_timer"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_feedback"),
+		RuntimePerkRuntimeStateAccess.get_float(runtime_state, "feedback_timer"),
 		owner,
-		_build_runtime_state_sync_owner(runtime_state)
+		RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_owner")
 	)
 
 
@@ -671,14 +677,14 @@ func build_confirm_feedback(choice: Dictionary, choice_id: String = "") -> Dicti
 func apply_selected_swap(pending_unlock_swap: Dictionary, selected_index: int, skill_config: Object) -> Dictionary:
 	if pending_unlock_swap.is_empty() or skill_config == null:
 		return {"ok": false}
-	var choice: Dictionary = _get_dict(pending_unlock_swap.get("choice", {}))
+	var choice: Dictionary = RuntimePerkPayloadAccess.as_dict(pending_unlock_swap.get("choice", {}))
 	var choice_id: String = str(pending_unlock_swap.get("choice_id", choice.get("id", "")))
 	var unlocked_skill: String = str(pending_unlock_swap.get("unlocks_skill", choice.get("unlocks_skill", "")))
-	var candidates: Array = _get_array(pending_unlock_swap.get("candidates", []))
+	var candidates: Array = RuntimePerkPayloadAccess.as_array(pending_unlock_swap.get("candidates", []))
 	if choice_id == "" or unlocked_skill == "" or candidates.is_empty():
 		return {"ok": false}
 	var clamped_index: int = clampi(selected_index, 0, candidates.size() - 1)
-	var removed_skill: String = str(_get_dict(candidates[clamped_index]).get("skill_id", ""))
+	var removed_skill: String = str(RuntimePerkPayloadAccess.as_dict(candidates[clamped_index]).get("skill_id", ""))
 	if removed_skill == "":
 		return {"ok": false}
 	var swapped := false
@@ -795,71 +801,7 @@ func _normalize_character_type(character_type: String) -> String:
 	return normalized
 
 
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	return _get_dict(runtime_state.get(key))
-
-
-func _get_runtime_state_int(runtime_state: Object, key: String) -> int:
-	if runtime_state == null:
-		return 0
-	return int(runtime_state.get(key))
-
-
-func _get_runtime_state_float(runtime_state: Object, key: String) -> float:
-	if runtime_state == null:
-		return 0.0
-	return float(runtime_state.get(key))
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _build_runtime_state_sync_owner(runtime_state: Object) -> Callable:
-	if runtime_state != null and runtime_state.has_method("_sync_owner"):
-		return Callable(runtime_state, "_sync_owner")
-	return Callable()
-
-
-func _get_catalog_from_runtime_state(runtime_state: Object, registry: Object) -> Object:
-	if runtime_state != null and runtime_state.has_method("_get_catalog"):
-		return runtime_state.call("_get_catalog", registry)
-	return null
-
-
-func _get_character_type_from_runtime_state(runtime_state: Object, owner: Object) -> String:
-	if runtime_state != null and runtime_state.has_method("_get_character_type"):
-		return str(runtime_state.call("_get_character_type", owner))
-	return "smasher"
-
-
 func _clear_dictionary_field(runtime_state: Object, field_name: String) -> void:
-	var field_value: Variant = runtime_state.get(field_name)
+	var field_value: Variant = RuntimePerkRuntimeStateAccess.get_dict(runtime_state, field_name)
 	if field_value is Dictionary:
 		(field_value as Dictionary).clear()

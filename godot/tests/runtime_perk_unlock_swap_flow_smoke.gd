@@ -329,7 +329,7 @@ func _verify_confirm_request_payload() -> void:
 	_expect(helper_source.find("func build_confirm_callbacks_from_runtime_state(") >= 0, "helper should own runtime-state confirm callback map assembly")
 	_expect(helper_source.find("func confirm_pending_swap_from_runtime_state(") >= 0, "helper should own runtime-state confirm assembly")
 	_expect(confirm_body.find("_level_side_effects") < 0, "state confirm swap should not pass level-side-effect helper inline")
-	_expect(callback_facade_body.find("_get_runtime_state_object(runtime_state, \"_level_side_effects\")") >= 0, "helper runtime-state confirm callback facade should own level-side-effect lookup")
+	_expect(callback_facade_body.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_level_side_effects\")") >= 0, "helper runtime-state confirm callback facade should own level-side-effect lookup")
 	_expect(facade_body.find("build_confirm_callbacks_from_runtime_state(runtime_state)") >= 0, "helper runtime-state confirm facade should build callbacks internally")
 	_expect(confirm_body.find("build_confirm_request") < 0, "state confirm swap should not build confirm requests directly")
 	_expect(confirm_body.find("apply_confirm_selection_update") < 0, "state confirm swap should not apply confirm selection directly")

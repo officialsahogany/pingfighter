@@ -1,11 +1,15 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const DEFAULT_CARD_SIZE := Vector2(184.0, 116.0)
 const DEFAULT_CARD_GAP := 14.0
 
 
 func build_layout(pending_unlock_swap: Dictionary, view_size: Vector2) -> Dictionary:
-	var candidates: Array = _get_array(pending_unlock_swap.get("candidates", []))
+	var candidates: Array = RuntimePerkPayloadAccess.as_array(pending_unlock_swap.get("candidates", []))
 	var card_count: int = max(1, candidates.size())
 	var card_width := DEFAULT_CARD_SIZE.x
 	var card_height := DEFAULT_CARD_SIZE.y
@@ -34,14 +38,14 @@ func build_layout(pending_unlock_swap: Dictionary, view_size: Vector2) -> Dictio
 
 
 func build_layout_from_runtime_state(runtime_state: Object, view_size: Vector2) -> Dictionary:
-	return build_layout(_get_runtime_pending_swap(runtime_state), view_size)
+	return build_layout(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"), view_size)
 
 
 func get_option_rects(pending_unlock_swap: Dictionary, view_size: Vector2) -> Array:
 	var layout: Dictionary = build_layout(pending_unlock_swap, view_size)
-	var candidates: Array = _get_array(pending_unlock_swap.get("candidates", []))
-	var card_size: Vector2 = _get_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
-	var start: Vector2 = _get_vector2(layout.get("cards_start", Vector2.ZERO))
+	var candidates: Array = RuntimePerkPayloadAccess.as_array(pending_unlock_swap.get("candidates", []))
+	var card_size: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
+	var start: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("cards_start", Vector2.ZERO))
 	var gap: float = float(layout.get("card_gap", DEFAULT_CARD_GAP))
 	var rects: Array = []
 	for index in range(candidates.size()):
@@ -50,7 +54,7 @@ func get_option_rects(pending_unlock_swap: Dictionary, view_size: Vector2) -> Ar
 
 
 func get_option_rects_from_runtime_state(runtime_state: Object, view_size: Vector2) -> Array:
-	return get_option_rects(_get_runtime_pending_swap(runtime_state), view_size)
+	return get_option_rects(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"), view_size)
 
 
 func get_index_at(pending_unlock_swap: Dictionary, position: Vector2, view_size: Vector2) -> int:
@@ -63,25 +67,4 @@ func get_index_at(pending_unlock_swap: Dictionary, position: Vector2, view_size:
 
 
 func get_index_at_from_runtime_state(runtime_state: Object, position: Vector2, view_size: Vector2) -> int:
-	return get_index_at(_get_runtime_pending_swap(runtime_state), position, view_size)
-
-
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []
-
-
-func _get_vector2(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value
-	return Vector2.ZERO
-
-
-func _get_runtime_pending_swap(runtime_state: Object) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get("pending_unlock_swap")
-	if value is Dictionary:
-		return value
-	return {}
+	return get_index_at(RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "pending_unlock_swap"), position, view_size)

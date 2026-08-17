@@ -1,5 +1,9 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 # 카드 높이 390 -> 316 (2026-08-06): 하단 능력치 원장 자리를 만들면서 카드가
 # "너무 크다"는 사용자 판정을 함께 반영한다. 폭(268)은 손대지 않는다 --
 # 카드 이름/성급/설명 폰트 크기가 전부 card_width에서 파생되므로(_draw_card의
@@ -135,7 +139,7 @@ func build_layout_from_runtime_state(runtime_state: Object, view_size: Vector2) 
 		return build_layout(view_size, 0)
 	return build_layout(
 		view_size,
-		_get_array(runtime_state.get("current_choices")).size(),
+		RuntimePerkPayloadAccess.as_array(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")).size(),
 		stats_band_requested_from_runtime_state(runtime_state)
 	)
 
@@ -145,15 +149,15 @@ func build_layout_from_runtime_state(runtime_state: Object, view_size: Vector2) 
 func stats_band_requested_from_runtime_state(runtime_state: Object) -> bool:
 	if runtime_state == null:
 		return false
-	var value: Variant = runtime_state.get("stats_band_enabled")
+	var value: Variant = RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "stats_band_enabled")
 	return value is bool and bool(value)
 
 
 func get_card_rects(view_size: Vector2, choice_count_value: int, animation_time: float, stats_band_requested: bool = false) -> Array:
 	var layout: Dictionary = build_layout(view_size, choice_count_value, stats_band_requested)
 	var rects: Array = []
-	var card_size: Vector2 = _get_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
-	var start: Vector2 = _get_vector2(layout.get("cards_start", Vector2.ZERO))
+	var card_size: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
+	var start: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("cards_start", Vector2.ZERO))
 	var gap: float = float(layout.get("card_gap", DEFAULT_CARD_GAP))
 	for index in range(max(0, choice_count_value)):
 		var offset := get_card_offset(index, animation_time)
@@ -166,8 +170,8 @@ func get_card_rects_from_runtime_state(runtime_state: Object, view_size: Vector2
 		return []
 	return get_card_rects(
 		view_size,
-		_get_array(runtime_state.get("current_choices")).size(),
-		float(runtime_state.get("animation_time")),
+		RuntimePerkPayloadAccess.as_array(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")).size(),
+		float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "animation_time")),
 		stats_band_requested_from_runtime_state(runtime_state)
 	)
 
@@ -193,8 +197,8 @@ func get_card_index_at_from_runtime_state(runtime_state: Object, position: Vecto
 	return get_card_index_at(
 		position,
 		view_size,
-		_get_array(runtime_state.get("current_choices")).size(),
-		float(runtime_state.get("animation_time")),
+		RuntimePerkPayloadAccess.as_array(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "current_choices")).size(),
+		float(RuntimePerkRuntimeStateAccess.get_float(runtime_state, "animation_time")),
 		stats_band_requested_from_runtime_state(runtime_state)
 	)
 
@@ -220,7 +224,7 @@ func apply_particles_state_update(runtime_state: Object, particles_update: Array
 	if runtime_state == null:
 		return {"accepted": false}
 	runtime_state.set("particles", particles_update.duplicate(true))
-	var applied_particles: Array = _get_array(runtime_state.get("particles"))
+	var applied_particles: Array = RuntimePerkPayloadAccess.as_array(RuntimePerkRuntimeStateAccess.get_array(runtime_state, "particles"))
 	return {
 		"accepted": true,
 		"particle_count": applied_particles.size(),
@@ -239,8 +243,8 @@ func update_particles(particles: Array, delta: float, view_size: Vector2, partic
 	for particle in particles:
 		var data: Dictionary = particle
 		data["age"] = float(data.get("age", 0.0)) + delta
-		data["position"] = _get_vector2(data.get("position", Vector2.ZERO)) + _get_vector2(data.get("velocity", Vector2.ZERO)) * delta
-		var pos: Vector2 = _get_vector2(data.get("position", Vector2.ZERO))
+		data["position"] = RuntimePerkPayloadAccess.as_vector2(data.get("position", Vector2.ZERO)) + RuntimePerkPayloadAccess.as_vector2(data.get("velocity", Vector2.ZERO)) * delta
+		var pos: Vector2 = RuntimePerkPayloadAccess.as_vector2(data.get("position", Vector2.ZERO))
 		if pos.x < left or pos.x > right or float(data.get("age", 0.0)) > particle_life:
 			reset_particle(data, view_size, particle_life)
 
@@ -254,15 +258,3 @@ func reset_particle(particle: Dictionary, view_size: Vector2, particle_life: flo
 	particle["age"] = randf_range(0.0, particle_life * 0.65)
 	particle["size"] = randf_range(1.5, 3.4)
 	particle["color"] = PARTICLE_COLORS[randi() % PARTICLE_COLORS.size()]
-
-
-func _get_vector2(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value
-	return Vector2.ZERO
-
-
-func _get_array(value: Variant) -> Array:
-	if value is Array:
-		return value
-	return []

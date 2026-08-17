@@ -1,5 +1,11 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
+const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_callback_map.gd")
+
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const PATH_INVALID := "invalid"
 const PATH_INSTANT := "instant"
 const PATH_UNLOCK := "unlock"
@@ -32,19 +38,19 @@ func build_grant_callbacks(
 		callbacks[CALLBACK_BUILD_UNLOCK_UPDATE] = Callable(level_side_effects, "build_debug_unlock_choice_update")
 		callbacks[CALLBACK_BUILD_LEVEL_UPDATE] = Callable(level_side_effects, "build_debug_level_update")
 	if runtime_state != null:
-		callbacks[CALLBACK_APPLY_CHOICE] = Callable(runtime_state, "apply_choice")
-		callbacks[CALLBACK_APPLY_UNLOCK_CHOICE] = Callable(runtime_state, "_apply_unlock_choice")
-		callbacks[CALLBACK_APPLY_LEVEL_SIDE_EFFECT] = Callable(runtime_state, "_apply_level_side_effect")
-		callbacks[CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT] = Callable(runtime_state, "_apply_choice_feedback_result")
-		callbacks[CALLBACK_SYNC_OWNER] = Callable(runtime_state, "_sync_owner")
+		callbacks[CALLBACK_APPLY_CHOICE] = RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "apply_choice")
+		callbacks[CALLBACK_APPLY_UNLOCK_CHOICE] = RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_unlock_choice")
+		callbacks[CALLBACK_APPLY_LEVEL_SIDE_EFFECT] = RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_level_side_effect")
+		callbacks[CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT] = RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_apply_choice_feedback_result")
+		callbacks[CALLBACK_SYNC_OWNER] = RuntimePerkRuntimeStateAccess.build_callable(runtime_state, "_sync_owner")
 	return callbacks
 
 
 func build_grant_callbacks_from_runtime_state(runtime_state: Object) -> Dictionary:
 	return build_grant_callbacks(
 		runtime_state,
-		_get_runtime_state_object(runtime_state, "_level_side_effects"),
-		_get_runtime_state_object(runtime_state, "_instant_rewards")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_instant_rewards")
 	)
 
 
@@ -109,7 +115,7 @@ func build_post_apply_update(perk_id: String) -> Dictionary:
 func apply_choice_data_patch(data: Dictionary, patch_result: Dictionary) -> bool:
 	if not bool(patch_result.get("accepted", false)):
 		return false
-	var patch: Dictionary = _get_dict(patch_result.get("patch", {}))
+	var patch: Dictionary = RuntimePerkPayloadAccess.as_dict(patch_result.get("patch", {}))
 	for key in patch.keys():
 		data[key] = patch[key]
 	return true
@@ -135,7 +141,7 @@ func build_runtime_level_patch_update(
 	var clean_id: String = perk_id.strip_edges()
 	if clean_id == "" or not bool(patch_result.get("accepted", false)):
 		return {"accepted": false}
-	var patch: Dictionary = _get_dict(patch_result.get("patch", {}))
+	var patch: Dictionary = RuntimePerkPayloadAccess.as_dict(patch_result.get("patch", {}))
 	return {
 		"accepted": true,
 		"perk_id": clean_id,
@@ -166,7 +172,7 @@ func apply_post_apply_update(
 ) -> bool:
 	if runtime_state == null or not bool(update.get("accepted", false)):
 		return false
-	runtime_state.set("last_selected_id", str(update.get("last_selected_id", runtime_state.get("last_selected_id"))))
+	runtime_state.set("last_selected_id", str(update.get("last_selected_id", RuntimePerkRuntimeStateAccess.get_string(runtime_state, "last_selected_id"))))
 	if bool(update.get("sync_owner", false)) and sync_owner.is_valid():
 		sync_owner.call(owner)
 	return true
@@ -196,8 +202,8 @@ func apply_debug_grant_from_runtime_state(
 		owner,
 		registry,
 		catalog,
-		_get_runtime_state_dict(runtime_state, "runtime_skill_levels"),
-		_get_level_feedback_timer(_get_runtime_state_object(runtime_state, "_level_side_effects")),
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
+		_get_level_feedback_timer(RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects")),
 		build_grant_callbacks_from_runtime_state(runtime_state)
 	)
 
@@ -254,7 +260,7 @@ func apply_debug_grant(
 				clean_id,
 				data,
 				debug_path,
-				_call_update(callbacks, CALLBACK_BUILD_INSTANT_UPDATE, [clean_id, data]),
+				RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_BUILD_INSTANT_UPDATE, [clean_id, data]),
 				0,
 				owner,
 				registry,
@@ -266,7 +272,7 @@ func apply_debug_grant(
 				clean_id,
 				data,
 				debug_path,
-				_call_update(callbacks, CALLBACK_BUILD_UNLOCK_UPDATE, [clean_id, target_level, data]),
+				RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_BUILD_UNLOCK_UPDATE, [clean_id, target_level, data]),
 				owner,
 				registry,
 				callbacks
@@ -278,7 +284,7 @@ func apply_debug_grant(
 					clean_id,
 					data,
 					debug_path,
-					_call_update(callbacks, CALLBACK_BUILD_LEVEL_UPDATE, [clean_id, target_level, data]),
+					RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_BUILD_LEVEL_UPDATE, [clean_id, target_level, data]),
 					target_level,
 					owner,
 					registry,
@@ -288,7 +294,7 @@ func apply_debug_grant(
 				runtime_state,
 				clean_id,
 				data,
-				_call_update(callbacks, CALLBACK_BUILD_LEVEL_UPDATE, [clean_id, target_level, data]),
+				RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_BUILD_LEVEL_UPDATE, [clean_id, target_level, data]),
 				runtime_skill_levels,
 				owner,
 				registry,
@@ -316,10 +322,10 @@ func _apply_guardian_enhance_debug_grant(
 	data["current_level"] = 0
 	data["next_level"] = 1
 	data["guardian_enhance_candidates"] = candidates_value if candidates_value is Array else []
-	var apply_result: Dictionary = _call_bool(callbacks, CALLBACK_APPLY_CHOICE, [data, owner, registry])
+	var apply_result: Dictionary = RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_APPLY_CHOICE, [data, owner, registry])
 	if not bool(apply_result.get("accepted", false)):
 		return apply_result
-	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, _get_callback(callbacks, CALLBACK_SYNC_OWNER)):
+	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_SYNC_OWNER)):
 		return {"accepted": false, "blocked_reason": "post_apply_failed", "choice_id": clean_id}
 	return {"accepted": true, "choice_id": clean_id, "path": PATH_GUARDIAN_ENHANCE}
 
@@ -358,10 +364,10 @@ func _apply_choice_debug_grant(
 ) -> Dictionary:
 	if not bool(apply_choice_data_update(data, debug_path, update, fallback_level).get("accepted", false)):
 		return {"accepted": false, "blocked_reason": "choice_data_update_failed", "choice_id": clean_id}
-	var apply_result: Dictionary = _call_bool(callbacks, CALLBACK_APPLY_CHOICE, [data, owner, registry])
+	var apply_result: Dictionary = RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_APPLY_CHOICE, [data, owner, registry])
 	if not bool(apply_result.get("accepted", false)):
 		return apply_result
-	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, _get_callback(callbacks, CALLBACK_SYNC_OWNER)):
+	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_SYNC_OWNER)):
 		return {"accepted": false, "blocked_reason": "post_apply_failed", "choice_id": clean_id}
 	return {"accepted": true, "choice_id": clean_id, "path": debug_path}
 
@@ -378,10 +384,10 @@ func _apply_unlock_debug_grant(
 ) -> Dictionary:
 	if not bool(apply_choice_data_update(data, debug_path, update, 1).get("accepted", false)):
 		return {"accepted": false, "blocked_reason": "choice_data_update_failed", "choice_id": clean_id}
-	var apply_result: Dictionary = _call_bool(callbacks, CALLBACK_APPLY_UNLOCK_CHOICE, [data, owner, registry])
+	var apply_result: Dictionary = RuntimePerkCallbackMap.call_strict_acceptance(callbacks, CALLBACK_APPLY_UNLOCK_CHOICE, [data, owner, registry])
 	if not bool(apply_result.get("accepted", false)):
 		return apply_result
-	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, _get_callback(callbacks, CALLBACK_SYNC_OWNER)):
+	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_SYNC_OWNER)):
 		return {"accepted": false, "blocked_reason": "post_apply_failed", "choice_id": clean_id}
 	return {"accepted": true, "choice_id": clean_id, "path": debug_path}
 
@@ -404,17 +410,17 @@ func _apply_level_debug_grant(
 	var runtime_level_result: Dictionary = apply_runtime_level_patch(runtime_skill_levels, level_patch)
 	if not bool(runtime_level_result.get("accepted", false)):
 		return runtime_level_result
-	var side_effect_result: Dictionary = _call_optional(callbacks, CALLBACK_APPLY_LEVEL_SIDE_EFFECT, [data, owner, registry])
+	var side_effect_result: Dictionary = RuntimePerkCallbackMap.call_optional(callbacks, CALLBACK_APPLY_LEVEL_SIDE_EFFECT, [data, owner, registry])
 	if not bool(side_effect_result.get("accepted", false)):
 		return side_effect_result
-	var feedback_result: Dictionary = _call_bool(
+	var feedback_result: Dictionary = RuntimePerkCallbackMap.call_strict_acceptance(
 		callbacks,
 		CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT,
 		[update, data, level_feedback_timer]
 	)
 	if not bool(feedback_result.get("accepted", false)):
 		return feedback_result
-	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, _get_callback(callbacks, CALLBACK_SYNC_OWNER)):
+	if not apply_post_apply_for_perk(runtime_state, owner, clean_id, RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_SYNC_OWNER)):
 		return {"accepted": false, "blocked_reason": "post_apply_failed", "choice_id": clean_id}
 	return {
 		"accepted": true,
@@ -433,46 +439,6 @@ func _get_catalog_perk_data(catalog: Object, perk_id: String) -> Dictionary:
 	return {}
 
 
-func _call_update(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		return result
-	return {"accepted": bool(result)}
-
-
-func _call_bool(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		return result
-	return {"accepted": bool(result)}
-
-
-func _call_optional(callbacks: Dictionary, key: String, args: Array) -> Dictionary:
-	var callback := _get_callback(callbacks, key)
-	if not callback.is_valid():
-		return {"accepted": false, "blocked_reason": "missing_%s" % key}
-	var result: Variant = callback.callv(args)
-	if result is Dictionary:
-		if result.has("accepted"):
-			return result
-		result["accepted"] = true
-		return result
-	return {"accepted": true}
-
-
-func _get_callback(callbacks: Dictionary, key: String) -> Callable:
-	var value: Variant = callbacks.get(key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
 func _get_level_feedback_timer(level_side_effects: Object) -> float:
 	if level_side_effects == null:
 		return DEFAULT_LEVEL_FEEDBACK_TIMER
@@ -480,27 +446,3 @@ func _get_level_feedback_timer(level_side_effects: Object) -> float:
 	if value == null:
 		return DEFAULT_LEVEL_FEEDBACK_TIMER
 	return float(value)
-
-
-func _get_runtime_state_object(runtime_state: Object, key: String) -> Object:
-	if runtime_state == null:
-		return null
-	var value: Variant = runtime_state.get(key)
-	if value is Object:
-		return value
-	return null
-
-
-func _get_runtime_state_dict(runtime_state: Object, key: String) -> Dictionary:
-	if runtime_state == null:
-		return {}
-	var value: Variant = runtime_state.get(key)
-	if value is Dictionary:
-		return value
-	return {}
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

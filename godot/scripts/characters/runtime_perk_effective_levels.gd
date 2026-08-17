@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
+
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
@@ -90,7 +92,7 @@ func apply_viper_ignition_aura_active_update(runtime_state: Object, update: Dict
 		return {"accepted": false}
 	runtime_state.set(
 		"viper_ignition_aura_active",
-		bool(update.get("active", runtime_state.get("viper_ignition_aura_active")))
+		bool(update.get("active", RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")))
 	)
 	runtime_state.set(
 		"viper_ignition_aura_owner_sync_dirty",
@@ -98,8 +100,8 @@ func apply_viper_ignition_aura_active_update(runtime_state: Object, update: Dict
 	)
 	return {
 		"accepted": true,
-		"active": bool(runtime_state.get("viper_ignition_aura_active")),
-		"owner_sync_dirty": bool(runtime_state.get("viper_ignition_aura_owner_sync_dirty")),
+		"active": bool(RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")),
+		"owner_sync_dirty": bool(RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_owner_sync_dirty")),
 	}
 
 
@@ -116,11 +118,11 @@ func apply_item_perk_level_bonus_update(runtime_state: Object, update: Dictionar
 		return {"accepted": false}
 	runtime_state.set(
 		"item_perk_level_bonus",
-		int(update.get("bonus", runtime_state.get("item_perk_level_bonus")))
+		int(update.get("bonus", RuntimePerkRuntimeStateAccess.get_int(runtime_state, "item_perk_level_bonus")))
 	)
 	return {
 		"accepted": true,
-		"bonus": int(runtime_state.get("item_perk_level_bonus")),
+		"bonus": int(RuntimePerkRuntimeStateAccess.get_int(runtime_state, "item_perk_level_bonus")),
 	}
 
 

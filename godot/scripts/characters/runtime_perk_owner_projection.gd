@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 
 func build_state(
 	runtime_skill_levels: Dictionary,
@@ -26,17 +28,11 @@ func build_state(
 func sync_owner(owner: Object, state: Dictionary) -> void:
 	if owner == null:
 		return
-	owner.set("runtime_perk_levels", _get_dict(state.get("runtime_skill_levels", {})).duplicate(true))
-	owner.set("runtime_perk_effective_levels", _get_dict(state.get("effective_runtime_skill_levels", {})).duplicate(true))
+	owner.set("runtime_perk_levels", RuntimePerkPayloadAccess.as_dict(state.get("runtime_skill_levels", {})).duplicate(true))
+	owner.set("runtime_perk_effective_levels", RuntimePerkPayloadAccess.as_dict(state.get("effective_runtime_skill_levels", {})).duplicate(true))
 	owner.set("runtime_perk_pending_choices", int(state.get("pending_skill_choices", 0)))
 	owner.set("runtime_perk_starpoints", int(state.get("starpoint_for_skills", 0)))
 	owner.set("runtime_perk_gold", int(state.get("gold_from_perks", 0)))
 	owner.set("runtime_perk_choice_active", bool(state.get("choice_active", false)))
 	owner.set("item_perk_level_bonus", int(state.get("item_perk_level_bonus", 0)))
 	owner.set("viper_ignition_aura_active", bool(state.get("viper_ignition_aura_active", false)))
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	if value is Dictionary:
-		return value
-	return {}

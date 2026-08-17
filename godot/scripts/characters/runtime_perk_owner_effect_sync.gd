@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
+
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 const FIELD_WIDTH := 760.0
@@ -39,14 +41,14 @@ func sync_owner_effects(
 	sample_start = _perf_begin(perf_logger)
 	var perk_scale: float = max(0.1, float(context.get("player_paddle_size_multiplier", 1.0)))
 	owner.set("runtime_paddle_scale", perk_scale)
-	var base_width: float = _get_runtime_paddle_base_width(owner)
-	var base_height: float = _get_runtime_paddle_base_height(owner)
+	var base_width: float = max(1.0, RuntimePerkPayloadAccess.get_float(owner, "runtime_paddle_base_width", PLAYER_BASE_PADDLE_WIDTH))
+	var base_height: float = max(1.0, RuntimePerkPayloadAccess.get_float(owner, "runtime_paddle_base_height", PLAYER_BASE_PADDLE_HEIGHT))
 	var active_item_scale: float = _get_active_item_paddle_scale(registry, get_instance)
 	var mythic_item_scale: float = _get_mythic_item_paddle_scale(registry, get_instance)
 	var final_scale: float = max(0.1, perk_scale * active_item_scale * mythic_item_scale)
-	var current_width: float = max(1.0, float(_safe_owner_get(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
-	var current_height: float = max(1.0, float(_safe_owner_get(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
-	var player_pos_value: Variant = _safe_owner_get(owner, "player_pos", Vector2.ZERO)
+	var current_width: float = max(1.0, float(RuntimePerkPayloadAccess.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
+	var current_height: float = max(1.0, float(RuntimePerkPayloadAccess.get_value(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
+	var player_pos_value: Variant = RuntimePerkPayloadAccess.get_value(owner, "player_pos", Vector2.ZERO)
 	var next_width: float = base_width * final_scale
 	var next_height: float = base_height * final_scale
 	if player_pos_value is Vector2 and (not is_equal_approx(current_width, next_width) or not is_equal_approx(current_height, next_height)):
@@ -91,15 +93,6 @@ func apply_training_to_skill_configs(registry: Object, multiplier: float, get_in
 			skill_config.set_runtime_cooldown_multiplier(multiplier)
 
 
-func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
-	if owner == null:
-		return fallback
-	var value: Variant = owner.get(key)
-	if value == null:
-		return fallback
-	return value
-
-
 func _get_active_item_paddle_scale(registry: Object, get_instance: Callable) -> float:
 	var active_item_runtime: Object = get_instance.call(registry, "active_item_runtime")
 	if active_item_runtime != null and active_item_runtime.has_method("get_player_paddle_scale"):
@@ -112,14 +105,6 @@ func _get_mythic_item_paddle_scale(registry: Object, get_instance: Callable) -> 
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_player_paddle_scale"):
 		return max(0.1, float(mythic_item_runtime.get_player_paddle_scale()))
 	return 1.0
-
-
-func _get_runtime_paddle_base_width(owner: Object) -> float:
-	return max(1.0, float(_safe_owner_get(owner, "runtime_paddle_base_width", PLAYER_BASE_PADDLE_WIDTH)))
-
-
-func _get_runtime_paddle_base_height(owner: Object) -> float:
-	return max(1.0, float(_safe_owner_get(owner, "runtime_paddle_base_height", PLAYER_BASE_PADDLE_HEIGHT)))
 
 
 func _clamp_synced_player_x(x: float, paddle_width: float, warp_gate_state: Object) -> float:

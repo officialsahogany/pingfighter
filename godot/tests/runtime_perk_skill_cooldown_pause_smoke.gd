@@ -132,7 +132,7 @@ func _verify_source_contract() -> void:
 	var resume_body: String = _function_body(state_source, "func _resume_skill_cooldowns_for_choice(")
 	_expect(helper_source.find("func pause_from_runtime_state") >= 0, "cooldown pause helper should expose runtime-state pause facade")
 	_expect(helper_source.find("func resume_from_runtime_state") >= 0, "cooldown pause helper should expose runtime-state resume facade")
-	_expect(helper_source.find("_get_state_object(runtime_state, \"_skill_cooldown_pause\")") >= 0, "cooldown pause helper should look itself up from runtime state")
+	_expect(helper_source.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_skill_cooldown_pause\")") >= 0, "cooldown pause helper should look itself up from runtime state")
 	_expect(pause_body.find("pause_from_runtime_state") >= 0, "state pause wrapper should use runtime-state facade")
 	_expect(pause_body.find(".pause(owner, registry)") < 0, "state pause wrapper should not call pause directly")
 	_expect(resume_body.find("resume_from_runtime_state") >= 0, "state resume wrapper should use runtime-state facade")

@@ -285,9 +285,9 @@ func _verify_source_contract() -> void:
 	_expect(flow_source.find("owner_effect_sync.build_sync_context") >= 0, "owner-sync flow should own owner-effect context assembly")
 	_expect(flow_source.find("refresh_item_polish_consumers") >= 0, "owner-sync flow should route item-polish consumer refresh")
 	_expect(flow_source.find("apply_training_to_skill_configs") >= 0, "owner-sync flow should route skill-config training refresh")
-	_expect(flow_source.find("_get_state_object(runtime_state, \"_owner_projection\")") >= 0, "owner-sync flow should look up owner projection from runtime state")
-	_expect(flow_source.find("_get_state_object(runtime_state, \"_owner_effect_sync\")") >= 0, "owner-sync flow should look up owner-effect sync from runtime state")
-	_expect(flow_source.find("_build_runtime_state_get_instance(runtime_state)") >= 0, "owner-sync flow should assemble runtime-state get-instance callback")
+	_expect(flow_source.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_owner_projection\")") >= 0, "owner-sync flow should look up owner projection from runtime state")
+	_expect(flow_source.find("RuntimePerkRuntimeStateAccess.get_object(runtime_state, \"_owner_effect_sync\")") >= 0, "owner-sync flow should look up owner-effect sync from runtime state")
+	_expect(flow_source.find("RuntimePerkRuntimeStateAccess.build_callable(runtime_state, \"_get_instance\")") >= 0, "owner-sync flow should assemble runtime-state get-instance callback")
 
 	var sync_body: String = _function_body(state_source, "func _sync_owner(")
 	_expect(sync_body.find("_owner_sync_flow.sync_owner") >= 0, "state owner-sync wrapper should delegate to owner-sync flow")
