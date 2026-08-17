@@ -106,7 +106,7 @@ func restore_snapshot(
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
 	_route_target_ids.assign(_string_array(snapshot.get("route_target_ids", [])))
-	if _route_source_node_id.is_empty() or _route_target_ids.size() != 2:
+	if _route_source_node_id.is_empty() or _route_target_ids.size() not in [1, 2]:
 		return false
 	_refresh_route_target_cache()
 	_selected_target_id = str(snapshot.get("selected_target_id", ""))

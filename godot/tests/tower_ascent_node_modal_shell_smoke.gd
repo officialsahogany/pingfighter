@@ -89,11 +89,45 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_common_shell_and_localization_catalog()
+	_verify_node_modal_opens_only_after_map_arrival()
 	_verify_production_entry_lifecycle_and_exit()
 	_verify_production_entry_fails_closed_without_runtime_contract()
 	_verify_flag_off_preserves_legacy_path()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	LanguageSettings.set_test_locale_override("")
+
+
+func _verify_node_modal_opens_only_after_map_arrival() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "arrival-modal-contract",
+		"map_seed": 83521,
+	}), "arrival-modal fixture must begin")
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "victory completion must not open a node modal at the defeated boss")
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	var spring_index := -1
+	for index in range(targets.size()):
+		if str(targets[index].get("kind", "")) == "guardian_spring":
+			spring_index = index
+			break
+	_expect(spring_index >= 0, "the deterministic arrival fixture must expose a guardian-spring target")
+	if spring_index < 0:
+		return
+	flow.debug_launch_at_target(spring_index)
+	flow.update_selective(1.5)
+	_expect(flow.get_phase_name() == "MAP_TRANSITION", "target hit must show map movement before node work")
+	var selected_id := flow.get_selected_target_id()
+	flow.update_selective(1.0)
+	_expect(flow.get_phase_name() == "NODE_MODAL", "noncombat work must open only after map movement reaches the node")
+	_expect(flow.get_current_node_id() == selected_id, "arrival modal must belong to the node reached by the selected edge")
+	_expect(flow.get_node_modal_kind() == "guardian_spring", "arrival must derive the modal kind from the selected graph node")
+	var arrival_snapshot: Dictionary = flow.export_persistable_snapshot()
+	_expect(not arrival_snapshot.is_empty(), "the arrived node modal must remain a stable snapshot boundary")
+	_expect((arrival_snapshot.route_target_ids as Array).size() == 1, "the arrived optional node must publish its one outgoing gatekeeper candidate")
+	var restored := TowerAscentFlowOwner.new()
+	_expect(restored.restore_snapshot(arrival_snapshot), "a one-candidate arrived node modal must restore")
+	_expect(restored.get_phase_name() == "NODE_MODAL", "restored arrival must reopen the reached node modal")
 
 	if _failures.is_empty():
 		print("tower_ascent_node_modal_shell_smoke: ok")
@@ -165,9 +199,7 @@ func _verify_production_entry_lifecycle_and_exit() -> void:
 	_expect(runtime_state.pause_calls == 1, "rejected re-entry must not pause cooldowns twice")
 
 	_expect(runtime_state.resume_calls == 0, "cooldowns must remain paused through route aiming")
-	flow.debug_launch_at_target(0)
-	flow.update_selective(1.5, owner)
-	flow.update_selective(1.0, owner)
+	flow.call("_finish_vertical_slice")
 	_expect(not flow.is_active(), "map transition completion must close the tower flow")
 	_expect(runtime_state.resume_calls == 1, "flow close must resume paused cooldowns exactly once")
 	_expect(runtime_state.arm_calls == 1, "flow close must arm ball-freeze and score resume safety")

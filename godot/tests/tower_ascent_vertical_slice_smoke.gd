@@ -248,6 +248,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(not flow.is_selector_launched(), "a missed selector shot must reset for unlimited retries")
 	_expect(flow.get_selector_position().is_equal_approx(flow.get_selector_origin()), "miss reset must restore the selector origin")
 
+	var selected_kind := str(flow.get_route_aim_targets()[0].get("kind", ""))
 	flow.debug_launch_at_target(0)
 	flow.update_selective(1.5, owner)
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "target hit must commit the route and enter MAP_TRANSITION")
@@ -256,8 +257,13 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(committed_snapshot.run_progress.skipped_boss_ids.size() <= 1, "only an unchosen generated boss slot may be recorded as skipped")
 	_expect(bool(committed_snapshot.stable_boundary), "post-commit map transition must be a stable snapshot boundary")
 	flow.update_selective(1.0, owner)
-	_expect(not flow.is_active(), "map movement completion must close the vertical slice")
-	_expect(result_screen.show_calls == 1, "slice completion must resume the untouched legacy result flow exactly once")
+	if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+		_expect(flow.is_active() and flow.get_phase_name() == "NODE_MODAL", "noncombat node work must begin only after map movement completes")
+		_expect(result_screen.show_calls == 0, "arrival at a noncombat node must not leak to the legacy result flow")
+		flow.call("_finish_vertical_slice")
+	else:
+		_expect(not flow.is_active(), "combat-node map arrival must close the vertical-slice owner")
+	_expect(result_screen.show_calls == 1, "explicit slice exit must resume the current legacy continuation exactly once")
 
 
 func _verify_snapshot_round_trip_and_required_fields() -> void:

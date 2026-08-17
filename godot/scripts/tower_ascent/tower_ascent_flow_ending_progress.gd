@@ -329,6 +329,24 @@ func _finish_vertical_slice() -> void:
 	if callback.is_valid():
 		callback.call()
 
+func _complete_map_transition() -> void:
+	var arrived_node := _get_node(_selected_target_id)
+	if arrived_node.is_empty():
+		_finish_vertical_slice()
+		return
+	_current_node_id = _selected_target_id
+	_route_source_node_id = _current_node_id
+	_route_target_ids.assign(_outgoing_target_ids(_current_node_id))
+	_selected_target_id = ""
+	_refresh_route_target_cache()
+	var arrived_kind := str(arrived_node.get("kind", ""))
+	if arrived_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+		_node_modal_kind = _normalize_node_modal_kind(arrived_kind)
+		_phase = PHASE_NODE_MODAL
+		_open_node_modal()
+		return
+	_finish_vertical_slice()
+
 func _dismiss_fake_ending_teaser() -> void:
 	var result: Dictionary = _ending_state.mark_teaser_presented()
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):

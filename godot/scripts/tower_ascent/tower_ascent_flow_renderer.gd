@@ -22,6 +22,9 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	if canvas == null or flow == null or not flow.has_method("is_active") or not bool(flow.is_active()):
 		return
 	var phase_name := str(flow.get_phase_name())
+	if phase_name == "NODE_MODAL":
+		_draw_node_modal(canvas, flow)
+		return
 	if phase_name == "ROUTE_AIM":
 		_draw_route_aim(canvas, flow)
 		return
@@ -31,9 +34,7 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
 	_draw_title(canvas, flow)
 	_draw_route_map(canvas, flow)
-	if phase_name == "NODE_MODAL":
-		_draw_node_modal(canvas, flow)
-	elif phase_name == "MAP_TRANSITION":
+	if phase_name == "MAP_TRANSITION":
 		_draw_map_transition(canvas, flow)
 	elif phase_name == "FAKE_ENDING_TEASER":
 		_draw_fake_ending_teaser(canvas, flow)

@@ -206,6 +206,16 @@ func _resolve_route_target(target_id: String) -> void:
 	_selector_launched = false
 	_selector_velocity = Vector2.ZERO
 
+func _outgoing_target_ids(node_id: String) -> Array[String]:
+	var result: Array[String] = []
+	for edge in _graph_edges:
+		if str(edge.get("from", "")) != node_id:
+			continue
+		var target_id := str(edge.get("to", ""))
+		if not target_id.is_empty() and not result.has(target_id):
+			result.append(target_id)
+	return result
+
 func _commit_node_resolution(
 	node_id: String,
 	resolution_kind: String,

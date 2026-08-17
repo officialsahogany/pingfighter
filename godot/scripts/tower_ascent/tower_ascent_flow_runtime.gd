@@ -111,7 +111,7 @@ func update_selective(delta: float, owner: Object = null) -> void:
 	elif _phase == PHASE_MAP_TRANSITION:
 		_map_transition_progress = minf(1.0, _map_transition_progress + maxf(0.0, delta) / MAP_TRANSITION_SECONDS)
 		if _map_transition_progress >= 1.0:
-			_finish_vertical_slice()
+			_complete_map_transition()
 	_request_redraw(owner)
 
 
