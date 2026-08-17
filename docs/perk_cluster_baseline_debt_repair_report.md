@@ -2,7 +2,8 @@
 
 - 기준 지시문: `docs/perk_cluster_baseline_debt_repair_goal.md` @ `e652bfebf`
 - 작업 위치: 격리 워크트리 `D:\main\bosspong_perk_cluster_debt_repair`
-- 기능 커밋: `9253ecb2b`, `3af91d3ee`, `6cdec487b`
+- 브랜치 채택 기능 커밋: `0937023a8`, `07dc1235a`, `b67f8ca5c`
+- 격리 검증 원본 커밋: `9253ecb2b`, `3af91d3ee`, `6cdec487b`
 - 푸시: 없음
 - 최종 판정: **GREEN — 기준선 부채 11종 전부 수리, blocked/unverified 0건**
 
@@ -36,7 +37,8 @@
 
 ### 2.1 그룹 1 — 런타임 퍽 모듈 분리 이관 계약 5종
 
-- 커밋: `9253ecb2bde99c703e38e830daedaebcb0065459`
+- 브랜치 커밋: `0937023a8` (격리 검증 원본
+  `9253ecb2bde99c703e38e830daedaebcb0065459`)
 - 메시지: `refactor(perk): complete shared runtime access migration`
 - 범위: 49파일, `+639/-1463`
 
@@ -53,7 +55,8 @@ callback map, character context, general icon, payload, runtime-state 접근을 
 
 ### 2.2 그룹 2 — 융합 4종과 수호령 강화 오디오
 
-- 커밋: `3af91d3ee9aaf5cc3f89d7e88476a9ceb4bca5e8`
+- 브랜치 커밋: `07dc1235a` (격리 검증 원본
+  `3af91d3ee9aaf5cc3f89d7e88476a9ceb4bca5e8`)
 - 메시지: `fix(perk): repair fusion baseline debt contracts`
 - 범위: 20파일, `+585/-39`
 
@@ -112,7 +115,8 @@ GRT-036 인테이크와 loop-cleanup 계약 및 기존 owner 스모크를 그대
 
 ### 2.3 그룹 3 — 팔자윷 32px 아이콘 계약
 
-- 커밋: `6cdec487b786c812479872fc32229ff042acddb6`
+- 브랜치 커밋: `b67f8ca5c` (격리 검증 원본
+  `6cdec487b786c812479872fc32229ff042acddb6`)
 - 메시지: `fix(item): restore Fate Yut 32px icon contract`
 - 범위: 3파일, `+77/-5`
 
@@ -146,6 +150,8 @@ All Godot smoke tests passed.
 ```
 
 따라서 기준선 113 PASS는 전부 보존됐고 부채 11종은 `11 -> 0`으로 개선됐다.
+동일 124종은 커밋 채택 뒤 기존 오디오 정리 WIP를 보존한 메인 실제 체크아웃에서도
+다시 `PASS=124 FAIL=0 TOTAL=124`로 완주했다.
 
 타워와 페이즈 회귀도 별도 실행했다.
 
