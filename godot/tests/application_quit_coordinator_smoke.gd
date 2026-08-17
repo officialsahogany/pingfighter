@@ -32,6 +32,7 @@ func _run() -> void:
 	if coordinator == null:
 		quit(1)
 		return
+	_verify_retired_audio_walk_entry_is_ignored(coordinator)
 
 	var probe_scene := ShutdownProbeScene.new()
 	probe_scene.name = "ShutdownProbeScene"
@@ -67,6 +68,17 @@ func _run() -> void:
 		"graceful quit should stop and detach root-owned audio before scene teardown"
 	)
 	coordinator.request_quit(7)
+
+
+func _verify_retired_audio_walk_entry_is_ignored(coordinator: Object) -> void:
+	var retired_node := Node.new()
+	var pending: Array[Node] = [retired_node]
+	retired_node.free()
+	coordinator.call("_stop_audio_players_from_pending", pending)
+	_expect(
+		pending.is_empty(),
+		"shutdown audio walk should skip a node retired after it entered the pending queue"
+	)
 
 
 func _on_current_scene_released() -> void:

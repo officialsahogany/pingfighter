@@ -133,13 +133,24 @@ func _finalize_quit() -> void:
 
 
 func _stop_audio_players(tree_root: Node) -> void:
-	if tree_root == null:
+	if tree_root == null or not is_instance_valid(tree_root):
 		return
 	var pending: Array[Node] = [tree_root]
+	_stop_audio_players_from_pending(pending)
+
+
+func _stop_audio_players_from_pending(pending: Array[Node]) -> void:
 	while not pending.is_empty():
-		var current := pending.pop_back() as Node
+		var current_value: Variant = pending.pop_back()
+		# Shutdown keeps draining for several frames while queued nodes disappear.
+		# A node collected on the previous walk can therefore become null before
+		# this pass reaches it; never dereference that retired queue entry.
+		if current_value == null or not is_instance_valid(current_value):
+			continue
+		var current := current_value as Node
 		for child in current.get_children():
-			pending.append(child)
+			if child != null and is_instance_valid(child):
+				pending.append(child)
 		if current is AudioStreamPlayer:
 			var player := current as AudioStreamPlayer
 			player.stop()
