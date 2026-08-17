@@ -19,7 +19,14 @@ func clear_transient_canvas_items() -> void:
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if str(context.get("stage_boss_variant", "")) != "teddy_bear":
+	var variant := str(context.get("stage_boss_variant", ""))
+	if variant == "alice":
+		_draw_alice_mirror(canvas, context)
+		_draw_alice_size_shift(canvas, context, shake_offset)
+		_draw_alice_rabbits(canvas, context, shake_offset)
+		_draw_alice(canvas, context, shake_offset)
+		return
+	if variant != "teddy_bear":
 		return
 	_draw_deadly_hug(canvas, context, shake_offset)
 	_draw_ghost_curve(canvas, context, shake_offset)
@@ -29,6 +36,166 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vecto
 	_draw_teddy(canvas, context, shake_offset)
 	_draw_player_slow(canvas, context, shake_offset)
 	_draw_whiteout(canvas, context)
+
+
+func _draw_alice(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var boss_pos := _as_vector2(context.get("boss_draw_pos", context.get("boss_pos", Vector2(330.0, 25.0))), Vector2(330.0, 25.0))
+	var paddle_size := _as_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)), Vector2(100.0, 40.0))
+	# Alice's authored full-body silhouette is taller than the 40px collision
+	# paddle, so anchor her below it instead of clipping the head at playfield Y0.
+	var center := boss_pos + Vector2(paddle_size.x * 0.5, paddle_size.y * 0.55 + 40.0) + shake_offset
+	var hit_ratio := clampf(float(context.get("stage3_alice_hit_ratio", 0.0)), 0.0, 1.0)
+	center += Vector2(sin(hit_ratio * 29.0) * hit_ratio * 2.0, -sin(hit_ratio * PI) * 3.0)
+	var blue := Color("6298e8")
+	var blue_dark := Color("315baf")
+	var blue_light := Color("98c2ff")
+	var apron := Color("f7f3ff")
+	var apron_shadow := Color("dcd8eb")
+	var gold := Color("f3cd69")
+	var gold_dark := Color("b88428")
+	var skin := Color("ffdfc6")
+	var pink := Color("ff91ba")
+	# Shadow, striped stockings and shoes.
+	_draw_alice_ellipse(canvas, center + Vector2(0.0, 43.0), Vector2(45.0, 8.0), Color(0.02, 0.02, 0.05, 0.38))
+	for side in [-1.0, 1.0]:
+		canvas.draw_rect(Rect2(center + Vector2(side * 14.0 - 5.0, 25.0), Vector2(10.0, 19.0)), apron, true)
+		canvas.draw_line(center + Vector2(side * 19.0, 31.0), center + Vector2(side * 9.0, 31.0), blue_dark, 2.0, true)
+		canvas.draw_line(center + Vector2(side * 19.0, 38.0), center + Vector2(side * 9.0, 38.0), blue_dark, 2.0, true)
+		_draw_alice_ellipse(canvas, center + Vector2(side * 16.0, 44.0), Vector2(11.0, 5.0), Color("28243a"))
+	# Five-panel royal-blue skirt and white apron.
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(-20.0, -2.0), center + Vector2(20.0, -2.0),
+		center + Vector2(40.0, 31.0), center + Vector2(-40.0, 31.0),
+	]), blue)
+	for panel in range(5):
+		var x := -32.0 + panel * 16.0
+		canvas.draw_line(center + Vector2(x, 25.0), center + Vector2(x * 0.55, 1.0), Color(blue_light, 0.55), 2.0, true)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(-13.0, 0.0), center + Vector2(13.0, 0.0),
+		center + Vector2(23.0, 27.0), center + Vector2(-23.0, 27.0),
+	]), apron)
+	for x in range(-20, 21, 8):
+		canvas.draw_circle(center + Vector2(float(x), 28.0), 3.0, apron_shadow)
+	# Torso and puff sleeves.
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(-18.0, -24.0), center + Vector2(18.0, -24.0),
+		center + Vector2(20.0, 4.0), center + Vector2(-20.0, 4.0),
+	]), blue_dark)
+	_draw_alice_ellipse(canvas, center + Vector2(-24.0, -16.0), Vector2(10.0, 9.0), blue_light)
+	_draw_alice_ellipse(canvas, center + Vector2(24.0, -16.0), Vector2(10.0, 9.0), blue_light)
+	canvas.draw_line(center + Vector2(-28.0, -12.0), center + Vector2(-33.0, 10.0), skin, 7.0, true)
+	canvas.draw_line(center + Vector2(28.0, -12.0), center + Vector2(33.0, 10.0), skin, 7.0, true)
+	# Long blonde hair behind the face.
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(-28.0, -62.0), center + Vector2(28.0, -62.0),
+		center + Vector2(31.0, 2.0), center + Vector2(18.0, -5.0),
+		center + Vector2(8.0, 4.0), center + Vector2(0.0, -6.0),
+		center + Vector2(-10.0, 4.0), center + Vector2(-19.0, -5.0),
+		center + Vector2(-31.0, 2.0),
+	]), gold_dark)
+	# Face, bangs, blue bow and expressive eyes.
+	_draw_alice_ellipse(canvas, center + Vector2(0.0, -46.0), Vector2(24.0, 23.0), skin)
+	_draw_alice_ellipse(canvas, center + Vector2(0.0, -62.0), Vector2(27.0, 15.0), gold)
+	for offset in [-15.0, -7.0, 2.0, 11.0]:
+		canvas.draw_colored_polygon(PackedVector2Array([
+			center + Vector2(offset - 7.0, -60.0), center + Vector2(offset + 7.0, -60.0), center + Vector2(offset, -40.0),
+		]), gold)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(0.0, -68.0), center + Vector2(-19.0, -79.0), center + Vector2(-16.0, -61.0),
+	]), blue_dark)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(0.0, -68.0), center + Vector2(19.0, -79.0), center + Vector2(16.0, -61.0),
+	]), blue_dark)
+	canvas.draw_circle(center + Vector2(0.0, -68.0), 5.0, blue_light)
+	for eye_x in [-9.0, 9.0]:
+		_draw_alice_ellipse(canvas, center + Vector2(eye_x, -47.0), Vector2(5.0, 7.0), Color("ffffff"))
+		canvas.draw_circle(center + Vector2(eye_x, -46.0), 3.0, blue_dark)
+		canvas.draw_circle(center + Vector2(eye_x - 1.0, -48.0), 1.0, Color("ffffff"))
+	canvas.draw_arc(center + Vector2(0.0, -35.0), 6.0, 0.15, PI - 0.15, 10, pink, 2.0, true)
+	# Hand mirror: the source sprite's defining prop.
+	var mirror_center := center + Vector2(42.0, -27.0)
+	canvas.draw_line(center + Vector2(33.0, 7.0), mirror_center + Vector2(-2.0, 13.0), Color("b8913b"), 5.0, true)
+	_draw_alice_ellipse(canvas, mirror_center, Vector2(14.0, 19.0), Color("c59b46"))
+	_draw_alice_ellipse(canvas, mirror_center, Vector2(10.0, 15.0), Color("cfe2ff"))
+	canvas.draw_line(mirror_center + Vector2(-6.0, -8.0), mirror_center + Vector2(5.0, 5.0), Color(1.0, 1.0, 1.0, 0.8), 2.0, true)
+
+
+func _draw_alice_mirror(canvas: CanvasItem, context: Dictionary) -> void:
+	var ratio := clampf(float(context.get("stage3_alice_mirror_ratio", 0.0)), 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var phase := float(context.get("stage3_alice_mirror_phase", 0.0))
+	var border := Color(0.68, 0.82, 1.0, 0.30 + ratio * 0.55)
+	canvas.draw_rect(Rect2(Vector2(3.0, 3.0), Vector2(WIDTH - 6.0, HEIGHT - 6.0)), Color(0.22, 0.35, 0.70, 0.08 * ratio), true)
+	canvas.draw_rect(Rect2(Vector2(5.0, 5.0), Vector2(WIDTH - 10.0, HEIGHT - 10.0)), border, false, 5.0, true)
+	for index in range(9):
+		var x := fmod(phase * (0.7 + index * 0.05) + index * 97.0, WIDTH)
+		var y := 80.0 + fmod(index * 113.0, HEIGHT - 160.0)
+		canvas.draw_line(Vector2(x - 18.0, y - 12.0), Vector2(x, y), Color(0.85, 0.93, 1.0, 0.38 * ratio), 2.0, true)
+		canvas.draw_line(Vector2(x, y), Vector2(x + 12.0, y + 20.0), Color(0.85, 0.93, 1.0, 0.30 * ratio), 2.0, true)
+
+
+func _draw_alice_size_shift(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var ratio := clampf(float(context.get("stage3_alice_size_shift_ratio", 0.0)), 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var ball_pos := _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var scale_value := float(context.get("stage3_alice_size_shift_scale", 1.0))
+	var pulse := 5.0 + sin(ratio * 30.0) * 3.0
+	var color := Color("ff91cf") if scale_value > 1.0 else Color("78e7ff")
+	canvas.draw_circle(ball_pos, maxf(8.0, float(context.get("ball_size", 28.6)) * 0.5) + pulse, Color(color, 0.35), false, 3.0, true)
+	for index in range(6):
+		var angle := TAU * float(index) / 6.0 + ratio * 8.0
+		canvas.draw_circle(ball_pos + Vector2.from_angle(angle) * (25.0 + pulse), 3.0, Color(color, 0.75))
+
+
+func _draw_alice_rabbits(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var windup := clampf(float(context.get("stage3_alice_rabbit_windup_ratio", 0.0)), 0.0, 1.0)
+	if windup > 0.0:
+		var center := _boss_bottom_center(context) + shake_offset
+		for index in range(3):
+			var angle := (1.0 - windup) * PI * 3.0 + index * TAU / 3.0
+			_draw_rabbit(canvas, center + Vector2.from_angle(angle) * 20.0 * windup, 9.0 + 4.0 * (1.0 - windup), 0.0, Color(1.0, 0.82, 0.91, 0.82))
+	for value in _as_array(context.get("stage3_alice_rabbit_projectiles", [])):
+		if value is Dictionary:
+			var rabbit: Dictionary = value
+			var pos := _as_vector2(rabbit.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+			pos.y -= absf(sin(float(rabbit.get("hop_phase", 0.0)))) * 8.0
+			_draw_rabbit(canvas, pos, float(rabbit.get("size", 18.0)), float(rabbit.get("ear_angle", 0.0)), Color("fff2f7"))
+	var player_pos := _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
+	var player_size := _as_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+	var player_center := player_pos + player_size * 0.5
+	for value in _as_array(context.get("stage3_alice_perched_rabbits", [])):
+		if value is Dictionary:
+			var rabbit: Dictionary = value
+			var size := float(rabbit.get("size", 18.0))
+			var pos := Vector2(player_center.x + float(rabbit.get("offset_x", 0.0)), player_pos.y - size - absf(sin(float(rabbit.get("hop_phase", 0.0)))) * 6.0) + shake_offset
+			_draw_rabbit(canvas, pos, size, sin(float(rabbit.get("taunt_phase", 0.0))) * 0.18, Color("fff2f7"))
+	for value in _as_array(context.get("stage3_alice_rabbit_burst_particles", [])):
+		if value is Dictionary:
+			var particle: Dictionary = value
+			var alpha := clampf(float(particle.get("life", 0.0)) / maxf(0.001, float(particle.get("max_life", 0.5))), 0.0, 1.0)
+			canvas.draw_circle(_as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset, 3.5, Color(1.0, 0.78, 0.86, alpha))
+
+
+func _draw_rabbit(canvas: CanvasItem, center: Vector2, size: float, ear_angle: float, color: Color) -> void:
+	var body_size := maxf(6.0, size)
+	_draw_alice_ellipse(canvas, center + Vector2(0.0, body_size * 0.18), Vector2(body_size * 0.68, body_size * 0.55), color)
+	_draw_alice_ellipse(canvas, center + Vector2(0.0, -body_size * 0.42), Vector2(body_size * 0.50, body_size * 0.48), color)
+	var ear_dx := sin(ear_angle) * body_size * 0.25
+	_draw_alice_ellipse(canvas, center + Vector2(-body_size * 0.23 + ear_dx, -body_size), Vector2(body_size * 0.20, body_size * 0.55), color)
+	_draw_alice_ellipse(canvas, center + Vector2(body_size * 0.23 - ear_dx, -body_size), Vector2(body_size * 0.20, body_size * 0.55), color)
+	canvas.draw_circle(center + Vector2(-body_size * 0.18, -body_size * 0.47), maxf(1.5, body_size * 0.08), Color("4b315a"))
+	canvas.draw_circle(center + Vector2(body_size * 0.18, -body_size * 0.47), maxf(1.5, body_size * 0.08), Color("4b315a"))
+	canvas.draw_circle(center + Vector2(0.0, -body_size * 0.28), maxf(1.4, body_size * 0.07), Color("ff91b8"))
+
+
+func _draw_alice_ellipse(canvas: CanvasItem, center: Vector2, radii: Vector2, color: Color) -> void:
+	var points := PackedVector2Array()
+	for index in range(24):
+		var angle := TAU * float(index) / 24.0
+		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
+	canvas.draw_colored_polygon(points, color)
 
 
 func _draw_teddy(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:

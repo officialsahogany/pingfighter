@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("molewang", "arachne", "teddy_bear")]
+    [ValidateSet("molewang", "arachne", "teddy_bear", "alice")]
     [string]$Variant,
     [string]$GodotExe = "",
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path

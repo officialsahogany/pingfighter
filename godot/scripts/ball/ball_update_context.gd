@@ -18,6 +18,7 @@ func build_update_context(owner: Object) -> Dictionary:
 	var static_update_context: Dictionary = static_config.build_update_config()
 	_apply_player_paddle_owner_state(static_update_context, owner)
 	_apply_boss_paddle_owner_state(static_update_context, owner)
+	_apply_ball_owner_state(static_update_context, owner)
 	for key in static_update_context:
 		update_context[key] = static_update_context[key]
 	_apply_league_speed_policy(update_context)
@@ -73,8 +74,17 @@ func build_serve_config(owner: Object) -> Dictionary:
 		"boss_hitbox_height",
 		config.get("boss_hitbox_height", 40.0)
 	)))
+	_apply_ball_owner_state(config, owner)
 	config["ball_visual_type"] = str(owner_snapshot.get_owner_value(owner, "ball_visual_type", "energy"))
 	return config
+
+
+func _apply_ball_owner_state(context: Dictionary, owner: Object) -> void:
+	var default_size: float = maxf(4.0, float(context.get("ball_size", 28.6)))
+	var ball_size: float = maxf(4.0, float(owner_snapshot.get_owner_value(owner, "ball_size", default_size)))
+	var default_render_radius: float = maxf(2.0, float(context.get("ball_render_radius", default_size * 0.5)))
+	context["ball_size"] = ball_size
+	context["ball_render_radius"] = default_render_radius * ball_size / default_size
 
 
 func _apply_player_paddle_owner_state(context: Dictionary, owner: Object) -> void:

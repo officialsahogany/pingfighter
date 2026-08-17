@@ -36,7 +36,7 @@ func build_context(owner: Object, registry: Object, character_type: String, dash
 		"stage3_kuromi_ball_hidden": bool(_get_owner_value(owner, "stage3_kuromi_ball_hidden", false)),
 		"waiting_for_serve": _is_waiting_for_serve(round_state),
 		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
-		"ball_size": BALL_SIZE,
+		"ball_size": maxf(4.0, float(_get_owner_value(owner, "ball_size", BALL_SIZE))),
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"gauge_max": max(1.0, float(_get_owner_value(owner, "special_gauge_max", GAUGE_MAX))),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),

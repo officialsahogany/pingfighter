@@ -41,6 +41,12 @@ func apply_effects_result(owner: Object, result: Dictionary) -> void:
 		var ball_vel: Variant = result.get("ball_vel", _get_owner_value(owner, "ball_vel", Vector2.ZERO))
 		if ball_vel is Vector2:
 			owner.set("ball_vel", ball_vel)
+	if result.has("ball_size"):
+		owner.set("ball_size", maxf(4.0, float(result.get("ball_size", 28.6))))
+	if result.has("stage3_alice_mirror_active"):
+		owner.set("stage3_alice_mirror_active", bool(result.get("stage3_alice_mirror_active", false)))
+	if result.has("stage3_alice_mirror_ratio"):
+		owner.set("stage3_alice_mirror_ratio", clampf(float(result.get("stage3_alice_mirror_ratio", 0.0)), 0.0, 1.0))
 	if result.has("skip_ball_motion_step"):
 		owner.set("skip_ball_motion_step", bool(result.get("skip_ball_motion_step", false)))
 	if result.has("ball_impact_boost"):

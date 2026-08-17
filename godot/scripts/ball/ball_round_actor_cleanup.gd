@@ -108,7 +108,7 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 
 	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
 	if stage3_boss_skill_state != null and stage3_boss_skill_state.has_method("reset_round"):
-		stage3_boss_skill_state.reset_round()
+		_reset_stage3_round_state(stage3_boss_skill_state, deps)
 
 	var stage4_ponk_skill_state = deps.get("stage4_ponk_skill_state", null)
 	if stage4_ponk_skill_state != null and stage4_ponk_skill_state.has_method("reset_round"):
@@ -162,6 +162,22 @@ func _get_dash_token_max(dash_state) -> int:
 		return 1
 	var dash_snapshot: Dictionary = dash_state.get_snapshot()
 	return int(dash_snapshot.get("max_tokens", 1))
+
+
+func _reset_stage3_round_state(state: Object, deps: Dictionary) -> void:
+	for method_value in state.get_method_list():
+		if not (method_value is Dictionary):
+			continue
+		var method: Dictionary = method_value
+		if str(method.get("name", "")) != "reset_round":
+			continue
+		var args: Variant = method.get("args", [])
+		if args is Array and not args.is_empty():
+			state.call("reset_round", deps)
+		else:
+			state.call("reset_round")
+		return
+	state.call("reset_round")
 
 
 func _reset_stage5_hongryun_round_fx(actor_renderer: Object) -> void:

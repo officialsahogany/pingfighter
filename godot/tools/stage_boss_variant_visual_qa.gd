@@ -42,7 +42,7 @@ func _run() -> void:
 		_fail("stage_boss_variant_visual_qa requires a Vulkan rendering device")
 		return
 	var variant := _get_variant_argument()
-	if variant not in ["molewang", "arachne", "teddy_bear"]:
+	if variant not in ["molewang", "arachne", "teddy_bear", "alice"]:
 		_fail("unsupported visual QA variant: %s" % variant)
 		return
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
@@ -54,20 +54,22 @@ func _run() -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
-	var renderer: Object = Stage3ActorRenderer.new() if variant == "teddy_bear" else Stage2ActorRenderer.new()
+	var renderer: Object = Stage3ActorRenderer.new() if variant in ["teddy_bear", "alice"] else Stage2ActorRenderer.new()
 	renderer.playfield_renderer = NoopRenderer.new()
 	renderer.player_renderer = NoopRenderer.new()
 	renderer.commando_firearm_renderer = NoopRenderer.new()
-	if variant == "teddy_bear":
+	if variant in ["teddy_bear", "alice"]:
 		renderer.skill_effect_renderer = NoopRenderer.new()
-	var state: Object = Stage3BossVariantSkillState.new() if variant == "teddy_bear" else Stage2BossVariantSkillState.new()
+	var state: Object = Stage3BossVariantSkillState.new() if variant in ["teddy_bear", "alice"] else Stage2BossVariantSkillState.new()
 	var context: Dictionary
 	if variant == "molewang":
 		context = _build_molewang_context(state)
 	elif variant == "arachne":
 		context = _build_arachne_context(state)
-	else:
+	elif variant == "teddy_bear":
 		context = _build_teddy_bear_context(state)
+	else:
+		context = _build_alice_context(state)
 	var canvas := BossCaptureCanvas.new(renderer, context)
 	viewport.add_child(canvas)
 	canvas.queue_redraw()
@@ -217,6 +219,58 @@ func _build_teddy_bear_context(state: Object) -> Dictionary:
 		"player_paddle_size": Vector2(155.0, 50.0),
 		"shake_offset": Vector2.ZERO,
 	}
+	context.merge(state.get_actor_draw_context(), true)
+	return context
+
+
+func _build_alice_context(state: Object) -> Dictionary:
+	var base_context := {
+		"current_stage": 3,
+		"stage_boss_variant": "alice",
+		"ball_active": true,
+		"waiting_for_serve": false,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+		"player_pos": Vector2(302.0, 680.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"ball_pos": Vector2(390.0, 390.0),
+		"ball_vel": Vector2(4.0, 8.0),
+		"ball_size": 57.2,
+		"dash_snapshot": {"active": false},
+	}
+	state.update(0.0, base_context, {})
+	var alice: Object = state.alice_state
+	alice.hit_timer = 0.22
+	alice.mirror_active = true
+	alice.mirror_timer = 2.2
+	alice.mirror_elapsed = 0.8
+	alice.size_shift_active = true
+	alice.size_shift_timer = 2.7
+	alice.size_shift_scale = 2.0
+	alice.original_ball_size = 28.6
+	alice.rabbit_active = true
+	alice.rabbit_windup = 0.28
+	alice.rabbit_projectiles = [
+		{"pos": Vector2(210.0, 245.0), "vel": Vector2.ZERO, "remaining": 3.0, "hop_phase": 0.8, "size": 19.0, "ear_angle": -0.12},
+		{"pos": Vector2(520.0, 355.0), "vel": Vector2.ZERO, "remaining": 3.0, "hop_phase": 2.1, "size": 22.0, "ear_angle": 0.16},
+		{"pos": Vector2(610.0, 515.0), "vel": Vector2.ZERO, "remaining": 3.0, "hop_phase": 3.4, "size": 17.0, "ear_angle": 0.05},
+	]
+	alice.perched_rabbits = [
+		{"offset_x": -45.0, "remaining": 1.4, "hop_phase": 1.0, "taunt_phase": 0.7, "size": 20.0, "direction": 1},
+		{"offset_x": 48.0, "remaining": 1.1, "hop_phase": 2.8, "taunt_phase": 1.9, "size": 18.0, "direction": -1},
+	]
+	for index in range(16):
+		alice.rabbit_burst_particles.append({
+			"pos": Vector2(380.0, 560.0) + Vector2.from_angle(TAU * float(index) / 16.0) * (15.0 + float(index % 4) * 5.0),
+			"vel": Vector2.ZERO,
+			"life": 0.35,
+			"max_life": 0.5,
+		})
+	var context := base_context.duplicate(true)
+	context["boss_draw_pos"] = base_context["boss_pos"]
+	context["boss_paddle_size"] = Vector2(100.0, 40.0)
+	context["shake_offset"] = Vector2.ZERO
 	context.merge(state.get_actor_draw_context(), true)
 	return context
 

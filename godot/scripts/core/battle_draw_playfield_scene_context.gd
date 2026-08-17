@@ -34,6 +34,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var player_paddle_visual_scale_override: float = float(_get_owner_value(owner, "player_paddle_visual_scale_override", -1.0))
 	var boss_paddle_width: float = max(1.0, float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH)))
 	var boss_hitbox_height: float = max(1.0, float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT)))
+	var ball_size: float = maxf(4.0, float(_get_owner_value(owner, "ball_size", BALL_SIZE)))
 	var player_paddle_scale: float = _resolve_player_visual_paddle_scale(
 		runtime_player_paddle_scale,
 		player_paddle_visual_scale_override,
@@ -121,7 +122,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"ball_render_interpolation_enabled": bool(_get_owner_value(owner, "ball_render_interpolation_enabled", true)),
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
 		"stage3_kuromi_ball_hidden": bool(_get_owner_value(owner, "stage3_kuromi_ball_hidden", false)),
-		"ball_size": BALL_SIZE,
+		"ball_size": ball_size,
 		"ball_visual_type": str(_get_owner_value(owner, "ball_visual_type", "energy")),
 		"bomb_ball_loaded": bool(_get_owner_value(owner, "bomb_ball_loaded", false)),
 		"poisoned_ball_overlay_active": bool(_get_owner_value(owner, "poisoned_ball_overlay_active", false)),
@@ -154,7 +155,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"boss_y": BOSS_Y,
 		"player_paddle_width": player_paddle_width,
 		"boss_paddle_width": boss_paddle_width,
-		"ball_render_radius": BALL_RENDER_RADIUS,
+		"ball_render_radius": BALL_RENDER_RADIUS * ball_size / BALL_SIZE,
 		"special_gauge": float(_get_owner_value(owner, "special_gauge", 0.0)),
 		"drive_text_timer_frames": float(_get_owner_value(owner, "drive_text_timer_frames", 0.0)),
 		"drive_text_duration_frames": DRIVE_TEXT_DURATION_FRAMES,

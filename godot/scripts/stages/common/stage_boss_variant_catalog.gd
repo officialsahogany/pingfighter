@@ -37,6 +37,12 @@ const VARIANTS := {
 		"codex_key": "boss.teddy_bear",
 		"ported": true,
 	},
+	"alice": {
+		"stage": 3,
+		"display_name": "엘리스",
+		"codex_key": "boss.alice",
+		"ported": true,
+	},
 }
 
 
