@@ -138,10 +138,14 @@ func _verify_catalog_and_icon() -> void:
 	_expect(bool(item.get("consumable", false)), "Mystic Dice should be consumable")
 	_expect("mystic_dice" in ActiveItemCatalog.FIELD_SPAWN_ORDER, "field drops should include Mystic Dice")
 	_expect("mystic_dice" in ActiveItemDebugSpawnMenu.DEBUG_ENTRY_ORDER, "F2 item debug should include Mystic Dice")
-	var icon: Texture2D = load(str(item.get("icon_path", ""))) as Texture2D
+	var icon_path := str(item.get("icon_path", ""))
+	var source_image := Image.new()
+	var source_load_error := source_image.load_png_from_buffer(FileAccess.get_file_as_bytes(icon_path))
+	_expect(source_load_error == OK, "Mystic Dice active-item source icon should load")
+	if source_load_error == OK:
+		_expect(source_image.get_size() == Vector2i(32, 32), "Mystic Dice icon should be authored at 32px")
+	var icon: Texture2D = load(icon_path) as Texture2D
 	_expect(icon != null, "Mystic Dice active-item icon should load")
-	if icon != null:
-		_expect(icon.get_size() == Vector2(32.0, 32.0), "Mystic Dice icon should be authored at 32px")
 
 
 func _verify_acquisition_routes() -> void:
