@@ -18,6 +18,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -225,6 +228,7 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 		"run_state": {"muhon": 20, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
 	}), "guardian spring must enter through the real tower flow")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "guardian_spring", owner), "guardian spring must open only after route serve and map arrival")
 	var soul_action := _find_action(
 		flow.get_node_modal_view_model().get("actions", []),
 		"guardian_spring:soul_summoning"
@@ -331,11 +335,12 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-poor",
-		"map_seed": 99,
+		"map_seed": 11,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 5},
 		"registry": fixture.registry,
 	}), "poor guardian spring fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "guardian_spring", owner), "poor guardian spring fixture must arrive at the spring")
 	flow.execute_node_action("guardian_spring:soul_summoning", "guardian-spring-poor:soul")
 	var snapshot := flow.export_persistable_snapshot()
 	snapshot["current_node_id"] = str((snapshot.get("route_target_ids", []) as Array)[0])

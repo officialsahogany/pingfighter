@@ -9,6 +9,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -265,11 +268,12 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-contract",
-		"map_seed": 8817,
+		"map_seed": 1,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
 	}), "fallen-monk fixture must enter through the real tower flow")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "fallen-monk fixture must reach the monk only after route serve and map arrival")
 	var offers := flow.get_generated_fallen_monk_offers()
 	_expect(offers.size() == 1, "one monk visit must own one generated offer")
 	_expect((offers[0].get("choices", []) as Array).size() == RuntimePerkCatalog.BASE_CHOICE_COUNT, "monk acquisition must present the existing two-to-three choice ceiling")
@@ -353,11 +357,12 @@ func _verify_swap_rejection_rolls_back_without_payment() -> void:
 	var owner := FakeOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-rollback",
-		"map_seed": 8817,
+		"map_seed": 1,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40},
 		"registry": fixture.registry,
 	}), "swap-rollback fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "swap-rollback fixture must arrive at the monk")
 	var acquire_action := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
 		"fallen_monk:acquire:"
@@ -393,11 +398,12 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 	var owner := FakeOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-poor",
-		"map_seed": 8817,
+		"map_seed": 1,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 7},
 		"registry": fixture.registry,
 	}), "insufficient-Muhon fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "insufficient-Muhon fixture must arrive at the monk")
 	var action := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
 		"fallen_monk:acquire:"

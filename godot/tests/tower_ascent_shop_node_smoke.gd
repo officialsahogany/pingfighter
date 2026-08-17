@@ -12,6 +12,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentNodeActionTransaction := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_action_transaction.gd"
 )
@@ -142,6 +145,7 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 		"run_state": {"gold": 1000, "muhon": 0, "chance_gems": 2},
 		"registry": registry,
 	}), "shop fixture must enter through the real tower flow")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "shop", owner), "shop fixture must reach the shop only after route serve and map arrival")
 	var inventories := flow.get_generated_shop_inventory()
 	_expect(inventories.size() == 1, "opening one shop must generate exactly one node-owned inventory")
 	var inventory: Dictionary = inventories[0]
@@ -206,6 +210,7 @@ func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 		"run_state": {"gold": 59, "chance_gems": 0},
 		"registry": registry,
 	}), "insufficient-funds fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(poor_flow, "shop", owner), "insufficient-funds fixture must arrive at the shop")
 	var poor_stock := _find_stock_by_kind(poor_flow.get_generated_shop_inventory()[0].get("stock", []), "regular")
 	var poor_action := _find_action(poor_flow.get_node_modal_view_model().get("actions", []), "shop_purchase:%s" % str(poor_stock.get("stock_id", "")))
 	_expect(not bool(poor_action.get("enabled", true)), "insufficient funds must disable the purchase button")
@@ -228,6 +233,7 @@ func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 		"run_state": {"gold": 1000, "chance_gems": 0},
 		"registry": full_registry,
 	}), "slot-capacity fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(full_flow, "shop", full_owner), "slot-capacity fixture must arrive at the shop")
 	var full_stock := _find_stock_by_kind(full_flow.get_generated_shop_inventory()[0].get("stock", []), "regular")
 	var full_result := full_flow.execute_node_action("shop_purchase:%s" % str(full_stock.get("stock_id", "")), "shop-full:attempt")
 	_expect(str(full_result.get("reason", "")) == "effect_rejected", "active-slot rejection must surface before payment")
@@ -248,6 +254,7 @@ func _verify_chance_gem_cap_blocks_payment() -> void:
 		"run_state": {"gold": 1000, "chance_gems": 3},
 		"registry": registry,
 	}), "gem-cap fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "shop", owner), "gem-cap fixture must arrive at the shop")
 	var gem_stock := _find_stock_by_kind(flow.get_generated_shop_inventory()[0].get("stock", []), "chance_gem")
 	var gem_action := _find_action(flow.get_node_modal_view_model().get("actions", []), "shop_purchase:%s" % str(gem_stock.get("stock_id", "")))
 	_expect(not bool(gem_action.get("enabled", true)), "chance gem at cap must disable its purchase button")

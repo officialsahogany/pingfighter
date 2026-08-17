@@ -6,6 +6,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentRunState := preload(
 	"res://scripts/tower_ascent/tower_ascent_run_state.gd"
 )
@@ -53,6 +56,7 @@ func _verify_free_once_per_node_restore_and_snapshot() -> void:
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 2, "gold": 0, "muhon": 0},
 	}), "rest fixture must enter through the real tower flow")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "rest", owner), "rest fixture must reach rest only after route serve and map arrival")
 	var action := _find_action(
 		flow.get_node_modal_view_model().get("actions", []),
 		"rest:restore_chance_gem"
@@ -99,10 +103,11 @@ func _verify_full_and_zero_balance_legs() -> void:
 	var full_flow := TowerAscentFlowOwner.new()
 	_expect(full_flow.begin_vertical_slice(full_owner, Callable(), {
 		"run_id": "rest-full",
-		"map_seed": 7163,
+		"map_seed": 1,
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 3},
 	}), "full rest fixture must begin")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(full_flow, "rest", full_owner), "full rest fixture must arrive at rest")
 	var full_action := _find_action(full_flow.get_node_modal_view_model().get("actions", []), "rest:restore_chance_gem")
 	_expect(not bool(full_action.get("enabled", true)), "a full chance-gem balance must disable free recovery")
 	_expect(str(full_action.get("unavailable_reason", "")).contains("3"), "full-balance copy must show the exact maximum")
@@ -118,6 +123,7 @@ func _verify_full_and_zero_balance_legs() -> void:
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 0},
 	}), "zero-balance rest fixture must begin")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(zero_flow, "rest", zero_owner), "zero-balance rest fixture must arrive at rest")
 	var zero_result := zero_flow.execute_node_action("rest:restore_chance_gem", "rest-zero:restore")
 	_expect(bool(zero_result.get("applied", false)), "zero balance must still accept the free recovery")
 	_expect(int(zero_flow.get_run_state_snapshot().get("chance_gems", -1)) == 1, "rest recovery amount must stay one instead of refilling to maximum")

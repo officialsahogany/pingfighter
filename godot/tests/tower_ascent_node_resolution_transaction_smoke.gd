@@ -86,8 +86,11 @@ func _verify_flow_owner_recovers_and_commits_pending_journal() -> void:
 			"run_id": "flow-recovery",
 			"run_state": {"gold": 30, "muhon": 0, "chance_gems": 0},
 		}),
-		"flow recovery fixture must reach a stable post-combat boundary"
+		"flow recovery fixture must enter post-combat route serving"
 	)
+	source.debug_launch_at_target(0)
+	source.update_selective(1.5)
+	_expect(source.get_phase_name() == "MAP_TRANSITION", "flow recovery fixture must commit a route before exporting a stable snapshot")
 	var stable_snapshot: Dictionary = source.export_persistable_snapshot()
 	var pending: Dictionary = TowerAscentNodeResolutionTransaction.new().prepare(
 		"flow-recovery", "bonus_01", "bonus_reward", "fixture", {"gold": 9}

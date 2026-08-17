@@ -12,6 +12,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -165,11 +168,12 @@ func _verify_choices_transactions_visit_limit_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "training-contract",
-		"map_seed": 8107,
+		"map_seed": 5,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30, "gold": 0, "chance_gems": 3},
 		"registry": registry,
 	}), "training fixture must enter through the real tower flow")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "training fixture must reach training only after route serve and map arrival")
 	var generated := flow.get_generated_training_offers()
 	_expect(generated.size() == 1, "one training visit must generate one node-owned offer")
 	var offer: Dictionary = generated[0]
@@ -225,11 +229,12 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 	var poor_owner := FakeOwner.new()
 	_expect(poor_flow.begin_vertical_slice(poor_owner, Callable(), {
 		"run_id": "training-poor",
-		"map_seed": 8107,
+		"map_seed": 5,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 4},
 		"registry": _build_registry(poor_runtime, FakeRuntimePerkCatalog.new()),
 	}), "insufficient-Muhon fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(poor_flow, "training", poor_owner), "insufficient-Muhon fixture must arrive at training")
 	var poor_action := _find_action_with_prefix(poor_flow.get_node_modal_view_model().get("actions", []), "training_stat:")
 	_expect(not bool(poor_action.get("enabled", true)), "insufficient Muhon must disable stat training")
 	var reason := str(poor_action.get("unavailable_reason", ""))
@@ -245,11 +250,12 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 	var rejected_owner := FakeOwner.new()
 	_expect(rejected_flow.begin_vertical_slice(rejected_owner, Callable(), {
 		"run_id": "training-rejected",
-		"map_seed": 8107,
+		"map_seed": 5,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30},
 		"registry": _build_registry(rejected_runtime, FakeRuntimePerkCatalog.new()),
 	}), "grant-rejection fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(rejected_flow, "training", rejected_owner), "grant-rejection fixture must arrive at training")
 	var rejected_action := _find_action_with_prefix(rejected_flow.get_node_modal_view_model().get("actions", []), "training_mugong:")
 	var rejected_result := rejected_flow.execute_node_action(str(rejected_action.get("id", "")), "training-rejected:attempt")
 	_expect(str(rejected_result.get("reason", "")) == "effect_rejected", "runtime grant rejection must surface before payment")
