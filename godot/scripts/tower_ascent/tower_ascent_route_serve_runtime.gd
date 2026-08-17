@@ -1,6 +1,9 @@
 extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+const BattleSceneOwnerReader := preload(
+	"res://scripts/core/battle_scene_owner_reader.gd"
+)
 const PlayerCharacterRuntime := preload(
 	"res://scripts/characters/player_character_runtime.gd"
 )
@@ -25,7 +28,6 @@ var _player_control_context: Object = null
 var _player_control_config_builder: Object = null
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 var _character_type := PlayerCharacterRuntime.SMASHER
-var _owner_properties: Dictionary = {}
 var _fixture_ball_position := Vector2.ZERO
 var _fixture_ball_velocity := Vector2.ZERO
 var _fixture_ball_active := false
@@ -37,7 +39,6 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 	_owner = owner
 	_registry = registry
 	_fixture_mode = owner == null or not (owner is Node)
-	_owner_properties = _collect_property_names(owner)
 	_serve_attempt_count = 0
 	if _fixture_mode:
 		_active = true
@@ -84,7 +85,6 @@ func cancel() -> void:
 	_player_control_context = null
 	_player_control_config_builder = null
 	_character_type = PlayerCharacterRuntime.SMASHER
-	_owner_properties.clear()
 	_fixture_ball_position = Vector2.ZERO
 	_fixture_ball_velocity = Vector2.ZERO
 	_fixture_ball_active = false
@@ -347,30 +347,16 @@ func _sync_fixture_to_owner() -> void:
 
 
 func _owner_vector2(property_name: String, fallback: Vector2) -> Vector2:
-	var value: Variant = _owner_value(property_name, fallback)
-	return value as Vector2 if value is Vector2 else fallback
+	return BattleSceneOwnerReader.get_vector2(_owner, property_name, fallback)
 
 
 func _owner_value(property_name: String, fallback: Variant) -> Variant:
-	if _owner == null or not _owner_properties.has(property_name):
-		return fallback
-	var value: Variant = _owner.get(property_name)
-	return fallback if value == null else value
+	return BattleSceneOwnerReader.get_value(_owner, property_name, fallback)
 
 
 func _set_owner_value(property_name: String, value: Variant) -> void:
-	if _owner != null and _owner_properties.has(property_name):
+	if _owner != null:
 		_owner.set(property_name, value)
-
-
-func _collect_property_names(target: Object) -> Dictionary:
-	var result: Dictionary = {}
-	if target == null:
-		return result
-	for property_variant in target.get_property_list():
-		if property_variant is Dictionary:
-			result[str((property_variant as Dictionary).get("name", ""))] = true
-	return result
 
 
 func _get_instance(registry: Object, key: String) -> Object:
