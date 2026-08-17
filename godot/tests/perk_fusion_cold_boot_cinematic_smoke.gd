@@ -100,13 +100,20 @@ func _run() -> void:
 	_verify_spark_particle_contract()
 	_verify_ignition_haze_contract()
 	_verify_transition_audio_contract()
-	_verify_real_game_audio_cold_boot_wiring()
+	await _verify_real_game_audio_cold_boot_wiring()
 	_verify_real_process_idle_drives_host_lifecycle()
 	_verify_pulse_decays_before_new_events()
 	_verify_reset_closes_host()
 	_verify_same_frame_skip_finish_closes_host_without_idle()
 	await _verify_degraded_fallback_draws_without_host()
 	_verify_lazy_init_and_fallback_source_contracts()
+	# The degraded-draw probe is stored on this SceneTree so its callbacks can
+	# reach the live draw pass. Release that retained runtime-perk graph before
+	# engine teardown; otherwise one state keeps its helper scripts/resources
+	# alive after every assertion has already passed.
+	_overlay_renderer = null
+	_overlay_state = null
+	_overlay_catalog = null
 	# Every fixture above releases tree-owned hosts with queue_free(), and the
 	# real-audio leg frees its owner while the final one-shot is playing. Drain
 	# both the SceneTree deletion queue and one audio mix window before quit();
@@ -120,11 +127,20 @@ func _run() -> void:
 
 	if _failures.is_empty():
 		print("perk_fusion_cold_boot_cinematic_smoke: ok")
-		quit(0)
+		call_deferred("_quit_cleanly", 0)
 		return
 	for failure: String in _failures:
 		push_error(failure)
-	quit(1)
+	call_deferred("_quit_cleanly", 1)
+
+
+func _quit_cleanly(exit_code: int) -> void:
+	# RefCounted fixtures that reached reference count zero in _run() are retired
+	# by the next idle passes. Give ObjectDB those passes before the strict
+	# expect-zero-object-leaks runner gate inspects teardown.
+	await process_frame
+	await process_frame
+	quit(exit_code)
 
 
 func _build_animation_state(outcome_roll: float = 0.0) -> Dictionary:
@@ -663,7 +679,16 @@ func _verify_real_game_audio_cold_boot_wiring() -> void:
 	var audio_owner := Node.new()
 	root.add_child(audio_owner)
 	var audio: Object = GameAudio.new()
-	audio.setup(audio_owner)
+	# Exercise the real facade, focused owner, factory, WAVs, and bus projection
+	# without booting every unrelated stage/item player in GameAudio. The full
+	# setup path has its own owner smokes; this seal owns only cold-boot wiring.
+	audio.owner_node = audio_owner
+	audio.item_reward_feedback_audio.setup(
+		audio_owner,
+		audio.player_factory,
+		Callable(audio, "_create_optional_sfx")
+	)
+	audio._apply_audio_buses_and_volumes()
 	var players: Array = [
 		audio.cold_boot_chnk_latch_sfx,
 		audio.cold_boot_post_ramp_sfx,
@@ -702,9 +727,32 @@ func _verify_real_game_audio_cold_boot_wiring() -> void:
 	var player_refs: Array = []
 	for player_value: Variant in players:
 		player_refs.append(weakref(player_value))
+	# Headless has no guaranteed live audio-mix window. Retire every configured
+	# stream explicitly before freeing the owner so AudioStreamPlayback objects
+	# cannot survive until ObjectDB's strict final sweep.
+	for player_value: Variant in audio._get_sfx_players():
+		var teardown_player := player_value as AudioStreamPlayer
+		if teardown_player == null:
+			continue
+		teardown_player.stop()
+		teardown_player.stream = null
+	# Let the dummy/headless audio server retire every playback object while its
+	# player nodes still have a valid tree owner. Freeing the owner in this same
+	# frame leaves zero-ref playback objects for ObjectDB's final sweep.
+	await process_frame
+	await process_frame
 	audio_owner.free()
+	await process_frame
+	await process_frame
 	for ref_value: Variant in player_refs:
 		_expect((ref_value as WeakRef).get_ref() == null, "teardown must free the cold-boot players (no leaked nodes)")
+	# Drop invalid player handles and WeakRef probes before the strict ObjectDB
+	# teardown gate. Keeping them in this stack frame until SceneTree.quit() can
+	# leave zero-ref probe objects registered during the final cleanup pass.
+	player_refs.clear()
+	players.clear()
+	sfx_group.clear()
+	audio = null
 
 
 # 같은 state 위에 두 번째 융합 모달을 재무장한다(호스트 재사용 시나리오

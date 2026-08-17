@@ -854,6 +854,21 @@ var lingpet_acquire_click_crackle_sweep_sfx: AudioStreamPlayer:
 		return lingpet_acquisition_audio.get_player("click_crackle_sweep") as AudioStreamPlayer
 	set(value):
 		lingpet_acquisition_audio.set_player("click_crackle_sweep", value)
+var lingpet_guardian_enhance_roll_loop_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("guardian_enhance_roll_loop") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("guardian_enhance_roll_loop", value)
+var lingpet_guardian_enhance_stamp_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("guardian_enhance_stamp") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("guardian_enhance_stamp", value)
+var lingpet_guardian_enhance_result_tail_sfx: AudioStreamPlayer:
+	get:
+		return lingpet_acquisition_audio.get_player("guardian_enhance_result_tail") as AudioStreamPlayer
+	set(value):
+		lingpet_acquisition_audio.set_player("guardian_enhance_result_tail", value)
 var lingpet_lunabi_click_voice_sfx: AudioStreamPlayer:
 	get:
 		return lingpet_click_voice_audio.get_player("lunabi") as AudioStreamPlayer
@@ -1665,6 +1680,7 @@ func _setup_item_command_sfx() -> void:
 	item_reward_feedback_audio.setup(owner_node, player_factory, Callable(self, "_create_optional_sfx"))
 	angel_blessing_absorb_sfx_cursor = 0
 	lingpet_acquisition_audio.setup(owner_node, player_factory)
+	_enable_loop(lingpet_guardian_enhance_roll_loop_sfx)
 	lingpet_click_voice_audio.setup(owner_node, player_factory)
 	lingpet_combat_audio.setup_item_players(owner_node, player_factory)
 	_enable_loop(lingpet_combat_audio.get_player("star_coil_move"))
@@ -2570,6 +2586,38 @@ func play_lingpet_acquire_click_reaction_backing() -> void:
 	lingpet_acquisition_audio.configure(owner_node, player_factory)
 	_play_with_pitch(lingpet_acquisition_audio.ensure_player("click_deep_bass"), 1.0)
 	_play_with_pitch(lingpet_acquisition_audio.ensure_player("click_crackle_sweep"), 1.0)
+
+
+func play_lingpet_guardian_enhance_roll_loop() -> void:
+	lingpet_acquisition_audio.configure(owner_node, player_factory)
+	var previous_player: AudioStreamPlayer = lingpet_acquisition_audio.get_player("guardian_enhance_roll_loop")
+	var player: AudioStreamPlayer = lingpet_acquisition_audio.ensure_player("guardian_enhance_roll_loop")
+	if player != previous_player:
+		_enable_loop(player)
+	if player == null or player.stream == null or player.playing:
+		return
+	player.pitch_scale = 1.0
+	player.play()
+
+
+func stop_lingpet_guardian_enhance_roll_loop() -> void:
+	var player: AudioStreamPlayer = lingpet_acquisition_audio.get_player("guardian_enhance_roll_loop")
+	if player != null and player.playing:
+		player.stop()
+
+
+func play_lingpet_guardian_enhance_stamp() -> void:
+	lingpet_acquisition_audio.configure(owner_node, player_factory)
+	_play_with_pitch(lingpet_acquisition_audio.ensure_player("guardian_enhance_stamp"), 1.0)
+
+
+func play_lingpet_guardian_enhance_result_tail() -> void:
+	lingpet_acquisition_audio.configure(owner_node, player_factory)
+	_play_with_pitch(lingpet_acquisition_audio.ensure_player("guardian_enhance_result_tail"), 1.0)
+
+
+func stop_lingpet_guardian_enhance_cutin_loop() -> void:
+	stop_lingpet_guardian_enhance_roll_loop()
 
 
 # In-battle companion click-reaction voice. Pet-agnostic at the call site; this
@@ -4037,6 +4085,9 @@ func _get_sfx_players() -> Array:
 		lingpet_acquire_cutin_sfx,
 		lingpet_acquire_click_deep_bass_sfx,
 		lingpet_acquire_click_crackle_sweep_sfx,
+		lingpet_guardian_enhance_roll_loop_sfx,
+		lingpet_guardian_enhance_stamp_sfx,
+		lingpet_guardian_enhance_result_tail_sfx,
 		lingpet_lunabi_click_voice_sfx,
 		lingpet_volty_click_voice_sfx,
 		lingpet_milkring_click_voice_sfx,

@@ -10,6 +10,13 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
+	# Let project globals finish their startup before requesting quit. Quitting
+	# directly from SceneTree._init() leaves the runtime-perk script graph alive
+	# while the engine is still materializing autoload resources.
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_beat_boundaries_and_settle()
 	_verify_multi_beat_delta_emits_ordered_events()
 	_verify_skip_from_every_beat_converges_to_settle()
@@ -23,11 +30,15 @@ func _init() -> void:
 
 	if _failures.is_empty():
 		print("perk_fusion_cold_boot_timeline_smoke: ok")
-		quit(0)
+		call_deferred("_quit_cleanly", 0)
 		return
 	for failure: String in _failures:
 		push_error(failure)
-	quit(1)
+	call_deferred("_quit_cleanly", 1)
+
+
+func _quit_cleanly(exit_code: int) -> void:
+	quit(exit_code)
 
 
 # B0~B4 경계 전이(0.5 / 0.9 / 1.8 / 2.05 / 2.75)와 총길이-후 SETTLE 홀드.

@@ -5,6 +5,7 @@ extends SceneTree
 const OWNER_PATH := "res://scripts/audio/lingpet_acquisition_audio.gd"
 const FACADE_PATH := "res://scripts/audio/game_audio.gd"
 const GameAudio := preload(FACADE_PATH)
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const REQUIRED_CUE_IDS := [
 	"cutin",
@@ -21,6 +22,11 @@ const EXPECTED_SPECS := {
 	"guardian_enhance_roll_loop": ["LingpetGuardianEnhanceRollLoopSfx", "res://assets/sounds/lingpet/guardian_enhance_roll_loop.wav", -8.0],
 	"guardian_enhance_stamp": ["LingpetGuardianEnhanceStampSfx", "res://assets/sounds/lingpet/guardian_enhance_stamp.wav", -2.0],
 	"guardian_enhance_result_tail": ["LingpetGuardianEnhanceResultTailSfx", "res://assets/sounds/lingpet/guardian_enhance_result_tail.wav", -6.0],
+}
+const EXPECTED_DERIVED_DURATIONS := {
+	"guardian_enhance_roll_loop": 0.75,
+	"guardian_enhance_stamp": 0.40,
+	"guardian_enhance_result_tail": 1.20,
 }
 
 var _failures: Array[String] = []
@@ -66,6 +72,7 @@ func _init() -> void:
 func _run() -> void:
 	var focused_facade_ready := _verify_owner_boundary()
 	if FileAccess.file_exists(OWNER_PATH):
+		_verify_committed_guardian_audio_assets()
 		await _verify_catalog_setup_and_lazy_recovery()
 		if focused_facade_ready:
 			await _verify_production_facade()
@@ -99,7 +106,25 @@ func _verify_owner_boundary() -> bool:
 	_expect(not facade_source.contains("const LINGPET_ACQUIRE_CUTIN_GAIN_DB"), "GameAudio should not retain acquisition gain constants")
 	_expect(not facade_source.contains("func _ensure_lingpet_acquire_cutin_sfx"), "GameAudio should not retain per-cue acquisition ensure methods")
 	_expect(not facade_source.contains("player_factory.create(owner_node, \"LingpetAcquireCutinSfx\""), "GameAudio should not recreate acquisition players")
+	_expect(facade_source.contains("_enable_loop(lingpet_guardian_enhance_roll_loop_sfx)"), "the derived ROLL texture must be enabled only as the dedicated player's loop")
 	return true
+
+
+func _verify_committed_guardian_audio_assets() -> void:
+	for cue_id: String in EXPECTED_DERIVED_DURATIONS:
+		var path := str((EXPECTED_SPECS[cue_id] as Array)[1])
+		_expect(FileAccess.file_exists(path), "%s must have a committed derived WAV" % cue_id)
+		var stream := ProjectResourceLoader.load_audio_stream(
+			path,
+			"Missing Guardian Enhancement sound at %s",
+			"Failed to load Guardian Enhancement sound at %s"
+		)
+		_expect(stream is AudioStreamWAV, "%s must load as AudioStreamWAV without an engine warning" % cue_id)
+		if stream is AudioStreamWAV:
+			_expect(
+				absf(stream.get_length() - float(EXPECTED_DERIVED_DURATIONS[cue_id])) <= 0.001,
+				"%s must retain its authored derived duration" % cue_id
+			)
 
 
 func _verify_catalog_setup_and_lazy_recovery() -> void:
@@ -164,6 +189,19 @@ func _verify_production_facade() -> void:
 	spy.play_lingpet_acquire_click_reaction_backing()
 	_expect(spy.played_players == _players_for_ids(focused_owner, ["click_deep_bass", "click_crackle_sweep"]), "click backing should preserve deep-bass then crackle order")
 	_expect(spy.played_pitches == [1.0, 1.0], "click backing should preserve native pitch for both layers")
+	spy.played_players.clear()
+	spy.played_pitches.clear()
+	spy.play_lingpet_guardian_enhance_roll_loop()
+	_expect(focused_owner.get_player("guardian_enhance_roll_loop").playing, "ROLL facade must start the dedicated loop player")
+	spy.stop_lingpet_guardian_enhance_cutin_loop()
+	_expect(not focused_owner.get_player("guardian_enhance_roll_loop").playing, "cut-in cleanup facade must stop the ROLL loop")
+	spy.play_lingpet_guardian_enhance_stamp()
+	spy.play_lingpet_guardian_enhance_result_tail()
+	_expect(
+		spy.played_players == _players_for_ids(focused_owner, ["guardian_enhance_stamp", "guardian_enhance_result_tail"]),
+		"STAMP and result-tail facades must preserve focused-owner routing"
+	)
+	_expect(spy.played_pitches == [1.0, 1.0], "derived enhancement one-shots must not add gameplay RNG pitch jitter")
 
 	spy.force_play_failure = true
 	spy.play_lingpet_acquire_cutin()
@@ -186,9 +224,7 @@ func _verify_production_facade() -> void:
 		"global item prewarm should derive the click-voice anchor from the focused cue count"
 	)
 	var sfx_players: Array = spy._get_sfx_players()
-	# The three Guardian Enhancement players remain owner-only until conditional
-	# commit 5b wires the facade play/stop surface and global SFX projection.
-	for cue_id in ["cutin", "click_deep_bass", "click_crackle_sweep"]:
+	for cue_id in REQUIRED_CUE_IDS:
 		_expect(
 			sfx_players.has(focused_owner.get_player(cue_id)),
 			"global SFX-bus projection should retain the wired acquisition player: %s" % cue_id

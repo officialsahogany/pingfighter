@@ -23,9 +23,23 @@ class FakeAudio:
 	extends RefCounted
 
 	var stop_calls := 0
+	var calls: Array[String] = []
+
+	func play_lingpet_guardian_enhance_roll_loop() -> void:
+		calls.append("roll")
+
+	func stop_lingpet_guardian_enhance_roll_loop() -> void:
+		calls.append("stop_roll")
+
+	func play_lingpet_guardian_enhance_stamp() -> void:
+		calls.append("stamp")
+
+	func play_lingpet_guardian_enhance_result_tail() -> void:
+		calls.append("tail")
 
 	func stop_lingpet_guardian_enhance_cutin_loop() -> void:
 		stop_calls += 1
+		calls.append("cleanup")
 
 
 class FakeCutinHost:
@@ -112,21 +126,28 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 		== LingpetGuardianEnhanceCutinState.PHASE_INTRO,
 		"presentation must begin in INTRO"
 	)
+	_expect(fixture.audio.calls.is_empty(), "INTRO must stay silent before the authored ROLL cue boundary")
 	runtime.advance_guardian_enhance_cutin(0.14, fixture.registry)
 	_expect(
 		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
 		== LingpetGuardianEnhanceCutinState.PHASE_ROLL,
 		"INTRO boundary must enter ROLL"
 	)
+	_expect(fixture.audio.calls == ["roll"], "ROLL entry must start exactly one texture loop")
 	runtime.advance_guardian_enhance_cutin(0.75, fixture.registry)
 	_expect(
 		str(runtime.get_guardian_enhance_cutin_snapshot().get("phase", ""))
 		== LingpetGuardianEnhanceCutinState.PHASE_STAMP,
 		"ROLL boundary must enter STAMP before the pet reacts"
 	)
+	_expect(
+		fixture.audio.calls == ["roll", "stop_roll", "stamp"],
+		"STAMP entry must stop the loop before playing the two-layer stamp cue"
+	)
 	runtime.advance_guardian_enhance_cutin(0.22, fixture.registry)
 	var reaction_snapshot: Dictionary = runtime.get_guardian_enhance_cutin_snapshot()
 	_expect(bool(reaction_snapshot.get("reaction_active", false)), "STAMP completion must start one click reaction")
+	_expect(fixture.audio.calls == ["roll", "stop_roll", "stamp", "tail"], "STAMP +0.12s must play the result tail exactly once")
 	runtime.advance_guardian_enhance_cutin(0.19, fixture.registry)
 	_expect(runtime.is_guardian_enhance_cutin_active(), "reaction must remain visible before its one-loop duration completes")
 	runtime.advance_guardian_enhance_cutin(0.01, fixture.registry)
@@ -140,6 +161,7 @@ func _verify_reward_precedes_compact_presentation_and_auto_close() -> void:
 	runtime.advance_guardian_enhance_cutin(0.001, fixture.registry)
 	_expect(not runtime.is_guardian_enhance_cutin_active(), "OUTRO completion hook must auto-close the compact panel")
 	_expect(int(fixture.audio.stop_calls) == 1, "automatic close must stop enhancement presentation audio")
+	_expect(fixture.audio.calls.back() == "cleanup", "automatic close must end at the central cleanup facade")
 	_expect(int((runtime.get_guardian_enhancement_rewards_for_tests("maribo") as Dictionary).get("active_skill_bonus", 0)) == 1, "presentation close must never roll back the pre-applied reward")
 	_cleanup_runtime(runtime)
 

@@ -30,6 +30,9 @@ class FakeAudio:
 	func stop_lingpet_gatling_loop() -> void:
 		calls.append("stop_lingpet_gatling_loop")
 
+	func stop_lingpet_guardian_enhance_cutin_loop() -> void:
+		calls.append("stop_lingpet_guardian_enhance_cutin_loop")
+
 var _failures: Array[String] = []
 
 
@@ -46,6 +49,7 @@ func _init() -> void:
 		"stop_stage5_hongryun_charge",
 		"stop_stage5_hongryun_shoot",
 		"stop_lingpet_gatling_loop",
+		"stop_lingpet_guardian_enhance_cutin_loop",
 	]:
 		_expect(audio.calls.has(method), "gameplay loop cleanup should call %s" % method)
 
@@ -100,6 +104,7 @@ func _verify_manual_round_boundary_cues_are_registered() -> void:
 		"stop_chaos_spear_windup",
 		"stop_chaos_spear_flying",
 		"stop_chaos_spear_impact",
+		"stop_lingpet_guardian_enhance_cutin_loop",
 	]:
 		_expect(
 			GameplayLoopAudioCleanup.STOP_METHODS.has(stop_method),

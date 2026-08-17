@@ -150,14 +150,19 @@ static func apply_item_bonus(amount: int, item_gold_gain_multiplier: float) -> i
 	return int(floor(float(max(0, amount)) * max(0.0, item_gold_gain_multiplier)))
 
 
-static func store_gold_gain(boosted_amount: int, current_total: int, _feedback_duration: float = 1.0) -> Dictionary:
+static func store_gold_gain(
+	boosted_amount: int,
+	current_total: int,
+	feedback_duration: float = 1.0,
+	show_feedback: bool = false
+) -> Dictionary:
 	var stored_amount: int = max(0, int(boosted_amount))
 	return {
 		"total": int(current_total) + stored_amount,
 		"awarded": stored_amount,
-		"show_feedback": false,
-		"feedback_timer": 0.0,
-		"feedback_text": "",
+		"show_feedback": show_feedback and stored_amount > 0,
+		"feedback_timer": max(0.0, float(feedback_duration)) if show_feedback else 0.0,
+		"feedback_text": format_default_gold_feedback(stored_amount) if show_feedback and stored_amount > 0 else "",
 	}
 
 

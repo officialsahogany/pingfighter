@@ -9,6 +9,7 @@ const LingpetGuardianEnhanceCutinState := preload(
 const LingpetGuardianEnhanceCutinOverlayHostResolver := preload(
 	"res://scripts/lingpet/lingpet_guardian_enhance_cutin_overlay_host_resolver.gd"
 )
+const RESULT_TAIL_DELAY_SECONDS := 0.12
 
 var _offer_engine: Object = null
 var _cutin_state: Object = LingpetGuardianEnhanceCutinState.new()
@@ -17,6 +18,9 @@ var _host_resolver: Object = LingpetGuardianEnhanceCutinOverlayHostResolver.new(
 var _modal_owner_ref: WeakRef = null
 var _modal_registry_ref: WeakRef = null
 var _last_result: Dictionary = {}
+var _audio_roll_started := false
+var _audio_stamp_played := false
+var _audio_result_tail_played := false
 
 
 func configure(offer_engine: Object) -> void:
@@ -80,6 +84,7 @@ func complete_roll(
 		registry,
 		_host_resolver
 	)
+	_reset_audio_phase_state()
 	if _cutin_state.start(resolved_pet_id, result):
 		_begin_modal_time(owner, registry)
 
@@ -95,8 +100,8 @@ func get_snapshot() -> Dictionary:
 func advance(delta: float, registry: Object, current_pet_id: String) -> void:
 	if not is_active():
 		return
-	var snapshot: Dictionary = _cutin_state.get_snapshot()
-	var display_pet_id := str(snapshot.get("pet_id", current_pet_id))
+	var before_snapshot: Dictionary = _cutin_state.get_snapshot()
+	var display_pet_id := str(before_snapshot.get("pet_id", current_pet_id))
 	_prewarm_state.prewarm_registry_step(
 		display_pet_id,
 		registry,
@@ -108,8 +113,11 @@ func advance(delta: float, registry: Object, current_pet_id: String) -> void:
 		display_pet_id
 	)
 	var closed := bool(_cutin_state.advance(delta, assets_ready, animation_contract))
+	var after_snapshot: Dictionary = _cutin_state.get_snapshot()
+	_sync_phase_audio(before_snapshot, after_snapshot, delta, closed, registry)
 	if closed:
 		_stop_audio(registry)
+		_reset_audio_phase_state()
 		_finish_modal_time(registry)
 
 
@@ -121,6 +129,7 @@ func cancel(registry: Object = null) -> bool:
 	var cancelled := bool(_cutin_state.cancel_immediate())
 	if cancelled or had_modal_context:
 		_stop_audio(cleanup_registry)
+		_reset_audio_phase_state()
 		_finish_modal_time(cleanup_registry)
 	return cancelled
 
@@ -136,6 +145,7 @@ func reset_presentation_state() -> void:
 	cancel(_resolve_weak_ref(_modal_registry_ref))
 	_cutin_state.reset()
 	_prewarm_state.reset()
+	_reset_audio_phase_state()
 
 
 func get_last_result_for_tests() -> Dictionary:
@@ -197,17 +207,77 @@ static func _get_runtime_perk_state(registry: Object) -> Object:
 	return null
 
 
-static func _stop_audio(registry: Object) -> void:
+func _sync_phase_audio(
+	before_snapshot: Dictionary,
+	after_snapshot: Dictionary,
+	delta: float,
+	closed: bool,
+	registry: Object
+) -> void:
+	var before_phase := str(before_snapshot.get("phase", ""))
+	var after_phase := str(after_snapshot.get("phase", ""))
+	var before_rank := _phase_rank(before_phase)
+	var after_rank := 5 if closed else _phase_rank(after_phase)
+	if not _audio_roll_started and before_rank < 1 and after_rank >= 1:
+		_call_audio(registry, "play_lingpet_guardian_enhance_roll_loop")
+		_audio_roll_started = true
+	if not _audio_stamp_played and after_rank >= 2:
+		_call_audio(registry, "stop_lingpet_guardian_enhance_roll_loop")
+		_call_audio(registry, "play_lingpet_guardian_enhance_stamp")
+		_audio_stamp_played = true
+	var crossed_tail_delay := after_rank > 2
+	if after_rank == 2:
+		crossed_tail_delay = float(after_snapshot.get("phase_elapsed", 0.0)) >= RESULT_TAIL_DELAY_SECONDS
+	if before_rank == 2:
+		var before_elapsed := float(before_snapshot.get("phase_elapsed", 0.0))
+		crossed_tail_delay = crossed_tail_delay or (
+			before_elapsed < RESULT_TAIL_DELAY_SECONDS
+			and before_elapsed + maxf(0.0, delta) >= RESULT_TAIL_DELAY_SECONDS
+		)
+	if not _audio_result_tail_played and crossed_tail_delay:
+		_call_audio(registry, "play_lingpet_guardian_enhance_result_tail")
+		_audio_result_tail_played = true
+
+
+func _reset_audio_phase_state() -> void:
+	_audio_roll_started = false
+	_audio_stamp_played = false
+	_audio_result_tail_played = false
+
+
+static func _phase_rank(phase: String) -> int:
+	match phase:
+		LingpetGuardianEnhanceCutinState.PHASE_INTRO:
+			return 0
+		LingpetGuardianEnhanceCutinState.PHASE_ROLL:
+			return 1
+		LingpetGuardianEnhanceCutinState.PHASE_STAMP:
+			return 2
+		LingpetGuardianEnhanceCutinState.PHASE_REACTION:
+			return 3
+		LingpetGuardianEnhanceCutinState.PHASE_OUTRO:
+			return 4
+	return -1
+
+
+static func _get_audio(registry: Object) -> Object:
 	if registry == null:
-		return
+		return null
 	var audio: Variant = null
 	if registry.has_method("get_cached_instance"):
 		audio = registry.get_cached_instance("game_audio")
 	if (typeof(audio) != TYPE_OBJECT or audio == null) and registry.has_method("get_instance"):
 		audio = registry.get_instance("game_audio")
-	if (
-		typeof(audio) == TYPE_OBJECT
-		and audio != null
-		and audio.has_method("stop_lingpet_guardian_enhance_cutin_loop")
-	):
-		audio.stop_lingpet_guardian_enhance_cutin_loop()
+	if typeof(audio) == TYPE_OBJECT and audio != null and is_instance_valid(audio):
+		return audio as Object
+	return null
+
+
+static func _call_audio(registry: Object, method_name: String) -> void:
+	var audio := _get_audio(registry)
+	if audio != null and audio.has_method(method_name):
+		audio.call(method_name)
+
+
+static func _stop_audio(registry: Object) -> void:
+	_call_audio(registry, "stop_lingpet_guardian_enhance_cutin_loop")

@@ -132,7 +132,7 @@ var current_perk_slot_status: Dictionary = {}
 # 동일한 값을 읽어야 하므로 프레임 시작 update()에서 한 번만 갱신한다.
 var stats_band_enabled := false
 var _stats_context_owner: Object = null
-var _stats_context_registry: Object = null
+var _stats_context_registry_ref: WeakRef = null
 var _character_context: Object = RuntimePerkCharacterContext.new()
 var _registry_lookup: Object = RuntimePerkRegistryLookup.new()
 var _choice_layout: Object = RuntimePerkChoiceLayout.new()
@@ -366,7 +366,7 @@ func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary)
 	# The byproduct owner has already applied every multiplier and recorded the
 	# actual capped amount. Store that exact amount through the canonical gold
 	# flow so feedback state stays in sync without applying modifiers twice.
-	_gold_award_flow.store_gold_gain_from_runtime_state(self, actual, 1.0)
+	_gold_award_flow.store_gold_gain_from_runtime_state(self, actual, 1.0, true)
 	return actual
 
 
@@ -920,6 +920,7 @@ func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictiona
 
 
 func reset() -> void:
+	_capture_stats_context(null, null)
 	_fusion_runtime_state.reset()
 	_physique_training_runtime_state.reset_state()
 	_chosik_event_state.reset()
@@ -1074,8 +1075,11 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 # draw() 시점에 플래그를 뒤집는 방식은 쓰지 않는다(첫 프레임 클릭이 어긋난다).
 func _capture_stats_context(owner: Object, registry: Object) -> void:
 	_stats_context_owner = owner if owner != null and is_instance_valid(owner) else null
-	_stats_context_registry = registry if registry != null and is_instance_valid(registry) else null
-	stats_band_enabled = _stats_context_owner != null and _stats_context_registry != null
+	# The production registry owns this runtime state. Keep only a weak handle
+	# for the draw/input consumers; a strong state -> registry edge would form a
+	# cycle in RefCounted preview/test registries and retain the whole module graph.
+	_stats_context_registry_ref = weakref(registry) if _stats_context_owner != null and registry != null and is_instance_valid(registry) else null
+	stats_band_enabled = _stats_context_owner != null and get_stats_context_registry() != null
 
 
 func get_stats_context_owner() -> Object:
@@ -1083,7 +1087,7 @@ func get_stats_context_owner() -> Object:
 
 
 func get_stats_context_registry() -> Object:
-	return _stats_context_registry
+	return _stats_context_registry_ref.get_ref() if _stats_context_registry_ref != null else null
 
 
 func _prewarm_fusion_pair_icons(registry: Object) -> void:

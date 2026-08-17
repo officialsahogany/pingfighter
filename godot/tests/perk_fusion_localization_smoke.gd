@@ -145,8 +145,8 @@ func _init() -> void:
 	var runtime_renderer_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 	var formatter_source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay_formatter.gd")
 	_expect(runtime_renderer_source.contains("LanguageSettings.translate_text(\"보유 퍽 강화만\")"), "owned-only status hint should route through LanguageSettings")
-	_expect(runtime_renderer_source.contains("LanguageSettings.translate_text(\"고유\")"), "choice and acquired one-off tags should route through LanguageSettings")
-	_expect(formatter_source.contains("LanguageSettings.translate_text(\"고유\")"), "TAB one-off tag should route through LanguageSettings")
+	_expect(runtime_renderer_source.contains("LanguageSettings.format_mugong_rank("), "choice and acquired one-off tags should route through the canonical LanguageSettings rank formatter")
+	_expect(formatter_source.contains("LanguageSettings.format_mugong_rank("), "TAB one-off tag should route through the canonical LanguageSettings rank formatter")
 	var fallback_font: Font = ThemeDB.fallback_font
 	# The headless fallback font intentionally has no CJK faces. Keep glyph
 	# coverage focused on the Latin/Cyrillic locales it owns; CJK copy is sealed

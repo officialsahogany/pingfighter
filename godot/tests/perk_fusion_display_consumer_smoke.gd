@@ -84,7 +84,9 @@ func _init() -> void:
 			_expect(str(entry.get("description", "")).contains("100") and str(entry.get("description", "")).contains("80"), "fusion TAB tooltip should expose the actual before-to-after option values")
 			_expect(str(entry.get("description", "")).contains("잔향"), "fusion TAB tooltip should expose acquired byproduct details")
 			_expect(str(entry.get("detail", "")) != str(entry.get("description", "")), "fusion TAB tooltip should keep result log and material stats in separate panels")
-			_expect(str(entry.get("description", "")).contains("철산공 · Lv.5") and str(entry.get("description", "")).contains("유운보 · Lv.5"), "fusion TAB stats should retain both material section headers")
+			var stat_description := str(entry.get("description", ""))
+			_expect(stat_description.contains("철산공 · 극성") and stat_description.contains("유운보 · 극성"), "fusion TAB stats should retain both material section headers with the canonical Korean max-rank label")
+			_expect(not stat_description.contains("Lv.5"), "fusion TAB stats should not revive the retired Korean Lv.5 label")
 	_expect(fusion_count == 1, "character info should render exactly one canonical fusion cell")
 
 	var before_hash: int = CharacterInfoOverlayPerkPresenter.acquired_perk_cache_hash(

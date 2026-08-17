@@ -432,6 +432,12 @@ func _verify_runtime_state_context_capture() -> void:
 	state.update(0.016, SHIPPED_VIEW, null, registry)
 	_expect(not state.stats_band_enabled, "an owner-less update must drop the stats band again")
 	_expect(state.get_stats_context_owner() == null, "an owner-less update must clear the captured owner")
+	_expect(state.get_stats_context_registry() == null, "an owner-less update must release the now-unusable registry")
+
+	state.update(0.016, SHIPPED_VIEW, owner, registry)
+	state.reset()
+	_expect(not state.stats_band_enabled, "new-run reset must clear the stats-band context")
+	_expect(state.get_stats_context_owner() == null and state.get_stats_context_registry() == null, "new-run reset must release both captured context objects")
 
 
 # 7) 렌더러가 레이아웃의 stats_rect를 실제로 소비하는지에 대한 소스 계약.

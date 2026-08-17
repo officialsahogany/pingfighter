@@ -138,9 +138,14 @@ func _verify_flow_runtime_state_wrappers_assemble_dependencies() -> void:
 	_expect(feedback.apply_count == 2, "runtime-state store wrapper should preserve the existing feedback state")
 	_expect(state.feedback_text == "old", "runtime-state store wrapper should not show stored-gold feedback")
 	_expect(is_equal_approx(state.feedback_timer, 0.25), "runtime-state store wrapper should not replace the existing feedback duration")
+	var visible_total: int = flow.store_gold_gain_from_runtime_state(state, 3, 0.8, true)
+	_expect(visible_total == 119, "visible stored-gold wrapper should add the exact pre-modified amount")
+	_expect(feedback.apply_count == 3, "visible stored-gold wrapper should use the canonical feedback helper")
+	_expect(state.feedback_text.contains("3"), "visible stored-gold wrapper should expose the awarded amount")
+	_expect(is_equal_approx(state.feedback_timer, 0.8), "visible stored-gold wrapper should expose the requested duration")
 
 	var rejected_total: int = flow.apply_gold_award_result_from_runtime_state(state, {"accepted": false})
-	_expect(rejected_total == 116, "runtime-state award-result wrapper should return current gold when rejected")
+	_expect(rejected_total == 119, "runtime-state award-result wrapper should return current gold when rejected")
 
 	var multiplier_update: Dictionary = flow.set_item_gold_gain_multiplier_from_runtime_state(state, -2.0)
 	_expect(bool(multiplier_update.get("accepted", false)), "runtime-state multiplier setter should accept valid runtime states")

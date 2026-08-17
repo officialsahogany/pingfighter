@@ -83,12 +83,14 @@ func store_gold_gain(
 	boosted_amount: int,
 	feedback_duration: float,
 	runtime_state: Object,
-	choice_feedback: Object
+	choice_feedback: Object,
+	show_feedback: bool = false
 ) -> int:
 	var result: Dictionary = RuntimePerkGoldAwards.store_gold_gain(
 		boosted_amount,
 		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "gold_from_perks"),
-		feedback_duration
+		feedback_duration,
+		show_feedback
 	)
 	return apply_gold_award_result(result, runtime_state, choice_feedback)
 
@@ -96,13 +98,15 @@ func store_gold_gain(
 func store_gold_gain_from_runtime_state(
 	runtime_state: Object,
 	boosted_amount: int,
-	feedback_duration: float
+	feedback_duration: float,
+	show_feedback: bool = false
 ) -> int:
 	return store_gold_gain(
 		boosted_amount,
 		feedback_duration,
 		runtime_state,
-		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_feedback")
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_feedback"),
+		show_feedback
 	)
 
 
