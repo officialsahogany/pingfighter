@@ -38,6 +38,9 @@ const TowerAscentGuardianSpringNode := preload(
 const TowerAscentRestNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_rest_node.gd"
 )
+const TowerAscentRecordStore := preload(
+	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -111,6 +114,7 @@ var _training_offer_builder: Object = TowerAscentTrainingOfferBuilder.new()
 var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
 var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
 var _rest_node: Object = TowerAscentRestNode.new()
+var _record_store: Object = TowerAscentRecordStore.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
@@ -703,6 +707,14 @@ func get_guardian_state() -> Dictionary:
 
 func get_rest_history() -> Array[Dictionary]:
 	return _rest_node.get_history()
+
+
+func set_record_store_path_for_tests(path: String) -> void:
+	_record_store.set_save_path(path)
+
+
+func get_record_snapshot() -> Dictionary:
+	return _record_store.get_snapshot()
 
 
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
