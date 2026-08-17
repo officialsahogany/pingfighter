@@ -3,7 +3,6 @@ extends RefCounted
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
-const SELECTOR_RADIUS := 11.0
 const MAP_NODE_RADIUS := 6.0
 const ACTIVE_NODE_RADIUS := 13.0
 
@@ -15,11 +14,12 @@ const CINNABAR := Color("9e352d")
 const CINNABAR_DARK := Color("63241f")
 const GOLD := Color("bd8c35")
 const SEALED := Color("5e5145")
-const BALL_COLOR := Color("f8efcc")
-
-
 func draw(canvas: CanvasItem, flow: Object) -> void:
 	if canvas == null or flow == null or not flow.has_method("is_active") or not bool(flow.is_active()):
+		return
+	var phase_name := str(flow.get_phase_name())
+	if phase_name == "ROUTE_AIM":
+		_draw_route_aim(canvas, flow)
 		return
 	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.035, 0.025, 0.02, 0.92), true)
 	canvas.draw_rect(MAP_RECT, PAPER, true)
@@ -27,11 +27,8 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
 	_draw_title(canvas, flow)
 	_draw_route_map(canvas, flow)
-	var phase_name := str(flow.get_phase_name())
 	if phase_name == "NODE_MODAL":
 		_draw_node_modal(canvas, flow)
-	elif phase_name == "ROUTE_AIM":
-		_draw_route_aim(canvas, flow)
 	elif phase_name == "MAP_TRANSITION":
 		_draw_map_transition(canvas, flow)
 	elif phase_name == "FAKE_ENDING_TEASER":
@@ -292,14 +289,6 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 		canvas.draw_circle(target_position, 30.0, target_fill)
 		canvas.draw_circle(target_position, 30.0, CINNABAR, false, 3.0)
 		canvas.draw_string(font, target_position + Vector2(-82.0, -41.0), str(target.get("label", "행로")), HORIZONTAL_ALIGNMENT_CENTER, 164.0, 16, INK)
-	canvas.draw_string(font, Vector2(80.0, 694.0), "좌우로 조준하고 확인하여 선택구를 발사하세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, INK)
-	canvas.draw_string(font, Vector2(80.0, 716.0), "발사 횟수 제한 없음 · 선택은 표적 명중 시 확정", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, INK_SOFT)
-	var origin: Vector2 = flow.get_selector_origin()
-	if not bool(flow.is_selector_launched()):
-		var aim_point: Vector2 = flow.get_aim_preview_point()
-		canvas.draw_dashed_line(origin, aim_point, CINNABAR, 2.0, 9.0)
-	canvas.draw_circle(flow.get_selector_position(), SELECTOR_RADIUS, BALL_COLOR)
-	canvas.draw_circle(flow.get_selector_position(), SELECTOR_RADIUS, CINNABAR_DARK, false, 2.0)
 
 
 func _draw_map_transition(canvas: CanvasItem, flow: Object) -> void:

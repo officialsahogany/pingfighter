@@ -26,9 +26,8 @@ func begin_vertical_slice(
 	_active_registry = context.get("registry", null)
 	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
-	_phase = PHASE_NODE_MODAL
 	_current_node_id = _route_source_node_id
-	_open_node_modal()
+	_enter_route_aim()
 	_request_redraw(owner)
 	return true
 

@@ -154,9 +154,9 @@ func _verify_production_entry_lifecycle_and_exit() -> void:
 		Callable(),
 		owner
 	)
-	_expect(flow.is_active(), "the production victory continuation must open the tower modal")
-	_expect(flow.get_phase_name() == "NODE_MODAL", "the production entry must stop at NODE_MODAL")
-	_expect(flow.blocks_battle_physics(), "the active node modal must physically block battle simulation")
+	_expect(flow.is_active(), "the production victory continuation must open the tower route flow")
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "the production entry must stay in the battle scene at ROUTE_AIM")
+	_expect(flow.blocks_battle_physics(), "the active route flow must physically block ordinary battle simulation")
 	_expect(runtime_state.capture_calls == 1, "modal entry must capture pre-choice ball velocity once")
 	_expect(runtime_state.pause_calls == 1, "modal entry must fan out skill, item, and wall-clock pause once")
 	_expect(audio.stop_calls == 1, "modal entry must route through centralized gameplay-loop cleanup")
@@ -164,11 +164,6 @@ func _verify_production_entry_lifecycle_and_exit() -> void:
 	_expect(not flow.begin_vertical_slice(owner, Callable(), {"registry": registry}), "active flow re-entry must be rejected")
 	_expect(runtime_state.pause_calls == 1, "rejected re-entry must not pause cooldowns twice")
 
-	var confirm := InputEventKey.new()
-	confirm.pressed = true
-	confirm.keycode = KEY_ENTER
-	flow.handle_input(confirm)
-	_expect(flow.get_phase_name() == "ROUTE_AIM", "end-work confirmation must enter ROUTE_AIM")
 	_expect(runtime_state.resume_calls == 0, "cooldowns must remain paused through route aiming")
 	flow.debug_launch_at_target(0)
 	flow.update_selective(1.5, owner)

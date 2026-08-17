@@ -67,8 +67,9 @@ func _verify_full_graph_round_trip() -> void:
 		"run_id": "snapshot-full-graph",
 		"map_seed": 771122,
 	}), "generated run must start before snapshot export")
+	_advance_to_stable_map_transition(source)
 	var snapshot: Dictionary = source.export_persistable_snapshot()
-	_expect(not snapshot.is_empty(), "post-commit NODE_MODAL must be a persistable boundary")
+	_expect(not snapshot.is_empty(), "post-selection MAP_TRANSITION must be a persistable boundary")
 	_expect(snapshot.map_graph_storage == TowerAscentFlowOwner.MAP_GRAPH_STORAGE_FULL, "snapshot must declare full-graph storage")
 	_expect(int(snapshot.schema_version) == TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION, "snapshot schema version must advance with the map contract")
 	_expect(snapshot.map_graph.phases[0].has("floors"), "full-graph snapshot must retain generated floor and row metadata")
@@ -105,6 +106,7 @@ func _verify_retry_does_not_regenerate_map() -> void:
 func _verify_invalid_snapshot_contracts_fail_closed() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {"run_id": "invalid-storage", "map_seed": 4}), "invalid fixture must begin")
+	_advance_to_stable_map_transition(flow)
 	var snapshot: Dictionary = flow.export_snapshot()
 	var wrong_storage := snapshot.duplicate(true)
 	wrong_storage["map_graph_storage"] = "seed_only"
@@ -112,6 +114,12 @@ func _verify_invalid_snapshot_contracts_fail_closed() -> void:
 	var missing_seed := snapshot.duplicate(true)
 	missing_seed.erase("map_seed")
 	_expect(not TowerAscentFlowOwner.new().restore_snapshot(missing_seed), "snapshot without a map seed must fail closed")
+
+
+func _advance_to_stable_map_transition(flow: Object) -> void:
+	flow.debug_launch_at_target(0)
+	flow.update_selective(1.5)
+	_expect(flow.get_phase_name() == "MAP_TRANSITION", "snapshot fixture must reach the stable map-transition boundary")
 
 
 func _on_continue() -> void:

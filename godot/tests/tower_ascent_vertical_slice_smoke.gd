@@ -232,7 +232,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		owner
 	)
 	_expect(flow.is_active(), "flag ON must enter the tower flow after victory loot")
-	_expect(flow.get_phase_name() == "NODE_MODAL", "the first post-combat state must be NODE_MODAL")
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "the first post-combat state must remain in the battle scene as ROUTE_AIM")
 	_expect(result_screen.show_calls == 0, "legacy result screen must wait until the slice completes")
 	var initial_snapshot: Dictionary = flow.export_snapshot()
 	_expect(initial_snapshot.completed_nodes.size() == 1, "combat resolution must commit exactly once on entry")
@@ -242,7 +242,6 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	)
 	_expect(flow.export_snapshot().completed_nodes.size() == 1, "rejected re-entry must not duplicate node rewards")
 
-	flow.debug_advance_to_route_aim()
 	flow.debug_launch_miss()
 	flow.update_selective(1.5, owner)
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "a missed selector shot must remain in ROUTE_AIM")
@@ -279,6 +278,10 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	var recovery_journal: Dictionary = source.export_pending_reward_journal()
 	_expect(recovery_journal.pending_rewards.size() == 1, "prepared reward must be exported through the separate crash journal")
 	_expect(source.begin_vertical_slice(owner, Callable(), snapshot_context), "snapshot fixture must start")
+	_expect(source.export_persistable_snapshot().is_empty(), "route serving must remain an unstable snapshot boundary")
+	source.debug_launch_at_target(0)
+	source.update_selective(1.5, owner)
+	_expect(source.get_phase_name() == "MAP_TRANSITION", "snapshot fixture must reach the post-selection stable boundary")
 	var snapshot: Dictionary = source.export_snapshot()
 	_expect(snapshot.pending_rewards.is_empty(), "completed victory loot must clear the pending reward record")
 	_expect(str(snapshot.completed_nodes[0].node_resolution_id) == prepared_resolution_id, "prepare and commit must share the same node_resolution_id")
@@ -331,7 +334,6 @@ func _verify_physics_gate_updates_only_selector_flow() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	var owner := FakeOwner.new()
 	flow.begin_vertical_slice(owner, Callable(), {"run_id": "physics-gate"})
-	flow.debug_advance_to_route_aim()
 	flow.debug_launch_miss()
 	var registry := FakeRegistry.new()
 	registry.instances["tower_ascent_flow_owner"] = flow
