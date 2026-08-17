@@ -49,6 +49,43 @@ class FakeResultScreen:
 		return true
 
 
+class FakeScoreboard:
+	extends RefCounted
+
+	func get_player_points() -> int:
+		return 7
+
+	func get_boss_points() -> int:
+		return 3
+
+
+class FakeVictoryLootPhase:
+	extends RefCounted
+
+	var start_calls := 0
+	var finish_callback := Callable()
+
+	func is_active() -> bool:
+		return false
+
+	func start(
+		_owner: Object,
+		_registry: Object,
+		_player_points: int,
+		_boss_points: int,
+		new_finish_callback: Callable
+	) -> bool:
+		start_calls += 1
+		finish_callback = new_finish_callback
+		return true
+
+	func finish() -> void:
+		var callback := finish_callback
+		finish_callback = Callable()
+		if callback.is_valid():
+			callback.call()
+
+
 class FakeScreen:
 	extends RefCounted
 
@@ -220,20 +257,27 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_reset_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var result_screen := FakeResultScreen.new()
+	var loot_phase := FakeVictoryLootPhase.new()
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
 		"stage_clear_result_screen": result_screen,
 		"runtime_perk_state": FakeTowerModalRuntime.new(),
+		"scoreboard_state": FakeScoreboard.new(),
+		"victory_loot_phase_state": loot_phase,
 	}
 	var owner := FakeOwner.new()
 	var driver := BattleSceneMatchFlowDriver.new()
 	driver.call(
-		"_finish_victory_loot_phase",
+		"_finish_victory_highlight",
 		registry,
 		Callable(self, "_on_reset"),
 		owner
 	)
+	_expect(loot_phase.start_calls == 1, "highlight completion must enter the victory chest phase exactly once")
+	_expect(not flow.is_active(), "route serving must wait until the victory chest phase completes")
+	_expect(result_screen.show_calls == 0, "legacy result screen must stay hidden throughout victory chest presentation")
+	loot_phase.finish()
 	_expect(flow.is_active(), "flag ON must enter the tower flow after victory loot")
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "the first post-combat state must remain in the battle scene as ROUTE_AIM")
 	_expect(result_screen.show_calls == 0, "tower mode must not show the legacy result screen before route serving")
