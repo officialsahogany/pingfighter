@@ -1,6 +1,10 @@
 extends SceneTree
 
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
+const BattleSceneOwnerReader := preload(
+	"res://scripts/core/battle_scene_owner_reader.gd"
+)
+const BattleSceneShell := preload("res://scripts/core/battle_scene_shell.gd")
 const BattleSceneFrameController := preload(
 	"res://scripts/core/battle_scene_frame_controller.gd"
 )
@@ -313,6 +317,7 @@ class ModuleHolder:
 
 
 func _init() -> void:
+	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
@@ -325,6 +330,106 @@ func _init() -> void:
 	for failure in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_live_shell_meta_owner_frame_path() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var owner: Object = BattleSceneShell.new()
+	owner.set("current_stage", 4)
+	owner.set("selected_character_type", "smasher")
+	owner.set("player_pos", Vector2(250.0, 700.0))
+	owner.set("player_speed", 0.0)
+	owner.set("player_paddle_width", 155.0)
+	owner.set("player_paddle_height", 50.0)
+	owner.set("gameplay_frame_counter", 0)
+	owner.set("ball_pos", Vector2(380.0, 665.0))
+	owner.set("ball_vel", Vector2.ZERO)
+	owner.set("ball_active", false)
+	owner.set("ball_size", 28.6)
+	owner.set("ball_impact_boost", 1.0)
+
+	var property_names: Dictionary = {}
+	for property_value in owner.get_property_list():
+		if property_value is Dictionary:
+			property_names[str((property_value as Dictionary).get("name", ""))] = true
+	_expect(
+		not property_names.has("player_pos") and not property_names.has("ball_active"),
+		"live BattleSceneShell route keys must stay meta-only instead of leaking into the property list"
+	)
+
+	var input_reader := FakeInputReader.new()
+	var movement_state := FakeMovementState.new()
+	var round_state := FakeRoundState.new()
+	var serve_flow := FakeServeFlow.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var motion_stepper := FakeMotionStepper.new()
+	var flow := TowerAscentFlowOwner.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"tower_ascent_flow_owner": flow,
+		"runtime_perk_state": FakeModalRuntime.new(),
+		"round_flow_state": round_state,
+		"serve_flow_controller": serve_flow,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": motion_stepper,
+		"smasher_input_reader": input_reader,
+		"player_movement_state": movement_state,
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	_expect(
+		flow.begin_vertical_slice(
+			owner,
+			Callable(),
+			{"registry": registry, "run_id": "live-shell-meta-route"}
+		),
+		"live BattleSceneShell route fixture must enter ROUTE_AIM"
+	)
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	_expect(targets.size() >= 1, "live shell ROUTE_AIM must expose a physical target")
+	if targets.is_empty():
+		flow.call("_finish_vertical_slice")
+		owner.free()
+		return
+	var target_position: Vector2 = targets[0].get("position", Vector2.ZERO)
+	ball_driver.velocities = [
+		(target_position - Vector2(380.0, 665.0)).normalized() * 8.7,
+	]
+	var holder := ModuleHolder.new()
+	holder.modules = {
+		"battle_scene_readiness_controller": FakeReadiness.new(),
+		"battle_scene_match_event_driver": FakeTransition.new(),
+		"stage_clear_result_screen": FakeScreen.new(),
+		"defeat_chance_gems_continue_screen": FakeScreen.new(),
+		"defeat_settlement_screen": FakeScreen.new(),
+		"grip_style_selection_overlay": FakeGrip.new(),
+		"battle_scene_modal_gate_controller": FakeModalGate.new(),
+	}
+	var initial_player_pos := BattleSceneOwnerReader.get_vector2(
+		owner,
+		"player_pos",
+		Vector2.ZERO
+	)
+	var blocked := _run_physics_gate_frame(
+		1.5,
+		owner,
+		registry,
+		holder,
+		FakeModalPause.new()
+	)
+	_expect(blocked, "live shell ROUTE_AIM frame must stay inside the tower physics gate")
+	_expect(
+		BattleSceneOwnerReader.get_vector2(owner, "player_pos", Vector2.ZERO).x
+			> initial_player_pos.x,
+		"live shell meta player_pos must accept the selective movement write"
+	)
+	_expect(ball_driver.serve_calls == 1, "live shell meta ball_active must preserve the actual serve")
+	_expect(
+		flow.get_phase_name() == "MAP_TRANSITION",
+		"live shell meta ball state must reach the swept target instead of re-serve looping"
+	)
+	flow.call("_finish_vertical_slice")
+	owner.free()
 
 
 func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
@@ -529,6 +634,14 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 	for retired_aim_input in ["KEY_LEFT", "KEY_RIGHT", "InputEventMouseMotion", "_launch_selector"]:
 		_expect(flow_source.find(retired_aim_input) < 0, "ROUTE_AIM must not retain deterministic aim input: %s" % retired_aim_input)
 	_expect(route_source.find("RandomNumberGenerator") < 0, "route flow must consume the serve producer's randomness instead of owning another RNG")
+	_expect(
+		route_source.find("BattleSceneOwnerReader.get_value") >= 0,
+		"route serve must read meta-backed BattleSceneShell keys through the shared owner reader"
+	)
+	_expect(
+		route_source.find("_collect_property_names") < 0,
+		"route serve must not reintroduce a property-list gate for meta-backed owner keys"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
