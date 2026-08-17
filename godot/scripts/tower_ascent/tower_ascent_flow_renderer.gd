@@ -38,6 +38,8 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_fake_ending_teaser(canvas, flow)
 	elif phase_name == "ENDING_CHOICE":
 		_draw_ending_choice(canvas, flow)
+	elif phase_name == "RUN_SETTLEMENT":
+		_draw_run_settlement(canvas, flow)
 
 
 func build_render_model(flow: Object) -> Dictionary:
@@ -357,6 +359,58 @@ func _draw_ending_choice(canvas: CanvasItem, flow: Object) -> void:
 		canvas.draw_rect(rect, CINNABAR_DARK, false, 2.0)
 		canvas.draw_string(font, Vector2(rect.position.x, rect.position.y + 33.0), str((actions[index] as Dictionary).get("label", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 18, PAPER if selected else INK)
 	canvas.draw_string(font, Vector2(132.0, 548.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 14, CINNABAR_DARK)
+
+
+func _draw_run_settlement(canvas: CanvasItem, flow: Object) -> void:
+	var model: Dictionary = (
+		flow.get_settlement_view_model()
+		if flow.has_method("get_settlement_view_model")
+		else {}
+	)
+	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.018, 0.012, 0.01, 0.9), true)
+	var panel := Rect2(86.0, 76.0, 588.0, 598.0)
+	canvas.draw_rect(panel, Color("f2dfb7"), true)
+	canvas.draw_rect(panel, CINNABAR_DARK, false, 5.0)
+	canvas.draw_rect(panel.grow(-12.0), GOLD, false, 1.5)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(font, Vector2(126.0, 137.0), str(model.get("title", "등정 종료")), HORIZONTAL_ALIGNMENT_CENTER, 508.0, 30, INK)
+	canvas.draw_string(font, Vector2(544.0, 137.0), str(model.get("floor_text", "")), HORIZONTAL_ALIGNMENT_RIGHT, 70.0, 17, CINNABAR_DARK)
+	canvas.draw_string(font, Vector2(116.0, 177.0), str(model.get("body", "")), HORIZONTAL_ALIGNMENT_CENTER, 528.0, 16, INK_SOFT)
+	_draw_settlement_section(
+		canvas,
+		Rect2(116.0, 208.0, 528.0, 176.0),
+		str(model.get("lost_build_title", "")),
+		model.get("lost_build_rows", [])
+	)
+	_draw_settlement_section(
+		canvas,
+		Rect2(116.0, 402.0, 528.0, 176.0),
+		str(model.get("persistent_income_title", "")),
+		model.get("persistent_income_rows", [])
+	)
+	canvas.draw_string(font, Vector2(126.0, 632.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 508.0, 15, CINNABAR_DARK)
+
+
+func _draw_settlement_section(
+	canvas: CanvasItem,
+	rect: Rect2,
+	title: String,
+	rows_value: Variant
+) -> void:
+	canvas.draw_rect(rect, Color(PAPER_DEEP, 0.42), true)
+	canvas.draw_rect(rect, GOLD, false, 1.5)
+	canvas.draw_string(ThemeDB.fallback_font, rect.position + Vector2(18.0, 30.0), title, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 36.0, 18, INK)
+	var rows: Array = rows_value if rows_value is Array else []
+	for index in range(mini(rows.size(), 6)):
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			rect.position + Vector2(28.0, 60.0 + float(index) * 20.0),
+			"· %s" % str(rows[index]),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			rect.size.x - 56.0,
+			13,
+			INK_SOFT
+		)
 
 
 func _vector2(value: Variant) -> Vector2:

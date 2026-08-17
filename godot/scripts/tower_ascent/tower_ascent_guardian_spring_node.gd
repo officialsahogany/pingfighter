@@ -115,6 +115,7 @@ func record_identity_reveal(pet_id: String, registry: Object) -> Dictionary:
 		"tower_sealed": true,
 		"reason": str(codex_result.get("reason", "codex_commit_failed")),
 		"pet_id": normalized_pet_id,
+		"display_name": LingpetCatalog.get_display_name(normalized_pet_id),
 		"discovery_id": str(codex_result.get("discovery_id", "")),
 		"codex_result": codex_result.duplicate(true),
 	}

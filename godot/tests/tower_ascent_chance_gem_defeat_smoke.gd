@@ -101,6 +101,18 @@ class FakeSettlementScreen:
 		return true
 
 
+class FakeRuntimeState:
+	extends RefCounted
+	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
+		pass
+	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
+		pass
+	func _resume_skill_cooldowns_for_choice() -> void:
+		pass
+	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
+		pass
+
+
 class FakeRegistry:
 	extends RefCounted
 	var instances: Dictionary = {}
@@ -134,12 +146,14 @@ func _verify_three_run_scoped_retries_then_settlement() -> void:
 	var plaza_store := FakePlazaStore.new()
 	var continue_screen := FakeContinueScreen.new()
 	var settlement_screen := FakeSettlementScreen.new()
+	var runtime_state := FakeRuntimeState.new()
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"scoreboard_state": scoreboard,
 		"plaza_save_store": plaza_store,
 		"defeat_chance_gems_continue_screen": continue_screen,
 		"defeat_settlement_screen": settlement_screen,
+		"runtime_perk_state": runtime_state,
 	}
 	var flow_owner := TowerAscentFlowOwner.new()
 	for expected_remaining in [2, 1, 0]:
@@ -161,12 +175,15 @@ func _verify_three_run_scoped_retries_then_settlement() -> void:
 		Callable(self, "_record_continue"),
 		Callable(self, "_record_exit")
 	), "defeat at zero run gems must be handled as run settlement")
-	_expect(settlement_screen.show_calls == 1, "fourth defeat must open settlement instead of another retry")
+	_expect(flow_owner.get_phase_name() == "RUN_SETTLEMENT", "fourth defeat must open the shared tower settlement")
+	_expect(settlement_screen.show_calls == 0, "tower settlement must not fall through to the legacy defeat screen")
 	_expect(continue_screen.show_calls == 3, "only three retry prompts may open per run")
 	_expect(_continue_calls == 3, "three confirmed retries must invoke continue three times")
 	_expect(plaza_store.get_calls == 0 and plaza_store.consume_calls == 0, "tower defeat must never read or consume plaza-owned gems")
-	if settlement_screen.exit_callback.is_valid():
-		settlement_screen.exit_callback.call()
+	var confirm := InputEventKey.new()
+	confirm.pressed = true
+	confirm.keycode = KEY_SPACE
+	flow_owner.handle_input(confirm)
 	_expect(_exit_calls == 1, "settlement exit must retain the run-ending callback")
 
 

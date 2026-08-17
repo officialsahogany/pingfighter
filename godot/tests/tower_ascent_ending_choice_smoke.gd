@@ -124,10 +124,16 @@ func _verify_descend_path_and_modal_hooks(save_path: String) -> void:
 	_expect(restore_registry.runtime.pause_calls == 1, "restored choice should re-establish exactly one modal pause")
 	var choose: Dictionary = restored.choose_ending_route("descend")
 	_expect(bool(choose.get("accepted", false)) and bool(choose.get("changed", false)), "descend should commit once")
-	_expect(not restored.is_active() and _finish_calls == 1, "descend should close the modal and finalize settlement routing once")
-	_expect(restore_registry.runtime.resume_calls == 1 and restore_registry.runtime.arm_calls == 1, "choice close should resume cooldowns and arm safety")
+	_expect(restored.get_phase_name() == "RUN_SETTLEMENT" and _finish_calls == 0, "descend should open the shared clear settlement before final exit")
+	_expect(restore_registry.runtime.resume_calls == 0 and restore_registry.runtime.arm_calls == 0, "choice-to-settlement transition must keep the modal pause without a resume gap")
 	_expect(_count_locked_true_route_nodes(restored.get_graph_nodes()) > 0, "descending must not unlock floors 10 to 12")
 	_expect(int(restored.get_record_snapshot().get("clear_count", -1)) == 2, "descending should persist the second standard clear")
+	var confirm := InputEventKey.new()
+	confirm.pressed = true
+	confirm.keycode = KEY_SPACE
+	_expect(restored.handle_input(confirm), "clear settlement should consume confirm")
+	_expect(not restored.is_active() and _finish_calls == 1, "settlement confirm should finalize once")
+	_expect(restore_registry.runtime.resume_calls == 1 and restore_registry.runtime.arm_calls == 1, "settlement close should resume cooldowns and arm safety")
 
 
 func _verify_continue_path_and_irreversibility(save_path: String) -> void:

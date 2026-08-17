@@ -44,6 +44,9 @@ const TowerAscentRecordStore := preload(
 const TowerAscentEndingState := preload(
 	"res://scripts/tower_ascent/tower_ascent_ending_state.gd"
 )
+const TowerAscentSettlementState := preload(
+	"res://scripts/tower_ascent/tower_ascent_settlement_state.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -57,6 +60,7 @@ const PHASE_ROUTE_AIM := 2
 const PHASE_MAP_TRANSITION := 3
 const PHASE_FAKE_ENDING_TEASER := 4
 const PHASE_ENDING_CHOICE := 5
+const PHASE_RUN_SETTLEMENT := 6
 const MAP_TRANSITION_SECONDS := 0.9
 const SELECTOR_RADIUS := 11.0
 const SELECTOR_SPEED := 520.0
@@ -121,12 +125,14 @@ var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
 var _rest_node: Object = TowerAscentRestNode.new()
 var _record_store: Object = TowerAscentRecordStore.new()
 var _ending_state: Object = TowerAscentEndingState.new()
+var _settlement_state: Object = TowerAscentSettlementState.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
 var _active_owner: Object = null
 var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
+var _codex_discoveries: Array[Dictionary] = []
 var _header_subtitle := ""
 
 
@@ -302,6 +308,13 @@ func restore_snapshot(
 	if not _ending_state.restore_state(snapshot.get("ending_state", {})):
 		_reset_runtime_state()
 		return false
+	var snapshot_phase := int(snapshot.get("phase", PHASE_NODE_MODAL))
+	if snapshot_phase == PHASE_RUN_SETTLEMENT:
+		var settlement_snapshot: Variant = snapshot.get("settlement_state", {})
+		if not _settlement_state.restore_state(settlement_snapshot):
+			_reset_runtime_state()
+			return false
+	_codex_discoveries.assign(_dictionary_array(snapshot.get("codex_discoveries", [])))
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
@@ -315,9 +328,9 @@ func restore_snapshot(
 		"guardian_spring"
 	)))
 	_phase = clampi(
-		int(snapshot.get("phase", PHASE_NODE_MODAL)),
+		snapshot_phase,
 		PHASE_NODE_MODAL,
-		PHASE_ENDING_CHOICE
+		PHASE_RUN_SETTLEMENT
 	)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
@@ -351,6 +364,9 @@ func restore_snapshot(
 	):
 		_reset_runtime_state()
 		return false
+	if _phase == PHASE_RUN_SETTLEMENT and not _settlement_state.is_active():
+		_reset_runtime_state()
+		return false
 	return true
 
 
@@ -378,6 +394,8 @@ func export_snapshot() -> Dictionary:
 		"guardian_state": _guardian_state.duplicate(true),
 		"rest_history": _rest_node.get_history(),
 		"ending_state": _ending_state.export_state(),
+		"settlement_state": _settlement_state.export_state(),
+		"codex_discoveries": _codex_discoveries.duplicate(true),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
 		"route_history": _route_history.duplicate(true),
 		"route_source_node_id": _route_source_node_id,
@@ -395,6 +413,7 @@ func export_snapshot() -> Dictionary:
 			PHASE_MAP_TRANSITION,
 			PHASE_FAKE_ENDING_TEASER,
 			PHASE_ENDING_CHOICE,
+			PHASE_RUN_SETTLEMENT,
 		],
 	}, true)
 	return snapshot
@@ -483,6 +502,8 @@ func get_phase_name() -> String:
 			return "FAKE_ENDING_TEASER"
 		PHASE_ENDING_CHOICE:
 			return "ENDING_CHOICE"
+		PHASE_RUN_SETTLEMENT:
+			return "RUN_SETTLEMENT"
 	return "COMBAT"
 
 
@@ -495,6 +516,10 @@ func handle_input(event: InputEvent) -> bool:
 		return true
 	if _phase == PHASE_ENDING_CHOICE:
 		_handle_ending_choice_input(event)
+		return true
+	if _phase == PHASE_RUN_SETTLEMENT:
+		if _is_confirm_event(event):
+			_confirm_run_settlement()
 		return true
 	if _phase == PHASE_NODE_MODAL:
 		_handle_node_modal_input(event)
@@ -670,6 +695,20 @@ func record_guardian_identity_reveal(pet_id: String, registry: Object = null) ->
 			"reason": "tower_run_inactive",
 		}
 	var result: Dictionary = _guardian_spring_node.record_identity_reveal(pet_id, registry)
+	var codex_result: Dictionary = _dictionary_copy(result.get("codex_result", {}))
+	if bool(codex_result.get("accepted", false)) and bool(codex_result.get("changed", false)):
+		var discovery_id := str(codex_result.get("discovery_id", ""))
+		var already_recorded := false
+		for discovery in _codex_discoveries:
+			if str(discovery.get("discovery_id", "")) == discovery_id:
+				already_recorded = true
+				break
+		if not already_recorded:
+			_codex_discoveries.append({
+				"pet_id": str(codex_result.get("pet_id", pet_id)),
+				"display_name": str(result.get("display_name", pet_id)),
+				"discovery_id": discovery_id,
+			})
 	_guardian_state = _guardian_spring_node.export_state()
 	_guardian_spring_node.sync_owner_projection(_active_owner)
 	if _active and _phase == PHASE_NODE_MODAL and _node_modal_kind == "guardian_spring":
@@ -689,6 +728,20 @@ func resolve_defeat(
 		return false
 	if not ensure_run_started(owner):
 		return false
+	if _run_state.get_chance_gems() <= 0:
+		var floor := maxi(
+			int(get_current_node_risk_context().get("floor", 1)),
+			_get_owner_int(owner, "current_stage", 1)
+		)
+		var settlement_result := begin_run_settlement(
+			TowerAscentSettlementState.RESULT_DEFEAT,
+			floor,
+			_make_resolution_id("floor_%02d" % floor, "defeat_settlement"),
+			exit_callback,
+			owner,
+			registry
+		)
+		return bool(settlement_result.get("accepted", false))
 	return _defeat_resolver.resolve(
 		registry,
 		owner,
@@ -813,13 +866,82 @@ func get_ending_choice_view_model() -> Dictionary:
 	return _ending_state.build_choice_view_model()
 
 
+func get_settlement_state_snapshot() -> Dictionary:
+	return _settlement_state.export_state()
+
+
+func get_settlement_view_model() -> Dictionary:
+	return _settlement_state.build_view_model()
+
+
+func begin_run_settlement(
+	result_kind: String,
+	floor: int,
+	resolution_id: String,
+	finish_callback: Callable = Callable(),
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if not ensure_run_started(owner):
+		return {"accepted": false, "reason": "run_unavailable"}
+	var lost_build := TowerAscentSettlementState.build_lost_build_summary(
+		_run_state.export_economy(),
+		_build_state,
+		_guardian_spring_node.export_state()
+	)
+	var floor_result: Dictionary = _record_store.record_floor_reached(
+		floor,
+		"%s:floor_reached" % resolution_id.strip_edges()
+	)
+	if not bool(floor_result.get("accepted", false)):
+		return floor_result
+	var persistent_income := TowerAscentSettlementState.build_persistent_income(
+		_record_store.get_snapshot(),
+		_codex_discoveries
+	)
+	var open_result: Dictionary = _settlement_state.open(
+		result_kind,
+		resolution_id,
+		floor,
+		lost_build,
+		persistent_income
+	)
+	if not bool(open_result.get("accepted", false)):
+		return open_result
+	if not _modal_lifecycle.is_active():
+		var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+		if not bool(lifecycle_result.get("accepted", false)):
+			_settlement_state.reset()
+			return {
+				"accepted": false,
+				"reason": lifecycle_result.get("reason", "modal_enter_failed"),
+			}
+	_active_owner = owner
+	_active_registry = registry
+	if finish_callback.is_valid():
+		_finish_callback = finish_callback
+	_active = true
+	_phase = PHASE_RUN_SETTLEMENT
+	_node_modal_state.close()
+	_request_redraw(owner)
+	return open_result
+
+
 func choose_ending_route(choice: String) -> Dictionary:
 	var result: Dictionary = _ending_state.commit_choice(choice, _record_store)
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
 		return result
 	if choice.strip_edges().to_lower() == TowerAscentEndingState.CHOICE_DESCEND:
-		_finish_vertical_slice()
-		return result
+		return begin_run_settlement(
+			TowerAscentSettlementState.RESULT_STANDARD_CLEAR,
+			9,
+			_make_resolution_id("floor_09", "standard_clear_settlement"),
+			_finish_callback,
+			_active_owner,
+			_active_registry
+		)
 	_unlock_true_ending_route()
 	_enter_true_route_transition()
 	_request_redraw(_active_owner)
@@ -1780,6 +1902,20 @@ func _dismiss_fake_ending_teaser() -> void:
 	var result: Dictionary = _ending_state.mark_teaser_presented()
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
 		return
+	begin_run_settlement(
+		TowerAscentSettlementState.RESULT_STANDARD_CLEAR,
+		9,
+		_make_resolution_id("floor_09", "standard_clear_settlement"),
+		_finish_callback,
+		_active_owner,
+		_active_registry
+	)
+
+
+func _confirm_run_settlement() -> void:
+	var result: Dictionary = _settlement_state.confirm()
+	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
+		return
 	_finish_vertical_slice()
 
 
@@ -1886,7 +2022,9 @@ func _reset_runtime_state() -> void:
 	_guardian_spring_node.reset()
 	_rest_node.reset()
 	_ending_state.reset()
+	_settlement_state.reset()
 	_pending_runtime_perk_rollback_snapshot.clear()
+	_codex_discoveries.clear()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],

@@ -73,9 +73,11 @@ func _verify_first_clear_and_snapshot_resume(save_path: String) -> void:
 	confirm.pressed = true
 	confirm.keycode = KEY_SPACE
 	_expect(restored.handle_input(confirm), "pending teaser should consume confirm input")
-	_expect(not restored.is_active(), "teaser confirm should close the tower overlay")
+	_expect(restored.get_phase_name() == "RUN_SETTLEMENT", "teaser confirm should open the standard-clear settlement")
 	_expect(bool(restored.get_ending_state_snapshot().get("teaser_presented", false)), "teaser execution flag should advance once")
-	_expect(not restored.handle_input(confirm), "closed teaser must not execute twice")
+	_expect(restored.handle_input(confirm), "settlement confirm should consume input")
+	_expect(not restored.is_active(), "settlement confirm should close the tower overlay")
+	_expect(not restored.handle_input(confirm), "closed settlement must not execute twice")
 
 
 func _verify_reclear_does_not_repeat_teaser(save_path: String) -> void:
