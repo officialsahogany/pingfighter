@@ -4,10 +4,12 @@ const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_p
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
 const Stage2PlayfieldRenderer := preload("res://scripts/stages/stage2/stage2_playfield_renderer.gd")
 const Stage2BossActorRenderer := preload("res://scripts/stages/stage2/stage2_boss_actor_renderer.gd")
+const Stage2VariantBossRenderer := preload("res://scripts/stages/stage2/stage2_variant_boss_renderer.gd")
 
 var playfield_renderer: Object = Stage2PlayfieldRenderer.new()
 var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage2BossActorRenderer.new()
+var variant_boss_renderer: Object = Stage2VariantBossRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var prewarm_done := false
 var prewarm_step_index := 0
@@ -31,12 +33,15 @@ func prewarm_assets_step() -> bool:
 				elif playfield_renderer.has_method("prewarm_assets"):
 					playfield_renderer.prewarm_assets()
 		1:
-			if boss_renderer != null:
-				if boss_renderer.has_method("prewarm_assets_step"):
-					if not bool(boss_renderer.prewarm_assets_step()):
+			var selected_boss_renderer: Object = variant_boss_renderer if variant_boss_renderer != null else boss_renderer
+			if selected_boss_renderer != null:
+				if selected_boss_renderer.has_method("prewarm_assets_step"):
+					if not bool(selected_boss_renderer.prewarm_assets_step()):
 						return false
-				elif boss_renderer.has_method("prewarm_assets"):
-					boss_renderer.prewarm_assets()
+				elif selected_boss_renderer.has_method("prewarm_assets"):
+					selected_boss_renderer.prewarm_assets()
+			if boss_renderer != null and boss_renderer != selected_boss_renderer and boss_renderer.has_method("prewarm_assets"):
+				boss_renderer.prewarm_assets()
 		2:
 			if commando_firearm_renderer != null:
 				if commando_firearm_renderer.has_method("prewarm_assets_step"):
@@ -70,7 +75,10 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	player_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage2.player", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	boss_renderer.draw(canvas, context, shake_offset)
+	if str(context.get("stage_boss_variant", "cheongringwi")) == "molewang":
+		variant_boss_renderer.draw(canvas, context, shake_offset)
+	else:
+		boss_renderer.draw(canvas, context, shake_offset)
 	_perf_end(perf_logger, "actors.stage2.boss", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	commando_firearm_renderer.draw(canvas, context, shake_offset)
@@ -80,6 +88,7 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 func clear_transient_canvas_items() -> void:
 	_clear_renderer_transients(player_renderer)
 	_clear_renderer_transients(boss_renderer)
+	_clear_renderer_transients(variant_boss_renderer)
 	_clear_renderer_transients(commando_firearm_renderer)
 
 

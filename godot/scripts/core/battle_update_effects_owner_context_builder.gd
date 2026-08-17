@@ -20,6 +20,7 @@ func build_context(owner: Object, registry: Object, character_type: String, dash
 		"current_msec": Time.get_ticks_msec(),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
+		"stage_boss_variant": str(_get_owner_value(owner, "stage_boss_variant", "")),
 		"ai_mode": str(_get_owner_value(owner, "ai_mode", "champion")),
 		"enraged_boss_active": bool(_get_owner_value(owner, "enraged_boss_active", false)),
 		"selected_character_type": character_type,

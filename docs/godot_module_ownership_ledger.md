@@ -3710,6 +3710,24 @@ This section is intentionally long; use search to find the nearest owner.
   core glow, muzzle and impact `GPUParticles2D` layers, shared procedural
   texture-piece prewarm, playfield-local anchor selection, shake-offset
   application, pre-tree sync preservation, and pulse `Tween` lifecycle.
+- `scripts/stages/common/stage_boss_variant_catalog.gd`
+  Owns the non-tower Stage 2 / Stage 3 boss-variant identity boundary:
+  canonical variant id, stage membership, player-facing Korean name, codex
+  key, default headline boss, and fail-closed normalization. It does not own
+  Tower Ascent slot or stand-in mapping.
+- `scripts/stages/stage2/stage2_boss_variant_skill_state.gd`
+  Owns Stage 2 boss-variant dispatch while preserving
+  `stage2_boss_skill_state.gd` as the unchanged Cheongringwi implementation.
+  Variant states implement the same update, contact, AI, HUD, actor-context,
+  reset, and score-event surface consumed by the production battle modules.
+- `scripts/stages/stage2/stage2_molewang_boss_state.gd`
+  Owns Molewang's frozen-Python-parity gameplay kit: hit-gauge routing,
+  Tunnel Raid sequence and locked-target strike, Spinning Claw contact
+  activation, and the two-round golden friend-mole event.
+- `scripts/stages/stage2/stage2_variant_boss_renderer.gd`
+  Owns original-procedural Stage 2 variant boss and skill presentation. The
+  Stage 2 actor renderer remains the production draw-order owner and delegates
+  only the selected variant boss lane here.
 - `scripts/stages/stage2/stage2_pillar_assets.gd`
   Owns the Stage 2 pillar-background asset surface: the six imagegen
   texture `res://` paths (`BASE`, `TREE`, `GAME_FRAME`, `LEAF`, `ROCK`,

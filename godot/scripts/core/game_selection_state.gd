@@ -4,6 +4,7 @@ signal selection_changed(selection: Dictionary)
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 const DEFAULT_CHARACTER_ID := "ufo_player"
 const DEFAULT_RUNTIME_CHARACTER_ID := "smasher"
@@ -21,6 +22,7 @@ var league_mode: String = DEFAULT_LEAGUE_MODE
 var stage_id: int = 1
 var stage1_boss_variant: String = STAGE1_BOSS_VARIANT_DALJI
 var stage1_boss_variant_explicit: bool = false
+var stage_boss_variant: String = ""
 var skip_battle_logo_once: bool = false
 var _character_prologue_entry_requested: bool = false
 var _pending_online_match_request: Dictionary = {}
@@ -88,7 +90,8 @@ func set_character(data: Dictionary) -> void:
 func set_stage(
 	stage: int,
 	stage1_variant: String = STAGE1_BOSS_VARIANT_DALJI,
-	explicit_stage1_variant: bool = false
+	explicit_stage1_variant: bool = false,
+	requested_stage_boss_variant: String = ""
 ) -> void:
 	stage_id = max(1, stage)
 	stage1_boss_variant = _normalize_stage1_boss_variant(stage1_variant) if stage_id == 1 else STAGE1_BOSS_VARIANT_DALJI
@@ -99,12 +102,18 @@ func set_stage(
 			or stage1_boss_variant != STAGE1_BOSS_VARIANT_DALJI
 		)
 	)
+	stage_boss_variant = StageBossVariantCatalog.normalize_variant(stage_id, requested_stage_boss_variant)
 	selection_changed.emit(get_selection())
 
 
 func set_stage1_boss_variant(variant: String) -> void:
 	stage1_boss_variant = _normalize_stage1_boss_variant(variant) if stage_id == 1 else STAGE1_BOSS_VARIANT_DALJI
 	stage1_boss_variant_explicit = stage_id == 1
+	selection_changed.emit(get_selection())
+
+
+func set_stage_boss_variant(variant: String) -> void:
+	stage_boss_variant = StageBossVariantCatalog.normalize_variant(stage_id, variant)
 	selection_changed.emit(get_selection())
 
 
@@ -178,6 +187,7 @@ func get_selection() -> Dictionary:
 		"stage_id": stage_id,
 		"stage1_boss_variant": stage1_boss_variant,
 		"stage1_boss_variant_explicit": stage1_boss_variant_explicit,
+		"stage_boss_variant": stage_boss_variant,
 	}
 
 

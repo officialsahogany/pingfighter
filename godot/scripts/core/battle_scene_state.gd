@@ -90,6 +90,7 @@ const DEFAULT_VALUES: Dictionary = {
 	"boss_defeated_by_health": false,
 	"current_stage": 1,
 	"stage1_boss_variant": "dalji",
+	"stage_boss_variant": "",
 	"selected_character_type": "smasher",
 	"ai_mode": "champion",
 	"starting_dash_tokens": 1,
