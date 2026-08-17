@@ -10,6 +10,8 @@ const TowerAscentRecordStore := preload(
 const JUDGMENT_NONE := ""
 const JUDGMENT_STANDARD_CLEAR := "standard_clear"
 const JUDGMENT_CHOICE_REQUIRED := "choice_required"
+const CHOICE_DESCEND := "descend"
+const CHOICE_CONTINUE := "continue"
 
 var _resolution_id := ""
 var _judgment := JUDGMENT_NONE
@@ -19,6 +21,7 @@ var _choice_required := false
 var _choice := ""
 var _route_unlocked := false
 var _terminal_committed := false
+var _selected_choice_index := 0
 
 
 func reset() -> void:
@@ -30,6 +33,7 @@ func reset() -> void:
 	_choice = ""
 	_route_unlocked = false
 	_terminal_committed = false
+	_selected_choice_index = 0
 
 
 func resolve_floor_nine(
@@ -85,6 +89,51 @@ func mark_teaser_presented() -> Dictionary:
 	return _result(true, true, "teaser_presented")
 
 
+func move_choice_selection(direction: int) -> void:
+	if direction != 0:
+		_selected_choice_index = posmod(_selected_choice_index + signi(direction), 2)
+
+
+func select_choice_index(index: int) -> bool:
+	if index < 0 or index >= 2:
+		return false
+	_selected_choice_index = index
+	return true
+
+
+func get_selected_choice() -> String:
+	return CHOICE_DESCEND if _selected_choice_index <= 0 else CHOICE_CONTINUE
+
+
+func commit_choice(choice: String, record_store: Object) -> Dictionary:
+	var normalized_choice := choice.strip_edges().to_lower()
+	if _judgment != JUDGMENT_CHOICE_REQUIRED:
+		return _result(false, false, "choice_not_available")
+	if normalized_choice not in [CHOICE_DESCEND, CHOICE_CONTINUE]:
+		return _result(false, false, "invalid_choice")
+	if not _choice.is_empty():
+		if _choice != normalized_choice:
+			return _result(false, false, "choice_is_irreversible")
+		return _result(true, false, "already_committed")
+	if normalized_choice == CHOICE_DESCEND:
+		if record_store == null or not record_store.has_method("record_clear"):
+			return _result(false, false, "record_store_unavailable")
+		var record_result: Dictionary = record_store.call(
+			"record_clear",
+			9,
+			TowerAscentRecordStore.ENDING_STANDARD,
+			false,
+			"%s:standard_clear" % _resolution_id
+		)
+		if not bool(record_result.get("accepted", false)):
+			return _result(false, false, str(record_result.get("reason", "record_commit_failed")))
+	_choice = normalized_choice
+	_choice_required = false
+	_route_unlocked = normalized_choice == CHOICE_CONTINUE
+	_terminal_committed = normalized_choice == CHOICE_DESCEND
+	return _result(true, true, "choice_committed")
+
+
 func is_teaser_pending() -> bool:
 	return _teaser_required and not _teaser_presented
 
@@ -99,6 +148,7 @@ func export_state() -> Dictionary:
 		"choice": _choice,
 		"route_unlocked": _route_unlocked,
 		"terminal_committed": _terminal_committed,
+		"selected_choice_index": _selected_choice_index,
 	}
 
 
@@ -118,13 +168,20 @@ func restore_state(value: Variant) -> bool:
 	_choice = str(source.get("choice", "")).strip_edges()
 	_route_unlocked = bool(source.get("route_unlocked", false))
 	_terminal_committed = bool(source.get("terminal_committed", false))
+	_selected_choice_index = clampi(int(source.get("selected_choice_index", 0)), 0, 1)
 	if _judgment == JUDGMENT_NONE:
 		return _resolution_id.is_empty()
 	if _resolution_id.is_empty():
 		return false
 	if _judgment == JUDGMENT_STANDARD_CLEAR:
 		return _teaser_required and _terminal_committed and not _choice_required
-	return _choice_required and not _terminal_committed
+	if _choice.is_empty():
+		return _choice_required and not _terminal_committed and not _route_unlocked
+	if _choice == CHOICE_DESCEND:
+		return not _choice_required and _terminal_committed and not _route_unlocked
+	if _choice == CHOICE_CONTINUE:
+		return not _choice_required and not _terminal_committed and _route_unlocked
+	return false
 
 
 func build_teaser_view_model() -> Dictionary:
@@ -132,6 +189,25 @@ func build_teaser_view_model() -> Dictionary:
 		"title": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_TEASER_TITLE),
 		"body": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_TEASER_BODY),
 		"prompt": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_TEASER_PROMPT),
+	}
+
+
+func build_choice_view_model() -> Dictionary:
+	return {
+		"title": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_CHOICE_TITLE),
+		"body": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_CHOICE_BODY),
+		"prompt": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_CHOICE_PROMPT),
+		"selected_index": _selected_choice_index,
+		"actions": [
+			{
+				"id": CHOICE_DESCEND,
+				"label": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_CHOICE_DESCEND),
+			},
+			{
+				"id": CHOICE_CONTINUE,
+				"label": TowerAscentEndingLocalization.text(TowerAscentEndingLocalization.KEY_CHOICE_CONTINUE),
+			},
+		],
 	}
 
 

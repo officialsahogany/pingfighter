@@ -56,6 +56,7 @@ const PHASE_NODE_MODAL := 1
 const PHASE_ROUTE_AIM := 2
 const PHASE_MAP_TRANSITION := 3
 const PHASE_FAKE_ENDING_TEASER := 4
+const PHASE_ENDING_CHOICE := 5
 const MAP_TRANSITION_SECONDS := 0.9
 const SELECTOR_RADIUS := 11.0
 const SELECTOR_SPEED := 520.0
@@ -316,7 +317,7 @@ func restore_snapshot(
 	_phase = clampi(
 		int(snapshot.get("phase", PHASE_NODE_MODAL)),
 		PHASE_NODE_MODAL,
-		PHASE_FAKE_ENDING_TEASER
+		PHASE_ENDING_CHOICE
 	)
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
@@ -342,6 +343,12 @@ func restore_snapshot(
 	else:
 		_node_modal_state.close()
 	if _phase == PHASE_FAKE_ENDING_TEASER and not _ending_state.is_teaser_pending():
+		_reset_runtime_state()
+		return false
+	if (
+		_phase == PHASE_ENDING_CHOICE
+		and not bool(_ending_state.export_state().get("choice_required", false))
+	):
 		_reset_runtime_state()
 		return false
 	return true
@@ -387,6 +394,7 @@ func export_snapshot() -> Dictionary:
 			PHASE_NODE_MODAL,
 			PHASE_MAP_TRANSITION,
 			PHASE_FAKE_ENDING_TEASER,
+			PHASE_ENDING_CHOICE,
 		],
 	}, true)
 	return snapshot
@@ -473,6 +481,8 @@ func get_phase_name() -> String:
 			return "MAP_TRANSITION"
 		PHASE_FAKE_ENDING_TEASER:
 			return "FAKE_ENDING_TEASER"
+		PHASE_ENDING_CHOICE:
+			return "ENDING_CHOICE"
 	return "COMBAT"
 
 
@@ -482,6 +492,9 @@ func handle_input(event: InputEvent) -> bool:
 	if _phase == PHASE_FAKE_ENDING_TEASER:
 		if _is_confirm_event(event):
 			_dismiss_fake_ending_teaser()
+		return true
+	if _phase == PHASE_ENDING_CHOICE:
+		_handle_ending_choice_input(event)
 		return true
 	if _phase == PHASE_NODE_MODAL:
 		_handle_node_modal_input(event)
@@ -766,7 +779,13 @@ func begin_floor_nine_resolution(
 	)
 	if not bool(result.get("accepted", false)):
 		return result
-	if not _ending_state.is_teaser_pending():
+	var ending_state: Dictionary = _ending_state.export_state()
+	var target_phase := PHASE_COMBAT
+	if _ending_state.is_teaser_pending():
+		target_phase = PHASE_FAKE_ENDING_TEASER
+	elif bool(ending_state.get("choice_required", false)):
+		target_phase = PHASE_ENDING_CHOICE
+	else:
 		return result
 	if not _modal_lifecycle.is_active():
 		var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
@@ -776,7 +795,7 @@ func begin_floor_nine_resolution(
 	_active_registry = registry
 	_finish_callback = finish_callback
 	_active = true
-	_phase = PHASE_FAKE_ENDING_TEASER
+	_phase = target_phase
 	_node_modal_state.close()
 	_request_redraw(owner)
 	return result
@@ -788,6 +807,23 @@ func get_ending_state_snapshot() -> Dictionary:
 
 func get_ending_view_model() -> Dictionary:
 	return _ending_state.build_teaser_view_model()
+
+
+func get_ending_choice_view_model() -> Dictionary:
+	return _ending_state.build_choice_view_model()
+
+
+func choose_ending_route(choice: String) -> Dictionary:
+	var result: Dictionary = _ending_state.commit_choice(choice, _record_store)
+	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
+		return result
+	if choice.strip_edges().to_lower() == TowerAscentEndingState.CHOICE_DESCEND:
+		_finish_vertical_slice()
+		return result
+	_unlock_true_ending_route()
+	_enter_true_route_transition()
+	_request_redraw(_active_owner)
+	return result
 
 
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
@@ -1745,6 +1781,75 @@ func _dismiss_fake_ending_teaser() -> void:
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
 		return
 	_finish_vertical_slice()
+
+
+func _handle_ending_choice_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if not key_event.pressed or key_event.echo:
+			return
+		if key_event.keycode in [KEY_UP, KEY_LEFT, KEY_W, KEY_A]:
+			_ending_state.move_choice_selection(-1)
+		elif key_event.keycode in [KEY_DOWN, KEY_RIGHT, KEY_S, KEY_D]:
+			_ending_state.move_choice_selection(1)
+		elif key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			choose_ending_route(_ending_state.get_selected_choice())
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			var index := _ending_choice_index_at(mouse_event.position)
+			if _ending_state.select_choice_index(index):
+				choose_ending_route(_ending_state.get_selected_choice())
+		return
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed:
+			var index := _ending_choice_index_at(touch_event.position)
+			if _ending_state.select_choice_index(index):
+				choose_ending_route(_ending_state.get_selected_choice())
+
+
+func _ending_choice_index_at(position: Vector2) -> int:
+	for index in range(2):
+		if Rect2(158.0, 382.0 + float(index) * 64.0, 444.0, 50.0).has_point(position):
+			return index
+	return -1
+
+
+func _unlock_true_ending_route() -> void:
+	for node in _graph_nodes:
+		if int(node.get("floor", 0)) >= 10:
+			node["route_locked"] = false
+	_sync_run_state_phases()
+
+
+func _enter_true_route_transition() -> void:
+	var source_id := _find_floor_node_id(9, false)
+	var target_id := _find_floor_node_id(10, true)
+	if not source_id.is_empty():
+		_route_source_node_id = source_id
+		_current_node_id = source_id
+	if not target_id.is_empty():
+		_selected_target_id = target_id
+		_route_history.append({"from": _route_source_node_id, "to": target_id})
+	_phase = PHASE_MAP_TRANSITION
+	_map_transition_progress = 0.0
+	_selector_launched = false
+	_selector_velocity = Vector2.ZERO
+
+
+func _find_floor_node_id(floor: int, first_row: bool) -> String:
+	var selected_id := ""
+	var selected_row := 2147483647 if first_row else -2147483648
+	for node in _graph_nodes:
+		if int(node.get("floor", 0)) != floor:
+			continue
+		var row := int(node.get("row_index", node.get("row", 0)))
+		if (first_row and row < selected_row) or (not first_row and row > selected_row):
+			selected_row = row
+			selected_id = str(node.get("id", ""))
+	return selected_id
 
 
 func _reset_selector() -> void:

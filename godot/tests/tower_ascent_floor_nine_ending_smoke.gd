@@ -50,7 +50,13 @@ func _verify_first_clear_and_snapshot_resume(save_path: String) -> void:
 	var body := str(view_model.get("body", ""))
 	_expect(body == "왕의 시련은 아직 끝나지 않았다", "teaser copy should match the canonical Korean promise")
 	_expect(body.find("—") < 0 and body.find("–") < 0, "player-facing teaser copy must not use dash punctuation")
-	_expect(TowerAscentEndingLocalization.get_registered_keys().size() == 3, "all teaser localization keys should be registered")
+	var registered_keys := TowerAscentEndingLocalization.get_registered_keys()
+	_expect(
+		registered_keys.has(TowerAscentEndingLocalization.KEY_TEASER_TITLE)
+			and registered_keys.has(TowerAscentEndingLocalization.KEY_TEASER_BODY)
+			and registered_keys.has(TowerAscentEndingLocalization.KEY_TEASER_PROMPT),
+		"all teaser localization keys should remain registered"
+	)
 
 	var snapshot: Dictionary = flow.export_persistable_snapshot()
 	_expect(not snapshot.is_empty(), "teaser should be a stable snapshot boundary")
@@ -82,7 +88,7 @@ func _verify_reclear_does_not_repeat_teaser(save_path: String) -> void:
 	var ending: Dictionary = flow.get_ending_state_snapshot()
 	_expect(str(ending.get("judgment", "")) == "choice_required", "reclear should reserve the later continue-choice path")
 	_expect(not bool(ending.get("teaser_required", true)), "reclear must not repeat the first-clear teaser")
-	_expect(flow.get_phase_name() == "NODE_MODAL", "item 2 must not invent or open the item-3 choice modal early")
+	_expect(flow.get_phase_name() == "ENDING_CHOICE", "reclear should open the item-3 choice modal only after the prior fake-ending record")
 	_expect(int(flow.get_record_snapshot().get("clear_count", -1)) == 1, "judgment alone must not record a second clear")
 
 

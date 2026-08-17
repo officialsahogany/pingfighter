@@ -36,6 +36,8 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_map_transition(canvas, flow)
 	elif phase_name == "FAKE_ENDING_TEASER":
 		_draw_fake_ending_teaser(canvas, flow)
+	elif phase_name == "ENDING_CHOICE":
+		_draw_ending_choice(canvas, flow)
 
 
 func build_render_model(flow: Object) -> Dictionary:
@@ -330,6 +332,31 @@ func _draw_fake_ending_teaser(canvas: CanvasItem, flow: Object) -> void:
 	canvas.draw_line(Vector2(166.0, 310.0), Vector2(594.0, 310.0), Color(GOLD, 0.72), 2.0)
 	canvas.draw_string(font, Vector2(132.0, 374.0), str(model.get("body", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 24, Color("f3dba8"))
 	canvas.draw_string(font, Vector2(132.0, 454.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 15, Color(PAPER, 0.78))
+
+
+func _draw_ending_choice(canvas: CanvasItem, flow: Object) -> void:
+	var model: Dictionary = (
+		flow.get_ending_choice_view_model()
+		if flow.has_method("get_ending_choice_view_model")
+		else {}
+	)
+	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.02, 0.012, 0.01, 0.84), true)
+	var panel := Rect2(104.0, 156.0, 552.0, 430.0)
+	canvas.draw_rect(panel, Color("f3e1b8"), true)
+	canvas.draw_rect(panel, CINNABAR_DARK, false, 5.0)
+	canvas.draw_rect(panel.grow(-12.0), GOLD, false, 1.5)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(font, Vector2(144.0, 226.0), str(model.get("title", "왕의 시련")), HORIZONTAL_ALIGNMENT_CENTER, 472.0, 30, INK)
+	canvas.draw_string(font, Vector2(132.0, 286.0), str(model.get("body", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 17, INK_SOFT)
+	var actions: Array = model.get("actions", [])
+	var selected_index := int(model.get("selected_index", 0))
+	for index in range(actions.size()):
+		var rect := Rect2(158.0, 382.0 + float(index) * 64.0, 444.0, 50.0)
+		var selected := index == selected_index
+		canvas.draw_rect(rect, CINNABAR if selected else Color(PAPER_DEEP, 0.76), true)
+		canvas.draw_rect(rect, CINNABAR_DARK, false, 2.0)
+		canvas.draw_string(font, Vector2(rect.position.x, rect.position.y + 33.0), str((actions[index] as Dictionary).get("label", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 18, PAPER if selected else INK)
+	canvas.draw_string(font, Vector2(132.0, 548.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 14, CINNABAR_DARK)
 
 
 func _vector2(value: Variant) -> Vector2:
