@@ -7,7 +7,6 @@ const TowerAscentRouteCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_candidate_policy.gd"
 )
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
-const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 const TowerAscentNodeResolutionTransaction := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_resolution_transaction.gd"
 )
@@ -25,9 +24,6 @@ const TowerAscentNodeActionTransaction := preload(
 )
 const TowerAscentShopInventory := preload(
 	"res://scripts/tower_ascent/tower_ascent_shop_inventory.gd"
-)
-const TowerAscentTrainingOfferBuilder := preload(
-	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
 )
 const TowerAscentFallenMonkNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_fallen_monk_node.gd"
@@ -76,8 +72,9 @@ var _node_action_transaction: Object = TowerAscentNodeActionTransaction.new()
 var _defeat_resolver: Object = TowerAscentDefeatResolver.new()
 var _generated_shop_inventory: Array[Dictionary] = []
 var _purchase_history: Array[Dictionary] = []
-var _generated_training_offers: Array[Dictionary] = []
-var _training_history: Array[Dictionary] = []
+var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
+var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
+var _rest_node: Object = TowerAscentRestNode.new()
 var _claimed_decoration_ids: Array[String] = []
 var _build_state := {
 	"mugong": [],
@@ -87,8 +84,11 @@ var _build_state := {
 }
 var _guardian_state := {
 	"soul_summoning_owned": false,
+	"soul_summoning_node_id": "",
 	"active_guardian": {},
 	"sealed_guardians": [],
+	"history": [],
+	"runtime_snapshot": {},
 }
 var _gameplay_rng_state := {"seed": 140913, "state": 140913}
 var _route_history: Array[Dictionary] = []
@@ -107,16 +107,11 @@ var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
 var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
 var _shop_inventory_builder: Object = TowerAscentShopInventory.new()
-var _training_offer_builder: Object = TowerAscentTrainingOfferBuilder.new()
-var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
-var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
-var _rest_node: Object = TowerAscentRestNode.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
 var _active_owner: Object = null
 var _active_registry: Object = null
-var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
 var _header_subtitle := ""
 
 
@@ -254,12 +249,6 @@ func restore_snapshot(
 		var purchase_resolution_id := str(purchase.get("node_resolution_id", ""))
 		if not purchase_resolution_id.is_empty():
 			_resolution_ids[purchase_resolution_id] = true
-	_generated_training_offers.assign(_dictionary_array(snapshot.get("generated_training_offers", [])))
-	_training_history.assign(_dictionary_array(snapshot.get("training_history", [])))
-	for training_record in _training_history:
-		var training_resolution_id := str(training_record.get("node_resolution_id", ""))
-		if not training_resolution_id.is_empty():
-			_resolution_ids[training_resolution_id] = true
 	_fallen_monk_node.restore_state(
 		snapshot.get("generated_fallen_monk_offers", []),
 		snapshot.get("fallen_monk_history", []),
@@ -308,9 +297,6 @@ func restore_snapshot(
 	_aim_target_x = clampf(float(snapshot.get("aim_target_x", 220.0)), SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
 	_map_transition_progress = clampf(float(snapshot.get("map_transition_progress", 0.0)), 0.0, 1.0)
 	_finish_callback = finish_callback
-	if not _restore_runtime_perk_build_state(owner, registry):
-		_reset_runtime_state()
-		return false
 	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
 	if not bool(lifecycle_result.get("accepted", false)):
 		_reset_runtime_state()
@@ -341,8 +327,6 @@ func export_snapshot() -> Dictionary:
 		"pending_rewards": _pending_rewards.duplicate(true),
 		"generated_shop_inventory": _generated_shop_inventory.duplicate(true),
 		"purchase_history": _purchase_history.duplicate(true),
-		"generated_training_offers": _generated_training_offers.duplicate(true),
-		"training_history": _training_history.duplicate(true),
 		"generated_fallen_monk_offers": _fallen_monk_node.get_generated_offers(),
 		"fallen_monk_history": _fallen_monk_node.get_history(),
 		"fallen_monk_runtime_snapshot": _fallen_monk_node.get_runtime_snapshot(),
@@ -677,14 +661,6 @@ func get_purchase_history() -> Array[Dictionary]:
 	return _purchase_history.duplicate(true)
 
 
-func get_generated_training_offers() -> Array[Dictionary]:
-	return _generated_training_offers.duplicate(true)
-
-
-func get_training_history() -> Array[Dictionary]:
-	return _training_history.duplicate(true)
-
-
 func get_generated_fallen_monk_offers() -> Array[Dictionary]:
 	return _fallen_monk_node.get_generated_offers()
 
@@ -713,8 +689,6 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 			action_id.trim_prefix("shop_purchase:"),
 			requested_resolution_id
 		)
-	if _node_modal_kind == "training" and action_id.begins_with("training_"):
-		return _execute_training_action(action_id, requested_resolution_id)
 	if _node_modal_kind == "fallen_monk" and action_id.begins_with("fallen_monk:"):
 		return _execute_fallen_monk_action(action_id, requested_resolution_id)
 	if _node_modal_kind == "guardian_spring" and action_id.begins_with("guardian_spring:"):
@@ -805,10 +779,6 @@ func _open_node_modal() -> void:
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
 		))
-	elif _node_modal_kind == "training" and _get_training_offer_entry().is_empty():
-		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_OFFER_UNAVAILABLE
-		))
 	elif _node_modal_kind == "fallen_monk" and _build_fallen_monk_actions().is_empty():
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_MONK_OFFER_UNAVAILABLE
@@ -866,8 +836,6 @@ func _confirm_node_modal_action() -> void:
 func _build_node_modal_actions() -> Array[Dictionary]:
 	if _node_modal_kind == "shop":
 		return _build_shop_actions()
-	if _node_modal_kind == "training":
-		return _build_training_actions()
 	if _node_modal_kind == "fallen_monk":
 		return _build_fallen_monk_actions()
 	if _node_modal_kind == "guardian_spring":
@@ -1086,298 +1054,6 @@ func _rollback_shop_active_item(item_name: String) -> void:
 
 func _refresh_shop_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_shop_actions())
-	_node_modal_state.set_balances(_run_state.export_economy())
-	_node_modal_state.set_status_text(status_text)
-
-
-func _build_training_actions() -> Array[Dictionary]:
-	var offer := _get_or_create_training_offer()
-	if offer.is_empty():
-		return []
-	var balances: Dictionary = _run_state.export_economy()
-	var used_count := _get_training_use_count(_current_node_id)
-	var visit_complete := used_count >= TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT
-	var consumed_ids := _get_consumed_training_choice_ids(_current_node_id)
-	var result: Array[Dictionary] = []
-	for choice_value in offer.get("stat_choices", []):
-		if choice_value is Dictionary:
-			result.append(_build_training_action(
-				"stat",
-				choice_value as Dictionary,
-				TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST,
-				balances,
-				visit_complete,
-				consumed_ids
-			))
-	for choice_value in offer.get("mugong_choices", []):
-		if choice_value is Dictionary:
-			result.append(_build_training_action(
-				"mugong",
-				choice_value as Dictionary,
-				TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST,
-				balances,
-				visit_complete,
-				consumed_ids
-			))
-	return result
-
-
-func _build_training_action(
-	choice_kind: String,
-	choice: Dictionary,
-	cost: int,
-	balances: Dictionary,
-	visit_complete: bool,
-	consumed_ids: Dictionary
-) -> Dictionary:
-	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
-	var action_id := "training_%s:%s" % [choice_kind, choice_id]
-	var consumed := consumed_ids.has("%s:%s" % [choice_kind, choice_id])
-	var affordable := int(balances.get("muhon", 0)) >= cost
-	var enabled := not visit_complete and not consumed and affordable
-	var unavailable_reason := ""
-	if visit_complete:
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
-		)
-	elif consumed:
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_CHOICE_USED
-		)
-	elif not affordable:
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
-			{
-				"required": cost,
-				"shortfall": cost - int(balances.get("muhon", 0)),
-			}
-		)
-	var display_name := str(choice.get("name", choice_id))
-	var label_key := (
-		TowerAscentNodeModalLocalization.KEY_TRAINING_STAT_OPTION
-		if choice_kind == "stat"
-		else TowerAscentNodeModalLocalization.KEY_TRAINING_MUGONG_OPTION
-	)
-	return {
-		"id": action_id,
-		"label": TowerAscentNodeModalLocalization.text(
-			label_key,
-			{"name": display_name}
-		),
-		"cost_text": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
-			{"amount": cost}
-		),
-		"enabled": enabled,
-		"unavailable_reason": unavailable_reason,
-		"payload": {
-			"choice_kind": choice_kind,
-			"choice_id": choice_id,
-		},
-	}
-
-
-func _execute_training_action(
-	action_id: String,
-	requested_resolution_id: String = ""
-) -> Dictionary:
-	var parsed := _parse_training_action_id(action_id)
-	if parsed.is_empty():
-		return {"accepted": false, "reason": "invalid_training_action"}
-	if _get_training_use_count(_current_node_id) >= TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT:
-		var complete_message := TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
-		)
-		_refresh_training_modal(complete_message)
-		return {
-			"accepted": false,
-			"reason": "training_visit_complete",
-			"message": complete_message,
-		}
-	var choice_kind := str(parsed.get("choice_kind", ""))
-	var choice_id := str(parsed.get("choice_id", ""))
-	if _get_consumed_training_choice_ids(_current_node_id).has("%s:%s" % [choice_kind, choice_id]):
-		return {"accepted": false, "reason": "training_choice_used"}
-	var choice := _find_training_choice(choice_kind, choice_id)
-	if choice.is_empty():
-		return {"accepted": false, "reason": "unknown_training_choice"}
-	var cost := (
-		TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
-		if choice_kind == "stat"
-		else TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
-	)
-	var affordability: Dictionary = _run_state.can_afford({"muhon": cost})
-	if not bool(affordability.get("accepted", false)):
-		var insufficient_message := TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
-			{
-				"required": cost,
-				"shortfall": int(affordability.get("shortfall", cost)),
-			}
-		)
-		affordability["message"] = insufficient_message
-		_refresh_training_modal(insufficient_message)
-		return affordability
-	var resolution_id := requested_resolution_id.strip_edges()
-	if resolution_id.is_empty():
-		resolution_id = _make_resolution_id(_current_node_id, action_id)
-	var transaction_result: Dictionary = _node_action_transaction.apply_once(
-		resolution_id,
-		{"muhon": cost},
-		{},
-		_run_state,
-		_resolution_ids,
-		Callable(self, "_grant_training_choice").bind(choice),
-		Callable(self, "_rollback_training_choice")
-	)
-	_pending_runtime_perk_rollback_snapshot.clear()
-	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
-		var failed_message := str(transaction_result.get("reason", "training_failed"))
-		transaction_result["message"] = failed_message
-		_refresh_training_modal(failed_message)
-		return transaction_result
-	var display_name := str(choice.get("name", choice_id))
-	var record := {
-		"node_id": _current_node_id,
-		"node_resolution_id": resolution_id,
-		"choice_kind": choice_kind,
-		"choice_id": choice_id,
-		"display_name": display_name,
-		"cost": cost,
-	}
-	_training_history.append(record)
-	_capture_runtime_perk_build_state()
-	var build_key := "mugong" if choice_kind == "mugong" else "training"
-	var build_entries: Array = _build_state.get(build_key, [])
-	build_entries.append(record.duplicate(true))
-	_build_state[build_key] = build_entries
-	var success_message := TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_COMPLETED,
-		{"name": display_name}
-	)
-	_refresh_training_modal(success_message)
-	transaction_result["training"] = record.duplicate(true)
-	transaction_result["message"] = success_message
-	return transaction_result
-
-
-func _get_or_create_training_offer() -> Dictionary:
-	var existing := _get_training_offer_entry()
-	if not existing.is_empty():
-		return existing
-	var generated: Dictionary = _training_offer_builder.build_offer(
-		_current_node_id,
-		_map_seed,
-		_active_owner,
-		_active_registry
-	)
-	if not bool(generated.get("accepted", false)):
-		return {}
-	_generated_training_offers.append(generated)
-	return _generated_training_offers.back()
-
-
-func _get_training_offer_entry() -> Dictionary:
-	for offer in _generated_training_offers:
-		if str(offer.get("node_id", "")) == _current_node_id:
-			return offer
-	return {}
-
-
-func _find_training_choice(choice_kind: String, choice_id: String) -> Dictionary:
-	var offer := _get_or_create_training_offer()
-	var list_key := "stat_choices" if choice_kind == "stat" else "mugong_choices"
-	for choice_value in offer.get(list_key, []):
-		if (
-			choice_value is Dictionary
-			and str((choice_value as Dictionary).get("id", (choice_value as Dictionary).get("perk_id", ""))) == choice_id
-		):
-			return choice_value as Dictionary
-	return {}
-
-
-func _parse_training_action_id(action_id: String) -> Dictionary:
-	for choice_kind in ["stat", "mugong"]:
-		var prefix := "training_%s:" % choice_kind
-		if action_id.begins_with(prefix):
-			var choice_id := action_id.trim_prefix(prefix).strip_edges()
-			if not choice_id.is_empty():
-				return {"choice_kind": choice_kind, "choice_id": choice_id}
-	return {}
-
-
-func _get_training_use_count(node_id: String) -> int:
-	var count := 0
-	for record in _training_history:
-		if str(record.get("node_id", "")) == node_id:
-			count += 1
-	return count
-
-
-func _get_consumed_training_choice_ids(node_id: String) -> Dictionary:
-	var result := {}
-	for record in _training_history:
-		if str(record.get("node_id", "")) != node_id:
-			continue
-		result["%s:%s" % [
-			str(record.get("choice_kind", "")),
-			str(record.get("choice_id", "")),
-		]] = true
-	return result
-
-
-func _grant_training_choice(choice: Dictionary) -> bool:
-	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
-	if runtime_state == null or not runtime_state.has_method("apply_choice"):
-		return false
-	_pending_runtime_perk_rollback_snapshot.clear()
-	if runtime_state.has_method("build_unlock_save_snapshot"):
-		var snapshot_value: Variant = runtime_state.call("build_unlock_save_snapshot")
-		if snapshot_value is Dictionary:
-			_pending_runtime_perk_rollback_snapshot = (snapshot_value as Dictionary).duplicate(true)
-	return bool(runtime_state.call("apply_choice", choice, _active_owner, _active_registry))
-
-
-func _rollback_training_choice() -> void:
-	if _pending_runtime_perk_rollback_snapshot.is_empty():
-		return
-	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
-	if runtime_state != null and runtime_state.has_method("apply_unlock_save_snapshot"):
-		runtime_state.call(
-			"apply_unlock_save_snapshot",
-			_pending_runtime_perk_rollback_snapshot,
-			_active_owner,
-			_active_registry
-		)
-
-
-func _capture_runtime_perk_build_state() -> void:
-	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
-	if runtime_state == null or not runtime_state.has_method("build_unlock_save_snapshot"):
-		return
-	var snapshot_value: Variant = runtime_state.call("build_unlock_save_snapshot")
-	if snapshot_value is Dictionary:
-		_build_state["runtime_perk_snapshot"] = (snapshot_value as Dictionary).duplicate(true)
-
-
-func _restore_runtime_perk_build_state(owner: Object, registry: Object) -> bool:
-	var snapshot_value: Variant = _build_state.get("runtime_perk_snapshot", {})
-	if not (snapshot_value is Dictionary) or (snapshot_value as Dictionary).is_empty():
-		return true
-	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
-	if runtime_state == null or not runtime_state.has_method("apply_unlock_save_snapshot"):
-		return false
-	var result_value: Variant = runtime_state.call(
-		"apply_unlock_save_snapshot",
-		snapshot_value as Dictionary,
-		owner,
-		registry
-	)
-	return result_value is Dictionary and bool((result_value as Dictionary).get("restored", false))
-
-
-func _refresh_training_modal(status_text: String) -> void:
-	_node_modal_state.set_actions(_build_training_actions())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
 
@@ -1683,12 +1359,9 @@ func _reset_runtime_state() -> void:
 	_pending_rewards.clear()
 	_generated_shop_inventory.clear()
 	_purchase_history.clear()
-	_generated_training_offers.clear()
-	_training_history.clear()
 	_fallen_monk_node.reset()
 	_guardian_spring_node.reset()
 	_rest_node.reset()
-	_pending_runtime_perk_rollback_snapshot.clear()
 	_claimed_decoration_ids.clear()
 	_build_state = {
 		"mugong": [],

@@ -20,12 +20,6 @@ const KEY_SHOP_PURCHASED := "tower_ascent.node_modal.shop.purchased"
 const KEY_SHOP_INVENTORY_UNAVAILABLE := "tower_ascent.node_modal.shop.inventory_unavailable"
 const KEY_COST_MUHON := "tower_ascent.node_modal.cost.muhon"
 const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
-const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
-const KEY_TRAINING_MUGONG_OPTION := "tower_ascent.node_modal.training.mugong_option"
-const KEY_TRAINING_CHOICE_USED := "tower_ascent.node_modal.training.choice_used"
-const KEY_TRAINING_VISIT_COMPLETE := "tower_ascent.node_modal.training.visit_complete"
-const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
-const KEY_TRAINING_OFFER_UNAVAILABLE := "tower_ascent.node_modal.training.offer_unavailable"
 const KEY_MONK_ACQUIRE_OPTION := "tower_ascent.node_modal.fallen_monk.acquire_option"
 const KEY_MONK_SWAP_OPTION := "tower_ascent.node_modal.fallen_monk.swap_option"
 const KEY_MONK_REMOVE_OPTION := "tower_ascent.node_modal.fallen_monk.remove_option"
@@ -92,12 +86,6 @@ const TEXT_BY_LOCALE := {
 		KEY_SHOP_INVENTORY_UNAVAILABLE: "상점 재고를 준비할 수 없습니다.",
 		KEY_COST_MUHON: "{amount} 무혼",
 		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
-		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
-		KEY_TRAINING_MUGONG_OPTION: "무공 서가: {name}",
-		KEY_TRAINING_CHOICE_USED: "선택 완료",
-		KEY_TRAINING_VISIT_COMPLETE: "이번 방문의 수련을 모두 마쳤습니다.",
-		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
-		KEY_TRAINING_OFFER_UNAVAILABLE: "수련 선택지를 준비할 수 없습니다.",
 		KEY_MONK_ACQUIRE_OPTION: "초식 습득: {name}",
 		KEY_MONK_SWAP_OPTION: "초식 교환: {old_name} 대신 {new_name}",
 		KEY_MONK_REMOVE_OPTION: "초식 제거: {name}",
