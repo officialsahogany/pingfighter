@@ -41,6 +41,9 @@ class FakeOwner:
 
 	var selected_character_type := "smasher"
 	var current_stage := 1
+	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
 
 
 class FakeUnlockStore:
@@ -425,10 +428,28 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 
 	state.call("_purchase", 0)
 	_expect(int(flow.balances.get("muhon", -1)) == 9 and state.spent_flags[0], "first purchase must debit one and mark only its stable slot")
+	var absorbing_model: Dictionary = state.build_view_model()
+	var absorbing_choices: Array = absorbing_model.get("choices", [])
+	var absorbing_effects: Array = absorbing_model.get("purchase_absorption_effects", [])
+	_expect(absorbing_effects.size() == 1 and int((absorbing_effects[0] as Dictionary).get("slot_index", -1)) == 0, "purchased card must start one slot-bound absorption flight")
+	_expect(bool((absorbing_choices[0] as Dictionary).get("reward_pick_absorbing", false)), "purchased slot must expose its moving-card phase")
+	_expect((absorbing_model.get("card_rects", []) as Array) == rects, "absorption must not move any authoritative card slot")
+	state.update(0.25)
+	absorbing_model = state.build_view_model()
+	absorbing_effects = absorbing_model.get("purchase_absorption_effects", [])
+	_expect(float((absorbing_effects[0] as Dictionary).get("progress", 0.0)) > 0.0, "absorption must advance on the reward-state update clock")
 	state.call("_purchase", 0)
 	_expect(int(flow.balances.get("muhon", -1)) == 9 and state.choices.size() == 4, "re-clicking a spent card must neither debit nor shrink the array")
 	state.call("_purchase", 1)
 	_expect(int(flow.balances.get("muhon", -1)) == 7 and state.spent_flags[1], "second purchase must remain available in the same visit")
+	_expect(state.purchase_absorption_effects.size() == 2, "another remaining card must be purchasable while the first absorption is playing")
+	state.update(1.0)
+	var emptied_model: Dictionary = state.build_view_model()
+	var emptied_choices: Array = emptied_model.get("choices", [])
+	_expect((emptied_model.get("purchase_absorption_effects", []) as Array).is_empty(), "completed absorption flights must retire deterministically")
+	_expect(bool((emptied_choices[0] as Dictionary).get("reward_pick_empty", false)), "completed purchase must leave its stable slot completely empty")
+	_expect(bool((emptied_choices[1] as Dictionary).get("reward_pick_empty", false)), "each completed purchase must leave only its own slot empty")
+	_expect(not bool((emptied_choices[3] as Dictionary).get("reward_pick_empty", true)), "an unpurchased card must remain in its original slot")
 	state.call("_purchase", 2)
 	_expect(int(flow.balances.get("muhon", -1)) == 4 and state.spent_flags[2], "fusion card must debit three Muhon through the same transaction")
 	_expect(state.is_external_modal_active(), "fusion purchase must enter the existing fusion modal")
@@ -440,6 +461,9 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 	var model: Dictionary = state.build_view_model()
 	var supreme_model: Dictionary = (model.get("choices", []) as Array)[3]
 	_expect(not bool(supreme_model.get("reward_pick_enabled", true)), "an unaffordable remaining card must disable without disappearing")
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+	_expect(renderer_source.find("CommonStarpointVisualHost.draw_muhon_fallback") >= 0, "purchase absorption must reuse the shared Muhon flame composition")
+	_expect(renderer_source.find("if spent:") >= 0 and renderer_source.find("continue") >= 0, "spent cards must leave empty renderer slots after absorption")
 	state.call("_finish")
 	_expect(not state.active and _finish_calls == 1 and flow.finalize_calls == 1, "continue must finalize exactly once after external modal return")
 

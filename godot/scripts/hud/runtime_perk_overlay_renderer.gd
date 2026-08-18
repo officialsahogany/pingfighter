@@ -37,6 +37,8 @@ const STARPOINT_ABSORPTION_ARRIVAL_ARC_SEGMENTS := 24
 const STARPOINT_ABSORPTION_GLOW_COLOR := CommonStarpointVisualHost.MUHON_GLOW_COLOR
 const STARPOINT_ABSORPTION_CORE_COLOR := CommonStarpointVisualHost.MUHON_CORE_COLOR
 const STARPOINT_ABSORPTION_BURST_COLOR := CommonStarpointVisualHost.MUHON_OUTLINE_COLOR
+const TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO := 0.22
+const TEMP_TOWER_REWARD_ABSORB_LIFT_PX := 30.0
 const FLIGHT_SOURCE_ARC_SEGMENTS := 10
 const FLIGHT_CORE_ARC_SEGMENTS := 8
 const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
@@ -468,6 +470,7 @@ func draw_tower_reward_pick(
 	var layout: Dictionary = _get_dict(view_model.get("layout", {}))
 	var choices: Array = _get_array(view_model.get("choices", []))
 	var rects: Array = _get_array(view_model.get("card_rects", []))
+	var absorption_by_slot: Dictionary = _tower_reward_absorption_by_slot(view_model)
 	var selected_index := int(view_model.get("selected_index", 0))
 	RuntimePerkTraditionalChrome.draw_backdrop(
 		canvas,
@@ -502,6 +505,23 @@ func draw_tower_reward_pick(
 		var choice := choices[index] as Dictionary
 		var rect := rects[index] as Rect2
 		var selected := index == selected_index
+		var spent := bool(choice.get("reward_pick_spent", false))
+		var absorption: Dictionary = _get_dict(absorption_by_slot.get(index, {}))
+		if spent:
+			if not absorption.is_empty():
+				var animated_rect: Rect2 = _build_tower_reward_absorbing_rect(rect, absorption)
+				_draw_tower_reward_absorption(canvas, rect, absorption)
+				_draw_card(
+					canvas,
+					choice,
+					animated_rect,
+					false,
+					1.0,
+					icon_renderer,
+					_choice_visual_blend(index),
+					index
+				)
+			continue
 		_draw_card(
 			canvas,
 			choice,
@@ -513,7 +533,6 @@ func draw_tower_reward_pick(
 			index
 		)
 		var strip := Rect2(rect.position + Vector2(0.0, rect.size.y + 3.0), Vector2(rect.size.x, 24.0))
-		var spent := bool(choice.get("reward_pick_spent", false))
 		var enabled := bool(choice.get("reward_pick_enabled", true))
 		canvas.draw_rect(strip, Color(0.07, 0.055, 0.04, 0.92 * alpha), true)
 		canvas.draw_rect(strip, Color(0.74, 0.55, 0.25, 0.85 * alpha), false, 1.0)
@@ -526,10 +545,7 @@ func draw_tower_reward_pick(
 			13,
 			Color(0.62, 0.62, 0.62, alpha) if spent or not enabled else Color(0.96, 0.84, 0.52, alpha)
 		)
-		if spent:
-			canvas.draw_rect(rect, Color(0.03, 0.025, 0.02, 0.62 * alpha), true)
-			canvas.draw_line(rect.position + Vector2(12.0, 12.0), rect.end - Vector2(12.0, 12.0), Color(0.75, 0.58, 0.34, 0.72 * alpha), 3.0)
-		elif not enabled:
+		if not enabled:
 			canvas.draw_rect(rect, Color(0.02, 0.02, 0.025, 0.28 * alpha), true)
 	_draw_per_card_descriptions(
 		canvas,
@@ -560,6 +576,86 @@ func draw_tower_reward_pick(
 		14,
 		Color(0.82, 0.80, 0.72, alpha)
 	)
+
+
+func _tower_reward_absorption_by_slot(view_model: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for value in _get_array(view_model.get("purchase_absorption_effects", [])):
+		var effect: Dictionary = _get_dict(value)
+		var slot_index: int = int(effect.get("slot_index", -1))
+		if slot_index >= 0:
+			result[slot_index] = effect
+	return result
+
+
+func _build_tower_reward_absorbing_rect(source_rect: Rect2, effect: Dictionary) -> Rect2:
+	var progress: float = clampf(float(effect.get("progress", 0.0)), 0.0, 1.0)
+	var center: Vector2 = _tower_reward_absorption_position(source_rect, effect, progress)
+	var scale_factor: float
+	if progress < TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO:
+		scale_factor = lerpf(1.0, 1.055, _ease_out_cubic(progress / TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO))
+	else:
+		var flight_t: float = (progress - TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO) / (1.0 - TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO)
+		scale_factor = lerpf(1.055, 0.12, _ease_in_out_cubic(flight_t))
+	var size: Vector2 = source_rect.size * maxf(0.08, scale_factor)
+	return Rect2(center - size * 0.5, size)
+
+
+func _tower_reward_absorption_position(source_rect: Rect2, effect: Dictionary, progress: float) -> Vector2:
+	var source: Vector2 = source_rect.get_center()
+	var lifted: Vector2 = source + Vector2(0.0, -TEMP_TOWER_REWARD_ABSORB_LIFT_PX)
+	if progress < TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO:
+		return source.lerp(lifted, _ease_out_cubic(progress / TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO))
+	var flight_t: float = clampf(
+		(progress - TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO) / (1.0 - TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO),
+		0.0,
+		1.0
+	)
+	var eased: float = _ease_in_out_cubic(flight_t)
+	var target: Vector2 = _get_vector2(effect.get("target_pos", Vector2(380.0, 690.0)))
+	var side: float = -1.0 if source.x > target.x else 1.0
+	var control: Vector2 = (lifted + target) * 0.5 + Vector2(side * 52.0, -66.0)
+	var inv: float = 1.0 - eased
+	return lifted * inv * inv + control * 2.0 * inv * eased + target * eased * eased
+
+
+func _draw_tower_reward_absorption(canvas: CanvasItem, source_rect: Rect2, effect: Dictionary) -> void:
+	var progress: float = clampf(float(effect.get("progress", 0.0)), 0.0, 1.0)
+	var head_pos: Vector2 = _tower_reward_absorption_position(source_rect, effect, progress)
+	for trail_index in range(3, 0, -1):
+		var trail_progress: float = maxf(0.0, progress - float(trail_index) * 0.045)
+		var trail_pos: Vector2 = _tower_reward_absorption_position(source_rect, effect, trail_progress)
+		var trail_alpha: float = (1.0 - float(trail_index) * 0.20) * (1.0 - progress * 0.58)
+		CommonStarpointVisualHost.draw_muhon_fallback(
+			canvas,
+			trail_pos,
+			maxf(3.0, 8.0 - float(trail_index)),
+			trail_alpha,
+			0.72,
+			false,
+			progress * 7.0 - float(trail_index) * 0.7
+		)
+	CommonStarpointVisualHost.draw_muhon_fallback(
+		canvas,
+		head_pos,
+		lerpf(11.0, 5.0, progress),
+		clampf(1.0 - progress * 0.42, 0.0, 1.0),
+		1.0,
+		false,
+		progress * 8.0
+	)
+	if progress > 0.80:
+		var burst_t: float = (progress - 0.80) / 0.20
+		var target: Vector2 = _get_vector2(effect.get("target_pos", Vector2(380.0, 690.0)))
+		canvas.draw_arc(
+			target,
+			lerpf(8.0, 42.0, _ease_out_cubic(burst_t)),
+			0.0,
+			TAU,
+			STARPOINT_ABSORPTION_ARRIVAL_ARC_SEGMENTS,
+			Color(STARPOINT_ABSORPTION_BURST_COLOR.r, STARPOINT_ABSORPTION_BURST_COLOR.g, STARPOINT_ABSORPTION_BURST_COLOR.b, (1.0 - burst_t) * 0.82),
+			maxf(1.0, 3.2 * (1.0 - burst_t))
+		)
 
 
 func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
@@ -1575,6 +1671,8 @@ func _draw_per_card_descriptions(canvas: CanvasItem, runtime_state: Object, choi
 	_ensure_card_desc_cache(choices, card_size.x, runtime_state)
 	for i in range(min(choices.size(), _card_desc_cache.size())):
 		var choice: Dictionary = _get_dict(choices[i])
+		if bool(choice.get("reward_pick_spent", false)):
+			continue
 		var col_x: float = cards_start.x + float(i) * (card_size.x + card_gap)
 		var block := Rect2(Vector2(col_x, desc_rect.position.y), Vector2(card_size.x, desc_rect.size.y))
 		_draw_card_description_block(canvas, choice, _get_dict(_card_desc_cache[i]), block, i == selected_index, alpha)

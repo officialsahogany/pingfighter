@@ -16,12 +16,14 @@ const RuntimePerkChoiceLayout := preload(
 const VIEW_SIZE := Vector2(760.0, 750.0)
 const CONTINUE_SIZE := Vector2(220.0, 42.0)
 const CONTINUE_BOTTOM_MARGIN := 34.0
+const TEMP_REWARD_PICK_ABSORB_DURATION_SEC := 0.78
 
 var active := false
 var animation_time := 0.0
 var selected_index := 0
 var choices: Array[Dictionary] = []
 var spent_flags: Array[bool] = []
+var purchase_absorption_effects: Array[Dictionary] = []
 
 var _owner: Object = null
 var _registry: Object = null
@@ -81,6 +83,7 @@ func start(
 	_pending_external_kind = ""
 	_pending_slot_index = -1
 	_pending_runtime_snapshot.clear()
+	purchase_absorption_effects.clear()
 	_prewarm_card_assets()
 	active = true
 	return true
@@ -92,6 +95,7 @@ func reset() -> void:
 	selected_index = 0
 	choices.clear()
 	spent_flags.clear()
+	purchase_absorption_effects.clear()
 	_offer.clear()
 	_status_text = ""
 	_finish_callback = Callable()
@@ -111,6 +115,8 @@ func update(delta: float) -> void:
 		return
 	animation_time = minf(1.0, animation_time + maxf(0.0, delta))
 	_update_external_modal_return()
+	if not is_external_modal_active():
+		_update_purchase_absorption_effects(delta)
 
 
 func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
@@ -179,7 +185,10 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 	for index in range(choices.size()):
 		var choice := choices[index].duplicate(true)
 		var cost := int(choice.get("reward_pick_cost", 0))
+		var absorption: Dictionary = _get_purchase_absorption_for_slot(index)
 		choice["reward_pick_spent"] = spent_flags[index]
+		choice["reward_pick_absorbing"] = not absorption.is_empty()
+		choice["reward_pick_empty"] = spent_flags[index] and absorption.is_empty()
 		choice["reward_pick_enabled"] = (
 			not spent_flags[index]
 			and int(balances.get("muhon", 0)) >= cost
@@ -198,6 +207,7 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		"spent_flags": spent_flags.duplicate(),
 		"selected_index": selected_index,
 		"animation_time": animation_time,
+		"purchase_absorption_effects": _build_purchase_absorption_view_models(view_size),
 		"layout": _layout.build_layout(view_size, choices.size(), false),
 		"card_rects": get_card_rects(view_size),
 		"continue_rect": get_continue_rect(view_size),
@@ -372,12 +382,82 @@ func _accept_existing_external_effect() -> bool:
 
 func _commit_purchased_slot(index: int, choice: Dictionary) -> void:
 	spent_flags[index] = true
+	_start_purchase_absorption(index)
 	if str(choice.get("reward_pick_kind", "")) == "vision":
 		_flow_owner.call("mark_reward_pick_vision_burned", str(choice.get("boss_slot_id", "")))
 	_status_text = TowerRewardPickLocalization.text("spent")
 	_pending_runtime_snapshot.clear()
 	if str(choice.get("reward_pick_kind", "")) != "fusion":
 		_pending_slot_index = -1
+	_select_next_available_slot(index)
+
+
+func _start_purchase_absorption(index: int) -> void:
+	if index < 0 or index >= choices.size():
+		return
+	purchase_absorption_effects.append({
+		"slot_index": index,
+		"elapsed": 0.0,
+		"duration": TEMP_REWARD_PICK_ABSORB_DURATION_SEC,
+	})
+
+
+func _update_purchase_absorption_effects(delta: float) -> void:
+	var safe_delta: float = maxf(0.0, delta)
+	for effect_index in range(purchase_absorption_effects.size() - 1, -1, -1):
+		var effect: Dictionary = purchase_absorption_effects[effect_index]
+		var duration: float = maxf(0.001, float(effect.get("duration", TEMP_REWARD_PICK_ABSORB_DURATION_SEC)))
+		effect["elapsed"] = float(effect.get("elapsed", 0.0)) + safe_delta
+		if float(effect.get("elapsed", 0.0)) >= duration:
+			purchase_absorption_effects.remove_at(effect_index)
+		else:
+			purchase_absorption_effects[effect_index] = effect
+
+
+func _get_purchase_absorption_for_slot(index: int) -> Dictionary:
+	for effect in purchase_absorption_effects:
+		if int(effect.get("slot_index", -1)) == index:
+			return effect
+	return {}
+
+
+func _build_purchase_absorption_view_models(view_size: Vector2) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var target: Vector2 = _get_player_absorption_target(view_size)
+	for effect in purchase_absorption_effects:
+		var duration: float = maxf(0.001, float(effect.get("duration", TEMP_REWARD_PICK_ABSORB_DURATION_SEC)))
+		result.append({
+			"slot_index": int(effect.get("slot_index", -1)),
+			"progress": clampf(float(effect.get("elapsed", 0.0)) / duration, 0.0, 1.0),
+			"target_pos": target,
+		})
+	return result
+
+
+func _get_player_absorption_target(view_size: Vector2) -> Vector2:
+	var fallback := Vector2(view_size.x * 0.5, view_size.y * 0.91)
+	if _owner == null:
+		return fallback
+	var position_value: Variant = _owner.get("player_pos")
+	if not (position_value is Vector2):
+		return fallback
+	var position := position_value as Vector2
+	var width: float = maxf(1.0, float(_owner.get("player_paddle_width")))
+	var height: float = maxf(1.0, float(_owner.get("player_paddle_height")))
+	var target := position + Vector2(width * 0.5, height * 0.35)
+	if target.x < 0.0 or target.x > view_size.x or target.y < 0.0 or target.y > view_size.y:
+		return fallback
+	return target
+
+
+func _select_next_available_slot(purchased_index: int) -> void:
+	if spent_flags.is_empty():
+		return
+	for offset in range(1, spent_flags.size() + 1):
+		var candidate: int = posmod(purchased_index + offset, spent_flags.size())
+		if not spent_flags[candidate]:
+			selected_index = candidate
+			return
 
 
 func _finish() -> void:
