@@ -1,6 +1,8 @@
 extends SceneTree
 
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
+const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
+const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
 const BattleSceneOwnerReader := preload(
 	"res://scripts/core/battle_scene_owner_reader.gd"
 )
@@ -339,6 +341,7 @@ class ModuleHolder:
 func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
+	_verify_top_wall_and_player_paddle_round_trip()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
@@ -391,6 +394,8 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": motion_stepper,
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
 		"smasher_input_reader": input_reader,
 		"player_movement_state": movement_state,
 		"battle_update_context": FakePlayerControlContext.new(),
@@ -472,6 +477,8 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": motion_stepper,
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
 		"smasher_input_reader": input_reader,
 		"player_movement_state": movement_state,
 		"battle_update_context": FakePlayerControlContext.new(),
@@ -567,6 +574,81 @@ func _true_callback() -> bool:
 	return true
 
 
+func _verify_top_wall_and_player_paddle_round_trip() -> void:
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(302.5, 700.0)
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	ball_driver.velocities = [Vector2(0.0, -8.7)]
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot["direction"] = 0.0
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "route wall fixture must acquire production ball and paddle physics")
+	var targets: Array[Dictionary] = [
+		{"id": "left", "position": Vector2(90.0, 180.0), "hit_radius": 36.0},
+		{"id": "right", "position": Vector2(670.0, 180.0), "hit_radius": 36.0},
+	]
+	runtime.update(1.0 / 60.0, targets)
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	var reset_count_after_serve := ball_driver.reset_calls
+	var top_bounced := false
+	for _frame in range(100):
+		var before_velocity := owner.ball_vel
+		var result: Dictionary = runtime.update(1.0 / 60.0, targets)
+		if before_velocity.y < 0.0 and owner.ball_vel.y > 0.0:
+			top_bounced = true
+			_expect(str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "the top boundary must reflect without completing a miss")
+			_expect(owner.ball_pos.y >= owner.ball_size * 0.5, "the top reflection must write a clamped owner ball position in the same frame")
+			break
+	_expect(top_bounced, "the route ball must reflect from the top wall")
+	_expect(ball_driver.reset_calls == reset_count_after_serve and owner.ball_active, "top reflection must preserve the active route attempt")
+
+	var paddle_bounced := false
+	for _frame in range(100):
+		var before_velocity := owner.ball_vel
+		var result: Dictionary = runtime.update(1.0 / 60.0, targets)
+		if owner.ball_pos.y > 600.0 and before_velocity.y > 0.0 and owner.ball_vel.y < 0.0:
+			paddle_bounced = true
+			_expect(str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "the player paddle must reflect without completing a miss")
+			break
+	_expect(paddle_bounced, "the returning route ball must reuse player paddle reflection physics")
+	_expect(ball_driver.reset_calls == reset_count_after_serve and owner.ball_active, "player paddle reflection must preserve the active route attempt")
+
+	var second_top_bounce := false
+	for _frame in range(100):
+		var before_velocity := owner.ball_vel
+		runtime.update(1.0 / 60.0, targets)
+		if before_velocity.y < 0.0 and owner.ball_vel.y > 0.0:
+			second_top_bounce = true
+			break
+	_expect(second_top_bounce, "the paddle return must travel back to and reflect from the top wall")
+	owner.player_pos.x = 0.0
+	owner.ball_pos = Vector2(380.0, 740.0)
+	owner.ball_vel = Vector2(0.0, 8.7)
+	var miss_result: Dictionary = {}
+	for _frame in range(120):
+		miss_result = runtime.update(1.0 / 60.0, targets)
+		if str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS:
+			break
+	_expect(str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS, "only a bottom-out after missing the player paddle may rearm the route serve")
+	_expect(round_state.waiting and ball_driver.reset_calls == reset_count_after_serve + 1, "bottom-out must return to manual re-serve exactly once")
+	runtime.cancel()
+	owner.free()
+
+
 func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	var owner := FakeOwner.new()
 	var round_state := FakeRoundState.new()
@@ -586,6 +668,8 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
 		"smasher_input_reader": input_reader,
 		"player_movement_state": FakeMovementState.new(),
 		"battle_update_context": FakePlayerControlContext.new(),
@@ -602,9 +686,16 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	]
 	runtime.update(0.016, targets)
 	_expect(ball_driver.serve_calls == 1 and owner.ball_active, "serve flow must launch the live owner ball through the existing ball driver")
-	var miss_result: Dictionary = runtime.update(1.5, targets)
+	owner.player_pos.x = 0.0
+	owner.ball_pos = Vector2(380.0, 740.0)
+	owner.ball_vel = Vector2(0.0, 8.7)
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	var miss_result: Dictionary = runtime.update(0.1, targets)
 	_expect(str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS, "a serve that misses both targets must rearm instead of selecting")
 	_expect(round_state.waiting and ball_driver.reset_calls == 2, "a miss must return to unlimited player re-serve")
+	input_reader.snapshot["action_pressed"] = true
+	input_reader.snapshot["action_just_pressed"] = true
 	runtime.update(0.016, targets)
 	var hit_result: Dictionary = runtime.update(1.5, targets)
 	_expect(str(hit_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT, "the real serve trajectory must resolve a swept target hit")
@@ -636,6 +727,8 @@ func _verify_route_wait_never_auto_serves_and_legacy_still_does() -> void:
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
 		"smasher_input_reader": input_reader,
 		"player_movement_state": FakeMovementState.new(),
 		"battle_update_context": FakePlayerControlContext.new(),
@@ -690,6 +783,8 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 	for required_key in [
 		"battle_scene_ball_update_driver",
 		"ball_motion_stepper",
+		"paddle_bounce_state",
+		"ball_physics",
 		"get_input_reader_key",
 		"player_movement_state",
 		"battle_update_context",

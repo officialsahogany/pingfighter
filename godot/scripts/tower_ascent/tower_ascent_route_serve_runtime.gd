@@ -4,6 +4,7 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload(
 	"res://scripts/core/battle_scene_owner_reader.gd"
 )
+const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 const PlayerCharacterRuntime := preload(
 	"res://scripts/characters/player_character_runtime.gd"
 )
@@ -21,6 +22,8 @@ var _registry: Object = null
 var _round_state: Object = null
 var _ball_driver: Object = null
 var _motion_stepper: Object = null
+var _paddle_bounce_state: Object = null
+var _ball_physics: Object = null
 var _input_reader: Object = null
 var _movement_state: Object = null
 var _player_control_context: Object = null
@@ -45,6 +48,8 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 	_round_state = _get_instance(registry, "round_flow_state")
 	_ball_driver = _get_instance(registry, "battle_scene_ball_update_driver")
 	_motion_stepper = _get_instance(registry, "ball_motion_stepper")
+	_paddle_bounce_state = _get_instance(registry, "paddle_bounce_state")
+	_ball_physics = _get_instance(registry, "ball_physics")
 	_character_type = _character_runtime.normalize(_owner_value(
 		"selected_character_type",
 		PlayerCharacterRuntime.SMASHER
@@ -77,6 +82,8 @@ func cancel() -> void:
 	_round_state = null
 	_ball_driver = null
 	_motion_stepper = null
+	_paddle_bounce_state = null
+	_ball_physics = null
 	_input_reader = null
 	_movement_state = null
 	_player_control_context = null
@@ -226,7 +233,22 @@ func _advance_live_ball(delta: float, targets: Array[Dictionary]) -> Dictionary:
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", velocity)
 			return {"status": STATUS_FLIGHT}
-		"player_scored", "boss_scored":
+		"player_paddle":
+			_set_owner_value("ball_pos", current)
+			_set_owner_value("ball_vel", _resolve_player_paddle_bounce(
+				current,
+				velocity,
+				float(step_result.get("paddle_x", 0.0)),
+				maxf(1.0, float(step_result.get("paddle_w", 155.0)))
+			))
+			return {"status": STATUS_FLIGHT}
+		"player_scored":
+			current.y = _ball_radius()
+			velocity.y = absf(velocity.y)
+			_set_owner_value("ball_pos", current)
+			_set_owner_value("ball_vel", velocity)
+			return {"status": STATUS_FLIGHT}
+		"boss_scored":
 			_prepare_next_serve()
 			return {"status": STATUS_MISS}
 	_set_owner_value("ball_pos", current)
@@ -243,7 +265,12 @@ func _update_fixture_flight(delta: float, targets: Array[Dictionary]) -> Diction
 		_fixture_ball_active = false
 		_sync_fixture_to_owner()
 		return {"status": STATUS_HIT, "target_id": target_id}
-	if _fixture_ball_position.y < 0.0 or _fixture_ball_position.y > BattleSceneConfig.HEIGHT:
+	if _fixture_ball_position.y < _ball_radius():
+		_fixture_ball_position.y = _ball_radius()
+		_fixture_ball_velocity.y = absf(_fixture_ball_velocity.y)
+		_sync_fixture_to_owner()
+		return {"status": STATUS_FLIGHT}
+	if _fixture_ball_position.y > BattleSceneConfig.HEIGHT:
 		_fixture_ball_active = false
 		_fixture_ball_position = Vector2(BattleSceneConfig.WIDTH * 0.5, BattleSceneConfig.HEIGHT - 85.0)
 		_fixture_ball_velocity = Vector2.ZERO
@@ -300,11 +327,59 @@ func _build_route_motion_context() -> Dictionary:
 		"width": BattleSceneConfig.WIDTH,
 		"height": BattleSceneConfig.HEIGHT,
 		"max_step_distance": 12.0,
-		"player_pos": Vector2(-1000.0, -1000.0),
-		"player_paddle_size": Vector2.ZERO,
+		"player_pos": _owner_vector2("player_pos", Vector2.ZERO),
+		"player_paddle_size": Vector2(
+			maxf(1.0, float(_owner_value("player_paddle_width", 155.0))),
+			maxf(1.0, float(_owner_value("player_paddle_height", 50.0)))
+		),
+		"player_guard_available": true,
 		"boss_pos": Vector2(-1000.0, -1000.0),
 		"boss_paddle_size": Vector2.ZERO,
 	}
+
+
+func _resolve_player_paddle_bounce(
+	ball_position: Vector2,
+	ball_velocity: Vector2,
+	paddle_x: float,
+	paddle_width: float
+) -> Vector2:
+	var paddle_center_x := paddle_x + paddle_width * 0.5
+	var hit_position := clampf(
+		(ball_position.x - paddle_center_x) / maxf(0.5, paddle_width * 0.5),
+		-1.0,
+		1.0
+	)
+	var accel_scale := 1.0
+	if _ball_physics.has_method("get_rally_speed_increase_multiplier"):
+		accel_scale *= float(_ball_physics.get_rally_speed_increase_multiplier())
+	if _ball_physics.has_method("get_junior_speed_increase_multiplier"):
+		accel_scale *= float(_ball_physics.get_junior_speed_increase_multiplier())
+	var minimum_speed := 3.0
+	if _ball_physics.has_method("get_minimum_rally_speed"):
+		minimum_speed = maxf(minimum_speed, float(_ball_physics.get_minimum_rally_speed()))
+	var bounce_result: Dictionary = _paddle_bounce_state.resolve_velocity(
+		ball_velocity,
+		hit_position,
+		true,
+		ball_velocity.x,
+		-1.0,
+		float(_paddle_bounce_state.get_initial_speed(ball_velocity)),
+		deg_to_rad(hit_position * 60.0),
+		false,
+		accel_scale,
+		0,
+		_ball_physics,
+		null,
+		0.0,
+		0.0,
+		minimum_speed,
+		maxf(minimum_speed, BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED)
+	)
+	var resolved := _vector2(bounce_result.get("ball_vel", ball_velocity), ball_velocity)
+	if resolved.y >= 0.0:
+		resolved.y = -maxf(minimum_speed, absf(ball_velocity.y))
+	return resolved
 
 
 func _ball_radius() -> float:
@@ -322,6 +397,10 @@ func _has_production_contract() -> bool:
 		and _ball_driver.has_method("serve_ball")
 		and _motion_stepper != null
 		and _motion_stepper.has_method("step")
+		and _paddle_bounce_state != null
+		and _paddle_bounce_state.has_method("get_initial_speed")
+		and _paddle_bounce_state.has_method("resolve_velocity")
+		and _ball_physics != null
 		and _input_reader != null
 		and _input_reader.has_method("get_snapshot")
 		and _movement_state != null
