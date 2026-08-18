@@ -28,6 +28,8 @@ const FORCE_STAGE_CLEAR_KEY := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_
 const FORCE_STAGE_CLEAR_PLAYER_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_PLAYER_SCORE
 const FORCE_STAGE_CLEAR_BOSS_SCORE := BattlePreIntroStageInputRouter.FORCE_STAGE_CLEAR_BOSS_SCORE
 const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := BattleSystemShortcutInputRouter.RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
+const GAME_WIDTH := 760.0
+const GAME_HEIGHT := 750.0
 
 var _system_shortcut_input_router := BattleSystemShortcutInputRouter.new()
 var _lingpet_input_router := BattleLingpetInteractionInputRouter.new()
@@ -51,7 +53,7 @@ func handle_unhandled_input(
 		return
 	if _handle_victory_highlight_input(event, owner, module_getter):
 		return
-	if _handle_tower_ascent_flow_input(event, owner, registry):
+	if _handle_tower_ascent_flow_input(event, owner, registry, module_getter):
 		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
@@ -173,7 +175,8 @@ func _handle_victory_highlight_input(
 func _handle_tower_ascent_flow_input(
 	event: InputEvent,
 	owner: Object,
-	registry: Object
+	registry: Object,
+	module_getter: Callable
 ) -> bool:
 	var flow_owner := _get_cached_module(registry, "tower_ascent_flow_owner")
 	if (
@@ -183,10 +186,51 @@ func _handle_tower_ascent_flow_input(
 	):
 		return false
 	if flow_owner.has_method("handle_input"):
-		flow_owner.handle_input(event)
+		flow_owner.handle_input(_tower_event_in_playfield_coordinates(event, owner, module_getter))
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
+
+
+func _tower_event_in_playfield_coordinates(
+	event: InputEvent,
+	owner: Object,
+	module_getter: Callable
+) -> InputEvent:
+	if not (event is InputEventMouseButton or event is InputEventScreenTouch):
+		return event
+	var screen_position := (
+		(event as InputEventMouseButton).position
+		if event is InputEventMouseButton
+		else (event as InputEventScreenTouch).position
+	)
+	var layout := _build_tower_input_layout(owner, module_getter)
+	var game_offset: Vector2 = layout.get("game_offset", Vector2.ZERO)
+	var render_scale := maxf(0.001, float(layout.get("render_scale", 1.0)))
+	var playfield_position := (screen_position - game_offset) / render_scale
+	var localized := event.duplicate(true) as InputEvent
+	if localized is InputEventMouseButton:
+		(localized as InputEventMouseButton).position = playfield_position
+		(localized as InputEventMouseButton).global_position = playfield_position
+	elif localized is InputEventScreenTouch:
+		(localized as InputEventScreenTouch).position = playfield_position
+	return localized
+
+
+func _build_tower_input_layout(owner: Object, module_getter: Callable) -> Dictionary:
+	var view_size := Vector2(GAME_WIDTH, GAME_HEIGHT)
+	if owner != null and owner.has_method("get_viewport_rect"):
+		view_size = owner.get_viewport_rect().size
+	var view_layout: Object = _get_module(module_getter, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("build_game_layout"):
+		return view_layout.build_game_layout(view_size, GAME_WIDTH, GAME_HEIGHT)
+	var game_size := Vector2(GAME_WIDTH, GAME_HEIGHT)
+	return {
+		"view_size": view_size,
+		"game_offset": (view_size - game_size) * 0.5,
+		"game_size": game_size,
+		"render_scale": 1.0,
+	}
 
 
 func _handle_mobile_touch_input(event: InputEvent, owner: Object, module_getter: Callable, scene_ready: bool) -> bool:
