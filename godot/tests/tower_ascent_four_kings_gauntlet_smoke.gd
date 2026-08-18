@@ -92,10 +92,14 @@ func _verify_state_contract() -> void:
 	_expect(str(final.get("reason", "")) == "gauntlet_completed", "fourth win should complete the single node")
 	var duplicate_final: Dictionary = state.resolve_victory("node-11:encounter:3:victory")
 	_expect(bool(duplicate_final.get("accepted", false)) and not bool(duplicate_final.get("changed", true)), "replayed final victory must be idempotent")
-	var final_chest: Dictionary = final.get("final_chest", {})
-	_expect(int(final_chest.get("reward_count", 0)) == 1, "gauntlet completion should grant exactly one chest")
-	var context: Dictionary = final_chest.get("context", {})
-	_expect(bool(context.get("is_elite", false)) and bool(context.get("is_enraged", false)) and bool(context.get("is_gatekeeper", false)), "final chest must carry the maximum existing risk flags")
+	_expect(not final.has("final_chest"), "gauntlet completion must not leak the retired tower chest")
+	var reward_hook: Dictionary = final.get("reward_pick_hook", {})
+	_expect(int(reward_hook.get("screen_count", 0)) == 1, "gauntlet completion must reserve exactly one reward-pick screen")
+	_expect(str(reward_hook.get("source", "")) == "four_kings_completion", "gauntlet reward hook must remain explicit and unwired")
+	_expect(str(reward_hook.get("node_resolution_id", "")) == "node-11:gauntlet", "gauntlet reward hook must carry the node resolution identity")
+	var context: Dictionary = reward_hook.get("context", {})
+	_expect(str(context.get("boss_slot_id", "")) == "floor_11_four_kings_group", "gauntlet reward hook must identify the grouped boss slot")
+	_expect(bool(context.get("is_elite", false)) and bool(context.get("is_enraged", false)) and bool(context.get("is_gatekeeper", false)), "gauntlet reward hook must carry the maximum existing risk flags")
 
 
 func _verify_flow_snapshot_and_transition() -> void:

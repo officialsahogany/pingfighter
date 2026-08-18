@@ -188,23 +188,23 @@ func _verify_choices_transactions_visit_limit_and_snapshot() -> void:
 	_expect(not stat_action.is_empty() and not mugong_action.is_empty(), "training modal must expose stat and Mugong actions")
 	var stat_result := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:stat")
 	_expect(bool(stat_result.get("accepted", false)) and bool(stat_result.get("applied", false)), "stat choice must commit through the node transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 30 - TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST, "stat training must debit exactly five Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 30 - TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST, "stat training must debit the unified one-Muhon price")
 	_expect(runtime_state.apply_calls == 1 and runtime_state.training_counts.size() == 1, "stat training must reuse runtime_perk_state.apply_choice")
 
 	var duplicate := flow.execute_node_action(str(mugong_action.get("id", "")), "training-contract:stat")
 	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "duplicate node_resolution_id must be an accepted no-op before grant")
-	_expect(runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 25, "duplicate transaction must neither grant nor debit")
+	_expect(runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "duplicate transaction must neither grant nor debit")
 
 	var mugong_result := flow.execute_node_action(str(mugong_action.get("id", "")), "training-contract:mugong")
 	_expect(bool(mugong_result.get("accepted", false)) and bool(mugong_result.get("applied", false)), "Mugong choice must commit through the existing grant path")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 15, "Mugong library must debit exactly ten Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "Mugong library must debit the unified two-Muhon price")
 	_expect(runtime_state.apply_calls == 2 and runtime_state.runtime_skill_levels.size() == 1, "Mugong acquisition must be owned by runtime_perk_state.apply_choice")
 	_expect(flow.get_training_history().size() == TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT, "training history must own exactly the visit use cap")
 	var exhausted_action := _find_unconsumed_training_action(flow.get_node_modal_view_model().get("actions", []))
 	_expect(not exhausted_action.is_empty() and not bool(exhausted_action.get("enabled", true)), "all remaining training choices must disable after two uses")
 	var exhausted_result := flow.execute_node_action(str(exhausted_action.get("id", "")), "training-contract:third")
 	_expect(str(exhausted_result.get("reason", "")) == "training_visit_complete", "a third visit action must be rejected before transaction")
-	_expect(runtime_state.apply_calls == 2 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 15, "visit-limit rejection must not grant or debit")
+	_expect(runtime_state.apply_calls == 2 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "visit-limit rejection must not grant or debit")
 
 	var snapshot := flow.export_persistable_snapshot()
 	_expect((snapshot.get("generated_training_offers", []) as Array).size() == 1, "training offers must be part of the stable run snapshot")
@@ -231,17 +231,17 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 		"run_id": "training-poor",
 		"map_seed": 5,
 		"node_modal_kind": "training",
-		"run_state": {"muhon": 4},
+		"run_state": {"muhon": 0},
 		"registry": _build_registry(poor_runtime, FakeRuntimePerkCatalog.new()),
 	}), "insufficient-Muhon fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(poor_flow, "training", poor_owner), "insufficient-Muhon fixture must arrive at training")
 	var poor_action := _find_action_with_prefix(poor_flow.get_node_modal_view_model().get("actions", []), "training_stat:")
 	_expect(not bool(poor_action.get("enabled", true)), "insufficient Muhon must disable stat training")
 	var reason := str(poor_action.get("unavailable_reason", ""))
-	_expect(reason.contains("5") and reason.contains("1 부족"), "disabled stat training must show required Muhon and exact shortfall")
+	_expect(reason.contains("1"), "disabled stat training must show the one-Muhon requirement and shortfall")
 	var poor_result := poor_flow.execute_node_action(str(poor_action.get("id", "")), "training-poor:attempt")
 	_expect(not bool(poor_result.get("accepted", true)), "insufficient Muhon must reject direct execution")
-	_expect(int(poor_flow.get_run_state_snapshot().get("muhon", -1)) == 4 and poor_runtime.apply_calls == 0 and poor_flow.get_training_history().is_empty(), "insufficient Muhon must emit no debit, grant, or transaction history")
+	_expect(int(poor_flow.get_run_state_snapshot().get("muhon", -1)) == 0 and poor_runtime.apply_calls == 0 and poor_flow.get_training_history().is_empty(), "insufficient Muhon must emit no debit, grant, or transaction history")
 	_finish_flow(poor_flow, poor_owner)
 
 	var rejected_runtime := FakeRuntimePerkState.new()

@@ -68,10 +68,17 @@ func resolve_victory(event_id: String) -> Dictionary:
 		_state["active"] = false
 		_state["completed"] = true
 		return _result(true, true, "gauntlet_completed", {
-			"final_chest": {
-				"reward_count": 1,
+			# The battle ladder does not consume this hook yet. It is the
+			# single explicit hand-off reserved for the later gauntlet-routing
+			# slice; keeping it data-only prevents an accidental intermediate
+			# chest or four separate reward screens.
+			"reward_pick_hook": {
+				"screen_count": 1,
+				"source": "four_kings_completion",
+				"node_resolution_id": str(_state.get("node_resolution_id", "")),
 				"context": {
 					"floor": FINAL_FLOOR,
+					"boss_slot_id": "floor_11_four_kings_group",
 					"is_elite": true,
 					"is_enraged": true,
 					"is_gatekeeper": true,

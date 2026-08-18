@@ -24,6 +24,9 @@ const ACTION_PREFIX := "fallen_monk:"
 const OP_ACQUIRE := "acquire"
 const OP_SWAP := "swap"
 const OP_REMOVE := "remove"
+const OP_MUGONG := "mugong"
+const CHOSIK_CARD_COUNT := 3
+const TOTAL_CARD_COUNT := 6
 
 var _generated_offers: Array[Dictionary] = []
 var _history: Array[Dictionary] = []
@@ -121,43 +124,48 @@ func build_actions(
 		return []
 	var runtime_levels := _runtime_levels(runtime_state)
 	var balances := _economy(run_state)
-	var counts := _operation_counts(node_id)
 	var result: Array[Dictionary] = []
 	for choice_value in offer.get("choices", []):
 		if not (choice_value is Dictionary):
 			continue
 		var choice := choice_value as Dictionary
+		if _has_consumed_choice(node_id, str(choice.get("id", ""))):
+			continue
+		if str(choice.get("fallen_monk_kind", "chosik")) == "mugong":
+			result.append(_build_mugong_action(choice, balances))
+			continue
 		var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
 		if unlocked_skill.is_empty() or _is_skill_equipped(skill_config, unlocked_skill):
 			continue
 		var swap_candidates := _swap_candidates(skill_config, unlocked_skill)
 		if _is_shared_slot_full(skill_config) and not swap_candidates.is_empty():
-			for removed_skill in swap_candidates:
-				result.append(_build_action(
-					OP_SWAP,
-					choice,
-					str(removed_skill),
-					skill_config,
-					balances,
-					counts
-				))
+			# A visit is a six-card storefront. Expanding one offered Chosik into
+			# every possible swap pair breaks both the six-card budget and pointer
+			# geometry, so each offered card carries one deterministic swap route.
+			result.append(_build_action(
+				OP_SWAP,
+				choice,
+				str(swap_candidates[swap_candidates.size() - 1]),
+				skill_config,
+				balances
+			))
 		else:
 			result.append(_build_action(
 				OP_ACQUIRE,
 				choice,
 				"",
 				skill_config,
-				balances,
-				counts
+				balances
 			))
 	for removable in _build_removal_candidates(runtime_levels, catalog, skill_config, owner):
+		if result.size() >= TOTAL_CARD_COUNT:
+			break
 		result.append(_build_action(
 			OP_REMOVE,
 			removable,
 			str(removable.get("unlocks_skill", "")),
 			skill_config,
-			balances,
-			counts
+			balances
 		))
 	return result
 
@@ -270,6 +278,7 @@ func _build_offer(
 		return {}
 	var all_data := all_data_value as Dictionary
 	var candidate_ids: Array[String] = []
+	var mugong_ids: Array[String] = []
 	for perk_id_value in all_data.keys():
 		var perk_id := str(perk_id_value).strip_edges()
 		var data_value: Variant = all_data.get(perk_id, {})
@@ -278,9 +287,13 @@ func _build_offer(
 		var data := data_value as Dictionary
 		var unlocked_skill := str(data.get("unlocks_skill", "")).strip_edges()
 		var restriction := str(data.get("character_restriction", "")).strip_edges()
-		if unlocked_skill.is_empty() or restriction.is_empty():
+		if unlocked_skill.is_empty():
+			var mugong_data := data.duplicate(true)
+			mugong_data["id"] = perk_id
+			if _is_mugong_candidate(mugong_data, runtime_levels, character_type):
+				mugong_ids.append(perk_id)
 			continue
-		if _character_context.normalize_character_type(restriction) != character_type:
+		if restriction.is_empty() or _character_context.normalize_character_type(restriction) != character_type:
 			continue
 		if int(runtime_levels.get(perk_id, 0)) > 0:
 			continue
@@ -294,20 +307,34 @@ func _build_offer(
 			continue
 		candidate_ids.append(perk_id)
 	candidate_ids.sort()
+	mugong_ids.sort()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(hash("%d:%s:%s" % [map_seed, node_id, OFFER_VERSION]))
 	_shuffle_with_rng(candidate_ids, rng)
+	_shuffle_with_rng(mugong_ids, rng)
 	var choices: Array[Dictionary] = []
-	var choice_count := mini(RuntimePerkCatalog.BASE_CHOICE_COUNT, candidate_ids.size())
-	for index in range(choice_count):
+	var chosik_count := mini(CHOSIK_CARD_COUNT, candidate_ids.size())
+	for index in range(chosik_count):
 		var choice_value: Variant = catalog.call("get_perk_data", candidate_ids[index])
 		if choice_value is Dictionary:
 			var choice := (choice_value as Dictionary).duplicate(true)
 			choice["id"] = candidate_ids[index]
 			choice["current_level"] = 0
 			choice["next_level"] = 1
+			choice["fallen_monk_kind"] = "chosik"
 			choices.append(choice)
-	if choices.size() < 2:
+	for perk_id in mugong_ids:
+		if choices.size() >= TOTAL_CARD_COUNT:
+			break
+		var choice_value: Variant = catalog.call("get_perk_data", perk_id)
+		if choice_value is Dictionary:
+			var choice := (choice_value as Dictionary).duplicate(true)
+			choice["id"] = perk_id
+			choice["current_level"] = int(runtime_levels.get(perk_id, 0))
+			choice["next_level"] = int(choice.get("current_level", 0)) + 1
+			choice["fallen_monk_kind"] = "mugong"
+			choices.append(choice)
+	if choices.size() < TOTAL_CARD_COUNT:
 		choices.clear()
 	return {
 		"offer_version": OFFER_VERSION,
@@ -322,22 +349,15 @@ func _build_action(
 	choice: Dictionary,
 	removed_skill: String,
 	skill_config: Object,
-	balances: Dictionary,
-	counts: Dictionary
+	balances: Dictionary
 ) -> Dictionary:
 	var choice_id := str(choice.get("id", "")).strip_edges()
 	var cost := _operation_cost(operation)
-	var used := int(counts.get(operation, 0)) >= _operation_limit(operation)
 	var affordable := int(balances.get("muhon", 0)) >= cost
-	var enabled := not used and affordable
+	var enabled := affordable
 	var unavailable_reason := ""
 	var disabled_reason := ""
-	if used:
-		disabled_reason = "fallen_monk_visit_limit"
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			_operation_limit_key(operation)
-		)
-	elif not affordable:
+	if not affordable:
 		disabled_reason = "insufficient_muhon"
 		unavailable_reason = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
@@ -379,6 +399,34 @@ func _build_action(
 			"choice": choice.duplicate(true),
 			"unlocked_skill": unlocked_skill,
 			"removed_skill": removed_skill,
+		},
+	}
+
+
+func _build_mugong_action(choice: Dictionary, balances: Dictionary) -> Dictionary:
+	var choice_id := str(choice.get("id", "")).strip_edges()
+	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
+	var affordable := int(balances.get("muhon", 0)) >= cost
+	return {
+		"id": "%s%s:%s" % [ACTION_PREFIX, OP_MUGONG, choice_id],
+		"label": str(choice.get("name", choice_id)),
+		"cost_text": TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
+			{"amount": cost}
+		),
+		"enabled": affordable,
+		"disabled_reason": "" if affordable else "insufficient_muhon",
+		"unavailable_reason": "" if affordable else TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
+			{
+				"required": cost,
+				"shortfall": cost - int(balances.get("muhon", 0)),
+			}
+		),
+		"payload": {
+			"operation": OP_MUGONG,
+			"choice": choice.duplicate(true),
+			"removed_skill": "",
 		},
 	}
 
@@ -433,7 +481,7 @@ func _apply_operation(context: Dictionary) -> bool:
 	var choice: Dictionary = context.get("choice", {})
 	var removed_skill := str(context.get("removed_skill", ""))
 	var accepted := false
-	if operation == OP_ACQUIRE:
+	if operation in [OP_ACQUIRE, OP_MUGONG]:
 		accepted = bool(runtime_state.call("apply_choice", choice, owner, registry))
 	elif operation == OP_SWAP:
 		accepted = _apply_swap(
@@ -650,6 +698,8 @@ func _operation_counts(node_id: String) -> Dictionary:
 
 func _operation_cost(operation: String) -> int:
 	match operation:
+		OP_MUGONG:
+			return TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
 		OP_ACQUIRE:
 			return TowerAscentTuning.TEMP_PHASE_C_MONK_CHOSIK_ACQUIRE_COST
 		OP_SWAP:
@@ -657,30 +707,6 @@ func _operation_cost(operation: String) -> int:
 		OP_REMOVE:
 			return TowerAscentTuning.TEMP_PHASE_C_MONK_CHOSIK_REMOVE_COST
 	return 0
-
-
-func _operation_limit(operation: String) -> int:
-	match operation:
-		OP_ACQUIRE:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_ACQUIRE_PER_VISIT
-		OP_SWAP:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_SWAP_PER_VISIT
-		OP_REMOVE:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_REMOVE_PER_VISIT
-	return 0
-
-
-func _operation_limit_key(operation: String) -> String:
-	match operation:
-		OP_ACQUIRE:
-			return TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_USED
-		OP_SWAP:
-			return TowerAscentNodeModalLocalization.KEY_MONK_SWAP_USED
-		OP_REMOVE:
-			return TowerAscentNodeModalLocalization.KEY_MONK_REMOVE_USED
-	return TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
-
-
 func _success_message(operation: String, record: Dictionary) -> String:
 	var key := TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_COMPLETED
 	if operation == OP_SWAP:
@@ -691,6 +717,38 @@ func _success_message(operation: String, record: Dictionary) -> String:
 		key,
 		{"name": str(record.get("display_name", ""))}
 	)
+
+
+func _has_consumed_choice(node_id: String, choice_id: String) -> bool:
+	for record in _history:
+		if str(record.get("node_id", "")) == node_id and str(record.get("choice_id", "")) == choice_id:
+			return true
+	return false
+
+
+func _is_mugong_candidate(
+	data: Dictionary,
+	runtime_levels: Dictionary,
+	character_type: String
+) -> bool:
+	var perk_id := str(data.get("id", data.get("perk_id", ""))).strip_edges()
+	if perk_id.is_empty() or str(data.get("rarity", "")).to_lower() == "mythic":
+		return false
+	var restriction := str(data.get("character_restriction", "")).strip_edges()
+	if not restriction.is_empty() and _character_context.normalize_character_type(restriction) != character_type:
+		return false
+	for excluded_flag in [
+		"is_instant",
+		"is_gold_conversion",
+		"is_physique_training",
+		"is_mystic_dice",
+		"is_perk_fusion",
+		"is_lingpet_guardian_enhance",
+	]:
+		if bool(data.get(excluded_flag, false)):
+			return false
+	var max_level := maxi(1, int(data.get("max_level", 5)))
+	return int(runtime_levels.get(perk_id, 0)) < max_level
 
 
 func _character_type(owner: Object) -> String:

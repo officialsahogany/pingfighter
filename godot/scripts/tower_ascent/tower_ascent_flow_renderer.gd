@@ -848,15 +848,15 @@ func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
 	_draw_balance_badge(canvas, Rect2(190.0, 242.0, 176.0, 38.0), str(model.get("muhon_text", "무혼 0")))
 	_draw_balance_badge(canvas, Rect2(394.0, 242.0, 176.0, 38.0), str(model.get("gold_text", "골드 0")))
 	var actions: Array = model.get("actions", [])
+	var action_rects: Array = model.get("action_rects", [])
 	var selected_index := int(model.get("selected_index", 0))
 	for index in range(actions.size()):
 		if not (actions[index] is Dictionary):
 			continue
-		var row_rect := Rect2(
-			126.0,
-			301.0 + float(index) * 43.0,
-			508.0,
-			38.0
+		var row_rect := (
+			action_rects[index] as Rect2
+			if index < action_rects.size() and action_rects[index] is Rect2
+			else Rect2(126.0, 301.0 + float(index) * 43.0, 508.0, 38.0)
 		)
 		_draw_modal_action_row(
 			canvas,
@@ -905,20 +905,20 @@ func _draw_modal_action_row(
 	canvas.draw_rect(rect, CINNABAR_DARK if selected else GOLD, false, 2.0 if selected else 1.0)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x + 14.0, rect.position.y + 25.0),
+		Vector2(rect.position.x + 10.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
 		str(action.get("label", "")),
 		HORIZONTAL_ALIGNMENT_LEFT,
-		rect.size.x - 150.0,
-		16,
+		maxf(52.0, rect.size.x - 102.0),
+		14 if rect.size.x < 400.0 else 16,
 		text_color
 	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.end.x - 130.0, rect.position.y + 25.0),
+		Vector2(rect.end.x - 88.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
 		str(action.get("cost_text", "")),
 		HORIZONTAL_ALIGNMENT_RIGHT,
-		116.0,
-		14,
+		78.0,
+		12 if rect.size.x < 400.0 else 14,
 		text_color
 	)
 

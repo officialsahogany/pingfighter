@@ -93,6 +93,9 @@ class FakeRuntimePerkCatalog:
 
 	var all_calls := 0
 	var data := {
+		"mugong_alpha": _mugong("mugong_alpha", "Mugong Alpha"),
+		"mugong_beta": _mugong("mugong_beta", "Mugong Beta"),
+		"mugong_gamma": _mugong("mugong_gamma", "Mugong Gamma"),
 		"unlock_alpha": _choice("unlock_alpha", "청류 비급", "alpha_skill"),
 		"unlock_beta": _choice("unlock_beta", "철벽 비급", "beta_skill"),
 		"unlock_gamma": _choice("unlock_gamma", "비연 비급", "gamma_skill"),
@@ -106,6 +109,14 @@ class FakeRuntimePerkCatalog:
 			"unlocks_skill": skill_id,
 			"character_restriction": "smasher",
 			"max_level": 1,
+		}
+
+	static func _mugong(perk_id: String, display_name: String) -> Dictionary:
+		return {
+			"id": perk_id,
+			"name": display_name,
+			"character_restriction": "smasher",
+			"max_level": 5,
 		}
 
 	func get_all_perk_data() -> Dictionary:
@@ -147,8 +158,11 @@ class FakeRuntimePerkState:
 		apply_calls += 1
 		var perk_id := str(choice.get("id", ""))
 		var unlocked_skill := str(choice.get("unlocks_skill", ""))
-		if perk_id.is_empty() or unlocked_skill.is_empty():
+		if perk_id.is_empty():
 			return false
+		if unlocked_skill.is_empty():
+			runtime_skill_levels[perk_id] = int(runtime_skill_levels.get(perk_id, 0)) + 1
+			return true
 		if skill_config.is_shared_slot_full():
 			var candidates: Array[Dictionary] = []
 			for skill_value in skill_config.get_shared_slot_swap_candidates(unlocked_skill):
@@ -276,7 +290,7 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "fallen-monk fixture must reach the monk only after route serve and map arrival")
 	var offers := flow.get_generated_fallen_monk_offers()
 	_expect(offers.size() == 1, "one monk visit must own one generated offer")
-	_expect((offers[0].get("choices", []) as Array).size() == RuntimePerkCatalog.BASE_CHOICE_COUNT, "monk acquisition must present the existing two-to-three choice ceiling")
+	_expect((offers[0].get("choices", []) as Array).size() == 6, "monk storefront must present exactly six Mugong and Chosik cards")
 	_expect(fixture.catalog.all_calls == 1, "monk offer must generate once per node")
 	var acquire_action := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
@@ -286,7 +300,7 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	var acquire_id := "fallen-monk-contract:acquire"
 	var acquire_result := flow.execute_node_action(str(acquire_action.get("id", "")), acquire_id)
 	_expect(bool(acquire_result.get("accepted", false)) and bool(acquire_result.get("applied", false)), "acquisition must commit through the node transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 32, "acquisition must debit exactly eight Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "acquisition must debit the unified three-Muhon price")
 	_expect(fixture.runtime_state.apply_calls == 1 and fixture.skill_config.equipped_skills.size() == 2, "acquisition must reuse runtime_perk_state.apply_choice")
 
 	var acquired_skill := str((acquire_result.get("record", {}) as Dictionary).get("unlocked_skill", ""))
@@ -297,20 +311,20 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	_expect(not swap_action.is_empty(), "a full Chosik slot must expose the existing swap candidates")
 	var duplicate := flow.execute_node_action(str(swap_action.get("id", "")), acquire_id)
 	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "same node_resolution_id must be an accepted no-op before swap effect")
-	_expect(fixture.runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 32, "duplicate resolution must neither swap nor debit")
+	_expect(fixture.runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "duplicate resolution must neither swap nor debit")
 
 	var swap_result := flow.execute_node_action(
 		str(swap_action.get("id", "")),
 		"fallen-monk-contract:swap"
 	)
 	_expect(bool(swap_result.get("accepted", false)) and bool(swap_result.get("applied", false)), "swap must commit through the existing pending-swap flow")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 22, "swap must debit exactly ten Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 33, "swap must debit the unified four-Muhon price")
 	_expect(fixture.runtime_state.apply_calls == 2 and fixture.runtime_state.confirm_calls == 1, "swap must call apply_choice then confirm_pending_unlock_swap")
-	var exhausted_swap := _find_action_with_prefix(
+	var remaining_swap := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
 		"fallen_monk:swap:"
 	)
-	_expect(not exhausted_swap.is_empty() and not bool(exhausted_swap.get("enabled", true)), "the second swap in one visit must be disabled")
+	_expect(not remaining_swap.is_empty() and bool(remaining_swap.get("enabled", false)), "another stocked Chosik must remain purchasable without a visit cap")
 
 	var remove_action := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
@@ -322,14 +336,14 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 		"fallen-monk-contract:remove"
 	)
 	_expect(bool(remove_result.get("accepted", false)) and bool(remove_result.get("applied", false)), "remove must commit atomically")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 10, "remove must debit exactly twelve Muhon and stay more expensive than acquisition")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 28, "remove must debit the unified five-Muhon price and stay more expensive than acquisition")
 	_expect(fixture.runtime_state.runtime_skill_levels.is_empty() and fixture.skill_config.equipped_skills == ["base_skill"], "remove must clear both equipped Chosik and its runtime unlock")
 	_expect(flow.get_fallen_monk_history().size() == 3, "visit history must own one acquisition, one swap, and one removal")
-	var exhausted_acquire := _find_action_with_prefix(
+	var remaining_acquire := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
 		"fallen_monk:acquire:"
 	)
-	_expect(not exhausted_acquire.is_empty() and not bool(exhausted_acquire.get("enabled", true)), "the second acquisition in one visit must be disabled")
+	_expect(not remaining_acquire.is_empty() and bool(remaining_acquire.get("enabled", false)), "another stocked acquisition must remain available without a visit cap")
 
 	var snapshot := flow.export_persistable_snapshot()
 	_expect((snapshot.get("generated_fallen_monk_offers", []) as Array).size() == 1, "monk offer must be in the stable run snapshot")
@@ -384,7 +398,7 @@ func _verify_swap_rejection_rolls_back_without_payment() -> void:
 		"fallen-monk-rollback:swap"
 	)
 	_expect(str(rejected.get("reason", "")) == "effect_rejected", "failed existing swap confirmation must reject before payment")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 32, "failed swap must not debit Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "failed swap must not debit Muhon")
 	_expect(fixture.runtime_state.runtime_skill_levels == levels_before and fixture.skill_config.equipped_skills == equipped_before, "failed swap must restore runtime unlocks and equipped Chosik")
 	_expect(not fixture.runtime_state.has_pending_unlock_swap() and fixture.runtime_state.cancel_calls == 1, "failed swap must clear the pending existing swap")
 	_expect(flow.get_fallen_monk_history().size() == 1, "failed swap must not append transaction history")
@@ -400,7 +414,7 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 		"run_id": "fallen-monk-poor",
 		"map_seed": 1,
 		"node_modal_kind": "fallen_monk",
-		"run_state": {"muhon": 7},
+		"run_state": {"muhon": 2},
 		"registry": fixture.registry,
 	}), "insufficient-Muhon fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "insufficient-Muhon fixture must arrive at the monk")
@@ -410,10 +424,10 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 	)
 	_expect(not bool(action.get("enabled", true)), "insufficient Muhon must disable acquisition")
 	var reason := str(action.get("unavailable_reason", ""))
-	_expect(reason.contains("8") and reason.contains("1 부족"), "disabled acquisition must show required Muhon and exact shortfall")
+	_expect(reason.contains("3") and reason.contains("1"), "disabled acquisition must show required Muhon and exact shortfall")
 	var result := flow.execute_node_action(str(action.get("id", "")), "fallen-monk-poor:attempt")
 	_expect(not bool(result.get("accepted", true)), "insufficient Muhon must reject direct execution before transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 7 and fixture.runtime_state.apply_calls == 0 and flow.get_fallen_monk_history().is_empty(), "insufficient Muhon must issue no debit, grant, or history")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 2 and fixture.runtime_state.apply_calls == 0 and flow.get_fallen_monk_history().is_empty(), "insufficient Muhon must issue no debit, grant, or history")
 	_finish_flow(flow, owner)
 
 

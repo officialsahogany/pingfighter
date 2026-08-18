@@ -294,7 +294,7 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 		"guardian-spring:enhance-1"
 	)
 	_expect(bool(enhance_result.get("applied", false)), "enhance must commit through the node transaction")
-	_expect(int(later_flow.get_run_state_snapshot().get("muhon", -1)) == 14, "enhance must debit exactly six Muhon")
+	_expect(int(later_flow.get_run_state_snapshot().get("muhon", -1)) == 18, "enhance must debit the unified two-Muhon spring price")
 	_expect(fixture.runtime.enhance_calls == 1 and fixture.runtime.last_rng_was_isolated, "enhance must reuse the runtime with an isolated deterministic RNG")
 
 	var absorb_action := _find_action_with_prefix(
@@ -337,7 +337,7 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 		"run_id": "guardian-spring-poor",
 		"map_seed": 11,
 		"node_modal_kind": "guardian_spring",
-		"run_state": {"muhon": 5},
+		"run_state": {"muhon": 1},
 		"registry": fixture.registry,
 	}), "poor guardian spring fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "guardian_spring", owner), "poor guardian spring fixture must arrive at the spring")
@@ -348,10 +348,10 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = later
 	_expect(later.restore_snapshot(snapshot, Callable(), owner, fixture.registry), "poor later visit must restore")
 	var action := _find_action_with_prefix(later.get_node_modal_view_model().get("actions", []), "guardian_spring:enhance:")
-	_expect(not bool(action.get("enabled", true)), "five Muhon must disable a six-Muhon enhancement")
-	_expect(str(action.get("unavailable_reason", "")).contains("6") and str(action.get("unavailable_reason", "")).contains("1 부족"), "disabled enhance must show required amount and exact shortfall")
+	_expect(not bool(action.get("enabled", true)), "one Muhon must disable a two-Muhon enhancement")
+	_expect(str(action.get("unavailable_reason", "")).contains("2") and str(action.get("unavailable_reason", "")).contains("1 부족"), "disabled enhance must show required amount and exact shortfall")
 	var rejected := later.execute_node_action(str(action.get("id", "")), "guardian-spring-poor:enhance")
-	_expect(not bool(rejected.get("accepted", true)) and fixture.runtime.enhance_calls == 0 and int(later.get_run_state_snapshot().get("muhon", -1)) == 5, "insufficient Muhon must issue no runtime effect or transaction")
+	_expect(not bool(rejected.get("accepted", true)) and fixture.runtime.enhance_calls == 0 and int(later.get_run_state_snapshot().get("muhon", -1)) == 1, "insufficient Muhon must issue no runtime effect or transaction")
 	_finish_flow(flow, owner)
 	_finish_flow(later, owner)
 	fixture.codex.clear()

@@ -8,6 +8,10 @@ const ACTION_END_WORK := "end_work"
 const ACTION_LIST_RECT := Rect2(126.0, 301.0, 508.0, 302.0)
 const ACTION_ROW_HEIGHT := 38.0
 const ACTION_ROW_GAP := 5.0
+const SIX_CARD_NODE_KINDS := ["training", "fallen_monk"]
+const GRID_COLUMN_GAP := 8.0
+const GRID_ROW_GAP := 8.0
+const GRID_ROW_HEIGHT := 68.0
 
 var _node_id := ""
 var _node_kind := "common_shell"
@@ -78,11 +82,36 @@ func select_index(index: int) -> bool:
 
 
 func select_at_position(position: Vector2) -> bool:
-	if not ACTION_LIST_RECT.has_point(position):
-		return false
-	var stride := ACTION_ROW_HEIGHT + ACTION_ROW_GAP
-	var index := int(floor((position.y - ACTION_LIST_RECT.position.y) / stride))
-	return select_index(index)
+	var rects := get_action_rects()
+	# Reverse iteration makes a future overlap deterministic and agrees with the
+	# visual topmost-card rule instead of accepting row-gap clicks.
+	for index in range(rects.size() - 1, -1, -1):
+		if (rects[index] as Rect2).has_point(position):
+			return select_index(index)
+	return false
+
+
+func get_action_rects() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	if _node_kind in SIX_CARD_NODE_KINDS:
+		var column_width := (ACTION_LIST_RECT.size.x - GRID_COLUMN_GAP) * 0.5
+		for index in range(_actions.size()):
+			var column := index % 2
+			var row := index / 2
+			result.append(Rect2(
+				ACTION_LIST_RECT.position + Vector2(
+					float(column) * (column_width + GRID_COLUMN_GAP),
+					float(row) * (GRID_ROW_HEIGHT + GRID_ROW_GAP)
+				),
+				Vector2(column_width, GRID_ROW_HEIGHT)
+			))
+		return result
+	for index in range(_actions.size()):
+		result.append(Rect2(
+			ACTION_LIST_RECT.position + Vector2(0.0, float(index) * (ACTION_ROW_HEIGHT + ACTION_ROW_GAP)),
+			Vector2(ACTION_LIST_RECT.size.x, ACTION_ROW_HEIGHT)
+		))
+	return result
 
 
 func get_selected_action() -> Dictionary:
@@ -107,6 +136,7 @@ func build_view_model() -> Dictionary:
 			{"amount": int(_balances.get("gold", 0))}
 		),
 		"actions": _actions.duplicate(true),
+		"action_rects": get_action_rects(),
 		"selected_index": _selected_index,
 		"status_text": _status_text,
 	}

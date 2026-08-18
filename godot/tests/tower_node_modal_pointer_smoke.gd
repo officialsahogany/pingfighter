@@ -73,6 +73,7 @@ class ModuleHolder:
 
 func _init() -> void:
 	_verify_scaled_top_corner_click_uses_playfield_coordinates()
+	_verify_six_card_grid_top_corners_match_hit_test()
 	if _failures.is_empty():
 		print("tower_node_modal_pointer_smoke: ok")
 		quit(0)
@@ -103,6 +104,22 @@ func _verify_scaled_top_corner_click_uses_playfield_coordinates() -> void:
 	_expect(flow.confirmed, "the rendered first-row top corner must be mouse-selectable after screen-to-playfield projection")
 	_expect(flow.received_position.is_equal_approx(local_top_corner), "tower modal hit testing must receive the same playfield coordinates used by rendering")
 	_expect(not TowerAscentNodeModalState.ACTION_LIST_RECT.has_point(screen_top_corner), "counterproof requires a screen point that the old unprojected hit test rejects")
+
+
+func _verify_six_card_grid_top_corners_match_hit_test() -> void:
+	for node_kind in ["training", "fallen_monk"]:
+		var modal := TowerAscentNodeModalState.new()
+		var actions: Array[Dictionary] = []
+		for index in range(6):
+			actions.append({"id": "%s-card-%d" % [node_kind, index], "label": "card %d" % index})
+		modal.open("six-card-node", node_kind, {"muhon": 20}, actions)
+		var rects := modal.get_action_rects()
+		_expect(rects.size() == 7, "%s must expose six cards plus the end-work action" % node_kind)
+		for index in range(rects.size()):
+			var rect := rects[index] as Rect2
+			_expect(TowerAscentNodeModalState.ACTION_LIST_RECT.encloses(rect), "%s action %d must remain inside the row budget" % [node_kind, index])
+			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
+			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
 
 
 func _expect(condition: bool, message: String) -> void:
