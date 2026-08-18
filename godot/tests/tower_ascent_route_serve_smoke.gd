@@ -169,6 +169,7 @@ class FakeInputReader:
 		"direction": 1.0,
 		"action_pressed": true,
 		"action_just_pressed": true,
+		"mouse_left_just_pressed": true,
 	}
 	var snapshot_calls := 0
 	var trace: Array[String] = []
@@ -345,6 +346,7 @@ func _init() -> void:
 	_verify_top_wall_and_player_paddle_round_trip()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
+	_verify_oscillating_gauge_and_mouse_timed_serve()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
 	_verify_production_source_uses_serve_contract_without_aim_input()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -417,9 +419,13 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 		owner.free()
 		return
 	var target_position: Vector2 = targets[0].get("position", Vector2.ZERO)
-	ball_driver.velocities = [
-		(target_position - Vector2(380.0, 665.0)).normalized() * 8.7,
-	]
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	_prime_flow_aim_to_target(flow, input_reader, target_position, Vector2(380.0, 665.0))
+	input_reader.snapshot_calls = 0
+	movement_state.update_calls = 0
+	input_reader.snapshot["direction"] = 1.0
+	input_reader.snapshot["mouse_left_just_pressed"] = true
 	var holder := ModuleHolder.new()
 	holder.modules = {
 		"battle_scene_readiness_controller": FakeReadiness.new(),
@@ -436,7 +442,7 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 		Vector2.ZERO
 	)
 	var blocked := _run_physics_gate_frame(
-		1.5,
+		1.0 / 60.0,
 		owner,
 		registry,
 		holder,
@@ -449,6 +455,10 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 		"live shell meta player_pos must accept the selective movement write"
 	)
 	_expect(ball_driver.serve_calls == 1, "live shell meta ball_active must preserve the actual serve")
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "the launch frame must keep a physical route ball in flight")
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	flow.update_selective(1.2)
 	_expect(
 		flow.get_phase_name() == "MAP_TRANSITION",
 		"live shell meta ball state must reach the swept target instead of re-serve looping"
@@ -496,9 +506,14 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 		owner.free()
 		return
 	var target_position: Vector2 = targets[0].get("position", Vector2.ZERO)
-	ball_driver.velocities = [
-		(target_position - Vector2(380.0, 665.0)).normalized() * 8.7,
-	]
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	_prime_flow_aim_to_target(flow, input_reader, target_position, Vector2(380.0, 665.0))
+	input_reader.snapshot_calls = 0
+	movement_state.update_calls = 0
+	frame_trace.clear()
+	input_reader.snapshot["direction"] = 1.0
+	input_reader.snapshot["mouse_left_just_pressed"] = true
 	var holder := ModuleHolder.new()
 	holder.modules = {
 		"battle_scene_readiness_controller": FakeReadiness.new(),
@@ -515,7 +530,7 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	var initial_cooldown := owner.cooldown_seconds
 	var uses_extracted_gate := ResourceLoader.exists(PHYSICS_GATE_COORDINATOR_PATH)
 	var blocked := _run_physics_gate_frame(
-		1.5,
+		1.0 / 60.0,
 		owner,
 		registry,
 		holder,
@@ -527,7 +542,7 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	_expect(movement_state.update_calls == 1, "one ROUTE_AIM frame must tick player movement once")
 	_expect(ball_driver.serve_calls == 1, "the same coordinator frame must trigger the existing serve producer")
 	_expect(frame_trace.count("ball_step") == 1, "the same coordinator frame must step the served ball once")
-	_expect(flow.get_phase_name() == "MAP_TRANSITION", "the same coordinator frame must resolve the swept target hit")
+	_expect(flow.get_phase_name() == "ROUTE_AIM" and flow.is_selector_launched(), "the same coordinator frame must launch the timed route serve")
 	_expect(
 		frame_trace == ["input_snapshot", "player_movement", "serve_ball", "ball_step"],
 		"ROUTE_AIM selective order must be snapshot -> movement -> serve -> ball step before hit transition"
@@ -539,6 +554,10 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	_expect(is_equal_approx(owner.cooldown_seconds, initial_cooldown), "the selective frame must keep combat cooldowns frozen")
 	if uses_extracted_gate:
 		_expect(pause.enter_calls == 1, "the extracted physics gate must retain the modal pause fanout")
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	flow.update_selective(1.2)
+	_expect(flow.get_phase_name() == "MAP_TRANSITION", "the timed physical trajectory must resolve the swept target hit")
 	flow.call("_finish_vertical_slice")
 	owner.free()
 
@@ -575,6 +594,45 @@ func _true_callback() -> bool:
 	return true
 
 
+func _prime_flow_aim_to_target(
+	flow: Object,
+	input_reader: FakeInputReader,
+	target_position: Vector2,
+	ball_origin: Vector2
+) -> void:
+	var desired_angle := rad_to_deg(atan2(
+		target_position.x - ball_origin.x,
+		ball_origin.y - target_position.y
+	))
+	for _frame in range(720):
+		var model: Dictionary = flow.get_route_aim_gauge_model()
+		if absf(float(model.get("angle_degrees", 0.0)) - desired_angle) <= 0.35:
+			return
+		input_reader.snapshot["mouse_left_just_pressed"] = false
+		flow.update_selective(1.0 / 240.0)
+	_expect(false, "route aim oscillator must traverse the physical target angle")
+
+
+func _prime_runtime_aim_to_target(
+	runtime: Object,
+	input_reader: FakeInputReader,
+	target_position: Vector2,
+	ball_origin: Vector2
+) -> void:
+	var desired_angle := rad_to_deg(atan2(
+		target_position.x - ball_origin.x,
+		ball_origin.y - target_position.y
+	))
+	var empty_targets: Array[Dictionary] = []
+	for _frame in range(720):
+		var model: Dictionary = runtime.get_aim_gauge_model()
+		if absf(float(model.get("angle_degrees", 0.0)) - desired_angle) <= 0.35:
+			return
+		input_reader.snapshot["mouse_left_just_pressed"] = false
+		runtime.update(1.0 / 240.0, empty_targets)
+	_expect(false, "runtime angle oscillator must traverse the physical target angle")
+
+
 func _verify_free_movement_while_waiting_and_in_flight() -> void:
 	var owner := FakeOwner.new()
 	var round_state := FakeRoundState.new()
@@ -582,6 +640,7 @@ func _verify_free_movement_while_waiting_and_in_flight() -> void:
 	var input_reader := FakeInputReader.new()
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	input_reader.snapshot["direction"] = 1.0
 	var movement_state := FakeMovementState.new()
 	var registry := FakeRegistry.new()
@@ -605,10 +664,12 @@ func _verify_free_movement_while_waiting_and_in_flight() -> void:
 
 	input_reader.snapshot["action_pressed"] = true
 	input_reader.snapshot["action_just_pressed"] = true
+	input_reader.snapshot["mouse_left_just_pressed"] = true
 	runtime.update(1.0 / 60.0, [])
 	_expect(owner.ball_active and not round_state.waiting, "manual serve must enter flight for the movement seal")
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	input_reader.snapshot["direction"] = -1.0
 	var flight_start_x: float = owner.player_pos.x
 	var flight_result: Dictionary = runtime.update(1.0 / 60.0, [])
@@ -648,6 +709,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	runtime.update(1.0 / 60.0, targets)
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	var reset_count_after_serve := ball_driver.reset_calls
 	var top_bounced := false
 	for _frame in range(100):
@@ -736,12 +798,16 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	owner.ball_vel = Vector2(0.0, 8.7)
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	var miss_result: Dictionary = runtime.update(0.1, targets)
 	_expect(str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS, "a serve that misses both targets must rearm instead of selecting")
 	_expect(round_state.waiting and ball_driver.reset_calls == 2, "a miss must return to unlimited player re-serve")
-	input_reader.snapshot["action_pressed"] = true
-	input_reader.snapshot["action_just_pressed"] = true
-	runtime.update(0.016, targets)
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	_prime_runtime_aim_to_target(runtime, input_reader, left_target, Vector2(380.0, 665.0))
+	input_reader.snapshot["mouse_left_just_pressed"] = true
+	runtime.update(0.0, targets)
 	var hit_result: Dictionary = runtime.update(1.5, targets)
 	_expect(str(hit_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT, "the real serve trajectory must resolve a swept target hit")
 	_expect(str(hit_result.get("target_id", "")) == "left", "the physical hit, not an aim choice, must select the node")
@@ -766,6 +832,7 @@ func _verify_route_wait_never_auto_serves_and_legacy_still_does() -> void:
 		"direction": 0.0,
 		"action_pressed": false,
 		"action_just_pressed": false,
+		"mouse_left_just_pressed": false,
 	}
 	var registry := FakeRegistry.new()
 	registry.instances = {
@@ -786,8 +853,9 @@ func _verify_route_wait_never_auto_serves_and_legacy_still_does() -> void:
 	_expect(ball_driver.serve_calls == 0 and runtime.get_serve_attempt_count() == 0, "ROUTE_AIM elapsed time must never auto-serve")
 	input_reader.snapshot["action_pressed"] = true
 	input_reader.snapshot["action_just_pressed"] = true
+	input_reader.snapshot["mouse_left_just_pressed"] = true
 	runtime.update(0.016, [])
-	_expect(ball_driver.serve_calls == 1 and runtime.get_serve_attempt_count() == 1, "a player action edge must still launch the route ball")
+	_expect(ball_driver.serve_calls == 1 and runtime.get_serve_attempt_count() == 1, "a left-click edge must still launch the route ball")
 	runtime.cancel()
 	owner.free()
 
@@ -807,6 +875,77 @@ func _verify_route_wait_never_auto_serves_and_legacy_still_does() -> void:
 
 func _record_legacy_serve() -> void:
 	_legacy_serve_calls += 1
+
+
+func _verify_oscillating_gauge_and_mouse_timed_serve() -> void:
+	var owner := FakeOwner.new()
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot = {
+		"direction": 0.0,
+		"action_pressed": false,
+		"action_just_pressed": false,
+		"mouse_left_just_pressed": false,
+	}
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "angle-gauge fixture must acquire route dependencies")
+	var initial_model := runtime.get_aim_gauge_model()
+	_expect(bool(initial_model.get("visible", false)), "angle gauge must be visible while waiting for serve")
+	var initial_origin: Variant = initial_model.get("origin", Vector2.ZERO)
+	_expect(
+		initial_origin is Vector2
+		and is_equal_approx(
+			(initial_origin as Vector2).x,
+			owner.player_pos.x + owner.player_paddle_width * 0.5
+		),
+		"angle gauge must stay centered immediately above the moving player"
+	)
+	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS * 0.25, [])
+	var right_model := runtime.get_aim_gauge_model()
+	_expect(
+		is_equal_approx(
+			float(right_model.get("angle_degrees", 0.0)),
+			TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
+		),
+		"quarter-period physics time must reach the right angle bound"
+	)
+	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS * 0.5, [])
+	var left_model := runtime.get_aim_gauge_model()
+	_expect(
+		is_equal_approx(
+			float(left_model.get("angle_degrees", 0.0)),
+			TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
+		),
+		"another half-period of physics time must reach the left angle bound"
+	)
+	input_reader.snapshot["action_pressed"] = true
+	input_reader.snapshot["action_just_pressed"] = true
+	runtime.update(0.0, [])
+	_expect(ball_driver.serve_calls == 0, "keyboard action must not replace the timing gauge's left-click edge")
+	input_reader.snapshot["mouse_left_just_pressed"] = true
+	runtime.update(0.0, [])
+	var launch_angle := deg_to_rad(float(left_model.get("angle_degrees", 0.0)))
+	var expected_direction := Vector2(sin(launch_angle), -cos(launch_angle)).normalized()
+	var expected_speed := TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+	_expect(ball_driver.serve_calls == 1, "left-click edge must launch through the existing serve producer")
+	_expect(owner.ball_vel.is_equal_approx(expected_direction * expected_speed), "left-click must launch at the gauge angle and TEMP serve speed")
+	_expect(not bool(runtime.get_aim_gauge_model().get("visible", true)), "angle gauge must hide while the route ball is in flight")
+	_expect(input_reader.snapshot_calls == 4, "each physics update must acquire exactly one shared idempotent snapshot")
+	runtime.cancel()
+	owner.free()
 
 
 func _verify_production_owner_fails_closed_without_serve_dependencies() -> void:
@@ -837,7 +976,15 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 	]:
 		_expect(route_source.find(required_key) >= 0, "route serve must use production dependency: %s" % required_key)
 	_expect(route_source.find("_serve_flow.update") < 0, "ROUTE_AIM must not call the auto-serve controller")
-	_expect(route_source.find("action_just_pressed") >= 0, "ROUTE_AIM must launch only from the shared player input edge")
+	_expect(route_source.find("mouse_left_just_pressed") >= 0, "ROUTE_AIM must launch only from the shared left-click edge")
+	_expect(route_source.find("input_snapshot.get(\"action_just_pressed\"") < 0, "keyboard accept must not bypass the timing gauge")
+	_expect(route_source.find("TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS") >= 0, "the oscillation period must remain an explicit TEMP tuning")
+	_expect(route_source.find("TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND") >= 0, "the route serve speed must remain an explicit TEMP tuning")
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	_expect(renderer_source.find("draw_colored_polygon") >= 0, "the angle gauge must retain layered filled fan geometry")
+	_expect(renderer_source.find("_draw_route_aim_gauge") >= 0, "ROUTE_AIM must render its player-local angle gauge")
 	var legacy_serve_source := FileAccess.get_file_as_string(
 		"res://scripts/core/serve_flow_controller.gd"
 	)

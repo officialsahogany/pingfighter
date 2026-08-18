@@ -278,6 +278,9 @@ func get_current_node_id() -> String:
 func get_route_aim_targets() -> Array[Dictionary]:
 	return _route_aim_targets_cache
 
+func get_route_aim_gauge_model() -> Dictionary:
+	return _route_serve_runtime.get_aim_gauge_model()
+
 func get_skipped_boss_ids() -> Array[String]:
 	return _run_state.get_skipped_boss_ids()
 

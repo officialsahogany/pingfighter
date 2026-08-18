@@ -941,8 +941,91 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 		canvas.draw_rect(label_rect, Color(0.04, 0.025, 0.02, 0.86), true)
 		canvas.draw_rect(label_rect, GOLD, false, 1.5)
 		canvas.draw_string(font, label_rect.position + Vector2(0.0, 21.0), str(target.get("label", "행로")), HORIZONTAL_ALIGNMENT_CENTER, label_rect.size.x, 16, PAPER)
-	canvas.draw_string(font, Vector2(80.0, 694.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
-	canvas.draw_string(font, Vector2(80.0, 716.0), "명중할 때까지 다시 서브할 수 있습니다", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, Color(PAPER, 0.82))
+	_draw_route_aim_gauge(canvas, flow)
+	canvas.draw_string(font, Vector2(80.0, 42.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
+	canvas.draw_string(font, Vector2(80.0, 64.0), "명중할 때까지 다시 서브할 수 있습니다", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, Color(PAPER, 0.82))
+
+
+func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
+	if not flow.has_method("get_route_aim_gauge_model"):
+		return
+	var model: Dictionary = flow.get_route_aim_gauge_model()
+	if not bool(model.get("visible", false)):
+		return
+	var origin := _vector2(model.get("origin", Vector2.ZERO))
+	var radius := TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+	var min_angle := deg_to_rad(float(model.get(
+		"min_degrees",
+		TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
+	)))
+	var max_angle := deg_to_rad(float(model.get(
+		"max_degrees",
+		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
+	)))
+	var angle := deg_to_rad(float(model.get("angle_degrees", 0.0)))
+	var outer_fan := _build_route_aim_fan(origin, radius, min_angle, max_angle, 28)
+	var inner_fan := _build_route_aim_fan(origin, radius - 8.0, min_angle, max_angle, 28)
+	canvas.draw_colored_polygon(outer_fan, Color(CINNABAR_DARK, 0.42))
+	canvas.draw_colored_polygon(inner_fan, Color(GOLD, 0.18))
+	canvas.draw_arc(
+		origin,
+		radius + 3.0,
+		-PI * 0.5 + min_angle,
+		-PI * 0.5 + max_angle,
+		28,
+		Color(CINNABAR, 0.16),
+		12.0,
+		true
+	)
+	canvas.draw_arc(
+		origin,
+		radius,
+		-PI * 0.5 + min_angle,
+		-PI * 0.5 + max_angle,
+		28,
+		Color(GOLD, 0.88),
+		3.0,
+		true
+	)
+	for tick_index in range(7):
+		var ratio := float(tick_index) / 6.0
+		var tick_angle := lerpf(min_angle, max_angle, ratio)
+		var tick_direction := Vector2(sin(tick_angle), -cos(tick_angle))
+		canvas.draw_line(
+			origin + tick_direction * (radius - 10.0),
+			origin + tick_direction * (radius - 3.0),
+			Color(PAPER, 0.58),
+			2.0,
+			true
+		)
+	var arrow_direction := Vector2(sin(angle), -cos(angle))
+	var arrow_end := origin + arrow_direction * (radius - 6.0)
+	canvas.draw_line(origin, arrow_end, Color(CINNABAR, 0.25), 10.0, true)
+	canvas.draw_line(origin, arrow_end, Color("ffcf59"), 4.0, true)
+	var perpendicular := Vector2(-arrow_direction.y, arrow_direction.x)
+	var arrow_head := PackedVector2Array([
+		arrow_end + arrow_direction * 7.0,
+		arrow_end - arrow_direction * 5.0 + perpendicular * 5.0,
+		arrow_end - arrow_direction * 5.0 - perpendicular * 5.0,
+	])
+	canvas.draw_colored_polygon(arrow_head, Color("fff1a6"))
+	canvas.draw_circle(origin, 6.0, Color(CINNABAR, 0.28))
+	canvas.draw_circle(origin, 3.0, Color("fff1a6"))
+
+
+func _build_route_aim_fan(
+	origin: Vector2,
+	radius: float,
+	min_angle: float,
+	max_angle: float,
+	segments: int
+) -> PackedVector2Array:
+	var points := PackedVector2Array([origin])
+	for index in range(segments + 1):
+		var ratio := float(index) / float(segments)
+		var angle := lerpf(min_angle, max_angle, ratio)
+		points.append(origin + Vector2(sin(angle), -cos(angle)) * radius)
+	return points
 
 
 func _draw_map_transition(canvas: CanvasItem, flow: Object) -> void:

@@ -8,6 +8,9 @@ const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 const PlayerCharacterRuntime := preload(
 	"res://scripts/characters/player_character_runtime.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 const STATUS_WAITING := "waiting"
 const STATUS_FLIGHT := "flight"
@@ -34,6 +37,9 @@ var _fixture_ball_position := Vector2.ZERO
 var _fixture_ball_velocity := Vector2.ZERO
 var _fixture_ball_active := false
 var _serve_attempt_count := 0
+var _aim_elapsed_seconds := 0.0
+var _aim_angle_degrees := 0.0
+var _aim_sweep_direction := 1.0
 
 
 func begin(owner: Object, registry: Object) -> Dictionary:
@@ -42,6 +48,7 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 	_registry = registry
 	_fixture_mode = owner == null or not (owner is Node)
 	_serve_attempt_count = 0
+	_reset_aim_oscillator()
 	if _fixture_mode:
 		_active = true
 		return {"accepted": true, "reason": "test_fixture"}
@@ -92,6 +99,7 @@ func cancel() -> void:
 	_fixture_ball_position = Vector2.ZERO
 	_fixture_ball_velocity = Vector2.ZERO
 	_fixture_ball_active = false
+	_reset_aim_oscillator()
 
 
 func finish_selection() -> void:
@@ -111,7 +119,8 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 		# retains its three-second auto-serve for combat, but this selective flow
 		# consumes the shared idempotent input snapshot and never advances that
 		# timer (v1.7 section 3.2).
-		if bool(input_snapshot.get("action_just_pressed", false)):
+		_update_aim_oscillator(maxf(0.0, delta))
+		if bool(input_snapshot.get("mouse_left_just_pressed", false)):
 			_serve_live_ball()
 		if bool(_round_state.is_waiting_for_serve()):
 			return {"status": STATUS_WAITING}
@@ -156,10 +165,65 @@ func get_serve_attempt_count() -> int:
 	return _serve_attempt_count
 
 
+func get_aim_gauge_model() -> Dictionary:
+	var waiting := _active and not is_ball_in_flight()
+	if not _fixture_mode and _round_state != null:
+		waiting = waiting and bool(_round_state.is_waiting_for_serve())
+	var player_pos := _owner_vector2(
+		"player_pos",
+		Vector2(
+			BattleSceneConfig.WIDTH * 0.5 - 77.5,
+			BattleSceneConfig.HEIGHT - 50.0
+		)
+	)
+	var paddle_width := maxf(1.0, float(_owner_value("player_paddle_width", 155.0)))
+	return {
+		"visible": waiting,
+		"origin": Vector2(
+			player_pos.x + paddle_width * 0.5,
+			player_pos.y - TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP
+		),
+		"angle_degrees": _aim_angle_degrees,
+		"sweep_direction": _aim_sweep_direction,
+		"min_degrees": TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES,
+		"max_degrees": TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES,
+	}
+
+
 func _serve_live_ball() -> void:
 	_ball_driver.serve_ball(_owner, _registry)
 	if bool(_owner_value("ball_active", false)):
+		var angle_radians := deg_to_rad(_aim_angle_degrees)
+		var direction := Vector2(sin(angle_radians), -cos(angle_radians)).normalized()
+		_set_owner_value(
+			"ball_vel",
+			direction * (
+				TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+			)
+		)
 		_serve_attempt_count += 1
+
+
+func _reset_aim_oscillator() -> void:
+	_aim_elapsed_seconds = 0.0
+	_aim_angle_degrees = 0.0
+	_aim_sweep_direction = 1.0
+
+
+func _update_aim_oscillator(delta: float) -> void:
+	var period := maxf(0.1, TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS)
+	_aim_elapsed_seconds = fposmod(_aim_elapsed_seconds + delta, period)
+	var phase := _aim_elapsed_seconds / period * TAU
+	var midpoint := (
+		TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
+		+ TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
+	) * 0.5
+	var amplitude := (
+		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
+		- TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
+	) * 0.5
+	_aim_angle_degrees = midpoint + sin(phase) * amplitude
+	_aim_sweep_direction = 1.0 if cos(phase) >= 0.0 else -1.0
 
 
 func _read_player_input_snapshot() -> Dictionary:
