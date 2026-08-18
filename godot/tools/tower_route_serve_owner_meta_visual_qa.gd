@@ -100,8 +100,9 @@ func _run() -> void:
 	if layout_module == null or not layout_module.has_method("build_game_layout"):
 		_fail("live battle view layout was unavailable for the Muhon-HUD crop")
 		return
+	var viewport_size: Vector2 = get_root().get_visible_rect().size
 	var layout: Dictionary = layout_module.build_game_layout(
-		Vector2(waiting_image.get_size()),
+		viewport_size,
 		BattleSceneConfig.WIDTH,
 		BattleSceneConfig.HEIGHT
 	)
@@ -111,8 +112,16 @@ func _run() -> void:
 	var hud_context := {"height": BattleSceneConfig.HEIGHT, "gold_hud_amount": 0}
 	var gold_rect: Rect2 = hud_renderer.build_gold_hud_rect(game_offset, game_size, hud_context)
 	var muhon_rect: Rect2 = hud_renderer.build_muhon_hud_rect(game_offset, game_size, hud_context)
+	var capture_scale := Vector2(
+		float(waiting_image.get_width()) / maxf(1.0, viewport_size.x),
+		float(waiting_image.get_height()) / maxf(1.0, viewport_size.y)
+	)
+	var hud_rect_in_capture := Rect2(
+		gold_rect.merge(muhon_rect).grow(18.0).position * capture_scale,
+		gold_rect.merge(muhon_rect).grow(18.0).size * capture_scale
+	)
 	var hud_crop_rect := Rect2i(
-		gold_rect.merge(muhon_rect).grow(18.0).intersection(
+		hud_rect_in_capture.intersection(
 			Rect2(Vector2.ZERO, Vector2(waiting_image.get_size()))
 		)
 	)
