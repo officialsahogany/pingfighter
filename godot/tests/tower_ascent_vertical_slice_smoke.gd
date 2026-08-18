@@ -9,6 +9,9 @@ const BattleSceneInputController := preload(
 const BattleSceneMatchFlowDriver := preload(
 	"res://scripts/core/battle_scene_match_flow_driver.gd"
 )
+const BattleSceneShell := preload(
+	"res://scripts/core/battle_scene_shell.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -18,6 +21,7 @@ const TowerAscentFlowOwner := preload(
 
 var _failures: Array[String] = []
 var _reset_calls := 0
+var _shell_finish_calls := 0
 
 
 class FakeOwner:
@@ -190,6 +194,122 @@ class FakeTowerModalRuntime:
 		pass
 
 
+class FakeRoundFlowState:
+	extends RefCounted
+
+	var waiting_for_serve := true
+
+	func is_waiting_for_serve() -> bool:
+		return waiting_for_serve
+
+	func set_player_serves(_value: bool) -> void:
+		pass
+
+	func reset_round_wait() -> void:
+		waiting_for_serve = false
+
+
+class FakeBallUpdateDriver:
+	extends RefCounted
+
+	func reset_ball(owner: Object, _registry: Object) -> void:
+		owner.set("ball_pos", Vector2(380.0, 665.0))
+		owner.set("ball_vel", Vector2.ZERO)
+		owner.set("ball_active", false)
+
+	func serve_ball(owner: Object, _registry: Object) -> void:
+		owner.set("ball_active", true)
+
+
+class FakeBallMotionStepper:
+	extends RefCounted
+
+	func step(
+		ball_position: Vector2,
+		movement: Vector2,
+		_ball_velocity: Vector2,
+		_context: Dictionary
+	) -> Dictionary:
+		return {"event": "none", "ball_pos": ball_position + movement}
+
+
+class FakePaddleBounceState:
+	extends RefCounted
+
+	func get_initial_speed(ball_velocity: Vector2) -> float:
+		return ball_velocity.length()
+
+	func resolve_velocity(
+		ball_velocity: Vector2,
+		_hit_position: float,
+		_is_player: bool,
+		_previous_x: float,
+		_vertical_direction: float,
+		_initial_speed: float,
+		_target_angle: float,
+		_is_dash: bool,
+		_accel_scale: float,
+		_combo: int,
+		_ball_physics: Object,
+		_extra: Variant,
+		_spin: float,
+		_curve: float,
+		_minimum_speed: float,
+		_maximum_speed: float
+	) -> Dictionary:
+		return {"ball_vel": ball_velocity}
+
+
+class FakeBallPhysics:
+	extends RefCounted
+
+
+class FakeInputReader:
+	extends RefCounted
+
+	func get_snapshot() -> Dictionary:
+		return {}
+
+
+class FakeMovementState:
+	extends RefCounted
+
+	func update_horizontal(
+		_delta: float,
+		player_position: Vector2,
+		player_speed: float,
+		_direction: float,
+		_play_left: float,
+		_play_right: float,
+		_paddle_width: float,
+		_config: Dictionary
+	) -> Dictionary:
+		return {"player_pos": player_position, "player_speed": player_speed}
+
+
+class FakeBattleUpdateContext:
+	extends RefCounted
+
+	func build_player_control_config() -> Dictionary:
+		return {}
+
+
+class FakePlayerControlConfigBuilder:
+	extends RefCounted
+
+	func build_config(
+		_owner: Object,
+		_registry: Object,
+		_character_type: String,
+		_context: Object
+	) -> Dictionary:
+		return {
+			"play_left": 0.0,
+			"play_right": 760.0,
+			"paddle_width": 155.0,
+		}
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -217,6 +337,7 @@ class ModuleHolder:
 
 func _init() -> void:
 	_verify_flag_off_preserves_legacy_result_flow()
+	_verify_real_shell_boot_prewarm_first_and_second_victory()
 	_verify_match_flow_runs_one_fixed_cycle()
 	_verify_snapshot_round_trip_and_required_fields()
 	_verify_physics_gate_updates_only_selector_flow()
@@ -230,6 +351,78 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_shell_finish_calls = 0
+	var flow := TowerAscentFlowOwner.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"runtime_perk_state": FakeTowerModalRuntime.new(),
+		"round_flow_state": FakeRoundFlowState.new(),
+		"battle_scene_ball_update_driver": FakeBallUpdateDriver.new(),
+		"ball_motion_stepper": FakeBallMotionStepper.new(),
+		"paddle_bounce_state": FakePaddleBounceState.new(),
+		"ball_physics": FakeBallPhysics.new(),
+		"smasher_input_reader": FakeInputReader.new(),
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakeBattleUpdateContext.new(),
+		"battle_scene_player_control_config_builder": FakePlayerControlConfigBuilder.new(),
+	}
+	var owner := BattleSceneShell.new()
+	owner.set("current_stage", 1)
+	owner.set("selected_character_type", "smasher")
+	var prewarm: Dictionary = flow.prewarm_muhon_collection(owner)
+	_expect(bool(prewarm.get("accepted", false)), "real BattleSceneShell boot prewarm must start the run-local economy")
+	var run_id := str(prewarm.get("run_id", ""))
+	_expect(not run_id.is_empty(), "real-shell prewarm must expose its run id")
+
+	var first_context := {"current_stage": 1, "registry": registry}
+	_expect(
+		flow.prepare_vertical_slice_combat(owner, first_context),
+		"real BattleSceneShell first victory must prepare after boot prewarm"
+	)
+	_expect(
+		flow.begin_vertical_slice(
+			owner,
+			Callable(self, "_on_shell_route_finish"),
+			first_context
+		),
+		"real BattleSceneShell first victory must activate the tower slice"
+	)
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "real-shell first victory must enter ROUTE_AIM")
+
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	_expect(not targets.is_empty(), "real-shell first route must expose a selectable target")
+	if not targets.is_empty():
+		flow.debug_launch_at_target(0)
+		flow.update_selective(1.5, owner)
+		_expect(flow.get_phase_name() == "MAP_TRANSITION", "real-shell selective serve must commit the chosen target")
+		flow.update_selective(1.0, owner)
+		if flow.is_active() and flow.get_phase_name() == "NODE_MODAL":
+			flow.call("_finish_vertical_slice", {})
+	_expect(not flow.is_active(), "real-shell first route completion must close the tower slice")
+	_expect(_shell_finish_calls == 1, "real-shell first route must invoke the encounter callback once")
+
+	var second_context := {"current_stage": 2, "registry": registry}
+	_expect(
+		flow.prepare_vertical_slice_combat(owner, second_context),
+		"same-run real BattleSceneShell second victory must prepare"
+	)
+	_expect(
+		flow.begin_vertical_slice(
+			owner,
+			Callable(self, "_on_shell_route_finish"),
+			second_context
+		),
+		"same-run real BattleSceneShell second victory must activate the tower slice"
+	)
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "real-shell second victory must re-enter ROUTE_AIM")
+	_expect(str(flow.export_snapshot().get("run_id", "")) == run_id, "second victory must preserve the prewarmed run id")
+	flow.call("_finish_vertical_slice", {})
+	_expect(_shell_finish_calls == 2, "real-shell second route cleanup must invoke the callback once")
+	owner.free()
 
 
 func _verify_flag_off_preserves_legacy_result_flow() -> void:
@@ -368,6 +561,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 		"run_state",
 		"generated_shop_inventory",
 		"purchase_history",
+		"reward_pick_history",
 		"claimed_decoration_ids",
 		"build_state",
 		"guardian_state",
@@ -388,6 +582,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	_expect(first_phase.nodes.size() > 4 and first_phase.edges.size() > 3 and not second_phase.nodes.is_empty(), "serialized phases must include generated nodes and edges")
 	_expect(round_trip.completed_nodes == snapshot.completed_nodes, "snapshot restore must preserve node_resolution_id records")
 	_expect(round_trip.run_state == snapshot.run_state, "snapshot restore must preserve run-local economy")
+	_expect(round_trip.reward_pick_history == snapshot.reward_pick_history, "snapshot restore must preserve reward-pick transaction history")
 	_expect(not source.export_persistable_snapshot().is_empty(), "post-commit stable boundary must export a persistable snapshot")
 	var unstable_snapshot := snapshot.duplicate(true)
 	unstable_snapshot["phase"] = TowerAscentFlowOwner.PHASE_ROUTE_AIM
@@ -515,6 +710,10 @@ func _true() -> bool:
 
 func _on_reset() -> void:
 	_reset_calls += 1
+
+
+func _on_shell_route_finish(_encounter: Dictionary) -> void:
+	_shell_finish_calls += 1
 
 
 func _expect(condition: bool, message: String) -> void:

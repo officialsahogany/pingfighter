@@ -326,12 +326,20 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	_active = false
 	_phase = PHASE_COMBAT
 	if callback.is_valid():
-		if encounter.is_empty() and str(callback.get_method()) == "_finish_tower_boss_route":
-			callback.call({})
-		elif encounter.is_empty():
+		# Route callbacks consume the encounter dictionary while settlement and
+		# node-exit callbacks consume no arguments. Dispatch by the Callable's
+		# remaining arity; method-name strings are not a contract and silently break
+		# when a production callback is renamed (GRT-048).
+		var callback_argument_count := callback.get_argument_count()
+		if callback_argument_count == 0:
 			callback.call()
-		else:
+		elif callback_argument_count == 1:
 			callback.call(encounter)
+		else:
+			push_warning(
+				"[TowerAscent] finish callback rejected: unsupported arity %d"
+				% callback_argument_count
+			)
 
 func _complete_map_transition() -> void:
 	var arrived_node := _get_node(_selected_target_id)

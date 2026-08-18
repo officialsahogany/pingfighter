@@ -23,19 +23,33 @@ const REENTRY_PROGRESS_FIELDS: Array[String] = [
 	"defeat_event_ids",
 	"gameplay_rng_state",
 	"route_history",
+	"reward_pick_history",
 ]
 
 func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> bool:
-	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _active:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		push_warning("[TowerAscent] prepare rejected: feature_disabled")
+		return false
+	if _active:
+		push_warning("[TowerAscent] prepare rejected: flow_active")
 		return false
 	if _prepared:
 		return true
 	var reuse_existing_run: bool = bool(
 		_run_state.has_started() and not context.has("run_id")
 	)
+	# Boot prewarm starts the run-local economy before any map exists. That is
+	# not a combat re-entry: trying to restore its empty current_node_id rejects
+	# the first live victory while RefCounted fixtures (which skip boot prewarm)
+	# remain green.
+	var restore_existing_progress: bool = bool(
+		reuse_existing_run
+		and not _current_node_id.is_empty()
+		and not _graph_nodes.is_empty()
+	)
 	var existing_run_id: String = str(_run_state.get_run_id())
 	var existing_economy: Dictionary = _run_state.export_economy()
-	var existing_progress := _capture_reentry_progress() if reuse_existing_run else {}
+	var existing_progress := _capture_reentry_progress() if restore_existing_progress else {}
 	var existing_map_seed := _map_seed
 	var existing_combat_node_id := str(existing_progress.get("current_node_id", ""))
 	_reset_runtime_state()
@@ -51,11 +65,12 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	var run_progress_variant: Variant = existing_progress.get("run_progress", {})
 	var progress: Dictionary = run_progress_variant if run_progress_variant is Dictionary else {}
 	if not _run_state.begin(run_id, economy, [], progress):
+		push_warning("[TowerAscent] prepare rejected: run_state_begin_failed")
 		return false
 	var current_stage := int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1)))
 	_map_seed = int(context.get(
 		"map_seed",
-		existing_map_seed if reuse_existing_run else _derive_map_seed(run_id, current_stage)
+		existing_map_seed if restore_existing_progress else _derive_map_seed(run_id, current_stage)
 	))
 	_node_modal_kind = _normalize_node_modal_kind(str(context.get(
 		"node_modal_kind",
@@ -63,12 +78,14 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	)))
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
+		push_warning("[TowerAscent] prepare rejected: generated_graph_invalid")
 		return false
-	if reuse_existing_run and not _restore_reentry_progress(existing_progress):
+	if restore_existing_progress and not _restore_reentry_progress(existing_progress):
+		push_warning("[TowerAscent] prepare rejected: reentry_progress_invalid")
 		return false
 	_current_node_id = (
 		existing_combat_node_id
-		if reuse_existing_run and not existing_combat_node_id.is_empty()
+		if restore_existing_progress and not existing_combat_node_id.is_empty()
 		else _route_source_node_id
 	)
 	_sync_run_state_phases()
@@ -84,6 +101,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		_prepared_resolution_id
 	)
 	if pending.is_empty():
+		push_warning("[TowerAscent] prepare rejected: resolution_prepare_failed")
 		return false
 	_pending_rewards.append(pending)
 	_prepared = true
@@ -114,11 +132,13 @@ func _capture_reentry_progress() -> Dictionary:
 		"defeat_event_ids": _defeat_event_ids,
 		"gameplay_rng_state": _gameplay_rng_state,
 		"route_history": _route_history,
+		"reward_pick_history": _reward_pick_history,
 	}
 	var result := {
 		"run_progress": {
 			"active_phase_index": _run_state.get_active_phase_index(),
 			"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
+			"burned_vision_boss_ids": _run_state.get_burned_vision_boss_ids(),
 		},
 	}
 	for field_name in REENTRY_PROGRESS_FIELDS:
@@ -172,6 +192,8 @@ func _restore_reentry_progress(progress: Dictionary) -> bool:
 	_defeat_event_ids.assign(_string_array(progress.get("defeat_event_ids", [])))
 	_gameplay_rng_state = _dictionary_copy(progress.get("gameplay_rng_state", {}))
 	_route_history.assign(_dictionary_array(progress.get("route_history", [])))
+	_reward_pick_history.assign(_dictionary_array(progress.get("reward_pick_history", [])))
+	_add_history_resolution_ids(_reward_pick_history)
 	_current_node_id = str(progress.get("current_node_id", _route_source_node_id))
 	if _get_node(_current_node_id).is_empty():
 		return false
@@ -258,6 +280,22 @@ func get_route_aim_targets() -> Array[Dictionary]:
 
 func get_skipped_boss_ids() -> Array[String]:
 	return _run_state.get_skipped_boss_ids()
+
+
+func get_reward_pick_context() -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _prepared:
+		return {}
+	var context := get_current_node_risk_context()
+	context.merge({
+		"run_id": _run_state.get_run_id(),
+		"node_id": _current_node_id,
+		"node_resolution_id": _prepared_resolution_id,
+		"map_seed": _map_seed,
+		"balances": _run_state.export_economy(),
+		"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
+		"burned_vision_boss_ids": _run_state.get_burned_vision_boss_ids(),
+	}, true)
+	return context
 
 func get_current_node_risk_context() -> Dictionary:
 	var node := _get_node(_current_node_id)
@@ -355,6 +393,8 @@ func _enter_route_aim() -> bool:
 	_phase = PHASE_ROUTE_AIM
 	_reset_selector()
 	var result: Dictionary = _route_serve_runtime.begin(_active_owner, _active_registry)
+	if not bool(result.get("accepted", false)):
+		push_warning("[TowerAscent] route aim rejected: %s" % str(result.get("reason", "unknown")))
 	return bool(result.get("accepted", false))
 
 func _update_route_serve(delta: float) -> void:

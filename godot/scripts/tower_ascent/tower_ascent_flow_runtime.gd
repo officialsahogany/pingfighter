@@ -6,19 +6,26 @@ func begin_vertical_slice(
 	finish_callback: Callable,
 	context: Dictionary = {}
 ) -> bool:
-	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _active:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		push_warning("[TowerAscent] begin rejected: feature_disabled")
+		return false
+	if _active:
+		push_warning("[TowerAscent] begin rejected: flow_active")
 		return false
 	if not _prepared and not prepare_vertical_slice_combat(owner, context):
+		push_warning("[TowerAscent] begin rejected: prepare_vertical_slice_combat_failed")
 		return false
 	var lifecycle_result: Dictionary = _modal_lifecycle.enter(
 		owner,
 		context.get("registry", null)
 	)
 	if not bool(lifecycle_result.get("accepted", false)):
+		push_warning("[TowerAscent] begin rejected: modal_%s" % str(lifecycle_result.get("reason", "enter_failed")))
 		return false
 	_finish_callback = finish_callback
 	if not _complete_prepared_combat_resolution():
 		_modal_lifecycle.leave()
+		push_warning("[TowerAscent] begin rejected: prepared_combat_resolution_failed")
 		return false
 	_prepared = false
 	_prepared_resolution_id = ""
@@ -29,6 +36,7 @@ func begin_vertical_slice(
 	_current_node_id = _route_source_node_id
 	if not _enter_route_aim():
 		_reset_runtime_state()
+		push_warning("[TowerAscent] begin rejected: route_aim_failed")
 		return false
 	_request_redraw(owner)
 	return true
