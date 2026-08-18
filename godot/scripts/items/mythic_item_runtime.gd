@@ -2482,7 +2482,7 @@ func get_dashholder_dash_token_bonus() -> int:
 	return stat_bonus_runtime.get_dashholder_dash_token_bonus(self)
 
 
-func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = null) -> int:
+func get_dash_token_capacity(base_tokens: int = 2, runtime_perk_state: Object = null) -> int:
 	_ensure_helpers_ready()
 	return stat_bonus_runtime.get_dash_token_capacity(self, base_tokens, runtime_perk_state)
 

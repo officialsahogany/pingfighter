@@ -43,7 +43,7 @@ func _verify_stage_and_dash_token_fallbacks() -> void:
 	_expect(context.get_current_stage(null) == 0, "null owner stage should be zero")
 	_expect(context.get_current_stage(FakeOwner.new({"current_stage": -3})) == 0, "negative owner stage should clamp to zero")
 	_expect(context.get_current_stage(FakeOwner.new({"current_stage": 5})) == 5, "owner stage should be read when present")
-	_expect(context.get_starting_dash_tokens(null) == 1, "null owner should get one starting dash token")
+	_expect(context.get_starting_dash_tokens(null) == 2, "null owner should inherit the two-token battle baseline")
 	_expect(context.get_starting_dash_tokens(FakeOwner.new({"starting_dash_tokens": -2})) == 1, "owner dash token override should clamp to at least one")
 	_expect(context.get_starting_dash_tokens(FakeOwner.new({"starting_dash_tokens": 3})) == 3, "owner dash token override should be honored")
 

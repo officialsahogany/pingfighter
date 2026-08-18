@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
@@ -97,7 +98,10 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.ball_physics", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	var starting_dash_tokens: int = max(1, int(context.get("starting_dash_tokens", 1)))
+	var starting_dash_tokens: int = max(
+		1,
+		int(context.get("starting_dash_tokens", BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS))
+	)
 	_initialize_dash_tokens(registry, starting_dash_tokens)
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.dash_tokens", sample_start)
 

@@ -193,7 +193,7 @@ func get_dashholder_dash_token_bonus(runtime: Object) -> int:
 
 func get_dash_token_capacity(
 	runtime: Object,
-	base_tokens: int = 1,
+	base_tokens: int = 2,
 	runtime_perk_state: Object = null
 ) -> int:
 	var odins_limit: Variant = runtime.get_odins_eye_dash_token_limit_override()

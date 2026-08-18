@@ -741,13 +741,13 @@ func sync_dash_token_capacity(runtime: Object, owner: Object, registry: Object) 
 
 func _get_starting_dash_tokens(owner: Object) -> int:
 	if owner == null:
-		return 1
+		return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS
 	var owner_value: Variant = owner.get("starting_dash_tokens")
 	if owner_value != null:
 		return max(1, int(owner_value))
 	if _fallback_scene_config != null and _fallback_scene_config.has_method("get_starting_dash_tokens"):
 		return max(1, int(_fallback_scene_config.get_starting_dash_tokens(owner)))
-	return 1
+	return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS
 
 
 func sync_player_status_resistance_to_movement(runtime: Object, registry: Object) -> void:

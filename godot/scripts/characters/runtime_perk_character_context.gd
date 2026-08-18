@@ -86,10 +86,10 @@ func get_current_stage(owner: Object) -> int:
 
 func get_starting_dash_tokens(owner: Object) -> int:
 	if owner == null:
-		return 1
+		return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS
 	var owner_value: Variant = owner.get("starting_dash_tokens")
 	if owner_value != null:
 		return max(1, int(owner_value))
 	if _battle_scene_config != null and _battle_scene_config.has_method("get_starting_dash_tokens"):
 		return max(1, int(_battle_scene_config.get_starting_dash_tokens(owner)))
-	return 1
+	return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS

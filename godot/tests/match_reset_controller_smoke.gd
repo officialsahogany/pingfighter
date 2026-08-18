@@ -197,7 +197,7 @@ func _init() -> void:
 	_expect(smasher_state.reset_calls == 1 and runtime_perk.reset_calls == 1 and optimus_energy.reset_calls == 1, "character runtime states should reset")
 	_expect(skill_config.reset_runtime_skills_calls == 1 and skill_runtime.reset_calls == 1, "skill configs and runtimes should reset")
 	_expect(_drive_reset_calls == 1, "Drive input frame callback should run")
-	_expect(dash.reset_full_value == 1 and orb_hud.reset_dash_token_value == 1, "dash state should reset and sync HUD tokens")
+	_expect(dash.reset_full_value == 2 and orb_hud.reset_dash_token_value == 2, "dash state should reset and sync the two-token default")
 	_expect(audio.stopped.size() == 12 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)), "reset audio loops should stop")
 	_expect(stage_skill.reset_calls == 1 and stage_background.reset_calls == 1, "stage states should reset")
 	_expect(_ball_reset_calls == 1, "ball reset callback should run")

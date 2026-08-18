@@ -756,7 +756,7 @@ func _get_reset_result_applier(registry: Object) -> Object:
 
 func _get_starting_dash_tokens(owner: Object, registry: Object) -> int:
 	if owner == null:
-		return 1
+		return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS
 	var owner_value: Variant = owner.get("starting_dash_tokens")
 	if owner_value != null:
 		return max(1, int(owner_value))
@@ -765,7 +765,7 @@ func _get_starting_dash_tokens(owner: Object, registry: Object) -> int:
 		config = _fallback_scene_config
 	if config != null and config.has_method("get_starting_dash_tokens"):
 		return max(1, int(config.get_starting_dash_tokens(owner)))
-	return 1
+	return BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS
 
 
 func _get_league_player_paddle_scale(owner: Object, registry: Object) -> float:

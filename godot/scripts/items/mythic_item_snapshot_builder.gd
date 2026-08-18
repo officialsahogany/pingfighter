@@ -271,7 +271,7 @@ func build_snapshot(runtime: Object) -> Dictionary:
 		"soul_burst_effect_active": runtime.soul_burst_effect_timer_frames > 0.0,
 		"dashholder_equipped": runtime.is_dashholder_equipped(),
 		"dashholder_dash_token_bonus": runtime.get_dashholder_dash_token_bonus(),
-		"dash_token_capacity": runtime.get_dash_token_capacity(1),
+		"dash_token_capacity": runtime.get_dash_token_capacity(2),
 		"ragnarok_hammer_equipped": runtime.is_equipped(ITEM_RAGNAROK_HAMMER),
 		"ragnarok_hammer_trigger_chance": runtime.get_ragnarok_trigger_chance(),
 		"ragnarok_hammer_stun_duration": runtime.get_ragnarok_stun_duration(),

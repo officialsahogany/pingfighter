@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const BossElectrocutionFieldHost := preload("res://scripts/effects/boss_electrocution_field_fx_host.gd")
 const Stage4PonkAwakenAuraFxHost := preload("res://scripts/stages/stage4/stage4_ponk_awaken_aura_fx_host.gd")
@@ -203,7 +204,10 @@ func _reset_dash_state(deps: Dictionary, orb_hud_state: Object) -> void:
 
 
 func _get_dash_token_capacity(deps: Dictionary) -> int:
-	var base_tokens: int = max(1, int(deps.get("starting_dash_tokens", 1)))
+	var base_tokens: int = max(
+		1,
+		int(deps.get("starting_dash_tokens", BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS))
+	)
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_token_capacity"):

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+
 const DEFAULT_VALUES: Dictionary = {
 	"ball_pos": Vector2.ZERO,
 	"ball_pos_prev": Vector2.ZERO,
@@ -96,7 +98,7 @@ const DEFAULT_VALUES: Dictionary = {
 	"stage_boss_variant": "",
 	"selected_character_type": "smasher",
 	"ai_mode": "champion",
-	"starting_dash_tokens": 1,
+	"starting_dash_tokens": BattleSceneConfig.DEFAULT_STARTING_DASH_TOKENS,
 	"arena_mode_enabled": false,
 	"weather_type": "",
 	"weather_event_active": false,
