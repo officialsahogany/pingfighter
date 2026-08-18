@@ -36,6 +36,9 @@ class CaptureRuntimeState:
 	var runtime_skill_levels: Dictionary = {}
 	var current_choice_context: Dictionary = {}
 
+	func apply_choice(_choice: Dictionary, _owner: Object, _registry: Object) -> bool:
+		return true
+
 
 class CaptureFlowOwner:
 	extends RefCounted
@@ -53,6 +56,22 @@ class CaptureFlowOwner:
 
 	func finalize_reward_pick(_vision_boss_slot_id: String = "") -> Dictionary:
 		return {"accepted": true, "applied": true}
+
+	func apply_reward_pick_purchase(
+		_slot_index: int,
+		_choice: Dictionary,
+		cost: int,
+		effect_callback: Callable,
+		rollback_callback: Callable = Callable()
+	) -> Dictionary:
+		if int(balances.get("muhon", 0)) < cost:
+			return {"accepted": false, "applied": false, "reason": "insufficient_muhon"}
+		if not bool(effect_callback.call()):
+			if rollback_callback.is_valid():
+				rollback_callback.call()
+			return {"accepted": false, "applied": false, "reason": "effect_rejected"}
+		balances["muhon"] = int(balances.get("muhon", 0)) - cost
+		return {"accepted": true, "applied": true, "balances": balances.duplicate(true)}
 
 
 class CaptureRegistry:
@@ -113,13 +132,13 @@ func _run() -> void:
 		push_error("reward-pick capture directory creation failed: %d" % mkdir_error)
 		quit(1)
 		return
-	if not await _capture_offer("four_card_reward_pick.png", _build_general_choices(), 0, output_dir):
+	if not await _capture_offer("four_card_reward_pick.png", _build_general_choices(), 0, output_dir, true):
 		return
 	if not await _capture_offer("vision_reward_pick.png", _build_vision_choices(), 0, output_dir):
 		return
 	LanguageSettings.set_test_locale_override("")
 	print("tower_reward_pick_visual_qa: evidence=%s" % output_dir)
-	print("tower_reward_pick_visual_qa: captures=2")
+	print("tower_reward_pick_visual_qa: captures=3")
 	print("tower_reward_pick_visual_qa: ok")
 	quit(0)
 
@@ -128,7 +147,8 @@ func _capture_offer(
 	file_name: String,
 	choices: Array[Dictionary],
 	selected_index: int,
-	output_dir: String
+	output_dir: String,
+	capture_empty_after_purchase: bool = false
 ) -> bool:
 	var flow := CaptureFlowOwner.new()
 	var renderer := RuntimePerkOverlayRenderer.new()
@@ -172,6 +192,36 @@ func _capture_offer(
 		quit(1)
 		return false
 	print("[TowerRewardPickVisualQA] %s" % output_path)
+	if capture_empty_after_purchase:
+		var original_rects: Array = reward_state.get_card_rects()
+		reward_state.call("_purchase", 0)
+		reward_state.update(1.0)
+		var empty_model: Dictionary = reward_state.build_view_model()
+		var empty_choices: Array = empty_model.get("choices", [])
+		if (
+			empty_choices.size() != 4
+			or not bool((empty_choices[0] as Dictionary).get("reward_pick_empty", false))
+			or bool((empty_choices[1] as Dictionary).get("reward_pick_empty", false))
+			or (empty_model.get("card_rects", []) as Array) != original_rects
+		):
+			push_error("post-purchase visual fixture did not preserve one stable empty slot")
+			quit(1)
+			return false
+		canvas.queue_redraw()
+		for _frame_index in range(8):
+			await process_frame
+		var empty_image: Image = viewport.get_texture().get_image()
+		var empty_output_path := output_dir.path_join("post_purchase_empty_slot.png")
+		if (
+			empty_image == null
+			or empty_image.is_empty()
+			or empty_image.get_size() != GAME_SIZE
+			or empty_image.save_png(empty_output_path) != OK
+		):
+			push_error("post-purchase empty-slot capture failed: %s" % empty_output_path)
+			quit(1)
+			return false
+		print("[TowerRewardPickVisualQA] %s" % empty_output_path)
 	reward_state.reset()
 	get_root().remove_child(viewport)
 	viewport.queue_free()

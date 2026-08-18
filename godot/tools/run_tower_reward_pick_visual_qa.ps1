@@ -43,7 +43,7 @@ try {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
     $okMarker = "tower_reward_pick_visual_qa: ok"
-    $captureMarker = "tower_reward_pick_visual_qa: captures=2"
+    $captureMarker = "tower_reward_pick_visual_qa: captures=3"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `

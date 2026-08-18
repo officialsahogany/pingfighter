@@ -11,6 +11,8 @@ const TowerAscentFeatureFlags := preload(
 
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_route_serve_owner_meta"
 const OUTPUT_NAME := "route_aim_live_owner.png"
+const ANGLE_GAUGE_OUTPUT_NAME := "route_aim_angle_gauge.png"
+const MUHON_HUD_OUTPUT_NAME := "battle_hud_muhon.png"
 const TOP_BOUNCE_OUTPUT_NAME := "route_aim_top_wall_bounce.png"
 const INITIAL_PLAYER_POS := Vector2(230.0, 680.0)
 const ROUTE_FLIGHT_STEPS := 14
@@ -65,6 +67,38 @@ func _run() -> void:
 	if str(tower_flow.get_phase_name()) != "ROUTE_AIM":
 		_fail("live battle scene did not remain in ROUTE_AIM")
 		return
+	var collect_result: Dictionary = tower_flow.collect_muhon(8, main_node)
+	if not bool(collect_result.get("accepted", false)):
+		_fail("live tower flow could not seed the Muhon HUD evidence")
+		return
+	var gauge_model: Dictionary = tower_flow.get_route_aim_gauge_model()
+	if not bool(gauge_model.get("visible", false)):
+		_fail("live ROUTE_AIM did not expose the waiting angle gauge")
+		return
+	main_node.queue_redraw()
+	for _frame in range(10):
+		await process_frame
+		main_node.queue_redraw()
+	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
+	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
+		_fail("could not create tower route-serve capture directory")
+		return
+	var gauge_output_path := output_dir.path_join(ANGLE_GAUGE_OUTPUT_NAME)
+	var muhon_output_path := output_dir.path_join(MUHON_HUD_OUTPUT_NAME)
+	var waiting_image := get_root().get_texture().get_image()
+	if (
+		waiting_image == null
+		or waiting_image.is_empty()
+		or waiting_image.save_png(gauge_output_path) != OK
+	):
+		_fail("could not save live angle-gauge capture: %s" % gauge_output_path)
+		return
+	var hud_crop_width := mini(460, waiting_image.get_width())
+	var hud_crop_height := mini(560, waiting_image.get_height())
+	var hud_image := waiting_image.get_region(Rect2i(0, 0, hud_crop_width, hud_crop_height))
+	if hud_image == null or hud_image.is_empty() or hud_image.save_png(muhon_output_path) != OK:
+		_fail("could not save live Muhon-HUD capture: %s" % muhon_output_path)
+		return
 
 	var initial_player_pos := BattleSceneOwnerReader.get_vector2(
 		main_node,
@@ -72,9 +106,9 @@ func _run() -> void:
 		Vector2.ZERO
 	)
 	Input.action_press("ui_right")
-	Input.action_press("ui_accept")
+	_set_left_mouse_pressed(true)
 	tower_flow.update_selective(1.0 / 60.0, main_node)
-	Input.action_release("ui_accept")
+	_set_left_mouse_pressed(false)
 	for _step in range(ROUTE_FLIGHT_STEPS - 1):
 		tower_flow.update_selective(1.0 / 60.0, main_node)
 	Input.action_release("ui_right")
@@ -109,10 +143,6 @@ func _run() -> void:
 	for _frame in range(10):
 		await process_frame
 		main_node.queue_redraw()
-	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
-	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
-		_fail("could not create tower route-serve capture directory")
-		return
 	var output_path := output_dir.path_join(OUTPUT_NAME)
 	if not _save_viewport_capture(output_path):
 		_fail("could not save tower route-serve live-owner capture: %s" % output_path)
@@ -143,12 +173,16 @@ func _run() -> void:
 		ball_pos,
 		output_path,
 	])
+	print("[TowerRouteServeOwnerMetaVisualQA] angle_gauge=%s muhon_hud=%s" % [
+		gauge_output_path,
+		muhon_output_path,
+	])
 	print("[TowerRouteServeOwnerMetaVisualQA] top_bounce_pos=%s top_bounce_vel=%s evidence=%s" % [
 		bounced_position,
 		bounced_velocity,
 		bounce_output_path,
 	])
-	print("tower_route_serve_owner_meta_visual_qa: captures=2")
+	print("tower_route_serve_owner_meta_visual_qa: captures=4")
 	print("tower_route_serve_owner_meta_visual_qa: ok")
 	_cleanup(main_node)
 	quit(0)
@@ -224,6 +258,15 @@ func _save_viewport_capture(output_path: String) -> bool:
 func _release_test_input() -> void:
 	for action_name in ["ui_left", "ui_right", "ui_accept"]:
 		Input.action_release(action_name)
+	_set_left_mouse_pressed(false)
+
+
+func _set_left_mouse_pressed(pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = Vector2(760.0, 500.0)
+	Input.parse_input_event(event)
 
 
 func _cleanup(main_node: Node) -> void:
