@@ -7,6 +7,28 @@ const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
 
+const NODE_ART_PATHS := {
+	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
+	"combat": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
+	"enraged": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
+	"shop": "res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_static_v1.png",
+	"training": "res://assets/sprites/perks/common_training_perk_icon.png",
+	"fallen_monk": "res://assets/sprites/perks/soul_summon_art_manual_icon.png",
+	"guardian_spring": "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png",
+	"rest": "res://assets/sprites/items/campfire_icon_hq_v1.png",
+}
+const NODE_ART_TEXTURES := {
+	"boss": preload("res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png"),
+	"combat": preload("res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png"),
+	"enraged": preload("res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png"),
+	"shop": preload("res://assets/ui/plaza/interior/plaza_shop_strewn_coin_pile_autosprite_static_v1.png"),
+	"training": preload("res://assets/sprites/perks/common_training_perk_icon.png"),
+	"fallen_monk": preload("res://assets/sprites/perks/soul_summon_art_manual_icon.png"),
+	"guardian_spring": preload("res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png"),
+	"rest": preload("res://assets/sprites/items/campfire_icon_hq_v1.png"),
+}
+const BOSS_ART_GRID := Vector2i(2, 2)
+
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
@@ -21,6 +43,8 @@ const CINNABAR := Color("9e352d")
 const CINNABAR_DARK := Color("63241f")
 const GOLD := Color("bd8c35")
 const SEALED := Color("5e5145")
+
+
 func draw(canvas: CanvasItem, flow: Object) -> void:
 	if canvas == null or flow == null or not flow.has_method("is_active") or not bool(flow.is_active()):
 		return
@@ -46,6 +70,360 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 		_draw_run_settlement(canvas, flow)
 	elif phase_name == "GAUNTLET_TRANSITION":
 		_draw_gauntlet_transition(canvas, flow)
+
+
+func draw_fullscreen_map(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if canvas == null or flow == null:
+		return
+	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
+	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		return
+	var model := build_fullscreen_map_model(flow, viewport_rect)
+	if model.is_empty():
+		return
+	_draw_fullscreen_map_model(canvas, flow, model)
+
+
+func resolve_fullscreen_rect(canvas: CanvasItem, fallback_rect: Rect2) -> Rect2:
+	# GRT-044: a fullscreen surface trusts the live viewport first. The tree
+	# guard keeps headless/source fixtures from emitting get_viewport_rect errors.
+	if canvas != null and canvas.is_inside_tree():
+		return canvas.get_viewport_rect()
+	return fallback_rect
+
+
+func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionary:
+	var base := build_render_model(flow)
+	if base.is_empty() or viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		return {}
+	var outer_margin := clampf(minf(viewport_rect.size.x, viewport_rect.size.y) * 0.024, 12.0, 28.0)
+	var panel_rect := viewport_rect.grow(-outer_margin)
+	var side_gutter := clampf(panel_rect.size.x * 0.13, 82.0, 190.0)
+	var content_rect := Rect2(
+		panel_rect.position + Vector2(side_gutter, 82.0),
+		Vector2(
+			maxf(240.0, panel_rect.size.x - side_gutter * 2.0),
+			maxf(320.0, panel_rect.size.y - 154.0)
+		)
+	)
+	var nodes: Array = base.get("nodes", [])
+	var source_min_y := INF
+	var source_max_y := -INF
+	var unique_rows: Dictionary = {}
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var source_position := _vector2((node_variant as Dictionary).get("position", Vector2.ZERO))
+		source_min_y = minf(source_min_y, source_position.y)
+		source_max_y = maxf(source_max_y, source_position.y)
+		unique_rows[int(round(source_position.y))] = true
+	if not is_finite(source_min_y) or not is_finite(source_max_y):
+		return {}
+	var row_pitch := content_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
+	var art_size := clampf(row_pitch * 0.72, 18.0, 34.0)
+	var lane_span := minf(content_rect.size.x * 0.29, 330.0)
+	var center_x := content_rect.get_center().x
+	var position_by_id: Dictionary = {}
+	var projected_nodes: Array[Dictionary] = []
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var node := (node_variant as Dictionary).duplicate(true)
+		var source_position := _vector2(node.get("position", Vector2.ZERO))
+		var source_x_ratio := clampf((source_position.x - 380.0) / 320.0, -1.0, 1.0)
+		var source_y_ratio := inverse_lerp(source_min_y, source_max_y, source_position.y)
+		var screen_position := Vector2(
+			center_x + source_x_ratio * lane_span,
+			lerpf(content_rect.position.y, content_rect.end.y, source_y_ratio)
+		)
+		var node_kind := str(node.get("kind", ""))
+		node["screen_position"] = screen_position
+		node["art_rect"] = Rect2(screen_position - Vector2.ONE * art_size * 0.5, Vector2.ONE * art_size)
+		node["art_path"] = str(NODE_ART_PATHS.get(node_kind, NODE_ART_PATHS["combat"]))
+		position_by_id[str(node.get("id", ""))] = screen_position
+		projected_nodes.append(node)
+	var projected_edges: Array[Dictionary] = []
+	for edge_variant in base.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var from_id := str(edge.get("from", ""))
+		var to_id := str(edge.get("to", ""))
+		if not position_by_id.has(from_id) or not position_by_id.has(to_id):
+			continue
+		projected_edges.append({
+			"from": from_id,
+			"to": to_id,
+			"from_position": position_by_id[from_id],
+			"to_position": position_by_id[to_id],
+		})
+	var floor_bands: Array[Dictionary] = []
+	for floor_variant in base.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_data := floor_variant as Dictionary
+		var rows: Array = floor_data.get("rows", [])
+		if rows.is_empty() or not (rows[rows.size() - 1] is Dictionary):
+			continue
+		var gate_ids: Array = (rows[rows.size() - 1] as Dictionary).get("node_ids", [])
+		if gate_ids.is_empty() or not position_by_id.has(str(gate_ids[0])):
+			continue
+		var floor_number := int(floor_data.get("floor", 0))
+		var band_y := float((position_by_id[str(gate_ids[0])] as Vector2).y)
+		var width_ratio := 0.48 + float(posmod(floor_number, 3)) * 0.035
+		floor_bands.append({
+			"floor": floor_number,
+			"y": band_y,
+			"rect": Rect2(
+				center_x - content_rect.size.x * width_ratio * 0.5,
+				band_y - row_pitch * 0.38,
+				content_rect.size.x * width_ratio,
+				maxf(12.0, row_pitch * 0.76)
+			),
+		})
+	return {
+		"viewport_rect": viewport_rect,
+		"panel_rect": panel_rect,
+		"content_rect": content_rect,
+		"nodes": projected_nodes,
+		"edges": projected_edges,
+		"floor_bands": floor_bands,
+		"active_candidate_ids": base.get("active_candidate_ids", []),
+		"current_node_id": str(base.get("current_node_id", "")),
+		"selected_target_id": str(base.get("selected_target_id", "")),
+		"art_size": art_size,
+	}
+
+
+func get_node_art_asset_paths() -> Array[String]:
+	var result: Array[String] = []
+	for path_value in NODE_ART_PATHS.values():
+		var path := str(path_value)
+		if not result.has(path):
+			result.append(path)
+	return result
+
+
+func _draw_fullscreen_map_model(
+	canvas: CanvasItem,
+	flow: Object,
+	model: Dictionary
+) -> void:
+	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
+	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
+	var content_rect: Rect2 = model.get("content_rect", Rect2())
+	canvas.draw_rect(viewport_rect, Color(0.018, 0.012, 0.01, 0.985), true)
+	canvas.draw_rect(panel_rect, PAPER, true)
+	canvas.draw_rect(panel_rect, CINNABAR_DARK, false, 5.0)
+	canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
+	_draw_fullscreen_castle(canvas, content_rect, model.get("floor_bands", []))
+	for edge_variant in model.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		canvas.draw_line(
+			_vector2(edge.get("from_position", Vector2.ZERO)),
+			_vector2(edge.get("to_position", Vector2.ZERO)),
+			Color(GOLD, 0.64),
+			2.0,
+			true
+		)
+	var active_candidate_ids: Array = model.get("active_candidate_ids", [])
+	var current_node_id := str(model.get("current_node_id", ""))
+	var selected_target_id := str(model.get("selected_target_id", ""))
+	for node_variant in model.get("nodes", []):
+		if node_variant is Dictionary:
+			_draw_fullscreen_map_node(
+				canvas,
+				node_variant as Dictionary,
+				active_candidate_ids,
+				current_node_id,
+				selected_target_id,
+				content_rect
+			)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(
+		font,
+		panel_rect.position + Vector2(34.0, 48.0),
+		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_TITLE),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		panel_rect.size.x * 0.48,
+		30,
+		INK
+	)
+	canvas.draw_string(
+		font,
+		panel_rect.position + Vector2(34.0, 72.0),
+		flow.get_header_subtitle(),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		panel_rect.size.x * 0.58,
+		14,
+		INK_SOFT
+	)
+	canvas.draw_string(
+		font,
+		Vector2(panel_rect.end.x - 230.0, panel_rect.position.y + 48.0),
+		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_CLOSE_HINT),
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		196.0,
+		14,
+		INK_SOFT
+	)
+	var legend_rect := Rect2(
+		panel_rect.position.x + 34.0,
+		panel_rect.end.y - 56.0,
+		panel_rect.size.x - 68.0,
+		38.0
+	)
+	canvas.draw_rect(legend_rect, Color(PAPER_DEEP, 0.7), true)
+	canvas.draw_rect(legend_rect, GOLD, false, 1.0)
+	canvas.draw_string(
+		font,
+		legend_rect.position + Vector2(10.0, 24.0),
+		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_LEGEND_TYPES),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		legend_rect.size.x - 20.0,
+		11,
+		INK
+	)
+
+
+func _draw_fullscreen_castle(
+	canvas: CanvasItem,
+	content_rect: Rect2,
+	floor_bands_value: Variant
+) -> void:
+	var tower_rect := Rect2(
+		content_rect.get_center().x - content_rect.size.x * 0.27,
+		content_rect.position.y - 6.0,
+		content_rect.size.x * 0.54,
+		content_rect.size.y + 12.0
+	)
+	canvas.draw_rect(tower_rect, Color(PAPER_DEEP, 0.28), true)
+	canvas.draw_rect(tower_rect, Color(GOLD, 0.5), false, 2.0)
+	var roof_y := content_rect.position.y - 9.0
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			Vector2(tower_rect.position.x - 24.0, roof_y),
+			Vector2(tower_rect.get_center().x, roof_y - 30.0),
+			Vector2(tower_rect.end.x + 24.0, roof_y),
+			Vector2(tower_rect.end.x, roof_y + 10.0),
+			Vector2(tower_rect.position.x, roof_y + 10.0),
+		]),
+		CINNABAR_DARK
+	)
+	var floor_bands: Array = floor_bands_value if floor_bands_value is Array else []
+	for band_variant in floor_bands:
+		if not (band_variant is Dictionary):
+			continue
+		var band := band_variant as Dictionary
+		var band_rect: Rect2 = band.get("rect", Rect2())
+		canvas.draw_rect(band_rect, Color(PAPER_DEEP, 0.31), true)
+		canvas.draw_line(
+			Vector2(band_rect.position.x, float(band.get("y", band_rect.get_center().y))),
+			Vector2(band_rect.end.x, float(band.get("y", band_rect.get_center().y))),
+			Color(GOLD, 0.5),
+			1.0
+		)
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			Vector2(content_rect.position.x - 58.0, float(band.get("y", 0.0)) + 4.0),
+			"%dF" % int(band.get("floor", 0)),
+			HORIZONTAL_ALIGNMENT_RIGHT,
+			44.0,
+			11,
+			INK_SOFT
+		)
+
+
+func _draw_fullscreen_map_node(
+	canvas: CanvasItem,
+	node: Dictionary,
+	active_candidate_ids: Array,
+	current_node_id: String,
+	selected_target_id: String,
+	content_rect: Rect2
+) -> void:
+	var node_id := str(node.get("id", ""))
+	var node_kind := str(node.get("kind", "combat"))
+	var art_rect: Rect2 = node.get("art_rect", Rect2())
+	var screen_position: Vector2 = node.get("screen_position", art_rect.get_center())
+	var current := node_id == current_node_id
+	var active := active_candidate_ids.has(node_id)
+	var selected := not selected_target_id.is_empty() and node_id == selected_target_id
+	var completed := bool(node.get("completed", false))
+	var skipped := bool(node.get("skipped", false))
+	var route_locked := bool(node.get("route_locked", false))
+	var enraged := bool(node.get("enraged", false))
+	var frame_color := CINNABAR if current or selected else GOLD if active else INK_SOFT
+	if enraged:
+		frame_color = CINNABAR
+	if route_locked or skipped:
+		frame_color = SEALED
+	canvas.draw_rect(art_rect.grow(3.0), Color(0.05, 0.032, 0.022, 0.92), true)
+	canvas.draw_rect(art_rect.grow(3.0), frame_color, false, 2.0 if current or active or selected else 1.0)
+	var texture_value: Variant = NODE_ART_TEXTURES.get(node_kind, NODE_ART_TEXTURES["combat"])
+	if texture_value is Texture2D:
+		var texture := texture_value as Texture2D
+		var grid := BOSS_ART_GRID if node_kind in ["boss", "combat", "enraged"] else Vector2i.ONE
+		var source_size := texture.get_size() / Vector2(grid)
+		var modulate := Color.WHITE
+		if route_locked or skipped:
+			modulate = Color(0.45, 0.42, 0.38, 0.72)
+		elif completed and not current:
+			modulate = Color(0.72, 0.66, 0.54, 0.82)
+		canvas.draw_texture_rect_region(
+			texture,
+			art_rect,
+			Rect2(Vector2.ZERO, source_size),
+			modulate
+		)
+	if current:
+		canvas.draw_circle(screen_position, art_rect.size.x * 0.72, CINNABAR, false, 3.0)
+	if skipped:
+		canvas.draw_line(art_rect.position, art_rect.end, PAPER, 2.0)
+		canvas.draw_line(
+			Vector2(art_rect.end.x, art_rect.position.y),
+			Vector2(art_rect.position.x, art_rect.end.y),
+			PAPER,
+			2.0
+		)
+	var display_label := str(node.get("label", ""))
+	if not (node_kind in ["boss", "combat", "enraged"]):
+		display_label = TowerAscentMapOverlayLocalization.node_kind_label(node_kind, enraged)
+	var left_lane := screen_position.x < content_rect.get_center().x - 1.0
+	var label_width := clampf(content_rect.size.x * 0.22, 76.0, 170.0)
+	var label_x := art_rect.position.x - label_width - 9.0 if left_lane else art_rect.end.x + 9.0
+	var alignment := HORIZONTAL_ALIGNMENT_RIGHT if left_lane else HORIZONTAL_ALIGNMENT_LEFT
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(label_x, screen_position.y + 4.0),
+		display_label,
+		alignment,
+		label_width,
+		10,
+		INK
+	)
+	var state_label := TowerAscentMapOverlayLocalization.node_state_label(
+		current,
+		completed,
+		skipped,
+		route_locked
+	)
+	if not state_label.is_empty():
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			Vector2(label_x, screen_position.y + 14.0),
+			state_label,
+			alignment,
+			label_width,
+			8,
+			CINNABAR_DARK if current else INK_SOFT
+		)
 
 
 func _draw_map_surface(

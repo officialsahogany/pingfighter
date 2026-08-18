@@ -1,11 +1,6 @@
 extends SceneTree
 
-const BattlePlayfieldSceneDrawer := preload(
-	"res://scripts/core/battle_playfield_scene_drawer.gd"
-)
-const BallRenderer := preload("res://scripts/ball/ball_renderer.gd")
-const BattleDrawContext := preload("res://scripts/core/battle_draw_context.gd")
-const RoundFlowState := preload("res://scripts/core/round_flow_state.gd")
+const BattleSceneDrawer := preload("res://scripts/core/battle_scene_drawer.gd")
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -13,7 +8,7 @@ const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
 
-const GAME_SIZE := Vector2i(760, 750)
+const GAME_SIZE := Vector2i(1280, 800)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
 const OUTPUT_NAME := "map_overlay_combat.png"
 
@@ -45,24 +40,14 @@ class CaptureRegistry:
 	extends RefCounted
 
 	var flow_owner: Object
-	var ball_renderer: Object = BallRenderer.new()
-	var battle_draw_context: Object = BattleDrawContext.new()
-	var round_flow_state: Object = RoundFlowState.new()
 	var runtime_perk_state: Object = FakeRuntimePerkState.new()
 	var game_audio: Object = FakeAudio.new()
 
 	func _init(new_flow_owner: Object) -> void:
 		flow_owner = new_flow_owner
-		round_flow_state.waiting_for_serve = false
 
 	func get_instance(key: String) -> Variant:
 		match key:
-			"ball_renderer":
-				return ball_renderer
-			"battle_draw_context":
-				return battle_draw_context
-			"round_flow_state":
-				return round_flow_state
 			"runtime_perk_state":
 				return runtime_perk_state
 			"game_audio":
@@ -77,11 +62,11 @@ class CaptureRegistry:
 		return get_instance(key)
 
 
-class ProductionPlayfieldCanvas:
+class ProductionScreenCanvas:
 	extends Node2D
 
 	var registry: Object
-	var drawer: Object = BattlePlayfieldSceneDrawer.new()
+	var drawer: Object = BattleSceneDrawer.new()
 	var current_stage := 4
 	var ball_active := true
 	var ball_pos := Vector2(380.0, 440.0)
@@ -100,7 +85,7 @@ class ProductionPlayfieldCanvas:
 		queue_redraw()
 
 	func _draw() -> void:
-		drawer.draw(self, registry, Vector2.ZERO, 760.0, 750.0, 0.0)
+		drawer.draw(self, registry, {"context_owner": self})
 
 
 func _init() -> void:
@@ -128,7 +113,7 @@ func _run() -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
-	var canvas := ProductionPlayfieldCanvas.new(registry)
+	var canvas := ProductionScreenCanvas.new(registry)
 	viewport.add_child(canvas)
 	if not flow_owner.open_map_overlay(canvas, registry, {
 		"run_id": "map-overlay-visual-qa",

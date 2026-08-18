@@ -75,8 +75,10 @@ func _verify_renderer_has_no_fixed_fixture_ids() -> void:
 		_expect(source.find(retired_id) < 0, "renderer must not retain fixed fixture id: %s" % retired_id)
 	_expect(source.find("build_render_model") >= 0 and source.find("get_graph_floors") >= 0, "renderer must use the generated floor and graph data surfaces")
 	_expect(source.find("var model := build_render_model") < 0, "hot draw path must not duplicate the full render model")
-	_expect(source.count("_draw_map_surface(canvas, flow") == 2, "the map surface must render only for map movement and explicit map viewing")
+	_expect(source.count("_draw_map_surface(canvas, flow") == 2, "the local map surface must remain limited to map movement and its compatibility draw entry")
 	_expect(source.find("if phase_name == \"MAP_OVERLAY\":\n\t\t_draw_map_surface(canvas, flow, true)\n\t\treturn") >= 0, "the read-only map overlay must reuse the generated map surface")
+	_expect(source.find("func draw_fullscreen_map") >= 0 and source.find("canvas.get_viewport_rect()") >= 0, "the production map overlay must expose a viewport-owned fullscreen draw path")
+	_expect(source.find("NODE_ART_PATHS") >= 0 and source.find("build_fullscreen_map_model") >= 0, "fullscreen nodes must publish existing art slots through the data-driven model")
 	_expect(source.find("if phase_name == \"ROUTE_AIM\":\n\t\t_draw_route_aim(canvas, flow)\n\t\treturn") >= 0, "route serving must return before the map surface draw")
 	_expect(source.find("if phase_name == \"NODE_MODAL\":\n\t\t_draw_node_modal(canvas, flow)\n\t\treturn") >= 0, "arrived node work must return before the map surface draw")
 

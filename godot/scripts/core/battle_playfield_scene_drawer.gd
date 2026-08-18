@@ -425,6 +425,11 @@ func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
 		flow_active
 		and flow_owner.has_method("draw")
 	):
+		# The read-only map owns the untransformed screen-space pass in
+		# BattleSceneDrawer so it can cover the letterbox as well as the 760x750
+		# playfield. Every other tower surface remains in game coordinates.
+		if flow_owner.has_method("get_phase_name") and str(flow_owner.get_phase_name()) == "MAP_OVERLAY":
+			return
 		flow_owner.draw(canvas)
 
 

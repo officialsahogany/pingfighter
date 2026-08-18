@@ -42,6 +42,9 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	sample_start = _perf_begin(perf_logger)
 	_draw_hud_overlays(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_tower_ascent_fullscreen_map(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene.tower_fullscreen_map", sample_start)
 	_perf_end(perf_logger, "draw.scene.total", total_start)
 
 
@@ -241,6 +244,22 @@ func _draw_hud_overlays(canvas: CanvasItem, registry: Object, _view_size: Vector
 		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime)
 
 
+func _draw_tower_ascent_fullscreen_map(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2
+) -> void:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("get_phase_name")
+		or str(flow_owner.get_phase_name()) != "MAP_OVERLAY"
+		or not flow_owner.has_method("draw_fullscreen_map")
+	):
+		return
+	flow_owner.draw_fullscreen_map(canvas, Rect2(Vector2.ZERO, view_size))
+
+
 func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:
 	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
 	var context: Dictionary = {}
@@ -286,6 +305,12 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	return registry.get_cached_instance(key)
 
 
 func _append_viper_lod_context(context: Dictionary, registry: Object) -> void:

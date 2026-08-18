@@ -201,6 +201,11 @@ func draw(canvas: CanvasItem) -> void:
 		_renderer.draw(canvas, self)
 
 
+func draw_fullscreen_map(canvas: CanvasItem, fallback_rect: Rect2 = Rect2()) -> void:
+	if _renderer != null and _renderer.has_method("draw_fullscreen_map"):
+		_renderer.draw_fullscreen_map(canvas, self, fallback_rect)
+
+
 
 
 
