@@ -2,9 +2,11 @@ extends RefCounted
 
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 const RightPillarPortraitRenderer := preload("res://scripts/hud/right_pillar_portrait_renderer.gd")
 const PillarOrbStaticLayerCache := preload("res://scripts/hud/pillar_orb_static_layer_cache.gd")
 
@@ -18,6 +20,7 @@ const GOLD_HUD_FONT_SIZE := 24
 const GOLD_HUD_MIN_FONT_SIZE := 13
 const GOLD_HUD_TEXT_GAP := 8.0
 const GOLD_HUD_TEXT_RIGHT_PAD := 12.0
+const MUHON_HUD_VERTICAL_GAP := 6.0
 # 프레임(정적 베젤 스택) 아크 세그먼트는 베이크 완료 전 벡터 폴백에서만 쓰인다.
 # 프리미엄 화질은 베이크본(해석적 원호 — 세그먼트 수 무관)이 담당하므로, 폴백은
 # stage1_dalji_commando_hud_layout_smoke가 봉인한 예산(<=16 / LOD <=12)을 지킨다.
@@ -314,6 +317,15 @@ func build_gold_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dict
 	return Rect2(Vector2(rect_x, game_offset.y + top_margin), Vector2(wanted_width, wanted_height))
 
 
+func build_muhon_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> Rect2:
+	var gold_rect: Rect2 = build_gold_hud_rect(game_offset, game_size, context)
+	var scale_factor: float = _get_gold_hud_scale(game_size, context)
+	return Rect2(
+		Vector2(gold_rect.position.x, gold_rect.end.y + MUHON_HUD_VERTICAL_GAP * scale_factor),
+		gold_rect.size
+	)
+
+
 func format_gold_amount(amount: int) -> String:
 	var raw := str(maxi(0, amount))
 	var formatted := ""
@@ -325,6 +337,8 @@ func format_gold_amount(amount: int) -> String:
 
 func draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, context: Dictionary) -> void:
 	_draw_gold_hud(canvas, game_offset, game_size, context)
+	if bool(context.get("tower_muhon_hud_visible", false)):
+		_draw_muhon_hud(canvas, game_offset, game_size, context)
 
 
 func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, context: Dictionary) -> void:
@@ -356,6 +370,68 @@ func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2
 	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
 	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.30))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.86, 0.32, 1.0))
+
+
+func _draw_muhon_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, context: Dictionary) -> void:
+	if canvas == null:
+		return
+	var amount: int = int(context.get("tower_muhon_hud_amount", 0))
+	var text: String = format_gold_amount(amount)
+	var rect: Rect2 = build_muhon_hud_rect(game_offset, game_size, context)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var scale_factor: float = _get_gold_hud_scale(game_size, context)
+	_draw_muhon_hud_frame(canvas, rect, scale_factor)
+
+	var icon_size: float = GOLD_HUD_COIN_SIZE * scale_factor
+	var icon_center := Vector2(
+		rect.position.x + GOLD_HUD_SIDE_MARGIN * scale_factor + icon_size * 0.5,
+		rect.get_center().y + icon_size * 0.04
+	)
+	CommonStarpointVisualHost.draw_muhon_fallback(
+		canvas,
+		icon_center,
+		icon_size * 0.32,
+		1.0,
+		0.62,
+		false,
+		0.0
+	)
+
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var text_left: float = icon_center.x + icon_size * 0.5 + GOLD_HUD_TEXT_GAP * scale_factor
+	var max_text_width: float = max(8.0, rect.end.x - text_left - GOLD_HUD_TEXT_RIGHT_PAD * scale_factor)
+	var font_size: int = _fit_gold_font_size(font, text, int(round(float(GOLD_HUD_FONT_SIZE) * scale_factor)), max_text_width)
+	var text_size: Vector2 = _get_gold_text_size(text, font_size)
+	var baseline := Vector2(
+		text_left,
+		rect.position.y + (rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)
+	)
+	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
+	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.34))
+	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.73, 0.34, 1.0))
+
+
+func _draw_muhon_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
+	var border_width: float = max(2.0, 2.0 * scale_factor)
+	PremiumPanelFrame.draw_panel(
+		canvas,
+		rect,
+		PremiumPanelFrame.KIND_SECTION,
+		Color(0.075, 0.025, 0.035, 0.78),
+		Color(0.82, 0.22, 0.12, 0.94),
+		border_width
+	)
+	PremiumPanelFrame.draw_corner_brackets(
+		canvas,
+		rect,
+		Color(1.0, 0.57, 0.22, 0.74),
+		max(1.0, scale_factor),
+		7.0 * scale_factor,
+		3.0 * scale_factor
+	)
 
 
 func _draw_gold_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
