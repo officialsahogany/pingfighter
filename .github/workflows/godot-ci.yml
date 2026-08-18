@@ -66,6 +66,14 @@ env:
     res://tests/battle_boot_resource_prewarm_smoke.gd
     res://tests/tower_boss_routing_smoke.gd
     res://tests/tower_node_modal_pointer_smoke.gd
+    res://tests/tower_ascent_vertical_slice_smoke.gd
+    res://tests/tower_reward_pick_smoke.gd
+    res://tests/tower_ascent_chest_contract_smoke.gd
+    res://tests/tower_ascent_training_node_smoke.gd
+    res://tests/tower_ascent_fallen_monk_node_smoke.gd
+    res://tests/tower_ascent_guardian_spring_node_smoke.gd
+    res://tests/treasure_map_perk_port_smoke.gd
+    res://tests/common_mugong_item_rebrand_smoke.gd
     res://tests/match_player_skill_deps_builder_smoke.gd
     res://tests/online_match_mvp_smoke.gd
     res://tests/online_enet_loopback_smoke.gd

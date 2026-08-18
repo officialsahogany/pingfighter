@@ -18,6 +18,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
+$validationPriorityContext = $null
+
 if ($ReplayBossSlot) {
     $previousTowerFlag = [Environment]::GetEnvironmentVariable(
         "TOWER_ASCENT_VERTICAL_SLICE",
@@ -50,9 +53,10 @@ if ($ReplayBossSlot) {
 }
 
 $godotCandidates = @(
+    $GodotExe,
     'C:\Users\woduq\Downloads\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64.exe'
-)
-$godot = $godotCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+$godot = $godotCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $godot) {
     throw "Godot 실행 파일을 찾지 못했습니다: $($godotCandidates -join ', ')"
 }
@@ -62,6 +66,51 @@ if (-not (Test-Path $projectFilePath)) {
     throw "project.godot 을 찾지 못했습니다: $projectFilePath"
 }
 
-$env:TOWER_ASCENT_VERTICAL_SLICE = '1'
-Write-Host "탑 등정 모드 플래그 ON — 게임을 시작합니다." -ForegroundColor Green
-& $godot --path $ProjectPath
+$liveLogDir = Join-Path $ProjectPath '.godot\codex_logs'
+New-Item -ItemType Directory -Force -Path $liveLogDir | Out-Null
+$liveLogPath = Join-Path $liveLogDir (
+    'tower_mode_live_{0}_{1}.log' -f $PID, [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff')
+)
+$previousTowerFlag = [Environment]::GetEnvironmentVariable(
+    'TOWER_ASCENT_VERTICAL_SLICE',
+    'Process'
+)
+try {
+    $validationPriorityContext = Assert-NoInteractiveGodotGame `
+        -ProjectPath $ProjectPath `
+        -OperationName 'Tower mode live QA' `
+        -AllowDuringPlay
+    $env:TOWER_ASCENT_VERTICAL_SLICE = '1'
+    Write-Host "탑 등정 모드 플래그 ON — 게임을 시작합니다." -ForegroundColor Green
+    Write-Host "라이브 로그: $liveLogPath"
+    $godotProcess = Start-Process `
+        -FilePath $godot `
+        -ArgumentList @(
+            '--path', ('"{0}"' -f $ProjectPath),
+            '--log-file', ('"{0}"' -f $liveLogPath)
+        ) `
+        -PassThru
+    try {
+        $godotProcess.PriorityClass = 'BelowNormal'
+    }
+    catch {}
+    $godotProcess.Refresh()
+    if ($godotProcess.PriorityClass -notin @('BelowNormal', 'Idle')) {
+        throw "Tower mode live QA priority mismatch: $($godotProcess.PriorityClass)"
+    }
+    Write-Host "라이브 프로세스: PID $($godotProcess.Id), priority $($godotProcess.PriorityClass)"
+    $godotProcess.WaitForExit()
+}
+finally {
+    Restore-GodotValidationPriority -Context $validationPriorityContext
+    if ($null -eq $previousTowerFlag) {
+        [Environment]::SetEnvironmentVariable(
+            'TOWER_ASCENT_VERTICAL_SLICE',
+            $null,
+            'Process'
+        )
+    }
+    else {
+        $env:TOWER_ASCENT_VERTICAL_SLICE = $previousTowerFlag
+    }
+}
