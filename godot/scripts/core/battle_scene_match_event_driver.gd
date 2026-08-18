@@ -5,6 +5,7 @@ const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const BallDependencyContext := preload("res://scripts/ball/ball_dependency_context.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 # Engine code-stage id where the demo sequence stops advancing automatically.
 # Keep this as a code-stage boundary; public stage numbering can differ from
@@ -27,6 +28,7 @@ var _stage_transition_loading_final_reveal_active := false
 var _stage_transition_loading_work_step := 0
 var _stage_transition_round_dep_prewarm_keys: Array[String] = []
 var _stage_transition_round_dep_prewarm_index := 0
+var _tower_transition_encounter: Dictionary = {}
 
 
 func handle_score_event(scoring_side: String, owner: Object, registry: Object) -> void:
@@ -257,6 +259,20 @@ func _try_advance_demo_stage(owner: Object, registry: Object) -> bool:
 	return true
 
 
+func begin_tower_boss_transition(owner: Object, registry: Object, encounter: Dictionary) -> bool:
+	if owner == null or _stage_transition_loading_active:
+		return false
+	var stage_id := int(encounter.get("stage", 0))
+	if stage_id < 1 or stage_id >= DEMO_STAGE_SEQUENCE_END + 1:
+		return false
+	var normalized := encounter.duplicate(true)
+	normalized["stage"] = stage_id
+	_tower_transition_encounter = normalized
+	_apply_tower_encounter_identity(owner, normalized)
+	_begin_stage_transition_loading(owner, registry, stage_id)
+	return true
+
+
 func _get_demo_next_stage(owner: Object, registry: Object) -> int:
 	if owner == null:
 		return 0
@@ -364,6 +380,7 @@ func _finish_stage_transition_loading(owner: Object, registry: Object) -> void:
 	_stage_transition_loading_work_step = 0
 	_stage_transition_round_dep_prewarm_keys.clear()
 	_stage_transition_round_dep_prewarm_index = 0
+	_tower_transition_encounter.clear()
 	_set_top_mini_scoreboard_visible(owner, registry, true)
 	_replay_ball_spawn_intro_for_stage_transition(owner, registry)
 	_queue_redraw(owner)
@@ -463,7 +480,29 @@ func _sync_selection_stage(owner: Object, stage_id: int) -> void:
 		return
 	var selection_state: Node = owner.get_node_or_null("/root/GameSelectionState")
 	if selection_state != null and selection_state.has_method("set_stage"):
-		selection_state.set_stage(stage_id)
+		if not _tower_transition_encounter.is_empty():
+			selection_state.set_stage(
+				stage_id,
+				str(_tower_transition_encounter.get("variant", "dalji")) if stage_id == 1 else "dalji",
+				stage_id == 1,
+				str(_tower_transition_encounter.get("variant", ""))
+			)
+		else:
+			selection_state.set_stage(stage_id)
+
+
+func _apply_tower_encounter_identity(owner: Object, encounter: Dictionary) -> void:
+	var stage_id := int(encounter.get("stage", 1))
+	var requested_variant := str(encounter.get("variant", ""))
+	var stage1_variant := requested_variant if stage_id == 1 and not requested_variant.is_empty() else "dalji"
+	var stage_variant := StageBossVariantCatalog.normalize_variant(stage_id, requested_variant)
+	var entry := StageBossVariantCatalog.get_entry(stage_id, stage_variant)
+	var paddle_scale := maxf(0.1, float(entry.get("boss_paddle_scale", 1.0)))
+	owner.set("current_stage", stage_id)
+	owner.set("stage1_boss_variant", stage1_variant)
+	owner.set("stage_boss_variant", stage_variant)
+	owner.set("boss_paddle_width", 100.0 * paddle_scale)
+	owner.set("boss_hitbox_height", 40.0 * paddle_scale)
 
 
 func _configure_ball_physics(owner: Object, registry: Object, stage_id: int) -> void:

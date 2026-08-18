@@ -100,6 +100,27 @@ func get_standin(slot_id: String) -> Dictionary:
 	return (standin_variant as Dictionary).duplicate(true) if standin_variant is Dictionary else {}
 
 
+func resolve_battle_encounter(slot_id: String) -> Dictionary:
+	var slot := get_slot(slot_id)
+	if slot.is_empty():
+		return {}
+	var route := get_standin(slot_id)
+	var stage_id := int(route.get("stage", 0))
+	var boss_id := str(route.get("boss_id", "")).strip_edges()
+	if stage_id <= 0 or boss_id.is_empty():
+		return {}
+	var status := str(slot.get("status", ""))
+	return {
+		"boss_slot_id": slot_id,
+		"display_name": str(slot.get("display_name", boss_id)),
+		"stage": stage_id,
+		"boss_id": boss_id,
+		"variant": str(route.get("variant", "")).strip_edges().to_lower(),
+		"fallback_used": status != STATUS_PORTED,
+		"source_status": status,
+	}
+
+
 func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 	var result := graph.duplicate(true)
 	var phases_variant: Variant = result.get("phases", [])

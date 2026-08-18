@@ -315,7 +315,7 @@ func choose_ending_route(choice: String) -> Dictionary:
 	_request_redraw(_active_owner)
 	return result
 
-func _finish_vertical_slice() -> void:
+func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	var callback := _finish_callback
 	_finish_callback = Callable()
 	_route_serve_runtime.cancel()
@@ -327,7 +327,10 @@ func _finish_vertical_slice() -> void:
 	_map_seed = 0
 	_phase = PHASE_COMBAT
 	if callback.is_valid():
-		callback.call()
+		if encounter.is_empty():
+			callback.call()
+		else:
+			callback.call(encounter)
 
 func _complete_map_transition() -> void:
 	var arrived_node := _get_node(_selected_target_id)
@@ -345,7 +348,23 @@ func _complete_map_transition() -> void:
 		_phase = PHASE_NODE_MODAL
 		_open_node_modal()
 		return
-	_finish_vertical_slice()
+	var encounter := TowerAscentBossRegistry.new().resolve_battle_encounter(
+		str(arrived_node.get("boss_slot_id", ""))
+	)
+	if encounter.is_empty():
+		push_error("[TowerAscent] combat node has no routable boss encounter: %s" % str(arrived_node.get("id", "")))
+		_finish_vertical_slice()
+		return
+	if bool(encounter.get("fallback_used", false)):
+		push_warning(
+			"[TowerAscent] boss slot %s uses stand-in stage %d boss %s"
+			% [
+				str(encounter.get("boss_slot_id", "")),
+				int(encounter.get("stage", 0)),
+				str(encounter.get("boss_id", "")),
+			]
+		)
+	_finish_vertical_slice(encounter)
 
 func _dismiss_fake_ending_teaser() -> void:
 	var result: Dictionary = _ending_state.mark_teaser_presented()

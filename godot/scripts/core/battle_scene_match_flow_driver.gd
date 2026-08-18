@@ -466,7 +466,9 @@ func _try_start_tower_ascent_vertical_slice(
 	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
 	if flow_owner == null or not flow_owner.has_method("begin_vertical_slice"):
 		return false
-	var finish_callback := Callable(self, "_finish_tower_victory_flow").bind(
+	var finish_callback := Callable(self, "_finish_tower_boss_route").bind(
+		registry,
+		owner,
 		reset_game_callback
 	)
 	return bool(flow_owner.begin_vertical_slice(owner, finish_callback, {
@@ -476,6 +478,23 @@ func _try_start_tower_ascent_vertical_slice(
 
 
 func _finish_tower_victory_flow(reset_game_callback: Callable) -> void:
+	_call_callback(reset_game_callback)
+
+
+func _finish_tower_boss_route(
+	encounter: Dictionary,
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable
+) -> void:
+	var event_driver: Object = _get_instance(registry, "battle_scene_match_event_driver")
+	if (
+		event_driver != null
+		and event_driver.has_method("begin_tower_boss_transition")
+		and bool(event_driver.begin_tower_boss_transition(owner, registry, encounter))
+	):
+		return
+	push_error("[TowerAscent] failed to enter routed boss encounter; using legacy reset fallback")
 	_call_callback(reset_game_callback)
 
 
