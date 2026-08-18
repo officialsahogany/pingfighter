@@ -18,6 +18,9 @@ const TowerRewardPickLocalization := preload(
 const TowerRewardPickState := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 const BattleSceneMatchFlowDriver := preload(
 	"res://scripts/core/battle_scene_match_flow_driver.gd"
 )
@@ -220,6 +223,7 @@ class FakeFlowOwner:
 	var begin_calls := 0
 	var active := false
 	var phase := "COMBAT"
+	var finalize_result := {"accepted": true}
 
 	func prepare_vertical_slice_combat(
 		_owner: Object,
@@ -279,7 +283,7 @@ class FakeFlowOwner:
 		finalize_calls += 1
 		if not vision_boss_slot_id.is_empty() and not burned_boss_ids.has(vision_boss_slot_id):
 			burned_boss_ids.append(vision_boss_slot_id)
-		return {"accepted": true}
+		return finalize_result.duplicate(true)
 
 
 class FakeOfferBuilder:
@@ -311,6 +315,7 @@ func _init() -> void:
 	_verify_seven_locale_copy_contract()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
+	_verify_unaffordable_board_auto_finish_and_failure_latch()
 	_verify_vision_purchase_and_continue_burn_semantics()
 	_verify_full_slot_vision_swap_confirm_and_cancel()
 	_verify_production_flow_transactions_and_burn_snapshot()
@@ -468,6 +473,143 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 	_expect(not state.active and _finish_calls == 1 and flow.finalize_calls == 1, "continue must finalize exactly once after external modal return")
 
 
+func _verify_unaffordable_board_auto_finish_and_failure_latch() -> void:
+	_finish_calls = 0
+	var fusion_runtime := FakeRuntimeState.new()
+	var fusion_flow := FakeFlowOwner.new()
+	fusion_flow.balances["muhon"] = 4
+	var fusion_registry := _build_registry(
+		fusion_runtime,
+		FakeSkillConfig.new(),
+		fusion_flow
+	)
+	fusion_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var fusion_builder := FakeOfferBuilder.new()
+	fusion_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "auto_training", 1),
+			_card("mugong", "auto_mugong", 1),
+			_card("fusion", "auto_fusion", 1),
+			_card("supreme", "auto_supreme", 1),
+		],
+	}
+	var fusion_state := TowerRewardPickState.new()
+	fusion_state.set("_offer_builder", fusion_builder)
+	_expect(
+		fusion_state.start(FakeOwner.new(), fusion_registry, Callable(self, "_on_finish")),
+		"all-spent fusion auto-finish fixture must start"
+	)
+	fusion_state.call("_purchase", 0)
+	fusion_state.call("_purchase", 1)
+	fusion_state.call("_purchase", 3)
+	fusion_state.call("_purchase", 2)
+	_expect(fusion_state.spent_flags == [true, true, true, true], "fusion fixture must spend all four stable slots")
+	_expect(fusion_state.is_external_modal_active(), "final fusion purchase must keep the external modal active")
+	fusion_state.update(10.0)
+	_expect(
+		fusion_state.active and fusion_flow.finalize_calls == 0,
+		"all-spent reward picks must never finish while the fusion modal is active"
+	)
+	fusion_runtime.fusion_active = false
+	fusion_state.update(0.0)
+	_expect(
+		fusion_state.active and fusion_flow.finalize_calls == 0,
+		"the frame that clears pending fusion ownership must not finish the reward pick"
+	)
+	fusion_state.update(1.0)
+	_expect(
+		fusion_state.active
+		and fusion_state.purchase_absorption_effects.is_empty()
+		and fusion_flow.finalize_calls == 0,
+		"the final absorption frame must expose an empty board without finishing"
+	)
+	fusion_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC - 0.01)
+	_expect(fusion_state.active and fusion_flow.finalize_calls == 0, "empty reward board must remain visible for the full hold interval")
+	fusion_state.update(0.01)
+	_expect(fusion_state.active and fusion_flow.finalize_calls == 0, "hold completion must only schedule a next-frame finish")
+	fusion_state.update(0.0)
+	_expect(
+		not fusion_state.active and fusion_flow.finalize_calls == 1 and _finish_calls == 1,
+		"the frame after the empty-board hold must finalize exactly once"
+	)
+
+	var insufficient_flow := FakeFlowOwner.new()
+	insufficient_flow.balances["muhon"] = 0
+	var insufficient_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		insufficient_flow
+	)
+	insufficient_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var insufficient_builder := FakeOfferBuilder.new()
+	insufficient_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "insufficient_1", 1),
+			_card("mugong", "insufficient_2", 2),
+			_card("fusion", "insufficient_3", 3),
+			_card("supreme", "insufficient_4", 4),
+		],
+	}
+	var insufficient_state := TowerRewardPickState.new()
+	insufficient_state.set("_offer_builder", insufficient_builder)
+	_expect(
+		insufficient_state.start(FakeOwner.new(), insufficient_registry, Callable()),
+		"insufficient-balance auto-finish fixture must start"
+	)
+	insufficient_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	_expect(insufficient_state.active and insufficient_flow.finalize_calls == 0, "unaffordable unspent cards must wait one deferred frame")
+	insufficient_state.update(0.0)
+	_expect(not insufficient_state.active and insufficient_flow.finalize_calls == 1, "zero affordable cards must auto-finish even when cards remain unspent")
+
+	var affordable_flow := FakeFlowOwner.new()
+	affordable_flow.balances["muhon"] = 1
+	var affordable_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		affordable_flow
+	)
+	affordable_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var affordable_state := TowerRewardPickState.new()
+	affordable_state.set("_offer_builder", insufficient_builder)
+	_expect(affordable_state.start(FakeOwner.new(), affordable_registry, Callable()), "affordable-card guard fixture must start")
+	affordable_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC * 3.0)
+	affordable_state.update(0.0)
+	_expect(affordable_state.active and affordable_flow.finalize_calls == 0, "any affordable unspent card must suppress auto-finish")
+	affordable_state.reset()
+
+	var rejected_flow := FakeFlowOwner.new()
+	rejected_flow.balances["muhon"] = 0
+	rejected_flow.finalize_result = {
+		"accepted": false,
+		"reason": "injected_finalize_rejection",
+	}
+	var rejected_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		rejected_flow
+	)
+	rejected_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var rejected_state := TowerRewardPickState.new()
+	rejected_state.set("_offer_builder", insufficient_builder)
+	_expect(rejected_state.start(FakeOwner.new(), rejected_registry, Callable()), "auto-finish rejection fixture must start")
+	rejected_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	rejected_state.update(0.0)
+	for _frame in range(10):
+		rejected_state.update(1.0 / 60.0)
+	_expect(rejected_state.active and rejected_flow.finalize_calls == 1, "a rejected auto-finish transaction must latch after exactly one attempt")
+	_expect(
+		str(rejected_state.build_view_model().get("status_text", "")) == "injected_finalize_rejection",
+		"a rejected auto-finish must surface its reason and leave manual Continue available"
+	)
+	rejected_state.reset()
+
+
 func _verify_vision_purchase_and_continue_burn_semantics() -> void:
 	_finish_calls = 0
 	var runtime := FakeRuntimeState.new()
@@ -499,6 +641,7 @@ func _verify_vision_purchase_and_continue_burn_semantics() -> void:
 
 
 func _verify_full_slot_vision_swap_confirm_and_cancel() -> void:
+	_finish_calls = 0
 	var vision_id := TowerAscentBossRewardCatalog.get_vision_unlock_id("floor_01_dalji")
 	var confirm_runtime := FakeRuntimeState.new()
 	var confirm_flow := FakeFlowOwner.new()
@@ -519,6 +662,12 @@ func _verify_full_slot_vision_swap_confirm_and_cancel() -> void:
 	confirm_state.update(0.1)
 	_expect(int(confirm_flow.balances.get("muhon", -1)) == 0 and confirm_state.spent_flags[0], "confirmed Vision swap must debit three and spend its stable slot")
 	_expect(confirm_flow.burned_boss_ids == ["floor_01_dalji"], "confirmed Vision swap must burn the boss reward")
+	_expect(confirm_flow.finalize_calls == 0, "the Vision-swap return frame must not finalize while its absorption is active")
+	confirm_state.update(1.0)
+	confirm_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	_expect(confirm_state.active and confirm_flow.finalize_calls == 0, "Vision-swap exhaustion must retain the deferred finish frame")
+	confirm_state.update(0.0)
+	_expect(not confirm_state.active and confirm_flow.finalize_calls == 1, "Vision-swap exhaustion must use the same one-shot auto-finish path")
 
 	var cancel_runtime := FakeRuntimeState.new()
 	var cancel_flow := FakeFlowOwner.new()

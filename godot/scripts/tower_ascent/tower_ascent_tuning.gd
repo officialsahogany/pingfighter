@@ -51,6 +51,7 @@ const TEMP_ROUTE_TARGET_LABEL_GAP := 8.0
 const TEMP_ROUTE_AIM_MIN_DEGREES := -55.0
 const TEMP_ROUTE_AIM_MAX_DEGREES := 55.0
 const TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS := 2.4
+const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 522.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
@@ -66,6 +67,10 @@ const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
 const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
 const TEMP_MAP_HINT_RECT := Rect2(18.0, 698.0, 98.0, 30.0)
 const TEMP_MAP_HINT_FONT_SIZE := 14
+
+# TEMP: v1.12 keeps the exhausted reward board visible briefly before the
+# route flow resumes. Final presentation timing remains product-tuning work.
+const TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC := 0.60
 
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,

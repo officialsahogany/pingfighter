@@ -9,6 +9,9 @@ const TowerRewardPickLocalization := preload(
 const TowerAscentBossRewardCatalog := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_reward_catalog.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
@@ -39,6 +42,9 @@ var _offer_builder: Object = TowerRewardPickOfferBuilder.new()
 var _pending_external_kind := ""
 var _pending_slot_index := -1
 var _pending_runtime_snapshot: Dictionary = {}
+var _auto_finish_hold_elapsed := 0.0
+var _auto_finish_pending := false
+var _auto_finish_attempted := false
 
 
 func start(
@@ -83,6 +89,9 @@ func start(
 	_pending_external_kind = ""
 	_pending_slot_index = -1
 	_pending_runtime_snapshot.clear()
+	_auto_finish_hold_elapsed = 0.0
+	_auto_finish_pending = false
+	_auto_finish_attempted = false
 	purchase_absorption_effects.clear()
 	_prewarm_card_assets()
 	active = true
@@ -102,6 +111,9 @@ func reset() -> void:
 	_pending_external_kind = ""
 	_pending_slot_index = -1
 	_pending_runtime_snapshot.clear()
+	_auto_finish_hold_elapsed = 0.0
+	_auto_finish_pending = false
+	_auto_finish_attempted = false
 	_owner = null
 	_registry = null
 	_flow_owner = null
@@ -113,10 +125,21 @@ func reset() -> void:
 func update(delta: float) -> void:
 	if not active:
 		return
+	if _auto_finish_pending:
+		_auto_finish_pending = false
+		if _can_auto_finish():
+			_auto_finish_attempted = true
+			_finish()
+			if not active:
+				return
 	animation_time = minf(1.0, animation_time + maxf(0.0, delta))
 	_update_external_modal_return()
 	if not is_external_modal_active():
+		var had_absorption_effects := not purchase_absorption_effects.is_empty()
 		_update_purchase_absorption_effects(delta)
+		_update_auto_finish_hold(delta, had_absorption_effects)
+	else:
+		_reset_auto_finish_hold()
 
 
 func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
@@ -419,6 +442,51 @@ func _update_purchase_absorption_effects(delta: float) -> void:
 			purchase_absorption_effects.remove_at(effect_index)
 		else:
 			purchase_absorption_effects[effect_index] = effect
+
+
+func _update_auto_finish_hold(delta: float, had_absorption_effects: bool) -> void:
+	if _auto_finish_attempted or not _has_no_affordable_unspent_card():
+		_reset_auto_finish_hold()
+		return
+	if not purchase_absorption_effects.is_empty():
+		_reset_auto_finish_hold()
+		return
+	if had_absorption_effects:
+		_auto_finish_hold_elapsed = 0.0
+		_auto_finish_pending = false
+		return
+	_auto_finish_hold_elapsed += maxf(0.0, delta)
+	if (
+		_auto_finish_hold_elapsed
+		>= TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC
+	):
+		_auto_finish_pending = true
+
+
+func _can_auto_finish() -> bool:
+	return (
+		active
+		and not is_external_modal_active()
+		and purchase_absorption_effects.is_empty()
+		and _has_no_affordable_unspent_card()
+		and not _auto_finish_attempted
+	)
+
+
+func _has_no_affordable_unspent_card() -> bool:
+	if spent_flags.is_empty():
+		return false
+	var muhon := int(_get_balances().get("muhon", 0))
+	for index in range(choices.size()):
+		if index < spent_flags.size() and not spent_flags[index]:
+			if muhon >= maxi(0, int(choices[index].get("reward_pick_cost", 0))):
+				return false
+	return true
+
+
+func _reset_auto_finish_hold() -> void:
+	_auto_finish_hold_elapsed = 0.0
+	_auto_finish_pending = false
 
 
 func _get_purchase_absorption_for_slot(index: int) -> Dictionary:
