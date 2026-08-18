@@ -55,6 +55,15 @@ func _run() -> void:
 	if registry == null or tower_flow == null:
 		_fail("live battle scene did not expose the tower flow and gameplay registry")
 		return
+	# The harness skips the ordinary incremental boot warmup, so materialize the
+	# production HUD renderer before the cached-only draw path consumes it.
+	if not registry.has_method("get_instance"):
+		_fail("live gameplay registry could not prewarm the battle HUD renderer")
+		return
+	var live_hud_renderer: Variant = registry.get_instance("stage1_pillar_ui_renderer")
+	if not (typeof(live_hud_renderer) == TYPE_OBJECT and is_instance_valid(live_hud_renderer)):
+		_fail("live battle HUD renderer failed to prewarm")
+		return
 	if not bool(tower_flow.begin_vertical_slice(
 		main_node,
 		Callable(),
