@@ -1,6 +1,8 @@
 param(
     [string]$GodotExe = "",
-    [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [ValidateSet("phase1", "phase2")]
+    [string]$Phase = "phase1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,6 +24,8 @@ try {
     $logPath = Join-Path $logDir ("tower_map_overlay_visual_qa_{0}_{1}.log" -f $PID, [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfff"))
 
     $previousErrorActionPreference = $ErrorActionPreference
+    $previousCapturePhase = $env:TOWER_ASCENT_MAP_QA_PHASE
+    $env:TOWER_ASCENT_MAP_QA_PHASE = $Phase
     $ErrorActionPreference = "Continue"
     try {
         $output = & $godot `
@@ -35,6 +39,7 @@ try {
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
+        $env:TOWER_ASCENT_MAP_QA_PHASE = $previousCapturePhase
     }
 
     $output | ForEach-Object { Write-Host $_ }

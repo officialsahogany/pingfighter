@@ -72,7 +72,9 @@ func _verify_full_graph_round_trip() -> void:
 	_expect(not snapshot.is_empty(), "post-selection MAP_TRANSITION must be a persistable boundary")
 	_expect(snapshot.map_graph_storage == TowerAscentFlowOwner.MAP_GRAPH_STORAGE_FULL, "snapshot must declare full-graph storage")
 	_expect(int(snapshot.schema_version) == TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION, "snapshot schema version must advance with the map contract")
-	_expect(snapshot.map_graph.phases[0].has("floors"), "full-graph snapshot must retain generated floor and row metadata")
+	_expect(snapshot.map_graph.phases.size() == 2, "full-graph snapshot must retain both realm phases")
+	_expect(snapshot.map_graph.phases[0].has("floors") and snapshot.map_graph.phases[1].has("floors"), "full-graph snapshot must retain generated floor and row metadata for both phases")
+	_expect(int(snapshot.run_progress.active_phase_index) == 0, "ordinary snapshot must identify the human realm as active")
 	var source_bytes := var_to_bytes(snapshot.map_graph)
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot), "full generated graph must restore")
@@ -114,6 +116,12 @@ func _verify_invalid_snapshot_contracts_fail_closed() -> void:
 	var missing_seed := snapshot.duplicate(true)
 	missing_seed.erase("map_seed")
 	_expect(not TowerAscentFlowOwner.new().restore_snapshot(missing_seed), "snapshot without a map seed must fail closed")
+	var legacy_single_phase := snapshot.duplicate(true)
+	legacy_single_phase["schema_version"] = TowerAscentRunState.LEGACY_SINGLE_PHASE_SCHEMA_VERSION
+	legacy_single_phase["map_generator_version"] = "tower_map_v5_enraged_marking"
+	legacy_single_phase["map_graph"] = {"phases": [snapshot.map_graph.phases[0]]}
+	_expect(TowerAscentRunState.snapshot_restore_policy(legacy_single_phase) == TowerAscentRunState.SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE, "schema-7 single-phase saves must declare the explicit new-run reset policy")
+	_expect(not TowerAscentFlowOwner.new().restore_snapshot(legacy_single_phase), "legacy one-phase snapshots must never be silently reinterpreted as two-phase runs")
 
 
 func _advance_to_stable_map_transition(flow: Object) -> void:

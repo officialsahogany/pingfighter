@@ -74,7 +74,9 @@ func _verify_flow_uses_generated_graph_only_behind_flag() -> void:
 	_expect(int(first_snapshot.map_seed) == 44, "snapshot must pin the map seed")
 	_expect(first_snapshot.map_graph == second_snapshot.map_graph, "same flow seed must preserve the generated graph")
 	_expect(first.get_graph_nodes().size() > 4, "the generated tower must replace the former fixed graph")
-	_expect(first.get_graph_phases()[0].floors.size() == 12, "flow integration must retain all generated floor metadata")
+	var phases := first.get_graph_phases()
+	_expect(phases.size() == 2, "tower flow integration must retain both realm phases")
+	_expect(phases[0].floors.size() == 9 and phases[1].floors.size() == 3, "tower flow integration must retain all generated floor metadata across the two phases")
 
 
 func _blueprint() -> Array:

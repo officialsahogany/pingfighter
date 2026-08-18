@@ -9,6 +9,11 @@ func restore_snapshot(
 ) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return false
+	if (
+		TowerAscentRunState.snapshot_restore_policy(snapshot)
+		!= TowerAscentRunState.SNAPSHOT_POLICY_CURRENT
+	):
+		return false
 	if not bool(snapshot.get("stable_boundary", false)):
 		return false
 	if str(snapshot.get("map_graph_storage", "")) != MAP_GRAPH_STORAGE_FULL:
@@ -21,8 +26,13 @@ func restore_snapshot(
 	if not _run_state.restore_snapshot(snapshot):
 		return false
 	var phases: Array[Dictionary] = _run_state.get_phases()
+	if phases.size() != 2:
+		return false
 	_graph_phases.assign(phases.duplicate(true))
-	var graph: Dictionary = phases[0]
+	_active_graph_phase_index = _run_state.get_active_phase_index()
+	if _active_graph_phase_index < 0 or _active_graph_phase_index >= phases.size():
+		return false
+	var graph: Dictionary = phases[_active_graph_phase_index]
 	var nodes_variant: Variant = graph.get("nodes", [])
 	var edges_variant: Variant = graph.get("edges", [])
 	if not (nodes_variant is Array) or (nodes_variant as Array).size() < 4:

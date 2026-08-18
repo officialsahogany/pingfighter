@@ -13,9 +13,11 @@ const TowerAscentEnragedPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_enraged_policy.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v5_enraged_marking"
+const GENERATOR_VERSION := "tower_map_v6_two_realms"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := 9
+const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
+const IMMORTAL_REALM_PHASE_ID := "phase_02_immortal_realm"
 const ROUTE_CANDIDATE_COUNT := 2
 const COMBAT_NODE_KINDS := ["boss", "combat", "enraged"]
 const NONCOMBAT_NODE_KINDS := [
@@ -107,10 +109,11 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 		map_seed,
 		TowerAscentTuning.NORMAL_BOSS_ENRAGED_CHANCE
 	)
-	return TowerAscentRouteCandidatePolicy.new().apply_skipped_markers(
+	var marked := TowerAscentRouteCandidatePolicy.new().apply_skipped_markers(
 		decorated,
 		skipped_boss_ids
 	)
+	return _split_tower_realms(marked)
 
 
 func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
@@ -211,6 +214,101 @@ func generate(map_seed: int, floor_specs: Array) -> Dictionary:
 
 func encode_graph(graph: Dictionary) -> PackedByteArray:
 	return var_to_bytes(graph)
+
+
+func _split_tower_realms(graph: Dictionary) -> Dictionary:
+	var result := graph.duplicate(true)
+	var phases_variant: Variant = result.get("phases", [])
+	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
+		return {}
+	var source_variant: Variant = (phases_variant as Array)[0]
+	if not (source_variant is Dictionary):
+		return {}
+	var source := source_variant as Dictionary
+	var human_nodes: Array[Dictionary] = []
+	var immortal_nodes: Array[Dictionary] = []
+	var human_node_ids: Dictionary = {}
+	var immortal_node_ids: Dictionary = {}
+	for node_variant in source.get("nodes", []):
+		if not (node_variant is Dictionary):
+			continue
+		var node := (node_variant as Dictionary).duplicate(true)
+		var floor_number := int(node.get("floor", 0))
+		if floor_number <= STANDARD_CLEAR_FLOOR:
+			human_nodes.append(node)
+			human_node_ids[str(node.get("id", ""))] = true
+		else:
+			immortal_nodes.append(node)
+			immortal_node_ids[str(node.get("id", ""))] = true
+	var human_floors: Array[Dictionary] = []
+	var immortal_floors: Array[Dictionary] = []
+	for floor_variant in source.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_data := (floor_variant as Dictionary).duplicate(true)
+		if int(floor_data.get("floor", 0)) <= STANDARD_CLEAR_FLOOR:
+			human_floors.append(floor_data)
+		else:
+			immortal_floors.append(floor_data)
+	var human_edges: Array[Dictionary] = []
+	var immortal_edges: Array[Dictionary] = []
+	for edge_variant in source.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := (edge_variant as Dictionary).duplicate(true)
+		var from_id := str(edge.get("from", ""))
+		var to_id := str(edge.get("to", ""))
+		if human_node_ids.has(from_id) and human_node_ids.has(to_id):
+			human_edges.append(edge)
+		elif immortal_node_ids.has(from_id) and immortal_node_ids.has(to_id):
+			immortal_edges.append(edge)
+	if human_floors.size() != STANDARD_CLEAR_FLOOR or immortal_floors.size() != 3:
+		return {}
+	var human_phase := {
+		"id": HUMAN_REALM_PHASE_ID,
+		"display_name": "인간계",
+		"realm_kind": "human_realm",
+		"floor_start": 1,
+		"floor_end": STANDARD_CLEAR_FLOOR,
+		"total_floors": STANDARD_CLEAR_FLOOR,
+		"tower_total_floors": TOWER_FLOOR_COUNT,
+		"standard_clear_floor": STANDARD_CLEAR_FLOOR,
+		"entry_node_id": "floor_01_gatekeeper",
+		"initial_route_candidate_ids": [
+			"floor_02_route_01_lane_01",
+			"floor_02_route_01_lane_02",
+		],
+		"locked_phase_hints": [{
+			"phase_id": IMMORTAL_REALM_PHASE_ID,
+			"display_name": "신선계",
+			"floor_start": 10,
+			"floor_end": 12,
+			"locked": true,
+		}],
+		"floors": human_floors,
+		"nodes": human_nodes,
+		"edges": human_edges,
+	}
+	var immortal_phase := {
+		"id": IMMORTAL_REALM_PHASE_ID,
+		"display_name": "신선계",
+		"realm_kind": "immortal_realm",
+		"floor_start": 10,
+		"floor_end": 12,
+		"total_floors": 3,
+		"tower_total_floors": TOWER_FLOOR_COUNT,
+		"standard_clear_floor": STANDARD_CLEAR_FLOOR,
+		"entry_node_id": "floor_10_route_01_lane_01",
+		"initial_route_candidate_ids": [
+			"floor_10_route_01_lane_01",
+			"floor_10_route_01_lane_02",
+		],
+		"floors": immortal_floors,
+		"nodes": immortal_nodes,
+		"edges": immortal_edges,
+	}
+	result["phases"] = [human_phase, immortal_phase]
+	return result
 
 
 func _build_row_nodes(

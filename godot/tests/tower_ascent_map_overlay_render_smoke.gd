@@ -54,12 +54,11 @@ func _verify_full_disclosure_projection_and_states() -> void:
 	flow.handle_input(_key_event(KEY_M))
 	_expect(flow.get_phase_name() == "MAP_OVERLAY", "M must project the dedicated map-overlay phase")
 	nodes = flow.get_graph_nodes()
-	_expect(nodes.size() == 34, "the overlay must expose every generated node")
+	_expect(nodes.size() == 25, "the overlay must expose every generated human-realm node")
 	var visible_kinds: Dictionary = {}
 	var has_current := false
 	var has_completed := false
 	var has_vanished := false
-	var has_locked := false
 	for node in nodes:
 		var kind_label := TowerAscentMapOverlayLocalization.node_kind_label(
 			str(node.get("kind", "")),
@@ -69,19 +68,25 @@ func _verify_full_disclosure_projection_and_states() -> void:
 		has_current = has_current or str(node.get("id", "")) == flow.get_current_node_id()
 		has_completed = has_completed or bool(node.get("completed", false))
 		has_vanished = has_vanished or bool(node.get("skipped", false))
-		has_locked = has_locked or bool(node.get("route_locked", false))
 	for required_label in ["전투", "광폭화", "상점", "수련장", "파계승", "수호의 샘터", "휴식"]:
 		_expect(visible_kinds.has(required_label), "full disclosure must expose node kind: %s" % required_label)
 	_expect(has_current, "the overlay graph must contain the current player node")
 	_expect(has_completed, "the overlay graph must distinguish a completed node")
 	_expect(has_vanished, "the overlay graph must preserve a vanished skipped boss marker")
-	_expect(has_locked, "the overlay graph must preserve locked floors 10 through 12")
+	var locked_hints: Array = flow.get_locked_phase_hints()
+	_expect(locked_hints.size() == 1, "the human-realm overlay must preserve the locked phase-2 hint")
+	if not locked_hints.is_empty():
+		_expect(int((locked_hints[0] as Dictionary).get("floor_start", 0)) == 10 and int((locked_hints[0] as Dictionary).get("floor_end", 0)) == 12, "the locked hint must identify floors 10 through 12 without disclosing their nodes")
 
 
 func _verify_localization_catalog() -> void:
 	var required_keys := [
 		TowerAscentMapOverlayLocalization.KEY_TITLE,
 		TowerAscentMapOverlayLocalization.KEY_CLOSE_HINT,
+		TowerAscentMapOverlayLocalization.KEY_REALM_HUMAN,
+		TowerAscentMapOverlayLocalization.KEY_REALM_IMMORTAL,
+		TowerAscentMapOverlayLocalization.KEY_REALM_IMMORTAL_LOCKED,
+		TowerAscentMapOverlayLocalization.KEY_ENTER_IMMORTAL,
 		TowerAscentMapOverlayLocalization.KEY_NODE_GUARDIAN_SPRING,
 		TowerAscentMapOverlayLocalization.KEY_STATE_CURRENT,
 		TowerAscentMapOverlayLocalization.KEY_STATE_COMPLETED,
@@ -117,7 +122,9 @@ func _verify_fullscreen_projection_and_existing_art_slots() -> void:
 	var model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 	_expect(model.get("viewport_rect", Rect2()) == viewport_rect, "fullscreen model must preserve the full screen rect")
 	_expect((model.get("nodes", []) as Array).size() == flow.get_graph_nodes().size(), "fullscreen map must project every disclosed node")
-	_expect((model.get("floor_bands", []) as Array).size() == 12, "vertical castle must expose one visible tier per floor")
+	_expect((model.get("floor_bands", []) as Array).size() == 9, "human-realm castle must expose one visible tier per active floor")
+	_expect(str(model.get("realm_kind", "")) == "human_realm", "phase-1 fullscreen projection must own the human-realm treatment")
+	_expect((model.get("locked_phase_hints", []) as Array).size() == 1, "phase-1 fullscreen projection must carry the 10 through 12 lock hint")
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
 	var min_node_y := INF
 	var max_node_y := -INF

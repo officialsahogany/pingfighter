@@ -185,6 +185,23 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 				maxf(12.0, row_pitch * 0.76)
 			),
 		})
+	var transition_marker: Dictionary = {}
+	if str(flow.get_phase_name()) == "MAP_TRANSITION":
+		var source_id := str(flow.get_route_source_node_id())
+		var target_id := str(base.get("selected_target_id", ""))
+		var target_position: Vector2 = position_by_id.get(
+			target_id,
+			content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
+		)
+		transition_marker = {
+			"from_position": position_by_id.get(
+				source_id,
+				Vector2(content_rect.get_center().x, content_rect.end.y)
+			),
+			"to_position": target_position,
+			"progress": flow.get_map_transition_progress(),
+			"phase_entry": bool(flow.is_phase_entry_transition()),
+		}
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
@@ -196,6 +213,10 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		"current_node_id": str(base.get("current_node_id", "")),
 		"selected_target_id": str(base.get("selected_target_id", "")),
 		"art_size": art_size,
+		"phase": base.get("phase", {}),
+		"realm_kind": str(base.get("realm_kind", "human_realm")),
+		"locked_phase_hints": base.get("locked_phase_hints", []),
+		"transition_marker": transition_marker,
 	}
 
 
@@ -216,11 +237,19 @@ func _draw_fullscreen_map_model(
 	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
 	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
-	canvas.draw_rect(viewport_rect, Color(0.018, 0.012, 0.01, 0.985), true)
-	canvas.draw_rect(panel_rect, PAPER, true)
+	var realm_kind := str(model.get("realm_kind", "human_realm"))
+	var immortal_realm := realm_kind == "immortal_realm"
+	canvas.draw_rect(
+		viewport_rect,
+		Color(0.018, 0.03, 0.035, 0.985) if immortal_realm else Color(0.018, 0.012, 0.01, 0.985),
+		true
+	)
+	canvas.draw_rect(panel_rect, Color("dce3da") if immortal_realm else PAPER, true)
 	canvas.draw_rect(panel_rect, CINNABAR_DARK, false, 5.0)
 	canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
-	_draw_fullscreen_castle(canvas, content_rect, model.get("floor_bands", []))
+	if immortal_realm:
+		_draw_immortal_realm_backdrop(canvas, content_rect)
+	_draw_fullscreen_castle(canvas, content_rect, model.get("floor_bands", []), realm_kind)
 	for edge_variant in model.get("edges", []):
 		if not (edge_variant is Dictionary):
 			continue
@@ -245,11 +274,15 @@ func _draw_fullscreen_map_model(
 				selected_target_id,
 				content_rect
 			)
+	_draw_fullscreen_transition_marker(canvas, model.get("transition_marker", {}))
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
 		panel_rect.position + Vector2(34.0, 48.0),
-		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_TITLE),
+		"%s · %s" % [
+			TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_TITLE),
+			TowerAscentMapOverlayLocalization.realm_label(realm_kind),
+		],
 		HORIZONTAL_ALIGNMENT_LEFT,
 		panel_rect.size.x * 0.48,
 		30,
@@ -264,6 +297,29 @@ func _draw_fullscreen_map_model(
 		14,
 		INK_SOFT
 	)
+	_draw_locked_phase_hints(canvas, panel_rect, model.get("locked_phase_hints", []))
+	var transition_marker_value: Variant = model.get("transition_marker", {})
+	if (
+		transition_marker_value is Dictionary
+		and bool((transition_marker_value as Dictionary).get("phase_entry", false))
+	):
+		var banner_rect := Rect2(
+			panel_rect.get_center() - Vector2(150.0, 27.0),
+			Vector2(300.0, 54.0)
+		)
+		canvas.draw_rect(banner_rect, Color(0.08, 0.12, 0.14, 0.92), true)
+		canvas.draw_rect(banner_rect, GOLD, false, 2.0)
+		canvas.draw_string(
+			font,
+			banner_rect.position + Vector2(0.0, 35.0),
+			TowerAscentMapOverlayLocalization.text(
+				TowerAscentMapOverlayLocalization.KEY_ENTER_IMMORTAL
+			),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			banner_rect.size.x,
+			22,
+			PAPER
+		)
 	canvas.draw_string(
 		font,
 		Vector2(panel_rect.end.x - 230.0, panel_rect.position.y + 48.0),
@@ -295,7 +351,8 @@ func _draw_fullscreen_map_model(
 func _draw_fullscreen_castle(
 	canvas: CanvasItem,
 	content_rect: Rect2,
-	floor_bands_value: Variant
+	floor_bands_value: Variant,
+	realm_kind: String = "human_realm"
 ) -> void:
 	var tower_rect := Rect2(
 		content_rect.get_center().x - content_rect.size.x * 0.27,
@@ -303,7 +360,12 @@ func _draw_fullscreen_castle(
 		content_rect.size.x * 0.54,
 		content_rect.size.y + 12.0
 	)
-	canvas.draw_rect(tower_rect, Color(PAPER_DEEP, 0.28), true)
+	var immortal_realm := realm_kind == "immortal_realm"
+	canvas.draw_rect(
+		tower_rect,
+		Color(0.45, 0.5, 0.48, 0.28) if immortal_realm else Color(PAPER_DEEP, 0.28),
+		true
+	)
 	canvas.draw_rect(tower_rect, Color(GOLD, 0.5), false, 2.0)
 	var roof_y := content_rect.position.y - 9.0
 	canvas.draw_colored_polygon(
@@ -338,6 +400,79 @@ func _draw_fullscreen_castle(
 			11,
 			INK_SOFT
 		)
+
+
+func _draw_immortal_realm_backdrop(canvas: CanvasItem, content_rect: Rect2) -> void:
+	var cloud_color := Color(0.86, 0.9, 0.87, 0.78)
+	for cloud_spec in [
+		[0.12, 0.2, 0.13],
+		[0.82, 0.34, 0.16],
+		[0.2, 0.74, 0.18],
+		[0.76, 0.88, 0.12],
+	]:
+		var center := content_rect.position + Vector2(
+			content_rect.size.x * float(cloud_spec[0]),
+			content_rect.size.y * float(cloud_spec[1])
+		)
+		var radius := content_rect.size.x * float(cloud_spec[2])
+		canvas.draw_circle(center, radius, cloud_color)
+		canvas.draw_circle(center + Vector2(radius * 0.65, radius * 0.08), radius * 0.72, cloud_color)
+	var cliff_color := Color(0.25, 0.29, 0.28, 0.5)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		content_rect.position + Vector2(0.0, content_rect.size.y * 0.42),
+		content_rect.position + Vector2(content_rect.size.x * 0.22, content_rect.size.y * 0.24),
+		content_rect.position + Vector2(content_rect.size.x * 0.3, content_rect.size.y),
+		content_rect.position + Vector2(0.0, content_rect.size.y),
+	]), cliff_color)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		content_rect.position + Vector2(content_rect.size.x, content_rect.size.y * 0.52),
+		content_rect.position + Vector2(content_rect.size.x * 0.78, content_rect.size.y * 0.3),
+		content_rect.position + Vector2(content_rect.size.x * 0.7, content_rect.size.y),
+		content_rect.end,
+	]), cliff_color)
+
+
+func _draw_locked_phase_hints(
+	canvas: CanvasItem,
+	panel_rect: Rect2,
+	hints_value: Variant
+) -> void:
+	var hints: Array = hints_value if hints_value is Array else []
+	for hint_variant in hints:
+		if not (hint_variant is Dictionary) or not bool((hint_variant as Dictionary).get("locked", false)):
+			continue
+		var hint_rect := Rect2(
+			panel_rect.end.x - 278.0,
+			panel_rect.position.y + 78.0,
+			244.0,
+			34.0
+		)
+		canvas.draw_rect(hint_rect, Color(SEALED, 0.78), true)
+		canvas.draw_rect(hint_rect, GOLD, false, 1.0)
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			hint_rect.position + Vector2(0.0, 23.0),
+			TowerAscentMapOverlayLocalization.text(
+				TowerAscentMapOverlayLocalization.KEY_REALM_IMMORTAL_LOCKED
+			),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			hint_rect.size.x,
+			13,
+			PAPER
+		)
+
+
+func _draw_fullscreen_transition_marker(canvas: CanvasItem, marker_value: Variant) -> void:
+	if not (marker_value is Dictionary) or (marker_value as Dictionary).is_empty():
+		return
+	var marker := marker_value as Dictionary
+	var progress := clampf(float(marker.get("progress", 0.0)), 0.0, 1.0)
+	var position := _vector2(marker.get("from_position", Vector2.ZERO)).lerp(
+		_vector2(marker.get("to_position", Vector2.ZERO)),
+		progress
+	)
+	canvas.draw_circle(position, 13.0 + 2.0 * sin(progress * PI), CINNABAR)
+	canvas.draw_circle(position, 19.0, GOLD, false, 3.0)
 
 
 func _draw_fullscreen_map_node(
@@ -447,6 +582,11 @@ func build_render_model(flow: Object) -> Dictionary:
 	var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
 	if nodes.is_empty():
 		return {}
+	var phase: Dictionary = (
+		flow.get_active_graph_phase()
+		if flow.has_method("get_active_graph_phase")
+		else {}
+	)
 	return {
 		"floors": flow.get_graph_floors() if flow.has_method("get_graph_floors") else [],
 		"nodes": nodes,
@@ -454,6 +594,9 @@ func build_render_model(flow: Object) -> Dictionary:
 		"active_candidate_ids": flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else [],
 		"current_node_id": str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else "",
 		"selected_target_id": str(flow.get_selected_target_id()),
+		"phase": phase,
+		"realm_kind": str(phase.get("realm_kind", "human_realm")),
+		"locked_phase_hints": phase.get("locked_phase_hints", []),
 	}
 
 

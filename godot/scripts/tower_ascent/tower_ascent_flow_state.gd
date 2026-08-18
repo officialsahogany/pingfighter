@@ -84,6 +84,7 @@ var _prepared := false
 var _prepared_resolution_id := ""
 var _phase := PHASE_COMBAT
 var _graph_phases: Array[Dictionary] = []
+var _active_graph_phase_index := 0
 var _graph_nodes: Array[Dictionary] = []
 var _graph_edges: Array[Dictionary] = []
 var _current_node_id := ""
@@ -183,6 +184,7 @@ func _reset_runtime_state() -> void:
 	_run_state.reset()
 	_header_subtitle = ""
 	_graph_phases.clear()
+	_active_graph_phase_index = 0
 	_graph_nodes.clear()
 	_graph_edges.clear()
 	_current_node_id = ""

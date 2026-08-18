@@ -1,6 +1,10 @@
 extends RefCounted
 
-const SNAPSHOT_SCHEMA_VERSION := 7
+const SNAPSHOT_SCHEMA_VERSION := 8
+const LEGACY_SINGLE_PHASE_SCHEMA_VERSION := 7
+const SNAPSHOT_POLICY_CURRENT := "current"
+const SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE := "reset_legacy_single_phase"
+const SNAPSHOT_POLICY_REJECT_UNSUPPORTED := "reject_unsupported"
 const DEFAULT_CHANCE_GEMS := 3
 const MAX_CHANCE_GEMS := 3
 
@@ -9,6 +13,7 @@ var _gold := 0
 var _muhon := 0
 var _chance_gems := 0
 var _phases: Array[Dictionary] = []
+var _active_phase_index := 0
 var _skipped_boss_ids: Array[String] = []
 
 
@@ -24,6 +29,12 @@ func begin(
 		return false
 	_import_economy(economy)
 	_phases = _sanitize_phases(phases)
+	_active_phase_index = int(progress.get("active_phase_index", 0))
+	if not _phases.is_empty() and (
+		_active_phase_index < 0 or _active_phase_index >= _phases.size()
+	):
+		reset()
+		return false
 	_skipped_boss_ids.assign(_sanitize_ids(progress.get("skipped_boss_ids", [])))
 	return true
 
@@ -34,11 +45,12 @@ func reset() -> void:
 	_muhon = 0
 	_chance_gems = 0
 	_phases.clear()
+	_active_phase_index = 0
 	_skipped_boss_ids.clear()
 
 
 func restore_snapshot(snapshot: Dictionary) -> bool:
-	if int(snapshot.get("schema_version", -1)) != SNAPSHOT_SCHEMA_VERSION:
+	if snapshot_restore_policy(snapshot) != SNAPSHOT_POLICY_CURRENT:
 		return false
 	var run_id := str(snapshot.get("run_id", "")).strip_edges()
 	if run_id.is_empty():
@@ -69,7 +81,10 @@ func export_snapshot_fields() -> Dictionary:
 		"run_id": _run_id,
 		"map_graph": {"phases": _phases.duplicate(true)},
 		"run_state": export_economy(),
-		"run_progress": {"skipped_boss_ids": _skipped_boss_ids.duplicate()},
+		"run_progress": {
+			"active_phase_index": _active_phase_index,
+			"skipped_boss_ids": _skipped_boss_ids.duplicate(),
+		},
 	}
 
 
@@ -78,11 +93,32 @@ func set_phases(phases: Array) -> bool:
 	if sanitized.is_empty():
 		return false
 	_phases = sanitized
+	_active_phase_index = mini(_active_phase_index, _phases.size() - 1)
 	return true
 
 
 func get_phases() -> Array[Dictionary]:
 	return _phases.duplicate(true)
+
+
+func set_active_phase_index(phase_index: int) -> bool:
+	if phase_index < 0 or phase_index >= _phases.size():
+		return false
+	_active_phase_index = phase_index
+	return true
+
+
+func get_active_phase_index() -> int:
+	return _active_phase_index
+
+
+static func snapshot_restore_policy(snapshot: Dictionary) -> String:
+	var schema_version := int(snapshot.get("schema_version", -1))
+	if schema_version == SNAPSHOT_SCHEMA_VERSION:
+		return SNAPSHOT_POLICY_CURRENT
+	if schema_version == LEGACY_SINGLE_PHASE_SCHEMA_VERSION:
+		return SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE
+	return SNAPSHOT_POLICY_REJECT_UNSUPPORTED
 
 
 func get_run_id() -> String:

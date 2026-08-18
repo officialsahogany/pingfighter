@@ -85,7 +85,21 @@ func get_graph_phases() -> Array[Dictionary]:
 func get_graph_floors() -> Array:
 	if _graph_phases.is_empty():
 		return []
-	return _graph_phases[0].get("floors", [])
+	return _graph_phases[_active_graph_phase_index].get("floors", [])
+
+func get_active_graph_phase_index() -> int:
+	return _active_graph_phase_index
+
+func get_active_graph_phase() -> Dictionary:
+	if _graph_phases.is_empty():
+		return {}
+	var phase := _graph_phases[_active_graph_phase_index].duplicate(true)
+	phase["nodes"] = _graph_nodes.duplicate(true)
+	phase["edges"] = _graph_edges.duplicate(true)
+	return phase
+
+func get_locked_phase_hints() -> Array:
+	return get_active_graph_phase().get("locked_phase_hints", [])
 
 func get_route_target_ids() -> Array[String]:
 	return _available_route_target_ids
@@ -123,6 +137,17 @@ func get_graph_edges() -> Array[Dictionary]:
 func get_selected_target_id() -> String:
 	return _selected_target_id
 
+func get_route_source_node_id() -> String:
+	return _route_source_node_id
+
+func is_phase_entry_transition() -> bool:
+	return (
+		_phase == PHASE_MAP_TRANSITION
+		and _active_graph_phase_index == 1
+		and _get_node(_route_source_node_id).is_empty()
+		and not _selected_target_id.is_empty()
+	)
+
 func get_selector_origin() -> Vector2:
 	return SELECTOR_ORIGIN
 
@@ -150,19 +175,27 @@ func _build_generated_graph(_current_stage: int) -> bool:
 		_run_state.get_skipped_boss_ids()
 	)
 	var phases_variant: Variant = generated.get("phases", [])
-	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
+	if not (phases_variant is Array) or (phases_variant as Array).size() != 2:
 		return false
 	_graph_phases.assign(_dictionary_array(phases_variant))
+	if not _activate_graph_phase(0, false):
+		return false
 	var phase_variant: Variant = _graph_phases[0]
 	if not (phase_variant is Dictionary):
 		return false
 	var phase := phase_variant as Dictionary
-	_graph_nodes.assign(_dictionary_array(phase.get("nodes", [])))
-	_graph_edges.assign(_dictionary_array(phase.get("edges", [])))
 	_route_source_node_id = str(phase.get("entry_node_id", ""))
 	_route_target_ids.assign(_string_array(phase.get("initial_route_candidate_ids", [])))
+	var immortal_phase: Dictionary = _graph_phases[1]
 	var valid: bool = (
-		int(phase.get("total_floors", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT
+		str(phase.get("id", "")) == TowerAscentMapGenerator.HUMAN_REALM_PHASE_ID
+		and int(phase.get("floor_start", 0)) == 1
+		and int(phase.get("floor_end", 0)) == TowerAscentMapGenerator.STANDARD_CLEAR_FLOOR
+		and int(phase.get("total_floors", 0)) == TowerAscentMapGenerator.STANDARD_CLEAR_FLOOR
+		and str(immortal_phase.get("id", "")) == TowerAscentMapGenerator.IMMORTAL_REALM_PHASE_ID
+		and int(immortal_phase.get("floor_start", 0)) == 10
+		and int(immortal_phase.get("floor_end", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT
+		and int(immortal_phase.get("total_floors", 0)) == 3
 		and not _route_source_node_id.is_empty()
 		and _route_target_ids.size() == 2
 		and _get_node(_route_source_node_id).get("kind", "") == "boss"
@@ -311,6 +344,8 @@ func _set_floor_eleven_encounter_locked(locked: bool) -> void:
 
 func _node_position(node_id: String) -> Vector2:
 	var node := _get_node(node_id)
+	if node.is_empty():
+		node = _get_node_in_all_phases(node_id)
 	if not node.is_empty():
 		return _vector2(node.get("position", Vector2.ZERO))
 	return Vector2.ZERO
@@ -319,6 +354,18 @@ func _get_node(node_id: String) -> Dictionary:
 	for node in _graph_nodes:
 		if str(node.get("id", "")) == node_id:
 			return node
+	return {}
+
+func _get_node_in_all_phases(node_id: String) -> Dictionary:
+	for phase_variant in _graph_phases:
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if (
+				node_variant is Dictionary
+				and str((node_variant as Dictionary).get("id", "")) == node_id
+			):
+				return (node_variant as Dictionary).duplicate(true)
 	return {}
 
 func _route_target_aim_position(target_index: int, target_count: int = 2) -> Vector2:
@@ -337,10 +384,20 @@ func _route_target_aim_position(target_index: int, target_count: int = 2) -> Vec
 func _mark_boss_slot_skipped_in_graph(boss_slot_id: String) -> void:
 	if boss_slot_id.is_empty():
 		return
-	for node in _graph_nodes:
-		if str(node.get("boss_slot_id", "")) == boss_slot_id:
-			node["route_disabled"] = true
-			node["skipped"] = true
+	_sync_run_state_phases()
+	for phase_index in range(_graph_phases.size()):
+		var phase := _graph_phases[phase_index].duplicate(true)
+		var nodes: Array = phase.get("nodes", [])
+		for node_variant in nodes:
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if str(node.get("boss_slot_id", "")) == boss_slot_id:
+				node["route_disabled"] = true
+				node["skipped"] = true
+		phase["nodes"] = nodes
+		_graph_phases[phase_index] = phase
+	_activate_graph_phase(_active_graph_phase_index, false)
 	_refresh_route_target_cache()
 
 func _refresh_route_target_cache() -> void:
@@ -378,12 +435,31 @@ func _route_target_display_label(node: Dictionary) -> String:
 func _sync_run_state_phases() -> void:
 	if _graph_nodes.is_empty():
 		return
-	var phase := (
-		_graph_phases[0].duplicate(true)
-		if not _graph_phases.is_empty()
-		else {"id": "phase_01"}
-	)
+	if _graph_phases.is_empty() or _active_graph_phase_index >= _graph_phases.size():
+		return
+	var phase := _graph_phases[_active_graph_phase_index].duplicate(true)
 	phase["nodes"] = _graph_nodes.duplicate(true)
 	phase["edges"] = _graph_edges.duplicate(true)
-	_graph_phases = [phase]
+	_graph_phases[_active_graph_phase_index] = phase
 	_run_state.set_phases(_graph_phases)
+	_run_state.set_active_phase_index(_active_graph_phase_index)
+
+func _activate_graph_phase(phase_index: int, sync_current: bool = true) -> bool:
+	if phase_index < 0 or phase_index >= _graph_phases.size():
+		return false
+	if sync_current and not _graph_nodes.is_empty():
+		_sync_run_state_phases()
+	var phase_variant: Variant = _graph_phases[phase_index]
+	if not (phase_variant is Dictionary):
+		return false
+	var phase := phase_variant as Dictionary
+	var nodes := _dictionary_array(phase.get("nodes", []))
+	var edges := _dictionary_array(phase.get("edges", []))
+	if nodes.is_empty():
+		return false
+	_active_graph_phase_index = phase_index
+	_graph_nodes.assign(nodes)
+	_graph_edges.assign(edges)
+	_run_state.set_phases(_graph_phases)
+	_run_state.set_active_phase_index(_active_graph_phase_index)
+	return true

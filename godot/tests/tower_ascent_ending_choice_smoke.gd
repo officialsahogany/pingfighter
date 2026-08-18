@@ -126,7 +126,8 @@ func _verify_descend_path_and_modal_hooks(save_path: String) -> void:
 	_expect(bool(choose.get("accepted", false)) and bool(choose.get("changed", false)), "descend should commit once")
 	_expect(restored.get_phase_name() == "RUN_SETTLEMENT" and _finish_calls == 0, "descend should open the shared clear settlement before final exit")
 	_expect(restore_registry.runtime.resume_calls == 0 and restore_registry.runtime.arm_calls == 0, "choice-to-settlement transition must keep the modal pause without a resume gap")
-	_expect(_count_locked_true_route_nodes(restored.get_graph_nodes()) > 0, "descending must not unlock floors 10 to 12")
+	_expect(_count_locked_true_route_nodes(restored.get_graph_phases()) > 0, "descending must not unlock floors 10 to 12")
+	_expect(restored.get_active_graph_phase_index() == 0, "descending must remain on the human-realm graph")
 	_expect(int(restored.get_record_snapshot().get("clear_count", -1)) == 2, "descending should persist the second standard clear")
 	var confirm := InputEventKey.new()
 	confirm.pressed = true
@@ -146,7 +147,10 @@ func _verify_continue_path_and_irreversibility(save_path: String) -> void:
 	var choose: Dictionary = flow.choose_ending_route("continue")
 	_expect(bool(choose.get("accepted", false)) and bool(choose.get("changed", false)), "continue should commit once")
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "continue should enter the irreversible floor-10 transition")
-	_expect(_count_locked_true_route_nodes(flow.get_graph_nodes()) == 0, "continue alone should unlock floors 10 to 12")
+	_expect(flow.get_active_graph_phase_index() == 1, "continue must atomically switch to the immortal-realm graph")
+	_expect(_count_locked_true_route_nodes(flow.get_graph_phases()) == 0, "continue alone should unlock floors 10 to 12")
+	for node in flow.get_graph_nodes():
+		_expect(int(node.get("floor", 0)) >= 10, "phase-2 disclosure must contain only floors 10 through 12")
 	_expect(bool(flow.get_ending_state_snapshot().get("route_unlocked", false)), "snapshot state should own the route unlock")
 	_expect(int(flow.get_record_snapshot().get("clear_count", -1)) == before_count, "continuing is nonterminal and must not increment clears")
 	var reversal: Dictionary = flow.choose_ending_route("descend")
@@ -166,13 +170,16 @@ func _begin_flow(save_path: String, run_id: String, owner: Object, registry: Obj
 	return flow
 
 
-func _count_locked_true_route_nodes(nodes: Array) -> int:
+func _count_locked_true_route_nodes(phases: Array) -> int:
 	var count := 0
-	for node_value in nodes:
-		if node_value is Dictionary:
-			var node := node_value as Dictionary
-			if int(node.get("floor", 0)) >= 10 and bool(node.get("route_locked", false)):
-				count += 1
+	for phase_value in phases:
+		if not (phase_value is Dictionary):
+			continue
+		for node_value in (phase_value as Dictionary).get("nodes", []):
+			if node_value is Dictionary:
+				var node := node_value as Dictionary
+				if int(node.get("floor", 0)) >= 10 and bool(node.get("route_locked", false)):
+					count += 1
 	return count
 
 

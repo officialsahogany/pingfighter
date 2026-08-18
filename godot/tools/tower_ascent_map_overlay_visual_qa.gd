@@ -7,10 +7,14 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentRecordStore := preload(
+	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
+)
 
 const GAME_SIZE := Vector2i(1280, 800)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
-const OUTPUT_NAME := "map_overlay_combat.png"
+const OUTPUT_NAME_PHASE_1 := "map_overlay_human_realm.png"
+const OUTPUT_NAME_PHASE_2 := "map_overlay_immortal_realm.png"
 
 
 class FakeRuntimePerkState:
@@ -107,6 +111,23 @@ func _run() -> void:
 		return
 
 	var flow_owner := TowerAscentFlowOwner.new()
+	var capture_phase := OS.get_environment("TOWER_ASCENT_MAP_QA_PHASE").strip_edges().to_lower()
+	if capture_phase not in ["phase1", "phase2"]:
+		capture_phase = "phase1"
+	var record_path := "user://tower_map_overlay_visual_%d.cfg" % Time.get_ticks_usec()
+	if capture_phase == "phase2":
+		var store := TowerAscentRecordStore.new()
+		store.set_save_path(record_path)
+		var seeded: Dictionary = store.record_clear(
+			9,
+			TowerAscentRecordStore.ENDING_STANDARD,
+			false,
+			"map-overlay-visual:seed"
+		)
+		if not bool(seeded.get("accepted", false)):
+			_fail("phase-2 record fixture could not seed the prior clear")
+			return
+		flow_owner.set_record_store_path_for_tests(record_path)
 	var registry := CaptureRegistry.new(flow_owner)
 	var viewport := SubViewport.new()
 	viewport.size = GAME_SIZE
@@ -122,15 +143,32 @@ func _run() -> void:
 	}):
 		_fail("combat map overlay fixture could not open")
 		return
+	if capture_phase == "phase2":
+		flow_owner.close_map_overlay()
+		var judgment: Dictionary = flow_owner.begin_floor_nine_resolution(
+			"map-overlay-visual:floor09",
+			Callable(),
+			canvas,
+			registry
+		)
+		if not bool(judgment.get("accepted", false)):
+			_fail("phase-2 ending judgment fixture failed")
+			return
+		var choice: Dictionary = flow_owner.choose_ending_route("continue")
+		if not bool(choice.get("accepted", false)) or flow_owner.get_active_graph_phase_index() != 1:
+			_fail("phase-2 graph transition fixture failed")
+			return
 	_decorate_state_evidence(flow_owner)
-	if flow_owner.get_phase_name() != "MAP_OVERLAY":
+	var expected_phase := "MAP_TRANSITION" if capture_phase == "phase2" else "MAP_OVERLAY"
+	if flow_owner.get_phase_name() != expected_phase:
 		_fail("map-overlay visual fixture phase mismatch: %s" % flow_owner.get_phase_name())
 		return
 	canvas.queue_redraw()
 	for _frame_index in range(6):
 		await process_frame
 	var image: Image = viewport.get_texture().get_image()
-	var output_path := output_dir.path_join(OUTPUT_NAME)
+	var output_name := OUTPUT_NAME_PHASE_2 if capture_phase == "phase2" else OUTPUT_NAME_PHASE_1
+	var output_path := output_dir.path_join(output_name)
 	if (
 		image == null
 		or image.is_empty()
@@ -140,9 +178,14 @@ func _run() -> void:
 		_fail("map-overlay visual QA capture failed: %s" % output_path)
 		return
 	print("[TowerMapOverlayVisualQA] %s" % output_path)
-	print("tower_ascent_map_overlay_visual_qa: captures=1")
+	print("tower_ascent_map_overlay_visual_qa: phase=%s captures=1" % capture_phase)
 	print("tower_ascent_map_overlay_visual_qa: ok")
-	flow_owner.close_map_overlay()
+	if flow_owner.is_map_overlay_active():
+		flow_owner.close_map_overlay()
+	if flow_owner.is_active():
+		flow_owner.call("_finish_vertical_slice")
+	if FileAccess.file_exists(record_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(record_path))
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	get_root().remove_child(viewport)
 	viewport.free()
@@ -156,9 +199,10 @@ func _run() -> void:
 
 func _decorate_state_evidence(flow_owner: Object) -> void:
 	var nodes: Array[Dictionary] = flow_owner.get_graph_nodes()
+	var selected_target_id := str(flow_owner.get_selected_target_id())
 	for node in nodes:
 		var node_id := str(node.get("id", ""))
-		if node_id != flow_owner.get_current_node_id():
+		if node_id != flow_owner.get_current_node_id() and node_id != selected_target_id:
 			flow_owner.call(
 				"_commit_node_resolution",
 				node_id,
@@ -168,7 +212,11 @@ func _decorate_state_evidence(flow_owner: Object) -> void:
 			break
 	for node in nodes:
 		var slot_id := str(node.get("boss_slot_id", ""))
-		if not slot_id.is_empty() and str(node.get("id", "")) != flow_owner.get_current_node_id():
+		if (
+			not slot_id.is_empty()
+			and str(node.get("id", "")) != flow_owner.get_current_node_id()
+			and str(node.get("id", "")) != selected_target_id
+		):
 			flow_owner.call("_mark_boss_slot_skipped_in_graph", slot_id)
 			break
 

@@ -250,10 +250,14 @@ func _draw_tower_ascent_fullscreen_map(
 	view_size: Vector2
 ) -> void:
 	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	var phase_name := (
+		str(flow_owner.get_phase_name())
+		if flow_owner != null and flow_owner.has_method("get_phase_name")
+		else ""
+	)
 	if (
 		flow_owner == null
-		or not flow_owner.has_method("get_phase_name")
-		or str(flow_owner.get_phase_name()) != "MAP_OVERLAY"
+		or phase_name not in ["MAP_OVERLAY", "MAP_TRANSITION"]
 		or not flow_owner.has_method("draw_fullscreen_map")
 	):
 		return

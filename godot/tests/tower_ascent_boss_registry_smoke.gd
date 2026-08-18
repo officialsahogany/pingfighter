@@ -114,22 +114,22 @@ func _verify_generated_boss_nodes_are_registry_driven() -> void:
 	var first: Dictionary = generator.generate_tower(45190)
 	var second: Dictionary = generator.generate_tower(45190)
 	_expect(var_to_bytes(first) == var_to_bytes(second), "boss slot assignment must remain seed deterministic")
-	var phase: Dictionary = first.phases[0]
-	for node_variant in phase.nodes:
-		if not (node_variant is Dictionary):
-			continue
-		var node := node_variant as Dictionary
-		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
-			continue
-		_expect(not str(node.get("boss_slot_id", "")).is_empty(), "every generated combat node must reference a registry slot")
-		if int(node.get("floor", 0)) != 11:
-			_expect(not (node.get("standin", {}) as Dictionary).is_empty(), "every generated boss slot must carry its stand-in mapping")
+	for phase_variant in first.phases:
+		for node_variant in (phase_variant as Dictionary).nodes:
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
+				continue
+			_expect(not str(node.get("boss_slot_id", "")).is_empty(), "every generated combat node must reference a registry slot")
+			if int(node.get("floor", 0)) != 11:
+				_expect(not (node.get("standin", {}) as Dictionary).is_empty(), "every generated boss slot must carry its stand-in mapping")
 
 
 func _verify_four_kings_are_locked_metadata_only() -> void:
 	var graph: Dictionary = TowerAscentMapGenerator.new().generate_tower(72)
 	var floor_11_node: Dictionary = {}
-	for node_variant in graph.phases[0].nodes:
+	for node_variant in graph.phases[1].nodes:
 		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == 11 and str((node_variant as Dictionary).get("kind", "")) == "boss":
 			floor_11_node = node_variant as Dictionary
 			break

@@ -292,8 +292,11 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	flow.debug_launch_miss()
 	flow.update_selective(1.5, owner)
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "a missed selector shot must remain in ROUTE_AIM")
-	_expect(not flow.is_selector_launched(), "a missed selector shot must reset for unlimited retries")
-	_expect(flow.get_selector_position().is_equal_approx(flow.get_selector_origin()), "miss reset must restore the selector origin")
+	_expect(flow.is_selector_launched(), "a missed target must bounce from the top instead of resetting")
+	_expect(flow.get_selector_position().y < 40.0, "the top-wall bounce must clamp the route ball inside the field")
+	flow.update_selective(1.5, owner)
+	_expect(not flow.is_selector_launched(), "only the later bottom-out may reset for unlimited retries")
+	_expect(flow.get_selector_position().is_equal_approx(flow.get_selector_origin()), "bottom miss reset must restore the selector origin")
 
 	var selected_kind := str(flow.get_route_aim_targets()[0].get("kind", ""))
 	flow.debug_launch_at_target(0)
@@ -364,10 +367,11 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	var round_trip: Dictionary = restored.export_snapshot()
 	_expect(round_trip.run_id == "snapshot-contract", "snapshot restore must preserve run_id")
 	_expect(round_trip.map_graph == snapshot.map_graph, "snapshot restore must preserve the serialized full graph")
-	_expect(round_trip.map_graph.phases.size() == 1, "serialized graph must preserve the one-phase phases array contract")
+	_expect(round_trip.map_graph.phases.size() == 2, "serialized graph must preserve the two-realm phases array contract")
 	var first_phase: Dictionary = round_trip.map_graph.phases[0]
-	_expect(first_phase.floors.size() == 12, "serialized phase must include the generated 12-floor graph")
-	_expect(first_phase.nodes.size() > 4 and first_phase.edges.size() > 3, "serialized phase must include generated nodes and edges")
+	var second_phase: Dictionary = round_trip.map_graph.phases[1]
+	_expect(first_phase.floors.size() == 9 and second_phase.floors.size() == 3, "serialized phases must include the generated 9 plus 3 floor graph")
+	_expect(first_phase.nodes.size() > 4 and first_phase.edges.size() > 3 and not second_phase.nodes.is_empty(), "serialized phases must include generated nodes and edges")
 	_expect(round_trip.completed_nodes == snapshot.completed_nodes, "snapshot restore must preserve node_resolution_id records")
 	_expect(round_trip.run_state == snapshot.run_state, "snapshot restore must preserve run-local economy")
 	_expect(not source.export_persistable_snapshot().is_empty(), "post-commit stable boundary must export a persistable snapshot")

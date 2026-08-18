@@ -111,6 +111,7 @@ func _verify_flow_snapshot_and_transition() -> void:
 		"registry": registry,
 	}), "gauntlet fixture should prepare a generated floor-eleven graph")
 	_expect(flow.begin_vertical_slice(owner, Callable(), {"registry": registry}), "gauntlet fixture should commit the prepared match")
+	_expect(bool(flow.call("_activate_graph_phase", 1)), "gauntlet fixture must enter the phase-2 graph that owns floor 11")
 	var start: Dictionary = flow.begin_floor_eleven_gauntlet("gauntlet-flow:floor11")
 	_expect(bool(start.get("accepted", false)), "flow should unlock the registered floor-eleven group")
 	_expect(_floor_eleven_group_unlocked(flow.get_graph_nodes()), "Phase-D gauntlet should clear only the group encounter lock")

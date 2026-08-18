@@ -414,18 +414,33 @@ func _ending_choice_index_at(position: Vector2) -> int:
 	return -1
 
 func _unlock_true_ending_route() -> void:
-	for node in _graph_nodes:
-		if int(node.get("floor", 0)) >= 10:
-			node["route_locked"] = false
+	_sync_run_state_phases()
+	for phase_index in range(_graph_phases.size()):
+		var phase := _graph_phases[phase_index].duplicate(true)
+		var nodes: Array = phase.get("nodes", [])
+		for node_variant in nodes:
+			if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) >= 10:
+				(node_variant as Dictionary)["route_locked"] = false
+		var hints: Array = phase.get("locked_phase_hints", [])
+		for hint_variant in hints:
+			if hint_variant is Dictionary:
+				(hint_variant as Dictionary)["locked"] = false
+		phase["nodes"] = nodes
+		phase["locked_phase_hints"] = hints
+		_graph_phases[phase_index] = phase
+	_activate_graph_phase(_active_graph_phase_index, false)
 	_sync_run_state_phases()
 
 func _enter_true_route_transition() -> void:
 	var source_id := _find_floor_node_id(9, false)
+	if not _activate_graph_phase(1):
+		return
 	var target_id := _find_floor_node_id(10, true)
 	if not source_id.is_empty():
 		_route_source_node_id = source_id
 		_current_node_id = source_id
 	if not target_id.is_empty():
+		_route_target_ids.assign([target_id])
 		_selected_target_id = target_id
 		_route_history.append({"from": _route_source_node_id, "to": target_id})
 	_phase = PHASE_MAP_TRANSITION

@@ -30,8 +30,11 @@ func _verify_new_run_and_sanitization() -> void:
 		"run economy must clamp negative inputs without inventing another currency"
 	)
 	_expect(
-		state.set_phases([{"id": "phase_01", "nodes": [], "edges": []}]),
-		"one-phase fixture must use the phases array contract"
+		state.set_phases([
+			{"id": "phase_01", "nodes": [], "edges": []},
+			{"id": "phase_02", "nodes": [], "edges": []},
+		]),
+		"two-realm fixture must use the phases array contract"
 	)
 
 
@@ -39,15 +42,21 @@ func _verify_snapshot_round_trip() -> void:
 	var source := TowerAscentRunState.new()
 	source.begin("round-trip", {"gold": 11, "muhon": 13, "chance_gems": 1})
 	source.mark_boss_skipped("floor_02_molewang")
-	source.set_phases([{"id": "phase_01", "nodes": [{"id": "node_01"}], "edges": []}])
+	source.set_phases([
+		{"id": "phase_01", "nodes": [{"id": "node_01"}], "edges": []},
+		{"id": "phase_02", "nodes": [{"id": "node_02"}], "edges": []},
+	])
+	source.set_active_phase_index(1)
 	var snapshot: Dictionary = source.export_snapshot_fields()
 	_expect(int(snapshot.schema_version) == TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION, "snapshot schema version must be explicit")
-	_expect(snapshot.map_graph.phases.size() == 1, "snapshot map graph must serialize phases as an array")
+	_expect(snapshot.map_graph.phases.size() == 2, "snapshot map graph must serialize both realm phases")
+	_expect(int(snapshot.run_progress.active_phase_index) == 1, "snapshot must serialize the active realm index")
 	var restored := TowerAscentRunState.new()
 	_expect(restored.restore_snapshot(snapshot), "valid run-state snapshot must restore")
 	_expect(restored.get_run_id() == "round-trip", "restore must preserve run_id")
 	_expect(restored.export_economy() == source.export_economy(), "restore must preserve run-local economy")
 	_expect(restored.get_phases() == source.get_phases(), "restore must preserve phase graph data")
+	_expect(restored.get_active_phase_index() == 1, "restore must preserve the active realm index")
 	_expect(restored.get_skipped_boss_ids() == ["floor_02_molewang"], "restore must preserve run-owned avoided boss slots")
 
 
@@ -56,8 +65,11 @@ func _verify_rejected_snapshots_do_not_restore() -> void:
 		"schema_version": TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION,
 		"run_id": "reject-fixture",
 		"run_state": {"gold": 0, "muhon": 0, "chance_gems": 0},
-		"run_progress": {"skipped_boss_ids": []},
-		"map_graph": {"phases": [{"id": "phase_01", "nodes": [], "edges": []}]},
+		"run_progress": {"active_phase_index": 0, "skipped_boss_ids": []},
+		"map_graph": {"phases": [
+			{"id": "phase_01", "nodes": [], "edges": []},
+			{"id": "phase_02", "nodes": [], "edges": []},
+		]},
 	}
 	var wrong_schema := valid.duplicate(true)
 	wrong_schema["schema_version"] = TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION + 1

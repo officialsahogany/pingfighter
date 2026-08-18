@@ -5,6 +5,10 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const KEY_TITLE := "tower_ascent.map_overlay.title"
 const KEY_CLOSE_HINT := "tower_ascent.map_overlay.close_hint"
 const KEY_HUD_HINT := "tower_ascent.map_overlay.hud_hint"
+const KEY_REALM_HUMAN := "tower_ascent.map_overlay.realm.human"
+const KEY_REALM_IMMORTAL := "tower_ascent.map_overlay.realm.immortal"
+const KEY_REALM_IMMORTAL_LOCKED := "tower_ascent.map_overlay.realm.immortal_locked"
+const KEY_ENTER_IMMORTAL := "tower_ascent.map_overlay.realm.enter_immortal"
 const KEY_NODE_COMBAT := "tower_ascent.map_overlay.node.combat"
 const KEY_NODE_ENRAGED := "tower_ascent.map_overlay.node.enraged"
 const KEY_NODE_SHOP := "tower_ascent.map_overlay.node.shop"
@@ -25,6 +29,10 @@ const TEXT_BY_LOCALE := {
 		KEY_TITLE: "지도",
 		KEY_CLOSE_HINT: "M 또는 ESC로 닫기",
 		KEY_HUD_HINT: "M 지도",
+		KEY_REALM_HUMAN: "인간계",
+		KEY_REALM_IMMORTAL: "신선계",
+		KEY_REALM_IMMORTAL_LOCKED: "10~12층 신선계 잠김",
+		KEY_ENTER_IMMORTAL: "신선계 진입",
 		KEY_NODE_COMBAT: "전투",
 		KEY_NODE_ENRAGED: "광폭화",
 		KEY_NODE_SHOP: "상점",
@@ -65,6 +73,12 @@ static func node_kind_label(node_kind: String, enraged: bool = false) -> String:
 	if enraged or node_kind.strip_edges().to_lower() == "enraged":
 		return text(KEY_NODE_ENRAGED)
 	return text(str(NODE_KIND_KEYS.get(node_kind.strip_edges().to_lower(), KEY_NODE_COMBAT)))
+
+
+static func realm_label(realm_kind: String) -> String:
+	if realm_kind.strip_edges().to_lower() == "immortal_realm":
+		return text(KEY_REALM_IMMORTAL)
+	return text(KEY_REALM_HUMAN)
 
 
 static func node_state_label(
