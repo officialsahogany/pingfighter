@@ -35,6 +35,7 @@ const STAGE_RUNTIME_COMMON_SAMPLE_LABELS := [
 	"08_stage_clear_result_deferred",
 	"09_lingpet_runtime",
 	"10_lingpet_rail_card",
+	"11_tower_ascent_runtime",
 ]
 const STAGE1_RUNTIME_SAMPLE_LABELS := [
 	"stage1_00_pillar_background",

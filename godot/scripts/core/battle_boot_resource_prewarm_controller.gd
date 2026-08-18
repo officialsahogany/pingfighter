@@ -3,8 +3,11 @@ extends RefCounted
 const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 const CharacterInfoLingpetPrewarmFilter := preload("res://scripts/hud/character_info_lingpet_prewarm_filter.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 
-const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 11
+const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 12
 const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"weather",
 	"active_item",
@@ -17,6 +20,7 @@ const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"result_shell_deferred",
 	"lingpet_runtime",
 	"lingpet_rail_card",
+	"tower_ascent_runtime",
 ]
 const STAGE2_RUNTIME_PREWARM_LABELS := [
 	"stage2_pillar_background",
@@ -421,6 +425,8 @@ func _run_stage_runtime_prewarm_step(
 			# stage's boss skill rail, so warm it once here rather than lazy-loading
 			# in any stage's HUD draw hot path).
 			return bool(LingpetRailCard.prewarm_step())
+		11:
+			prewarm_tower_ascent_muhon_collection(owner, module_getter)
 		_:
 			var stage_step := step_index - STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
 			var stage_step_count := _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
@@ -429,6 +435,23 @@ func _run_stage_runtime_prewarm_step(
 			else:
 				return _run_battle_pso_prewarmer_step(owner)
 	return true
+
+
+func prewarm_tower_ascent_muhon_collection(
+	owner: Object,
+	module_getter: Callable
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": true, "reason": "feature_disabled"}
+	var flow_owner: Object = _get_module(module_getter, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("prewarm_muhon_collection"):
+		push_error("Tower ascent Muhon prewarm owner is unavailable")
+		return {"accepted": false, "reason": "missing_flow_owner"}
+	var value: Variant = flow_owner.call("prewarm_muhon_collection", owner)
+	var result: Dictionary = value if value is Dictionary else {}
+	if not bool(result.get("accepted", false)):
+		push_error("Tower ascent Muhon prewarm failed")
+	return result
 
 
 func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stage: int) -> int:

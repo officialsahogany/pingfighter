@@ -150,7 +150,10 @@ func _collect_tower_muhon(
 			"collection_mode": "tower_muhon",
 			"blocked_reason": "invalid_muhon_amount",
 		}
-	var flow_owner := _get_registry_instance(registry, "tower_ascent_flow_owner")
+	# The tower owner is intentionally created during stage-entry prewarm. A
+	# pickup is a physics hot path, so never let this lookup cold-instantiate the
+	# whole eager tower flow chain (GRT-003/GRT-042).
+	var flow_owner := _get_cached_registry_instance(registry, "tower_ascent_flow_owner")
 	if flow_owner == null or not flow_owner.has_method("collect_muhon"):
 		return {
 			"accepted": false,
@@ -175,16 +178,11 @@ func _collect_tower_muhon(
 	}
 
 
-func _get_registry_instance(registry: Object, key: String) -> Object:
-	if registry == null:
+func _get_cached_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
 		return null
-	for method_name in ["get_instance", "get_cached_instance"]:
-		if not registry.has_method(method_name):
-			continue
-		var value: Variant = registry.call(method_name, key)
-		if value is Object and value != null:
-			return value as Object
-	return null
+	var value: Variant = registry.call("get_cached_instance", key)
+	return value as Object if value is Object and value != null else null
 
 
 func _get_choice_active(runtime_state: Object) -> bool:

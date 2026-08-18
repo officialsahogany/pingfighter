@@ -12,6 +12,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const BattleBootResourcePrewarmController := preload(
+	"res://scripts/core/battle_boot_resource_prewarm_controller.gd"
+)
 
 const PRODUCER_PATHS := [
 	"res://scripts/stages/common/starpoint_collection_reward_policy.gd",
@@ -28,6 +31,8 @@ var _open_choice_calls := 0
 func _init() -> void:
 	_verify_tower_collection_routes_to_muhon_without_choice()
 	_verify_tower_collection_fails_closed_without_owner()
+	_verify_stage_entry_prewarm_removes_cold_first_pickup()
+	_verify_legacy_mode_skips_tower_prewarm()
 	_verify_reserved_chosik_keeps_content_choice_semantics()
 	_verify_real_flow_owner_accumulates_run_muhon()
 	_verify_producer_audit_contract()
@@ -59,6 +64,46 @@ func _verify_tower_collection_fails_closed_without_owner() -> void:
 	_expect(not bool(result.get("accepted", true)), "missing tower flow owner must reject the collection")
 	_expect(str(result.get("blocked_reason", "")) == "missing_tower_ascent_flow_owner", "missing owner rejection must stay diagnosable")
 	_expect(state.pending_skill_choices == 0 and _open_choice_calls == 0, "failed tower routing must not fall back into a legacy modal")
+
+
+func _verify_stage_entry_prewarm_removes_cold_first_pickup() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var registry := ColdTrackingRegistry.new()
+	var state := FakeStarpointState.new()
+	var cold_pickup := _collect(1, state, registry, FakeCatalog.new())
+	_expect(not bool(cold_pickup.get("accepted", true)), "an unprewarmed tower pickup must fail closed instead of cold-creating the flow owner")
+	_expect(registry.get_instance_calls == 0, "the pickup hot path must never call get_instance")
+	var prewarm_controller := BattleBootResourcePrewarmController.new()
+	var prewarm_started_usec := Time.get_ticks_usec()
+	var prewarm_result: Dictionary = prewarm_controller.prewarm_tower_ascent_muhon_collection(
+		null,
+		Callable(registry, "get_instance")
+	)
+	var prewarm_elapsed_usec := maxi(0, Time.get_ticks_usec() - prewarm_started_usec)
+	_expect(bool(prewarm_result.get("accepted", false)), "stage-entry prewarm must start the tower run owner")
+	_expect(registry.get_instance_calls == 1, "stage-entry prewarm must own the one cold tower-flow creation")
+	var pickup_create_calls_before := registry.get_instance_calls
+	var pickup_started_usec := Time.get_ticks_usec()
+	var hot_pickup := _collect(1, state, registry, FakeCatalog.new())
+	var pickup_elapsed_usec := maxi(0, Time.get_ticks_usec() - pickup_started_usec)
+	_expect(bool(hot_pickup.get("accepted", false)), "the first post-prewarm Muhon pickup must be accepted")
+	_expect(registry.get_instance_calls == pickup_create_calls_before, "the first pickup must not cold-create any registry module")
+	_expect(registry.get_cached_instance_calls >= 2, "both the fail-closed and warmed pickup legs must use cached lookup")
+	_expect(int(registry.flow_owner.get_run_state_snapshot().get("muhon", 0)) == 1, "the warmed first pickup must reach run_state.muhon")
+	print("tower_muhon_first_pickup_measurement: prewarm_usec=%d pickup_usec=%d cold_creations_during_pickup=0" % [prewarm_elapsed_usec, pickup_elapsed_usec])
+
+
+func _verify_legacy_mode_skips_tower_prewarm() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
+	var registry := ColdTrackingRegistry.new()
+	var result: Dictionary = BattleBootResourcePrewarmController.new().prewarm_tower_ascent_muhon_collection(
+		null,
+		Callable(registry, "get_instance")
+	)
+	_expect(bool(result.get("accepted", false)), "flag OFF prewarm must remain a no-op success")
+	_expect(str(result.get("reason", "")) == "feature_disabled", "flag OFF prewarm must expose its no-op reason")
+	_expect(registry.get_instance_calls == 0, "flag OFF must not create the tower flow owner during common prewarm")
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 
 
 func _verify_reserved_chosik_keeps_content_choice_semantics() -> void:
@@ -94,6 +139,13 @@ func _verify_producer_audit_contract() -> void:
 	)
 	_expect(flow_source.find("_collect_tower_muhon") >= 0, "all audited producers must converge on the central tower Muhon route")
 	_expect(flow_source.find("has_reserved_boss_vision_offer") >= 0, "the secret-Chosik content exception must remain explicit")
+	_expect(flow_source.find("_get_cached_registry_instance") >= 0, "tower Muhon collection must keep its cached-only owner lookup")
+	_expect(flow_source.find("var flow_owner := _get_registry_instance") < 0, "tower Muhon collection must not restore a cold get_instance lookup")
+	var prewarm_source := FileAccess.get_file_as_string(
+		"res://scripts/core/battle_boot_resource_prewarm_controller.gd"
+	)
+	_expect(prewarm_source.find("tower_ascent_runtime") >= 0, "stage-runtime prewarm must retain the tower Muhon step label")
+	_expect(prewarm_source.find("prewarm_tower_ascent_muhon_collection") >= 0, "stage-runtime prewarm must retain the tower owner wiring")
 
 
 func _collect(
@@ -171,6 +223,30 @@ class FakeRegistry:
 
 	func get_instance(key: String) -> Object:
 		return tower_flow_owner if key == "tower_ascent_flow_owner" else null
+
+	func get_cached_instance(key: String) -> Object:
+		return tower_flow_owner if key == "tower_ascent_flow_owner" else null
+
+
+class ColdTrackingRegistry:
+	extends RefCounted
+	var flow_owner: Object = null
+	var get_instance_calls := 0
+	var get_cached_instance_calls := 0
+
+	func get_instance(key: String) -> Object:
+		if key != "tower_ascent_flow_owner":
+			return null
+		get_instance_calls += 1
+		if flow_owner == null:
+			flow_owner = TowerAscentFlowOwner.new()
+		return flow_owner
+
+	func get_cached_instance(key: String) -> Object:
+		if key != "tower_ascent_flow_owner":
+			return null
+		get_cached_instance_calls += 1
+		return flow_owner
 
 
 class FakeCatalog:

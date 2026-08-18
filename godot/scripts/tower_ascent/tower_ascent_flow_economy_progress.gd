@@ -18,6 +18,17 @@ func collect_muhon(amount: int, owner: Object = null) -> Dictionary:
 		"balances": apply_result.get("balances", {}),
 	}
 
+func prewarm_muhon_collection(owner: Object = null) -> Dictionary:
+	var started_usec: int = Time.get_ticks_usec()
+	var already_started: bool = bool(_run_state.has_started())
+	var accepted: bool = ensure_run_started(owner)
+	return {
+		"accepted": accepted,
+		"already_started": already_started,
+		"elapsed_usec": maxi(0, Time.get_ticks_usec() - started_usec),
+		"run_id": _run_state.get_run_id() if accepted else "",
+	}
+
 func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return false
