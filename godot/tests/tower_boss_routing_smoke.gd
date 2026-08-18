@@ -46,6 +46,7 @@ func _init() -> void:
 	_verify_arrival_routes_through_production_selector()
 	_verify_shell_slot_uses_registered_standin()
 	_verify_resolution_ids_are_unique_per_combat_node()
+	_verify_run_progress_survives_two_combat_preparations()
 	_verify_flag_off_preserves_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -119,6 +120,39 @@ func _verify_resolution_ids_are_unique_per_combat_node() -> void:
 	var second_id := str((second_journal.get("pending_rewards", []) as Array)[0].get("node_resolution_id", ""))
 	_expect(first_id != second_id, "second combat in one run must receive a different node_resolution_id")
 	_expect(second_id.find(str(next_combat.get("id", ""))) >= 0, "second resolution id must identify the arrived combat node")
+
+
+func _verify_run_progress_survives_two_combat_preparations() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.prepare_vertical_slice_combat(null, {
+		"run_id": "progress-reentry",
+		"map_seed": 73191,
+		"current_stage": 1,
+		"run_state": {"gold": 19, "muhon": 23, "chance_gems": 2},
+	}), "progress fixture first combat must prepare")
+	_expect(flow.begin_vertical_slice(null, Callable()), "progress fixture first combat must enter route selection")
+	var purchase_history: Array = flow.get("_purchase_history")
+	purchase_history.append({"node_resolution_id": "progress-reentry:shop:purchase", "item_id": "fixture"})
+	var generated_inventory: Array = flow.get("_generated_shop_inventory")
+	generated_inventory.append({"node_id": "fixture-shop", "entries": [{"id": "fixture"}]})
+	flow.set("_build_state", {"mugong": ["fixture_mugong"], "chosik": [], "active_items": [], "mythic": {}})
+	flow.set("_gameplay_rng_state", {"seed": 90210, "state": 77123})
+	var next_combat := _find_first_other_combat_node(flow, flow.get_current_node_id())
+	_expect(not next_combat.is_empty(), "progress fixture must find a second combat")
+	if next_combat.is_empty():
+		return
+	flow.set("_selected_target_id", str(next_combat.get("id", "")))
+	flow.call("_complete_map_transition")
+	_expect(flow.prepare_vertical_slice_combat(null), "progress fixture must traverse prepare a second time")
+	var snapshot: Dictionary = flow.export_snapshot()
+	_expect(str(snapshot.get("run_id", "")) == "progress-reentry", "second prepare must preserve run_id")
+	_expect(snapshot.get("run_state", {}) == {"gold": 19, "muhon": 23, "chance_gems": 2}, "second prepare must preserve all run economy fields")
+	_expect((snapshot.get("purchase_history", []) as Array).size() == 1, "second prepare must preserve purchase history")
+	_expect((snapshot.get("generated_shop_inventory", []) as Array).size() == 1, "second prepare must preserve generated inventory")
+	_expect((snapshot.get("build_state", {}) as Dictionary).get("mugong", []) == ["fixture_mugong"], "second prepare must preserve the run build")
+	_expect(snapshot.get("gameplay_rng_state", {}) == {"seed": 90210, "state": 77123}, "second prepare must preserve gameplay RNG state")
+	_expect(str(snapshot.get("current_node_id", "")) == str(next_combat.get("id", "")), "second prepare must preserve map position")
 
 
 func _verify_flag_off_preserves_legacy() -> void:

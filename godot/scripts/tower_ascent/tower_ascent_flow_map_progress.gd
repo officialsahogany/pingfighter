@@ -1,20 +1,43 @@
 extends "res://scripts/tower_ascent/tower_ascent_flow_state.gd"
 
+const REENTRY_PROGRESS_FIELDS: Array[String] = [
+	"active_phase_index",
+	"current_node_id",
+	"completed_nodes",
+	"generated_shop_inventory",
+	"purchase_history",
+	"generated_training_offers",
+	"training_history",
+	"generated_fallen_monk_offers",
+	"fallen_monk_history",
+	"fallen_monk_runtime_snapshot",
+	"fallen_monk_skill_config_snapshot",
+	"claimed_decoration_ids",
+	"build_state",
+	"guardian_state",
+	"rest_history",
+	"ending_state",
+	"gauntlet_state",
+	"codex_discoveries",
+	"run_defeat_count",
+	"defeat_event_ids",
+	"gameplay_rng_state",
+	"route_history",
+]
+
 func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _active:
 		return false
 	if _prepared:
 		return true
-	var existing_run_id: String = str(_run_state.get_run_id())
-	var existing_economy: Dictionary = _run_state.export_economy()
-	var existing_progress := {
-		"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
-	}
-	var existing_map_seed := _map_seed
-	var existing_combat_node_id := _current_node_id
 	var reuse_existing_run: bool = bool(
 		_run_state.has_started() and not context.has("run_id")
 	)
+	var existing_run_id: String = str(_run_state.get_run_id())
+	var existing_economy: Dictionary = _run_state.export_economy()
+	var existing_progress := _capture_reentry_progress() if reuse_existing_run else {}
+	var existing_map_seed := _map_seed
+	var existing_combat_node_id := str(existing_progress.get("current_node_id", ""))
 	_reset_runtime_state()
 	var run_id := str(context.get(
 		"run_id",
@@ -25,7 +48,8 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		existing_economy if reuse_existing_run else {}
 	)
 	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
-	var progress := existing_progress if reuse_existing_run else {}
+	var run_progress_variant: Variant = existing_progress.get("run_progress", {})
+	var progress: Dictionary = run_progress_variant if run_progress_variant is Dictionary else {}
 	if not _run_state.begin(run_id, economy, [], progress):
 		return false
 	var current_stage := int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1)))
@@ -39,6 +63,8 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	)))
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
+		return false
+	if reuse_existing_run and not _restore_reentry_progress(existing_progress):
 		return false
 	_current_node_id = (
 		existing_combat_node_id
@@ -62,6 +88,121 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	_pending_rewards.append(pending)
 	_prepared = true
 	return true
+
+
+func _capture_reentry_progress() -> Dictionary:
+	var all_progress := {
+		"active_phase_index": _run_state.get_active_phase_index(),
+		"current_node_id": _current_node_id,
+		"completed_nodes": _completed_nodes,
+		"generated_shop_inventory": _generated_shop_inventory,
+		"purchase_history": _purchase_history,
+		"generated_training_offers": _generated_training_offers,
+		"training_history": _training_history,
+		"generated_fallen_monk_offers": _fallen_monk_node.get_generated_offers(),
+		"fallen_monk_history": _fallen_monk_node.get_history(),
+		"fallen_monk_runtime_snapshot": _fallen_monk_node.get_runtime_snapshot(),
+		"fallen_monk_skill_config_snapshot": _fallen_monk_node.get_skill_config_snapshot(),
+		"claimed_decoration_ids": _claimed_decoration_ids,
+		"build_state": _build_state,
+		"guardian_state": _guardian_spring_node.export_state(),
+		"rest_history": _rest_node.get_history(),
+		"ending_state": _ending_state.export_state(),
+		"gauntlet_state": _gauntlet_state.export_state(),
+		"codex_discoveries": _codex_discoveries,
+		"run_defeat_count": _run_defeat_count,
+		"defeat_event_ids": _defeat_event_ids,
+		"gameplay_rng_state": _gameplay_rng_state,
+		"route_history": _route_history,
+	}
+	var result := {
+		"run_progress": {
+			"active_phase_index": _run_state.get_active_phase_index(),
+			"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
+		},
+	}
+	for field_name in REENTRY_PROGRESS_FIELDS:
+		if all_progress.has(field_name):
+			result[field_name] = _copy_progress_value(all_progress[field_name])
+	return result
+
+
+func _restore_reentry_progress(progress: Dictionary) -> bool:
+	var phase_index := int(progress.get("active_phase_index", 0))
+	if phase_index != _active_graph_phase_index and not _activate_graph_phase(phase_index, false):
+		return false
+	_completed_nodes.assign(_dictionary_array(progress.get("completed_nodes", [])))
+	_resolution_ids.clear()
+	for entry in _completed_nodes:
+		var resolution_id := str(entry.get("node_resolution_id", ""))
+		if not resolution_id.is_empty():
+			_resolution_ids[resolution_id] = true
+		_mark_node_completed(str(entry.get("node_id", "")))
+	_generated_shop_inventory.assign(_dictionary_array(progress.get("generated_shop_inventory", [])))
+	_purchase_history.assign(_dictionary_array(progress.get("purchase_history", [])))
+	_add_history_resolution_ids(_purchase_history)
+	_generated_training_offers.assign(_dictionary_array(progress.get("generated_training_offers", [])))
+	_training_history.assign(_dictionary_array(progress.get("training_history", [])))
+	_add_history_resolution_ids(_training_history)
+	_fallen_monk_node.restore_state(
+		progress.get("generated_fallen_monk_offers", []),
+		progress.get("fallen_monk_history", []),
+		progress.get("fallen_monk_runtime_snapshot", {}),
+		progress.get("fallen_monk_skill_config_snapshot", {})
+	)
+	_add_history_resolution_ids(_fallen_monk_node.get_history())
+	_claimed_decoration_ids.assign(_string_array(progress.get("claimed_decoration_ids", [])))
+	_build_state = _dictionary_copy(progress.get("build_state", {}))
+	_guardian_state = _dictionary_copy(progress.get("guardian_state", {}))
+	_guardian_spring_node.restore_state(_guardian_state)
+	_add_history_resolution_ids(_guardian_spring_node.get_history())
+	_rest_node.restore_state(progress.get("rest_history", []))
+	_add_history_resolution_ids(_rest_node.get_history())
+	if not _ending_state.restore_state(progress.get("ending_state", {})):
+		return false
+	var gauntlet_value: Variant = progress.get("gauntlet_state", {})
+	if (
+		gauntlet_value is Dictionary
+		and not str((gauntlet_value as Dictionary).get("node_resolution_id", "")).is_empty()
+	):
+		if not _gauntlet_state.restore_state(gauntlet_value):
+			return false
+	_codex_discoveries.assign(_dictionary_array(progress.get("codex_discoveries", [])))
+	_run_defeat_count = maxi(0, int(progress.get("run_defeat_count", 0)))
+	_defeat_event_ids.assign(_string_array(progress.get("defeat_event_ids", [])))
+	_gameplay_rng_state = _dictionary_copy(progress.get("gameplay_rng_state", {}))
+	_route_history.assign(_dictionary_array(progress.get("route_history", [])))
+	_current_node_id = str(progress.get("current_node_id", _route_source_node_id))
+	if _get_node(_current_node_id).is_empty():
+		return false
+	_route_source_node_id = _current_node_id
+	_route_target_ids.assign(_outgoing_target_ids(_current_node_id))
+	_refresh_route_target_cache()
+	return true
+
+
+func _mark_node_completed(node_id: String) -> void:
+	for node in _graph_nodes:
+		if str(node.get("id", "")) == node_id:
+			node["completed"] = true
+			return
+
+
+func _add_history_resolution_ids(entries: Array) -> void:
+	for entry_variant in entries:
+		if not (entry_variant is Dictionary):
+			continue
+		var resolution_id := str((entry_variant as Dictionary).get("node_resolution_id", ""))
+		if not resolution_id.is_empty():
+			_resolution_ids[resolution_id] = true
+
+
+func _copy_progress_value(value: Variant) -> Variant:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	if value is Array:
+		return (value as Array).duplicate(true)
+	return value
 
 func debug_advance_to_route_aim() -> void:
 	if _active and _phase == PHASE_NODE_MODAL:
