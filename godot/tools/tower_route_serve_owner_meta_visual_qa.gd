@@ -107,6 +107,10 @@ func _run() -> void:
 	)
 	Input.action_press("ui_right")
 	_set_left_mouse_pressed(true)
+	await process_frame
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_fail("visual QA could not publish the raw left-mouse pressed state")
+		return
 	tower_flow.update_selective(1.0 / 60.0, main_node)
 	_set_left_mouse_pressed(false)
 	for _step in range(ROUTE_FLIGHT_STEPS - 1):
@@ -265,6 +269,7 @@ func _set_left_mouse_pressed(pressed: bool) -> void:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = pressed
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 	event.position = Vector2(760.0, 500.0)
 	Input.parse_input_event(event)
 
