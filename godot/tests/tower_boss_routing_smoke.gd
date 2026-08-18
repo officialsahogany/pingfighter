@@ -47,6 +47,7 @@ func _init() -> void:
 	_verify_shell_slot_uses_registered_standin()
 	_verify_resolution_ids_are_unique_per_combat_node()
 	_verify_run_progress_survives_two_combat_preparations()
+	_verify_map_seed_survives_second_combat_preparation()
 	_verify_flag_off_preserves_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -153,6 +154,26 @@ func _verify_run_progress_survives_two_combat_preparations() -> void:
 	_expect((snapshot.get("build_state", {}) as Dictionary).get("mugong", []) == ["fixture_mugong"], "second prepare must preserve the run build")
 	_expect(snapshot.get("gameplay_rng_state", {}) == {"seed": 90210, "state": 77123}, "second prepare must preserve gameplay RNG state")
 	_expect(str(snapshot.get("current_node_id", "")) == str(next_combat.get("id", "")), "second prepare must preserve map position")
+
+
+func _verify_map_seed_survives_second_combat_preparation() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var flow := TowerAscentFlowOwner.new()
+	var expected_seed := 884422
+	_expect(flow.prepare_vertical_slice_combat(null, {
+		"run_id": "seed-reentry",
+		"map_seed": expected_seed,
+	}), "seed fixture first combat must prepare")
+	_expect(flow.begin_vertical_slice(null, Callable()), "seed fixture first combat must enter route selection")
+	var next_combat := _find_first_other_combat_node(flow, flow.get_current_node_id())
+	_expect(not next_combat.is_empty(), "seed fixture must find a second combat")
+	if next_combat.is_empty():
+		return
+	flow.set("_selected_target_id", str(next_combat.get("id", "")))
+	flow.call("_complete_map_transition")
+	_expect(flow.get_map_seed() == expected_seed, "combat arrival must not clear the run-owned map seed")
+	_expect(flow.prepare_vertical_slice_combat(null), "seed fixture second combat must prepare")
+	_expect(flow.get_map_seed() == expected_seed and flow.get_map_seed() != 0, "second combat must regenerate from the original nonzero run seed")
 
 
 func _verify_flag_off_preserves_legacy() -> void:

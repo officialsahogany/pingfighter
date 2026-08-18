@@ -324,7 +324,6 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	_active_owner = null
 	_active_registry = null
 	_active = false
-	_map_seed = 0
 	_phase = PHASE_COMBAT
 	if callback.is_valid():
 		if encounter.is_empty():
