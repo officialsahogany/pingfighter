@@ -702,11 +702,11 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	}
 	var runtime := TowerAscentRouteServeRuntime.new()
 	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "route wall fixture must acquire production ball and paddle physics")
-	var targets: Array[Dictionary] = [
-		{"id": "left", "position": Vector2(90.0, 180.0), "hit_radius": 36.0},
-		{"id": "right", "position": Vector2(670.0, 180.0), "hit_radius": 36.0},
-	]
-	runtime.update(1.0 / 60.0, targets)
+	# This leg isolates wall and paddle reflection. Physical target hits are
+	# covered separately and may legitimately end the attempt before a complete
+	# round trip, which would make this physics assertion timing-dependent.
+	var empty_targets: Array[Dictionary] = []
+	runtime.update(1.0 / 60.0, empty_targets)
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
 	input_reader.snapshot["mouse_left_just_pressed"] = false
@@ -714,7 +714,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	var top_bounced := false
 	for _frame in range(100):
 		var before_velocity := owner.ball_vel
-		var result: Dictionary = runtime.update(1.0 / 60.0, targets)
+		var result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
 		if before_velocity.y < 0.0 and owner.ball_vel.y > 0.0:
 			top_bounced = true
 			_expect(str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "the top boundary must reflect without completing a miss")
@@ -726,7 +726,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	var paddle_bounced := false
 	for _frame in range(100):
 		var before_velocity := owner.ball_vel
-		var result: Dictionary = runtime.update(1.0 / 60.0, targets)
+		var result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
 		if owner.ball_pos.y > 600.0 and before_velocity.y > 0.0 and owner.ball_vel.y < 0.0:
 			paddle_bounced = true
 			_expect(str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "the player paddle must reflect without completing a miss")
@@ -735,9 +735,12 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	_expect(ball_driver.reset_calls == reset_count_after_serve and owner.ball_active, "player paddle reflection must preserve the active route attempt")
 
 	var second_top_bounce := false
-	for _frame in range(100):
+	# Production paddle physics may curve the return down to its permitted
+	# minimum vertical component. Allow the full playfield crossing at that
+	# shallow angle instead of assuming the near-vertical launch cadence.
+	for _frame in range(240):
 		var before_velocity := owner.ball_vel
-		runtime.update(1.0 / 60.0, targets)
+		runtime.update(1.0 / 60.0, empty_targets)
 		if before_velocity.y < 0.0 and owner.ball_vel.y > 0.0:
 			second_top_bounce = true
 			break
@@ -747,7 +750,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	owner.ball_vel = Vector2(0.0, 8.7)
 	var miss_result: Dictionary = {}
 	for _frame in range(120):
-		miss_result = runtime.update(1.0 / 60.0, targets)
+		miss_result = runtime.update(1.0 / 60.0, empty_targets)
 		if str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS:
 			break
 	_expect(str(miss_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_MISS, "only a bottom-out after missing the player paddle may rearm the route serve")
