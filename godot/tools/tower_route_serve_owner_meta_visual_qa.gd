@@ -112,14 +112,12 @@ func _run() -> void:
 	var hud_context := {"height": BattleSceneConfig.HEIGHT, "gold_hud_amount": 0}
 	var gold_rect: Rect2 = hud_renderer.build_gold_hud_rect(game_offset, game_size, hud_context)
 	var muhon_rect: Rect2 = hud_renderer.build_muhon_hud_rect(game_offset, game_size, hud_context)
-	var capture_scale := Vector2(
-		float(waiting_image.get_width()) / maxf(1.0, viewport_size.x),
-		float(waiting_image.get_height()) / maxf(1.0, viewport_size.y)
+	var hud_rect_in_canvas := gold_rect.merge(muhon_rect).grow(18.0)
+	var canvas_to_capture: Transform2D = (
+		get_root().get_final_transform()
+		* main_node.get_canvas_transform()
 	)
-	var hud_rect_in_capture := Rect2(
-		gold_rect.merge(muhon_rect).grow(18.0).position * capture_scale,
-		gold_rect.merge(muhon_rect).grow(18.0).size * capture_scale
-	)
+	var hud_rect_in_capture := canvas_to_capture * hud_rect_in_canvas
 	var hud_crop_rect := Rect2i(
 		hud_rect_in_capture.intersection(
 			Rect2(Vector2.ZERO, Vector2(waiting_image.get_size()))
