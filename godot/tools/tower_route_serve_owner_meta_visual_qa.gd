@@ -11,6 +11,7 @@ const TowerAscentFeatureFlags := preload(
 
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_route_serve_owner_meta"
 const OUTPUT_NAME := "route_aim_live_owner.png"
+const TOP_BOUNCE_OUTPUT_NAME := "route_aim_top_wall_bounce.png"
 const INITIAL_PLAYER_POS := Vector2(230.0, 680.0)
 const ROUTE_FLIGHT_STEPS := 14
 
@@ -108,23 +109,46 @@ func _run() -> void:
 	for _frame in range(10):
 		await process_frame
 		main_node.queue_redraw()
-	var image := get_root().get_texture().get_image()
-	if image == null or image.is_empty():
-		_fail("tower route-serve live-owner capture was empty")
-		return
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
 	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
 		_fail("could not create tower route-serve capture directory")
 		return
 	var output_path := output_dir.path_join(OUTPUT_NAME)
-	if image.save_png(output_path) != OK:
+	if not _save_viewport_capture(output_path):
 		_fail("could not save tower route-serve live-owner capture: %s" % output_path)
+		return
+
+	# Force only the pre-collision state; the production route runtime and shared
+	# ball-motion stepper must own the actual top-wall event and reflected state.
+	var ball_radius := float(BattleSceneOwnerReader.get_value(main_node, "ball_size", 28.6)) * 0.5
+	main_node.set("ball_pos", Vector2(BattleSceneConfig.WIDTH * 0.5, ball_radius + 1.0))
+	main_node.set("ball_vel", Vector2(0.0, -8.0))
+	main_node.set("ball_active", true)
+	tower_flow.update_selective(1.0 / 60.0, main_node)
+	var bounced_position := BattleSceneOwnerReader.get_vector2(main_node, "ball_pos", Vector2.ZERO)
+	var bounced_velocity := BattleSceneOwnerReader.get_vector2(main_node, "ball_vel", Vector2.ZERO)
+	if bounced_velocity.y <= 0.0 or bounced_position.y < ball_radius - 0.1:
+		_fail("live ROUTE_AIM top-wall reflection did not publish the owner snapshot: pos=%s vel=%s" % [bounced_position, bounced_velocity])
+		return
+	main_node.queue_redraw()
+	for _frame in range(4):
+		await process_frame
+		main_node.queue_redraw()
+	var bounce_output_path := output_dir.path_join(TOP_BOUNCE_OUTPUT_NAME)
+	if not _save_viewport_capture(bounce_output_path):
+		_fail("could not save top-wall bounce capture: %s" % bounce_output_path)
 		return
 	print("[TowerRouteServeOwnerMetaVisualQA] player=%s ball=%s evidence=%s" % [
 		moved_player_pos,
 		ball_pos,
 		output_path,
 	])
+	print("[TowerRouteServeOwnerMetaVisualQA] top_bounce_pos=%s top_bounce_vel=%s evidence=%s" % [
+		bounced_position,
+		bounced_velocity,
+		bounce_output_path,
+	])
+	print("tower_route_serve_owner_meta_visual_qa: captures=2")
 	print("tower_route_serve_owner_meta_visual_qa: ok")
 	_cleanup(main_node)
 	quit(0)
@@ -190,6 +214,11 @@ func _get_module(main_node: Node, key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
+
+
+func _save_viewport_capture(output_path: String) -> bool:
+	var image := get_root().get_texture().get_image()
+	return image != null and not image.is_empty() and image.save_png(output_path) == OK
 
 
 func _release_test_input() -> void:
