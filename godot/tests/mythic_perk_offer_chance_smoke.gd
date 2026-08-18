@@ -57,9 +57,7 @@ func _init() -> void:
 func _run() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_unowned_mythic_builder()
-	_verify_jackpot_reserves_all_mythic_cards()
-	_verify_jackpot_bypasses_open_chosik_reservation()
-	_verify_jackpot_candidate_shortage_fills_regular_pool()
+	_verify_catalog_jackpot_screen_is_retired()
 	_verify_full_slots_suppress_mythic_offer()
 	_verify_chance_zero_suppresses_mythic_offer()
 	_verify_flag_off_suppresses_mythic_offer()
@@ -107,6 +105,27 @@ func _verify_unowned_mythic_builder() -> void:
 		_expect_eq(int(choice.get("current_level", -1)), 0, "reserved mythic card should be a new Lv.0 -> Lv.1 choice")
 		_expect_eq(int(choice.get("next_level", -1)), 1, "reserved mythic card should advance to Lv.1")
 		_expect(RuntimePerkCatalog.is_slot_consuming_perk(choice), "reserved mythic card should consume a perk slot")
+	_expect_eq(RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size(), 14, "canonical Peerless Martial Art roster must contain fourteen entries")
+
+
+func _verify_catalog_jackpot_screen_is_retired() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	catalog.mythic_jackpot_offer_chance = 1.0
+	var open_chosik_probe := RollProbe.new(0.0)
+	catalog.set_open_chosik_offer_roll_for_tests(Callable(open_chosik_probe, "next_roll"))
+	var skill_config := SmasherSkillConfig.new()
+	skill_config.equipped_skills = ["drive", "power_smashing"]
+	var choices: Array = catalog.get_choices(
+		"smasher",
+		_one_open_slot_levels(),
+		true,
+		TARGET_CHOICES,
+		null,
+		FakeRegistry.new(skill_config)
+	)
+	_expect_eq(_mythic_choices(_offer_slots(choices)).size(), 0, "ordinary catalog choices must never reopen the retired all-mythic jackpot screen")
+	_expect_eq(open_chosik_probe.call_count, 1, "retired jackpot chance must not bypass the ordinary Chosik reservation path")
+	catalog.clear_open_chosik_offer_roll_for_tests()
 
 
 func _verify_jackpot_reserves_all_mythic_cards() -> void:
@@ -193,12 +212,14 @@ func _verify_flag_off_suppresses_mythic_offer() -> void:
 
 func _verify_mythic_choice_applies_through_runtime_state() -> void:
 	var catalog := RuntimePerkCatalog.new()
-	catalog.mythic_jackpot_offer_chance = 1.0
 	var state := RuntimePerkState.new()
 	state.runtime_skill_levels = _one_open_slot_levels()
-	var choices: Array = catalog.get_choices("smasher", state.runtime_skill_levels, true, TARGET_CHOICES)
-	var mythic_choices := _mythic_choices(choices)
-	_expect_eq(mythic_choices.size(), TARGET_CHOICES, "apply fixture should expose a jackpot of mythic cards")
+	var mythic_choices: Array = catalog._build_unowned_mythic_choices(
+		state.runtime_skill_levels,
+		"smasher",
+		TARGET_CHOICES
+	)
+	_expect_eq(mythic_choices.size(), TARGET_CHOICES, "dedicated reward-pick builder must still expose canonical Peerless cards")
 	if mythic_choices.is_empty():
 		return
 	var mythic_choice: Dictionary = mythic_choices[0] as Dictionary
@@ -214,18 +235,12 @@ func _verify_source_contracts() -> void:
 	_expect(source.find("var mythic_offer_chance :=") < 0, "catalog should not keep the old single mythic_offer_chance seam")
 	_expect(source.find("func _get_mythic_offer_chance(") < 0, "catalog should not keep the old single chance helper")
 	_expect(source.find("func _pick_random_unowned_mythic_perk_id") < 0, "catalog should not keep the old single mythic picker")
-	_expect(source.find("func _get_mythic_offer_chances") >= 0, "catalog should route the mythic offer probability through the jackpot helper")
-	_expect(source.find("if randf() >= jackpot_chance") >= 0, "jackpot helper should roll once against the jackpot band")
+	_expect(source.find("func _get_mythic_offer_chances") >= 0, "catalog may retain its compatibility chance helper for old tests and saves")
 	_expect(source.find("single_chance") < 0, "get_choices should no longer reference a single mythic band")
 	_expect(source.find("func _try_build_mythic_jackpot_offer(") >= 0, "catalog should isolate jackpot-only offer construction")
 	_expect(source.find("ring-core") < 0, "retired ring-core reservation language should not remain in the catalog")
 	var jackpot_call := source.find("var mythic_jackpot_choices := _try_build_mythic_jackpot_offer(")
-	var unlock_filter := source.find("choices = _filter_unlock_slot_budget(", jackpot_call)
-	var guardian_append := source.find("_append_lingpet_guardian_enhance_choice(", jackpot_call)
-	_expect(
-		jackpot_call >= 0 and unlock_filter > jackpot_call and guardian_append > jackpot_call,
-		"jackpot branch must run before Chosik and guardian reservation evaluation"
-	)
+	_expect(jackpot_call < 0, "ordinary get_choices must have zero callers of the retired jackpot-screen builder")
 	var boss_vision_fill := source.find("for vision_choice in boss_vision_reserved:")
 	var guardian_fill := source.find("for guardian_choice in guardian_enhance_reserved:")
 	var swap_fill := source.find("for swap_choice in full_chosik_swap_reserved:")

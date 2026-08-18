@@ -57,6 +57,7 @@ const RuntimePerkPhysiqueTrainingRuntimeState := preload("res://scripts/characte
 const RuntimePerkAngelBlessingRuntimeState := preload("res://scripts/characters/runtime_perk_angel_blessing_runtime_state.gd")
 const RuntimePerkChosikEventState := preload("res://scripts/characters/runtime_perk_chosik_event_state.gd")
 const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -1818,6 +1819,12 @@ func get_downtown_treasure_map_mythic_bonus() -> float:
 
 
 func get_downtown_treasure_map_mythic_multiplier() -> float:
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return 1.0
+	return get_downtown_treasure_map_reward_pick_multiplier()
+
+
+func get_downtown_treasure_map_reward_pick_multiplier() -> float:
 	return _effective_stat_queries.get_downtown_treasure_map_mythic_multiplier_from_runtime_state(self)
 
 

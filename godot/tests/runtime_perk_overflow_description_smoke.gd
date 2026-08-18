@@ -132,8 +132,8 @@ func _test_converted_overflow_single_sourced() -> void:
 
 
 func _test_special_overflow_values() -> void:
-	# 천기보도 Lv.7: 절세무공과 비전초식 상자 레인 모두 상한 없이 선형 증가한다.
-	_expect_text("downtown_treasure_map", 7, "절세무공 확률 +1050%, 비전초식 상자 +21%p")
+	# 천기보도 Lv.7: 승리 보상 픽의 절세무공 카드 등장 배율이 상한 없이 선형 증가한다.
+	_expect_text("downtown_treasure_map", 7, "승리 보상 픽 절세무공 등장 확률 +1050%")
 	# combo chip Lv.7: uncapped lanes keep scaling, capped lanes hold with (캡).
 	_expect_text(
 		"combo_amplifier_chip", 7,

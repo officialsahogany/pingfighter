@@ -8,6 +8,7 @@ const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 
 class FakeOwner:
@@ -235,6 +236,7 @@ func _init() -> void:
 		"debug-spawned passive field item should preserve the requested name"
 	)
 
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
 	var base_shares: Dictionary = field_spawn_pool.get_spawn_group_target_shares(
 		{"active": 1.0, "passive": 1.0, "mythic": 1.0},
 		registry
@@ -251,6 +253,15 @@ func _init() -> void:
 	_expect_share_close(level5_shares, "active", 0.565, "Lv.5 treasure map active share should match Python")
 	_expect_share_close(level5_shares, "passive", 0.35, "Lv.5 treasure map passive share should match Python")
 	_expect_share_close(level5_shares, "mythic", 0.085, "Lv.5 treasure map mythic share should match Python")
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var tower_level5_shares: Dictionary = field_spawn_pool.get_spawn_group_target_shares(
+		{"active": 1.0, "passive": 1.0, "mythic": 1.0},
+		registry
+	)
+	_expect_share_close(tower_level5_shares, "active", 0.79, "tower mode must suppress the retired Treasure Map active-share modifier")
+	_expect_share_close(tower_level5_shares, "passive", 0.20, "tower mode must suppress the retired Treasure Map passive-share modifier")
+	_expect_share_close(tower_level5_shares, "mythic", 0.01, "tower mode must suppress the retired Treasure Map mythic-share modifier")
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	runtime_perk_state.runtime_skill_levels.clear()
 
 	var scaled_weights: Array[Dictionary] = field_spawn_pool.build_group_scaled_spawn_weights(

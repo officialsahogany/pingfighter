@@ -208,13 +208,13 @@ const COMMON_PERKS := {
 		"name": "천기보도",
 		"max_level": 5,
 		"descriptions": {
-			1: "절세무공 확률 +150%, 비전초식 상자 +3%p",
-			2: "절세무공 확률 +300%, 비전초식 상자 +6%p",
-			3: "절세무공 확률 +450%, 비전초식 상자 +9%p",
-			4: "절세무공 확률 +600%, 비전초식 상자 +12%p",
-			5: "절세무공 확률 +750%, 비전초식 상자 +15%p",
+			1: "승리 보상 픽 절세무공 등장 확률 +150%",
+			2: "승리 보상 픽 절세무공 등장 확률 +300%",
+			3: "승리 보상 픽 절세무공 등장 확률 +450%",
+			4: "승리 보상 픽 절세무공 등장 확률 +600%",
+			5: "승리 보상 픽 절세무공 등장 확률 +750%",
 		},
-		"detail": "천기보도가 보상 상자에서 절세무공이 나올 확률을 높입니다. 비전초식 상자가 배정된 보스를 쓰러뜨렸고 해당 비전을 아직 보유하지 않았을 때, 상자 드랍 확률이 레벨당 3%p 증가합니다.",
+		"detail": "천기보도가 승리 보상 픽에 절세무공 카드가 등장할 확률을 레벨당 150% 높입니다.",
 		"icon_color": Color(1.0, 223.0 / 255.0, 0.0),
 		"tree": "downtown",
 	},
@@ -1408,22 +1408,6 @@ func get_choices(
 
 	if PerkConversionFlags.is_enabled():
 		_append_converted_perk_choices(choices, runtime_levels, normalized)
-
-	var mythic_jackpot_choices := _try_build_mythic_jackpot_offer(
-		choices,
-		runtime_levels,
-		normalized,
-		exclude_instant,
-		target_choice_count,
-		owner,
-		_registry
-	)
-	mythic_jackpot_choices = _filter_tower_unlock_choices(
-		mythic_jackpot_choices,
-		_registry
-	)
-	if not mythic_jackpot_choices.is_empty():
-		return mythic_jackpot_choices
 
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels, _registry)
 	if PerkConversionFlags.is_enabled():

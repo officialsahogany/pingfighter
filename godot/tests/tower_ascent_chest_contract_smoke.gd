@@ -134,7 +134,8 @@ func _verify_production_wiring_and_normal_jackpot() -> void:
 	var resolver_source := FileAccess.get_file_as_string("res://scripts/core/stage_clear_reward_resolver.gd")
 	_expect(resolver_source.find("TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE := 0.03") >= 0, "normal tower chest must absorb the confirmed three-percent mythic jackpot")
 	var loot_source := FileAccess.get_file_as_string("res://scripts/core/victory_loot_phase_state.gd")
-	_expect(loot_source.find("_build_tower_chest_context(owner, registry)") >= 0, "live victory loot must pass floor, risk, and Chosik eligibility into the tower plan")
+	_expect(loot_source.find("TowerRewardPickState") >= 0, "live tower victory loot must own the reward-pick replacement state")
+	_expect(loot_source.find("_reward_pick_state.start(") >= 0, "live tower victory loot must enter the four-card reward pick instead of building chests")
 	var legacy_marker_pos := loot_source.find("func _try_mark_boss_vision_offer_box")
 	_expect(
 		legacy_marker_pos < 0

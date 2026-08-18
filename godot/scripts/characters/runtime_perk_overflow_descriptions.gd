@@ -395,16 +395,13 @@ static func _converted_template_text(skill_id: String, level: int) -> String:
 	return str(template["format"]) % args
 
 
-# 천기보도 두 레인은 런타임에서 레벨 상한 없이 선형 증가한다.
+# 천기보도의 절세무공 카드 등장 배율은 런타임에서 레벨 상한 없이 선형 증가한다.
 # 절세무공 확률: runtime_perk_effective_levels TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
-# (1.50 = +150%/lv) → stage_clear_reward_resolver의 보상 상자 신화 가중치 배율.
-# 비전초식 상자: TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
-# (0.03 = +3%p/lv) → victory_loot_phase_state의 승리당 1회 드랍 판정.
+# (1.50 = +150%/lv) → tower_reward_pick_offer_builder의 절세무공 카드 확률.
 static func _treasure_map_text(level: int) -> String:
-	return "절세무공 확률 +%d%%, 비전초식 상자 +%d%%p" % [
-		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL * 100.0)) * level,
-		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL * 100.0)) * level,
-	]
+	return "승리 보상 픽 절세무공 등장 확률 +%d%%" % (
+		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL * 100.0)) * level
+	)
 
 
 # drive_curve caps at Lv.3 and the initial-boost decay reduction at 50%

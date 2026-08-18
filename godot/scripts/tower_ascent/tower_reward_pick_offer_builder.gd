@@ -256,10 +256,13 @@ func _supreme_chance(context: Dictionary, runtime_state: Object) -> float:
 		chance += TEMP_SUPREME_ENRAGED_BONUS
 	if bool(context.get("is_gatekeeper", false)):
 		chance += TEMP_SUPREME_GATEKEEPER_BONUS
-	if runtime_state.has_method("get_downtown_treasure_map_mythic_multiplier"):
-		chance *= maxf(1.0, float(runtime_state.call(
-			"get_downtown_treasure_map_mythic_multiplier"
-		)))
+	var treasure_method := (
+		"get_downtown_treasure_map_reward_pick_multiplier"
+		if runtime_state.has_method("get_downtown_treasure_map_reward_pick_multiplier")
+		else "get_downtown_treasure_map_mythic_multiplier"
+	)
+	if runtime_state.has_method(treasure_method):
+		chance *= maxf(1.0, float(runtime_state.call(treasure_method)))
 	return clampf(chance, 0.0, 1.0)
 
 

@@ -615,6 +615,11 @@ func _get_treasure_map_level(registry: Object) -> int:
 
 
 func _get_treasure_map_mythic_multiplier(registry: Object, fallback_level: int) -> float:
+	# Tower mode repurposes Heavenly-Secret Treasure Map exclusively for the
+	# victory reward-pick Peerless card lane. Preserve the legacy field-spawn
+	# behavior only while the tower slice flag is off.
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return 1.0
 	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_mythic_multiplier"):
 		return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_mythic_multiplier()))
