@@ -64,6 +64,8 @@ env:
     res://tests/perk_polish_amplify_smoke.gd
     res://tests/project_resource_loader_import_preference_smoke.gd
     res://tests/battle_boot_resource_prewarm_smoke.gd
+    res://tests/tower_boss_routing_smoke.gd
+    res://tests/tower_node_modal_pointer_smoke.gd
     res://tests/match_player_skill_deps_builder_smoke.gd
     res://tests/online_match_mvp_smoke.gd
     res://tests/online_enet_loopback_smoke.gd
