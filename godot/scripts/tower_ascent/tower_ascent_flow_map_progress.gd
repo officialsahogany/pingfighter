@@ -11,6 +11,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
 	}
 	var existing_map_seed := _map_seed
+	var existing_combat_node_id := _current_node_id
 	var reuse_existing_run: bool = bool(
 		_run_state.has_started() and not context.has("run_id")
 	)
@@ -39,14 +40,18 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
 		return false
-	_current_node_id = _route_source_node_id
+	_current_node_id = (
+		existing_combat_node_id
+		if reuse_existing_run and not existing_combat_node_id.is_empty()
+		else _route_source_node_id
+	)
 	_sync_run_state_phases()
-	_prepared_resolution_id = _make_resolution_id(_route_source_node_id, "combat_victory")
+	_prepared_resolution_id = _make_resolution_id(_current_node_id, "combat_victory")
 	var reward_bundle_variant: Variant = context.get("node_reward_bundle", {})
 	var reward_bundle: Dictionary = reward_bundle_variant if reward_bundle_variant is Dictionary else {}
 	var pending: Dictionary = _resolution_transaction.prepare(
 		_run_state.get_run_id(),
-		_route_source_node_id,
+		_current_node_id,
 		"combat_victory",
 		"victory_loot_phase",
 		reward_bundle,

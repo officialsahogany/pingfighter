@@ -45,6 +45,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_arrival_routes_through_production_selector()
 	_verify_shell_slot_uses_registered_standin()
+	_verify_resolution_ids_are_unique_per_combat_node()
 	_verify_flag_off_preserves_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -96,6 +97,30 @@ func _verify_shell_slot_uses_registered_standin() -> void:
 	_expect(int(encounter.get("stage", 0)) == 4 and str(encounter.get("boss_id", "")) == "ponk", "shell slot fallback must use the canonical stand-in table")
 
 
+func _verify_resolution_ids_are_unique_per_combat_node() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.prepare_vertical_slice_combat(null, {
+		"run_id": "unique-resolution",
+		"map_seed": 45190,
+		"current_stage": 1,
+	}), "first combat traversal must prepare")
+	var first_journal: Dictionary = flow.export_pending_reward_journal()
+	var first_id := str((first_journal.get("pending_rewards", []) as Array)[0].get("node_resolution_id", ""))
+	_expect(flow.begin_vertical_slice(null, Callable()), "first combat traversal must enter route selection")
+	var next_combat := _find_first_other_combat_node(flow, flow.get_current_node_id())
+	_expect(not next_combat.is_empty(), "unique-id fixture must find a distinct combat arrival")
+	if next_combat.is_empty():
+		return
+	flow.set("_selected_target_id", str(next_combat.get("id", "")))
+	flow.call("_complete_map_transition")
+	_expect(flow.prepare_vertical_slice_combat(null), "second combat traversal in the same run must prepare")
+	var second_journal: Dictionary = flow.export_pending_reward_journal()
+	var second_id := str((second_journal.get("pending_rewards", []) as Array)[0].get("node_resolution_id", ""))
+	_expect(first_id != second_id, "second combat in one run must receive a different node_resolution_id")
+	_expect(second_id.find(str(next_combat.get("id", ""))) >= 0, "second resolution id must identify the arrived combat node")
+
+
 func _verify_flag_off_preserves_legacy() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
 	_expect(not TowerAscentFlowOwner.new().prepare_vertical_slice_combat(null, {"run_id": "routing-off"}), "flag OFF must leave legacy boss selection untouched")
@@ -104,6 +129,16 @@ func _verify_flag_off_preserves_legacy() -> void:
 func _find_node_for_slot(flow: Object, slot_id: String) -> Dictionary:
 	for node in flow.get_graph_nodes():
 		if str(node.get("boss_slot_id", "")) == slot_id:
+			return node
+	return {}
+
+
+func _find_first_other_combat_node(flow: Object, excluded_id: String) -> Dictionary:
+	for node in flow.get_graph_nodes():
+		if (
+			str(node.get("id", "")) != excluded_id
+			and str(node.get("kind", "")) in ["boss", "combat", "enraged"]
+		):
 			return node
 	return {}
 
