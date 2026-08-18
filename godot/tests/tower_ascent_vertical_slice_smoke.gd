@@ -116,9 +116,16 @@ class FakeReadiness:
 
 class FakeTransition:
 	extends RefCounted
+	var tower_begin_calls := 0
+	var last_encounter: Dictionary = {}
 
 	func is_stage_transition_loading_active() -> bool:
 		return false
+
+	func begin_tower_boss_transition(_owner: Object, _registry: Object, encounter: Dictionary) -> bool:
+		tower_begin_calls += 1
+		last_encounter = encounter.duplicate(true)
+		return true
 
 
 class FakeGrip:
@@ -258,6 +265,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	var result_screen := FakeResultScreen.new()
 	var loot_phase := FakeVictoryLootPhase.new()
+	var transition := FakeTransition.new()
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
@@ -265,6 +273,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		"runtime_perk_state": FakeTowerModalRuntime.new(),
 		"scoreboard_state": FakeScoreboard.new(),
 		"victory_loot_phase_state": loot_phase,
+		"battle_scene_match_event_driver": transition,
 	}
 	var owner := FakeOwner.new()
 	var driver := BattleSceneMatchFlowDriver.new()
@@ -313,8 +322,13 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		flow.call("_finish_vertical_slice")
 	else:
 		_expect(not flow.is_active(), "combat-node map arrival must close the vertical-slice owner")
+		_expect(transition.tower_begin_calls == 1, "combat-node arrival must enter the routed boss transition exactly once")
+		_expect(not str(transition.last_encounter.get("boss_slot_id", "")).is_empty(), "routed transition must receive the arrived boss identity")
 	_expect(result_screen.show_calls == 0, "tower flow completion must never enter the legacy result screen")
-	_expect(_reset_calls == 1, "tower flow completion must resume combat through the reset callback exactly once")
+	_expect(
+		_reset_calls == (1 if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"] else 0),
+		"only noncombat cleanup may use the legacy reset callback; combat arrival must use the routed transition"
+	)
 
 
 func _verify_snapshot_round_trip_and_required_fields() -> void:

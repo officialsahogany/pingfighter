@@ -487,6 +487,9 @@ func _finish_tower_boss_route(
 	owner: Object,
 	reset_game_callback: Callable
 ) -> void:
+	if encounter.is_empty():
+		_call_callback(reset_game_callback)
+		return
 	var event_driver: Object = _get_instance(registry, "battle_scene_match_event_driver")
 	if (
 		event_driver != null
@@ -494,7 +497,7 @@ func _finish_tower_boss_route(
 		and bool(event_driver.begin_tower_boss_transition(owner, registry, encounter))
 	):
 		return
-	push_error("[TowerAscent] failed to enter routed boss encounter; using legacy reset fallback")
+	push_warning("[TowerAscent] failed to enter routed boss encounter; using legacy reset fallback")
 	_call_callback(reset_game_callback)
 
 

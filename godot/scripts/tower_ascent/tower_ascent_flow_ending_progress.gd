@@ -326,7 +326,9 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	_active = false
 	_phase = PHASE_COMBAT
 	if callback.is_valid():
-		if encounter.is_empty():
+		if encounter.is_empty() and str(callback.get_method()) == "_finish_tower_boss_route":
+			callback.call({})
+		elif encounter.is_empty():
 			callback.call()
 		else:
 			callback.call(encounter)
