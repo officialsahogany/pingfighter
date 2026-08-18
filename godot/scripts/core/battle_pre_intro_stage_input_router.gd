@@ -1,6 +1,9 @@
 extends RefCounted
 
 const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 
 const FORCE_STAGE_CLEAR_KEY := KEY_F9
 # 파생값이다. 리터럴로 굳히면 승리 점수를 올리는 순간 F9 강제 클리어가
@@ -79,6 +82,30 @@ func _handle_force_stage_clear_shortcut(
 	_reset_victory_highlight(owner, registry, module_getter)
 	_force_player_stage_clear_score(registry, module_getter)
 	_start_debug_scoreboard_snapshot(registry, module_getter)
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var match_flow: Object = _get_module(
+			module_getter,
+			"battle_scene_match_flow_driver"
+		)
+		if match_flow == null:
+			match_flow = _get_instance(registry, "battle_scene_match_flow_driver")
+		var tower_reset_callback: Callable = context.get(
+			"reset_game_after_stage_clear",
+			Callable()
+		)
+		if (
+			match_flow != null
+			and match_flow.has_method("start_debug_tower_reward_pick")
+			and bool(match_flow.call(
+				"start_debug_tower_reward_pick",
+				owner,
+				registry,
+				tower_reset_callback
+			))
+		):
+			_queue_redraw(owner)
+			_mark_handled(owner)
+			return true
 	if result_screen != null and result_screen.has_method("show_from_scoreboard"):
 		var reset_callback: Callable = context.get("reset_game_after_stage_clear", Callable())
 		var exit_callback: Callable = context.get("exit_to_menu_after_stage_clear", Callable())

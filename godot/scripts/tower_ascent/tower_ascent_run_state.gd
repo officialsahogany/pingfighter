@@ -1,6 +1,7 @@
 extends RefCounted
 
-const SNAPSHOT_SCHEMA_VERSION := 8
+const SNAPSHOT_SCHEMA_VERSION := 9
+const PRE_VISION_BURN_SCHEMA_VERSION := 8
 const LEGACY_SINGLE_PHASE_SCHEMA_VERSION := 7
 const SNAPSHOT_POLICY_CURRENT := "current"
 const SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE := "reset_legacy_single_phase"
@@ -15,6 +16,7 @@ var _chance_gems := 0
 var _phases: Array[Dictionary] = []
 var _active_phase_index := 0
 var _skipped_boss_ids: Array[String] = []
+var _burned_vision_boss_ids: Array[String] = []
 
 
 func begin(
@@ -36,6 +38,7 @@ func begin(
 		reset()
 		return false
 	_skipped_boss_ids.assign(_sanitize_ids(progress.get("skipped_boss_ids", [])))
+	_burned_vision_boss_ids.assign(_sanitize_ids(progress.get("burned_vision_boss_ids", [])))
 	return true
 
 
@@ -47,6 +50,7 @@ func reset() -> void:
 	_phases.clear()
 	_active_phase_index = 0
 	_skipped_boss_ids.clear()
+	_burned_vision_boss_ids.clear()
 
 
 func restore_snapshot(snapshot: Dictionary) -> bool:
@@ -84,6 +88,7 @@ func export_snapshot_fields() -> Dictionary:
 		"run_progress": {
 			"active_phase_index": _active_phase_index,
 			"skipped_boss_ids": _skipped_boss_ids.duplicate(),
+			"burned_vision_boss_ids": _burned_vision_boss_ids.duplicate(),
 		},
 	}
 
@@ -114,7 +119,7 @@ func get_active_phase_index() -> int:
 
 static func snapshot_restore_policy(snapshot: Dictionary) -> String:
 	var schema_version := int(snapshot.get("schema_version", -1))
-	if schema_version == SNAPSHOT_SCHEMA_VERSION:
+	if schema_version in [SNAPSHOT_SCHEMA_VERSION, PRE_VISION_BURN_SCHEMA_VERSION]:
 		return SNAPSHOT_POLICY_CURRENT
 	if schema_version == LEGACY_SINGLE_PHASE_SCHEMA_VERSION:
 		return SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE
@@ -209,6 +214,26 @@ func mark_boss_skipped(boss_slot_id: String) -> bool:
 
 func get_skipped_boss_ids() -> Array[String]:
 	return _skipped_boss_ids.duplicate()
+
+
+func mark_vision_boss_burned(boss_slot_id: String) -> bool:
+	var normalized := boss_slot_id.strip_edges()
+	if normalized.is_empty() or _burned_vision_boss_ids.has(normalized):
+		return false
+	_burned_vision_boss_ids.append(normalized)
+	return true
+
+
+func unmark_vision_boss_burned(boss_slot_id: String) -> bool:
+	var normalized := boss_slot_id.strip_edges()
+	if not _burned_vision_boss_ids.has(normalized):
+		return false
+	_burned_vision_boss_ids.erase(normalized)
+	return true
+
+
+func get_burned_vision_boss_ids() -> Array[String]:
+	return _burned_vision_boss_ids.duplicate()
 
 
 func consume_chance_gem() -> Dictionary:

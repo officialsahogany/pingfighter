@@ -63,6 +63,13 @@ func is_offer_source_allowed(offer_source: String) -> bool:
 	return bool(ALLOWED_OFFER_SOURCES.get(offer_source.strip_edges(), false))
 
 
+func build_offer_card(eligible_source_ids: Array, icon_variant: int = 0) -> Dictionary:
+	var normalized_sources := _normalize_source_ids(eligible_source_ids)
+	if normalized_sources.size() < 2:
+		return {}
+	return _build_fusion_card(normalized_sources, {}, icon_variant)
+
+
 func is_choice_replaceable(choice_value: Variant) -> bool:
 	if not choice_value is Dictionary:
 		return false

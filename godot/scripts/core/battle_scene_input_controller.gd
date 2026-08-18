@@ -85,6 +85,8 @@ func handle_unhandled_input(
 		return
 	if _handle_runtime_perk_choice_input(event, owner, registry, module_getter):
 		return
+	if _handle_victory_loot_input(event, owner, registry, module_getter):
+		return
 	if _reward_modal_input_router.handle_input(event, owner, registry, module_getter):
 		return
 
@@ -187,6 +189,36 @@ func _handle_tower_ascent_flow_input(
 		return false
 	if flow_owner.has_method("handle_input"):
 		flow_owner.handle_input(_tower_event_in_playfield_coordinates(event, owner, module_getter))
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _handle_victory_loot_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var loot_state := _get_cached_module(registry, "victory_loot_phase_state")
+	if loot_state == null:
+		loot_state = _get_module(module_getter, "victory_loot_phase_state")
+	if (
+		loot_state == null
+		or not loot_state.has_method("is_reward_pick_active")
+		or not bool(loot_state.is_reward_pick_active())
+	):
+		return false
+	if (
+		loot_state.has_method("is_reward_pick_external_modal_active")
+		and bool(loot_state.is_reward_pick_external_modal_active())
+	):
+		return false
+	if loot_state.has_method("handle_input"):
+		loot_state.handle_input(
+			_tower_event_in_playfield_coordinates(event, owner, module_getter),
+			Vector2(GAME_WIDTH, GAME_HEIGHT)
+		)
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true

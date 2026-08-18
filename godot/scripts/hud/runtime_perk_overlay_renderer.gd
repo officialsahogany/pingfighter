@@ -452,6 +452,116 @@ func draw(
 	_perf_end(perf_logger, "hud.perk_overlay.starpoint_absorption", sample_start)
 
 
+func draw_tower_reward_pick(
+	canvas: CanvasItem,
+	view_model: Dictionary,
+	runtime_state: Object,
+	icon_renderer: Object,
+	view_size: Vector2
+) -> void:
+	if canvas == null:
+		return
+	_draw_now_msec = Time.get_ticks_msec()
+	_prepare_text_caches()
+	var animation_time := float(view_model.get("animation_time", 0.0))
+	var alpha := clampf(animation_time / 0.18, 0.0, 1.0)
+	var layout: Dictionary = _get_dict(view_model.get("layout", {}))
+	var choices: Array = _get_array(view_model.get("choices", []))
+	var rects: Array = _get_array(view_model.get("card_rects", []))
+	var selected_index := int(view_model.get("selected_index", 0))
+	RuntimePerkTraditionalChrome.draw_backdrop(
+		canvas,
+		view_size,
+		alpha,
+		_traditional_ornament_atlas_texture
+	)
+	var font := _get_font()
+	var title_pos := _get_vector2(layout.get("title_pos", Vector2(view_size.x * 0.5, 72.0)))
+	canvas.draw_string(
+		font,
+		Vector2(0.0, title_pos.y + 10.0),
+		str(view_model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_size.x,
+		30,
+		Color(0.93, 0.82, 0.56, alpha)
+	)
+	canvas.draw_string(
+		font,
+		Vector2(0.0, title_pos.y + 38.0),
+		str(view_model.get("balance_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_size.x,
+		17,
+		Color(0.86, 0.88, 0.82, alpha)
+	)
+	_sync_choice_visual_selection(choices, selected_index)
+	for index in range(mini(choices.size(), rects.size())):
+		if not (choices[index] is Dictionary) or not (rects[index] is Rect2):
+			continue
+		var choice := choices[index] as Dictionary
+		var rect := rects[index] as Rect2
+		var selected := index == selected_index
+		_draw_card(
+			canvas,
+			choice,
+			rect,
+			selected,
+			animation_time,
+			icon_renderer,
+			_choice_visual_blend(index),
+			index
+		)
+		var strip := Rect2(rect.position + Vector2(0.0, rect.size.y + 3.0), Vector2(rect.size.x, 24.0))
+		var spent := bool(choice.get("reward_pick_spent", false))
+		var enabled := bool(choice.get("reward_pick_enabled", true))
+		canvas.draw_rect(strip, Color(0.07, 0.055, 0.04, 0.92 * alpha), true)
+		canvas.draw_rect(strip, Color(0.74, 0.55, 0.25, 0.85 * alpha), false, 1.0)
+		canvas.draw_string(
+			font,
+			strip.position + Vector2(0.0, 17.0),
+			str(view_model.get("spent_text", "")) if spent else str(choice.get("reward_pick_price_text", "")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			strip.size.x,
+			13,
+			Color(0.62, 0.62, 0.62, alpha) if spent or not enabled else Color(0.96, 0.84, 0.52, alpha)
+		)
+		if spent:
+			canvas.draw_rect(rect, Color(0.03, 0.025, 0.02, 0.62 * alpha), true)
+			canvas.draw_line(rect.position + Vector2(12.0, 12.0), rect.end - Vector2(12.0, 12.0), Color(0.75, 0.58, 0.34, 0.72 * alpha), 3.0)
+		elif not enabled:
+			canvas.draw_rect(rect, Color(0.02, 0.02, 0.025, 0.28 * alpha), true)
+	_draw_per_card_descriptions(
+		canvas,
+		runtime_state,
+		choices,
+		selected_index,
+		layout,
+		animation_time
+	)
+	var continue_rect := _get_rect2(view_model.get("continue_rect", Rect2()))
+	canvas.draw_rect(continue_rect, Color(0.34, 0.12, 0.08, 0.96 * alpha), true)
+	canvas.draw_rect(continue_rect, Color(0.91, 0.70, 0.31, alpha), false, 2.0)
+	canvas.draw_string(
+		font,
+		continue_rect.position + Vector2(0.0, 28.0),
+		str(view_model.get("continue_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		continue_rect.size.x,
+		18,
+		Color(0.98, 0.92, 0.76, alpha)
+	)
+	canvas.draw_string(
+		font,
+		Vector2(36.0, continue_rect.position.y - 16.0),
+		str(view_model.get("status_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_size.x - 72.0,
+		14,
+		Color(0.82, 0.80, 0.72, alpha)
+	)
+
+
 func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
 	if runtime_state == null:
 		return false

@@ -60,6 +60,88 @@ func get_generated_training_offers() -> Array[Dictionary]:
 func get_training_history() -> Array[Dictionary]:
 	return _training_history.duplicate(true)
 
+
+func get_reward_pick_history() -> Array[Dictionary]:
+	return _reward_pick_history.duplicate(true)
+
+
+func apply_reward_pick_purchase(
+	slot_index: int,
+	choice: Dictionary,
+	cost: int,
+	effect_callback: Callable,
+	rollback_callback: Callable = Callable()
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _prepared:
+		return {"accepted": false, "applied": false, "reason": "reward_pick_unprepared"}
+	if slot_index < 0 or slot_index >= 4:
+		return {"accepted": false, "applied": false, "reason": "invalid_reward_pick_slot"}
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	if choice_id.is_empty():
+		return {"accepted": false, "applied": false, "reason": "invalid_reward_pick_choice"}
+	var resolution_id := "%s:reward_pick:slot_%d" % [_prepared_resolution_id, slot_index]
+	var result: Dictionary = _node_action_transaction.apply_once(
+		resolution_id,
+		{"muhon": maxi(0, cost)},
+		{},
+		_run_state,
+		_resolution_ids,
+		effect_callback,
+		rollback_callback
+	)
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		var record := {
+			"node_id": _current_node_id,
+			"node_resolution_id": resolution_id,
+			"slot_index": slot_index,
+			"choice_id": choice_id,
+			"choice_kind": str(choice.get("reward_pick_kind", "")),
+			"cost": maxi(0, cost),
+		}
+		_reward_pick_history.append(record)
+		result["record"] = record.duplicate(true)
+	return result
+
+
+func finalize_reward_pick(vision_boss_slot_id: String = "") -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _prepared:
+		return {"accepted": false, "applied": false, "reason": "reward_pick_unprepared"}
+	var resolution_id := "%s:reward_pick:continue" % _prepared_resolution_id
+	var effect_callback := Callable()
+	if not vision_boss_slot_id.strip_edges().is_empty():
+		effect_callback = Callable(self, "_commit_reward_pick_vision_burn").bind(
+			vision_boss_slot_id
+		)
+	var result: Dictionary = _node_action_transaction.apply_once(
+		resolution_id,
+		{},
+		{},
+		_run_state,
+		_resolution_ids,
+		effect_callback
+	)
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		_reward_pick_history.append({
+			"node_id": _current_node_id,
+			"node_resolution_id": resolution_id,
+			"choice_kind": "continue",
+			"vision_boss_slot_id": vision_boss_slot_id.strip_edges(),
+		})
+	return result
+
+
+func mark_reward_pick_vision_burned(boss_slot_id: String) -> bool:
+	var normalized := boss_slot_id.strip_edges()
+	if normalized.is_empty():
+		return false
+	if _run_state.get_burned_vision_boss_ids().has(normalized):
+		return true
+	return _run_state.mark_vision_boss_burned(normalized)
+
+
+func _commit_reward_pick_vision_burn(boss_slot_id: String) -> bool:
+	return mark_reward_pick_vision_burned(boss_slot_id)
+
 func _build_shop_actions() -> Array[Dictionary]:
 	var inventory := _get_or_create_shop_inventory()
 	if inventory.is_empty():

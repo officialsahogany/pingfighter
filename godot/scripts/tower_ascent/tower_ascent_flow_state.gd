@@ -90,6 +90,7 @@ var _graph_edges: Array[Dictionary] = []
 var _current_node_id := ""
 var _completed_nodes: Array[Dictionary] = []
 var _resolution_ids: Dictionary = {}
+var _reward_pick_history: Array[Dictionary] = []
 var _pending_rewards: Array[Dictionary] = []
 var _run_state: Object = TowerAscentRunState.new()
 var _resolution_transaction: Object = TowerAscentNodeResolutionTransaction.new()
@@ -190,6 +191,7 @@ func _reset_runtime_state() -> void:
 	_current_node_id = ""
 	_completed_nodes.clear()
 	_resolution_ids.clear()
+	_reward_pick_history.clear()
 	_resolution_transaction.reset()
 	_pending_rewards.clear()
 	_generated_shop_inventory.clear()

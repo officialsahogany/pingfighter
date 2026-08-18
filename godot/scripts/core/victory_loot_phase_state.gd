@@ -19,6 +19,9 @@ const TowerAscentChestContract := preload(
 const TowerAscentChestContextBuilder := preload(
 	"res://scripts/tower_ascent/tower_ascent_chest_context_builder.gd"
 )
+const TowerRewardPickState := preload(
+	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
+)
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -139,6 +142,8 @@ var _reward_resolver: Object = null
 var _drop_flash_timer: float = 0.0
 var _drop_flash_kind: String = BOX_KIND_NORMAL
 var _vision_offer_roll_for_tests: Callable = Callable()
+var _reward_pick_state: Object = TowerRewardPickState.new()
+var _reward_pick_roll_overrides_for_tests: Dictionary = {}
 
 
 func start(
@@ -153,15 +158,26 @@ func start(
 	if player_score <= boss_score:
 		return false
 	_current_stage = int(_get_owner_value(owner, "current_stage", 1))
-	var plan: Dictionary
 	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
-		plan = _plan_builder.build_reward_plan(
-			player_score,
-			boss_score,
-			_build_tower_chest_context(owner, registry)
-		)
-	else:
-		plan = _plan_builder.build_reward_plan(player_score, boss_score)
+		_owner = owner
+		_registry = registry
+		finish_callback = new_finish_callback
+		_finish_fired = false
+		if not _reward_pick_state.start(
+			owner,
+			registry,
+			Callable(self, "_finish_tower_reward_pick"),
+			_reward_pick_roll_overrides_for_tests
+		):
+			_owner = null
+			_registry = null
+			finish_callback = Callable()
+			return false
+		active = true
+		_write_owner_state(owner)
+		return true
+	var plan: Dictionary
+	plan = _plan_builder.build_reward_plan(player_score, boss_score)
 	var plan_boxes_value: Variant = plan.get("boxes", [])
 	var plan_boxes: Array = (plan_boxes_value as Array).duplicate(true) if plan_boxes_value is Array else []
 	if plan_boxes.is_empty():
@@ -188,6 +204,8 @@ func start(
 
 
 func reset(owner: Object = null) -> void:
+	if _reward_pick_state != null:
+		_reward_pick_state.reset()
 	active = false
 	elapsed_sec = 0.0
 	_drop_flash_timer = 0.0
@@ -209,6 +227,9 @@ func is_active() -> bool:
 
 func update(delta: float) -> void:
 	if not active:
+		return
+	if is_reward_pick_active():
+		_reward_pick_state.update(delta)
 		return
 	var safe_delta: float = maxf(0.0, delta)
 	elapsed_sec += safe_delta
@@ -245,11 +266,11 @@ func update(delta: float) -> void:
 
 
 func has_actor_draw_context() -> bool:
-	return active
+	return active and not is_reward_pick_active()
 
 
 func get_actor_draw_context() -> Dictionary:
-	if not active:
+	if not active or is_reward_pick_active():
 		return {}
 	# 스코어보드 파워로스 진동 직후, 힘을 잃는 슬럼프를 0프레임부터 재생하고
 	# 마지막 프레임에서 홀드한다(인트로 -> 드랍 구간 내내 쓰러진 채 유지).
@@ -276,6 +297,9 @@ func get_actor_draw_context() -> Dictionary:
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null or not active:
 		return
+	if is_reward_pick_active():
+		_reward_pick_state.draw(canvas, Vector2(FIELD_WIDTH, FIELD_HEIGHT))
+		return
 	_draw_intro_impact(canvas, shake_offset)
 	_draw_boss_drop_flash(canvas, shake_offset)
 	for box_value in boxes:
@@ -289,6 +313,17 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func get_status_for_tests() -> Dictionary:
+	if is_reward_pick_active():
+		var reward_model: Dictionary = _reward_pick_state.build_view_model(
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT)
+		)
+		return {
+			"active": active,
+			"reward_pick_active": true,
+			"reward_pick": reward_model,
+			"box_count": 0,
+			"finish_fired": _finish_fired,
+		}
 	return {
 		"active": active,
 		"elapsed": elapsed_sec,
@@ -314,6 +349,47 @@ func set_vision_offer_roll_for_tests(roll_callable: Callable) -> void:
 
 func clear_vision_offer_roll_for_tests() -> void:
 	_vision_offer_roll_for_tests = Callable()
+
+
+func set_reward_pick_roll_overrides_for_tests(overrides: Dictionary) -> void:
+	_reward_pick_roll_overrides_for_tests = overrides.duplicate(true)
+
+
+func is_reward_pick_active() -> bool:
+	return (
+		active
+		and _reward_pick_state != null
+		and bool(_reward_pick_state.get("active"))
+	)
+
+
+func handle_input(event: InputEvent, view_size: Vector2 = Vector2(FIELD_WIDTH, FIELD_HEIGHT)) -> bool:
+	if not is_reward_pick_active():
+		return false
+	return bool(_reward_pick_state.handle_input(event, view_size))
+
+
+func is_reward_pick_external_modal_active() -> bool:
+	return (
+		is_reward_pick_active()
+		and _reward_pick_state.has_method("is_external_modal_active")
+		and bool(_reward_pick_state.is_external_modal_active())
+	)
+
+
+func _finish_tower_reward_pick() -> void:
+	var callback := finish_callback
+	finish_callback = Callable()
+	_finish_fired = true
+	active = false
+	if _reward_pick_state != null:
+		_reward_pick_state.reset()
+	var owner := _owner
+	_owner = null
+	_registry = null
+	_write_owner_state(owner)
+	if callback.is_valid():
+		callback.call()
 
 
 func get_box_sheet_path_for_tests(box: Dictionary) -> String:

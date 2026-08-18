@@ -397,6 +397,18 @@ func _try_start_victory_presentation(
 	return _try_start_victory_loot_phase(registry, owner, reset_game_callback)
 
 
+func start_debug_tower_reward_pick(
+	owner: Object,
+	registry: Object,
+	reset_game_callback: Callable
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if not _prepare_tower_ascent_vertical_slice(registry, owner):
+		return false
+	return _try_start_victory_loot_phase(registry, owner, reset_game_callback)
+
+
 func _finish_victory_highlight(
 	registry: Object,
 	reset_game_callback: Callable,

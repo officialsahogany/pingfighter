@@ -834,6 +834,60 @@ func _build_perk_fusion_candidate_ids(catalog: Object) -> Array:
 	return _fusion_runtime_state.build_candidate_ids_from_runtime_state(self, catalog)
 
 
+func get_perk_fusion_candidate_ids(catalog: Object) -> Array:
+	return _build_perk_fusion_candidate_ids(catalog).duplicate()
+
+
+func begin_tower_reward_fusion_modal(selected_choice: Dictionary, registry: Object) -> bool:
+	if choice_active or is_perk_fusion_modal_active() or has_pending_unlock_swap():
+		return false
+	current_choices = [selected_choice.duplicate(true)]
+	selected_index = 0
+	animation_time = 1.0
+	choice_active = true
+	current_choice_context = {
+		"source": "tower_reward_pick",
+		"grant_scope": "tower_run",
+	}
+	if _begin_perk_fusion_modal(selected_choice, registry):
+		return true
+	end_tower_reward_external_modal()
+	return false
+
+
+func begin_tower_reward_unlock_swap(
+	selected_choice: Dictionary,
+	owner: Object,
+	registry: Object
+) -> bool:
+	if choice_active or is_perk_fusion_modal_active() or has_pending_unlock_swap():
+		return false
+	current_choices = [selected_choice.duplicate(true)]
+	selected_index = 0
+	animation_time = 1.0
+	choice_active = true
+	current_choice_context = {
+		"source": "tower_reward_pick",
+		"grant_scope": "tower_run",
+	}
+	apply_choice(selected_choice, owner, registry)
+	if has_pending_unlock_swap():
+		return true
+	end_tower_reward_external_modal(owner)
+	return false
+
+
+func end_tower_reward_external_modal(owner: Object = null) -> void:
+	if has_pending_unlock_swap():
+		cancel_pending_unlock_swap(owner)
+	current_choices.clear()
+	selected_index = 0
+	animation_time = 0.0
+	choice_active = false
+	current_choice_context.clear()
+	status_hover_mouse_pos = Vector2(-1.0, -1.0)
+
+
 # 콜드부트: 애니메이션 비트 구간 판별(update 드라이버의 호스트 lifecycle
 # 게이트) — 모달 활성 + flow가 PHASE_ANIMATION일 때만 호스트가 산다.
 func is_perk_fusion_boot_animation_active() -> bool:
