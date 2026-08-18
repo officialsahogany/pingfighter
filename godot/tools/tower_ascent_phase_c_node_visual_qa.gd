@@ -1,8 +1,5 @@
 extends SceneTree
 
-const BattlePlayfieldSceneDrawer := preload(
-	"res://scripts/core/battle_playfield_scene_drawer.gd"
-)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -16,7 +13,7 @@ const TowerAscentNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
 )
 
-const GAME_SIZE := Vector2i(760, 750)
+const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_ascent_phase_c"
 const CAPTURE_SPECS := [
 	{
@@ -106,8 +103,11 @@ class CaptureFlow:
 	func get_header_subtitle() -> String:
 		return "페이즈 C 노드 실기능 검증 · %s" % capture_kind
 
-	func get_node_modal_view_model() -> Dictionary:
-		return modal_state.build_view_model()
+	func get_node_modal_view_model(view_size: Vector2 = Vector2(GAME_SIZE)) -> Dictionary:
+		return modal_state.build_view_model(view_size)
+
+	func get_node_modal_kind() -> String:
+		return capture_kind
 
 	func get_graph_nodes() -> Array:
 		return source_flow.get_graph_nodes()
@@ -151,16 +151,23 @@ class CaptureRegistry:
 class ProductionPlayfieldCanvas:
 	extends Node2D
 
-	var registry: Object
-	var drawer: Object = BattlePlayfieldSceneDrawer.new()
+	var flow: Object
+	var drawer: Object = TowerAscentFlowRenderer.new()
 	var ball_active := false
 	var ball_visual_type := "pingpong"
 
-	func _init(new_registry: Object) -> void:
-		registry = new_registry
+	func _init(new_flow: Object) -> void:
+		flow = new_flow
 
 	func _draw() -> void:
-		drawer.draw(self, registry, Vector2.ZERO, 760.0, 750.0, 0.0)
+		# Magenta sentinels emulate battle/HUD pixels beneath the fullscreen
+		# surface. Every corner must be overwritten by the opaque node backdrop.
+		draw_rect(Rect2(Vector2.ZERO, Vector2(GAME_SIZE)), Color.MAGENTA, true)
+		drawer.draw_fullscreen_node_modal(
+			self,
+			flow,
+			Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
+		)
 
 
 func _init() -> void:
@@ -214,7 +221,7 @@ func _capture_node(spec: Dictionary, output_dir: String, index: int) -> bool:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
-	var canvas := ProductionPlayfieldCanvas.new(CaptureRegistry.new(capture_flow))
+	var canvas := ProductionPlayfieldCanvas.new(capture_flow)
 	viewport.add_child(canvas)
 	canvas.queue_redraw()
 	for _frame_index in range(6):
@@ -225,6 +232,21 @@ func _capture_node(spec: Dictionary, output_dir: String, index: int) -> bool:
 		push_error("phase-C node visual QA capture failed: %s" % output_path)
 		quit(1)
 		return false
+	for corner in [
+		Vector2i(1, 1),
+		Vector2i(GAME_SIZE.x - 2, 1),
+		Vector2i(1, GAME_SIZE.y - 2),
+		Vector2i(GAME_SIZE.x - 2, GAME_SIZE.y - 2),
+	]:
+		var corner_color := image.get_pixelv(corner)
+		if corner_color.a < 0.99 or (
+			corner_color.r > 0.92
+			and corner_color.b > 0.92
+			and corner_color.g < 0.15
+		):
+			push_error("fullscreen node backdrop did not cover HUD sentinel at %s" % corner)
+			quit(1)
+			return false
 	print("[TowerAscentPhaseCVisualQA] %s" % output_path)
 	get_root().remove_child(viewport)
 	viewport.queue_free()

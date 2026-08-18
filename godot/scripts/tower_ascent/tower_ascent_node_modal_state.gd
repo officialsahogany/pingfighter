@@ -5,6 +5,8 @@ const TowerAscentNodeModalLocalization := preload(
 )
 
 const ACTION_END_WORK := "end_work"
+const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
+const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
 const ACTION_LIST_RECT := Rect2(126.0, 301.0, 508.0, 302.0)
 const ACTION_ROW_HEIGHT := 38.0
 const ACTION_ROW_GAP := 5.0
@@ -81,8 +83,11 @@ func select_index(index: int) -> bool:
 	return true
 
 
-func select_at_position(position: Vector2) -> bool:
-	var rects := get_action_rects()
+func select_at_position(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	var rects := get_action_rects(view_size)
 	# Reverse iteration makes a future overlap deterministic and agrees with the
 	# visual topmost-card rule instead of accepting row-gap clicks.
 	for index in range(rects.size() - 1, -1, -1):
@@ -91,26 +96,29 @@ func select_at_position(position: Vector2) -> bool:
 	return false
 
 
-func get_action_rects() -> Array[Rect2]:
+func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
 	var result: Array[Rect2] = []
+	var layout := build_screen_layout(view_size)
+	var content_scale := float(layout.get("content_scale", 1.0))
+	var content_offset: Vector2 = layout.get("content_offset", Vector2.ZERO)
 	if _node_kind in SIX_CARD_NODE_KINDS:
 		var column_width := (ACTION_LIST_RECT.size.x - GRID_COLUMN_GAP) * 0.5
 		for index in range(_actions.size()):
 			var column := index % 2
 			var row := index / 2
-			result.append(Rect2(
+			result.append(_scale_rect(Rect2(
 				ACTION_LIST_RECT.position + Vector2(
 					float(column) * (column_width + GRID_COLUMN_GAP),
 					float(row) * (GRID_ROW_HEIGHT + GRID_ROW_GAP)
 				),
 				Vector2(column_width, GRID_ROW_HEIGHT)
-			))
+			), content_scale, content_offset))
 		return result
 	for index in range(_actions.size()):
-		result.append(Rect2(
+		result.append(_scale_rect(Rect2(
 			ACTION_LIST_RECT.position + Vector2(0.0, float(index) * (ACTION_ROW_HEIGHT + ACTION_ROW_GAP)),
 			Vector2(ACTION_LIST_RECT.size.x, ACTION_ROW_HEIGHT)
-		))
+		), content_scale, content_offset))
 	return result
 
 
@@ -120,7 +128,8 @@ func get_selected_action() -> Dictionary:
 	return _actions[_selected_index].duplicate(true)
 
 
-func build_view_model() -> Dictionary:
+func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
+	var layout := build_screen_layout(view_size)
 	return {
 		"node_id": _node_id,
 		"node_kind": _node_kind,
@@ -136,10 +145,35 @@ func build_view_model() -> Dictionary:
 			{"amount": int(_balances.get("gold", 0))}
 		),
 		"actions": _actions.duplicate(true),
-		"action_rects": get_action_rects(),
+		"action_rects": get_action_rects(view_size),
 		"selected_index": _selected_index,
 		"status_text": _status_text,
+		"view_size": view_size,
+		"modal_rect": layout.get("modal_rect", MODAL_RECT),
+		"content_scale": layout.get("content_scale", 1.0),
+		"content_offset": layout.get("content_offset", Vector2.ZERO),
 	}
+
+
+func build_screen_layout(view_size: Vector2) -> Dictionary:
+	var safe_view_size := Vector2(
+		maxf(1.0, view_size.x),
+		maxf(1.0, view_size.y)
+	)
+	var content_scale := minf(
+		safe_view_size.x / BASE_VIEW_SIZE.x,
+		safe_view_size.y / BASE_VIEW_SIZE.y
+	)
+	var content_offset := (safe_view_size - BASE_VIEW_SIZE * content_scale) * 0.5
+	return {
+		"content_scale": content_scale,
+		"content_offset": content_offset,
+		"modal_rect": _scale_rect(MODAL_RECT, content_scale, content_offset),
+	}
+
+
+func _scale_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
+	return Rect2(offset + rect.position * scale_value, rect.size * scale_value)
 
 
 func _normalize_action(source: Dictionary) -> Dictionary:

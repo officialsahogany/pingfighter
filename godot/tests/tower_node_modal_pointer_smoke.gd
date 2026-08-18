@@ -1,9 +1,20 @@
 extends SceneTree
 
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
+const BattleSceneDrawer := preload("res://scripts/core/battle_scene_drawer.gd")
+const BattlePlayfieldSceneDrawer := preload(
+	"res://scripts/core/battle_playfield_scene_drawer.gd"
+)
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 const TowerAscentNodeModalState := preload("res://scripts/tower_ascent/tower_ascent_node_modal_state.gd")
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
 
 var _failures: Array[String] = []
+const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
 
 
 class FakeOwner:
@@ -11,7 +22,7 @@ class FakeOwner:
 	var redraw_requests := 0
 
 	func get_viewport_rect() -> Rect2:
-		return Rect2(Vector2.ZERO, Vector2(2400.0, 1800.0))
+		return Rect2(Vector2.ZERO, LIVE_VIEW_SIZE)
 
 	func queue_redraw() -> void:
 		redraw_requests += 1
@@ -22,12 +33,19 @@ class FakeFlow:
 	var modal := TowerAscentNodeModalState.new()
 	var confirmed := false
 	var received_position := Vector2.ZERO
+	var phase := "NODE_MODAL"
+	var fullscreen_draw_calls := 0
+	var playfield_draw_calls := 0
+	var fullscreen_fallback := Rect2()
 
 	func _init() -> void:
 		modal.open("pointer-node", "rest", {}, [{"id": "top-row", "label": "첫 항목"}])
 
 	func is_active() -> bool:
 		return true
+
+	func get_phase_name() -> String:
+		return phase
 
 	func handle_input(event: InputEvent) -> bool:
 		if event is InputEventMouseButton:
@@ -36,20 +54,71 @@ class FakeFlow:
 			confirmed = (
 				mouse_event.pressed
 				and mouse_event.button_index == MOUSE_BUTTON_LEFT
-				and modal.select_at_position(mouse_event.position)
+				and modal.select_at_position(mouse_event.position, LIVE_VIEW_SIZE)
 			)
+		return true
+
+	func draw_fullscreen_surface(_canvas: CanvasItem, fallback_rect: Rect2) -> void:
+		fullscreen_draw_calls += 1
+		fullscreen_fallback = fallback_rect
+
+	func draw(_canvas: CanvasItem) -> void:
+		playfield_draw_calls += 1
+
+
+class FakeLoot:
+	extends RefCounted
+
+	var active := true
+	var reward_pick_active := true
+	var playfield_draw_calls := 0
+	var fullscreen_draw_calls := 0
+	var input_calls := 0
+	var received_position := Vector2.ZERO
+	var received_view_size := Vector2.ZERO
+
+	func is_active() -> bool:
+		return active
+
+	func is_reward_pick_active() -> bool:
+		return reward_pick_active
+
+	func is_reward_pick_external_modal_active() -> bool:
+		return false
+
+	func draw(_canvas: CanvasItem, _shake_offset: Vector2 = Vector2.ZERO) -> void:
+		playfield_draw_calls += 1
+
+	func draw_reward_pick(_canvas: CanvasItem, view_size: Vector2) -> void:
+		fullscreen_draw_calls += 1
+		received_view_size = view_size
+
+	func handle_input(event: InputEvent, view_size: Vector2) -> bool:
+		input_calls += 1
+		received_view_size = view_size
+		if event is InputEventMouseButton:
+			received_position = (event as InputEventMouseButton).position
 		return true
 
 
 class FakeRegistry:
 	extends RefCounted
 	var flow: Object
+	var loot: Object
 
-	func _init(value: Object) -> void:
+	func _init(value: Object, loot_value: Object = null) -> void:
 		flow = value
+		loot = loot_value
 
 	func get_cached_instance(key: String) -> Object:
-		return flow if key == "tower_ascent_flow_owner" else null
+		if key == "tower_ascent_flow_owner":
+			return flow
+		if key == "victory_loot_phase_state":
+			return loot
+		return null
+
+	func get_instance(key: String) -> Object:
+		return get_cached_instance(key)
 
 
 class FakeViewLayout:
@@ -57,6 +126,7 @@ class FakeViewLayout:
 
 	func build_game_layout(_view_size: Vector2, _width: float, _height: float) -> Dictionary:
 		return {
+			"view_size": LIVE_VIEW_SIZE,
 			"game_offset": Vector2(700.0, 120.0),
 			"game_size": Vector2(1520.0, 1500.0),
 			"render_scale": 2.0,
@@ -66,14 +136,26 @@ class FakeViewLayout:
 class ModuleHolder:
 	extends RefCounted
 	var layout := FakeViewLayout.new()
+	var loot: Object = null
 
 	func get_module(key: String) -> Object:
-		return layout if key == "battle_view_layout" else null
+		if key == "battle_view_layout":
+			return layout
+		if key == "victory_loot_phase_state":
+			return loot
+		return null
 
 
 func _init() -> void:
-	_verify_scaled_top_corner_click_uses_playfield_coordinates()
+	call_deferred("_run")
+
+
+func _run() -> void:
+	_verify_node_modal_top_corner_uses_screen_coordinates()
+	_verify_playfield_phase_keeps_coordinate_projection()
+	_verify_reward_pick_uses_screen_coordinates_and_view_size()
 	_verify_six_card_grid_top_corners_match_hit_test()
+	_verify_screen_space_render_routing_and_viewport_priority()
 	if _failures.is_empty():
 		print("tower_node_modal_pointer_smoke: ok")
 		quit(0)
@@ -83,13 +165,13 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_scaled_top_corner_click_uses_playfield_coordinates() -> void:
+func _verify_node_modal_top_corner_uses_screen_coordinates() -> void:
 	var owner := FakeOwner.new()
 	var flow := FakeFlow.new()
 	var registry := FakeRegistry.new(flow)
 	var holder := ModuleHolder.new()
-	var local_top_corner := TowerAscentNodeModalState.ACTION_LIST_RECT.position + Vector2(2.0, 2.0)
-	var screen_top_corner := Vector2(700.0, 120.0) + local_top_corner * 2.0
+	var screen_rects := flow.modal.get_action_rects(LIVE_VIEW_SIZE)
+	var screen_top_corner := (screen_rects[0] as Rect2).position + Vector2(2.0, 2.0)
 	var event := InputEventMouseButton.new()
 	event.pressed = true
 	event.button_index = MOUSE_BUTTON_LEFT
@@ -101,9 +183,53 @@ func _verify_scaled_top_corner_click_uses_playfield_coordinates() -> void:
 		Callable(holder, "get_module"),
 		{}
 	)
-	_expect(flow.confirmed, "the rendered first-row top corner must be mouse-selectable after screen-to-playfield projection")
-	_expect(flow.received_position.is_equal_approx(local_top_corner), "tower modal hit testing must receive the same playfield coordinates used by rendering")
-	_expect(not TowerAscentNodeModalState.ACTION_LIST_RECT.has_point(screen_top_corner), "counterproof requires a screen point that the old unprojected hit test rejects")
+	var old_projected := (screen_top_corner - Vector2(700.0, 120.0)) / 2.0
+	_expect(flow.confirmed, "the fullscreen node action's rendered top corner must be mouse-selectable")
+	_expect(flow.received_position.is_equal_approx(screen_top_corner), "NODE_MODAL must receive the same unscaled screen coordinate used by rendering")
+	_expect(not (screen_rects[0] as Rect2).has_point(old_projected), "counterproof requires the old playfield projection to miss the fullscreen action")
+
+
+func _verify_playfield_phase_keeps_coordinate_projection() -> void:
+	var owner := FakeOwner.new()
+	var flow := FakeFlow.new()
+	flow.phase = "ROUTE_AIM"
+	var holder := ModuleHolder.new()
+	var screen_position := Vector2(1000.0, 620.0)
+	var event := InputEventMouseButton.new()
+	event.pressed = true
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = screen_position
+	BattleSceneInputController.new().handle_unhandled_input(
+		event,
+		owner,
+		FakeRegistry.new(flow),
+		Callable(holder, "get_module"),
+		{}
+	)
+	var expected_playfield := (screen_position - Vector2(700.0, 120.0)) / 2.0
+	_expect(flow.received_position.is_equal_approx(expected_playfield), "playfield-owned tower phases must retain screen-to-game projection")
+
+
+func _verify_reward_pick_uses_screen_coordinates_and_view_size() -> void:
+	var owner := FakeOwner.new()
+	var loot := FakeLoot.new()
+	var registry := FakeRegistry.new(null, loot)
+	var holder := ModuleHolder.new()
+	holder.loot = loot
+	var event := InputEventMouseButton.new()
+	event.pressed = true
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = Vector2(1510.0, 310.0)
+	var handled := bool(BattleSceneInputController.new().call(
+		"_handle_victory_loot_input",
+		event,
+		owner,
+		registry,
+		Callable(holder, "get_module")
+	))
+	_expect(handled and loot.input_calls == 1, "active reward pick must consume input through the production victory-loot route")
+	_expect(loot.received_position.is_equal_approx(event.position), "fullscreen reward cards must receive raw screen coordinates")
+	_expect(loot.received_view_size.is_equal_approx(LIVE_VIEW_SIZE), "reward rect generation and hit testing must share the live viewport size")
 
 
 func _verify_six_card_grid_top_corners_match_hit_test() -> void:
@@ -120,6 +246,74 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 			_expect(TowerAscentNodeModalState.ACTION_LIST_RECT.encloses(rect), "%s action %d must remain inside the row budget" % [node_kind, index])
 			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
 			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
+
+
+func _verify_screen_space_render_routing_and_viewport_priority() -> void:
+	_expect(
+		TowerAscentScreenSpaceSurfacePolicy.FLOW_PHASES
+		== ["MAP_OVERLAY", "MAP_TRANSITION", "NODE_MODAL"],
+		"both draw passes must share one authoritative fullscreen phase list"
+	)
+	var canvas := Node2D.new()
+	var flow := FakeFlow.new()
+	var loot := FakeLoot.new()
+	var registry := FakeRegistry.new(flow, loot)
+	var scene_drawer := BattleSceneDrawer.new()
+	scene_drawer.call(
+		"_draw_tower_ascent_fullscreen_map",
+		canvas,
+		registry,
+		LIVE_VIEW_SIZE
+	)
+	_expect(flow.fullscreen_draw_calls == 1, "NODE_MODAL must draw exactly once in the screen-space pass")
+	_expect(not BattlePlayfieldSceneDrawer.should_draw_tower_flow_in_playfield("NODE_MODAL"), "NODE_MODAL must not double-render in the transformed playfield pass")
+	_expect(flow.fullscreen_fallback.size.is_equal_approx(LIVE_VIEW_SIZE), "screen-space flow must receive the full live view rect")
+
+	flow.phase = "ROUTE_AIM"
+	scene_drawer.call("_draw_tower_ascent_fullscreen_map", canvas, registry, LIVE_VIEW_SIZE)
+	_expect(
+		flow.fullscreen_draw_calls == 1
+		and BattlePlayfieldSceneDrawer.should_draw_tower_flow_in_playfield("ROUTE_AIM"),
+		"ROUTE_AIM must remain exclusively in the transformed playfield pass"
+	)
+
+	scene_drawer.call("_draw_tower_reward_pick", canvas, registry, LIVE_VIEW_SIZE)
+	_expect(
+		not BattlePlayfieldSceneDrawer.should_draw_victory_loot_in_playfield(true)
+		and loot.fullscreen_draw_calls == 1,
+		"tower reward pick must move from playfield draw to one screen-space draw"
+	)
+	loot.reward_pick_active = false
+	scene_drawer.call("_draw_tower_reward_pick", canvas, registry, LIVE_VIEW_SIZE)
+	_expect(
+		BattlePlayfieldSceneDrawer.should_draw_victory_loot_in_playfield(false)
+		and loot.fullscreen_draw_calls == 1,
+		"legacy victory loot must stay in the playfield and never enter the fullscreen pass"
+	)
+
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(LIVE_VIEW_SIZE)
+	get_root().add_child(viewport)
+	var tree_canvas := Node2D.new()
+	viewport.add_child(tree_canvas)
+	var renderer := TowerAscentFlowRenderer.new()
+	var resolved := renderer.resolve_fullscreen_rect(
+		tree_canvas,
+		Rect2(Vector2.ZERO, Vector2(760.0, 750.0))
+	)
+	_expect(resolved.size.is_equal_approx(LIVE_VIEW_SIZE), "tree-attached fullscreen surfaces must prefer the viewport over a small game-size fallback")
+	var accents: Dictionary = {}
+	for node_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+		var backdrop: Dictionary = renderer.build_node_modal_backdrop_model(node_kind, resolved)
+		_expect((backdrop.get("rect", Rect2()) as Rect2) == resolved, "%s backdrop must cover the entire viewport rect" % node_kind)
+		_expect(float((backdrop.get("top_color", Color.TRANSPARENT) as Color).a) >= 1.0, "%s backdrop corners must be opaque" % node_kind)
+		accents[str(backdrop.get("accent", Color.TRANSPARENT))] = true
+	_expect(accents.size() == 5, "all five non-combat node kinds must expose distinct procedural backdrop identities")
+	viewport.remove_child(tree_canvas)
+	tree_canvas.queue_free()
+	get_root().remove_child(viewport)
+	viewport.queue_free()
+	canvas.free()
 
 
 func _expect(condition: bool, message: String) -> void:

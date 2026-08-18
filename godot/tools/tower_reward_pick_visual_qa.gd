@@ -20,7 +20,7 @@ const TowerRewardPickState := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
 )
 
-const GAME_SIZE := Vector2i(760, 750)
+const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_reward_pick"
 
 

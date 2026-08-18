@@ -3,6 +3,9 @@ extends RefCounted
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const VictoryHighlightPillarTrace := preload("res://scripts/core/victory_highlight_pillar_trace.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
@@ -42,6 +45,9 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	sample_start = _perf_begin(perf_logger)
 	_draw_hud_overlays(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_tower_reward_pick(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene.tower_reward_pick", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_tower_ascent_fullscreen_map(canvas, registry, view_size)
 	_perf_end(perf_logger, "draw.scene.tower_fullscreen_map", sample_start)
@@ -257,11 +263,29 @@ func _draw_tower_ascent_fullscreen_map(
 	)
 	if (
 		flow_owner == null
-		or phase_name not in ["MAP_OVERLAY", "MAP_TRANSITION"]
-		or not flow_owner.has_method("draw_fullscreen_map")
+		or not TowerAscentScreenSpaceSurfacePolicy.uses_screen_space_flow_phase(
+			phase_name
+		)
+		or not flow_owner.has_method("draw_fullscreen_surface")
 	):
 		return
-	flow_owner.draw_fullscreen_map(canvas, Rect2(Vector2.ZERO, view_size))
+	flow_owner.draw_fullscreen_surface(canvas, Rect2(Vector2.ZERO, view_size))
+
+
+func _draw_tower_reward_pick(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2
+) -> void:
+	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
+	if (
+		loot_state == null
+		or not loot_state.has_method("is_reward_pick_active")
+		or not bool(loot_state.is_reward_pick_active())
+		or not loot_state.has_method("draw_reward_pick")
+	):
+		return
+	loot_state.draw_reward_pick(canvas, view_size)
 
 
 func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:

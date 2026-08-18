@@ -21,6 +21,9 @@ const BattlePreIntroStageInputRouter := preload(
 const BattleTowerMapOverlayInputRouter := preload(
 	"res://scripts/core/battle_tower_map_overlay_input_router.gd"
 )
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
 
 const FULLSCREEN_TOGGLE_KEY := BattleSystemShortcutInputRouter.FULLSCREEN_TOGGLE_KEY
 const BGM_TOGGLE_KEY := BattleSystemShortcutInputRouter.BGM_TOGGLE_KEY
@@ -188,7 +191,21 @@ func _handle_tower_ascent_flow_input(
 	):
 		return false
 	if flow_owner.has_method("handle_input"):
-		flow_owner.handle_input(_tower_event_in_playfield_coordinates(event, owner, module_getter))
+		var phase_name := (
+			str(flow_owner.get_phase_name())
+			if flow_owner.has_method("get_phase_name")
+			else ""
+		)
+		var routed_event := event
+		if not TowerAscentScreenSpaceSurfacePolicy.uses_screen_space_flow_phase(
+			phase_name
+		):
+			routed_event = _tower_event_in_playfield_coordinates(
+				event,
+				owner,
+				module_getter
+			)
+		flow_owner.handle_input(routed_event)
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
@@ -216,8 +233,8 @@ func _handle_victory_loot_input(
 		return false
 	if loot_state.has_method("handle_input"):
 		loot_state.handle_input(
-			_tower_event_in_playfield_coordinates(event, owner, module_getter),
-			Vector2(GAME_WIDTH, GAME_HEIGHT)
+			event,
+			_get_tower_input_view_size(owner, module_getter)
 		)
 	_queue_redraw(owner)
 	_mark_handled(owner)
@@ -229,12 +246,20 @@ func _tower_event_in_playfield_coordinates(
 	owner: Object,
 	module_getter: Callable
 ) -> InputEvent:
-	if not (event is InputEventMouseButton or event is InputEventScreenTouch):
+	if not (
+		event is InputEventMouseButton
+		or event is InputEventMouseMotion
+		or event is InputEventScreenTouch
+	):
 		return event
 	var screen_position := (
 		(event as InputEventMouseButton).position
 		if event is InputEventMouseButton
-		else (event as InputEventScreenTouch).position
+		else (
+			(event as InputEventMouseMotion).position
+			if event is InputEventMouseMotion
+			else (event as InputEventScreenTouch).position
+		)
 	)
 	var layout := _build_tower_input_layout(owner, module_getter)
 	var game_offset: Vector2 = layout.get("game_offset", Vector2.ZERO)
@@ -244,6 +269,9 @@ func _tower_event_in_playfield_coordinates(
 	if localized is InputEventMouseButton:
 		(localized as InputEventMouseButton).position = playfield_position
 		(localized as InputEventMouseButton).global_position = playfield_position
+	elif localized is InputEventMouseMotion:
+		(localized as InputEventMouseMotion).position = playfield_position
+		(localized as InputEventMouseMotion).global_position = playfield_position
 	elif localized is InputEventScreenTouch:
 		(localized as InputEventScreenTouch).position = playfield_position
 	return localized
@@ -263,6 +291,19 @@ func _build_tower_input_layout(owner: Object, module_getter: Callable) -> Dictio
 		"game_size": game_size,
 		"render_scale": 1.0,
 	}
+
+
+func _get_tower_input_view_size(owner: Object, module_getter: Callable) -> Vector2:
+	var layout := _build_tower_input_layout(owner, module_getter)
+	var view_size: Variant = layout.get(
+		"view_size",
+		Vector2(GAME_WIDTH, GAME_HEIGHT)
+	)
+	return (
+		view_size as Vector2
+		if view_size is Vector2
+		else Vector2(GAME_WIDTH, GAME_HEIGHT)
+	)
 
 
 func _handle_mobile_touch_input(event: InputEvent, owner: Object, module_getter: Callable, scene_ready: bool) -> bool:

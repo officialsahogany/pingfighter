@@ -6,6 +6,9 @@ const TowerAscentTuning := preload(
 const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
+const PlazaInteriorRoomRenderer := preload(
+	"res://scripts/plaza/plaza_interior_room_renderer.gd"
+)
 
 const NODE_ART_PATHS := {
 	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
@@ -86,6 +89,44 @@ func draw_fullscreen_map(
 	if model.is_empty():
 		return
 	_draw_fullscreen_map_model(canvas, flow, model)
+
+
+func draw_fullscreen_surface(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if flow == null or not flow.has_method("get_phase_name"):
+		return
+	if str(flow.get_phase_name()) == "NODE_MODAL":
+		draw_fullscreen_node_modal(canvas, flow, fallback_rect)
+		return
+	draw_fullscreen_map(canvas, flow, fallback_rect)
+
+
+func draw_fullscreen_node_modal(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if canvas == null or flow == null:
+		return
+	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
+	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		return
+	var model: Dictionary = (
+		flow.get_node_modal_view_model(viewport_rect.size)
+		if flow.has_method("get_node_modal_view_model")
+		else {}
+	)
+	if model.is_empty():
+		return
+	var node_kind := str(model.get(
+		"node_kind",
+		flow.get_node_modal_kind() if flow.has_method("get_node_modal_kind") else "common_shell"
+	))
+	_draw_node_modal_backdrop(canvas, viewport_rect, node_kind)
+	_draw_node_modal(canvas, model)
 
 
 func resolve_fullscreen_rect(canvas: CanvasItem, fallback_rect: Rect2) -> Rect2:
@@ -815,38 +856,233 @@ func _draw_map_overlay_legend(canvas: CanvasItem) -> void:
 	)
 
 
-func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
-	var model: Dictionary = (
-		flow.get_node_modal_view_model()
-		if flow.has_method("get_node_modal_view_model")
-		else {}
+func build_node_modal_backdrop_model(
+	node_kind: String,
+	viewport_rect: Rect2
+) -> Dictionary:
+	var kind := node_kind.strip_edges().to_lower()
+	var palettes := {
+		"shop": [Color("100f1d"), Color("2b1937"), Color("d99532")],
+		"training": [Color("20150f"), Color("503125"), Color("d49b48")],
+		"fallen_monk": [Color("11151b"), Color("2c3035"), Color("9e352d")],
+		"guardian_spring": [Color("071c24"), Color("164c55"), Color("65c7ba")],
+		"rest": [Color("08101f"), Color("192544"), Color("e5a94f")],
+		"common_shell": [Color("17120f"), Color("3b2d24"), GOLD],
+	}
+	if not palettes.has(kind):
+		kind = "common_shell"
+	var palette: Array = palettes[kind]
+	return {
+		"kind": kind,
+		"rect": viewport_rect,
+		"top_color": palette[0],
+		"bottom_color": palette[1],
+		"accent": palette[2],
+	}
+
+
+func _draw_node_modal_backdrop(
+	canvas: CanvasItem,
+	viewport_rect: Rect2,
+	node_kind: String
+) -> void:
+	var model := build_node_modal_backdrop_model(node_kind, viewport_rect)
+	var kind := str(model.get("kind", "common_shell"))
+	var accent: Color = model.get("accent", GOLD)
+	if kind == "shop" and viewport_rect.position == Vector2.ZERO:
+		var room_scale := minf(
+			viewport_rect.size.x / 1000.0,
+			viewport_rect.size.y / 720.0
+		)
+		PlazaInteriorRoomRenderer.draw_room(
+			canvas,
+			ThemeDB.fallback_font,
+			viewport_rect.size,
+			maxf(0.1, room_scale),
+			0.0,
+			"shop",
+			accent,
+			null
+		)
+		return
+	_draw_node_modal_gradient(canvas, model)
+	match kind:
+		"training":
+			_draw_training_backdrop(canvas, viewport_rect, accent)
+		"fallen_monk":
+			_draw_fallen_monk_backdrop(canvas, viewport_rect, accent)
+		"guardian_spring":
+			_draw_guardian_spring_backdrop(canvas, viewport_rect, accent)
+		"rest":
+			_draw_rest_backdrop(canvas, viewport_rect, accent)
+		_:
+			_draw_common_node_backdrop(canvas, viewport_rect, accent)
+
+
+func _draw_node_modal_gradient(canvas: CanvasItem, model: Dictionary) -> void:
+	var rect: Rect2 = model.get("rect", Rect2())
+	var top_color: Color = model.get("top_color", Color.BLACK)
+	var bottom_color: Color = model.get("bottom_color", Color.BLACK)
+	for band_index in range(18):
+		var progress := float(band_index) / 17.0
+		var band_rect := Rect2(
+			rect.position + Vector2(0.0, rect.size.y * progress),
+			Vector2(rect.size.x, rect.size.y / 17.0 + 2.0)
+		)
+		canvas.draw_rect(band_rect, top_color.lerp(bottom_color, progress), true)
+
+
+func _draw_training_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	var horizon_y := rect.position.y + rect.size.y * 0.55
+	canvas.draw_circle(
+		rect.position + Vector2(rect.size.x * 0.78, rect.size.y * 0.22),
+		rect.size.y * 0.095,
+		Color(accent, 0.24)
 	)
-	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.06, 0.04, 0.025, 0.54), true)
-	canvas.draw_rect(MODAL_RECT, Color("f7e9c8"), true)
-	canvas.draw_rect(MODAL_RECT, CINNABAR_DARK, false, 5.0)
-	canvas.draw_rect(MODAL_RECT.grow(-13.0), GOLD, false, 2.0)
+	canvas.draw_rect(
+		Rect2(Vector2(rect.position.x, horizon_y), Vector2(rect.size.x, rect.end.y - horizon_y)),
+		Color("2b1d17"),
+		true
+	)
+	for index in range(11):
+		var y := lerpf(horizon_y, rect.end.y, float(index) / 10.0)
+		canvas.draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), Color(accent, 0.12), 2.0)
+	for side_value in [-1.0, 1.0]:
+		var side: float = float(side_value)
+		var x: float = rect.get_center().x + side * rect.size.x * 0.34
+		canvas.draw_rect(Rect2(Vector2(x - 16.0, rect.position.y), Vector2(32.0, rect.size.y)), Color("3b2018"), true)
+		canvas.draw_rect(Rect2(Vector2(x - 22.0, rect.position.y + rect.size.y * 0.16), Vector2(44.0, 16.0)), accent, true)
+
+
+func _draw_fallen_monk_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	canvas.draw_circle(
+		rect.position + Vector2(rect.size.x * 0.23, rect.size.y * 0.22),
+		rect.size.y * 0.09,
+		Color("b8b2a4")
+	)
+	for index in range(6):
+		var x := rect.position.x + rect.size.x * (0.12 + float(index) * 0.15)
+		var height := rect.size.y * (0.28 + float(index % 3) * 0.07)
+		var ruin := Rect2(Vector2(x, rect.end.y - height), Vector2(rect.size.x * 0.065, height))
+		canvas.draw_rect(ruin, Color("25282b"), true)
+		canvas.draw_rect(ruin, Color(accent, 0.28), false, 2.0)
+	for index in range(9):
+		var rubble_center := rect.position + Vector2(
+			rect.size.x * (0.08 + float(index) * 0.105),
+			rect.size.y * (0.82 + float(index % 2) * 0.05)
+		)
+		canvas.draw_circle(rubble_center, rect.size.y * 0.018, Color("343539"))
+
+
+func _draw_guardian_spring_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	var water_rect := Rect2(
+		rect.position + Vector2(0.0, rect.size.y * 0.48),
+		Vector2(rect.size.x, rect.size.y * 0.52)
+	)
+	canvas.draw_rect(water_rect, Color("0b3540"), true)
+	var spring_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.67)
+	for index in range(8, 0, -1):
+		canvas.draw_arc(
+			spring_center,
+			rect.size.y * (0.035 + float(index) * 0.035),
+			0.0,
+			TAU,
+			64,
+			Color(accent, 0.05 + float(8 - index) * 0.018),
+			2.0
+		)
+	for index in range(7):
+		var y := rect.position.y + rect.size.y * (0.20 + float(index) * 0.055)
+		canvas.draw_arc(Vector2(rect.get_center().x, y), rect.size.x * 0.22, PI, TAU, 36, Color(0.82, 0.95, 0.91, 0.08), 7.0)
+
+
+func _draw_rest_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	for index in range(36):
+		var point := rect.position + Vector2(
+			fposmod(float(index * 137), rect.size.x),
+			fposmod(float(index * 71), rect.size.y * 0.56)
+		)
+		canvas.draw_circle(point, 1.5 + float(index % 3), Color(0.92, 0.88, 0.72, 0.34))
+	var hill_points := PackedVector2Array([
+		Vector2(rect.position.x, rect.end.y),
+		rect.position + Vector2(0.0, rect.size.y * 0.70),
+		rect.position + Vector2(rect.size.x * 0.28, rect.size.y * 0.58),
+		rect.position + Vector2(rect.size.x * 0.52, rect.size.y * 0.74),
+		rect.position + Vector2(rect.size.x * 0.76, rect.size.y * 0.61),
+		Vector2(rect.end.x, rect.position.y + rect.size.y * 0.72),
+		rect.end,
+	])
+	canvas.draw_colored_polygon(hill_points, Color("111a24"))
+	var fire_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.77)
+	canvas.draw_circle(fire_center, rect.size.y * 0.09, Color(accent, 0.08))
+	canvas.draw_circle(fire_center, rect.size.y * 0.035, Color(accent, 0.92))
+	canvas.draw_circle(fire_center - Vector2(0.0, rect.size.y * 0.02), rect.size.y * 0.016, Color("fff1a6"))
+
+
+func _draw_common_node_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	for index in range(9):
+		var inset := rect.size.y * (0.04 + float(index) * 0.035)
+		canvas.draw_rect(rect.grow(-inset), Color(accent, 0.08), false, 2.0)
+
+
+func _screen_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector2:
+	return offset + point * scale_value
+
+
+func _screen_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
+	return Rect2(_screen_point(rect.position, scale_value, offset), rect.size * scale_value)
+
+
+func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
+	# The transformed playfield dispatcher still reaches this method so its
+	# phase return remains explicit, but only the fullscreen pass supplies the
+	# screen-layout model and is allowed to render it.
+	if not (model_value is Dictionary):
+		return
+	var model := model_value as Dictionary
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
+	canvas.draw_rect(modal_rect, Color("f7e9c8"), true)
+	canvas.draw_rect(modal_rect, CINNABAR_DARK, false, 5.0 * content_scale)
+	canvas.draw_rect(modal_rect.grow(-13.0 * content_scale), GOLD, false, 2.0 * content_scale)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 178.0),
+		_screen_point(Vector2(126.0, 178.0), content_scale, content_offset),
 		str(model.get("title", "행로 정비")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		30,
+		508.0 * content_scale,
+		maxi(12, int(round(30.0 * content_scale))),
 		INK
 	)
-	canvas.draw_line(Vector2(126.0, 195.0), Vector2(634.0, 195.0), GOLD, 2.0)
+	canvas.draw_line(
+		_screen_point(Vector2(126.0, 195.0), content_scale, content_offset),
+		_screen_point(Vector2(634.0, 195.0), content_scale, content_offset),
+		GOLD,
+		2.0 * content_scale
+	)
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 224.0),
+		_screen_point(Vector2(126.0, 224.0), content_scale, content_offset),
 		str(model.get("description", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		16,
+		508.0 * content_scale,
+		maxi(10, int(round(16.0 * content_scale))),
 		INK_SOFT
 	)
-	_draw_balance_badge(canvas, Rect2(190.0, 242.0, 176.0, 38.0), str(model.get("muhon_text", "무혼 0")))
-	_draw_balance_badge(canvas, Rect2(394.0, 242.0, 176.0, 38.0), str(model.get("gold_text", "골드 0")))
+	_draw_balance_badge(
+		canvas,
+		_screen_rect(Rect2(190.0, 242.0, 176.0, 38.0), content_scale, content_offset),
+		str(model.get("muhon_text", "무혼 0")),
+		content_scale
+	)
+	_draw_balance_badge(
+		canvas,
+		_screen_rect(Rect2(394.0, 242.0, 176.0, 38.0), content_scale, content_offset),
+		str(model.get("gold_text", "골드 0")),
+		content_scale
+	)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var selected_index := int(model.get("selected_index", 0))
@@ -856,35 +1092,45 @@ func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
 		var row_rect := (
 			action_rects[index] as Rect2
 			if index < action_rects.size() and action_rects[index] is Rect2
-			else Rect2(126.0, 301.0 + float(index) * 43.0, 508.0, 38.0)
+			else _screen_rect(
+				Rect2(126.0, 301.0 + float(index) * 43.0, 508.0, 38.0),
+				content_scale,
+				content_offset
+			)
 		)
 		_draw_modal_action_row(
 			canvas,
 			row_rect,
 			actions[index] as Dictionary,
-			index == selected_index
+			index == selected_index,
+			content_scale
 		)
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 635.0),
+		_screen_point(Vector2(126.0, 635.0), content_scale, content_offset),
 		str(model.get("status_text", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		14,
+		508.0 * content_scale,
+		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
 	)
 
 
-func _draw_balance_badge(canvas: CanvasItem, rect: Rect2, label: String) -> void:
+func _draw_balance_badge(
+	canvas: CanvasItem,
+	rect: Rect2,
+	label: String,
+	content_scale: float = 1.0
+) -> void:
 	canvas.draw_rect(rect, Color(PAPER_DEEP, 0.62), true)
-	canvas.draw_rect(rect, GOLD, false, 1.5)
+	canvas.draw_rect(rect, GOLD, false, 1.5 * content_scale)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x, rect.position.y + 25.0),
+		Vector2(rect.position.x, rect.position.y + 25.0 * content_scale),
 		label,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		rect.size.x,
-		16,
+		maxi(10, int(round(16.0 * content_scale))),
 		INK
 	)
 
@@ -893,7 +1139,8 @@ func _draw_modal_action_row(
 	canvas: CanvasItem,
 	rect: Rect2,
 	action: Dictionary,
-	selected: bool
+	selected: bool,
+	content_scale: float = 1.0
 ) -> void:
 	var enabled := bool(action.get("enabled", true))
 	var fill := CINNABAR if selected and enabled else Color(PAPER_DEEP, 0.72)
@@ -902,23 +1149,34 @@ func _draw_modal_action_row(
 		fill = Color(SEALED, 0.32)
 		text_color = Color(SEALED, 0.84)
 	canvas.draw_rect(rect, fill, true)
-	canvas.draw_rect(rect, CINNABAR_DARK if selected else GOLD, false, 2.0 if selected else 1.0)
+	canvas.draw_rect(
+		rect,
+		CINNABAR_DARK if selected else GOLD,
+		false,
+		(2.0 if selected else 1.0) * content_scale
+	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x + 10.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
+		Vector2(
+			rect.position.x + 10.0 * content_scale,
+			rect.position.y + minf(25.0 * content_scale, rect.size.y * 0.56)
+		),
 		str(action.get("label", "")),
 		HORIZONTAL_ALIGNMENT_LEFT,
-		maxf(52.0, rect.size.x - 102.0),
-		14 if rect.size.x < 400.0 else 16,
+		maxf(52.0 * content_scale, rect.size.x - 102.0 * content_scale),
+		maxi(10, int(round((14.0 if rect.size.x < 400.0 * content_scale else 16.0) * content_scale))),
 		text_color
 	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.end.x - 88.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
+		Vector2(
+			rect.end.x - 88.0 * content_scale,
+			rect.position.y + minf(25.0 * content_scale, rect.size.y * 0.56)
+		),
 		str(action.get("cost_text", "")),
 		HORIZONTAL_ALIGNMENT_RIGHT,
-		78.0,
-		12 if rect.size.x < 400.0 else 14,
+		78.0 * content_scale,
+		maxi(9, int(round((12.0 if rect.size.x < 400.0 * content_scale else 14.0) * content_scale))),
 		text_color
 	)
 

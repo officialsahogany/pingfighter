@@ -11,7 +11,7 @@ const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
 
-const GAME_SIZE := Vector2i(1280, 800)
+const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
 const OUTPUT_NAME_PHASE_1 := "map_overlay_human_realm.png"
 const OUTPUT_NAME_PHASE_2 := "map_overlay_immortal_realm.png"

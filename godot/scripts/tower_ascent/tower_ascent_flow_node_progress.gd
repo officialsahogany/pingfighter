@@ -36,10 +36,12 @@ func record_guardian_identity_reveal(pet_id: String, registry: Object = null) ->
 		_refresh_guardian_spring_modal("")
 	return result
 
-func get_node_modal_view_model() -> Dictionary:
+func get_node_modal_view_model(
+	view_size: Vector2 = TowerAscentNodeModalState.BASE_VIEW_SIZE
+) -> Dictionary:
 	if _node_modal_state == null or not _node_modal_state.has_method("build_view_model"):
 		return {}
-	return _node_modal_state.build_view_model()
+	return _node_modal_state.build_view_model(view_size)
 
 func get_node_modal_kind() -> String:
 	return _node_modal_kind
@@ -102,6 +104,7 @@ func _open_node_modal() -> void:
 		))
 
 func _handle_node_modal_input(event: InputEvent) -> void:
+	var view_size := _get_node_modal_view_size()
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
@@ -121,13 +124,31 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			if _node_modal_state.select_at_position(mouse_event.position):
+			if _node_modal_state.select_at_position(mouse_event.position, view_size):
 				_confirm_node_modal_action()
 		return
 	if event is InputEventScreenTouch:
 		var touch_event := event as InputEventScreenTouch
-		if touch_event.pressed and _node_modal_state.select_at_position(touch_event.position):
+		if (
+			touch_event.pressed
+			and _node_modal_state.select_at_position(touch_event.position, view_size)
+		):
 			_confirm_node_modal_action()
+
+
+func _get_node_modal_view_size() -> Vector2:
+	if (
+		_active_owner != null
+		and _active_owner.has_method("is_inside_tree")
+		and bool(_active_owner.is_inside_tree())
+		and _active_owner.has_method("get_viewport_rect")
+	):
+		var viewport_rect_value: Variant = _active_owner.get_viewport_rect()
+		if viewport_rect_value is Rect2:
+			var viewport_size := (viewport_rect_value as Rect2).size
+			if viewport_size.x > 0.0 and viewport_size.y > 0.0:
+				return viewport_size
+	return TowerAscentNodeModalState.BASE_VIEW_SIZE
 
 func _confirm_node_modal_action() -> void:
 	var action: Dictionary = _node_modal_state.get_selected_action()

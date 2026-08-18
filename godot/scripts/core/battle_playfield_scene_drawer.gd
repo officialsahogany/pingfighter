@@ -1,5 +1,9 @@
 extends RefCounted
 
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
+
 const BattlePlayfieldBallDrawer := preload("res://scripts/core/battle_playfield_ball_drawer.gd")
 const BattlePlayfieldEffectsDrawer := preload("res://scripts/core/battle_playfield_effects_drawer.gd")
 const BattlePlayfieldOverlayDrawer := preload("res://scripts/core/battle_playfield_overlay_drawer.gd")
@@ -407,6 +411,12 @@ func _draw_victory_loot_boxes(canvas: CanvasItem, registry: Object, shake_offset
 	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
 	if loot_state == null or not loot_state.has_method("is_active") or not bool(loot_state.is_active()):
 		return
+	var reward_pick_active := (
+		loot_state.has_method("is_reward_pick_active")
+		and bool(loot_state.is_reward_pick_active())
+	)
+	if not should_draw_victory_loot_in_playfield(reward_pick_active):
+		return
 	if loot_state.has_method("draw"):
 		loot_state.draw(canvas, shake_offset)
 
@@ -430,10 +440,24 @@ func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
 		# playfield. Every other tower surface remains in game coordinates.
 		if (
 			flow_owner.has_method("get_phase_name")
-			and str(flow_owner.get_phase_name()) in ["MAP_OVERLAY", "MAP_TRANSITION"]
+			and not should_draw_tower_flow_in_playfield(
+				str(flow_owner.get_phase_name())
+			)
 		):
 			return
 		flow_owner.draw(canvas)
+
+
+static func should_draw_victory_loot_in_playfield(
+	reward_pick_active: bool
+) -> bool:
+	return not reward_pick_active
+
+
+static func should_draw_tower_flow_in_playfield(phase_name: String) -> bool:
+	return TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
+		phase_name
+	)
 
 
 func _draw_void_phantom_decoys(
