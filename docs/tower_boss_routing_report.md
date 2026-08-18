@@ -1,10 +1,10 @@
 # 탑 보스 배선 복구 완료 보고서
 
-작성일: 2026-08-18  
-기준 커밋: `ea5f03c03a144f83777e6bfd3fb95dce673f46cf`  
-작업 브랜치: `codex/tower-boss-routing-ea5f03c03`  
-작업 트리: `D:\main\bosspong_tower_boss_routing_ea5f03c03`  
-원본 체크아웃: `D:\main\bosspong` (기존 dirty/untracked WIP 보존)  
+작성일: 2026-08-18
+기준 커밋: `ea5f03c03a144f83777e6bfd3fb95dce673f46cf`
+작업 브랜치: `codex/tower-boss-routing-ea5f03c03`
+작업 트리: `D:\main\bosspong_tower_boss_routing_ea5f03c03`
+원본 체크아웃: `D:\main\bosspong` (기존 dirty/untracked WIP 보존)
 푸시: 하지 않음
 
 ## 결론
