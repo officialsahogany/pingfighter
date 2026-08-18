@@ -6,6 +6,7 @@ const GameSelectionState := preload("res://scripts/core/game_selection_state.gd"
 const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascent_boss_registry.gd")
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowOwner := preload("res://scripts/tower_ascent/tower_ascent_flow_owner.gd")
+const TowerAscentMapGenerator := preload("res://scripts/tower_ascent/tower_ascent_map_generator.gd")
 
 var _failures: Array[String] = []
 var _captured_encounter: Dictionary = {}
@@ -48,6 +49,7 @@ func _init() -> void:
 	_verify_resolution_ids_are_unique_per_combat_node()
 	_verify_run_progress_survives_two_combat_preparations()
 	_verify_map_seed_survives_second_combat_preparation()
+	_verify_skipped_boss_cannot_return_as_route_target()
 	_verify_flag_off_preserves_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -174,6 +176,76 @@ func _verify_map_seed_survives_second_combat_preparation() -> void:
 	_expect(flow.get_map_seed() == expected_seed, "combat arrival must not clear the run-owned map seed")
 	_expect(flow.prepare_vertical_slice_combat(null), "seed fixture second combat must prepare")
 	_expect(flow.get_map_seed() == expected_seed and flow.get_map_seed() != 0, "second combat must regenerate from the original nonzero run seed")
+
+
+func _verify_skipped_boss_cannot_return_as_route_target() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var seed := _find_two_combat_initial_route_seed()
+	_expect(seed > 0, "skip fixture must find a generated two-combat route")
+	if seed <= 0:
+		return
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.prepare_vertical_slice_combat(null, {
+		"run_id": "skip-reentry",
+		"map_seed": seed,
+	}), "skip fixture first combat must prepare")
+	_expect(flow.begin_vertical_slice(null, Callable()), "skip fixture first combat must enter route selection")
+	var first_targets := flow.get_route_target_ids()
+	_expect(first_targets.size() == 2, "skip fixture must expose exactly two route targets")
+	if first_targets.size() != 2:
+		return
+	var chosen_id := str(first_targets[0])
+	var skipped_id := str(first_targets[1])
+	var skipped_node := _find_node_by_id(flow, skipped_id)
+	var skipped_slot_id := str(skipped_node.get("boss_slot_id", ""))
+	_expect(not skipped_slot_id.is_empty(), "skipped combat target must own a boss slot")
+	flow.call("_resolve_route_target", chosen_id)
+	_expect(flow.get_skipped_boss_ids().has(skipped_slot_id), "choosing the sibling combat route must persist its boss slot as skipped")
+	flow.call("_complete_map_transition")
+	_expect(flow.prepare_vertical_slice_combat(null), "skip fixture must regenerate the same run through a second prepare")
+	var regenerated_skipped_node := _find_node_for_slot(flow, skipped_slot_id)
+	_expect(bool(regenerated_skipped_node.get("skipped", false)) and bool(regenerated_skipped_node.get("route_disabled", false)), "regenerated graph must mark every skipped boss occurrence unavailable")
+	var parent_id := _find_parent_id(flow, str(regenerated_skipped_node.get("id", "")))
+	_expect(not parent_id.is_empty(), "skip fixture must find a production route edge to the skipped boss")
+	if parent_id.is_empty():
+		return
+	flow.set("_route_source_node_id", parent_id)
+	flow.set("_route_target_ids", flow.call("_outgoing_target_ids", parent_id))
+	flow.call("_refresh_route_target_cache")
+	_expect(not flow.get_route_target_ids().has(str(regenerated_skipped_node.get("id", ""))), "skipped boss must not return as an actual selectable route target later in the run")
+
+
+func _find_two_combat_initial_route_seed() -> int:
+	var generator := TowerAscentMapGenerator.new()
+	for seed in range(1, 257):
+		var graph: Dictionary = generator.generate_tower(seed)
+		var phase: Dictionary = (graph.get("phases", []) as Array)[0]
+		var initial_ids: Array = phase.get("initial_route_candidate_ids", [])
+		var combat_count := 0
+		for node_variant in phase.get("nodes", []):
+			if (
+				node_variant is Dictionary
+				and initial_ids.has(str((node_variant as Dictionary).get("id", "")))
+				and str((node_variant as Dictionary).get("kind", "")) in ["boss", "combat", "enraged"]
+			):
+				combat_count += 1
+		if combat_count == 2:
+			return seed
+	return 0
+
+
+func _find_node_by_id(flow: Object, node_id: String) -> Dictionary:
+	for node in flow.get_graph_nodes():
+		if str(node.get("id", "")) == node_id:
+			return node
+	return {}
+
+
+func _find_parent_id(flow: Object, node_id: String) -> String:
+	for edge in flow.get_graph_edges():
+		if str(edge.get("to", "")) == node_id:
+			return str(edge.get("from", ""))
+	return ""
 
 
 func _verify_flag_off_preserves_legacy() -> void:
