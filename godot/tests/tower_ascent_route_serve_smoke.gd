@@ -341,6 +341,7 @@ class ModuleHolder:
 func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
+	_verify_free_movement_while_waiting_and_in_flight()
 	_verify_top_wall_and_player_paddle_round_trip()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
@@ -572,6 +573,50 @@ func _run_physics_gate_frame(
 
 func _true_callback() -> bool:
 	return true
+
+
+func _verify_free_movement_while_waiting_and_in_flight() -> void:
+	var owner := FakeOwner.new()
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["direction"] = 1.0
+	var movement_state := FakeMovementState.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": movement_state,
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "free-movement fixture must acquire the production route dependencies")
+	var waiting_start_x: float = owner.player_pos.x
+	var waiting_result: Dictionary = runtime.update(1.0 / 60.0, [])
+	_expect(str(waiting_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_WAITING, "movement-only route frame must remain in manual serve wait")
+	_expect(owner.player_pos.x > waiting_start_x, "player must move freely while the route serve is waiting")
+
+	input_reader.snapshot["action_pressed"] = true
+	input_reader.snapshot["action_just_pressed"] = true
+	runtime.update(1.0 / 60.0, [])
+	_expect(owner.ball_active and not round_state.waiting, "manual serve must enter flight for the movement seal")
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["direction"] = -1.0
+	var flight_start_x: float = owner.player_pos.x
+	var flight_result: Dictionary = runtime.update(1.0 / 60.0, [])
+	_expect(str(flight_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "flight movement frame must keep the route ball in flight")
+	_expect(owner.player_pos.x < flight_start_x, "player must keep moving freely while the route ball is in flight")
+	_expect(movement_state.update_calls == 3, "waiting, serve, and flight frames must each tick movement exactly once")
+	runtime.cancel()
+	owner.free()
 
 
 func _verify_top_wall_and_player_paddle_round_trip() -> void:
