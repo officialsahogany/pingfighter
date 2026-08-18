@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
+const MythicAcquisitionRuntime := preload("res://scripts/items/mythic_item_acquisition_cinematic_runtime.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
@@ -12,7 +13,8 @@ const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_re
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
 
-const CAPTURE_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal.png"
+const CAPTURE_PREARM_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal_prearm.png"
+const CAPTURE_ARMED_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal_armed.png"
 const PEERLESS_ICON_FRAME_MSEC := 250
 const SLOT_FILLER_IDS := [
 	"dash_lightweight",
@@ -147,6 +149,8 @@ func _run() -> void:
 	_verify_mythic_perk_sheet_paths()
 	_verify_static_fallback_metadata()
 	_verify_cinematic_text_lane_key_gate()
+	_verify_continue_hint_localization()
+	await _verify_reveal_click_progression_and_hint()
 	_verify_prewarm_includes_mythic_perk_sheets()
 	await _capture_reveal_if_available()
 	await _drain_frames(8)
@@ -297,15 +301,8 @@ func _verify_public_angel_jackpot_grant_reserves_current_stage() -> void:
 		"runtime_perk_state": perk_state,
 		"runtime_perk_catalog": perk_catalog,
 	})
-	perk_catalog.mythic_jackpot_offer_chance = 1.0
-	var choices: Array = perk_catalog.get_choices(
-		owner.selected_character_type,
-		{},
-		true,
-		RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.size()
-	)
-	var angel_choice: Dictionary = _find_choice(choices, "angel_blessing")
-	_expect(not angel_choice.is_empty(), "public mythic jackpot should materialize an Angel Blessing card")
+	var angel_choice: Dictionary = perk_catalog.get_perk_data("angel_blessing")
+	_expect(not angel_choice.is_empty(), "public perk catalog should materialize an Angel Blessing card")
 	if angel_choice.is_empty():
 		owner.queue_free()
 		return
@@ -513,6 +510,79 @@ func _verify_cinematic_text_lane_key_gate() -> void:
 	owner.queue_free()
 
 
+func _verify_reveal_click_progression_and_hint() -> void:
+	var owner := FakeOwner.new()
+	root.add_child(owner)
+	var runtime := MythicItemRuntime.new()
+	var registry := FakeRegistry.new({"mythic_item_runtime": runtime})
+	runtime.prewarm_acquisition_cinematic(owner, registry)
+	await process_frame
+	var item_data := {
+		"name": "절세무공",
+		"rarity": "mythic",
+		"reveal_description": "설명",
+	}
+	_expect(
+		runtime.start_acquisition_cinematic(
+			item_data,
+			Vector2(220.0, 330.0),
+			owner,
+			registry,
+			Vector2(380.0, 725.0)
+		),
+		"public mythic runtime should start the acquisition cinematic"
+	)
+	var cinematic: Object = runtime.acquisition_cinematic
+	_advance_cinematic(runtime, 1.21, registry, owner)
+	_advance_cinematic(runtime, 0.41, registry, owner)
+	_advance_cinematic(runtime, 0.51, registry, owner)
+	_advance_cinematic(runtime, 0.49, registry, owner)
+	var description_label: Label = cinematic.get("_description_label") as Label
+	_expect(not cinematic.is_waiting_for_click(), "reveal must not arm before the 0.5 second click delay")
+	_expect(
+		description_label != null and description_label.text.find("클릭해 계속") < 0,
+		"continue hint must stay hidden before reveal input arms"
+	)
+	_advance_cinematic(runtime, 0.02, registry, owner)
+	_expect(cinematic.is_waiting_for_click(), "reveal must arm after the click delay")
+	_expect(
+		description_label != null and description_label.text.find(LanguageSettings.translate_text("클릭해 계속")) >= 0,
+		"armed reveal must show the localized continue hint"
+	)
+	_advance_cinematic(runtime, 5.0, registry, owner)
+	_expect(str(runtime.get_acquisition_cinematic_snapshot().get("phase", "")) == "reveal", "reveal must never auto-advance without input")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	_expect(runtime.handle_acquisition_cinematic_input(click, registry), "public mythic input path must consume the armed reveal click")
+	_expect(str(runtime.get_acquisition_cinematic_snapshot().get("phase", "")) == "absorb", "armed click must advance reveal to absorb")
+	_advance_cinematic(runtime, 1.51, registry, owner)
+	_expect(str(runtime.get_acquisition_cinematic_snapshot().get("phase", "")) == "impact", "absorb must advance to impact")
+	_advance_cinematic(runtime, 0.51, registry, owner)
+	_expect(not runtime.is_acquisition_cinematic_active(), "impact completion must close the acquisition cinematic")
+	owner.queue_free()
+
+
+func _verify_continue_hint_localization() -> void:
+	var previous_language: String = LanguageSettings.get_language()
+	var expected := {
+		LanguageSettings.LANGUAGE_KOREAN: "클릭해 계속",
+		LanguageSettings.LANGUAGE_ENGLISH: "Click to continue",
+		LanguageSettings.LANGUAGE_CHINESE: "点击继续",
+		LanguageSettings.LANGUAGE_JAPANESE: "クリックして続行",
+		LanguageSettings.LANGUAGE_SPANISH: "Haz clic para continuar",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Clique para continuar",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Щёлкните, чтобы продолжить",
+	}
+	for language: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings._cached_language = language
+		_expect(
+			LanguageSettings.translate_text("클릭해 계속") == str(expected.get(language, "")),
+			"continue hint should be localized for %s" % language
+		)
+	LanguageSettings._cached_language = previous_language
+
+
 func _verify_prewarm_includes_mythic_perk_sheets() -> void:
 	var runtime := MythicItemRuntime.new()
 	var owner := FakeOwner.new()
@@ -536,8 +606,10 @@ func _capture_reveal_if_available() -> void:
 	viewport.size = Vector2i(760, 750)
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(viewport)
+	var runtime := MythicItemRuntime.new()
 	var cinematic := MythicAcquisitionCinematic.new()
 	viewport.add_child(cinematic)
+	runtime.acquisition_cinematic = cinematic
 	await process_frame
 
 	var perk_data: Dictionary = RuntimePerkCatalog.new().get_perk_data("odins_eye")
@@ -550,28 +622,50 @@ func _capture_reveal_if_available() -> void:
 		"reveal_description": _first_description_line(perk_data),
 	}
 	cinematic.trigger(perk_cinematic_data, Vector2(220.0, 330.0), Vector2(380.0, 725.0))
-	cinematic.update(1.21)
-	cinematic.update(0.41)
-	cinematic.update(0.51)
-	cinematic.update(0.51)
+	_advance_cinematic(runtime, 1.21)
+	_advance_cinematic(runtime, 0.41)
+	_advance_cinematic(runtime, 0.51)
+	_advance_cinematic(runtime, 0.49)
 	await process_frame
 	await process_frame
-
-	var viewport_texture: Texture2D = viewport.get_texture()
-	_expect(viewport_texture != null, "mythic perk capture viewport should expose a texture")
-	if viewport_texture != null:
-		var image: Image = viewport_texture.get_image()
-		_expect(image != null and not image.is_empty(), "mythic perk capture should produce a non-empty image")
-		if image != null and not image.is_empty():
-			var output_path: String = ProjectSettings.globalize_path(CAPTURE_PATH)
-			DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
-			var save_error: int = image.save_png(output_path)
-			_expect(save_error == OK, "mythic perk reveal screenshot should save to %s" % output_path)
-			_expect(
-				_count_bright_pixels(image, Rect2i(120, 456, 520, 112)) > 80,
-				"mythic perk reveal screenshot should contain bright text pixels in the text lane"
-			)
+	var description_label: Label = cinematic.get("_description_label") as Label
+	_expect(
+		description_label != null and description_label.text.find("클릭해 계속") < 0,
+		"pre-arm Vulkan capture must not contain the continue hint"
+	)
+	_capture_reveal_frame(viewport, CAPTURE_PREARM_PATH, "pre-arm")
+	_advance_cinematic(runtime, 0.02)
+	await process_frame
+	await process_frame
+	_expect(
+		description_label != null and description_label.text.find(LanguageSettings.translate_text("클릭해 계속")) >= 0,
+		"armed Vulkan capture must contain the localized continue hint"
+	)
+	_capture_reveal_frame(viewport, CAPTURE_ARMED_PATH, "armed")
 	viewport.queue_free()
+
+
+func _advance_cinematic(runtime: Object, delta: float, registry: Object = null, owner: Object = null) -> void:
+	MythicAcquisitionRuntime.new().update(runtime, delta, registry, owner)
+
+
+func _capture_reveal_frame(viewport: SubViewport, resource_path: String, label: String) -> void:
+	var viewport_texture: Texture2D = viewport.get_texture()
+	_expect(viewport_texture != null, "%s mythic perk capture viewport should expose a texture" % label)
+	if viewport_texture == null:
+		return
+	var image: Image = viewport_texture.get_image()
+	_expect(image != null and not image.is_empty(), "%s mythic perk capture should produce a non-empty image" % label)
+	if image == null or image.is_empty():
+		return
+	var output_path: String = ProjectSettings.globalize_path(resource_path)
+	DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
+	var save_error: int = image.save_png(output_path)
+	_expect(save_error == OK, "%s mythic perk reveal screenshot should save to %s" % [label, output_path])
+	_expect(
+		_count_bright_pixels(image, Rect2i(120, 456, 520, 112)) > 80,
+		"%s mythic perk reveal screenshot should contain bright text pixels in the text lane" % label
+	)
 
 
 func _full_slot_levels() -> Dictionary:

@@ -236,6 +236,13 @@ func get_continue_rect(view_size: Vector2 = VIEW_SIZE) -> Rect2:
 
 
 func is_external_modal_active() -> bool:
+	var mythic_item_runtime := _get_registry_instance(_registry, "mythic_item_runtime")
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_acquisition_cinematic_active")
+		and bool(mythic_item_runtime.call("is_acquisition_cinematic_active"))
+	):
+		return true
 	if _pending_external_kind == "fusion":
 		return (
 			_runtime_state != null

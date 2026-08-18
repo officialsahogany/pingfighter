@@ -2,9 +2,12 @@ extends RefCounted
 
 const ACQUISITION_CINEMATIC_SCRIPT_PATH := "res://scripts/items/mythic_item_acquisition_cinematic_v2.gd"
 const MythicAcquisitionCinematic := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+
+const CONTINUE_HINT_TEXT := "클릭해 계속"
 
 
 func prewarm(runtime: Object, owner: Object = null, registry: Object = null) -> void:
@@ -93,8 +96,35 @@ func update(
 		else {}
 	)
 	runtime.acquisition_cinematic.update(delta, registry)
+	_sync_continue_hint(runtime.acquisition_cinematic)
 	if was_active and not runtime.acquisition_cinematic.is_active():
 		_notify_natural_completion(previous_snapshot, owner, registry)
+
+
+func _sync_continue_hint(cinematic: Object) -> void:
+	if cinematic == null or not cinematic.has_method("get_snapshot"):
+		return
+	var description_value: Variant = cinematic.get("_description_label")
+	if not (description_value is Label):
+		return
+	var description_label := description_value as Label
+	var snapshot_value: Variant = cinematic.call("get_snapshot")
+	var snapshot: Dictionary = snapshot_value if snapshot_value is Dictionary else {}
+	var item_data_value: Variant = snapshot.get("item_data", {})
+	var item_data: Dictionary = item_data_value if item_data_value is Dictionary else {}
+	var base_description := str(item_data.get("reveal_description", ""))
+	var waiting_for_click := (
+		cinematic.has_method("is_waiting_for_click")
+		and bool(cinematic.call("is_waiting_for_click"))
+	)
+	description_label.text = base_description
+	if waiting_for_click:
+		var hint := LanguageSettings.translate_text(CONTINUE_HINT_TEXT)
+		description_label.text = (
+			"%s\n%s" % [base_description, hint]
+			if not base_description.is_empty()
+			else hint
+		)
 
 
 func _notify_natural_completion(

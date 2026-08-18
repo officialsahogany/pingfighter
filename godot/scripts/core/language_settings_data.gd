@@ -3104,6 +3104,7 @@ const EXACT_TEXT_EN := {
 	"대성영단": "Daeseong Spirit Pill",
 	"무공의 극성을 깨웁니다...": "Awakening a Mugong's peak...",
 	"[ Space / Click 으로 계속 ]": "[ Space / Click to Continue ]",
+	"클릭해 계속": "Click to continue",
 	"Lv.5 달성!": "Lv.5 Reached!",
 	"뿔딸기변신!": "Horn Strawberry Transform!",
 	"스매셔": "Smasher",
@@ -3728,6 +3729,7 @@ const EXACT_TEXT_ZH := {
 	"대성영단": "大成灵丹",
 	"무공의 극성을 깨웁니다...": "正在唤醒武功的极境...",
 	"[ Space / Click 으로 계속 ]": "[ Space / 点击 继续 ]",
+	"클릭해 계속": "点击继续",
 	"Lv.5 달성!": "达到Lv.5！",
 	"뿔딸기변신!": "角草莓变身！",
 	"스매셔": "粉碎者",
@@ -4352,6 +4354,7 @@ const EXACT_TEXT_JA := {
 	"대성영단": "大成霊丹",
 	"무공의 극성을 깨웁니다...": "武功の極致を目覚めさせます...",
 	"[ Space / Click 으로 계속 ]": "[ Space / Click で続行 ]",
+	"클릭해 계속": "クリックして続行",
 	"Lv.5 달성!": "Lv.5達成！",
 	"뿔딸기변신!": "角いちご変身！",
 	"스매셔": "スマッシャー",
@@ -4976,6 +4979,7 @@ const EXACT_TEXT_ES := {
 	"대성영단": "Píldora espiritual Daeseong",
 	"무공의 극성을 깨웁니다...": "Despertando el rango máximo de un Mugong...",
 	"[ Space / Click 으로 계속 ]": "[ Space / Clic para continuar ]",
+	"클릭해 계속": "Haz clic para continuar",
 	"Lv.5 달성!": "¡Lv.5 alcanzado!",
 	"뿔딸기변신!": "¡Transformación en Fresa cornuda!",
 	"스매셔": "Smasher",
@@ -5316,6 +5320,7 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"클릭해 계속": "Clique para continuar",
 	# 능력치 원인표기 라벨. 오버라이드가 없으면 EXACT_TEXT_EN 로 떨어져 영어가 샌다.
 	"받아치기": "Rebatida",
 	"준비 중입니다": "Preparando...",
@@ -5570,6 +5575,7 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"클릭해 계속": "Щёлкните, чтобы продолжить",
 	# 능력치 원인표기 라벨. 오버라이드가 없으면 EXACT_TEXT_EN 로 떨어져 영어가 샌다.
 	"받아치기": "Отбитие",
 	"준비 중입니다": "Подготовка...",
