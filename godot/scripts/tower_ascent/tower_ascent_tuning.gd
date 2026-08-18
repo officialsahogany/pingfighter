@@ -53,7 +53,7 @@ const TEMP_ROUTE_AIM_MAX_DEGREES := 55.0
 const TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS := 2.4
 const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 522.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
-const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 22.0
+const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 
 # TEMP: the map-view overlay establishes the information hierarchy while its
 # final mobile/readability sizing is still product-tuning work.

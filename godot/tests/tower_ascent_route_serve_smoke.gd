@@ -913,6 +913,11 @@ func _verify_oscillating_gauge_and_mouse_timed_serve() -> void:
 		),
 		"angle gauge must stay centered immediately above the moving player"
 	)
+	_expect(
+		(initial_origin as Vector2).y
+			<= owner.player_pos.y - TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP,
+		"angle gauge must remain above the legacy serve indicator and player art"
+	)
 	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS * 0.25, [])
 	var right_model := runtime.get_aim_gauge_model()
 	_expect(

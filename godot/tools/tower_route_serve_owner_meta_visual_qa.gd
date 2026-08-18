@@ -5,6 +5,9 @@ const BattleSceneOwnerReader := preload(
 	"res://scripts/core/battle_scene_owner_reader.gd"
 )
 const MainScene := preload("res://scenes/main.tscn")
+const Stage1PillarUiRenderer := preload(
+	"res://scripts/hud/stage1_pillar_ui_renderer.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -93,9 +96,27 @@ func _run() -> void:
 	):
 		_fail("could not save live angle-gauge capture: %s" % gauge_output_path)
 		return
-	var hud_crop_width := mini(460, waiting_image.get_width())
-	var hud_crop_height := mini(560, waiting_image.get_height())
-	var hud_image := waiting_image.get_region(Rect2i(0, 0, hud_crop_width, hud_crop_height))
+	var layout_module: Object = _get_module(main_node, "battle_view_layout")
+	if layout_module == null or not layout_module.has_method("build_game_layout"):
+		_fail("live battle view layout was unavailable for the Muhon-HUD crop")
+		return
+	var layout: Dictionary = layout_module.build_game_layout(
+		Vector2(waiting_image.get_size()),
+		BattleSceneConfig.WIDTH,
+		BattleSceneConfig.HEIGHT
+	)
+	var game_offset: Vector2 = layout.get("game_offset", Vector2.ZERO)
+	var game_size: Vector2 = layout.get("game_size", Vector2.ZERO)
+	var hud_renderer := Stage1PillarUiRenderer.new()
+	var hud_context := {"height": BattleSceneConfig.HEIGHT, "gold_hud_amount": 0}
+	var gold_rect: Rect2 = hud_renderer.build_gold_hud_rect(game_offset, game_size, hud_context)
+	var muhon_rect: Rect2 = hud_renderer.build_muhon_hud_rect(game_offset, game_size, hud_context)
+	var hud_crop_rect := Rect2i(
+		gold_rect.merge(muhon_rect).grow(18.0).intersection(
+			Rect2(Vector2.ZERO, Vector2(waiting_image.get_size()))
+		)
+	)
+	var hud_image := waiting_image.get_region(hud_crop_rect)
 	if hud_image == null or hud_image.is_empty() or hud_image.save_png(muhon_output_path) != OK:
 		_fail("could not save live Muhon-HUD capture: %s" % muhon_output_path)
 		return
