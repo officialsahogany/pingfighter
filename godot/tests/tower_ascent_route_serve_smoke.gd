@@ -11,6 +11,7 @@ const BattleSceneFrameController := preload(
 const BattleScenePlayerControlConfigBuilder := preload(
 	"res://scripts/core/battle_scene_player_control_config_builder.gd"
 )
+const ServeFlowController := preload("res://scripts/core/serve_flow_controller.gd")
 const TowerAscentRouteServeRuntime := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
 )
@@ -28,6 +29,7 @@ const PHYSICS_GATE_COORDINATOR_PATH := (
 )
 
 var _failures: Array[String] = []
+var _legacy_serve_calls := 0
 
 
 class FakeOwner:
@@ -95,6 +97,24 @@ class FakeServeFlow:
 		var serve_callback: Callable = callbacks.get("serve_ball", Callable())
 		if serve_callback.is_valid():
 			serve_callback.call()
+
+
+class LegacyAutoRoundState:
+	extends RefCounted
+
+	var waiting := true
+	var player_serves := true
+	var wait_seconds := 0.0
+
+	func is_waiting_for_serve() -> bool:
+		return waiting
+
+	func does_player_serve() -> bool:
+		return player_serves
+
+	func update_waiting(delta: float, target_delay: float) -> bool:
+		wait_seconds += maxf(0.0, delta)
+		return wait_seconds >= target_delay
 
 
 class FakeBallDriver:
@@ -320,6 +340,7 @@ func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_real_serve_owner_and_unlimited_retry()
+	_verify_route_wait_never_auto_serves_and_legacy_still_does()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
 	_verify_production_source_uses_serve_contract_without_aim_input()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -360,7 +381,6 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 	var input_reader := FakeInputReader.new()
 	var movement_state := FakeMovementState.new()
 	var round_state := FakeRoundState.new()
-	var serve_flow := FakeServeFlow.new()
 	var ball_driver := FakeBallDriver.new(round_state)
 	var motion_stepper := FakeMotionStepper.new()
 	var flow := TowerAscentFlowOwner.new()
@@ -369,7 +389,6 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 		"tower_ascent_flow_owner": flow,
 		"runtime_perk_state": FakeModalRuntime.new(),
 		"round_flow_state": round_state,
-		"serve_flow_controller": serve_flow,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": motion_stepper,
 		"smasher_input_reader": input_reader,
@@ -439,12 +458,10 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	var input_reader := FakeInputReader.new()
 	var movement_state := FakeMovementState.new()
 	var round_state := FakeRoundState.new()
-	var serve_flow := FakeServeFlow.new()
 	var ball_driver := FakeBallDriver.new(round_state)
 	var motion_stepper := FakeMotionStepper.new()
 	input_reader.trace = frame_trace
 	movement_state.trace = frame_trace
-	serve_flow.trace = frame_trace
 	ball_driver.trace = frame_trace
 	motion_stepper.trace = frame_trace
 	var flow := TowerAscentFlowOwner.new()
@@ -453,7 +470,6 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 		"tower_ascent_flow_owner": flow,
 		"runtime_perk_state": FakeModalRuntime.new(),
 		"round_flow_state": round_state,
-		"serve_flow_controller": serve_flow,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": motion_stepper,
 		"smasher_input_reader": input_reader,
@@ -505,7 +521,7 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	_expect(frame_trace.count("ball_step") == 1, "the same coordinator frame must step the served ball once")
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "the same coordinator frame must resolve the swept target hit")
 	_expect(
-		frame_trace == ["input_snapshot", "player_movement", "serve_trigger", "serve_ball", "ball_step"],
+		frame_trace == ["input_snapshot", "player_movement", "serve_ball", "ball_step"],
 		"ROUTE_AIM selective order must be snapshot -> movement -> serve -> ball step before hit transition"
 	)
 	_expect(
@@ -554,7 +570,6 @@ func _true_callback() -> bool:
 func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	var owner := FakeOwner.new()
 	var round_state := FakeRoundState.new()
-	var serve_flow := FakeServeFlow.new()
 	var ball_driver := FakeBallDriver.new(round_state)
 	var left_target := Vector2(
 		TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X,
@@ -569,7 +584,6 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	input_reader.snapshot["direction"] = 0.0
 	registry.instances = {
 		"round_flow_state": round_state,
-		"serve_flow_controller": serve_flow,
 		"battle_scene_ball_update_driver": ball_driver,
 		"ball_motion_stepper": BallMotionStepper.new(),
 		"smasher_input_reader": input_reader,
@@ -581,7 +595,7 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	var begin_result: Dictionary = runtime.begin(owner, registry)
 	_expect(bool(begin_result.get("accepted", false)), "route serve must acquire the production serve dependencies")
 	_expect(round_state.player_serves, "route serve must assign the existing player serve owner")
-	_expect(ball_driver.reset_calls == 1 and serve_flow.sync_calls == 1, "route entry must park the live ball and synchronize the existing serve edge")
+	_expect(ball_driver.reset_calls == 1, "route entry must park the live ball for manual serve")
 	var targets: Array[Dictionary] = [
 		{"id": "left", "position": left_target, "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
 		{"id": "right", "position": Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y), "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
@@ -605,6 +619,58 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	owner.free()
 
 
+func _verify_route_wait_never_auto_serves_and_legacy_still_does() -> void:
+	var owner := FakeOwner.new()
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot = {
+		"left_pressed": false,
+		"right_pressed": false,
+		"direction": 0.0,
+		"action_pressed": false,
+		"action_just_pressed": false,
+	}
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "manual-only route fixture must acquire its production dependencies")
+	var waiting_result: Dictionary = runtime.update(30.0, [])
+	_expect(str(waiting_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_WAITING, "thirty seconds without input must keep ROUTE_AIM waiting")
+	_expect(ball_driver.serve_calls == 0 and runtime.get_serve_attempt_count() == 0, "ROUTE_AIM elapsed time must never auto-serve")
+	input_reader.snapshot["action_pressed"] = true
+	input_reader.snapshot["action_just_pressed"] = true
+	runtime.update(0.016, [])
+	_expect(ball_driver.serve_calls == 1 and runtime.get_serve_attempt_count() == 1, "a player action edge must still launch the route ball")
+	runtime.cancel()
+	owner.free()
+
+	Input.action_release("ui_accept")
+	_legacy_serve_calls = 0
+	var legacy_round := LegacyAutoRoundState.new()
+	var legacy_serve := ServeFlowController.new()
+	legacy_serve.sync_current_input_state()
+	legacy_serve.update(
+		ServeFlowController.PLAYER_AUTO_SERVE_DELAY + 0.01,
+		{"current_stage": 1},
+		{"round_state": legacy_round},
+		{"serve_ball": Callable(self, "_record_legacy_serve")}
+	)
+	_expect(_legacy_serve_calls == 1, "ordinary combat must retain its three-second auto-serve")
+
+
+func _record_legacy_serve() -> void:
+	_legacy_serve_calls += 1
+
+
 func _verify_production_owner_fails_closed_without_serve_dependencies() -> void:
 	var owner := FakeOwner.new()
 	var runtime := TowerAscentRouteServeRuntime.new()
@@ -622,7 +688,6 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 		"res://scripts/tower_ascent/tower_ascent_flow_runtime.gd"
 	)
 	for required_key in [
-		"serve_flow_controller",
 		"battle_scene_ball_update_driver",
 		"ball_motion_stepper",
 		"get_input_reader_key",
@@ -631,6 +696,12 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 		"battle_scene_player_control_config_builder",
 	]:
 		_expect(route_source.find(required_key) >= 0, "route serve must use production dependency: %s" % required_key)
+	_expect(route_source.find("_serve_flow.update") < 0, "ROUTE_AIM must not call the auto-serve controller")
+	_expect(route_source.find("action_just_pressed") >= 0, "ROUTE_AIM must launch only from the shared player input edge")
+	var legacy_serve_source := FileAccess.get_file_as_string(
+		"res://scripts/core/serve_flow_controller.gd"
+	)
+	_expect(legacy_serve_source.find("PLAYER_AUTO_SERVE_DELAY") >= 0, "ordinary combat auto-serve timing must remain intact")
 	for retired_aim_input in ["KEY_LEFT", "KEY_RIGHT", "InputEventMouseMotion", "_launch_selector"]:
 		_expect(flow_source.find(retired_aim_input) < 0, "ROUTE_AIM must not retain deterministic aim input: %s" % retired_aim_input)
 	_expect(route_source.find("RandomNumberGenerator") < 0, "route flow must consume the serve producer's randomness instead of owning another RNG")

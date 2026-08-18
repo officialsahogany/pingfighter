@@ -19,7 +19,6 @@ var _fixture_mode := false
 var _owner: Object = null
 var _registry: Object = null
 var _round_state: Object = null
-var _serve_flow: Object = null
 var _ball_driver: Object = null
 var _motion_stepper: Object = null
 var _input_reader: Object = null
@@ -44,7 +43,6 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 		_active = true
 		return {"accepted": true, "reason": "test_fixture"}
 	_round_state = _get_instance(registry, "round_flow_state")
-	_serve_flow = _get_instance(registry, "serve_flow_controller")
 	_ball_driver = _get_instance(registry, "battle_scene_ball_update_driver")
 	_motion_stepper = _get_instance(registry, "ball_motion_stepper")
 	_character_type = _character_runtime.normalize(_owner_value(
@@ -77,7 +75,6 @@ func cancel() -> void:
 	_owner = null
 	_registry = null
 	_round_state = null
-	_serve_flow = null
 	_ball_driver = null
 	_motion_stepper = null
 	_input_reader = null
@@ -103,12 +100,12 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 	var input_snapshot := _read_player_input_snapshot()
 	_update_player_route_movement(maxf(0.0, delta), input_snapshot)
 	if bool(_round_state.is_waiting_for_serve()):
-		_serve_flow.update(
-			maxf(0.0, delta),
-			{"current_stage": int(_owner_value("current_stage", 1))},
-			{"round_state": _round_state},
-			{"serve_ball": Callable(self, "_serve_live_ball")}
-		)
+		# ROUTE_AIM is intentionally manual-only. The normal ServeFlowController
+		# retains its three-second auto-serve for combat, but this selective flow
+		# consumes the shared idempotent input snapshot and never advances that
+		# timer (v1.7 section 3.2).
+		if bool(input_snapshot.get("action_just_pressed", false)):
+			_serve_live_ball()
 		if bool(_round_state.is_waiting_for_serve()):
 			return {"status": STATUS_WAITING}
 	if not bool(_owner_value("ball_active", false)):
@@ -260,7 +257,6 @@ func _prepare_next_serve() -> void:
 	_round_state.set_player_serves(true)
 	_round_state.reset_round_wait()
 	_ball_driver.reset_ball(_owner, _registry)
-	_serve_flow.sync_current_input_state()
 
 
 func _hide_owned_ball() -> void:
@@ -321,9 +317,6 @@ func _has_production_contract() -> bool:
 		and _round_state.has_method("is_waiting_for_serve")
 		and _round_state.has_method("set_player_serves")
 		and _round_state.has_method("reset_round_wait")
-		and _serve_flow != null
-		and _serve_flow.has_method("update")
-		and _serve_flow.has_method("sync_current_input_state")
 		and _ball_driver != null
 		and _ball_driver.has_method("reset_ball")
 		and _ball_driver.has_method("serve_ball")
