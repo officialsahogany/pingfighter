@@ -209,7 +209,7 @@ S2 착지 후에 계측해야 한다. 오오라 방어 +90 수급과 30% 무료 
 | `TEMP_GOLDEN_CLONE_GLOW_ALPHA` | `stage7_akamu_playfield_renderer.gd` | `0.35` | 베이크 텍스처 언더레이 밝기. GRT-047 대응 밝은 코어 |
 | `TEMP_GOLDEN_CLONE_GLOW_RADIUS_SCALE` | `stage7_akamu_playfield_renderer.gd` | `1.15` | 분신 SIZE 대비 언더레이 반경 배율 |
 | `TEMP_GOLDEN_CLONE_GLITCH_COLORS` | `stage7_akamu_playfield_renderer.gd` | 금·백금 3색 배열 | 소멸 글리치 대체 팔레트 |
-| `TEMP_STAGE7_AWAKENING_ULTIMATE_DELAY_SEC` | `stage7_akamu_superspeed_state.gd` | **미정** | 원본 근거 없음. 사용자 확답 전 착지 금지 |
+| `TEMP_STAGE7_ULTIMATE_COOLDOWN_SEC` | `stage7_akamu_superspeed_state.gd` | `50.0` | 해금 시 초기 쿨다운 + 재사용 쿨다운. 원본 25초에서 신설 이탈 |
 
 캐리어 드랍 물리 상수(DROP_SIZE 12.0 등)는 스테이지 6에서 **이식**하는 값이므로 TEMP를 붙이지 않는다. 오오라 상수는 전부 원본 1:1이므로 신규 상수가 없다.
 
