@@ -372,6 +372,7 @@ func apply(
 		result["speed_limit_disabled"] = bool(speed_limit_disabled_override)
 	if not boss_result.is_empty():
 		for key in [
+			"ball_spin_direction",
 			"boss_collision_cooldown",
 			"commando_bowling_trap_guard_consumed",
 			"commando_bowling_trap_guarded",

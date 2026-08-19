@@ -60,9 +60,12 @@ func apply(
 	if fan_wind_state != null and fan_wind_state.has_method("try_consume_boss_hit"):
 		fan_wind_state.try_consume_boss_hit(context, deps)
 
+	var stage2_result: Dictionary = {}
 	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
 	if stage2_skill_state != null and stage2_skill_state.has_method("register_boss_hit"):
-		stage2_skill_state.register_boss_hit(next_ball_vel, context, deps)
+		stage2_result = stage2_skill_state.register_boss_hit(next_ball_vel, context, deps)
+		next_ball_vel = _get_vector2(stage2_result, "ball_vel", next_ball_vel)
+		next_spin_strength = float(stage2_result.get("ball_spin_strength", next_spin_strength))
 
 	var stage3_skill_state: Object = deps.get("stage3_boss_skill_state", null)
 	if stage3_skill_state != null and stage3_skill_state.has_method("register_boss_hit"):
@@ -195,6 +198,8 @@ func apply(
 		"boss_vel": boss_vel_override,
 		"boss_collision_cooldown": BOSS_COLLISION_COOLDOWN_FRAMES,
 	}
+	if stage2_result.has("ball_spin_direction"):
+		result["ball_spin_direction"] = int(stage2_result.get("ball_spin_direction", 0))
 	if kick_skill_knockback_consumed:
 		result["kick_skill_knockback_consumed"] = true
 	if phantom_speed_limit_was_disabled:

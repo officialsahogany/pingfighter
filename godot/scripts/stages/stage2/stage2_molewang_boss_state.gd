@@ -14,6 +14,8 @@ const TUNNEL_MAX_SPIKES := 10
 const SPINNING_CLAW_COST := 60.0
 const SPINNING_CLAW_COOLDOWN_SEC := 20.0
 const SPINNING_CLAW_DURATION_SEC := 30.0 / 60.0
+const SPINNING_CLAW_BALL_SPEED_MULTIPLIER := 0.8
+const SPINNING_CLAW_SPIN_STRENGTH := 0.55
 const FRIEND_MOLE_SPAWN_SEC := 90.0 / 60.0
 const FRIEND_MOLE_RADIUS := 18.0
 const FRIEND_MOLE_RISE_SEC := 12.0 / 60.0
@@ -124,14 +126,21 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 		boss_special_gauge -= SPINNING_CLAW_COST
 		spinning_claw_timer = SPINNING_CLAW_DURATION_SEC
 		spinning_claw_cooldown = SPINNING_CLAW_COOLDOWN_SEC
-		spinning_claw_direction = 1 if ball_vel.x <= 0.0 else -1
+		var ball_center_x := _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO).x + float(context.get("ball_size", 0.0)) * 0.5
+		var boss_center_x := _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO).x + float(context.get("boss_paddle_width", 0.0)) * 0.5
+		spinning_claw_direction = 1 if ball_center_x < boss_center_x else -1
 		triggered = true
 		_play_audio(deps, "play_stage2_speed_defense_hit")
-	return {
+	var result := {
 		"boss_special_gauge": boss_special_gauge,
 		"stage2_boss_gauge_gain": GAUGE_GAIN_ON_HIT,
 		"molewang_spinning_claw_triggered": triggered,
 	}
+	if triggered:
+		result["ball_vel"] = ball_vel * SPINNING_CLAW_BALL_SPEED_MULTIPLIER
+		result["ball_spin_strength"] = SPINNING_CLAW_SPIN_STRENGTH
+		result["ball_spin_direction"] = spinning_claw_direction
+	return result
 
 
 func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
