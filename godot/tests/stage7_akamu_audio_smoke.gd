@@ -6,6 +6,7 @@ extends SceneTree
 
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage7AkamuAudio := preload("res://scripts/audio/stage7_akamu_audio.gd")
 const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_state.gd")
 
 const EXPECTED_SFX := {
@@ -90,14 +91,7 @@ func _init() -> void:
 
 
 func _verify_exact_assets_and_game_audio_registration() -> void:
-	var expected_paths: Array[String] = [
-		GameAudio.STAGE7_AKAMU_SHURIKEN_SHOOT_SOUND_PATH,
-		GameAudio.STAGE7_AKAMU_SHURIKEN_HIT_SOUND_PATH,
-		GameAudio.STAGE7_AKAMU_CLOUD_SOUND_PATH,
-		GameAudio.STAGE7_AKAMU_AURA_BLOCK_SOUND_PATH,
-		GameAudio.STAGE7_AKAMU_CLONE_SPAWN_SOUND_PATH,
-		GameAudio.STAGE7_AKAMU_CLONE_OUT_SOUND_PATH,
-	]
+	var expected_paths: Array[String] = Stage7AkamuAudio.new().get_prewarm_stream_paths()
 	_expect(expected_paths.size() == 6, "Akamu should register exactly six dedicated battle SFX")
 	for path in expected_paths:
 		_expect(FileAccess.file_exists(path), "%s should exist" % path)

@@ -158,6 +158,9 @@ func _init() -> void:
 func _verify_score_gate_and_awakening_completion() -> void:
 	var state: Object = Stage7AkamuState.new()
 	var score_state := FakeScoreState.new()
+	# 각성 임계값은 소유 상수에서 파생한다(리터럴 3은 7점제 재보정에서 깨졌다).
+	# 이 점수에서 한 점 더 넣으면 정확히 임계값에 도달한다.
+	score_state.player_score = Stage7AkamuState.AWAKEN_SCORE_THRESHOLD - 1
 	var reset_probe := ResetProbe.new()
 	MatchScoreEventController.new().handle_score_event("player", {
 		"score_state": score_state,
@@ -167,11 +170,11 @@ func _verify_score_gate_and_awakening_completion() -> void:
 		"reset_ball": Callable(reset_probe, "reset_ball"),
 	})
 	var actor_context: Dictionary = state.get_actor_draw_context()
-	_expect(score_state.player_score == 3, "the accepted player score should commit the third point")
+	_expect(score_state.player_score == Stage7AkamuState.AWAKEN_SCORE_THRESHOLD, "the accepted player score should commit the awaken-threshold point")
 	_expect(reset_probe.calls == 1, "the accepted score should reach normal ball reset once")
 	_expect(
 		bool(actor_context.get("stage7_akamu_awakening_trigger_armed", false)),
-		"the accepted third player point should arm Awakening"
+		"the accepted awaken-threshold player point should arm Awakening"
 	)
 	_expect(
 		not bool(actor_context.get("stage7_akamu_awakening_intro_pending", true)),
@@ -234,7 +237,7 @@ func _verify_awakening_superspeed_chain_respects_live_pause() -> void:
 	]:
 		var state: Object = Stage7AkamuState.new()
 		state.debug_set_gauge(250.0)
-		state.handle_score_event("player", {"player_score": 3})
+		state.handle_score_event("player", {"player_score": Stage7AkamuState.AWAKEN_SCORE_THRESHOLD})
 		_expect(state.try_begin_pending_awakening(), "%s setup should start Awakening" % pause_key)
 		var freeze_context: Dictionary = _base_context()
 		freeze_context[pause_key] = true

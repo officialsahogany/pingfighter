@@ -24,7 +24,7 @@ const TOOLTIP_STYLE := {
 const TOOLTIP_INFO := {
 	"stage7_clone": {
 		"name": "그림자분신",
-		"trigger": "게이지 100 · 패들 반사 시 25%",
+		"trigger": "게이지 100 · 받아칠 때 25%",
 		"cooldown": "8초",
 		"description": "0.5초 시전 후 일반 상태에서는 2체, 초각성 상태에서는 4체의 분신을 전개합니다. 분신은 10초 동안 이동하며 공을 받으면 대신 반사하고 사라집니다.",
 	},
@@ -32,11 +32,11 @@ const TOOLTIP_INFO := {
 		"name": "표창",
 		"trigger": "게이지 30",
 		"cooldown": "8~25초",
-		"description": "0.3초 시전 후 플레이어를 다시 조준해 표창을 던집니다. 적중하면 2초 동안 이동 속도를 80% 낮추고 게이지를 최대 60 감소시킵니다.",
+		"description": "0.3초 시전 후 플레이어를 다시 조준해 표창을 던집니다. 적중하면 2초 동안 이동 속도를 80% 낮추고 기력을 최대 60 감소시킵니다.",
 	},
 	"stage7_cloud": {
 		"name": "구름장막",
-		"trigger": "게이지 120 · 패들 반사 시 35%",
+		"trigger": "게이지 120 · 받아칠 때 35%",
 		"cooldown": "10~20초",
 		"description": "0.4초 집중 후 중앙에서 하강해 넓은 구름을 펼치고 복귀합니다. 구름은 약 8.3초 동안 전장을 가리고, 돌진 중에는 공을 통과합니다.",
 	},
@@ -44,7 +44,7 @@ const TOOLTIP_INFO := {
 		"name": "극정호신",
 		"trigger": "초각성 · 게이지 250",
 		"cooldown": "종료 후 25초",
-		"description": "0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 대시합니다. 지속 중 패들 반사의 게이지 수급은 20으로 감소합니다.",
+		"description": "0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주합니다. 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.",
 	},
 }
 
@@ -225,7 +225,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	canvas.draw_rect(rect, border, false, maxf(1.0, round((1.5 if active or ready else 1.0) * scale_factor)))
 
 	var side_width := maxf(1.0, round(SIDE_STRIP_BASE * scale_factor))
-	# 2분법: 보스 스킬 = 붉은 띠(적). 링펫 카드는 위 is_lingpet 분기에서 청록 띠로 그림.
+	# 2분법: 보스 스킬 = 붉은 띠(적). 수호령 카드는 위 is_lingpet 분기에서 청록 띠로 그림.
 	canvas.draw_rect(Rect2(rect.position, Vector2(side_width, rect.size.y)), BossSkillCardHudSpec.BOSS_SKILL_STRIP_COLOR)
 	var font := ThemeDB.fallback_font
 	var active_count: int = int(skill.get("active_count", 0))
