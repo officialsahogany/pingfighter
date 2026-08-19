@@ -56,9 +56,14 @@ class CaptureLoadingRenderer:
 
 class CaptureFlowOwner:
 	extends RefCounted
+	var start_card_result: Dictionary = {}
 
 	func get_run_id() -> String:
 		return "tower-start-card-visual-qa"
+
+	func record_start_card_result(result: Dictionary) -> bool:
+		start_card_result = result.duplicate(true)
+		return true
 
 
 class CaptureUnlockStore:

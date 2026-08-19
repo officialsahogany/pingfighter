@@ -30,6 +30,15 @@ func _verify_new_run_and_sanitization() -> void:
 		"run economy must clamp negative inputs without inventing another currency"
 	)
 	_expect(
+		state.get_start_card_result() == {
+			"consumed": true,
+			"picked_perk_id": "",
+			"picked_kind": "",
+			"offer_ids": PackedStringArray(),
+		},
+		"missing start-card progress must default to consumed for legacy-save safety"
+	)
+	_expect(
 		state.set_phases([
 			{"id": "phase_01", "nodes": [], "edges": []},
 			{"id": "phase_02", "nodes": [], "edges": []},
@@ -42,6 +51,17 @@ func _verify_snapshot_round_trip() -> void:
 	var source := TowerAscentRunState.new()
 	source.begin("round-trip", {"gold": 11, "muhon": 13, "chance_gems": 1})
 	source.mark_boss_skipped("floor_02_molewang")
+	var start_card_result := {
+		"consumed": true,
+		"picked_perk_id": "common_swiftness",
+		"picked_kind": "mugong",
+		"offer_ids": PackedStringArray(["common_swiftness", "megingjord", "dash_amplification"]),
+	}
+	_expect(source.record_start_card_result(start_card_result), "valid start-card result must be recorded once")
+	_expect(source.record_start_card_result(start_card_result), "identical start-card replay must be idempotent")
+	var conflicting_result := start_card_result.duplicate(true)
+	conflicting_result["picked_perk_id"] = "megingjord"
+	_expect(not source.record_start_card_result(conflicting_result), "a different second start-card result must be rejected")
 	source.set_phases([
 		{"id": "phase_01", "nodes": [{"id": "node_01"}], "edges": []},
 		{"id": "phase_02", "nodes": [{"id": "node_02"}], "edges": []},
@@ -58,6 +78,7 @@ func _verify_snapshot_round_trip() -> void:
 	_expect(restored.get_phases() == source.get_phases(), "restore must preserve phase graph data")
 	_expect(restored.get_active_phase_index() == 1, "restore must preserve the active realm index")
 	_expect(restored.get_skipped_boss_ids() == ["floor_02_molewang"], "restore must preserve run-owned avoided boss slots")
+	_expect(restored.get_start_card_result() == start_card_result, "restore must preserve the complete start-card ledger")
 
 
 func _verify_rejected_snapshots_do_not_restore() -> void:

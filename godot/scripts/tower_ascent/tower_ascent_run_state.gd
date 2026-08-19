@@ -17,6 +17,12 @@ var _phases: Array[Dictionary] = []
 var _active_phase_index := 0
 var _skipped_boss_ids: Array[String] = []
 var _burned_vision_boss_ids: Array[String] = []
+var _start_card_result: Dictionary = {
+	"consumed": true,
+	"picked_perk_id": "",
+	"picked_kind": "",
+	"offer_ids": PackedStringArray(),
+}
 
 
 func begin(
@@ -39,6 +45,7 @@ func begin(
 		return false
 	_skipped_boss_ids.assign(_sanitize_ids(progress.get("skipped_boss_ids", [])))
 	_burned_vision_boss_ids.assign(_sanitize_ids(progress.get("burned_vision_boss_ids", [])))
+	_start_card_result = _sanitize_start_card_result(progress.get("start_card", {}))
 	return true
 
 
@@ -51,6 +58,7 @@ func reset() -> void:
 	_active_phase_index = 0
 	_skipped_boss_ids.clear()
 	_burned_vision_boss_ids.clear()
+	_start_card_result = _default_start_card_result()
 
 
 func restore_snapshot(snapshot: Dictionary) -> bool:
@@ -89,6 +97,7 @@ func export_snapshot_fields() -> Dictionary:
 			"active_phase_index": _active_phase_index,
 			"skipped_boss_ids": _skipped_boss_ids.duplicate(),
 			"burned_vision_boss_ids": _burned_vision_boss_ids.duplicate(),
+			"start_card": _start_card_result.duplicate(true),
 		},
 	}
 
@@ -236,6 +245,31 @@ func get_burned_vision_boss_ids() -> Array[String]:
 	return _burned_vision_boss_ids.duplicate()
 
 
+func record_start_card_result(result: Dictionary) -> bool:
+	if not has_started():
+		return false
+	var sanitized := _sanitize_start_card_result(result)
+	var picked_perk_id := str(sanitized.get("picked_perk_id", ""))
+	var picked_kind := str(sanitized.get("picked_kind", ""))
+	var offer_ids := sanitized.get("offer_ids", PackedStringArray()) as PackedStringArray
+	if (
+		not bool(sanitized.get("consumed", false))
+		or picked_perk_id.is_empty()
+		or picked_kind not in ["chosik", "mugong"]
+		or not offer_ids.has(picked_perk_id)
+	):
+		return false
+	var existing_id := str(_start_card_result.get("picked_perk_id", ""))
+	if not existing_id.is_empty():
+		return _start_card_result == sanitized
+	_start_card_result = sanitized
+	return true
+
+
+func get_start_card_result() -> Dictionary:
+	return _start_card_result.duplicate(true)
+
+
 func consume_chance_gem() -> Dictionary:
 	if _chance_gems <= 0:
 		return {"accepted": false, "remaining": 0, "reason": "empty"}
@@ -268,4 +302,33 @@ func _sanitize_ids(value: Variant) -> Array[String]:
 			var normalized := str(entry).strip_edges()
 			if not normalized.is_empty() and not result.has(normalized):
 				result.append(normalized)
+	return result
+
+
+func _default_start_card_result() -> Dictionary:
+	return {
+		"consumed": true,
+		"picked_perk_id": "",
+		"picked_kind": "",
+		"offer_ids": PackedStringArray(),
+	}
+
+
+func _sanitize_start_card_result(value: Variant) -> Dictionary:
+	var result := _default_start_card_result()
+	if not (value is Dictionary):
+		return result
+	var source := value as Dictionary
+	result["consumed"] = bool(source.get("consumed", true))
+	result["picked_perk_id"] = str(source.get("picked_perk_id", "")).strip_edges()
+	var picked_kind := str(source.get("picked_kind", "")).strip_edges()
+	result["picked_kind"] = picked_kind if picked_kind in ["chosik", "mugong"] else ""
+	var offer_ids := PackedStringArray()
+	var offer_value: Variant = source.get("offer_ids", [])
+	if offer_value is Array or offer_value is PackedStringArray:
+		for entry in offer_value:
+			var normalized := str(entry).strip_edges()
+			if not normalized.is_empty() and not offer_ids.has(normalized):
+				offer_ids.append(normalized)
+	result["offer_ids"] = offer_ids
 	return result

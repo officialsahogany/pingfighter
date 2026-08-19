@@ -18,6 +18,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 var _failures: Array[String] = []
 var _reset_calls := 0
@@ -180,6 +183,8 @@ class FakeModalPause:
 
 class FakeTowerModalRuntime:
 	extends RefCounted
+	var current_choice_context: Dictionary = {}
+	var runtime_skill_levels: Dictionary = {}
 
 	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
 		pass
@@ -192,6 +197,18 @@ class FakeTowerModalRuntime:
 
 	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
 		pass
+
+	func apply_choice_at_target_level(
+		choice: Dictionary,
+		target_level: int,
+		_owner: Object,
+		_registry: Object
+	) -> bool:
+		var perk_id := str(choice.get("id", "")).strip_edges()
+		if perk_id.is_empty():
+			return false
+		runtime_skill_levels[perk_id] = target_level
+		return true
 
 
 class FakeRoundFlowState:
@@ -358,8 +375,9 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 	_shell_finish_calls = 0
 	var flow := TowerAscentFlowOwner.new()
 	var registry := FakeRegistry.new()
+	var runtime_state := FakeTowerModalRuntime.new()
 	registry.instances = {
-		"runtime_perk_state": FakeTowerModalRuntime.new(),
+		"runtime_perk_state": runtime_state,
 		"round_flow_state": FakeRoundFlowState.new(),
 		"battle_scene_ball_update_driver": FakeBallUpdateDriver.new(),
 		"ball_motion_stepper": FakeBallMotionStepper.new(),
@@ -377,11 +395,47 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 	_expect(bool(prewarm.get("accepted", false)), "real BattleSceneShell boot prewarm must start the run-local economy")
 	var run_id := str(prewarm.get("run_id", ""))
 	_expect(not run_id.is_empty(), "real-shell prewarm must expose its run id")
+	var start_choice := {
+		"id": "start_card_mugong_fixture",
+		"start_card_kind": "mugong",
+	}
+	_expect(
+		runtime_state.apply_choice_at_target_level(
+			start_choice,
+			TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL,
+			owner,
+			registry
+		),
+		"start-card fixture must apply its Mugong before the first prepare"
+	)
+	var start_card_result := {
+		"consumed": true,
+		"picked_perk_id": "start_card_mugong_fixture",
+		"picked_kind": "mugong",
+		"offer_ids": PackedStringArray([
+			"start_card_mugong_fixture",
+			"start_card_mugong_second",
+			"start_card_mugong_third",
+		]),
+	}
+	_expect(
+		flow.record_start_card_result(start_card_result),
+		"start-card selection must commit its result to the prewarmed run"
+	)
 
 	var first_context := {"current_stage": 1, "registry": registry}
 	_expect(
 		flow.prepare_vertical_slice_combat(owner, first_context),
 		"real BattleSceneShell first victory must prepare after boot prewarm"
+	)
+	_expect(
+		flow.get_start_card_result() == start_card_result,
+		"first prepare must preserve the complete prewarmed start-card ledger"
+	)
+	_expect(
+		int(runtime_state.runtime_skill_levels.get("start_card_mugong_fixture", 0))
+		== TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL,
+		"first prepare must preserve the applied runtime Mugong level-two value"
 	)
 	_expect(
 		flow.begin_vertical_slice(
@@ -392,6 +446,10 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 		"real BattleSceneShell first victory must activate the tower slice"
 	)
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "real-shell first victory must enter ROUTE_AIM")
+	_expect(
+		flow.export_snapshot().run_progress.start_card == start_card_result,
+		"first victory snapshot must serialize the selected start-card result"
+	)
 
 	var targets: Array[Dictionary] = flow.get_route_aim_targets()
 	_expect(not targets.is_empty(), "real-shell first route must expose a selectable target")
@@ -569,6 +627,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	]
 	for key in required_keys:
 		_expect(snapshot.has(key), "snapshot must include required field: %s" % key)
+	_expect(snapshot.run_progress.has("start_card"), "run_progress must include the start-card ledger")
 	_expect(snapshot.run_state == {"gold": 22, "muhon": 25, "chance_gems": 2}, "node transaction must grant the prepared run-local reward exactly once")
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot), "the fixed-graph snapshot must restore")
@@ -582,6 +641,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	_expect(first_phase.nodes.size() > 4 and first_phase.edges.size() > 3 and not second_phase.nodes.is_empty(), "serialized phases must include generated nodes and edges")
 	_expect(round_trip.completed_nodes == snapshot.completed_nodes, "snapshot restore must preserve node_resolution_id records")
 	_expect(round_trip.run_state == snapshot.run_state, "snapshot restore must preserve run-local economy")
+	_expect(round_trip.run_progress.start_card == snapshot.run_progress.start_card, "snapshot restore must preserve start-card progress")
 	_expect(round_trip.reward_pick_history == snapshot.reward_pick_history, "snapshot restore must preserve reward-pick transaction history")
 	_expect(not source.export_persistable_snapshot().is_empty(), "post-commit stable boundary must export a persistable snapshot")
 	var unstable_snapshot := snapshot.duplicate(true)

@@ -20,6 +20,7 @@ var _offer_builder: Object = TowerStartCardOfferBuilder.new()
 var _owner: Object = null
 var _registry: Object = null
 var _runtime_state: Object = null
+var _flow_owner: Object = null
 var _catalog: Object = null
 var _card_renderer: Object = null
 var _icon_renderer: Object = null
@@ -57,10 +58,23 @@ func begin(owner: Object, registry: Object) -> bool:
 	_catalog = _get_registry_instance(registry, "runtime_perk_catalog")
 	_card_renderer = _get_registry_instance(registry, "runtime_perk_overlay_renderer")
 	_icon_renderer = _get_registry_instance(registry, "runtime_perk_icon_renderer")
-	var flow_owner := _get_registry_instance(registry, "tower_ascent_flow_owner")
+	_flow_owner = _get_registry_instance(registry, "tower_ascent_flow_owner")
 	var run_id := ""
-	if flow_owner != null and flow_owner.has_method("get_run_id"):
-		run_id = str(flow_owner.call("get_run_id"))
+	if _flow_owner != null and _flow_owner.has_method("get_run_id"):
+		run_id = str(_flow_owner.call("get_run_id"))
+	if (
+		run_id.is_empty()
+		or _flow_owner == null
+		or not _flow_owner.has_method("record_start_card_result")
+	):
+		_completed = true
+		_skipped = true
+		_selection_result = {
+			"accepted": false,
+			"reason": "missing_start_card_progress_owner",
+			"skipped": true,
+		}
+		return false
 	var started_usec := Time.get_ticks_usec()
 	var offer: Dictionary = _offer_builder.build_offer(run_id, owner, registry)
 	_cold_build_msec = float(Time.get_ticks_usec() - started_usec) / 1000.0
@@ -197,12 +211,30 @@ func select_slot(index: int) -> bool:
 		if _runtime_state != null and _runtime_state.has_method("cancel_pending_unlock_swap"):
 			_runtime_state.call("cancel_pending_unlock_swap", _owner)
 		accepted = false
+	var offer_ids := _get_offer_ids()
+	var progress_result := {
+		"consumed": true,
+		"picked_perk_id": str(selected.get("id", "")),
+		"picked_kind": str(selected.get("start_card_kind", "")),
+		"offer_ids": offer_ids,
+	}
+	var progress_record_failed := false
+	if accepted:
+		accepted = bool(_flow_owner.call("record_start_card_result", progress_result))
+		if not accepted:
+			progress_record_failed = true
+			push_error("[TowerStartCard] applied choice could not be recorded in run_progress")
 	_selection_result = {
 		"accepted": accepted,
-		"reason": "applied" if accepted else "start_card_grant_failed",
+		"reason": (
+			"applied"
+			if accepted
+			else "start_card_progress_record_failed" if progress_record_failed else "start_card_grant_failed"
+		),
 		"skipped": not accepted,
 		"picked_perk_id": str(selected.get("id", "")) if accepted else "",
 		"picked_kind": str(selected.get("start_card_kind", "")) if accepted else "",
+		"offer_ids": offer_ids if accepted else PackedStringArray(),
 		"pending_swap_started": pending_swap_started,
 	}
 	if accepted:
@@ -337,6 +369,7 @@ func tear_down() -> void:
 	_owner = null
 	_registry = null
 	_runtime_state = null
+	_flow_owner = null
 	_catalog = null
 	_card_renderer = null
 	_icon_renderer = null
@@ -481,6 +514,15 @@ func _prewarm_card_assets() -> void:
 		_card_renderer.call("prewarm_traditional_choice_assets")
 	if _icon_renderer != null and _icon_renderer.has_method("prewarm_assets"):
 		_icon_renderer.call("prewarm_assets")
+
+
+func _get_offer_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for choice in _card_choices:
+		var perk_id := str(choice.get("id", "")).strip_edges()
+		if not perk_id.is_empty() and not result.has(perk_id):
+			result.append(perk_id)
+	return result
 
 
 func _get_view_size(owner: Object) -> Vector2:

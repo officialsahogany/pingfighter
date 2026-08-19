@@ -49,6 +49,11 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	)
 	var existing_run_id: String = str(_run_state.get_run_id())
 	var existing_economy: Dictionary = _run_state.export_economy()
+	var existing_start_card: Dictionary = (
+		_run_state.get_start_card_result()
+		if reuse_existing_run
+		else {}
+	)
 	var existing_progress := _capture_reentry_progress() if restore_existing_progress else {}
 	var existing_map_seed := _map_seed
 	var existing_combat_node_id := str(existing_progress.get("current_node_id", ""))
@@ -64,6 +69,8 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	var economy: Dictionary = economy_variant if economy_variant is Dictionary else {}
 	var run_progress_variant: Variant = existing_progress.get("run_progress", {})
 	var progress: Dictionary = run_progress_variant if run_progress_variant is Dictionary else {}
+	if reuse_existing_run:
+		progress["start_card"] = existing_start_card.duplicate(true)
 	if not _run_state.begin(run_id, economy, [], progress):
 		push_warning("[TowerAscent] prepare rejected: run_state_begin_failed")
 		return false
@@ -139,6 +146,7 @@ func _capture_reentry_progress() -> Dictionary:
 			"active_phase_index": _run_state.get_active_phase_index(),
 			"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
 			"burned_vision_boss_ids": _run_state.get_burned_vision_boss_ids(),
+			"start_card": _run_state.get_start_card_result(),
 		},
 	}
 	for field_name in REENTRY_PROGRESS_FIELDS:
@@ -324,6 +332,16 @@ func get_current_node_risk_context() -> Dictionary:
 
 func get_run_id() -> String:
 	return _run_state.get_run_id()
+
+
+func record_start_card_result(result: Dictionary) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	return _run_state.record_start_card_result(result)
+
+
+func get_start_card_result() -> Dictionary:
+	return _run_state.get_start_card_result()
 
 func get_map_seed() -> int:
 	return _map_seed

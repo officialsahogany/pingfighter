@@ -52,15 +52,19 @@
   `_completed_nodes`, `_resolution_ids`, `_purchase_history`,
   `_generated_shop_inventory`, `_current_node_id`, `_graph_*`를 전부 비우고
   `_run_state.reset()`까지 부른다.
-- `prepare_vertical_slice_combat`의 캐리오버 allowlist는
-  `{"skipped_boss_ids": ...}` **하나뿐**이다(`map_progress.gd:10-12`).
-  경제 3종·run_id·map_seed는 별도 인자로 살아남는다.
+- 현재 `prepare_vertical_slice_combat`의 캐리오버 대상은
+  `REENTRY_PROGRESS_FIELDS` 23개와 `run_progress` 4개를 합친 **27필드**로
+  넓어졌다. 다만 지도가 아직 없는 첫 prepare에서는
+  `restore_existing_progress` 게이트가 닫혀 이 일반 캐리오버가 전부 미적용된다.
+  경제 3종·run_id·map_seed와 시작 카드 `run_progress.start_card`만 각자의
+  명시적 첫-prepare 보존 경로로 살아남는다.
 - **조치**: 비전초식 소멸 목록은 `TowerAscentRunState` 진행 필드로 두고
   `skipped_boss_ids`와 동급으로 캐리오버 allowlist·`run_state.begin()` progress
   인자에 함께 등재한다. flow owner의 새 배열에 두면 다음 승리 한 번에 지워져
   비전초식이 재등장한다.
-- 부정 레그 씰은 반드시 `prepare_vertical_slice_combat`를 **두 번** 관통해야
-  유효하다. 단일 인스턴스 직접 호출은 false-GREEN이다.
+- 부정 레그 씰은 일반 재진입 필드라면 `prepare_vertical_slice_combat`를
+  **두 번** 관통해야 유효하다. 시작 카드는 첫 prepare 자체가 경계이므로
+  prewarm → 선택 적용 → **첫** prepare 순서로 별도 봉인한다.
 
 ### P1-C. 픽을 탑 신규 페이즈로 만들면 입력이 죽는다 `[미확인]`
 

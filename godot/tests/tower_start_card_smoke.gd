@@ -86,9 +86,16 @@ class FakeFlowOwner:
 	extends RefCounted
 
 	var run_id := "tower-start-card-run"
+	var recorded_start_card: Dictionary = {}
 
 	func get_run_id() -> String:
 		return run_id
+
+	func record_start_card_result(result: Dictionary) -> bool:
+		if not recorded_start_card.is_empty():
+			return recorded_start_card == result
+		recorded_start_card = result.duplicate(true)
+		return true
 
 
 class FakeUnlockStore:
@@ -600,7 +607,11 @@ func _verify_apply_and_single_pick_contract() -> void:
 	_expect(mugong_state.select_slot(mugong_index), "Mugong start card must apply")
 	var mugong_result := mugong_state.get_selection_result()
 	var mugong_id := str(mugong_result.get("picked_perk_id", ""))
+	var recorded_mugong: Dictionary = (mugong_fixture.flow_owner as FakeFlowOwner).recorded_start_card
+	var recorded_offer_ids: PackedStringArray = recorded_mugong.get("offer_ids", PackedStringArray())
 	_expect(int((mugong_fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(mugong_id, 0)) == 2, "Mugong choice must set the actual runtime level to two")
+	_expect(str(recorded_mugong.get("picked_perk_id", "")) == mugong_id, "accepted start card must record its picked perk in the run-progress owner")
+	_expect(recorded_offer_ids.has(mugong_id), "recorded start-card offer ids must contain the picked perk")
 	_expect((mugong_fixture.runtime_state as FakeRuntimeState).target_apply_calls == 1, "Mugong two-star grant must call the target-level entry exactly once")
 	_expect((mugong_fixture.runtime_state as FakeRuntimeState).apply_calls == 0, "Mugong two-star grant must not call the one-level entry twice")
 	_expect(str((mugong_fixture.runtime_state as FakeRuntimeState).seen_context.get("source", "")) == "tower_start_card", "grant must expose tower_start_card source")
