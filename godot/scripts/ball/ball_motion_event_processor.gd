@@ -61,6 +61,8 @@ func step_motion(
 		_process_holy_barrier(step_result, scene, context, deps)
 	elif event == "adversity_armor":
 		_process_adversity_armor(step_result, scene, deps)
+	elif event == "stage7_wind_aura":
+		_process_stage7_wind_aura(step_result, scene)
 	elif event == "player_paddle" or event == "boss_paddle":
 		# 패들 이벤트의 오버드라이브 반사는 이벤트명 선판정이 아니라 실제
 		# 반사 커밋 여부로 게이트한다 — 무형화 무시·컨트롤러 부재·빈 결과에서
@@ -103,6 +105,11 @@ func _process_sand_terrain(step_result: Dictionary, scene: Dictionary, deps: Dic
 		)
 
 
+func _process_stage7_wind_aura(step_result: Dictionary, scene: Dictionary) -> void:
+	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+	scene["ball_vel"] = _get_vector2(step_result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
+
+
 func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionary) -> Dictionary:
 	var step_context: Dictionary = {
 		"ball_size": float(context.get("ball_size", 28.6)),
@@ -127,11 +134,37 @@ func _build_step_context(context: Dictionary, scene: Dictionary, deps: Dictionar
 		"stopwatch_score_blocking": bool(context.get("stopwatch_score_blocking", false)),
 		"stopwatch_recovery_active": bool(context.get("stopwatch_recovery_active", false)),
 		"perk_resume_score_blocking": bool(context.get("perk_resume_score_blocking", false)),
+		"lingpet_star_coil_freeze_boss_skill_cd": bool(context.get(
+			"lingpet_star_coil_freeze_boss_skill_cd",
+			false
+		)),
 		"weather_event_state": deps.get("weather_event_state", null),
 	}
+	step_context["stage7_akamu_state"] = deps.get(
+		"stage7_akamu_state",
+		context.get("stage7_akamu_state", null)
+	)
+	step_context["stage7_akamu_audio"] = deps.get(
+		"audio",
+		context.get("stage7_akamu_audio", null)
+	)
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("get_ball_collision_context"):
 		step_context.merge(active_item_runtime.get_ball_collision_context(), true)
+	if (
+		step_context.get("stage7_akamu_state", null) != null
+		and active_item_runtime != null
+		and active_item_runtime.has_method("get_boss_ai_context")
+	):
+		var active_item_boss_context: Dictionary = active_item_runtime.get_boss_ai_context()
+		if active_item_boss_context.has("active_item_tear_gas_cooldown_pause_active"):
+			step_context["active_item_tear_gas_cooldown_pause_active"] = active_item_boss_context[
+				"active_item_tear_gas_cooldown_pause_active"
+			]
+		if active_item_boss_context.has("active_item_boss_skill_cooldown_paused"):
+			step_context["active_item_boss_skill_cooldown_paused"] = active_item_boss_context[
+				"active_item_boss_skill_cooldown_paused"
+			]
 	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_ball_collision_context"):
 		step_context.merge(mythic_item_runtime.get_ball_collision_context(), true)

@@ -6,6 +6,7 @@ const EVENT_NONE := "none"
 const EVENT_PLAYER_SCORED := "player_scored"
 const EVENT_BOSS_SCORED := "boss_scored"
 const EVENT_ADVERSITY_ARMOR := "adversity_armor"
+const EVENT_STAGE7_WIND_AURA := "stage7_wind_aura"
 
 var collision_detector: Object = BallMotionCollisionDetector.new()
 
@@ -22,6 +23,7 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 
 	var step_move: Vector2 = effective_move / float(num_steps)
 	for _step in range(num_steps):
+		var prev_substep_pos: Vector2 = ball_pos
 		ball_pos += step_move
 		var sand_result: Dictionary = collision_detector.check_sand_terrain(ball_pos, ball_vel, ball_size, context)
 		if not sand_result.is_empty():
@@ -53,6 +55,32 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 			trampoline_result["ball_pos"] = trampoline_result.get("ball_pos", ball_pos)
 			return trampoline_result
 
+		if context.get("stage7_akamu_state", null) != null:
+			var clone_result: Dictionary = _query_stage7_clone_collision(
+				prev_substep_pos,
+				ball_pos,
+				ball_vel,
+				context
+			)
+			if not clone_result.is_empty():
+				return {
+					"event": EVENT_NONE,
+					"ball_pos": ball_pos,
+					"stage7_akamu_clone_collision_reserved": true,
+				}
+
+			var wind_aura_result: Dictionary = _check_stage7_wind_aura(
+				ball_pos,
+				ball_vel,
+				ball_size,
+				context
+			)
+			if not wind_aura_result.is_empty():
+				wind_aura_result["event"] = EVENT_STAGE7_WIND_AURA
+				wind_aura_result["ball_pos"] = wind_aura_result.get("ball_pos", ball_pos)
+				wind_aura_result["ball_vel"] = wind_aura_result.get("ball_vel", ball_vel)
+				return wind_aura_result
+
 		var paddle_result: Dictionary = collision_detector.check_paddles(ball_pos, ball_vel, ball_size, context)
 		if not paddle_result.is_empty():
 			paddle_result["ball_pos"] = ball_pos
@@ -82,3 +110,27 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 			return {"event": EVENT_BOSS_SCORED, "ball_pos": ball_pos}
 
 	return {"event": EVENT_NONE, "ball_pos": ball_pos}
+
+
+func _query_stage7_clone_collision(
+	from_pos: Vector2,
+	to_pos: Vector2,
+	ball_vel: Vector2,
+	context: Dictionary
+) -> Dictionary:
+	var state: Object = context.get("stage7_akamu_state", null)
+	if state == null or not state.has_method("query_clone_ball_collision"):
+		return {}
+	return state.query_clone_ball_collision(from_pos, to_pos, ball_vel, context)
+
+
+func _check_stage7_wind_aura(
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	_ball_size: float,
+	context: Dictionary
+) -> Dictionary:
+	var state: Object = context.get("stage7_akamu_state", null)
+	if state == null or not state.has_method("resolve_wind_aura_collision"):
+		return {}
+	return state.resolve_wind_aura_collision(ball_pos, ball_vel, context)
