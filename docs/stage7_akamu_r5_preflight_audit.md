@@ -59,7 +59,7 @@
 
 **L4. 항목 1. 황금 그림자분신 + 무혼 캐리어 신설**
 분신 dict의 golden 필드, 드랍 캐리어 파일 1개, 훅 4곳, 채널 키 1개, 드로 함수 1개.
-근거: 구현 자체는 L1~L3과 독립이라 언제든 넣을 수 있으나, **밸런스 상수를 확정할 수 있는 시점은 L2 이후뿐**이다. 오오라 복구가 30% 무료 분신 시전을 되살려 분신 세트 스폰 빈도를 올리므로, L2 이전에 측정한 `TEMP_GOLDEN_CLONE_CHANCE`는 즉시 폐기값이 된다. 배선 착지 자체를 앞당기고 싶다면 상수를 확정하지 않은 채 L2 앞에 넣어도 되지만, 그 경우 튜닝 커밋이 L2 뒤에 반드시 한 번 더 온다.
+근거: 구현 자체는 L1~L3과 독립이라 언제든 넣을 수 있으나, **밸런스 상수를 확정할 수 있는 시점은 L2 이후뿐**이다. 오오라 복구가 30% 무료 분신 시전을 되살려 분신 세트 스폰 빈도를 올리므로, L2 이전에 측정한 `TEMP_GOLDEN_CHANCE`는 즉시 폐기값이 된다. 배선 착지 자체를 앞당기고 싶다면 상수를 확정하지 않은 채 L2 앞에 넣어도 되지만, 그 경우 튜닝 커밋이 L2 뒤에 반드시 한 번 더 온다.
 
 **L5. 항목 3-c. 신설 유예 상수 (사용자 확답 시에만)**
 L3 계측 결과를 보고 사용자가 원본 이탈을 승인하면, `stage7_akamu_superspeed_state.gd`에 유예를 넣는다.
@@ -189,7 +189,7 @@ S2 착지 후에 계측해야 한다. 오오라 방어 +90 수급과 30% 무료 
 
 **S3-c. 신설 유예 (사용자 확답 시에만)**
 
-소유자는 `stage7_akamu_awakening_state.gd`가 아니라 `stage7_akamu_superspeed_state.gd`다. `try_start()`(:116-156)가 이미 `cooldown_remaining_sec > 0.0` 게이트(:127)를 갖고 있으므로, `complete_awakening` 직후 `set_cooldown_remaining(TEMP_STAGE7_AWAKENING_ULTIMATE_DELAY_SEC)`(:108-110)를 호출하는 것이 기존 게이트를 재사용하는 최소 변경이다.
+소유자는 `stage7_akamu_awakening_state.gd`가 아니라 `stage7_akamu_superspeed_state.gd`다. `try_start()`(:116-156)가 이미 `cooldown_remaining_sec > 0.0` 게이트(:127)를 갖고 있으므로, `complete_awakening` 직후 `set_cooldown_remaining(Stage7AkamuSuperspeedState.COOLDOWN_SEC)`를 호출하는 것이 기존 게이트를 재사용하는 최소 변경이다.
 
 `_complete_awakening`(`stage7_akamu_state.gd:631-635`)의 인라인 조건절에 리터럴을 새로 심는 것은 금지다(GRT-054 파생 임계값 리터럴 트랩 재발).
 
@@ -201,15 +201,15 @@ S2 착지 후에 계측해야 한다. 오오라 방어 +90 수급과 30% 무료 
 
 전부 신설값이며 원본 근거가 없다. 튜닝은 이 상수 하나만 고치면 되도록 단일 정본을 둔다(GRT-054 회피).
 
-| 상수명 | 소유 파일 | 초기 제안값 | 성격 |
+| 상수명 | 소유 파일 | R5 확정값 | 성격 |
 |---|---|---|---|
-| `TEMP_GOLDEN_CLONE_CHANCE` | `stage7_akamu_clone_state.gd` | `0.60` | 개체 단위 황금 굴림 확률. 보스 피격 드랍 병용 시 0.40 이하 재조정 필요 |
-| `TEMP_GOLDEN_CLONE_MUHON_DROPS` | `stage7_akamu_clone_state.gd` | `1` | 황금 분신 1기 처치당 드랍 개수 |
+| `TEMP_GOLDEN_CHANCE` | `stage7_akamu_clone_state.gd` | `0.50` | 개체 단위 황금 굴림 확률. R5 정본 계약에서 확정 |
+| `TEMP_GOLDEN_MUHON_DROPS` | `stage7_akamu_clone_state.gd` | `1` | 황금 분신 1기 처치당 드랍 개수 |
 | `TEMP_GOLDEN_CLONE_TINT` | `stage7_akamu_playfield_renderer.gd` | `Color(1.0, 0.82, 0.32)` | 곱연산 틴트 |
 | `TEMP_GOLDEN_CLONE_GLOW_ALPHA` | `stage7_akamu_playfield_renderer.gd` | `0.35` | 베이크 텍스처 언더레이 밝기. GRT-047 대응 밝은 코어 |
 | `TEMP_GOLDEN_CLONE_GLOW_RADIUS_SCALE` | `stage7_akamu_playfield_renderer.gd` | `1.15` | 분신 SIZE 대비 언더레이 반경 배율 |
 | `TEMP_GOLDEN_CLONE_GLITCH_COLORS` | `stage7_akamu_playfield_renderer.gd` | 금·백금 3색 배열 | 소멸 글리치 대체 팔레트 |
-| `TEMP_STAGE7_ULTIMATE_COOLDOWN_SEC` | `stage7_akamu_superspeed_state.gd` | `50.0` | 해금 시 초기 쿨다운 + 재사용 쿨다운. 원본 25초에서 신설 이탈 |
+| `COOLDOWN_SEC` | `stage7_akamu_superspeed_state.gd` | `50.0` | 해금 시 초기 쿨다운 + 재사용 쿨다운의 단일 정본. 원본 25초에서 신설 이탈 |
 
 캐리어 드랍 물리 상수(DROP_SIZE 12.0 등)는 스테이지 6에서 **이식**하는 값이므로 TEMP를 붙이지 않는다. 오오라 상수는 전부 원본 1:1이므로 신규 상수가 없다.
 
