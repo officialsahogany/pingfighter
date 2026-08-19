@@ -53,6 +53,7 @@ func build_actor_draw_context(
 	presentation_state: Object,
 	awakening_state: Object,
 	clone_state: Object,
+	starpoint_state: Object,
 	shuriken_state: Object,
 	cloud_state: Object,
 	escape_state: Object,
@@ -99,6 +100,8 @@ func build_actor_draw_context(
 			1.0
 		),
 		"stage7_akamu_clones": clone_state.entities,
+		"stage7_akamu_starpoint_drops": starpoint_state.get_draw_list(),
+		"stage7_akamu_starpoint_particles": starpoint_state.get_particle_draw_list(),
 		"stage7_akamu_shurikens": shuriken_state.projectiles,
 		"stage7_akamu_afterimages": escape_state.afterimages,
 		"stage7_akamu_particles": shuriken_state.hit_particles,

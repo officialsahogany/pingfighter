@@ -25,6 +25,7 @@ const Stage7AkamuHudStateBuilder := preload("res://scripts/stages/stage7/stage7_
 const Stage7AkamuContextBuilder := preload("res://scripts/stages/stage7/stage7_akamu_context_builder.gd")
 const Stage7AkamuTimingPolicy := preload("res://scripts/stages/stage7/stage7_akamu_timing_policy.gd")
 const Stage7AkamuGeometryState := preload("res://scripts/stages/stage7/stage7_akamu_geometry_state.gd")
+const Stage7AkamuStarpointState := preload("res://scripts/stages/stage7/stage7_akamu_starpoint_state.gd")
 
 const STAGE_ID := 7
 const BOSS_NAME := "아카무 리고"
@@ -86,6 +87,7 @@ var _skill_cooldown_paused := false
 var _rng := RandomNumberGenerator.new()
 var _shuriken_state: Object = Stage7AkamuShurikenState.new()
 var _clone_state: Object = Stage7AkamuCloneState.new()
+var _starpoint_state: Object = Stage7AkamuStarpointState.new(_rng)
 var _cloud_state: Object = Stage7AkamuCloudState.new()
 var _escape_state: Object = Stage7AkamuEscapeState.new()
 var _superspeed_state: Object = Stage7AkamuSuperspeedState.new()
@@ -575,6 +577,7 @@ func clear_round_transients() -> void:
 	_cloud_state.clear_round_transients()
 	_escape_state.clear_round_transients()
 	_clone_state.clear_round_transients()
+	_starpoint_state.clear()
 	# 수리검 스케줄러/쿨다운은 라운드 간 유지하고 전투 중 상태만 정리한다.
 	_shuriken_state.clear_round_transients()
 	# Awakening and its durability/recharge state survive normal score cleanup.
@@ -647,6 +650,11 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	var clamped_delta := clampf(delta, 0.0, MAX_DELTA_SEC)
 	if is_gameplay_freeze_active():
 		return advance_gameplay_freeze(clamped_delta, context, deps)
+	var frame_scale: float = fps_scale(clamped_delta)
+	# Match the established Stage 5 reward policy: already-falling Muhon keeps
+	# moving through serve wait and ordinary timing pauses, but the explicit
+	# Awakening gameplay freeze above still freezes it.
+	_starpoint_state.update(frame_scale, context, deps)
 	if _timing_policy.is_gameplay_timing_frozen(context):
 		_skill_cooldown_paused = false
 		# Keep persistent draw ownership attached to the live boss while every
@@ -662,7 +670,6 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	# A completed scripted move publishes its exact final position once. Clear
 	# the previous frame's delivery before advancing this frame's state.
 	_motion_state.begin_frame()
-	var frame_scale: float = fps_scale(clamped_delta)
 	var skill_cooldown_paused: bool = _timing_policy.is_boss_skill_cooldown_paused(context, deps)
 	var superspeed_was_active: bool = _superspeed_active
 	_skill_cooldown_paused = skill_cooldown_paused
@@ -857,10 +864,25 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 	var clone_index: int = int(clone_hit.get("index", -1))
 	if clone_index < 0 or clone_index >= _clone_state.entities.size():
 		return false
-	var clone_rect: Rect2 = _clone_state.rect_for_index(clone_index)
+	# Capture reward data from the collision result before begin_dying mutates
+	# the entity. Never re-index the mutable array for golden/position state.
+	var clone_rect_value: Variant = clone_hit.get("clone_rect", Rect2())
+	var clone_rect: Rect2 = (
+		clone_rect_value
+		if clone_rect_value is Rect2
+		else _clone_state.rect_for_index(clone_index)
+	)
+	var clone_center: Vector2 = _as_vector2(
+		clone_hit.get("clone_center", clone_rect.get_center()),
+		clone_rect.get_center()
+	)
+	var golden: bool = bool(clone_hit.get("golden", false))
 	var contact_point: Vector2 = _as_vector2(clone_hit.get("point", ball_pos), ball_pos)
 	_apply_clone_ball_reflection(scene, context, deps, clone_rect, contact_point)
 	_register_auxiliary_paddle_hit(deps)
+	if golden:
+		for _drop_index in range(Stage7AkamuCloneState.TEMP_GOLDEN_MUHON_DROPS):
+			_starpoint_state.spawn(clone_center)
 	_clone_state.begin_dying(clone_index, deps)
 	_register_clone_ball_contact(deps)
 	return true
@@ -916,6 +938,7 @@ func get_actor_draw_context() -> Dictionary:
 		_presentation_state,
 		_awakening_state,
 		_clone_state,
+		_starpoint_state,
 		_shuriken_state,
 		_cloud_state,
 		_escape_state,
@@ -974,6 +997,7 @@ func _has_runtime_state() -> bool:
 		or _cloud_state.has_runtime_state() \
 		or _escape_state.has_runtime_state() \
 		or _clone_state.has_runtime_state() \
+		or _starpoint_state.has_runtime_state() \
 		or _shuriken_state.has_runtime_state() \
 		or not _clones.is_empty()
 
@@ -1064,6 +1088,26 @@ func debug_set_clone_cooldown_remaining(value: float) -> void:
 
 func debug_get_clone_snapshot() -> Dictionary:
 	return _clone_state.get_snapshot()
+
+
+func debug_set_clone_golden(index: int, value: bool) -> bool:
+	return _clone_state.debug_set_golden(index, value)
+
+
+func debug_spawn_starpoint_drop_at(pos: Vector2) -> void:
+	_starpoint_state.spawn(pos)
+
+
+func debug_patch_starpoint_drop(index: int, values: Dictionary) -> bool:
+	return _starpoint_state.debug_patch_drop(index, values)
+
+
+func debug_get_starpoint_snapshot() -> Dictionary:
+	return _starpoint_state.get_snapshot()
+
+
+func debug_has_runtime_state() -> bool:
+	return _has_runtime_state()
 
 
 func debug_set_shuriken_cooldown_remaining(value: float, total: float = -1.0) -> void:

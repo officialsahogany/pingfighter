@@ -44,6 +44,27 @@ func _verify_owner_boundary() -> void:
 		"func clear_round_transients(",
 	]:
 		_expect(helper_source.find(marker) >= 0, "focused clone owner should implement %s" % marker)
+	_expect(
+		helper_source.find("const TEMP_GOLDEN_CHANCE := 0.50") >= 0
+			and helper_source.find("const TEMP_GOLDEN_MUHON_DROPS := 1") >= 0,
+		"focused clone owner should own the locked golden reward constants"
+	)
+	var velocity_roll_index := helper_source.find("var velocity_x: float = rng.randf_range(")
+	var noise_roll_index := helper_source.find("var motion_noise_state: int = rng.randi_range(")
+	var golden_roll_index := helper_source.find(
+		"var golden: bool = rng.randf() < TEMP_GOLDEN_CHANCE"
+	)
+	_expect(
+		velocity_roll_index >= 0
+			and noise_roll_index > velocity_roll_index
+			and golden_roll_index > noise_roll_index,
+		"golden should roll exactly once at creation after existing movement RNG consumption"
+	)
+	_expect(
+		helper_source.find("\"golden\": bool(nearest_clone.get(\"golden\", false))") >= 0
+			and helper_source.find("\"clone_center\": clone_rect.get_center()") >= 0,
+		"focused clone owner should return immutable reward data with the collision result"
+	)
 	for forbidden in [
 		"func _advance_clone_motion_tick(",
 		"func _find_nearest_clone_hit(",
@@ -51,6 +72,11 @@ func _verify_owner_boundary() -> void:
 		"func _begin_clone_dying(",
 	]:
 		_expect(host_source.find(forbidden) < 0, "Stage7AkamuState should not retain inline clone logic: %s" % forbidden)
+	_expect(
+		host_source.find("const TEMP_GOLDEN_CHANCE") < 0
+			and host_source.find("rng.randf() < TEMP_GOLDEN_CHANCE") < 0,
+		"Stage7AkamuState should not retain golden RNG ownership"
+	)
 
 
 func _verify_public_facade_routes_to_owner() -> void:
@@ -84,6 +110,10 @@ func _verify_public_facade_routes_to_owner() -> void:
 		{"current_stage": 7, "ball_active": true, "waiting_for_serve": false, "ball_size": 28.6}
 	)
 	_expect(not hit.is_empty(), "clone collision facade should query the focused owner")
+	_expect(
+		hit.has("golden") and hit.has("clone_rect") and hit.has("clone_center"),
+		"clone collision facade should preserve the focused owner's reward payload"
+	)
 
 	state.clear_round_transients()
 	var snapshot: Dictionary = helper.get_snapshot()

@@ -7,11 +7,23 @@ extends RefCounted
 # texture-free; accepted art can replace individual channels later.
 
 const VfxTextureCache := preload("res://scripts/stages/stage7/stage7_akamu_vfx_texture_cache.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const FIELD_SIZE := Vector2(760.0, 750.0)
 const CLONE_VISUAL_CENTER_Y_OFFSET := 12.0
 const ESCAPE_VISUAL_CENTER_Y_OFFSET := 12.0
 const CLONE_COLOR := Color(0.38, 0.28, 0.62, 0.42)
+const SHADOW_CLONE_TINT := Color(150.0 / 255.0, 150.0 / 255.0, 180.0 / 255.0)
+const TEMP_GOLDEN_CLONE_TINT := Color(1.0, 0.82, 0.32)
+const TEMP_GOLDEN_CLONE_GLOW_ALPHA := 0.35
+const TEMP_GOLDEN_CLONE_GLOW_RADIUS_SCALE := 1.15
+const TEMP_GOLDEN_CLONE_GLITCH_COLORS := [
+	Color(1.0, 0.64, 0.08),
+	Color(1.0, 0.92, 0.48),
+	Color(0.90, 0.94, 1.0),
+]
+const STARPOINT_DROP_SIZE := 12.0
+const STARPOINT_PARTICLE_RENDER_LIMIT := 96
 const SHURIKEN_BLADE_COLOR := Color(180.0 / 255.0, 190.0 / 255.0, 200.0 / 255.0)
 const SHURIKEN_BLADE_HIGHLIGHT_COLOR := Color(220.0 / 255.0, 230.0 / 255.0, 240.0 / 255.0)
 const SHURIKEN_BLADE_OUTLINE_COLOR := Color(60.0 / 255.0, 70.0 / 255.0, 80.0 / 255.0)
@@ -90,6 +102,14 @@ func get_debug_clone_render_mode(context: Dictionary) -> String:
 	return "sprite" if not _resolve_clone_frame_spec(context).is_empty() else "placeholder"
 
 
+func get_debug_starpoint_coordinate_payload(
+	drop: Dictionary,
+	context: Dictionary,
+	shake_offset: Vector2
+) -> Dictionary:
+	return _build_starpoint_coordinate_payload(drop, context, shake_offset)
+
+
 func prewarm_assets() -> void:
 	VfxTextureCache.prewarm()
 
@@ -99,11 +119,11 @@ func prewarm_assets_step() -> bool:
 
 
 func reset() -> void:
-	pass
+	CommonStarpointVisualHost.hide_all_existing_hosts()
 
 
 func clear_transient_canvas_items() -> void:
-	pass
+	CommonStarpointVisualHost.hide_all_existing_hosts()
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_logger: Object = null) -> void:
@@ -158,6 +178,8 @@ func draw_underlay(
 		for value in clone_values:
 			if value is Dictionary:
 				_draw_clone(canvas, value, shake_offset, _ghost_frame_spec)
+	_draw_starpoint_particles(canvas, context, shake_offset)
+	_draw_starpoint_drops(canvas, context, shake_offset)
 	for value in context.get("stage7_akamu_shurikens", []):
 		if value is Dictionary:
 			_draw_shuriken(canvas, value, shake_offset)
@@ -221,34 +243,50 @@ func _draw_clone(canvas: CanvasItem, clone: Dictionary, shake_offset: Vector2, f
 		return
 	var phase: String = str(clone.get("phase", "active"))
 	var death_progress: float = clampf(float(clone.get("death_progress", 0.0)), 0.0, 1.0)
-	if _draw_clone_sprite(canvas, clone, center, size, alpha, phase, death_progress, frame_spec):
+	var golden: bool = bool(clone.get("golden", false))
+	var clone_tint: Color = TEMP_GOLDEN_CLONE_TINT if golden else SHADOW_CLONE_TINT
+	if golden:
+		_draw_golden_clone_underlay(canvas, center, size, alpha)
+	if _draw_clone_sprite(
+		canvas,
+		clone,
+		center,
+		size,
+		alpha,
+		phase,
+		death_progress,
+		frame_spec,
+		clone_tint
+	):
 		return
 	# 코드-네이티브 폴백: 보스 시트 프리웜 전(로딩 프레임)에만 도달한다.
 	if phase == "dying":
 		center.x += sin(float(int(clone.get("id", 0))) * 2.17 + death_progress * 31.0) * 7.0 * death_progress
 		size.y *= 1.0 - death_progress * 0.28
-	var color := CLONE_COLOR
+	var color := Color(0.96, 0.60, 0.10, 0.70) if golden else CLONE_COLOR
 	color.a = alpha
 	var body_rect := Rect2(center - size * 0.5, size)
 	canvas.draw_rect(body_rect, color)
 	var hood_radius: float = maxf(8.0, minf(size.x, size.y) * 0.22)
-	canvas.draw_circle(center + Vector2(0.0, -size.y * 0.20), hood_radius, Color(0.14, 0.10, 0.26, alpha * 0.96))
+	var hood_color := Color(0.38, 0.20, 0.04, alpha * 0.96) if golden else Color(0.14, 0.10, 0.26, alpha * 0.96)
+	canvas.draw_circle(center + Vector2(0.0, -size.y * 0.20), hood_radius, hood_color)
 	var mask_rect := Rect2(
 		center + Vector2(-size.x * 0.28, -size.y * 0.20),
 		Vector2(size.x * 0.56, size.y * 0.18)
 	)
-	canvas.draw_rect(mask_rect, Color(0.54, 0.50, 0.72, alpha * 0.72))
+	var mask_color := Color(1.0, 0.92, 0.58, alpha * 0.90) if golden else Color(0.54, 0.50, 0.72, alpha * 0.72)
+	canvas.draw_rect(mask_rect, mask_color)
 	canvas.draw_line(
 		center + Vector2(-size.x * 0.20, -size.y * 0.10),
 		center + Vector2(size.x * 0.20, -size.y * 0.10),
-		Color(0.86, 0.76, 1.0, alpha),
+		Color(1.0, 0.96, 0.78, alpha) if golden else Color(0.86, 0.76, 1.0, alpha),
 		2.0,
 		true
 	)
 	canvas.draw_line(
 		body_rect.position + Vector2(size.x * 0.14, size.y * 0.78),
 		body_rect.end - Vector2(size.x * 0.14, size.y * 0.22),
-		Color(0.68, 0.58, 0.92, alpha * 0.68),
+		Color(1.0, 0.78, 0.24, alpha * 0.78) if golden else Color(0.68, 0.58, 0.92, alpha * 0.68),
 		2.0,
 		true
 	)
@@ -261,16 +299,146 @@ func _draw_clone(canvas: CanvasItem, clone: Dictionary, shake_offset: Vector2, f
 			2.0
 		)
 	elif phase == "dying":
+		var glitch_colors: Array = TEMP_GOLDEN_CLONE_GLITCH_COLORS if golden else CLONE_GLITCH_COLORS
 		for stripe_index in range(3):
 			var stripe_y: float = body_rect.position.y + body_rect.size.y * (0.22 + float(stripe_index) * 0.26)
 			var stripe_shift: float = sin(death_progress * 24.0 + float(stripe_index) * 1.9) * 9.0
 			canvas.draw_line(
 				Vector2(body_rect.position.x + stripe_shift, stripe_y),
 				Vector2(body_rect.end.x + stripe_shift, stripe_y),
-				Color(0.48, 0.86, 1.0, alpha * 0.62),
+				Color(glitch_colors[stripe_index], alpha * 0.62),
 				2.0,
 				true
 			)
+
+
+func _draw_golden_clone_underlay(
+	canvas: CanvasItem,
+	center: Vector2,
+	size: Vector2,
+	alpha: float
+) -> void:
+	var glow_radius: float = maxf(size.x, size.y) * 0.5 * TEMP_GOLDEN_CLONE_GLOW_RADIUS_SCALE
+	var glow_rect := Rect2(center - Vector2.ONE * glow_radius, Vector2.ONE * glow_radius * 2.0)
+	var glow_modulate := Color(
+		TEMP_GOLDEN_CLONE_TINT.r,
+		TEMP_GOLDEN_CLONE_TINT.g,
+		TEMP_GOLDEN_CLONE_TINT.b,
+		TEMP_GOLDEN_CLONE_GLOW_ALPHA * alpha
+	)
+	var aura_texture: Texture2D = VfxTextureCache.get_texture(VfxTextureCache.KEY_AURA_GLOW_STACK)
+	var core_texture: Texture2D = VfxTextureCache.get_texture(VfxTextureCache.KEY_FLAT_DISC)
+	if aura_texture != null:
+		canvas.draw_texture_rect(aura_texture, glow_rect, false, glow_modulate)
+	if core_texture != null:
+		var core_size := size * Vector2(0.72, 0.82)
+		canvas.draw_texture_rect(
+			core_texture,
+			Rect2(center - core_size * 0.5, core_size),
+			false,
+			Color(1.0, 0.88, 0.38, TEMP_GOLDEN_CLONE_GLOW_ALPHA * 0.78 * alpha)
+		)
+	if aura_texture == null and core_texture == null:
+		# Prewarm-safe loading fallback. The accepted path still reuses the baked
+		# textures above; this prevents the first loading frame from reverting to
+		# a dark purple clone while those textures are not materialized yet.
+		canvas.draw_circle(center, glow_radius, glow_modulate)
+		canvas.draw_circle(
+			center,
+			minf(size.x, size.y) * 0.30,
+			Color(1.0, 0.88, 0.38, TEMP_GOLDEN_CLONE_GLOW_ALPHA * 0.78 * alpha)
+		)
+
+
+func _draw_starpoint_particles(
+	canvas: CanvasItem,
+	context: Dictionary,
+	shake_offset: Vector2
+) -> void:
+	var particle_values: Variant = context.get("stage7_akamu_starpoint_particles", [])
+	if not (particle_values is Array):
+		return
+	var particles: Array = particle_values
+	var first_index: int = maxi(0, particles.size() - STARPOINT_PARTICLE_RENDER_LIMIT)
+	for particle_index in range(first_index, particles.size()):
+		var particle_value: Variant = particles[particle_index]
+		if not (particle_value is Dictionary):
+			continue
+		var particle: Dictionary = particle_value
+		var particle_alpha: float = clampf(float(particle.get("alpha", 0.0)), 0.0, 1.0)
+		if particle_alpha <= 0.0:
+			continue
+		var particle_pos: Vector2 = _as_vector2(particle.get("pos", Vector2.ZERO)) + shake_offset
+		var particle_color: Color = CommonStarpointVisualHost.get_muhon_particle_color(
+			float(particle.get("color_shift", 0.5)),
+			particle_alpha
+		)
+		canvas.draw_circle(
+			particle_pos,
+			maxf(1.0, float(particle.get("size", 2.0))),
+			particle_color
+		)
+
+
+func _draw_starpoint_drops(
+	canvas: CanvasItem,
+	context: Dictionary,
+	shake_offset: Vector2
+) -> void:
+	var drop_values: Variant = context.get("stage7_akamu_starpoint_drops", [])
+	if not (drop_values is Array) or (drop_values as Array).is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
+	var drops: Array = drop_values
+	var host: Node = CommonStarpointVisualHost.get_or_create_on_canvas(canvas)
+	if host != null and host.has_method("sync_drop"):
+		host.begin_frame()
+		for drop_value in drops:
+			var drop: Dictionary = drop_value if drop_value is Dictionary else {}
+			var payload := _build_starpoint_coordinate_payload(drop, context, shake_offset)
+			host.sync_drop({
+				"pos": payload.get("gpu_pos", Vector2.ZERO),
+				"size": float(payload.get("gpu_size", STARPOINT_DROP_SIZE)),
+				"life": float(drop.get("life", 0.0)),
+				"rotation": float(drop.get("rotation", 0.0)),
+				"glow_intensity": float(drop.get("glow_intensity", 1.0)),
+				"star_detector_bonus": false,
+				"elapsed": float(drop.get("glow_timer", 0.0)) / 6.0,
+			})
+		host.end_frame()
+		return
+	for drop_value in drops:
+		var drop: Dictionary = drop_value if drop_value is Dictionary else {}
+		var payload := _build_starpoint_coordinate_payload(drop, context, shake_offset)
+		var life_alpha: float = clampf(float(drop.get("life", 0.0)) * 2.0 / 255.0, 0.0, 1.0)
+		CommonStarpointVisualHost.draw_muhon_fallback(
+			canvas,
+			payload.get("fallback_pos", Vector2.ZERO),
+			float(payload.get("fallback_size", STARPOINT_DROP_SIZE)),
+			life_alpha,
+			float(drop.get("glow_intensity", 1.0)),
+			false,
+			float(drop.get("glow_timer", 0.0))
+		)
+
+
+func _build_starpoint_coordinate_payload(
+	drop: Dictionary,
+	context: Dictionary,
+	shake_offset: Vector2
+) -> Dictionary:
+	var playfield_pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO)) + shake_offset
+	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO))
+	var render_scale: float = maxf(0.001, float(context.get("render_scale", 1.0)))
+	var drop_size: float = maxf(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))
+	return {
+		"gpu_pos": game_offset + playfield_pos * render_scale,
+		"gpu_size": drop_size * render_scale,
+		# Immediate CanvasItem fallback already inherits the playfield transform.
+		# Keep it in unscaled playfield coordinates; only local shake belongs here.
+		"fallback_pos": playfield_pos,
+		"fallback_size": drop_size,
+	}
 
 
 func _resolve_clone_frame_spec(context: Dictionary) -> Dictionary:
@@ -293,7 +461,8 @@ func _draw_clone_sprite(
 	alpha: float,
 	phase: String,
 	death_progress: float,
-	frame_spec: Dictionary
+	frame_spec: Dictionary,
+	clone_tint: Color
 ) -> bool:
 	var texture_value: Variant = frame_spec.get("texture", null)
 	if not (texture_value is Texture2D):
@@ -305,9 +474,7 @@ func _draw_clone_sprite(
 	if source_rect.size.x <= 0.0 or source_rect.size.y <= 0.0:
 		return false
 	var texture: Texture2D = texture_value as Texture2D
-	var tint_value: Variant = frame_spec.get("tint", null)
-	var tint: Color = tint_value if tint_value is Color else Color(150.0 / 255.0, 150.0 / 255.0, 180.0 / 255.0)
-	var modulate := Color(tint.r, tint.g, tint.b, alpha)
+	var modulate := Color(clone_tint.r, clone_tint.g, clone_tint.b, alpha)
 	var dest := Rect2(center - size * 0.5, size)
 	if phase != "dying" or death_progress <= 0.0:
 		canvas.draw_texture_rect_region(texture, dest, source_rect, modulate, false, true)
@@ -338,8 +505,13 @@ func _draw_clone_sprite(
 		var stripe_phase: float = death_progress * 24.0 + float(stripe_index) * 2.1 + clone_id
 		if sin(stripe_phase) <= -0.1:
 			continue
-		var glitch_color: Color = CLONE_GLITCH_COLORS[
-			(stripe_index + int(death_progress * 24.0) + int(clone_id)) % CLONE_GLITCH_COLORS.size()
+		var glitch_colors: Array = (
+			TEMP_GOLDEN_CLONE_GLITCH_COLORS
+			if bool(clone.get("golden", false))
+			else CLONE_GLITCH_COLORS
+		)
+		var glitch_color: Color = glitch_colors[
+			(stripe_index + int(death_progress * 24.0) + int(clone_id)) % glitch_colors.size()
 		]
 		glitch_color.a = alpha * 0.55
 		var stripe_y: float = boundary_y + float(stripe_index) * 3.0

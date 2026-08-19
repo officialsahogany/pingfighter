@@ -18,6 +18,8 @@ const INITIAL_SPEED_MAX_PER_FRAME := 12.0
 const SPEED_MAX_PER_FRAME := 15.0
 const ACCEL_JITTER_PER_FRAME := 0.6
 const MAX_ENTITIES := 8
+const TEMP_GOLDEN_CHANCE := 0.50
+const TEMP_GOLDEN_MUHON_DROPS := 1
 
 var casting := false
 var cast_elapsed_sec := 0.0
@@ -82,8 +84,15 @@ func is_boss_intangible() -> bool:
 
 
 func get_snapshot() -> Dictionary:
+	var golden_vector: Array[bool] = []
+	for clone_value in entities:
+		var clone: Dictionary = clone_value if clone_value is Dictionary else {}
+		golden_vector.append(bool(clone.get("golden", false)))
 	return {
 		"trigger_chance": TRIGGER_CHANCE,
+		"golden_chance": TEMP_GOLDEN_CHANCE,
+		"golden_muhon_drops": TEMP_GOLDEN_MUHON_DROPS,
+		"max_entities": MAX_ENTITIES,
 		"casting": casting,
 		"cast_elapsed_sec": cast_elapsed_sec,
 		"cast_free": cast_free,
@@ -93,6 +102,7 @@ func get_snapshot() -> Dictionary:
 		"live_count": get_live_count(),
 		"dying_count": get_dying_count(),
 		"entity_count": entities.size(),
+		"golden_vector": golden_vector,
 	}
 
 
@@ -228,6 +238,15 @@ func spawn_entities(center: Vector2, spawn_awakened: bool, rng: RandomNumberGene
 		var direction: float = -1.0 if offset < 0.0 else 1.0
 		var entity_id: int = next_id
 		next_id += 1
+		var velocity_x: float = rng.randf_range(
+			INITIAL_SPEED_MIN_PER_FRAME,
+			INITIAL_SPEED_MAX_PER_FRAME
+		) * direction
+		var motion_noise_state: int = rng.randi_range(1, 2147483646)
+		# Reward-bearing randomness belongs to the authoritative stream and is
+		# consumed exactly once, last in this entity block. Existing movement
+		# parameters therefore retain their pre-golden first-entity baseline.
+		var golden: bool = rng.randf() < TEMP_GOLDEN_CHANCE
 		entities.append({
 			"id": entity_id,
 			"center": center,
@@ -235,11 +254,9 @@ func spawn_entities(center: Vector2, spawn_awakened: bool, rng: RandomNumberGene
 			"size": SIZE,
 			"offset_x": offset,
 			"direction": direction,
-			"velocity_x": rng.randf_range(
-				INITIAL_SPEED_MIN_PER_FRAME,
-				INITIAL_SPEED_MAX_PER_FRAME
-			) * direction,
-			"motion_noise_state": rng.randi_range(1, 2147483646),
+			"velocity_x": velocity_x,
+			"motion_noise_state": motion_noise_state,
+			"golden": golden,
 			"motion_frame_accumulator": 0.0,
 			"age_sec": 0.0,
 			"death_elapsed_sec": 0.0,
@@ -354,7 +371,15 @@ func query_ball_collision(from_pos: Vector2, to_pos: Vector2, ball_radius: float
 			nearest_distance_squared = distance_squared
 	if nearest_index < 0:
 		return {}
-	return {"index": nearest_index, "point": nearest_point}
+	var nearest_clone: Dictionary = entities[nearest_index]
+	var clone_rect: Rect2 = rect_for_entity(nearest_clone)
+	return {
+		"index": nearest_index,
+		"point": nearest_point,
+		"golden": bool(nearest_clone.get("golden", false)),
+		"clone_rect": clone_rect,
+		"clone_center": clone_rect.get_center(),
+	}
 
 
 func rect_for_index(index: int) -> Rect2:
@@ -380,6 +405,15 @@ func begin_dying(index: int, deps: Dictionary) -> void:
 	clone["velocity_x"] = 0.0
 	entities[index] = clone
 	_play_audio(deps, &"play_stage7_akamu_clone_out")
+
+
+func debug_set_golden(index: int, value: bool) -> bool:
+	if index < 0 or index >= entities.size():
+		return false
+	var clone: Dictionary = entities[index]
+	clone["golden"] = value
+	entities[index] = clone
+	return true
 
 
 func _advance_motion_tick(clone: Dictionary) -> void:
