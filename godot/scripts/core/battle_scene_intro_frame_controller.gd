@@ -150,9 +150,10 @@ func draw_intro_or_boot(
 		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
 		if _is_active(start_card):
 			_hide_loading_screen(module_getter, owner)
-			_draw_black(canvas, view_size)
 			if start_card.has_method("draw"):
 				start_card.draw(canvas, owner, registry, view_size)
+			else:
+				_draw_black(canvas, view_size)
 			return true
 	var landing_intro: Object = _get_module(module_getter, "stage_landing_intro")
 	if _is_active(landing_intro):

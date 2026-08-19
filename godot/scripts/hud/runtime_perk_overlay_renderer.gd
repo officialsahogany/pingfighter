@@ -19,6 +19,7 @@ const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overla
 const PerkFusionColdBootCinematic := preload("res://scripts/hud/perk_fusion_cold_boot_cinematic.gd")
 const RuntimePerkTraditionalChrome := preload("res://scripts/hud/runtime_perk_traditional_chrome.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
+const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -456,6 +457,115 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	_draw_starpoint_absorption_effect(canvas, runtime_state)
 	_perf_end(perf_logger, "hud.perk_overlay.starpoint_absorption", sample_start)
+
+
+func draw_tower_start_card(
+	canvas: CanvasItem,
+	view_model: Dictionary,
+	runtime_state: Object,
+	catalog: Object,
+	icon_renderer: Object,
+	view_size: Vector2,
+	snapshot: Dictionary,
+	mouse_pos: Vector2
+) -> void:
+	if canvas == null:
+		return
+	_draw_now_msec = Time.get_ticks_msec()
+	_prepare_text_caches()
+	var animation_time := float(view_model.get("animation_time", 0.0))
+	var alpha := clampf(
+		animation_time / TowerAscentTuning.TEMP_START_CARD_INTRO_ANIM_SEC,
+		0.0,
+		1.0
+	)
+	var layout: Dictionary = _get_dict(view_model.get("layout", {}))
+	var choices: Array = _get_array(view_model.get("choices", []))
+	var rects: Array = _get_array(view_model.get("card_rects", []))
+	var selected_index := int(view_model.get("selected_index", 0))
+	var layout_scale := float(layout.get("layout_scale", 1.0))
+	canvas.draw_rect(
+		Rect2(Vector2.ZERO, view_size),
+		Color(0.0, 0.0, 0.0, TowerAscentTuning.TEMP_START_CARD_BACKDROP_ALPHA),
+		true
+	)
+	_draw_particles(canvas, snapshot)
+	_draw_title(
+		canvas,
+		_get_vector2(layout.get("title_pos", Vector2(view_size.x * 0.5, 72.0))),
+		animation_time,
+		minf(layout_scale, 1.0),
+		str(view_model.get("title", ""))
+	)
+	_sync_choice_visual_selection(choices, selected_index)
+	var absorb_elapsed := float(view_model.get("absorb_elapsed_sec", -1.0))
+	var absorb_duration := maxf(
+		0.001,
+		float(view_model.get("absorb_duration_sec", 1.0))
+	)
+	var absorb_progress := clampf(absorb_elapsed / absorb_duration, 0.0, 1.0)
+	for index in range(mini(choices.size(), rects.size())):
+		if not (choices[index] is Dictionary) or not (rects[index] is Rect2):
+			continue
+		var choice := choices[index] as Dictionary
+		var rect := rects[index] as Rect2
+		var selected := index == selected_index
+		var was_selected := bool(choice.get("start_card_selected", false))
+		if was_selected and absorb_elapsed >= 0.0:
+			var pulse := sin(absorb_progress * PI)
+			canvas.draw_rect(
+				rect.grow(4.0 + 8.0 * pulse),
+				Color(0.96, 0.76, 0.32, (0.30 + 0.28 * pulse) * alpha),
+				false,
+				2.0 + pulse
+			)
+		_draw_card(
+			canvas,
+			choice,
+			rect,
+			selected,
+			animation_time,
+			icon_renderer,
+			_choice_visual_blend(index),
+			index
+		)
+		if not bool(choice.get("enabled", true)) and not was_selected:
+			canvas.draw_rect(rect, Color(0.0, 0.0, 0.0, 0.46 * alpha), true)
+	_draw_per_card_descriptions(
+		canvas,
+		runtime_state,
+		choices,
+		selected_index,
+		layout,
+		animation_time
+	)
+	_draw_status_panel(
+		canvas,
+		runtime_state,
+		snapshot,
+		catalog,
+		_get_rect2(layout.get("panel_rect", Rect2())),
+		icon_renderer,
+		view_size,
+		mouse_pos,
+		int(view_model.get("start_card_session_id", -1))
+	)
+	_draw_stats_band(
+		canvas,
+		runtime_state,
+		snapshot,
+		_get_rect2(layout.get("stats_rect", Rect2())),
+		view_size,
+		icon_renderer,
+		mouse_pos
+	)
+	_draw_text_centered(
+		canvas,
+		str(view_model.get("status_text", "")),
+		_get_vector2(layout.get("hint_pos", Vector2(view_size.x * 0.5, view_size.y - 34.0))),
+		clampi(int(round(16.0 * layout_scale)), 13, 21),
+		Color(0.91, 0.86, 0.72, alpha)
+	)
 
 
 func draw_tower_reward_pick(

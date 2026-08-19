@@ -51,6 +51,9 @@ const BattleSceneTeardownLifecycle := preload(
 const GameSelectionState := preload(
 	"res://scripts/core/game_selection_state.gd"
 )
+const TowerStartCardLocalization := preload(
+	"res://scripts/tower_ascent/tower_start_card_localization.gd"
+)
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -148,6 +151,8 @@ class FakeRuntimeState:
 	var pending_swap := false
 	var seen_context: Dictionary = {}
 	var skill_config: FakeSkillConfig
+	var stats_capture_calls := 0
+	var stats_context_active := false
 
 	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
 		apply_calls += 1
@@ -190,6 +195,11 @@ class FakeRuntimeState:
 		pending_swap = false
 		cancel_calls += 1
 		return true
+
+	func capture_stats_context(owner: Object, registry: Object) -> bool:
+		stats_capture_calls += 1
+		stats_context_active = owner != null and registry != null
+		return stats_context_active
 
 
 class FakeRegistry:
@@ -375,10 +385,11 @@ func _run() -> void:
 	_verify_target_level_path_is_single_shot()
 	_verify_apply_and_single_pick_contract()
 	_verify_pending_swap_fails_closed()
+	_verify_render_and_localization_contract()
 	await _verify_real_battle_scene_shell_wiring()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	_expect(_leg_count == 8, "all eight start-card S1/S2 smoke legs must execute")
+	_expect(_leg_count == 9, "all nine start-card S1/S2/S3 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
@@ -622,6 +633,61 @@ func _verify_pending_swap_fails_closed() -> void:
 	_expect((fixture.runtime_state as FakeRuntimeState).cancel_calls == 1, "pending swap must be explicitly canceled")
 	_expect(not (fixture.runtime_state as FakeRuntimeState).pending_swap, "pending swap state must not leak past the start card")
 	_expect(state.is_completed() and state.was_skipped(), "failed grant must end instead of hanging")
+
+
+func _verify_render_and_localization_contract() -> void:
+	_leg_count += 1
+	var locales := TowerStartCardLocalization.get_supported_locales()
+	_expect(locales == ["ko", "en", "zh", "ja", "es", "pt-BR", "ru"], "start-card copy must cover the seven supported locales")
+	for locale in locales:
+		for copy_key in ["title", "instruction", "confirmed"]:
+			_expect(TowerStartCardLocalization.text_for_locale(copy_key, locale) != "", "%s %s copy must not be empty" % [locale, copy_key])
+	_expect(TowerStartCardLocalization.text_for_locale("title", "ko").find("—") < 0, "Korean start-card copy must not use an em dash")
+	_expect(TowerStartCardLocalization.text_for_locale("instruction", "ko").find("—") < 0, "Korean instruction copy must not use an em dash")
+	_expect(TowerStartCardLocalization.text_for_locale("confirmed", "ko").find("—") < 0, "Korean confirmation copy must not use an em dash")
+
+	var fixture := _build_fixture(_standard_catalog())
+	var state := TowerStartCardState.new()
+	_expect(state.begin(fixture.owner, fixture.registry), "render fixture must begin")
+	state.update(TowerAscentTuning.TEMP_START_CARD_INTRO_ANIM_SEC)
+	var view_size := Vector2(2020.0, 1246.0)
+	var view_model := state.build_view_model(view_size)
+	var rects: Array = view_model.get("card_rects", [])
+	_expect(rects.size() == 3, "start-card view model must expose three card rects")
+	_expect(bool(view_model.get("stats_band_enabled", false)), "available stats context must request the shared stats band")
+	for choice_value in view_model.get("choices", []):
+		var choice: Dictionary = choice_value if choice_value is Dictionary else {}
+		for forbidden_key in ["reward_pick_cost", "reward_pick_price_text", "balance_text"]:
+			_expect(not choice.has(forbidden_key), "start-card view model must omit %s" % forbidden_key)
+	for index in range(rects.size()):
+		var rect: Rect2 = rects[index]
+		_expect(state.get_card_index_at(rect.get_center(), view_size) == index, "draw and hit-test layout must agree for slot %d" % index)
+	var mugong_index := _find_kind_index(state.get_card_choices(), "mugong")
+	var hit_view_size := Vector2(760.0, 750.0)
+	var hit_rects := state.get_card_rects(hit_view_size)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = (hit_rects[mugong_index] as Rect2).get_center()
+	state.handle_input(click, fixture.owner, fixture.registry)
+	_expect(bool(state.get_selection_result().get("accepted", false)), "clicking a rendered Mugong card must apply it")
+	_expect(int((fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(str(state.get_selection_result().get("picked_perk_id", "")), 0)) == 2, "rendered Mugong selection must still grant actual level two")
+	var selected_model := state.build_view_model(view_size)
+	_expect(str(selected_model.get("status_text", "")) == TowerStartCardLocalization.text("confirmed"), "selected view model must show the localized confirmation")
+	state.tear_down()
+	_expect(not (fixture.runtime_state as FakeRuntimeState).stats_context_active, "start-card teardown must release the shared runtime stats context")
+
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+	)
+	var start_index := renderer_source.find("func draw_tower_start_card(")
+	var reward_index := renderer_source.find("func draw_tower_reward_pick(")
+	_expect(start_index >= 0 and reward_index > start_index, "renderer must expose a separate start-card entry point")
+	var start_source := renderer_source.substr(start_index, reward_index - start_index)
+	for shared_drawer in ["_draw_card(", "_draw_per_card_descriptions(", "_draw_status_panel(", "_draw_stats_band("]:
+		_expect(start_source.find(shared_drawer) >= 0, "start-card renderer must reuse %s" % shared_drawer)
+	for forbidden_surface in ["reward_pick_price_text", "balance_text", "continue_text", "draw_backdrop("]:
+		_expect(start_source.find(forbidden_surface) < 0, "start-card renderer must omit %s" % forbidden_surface)
 
 
 func _verify_real_battle_scene_shell_wiring() -> void:
