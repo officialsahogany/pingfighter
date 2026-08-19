@@ -12,6 +12,9 @@ const RuntimePerkUnlockSwapFlow := preload(
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerAscentPerkCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -34,6 +37,7 @@ var _runtime_snapshot: Dictionary = {}
 var _skill_config_snapshot: Dictionary = {}
 var _pending_rollback: Dictionary = {}
 var _character_context: Object = RuntimePerkCharacterContext.new()
+var _candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
 var _unlock_swap_flow: Object = RuntimePerkUnlockSwapFlow.new()
 
 
@@ -286,24 +290,24 @@ func _build_offer(
 			continue
 		var data := data_value as Dictionary
 		var unlocked_skill := str(data.get("unlocks_skill", "")).strip_edges()
-		var restriction := str(data.get("character_restriction", "")).strip_edges()
+		var candidate_data := data.duplicate(true)
+		candidate_data["id"] = perk_id
 		if unlocked_skill.is_empty():
-			var mugong_data := data.duplicate(true)
-			mugong_data["id"] = perk_id
-			if _is_mugong_candidate(mugong_data, runtime_levels, character_type):
+			if _candidate_policy.is_mugong_candidate(
+				candidate_data,
+				runtime_levels,
+				character_type,
+				registry
+			):
 				mugong_ids.append(perk_id)
 			continue
-		if restriction.is_empty() or _character_context.normalize_character_type(restriction) != character_type:
-			continue
-		if int(runtime_levels.get(perk_id, 0)) > 0:
-			continue
-		if not TowerAscentUnlockFilter.is_content_unlocked(
+		if not _candidate_policy.is_chosik_candidate(
+			candidate_data,
+			runtime_levels,
+			character_type,
 			registry,
-			TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
-			perk_id
+			skill_config
 		):
-			continue
-		if _skill_data(skill_config, unlocked_skill).is_empty():
 			continue
 		candidate_ids.append(perk_id)
 	candidate_ids.sort()
@@ -724,31 +728,6 @@ func _has_consumed_choice(node_id: String, choice_id: String) -> bool:
 		if str(record.get("node_id", "")) == node_id and str(record.get("choice_id", "")) == choice_id:
 			return true
 	return false
-
-
-func _is_mugong_candidate(
-	data: Dictionary,
-	runtime_levels: Dictionary,
-	character_type: String
-) -> bool:
-	var perk_id := str(data.get("id", data.get("perk_id", ""))).strip_edges()
-	if perk_id.is_empty() or str(data.get("rarity", "")).to_lower() == "mythic":
-		return false
-	var restriction := str(data.get("character_restriction", "")).strip_edges()
-	if not restriction.is_empty() and _character_context.normalize_character_type(restriction) != character_type:
-		return false
-	for excluded_flag in [
-		"is_instant",
-		"is_gold_conversion",
-		"is_physique_training",
-		"is_mystic_dice",
-		"is_perk_fusion",
-		"is_lingpet_guardian_enhance",
-	]:
-		if bool(data.get(excluded_flag, false)):
-			return false
-	var max_level := maxi(1, int(data.get("max_level", 5)))
-	return int(runtime_levels.get(perk_id, 0)) < max_level
 
 
 func _character_type(owner: Object) -> String:

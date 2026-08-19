@@ -15,6 +15,9 @@ const TowerAscentNodeArrivalTestFixture := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentPerkCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
+)
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
@@ -36,8 +39,16 @@ class FakeOwner:
 class FakeUnlockStore:
 	extends RefCounted
 
-	func is_unlocked(_content_type: String, _content_id: String) -> bool:
-		return true
+	var locked_ids: Dictionary = {}
+
+	func set_unlocked(content_id: String, unlocked: bool) -> void:
+		if unlocked:
+			locked_ids.erase(content_id)
+		else:
+			locked_ids[content_id] = true
+
+	func is_unlocked(_content_type: String, content_id: String) -> bool:
+		return not locked_ids.has(content_id)
 
 
 class FakeSkillConfig:
@@ -96,6 +107,7 @@ class FakeRuntimePerkCatalog:
 		"mugong_alpha": _mugong("mugong_alpha", "Mugong Alpha"),
 		"mugong_beta": _mugong("mugong_beta", "Mugong Beta"),
 		"mugong_gamma": _mugong("mugong_gamma", "Mugong Gamma"),
+		"mugong_locked": _mugong("mugong_locked", "Locked Mugong"),
 		"unlock_alpha": _choice("unlock_alpha", "청류 비급", "alpha_skill"),
 		"unlock_beta": _choice("unlock_beta", "철벽 비급", "beta_skill"),
 		"unlock_gamma": _choice("unlock_gamma", "비연 비급", "gamma_skill"),
@@ -259,6 +271,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_shared_candidate_policy_filters_locked_mugong()
 	_verify_acquire_swap_remove_transactions_and_snapshot()
 	_verify_swap_rejection_rolls_back_without_payment()
 	_verify_insufficient_muhon_is_a_no_op()
@@ -275,9 +288,29 @@ func _init() -> void:
 		quit(1)
 
 
+func _verify_shared_candidate_policy_filters_locked_mugong() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var fixture := _build_fixture()
+	(fixture.unlock_store as FakeUnlockStore).set_unlocked("mugong_locked", false)
+	var locked_data := (fixture.catalog as FakeRuntimePerkCatalog).get_perk_data(
+		"mugong_locked"
+	)
+	var policy := TowerAscentPerkCandidatePolicy.new()
+	_expect(
+		not policy.is_mugong_candidate(
+			locked_data,
+			{},
+			"smasher",
+			fixture.registry
+		),
+		"shared candidate policy must reject a locked Mugong"
+	)
+
+
 func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var fixture := _build_fixture()
+	(fixture.unlock_store as FakeUnlockStore).set_unlocked("mugong_locked", false)
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
@@ -291,6 +324,10 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	var offers := flow.get_generated_fallen_monk_offers()
 	_expect(offers.size() == 1, "one monk visit must own one generated offer")
 	_expect((offers[0].get("choices", []) as Array).size() == 6, "monk storefront must present exactly six Mugong and Chosik cards")
+	_expect(
+		not _choice_ids(offers[0].get("choices", [])).has("mugong_locked"),
+		"monk Mugong offers must pass the shared unlock filter"
+	)
 	_expect(fixture.catalog.all_calls == 1, "monk offer must generate once per node")
 	var acquire_action := _find_action_with_prefix(
 		flow.get_node_modal_view_model().get("actions", []),
@@ -462,18 +499,28 @@ func _build_fixture() -> Dictionary:
 	runtime_state.skill_config = skill_config
 	runtime_state.catalog = catalog
 	var registry := FakeRegistry.new()
+	var unlock_store := FakeUnlockStore.new()
 	registry.instances = {
 		"runtime_perk_state": runtime_state,
 		"runtime_perk_catalog": catalog,
 		"smasher_skill_config": skill_config,
-		TowerAscentUnlockFilter.STORE_KEY: FakeUnlockStore.new(),
+		TowerAscentUnlockFilter.STORE_KEY: unlock_store,
 	}
 	return {
 		"skill_config": skill_config,
 		"catalog": catalog,
 		"runtime_state": runtime_state,
+		"unlock_store": unlock_store,
 		"registry": registry,
 	}
+
+
+func _choice_ids(choices: Array) -> Array[String]:
+	var result: Array[String] = []
+	for choice_value in choices:
+		if choice_value is Dictionary:
+			result.append(str((choice_value as Dictionary).get("id", "")))
+	return result
 
 
 func _find_action_with_prefix(actions: Array, prefix: String) -> Dictionary:
