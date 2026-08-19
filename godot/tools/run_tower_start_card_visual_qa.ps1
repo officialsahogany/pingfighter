@@ -47,6 +47,8 @@ try {
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains("tower_start_card_visual_qa: captures=3") `
+        -or -not $outputText.Contains("tower_start_card_visual_qa: live_cases=3") `
+        -or -not $outputText.Contains("tower_start_card_visual_qa: cold_build_ms=") `
         -or -not $outputText.Contains("tower_start_card_visual_qa: ok")
     ) {
         Write-Host "Tower starting-card visual QA log preserved for triage: $logPath"
