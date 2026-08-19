@@ -20,7 +20,7 @@ const TowerRewardPickState := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
 )
 
-const GAME_SIZE := Vector2i(760, 750)
+const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_reward_pick"
 
 
@@ -33,11 +33,46 @@ class CaptureOwner:
 class CaptureRuntimeState:
 	extends RefCounted
 
-	var runtime_skill_levels: Dictionary = {}
+	var runtime_skill_levels: Dictionary = {
+		"common_swiftness": 2,
+		"megingjord": 1,
+	}
 	var current_choice_context: Dictionary = {}
+	var _stats_owner: Object = null
+	var _stats_registry_ref: WeakRef = null
 
-	func apply_choice(_choice: Dictionary, _owner: Object, _registry: Object) -> bool:
+	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
+		var choice_id := str(choice.get("id", ""))
+		if not choice_id.is_empty():
+			runtime_skill_levels[choice_id] = int(runtime_skill_levels.get(choice_id, 0)) + 1
 		return true
+
+	func capture_stats_context(owner: Object, registry: Object) -> bool:
+		_stats_owner = owner
+		_stats_registry_ref = weakref(registry) if registry != null else null
+		return owner != null and registry != null
+
+	func get_stats_context_owner() -> Object:
+		return _stats_owner
+
+	func get_stats_context_registry() -> Object:
+		return _stats_registry_ref.get_ref() if _stats_registry_ref != null else null
+
+	func get_status_hover_mouse_pos() -> Vector2:
+		return Vector2(-1.0, -1.0)
+
+	func get_physique_training_snapshot() -> Dictionary:
+		return {"power": 1, "guard": 1}
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"pending_skill_choices": 0,
+			"gold_from_perks": 0,
+			"current_choices": [],
+			"particles": [],
+			"physique_training": get_physique_training_snapshot(),
+		}
 
 
 class CaptureFlowOwner:
@@ -157,6 +192,7 @@ func _capture_offer(
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
 		"runtime_perk_state": CaptureRuntimeState.new(),
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 		"runtime_perk_overlay_renderer": renderer,
 		"runtime_perk_icon_renderer": icon_renderer,
 	}

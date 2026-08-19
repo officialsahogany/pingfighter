@@ -43,6 +43,7 @@ func restore_snapshot(
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	_graph_nodes.assign((nodes_variant as Array).duplicate(true))
 	_graph_edges.assign((edges_variant as Array).duplicate(true))
+	_map_render_revision += 1
 	_current_node_id = str(snapshot.get("current_node_id", ""))
 	_completed_nodes.assign(_dictionary_array(snapshot.get("completed_nodes", [])))
 	for entry in _completed_nodes:
@@ -136,6 +137,9 @@ func restore_snapshot(
 	_selector_launched = bool(snapshot.get("selector_launched", false))
 	_aim_target_x = clampf(float(snapshot.get("aim_target_x", 220.0)), SELECTOR_LEFT_WALL, SELECTOR_RIGHT_WALL)
 	_map_transition_progress = clampf(float(snapshot.get("map_transition_progress", 0.0)), 0.0, 1.0)
+	if _phase == PHASE_MAP_TRANSITION:
+		_transition_fade_state.begin_map_transition()
+		_transition_fade_state.set_map_transition_progress_for_qa(_map_transition_progress)
 	_finish_callback = finish_callback
 	_gauntlet_transition_callback = gauntlet_transition_callback
 	if not _restore_runtime_perk_build_state(owner, registry):

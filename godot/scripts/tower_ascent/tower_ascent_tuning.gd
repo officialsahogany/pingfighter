@@ -51,9 +51,13 @@ const TEMP_ROUTE_TARGET_LABEL_GAP := 8.0
 const TEMP_ROUTE_AIM_MIN_DEGREES := -55.0
 const TEMP_ROUTE_AIM_MAX_DEGREES := 55.0
 const TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS := 2.4
+const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 522.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
+const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
+const TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX := 88.0
+const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 
 # TEMP: the map-view overlay establishes the information hierarchy while its
 # final mobile/readability sizing is still product-tuning work.
@@ -66,6 +70,27 @@ const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
 const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
 const TEMP_MAP_HINT_RECT := Rect2(18.0, 698.0, 98.0, 30.0)
 const TEMP_MAP_HINT_FONT_SIZE := 14
+
+# TEMP: v1.12 fixes the transition beats and proportional fullscreen-map
+# skeleton. Product tuning may adjust these values in place, but must not move
+# the clock out of the tower flow or restore absolute layout caps.
+const TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC := 0.25
+const TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC := 0.25
+const TEMP_MAP_TRANSITION_TRAVEL_SEC := 1.60
+const TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC := 0.35
+const TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC := 0.28
+const TEMP_NODE_MODAL_FADE_IN_SEC := 0.25
+const TEMP_MAP_OVERLAY_FADE_SEC := 0.18
+const TEMP_MAP_OUTER_MARGIN_RATIO := 0.024
+const TEMP_MAP_SIDE_GUTTER_RATIO := 0.130
+const TEMP_MAP_LANE_SPAN_RATIO := 0.290
+const TEMP_MAP_ART_SIZE_RATIO := 0.720
+const TEMP_MAP_CONTENT_TOP_RATIO := 0.1025
+const TEMP_MAP_CONTENT_BOTTOM_RATIO := 0.1925
+
+# TEMP: v1.12 keeps the exhausted reward board visible briefly before the
+# route flow resumes. Final presentation timing remains product-tuning work.
+const TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC := 0.60
 
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,

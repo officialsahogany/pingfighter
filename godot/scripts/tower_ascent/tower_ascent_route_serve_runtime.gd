@@ -40,6 +40,7 @@ var _serve_attempt_count := 0
 var _aim_elapsed_seconds := 0.0
 var _aim_angle_degrees := 0.0
 var _aim_sweep_direction := 1.0
+var _serve_arm_remaining := 0.0
 
 
 func begin(owner: Object, registry: Object) -> Dictionary:
@@ -48,7 +49,7 @@ func begin(owner: Object, registry: Object) -> Dictionary:
 	_registry = registry
 	_fixture_mode = owner == null or not (owner is Node)
 	_serve_attempt_count = 0
-	_reset_aim_oscillator()
+	_serve_arm_remaining = TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS
 	if _fixture_mode:
 		_active = true
 		return {"accepted": true, "reason": "test_fixture"}
@@ -99,7 +100,7 @@ func cancel() -> void:
 	_fixture_ball_position = Vector2.ZERO
 	_fixture_ball_velocity = Vector2.ZERO
 	_fixture_ball_active = false
-	_reset_aim_oscillator()
+	_serve_arm_remaining = 0.0
 
 
 func finish_selection() -> void:
@@ -113,14 +114,20 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 	if _fixture_mode:
 		return _update_fixture_flight(delta, targets)
 	var input_snapshot := _read_player_input_snapshot()
-	_update_player_route_movement(maxf(0.0, delta), input_snapshot)
+	var safe_delta := maxf(0.0, delta)
+	var serve_input_armed := _serve_arm_remaining <= 0.0
+	_serve_arm_remaining = maxf(0.0, _serve_arm_remaining - safe_delta)
+	_update_player_route_movement(safe_delta, input_snapshot)
 	if bool(_round_state.is_waiting_for_serve()):
 		# ROUTE_AIM is intentionally manual-only. The normal ServeFlowController
 		# retains its three-second auto-serve for combat, but this selective flow
 		# consumes the shared idempotent input snapshot and never advances that
 		# timer (v1.7 section 3.2).
-		_update_aim_oscillator(maxf(0.0, delta))
-		if bool(input_snapshot.get("mouse_left_just_pressed", false)):
+		_update_aim_oscillator(safe_delta)
+		if (
+			serve_input_armed
+			and bool(input_snapshot.get("mouse_left_just_pressed", false))
+		):
 			_serve_live_ball()
 		if bool(_round_state.is_waiting_for_serve()):
 			return {"status": STATUS_WAITING}
@@ -202,12 +209,6 @@ func _serve_live_ball() -> void:
 			)
 		)
 		_serve_attempt_count += 1
-
-
-func _reset_aim_oscillator() -> void:
-	_aim_elapsed_seconds = 0.0
-	_aim_angle_degrees = 0.0
-	_aim_sweep_direction = 1.0
 
 
 func _update_aim_oscillator(delta: float) -> void:

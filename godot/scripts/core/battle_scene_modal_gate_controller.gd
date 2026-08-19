@@ -62,6 +62,10 @@ func is_pandora_legacy_selection_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "mythic_item_runtime", "is_pandora_legacy_selection_active")
 
 
+func is_mythic_acquisition_cinematic_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "mythic_item_runtime", "is_acquisition_cinematic_active")
+
+
 func is_character_info_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "character_info_overlay", "is_active")
 
@@ -152,6 +156,8 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.mythic_management", module_getter, "mythic_item_runtime", "is_debug_management_menu_open"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.pandora_legacy", module_getter, "mythic_item_runtime", "is_pandora_legacy_selection_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.mythic_acquisition", module_getter, "mythic_item_runtime", "is_acquisition_cinematic_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.active_item_debug", module_getter, "active_item_runtime", "is_debug_spawn_menu_open"):
 		return true

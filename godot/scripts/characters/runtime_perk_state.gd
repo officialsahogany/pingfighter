@@ -1128,6 +1128,11 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 # 하단 능력치 원장이 소비할 owner/registry를 프레임 시작에 고정한다. 드로우와
 # 입력 히트테스트가 같은 프레임 안에서 같은 레이아웃을 봐야 하므로, 렌더러가
 # draw() 시점에 플래그를 뒤집는 방식은 쓰지 않는다(첫 프레임 클릭이 어긋난다).
+func capture_stats_context(owner: Object, registry: Object) -> bool:
+	_capture_stats_context(owner, registry)
+	return stats_band_enabled
+
+
 func _capture_stats_context(owner: Object, registry: Object) -> void:
 	_stats_context_owner = owner if owner != null and is_instance_valid(owner) else null
 	# The production registry owns this runtime state. Keep only a weak handle

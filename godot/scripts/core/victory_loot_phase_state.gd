@@ -312,6 +312,12 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		_draw_box(canvas, box, phase, shake_offset)
 
 
+func draw_reward_pick(canvas: CanvasItem, view_size: Vector2) -> void:
+	if canvas == null or not is_reward_pick_active():
+		return
+	_reward_pick_state.draw(canvas, view_size)
+
+
 func get_status_for_tests() -> Dictionary:
 	if is_reward_pick_active():
 		var reward_model: Dictionary = _reward_pick_state.build_view_model(

@@ -11,14 +11,21 @@ const Stage1PillarUiRenderer := preload(
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_route_serve_owner_meta"
 const OUTPUT_NAME := "route_aim_live_owner.png"
 const ANGLE_GAUGE_OUTPUT_NAME := "route_aim_angle_gauge.png"
+const ANGLE_GAUGE_BRIGHT_OUTPUT_NAME := "route_aim_angle_gauge_bright.png"
 const MUHON_HUD_OUTPUT_NAME := "battle_hud_muhon.png"
 const TOP_BOUNCE_OUTPUT_NAME := "route_aim_top_wall_bounce.png"
 const INITIAL_PLAYER_POS := Vector2(230.0, 680.0)
 const ROUTE_FLIGHT_STEPS := 14
+const STRONG_GOLD_RGB := Vector3i(189, 140, 53)
+const STRONG_GOLD_CHANNEL_TOLERANCE := 22
+const MIN_STRONG_GOLD_PIXELS := 120
 
 
 func _init() -> void:
@@ -34,7 +41,7 @@ func _run() -> void:
 		return
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_release_test_input()
-	DisplayServer.window_set_size(Vector2i(1520, 1000))
+	DisplayServer.window_set_size(Vector2i(2020, 1246))
 	DisplayServer.window_set_title("승천탑 ROUTE_AIM 라이브 owner QA")
 	if not _prepare_selection_state():
 		_fail("GameSelectionState was unavailable for the route-serve live-owner capture")
@@ -96,6 +103,7 @@ func _run() -> void:
 		_fail("could not create tower route-serve capture directory")
 		return
 	var gauge_output_path := output_dir.path_join(ANGLE_GAUGE_OUTPUT_NAME)
+	var gauge_bright_output_path := output_dir.path_join(ANGLE_GAUGE_BRIGHT_OUTPUT_NAME)
 	var muhon_output_path := output_dir.path_join(MUHON_HUD_OUTPUT_NAME)
 	var waiting_image := get_root().get_texture().get_image()
 	if (
@@ -105,6 +113,43 @@ func _run() -> void:
 	):
 		_fail("could not save live angle-gauge capture: %s" % gauge_output_path)
 		return
+	# Keep the production battle owner and ROUTE_AIM surface intact while
+	# switching only the stage backdrop to the brighter first-stage palette.
+	# This is the reverse contrast leg for the MIX-baked gauge art.
+	main_node.set("current_stage", 1)
+	main_node.queue_redraw()
+	for _frame in range(10):
+		await process_frame
+		main_node.queue_redraw()
+	var bright_waiting_image := get_root().get_texture().get_image()
+	if (
+		bright_waiting_image == null
+		or bright_waiting_image.is_empty()
+		or bright_waiting_image.save_png(gauge_bright_output_path) != OK
+	):
+		_fail("could not save bright-backdrop angle-gauge capture: %s" % gauge_bright_output_path)
+		return
+	var dark_gauge_evidence := _measure_route_gauge_strong_gold(
+		waiting_image,
+		main_node,
+		gauge_model
+	)
+	var bright_gauge_evidence := _measure_route_gauge_strong_gold(
+		bright_waiting_image,
+		main_node,
+		gauge_model
+	)
+	if int(dark_gauge_evidence.get("strong_gold_pixels", 0)) < MIN_STRONG_GOLD_PIXELS:
+		_fail("dark-backdrop route gauge missed the strong-gold pixel threshold: %s" % dark_gauge_evidence)
+		return
+	if int(bright_gauge_evidence.get("strong_gold_pixels", 0)) < MIN_STRONG_GOLD_PIXELS:
+		_fail("bright-backdrop route gauge missed the strong-gold pixel threshold: %s" % bright_gauge_evidence)
+		return
+	main_node.set("current_stage", 4)
+	main_node.queue_redraw()
+	for _frame in range(4):
+		await process_frame
+		main_node.queue_redraw()
 	var layout_module: Object = _get_module(main_node, "battle_view_layout")
 	if layout_module == null or not layout_module.has_method("build_game_layout"):
 		_fail("live battle view layout was unavailable for the Muhon-HUD crop")
@@ -141,6 +186,13 @@ func _run() -> void:
 		main_node,
 		"player_pos",
 		Vector2.ZERO
+	)
+	# S1 deliberately blocks the entry click that won the preceding reward
+	# surface. Advance that production arm window before publishing this QA's
+	# distinct movement-and-serve input.
+	tower_flow.update_selective(
+		TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS,
+		main_node
 	)
 	Input.action_press("ui_right")
 	_set_left_mouse_pressed(true)
@@ -214,16 +266,22 @@ func _run() -> void:
 		ball_pos,
 		output_path,
 	])
-	print("[TowerRouteServeOwnerMetaVisualQA] angle_gauge=%s muhon_hud=%s" % [
+	print("[TowerRouteServeOwnerMetaVisualQA] angle_gauge_dark=%s angle_gauge_bright=%s muhon_hud=%s" % [
 		gauge_output_path,
+		gauge_bright_output_path,
 		muhon_output_path,
+	])
+	print("[TowerRouteServeOwnerMetaVisualQA] gauge_strong_gold dark=%s bright=%s minimum=%d" % [
+		dark_gauge_evidence,
+		bright_gauge_evidence,
+		MIN_STRONG_GOLD_PIXELS,
 	])
 	print("[TowerRouteServeOwnerMetaVisualQA] top_bounce_pos=%s top_bounce_vel=%s evidence=%s" % [
 		bounced_position,
 		bounced_velocity,
 		bounce_output_path,
 	])
-	print("tower_route_serve_owner_meta_visual_qa: captures=4")
+	print("tower_route_serve_owner_meta_visual_qa: captures=5")
 	print("tower_route_serve_owner_meta_visual_qa: ok")
 	_cleanup(main_node)
 	quit(0)
@@ -294,6 +352,58 @@ func _get_module(main_node: Node, key: String) -> Object:
 func _save_viewport_capture(output_path: String) -> bool:
 	var image := get_root().get_texture().get_image()
 	return image != null and not image.is_empty() and image.save_png(output_path) == OK
+
+
+func _measure_route_gauge_strong_gold(
+	image: Image,
+	main_node: Node,
+	gauge_model: Dictionary
+) -> Dictionary:
+	var layout_module: Object = _get_module(main_node, "battle_view_layout")
+	if layout_module == null or not layout_module.has_method("build_game_layout"):
+		return {"strong_gold_pixels": 0, "crop": Rect2i()}
+	var layout: Dictionary = layout_module.build_game_layout(
+		get_root().get_visible_rect().size,
+		BattleSceneConfig.WIDTH,
+		BattleSceneConfig.HEIGHT
+	)
+	var game_offset: Vector2 = layout.get("game_offset", Vector2.ZERO)
+	var render_scale := maxf(0.001, float(layout.get("render_scale", 1.0)))
+	var origin: Vector2 = gauge_model.get("origin", Vector2.ZERO)
+	var radius := TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+	var gauge_rect_in_canvas := Rect2(
+		game_offset
+		+ (origin - Vector2(radius * 1.7, radius * 1.9)) * render_scale,
+		Vector2(radius * 3.4, radius * 2.2) * render_scale
+	)
+	var canvas_to_capture: Transform2D = (
+		get_root().get_final_transform()
+		* main_node.get_canvas_transform()
+	)
+	var gauge_rect_in_capture := canvas_to_capture * gauge_rect_in_canvas
+	var clipped_rect := gauge_rect_in_capture.intersection(
+		Rect2(Vector2.ZERO, Vector2(image.get_size()))
+	)
+	var crop := Rect2i(clipped_rect)
+	var strong_gold_pixels := 0
+	for y in range(crop.position.y, crop.end.y):
+		for x in range(crop.position.x, crop.end.x):
+			var pixel := image.get_pixel(x, y)
+			var rgb := Vector3i(
+				roundi(pixel.r * 255.0),
+				roundi(pixel.g * 255.0),
+				roundi(pixel.b * 255.0)
+			)
+			if (
+				absi(rgb.x - STRONG_GOLD_RGB.x) <= STRONG_GOLD_CHANNEL_TOLERANCE
+				and absi(rgb.y - STRONG_GOLD_RGB.y) <= STRONG_GOLD_CHANNEL_TOLERANCE
+				and absi(rgb.z - STRONG_GOLD_RGB.z) <= STRONG_GOLD_CHANNEL_TOLERANCE
+			):
+				strong_gold_pixels += 1
+	return {
+		"strong_gold_pixels": strong_gold_pixels,
+		"crop": crop,
+	}
 
 
 func _release_test_input() -> void:

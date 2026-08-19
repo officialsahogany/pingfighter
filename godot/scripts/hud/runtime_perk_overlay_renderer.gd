@@ -123,6 +123,7 @@ var _title_text_line: TextLine = null
 var _title_text_line_font_id := 0
 var _title_text_line_font_size := 0
 var _title_text_line_language := ""
+var _title_text_line_source := ""
 var _text_fit_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
 var _text_cache_font_id := 0
@@ -135,6 +136,9 @@ var _choice_visual_signature := 0
 var _choice_visual_index := -1
 var _choice_visual_previous_index := -1
 var _choice_visual_transition_started_msec := 0
+var _tower_reward_slot_session_id := -1
+var _tower_reward_slot_keys: Array[String] = []
+var _tower_reward_slot_highlight_keys: Array[String] = []
 # prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
 # 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
 var _unlock_showcase_panel_texture: Texture2D = null
@@ -458,8 +462,11 @@ func draw_tower_reward_pick(
 	canvas: CanvasItem,
 	view_model: Dictionary,
 	runtime_state: Object,
+	catalog: Object,
 	icon_renderer: Object,
-	view_size: Vector2
+	view_size: Vector2,
+	snapshot: Dictionary,
+	mouse_pos: Vector2
 ) -> void:
 	if canvas == null:
 		return
@@ -478,23 +485,34 @@ func draw_tower_reward_pick(
 		alpha,
 		_traditional_ornament_atlas_texture
 	)
+	_draw_particles(canvas, snapshot)
 	var font := _get_font()
 	var title_pos := _get_vector2(layout.get("title_pos", Vector2(view_size.x * 0.5, 72.0)))
-	canvas.draw_string(
-		font,
-		Vector2(0.0, title_pos.y + 10.0),
+	var layout_scale := float(layout.get("layout_scale", 1.0))
+	var reward_title_scale := minf(layout_scale, 1.0)
+	title_pos = _fit_tower_reward_title_position(
+		title_pos,
 		str(view_model.get("title", "")),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		view_size.x,
-		30,
-		Color(0.93, 0.82, 0.56, alpha)
+		reward_title_scale,
+		rects,
+		selected_index
+	)
+	_draw_title(
+		canvas,
+		title_pos,
+		animation_time,
+		reward_title_scale,
+		str(view_model.get("title", ""))
 	)
 	canvas.draw_string(
 		font,
-		Vector2(0.0, title_pos.y + 38.0),
+		Vector2(title_pos.x + 164.0 * reward_title_scale, title_pos.y + 7.0),
 		str(view_model.get("balance_text", "")),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		view_size.x,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		maxf(0.0, minf(
+			260.0 * reward_title_scale,
+			view_size.x - title_pos.x - 172.0 * reward_title_scale
+		)),
 		17,
 		Color(0.86, 0.88, 0.82, alpha)
 	)
@@ -555,6 +573,26 @@ func draw_tower_reward_pick(
 		layout,
 		animation_time
 	)
+	_draw_status_panel(
+		canvas,
+		runtime_state,
+		snapshot,
+		catalog,
+		_get_rect2(layout.get("panel_rect", Rect2())),
+		icon_renderer,
+		view_size,
+		mouse_pos,
+		int(view_model.get("reward_session_id", -1))
+	)
+	_draw_stats_band(
+		canvas,
+		runtime_state,
+		snapshot,
+		_get_rect2(layout.get("stats_rect", Rect2())),
+		view_size,
+		icon_renderer,
+		mouse_pos
+	)
 	var continue_rect := _get_rect2(view_model.get("continue_rect", Rect2()))
 	canvas.draw_rect(continue_rect, Color(0.34, 0.12, 0.08, 0.96 * alpha), true)
 	canvas.draw_rect(continue_rect, Color(0.91, 0.70, 0.31, alpha), false, 2.0)
@@ -569,10 +607,10 @@ func draw_tower_reward_pick(
 	)
 	canvas.draw_string(
 		font,
-		Vector2(36.0, continue_rect.position.y - 16.0),
+		Vector2(36.0, continue_rect.get_center().y + 5.0),
 		str(view_model.get("status_text", "")),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		view_size.x - 72.0,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		maxf(0.0, continue_rect.position.x - 58.0),
 		14,
 		Color(0.82, 0.80, 0.72, alpha)
 	)
@@ -586,6 +624,37 @@ func _tower_reward_absorption_by_slot(view_model: Dictionary) -> Dictionary:
 		if slot_index >= 0:
 			result[slot_index] = effect
 	return result
+
+
+func _fit_tower_reward_title_position(
+	title_pos: Vector2,
+	title_source: String,
+	title_scale: float,
+	card_rects: Array,
+	selected_index: int
+) -> Vector2:
+	var font := _get_font()
+	if font == null or card_rects.is_empty():
+		return title_pos
+	var title_font_size := clampi(
+		int(round(float(TITLE_FONT_SIZE) * title_scale)),
+		34,
+		58
+	)
+	var text_size := _get_title_text_size(font, title_font_size, title_source)
+	var plaque_height := maxf(72.0, text_size.y + 34.0 * title_scale)
+	var first_drawn_y := INF
+	for index in range(card_rects.size()):
+		if not (card_rects[index] is Rect2):
+			continue
+		var rect := card_rects[index] as Rect2
+		var drawn_y := rect.position.y
+		if index == selected_index:
+			drawn_y -= CARD_SELECTION_LIFT + rect.size.y * CARD_SELECTION_SCALE * 0.5
+		first_drawn_y = minf(first_drawn_y, drawn_y)
+	if not is_finite(first_drawn_y):
+		return title_pos
+	return Vector2(title_pos.x, minf(title_pos.y, first_drawn_y - plaque_height * 0.5))
 
 
 func _build_tower_reward_absorbing_rect(source_rect: Rect2, effect: Dictionary) -> Rect2:
@@ -682,7 +751,13 @@ func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
 	return false
 
 
-func _draw_title(canvas: CanvasItem, center: Vector2, animation_time: float, layout_scale: float = 1.0) -> void:
+func _draw_title(
+	canvas: CanvasItem,
+	center: Vector2,
+	animation_time: float,
+	layout_scale: float = 1.0,
+	title_source: String = TITLE_TEXT
+) -> void:
 	var font: Font = _get_font()
 	if font == null:
 		return
@@ -690,10 +765,10 @@ func _draw_title(canvas: CanvasItem, center: Vector2, animation_time: float, lay
 	if alpha <= 0.001:
 		return
 	var title_font_size: int = clampi(int(round(float(TITLE_FONT_SIZE) * layout_scale)), 34, 58)
-	var title_line: TextLine = _get_title_text_line(font, title_font_size)
+	var title_line: TextLine = _get_title_text_line(font, title_font_size, title_source)
 	if title_line == null:
 		return
-	var text_size: Vector2 = _get_title_text_size(font, title_font_size)
+	var text_size: Vector2 = _get_title_text_size(font, title_font_size, title_source)
 	var plaque_size := Vector2(max(300.0, text_size.x + 128.0 * layout_scale), max(72.0, text_size.y + 34.0 * layout_scale))
 	var plaque_rect := Rect2(center - plaque_size * 0.5, plaque_size)
 	RuntimePerkTraditionalChrome.draw_title_plaque(canvas, plaque_rect, alpha)
@@ -738,30 +813,54 @@ func _draw_vertical_plaque(canvas: CanvasItem, rect: Rect2, text: String, alpha:
 		)
 
 
-func _get_title_text_size(font: Font, font_size: int = TITLE_FONT_SIZE) -> Vector2:
-	if _title_text_size == Vector2.ZERO or _title_text_line_font_size != font_size:
-		var title_line: TextLine = _get_title_text_line(font, font_size)
+func _get_title_text_size(
+	font: Font,
+	font_size: int = TITLE_FONT_SIZE,
+	title_source: String = TITLE_TEXT
+) -> Vector2:
+	if (
+		_title_text_size == Vector2.ZERO
+		or _title_text_line_font_size != font_size
+		or _title_text_line_source != title_source
+	):
+		var title_line: TextLine = _get_title_text_line(font, font_size, title_source)
 		if title_line != null:
 			_title_text_size = title_line.get_size()
 		else:
-			_title_text_size = font.get_string_size(LanguageSettings.translate_text(TITLE_TEXT), HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+			_title_text_size = font.get_string_size(
+				LanguageSettings.translate_text(title_source),
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size
+			)
 	return _title_text_size
 
 
-func _get_title_text_line(font: Font, font_size: int = TITLE_FONT_SIZE) -> TextLine:
+func _get_title_text_line(
+	font: Font,
+	font_size: int = TITLE_FONT_SIZE,
+	title_source: String = TITLE_TEXT
+) -> TextLine:
 	if font == null:
 		return null
 	var font_id: int = font.get_instance_id()
 	var language := LanguageSettings.get_language()
-	if _title_text_line != null and _title_text_line_font_id == font_id and _title_text_line_font_size == font_size and _title_text_line_language == language:
+	if (
+		_title_text_line != null
+		and _title_text_line_font_id == font_id
+		and _title_text_line_font_size == font_size
+		and _title_text_line_language == language
+		and _title_text_line_source == title_source
+	):
 		return _title_text_line
 	var title_line := TextLine.new()
-	if not title_line.add_string(LanguageSettings.translate_text(TITLE_TEXT), font, font_size):
+	if not title_line.add_string(LanguageSettings.translate_text(title_source), font, font_size):
 		return null
 	_title_text_line = title_line
 	_title_text_line_font_id = font_id
 	_title_text_line_font_size = font_size
 	_title_text_line_language = language
+	_title_text_line_source = title_source
 	_title_text_size = title_line.get_size()
 	return _title_text_line
 
@@ -1836,7 +1935,17 @@ func _append_clip_ellipsis(font: Font, line: String, font_size: int, max_px: flo
 	return trimmed + suffix
 
 
-func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dictionary, catalog: Object, rect: Rect2, icon_renderer: Object, view_size: Vector2 = Vector2.ZERO) -> void:
+func _draw_status_panel(
+	canvas: CanvasItem,
+	runtime_state: Object,
+	snapshot: Dictionary,
+	catalog: Object,
+	rect: Rect2,
+	icon_renderer: Object,
+	view_size: Vector2 = Vector2.ZERO,
+	mouse_pos_override: Variant = null,
+	reward_session_id: int = -1
+) -> void:
 	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, rect)
 
 	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
@@ -1856,7 +1965,12 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	_draw_text_right(canvas, "무공 골드: %d" % gold, Vector2(counter_x, counter_rect.position.y + counter_step * 2.0), status_font_size, Color(229.0 / 255.0, 192.0 / 255.0, 107.0 / 255.0))
 
 	var slot_status: Dictionary = _get_dict(snapshot.get("perk_slot_status", {}))
-	if slot_status.is_empty() and catalog != null and catalog.has_method("get_perk_slot_status"):
+	if (
+		slot_status.is_empty()
+		and not bool(snapshot.get("perk_slot_status_cached", false))
+		and catalog != null
+		and catalog.has_method("get_perk_slot_status")
+	):
 		# 융합 슬롯 환급 반영: runtime_state 자체를 slot context로 관통.
 		slot_status = _get_dict(catalog.get_perk_slot_status(levels, runtime_state))
 	if not slot_status.is_empty():
@@ -1875,6 +1989,22 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	# 스냅샷의 융합 projection을 소비하는 4인자 빌더가 정본 — 융합 소스 퍽은
 	# 개별 아이콘으로 재등장하지 않고 재료쌍 합성 셀 하나로 접힌다.
 	var acquired: Array = _build_acquired_perks_for_snapshot(levels, catalog, runtime_state, snapshot)
+	var reward_highlight_keys: Array[String] = []
+	if reward_session_id >= 0:
+		var current_slot_keys := _collect_perk_slot_keys(acquired)
+		if reward_session_id != _tower_reward_slot_session_id:
+			_tower_reward_slot_session_id = reward_session_id
+			_tower_reward_slot_keys = current_slot_keys.duplicate()
+			_tower_reward_slot_highlight_keys.clear()
+		elif current_slot_keys != _tower_reward_slot_keys:
+			_tower_reward_slot_highlight_keys.assign(
+				resolve_tower_reward_slot_highlight_keys(
+					_tower_reward_slot_keys,
+					current_slot_keys
+				)
+			)
+			_tower_reward_slot_keys = current_slot_keys.duplicate()
+		reward_highlight_keys = _tower_reward_slot_highlight_keys
 	# Full perk-slot grid like the character-info panel (2026-07-09 request): one cell per
 	# perk-slot-limit, owned perks filled, the rest drawn as empty slots. 빈칸 산정은
 	# acquired.size()가 아니라 프레젠터 공용 조립기를 관통한다 — 슬롯 비소모
@@ -1885,10 +2015,13 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	var display_slots: int = max(1, grid_entries.size())
 
 	var mouse_pos: Vector2 = Vector2(-1.0, -1.0)
-	if runtime_state != null and runtime_state.has_method("get_status_hover_mouse_pos"):
+	if mouse_pos_override is Vector2:
+		mouse_pos = mouse_pos_override as Vector2
+	elif runtime_state != null and runtime_state.has_method("get_status_hover_mouse_pos"):
 		mouse_pos = runtime_state.get_status_hover_mouse_pos()
 	var hovered_skill: Dictionary = {}
 	var hovered_icon_rect := Rect2()
+	var hovered_skill_key := ""
 
 	for idx in range(display_slots):
 		var slot_rect: Rect2 = _get_status_slot_rect(rect, idx, display_slots)
@@ -1899,10 +2032,20 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 			RuntimePerkTraditionalChrome.draw_empty_seal(canvas, slot_rect.get_center(), min(slot_rect.size.x, slot_rect.size.y) * 0.22)
 			continue
 		var is_mythic: bool = str(skill.get("rarity", "")).to_lower() == "mythic"
+		var skill_key := _get_perk_slot_key(skill)
 		if slot_rect.has_point(mouse_pos):
 			hovered_skill = skill
 			hovered_icon_rect = slot_rect
+			hovered_skill_key = skill_key
 		var color: Color = _get_color(skill.get("icon_color", Color(100.0 / 255.0, 150.0 / 255.0, 1.0)))
+		if reward_highlight_keys.has(skill_key):
+			var acquire_pulse := 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.008)
+			canvas.draw_rect(
+				slot_rect.grow(4.0),
+				Color(0.96, 0.72, 0.28, 0.48 + 0.24 * acquire_pulse),
+				false,
+				2.0
+			)
 		# Mythic: soft gold halo BEHIND the cell only; the interior keeps the normal dark
 		# cell so the gold reads as a surround, not a hazy tint (2026-07-09 feedback).
 		if is_mythic:
@@ -1933,8 +2076,43 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 	# Owned-perk hover tooltip (2026-07-09 request): mirrors the character-info perk
 	# tooltip -- left = friendly detail, right = "능력치" numeric breakdown. Drawn last
 	# so it sits on top of the status row.
-	if not hovered_skill.is_empty() and view_size.x > 0.0:
+	if (
+		not hovered_skill.is_empty()
+		and _get_perk_slot_key(hovered_skill) == hovered_skill_key
+		and view_size.x > 0.0
+	):
 		_draw_perk_status_tooltip(canvas, hovered_skill, hovered_icon_rect, view_size, runtime_state, icon_renderer)
+
+
+static func resolve_tower_reward_slot_highlight_keys(
+	previous_keys: Array,
+	current_keys: Array
+) -> Array:
+	var previous_set: Dictionary = {}
+	for key_value: Variant in previous_keys:
+		var key := str(key_value)
+		if not key.is_empty():
+			previous_set[key] = true
+	var result: Array = []
+	for key_value: Variant in current_keys:
+		var key := str(key_value)
+		if not key.is_empty() and not previous_set.has(key) and not result.has(key):
+			result.append(key)
+	return result
+
+
+func _collect_perk_slot_keys(acquired: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value: Variant in acquired:
+		var skill := _get_dict(value)
+		var key := _get_perk_slot_key(skill)
+		if not key.is_empty():
+			result.append(key)
+	return result
+
+
+func _get_perk_slot_key(skill: Dictionary) -> String:
+	return str(skill.get("id", skill.get("skill_id", "")))
 
 
 # 하단 능력치 원장(2026-08-06 요청): "어디가 부족한지 보고 수련/무공을 고를 수
@@ -1947,7 +2125,8 @@ func _draw_stats_band(
 	snapshot: Dictionary,
 	rect: Rect2,
 	view_size: Vector2 = Vector2.ZERO,
-	icon_renderer: Object = null
+	icon_renderer: Object = null,
+	mouse_pos_override: Variant = null
 ) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
@@ -1963,7 +2142,9 @@ func _draw_stats_band(
 	# 모달 입력 핸들러가 매 motion마다 갱신하는 원시 포인터 -- 무공 슬롯 hover와
 	# 같은 소스다.
 	var mouse_pos: Vector2 = Vector2(-1.0, -1.0)
-	if runtime_state.has_method("get_status_hover_mouse_pos"):
+	if mouse_pos_override is Vector2:
+		mouse_pos = mouse_pos_override as Vector2
+	elif runtime_state.has_method("get_status_hover_mouse_pos"):
 		mouse_pos = runtime_state.get_status_hover_mouse_pos()
 	var hovering: bool = rect.has_point(mouse_pos)
 	_refresh_stats_rows(owner, registry, snapshot, hovering)
@@ -2032,6 +2213,8 @@ func _refresh_stats_rows(owner: Object, registry: Object, snapshot: Dictionary, 
 	# Re-Apply Trap과 같은 형태).
 	var signature: int = hash([
 		snapshot.get("runtime_skill_levels", {}),
+		snapshot.get("physique_training", {}),
+		snapshot.get("reward_pick_spent_flags", []),
 		snapshot.get("pending_skill_choices", 0),
 		hash(snapshot.get("current_choices", [])),
 		include_breakdown,

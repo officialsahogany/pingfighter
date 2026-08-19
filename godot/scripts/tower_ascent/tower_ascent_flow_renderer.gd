@@ -6,6 +6,22 @@ const TowerAscentTuning := preload(
 const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
+const PlazaInteriorRoomRenderer := preload(
+	"res://scripts/plaza/plaza_interior_room_renderer.gd"
+)
+
+const ROUTE_AIM_GAUGE_FAN_PATH := (
+	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_ARROW_PATH := (
+	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_FAN_TEXTURE := preload(
+	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_ARROW_TEXTURE := preload(
+	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
+)
 
 const NODE_ART_PATHS := {
 	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
@@ -44,6 +60,20 @@ const CINNABAR_DARK := Color("63241f")
 const GOLD := Color("bd8c35")
 const SEALED := Color("5e5145")
 
+var _cached_graph_key := ""
+var _cached_render_model: Dictionary = {}
+var _cached_fullscreen_key := ""
+var _cached_fullscreen_model: Dictionary = {}
+var _graph_cache_build_count := 0
+var _fullscreen_cache_build_count := 0
+
+
+func get_route_aim_gauge_asset_paths() -> PackedStringArray:
+	return PackedStringArray([
+		ROUTE_AIM_GAUGE_FAN_PATH,
+		ROUTE_AIM_GAUGE_ARROW_PATH,
+	])
+
 
 func draw(canvas: CanvasItem, flow: Object) -> void:
 	if canvas == null or flow == null or not flow.has_method("is_active") or not bool(flow.is_active()):
@@ -75,9 +105,12 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 func draw_fullscreen_map(
 	canvas: CanvasItem,
 	flow: Object,
-	fallback_rect: Rect2 = Rect2()
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
 ) -> void:
 	if canvas == null or flow == null:
+		return
+	if flow.has_method("should_draw_fullscreen_map") and not bool(flow.should_draw_fullscreen_map()):
 		return
 	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
 	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
@@ -85,7 +118,46 @@ func draw_fullscreen_map(
 	var model := build_fullscreen_map_model(flow, viewport_rect)
 	if model.is_empty():
 		return
-	_draw_fullscreen_map_model(canvas, flow, model)
+	_draw_fullscreen_map_model(canvas, flow, model, walker_model)
+
+
+func draw_fullscreen_surface(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
+) -> void:
+	if flow == null or not flow.has_method("get_phase_name"):
+		return
+	if str(flow.get_phase_name()) == "NODE_MODAL":
+		draw_fullscreen_node_modal(canvas, flow, fallback_rect)
+		return
+	draw_fullscreen_map(canvas, flow, fallback_rect, walker_model)
+
+
+func draw_fullscreen_node_modal(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if canvas == null or flow == null:
+		return
+	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
+	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		return
+	var model: Dictionary = (
+		flow.get_node_modal_view_model(viewport_rect.size)
+		if flow.has_method("get_node_modal_view_model")
+		else {}
+	)
+	if model.is_empty():
+		return
+	var node_kind := str(model.get(
+		"node_kind",
+		flow.get_node_modal_kind() if flow.has_method("get_node_modal_kind") else "common_shell"
+	))
+	_draw_node_modal_backdrop(canvas, viewport_rect, node_kind)
+	_draw_node_modal(canvas, model)
 
 
 func resolve_fullscreen_rect(canvas: CanvasItem, fallback_rect: Rect2) -> Rect2:
@@ -100,17 +172,46 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	var base := build_render_model(flow)
 	if base.is_empty() or viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
 		return {}
-	var outer_margin := clampf(minf(viewport_rect.size.x, viewport_rect.size.y) * 0.024, 12.0, 28.0)
+	var fullscreen_key := "%s:%0.3f:%0.3f" % [
+		_cached_graph_key,
+		viewport_rect.size.x,
+		viewport_rect.size.y,
+	]
+	if fullscreen_key != _cached_fullscreen_key:
+		_cached_fullscreen_key = fullscreen_key
+		_cached_fullscreen_model = _build_static_fullscreen_map_model(base, viewport_rect)
+		_fullscreen_cache_build_count += 1
+	if _cached_fullscreen_model.is_empty():
+		return {}
+	var model := _cached_fullscreen_model.duplicate(false)
+	model["active_candidate_ids"] = base.get("active_candidate_ids", [])
+	model["current_node_id"] = str(base.get("current_node_id", ""))
+	model["selected_target_id"] = str(base.get("selected_target_id", ""))
+	model["transition_marker"] = _build_fullscreen_transition_marker(
+		flow,
+		base,
+		model.get("content_rect", Rect2()),
+		model.get("position_by_id", {})
+	)
+	return model
+
+
+func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) -> Dictionary:
+	var outer_margin := minf(viewport_rect.size.x, viewport_rect.size.y) * TowerAscentTuning.TEMP_MAP_OUTER_MARGIN_RATIO
 	var panel_rect := viewport_rect.grow(-outer_margin)
-	var side_gutter := clampf(panel_rect.size.x * 0.13, 82.0, 190.0)
+	var side_gutter := panel_rect.size.x * TowerAscentTuning.TEMP_MAP_SIDE_GUTTER_RATIO
+	var top_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_TOP_RATIO
+	var bottom_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_BOTTOM_RATIO
 	var content_rect := Rect2(
-		panel_rect.position + Vector2(side_gutter, 82.0),
+		panel_rect.position + Vector2(side_gutter, top_inset),
 		Vector2(
-			maxf(240.0, panel_rect.size.x - side_gutter * 2.0),
-			maxf(320.0, panel_rect.size.y - 154.0)
+			maxf(1.0, panel_rect.size.x - side_gutter * 2.0),
+			maxf(1.0, panel_rect.size.y - top_inset - bottom_inset)
 		)
 	)
 	var nodes: Array = base.get("nodes", [])
+	var source_min_x := INF
+	var source_max_x := -INF
 	var source_min_y := INF
 	var source_max_y := -INF
 	var unique_rows: Dictionary = {}
@@ -118,14 +219,16 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		if not (node_variant is Dictionary):
 			continue
 		var source_position := _vector2((node_variant as Dictionary).get("position", Vector2.ZERO))
+		source_min_x = minf(source_min_x, source_position.x)
+		source_max_x = maxf(source_max_x, source_position.x)
 		source_min_y = minf(source_min_y, source_position.y)
 		source_max_y = maxf(source_max_y, source_position.y)
 		unique_rows[int(round(source_position.y))] = true
 	if not is_finite(source_min_y) or not is_finite(source_max_y):
 		return {}
 	var row_pitch := content_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
-	var art_size := clampf(row_pitch * 0.72, 18.0, 34.0)
-	var lane_span := minf(content_rect.size.x * 0.29, 330.0)
+	var art_size := row_pitch * TowerAscentTuning.TEMP_MAP_ART_SIZE_RATIO
+	var lane_span := content_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
 	var center_x := content_rect.get_center().x
 	var position_by_id: Dictionary = {}
 	var projected_nodes: Array[Dictionary] = []
@@ -134,7 +237,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			continue
 		var node := (node_variant as Dictionary).duplicate(true)
 		var source_position := _vector2(node.get("position", Vector2.ZERO))
-		var source_x_ratio := clampf((source_position.x - 380.0) / 320.0, -1.0, 1.0)
+		var source_x_ratio := (
+			lerpf(-1.0, 1.0, inverse_lerp(source_min_x, source_max_x, source_position.x))
+			if not is_equal_approx(source_min_x, source_max_x)
+			else 0.0
+		)
 		var source_y_ratio := inverse_lerp(source_min_y, source_max_y, source_position.y)
 		var screen_position := Vector2(
 			center_x + source_x_ratio * lane_span,
@@ -185,23 +292,6 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 				maxf(12.0, row_pitch * 0.76)
 			),
 		})
-	var transition_marker: Dictionary = {}
-	if str(flow.get_phase_name()) == "MAP_TRANSITION":
-		var source_id := str(flow.get_route_source_node_id())
-		var target_id := str(base.get("selected_target_id", ""))
-		var target_position: Vector2 = position_by_id.get(
-			target_id,
-			content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
-		)
-		transition_marker = {
-			"from_position": position_by_id.get(
-				source_id,
-				Vector2(content_rect.get_center().x, content_rect.end.y)
-			),
-			"to_position": target_position,
-			"progress": flow.get_map_transition_progress(),
-			"phase_entry": bool(flow.is_phase_entry_transition()),
-		}
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
@@ -209,14 +299,44 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		"nodes": projected_nodes,
 		"edges": projected_edges,
 		"floor_bands": floor_bands,
-		"active_candidate_ids": base.get("active_candidate_ids", []),
-		"current_node_id": str(base.get("current_node_id", "")),
-		"selected_target_id": str(base.get("selected_target_id", "")),
+		"position_by_id": position_by_id,
 		"art_size": art_size,
 		"phase": base.get("phase", {}),
 		"realm_kind": str(base.get("realm_kind", "human_realm")),
 		"locked_phase_hints": base.get("locked_phase_hints", []),
-		"transition_marker": transition_marker,
+	}
+
+
+func _build_fullscreen_transition_marker(
+	flow: Object,
+	base: Dictionary,
+	content_rect: Rect2,
+	position_by_id: Dictionary
+) -> Dictionary:
+	if str(flow.get_phase_name()) != "MAP_TRANSITION":
+		return {}
+	var source_id := str(flow.get_route_source_node_id())
+	var target_id := str(base.get("selected_target_id", ""))
+	var target_position: Vector2 = position_by_id.get(
+		target_id,
+		content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
+	)
+	var visual_model: Dictionary = (
+		flow.get_map_transition_visual_model()
+		if flow.has_method("get_map_transition_visual_model")
+		else {"travel_progress": flow.get_map_transition_progress(), "marker_scale": 1.0, "marker_alpha": 1.0}
+	)
+	return {
+		"from_position": position_by_id.get(
+			source_id,
+			Vector2(content_rect.get_center().x, content_rect.end.y)
+		),
+		"to_position": target_position,
+		"progress": float(visual_model.get("travel_progress", 0.0)),
+		"scale": float(visual_model.get("marker_scale", 1.0)),
+		"alpha": float(visual_model.get("marker_alpha", 1.0)),
+		"segment": str(visual_model.get("segment", "")),
+		"phase_entry": bool(flow.is_phase_entry_transition()),
 	}
 
 
@@ -232,7 +352,8 @@ func get_node_art_asset_paths() -> Array[String]:
 func _draw_fullscreen_map_model(
 	canvas: CanvasItem,
 	flow: Object,
-	model: Dictionary
+	model: Dictionary,
+	walker_model: Dictionary = {}
 ) -> void:
 	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
 	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
@@ -274,7 +395,12 @@ func _draw_fullscreen_map_model(
 				selected_target_id,
 				content_rect
 			)
-	_draw_fullscreen_transition_marker(canvas, model.get("transition_marker", {}))
+	_draw_fullscreen_transition_marker(
+		canvas,
+		model.get("transition_marker", {}),
+		walker_model,
+		float(model.get("art_size", 24.0))
+	)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
@@ -462,17 +588,104 @@ func _draw_locked_phase_hints(
 		)
 
 
-func _draw_fullscreen_transition_marker(canvas: CanvasItem, marker_value: Variant) -> void:
+func _draw_fullscreen_transition_marker(
+	canvas: CanvasItem,
+	marker_value: Variant,
+	walker_model: Dictionary = {},
+	art_size: float = 24.0
+) -> void:
 	if not (marker_value is Dictionary) or (marker_value as Dictionary).is_empty():
 		return
 	var marker := marker_value as Dictionary
 	var progress := clampf(float(marker.get("progress", 0.0)), 0.0, 1.0)
-	var position := _vector2(marker.get("from_position", Vector2.ZERO)).lerp(
-		_vector2(marker.get("to_position", Vector2.ZERO)),
+	var from_position := _vector2(marker.get("from_position", Vector2.ZERO))
+	var to_position := _vector2(marker.get("to_position", Vector2.ZERO))
+	var position := from_position.lerp(
+		to_position,
 		progress
 	)
-	canvas.draw_circle(position, 13.0 + 2.0 * sin(progress * PI), CINNABAR)
-	canvas.draw_circle(position, 19.0, GOLD, false, 3.0)
+	var marker_scale := clampf(float(marker.get("scale", 1.0)), 0.0, 1.0)
+	var marker_alpha := clampf(float(marker.get("alpha", 1.0)), 0.0, 1.0)
+	if marker_alpha <= 0.001 or marker_scale <= 0.001:
+		return
+	if _draw_fullscreen_walker(
+		canvas,
+		walker_model,
+		position,
+		to_position.x >= from_position.x,
+		progress,
+		art_size,
+		marker_scale,
+		marker_alpha
+	):
+		return
+	canvas.draw_circle(
+		position,
+		(13.0 + 2.0 * sin(progress * PI)) * marker_scale,
+		Color(CINNABAR, marker_alpha)
+	)
+	canvas.draw_circle(
+		position,
+		19.0 * marker_scale,
+		Color(GOLD, marker_alpha),
+		false,
+		3.0 * marker_scale
+	)
+
+
+func _draw_fullscreen_walker(
+	canvas: CanvasItem,
+	walker_model: Dictionary,
+	position: Vector2,
+	facing_right: bool,
+	travel_progress: float,
+	art_size: float,
+	marker_scale: float,
+	marker_alpha: float
+) -> bool:
+	var preferred_key := "right_texture" if facing_right else "left_texture"
+	var fallback_key := "left_texture" if facing_right else "right_texture"
+	var texture_value: Variant = walker_model.get(preferred_key, null)
+	var mirror_x := false
+	if not (texture_value is Texture2D):
+		texture_value = walker_model.get(fallback_key, null)
+		mirror_x = texture_value is Texture2D
+	if not (texture_value is Texture2D):
+		return false
+	var texture := texture_value as Texture2D
+	var grid_cols := maxi(1, int(walker_model.get("grid_cols", 4)))
+	var grid_rows := maxi(1, int(walker_model.get("grid_rows", 2)))
+	var frame_count := clampi(int(walker_model.get("frame_count", 8)), 1, grid_cols * grid_rows)
+	var frame_index := int(floor(travel_progress * float(frame_count) * 3.0)) % frame_count
+	var frame_col := frame_index % grid_cols
+	var frame_row := frame_index / grid_cols
+	var uv_min := Vector2(float(frame_col) / float(grid_cols), float(frame_row) / float(grid_rows))
+	var uv_max := Vector2(float(frame_col + 1) / float(grid_cols), float(frame_row + 1) / float(grid_rows))
+	if mirror_x:
+		var swap_x := uv_min.x
+		uv_min.x = uv_max.x
+		uv_max.x = swap_x
+	var draw_size := Vector2.ONE * maxf(28.0, art_size * 1.9) * marker_scale
+	var half := draw_size * 0.5
+	var points := PackedVector2Array([
+		position + Vector2(-half.x, -half.y),
+		position + Vector2(half.x, -half.y),
+		position + Vector2(half.x, half.y),
+		position + Vector2(-half.x, half.y),
+	])
+	var uvs := PackedVector2Array([
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_min.x, uv_max.y),
+	])
+	canvas.draw_polygon(
+		points,
+		PackedColorArray([Color(1.0, 1.0, 1.0, marker_alpha)]),
+		uvs,
+		texture
+	)
+	return true
 
 
 func _draw_fullscreen_map_node(
@@ -579,24 +792,45 @@ func _draw_map_surface(
 func build_render_model(flow: Object) -> Dictionary:
 	if flow == null:
 		return {}
-	var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
-	if nodes.is_empty():
-		return {}
-	var phase: Dictionary = (
-		flow.get_active_graph_phase()
-		if flow.has_method("get_active_graph_phase")
-		else {}
-	)
+	var revision := int(flow.get_map_render_revision()) if flow.has_method("get_map_render_revision") else 0
+	var phase_index := int(flow.get_active_graph_phase_index()) if flow.has_method("get_active_graph_phase_index") else 0
+	var graph_key := "%d:%d:%d" % [flow.get_instance_id(), phase_index, revision]
+	if graph_key != _cached_graph_key:
+		var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
+		if nodes.is_empty():
+			return {}
+		var phase: Dictionary = (
+			flow.peek_active_graph_phase()
+			if flow.has_method("peek_active_graph_phase")
+			else flow.get_active_graph_phase()
+			if flow.has_method("get_active_graph_phase")
+			else {}
+		)
+		_cached_graph_key = graph_key
+		_cached_render_model = {
+			"floors": flow.get_graph_floors() if flow.has_method("get_graph_floors") else [],
+			"nodes": nodes,
+			"edges": flow.get_graph_edges() if flow.has_method("get_graph_edges") else [],
+			"phase": phase,
+			"realm_kind": str(phase.get("realm_kind", "human_realm")),
+			"locked_phase_hints": phase.get("locked_phase_hints", []),
+		}
+		_cached_fullscreen_key = ""
+		_cached_fullscreen_model.clear()
+		_graph_cache_build_count += 1
+	var result := _cached_render_model.duplicate(false)
+	result["active_candidate_ids"] = flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else []
+	result["current_node_id"] = str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else ""
+	result["selected_target_id"] = str(flow.get_selected_target_id()) if flow.has_method("get_selected_target_id") else ""
+	return result
+
+
+func get_render_cache_debug_state() -> Dictionary:
 	return {
-		"floors": flow.get_graph_floors() if flow.has_method("get_graph_floors") else [],
-		"nodes": nodes,
-		"edges": flow.get_graph_edges() if flow.has_method("get_graph_edges") else [],
-		"active_candidate_ids": flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else [],
-		"current_node_id": str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else "",
-		"selected_target_id": str(flow.get_selected_target_id()),
-		"phase": phase,
-		"realm_kind": str(phase.get("realm_kind", "human_realm")),
-		"locked_phase_hints": phase.get("locked_phase_hints", []),
+		"graph_key": _cached_graph_key,
+		"graph_build_count": _graph_cache_build_count,
+		"fullscreen_key": _cached_fullscreen_key,
+		"fullscreen_build_count": _fullscreen_cache_build_count,
 	}
 
 
@@ -815,38 +1049,233 @@ func _draw_map_overlay_legend(canvas: CanvasItem) -> void:
 	)
 
 
-func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
-	var model: Dictionary = (
-		flow.get_node_modal_view_model()
-		if flow.has_method("get_node_modal_view_model")
-		else {}
+func build_node_modal_backdrop_model(
+	node_kind: String,
+	viewport_rect: Rect2
+) -> Dictionary:
+	var kind := node_kind.strip_edges().to_lower()
+	var palettes := {
+		"shop": [Color("100f1d"), Color("2b1937"), Color("d99532")],
+		"training": [Color("20150f"), Color("503125"), Color("d49b48")],
+		"fallen_monk": [Color("11151b"), Color("2c3035"), Color("9e352d")],
+		"guardian_spring": [Color("071c24"), Color("164c55"), Color("65c7ba")],
+		"rest": [Color("08101f"), Color("192544"), Color("e5a94f")],
+		"common_shell": [Color("17120f"), Color("3b2d24"), GOLD],
+	}
+	if not palettes.has(kind):
+		kind = "common_shell"
+	var palette: Array = palettes[kind]
+	return {
+		"kind": kind,
+		"rect": viewport_rect,
+		"top_color": palette[0],
+		"bottom_color": palette[1],
+		"accent": palette[2],
+	}
+
+
+func _draw_node_modal_backdrop(
+	canvas: CanvasItem,
+	viewport_rect: Rect2,
+	node_kind: String
+) -> void:
+	var model := build_node_modal_backdrop_model(node_kind, viewport_rect)
+	var kind := str(model.get("kind", "common_shell"))
+	var accent: Color = model.get("accent", GOLD)
+	if kind == "shop" and viewport_rect.position == Vector2.ZERO:
+		var room_scale := minf(
+			viewport_rect.size.x / 1000.0,
+			viewport_rect.size.y / 720.0
+		)
+		PlazaInteriorRoomRenderer.draw_room(
+			canvas,
+			ThemeDB.fallback_font,
+			viewport_rect.size,
+			maxf(0.1, room_scale),
+			0.0,
+			"shop",
+			accent,
+			null
+		)
+		return
+	_draw_node_modal_gradient(canvas, model)
+	match kind:
+		"training":
+			_draw_training_backdrop(canvas, viewport_rect, accent)
+		"fallen_monk":
+			_draw_fallen_monk_backdrop(canvas, viewport_rect, accent)
+		"guardian_spring":
+			_draw_guardian_spring_backdrop(canvas, viewport_rect, accent)
+		"rest":
+			_draw_rest_backdrop(canvas, viewport_rect, accent)
+		_:
+			_draw_common_node_backdrop(canvas, viewport_rect, accent)
+
+
+func _draw_node_modal_gradient(canvas: CanvasItem, model: Dictionary) -> void:
+	var rect: Rect2 = model.get("rect", Rect2())
+	var top_color: Color = model.get("top_color", Color.BLACK)
+	var bottom_color: Color = model.get("bottom_color", Color.BLACK)
+	for band_index in range(18):
+		var progress := float(band_index) / 17.0
+		var band_rect := Rect2(
+			rect.position + Vector2(0.0, rect.size.y * progress),
+			Vector2(rect.size.x, rect.size.y / 17.0 + 2.0)
+		)
+		canvas.draw_rect(band_rect, top_color.lerp(bottom_color, progress), true)
+
+
+func _draw_training_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	var horizon_y := rect.position.y + rect.size.y * 0.55
+	canvas.draw_circle(
+		rect.position + Vector2(rect.size.x * 0.78, rect.size.y * 0.22),
+		rect.size.y * 0.095,
+		Color(accent, 0.24)
 	)
-	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.06, 0.04, 0.025, 0.54), true)
-	canvas.draw_rect(MODAL_RECT, Color("f7e9c8"), true)
-	canvas.draw_rect(MODAL_RECT, CINNABAR_DARK, false, 5.0)
-	canvas.draw_rect(MODAL_RECT.grow(-13.0), GOLD, false, 2.0)
+	canvas.draw_rect(
+		Rect2(Vector2(rect.position.x, horizon_y), Vector2(rect.size.x, rect.end.y - horizon_y)),
+		Color("2b1d17"),
+		true
+	)
+	for index in range(11):
+		var y := lerpf(horizon_y, rect.end.y, float(index) / 10.0)
+		canvas.draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), Color(accent, 0.12), 2.0)
+	for side_value in [-1.0, 1.0]:
+		var side: float = float(side_value)
+		var x: float = rect.get_center().x + side * rect.size.x * 0.34
+		canvas.draw_rect(Rect2(Vector2(x - 16.0, rect.position.y), Vector2(32.0, rect.size.y)), Color("3b2018"), true)
+		canvas.draw_rect(Rect2(Vector2(x - 22.0, rect.position.y + rect.size.y * 0.16), Vector2(44.0, 16.0)), accent, true)
+
+
+func _draw_fallen_monk_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	canvas.draw_circle(
+		rect.position + Vector2(rect.size.x * 0.23, rect.size.y * 0.22),
+		rect.size.y * 0.09,
+		Color("b8b2a4")
+	)
+	for index in range(6):
+		var x := rect.position.x + rect.size.x * (0.12 + float(index) * 0.15)
+		var height := rect.size.y * (0.28 + float(index % 3) * 0.07)
+		var ruin := Rect2(Vector2(x, rect.end.y - height), Vector2(rect.size.x * 0.065, height))
+		canvas.draw_rect(ruin, Color("25282b"), true)
+		canvas.draw_rect(ruin, Color(accent, 0.28), false, 2.0)
+	for index in range(9):
+		var rubble_center := rect.position + Vector2(
+			rect.size.x * (0.08 + float(index) * 0.105),
+			rect.size.y * (0.82 + float(index % 2) * 0.05)
+		)
+		canvas.draw_circle(rubble_center, rect.size.y * 0.018, Color("343539"))
+
+
+func _draw_guardian_spring_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	var water_rect := Rect2(
+		rect.position + Vector2(0.0, rect.size.y * 0.48),
+		Vector2(rect.size.x, rect.size.y * 0.52)
+	)
+	canvas.draw_rect(water_rect, Color("0b3540"), true)
+	var spring_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.67)
+	for index in range(8, 0, -1):
+		canvas.draw_arc(
+			spring_center,
+			rect.size.y * (0.035 + float(index) * 0.035),
+			0.0,
+			TAU,
+			64,
+			Color(accent, 0.05 + float(8 - index) * 0.018),
+			2.0
+		)
+	for index in range(7):
+		var y := rect.position.y + rect.size.y * (0.20 + float(index) * 0.055)
+		canvas.draw_arc(Vector2(rect.get_center().x, y), rect.size.x * 0.22, PI, TAU, 36, Color(0.82, 0.95, 0.91, 0.08), 7.0)
+
+
+func _draw_rest_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	for index in range(36):
+		var point := rect.position + Vector2(
+			fposmod(float(index * 137), rect.size.x),
+			fposmod(float(index * 71), rect.size.y * 0.56)
+		)
+		canvas.draw_circle(point, 1.5 + float(index % 3), Color(0.92, 0.88, 0.72, 0.34))
+	var hill_points := PackedVector2Array([
+		Vector2(rect.position.x, rect.end.y),
+		rect.position + Vector2(0.0, rect.size.y * 0.70),
+		rect.position + Vector2(rect.size.x * 0.28, rect.size.y * 0.58),
+		rect.position + Vector2(rect.size.x * 0.52, rect.size.y * 0.74),
+		rect.position + Vector2(rect.size.x * 0.76, rect.size.y * 0.61),
+		Vector2(rect.end.x, rect.position.y + rect.size.y * 0.72),
+		rect.end,
+	])
+	canvas.draw_colored_polygon(hill_points, Color("111a24"))
+	var fire_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.77)
+	canvas.draw_circle(fire_center, rect.size.y * 0.09, Color(accent, 0.08))
+	canvas.draw_circle(fire_center, rect.size.y * 0.035, Color(accent, 0.92))
+	canvas.draw_circle(fire_center - Vector2(0.0, rect.size.y * 0.02), rect.size.y * 0.016, Color("fff1a6"))
+
+
+func _draw_common_node_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	for index in range(9):
+		var inset := rect.size.y * (0.04 + float(index) * 0.035)
+		canvas.draw_rect(rect.grow(-inset), Color(accent, 0.08), false, 2.0)
+
+
+func _screen_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector2:
+	return offset + point * scale_value
+
+
+func _screen_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
+	return Rect2(_screen_point(rect.position, scale_value, offset), rect.size * scale_value)
+
+
+func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
+	# The transformed playfield dispatcher still reaches this method so its
+	# phase return remains explicit, but only the fullscreen pass supplies the
+	# screen-layout model and is allowed to render it.
+	if not (model_value is Dictionary):
+		return
+	var model := model_value as Dictionary
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
+	canvas.draw_rect(modal_rect, Color("f7e9c8"), true)
+	canvas.draw_rect(modal_rect, CINNABAR_DARK, false, 5.0 * content_scale)
+	canvas.draw_rect(modal_rect.grow(-13.0 * content_scale), GOLD, false, 2.0 * content_scale)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 178.0),
+		_screen_point(Vector2(126.0, 178.0), content_scale, content_offset),
 		str(model.get("title", "행로 정비")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		30,
+		508.0 * content_scale,
+		maxi(12, int(round(30.0 * content_scale))),
 		INK
 	)
-	canvas.draw_line(Vector2(126.0, 195.0), Vector2(634.0, 195.0), GOLD, 2.0)
+	canvas.draw_line(
+		_screen_point(Vector2(126.0, 195.0), content_scale, content_offset),
+		_screen_point(Vector2(634.0, 195.0), content_scale, content_offset),
+		GOLD,
+		2.0 * content_scale
+	)
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 224.0),
+		_screen_point(Vector2(126.0, 224.0), content_scale, content_offset),
 		str(model.get("description", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		16,
+		508.0 * content_scale,
+		maxi(10, int(round(16.0 * content_scale))),
 		INK_SOFT
 	)
-	_draw_balance_badge(canvas, Rect2(190.0, 242.0, 176.0, 38.0), str(model.get("muhon_text", "무혼 0")))
-	_draw_balance_badge(canvas, Rect2(394.0, 242.0, 176.0, 38.0), str(model.get("gold_text", "골드 0")))
+	_draw_balance_badge(
+		canvas,
+		_screen_rect(Rect2(190.0, 242.0, 176.0, 38.0), content_scale, content_offset),
+		str(model.get("muhon_text", "무혼 0")),
+		content_scale
+	)
+	_draw_balance_badge(
+		canvas,
+		_screen_rect(Rect2(394.0, 242.0, 176.0, 38.0), content_scale, content_offset),
+		str(model.get("gold_text", "골드 0")),
+		content_scale
+	)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var selected_index := int(model.get("selected_index", 0))
@@ -856,35 +1285,45 @@ func _draw_node_modal(canvas: CanvasItem, flow: Object) -> void:
 		var row_rect := (
 			action_rects[index] as Rect2
 			if index < action_rects.size() and action_rects[index] is Rect2
-			else Rect2(126.0, 301.0 + float(index) * 43.0, 508.0, 38.0)
+			else _screen_rect(
+				Rect2(126.0, 301.0 + float(index) * 43.0, 508.0, 38.0),
+				content_scale,
+				content_offset
+			)
 		)
 		_draw_modal_action_row(
 			canvas,
 			row_rect,
 			actions[index] as Dictionary,
-			index == selected_index
+			index == selected_index,
+			content_scale
 		)
 	canvas.draw_string(
 		font,
-		Vector2(126.0, 635.0),
+		_screen_point(Vector2(126.0, 635.0), content_scale, content_offset),
 		str(model.get("status_text", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0,
-		14,
+		508.0 * content_scale,
+		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
 	)
 
 
-func _draw_balance_badge(canvas: CanvasItem, rect: Rect2, label: String) -> void:
+func _draw_balance_badge(
+	canvas: CanvasItem,
+	rect: Rect2,
+	label: String,
+	content_scale: float = 1.0
+) -> void:
 	canvas.draw_rect(rect, Color(PAPER_DEEP, 0.62), true)
-	canvas.draw_rect(rect, GOLD, false, 1.5)
+	canvas.draw_rect(rect, GOLD, false, 1.5 * content_scale)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x, rect.position.y + 25.0),
+		Vector2(rect.position.x, rect.position.y + 25.0 * content_scale),
 		label,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		rect.size.x,
-		16,
+		maxi(10, int(round(16.0 * content_scale))),
 		INK
 	)
 
@@ -893,7 +1332,8 @@ func _draw_modal_action_row(
 	canvas: CanvasItem,
 	rect: Rect2,
 	action: Dictionary,
-	selected: bool
+	selected: bool,
+	content_scale: float = 1.0
 ) -> void:
 	var enabled := bool(action.get("enabled", true))
 	var fill := CINNABAR if selected and enabled else Color(PAPER_DEEP, 0.72)
@@ -902,23 +1342,34 @@ func _draw_modal_action_row(
 		fill = Color(SEALED, 0.32)
 		text_color = Color(SEALED, 0.84)
 	canvas.draw_rect(rect, fill, true)
-	canvas.draw_rect(rect, CINNABAR_DARK if selected else GOLD, false, 2.0 if selected else 1.0)
+	canvas.draw_rect(
+		rect,
+		CINNABAR_DARK if selected else GOLD,
+		false,
+		(2.0 if selected else 1.0) * content_scale
+	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x + 10.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
+		Vector2(
+			rect.position.x + 10.0 * content_scale,
+			rect.position.y + minf(25.0 * content_scale, rect.size.y * 0.56)
+		),
 		str(action.get("label", "")),
 		HORIZONTAL_ALIGNMENT_LEFT,
-		maxf(52.0, rect.size.x - 102.0),
-		14 if rect.size.x < 400.0 else 16,
+		maxf(52.0 * content_scale, rect.size.x - 102.0 * content_scale),
+		maxi(10, int(round((14.0 if rect.size.x < 400.0 * content_scale else 16.0) * content_scale))),
 		text_color
 	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.end.x - 88.0, rect.position.y + minf(25.0, rect.size.y * 0.56)),
+		Vector2(
+			rect.end.x - 88.0 * content_scale,
+			rect.position.y + minf(25.0 * content_scale, rect.size.y * 0.56)
+		),
 		str(action.get("cost_text", "")),
 		HORIZONTAL_ALIGNMENT_RIGHT,
-		78.0,
-		12 if rect.size.x < 400.0 else 14,
+		78.0 * content_scale,
+		maxi(9, int(round((12.0 if rect.size.x < 400.0 * content_scale else 14.0) * content_scale))),
 		text_color
 	)
 
@@ -947,6 +1398,29 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 
 
 func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
+	_draw_route_aim_gauge_with_textures(
+		canvas,
+		flow,
+		ROUTE_AIM_GAUGE_FAN_TEXTURE,
+		ROUTE_AIM_GAUGE_ARROW_TEXTURE
+	)
+
+
+func debug_draw_route_aim_gauge_with_textures(
+	canvas: Object,
+	flow: Object,
+	fan_texture: Variant,
+	arrow_texture: Variant
+) -> void:
+	_draw_route_aim_gauge_with_textures(canvas, flow, fan_texture, arrow_texture)
+
+
+func _draw_route_aim_gauge_with_textures(
+	canvas: Object,
+	flow: Object,
+	fan_texture: Variant,
+	arrow_texture: Variant
+) -> void:
 	if not flow.has_method("get_route_aim_gauge_model"):
 		return
 	var model: Dictionary = flow.get_route_aim_gauge_model()
@@ -963,6 +1437,68 @@ func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
 		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
 	)))
 	var angle := deg_to_rad(float(model.get("angle_degrees", 0.0)))
+	if not (fan_texture is Texture2D) or not (arrow_texture is Texture2D):
+		_draw_route_aim_gauge_procedural(
+			canvas,
+			origin,
+			radius,
+			min_angle,
+			max_angle,
+			angle
+		)
+		return
+	var fan := fan_texture as Texture2D
+	var arrow := arrow_texture as Texture2D
+	var texture_scale := (
+		radius / TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX
+	)
+	var fan_size := fan.get_size() * texture_scale
+	var fan_pivot := fan_size * TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO
+	canvas.draw_texture_rect(
+		fan,
+		Rect2(origin - fan_pivot, fan_size),
+		false,
+		Color.WHITE,
+		false
+	)
+	var arrow_direction := Vector2(sin(angle), -cos(angle))
+	var arrow_center := (
+		origin
+		+ arrow_direction
+		* radius
+		* TowerAscentTuning.TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO
+	)
+	var arrow_half_size := arrow.get_size() * texture_scale * 0.5
+	var axis_x := Vector2(cos(angle), sin(angle))
+	var axis_y := Vector2(-axis_x.y, axis_x.x)
+	var points := PackedVector2Array([
+		arrow_center - axis_x * arrow_half_size.x - axis_y * arrow_half_size.y,
+		arrow_center + axis_x * arrow_half_size.x - axis_y * arrow_half_size.y,
+		arrow_center + axis_x * arrow_half_size.x + axis_y * arrow_half_size.y,
+		arrow_center - axis_x * arrow_half_size.x + axis_y * arrow_half_size.y,
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	canvas.draw_polygon(
+		points,
+		PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
+		uvs,
+		arrow
+	)
+
+
+func _draw_route_aim_gauge_procedural(
+	canvas: Object,
+	origin: Vector2,
+	radius: float,
+	min_angle: float,
+	max_angle: float,
+	angle: float
+) -> void:
 	var outer_fan := _build_route_aim_fan(origin, radius, min_angle, max_angle, 28)
 	var inner_fan := _build_route_aim_fan(origin, radius - 8.0, min_angle, max_angle, 28)
 	canvas.draw_colored_polygon(outer_fan, Color(CINNABAR_DARK, 0.42))

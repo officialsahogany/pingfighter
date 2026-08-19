@@ -1,5 +1,8 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const TimelineState := preload("res://scripts/items/mythic_item_acquisition_timeline_state.gd")
+
 const ICON_SIZE := 96.0
 const TEXT_BAND_SIZE := Vector2(560.0, 112.0)
 const TEXT_BAND_TOP := 456.0
@@ -9,6 +12,8 @@ const TEXT_DESCRIPTION_TOP := 40.0
 const TEXT_DESCRIPTION_HEIGHT := 56.0
 const REVEAL_PHASE := "reveal"
 const ABSORB_PHASE := "absorb"
+const CONTINUE_HINT_TEXT := "클릭해 계속"
+const BASE_DESCRIPTION_META := &"mythic_acquisition_base_description"
 
 
 static func compute_icon_source_rect(
@@ -115,6 +120,7 @@ func sync_text_content(
 	if name_label != null:
 		name_label.text = display_name if enabled else ""
 	if description_label != null:
+		description_label.set_meta(BASE_DESCRIPTION_META, description if enabled else "")
 		description_label.text = description if enabled else ""
 
 
@@ -139,7 +145,28 @@ func apply_text_state(
 	if description_label != null:
 		description_label.position = band_position + Vector2(TEXT_PADDING, TEXT_DESCRIPTION_TOP)
 		description_label.size = Vector2(TEXT_BAND_SIZE.x - TEXT_PADDING * 2.0, TEXT_DESCRIPTION_HEIGHT)
+		sync_continue_hint(
+			description_label,
+			enabled
+			and phase == REVEAL_PHASE
+			and phase_timer >= TimelineState.REVEAL_CLICK_DELAY
+		)
 	apply_text_alpha(text_band, name_label, description_label, enabled, alpha)
+
+
+func sync_continue_hint(description_label: Label, waiting_for_click: bool) -> void:
+	if description_label == null:
+		return
+	var base_description := str(description_label.get_meta(BASE_DESCRIPTION_META, ""))
+	if not waiting_for_click:
+		description_label.text = base_description
+		return
+	var hint := LanguageSettings.translate_text(CONTINUE_HINT_TEXT)
+	description_label.text = (
+		"%s\n%s" % [base_description, hint]
+		if not base_description.is_empty()
+		else hint
+	)
 
 
 func apply_text_alpha(

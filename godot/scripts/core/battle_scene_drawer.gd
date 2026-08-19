@@ -3,6 +3,12 @@ extends RefCounted
 const BattleContextReader := preload("res://scripts/core/battle_context_reader.gd")
 const VictoryHighlightPillarTrace := preload("res://scripts/core/victory_highlight_pillar_trace.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload(
+	"res://scripts/characters/player_character_runtime.gd"
+)
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
@@ -43,8 +49,14 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	_draw_hud_overlays(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_tower_reward_pick(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene.tower_reward_pick", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_tower_ascent_fullscreen_map(canvas, registry, view_size)
 	_perf_end(perf_logger, "draw.scene.tower_fullscreen_map", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_tower_ascent_fullscreen_fade(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene.tower_fullscreen_fade", sample_start)
 	_perf_end(perf_logger, "draw.scene.total", total_start)
 
 
@@ -255,13 +267,103 @@ func _draw_tower_ascent_fullscreen_map(
 		if flow_owner != null and flow_owner.has_method("get_phase_name")
 		else ""
 	)
+	var overlay_closing := (
+		flow_owner != null
+		and flow_owner.has_method("is_map_overlay_closing")
+		and bool(flow_owner.is_map_overlay_closing())
+	)
+	var transition_visual_model: Dictionary = (
+		flow_owner.get_map_transition_visual_model()
+		if flow_owner != null and flow_owner.has_method("get_map_transition_visual_model")
+		else {}
+	)
 	if (
 		flow_owner == null
-		or phase_name not in ["MAP_OVERLAY", "MAP_TRANSITION"]
-		or not flow_owner.has_method("draw_fullscreen_map")
+		or (
+			not overlay_closing
+			and not TowerAscentScreenSpaceSurfacePolicy.uses_screen_space_flow_phase(
+				phase_name,
+				transition_visual_model
+			)
+		)
+		or not flow_owner.has_method("draw_fullscreen_surface")
 	):
 		return
-	flow_owner.draw_fullscreen_map(canvas, Rect2(Vector2.ZERO, view_size))
+	var walker_model := _build_tower_map_walker_model(canvas)
+	if _method_accepts_argument_count(flow_owner, "draw_fullscreen_surface", 3):
+		flow_owner.draw_fullscreen_surface(
+			canvas,
+			Rect2(Vector2.ZERO, view_size),
+			walker_model
+		)
+	else:
+		flow_owner.draw_fullscreen_surface(canvas, Rect2(Vector2.ZERO, view_size))
+
+
+func _draw_tower_ascent_fullscreen_fade(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2
+) -> void:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("draw_fullscreen_fade")
+		or not flow_owner.has_method("is_active")
+		or not bool(flow_owner.is_active())
+	):
+		return
+	flow_owner.draw_fullscreen_fade(canvas, Rect2(Vector2.ZERO, view_size))
+
+
+func _build_tower_map_walker_model(canvas: CanvasItem) -> Dictionary:
+	var textures_value: Variant = BattleSceneOwnerReader.get_value(canvas, "battle_textures", {})
+	if not (textures_value is Dictionary):
+		return {}
+	var textures := textures_value as Dictionary
+	var character_runtime := PlayerCharacterRuntime.new()
+	var character_type := character_runtime.normalize(
+		BattleSceneOwnerReader.get_value(canvas, "selected_character_type", PlayerCharacterRuntime.SMASHER)
+	)
+	var left_key := "player_walk_left_texture"
+	var right_key := "player_walk_right_texture"
+	match character_type:
+		PlayerCharacterRuntime.COMMANDO:
+			left_key = "commando_player_walk_left_sheet"
+			right_key = "commando_player_walk_right_sheet"
+		PlayerCharacterRuntime.VIPER:
+			left_key = "viper_player_walk_left_sheet"
+			right_key = "viper_player_walk_right_sheet"
+		PlayerCharacterRuntime.OPTIMUS:
+			left_key = "optimus_player_walk_left_sheet"
+			right_key = "optimus_player_walk_right_sheet"
+		PlayerCharacterRuntime.BLACKSMITH:
+			left_key = "blacksmith_player_walk_left_sheet"
+			right_key = "blacksmith_player_walk_right_sheet"
+	return {
+		"left_texture": textures.get(left_key, null),
+		"right_texture": textures.get(right_key, null),
+		"grid_cols": 4,
+		"grid_rows": 2,
+		"frame_count": 8,
+		"character_type": character_type,
+	}
+
+
+func _draw_tower_reward_pick(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2
+) -> void:
+	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
+	if (
+		loot_state == null
+		or not loot_state.has_method("is_reward_pick_active")
+		or not bool(loot_state.is_reward_pick_active())
+		or not loot_state.has_method("draw_reward_pick")
+	):
+		return
+	loot_state.draw_reward_pick(canvas, view_size)
 
 
 func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:

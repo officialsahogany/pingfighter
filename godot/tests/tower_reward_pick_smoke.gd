@@ -18,6 +18,15 @@ const TowerRewardPickLocalization := preload(
 const TowerRewardPickState := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
+const RuntimePerkChoiceLayout := preload(
+	"res://scripts/characters/runtime_perk_choice_layout.gd"
+)
+const RuntimePerkOverlayRenderer := preload(
+	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+)
 const BattleSceneMatchFlowDriver := preload(
 	"res://scripts/core/battle_scene_match_flow_driver.gd"
 )
@@ -34,6 +43,7 @@ const TowerAscentRunState := preload(
 var _failures: Array[String] = []
 var _finish_calls := 0
 var _effect_calls := 0
+const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
 
 
 class FakeOwner:
@@ -74,6 +84,36 @@ class FakeRuntimeState:
 	var pending_unlock_swap := false
 	var pending_unlock_choice: Dictionary = {}
 	var apply_calls := 0
+	var stats_capture_calls := 0
+	var stats_context_owner: Object = null
+	var stats_context_registry_ref: WeakRef = null
+	var snapshot_calls := 0
+	var physique_training := {"power": 1}
+
+	func capture_stats_context(owner: Object, registry: Object) -> bool:
+		stats_capture_calls += 1
+		stats_context_owner = owner
+		stats_context_registry_ref = weakref(registry) if registry != null else null
+		return owner != null and registry != null
+
+	func get_stats_context_owner() -> Object:
+		return stats_context_owner
+
+	func get_stats_context_registry() -> Object:
+		return stats_context_registry_ref.get_ref() if stats_context_registry_ref != null else null
+
+	func get_status_hover_mouse_pos() -> Vector2:
+		return Vector2(7.0, 7.0)
+
+	func get_snapshot() -> Dictionary:
+		snapshot_calls += 1
+		return {
+			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"pending_skill_choices": 0,
+			"gold_from_perks": 0,
+			"current_choices": [],
+			"physique_training": physique_training.duplicate(true),
+		}
 
 	func get_physique_training_count(_training_id: String) -> int:
 		return 0
@@ -150,6 +190,8 @@ class FakeRuntimeState:
 class FakeCatalog:
 	extends RefCounted
 
+	var slot_status_calls := 0
+
 	func get_choices(
 		_character_type: String,
 		_runtime_levels: Dictionary,
@@ -174,6 +216,14 @@ class FakeCatalog:
 			"max_level": 1,
 		}
 
+	func get_perk_slot_status(runtime_levels: Dictionary, _slot_context: Object = null) -> Dictionary:
+		slot_status_calls += 1
+		return {
+			"count": runtime_levels.size(),
+			"limit": 6,
+			"is_full": runtime_levels.size() >= 6,
+		}
+
 
 class FakeRegistry:
 	extends RefCounted
@@ -191,9 +241,30 @@ class FakeCardRenderer:
 	extends RefCounted
 
 	var prewarm_calls := 0
+	var draw_calls := 0
+	var last_catalog: Object = null
+	var last_snapshot: Dictionary = {}
+	var last_mouse_pos := Vector2.ZERO
+	var last_view_size := Vector2.ZERO
 
 	func prewarm_traditional_choice_assets() -> void:
 		prewarm_calls += 1
+
+	func draw_tower_reward_pick(
+		_canvas: CanvasItem,
+		_view_model: Dictionary,
+		_runtime_state: Object,
+		catalog: Object,
+		_icon_renderer: Object,
+		view_size: Vector2,
+		snapshot: Dictionary,
+		mouse_pos: Vector2
+	) -> void:
+		draw_calls += 1
+		last_catalog = catalog
+		last_snapshot = snapshot.duplicate(true)
+		last_mouse_pos = mouse_pos
+		last_view_size = view_size
 
 
 class FakeIconRenderer:
@@ -220,6 +291,7 @@ class FakeFlowOwner:
 	var begin_calls := 0
 	var active := false
 	var phase := "COMBAT"
+	var finalize_result := {"accepted": true}
 
 	func prepare_vertical_slice_combat(
 		_owner: Object,
@@ -279,7 +351,7 @@ class FakeFlowOwner:
 		finalize_calls += 1
 		if not vision_boss_slot_id.is_empty() and not burned_boss_ids.has(vision_boss_slot_id):
 			burned_boss_ids.append(vision_boss_slot_id)
-		return {"accepted": true}
+		return finalize_result.duplicate(true)
 
 
 class FakeOfferBuilder:
@@ -311,6 +383,8 @@ func _init() -> void:
 	_verify_seven_locale_copy_contract()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
+	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
+	_verify_unaffordable_board_auto_finish_and_failure_latch()
 	_verify_vision_purchase_and_continue_burn_semantics()
 	_verify_full_slot_vision_swap_confirm_and_cancel()
 	_verify_production_flow_transactions_and_burn_snapshot()
@@ -468,6 +542,249 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 	_expect(not state.active and _finish_calls == 1 and flow.finalize_calls == 1, "continue must finalize exactly once after external modal return")
 
 
+func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
+	var owner := FakeOwner.new()
+	var runtime := FakeRuntimeState.new()
+	var flow := FakeFlowOwner.new()
+	var renderer := FakeCardRenderer.new()
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), flow)
+	registry.instances["runtime_perk_overlay_renderer"] = renderer
+	registry.instances["runtime_perk_icon_renderer"] = FakeIconRenderer.new()
+	var catalog := registry.instances["runtime_perk_catalog"] as FakeCatalog
+	var offer_builder := FakeOfferBuilder.new()
+	offer_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "hover_training", 1),
+			_card("mugong", "hover_mugong", 2),
+			_card("fusion", "hover_fusion", 3),
+			_card("supreme", "hover_supreme", 5),
+		],
+	}
+	var state := TowerRewardPickState.new()
+	state.set("_offer_builder", offer_builder)
+	_expect(state.start(owner, registry, Callable()), "fullscreen reward ledger fixture must start")
+	_expect(runtime.stats_capture_calls == 0, "a fresh reward pick must not inherit a stale perk-modal stats context")
+	_expect(catalog.slot_status_calls == 1, "reward entry must cache perk-slot status exactly once")
+	state.update(1.0)
+	_expect(
+		runtime.stats_capture_calls == 1
+		and runtime.stats_context_owner == owner
+		and runtime.get_stats_context_registry() == registry,
+		"reward update must capture stats context even when the ordinary perk modal was never opened"
+	)
+	_expect(bool(state.get("stats_band_enabled")), "the reward-owned stats-band flag must enable after live context capture")
+
+	var card_rects: Array = state.get_card_rects(LIVE_VIEW_SIZE)
+	_expect(card_rects.size() == 4, "fullscreen reward layout must keep all four cards")
+	var hover_position := (card_rects[2] as Rect2).position + Vector2(3.0, 3.0)
+	var direct_hover_index := state.get_card_index_at(hover_position, LIVE_VIEW_SIZE)
+	_expect(
+		direct_hover_index == 2,
+		"the drawn fullscreen card top corner must resolve to its own reward slot (got %d)" % direct_hover_index
+	)
+	var motion := InputEventMouseMotion.new()
+	motion.position = hover_position
+	state.handle_input(motion, LIVE_VIEW_SIZE)
+	_expect(state.selected_index == 2, "mouse motion over a card top corner must drive the existing selection highlight")
+	_expect(
+		(state.get("reward_hover_mouse_pos") as Vector2).is_equal_approx(hover_position),
+		"reward hover must use its own pointer channel instead of runtime-state modal hover"
+	)
+
+	var model: Dictionary = state.build_view_model(LIVE_VIEW_SIZE)
+	var layout: Dictionary = model.get("layout", {})
+	var panel_rect: Rect2 = layout.get("panel_rect", Rect2())
+	var stats_rect: Rect2 = layout.get("stats_rect", Rect2())
+	var last_card_rect := card_rects[card_rects.size() - 1] as Rect2
+	_expect(panel_rect.position.y - last_card_rect.end.y >= 30.0, "reward price strip and perk ledger need at least 30px separation")
+	_expect(
+		stats_rect.size.y >= RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT,
+		"four-card reward stats band must retain the full 10-row minimum"
+	)
+	var stats_budget := float(layout.get("stats_budget", -1.0))
+	_expect(
+		stats_budget >= RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT
+		and stats_budget - RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT <= 32.0,
+		"the 2020x1246 four-card reward boundary must seal its narrow stats budget"
+	)
+	var continue_rect := state.get_continue_rect(LIVE_VIEW_SIZE)
+	_expect(
+		continue_rect.position.y >= stats_rect.end.y
+		and Rect2(Vector2.ZERO, LIVE_VIEW_SIZE).encloses(continue_rect),
+		"Continue must derive below the ledger while remaining inside the viewport"
+	)
+
+	state.draw(null, LIVE_VIEW_SIZE)
+	_expect(renderer.draw_calls == 1, "reward draw must reach the shared renderer once")
+	_expect(runtime.snapshot_calls == 1, "perk ledger and stats band must share one runtime snapshot per draw frame")
+	_expect(renderer.last_catalog == catalog, "reward renderer must receive the production perk catalog")
+	_expect(renderer.last_view_size.is_equal_approx(LIVE_VIEW_SIZE), "reward renderer must retain the live screen size")
+	_expect(renderer.last_mouse_pos.is_equal_approx(hover_position), "ledger and stats hover must receive the reward-owned pointer")
+	_expect(
+		renderer.last_snapshot.has("perk_slot_status")
+		and bool(renderer.last_snapshot.get("perk_slot_status_cached", false))
+		and renderer.last_snapshot.has("physique_training")
+		and renderer.last_snapshot.has("reward_pick_spent_flags"),
+		"one reward snapshot must carry slot status and both purchase-sensitive stats signatures"
+	)
+	state.draw(null, LIVE_VIEW_SIZE)
+	_expect(catalog.slot_status_calls == 1, "repeated draw frames must not rescan perk-slot status")
+	state.call("_purchase", 0)
+	state.update(0.016)
+	_expect(catalog.slot_status_calls == 2, "a committed purchase must invalidate and refresh slot status once")
+
+	var highlight_value: Variant = RuntimePerkOverlayRenderer.resolve_tower_reward_slot_highlight_keys(
+		["mugong_a", "mugong_b", "mugong_c"],
+		["mugong_b", "mugong_c", "mugong_d"]
+	)
+	var highlight_keys: Array = highlight_value if highlight_value is Array else []
+	_expect(
+		highlight_keys == ["mugong_d"],
+		"slot transition highlights must follow perk keys, never shifted slot indices"
+	)
+	state.reset()
+
+
+func _verify_unaffordable_board_auto_finish_and_failure_latch() -> void:
+	_finish_calls = 0
+	var fusion_runtime := FakeRuntimeState.new()
+	var fusion_flow := FakeFlowOwner.new()
+	fusion_flow.balances["muhon"] = 4
+	var fusion_registry := _build_registry(
+		fusion_runtime,
+		FakeSkillConfig.new(),
+		fusion_flow
+	)
+	fusion_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var fusion_builder := FakeOfferBuilder.new()
+	fusion_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "auto_training", 1),
+			_card("mugong", "auto_mugong", 1),
+			_card("fusion", "auto_fusion", 1),
+			_card("supreme", "auto_supreme", 1),
+		],
+	}
+	var fusion_state := TowerRewardPickState.new()
+	fusion_state.set("_offer_builder", fusion_builder)
+	_expect(
+		fusion_state.start(FakeOwner.new(), fusion_registry, Callable(self, "_on_finish")),
+		"all-spent fusion auto-finish fixture must start"
+	)
+	fusion_state.call("_purchase", 0)
+	fusion_state.call("_purchase", 1)
+	fusion_state.call("_purchase", 3)
+	fusion_state.call("_purchase", 2)
+	_expect(fusion_state.spent_flags == [true, true, true, true], "fusion fixture must spend all four stable slots")
+	_expect(fusion_state.is_external_modal_active(), "final fusion purchase must keep the external modal active")
+	fusion_state.update(10.0)
+	_expect(
+		fusion_state.active and fusion_flow.finalize_calls == 0,
+		"all-spent reward picks must never finish while the fusion modal is active"
+	)
+	fusion_runtime.fusion_active = false
+	fusion_state.update(0.0)
+	_expect(
+		fusion_state.active and fusion_flow.finalize_calls == 0,
+		"the frame that clears pending fusion ownership must not finish the reward pick"
+	)
+	fusion_state.update(1.0)
+	_expect(
+		fusion_state.active
+		and fusion_state.purchase_absorption_effects.is_empty()
+		and fusion_flow.finalize_calls == 0,
+		"the final absorption frame must expose an empty board without finishing"
+	)
+	fusion_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC - 0.01)
+	_expect(fusion_state.active and fusion_flow.finalize_calls == 0, "empty reward board must remain visible for the full hold interval")
+	fusion_state.update(0.01)
+	_expect(fusion_state.active and fusion_flow.finalize_calls == 0, "hold completion must only schedule a next-frame finish")
+	fusion_state.update(0.0)
+	_expect(
+		not fusion_state.active and fusion_flow.finalize_calls == 1 and _finish_calls == 1,
+		"the frame after the empty-board hold must finalize exactly once"
+	)
+
+	var insufficient_flow := FakeFlowOwner.new()
+	insufficient_flow.balances["muhon"] = 0
+	var insufficient_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		insufficient_flow
+	)
+	insufficient_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var insufficient_builder := FakeOfferBuilder.new()
+	insufficient_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "insufficient_1", 1),
+			_card("mugong", "insufficient_2", 2),
+			_card("fusion", "insufficient_3", 3),
+			_card("supreme", "insufficient_4", 4),
+		],
+	}
+	var insufficient_state := TowerRewardPickState.new()
+	insufficient_state.set("_offer_builder", insufficient_builder)
+	_expect(
+		insufficient_state.start(FakeOwner.new(), insufficient_registry, Callable()),
+		"insufficient-balance auto-finish fixture must start"
+	)
+	insufficient_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	_expect(insufficient_state.active and insufficient_flow.finalize_calls == 0, "unaffordable unspent cards must wait one deferred frame")
+	insufficient_state.update(0.0)
+	_expect(not insufficient_state.active and insufficient_flow.finalize_calls == 1, "zero affordable cards must auto-finish even when cards remain unspent")
+
+	var affordable_flow := FakeFlowOwner.new()
+	affordable_flow.balances["muhon"] = 1
+	var affordable_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		affordable_flow
+	)
+	affordable_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var affordable_state := TowerRewardPickState.new()
+	affordable_state.set("_offer_builder", insufficient_builder)
+	_expect(affordable_state.start(FakeOwner.new(), affordable_registry, Callable()), "affordable-card guard fixture must start")
+	affordable_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC * 3.0)
+	affordable_state.update(0.0)
+	_expect(affordable_state.active and affordable_flow.finalize_calls == 0, "any affordable unspent card must suppress auto-finish")
+	affordable_state.reset()
+
+	var rejected_flow := FakeFlowOwner.new()
+	rejected_flow.balances["muhon"] = 0
+	rejected_flow.finalize_result = {
+		"accepted": false,
+		"reason": "injected_finalize_rejection",
+	}
+	var rejected_registry := _build_registry(
+		FakeRuntimeState.new(),
+		FakeSkillConfig.new(),
+		rejected_flow
+	)
+	rejected_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var rejected_state := TowerRewardPickState.new()
+	rejected_state.set("_offer_builder", insufficient_builder)
+	_expect(rejected_state.start(FakeOwner.new(), rejected_registry, Callable()), "auto-finish rejection fixture must start")
+	rejected_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	rejected_state.update(0.0)
+	for _frame in range(10):
+		rejected_state.update(1.0 / 60.0)
+	_expect(rejected_state.active and rejected_flow.finalize_calls == 1, "a rejected auto-finish transaction must latch after exactly one attempt")
+	_expect(
+		str(rejected_state.build_view_model().get("status_text", "")) == "injected_finalize_rejection",
+		"a rejected auto-finish must surface its reason and leave manual Continue available"
+	)
+	rejected_state.reset()
+
+
 func _verify_vision_purchase_and_continue_burn_semantics() -> void:
 	_finish_calls = 0
 	var runtime := FakeRuntimeState.new()
@@ -499,6 +816,7 @@ func _verify_vision_purchase_and_continue_burn_semantics() -> void:
 
 
 func _verify_full_slot_vision_swap_confirm_and_cancel() -> void:
+	_finish_calls = 0
 	var vision_id := TowerAscentBossRewardCatalog.get_vision_unlock_id("floor_01_dalji")
 	var confirm_runtime := FakeRuntimeState.new()
 	var confirm_flow := FakeFlowOwner.new()
@@ -519,6 +837,12 @@ func _verify_full_slot_vision_swap_confirm_and_cancel() -> void:
 	confirm_state.update(0.1)
 	_expect(int(confirm_flow.balances.get("muhon", -1)) == 0 and confirm_state.spent_flags[0], "confirmed Vision swap must debit three and spend its stable slot")
 	_expect(confirm_flow.burned_boss_ids == ["floor_01_dalji"], "confirmed Vision swap must burn the boss reward")
+	_expect(confirm_flow.finalize_calls == 0, "the Vision-swap return frame must not finalize while its absorption is active")
+	confirm_state.update(1.0)
+	confirm_state.update(TowerAscentTuning.TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC)
+	_expect(confirm_state.active and confirm_flow.finalize_calls == 0, "Vision-swap exhaustion must retain the deferred finish frame")
+	confirm_state.update(0.0)
+	_expect(not confirm_state.active and confirm_flow.finalize_calls == 1, "Vision-swap exhaustion must use the same one-shot auto-finish path")
 
 	var cancel_runtime := FakeRuntimeState.new()
 	var cancel_flow := FakeFlowOwner.new()

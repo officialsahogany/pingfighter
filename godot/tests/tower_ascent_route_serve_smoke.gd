@@ -23,6 +23,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -173,11 +176,23 @@ class FakeInputReader:
 	}
 	var snapshot_calls := 0
 	var trace: Array[String] = []
+	var derive_mouse_edge_from_pressed := false
+	var _previous_mouse_left_pressed := false
+
+	func set_mouse_left_pressed(pressed: bool) -> void:
+		snapshot["mouse_left_pressed"] = pressed
 
 	func get_snapshot() -> Dictionary:
 		snapshot_calls += 1
 		trace.append("input_snapshot")
-		return snapshot.duplicate(true)
+		var result := snapshot.duplicate(true)
+		if derive_mouse_edge_from_pressed:
+			var current_pressed := bool(snapshot.get("mouse_left_pressed", false))
+			result["mouse_left_just_pressed"] = (
+				current_pressed and not _previous_mouse_left_pressed
+			)
+			_previous_mouse_left_pressed = current_pressed
+		return result
 
 
 class FakeMovementState:
@@ -339,6 +354,91 @@ class ModuleHolder:
 		return modules.get(key, null)
 
 
+class FakeGaugeFlow:
+	extends RefCounted
+
+	var model := {
+		"visible": true,
+		"origin": Vector2(380.0, 650.0),
+		"min_degrees": -55.0,
+		"max_degrees": 55.0,
+		"angle_degrees": 23.0,
+	}
+
+	func get_route_aim_gauge_model() -> Dictionary:
+		return model
+
+
+class FakeGaugeCanvas:
+	extends RefCounted
+
+	var texture_rect_calls := 0
+	var texture_polygon_calls := 0
+	var colored_polygon_calls := 0
+	var arc_calls := 0
+	var line_calls := 0
+	var circle_calls := 0
+	var last_uvs := PackedVector2Array()
+
+	func draw_texture_rect(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_tile: bool,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false
+	) -> void:
+		texture_rect_calls += 1
+
+	func draw_polygon(
+		_points: PackedVector2Array,
+		_colors: PackedColorArray,
+		uvs: PackedVector2Array = PackedVector2Array(),
+		texture: Texture2D = null
+	) -> void:
+		if texture != null:
+			texture_polygon_calls += 1
+		last_uvs = uvs
+
+	func draw_colored_polygon(
+		_points: PackedVector2Array,
+		_color: Color,
+		_uvs: PackedVector2Array = PackedVector2Array(),
+		_texture: Texture2D = null
+	) -> void:
+		colored_polygon_calls += 1
+
+	func draw_arc(
+		_center: Vector2,
+		_radius: float,
+		_start_angle: float,
+		_end_angle: float,
+		_point_count: int,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		arc_calls += 1
+
+	func draw_line(
+		_from: Vector2,
+		_to: Vector2,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		line_calls += 1
+
+	func draw_circle(
+		_position: Vector2,
+		_radius: float,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		circle_calls += 1
+
+
 func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
@@ -346,7 +446,9 @@ func _init() -> void:
 	_verify_top_wall_and_player_paddle_round_trip()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
+	_verify_entry_arm_discards_held_click_and_preserves_phase()
 	_verify_oscillating_gauge_and_mouse_timed_serve()
+	_verify_generated_gauge_art_draws_and_fallback()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
 	_verify_production_source_uses_serve_contract_without_aim_input()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -658,7 +760,10 @@ func _verify_free_movement_while_waiting_and_in_flight() -> void:
 	var runtime := TowerAscentRouteServeRuntime.new()
 	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "free-movement fixture must acquire the production route dependencies")
 	var waiting_start_x: float = owner.player_pos.x
-	var waiting_result: Dictionary = runtime.update(1.0 / 60.0, [])
+	var waiting_result: Dictionary = runtime.update(
+		TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS,
+		[]
+	)
 	_expect(str(waiting_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_WAITING, "movement-only route frame must remain in manual serve wait")
 	_expect(owner.player_pos.x > waiting_start_x, "player must move freely while the route serve is waiting")
 
@@ -688,6 +793,9 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	ball_driver.velocities = [Vector2(0.0, -8.7)]
 	var input_reader := FakeInputReader.new()
 	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"round_flow_state": round_state,
@@ -706,7 +814,9 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	# covered separately and may legitimately end the attempt before a complete
 	# round trip, which would make this physics assertion timing-dependent.
 	var empty_targets: Array[Dictionary] = []
-	runtime.update(1.0 / 60.0, empty_targets)
+	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS, empty_targets)
+	input_reader.snapshot["mouse_left_just_pressed"] = true
+	runtime.update(0.0, empty_targets)
 	input_reader.snapshot["action_pressed"] = false
 	input_reader.snapshot["action_just_pressed"] = false
 	input_reader.snapshot["mouse_left_just_pressed"] = false
@@ -774,6 +884,9 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	var registry := FakeRegistry.new()
 	var input_reader := FakeInputReader.new()
 	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["action_pressed"] = false
+	input_reader.snapshot["action_just_pressed"] = false
+	input_reader.snapshot["mouse_left_just_pressed"] = false
 	registry.instances = {
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": ball_driver,
@@ -794,6 +907,8 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 		{"id": "left", "position": left_target, "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
 		{"id": "right", "position": Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y), "hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS},
 	]
+	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS, targets)
+	input_reader.snapshot["mouse_left_just_pressed"] = true
 	runtime.update(0.016, targets)
 	_expect(ball_driver.serve_calls == 1 and owner.ball_active, "serve flow must launch the live owner ball through the existing ball driver")
 	owner.player_pos.x = 0.0
@@ -880,6 +995,70 @@ func _record_legacy_serve() -> void:
 	_legacy_serve_calls += 1
 
 
+func _verify_entry_arm_discards_held_click_and_preserves_phase() -> void:
+	var owner := FakeOwner.new()
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var input_reader := FakeInputReader.new()
+	input_reader.derive_mouse_edge_from_pressed = true
+	input_reader.snapshot = {
+		"direction": 1.0,
+		"action_pressed": false,
+		"action_just_pressed": false,
+		"mouse_left_pressed": true,
+	}
+	var movement_state := FakeMovementState.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": movement_state,
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "entry-arm fixture must acquire route dependencies")
+	var entry_angle := float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0))
+	var entry_x := owner.player_pos.x
+	runtime.update(0.10, [])
+	var armed_angle := float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0))
+	_expect(ball_driver.serve_calls == 0, "a held click entering ROUTE_AIM must be discarded during the arm window")
+	_expect(owner.player_pos.x > entry_x, "the player must keep moving during the route-entry arm window")
+	_expect(not is_equal_approx(entry_angle, armed_angle), "the timing gauge must keep sweeping during the route-entry arm window")
+	runtime.update(TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS, [])
+	_expect(ball_driver.serve_calls == 0, "the same held click must not fire when the arm timer expires")
+	input_reader.set_mouse_left_pressed(false)
+	runtime.update(0.0, [])
+	input_reader.set_mouse_left_pressed(true)
+	runtime.update(0.0, [])
+	_expect(ball_driver.serve_calls == 1, "release followed by a fresh left-click edge must launch exactly once")
+	var carried_angle := float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0))
+	runtime.cancel()
+	input_reader.set_mouse_left_pressed(false)
+	input_reader.get_snapshot()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "successive route entry must restart without resetting the oscillator")
+	var next_entry_angle := float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0))
+	_expect(is_equal_approx(next_entry_angle, carried_angle), "successive ROUTE_AIM entries must carry the oscillator phase")
+	runtime.update(0.17, [])
+	var later_angle := float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0))
+	runtime.cancel()
+	_expect(bool(runtime.begin(owner, registry).get("accepted", false)), "a later route entry must remain available")
+	_expect(
+		not is_equal_approx(
+			float(runtime.get_aim_gauge_model().get("angle_degrees", 0.0)),
+			next_entry_angle
+		),
+		"different residence times must produce different successive entry angles"
+	)
+	_expect(not is_equal_approx(later_angle, next_entry_angle), "the preserved oscillator must advance between successive entries")
+	runtime.cancel()
+	owner.free()
+
+
 func _verify_oscillating_gauge_and_mouse_timed_serve() -> void:
 	var owner := FakeOwner.new()
 	var round_state := FakeRoundState.new()
@@ -956,6 +1135,57 @@ func _verify_oscillating_gauge_and_mouse_timed_serve() -> void:
 	owner.free()
 
 
+func _verify_generated_gauge_art_draws_and_fallback() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	var asset_paths: PackedStringArray = renderer.get_route_aim_gauge_asset_paths()
+	_expect(asset_paths.size() == 2, "the generated route gauge must expose both texture paths")
+	for asset_path in asset_paths:
+		_expect(FileAccess.file_exists(asset_path), "route gauge texture must exist: %s" % asset_path)
+		_expect(FileAccess.file_exists(asset_path + ".import"), "route gauge import sidecar must exist: %s" % asset_path)
+	if asset_paths.size() != 2:
+		return
+	var fan_texture := ResourceLoader.load(asset_paths[0]) as Texture2D
+	var arrow_texture := ResourceLoader.load(asset_paths[1]) as Texture2D
+	_expect(fan_texture != null, "generated route gauge fan must load as Texture2D")
+	_expect(arrow_texture != null, "generated route gauge arrow must load as Texture2D")
+	if fan_texture == null or arrow_texture == null:
+		return
+	_expect(fan_texture.get_size() == Vector2(256.0, 192.0), "generated fan must preserve the 256x192 pivot canvas")
+	_expect(arrow_texture.get_size() == Vector2(128.0, 128.0), "generated arrow must preserve the 128x128 rotation canvas")
+
+	var flow := FakeGaugeFlow.new()
+	var generated_canvas := FakeGaugeCanvas.new()
+	renderer.debug_draw_route_aim_gauge_with_textures(
+		generated_canvas,
+		flow,
+		fan_texture,
+		arrow_texture
+	)
+	_expect(generated_canvas.texture_rect_calls == 1, "production gauge draw must reach the generated fan texture call")
+	_expect(generated_canvas.texture_polygon_calls == 1, "production gauge draw must reach the rotated arrow texture call")
+	_expect(generated_canvas.colored_polygon_calls == 0, "generated textures must suppress the procedural fan")
+	var expected_uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	_expect(generated_canvas.last_uvs == expected_uvs, "rotated arrow quad must use normalized UV corners")
+
+	var fallback_canvas := FakeGaugeCanvas.new()
+	renderer.debug_draw_route_aim_gauge_with_textures(
+		fallback_canvas,
+		flow,
+		fan_texture,
+		null
+	)
+	_expect(fallback_canvas.texture_rect_calls == 0, "one missing gauge texture must suppress both generated surfaces")
+	_expect(fallback_canvas.texture_polygon_calls == 0, "one missing gauge texture must not draw a partial generated arrow")
+	_expect(fallback_canvas.colored_polygon_calls == 3, "one missing gauge texture must restore both fan fills and the procedural arrow head")
+	_expect(fallback_canvas.arc_calls == 2, "the null-texture fallback must restore both procedural arcs")
+	_expect(fallback_canvas.line_calls == 9, "the null-texture fallback must restore seven ticks and two arrow lines")
+
+
 func _verify_production_owner_fails_closed_without_serve_dependencies() -> void:
 	var owner := FakeOwner.new()
 	var runtime := TowerAscentRouteServeRuntime.new()
@@ -991,7 +1221,6 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
-	_expect(renderer_source.find("draw_colored_polygon") >= 0, "the angle gauge must retain layered filled fan geometry")
 	_expect(renderer_source.find("_draw_route_aim_gauge") >= 0, "ROUTE_AIM must render its player-local angle gauge")
 	var legacy_serve_source := FileAccess.get_file_as_string(
 		"res://scripts/core/serve_flow_controller.gd"

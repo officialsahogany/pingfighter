@@ -57,6 +57,9 @@ const TowerAscentGauntletState := preload(
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerAscentTransitionFadeState := preload(
+	"res://scripts/tower_ascent/tower_ascent_transition_fade_state.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -69,7 +72,6 @@ const PHASE_FAKE_ENDING_TEASER := 4
 const PHASE_ENDING_CHOICE := 5
 const PHASE_RUN_SETTLEMENT := 6
 const PHASE_GAUNTLET_TRANSITION := 7
-const MAP_TRANSITION_SECONDS := 0.9
 const SELECTOR_RADIUS := 11.0
 const SELECTOR_SPEED := 520.0
 const SELECTOR_ORIGIN := Vector2(380.0, 665.0)
@@ -124,6 +126,7 @@ var _selector_velocity := Vector2.ZERO
 var _selector_launched := false
 var _aim_target_x := 220.0
 var _map_transition_progress := 0.0
+var _map_render_revision := 0
 var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
@@ -142,8 +145,10 @@ var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
 var _map_overlay_active := false
+var _map_overlay_closing := false
 var _map_overlay_lifecycle_owned := false
 var _map_overlay_owner: Object = null
+var _map_overlay_registry: Object = null
 var _active_owner: Object = null
 var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
@@ -152,6 +157,7 @@ var _gauntlet_transition_callback := Callable()
 var _run_defeat_count := 0
 var _defeat_event_ids: Array[String] = []
 var _header_subtitle := ""
+var _transition_fade_state: Object = TowerAscentTransitionFadeState.new()
 
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
@@ -188,6 +194,7 @@ func _reset_runtime_state() -> void:
 	_active_graph_phase_index = 0
 	_graph_nodes.clear()
 	_graph_edges.clear()
+	_map_render_revision += 1
 	_current_node_id = ""
 	_completed_nodes.clear()
 	_resolution_ids.clear()
@@ -232,10 +239,13 @@ func _reset_runtime_state() -> void:
 	_route_aim_targets_cache.clear()
 	_node_modal_kind = "guardian_spring"
 	_map_overlay_active = false
+	_map_overlay_closing = false
 	_map_overlay_lifecycle_owned = false
 	_map_overlay_owner = null
+	_map_overlay_registry = null
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
+	_transition_fade_state.reset()
 	_finish_callback = Callable()
 	_reset_selector()
 

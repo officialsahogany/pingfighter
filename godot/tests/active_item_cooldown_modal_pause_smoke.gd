@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
+const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 
 var _failures: Array[String] = []
 
@@ -36,13 +37,22 @@ class FakeActiveItemRuntime:
 		resumed_owner = owner
 
 
-class FakeModalGate:
+class FakeMythicRuntime:
 	extends RefCounted
 
-	var blocked := false
+	var acquisition_active := false
 
-	func should_block_battle_physics_with_perf(_module_getter: Callable, _perf_logger: Object = null) -> bool:
-		return blocked
+	func is_acquisition_cinematic_active() -> bool:
+		return acquisition_active
+
+
+class FakeGameAudio:
+	extends RefCounted
+
+	var stop_calls := 0
+
+	func stop_dash_delay() -> void:
+		stop_calls += 1
 
 
 class FakeUpdateDriver:
@@ -58,7 +68,9 @@ class FakeRegistry:
 	extends RefCounted
 
 	var active_item_runtime := FakeActiveItemRuntime.new()
-	var modal_gate := FakeModalGate.new()
+	var modal_gate := BattleSceneModalGateController.new()
+	var mythic_runtime := FakeMythicRuntime.new()
+	var game_audio := FakeGameAudio.new()
 	var update_driver := FakeUpdateDriver.new()
 
 	func get_instance(key: String) -> Object:
@@ -67,6 +79,10 @@ class FakeRegistry:
 				return active_item_runtime
 			"battle_scene_modal_gate_controller":
 				return modal_gate
+			"mythic_item_runtime":
+				return mythic_runtime
+			"game_audio":
+				return game_audio
 			"battle_scene_update_driver":
 				return update_driver
 		return null
@@ -93,18 +109,20 @@ func _verify_modal_gate_pauses_active_item_cooldowns() -> void:
 		"is_stage_landing_intro_started": Callable(self, "_return_true"),
 	}
 
-	registry.modal_gate.blocked = true
+	registry.mythic_runtime.acquisition_active = true
 	controller.process_physics(1.0 / 60.0, owner, registry, Callable(registry, "get_instance"), callbacks)
-	_expect(registry.active_item_runtime.pause_calls == 1, "modal physics block should pause active item cooldowns")
+	_expect(registry.active_item_runtime.pause_calls == 1, "mythic acquisition should pause active item cooldowns")
 	_expect(registry.active_item_runtime.paused_owner == owner, "modal cooldown pause should receive the battle owner")
-	_expect(registry.update_driver.update_calls == 0, "modal physics block should skip the normal update driver")
+	_expect(registry.game_audio.stop_calls == 1, "mythic acquisition entry should stop gameplay loop audio exactly once")
+	_expect(registry.update_driver.update_calls == 0, "mythic acquisition should skip the normal update driver")
 
 	controller.process_physics(1.0 / 60.0, owner, registry, Callable(registry, "get_instance"), callbacks)
-	_expect(registry.active_item_runtime.pause_calls == 1, "continued modal block should not stack active item cooldown pauses")
+	_expect(registry.active_item_runtime.pause_calls == 1, "continued mythic acquisition should not stack active item cooldown pauses")
+	_expect(registry.game_audio.stop_calls == 1, "continued mythic acquisition should not restop gameplay loop audio")
 
-	registry.modal_gate.blocked = false
+	registry.mythic_runtime.acquisition_active = false
 	controller.process_physics(1.0 / 60.0, owner, registry, Callable(registry, "get_instance"), callbacks)
-	_expect(registry.active_item_runtime.resume_calls == 1, "leaving a modal physics block should resume active item cooldowns")
+	_expect(registry.active_item_runtime.resume_calls == 1, "closing mythic acquisition should resume active item cooldowns once")
 	_expect(registry.active_item_runtime.resumed_owner == owner, "modal cooldown resume should receive the battle owner")
 	_expect(registry.update_driver.update_calls == 1, "normal update should resume after the modal closes")
 

@@ -9,6 +9,7 @@ const RESULT_TEXTURE_PREWARM_SCOREBOARD_MIN_TIMER := 15.0 / 60.0
 var _drive_cutin_fx_host: Node = null
 var _drive_cutin_fx_host_add_pending := false
 var _modal_active_item_cooldown_pause_active := false
+var _modal_gameplay_loop_audio_stop_active := false
 var _online_match_runtime: Object = null
 
 
@@ -999,6 +1000,8 @@ func _pause_modal_active_item_cooldowns(owner: Object, registry: Object, module_
 
 
 func _stop_modal_blocked_gameplay_loop_audio(module_getter: Callable) -> void:
+	if _modal_gameplay_loop_audio_stop_active:
+		return
 	# Physics-blocking modals (character info via TAB, pause menu, debug pickers)
 	# return here BEFORE the update driver runs, so update_effects -- the only
 	# place that syncs / stops gameplay loop audio -- never fires while the modal
@@ -1011,9 +1014,11 @@ func _stop_modal_blocked_gameplay_loop_audio(module_getter: Callable) -> void:
 	var audio: Object = _get_module(module_getter, "game_audio")
 	if audio != null:
 		GameplayLoopAudioCleanup.stop_all(audio)
+	_modal_gameplay_loop_audio_stop_active = true
 
 
 func _resume_modal_active_item_cooldowns(owner: Object, registry: Object, module_getter: Callable) -> void:
+	_modal_gameplay_loop_audio_stop_active = false
 	if not _modal_active_item_cooldown_pause_active:
 		return
 	_modal_active_item_cooldown_pause_active = false

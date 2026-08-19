@@ -69,7 +69,13 @@ const PARTICLE_COLORS := [
 ]
 
 
-func build_layout(view_size: Vector2, choice_count_value: int, stats_band_requested: bool = false) -> Dictionary:
+func build_layout(
+	view_size: Vector2,
+	choice_count_value: int,
+	stats_band_requested: bool = false,
+	panel_gap_min: float = -1.0,
+	footer_reserve: float = 0.0
+) -> Dictionary:
 	var card_count: int = max(1, choice_count_value)
 	var game_width: float = min(1720.0, max(420.0, view_size.x - 72.0))
 	var base_total_width: float = DEFAULT_CARD_SIZE.x * float(card_count) + DEFAULT_CARD_GAP * float(max(0, card_count - 1))
@@ -82,6 +88,8 @@ func build_layout(view_size: Vector2, choice_count_value: int, stats_band_reques
 	var total_width: float = card_width * float(card_count) + card_gap * float(max(0, card_count - 1))
 	var title_to_card: float = floor(86.0 * layout_scale)
 	var panel_gap: float = max(12.0, floor(22.0 * layout_scale))
+	if panel_gap_min >= 0.0:
+		panel_gap = maxf(panel_gap, panel_gap_min)
 	# 무공 원장 기준 높이 172 -> 142 (2026-08-06): 사용자가 상단 선택 카드와 함께
 	# "현재 소지중인 퍽 슬롯도 좀더 작게"를 요청했다. 이 값을 줄이면 슬롯 셀 크기
 	# (_get_status_slot_rect)와 원장 글자 배율(_draw_status_panel /
@@ -90,14 +98,23 @@ func build_layout(view_size: Vector2, choice_count_value: int, stats_band_reques
 	var panel_h: float = clamp(floor(142.0 * layout_scale), 104.0, 190.0)
 	var hint_gap: float = max(28.0, floor(38.0 * layout_scale))
 	var stats_gap: float = max(10.0, floor(STATS_BAND_GAP * layout_scale))
-	var group_h: float = title_to_card + card_height + panel_gap + panel_h + hint_gap + 18.0
+	var group_h: float = (
+		title_to_card
+		+ card_height
+		+ panel_gap
+		+ panel_h
+		+ hint_gap
+		+ 18.0
+		+ maxf(0.0, footer_reserve)
+	)
 	# 능력치 띠는 그룹 높이에 포함되어야 한다 -- card_y가 group_top에서 파생되고
 	# get_card_rects()/get_card_index_at()이 같은 build_layout을 통과하므로,
 	# 여기서 빠지면 그리는 좌표와 클릭 히트테스트가 어긋난다.
 	var stats_h: float = 0.0
+	var stats_budget: float = -1.0
 	if stats_band_requested:
 		stats_h = clamp(floor(STATS_BAND_BASE_HEIGHT * layout_scale), STATS_BAND_MIN_HEIGHT, STATS_BAND_MAX_HEIGHT)
-		var stats_budget: float = view_size.y - GROUP_VERTICAL_SAFE_MARGIN - group_h - stats_gap
+		stats_budget = view_size.y - GROUP_VERTICAL_SAFE_MARGIN - group_h - stats_gap
 		if stats_budget < STATS_BAND_MIN_HEIGHT:
 			stats_h = 0.0
 		else:
@@ -126,6 +143,7 @@ func build_layout(view_size: Vector2, choice_count_value: int, stats_band_reques
 		"desc_rect": Rect2(Vector2(card_x, desc_y), Vector2(total_width, desc_h)),
 		"panel_rect": Rect2(Vector2(max(20.0, (view_size.x - panel_w) * 0.5), panel_y), Vector2(panel_w, panel_h)),
 		"stats_rect": stats_rect,
+		"stats_budget": stats_budget,
 		"title_pos": Vector2(
 			view_size.x * 0.5,
 			max(TITLE_MIN_CENTER_Y, card_y - clamp(view_size.y * 0.145, 105.0, 160.0))
@@ -153,8 +171,21 @@ func stats_band_requested_from_runtime_state(runtime_state: Object) -> bool:
 	return value is bool and bool(value)
 
 
-func get_card_rects(view_size: Vector2, choice_count_value: int, animation_time: float, stats_band_requested: bool = false) -> Array:
-	var layout: Dictionary = build_layout(view_size, choice_count_value, stats_band_requested)
+func get_card_rects(
+	view_size: Vector2,
+	choice_count_value: int,
+	animation_time: float,
+	stats_band_requested: bool = false,
+	panel_gap_min: float = -1.0,
+	footer_reserve: float = 0.0
+) -> Array:
+	var layout: Dictionary = build_layout(
+		view_size,
+		choice_count_value,
+		stats_band_requested,
+		panel_gap_min,
+		footer_reserve
+	)
 	var rects: Array = []
 	var card_size: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("card_size", DEFAULT_CARD_SIZE))
 	var start: Vector2 = RuntimePerkPayloadAccess.as_vector2(layout.get("cards_start", Vector2.ZERO))
@@ -181,9 +212,18 @@ func get_card_index_at(
 	view_size: Vector2,
 	choice_count_value: int,
 	animation_time: float,
-	stats_band_requested: bool = false
+	stats_band_requested: bool = false,
+	panel_gap_min: float = -1.0,
+	footer_reserve: float = 0.0
 ) -> int:
-	var rects: Array = get_card_rects(view_size, choice_count_value, animation_time, stats_band_requested)
+	var rects: Array = get_card_rects(
+		view_size,
+		choice_count_value,
+		animation_time,
+		stats_band_requested,
+		panel_gap_min,
+		footer_reserve
+	)
 	for index in range(rects.size()):
 		var rect: Rect2 = rects[index]
 		if rect.has_point(position):

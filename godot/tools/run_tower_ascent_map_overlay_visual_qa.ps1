@@ -2,7 +2,9 @@ param(
     [string]$GodotExe = "",
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [ValidateSet("phase1", "phase2")]
-    [string]$Phase = "phase1"
+    [string]$Phase = "phase1",
+    [ValidateRange(-1.0, 1.0)]
+    [double]$Progress = -1.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,7 +27,9 @@ try {
 
     $previousErrorActionPreference = $ErrorActionPreference
     $previousCapturePhase = $env:TOWER_ASCENT_MAP_QA_PHASE
+	$previousCaptureProgress = $env:TOWER_ASCENT_MAP_QA_PROGRESS
     $env:TOWER_ASCENT_MAP_QA_PHASE = $Phase
+	$env:TOWER_ASCENT_MAP_QA_PROGRESS = if ($Progress -lt 0.0) { "" } else { $Progress.ToString([System.Globalization.CultureInfo]::InvariantCulture) }
     $ErrorActionPreference = "Continue"
     try {
         $output = & $godot `
@@ -40,6 +44,7 @@ try {
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
         $env:TOWER_ASCENT_MAP_QA_PHASE = $previousCapturePhase
+		$env:TOWER_ASCENT_MAP_QA_PROGRESS = $previousCaptureProgress
     }
 
     $output | ForEach-Object { Write-Host $_ }

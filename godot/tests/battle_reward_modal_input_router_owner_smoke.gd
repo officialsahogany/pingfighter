@@ -206,6 +206,7 @@ func _verify_source_ownership_and_order() -> void:
 	_expect(input_source.contains("BattleRewardModalInputRouter.new()"), "scene input controller must compose reward-modal router")
 	_expect(input_source.contains("_reward_modal_input_router.handle_input("), "scene input controller must delegate reward-modal input once")
 	_expect(input_source.find("_handle_runtime_perk_choice_input(") < input_source.find("_reward_modal_input_router.handle_input("), "runtime-perk choice must stay above reward modals")
+	_expect(input_source.find("_handle_victory_loot_input(") < input_source.find("_reward_modal_input_router.handle_input("), "tower reward pick must yield before the shared reward-modal router")
 	_expect(input_source.find("_reward_modal_input_router.handle_input(") < input_source.find("var overlay_input:"), "reward modals must stay above ordinary overlay input")
 	_expect(not input_source.contains("func _handle_mythic_acquisition_input"), "scene input controller must not retain mythic acquisition policy")
 	_expect(not input_source.contains("func _handle_pandora_legacy_selection_input"), "scene input controller must not retain Pandora input policy")
