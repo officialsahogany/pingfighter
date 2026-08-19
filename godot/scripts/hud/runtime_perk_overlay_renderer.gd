@@ -463,11 +463,11 @@ func draw_tower_start_card(
 	canvas: CanvasItem,
 	view_model: Dictionary,
 	runtime_state: Object,
-	catalog: Object,
+	_catalog: Object,
 	icon_renderer: Object,
 	view_size: Vector2,
-	snapshot: Dictionary,
-	mouse_pos: Vector2
+	_snapshot: Dictionary,
+	_mouse_pos: Vector2
 ) -> void:
 	if canvas == null:
 		return
@@ -489,7 +489,7 @@ func draw_tower_start_card(
 		Color(0.0, 0.0, 0.0, TowerAscentTuning.TEMP_START_CARD_BACKDROP_ALPHA),
 		true
 	)
-	_draw_particles(canvas, snapshot)
+	_draw_particles(canvas, _snapshot)
 	_draw_title(
 		canvas,
 		_get_vector2(layout.get("title_pos", Vector2(view_size.x * 0.5, 72.0))),
@@ -538,26 +538,6 @@ func draw_tower_start_card(
 		selected_index,
 		layout,
 		animation_time
-	)
-	_draw_status_panel(
-		canvas,
-		runtime_state,
-		snapshot,
-		catalog,
-		_get_rect2(layout.get("panel_rect", Rect2())),
-		icon_renderer,
-		view_size,
-		mouse_pos,
-		int(view_model.get("start_card_session_id", -1))
-	)
-	_draw_stats_band(
-		canvas,
-		runtime_state,
-		snapshot,
-		_get_rect2(layout.get("stats_rect", Rect2())),
-		view_size,
-		icon_renderer,
-		mouse_pos
 	)
 	_draw_text_centered(
 		canvas,

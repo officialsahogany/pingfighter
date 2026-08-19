@@ -283,35 +283,33 @@ func build_view_model(view_size: Vector2) -> Dictionary:
 		"absorb_duration_sec": TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC,
 		"layout": layout,
 		"card_rects": get_card_rects(view_size),
-		"stats_band_enabled": (
-			_stats_band_enabled
-			and (layout.get("stats_rect", Rect2()) as Rect2).size.y > 0.0
-		),
 		"start_card_session_id": _session_id,
 	}
 
 
 func get_card_rects(view_size: Vector2) -> Array:
-	return _layout.get_card_rects(
-		view_size,
-		_card_choices.size(),
-		_elapsed_sec,
-		_stats_band_enabled,
-		-1.0,
-		TowerAscentTuning.TEMP_START_CARD_FOOTER_RESERVE_PX
-	)
+	var layout := _build_layout(view_size)
+	var card_size: Vector2 = layout.get("card_size", Vector2.ZERO)
+	var cards_start: Vector2 = layout.get("cards_start", Vector2.ZERO)
+	var card_gap := float(layout.get("card_gap", 0.0))
+	var rects: Array = []
+	for index in range(_card_choices.size()):
+		rects.append(Rect2(
+			cards_start
+			+ Vector2(float(index) * (card_size.x + card_gap), 0.0)
+			+ _layout.get_card_offset(index, _elapsed_sec),
+			card_size
+		))
+	return rects
 
 
 func get_card_index_at(position: Vector2, view_size: Vector2) -> int:
-	return _layout.get_card_index_at(
-		position,
-		view_size,
-		_card_choices.size(),
-		_elapsed_sec,
-		_stats_band_enabled,
-		-1.0,
-		TowerAscentTuning.TEMP_START_CARD_FOOTER_RESERVE_PX
-	)
+	var rects := get_card_rects(view_size)
+	for index in range(rects.size()):
+		var rect: Rect2 = rects[index]
+		if rect.has_point(position):
+			return index
+	return -1
 
 
 func is_active() -> bool:
@@ -456,13 +454,36 @@ func _request_redraw(owner: Object) -> void:
 
 
 func _build_layout(view_size: Vector2) -> Dictionary:
-	return _layout.build_layout(
+	var layout: Dictionary = _layout.build_layout(
 		view_size,
 		_card_choices.size(),
-		_stats_band_enabled,
+		false,
 		-1.0,
 		TowerAscentTuning.TEMP_START_CARD_FOOTER_RESERVE_PX
 	)
+	var card_size: Vector2 = layout.get("card_size", Vector2.ZERO)
+	var cards_start: Vector2 = layout.get("cards_start", Vector2.ZERO)
+	var centered_card_y: float = floor((view_size.y - card_size.y) * 0.5)
+	var vertical_shift: float = centered_card_y - cards_start.y
+	cards_start.y = centered_card_y
+	layout["cards_start"] = cards_start
+	var desc_rect: Rect2 = layout.get("desc_rect", Rect2())
+	desc_rect.position.y += vertical_shift
+	layout["desc_rect"] = desc_rect
+	var layout_scale := float(layout.get("layout_scale", 1.0))
+	var title_gap: float = clampf(view_size.y * 0.145, 105.0, 160.0)
+	var hint_gap: float = maxf(28.0, floor(38.0 * layout_scale))
+	layout["title_pos"] = Vector2(view_size.x * 0.5, centered_card_y - title_gap)
+	layout["hint_pos"] = Vector2(
+		view_size.x * 0.5,
+		centered_card_y + card_size.y + hint_gap
+	)
+	# 시작 카드는 런 빌드가 생기기 전 화면이다. 공유 카드 문법만 남기고
+	# 보상 픽/일반 퍽 모달이 소유하는 두 하단 패널은 뷰모델에도 싣지 않는다.
+	layout.erase("panel_rect")
+	layout.erase("stats_rect")
+	layout.erase("stats_budget")
+	return layout
 
 
 func _build_runtime_snapshot() -> Dictionary:

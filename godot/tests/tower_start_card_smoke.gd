@@ -12,6 +12,12 @@ const TowerStartCardOfferBuilder := preload(
 const TowerStartCardState := preload(
 	"res://scripts/tower_ascent/tower_start_card_state.gd"
 )
+const TowerRewardPickState := preload(
+	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
+)
+const RuntimePerkChoiceLayout := preload(
+	"res://scripts/characters/runtime_perk_choice_layout.gd"
+)
 const RuntimePerkChoiceApplyFlow := preload(
 	"res://scripts/characters/runtime_perk_choice_apply_flow.gd"
 )
@@ -665,21 +671,62 @@ func _verify_render_and_localization_contract() -> void:
 	var view_model := state.build_view_model(view_size)
 	var rects: Array = view_model.get("card_rects", [])
 	_expect(rects.size() == 3, "start-card view model must expose three card rects")
-	_expect(bool(view_model.get("stats_band_enabled", false)), "available stats context must request the shared stats band")
+	_expect(not view_model.has("stats_band_enabled"), "start-card view model must omit the stats-band contract")
+	var start_layout: Dictionary = view_model.get("layout", {})
+	_expect(not start_layout.has("panel_rect"), "start-card view model must omit the perk-slot ledger")
+	_expect(not start_layout.has("stats_rect"), "start-card view model must omit the player-stats ledger")
+	var shared_layout := RuntimePerkChoiceLayout.new().build_layout(view_size, 3)
+	_expect(
+		(start_layout.get("card_size", Vector2.ZERO) as Vector2).is_equal_approx(
+			shared_layout.get("card_size", Vector2.ZERO) as Vector2
+		),
+		"start-card amendment must preserve the shared reward-card size"
+	)
 	for choice_value in view_model.get("choices", []):
 		var choice: Dictionary = choice_value if choice_value is Dictionary else {}
 		for forbidden_key in ["reward_pick_cost", "reward_pick_price_text", "balance_text"]:
 			_expect(not choice.has(forbidden_key), "start-card view model must omit %s" % forbidden_key)
 	for index in range(rects.size()):
 		var rect: Rect2 = rects[index]
-		_expect(state.get_card_index_at(rect.get_center(), view_size) == index, "draw and hit-test layout must agree for slot %d" % index)
+		_expect(
+			absf(rect.get_center().y - view_size.y * 0.5) <= 1.0,
+			"start-card slot %d must be vertically centered" % index
+		)
+		_expect(
+			state.get_card_index_at(rect.position + Vector2(3.0, 3.0), view_size) == index,
+			"draw and hit-test layout must agree at the top corner for slot %d" % index
+		)
+
+	var reward_state := TowerRewardPickState.new()
+	reward_state.choices.assign([
+		_mugong("reward_m1"),
+		_mugong("reward_m2"),
+		_mugong("reward_m3"),
+	])
+	reward_state.spent_flags.assign([false, false, false])
+	reward_state.stats_band_enabled = true
+	var reward_model := reward_state.build_view_model(view_size)
+	var reward_layout: Dictionary = reward_model.get("layout", {})
+	_expect(
+		reward_model.has("stats_band_enabled")
+		and bool(reward_model.get("stats_band_enabled", false)),
+		"reward-pick reverse control must retain the stats-band contract"
+	)
+	_expect(
+		(reward_layout.get("panel_rect", Rect2()) as Rect2).has_area(),
+		"reward-pick reverse control must retain the perk-slot ledger"
+	)
+	_expect(
+		(reward_layout.get("stats_rect", Rect2()) as Rect2).has_area(),
+		"reward-pick reverse control must retain the player-stats ledger"
+	)
 	var mugong_index := _find_kind_index(state.get_card_choices(), "mugong")
 	var hit_view_size := Vector2(760.0, 750.0)
 	var hit_rects := state.get_card_rects(hit_view_size)
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
-	click.position = (hit_rects[mugong_index] as Rect2).get_center()
+	click.position = (hit_rects[mugong_index] as Rect2).position + Vector2(3.0, 3.0)
 	state.handle_input(click, fixture.owner, fixture.registry)
 	_expect(bool(state.get_selection_result().get("accepted", false)), "clicking a rendered Mugong card must apply it")
 	_expect(int((fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(str(state.get_selection_result().get("picked_perk_id", "")), 0)) == 2, "rendered Mugong selection must still grant actual level two")
@@ -695,8 +742,15 @@ func _verify_render_and_localization_contract() -> void:
 	var reward_index := renderer_source.find("func draw_tower_reward_pick(")
 	_expect(start_index >= 0 and reward_index > start_index, "renderer must expose a separate start-card entry point")
 	var start_source := renderer_source.substr(start_index, reward_index - start_index)
-	for shared_drawer in ["_draw_card(", "_draw_per_card_descriptions(", "_draw_status_panel(", "_draw_stats_band("]:
+	for shared_drawer in ["_draw_card(", "_draw_per_card_descriptions("]:
 		_expect(start_source.find(shared_drawer) >= 0, "start-card renderer must reuse %s" % shared_drawer)
+	for excluded_start_drawer in ["_draw_status_panel(", "_draw_stats_band("]:
+		_expect(start_source.find(excluded_start_drawer) < 0, "start-card renderer must omit %s" % excluded_start_drawer)
+	var reward_end := renderer_source.find("func _tower_reward_absorption_by_slot(", reward_index)
+	_expect(reward_end > reward_index, "reward renderer source boundary must remain discoverable")
+	var reward_source := renderer_source.substr(reward_index, reward_end - reward_index)
+	for retained_reward_drawer in ["_draw_status_panel(", "_draw_stats_band("]:
+		_expect(reward_source.find(retained_reward_drawer) >= 0, "reward renderer must retain %s" % retained_reward_drawer)
 	for forbidden_surface in ["reward_pick_price_text", "balance_text", "continue_text", "draw_backdrop("]:
 		_expect(start_source.find(forbidden_surface) < 0, "start-card renderer must omit %s" % forbidden_surface)
 
