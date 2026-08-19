@@ -188,8 +188,20 @@ func _verify_molewang_production_state() -> void:
 	_expect(state.get_status() == "tunnel_warn", "full gauge must activate Tunnel Raid through the per-frame scheduler")
 	_expect(not tunnel_result.has("boss_pos"), "GRT-052: Tunnel Raid visual travel must not displace the live paddle collision owner")
 	_expect(audio.tunnel_cries == 1, "Tunnel Raid activation must route boss audio")
+	_expect(not bool(state.get_boss_ai_context().get("stage2_boss_movement_locked", true)), "GRT-053: Tunnel Raid must not invent a shared-AI movement lock absent from the original caller")
+	var warning_context: Dictionary = context.duplicate()
+	warning_context.merge(state.get_actor_draw_context(), true)
+	var warning_geometry: Dictionary = actor_renderer.variant_boss_renderer.build_tunnel_warning_geometry(warning_context)
+	_expect((warning_geometry.get("boss_exclamation_triangle", PackedVector2Array()) as PackedVector2Array).size() == 3, "Tunnel Raid warning must expose the boss exclamation geometry through the production variant renderer")
+	var warning_cross: PackedVector2Array = warning_geometry.get("player_foot_cross_a", PackedVector2Array())
+	_expect(warning_cross.size() == 2 and is_equal_approx((warning_cross[0].x + warning_cross[1].x) * 0.5, 380.0), "Tunnel Raid warning must center the X marker at the player's feet")
+	context["player_pos"] = Vector2(80.0, 700.0)
 	for _index in range(12):
 		state.update(0.05, context, deps)
+	_expect(is_equal_approx(state.molewang_state.tunnel_target_x, 157.5), "Tunnel Raid must retarget the live player center when the 30-frame warning ends")
+	var post_warning_context: Dictionary = context.duplicate()
+	post_warning_context.merge(state.get_actor_draw_context(), true)
+	_expect(actor_renderer.variant_boss_renderer.build_tunnel_warning_geometry(post_warning_context).is_empty(), "warning markers must disappear after the warning phase")
 	for _index in range(20):
 		if state.molewang_state.tunnel_phase == "strike":
 			break

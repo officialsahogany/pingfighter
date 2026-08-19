@@ -14,6 +14,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vecto
 		return
 	match str(context.get("stage_boss_variant", "")):
 		"molewang":
+			_draw_tunnel_warning(canvas, context, shake_offset)
 			_draw_tunnel_spikes(canvas, context, shake_offset)
 			_draw_friend_moles(canvas, context, shake_offset)
 			_draw_molewang(canvas, context, shake_offset)
@@ -93,6 +94,57 @@ func _draw_claw(canvas: CanvasItem, center: Vector2, direction: int, progress: f
 	for index in range(3):
 		var radius := 42.0 + float(index) * 7.0
 		canvas.draw_arc(center + Vector2(dir * 4.0, -25.0), radius, angle - 0.55 * dir, angle, 16, Color("fff7dc"), 4.0)
+
+
+func build_tunnel_warning_geometry(context: Dictionary, shake_offset: Vector2 = Vector2.ZERO) -> Dictionary:
+	if str(context.get("stage_boss_variant", "")) != "molewang" or not bool(context.get("molewang_tunnel_warning_active", false)):
+		return {}
+	var boss_pos := _as_vector2(context.get("boss_draw_pos", context.get("boss_pos", Vector2(330.0, 25.0))), Vector2(330.0, 25.0))
+	var boss_size := _as_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)), Vector2(100.0, 40.0))
+	var boss_center := boss_pos + boss_size * 0.5 + shake_offset
+	var player_pos := _as_vector2(context.get("player_pos", Vector2(302.5, 700.0)), Vector2(302.5, 700.0))
+	var player_size := _as_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+	var player_center := player_pos + player_size * 0.5 + shake_offset
+	var pulse := sin(clampf(float(context.get("molewang_tunnel_progress", 0.0)), 0.0, 1.0) * 15.0) * 0.5 + 0.5
+	var cross_size := 12.0 + pulse * 4.0
+	return {
+		"pulse": pulse,
+		"boss_exclamation_triangle": PackedVector2Array([
+			boss_center + Vector2(0.0, -34.0),
+			boss_center + Vector2(-10.0, -20.0),
+			boss_center + Vector2(10.0, -20.0),
+		]),
+		"boss_exclamation_stem": PackedVector2Array([
+			boss_center + Vector2(0.0, -31.0),
+			boss_center + Vector2(0.0, -22.0),
+		]),
+		"boss_exclamation_dot": boss_center + Vector2(0.0, -19.0),
+		"player_foot_cross_a": PackedVector2Array([
+			player_center + Vector2(-cross_size, -cross_size),
+			player_center + Vector2(cross_size, cross_size),
+		]),
+		"player_foot_cross_b": PackedVector2Array([
+			player_center + Vector2(cross_size, -cross_size),
+			player_center + Vector2(-cross_size, cross_size),
+		]),
+	}
+
+
+func _draw_tunnel_warning(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var geometry := build_tunnel_warning_geometry(context, shake_offset)
+	if geometry.is_empty():
+		return
+	var pulse := float(geometry.get("pulse", 0.0))
+	canvas.draw_colored_polygon(geometry["boss_exclamation_triangle"], Color(1.0, 0.31, 0.20, 0.71 + 0.29 * pulse))
+	var highlight := Color(1.0, 1.0, 0.78, 0.71 + 0.29 * pulse)
+	var stem: PackedVector2Array = geometry["boss_exclamation_stem"]
+	canvas.draw_line(stem[0], stem[1], highlight, 2.0)
+	canvas.draw_circle(geometry["boss_exclamation_dot"], 1.5, highlight)
+	var cross_color := Color(1.0, 0.24, 0.16, 0.35 + 0.45 * pulse)
+	var cross_a: PackedVector2Array = geometry["player_foot_cross_a"]
+	var cross_b: PackedVector2Array = geometry["player_foot_cross_b"]
+	canvas.draw_line(cross_a[0], cross_a[1], cross_color, 3.0)
+	canvas.draw_line(cross_b[0], cross_b[1], cross_color, 3.0)
 
 
 func _draw_tunnel_spikes(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:

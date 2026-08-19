@@ -150,7 +150,7 @@ func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: D
 
 func get_boss_ai_context(_stage_background: Object = null) -> Dictionary:
 	return {
-		"stage2_boss_movement_locked": tunnel_active,
+		"stage2_boss_movement_locked": false,
 		"stage2_water_cannon_phase": "idle",
 		"stage2_boss_skill_status": status,
 		"stage2_speed_defense_active": false,
@@ -192,6 +192,7 @@ func get_actor_draw_context() -> Dictionary:
 		"stage_boss_variant": VARIANT_ID,
 		"molewang_tunnel_active": tunnel_active,
 		"molewang_tunnel_phase": tunnel_phase,
+		"molewang_tunnel_warning_active": tunnel_active and tunnel_phase == "warn",
 		"molewang_tunnel_progress": _phase_progress(),
 		"molewang_tunnel_target_x": tunnel_target_x,
 		"molewang_tunnel_spikes": tunnel_spikes.duplicate(true),
@@ -263,6 +264,9 @@ func _update_tunnel(step: float, context: Dictionary, deps: Dictionary) -> Dicti
 	match tunnel_phase:
 		"warn":
 			if tunnel_timer >= TUNNEL_WARN_SEC:
+				var player_pos := _as_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
+				var player_size := _as_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+				tunnel_target_x = player_pos.x + player_size.x * 0.5
 				tunnel_phase = "charge"
 				tunnel_timer = 0.0
 		"charge":

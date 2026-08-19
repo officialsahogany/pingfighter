@@ -3723,7 +3723,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_molewang_boss_state.gd`
   Owns Molewang's frozen-Python-parity gameplay kit: hit-gauge routing,
   Tunnel Raid sequence and locked-target strike, Spinning Claw contact
-  activation, and the two-round golden friend-mole event.
+  activation, and the two-round golden friend-mole event. Tunnel Raid keeps
+  the shared boss AI mobile because the frozen Python call path has no
+  tunnel-phase movement lock; only its boss presentation tunnels while the
+  warning endpoint retargets the live player (GRT-052/GRT-053).
 - `scripts/stages/stage2/stage2_variant_boss_renderer.gd`
   Owns original-procedural Stage 2 variant boss and skill presentation. The
   Stage 2 actor renderer remains the production draw-order owner and delegates
