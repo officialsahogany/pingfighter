@@ -618,7 +618,7 @@ func _sync_awakening_trigger(context: Dictionary) -> void:
 	_awakening_state.sync_trigger(context)
 
 
-func _complete_awakening(context: Dictionary = {}, deps: Dictionary = {}) -> void:
+func _complete_awakening(context: Dictionary = {}, _deps: Dictionary = {}) -> void:
 	if not _awakening_intro_pending:
 		return
 	_geometry_state.sync(context)
@@ -628,14 +628,11 @@ func _complete_awakening(context: Dictionary = {}, deps: Dictionary = {}) -> voi
 		_superspeed_active
 	)
 	status = "awakened"
-	# Legacy checks the ultimate immediately after awakening completion. Chain
-	# the 350ms activation freeze here so no player/AI/ball tick leaks between
-	# the 3s intro and a gauge-ready Superspeed activation.
-	if (
-		boss_special_gauge >= SUPERSPEED_GAUGE_COST
-		and not _timing_policy.is_boss_skill_cooldown_paused(context, deps)
-	):
-		_try_start_superspeed(context)
+	# R5 intentionally departs from legacy here. Legacy checked a gauge-ready
+	# ultimate immediately and used 25 seconds only after a completed cast. The
+	# unlock now arms the same 50-second owner cooldown used after every cast, so
+	# the first activation cannot chain directly out of the Awakening freeze.
+	_superspeed_state.set_cooldown_remaining(Stage7AkamuSuperspeedState.COOLDOWN_SEC)
 
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:

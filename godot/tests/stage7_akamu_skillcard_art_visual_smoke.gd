@@ -195,8 +195,9 @@ func _build_context(view_size: Vector2i) -> Dictionary:
 			},
 			{
 				"id": "stage7_superspeed", "name": "극정호신", "color": Color(0.96, 0.46, 0.18),
-				"progress": 0.8, "active": false, "ready": false,
-				"status": "locked", "next_activation_remaining": 250.0,
+				"progress": 0.0, "active": false, "ready": false,
+				"status": "charging", "cooldown_remaining": 50.0,
+				"cooldown_total": 50.0, "next_activation_remaining": 50.0,
 			},
 		],
 	}

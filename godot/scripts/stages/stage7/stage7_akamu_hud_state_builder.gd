@@ -52,14 +52,18 @@ func build_skills(
 		or bool(motion_state.external_scripted_motion_active)
 	)
 
-	return [
+	var skills: Array = [
 		clone_state.build_hud_skill(boss_gauge, skill_paused, clone_blocked),
 		shuriken_state.build_hud_skill(boss_gauge, skill_paused, shuriken_blocked),
 		cloud_state.build_hud_skill(boss_gauge, skill_paused, cloud_blocked),
-		superspeed_state.build_hud_skill(
+	]
+	# The existing rail itself announces the unlock. Before Awakening the
+	# ultimate is absent; completion inserts it as the stable fourth card.
+	if awakened:
+		skills.append(superspeed_state.build_hud_skill(
 			boss_gauge,
 			awakened,
 			skill_paused,
 			superspeed_blocked
-		),
-	]
+		))
+	return skills

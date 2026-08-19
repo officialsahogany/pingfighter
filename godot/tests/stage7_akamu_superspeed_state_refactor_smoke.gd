@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_owner_boundary()
 	_verify_public_facade_routes_to_owner()
+	_verify_cooldown_contract_and_round_boundary()
 
 	if _failures.is_empty():
 		print("stage7_akamu_superspeed_state_refactor_smoke: ok")
@@ -44,6 +45,20 @@ func _verify_owner_boundary() -> void:
 		"func clear_round_transients(",
 	]:
 		_expect(helper_source.find(marker) >= 0, "focused Superspeed owner should implement %s" % marker)
+	_expect(
+		helper_source.count("const COOLDOWN_SEC := 50.0") == 1,
+		"focused Superspeed owner should define the shared 50-second cooldown exactly once"
+	)
+	_expect(
+		host_source.find("const SUPERSPEED_COOLDOWN_SEC") < 0
+			and host_source.find("const TEMP_STAGE7_ULTIMATE_COOLDOWN_SEC") < 0,
+		"Stage7AkamuState should not duplicate the Superspeed cooldown constant"
+	)
+	var end_body := _function_body(helper_source, "func _end() -> void:")
+	_expect(
+		end_body.find("cooldown_remaining_sec = COOLDOWN_SEC") >= 0,
+		"natural expiry should reuse the focused owner's shared cooldown constant"
+	)
 	for forbidden in [
 		"func _spawn_superspeed_afterimages(",
 		"func _update_superspeed_afterimages(",
@@ -112,6 +127,53 @@ func _verify_public_facade_routes_to_owner() -> void:
 		3.5,
 		"round cleanup should preserve the Superspeed cooldown"
 	)
+
+
+func _verify_cooldown_contract_and_round_boundary() -> void:
+	var state: Object = Stage7AkamuState.new()
+	state.debug_set_awakened(true)
+	state.debug_set_gauge(250.0)
+	_expect(state.debug_start_superspeed(_base_context()), "cooldown fixture should start Superspeed")
+	var helper: Object = state.get("_superspeed_state")
+	helper.advance_runtime(0.0, 10.001, _base_context(), state.get("_rng"))
+	var snapshot: Dictionary = helper.get_snapshot()
+	_expect(not bool(snapshot.get("active", true)), "focused owner should end Superspeed naturally")
+	_expect_close(
+		float(snapshot.get("cooldown_remaining_sec", 0.0)),
+		50.0,
+		"natural end should arm the shared 50-second cooldown"
+	)
+	_expect_close(
+		float(snapshot.get("cooldown_total_sec", 0.0)),
+		50.0,
+		"focused owner snapshot should expose its shared cooldown total"
+	)
+	state.clear_round_transients()
+	_expect_close(
+		float(helper.get_snapshot().get("cooldown_remaining_sec", 0.0)),
+		50.0,
+		"round cleanup should preserve the newly armed 50-second cooldown"
+	)
+	helper.tick_cooldown(49.999)
+	_expect(float(helper.cooldown_remaining_sec) > 0.0, "cooldown should remain closed before 50 seconds")
+	helper.tick_cooldown(0.002)
+	_expect_close(float(helper.cooldown_remaining_sec), 0.0, "cooldown should reopen after 50 seconds")
+
+
+func _base_context() -> Dictionary:
+	return {
+		"current_stage": 7,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+	}
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_function := source.find("\nfunc ", start + signature.length())
+	return source.substr(start) if next_function < 0 else source.substr(start, next_function - start)
 
 
 func _expect(condition: bool, message: String) -> void:

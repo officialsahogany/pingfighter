@@ -12,7 +12,7 @@ const WIND_AURA_HIT_COOLDOWN_SEC := 0.30
 const WIND_AURA_RECHARGE_SEC := 10.0
 const SUPERSPEED_FREEZE_SEC := 0.35
 const SUPERSPEED_DURATION_SEC := 10.0
-const SUPERSPEED_COOLDOWN_SEC := 25.0
+const ULTIMATE_COOLDOWN_SEC := 50.0
 
 var _failures: Array[String] = []
 
@@ -134,7 +134,7 @@ class FakeCloneBallIntensity:
 
 func _init() -> void:
 	_verify_score_gate_and_awakening_completion()
-	_verify_awakening_superspeed_chain_respects_live_pause()
+	_verify_awakening_superspeed_unlock_respects_live_pause()
 	_verify_wind_aura_substep_guards_and_debounce()
 	_verify_awakened_clone_precedes_wind_aura()
 	_verify_wind_aura_pause_suppresses_rewards_not_block()
@@ -230,7 +230,7 @@ func _verify_score_gate_and_awakening_completion() -> void:
 	_expect(int(aura.get("burst_particle_count", 0)) == 48, "Awakening should emit exactly 48 burst particles")
 
 
-func _verify_awakening_superspeed_chain_respects_live_pause() -> void:
+func _verify_awakening_superspeed_unlock_respects_live_pause() -> void:
 	for pause_key in [
 		"lingpet_star_coil_freeze_boss_skill_cd",
 		"active_item_boss_skill_cooldown_paused",
@@ -252,19 +252,34 @@ func _verify_awakening_superspeed_chain_respects_live_pause() -> void:
 		_expect(state.debug_is_awakened(), "%s should not block Awakening completion" % pause_key)
 		_expect(
 			not bool(superspeed.get("active", true)),
-			"%s must block the immediate Awakening-to-Superspeed chain" % pause_key
+			"%s completion should leave the newly unlocked ultimate inactive" % pause_key
 		)
 		_expect_close(
 			state.debug_get_gauge(),
 			250.0,
 			"%s should preserve the reserved Superspeed gauge while paused" % pause_key
 		)
-		state.update(0.0, _base_context())
-		_expect(
-			bool(state.debug_get_superspeed_snapshot().get("active", false)),
-			"Superspeed should start on the first normal update after %s releases" % pause_key
+		_expect_close(
+			float(superspeed.get("cooldown_remaining_sec", 0.0)),
+			ULTIMATE_COOLDOWN_SEC,
+			"%s completion should arm the full unlock cooldown" % pause_key
 		)
-		_expect_close(state.debug_get_gauge(), 0.0, "the resumed Superspeed start should deduct exactly 250 gauge")
+		state.update(1.0, freeze_context)
+		_expect_close(
+			float(state.debug_get_superspeed_snapshot().get("cooldown_remaining_sec", 0.0)),
+			ULTIMATE_COOLDOWN_SEC,
+			"%s should keep the unlock cooldown frozen after Awakening" % pause_key
+		)
+		state.update(0.1, _base_context())
+		_expect(
+			not bool(state.debug_get_superspeed_snapshot().get("active", false)),
+			"releasing %s should resume the 50-second cooldown, not bypass it" % pause_key
+		)
+		_expect_close(state.debug_get_gauge(), 250.0, "the resumed unlock cooldown should preserve its reserved gauge")
+		state.debug_set_superspeed_cooldown_remaining(0.0)
+		state.update(0.0, _base_context())
+		_expect(bool(state.debug_get_superspeed_snapshot().get("active", false)), "the ultimate should start once the isolated cooldown gate opens")
+		_expect_close(state.debug_get_gauge(), 0.0, "the accepted post-cooldown start should deduct exactly 250 gauge")
 
 
 func _verify_wind_aura_substep_guards_and_debounce() -> void:
@@ -664,6 +679,7 @@ func _verify_independent_free_cloud_and_clone_rolls() -> void:
 func _verify_superspeed_activation_duration_cooldown_and_hud() -> void:
 	var forced_state: Object = Stage7AkamuState.new()
 	forced_state.debug_force_complete_awakening()
+	forced_state.debug_set_superspeed_cooldown_remaining(0.0)
 	forced_state.debug_set_gauge(249.0)
 	_expect(
 		not forced_state.debug_start_superspeed(_base_context()),
@@ -676,6 +692,7 @@ func _verify_superspeed_activation_duration_cooldown_and_hud() -> void:
 
 	var state: Object = Stage7AkamuState.new()
 	state.debug_force_complete_awakening()
+	state.debug_set_superspeed_cooldown_remaining(0.0)
 	state.debug_set_gauge(250.0)
 	var context: Dictionary = _base_context()
 	state.update(0.0, context)
@@ -702,7 +719,7 @@ func _verify_superspeed_activation_duration_cooldown_and_hud() -> void:
 	_expect(bool(card.get("active", false)) and str(card.get("status", "")) == "active", "active Superspeed should own active card styling")
 	_expect_close(float(card.get("cost", 0.0)), 250.0, "Superspeed HUD should expose its real cost")
 	_expect_close(float(card.get("duration_total", 0.0)), 10.0, "Superspeed HUD should expose its real duration")
-	_expect_close(float(card.get("cooldown_total", 0.0)), 25.0, "Superspeed HUD should expose its real cooldown")
+	_expect_close(float(card.get("cooldown_total", 0.0)), ULTIMATE_COOLDOWN_SEC, "Superspeed HUD should expose its real cooldown")
 
 	_advance_freeze(state, SUPERSPEED_FREEZE_SEC)
 	snapshot = state.debug_get_superspeed_snapshot()
@@ -739,8 +756,8 @@ func _verify_superspeed_activation_duration_cooldown_and_hud() -> void:
 	_expect(not bool(snapshot.get("active", true)), "Superspeed should end naturally at ten seconds including freeze")
 	_expect_close(
 		float(snapshot.get("cooldown_remaining_sec", 0.0)),
-		SUPERSPEED_COOLDOWN_SEC,
-		"natural Superspeed expiry should arm a fresh 25-second cooldown"
+		ULTIMATE_COOLDOWN_SEC,
+		"natural Superspeed expiry should arm a fresh 50-second cooldown"
 	)
 
 	var paused_context: Dictionary = context.duplicate(true)
@@ -762,13 +779,13 @@ func _verify_superspeed_activation_duration_cooldown_and_hud() -> void:
 	_advance_state(state, maxf(0.0, cooldown_remaining - 0.001), context)
 	_expect(
 		float(state.debug_get_superspeed_snapshot().get("cooldown_remaining_sec", 0.0)) > 0.0,
-		"Superspeed cooldown should remain closed immediately before 25 active seconds"
+		"Superspeed cooldown should remain closed immediately before 50 active seconds"
 	)
 	state.update(0.0011, context)
 	_expect_close(
 		float(state.debug_get_superspeed_snapshot().get("cooldown_remaining_sec", -1.0)),
 		0.0,
-		"Superspeed cooldown should reopen after 25 unpaused seconds"
+		"Superspeed cooldown should reopen after 50 unpaused seconds"
 	)
 
 
@@ -920,6 +937,7 @@ func _verify_common_dash_gauge_transaction_and_superspeed_free_path() -> void:
 func _verify_superspeed_round_cleanup() -> void:
 	var state: Object = Stage7AkamuState.new()
 	state.debug_force_complete_awakening()
+	state.debug_set_superspeed_cooldown_remaining(0.0)
 	state.debug_set_gauge(250.0)
 	_expect(state.debug_start_superspeed(_base_context()), "round-cleanup precondition should start Superspeed")
 	state.notify_superspeed_dash_started(Vector2(330.0, 25.0), Vector2(100.0, 40.0), 1, 710.0, 11.0)

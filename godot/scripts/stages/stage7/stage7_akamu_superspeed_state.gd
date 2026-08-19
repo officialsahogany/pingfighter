@@ -4,7 +4,9 @@ const LEGACY_FPS := 60.0
 const DURATION_SEC := 10.0
 const ACTIVATION_FREEZE_SEC := 0.350
 const TEXT_SEC := 1.50
-const COOLDOWN_SEC := 25.0
+# User-approved R5 departure from legacy: this one source gates both the first
+# activation after Awakening unlock and every reuse after natural expiry.
+const COOLDOWN_SEC := 50.0
 const DASH_RECOVERY_FRAMES := 1.0
 const AFTERIMAGE_COUNT := 5
 const AFTERIMAGE_DELAY_SEC := 0.060
@@ -86,6 +88,7 @@ func get_snapshot() -> Dictionary:
 		"remaining_sec": remaining_sec,
 		"text_remaining_sec": text_remaining_sec,
 		"cooldown_remaining_sec": cooldown_remaining_sec,
+		"cooldown_total_sec": COOLDOWN_SEC,
 		"dash_active": dash_active,
 		"dash_direction": dash_direction,
 		"dash_target_center_x": dash_target_center_x,

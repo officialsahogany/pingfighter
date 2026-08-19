@@ -97,7 +97,7 @@ func _verify_live_state_surface() -> void:
 	var hud_context: Dictionary = state.get_hud_context()
 	_expect(bool(hud_context.get("stage7_boss_skill_hud_active", false)), "Stage 7 live state should enable its boss skillcard rail")
 	var skills: Array = _as_array(hud_context.get("stage7_boss_skill_hud_skills", []))
-	_expect(skills.size() == EXPECTED_SKILL_IDS.size(), "Stage 7 live state should publish all four boss skills")
+	_expect(skills.size() == 3, "Stage 7 live state should keep the ultimate card off the rail before Awakening")
 	var actual_ids: Array[String] = []
 	for value in skills:
 		if not (value is Dictionary):
@@ -108,7 +108,17 @@ func _verify_live_state_surface() -> void:
 		_expect(skill.has("status"), "%s should expose a live HUD status" % str(skill.get("id", "unknown")))
 		_expect(skill.has("progress"), "%s should expose cooldown progress" % str(skill.get("id", "unknown")))
 		_expect(skill.has("next_activation_remaining"), "%s should expose next-activation sorting metadata" % str(skill.get("id", "unknown")))
-	_expect(actual_ids == EXPECTED_SKILL_IDS, "Stage 7 live state should publish the four art-backed skill ids in its stable order")
+	_expect(actual_ids == EXPECTED_SKILL_IDS.slice(0, 3), "Stage 7 pre-Awakening rail should publish only the three base skill ids")
+	state.debug_force_complete_awakening()
+	skills = _as_array(state.get_hud_context().get("stage7_boss_skill_hud_skills", []))
+	actual_ids.clear()
+	for value in skills:
+		if value is Dictionary:
+			actual_ids.append(str((value as Dictionary).get("id", "")))
+	_expect(actual_ids == EXPECTED_SKILL_IDS, "Awakening should reveal the ultimate as the fourth art-backed rail card")
+	var unlocked_skill := _find_skill(skills, "stage7_superspeed")
+	_expect_close(float(unlocked_skill.get("cooldown_remaining", 0.0)), 50.0, "the revealed ultimate card should begin on its 50-second unlock cooldown")
+	_expect_close(float(unlocked_skill.get("cooldown_total", 0.0)), 50.0, "the revealed ultimate card should expose the shared 50-second cooldown total")
 
 
 func _verify_fill_ratio_contract(renderer: Object) -> void:
@@ -138,12 +148,12 @@ func _verify_fill_ratio_contract(renderer: Object) -> void:
 		locked_state.get_hud_context().get("stage7_boss_skill_hud_skills", []),
 		"stage7_superspeed"
 	)
-	_expect(str(locked_skill.get("status", "")) == "locked", "superspeed fill precondition should remain locked before awakening")
-	_expect(float(locked_skill.get("progress", 0.0)) > 0.0, "locked superspeed regression fixture should carry misleading raw progress")
+	_expect(locked_skill.is_empty(), "the locked ultimate should be absent instead of leaking a pre-Awakening card")
+	var locked_fixture := {"status": "locked", "progress": 0.8}
 	_expect_close(
-		float(renderer.call("_resolve_fill_ratio", locked_skill)),
+		float(renderer.call("_resolve_fill_ratio", locked_fixture)),
 		0.0,
-		"locked Stage 7 skillcard should render with zero bright fill"
+		"the renderer's compatibility locked state should still force zero bright fill"
 	)
 
 	var ready_state := Stage7AkamuState.new()

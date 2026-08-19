@@ -2818,6 +2818,10 @@ const SKILL_DATA_RU := {
 }
 
 const EXACT_TEXT_EN := {
+	"극정호신": "Superspeed",
+	"초각성 해금 · 게이지 250": "Awakening unlock · Gauge 250",
+	"해금 및 종료 후 50초": "50s after unlock and end",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "Unlocks when Awakening completes and waits 50s before its first activation. On activation, freezes the arena for 0.35s, then repeatedly glides along the ball's predicted path for 10s. Energy gained from returns drops to 20 while active.",
 	"기초 수련": "Basic Training",
 	"활주 재충전 시간": "Glide Recharge Time",
 	"활주 후딜": "Glide Recovery",
@@ -3443,6 +3447,10 @@ const EXACT_TEXT_EN := {
 }
 
 const EXACT_TEXT_ZH := {
+	"극정호신": "极速护身",
+	"초각성 해금 · 게이지 250": "超觉醒解锁 · 能量250",
+	"해금 및 종료 후 50초": "解锁及结束后50秒",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "完成超觉醒后解锁，首次发动前等待50秒。发动时战场暂停0.35秒，随后10秒内沿球的预测轨迹连续滑行；持续期间回球获得的能量降至20。",
 	"기초 수련": "基础修炼",
 	"활주 재충전 시간": "滑步充能时间",
 	"활주 후딜": "滑步后摇",
@@ -4068,6 +4076,10 @@ const EXACT_TEXT_ZH := {
 }
 
 const EXACT_TEXT_JA := {
+	"극정호신": "極静護身",
+	"초각성 해금 · 게이지 250": "超覚醒で解放 · ゲージ250",
+	"해금 및 종료 후 50초": "解放時および終了後50秒",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "超覚醒完了時に解放され、初回発動まで50秒待機します。発動すると戦場を0.35秒停止した後、10秒間ボールの予測軌道へ連続滑走し、持続中は打ち返しのゲージ獲得量が20に低下します。",
 	"기초 수련": "基礎修練",
 	"활주 재충전 시간": "滑走チャージ時間",
 	"활주 후딜": "滑走後の硬直",
@@ -4693,6 +4705,10 @@ const EXACT_TEXT_JA := {
 }
 
 const EXACT_TEXT_ES := {
+	"극정호신": "Guardia de velocidad extrema",
+	"초각성 해금 · 게이지 250": "Se desbloquea con el Despertar · Medidor 250",
+	"해금 및 종료 후 50초": "50 s tras desbloquearse y finalizar",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "Se desbloquea al completar el Despertar y espera 50 s antes de la primera activación. Al activarse, detiene la arena durante 0,35 s y luego se desliza repetidamente por la trayectoria prevista de la pelota durante 10 s. La ganancia de medidor al devolver la pelota baja a 20 mientras está activa.",
 	"기초 수련": "Entrenamiento básico",
 	"활주 재충전 시간": "Tiempo de recarga del deslizamiento",
 	"활주 후딜": "Recuperación del deslizamiento",
@@ -5321,6 +5337,10 @@ const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
 	"클릭해 계속": "Clique para continuar",
+	"극정호신": "Guarda de Velocidade Extrema",
+	"초각성 해금 · 게이지 250": "Desbloqueio no Despertar · Medidor 250",
+	"해금 및 종료 후 50초": "50 s após desbloquear e terminar",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "É desbloqueada ao concluir o Despertar e aguarda 50 s antes da primeira ativação. Ao ativar, congela a arena por 0,35 s e então desliza repetidamente pela trajetória prevista da bola por 10 s. O ganho de medidor ao rebater cai para 20 durante o efeito.",
 	# 능력치 원인표기 라벨. 오버라이드가 없으면 EXACT_TEXT_EN 로 떨어져 영어가 샌다.
 	"받아치기": "Rebatida",
 	"준비 중입니다": "Preparando...",
@@ -5576,6 +5596,10 @@ const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
 	"클릭해 계속": "Щёлкните, чтобы продолжить",
+	"극정호신": "Сверхскоростная защита",
+	"초각성 해금 · 게이지 250": "Открывается после Пробуждения · Шкала 250",
+	"해금 및 종료 후 50초": "50 с после открытия и завершения",
+	"초각성 완료 시 해금되어 첫 발동까지 50초를 기다립니다. 발동하면 0.35초 동안 전장을 멈춘 뒤 10초간 공의 예상 궤도로 연속 활주하며, 지속 중 받아칠 때의 기력 수급은 20으로 감소합니다.": "Открывается после завершения Пробуждения и ждёт 50 с до первого срабатывания. При активации останавливает арену на 0,35 с, затем 10 с непрерывно скользит по предсказанной траектории мяча. Во время действия получение шкалы за отбитие снижается до 20.",
 	# 능력치 원인표기 라벨. 오버라이드가 없으면 EXACT_TEXT_EN 로 떨어져 영어가 샌다.
 	"받아치기": "Отбитие",
 	"준비 중입니다": "Подготовка...",

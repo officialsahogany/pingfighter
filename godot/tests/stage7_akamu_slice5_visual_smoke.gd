@@ -284,7 +284,8 @@ func _verify_hud_copy() -> void:
 	var tooltip_info: Dictionary = Stage7AkamuBossSkillHudRenderer.TOOLTIP_INFO
 	var superspeed: Dictionary = tooltip_info.get("stage7_superspeed", {})
 	_expect(str(superspeed.get("name", "")) == "극정호신", "superspeed tooltip should use readable Korean")
-	_expect(str(superspeed.get("cooldown", "")).find("25초") >= 0, "superspeed tooltip should publish the implemented 25-second cooldown")
+	_expect(str(superspeed.get("trigger", "")).find("초각성 해금") >= 0, "superspeed tooltip should disclose the Awakening unlock")
+	_expect(str(superspeed.get("cooldown", "")).find("50초") >= 0, "superspeed tooltip should publish the shared 50-second unlock and reuse cooldown")
 	_expect(str(superspeed.get("description", "")).find("10초") >= 0, "superspeed tooltip should publish the implemented 10-second duration")
 	_expect(str(Stage7AkamuBossSkillHudRenderer.DISPLAY_NAMES.get("stage7_cloud", "")) == "구름장막", "Stage 7 cards should override legacy mojibake names")
 

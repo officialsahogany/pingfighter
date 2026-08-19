@@ -36,6 +36,11 @@ func _verify_owner_boundary() -> void:
 		"Stage7AkamuState should retain one HUD projection builder instance"
 	)
 	_expect(helper_source.find("func build_skills(") >= 0, "focused HUD projection builder should implement build_skills")
+	_expect(
+		helper_source.find("if awakened:") >= 0
+			and helper_source.find("skills.append(superspeed_state.build_hud_skill(") >= 0,
+		"focused HUD builder should own the Awakening-gated fourth-card insertion"
+	)
 	for host_function in [
 		"func _build_hud_skills(",
 		"func _placeholder_hud_skill(",
@@ -59,13 +64,23 @@ func _verify_public_hud_projection() -> void:
 	_expect(bool(context.get("stage7_boss_skill_hud_active", false)), "public Stage 7 HUD context should remain active")
 	_expect(str(context.get("stage7_boss_skill_hud_boss_name", "")) != "", "public HUD context should retain the boss name")
 	var skills: Array = context.get("stage7_boss_skill_hud_skills", []) as Array
-	_expect(skills.size() == 4, "focused HUD projection should expose exactly four implemented skills")
+	_expect(skills.size() == 3, "focused HUD projection should expose three skills before Awakening")
 	var ids: Array[String] = []
 	for skill_value in skills:
 		ids.append(str((skill_value as Dictionary).get("id", "")))
 	_expect(
+		ids == ["stage7_clone", "stage7_shuriken", "stage7_cloud"],
+		"focused pre-Awakening HUD should preserve the three base-skill order; got %s" % str(ids)
+	)
+	state.debug_force_complete_awakening()
+	skills = state.get_hud_context().get("stage7_boss_skill_hud_skills", []) as Array
+	ids.clear()
+	for skill_value in skills:
+		ids.append(str((skill_value as Dictionary).get("id", "")))
+	_expect(skills.size() == 4, "Awakening should reveal exactly one fourth skill")
+	_expect(
 		ids == ["stage7_clone", "stage7_shuriken", "stage7_cloud", "stage7_superspeed"],
-		"focused HUD projection should preserve clone/shuriken/cloud/superspeed order; got %s" % str(ids)
+		"focused post-Awakening HUD should append Superspeed in stable fourth position; got %s" % str(ids)
 	)
 
 
