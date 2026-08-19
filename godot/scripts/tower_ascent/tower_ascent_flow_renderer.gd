@@ -10,6 +10,19 @@ const PlazaInteriorRoomRenderer := preload(
 	"res://scripts/plaza/plaza_interior_room_renderer.gd"
 )
 
+const ROUTE_AIM_GAUGE_FAN_PATH := (
+	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_ARROW_PATH := (
+	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_FAN_TEXTURE := preload(
+	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
+)
+const ROUTE_AIM_GAUGE_ARROW_TEXTURE := preload(
+	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
+)
+
 const NODE_ART_PATHS := {
 	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
 	"combat": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
@@ -53,6 +66,13 @@ var _cached_fullscreen_key := ""
 var _cached_fullscreen_model: Dictionary = {}
 var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
+
+
+func get_route_aim_gauge_asset_paths() -> PackedStringArray:
+	return PackedStringArray([
+		ROUTE_AIM_GAUGE_FAN_PATH,
+		ROUTE_AIM_GAUGE_ARROW_PATH,
+	])
 
 
 func draw(canvas: CanvasItem, flow: Object) -> void:
@@ -1378,6 +1398,29 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 
 
 func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
+	_draw_route_aim_gauge_with_textures(
+		canvas,
+		flow,
+		ROUTE_AIM_GAUGE_FAN_TEXTURE,
+		ROUTE_AIM_GAUGE_ARROW_TEXTURE
+	)
+
+
+func debug_draw_route_aim_gauge_with_textures(
+	canvas: Object,
+	flow: Object,
+	fan_texture: Variant,
+	arrow_texture: Variant
+) -> void:
+	_draw_route_aim_gauge_with_textures(canvas, flow, fan_texture, arrow_texture)
+
+
+func _draw_route_aim_gauge_with_textures(
+	canvas: Object,
+	flow: Object,
+	fan_texture: Variant,
+	arrow_texture: Variant
+) -> void:
 	if not flow.has_method("get_route_aim_gauge_model"):
 		return
 	var model: Dictionary = flow.get_route_aim_gauge_model()
@@ -1394,6 +1437,68 @@ func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
 		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
 	)))
 	var angle := deg_to_rad(float(model.get("angle_degrees", 0.0)))
+	if not (fan_texture is Texture2D) or not (arrow_texture is Texture2D):
+		_draw_route_aim_gauge_procedural(
+			canvas,
+			origin,
+			radius,
+			min_angle,
+			max_angle,
+			angle
+		)
+		return
+	var fan := fan_texture as Texture2D
+	var arrow := arrow_texture as Texture2D
+	var texture_scale := (
+		radius / TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX
+	)
+	var fan_size := fan.get_size() * texture_scale
+	var fan_pivot := fan_size * TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO
+	canvas.draw_texture_rect(
+		fan,
+		Rect2(origin - fan_pivot, fan_size),
+		false,
+		Color.WHITE,
+		false
+	)
+	var arrow_direction := Vector2(sin(angle), -cos(angle))
+	var arrow_center := (
+		origin
+		+ arrow_direction
+		* radius
+		* TowerAscentTuning.TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO
+	)
+	var arrow_half_size := arrow.get_size() * texture_scale * 0.5
+	var axis_x := Vector2(cos(angle), sin(angle))
+	var axis_y := Vector2(-axis_x.y, axis_x.x)
+	var points := PackedVector2Array([
+		arrow_center - axis_x * arrow_half_size.x - axis_y * arrow_half_size.y,
+		arrow_center + axis_x * arrow_half_size.x - axis_y * arrow_half_size.y,
+		arrow_center + axis_x * arrow_half_size.x + axis_y * arrow_half_size.y,
+		arrow_center - axis_x * arrow_half_size.x + axis_y * arrow_half_size.y,
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	canvas.draw_polygon(
+		points,
+		PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
+		uvs,
+		arrow
+	)
+
+
+func _draw_route_aim_gauge_procedural(
+	canvas: Object,
+	origin: Vector2,
+	radius: float,
+	min_angle: float,
+	max_angle: float,
+	angle: float
+) -> void:
 	var outer_fan := _build_route_aim_fan(origin, radius, min_angle, max_angle, 28)
 	var inner_fan := _build_route_aim_fan(origin, radius - 8.0, min_angle, max_angle, 28)
 	canvas.draw_colored_polygon(outer_fan, Color(CINNABAR_DARK, 0.42))

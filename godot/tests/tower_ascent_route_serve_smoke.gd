@@ -23,6 +23,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -351,6 +354,91 @@ class ModuleHolder:
 		return modules.get(key, null)
 
 
+class FakeGaugeFlow:
+	extends RefCounted
+
+	var model := {
+		"visible": true,
+		"origin": Vector2(380.0, 650.0),
+		"min_degrees": -55.0,
+		"max_degrees": 55.0,
+		"angle_degrees": 23.0,
+	}
+
+	func get_route_aim_gauge_model() -> Dictionary:
+		return model
+
+
+class FakeGaugeCanvas:
+	extends RefCounted
+
+	var texture_rect_calls := 0
+	var texture_polygon_calls := 0
+	var colored_polygon_calls := 0
+	var arc_calls := 0
+	var line_calls := 0
+	var circle_calls := 0
+	var last_uvs := PackedVector2Array()
+
+	func draw_texture_rect(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_tile: bool,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false
+	) -> void:
+		texture_rect_calls += 1
+
+	func draw_polygon(
+		_points: PackedVector2Array,
+		_colors: PackedColorArray,
+		uvs: PackedVector2Array = PackedVector2Array(),
+		texture: Texture2D = null
+	) -> void:
+		if texture != null:
+			texture_polygon_calls += 1
+		last_uvs = uvs
+
+	func draw_colored_polygon(
+		_points: PackedVector2Array,
+		_color: Color,
+		_uvs: PackedVector2Array = PackedVector2Array(),
+		_texture: Texture2D = null
+	) -> void:
+		colored_polygon_calls += 1
+
+	func draw_arc(
+		_center: Vector2,
+		_radius: float,
+		_start_angle: float,
+		_end_angle: float,
+		_point_count: int,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		arc_calls += 1
+
+	func draw_line(
+		_from: Vector2,
+		_to: Vector2,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		line_calls += 1
+
+	func draw_circle(
+		_position: Vector2,
+		_radius: float,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		circle_calls += 1
+
+
 func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
@@ -360,6 +448,7 @@ func _init() -> void:
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
 	_verify_entry_arm_discards_held_click_and_preserves_phase()
 	_verify_oscillating_gauge_and_mouse_timed_serve()
+	_verify_generated_gauge_art_draws_and_fallback()
 	_verify_production_owner_fails_closed_without_serve_dependencies()
 	_verify_production_source_uses_serve_contract_without_aim_input()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -1046,6 +1135,57 @@ func _verify_oscillating_gauge_and_mouse_timed_serve() -> void:
 	owner.free()
 
 
+func _verify_generated_gauge_art_draws_and_fallback() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	var asset_paths: PackedStringArray = renderer.get_route_aim_gauge_asset_paths()
+	_expect(asset_paths.size() == 2, "the generated route gauge must expose both texture paths")
+	for asset_path in asset_paths:
+		_expect(FileAccess.file_exists(asset_path), "route gauge texture must exist: %s" % asset_path)
+		_expect(FileAccess.file_exists(asset_path + ".import"), "route gauge import sidecar must exist: %s" % asset_path)
+	if asset_paths.size() != 2:
+		return
+	var fan_texture := ResourceLoader.load(asset_paths[0]) as Texture2D
+	var arrow_texture := ResourceLoader.load(asset_paths[1]) as Texture2D
+	_expect(fan_texture != null, "generated route gauge fan must load as Texture2D")
+	_expect(arrow_texture != null, "generated route gauge arrow must load as Texture2D")
+	if fan_texture == null or arrow_texture == null:
+		return
+	_expect(fan_texture.get_size() == Vector2(256.0, 192.0), "generated fan must preserve the 256x192 pivot canvas")
+	_expect(arrow_texture.get_size() == Vector2(128.0, 128.0), "generated arrow must preserve the 128x128 rotation canvas")
+
+	var flow := FakeGaugeFlow.new()
+	var generated_canvas := FakeGaugeCanvas.new()
+	renderer.debug_draw_route_aim_gauge_with_textures(
+		generated_canvas,
+		flow,
+		fan_texture,
+		arrow_texture
+	)
+	_expect(generated_canvas.texture_rect_calls == 1, "production gauge draw must reach the generated fan texture call")
+	_expect(generated_canvas.texture_polygon_calls == 1, "production gauge draw must reach the rotated arrow texture call")
+	_expect(generated_canvas.colored_polygon_calls == 0, "generated textures must suppress the procedural fan")
+	var expected_uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	_expect(generated_canvas.last_uvs == expected_uvs, "rotated arrow quad must use normalized UV corners")
+
+	var fallback_canvas := FakeGaugeCanvas.new()
+	renderer.debug_draw_route_aim_gauge_with_textures(
+		fallback_canvas,
+		flow,
+		fan_texture,
+		null
+	)
+	_expect(fallback_canvas.texture_rect_calls == 0, "one missing gauge texture must suppress both generated surfaces")
+	_expect(fallback_canvas.texture_polygon_calls == 0, "one missing gauge texture must not draw a partial generated arrow")
+	_expect(fallback_canvas.colored_polygon_calls == 3, "one missing gauge texture must restore both fan fills and the procedural arrow head")
+	_expect(fallback_canvas.arc_calls == 2, "the null-texture fallback must restore both procedural arcs")
+	_expect(fallback_canvas.line_calls == 9, "the null-texture fallback must restore seven ticks and two arrow lines")
+
+
 func _verify_production_owner_fails_closed_without_serve_dependencies() -> void:
 	var owner := FakeOwner.new()
 	var runtime := TowerAscentRouteServeRuntime.new()
@@ -1081,7 +1221,6 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
-	_expect(renderer_source.find("draw_colored_polygon") >= 0, "the angle gauge must retain layered filled fan geometry")
 	_expect(renderer_source.find("_draw_route_aim_gauge") >= 0, "ROUTE_AIM must render its player-local angle gauge")
 	var legacy_serve_source := FileAccess.get_file_as_string(
 		"res://scripts/core/serve_flow_controller.gd"

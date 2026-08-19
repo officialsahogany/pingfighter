@@ -55,6 +55,9 @@ const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 522.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
+const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
+const TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX := 88.0
+const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 
 # TEMP: the map-view overlay establishes the information hierarchy while its
 # final mobile/readability sizing is still product-tuning work.
