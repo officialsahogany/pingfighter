@@ -19,11 +19,35 @@ func handle_input(
 	module_getter: Callable,
 	context: Dictionary
 ) -> bool:
+	if _handle_tower_start_card_input(event, owner, registry, module_getter):
+		return true
 	if _handle_han_miryang_prologue_input(event, owner, registry, module_getter):
 		return true
 	if _handle_force_stage_clear_shortcut(event, owner, registry, module_getter, context):
 		return true
 	return _handle_stage7_prebattle_input(event, owner, registry, module_getter)
+
+
+func _handle_tower_start_card_input(
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	var start_card: Object = _get_module(module_getter, "tower_start_card_state")
+	if (
+		start_card == null
+		or not start_card.has_method("is_active")
+		or not bool(start_card.is_active())
+	):
+		return false
+	if start_card.has_method("handle_input"):
+		start_card.handle_input(event, owner, registry)
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
 
 
 func _handle_han_miryang_prologue_input(

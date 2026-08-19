@@ -1,5 +1,9 @@
 extends RefCounted
 
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+
 
 func begin_stage_landing_intro(
 	flow: Object,
@@ -16,6 +20,15 @@ func begin_stage_landing_intro(
 	if logo_intro != null and logo_intro.has_method("is_audio_playing") and bool(logo_intro.is_audio_playing()):
 		_queue_redraw(owner)
 		return
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
+		if (
+			start_card != null
+			and start_card.has_method("begin")
+			and bool(start_card.begin(owner, registry))
+		):
+			_queue_redraw(owner)
+			return
 	# 한미량 Stage 1 서막은 부트 로딩이 끝난 뒤, 랜딩/공 소환 인트로보다
 	# 먼저 재생한다. character-select transient request가 있는 한미량 Stage 1
 	# 진입만 재생하며, 감상 이력은 재생 차단이 아니라 스킵 락 분기에만 쓴다.

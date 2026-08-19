@@ -25,6 +25,10 @@ const MODULES := {
 		"path": "res://scripts/stages/common/starpoint_payload_factory.gd",
 		"label": "common starpoint payload factory",
 	},
+	"tower_start_card_state": {
+		"path": "res://scripts/tower_ascent/tower_start_card_state.gd",
+		"label": "tower starting-card state",
+	},
 	"stage1_han_miryang_prologue_presentation": {
 		"path": "res://scripts/stages/stage1/stage1_han_miryang_prologue_presentation.gd",
 		"label": "stage1 Han Miryang Araul prologue presentation",

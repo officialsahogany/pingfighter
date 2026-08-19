@@ -25,6 +25,7 @@ var stage1_boss_variant_explicit: bool = false
 var stage_boss_variant: String = ""
 var skip_battle_logo_once: bool = false
 var _character_prologue_entry_requested: bool = false
+var _tower_start_card_entry_requested: bool = false
 var _pending_online_match_request: Dictionary = {}
 var _online_match_skip_logo_armed := false
 
@@ -137,6 +138,20 @@ func peek_character_prologue_entry_request() -> bool:
 func consume_character_prologue_entry_request() -> bool:
 	var requested := _character_prologue_entry_requested
 	_character_prologue_entry_requested = false
+	return requested
+
+
+func request_tower_start_card_entry() -> void:
+	_tower_start_card_entry_requested = true
+
+
+func peek_tower_start_card_entry_request() -> bool:
+	return _tower_start_card_entry_requested
+
+
+func consume_tower_start_card_entry_request() -> bool:
+	var requested := _tower_start_card_entry_requested
+	_tower_start_card_entry_requested = false
 	return requested
 
 

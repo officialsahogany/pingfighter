@@ -6,6 +6,9 @@ const TowerAscentTuning := preload(
 const TowerStartCardOfferBuilder := preload(
 	"res://scripts/tower_ascent/tower_start_card_offer_builder.gd"
 )
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 
 var _offer_builder: Object = TowerStartCardOfferBuilder.new()
 var _owner: Object = null
@@ -20,9 +23,17 @@ var _picks_remaining := 0
 var _card_choices: Array[Dictionary] = []
 var _selection_result: Dictionary = {}
 var _cold_build_msec := 0.0
+var _stats_owner: Object = null
+var _stats_registry: Object = null
 
 
 func begin(owner: Object, registry: Object) -> bool:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return false
+	if _active:
+		return true
+	if not _consume_entry_request(owner):
+		return false
 	tear_down()
 	_owner = owner
 	_registry = registry
@@ -67,6 +78,27 @@ func begin(owner: Object, registry: Object) -> bool:
 		return false
 	_active = true
 	_picks_remaining = TowerAscentTuning.TEMP_START_CARD_PICK_LIMIT
+	return true
+
+
+func handle_input(event: InputEvent, owner: Object, registry: Object) -> bool:
+	if not _active:
+		return false
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo:
+			var slot_index := -1
+			match key_event.keycode:
+				KEY_1:
+					slot_index = 0
+				KEY_2:
+					slot_index = 1
+				KEY_3:
+					slot_index = 2
+			if slot_index >= 0:
+				select_slot(slot_index)
+	_capture_stats_context(owner, registry)
+	_request_redraw(owner)
 	return true
 
 
@@ -159,7 +191,15 @@ func get_status_for_tests() -> Dictionary:
 		"absorb_elapsed_sec": _absorb_elapsed_sec,
 		"card_count": _card_choices.size(),
 		"selection_result": _selection_result.duplicate(true),
+		"owner_attached": _owner != null,
+		"registry_attached": _registry != null,
+		"stats_owner_attached": _stats_owner != null,
+		"stats_registry_attached": _stats_registry != null,
 	}
+
+
+func capture_stats_context(owner: Object, registry: Object) -> void:
+	_capture_stats_context(owner, registry)
 
 
 func tear_down() -> void:
@@ -175,6 +215,7 @@ func tear_down() -> void:
 	_card_choices.clear()
 	_selection_result.clear()
 	_cold_build_msec = 0.0
+	_capture_stats_context(null, null)
 
 
 func _apply_choice(choice: Dictionary) -> bool:
@@ -216,6 +257,31 @@ func _has_pending_unlock_swap() -> bool:
 func _finish_phase() -> void:
 	_active = false
 	_completed = true
+
+
+func _consume_entry_request(owner: Object) -> bool:
+	if owner == null or not owner.has_method("get_node_or_null"):
+		return false
+	var selection_state: Object = owner.call("get_node_or_null", "/root/GameSelectionState")
+	return (
+		selection_state != null
+		and selection_state.has_method("consume_tower_start_card_entry_request")
+		and bool(selection_state.call("consume_tower_start_card_entry_request"))
+	)
+
+
+func _capture_stats_context(owner: Object, registry: Object) -> void:
+	_stats_owner = owner
+	_stats_registry = registry
+
+
+func _request_redraw(owner: Object) -> void:
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.call("request_battle_redraw")
+	elif owner.has_method("queue_redraw"):
+		owner.call("queue_redraw")
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

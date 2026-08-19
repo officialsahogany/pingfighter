@@ -24,6 +24,33 @@ const RuntimePerkLevelSideEffects := preload(
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
+const BattleSceneShell := preload(
+	"res://scripts/core/battle_scene_shell.gd"
+)
+const BattleSceneFlowController := preload(
+	"res://scripts/core/battle_scene_flow_controller.gd"
+)
+const BattleSceneFrameController := preload(
+	"res://scripts/core/battle_scene_frame_controller.gd"
+)
+const BattleSceneIntroFrameController := preload(
+	"res://scripts/core/battle_scene_intro_frame_controller.gd"
+)
+const BattleSceneReadinessController := preload(
+	"res://scripts/core/battle_scene_readiness_controller.gd"
+)
+const BattleSceneModalGateController := preload(
+	"res://scripts/core/battle_scene_modal_gate_controller.gd"
+)
+const BattleSceneInputController := preload(
+	"res://scripts/core/battle_scene_input_controller.gd"
+)
+const BattleSceneTeardownLifecycle := preload(
+	"res://scripts/core/battle_scene_teardown_lifecycle.gd"
+)
+const GameSelectionState := preload(
+	"res://scripts/core/game_selection_state.gd"
+)
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -33,6 +60,23 @@ class FakeOwner:
 	extends RefCounted
 
 	var selected_character_type := "smasher"
+	var selection_state: Object = null
+
+	func get_node_or_null(path: NodePath) -> Object:
+		if path == NodePath("/root/GameSelectionState"):
+			return selection_state
+		return null
+
+
+class FakeSelectionState:
+	extends RefCounted
+
+	var requested := true
+
+	func consume_tower_start_card_entry_request() -> bool:
+		var result := requested
+		requested = false
+		return result
 
 
 class FakeFlowOwner:
@@ -160,6 +204,123 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class ShellRegistry:
+	extends RefCounted
+
+	var instances: Dictionary = {}
+	var instance_calls: Dictionary = {}
+	var cached_calls: Dictionary = {}
+	var clear_calls := 0
+
+	func get_instance(key: String) -> Variant:
+		instance_calls[key] = int(instance_calls.get(key, 0)) + 1
+		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Variant:
+		cached_calls[key] = int(cached_calls.get(key, 0)) + 1
+		return instances.get(key, null)
+
+	func clear_all() -> void:
+		clear_calls += 1
+
+
+class FakeWarmup:
+	extends RefCounted
+
+	var finished := false
+
+	func is_finished() -> bool:
+		return finished
+
+
+class FakeLoadingRenderer:
+	extends RefCounted
+
+	var hold := false
+	var hold_calls := 0
+	var draw_calls := 0
+	var hide_calls := 0
+
+	func should_hold_completion(_owner: Object, _module_getter: Callable) -> bool:
+		hold_calls += 1
+		return hold
+
+	func draw(
+		_canvas: CanvasItem,
+		_owner: Object,
+		_module_getter: Callable,
+		_view_size: Vector2,
+		_context: Dictionary
+	) -> void:
+		draw_calls += 1
+
+	func hide_loading() -> void:
+		hide_calls += 1
+
+	func release_stained_glass_hosts(_owner: Object) -> void:
+		pass
+
+
+class FakeStageAudio:
+	extends RefCounted
+
+	var play_calls := 0
+	var stop_calls := 0
+
+	func play_stage_bgm(_stage: int) -> void:
+		play_calls += 1
+
+	func stop_bgm() -> void:
+		stop_calls += 1
+
+
+class FakeLandingIntro:
+	extends RefCounted
+
+	var begin_calls := 0
+
+	func begin(_owner: Object, _registry: Object) -> bool:
+		begin_calls += 1
+		return false
+
+	func is_active() -> bool:
+		return false
+
+
+class FakeBattleUpdateDriver:
+	extends RefCounted
+
+	var update_calls := 0
+	var scoreboard_visual_calls := 0
+
+	func update(_owner: Object, _registry: Object, _delta: float) -> void:
+		update_calls += 1
+
+	func update_scoreboard_visuals(
+		_owner: Object,
+		_registry: Object,
+		_delta: float
+	) -> void:
+		scoreboard_visual_calls += 1
+
+
+class FakeHanMiryangPrologue:
+	extends RefCounted
+
+	var active := false
+	var input_calls := 0
+
+	func is_active() -> bool:
+		return active
+
+	func handle_input(_event: InputEvent, _owner: Object, _registry: Object) -> bool:
+		input_calls += 1
+		return true
+
+	func begin(_owner: Object, _registry: Object) -> bool:
+		return false
+
+
 class TargetLevelRuntimeProbe:
 	extends RefCounted
 
@@ -203,6 +364,10 @@ class TargetLevelRuntimeProbe:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_offer_shape_and_filters()
 	_verify_determinism_and_global_rng_isolation()
@@ -210,9 +375,10 @@ func _init() -> void:
 	_verify_target_level_path_is_single_shot()
 	_verify_apply_and_single_pick_contract()
 	_verify_pending_swap_fails_closed()
+	await _verify_real_battle_scene_shell_wiring()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	_expect(_leg_count == 7, "all seven start-card S1 smoke legs must execute")
+	_expect(_leg_count == 8, "all eight start-card S1/S2 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
@@ -458,6 +624,169 @@ func _verify_pending_swap_fails_closed() -> void:
 	_expect(state.is_completed() and state.was_skipped(), "failed grant must end instead of hanging")
 
 
+func _verify_real_battle_scene_shell_wiring() -> void:
+	_leg_count += 1
+	var selection_state: Object = get_root().get_node_or_null("GameSelectionState")
+	var owns_selection_state := false
+	if selection_state == null:
+		selection_state = GameSelectionState.new()
+		selection_state.name = "GameSelectionState"
+		get_root().add_child(selection_state)
+		owns_selection_state = true
+	while bool(selection_state.consume_tower_start_card_entry_request()):
+		pass
+
+	var flow_owner := FakeFlowOwner.new()
+	var unlock_store := FakeUnlockStore.new()
+	var skill_config := FakeSkillConfig.new()
+	var catalog := FakeCatalog.new()
+	catalog.data = _standard_catalog()
+	var runtime_state := FakeRuntimeState.new()
+	runtime_state.skill_config = skill_config
+	var start_card := TowerStartCardState.new()
+	var flow := BattleSceneFlowController.new()
+	flow.set("_battle_initialized", true)
+	var warmup := FakeWarmup.new()
+	var loading := FakeLoadingRenderer.new()
+	var audio := FakeStageAudio.new()
+	var landing := FakeLandingIntro.new()
+	var update_driver := FakeBattleUpdateDriver.new()
+	var han_prologue := FakeHanMiryangPrologue.new()
+	var modal_gate := BattleSceneModalGateController.new()
+	var registry := ShellRegistry.new()
+	registry.instances = {
+		"tower_start_card_state": start_card,
+		"tower_ascent_flow_owner": flow_owner,
+		"tower_ascent_unlock_store": unlock_store,
+		"runtime_perk_state": runtime_state,
+		"runtime_perk_catalog": catalog,
+		"smasher_skill_config": skill_config,
+		"battle_scene_flow_controller": flow,
+		"battle_scene_frame_controller": BattleSceneFrameController.new(),
+		"battle_scene_intro_frame_controller": BattleSceneIntroFrameController.new(),
+		"battle_scene_readiness_controller": BattleSceneReadinessController.new(),
+		"battle_scene_modal_gate_controller": modal_gate,
+		"battle_scene_input_controller": BattleSceneInputController.new(),
+		"battle_boot_warmup_controller": warmup,
+		"battle_loading_screen_renderer": loading,
+		"stage_landing_intro": landing,
+		"stage1_han_miryang_prologue_presentation": han_prologue,
+		"game_audio": audio,
+		"battle_scene_update_driver": update_driver,
+	}
+	var shell: Node2D = BattleSceneShell.new()
+	shell.gameplay_modules = registry
+	shell.set_process(false)
+	shell.set_physics_process(false)
+	shell.set("selected_runtime_character_id", "viper")
+	get_root().add_child(shell)
+
+	selection_state.request_tower_start_card_entry()
+	shell._process(1.0 / 60.0)
+	_expect(not start_card.is_active(), "start card must not open before boot warmup finishes")
+	_expect(selection_state.peek_tower_start_card_entry_request(), "unfinished warmup must preserve the one-shot entry token")
+	warmup.finished = true
+	shell._process(1.0 / 60.0)
+	_expect(start_card.is_active(), "real BattleSceneShell must open the start card after warmup")
+	_expect(not selection_state.peek_tower_start_card_entry_request(), "real shell entry must consume the token exactly once")
+	_expect(not flow.is_stage_landing_intro_started(), "start card must not arm the landing latch")
+	_expect(not bool(flow.get("_battle_bgm_started")) and audio.play_calls == 0, "start card must keep stage BGM stopped")
+	_expect(landing.begin_calls == 0, "landing intro must wait behind the start card")
+
+	shell._process(0.05)
+	_expect(float(start_card.get_status_for_tests().get("elapsed_sec", 0.0)) > 0.0, "real shell idle frames must advance the start card")
+	_expect(update_driver.update_calls == 0, "start-card idle frames must not leak into battle update")
+	shell.queue_redraw()
+	await process_frame
+	_expect(loading.draw_calls == 0, "active start card must preempt the loading renderer")
+	_expect(loading.hide_calls > 0, "active start card draw must hide the loading host")
+	var readiness: Object = registry.instances["battle_scene_readiness_controller"]
+	_expect(readiness.is_intro_or_warmup_blocking(Callable(shell, "_get_module"), true, false), "readiness must report the start card as blocking")
+	_expect(not readiness.is_mobile_touch_scene_ready(Callable(shell, "_get_module"), true, true), "mobile controls must remain disabled during the start card")
+
+	flow.set("_stage_landing_intro_started", true)
+	shell._physics_process(1.0 / 60.0)
+	_expect(update_driver.update_calls == 0, "real shell physics must stop at the start-card modal gate")
+	_expect(modal_gate.should_block_battle_physics(Callable(shell, "_get_module")), "modal gate must expose the active start card")
+	flow.set("_stage_landing_intro_started", false)
+	han_prologue.active = true
+	var choose_first := InputEventKey.new()
+	choose_first.pressed = true
+	choose_first.keycode = KEY_1
+	shell._unhandled_input(choose_first)
+	_expect(bool(start_card.get_selection_result().get("accepted", false)), "real shell input must apply one start card")
+	_expect(han_prologue.input_calls == 0, "start-card input must be consumed before the prologue router")
+	han_prologue.active = false
+
+	loading.hold = true
+	var hold_calls_before_completion := loading.hold_calls
+	shell._process(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	_expect(start_card.is_completed() and not start_card.is_active(), "selection absorb must complete through the real shell frame")
+	_expect(flow.is_stage_landing_intro_started(), "the completion frame must continue directly into landing")
+	_expect(bool(flow.get("_battle_bgm_started")) and audio.play_calls == 1, "the existing landing path must start BGM exactly once after completion")
+	_expect(landing.begin_calls == 1, "the existing landing intro must begin on the completion frame")
+	_expect(loading.hold_calls == hold_calls_before_completion, "completion must not re-enter the loading hold")
+	shell._physics_process(1.0 / 60.0)
+	_expect(update_driver.update_calls == 1, "battle physics must resume after the start card completes")
+
+	start_card.tear_down()
+	flow = BattleSceneFlowController.new()
+	flow.set("_battle_initialized", true)
+	registry.instances["battle_scene_flow_controller"] = flow
+	catalog.data = {
+		"m1": _mugong("m1"),
+		"c1": _chosik("c1", "skill_alpha"),
+	}
+	loading.hold = false
+	selection_state.request_tower_start_card_entry()
+	shell._begin_stage_landing_intro()
+	_expect(start_card.was_skipped() and not start_card.is_active(), "insufficient candidates must skip instead of opening an empty screen")
+	_expect(flow.is_stage_landing_intro_started(), "insufficient stock must continue into landing in the same call")
+
+	start_card.tear_down()
+	flow = BattleSceneFlowController.new()
+	flow.set("_battle_initialized", true)
+	registry.instances["battle_scene_flow_controller"] = flow
+	selection_state.request_tower_start_card_entry()
+	var start_card_lookups_before_off := int(registry.instance_calls.get("tower_start_card_state", 0))
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
+	shell._begin_stage_landing_intro()
+	_expect(flow.is_stage_landing_intro_started(), "flag OFF must preserve the existing landing path")
+	shell._process(1.0 / 60.0)
+	shell._physics_process(1.0 / 60.0)
+	var off_input := InputEventKey.new()
+	off_input.pressed = true
+	off_input.keycode = KEY_1
+	shell._unhandled_input(off_input)
+	shell.queue_redraw()
+	await process_frame
+	var off_readiness: Object = registry.instances["battle_scene_readiness_controller"]
+	off_readiness.is_intro_or_warmup_blocking(Callable(shell, "_get_module"), true, true)
+	off_readiness.is_mobile_touch_scene_ready(Callable(shell, "_get_module"), true, true)
+	modal_gate.should_block_battle_physics(Callable(shell, "_get_module"))
+	_expect(int(registry.instance_calls.get("tower_start_card_state", 0)) == start_card_lookups_before_off, "flag OFF must bypass the start-card module at all six shell seams")
+	_expect(selection_state.peek_tower_start_card_entry_request(), "flag OFF must not consume the tower entry token")
+	selection_state.consume_tower_start_card_entry_request()
+
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_expect(not start_card.begin(shell, registry), "direct battle entry without a token must not open the start card")
+	start_card.capture_stats_context(shell, registry)
+	BattleSceneTeardownLifecycle.new().exit_tree(
+		shell,
+		registry,
+		Callable(shell, "_get_cached_module"),
+		{}
+	)
+	var teardown_status := start_card.get_status_for_tests()
+	_expect(not bool(teardown_status.get("owner_attached", true)), "teardown must release the start-card owner")
+	_expect(not bool(teardown_status.get("registry_attached", true)), "teardown must release the start-card registry")
+	_expect(not bool(teardown_status.get("stats_owner_attached", true)), "teardown must release the stats owner")
+	_expect(not bool(teardown_status.get("stats_registry_attached", true)), "teardown must release the stats registry")
+	shell.free()
+	if owns_selection_state:
+		selection_state.free()
+
+
 func _verify_source_contract() -> void:
 	_leg_count += 1
 	var builder_source := FileAccess.get_file_as_string(
@@ -485,6 +814,7 @@ func _build_fixture(
 ) -> Dictionary:
 	var owner := FakeOwner.new()
 	owner.selected_character_type = character_type
+	owner.selection_state = FakeSelectionState.new()
 	var flow_owner := FakeFlowOwner.new()
 	var unlock_store := FakeUnlockStore.new()
 	var skill_config := FakeSkillConfig.new()

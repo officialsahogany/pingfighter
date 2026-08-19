@@ -132,7 +132,16 @@ func is_tower_ascent_flow_active(module_getter: Callable) -> bool:
 	)
 
 
+func is_tower_start_card_active(module_getter: Callable) -> bool:
+	return (
+		TowerAscentFeatureFlags.is_vertical_slice_enabled()
+		and _module_bool(module_getter, "tower_start_card_state", "is_active")
+	)
+
+
 func _should_block_battle_physics(module_getter: Callable, perf_logger: Object = null) -> bool:
+	if _timed_bool(perf_logger, "physics.modal_gate.tower_start_card", Callable(self, "is_tower_start_card_active").bind(module_getter)):
+		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.stage1_han_miryang_prologue", module_getter, "stage1_han_miryang_prologue_presentation", "blocks_battle_physics"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.stage7_akamu_prebattle", module_getter, "stage7_akamu_prebattle_presentation", "blocks_battle_physics"):

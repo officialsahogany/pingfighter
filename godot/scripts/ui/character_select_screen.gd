@@ -24,6 +24,9 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const BattleEntryBackgroundPrewarm := preload("res://scripts/ui/battle_entry_background_prewarm.gd")
 const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const CharacterSelectPreviewVfxHost := preload("res://scripts/ui/character_select_preview_vfx_host.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 
 const BGM_TOGGLE_KEY := KEY_B
 const FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO := 0.902
@@ -764,6 +767,12 @@ func _store_selection(character: Dictionary) -> void:
 		state.set_character(character)
 	if state != null and state.has_method("request_character_prologue_entry"):
 		state.request_character_prologue_entry()
+	if (
+		TowerAscentFeatureFlags.is_vertical_slice_enabled()
+		and state != null
+		and state.has_method("request_tower_start_card_entry")
+	):
+		state.request_tower_start_card_entry()
 	if state != null and state.has_method("set_league_mode"):
 		state.set_league_mode(selected_league_mode)
 

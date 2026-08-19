@@ -19,6 +19,14 @@ func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, c
 	)
 	if han_miryang_prologue != null and han_miryang_prologue.has_method("tear_down"):
 		han_miryang_prologue.tear_down()
+	var tower_start_card: Object = _get_module(
+		cached_module_getter, "tower_start_card_state"
+	)
+	if tower_start_card != null:
+		if tower_start_card.has_method("capture_stats_context"):
+			tower_start_card.capture_stats_context(null, null)
+		if tower_start_card.has_method("tear_down"):
+			tower_start_card.tear_down()
 	# 프리배틀 영상 호스트는 detached Control이라 씬 퇴장 때 명시적으로
 	# 해제해야 한다(tear_down = 호스트 free + 스트림 참조 해제).
 	var stage7_akamu_prebattle_presentation: Object = _get_module(

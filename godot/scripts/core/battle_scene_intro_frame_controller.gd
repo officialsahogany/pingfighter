@@ -1,5 +1,9 @@
 extends RefCounted
 
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+
 const BATTLE_SCENE_DRAW_PREWARM_FRAMES := 6
 
 var _battle_scene_draw_prewarm_frames: int = 0
@@ -37,6 +41,18 @@ func process_idle(
 		if not _is_boot_warmup_finished(module_getter):
 			_queue_redraw(owner)
 			return true
+	var start_card_completed_this_frame := false
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
+		if _is_active(start_card):
+			if start_card.has_method("update"):
+				sample_start = _perf_begin(perf_logger)
+				start_card.update(delta)
+				_perf_end(perf_logger, "process.intro.tower_start_card_update", sample_start)
+			if _is_active(start_card):
+				_queue_redraw(owner)
+				return true
+			start_card_completed_this_frame = true
 	# Stage 1 한미량 서막이 재생 중이면 begin_stage_landing_intro를 다시
 	# 부르지 않고 시네마틱만 전진시킨다. 이 검사는 로딩 완료 hold보다
 	# 먼저 와야 한다. 서막 draw가 로딩 호스트를 숨기며 로딩 가시성 타이머를
@@ -56,7 +72,8 @@ func process_idle(
 	# 완료 프레임에는 로딩 hold를 다시 열지 않고 곧바로 아래 정상 랜딩
 	# 경로로 이어져 로딩 화면이 한 프레임도 재출현하지 않게 한다.
 	if (
-		not han_miryang_prologue_completed_this_frame
+		not start_card_completed_this_frame
+		and not han_miryang_prologue_completed_this_frame
 		and not _call_bool(callbacks, "is_stage_landing_intro_started")
 		and _should_hold_loading_completion(owner, module_getter)
 	):
@@ -129,6 +146,14 @@ func draw_intro_or_boot(
 	if not _call_bool(callbacks, "is_battle_initialized"):
 		_draw_loading_screen(canvas, owner, module_getter, callbacks, view_size)
 		return true
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
+		if _is_active(start_card):
+			_hide_loading_screen(module_getter, owner)
+			_draw_black(canvas, view_size)
+			if start_card.has_method("draw"):
+				start_card.draw(canvas, owner, registry, view_size)
+			return true
 	var landing_intro: Object = _get_module(module_getter, "stage_landing_intro")
 	if _is_active(landing_intro):
 		_hide_loading_screen(module_getter, owner)
