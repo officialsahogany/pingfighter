@@ -6,6 +6,7 @@ const GameSelectionState := preload("res://scripts/core/game_selection_state.gd"
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
 const PaddleBouncePostHitHandler := preload("res://scripts/ball/paddle_bounce_post_hit_handler.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const Stage2BattleAudio := preload("res://scripts/audio/stage2_battle_audio.gd")
 
 
 class FakeSelectionOwner:
@@ -34,6 +35,8 @@ class FakeAudio:
 	var tunnel_cries := 0
 	var spike_spawns := 0
 	var tunnel_impacts := 0
+	var friend_mole_spawns := 0
+	var friend_mole_hits := 0
 
 	func play_stage2_speed_defense_hit() -> void:
 		claw_hits += 1
@@ -46,6 +49,12 @@ class FakeAudio:
 
 	func play_stage2_stonebreak() -> void:
 		tunnel_impacts += 1
+
+	func play_stage2_friend_mole_spawn() -> void:
+		friend_mole_spawns += 1
+
+	func play_stage2_friend_mole_hit() -> void:
+		friend_mole_hits += 1
 
 
 class FakeMovementState:
@@ -114,6 +123,9 @@ func _verify_catalog_and_selection_route() -> void:
 	_expect(StageBossVariantCatalog.normalize_variant(2, "molewang") == "molewang", "Molewang must register as a Stage 2 variant")
 	_expect(StageBossVariantCatalog.normalize_variant(3, "molewang") == "yeonmyo", "Molewang must not cross into the Stage 3 pool")
 	_expect(StageBossVariantCatalog.normalize_variant(2, "unknown") == "cheongringwi", "unknown Stage 2 variants must preserve the headline boss")
+	var stage2_audio := Stage2BattleAudio.new()
+	_expect(str(stage2_audio.get_spec("friend_mole_spawn").get("path", "")) == "res://assets/sounds/bonemake.wav", "friend-mole spawn must use the original existing bonemake asset")
+	_expect(str(stage2_audio.get_spec("friend_mole_hit").get("path", "")) == "res://assets/sounds/smallboyhit.wav", "friend-mole hit must use the original existing smallboyhit asset")
 	var selection_state: Object = GameSelectionState.new()
 	selection_state.set_stage(2, "dalji", false, "molewang")
 	var owner := FakeSelectionOwner.new(selection_state)
@@ -218,13 +230,29 @@ func _verify_molewang_production_state() -> void:
 	for _index in range(30):
 		state.update(0.05, context, deps)
 	_expect(state.molewang_state.friend_moles.size() == 1, "friend moles must use the original 90-frame spawn interval")
+	_expect(audio.friend_mole_spawns == 1, "friend-mole spawn must route the original bonemake cue")
+	_expect(_count_particle_kind(state.molewang_state.friend_mole_particles, "dirt") == 8, "friend-mole spawn must emit the original eight dirt particles")
 	var mole_pos: Vector2 = state.molewang_state.friend_moles[0].get("pos", Vector2.ZERO)
 	for _index in range(4):
 		state.update(0.05, context, deps)
+	context["ball_pos"] = Vector2.ZERO
+	context["tear_gas_zones"] = [{"position": mole_pos, "radius": 45.0, "radius_x": 60.0, "opacity": 0.8}]
+	state.update(0.01, context, deps)
+	_expect(str(state.molewang_state.friend_moles[0].get("phase", "")) == "falling", "an active tear-gas zone must send a rising or held friend mole immediately into falling")
+	_expect(_count_particle_kind(state.molewang_state.friend_mole_particles, "smoke") == 6, "smoke dismissal must emit the original six grey puff particles")
+	for _index in range(5):
+		state.update(0.05, context, deps)
+	_expect(state.molewang_state.friend_moles.is_empty(), "smoke-dismissed friend moles must leave after the 12-frame fall")
+	context.erase("tear_gas_zones")
+	state.molewang_state.friend_moles.append({"pos": mole_pos, "age": 0.2, "phase": "hold", "phase_age": 0.0, "golden": true, "hit": false})
 	context["ball_pos"] = mole_pos
 	context["ball_vel"] = Vector2(0.0, 8.0)
-	var mole_hit_result: Dictionary = state.update(0.21, context, deps)
+	var mole_hit_result: Dictionary = state.update(0.01, context, deps)
 	_expect(_as_vector2(mole_hit_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO).y < 0.0, "friend-mole contact must reflect the ball")
+	_expect(str(state.molewang_state.friend_moles[0].get("phase", "")) == "falling", "friend-mole contact must begin falling immediately instead of waiting out the hold")
+	_expect(_count_particle_kind(state.molewang_state.friend_mole_particles, "hit") == 10, "friend-mole contact must emit ten hit particles")
+	_expect(_count_particle_kind(state.molewang_state.friend_mole_particles, "star") == 6, "friend-mole contact must emit six star particles")
+	_expect(audio.friend_mole_hits == 1, "friend-mole contact must route the original smallboyhit cue")
 	_expect(background.starpoint_count == 1, "golden friend moles must emit a starpoint through the Stage 2 owner")
 	state.reset_round()
 	_expect(state.molewang_state.friend_moles_active and state.molewang_state.friend_moles_round_count == 2, "friend moles must remain active for the second round")
@@ -270,3 +298,11 @@ func _expect(condition: bool, message: String) -> void:
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return value if value is Vector2 else fallback
+
+
+func _count_particle_kind(particles: Array, kind: String) -> int:
+	var count := 0
+	for value in particles:
+		if value is Dictionary and str(value.get("kind", "")) == kind:
+			count += 1
+	return count

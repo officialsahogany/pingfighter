@@ -42,6 +42,7 @@ var friend_moles_round_count := 0
 var friend_moles_active := false
 var friend_moles_spawn_timer := 0.0
 var friend_moles: Array = []
+var friend_mole_particles: Array = []
 var status := "charging"
 
 
@@ -67,6 +68,7 @@ func reset() -> void:
 	friend_moles_active = false
 	friend_moles_spawn_timer = 0.0
 	friend_moles.clear()
+	friend_mole_particles.clear()
 	status = "charging"
 
 
@@ -80,6 +82,7 @@ func reset_round() -> void:
 	spinning_claw_timer = 0.0
 	hit_emerge_timer = 0.0
 	friend_moles.clear()
+	friend_mole_particles.clear()
 	friend_moles_active = false
 	friend_moles_spawn_timer = 0.0
 	if friend_moles_pending:
@@ -201,6 +204,7 @@ func get_actor_draw_context() -> Dictionary:
 		"molewang_spinning_claw_direction": spinning_claw_direction,
 		"molewang_hit_emerge_progress": hit_emerge_timer / 0.65,
 		"molewang_friend_moles": friend_moles.duplicate(true),
+		"molewang_friend_mole_particles": friend_mole_particles.duplicate(true),
 	}
 
 
@@ -335,6 +339,7 @@ func _apply_tunnel_strike(context: Dictionary, deps: Dictionary) -> void:
 
 
 func _update_friend_moles(step: float, context: Dictionary, deps: Dictionary) -> Dictionary:
+	_update_friend_mole_particles(step)
 	if friend_moles_active:
 		friend_moles_spawn_timer += step
 		while friend_moles_spawn_timer >= FRIEND_MOLE_SPAWN_SEC:
@@ -342,9 +347,15 @@ func _update_friend_moles(step: float, context: Dictionary, deps: Dictionary) ->
 			friend_moles.append({
 				"pos": Vector2(rng.randf_range(30.0, 730.0), rng.randf_range(150.0, 600.0)),
 				"age": 0.0,
+				"phase": "rising",
+				"phase_age": 0.0,
 				"golden": true,
 				"hit": false,
 			})
+			var spawned_mole: Dictionary = friend_moles.back()
+			var spawn_pos := _as_vector2(spawned_mole.get("pos", Vector2.ZERO), Vector2.ZERO)
+			_spawn_friend_mole_particles(spawn_pos, 8, "dirt", Color("8b5a2b"), 1.0, 3.0, 2.0, 4.0, 15.0 / 60.0, 25.0 / 60.0, -1.0)
+			_play_audio(deps, "play_stage2_friend_mole_spawn")
 	var result := {}
 	var ball_pos := _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 	var ball_vel := _as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
@@ -352,21 +363,124 @@ func _update_friend_moles(step: float, context: Dictionary, deps: Dictionary) ->
 	for idx in range(friend_moles.size() - 1, -1, -1):
 		var mole: Dictionary = friend_moles[idx]
 		mole["age"] = float(mole.get("age", 0.0)) + step
-		var age := float(mole["age"])
-		var life := FRIEND_MOLE_RISE_SEC + FRIEND_MOLE_HOLD_SEC + FRIEND_MOLE_FALL_SEC
-		if age >= life:
-			friend_moles.remove_at(idx)
+		mole["phase_age"] = float(mole.get("phase_age", 0.0)) + step
+		var center := _as_vector2(mole.get("pos", Vector2.ZERO), Vector2.ZERO)
+		var phase := str(mole.get("phase", "rising"))
+		if phase in ["rising", "hold"] and not bool(mole.get("hit", false)) and _is_point_in_smoke(center, context, deps):
+			mole["phase"] = "falling"
+			mole["phase_age"] = 0.0
+			_spawn_friend_mole_particles(center, 6, "smoke", Color("b4b4b4"), 1.5, 3.5, 3.0, 6.0, 12.0 / 60.0, 20.0 / 60.0, -1.0)
+			friend_moles[idx] = mole
 			continue
-		if age >= FRIEND_MOLE_RISE_SEC and age <= FRIEND_MOLE_RISE_SEC + FRIEND_MOLE_HOLD_SEC and not bool(mole.get("hit", false)):
-			var center := _as_vector2(mole.get("pos", Vector2.ZERO), Vector2.ZERO)
-			if ball_pos.distance_to(center) <= FRIEND_MOLE_RADIUS + ball_radius:
-				ball_vel.y = -ball_vel.y
-				ball_vel.x += rng.randf_range(-1.5, 1.5)
-				mole["hit"] = true
-				result["ball_vel"] = ball_vel
-				_spawn_starpoint(center, deps, context)
+		match phase:
+			"rising":
+				if float(mole["phase_age"]) >= FRIEND_MOLE_RISE_SEC:
+					mole["phase"] = "hold"
+					mole["phase_age"] = 0.0
+			"hold":
+				if float(mole["phase_age"]) >= FRIEND_MOLE_HOLD_SEC:
+					mole["phase"] = "falling"
+					mole["phase_age"] = 0.0
+				if not bool(mole.get("hit", false)) and ball_pos.distance_to(center) <= FRIEND_MOLE_RADIUS + ball_radius:
+					ball_vel.y = -ball_vel.y
+					ball_vel.x += rng.randf_range(-1.5, 1.5)
+					mole["hit"] = true
+					mole["phase"] = "falling"
+					mole["phase_age"] = 0.0
+					result["ball_vel"] = ball_vel
+					_spawn_friend_mole_particles(center, 10, "hit", Color("ffd73c"), 2.0, 5.0, 2.0, 5.0, 15.0 / 60.0, 30.0 / 60.0, -1.5)
+					_spawn_friend_mole_particles(center, 6, "star", Color("fff2a3"), 2.0, 4.0, 3.0, 5.0, 18.0 / 60.0, 28.0 / 60.0, -1.2)
+					_play_audio(deps, "play_stage2_friend_mole_hit")
+					_spawn_starpoint(center, deps, context)
+			"falling":
+				if float(mole["phase_age"]) >= FRIEND_MOLE_FALL_SEC:
+					friend_moles.remove_at(idx)
+					continue
 		friend_moles[idx] = mole
 	return result
+
+
+func _update_friend_mole_particles(step: float) -> void:
+	var frame_step := step * 60.0
+	for idx in range(friend_mole_particles.size() - 1, -1, -1):
+		var particle: Dictionary = friend_mole_particles[idx]
+		particle["age"] = float(particle.get("age", 0.0)) + step
+		if float(particle["age"]) >= float(particle.get("life", 0.25)):
+			friend_mole_particles.remove_at(idx)
+			continue
+		var velocity := _as_vector2(particle.get("vel", Vector2.ZERO), Vector2.ZERO)
+		particle["pos"] = _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + velocity * frame_step
+		velocity.y += 0.1 * frame_step
+		velocity *= pow(0.95, frame_step)
+		particle["vel"] = velocity
+		friend_mole_particles[idx] = particle
+
+
+func _spawn_friend_mole_particles(
+	pos: Vector2,
+	count: int,
+	kind: String,
+	color: Color,
+	min_speed: float,
+	max_speed: float,
+	min_size: float,
+	max_size: float,
+	min_life: float,
+	max_life: float,
+	vertical_bias: float
+) -> void:
+	for _index in range(count):
+		var angle := rng.randf_range(0.0, TAU)
+		var speed := rng.randf_range(min_speed, max_speed)
+		friend_mole_particles.append({
+			"kind": kind,
+			"pos": pos,
+			"vel": Vector2(cos(angle) * speed, sin(angle) * speed + vertical_bias),
+			"size": rng.randf_range(min_size, max_size),
+			"age": 0.0,
+			"life": rng.randf_range(min_life, max_life),
+			"color": color,
+		})
+
+
+func _is_point_in_smoke(pos: Vector2, context: Dictionary, deps: Dictionary) -> bool:
+	for value in _get_smoke_zones(context, deps):
+		if not (value is Dictionary):
+			continue
+		var zone: Dictionary = value
+		var opacity := float(zone.get("opacity", 0.0))
+		var threshold := 50.0 if opacity > 1.0 else 0.20
+		if opacity <= threshold:
+			continue
+		var fallback_center := Vector2(float(zone.get("x", 0.0)), float(zone.get("y", 0.0)))
+		var center := _as_vector2(zone.get("position", zone.get("center", zone.get("pos", fallback_center))), fallback_center)
+		var radius_y := float(zone.get("radius_y", zone.get("radius", 0.0)))
+		var radius_x := float(zone.get("radius_x", radius_y))
+		if radius_x <= 0.0 or radius_y <= 0.0:
+			continue
+		var relative := pos - center
+		if relative.x * relative.x / (radius_x * radius_x) + relative.y * relative.y / (radius_y * radius_y) <= 1.0:
+			return true
+	return false
+
+
+func _get_smoke_zones(context: Dictionary, deps: Dictionary) -> Array:
+	for key in ["smoke_zones", "active_item_tear_gas_zones", "tear_gas_zones"]:
+		var value: Variant = context.get(key, [])
+		if value is Array and not value.is_empty():
+			return value
+	var runtime: Object = deps.get("active_item_runtime", null)
+	if runtime != null:
+		if runtime.has_method("get_tear_gas_zones"):
+			var runtime_zones: Variant = runtime.get_tear_gas_zones()
+			if runtime_zones is Array and not runtime_zones.is_empty():
+				return runtime_zones
+		var throw_controller: Object = runtime.get("throw_controller")
+		if throw_controller != null and throw_controller.has_method("get_tear_gas_zones"):
+			var controller_zones: Variant = throw_controller.get_tear_gas_zones()
+			if controller_zones is Array:
+				return controller_zones
+	return []
 
 
 func _spawn_starpoint(pos: Vector2, deps: Dictionary, context: Dictionary) -> void:

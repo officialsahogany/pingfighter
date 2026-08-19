@@ -14,6 +14,8 @@ const CUE_IDS := [
 	"speed_defense_start",
 	"speed_defense_hit",
 	"speed_defense_block",
+	"friend_mole_spawn",
+	"friend_mole_hit",
 ]
 const CUE_SPECS := {
 	"hydro": {
@@ -60,6 +62,16 @@ const CUE_SPECS := {
 		"player_name": "Stage2SpeedDefenseBlockSfx",
 		"path": "res://assets/sounds/blocking.wav",
 		"gain_db": -5.0,
+	},
+	"friend_mole_spawn": {
+		"player_name": "Stage2FriendMoleSpawnSfx",
+		"path": "res://assets/sounds/bonemake.wav",
+		"gain_db": -9.0,
+	},
+	"friend_mole_hit": {
+		"player_name": "Stage2FriendMoleHitSfx",
+		"path": "res://assets/sounds/smallboyhit.wav",
+		"gain_db": -6.0,
 	},
 }
 

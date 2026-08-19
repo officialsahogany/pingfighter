@@ -1309,6 +1309,16 @@ var stage2_speed_defense_block_sfx: AudioStreamPlayer:
 		return stage2_battle_audio.get_player("speed_defense_block") as AudioStreamPlayer
 	set(value):
 		stage2_battle_audio.set_player("speed_defense_block", value)
+var stage2_friend_mole_spawn_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("friend_mole_spawn") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("friend_mole_spawn", value)
+var stage2_friend_mole_hit_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("friend_mole_hit") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("friend_mole_hit", value)
 var stage3_tail_sfx: AudioStreamPlayer:
 	get:
 		return stage3_battle_audio.get_player("tail") as AudioStreamPlayer
@@ -3447,6 +3457,14 @@ func play_stage2_speed_defense_hit() -> void:
 
 func play_stage2_speed_defense_block() -> void:
 	_play_with_pitch(stage2_speed_defense_block_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_friend_mole_spawn() -> void:
+	_play_with_pitch(stage2_friend_mole_spawn_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_friend_mole_hit() -> void:
+	_play_with_pitch(stage2_friend_mole_hit_sfx, randf_range(0.96, 1.04))
 
 
 func play_stage2_quake_loop() -> void:

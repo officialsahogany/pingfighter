@@ -16,6 +16,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vecto
 		"molewang":
 			_draw_tunnel_warning(canvas, context, shake_offset)
 			_draw_tunnel_spikes(canvas, context, shake_offset)
+			_draw_friend_mole_particles(canvas, context, shake_offset)
 			_draw_friend_moles(canvas, context, shake_offset)
 			_draw_molewang(canvas, context, shake_offset)
 		"arachne":
@@ -172,15 +173,41 @@ func _draw_friend_moles(canvas: CanvasItem, context: Dictionary, shake_offset: V
 		if not (value is Dictionary):
 			continue
 		var mole: Dictionary = value
-		var age := float(mole.get("age", 0.0))
-		var emerge := clampf(age / (12.0 / 60.0), 0.0, 1.0)
-		if age > (72.0 / 60.0):
-			emerge = clampf(1.0 - (age - 72.0 / 60.0) / (12.0 / 60.0), 0.0, 1.0)
+		var phase := str(mole.get("phase", "rising"))
+		var phase_age := float(mole.get("phase_age", 0.0))
+		var emerge := 1.0
+		if phase == "rising":
+			emerge = clampf(phase_age / (12.0 / 60.0), 0.0, 1.0)
+		elif phase == "falling":
+			emerge = clampf(1.0 - phase_age / (12.0 / 60.0), 0.0, 1.0)
 		var center := _as_vector2(mole.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
 		canvas.draw_circle(center + Vector2(0.0, 8.0), 20.0, Color(0.20, 0.13, 0.08, 0.75))
 		canvas.draw_circle(center + Vector2(0.0, 10.0 - 18.0 * emerge), 15.0, Color("d5a62e"))
 		canvas.draw_circle(center + Vector2(-5.0, 6.0 - 18.0 * emerge), 2.0, Color("17110b"))
 		canvas.draw_circle(center + Vector2(5.0, 6.0 - 18.0 * emerge), 2.0, Color("17110b"))
+
+
+func _draw_friend_mole_particles(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	for value in context.get("molewang_friend_mole_particles", []):
+		if not (value is Dictionary):
+			continue
+		var particle: Dictionary = value
+		var pos := _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var life := maxf(0.001, float(particle.get("life", 0.25)))
+		var alpha := clampf(1.0 - float(particle.get("age", 0.0)) / life, 0.0, 1.0)
+		var size := maxf(1.0, float(particle.get("size", 2.0)))
+		var color_value: Variant = particle.get("color", Color("8b5a2b"))
+		var color: Color = color_value if color_value is Color else Color("8b5a2b")
+		color.a *= alpha
+		if str(particle.get("kind", "dirt")) == "star":
+			var points := PackedVector2Array()
+			for point_index in range(11):
+				var radius := size if point_index % 2 == 0 else size * 0.42
+				var angle := -PI * 0.5 + float(point_index) * PI / 5.0
+				points.append(pos + Vector2(cos(angle), sin(angle)) * radius)
+			canvas.draw_polyline(points, color, 2.0)
+		else:
+			canvas.draw_circle(pos, size, color)
 
 
 func _draw_arachne(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
