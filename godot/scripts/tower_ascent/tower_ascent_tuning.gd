@@ -92,6 +92,22 @@ const TEMP_MAP_CONTENT_BOTTOM_RATIO := 0.1925
 # route flow resumes. Final presentation timing remains product-tuning work.
 const TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC := 0.60
 
+# TEMP: v1.12 fixes the starting-card structure while final presentation
+# timing remains product-tuning work. Keep this table independent from the
+# four-card boss reward picker; the two flows have different contracts.
+const TEMP_START_CARD_TOTAL_COUNT := 3
+const TEMP_START_CARD_CHOSIK_COUNT := 1
+const TEMP_START_CARD_MUGONG_COUNT := 2
+const TEMP_START_CARD_PICK_LIMIT := 1
+const TEMP_START_CARD_MIN_TOTAL_CANDIDATES := 3
+const TEMP_START_CARD_OFFER_VERSION := 1
+const TEMP_START_CARD_FOOTER_RESERVE_PX := 0.0
+const TEMP_START_CARD_BACKDROP_ALPHA := 1.0
+const TEMP_START_CARD_INTRO_ANIM_SEC := 0.28
+const TEMP_START_CARD_ABSORB_DURATION_SEC := 0.78
+const TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC := 20.0
+const TEMP_START_CARD_COLD_BUILD_BUDGET_MS := 8.0
+
 # TEMP: Phase C validates only the relative price skeleton fixed by the goal
 # document. Product balance may replace these values without moving payment,
 # stock, or snapshot ownership out of the tower run.
