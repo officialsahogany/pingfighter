@@ -21,6 +21,12 @@ const TowerRewardPickState := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const RuntimePerkChoiceLayout := preload(
+	"res://scripts/characters/runtime_perk_choice_layout.gd"
+)
+const RuntimePerkOverlayRenderer := preload(
+	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+)
 const BattleSceneMatchFlowDriver := preload(
 	"res://scripts/core/battle_scene_match_flow_driver.gd"
 )
@@ -37,6 +43,7 @@ const TowerAscentRunState := preload(
 var _failures: Array[String] = []
 var _finish_calls := 0
 var _effect_calls := 0
+const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
 
 
 class FakeOwner:
@@ -77,6 +84,36 @@ class FakeRuntimeState:
 	var pending_unlock_swap := false
 	var pending_unlock_choice: Dictionary = {}
 	var apply_calls := 0
+	var stats_capture_calls := 0
+	var stats_context_owner: Object = null
+	var stats_context_registry_ref: WeakRef = null
+	var snapshot_calls := 0
+	var physique_training := {"power": 1}
+
+	func capture_stats_context(owner: Object, registry: Object) -> bool:
+		stats_capture_calls += 1
+		stats_context_owner = owner
+		stats_context_registry_ref = weakref(registry) if registry != null else null
+		return owner != null and registry != null
+
+	func get_stats_context_owner() -> Object:
+		return stats_context_owner
+
+	func get_stats_context_registry() -> Object:
+		return stats_context_registry_ref.get_ref() if stats_context_registry_ref != null else null
+
+	func get_status_hover_mouse_pos() -> Vector2:
+		return Vector2(7.0, 7.0)
+
+	func get_snapshot() -> Dictionary:
+		snapshot_calls += 1
+		return {
+			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"pending_skill_choices": 0,
+			"gold_from_perks": 0,
+			"current_choices": [],
+			"physique_training": physique_training.duplicate(true),
+		}
 
 	func get_physique_training_count(_training_id: String) -> int:
 		return 0
@@ -153,6 +190,8 @@ class FakeRuntimeState:
 class FakeCatalog:
 	extends RefCounted
 
+	var slot_status_calls := 0
+
 	func get_choices(
 		_character_type: String,
 		_runtime_levels: Dictionary,
@@ -177,6 +216,14 @@ class FakeCatalog:
 			"max_level": 1,
 		}
 
+	func get_perk_slot_status(runtime_levels: Dictionary, _slot_context: Object = null) -> Dictionary:
+		slot_status_calls += 1
+		return {
+			"count": runtime_levels.size(),
+			"limit": 6,
+			"is_full": runtime_levels.size() >= 6,
+		}
+
 
 class FakeRegistry:
 	extends RefCounted
@@ -194,9 +241,30 @@ class FakeCardRenderer:
 	extends RefCounted
 
 	var prewarm_calls := 0
+	var draw_calls := 0
+	var last_catalog: Object = null
+	var last_snapshot: Dictionary = {}
+	var last_mouse_pos := Vector2.ZERO
+	var last_view_size := Vector2.ZERO
 
 	func prewarm_traditional_choice_assets() -> void:
 		prewarm_calls += 1
+
+	func draw_tower_reward_pick(
+		_canvas: CanvasItem,
+		_view_model: Dictionary,
+		_runtime_state: Object,
+		catalog: Object,
+		_icon_renderer: Object,
+		view_size: Vector2,
+		snapshot: Dictionary,
+		mouse_pos: Vector2
+	) -> void:
+		draw_calls += 1
+		last_catalog = catalog
+		last_snapshot = snapshot.duplicate(true)
+		last_mouse_pos = mouse_pos
+		last_view_size = view_size
 
 
 class FakeIconRenderer:
@@ -315,6 +383,7 @@ func _init() -> void:
 	_verify_seven_locale_copy_contract()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
+	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
 	_verify_unaffordable_board_auto_finish_and_failure_latch()
 	_verify_vision_purchase_and_continue_burn_semantics()
 	_verify_full_slot_vision_swap_confirm_and_cancel()
@@ -471,6 +540,112 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 	_expect(renderer_source.find("if spent:") >= 0 and renderer_source.find("continue") >= 0, "spent cards must leave empty renderer slots after absorption")
 	state.call("_finish")
 	_expect(not state.active and _finish_calls == 1 and flow.finalize_calls == 1, "continue must finalize exactly once after external modal return")
+
+
+func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
+	var owner := FakeOwner.new()
+	var runtime := FakeRuntimeState.new()
+	var flow := FakeFlowOwner.new()
+	var renderer := FakeCardRenderer.new()
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), flow)
+	registry.instances["runtime_perk_overlay_renderer"] = renderer
+	registry.instances["runtime_perk_icon_renderer"] = FakeIconRenderer.new()
+	var catalog := registry.instances["runtime_perk_catalog"] as FakeCatalog
+	var offer_builder := FakeOfferBuilder.new()
+	offer_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_card("training", "hover_training", 1),
+			_card("mugong", "hover_mugong", 2),
+			_card("fusion", "hover_fusion", 3),
+			_card("supreme", "hover_supreme", 5),
+		],
+	}
+	var state := TowerRewardPickState.new()
+	state.set("_offer_builder", offer_builder)
+	_expect(state.start(owner, registry, Callable()), "fullscreen reward ledger fixture must start")
+	_expect(runtime.stats_capture_calls == 0, "a fresh reward pick must not inherit a stale perk-modal stats context")
+	_expect(catalog.slot_status_calls == 1, "reward entry must cache perk-slot status exactly once")
+	state.update(1.0)
+	_expect(
+		runtime.stats_capture_calls == 1
+		and runtime.stats_context_owner == owner
+		and runtime.get_stats_context_registry() == registry,
+		"reward update must capture stats context even when the ordinary perk modal was never opened"
+	)
+	_expect(bool(state.get("stats_band_enabled")), "the reward-owned stats-band flag must enable after live context capture")
+
+	var card_rects: Array = state.get_card_rects(LIVE_VIEW_SIZE)
+	_expect(card_rects.size() == 4, "fullscreen reward layout must keep all four cards")
+	var hover_position := (card_rects[2] as Rect2).position + Vector2(3.0, 3.0)
+	var direct_hover_index := state.get_card_index_at(hover_position, LIVE_VIEW_SIZE)
+	_expect(
+		direct_hover_index == 2,
+		"the drawn fullscreen card top corner must resolve to its own reward slot (got %d)" % direct_hover_index
+	)
+	var motion := InputEventMouseMotion.new()
+	motion.position = hover_position
+	state.handle_input(motion, LIVE_VIEW_SIZE)
+	_expect(state.selected_index == 2, "mouse motion over a card top corner must drive the existing selection highlight")
+	_expect(
+		(state.get("reward_hover_mouse_pos") as Vector2).is_equal_approx(hover_position),
+		"reward hover must use its own pointer channel instead of runtime-state modal hover"
+	)
+
+	var model: Dictionary = state.build_view_model(LIVE_VIEW_SIZE)
+	var layout: Dictionary = model.get("layout", {})
+	var panel_rect: Rect2 = layout.get("panel_rect", Rect2())
+	var stats_rect: Rect2 = layout.get("stats_rect", Rect2())
+	var last_card_rect := card_rects[card_rects.size() - 1] as Rect2
+	_expect(panel_rect.position.y - last_card_rect.end.y >= 30.0, "reward price strip and perk ledger need at least 30px separation")
+	_expect(
+		stats_rect.size.y >= RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT,
+		"four-card reward stats band must retain the full 10-row minimum"
+	)
+	var stats_budget := float(layout.get("stats_budget", -1.0))
+	_expect(
+		stats_budget >= RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT
+		and stats_budget - RuntimePerkChoiceLayout.STATS_BAND_MIN_HEIGHT <= 32.0,
+		"the 2020x1246 four-card reward boundary must seal its narrow stats budget"
+	)
+	var continue_rect := state.get_continue_rect(LIVE_VIEW_SIZE)
+	_expect(
+		continue_rect.position.y >= stats_rect.end.y
+		and Rect2(Vector2.ZERO, LIVE_VIEW_SIZE).encloses(continue_rect),
+		"Continue must derive below the ledger while remaining inside the viewport"
+	)
+
+	state.draw(null, LIVE_VIEW_SIZE)
+	_expect(renderer.draw_calls == 1, "reward draw must reach the shared renderer once")
+	_expect(runtime.snapshot_calls == 1, "perk ledger and stats band must share one runtime snapshot per draw frame")
+	_expect(renderer.last_catalog == catalog, "reward renderer must receive the production perk catalog")
+	_expect(renderer.last_view_size.is_equal_approx(LIVE_VIEW_SIZE), "reward renderer must retain the live screen size")
+	_expect(renderer.last_mouse_pos.is_equal_approx(hover_position), "ledger and stats hover must receive the reward-owned pointer")
+	_expect(
+		renderer.last_snapshot.has("perk_slot_status")
+		and bool(renderer.last_snapshot.get("perk_slot_status_cached", false))
+		and renderer.last_snapshot.has("physique_training")
+		and renderer.last_snapshot.has("reward_pick_spent_flags"),
+		"one reward snapshot must carry slot status and both purchase-sensitive stats signatures"
+	)
+	state.draw(null, LIVE_VIEW_SIZE)
+	_expect(catalog.slot_status_calls == 1, "repeated draw frames must not rescan perk-slot status")
+	state.call("_purchase", 0)
+	state.update(0.016)
+	_expect(catalog.slot_status_calls == 2, "a committed purchase must invalidate and refresh slot status once")
+
+	var highlight_value: Variant = RuntimePerkOverlayRenderer.resolve_tower_reward_slot_highlight_keys(
+		["mugong_a", "mugong_b", "mugong_c"],
+		["mugong_b", "mugong_c", "mugong_d"]
+	)
+	var highlight_keys: Array = highlight_value if highlight_value is Array else []
+	_expect(
+		highlight_keys == ["mugong_d"],
+		"slot transition highlights must follow perk keys, never shifted slot indices"
+	)
+	state.reset()
 
 
 func _verify_unaffordable_board_auto_finish_and_failure_latch() -> void:

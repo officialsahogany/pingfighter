@@ -20,6 +20,7 @@ const VIEW_SIZE := Vector2(760.0, 750.0)
 const CONTINUE_SIZE := Vector2(220.0, 42.0)
 const CONTINUE_BOTTOM_MARGIN := 34.0
 const TEMP_REWARD_PICK_ABSORB_DURATION_SEC := 0.78
+const TEMP_REWARD_PICK_PANEL_GAP_PX := 32.0
 
 var active := false
 var animation_time := 0.0
@@ -27,11 +28,14 @@ var selected_index := 0
 var choices: Array[Dictionary] = []
 var spent_flags: Array[bool] = []
 var purchase_absorption_effects: Array[Dictionary] = []
+var stats_band_enabled := false
+var reward_hover_mouse_pos := Vector2(-1.0, -1.0)
 
 var _owner: Object = null
 var _registry: Object = null
 var _flow_owner: Object = null
 var _runtime_state: Object = null
+var _catalog: Object = null
 var _card_renderer: Object = null
 var _icon_renderer: Object = null
 var _finish_callback: Callable = Callable()
@@ -45,6 +49,9 @@ var _pending_runtime_snapshot: Dictionary = {}
 var _auto_finish_hold_elapsed := 0.0
 var _auto_finish_pending := false
 var _auto_finish_attempted := false
+var _current_perk_slot_status: Dictionary = {}
+var _perk_slot_status_dirty := false
+var _reward_session_id := 0
 
 
 func start(
@@ -69,6 +76,7 @@ func start(
 	_registry = registry
 	_flow_owner = flow_owner
 	_runtime_state = _get_registry_instance(registry, "runtime_perk_state")
+	_catalog = _get_registry_instance(registry, "runtime_perk_catalog")
 	_card_renderer = _get_registry_instance(registry, "runtime_perk_overlay_renderer")
 	_icon_renderer = _get_registry_instance(registry, "runtime_perk_icon_renderer")
 	if _runtime_state == null or _card_renderer == null:
@@ -92,6 +100,11 @@ func start(
 	_auto_finish_hold_elapsed = 0.0
 	_auto_finish_pending = false
 	_auto_finish_attempted = false
+	stats_band_enabled = false
+	reward_hover_mouse_pos = Vector2(-1.0, -1.0)
+	_reward_session_id += 1
+	_perk_slot_status_dirty = true
+	_refresh_perk_slot_status_if_needed()
 	purchase_absorption_effects.clear()
 	_prewarm_card_assets()
 	active = true
@@ -99,6 +112,8 @@ func start(
 
 
 func reset() -> void:
+	if _runtime_state != null and _runtime_state.has_method("capture_stats_context"):
+		_runtime_state.call("capture_stats_context", null, null)
 	active = false
 	animation_time = 0.0
 	selected_index = 0
@@ -114,10 +129,15 @@ func reset() -> void:
 	_auto_finish_hold_elapsed = 0.0
 	_auto_finish_pending = false
 	_auto_finish_attempted = false
+	stats_band_enabled = false
+	reward_hover_mouse_pos = Vector2(-1.0, -1.0)
+	_current_perk_slot_status.clear()
+	_perk_slot_status_dirty = false
 	_owner = null
 	_registry = null
 	_flow_owner = null
 	_runtime_state = null
+	_catalog = null
 	_card_renderer = null
 	_icon_renderer = null
 
@@ -125,6 +145,7 @@ func reset() -> void:
 func update(delta: float) -> void:
 	if not active:
 		return
+	stats_band_enabled = _capture_stats_context()
 	if _auto_finish_pending:
 		_auto_finish_pending = false
 		if _can_auto_finish():
@@ -135,6 +156,7 @@ func update(delta: float) -> void:
 	animation_time = minf(1.0, animation_time + maxf(0.0, delta))
 	_update_external_modal_return()
 	if not is_external_modal_active():
+		_refresh_perk_slot_status_if_needed()
 		var had_absorption_effects := not purchase_absorption_effects.is_empty()
 		_update_purchase_absorption_effects(delta)
 		_update_auto_finish_hold(delta, had_absorption_effects)
@@ -145,6 +167,13 @@ func update(delta: float) -> void:
 func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
 	if not active or is_external_modal_active():
 		return false
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		reward_hover_mouse_pos = motion.position
+		var hover_index := get_card_index_at(motion.position, view_size)
+		if hover_index >= 0:
+			selected_index = hover_index
+		return hover_index >= 0
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if not key.pressed or key.echo:
@@ -192,18 +221,23 @@ func draw(canvas: CanvasItem, view_size: Vector2 = VIEW_SIZE) -> void:
 	if not active or _card_renderer == null:
 		return
 	if _card_renderer.has_method("draw_tower_reward_pick"):
+		var snapshot := _build_reward_runtime_snapshot()
 		_card_renderer.call(
 			"draw_tower_reward_pick",
 			canvas,
 			build_view_model(view_size),
 			_runtime_state,
+			_catalog,
 			_icon_renderer,
-			view_size
+			view_size,
+			snapshot,
+			reward_hover_mouse_pos
 		)
 
 
 func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 	var balances := _get_balances()
+	var layout := _build_reward_layout(view_size)
 	var model_choices: Array[Dictionary] = []
 	for index in range(choices.size()):
 		var choice := choices[index].duplicate(true)
@@ -231,14 +265,26 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		"selected_index": selected_index,
 		"animation_time": animation_time,
 		"purchase_absorption_effects": _build_purchase_absorption_view_models(view_size),
-		"layout": _layout.build_layout(view_size, choices.size(), false),
+		"layout": layout,
 		"card_rects": get_card_rects(view_size),
 		"continue_rect": get_continue_rect(view_size),
+		"stats_band_enabled": (
+			stats_band_enabled
+			and (layout.get("stats_rect", Rect2()) as Rect2).size.y > 0.0
+		),
+		"reward_session_id": _reward_session_id,
 	}
 
 
 func get_card_rects(view_size: Vector2 = VIEW_SIZE) -> Array:
-	return _layout.get_card_rects(view_size, choices.size(), animation_time, false)
+	return _layout.get_card_rects(
+		view_size,
+		choices.size(),
+		animation_time,
+		stats_band_enabled,
+		TEMP_REWARD_PICK_PANEL_GAP_PX,
+		_get_reward_footer_reserve()
+	)
 
 
 func get_card_index_at(position: Vector2, view_size: Vector2 = VIEW_SIZE) -> int:
@@ -247,13 +293,22 @@ func get_card_index_at(position: Vector2, view_size: Vector2 = VIEW_SIZE) -> int
 		view_size,
 		choices.size(),
 		animation_time,
-		false
+		stats_band_enabled,
+		TEMP_REWARD_PICK_PANEL_GAP_PX,
+		_get_reward_footer_reserve()
 	)
 
 
 func get_continue_rect(view_size: Vector2 = VIEW_SIZE) -> Rect2:
+	var layout := _build_reward_layout(view_size)
+	var hint_pos: Vector2 = layout.get(
+		"hint_pos",
+		Vector2(view_size.x * 0.5, view_size.y - CONTINUE_BOTTOM_MARGIN)
+	)
+	var bottom_bound := view_size.y - CONTINUE_BOTTOM_MARGIN - CONTINUE_SIZE.y
+	var top := minf(hint_pos.y + 5.0, bottom_bound)
 	return Rect2(
-		Vector2((view_size.x - CONTINUE_SIZE.x) * 0.5, view_size.y - CONTINUE_BOTTOM_MARGIN - CONTINUE_SIZE.y),
+		Vector2((view_size.x - CONTINUE_SIZE.x) * 0.5, maxf(0.0, top)),
 		CONTINUE_SIZE
 	)
 
@@ -412,6 +467,7 @@ func _accept_existing_external_effect() -> bool:
 
 func _commit_purchased_slot(index: int, choice: Dictionary) -> void:
 	spent_flags[index] = true
+	_perk_slot_status_dirty = true
 	_start_purchase_absorption(index)
 	if str(choice.get("reward_pick_kind", "")) == "vision":
 		_flow_owner.call("mark_reward_pick_vision_burned", str(choice.get("boss_slot_id", "")))
@@ -588,6 +644,75 @@ func _get_balances() -> Dictionary:
 		if value is Dictionary:
 			return (value as Dictionary).duplicate(true)
 	return {}
+
+
+func _build_reward_layout(view_size: Vector2) -> Dictionary:
+	return _layout.build_layout(
+		view_size,
+		choices.size(),
+		stats_band_enabled,
+		TEMP_REWARD_PICK_PANEL_GAP_PX,
+		_get_reward_footer_reserve()
+	)
+
+
+func _get_reward_footer_reserve() -> float:
+	return CONTINUE_SIZE.y + CONTINUE_BOTTOM_MARGIN
+
+
+func _capture_stats_context() -> bool:
+	if _runtime_state == null or not _runtime_state.has_method("capture_stats_context"):
+		return false
+	return bool(_runtime_state.call("capture_stats_context", _owner, _registry))
+
+
+func _refresh_perk_slot_status_if_needed() -> void:
+	if not _perk_slot_status_dirty:
+		return
+	_perk_slot_status_dirty = false
+	_current_perk_slot_status.clear()
+	if _catalog == null or not _catalog.has_method("get_perk_slot_status"):
+		return
+	var levels := _get_runtime_skill_levels()
+	var status_value: Variant = _catalog.call(
+		"get_perk_slot_status",
+		levels,
+		_registry
+	)
+	if status_value is Dictionary:
+		_current_perk_slot_status = (status_value as Dictionary).duplicate(true)
+
+
+func _build_reward_runtime_snapshot() -> Dictionary:
+	var snapshot: Dictionary = {}
+	if _runtime_state != null and _runtime_state.has_method("get_snapshot"):
+		var snapshot_value: Variant = _runtime_state.call("get_snapshot")
+		if snapshot_value is Dictionary:
+			snapshot = (snapshot_value as Dictionary).duplicate(true)
+	if not snapshot.has("runtime_skill_levels"):
+		snapshot["runtime_skill_levels"] = _get_runtime_skill_levels()
+	if not snapshot.has("physique_training"):
+		var training_snapshot: Dictionary = {}
+		if _runtime_state != null and _runtime_state.has_method("get_physique_training_snapshot"):
+			var training_value: Variant = _runtime_state.call("get_physique_training_snapshot")
+			if training_value is Dictionary:
+				training_snapshot = (training_value as Dictionary).duplicate(true)
+		snapshot["physique_training"] = training_snapshot
+	snapshot["perk_slot_status"] = _current_perk_slot_status.duplicate(true)
+	snapshot["perk_slot_status_cached"] = true
+	snapshot["reward_pick_spent_flags"] = spent_flags.duplicate()
+	return snapshot
+
+
+func _get_runtime_skill_levels() -> Dictionary:
+	if _runtime_state == null:
+		return {}
+	var levels_value: Variant = _runtime_state.get("runtime_skill_levels")
+	return (
+		(levels_value as Dictionary).duplicate(true)
+		if levels_value is Dictionary
+		else {}
+	)
 
 
 func _prewarm_card_assets() -> void:
