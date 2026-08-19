@@ -356,6 +356,7 @@ func _complete_map_transition() -> void:
 		_node_modal_kind = _normalize_node_modal_kind(arrived_kind)
 		_phase = PHASE_NODE_MODAL
 		_open_node_modal()
+		_transition_fade_state.begin_node_modal_fade()
 		return
 	var encounter := TowerAscentBossRegistry.new().resolve_battle_encounter(
 		str(arrived_node.get("boss_slot_id", ""))
@@ -473,5 +474,6 @@ func _enter_true_route_transition() -> void:
 		_route_history.append({"from": _route_source_node_id, "to": target_id})
 	_phase = PHASE_MAP_TRANSITION
 	_map_transition_progress = 0.0
+	_transition_fade_state.begin_map_transition()
 	_selector_launched = false
 	_selector_velocity = Vector2.ZERO

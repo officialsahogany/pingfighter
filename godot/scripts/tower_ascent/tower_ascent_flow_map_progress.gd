@@ -266,6 +266,16 @@ func get_active_graph_phase() -> Dictionary:
 	phase["edges"] = _graph_edges.duplicate(true)
 	return phase
 
+
+func peek_active_graph_phase() -> Dictionary:
+	if _graph_phases.is_empty():
+		return {}
+	return _graph_phases[_active_graph_phase_index]
+
+
+func get_map_render_revision() -> int:
+	return _map_render_revision
+
 func get_locked_phase_hints() -> Array:
 	return get_active_graph_phase().get("locked_phase_hints", [])
 
@@ -422,9 +432,9 @@ func _resolve_route_target(target_id: String) -> void:
 		):
 			_mark_boss_slot_skipped_in_graph(skipped_slot_id)
 	_route_history.append({"from": _route_source_node_id, "to": target_id})
-	_current_node_id = target_id
 	_phase = PHASE_MAP_TRANSITION
 	_map_transition_progress = 0.0
+	_transition_fade_state.begin_map_transition()
 	_selector_launched = false
 	_selector_velocity = Vector2.ZERO
 
@@ -459,6 +469,7 @@ func _commit_node_resolution(
 	for node in _graph_nodes:
 		if str(node.get("id", "")) == node_id:
 			node["completed"] = true
+			_map_render_revision += 1
 			break
 	return true
 
@@ -649,6 +660,7 @@ func _activate_graph_phase(phase_index: int, sync_current: bool = true) -> bool:
 	_active_graph_phase_index = phase_index
 	_graph_nodes.assign(nodes)
 	_graph_edges.assign(edges)
+	_map_render_revision += 1
 	_run_state.set_phases(_graph_phases)
 	_run_state.set_active_phase_index(_active_graph_phase_index)
 	return true

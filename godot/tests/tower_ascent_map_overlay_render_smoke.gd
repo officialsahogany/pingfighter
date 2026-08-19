@@ -10,6 +10,12 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
+const TowerAscentTransitionFadeState := preload(
+	"res://scripts/tower_ascent/tower_ascent_transition_fade_state.gd"
+)
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -21,6 +27,8 @@ func _init() -> void:
 func _run() -> void:
 	_verify_full_disclosure_projection_and_states()
 	_verify_fullscreen_projection_and_existing_art_slots()
+	_verify_live_resolution_map_content_scales_proportionally()
+	_verify_map_cache_and_six_beat_transition_contract()
 	_verify_live_viewport_owns_fullscreen_rect()
 	_verify_localization_catalog()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -143,6 +151,119 @@ func _verify_fullscreen_projection_and_existing_art_slots() -> void:
 	_expect(min_node_y < content_rect.get_center().y and max_node_y > content_rect.get_center().y, "the castle route must visibly ascend from bottom to top")
 	for art_path in renderer.get_node_art_asset_paths():
 		_expect(FileAccess.file_exists(art_path), "the node-art catalog must never reserve a missing draw path: %s" % art_path)
+
+
+func _verify_live_resolution_map_content_scales_proportionally() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "map-overlay-live-resolution",
+		"map_seed": 83521,
+	}), "live-resolution map fixture must begin")
+	var renderer := preload(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	).new()
+	var reference_model: Dictionary = renderer.build_fullscreen_map_model(
+		flow,
+		Rect2(Vector2.ZERO, Vector2(1280.0, 800.0))
+	)
+	var live_model: Dictionary = renderer.build_fullscreen_map_model(
+		flow,
+		Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+	)
+	var expected_scale := 1246.0 / 800.0
+	var art_scale := float(live_model.get("art_size", 0.0)) / maxf(
+		1.0,
+		float(reference_model.get("art_size", 0.0))
+	)
+	var reference_lane_span := _projected_node_x_span(reference_model)
+	var live_lane_span := _projected_node_x_span(live_model)
+	var lane_scale := live_lane_span / maxf(1.0, reference_lane_span)
+	_expect(float(live_model.get("art_size", 0.0)) > 34.0, "2020x1246 node art must not stop at the old 34px absolute cap")
+	_expect(live_lane_span > 660.0, "2020x1246 node lanes must use the actual source min/max instead of half of the capped span")
+	_expect(absf(art_scale - expected_scale) <= 0.04, "node art must scale with the live viewport height")
+	_expect(absf(lane_scale - expected_scale) <= 0.06, "node lane span must scale with the live viewport height")
+	var live_content: Rect2 = live_model.get("content_rect", Rect2())
+	for node_variant in live_model.get("nodes", []):
+		if node_variant is Dictionary:
+			_expect(
+				live_content.grow(0.1).has_point((node_variant as Dictionary).get("screen_position", Vector2.ZERO)),
+				"proportional live map sizing must keep every disclosed node visible"
+			)
+
+
+func _projected_node_x_span(model: Dictionary) -> float:
+	var min_x := INF
+	var max_x := -INF
+	for node_variant in model.get("nodes", []):
+		if not (node_variant is Dictionary):
+			continue
+		var position: Vector2 = (node_variant as Dictionary).get("screen_position", Vector2.ZERO)
+		min_x = minf(min_x, position.x)
+		max_x = maxf(max_x, position.x)
+	return 0.0 if not is_finite(min_x) or not is_finite(max_x) else max_x - min_x
+
+
+func _verify_map_cache_and_six_beat_transition_contract() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "map-overlay-cache-and-transition",
+		"map_seed": 83521,
+	}), "cache and transition fixture must begin")
+	var renderer := preload(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	).new()
+	var viewport_rect := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+	renderer.build_fullscreen_map_model(flow, viewport_rect)
+	renderer.build_fullscreen_map_model(flow, viewport_rect)
+	var cache_state: Dictionary = renderer.get_render_cache_debug_state()
+	_expect(int(cache_state.get("graph_build_count", 0)) == 1, "unchanged graph draws must reuse one cached graph model")
+	_expect(int(cache_state.get("fullscreen_build_count", 0)) == 1, "unchanged viewport draws must reuse one cached fullscreen projection")
+
+	var target_ids: Array[String] = flow.get_route_target_ids()
+	_expect(not target_ids.is_empty(), "transition fixture must expose a route target")
+	if not target_ids.is_empty():
+		var source_id := flow.get_current_node_id()
+		var target_id := target_ids[0]
+		flow.call("_resolve_route_target", target_id)
+		_expect(flow.get_current_node_id() == source_id, "route selection must not promote the destination before arrival")
+		renderer.build_fullscreen_map_model(flow, viewport_rect)
+		var transition_cache_builds := int(
+			renderer.get_render_cache_debug_state().get("fullscreen_build_count", 0)
+		)
+		flow.set_transition_progress_for_qa(0.5)
+		var moving_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
+		var moving_marker: Dictionary = moving_model.get("transition_marker", {})
+		_expect(float(moving_marker.get("progress", 0.0)) > 0.0 and float(moving_marker.get("progress", 0.0)) < 1.0, "mid-transition marker must use the eased travel window")
+		_expect(int(renderer.get_render_cache_debug_state().get("fullscreen_build_count", 0)) == transition_cache_builds, "transition progress must not rebuild the cached graph projection")
+		flow.call("_complete_map_transition")
+		_expect(flow.get_current_node_id() == target_id, "the destination must become current only when the map transition completes")
+
+	var timeline := TowerAscentTransitionFadeState.new()
+	timeline.begin_map_transition()
+	var expected_total := (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
+	)
+	_expect(is_equal_approx(timeline.get_map_transition_duration_sec(), expected_total), "map transition duration must be the five visual beats in the tuning table")
+	timeline.set_map_transition_progress_for_qa(0.0)
+	var start_model: Dictionary = timeline.get_map_transition_visual_model()
+	_expect(str(start_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_BATTLE_FADE_OUT, "progress 0 must keep the battle visible for its fade-out")
+	_expect(not bool(start_model.get("map_visible", true)) and is_zero_approx(float(start_model.get("blackout_alpha", -1.0))), "battle fade must start with no map and no blackout")
+	timeline.set_map_transition_progress_for_qa(0.5)
+	var middle_model: Dictionary = timeline.get_map_transition_visual_model()
+	_expect(str(middle_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_TRAVEL, "progress 0.5 must land in the travel beat")
+	_expect(bool(middle_model.get("map_visible", false)) and float(middle_model.get("travel_progress", 0.0)) > 0.0, "travel beat must show the fullscreen map and eased walker")
+	timeline.set_map_transition_progress_for_qa(1.0)
+	var end_model: Dictionary = timeline.get_map_transition_visual_model()
+	_expect(str(end_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_MAP_FADE_OUT, "progress 1 must end on the map blackout beat")
+	_expect(is_equal_approx(float(end_model.get("blackout_alpha", 0.0)), 1.0) and is_zero_approx(float(end_model.get("marker_alpha", 1.0))), "arrival must vanish before the fully black handoff")
+	timeline.begin_node_modal_fade()
+	_expect(is_zero_approx(timeline.get_node_modal_fade_progress()), "noncombat arrival surface must begin fully covered")
+	timeline.update_node_modal_fade(TowerAscentTuning.TEMP_NODE_MODAL_FADE_IN_SEC)
+	_expect(is_equal_approx(timeline.get_node_modal_fade_progress(), 1.0), "noncombat node fade must complete on its tuning duration")
 
 
 func _verify_live_viewport_owns_fullscreen_rect() -> void:

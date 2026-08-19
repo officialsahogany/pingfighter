@@ -47,8 +47,13 @@ func open_map_overlay(
 	registry: Object,
 	context: Dictionary = {}
 ) -> bool:
-	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or _map_overlay_active:
+	if (
+		not TowerAscentFeatureFlags.is_vertical_slice_enabled()
+		or _map_overlay_active
+	):
 		return false
+	if _map_overlay_closing:
+		_finish_map_overlay_close()
 	if _active and _phase not in [PHASE_ROUTE_AIM, PHASE_MAP_TRANSITION]:
 		return false
 	if _graph_nodes.is_empty():
@@ -60,8 +65,11 @@ func open_map_overlay(
 	if not bool(lifecycle_result.get("accepted", false)):
 		return false
 	_map_overlay_active = true
+	_map_overlay_closing = false
 	_map_overlay_lifecycle_owned = bool(lifecycle_result.get("changed", false))
-	_map_overlay_owner = owner
+	_map_overlay_owner = weakref(owner) if owner != null else null
+	_map_overlay_registry = weakref(registry) if registry != null else null
+	_transition_fade_state.begin_map_overlay_open()
 	_request_redraw(owner)
 	return true
 
@@ -69,14 +77,24 @@ func open_map_overlay(
 func close_map_overlay() -> bool:
 	if not _map_overlay_active:
 		return false
-	var owner := _map_overlay_owner
 	_map_overlay_active = false
-	_map_overlay_owner = null
+	_map_overlay_closing = true
+	_transition_fade_state.begin_map_overlay_close()
 	if _map_overlay_lifecycle_owned:
 		_modal_lifecycle.leave()
 	_map_overlay_lifecycle_owned = false
-	_request_redraw(owner)
+	_request_redraw(_map_overlay_owner_value())
 	return true
+
+
+func _finish_map_overlay_close() -> void:
+	if not _map_overlay_closing:
+		return
+	var owner := _map_overlay_owner_value()
+	_map_overlay_closing = false
+	_map_overlay_owner = null
+	_map_overlay_registry = null
+	_request_redraw(owner)
 
 
 func is_map_overlay_active() -> bool:
@@ -128,11 +146,11 @@ func _is_map_close_event(event: InputEvent) -> bool:
 
 
 func is_active() -> bool:
-	return _active or _map_overlay_active
+	return _active or _map_overlay_active or _map_overlay_closing
 
 
 func blocks_battle_physics() -> bool:
-	return _active or _map_overlay_active
+	return _active or _map_overlay_active or _map_overlay_closing
 
 
 func get_phase() -> int:
@@ -165,6 +183,13 @@ func handle_input(event: InputEvent) -> bool:
 		if _is_map_close_event(event):
 			close_map_overlay()
 		return true
+	if _map_overlay_closing:
+		if _is_map_toggle_event(event):
+			var owner := _map_overlay_owner_value()
+			var registry := _map_overlay_registry_value()
+			_finish_map_overlay_close()
+			return open_map_overlay(owner, registry)
+		return true
 	if not _active:
 		return false
 	if _is_map_toggle_event(event) and can_open_map_overlay():
@@ -193,14 +218,27 @@ func handle_input(event: InputEvent) -> bool:
 
 
 func update_selective(delta: float, owner: Object = null) -> void:
+	if _map_overlay_active or _map_overlay_closing:
+		var overlay_finished: bool = bool(
+			_transition_fade_state.update_map_overlay(maxf(0.0, delta))
+		)
+		if overlay_finished and _map_overlay_closing:
+			_finish_map_overlay_close()
+		_request_redraw(owner)
+		return
 	if not _active:
 		return
 	if _phase == PHASE_ROUTE_AIM:
 		_update_route_serve(maxf(0.0, delta))
 	elif _phase == PHASE_MAP_TRANSITION:
-		_map_transition_progress = minf(1.0, _map_transition_progress + maxf(0.0, delta) / MAP_TRANSITION_SECONDS)
-		if _map_transition_progress >= 1.0:
+		var transition_finished: bool = bool(
+			_transition_fade_state.update_map_transition(maxf(0.0, delta))
+		)
+		_map_transition_progress = _transition_fade_state.get_map_transition_progress()
+		if transition_finished:
 			_complete_map_transition()
+	elif _phase == PHASE_NODE_MODAL:
+		_transition_fade_state.update_node_modal_fade(maxf(0.0, delta))
 	_request_redraw(owner)
 
 
@@ -209,17 +247,87 @@ func draw(canvas: CanvasItem) -> void:
 		_renderer.draw(canvas, self)
 
 
-func draw_fullscreen_map(canvas: CanvasItem, fallback_rect: Rect2 = Rect2()) -> void:
+func draw_fullscreen_map(
+	canvas: CanvasItem,
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
+) -> void:
 	if _renderer != null and _renderer.has_method("draw_fullscreen_map"):
-		_renderer.draw_fullscreen_map(canvas, self, fallback_rect)
+		_renderer.draw_fullscreen_map(canvas, self, fallback_rect, walker_model)
 
 
 func draw_fullscreen_surface(
 	canvas: CanvasItem,
-	fallback_rect: Rect2 = Rect2()
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
 ) -> void:
 	if _renderer != null and _renderer.has_method("draw_fullscreen_surface"):
-		_renderer.draw_fullscreen_surface(canvas, self, fallback_rect)
+		_renderer.draw_fullscreen_surface(canvas, self, fallback_rect, walker_model)
+
+
+func draw_fullscreen_fade(canvas: CanvasItem, fallback_rect: Rect2 = Rect2()) -> void:
+	if canvas == null:
+		return
+	var rect := fallback_rect
+	if canvas.is_inside_tree():
+		rect = canvas.get_viewport_rect()
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var alpha := get_fullscreen_fade_alpha()
+	if alpha > 0.0:
+		canvas.draw_rect(rect, Color(0.0, 0.0, 0.0, alpha), true)
+
+
+func should_draw_fullscreen_map() -> bool:
+	if get_phase_name() != "MAP_TRANSITION":
+		return true
+	return bool(_transition_fade_state.get_map_transition_visual_model().get("map_visible", false))
+
+
+func get_map_transition_visual_model() -> Dictionary:
+	return _transition_fade_state.get_map_transition_visual_model()
+
+
+func get_fullscreen_fade_alpha() -> float:
+	if _map_overlay_closing:
+		return 1.0 - _transition_fade_state.get_map_overlay_fade_progress()
+	var phase_name := get_phase_name()
+	if phase_name == "MAP_TRANSITION":
+		return float(get_map_transition_visual_model().get("blackout_alpha", 0.0))
+	if phase_name == "NODE_MODAL":
+		return 1.0 - _transition_fade_state.get_node_modal_fade_progress()
+	if phase_name == "MAP_OVERLAY":
+		return 1.0 - _transition_fade_state.get_map_overlay_fade_progress()
+	return 0.0
+
+
+func is_map_overlay_closing() -> bool:
+	return _map_overlay_closing
+
+
+func _map_overlay_owner_value() -> Object:
+	if _map_overlay_owner is WeakRef:
+		return (_map_overlay_owner as WeakRef).get_ref()
+	return null
+
+
+func _map_overlay_registry_value() -> Object:
+	if _map_overlay_registry is WeakRef:
+		return (_map_overlay_registry as WeakRef).get_ref()
+	return null
+
+
+func set_transition_progress_for_qa(progress: float) -> void:
+	_transition_fade_state.set_map_transition_progress_for_qa(progress)
+	_map_transition_progress = _transition_fade_state.get_map_transition_progress()
+
+
+func set_node_modal_fade_progress_for_qa(progress: float) -> void:
+	_transition_fade_state.set_node_modal_fade_progress_for_qa(progress)
+
+
+func set_map_overlay_fade_progress_for_qa(progress: float) -> void:
+	_transition_fade_state.set_map_overlay_fade_progress_for_qa(progress)
 
 
 

@@ -10,11 +10,34 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
+const BattleSmasherSpritePaths := preload(
+	"res://scripts/resources/battle_smasher_sprite_paths.gd"
+)
 
 const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
 const OUTPUT_NAME_PHASE_1 := "map_overlay_human_realm.png"
 const OUTPUT_NAME_PHASE_2 := "map_overlay_immortal_realm.png"
+
+
+class FakePillarDrawPass:
+	extends RefCounted
+
+	func draw(canvas: CanvasItem, _registry: Object, view_size: Vector2, layout: Dictionary) -> void:
+		var game_offset: Vector2 = layout.get("game_offset", Vector2.ZERO)
+		var game_size: Vector2 = layout.get("game_size", Vector2.ZERO)
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color("111722"), true)
+		canvas.draw_rect(Rect2(game_offset - Vector2(28.0, 0.0), Vector2(24.0, game_size.y)), Color("6d4c32"), true)
+		canvas.draw_rect(Rect2(Vector2(game_offset.x + game_size.x + 4.0, game_offset.y), Vector2(24.0, game_size.y)), Color("6d4c32"), true)
+
+
+class FakePlayfieldDrawer:
+	extends RefCounted
+
+	func draw(canvas: CanvasItem, _registry: Object, _shake_offset: Vector2, width: float, height: float, _pillar_width: float) -> void:
+		canvas.draw_rect(Rect2(Vector2.ZERO, Vector2(width, height)), Color("294b63"), true)
+		canvas.draw_rect(Rect2(0.0, height * 0.72, width, height * 0.28), Color("8d6541"), true)
+		canvas.draw_circle(Vector2(width * 0.5, height * 0.58), 54.0, Color("e6c867"))
 
 
 class FakeRuntimePerkState:
@@ -46,6 +69,9 @@ class CaptureRegistry:
 	var flow_owner: Object
 	var runtime_perk_state: Object = FakeRuntimePerkState.new()
 	var game_audio: Object = FakeAudio.new()
+	var pillar_draw_pass: Object = FakePillarDrawPass.new()
+	var playfield_drawer: Object = FakePlayfieldDrawer.new()
+	var view_layout: Object = preload("res://scripts/core/battle_view_layout.gd").new()
 
 	func _init(new_flow_owner: Object) -> void:
 		flow_owner = new_flow_owner
@@ -58,6 +84,12 @@ class CaptureRegistry:
 				return game_audio
 			"tower_ascent_flow_owner":
 				return flow_owner
+			"battle_scene_pillar_draw_pass":
+				return pillar_draw_pass
+			"battle_playfield_scene_drawer":
+				return playfield_drawer
+			"battle_view_layout":
+				return view_layout
 		return null
 
 	func get_cached_instance(key: String) -> Variant:
@@ -81,6 +113,11 @@ class ProductionScreenCanvas:
 	var ball_render_interpolation_enabled := false
 	var ball_interp_reset_requested := false
 	var ball_interp_last_physics_usec := 0
+	var selected_character_type := "smasher"
+	var battle_textures := {
+		"player_walk_left_texture": preload(BattleSmasherSpritePaths.PLAYER_WALK_LEFT_SPRITE_PATH),
+		"player_walk_right_texture": preload(BattleSmasherSpritePaths.PLAYER_WALK_RIGHT_SPRITE_PATH),
+	}
 
 	func _init(new_registry: Object) -> void:
 		registry = new_registry
@@ -114,6 +151,8 @@ func _run() -> void:
 	var capture_phase := OS.get_environment("TOWER_ASCENT_MAP_QA_PHASE").strip_edges().to_lower()
 	if capture_phase not in ["phase1", "phase2"]:
 		capture_phase = "phase1"
+	var progress_text := OS.get_environment("TOWER_ASCENT_MAP_QA_PROGRESS").strip_edges()
+	var injected_progress := -1.0 if progress_text.is_empty() else clampf(float(progress_text), 0.0, 1.0)
 	var record_path := "user://tower_map_overlay_visual_%d.cfg" % Time.get_ticks_usec()
 	if capture_phase == "phase2":
 		var store := TowerAscentRecordStore.new()
@@ -158,6 +197,9 @@ func _run() -> void:
 		if not bool(choice.get("accepted", false)) or flow_owner.get_active_graph_phase_index() != 1:
 			_fail("phase-2 graph transition fixture failed")
 			return
+		flow_owner.set_transition_progress_for_qa(0.5 if injected_progress < 0.0 else injected_progress)
+	else:
+		flow_owner.set_map_overlay_fade_progress_for_qa(1.0)
 	_decorate_state_evidence(flow_owner)
 	var expected_phase := "MAP_TRANSITION" if capture_phase == "phase2" else "MAP_OVERLAY"
 	if flow_owner.get_phase_name() != expected_phase:
@@ -168,6 +210,8 @@ func _run() -> void:
 		await process_frame
 	var image: Image = viewport.get_texture().get_image()
 	var output_name := OUTPUT_NAME_PHASE_2 if capture_phase == "phase2" else OUTPUT_NAME_PHASE_1
+	if capture_phase == "phase2" and injected_progress >= 0.0:
+		output_name = "map_transition_progress_%03d.png" % int(round(injected_progress * 100.0))
 	var output_path := output_dir.path_join(output_name)
 	if (
 		image == null

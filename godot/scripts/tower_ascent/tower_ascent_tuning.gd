@@ -68,6 +68,23 @@ const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
 const TEMP_MAP_HINT_RECT := Rect2(18.0, 698.0, 98.0, 30.0)
 const TEMP_MAP_HINT_FONT_SIZE := 14
 
+# TEMP: v1.12 fixes the transition beats and proportional fullscreen-map
+# skeleton. Product tuning may adjust these values in place, but must not move
+# the clock out of the tower flow or restore absolute layout caps.
+const TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC := 0.25
+const TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC := 0.25
+const TEMP_MAP_TRANSITION_TRAVEL_SEC := 1.60
+const TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC := 0.35
+const TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC := 0.28
+const TEMP_NODE_MODAL_FADE_IN_SEC := 0.25
+const TEMP_MAP_OVERLAY_FADE_SEC := 0.18
+const TEMP_MAP_OUTER_MARGIN_RATIO := 0.024
+const TEMP_MAP_SIDE_GUTTER_RATIO := 0.130
+const TEMP_MAP_LANE_SPAN_RATIO := 0.290
+const TEMP_MAP_ART_SIZE_RATIO := 0.720
+const TEMP_MAP_CONTENT_TOP_RATIO := 0.1025
+const TEMP_MAP_CONTENT_BOTTOM_RATIO := 0.1925
+
 # TEMP: v1.12 keeps the exhausted reward board visible briefly before the
 # route flow resumes. Final presentation timing remains product-tuning work.
 const TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC := 0.60

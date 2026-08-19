@@ -441,7 +441,10 @@ func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
 		if (
 			flow_owner.has_method("get_phase_name")
 			and not should_draw_tower_flow_in_playfield(
-				str(flow_owner.get_phase_name())
+				str(flow_owner.get_phase_name()),
+				flow_owner.get_map_transition_visual_model()
+				if flow_owner.has_method("get_map_transition_visual_model")
+				else {}
 			)
 		):
 			return
@@ -454,9 +457,13 @@ static func should_draw_victory_loot_in_playfield(
 	return not reward_pick_active
 
 
-static func should_draw_tower_flow_in_playfield(phase_name: String) -> bool:
+static func should_draw_tower_flow_in_playfield(
+	phase_name: String,
+	transition_visual_model: Dictionary = {}
+) -> bool:
 	return TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
-		phase_name
+		phase_name,
+		transition_visual_model
 	)
 
 

@@ -47,6 +47,13 @@ const CINNABAR_DARK := Color("63241f")
 const GOLD := Color("bd8c35")
 const SEALED := Color("5e5145")
 
+var _cached_graph_key := ""
+var _cached_render_model: Dictionary = {}
+var _cached_fullscreen_key := ""
+var _cached_fullscreen_model: Dictionary = {}
+var _graph_cache_build_count := 0
+var _fullscreen_cache_build_count := 0
+
 
 func draw(canvas: CanvasItem, flow: Object) -> void:
 	if canvas == null or flow == null or not flow.has_method("is_active") or not bool(flow.is_active()):
@@ -78,9 +85,12 @@ func draw(canvas: CanvasItem, flow: Object) -> void:
 func draw_fullscreen_map(
 	canvas: CanvasItem,
 	flow: Object,
-	fallback_rect: Rect2 = Rect2()
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
 ) -> void:
 	if canvas == null or flow == null:
+		return
+	if flow.has_method("should_draw_fullscreen_map") and not bool(flow.should_draw_fullscreen_map()):
 		return
 	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
 	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
@@ -88,20 +98,21 @@ func draw_fullscreen_map(
 	var model := build_fullscreen_map_model(flow, viewport_rect)
 	if model.is_empty():
 		return
-	_draw_fullscreen_map_model(canvas, flow, model)
+	_draw_fullscreen_map_model(canvas, flow, model, walker_model)
 
 
 func draw_fullscreen_surface(
 	canvas: CanvasItem,
 	flow: Object,
-	fallback_rect: Rect2 = Rect2()
+	fallback_rect: Rect2 = Rect2(),
+	walker_model: Dictionary = {}
 ) -> void:
 	if flow == null or not flow.has_method("get_phase_name"):
 		return
 	if str(flow.get_phase_name()) == "NODE_MODAL":
 		draw_fullscreen_node_modal(canvas, flow, fallback_rect)
 		return
-	draw_fullscreen_map(canvas, flow, fallback_rect)
+	draw_fullscreen_map(canvas, flow, fallback_rect, walker_model)
 
 
 func draw_fullscreen_node_modal(
@@ -141,17 +152,46 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	var base := build_render_model(flow)
 	if base.is_empty() or viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
 		return {}
-	var outer_margin := clampf(minf(viewport_rect.size.x, viewport_rect.size.y) * 0.024, 12.0, 28.0)
+	var fullscreen_key := "%s:%0.3f:%0.3f" % [
+		_cached_graph_key,
+		viewport_rect.size.x,
+		viewport_rect.size.y,
+	]
+	if fullscreen_key != _cached_fullscreen_key:
+		_cached_fullscreen_key = fullscreen_key
+		_cached_fullscreen_model = _build_static_fullscreen_map_model(base, viewport_rect)
+		_fullscreen_cache_build_count += 1
+	if _cached_fullscreen_model.is_empty():
+		return {}
+	var model := _cached_fullscreen_model.duplicate(false)
+	model["active_candidate_ids"] = base.get("active_candidate_ids", [])
+	model["current_node_id"] = str(base.get("current_node_id", ""))
+	model["selected_target_id"] = str(base.get("selected_target_id", ""))
+	model["transition_marker"] = _build_fullscreen_transition_marker(
+		flow,
+		base,
+		model.get("content_rect", Rect2()),
+		model.get("position_by_id", {})
+	)
+	return model
+
+
+func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) -> Dictionary:
+	var outer_margin := minf(viewport_rect.size.x, viewport_rect.size.y) * TowerAscentTuning.TEMP_MAP_OUTER_MARGIN_RATIO
 	var panel_rect := viewport_rect.grow(-outer_margin)
-	var side_gutter := clampf(panel_rect.size.x * 0.13, 82.0, 190.0)
+	var side_gutter := panel_rect.size.x * TowerAscentTuning.TEMP_MAP_SIDE_GUTTER_RATIO
+	var top_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_TOP_RATIO
+	var bottom_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_BOTTOM_RATIO
 	var content_rect := Rect2(
-		panel_rect.position + Vector2(side_gutter, 82.0),
+		panel_rect.position + Vector2(side_gutter, top_inset),
 		Vector2(
-			maxf(240.0, panel_rect.size.x - side_gutter * 2.0),
-			maxf(320.0, panel_rect.size.y - 154.0)
+			maxf(1.0, panel_rect.size.x - side_gutter * 2.0),
+			maxf(1.0, panel_rect.size.y - top_inset - bottom_inset)
 		)
 	)
 	var nodes: Array = base.get("nodes", [])
+	var source_min_x := INF
+	var source_max_x := -INF
 	var source_min_y := INF
 	var source_max_y := -INF
 	var unique_rows: Dictionary = {}
@@ -159,14 +199,16 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		if not (node_variant is Dictionary):
 			continue
 		var source_position := _vector2((node_variant as Dictionary).get("position", Vector2.ZERO))
+		source_min_x = minf(source_min_x, source_position.x)
+		source_max_x = maxf(source_max_x, source_position.x)
 		source_min_y = minf(source_min_y, source_position.y)
 		source_max_y = maxf(source_max_y, source_position.y)
 		unique_rows[int(round(source_position.y))] = true
 	if not is_finite(source_min_y) or not is_finite(source_max_y):
 		return {}
 	var row_pitch := content_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
-	var art_size := clampf(row_pitch * 0.72, 18.0, 34.0)
-	var lane_span := minf(content_rect.size.x * 0.29, 330.0)
+	var art_size := row_pitch * TowerAscentTuning.TEMP_MAP_ART_SIZE_RATIO
+	var lane_span := content_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
 	var center_x := content_rect.get_center().x
 	var position_by_id: Dictionary = {}
 	var projected_nodes: Array[Dictionary] = []
@@ -175,7 +217,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			continue
 		var node := (node_variant as Dictionary).duplicate(true)
 		var source_position := _vector2(node.get("position", Vector2.ZERO))
-		var source_x_ratio := clampf((source_position.x - 380.0) / 320.0, -1.0, 1.0)
+		var source_x_ratio := (
+			lerpf(-1.0, 1.0, inverse_lerp(source_min_x, source_max_x, source_position.x))
+			if not is_equal_approx(source_min_x, source_max_x)
+			else 0.0
+		)
 		var source_y_ratio := inverse_lerp(source_min_y, source_max_y, source_position.y)
 		var screen_position := Vector2(
 			center_x + source_x_ratio * lane_span,
@@ -226,23 +272,6 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 				maxf(12.0, row_pitch * 0.76)
 			),
 		})
-	var transition_marker: Dictionary = {}
-	if str(flow.get_phase_name()) == "MAP_TRANSITION":
-		var source_id := str(flow.get_route_source_node_id())
-		var target_id := str(base.get("selected_target_id", ""))
-		var target_position: Vector2 = position_by_id.get(
-			target_id,
-			content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
-		)
-		transition_marker = {
-			"from_position": position_by_id.get(
-				source_id,
-				Vector2(content_rect.get_center().x, content_rect.end.y)
-			),
-			"to_position": target_position,
-			"progress": flow.get_map_transition_progress(),
-			"phase_entry": bool(flow.is_phase_entry_transition()),
-		}
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
@@ -250,14 +279,44 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		"nodes": projected_nodes,
 		"edges": projected_edges,
 		"floor_bands": floor_bands,
-		"active_candidate_ids": base.get("active_candidate_ids", []),
-		"current_node_id": str(base.get("current_node_id", "")),
-		"selected_target_id": str(base.get("selected_target_id", "")),
+		"position_by_id": position_by_id,
 		"art_size": art_size,
 		"phase": base.get("phase", {}),
 		"realm_kind": str(base.get("realm_kind", "human_realm")),
 		"locked_phase_hints": base.get("locked_phase_hints", []),
-		"transition_marker": transition_marker,
+	}
+
+
+func _build_fullscreen_transition_marker(
+	flow: Object,
+	base: Dictionary,
+	content_rect: Rect2,
+	position_by_id: Dictionary
+) -> Dictionary:
+	if str(flow.get_phase_name()) != "MAP_TRANSITION":
+		return {}
+	var source_id := str(flow.get_route_source_node_id())
+	var target_id := str(base.get("selected_target_id", ""))
+	var target_position: Vector2 = position_by_id.get(
+		target_id,
+		content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
+	)
+	var visual_model: Dictionary = (
+		flow.get_map_transition_visual_model()
+		if flow.has_method("get_map_transition_visual_model")
+		else {"travel_progress": flow.get_map_transition_progress(), "marker_scale": 1.0, "marker_alpha": 1.0}
+	)
+	return {
+		"from_position": position_by_id.get(
+			source_id,
+			Vector2(content_rect.get_center().x, content_rect.end.y)
+		),
+		"to_position": target_position,
+		"progress": float(visual_model.get("travel_progress", 0.0)),
+		"scale": float(visual_model.get("marker_scale", 1.0)),
+		"alpha": float(visual_model.get("marker_alpha", 1.0)),
+		"segment": str(visual_model.get("segment", "")),
+		"phase_entry": bool(flow.is_phase_entry_transition()),
 	}
 
 
@@ -273,7 +332,8 @@ func get_node_art_asset_paths() -> Array[String]:
 func _draw_fullscreen_map_model(
 	canvas: CanvasItem,
 	flow: Object,
-	model: Dictionary
+	model: Dictionary,
+	walker_model: Dictionary = {}
 ) -> void:
 	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
 	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
@@ -315,7 +375,12 @@ func _draw_fullscreen_map_model(
 				selected_target_id,
 				content_rect
 			)
-	_draw_fullscreen_transition_marker(canvas, model.get("transition_marker", {}))
+	_draw_fullscreen_transition_marker(
+		canvas,
+		model.get("transition_marker", {}),
+		walker_model,
+		float(model.get("art_size", 24.0))
+	)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
@@ -503,17 +568,104 @@ func _draw_locked_phase_hints(
 		)
 
 
-func _draw_fullscreen_transition_marker(canvas: CanvasItem, marker_value: Variant) -> void:
+func _draw_fullscreen_transition_marker(
+	canvas: CanvasItem,
+	marker_value: Variant,
+	walker_model: Dictionary = {},
+	art_size: float = 24.0
+) -> void:
 	if not (marker_value is Dictionary) or (marker_value as Dictionary).is_empty():
 		return
 	var marker := marker_value as Dictionary
 	var progress := clampf(float(marker.get("progress", 0.0)), 0.0, 1.0)
-	var position := _vector2(marker.get("from_position", Vector2.ZERO)).lerp(
-		_vector2(marker.get("to_position", Vector2.ZERO)),
+	var from_position := _vector2(marker.get("from_position", Vector2.ZERO))
+	var to_position := _vector2(marker.get("to_position", Vector2.ZERO))
+	var position := from_position.lerp(
+		to_position,
 		progress
 	)
-	canvas.draw_circle(position, 13.0 + 2.0 * sin(progress * PI), CINNABAR)
-	canvas.draw_circle(position, 19.0, GOLD, false, 3.0)
+	var marker_scale := clampf(float(marker.get("scale", 1.0)), 0.0, 1.0)
+	var marker_alpha := clampf(float(marker.get("alpha", 1.0)), 0.0, 1.0)
+	if marker_alpha <= 0.001 or marker_scale <= 0.001:
+		return
+	if _draw_fullscreen_walker(
+		canvas,
+		walker_model,
+		position,
+		to_position.x >= from_position.x,
+		progress,
+		art_size,
+		marker_scale,
+		marker_alpha
+	):
+		return
+	canvas.draw_circle(
+		position,
+		(13.0 + 2.0 * sin(progress * PI)) * marker_scale,
+		Color(CINNABAR, marker_alpha)
+	)
+	canvas.draw_circle(
+		position,
+		19.0 * marker_scale,
+		Color(GOLD, marker_alpha),
+		false,
+		3.0 * marker_scale
+	)
+
+
+func _draw_fullscreen_walker(
+	canvas: CanvasItem,
+	walker_model: Dictionary,
+	position: Vector2,
+	facing_right: bool,
+	travel_progress: float,
+	art_size: float,
+	marker_scale: float,
+	marker_alpha: float
+) -> bool:
+	var preferred_key := "right_texture" if facing_right else "left_texture"
+	var fallback_key := "left_texture" if facing_right else "right_texture"
+	var texture_value: Variant = walker_model.get(preferred_key, null)
+	var mirror_x := false
+	if not (texture_value is Texture2D):
+		texture_value = walker_model.get(fallback_key, null)
+		mirror_x = texture_value is Texture2D
+	if not (texture_value is Texture2D):
+		return false
+	var texture := texture_value as Texture2D
+	var grid_cols := maxi(1, int(walker_model.get("grid_cols", 4)))
+	var grid_rows := maxi(1, int(walker_model.get("grid_rows", 2)))
+	var frame_count := clampi(int(walker_model.get("frame_count", 8)), 1, grid_cols * grid_rows)
+	var frame_index := int(floor(travel_progress * float(frame_count) * 3.0)) % frame_count
+	var frame_col := frame_index % grid_cols
+	var frame_row := frame_index / grid_cols
+	var uv_min := Vector2(float(frame_col) / float(grid_cols), float(frame_row) / float(grid_rows))
+	var uv_max := Vector2(float(frame_col + 1) / float(grid_cols), float(frame_row + 1) / float(grid_rows))
+	if mirror_x:
+		var swap_x := uv_min.x
+		uv_min.x = uv_max.x
+		uv_max.x = swap_x
+	var draw_size := Vector2.ONE * maxf(28.0, art_size * 1.9) * marker_scale
+	var half := draw_size * 0.5
+	var points := PackedVector2Array([
+		position + Vector2(-half.x, -half.y),
+		position + Vector2(half.x, -half.y),
+		position + Vector2(half.x, half.y),
+		position + Vector2(-half.x, half.y),
+	])
+	var uvs := PackedVector2Array([
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_min.x, uv_max.y),
+	])
+	canvas.draw_polygon(
+		points,
+		PackedColorArray([Color(1.0, 1.0, 1.0, marker_alpha)]),
+		uvs,
+		texture
+	)
+	return true
 
 
 func _draw_fullscreen_map_node(
@@ -620,24 +772,45 @@ func _draw_map_surface(
 func build_render_model(flow: Object) -> Dictionary:
 	if flow == null:
 		return {}
-	var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
-	if nodes.is_empty():
-		return {}
-	var phase: Dictionary = (
-		flow.get_active_graph_phase()
-		if flow.has_method("get_active_graph_phase")
-		else {}
-	)
+	var revision := int(flow.get_map_render_revision()) if flow.has_method("get_map_render_revision") else 0
+	var phase_index := int(flow.get_active_graph_phase_index()) if flow.has_method("get_active_graph_phase_index") else 0
+	var graph_key := "%d:%d:%d" % [flow.get_instance_id(), phase_index, revision]
+	if graph_key != _cached_graph_key:
+		var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
+		if nodes.is_empty():
+			return {}
+		var phase: Dictionary = (
+			flow.peek_active_graph_phase()
+			if flow.has_method("peek_active_graph_phase")
+			else flow.get_active_graph_phase()
+			if flow.has_method("get_active_graph_phase")
+			else {}
+		)
+		_cached_graph_key = graph_key
+		_cached_render_model = {
+			"floors": flow.get_graph_floors() if flow.has_method("get_graph_floors") else [],
+			"nodes": nodes,
+			"edges": flow.get_graph_edges() if flow.has_method("get_graph_edges") else [],
+			"phase": phase,
+			"realm_kind": str(phase.get("realm_kind", "human_realm")),
+			"locked_phase_hints": phase.get("locked_phase_hints", []),
+		}
+		_cached_fullscreen_key = ""
+		_cached_fullscreen_model.clear()
+		_graph_cache_build_count += 1
+	var result := _cached_render_model.duplicate(false)
+	result["active_candidate_ids"] = flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else []
+	result["current_node_id"] = str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else ""
+	result["selected_target_id"] = str(flow.get_selected_target_id()) if flow.has_method("get_selected_target_id") else ""
+	return result
+
+
+func get_render_cache_debug_state() -> Dictionary:
 	return {
-		"floors": flow.get_graph_floors() if flow.has_method("get_graph_floors") else [],
-		"nodes": nodes,
-		"edges": flow.get_graph_edges() if flow.has_method("get_graph_edges") else [],
-		"active_candidate_ids": flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else [],
-		"current_node_id": str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else "",
-		"selected_target_id": str(flow.get_selected_target_id()),
-		"phase": phase,
-		"realm_kind": str(phase.get("realm_kind", "human_realm")),
-		"locked_phase_hints": phase.get("locked_phase_hints", []),
+		"graph_key": _cached_graph_key,
+		"graph_build_count": _graph_cache_build_count,
+		"fullscreen_key": _cached_fullscreen_key,
+		"fullscreen_build_count": _fullscreen_cache_build_count,
 	}
 
 
