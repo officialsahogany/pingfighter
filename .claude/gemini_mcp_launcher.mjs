@@ -8,14 +8,19 @@ function readJsonValue(filePath, segments) {
     if (!fs.existsSync(filePath)) {
       return null;
     }
-    let value = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    // VS Code writes mcp.json with a UTF-8 BOM; JSON.parse rejects it.
+    let value = JSON.parse(fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, ""));
     for (const segment of segments) {
       if (value == null) {
         return null;
       }
       value = value[segment];
     }
-    return typeof value === "string" && value.trim() ? value : null;
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+    // An unexpanded ${env:...} placeholder is not a usable key; keep searching.
+    return /^\$\{.*\}$/.test(value.trim()) ? null : value;
   } catch {
     return null;
   }
@@ -55,6 +60,7 @@ function patchGeminiMcp(repoRoot) {
   const queryPath = path.join(geminiRoot, "tools", "query.js");
   const analyzePath = path.join(geminiRoot, "tools", "analyze.js");
   const summarizePath = path.join(geminiRoot, "tools", "summarize.js");
+  const cachePath = path.join(geminiRoot, "tools", "cache.js");
 
   replaceInFile(clientPath, [
     [
@@ -82,6 +88,17 @@ function patchGeminiMcp(repoRoot) {
     [
       "        console.log(`Summarizing content (${length}, ${format})`);",
       "        console.error(`Summarizing content (${length}, ${format})`);",
+    ],
+  ]);
+  // Google retired gemini-2.0-flash-001; cache.js hardcodes it with no env hook.
+  replaceInFile(cachePath, [
+    [
+      "            const model = 'gemini-2.0-flash-001';",
+      "            const model = 'gemini-2.5-flash';",
+    ],
+    [
+      "            const model = cacheInfo?.model || 'gemini-2.0-flash-001';",
+      "            const model = cacheInfo?.model || 'gemini-2.5-flash';",
     ],
   ]);
 }
@@ -123,6 +140,13 @@ process.env.GEMINI_API_KEY = apiKey;
 process.env.GEMINI_MCP_SKIP_STARTUP_CHECK =
   process.env.GEMINI_MCP_SKIP_STARTUP_CHECK || "true";
 process.env.QUIET = process.env.QUIET || "true";
+// Google retired these vendored defaults (gemini-3-pro-preview,
+// veo-2.0-generate-001); every Pro/video call 404s without an override.
+// Explicit user env still wins.
+process.env.GEMINI_PRO_MODEL =
+  process.env.GEMINI_PRO_MODEL || "gemini-3.1-pro-preview";
+process.env.GEMINI_VIDEO_MODEL =
+  process.env.GEMINI_VIDEO_MODEL || "veo-3.1-fast-generate-preview";
 
 patchGeminiMcp(repoRoot);
 
