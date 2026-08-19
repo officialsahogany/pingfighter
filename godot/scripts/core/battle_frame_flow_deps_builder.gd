@@ -3,6 +3,9 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
+const BOSS_PADDLE_WIDTH: float = 100.0
+const BOSS_HITBOX_HEIGHT: float = 40.0
+
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
@@ -22,11 +25,22 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 	_perf_end(perf_logger, "physics.deps.ball_intensity_stakes", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
+	var stage7_akamu_state: Object = (
+		_get_instance(registry, "stage7_akamu_state")
+		if current_stage == 7
+		else null
+	)
+	var stage7_akamu_freeze_context: Dictionary = (
+		_build_stage7_akamu_freeze_context(owner, registry)
+		if current_stage == 7
+		else {}
+	)
 	var deps := {
 		"current_stage": current_stage,
 		# 스테이지 게이트: 비-7 스테이지 프레임에서 stage7 상태를 cold-instantiate
 		# 하지 않도록 조건부로만 조회한다(핫패스 lazy-init 트랩).
-		"stage7_akamu_state": _get_instance(registry, "stage7_akamu_state") if current_stage == 7 else null,
+		"stage7_akamu_state": stage7_akamu_state,
+		"stage7_akamu_freeze_context": stage7_akamu_freeze_context,
 		"scoreboard_state": _get_instance(registry, "scoreboard_state"),
 		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
 		"power_state": _get_instance(registry, "smasher_power_smash_state") if character_type == PlayerCharacterRuntime.SMASHER else null,
@@ -48,6 +62,50 @@ func build_deps(owner: Object, registry: Object) -> Dictionary:
 	_perf_end(perf_logger, "physics.deps.instances", sample_start)
 	_perf_end(perf_logger, "physics.deps.total", total_start)
 	return deps
+
+
+func _build_stage7_akamu_freeze_context(owner: Object, registry: Object) -> Dictionary:
+	var active_item_context: Dictionary = {}
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
+		active_item_context = active_item_runtime.get_boss_ai_context()
+	var boss_width := maxf(
+		1.0,
+		float(_get_owner_value(owner, "boss_paddle_width", BOSS_PADDLE_WIDTH))
+	)
+	var boss_height := maxf(
+		1.0,
+		float(_get_owner_value(owner, "boss_hitbox_height", BOSS_HITBOX_HEIGHT))
+	)
+	return {
+		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
+		"boss_paddle_size": Vector2(boss_width, boss_height),
+		"boss_paddle_width": boss_width,
+		"boss_hitbox_height": boss_height,
+		"boss_paddle_shrink_scale": clampf(
+			float(_get_owner_value(owner, "boss_paddle_shrink_scale", 1.0)),
+			0.2,
+			1.0
+		),
+		"lingpet_puppet_grab_active": bool(_get_owner_value(
+			owner,
+			"lingpet_puppet_grab_active",
+			false
+		)),
+		"lingpet_star_coil_freeze_boss_skill_cd": bool(_get_owner_value(
+			owner,
+			"lingpet_star_coil_freeze_boss_skill_cd",
+			false
+		)),
+		"active_item_tear_gas_cooldown_pause_active": bool(active_item_context.get(
+			"active_item_tear_gas_cooldown_pause_active",
+			false
+		)),
+		"active_item_boss_skill_cooldown_paused": bool(active_item_context.get(
+			"active_item_boss_skill_cooldown_paused",
+			active_item_context.get("active_item_tear_gas_cooldown_pause_active", false)
+		)),
+	}
 
 
 func _build_serve_context(owner: Object) -> Dictionary:
@@ -106,6 +164,11 @@ func _is_player_in_danger(score_state: Object) -> bool:
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	return BattleSceneOwnerReader.get_value(owner, key, fallback)
+
+
+func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = _get_owner_value(owner, key, fallback)
+	return value if value is Vector2 else fallback
 
 
 func _perf_begin(perf_logger: Object) -> int:

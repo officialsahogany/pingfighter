@@ -78,7 +78,11 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		# 태우면 스테이지 투사체/스킬 타이머까지 흐르므로(freeze 의미 파괴)
 		# 다른 업데이트 콜백은 일절 부르지 않고 redraw만 요청한다.
 		if stage7_akamu_state.has_method("advance_gameplay_freeze"):
-			stage7_akamu_state.advance_gameplay_freeze(delta)
+			stage7_akamu_state.advance_gameplay_freeze(
+				delta,
+				_get_dictionary(deps, "stage7_akamu_freeze_context"),
+				deps
+			)
 		_call(callbacks, "queue_redraw")
 		return
 

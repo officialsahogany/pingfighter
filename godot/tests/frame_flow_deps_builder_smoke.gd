@@ -12,6 +12,12 @@ class FakeOwner:
 
 	var selected_character_type := "smasher"
 	var current_stage := 4
+	var boss_pos := Vector2(312.0, 27.0)
+	var boss_paddle_width := 116.0
+	var boss_hitbox_height := 44.0
+	var boss_paddle_shrink_scale := 0.75
+	var lingpet_puppet_grab_active := true
+	var lingpet_star_coil_freeze_boss_skill_cd := true
 
 
 class FakeHoverState:
@@ -37,6 +43,19 @@ class FakeRegistry:
 	func get_instance(key: String) -> Object:
 		requested_keys.append(key)
 		return instances.get(key, null)
+
+
+class FakeActiveItemRuntime:
+	extends RefCounted
+
+	var call_count := 0
+
+	func get_boss_ai_context() -> Dictionary:
+		call_count += 1
+		return {
+			"active_item_tear_gas_cooldown_pause_active": true,
+			"active_item_boss_skill_cooldown_paused": true,
+		}
 
 
 func _init() -> void:
@@ -72,8 +91,20 @@ func _init() -> void:
 	_expect(hover_state.call_count == 1, "hover state should update once")
 	var stakes: Dictionary = ball_intensity.get_stakes()
 	_expect(bool(stakes.get("deuce_mode", false)), "frame deps should sync deuce stakes into ball intensity")
-	_expect(bool(stakes.get("player_can_win", false)), "6-6 should mark player match point in ball intensity stakes")
-	_expect(bool(stakes.get("boss_can_win", false)), "6-6 should mark boss match point in ball intensity stakes")
+	_expect(not bool(stakes.get("player_can_win", true)), "6-6 should not mark player match point before the next deuce rung")
+	_expect(not bool(stakes.get("boss_can_win", true)), "6-6 should not mark boss match point before the next deuce rung")
+
+	score_state.force_score(6, 5)
+	deps = builder.build_deps(owner, registry)
+	stakes = ball_intensity.get_stakes()
+	_expect(bool(stakes.get("player_can_win", false)), "6-5 should mark player match point in ball intensity stakes")
+	_expect(not bool(stakes.get("boss_can_win", true)), "6-5 should not mark boss match point in ball intensity stakes")
+
+	score_state.force_score(5, 6)
+	deps = builder.build_deps(owner, registry)
+	stakes = ball_intensity.get_stakes()
+	_expect(not bool(stakes.get("player_can_win", true)), "5-6 should not mark player match point in ball intensity stakes")
+	_expect(bool(stakes.get("boss_can_win", false)), "5-6 should mark boss match point in ball intensity stakes")
 
 	owner.selected_character_type = "viper"
 	hover_state.hover_result = {}
@@ -101,6 +132,37 @@ func _init() -> void:
 	_expect(not bool(stakes.get("deuce_mode", true)), "missing score state should clear stale deuce stakes")
 	_expect(not bool(stakes.get("player_can_win", true)), "missing score state should clear stale player stakes")
 	_expect(not bool(stakes.get("boss_can_win", true)), "missing score state should clear stale boss stakes")
+
+	var stage7_state := RefCounted.new()
+	var active_item_runtime := FakeActiveItemRuntime.new()
+	registry.instances["stage7_akamu_state"] = stage7_state
+	registry.instances["active_item_runtime"] = active_item_runtime
+	owner.current_stage = 7
+	deps = builder.build_deps(owner, registry)
+	var freeze_context: Dictionary = deps.get("stage7_akamu_freeze_context", {})
+	_expect(deps.get("stage7_akamu_state") == stage7_state, "Stage 7 deps should include the Akamu owner")
+	_expect(freeze_context.get("boss_pos") == owner.boss_pos, "Stage 7 freeze context should preserve live boss position")
+	_expect(
+		freeze_context.get("boss_paddle_size") == Vector2(owner.boss_paddle_width, owner.boss_hitbox_height),
+		"Stage 7 freeze context should preserve live boss geometry"
+	)
+	_expect(
+		is_equal_approx(float(freeze_context.get("boss_paddle_shrink_scale", 0.0)), owner.boss_paddle_shrink_scale),
+		"Stage 7 freeze context should preserve the live boss visual scale"
+	)
+	_expect(bool(freeze_context.get("lingpet_puppet_grab_active", false)), "Stage 7 freeze context should preserve external boss motion ownership")
+	_expect(bool(freeze_context.get("lingpet_star_coil_freeze_boss_skill_cd", false)), "Stage 7 freeze context should preserve Star Coil cooldown pause")
+	_expect(bool(freeze_context.get("active_item_tear_gas_cooldown_pause_active", false)), "Stage 7 freeze context should preserve the tear-gas compatibility pause key")
+	_expect(bool(freeze_context.get("active_item_boss_skill_cooldown_paused", false)), "Stage 7 freeze context should preserve the canonical active-item pause key")
+	_expect(active_item_runtime.call_count == 1, "Stage 7 freeze context should sample active-item pause once")
+
+	owner.current_stage = 4
+	registry.requested_keys.clear()
+	deps = builder.build_deps(owner, registry)
+	_expect(deps.get("stage7_akamu_state") == null, "non-Stage 7 deps should not include the Akamu owner")
+	_expect(deps.get("stage7_akamu_freeze_context", {}).is_empty(), "non-Stage 7 deps should keep the Akamu freeze context empty")
+	_expect(not registry.requested_keys.has("stage7_akamu_state"), "non-Stage 7 deps should not cold-request the Akamu owner")
+	_expect(not registry.requested_keys.has("active_item_runtime"), "non-Stage 7 deps should not sample active-item pause for the Akamu freeze path")
 
 	if _failures.is_empty():
 		print("frame_flow_deps_builder_smoke: ok")
