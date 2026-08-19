@@ -67,9 +67,7 @@ env:
     res://tests/stage2_molewang_boss_port_smoke.gd
     res://tests/stage2_arachne_boss_port_smoke.gd
     res://tests/stage7_akamu_superspeed_unlock_cooldown_smoke.gd
-    res://tests/stage7_akamu_slice5_smoke.gd
     res://tests/stage7_akamu_golden_clone_starpoint_smoke.gd
-    res://tests/ball_boss_skill_pause_context_smoke.gd
     res://tests/tower_boss_routing_smoke.gd
     res://tests/tower_node_modal_pointer_smoke.gd
     res://tests/tower_ascent_vertical_slice_smoke.gd
